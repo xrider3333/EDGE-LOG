@@ -230,7 +230,7 @@ def test_reflection_is_noise_only():
     for k in ("NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL"):
         assert cs._leg_accepts_return_decisions(cs.SHADOW_LEGS[k]["strategy"])
     assert not cs._leg_accepts_return_decisions(cs.CROWN_LEGS["ORB_R6"]["strategy"])
-    assert not cs._leg_accepts_return_decisions(cs.SHADOW_LEGS["ENGUQ_335"]["strategy"])
+    assert not cs._leg_accepts_return_decisions(cs.CROWN_LEGS["ENGUQ_335"]["strategy"])
     assert not cs._leg_accepts_return_decisions(_stub_non_noise())
 
 

@@ -483,3 +483,68 @@ def test_a_levels_row_is_never_committed_from_the_stream(tmp_path, monkeypatch):
     assert not os.path.exists(paths["signals_path"])
     assert css._load_shadow(paths)[LEG_KEY][str(bar4_epoch)]["committed_live"] is False
     assert any("carries a LEVELS row -- not fired live" in m for m in logs)
+
+
+# ── "not taken: the market is closed" -- ONE line per trade through the stream path ───────
+# (review 2026-10-09). _diff_leg logs one plain line for a live leg's new entry first seen
+# after its session closed, including one from the PREVIOUS session first seen at the next
+# morning's first hand-off. The stream path runs _diff_leg on throwaway copies (the dry run,
+# then the REST what-if) before step() runs on the real state: each copy used to log the line
+# too. Now a dry run's line is dropped -- unless that decision is COMMITTED, when it is the
+# leg's real one (step() never sees the trade as new again).
+PREV_DAY = pd.Timestamp("2026-09-08 09:30:00", tz=cs.TZ)      # Tuesday
+NEXT_OPEN = pd.Timestamp("2026-09-09 09:30:00", tz=cs.TZ)     # Wednesday's first 5m bar
+NOT_TAKEN = "not taken: the market is closed"
+WANT_LINE = ("[cloud-signal] LEGA long signal at 15:55 ET on 2026-09-08 (LEGA) not taken: the "
+             "market is closed -- the strategy's entry was first seen at 09:35:05 ET on "
+             "2026-09-09, after that session's 16:00 close. No order.")
+
+
+def _prev_session_setup(tmp_path):
+    """Tuesday's full session in the REST cache (every close under THRESHOLD, so no trade),
+    a seeded leg, and Wednesday's 09:30 bar on the stream above THRESHOLD: the stub's entry
+    is then Tuesday's 15:55 bar -- a previous-session entry first seen Wednesday 09:35."""
+    paths = _make_paths(tmp_path, "home")
+    _seed_leg(paths)
+    df, epoch, _ = _5m_bars([700.0] * 78, base=PREV_DAY)
+    df.to_csv(cs._cache_path("5m", paths), index=False)
+    bar_epoch = int(NEXT_OPEN.tz_convert("UTC").timestamp())
+    _write_handoff(paths, bar_epoch, close=710.0)
+    now = (NEXT_OPEN + pd.Timedelta(minutes=5, seconds=5)).to_pydatetime()
+    return paths, bar_epoch, now
+
+
+def test_a_dry_run_never_logs_not_taken_and_step_logs_it_once(tmp_path, capsys):
+    paths, bar_epoch, now = _prev_session_setup(tmp_path)
+    logs = []
+    css._handle_handoff_window(now, _legs(), paths, {"bar_close_from_stream": False},
+                               logs.append)
+    assert css._load_shadow(paths)[LEG_KEY][str(bar_epoch)]["events"] == []
+    _append_rest_bar(paths, bar_epoch, close=710.0)
+    later = now + pd.Timedelta(seconds=30)
+    css._resolve_pending_against_rest(later, _legs(), paths, logs.append)
+    assert [m for m in logs if NOT_TAKEN in m] == [], "no line from a throwaway copy"
+    capsys.readouterr()
+    assert cs.step(now=later, legs=_legs(), paths=paths, fetch=False) == []
+    out = capsys.readouterr().out
+    assert out.count(NOT_TAKEN) == 1, out
+    assert WANT_LINE.replace("09:35:05", "09:35:35") in out
+    cs.step(now=later + pd.Timedelta(minutes=1), legs=_legs(), paths=paths, fetch=False)
+    assert NOT_TAKEN not in capsys.readouterr().out
+
+
+def test_a_committed_stream_decision_logs_not_taken_once_and_step_does_not_repeat_it(
+        tmp_path, capsys):
+    paths, bar_epoch, now = _prev_session_setup(tmp_path)
+    logs = []
+    css._handle_handoff_window(now, _legs(), paths, {"bar_close_from_stream": True},
+                               logs.append)
+    assert css._load_shadow(paths)[LEG_KEY][str(bar_epoch)]["committed_live"] is True
+    assert [m for m in logs if NOT_TAKEN in m] == [WANT_LINE]
+    _append_rest_bar(paths, bar_epoch, close=710.0)
+    later = now + pd.Timedelta(seconds=30)
+    css._resolve_pending_against_rest(later, _legs(), paths, logs.append)
+    capsys.readouterr()
+    cs.step(now=later, legs=_legs(), paths=paths, fetch=False)
+    assert NOT_TAKEN not in capsys.readouterr().out
+    assert [m for m in logs if NOT_TAKEN in m] == [WANT_LINE]

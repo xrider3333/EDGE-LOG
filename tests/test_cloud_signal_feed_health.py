@@ -8,6 +8,12 @@ _check_feed_engine), and the engine pushes once per episode: bars stopped for mo
 in session, or the live 5m bars on yfinance for 3+ fetches in a row (each with a recovery
 push). No network: steps run offline (fetch=False) on a temp bar cache, and the push is a
 recorder.
+
+EVERY LIVE TIMEFRAME (2026-10-09, ENGU-Q back on the book on 1m bars): the 1m feed is watched
+too -- a fetch tick with the 1m bars from yfinance counts toward "backup prices", and a frozen
+1m tail pages "prices stopped" once it has been silent for the 5m's own 660 s (not at its own
+180 s verdict, so a 1m tail a few bars behind never flaps a page). The heartbeat keeps its 5m
+top-level figures and adds stalled_timeframes + feed_by_timeframe.
 """
 import datetime
 import json
@@ -336,3 +342,104 @@ def test_feed_pushes_leave_the_engine_thread(tmp_path, pushes, monkeypatch):
     assert [p["title"] for p in bg] == ["QQQ book: prices stopped"]
     _tick(paths, at(10, 21, 10))
     assert len(bg) == 1, "the episode bookkeeping still holds the repeat"
+
+
+# -- EVERY LIVE TIMEFRAME (2026-10-09): the 1m feed ENGU-Q trades on --------------------------
+def bars_1m(day, first="09:30", last="10:00"):
+    """1m bars from `first` to `last` (bar START times) on `day`."""
+    times = list(pd.date_range(pd.Timestamp(f"{day} {first}:00", tz=cs.TZ),
+                               pd.Timestamp(f"{day} {last}:00", tz=cs.TZ), freq="1min"))
+    ep = [int(t.tz_convert("UTC").timestamp()) for t in times]
+    n = len(ep)
+    return pd.DataFrame({"time": ep, "open": [600.0] * n, "high": [601.0] * n,
+                         "low": [599.0] * n, "close": [600.5] * n, "volume": [1000.0] * n})
+
+
+def _cache_1m(paths, frame):
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    frame.to_csv(os.path.join(paths["ohlc_dir"], "QQQ_1m.csv"), index=False)
+
+
+def _two_legs():
+    """ORB (5m) plus a 1m leg, as the live book reads since ENGU-Q's return."""
+    legs = _legs()
+    legs["ENGUQ_335"] = dict(legs["ORB_R6"], timeframe="1m")
+    return legs
+
+
+def _tick2(paths, now, sources=None, fetched=(), logs=None):
+    """One live tick over both timeframes: step -> _feed_health -> heartbeat."""
+    w = {}
+    cs.step(now=now, legs=_two_legs(), paths=paths, fetch=False, warnings=w,
+            bar_sources=sources)
+    for tf in fetched:
+        w["bar_health"][tf]["fetched"] = True
+    health = cs._feed_health(now, w, paths, log=(logs.append if logs is not None
+                                                 else (lambda *a: None)))
+    cs._write_heartbeat(paths, ok=True, note="x", health=health)
+    with open(paths["heartbeat_path"], encoding="utf-8") as f:
+        return json.load(f)
+
+
+def test_1m_bars_on_yfinance_page_backup_prices_once_while_5m_is_on_webull(
+        tmp_path, pushes, monkeypatch):
+    paths = cs._paths(home=str(tmp_path / "home"))
+    _cache(paths, bars(DAY, last="10:00"))
+    _cache_1m(paths, bars_1m(DAY, last="10:05"))
+    monkeypatch.setitem(cs._WEBULL_LAST_ERR, "text", "HTTP 429 Too Many Requests")
+    logs = []
+    both = ("5m", "1m")
+    for s in range(2):
+        hb = _tick2(paths, at(10, 6, 10 + 20 * s), {"5m": "webull", "1m": "yfinance"}, both, logs)
+    assert pushes == [] and hb["yf_fallback_streak"] == 2
+    hb = _tick2(paths, at(10, 6, 50), {"5m": "webull", "1m": "yfinance"}, both, logs)
+    assert [p["title"] for p in pushes] == ["QQQ book: backup prices"]
+    assert pushes[0]["priority"] == "high" and _lint(pushes[0]) == []
+    assert hb["yf_fallback_streak"] == 3
+    assert hb["bar_source"] == "webull", "the top-level figures stay the 5m's"
+    assert hb["feed_by_timeframe"]["1m"]["source"] == "yfinance"
+    assert hb["feed_by_timeframe"]["5m"]["source"] == "webull"
+    assert any("live 1m bars from yfinance for 3 fetches" in m for m in logs)
+    for s in range(3):
+        _tick2(paths, at(10, 7, 10 * s), {"5m": "webull", "1m": "yfinance"}, both)
+    assert len(pushes) == 1, "one push per episode"
+    hb = _tick2(paths, at(10, 7, 40), {"5m": "webull", "1m": "webull"}, both)
+    assert [p["title"] for p in pushes] == ["QQQ book: backup prices", "QQQ book: OK"]
+    assert hb["yf_fallback_streak"] == 0
+
+
+def test_a_frozen_1m_tail_pages_prices_stopped_after_660_s_not_at_its_own_180(tmp_path, pushes):
+    paths = cs._paths(home=str(tmp_path / "home"))
+    _cache(paths, bars(DAY, last="10:30"))                 # the 5m keeps arriving
+    _cache_1m(paths, bars_1m(DAY, last="10:09"))           # the 1m freezes: newest closed 10:10
+    hb = _tick2(paths, at(10, 14))                         # 1m silent 240 s
+    assert hb["feed_by_timeframe"]["1m"]["stalled"] is True, "its own verdict (> 180 s)"
+    assert hb["stalled_timeframes"] == [] and hb["verdict"] == "ok" and pushes == [], \
+        "a 1m tail a few bars behind never pages"
+    hb = _tick2(paths, at(10, 21, 10))                     # silent 670 s > 660 s
+    assert [p["title"] for p in pushes] == ["QQQ book: prices stopped"]
+    assert pushes[0]["priority"] == "high" and _lint(pushes[0]) == []
+    assert "since 07:10." in pushes[0]["msg"], "the 1m bar that closed 10:10 ET (07:10 MST)"
+    assert hb["stalled_timeframes"] == ["1m"] and hb["verdict"] == "stalled"
+    assert hb["stalled"] is False and hb["bar_timeframe"] == "5m", \
+        "the top-level stalled stays the 5m's (tools/webull_freshness.py reads it as 5m)"
+    for m in range(22, 26):
+        _tick2(paths, at(10, m, 10))
+    assert len(pushes) == 1, "one push per episode"
+    _cache_1m(paths, bars_1m(DAY, last="10:25"))
+    logs = []
+    hb = _tick2(paths, at(10, 26, 10), logs=logs)
+    assert logs == ["[cloud-signal] FEED recovered: 1m bars arriving again (newest 10:25 ET)"]
+    assert hb["stalled_timeframes"] == [] and hb["verdict"] == "ok"
+    assert [p["title"] for p in pushes] == ["QQQ book: prices stopped", "QQQ book: OK"]
+
+
+def test_a_5m_only_book_reads_exactly_as_before(tmp_path, pushes):
+    """No 1m leg: the new fields hold only the 5m, nothing else changes."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    _cache(paths, bars(DAY, last="10:00"))
+    hb = _tick(paths, at(10, 6))
+    assert hb["stalled_timeframes"] == [] and set(hb["feed_by_timeframe"]) == {"5m"}
+    hb = _tick(paths, at(10, 20))
+    assert hb["stalled_timeframes"] == ["5m"] and hb["stalled"] is True
+    assert [p["title"] for p in pushes] == ["QQQ book: prices stopped"]

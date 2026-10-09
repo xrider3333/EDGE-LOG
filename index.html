@@ -39292,7 +39292,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // crown behind each leg, plain text (never color-only, mono theme has no green/red
       // hue) -- ENGUQ carries its own caveat (ETH-fit crown on an RTH-only QQQ tape, see
       // api/cloud_signal.py's module docstring) shown under its row.
-      const QE_LEGS=[['ORB','ORB','var(--blue)','#314',null],['ENGUQ','ENGU-Q','var(--purple)','#335','ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed'],['NOISE','NOISE','var(--green)','#382',null]];
+      const QE_LEGS=[['ORB','ORB','var(--blue)','#314',null],['ENGUQ','ENGU-Q','var(--purple)','#335','Trading on Webull again since Oct 9 (shadow only Sep 28 to Oct 8). ETH-fit crown running on an RTH-only QQQ tape: it trades regular hours only and is flat by the close — exploratory, not evidence-backed'],['NOISE','NOISE','var(--green)','#382',null]];
       // ── LEG VERSION CHANGES (2026-09-24, owner decision) — one row per swap of a leg's
       // underlying run, so the LEGS list, the trades table and the chart can all say which
       // version is live without hardcoding it more than once. Add ONE row here the next
@@ -39302,7 +39302,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // strategy row sits in a collapsed "Retired" group under the live legs, labelled with the
       // day it went flat (its last close, read off its trades). Its old trades still count in
       // the account number, the chart total, the stats and the trade list.
-      const QE_LEGS_RETIRED=['ENGUQ'];
+      // EMPTY since 2026-10-09: ENGU-Q #335, the one leg retired here (moved to the shadow legs on
+      // 2026-09-28), trades on Webull again (owner reversal, MANAGER #102). It is a BOOK row like ORB
+      // and NOISE, its 09-17..09-28 trades in that row. Put a leg key in this list the next time a leg
+      // stops trading. window.__qbRetiredLegs (an array) stands in for the list in
+      // tools/webull_board_probe.py only, so the Retired fold stays tested while no leg is retired.
+      const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:[];
       const QE_LEG_VERSIONS=[{leg:'NOISE',date:'2026-09-24',from:'#304',to:'#382',note:'the #304 crown’s own core plus the validated compression size tilt (squeeze on the 30-minute chart doubles the trade)'}];
       // "#382 since Sep 24 &middot; was #304" for a leg QE_LEG_VERSIONS covers; the plain
       // runNo (e.g. "#314") for one it does not.
@@ -40236,8 +40241,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let qbRetOpen=!!window._qbRetiredOpen;
         try{const sv=localStorage.getItem('el_qb_retired_open');if(sv!=null)qbRetOpen=sv==='1';}catch(e){}
         // ── LEDGER UNIFY STEP 10 (2026-10-06): the strategy list on TRADING-LOG's shared list (ledgerListHtml). Three groups in this order: BOOK (the legs that make the account number: the rows are
-        // QE_LEGS' own, named with family + run number), Retired (a fold, closed until opened: ENGU-Q #335 since owner decision 9,
-        // its old trades still counted in the account number) and Shadow - not counted (a fold, closed: the no-order shadow legs,
+        // QE_LEGS' own, named with family + run number), Retired (a fold, closed until opened, drawn only while QE_LEGS_RETIRED
+        // names a leg: none since ENGU-Q #335 went live again on 2026-10-09; a retired leg's old trades still count in the account
+        // number) and Shadow - not counted (a fold, closed: the no-order shadow legs,
         // never added to anything). Each row: the range's P&L of record, its trades and win rate, the side pill and the live position
         // line. There are no switches on this board: every leg counts, as before. A row opens its detail right under it.
         let qbShadowOpen=!!window._qbShadowOpen;
@@ -40295,7 +40301,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             rows:shRows};
           let lh=ledgerListHtml([gBook,gRet,gShadow].filter(Boolean),{id:'qb',title:'Strategies',
             count:qbRangeTrades.length?(ledgerSigned(qbRangePnl)+' &middot; '+qbRangeWord):qbRangeNone,
-            filters:ledgerFiltersHtml({id:'qb',none:'This list has no filters: every strategy counts. Retired and Shadow are the folds below.'})});
+            filters:ledgerFiltersHtml({id:'qb',none:'This list has no filters: every strategy counts. '+(gRet?'Retired and Shadow are the folds':'Shadow is the fold')+' below.'})});
           // under a row: its KEEL warning, note and detail (a tap opens the detail: aria-expanded says so)
           qbLegModels.forEach(m=>{
             const at=lh.indexOf('data-lgrow="'+m.key+'"');if(at<0)return;

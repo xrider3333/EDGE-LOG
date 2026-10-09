@@ -4,8 +4,11 @@ the Custom ML chat and MANAGER can read the would-be trades without opening a CS
 
 Reads, never writes:
   <home>/cloud_signal/shadow/signals.csv   the shadow ledger (api/cloud_signal.shadow_paths):
-                                           NOISE_422_PLAIN, NOISE_422_FIXED, NOISE_422_KEEL,
-                                           ENGUQ_335 -- no orders, ever
+                                           NOISE_422_PLAIN, NOISE_422_FIXED, NOISE_422_KEEL
+                                           -- no orders, ever. ENGUQ_335 was a shadow leg
+                                           2026-09-28..2026-10-09 (live again since, owner):
+                                           its rows stay in this ledger and are still listed,
+                                           as a leg found in the ledger (see build_report)
   <home>/cloud_signal/signals.csv          the live ledger, for the primary NOISE_382 (+KEEL)
                                            and, derived from the same rows, NOISE_382 plain
                                            (its size with the KEEL multiplier divided back out)
@@ -151,7 +154,8 @@ def keel_freshness(home):
 def build_report(home, since=None, base_shares=BASE_SHARES, shadow_legs=None):
     """The whole report as a dict: {"legs": {name: summary}, "keel": ..., "ledgers": ...}.
     Shadow legs come from api/cloud_signal.SHADOW_LEGS (every one is listed, traded or
-    not), plus any other leg found in the shadow ledger."""
+    not), plus any other leg found in the shadow ledger -- e.g. ENGUQ_335's would-be trades
+    from its shadow stint (2026-09-28..2026-10-09), kept as history."""
     from api import cloud_signal as cs
     live_paths = cs._paths(home=home)
     spaths = cs.shadow_paths(live_paths)

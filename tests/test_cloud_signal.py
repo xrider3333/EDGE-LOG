@@ -1169,8 +1169,8 @@ def test_orb_and_enguq_declare_no_lookback_requirement_today():
     assert cs.required_lookback_sessions("ORB_3_6_R6.py") is None
     assert cs.required_lookback_sessions("ENGUQ_1M_ETH_R2_1_0.py") is None
     assert cs.leg_warmup_sessions(cs.CROWN_LEGS["ORB_R6"]) == cs.DEFAULT_WARMUP_SESSIONS
-    # ENGUQ_335 is a shadow leg since 2026-09-28 (OWNER DECISION), same cfg
-    assert cs.leg_warmup_sessions(cs.SHADOW_LEGS["ENGUQ_335"]) == cs.DEFAULT_WARMUP_SESSIONS
+    # ENGUQ_335 is live again since 2026-10-09 (OWNER DECISION), its pre-09-28 cfg
+    assert cs.leg_warmup_sessions(cs.CROWN_LEGS["ENGUQ_335"]) == cs.DEFAULT_WARMUP_SESSIONS
 
 
 def test_leg_warmup_sessions_widens_only_when_the_strategy_declares_a_requirement():

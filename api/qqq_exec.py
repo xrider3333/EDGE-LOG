@@ -143,14 +143,18 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # docstring for why a naive "first mapped key" reverse lookup is not safe once two engine
 # keys share one EXEC leg.
 #
-# ENGUQ_335 LEFT cloud_signal.CROWN_LEGS on 2026-09-28 (OWNER DECISION -- it is a shadow leg
-# now, cloud_signal.SHADOW_LEGS, writing only to <state_dir>/shadow/signals.csv, which this
-# module never reads FOR ORDERS). Its key stays here for the same reason NOISE_304's does: an
-# old live ledger row still resolves. No new live ENGU-Q row is ever written, so no ENGU-Q
-# order is sent. Since 2026-10-09 (MANAGER #87 (d)) this module DOES read the shadow ledger
-# in exactly one place -- _build_shadow_trades, the status doc's separate, display-only
-# "shadow_trades" block for the board's "Shadow - not counted" fold. That read never reaches
-# an order, a lot, a rail, P&L, trades_all, readiness or the export (see SHADOW TRADES).
+# ENGUQ_335 IS LIVE AGAIN SINCE 2026-10-09 (OWNER DECISION via MANAGER #102, reversing the
+# 2026-09-28 decision that made it a no-order shadow leg -- cloud_signal.SHADOW_LEGS, whose
+# <state_dir>/shadow/signals.csv this module never reads). It is back in
+# cloud_signal.CROWN_LEGS with its pre-09-28 cfg, so its ENTRY/EXIT rows are in the live
+# ledger again and map to the "ENGUQ" exec leg here: config shares["ENGUQ"] (10 on the box),
+# max_shares_per_leg, the session window [open, last_entry] (_late_entry_reason) and the
+# flat_by flatten exactly as for ORB/NOISE -- no overnight holding. It STARTS FLAT: the
+# engine cold-starts the leg (cloud_signal LIVE SINCE), so no catch-up order is ever sent.
+# Since 2026-10-09 (MANAGER #87 (d)) this module also READS the shadow ledger in exactly one
+# place -- _build_shadow_trades, the status doc's separate, display-only "shadow_trades"
+# block for the board's "Shadow - not counted" fold. That read never reaches an order, a
+# lot, a rail, P&L, trades_all, readiness or the export (see SHADOW TRADES).
 ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE", "NOISE_304": "NOISE"}
 ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
 ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
@@ -1296,7 +1300,7 @@ TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
                   fill_dt=None, signal_source=None, size=None, shares_wanted=None,
-                  decided_at_ref=False):
+                  decided_at_ref=False, quiet=False):
     """`fill_dt` (feature #51 LATENCY): the ET timestamp of the NT fill this order
     mirrors, when one exists -- absent for rail-driven closes (BREAKER/EOD/KILL flatten
     has no single triggering fill). latency_s = now (adapter order time) - fill_dt.
@@ -1324,7 +1328,11 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
     `decided_at_ref` (2026-09-26, WEBULL_PAPER_TODO item 16): the signal came from
     cloud_signal's decide_at_close probe -- its ref_time is the bar that was only just
     STARTING when the decision was made at the previous bar's close, so that close IS
-    ref_time and after_close_s = latency_s (subtracting the bar width would read ~-270s)."""
+    ref_time and after_close_s = latency_s (subtracting the bar width would read ~-270s).
+
+    `quiet` (2026-10-09): write the row but not this function's own one-line summary -- for a
+    caller that logs its own plainer line for the same order (the late-entry refusal, see
+    _entry_not_taken_line), so the log carries ONE line for it, not two."""
     latency_s = None
     if fill_dt is not None:
         try:
@@ -1348,8 +1356,9 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
            "shares_wanted": shares_wanted if shares_wanted is not None else shares,
            "after_close_s": after_close_s if after_close_s is not None else ""}
     _append_csv(ORDERS_CSV, ORDER_COLS, row, ORDERS_KEEP)
-    log(f"[qqq-exec] {action} {leg} {side} {shares}sh @ {qqq_px} "
-        f"({px_source}) -- {reason}")
+    if not quiet:
+        log(f"[qqq-exec] {action} {leg} {side} {shares}sh @ {qqq_px} "
+            f"({px_source}) -- {reason}")
 
 
 def _record_trade(lot, exit_px, exit_reason, log=print):
@@ -2426,8 +2435,9 @@ def _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=print):
 # even though the real call never returned).
 #
 # Downstream, unchanged by this: an UNKNOWN OPEN is never queued for auto-resend
-# (_queue_broker_resend only ever queues an OPEN for why="halt"/"duplicate", and this
-# record's reason text matches neither). An UNKNOWN CLOSE queues as why="close_retry"
+# (_queue_broker_resend only ever queues an OPEN for why="halt"/"duplicate"/"busy"/
+# "box_order", and this record matches none of them). An UNKNOWN CLOSE queues as
+# why="close_retry"
 # with needs_verify=True (no parseable 4xx in the reason -- see _queue_broker_resend),
 # so _maybe_resend_broker_orders only retries it once _order_known_at_broker finds
 # Webull's own record of the previous attempt DEAD (REJECTED/CANCELLED/FAILED with an
@@ -2955,6 +2965,14 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
                        f"QQQ BROKER OPEN NOT OK: {leg} {row['side']} {shares}sh -- part of the "
                        f"split order was refused ({_plain_broker_error(row['reason']) or row['reason']}); "
                        f"the rest is re-sent once", log=log)
+        elif requeue and intent == "OPEN" and trade_id and "HAS_BOX_ORDER" in row["reason"]:
+            # 2026-10-09 (MANAGER GO): refused only because another leg's opposite opening
+            # order was still working -- _queue_broker_resend queues it (why="box_order") for
+            # a re-send a few seconds from now, so no push yet. The re-send decides: accepted
+            # is group E (timeline only); the give-up pushes the one "entry missed" note.
+            _log_event(state, "broker",
+                       f"QQQ BROKER OPEN NOT OK: {leg} {row['side']} {shares}sh -- Webull still "
+                       f"had an opposite order working; re-sent in a few seconds", log=log)
         elif requeue and not rec.get("nothing_to_close") and not rec.get("inflight_blocked"):
             # PAGING STORM (minor, 2026-09-26 review): `inflight_blocked` (see
             # _place_stock_order_with_timeout) means this specific record is just this
@@ -3104,6 +3122,11 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
         09:31 orphan repair, an end-of-day flatten with two legs open, two legs entering
         on the same bar. That order was never placed, so it goes again a tick later,
         after the one it collided with has filled;
+      * 2026-10-09 (MANAGER GO): an OPEN Webull refused because an opposite OPENING order
+        was still working on the symbol (417 OPENAPI_OPEN_ORDER_HAS_BOX_ORDER -- a pending
+        buy-opening and sell-opening order may not coexist) -- why="box_order". ENGU-Q's
+        BUY 10 still working when NOISE's short arrives in the same tick: never placed, so
+        it goes again exactly like a same-instant duplicate, bounded the same way;
       * EXIT SAFETY item 2 (2026-09-26): ANY CLOSE that came back not ok for ANY reason
         (refused, exception/timeout, BLOCKED by the lease gate, a kill-file halt, ...) --
         why="close_retry" -- EXCEPT the confirmed "nothing to close" case (the book closed
@@ -3147,6 +3170,8 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
         why = None
         if "DUPLICATE_ORDER_CHECK" in text:
             why = "duplicate"
+        elif intent == "OPEN" and "HAS_BOX_ORDER" in text:
+            why = "box_order"
         elif (intent == "OPEN" and rec.get("mode") == "BLOCKED" and text.startswith("halted:")
               and _broker_halt_source(log=log) == "reconcile"):
             why = "halt"
@@ -3312,6 +3337,7 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
                   "unresolved_part_qty": unresolved_part_qty,
                   "verify_landed_qty": verify_landed_qty}
         why_txt = {"duplicate": "Webull saw a same-instant duplicate",
+                  "box_order": "Webull still had an opposite order working",
                   "halt": "blocked by a reconcile halt",
                   "busy": "held back by the order gateway",
                   "close_retry": f"broker record not ok ({text or 'see the broker log'})"}[why]
@@ -3713,6 +3739,8 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                          else f"{tries} re-sends failed")
                 why_txt = ("blocked by a reconcile halt" if why == "halt"
                           else "rejected by Webull as a duplicate" if why == "duplicate"
+                          else "refused while an opposite order was still working"
+                          if why == "box_order"
                           else "held back by the order gateway" if why == "busy"
                           else "not ok at the broker")
                 msg = (f"QQQ BROKER: gave up re-sending the {leg} {what} ({cause}; first try "
@@ -3957,6 +3985,7 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                 msg = (f"QQQ BROKER: {leg} {what} re-sent and accepted ("
                        + ("after the reconcile halt cleared" if why == "halt"
                           else "after a same-instant duplicate" if why == "duplicate"
+                          else "after the opposite order finished" if why == "box_order"
                           else "after the order gateway held it back" if why == "busy"
                           else "after a retry") + ")")
                 # WEBULL PUSH PLAN 10-07, group E (fixed itself): log + timeline only
@@ -6926,10 +6955,12 @@ def _engine_key_for_leg(leg, cs=None):
 
 
 def _engine_leg_cfg(cs, cs_key):
-    """cloud_signal's cfg for an engine key -- CROWN_LEGS first, then SHADOW_LEGS (2026-09-28:
-    ENGUQ_335 moved there, OWNER DECISION). Used ONLY for the key's timeframe (its bar cache,
-    its bar width): an old ENGUQ order row keeps its after-close latency, and a leftover
-    ENGUQ lot could still be marked and flattened. It never makes a shadow leg's signals
+    """cloud_signal's cfg for an engine key -- CROWN_LEGS first, then SHADOW_LEGS. Used ONLY
+    for the key's timeframe (its bar cache, its bar width). ENGUQ_335 resolves from
+    CROWN_LEGS again since 2026-10-09 (live again, OWNER DECISION); the SHADOW_LEGS fallback
+    -- added 2026-09-28 while it was a shadow leg -- only matters for an exec leg whose every
+    engine key is off the live book, so a leftover lot can still be marked and flattened and
+    an old order row keeps its after-close latency. It never makes a shadow leg's signals
     reach this module -- those live in a ledger this module never reads for orders (its one
     read is the display-only shadow_trades block, _build_shadow_trades). None for no key."""
     if not cs_key:
@@ -7333,6 +7364,26 @@ def _late_entry_reason(nowdt, sig_dt, sess):
     return None
 
 
+def _entry_not_taken_line(leg, side, sig_dt, ref_time, why, trade_id=""):
+    """The ONE plain log line for an engine ENTRY the session window refused
+    (_late_entry_reason -- the market is closed for new entries): which strategy, which
+    side, the signal's own bar time, and why, e.g.
+    "[qqq-exec] ENGU-Q long signal at 15:57 ET on 2026-10-09 not taken: the market is
+    closed for new entries -- its bar (15:57) is after last_entry 15:55. No order sent."
+    Never raises."""
+    try:
+        if sig_dt is not None:
+            bar = sig_dt.astimezone(_NY) if (sig_dt.tzinfo is not None and _NY is not None) else sig_dt
+            at = f"{bar.strftime('%H:%M')} ET on {bar.strftime('%Y-%m-%d')}"
+        else:
+            at = f"bar {ref_time or '?'}"
+        return (f"[qqq-exec] {_leg_word(leg)} {side} signal at {at} not taken: the market is "
+                f"closed for new entries -- {why}. No order sent."
+                + (f" ({trade_id})" if trade_id else ""))
+    except Exception:
+        return f"[qqq-exec] {leg} {side} signal ({ref_time}) not taken -- {why}. No order sent."
+
+
 BACKTEST_EOD_EXITS_KEEP = 60
 
 
@@ -7475,9 +7526,15 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
             if too_late:
                 # LATE-ENTRY GUARD (2026-09-28): an entry opened now could only be flattened
                 # by nothing (flat_by has run) or sent after the bell -- never opened.
+                # 2026-10-09 (ENGU-Q live again): the orders.csv row is unchanged; the log
+                # gets ONE plain line naming the strategy, side, signal time and why
+                # (_entry_not_taken_line) instead of the row's generic "ENTER ... @ None".
                 _record_order(leg, "ENTER", e["side"], shares, None, None, None,
                              f"REFUSED -- {too_late}", log, fill_dt=sig_dt,
-                             signal_source=cfg.get("signal_source"), decided_at_ref=decided_at_ref)
+                             signal_source=cfg.get("signal_source"), decided_at_ref=decided_at_ref,
+                             quiet=True)
+                log(_entry_not_taken_line(leg, e["side"], sig_dt, e.get("ref_time"), too_late,
+                                          row_tid))
                 _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
                 _accumulate_signal(state, sig_dt or _now_et(), leg, "refused", log=log)
                 _log_event(state, "entry_too_late",
@@ -10732,10 +10789,13 @@ def _shadow_base_shares(cfg, default):
 def _shadow_bar_mark(cs):
     """The newest closed bar close in api.cloud_signal's own bar cache over the timeframes
     the shadow legs read (the newer bar wins), each file cached by its (mtime, size). None
-    when there is none."""
+    when there is none. The live legs' timeframes count too: since 2026-10-09 ENGUQ_335 is a
+    CROWN_LEGS leg again (1m) while its old shadow hold stays in the shadow ledger, and that
+    open trade is still marked from the newest bar (1m), not the shadow legs' older 5m one."""
     best = None
-    tfs = sorted({str(c.get("timeframe")) for c in (getattr(cs, "SHADOW_LEGS", None) or {}).values()
-                  if (c or {}).get("timeframe")})
+    tfs = sorted({str(c.get("timeframe"))
+                  for legs in ((getattr(cs, "SHADOW_LEGS", None) or {}), (getattr(cs, "CROWN_LEGS", None) or {}))
+                  for c in legs.values() if (c or {}).get("timeframe")})
     for tf in tfs:
         try:
             path = cs._cache_path(tf, cs.DEFAULT_PATHS)

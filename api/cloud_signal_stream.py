@@ -40,10 +40,13 @@ after a same-day disagreement (see _trip_disagreement) -- it only ever changes h
 a decision that was going to happen anyway gets recorded.
 
 SCOPE. 5m legs only (ORB_R6, NOISE_382 today) -- api.webull_stream's hand-off is 5m-only
-by design (see its HANDOFF_TIMEFRAME_SECONDS). LIVE legs only: `legs` defaults to
-cs.CROWN_LEGS, never cs.SHADOW_LEGS (OWNER DECISION 2026-09-28 -- ENGUQ_335 and the three
-NOISE #422 variants run as shadow legs through cs.run_shadow_step's classic REST path,
-never through this module, so no stream decision is ever committed for a shadow leg).
+by design (see its HANDOFF_TIMEFRAME_SECONDS). ENGUQ_335 is a LIVE leg again since
+2026-10-09 (OWNER DECISION), but a 1m one: it is filtered out here (five_m_legs) and decided
+by cs.step()'s classic REST path only, exactly as before it left the book on 2026-09-28.
+LIVE legs only: `legs` defaults to cs.CROWN_LEGS, never cs.SHADOW_LEGS (OWNER DECISION
+2026-09-28 -- the three NOISE #422 variants run as shadow legs through cs.run_shadow_step's
+classic REST path, never through this module, so no stream decision is ever committed for a
+shadow leg).
 
 FAIL-SAFE. run_stream_aware_step wraps every bit of the logic in this module in one
 try/except and ALWAYS calls the real api.cloud_signal.step() afterward regardless -- a
@@ -195,7 +198,8 @@ def _effective_now_for_bar(bar_close_epoch, grace_seconds):
     return _dt.datetime.fromtimestamp(bar_close_epoch + grace_seconds, tz=cs._zi(cs.TZ))
 
 
-def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, paths=None):
+def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, paths=None,
+                      not_taken_log=False):
     """Runs the exact engine path step() uses (closed_arrays over
     cs.leg_warmup_sessions(cfg) -> cs.leg_decision_trades -> _diff_leg) against a
     throwaway DEEP COPY of `leg_state` -- the real one is never touched here. Returns
@@ -211,7 +215,12 @@ def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, path
     never touch the network; step() runs right after on the same tick and refreshes the
     daily cache. In _diff_leg, fetch only gates the scoring-time KEEL fallback ntfy push
     (no event or state depends on it) -- that push is step()'s to send, and its
-    once-a-day dedupe would only land on this throwaway copy, so it would repeat."""
+    once-a-day dedupe would only land on this throwaway copy, so it would repeat.
+
+    `not_taken_log` (2026-10-09): where _diff_leg's "not taken: the market is closed" line
+    for this dry run goes -- dropped by default (False), since a throwaway copy's line would
+    repeat the one step() logs off the real state; _handle_handoff_window collects it and
+    logs it only for a decision it commits (step() never sees that trade as new again)."""
     arrays = cs.closed_arrays(df, now_et, "5m", cs.leg_warmup_sessions(cfg))
     if arrays is None:
         return None, None
@@ -221,7 +230,7 @@ def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, path
     max_age = cfg.get("max_entry_age_sec", 3 * cs.TIMEFRAME_SECONDS["5m"])
     events = cs._diff_leg(leg_key, trades, leg_state_copy, now_et, max_entry_age_sec=max_age,
                           bar_source=bar_source, cfg=cfg, arrays=diff_arrays, fetch=False,
-                          log=log)
+                          log=log, not_taken_log=not_taken_log)
     return events, leg_state_copy
 
 
@@ -422,8 +431,10 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
                    "step() decides this bar")
             continue
         baseline = copy.deepcopy(leg_state)
+        not_taken = []        # "not taken: the market is closed" lines -- logged on commit only
         events, mutated = _dry_run_decision(leg_key, cfg, augmented, effective_now, leg_state,
-                                            "stream", log, paths=paths)
+                                            "stream", log, paths=paths,
+                                            not_taken_log=not_taken.append)
         if events is None:
             continue
         committed = False
@@ -448,6 +459,8 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
             committed = True
             log(f"[cloud-signal-stream] LIVE from the stream: {leg_key} @ {bar_epoch} -- "
                f"{len(events)} event(s), bar_source=stream")
+            for line in not_taken:   # this commit IS the leg's real decision (see above)
+                log(line)
         elif want_live:
             log(f"[cloud-signal-stream] {leg_key}: stream decision computed but not fired "
                f"live -- disagreement latch tripped today ({today})")

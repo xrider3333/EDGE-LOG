@@ -142,12 +142,13 @@ def test_without_the_flag_the_last_bar_exit_still_reads_as_open(tmp_path):
 def test_the_real_legs_flag_orb_and_every_noise_but_not_enguq():
     assert cs.CROWN_LEGS["ORB_R6"].get("eod_flat") is True
     assert cs.CROWN_LEGS["NOISE_382"].get("eod_flat") is True
-    # the #422 shadow legs are flat at the close like the primary; the ENGU-Q shadow leg
-    # holds overnight like the backtest (owner GO 2026-09-28)
+    # the #422 shadow legs are flat at the close like the primary. ENGU-Q, live again since
+    # 2026-10-09 with its pre-09-28 cfg, has no eod_flat: its STRATEGY holds overnight in the
+    # backtest (the book is still flat at qqq_exec's flat_by -- that is the executor's rail)
     for key in ("NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL"):
         assert cs.SHADOW_LEGS[key].get("eod_flat") is True, key
-    assert "ENGUQ_335" not in cs.CROWN_LEGS
-    assert not cs.SHADOW_LEGS["ENGUQ_335"].get("eod_flat")
+    assert "ENGUQ_335" in cs.CROWN_LEGS and "ENGUQ_335" not in cs.SHADOW_LEGS
+    assert not cs.CROWN_LEGS["ENGUQ_335"].get("eod_flat")
 
 
 def test_next_morning_step_emits_nothing_more_for_a_settled_trade(tmp_path):

@@ -53,8 +53,10 @@ from api/market_calendar):
                      QUIET here -- tracked in status.json (and relayed to the PC) but never
                      pushed, start or end. With a stale heartbeat (engine_hb pages that) or
                      an older engine, this monitor pages bar_age itself, as before.
-    bar_source       the live 5m cache came from yfinance on 2 runs in a row (the engine
-                     fetches every 20-60 s, so that is 3+ fetches) -- #15. QUIET (not
+    bar_source       a live bar cache came from yfinance on 2 runs in a row (the engine
+                     fetches every 20-60 s, so that is 3+ fetches) -- #15. The 5m, plus every
+                     other timeframe the engine stamped in the last BAR_SOURCE_FRESH_SEC (1m
+                     while ENGU-Q is live, again since 2026-10-09). QUIET (not
                      pushed) while a fresh engine heartbeat carries yf_fallback_streak: the
                      engine pages it ("QQQ book: backup prices") after 3 fetches in a row.
     tick_gap         tick loop silent over 30 s now, or the day's max gap rose past 30 s -- #3.
@@ -247,6 +249,10 @@ ENGINE_HB_STALE_SEC = 180.0          # 2x api/qqq_exec.py's ENGINE_HEARTBEAT_STA
 SHADOW_HB_STALE_SEC = 600.0
 BAR_SEC = 300
 BAR_CLOSE_STALE_SEC = 660.0          # two 5m bars + 60 s
+# bar_source: a non-5m timeframe counts only while the engine stamped it this recently (it
+# stamps every live timeframe on each ~30 s fetch); an entry no live leg refreshes any more
+# is left behind in state.json and must not keep the check failing
+BAR_SOURCE_FRESH_SEC = 600.0
 BAR_CHECK_AFTER_OPEN_MIN = 11        # 09:30 bar closes 09:35; +660 s = 09:46 at the latest
 QQQ_1D_CHECK_FROM = (9, 40)          # the engine refreshes QQQ_1d once a day at ~09:35
 TICK_GAP_SESSION_SEC = 30.0
@@ -994,11 +1000,21 @@ def check_session(snap, now_et, mstate, ev):
                          affects="the QQQ book cannot enter or exit trades"),
             quiet=engine_paged))
     source = src.get("source")
+    # every live timeframe (2026-10-09, ENGU-Q live again on 1m bars): the 5m as before, plus
+    # any other timeframe the engine stamped within BAR_SOURCE_FRESH_SEC
+    sources = {"5m": source} if source else {}
+    for tf_, ent in sorted(((cs.get("bar_source") or {}) if cs else {}).items()):
+        if tf_ == "5m" or not isinstance(ent, dict) or not ent.get("source"):
+            continue
+        checked = parse_iso(ent.get("checked_at"))
+        if checked is not None and abs(now_epoch - checked.timestamp()) <= BAR_SOURCE_FRESH_SEC:
+            sources[tf_] = ent.get("source")
+    yf_tfs = "/".join(t for t, s in sources.items() if s == "yfinance")
     out.append(_verdict(
-        "bar_source", "session", (source != "yfinance") if source else None, HIGH,
+        "bar_source", "session", (not yf_tfs) if sources else None, HIGH,
         "live bars falling back to yfinance",
-        "the 5m cache is being filled from yfinance, not Webull (bars 30-90 s late); "
-        "check the Webull token / REST in cloud_signal.log.", min_runs=2,
+        f"the {yf_tfs or '5m'} cache is being filled from yfinance, not Webull (bars 30-90 s "
+        "late); check the Webull token / REST in cloud_signal.log.", min_runs=2,
         plain=_plain("QQQ prices are coming from the slower backup source, not Webull.",
                      affects="the QQQ book trades on late prices"),
         # an engine that writes yf_fallback_streak pages this itself (feed on backup prices)

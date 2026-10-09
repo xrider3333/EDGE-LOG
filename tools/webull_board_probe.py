@@ -21,7 +21,8 @@ data-caveat days, the NOISE #304 -> #382 run change, ENGU-Q flat since 2026-09-2
 touches the network or Firestore.
 
 Cases: laptop 1366x768 | phone 375x812, x dark | mono, each a fresh render on ALL. Then one
-interaction run on the laptop (Retired group open / close, a chart scrub writing the hero and
+interaction run on the laptop (Retired group open / close, with the probe filing ENGU-Q under Retired:
+no leg is retired since ENGU-Q went live again on 2026-10-09; a chart scrub writing the hero and
 putting it back, a legend switch remembered), the FRESHNESS variants below, and one render with
 ?oldboards=1 (a flag that changes nothing any more). The page's clock is pinned (window.__qbNowMs) so the fixed doc is judged the same
 way on every run: the plain cases see it 24 s after it was written, in the session.
@@ -81,14 +82,15 @@ Per case:
     >= 2 [data-lgdate] and >= 2 [data-lgtick], [data-lgband] (caveat days) and [data-lgmark]
     (the run change, named with its family), the three strategy lines ORB #314 / ENGU-Q #335 /
     NOISE #382 in the legend with 16 px icons, and the caveat / book-only key under it
-  * the Retired group is there, collapsed by default, says 'flat since 2026-09-28', and only
-    ORB and NOISE are live rows
+  * ENGU-Q #335 trades on Webull again (owner reversal 2026-10-09, MANAGER #102): ORB, ENGU-Q and
+    NOISE are the BOOK rows (its 09-17..09-28 trades in its row) and there is no Retired group
   * every trade row names family + run number ('NOISE #382'), never a bare 'ENGUQ' / 'ORB', and the
     run is the one that took the trade (counts per name match the fixture: NOISE #304 / #382 ...)
   * the three faint lines carry three different dashes (MONO turns every colour grey)
   * on a phone the page does not scroll sideways
   * no BOX SILENT chip on the fresh doc, and the top bar carries the WEBULL chip (FLAT)
-Interaction run: the Retired group opens (ENGU-Q's row appears, the choice is stored) and closes;
+Interaction run (the probe files ENGU-Q under Retired through window.__qbRetiredLegs, the page's stand-in for its retired
+list, so the fold stays tested while no leg is retired): the Retired group opens (ENGU-Q's row appears, the choice is stored) and closes;
 a scrub at the left edge writes $0.00 and 'start of the range' into the hero, at the right edge
 the closed P&L of record, and leaving puts the hero back; a legend switch is remembered.
 
@@ -96,7 +98,7 @@ STATS (LEDGER unify step 6, 2026-10-05): the board's own stat tiles are TRADING-
 Every plain case: the four [data-lgstat] tiles (WIN RATE, PROFIT FACTOR, MAX DRAWDOWN, TRADES) in that
 order under the chart, a percent / a ratio / a positive dollar amount / a count, each equal to a
 recomputation here from the fixture (P&L of record, close day, walked in exit order), the PROFIT FACTOR
-line ('$276 won · $304 lost') and the MAX DRAWDOWN line included. Nine stats cases (the ninth, the unlisted strategy leg, is described under STEPS 7 + 10) with today pinned to
+line ('$276 won · $304 lost') and the MAX DRAWDOWN line included. Thirteen stats cases (the ninth to the thirteenth - the unlisted strategy leg, ENGU-Q holding a position, ENGU-Q filed under Retired - are described under STEPS 7 + 10) with today pinned to
 2026-10-05: ALL; 1W (trades that closed on or after 09-28) on the laptop; 1W again on a 390x844 phone in
 MONO with More stats open; ALL with one September loss turned into a $0 trade, which must be neither a
 win nor a loss in the tiles ('1 even') and in the calendar's month '% won'; TODAY (one trade); 1M on a
@@ -124,17 +126,20 @@ enter it); the caveat days (a tape-priced exit, a failed parity check, a book-on
 needs no trade) are hatched amber with the dot; the arrows are disabled at the first and last month with trades; the fold is
 open on a laptop and closed on a phone until chosen, and the fold and the month are remembered per viewer (a reload finds
 them); a tap on a day scrolls the trade list to that day's newest trade and flashes it (a day whose rows are not on the page yet, because the list shows only its newest rows, draws every row
-first). LIST: three groups in order, BOOK
-(ORB #314, NOISE #382: family + run number from the leg definitions, the range's P&L of record, trades and win rate, the side;
-no switch), Retired (ENGU-Q #335, a fold closed until opened, 'flat since 2026-09-28') and Shadow - not counted (a fold,
-closed, its rows faded and never in anything above); BOOK + Retired add up to the account's range figure; a tap on a leg opens
-its detail under the row. On a phone every row is one line, the status line, the list and the Account section sit under the
+first). LIST: the groups in order, BOOK
+(ORB #314, ENGU-Q #335, NOISE #382: family + run number from the leg definitions, the range's P&L of record, trades and win rate,
+the side; no switch), Retired (drawn only while a leg is retired: none since ENGU-Q went live again on 2026-10-09, so the
+interaction run and two stats cases file ENGU-Q under it through window.__qbRetiredLegs - a fold closed until opened, 'flat since
+2026-09-28', ORB and NOISE left in BOOK) and Shadow - not counted (a fold, closed, its rows faded and never in anything above);
+BOOK + Retired add up to the account's range figure whenever every counted row is drawn; the no-filters line names only the
+folds the list draws; a tap on a leg opens its detail under the row. On a phone every row is one line, the status line, the list and the Account section sit under the
 trade list, and the trade list starts within one viewport of the board top (mistake #12); on a laptop the list is the
 frame's right-hand panel (LEDGER STEP 12 below). The Table view carries a run number on every row too. A tap on a row's note toggle (the little i beside a run
 number) shows that leg's note under the row and leaves its detail shut; a copy of the fixture whose last two ORB trades
 belong to a strategy the board has no row for (375x812, both folds open) must draw an Other legs row, so BOOK + Retired +
-Other legs still add up to the account's range figure; a copy with ENGU-Q long 10 (375x812 and 1366x768) has no Retired group,
-ENGU-Q is a BOOK row reading LONG with its live position line, and the rows still add up. Under MONO no calendar or list value
+Other legs still add up to the account's range figure; a copy with ENGU-Q long 10 (1366x768 and 375x812, and 1366x768 again with
+the probe filing ENGU-Q under Retired: a retired leg that holds a position is a BOOK leg again) has no Retired group, ENGU-Q is a
+BOOK row reading LONG with its live position line, and the rows still add up. Under MONO no calendar or list value
 has a hue.
 
 LEDGER STEP 8 (2026-10-06): the board's trade list (History) is TRADING-LOG's shared frame (ledgerTradeListHtml / ledgerTradeListWire), as REAL's
@@ -257,7 +262,8 @@ from the doc (expected_shadow_rows): its count = one row per leg the box lists (
 first then the box's order, each row faded with the range's would-be P&L, trades and win rate, the sub-line 'shadow · no orders · not
 counted', the open line ('1 open, long since 09-28 @ 738.03 · +$137.01 at 751.73'), 'carried from seed' on the leg with a seeded trade,
 and on ENGU-Q the hover naming the live Webull order for the same signal (flattened 09-28 15:59 for its P&L of record, the book price
-beside it, in the Retired ENGU-Q #335 row) and no such sentence on any other leg. The trade list run 'a shadow row closed today' gets the
+beside it, in the BOOK ENGU-Q #335 row - a live leg again since 2026-10-09 - or the Retired one where a case files ENGU-Q there)
+and no such sentence on any other leg. The trade list run 'a shadow row closed today' gets the
 block too: neither the list nor the CSV may hold one of its trades.
 
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
@@ -300,8 +306,9 @@ VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'phone390': [390, 844]}
 CASES = [['%s/%s' % (vp, th), {'vp': vp, 'theme': th}] for vp in ('laptop', 'phone') for th in ('dark', 'mono')]
 LEDGER_RANGES = ['TODAY', '1W', '1M', '3M', 'YTD', 'ALL']
 WANT_LINES = ['ORB #314', 'ENGU-Q #335', 'NOISE #382']
-WANT_LIVE = ['ORB', 'NOISE']
-RETIRED_SINCE = '2026-09-28'
+WANT_LIVE = ['ORB', 'ENGUQ', 'NOISE']   # every leg trades on Webull: ENGU-Q is live again since 2026-10-09 (owner reversal, MANAGER #102)
+RETIRED_KEY = 'ENGUQ'          # the leg the probe files under Retired (window.__qbRetiredLegs) to keep the Retired fold tested while no leg is retired
+RETIRED_SINCE = '2026-09-28'   # ... and the day the fixture's ENGU-Q went flat, which the Retired fold then names
 LEG_RE = re.compile(r'^(ORB|ENGU-Q|NOISE) #\d+$')
 MONEY_RE = re.compile(r'^-?\$[\d,]+\.\d\d$')
 # LEDGER step 6: the shared stat tiles, in this order on every board
@@ -769,7 +776,7 @@ _EQC = ("              +ledgerChartFootHtml({id:'qb',cap:'<span class=\"qbx-char
 _SH_AS_ROWS = ("((QE.shadow_trades||{}).trades||[]).filter(x=>x.exit_time).map(x=>({leg:%s,trade_id:x.trade_id,side:x.side,"
                "entry_ts:String(x.entry_time).slice(0,19).replace('T',' '),exit_ts:String(x.exit_time).slice(0,19).replace('T',' '),"
                "entry_px:x.entry_px,exit_px:x.exit_px,shares:x.shares,pnl_record:x.pnl_usd}))")
-_QB_FILT = (_CRLF + "            filters:ledgerFiltersHtml({id:'qb',none:'This list has no filters: every strategy counts. Retired and Shadow are the folds below.'})});")
+_QB_FILT = (_CRLF + "            filters:ledgerFiltersHtml({id:'qb',none:'This list has no filters: every strategy counts. '+(gRet?'Retired and Shadow are the folds':'Shadow is the fold')+' below.'})});")
 
 MUTANTS = [
     ('chart-not-drawn',
@@ -1249,6 +1256,19 @@ MUTANTS = [
      "const gRet=retModels.length?{key:'retired'",
      "const gRet=true?{key:'retired'",
      "an empty Retired group is drawn when no leg is retired"),
+    # ENGU-Q live again (owner reversal 2026-10-09, MANAGER #102)
+    ('enguq-retired-again',
+     "const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:[];",
+     "const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:['ENGUQ'];",
+     "ENGU-Q is filed under Retired again, though it trades on Webull since 2026-10-09"),
+    ('retired-stand-in-ignored',
+     "const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:[];",
+     "const QE_LEGS_RETIRED=[];",
+     "the page drops its stand-in for the retired list, so no case can draw the Retired fold (its checks must notice, not pass on nothing)"),
+    ('filters-line-names-retired',
+     "(gRet?'Retired and Shadow are the folds':'Shadow is the fold')",
+     "'Retired and Shadow are the folds'",
+     "the no-filters line names a Retired fold the list does not draw"),
     # LEDGER step 8 (2026-10-06): the trade list on the shared frame
     ('frame-missing',
      '\'<div id="qe-trades-section"></div><div class="qbx-tl">\'+qbFrameHtml+qbMoreHtml+\'</div>\'',
@@ -2220,6 +2240,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     w.__probeRange=cfg.range||null;w.__probeTodayNY=cfg.todayNY||null;w.__probeCalMonth=cfg.calMonth||null;
     w.__probeMoreOpen=!!cfg.moreOpen;
     w.__probeCalOpen=cfg.calOpen||null;w.__probeFolds=!!cfg.folds;w.__probeFoldOpen=cfg.foldOpen||null;
+    // the page's stand-in for its retired list (QE_LEGS_RETIRED, empty since ENGU-Q went live again on 2026-10-09): set only by a case that retires a leg
+    w.__qbRetiredLegs=cfg.retired?w.JSON.parse(JSON.stringify(cfg.retired)):null;
     return w.eval("(function(){try{"
       +"if(!window.__probeLTN)window.__probeLTN=ledgerTodayNY;"
       +"ledgerTodayNY=window.__probeTodayNY?function(){return window.__probeTodayNY;}:window.__probeLTN;"
@@ -2480,7 +2502,9 @@ __S11JS__
     var w=W(),d=D(),res={};
     await setVp('laptop');
     drain();
-    try{res.seed=seed({vp:'laptop',theme:'dark'});}catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
+    // no leg is retired since ENGU-Q went live again (2026-10-09): the run files the fixture's ENGU-Q (flat since 2026-09-28) under Retired, so the
+    // Retired fold's open / close / remember is still tested
+    try{res.seed=seed({vp:'laptop',theme:'dark',retired:['ENGUQ']});}catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
     await sleep(200);
     try{
       // 1. the Retired group (a fold of the shared list) opens and closes, and the choice is kept for this viewer; opened it lists
@@ -2667,7 +2691,7 @@ __S11JS__
         out.stats={};
         for(var k=0;k<STATS.length;k++){
           var S=STATS[k];
-          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more,calOpen:S.calOpen,folds:S.folds,foldOpen:S.foldOpen,nowMs:S.nowMs});
+          await runCase('__st'+k,{vp:S.vp,theme:S.theme,fix:S.doc,range:S.range,todayNY:S.today,calMonth:S.calMonth,moreOpen:S.more,calOpen:S.calOpen,folds:S.folds,foldOpen:S.foldOpen,retired:S.retired,nowMs:S.nowMs});
           out.stats[S.name]=out.cases['__st'+k];delete out.cases['__st'+k];
         }
         try{W().eval("ledgerTodayNY=window.__probeLTN||ledgerTodayNY;");}catch(e){}
@@ -3672,12 +3696,13 @@ STATUS_GAP_MAX = 24         # the status line starts at most this far under the 
 STATUS_LINES_MAX = 2
 
 
-def _frame_problems(tag, fr, iw, fails, wide=False):
+def _frame_problems(tag, fr, iw, fails, wide=False, retired=False):
     """The one page frame: exactly one [data-lgframe="qb"] with its top block, side panel and rest; its max width 1320 px, centred in its parent. From
     1100 px a grid: the list in the side panel to the right of the top block, level with it, never taller than it, not sticky, the trade list the full
     width under both; under 1100 px no grid and the list between the calendar and the trade list. The status line once, in the top block directly under
     the hero and above the pills, one or two lines, Refresh in it. The chart foot once, right after the chart box, holding the only caption (in the shared
-    foot style) and the key. The list's Filters row once, right after the list header, closed, 'none' to filter."""
+    foot style) and the key. The list's Filters row once, right after the list header, closed, 'none' to filter, its no-filters line naming the folds
+    the list draws (Retired only while a leg is retired: `retired`)."""
     if not fr:
         fails.append('%s: the page frame was not read' % tag)
         return
@@ -3792,6 +3817,11 @@ def _frame_problems(tag, fr, iw, fails, wide=False):
         if fl.get('sum') != 'none' or not fl.get('none'):
             fails.append("%s: the Filters row reads %r with the body line %r: this board has nothing to filter, so 'none' and the no-filters line"
                          % (tag, fl.get('sum'), fl.get('none')))
+        else:
+            want_none = 'Retired and Shadow are the folds below.' if retired else 'Shadow is the fold below.'
+            if not fl['none'].endswith(want_none):
+                fails.append('%s: the no-filters line reads %r, want it to end %r (it names the folds the list draws; Retired only while a leg '
+                             'is retired - none since ENGU-Q went live again on 2026-10-09)' % (tag, fl['none'], want_none))
 
 
 def _judge_filters_run(tag, rec, fails):
@@ -4272,9 +4302,9 @@ def _shadow_open_line(os_):
 # the page). The calendar takes the chosen range's trades at the P&L of record on their close day; the list's rows are the legs
 # the board names (ORB #314, ENGU-Q #335, NOISE #382), the range's P&L of record, trades and win rate.
 LIST_GROUPS = ['book', 'retired', 'shadow']
-BOOK_NAMES = ['ORB #314', 'NOISE #382']       # the rows under BOOK, run numbers included (ENGU-Q #335 is retired in this doc)
+BOOK_NAMES = ['ORB #314', 'ENGU-Q #335', 'NOISE #382']   # the rows under BOOK, run numbers included (ENGU-Q is a live leg since 2026-10-09)
 RETIRED_NAME = 'ENGU-Q #335'
-BOOK_NAMES_LIVE = ['ORB #314', 'ENGU-Q #335', 'NOISE #382']   # while ENGU-Q holds a position it is a BOOK leg again
+BOOK_NAMES_RETIRED = ['ORB #314', 'NOISE #382']   # the BOOK rows while the probe files ENGU-Q under Retired and it holds no position
 LEG_KEYS = [('ORB', 'ORB #314'), ('ENGUQ', 'ENGU-Q #335'), ('NOISE', 'NOISE #382')]
 MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November',
           'December']
@@ -4422,12 +4452,13 @@ def expected_list_count(trades, cutoff, range_key):
     return '%s · %s' % (signed(round(sum(qe_pnl_of(t) for t in rows), 2)), RANGE_WORD[range_key])
 
 
-def expected_shadow_rows(doc, cutoff=None):
+def expected_shadow_rows(doc, cutoff=None, retired=False):
     """The Shadow - not counted fold's rows, in order (never counted): one per leg the box's shadow_trades block lists (ENGU-Q #335
     first, then the box's order), then the older path's trades_all rows flagged shadow, one per family + run (sorted), a trade id the
     block carries left out. Each: name, value (the range's would-be P&L, '—' with nothing closed in it), value2 (trades, win rate),
     open (the open line, or None), seed (a seeded trade among them), live (the hover's sentence on the live order for the same signal,
-    or None), block (a row from the block)."""
+    or None), block (a row from the block). `retired`: the case files ENGU-Q under Retired (window.__qbRetiredLegs); without it, or
+    while ENGU-Q holds a position, the live ENGU-Q order sits in its BOOK row (a live leg again since 2026-10-09)."""
     trades = doc.get('trades_all') or []
     b = doc.get('shadow_trades') if isinstance(doc.get('shadow_trades'), dict) else {}
     base, bt = _shadow_block_trades(doc)
@@ -4467,7 +4498,7 @@ def expected_shadow_rows(doc, cutoff=None):
     for t in trades:
         if not _is_shadow(t) and t.get('trade_id'):
             live_by_id[str(t['trade_id'])] = t
-    held = 'ENGUQ' in _positions(doc)
+    ret = bool(retired) and RETIRED_KEY not in _positions(doc)
     out = []
     for nm in order:
         g = by[nm]
@@ -4482,7 +4513,7 @@ def expected_shadow_rows(doc, cutoff=None):
         if lv is not None:
             rec, bk, xt = qe_pnl_of(lv), _fin(lv.get('pnl')), str(lv.get('exit_ts') or '')
             k = lv.get('leg')
-            grp = ('BOOK' if held else 'Retired') if k == 'ENGUQ' else ('BOOK' if k in FAMILY else 'Other legs')
+            grp = ('Retired' if ret else 'BOOK') if k == RETIRED_KEY else ('BOOK' if k in FAMILY else 'Other legs')
             live = ('The live Webull order for this signal was %s %s for %s%s, in the %s %s row. This row is the strategy\u2019s own hold.'
                     % ('flattened' if re.match(r'^EOD', str(lv.get('exit_reason') or ''), re.I) else 'closed',
                        xt[5:16] if xt else '(time not known)', signed(rec),
@@ -4601,10 +4632,12 @@ def _judge_cal(tag, c, vp, theme, doc, cutoff, want_month, open_want, today, fai
         fails.append('%s: the calendar grid (%s px) is wider than its panel (%s px)' % (tag, c['gridW'], c['box']['w']))
 
 
-def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow_open, fails, distance=True):
-    """The strategy list on the shared list: its three groups in order, the BOOK rows named with run numbers and carrying the
+def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow_open, fails, distance=True, retired=False):
+    """The strategy list on the shared list: its groups in order, the BOOK rows named with run numbers and carrying the
     range's P&L of record, trades and win rate, the Retired and Shadow folds closed (their rows outside the account number),
-    no switch, and where it sits: above the trade list on a phone (step 11), from 1100 px the frame's right-hand panel beside the top block (step 12)."""
+    no switch, and where it sits: above the trade list on a phone (step 11), from 1100 px the frame's right-hand panel beside the top block (step 12).
+    `retired`: the case files ENGU-Q under Retired (window.__qbRetiredLegs). Without it ENGU-Q is a BOOK row (a live leg again since
+    2026-10-09) and there is no Retired group; with it the Retired group is drawn while ENGU-Q holds no position."""
     if not lg:
         fails.append('%s: no strategy list on the shared list ([data-lglist="qb"] in the side column)' % tag)
         return
@@ -4612,11 +4645,13 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
     groups = lg.get('groups') or []
     keys = [g['key'] for g in groups]
     pos = _positions(doc)
-    live = 'ENGUQ' in pos     # a retired leg that holds a position is a BOOK leg again (owner decision 9): no Retired group then
-    want_keys = [k for k in LIST_GROUPS if not (live and k == 'retired')]
+    # ENGU-Q trades on Webull again (2026-10-09): a Retired group only while the probe files it there, and a retired leg that holds
+    # a position is a BOOK leg again (owner decision 9)
+    ret = bool(retired) and RETIRED_KEY not in pos
+    want_keys = [k for k in LIST_GROUPS if ret or k != 'retired']
     if keys != want_keys:
-        fails.append('%s: the strategy list groups are %r, want %r (BOOK, Retired, Shadow - not counted; no Retired group while '
-                     'ENGU-Q holds a position)' % (tag, keys, want_keys))
+        fails.append('%s: the strategy list groups are %r, want %r (BOOK, then Retired only while a leg is retired and holds no position - '
+                     'none since ENGU-Q went live again on 2026-10-09 -, then Shadow - not counted)' % (tag, keys, want_keys))
         return
     by = dict((g['key'], g) for g in groups)
     if lg.get('title') != 'Strategies' or lg.get('count') != expected_list_count(trades, cutoff, range_key):
@@ -4626,7 +4661,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         fails.append('%s: the list draws %d switches; this board has none (every leg counts)' % (tag, lg['sw']))
     figs = expected_leg_figs(trades, cutoff)
     other = expected_other_figs(trades, cutoff)
-    want_names = (BOOK_NAMES_LIVE if live else BOOK_NAMES) + ([OTHER_NAME] if other else [])
+    want_names = (BOOK_NAMES_RETIRED if ret else BOOK_NAMES) + ([OTHER_NAME] if other else [])
     if other:
         figs[OTHER_NAME] = other
     bk = by['book']
@@ -4656,7 +4691,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         fails.append('%s: the Retired group reads %r (fold %s), want a fold saying "flat since %s"'
                      % (tag, rt.get('head'), rt.get('fold'), RETIRED_SINCE))
     sh = by['shadow']
-    shadow = expected_shadow_rows(doc, cutoff)
+    shadow = expected_shadow_rows(doc, cutoff, retired=retired)
     if not sh.get('fold') or (sh.get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · %d' % len(shadow):
         fails.append('%s: the Shadow group reads %r (fold %s), want a fold reading "Shadow - not counted · %d"'
                      % (tag, sh.get('head'), sh.get('fold'), len(shadow)))
@@ -4667,7 +4702,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                          % (tag, g.get('key'), g.get('expanded'), want_open))
         if (not is_open) and g.get('rows'):
             fails.append('%s: the %s group draws %d rows while closed' % (tag, g.get('key'), len(g['rows'])))
-    if (retired_open and rt) or live:
+    if retired_open or not rt:      # every counted row is drawn: the BOOK rows, and the Retired rows when there is a Retired group
         if rt:
             rn = [x['name'] for x in rt.get('rows') or []]
             if rn != [RETIRED_NAME]:
@@ -4676,7 +4711,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                 fails.append('%s: the Retired row reads %r / %r, the fixture says %r / %r' % (
                     tag, rt['rows'][0].get('value'), rt['rows'][0].get('value2'), figs[RETIRED_NAME]['value'], figs[RETIRED_NAME]['value2']))
         # the rows add up to the account's range figure: BOOK + Retired are the legs that count, Shadow is never in it
-        counted = [_money_val(x.get('value')) for g in (bk, rt) if g for x in g.get('rows') or []]
+        counted = [0.0 if x.get('value') == '—' else _money_val(x.get('value')) for g in (bk, rt) if g for x in g.get('rows') or []]
         want_tot = round(sum(qe_pnl_of(t) for t in _range_rows(trades, cutoff)), 2)
         if None not in counted and abs(sum(counted) - want_tot) > 0.011:
             fails.append('%s: BOOK + Retired add up to %s, the P&L of record of the range is %s (a shadow leg, or a leg with no row, '
@@ -4751,7 +4786,7 @@ def _judge_inter_ledger(tag, res, fixture, fails):
     reload finds."""
     trades = fixture.get('trades_all') or []
     o = res.get('open') or {}
-    _judge_list(tag + ' [Retired open]', o.get('list'), 'laptop', 'dark', fixture, None, 'ALL', True, False, fails)
+    _judge_list(tag + ' [Retired open]', o.get('list'), 'laptop', 'dark', fixture, None, 'ALL', True, False, fails, retired=True)
     sd = res.get('shadow') or {}
     if not sd:
         fails.append('%s: no Shadow group to open ([data-lggrp="shadow"])' % tag)
@@ -4843,8 +4878,9 @@ def _other_doc(fixture):
 
 
 def _enguq_open_doc(fixture):
-    """The fixture with ENGU-Q long 10 @ 600.10 (live 600.52): a retired leg that holds a position is a BOOK leg again (owner
-    decision 9), so the list has no Retired group, ENGU-Q reads LONG with its live position line, and the rows still add up."""
+    """The fixture with ENGU-Q long 10 @ 600.10 (live 600.52): ENGU-Q is a BOOK leg (live again since 2026-10-09), and so is a
+    retired leg that holds a position (owner decision 9; the case that files ENGU-Q under Retired), so the list has no Retired
+    group, ENGU-Q reads LONG with its live position line, and the rows still add up."""
     doc = json.loads(json.dumps(fixture))
     doc.setdefault('positions', {})['ENGUQ'] = {'side': 'long', 'shares': '10', 'entry_px': '600.10',
                                                 'entry_ts': STAT_TODAY + ' 10:00:05', 'unrealized': '4.20'}
@@ -4861,10 +4897,11 @@ def _stats_cases(fixture):
     z = _zero_doc(fixture)
 
     def c(name, rg, doc, vp='laptop', th='dark', cal=None, today=STAT_TODAY, more=False, empty=False, now=None,
-          cal_open=None, folds=False, list_open=False):
+          cal_open=None, folds=False, list_open=False, retired=False):
         # list_open: the phone's one-line Strategies fold is stored open, so its rows are drawn (and measured) on a phone
         return {'name': name, 'range': rg, 'doc': doc, 'vp': vp, 'theme': th, 'cal': cal, 'today': today,
-                'more': more, 'empty': empty, 'now': now or FRESH_NOW, 'cal_open': cal_open, 'folds': folds, 'list_open': list_open}
+                'more': more, 'empty': empty, 'now': now or FRESH_NOW, 'cal_open': cal_open, 'folds': folds, 'list_open': list_open,
+                'retired': retired}
     return [c('ALL', 'ALL', fixture),
             c('1W', '1W', fixture),
             c('1W (MONO, 390x844, More stats open)', '1W', fixture, vp='phone390', th='mono', more=True, cal_open='1'),
@@ -4890,7 +4927,13 @@ def _stats_cases(fixture):
             c("the box's shadow block could not read its ledger (ALL, both folds open)", 'ALL', _shtr_doc(fixture, error=SHADOW_ERROR),
               folds=True),
             c("a shadow row closed today the box's block also carries (ALL, both folds open)", 'ALL',
-              _shtr_doc(_shadow_doc(fixture), dup_of={'trade_id': 'NOISE-20261005T195000Z-L'}), folds=True)]
+              _shtr_doc(_shadow_doc(fixture), dup_of={'trade_id': 'NOISE-20261005T195000Z-L'}), folds=True),
+            # no leg is retired since ENGU-Q went live again (2026-10-09): these two file it under Retired (window.__qbRetiredLegs), so the
+            # Retired fold is still judged as drawn (closed, 'flat since 2026-09-28', ORB and NOISE left in BOOK) and a retired leg that
+            # holds a position still goes back to BOOK
+            c('ENGU-Q filed under Retired by the probe (ALL, 1366x768)', 'ALL', fixture, retired=True),
+            c('a retired leg holds a position: ENGU-Q long 10, filed under Retired (ALL, 1366x768)', 'ALL', _enguq_open_doc(fixture),
+              retired=True)]
 
 
 SHADOW_TWIN_KEYS = [('heroBig', 'the account number'), ('heroToday', 'the today line'), ('stats', 'the stat tiles'),
@@ -4911,7 +4954,7 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
     the block must move nothing that counts: the same account number, today line, tiles, More stats, chart lines, legend, calendar days
     and month line, list header, BOOK rows and trade list, and on a phone the trade list starts exactly where it did (the fold is shut)."""
     b = doc.get('shadow_trades') or {}
-    rows = expected_shadow_rows(doc, _cutoff(sc_['range'], sc_['today']))
+    rows = expected_shadow_rows(doc, _cutoff(sc_['range'], sc_['today']), retired=sc_.get('retired'))
     lg = r.get('lg') or {}
     sh = [g for g in lg.get('groups') or [] if g.get('key') == 'shadow']
     note = (sh[0].get('note') or '') if sh else ''
@@ -6267,7 +6310,8 @@ def _attempt(chrome, alt_index, fixture):
                 for nm, now, doc, exp in _variant_docs(fixture)]
     stats = [{'name': c['name'], 'range': c['range'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'],
               'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'calOpen': c['cal_open'], 'folds': c['folds'],
-              'foldOpen': ['list'] if c.get('list_open') else None, 'nowMs': et_ms(c['now'])}
+              'foldOpen': ['list'] if c.get('list_open') else None, 'retired': [RETIRED_KEY] if c['retired'] else None,
+              'nowMs': et_ms(c['now'])}
              for c in _stats_cases(fixture)]
     tls = [dict({'name': c['name'], 'scen': c['scen'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'], 'today': c['today'], 'wh': c['wh'],
                  'widths': c.get('widths'), 'page': TL_PAGE}, **(c.get('pn') or {})) for c in _tl_cases(fixture)]
@@ -6800,12 +6844,13 @@ def _judge(data, fixture):
         _judge_strip(tag, r, vp, fails)
         _judge_more(tag, r, sc_, tr, cut, fixture, fails)
         _judge_list(tag, r.get('lg'), vp, sc_['theme'], doc, cut, rg, sc_['folds'], sc_['folds'], fails,
-                    distance=not (sc_['more'] or sc_.get('list_open')))
+                    distance=not (sc_['more'] or sc_.get('list_open')), retired=sc_['retired'])
         if isinstance(doc.get('shadow_trades'), dict):
             _judge_shadow_block(tag, r, sc_, doc, got_st, fails)
         _judge_cal(tag, r.get('lgcal'), vp, sc_['theme'], doc, cut, cm, _cal_open_want(vp, sc_['cal_open']), sc_['today'], fails)
         _s11_order_problems(tag, r.get('s11') or {}, r.get('innerW') or 0, doc, fails)
-        _frame_problems(tag, (r.get('s11') or {}).get('frame'), r.get('innerW') or 0, fails)
+        _frame_problems(tag, (r.get('s11') or {}).get('frame'), r.get('innerW') or 0, fails,
+                        retired=bool(sc_['retired']) and RETIRED_KEY not in _positions(doc))
         _judge_tl_frame(tag, r.get('tl'), doc, cut, fails, vp=vp, theme=sc_['theme'], top_check=not (sc_['more'] or sc_.get('list_open')), today=sc_['today'],
                         none_text=('no trades closed today \u00b7 %d more outside this range' % len(tl_range_rows(doc))) if sc_['empty'] else None)
         if nm == '$0 trade':
@@ -6831,7 +6876,7 @@ def _judge(data, fixture):
         _errs(tag, res.get('errs') or {}, fails)
         o, c = res.get('open') or {}, res.get('closed') or {}
         if o.get('expanded') != 'true' or not o.get('engu') or o.get('stored') != '1':
-            fails.append('%s: the Retired group did not open with ENGU-Q in it and the choice kept (%s)' % (tag, o))
+            fails.append('%s: the Retired group (the probe files ENGU-Q under it) did not open with ENGU-Q in it and the choice kept (%s)' % (tag, o))
         if c.get('expanded') != 'false' or c.get('rows'):
             fails.append('%s: the Retired group did not close again (%s)' % (tag, c))
         sc = res.get('scrub') or {}

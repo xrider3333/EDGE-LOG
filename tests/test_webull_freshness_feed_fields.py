@@ -8,6 +8,7 @@ home from tests/test_webull_freshness.py. No push, no systemctl, no live file.
 """
 import datetime as dt
 import importlib.util
+import json
 import os
 
 import pytest
@@ -106,3 +107,35 @@ def test_an_older_engine_without_the_fields_still_gets_paged_here(tmp_path):
     out = h.run()
     assert "bar_age" in T.failing(out)
     assert len(h.pushes) == 1 and "newest QQQ price bar" in h.pushes[0]["message"]
+
+
+# -- EVERY LIVE TIMEFRAME (2026-10-09): ENGU-Q is live again, on 1m bars ----------------------
+def _with_1m(h, source, checked_at):
+    st = json.load(open(h.paths["cs_state"], encoding="utf-8"))
+    st["bar_source"]["1m"] = {"source": source, "newest_epoch": int(checked_at.timestamp()) - 120,
+                              "checked_at": checked_at.isoformat()}
+    T._wj(h.paths["cs_state"], st)
+
+
+def test_bar_source_fails_on_the_1m_cache_from_yfinance(tmp_path):
+    h = T.Home(tmp_path, T.MON_1030)
+    _with_1m(h, "yfinance", T.MON_1030)
+    h.run()
+    assert h.pushes == []
+    h.advance(T.MON_1030 + dt.timedelta(minutes=2))
+    out = h.run()
+    assert "bar_source" in T.failing(out)
+    assert "the 1m cache is being filled from yfinance" in \
+        out["status"]["verdicts"]["bar_source"]["detail"]
+    assert len(h.pushes) == 1 and "slower backup source" in h.pushes[0]["message"]
+
+
+def test_bar_source_ignores_a_1m_entry_no_live_leg_refreshes(tmp_path):
+    """A timeframe the engine stopped stamping (its leg left the book) keeps its last entry in
+    state.json: it must not keep the check failing."""
+    h = T.Home(tmp_path, T.MON_1030)
+    _with_1m(h, "yfinance", T.et(2026, 9, 28, 15, 59))
+    h.run()
+    h.advance(T.MON_1030 + dt.timedelta(minutes=2))
+    out = h.run()
+    assert "bar_source" not in T.failing(out) and h.pushes == []

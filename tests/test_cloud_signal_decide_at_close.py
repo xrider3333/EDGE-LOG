@@ -295,9 +295,9 @@ def test_stand_in_arrays_shape():
 def test_flag_is_on_for_noise_382_only():
     assert cs.CROWN_LEGS["NOISE_382"].get("decide_at_close") is True
     assert not cs.CROWN_LEGS["ORB_R6"].get("decide_at_close")
-    # ENGUQ_335 is a shadow leg since 2026-09-28; the #422 shadow legs carry the flag like
-    # NOISE_382 does (they are the same decide-at-close NOISE core)
-    assert not cs.SHADOW_LEGS["ENGUQ_335"].get("decide_at_close")
+    # ENGUQ_335 is live again since 2026-10-09 (no flag, as before 09-28); the #422 shadow
+    # legs carry the flag like NOISE_382 does (they are the same decide-at-close NOISE core)
+    assert not cs.CROWN_LEGS["ENGUQ_335"].get("decide_at_close")
     for k in ("NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL"):
         assert cs.SHADOW_LEGS[k].get("decide_at_close") is True, k
 

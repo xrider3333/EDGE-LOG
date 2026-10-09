@@ -33,8 +33,8 @@ files, because both write the very same shared OHLC cache and Windows refuses th
 rename outright while any reader -- including the OTHER writer's own read of the same
 file -- still has it open.
 
-THE CROWN (LIVE) LEGS (as of 2026-09-28; NOISE swapped by OWNER DECISION 2026-09-23,
-ENGU-Q moved to the shadow legs by OWNER DECISION 2026-09-28 -- see SHADOW LEGS below):
+THE CROWN (LIVE) LEGS (as of 2026-10-09; NOISE swapped by OWNER DECISION 2026-09-23,
+ENGU-Q back on the order-placing book by OWNER DECISION 2026-10-09 -- see ENGUQ_335 below):
   ORB_R6      run #314, ORB_3_6_R6.py, api.paper.ORB_314, 5m RTH, no gate.
   NOISE_382   run #382, NOISE_1_8_CT304.py, params below, 5m RTH, no gate.
               (repointed 2026-09-24 -- run #382 is the #304 crown's own core, written out
@@ -46,6 +46,18 @@ ENGU-Q moved to the shadow legs by OWNER DECISION 2026-09-28 -- see SHADOW LEGS 
               itself, not kept alongside. api/paper.py's OWN "NOISE_304" leg (the
               NinjaTrader PAPER board, api.paper.NOISE_304_NBHD) is a DIFFERENT book and
               is UNCHANGED and unrelated to this one.)
+  ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
+              LIVE AGAIN SINCE 2026-10-09 (OWNER DECISION via MANAGER #102, reversing the
+              2026-09-28 move to the shadow legs). It was taken off the book because every
+              ENGU-Q Webull order had been closed by qqq_exec's 15:59 end-of-day flatten, never
+              by the strategy's own multi-day exit; the owner now accepts that, and QQQ's
+              RTH-only tape ("idc if its not getting 24hr data"). Nothing is added for it:
+              qqq_exec only opens it inside its session window and flattens every leg at
+              flat_by, so no overnight holding. Same cfg it had live before 2026-09-28 (commit
+              fb0f32f0's parent: phantom_safe, max_entry_age_sec, no eod_flat) plus
+              "live_since" -- it STARTS FLAT (see LIVE SINCE above _apply_live_since: its old
+              live state is discarded and it cold-starts, so no catch-up ENTRY and no EXIT
+              for a trade the book no longer holds). api/qqq_exec.py maps it to "ENGUQ".
 
 SHADOW LEGS (OWNER DECISION 2026-09-28, via MANAGER) -- SHADOW_LEGS below. Same engine,
 same bars, NO orders: they write only to their own store, <home>/cloud_signal/shadow/
@@ -59,13 +71,10 @@ from cloud_signal_thread, after the live step, on fetch ticks only.
   NOISE_422_PLAIN   run #422, NOISE_1_8_CT304H.py, NOISE_422_PARAMS, 5m RTH, no KEEL.
   NOISE_422_FIXED   the same + KEEL v12's fixed tilts, no model (research arm A3).
   NOISE_422_KEEL    the same + KEEL v12 learned, its own nightly state (NOISE_422_KEEL_v12_*).
-  ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
-              Live until 2026-09-28: the box ledgers showed every ENGU-Q Webull order was
-              closed by qqq_exec's 15:59 end-of-day flatten, never by the strategy's own
-              multi-day exit (owner: no flat-at-close variant) -- so it now only logs its
-              would-be trades, with its own exits, to the shadow ledger. Its cfg is moved
-              unchanged (phantom_safe, max_entry_age_sec). api/qqq_exec.py keeps
-              "ENGUQ_335" in ENGINE_LEG_MAP so an old live row still resolves.
+  (ENGUQ_335 was the fourth shadow leg from 2026-09-28 to 2026-10-09, when it went back to
+  CROWN_LEGS. Its shadow rows stay in the shadow ledger untouched -- tools/
+  shadow_legs_report.py still lists them, as a leg found in the ledger -- and its record in
+  the shadow state.json is simply no longer stepped.)
 
 ENGINE LIMITATION, READ BEFORE TRUSTING THE ENGUQ_335 LEG. The ENGU-Q family crown
 moved to an ETH (23-hour NQ futures) config on 2026-09-08. yfinance QQQ bars (this
@@ -277,6 +286,11 @@ def keel_mode(keel_cfg):
     return mode
 
 
+# LIVE SINCE for ENGUQ_335 (OWNER DECISION 2026-10-09, via MANAGER #102) -- see LIVE SINCE
+# above _apply_live_since. Changing it re-runs that leg's cold start once, on purpose.
+ENGUQ_LIVE_SINCE = "2026-10-09"
+
+
 def keel_paths(leg_key, version, home=None):
     """Where tools/keel_live_state.py writes -- and this module reads -- a leg's KEEL
     state (joblib, this-host-only, never copied across machines) and its JSON summary
@@ -318,8 +332,35 @@ CROWN_LEGS = {
         # Flat at the session's last bar (NOISE_1_0.py's STEP E) -- see EOD SETTLE.
         "eod_flat": True,
     },
-    # ENGUQ_335 moved to SHADOW_LEGS below, unchanged (OWNER DECISION 2026-09-28) -- it
-    # sends no Webull orders from that deploy on.
+    # LIVE AGAIN SINCE 2026-10-09 (OWNER DECISION via MANAGER #102) -- see the module
+    # docstring. The cfg it had live before 2026-09-28 (fb0f32f0's parent), key for key,
+    # plus "live_since". No "eod_flat": its strategy holds overnight in the backtest, so its
+    # engine trade may stay open past the close; the BOOK is flat at qqq_exec's flat_by
+    # anyway (that is the executor's rail, not the strategy's exit).
+    "ENGUQ_335": {
+        "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
+        "timeframe": "1m",
+        # phantom_safe=True (2026-09-26, WEBULL_GO_LIVE.md 3.7): ONLY this leg opts in.
+        # phantom_safe is a run_backtest KEYWORD ARGUMENT, not a DEFAULT_PARAMS entry (kept out
+        # of DEFAULT_PARAMS on purpose so no search space ever sweeps it -- see that file's own
+        # comment just above DEFAULT_PARAMS' closing brace). The strategy's own default is False
+        # (every backtest, validate and paper leg keeps today's behaviour) -- this is the one
+        # caller that re-runs the walk on a rolling window that keeps growing bar by bar, which
+        # is exactly the shape that used to book a trade a full backtest never takes (see
+        # ENGUQ_1M_ETH_R2_1_0.py's comment for what the flag does).
+        "params": dict(ENGUQ_335, phantom_safe=True),
+        # With phantom_safe a REAL later entry only shows once the earlier setup's 10-bar
+        # fill window has run out, up to ~10 one-minute bars after its own fill bar
+        # (seen 2026-09-24 12:17). Accept entries up to 11 bars old instead of the
+        # default 3, so a late real trade is taken rather than dropped (lead, 2026-09-26).
+        "max_entry_age_sec": 11 * 60,
+        "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
+        # see module docstring "ENGINE LIMITATION" — flagged, not hidden
+        "caveat": "ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed",
+        # START FLAT (owner 2026-10-09): the box's live state.json still holds this leg's
+        # pre-2026-09-28 records -- see LIVE SINCE above _apply_live_since.
+        "live_since": ENGUQ_LIVE_SINCE,
+    },
 }
 
 # ── Shadow legs (OWNER DECISION 2026-09-28) -- see the module docstring's SHADOW LEGS ────
@@ -366,32 +407,8 @@ SHADOW_LEGS = {
         "eod_flat": True,
         "shadow": True,
     },
-    # Moved here unchanged from CROWN_LEGS (was live until 2026-09-28) -- see the docstring.
-    # No "eod_flat": its engine trade holds overnight like the backtest (owner GO
-    # 2026-09-28), so its last-bar exit stays an open trade here.
-    "ENGUQ_335": {
-        "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
-        "timeframe": "1m",
-        # phantom_safe=True (2026-09-26, WEBULL_GO_LIVE.md 3.7): ONLY this leg opts in (live until
-        # 2026-09-28, a shadow leg since).
-        # phantom_safe is a run_backtest KEYWORD ARGUMENT, not a DEFAULT_PARAMS entry (kept out
-        # of DEFAULT_PARAMS on purpose so no search space ever sweeps it -- see that file's own
-        # comment just above DEFAULT_PARAMS' closing brace). The strategy's own default is False
-        # (every backtest, validate and paper leg keeps today's behaviour) -- this is the one
-        # caller that re-runs the walk on a rolling window that keeps growing bar by bar, which
-        # is exactly the shape that used to book a trade a full backtest never takes (see
-        # ENGUQ_1M_ETH_R2_1_0.py's comment for what the flag does).
-        "params": dict(ENGUQ_335, phantom_safe=True),
-        # With phantom_safe a REAL later entry only shows once the earlier setup's 10-bar
-        # fill window has run out, up to ~10 one-minute bars after its own fill bar
-        # (seen 2026-09-24 12:17). Accept entries up to 11 bars old instead of the
-        # default 3, so a late real trade is taken rather than dropped (lead, 2026-09-26).
-        "max_entry_age_sec": 11 * 60,
-        "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
-        # see module docstring "ENGINE LIMITATION" — flagged, not hidden
-        "caveat": "ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed",
-        "shadow": True,
-    },
+    # ENGUQ_335 was the fourth shadow leg from 2026-09-28 until it went back to CROWN_LEGS on
+    # 2026-10-09 (OWNER DECISION) -- see the module docstring. Its shadow rows stay as history.
 }
 
 # Sizing: identical convention to tools/qqq_paper.py (shares = floor($ notional / entry px)).
@@ -2700,6 +2717,111 @@ TRADE_KEY_FORMAT = "trade_id_v1"
 SEED_OPEN_FORMAT = 1
 SEEDED_REASON_TAG = "seeded=1"
 
+# LIVE SINCE (2026-10-09, OWNER DECISION via MANAGER #102 -- ENGU-Q back on the book). A leg's
+# cfg may carry "live_since": "YYYY-MM-DD", the day it (re)joined the order-placing book. When
+# the leg's stored state (state.json legs[<key>]) does not carry that same value, the state is
+# from an EARLIER stint: it is discarded, once, and the leg COLD STARTS like a leg never seen
+# before (_diff_leg's COLD START: one SEED row, every trade in the window absorbed -- including
+# one still open, so no catch-up ENTRY for a trade the strategy is already in, and no EXIT for a
+# position the book never took). The state is stamped leg_state["live_since"] at the discard, so
+# it never repeats; the SEED row's reason names the live_since. A leg whose cfg has no
+# "live_since" behaves exactly as before.
+# WHY (verified on the box 2026-10-09): ENGUQ_335's live state.json still held its
+# pre-2026-09-28 records -- the 09-28 12:32 long (ENGUQ_335-20260928T163200Z-L) with
+# exit_emitted False, which the strategy closed 2026-10-08 13:01 @ 746.8612, and two phantom
+# ghosts (09-17, 09-23) with exit_emitted False -- so re-adding the leg as-is would have emitted
+# an EXIT for that trade on the first tick, for a position the book closed at 15:59 on 09-28.
+LIVE_SINCE_KEY = "live_since"
+
+
+def _apply_live_since(leg_key, cfg, leg_state, now=None, log=print):
+    """LIVE SINCE (see the block above): when `cfg` carries "live_since" and `leg_state` does
+    not carry the same value, empty `leg_state` IN PLACE (every key -- trades, seeded,
+    counters, last_bar_epoch) and stamp it with that live_since plus a small record of what
+    was discarded, timed by the caller's `now` (so a replay's state stays deterministic); the
+    caller's next _diff_leg then cold-starts the leg. Returns True when it discarded. Never
+    raises; a cfg with no live_since, or a state already stamped with it, changes nothing."""
+    try:
+        want = (cfg or {}).get(LIVE_SINCE_KEY)
+        if not want or leg_state.get(LIVE_SINCE_KEY) == want:
+            return False
+        old_trades = leg_state.get("trades") or {}
+        owed = sorted(k for k, rec in old_trades.items()
+                      if isinstance(rec, dict) and not rec.get("exit_emitted"))
+        had = bool(old_trades) or bool(leg_state.get("seeded"))
+        prev = leg_state.get(LIVE_SINCE_KEY)
+        leg_state.clear()
+        leg_state["trades"] = {}
+        leg_state[LIVE_SINCE_KEY] = want
+        leg_state["live_since_reset"] = {
+            "at": (now or _dt.datetime.now(tz=_zi(TZ))).isoformat(),
+            "previous_live_since": prev,
+            "discarded_trades": len(old_trades),
+            # ids only, capped -- what WOULD have emitted an EXIT had the state been kept
+            "discarded_exit_owed": owed[:20],
+        }
+        if had:
+            log(f"[cloud-signal] {leg_key}: live since {want} -- its earlier state "
+                f"({len(old_trades)} trade record(s), {len(owed)} with an exit still owed"
+                + (f": {', '.join(owed[:5])}" if owed else "")
+                + ") discarded; cold start next (SEED only, nothing entered or exited)")
+        else:
+            log(f"[cloud-signal] {leg_key}: live since {want} -- no earlier state; cold start "
+                f"next (SEED only)")
+        return True
+    except Exception as e:
+        log(f"[cloud-signal] {leg_key}: live_since check failed ({type(e).__name__}: {e}) -- "
+            f"state left as it was")
+        return False
+
+
+def _entry_from_previous_session(t, now):
+    """True when trade `t`'s entry is dated the session right before `now`'s ET date (the
+    last session day strictly before it) -- a "stale" entry _diff_leg logs as not taken,
+    unlike an older one (the rolling window's left edge re-minting a trade). Never raises."""
+    try:
+        et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+        d = et.date() - _dt.timedelta(days=1)
+        for _ in range(15):
+            if market_calendar.is_session(d):
+                return str(t.get("entry_time"))[:10] == d.isoformat()
+            d -= _dt.timedelta(days=1)
+        return False
+    except Exception:
+        return False
+
+
+def _not_taken_after_close_line(leg_key, t, now):
+    """The ONE plain log line for a live leg's NEW entry first seen once its session has
+    closed (_diff_leg's "after_close" skip, or a "stale" entry from the previous session --
+    see _entry_from_previous_session): which strategy, which side, the signal's own bar time,
+    and why nothing was sent. Never raises."""
+    when = None
+    try:
+        when = _dt.datetime.fromisoformat(str(t.get("entry_time")))
+        when = when.astimezone(_zi(TZ)) if when.tzinfo else when.replace(tzinfo=_zi(TZ))
+        at = f"{when:%H:%M} ET on {when:%Y-%m-%d}"
+    except Exception:
+        when = None
+        at = str(t.get("entry_time"))
+    try:
+        seen = now.astimezone(_zi(TZ)) if now.tzinfo else now.replace(tzinfo=_zi(TZ))
+        if when is not None and when.date() != seen.date():
+            # first seen in a later session: name that day, and the signal's own session close
+            close = _session_close_dt(when)
+            close_txt = (f"that session's {close:%H:%M} close" if close is not None
+                         else "that session's close")
+            seen_txt = f"{seen:%H:%M:%S} ET on {seen:%Y-%m-%d}"
+        else:
+            close = _session_close_dt(now)
+            close_txt = f"the {close:%H:%M} close" if close is not None else "the session close"
+            seen_txt = f"{seen:%H:%M:%S} ET"
+    except Exception:
+        close_txt, seen_txt = "the session close", str(now)
+    return (f"[cloud-signal] {_keel_leg_word(leg_key)} {t.get('side')} signal at {at} "
+            f"({leg_key}) not taken: the market is closed -- the strategy's entry was first "
+            f"seen at {seen_txt}, after {close_txt}. No order.")
+
 
 def _merge_rank(rec):
     """Which of two memory records for ONE trade id to keep when re-keying: a record whose
@@ -3197,6 +3319,10 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
                 tf_source[tf] = bar_sources[tf]
         epoch_df = tf_cache[tf]
         leg_state = state["legs"].setdefault(key, {"trades": {}})
+        # LIVE SINCE (2026-10-09): an earlier stint's state is discarded before anything reads
+        # it -- including the "no new bar" short-circuit below -- and persisted as discarded
+        # by this call's own state write even when no bar is usable yet.
+        _apply_live_since(key, cfg, leg_state, now=now)
         if epoch_df is None or not len(epoch_df):
             continue
 
@@ -3376,7 +3502,8 @@ def _carry_seeded_open(leg_key, trades, leg_state, bar_source, now):
 
 
 def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_source=None,
-             cfg=None, arrays=None, fetch=True, log=print, post_close=False):
+             cfg=None, arrays=None, fetch=True, log=print, post_close=False,
+             not_taken_log=None):
     """Mutates leg_state['trades'] (entry_key -> record) in place; returns the list of
     NEW ENTRY/EXIT event dicts this call discovered.
 
@@ -3442,6 +3569,25 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     repeats it. A shadow leg seeded before this existed is upgraded once by
     _carry_seeded_open (below).
 
+    LIVE SINCE (2026-10-09 -- see the block above _apply_live_since). A cfg carrying
+    "live_since" whose value `leg_state` does not carry yet gets its state discarded first
+    (step() already did that on its own call; this covers every other caller, e.g. the
+    stream path), so the leg cold-starts here: SEED only, the SEED reason naming it.
+
+    AFTER-CLOSE ENTRIES GET ONE LOG LINE (2026-10-09). A live leg's NEW entry first seen once
+    its session has closed is still never emitted, but it is no longer silent: one plain line
+    names the strategy, side, the signal's bar time and why (_not_taken_after_close_line).
+    Two shapes: the "after_close" skip below (first seen after today's bell), and a "stale"
+    entry dated the session right before `now`'s (first seen the next session -- ENGU-Q's
+    phantom_safe walk only finishing a 15:5x setup's fill window on the next morning's bars,
+    or an EOD settle that gave up; see _entry_from_previous_session). Older stale entries
+    (the rolling window's left edge re-minting a trade) stay silent. Once per trade -- its
+    record stops a repeat. Not for a shadow leg (it sends no order either way).
+    `not_taken_log` receives that line (default: `log`); False drops it. The stream path's
+    dry runs on throwaway state copies (api/cloud_signal_stream._dry_run_decision) collect it
+    and log it only for a decision they commit, so a tick through the stream path still logs
+    it once -- not once per dry run plus once more from step().
+
     TRADE ID (2026-09-14). Every ENTRY and EXIT event carries `trade_id` (api/trade_id.py),
     the same value on both rows of one trade, and it is also the key of this leg's memory
     (see _entry_key; _rekey_recorded_trades upgrades a pre-2026-09-14 memory once). An
@@ -3464,6 +3610,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     """
     events = []
     levels_on = bool((cfg or {}).get("resting_levels"))
+    _apply_live_since(leg_key, cfg, leg_state, now=now, log=log)   # LIVE SINCE -- see the docstring
     _rekey_recorded_trades(leg_key, leg_state)
     recorded = leg_state.setdefault("trades", {})
     carry_open = bool((cfg or {}).get("shadow"))      # SHADOW legs only -- see SEED_OPEN_FORMAT
@@ -3497,7 +3644,9 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
             "keel_size": "",
             "reason": (f"cold start: absorbed {len(trades)} historical trade(s) without "
                        f"emitting; open_at_seed={open_at_seed}"
-                       + ("; shadow leg: carried as an open would-be trade" if carried else "")),
+                       + ("; shadow leg: carried as an open would-be trade" if carried else "")
+                       + (f"; live_since={leg_state[LIVE_SINCE_KEY]} (earlier state discarded, "
+                          "starts flat)" if leg_state.get(LIVE_SINCE_KEY) else "")),
         })
         for key, t in carried:
             events.append(_seeded_entry_event(leg_key, key, t, recorded[key], bar_source,
@@ -3549,6 +3698,12 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
             if skip:
                 counter = f"{skip}_skipped"
                 leg_state[counter] = int(leg_state.get(counter, 0)) + 1
+                note = log if not_taken_log is None else not_taken_log
+                if note and not (cfg or {}).get("shadow") and (
+                        skip == "after_close"
+                        or (skip == "stale" and _entry_from_previous_session(t, now))):
+                    # the market is closed: never emitted, never silent (see the docstring)
+                    note(_not_taken_after_close_line(leg_key, t, now))
                 continue
             # real per-trade size when the leg declares one, else 1.0 -- see
             # run_leg_trades's PER-TRADE SIZE contract and SIGNAL_COLS's "size" column.
@@ -3844,7 +3999,9 @@ def _write_heartbeat(paths, ok=True, note="", cache_write_failed=False, health=N
 
     `health` (2026-10-05, FEED HEALTH): the in-session live step's bar freshness, merged in
     as extra keys -- newest_closed_bar_et, newest_closed_bar_epoch, bar_age_s, bars_due,
-    bars_missing, stalled, verdict, bar_source, yf_fallback_streak (see _feed_health).
+    bars_missing, stalled, verdict, bar_source, yf_fallback_streak (see _feed_health) -- the
+    5m's figures -- plus stalled_timeframes and feed_by_timeframe for every live timeframe
+    (2026-10-09, ENGU-Q's 1m: EVERY LIVE TIMEFRAME in the FEED HEALTH block).
     `ok` keeps its old meaning (the step RAN): read `verdict` / `stalled` for "bars are
     arriving"."""
     os.makedirs(paths["state_dir"], exist_ok=True)
@@ -4056,10 +4213,11 @@ NOISE_FORWARD_LOG = True
 
 
 def shadow_only_timeframes(live_legs=None, shadow_legs=None):
-    """The timeframes a shadow leg reads that NO live leg does, sorted -- today ["1m"]
-    (ENGUQ_335). The live step already fetches every live timeframe once per fetch tick;
-    run_shadow_step fetches only these, so each timeframe is fetched exactly once per tick
-    (Webull rate-limits with 429) and the 1m cache stays fresh with ENGU-Q off the book."""
+    """The timeframes a shadow leg reads that NO live leg does, sorted -- today [] (every
+    shadow leg is 5m; it was ["1m"] while ENGUQ_335 was a shadow leg, 2026-09-28..10-09 --
+    the live step fetches 1m again now that ENGU-Q is live). The live step already fetches
+    every live timeframe once per fetch tick; run_shadow_step fetches only these, so each
+    timeframe is fetched exactly once per tick (Webull rate-limits with 429)."""
     live_legs = CROWN_LEGS if live_legs is None else live_legs
     shadow_legs = SHADOW_LEGS if shadow_legs is None else shadow_legs
     live_tfs = {cfg["timeframe"] for cfg in live_legs.values()}
@@ -4345,6 +4503,17 @@ def _note_eod_gave_up(paths, day, close_dt, now, why, log=print):
 # a fresh heartbeat carries `stalled` (bar_age) or yf_fallback_streak (bar_source), its
 # episode opens QUIET (tracked on its status, not pushed) -- this engine is the pager. With
 # a stale heartbeat, or an engine older than these fields, it pages them itself.
+#
+# EVERY LIVE TIMEFRAME (2026-10-09, review of ENGU-Q's return to the book). Both alerts used
+# to read the 5m figures only -- fine while every live leg was 5m (2026-09-28..10-09), but
+# ENGU-Q trades on 1m bars, fetched second on each tick, so a 1m fetch that came back empty
+# (a 429) or a frozen 1m tail left it on late or no bars with nothing paged. Now:
+#   * a stall pages for ANY live timeframe: the 5m on its own verdict, as before; another one
+#     (1m) once it has been silent for the 5m's own limit (660 s, `silent_s`), so a 1m tail
+#     running 2-3 bars behind -- yfinance's 30-90 s lag -- never flaps a page;
+#   * the yfinance streak counts a fetch tick on which ANY live timeframe came from yfinance;
+#   * the heartbeat keeps its top-level 5m figures (tools/webull_freshness.py's bar_age reads
+#     them as 5m) and adds stalled_timeframes and feed_by_timeframe {tf: figures + source}.
 FEED_STALL_GRACE_BARS = 2
 FEED_STALL_EXTRA_SEC = 60.0
 FEED_YF_PUSH_FETCHES = 3
@@ -4365,12 +4534,15 @@ def bar_health(epoch_df, now, tf):
       bars_missing             how many of those are not in the frame
       stalled                  in session, at least one bar due, and nothing new closed for
                                two bars + 60 s (5m: 660 s; before the first bar of the day the
-                               clock starts at the open, so 09:41 at the earliest)"""
+                               clock starts at the open, so 09:41 at the earliest)
+      silent_s                 the seconds that stall clock has run (None until a bar is due)
+                               -- _feed_stall_pages reads it for a non-5m timeframe"""
     sec = TIMEFRAME_SECONDS[tf]
     et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
     now_e = et.timestamp()
     out = {"timeframe": tf, "newest_closed_bar_et": None, "newest_closed_bar_epoch": None,
-           "bar_age_s": None, "bars_due": 0, "bars_missing": 0, "stalled": False}
+           "bar_age_s": None, "bars_due": 0, "bars_missing": 0, "stalled": False,
+           "silent_s": None}
     cutoff = _closed_cutoff_epoch(et, tf)
     usable = None
     newest = None
@@ -4399,6 +4571,7 @@ def bar_health(epoch_df, now, tf):
         out["bars_missing"] = int(max(0, due - present))
     if open_dt <= et <= close_dt and out["bars_due"] >= 1:
         ref = max((newest + sec) if newest is not None else 0, open_e)
+        out["silent_s"] = round(now_e - ref, 1)
         out["stalled"] = (now_e - ref) > _feed_stall_limit_sec(tf)
     return out
 
@@ -4436,6 +4609,22 @@ def _hhmm_of(iso):
         return "none"
 
 
+def _feed_stall_pages(x, primary):
+    """Whether timeframe health `x` is in a stall that pages (EVERY LIVE TIMEFRAME in the FEED
+    HEALTH block): the primary (5m) timeframe on its own verdict, as before; any other live
+    timeframe on its verdict AND only once it has been silent for the primary's own limit
+    (660 s), so a 1m tail a few bars behind never flaps a page. Never raises."""
+    try:
+        if not x.get("stalled"):
+            return False
+        if x is primary:
+            return True
+        return float(x.get("silent_s")) > _feed_stall_limit_sec(
+            primary.get("timeframe") or FEED_PRIMARY_TF)
+    except Exception:
+        return False
+
+
 def _feed_health(now, warnings, paths, log=print):
     """The in-session heartbeat's FEED HEALTH fields from step()'s warnings["bar_health"],
     plus the one-push-per-episode alerts (see the FEED HEALTH block). Never raises: a
@@ -4454,14 +4643,27 @@ def _feed_health(now, warnings, paths, log=print):
         fields = {k: h.get(k) for k in ("newest_closed_bar_et", "newest_closed_bar_epoch",
                                          "bar_age_s", "bars_due", "bars_missing", "stalled")}
         fields["bar_timeframe"] = tf
-        fields["verdict"] = "stalled" if h.get("stalled") else "ok"
+        # EVERY LIVE TIMEFRAME (2026-10-09 -- see the FEED HEALTH block): the 5m first, then
+        # every other timeframe a live leg reads (1m for ENGU-Q); the top-level figures above
+        # stay the 5m's
+        watched = [h] + [bh[k] for k in sorted(bh) if bh[k] is not h
+                         and isinstance(bh[k], dict) and not bh[k].get("error")]
+        paging = [x for x in watched if _feed_stall_pages(x, h)]
+        fields["stalled_timeframes"] = [x.get("timeframe") for x in paging]
+        fields["feed_by_timeframe"] = {
+            str(x.get("timeframe")): {k: x.get(k) for k in (
+                "newest_closed_bar_epoch", "bar_age_s", "bars_due", "bars_missing", "stalled",
+                "source")} for x in watched}
+        fields["verdict"] = "stalled" if (h.get("stalled") or paging) else "ok"
         et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
         day = et.date().isoformat()
         from api import ntfy_push
         mem = _load_feed_alerts(paths)
         changed = False
         host = _this_host_id()
-        newest = _hhmm_of(h.get("newest_closed_bar_et"))
+        sh = paging[0] if paging else h            # the stall this episode reports
+        stf = sh.get("timeframe") or tf
+        newest = _hhmm_of(sh.get("newest_closed_bar_et"))
 
         # 1. bars stopped (finding 6) -- one episode per stall, per session day
         st = mem.get("stall") if isinstance(mem.get("stall"), dict) else {}
@@ -4469,20 +4671,21 @@ def _feed_health(now, warnings, paths, log=print):
             log(f"[cloud-signal] FEED: yesterday's stall episode closed at the day change")
             st, changed = {}, True
             _engine_note_forget("feed_stall", paths, log=log)
-        if h.get("stalled"):
+        if paging:
             if not st.get("active"):
-                st = {"day": day, "active": True, "since": et.isoformat(), "pushed": False}
+                st = {"day": day, "active": True, "since": et.isoformat(), "pushed": False,
+                      "timeframe": stf}
                 changed = True
-                log(f"[cloud-signal] FEED STALLED: no new {tf} bar closed for "
-                    f"{(h.get('bar_age_s') or 0) / 60:.0f} min (newest {newest} ET, "
-                    f"{h.get('bars_missing')} of {h.get('bars_due')} bar(s) missing today)")
+                log(f"[cloud-signal] FEED STALLED: no new {stf} bar closed for "
+                    f"{(sh.get('bar_age_s') or 0) / 60:.0f} min (newest {newest} ET, "
+                    f"{sh.get('bars_missing')} of {sh.get('bars_due')} bar(s) missing today)")
             if not st.get("pushed"):
-                age_min = (h.get("bar_age_s") or 0) / 60.0
-                log(f"[cloud-signal] FEED STALLED page ({host}): no new {tf} bar for "
-                    f"{age_min:.0f} min, newest {newest} ET, {h.get('bars_missing')} of "
-                    f"{h.get('bars_due')} missing, source {h.get('source') or 'cache'}")
-                newest_epoch = h.get("newest_closed_bar_epoch")
-                closed_at = (float(newest_epoch) + TIMEFRAME_SECONDS.get(tf, 300)
+                age_min = (sh.get("bar_age_s") or 0) / 60.0
+                log(f"[cloud-signal] FEED STALLED page ({host}): no new {stf} bar for "
+                    f"{age_min:.0f} min, newest {newest} ET, {sh.get('bars_missing')} of "
+                    f"{sh.get('bars_due')} missing, source {sh.get('source') or 'cache'}")
+                newest_epoch = sh.get("newest_closed_bar_epoch")
+                closed_at = (float(newest_epoch) + TIMEFRAME_SECONDS.get(stf, 300)
                              if newest_epoch else None)
                 note = ntfy_push.plain(
                     "QQQ book", "prices stopped", "the QQQ book cannot enter or exit trades",
@@ -4499,7 +4702,10 @@ def _feed_health(now, warnings, paths, log=print):
                 mins = max(0.0, (et - since).total_seconds() / 60.0)
             except Exception:
                 mins = 0.0
-            log(f"[cloud-signal] FEED recovered: {tf} bars arriving again (newest {newest} ET)")
+            rtf = st.get("timeframe") or tf
+            rh = next((x for x in watched if x.get("timeframe") == rtf), h)
+            log(f"[cloud-signal] FEED recovered: {rtf} bars arriving again (newest "
+                f"{_hhmm_of(rh.get('newest_closed_bar_et'))} ET)")
             if st.get("pushed"):
                 _engine_note_clear("feed_stall", "QQQ book",
                                    f"prices stopped for about {mins:.0f} min", paths, log=log,
@@ -4517,8 +4723,13 @@ def _feed_health(now, warnings, paths, log=print):
             yf = {}
             mem["yf"] = yf
             changed = True
-        if h.get("fetched") and h.get("source"):
-            if h.get("source") == "yfinance":
+        # every live timeframe fetched on this tick (EVERY LIVE TIMEFRAME): one count per
+        # fetch tick on which ANY of them came from yfinance
+        fetched = [(x.get("timeframe"), x.get("source")) for x in watched
+                   if x.get("fetched") and x.get("source")]
+        yf_tfs = "/".join(str(t) for t, s in fetched if s == "yfinance")
+        if fetched:
+            if yf_tfs:
                 yf = dict(yf, streak=int(yf.get("streak") or 0) + 1, day=day)
                 if not yf.get("since"):
                     yf["since"] = et.isoformat()
@@ -4526,8 +4737,9 @@ def _feed_health(now, warnings, paths, log=print):
                 if yf["streak"] >= FEED_YF_PUSH_FETCHES and not yf.get("pushed"):
                     err = _WEBULL_LAST_ERR.get("text") or "no error text (empty reply)"
                     token = any(s in err.upper() for s in ("PENDING", "ERROR_INIT_TOKEN"))
-                    log(f"[cloud-signal] FEED ON YFINANCE page ({host}): live {tf} bars from "
-                        f"yfinance for {yf['streak']} fetches in a row; last Webull error: {err}")
+                    log(f"[cloud-signal] FEED ON YFINANCE page ({host}): live {yf_tfs} bars "
+                        f"from yfinance for {yf['streak']} fetches in a row; last Webull error: "
+                        f"{err}")
                     if token:
                         note = ntfy_push.plain(
                             "QQQ book", "approve Webull login",
@@ -4545,8 +4757,9 @@ def _feed_health(now, warnings, paths, log=print):
                     yf["pushed"] = True
             else:
                 if yf.get("pushed"):
-                    log(f"[cloud-signal] FEED: live {tf} bars from Webull again (after "
-                        f"{int(yf.get('streak') or 0)} yfinance fetches)")
+                    log(f"[cloud-signal] FEED: live "
+                        f"{'/'.join(str(t) for t, _ in fetched)} bars from Webull again "
+                        f"(after {int(yf.get('streak') or 0)} yfinance fetches)")
                     _engine_note_clear("feed_yf", "QQQ book", "prices from the backup source",
                                        paths, log=log, push=push)
                 if yf:
@@ -4836,8 +5049,11 @@ def cloud_signal_thread(stop=None, log=print):
                 # FEED HEALTH (2026-10-05): newest closed bar, its age, bars due/missing and
                 # the stalled verdict ride on the heartbeat; ok keeps its meaning
                 health = _feed_health(now_et, warnings, DEFAULT_PATHS, log=log)
-                if health.get("stalled"):
-                    note += f" -- STALLED: no new bar for {(health.get('bar_age_s') or 0) / 60:.0f} min"
+                if health.get("stalled") or health.get("stalled_timeframes"):
+                    s_tf = (health.get("stalled_timeframes") or [health.get("bar_timeframe")])[0]
+                    s_age = ((health.get("feed_by_timeframe") or {}).get(str(s_tf)) or {}).get(
+                        "bar_age_s", health.get("bar_age_s"))
+                    note += f" -- STALLED: no new {s_tf} bar for {(s_age or 0) / 60:.0f} min"
                 _write_heartbeat(DEFAULT_PATHS, ok=True, note=note, cache_write_failed=cache_failed,
                                  health=health)
                 for e in events:

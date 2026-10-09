@@ -1,23 +1,28 @@
 """tests/test_shadow_legs.py -- the Webull paper book's SHADOW LEGS (OWNER DECISION 2026-09-28,
-via MANAGER): NOISE #422 plain / + KEEL v12 fixed tilts / + KEEL v12 learned, and ENGU-Q
-moved off the live book, all logging would-be trades from the box's own bars into
-<home>/cloud_signal/shadow/ -- no orders, no effect on the live legs.
+via MANAGER): NOISE #422 plain / + KEEL v12 fixed tilts / + KEEL v12 learned, all logging
+would-be trades from the box's own bars into <home>/cloud_signal/shadow/ -- no orders, no
+effect on the live legs. ENGU-Q was the fourth shadow leg 2026-09-28..2026-10-09 and is LIVE
+again since (OWNER DECISION 2026-10-09, MANAGER #102): its shadow rows stay as history.
 
 COVERS:
-  1. The dicts: CROWN_LEGS is ORB_R6 + NOISE_382 exactly; SHADOW_LEGS has the four keys,
-     none colliding with a live key; ENGUQ_335 moved with its phantom-safe cfg unchanged.
+  1. The dicts: CROWN_LEGS is ORB_R6 + NOISE_382 + ENGUQ_335 exactly; SHADOW_LEGS has the
+     three #422 keys, none colliding with a live key; ENGUQ_335 is back on CROWN_LEGS with
+     the phantom-safe cfg it had live before 2026-09-28, plus live_since.
   2. The live step's events, state.json and signals.csv are byte-identical with and without
      the shadow run beside it (emitted_at -- the wall clock -- aside), over one synthetic
      session with every real leg.
   3. Shadow events land ONLY in the shadow store; the live store gains no shadow row, no
      shadow leg state and no heartbeat from the shadow run.
-  4. api/qqq_exec.py's engine reader consumes the live ledger only -- a shadow ENGU-Q ENTRY
-     is never read -- and the live step no longer writes any ENGUQ_335 row.
+  4. api/qqq_exec.py's engine reader consumes the live ledger only -- an ENGU-Q ENTRY left in
+     the shadow ledger (its 09-28..10-09 history) is never read -- and the live step runs
+     ENGUQ_335 again (cold start, SEED only) and fetches 1m itself.
   5. No ntfy push from a shadow leg: run_shadow_step on a cloud host, fetch tick, NOISE_422_KEEL
      with no state, a stale/missing everything -- nothing sent.
   6. Fetch discipline: on a fetch tick of cloud_signal_thread, 5m and 1m are each fetched
-     exactly once (5m by the live step, 1m by the shadow run); the shadow run is skipped on
-     a non-fetch tick; a failing shadow run never breaks the live tick, and logs rate-limited.
+     exactly once (a timeframe only a shadow leg reads is fetched by the shadow run -- stub
+     legs; with the shipped legs every timeframe is a live one, shadow_only_timeframes() is
+     empty); the shadow run is skipped on a non-fetch tick; a failing shadow run never breaks
+     the live tick, and logs rate-limited.
   7. api/cloud_signal_stream.py stays live-legs-only.
   8. tools/keel_live_state.py's nightly default builds the two learned legs only.
   9. tools/shadow_legs_report.py's arithmetic, and tools/pull_box_ledgers.py copies the
@@ -52,30 +57,39 @@ import tools.pull_box_ledgers as pbl                # noqa: E402
 import tools.shadow_legs_report as rpt              # noqa: E402
 
 QUIET = lambda *a, **k: None   # noqa: E731
-SHADOW_KEYS = ["NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL", "ENGUQ_335"]
+SHADOW_KEYS = ["NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL"]
+LIVE_KEYS = ["ORB_R6", "NOISE_382", "ENGUQ_335"]
 
 
 # ── 1. the dicts ─────────────────────────────────────────────────────────────────────────
 def test_live_and_shadow_leg_sets():
-    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382"]
+    assert list(cs.CROWN_LEGS) == LIVE_KEYS
     assert list(cs.SHADOW_LEGS) == SHADOW_KEYS
     assert not set(cs.CROWN_LEGS) & set(cs.SHADOW_LEGS), "a trade id carries the leg key"
     assert all(cfg.get("shadow") is True for cfg in cs.SHADOW_LEGS.values())
     assert not any(cfg.get("shadow") for cfg in cs.CROWN_LEGS.values())
-    assert cs.shadow_only_timeframes() == ["1m"]
+    # every shadow leg is 5m and 1m is a LIVE timeframe again (ENGUQ_335): nothing is
+    # fetched by the shadow run alone
+    assert cs.shadow_only_timeframes() == []
 
 
-def test_enguq_335_moved_to_shadow_with_its_phantom_safe_cfg_unchanged():
-    assert "ENGUQ_335" not in cs.CROWN_LEGS
-    leg = cs.SHADOW_LEGS["ENGUQ_335"]
+def test_enguq_335_is_live_again_with_its_pre_0928_cfg():
+    """OWNER DECISION 2026-10-09 (MANAGER #102): back on CROWN_LEGS, key for key the cfg it
+    had live before 2026-09-28 (fb0f32f0's parent) plus live_since -- phantom_safe kept, no
+    eod_flat / decide_at_close / keel, never "shadow"."""
+    assert "ENGUQ_335" not in cs.SHADOW_LEGS
+    leg = cs.CROWN_LEGS["ENGUQ_335"]
     assert leg["strategy"] == "ENGUQ_1M_ETH_R2_1_0.py" and leg["timeframe"] == "1m"
     assert leg["params"] == dict(ENGUQ_335, phantom_safe=True)
     assert leg["params"]["phantom_safe"] is True
     assert leg["max_entry_age_sec"] == 11 * 60
     assert leg["warmup_sessions"] == cs.DEFAULT_WARMUP_SESSIONS
     assert "caveat" in leg and "keel" not in leg and not leg.get("decide_at_close")
+    assert not leg.get("eod_flat") and "shadow" not in leg
+    assert leg["live_since"] == cs.ENGUQ_LIVE_SINCE == "2026-10-09"
     assert set(leg) == {"strategy", "timeframe", "params", "max_entry_age_sec",
-                        "warmup_sessions", "caveat", "shadow"}
+                        "warmup_sessions", "caveat", "live_since"}
+    assert qe.ENGINE_LEG_MAP["ENGUQ_335"] == "ENGUQ"
 
 
 def test_shadow_paths_share_the_bars_and_nothing_else(tmp_path):
@@ -112,18 +126,18 @@ def _make_home(root):
 
 def _live_legs(home):
     """The SHIPPED live legs, NOISE_382's KEEL pointed at this test home (no state there --
-    it scores 1.0, and fetch here is patched so no push can be sent)."""
+    it scores 1.0, and fetch here is patched so no push can be sent) and ENGU-Q on a
+    3-session window (the synthetic 1m tape is short)."""
     return {"ORB_R6": dict(cs.CROWN_LEGS["ORB_R6"]),
             "NOISE_382": dict(cs.CROWN_LEGS["NOISE_382"],
-                              keel=dict(version="v12", **cs.keel_paths("NOISE_382", "v12", home=home)))}
+                              keel=dict(version="v12", **cs.keel_paths("NOISE_382", "v12", home=home))),
+            "ENGUQ_335": dict(cs.CROWN_LEGS["ENGUQ_335"], warmup_sessions=3)}
 
 
 def _shadow_legs(home):
-    """The SHIPPED shadow legs, NOISE_422_KEEL on a real fitted state in this test home and
-    ENGU-Q on a 3-session window (the synthetic 1m tape is short)."""
+    """The SHIPPED shadow legs, NOISE_422_KEEL on a real fitted state in this test home."""
     legs = {k: dict(v) for k, v in cs.SHADOW_LEGS.items()}
     legs["NOISE_422_KEEL"]["keel"] = T422._write_keel_state(home)
-    legs["ENGUQ_335"]["warmup_sessions"] = 3
     return legs
 
 
@@ -189,8 +203,8 @@ def test_live_step_is_byte_identical_with_and_without_the_shadow_run(tmp_path, o
     assert _strip_clock(rows_a) == _strip_clock(rows_b)
 
     # 3. the shadow run wrote ONLY the shadow store
-    assert {r["leg"] for r in rows_a} == {"ORB_R6", "NOISE_382"}
-    assert set(json.load(open(a_paths["state_path"], encoding="utf-8"))["legs"]) == {"ORB_R6", "NOISE_382"}
+    assert {r["leg"] for r in rows_a} == set(LIVE_KEYS)
+    assert set(json.load(open(a_paths["state_path"], encoding="utf-8"))["legs"]) == set(LIVE_KEYS)
     assert not os.path.exists(a_paths["heartbeat_path"]), "the shadow run never writes the live heartbeat"
     sp = cs.shadow_paths(a_paths)
     shadow_rows = _ledger_rows(sp["signals_path"])
@@ -201,13 +215,16 @@ def test_live_step_is_byte_identical_with_and_without_the_shadow_run(tmp_path, o
     assert [r for r in shadow_rows if r["event"] == "ENTRY"], "the #422 legs trade the session"
     assert all(r["bar_source"] == "webull" for r in shadow_rows if r["event"] != "SEED")
     assert len(a_shadow) == len(shadow_rows), "run_shadow_step returns what it wrote"
-    # fetch discipline inside the drive: the live step fetched 5m, the shadow run 1m only
+    # fetch discipline inside the drive: the live step fetched 5m and 1m (ENGU-Q is live
+    # again), the shadow run nothing -- each timeframe once per tick
     assert n_calls_with == 2 * len(list(_ticks()))
     assert offline[:n_calls_with].count("1m") == offline[:n_calls_with].count("5m")
 
 
-# ── 4. qqq_exec reads the live ledger only; ENGU-Q writes no live row ────────────────────
+# ── 4. qqq_exec reads the live ledger only; ENGU-Q is a live leg again ───────────────────
 def test_qqq_exec_reader_ignores_the_shadow_ledger(tmp_path, monkeypatch):
+    """An ENGUQ_335 row in the SHADOW ledger (its 09-28..10-09 history) never becomes an order,
+    now that ENGUQ_335 is a live key again -- the reader opens the live ledger only."""
     live = cs._paths(home=str(tmp_path))
     monkeypatch.setattr(cs, "DEFAULT_PATHS", live)
     now = pd.Timestamp("2026-09-29 10:00:30", tz=cs.TZ).to_pydatetime()
@@ -228,16 +245,22 @@ def test_qqq_exec_reader_ignores_the_shadow_ledger(tmp_path, monkeypatch):
     assert qe._cs_module().DEFAULT_PATHS["signals_path"] == live["signals_path"] != sp["signals_path"]
 
 
-def test_live_step_writes_no_enguq_row(tmp_path, offline):
-    """ENGUQ_335 is off CROWN_LEGS: the SHIPPED live step (default legs) never emits an
-    ENGU-Q row, however much 1m history sits in the cache, and never fetches 1m itself."""
+def test_live_step_runs_enguq_again_and_fetches_1m_itself(tmp_path, offline):
+    """ENGUQ_335 is back on CROWN_LEGS (2026-10-09): the SHIPPED live step (default legs)
+    steps it, starting with ONE cold-start SEED stamped with its live_since, and fetches 1m
+    itself (no shadow leg needs it any more)."""
     paths = _make_home(tmp_path)
     events = []
     for now in _ticks(6):
         events += cs.step(now=now, paths=paths, fetch=True)
-    assert events and {e["leg"] for e in events} <= {"ORB_R6", "NOISE_382"}
-    assert "ENGUQ_335" not in json.load(open(paths["state_path"], encoding="utf-8"))["legs"]
-    assert set(offline) == {"5m"}
+    assert events and {e["leg"] for e in events} <= set(LIVE_KEYS)
+    enguq = [e for e in events if e["leg"] == "ENGUQ_335"]
+    assert enguq and enguq[0]["event"] == "SEED"
+    assert [e for e in enguq if e["event"] == "SEED"] == enguq[:1], "ONE seed"
+    assert "live_since=2026-10-09" in enguq[0]["reason"]
+    st = json.load(open(paths["state_path"], encoding="utf-8"))["legs"]["ENGUQ_335"]
+    assert st["live_since"] == "2026-10-09" and st["seeded"] is True
+    assert set(offline) == {"5m", "1m"}
 
 
 # ── 5. no push from a shadow leg ─────────────────────────────────────────────────────────
@@ -252,7 +275,6 @@ def test_no_push_from_shadow_legs_even_with_keel_state_missing_on_a_cloud_host(t
     # NOISE_422_KEEL with NO state (the first session after deploy), in this test home
     shadow["NOISE_422_KEEL"]["keel"] = dict(version="v12", **cs.keel_paths("NOISE_422_KEEL", "v12",
                                                                            home=paths["home"]))
-    shadow["ENGUQ_335"]["warmup_sessions"] = 3
     seen_fetch = []
     real_step = cs.step
 
@@ -407,7 +429,9 @@ def test_shadow_legs_report_numbers(tmp_path, capsys):
     assert (f["trades"], f["open"], f["net_usd"]) == (2, 1, 2.5)
     assert f["largest_win_usd"] == 12.5 and f["largest_loss_usd"] == -10.0
     assert L["ENGUQ_335"]["net_usd"] == 10.0 and L["NOISE_422_PLAIN"]["trades"] == 0
-    assert list(L)[2:6] == SHADOW_KEYS
+    # the shadow legs first, then ENGUQ_335's shadow-ledger history (a leg found in the
+    # ledger -- it went live again on 2026-10-09, its old rows stay reported)
+    assert list(L)[2:] == SHADOW_KEYS + ["ENGUQ_335"]
     assert rep["keel"]["NOISE_422_KEEL"]["data_through"] is None
     assert rpt.main(["--home", str(tmp_path)]) == 0
     assert "NOISE_422_FIXED" in capsys.readouterr().out
@@ -434,12 +458,18 @@ def test_pull_box_ledgers_copies_the_shadow_store_and_the_new_keel_summary():
         assert rel in pbl.FILES, rel
 
 
-def test_qqq_exec_still_knows_enguq_s_bar_width_for_old_rows():
-    """ENGUQ_335 is off CROWN_LEGS, but an old ENGUQ order row keeps its after-close latency
-    (and a leftover ENGUQ lot could still be marked): the timeframe lookup falls back to
-    SHADOW_LEGS. NOISE and ORB still resolve to their live keys."""
+def test_qqq_exec_resolves_enguq_from_the_live_legs_again(monkeypatch):
+    """ENGUQ_335 is on CROWN_LEGS again (2026-10-09): its exec leg resolves to the live cfg
+    (1m bars). The SHADOW_LEGS fallback stays for a leg whose every engine key is off the
+    live book -- shown here with ENGU-Q's own cfg moved back to the shadow dict."""
+    assert qe._engine_key_for_leg("ENGUQ", cs) == "ENGUQ_335"
     assert qe._leg_timeframe_seconds("ENGUQ") == 60
-    assert qe._engine_leg_cfg(cs, "ENGUQ_335") is cs.SHADOW_LEGS["ENGUQ_335"]
+    assert qe._engine_leg_cfg(cs, "ENGUQ_335") is cs.CROWN_LEGS["ENGUQ_335"]
     assert qe._engine_leg_cfg(cs, "NOISE_382") is cs.CROWN_LEGS["NOISE_382"]
     assert qe._engine_leg_cfg(cs, None) is None
     assert qe._leg_timeframe_seconds("NOISE") == qe._leg_timeframe_seconds("ORB") == 300
+    off = {k: v for k, v in cs.CROWN_LEGS.items() if k != "ENGUQ_335"}
+    monkeypatch.setattr(cs, "CROWN_LEGS", off)
+    monkeypatch.setattr(cs, "SHADOW_LEGS", {"ENGUQ_335": {"timeframe": "1m", "shadow": True}})
+    assert qe._engine_leg_cfg(cs, "ENGUQ_335")["timeframe"] == "1m"
+    assert qe._leg_timeframe_seconds("ENGUQ") == 60
