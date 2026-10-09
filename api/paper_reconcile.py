@@ -312,6 +312,7 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
             "shadow_pnl_usd": s.get("pnl_usd"), "live_pnl_usd": lv.get("pnl"),
             "pnl_diff_usd": round((lv.get("pnl") or 0) - (s.get("pnl_usd") or 0), 2),
             "shadow_size": ssz, "live_size": lsz,
+            "exit_signal": lv.get("exit_signal") or "",
             "size_ratio": (round(lsz / ssz, 3) if (ssz and lsz is not None) else None),
             "decision_agree": None,
         })

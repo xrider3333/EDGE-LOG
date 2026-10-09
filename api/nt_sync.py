@@ -294,6 +294,7 @@ def build_trades(fills):
         entry_side = None
         entry_oid = ""
         entry_signal = ""      # strategy attribution, see parse_fills
+        exit_signal = ""       # the closing fill's name ('Close' = a hand / bridge flatten)
         comm_acc = 0.0           # commissions accumulated for the open round-trip
         close_exec_id = ""
 
@@ -322,6 +323,7 @@ def build_trades(fills):
                 exit_notional += f["price"] * closing
                 exit_dt = f["dt"]
                 close_exec_id = f["exec_id"]
+                exit_signal = f.get("signal") or ""
 
             if pos != 0 and new_pos == 0:
                 avg_entry = entry_notional / entry_qty if entry_qty else 0.0
@@ -358,6 +360,9 @@ def build_trades(fills):
                     "exitTime": x_ny.strftime("%H:%M") if x_ny else None,
                     "orderId": entry_oid or "",
                     "signal": entry_signal,
+                    # The closing fill's name (2026-10-09). 'Close' is NinjaTrader's own account-level
+                    # close -- a hand or bridge flatten -- so the board can say 'closed by hand'.
+                    "exit_signal": exit_signal,
                     "source": "NinjaTrader",
                     "assetType": "futures" if is_fut(sym) else "stock",
                     "account": account,

@@ -1,0 +1,25 @@
+{
+  "_comment": "Committed list of paper_trades shadow rows whose LIVE NinjaTrader trade was closed by a person, not by the strategy. api/paper.py's nightly upsert adds manual_exit=<note> on a (leg, entry_unix) match, every night, so the mark survives re-upserts. The row keeps the engine's own numbers; the note says what really happened in the account. MANAGER #135, 2026-10-09.",
+  "version": 1,
+  "entries": [
+    {
+      "leg": "NOISE_H_RF",
+      "entry_unix": 1791478500,
+      "entry_et": "2026-10-08T12:55:00-04:00",
+      "live": {
+        "account": "DEMO7240108",
+        "instrument": "MNQ 12-26",
+        "side": "SHORT",
+        "qty": 10,
+        "entry_px": 31027.25,
+        "entry_exec": "459311892516_1",
+        "exit_px": 31071.5,
+        "exit_exec": "459311892539_1",
+        "exit_utc": "2026-10-09T15:39:52Z",
+        "exit_signal": "Close",
+        "realized_usd": -894.5
+      },
+      "note": "MANUAL EXIT 10-09 11:39 ET @ 31,071.50 (10 MNQ short from 31,027.25, -$894.50): closed by hand through the bridge on the owner's call. It stands in for NOISE's missed 15:55 ET close on 10-08 - a price-feed flap at 15:22 ET made NinjaTrader switch NOISE off with the short on."
+    }
+  ]
+}

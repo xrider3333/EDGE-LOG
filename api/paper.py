@@ -77,6 +77,13 @@ def _load_roll_artifacts(path=None):
 # runner restart is what picks up an edit, exactly like every other constant here.
 ROLL_ARTIFACTS = _load_roll_artifacts()
 
+# MANUAL EXITS (2026-10-09, MANAGER #135). When the live NinjaTrader trade behind a shadow row was closed
+# by a person rather than by the strategy (10-08: a feed flap disabled NOISE, its short missed the 15:55 ET
+# close and was bought back by hand the next morning), the row keeps the ENGINE's numbers and carries the
+# story as `manual_exit`. Same committed-list pattern and (leg, entry_unix) key as ROLL_ARTIFACTS.
+MANUAL_EXITS_PATH = os.path.join(os.path.dirname(ROLL_ARTIFACTS_PATH), "paper_manual_exits.json")
+MANUAL_EXITS = _load_roll_artifacts(MANUAL_EXITS_PATH)
+
 # ── BACKFILL vs FORWARD (owner 2026-08-16: "are you just assuming they were live
 #    from the get go?") ────────────────────────────────────────────────────────────
 # No, and the board must not imply it. run_shadow re-runs the WHOLE window since
@@ -2808,6 +2815,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                 if _art:
                     doc["roll_artifact"] = True
                     doc["roll_note"] = _art.get("reason") or "2026-09 contract roll splice (ROLL_AUDIT 4.5.4)"
+                _man = MANUAL_EXITS.get((key, entry_unix))
+                if _man:
+                    doc["manual_exit"] = _man.get("note") or "closed by hand in NinjaTrader"
                 doc["createdAt"] = firestore.SERVER_TIMESTAMP
                 batch.set(q.db.collection("users").document(uid)
                          .collection("paper_trades").document(doc_id), doc, merge=True)

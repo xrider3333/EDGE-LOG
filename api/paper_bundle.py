@@ -27,7 +27,7 @@ COLLECTION = "paper_bundle"
 # the fields the NT8 board reads off a trade doc (index.html, the paper2 branch); the doc id rides as `id`
 FIELDS = ["id", "leg", "strategy", "side", "entryTime", "exitTime", "entryIso", "exitIso",
           "entry_px", "exit_px", "pnl_pts", "pnl_usd", "backfill", "live_from", "open",
-          "close_day", "flags", "roll_artifact", "roll_note"]
+          "close_day", "flags", "roll_artifact", "roll_note", "manual_exit"]
 CHUNK_CHARS = 450_000        # JSON text per chunk document; the Firestore cap is 1 MiB per document
 SHRINK_GUARD = 0.9           # refuse to replace a bundle with one holding under this share of its trades
 
