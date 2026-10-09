@@ -1,0 +1,40 @@
+BOOK QUEUE Q30 - EFFECTIVE TRIALS (MANAGER #128 item 1; Lopez de Prado & Lewis 2019, "Detection of false investment strategies using
+unsupervised learning methods"; Bailey & Lopez de Prado 2014, the Deflated Sharpe Ratio). PRE-DATA NOTE for MANAGER, 2026-10-09 (v2: MANAGER #133 GO + one addition, folded; second reviewer TV). A REPORT,
+no adoption; WF only; nothing in the lockbox is read. No return series of any look or trial has been built or read for this item yet.
+
+QUESTION. How many INDEPENDENT trials are (a) the book-look family (LOOKS r1's 71 counted looks) and (b) one 900-trial Auto-Validate (#485,
+NOISE on QQQ)? Then restate #463's WF Deflated Sharpe with that effective count beside the raw-count version.
+
+WHAT EXISTS (scoped 10-09; no numbers read): no daily series is stored for any look or any #485 trial - only summary figures.
+- (a) The 71 looks are rows of tools/rocfrontier/LOOKS_LEDGER_R1.csv (types SWAP / SIZE / ADD / COMBO). 39 can be rebuilt from saved
+  definitions: 27 saved book runs (their legs via augur_engine.book._leg_trades, marked to market daily) and 12 by arithmetic on #463's
+  records or cached series (NOISE x1.25 / x2, the S2 / DIP refs, the V / V2 / O sizing rules, the agreement tilt). The other 32 (round 58's
+  ML-gated looks and one-off scripts) have no saved definition that rebuilds them faithfully.
+- (b) #485's job saved 307 distinct settings (243 valid, the count its own DSR used) with their parameters; re-running them with trades
+  (tools/pbo_band.py's path, about 6 minutes) gives daily series.
+
+THE CHOICES (one each, fixed now):
+- SERIES. (a) each rebuildable look as a daily $ series on ONE window and convention: the S1 line's WF 2016-07-01..2025-06-29, marked to
+  market daily, the book's UTC day stamps (the looks were printed under several conventions; here they are re-evaluated, not quoted).
+  (b) each of #485's 243 valid settings re-run on its own pre-lockbox stretch 2016-01-04..2025-06-29 (QQQ master 113, cost 0.02, mult 929),
+  daily $ by ET session day; a day without a trade = $0.
+- DISTANCE. d_ij = sqrt((1 - rho_ij) / 2), rho = the Pearson correlation of the two daily series on their common days.
+- METHOD. ONC as published (Lopez de Prado & Lewis 2019): base clustering = k-means on the rows of the distance matrix for every k = 2 ..
+  N - 1, 10 initialisations each (fixed seed 20261009), quality = mean / std of the silhouette scores, the best k kept; then the published
+  recursion: clusters whose quality is below the mean are re-clustered and kept only if the overall quality improves.
+- CLUSTER RULE. E = the number of clusters ONC returns = the effective number of independent trials.
+- THE MISSING 32 LOOKS (a): reported as a BAND, not guessed - E_low = E(39) (each missing look falls in an existing cluster - they are
+  variations of #463) and E_high = E(39) + 32 (each its own cluster).
+- DEFLATED SHARPE (Bailey & Lopez de Prado 2014), on #463's WF daily $ (T = its WF days; skew and kurtosis from the same series):
+  SR0 = sqrt(V) x [(1 - g) x invPhi(1 - 1/N) + g x invPhi(1 - 1/(N e))], g = 0.5772; V = the variance of the cluster Sharpe ratios, a cluster's
+  series = the inverse-variance-weighted mean of its members (daily Sharpe, not annualised); DSR = Phi((SR - SR0) x sqrt(T - 1) /
+  sqrt(1 - skew x SR + (kurt - 1) / 4 x SR^2)). Printed at N = E_low, N = E_high and N = 71 (raw), with the same V.
+- [MANAGER #133] (b) also prints how many of the 243 settings fall in the CHAMPION'S OWN cluster (did the tuning search 243 ideas or a few).
+- (b) is printed as #485's independence ratio E / 243, and #485's champion's daily-return DSR at N = E vs N = 243 (beside the engine's
+  per-trade DSR 0.99999 on its run doc).
+READING (decided now): the report states the effective counts and the DSR at each N; no threshold is moved by this item (the 71-look
+chance bands of 10z and the 900-trial budget stand); if E is far below the raw count, that goes to MANAGER as evidence for a family-level
+luck bar (RESEARCH.md item 7), not as a change.
+COULD FOOL US: the rebuilt looks are re-evaluations on one convention, so their correlations are not the printed figures' correlations;
+39 of 71 is a partial family (hence the band); ONC's k-means is seed-dependent (fixed seed; a second seed's E is printed as a check, not a
+choice). Script: bookq/q30_efftrials.py (outside git; committed with the record).
