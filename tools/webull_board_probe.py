@@ -949,8 +949,9 @@ MUTANTS = [
      "",
      "an account with no Webull box gets a 'WEBULL ?' chip on every tab"),
     ('sub-strip-not-repinned',
-     "if(tb&&sb&&sb.style.position==='sticky')sb.style.top=tb.offsetHeight+'px';",
-     "",
+     # anchored with qbTopChipRefresh's own closing line: _tbSwap (2026-10-09) repeats the re-pin statement
+     "if(tb&&sb&&sb.style.position==='sticky')sb.style.top=tb.offsetHeight+'px';" + _CRLF + "}catch(e){}}",
+     _CRLF + "}catch(e){}}",
      "on a phone the chip wraps the top bar after a read and the sticky sub-tab strip slides under it"),
     ('noread-pill-red',
      "if(QF.stale){pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--attn-amber)':'var(--attn-red)';filled=true;}",
