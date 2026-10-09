@@ -1190,6 +1190,63 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10as. Q34 ENGU-Q TIMING SPLIT: an RTH-only executor that holds overnight keeps the leg's edge within the noise; the dollars sit in the exits (2026-10-09, a report)
+
+**What it is.**
+- MANAGER #139 item 2, following 10an (Q31), where WHEN ENGU-Q holds was worth about +12 ROC points standalone. The owner GO'd ENGU-Q holding
+  overnight on the Webull paper book, so the question is what part of WHEN survives an executor that only trades in regular hours.
+- Walk-forward only (the S1 stretch), lockbox unread, no adoption. Valuation is Q31's: NQ 1m ETH master, book UTC days, 1.0 NQ while on.
+- Run before main on branch prereg/frontier-enguqtiming-1009 (b4058c1e). Note docs/PREDATA_frontier_enguqtiming_2026-10-09.txt, LF f129c9ed;
+  script tools/rocfrontier/q34_enguq_timing.py, LF 5c4fda01; both hashes matched at the start.
+- **Part A** splits WHEN in two:
+  - ENTRY timing: an entry-only twin (the leg's own entry bars, held for a duration shuffled among its walk-forward trades and cut at the
+    next entry; 200 shuffles) against the always-on twin.
+  - STOP-EXIT timing: the in-position twin (the real exits at bar closes) against the entry-only twin.
+- **Part B** re-does the chain for the RTH executor. A signal inside regular hours fills at that bar's close. Any other signal fills at the
+  next regular session's 09:30 open, gap included. Positions may be held overnight. An entry and exit that land on the same open cancel.
+
+**Results (standalone ROC@30k, $ a year, DD5).**
+
+| Line | ROC@30k | $ a year | DD5 |
+|---|---|---|---|
+| Always-on twin (0.605 NQ) | 12.29 | $25,376 | $40,915 (one episode) |
+| Entry-only twin | 22.28 | $15,496 | $18,320 |
+| In-position twin | 24.46 | $40,876 | $32,351 (one episode) |
+| ENGU-Q (the leg) | 26.09 | $42,266 | $31,177 (one episode) |
+| RTH executor: entry-only twin | 12.63 | $13,195 | $23,621 (one episode) |
+| RTH executor: the leg | 24.57 | $38,587 | $35,511 (one episode) |
+
+- **Power first.** Leg vs executor: the line is 12.69 ROC points. Entry-only vs in-position (the exit part): 20.06. Added for disclosure:
+  the entry part 13.81, the delay alone 12.35.
+- **The executor:**
+  - Leg vs executor: +1.52 ROC points against a line of 12.69, **not distinguishable at this resolution**.
+  - The executor keeps 91% of the leg's dollars a year.
+  - As a seat on L: 116.81 vs 121.06, DD5 $34,473 vs $34,392.
+- **The split:**
+  - ENTRY timing is +9.99 ROC points (72% of the leg's +13.80 lead over always-on), and STOP-EXIT timing is +2.18 (16%). Both are under
+    their lines, so the split is not resolved.
+  - In dollars the picture flips. Entries alone earn $9,880 a year **less** than holding always-on; their ROC gain is a smaller drawdown
+    (the entry-only twin is in the market less). The exits carry the dollars: +$25,380 a year, ahead in 8 of 9 years.
+- **Under the executor:**
+  - The entry part's edge disappears (12.63 vs always-on 12.29).
+  - The exit part carries everything (+11.94 points, keeps 100% of its dollars): by the pre-set word, exit timing SURVIVES. Entry timing has
+    no positive dollars to survive.
+- **Counts on the walk-forward:** 1,194 trades.
+  - 672 entries and 586 exits are signalled outside regular hours.
+  - 370 trades (31%) never happen under the executor: their entry and exit both land before the same open.
+- **Where the executor pays:** the July 2024 to June 2025 year is $50,952 worse. Its January to April 2025 drawdown is $43,804 against the
+  leg's $20,266, the overnight gaps. Its February to May 2024 drawdown is also deeper ($47,108 vs $32,456). In 5 of 9 years the executor
+  does better.
+
+**Read.**
+- What survives an RTH-only, overnight-hold executor is all of WHEN, within the noise: its leg leads always-on by 12.28 points against the
+  leg's in-position 12.17.
+- It survives because positions are held overnight. The overnight signals become next-morning fills, and the exits still carry the dollars.
+- The split between entry and exit timing cannot be resolved on 9 years of data. Do not tune either half on it.
+- The paper book's overnight-hold GO stands on this evidence. No change proposed.
+- **Could fool us:** NQ bar opens stand in for QQQ prints; the duration shuffle keeps the length distribution but not its link to market
+  state; 2016-25 favours holding.
+
 ### 10ar. The harm monitor is built (tools/harm_monitor.py) - its first read trips NOISE's A1 on July; ENGU-Q reads from 08-07 (2026-10-09)
 
 **What it is.** MANAGER #140 OK'd 10aq and said build it. tools/harm_monitor.py is the weekly read.
