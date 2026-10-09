@@ -23,8 +23,8 @@ def test_holes_groups_no_split_rows_into_runs(tmp_path):
     base = 1_790_000_000
     rows = [_row(base + 10 * i, 5, 10, 1) for i in range(5)]
     rows += [_row(base + 100 + 10 * i, 5, 0, 3) for i in range(30)]          # one hole of 30 rows
-    rows += [_row(base + 1000 + 10 * i, 5, 10, 1) for i in range(5)]
-    rows += [_row(base + 5000 + 10 * i, 0, 0, 3) for i in range(30)]         # no volume: not a hole
+    rows += [_row(base + 400 + 10 * i, 5, 10, 1) for i in range(5)]
+    rows += [_row(base + 450 + 10 * i, 0, 0, 3) for i in range(30)]         # no volume: not a hole
     d = _capture(tmp_path, rows)
     got = H.holes(str(d / "NQ_10s.csv"), base + 6000)
     assert got == [(base + 100, base + 390, 30)]
@@ -54,3 +54,14 @@ def test_merge_runs_each_done_request_once(tmp_path, monkeypatch):
     assert calls[0][:2] == ["--master", os.path.join(str(tmp_path), "NQ_10s.csv")]
     assert H.merge(ohlc_dir=str(tmp_path), log=lambda m: None, run=run) == []
     assert len(calls) == 1
+
+
+def test_holes_finds_a_span_with_no_rows_inside_cme_hours(tmp_path):
+    # 2026-10-08 15:20:20 ET -> 2026-10-09 06:00 ET: night mode, no rows at all (halt 17-18 ET excluded)
+    a = 1_791_487_220
+    b = a + int(14.66 * 3600)
+    rows = [_row(a - 10, 5, 10, 1), _row(a, 5, 10, 1), _row(b, 5, 10, 1), _row(b + 10, 5, 10, 1)]
+    d = _capture(tmp_path, rows)
+    got = H.holes(str(d / "NQ_10s.csv"), b + 3600)
+    assert len(got) == 1 and got[0][:2] == (a, b)
+    assert 13 * 360 < got[0][2] < 14 * 360         # about 13.7 h of session minutes, the halt hour left out

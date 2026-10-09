@@ -50,10 +50,28 @@ def _iso(ts):
     return dt.datetime.fromtimestamp(ts, dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
 
 
+MISSING_GAP_SEC = 300     # rows more than 5 min apart inside CME hours = bars missing altogether (NT was off)
+
+
+def _session_bars(a, b):
+    """10 s bar ENDS strictly between a and b that fall in CME trading hours (Sun 18:00 - Fri 17:00 ET,
+    daily 17:00-18:00 halt excluded)."""
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    from nt8_freshness_sweep import cme_open
+    n, t = 0, a + 60
+    while t < b:                                    # minute steps: cheap, a gap is at most a few days
+        if cme_open(dt.datetime.fromtimestamp(t, ET)):
+            n += 6
+        t += 60
+    return n
+
+
 def holes(path, now_ts, reach_days=REACH_DAYS):
-    """[(first_end, last_end, n_rows)] runs of rows that traded but carry no buy/sell split."""
+    """[(first_end, last_end, n_rows)] holes in the capture: runs of rows that traded but carry no buy/sell
+    split, and spans inside CME hours with no rows at all (NinjaTrader off: night mode, sleep, a dead feed).
+    For a missing span first/last are the rows either side of it; n_rows is the number of missing bars."""
     lo = now_ts - reach_days * 86400
-    runs, cur = [], None
+    runs, cur, prev = [], None, None
     try:
         with open(path, newline="", encoding="utf-8", errors="replace") as f:
             for r in csv.DictReader(f):
@@ -65,6 +83,14 @@ def holes(path, now_ts, reach_days=REACH_DAYS):
                     flow = float(r.get("buy_vol") or 0) + float(r.get("sell_vol") or 0)
                 except (TypeError, ValueError, KeyError):
                     continue
+                if prev is not None and t - prev > MISSING_GAP_SEC:
+                    miss = _session_bars(prev, t)
+                    if miss >= MIN_RUN_ROWS:
+                        if cur:
+                            runs.append(tuple(cur))
+                            cur = None
+                        runs.append((prev, t, miss))
+                prev = t
                 if vol > 0 and flow == 0:
                     if cur and t - cur[1] <= JOIN_GAP_SEC:
                         cur[1], cur[2] = t, cur[2] + 1
