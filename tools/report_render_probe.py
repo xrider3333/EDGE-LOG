@@ -63,6 +63,13 @@ roll detector (RUN_ROLL in index.html): the ROBUSTNESS rail must carry a ROLL ch
 must say "old roll detector" and print the saved and the true figures (net $1,116,128 -> $1,121,941, ROC 17.7 -> 21.1, ...), the 1 EPISODE word on the
 saved worst drawdown, and the source line. Every other case runs as run 306, which is not in the table: it must show no ROLL chip and no readout.
 
+One more case (exposure-chip, 2026-10-09, MANAGER #41 phase 2) renders the fixture AS RUN #163 with an injected window._runExpo entry (the page reads
+users/{uid}/meta/run_exposure once per load; the probe never reads Firestore): the ROBUSTNESS rail must carry an EXPOSURE chip right after the ROLL chip, and the readout
+it opens (data-expochip="163") must print the measured figures (95.5%, 3.80 lots, 0.96x the twin, the points and the dollars), the twin sentence, the footer, and ONE svg
+with two polylines - the run solid, the buy-and-hold twin carrying stroke-dasharray. The same case then steps the page: the entry WITHOUT a curve draws no svg, a {why}
+entry prints one line "No exposure reading: ...", a mostly-flat entry reads "mostly flat", and the fixture under its own id (306, no entry) shows no chip and no
+readout. Every other case runs as run 306 with no entry: it must show no EXPOSURE chip and no readout.
+
 Exit codes match preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks).
 
 RETRY-ONCE. A non-PASS attempt is rendered a second time before it blocks a push.
@@ -128,6 +135,24 @@ CANNED = {
                 'At a realistic cost (published figures, NOT fitted) it nets $26,000 and survives.'],
 }
 
+# EXPOSURE chip fixtures (exposure-chip case): the base entry is RSIDIV #163's real reading (95.5% in the market, 3.80 lots when in, 0.96x its twin); the curve is a JSON STRING
+# ([[date, twin cumulative points, run cumulative points], ...] - Firestore forbids nested arrays, so the runner stores it as text and the page parses it).
+_EXPO_CURVE = [["2010-06-07", 0.0, 0.0], ["2012-03-01", 9000.5, 7000.25], ["2013-09-02", 15000.0, 16500.0], ["2015-01-02", 22000.0, 19000.0], ["2016-07-01", 31000.0, 30500.0], ["2018-02-01", 42000.0, 40000.0], ["2020-03-16", 30000.0, 31000.0], ["2022-01-03", 61000.0, 60000.0], ["2024-05-01", 78000.0, 75500.0], ["2026-07-16", 87077.66, 83728.73]]
+EXPO_ENTRY = {"in_mkt_pct": 95.5, "lots_mean_all": 3.6314, "lots_mean_in": 3.8023, "lots_max": 4, "hold_med_sessions": 57, "n_trades": 259, "strat_pts": 83728.73, "twin_pts": 87077.66, "ratio": 0.9615, "sessions": 4000, "first": "2010-06-07", "last": "2026-07-16", "window": ["2010-06-07", "2026-07-16"], "master": "NQ_5m", "inst": "NQ", "tf": "5m", "mult": 20}
+WITH_CURVE = dict(EXPO_ENTRY, curve=json.dumps(_EXPO_CURVE))
+EXPO_FLAT = dict(EXPO_ENTRY, in_mkt_pct=30.0, lots_mean_in=1.0, lots_mean_all=0.3, ratio=0.4)
+EXPO_WHY = {'why': 'no saved trade list'}
+STEPS = [
+    # 1: the same entry without its curve (the runner writes one only above 50% in the market)
+    "delete window._runExpo.runs['163'].curve;renderApp();",
+    # 2: a {why} entry
+    "window._runExpo.runs['163']=" + json.dumps(EXPO_WHY) + ";renderApp();",
+    # 3: a mostly-flat entry (no curve)
+    "window._runExpo.runs['163']=" + json.dumps(EXPO_FLAT) + ";renderApp();",
+    # 4: the full entry is still filed under 163, but the page now shows the fixture as run 306: the entry must not follow the report to another run
+    "window._runExpo.runs['163']=" + json.dumps(WITH_CURVE) + ";runHistory[0].id='306';augurRunSel='306';renderApp();",
+]
+
 # name -> {prefs, win}: prefs land in localStorage augurPrefs (and APREF), win on the
 # iframe window before renderApp.
 CASES = [
@@ -155,6 +180,12 @@ CASES = [
     # ROLL chip (2026-10-08, owner ask via MANAGER #31/#33/#34): the fixture rendered AS RUN #424 (setId), one of the 22 runs restated for the old roll detector, with the
     # ROLL readout opened. Static data, so no runner stub and no wait. Every case above runs as run 306 (not in the table) and must show NO ROLL chip.
     ('roll-chip', {'prefs': {'repCols': '3'}, 'win': {'_diagOpenKey': 'roll'}, 'setId': 424}),
+    # EXPOSURE chip (2026-10-09, MANAGER #41 phase 2): the fixture rendered AS RUN #163 with window._runExpo injected (state ok, an entry WITH a curve), the EXPOSURE readout opened.
+    # Last in the list on purpose - the injected cache is a window global, and every case above runs as run 306 with no entry and must show NO EXPOSURE chip. 'steps' then change the
+    # page in place (each step is evaluated, the page re-renders, and the readout is read again): no curve, a {why} entry, a mostly-flat entry, and the same entry under another run id.
+    ('exposure-chip', {'prefs': {'repCols': '3'},
+                       'win': {'_diagOpenKey': 'expo', '_runExpo': {'state': 'ok', 'runs': {'163': WITH_CURVE}, 'at': 0}},
+                       'setId': 163, 'steps': STEPS}),
 ]
 
 # Builds this gate exists to catch. Each is a commit on main whose index.html blanked every
@@ -280,6 +311,8 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
           card:!!rlCard, cardId:rlCard?rlCard.getAttribute('data-rollchip'):null, cardText:rlCard?(rlCard.innerText||rlCard.textContent||''):'',
           cardN:det?det.querySelectorAll('[data-rollchip]').length:0, ones:rlCard?rlCard.querySelectorAll('[data-rollone]').length:0,
           cols:rlCard?[].map.call(rlCard.querySelectorAll('thead th'),function(e){return (e.textContent||'').trim();}):[]};
+        // EXPOSURE chip (2026-10-09): what the rail and the opened readout show right now (read again after every step of a case that carries steps)
+        r.expo=expoRead();
         // COST AND LIMITS card (stubbed-runner cases): what is drawn, in what order, and what the app asked the runner
         if(cfg.stub){
           var box=det?det.querySelector(cfg.stub==='share'?'[data-conccard]':'[data-rdcard],[data-rdna]'):null, cn=box?box.querySelector('[data-rdcounts]'):null;
@@ -294,8 +327,35 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
         r.errors=sink.errors.slice(0,20);
         r.uncaught=sink.uncaught.slice(0,20);
       }catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
+      if(cfg.steps&&!r.sampleErr){r.expoSteps=[];stepExpo(0);return;}
       out.cases[nm]=r;
       runCase(i+1);
+    }
+    // EXPOSURE chip: the rail chip, where it sits against the ROLL / COST AND LIMITS chips, and the opened readout (text, svg, its lines)
+    function expoRead(){
+      var det=d.getElementById('res-detail');
+      var chip=d.querySelector('[data-diagchip="expo"]'), roll=d.querySelector('[data-diagchip="roll"]'), rd=d.querySelector('[data-diagchip="rd"]');
+      var card=det?det.querySelector('[data-expochip]'):null;
+      var svgs=card?card.querySelectorAll('svg'):[];
+      var lines=card?[].map.call(card.querySelectorAll('svg polyline, svg path'),function(e){return {tag:e.tagName.toLowerCase(),dash:e.hasAttribute('stroke-dasharray')};}):[];
+      return {chip:!!chip, chipText:chip?(chip.innerText||chip.textContent||''):'', sameRail:!!(chip&&rd&&chip.parentNode===rd.parentNode),
+        afterRoll:!!(chip&&roll&&chip.previousElementSibling===roll), hasRoll:!!roll,
+        card:!!card, cardId:card?card.getAttribute('data-expochip'):null, cardText:card?(card.innerText||card.textContent||''):'',
+        cardN:det?det.querySelectorAll('[data-expochip]').length:0, svgN:svgs.length, lines:lines,
+        keyDash:card?card.querySelectorAll('span[style*="dashed"]').length:0};
+    }
+    // a case with steps: read the state just drawn, then evaluate the next step (it changes window state and re-renders), wait for the page to settle, read again
+    function stepExpo(k){
+      r.expoSteps.push(expoRead());
+      if(k>=cfg.steps.length){
+        r.errors=sink.errors.slice(0,20);
+        r.uncaught=sink.uncaught.slice(0,20);
+        out.cases[nm]=r;
+        runCase(i+1);
+        return;
+      }
+      try{w.eval(cfg.steps[k]);}catch(e){r.stepErr=String(e&&e.stack?e.stack:e);}
+      setTimeout(function(){stepExpo(k+1);},800);
     }
   }
   document.getElementById('f').addEventListener('load',function(){
@@ -553,7 +613,7 @@ def _check_readings(nm, r, rd, fixture):
 def _check_roll(nm, r, rl):
     f = []
     if nm != 'roll-chip':
-        if rl.get('chip') or rl.get('cardN'):
+        if nm != 'exposure-chip' and (rl.get('chip') or rl.get('cardN')):   # exposure-chip runs as #163, a roll-restated run: its ROLL chip is expected
             f.append('%s: run 306 is not one of the 22 roll-restated runs but the report shows a ROLL chip / readout' % nm)
         return f
     txt = ' '.join((rl.get('cardText') or '').split())
@@ -582,6 +642,75 @@ def _check_roll(nm, r, rl):
         f.append('%s: the ROLL readout says something is pending -- the restatement is verified' % nm)
     if r.get('errors') or r.get('uncaught'):
         f.append('%s: console errors with the ROLL readout open -- %s' % (nm, ((r.get('errors') or []) + (r.get('uncaught') or []))[0].splitlines()[0][:200]))
+    return f
+
+
+# EXPOSURE chip: the fixture as run #163 with an injected entry carries the chip in the ROBUSTNESS rail right after the ROLL chip and a readout with the measured figures and ONE
+# svg (the run solid, the buy-and-hold twin dashed); the steps then change the page in place. Every other case runs as run 306 with no entry: no chip, no readout.
+def _check_expo(nm, r, ex):
+    f = []
+    if nm != 'exposure-chip':
+        if ex.get('chip') or ex.get('cardN'):
+            f.append('%s: run 306 has no exposure entry but the report shows an EXPOSURE chip / readout' % nm)
+        return f
+    steps = r.get('expoSteps') or []
+    if len(steps) != len(STEPS) + 1:
+        f.append('%s: the page was read %d times, wanted %d (a step did not run: %s)' % (nm, len(steps), len(STEPS) + 1, r.get('stepErr')))
+        return f
+    s0, s1, s2, s3, s4 = steps
+    t0 = ' '.join((s0.get('cardText') or '').split())
+    # step 0: the entry WITH a curve
+    if not s0.get('chip'):
+        f.append('%s: no EXPOSURE chip in the ROBUSTNESS rail of run #163' % nm)
+    else:
+        ct = s0.get('chipText') or ''
+        if 'EXPOSURE' not in ct or 'in market 96%' not in ct:
+            f.append('%s: the EXPOSURE chip does not read EXPOSURE / in market 96%% -- %r' % (nm, ct))
+        if not s0.get('sameRail'):
+            f.append('%s: the EXPOSURE chip is not in the same rail as the COST AND LIMITS chip' % nm)
+        if not s0.get('hasRoll') or not s0.get('afterRoll'):
+            f.append('%s: the EXPOSURE chip does not sit right after the ROLL chip (run #163 is a ROLL run)' % nm)
+    if not s0.get('card') or s0.get('cardN') != 1:
+        f.append('%s: the opened EXPOSURE readout [data-expochip] is not on the page exactly once (found %s)' % (nm, s0.get('cardN')))
+        return f
+    if s0.get('cardId') != '163':
+        f.append('%s: the readout is marked for run %r, not 163' % (nm, s0.get('cardId')))
+    for want in ('95.5%', '3.80', '3.63', '57 sessions', '259', '4,000 sessions', '83,729 points ($1,674,575)', '87,078 points ($1,741,553)', '0.96x',
+                 '2010-06-07', '2026-07-16', 'constant 3.63-lot buy-and-hold of NQ', 'market exposure rather than timing',
+                 'this run', 'buy-and-hold twin, same average lots',
+                 'Measured by the PC runner from this run' + chr(8217) + 's full trade list on the back-adjusted price series (NQ_5m)',
+                 'Report only - it changes no figure of the run.'):
+        if want not in t0:
+            f.append('%s: the EXPOSURE readout does not say %r' % (nm, want))
+    if s0.get('svgN') != 1:
+        f.append('%s: the readout holds %s svg(s), wanted exactly one chart' % (nm, s0.get('svgN')))
+    else:
+        lines = s0.get('lines') or []
+        dashed = [x for x in lines if x.get('dash')]
+        solid = [x for x in lines if not x.get('dash')]
+        if len(lines) != 2 or len(dashed) != 1 or len(solid) != 1:
+            f.append('%s: the chart should hold two lines, one solid and one carrying stroke-dasharray -- got %r' % (nm, lines))
+    if not s0.get('keyDash'):
+        f.append('%s: the chart key has no dashed rule beside "buy-and-hold twin"' % nm)
+    # step 1: the same entry with NO curve -> the table and the sentence, no chart
+    if not s1.get('card') or s1.get('svgN') != 0 or '95.5%' not in ' '.join((s1.get('cardText') or '').split()):
+        f.append('%s: an entry without a curve should print its figures and NO svg (card=%s svgN=%s)' % (nm, s1.get('card'), s1.get('svgN')))
+    # step 2: a {why} entry -> one line
+    t2 = ' '.join((s2.get('cardText') or '').split())
+    if not s2.get('card') or 'No exposure reading: no saved trade list' not in t2 or s2.get('svgN') != 0 or '95.5%' in t2:
+        f.append('%s: a {why} entry should print "No exposure reading: no saved trade list" and nothing else -- %r' % (nm, t2[:160]))
+    if not s2.get('chip') or 'no reading' not in (s2.get('chipText') or ''):
+        f.append('%s: a {why} entry should leave a chip that reads "no reading" -- %r' % (nm, s2.get('chipText')))
+    # step 3: mostly flat
+    if not s3.get('chip') or 'mostly flat' not in (s3.get('chipText') or '') or s3.get('svgN') != 0:
+        f.append('%s: an entry at 30%% in the market should read "mostly flat" with no chart -- %r' % (nm, s3.get('chipText')))
+    # step 4: another run id
+    if s4.get('chip') or s4.get('cardN'):
+        f.append('%s: the entry filed under 163 followed the report to run 306 (chip=%s, readouts=%s)' % (nm, s4.get('chip'), s4.get('cardN')))
+    if r.get('stepErr'):
+        f.append('%s: a step threw -- %s' % (nm, str(r.get('stepErr')).splitlines()[0][:200]))
+    if r.get('errors') or r.get('uncaught'):
+        f.append('%s: console errors with the EXPOSURE readout open -- %s' % (nm, ((r.get('errors') or []) + (r.get('uncaught') or []))[0].splitlines()[0][:200]))
     return f
 
 
@@ -711,6 +840,8 @@ def _attempt(chrome, root, alt_index, fixture):
             fails.extend(_check_readings(nm, r, r['rd'], fixture))
         if r.get('roll') is not None:
             fails.extend(_check_roll(nm, r, r['roll']))
+        if r.get('expo') is not None:
+            fails.extend(_check_expo(nm, r, r['expo']))
 
     if fails:
         return FAIL, fails, notes, data, True

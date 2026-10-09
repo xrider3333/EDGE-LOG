@@ -109,7 +109,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 154
+N_CASES = 156
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -161,6 +161,8 @@ var FIX = __FIX__;
             //   window._starRuns - reset both here too, or a case that leaves either set
             //   (k1_watch_list, k2_watch_fetch) leaks into whatever renders next.
             +"window._rbWatch={state:'idle',runs:[],at:0};window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];"
+            // n6 (RUN EXPOSURE TABLE): the exposure cache is reset for every render too - a case injects window._runExpo through winCode
+            +"window._runExpo={state:'idle',runs:{},at:0};"
             +winCode
             +"activeTab='augur';augurSub='"+(sub||'cmp2')+"';renderApp();return 'OK';"
             +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
@@ -5964,6 +5966,318 @@ var FIX = __FIX__;
         },{aIds:aIds,dIds:dIds,aC424:txtOf(aC424),aC163:txtOf(aC163),aCA:txtOf(aCA),aTip:aTip.slice(0,100),bC424:txtOf(bC424),dC424:txtOf(dC424),eFams:eFams.length,cWf:!!cWfRow,cLb:!!cLbRow,cIs:!!cIsRow,aTotHeat:aTotHeat,errAcc:errAcc.slice(0,3)});
       })();
 
+      // -- n5 (owner 2026-10-09 via MANAGER GO #40 / #41). THREE RUNBOARD changes, every check reads the DRAWN page.
+      //    (1) nine more VOID runs: the TTIBS 1.0 close-fill look-ahead (161 164 165 167 168 169 170 174 201). They are also in RUN_ROLL, so both tags show; nothing else changes.
+      //    (2) the WATCH research plane's x axis is the WORST DRAWDOWN IN DOLLARS (it used to be the drawdown as a % of the account chip): the axis reads "Worst drawdown ($)" in
+      //        dollar ticks, a $40,000 ring sits twice as far from the axis origin as a $20,000 one, the account chip moves ROC % / YR (the rings go up) but never the x
+      //        position of anything (the $50,000 AND the $500,000 chip - the second one is what a "dd / account x 100" x would still fail, since a plane that rescales itself
+      //        hides a pure percent until its floor binds). DD % FROM PEAK is on the hovers only: an engine dot works it out off the same curve the DD5 row reads (the saved
+      //        walk-forward test curve, the lockbox curve on LB) at the chip's start - checked against an independent walk of that curve here - and a dot with no curve says
+      //        no percent; a ring only quotes the lane's stored dd_pct_peak, and never the old share-of-start dd_pct.
+      //    (3) STACKS LOTS: a run whose champion settings allow more than one lot (validate.champion, else best_params; max_pyramid / max_lots ...) wears the tag; 1 or none does not;
+      //        it ranks where its figures put it (it is given the BEST figures and stays column 1 with the crown); the WATCH cut-off note marks it like ROLL.
+      (function(){
+        var N=function(k){return String(+FIX.id+k);};
+        var CR=String.fromCharCode(55357,56401);   // the crown, U+1F451
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function wcOf(docs){return dfxWin(docs,"window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];");}
+        function watchOf(rows,research){return "window._rbWatch={state:'ok',runs:"+JSON.stringify(rows)+",research:"+JSON.stringify(research||[])+",at:Date.now()};";}
+        function hdrIds(){return [].map.call(d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]'),function(th){return th.getAttribute('data-rbc');});}
+        function hdr(id){return d.querySelector('#rb-mtx-box table thead th[data-rbc="'+id+'"]');}
+        function tipOf(e){return e?(e.getAttribute('title')||''):'';}
+        function near(a,b,tol){return a!=null&&b!=null&&isFinite(a)&&isFinite(b)&&Math.abs(a-b)<tol;}
+
+        // ================= (2) the research plane =================
+        // engine runs shaped like k5's: a 25-point lockbox tail on the saved curve, and (withWf) a saved walk-forward test whose curve holds one deep dip. multiplier 1, so every curve is in dollars.
+        function curve(depths,step,open){var out=[],lvl=0,cur=0,K=20;function rise(to){var a=cur;for(var j=1;j<=K;j++)out.push(a+(to-a)*j/K);cur=to;}
+          depths.forEach(function(dp){lvl+=step;rise(lvl);cur=lvl-dp;out.push(cur);});if(!open)rise(lvl+step);return out;}
+        function engRun(id,strat,dd,withWf){
+          var eq=curve([5000,5000,dd,5000,5000],10000);
+          var r=JSON.parse(JSON.stringify(FIX));
+          r.id=id;r.strategy=strat;r.starred=false;r.multiplier=1;
+          delete r.equity;delete r.top10_results;delete r.gate_validate;delete r.famKey;delete r.famSeq;
+          r.date_from='2010-01-01';r.date_to='2020-01-01';
+          r.validate={verdict:'PASS',total_trades:4000,total_dd:dd,equity:eq,lb_idx:eq.length-25,
+            windows:{optimize:['2010-01-01','2019-01-01'],wf_split:'2015-01-01',lockbox:['2019-01-01','2020-01-01']},
+            lockbox:{pnl:5000,trades:60,pf:1.3,win_rate:45,dd:3000,sortino:1.5,from:'2019-01-01',to:'2020-01-01'}};
+          if(withWf){
+            // net $12,000 over 4 years = 3.0 %/yr at a $100k account: small on purpose, so the plane's y floor (5) binds at $100k and not at $50k
+            r.top10_results=[{fold:1,oos_pnl:6000,oos_trades:60,oos_wins:33},{fold:2,oos_pnl:6000,oos_trades:60,oos_wins:33}];
+            r.validate.wf_oos={v:1,trades:120,net:12000,wins:66,profit_factor:1.28,gross_loss:5000,n_folds:2,years:4,
+              from:'2015-01-01',to:'2019-01-01',sortino:1.5,sharpe:1.2,max_drawdown:dd,
+              equity:curve([5000,5000,dd,5000,5000],10000,true),fold_idx:[0,63],
+              folds:[{f:1,from:'2015-01-01',to:'2017-01-01',trades:60,net:6000},{f:2,from:'2017-01-01',to:'2019-01-01',trades:60,net:6000}]};}
+          return r;}
+        var E1=engRun(N(695001),'ZN5DOTA_1_0.py',30000,true),E2=engRun(N(695002),'ZN5DOTB_1_0.py',60000,true);
+        var E3=engRun(N(695003),'ZN5DOTC_1_0.py',30000,false);   // a lockbox but no saved curve at all: on LB it is a dot with NO percent
+        delete E3.validate.equity;delete E3.validate.lb_idx;
+        var E4=engRun('169','ZN5TTIBS169_1_0.py',45000,true);    // run 169 is VOID now: its dot stays faded
+        var ENG=[E1,E2,E3,E4];
+        var RES=[{id:'R9.01',kind:'research',name:'ZN5TWENTY',family:'MISC',lane:'TV',verdict:'DEAD',wf:{roc30:6,dd_usd:20000,dd_pct:20,roc_pct:30}},
+                 {id:'R9.02',kind:'research',name:'ZN5FORTY',family:'BOOK',lane:'FRONTIER',verdict:'REFERENCE',wf:{roc30:3,dd_usd:40000,dd_pct:40,roc_pct:15,dd_pct_peak:12.5}}];
+        var WC=wcOf(ENG),WOK=watchOf(ENG.map(function(r){return {id:+r.id,family:'ORB',lane:'ORB',verdict:'CANDIDATE'};}),RES);
+        function planAt(stage,acct){
+          var pr={c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:stage,rbFam:'__WATCH__'};if(acct)pr.rocAcct=acct;
+          calls.push(doRender(pr,WC+WOK));chk('plane-'+stage+'-'+(acct||'default'));
+          var tile=d.querySelector('[data-rbres-tile]'),svg=tile?tile.querySelector('svg'):null;
+          var o={has:!!svg,ticks:[],label:'',origin:null,eng:{},ring:{},row:{},all:'',nEng:0,nRing:0};
+          if(!svg)return o;
+          // the x tick labels and the axis caption are the middle-anchored, unrotated texts, in that order (the caption is the last)
+          var mids=[].filter.call(svg.querySelectorAll('text'),function(t){return t.getAttribute('text-anchor')==='middle'&&!t.getAttribute('transform');});
+          o.label=mids.length?dfxN(mids[mids.length-1].textContent):'';
+          o.ticks=mids.slice(0,-1).map(function(t){return dfxN(t.textContent);});
+          var z=mids.filter(function(t){return dfxN(t.textContent)==='$0';})[0];o.origin=z?parseFloat(z.getAttribute('x')):null;
+          [].forEach.call(svg.querySelectorAll('circle[data-rbres-eng]'),function(c){var t=c.querySelector('title');
+            o.eng[c.getAttribute('data-rbres-eng')]={cx:parseFloat(c.getAttribute('cx')),cy:parseFloat(c.getAttribute('cy')),t:t?(t.textContent||''):'',faded:(c.getAttribute('style')||'').indexOf('opacity:.35')>=0};});
+          [].forEach.call(svg.querySelectorAll('circle[data-rbres]'),function(c){var t=c.querySelector('title');
+            o.ring[c.getAttribute('data-rbres')]={cx:parseFloat(c.getAttribute('cx')),cy:parseFloat(c.getAttribute('cy')),t:t?(t.textContent||''):''};});
+          [].forEach.call(tile.querySelectorAll('[data-rbres-row]'),function(r){o.row[r.getAttribute('data-rbres-row')]=dfxN(r.textContent);});
+          o.nEng=Object.keys(o.eng).length;o.nRing=Object.keys(o.ring).length;
+          o.all=dfxN(tile.textContent)+' | '+[].map.call(tile.querySelectorAll('title,[title]'),function(e){return (e.tagName.toLowerCase()==='title')?(e.textContent||''):(e.getAttribute('title')||'');}).join(' | ');
+          return o;}
+        // an independent walk of a curve (cumulative dollars) from a start balance: the worst fall from the running high, in percent
+        function oracle(cum,S){var P=S,worst=0,eq,f,i;for(i=0;i<cum.length;i++){eq=S+cum[i];if(eq>P)P=eq;f=(P-eq)/P;if(f>worst)worst=f;}return worst*100;}
+        function pctIn(t){var m=/DD % from peak ~([0-9.]+)%/.exec(t||'');return m?parseFloat(m[1]):null;}
+        function wfCum(r){return [0].concat(r.validate.wf_oos.equity);}
+        function lbCum(r){var eq=r.validate.equity,li=r.validate.lb_idx,b0=eq[li];return eq.slice(li).map(function(v){return v-b0;});}
+        function cxs(o){var a=[];Object.keys(o.eng).sort().forEach(function(k){a.push(o.eng[k].cx);});Object.keys(o.ring).sort().forEach(function(k){a.push(o.ring[k].cx);});return a;}
+        function sameAll(a,b){return a.length>0&&a.length===b.length&&a.every(function(v,i){return near(v,b[i],0.06);});}
+
+        var P100=planAt('wf',null),P50=planAt('wf',50000),P500=planAt('wf',500000),L100=planAt('lb',null),L50=planAt('lb',50000);
+        var o20=P100.origin,r20=P100.ring['R9.01'],r40=P100.ring['R9.02'],eA=P100.eng[E1.id],eB=P100.eng[E2.id],eV=P100.eng['169'];
+        var ratioRing=(r20&&r40&&o20!=null)?((r40.cx-o20)/(r20.cx-o20)):null,ratioDot=(eA&&eB&&o20!=null)?((eB.cx-o20)/(eA.cx-o20)):null;
+        var perDollarRing=(r40&&o20!=null)?((r40.cx-o20)/40000):null,perDollarDot=(eB&&o20!=null)?((eB.cx-o20)/60000):null;
+        var pA=eA?pctIn(eA.t):null,pB=eB?pctIn(eB.t):null;
+        var e50=P50.eng[E1.id],pA50=e50?pctIn(e50.t):null;
+        var lA=L100.eng[E1.id],lB=L100.eng[E2.id],lC=L100.eng[E3.id];
+        var pLA=lA?pctIn(lA.t):null,pLB=lB?pctIn(lB.t):null;
+        var lA50=L50.eng[E1.id],pLA50=lA50?pctIn(lA50.t):null;
+        var allPlaneTxt=[P100,P50,P500,L100,L50].map(function(p){return p.all;}).join(' | ').toLowerCase();
+
+        // ================= (1) + (3) the tags on a board =================
+        function mk(id,strat,net,ddRaw){var o={};Object.keys(FIX).forEach(function(k){var j=JSON.stringify(FIX[k]);if(j!==undefined&&j.length<2000)o[k]=JSON.parse(j);});
+          o.id=String(id);o.strategy=strat;o.starred=false;o.multiplier=20;delete o.famKey;delete o.famSeq;delete o.n_evaluated;delete o.equity;delete o.best_params;
+          o.date_from='2010-01-01';o.date_to='2026-06-01';o.timestamp='2026-09-20 09:00';o.best_pnl_usd=net;
+          o.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:ddRaw,total_sharpe:1.1,total_sortino:1.6,
+            n_pass:5,n_gates:5,wfe:1,dsr:1,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']},
+            lockbox:{pnl:4000,trades:200,pf:1.5,win_rate:44,dd:400,sortino:2,pass:true}};
+          return o;}
+        var VIDS=['161','164','165','167','168','169','170','174','201'];
+        var VR=VIDS.map(function(i,ix){return mk(i,'ZN5TTIBS'+i+'_1_0.py',200000-ix*1000,9000);});
+        var STK=mk(N(695101),'ZN5STACK_1_0.py',1000000,3000);STK.best_params={max_pyramid:4,lookback:20};      // the BEST figures: it must stay column 1
+        var ONE=mk(N(695102),'ZN5ONELOT_1_0.py',300000,9000);ONE.best_params={max_pyramid:1};
+        var NIL=mk(N(695103),'ZN5NOKEY_1_0.py',200000,9000);
+        var CHP=mk(N(695104),'ZN5CHAMP_1_0.py',250000,9000);CHP.best_params={max_pyramid:1};CHP.validate.champion={max_lots:3};   // validate.champion wins over best_params
+        var ALL=VR.concat([STK,ONE,NIL,CHP]),IDS=ALL.map(function(r){return r.id;});   // IDS: every id, to look for a crown on any other column
+        // a hand-picked board holds at most 5 columns, so the 13 runs go on the WATCH view (40-column cap)
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',rbFam:'__WATCH__'},wcOf(ALL)+watchOf(ALL.map(function(r){return {id:+r.id,family:'ZN5',lane:'X',verdict:'CANDIDATE'};}))));chk('tags-board');
+        var bIds=hdrIds(),bLast9=bIds.slice(-9).slice().sort().join(',')===VIDS.slice().sort().join(',');
+        function tagIn(id,att){var h=hdr(id);return h?h.querySelector('['+att+'="'+id+'"]'):null;}
+        var voidOk=VIDS.every(function(i){var v=tagIn(i,'data-rbvoid'),rl=tagIn(i,'data-rbroll');
+          return !!v&&v.textContent==='VOID'&&tipOf(v).indexOf('look-ahead')>=0&&tipOf(v).indexOf('signal bar')>=0&&tipOf(v).indexOf('close')>=0&&!!rl&&rl.textContent==='ROLL';});
+        var hover169=tipOf(tagIn('169','data-rbvoid'));
+        var tS=tagIn(STK.id,'data-rbstacks'),tO=tagIn(ONE.id,'data-rbstacks'),tN=tagIn(NIL.id,'data-rbstacks'),tC=tagIn(CHP.id,'data-rbstacks');
+        var anyStacksOnVoid=VIDS.some(function(i){return !!tagIn(i,'data-rbstacks');});
+        var crownStk=!!hdr(STK.id)&&(hdr(STK.id).textContent||'').indexOf(CR)>=0,crownOther=IDS.some(function(i){return i!==STK.id&&!!hdr(i)&&(hdr(i).textContent||'').indexOf(CR)>=0;});
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wcOf(ALL)));chk('tags-lead');
+        var lStk=[].slice.call(d.querySelectorAll('[data-rbstacks]')).map(function(e){return e.getAttribute('data-rbstacks');}).sort().join(',');
+        // the WATCH cut-off note: 42 watched runs, the last (worst figures) holds more than one lot
+        var CUT=[],CROWS=[];
+        for(var i=0;i<42;i++){var cr=mk(N(695200+i),'ZN5CUT'+i+'_1_0.py',4000-i*50,400);cr.validate.lockbox.pnl=4000-i*50;cr.famKey='ZN5';cr.famSeq=i+1;
+          if(i===41)cr.best_params={max_pyramid:4};CUT.push(cr);CROWS.push({id:+cr.id,family:'ZN5',lane:'X',verdict:'CANDIDATE'});}
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'__WATCH__'},wcOf(CUT)+watchOf(CROWS)));chk('cut-note');
+        var noteEl=[].filter.call(d.querySelectorAll('div'),function(x){return /^[+][0-9]+ more watched run/.test(dfxN(x.textContent));})
+          .sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;})[0];
+        var note=noteEl?dfxN(noteEl.textContent):'';
+
+        dfxCase('n5_rb_plane_dollars',calls,{
+          'renders OK on the WATCH view (WF at three chips, LB at two), the tag boards, the LEADERBOARD and the cut-off note':calls.every(function(c){return c==='OK';}),
+          'no console errors or uncaught exceptions on any render':errAcc.length===0,
+          // ---- the axis ----
+          'the plane is drawn with two rings and the engine dots (WF: three dots; LB: four)':P100.has&&P100.nRing===2&&P100.nEng===3&&L100.nEng===4,
+          'the x axis caption reads exactly "Worst drawdown ($)"':P100.label==='Worst drawdown ($)'&&L100.label==='Worst drawdown ($)',
+          'the x ticks are dollars ($0, $10k ...), none a percent':P100.ticks.length>=3&&P100.ticks[0]==='$0'&&P100.ticks.every(function(t){return t.charAt(0)==='$'&&t.indexOf('%')<0;}),
+          'no text or title in the plane still says the old axis ("% of $" in any case)':allPlaneTxt.indexOf('% of $')<0&&allPlaneTxt.indexOf('worst drawdown %')<0,
+          'the $40,000 ring is twice as far from the axis origin as the $20,000 ring (cx read off the drawn svg)':near(ratioRing,2,0.02),
+          'the engine dots too: $60,000 is twice as far as $30,000':near(ratioDot,2,0.02),
+          'rings and dots share ONE dollar scale (same pixels per dollar)':perDollarRing!=null&&perDollarDot!=null&&Math.abs(perDollarRing/perDollarDot-1)<0.01,
+          // ---- the account chip moves ROC, never the drawdown axis ----
+          'chip $50,000: every circle keeps its cx':sameAll(cxs(P100),cxs(P50)),
+          'chip $50,000: the x tick labels are the same':P100.ticks.join('|')===P50.ticks.join('|')&&P50.label==='Worst drawdown ($)',
+          'chip $500,000: every circle keeps its cx (a percent-of-account x rescales its own floor here)':sameAll(cxs(P100),cxs(P500))&&P100.ticks.join('|')===P500.ticks.join('|'),
+          'chip $50,000: a research ring moves UP (ROC % / YR doubles) - its cy changes':!!P50.ring['R9.01']&&!!r20&&P50.ring['R9.01'].cy<r20.cy-1&&P50.ring['R9.02'].cy<r40.cy-1,
+          // ---- the engine dot hover ----
+          'an engine dot hover holds the dollars, "DD % from peak ~", "(start $100,000)", the house note and still says click to open its report':
+            !!eA&&eA.t.indexOf('worst drawdown $30,000')>=0&&eA.t.indexOf('DD % from peak ~')>=0&&eA.t.indexOf('(start $100,000)')>=0&&eA.t.indexOf('rank by $ DD and ROC @ $30k')>=0&&eA.t.indexOf('click to open its report')>=0,
+          'the dot percent is the worst fall from the high on its own walk-forward curve, at the chip start (checked against an independent walk)':
+            near(pA,oracle(wfCum(E1),100000),0.06)&&near(pB,oracle(wfCum(E2),100000),0.06)&&pA!=null&&pB!=null&&Math.abs(pA-pB)>1,
+          'at the $50,000 chip the dot quotes "(start $50,000)" and the percent for that start':!!e50&&e50.t.indexOf('(start $50,000)')>=0&&near(pA50,oracle(wfCum(E1),50000),0.06)&&Math.abs(pA50-pA)>1,
+          'LB stage: the dot percent comes off the LOCKBOX curve (rebased at its door), not the walk-forward one':
+            near(pLA,oracle(lbCum(E1),100000),0.06)&&near(pLB,oracle(lbCum(E2),100000),0.06)&&pLA!=null&&Math.abs(pLA-pA)>0.5,
+          'LB at the $50,000 chip: the lockbox percent for that start':!!lA50&&lA50.t.indexOf('(start $50,000)')>=0&&near(pLA50,oracle(lbCum(E1),50000),0.06),
+          'a dot with no saved curve says no percent at all, only its dollars (LB, run with a lockbox and no curve)':!!lC&&lC.t.indexOf('worst drawdown $3,000')>=0&&lC.t.indexOf('from peak')<0&&lC.t.indexOf('click to open its report')>=0,
+          'a VOID run (169) is still a faded dot, tagged VOID in its hover':!!eV&&eV.faded&&eV.t.indexOf('VOID - ')===0,
+          // ---- the research ring hover and the rows list ----
+          'the ring with a stored dd_pct_peak says "DD % from peak 12.5%", the start, the lane figure and the house note':
+            !!r40&&r40.t.indexOf('DD % from peak 12.5%')>=0&&r40.t.indexOf('start $100k')>=0&&r40.t.indexOf('lane')>=0&&r40.t.indexOf('rank by $ DD and ROC @ $30k')>=0&&r40.t.indexOf('worst drawdown $40,000')>=0,
+          'the ring with no dd_pct_peak says nothing about "from peak" (its old dd_pct 20 is never read)':!!r20&&r20.t.indexOf('from peak')<0&&r20.t.indexOf('worst drawdown $20,000')>=0&&r20.t.indexOf('no engine run')>=0,
+          'the rows list shows "$40,000" and "12.5%" on the second row':(P100.row['R9.02']||'').indexOf('$40,000')>=0&&(P100.row['R9.02']||'').indexOf('DD % from peak 12.5%')>=0,
+          'the rows list never shows "(40.0%)" or "(20.0%)", and the first row has no from-peak figure':(P100.row['R9.02']||'').indexOf('(40.0%)')<0&&(P100.row['R9.01']||'').indexOf('(20.0%)')<0&&(P100.row['R9.01']||'').indexOf('from peak')<0&&(P100.row['R9.01']||'').indexOf('$20,000')>=0,
+          // ---- (1) nine more VOID runs ----
+          'all nine runs (161 164 165 167 168 169 170 174 201) wear VOID with the look-ahead reason on hover, AND the ROLL tag':voidOk,
+          'the VOID hover names the close fill, the audit and the date':hover169.indexOf('fills at the signal bar')>=0&&hover169.indexOf('look-ahead')>=0&&hover169.indexOf('RESTATE_ROLL22_2026-10-08.md')>=0&&hover169.indexOf('2026-10-08')>=0,
+          'the nine VOID runs are the last nine columns':bLast9&&bIds.length===13,
+          // ---- (3) STACKS LOTS ----
+          'max_pyramid 4: STACKS LOTS, a bordered chip carrying the run id':!!tS&&tS.textContent==='STACKS LOTS'&&(tS.getAttribute('style')||'').indexOf('border:1px solid')>=0,
+          'its hover holds "up to 4 lots", the key and the later-version sentence':!!tS&&tipOf(tS).indexOf('up to 4 lots')>=0&&tipOf(tS).indexOf('max_pyramid = 4')>=0&&tipOf(tS).indexOf('leveraged position')>=0&&tipOf(tS).indexOf('comes in a later version')>=0,
+          'max_pyramid 1 and a run with no such key wear no STACKS LOTS tag':!tO&&!tN,
+          'validate.champion wins over best_params: max_lots 3 tags, and the hover says 3':!!tC&&tipOf(tC).indexOf('up to 3 lots')>=0&&tipOf(tC).indexOf('max_lots = 3')>=0,
+          'no VOID run picked up a STACKS LOTS tag (none holds a lot cap)':!anyStacksOnVoid,
+          'STACKS LOTS still ranks on its figures: it has the best and is column 1 with the crown, no other column has it':bIds[0]===STK.id&&crownStk&&!crownOther,
+          'LEADERBOARD family rows: STACKS LOTS on exactly the two runs that allow lots':lStk===[STK.id,CHP.id].sort().join(','),
+          'the WATCH cut-off note marks the cut run STACKS LOTS, like ROLL':note.indexOf('#'+CUT[41].id+' ZN5-42 STACKS LOTS')>=0&&note.indexOf('#'+CUT[40].id+' ZN5-41')>=0&&note.indexOf('#'+CUT[40].id+' ZN5-41 STACKS')<0
+        },{P100:{label:P100.label,ticks:P100.ticks,origin:P100.origin,ratioRing:ratioRing,ratioDot:ratioDot,nRing:P100.nRing,nEng:P100.nEng},ticks50:P50.ticks,ticks500:P500.ticks,
+          cx100:cxs(P100),cx50:cxs(P50),cx500:cxs(P500),cyRing100:[r20&&r20.cy,r40&&r40.cy],cyRing50:[P50.ring['R9.01']&&P50.ring['R9.01'].cy,P50.ring['R9.02']&&P50.ring['R9.02'].cy],
+          pA:pA,pB:pB,pA50:pA50,oA:oracle(wfCum(E1),100000),oB:oracle(wfCum(E2),100000),pLA:pLA,oLA:oracle(lbCum(E1),100000),pLA50:pLA50,eA:eA&&eA.t.slice(0,300),lC:lC&&lC.t.slice(0,200),
+          r40:r40&&r40.t.slice(0,420),r20:r20&&r20.t.slice(0,200),row2:(P100.row['R9.02']||'').slice(0,260),hover169:hover169.slice(0,260),bIds:bIds,lStk:lStk,note:note.slice(0,260),errAcc:errAcc.slice(0,3)});
+      })();
+
+      // -- n6 (MANAGER #41 phase 2, 2026-10-09): the RUN EXPOSURE TABLE, web side - the board TAG. The page reads users/{uid}/meta/run_exposure into window._runExpo; the probe injects it the way n3
+      //    injects window._rbWatch. A run that is in the market over 80% of session closes, or holds more than 1.05 lots on average when in, wears one bordered tag: "IN MARKET 96% . 3.8 LOTS"
+      //    (the lots part dropped at 1.05 lots or fewer, the market part dropped at 80% or less). Its hover states the measured figures and the buy-and-hold twin in words; the closing clause
+      //    "so most of its result is market exposure rather than timing" only when the run earned under 1.2x the twin. It is a TAG and a report, never a void or a sink: run A is given the BEST
+      //    figures and must stay column 1 with the crown and the green best mark. A run measured intraday, a {why} entry, a run with no entry, a book and a failed read wear nothing.
+      //    The LEADERBOARD rows and the WATCH cut-off note carry it like ROLL / STACKS LOTS. Every check reads the DRAWN page.
+      (function(){
+        var N=function(k){return String(+FIX.id+k);};
+        var CR=String.fromCharCode(55357,56401);   // the crown, U+1F451
+        var DOT=String.fromCharCode(183);          // the middle dot in the tag
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function wcOf(docs){return dfxWin(docs,"window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];");}
+        function watchOf(rows,research){return "window._rbWatch={state:'ok',runs:"+JSON.stringify(rows)+",research:"+JSON.stringify(research||[])+",at:Date.now()};";}
+        function expoOf(runs){return "window._runExpo={state:'ok',runs:"+JSON.stringify(runs)+",at:Date.now()};";}
+        function hdrIds(){return [].map.call(d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]'),function(th){return th.getAttribute('data-rbc');});}
+        function hdr(id){return d.querySelector('#rb-mtx-box table thead th[data-rbc="'+id+'"]');}
+        function rowLabelled(lbl){var tr=null;
+          [].forEach.call(d.querySelectorAll('#rb-mtx-box table tr'),function(t){if(tr)return;var c=t.children;if(!c.length)return;if(dfxN(c[0].textContent)===lbl)tr=t;});return tr;}
+        function cell(lbl,id){var tr=rowLabelled(lbl);return tr?tr.querySelector('td[data-rbc="'+id+'"]'):null;}
+        function greenIn(td){return !!(td&&td.querySelector('b[style*="color:var(--green)"]'));}
+        function tipOf(e){return e?(e.getAttribute('title')||''):'';}
+        function tagIn(id){var h=hdr(id);return h?h.querySelector('[data-rbexpo="'+id+'"]'):null;}
+        function mk(id,strat,net,ddRaw){var o={};Object.keys(FIX).forEach(function(k){var j=JSON.stringify(FIX[k]);if(j!==undefined&&j.length<2000)o[k]=JSON.parse(j);});
+          o.id=String(id);o.strategy=strat;o.starred=false;o.multiplier=20;delete o.famKey;delete o.famSeq;delete o.n_evaluated;delete o.equity;delete o.best_params;
+          o.date_from='2010-01-01';o.date_to='2026-06-01';o.timestamp='2026-09-20 09:00';o.best_pnl_usd=net;
+          o.validate={verdict:'PASS',total_trades:5000,total_win_rate:41,total_avg_win:150,total_avg_loss:-90,total_dd:ddRaw,total_sharpe:1.1,total_sortino:1.6,
+            n_pass:5,n_gates:5,wfe:1,dsr:1,
+            windows:{optimize:['2010-01-01','2018-01-01'],wf_split:'2018-01-01',lockbox:['2025-06-01','2026-06-01']},
+            lockbox:{pnl:4000,trades:200,pf:1.5,win_rate:44,dd:400,sortino:2,pass:true}};
+          return o;}
+        function bkBlk(net,tr,wins,losses,wr,pf,dd){var gl=net/(pf-1),gw=pf*gl;
+          return {total_pnl:net,num_trades:tr,wins:wins,losses:losses,win_rate:wr,profit_factor:pf,max_drawdown:dd,gross_win:gw,gross_loss:gl};}
+        function bookRun(id,leg){var pre=bkBlk(1395904,9085,3000,6085,33.02,1.49,34000),lbk=bkBlk(289811,622,200,422,32.15,1.56,28066),whole=bkBlk(1685715,9707,3200,6507,32.97,1.50,36562);
+          var r=mk(id,'BOOK: PROBE N6 '+id,pre.total_pnl,9000);r.multiplier=1;
+          r.best_pf=pre.profit_factor;r.best_trades=pre.num_trades;r.best_dd_usd=pre.max_drawdown;r.best_win_rate=pre.win_rate;
+          r.book={name:'BOOK: PROBE N6 '+id,legs:[{strategy:leg,weight:1}],whole:whole,pre_lockbox:pre,lockbox:lbk,lockbox_from:'2025-06-30',date_from:'2010-06-07',date_to:'2026-08-13'};
+          r.validate={verdict:'PASS',lockbox:{pnl:lbk.total_pnl,pf:lbk.profit_factor,trades:lbk.num_trades,pass:true},book:true};
+          return r;}
+        // RSIDIV #163's real reading is the base entry (95.5% in the market, 3.80 lots when in, 0.96x its twin); a case changes only what it tests
+        function ent(o){var e={in_mkt_pct:95.5,lots_mean_all:3.6314,lots_mean_in:3.8023,lots_max:4,hold_med_sessions:57,n_trades:259,strat_pts:83728.73,twin_pts:87077.66,ratio:0.9615,
+            sessions:4000,first:'2010-06-07',last:'2026-07-16',window:['2010-06-07','2026-07-16'],master:'NQ_5m',inst:'NQ',tf:'5m',mult:20};
+          Object.keys(o||{}).forEach(function(k){e[k]=o[k];});return e;}
+
+        // A has the BEST figures of the board (it must stay column 1); B is measured intraday; C has no figures; D beats its twin; E holds lots but is mostly flat; F has no ratio and no multiplier; G has no entry
+        var A=mk(N(696001),'ZN6EXPOA_1_0.py',1000000,3000),B=mk(N(696002),'ZN6INTRAB_1_0.py',300000,9000),C=mk(N(696003),'ZN6WHYC_1_0.py',250000,9000),
+            D=mk(N(696004),'ZN6BEATD_1_0.py',200000,9000),E=mk(N(696005),'ZN6LOTSE_1_0.py',190000,9000),F=mk(N(696006),'ZN6NORATIOF_1_0.py',180000,9000),G=mk(N(696007),'ZN6NONEG_1_0.py',170000,9000);
+        var ALL=[A,B,C,D,E,F,G],IDS=ALL.map(function(r){return r.id;});
+        var RUNS={};
+        RUNS[A.id]=ent();
+        RUNS[B.id]=ent({in_mkt_pct:3,lots_mean_all:0.03,lots_mean_in:1,lots_max:1,hold_med_sessions:0,strat_pts:900,twin_pts:4000,ratio:0.225});
+        RUNS[C.id]={why:'no saved trade list'};
+        RUNS[D.id]=ent({in_mkt_pct:90,lots_mean_all:0.9,lots_mean_in:1,lots_max:1,strat_pts:117000,twin_pts:86666.67,ratio:1.35});
+        RUNS[E.id]=ent({in_mkt_pct:40,lots_mean_all:1,lots_mean_in:2.5,lots_max:3,strat_pts:30000,twin_pts:60000,ratio:0.5});
+        RUNS[F.id]=ent({in_mkt_pct:85,lots_mean_all:0.85,lots_mean_in:1,lots_max:1,strat_pts:5000,twin_pts:-1200,ratio:null,ratio_why:'The twin lost points over this window, so a ratio to it is not defined.',mult:null});
+        var WROWS=ALL.map(function(r){return {id:+r.id,family:'ZN6',lane:'X',verdict:'CANDIDATE'};});
+        var base=wcOf(ALL)+watchOf(WROWS);
+
+        // ---- (a) the WATCH board: every tag, every non-tag ----
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',rbFam:'__WATCH__'},base+expoOf(RUNS)));chk('a-board');
+        var aIds=hdrIds(),tA=tagIn(A.id),tB=tagIn(B.id),tC=tagIn(C.id),tD=tagIn(D.id),tE=tagIn(E.id),tF=tagIn(F.id),tG=tagIn(G.id);
+        var aAny=[].slice.call(d.querySelectorAll('#rb-mtx-box [data-rbexpo]')).map(function(e){return e.getAttribute('data-rbexpo');}).sort().join(',');
+        var crownA=!!hdr(A.id)&&(hdr(A.id).textContent||'').indexOf(CR)>=0,crownOther=IDS.some(function(i){return i!==A.id&&!!hdr(i)&&(hdr(i).textContent||'').indexOf(CR)>=0;});
+        var greenA=greenIn(cell('TOTAL',A.id)),greenOther=IDS.some(function(i){return i!==A.id&&greenIn(cell('TOTAL',i));});
+        var wordsA=tA?dfxN(tA.textContent):'',tipA=tipOf(tA),tipD=tipOf(tD),tipF=tipOf(tF);
+
+        // ---- (b) a failed read draws nothing, and the loader's own failure is silent ----
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',rbFam:'__WATCH__'},base+"window._runExpo={state:'err',runs:{},at:Date.now()};"));chk('b-err');
+        var bAny=d.querySelectorAll('[data-rbexpo]').length,bIds=hdrIds();
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'full',rbFam:'__WATCH__'},base));chk('b-idle');
+        var bIdleAny=d.querySelectorAll('[data-rbexpo]').length;
+
+        // ---- (c) the older RUNBOARD tab wears the same tag ----
+        calls.push(doRender({cmpMode:'board',rbSample:'full',rbRank:'mar',rbFam:'__WATCH__'},base+expoOf(RUNS),'cmp'));chk('c-tab');
+        var cTagA=tagIn(A.id),cTagB=tagIn(B.id),cIds=hdrIds();
+
+        // ---- (d) the LEADERBOARD: the family rows of the champions that qualify wear it ----
+        calls.push(doRender({c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'},wcOf(ALL)+expoOf(RUNS)));chk('d-lead');
+        var dIds=[].slice.call(d.querySelectorAll('[data-rbexpo]')).map(function(e){return e.getAttribute('data-rbexpo');}).sort().join(',');
+        var dRowA=[].filter.call(d.querySelectorAll('.c2-row[data-c2fam]'),function(r){return !!r.querySelector('[data-rbexpo="'+A.id+'"]');})[0];
+        var dTagA=dRowA?dRowA.querySelector('[data-rbexpo="'+A.id+'"]'):null;
+        var dRowB=[].filter.call(d.querySelectorAll('.c2-row[data-c2fam]'),function(r){return decodeURIComponent(r.getAttribute('data-c2fam'))==='ZN6INTRAB_1_0';})[0];
+
+        // ---- (e) a book never has a reading: an entry under a book's id draws nothing ----
+        var K=bookRun(N(696101),'ZN6LEG_1_0.py'),KM={};KM[K.id]=ent();
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'BOOKS'},wcOf([K])+expoOf(KM)));chk('e-book');
+        var eIds=hdrIds(),eAny=d.querySelectorAll('[data-rbexpo]').length;
+
+        // ---- (f) the WATCH cut-off note: 42 watched runs, the last one (worst figures) is in the market ----
+        var CUT=[],CROWS=[],CM={};
+        for(var i=0;i<42;i++){var cr=mk(N(696200+i),'ZN6CUT'+i+'_1_0.py',4000-i*50,400);cr.validate.lockbox.pnl=4000-i*50;cr.famKey='ZN6';cr.famSeq=i+1;
+          if(i===41)CM[cr.id]=ent();CUT.push(cr);CROWS.push({id:+cr.id,family:'ZN6',lane:'X',verdict:'CANDIDATE'});}
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'__WATCH__'},wcOf(CUT)+watchOf(CROWS)+expoOf(CM)));chk('f-cut');
+        var noteEl=[].filter.call(d.querySelectorAll('div'),function(x){return /^[+][0-9]+ more watched run/.test(dfxN(x.textContent));})
+          .sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;})[0];
+        var note=noteEl?dfxN(noteEl.textContent):'';
+
+        dfxCase('n6_rb_exposure',calls,{
+          'renders OK on the WATCH board, the older tab, the LEADERBOARD, a book board and the cut-off note':calls.every(function(c){return c==='OK';}),
+          'no console errors or uncaught exceptions on any render':errAcc.length===0,
+          // ---- the tag on run A ----
+          'run A (95.5% in the market, 3.80 lots when in) wears the tag "IN MARKET 96% . 3.8 LOTS", a bordered chip carrying the run id':
+            !!tA&&wordsA==='IN MARKET 96% '+DOT+' 3.8 LOTS'&&tA.getAttribute('data-rbexpo')===A.id&&(tA.getAttribute('style')||'').indexOf('border:1px solid')>=0,
+          'its hover gives the measured figures: 95.5% of session closes, 3.80 lots when in, 4 at most, median hold 57 sessions':
+            tipA.indexOf('holds a position at 95.5% of session closes')>=0&&tipA.indexOf('3.80 lots on average when in (4 at most)')>=0&&tipA.indexOf('median hold 57 sessions')>=0,
+          'its hover gives the twin: a constant 3.63-lot buy-and-hold of NQ, 87,078 points ($1,741,553), against 83,729 ($1,674,575)':
+            tipA.indexOf('A constant 3.63-lot buy-and-hold of NQ')>=0&&tipA.indexOf('earned 87,078 points ($1,741,553)')>=0&&tipA.indexOf('this run earned 83,729 ($1,674,575)')>=0,
+          'its hover says "0.96x" the twin and "market exposure" (it earned under 1.2x the twin)':tipA.indexOf('= 0.96x the twin')>=0&&tipA.indexOf('most of its result is market exposure rather than timing')>=0,
+          'plain words: no file name, no command, no field name in the hover':tipA.indexOf('.py')<0&&tipA.indexOf('tools/')<0&&tipA.indexOf('in_mkt')<0&&tipA.indexOf('lots_mean')<0&&tipA.indexOf('ratio_why')<0,
+          // ---- the runs that wear nothing ----
+          'run B (measured intraday: 3% in the market, 1 lot) wears no tag':!tB,
+          'run C (a {why} entry: no saved trade list) wears no tag':!tC,
+          'run G (no entry at all) wears no tag':!tG,
+          // ---- the two halves of the tag, and the ratio wording ----
+          'run D (90% in the market, 1.0 lots): the lots part is dropped - just "IN MARKET 90%"':!!tD&&dfxN(tD.textContent)==='IN MARKET 90%',
+          'its hover says "= 1.35x the twin" and does NOT say the result is market exposure (it earned over 1.2x the twin)':tipD.indexOf('= 1.35x the twin')>=0&&tipD.indexOf('market exposure')<0,
+          'run E (40% in the market, 2.5 lots when in): the market part is dropped - just "2.5 LOTS"':!!tE&&dfxN(tE.textContent)==='2.5 LOTS',
+          'run F (no ratio, no multiplier): "IN MARKET 85%", the hover gives the reason the runner wrote and prints points, never dollars':
+            !!tF&&dfxN(tF.textContent)==='IN MARKET 85%'&&tipF.indexOf('The twin lost points over this window, so a ratio to it is not defined.')>=0&&tipF.indexOf('$')<0&&tipF.indexOf('5,000 points')>=0&&tipF.indexOf('x the twin')<0,
+          'exactly A, D, E and F carry the tag on the board':aAny===[A.id,D.id,E.id,F.id].sort().join(','),
+          // ---- not a sink ----
+          'run A has the best figures and is still column 1, with the crown and the green best mark on TOTAL; no other run has either':
+            aIds.length===7&&aIds[0]===A.id&&crownA&&!crownOther&&greenA&&!greenOther,
+          'a failed read (state err) and a page that has not read yet (idle) draw no tag, and the board is the same seven columns':bAny===0&&bIdleAny===0&&bIds.length===7&&bIds[0]===A.id,
+          // ---- the other hosts ----
+          'the older RUNBOARD tab wears the tag on run A and not on run B':!!cTagA&&dfxN(cTagA.textContent)==='IN MARKET 96% '+DOT+' 3.8 LOTS'&&!cTagB&&cIds[0]===A.id,
+          'LEADERBOARD: run A row wears the tag, the same words':!!dRowA&&!!dTagA&&dfxN(dTagA.textContent)==='IN MARKET 96% '+DOT+' 3.8 LOTS',
+          'LEADERBOARD: the rows that wear it are exactly A, D, E and F (not the intraday run, the {why} run or the run with no entry)':dIds===[A.id,D.id,E.id,F.id].sort().join(','),
+          'LEADERBOARD: the intraday run B has its row and no tag':!!dRowB&&!dRowB.querySelector('[data-rbexpo]'),
+          'a book with an entry under its id draws no tag (a book is never measured)':eIds.indexOf(K.id)>=0&&eAny===0,
+          'the WATCH cut-off note marks the cut run like ROLL / STACKS LOTS: its tag words follow its alias':note.indexOf('#'+CUT[41].id+' ZN6-42 IN MARKET 96% '+DOT+' 3.8 LOTS')>=0&&note.indexOf('#'+CUT[40].id+' ZN6-41')>=0&&note.indexOf('#'+CUT[40].id+' ZN6-41 IN MARKET')<0
+        },{aIds:aIds,aAny:aAny,wordsA:wordsA,tipA:tipA.slice(0,420),tipD:tipD.slice(0,200),tipF:tipF.slice(0,300),bAny:bAny,bIdleAny:bIdleAny,dIds:dIds,eIds:eIds,eAny:eAny,note:note.slice(0,240),errAcc:errAcc.slice(0,3)});
+      })();
+
       // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
       //    1.3b/1.4a/3.1e/3.3b, verify_redflags_2026-09-27.md M1/H2). Two EXPLORE fixes.
       //    (A) HYBRID recycle (redeploy) and HYBRID equal-drawdown rows: whenever the ticked
@@ -8689,6 +9003,8 @@ def main(argv=None):
     DFX += ['n4_rb_roll']
     DFX += ['t1_band']
     DFX += ['t2_names']
+    DFX += ['n5_rb_plane_dollars']
+    DFX += ['n6_rb_exposure']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
