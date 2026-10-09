@@ -459,14 +459,21 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
     }catch(e){return {err:String(e&&e.stack||e)};}})();
     // 7. a cached FINAL day is re-checked once per page load: a stale copy in IndexedDB
     //    is served at once, then replaced by the newer published copy in the background
+    // the background re-check is real IndexedDB I/O under headless virtual time, so wait for its
+    // RESULT (the newer copy in the cache) with a deadline, never a fixed sleep (flaked once: idb {});
+    // a run cut short by the backstop says so here instead of an empty {}
+    out.idb={pending:'step 7 started, cut short before it finished (see main: re-rendered once)'};
     out.idb=await (async function(){try{
       var D='2026-09-24',stale=JSON.parse(JSON.stringify(DAYS[D]));
       stale.published_at='2026-01-01T00:00:00-05:00';stale.marks=[];
       w._qqqBarsIdbWaitMs=0;   // virtual time: no race timer around the IndexedDB read
       await w._qqqBarsIdb.put(D,stale);w._qqqBarsReset();
       var r0=w._probeReads.length,first=await w._qqqBarsDay(D);
-      await waitFor(function(){return w._probeReads.length>r0;},4000);await sleep(400);
-      var second=await w._qqqBarsDay(D),cached=await w._qqqBarsIdb.get(D);
+      await waitFor(function(){return w._probeReads.length>r0;},8000);
+      var cached=null;
+      for(var t0=0;t0<8000;t0+=50){cached=await w._qqqBarsIdb.get(D);
+        if(cached&&cached.published_at===DAYS[D].published_at)break;await sleep(50);}
+      var second=await w._qqqBarsDay(D);
       var r1=w._probeReads.length;await w._qqqBarsDay(D);
       return {firstStale:!!first&&first.published_at===stale.published_at,
         secondFresh:!!second&&second.published_at===DAYS[D].published_at,
@@ -477,7 +484,7 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
     finish('full');
   }
   document.getElementById('f').addEventListener('load',function(){setTimeout(function(){run().catch(function(e){out.err=String(e&&e.stack||e);finish('error');});},2000);});
-  setTimeout(function(){finish('backstop');},55000);
+  setTimeout(function(){finish('backstop');},85000);
 })();
 </script>
 </body></html>
@@ -509,14 +516,14 @@ def run_case(chrome, name, mode, theme, width, height, shot_path, exec_doc, days
     ww, wh = width + 40, height + 80
     try:
         outp = subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-sandbox",
-                               "--user-data-dir=" + prof, "--virtual-time-budget=60000",
+                               "--user-data-dir=" + prof, "--virtual-time-budget=90000",
                                "--window-size=%d,%d" % (ww, wh), "--dump-dom", url],
                               capture_output=True, text=True, encoding="utf-8", errors="replace",
                               timeout=240).stdout
         if shot_path:
             prof2 = tempfile.mkdtemp(prefix="qqqcandprobe-")
             subprocess.run([chrome, "--headless=new", "--disable-gpu", "--no-sandbox",
-                            "--user-data-dir=" + prof2, "--virtual-time-budget=60000",
+                            "--user-data-dir=" + prof2, "--virtual-time-budget=90000",
                             "--window-size=%d,%d" % (ww, wh), "--screenshot=" + shot_path, url],
                            capture_output=True, text=True, encoding="utf-8", errors="replace",
                            timeout=240)
@@ -705,6 +712,14 @@ def main():
     fails = 0
     for theme in ("dark", "paper", "mono"):
         r = run_case(chrome, "full_" + theme, "full", theme, 1366, 900, None, ex, days, old)
+        # KNOWN FLAKE (2026-10-08, 2 runs in 10): step 7's IndexedDB re-check is real I/O, which headless
+        # Chrome's virtual time does not wait for, so on a loaded machine the clock can jump to the backstop
+        # while it is still pending ('cut short' below; before then an empty {}). That is the instrument, not
+        # the page: re-render the case ONCE and say so. A finished step with wrong values is never retried.
+        if (r.get("idb") or {}).get("pending"):
+            print("NOTE [%s] the IndexedDB re-check step was cut short by headless virtual time (%s) - "
+                  "re-rendering this case once" % (theme, r.get("why")))
+            r = run_case(chrome, "full_" + theme, "full", theme, 1366, 900, None, ex, days, old)
         for good, what in check_full(r):
             print(("PASS " if good else "FAIL ") + "[%s] %s" % (theme, what))
             fails += 0 if good else 1

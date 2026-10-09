@@ -5156,7 +5156,8 @@ def _fp_cause_side(s):
     return None
 
 
-# the FILLS vs BACKTEST line's reason on a flagged trade, by cause (api/qqq_exec.py's order: worse, odd, round trip)
+# the FILLS vs BACKTEST line's reason on a flagged trade, by cause (api/qqq_exec.py's note order: worse, round trip when
+# broker_parity.round_trip_check is on, odd)
 FP_CAUSE_WORDS = {'worse': 'a Webull fill came out more than 15 cents a share worse than the backtest',
                   'tape': 'a Webull fill does not fit the tape',
                   'diverged': 'the resting Webull order filled where the backtest did not exit',
@@ -5164,19 +5165,20 @@ FP_CAUSE_WORDS = {'worse': 'a Webull fill came out more than 15 cents a share wo
                   'other': 'the box flagged this trade'}
 
 
-def fp_cause_want(t):
-    """Why the box flagged this trade's fills: worse / tape / diverged / rt / other; None when it is not flagged."""
+def fp_cause_want(t, doc=None):
+    """Why the box flagged this trade's fills: worse / rt / tape / diverged / other; None when it is not flagged."""
     fp = t.get('fp') if isinstance(t.get('fp'), dict) else None
     if not fp or not fp.get('flag'):
         return None
     comp = [x for x in (_fp_cause_side(fp.get('en')), _fp_cause_side(fp.get('ex'))) if x and x['edge'] is not None]
     if any(x['slp'] + x['unx'] < -0.15 - 1e-9 for x in comp):
         return 'worse'
+    rt_on = bool(((doc or {}).get('broker_parity') or {}).get('round_trip_check'))
+    if rt_on and len(comp) == 2 and sum(x['slp'] + x['unx'] for x in comp) < -0.15 - 1e-9:
+        return 'rt'
     odd = [x for x in comp if abs(x['unx']) >= 0.00005]
     if odd:
         return 'diverged' if all(x['why'] == 'diverged' for x in odd) else 'tape'
-    if len(comp) == 2 and sum(x['slp'] + x['unx'] for x in comp) < -0.15 - 1e-9:
-        return 'rt'
     return 'other'
 
 
@@ -5277,7 +5279,7 @@ def panel_problems(tag, o, t, doc):
         flag = bool(fpx.get('flag'))
         if not fh or fh[0] != ('flagged' if flag else 'ok') or (('FLAGGED' in (fh[1] or '')) != flag):
             bad.append('the FILLS vs BACKTEST line reads %r, want it %s' % (fh, 'marked FLAGGED (the box flagged this trade)' if flag else 'without FLAGGED'))
-        cause = fp_cause_want(t)
+        cause = fp_cause_want(t, doc)
         txt = (fh or ['', ''])[1] or ''
         if cause and FP_CAUSE_WORDS[cause] not in txt:
             bad.append('the FILLS vs BACKTEST line reads %r, want its reason %r (the cause the box flagged it for)' % (txt, FP_CAUSE_WORDS[cause]))

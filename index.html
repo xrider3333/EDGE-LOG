@@ -40671,15 +40671,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 'PARITY NOTE':'a NinjaTrader parity note is on this trade','RECONSTRUCTED':'the NinjaTrader side was rebuilt from the order ledger'};
               const qbOpenCandles=(x,btn)=>{const rows=window._qeCandleRows||[],all=rows.some(q=>q&&String(q._no)===String(x._no))?rows:[x];
                 if(window._openTradeCandles)window._openTradeCandles(x,btn,{B:{},all:()=>all,order:()=>all});};
-              // why the box flagged a trade's fills (fp.flag), the same causes in the same order as api/qqq_exec.py: one fill more than 15c a
-              // share worse once the design gap is out; a fill that does not fit the tape (all such fills 'diverged': the resting order filled
-              // where the backtest did not exit); the two fills together over the band (the round-trip rule)
+              // why the box flagged a trade's fills (fp.flag), the same causes in the same order as api/qqq_exec.py's note: one fill more than
+              // 15c a share worse once the design gap is out; the two fills together over the band (the round-trip rule, only when the box
+              // says it is on: broker_parity.round_trip_check); a fill that does not fit the tape (all such fills 'diverged': the resting
+              // order filled where the backtest did not exit)
               const qbFpCause=fp=>{
                 const n=v=>Number(v)||0,comp=[fp.en,fp.ex].filter(s=>s&&s.edge!==null&&s.edge!==undefined);
                 if(comp.some(s=>n(s.slp)+n(s.unx)< -0.15-1e-9))return 'a Webull fill came out more than 15 cents a share worse than the backtest once the known design gap is taken out';
+                if(QBPAR&&QBPAR.round_trip_check&&comp.length===2&&comp.reduce((a,s)=>a+n(s.slp)+n(s.unx),0)< -0.15-1e-9)return 'the two Webull fills together came out more than 15 cents a share worse than the backtest once the known design gap is taken out';
                 const odd=comp.filter(s=>Math.abs(n(s.unx))>=0.00005);
                 if(odd.length)return odd.every(s=>s.why==='diverged')?'the resting Webull order filled where the backtest did not exit':'a Webull fill does not fit the tape, so check it';
-                if(comp.length===2&&comp.reduce((a,s)=>a+n(s.slp)+n(s.unx),0)< -0.15-1e-9)return 'the two Webull fills together came out more than 15 cents a share worse than the backtest once the known design gap is taken out';
                 return 'the box flagged this trade';};
               const qbPanelNumbers=(t,key)=>{
                 const en=String(t.entry_ts||''),ex=String(t.exit_ts||''),pnl=qePnlOf(t),fp=qeIsNtMirror(t)?null:qeFpOf(t),sp=avgSlip(t);
