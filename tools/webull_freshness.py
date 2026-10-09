@@ -43,8 +43,9 @@ from api/market_calendar):
                      run; api/cloud_signal records instead of pushing while this is open.
                      A SHADOW leg's summary (keel_live_state writes leg_live false on it --
                      NOISE_422_KEEL, DIP_424K since 2026-10-09; no orders, ever; and any summary
-                     whose leg key, the name before "_v", is in api/cloud_signal.SHADOW_LEGS,
-                     so an unreadable or unflagged one stays a shadow's) gets both checks
+                     whose leg key, the name before "_v", is in api/cloud_signal.SHADOW_LEGS --
+                     read from that file's source, never imported -- so an unreadable or
+                     unflagged one stays a shadow's) gets both checks
                      too, but always QUIET and MEDIUM, worded "shadow leg, no orders": tracked in
                      status.json and relayed to the PC inboxes, never pushed -- its stale model
                      changes would-be trades only (at the fallback age they size at 1.0). It
@@ -199,6 +200,7 @@ Usage (on the box):  venv/bin/python tools/webull_freshness.py [--dry-run] [--ho
   --dry-run   evaluate and print the verdicts; no push, no restart, no file written.
 """
 import argparse
+import ast
 import datetime as _dt
 import glob
 import json
@@ -216,6 +218,9 @@ if ROOT not in sys.path:
 
 from api import market_calendar  # noqa: E402  (see sys.path insert above)
 from api import ntfy_push  # noqa: E402  (stdlib only; the one plain phone format)
+
+# api/cloud_signal.py is READ, never imported (see _shadow_leg_keys)
+CLOUD_SIGNAL_SRC = os.path.join(ROOT, "api", "cloud_signal.py")
 
 ET = ZoneInfo("America/New_York")
 
@@ -694,12 +699,31 @@ def fmt_age(sec):
 
 
 # -- snapshot: every input, read once ---------------------------------------------------------
-def _shadow_leg_keys():
-    """The leg keys of api/cloud_signal.SHADOW_LEGS (no orders, ever), or None when that import
-    fails -- collect() then falls back to each summary's own leg_live flag."""
+def _shadow_leg_keys(src_path=None):
+    """The leg keys of api/cloud_signal.SHADOW_LEGS (no orders, ever), READ FROM THE SOURCE: the
+    string keys of the module-level `SHADOW_LEGS = {...}` literal in api/cloud_signal.py (ast,
+    ~0.1 s). Never imported -- that pulls in numpy, pandas and the engine, 1.5 s+ on every
+    2-minute run of this monitor on the 1-CPU box. None when the file is missing or does not
+    parse, or when its last module-level SHADOW_LEGS assignment is not a dict literal of plain
+    string keys -- collect() then falls back to each summary's own leg_live flag.
+    tests/test_webull_freshness.py pins these keys to the imported dict's."""
     try:
-        from api.cloud_signal import SHADOW_LEGS
-        return frozenset(str(k) for k in SHADOW_LEGS)
+        with open(src_path or CLOUD_SIGNAL_SRC, encoding="utf-8") as f:
+            tree = ast.parse(f.read())
+        found = None
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                targets, value = node.targets, node.value
+            elif isinstance(node, ast.AnnAssign):
+                targets, value = [node.target], node.value
+            else:
+                continue
+            if not any(isinstance(t, ast.Name) and t.id == "SHADOW_LEGS" for t in targets):
+                continue
+            keys = (value.keys if isinstance(value, ast.Dict) else [None])
+            found = (frozenset(k.value for k in keys) if keys and all(
+                isinstance(k, ast.Constant) and isinstance(k.value, str) for k in keys) else None)
+        return found
     except Exception:
         return None
 
@@ -731,7 +755,7 @@ def collect(paths, run_cmd=None):
     snap["qqq_1d_last"] = last_bar_epoch(paths["qqq_1d"])
     snap["nq_last"] = last_bar_epoch(paths["nq_master"])
     keel, keel_shadow = {}, []
-    shadow_keys = ()            # api/cloud_signal.SHADOW_LEGS' keys, imported on first need
+    shadow_keys = ()            # api/cloud_signal.SHADOW_LEGS' keys, read on first need
     for p in sorted(glob.glob(os.path.join(paths["keel_dir"], "*_summary.json"))):
         data, err = read_json(p)
         name = os.path.basename(p)[:-len("_summary.json")]
@@ -744,7 +768,7 @@ def collect(paths, run_cmd=None):
         # a live leg's carries no such key. A summary that does not say so (unreadable, half
         # written, or older than the flag) is still a shadow's when its leg key is in
         # api/cloud_signal.SHADOW_LEGS -- else a stale DIP_424K / NOISE_422_KEEL model would
-        # page HIGH and miss the pre-open gate. That import failing: the flag alone, as before.
+        # page HIGH and miss the pre-open gate. Those keys unreadable: the flag alone, as before.
         shadow = isinstance(data, dict) and data.get("leg_live") is False
         if not shadow:
             if shadow_keys == ():

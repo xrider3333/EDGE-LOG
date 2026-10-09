@@ -1589,10 +1589,62 @@ def test_an_unreadable_shadow_keel_summary_stays_quiet(tmp_path):
     assert h2.status()["preopen"]["slots"]["08:30"]["misses"] == []
 
 
-def test_shadow_keel_summaries_fall_back_to_the_flag_when_cloud_signal_cannot_import(
+def test_shadow_keel_keys_come_from_cloud_signals_source_not_its_import(tmp_path, monkeypatch):
+    """SHADOW_LEGS' keys are READ from api/cloud_signal.py (ast) -- the same keys as the imported
+    dict -- and still come through when importing that module would raise."""
+    import api.cloud_signal as cs
+    assert wf._shadow_leg_keys() == frozenset(cs.SHADOW_LEGS)
+    assert {"DIP_424K", "NOISE_422_KEEL"} <= wf._shadow_leg_keys()
+    monkeypatch.setitem(sys.modules, "api.cloud_signal", None)      # importing it now raises
+    with pytest.raises(ImportError):
+        __import__("api.cloud_signal")
+    assert wf._shadow_leg_keys() == frozenset(cs.SHADOW_LEGS)
+    h = Home(tmp_path, et(2026, 10, 5, 19, 5))
+    _w(os.path.join(h.paths["keel_dir"], "DIP_424K_v12_summary.json"), "not json")
+    assert wf.collect(h.paths, h.run_cmd)["keel_shadow"] == ["DIP_424K_v12", "NOISE_422_KEEL_v12"]
+
+
+def test_a_freshness_pass_never_imports_cloud_signal(tmp_path):
+    """In a fresh interpreter, collect() with an unreadable DIP_424K summary still calls it a
+    shadow's, and api.cloud_signal (numpy, pandas, the engine: 1.5 s+ every 2-minute run on the
+    1-CPU box) is never imported."""
+    import subprocess
+    code = "\n".join([
+        "import json, os, sys, time",
+        f"sys.path.insert(0, {ROOT!r})",
+        "import tools.webull_freshness as wf",
+        "paths = wf.default_paths(sys.argv[1])",
+        "os.makedirs(paths['keel_dir'], exist_ok=True)",
+        "with open(os.path.join(paths['keel_dir'], 'DIP_424K_v12_summary.json'), 'w') as f:",
+        "    f.write('not json')",
+        "def no_systemctl(*a, **k):",
+        "    raise OSError('no systemctl here')",
+        "t = time.perf_counter()",
+        "snap = wf.collect(paths, no_systemctl)",
+        "print(json.dumps({'shadow': snap['keel_shadow'], 'sec': time.perf_counter() - t,",
+        "                  'imported': sorted(m for m in sys.modules",
+        "                                     if m in ('api.cloud_signal', 'augur_engine.engine'))}))",
+    ])
+    r = subprocess.run([sys.executable, "-c", code, str(tmp_path / "home")], capture_output=True,
+                       text=True, timeout=300)
+    assert r.returncode == 0, r.stderr
+    got = json.loads(r.stdout.strip().splitlines()[-1])
+    assert got["shadow"] == ["DIP_424K_v12"] and got["imported"] == [], got
+
+
+def test_shadow_keel_summaries_fall_back_to_the_flag_when_the_source_cannot_be_read(
         tmp_path, monkeypatch):
-    monkeypatch.setitem(sys.modules, "api.cloud_signal", None)      # the import raises
-    assert wf._shadow_leg_keys() is None
+    def keys_of(text):
+        p = tmp_path / "cs_src.py"
+        p.write_text(text, encoding="utf-8")
+        return wf._shadow_leg_keys(str(p))
+    assert keys_of("X = 1\nSHADOW_LEGS = {'A': {}, \"B\": 1}\n") == frozenset({"A", "B"})
+    assert keys_of("SHADOW_LEGS = {'A': 1}\nSHADOW_LEGS = {'C': 1}\n") == frozenset({"C"})
+    for bad in ("SHADOW_LEGS = {", "SHADOW_LEGS = dict(A=1)\n", "SHADOW_LEGS = {'A': 1, **B}\n",
+                "SHADOW_LEGS = {1: 2}\n", "SHADOW_LEGS = {}\n", "OTHER = {'A': 1}\n"):
+        assert keys_of(bad) is None, bad
+    assert wf._shadow_leg_keys(str(tmp_path / "missing.py")) is None
+    monkeypatch.setattr(wf, "CLOUD_SIGNAL_SRC", str(tmp_path / "missing.py"))
     h = Home(tmp_path, et(2026, 10, 5, 19, 5))
     _w(os.path.join(h.paths["keel_dir"], "DIP_424K_v12_summary.json"), "not json")
     _shadow_summary(h, "ENGUQ_335_v12", "2026-10-02")
