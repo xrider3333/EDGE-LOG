@@ -74,6 +74,12 @@ $enguqName  = 'EdgeLogENGUQ1m'
 $stratRoot  = @{ 'EdgeLogNOISE' = 'MNQ'; 'EdgeLogENGUQ1m' = 'NQ' }
 $heldBack   = @()
 $enguqState = 'C:\EdgeLog\enguq_state.json'
+# NOISE RESUME (2026-10-09, owner via MANAGER #138: 'pick up where they left off'). EdgeLogNOISE saves its
+# open trade (side, size, average price, stop) here in real time; started with AdoptAccountPosition it
+# takes back ONLY a position that matches it and re-places the stop. Before that build is compiled the
+# file does not exist, so NoiseAdoptRefusal refuses and the per-contract gate holds NOISE as before.
+$noiseName  = 'EdgeLogNOISE'
+$noiseState = 'C:\EdgeLog\noise_state.json'
 
 # Returns $null when the open position is ENGU-Q's saved trade and safe to adopt,
 # otherwise a plain reason why not.
@@ -96,22 +102,43 @@ function EnguqAdoptRefusal($posJson) {
   return $null
 }
 
+# Returns $null when this ONE MNQ position is NOISE's own saved trade, otherwise a plain reason.
+# Same fields EdgeLogNOISE.RestoreState checks, so the watchdog never starts an adopt the strategy
+# would then refuse (and never offers it a position that is not its own).
+function NoiseAdoptRefusal($p) {
+  if ("$($p.account)" -ne 'DEMO7240108') { return "the position is on $($p.account), not the demo account" }
+  if (-not (Test-Path $noiseState)) { return "NOISE has no saved trade file" }
+  try { $st = Get-Content $noiseState -Raw | ConvertFrom-Json } catch { return "NOISE's saved trade file is unreadable" }
+  if (-not $st.inPos) { return "NOISE's saved trade says flat, so this position is not its own" }
+  if ("$($st.instrument)" -ne "$($p.instrument)") { return "saved trade is $($st.instrument) but the position is $($p.instrument)" }
+  $side = if ([int]$st.dir -gt 0) { 'Long' } else { 'Short' }
+  if ("$($p.side)" -ne $side) { return "saved trade is $side but the position is $($p.side)" }
+  if ([int]$st.qty -ne [int]$p.qty) { return "saved trade is $($st.qty) contract(s) but the position is $($p.qty)" }
+  if ([Math]::Abs([double]$p.avg_price - [double]$st.avg) -gt 0.125) { return "position price $($p.avg_price) is not the saved trade's $($st.avg)" }
+  if (-not ([double]$st.stop -gt 0)) { return "NOISE's saved trade has no stop" }
+  return $null
+}
+
 # Makes sure ENGU-Q's grid row starts with AdoptAccountPosition. Only possible while the
 # strategy is NOT running (the bridge refuses otherwise), which is exactly when this is
 # called. Returns $true when the row is (now) set to adopt.
-function EnsureEnguqAdopt {
+function EnsureEnguqAdopt { return (EnsureAdopt $enguqName) }
+
+# Sets a stopped strategy's grid row to AdoptAccountPosition (ENGU-Q always; NOISE only when the
+# account holds NOISE's own saved trade). Returns $true when the row is (now) set to adopt.
+function EnsureAdopt($name) {
   try {
-    $pj = (Invoke-WebRequest -Uri "$bridge/strategy/params?name=$enguqName" -TimeoutSec 10 -UseBasicParsing).Content | ConvertFrom-Json
+    $pj = (Invoke-WebRequest -Uri "$bridge/strategy/params?name=$name" -TimeoutSec 10 -UseBasicParsing).Content | ConvertFrom-Json
     $sb = "$(@($pj.base_settings | Where-Object { $_.name -eq 'StartBehavior' })[0].value)"
     if ($sb -eq 'AdoptAccountPosition') { return $true }
-    if ($WhatIf) { Log "[WhatIf] would set $enguqName StartBehavior $sb -> AdoptAccountPosition"; return $false }
-    Log "$enguqName starts with $sb - setting AdoptAccountPosition so an overnight hold survives a restart"
-    Invoke-WebRequest -Uri "$bridge/strategy/setparam?name=$enguqName&param=StartBehavior&value=AdoptAccountPosition" -Method POST -TimeoutSec 10 -UseBasicParsing | Out-Null
-    $pj = (Invoke-WebRequest -Uri "$bridge/strategy/params?name=$enguqName" -TimeoutSec 10 -UseBasicParsing).Content | ConvertFrom-Json
+    if ($WhatIf) { Log "[WhatIf] would set $name StartBehavior $sb -> AdoptAccountPosition"; return $false }
+    Log "$name starts with $sb - setting AdoptAccountPosition so its own open trade survives a restart"
+    Invoke-WebRequest -Uri "$bridge/strategy/setparam?name=$name&param=StartBehavior&value=AdoptAccountPosition" -Method POST -TimeoutSec 10 -UseBasicParsing | Out-Null
+    $pj = (Invoke-WebRequest -Uri "$bridge/strategy/params?name=$name" -TimeoutSec 10 -UseBasicParsing).Content | ConvertFrom-Json
     $sb = "$(@($pj.base_settings | Where-Object { $_.name -eq 'StartBehavior' })[0].value)"
-    Log "  $enguqName StartBehavior is now $sb"
+    Log "  $name StartBehavior is now $sb"
     return ($sb -eq 'AdoptAccountPosition')
-  } catch { Log "WARN: could not read/set $enguqName StartBehavior: $_"; return $false }
+  } catch { Log "WARN: could not read/set $name StartBehavior: $_"; return $false }
 }
 
 # ROLL PAUSE (2026-09-15). tools/nt_rollover.py stops NinjaTrader on purpose to move the
@@ -609,6 +636,16 @@ if ($posJson -and $posJson -notmatch '"positions"\s*:\s*\[\s*\]') {
     $known = @($stratRoot.Values)
     $unknown = @($roots | Where-Object { $known -notcontains $_ })
     $heldBack = @($expected | Where-Object { $roots -contains $stratRoot[$_] })
+    # NOISE's own saved trade is not held back: NOISE starts with adopt and resumes it (stop from $noiseState).
+    if ($heldBack -contains $noiseName) {
+      $nz = @(@(($posJson | ConvertFrom-Json).positions) | Where-Object { ("$($_.instrument)" -split ' ')[0].ToUpper() -eq $stratRoot[$noiseName] })
+      $nwhy = if ($nz.Count -eq 1) { NoiseAdoptRefusal $nz[0] } else { "$($nz.Count) $($stratRoot[$noiseName]) positions (adopt handles exactly one)" }
+      if (-not $nwhy -and (EnsureAdopt $noiseName)) {
+        Log "the account holds NOISE's own saved trade: $(($nz[0] | ConvertTo-Json -Compress))"
+        Log "enabling NOISE with adopt so it resumes managing it (stop from $noiseState)"
+        $heldBack = @($heldBack | Where-Object { $_ -ne $noiseName })
+      } elseif ($nwhy) { Log "  not NOISE's adoptable trade: $nwhy" }
+    }
     $free = @($expected | Where-Object { $heldBack -notcontains $_ })
     if ($roots.Count -eq 0 -or $unknown.Count -gt 0 -or $free.Count -eq 0) {
       Log "STOP: the account is holding a position while strategies are down:"
