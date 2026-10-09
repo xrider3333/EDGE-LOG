@@ -7265,8 +7265,10 @@ def main(argv=None):
                      '--hide-scrollbars', '--virtual-time-budget=30000',
                      '--user-data-dir=' + ud, '--dump-dom', url]
             try:
+                # 300 s (was 120): 157 cases take ~2 min on an idle machine since the n7 link sweep (2026-10-09), so a busy
+                #   machine timed out and the gate read INCONCLUSIVE - no verdict at all. The cases themselves are unchanged.
                 out = subprocess.run(cargs, capture_output=True, text=True, encoding='utf-8',
-                                     errors='replace', timeout=120).stdout or ''
+                                     errors='replace', timeout=300).stdout or ''
             except subprocess.TimeoutExpired:
                 print('CMP2 PROBE: INCONCLUSIVE (chrome timed out)')
                 return INCONCLUSIVE
