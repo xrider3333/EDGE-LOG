@@ -13,6 +13,13 @@
 # SYMBOLS REQUESTED = (the base list AND the assets endpoint's ACTIVE set) + the new active listings [P3] + every symbol of the optional --hold FILE (one a line: the names the line holds from the previous rank - pulled ALWAYS, even when inactive now,
 # because a name delisted mid-hold still needs its bars up to delisting). The base names dropped as inactive (count, first 20) and the inactive hold names (all) are printed and recorded in the manifest; the 2% error rule counts the requested symbols only.
 # Exit codes: 0 = published; 2 = refused or failed (nothing published, no half folder). The LAST line printed is one plain sentence saying which.
+# HARDENING (MANAGER #149, 2026-10-09): every Alpaca call follows NO redirect (requests would re-send the APCA-* headers to the new host);
+# the key lookup's values are stripped; scrub() / import_alpaca_stocks.redact() replace the key's plain, stripped, JSON-escaped, URL-encoded
+# and repr forms, and server text is redacted BEFORE it is truncated; a call gives up after MAX_429 (30) consecutive 429s and the whole
+# pull after MAX_RUN_MIN (240) minutes - both printed by `plan` and at the start of `pull`.
+# WRITTEN OUTSIDE --out (by the shared modules, not by this file): C:\EdgeLog\state\alpaca_rate.json (augur_engine/alpaca_rate.py: the
+# account-wide pace every lane shares), C:\EdgeLog\state\alpaca_pulls.jsonl (augur_engine/pull_provenance.py: one receipt per bars call)
+# and tools/import_alpaca_stocks.log (import_alpaca_stocks.log(): the 429 back-off and progress lines). EDGELOG_HOME moves the first two.
 # Reads: the base list C:\EdgeLog\alpaca_cache\xgap\wide_symbols_siporb_floor_2016_2025.txt (its sha256 is checked first), the optional hold list, and, in `pull`, the Alpaca account through r5_siporb._get (assets, calendar: the shared account pace) and
 # import_alpaca_stocks.fetch_bars (bars: pagination, 429 retry, and the PROVENANCE receipt augur_engine/pull_provenance.py files for every pull). Writes ONLY under ROOT: ROOT\_tmp_<through>_<pid>\ while it runs, renamed to ROOT\<through>\
 # when - and only when - everything is complete and verified. Imports r5_siporb, r16_xgap and import_alpaca_stocks; copies none of their HTTP code and edits none of them.
@@ -50,6 +57,8 @@ PAGE_LIMIT = 10000                         # fetch_bars' page size: a symbol's ~
 CA_BATCH = X16.CA_BATCH                    # 50 symbols a calendar request
 NEW_ALLOWANCE = 0.25                       # CHOICE [P16]: plan's placeholder for the new listings it cannot know offline (a guess, replaced by the first real pull's count)
 PROGRESS_EVERY = 250                       # a counts-only progress line every this many symbols
+MAX_RUN_MIN = 240                          # MANAGER #149 (d): the whole pull gives up after this many minutes (nothing published)
+_DEADLINE = None                           # set by build(): time.time() past which the pull refuses
 ERR_TEXT, MAX_LIST = 160, 5000             # characters of an error message kept in the manifest; entries of a list kept in the manifest (a count always says how many there were)
 RENAME_TRIES, RENAME_WAIT = 6, 1.0         # CHOICE [P14]: the final directory rename is retried on PermissionError (an indexer or a scanner holding a handle for a moment)
 F_RAW, F_SPLIT, F_CA, F_CA_RAW, F_SYMS, F_MAN = "daily_raw.parquet", "daily_split.parquet", "corporate_actions.csv", "corporate_actions_raw.jsonl", "symbols.txt", "manifest.json"
@@ -77,11 +86,7 @@ def refuse(msg):
 
 def scrub(text):
     """a key never reaches a print, a log or a file: the key / secret values this process holds are replaced in any text (a server message, an exception) before it is shown or stored (r16_xgap.scrub's rule: values shorter than 6 characters are not touched)"""
-    t = str(text)
-    for v in _SECRETS:
-        if v and len(v) >= 6:
-            t = t.replace(v, "<key>")
-    return t
+    return IAS.redact(text, _SECRETS)                        # MANAGER #149 (c): plain, stripped, JSON-escaped, URL-encoded and repr forms
 
 
 def one_line(text):
@@ -128,7 +133,8 @@ ca_fetch = X16.ca_fetch
 
 def load_keys():
     """the ONE key lookup (augur_engine/alpaca_keys.py: the process environment, then the Windows user environment in the registry, then the JSON files). The value goes to the callers that need it and nowhere else - never printed, logged or written"""
-    return alpaca_keys.load_keys()
+    key, secret = alpaca_keys.load_keys()
+    return (key.strip() if isinstance(key, str) else key), (secret.strip() if isinstance(secret, str) else secret)   # MANAGER #149 (b)
 
 
 def fetch_assets(key, secret):
@@ -370,6 +376,12 @@ def pull_one(sym, adj, win, key, secret, calls):
             time.sleep(RETRY_WAIT)
 
 
+def check_deadline(where):
+    """MANAGER #149 (d): the whole pull stops once it has run MAX_RUN_MIN minutes (nothing published)"""
+    if _DEADLINE is not None and time.time() > _DEADLINE:
+        refuse(f"refused: the pull ran past its {MAX_RUN_MIN}-minute cap {where} (nothing published)")
+
+
 def err_over(errors, requested):
     """more than ERR_MAX_PCT percent of the requested symbols (integer arithmetic: exactly 2% passes)"""
     return errors * 100 > ERR_MAX_PCT * requested
@@ -384,6 +396,7 @@ def pull_bars(symbols, win, key, secret):
     raw_parts, spl_parts, calls = [], [], Counter()
     with_bars, empty, one_sided, errors = [], [], [], []
     for i, sym in enumerate(symbols, 1):
+        check_deadline(f"at symbol {i:,} of {n:,}")
         got, err = {}, None
         for adj in ADJUSTMENTS:
             try:
@@ -611,6 +624,9 @@ def build(through, win, root, base, binfo, key, secret, argv, hold=(), hinfo=Non
     """everything between 'the checks passed' and 'published': assets -> the symbol rule -> bars -> data checks -> calendar -> cross-check -> files -> manifest -> the atomic rename. Any exception, a refusal included, leaves NO ROOT\\<through> and no half
     folder. `hold` / `hinfo` = the --hold list and its file facts (read_hold_list), empty / None without --hold"""
     t_start = time.time()
+    global _DEADLINE
+    _DEADLINE = t_start + MAX_RUN_MIN * 60.0
+    say(f"  caps: a call gives up after {IAS.MAX_429} consecutive 429s; the whole pull after {MAX_RUN_MIN} minutes; no redirect is followed")
     os.makedirs(root, exist_ok=True)
     stale = sorted(d for d in os.listdir(root) if d.startswith("_tmp_"))
     tmp = os.path.join(root, f"_tmp_{win['through']}_{os.getpid()}")
@@ -766,6 +782,9 @@ def run_plan(args):
     say("  requests, UPPER BOUND (the whole base list" + (f" + the hold names outside it: {outside:,}" if outside else "") + f", {up:,} symbols): bars 2 x {up:,} symbols x {pages} page = {b0:,}; calendar >= {c0:,} ({CA_BATCH} symbols a request, more for pages); assets 1; total >= {t0:,}")
     say(f"  requests, UPPER BOUND with the allowance ({up + extra:,} symbols): bars {b1:,}; calendar >= {c1:,}; assets 1; total >= {t1:,}")
     say(f"  time: the shared Alpaca budget is {per} requests a minute: the upper-bound counts take about {t0 / per:.1f} min of pace alone, about {t1 / per:.1f} min with the allowance - the active filter makes it shorter (response time and any other lane's pulls come on top)")
+    say(f"  caps: a call gives up after {IAS.MAX_429} consecutive 429s; the whole pull after {MAX_RUN_MIN} minutes; no redirect is followed")
+    say("  written outside --out by the shared modules: C:\\EdgeLog\\state\\alpaca_rate.json (the shared pace), "
+        "C:\\EdgeLog\\state\\alpaca_pulls.jsonl (one provenance receipt per bars call), tools/import_alpaca_stocks.log (429 back-off lines)")
     tgt, rev = next_target(root, win["through"])
     say(f"  output: would publish to {tgt}" + (f" (revision {rev}: that date is already on file)" if rev > 1 else " (a re-pull would become _r2, _r3 ...)"))
     now = now_et()
@@ -868,7 +887,8 @@ class FakeHTTP:
     def __init__(self, vendor, two_pages=()):
         self.vendor, self.two_pages, self.calls = vendor, set(two_pages), []
 
-    def __call__(self, url, headers=None, params=None, timeout=None):
+    def __call__(self, url, headers=None, params=None, timeout=None, allow_redirects=True):
+        assert allow_redirects is False, "MANAGER #149 (a): the bars call must not follow redirects"
         self.calls.append({"url": url, "headers": dict(headers or {}), "params": dict(params or {}), "timeout": timeout})
         sym, adj, token = params["symbols"], params["adjustment"], params.get("page_token")
         df = self.vendor.frame(sym, adj)
@@ -1837,6 +1857,8 @@ def t_plan():
                      "requests, UPPER BOUND (the whole base list, 100 symbols): bars 2 x 100 symbols x 1 page = 200; calendar >= 2 (50 symbols a request, more for pages); assets 1; total >= 203",
                      "requests, UPPER BOUND with the allowance (125 symbols): bars 250; calendar >= 3; assets 1; total >= 254",
                      "the shared Alpaca budget is 180 requests a minute: the upper-bound counts take about 1.1 min of pace alone, about 1.4 min with the allowance - the active filter makes it shorter",
+                     "caps: a call gives up after 30 consecutive 429s; the whole pull after 240 minutes; no redirect is followed",
+                     "written outside --out by the shared modules: C:\\EdgeLog\\state\\alpaca_rate.json (the shared pace)",
                      "output: would publish to " + os.path.join(w.root, "2026-10-30") + " (a re-pull would become _r2, _r3 ...)",
                      "earliest pull: 2026-10-30 20:00 New York time ([P1] --through is accepted when it is before today's New York date, or is today with the New York clock at or after 20:00); it is 2026-11-02 12:00 there now: a pull would be allowed now"):
             assert frag in out, (frag, out)
@@ -1918,6 +1940,54 @@ def t_secrets():
     assert scrub(f"a {FAKE_KEY} b") == f"a {FAKE_KEY} b", "scrub is inert while no key is held"
     with patched(sys.modules[__name__], _SECRETS=(FAKE_KEY, FAKE_SECRET, "", "short")):
         assert scrub(f"{FAKE_KEY}/{FAKE_SECRET}/short") == "<key>/<key>/short"
+    # MANAGER #149 (c): the stripped, JSON-escaped, URL-encoded and repr forms are scrubbed too
+    import json as _json
+    from urllib.parse import quote, quote_plus
+    odd = FAKE_SECRET[:10] + "/+= " + FAKE_SECRET[10:]                      # a secret with characters that change under escaping
+    with patched(sys.modules[__name__], _SECRETS=("  " + FAKE_KEY + "\n", odd)):
+        txt = scrub(" | ".join([FAKE_KEY, _json.dumps({"k": odd}), quote(odd, safe=""), quote_plus(odd), repr(odd)]))
+        assert FAKE_KEY not in txt and FAKE_SECRET[:10] not in txt and FAKE_SECRET[10:] not in txt, txt
+    # MANAGER #149 (b): the pull's key lookup strips the values
+    with patched(alpaca_keys, load_keys=lambda: ("  " + FAKE_KEY + "  ", FAKE_SECRET + "\r\n")):
+        assert load_keys() == (FAKE_KEY, FAKE_SECRET)
+    # MANAGER #149 (c) + (d): r5_siporb._get redacts server text BEFORE its [:300] cut, and gives up after MAX_429 consecutive 429s
+    class _R:
+        def __init__(self, code, text=""):
+            self.status_code, self.text = code, text
+    edge = "x" * 290 + FAKE_KEY                                              # the key straddles the 300-character cut
+    with patched(S, _http_get=lambda url, heads, params: _R(422, edge), PACE=0.0, RETRY=0.0, BACKOFF=0.0):
+        try:
+            S._get("https://example.invalid", {}, FAKE_KEY, FAKE_SECRET); raise AssertionError("a 422 was accepted")
+        except S.BadRequest as e:
+            assert FAKE_KEY[:8] not in str(e) and "<key>" in str(e), str(e)[-40:]
+    with patched(S, _http_get=lambda url, heads, params: _R(429), PACE=0.0, RETRY=0.0, BACKOFF=0.0):
+        try:
+            S._get("https://example.invalid", {}, FAKE_KEY, FAKE_SECRET); raise AssertionError("an endless 429 storm was waited out")
+        except RuntimeError as e:
+            assert "429" in str(e) and str(IAS.MAX_429) in str(e), str(e)
+    # MANAGER #149 (a) + (d): the bars call follows no redirect (a 302 is an error, never fetched), and gives up after MAX_429
+    import requests
+    seen = []
+
+    def _no_redirect(url, headers=None, params=None, timeout=None, allow_redirects=True):
+        seen.append(allow_redirects)
+        return _R(302, "moved")
+    with patched(requests, get=_no_redirect), patched(IAS, log=lambda m: None), patched(IAS.time, sleep=lambda s: None):
+        try:
+            IAS.fetch_bars("T01", "1Day", "a", "b", FAKE_KEY, FAKE_SECRET); raise AssertionError("a redirect was accepted")
+        except RuntimeError as e:
+            assert "HTTP 302" in str(e) and seen == [False], (str(e), seen)
+    with patched(requests, get=lambda *a, **k: _R(429)), patched(IAS, log=lambda m: None), patched(IAS.time, sleep=lambda s: None):
+        try:
+            IAS.fetch_bars("T01", "1Day", "a", "b", FAKE_KEY, FAKE_SECRET); raise AssertionError("an endless 429 storm was waited out")
+        except RuntimeError as e:
+            assert "429" in str(e) and str(IAS.MAX_429) in str(e), str(e)
+    # MANAGER #149 (d): the run-time cap refuses (nothing published)
+    with patched(sys.modules[__name__], _DEADLINE=time.time() - 1.0):
+        try:
+            check_deadline("at symbol 1 of 1"); raise AssertionError("the run-time cap did not refuse")
+        except Refused as e:
+            assert f"{MAX_RUN_MIN}-minute cap" in str(e) and "(nothing published)" in str(e), str(e)
 
 
 def t_real_fetch_bars():

@@ -100,7 +100,7 @@ def _http_get(url, heads, params):
     import requests
     from augur_engine import alpaca_rate
     alpaca_rate.wait()            # one account-wide pace: five lanes share the 200/min cap
-    return requests.get(url, headers=heads, params=params, timeout=120)
+    return requests.get(url, headers=heads, params=params, timeout=120, allow_redirects=False)   # MANAGER #149 (a): never re-send the keys elsewhere
 
 
 def keys():
@@ -115,7 +115,8 @@ def keys():
 
 def _get(url, params, key, secret):
     """one GET, r5_nqbrd's pacing: 0.31 s after a good reply, 429 -> sleep 20 s and retry, 401/403 -> stop"""
-    heads, tries = {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}, 0
+    heads, tries, n429 = {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}, 0, 0
+    from import_alpaca_stocks import redact, MAX_429         # MANAGER #149 (c) / (d): redact before any [:N]; the shared 429 cap
     while True:
         try:
             r = _http_get(url, heads, params)
@@ -125,18 +126,22 @@ def _get(url, params, key, secret):
                 raise
             print(f"  {type(e).__name__} - retry {tries}", flush=True); time.sleep(RETRY); continue
         if r.status_code == 429:
+            n429 += 1
+            if n429 > MAX_429:
+                raise RuntimeError(f"HTTP 429 {n429} times in a row - gave up (MAX_429 = {MAX_429})")
             time.sleep(BACKOFF); continue
+        n429 = 0
         if r.status_code in (401, 403):
             raise SystemExit(f"AUTH FAILED ({r.status_code}) - check the Alpaca keys")
         if r.status_code >= 500:
             tries += 1
             if tries > 6:
-                raise RuntimeError(f"HTTP {r.status_code}: {r.text[:300]}")
+                raise RuntimeError(f"HTTP {r.status_code}: {redact(r.text, (key, secret))[:300]}")
             time.sleep(RETRY); continue
         if r.status_code in (400, 422):
-            raise BadRequest(f"HTTP {r.status_code}: {r.text[:300]}")
+            raise BadRequest(f"HTTP {r.status_code}: {redact(r.text, (key, secret))[:300]}")
         if r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text[:300]}")
+            raise RuntimeError(f"HTTP {r.status_code}: {redact(r.text, (key, secret))[:300]}")
         time.sleep(PACE)                                    # ~195 requests a minute, under the free plan's 200
         return r.json()
 

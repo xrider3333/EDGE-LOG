@@ -82,7 +82,8 @@ def test_split_adjustment_is_the_default_request(monkeypatch):
     ask for it."""
     seen = {}
 
-    def fake_get(url, headers=None, params=None, timeout=None):
+    def fake_get(url, headers=None, params=None, timeout=None, allow_redirects=True):
+        assert allow_redirects is False, "MANAGER #149 (a): the bars call follows no redirect"
         seen.update(params)
         return _Resp(_page("AAPL", [_bar("2026-01-02T14:30:00Z")]))
 
@@ -191,7 +192,8 @@ def test_it_pages_through_the_ten_thousand_bar_cap(monkeypatch):
              _page("AAPL", [_bar("2026-01-02T14:35:00Z", c=2.0)], token=None)]
     calls = []
 
-    def fake_get(url, headers=None, params=None, timeout=None):
+    def fake_get(url, headers=None, params=None, timeout=None, allow_redirects=True):
+        assert allow_redirects is False, "MANAGER #149 (a): the bars call follows no redirect"
         calls.append(params.get("page_token"))
         return _Resp(pages[len(calls) - 1])
 
@@ -296,3 +298,42 @@ def test_nothing_in_this_file_reaches_the_network():
     src = open(TOOL, encoding="utf-8").read()
     assert src.count("requests.get") == 1, (
         "one HTTP call site keeps it mockable; a second needs its own fixture here")
+
+
+# ------------------------------------------------------------------- MANAGER #149 hardening (2026-10-09)
+
+def test_a_redirect_is_never_followed(monkeypatch):
+    """requests re-sends custom headers (the APCA-* keys) on a cross-host redirect. The bars call must refuse a 3xx, never fetch it."""
+    seen = []
+
+    def fake_get(url, headers=None, params=None, timeout=None, allow_redirects=True):
+        seen.append(allow_redirects)
+        return _Resp({"message": "moved"}, status=302)
+    monkeypatch.setattr(alp.requests, "get", fake_get)
+    with pytest.raises(RuntimeError, match="HTTP 302"):
+        alp.fetch_bars("AAPL", "5Min", "s", "e", "k", "s")
+    assert seen == [False]
+
+
+def test_a_429_storm_gives_up_after_the_cap(monkeypatch):
+    """A wedged rate limit must end the call after MAX_429 consecutive 429s, not wait forever."""
+    calls = []
+    monkeypatch.setattr(alp.requests, "get", lambda *a, **k: calls.append(1) or _Resp({}, status=429))
+    monkeypatch.setattr(alp.time, "sleep", lambda *_: None)
+    with pytest.raises(RuntimeError, match="429"):
+        alp.fetch_bars("AAPL", "5Min", "s", "e", "k", "s")
+    assert len(calls) == alp.MAX_429 + 1
+
+
+def test_redact_covers_escaped_forms_and_runs_before_the_cut():
+    """A key echoed by a server, escaped in JSON, URL-encoded or repr'd, never survives redact; and a key straddling the
+    error text's [:300] cut is replaced before the cut."""
+    import json
+    from urllib.parse import quote, quote_plus
+    key, sec = "PKTESTKEY0123456789", "sec/ret+value=0123456789 x"
+    t = alp.redact(" ".join([key, json.dumps(sec), quote(sec, safe=""), quote_plus(sec), repr(sec), " " + key + " "]), ("  " + key + "\n", sec))
+    assert key not in t and "ret+value" not in t and "ret%2Bvalue" not in t, t
+    edge = alp.redact("x" * 295 + key, (key,))[:300]
+    assert key[:5] not in edge and edge.endswith("<key>")
+    assert alp.redact("short abc", ("abc",)) == "short abc"
+

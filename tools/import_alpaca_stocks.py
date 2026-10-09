@@ -51,6 +51,7 @@ from augur_engine.master_write import write_master_csv  # noqa: E402
 LOG  = os.path.join(os.path.dirname(os.path.abspath(__file__)), "import_alpaca_stocks.log")
 
 BARS_URL = "https://data.alpaca.markets/v2/stocks/bars"
+MAX_429 = 30          # consecutive 429 replies on ONE call before it gives up (~10 min at the 20 s back-off; MANAGER #149 (d))
 
 # Alpaca timeframe -> the library's timeframe tag (must match existing master conventions)
 TF_TAG = {"1min": "1m", "2min": "2m", "5min": "5m", "15min": "15m", "30min": "30m",
@@ -74,13 +75,34 @@ def load_keys():
     return alpaca_keys.load_keys()
 
 
+def redact(text, secrets):
+    """MANAGER #149 (c): every key / secret value in `secrets` is replaced by <key> in `text` - its plain, stripped, JSON-escaped,
+    URL-encoded (quote / quote_plus) and repr forms, longest first. Callers redact server text BEFORE truncating it, so a key cut in
+    half by a [:N] can never be printed or stored. Values shorter than 6 characters are left alone (they would match ordinary text)."""
+    import json as _json
+    from urllib.parse import quote, quote_plus
+    t = str(text)
+    forms = set()
+    for v in secrets or ():
+        if not v:
+            continue
+        for s in {str(v), str(v).strip()}:
+            if len(s) < 6:
+                continue
+            forms |= {s, _json.dumps(s)[1:-1], quote(s, safe=""), quote_plus(s), repr(s)[1:-1]}
+    for f in sorted(forms, key=len, reverse=True):
+        if f:
+            t = t.replace(f, "<key>")
+    return t
+
+
 def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="split"):
     """Page through Alpaca's bars endpoint. Returns a DataFrame (time,open,high,low,close,volume).
 
     Alpaca caps a request at 10,000 bars and returns next_page_token to continue; the free
     plan allows 200 req/min, so we pace politely and retry on 429."""
     heads = {"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret}
-    rows, token, pages = [], None, 0
+    rows, token, pages, n429 = [], None, 0, 0
     while True:
         params = {"symbols": sym, "timeframe": timeframe, "start": start, "end": end,
                   "limit": 10000, "adjustment": adjustment, "feed": feed, "sort": "asc"}
@@ -89,13 +111,18 @@ def fetch_bars(sym, timeframe, start, end, key, secret, feed="sip", adjustment="
         # One account, five lanes. The 0.31s pace below assumes this process is the only
         # one pulling; alpaca_rate is what makes that true for the ACCOUNT instead.
         alpaca_rate.wait()
-        r = requests.get(BARS_URL, headers=heads, params=params, timeout=60)
-        if r.status_code == 429:                       # rate limited -> back off and retry
+        # MANAGER #149 (a): never follow a redirect - requests would re-send the APCA-* headers to the new host
+        r = requests.get(BARS_URL, headers=heads, params=params, timeout=60, allow_redirects=False)
+        if r.status_code == 429:                       # rate limited -> back off and retry, at most MAX_429 times in a row
+            n429 += 1
+            if n429 > MAX_429:
+                raise RuntimeError(f"HTTP 429 {n429} times in a row on {sym} - gave up (MAX_429 = {MAX_429})")
             log("    429 rate-limited, sleeping 20s…"); time.sleep(20); continue
+        n429 = 0
         if r.status_code in (401, 403):
-            raise SystemExit(f"AUTH FAILED ({r.status_code}) — check your Alpaca key/secret. {r.text[:200]}")
+            raise SystemExit(f"AUTH FAILED ({r.status_code}) — check your Alpaca key/secret. {redact(r.text, (key, secret))[:200]}")
         if r.status_code != 200:
-            raise RuntimeError(f"HTTP {r.status_code}: {r.text[:300]}")
+            raise RuntimeError(f"HTTP {r.status_code}: {redact(r.text, (key, secret))[:300]}")
         js = r.json()
         bars = (js.get("bars") or {}).get(sym) or []
         rows.extend(bars)
