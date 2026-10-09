@@ -75,6 +75,16 @@ from cloud_signal_thread, after the live step, on fetch ticks only.
   NOISE_422_PLAIN   run #422, NOISE_1_8_CT304H.py, NOISE_422_PARAMS, 5m RTH, no KEEL.
   NOISE_422_FIXED   the same + KEEL v12's fixed tilts, no model (research arm A3).
   NOISE_422_KEEL    the same + KEEL v12 learned, its own nightly state (NOISE_422_KEEL_v12_*).
+  DIP_424K    run #424 ("KEEL DIP"), NQDIP_1_1.py, DIP_424_PARAMS, asset="ETF", + KEEL v12
+              learned (its own nightly state, trained on #424's NQ trades -- keel["train"]).
+  DIP_424F    the same at a constant size DIP_424_CONST_SIZE = 1.245 (KEEL's average size over
+              #424's walk-forward trades; MANAGER #108 GO 2026-10-09).
+              Both run through api/dip_live.py (cfg["runner"] = DIP_RUNNER), never through
+              run_leg_trades: the file returns 6-field trades with the P&L in dollars, reports
+              a trade only once it exits, holds up to seven positions at once (one per dip
+              mechanism -> a per-slot trade id) and decides on the DAILY close, filling at the
+              next session's 09:30 open -- its daily series is QQQ_1d.csv history plus the 5m
+              cache's own sessions. See that module's docstring.
   (ENGUQ_335 was the fourth shadow leg from 2026-09-28 to 2026-10-09, when it went back to
   CROWN_LEGS. Its shadow rows stay in the shadow ledger untouched -- tools/
   shadow_legs_report.py still lists them, as a leg found in the ledger -- and its record in
@@ -248,6 +258,42 @@ NOISE_382_PARAMS = {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_r
 # gate_tf_min key: the file freezes the verification frame at 60 minutes itself.
 NOISE_422_PARAMS = {"tilt_mult": 1.75, "gate_len": 20, "gate_ratio": 1.15}
 
+# DIP #424 (SHADOW LEGS, MANAGER #108 GO 2026-10-09): run #424's validate champion, read
+# literally from the run's own doc (validate.champion; NQ 5m RTH no-adjust, cost 0 / mult 1 --
+# NQDIP_1_1.py charges its own costs and returns dollars). No "asset" key here: the live legs
+# add asset="ETF" (every setting is scale-free; "auto" would pick NQ micro costs and roll
+# seams on intraday data), while KEEL's NQ training (keel["train"]) runs it without one.
+DIP_424_PARAMS = {"notional": 100000, "cost_pts_rt": 0.783, "cost_bps": 2.0,
+                  "trend_len": 400, "rsi_len": 3, "rsi_thr": 45, "rsi_exit": 6,
+                  "dbl_n": 5, "pb_ema": 10, "pb_hold": 30,
+                  "cap_mult": 0.75, "cap_q": 0.35, "cap_hold": 5,
+                  "ibs_thr": 0.25, "ibs_exit": 1.0, "ibs_hold": 10,
+                  "streak_n": 0, "streak_hold": 4, "gap_atr": 0.0, "gap_hold": 1,
+                  "use_rsi": True, "use_dbl": True, "use_pb": True, "use_cap": True,
+                  "use_ibs": True, "use_streak": True, "use_gapdn": True}
+# DIP_424F's constant size: KEEL's average size over #424's walk-forward trades (SB/TTM: the
+# true-roll list's average; fixed 1.245x beat KEEL on ROC, 23.9 vs 18.5 at $30k DD).
+DIP_424_CONST_SIZE = 1.245
+# cfg["runner"] of a DIP leg -- leg_decision_trades sends it to api/dip_live.py
+DIP_RUNNER = "dip_daily"
+# NQDIP_1_1.py's seven mechanisms in the file's own order (NQDIP_1_1.py:286-287): the slot
+# name each trade carries in its id, and the use_* flag that runs that mechanism alone.
+DIP_MECHS = (("RSI", "use_rsi"), ("DBL", "use_dbl"), ("PB", "use_pb"), ("CAP", "use_cap"),
+             ("IBS", "use_ibs"), ("STREAK", "use_streak"), ("GAPDN", "use_gapdn"))
+# warmup_sessions of a DIP leg: EVERY cached 5m session (the daily series' sources must never
+# flip back as a rolling window moves -- see api/dip_live.py)
+DIP_5M_ALL_SESSIONS = 100_000
+# The daily series' calibration guard (api/dip_live.py build_daily_series): over at least
+# DIP_CAL_MIN_OVERLAP sessions that are complete in the 5m cache AND in QQQ_1d.csv, the median
+# |5m close / 1d close - 1| and the same for opens must each be <= DIP_CAL_TOL, else the series
+# is refused (a split or an adjusted file). 10 bp is a PROPOSAL, not yet measured on the box.
+DIP_CAL_TOL = 0.0010
+DIP_CAL_MIN_OVERLAP = 20
+# A DIP leg hands _diff_leg only trades still open or closed within this many sessions -- every
+# trade ENTERED inside it is among them -- so a cold start does not absorb years of history
+# into state.json.
+DIP_DIFF_SESSIONS = 60
+
 
 # ── KEEL v12 overlay (OWNER DECISION 2026-09-23) ─────────────────────────────────────────
 # "Put KEEL v12 on top of run #382 on the live Webull NOISE leg, train it on the NQ
@@ -260,8 +306,9 @@ NOISE_422_PARAMS = {"tilt_mult": 1.75, "gate_len": 20, "gate_ratio": 1.15}
 # sessions a state may lag "now" before it is treated as unavailable rather than trusted.
 KEEL_MAX_STALE_SESSIONS = 5
 
-# THREE SHAPES OF A LEG'S "keel" KEY (2026-09-27, docs/PREREG_keel_422_parts_2026-09-27.md
-# RESULT; all three run side by side on the NOISE #422 shadow legs since 2026-09-28):
+# FOUR SHAPES OF A LEG'S "keel" KEY (2026-09-27, docs/PREREG_keel_422_parts_2026-09-27.md
+# RESULT; the first three run side by side on the NOISE #422 shadow legs since 2026-09-28; the
+# fourth, const, since the DIP #424 shadow legs, 2026-10-09):
 #   learned  dict(version="v12", **keel_paths(<leg>, "v12"))  -- the model, trained nightly on
 #            the box (tools/keel_live_state.py) and scored from its state file (no "mode"
 #            key, or mode="learned"). NOISE_382 (live) and NOISE_422_KEEL (shadow).
@@ -269,18 +316,25 @@ KEEL_MAX_STALE_SESSIONS = 5
 #            (augur_engine/ml_keel.py's fixed_tilt_sizes_v12, arm A3 of that pre-registration:
 #            compression 1.5x, Friday 1.5x, capped at 3, half size before an FOMC statement).
 #            No state file, no nightly build, no staleness check. NOISE_422_FIXED (shadow).
+#   const    dict(mode="const", size=<float>)  -- every entry at that one size, no model, no
+#            state, no tilts (_keel_const_size: finite, > 0, <= KEEL_CONST_MAX_SIZE, else 1.0
+#            with its reason). DIP_424F (shadow, 1.245).
 #   none     no "keel" key at all -- the plugin's own size. ORB_R6, NOISE_422_PLAIN, ENGUQ_335.
+# A learned block may also carry "train" (DIP_424K: the params / cost_pts / date_from its NQ
+# training run uses -- read by tools/keel_live_state.py only; nothing in this module reads it).
 # Any other "mode" is a configuration error: every entry sizes 1.0 and the fallback push says
 # so (see _keel_size_for_entry / _keel_fallback_reason), same as a broken learned state.
 KEEL_MODE_LEARNED = "learned"
 KEEL_MODE_FIXED = "fixed"
+KEEL_MODE_CONST = "const"
+KEEL_CONST_MAX_SIZE = 3.0        # the KEEL v12 rule's own cap -- a constant size above it is refused
 KEEL_FIXED_VERSIONS = ("v12",)   # the fixed tilts exist for v12 only (ml_keel.FIXED_V12_*)
 
 
 def keel_mode(keel_cfg):
-    """The mode of a leg's "keel" block (see THREE SHAPES above): "learned" or "fixed",
-    None for no block, or the raw lower-cased "mode" string when it is neither -- which
-    every reader treats as a configuration error, never as either mode. Never raises."""
+    """The mode of a leg's "keel" block (see FOUR SHAPES above): "learned", "fixed" or
+    "const", None for no block, or the raw lower-cased "mode" string when it is none of them --
+    which every reader treats as a configuration error, never as any mode. Never raises."""
     if not keel_cfg:
         return None
     try:
@@ -373,7 +427,9 @@ CROWN_LEGS = {
 # "shadow": True is a second, independent guard beside run_shadow_step's fetch=False: every
 # ntfy push step()/_diff_leg can reach checks it (see _push_allowed), so a shadow leg can
 # never page the owner even if a future caller ran it with fetch=True. Keys must not collide
-# with CROWN_LEGS (tests/test_shadow_legs.py) -- a trade id carries the leg key.
+# with CROWN_LEGS (tests/test_shadow_legs.py) -- a trade id carries the leg key. ORDER MATTERS:
+# api/qqq_exec.py's shadow_trades block and the board list the legs in this order, so a new leg
+# is APPENDED (the DIP #424 pair last, 2026-10-09).
 SHADOW_LEGS = {
     # NOISE #422 plain: the plugin's own size (1.0, or 1.75 while the hourly squeeze is on).
     "NOISE_422_PLAIN": {
@@ -414,6 +470,40 @@ SHADOW_LEGS = {
     },
     # ENGUQ_335 was the fourth shadow leg from 2026-09-28 until it went back to CROWN_LEGS on
     # 2026-10-09 (OWNER DECISION) -- see the module docstring. Its shadow rows stay as history.
+    # DIP #424 ("KEEL DIP", MANAGER #108 GO 2026-10-09) -- see the module docstring and
+    # api/dip_live.py. Decided on the daily close, filled at the next session's 09:30 open, up
+    # to seven positions at once (one per mechanism, each its own trade-id slot), multi-day
+    # holds -- so no eod_flat / decide_at_close / resting_levels. warmup_sessions: every cached
+    # 5m session (the daily series' source per date must never flip back). max_entry_age_sec:
+    # the whole session -- no order is ever sent and the fill price (the 09:30 open) does not
+    # depend on when the box saw the bar, so a would-be trade is never lost to an outage
+    # shorter than the session (the default three bars would drop it after 15 minutes).
+    # + KEEL v12 learned, its OWN nightly state (DIP_424K_v12_state.joblib / _summary.json,
+    # tools/keel_live_state.py), trained on #424's NQ trades: keel["train"] = the run's own
+    # params WITHOUT an asset key (auto -> the NQ model on 5m NQ), cost 0 (the file charges its
+    # own), from the run's date_from. Until the first build lands every entry scores 1.0.
+    "DIP_424K": {
+        "strategy": "NQDIP_1_1.py",
+        "timeframe": "5m",
+        "runner": DIP_RUNNER,
+        "params": dict(DIP_424_PARAMS, asset="ETF"),
+        "warmup_sessions": DIP_5M_ALL_SESSIONS,
+        "max_entry_age_sec": 390 * 60,
+        "keel": dict(version="v12", **keel_paths("DIP_424K", "v12"),
+                     train=dict(params=dict(DIP_424_PARAMS), cost_pts=0.0, date_from="2010-06-07")),
+        "shadow": True,
+    },
+    # the same trades at a constant 1.245 (see DIP_424_CONST_SIZE / FOUR SHAPES above)
+    "DIP_424F": {
+        "strategy": "NQDIP_1_1.py",
+        "timeframe": "5m",
+        "runner": DIP_RUNNER,
+        "params": dict(DIP_424_PARAMS, asset="ETF"),
+        "warmup_sessions": DIP_5M_ALL_SESSIONS,
+        "max_entry_age_sec": 390 * 60,
+        "keel": dict(mode=KEEL_MODE_CONST, size=DIP_424_CONST_SIZE),
+        "shadow": True,
+    },
 }
 
 # Sizing: identical convention to tools/qqq_paper.py (shares = floor($ notional / entry px)).
@@ -978,6 +1068,16 @@ def log_history_windows(legs=None, paths=None, log=print):
     cache_counts = {}
     for key, cfg in legs.items():
         tf = cfg["timeframe"]
+        if cfg.get("runner") == DIP_RUNNER:
+            # a DIP leg's window is its DAILY series (QQQ_1d.csv + the 5m sessions), not a
+            # count of 5m sessions -- api/dip_live.py says how long it is and whether it is ready
+            try:
+                from api import dip_live as _dip
+                log(_dip.history_line(key, cfg, paths))
+            except Exception as e:
+                log(f"[cloud-signal] history window {key}: DIP daily series unknown "
+                    f"({type(e).__name__}: {e})")
+            continue
         if tf not in cache_counts:
             try:
                 cache_counts[tf] = _cache_session_count(tf, paths)
@@ -2058,8 +2158,9 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
     a short human-readable reason string on any fallback, or a diagnostics dict
     (z/trust/rho/t_fast) on a real score -- for logging only.
 
-    A mode="fixed" block (see THREE SHAPES above keel_paths) never reaches the state
-    file: _keel_fixed_size_for_entry scores it, under the same contract. An unknown mode
+    A mode="fixed" block (see FOUR SHAPES above keel_paths) never reaches the state
+    file: _keel_fixed_size_for_entry scores it, under the same contract. A mode="const"
+    block is its one size (_keel_const_size), whatever the entry bar. An unknown mode
     is a configuration error -> 1.0 with its reason, like any other fallback. So is a
     learned block with no "state_path" (dict(version="v12") alone, or a misspelt "mode"
     KEY, both read as learned): _diff_leg and step()'s per-leg loop have no try of their
@@ -2071,6 +2172,8 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
     (_keel_entry_extras, logging only) never recompute them on the entry path. Writing it
     changes nothing this function returns.
     """
+    if keel_cfg and keel_mode(keel_cfg) == KEEL_MODE_CONST:
+        return _keel_const_size(keel_cfg)
     if not keel_cfg or entry_bar is None:
         return 1.0, None
     mode = keel_mode(keel_cfg)
@@ -2120,6 +2223,19 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
     except Exception as e:
         log(f"[cloud-signal] KEEL scoring failed: {type(e).__name__}: {e}")
         return 1.0, f"keel scoring error: {type(e).__name__}: {e}"
+
+
+def _keel_const_size(keel_cfg):
+    """(size, diag) for a mode="const" block (see FOUR SHAPES above keel_paths): its "size" when
+    that is a finite number > 0 and <= KEEL_CONST_MAX_SIZE -> (size, {"mode": "const", "size"}),
+    else (1.0, a reason string) -- the same contract as every other KEEL scorer. Never raises."""
+    try:
+        size = float((keel_cfg or {}).get("size"))
+    except (TypeError, ValueError):
+        return 1.0, f"keel const size invalid: {(keel_cfg or {}).get('size')!r}"
+    if not math.isfinite(size) or size <= 0 or size > KEEL_CONST_MAX_SIZE:
+        return 1.0, f"keel const size invalid: {size!r} (needs 0 < size <= {KEEL_CONST_MAX_SIZE})"
+    return size, {"mode": KEEL_MODE_CONST, "size": size}
 
 
 def _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=print, feats=None):
@@ -2450,9 +2566,13 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
     exception would be.
 
     A mode="fixed" block has no state and nothing to go stale: healthy (None) unless its
-    version has no fixed tilts. An unknown mode is always reported."""
+    version has no fixed tilts. A mode="const" block is healthy unless its size is invalid.
+    An unknown mode is always reported."""
     try:
         mode = keel_mode(keel_cfg)
+        if mode == KEEL_MODE_CONST:
+            _size, diag = _keel_const_size(keel_cfg)
+            return diag if isinstance(diag, str) else None
         if mode == KEEL_MODE_FIXED:
             version = keel_cfg.get("version")
             return (None if version in KEEL_FIXED_VERSIONS
@@ -2697,8 +2817,13 @@ def _entry_key(leg, trade):
     second ENTRY, and either way the original key dropped out of the trade list, so its
     EXIT was never emitted. The price-bearing form is only a fallback for a trade whose id
     cannot be formed (never the case for a well-formed engine trade); such a trade's rows
-    carry an empty trade_id and api/qqq_exec.py refuses to act on them."""
-    return _trade_id.make(leg, trade.get("entry_time"), trade.get("side")) or _legacy_entry_key(leg, trade)
+    carry an empty trade_id and api/qqq_exec.py refuses to act on them.
+
+    SLOT (2026-10-09): a trade that names a "slot" (only the DIP #424 shadow legs' -- seven
+    mechanisms can fill at one bar) gets the per-slot id "<leg>-<time>-L-<SLOT>"; every other
+    trade has no slot and keeps exactly the id it always had."""
+    return (_trade_id.make(leg, trade.get("entry_time"), trade.get("side"), slot=trade.get("slot"))
+            or _legacy_entry_key(leg, trade))
 
 
 def _legacy_entry_key(leg, trade):
@@ -2849,7 +2974,8 @@ def _rekey_recorded_trades(leg_key, leg_state):
     recorded = leg_state.get("trades") or {}
     out = {}
     for key, rec in recorded.items():
-        new_key = _trade_id.make(leg_key, (rec or {}).get("entry_time"), (rec or {}).get("side")) or key
+        new_key = _trade_id.make(leg_key, (rec or {}).get("entry_time"), (rec or {}).get("side"),
+                                 slot=(rec or {}).get("slot")) or key
         cur = out.get(new_key)
         out[new_key] = rec if cur is None else max((cur, rec), key=_merge_rank)
     leg_state["trades"] = out
@@ -3229,7 +3355,14 @@ def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print):
     step() and api/cloud_signal_stream.py's stream decision cannot drift apart again (the
     stream path once skipped all three extras -- WEBULL_PAPER_TODO.md item 10). The stream
     calls this with fetch=False: it must never touch the network, and step() runs right
-    after it on the same tick and does the daily-cache refresh."""
+    after it on the same tick and does the daily-cache refresh.
+
+    A DIP leg (cfg["runner"] == DIP_RUNNER) goes to api/dip_live.py instead and NEVER reaches
+    run_leg_trades (whose 5-field unpack raises on the file's 6-field trades and would read
+    its dollar P&L as a price move): (trades, arrays), where trades is None while its daily
+    series is not ready -- step() then skips the leg's diff (no SEED) and retries next bar."""
+    if cfg.get("runner") == DIP_RUNNER:
+        return run_dip_leg_trades(cfg, arrays, leg_key, now, paths, log), arrays
     trades = run_leg_trades(cfg, arrays, leg_key=leg_key, log=log, now=now, paths=paths,
                             fetch=fetch)
     diff_arrays = arrays
@@ -3243,6 +3376,20 @@ def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print):
                                      fetch=False),
             log=log)
     return trades, diff_arrays
+
+
+def run_dip_leg_trades(cfg, arrays, leg_key=None, now=None, paths=None, log=print):
+    """A DIP #424 leg's trade dicts for this tick, or None while its daily series is not ready
+    (see api/dip_live.py run_dip_leg_trades -- this is the module's one entry point here)."""
+    from api import dip_live as _dip
+    return _dip.run_dip_leg_trades(cfg, arrays, leg_key=leg_key, now=now, paths=paths, log=log)
+
+
+def _dip_daily_series(arrays, now, paths, params=None, log=print):
+    """(series, None) or (None, (reason_key, text)) -- api/dip_live.py build_daily_series on
+    the DIP legs' params (default DIP_424_PARAMS)."""
+    from api import dip_live as _dip
+    return _dip.build_daily_series(arrays, now, paths, dict(params or DIP_424_PARAMS), log=log)
 
 
 # ── The core entry point ───────────────────────────────────────────────────────────────
@@ -3388,6 +3535,11 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
         # stream path (api/cloud_signal_stream.py) so the two can never decide differently
         # off the same bars; see leg_decision_trades.
         trades, diff_arrays = leg_decision_trades(cfg, arrays, key, tf, now, paths, fetch)
+        if trades is None:
+            # only a DIP leg's runner ever says "not ready" (its daily series -- see
+            # api/dip_live.py): no diff and no SEED; last_bar_epoch already moved, so the next
+            # new bar retries
+            continue
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
         # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
         # its own `max_entry_age_sec` when its bar size makes three bars the wrong measure.
@@ -3460,13 +3612,29 @@ def _zi(name):
         return pytz.timezone(name)
 
 
-def _seeded_entry_event(leg_key, key, t, rec, bar_source, why):
+def _seed_carry_sizes(cfg, t):
+    """(size, keel_size) for a seeded carry: the plugin's own size with keel_size blank (KEEL is
+    never scored for a seeded trade) -- except on a mode="const" leg (DIP_424F), whose one size
+    is a rule, not a score, and applies to every trade it holds: plugin x const, const."""
+    size = t.get("size", 1.0)
+    keel_cfg = (cfg or {}).get("keel")
+    if keel_cfg and keel_mode(keel_cfg) == KEEL_MODE_CONST:
+        k, diag = _keel_const_size(keel_cfg)
+        if isinstance(diag, dict):
+            return size * k, k
+    return size, ""
+
+
+def _seeded_entry_event(leg_key, key, t, rec, bar_source, why, cfg=None):
     """The ONE ENTRY row a shadow leg writes for a trade it was already holding at its seed
     (see SEED_OPEN_FORMAT): the trade's own entry time and price, its id, the plugin's own
-    size (KEEL is never scored for a seeded trade -- keel_size stays blank, as on SEED), and
-    a reason that starts with SEEDED_REASON_TAG. Also marks `rec` as carried (exit owed)."""
-    size = t.get("size", 1.0)
-    rec.update({"exit_emitted": False, "seeded_open": True, "size": size, "keel_size": ""})
+    size (KEEL is never scored for a seeded trade -- keel_size stays blank, as on SEED; a
+    mode="const" leg's constant size does apply, see _seed_carry_sizes), and a reason that
+    starts with SEEDED_REASON_TAG. Also marks `rec` as carried (exit owed)."""
+    size, keel_size = _seed_carry_sizes(cfg, t)
+    if t.get("slot"):
+        why = f"{why} (slot={t['slot']})"
+    rec.update({"exit_emitted": False, "seeded_open": True, "size": size, "keel_size": keel_size})
     return {
         "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
         "leg": leg_key, "event": "ENTRY", "side": t["side"],
@@ -3476,11 +3644,11 @@ def _seeded_entry_event(leg_key, key, t, rec, bar_source, why):
                   "no order",
         "bar_source": bar_source or "",
         "trade_id": key if _trade_id.is_valid(key) else "",
-        "size": size, "keel_size": "",
+        "size": size, "keel_size": keel_size,
     }
 
 
-def _carry_seeded_open(leg_key, trades, leg_state, bar_source, now):
+def _carry_seeded_open(leg_key, trades, leg_state, bar_source, now, cfg=None):
     """ONE-TIME upgrade of a shadow leg seeded before SEED_OPEN_FORMAT existed (ENGUQ_335 on
     the box: seeded 2026-09-29 09:30 holding the 2026-09-28 12:32 long, recorded as
     exit_emitted with no exit). A seed record with no exit_time was open at the seed; if the
@@ -3501,7 +3669,7 @@ def _carry_seeded_open(leg_key, trades, leg_state, bar_source, now):
             continue
         events.append(_seeded_entry_event(
             leg_key, key, t, rec, bar_source,
-            f"open at this shadow leg's cold start, carried on {now.date().isoformat()}"))
+            f"open at this shadow leg's cold start, carried on {now.date().isoformat()}", cfg=cfg))
     leg_state["seed_open_format"] = SEED_OPEN_FORMAT
     return events
 
@@ -3631,6 +3799,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "exit_emitted": not carry, "exit_time": t.get("exit_time"),
                 "exit_px": t.get("exit_px"), "seeded": True,
             }
+            if t.get("slot"):
+                recorded[key]["slot"] = t["slot"]      # DIP legs only (see _entry_key)
             if t["still_open"]:
                 open_at_seed = f"{t['side']} @ {t['entry_px']} ({t['entry_time']})"
             if carry:
@@ -3655,12 +3825,12 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
         })
         for key, t in carried:
             events.append(_seeded_entry_event(leg_key, key, t, recorded[key], bar_source,
-                                              "open at this shadow leg's cold start"))
+                                              "open at this shadow leg's cold start", cfg=cfg))
         return events
     if carry_open and leg_state.get("seed_open_format") != SEED_OPEN_FORMAT:
         # a shadow leg seeded before SEED_OPEN_FORMAT existed: carry its open-at-seed trade
         # now (once), then fall through -- the diff below emits its EXIT if it has closed
-        events.extend(_carry_seeded_open(leg_key, trades, leg_state, bar_source, now))
+        events.extend(_carry_seeded_open(leg_key, trades, leg_state, bar_source, now, cfg=cfg))
     # LATE ENTRIES ARE NOT ACTIONABLE EITHER (2026-09-09, seen live). "Entry is from today"
     # was too weak a test. After the 12:44 runner restart this engine re-derived the day and
     # emitted an ENGU-Q ENTRY stamped 10:07 -- two and a half hours old -- because it was
@@ -3700,6 +3870,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                              "entry_px": t["entry_px"], "shares": t["shares"],
                              "exit_emitted": bool(skip), "exit_time": None,
                              "exit_px": None, "skipped": skip}
+            if t.get("slot"):
+                recorded[key]["slot"] = t["slot"]      # DIP legs only (see _entry_key)
             if skip:
                 counter = f"{skip}_skipped"
                 leg_state[counter] = int(leg_state.get(counter, 0)) + 1
@@ -3771,7 +3943,10 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "emitted_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(),
                 "leg": leg_key, "event": "ENTRY", "side": t["side"],
                 "ref_time": t["entry_time"], "ref_price": t["entry_px"],
-                "shares": t["shares"], "reason": t.get("probe_entry") or "",
+                "shares": t["shares"],
+                # a decide-at-close probe's tag, or a DIP leg's own note (decided at the prior
+                # close, filled at the 09:30 open, when the engine first saw it); else blank
+                "reason": t.get("probe_entry") or t.get("entry_note") or "",
                 "bar_source": bar_source or "",
                 "trade_id": tid,
                 "size": final_size,
@@ -3831,7 +4006,10 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "ref_time": t["exit_time"], "ref_price": t["exit_px"],
                 "shares": t["shares"],
                 "reason": ("strategy_exit" + (f"; {t['probe_exit']}" if t.get("probe_exit") else "")
-                           + ("; eod_settle" if post_close else "")),
+                           + (f"; {t['exit_note']}" if t.get("exit_note") else "")
+                           # a DIP exit fills at a 09:30 open, never at the close -- no
+                           # eod_settle tag even when it is first seen after the bell
+                           + ("; eod_settle" if post_close and not t.get("exit_note") else "")),
                 "bar_source": bar_source or "",
                 # the ENTRY's id, not one built from the exit bar -- see SIGNAL_COLS
                 "trade_id": tid,

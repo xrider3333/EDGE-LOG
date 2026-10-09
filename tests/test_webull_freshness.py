@@ -1472,3 +1472,116 @@ def test_eod_webull_holds_more_than_the_held_lot(tmp_path):
         "Do: check the Webull app holds only ENGU-Q's 10 held shares and sell anything else by hand."]
     v = h.status()["verdicts"]["webull_flat"]
     assert v["title"] == "Webull NOT confirmed flat" and "ENGU-Q long 10" in v["detail"]
+
+
+# -- SHADOW KEEL legs (2026-10-09, MANAGER #108): tracked, never pushed, never gate the open ----
+def _shadow_summary(h, name, through):
+    """A shadow leg's KEEL summary as tools/keel_live_state writes it (leg_live false)."""
+    _wj(os.path.join(h.paths["keel_dir"], f"{name}_summary.json"),
+        {"data_through": str(through), "leg": name.rsplit("_v", 1)[0], "leg_live": False})
+
+
+def test_a_shadow_legs_stale_keel_is_tracked_quietly_never_pushed(tmp_path):
+    """The NQ data landed and the live legs were rebuilt, but the DIP #424 shadow leg's build
+    did not land: keel:<leg> fails, MEDIUM and QUIET (status.json + the PC relay) -- no push,
+    and no HIGH 'KEEL STALE' for a leg that sends no order."""
+    h = Home(tmp_path, et(2026, 10, 5, 19, 5))
+    h.bars(h.now)
+    h.keel(through="2026-10-05")
+    _shadow_summary(h, "DIP_424K_v12", "2026-10-02")
+    assert wf.collect(h.paths, h.run_cmd)["keel_shadow"] == ["DIP_424K_v12"]
+    out = h.run()
+    assert "keel:DIP_424K_v12" in failing(out)
+    assert "keel_fallback:DIP_424K_v12" not in failing(out)        # 1 session old
+    v = out["status"]["verdicts"]["keel:DIP_424K_v12"]
+    assert v["severity"] == wf.MEDIUM
+    assert v["title"] == "KEEL STALE (DIP_424K_v12), shadow leg, no orders"
+    rec = [r for r in out["opened"] if r["key"] == "keel:DIP_424K_v12"][0]
+    assert rec["quiet"] is True
+    assert rec["plain"]["problem"].startswith("The DIP #424 shadow leg's KEEL model")
+    assert h.pushes == []
+    # rebuilt the next evening: the episode closes, still without a push (no "OK" for it)
+    h.set_now(et(2026, 10, 6, 19, 5))
+    h.exec_state()                                              # that day's close done, flat
+    h.cs_state()
+    h.advance(h.now)
+    h.bars(h.now)
+    h.keel(through="2026-10-06")
+    _shadow_summary(h, "DIP_424K_v12", "2026-10-06")
+    out = h.run()
+    assert "keel:DIP_424K_v12" not in failing(out)
+    assert not [a for a in h.status()["open_alerts"] if "DIP_424K" in a["key"]]
+    assert not [p for p in h.pushes if "KEEL" in p["message"] or "shadow" in p["message"]]
+
+
+def test_a_shadow_legs_fallback_age_is_quiet_too(tmp_path):
+    """Five sessions old: the would-be trades size at 1.0 -- said in the status text, never
+    paged (a live leg at this age is the HIGH 'CHECK NOW')."""
+    h = Home(tmp_path, et(2026, 10, 9, 19, 5))
+    h.bars(h.now)
+    h.keel(through="2026-10-09")
+    _shadow_summary(h, "DIP_424K_v12", "2026-10-02")
+    out = h.run()
+    assert {"keel:DIP_424K_v12", "keel_fallback:DIP_424K_v12"} <= failing(out)
+    fb = out["status"]["verdicts"]["keel_fallback:DIP_424K_v12"]
+    assert fb["severity"] == wf.MEDIUM
+    assert "shadow leg, no orders: its would-be trades size at 1.0" in fb["detail"]
+    opened = {r["key"]: r for r in out["opened"]}
+    assert opened["keel_fallback:DIP_424K_v12"]["quiet"] is True
+    assert "5 sessions old" in opened["keel_fallback:DIP_424K_v12"]["plain"]["problem"]
+    assert h.pushes == []
+
+
+def test_noise_382_still_pages_beside_a_stale_shadow_leg(tmp_path):
+    """The live leg's wording and push are unchanged: the shadow leg adds nothing to the note."""
+    h = Home(tmp_path, et(2026, 10, 5, 19, 5))
+    h.bars(h.now)
+    h.keel(through="2026-10-02")
+    _shadow_summary(h, "DIP_424K_v12", "2026-10-02")
+    out = h.run()
+    assert out["status"]["verdicts"]["keel:NOISE_382_v12"]["severity"] == wf.HIGH
+    assert h.pushes == [{"title": "QQQ book: needs a fix", "priority": "default", "message":
+                         "Trading: not affected.\n"
+                         "The KEEL sizing model was not rebuilt after the close (it is 1 "
+                         "session old).\n"
+                         "Do: ask Claude (PAPER-WB chat)."}]
+
+
+def test_preopen_skips_shadow_keel_summaries(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 8, 30, 30))
+    _shadow_summary(h, "DIP_424K_v12", "2026-09-25")             # far too old -- shadow only
+    h.run()
+    assert [p["title"] for p in h.pushes] == ["QQQ book: OK"]
+    assert h.status()["preopen"]["slots"]["08:30"]["misses"] == []
+    # the same age on a LIVE leg's summary is still a miss
+    t = et(2026, 10, 5, 9, 16)
+    h2 = Home(tmp_path / "live", t)
+    _wj(os.path.join(h2.paths["keel_dir"], "NOISE_382_v12_summary.json"),
+        {"data_through": "2026-09-25", "leg": "NOISE_382"})
+    snap = wf.collect(h2.paths, h2.run_cmd)
+    assert any(m.startswith("KEEL NOISE_382_v12 trained through 2026-09-25")
+               for m in wf.preopen_misses(snap, t, wf.exec_view(snap, t, {})))
+
+
+def test_only_shadow_keel_summaries_is_still_no_live_model(tmp_path):
+    """The live leg's summary gone, a shadow one left: that is no live KEEL model, as loud as
+    no summary at all (a shadow summary must not hide it)."""
+    t = et(2026, 10, 5, 19, 5)
+    h = Home(tmp_path, t)
+    h.bars(h.now)
+    for name in ("NOISE_382_v12", "NOISE_422_KEEL_v12"):
+        os.remove(os.path.join(h.paths["keel_dir"], f"{name}_summary.json"))
+    _shadow_summary(h, "DIP_424K_v12", "2026-10-05")
+    out = h.run()
+    assert "keel:none" in failing(out)
+    assert "only shadow legs': DIP_424K_v12" in out["status"]["verdicts"]["keel:none"]["detail"]
+    t2 = et(2026, 10, 6, 9, 16)
+    snap = wf.collect(h.paths, h.run_cmd)
+    assert "no live leg's KEEL summary on the box" in wf.preopen_misses(
+        snap, t2, wf.exec_view(snap, t2, {}))
+
+
+def test_keel_leg_words():
+    assert wf._keel_leg_word("NOISE_382_v12") == wf._keel_leg_word("NOISE_422_KEEL_v12") == "NOISE"
+    assert wf._keel_leg_word("DIP_424K_v12") == wf._keel_leg_word("DIP_424F") == "DIP #424"
+    assert wf._keel_leg_word("ENGUQ_335_v12") == "ENGU-Q" and wf._keel_leg_word("DIP") == "DIP"

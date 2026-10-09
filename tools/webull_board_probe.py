@@ -265,6 +265,14 @@ and on ENGU-Q the hover naming the live Webull order for the same signal (flatte
 beside it, in the BOOK ENGU-Q #335 row - a live leg again since 2026-10-09 - or the Retired one where a case files ENGU-Q there)
 and no such sentence on any other leg. The trade list run 'a shadow row closed today' gets the
 block too: neither the list nor the CSV may hold one of its trades.
+DIP #424 (MANAGER #108, 2026-10-09): the block also carries the two no-order DIP legs, DIP_424K (KEEL v12 size) and DIP_424F (fixed
+1.245), named 'DIP #424 KEEL' and 'DIP #424 fixed 1.245' with their run number, each holding several trades at once (one per dip
+mechanism: five entered on one bar on 09-29, three still open). The fold's order is by family -- ENGU-Q #335, then the NOISE #422 lines,
+then DIP #424, then any other leg, the box's order inside a family -- checked on the box's own order (DIP after ENGU-Q) and, in the
+TODAY case, on a block that lists DIP first (SHADOW_LEGS_DIP_FIRST). Several open trades read as one plain line: '3 open, long since
+10-01 · +$259.34 at 751.73' (the oldest open entry, their open P&L summed, at the price they are all marked at), and the DIP rows' hover
+says each trade is decided on a daily close and entered at the next session's 09:30 open. The probe's own expectations for the default
+block are pinned (SHADOW_ROW_ORDER, SHADOW_DIP_OPEN), so a drift in expected_shadow_rows cannot hide a wrong page.
 
 HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): ENGU-Q's lot is carried past the 15:59 flatten on purpose; the box marks it
 per leg (positions[leg] and positions_live.legs[], api/qqq_exec.py _held_position_fields: held_overnight true, gap_today_usd once
@@ -2070,9 +2078,9 @@ MUTANTS = [
      "(false?'<span data-qbshopen=\"1\">'",
      "a shadow leg's open trade has no open line ('1 open, long since 09-28 @ 738.03')"),
     ('shadow-enguq-not-first',
-     "qbShLegs.sort((a,b)=>(/^ENGUQ/i.test(b)?1:0)-(/^ENGUQ/i.test(a)?1:0));",
+     "qbShLegs.sort((a,b)=>qbShRank(a)-qbShRank(b));",
      "",
-     "ENGU-Q #335 is no longer the Shadow fold's first row (the box lists it last)"),
+     "ENGU-Q #335 is no longer the Shadow fold's first row (the box lists it after the NOISE #422 lines)"),
     ('shadow-hover-no-live-order',
      "if(lv){const rec=qePnlOf(lv)",
      "if(false){const rec=qePnlOf(lv)",
@@ -2166,6 +2174,39 @@ MUTANTS = [
      "+(i===n-1&&p.date===qeBoxDay?((atNow?openMarkPnl:0)-qbHeldCarry):0))*100)/100:0;",
      "+(atNow&&p.date===qeBoxDay?openMarkPnl:0))*100)/100:0;",
      "a scrub to the chart's last point counts a held lot's earlier days in the today line (it moves when the mouse comes in)"),
+    # MANAGER #108 (2026-10-09): the DIP #424 shadow legs -- names with their run number, order by family, several open trades at once
+    ('shadow-dip-name-raw',
+     "const qbShLegName=k=>{if(qbShInfo(k))return qbShInfo(k).name;",
+     "const qbShLegName=k=>{",
+     "the DIP #424 legs show their raw keys (DIP_424K, DIP_424F), not 'DIP #424 KEEL' / 'DIP #424 fixed 1.245'"),
+    ('shadow-dip-fixed-size-missing',
+     "DIP_424F:{name:'DIP #424 fixed 1.245',",
+     "DIP_424F:{name:'DIP #424 fixed',",
+     "the fixed DIP #424 leg no longer names its size ('DIP #424 fixed', not 'DIP #424 fixed 1.245')"),
+    ('shadow-family-order-lost',
+     "const qbShRank=k=>/^ENGUQ/i.test(k)?0:/^NOISE/i.test(k)?1:/^DIP/i.test(k)?2:3;",
+     "const qbShRank=k=>/^ENGUQ/i.test(k)?0:1;",
+     "ENGU-Q stays first but a box that lists DIP #424 first puts it above the NOISE #422 lines"),
+    ('shadow-dip-before-noise',
+     "const qbShRank=k=>/^ENGUQ/i.test(k)?0:/^NOISE/i.test(k)?1:/^DIP/i.test(k)?2:3;",
+     "const qbShRank=k=>/^ENGUQ/i.test(k)?0:/^NOISE/i.test(k)?2:/^DIP/i.test(k)?1:3;",
+     "the DIP #424 rows are drawn above the NOISE #422 lines"),
+    ('shadow-open-several-newest',
+     "const srt=os.slice().sort((a,b)=>by(a)<by(b)?-1:by(a)>by(b)?1:0),t=srt[0];",
+     "const srt=os.slice().sort((a,b)=>by(a)<by(b)?1:by(a)>by(b)?-1:0),t=srt[0];",
+     "a leg holding several trades dates its open line from the newest entry ('3 open, long since 10-05'), not the oldest"),
+    ('shadow-open-several-one-pnl',
+     "ledgerSigned(u.reduce((s,v)=>s+v,0))",
+     "ledgerSigned(u[0])",
+     "a leg holding several trades shows one trade's open P&L, not their sum"),
+    ('shadow-open-several-entry-px',
+     "+(one&&t.ep!==null?' @ '+t.ep.toFixed(2):'')",
+     "+(t.ep!==null?' @ '+t.ep.toFixed(2):'')",
+     "a leg holding several trades prints one trade's entry price as if it were the leg's ('3 open, long since 10-01 @ 742.51')"),
+    ('shadow-dip-note-missing',
+     "+(qbShInfo(s.lk)?qbShInfo(s.lk).note:'')",
+     "",
+     "the DIP #424 rows' hover no longer says each trade is decided on a daily close and entered at the next session's 09:30 open"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -4325,6 +4366,21 @@ SHADOW_FIRST = 'ENGU-Q #335'                          # the fold's first row
 ENGUQ_EXIT = ('2026-10-08T13:01:00-04:00', 746.8612)  # ENGU-Q #335's seeded 09-28 long, closed (the shadow ledger, 10-08)
 SHADOW_CAPPED = 12                                    # a block whose box dropped this many older trades (the fold's note says so)
 SHADOW_ERROR = 'shadow ledger not found'              # api/qqq_exec.py's error form: the block is there, with no legs and no trades
+# MANAGER #108: the DIP #424 legs carry no variant word in their keys, so the board names them (index.html QB_SH_LEGS), and their hover
+# says how the strategy trades (one trade per dip mechanism, decided on a daily close, entered at the next session's 09:30 open)
+SHADOW_LEG_NAMES = {'DIP_424K': 'DIP #424 KEEL', 'DIP_424F': 'DIP #424 fixed 1.245'}
+SHADOW_DIP_NOTE = ('Seven long-only dip mechanisms, each decided on a daily close and entered at the next session\u2019s 09:30 open '
+                   '(the backtest\u2019s fill), so up to 7 of its trades can be open at once.')
+SHADOW_LEG_NOTES = {'DIP_424K': SHADOW_DIP_NOTE + ' Each trade is sized by KEEL v12.',
+                    'DIP_424F': SHADOW_DIP_NOTE + ' Every trade is 1.245\u00d7 (KEEL\u2019s average size over #424\u2019s walk-forward trades).'}
+# the fixture block's rows, in the fold's order (by family: ENGU-Q, NOISE, DIP; the box's order inside one), and the DIP legs' open lines
+SHADOW_ROW_ORDER = ['ENGU-Q #335', 'NOISE #422 plain', 'NOISE #422 fixed', 'NOISE #422 KEEL', 'DIP #424 KEEL', 'DIP #424 fixed 1.245']
+SHADOW_DIP_OPEN = {'DIP #424 KEEL': '3 open, long since 10-01 · +$196.53 at 751.73',
+                   'DIP #424 fixed 1.245': '3 open, long since 10-01 · +$259.34 at 751.73'}
+# a block whose box lists DIP first and NOISE out of its usual order: the fold still reads ENGU-Q, NOISE, DIP (the box's order inside each)
+SHADOW_LEGS_DIP_FIRST = ['DIP_424F', 'DIP_424K', 'NOISE_422_KEEL', 'NOISE_422_PLAIN', 'NOISE_422_FIXED', 'ENGUQ_335']
+SHADOW_ROW_ORDER_DIP_FIRST = ['ENGU-Q #335', 'NOISE #422 KEEL', 'NOISE #422 plain', 'NOISE #422 fixed', 'DIP #424 fixed 1.245',
+                              'DIP #424 KEEL']
 _SHADOW_BLOCK = {}
 
 
@@ -4335,14 +4391,16 @@ def _shadow_block():
     return json.loads(json.dumps(_SHADOW_BLOCK['b']))
 
 
-def _shtr_doc(base, closed=False, dup_of=None, capped=0, error=None):
+def _shtr_doc(base, closed=False, dup_of=None, capped=0, error=None, legs=None):
     """`base` plus the box's shadow_trades block. closed: ENGU-Q's seeded long has closed (ENGUQ_EXIT). dup_of: a trades_all shadow
     row whose trade id the block also carries (as a NOISE #422 plain trade with its own price), so the fold must show it once.
     capped: the box dropped that many older trades (the fold's note says so). error: the box could not read its shadow ledger
-    (api/qqq_exec.py's error form: no legs, no trades, the reason)."""
+    (api/qqq_exec.py's error form: no legs, no trades, the reason). legs: the box lists its legs in this order instead."""
     doc = json.loads(json.dumps(base))
     b = _shadow_block()
     b['capped'] = capped
+    if legs is not None:
+        b['legs'] = list(legs)
     if error:
         b.update({'legs': [], 'trades': [], 'error': error})
         doc['shadow_trades'] = b
@@ -4389,7 +4447,10 @@ def _ny_wall(s):
 
 
 def shadow_leg_name(k):
-    """index.html qbShLegName: 'ENGUQ_335' -> 'ENGU-Q #335', 'NOISE_422_KEEL' -> 'NOISE #422 KEEL', 'NOISE_422_PLAIN' -> 'NOISE #422 plain'."""
+    """index.html qbShLegName: 'ENGUQ_335' -> 'ENGU-Q #335', 'NOISE_422_KEEL' -> 'NOISE #422 KEEL', 'NOISE_422_PLAIN' -> 'NOISE #422 plain',
+    'DIP_424K' -> 'DIP #424 KEEL', 'DIP_424F' -> 'DIP #424 fixed 1.245' (SHADOW_LEG_NAMES)."""
+    if str(k or '') in SHADOW_LEG_NAMES:
+        return SHADOW_LEG_NAMES[str(k)]
     m = re.match(r'^([A-Za-z]+)_(\d+)(?:_(\w+))?$', str(k or ''))
     if not m:
         return str(k) if k not in (None, '') else '—'
@@ -4416,7 +4477,7 @@ def _shadow_block_trades(doc):
         sz = _fin(x.get('size'))
         sz = sz if sz and sz > 0 else 1.0
         sh = _fin(x.get('shares'))
-        sh = sh if sh is not None else _js_round(base * sz)
+        sh = sh if sh is not None else _js_round(base * sz * 1e4) / 1e4   # base x size exactly, as the box prices it
         pnl = _fin(x.get('pnl_usd'))
         if pnl is None and ex and ep is not None and xp is not None:
             pnl = _js_round((xp - ep) * sh * (-1 if side == 'short' else 1) * 100) / 100.0
@@ -4429,15 +4490,26 @@ def _shadow_block_trades(doc):
 
 
 def _shadow_open_line(os_):
-    """index.html shOpenLine: '1 open, long since 09-28 @ 738.03 · +$137.01 at 751.73'."""
-    t = sorted(os_, key=lambda x: (x['en'][0] + ' ' + x['en'][1]) if x['en'] else '', reverse=True)[0]
-    one = len(os_) == 1
-    s = '%d open, %s%s since %s' % (len(os_), '' if one else 'the newest ', t['side'], t['en'][0][5:] if t['en'] else '?')
-    if t['ep'] is not None:
+    """index.html shOpenLine. One trade: '1 open, long since 09-28 @ 738.03 · +$137.01 at 751.73'. Several at once (DIP #424, one per
+    mechanism): '3 open, long since 10-01 · +$259.34 at 751.73' -- the OLDEST open entry, no entry price, the open P&L summed, at the price
+    they are all marked at (else 'at the last price'); open both ways: '2 open: 1 long since 10-01, 1 short since 10-05 ...'."""
+    srt = sorted(os_, key=lambda x: (x['en'][0] + ' ' + x['en'][1]) if x['en'] else '')
+    t, one = srt[0], len(os_) == 1
+
+    def day(x):
+        return x['en'][0][5:] if x['en'] else '?'
+    sides = [a for a in ([x for x in srt if x['side'] == sd] for sd in ('long', 'short')) if a]
+    if len(sides) > 1:
+        s = '%d open: %s' % (len(os_), ', '.join('%d %s since %s' % (len(a), a[0]['side'], day(a[0])) for a in sides))
+    else:
+        s = '%d open, %s since %s' % (len(os_), t['side'], day(t))
+    if one and t['ep'] is not None:
         s += ' @ %.2f' % t['ep']
     u = [x['unreal'] for x in os_ if x['unreal'] is not None]
+    mk = [x['mark'] for x in os_]
+    mk1 = mk[0] if all(v is not None and v == mk[0] for v in mk) else None
     if len(u) == len(os_):
-        s += ' · ' + signed(round(sum(u), 2)) + ((' at %.2f' % t['mark']) if one and t['mark'] is not None else ' at the last price')
+        s += ' · ' + signed(round(sum(u), 2)) + ((' at %.2f' % mk1) if mk1 is not None else ' at the last price')
     return s
 
 
@@ -4618,7 +4690,8 @@ def expected_shadow_rows(doc, cutoff=None, retired=False):
         k = str(k or '')
         if k and k not in legs:
             legs.append(k)
-    legs.sort(key=lambda k: 0 if re.match(r'^ENGUQ', k, re.I) else 1)
+    # by family (index.html qbShRank): ENGU-Q, NOISE, DIP, any other leg; the box's order inside a family (a stable sort)
+    legs.sort(key=lambda k: 0 if re.match(r'^ENGUQ', k, re.I) else 1 if re.match(r'^NOISE', k, re.I) else 2 if re.match(r'^DIP', k, re.I) else 3)
     for k in legs:
         get(shadow_leg_name(k), k)
     for t in bt:
@@ -4663,7 +4736,7 @@ def expected_shadow_rows(doc, cutoff=None, retired=False):
                        (' (book price %s)' % signed(bk)) if (bk is not None and abs(bk - rec) >= 0.005) else '',
                        grp, expected_leg_name(lv)))
         out.append({'name': nm, 'value': f['value'], 'value2': f['value2'], 'open': _shadow_open_line(g['open']) if g['open'] else None,
-                    'seed': g['seed'], 'live': live, 'block': g['lk'] is not None})
+                    'seed': g['seed'], 'live': live, 'block': g['lk'] is not None, 'note': SHADOW_LEG_NOTES.get(g['lk'] or '')})
     return out
 
 
@@ -4880,6 +4953,10 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                     fails.append('%s: the Shadow row %s hover does not say %r (it says %r)' % (tag, nm, e['live'], _first(tip, 400)))
                 if not e['live'] and 'live Webull order' in tip:
                     fails.append('%s: the Shadow row %s hover names a live Webull order it has none of: %r' % (tag, nm, _first(tip, 400)))
+                if e.get('note') and e['note'] not in tip:
+                    fails.append('%s: the Shadow row %s hover does not say how it trades (%r); it says %r' % (tag, nm, e['note'], _first(tip, 500)))
+                if not e.get('note') and 'dip mechanisms' in tip:
+                    fails.append('%s: the Shadow row %s hover carries the DIP #424 note: %r' % (tag, nm, _first(tip, 500)))
                 if not vp.startswith('phone'):
                     if x.get('value2') != e['value2']:
                         fails.append("%s: the Shadow row %s reads %r under its money, the doc says %r" % (tag, nm, x.get('value2'), e['value2']))
@@ -5065,8 +5142,8 @@ def _stats_cases(fixture):
                  twin='ALL (375x812, MONO)'),
             c("the box's shadow block, ENGU-Q held (ALL, 375x812, the list and both folds open)", 'ALL', _shtr_doc(fixture), vp='phone',
               folds=True, list_open=True),
-            c("the box's shadow block, ENGU-Q closed 10-08 (TODAY, MONO, both folds open)", 'TODAY',
-              _shtr_doc(fixture, closed=True, capped=SHADOW_CAPPED), th='mono', folds=True),
+            c("the box's shadow block, ENGU-Q closed 10-08, DIP listed first (TODAY, MONO, both folds open)", 'TODAY',
+              _shtr_doc(fixture, closed=True, capped=SHADOW_CAPPED, legs=SHADOW_LEGS_DIP_FIRST), th='mono', folds=True),
             c("the box's shadow block could not read its ledger (ALL, both folds open)", 'ALL', _shtr_doc(fixture, error=SHADOW_ERROR),
               folds=True),
             c("a shadow row closed today the box's block also carries (ALL, both folds open)", 'ALL',
@@ -5116,6 +5193,14 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
             or not rows[0]['live'] or (b.get('legs') or [None])[0] == 'ENGUQ_335':
         fails.append("%s: the probe's own case is wrong: its block has no seeded ENGU-Q trade, no live twin for it, or already lists ENGU-Q "
                      "first (legs %r)" % (tag, b.get('legs')))
+    # MANAGER #108: the fold's order and the DIP #424 legs' open lines, as the probe works them out, against the pinned values
+    want_order = SHADOW_ROW_ORDER_DIP_FIRST if b.get('legs') == SHADOW_LEGS_DIP_FIRST else SHADOW_ROW_ORDER
+    if [x['name'] for x in rows] != want_order:
+        fails.append("%s: the probe's own case is wrong: the doc's Shadow rows work out to %r, want %r (by family: ENGU-Q #335, the NOISE "
+                     "#422 lines, then DIP #424)" % (tag, [x['name'] for x in rows], want_order))
+    got_open = dict((x['name'], x['open']) for x in rows if x['name'] in SHADOW_DIP_OPEN)
+    if got_open != SHADOW_DIP_OPEN:
+        fails.append("%s: the probe's own case is wrong: the DIP #424 open lines work out to %r, want %r" % (tag, got_open, SHADOW_DIP_OPEN))
     if sh and (sh[0].get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · %d' % len(rows):
         fails.append('%s: the Shadow fold reads %r, want "Shadow - not counted · %d" (one row per shadow leg the box lists)'
                      % (tag, sh[0].get('head'), len(rows)))

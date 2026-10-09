@@ -1,7 +1,10 @@
 """tests/test_keel_live_state.py -- tools/keel_live_state.py, the nightly KEEL v12
 state builder (OWNER DECISION 2026-09-23, design doc D) -- since 2026-09-28 for EVERY
 learned-KEEL leg in api/cloud_signal's CROWN_LEGS and SHADOW_LEGS: the live NOISE_382 leg
-and the NOISE_422_KEEL shadow leg, each under its own file names.
+and the NOISE_422_KEEL shadow leg, each under its own file names -- and since 2026-10-09
+(MANAGER #108) the DIP_424K shadow leg, trained on run #424's OWN NQ walk (its keel "train"
+block: #424's params with no asset key, cost 0.0, from 2010-06-07; P&L in dollars), while
+DIP_424F (a constant 1.245) has nothing to build.
 
 Runs entirely on small synthetic data -- no dependency on the real NQ master (not
 present in a worktree, see BACKTEST_SPEED.md rule 3) or on serviceAccount.json. The
@@ -31,16 +34,21 @@ QUIET = lambda *a, **k: None   # noqa: E731
 
 # ── the legs come from CROWN_LEGS / SHADOW_LEGS themselves -- nothing duplicated to drift ─
 def test_nightly_default_builds_every_learned_keel_leg_live_first():
-    """NOISE_382 (live) and NOISE_422_KEEL (shadow), in that order, each read straight off
-    its own cfg; the fixed-tilt and plain #422 legs, ORB_R6 and ENGUQ_335 have nothing to
+    """NOISE_382 (live), then NOISE_422_KEEL and DIP_424K (shadow), in that order, each read
+    straight off its own cfg -- a leg with a "train" block trains on ITS params, not the live
+    ones; the fixed-tilt, constant-size and plain legs, ORB_R6 and ENGUQ_335 have nothing to
     build and are not listed."""
     legs = kls.resolve_legs()
-    assert [(l["leg_key"], l["live"]) for l in legs] == [("NOISE_382", True), ("NOISE_422_KEEL", False)]
+    assert [(l["leg_key"], l["live"]) for l in legs] == [
+        ("NOISE_382", True), ("NOISE_422_KEEL", False), ("DIP_424K", False)]
     for leg in legs:
         cfg = dict(cs.CROWN_LEGS, **cs.SHADOW_LEGS)[leg["leg_key"]]
         assert leg["strategy"] == cfg["strategy"]
-        assert leg["params"] == cfg["params"]
+        train = cfg["keel"].get("train")
+        assert leg["params"] == (train["params"] if train else cfg["params"])
         assert leg["version"] == cfg["keel"]["version"] == kls.VERSION
+        # the per-leg training keys exist ONLY on a train leg (NOISE's dicts are unchanged)
+        assert ("cost_pts" in leg) == ("date_from" in leg) == bool(train)
 
 
 def test_live_keel_leg_is_still_run_382_exactly():
@@ -53,6 +61,26 @@ def test_live_keel_leg_is_still_run_382_exactly():
     shadow = kls.resolve_leg("NOISE_422_KEEL")
     assert shadow["strategy"] == "NOISE_1_8_CT304H.py" and shadow["live"] is False
     assert shadow["params"] == cs.NOISE_422_PARAMS
+    assert set(shadow) == {"leg_key", "strategy", "params", "version", "live"}
+
+
+def test_dip_424k_trains_on_run_424s_own_nq_walk():
+    """DIP_424K: #424's champion EXACTLY, with no asset key (NQDIP_1_1.py's auto mode then
+    picks its NQ cost + roll model on the 5m master), cost 0.0 (the file charges its own
+    costs), from 2010-06-07 -- while the live QQQ leg's params carry asset="ETF"."""
+    dip = kls.resolve_leg("DIP_424K")
+    assert dip == {"leg_key": "DIP_424K", "strategy": "NQDIP_1_1.py",
+                   "params": cs.DIP_424_PARAMS, "version": "v12", "live": False,
+                   "cost_pts": 0.0, "date_from": "2010-06-07"}
+    assert "asset" not in dip["params"]
+    assert cs.SHADOW_LEGS["DIP_424K"]["params"] == dict(cs.DIP_424_PARAMS, asset="ETF")
+    assert dip["params"] is not cs.DIP_424_PARAMS, "a copy -- the builder never mutates the cfg"
+    # the constant-size twin has no model, so nothing to build
+    with pytest.raises(kls.LegResolutionError, match="not a learned model"):
+        kls.resolve_leg("DIP_424F")
+    assert kls._pnl_units("NQDIP_1_1.py") == "usd"
+    assert kls._pnl_units("NOISE_1_8_CT304.py") == kls._pnl_units("NOISE_1_8_CT304H.py") == "points"
+    assert kls._pnl_units("NO_SUCH_FILE.py") == "points"
 
 
 def test_resolve_refuses_rather_than_guess():
@@ -75,6 +103,44 @@ def test_resolve_refuses_rather_than_guess():
                      ("NOISE_422_FIXED", "not a learned model"), ("NOT_A_LEG", "unknown leg")):
         with pytest.raises(kls.LegResolutionError, match=why):
             kls.resolve_leg(key)
+
+
+def test_a_constant_size_leg_has_nothing_to_build_like_a_fixed_one():
+    """mode="const" (DIP_424F's one constant size) is a KNOWN no-model mode: never an
+    "unknown keel mode", and with only fixed/const legs left the run is NothingToBuild (exit 0)
+    naming both kinds."""
+    plain = {"ORB_R6": {"strategy": "ORB_3_6_R6.py", "params": {}}}
+    const = {"C": {"strategy": "c.py", "keel": {"mode": "const", "size": 1.245}}}
+    fixed = {"F": {"strategy": "f.py", "keel": {"version": "v12", "mode": "fixed"}}}
+    with pytest.raises(kls.NothingToBuild, match="C use a constant size") as ei:
+        kls.resolve_legs(crown_legs=plain, shadow_legs=const)
+    assert "fixed tilts" not in str(ei.value)
+    with pytest.raises(kls.NothingToBuild) as ei:
+        kls.resolve_legs(crown_legs=plain, shadow_legs=dict(fixed, **const))
+    assert str(ei.value) == ("KEEL leg(s) F use v12's fixed tilts (no model); KEEL leg(s) C use "
+                             "a constant size (no model) -- nothing to build")
+    # a const LIVE leg is not an unknown mode either -- just nothing to build
+    with pytest.raises(kls.NothingToBuild):
+        kls.resolve_legs(crown_legs=const, shadow_legs={})
+    learned = {"L": {"strategy": "l.py", "keel": {"version": "v12"}}}
+    assert [l["leg_key"] for l in kls.resolve_legs(crown_legs=learned, shadow_legs=const)] == ["L"]
+
+
+def test_an_unreadable_train_block_drops_a_shadow_leg_and_stays_loud_on_a_live_one(capsys):
+    learned = {"L": {"strategy": "l.py", "keel": {"version": "v12"}}}
+    for bad in ({"params": "not a dict"}, ["params"], {"params": {}, "cost_pts": "x"},
+                {"params": {}, "cost_pts": -1.0}, {"params": {}, "date_from": "June 2010"}):
+        shadow = {"D": {"strategy": "d.py", "keel": {"version": "v12", "train": bad}}}
+        assert [l["leg_key"] for l in kls.resolve_legs(crown_legs=learned, shadow_legs=shadow)] == ["L"]
+        assert "shadow leg D skipped" in capsys.readouterr().out
+        with pytest.raises(kls.LegResolutionError, match="train"):
+            kls.resolve_legs(crown_legs=dict(learned, D=shadow["D"]), shadow_legs={})
+    # a readable one: params replace the live ones; cost / start default to the house literals
+    ok = {"D": {"strategy": "d.py", "params": {"asset": "ETF", "x": 1},
+                "keel": {"version": "v12", "train": {"params": {"x": 1}}}}}
+    leg = kls.resolve_legs(crown_legs=learned, shadow_legs=ok)[1]
+    assert leg["params"] == {"x": 1}
+    assert (leg["cost_pts"], leg["date_from"]) == (kls.COST_PTS, kls.DATE_FROM)
 
 
 # ── a small, real, NQ-master-shaped CSV to drive load_nq_arrays/build on ─────────────────
@@ -265,17 +331,20 @@ def test_main_builds_both_learned_legs_under_their_own_names_reading_the_master_
     seen, loads = [], []
     monkeypatch.setattr(kls, "run_nq_backtest", _fake_backtest(seen))
     real_load = kls.load_master
-    monkeypatch.setattr(kls, "load_master", lambda f, log=print: loads.append(f) or real_load(f, log=QUIET))
+    monkeypatch.setattr(kls, "load_master",
+                        lambda f, log=print, **kw: loads.append(f) or real_load(f, log=QUIET, **kw))
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
-    assert seen == ["NOISE_382", "NOISE_422_KEEL"] and len(loads) == 1
+    assert seen == ["NOISE_382", "NOISE_422_KEEL", "DIP_424K"] and len(loads) == 1
     # the synthetic master is years old, so the NQ FRESHNESS ALERT (2026-10-05) also leaves
     # its one-push marker -- not a leg file
     names = sorted(p.name for p in out.iterdir() if p.name != kls.STALE_MARKER)
-    assert names == ["NOISE_382_v12_state.joblib", "NOISE_382_v12_summary.json",
+    assert names == ["DIP_424K_v12_state.joblib", "DIP_424K_v12_summary.json",
+                     "NOISE_382_v12_state.joblib", "NOISE_382_v12_summary.json",
                      "NOISE_422_KEEL_v12_state.joblib", "NOISE_422_KEEL_v12_summary.json"]
-    # exactly the files the two legs' cfgs read
+    # exactly the files the learned legs' cfgs read
     for key, cfg in (("NOISE_382", cs.CROWN_LEGS["NOISE_382"]),
-                     ("NOISE_422_KEEL", cs.SHADOW_LEGS["NOISE_422_KEEL"])):
+                     ("NOISE_422_KEEL", cs.SHADOW_LEGS["NOISE_422_KEEL"]),
+                     ("DIP_424K", cs.SHADOW_LEGS["DIP_424K"])):
         assert os.path.basename(cfg["keel"]["state_path"]) == f"{key}_v12_state.joblib"
         assert os.path.basename(cfg["keel"]["summary_path"]) == f"{key}_v12_summary.json"
     with open(out / "NOISE_422_KEEL_v12_summary.json", encoding="utf-8") as f:
@@ -298,7 +367,109 @@ def test_a_shadow_build_failure_never_fails_the_run_or_the_live_build(tmp_path, 
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None   # exit 0
     assert (out / "NOISE_382_v12_state.joblib").exists()
     assert not (out / "NOISE_422_KEEL_v12_state.joblib").exists()
-    assert "shadow leg(s) not built this run: NOISE_422_KEEL" in capsys.readouterr().out
+    assert not (out / "DIP_424K_v12_state.joblib").exists()
+    assert "shadow leg(s) not built this run: NOISE_422_KEEL, DIP_424K" in capsys.readouterr().out
+
+
+def test_a_failed_dip_build_fails_neither_noise_build_nor_the_run(tmp_path, monkeypatch, capsys):
+    """MANAGER #108: the DIP leg is a shadow leg -- its build breaking (a strategy error, a
+    walk that raises) leaves both NOISE states built and the unit green (exit 0)."""
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    out = tmp_path / "out"
+    seen = []
+    fake = _fake_backtest(seen)
+
+    def dip_breaks(arr, leg=None, log=print):
+        if leg["leg_key"] == "DIP_424K":
+            raise RuntimeError("synthetic DIP failure")
+        return fake(arr, leg=leg, log=log)
+    monkeypatch.setattr(kls, "run_nq_backtest", dip_breaks)
+    assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
+    assert seen == ["NOISE_382", "NOISE_422_KEEL"]
+    assert (out / "NOISE_382_v12_state.joblib").exists()
+    assert (out / "NOISE_422_KEEL_v12_state.joblib").exists()
+    assert not (out / "DIP_424K_v12_state.joblib").exists()
+    text = capsys.readouterr().out
+    assert "DIP_424K FAILED (shadow leg): RuntimeError: synthetic DIP failure" in text
+    assert "shadow leg(s) not built this run: DIP_424K" in text
+
+
+def test_dip_train_settings_reach_the_backtest_and_the_summary(tmp_path, monkeypatch):
+    """The real run_nq_backtest -> run_backtest path (spied): NOISE legs keep the house cost
+    and their live params; DIP_424K gets #424's params with NO asset key and cost 0.0, from
+    the one shared master read. Its summary records cost_pts 0.0, date_from 2010-06-07 and
+    pnl_units "usd"; NOISE summaries carry no pnl_units key and the same values as before."""
+    import augur_engine.engine as eng
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    out = tmp_path / "out"
+    calls = []
+
+    def spy(strategy, arrays=None, params=None, cost_pts=None, return_trades=False, **kw):
+        calls.append({"strategy": strategy, "params": dict(params), "cost_pts": cost_pts,
+                      "first_day": str(pd.DatetimeIndex(arrays["index"])[0].date())})
+        c = arrays["close"]
+        # 6-field trades like NQDIP_1_1's (entry, exit, pnl, side, entry px, exit px)
+        trades = [(e, x, float(c[x] - c[e]), 1, float(c[e]), float(c[x]))
+                  for e, x in ((5, 8), (20, 25), (40, 44))]
+        return {"trades": trades, "total_pnl": sum(t[2] for t in trades)}
+    monkeypatch.setattr(eng, "run_backtest", spy)
+    loads = []
+    real_load = kls.load_master
+    monkeypatch.setattr(kls, "load_master",
+                        lambda f, log=print, **kw: loads.append(kw) or real_load(f, log=QUIET, **kw))
+    assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
+    assert [c["strategy"] for c in calls] == ["NOISE_1_8_CT304.py", "NOISE_1_8_CT304H.py",
+                                              "NQDIP_1_1.py"]
+    noise382, noise422, dip = calls
+    assert noise382["params"] == cs.NOISE_382_PARAMS and noise382["cost_pts"] == kls.COST_PTS
+    assert noise422["params"] == cs.NOISE_422_PARAMS and noise422["cost_pts"] == kls.COST_PTS
+    assert dip["params"] == cs.DIP_424_PARAMS and "asset" not in dip["params"]
+    assert dip["cost_pts"] == 0.0
+    assert loads == [{"date_from": "2010-06-07"}], "the master is read once for every leg"
+    assert noise382["first_day"] == noise422["first_day"] == dip["first_day"]
+
+    def summary(key):
+        with open(out / f"{key}_v12_summary.json", encoding="utf-8") as f:
+            return json.load(f)
+    s = summary("DIP_424K")
+    assert (s["cost_pts"], s["date_from"], s["pnl_units"]) == (0.0, "2010-06-07", "usd")
+    assert s["leg"] == "DIP_424K" and s["leg_live"] is False and s["strategy"] == "NQDIP_1_1.py"
+    assert s["params"] == cs.DIP_424_PARAMS
+    for key in ("NOISE_382", "NOISE_422_KEEL"):
+        s = summary(key)
+        assert (s["cost_pts"], s["date_from"]) == (kls.COST_PTS, kls.DATE_FROM)
+        assert "pnl_units" not in s
+
+
+def test_masters_are_read_once_per_training_start(tmp_path, monkeypatch):
+    """A train leg starting on another date gets its OWN master read from that date; legs
+    that share a start share one read, and the NQ freshness check runs once a night."""
+    nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
+    crown = {"A": {"strategy": "NOISE_1_8_CT304.py", "params": {},
+                   "keel": {"version": "v12"}}}
+    shadow = {"B": {"strategy": "x.py", "keel": {"version": "v12",
+                                                "train": {"params": {}, "date_from": "2024-01-05"}}},
+              "C": {"strategy": "y.py", "keel": {"version": "v12"}}}
+    monkeypatch.setattr(cs, "CROWN_LEGS", crown)
+    monkeypatch.setattr(cs, "SHADOW_LEGS", shadow)
+    first_day, loads, fresh = {}, [], []
+
+    def fake(arr, leg=None, log=print):
+        first_day[leg["leg_key"]] = str(pd.DatetimeIndex(arr["index"])[0].date())
+        return [(5, 8, 12.5), (20, 25, -4.0), (40, 44, 6.25)], {"total_pnl": 14.75}
+    monkeypatch.setattr(kls, "run_nq_backtest", fake)
+    real_load = kls.load_master
+    monkeypatch.setattr(kls, "load_master",
+                        lambda f, log=print, **kw: loads.append(kw["date_from"]) or real_load(f, log=QUIET, **kw))
+    monkeypatch.setattr(kls, "check_nq_freshness", lambda *a, **k: fresh.append(1))
+    _run_main(["--nq-file", str(nq), "--out-dir", str(tmp_path / "out")], monkeypatch)
+    assert loads == [kls.DATE_FROM, "2024-01-05"]
+    assert first_day == {"A": "2024-01-02", "B": "2024-01-05", "C": "2024-01-02"}
+    assert fresh == [1]
+    # build() refuses a master read from another start rather than train on the wrong span
+    m = real_load(str(nq), log=QUIET)
+    with pytest.raises(ValueError, match="2024-01-05"):
+        kls.build(str(nq), str(tmp_path / "out2"), leg=kls.resolve_leg("B"), master=m, log=QUIET)
 
 
 def test_a_live_build_failure_fails_the_run_after_the_shadow_leg_is_still_built(tmp_path, monkeypatch):
@@ -346,7 +517,7 @@ def test_a_bad_shadow_keel_mode_is_dropped_and_the_live_leg_still_builds(tmp_pat
     shadow = {k: dict(v) for k, v in cs.SHADOW_LEGS.items()}
     shadow["NOISE_422_KEEL"]["keel"] = dict(shadow["NOISE_422_KEEL"]["keel"], mode="fixd")
     monkeypatch.setattr(cs, "SHADOW_LEGS", shadow)
-    assert [leg["leg_key"] for leg in kls.resolve_legs()] == ["NOISE_382"]
+    assert [leg["leg_key"] for leg in kls.resolve_legs()] == ["NOISE_382", "DIP_424K"]
     assert "NOISE_422_KEEL" in capsys.readouterr().out
 
     nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
@@ -354,7 +525,7 @@ def test_a_bad_shadow_keel_mode_is_dropped_and_the_live_leg_still_builds(tmp_pat
     seen = []
     monkeypatch.setattr(kls, "run_nq_backtest", _fake_backtest(seen))
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
-    assert seen == ["NOISE_382"] and (out / "NOISE_382_v12_state.joblib").exists()
+    assert seen == ["NOISE_382", "DIP_424K"] and (out / "NOISE_382_v12_state.joblib").exists()
 
     crown = {k: dict(v) for k, v in cs.CROWN_LEGS.items()}
     crown["NOISE_382"]["keel"] = dict(crown["NOISE_382"]["keel"], mode="fixd")
@@ -380,7 +551,9 @@ def test_defer_in_session_is_rechecked_before_each_shadow_leg(tmp_path, monkeypa
     assert seen == ["NOISE_382"]
     assert (out / "NOISE_382_v12_state.joblib").exists()
     assert not (out / "NOISE_422_KEEL_v12_state.joblib").exists()
-    assert "NOISE_422_KEEL (shadow) deferred" in capsys.readouterr().out
+    assert not (out / "DIP_424K_v12_state.joblib").exists()
+    text = capsys.readouterr().out
+    assert "NOISE_422_KEEL (shadow) deferred" in text and "DIP_424K (shadow) deferred" in text
 
 
 # ── the READ-ONLY walk-vs-state check (the #422 reproduction check) ─────────────────────
@@ -394,10 +567,8 @@ def test_walk_cut_points_cover_warmup_refit_and_the_last_trade():
     assert kls.walk_cut_points(0) == []
 
 
-def test_check_state_matches_walk_passes_on_a_real_walk(tmp_path):
-    """check_state_matches_walk on a small series: state-built scoring equals keel_walk's
-    own size at every cut point (the same 1e-12 bar tests/test_ml_keel_state.py holds the
-    split to), and it writes nothing."""
+def _small_series():
+    """A 60-session, 16-bar-a-day synthetic series and ~120 non-overlapping trades on it."""
     rng = np.random.RandomState(9)
     n_days, bars = 60, 16
     idx = []
@@ -418,6 +589,14 @@ def test_check_state_matches_walk_passes_on_a_real_walk(tmp_path):
         ex = pos + int(rng.randint(1, 4))
         trades.append((pos, ex, float(rng.normal(0.5, 5.0))))
         pos = ex + 1
+    return arrays, trades
+
+
+def test_check_state_matches_walk_passes_on_a_real_walk(tmp_path):
+    """check_state_matches_walk on a small series: state-built scoring equals keel_walk's
+    own size at every cut point (the same 1e-12 bar tests/test_ml_keel_state.py holds the
+    split to), and it writes nothing."""
+    arrays, trades = _small_series()
     logged = []
     before = sorted(os.listdir(tmp_path))
     r = kls.check_state_matches_walk(None, leg="NOISE_422_KEEL", n_cuts=3, log=logged.append,
@@ -428,3 +607,38 @@ def test_check_state_matches_walk_passes_on_a_real_walk(tmp_path):
     assert r["max_abs_diff"] <= 1e-12
     assert any("PASS" in line for line in logged)
     assert sorted(os.listdir(tmp_path)) == before
+
+
+def test_verify_walk_reads_the_master_from_the_legs_own_start(monkeypatch):
+    """--verify-walk on a train leg re-runs ITS walk: the master from its own date_from, the
+    backtest through run_nq_backtest (its params and cost)."""
+    arrays, trades = _small_series()
+    seen = []
+    monkeypatch.setattr(kls, "load_nq_arrays",
+                        lambda f, date_from=None, log=print, **k: seen.append(date_from) or (arrays, None))
+    monkeypatch.setattr(kls, "run_nq_backtest",
+                        lambda arr, leg=None, log=print: seen.append(leg["cost_pts"]) or (trades, {}))
+    leg = {"leg_key": "D", "strategy": "d.py", "params": {}, "version": "v12", "live": False,
+           "cost_pts": 0.0, "date_from": "2011-01-03"}
+    r = kls.check_state_matches_walk("nq.csv", leg=leg, n_cuts=2, log=QUIET)
+    assert r["ok"] is True and seen == ["2011-01-03", 0.0]
+
+
+def _nq_master():
+    p = os.environ.get("KEEL_TEST_NQ_MASTER") or os.path.join(ROOT, "augur_uploads",
+                                                              "NOADJ_NQ_5m_RTH.csv")
+    return p if os.path.exists(p) else None
+
+
+@pytest.mark.skipif(_nq_master() is None, reason="no NQ 5m RTH master on this machine "
+                    "(set KEEL_TEST_NQ_MASTER to point at one)")
+def test_dip_424k_training_walk_is_run_424s_on_the_real_master():
+    """The builder's own path (resolve_leg -> load_nq_arrays -> run_nq_backtest) on run #424's
+    pinned window gives #424's 3,431 trades (the run doc's gate_validate.keel n_trades), as
+    6-field trades with P&L in dollars."""
+    leg = kls.resolve_leg("DIP_424K")
+    arr, _dropped = kls.load_nq_arrays(_nq_master(), date_from=leg["date_from"],
+                                       date_to="2026-08-24", drop_incomplete=False, log=QUIET)
+    trades, res = kls.run_nq_backtest(arr, leg=leg, log=QUIET)
+    assert len(trades) == 3431
+    assert all(len(t) == 6 for t in trades)

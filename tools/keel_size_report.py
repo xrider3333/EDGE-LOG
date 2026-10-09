@@ -1,5 +1,6 @@
-r"""tools/keel_size_report.py -- what KEEL sized each NOISE entry on one day, against what the
-fixed rule alone would have sized it (MANAGER #76, owner GL 2.6 decision pending).
+r"""tools/keel_size_report.py -- what KEEL sized each KEEL-sized entry on one day (the NOISE legs,
+and DIP #424's learned leg from 2026-10-09), against what the fixed rule alone would have sized
+it (MANAGER #76, owner GL 2.6 decision pending).
 
 WHY. KEEL v12's 10-05 evening states read fast-trust (t_fast) -1.33 (NOISE_382) / -1.23
 (NOISE_422_KEEL), below the -0.5 shade line for the first time. From 10-06 the SHADE branch
@@ -13,10 +14,19 @@ same read-only key every tool uses); the bar caches, KEEL summaries and (with --
 KEEL state files are copied into a temp dir that is deleted afterwards. Nothing on the box or
 under EDGELOG_HOME is ever written; no Firestore, no Webull.
 
+DIP #424 (2026-10-09, MANAGER #108). DIP_424K is a learned KEEL leg too (a shadow leg, no
+orders). Its seven mechanisms can all enter on ONE bar -- the session's 09:30 bar, decided at the
+prior close -- each with its own trade id (a slot suffix, e.g. -L-RSI), so the day's rows, the
+KEEL ENTRY log lines and the offline replay are matched by TRADE ID, never by entry time alone
+(a row or line with no valid id -- older lines -- still falls back to leg + entry time). Every
+slot entered on one bar gets the same KEEL size (one entry bar, one score). DIP_424F's constant
+1.245 is not KEEL-sized and is not listed. Replaying a DIP entry needs ohlc/QQQ_1d.csv (its
+daily history; --box already pulls it); without it the entry is "not re-found".
+
 WHAT IT READS for --date D:
   signals     cloud_signal/signals.csv (live) and cloud_signal/shadow/signals.csv (shadow):
-              the day's ENTRY rows on NOISE legs with a KEEL block (NOISE_382, NOISE_422_KEEL,
-              and NOISE_422_FIXED as a cross-check of the fixed rule).
+              the day's ENTRY rows on legs with a learned or fixed KEEL block (NOISE_382,
+              NOISE_422_KEEL, DIP_424K, and NOISE_422_FIXED as a cross-check of the fixed rule).
   log         logs/cloud_signal.log* (rotated and .gz too): "KEEL ENTRY" lines -- written by
               the engine from the KEEL ENTRY EXTRAS deploy on (api/cloud_signal.py).
   state       cloud_signal/keel/<leg>_v12_summary.json: t_fast_now / trust_now / data_through.
@@ -91,15 +101,30 @@ def home_files(home):
 
 
 def keel_legs():
-    """{leg: (cfg, "live"/"shadow")} for every NOISE leg with a KEEL block, from the engine's
-    own leg tables (so the report can never name a leg the engine does not run)."""
+    """{leg: (cfg, "live"/"shadow")} for every leg KEEL sizes -- a learned model (NOISE_382,
+    NOISE_422_KEEL, DIP_424K) or v12's fixed tilts (NOISE_422_FIXED, the fixed rule's
+    cross-check) -- from the engine's own leg tables (so the report can never name a leg the
+    engine does not run). A constant-size leg (DIP_424F) is not KEEL-sized and is left out, as
+    is a leg whose mode is a typo."""
     from api import cloud_signal as cs
     out = {}
     for table, kind in ((cs.CROWN_LEGS, "live"), (cs.SHADOW_LEGS, "shadow")):
         for k, cfg in table.items():
-            if k.startswith("NOISE") and cfg.get("keel"):
+            if cs.keel_mode(cfg.get("keel")) in (cs.KEEL_MODE_LEARNED, cs.KEEL_MODE_FIXED):
                 out[k] = (cfg, kind)
     return out
+
+
+def _valid_tid(trade_id):
+    """True for a well-formed api/trade_id id (a DIP slot id included)."""
+    from api import trade_id as _tid
+    return bool(trade_id) and _tid.is_valid(trade_id)
+
+
+def _slot(trade_id):
+    """The mechanism slot a DIP trade id carries ("RSI" from ...-L-RSI), else None."""
+    from api import trade_id as _tid
+    return ((_tid.parse(trade_id) or {}).get("slot")) if trade_id else None
 
 
 # -- box pull (read-only ssh) -------------------------------------------------------------------
@@ -197,8 +222,10 @@ def read_entries(path, date, legs):
 
 
 def read_log_entries(logs_dir, date):
-    """{(leg, entry time): {key: value}} from every "KEEL ENTRY" line in the cloud_signal
-    logs under `logs_dir` (plain and .gz), for entries on `date`. The last line wins."""
+    """{key: {key: value}} from every "KEEL ENTRY" line in the cloud_signal logs under
+    `logs_dir` (plain and .gz), for entries on `date`. The key is ("id", trade_id) for a line
+    that carries a valid trade id -- DIP #424's slots share one entry time -- else (leg, entry
+    time) (an older line). The last line wins."""
     out = {}
     files = sorted(glob.glob(os.path.join(logs_dir, "cloud_signal.log*")))
     for p in files:
@@ -218,7 +245,8 @@ def read_log_entries(logs_dir, date):
             kv = dict(_KV_RE.findall(m.group(1)))
             if str(kv.get("time") or "")[:10] != date:
                 continue
-            out[(kv.get("leg"), kv.get("time"))] = kv
+            tid = kv.get("trade_id")
+            out[("id", tid) if _valid_tid(tid) else (kv.get("leg"), kv.get("time"))] = kv
     return out
 
 
@@ -248,11 +276,17 @@ def _f(v):
 
 
 # -- offline recompute (the engine's own functions) ---------------------------------------------
-def recompute_entry(cs, leg, cfg, epoch_df, entry_time, side, paths, keel_cfg=None):
+def recompute_entry(cs, leg, cfg, epoch_df, entry_time, side, paths, keel_cfg=None,
+                    trade_id=None, cache=None):
     """Replay the leg's decision for ONE entry exactly as the engine makes it and return
     {"fixed", "entry_bar", "how", and -- with `keel_cfg` -- "keel_size", "diag"}; None when
-    the entry cannot be re-found in the bars (a revised bar, or a cache that no longer
-    reaches the day)."""
+    the entry cannot be re-found in the bars (a revised bar, a cache that no longer reaches the
+    day, or -- a DIP leg -- no daily history to build its series from).
+
+    The replayed trade is matched by its TRADE ID (cs._entry_key, the engine's own key) when
+    `trade_id` is a valid id -- DIP #424's seven slots share one entry time and side -- else
+    by side + entry time, as before (a row with no usable id). `cache` (a dict, optional)
+    keeps each (leg, decision time) replay so the slots of one DIP bar replay it once."""
     import pandas as pd
     quiet = lambda *a, **k: None  # noqa: E731
     T = pd.Timestamp(entry_time)
@@ -260,29 +294,44 @@ def recompute_entry(cs, leg, cfg, epoch_df, entry_time, side, paths, keel_cfg=No
         T = T.tz_localize(cs.TZ)
     grace = pd.Timedelta(seconds=cs.CLOSE_GRACE_SECONDS + 1)
     bar = pd.Timedelta(seconds=cs.TIMEFRAME_SECONDS["5m"])
+    by_id = trade_id if _valid_tid(trade_id) else None
     # decided at the close of the bar BEFORE the entry bar (decide_at_close), else at the
-    # close of the entry bar itself
+    # close of the entry bar itself -- a DIP entry (decided at the prior session's close,
+    # filled at the 09:30 open) is first seen at the close of its 09:30 bar: the second time
     for now in (T + grace, T + bar + grace):
         now_dt = now.to_pydatetime()
-        arrays = cs.closed_arrays(epoch_df, now_dt, "5m", cs.leg_warmup_sessions(cfg))
-        if arrays is None:
-            continue
-        trades, diff_arrays = cs.leg_decision_trades(cfg, arrays, leg, "5m", now_dt, paths,
-                                                     False, log=quiet)
+        key = (leg, now_dt.isoformat())
+        hit = cache.get(key) if cache is not None else None
+        if hit is None:
+            arrays = cs.closed_arrays(epoch_df, now_dt, "5m", cs.leg_warmup_sessions(cfg))
+            if arrays is None:
+                hit = ([], None)
+            else:
+                trades, diff_arrays = cs.leg_decision_trades(cfg, arrays, leg, "5m", now_dt,
+                                                             paths, False, log=quiet)
+                # None = a DIP leg's series not ready (no daily history): nothing to re-find
+                hit = (list(trades or []), diff_arrays)
+            if cache is not None:
+                cache[key] = hit
+        trades, diff_arrays = hit
         for t in trades:
             if t.get("side") != side or t.get("entry_bar") is None:
                 continue
-            try:
-                same = pd.Timestamp(t["entry_time"]) == T
-            except (TypeError, ValueError):
-                same = False
+            if by_id is not None:
+                same = cs._entry_key(leg, t) == by_id
+            else:
+                try:
+                    same = pd.Timestamp(t["entry_time"]) == T
+                except (TypeError, ValueError):
+                    same = False
             if not same:
                 continue
             fixed, fdiag = cs._keel_fixed_size_for_entry({"version": "v12", "mode": "fixed"},
                                                           diff_arrays, t["entry_bar"], log=quiet)
             out = {"fixed": float(fixed) if isinstance(fdiag, dict) else None,
                    "entry_bar": int(t["entry_bar"]),
-                   "how": "probe" if t.get("probe_entry") else "closed bar"}
+                   "how": ("probe" if t.get("probe_entry")
+                           else "prior close" if t.get("slot") else "closed bar")}
             if keel_cfg:
                 ks, diag = cs._keel_size_for_entry(keel_cfg, diff_arrays, t["entry_bar"],
                                                    t["entry_time"], log=quiet)
@@ -293,8 +342,8 @@ def recompute_entry(cs, leg, cfg, epoch_df, entry_time, side, paths, keel_cfg=No
 
 # -- the report ---------------------------------------------------------------------------------
 def build_report(home, date, rescore=False, recompute=True, log=print):
-    """Rows (one per NOISE KEEL entry on `date`) + the plain-words verdict, from a home laid
-    out like the box's ~/edgelog."""
+    """Rows (one per KEEL-sized entry on `date` -- one per DIP slot) + the plain-words
+    verdict, from a home laid out like the box's ~/edgelog."""
     from api import cloud_signal as cs
     from augur_engine import ml_keel as K
     f = home_files(home)
@@ -313,14 +362,18 @@ def build_report(home, date, rescore=False, recompute=True, log=print):
         except Exception as e:
             log(f"[keel-report] bar cache unreadable ({type(e).__name__}: {e}) -- no recompute")
     rows = []
-    for r in sorted(entries, key=lambda r: (r.get("ref_time") or "", r.get("leg") or "")):
+    replays = {}
+    for r in sorted(entries, key=lambda r: (r.get("ref_time") or "", r.get("leg") or "",
+                                            r.get("trade_id") or "")):
         leg = r["leg"]
         cfg, kind = legs[leg]
         mode = cs.keel_mode(cfg.get("keel"))
         when = r.get("ref_time") or ""
-        lg = logged.get((leg, when)) or {}
+        tid = r.get("trade_id") or ""
+        # by trade id first (DIP slots share one entry time), else an older id-less line
+        lg = (logged.get(("id", tid)) if _valid_tid(tid) else None) or logged.get((leg, when)) or {}
         row = {"leg": leg, "kind": kind, "mode": mode, "time": when, "side": r.get("side"),
-               "trade_id": r.get("trade_id") or "",
+               "trade_id": tid, "slot": _slot(tid),
                "keel_size": _f(r.get("keel_size")), "size": _f(r.get("size")),
                "branch": "", "t_fast": None, "trust": None, "score": None, "src": "-",
                "fixed_logged": _f(r.get("keel_fixed_size")) if r.get("keel_fixed_size") not in
@@ -347,7 +400,7 @@ def build_report(home, date, rescore=False, recompute=True, log=print):
         if epoch_df is not None and len(epoch_df):
             try:
                 rc = recompute_entry(cs, leg, cfg, epoch_df, when, r.get("side"), paths,
-                                     keel_cfg=keel_cfg)
+                                     keel_cfg=keel_cfg, trade_id=tid, cache=replays)
             except Exception as e:
                 rc = None
                 row["note"] = f"recompute failed: {type(e).__name__}: {e}"
@@ -401,11 +454,12 @@ def _sizes(xs):
 
 
 def verdict(rows, date):
-    """The one plain-words line: how often the shade branch fired, and what KEEL sized where
-    the fixed rule would have sized something else."""
+    """The one plain-words line, PER LEARNED LEG: how often the shade branch fired and what KEEL
+    sized where the fixed rule would have sized something else, for the live leg (else the
+    first shadow leg); every other learned leg adds "(shadow <leg>: shade on X of Y)"."""
     learned = [r for r in rows if r["mode"] == "learned"]
     if not learned:
-        return f"{date}: no KEEL-sized NOISE entries."
+        return f"{date}: no KEEL-sized entries."
 
     def _fixed(r):
         return r["fixed_logged"] if r["fixed_logged"] is not None else r["fixed_recomputed"]
@@ -418,11 +472,12 @@ def verdict(rows, date):
         undecided = sum(1 for r in rs if str(r["branch"]).startswith("shade-line"))
         return n_shade, guessed, unknown, undecided
 
-    live = [r for r in learned if r["kind"] == "live"]
-    shadow = [r for r in learned if r["kind"] != "live"]
-    main = live or shadow
+    groups = {}                     # leg -> its rows: live legs first, then shadow legs
+    for r in sorted(learned, key=lambda r: r["kind"] != "live"):
+        groups.setdefault(r["leg"], []).append(r)
+    leg, *others = list(groups)
+    main = groups[leg]
     n_shade, guessed, unknown, undecided = _part(main)
-    leg = main[0]["leg"]
     differ = [r for r in main if r["keel_size"] is not None and _fixed(r) is not None
               and abs(r["keel_size"] - _fixed(r)) > SIZE_TOL]
     text = (f"{date} {leg}: shade branch fired on {n_shade} of {len(main)} entries"
@@ -436,9 +491,10 @@ def verdict(rows, date):
                  f"would size {_sizes([_fixed(r) for r in differ])}")
     else:
         text += "KEEL sized every entry the same as the fixed rule would"
-    if live and shadow:
-        s_shade, _g, _u, _d = _part(shadow)
-        text += f" (shadow {shadow[0]['leg']}: shade on {s_shade} of {len(shadow)})"
+    for other in others:
+        s_shade, _g, _u, _d = _part(groups[other])
+        text += (f" ({groups[other][0]['kind']} {other}: shade on {s_shade} of "
+                 f"{len(groups[other])})")
     return text + "."
 
 
@@ -466,14 +522,17 @@ def format_report(rows, summaries, verdict_line, date):
     out.write(head + "\n" + "-" * len(head) + "\n")
     for r in rows:
         t = r["time"][11:16] if len(r["time"]) >= 16 else r["time"]
-        out.write(f"{r['leg']:<16}{t:<7}{str(r['side'] or ''):<7}{_cell(r['keel_size']):>7}  "
+        # a DIP slot shows as DIP_424K/RSI -- its seven slots can share one entry time
+        name = r["leg"] + (f"/{r['slot']}" if r.get("slot") else "")
+        out.write(f"{name:<16}{t:<7}{str(r['side'] or ''):<7}{_cell(r['keel_size']):>7}  "
                   f"{str(r['branch'] or '-'):<20}{_cell(r['t_fast'], 2):>8}"
                   f"{_cell(r['trust'], 2):>8}{_cell(r['score'], 2):>8}"
                   f"{_cell(r['fixed_logged']):>8}{_cell(r['fixed_recomputed']):>8}  "
                   f"{r['src']:<8}{r['note']}\n")
     if not rows:
-        out.write("(no NOISE KEEL entries on this day)\n")
-    out.write("used = keel_size on the signal row (the KEEL multiplier the order got); fixed = "
+        out.write("(no KEEL-sized entries on this day)\n")
+    out.write("used = keel_size on the signal row (the KEEL multiplier the order got -- on a "
+              "shadow leg, the would-be trade); fixed = "
               "the fixed rule's size as logged (blank before the extras deploy); fixed* = "
               "recomputed offline from the bar cache; branch '?' = inferred from the state "
               "summary in effect and the sizes ('shade-line?' = below the shade line, no "

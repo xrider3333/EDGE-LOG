@@ -4,7 +4,8 @@ the Custom ML chat and MANAGER can read the would-be trades without opening a CS
 
 Reads, never writes:
   <home>/cloud_signal/shadow/signals.csv   the shadow ledger (api/cloud_signal.shadow_paths):
-                                           NOISE_422_PLAIN, NOISE_422_FIXED, NOISE_422_KEEL
+                                           NOISE_422_PLAIN, NOISE_422_FIXED, NOISE_422_KEEL,
+                                           DIP_424K (KEEL), DIP_424F (constant 1.245)
                                            -- no orders, ever. ENGUQ_335 was a shadow leg
                                            2026-09-28..2026-10-09 (live again since, owner):
                                            its rows stay in this ledger and are still listed,
@@ -24,7 +25,14 @@ multiplied by keel_size a second time. These are SIGNAL prices (the bar the engi
 on), not Webull fills -- the live primary's real fills live in qqq_exec/trades.csv; the
 pre-registered scoring (docs/PREREG_noise_shadow_forward_2026-09-28.md) is the Custom ML
 chat's job, this is the quick read. Open trades (an ENTRY with no EXIT yet) are counted,
-never priced.
+never priced. A fractional size is used exactly (DIP_424F's 1.245 -> 12.45 shares' worth at
+base 10).
+
+DIP #424 (2026-10-09, MANAGER #108). Its seven mechanisms can hold up to seven trades at once,
+several entered on the same 09:30 bar; each carries its own trade id (a slot suffix, e.g.
+DIP_424K-20261009T133000Z-L-RSI), so pairing by (leg, trade_id) keeps them apart and each is
+one trade here. Its signal prices are the backtest's own fills: the 09:30 open on the ENTRY
+(decided at the prior close) and on the EXIT.
 
 SEEDED trades (2026-10-07, MANAGER #87): a shadow leg that was already holding a trade when
 it cold-started writes that trade's ENTRY at its own entry time and price with a reason that
@@ -48,7 +56,7 @@ BASE_SHARES = 10
 SEEDED_TAG = "seeded=1"      # api/cloud_signal.py SEEDED_REASON_TAG
 PRIMARY_LEG = "NOISE_382"
 PRIMARY_PLAIN = "NOISE_382 plain (derived)"
-KEEL_SUMMARY_LEGS = ("NOISE_382", "NOISE_422_KEEL")
+KEEL_SUMMARY_LEGS = ("NOISE_382", "NOISE_422_KEEL", "DIP_424K")     # every learned KEEL leg
 
 
 def read_rows(path, strict=False):
@@ -138,7 +146,8 @@ def summarize(trades, base_shares=BASE_SHARES):
 
 def keel_freshness(home):
     """{leg: {"data_through", "built_at"}} from each learned KEEL leg's summary, {} fields
-    None when a summary is missing (NOISE_422_KEEL before its first build)."""
+    None when a summary is missing (a shadow leg before its first build -- DIP_424K until the
+    first nightly build after its deploy)."""
     out = {}
     for leg in KEEL_SUMMARY_LEGS:
         p = os.path.join(home, "cloud_signal", "keel", f"{leg}_v12_summary.json")

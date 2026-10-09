@@ -41,6 +41,12 @@ from api/market_calendar):
                      next session the live leg sizes at base size without it (api/cloud_signal
                      KEEL_MAX_STALE_SESSIONS). HIGH -- the second and last push of a missed-night
                      run; api/cloud_signal records instead of pushing while this is open.
+                     A SHADOW leg's summary (keel_live_state writes leg_live false on it --
+                     NOISE_422_KEEL, DIP_424K since 2026-10-09; no orders, ever) gets both checks
+                     too, but always QUIET and MEDIUM, worded "shadow leg, no orders": tracked in
+                     status.json and relayed to the PC inboxes, never pushed -- its stale model
+                     changes would-be trades only (at the fallback age they size at 1.0). It
+                     never gates the pre-open check either (MANAGER #108).
   SESSION (09:30 to the close, 13:00 on half days)
     engine_hb        cloud_signal heartbeat over 3 min old or ok=false, lot or no lot -- #5.
     bar_age          newest CLOSED 5m bar closed more than 660 s ago (from 09:41) -- #6.
@@ -85,8 +91,9 @@ from api/market_calendar):
                      was not settled": the engine only records eod_gave_up[today] (named here
                      when present) and the executor only logs the board event.
   PRE-OPEN GATE (session days; the 08:30 and 09:15 ET slots, each once)
-    KEEL current, QQQ_1d newest bar no older than the session BEFORE the previous one (the
-    most the cache can hold before the engine's ~09:35 refresh), lease fresh (last publish within
+    KEEL current (the live legs' summaries only), QQQ_1d newest bar no older than the session
+    BEFORE the previous one (the most the cache can hold before the engine's ~09:35 refresh),
+    lease fresh (last publish within
     max(90 s, 2x renew)), not halted (breaker/kill today, KILL files), engine heartbeat fresh,
     Webull token NORMAL with more than 5 days left (#12, #14, #18, #19). The first slot that
     passes pushes "QQQ book: OK" (low, once a day -- which also proves the alert path works,
@@ -711,7 +718,7 @@ def collect(paths, run_cmd=None):
     snap["qqq_5m_last"] = last_bar_epoch(paths["qqq_5m"])
     snap["qqq_1d_last"] = last_bar_epoch(paths["qqq_1d"])
     snap["nq_last"] = last_bar_epoch(paths["nq_master"])
-    keel = {}
+    keel, keel_shadow = {}, []
     for p in sorted(glob.glob(os.path.join(paths["keel_dir"], "*_summary.json"))):
         data, err = read_json(p)
         name = os.path.basename(p)[:-len("_summary.json")]
@@ -720,7 +727,12 @@ def collect(paths, run_cmd=None):
         # the stale check and keeps using the model
         keel[name] = ((data.get("data_through") or data.get("last_nq_session"))
                       if isinstance(data, dict) else None)
+        # leg_live: tools/keel_live_state writes false on a SHADOW leg's summary (no orders);
+        # a live leg's carries no such key -- anything else counts as live
+        if isinstance(data, dict) and data.get("leg_live") is False:
+            keel_shadow.append(name)
     snap["keel"] = keel
+    snap["keel_shadow"] = keel_shadow
     marker, _err = read_json(os.path.join(paths["keel_dir"], NQ_MARKER))
     snap["nq_marker"] = marker if isinstance(marker, dict) else None
     snap["keel_diffs"] = read_keel_diffs(paths["keel_diffs"]) if paths.get("keel_diffs") else []
@@ -965,9 +977,31 @@ def _keel_behind(through, want):
 
 
 def _keel_leg_word(name):
-    """'NOISE_382_v12' -> 'NOISE'."""
-    head = str(name or "NOISE").split("_")[0]
+    """'NOISE_382_v12' -> 'NOISE', 'DIP_424K_v12' -> 'DIP #424'."""
+    parts = str(name or "NOISE").split("_")
+    head = parts[0]
+    if head == "DIP":
+        run = ""
+        for ch in (parts[1] if len(parts) > 1 else ""):
+            if not ch.isdigit():
+                break
+            run += ch
+        return f"DIP #{run}" if run else "DIP"
     return {"ENGUQ": "ENGU-Q"}.get(head, head)
+
+
+def _keel_split(snap):
+    """(every KEEL summary {name: data_through}, the LIVE legs' ones, the shadow names) --
+    a shadow leg's summary says leg_live false (see collect)."""
+    keel = snap.get("keel") or {}
+    shadow = set(snap.get("keel_shadow") or ())
+    return keel, {k: v for k, v in keel.items() if k not in shadow}, shadow
+
+
+def _keel_none_detail(keel):
+    return ("cloud_signal/keel has no *_summary.json" if not keel else
+            "cloud_signal/keel has no live leg's *_summary.json (only shadow legs': "
+            + ", ".join(sorted(keel)) + ")")
 
 
 def check_evening(snap, now_et, mstate=None):
@@ -1011,10 +1045,10 @@ def check_evening(snap, now_et, mstate=None):
     # folded into the nq_master note (quiet), never a second push
     fold = nq_bad or bool((alerts.get("nq_master") or {}).get("open"))
     want = keel_expected(due)
-    keel = snap.get("keel") or {}
-    if not keel:
+    keel, live_keel, shadow = _keel_split(snap)
+    if not live_keel:
         out.append(_verdict("keel:none", "evening", False, HIGH, "no KEEL summary on the box",
-                            "cloud_signal/keel has no *_summary.json",
+                            _keel_none_detail(keel),
                             plain=_plain("The KEEL sizing model is missing on the cloud box.",
                                          affects="the QQQ book sizes NOISE trades without its model")))
     for leg, through in sorted(keel.items()):
@@ -1024,6 +1058,9 @@ def check_evening(snap, now_et, mstate=None):
         # an unreadable age (behind None) is NOT a fallback: api/cloud_signal keeps using
         # a model whose summary carries no session date (keel:<leg> names it, at default)
         old_enough = behind is not None and behind >= KEEL_FALLBACK_SESSIONS
+        if leg in shadow:
+            out += _shadow_keel_verdicts(leg, through, want, behind, ok, old_enough, w)
+            continue
         out.append(_verdict(
             f"keel:{leg}", "evening", ok, HIGH, f"KEEL STALE ({leg}), still sizing",
             f"trained through {through or 'unknown'}, expected {want}"
@@ -1045,6 +1082,32 @@ def check_evening(snap, now_et, mstate=None):
                          affects=f"{w} trades at base size without its sizing model",
                          priority="high")))
     return out
+
+
+def _shadow_keel_verdicts(leg, through, want, behind, ok, old_enough, w):
+    """keel:<leg> and keel_fallback:<leg> for a SHADOW leg's summary (MANAGER #108): the same
+    tests as a live leg's, but QUIET (status.json and the PC relay, never a push) and MEDIUM --
+    a shadow leg sends no order, so its stale model changes only its would-be trades."""
+    age = f" ({behind} session(s) behind)" if behind is not None else ""
+    return [
+        _verdict(f"keel:{leg}", "evening", ok, MEDIUM,
+                 f"KEEL STALE ({leg}), shadow leg, no orders",
+                 f"trained through {through or 'unknown'}, expected {want}{age}. Shadow leg, "
+                 f"no orders: its would-be trades keep sizing on the stale model until it is "
+                 f"rebuilt.",
+                 plain=_plain("The %s shadow leg's KEEL model was not rebuilt after the close "
+                              "(shadow leg, no orders)." % w, priority="low"),
+                 quiet=True),
+        _verdict(f"keel_fallback:{leg}", "evening", ok or not old_enough, MEDIUM,
+                 f"KEEL TOO OLD ({leg}): shadow leg, no orders",
+                 f"trained through {through or 'unknown'}, expected {want} -- past "
+                 f"api/cloud_signal's KEEL_MAX_STALE_SESSIONS: shadow leg, no orders: its "
+                 f"would-be trades size at 1.0 until it is rebuilt.",
+                 plain=_plain("The %s shadow leg's KEEL model is %s sessions old (shadow leg, no "
+                              "orders: its would-be trades size at 1.0)."
+                              % (w, behind if behind is not None else "too many"), priority="low"),
+                 quiet=True),
+    ]
 
 
 # the executor refreshes its tick_crash.json marker on every failed tick (every ~5 s): one
@@ -1347,12 +1410,14 @@ def preopen_checks(snap, now_et, ev):
         misses.append({"id": mid, "text": text, "problem": problem, "action": action,
                        "affects": affects, "priority": "high" if affects else "default"})
     want = keel_expected(prev) if prev else None
-    keel = snap.get("keel") or {}
-    if not keel:
-        miss("keel", "no KEEL summary on the box",
+    # a SHADOW leg's model never gates the open: it sends no order (MANAGER #108)
+    keel, live_keel, _shadow = _keel_split(snap)
+    if not live_keel:
+        miss("keel", "no KEEL summary on the box" if not keel else
+             "no live leg's KEEL summary on the box",
              "The KEEL sizing model is missing on the cloud box.",
              affects="the QQQ book sizes NOISE trades without its model")
-    for leg, through in sorted(keel.items()):
+    for leg, through in sorted(live_keel.items()):
         if want and (not through or str(through) < want.isoformat()):
             # WEBULL PUSH PLAN 10-07: a model 1-4 sessions old still sizes (default); only
             # at the fallback age (api/cloud_signal sizes at 1.0) is trading affected (high)

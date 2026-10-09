@@ -11565,6 +11565,11 @@ def _build_keel_status(log=print):
 # the oldest CLOSED trades. Newest-entry-first puts a long hold (ENGU-Q's multi-day hold) LAST,
 # so a plain tail cut would drop exactly the trade a leg still holds and the board would show
 # that leg flat (_cap_shadow_trades, _fit_shadow_trades).
+# PRICED AT base_shares x size EXACTLY (2026-10-09, MANAGER #108): a fractional size is kept
+# -- DIP_424F's constant 1.245 is 12.45 shares' worth, a KEEL size of 0.9147 is 9.147 -- the
+# same quantity tools/shadow_legs_report.trade_dollars prices, so the board and that report agree
+# to the cent and the KEEL-vs-fixed comparison is not bent by rounding to whole shares. These
+# are would-be quantities; nothing here is ever an order.
 # SIZE: ~300 bytes and 15 counted index entries a trade, so the 300-trade cap is ~90 KB and
 # ~4,500 entries at most (~70 trades on 2026-10-08) -- and whatever the doc has left under
 # FS_DOC_BUDGET_* bounds it again.
@@ -11709,12 +11714,16 @@ def _round2(v):
 
 
 def _shadow_trade_row(t, base_shares, mark_px, slr):
-    """One published shadow trade. Priced at round(base_shares x size) whole shares, by
-    tools/shadow_legs_report.trade_dollars' own sign rule. Open (no EXIT row yet): exit_*
-    and pnl_usd None, mark_px/unreal_usd off `mark_px`. Closed: mark_px/unreal_usd None."""
+    """One published shadow trade. Priced at base_shares x size EXACTLY (a fractional size is
+    kept: DIP_424F's 1.245 at base 10 is 12.45 shares' worth) by
+    tools/shadow_legs_report.trade_dollars itself, so the board and that report agree to the
+    cent. "shares" is that would-be quantity: an int when whole, else rounded to 4 places.
+    Open (no EXIT row yet): exit_* and pnl_usd None, mark_px/unreal_usd off `mark_px`.
+    Closed: mark_px/unreal_usd None."""
     size = _finite_or_none(t.get("size"))
     size = 1.0 if size is None else size
-    shares = int(round(base_shares * size))
+    qty = round(base_shares * size, 4)
+    shares = int(qty) if qty.is_integer() else qty
     is_open = t.get("exit_time") is None
     priced = dict(t, entry_px=_finite_or_none(t.get("entry_px")),
                   exit_px=_finite_or_none(t.get("exit_px")))
@@ -11722,9 +11731,9 @@ def _shadow_trade_row(t, base_shares, mark_px, slr):
     if is_open:
         mark = _finite_or_none(mark_px)
         if mark is not None:
-            unreal = slr.trade_dollars(dict(priced, exit_px=mark), base_shares=shares, size=1.0)
+            unreal = slr.trade_dollars(dict(priced, exit_px=mark), base_shares=base_shares, size=size)
     else:
-        pnl = slr.trade_dollars(priced, base_shares=shares, size=1.0)
+        pnl = slr.trade_dollars(priced, base_shares=base_shares, size=size)
     return {"leg": t.get("leg"), "trade_id": t.get("trade_id"), "side": t.get("side") or "long",
             "entry_time": t.get("entry_time"), "entry_px": priced["entry_px"],
             "exit_time": None if is_open else t.get("exit_time"),

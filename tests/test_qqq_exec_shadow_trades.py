@@ -4,7 +4,8 @@ PAPER board's "Shadow - not counted" fold.
 
 The shadow legs (api/cloud_signal.py SHADOW_LEGS) write only to <state_dir>/shadow/signals.csv.
 The block is built from that ledger with tools/shadow_legs_report.py's own read_rows/pair_trades,
-priced at round(base_shares x size) shares, newest entry first, capped, and it never reaches
+priced at base_shares x size exactly (a fractional size kept: 1.245 -> 12.45 shares' worth,
+as tools/shadow_legs_report.trade_dollars prices it), newest entry first, capped, and it never reaches
 trades_all or any P&L/stat figure of the doc.
 
 COVERS:
@@ -186,10 +187,15 @@ def test_block_present_with_the_contract_keys_and_separate_from_trades_all(box):
 
 def test_block_agrees_with_the_shadow_legs_report(box):
     """Same pairing, same dollars: the board's block and tools/shadow_legs_report.py's
-    numbers come from the same functions (whole shares only differ for a fractional size)."""
+    numbers come from the same functions, to the cent, a fractional size included (MANAGER #108:
+    DIP_424F's 1.245 is 12.45 shares' worth on both)."""
     rows = _book_rows()
     rows += _trade("NOISE_422_FIXED", "NOISE_422_FIXED-20261006T150000Z-L", "2026-10-06T11:00:00-04:00",
                    "740.10", "2026-10-06T12:30:00-04:00", "742.35", size="2.0")
+    rows += _trade("DIP_424F", "DIP_424F-20261001T133000Z-L-CAP", "2026-10-01T09:30:00-04:00",
+                   "742.51", "2026-10-06T09:30:00-04:00", "752.55", size="1.245")
+    rows += _trade("DIP_424K", "DIP_424K-20261001T133000Z-L-CAP", "2026-10-01T09:30:00-04:00",
+                   "742.51", "2026-10-06T09:30:00-04:00", "752.55", size="0.25")
     box.ledger_rows(rows)
     st = box.doc()["shadow_trades"]
     rep = slr.pair_trades(slr.read_rows(box.ledger))
@@ -198,8 +204,14 @@ def test_block_agrees_with_the_shadow_legs_report(box):
             mine = _by_tid(st)[t["trade_id"]]
             assert mine["leg"] == leg and mine["entry_px"] == t["entry_px"]
             assert mine["exit_px"] == t["exit_px"] and mine["seeded"] == t["seeded"]
-            if t["exit_px"] is not None and float(t["size"]).is_integer():
+            if t["exit_px"] is not None:
                 assert mine["pnl_usd"] == round(slr.trade_dollars(t, 10), 2)
+    # the 10-01 CAP trade (742.51 -> 752.55): 12.45 sh = +$125.00 (whole shares gave 12 sh, $120.48)
+    assert (_by_tid(st)["DIP_424F-20261001T133000Z-L-CAP"]["shares"],
+            _by_tid(st)["DIP_424F-20261001T133000Z-L-CAP"]["pnl_usd"]) == (12.45, 125.0)
+    # a KEEL 0.25: 2.5 sh = +$25.10 (whole shares gave 2 sh, -20%)
+    assert (_by_tid(st)["DIP_424K-20261001T133000Z-L-CAP"]["shares"],
+            _by_tid(st)["DIP_424K-20261001T133000Z-L-CAP"]["pnl_usd"]) == (2.5, 25.1)
 
 
 # ── 2. seeded flag ─────────────────────────────────────────────────────────────────────────
@@ -298,19 +310,29 @@ def test_closed_pnl_sign_long_and_short(box):
 
 
 # ── 5. size scaling + base shares ──────────────────────────────────────────────────────────
-def test_size_scales_whole_shares_and_pnl(box):
+def test_size_scales_shares_and_pnl_exactly(box):
     rows = _trade("NOISE_422_KEEL", "K15", "2026-10-01T10:00:00-04:00", "100.00",
                   "2026-10-01T10:30:00-04:00", "102.00", size="1.5")
     rows += _trade("NOISE_422_KEEL", "K037", "2026-10-02T10:00:00-04:00", "100.00",
                    "2026-10-02T10:30:00-04:00", "102.00", size="0.37")
     rows += _trade("NOISE_422_PLAIN", "BLANK", "2026-10-03T10:00:00-04:00", "100.00",
                    "2026-10-03T10:30:00-04:00", "102.00", size="")
+    rows += _trade("DIP_424F", "F1245", "2026-10-05T09:30:00-04:00", "100.00",
+                   "2026-10-06T09:30:00-04:00", "102.00", size="1.245")
+    rows += _trade("DIP_424F", "F1245-OPEN", "2026-10-06T09:30:00-04:00", "100.00", size="1.245")
     box.ledger_rows(rows)
+    box.positions_live["legs"] = [{"live_px": 103.0}]
     got = _by_tid(box.doc()["shadow_trades"])
+    # base 10 x size, the fractional size kept (no whole-share rounding): 0.37 -> 3.7 sh, 1.245 -> 12.45 sh
     assert (got["K15"]["size"], got["K15"]["shares"], got["K15"]["pnl_usd"]) == (1.5, 15, 30.0)
-    assert (got["K037"]["size"], got["K037"]["shares"], got["K037"]["pnl_usd"]) == (0.37, 4, 8.0)
+    assert (got["K037"]["size"], got["K037"]["shares"], got["K037"]["pnl_usd"]) == (0.37, 3.7, 7.4)
     assert (got["BLANK"]["size"], got["BLANK"]["shares"], got["BLANK"]["pnl_usd"]) == (1.0, 10, 20.0)
-    assert all(isinstance(t["shares"], int) and isinstance(t["size"], float) for t in got.values())
+    assert (got["F1245"]["size"], got["F1245"]["shares"], got["F1245"]["pnl_usd"]) == (1.245, 12.45, 24.9)
+    assert (got["F1245-OPEN"]["shares"], got["F1245-OPEN"]["mark_px"], got["F1245-OPEN"]["unreal_usd"]) \
+        == (12.45, 103.0, 37.35)
+    # a whole quantity stays an int (the rows of every size-1.0 leg are unchanged), a fractional one is a float
+    assert [type(got[k]["shares"]) for k in ("K15", "BLANK", "K037", "F1245")] == [int, int, float, float]
+    assert all(isinstance(t["size"], float) for t in got.values())
 
 
 def test_base_shares_from_config_else_the_reports_default(box):
@@ -429,8 +451,8 @@ def test_a_full_cap_block_estimate_fits_the_firestore_caps():
     budget beside a full trades_all (~565 KB at 500 rows, see FS_DOC_BUDGET_BYTES)."""
     t = {"leg": "NOISE_422_KEEL", "trade_id": "NOISE_422_KEEL-20261008T150500Z-S", "side": "short",
          "entry_time": "2026-10-08T11:05:00-04:00", "entry_px": 747.2,
-         "exit_time": "2026-10-08T15:55:00-04:00", "exit_px": 745.1, "size": 1.37, "shares": 14,
-         "seeded": False, "pnl_usd": 29.4, "mark_px": None, "unreal_usd": None}
+         "exit_time": "2026-10-08T15:55:00-04:00", "exit_px": 745.1, "size": 1.37, "shares": 13.7,
+         "seeded": False, "pnl_usd": 28.77, "mark_px": None, "unreal_usd": None}
     block = {"as_of": "2026-10-09T10:00:00-04:00", "source": qe.SHADOW_TRADES_SOURCE,
              "base_shares": 10, "legs": list(cs.SHADOW_LEGS), "capped": 0,
              "trades": [dict(t) for _ in range(qe.SHADOW_TRADES_CAP)]}

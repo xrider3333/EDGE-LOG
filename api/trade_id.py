@@ -13,10 +13,15 @@ on that leg. A CLI replay that wrote into the live ledger left behind an EXIT fo
 happened to be open. Had one been, today's lot would have closed at the old trade's price.
 
 FORMAT   <leg>-<YYYYMMDD>T<HHMMSS>Z-<L|S>        e.g.  NOISE_304-20260903T150000Z-L
+         <leg>-<YYYYMMDD>T<HHMMSS>Z-<L|S>-<SLOT> e.g.  DIP_424K-20261009T133000Z-L-RSI
   leg    the signal engine's leg key (letters, digits, underscore only -- anything else is
          refused rather than rewritten, so two legs can never be folded into one id)
   time   the ENTRY BAR's own timestamp, converted to UTC, truncated to whole seconds
   side   L = long, S = short
+  slot   OPTIONAL (2026-10-09, DIP #424 shadow legs): the position slot inside a leg whose
+         strategy holds several positions at once -- [A-Z0-9]{1,12}, anything else is refused
+         (no id), never rewritten. Only a caller that passes `slot` gets one: every id made
+         without it is byte-identical to the format above.
 
 DELIBERATELY NOT IN IT
   entry price  Webull and yfinance bars for the same minute can disagree by a cent, and
@@ -31,15 +36,19 @@ naive timestamp (no offset) is only accepted when the caller names the zone it m
 The id only uses [A-Za-z0-9_-], so api/webull_orders.py's client_order_id sanitizer leaves
 it unchanged (no lossy character mapping between two different ids).
 
-ASSUMES ONE POSITION PER LEG: two different trades of one leg cannot share an entry bar and
-side unless a strategy pyramids. None of the crowned plugins do, and the executor itself
-holds at most one lot per leg.
+ONE POSITION PER LEG -- UNLESS THE LEG NAMES A SLOT: two different trades of one leg cannot
+share an entry bar and side unless a strategy pyramids. None of the crowned plugins do, and
+the executor itself holds at most one lot per leg. The one exception is the DIP #424 shadow
+legs (api/cloud_signal.py SHADOW_LEGS, no orders): NQDIP_1_1.py runs seven dip mechanisms
+side by side, each with its own position, and up to seven of them fill at the same session
+open -- so each of those trades carries its mechanism as the slot ("-RSI", "-DBL", ...).
 """
 import re
 from datetime import datetime, timezone
 
 _LEG_RE = re.compile(r"^[A-Za-z0-9_]+$")
-_ID_RE = re.compile(r"^([A-Za-z0-9_]+)-(\d{8}T\d{6}Z)-([LS])$")
+_ID_RE = re.compile(r"^([A-Za-z0-9_]+)-(\d{8}T\d{6}Z)-([LS])(?:-([A-Z0-9]{1,12}))?$")
+_SLOT_RE = re.compile(r"^[A-Z0-9]{1,12}$")
 _SIDE_CODE = {"long": "L", "short": "S", "l": "L", "s": "S"}
 _CODE_SIDE = {"L": "long", "S": "short"}
 
@@ -67,15 +76,19 @@ def _as_aware_datetime(value, default_tz=None):
     return dt
 
 
-def make(leg, entry_time, side, default_tz=None):
+def make(leg, entry_time, side, default_tz=None, slot=None):
     """The canonical trade id for (leg, entry bar time, side), or None when any part is
     unusable. Never raises -- a caller that gets None must treat the trade as having NO
     identity (the executor refuses to act on it), never invent one.
 
     `entry_time`: aware datetime, pandas Timestamp, or ISO-8601 string with an offset.
-    `default_tz`: the zone a NAIVE `entry_time` is in; omitted -> a naive time is refused."""
+    `default_tz`: the zone a NAIVE `entry_time` is in; omitted -> a naive time is refused.
+    `slot`: None (every leg but DIP #424's) -> exactly the id this always made; else the
+    position slot ([A-Z0-9]{1,12}, e.g. "RSI"), appended as "-RSI" -- anything else is None."""
     leg = str(leg or "").strip()
     if not _LEG_RE.match(leg):
+        return None
+    if slot is not None and not _SLOT_RE.fullmatch(str(slot)):     # fullmatch: never "RSI" + newline
         return None
     code = _SIDE_CODE.get(str(side or "").strip().lower())
     if code is None:
@@ -87,11 +100,14 @@ def make(leg, entry_time, side, default_tz=None):
         stamp = dt.astimezone(timezone.utc).strftime("%Y%m%dT%H%M%SZ")
     except (OverflowError, ValueError, OSError):
         return None
+    if slot is not None:
+        return f"{leg}-{stamp}-{code}-{slot}"
     return f"{leg}-{stamp}-{code}"
 
 
 def parse(trade_id):
-    """{"leg", "entry_utc" (aware datetime), "side" ("long"/"short")} or None."""
+    """{"leg", "entry_utc" (aware datetime), "side" ("long"/"short"), "slot" (None unless
+    the id carries one)} or None."""
     m = _ID_RE.match(str(trade_id or "").strip())
     if not m:
         return None
@@ -99,7 +115,8 @@ def parse(trade_id):
         entry = datetime.strptime(m.group(2), "%Y%m%dT%H%M%SZ").replace(tzinfo=timezone.utc)
     except ValueError:
         return None
-    return {"leg": m.group(1), "entry_utc": entry, "side": _CODE_SIDE[m.group(3)]}
+    return {"leg": m.group(1), "entry_utc": entry, "side": _CODE_SIDE[m.group(3)],
+            "slot": m.group(4)}
 
 
 def is_valid(trade_id):
@@ -108,7 +125,8 @@ def is_valid(trade_id):
 
 def describe(trade_id, tz=None):
     """Short human text for logs and the tab's event timeline, e.g.
-    "NOISE_304 long entered 2026-09-03 11:00 ET". Falls back to the raw id."""
+    "NOISE_304 long entered 2026-09-03 11:00 ET" (a slot id adds " [RSI]"). Falls back to
+    the raw id."""
     p = parse(trade_id)
     if p is None:
         return str(trade_id or "(no trade id)")
@@ -120,4 +138,5 @@ def describe(trade_id, tz=None):
             label = "ET"
         except Exception:
             pass
-    return f"{p['leg']} {p['side']} entered {when.strftime('%Y-%m-%d %H:%M')} {label}"
+    return (f"{p['leg']} {p['side']} entered {when.strftime('%Y-%m-%d %H:%M')} {label}"
+            + (f" [{p['slot']}]" if p.get("slot") else ""))

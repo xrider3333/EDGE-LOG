@@ -13,6 +13,11 @@ COVERS:
      gets the fixed-tilt size the engine computes at that entry bar; --rescore re-scores with
      the state in effect and names the branch the engine's own score took.
   4. The box pull is read-only (cat / grep / zcat / test only, BatchMode).
+  5. DIP #424 (2026-10-09, MANAGER #108): the legs are the learned + fixed KEEL legs by MODE
+     (DIP_424K in, DIP_424F's constant 1.245 out); DIP's slots share one entry time, so rows,
+     log lines and the replay are matched by trade id (an id-less line still by leg + time);
+     a not-ready DIP series is "not re-found", never an error; the verdict names each learned
+     leg.
 """
 import csv
 import gzip
@@ -298,3 +303,129 @@ def test_box_pull_only_reads(tmp_path):
         assert word not in remote, word
     assert "keel_size_diffs" not in remote
     assert "NOISE_382_v12_state.joblib" in remote and "NOISE_422_FIXED" not in remote
+    # DIP_424K's summary + state come along (a learned leg); DIP_424F (constant) has neither
+    assert "DIP_424K_v12_summary.json" in remote and "DIP_424F" not in remote
+    assert "ohlc/QQQ_1d.csv" in remote, "a DIP replay needs its daily history"
+
+
+# ── 5. DIP #424: learned + fixed legs by mode, slots matched by trade id ────────────────────
+def _dip_id(slot, hhmm="09:30"):
+    from api import trade_id as tid
+    return tid.make("DIP_424K", f"{DAY}T{hhmm}:00-04:00", "long", slot=slot)
+
+
+def test_keel_legs_are_the_learned_and_fixed_ones_never_a_constant_size(monkeypatch):
+    legs = R.keel_legs()
+    assert "DIP_424K" in legs and legs["DIP_424K"][1] == "shadow"
+    assert "DIP_424F" not in legs, "a constant 1.245 is not KEEL-sized"
+    assert {"NOISE_382", "NOISE_422_KEEL", "NOISE_422_FIXED"} <= set(legs)
+    assert not {"NOISE_422_PLAIN", "ORB_R6", "ENGUQ_335"} & set(legs)
+    # by MODE, not by name: a learned non-NOISE leg is in; a typo'd or constant mode is out
+    monkeypatch.setattr(cs, "CROWN_LEGS", {"X_1": {"keel": {"version": "v12"}}})
+    monkeypatch.setattr(cs, "SHADOW_LEGS", {"NOISE_T": {"keel": {"mode": "fixd"}},
+                                            "C": {"keel": {"mode": "const", "size": 1.245}},
+                                            "F": {"keel": {"version": "v12", "mode": "fixed"}}})
+    assert R.keel_legs() == {"X_1": ({"keel": {"version": "v12"}}, "live"),
+                             "F": ({"keel": {"version": "v12", "mode": "fixed"}}, "shadow")}
+
+
+def test_dip_slots_on_one_bar_are_read_by_trade_id_not_entry_time(tmp_path):
+    """Three DIP slots entered on the 09:30 bar: each row reads ITS OWN log line (keyed by
+    trade id), an older line with no trade id still matches by leg + time, the table shows the
+    slot, and the verdict names every learned leg."""
+    home = _home(tmp_path)
+    f = R.home_files(home)
+    ids = {s: _dip_id(s) for s in ("RSI", "DBL", "PB")}
+    assert all(ids.values()) and len(set(ids.values())) == 3
+    t930 = f"{DAY}T09:30:00-04:00"
+    # the DIP rows carry no keel_branch of their own, so each must find its log line
+    _write_csv(f["shadow_signals"], cs.SIGNAL_COLS,
+               [dict(_row("DIP_424K", "09:30", 0.9), trade_id=ids[s]) for s in ids]
+               + [_row("DIP_424F", "09:30", 1.245),
+                  _row("NOISE_422_KEEL", "10:05", 0.75, keel_branch="shade", keel_fixed_size=1.0,
+                       keel_t_fast=-1.23, keel_trust=0.0, keel_score=0.25)])
+    _summary(home, "DIP_424K", "2026-10-05", -1.1)
+    logs = f["logs_dir"]
+    os.makedirs(logs, exist_ok=True)
+    branch = {"RSI": "shade", "DBL": "fixed-only", "PB": "shade"}
+    lines = [cs.keel_entry_log_line({"leg": "DIP_424K", "ref_time": t930, "side": "long",
+                                     "keel_size": 0.9, "keel_fixed_size": 1.0,
+                                     "keel_branch": branch[s], "keel_t_fast": -1.1,
+                                     "keel_trust": 0.0, "keel_score": 0.1, "size": 0.9,
+                                     "trade_id": ids[s]}) for s in ids]
+    # an older line with no trade id: matched by leg + entry time, as before
+    lines.append(cs.keel_entry_log_line({"leg": "NOISE_382", "ref_time": f"{DAY}T10:05:00-04:00",
+                                         "side": "long", "keel_size": 0.62,
+                                         "keel_fixed_size": 0.62, "keel_branch": "trust",
+                                         "keel_t_fast": -1.33, "keel_trust": 0.0,
+                                         "keel_score": 0.0, "size": 0.62}))
+    with open(os.path.join(logs, "cloud_signal.log"), "w", encoding="utf-8") as fh:
+        fh.write("\n".join(lines) + "\n")
+    logged = R.read_log_entries(logs, DAY)
+    assert {("id", i) for i in ids.values()} <= set(logged)
+    assert ("NOISE_382", f"{DAY}T10:05:00-04:00") in logged
+
+    rows, summaries, line = R.build_report(home, DAY, recompute=False)
+    dip = {r["slot"]: r for r in rows if r["leg"] == "DIP_424K"}
+    assert set(dip) == {"RSI", "DBL", "PB"}
+    assert {s: (r["branch"], r["src"], r["trade_id"]) for s, r in dip.items()} == {
+        s: (branch[s], "log", ids[s]) for s in ids}
+    assert all(r["fixed_logged"] == pytest.approx(1.0) for r in dip.values())
+    assert not [r for r in rows if r["leg"] == "DIP_424F"], "the constant leg is not listed"
+    assert "DIP_424K" in summaries
+    live = [r for r in rows if r["leg"] == "NOISE_382" and r["time"].endswith("10:05:00-04:00")]
+    assert live[0]["branch"] == "trust" and live[0]["src"] == "log"
+    assert line.startswith(f"{DAY} NOISE_382: ")
+    assert "(shadow NOISE_422_KEEL: shade on 1 of 1)" in line
+    assert "(shadow DIP_424K: shade on 2 of 3)" in line
+    text = R.format_report(rows, summaries, line, DAY)
+    assert "DIP_424K/RSI" in text and "DIP_424K/DBL" in text and "state DIP_424K:" in text
+
+
+def test_recompute_matches_a_dip_slot_by_its_trade_id_and_replays_the_bar_once(tmp_path,
+                                                                               monkeypatch):
+    """Three slots share the 09:30 entry time and side: the replay picks each one by its id
+    (cs._entry_key, the engine's key), finds it at the second decision time (the close of the
+    09:30 bar, where the engine first sees a prior-close entry), and replays each decision
+    time ONCE for all three. A not-ready DIP series (None) is "not re-found", never raised."""
+    home = str(tmp_path / "edgelog")
+    epoch_df = _bars(home)
+    paths = cs._paths(home=home)
+    cfg = {"strategy": "unused.py", "timeframe": "5m", "params": {}, "warmup_sessions": 2}
+    entry = pd.Timestamp(f"{DAY} 09:30:00", tz=cs.TZ)
+    calls = []
+
+    def fake_decision(cfg_, arrays, leg, tf, now, paths_, fetch, log=print):
+        calls.append(now)
+        idx = pd.DatetimeIndex(arrays["index"])
+        hit = np.flatnonzero(idx == entry)
+        if not len(hit):
+            return [], arrays                       # the 09:30 bar has not closed yet
+        b = int(hit[0])
+        # one entry time, three slots -- the bars differ ONLY so the test can tell them apart
+        return ([{"side": "long", "entry_time": entry.isoformat(), "entry_bar": b - k,
+                  "slot": s, "entry_note": f"slot={s}"}
+                 for k, s in enumerate(("RSI", "DBL", "PB"))], arrays)
+    monkeypatch.setattr(cs, "leg_decision_trades", fake_decision)
+    cache = {}
+    got = {s: R.recompute_entry(cs, "DIP_424K", cfg, epoch_df, entry.isoformat(), "long", paths,
+                                trade_id=_dip_id(s), cache=cache)
+           for s in ("PB", "RSI", "DBL")}
+    b930 = got["RSI"]["entry_bar"]
+    assert (got["DBL"]["entry_bar"], got["PB"]["entry_bar"]) == (b930 - 1, b930 - 2)
+    assert all(g["how"] == "prior close" and g["fixed"] is not None for g in got.values())
+    assert len(calls) == 2, "09:30:06 (nothing yet) and 09:35:06, once for all three slots"
+    assert calls[-1] == (entry + pd.Timedelta(minutes=5, seconds=cs.CLOSE_GRACE_SECONDS + 1)
+                         ).to_pydatetime()
+    # an id with no slot (or another leg's) matches none of them
+    assert R.recompute_entry(cs, "DIP_424K", cfg, epoch_df, entry.isoformat(), "long", paths,
+                             trade_id=_dip_id("CAP"), cache=cache) is None
+    # the DIP runner's "not ready" (None, e.g. no QQQ_1d in the home) is not re-found
+    monkeypatch.setattr(cs, "leg_decision_trades", lambda *a, **k: (None, a[1]))
+    assert R.recompute_entry(cs, "DIP_424K", cfg, epoch_df, entry.isoformat(), "long", paths,
+                             trade_id=_dip_id("RSI")) is None
+
+
+def test_no_entries_wording_is_keel_not_noise():
+    assert R.verdict([], DAY) == f"{DAY}: no KEEL-sized entries."
+    assert "(no KEEL-sized entries on this day)" in R.format_report([], {}, "x", DAY)

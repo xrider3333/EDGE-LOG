@@ -6,8 +6,9 @@ again since (OWNER DECISION 2026-10-09, MANAGER #102): its shadow rows stay as h
 
 COVERS:
   1. The dicts: CROWN_LEGS is ORB_R6 + NOISE_382 + ENGUQ_335 exactly; SHADOW_LEGS has the
-     three #422 keys, none colliding with a live key; ENGUQ_335 is back on CROWN_LEGS with
-     the phantom-safe cfg it had live before 2026-09-28, plus live_since.
+     three #422 keys and the DIP #424 pair appended last (2026-10-09), none colliding with a
+     live key; ENGUQ_335 is back on CROWN_LEGS with the phantom-safe cfg it had live before
+     2026-09-28, plus live_since.
   2. The live step's events, state.json and signals.csv are byte-identical with and without
      the shadow run beside it (emitted_at -- the wall clock -- aside), over one synthetic
      session with every real leg.
@@ -24,7 +25,8 @@ COVERS:
      empty); the shadow run is skipped on a non-fetch tick; a failing shadow run never breaks
      the live tick, and logs rate-limited.
   7. api/cloud_signal_stream.py stays live-legs-only.
-  8. tools/keel_live_state.py's nightly default builds the two learned legs only.
+  8. tools/keel_live_state.py's nightly default builds the learned legs only (NOISE_382, then
+     the shadow NOISE_422_KEEL and DIP_424K -- not DIP_424F's constant size).
   9. tools/shadow_legs_report.py's arithmetic, and tools/pull_box_ledgers.py copies the
      shadow store.
 The three #422 variants' sizes on a synthetic series: tests/test_noise_422_shadow.py.
@@ -57,7 +59,8 @@ import tools.pull_box_ledgers as pbl                # noqa: E402
 import tools.shadow_legs_report as rpt              # noqa: E402
 
 QUIET = lambda *a, **k: None   # noqa: E731
-SHADOW_KEYS = ["NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL"]
+SHADOW_KEYS = ["NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL",
+               "DIP_424K", "DIP_424F"]          # DIP #424 appended 2026-10-09 (MANAGER #108)
 LIVE_KEYS = ["ORB_R6", "NOISE_382", "ENGUQ_335"]
 
 
@@ -116,11 +119,51 @@ def _synthetic_1m(days, seed=11, price=700.0):
     return pd.DataFrame(rows, columns=["time", "open", "high", "low", "close", "volume"])
 
 
+def _synthetic_1d(n_before=440, seed=13):
+    """QQQ_1d.csv rows (epoch schema, stamped 00:00 ET like yfinance's) for the DIP #424 legs,
+    which need >= trend_len + 30 = 430 daily sessions: `n_before` real sessions BEFORE the 5m
+    tape as a gentle random walk, then every session of the tape up to the day before its
+    last, each 5m session aggregated exactly (so the 5m/1d scale check reads 0 bp) -- a
+    calendar session the tape skips (a half day) repeats the previous close."""
+    import datetime as _dtm
+    from api import market_calendar as mc
+    first, last = T422._DAYS[0], T422._DAYS[-2]
+    before, d = [], first - _dtm.timedelta(days=1)
+    while len(before) < n_before:
+        if mc.is_session(d):
+            before.append(d)
+        d -= _dtm.timedelta(days=1)
+    rng = np.random.RandomState(seed)
+    ep = T422._EPOCH
+    day = pd.to_datetime(ep["time"], unit="s", utc=True).dt.tz_convert(cs.TZ).dt.date
+    agg = {d: (g["open"].iloc[0], g["high"].max(), g["low"].min(), g["close"].iloc[-1])
+           for d, g in ep.groupby(day, sort=True)}
+    rows, c = [], float(ep["open"].iloc[0]) * 0.8
+
+    def stamp(d):
+        return int(pd.Timestamp(d.isoformat(), tz=cs.TZ).tz_convert("UTC").timestamp())
+    for d in before[::-1]:
+        o = c * (1 + rng.normal(0, 0.003))
+        c = o * (1 + rng.normal(0.0005, 0.009))
+        rows.append((stamp(d), o, max(o, c) * 1.003, min(o, c) * 0.997, c, 1e6))
+    d = first
+    while d <= last:
+        if d in agg:
+            rows.append((stamp(d),) + tuple(float(x) for x in agg[d]) + (1e6,))
+            c = float(agg[d][3])
+        elif mc.is_session(d):
+            rows.append((stamp(d), c, c, c, c, 1e6))
+        d += _dtm.timedelta(days=1)
+    return pd.DataFrame(rows, columns=["time", "open", "high", "low", "close", "volume"])
+
+
 def _make_home(root):
     paths = cs._paths(home=str(root))
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
     T422._EPOCH.to_csv(os.path.join(paths["ohlc_dir"], "QQQ_5m.csv"), index=False)
     _synthetic_1m(T422._DAYS[-4:]).to_csv(os.path.join(paths["ohlc_dir"], "QQQ_1m.csv"), index=False)
+    # the DIP #424 legs' daily history (2026-10-09): without it they never SEED (not ready)
+    _synthetic_1d().to_csv(os.path.join(paths["ohlc_dir"], "QQQ_1d.csv"), index=False)
     return paths
 
 
@@ -389,8 +432,8 @@ def test_stream_wrapper_steps_the_live_legs_only(tmp_path, monkeypatch):
 
 
 # ── 8. the nightly KEEL build ────────────────────────────────────────────────────────────
-def test_keel_live_state_builds_the_two_learned_legs_only():
-    assert [l["leg_key"] for l in kls.resolve_legs()] == ["NOISE_382", "NOISE_422_KEEL"]
+def test_keel_live_state_builds_the_learned_legs_only():
+    assert [l["leg_key"] for l in kls.resolve_legs()] == ["NOISE_382", "NOISE_422_KEEL", "DIP_424K"]
 
 
 # ── 9. the report tool and the backup copy ──────────────────────────────────────────────
@@ -437,6 +480,33 @@ def test_shadow_legs_report_numbers(tmp_path, capsys):
     assert "NOISE_422_FIXED" in capsys.readouterr().out
 
 
+def test_shadow_legs_report_pairs_dip_slots_and_prices_the_fractional_size(tmp_path):
+    """DIP #424: three mechanisms entered on ONE 09:30 bar are three trades (paired by their
+    slot ids), one still open; DIP_424F's 1.245 is priced exactly (base 10 x 1.245)."""
+    from api import trade_id as tid
+    sp = cs.shadow_paths(cs._paths(home=str(tmp_path)))
+    t_in = "2026-10-08T09:30:00-04:00"
+    rows = []
+    for slot, x_px in (("RSI", 702.0), ("DBL", 699.0), ("PB", None)):
+        i = tid.make("DIP_424F", t_in, "long", slot=slot)
+        base = {"leg": "DIP_424F", "side": "long", "shares": 142, "trade_id": i,
+                "bar_source": "webull", "size": "1.245", "keel_size": "1.245", "emitted_at": "x"}
+        rows.append(dict(base, event="ENTRY", ref_time=t_in, ref_price=700.0,
+                         reason=f"slot={slot}; decided at the 2026-10-07 close"))
+        if x_px is not None:
+            rows.append(dict(base, event="EXIT", ref_time="2026-10-09T09:30:00-04:00",
+                             ref_price=x_px, reason=f"strategy_exit; slot={slot}"))
+    cs._append_signals(rows, sp)
+    rep = rpt.build_report(str(tmp_path))
+    d = rep["legs"]["DIP_424F"]
+    assert (d["trades"], d["open"], d["seeded"]) == (2, 1, 0)
+    assert d["net_usd"] == 12.45 and d["avg_size"] == 1.245
+    assert (d["largest_win_usd"], d["largest_loss_usd"]) == (24.9, -12.45)
+    assert rep["legs"]["DIP_424K"]["trades"] == 0, "every shadow leg is listed, traded or not"
+    assert list(rep["legs"])[-2:] == ["DIP_424K", "DIP_424F"]
+    assert set(rep["keel"]) == {"NOISE_382", "NOISE_422_KEEL", "DIP_424K"}
+
+
 def test_read_rows_missing_file_is_empty_unless_strict(tmp_path):
     """The report reads a missing ledger as no rows; qqq_exec's shadow_trades block asks for
     strict=True so it can say the ledger could not be read."""
@@ -454,8 +524,13 @@ def test_pull_box_ledgers_copies_the_shadow_store_and_the_new_keel_summary():
     for rel in ("cloud_signal/shadow/signals.csv", "cloud_signal/shadow/state.json",
                 "cloud_signal/shadow/heartbeat.json",
                 "cloud_signal/keel/NOISE_422_KEEL_v12_summary.json",
-                "cloud_signal/keel/NOISE_382_v12_summary.json", "cloud_signal/signals.csv"):
+                "cloud_signal/keel/NOISE_382_v12_summary.json", "cloud_signal/signals.csv",
+                "cloud_signal/keel/DIP_424K_v12_summary.json"):
         assert rel in pbl.FILES, rel
+    # every learned KEEL leg's summary is backed up and read by the report
+    learned = [l["leg_key"] for l in kls.resolve_legs()]
+    assert list(rpt.KEEL_SUMMARY_LEGS) == learned
+    assert all(f"cloud_signal/keel/{k}_v12_summary.json" in pbl.FILES for k in learned)
 
 
 def test_qqq_exec_resolves_enguq_from_the_live_legs_again(monkeypatch):

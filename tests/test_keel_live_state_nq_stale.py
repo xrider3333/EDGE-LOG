@@ -168,7 +168,8 @@ def test_main_runs_the_check_once_per_master_load(tmp_path, monkeypatch):
     legs = [{"leg_key": "A", "live": True, "version": "v12"},
             {"leg_key": "B", "live": False, "version": "v12"}]
     monkeypatch.setattr(kls, "resolve_legs", lambda: legs)
-    monkeypatch.setattr(kls, "load_master", lambda f, log=print: {"m": 1})
+    # (date_from: main() keeps one master per distinct training start -- one today)
+    monkeypatch.setattr(kls, "load_master", lambda f, log=print, date_from=None: {"m": 1})
     monkeypatch.setattr(kls, "check_nq_freshness",
                         lambda master, out_dir, nq_file=None, **k: seen.append((master, nq_file)))
     monkeypatch.setattr(kls, "build", lambda *a, **k: (None, None))

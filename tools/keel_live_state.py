@@ -5,24 +5,41 @@ like the validation") and, since 2026-09-28, the NOISE_422_KEEL shadow leg. See
 augur_engine/ml_keel.py's keel_build_state / keel_score_from_state docstrings for the
 build-once/score-many split this script and api/cloud_signal.py both use.
 
-WHICH LEGS (2026-09-28, the shadow legs). This script used to carry run #382's strategy
-file and cell as its own literals. It now reads every leg from api/cloud_signal.py's
-CROWN_LEGS and SHADOW_LEGS: by default (the box's nightly unit,
+WHICH LEGS (2026-09-28, the shadow legs; 2026-10-09, DIP #424). This script used to carry
+run #382's strategy file and cell as its own literals. It now reads every leg from
+api/cloud_signal.py's CROWN_LEGS and SHADOW_LEGS: by default (the box's nightly unit,
 deploy/cloud/edgelog-keel-state.service, passes no --leg) it builds EVERY leg whose "keel"
-block is a learned model -- live legs first, then shadow legs -- each under its own
-<LEG>_<version>_* names (so NOISE_382's files are exactly what they always were). A leg
-with a mode="fixed" block (v12's fixed tilts, no model -- NOISE_422_FIXED) or no "keel"
-block (NOISE_422_PLAIN, ORB_R6, ENGUQ_335) has nothing to build. A shadow leg's build
-failing never fails the run (the live legs' states are what trade; the shadow leg just
-scores 1.0 until its next good build); a live leg's failure does, after every other leg has
-still been tried. --leg picks one learned leg explicitly. Zero learned legs is loud
-(LegResolutionError) unless every KEEL leg is fixed (NothingToBuild, exit 0). What
-stays literal here is what every NOISE KEEL leg shares and neither dict carries:
-instrument NQ, timeframe 5m, source db_noadj_rth, date_from 2010-06-07 (the #304 crown's
-own start, used by runs #382 and #422 alike), cost_pts 0.533 (the house NQ cost -- both
-size-tilt files refuse any other), multiplier 20.0 (irrelevant here -- KEEL works in raw
-points/pnl units, never dollars). No Firestore dependency at build time -- the box that
-runs this nightly may have no credentials on it at all.
+block is a learned model -- live legs first (NOISE_382), then shadow legs in SHADOW_LEGS
+order (NOISE_422_KEEL, DIP_424K) -- each under its own <LEG>_<version>_* names (so
+NOISE_382's files are exactly what they always were). A leg with a mode="fixed" block (v12's
+fixed tilts, no model -- NOISE_422_FIXED), a mode="const" block (one constant size, no model
+-- DIP_424F at 1.245) or no "keel" block (NOISE_422_PLAIN, ORB_R6, ENGUQ_335) has nothing to
+build. A shadow leg's build failing never fails the run (the live legs' states are what
+trade; the shadow leg just scores 1.0 until its next good build); a live leg's failure does,
+after every other leg has still been tried. --leg picks one learned leg explicitly. Zero
+learned legs is loud (LegResolutionError) unless every KEEL leg is fixed or constant
+(NothingToBuild, exit 0). What stays literal here is what every NOISE KEEL leg shares and
+neither dict carries: instrument NQ, timeframe 5m, source db_noadj_rth, date_from 2010-06-07
+(the #304 crown's own start, used by runs #382 and #422 alike), cost_pts 0.533 (the house NQ
+cost -- both size-tilt files refuse any other), multiplier 20.0 (irrelevant here -- KEEL
+works in raw points/pnl units, never dollars). No Firestore dependency at build time -- the
+box that runs this nightly may have no credentials on it at all.
+
+PER-LEG TRAINING SETTINGS (2026-10-09, DIP #424, MANAGER #108). A learned leg whose "keel"
+block carries a "train" dict trains on ITS OWN run's NQ walk instead of the literals above:
+  train["params"]     replace the leg's LIVE params for the NQ backtest. DIP_424K: run #424's
+                      champion with NO asset key, so NQDIP_1_1.py's auto mode picks its NQ
+                      cost and roll-seam model on the 5m master -- while the live QQQ leg runs
+                      the same cell with asset="ETF".
+  train["cost_pts"]   replaces the house 0.533. 0.0 for #424: the file charges its own costs,
+                      and its P&L is in DOLLARS (the file's PNL_UNITS = "usd"; the summary then
+                      records pnl_units "usd"). KEEL's walk is scale-free in P&L units.
+  train["date_from"]  replaces 2010-06-07 (also 2010-06-07 for #424).
+Same NQ master for every leg (#424's db_noadj_rth source is this NOADJ_NQ_5m_RTH.csv); it is
+read once per distinct date_from -- once a night today. A leg with no "train" block (every
+NOISE leg) builds exactly as before; its summary carries the same cost_pts/date_from values
+it always did. A "train" block this script cannot read drops a SHADOW leg with a log line (the
+live legs still build) and stays loud on a live one, like an unknown mode.
 
 date_to is DELIBERATELY NOT pinned to a run's own snapshot (run #382's was 2026-07-16) --
 it floats to the newest COMPLETE session in whatever NQ file this is pointed at, so
@@ -127,7 +144,10 @@ FULL_SESSION_BARS = 78            # NQ 5m RTH, 09:30-16:00 ET = 6.5h * 12 bars/h
 
 # --check-run-doc: the run whose Firestore doc a leg's stored gate_validate.keel row lives
 # on. Run #422 (the NOISE_422_KEEL shadow leg's) is listed too although it saved no KEEL row
-# today -- the check then says so and falls back to --verify-walk.
+# today -- the check then says so and falls back to --verify-walk. DIP_424K is deliberately
+# NOT listed: run #424's stored KEEL row came from an older (09-24) master build and does not
+# reproduce on today's file (trade count matches, size-weighted total -4.3% -- "a figure, not a
+# parity target", keel_decomp_424.json), so --check-run-doc goes straight to --verify-walk.
 RUN_ID_FOR_LEG = {"NOISE_382": 382, "NOISE_422_KEEL": 422}
 UID_FOR_CHECK = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 
@@ -139,11 +159,11 @@ class LegResolutionError(RuntimeError):
 
 
 class NothingToBuild(Exception):
-    """Every KEEL leg uses v12's FIXED tilts (a "keel" block with mode="fixed", see
-    api/cloud_signal.py's THREE SHAPES comment): no model, so no state to build. Not a
-    failure -- main() prints the message and exits 0, so the box's nightly
-    edgelog-keel-state.service/.path stay green. Kept apart from LegResolutionError on
-    purpose: that one must stay loud."""
+    """Every KEEL leg uses v12's FIXED tilts (a "keel" block with mode="fixed") or a
+    CONSTANT size (mode="const"), see api/cloud_signal.py's FOUR SHAPES comment: no model,
+    so no state to build. Not a failure -- main() prints the message and exits 0, so the
+    box's nightly edgelog-keel-state.service/.path stay green. Kept apart from
+    LegResolutionError on purpose: that one must stay loud."""
 
 
 def _leg_rows(crown_legs=None, shadow_legs=None):
@@ -157,6 +177,10 @@ def _leg_rows(crown_legs=None, shadow_legs=None):
 
 
 def _leg_from_cfg(leg_key, cfg, live):
+    """resolve_leg()'s dict for one learned leg: {"leg_key", "strategy", "params", "version",
+    "live"} -- plus "cost_pts" and "date_from" ONLY when its keel block carries a "train"
+    dict (see PER-LEG TRAINING SETTINGS), whose "params" then replace the live ones. A leg
+    without "train" gets exactly the dict it always did."""
     from api import cloud_signal as _cs
     keel = (cfg or {}).get("keel")
     if not keel:
@@ -169,42 +193,76 @@ def _leg_from_cfg(leg_key, cfg, live):
     strategy = cfg.get("strategy")
     if not isinstance(strategy, str) or not strategy:
         raise LegResolutionError(f"leg {leg_key!r} names no strategy file")
-    return {"leg_key": leg_key, "strategy": strategy, "params": dict(cfg.get("params") or {}),
-            "version": keel.get("version") or VERSION, "live": bool(live)}
+    leg = {"leg_key": leg_key, "strategy": strategy, "params": dict(cfg.get("params") or {}),
+           "version": keel.get("version") or VERSION, "live": bool(live)}
+    train = keel.get("train")
+    if train is None:
+        return leg
+    try:
+        if not isinstance(train, dict) or not isinstance(train.get("params"), dict):
+            raise TypeError("it must be a dict with a \"params\" dict")
+        cost_pts = float(train["cost_pts"]) if train.get("cost_pts") is not None else COST_PTS
+        if cost_pts != cost_pts or cost_pts < 0:
+            raise ValueError(f"cost_pts {train.get('cost_pts')!r} is not a cost")
+        date_from = str(train.get("date_from") or DATE_FROM)
+        import datetime as _dt2
+        _dt2.date.fromisoformat(date_from)
+    except (TypeError, ValueError) as e:
+        raise LegResolutionError(f"leg {leg_key!r}: its keel \"train\" block is unreadable ({e})")
+    leg.update(params=dict(train["params"]), cost_pts=cost_pts, date_from=date_from)
+    return leg
+
+
+def _no_model_modes(_cs):
+    """The keel modes with nothing to build: (v12's fixed tilts, a constant size)."""
+    return (_cs.KEEL_MODE_FIXED, _cs.KEEL_MODE_CONST)
 
 
 def resolve_legs(crown_legs=None, shadow_legs=None):
     """EVERY learned-KEEL leg to build (the nightly default), live legs first: a list of
-    {"leg_key", "strategy", "params", "version", "live"} (live = a CROWN_LEGS leg, False
-    for a SHADOW_LEGS one). Fixed-tilt and no-KEEL legs are skipped (nothing to build). An
-    unknown mode on a LIVE leg raises LegResolutionError; on a SHADOW leg only, that leg is
-    logged and dropped so the live build still runs (a shadow slip must never block the
-    live state). No learned leg at all raises NothingToBuild when some KEEL leg is fixed,
-    else LegResolutionError ("found 0") -- never a silent empty run."""
+    _leg_from_cfg() dicts (live = a CROWN_LEGS leg, False for a SHADOW_LEGS one). Fixed-tilt,
+    constant-size and no-KEEL legs are skipped (nothing to build). An unknown mode -- or an
+    unreadable "train" block -- on a LIVE leg raises LegResolutionError; on a SHADOW leg only,
+    that leg is logged and dropped so the live build still runs (a shadow slip must never
+    block the live state). No learned leg at all raises NothingToBuild when some KEEL leg is
+    fixed or constant, else LegResolutionError ("found 0") -- never a silent empty run."""
     from api import cloud_signal as _cs
     rows = _leg_rows(crown_legs, shadow_legs)
     modes = {k: _cs.keel_mode((cfg or {}).get("keel")) for k, cfg, _live in rows
              if (cfg or {}).get("keel")}
-    odd = {k: m for k, m in modes.items() if m not in (_cs.KEEL_MODE_LEARNED, _cs.KEEL_MODE_FIXED)}
+    known = (_cs.KEEL_MODE_LEARNED,) + _no_model_modes(_cs)
+    expected = ", ".join(repr(m) for m in known[:-1]) + f" or {known[-1]!r}"
+    odd = {k: m for k, m in modes.items() if m not in known}
     live_keys = {k for k, _cfg, live in rows if live}
     odd_live = {k: m for k, m in odd.items() if k in live_keys}
     if odd_live:
         raise LegResolutionError(
             f"unknown keel mode on {odd_live} in api/cloud_signal (expected "
-            f"{_cs.KEEL_MODE_LEARNED!r} or {_cs.KEEL_MODE_FIXED!r}). Nothing built.")
+            f"{expected}). Nothing built.")
     if odd:
         print(f"[keel-live-state] shadow leg(s) with an unknown keel mode skipped: {odd} "
-              f"(expected {_cs.KEEL_MODE_LEARNED!r} or {_cs.KEEL_MODE_FIXED!r}) -- "
-              "the live legs still build")
-    out = [_leg_from_cfg(k, cfg, live) for k, cfg, live in rows
-           if modes.get(k) == _cs.KEEL_MODE_LEARNED]
+              f"(expected {expected}) -- the live legs still build")
+    out = []
+    for k, cfg, live in rows:
+        if modes.get(k) != _cs.KEEL_MODE_LEARNED:
+            continue
+        try:
+            out.append(_leg_from_cfg(k, cfg, live))
+        except LegResolutionError as e:
+            if live:
+                raise
+            print(f"[keel-live-state] shadow leg {k} skipped: {e} -- the live legs still build")
     if out:
         return out
-    fixed_keys = sorted(k for k, m in modes.items() if m == _cs.KEEL_MODE_FIXED)
-    if fixed_keys:
-        raise NothingToBuild(
-            f"KEEL leg(s) {', '.join(fixed_keys)} use v12's fixed tilts (no model) -- "
-            "nothing to build")
+    fixed_mode, const_mode = _no_model_modes(_cs)
+    fixed_keys = sorted(k for k, m in modes.items() if m == fixed_mode)
+    const_keys = sorted(k for k, m in modes.items() if m == const_mode)
+    if fixed_keys or const_keys:
+        why = ([f"KEEL leg(s) {', '.join(fixed_keys)} use v12's fixed tilts (no model)"]
+               if fixed_keys else [])
+        why += ([f"KEEL leg(s) {', '.join(const_keys)} use a constant size (no model)"]
+                if const_keys else [])
+        raise NothingToBuild("; ".join(why) + " -- nothing to build")
     raise LegResolutionError(
         "expected at least one leg with a learned \"keel\" block in api/cloud_signal, "
         f"found 0 (of {sorted(k for k, _c, _l in rows)}). Nothing built.")
@@ -391,6 +449,23 @@ def _dt_now_iso():
     return _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds")
 
 
+def _pnl_units(strategy):
+    """The strategy file's own PNL_UNITS, lower-cased -- "points" unless the file declares
+    otherwise (NQDIP_1_1.py: "usd") -- the same read augur_engine/book.py makes. "points"
+    when the file cannot be loaded here (the backtest itself then fails, loudly)."""
+    try:
+        from augur_engine.strategies import load_strategy
+        mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
+        return str(getattr(mod, "PNL_UNITS", "points") or "points").lower()
+    except Exception:
+        return "points"
+
+
+def _leg_date_from(leg):
+    """The first NQ date a leg trains on: its "train" date_from, else the shared DATE_FROM."""
+    return (leg or {}).get("date_from") or DATE_FROM
+
+
 def load_nq_arrays(nq_file, date_from=DATE_FROM, date_to=None, drop_incomplete=True, log=print):
     """Read `nq_file` the same way augur_engine.data.load_master_arrays does (epoch
     seconds -> ET tz-aware index, day_id factorized), without requiring it to sit in
@@ -434,46 +509,59 @@ def load_nq_arrays(nq_file, date_from=DATE_FROM, date_to=None, drop_incomplete=T
 
 
 def run_nq_backtest(arr, leg=None, log=print):
+    """The leg's NQ walk: its strategy with its (training) params at its own cost_pts -- the
+    house COST_PTS unless the leg's "train" block names one (DIP_424K: 0.0, the file charges
+    its own costs). The log names the P&L units (pts, or the file's own -- usd for DIP)."""
     leg = _as_leg(leg)
     from augur_engine.engine import run_backtest
-    res = run_backtest(leg["strategy"], arrays=arr, params=leg["params"], cost_pts=COST_PTS,
+    cost_pts = leg.get("cost_pts", COST_PTS)
+    res = run_backtest(leg["strategy"], arrays=arr, params=leg["params"], cost_pts=cost_pts,
                        return_trades=True)
     trades = list((res or {}).get("trades") or [])
+    units = _pnl_units(leg["strategy"])
     log(f"[keel-live-state] {leg['leg_key']}: {len(trades)} NQ trades, total_pnl "
-        f"{(res or {}).get('total_pnl', 0):.2f} pts")
+        f"{(res or {}).get('total_pnl', 0):.2f} {'pts' if units == 'points' else units}"
+        + ("" if "cost_pts" not in leg else f" (cost_pts {cost_pts:g}, from "
+           f"{_leg_date_from(leg)})"))
     return trades, (res or {})
 
 
-def load_master(nq_file, log=print):
-    """The NQ master, read and hashed ONCE for every leg a run builds (see build's
-    `master`): {"arr", "dropped_session", "file_hash", "hash_s", "load_s"}."""
+def load_master(nq_file, log=print, date_from=DATE_FROM):
+    """The NQ master from `date_from` on, read and hashed ONCE for every leg a run builds
+    that trains from that date (see build's `master`; main() keeps one per distinct
+    date_from): {"arr", "dropped_session", "file_hash", "hash_s", "load_s", "date_from"}."""
     log(f"[keel-live-state] reading {nq_file}")
     t0 = time.time()
     file_hash = _file_sha256(nq_file)
     hash_s = time.time() - t0
     t0 = time.time()
-    arr, dropped_session = load_nq_arrays(nq_file, log=log)
+    arr, dropped_session = load_nq_arrays(nq_file, date_from=date_from, log=log)
     load_s = time.time() - t0
     log(f"[keel-live-state] {len(arr['close'])} bars after load/trim ({load_s:.2f}s)")
     return {"arr": arr, "dropped_session": dropped_session, "file_hash": file_hash,
-            "hash_s": hash_s, "load_s": load_s}
+            "hash_s": hash_s, "load_s": load_s, "date_from": date_from}
 
 
 def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
     """The nightly job for ONE leg. Returns (state, summary_dict); also writes both files.
     `leg`: a leg key, a resolve_leg() dict, or None for the live KEEL leg; `version` None
     uses that leg's own keel version. `master`: a load_master() dict to reuse (main()
-    loads the NQ file once for every leg); None reads `nq_file` here."""
+    loads the NQ file once per distinct date_from); None reads `nq_file` here, from the
+    leg's own date_from. A master read from another date_from is refused (ValueError)."""
     from augur_engine import ml_keel as K
     leg = _as_leg(leg)
     leg_key = leg["leg_key"]
     version = version or leg["version"]
+    date_from = _leg_date_from(leg)
     log(f"[keel-live-state] leg {leg_key} ({leg['strategy']} {leg['params']}, KEEL {version}"
         f"{'' if leg['live'] else ', SHADOW leg -- scored by the shadow ledger only, never an order'})")
 
     t_start = time.time()
     if master is None:
-        master = load_master(nq_file, log=log)
+        master = load_master(nq_file, log=log, date_from=date_from)
+    elif (master.get("date_from") or DATE_FROM) != date_from:
+        raise ValueError(f"{leg_key} trains from {date_from} but was handed a master read from "
+                         f"{master.get('date_from') or DATE_FROM}")
     arr, dropped_session = master["arr"], master["dropped_session"]
     file_hash, hash_s, load_s = master["file_hash"], master["hash_s"], master["load_s"]
     n_bars = len(arr["close"])
@@ -505,6 +593,7 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
     save_s = time.time() - t0
 
     total_s = time.time() - t_start
+    units = _pnl_units(leg["strategy"])
     # DATA_THROUGH (item D, 2026-09-25): the ET calendar date of the LAST BAR actually
     # used, i.e. AFTER load_nq_arrays already dropped an incomplete final session --
     # `arr` here is that post-drop array, so this is simply its last index entry.
@@ -532,8 +621,13 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
         # the model's seed (ml_keel.SEED unless a caller passed another) -- read by the NOISE
         # forward log (api/noise_forward.py keel_meta), which never loads the state itself
         "seed": state.get("seed"),
-        "cost_pts": COST_PTS,
-        "date_from": DATE_FROM,
+        # the leg's own training cost / start (PER-LEG TRAINING SETTINGS) -- the house
+        # literals for every NOISE leg, as before
+        "cost_pts": leg.get("cost_pts", COST_PTS),
+        "date_from": date_from,
+        # a file whose P&L is not in points says so (DIP_424K: "usd"); NOISE summaries keep
+        # exactly their old keys
+        **({} if units == "points" else {"pnl_units": units}),
         "data_through": data_through,
         "dropped_incomplete_session": dropped_session,
         "nq_file": os.path.abspath(nq_file),
@@ -678,7 +772,7 @@ def check_state_matches_walk(nq_file, leg=None, n_cuts=3, log=print, arrays=None
     leg = _as_leg(leg)
     version = leg["version"]
     if arrays is None:
-        arrays, _dropped = load_nq_arrays(nq_file, log=log)
+        arrays, _dropped = load_nq_arrays(nq_file, date_from=_leg_date_from(leg), log=log)
     if trades is None:
         trades, _res = run_nq_backtest(arrays, leg=leg, log=log)
     feats = K.keel_features(arrays)
@@ -769,7 +863,9 @@ def main():
     print(f"[keel-live-state] building {len(legs)} leg(s): "
           + ", ".join(f"{leg['leg_key']} ({'live' if leg['live'] else 'shadow'})" for leg in legs))
     failed_live, failed_shadow = [], []
-    master = None
+    # one master per distinct training start (PER-LEG TRAINING SETTINGS) -- every leg trains
+    # from 2010-06-07 today, so still ONE read and ONE freshness check a night
+    masters, freshness_checked = {}, False
     for leg in legs:
         # Re-check the blackout before EACH shadow leg: with two legs a build can start
         # just before 09:25 and run into the session, and a shadow leg's state must not
@@ -783,9 +879,13 @@ def main():
                 continue
         try:
             if not a.no_build:
+                date_from = _leg_date_from(leg)
+                master = masters.get(date_from)
                 if master is None:
-                    master = load_master(nq_file)
-                    check_nq_freshness(master, out_dir, nq_file=nq_file)
+                    master = masters[date_from] = load_master(nq_file, date_from=date_from)
+                    if not freshness_checked:
+                        freshness_checked = True
+                        check_nq_freshness(master, out_dir, nq_file=nq_file)
                 build(nq_file, out_dir, version=leg["version"], leg=leg, master=master)
             doc = check_against_run_doc(leg=leg) if a.check_run_doc else None
             if a.verify_walk or (a.check_run_doc and doc is None):

@@ -352,7 +352,9 @@ def test_keel_live_state_stays_loud_for_a_bad_live_mode_and_drops_a_bad_shadow_o
     bad = dict(cs.SHADOW_LEGS, NOISE_422_FIXED=dict(cs.SHADOW_LEGS["NOISE_422_FIXED"],
                                                     keel=dict(version="v12", mode="fixd")))
     # a shadow typo never blocks the live build: that leg is dropped (logged), the rest build
-    assert [l["leg_key"] for l in kls.resolve_legs(shadow_legs=bad)] == ["NOISE_382", "NOISE_422_KEEL"]
+    # (DIP_424K, the DIP #424 learned shadow leg, since 2026-10-09)
+    assert [l["leg_key"] for l in kls.resolve_legs(shadow_legs=bad)] == ["NOISE_382", "NOISE_422_KEEL",
+                                                                          "DIP_424K"]
     bad_live = dict(cs.CROWN_LEGS, NOISE_382=dict(cs.CROWN_LEGS["NOISE_382"],
                                                   keel=dict(version="v12", mode="fixd")))
     with pytest.raises(kls.LegResolutionError, match="unknown keel mode"):

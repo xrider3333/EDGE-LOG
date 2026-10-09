@@ -41,6 +41,8 @@ FILES = [
     # the NOISE forward log (api/noise_forward.py) -- tools/noise_forward_log.py --home reads it
     "cloud_signal/shadow/noise_forward_log.csv",
     "cloud_signal/keel/NOISE_422_KEEL_v12_summary.json",
+    # DIP #424's learned KEEL leg (shadow, 2026-10-09) -- its trades are in the shadow ledger
+    "cloud_signal/keel/DIP_424K_v12_summary.json",
 ]
 DEFAULT_DEST = r"C:\EdgeLog\box_backup"
 LOG_PATH = r"C:\EdgeLog\logs\pull_box_ledgers.log"
