@@ -1,0 +1,23 @@
+CALMTAPE r1 (Q29, FRONTIER) - POWER LINE ADDENDUM, committed BEFORE any cell P&L (prereg docs/PREREG_frontier_calmtape_2026-10-09.txt,
+LF sha256 01da6b0060887f3c071c56b28e8870f96ae3511c200f44fdb3113f6bc2f127a5, [H POWER]; witness branch prereg/frontier-calmtape-1009 at 7aa334df).
+
+Run 2026-10-09 by tools/rocfrontier/r30_calmtape.py power (harness LF sha256 d7feea4722a6aa5a3b811ac70ad33bc93fa8e14bf942073209c60a691271ea02),
+through bookq/run_shared.py (the shared checkout's augur_engine). The family null alone: random hold-day sets with each cell's own count, in
+whole 20-session slots, carrying the cell's average held units, the same open fills, costs and rolls; no cell P&L was computed.
+Output: C:\EdgeLog\_anatomy_cache\rocfrontier\calmtape_r1\calmtape_power.json
+  sha256 7f11afd7227a02d23672659aa14eee3590070d0ca5dc82174b084966faa62f22
+
+Inputs (counts, no P&L): 2,258 WF sessions (2016-07-01 .. 2025-06-27), 36 rolls (4 a year), 23 VIX CME-holiday rows dropped; S1 line parity
+121.06, 45 episodes / 762 days. CT1 holds 1,001 sessions (twin 0.4433 units); CT2 holds 1,814 (twin 0.8447 units, 1.0515 on a held session).
+
+FAMILY NULL (500 draws a cell; seeds 20261009 / 20261010): the statistic = ROC@30k lead over the same-exposure twin, MAX over CT1 / CT2.
+  THE BAR: a cell's lead over its twin must exceed the p95 of the max = 5.49 points (p50 of the max -1.79).
+  CT1: random holding's lead p50 -5.25 / p95 3.44 -> a cell needs 10.73 points over random holding; as a timing edge on held sessions:
+       $13.86 a held session ($1,543 a year a unit) at 50% power, $19.54 ($2,175 a year) at 80%.
+       house power line (tools/power_line.py) on the median null draw vs its twin, a proxy: SD 7.98, 50% line 13.12, 80% line 19.84.
+  CT2: random holding's lead p50 -2.71 / p95 2.02 -> a cell needs 8.19 points over random holding; $7.61 a held session ($1,535 a year a
+       unit) at 50% power, $9.43 ($1,901 a year) at 80%.
+       house power line proxy: SD 3.73, 50% line 6.14, 80% line 9.28.
+READING (written before any cell P&L): the ROC lead of a trend / calm filter comes mostly from the drawdowns it sits out, not from extra
+drift, so the drift form of the MDE is the conservative one. The bar (i) is 5.49 points over the twin; (ii) and (iii) are as frozen.
+Stage A runs next (WF only), after this addendum is committed and the witness branch carries it.
