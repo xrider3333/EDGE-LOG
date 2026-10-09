@@ -109,7 +109,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 156
+N_CASES = 157
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -6278,6 +6278,369 @@ var FIX = __FIX__;
         },{aIds:aIds,aAny:aAny,wordsA:wordsA,tipA:tipA.slice(0,420),tipD:tipD.slice(0,200),tipF:tipF.slice(0,300),bAny:bAny,bIdleAny:bIdleAny,dIds:dIds,eIds:eIds,eAny:eAny,note:note.slice(0,240),errAcc:errAcc.slice(0,3)});
       })();
 
+      // -- n7 (owner bug 2026-10-09 via MANAGER #47/#48: "in COMPARE an ENGU-Q row's link opened a DIP past run"). A SWEEP of every surface that
+      //    opens a run: the link on a row must open a run of the row's OWN family. Fixtures are built so a wrong key lands on a run of ANOTHER family:
+      //    ENGU-Q #326 (family sequence 37, n_evaluated 1, a gate_validate of 2 tilts + 1 hybrid + a keel + 2 gate candidates) and #330 (the ENGU-Q
+      //    sweep its 1-of-1 pointer must find), DIP #424 (family sequence 7, its own gate_validate) and a DIP run whose id is 37 (= #326's family
+      //    sequence), an ORB and a NOISE run, and a book. Every check reads the drawn page and resolves the family of the run a link opens from the
+      //    fixtures by id: EXPLORE configuration rows (name cell, RUN cell, family tag, run chip, and a click), LEADERBOARD (family blocks, TOP RUNS,
+      //    a click per family), COMPARE > RUNBOARD and the older RUNBOARD tab (matrix headers, chart-key rows, BOOKS and TOP 10 rows, a click), the
+      //    Past Runs list (rows, the 1-of-1 pointer on the list and in the report, clicks) and the WATCH research plane. Summary check: no offender.
+      (function(){
+        var calls=[],errAcc=[],bad=[],seen={};
+        var AU0=w.eval('augurRunSel');
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function lead(t){t=String(t||'');if(t.charAt(0)!=='#')return null;var i=1;while(i<t.length&&t.charAt(i)>='0'&&t.charAt(i)<='9')i++;return i>1?t.slice(1,i):null;}
+        function endsWith(s,e){s=String(s||'');return e.length>0&&s.length>=e.length&&s.slice(s.length-e.length)===e;}
+        var MID=String.fromCharCode(183);   // the middle dot
+        function hit(surf){seen[surf]=(seen[surf]||0)+1;}
+        function offend(surf,what){bad.push(surf+': '+what);}
+        // ---- fixtures ----
+        function mk(id,strat,fk,fs,ne){var r=dfxClone(FIX);r.id=String(id);r.strategy=strat;r.famKey=fk;r.famSeq=fs;r.n_evaluated=ne;r.starred=false;
+          r.timestamp='2026-09-'+(10+(+id%18))+' 09:00';return r;}
+        function gvOf(t,h,c,ver){var g=dfxClone(FIX.gate_validate);
+          g.tilts=t.map(function(i){return g.tilts[i];});g.hybrids=h.map(function(i){return g.hybrids[i];});g.candidates=c.map(function(i){return g.candidates[i];});
+          var k=dfxClone(g.tilts[0]);k.version=ver;g.keel=k;return g;}
+        var E=mk(326,'ENGUQ_1M_ETH_REG5.py','ENGU-Q',37,1);E.gate_validate=gvOf([0,1],[0],[0,1],'v12');E.selection.candidates=E.selection.candidates.slice(0,3);
+        var E2=mk(330,'ENGUQ_1M_ETH_REG5.py','ENGU-Q',38,900);
+        var D=mk(424,'NQDIP_1_1.py','DIP',7,900);D.gate_validate=gvOf([2,3],[1],[2,3],'v11');D.selection.candidates=D.selection.candidates.slice(0,2);
+        var D37=mk(37,'NQDIP_1_1.py','DIP',8,900);
+        var O=mk(234,'ORB_3_0_BE.py','ORB',14,200);
+        var N=mk(304,'NOISE_1_0.py','NOISE',22,116);
+        // a book (engine shape, as n3): its legs are the ENGU-Q and the DIP file
+        var BK=dfxClone(FIX);BK.id='463';BK.strategy='BOOK: PROBE N7';BK.starred=false;BK.multiplier=1;BK.timestamp='2026-09-28 09:00';
+        ['famKey','famSeq','n_evaluated','gate_validate','selection','top10_results','equity','equity_top','points'].forEach(function(k){delete BK[k];});
+        (function(){function blk(net,tr,wins,losses,wr,pf,dd){var gl=net/(pf-1),gw=pf*gl;return {total_pnl:net,num_trades:tr,wins:wins,losses:losses,win_rate:wr,profit_factor:pf,max_drawdown:dd,gross_win:gw,gross_loss:gl};}
+          var pre=blk(1395904,9085,3000,6085,33.02,1.49,34000),lbk=blk(289811,622,200,422,32.15,1.56,28066),whole=blk(1685715,9707,3200,6507,32.97,1.50,36562);
+          BK.best_pnl_usd=pre.total_pnl;BK.best_pf=pre.profit_factor;BK.best_trades=pre.num_trades;BK.best_dd_usd=pre.max_drawdown;BK.best_win_rate=pre.win_rate;
+          BK.book={name:'BOOK: PROBE N7',legs:[{strategy:'ENGUQ_1M_ETH_REG5.py',weight:1},{strategy:'NQDIP_1_1.py',weight:1}],whole:whole,pre_lockbox:pre,lockbox:lbk,lockbox_from:'2025-06-30',date_from:'2010-06-07',date_to:'2026-08-13'};
+          BK.validate={verdict:'PASS',lockbox:{pnl:lbk.total_pnl,pf:lbk.profit_factor,trades:lbk.num_trades,pass:true},book:true};})();
+        var DOCS=[E,E2,D,D37,O,N,BK];
+        var FAM={},STRAT={},ALIAS={};
+        DOCS.forEach(function(r){FAM[r.id]=(r===BK)?'BOOKS':r.famKey;STRAT[r.id]=String(r.strategy).replace('.py','');ALIAS[r.id]=r.famKey?(r.famKey+'-'+r.famSeq):'';});
+        function famOf(id){return Object.prototype.hasOwnProperty.call(FAM,String(id))?FAM[String(id)]:null;}
+        var FAMS=['ENGU-Q','DIP','ORB','NOISE'];
+        var IDS=DOCS.map(function(r){return r.id;});
+        var wc=dfxWin(DOCS,"runHistory.forEach(function(x){window._runCfg[String(x.id)]=x;});");
+        function reportHead(){var det=d.getElementById('res-detail');if(!det)return null;
+          var sp=[].filter.call(det.querySelectorAll('span'),function(s){return dfxN(s.textContent).indexOf('REPORT ')===0;})[0];
+          if(!sp)return null;var t=dfxN(sp.textContent),id=t.slice(7);if(id.charAt(id.length-1)===':')id=id.slice(0,-1);
+          var tip=sp.getAttribute('title')||'',fk=(tip.indexOf('family run id ')===0)?tip.slice(14):'';
+          var j=fk.lastIndexOf('-');return {id:id,fam:(j>0)?fk.slice(0,j):''};}
+        function st(){return {sub:w.eval('augurSub'),sel:String(w.eval('augurRunSel'))};}
+        // click an element, then read where it landed: the Past Runs report for the run it opened
+        function landed(el,tag){el.click();chk(tag);var s=st(),h=reportHead();return {sub:s.sub,sel:s.sel,head:h?h.id:null,headFam:h?h.fam:null};}
+        function landsOn(L,id){return L.sub==='runs'&&L.sel===String(id)&&L.head===String(id)&&(famOf(id)==='BOOKS'||L.headFam===famOf(id));}
+
+        // ================= 1. EXPLORE configuration rows, both runs ticked =================
+        var CFGP={c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:['326','424'],c2Tbl:true,resCols:'all'};
+        function tagFam(fm){var hits=FAMS.filter(function(x){return String(fm||'').indexOf(x)>=0;});return hits.length===1?hits[0]:null;}
+        function exRows(){return [].slice.call(d.querySelectorAll('tr[data-rank-run]')).map(function(tr){
+          var last=tr.lastElementChild,chip=[].filter.call(last.querySelectorAll('span[title]'),function(s){return (s.getAttribute('title')||'').indexOf('This row is run #')===0;})[0]||null;
+          return {tr:tr,rid:tr.getAttribute('data-rank-run'),nm:dfxN(last.textContent),fam:tagFam(dfxN(tr.cells[1].textContent)),run:dfxN(tr.cells[2].textContent),chip:chip?dfxN(chip.textContent):null};});}
+        calls.push(doRender(CFGP,wc));chk('explore');
+        var R1=exRows();
+        // the run pills that tick a run: label, id and hover come from one record
+        var pills=[].slice.call(d.querySelectorAll('[data-recfgrun]')).map(function(b){return {id:b.getAttribute('data-recfgrun'),t:dfxN(b.textContent),tip:b.getAttribute('title')||''};});
+        pills.forEach(function(p){hit('explore pills');
+          if(lead(p.t)!==p.id)offend('EXPLORE pill','pill ticking run '+p.id+' reads "'+p.t+'"');
+          if(p.tip.indexOf('run #'+p.id+' '+MID+' '+(STRAT[p.id]||'?'))!==0)offend('EXPLORE pill','pill ticking run '+p.id+' says "'+p.tip.slice(0,50)+'"');});
+        // the rows a run's gate_validate implies: raw candidates + gate candidates + tilts + 3 sizings of each hybrid + the keel
+        function implied(doc){var g=doc.gate_validate||{};return (doc.selection.candidates||[]).length+(g.candidates||[]).length+(g.tilts||[]).length+3*(g.hybrids||[]).length+(g.keel?1:0);}
+        function rowsOf(rows,id){return rows.filter(function(r){return r.rid===id;});}
+        function kinds(rows,id){var nm=function(k){return rows.some(function(r){return r.rid===id&&r.nm.indexOf('#'+id+' '+k+' ')===0;});};
+          var H=String.fromCharCode(9851),DN=String.fromCharCode(8595);
+          return nm('RAW')&&nm('GATE')&&nm('TILT')&&nm('HYBRID')&&nm('HYBRID '+H)&&nm('HYBRID '+DN+'DD')&&nm('KEEL');}
+        R1.forEach(function(r){hit('explore');var nid=lead(r.nm);
+          if(nid!==r.rid)offend('EXPLORE','row "'+r.nm.slice(0,40)+'" links run '+r.rid+' but its name prints #'+nid);
+          if(lead(r.run)!==r.rid)offend('EXPLORE','row "'+r.nm.slice(0,40)+'" links run '+r.rid+' but its RUN column prints '+r.run);
+          if(famOf(r.rid)!==r.fam)offend('EXPLORE','row "'+r.nm.slice(0,40)+'" is a '+r.fam+' row but links run '+r.rid+' ('+famOf(r.rid)+')');});
+        // the same rows in ONE TABLE view, where the run chip shows beside the name
+        calls.push(doRender(Object.assign({},CFGP,{resView:'one',resSplitRun:true}),wc));chk('explore-one');
+        var R2=exRows();
+        R2.forEach(function(r){hit('explore-chip');if(r.chip!=='#'+r.rid)offend('EXPLORE (one table)','row "'+r.nm.slice(0,40)+'" links run '+r.rid+' but its run chip reads '+r.chip);});
+        // CLICK a row of each kind: it opens its base run, and the report heading names that run
+        var H1=String.fromCharCode(9851),DN1=String.fromCharCode(8595);
+        var clickWant=[['326','#326 TILT '],['326','#326 HYBRID '+H1+' '],['326','#326 KEEL '],['424','#424 TILT '],['424','#424 HYBRID '+DN1+'DD '],['424','#424 GATE ']];
+        var clickRes=[];
+        clickWant.forEach(function(cw){
+          calls.push(doRender(CFGP,wc));chk('explore-restore');
+          var row=exRows().filter(function(r){return r.nm.indexOf(cw[1])===0;})[0];
+          if(!row){clickRes.push({want:cw[0],found:false});return;}
+          var L=landed(row.tr,'explore-click');L.want=cw[0];L.found=true;L.name=cw[1];clickRes.push(L);hit('explore-click');
+          if(!landsOn(L,cw[0]))offend('EXPLORE click','"'+cw[1]+'" opened sub '+L.sub+' selection '+L.sel+' heading '+L.head+' ('+L.headFam+'), wanted run '+cw[0]);});
+
+        // the STRATEGY pick owns the run pick: a DIP run ticked while the rail says ENGU-Q must not draw DIP rows (and the other way round)
+        var SW=[['ENGU-Q',['424']],['DIP',['326']]],swRes=[];
+        SW.forEach(function(sw){
+          calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:sw[1],resFilt:{fam:[sw[0]]},c2Tbl:true,resCols:'all'},wc));chk('explore-strategy');
+          var rr=exRows();swRes.push({fam:sw[0],n:rr.length,runs:Object.keys(rr.reduce(function(o,r){o[r.rid]=1;return o;},{}))});
+          rr.forEach(function(r){hit('explore strategy pick');
+            if(lead(r.nm)!==r.rid)offend('EXPLORE (rail '+sw[0]+')','row "'+r.nm.slice(0,40)+'" links run '+r.rid+' but its name prints #'+lead(r.nm));
+            if(famOf(r.rid)!==sw[0])offend('EXPLORE (rail '+sw[0]+')','row "'+r.nm.slice(0,40)+'" links run '+r.rid+', a '+famOf(r.rid)+' run');});});
+
+        // ================= 2. EXPLORE at level ALL: the registry write-ups and the run rows =================
+        //    Every row that carries a run prints that run in its RUN column; a row that cites one of the fixture runs names that run's family
+        //    (a registry write-up whose run is loaded gives way to that run's own row, so the run rows are what carry the fixture ids here; the write-ups of runs that are not on the account keep their static link).
+        calls.push(doRender({c2Screen:'explore',resLvl:'all',c2Tbl:true,resCols:'all'},wc));chk('explore-all');
+        var stRows=[].slice.call(d.querySelectorAll('tr[data-rank-run]')).map(function(tr){
+          return {tr:tr,rid:tr.getAttribute('data-rank-run'),key:tr.getAttribute('data-rerow')||'',nm:dfxN(tr.lastElementChild.textContent),run:dfxN(tr.cells[2].textContent)};});
+        var deadPtr=[].slice.call(d.querySelectorAll('[data-rank-run]')).filter(function(el){return el.tagName!=='TR'&&!el.onclick;}).length;
+        stRows.forEach(function(r){hit('study rows');
+          if(lead(r.run)!==r.rid)offend('EXPLORE study row','row '+r.key+' links run '+r.rid+' but its RUN column prints '+r.run);
+          if(famOf(r.rid)!=null&&r.nm.indexOf(famOf(r.rid))<0)offend('EXPLORE study row','row '+r.key+' ("'+r.nm.slice(0,40)+'") links run '+r.rid+', a '+famOf(r.rid)+' run');
+          if(r.key.indexOf('runs:')===0&&r.nm.indexOf('#'+r.rid+' ')!==0)offend('EXPLORE run row','row '+r.key+' links run '+r.rid+' but its name prints "'+r.nm.slice(0,30)+'"');});
+        var stRun=stRows.filter(function(r){return r.key==='runs:326';})[0]||null;
+        var stClicks=[];
+        [stRun].forEach(function(r){if(!r)return;
+          calls.push(doRender({c2Screen:'explore',resLvl:'all',c2Tbl:true,resCols:'all'},wc));chk('explore-all-restore');
+          var tr=d.querySelector('tr[data-rerow="'+r.key+'"]');if(!tr)return;
+          var L=landed(tr,'explore-all-click');L.id=r.rid;L.key=r.key;stClicks.push(L);hit('study row click');
+          if(!landsOn(L,r.rid))offend('EXPLORE study row click','row '+r.key+' opened sub '+L.sub+' selection '+L.sel+' heading '+L.head);});
+
+        // ================= 3. LEADERBOARD, every family opened =================
+        var LEADP={c2Screen:'lead',c2Rank:'rpy',c2Stage:'lb'};
+        calls.push(doRender(LEADP,wc+"window._c2Open=new Set("+JSON.stringify(FAMS.concat(['BOOKS']))+");"));chk('lead');
+        var card=d.querySelector('.c2-card'),blockFam=null,leadRows=[];
+        [].forEach.call(card?card.children:[],function(el){
+          if(el.hasAttribute('data-c2fam')){blockFam=decodeURIComponent(el.getAttribute('data-c2fam'));return;}
+          if(!el.hasAttribute('data-c2run'))return;
+          var id=el.getAttribute('data-c2run'),nm=el.querySelector('.c2-nm'),t=dfxN(nm?nm.textContent:'');
+          leadRows.push({el:el,id:id,block:blockFam,nm:t,all:dfxN(el.textContent)});});
+        leadRows.forEach(function(r){hit('leaderboard');
+          if(famOf(r.id)!==r.block)offend('LEADERBOARD','run row #'+r.id+' sits in the '+r.block+' block but opens a '+famOf(r.id)+' run');
+          if(r.nm.indexOf('#'+r.id+' ')!==0)offend('LEADERBOARD','run row opening '+r.id+' prints "'+r.nm.slice(0,30)+'"');
+          if(famOf(r.id)!=='BOOKS'&&r.all.indexOf(ALIAS[r.id])<0)offend('LEADERBOARD','run row opening '+r.id+' prints no '+ALIAS[r.id]);});
+        // TOP RUNS rows (NEWEST lists every run): the id and strategy printed are the run's own
+        calls.push(doRender(Object.assign({},LEADP,{c2Top:'recent'}),wc));chk('lead-top');
+        var topRows=[].slice.call(d.querySelectorAll('.c2-row.sub[data-c2run]')).map(function(el){var nm=el.querySelector('.c2-nm');return {id:el.getAttribute('data-c2run'),nm:dfxN(nm?nm.textContent:'')};});
+        topRows.forEach(function(r){hit('top-runs');if(r.nm.indexOf('#'+r.id+' '+(STRAT[r.id]||'?'))!==0)offend('TOP RUNS','row opening '+r.id+' prints "'+r.nm.slice(0,40)+'"');});
+        // a click per family block
+        var leadClicks=[];
+        ['326','37','234','304'].forEach(function(id){
+          calls.push(doRender(LEADP,wc+"window._c2Open=new Set("+JSON.stringify(FAMS)+");"));chk('lead-restore');
+          var el=d.querySelector('[data-c2run="'+id+'"]');
+          if(!el){leadClicks.push({id:id,found:false});return;}
+          var L=landed(el,'lead-click');L.id=id;L.found=true;leadClicks.push(L);hit('leaderboard-click');
+          if(!landsOn(L,id))offend('LEADERBOARD click','run row '+id+' opened sub '+L.sub+' selection '+L.sel+' heading '+L.head);});
+
+        // ================= 4. RUNBOARD: COMPARE > RUNBOARD and the older tab =================
+        function boardRead(){
+          var hs=[].slice.call(d.querySelectorAll('#rb-mtx-box table thead th[data-rbc]')).map(function(th){var g=th.querySelector('[data-rbopen]');
+            return {id:th.getAttribute('data-rbc'),glyph:g?g.getAttribute('data-rbopen'):null,t:dfxN(th.textContent)};});
+          var ks=[].slice.call(d.querySelectorAll('.cmpovl-key [data-ovltog]')).map(function(r){var g=r.querySelector('[data-rbopen]');
+            return {id:r.getAttribute('data-ovltog'),glyph:g?g.getAttribute('data-rbopen'):null,t:dfxN(r.textContent)};});
+          return {hs:hs,ks:ks};}
+        function boardJudge(surf,B){
+          B.hs.forEach(function(h){hit(surf+' header');
+            if(h.glyph!==h.id)offend(surf,'header of run '+h.id+' carries a link to '+h.glyph);
+            if(h.t.indexOf('#'+h.id)<0)offend(surf,'header of run '+h.id+' prints "'+h.t.slice(0,30)+'"');
+            if(famOf(h.id)!=='BOOKS'&&!endsWith(h.t,ALIAS[h.id]))offend(surf,'header linking run '+h.id+' prints "'+h.t.slice(-14)+'", not '+ALIAS[h.id]);});
+          B.ks.forEach(function(k){hit(surf+' key');
+            if(k.glyph!==k.id)offend(surf,'key row of run '+k.id+' carries a link to '+k.glyph);
+            if(k.t.indexOf('#'+k.id)<0)offend(surf,'key row of run '+k.id+' prints "'+k.t.slice(0,30)+'"');
+            if(famOf(k.id)!=='BOOKS'&&k.t.indexOf(famOf(k.id))<0)offend(surf,'key row linking run '+k.id+' prints "'+k.t.slice(0,50)+'", not a '+famOf(k.id)+' run');});}
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:IDS,rbAdd:IDS},wc));chk('board-cmp2');
+        var BC=boardRead();boardJudge('COMPARE > RUNBOARD',BC);
+        var bcGlyph=function(id){var th=d.querySelector('#rb-mtx-box table thead th[data-rbc="'+id+'"]');return th?th.querySelector('[data-rbopen]'):null;};
+        var boardClicks=[];
+        ['326','37'].forEach(function(id){
+          calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',cmpIds:IDS,rbAdd:IDS},wc));chk('board-restore');
+          var g=bcGlyph(id);if(!g){boardClicks.push({id:id,found:false});return;}
+          var L=landed(g,'board-click');L.id=id;L.found=true;boardClicks.push(L);hit('runboard-click');
+          if(!landsOn(L,id))offend('RUNBOARD click','header link of run '+id+' opened sub '+L.sub+' selection '+L.sel+' heading '+L.head);});
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',cmpIds:IDS,rbAdd:IDS,rbSide:'best'},wc,'cmp'));chk('board-tab');
+        var BT=boardRead();boardJudge('older RUNBOARD tab',BT);
+        var tabRank=[].slice.call(d.querySelectorAll('[data-rank-run]')).map(function(el){return {id:el.getAttribute('data-rank-run'),t:dfxN(el.textContent),tag:el.tagName};});
+        tabRank.forEach(function(r){hit('tab rank rows');
+          if(r.t.indexOf('#'+r.id)<0)offend('older RUNBOARD tab','row opening '+r.id+' prints "'+r.t.slice(0,50)+'"');
+          if(famOf(r.id)!=='BOOKS'&&r.tag!=='TR'&&r.t.indexOf(famOf(r.id))<0&&r.t.indexOf(STRAT[r.id])<0)offend('older RUNBOARD tab','TOP 10 row opening '+r.id+' prints "'+r.t.slice(0,50)+'", not a '+famOf(r.id)+' run');});
+        var deadTop=[].slice.call(d.querySelectorAll('[data-rank-run]')).filter(function(el){return el.tagName!=='TR'&&!el.onclick;}).length;
+        var tabClick=null;
+        (function(){var g=d.querySelector('#rb-mtx-box table thead th[data-rbc="326"] [data-rbopen]');
+          if(g){tabClick=landed(g,'tab-click');tabClick.id='326';hit('runboard-click');if(!landsOn(tabClick,'326'))offend('older RUNBOARD tab click','header link of run 326 opened sub '+tabClick.sub+' selection '+tabClick.sel+' heading '+tabClick.head);}})();
+        var bookClick=null;
+        (function(){calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',cmpIds:IDS,rbAdd:IDS},wc,'cmp'));chk('board-tab-books');
+          var tr=d.querySelector('tr[data-rank-run="463"]');
+          if(tr){bookClick=landed(tr,'books-click');bookClick.id='463';hit('books-click');
+            if(!(bookClick.sub==='runs'&&bookClick.sel==='463'&&bookClick.head==='463'))offend('BOOKS row click','opened sub '+bookClick.sub+' selection '+bookClick.sel+' heading '+bookClick.head);}})();
+
+        // ================= 4a. COMPARE legends: the chips that name a picked / champion run =================
+        function legendRead(){return [].slice.call(d.querySelectorAll('.c2-lg [data-c2run]')).map(function(el){return {el:el,id:el.getAttribute('data-c2run'),t:dfxN(el.textContent)};});}
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'lb',cmpIds:['326','424','37','330']},wc));chk('ovl');
+        var LG1=legendRead();
+        calls.push(doRender({c2Screen:'cmp',c2View:'fam',c2Stage:'lb'},wc));chk('fam');
+        var LG2=legendRead();
+        LG1.concat(LG2).forEach(function(r){hit('compare legend');
+          if(famOf(r.id)!=='BOOKS'&&r.t.indexOf('#'+r.id+' '+STRAT[r.id].slice(0,26))!==0)offend('COMPARE legend','chip opening run '+r.id+' prints "'+r.t.slice(0,40)+'"');});
+        var lgClick=null;
+        calls.push(doRender({c2Screen:'cmp',c2View:'ovl',c2Src:'pick',c2Stage:'lb',cmpIds:['326','424','37','330']},wc));chk('ovl-again');
+        (function(){var el=d.querySelector('.c2-lg [data-c2run="326"]');
+          if(el){lgClick=landed(el,'legend-click');lgClick.id='326';hit('compare legend click');if(!landsOn(lgClick,'326'))offend('COMPARE legend click','chip of run 326 opened sub '+lgClick.sub+' selection '+lgClick.sel+' heading '+lgClick.head);}})();
+
+        // ================= 4b. the WATCH research plane: the engine dots =================
+        var WROWS=DOCS.filter(function(r){return r!==BK;}).map(function(r){return {id:+r.id,family:r.famKey,lane:'X',verdict:'CANDIDATE'};});
+        var RESR=[{id:'R7.01',kind:'research',name:'ZN7RES',family:'BOOK',lane:'FRONTIER',verdict:'REFERENCE',wf:{roc30:93.8,dd_usd:44849,dd_pct:44.85,roc_pct:140.2}}];
+        var wOk="window._rbWatch={state:'ok',runs:"+JSON.stringify(WROWS)+",research:"+JSON.stringify(RESR)+",at:Date.now()};";
+        calls.push(doRender({c2Screen:'cmp',c2View:'board',c2Src:'pick',c2Stage:'lb',rbFam:'__WATCH__'},wc+wOk));chk('watch');
+        var dots=[].slice.call(d.querySelectorAll('circle[data-rbres-eng]')).map(function(c){var tt=c.querySelector('title');return {id:c.getAttribute('data-rbres-eng'),glyph:c.getAttribute('data-rbopen'),fill:c.getAttribute('fill'),t:dfxN(tt?tt.textContent:'')};});
+        dots.forEach(function(x){hit('watch plane');if(x.glyph!==x.id)offend('WATCH plane','dot of run '+x.id+' carries a link to '+x.glyph);
+          if(x.t.indexOf('#'+x.id+' ')!==0)offend('WATCH plane','dot of run '+x.id+' says "'+x.t.slice(0,40)+'"');});
+
+        // ================= 5. Past Runs: list rows, the 1-of-1 pointer, clicks =================
+        calls.push(doRender({},wc+"augurRunSel='330';",'runs'));chk('runs');
+        var pr=[].slice.call(d.querySelectorAll('tr[data-run]')).map(function(tr){return {tr:tr,id:tr.getAttribute('data-run'),idc:dfxN(tr.cells[1].textContent)};});
+        pr.forEach(function(r){hit('past runs');
+          var want=r.id+(ALIAS[r.id]||'');
+          if(r.idc!==want)offend('Past Runs','row linking run '+r.id+' prints "'+r.idc+'", wanted "'+want+'"');});
+        var sibList=[].slice.call(d.querySelectorAll('[data-sibrun]')).map(function(s){var tr=s.closest('tr[data-run]');return {sib:s.getAttribute('data-sibrun'),host:tr?tr.getAttribute('data-run'):null,t:dfxN(s.textContent),el:s};});
+        sibList.forEach(function(s){hit('1-of-1 pointer');
+          if(s.host==null||famOf(s.sib)!==famOf(s.host))offend('1-OF-1 pointer','the row of run '+s.host+' ('+famOf(s.host)+') points at run '+s.sib+' ('+famOf(s.sib)+')');
+          if(s.t.indexOf('#'+s.sib)<0)offend('1-OF-1 pointer','pointer to run '+s.sib+' prints "'+s.t+'"');});
+        var sibClick=null;
+        if(sibList.length){sibClick=landed(sibList[0].el,'sib-click');sibClick.sib=sibList[0].sib;hit('1-of-1 click');
+          if(!landsOn(sibClick,sibList[0].sib))offend('1-OF-1 click','opened sub '+sibClick.sub+' selection '+sibClick.sel+' heading '+sibClick.head);}
+        // the same pointer inside the report of the one-config run (LANDSCAPE chip)
+        calls.push(doRender({},wc+"augurRunSel='326';",'runs'));chk('report-326');
+        var landChips=[].slice.call(d.querySelectorAll('#res-detail [data-sibrun]')).map(function(s){return {sib:s.getAttribute('data-sibrun'),t:dfxN(s.textContent)};});
+        landChips.forEach(function(s){hit('landscape chip');if(famOf(s.sib)!=='ENGU-Q')offend('LANDSCAPE chip','the report of ENGU-Q run 326 points at run '+s.sib+' ('+famOf(s.sib)+')');
+          if(s.t.indexOf('#'+s.sib)<0)offend('LANDSCAPE chip','pointer to run '+s.sib+' prints "'+s.t+'"');});
+        var prClicks=[];
+        ['326','37','424'].forEach(function(id){
+          calls.push(doRender({},wc+"augurRunSel='330';",'runs'));chk('runs-restore');
+          var tr=d.querySelector('tr[data-run="'+id+'"]');if(!tr){prClicks.push({id:id,found:false});return;}
+          var L=landed(tr,'runs-click');L.id=id;L.found=true;prClicks.push(L);hit('past runs click');
+          if(!landsOn(L,id))offend('Past Runs click','row '+id+' opened sub '+L.sub+' selection '+L.sel+' heading '+L.head+' ('+L.headFam+')');});
+
+        // ================= 6. Past Runs keeps the run you opened (owner #47, 2026-10-09) =================
+        //    The links were right (a #326 TILT row opens REPORT 326), but Past Runs kept a saved family filter (DIP) and #326 is older than the loaded
+        //    runs, so the screen showed a list of DIP runs with no row for the run it had opened. The opened run is pinned as the first row with an OPENED
+        //    mark and a one-line note; the filter is only cleared by show all, and then only the filters that hide the run. #326 is held OUT of the loaded
+        //    runs the way a real old run is: it reaches EXPLORE through the MANAGER watch list, and reaches Past Runs as a stub until its document is fetched.
+        var fr7=document.getElementById('f');
+        var wcOld=dfxWin(DOCS,"var __e=runHistory.filter(function(x){return String(x.id)==='326';})[0];runHistory=runHistory.filter(function(x){return String(x.id)!=='326';});"
+          +"delete window._runFull['326'];window._runFullOrder=window._runFullOrder.filter(function(x){return x!=='326';});window.__n7E=__e;"
+          +"window._runCfg['326']=__e;window._rbWatchRuns=[__e];window._rbWatchRunsState='ok';window._rbWatchRunsWant=['326'];"
+          +"window._rbWatch={state:'ok',runs:[{id:326,family:'ENGU-Q',lane:'X',verdict:'CANDIDATE'}],research:[],at:Date.now()};");
+        var HYDRATED="window._runFull['326']=window.__n7E;";
+        function prefsNow(){try{return JSON.parse(w.eval("localStorage.getItem('augurPrefs')")||'{}');}catch(e){return {};}}
+        function pastRows(){return [].slice.call(d.querySelectorAll('#res-listscroll tbody tr[data-run]')).map(function(tr){
+          return {id:tr.getAttribute('data-run'),pin:tr.hasAttribute('data-rfpin'),hi:(tr.getAttribute('style')||'').indexOf('background:var(--bg1)')>=0,opened:!!tr.querySelector('[data-rfopened]'),t:dfxN(tr.textContent)};});}
+        function noteTxt(){var n=d.querySelector('[data-rfpinnote]');return n?dfxN(n.textContent):null;}
+        function hiCount(rows){return rows.filter(function(r){return r.hi;}).length;}
+        function otherFams(rows){var o={};rows.forEach(function(r){if(!r.pin&&famOf(r.id))o[famOf(r.id)]=1;});return Object.keys(o);}
+        function has(t,sub){return t!=null&&t.indexOf(sub)>=0;}
+        var PA={rfFam:'DIP',rfTf:'5m'};
+        // (a) saved family filter DIP, #326 not in the loaded runs: click the #326 TILT row in EXPLORE
+        calls.push(doRender(Object.assign({},CFGP,{resCfgRun:['326']},PA),wcOld));chk('pin-explore');
+        var pTilt=exRows().filter(function(r){return r.nm.indexOf('#326 TILT ')===0;})[0]||null;
+        var PS={found:!!pTilt};
+        if(pTilt){pTilt.tr.click();chk('pin-click');
+          var rs1=pastRows(),det1=d.getElementById('res-detail');
+          PS.state=st();PS.rows=rs1.length;PS.first=rs1[0]||null;PS.hi=hiCount(rs1);PS.others=rs1.slice(1).map(function(r){return famOf(r.id);});PS.note=noteTxt();
+          PS.loading=!!det1&&dfxN(det1.textContent).indexOf('LOADING RUN #326')>=0;PS.showAll=!!d.querySelector('[data-rfshowall]');}
+        // the document arrives (the fetch _hydrateRun makes on the account): the same screen again, now with the family known
+        w.eval(HYDRATED+"renderApp();");chk('pin-hydrate');
+        var rs2=pastRows(),HD1=reportHead(),PH={rows:rs2.length,first:rs2[0]||null,hi:hiCount(rs2),others:rs2.slice(1).map(function(r){return famOf(r.id);}),note:noteTxt(),
+          head:HD1,prefs:prefsNow(),state:st(),mark:(rs2[0]&&rs2[0].t.indexOf('OPENED')>=0)};
+        // (b) show all: clears the family filter only (the timeframe filter does not hide #326, so it stays), the list then holds more than one family
+        var PB={};
+        (function(){var sa=d.querySelector('[data-rfshowall]');PB.had=!!sa;PB.keys=sa?sa.getAttribute('data-rfshowall'):null;
+          if(sa){sa.click();chk('pin-showall');var rs3=pastRows();PB.prefs=prefsNow();PB.fams=otherFams(rs3);PB.first=rs3[0]||null;PB.hi=hiCount(rs3);PB.note=noteTxt();PB.showAll=!!d.querySelector('[data-rfshowall]');}})();
+        // (c) #326 IN the loaded runs, no filter: no pin, no note, the normal highlight
+        calls.push(doRender({},wc+"augurRunSel='326';",'runs'));chk('pin-c');
+        var rs4=pastRows(),PC={rows:rs4.length,pins:d.querySelectorAll('[data-rfpin]').length,opened:d.querySelectorAll('[data-rfopened]').length,note:noteTxt(),
+          hi:hiCount(rs4),hiId:(rs4.filter(function(r){return r.hi;})[0]||{}).id,has326:rs4.some(function(r){return r.id==='326';})};
+        // (e) #326 IN the loaded runs but the DIP filter hides it: pinned, and the note does not say older
+        calls.push(doRender({rfFam:'DIP'},wc+"augurRunSel='326';",'runs'));chk('pin-e');
+        var rs5=pastRows(),PE={first:rs5[0]||null,hi:hiCount(rs5),note:noteTxt(),others:rs5.slice(1).map(function(r){return famOf(r.id);}),keys:(d.querySelector('[data-rfshowall]')||{getAttribute:function(){return null;}}).getAttribute('data-rfshowall')};
+        (function(){var sa=d.querySelector('[data-rfshowall]');
+          if(sa){sa.click();chk('pin-e-showall');var rs6=pastRows();PE.prefs=prefsNow();PE.pins=d.querySelectorAll('[data-rfpin]').length;PE.note2=noteTxt();PE.hi2=hiCount(rs6);PE.hiId2=(rs6.filter(function(r){return r.hi;})[0]||{}).id;PE.fams=otherFams(rs6);}})();
+        // group view: the pin sits above the groups
+        calls.push(doRender(Object.assign({resGroup:true},PA),wcOld+HYDRATED+"augurRunSel='326';",'runs'));chk('pin-group');
+        var gPin=d.querySelector('[data-rfpin]'),gGrp=d.querySelector('[data-grp]');
+        var PG={pin:!!gPin,grp:!!gGrp,above:!!(gPin&&gGrp&&(gPin.compareDocumentPosition(gGrp)&4)),opened:!!(gPin&&gPin.querySelector('[data-rfopened]')),note:noteTxt(),
+          pinId:gPin?gPin.getAttribute('data-run'):null};
+        // 390 px: the note and the pinned row cause no sideways page scroll (the same screen with no pin is measured beside it)
+        function m390(){var de=d.documentElement,n=d.querySelector('[data-rfpinnote]'),nr=n?n.getBoundingClientRect():null,pr=d.querySelector('[data-rfpin]'),
+            sc=d.getElementById('res-listscroll'),sr=sc?sc.getBoundingClientRect():null,prr=pr?pr.getBoundingClientRect():null,sa=d.querySelector('[data-rfshowall]'),sar=sa?sa.getBoundingClientRect():null;
+          return {vw:w.innerWidth,pageSW:de.scrollWidth,pageW:de.clientWidth,noteL:nr?Math.round(nr.left):null,noteR:nr?Math.round(nr.right):null,noteH:nr?Math.round(nr.height):null,
+            showR:sar?Math.round(sar.right):null,pinTop:(prr&&sr)?Math.round(prr.top-sr.top):null,pinIn:(prr&&sr)?(prr.top>=sr.top-1&&prr.bottom<=sr.bottom+1):null};}
+        var M={};
+        fr7.style.width='390px';void fr7.offsetWidth;
+        calls.push(doRender({rfFam:'DIP',rfTf:'5m'},wcOld+HYDRATED+"augurRunSel='326';",'runs'));chk('pin-390');M.flat=m390();
+        calls.push(doRender({resGroup:true,rfFam:'DIP',rfTf:'5m'},wcOld+HYDRATED+"augurRunSel='326';",'runs'));chk('pin-390-group');M.group=m390();
+        calls.push(doRender({resView:'stack',rfFam:'DIP',rfTf:'5m'},wcOld+HYDRATED+"augurRunSel='326';",'runs'));chk('pin-390-stack');M.stack=m390();
+        calls.push(doRender({},wc+"augurRunSel='330';",'runs'));chk('pin-390-base');M.base=m390();
+        calls.push(doRender({resView:'stack'},wc+"augurRunSel='330';",'runs'));chk('pin-390-base-stack');M.baseStack=m390();
+        fr7.style.width='1400px';fr7.style.height='900px';void fr7.offsetWidth;
+
+        // ================= 7. the dead [data-rank-run] clicks: TOP 10 rows and the paper pointers open their run =================
+        calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',cmpIds:IDS,rbAdd:IDS,rbSide:'best'},wc,'cmp'));chk('top10');
+        var t10n=d.querySelectorAll('div[data-rank-run]').length,t10dead=[].slice.call(d.querySelectorAll('[data-rank-run]')).filter(function(el){return !el.onclick;}).length;
+        var t10nest=d.querySelectorAll('[data-rank-run] [data-rank-run]').length,t10Clicks=[];
+        [0,t10n-1].forEach(function(k){
+          calls.push(doRender({cmpMode:'board',rbSample:'lb',rbRank:'mar',cmpIds:IDS,rbAdd:IDS,rbSide:'best'},wc,'cmp'));chk('top10-restore');
+          var el=d.querySelectorAll('div[data-rank-run]')[k];if(!el){t10Clicks.push({found:false});return;}
+          var id=el.getAttribute('data-rank-run'),L=landed(el,'top10-click');L.id=id;L.found=true;t10Clicks.push(L);hit('top10 click');
+          if(!landsOn(L,id))offend('TOP 10 click','row of run '+id+' opened sub '+L.sub+' selection '+L.sel+' heading '+L.head);});
+        calls.push(doRender({c2Screen:'explore',resLvl:'all',c2Tbl:true,resCols:'all'},wc));chk('pointers');
+        var ptrEls=[].slice.call(d.querySelectorAll('span[data-rank-run]')),ptrIds=ptrEls.map(function(e){return e.getAttribute('data-rank-run');});
+        var ptrHost=ptrEls.length?{body:(ptrEls[0].closest('[data-rebody]')||{getAttribute:function(){return null;}}).getAttribute('data-rebody'),inRow:ptrEls.some(function(e){return !!e.closest('tr');})}:null;
+        var ptrDead=[].slice.call(d.querySelectorAll('[data-rank-run]')).filter(function(el){return !el.onclick;}).length,ptrNest=d.querySelectorAll('[data-rank-run] [data-rank-run]').length,ptrClicks=[];
+        [0,ptrEls.length-1].forEach(function(k){
+          calls.push(doRender({c2Screen:'explore',resLvl:'all',c2Tbl:true,resCols:'all'},wc));chk('pointers-restore');
+          var el=d.querySelectorAll('span[data-rank-run]')[k];if(!el){ptrClicks.push({found:false});return;}
+          var id=el.getAttribute('data-rank-run');el.click();chk('pointer-click');var L={found:true,id:id,sub:w.eval('augurSub'),sel:String(w.eval('augurRunSel'))};ptrClicks.push(L);hit('pointer click');
+          if(!(L.sub==='runs'&&L.sel===id))offend('paper pointer click','pointer to run '+id+' opened sub '+L.sub+' selection '+L.sel);});
+
+        // leave nothing behind for the cases after it
+        w.eval("augurRunSel="+JSON.stringify(AU0==null?null:AU0)+";window._rbBack=null;window._runCfg={};window._runFull={};window._runFullOrder=[];window._c2Open=new Set();window._rbWatch={state:'idle',runs:[],at:0};");
+        function allIn(a,fn){return a.length>0&&a.every(fn);}
+        var K1=rowsOf(R1,'326'),K2=rowsOf(R1,'424');
+        dfxCase('n7_links_family',calls,{
+          'renders OK on every surface':calls.every(function(c){return c==='OK';}),
+          'no console errors on any render or click':errAcc.length===0,
+          'EXPLORE: both runs drew all the configuration rows their gate_validate implies':K1.length>=implied(E)&&K2.length>=implied(D)&&K1.length+K2.length===R1.length,
+          'EXPLORE: each run has a RAW, GATE, TILT, HYBRID, HYBRID recycle, HYBRID lower-DD and KEEL row':kinds(R1,'326')&&kinds(R1,'424'),
+          'EXPLORE: every row links the run its own name prints, and its RUN column prints the same':allIn(R1,function(r){return lead(r.nm)===r.rid&&lead(r.run)===r.rid;}),
+          'EXPLORE: every row links a run of the family its own tag names (no ENGU-Q row links a DIP run)':allIn(R1,function(r){return r.fam!=null&&famOf(r.rid)===r.fam;}),
+          'EXPLORE: in ONE TABLE the run chip beside each name names the same run':allIn(R2,function(r){return r.chip==='#'+r.rid;}),
+          'EXPLORE: clicking a TILT / HYBRID / KEEL / GATE row opens its base run: the report heading names it, never #424, #37 or its family sequence':clickRes.length===clickWant.length&&allIn(clickRes,function(L){return L.found&&landsOn(L,L.want);}),
+          'EXPLORE at level ALL: every registry write-up and run row prints in its RUN column the run it links; a row citing a fixture run names its family; a click opens it':stRows.length>=100&&allIn(stRows,function(r){return lead(r.run)===r.rid&&(famOf(r.rid)==null||r.nm.indexOf(famOf(r.rid))>=0)&&(r.key.indexOf('runs:')!==0||r.nm.indexOf('#'+r.rid+' ')===0);})&&!!stRun&&stClicks.length===1&&allIn(stClicks,function(L){return landsOn(L,L.id);}),
+          'EXPLORE: the run pills each name the run they tick (label, id and hover agree)':pills.length>=6&&allIn(pills,function(p){return lead(p.t)===p.id&&p.tip.indexOf('run #'+p.id+' '+MID+' '+STRAT[p.id])===0;}),
+          'EXPLORE: with the rail on ENGU-Q and only a DIP run ticked, every row is an ENGU-Q run (and the other way round)':swRes.length===2&&allIn(swRes,function(x){return x.n>0&&x.runs.length>=1&&x.runs.every(function(id){return famOf(id)===x.fam;});}),
+          'LEADERBOARD: every run row opens a run of the family block it sits in, and prints that run':leadRows.length>=7&&allIn(leadRows,function(r){return famOf(r.id)===r.block&&r.nm.indexOf('#'+r.id+' ')===0;}),
+          'LEADERBOARD: TOP RUNS rows print the id and strategy of the run they open':topRows.length>=7&&allIn(topRows,function(r){return r.nm.indexOf('#'+r.id+' '+STRAT[r.id])===0;}),
+          'LEADERBOARD: a click on a run row in each family opens that run':leadClicks.length===4&&allIn(leadClicks,function(L){return L.found&&landsOn(L,L.id);}),
+          'COMPARE legends (OVERLAY and BY STRATEGY): every chip prints the run it opens, and a click on one opens it':LG1.length>=4&&LG2.length>=4&&allIn(LG1.concat(LG2),function(r){return famOf(r.id)==='BOOKS'||r.t.indexOf('#'+r.id+' '+STRAT[r.id].slice(0,26))===0;})&&!!lgClick&&landsOn(lgClick,'326'),
+          'COMPARE > RUNBOARD: every header and chart-key link opens the run printed beside it, of the family printed':BC.hs.length>=6&&BC.ks.length>=4&&allIn(BC.hs,function(h){return h.glyph===h.id&&h.t.indexOf('#'+h.id)>=0&&(famOf(h.id)==='BOOKS'||endsWith(h.t,ALIAS[h.id]));})&&allIn(BC.ks,function(k){return k.glyph===k.id&&k.t.indexOf('#'+k.id)>=0&&(famOf(k.id)==='BOOKS'||k.t.indexOf(famOf(k.id))>=0);}),
+          'COMPARE > RUNBOARD: clicking the header link of #326 and of #37 opens that run':boardClicks.length===2&&allIn(boardClicks,function(L){return L.found&&landsOn(L,L.id);}),
+          'older RUNBOARD tab: every header and chart-key link opens the run printed beside it, of the family printed':BT.hs.length>=6&&BT.ks.length>=4&&allIn(BT.hs,function(h){return h.glyph===h.id&&h.t.indexOf('#'+h.id)>=0&&(famOf(h.id)==='BOOKS'||endsWith(h.t,ALIAS[h.id]));})&&allIn(BT.ks,function(k){return k.glyph===k.id&&k.t.indexOf('#'+k.id)>=0&&(famOf(k.id)==='BOOKS'||k.t.indexOf(famOf(k.id))>=0);}),
+          'older RUNBOARD tab: the BOOKS row and the TOP 10 rows print the run they open; a click on the header link of #326 and on the BOOKS row opens it':tabRank.length>=2&&allIn(tabRank,function(r){return r.t.indexOf('#'+r.id)>=0;})&&!!tabClick&&landsOn(tabClick,'326')&&!!bookClick&&bookClick.sub==='runs'&&bookClick.sel==='463'&&bookClick.head==='463',
+          'WATCH research plane: every engine dot opens the run it is plotted for, and its hover names that run':dots.length>=3&&allIn(dots,function(x){return x.glyph===x.id&&x.t.indexOf('#'+x.id+' ')===0;}),
+          'Past Runs: every list row prints the id and family alias of the run it opens':pr.length===7&&allIn(pr,function(r){return r.idc===r.id+(ALIAS[r.id]||'');}),
+          'Past Runs: the 1-OF-1 pointer on the ENGU-Q one-config run points at the ENGU-Q sweep (#330), never a DIP run, and a click opens it':sibList.length===1&&sibList[0].host==='326'&&sibList[0].sib==='330'&&!!sibClick&&landsOn(sibClick,'330'),
+          'Past Runs: a LANDSCAPE chip in the report of #326, where the layout draws one, points at the same ENGU-Q sweep':allIn(landChips.concat([{sib:'330'}]),function(s){return s.sib==='330';}),
+          'Past Runs: clicking the list rows of #326, #37 and #424 opens those runs':prClicks.length===3&&allIn(prClicks,function(L){return L.found&&landsOn(L,L.id);}),
+          'PAST RUNS PIN, stub (saved DIP filter, #326 older than the loaded runs, row clicked in EXPLORE): the first list row is run 326, loading, marked OPENED, the only highlighted row, the rest DIP; the note says older than the runs loaded and names DIP but not the family':PS.found&&PS.state.sub==='runs'&&PS.state.sel==='326'&&PS.loading&&!!PS.first&&PS.first.id==='326'&&PS.first.pin&&PS.first.opened&&PS.first.hi&&PS.hi===1&&PS.others.length>=2&&PS.others.every(function(f){return f==='DIP';})&&has(PS.note,'Run #326 is open.')&&has(PS.note,'DIP')&&has(PS.note,'older than the runs loaded')&&!has(PS.note,'ENGU-Q')&&PS.showAll,
+          'PAST RUNS PIN, hydrated: the first row is run 326 with OPENED, the only highlighted row, every other row DIP; the note names ENGU-Q-37, DIP, older than the runs loaded and the pin; the report heading names 326; the saved filters are untouched':!!PH.first&&PH.first.id==='326'&&PH.first.pin&&PH.first.opened&&PH.first.hi&&PH.hi===1&&PH.others.length>=2&&PH.others.every(function(f){return f==='DIP';})&&has(PH.note,'Run #326 '+MID+' ENGU-Q-37 is open.')&&has(PH.note,'filtered to DIP')&&has(PH.note,'older than the runs loaded')&&has(PH.note,'pinned at the top')&&!!PH.head&&PH.head.id==='326'&&PH.head.fam==='ENGU-Q'&&PH.prefs.rfFam==='DIP'&&PH.prefs.rfTf==='5m',
+          'PAST RUNS PIN, show all: clears only the family filter (the timeframe filter that hides nothing stays), the list holds more than one family, the run stays pinned (still older than the loaded runs) and the note no longer names DIP':PB.had&&PB.keys==='rfFam'&&PB.prefs.rfFam===''&&PB.prefs.rfTf==='5m'&&PB.fams.length>=2&&!!PB.first&&PB.first.id==='326'&&PB.first.opened&&PB.hi===1&&has(PB.note,'older than the runs loaded')&&!has(PB.note,'DIP')&&!PB.showAll,
+          'PAST RUNS PIN, run in the loaded list and no filter: no pin, no note, no OPENED mark, and the normal highlight on that one row':PC.has326&&PC.pins===0&&PC.opened===0&&PC.note===null&&PC.hi===1&&PC.hiId==='326',
+          'PAST RUNS PIN, run in the loaded list but hidden by the DIP filter: pinned first with OPENED and a note that names DIP and does not say older; show all brings it into the list, unpinned, with more than one family':!!PE.first&&PE.first.id==='326'&&PE.first.pin&&PE.first.opened&&PE.hi===1&&PE.others.every(function(f){return f==='DIP';})&&has(PE.note,'filtered to DIP')&&!has(PE.note,'older')&&PE.keys==='rfFam'&&PE.prefs.rfFam===''&&PE.pins===0&&PE.note2===null&&PE.hi2===1&&PE.hiId2==='326'&&PE.fams.length>=2,
+          'PAST RUNS PIN, group view: the pinned run sits above the groups with OPENED, and the note is there':PG.pin&&PG.grp&&PG.above&&PG.opened&&PG.pinId==='326'&&has(PG.note,'filtered to DIP'),
+          'PAST RUNS PIN at 390 px (flat, grouped and stacked): the note and the pinned row add no sideways page scroll (each layout is measured against the same screen with no pin), the note stays inside the screen and the show all control is reachable; the pinned row is the first one in the list box':M.flat.vw===390&&M.flat.pageSW<=M.base.pageSW&&M.group.pageSW<=M.base.pageSW&&M.stack.pageSW<=M.baseStack.pageSW&&[M.flat,M.group,M.stack].every(function(m){return m.noteL!=null&&m.noteL>=0&&m.noteR<=m.vw+1&&m.showR!=null&&m.showR<=m.vw+1;})&&M.flat.pinIn===true&&M.flat.pinTop<=60&&M.stack.pinIn===true,
+          'TOP 10 rows (older RUNBOARD tab): none is a dead click, and a click on the first and on the last opens the run it names':t10n>=2&&t10dead===0&&t10Clicks.length===2&&allIn(t10Clicks,function(L){return L.found&&landsOn(L,L.id);}),
+          'EXPLORE paper pointers: they sit under the paperlegs study notes (not inside a row), none is a dead click, and a click on the first and on the last opens the run it names':ptrEls.length>=2&&!!ptrHost&&ptrHost.body==='paperlegs'&&!ptrHost.inRow&&ptrDead===0&&ptrClicks.length===2&&allIn(ptrClicks,function(L){return L.found&&L.sub==='runs'&&L.sel===L.id;}),
+          'no [data-rank-run] sits inside another (so the innermost-wins stopPropagation has no nested pair to decide here)':t10nest===0&&ptrNest===0,
+          'SUMMARY: no link on any surface opens a run whose family differs from its row (offenders listed in the detail)':bad.length===0
+        },{offenders:bad.slice(0,24),audited:seen,studyRows:stRows.length,deadTop10Rows:deadTop,pin:{stub:PS,hydrated:PH,showAll:PB,inList:PC,hiddenInList:PE,group:PG,m390:M},top10:{n:t10n,dead:t10dead,nest:t10nest,clicks:t10Clicks},pointers:{n:ptrEls.length,ids:ptrIds.slice(0,12),host:ptrHost,dead:ptrDead,nest:ptrNest,clicks:ptrClicks},deadPaperPointers:deadPtr,stClicks:stClicks,rows326:K1.length,rows424:K2.length,implied326:implied(E),implied424:implied(D),
+           sample:R1.slice(0,2).concat(R1.slice(11,13)).map(function(r){return [r.rid,r.nm.slice(0,40),r.fam,r.run];}),
+           clicks:{explore:clickRes,lead:leadClicks,board:boardClicks,tab:tabClick,book:bookClick,sib:sibClick,runs:prClicks},
+           boardHdr:BC.hs.map(function(h){return h.id+':'+h.t.slice(-12);}),tabRank:tabRank.map(function(r){return r.id+':'+r.tag;}),
+           dots:dots.map(function(x){return x.id+' '+x.t.slice(0,50);}),swRes:swRes,pills:pills.length,lg:[LG1.length,LG2.length],lgClick:lgClick,landChips:landChips,errAcc:errAcc.slice(0,3)});
+      })();
+
       // -- case y1_explore_money: MANAGER audit 2026-09-27 (ml_edge_orb_leak_answer_2026-09-27.md
       //    1.3b/1.4a/3.1e/3.3b, verify_redflags_2026-09-27.md M1/H2). Two EXPLORE fixes.
       //    (A) HYBRID recycle (redeploy) and HYBRID equal-drawdown rows: whenever the ticked
@@ -9005,6 +9368,7 @@ def main(argv=None):
     DFX += ['t2_names']
     DFX += ['n5_rb_plane_dollars']
     DFX += ['n6_rb_exposure']
+    DFX += ['n7_links_family']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
