@@ -507,7 +507,6 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-lg-key span{display:inline-flex;align-items:center;gap:5px}
 .qbx-lg-key i{display:inline-block;width:9px;height:9px;border-radius:2px;flex:0 0 auto}
 .qbx-lg-key i.qbx-lg-hatch{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--yellow) 60%,transparent) 0 2px,transparent 2px 4px)}
-.qbx-lg-key i.qbx-lg-book{border:1px solid var(--attn-amber)}
 .qbx-lg-key .qbx-lg-short{display:none}
 @media(max-width:600px){.qbx-lg-key .qbx-lg-long{display:none}.qbx-lg-key .qbx-lg-short{display:inline}}
 /* bottom sheet */
@@ -559,14 +558,15 @@ select option:checked{background:var(--bg3);color:var(--text)}
 /* WEBULL PAPER on the shared trade list frame (LEDGER unify step 8): TRADING-LOG's .lg-tl frame draws the toolbar, the day headers and
    the common columns; these rules only place this board's own parts: the CSV button and range word beside the count, the clear link,
    the strategy name and its caveat mark, the table's own right-aligned figures and the candle glyph. On a phone the History heading
-   goes (the toolbar says what the list is) so the list starts where the section did, and a flagged row carries a small ! under its time
-   wherever the flags column is too narrow to show the flags (below 1280 px; a phone row does not keep that column at all). */
+   goes (the toolbar says what the list is) so the list starts where the section did, and a flagged row carries one short caveat word (BOOK ONLY,
+   CHECK FILL, FILL GAP, BOOK PRICE, PART BOOK PRICE or NOT COMPARED) under its strategy name wherever the flags column is too narrow to show
+   the flags (a list box 800 px or narrower; a phone row does not keep that column at all). */
 .qbx-tl .qbx-csv{padding:3px 10px;font-size:10px;letter-spacing:.5px}
 .qbx-tl .qbx-tl-rg{color:var(--text4)}
 .qbx-tl .qbx-tl-clear{cursor:pointer;color:var(--text5);text-decoration:underline}
 .qbx-tl .qbx-num{text-align:right;font-variant-numeric:tabular-nums}
 .qbx-tl .qbx-candle{cursor:pointer;display:inline-flex;vertical-align:middle;padding:2px 3px;color:var(--text4)}
-.qbx-tl .qbx-cav{display:none;margin:2px 0 0;width:14px;height:14px;line-height:13px;text-align:center;border:1px solid var(--attn-amber);border-radius:50%;color:var(--attn-amber);font-size:9px;font-weight:700}
+.qbx-tl .qbx-cav{display:none;width:max-content;max-width:100%;margin:2px 0 0;padding:0 4px;height:13px;line-height:11px;border:1px solid var(--attn-amber);border-radius:3px;color:var(--attn-amber);font-size:8px;font-weight:700;letter-spacing:.04em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .qbx-tl .qbx-tl-hint{font-size:var(--fsxs);color:var(--text5);margin:6px 2px}
 .qbx-tl .lg-tl-table tr[data-lgtrade].lg-flash td{animation:lgFlashBg 1.6s ease}
 /* WEBULL PAPER's pieces inside the shared trade panel (LEDGER unify step 9): the caveat chips, the read-only notes lines, the fill breakdown. Theme
@@ -589,7 +589,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-tl .lg-tl-row .lg-c-side{min-width:46px}
 .qbx-tl .lg-tl-row .lg-c-pnl{min-width:70px}
 .qbx-tl .lg-tl-row .lg-c-chart{min-width:30px}
-/* the flagged-row mark shows wherever the list's own box is 800 px or narrower (the flags column then has less than its 147 px and clips); this was a window
+/* the flagged-row word shows wherever the list's own box is 800 px or narrower (the flags column then has less than its 147 px and clips); this was a window
    width of 1279 px, a number only this board used. The box width is what the row needs: 796 px holds every cell. */
 .qbx-tl{container-type:inline-size;container-name:qbtl}
 @container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:block}}
@@ -39385,9 +39385,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // mirrors NinjaTrader -- see effParity()/parityChip() below for how a row picks
       // between the two.
       const QBPAR=QE&&QE.broker_parity?QE.broker_parity:null;
-      // BOOK ONLY (2026-09-23) -- book vs broker totals, see api/qqq_exec.py's
-      // _book_only_summary. null on an older doc published before this shipped.
-      const QBO=QE&&QE.book_only_summary?QE.book_only_summary:null;
       const QFEED=(QE&&Array.isArray(QE.feed_days))?QE.feed_days:null;
       const QRHIST=(QE&&Array.isArray(QE.ratio_hist))?QE.ratio_hist:null;
       const QRHEALTH=QE&&QE.ratio_health?QE.ratio_health:null;
@@ -39523,7 +39520,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             (QF.ok?('box updated '+qbAgoText(QF.ageS)+' ago'):null),
             (QF.pubFailing?'<b data-qbfresh-strip="publish" style="color:var(--attn-amber)">saves failing ('+QF.pubFails+' today)</b>':null),
             (QF.pubGap?'<b data-qbfresh-strip="pubgap" style="color:var(--attn-amber)">updates paused '+(QF.pubGapDayUnknown?('since '+QF.lastOk):qbAgoText(QF.pubGap))+' before this one</b>':null)].filter(Boolean).join(' · ');
-        const brokerLine=(brokerInfo&&brokerInfo.book_only_count>0)?('<div style="color:var(--attn-amber)" title="'+brokerInfo.book_only_count+' trade'+(brokerInfo.book_only_count===1?'':'s')+' never reached the broker - see the BOOK ONLY tag in the trade list below">broker made '+qeMoney(brokerInfo.broker_net)+' of that ('+brokerInfo.book_only_count+' book-only trade'+(brokerInfo.book_only_count===1?'':'s')+' excluded)</div>'):'';
+        const brokerLine=(brokerInfo&&brokerInfo.book_only_count>0)?('<div data-qbbroker style="color:var(--attn-amber)" title="'+brokerInfo.book_only_count+' trade'+(brokerInfo.book_only_count===1?'':'s')+' never reached the broker - see the BOOK ONLY tag in the trade list below">broker made '+qeMoney(brokerInfo.broker_net)+' of that ('+brokerInfo.book_only_count+' book-only trade'+(brokerInfo.book_only_count===1?'':'s')+' excluded)</div>'):'';
         // SHARED HERO (LEDGER unify step 4): the big number stays the P&L of record since the
         // start (closed trades + open P&L), the today line is today's closed + open, the range
         // line is the P&L of record of the trades that closed inside the chosen range; the alarm
@@ -39847,6 +39844,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // are never added to the account number, the chart, the stats, the calendar or any leg above it (LEDGER unify step 10).
         const qbShadowRows=(QE.trades_all||[]).filter(qbIsShadowRow);
         window._qeTradesForExport=trades; // G. EXPORT CSV button reads this at click time
+        // the CSV's file name carries the list's scope, so a 1W or a LONG export never looks like the whole book once it is on disk (review L5):
+        // qqq_shadow_book_closed_trades_<range>_<chip>_search-<words>.csv, each part only when it narrows the list; ALL with no chip and no search
+        // keeps the plain name
+        const qbExportScope=[qbRange!=='ALL'?qbRange:'',qbChipSel!=='ALL'?qbChipSel:'',
+          qbQuery.trim()?(s=>s?'search-'+s:'search')(qbQuery.trim().replace(/[^A-Za-z0-9]+/g,'-').replace(/^-+|-+$/g,'').slice(0,24)):''].filter(Boolean).join('_');
+        window._qeExportScope='';
         const closedN=trades.length;
         // EFFECTIVE PARITY (2026-09-22, feature #56): which read a trade shows -- the
         // OLD NinjaTrader-mirror parity (parity_ok/parity_note) for a row that
@@ -40176,7 +40179,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const qbDetailHtml=legOpenNow?('<div class="qb-leg-detail">'
             +'<div><div class="qb-row-sublabel">SINCE START</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legClosedSum)+'">'+ledgerSigned(legClosedSum)+'</div></div>'
             +'<div><div class="qb-row-sublabel">UNREALIZED</div><div data-qbunreal="'+key+'" style="font-size:14px;font-weight:600;color:'+(p?(QF.stale?'var(--text4)':pnlCol(legUnreal)):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
-            +'<div style="'+qbDimCss+'"><div class="qb-row-sublabel" data-qblegtoday="'+key+'">'+qbDayWord.toUpperCase()+'</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
+            +'<div style="'+qbDimCss+'"><div class="qb-row-sublabel" data-qblegtoday="'+key+'">'+qbDayWord.toUpperCase()+'</div><div data-qblegtodayval="'+key+'" style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
             +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
             +legTodayNote
             +(notionalHtml?('<div style="width:100%">'+notionalHtml+'</div>'):'')
@@ -40351,10 +40354,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 _qqqExecCatchUp();   // a snapshot that landed mid-scrub was held back -- show it now
               }};
             // the board's own key under the chart (the shared legend covers the lines only)
-            const hasBookPriced=qbRangeTrades.some(t=>t.book_only||/^(book|part)$/.test(String(t.pnl_record_src||'')));
+            // BOOK ONLY = the order never reached Webull; BOOK PRICE / PART BOOK PRICE = it reached Webull but no fill price was captured for a side.
+            // Both count at the book's price; the key says which is which (no swatch: the chart has no mark of its own for them)
+            const hasBookOnly=qbRangeTrades.some(t=>t.book_only),hasBookPx=qbRangeTrades.some(t=>!t.book_only&&/^(book|part)$/.test(String(t.pnl_record_src||'')));
+            const hasBookPriced=hasBookOnly||hasBookPx;
             const keyHtml=(bands.length||hasBookPriced)?('<div class="qbx-lg-key">'
               +(bands.length?'<span title="days whose trades include an exit priced from the 1-minute tape, a failed parity check, or a trade that never reached the broker; hover a column for that day"><i class="qbx-lg-hatch"></i><span class="qbx-lg-long">hatched = a data caveat day; its trades still count</span><span class="qbx-lg-short">hatched = caveat day</span></span>':'')
-              +(hasBookPriced?'<span title="marked BOOK ONLY or BOOK PRICE on the trade rows below"><i class="qbx-lg-book"></i><span class="qbx-lg-long">book only = a side priced from the book because no Webull fill was captured</span><span class="qbx-lg-short">book only = no fill</span></span>':'')
+              +(hasBookPriced?('<span data-qbkeybook title="BOOK ONLY: the order never reached Webull. BOOK PRICE / PART BOOK PRICE: it reached Webull, but no fill price was captured for a side. Both count at the book\u2019s price; see the flags on the trade rows below">'
+                +'<span class="qbx-lg-long">'+[hasBookOnly?'book only = order never reached Webull':'',hasBookPx?'book price = no Webull fill price':''].filter(Boolean).join(' &middot; ')+'</span>'
+                +'<span class="qbx-lg-short">'+(hasBookOnly&&hasBookPx?'book only / book price = no fill':(hasBookOnly?'book only = no order':'book price = no fill price'))+'</span></span>'):'')
               +'</div>'):'';
             // LEDGER step 12: the caption and the key sit under the chart, in the shared chart foot (the same place on every board)
             equityHtml='<div class="qb-chart-wrap">'+periodTabsHtml
@@ -40431,7 +40439,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             tradesHtml=!closedN?'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no trades yet</div>'
               :('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">'+qbRangeNone+' &middot; '+closedN+' more outside this range'
                 +'<div><button type="button" class="qb-hero-refresh" data-qbrange="ALL" style="margin-top:10px">Show all</button></div></div>');
-            window._qeTradesForExport=[];qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts([],0),{empty:tradesHtml}));
+            window._qeTradesForExport=[];window._qeExportScope=qbExportScope;qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts([],0),{empty:tradesHtml}));
           }else{
             const tagFor=reason=>{
               const r=String(reason||'');
@@ -40568,7 +40576,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               };
               const qbFlagsHtml=t=>tagFor(t.exit_reason)+bookOnlyChip(t)+parityChip(t);
               const qbFlagsText=t=>qbFlagsHtml(t).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
-              const qbRowCaveat=t=>!!(t.book_only||/^(book|part)$/.test(String(t.pnl_record_src||''))||(!qeIsNtMirror(t)&&t.broker_parity_ok===false));
+              // the one caveat word a row carries where the flags column is not drawn (a phone row, a list box 800 px or narrower): the first of these
+              // that the row's own flags hold, so it can never say a word the flags column does not; every flag stays in its tooltip and in the panel
+              const QB_CAV_ORDER=['BOOK ONLY','CHECK FILL','FILL GAP','BOOK PRICE','PART BOOK PRICE','NOT COMPARED'];
+              const qbCavWord=t=>{const h=qbFlagsHtml(t),w=[],re=/<span style="[^"]*">([A-Z][A-Z ]*[A-Z])<\/span>/g;let m;while((m=re.exec(h)))w.push(m[1]);return QB_CAV_ORDER.find(k=>w.indexOf(k)>=0)||'';};
               const qbHay=v=>[v.strategy,v._t.leg,v.side,'QQQ',v._t.exit_reason,v._t.trade_id,v.date,String(v._t.exit_ts||'').slice(0,10),qbFlagsText(v._t)].join(' ');
               const qbMatch=v=>{
                 if(!ledgerTradeMatch(v,qbChipSel,qbQuery,{pnl:x=>x.pnl,hay:qbHay}))return false;   // search + ALL / LONG / SHORT / WINS / LOSSES
@@ -40582,6 +40593,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               while(qbCut<qbMatchedVm.length&&ledgerCloseDay(qbMatchedVm[qbCut])===ledgerCloseDay(qbMatchedVm[qbCut-1]))qbCut++;   // SHOW MORE never cuts a day in two
               const qbShownVm=qbMatchedVm.slice(0,qbCut);
               window._qeTradesForExport=qbMatchedVm.map(v=>v._t);   // the CSV button exports every trade the list matches, not just this page
+              window._qeExportScope=qbExportScope;                     // ... and its file name says which (the range, the chip, the search)
               // the range's running total in the order the trades closed, whatever the search and the paging show
               const qbRun={};{let run=0;ledgerByClose(qbAllVm).forEach(v=>{run+=v.pnl;qbRun[v.id]=run;});}
               // the candle viewer and the trade sheet read this: the trades on the page, in the order they are drawn
@@ -40621,15 +40633,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 empty:'<div class="lg-tl-empty">No trades match this search or chip. <span class="qbx-tl-clear" data-qbclear role="button" tabindex="0">clear</span></div>',
                 rowAttr:v=>'data-qbday="'+qbEsc(qeTradeDate(v._t)||'')+'"',
                 cells:{
-                  // the entry time (with its date when the trade closed on a later day); a flagged trade carries a small ! under it on a phone,
-                  // where the flags column is one of the cells a row does not keep (the strategy cell has no room for it)
+                  // the entry time (with its date when the trade closed on a later day)
                   time:(v,mode)=>{
                     const t=v._t,en=String(t.entry_ts||''),ed=en.slice(0,10),a=en.slice(11,16),b=String(t.exit_ts||'').slice(11,16),cd=qeTradeDate(t);
-                    const cav=qbRowCaveat(t)?'<span class="qbx-cav" title="'+qbEsc(qbFlagsText(t))+'">!</span>':'';
-                    if(mode==='table')return '<span class="lg-d-full">'+qbEsc(v.date)+'</span><span class="lg-d-short">'+qbEsc(String(v.date).slice(5))+'</span> '+qbEsc(a||'--')+cav;
-                    return qbEsc(a?((ed&&cd&&ed!==cd?ed.slice(5)+' ':'')+a):'--')+(b?'<small>&rarr; '+qbEsc(b)+'</small>':'')+cav;
+                    if(mode==='table')return '<span class="lg-d-full">'+qbEsc(v.date)+'</span><span class="lg-d-short">'+qbEsc(String(v.date).slice(5))+'</span> '+qbEsc(a||'--');
+                    return qbEsc(a?((ed&&cd&&ed!==cd?ed.slice(5)+' ':'')+a):'--')+(b?'<small>&rarr; '+qbEsc(b)+'</small>':'');
                   },
-                  sym:v=>'<span style="color:'+legColorQE(v._t.leg)+'">'+qeTradeLegHtml(v._t)+'</span>',
+                  // the strategy with its run number; a flagged trade carries its caveat in one short word under it (BOOK ONLY, CHECK FILL ...) where
+                  // the flags column is not drawn (a phone row does not keep that cell, a list box 800 px or narrower clips it); the rest in the tooltip
+                  sym:v=>{const cw=qbCavWord(v._t);
+                    return '<span style="color:'+legColorQE(v._t.leg)+'">'+qeTradeLegHtml(v._t)+'</span>'
+                      +(cw?'<span class="qbx-cav" data-qbcav="'+cw+'" title="'+qbEsc(qbFlagsText(v._t))+'">'+cw+'</span>':'');},
                   pts:v=>v.points==null?'--':((v.points>=0?'+':'-')+Math.abs(v.points).toFixed(2)+'/sh'),
                   // the exit reason with the flags (BOOK ONLY, FILL GAP, EOD ...); in the LIST the flags come first, the cell clips from the right
                   strat:(v,mode)=>mode==='table'?(qbEsc(naS(v._t.exit_reason))+qbFlagsHtml(v._t)):(qbFlagsHtml(v._t).trim()+' '+qbEsc(naS(v._t.exit_reason))),
@@ -40643,7 +40657,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // the search, the chip or the paging show); null when it is not there any more, which closes the panel. header = strategy and run
               // number, side tag, entry day, entry to exit time ET, shares, the caveat chips and the signed P&L of record; chart = the QQQ candles
               // the glyph opens (EXPAND on a laptop); numbers = prices, Webull fills, hold, P&L of record, running, real P&L, slip, fill coverage,
-              // the NinjaTrader figures when the trade carries them, and the fill breakdown; notes = read-only words (exit reason, the flags, the
+              // the NinjaTrader figures when the trade carries them, the record-vs-backtest line, the fill gap in dollars (gap / design / slippage and
+              // unexplained, from the box's fp), the reason a backtest P&L is missing, and the fill breakdown with its FLAGGED word; notes = read-only words (exit reason, the flags, the
               // parity note, the KEEL size note); actions = OPEN CANDLES. Nothing in it changes the trade. Theme tokens only: no hue in MONO.
               const qbFlagPairs=t=>{const out=[],re=/(?:<span title="([^"]*)">)?<span style="[^"]*">([A-Z][A-Z ]*[A-Z])<\/span>/g,h=qbFlagsHtml(t);let m;while((m=re.exec(h)))out.push([m[2],m[1]||'']);return out;};
               const QB_FLAG_WORDS={'BOOK ONLY':'the order never reached Webull, so the money is the book price',
@@ -40656,6 +40671,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 'PARITY NOTE':'a NinjaTrader parity note is on this trade','RECONSTRUCTED':'the NinjaTrader side was rebuilt from the order ledger'};
               const qbOpenCandles=(x,btn)=>{const rows=window._qeCandleRows||[],all=rows.some(q=>q&&String(q._no)===String(x._no))?rows:[x];
                 if(window._openTradeCandles)window._openTradeCandles(x,btn,{B:{},all:()=>all,order:()=>all});};
+              // why the box flagged a trade's fills (fp.flag), the same causes in the same order as api/qqq_exec.py: one fill more than 15c a
+              // share worse once the design gap is out; a fill that does not fit the tape (all such fills 'diverged': the resting order filled
+              // where the backtest did not exit); the two fills together over the band (the round-trip rule)
+              const qbFpCause=fp=>{
+                const n=v=>Number(v)||0,comp=[fp.en,fp.ex].filter(s=>s&&s.edge!==null&&s.edge!==undefined);
+                if(comp.some(s=>n(s.slp)+n(s.unx)< -0.15-1e-9))return 'a Webull fill came out more than 15 cents a share worse than the backtest once the known design gap is taken out';
+                const odd=comp.filter(s=>Math.abs(n(s.unx))>=0.00005);
+                if(odd.length)return odd.every(s=>s.why==='diverged')?'the resting Webull order filled where the backtest did not exit':'a Webull fill does not fit the tape, so check it';
+                if(comp.length===2&&comp.reduce((a,s)=>a+n(s.slp)+n(s.unx),0)< -0.15-1e-9)return 'the two Webull fills together came out more than 15 cents a share worse than the backtest once the known design gap is taken out';
+                return 'the box flagged this trade';};
               const qbPanelNumbers=(t,key)=>{
                 const en=String(t.entry_ts||''),ex=String(t.exit_ts||''),pnl=qePnlOf(t),fp=qeIsNtMirror(t)?null:qeFpOf(t),sp=avgSlip(t);
                 const okTs=s=>/^\d{4}-\d{2}-\d{2}[ T]\d{2}:\d{2}/.test(s),utc=s=>Date.UTC(+s.slice(0,4),+s.slice(5,7)-1,+s.slice(8,10),+s.slice(11,13),+s.slice(14,16),+(s.slice(17,19)||0));
@@ -40663,6 +40688,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const secs=(okTs(en)&&okTs(ex))?Math.round((utc(ex)-utc(en))/1000):null;
                 const hold=(secs!=null&&secs>=0)?durStr({durationSecs:secs}):'—';
                 const rp=t.real_pnl!=null?Number(t.real_pnl):null,bt=qeFinRec(t.pnl_backtest),bk=qeFinRec(t.pnl);
+                // no backtest P&L: say why (the exit side's code: the backtest has not exited, it never took the trade ...), else 'not on record'
+                const btWhy=(()=>{const f=qeFpOf(t),c=(f&&f.ex&&f.ex.why&&f.ex.why!=='nofill')?f.ex.why:'';return c?qeWhyTxt(c):'not on record';})();
+                const rvb=bt!==null?Math.round((pnl-bt)*100)/100:null;
+                // the fill gap in dollars at this trade's shares (+ = Webull did better): all of it, the part the book's design explains, the rest
+                const usd=k=>fp?qeFinRec(fp[k]):null,gU=usd('gap_usd'),dU=usd('dsg_usd'),xU=usd('exec_usd');
+                const usdRow=(label,v)=>[label,v!==null?ledgerSigned(v):'—',v!==null?ledgerPnlCls(v):'lg-flat'];
                 const fill=s=>(s&&s.wb!=null&&isFinite(s.wb))?(qeMoney(s.wb)+(s.fs==='suspect'?' (looks wrong)':'')):'—';
                 const src=String(t.pnl_record_src||'');
                 const cov=t.book_only?'none (order never sent)':(src==='webull'?'Webull both sides':(src==='part'?'Webull one side, book other':(src==='book'?'none (book prices)':'—')));
@@ -40675,8 +40706,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   ['EXIT FILL',fill(fp&&fp.ex)],
                   ['HOLD',hold],
                   ['P&L OF RECORD',ledgerSigned(pnl)+' &middot; '+qeRecLbl(t),ledgerPnlCls(pnl)],
-                  ['BACKTEST P&L',bt!==null?ledgerSigned(bt):'—',bt!==null?ledgerPnlCls(bt):'lg-flat'],
+                  ['BACKTEST P&L',bt!==null?ledgerSigned(bt):('— &middot; '+qbEsc(btWhy)),bt!==null?ledgerPnlCls(bt):'lg-flat'],
+                  ['RECORD vs BACKTEST',rvb!==null?ledgerSigned(rvb):'—',rvb!==null?ledgerPnlCls(rvb):'lg-flat'],
                   ['BOOK P&L',bk!==null?ledgerSigned(bk):'—',bk!==null?ledgerPnlCls(bk):'lg-flat'],
+                  usdRow('FILL GAP $',gU),usdRow('DESIGN GAP $',dU),usdRow('SLIPPAGE + UNEXPLAINED $',xU),
                   ['RUNNING',qeMoney(qbRun[key])],
                   ['REAL P&L',qeMoney(rp),rp!=null?ledgerPnlCls(rp):'lg-flat'],
                   ['SLIP/SH',sp!=null?qeNum(sp,3):'—'],
@@ -40709,9 +40742,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   ?('entry '+qeMoney(t.entry_px)+' &rarr; '+qeMoney(t.real_entry_px)+' ('+sl(t.slip_entry_ps)+') &middot; exit '+qeMoney(t.exit_px)+' &rarr; '+qeMoney(t.real_exit_px)+' ('+sl(t.slip_exit_ps)+')')
                   :'not re-priced yet - re-priced nightly from real QQQ 1-minute bars';
                 return ledgerTradePanelRows(rows)
-                  +'<div class="qbx-pn-sec">'+sideLine('ENTRY FILL vs BACKTEST',fp&&fp.en)+sideLine('EXIT FILL vs BACKTEST',fp&&fp.ex)
+                  +'<div class="qbx-pn-sec">'
+                  +(fp?('<div class="qbx-pn-line" data-qbpfp="'+(fp.flag?'flagged':'ok')+'"><span class="qbx-pn-k">FILLS vs BACKTEST'+(fp.flag?' &middot; FLAGGED':'')+'</span>'
+                    +(fp.st&&fp.st!=='not compared'?('compared on '+qbEsc(fp.st)):'not compared')
+                    +(fp.flag?' - '+qbFpCause(fp):'')+'</div>'):'')
+                  +sideLine('ENTRY FILL vs BACKTEST',fp&&fp.en)+sideLine('EXIT FILL vs BACKTEST',fp&&fp.ex)
                   +'<div class="qbx-pn-line"><span class="qbx-pn-k">RE-PRICED FROM REAL QQQ BARS</span>'+repriced+'</div></div>'
-                  +'<div class="qbx-pn-foot">HOLD is the time between the entry and exit stamps, to the second, New York time. RUNNING is the range total of the P&amp;L of record in the order the trades closed. SLIP/SH is the average of the entry and exit slip, in dollars a share.</div>';
+                  +'<div class="qbx-pn-foot">HOLD is the time between the entry and exit stamps, to the second, New York time. RUNNING is the range total of the P&amp;L of record in the order the trades closed. SLIP/SH is the average of the entry and exit slip, in dollars a share. RECORD vs BACKTEST is the P&amp;L of record minus the backtest\u2019s. FILL GAP $ is Webull\u2019s fills against the backtest\u2019s prices at this trade\u2019s shares (+ = Webull did better); DESIGN GAP $ is the part the book\u2019s known design explains (a market order after a resting limit or a level, the 15:59 flatten, a late bar); SLIPPAGE + UNEXPLAINED $ is the rest.</div>';
               };
               const qbPanelNotes=t=>{
                 const lines=[],ln=(k,h)=>lines.push('<div class="qbx-pn-line"><span class="qbx-pn-k">'+k+'</span>'+h+'</div>');
@@ -40869,7 +40906,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div><div style="color:var(--text5)">SLIPPAGE</div><div>'+qeMoney(rails.slippage_per_share)+'/share</div></div>'
           +'<div><div style="color:var(--text5)">KILL FILE</div><div style="word-break:break-all">'+naS(rails.kill_file)+'</div></div>'
           +'</div>'
-          +'<div style="margin-top:10px;font-size:var(--fsxs);color:var(--text5)">edit C:\\EdgeLog\\qqq_exec\\config.json — reloaded every tick. WEBULL PAPER is not used — Webull has no paper API, so nothing is ever sent there; this book is the paper record.</div>';
+          +'<div style="margin-top:10px;font-size:var(--fsxs);color:var(--text5)">edit C:\\EdgeLog\\qqq_exec\\config.json — reloaded every tick. Whether orders also go to the Webull paper (practice) account is the Orders mode under System; this book is the paper record either way, and its P&amp;L of record uses Webull\u2019s fill wherever one was captured.</div>';
 
         // ── B. EVENT TIMELINE — newest-first, chip-coded by severity, "show more" past 30.
         // Renders nothing when the backend has not published events yet.
@@ -40908,7 +40945,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const heroTodayVal=qeTodayRealized+openMarkPnl;
         // the range line counts closed trades only; with a position open it says so, since the
         // big number and the today line also carry the open P&L
-        const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,QBO,heroTodayVal,
+        // the hero's "broker made $X of that" line: the page's own sum over `trades` (shadow rows already dropped), book-only trades left out -
+        // the same rule as More stats' Broker made on ALL. Not the box's book_only_summary: the box sums before a shadow row is dropped and
+        // before the doc is trimmed, so the two could disagree (post-landing review L3); with no shadow rows and no trim they are the same figure.
+        const qbBrokerInfo=(()=>{let n=0,net=0;trades.forEach(t=>{if(t.book_only)n++;else net+=qePnlOf(t);});return {book_only_count:n,broker_net:Math.round(net*100)/100};})();
+        const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,qbBrokerInfo,heroTodayVal,
           {val:qbRangePnl,suffix:qbRangeWord+(posCount>0?' &middot; closed trades':'')});
         const qbHeroHtml=qbHero.main;
         const qbStatusStripHtml=qbHero.strip;
@@ -41050,10 +41091,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // OFF mode by construction (nothing is gated there yet).
             const hostTxt=(QE.lease&&QE.lease.host_id)?String(QE.lease.host_id).replace(/</g,'&lt;'):null;
             const leaseOk=BR.lease_ok_to_send!==false;
-            const hostRow='<div style="font-size:13px;color:var(--text2);margin-bottom:10px">'
-              +'Running on <b style="color:var(--text)">'+(hostTxt||'an unknown computer')+'</b>'
-              +' · one-computer check '+(leaseOk?'<span style="color:var(--attn-ok)">OK</span>'
-                :('<span style="color:var(--attn-amber)">'+plainReason(BR.lease_block_reason)+'</span>'))
+            // a silent box (the board's freshness rule, QF.stale): the host and the check are only as current as the doc - grey, last known, with its
+            // time, never a green OK (post-landing review L2; the mode pill above turns BOX SILENT on the same rule)
+            const hostState=QF.stale?'stale':(leaseOk?'ok':'blocked');
+            const hostRow='<div data-qbhost="'+hostState+'" style="font-size:13px;color:'+(QF.stale?'var(--text4)':'var(--text2)')+';margin-bottom:10px">'
+              +'Running on <b style="color:'+(QF.stale?'var(--text4)':'var(--text)')+'">'+(hostTxt||'an unknown computer')+'</b>'
+              +' · one-computer check '+(QF.stale
+                ?('<span style="color:var(--text4)">'+(leaseOk?'OK':plainReason(BR.lease_block_reason))+' (last known, as of '+QF.sinceTxt+')</span>')
+                :(leaseOk?'<span style="color:var(--attn-ok)">OK</span>'
+                  :('<span style="color:var(--attn-amber)">'+plainReason(BR.lease_block_reason)+'</span>')))
               +'</div>';
 
             // -- last order + last error. legDisplay/sideWord reuse the SAME leg labels
@@ -46213,7 +46259,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         };
         const esc=v=>{if(v===null||v===undefined)return '';const s=String(v);return /[",\r\n]/.test(s)?('"'+s.replace(/"/g,'""')+'"'):s;};
         const csv=[cols.concat(xcols).join(',')].concat(rows.map(t=>{const x=extra(t);return cols.map(c=>esc(t[c])).concat(xcols.map(c=>esc(x[c]))).join(',');})).join('\r\n');
-        _libDownload('qqq_shadow_book_closed_trades.csv',csv);
+        _libDownload('qqq_shadow_book_closed_trades'+(window._qeExportScope?('_'+window._qeExportScope):'')+'.csv',csv);
       };
       // LEDGER shared range pills (unify step 4) and the empty list's "Show all": REAL's own saved
       // range (homeRange; renderApp -> _saveView keeps it in el_view across redraws and reloads).

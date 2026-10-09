@@ -4,7 +4,7 @@ tools/qqq_candles_probe.py -- verification probe for the Webull paper candle cha
 (LEDGER > WEBULL PAPER, owner ask via MANAGER 2026-09-28: "OHLC candles on the Webull paper
 trades so I can judge the price action behind each one").
 
-Boots index.html headless (same technique as tools/qqq_overview_probe.py: serve a copy of
+Boots index.html headless (same technique as tools/webull_board_probe.py: serve a copy of
 index.html from a private temp dir over loopback -- nothing is written into the repo --
 load it in a same-origin iframe, drive it from the parent page) against
   tools/fixtures/qqq_exec_candles.json   the status doc, trades_all = the real
@@ -29,14 +29,18 @@ refused"; a 5-minute signal bar on 1-minute bars spans its five bars, a 1-minute
 try is not on file; the full viewer shows a loading stub before waiting on a day that is
 not in memory; at phone width a day with no doc does not point at the hidden EXPAND.
 
+Since LEDGER steps 8 + 9 (re-anchored 2026-10-08): a row tap opens TRADING-LOG's shared trade panel (.lg-panel; its chart slot is the
+compact chart, its numbers slot the breakdown), the chart glyph [data-qbchartkey] on every row (LIST and TABLE) opens the full viewer in place
+of the old TABLE CHART pill, and LIST | TABLE is the shared frame's [data-lgview] switch.
+
 FULL pass (per theme: dark, paper, mono):
-  * LIST sheet -> compact chart: every marker kind drawn (signal bar, backtest / book /
+  * a row tap -> the trade panel's compact chart: every marker kind drawn (signal bar, backtest / book /
     Webull fills both directions, refused Webull try, backtest / book / Webull exits, a
     price line), the legend strip, "book only - no Webull order", "signal bar not
     recorded" for ENGU-Q, and a day with no doc says so instead of asking the PC.
   * EXPAND -> full viewer: box bars (zero PC trips), zoomed to the trade, legend, NEXT
     walks the list (PREV here), 1m <-> 5m from the same doc.
-  * TABLE view CHART pill -> same viewer from the box doc; a day with no doc falls back
+  * TABLE view chart glyph -> same viewer from the box doc; a day with no doc falls back
     to the PC (exactly one get_bars) and the sub line says the bars came from the PC.
   * Cache key: prepending a new closed trade shifts every row, yet each trade keeps its
     key, and the pill for the shifted row opens THAT trade.
@@ -259,22 +263,25 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
       for(var i=0;i<78;i++){var m=570+5*i,p=740+Math.sin(i/5);bars.push({t:day+' '+('0'+Math.floor(m/60)).slice(-2)+':'+('0'+m%60).slice(-2),o:p,h:p+0.4,l:p-0.4,c:p+0.1,v:1000});}
       return Promise.resolve({bars:bars,entry_idx:20,exit_idx:30,overlays:{},meta:{master:'QQQ_5m (probe PC)'}});};
     function rerender(){w.eval('renderApp()');}
-    function tradeRowSel(tid){return '[data-qbtid="'+tid+'"]';}
+    // a trade row of the shared list frame (LEDGER step 8): its key is the trade's row key, QE:<trade id>
+    function tradeRowSel(tid){return '[data-lgtrade="QE:'+tid+'"]';}
+    // a tap on the row's strategy cell opens TRADING-LOG's shared trade panel (LEDGER step 9): the chart slot holds the compact chart,
+    // the numbers slot the breakdown
     async function openSheet(tid){
       var row=q(tradeRowSel(tid));if(!row)return {err:'no row '+tid};
-      row.click();
-      var sv=await waitFor(function(){var b=q('.qb-sheet [data-qbcandlesbody]');return b&&(b.querySelector('svg')||/no candles/.test(b.textContent))?b:null;},8000);
-      var sheet=q('.qb-sheet');
+      (row.querySelector('.lg-c-sym')||row).click();
+      var sv=await waitFor(function(){var p=q('.lg-panel[data-lgpanel-trade="QE:'+tid+'"]'),b=p&&p.querySelector('[data-qbcandlesbody]');return b&&(b.querySelector('svg')||/no candles/.test(b.textContent))?b:null;},8000);
+      var sheet=q('.lg-panel');
       var svg=sv&&sv.querySelector('svg');
       return {opened:!!sheet,hasSvg:!!svg,kinds:uniq(kinds(sv)),
         shade:!!(svg&&svg.querySelector('rect[opacity="0.05"]')),
         texts:svg?[].slice.call(svg.querySelectorAll('text')).map(function(t){return t.textContent.trim();}):[],
-        expand:!!q('.qb-sheet [data-qbcandlesexpand]'),
-        legend:(q('.qb-sheet .qb-candle-legend')||{}).textContent||'',body:(sv||{}).textContent||'',
-        hasDrawer:!!q('.qb-sheet .qe-drawer'),
+        expand:!!q('.lg-panel [data-qbcandlesexpand]'),
+        legend:(q('.lg-panel .qb-candle-legend')||{}).textContent||'',body:(sv||{}).textContent||'',
+        hasDrawer:!!q('.lg-panel [data-lgpanel-slot="numbers"] .lg-panel-row'),
         html:sheet?sheet.innerHTML:''};
     }
-    function closeSheet(){var c=q('[data-qbsheetclose]');if(c)c.click();}
+    async function closeSheet(){var c=q('[data-lgpanel-close]');if(c){c.click();await waitFor(function(){return !q('.lg-panel');},3000);}}
     function viewerState(){var m=qa('#chart-body svg');var sv=m.length?m[m.length-1]:null;
       return {open:!!q('#chart-body'),kinds:uniq(kinds(sv)),shade:!!(sv&&sv.querySelector('rect[opacity="0.05"]')),
         view:w.eval('(_cndl&&_cndl.view)?_cndl.view.slice():null'),nbars:w.eval('(_cndl&&_cndl.r&&_cndl.r.bars)?_cndl.r.bars.length:null'),
@@ -282,8 +289,8 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
         zoom:(q('#cndl-zoom')||{}).textContent||'',tid:w.eval('(_cndl&&_cndl.x)?_cndl.x._tid:null'),
         src:w.eval('(_cndl&&_cndl.r)?(_cndl.r.src||"pc"):null'),tf:w.eval('(_cndl&&_cndl.r)?(_cndl.r.tf||null):null')};}
     function closeViewer(){var b=q('#chart-close');if(b)b.click();}
-    await waitFor(function(){return q('[data-qbtraderow]');},8000);
-    out.listRows=qa('[data-qbtraderow]').length;
+    await waitFor(function(){return q('[data-lgtrade]');},8000);
+    out.listRows=qa('[data-lgtrade]').length;
 
     if(MODE==='sheet_noise'||MODE==='viewer_noise'){
       out.noise=await openSheet(NOISE_ID);
@@ -318,9 +325,9 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
       out.orb=await openSheet(ORB_ID);delete out.orb.html;
       var eb2=q('[data-qbcandlesexpand]');if(eb2)eb2.click();
       await waitFor(function(){return q('#chart-body svg [data-mk]');},8000);await sleep(150);
-      out.orbViewer=viewerState();closeViewer();closeSheet();
-      out.engu=await openSheet(ENGU_ID);delete out.engu.html;closeSheet();
-      out.noise=await openSheet(NOISE_ID);delete out.noise.html;closeSheet();
+      out.orbViewer=viewerState();closeViewer();await closeSheet();
+      out.engu=await openSheet(ENGU_ID);delete out.engu.html;await closeSheet();
+      out.noise=await openSheet(NOISE_ID);delete out.noise.html;await closeSheet();
       out.errors=w.eval('window._qeProbeErrors');return finish('eod');
     }
 
@@ -357,14 +364,14 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
     w._probeCmds.length=0;
 
     // 3. LIST sheets: every marker kind + legend wording
-    out.noise=await openSheet(NOISE_ID);closeSheet();
-    out.engu=await openSheet(ENGU_ID);closeSheet();
-    out.orb=await openSheet(ORB_ID);closeSheet();
-    out.bookonly=await openSheet(BOOKONLY_ID);closeSheet();
-    out.held=await openSheet(HELD_ID);closeSheet();
-    out.net=await openSheet(NET_ID);closeSheet();
-    out.unk=await openSheet(UNK_ID);closeSheet();
-    out.nodoc=await openSheet(NODOC_ID);closeSheet();
+    out.noise=await openSheet(NOISE_ID);await closeSheet();
+    out.engu=await openSheet(ENGU_ID);await closeSheet();
+    out.orb=await openSheet(ORB_ID);await closeSheet();
+    out.bookonly=await openSheet(BOOKONLY_ID);await closeSheet();
+    out.held=await openSheet(HELD_ID);await closeSheet();
+    out.net=await openSheet(NET_ID);await closeSheet();
+    out.unk=await openSheet(UNK_ID);await closeSheet();
+    out.nodoc=await openSheet(NODOC_ID);await closeSheet();
     ['noise','engu','orb','bookonly','held','net','unk','nodoc'].forEach(function(k){if(out[k]){
       out[k].undef=(out[k].html.match(/undefined/g)||[]).length;out[k].nan=(out[k].html.match(/NaN/g)||[]).length;delete out[k].html;}});
     out.pcAfterSheets=w._probeCmds.length;
@@ -389,14 +396,14 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
     w._lastCandlePNG=null;var sb=q('#cndl-save');if(sb)sb.click();
     await waitFor(function(){return w._lastCandlePNG;},6000);
     out.pngName=w._lastCandlePNG?w._lastCandlePNG.name:null;
-    closeViewer();closeSheet();
+    closeViewer();await closeSheet();
     out.pcAfterViewer=w._probeCmds.length;
 
-    // 5. TABLE view CHART pill -> box doc; a day with no doc -> the PC, once
-    var ts=q('[data-qbseg="tradesview"] [data-qbsegval="table"]');if(ts)ts.click();
-    await waitFor(function(){return q('[data-qechart]');},8000);
-    var rowsT=w._qeCandleRows||[];
-    function pillFor(tid){var k=-1;rowsT=w._qeCandleRows||[];rowsT.forEach(function(x,i){if(x._tid===tid)k=i;});return k>=0?q('[data-qechart="'+k+'"]'):null;}
+    // 5. TABLE view chart glyph -> box doc; a day with no doc -> the PC, once (the glyph on a row opens the full viewer, never the panel)
+    var ts=q('[data-lgview="table"]');if(ts)ts.click();
+    await waitFor(function(){return q('tr[data-lgtrade] [data-qbchartkey]');},8000);
+    function pillFor(tid){var x=(w._qeCandleRows||[]).filter(function(r){return r._tid===tid;})[0];
+      return x?[].filter.call(d.querySelectorAll('[data-qbchartkey]'),function(e){return e.getAttribute('data-qbchartkey')===String(x._no);})[0]||null:null;}
     var p=pillFor(ORB_ID);if(p)p.click();
     await waitFor(function(){return q('#chart-body svg [data-mk]');},8000);await sleep(100);
     out.tableOrb=viewerState();closeViewer();
@@ -410,9 +417,9 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
     var before={};(w._qeCandleRows||[]).forEach(function(x,i){before[x._tid||x._no]={no:x._no,i:i};});
     w.eval("window._qqqExec.trades_all.unshift({leg:'NOISE',entry_ts:'2026-09-28 15:00:05',exit_ts:'2026-09-28 15:40:05',side:'short',shares:10,entry_px:736.5,exit_px:736.2,pnl:3,exit_reason:'signal exit',trade_id:'NOISE_382-20260928T190000Z-S'});renderApp();");
     await waitFor(function(){return (w._qeCandleRows||[]).length&&w._qeCandleRows[0]._tid==='NOISE_382-20260928T190000Z-S';},8000);
-    var after=w._qeCandleRows||[],same=0,shifted=0,total=0;
-    after.forEach(function(x,i){var b=before[x._tid||x._no];if(!b)return;total++;if(b.no===x._no)same++;if(b.i!==i)shifted++;});
-    out.cacheKey={total:total,sameKey:same,shifted:shifted,noiseKey:(after.filter(function(x){return x._tid===NOISE_ID;})[0]||{})._no};
+    var after=w._qeCandleRows||[],same=0,shifted=0,total=0,noiseShifted=false;
+    after.forEach(function(x,i){var b=before[x._tid||x._no];if(!b)return;total++;if(b.no===x._no)same++;if(b.i!==i){shifted++;if(x._tid===NOISE_ID)noiseShifted=true;}});
+    out.cacheKey={total:total,sameKey:same,shifted:shifted,noiseShifted:noiseShifted,noiseKey:(after.filter(function(x){return x._tid===NOISE_ID;})[0]||{})._no};
     p=pillFor(NOISE_ID);if(p)p.click();
     await waitFor(function(){return q('#chart-body svg [data-mk]');},8000);await sleep(100);
     out.afterShift=viewerState();closeViewer();
@@ -631,9 +638,11 @@ def check_full(r):
     ok(r.get("pcAfterNoDoc") == 1 and nd2.get("src") == "pc" and "bars from your PC" in nd2.get("sub", ""),
        "no doc -> exactly one PC trip, labelled (%s)" % r.get("pcAfterNoDoc"))
     ck = r.get("cacheKey") or {}
-    ok(ck.get("total") and ck.get("sameKey") == ck.get("total") and ck.get("shifted") == ck.get("total")
+    # the shared list draws the rows by close day (LEDGER step 8), so the rows that closed after the new trade keep their place: most rows
+    # shift, the NOISE trade among them, and every row keeps its trade key
+    ok(ck.get("total") and ck.get("sameKey") == ck.get("total") and ck.get("shifted", 0) >= ck.get("total") // 2 and ck.get("noiseShifted")
        and str(ck.get("noiseKey", "")).startswith("QE:NOISE_382-20260928T141500Z-S"),
-       "every row shifted but kept its trade key (%s)" % ck)
+       "the rows shifted (the NOISE trade's among them) but each kept its trade key (%s)" % ck)
     a = r.get("afterShift") or {}
     ok(a.get("tid") == "NOISE_382-20260928T141500Z-S", "after the shift the pill opens the same trade")
     ok(not r.get("errors"), "no console errors %s" % r.get("errors"))

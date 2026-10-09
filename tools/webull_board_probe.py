@@ -6,8 +6,8 @@ WHY THIS EXISTS
 ---------------
 tools/home_render_probe.py gates REAL's LEDGER board on every ship that touches index.html. The
 WEBULL PAPER board moved onto the same shared parts (hero + range pills in step 4, the shared
-equity chart in step 5) but its only probe, tools/qqq_overview_probe.py, is a long hand-run
-verification tool, not a gate. This is the per-board render probe the LEDGER adoption contract
+equity chart in step 5) but its only probe then, tools/qqq_overview_probe.py (retired 2026-10-08, its record pass moved here),
+was a long hand-run verification tool, not a gate. This is the per-board render probe the LEDGER adoption contract
 asks for (SHARED_PARTS_CONTRACT.md section 5, LEDGER_UNIFY_SCOPE.md appendix B), short enough for
 `wt.py ship`, wired in exactly as REAL's is.
 
@@ -210,17 +210,33 @@ no-filters line in its body (WEBULL has nothing to filter). The interaction run 
 a redraw (all a reload has: the choice lives in storage only) keeps it open, a second tap closes it ('0') and a redraw keeps it closed. The step 11 run also
 draws the board in a 1680 px window, where the frame must be exactly 1320 px wide and centred, the list still the right-hand panel.
 
-KEEPS CHECKLIST (2026-10-07): the board features a checklist audit found on the page with no check to notice them breaking. HERO: the amber line
-'broker made $X of that (N book-only trades excluded)' - X and N are the box's own book_only_summary (the probe also recomputes both from the trades), 'trade'
-for one, no line at all when no trade is book-only (every plain case, every variant, plus one variant each for none and one); the chips PARITY MISMATCH
-('N PARITY MISMATCHES' / '1 PARITY MISMATCH': checked minus ok of the NinjaTrader-mirror summary) and FILLS BEHIND BACKTEST (the rolling flag), each drawn when
-its condition holds and left out when it does not, grey on a silent box (variants: 2 of 5 mismatched; the rolling flag alone; 1 mismatch + the rolling flag on a
-silent box; every other variant derives its chips from its own doc). SYSTEM fold: 'Running on <host> . one-computer check OK' with the doc's host name (the fresh
-variant and every variant that opens System), and its failing form (another computer holds the lease: the reason, never OK). ACCOUNT fold: the share check
-[data-qbrecon], its attribute, its word (OK / MISMATCH) and both share counts from positions_live (plain cases, every live-box variant, a MISMATCH variant, an
-open position). TRADE PANEL candles: every layer's own mark by its data-mk (signal bar = dashed rect, backtest fill = ring, book in / out = tick / open square,
-Webull attempts = triangle / filled square) with its hover title and its legend row, for every panel the runs open (the set is exactly what the stub fed); and a
-NETTED attempt (the stub feeds outcome NETTED): its diamond titled 'no Webull order - netted against another leg at <px>' and its legend rows.
+KEEPS CHECKLIST (2026-10-07; post-landing review WEBULL_LEDGER_POSTLANDING_REVIEW.md section 4 items 1-9 and its fixes M1, L1-L6, merged 2026-10-08):
+the board features a checklist audit found on the page with no check to notice them breaking. HERO: the amber line 'broker made $X of that (N book-only
+trades excluded)' - X and N are the PAGE'S OWN sum over its trades (shadow rows dropped, book-only ones left out: review L3, the same rule as More stats'
+Broker made), 'trade' for one, no line at all when no trade is book-only (every plain case, every variant, plus one variant each for none and one made by
+changing the trades' own flags, and one whose box summary says something else - the page must not follow it); the probe also checks its fixture's box
+summary agrees with its trades. The chips BREAKER TRIPPED, KILL ACTIVE, PARITY MISMATCH ('N PARITY MISMATCHES' / '1 PARITY MISMATCH': checked minus ok
+of the NinjaTrader-mirror summary) and FILLS BEHIND BACKTEST (the rolling flag), each drawn when its condition holds and left out when it does not, in
+colour on a fresh doc and grey on a silent box. SYSTEM fold: 'Running on <host> . one-computer check OK' with the doc's host name in green on a fresh
+doc ([data-qbhost] ok), grey with '(last known, as of Mon 10:03)' and no green on a silent box (stale, review L2), and its failing form (another computer
+holds the lease, or the lease cannot be verified: the reason in words, never OK; blocked). The Orders card's sentences of the retired
+tools/qqq_orders_probe.py: OFF 'Simulated only', PAPER 'Sending orders to the Webull paper (practice) account.', BLOCKED "can't confirm this is the only
+computer trading", HALTED "positions at Webull don't match the notebook". ACCOUNT fold: the share check [data-qbrecon], its attribute, its word (OK /
+MISMATCH) and both share counts from positions_live. The NOISE row's TODAY figure is today.legs_record's, and on an older box with no legs_record the
+page's own sum on the box's day. The daily stop: a Friday doc whose breaker sent its own figure (-$120), seen on Saturday, reads '$120.00 of $400.00
+daily stop used', 'from Fri 10-02' and 'breaker figure', never 'estimate'; the fixture's own null figure reads 'estimate'. TRADE LIST: a flagged row
+carries ONE caveat word under its strategy name (data-qbcav; BOOK ONLY, CHECK FILL, FILL GAP, BOOK PRICE, PART BOOK PRICE, NOT COMPARED, the first of
+these its own flags hold), shown wherever the flags column is not (L1); the CSV's file name carries the list's scope (ALL: qqq_shadow_book_closed_trades.csv;
+LONG: ..._LONG.csv; a search: ..._search-orb.csv; 1W + LONG: ..._1W_LONG.csv, L5). TRADE PANEL: the numbers rows RECORD vs BACKTEST (P&L of record minus
+the backtest's), FILL GAP $ / DESIGN GAP $ / SLIPPAGE + UNEXPLAINED $ (the box's fp dollars), the reason beside a missing BACKTEST P&L (never a
+parenthesis inside a parenthesis), and the FILLS vs BACKTEST line with FLAGGED exactly on a flagged trade, its reason following the cause (a fill that
+does not fit the tape, a resting fill the backtest did not have, or a fill more than 15 cents a share worse - never the 15-cent sentence on a fill that
+came out better) (M1). The candles: every layer's own mark by its data-mk (signal bar = dashed rect, backtest fill = ring, backtest exit = dashed square,
+book in / out = tick / open square, Webull attempts = triangle / filled square) with its hover title and its legend row, for every panel the runs open (the
+set is exactly what the stub fed); a NETTED attempt (both sides): its diamond titled 'no Webull order - netted against another leg at <px>' and its
+legend rows; and three caveat trades whose Webull exit try came back REFUSED, NETTED and UNKNOWN, each drawn as its own mark with its own words.
+STATIC: the chart key says 'book only = order never reached Webull' and 'book price = no Webull fill price' (L6; the phone key keeps its one short line, the 757 px phone list limit), and
+the page never says Webull has no paper API (L4).
 
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
@@ -233,7 +249,7 @@ Usage:
   python tools/webull_board_probe.py --selftest --only NAME[,NAME...]   # just those broken copies (no final run on the real file), each printed
                                                     # caught / NOT caught with the probe's first two problem lines; an unknown NAME is an error
   python tools/webull_board_probe.py --selftest --jobs 1   # the same, one broken copy at a time (the default is four at a time, or fewer on a
-                                                           # small machine: 256 copies run one by one would take several hours)
+                                                           # small machine: 285 copies run one by one would take several hours)
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -293,6 +309,33 @@ def et_ms(s):
 FRESH_NOW = '2026-10-05 10:03:30'   # 24 s after the fixture's updated_at, in the session
 
 
+def broker_line_want(doc):
+    """The hero's broker line (index.html qbBrokerInfo): the page's own sum of the P&L of record over its trades (shadow rows out), book-only ones left out."""
+    rows = [t for t in doc.get('trades_all') or [] if not _is_shadow(t)]
+    n = sum(1 for t in rows if t.get('book_only'))
+    if not n:
+        return None
+    net = _js_round(sum(qe_pnl_of(t) for t in rows if not t.get('book_only')) * 100) / 100
+    return 'broker made %s of that (%d book-only trade%s excluded)' % (qe_money(net), n, '' if n == 1 else 's')
+
+
+def leg_today_want(doc, leg):
+    """A strategy row's TODAY figure: today.legs_record's when the box sends it, else the page's own sum on the box's day (the last day of today's
+    trades, else of today's orders, else the day the doc was written) at the P&L of record."""
+    today = doc.get('today') or {}
+    rec = today.get('legs_record')
+    if isinstance(rec, dict):
+        v = (rec.get(leg) or {}).get('pnl')
+        x = _num(v) if v is not None else 0.0
+        return qe_money(x if x is not None else 0.0)
+    ok = lambda s: bool(re.match(r'^\d{4}-\d{2}-\d{2}$', s))
+    days = sorted(d for d in (str((t or {}).get('exit_ts') or '')[:10] for t in today.get('trades') or []) if ok(d))
+    if not days:
+        days = sorted(d for d in (str((o or {}).get('ts_et') or '')[:10] for o in today.get('orders') or []) if ok(d))
+    box_day = days[-1] if days else str(doc.get('updated_at') or '')[:10]
+    return qe_money(sum(qe_pnl_of(t) for t in doc.get('trades_all') or [] if not _is_shadow(t) and t.get('leg') == leg and _close_day(t) == box_day))
+
+
 def _variant_docs(fixture):
     """[(name, now, doc, expect)] -- the freshness variants. expect keys: silent / keel / publish /
     tickgap = the chip text or None (absent); today = the hero today word; top = (state, text) of
@@ -326,10 +369,12 @@ def _variant_docs(fixture):
     out.append(('fresh in the session', FRESH_NOW, base(), dict(none, today='today', top=('flat', 'WEBULL FLAT'),
                strip_has=['box updated 24 s ago', 'feed OK'], strip_lacks=['BOX SILENT'], stop='today',
                orders='today', legtoday='TODAY', asof_has='as of 10:01:35', eq_stale=False, calendar=True,
-               # keeps checklist: the box's own figures on the fixture, with the System fold open for its host line
+               # keeps checklist: the page's own figures on the fixture, with the System fold open for its host line and Orders sentence
                system=True, broker_line='broker made -$3.98 of that (8 book-only trades excluded)', par_chip=None, fills_chip=False,
-               hostline='Running on PROBE-PC \u00b7 one-computer check OK',
-               recon=('ok', 'OK \u2014 Webull holds flat \u00b7 legs sum to flat'))))
+               hostline='Running on PROBE-PC \u00b7 one-computer check OK', host=('ok', ['Running on PROBE-PC', 'one-computer check OK'], True),
+               recon=('ok', 'OK \u2014 Webull holds flat \u00b7 legs sum to flat'),
+               legtodayval=leg_today_want(base(), 'NOISE'), ordmode_has=['OFF', 'Simulated only'], stop_has=['estimate'],
+               flags_lacks=['BREAKER TRIPPED', 'KILL ACTIVE', 'FILLS BEHIND BACKTEST', 'PARITY MISMATCH'])))
     out.append(('5 minutes old in the session', '2026-10-05 10:08:06', base(), dict(none, silent='BOX SILENT 5 min',
                today='today', top=('stale', 'WEBULL STALE 5 min'),
                strip_has=['BOX SILENT 5 min', 'last update from the box Mon 10:03'], strip_lacks=['feed OK'],
@@ -500,7 +545,8 @@ def _variant_docs(fixture):
                           'lease_block_reason': 'lease held by another host'})
     out.append(('a blocked book', FRESH_NOW, blk, dict(none, today='today', top=('blocked', 'WEBULL BLOCKED'), eq_stale=False,
                # keeps checklist: another computer holds the lease -> the System fold's host line names the reason, never OK
-               system=True, hostline='Running on PROBE-PC \u00b7 one-computer check lease held by another host')))
+               system=True, hostline='Running on PROBE-PC \u00b7 one-computer check lease held by another host',
+               host=('blocked', ['one-computer check lease held by another host'], False))))
     # a holiday is not a session: Thanksgiving noon with a doc written 5 min ago reads quiet, not silent
     out.append(('Thanksgiving noon, a fresh quiet doc', '2026-11-26 12:00:00',
                move_to(base('2026-11-25'), '2026-11-26 11:55:00', '2026-11-25', '2026-11-25 15:59:30', '11:45:00'),
@@ -586,18 +632,27 @@ def _variant_docs(fixture):
     # shown again away from the board: one read per 5 min at most there (each read is the whole doc), 30 s on the board
     out.append(('page shown again, HOME and the board', FRESH_NOW, base(), dict(none,
                tab='home', vp='laptop', top=('flat', 'WEBULL FLAT, checked 10:03'), visread=[0, 1, 1])))
-    # KEEPS CHECKLIST (2026-10-07): the hero's amber broker line (none / one / the fixture's eight, above), the PARITY MISMATCH and FILLS BEHIND BACKTEST chips (each drawn
-    # and left out; grey on a silent box), the Account fold's share check when Webull and the legs disagree
+    # KEEPS CHECKLIST (2026-10-07, post-landing review 2026-10-08): the hero's amber broker line (none / one / the fixture's eight, above / a box summary
+    # that disagrees), the alarm chips (each drawn and left out; grey on a silent box), the Account fold's share check when Webull and the legs disagree,
+    # the System fold's host line and Orders sentences, a strategy row's TODAY, the daily stop's own figure
     nobo = base()
-    nobo['book_only_summary'] = dict(nobo['book_only_summary'], book_only_count=0)
     for t in nobo['trades_all']:
         t['book_only'] = False
     out.append(('no book-only trade', FRESH_NOW, nobo, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
                broker_line=False)))
     onebo = base()
-    onebo['book_only_summary'] = dict(onebo['book_only_summary'], book_only_count=1, broker_net=-1.25)
+    kept = False
+    for t in onebo['trades_all']:
+        if t.get('book_only') and not _is_shadow(t) and not kept:
+            kept = True
+        else:
+            t['book_only'] = False
     out.append(('one book-only trade', FRESH_NOW, onebo, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
-               broker_line='broker made -$1.25 of that (1 book-only trade excluded)')))
+               broker_line='broker made -$23.58 of that (1 book-only trade excluded)')))
+    bx = base()
+    bx['book_only_summary'] = dict(bx['book_only_summary'], book_only_count=3, broker_net=12.34)    # as if the box summed a shadow row, or before a trim
+    out.append(("the box's own broker figure disagrees", FRESH_NOW, bx, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
+               broker_line='broker made -$3.98 of that (8 book-only trades excluded)')))
     ntp = base()
     ntp['parity'] = dict(ntp['parity'], checked=5, ok=3, failed=2, worst_err_usd=4.2, note='the NinjaTrader mirror check: 2 of 5 trades are off')
     out.append(('NT parity: 2 of 5 mismatched', FRESH_NOW, ntp, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
@@ -617,6 +672,50 @@ def _variant_docs(fixture):
     shr['positions_live'] = dict(shr['positions_live'], mismatch=True, broker_net_qty=10, legs_net_qty=0)
     out.append(('Webull holds 10 shares the legs do not', FRESH_NOW, shr, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
                recon=('mismatch', 'MISMATCH \u2014 Webull holds long 10 \u00b7 legs sum to flat'))))
+    # the host line on a silent box: grey, last known with its time, never a green OK (review L2)
+    out.append(('the box silent 5 min, System open', '2026-10-05 10:08:06', base(), dict(none, silent='BOX SILENT 5 min',
+               today='today', top=('stale', 'WEBULL STALE 5 min'), eq_stale=True, system=True,
+               hostline='Running on PROBE-PC \u00b7 one-computer check OK (last known, as of Mon 10:03)',
+               host=('stale', ['Running on PROBE-PC', 'one-computer check OK (last known, as of Mon 10:03)'], False))))
+
+    def alarms(d):
+        d['breaker_tripped'] = True
+        d['kill'] = True
+        d['broker_parity']['board_flag'] = True
+        d['parity'] = dict(d['parity'], checked=3, ok=1, failed=2)
+        return d
+    chips = ['BREAKER TRIPPED', 'KILL ACTIVE', 'FILLS BEHIND BACKTEST', '2 PARITY MISMATCHES']
+    out.append(('the hero alarm chips', FRESH_NOW, alarms(base()), dict(none, today='today', top=('flat', 'WEBULL FLAT'),
+               eq_stale=False, flags_has=dict((c, 'colour') for c in chips), par_chip='2 PARITY MISMATCHES', fills_chip=True)))
+    out.append(('the hero alarm chips, box silent 5 min', '2026-10-05 10:08:06', alarms(base()), dict(none, silent='BOX SILENT 5 min',
+               today='today', top=('stale', 'WEBULL STALE 5 min'), eq_stale=True, flags_has=dict((c, 'grey') for c in chips),
+               par_chip='2 PARITY MISMATCHES', fills_chip=True)))
+    old = base()
+    old['today'].pop('legs_record', None)
+    out.append(('an older box with no legs_record', FRESH_NOW, old, dict(none, today='today', top=('flat', 'WEBULL FLAT'),
+               eq_stale=False, legtodayval=leg_today_want(old, 'NOISE'), stop_has=['estimate'])))
+    sysfresh = dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False, strip_lacks=['BOX SILENT'], system=True)
+    pp = base()
+    pp['broker'].update({'effective_mode': 'PAPER', 'requested_mode': 'PAPER', 'lease_ok_to_send': True, 'lease_block_reason': None})
+    out.append(('PAPER, sending orders, System open', FRESH_NOW, pp, dict(sysfresh,
+               ordmode_has=['PAPER', 'Sending orders to the Webull paper (practice) account.'],
+               hostline='Running on PROBE-PC \u00b7 one-computer check OK', host=('ok', ['Running on PROBE-PC', 'one-computer check OK'], True))))
+    bl = base()
+    bl['broker'].update({'effective_mode': 'PAPER', 'requested_mode': 'PAPER', 'lease_ok_to_send': False,
+                         'lease_block_reason': "lease unverifiable: host 'CLOUD-VM' claims the lease but its timestamp is missing"})
+    out.append(('BLOCKED (lease unverifiable), System open', FRESH_NOW, bl, dict(sysfresh, top=('blocked', 'WEBULL BLOCKED'),
+               ordmode_has=['BLOCKED', "can't confirm this is the only computer trading"],
+               host=('blocked', ["one-computer check can't confirm this is the only computer trading"], False))))
+    hr = base()
+    hr['broker'].update({'effective_mode': 'PAPER', 'requested_mode': 'PAPER', 'halted': True,
+                         'halt_reason': "reconcile mismatch: [{'symbol': 'QQQ', 'broker': 12.0, 'believed': 22.0}]"})
+    out.append(('HALTED, System open', FRESH_NOW, hr, dict(sysfresh, top=('halted', 'WEBULL HALTED'),
+               ordmode_has=['HALTED', "positions at Webull don't match the notebook"])))
+    fb = fri(base())
+    fb['today']['breaker_input'] = -120.0
+    out.append(("Friday's doc with the breaker's own figure, Saturday noon", '2026-10-03 12:00:00', fb, dict(none,
+               silent='BOX SILENT since Fri 15:58', today='Fri 10-02', top=('stale', 'WEBULL STALE since Fri 15:58'), stop='Fri 10-02',
+               eq_stale=True, stop_has=['$120.00 of $400.00 daily stop used', 'from Fri 10-02', 'breaker figure'], stop_lacks=['estimate'])))
     # three key variants again in MONO at 390x844
     for nm, now, doc, ex in [o for o in out if o[0] in ("Saturday noon, Friday's doc",
                                                         "the page's own read failed, Friday's doc on Monday 08:50",
@@ -1238,17 +1337,134 @@ MUTANTS = [
      "exitTime:ex.slice(11,19),exitDate:'',",
      'a trade held over a weekend sits under the day it entered, not the day it closed'),
     ('tl-bare-leg-on-rows',
-     'sym:v=>\'<span style="color:\'+legColorQE(v._t.leg)+\'">\'+qeTradeLegHtml(v._t)+\'</span>\',',
-     'sym:v=>\'<span style="color:\'+legColorQE(v._t.leg)+\'"><span class="qb-trade-leg">\'+naS(v._t.leg)+\'</span></span>\',',
+     "return '<span style=\"color:'+legColorQE(v._t.leg)+'\">'+qeTradeLegHtml(v._t)+'</span>'",
+     "return '<span style=\"color:'+legColorQE(v._t.leg)+'\"><span class=\"qb-trade-leg\">'+naS(v._t.leg)+'</span></span>'",
      "a frame row names the box's bare leg key (ENGUQ) with no run number"),
     ('tl-caveat-mark-hidden',
      '@container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:block}}',
      '@container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:none}}',
      'a flagged trade carries no mark on a phone (the flags column is not one of the five cells)'),
     ('tl-caveat-mark-lost',
-     'const cav=qbRowCaveat(t)?\'<span class="qbx-cav" title="\'+qbEsc(qbFlagsText(t))+\'">!</span>\':\'\';',
-     "const cav='';",
-     'no row carries the flagged-trade mark'),
+     "+(cw?'<span class=\"qbx-cav\" data-qbcav=\"'+cw+'\" title=\"'+qbEsc(qbFlagsText(v._t))+'\">'+cw+'</span>':'');},",
+     "+'';},",
+     'no row carries its caveat word (a phone row cannot say which caveat a trade has)'),
+    ('tl-caveat-bang-only',
+     "title=\"'+qbEsc(qbFlagsText(v._t))+'\">'+cw+'</span>':'');},",
+     "title=\"'+qbEsc(qbFlagsText(v._t))+'\">!</span>':'');},",
+     "a flagged row shows only a '!' whose words are in a tooltip a phone cannot show (review L1)"),
+    ('tl-caveat-word-order',
+     "const QB_CAV_ORDER=['BOOK ONLY','CHECK FILL','FILL GAP','BOOK PRICE','PART BOOK PRICE','NOT COMPARED'];",
+     "const QB_CAV_ORDER=['NOT COMPARED','BOOK ONLY','CHECK FILL','FILL GAP','BOOK PRICE','PART BOOK PRICE'];",
+     'a book-only row says NOT COMPARED instead of BOOK ONLY'),
+    ('tl-caveat-in-time-cell',
+     "return qbEsc(a?((ed&&cd&&ed!==cd?ed.slice(5)+' ':'')+a):'--')+(b?'<small>&rarr; '+qbEsc(b)+'</small>':'');",
+     "return qbEsc(a?((ed&&cd&&ed!==cd?ed.slice(5)+' ':'')+a):'--')+(b?'<small>&rarr; '+qbEsc(b)+'</small>':'')+(qbCavWord(t)?'<span class=\"qbx-cav\" data-qbcav=\"'+qbCavWord(t)+'\">'+qbCavWord(t)+'</span>':'');",
+     'the caveat word sits in the 44 px time cell too (two words on a row)'),
+    # ---- post-landing keeps (review 2026-10-07 section 4, fixes M1 / L2-L6) ----
+    ('csv-name-no-scope',
+     "_libDownload('qqq_shadow_book_closed_trades'+(window._qeExportScope?('_'+window._qeExportScope):'')+'.csv',csv);",
+     "_libDownload('qqq_shadow_book_closed_trades.csv',csv);",
+     'a 1W or LONG export is saved under the whole book\'s file name (review L5)'),
+    ('csv-scope-misses-range',
+     "const qbExportScope=[qbRange!=='ALL'?qbRange:'',",
+     "const qbExportScope=['',",
+     'the CSV file name leaves out the range'),
+    ('broker-line-from-box',
+     'const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,qbBrokerInfo,heroTodayVal,',
+     'const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,(QE.book_only_summary||null),heroTodayVal,',
+     "the hero's broker line is the box's figure, not the page's own sum (review L3)"),
+    ('broker-line-counts-book-only',
+     'trades.forEach(t=>{if(t.book_only)n++;else net+=qePnlOf(t);});',
+     'trades.forEach(t=>{if(t.book_only)n++;net+=qePnlOf(t);});',
+     "the hero's broker line counts the book-only trades"),
+    ('host-green-on-silent-box',
+     "+' · one-computer check '+(QF.stale",
+     "+' · one-computer check '+(false",
+     "the one-computer check stays a green OK on a silent box (review L2)"),
+    ('hero-no-breaker-chip',
+     "if(QE&&QE.breaker_tripped)chips.push(qbChipG('BREAKER TRIPPED','var(--attn-red)'));",
+     '',
+     'the hero has no BREAKER TRIPPED chip'),
+    ('hero-no-kill-chip',
+     "if(QE&&QE.kill)chips.push(qbChipG('KILL ACTIVE','var(--attn-red)'));",
+     '',
+     'the hero has no KILL ACTIVE chip'),
+    ('hero-alarm-chips-colour-when-silent',
+     "if(QE&&QE.kill)chips.push(qbChipG('KILL ACTIVE','var(--attn-red)'));",
+     "if(QE&&QE.kill)chips.push(qbChip('KILL ACTIVE','var(--attn-red)'));",
+     'KILL ACTIVE stays red on a silent box'),
+    ('leg-today-not-legs-record',
+     '          ?QE.today.legs_record' + _CRLF,
+     '          ?{}' + _CRLF,
+     "a strategy row's TODAY ignores the box's legs_record"),
+    ('leg-today-fallback-book-pnl',
+     "b.pnl+=qePnlOf(t);b.n++;",
+     "b.pnl+=(Number(t.pnl)||0);b.n++;",
+     "on an older box a strategy row's TODAY sums the book price, not the P&L of record"),
+    ('stop-always-breaker-figure',
+     "const dllStopShort=qeStopIn!==null?'breaker figure':'estimate, box not updated yet';",
+     "const dllStopShort='breaker figure';",
+     "the daily stop calls an estimate the breaker's own figure"),
+    ('stop-ignores-breaker-figure',
+     'const stopPnl=qeStopIn!==null?qeStopIn:todayPnl;',
+     'const stopPnl=todayPnl;',
+     "the daily stop ignores the breaker's own figure"),
+    ('orders-paper-sentence',
+     "sentence='Sending orders to the Webull paper (practice) account.';",
+     "sentence='Paper.';",
+     "the Orders card no longer says orders go to the Webull paper account"),
+    ('orders-halt-reason-raw',
+     "if(/reconcile mismatch/i.test(s))return 'positions at Webull don'+\"'\"+'t match the notebook';",
+     '',
+     "a reconcile halt shows the box's raw reason, not plain words"),
+    ('panel-no-fill-usd',
+     "usdRow('FILL GAP $',gU),usdRow('DESIGN GAP $',dU),usdRow('SLIPPAGE + UNEXPLAINED $',xU),",
+     '',
+     'the trade panel lost the fill gap dollar split (review M1)'),
+    ('panel-design-usd-is-gap',
+     "dU=usd('dsg_usd')",
+     "dU=usd('gap_usd')",
+     "the panel's DESIGN GAP $ shows the whole gap"),
+    ('panel-no-record-vs-backtest',
+     'const rvb=bt!==null?Math.round((pnl-bt)*100)/100:null;',
+     'const rvb=null;',
+     'the trade panel lost the record vs backtest line'),
+    ('panel-backtest-why-lost',
+     "bt!==null?ledgerSigned(bt):('— &middot; '+qbEsc(btWhy))",
+     "bt!==null?ledgerSigned(bt):'—'",
+     'a missing backtest P&L no longer says why'),
+    ('panel-backtest-why-code',
+     "return c?qeWhyTxt(c):'not on record';",
+     "return c?c:'not on record';",
+     "a missing backtest P&L gives the box's code word (noexit), not its plain words"),
+    ('panel-fills-fixed-sentence',
+     "+(fp.flag?' - '+qbFpCause(fp):'')+'</div>'):'')",
+     "+(fp.flag?' - Webull\\u2019s fills came out more than 15 cents a share worse than the backtest once the known design gap is taken out':'')+'</div>'):'')",
+     "every flagged trade's FILLS vs BACKTEST line says '15 cents worse', also on a CHECK FILL trade whose fills came out better"),
+    ('panel-fills-cause-tape-lost',
+     "if(odd.length)return odd.every(s=>s.why==='diverged')?",
+     "if(false)return odd.every(s=>s.why==='diverged')?",
+     "a trade flagged for a fill that does not fit the tape is explained as 'the box flagged this trade'"),
+    ('panel-backtest-why-nested-parens',
+     "bt!==null?ledgerSigned(bt):('— &middot; '+qbEsc(btWhy))",
+     "bt!==null?ledgerSigned(bt):('— ('+qbEsc(btWhy)+')')",
+     "the reason beside a missing BACKTEST P&L is wrapped in parentheses again (and nests the box's own)"),
+    ('panel-no-flagged-word',
+     "+(fp.flag?' &middot; FLAGGED':'')+'</span>'",
+     "+'</span>'",
+     'the panel no longer says FLAGGED on a flagged trade'),
+    ('panel-candles-netted-as-fill',
+     "if(k==='netted')put('wb_netted'",
+     "if(k==='netted')put('wb_out'",
+     'a netted exit try is drawn as a Webull fill, not its own diamond'),
+    ('key-book-only-old-wording',
+     "hasBookOnly?'book only = order never reached Webull':''",
+     "hasBookOnly?'book only = a side priced from the book because no Webull fill was captured':''",
+     'the chart key mixes BOOK ONLY up with BOOK PRICE again (review L6)'),
+    ('rails-no-paper-api',
+     'Whether orders also go to the Webull paper (practice) account is the Orders mode under System;',
+     'WEBULL PAPER is not used — Webull has no paper API, so nothing is ever sent there;',
+     'the Rails fold says Webull has no paper API again (review L4)'),
     ('tl-calendar-tap-keeps-chip',
      'if(!el&&(window._qeTradesQuery||(window._qeTradesChip&&window._qeTradesChip!==\'ALL\'))){window._qeTradesQuery=\'\';window._qeTradesChip=\'ALL\';window._qeTradesShown=1e6;renderApp();el=document.querySelector(\'[data-qbday="\'+ds+\'"]\');}',
      '',
@@ -1606,8 +1822,8 @@ MUTANTS = [
      "broker made '+qeMoney(brokerInfo.book_net)+' of that ('",
      "the hero's broker line quotes the book's net instead of what the broker made"),
     ('broker-made-line-at-zero',
-     "brokerInfo.book_only_count>0)?('<div style=\"color:var(--attn-amber)\"",
-     "brokerInfo.book_only_count>=0)?('<div style=\"color:var(--attn-amber)\"",
+     "brokerInfo.book_only_count>0)?('<div data-qbbroker style=\"color:var(--attn-amber)\"",
+     "brokerInfo.book_only_count>=0)?('<div data-qbbroker style=\"color:var(--attn-amber)\"",
      "the hero's broker line is drawn although no trade is book-only"),
     ('broker-made-plural-wrong',
      "' book-only trade'+(brokerInfo.book_only_count===1?'':'s')+' excluded)",
@@ -2019,6 +2235,11 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     var sp=d.querySelector('[data-qbstop]');r.stop=sp?sp.getAttribute('data-qbstop'):null;r.stopTxt=sp?(sp.textContent||'').trim():null;
     var od=d.querySelector('[data-qbordersday]');r.orders=od?od.getAttribute('data-qbordersday'):null;r.ordersTxt=od?(od.textContent||'').trim():null;
     r.legtoday=txt('[data-qblegtoday]');
+    // post-landing keeps: the hero's broker line, the NOISE row's TODAY figure, the System fold's host line (state, words, any green in it)
+    r.legTodayVal=txt('[data-qblegtodayval="NOISE"]');
+    var hb=q('[data-qbhost]');
+    if(hb){var okc=cssCol('var(--attn-ok)');r.host=[hb.getAttribute('data-qbhost'),(hb.textContent||'').replace(/\\s+/g,' ').trim(),
+      [].some.call(hb.querySelectorAll('*'),function(e){return w.getComputedStyle(e).color===okc;})];}else r.host=null;
     r.asof=txt('[data-qbasof]');
     r.eqStale=!!d.querySelector('[data-qbeqstale]');
     r.keelwarn=txt('[data-qbkeelwarn]');
@@ -2061,6 +2282,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     return r;
   }
   function greyCol(){var d=D(),w=W(),p=d.createElement('span');p.style.color='var(--text4)';d.body.appendChild(p);var g=w.getComputedStyle(p).color;p.remove();return g;}
+  function cssCol(v){var d=D(),w=W(),p=d.createElement('span');p.style.color=v;d.body.appendChild(p);var g=w.getComputedStyle(p).color;p.remove();return g;}
   // after the seed render: run the 30 s timer's body with the clock moved on, or land a .get() on HOME
   async function after(cfg){
     var w=W();
@@ -2382,11 +2604,17 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     return out;
   }
   // every cell of a row by its column key (the common eight, then this board's own in the table)
+  // (a cell's text without the row's caveat word, which is read on its own: cav)
   function cellMap(row){
     var m={};
-    [].forEach.call(row.children,function(c){var k=/lg-c-([a-z]+)/.exec(c.className||'');if(k)m[k[1]]=tx2(c);});
+    [].forEach.call(row.children,function(c){var k=/lg-c-([a-z]+)/.exec(c.className||'');if(!k)return;
+      if(c.querySelector('.qbx-cav')){var cl=c.cloneNode(true);[].forEach.call(cl.querySelectorAll('.qbx-cav'),function(x){x.parentNode.removeChild(x);});m[k[1]]=tx2(cl);}
+      else m[k[1]]=tx2(c);});
     return m;
   }
+  // the row's caveat word: its data-qbcav, its text, the cell it sits in
+  function cavRead(r){var e=r.querySelector('.qbx-cav');if(!e)return null;var c=e.closest('[class*="lg-c-"]'),k=c?/lg-c-([a-z]+)/.exec(c.className||''):null;
+    return {w:e.getAttribute('data-qbcav'),t:tx2(e),cell:k?k[1]:null,n:r.querySelectorAll('.qbx-cav').length};}
   function tlRead(){
     var d=D(),w=W(),fr=q('[data-lglist-frame="wb"]'),t={frames:d.querySelectorAll('[data-lglist-frame]').length,
       oldSeg:d.querySelectorAll('[data-qbseg="tradesview"]').length,oldRows:d.querySelectorAll('[data-qbtraderow],[data-qetraderow]').length};
@@ -2414,7 +2642,7 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
         rows:g.rows.map(function(r){
           var gl=r.querySelector('[data-qbchartkey]');
           return {id:r.getAttribute('data-lgtrade'),qbday:r.getAttribute('data-qbday'),cells:cellMap(r),legSpans:r.querySelectorAll('.qb-trade-leg').length,
-            cav:!!r.querySelector('.qbx-cav'),glyph:gl?gl.getAttribute('data-qbchartkey'):null};})};
+            cav:cavRead(r),glyph:gl?gl.getAttribute('data-qbchartkey'):null};})};
     });
     var all=[].slice.call(fr.querySelectorAll('[data-lgtrade]')),first=all[0],last=all[all.length-1];
     t.vis=first?visCells(first):null;t.visLast=last?visCells(last):null;
@@ -2507,13 +2735,15 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     o.notes=tx3(ns);o.numbersText=tx3(nus);o.editable=p.querySelectorAll('textarea,input,select').length;
     o.buttons=[].map.call(as?as.querySelectorAll('button'):[],tx2);o.delBtn=as?as.querySelectorAll('button.del').length:0;o.actionsText=tx2(as);
     o.chartText=tx2(cs);o.chartDrawn=!!(cs&&cs.querySelector('.qb-sheet-candles-svg svg'));o.expand=!!(cs&&cs.querySelector('[data-qbcandlesexpand]'));
-    // KEEPS CHECKLIST: every candle layer's own mark (data-mk, its hover title, the shape element it draws), the legend rows under the chart, and what the stub fed
+    // KEEPS CHECKLIST: every candle layer's own mark (data-mk, its hover title, the shape element it draws), the legend rows under the chart, what the stub
+    // fed, and the FILLS vs BACKTEST line of the numbers slot (its data-qbpfp and its words)
     o.marks=cs?[].map.call(cs.querySelectorAll('.qb-sheet-candles-svg svg [data-mk]'),function(g){
       var ti=g.querySelector('title'),sh=null;
       [].forEach.call(g.children,function(c){if(!sh&&c.tagName.toLowerCase()!=='title')sh=c.tagName.toLowerCase();});
       return {k:g.getAttribute('data-mk'),t:ti?(ti.textContent||'').trim():null,sh:sh};}):[];
     o.legend=tx2(cs?cs.querySelector('.qb-candle-legend'):null);
     o.fed=w.__stubFed||null;
+    o.fpHead=(function(){var e=p.querySelector('[data-qbpfp]');return e?[e.getAttribute('data-qbpfp'),tx2(e)]:null;})();
     o.inApp=!!p.closest('#app');o.focusIn=p.contains(d.activeElement);o.bodyWide=b?b.scrollWidth>b.clientWidth+1:null;
     o.oldSheet=!!q('.qb-sheet');o.g=pgeo();
     if(hue)o.hue=pHue(p);
@@ -2537,12 +2767,18 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     if(ei<0||ei>=bars.length)ei=null;
     if(xi<0||xi>=bars.length)xi=null;
     var px=function(k){return k==null?750:bars[k].c;};
-    var net=!!window.__stubNetted;
-    window.__stubFed={entry:ei!=null,exit:xi!=null,netted:net};
+    var net=!!window.__stubNetted,oc=(window.__pnOutcome||{})[x._no]||null;
+    window.__stubFed={entry:ei!=null,exit:xi!=null,netted:net,outcome:net?null:oc};
     return Promise.resolve({bars:bars,entry_idx:ei,exit_idx:xi,tf:'5m',src:'box',asof:'15:55',meta:{},
       marks:{side:String(x._side||'long'),tf:'5m',signal:{t:et,rule:'recorded'},book_in:{t:et,px:px(ei)},bt_in:{t:et,px:px(ei)},
         wb_in:[{t:et,px:px(ei)+0.02,ok:true,sent:!net,outcome:net?'NETTED':'FILLED'}],book_out:xi==null?null:{t:xt,px:px(xi)},
-        wb_out:xi==null?[]:[{t:xt,px:px(xi)+0.03,ok:true,sent:!net,outcome:net?'NETTED':'FILLED'}],lines:[]}});
+        bt_out:xi==null?null:{t:xt,px:px(xi)-0.01},
+        wb_out:xi==null?[]:[(function(oc){
+          if(net)return {t:xt,px:px(xi)+0.03,ok:true,sent:false,outcome:'NETTED'};
+          if(oc==='REFUSED')return {t:xt,px:null,ok:false,sent:true,outcome:'REFUSED',side:'SELL',why:'probe: refused by Webull'};
+          if(oc==='NETTED')return {t:xt,px:px(xi),ok:true,sent:false,outcome:'NETTED',side:'SELL',why:'flatten: crossed internally against ORB'};
+          if(oc==='UNKNOWN')return {t:xt,px:null,ok:false,sent:true,outcome:'UNKNOWN',side:'SELL',why:'hard timeout: no answer after 25s'};
+          return {t:xt,px:px(xi)+0.03,ok:true,sent:true,outcome:'FILLED'};})(oc)],lines:[]}});
   }
   function pStubOn(){
     var w=W();
@@ -2625,6 +2861,8 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     res.csvAll=await csvNow();
     await clickChip('LONG');res.csvLong=await csvNow();res.longRows=tlKeys();
     await clickChip('ALL');await typeIn('orb');res.csvOrb=await csvNow();res.orbRows=tlKeys();await typeIn('');
+    w.eval("homeRange='1W';renderApp();");await sleep(150);await clickChip('LONG');res.csv1wLong=await csvNow();res.w1LongRows=tlKeys();
+    await clickChip('ALL');w.eval("homeRange='ALL';renderApp();");await sleep(150);
     unstubDownload();
     // a calendar tap on a day the chip hides clears the chip and lands on that day
     await clickChip('SHORT');
@@ -2675,6 +2913,7 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
   SCEN.panel=async function(T,res){
     var w=W(),mono=T.theme==='mono';
     res.steps={};
+    w.__pnOutcome=T.outcomes||{};
     pStubOn();
     await sleep(60);
     res.base=pgeo();
@@ -3528,6 +3767,22 @@ def _static_breakpoints(path):
         for num in re.findall(r'(?:min|max)-(?:width|inline-size)\s*:\s*(\d+(?:\.\d+)?)\s*px', m.group(2)):
             if int(float(num)) not in S11_HOUSE:
                 bad.append('@%s%s styles this board at %s px, which is no house width %s' % (m.group(1), m.group(2).rstrip(), num, S11_HOUSE))
+    return bad
+
+
+KEY_WORDS = ['book only = order never reached Webull', 'book price = no Webull fill price']
+
+
+def _static_wording(path):
+    """Wording the review fixed (L4, L6), read from the source: the chart key says BOOK ONLY and BOOK PRICE apart, and nothing says Webull has no
+    paper API (the Orders mode sends to the Webull paper account)."""
+    try:
+        src = io.open(path, encoding='utf-8', newline='').read()
+    except OSError as e:
+        return ['the page source could not be read for the wording check: %s' % e]
+    bad = ['the chart key no longer says %r' % k for k in KEY_WORDS if k not in src]
+    if re.search(r'no paper API', src, re.I):
+        bad.append("the page still says Webull has no paper API (the Rails fold): the Orders mode sends to the Webull paper account")
     return bad
 
 
@@ -4413,11 +4668,35 @@ def fmt_et(iso):
     return '%s %s, %s:%s' % (MON3[int(m.group(2)) - 1], m.group(3), m.group(4), m.group(5))
 
 
+CAV_ORDER = ['BOOK ONLY', 'CHECK FILL', 'FILL GAP', 'BOOK PRICE', 'PART BOOK PRICE', 'NOT COMPARED']
+
+
+def _fill_word(t):
+    """index.html parityChip on a failed fill check: CHECK FILL when a side has an unexplained part (a fill that does not fit the tape), else FILL GAP."""
+    fp = t.get('fp') if isinstance(t.get('fp'), dict) else None
+    for k in ('en', 'ex'):
+        s = fp.get(k) if fp else None
+        if isinstance(s, str):
+            p = s.split('|')
+            u = _to_float(p[6]) if len(p) > 6 and p[6] != '' else 0.0
+        elif isinstance(s, dict):
+            u = _to_float(s.get('unx')) if s.get('unx') is not None else 0.0
+        else:
+            continue
+        if u == u and abs(u) >= 0.00005:
+            return 'CHECK FILL'
+    return 'FILL GAP'
+
+
+def row_cav_word(t):
+    """The one caveat word a row carries under its strategy name (index.html qbCavWord): the first of CAV_ORDER that the row's own flags hold."""
+    words = [(_fill_word(t) if isinstance(w, tuple) else w) for w in tl_flags_want(t)[1:]]
+    return next((k for k in CAV_ORDER if k in words), '')
+
+
 def row_caveat(t):
-    """The trades a flagged-row mark sits on: book only, a book / part-book price, a failed fill parity (not an NT mirror)."""
-    nt = str(t.get('signal_source') or '').lower() == 'ninjatrader'
-    return bool(t.get('book_only') or str(t.get('pnl_record_src') or '') in ('book', 'part')
-                or (not nt and t.get('broker_parity_ok') is False))
+    """The trades a caveat word sits on: book only, a book / part-book price, a failed fill check, no fill comparison (not an NT mirror)."""
+    return bool(row_cav_word(t))
 
 
 def tl_flags_want(t):
@@ -4545,16 +4824,16 @@ def tl_pts_text(t):
 
 
 def tl_time_text(t, mode):
-    """The time cell: the entry time (with its date, in the list, when the trade closed on a later day), '-> exit' after it, a '!' on a flagged trade."""
+    """The time cell: the entry time (with its date, in the list, when the trade closed on a later day), '-> exit' after it (the caveat word is the
+    strategy cell's since 2026-10-08)."""
     en, ex = str(t.get('entry_ts') or ''), str(t.get('exit_ts') or '')
     ed, a, b, cd = en[:10], en[11:16], ex[11:16], _close_day(t)
-    cav = '!' if row_caveat(t) else ''
     if mode == 'table':
-        return ed + ed[5:] + ' ' + (a or '--') + cav
+        return ed + ed[5:] + ' ' + (a or '--')
     s = ((ed[5:] + ' ' if (ed and cd and ed != cd) else '') + a) if a else '--'
     if b:
         s += '→ ' + b
-    return s + cav
+    return s
 
 
 def tl_sheet_title(t):
@@ -4616,8 +4895,10 @@ def _tl_row_problems(r, t, ds, mode, run, has_nt):
         alts = w if isinstance(w, tuple) else (w,)
         if not any(a in flags for a in alts):
             bad.append('flags %r lack %s' % (flags, ' / '.join(alts)))
-    if bool(r.get('cav')) != row_caveat(t):
-        bad.append('flagged-row mark %s, want %s' % (bool(r.get('cav')), row_caveat(t)))
+    cv, want_cav = r.get('cav') or {}, row_cav_word(t)
+    if (cv.get('w') or '') != want_cav or (want_cav and (cv.get('t') != want_cav or cv.get('cell') != 'sym' or cv.get('n') != 1)):
+        bad.append('caveat word %r (text %r, in the %s cell, %s on the row), want %s' % (cv.get('w'), cv.get('t'), cv.get('cell'), cv.get('n'),
+                                                                                     repr(want_cav) + ' under the strategy name' if want_cav else 'none'))
     if r.get('glyph') != row_key(t):
         bad.append('chart glyph %r, want %r' % (r.get('glyph'), row_key(t)))
     if mode == 'table':
@@ -4736,13 +5017,19 @@ def _judge_tl_frame(tag, tl, doc, cutoff, fails, mode='list', chip='ALL', query=
     return page
 
 
-def csv_problems(tag, res, want_rows):
-    """The CSV the button saved against the trades it should hold: file name, the columns it always had, one line a trade in list order."""
+def csv_name(scope=''):
+    """The CSV's file name (review L5): the plain name for ALL with no chip and no search, else the range / chip / search after it."""
+    return CSV_FILE if not scope else CSV_FILE[:-4] + '_' + scope + '.csv'
+
+
+def csv_problems(tag, res, want_rows, scope=''):
+    """The CSV the button saved against the trades it should hold: file name (with the list's scope), the columns it always had, one line a trade in
+    list order."""
     out = []
     if not res:
         return ['%s: the CSV button saved nothing' % tag]
-    if res.get('n') != CSV_FILE:
-        out.append('%s: the file is %r, want %r' % (tag, res.get('n'), CSV_FILE))
+    if res.get('n') != csv_name(scope):
+        out.append('%s: the file is %r, want %r (the file name says which trades it holds)' % (tag, res.get('n'), csv_name(scope)))
     import csv as _csv
     rows = list(_csv.reader(io.StringIO(res.get('t') or '', newline='')))
     if not rows or rows[0] != CSV_COLS:
@@ -4833,13 +5120,21 @@ def panel_rows_want(t, doc):
                                                                 'book': 'none (book prices)'}.get(src, DASH)
     bt, bk, real = _fin(t.get('pnl_backtest')), _fin(t.get('pnl')), _num(t.get('real_pnl'))
     sh = _num(t.get('shares'))
+    rvb = None if bt is None else _js_round((pnl - bt) * 100) / 100
+    fpd = fp if (fp and not nt_mirror) else None
+
+    def usd(label, k):
+        v = _fin(fpd.get(k)) if fpd else None
+        return (label, DASH if v is None else signed(v), _cls(v))
     rows = [('SHARES', DASH if sh is None else '{:,}'.format(_js_round(sh)), None),
             ('NOTIONAL', qe_money(t.get('shadow_notional_usd')), None),
             ('ENTRY $', own['epx'], None), ('ENTRY FILL', fill('en'), None), ('EXIT $', own['xpx'], None), ('EXIT FILL', fill('ex'), None),
             ('HOLD', dur_str(_hold_secs(t)), None),
             ('P&L OF RECORD', '%s \u00b7 %s' % (signed(pnl), {'webull': 'Webull', 'part': 'of record'}.get(src, 'book')), _cls(pnl)),
-            ('BACKTEST P&L', DASH if bt is None else signed(bt), _cls(bt)),
+            ('BACKTEST P&L', '%s \u00b7 %s' % (DASH, bt_why(t, doc)) if bt is None else signed(bt), _cls(bt)),
+            ('RECORD vs BACKTEST', DASH if rvb is None else signed(rvb), _cls(rvb)),
             ('BOOK P&L', DASH if bk is None else signed(bk), _cls(bk)),
+            usd('FILL GAP $', 'gap_usd'), usd('DESIGN GAP $', 'dsg_usd'), usd('SLIPPAGE + UNEXPLAINED $', 'exec_usd'),
             ('RUNNING', own['run'], None), ('REAL P&L', own['real'], _cls(real)), ('SLIP/SH', own['slip'], None), ('FILL COVERAGE', cov, None)]
     if any(t.get(k) is not None for k in ('nt_points', 'expected_usd', 'track_err_usd')):
         rows += [('NT POINTS', own['ntp'], None), ('EXPECTED $', own['exp'], None), ('TRACK ERR', own['trk'], None)]
@@ -4848,6 +5143,59 @@ def panel_rows_want(t, doc):
                  ('NT EXIT', fmt_et(t.get('nt_exit_ts')) if t.get('nt_exit_ts') else DASH, None),
                  ('LATENCY', (qe_num(t.get('latency_s'), 2) + 's') if t.get('latency_s') is not None else DASH, None)]
     return rows
+
+
+def _fp_cause_side(s):
+    """One side of a trade's fp (packed 'bt|wb|fs|edge|dsg|slp|unx|why' or a dict) -> {edge, slp, unx, why}, None when absent."""
+    if isinstance(s, str):
+        p = s.split('|')
+        g = lambda i: (_to_float(p[i]) if len(p) > i and p[i] != '' else None)
+        return {'edge': g(3), 'slp': g(5) or 0.0, 'unx': g(6) or 0.0, 'why': p[7] if len(p) > 7 else ''}
+    if isinstance(s, dict):
+        return {'edge': _num(s.get('edge')), 'slp': _num(s.get('slp')) or 0.0, 'unx': _num(s.get('unx')) or 0.0, 'why': s.get('why') or ''}
+    return None
+
+
+# the FILLS vs BACKTEST line's reason on a flagged trade, by cause (api/qqq_exec.py's order: worse, odd, round trip)
+FP_CAUSE_WORDS = {'worse': 'a Webull fill came out more than 15 cents a share worse than the backtest',
+                  'tape': 'a Webull fill does not fit the tape',
+                  'diverged': 'the resting Webull order filled where the backtest did not exit',
+                  'rt': 'the two Webull fills together came out more than 15 cents a share worse',
+                  'other': 'the box flagged this trade'}
+
+
+def fp_cause_want(t):
+    """Why the box flagged this trade's fills: worse / tape / diverged / rt / other; None when it is not flagged."""
+    fp = t.get('fp') if isinstance(t.get('fp'), dict) else None
+    if not fp or not fp.get('flag'):
+        return None
+    comp = [x for x in (_fp_cause_side(fp.get('en')), _fp_cause_side(fp.get('ex'))) if x and x['edge'] is not None]
+    if any(x['slp'] + x['unx'] < -0.15 - 1e-9 for x in comp):
+        return 'worse'
+    odd = [x for x in comp if abs(x['unx']) >= 0.00005]
+    if odd:
+        return 'diverged' if all(x['why'] == 'diverged' for x in odd) else 'tape'
+    if len(comp) == 2 and sum(x['slp'] + x['unx'] for x in comp) < -0.15 - 1e-9:
+        return 'rt'
+    return 'other'
+
+
+def bt_why(t, doc):
+    """Why a trade has no backtest P&L (index.html, the panel's BACKTEST P&L dash): its exit side's code in words, else 'not on record'."""
+    fp = t.get('fp') if isinstance(t.get('fp'), dict) else None
+    ex, code = (fp or {}).get('ex'), ''
+    if isinstance(ex, str):
+        p = ex.split('|')
+        code = p[7] if len(p) > 7 else ''
+    elif isinstance(ex, dict):
+        code = ex.get('why') or ''
+    if not code or code == 'nofill':
+        return 'not on record'
+    return str(((doc.get('broker_parity') or {}).get('why_text') or {}).get(code) or code)
+
+
+# three caveat trades get a Webull exit try that came back with each of these (the stub feeds it; panel_layer_problems judges its mark)
+PN_OUTCOMES = ['NETTED', 'REFUSED', 'UNKNOWN']
 
 
 def panel_pick(doc):
@@ -4866,13 +5214,22 @@ def panel_pick(doc):
             first(lambda t: any(t.get(k) is not None for k in ('nt_points', 'expected_usd', 'track_err_usd'))),
             first(lambda t: _fin(t.get('size')) not in (None, 1.0) and t.get('trade_id')),
             first(lambda t: t.get('note')),
-            first(lambda t: t.get('pnl_record_src') == 'webull' and t.get('broker_parity_ok') is True and not re.search('EOD|BREAKER|KILL', str(t.get('exit_reason') or '')))]
+            first(lambda t: t.get('pnl_record_src') == 'webull' and t.get('broker_parity_ok') is True and not re.search('EOD|BREAKER|KILL', str(t.get('exit_reason') or ''))),
+            # no backtest P&L, and the box says why (the backtest has not exited this trade): the panel's dash carries those words
+            first(lambda t: _fin(t.get('pnl_backtest')) is None and bt_why(t, doc) != 'not on record'),
+            # a flagged trade whose cause is a fill that does not fit the tape (CHECK FILL): the FILLS vs BACKTEST line must say so, not '15 cents worse'
+            first(lambda t: t.get('broker_parity_ok') is False and not t.get('book_only') and _fill_word(t) == 'CHECK FILL')]
     seen, variety = set(), []
     for t in cand:
         if t is not None and row_key(t) not in seen:
             seen.add(row_key(t))
             variety.append(row_key(t))
-    return {'k1': row_key(rows[0]), 'k2': row_key(k2), 'hideChip': 'SHORT' if tl_side_text(k2) == 'LONG' else 'LONG', 'variety': variety}
+    # three caveat trades (entry and exit on one day, so the stubbed day carries both) get an exit try that came back REFUSED / NETTED / UNKNOWN
+    by_key = dict((row_key(t), t) for t in rows)
+    same_day = [k for k in variety[1:] if str(by_key[k].get('entry_ts') or '')[:10] == str(by_key[k].get('exit_ts') or '')[:10]]
+    outcomes = dict(zip(same_day, ['REFUSED', 'NETTED', 'UNKNOWN']))
+    return {'k1': row_key(rows[0]), 'k2': row_key(k2), 'hideChip': 'SHORT' if tl_side_text(k2) == 'LONG' else 'LONG', 'variety': variety,
+            'outcomes': outcomes}
 
 
 def panel_problems(tag, o, t, doc):
@@ -4910,6 +5267,24 @@ def panel_problems(tag, o, t, doc):
                 bad.append('%s reads %r, want %r' % (lab, got.get(lab), txt))
             elif cls and cls not in ((o.get('rowCls') or {}).get(lab) or '').split():
                 bad.append('%s is drawn with %r, want %s' % (lab, (o.get('rowCls') or {}).get(lab), cls))
+    fpx = t.get('fp') if isinstance(t.get('fp'), dict) else None
+    if str(t.get('signal_source') or '').lower() == 'ninjatrader':
+        fpx = None
+    fh = o.get('fpHead')
+    if fpx is None and fh is not None:
+        bad.append('a FILLS vs BACKTEST line %r on a trade with no fill comparison' % (fh,))
+    elif fpx is not None:
+        flag = bool(fpx.get('flag'))
+        if not fh or fh[0] != ('flagged' if flag else 'ok') or (('FLAGGED' in (fh[1] or '')) != flag):
+            bad.append('the FILLS vs BACKTEST line reads %r, want it %s' % (fh, 'marked FLAGGED (the box flagged this trade)' if flag else 'without FLAGGED'))
+        cause = fp_cause_want(t)
+        txt = (fh or ['', ''])[1] or ''
+        if cause and FP_CAUSE_WORDS[cause] not in txt:
+            bad.append('the FILLS vs BACKTEST line reads %r, want its reason %r (the cause the box flagged it for)' % (txt, FP_CAUSE_WORDS[cause]))
+        if cause in ('tape', 'diverged', 'other') and '15 cents' in txt:
+            bad.append("the FILLS vs BACKTEST line says the fills were over 15 cents a share worse on a trade flagged for another cause (%s): %r" % (cause, txt))
+        if not flag and ' - ' in txt:
+            bad.append('the FILLS vs BACKTEST line gives a flag reason on a trade the box did not flag: %r' % txt)
     n = o.get('notes') or ''
     if 'keeps no notes' not in n or 'read-only' not in n:
         bad.append('the notes slot does not say it is read-only and keeps no notes (%r)' % _first(n, 90))
@@ -5123,6 +5498,8 @@ def _judge_tl_panel(tag, res, doc, cs, fails):
     vs = res.get('variety') or {}
     if len(vs) < 6:
         fails.append("%s: the probe's own caveat cases are wrong: only %d kinds of trade found in the fixture" % (tag, len(vs)))
+    if sorted((pn.get('outcomes') or {}).values()) != PN_OUTCOMES:
+        fails.append("%s: the probe's own outcome cases are wrong: %r" % (tag, pn.get('outcomes')))
     for k, v in vs.items():
         t = by_key.get(k)
         if t is None or not (v or {}).get('read'):
@@ -5130,6 +5507,10 @@ def _judge_tl_panel(tag, res, doc, cs, fails):
             continue
         fails.extend(panel_problems('%s, %s' % (tag, k[3:40]), v['read'], t, doc))
         fails.extend(panel_layer_problems('%s, %s' % (tag, k[3:40]), v['read']))
+        oc = (pn.get('outcomes') or {}).get(k)
+        if ((v['read'].get('fed') or {}).get('outcome') or None) != (oc or None):
+            fails.append("%s, %s: the probe's own case is wrong: the stub fed the Webull exit outcome %r, the case wants %r"
+                         % (tag, k[3:40], (v['read'].get('fed') or {}).get('outcome'), oc))
         if theme == 'mono' and v['read'].get('hue'):
             hue = v['read']['hue']
             if hue.get('bad'):
@@ -5259,11 +5640,15 @@ def _judge_tl_main(tag, res, doc, fails):
     fails.extend(csv_problems('%s [CSV, every trade]' % tag, res.get('csvAll'), allrows))
     fails.extend(csv_problems('%s [CSV, SHOW MORE page open: every trade the list matches]' % tag, res.get('csvPage'), allrows))
     longs = tl_rows(doc, None, 'LONG')
-    fails.extend(csv_problems('%s [CSV, LONG chip]' % tag, res.get('csvLong'), longs))
+    fails.extend(csv_problems('%s [CSV, LONG chip]' % tag, res.get('csvLong'), longs, 'LONG'))
     if len(res.get('longRows') or []) != len(longs):
         fails.append('%s: the LONG chip shows %d rows, want %d' % (tag, len(res.get('longRows') or []), len(longs)))
     orbs = tl_rows(doc, None, 'ALL', 'orb')
-    fails.extend(csv_problems('%s [CSV, search orb]' % tag, res.get('csvOrb'), orbs))
+    fails.extend(csv_problems('%s [CSV, search orb]' % tag, res.get('csvOrb'), orbs, 'search-orb'))
+    w1l = tl_rows(doc, _cutoff('1W', TL_TODAY), 'LONG')
+    fails.extend(csv_problems('%s [CSV, 1W range + LONG chip]' % tag, res.get('csv1wLong'), w1l, '1W_LONG'))
+    if len(res.get('w1LongRows') or []) != len(w1l):
+        fails.append('%s: 1W + LONG shows %d rows, want %d' % (tag, len(res.get('w1LongRows') or []), len(w1l)))
     if len(res.get('orbRows') or []) != len(orbs):
         fails.append('%s: the search "orb" shows %d rows, want %d' % (tag, len(res.get('orbRows') or []), len(orbs)))
     ct = res.get('calTap') or {}
@@ -5452,7 +5837,7 @@ def _attempt(chrome, alt_index, fixture):
     pdir = tempfile.mkdtemp(prefix='_webullprobe_', dir=ROOT)
     variants = [{'name': nm, 'nowMs': now if isinstance(now, int) else et_ms(now), 'doc': doc,
                  'offline': bool(exp.get('offline')), 'missing': bool(exp.get('missing')), 'unloaded': bool(exp.get('unloaded')),
-                 'pin': bool(exp.get('pin')), 'systemOpen': bool(exp.get('ordmode') or exp.get('system')),
+                 'pin': bool(exp.get('pin')), 'systemOpen': bool(exp.get('ordmode') or exp.get('system') or exp.get('host') or exp.get('ordmode_has')),
                  'liveErr': bool(exp.get('liveErr')), 'prev': exp.get('prev'), 'prevCache': bool(exp.get('prev_cache')),
                  'tab': exp.get('tab'), 'vp': exp.get('vp', 'laptop'),
                  'renderMs': et_ms(exp['render_at']) if exp.get('render_at') else None,
@@ -5500,7 +5885,7 @@ def _attempt(chrome, alt_index, fixture):
     if os.environ.get('WEBULLPROBE_DUMP_FILE'):
         io.open(os.environ['WEBULLPROBE_DUMP_FILE'], 'w', encoding='utf-8').write(json.dumps(data))
     res = _judge(data, fixture)
-    st = _static_breakpoints(alt_index or os.path.join(ROOT, 'index.html'))
+    st = _static_breakpoints(alt_index or os.path.join(ROOT, 'index.html')) + _static_wording(alt_index or os.path.join(ROOT, 'index.html'))
     if st:
         return FAIL, list(res[1]) + st, res[2], res[3], True
     return res
@@ -5668,18 +6053,6 @@ FILLS_CHIP = 'FILLS BEHIND BACKTEST'
 PAR_CHIP_RE = re.compile(r'^\d+ PARITY MISMATCH(ES)?$')
 
 
-def expected_broker_line(doc):
-    """The amber line under the hero's since line (index.html brokerLine, from the box's book_only_summary): None when the box counts no book-only trade."""
-    sm = doc.get('book_only_summary') or {}
-    try:
-        n = int(sm.get('book_only_count') or 0)
-    except (TypeError, ValueError):
-        n = 0
-    if n <= 0:
-        return None
-    return 'broker made %s of that (%d book-only trade%s excluded)' % (qe_money(sm.get('broker_net')), n, '' if n == 1 else 's')
-
-
 def expected_par_chip(doc):
     """The hero's PARITY MISMATCH chip (checked minus ok of the NinjaTrader-mirror summary): its text, None when it is not drawn, False when the doc has no summary to judge by."""
     p = doc.get('parity')
@@ -5718,10 +6091,11 @@ def expected_lease_ok(doc):
     return (doc.get('broker') or {}).get('lease_ok_to_send') is not False
 
 
-def expected_host_line(doc):
-    """The System fold's host line while the one-computer check passes; None when it fails (its reason is then worded by the page)."""
+def expected_host_line(doc, stale=False):
+    """The System fold's host line while the one-computer check passes on a fresh doc; None when it fails (its reason is then worded by the page) or
+    the box is silent (then 'last known, as of <time>': the variant states it)."""
     host = str(((doc.get('lease') or {}).get('host_id')) or 'an unknown computer')
-    return ('Running on %s \u00b7 one-computer check OK' % host) if expected_lease_ok(doc) else None
+    return ('Running on %s \u00b7 one-computer check OK' % host) if (expected_lease_ok(doc) and not stale) else None
 
 
 def _fixture_book_only_problems(fixture):
@@ -5747,17 +6121,17 @@ def _hero_extras(tag, r, doc, fails, stale_like=False, colour=True, ex=None, sys
     notes, titles = r.get('heroNote') or [], r.get('heroNoteTitles') or []
     idx = [i for i, x in enumerate(notes) if x.startswith('broker made')]
     got_line = [notes[i] for i in idx]
-    want = expected_broker_line(doc)
+    want = broker_line_want(doc)
     if 'broker_line' in ex and (ex['broker_line'] or None) != want:
         fails.append("%s: the probe's own case is wrong: the doc implies the broker line %r, the variant says %r" % (tag, want, ex['broker_line']))
     if want is None:
         if got_line:
-            fails.append('%s: the hero shows %r although the box counts no book-only trade' % (tag, got_line))
+            fails.append('%s: the hero shows %r although no trade on the page is book-only' % (tag, got_line))
     elif got_line != [want]:
-        fails.append("%s: the hero's amber broker line reads %r, want %r (the broker net and the book-only count of the box's book_only_summary)"
-                     % (tag, got_line, want))
+        fails.append("%s: the hero's amber broker line reads %r, want %r (the page's own sum over its trades, book-only ones left out - never the box's "
+                     "book_only_summary, review L3)" % (tag, got_line, want))
     else:
-        n = int(doc['book_only_summary']['book_only_count'])
+        n = sum(1 for t in doc.get('trades_all') or [] if not _is_shadow(t) and t.get('book_only'))
         tw = '%d trade%s never reached the broker' % (n, '' if n == 1 else 's')
         tip = titles[idx[0]] if idx[0] < len(titles) else ''
         if tw not in tip:
@@ -5794,7 +6168,7 @@ def _hero_extras(tag, r, doc, fails, stale_like=False, colour=True, ex=None, sys
     # -- the System fold's host line and its one-computer check
     if sys_open:
         hl = r.get('hostLine')
-        wh = expected_host_line(doc)
+        wh = expected_host_line(doc, stale_like)
         if 'hostline' in ex and wh is not None and ex['hostline'] != wh:
             fails.append("%s: the probe's own case is wrong: the doc implies the host line %r, the variant says %r" % (tag, wh, ex['hostline']))
         want_h = ex.get('hostline') or wh
@@ -5804,6 +6178,8 @@ def _hero_extras(tag, r, doc, fails, stale_like=False, colour=True, ex=None, sys
             fails.append('%s: the System fold says the one-computer check is OK while another computer holds the lease (%r)' % (tag, hl))
         if hl is None:
             fails.append('%s: the System fold has no "Running on <host> . one-computer check" line' % tag)
+        elif stale_like and 'last known' not in hl:
+            fails.append("%s: the System fold's host line reads %r on a silent box, want it marked last known with its time (review L2)" % (tag, hl))
 
 
 # the candle layers a trade's panel chart draws, by data-mk: (hover title, the shape element, the legend row's start, what it is)
@@ -5815,7 +6191,12 @@ PN_LAYERS = {
     'book_out': (re.compile(r'^book exit \d+\.\d\d$'), 'rect', 'book out ', 'the book exit'),
     'wb_out': (re.compile(r'^Webull exit \d+\.\d\d$'), 'rect', 'Webull out ', 'the Webull exit attempt'),
     'wb_netted': (re.compile(r'^no Webull order - netted against another leg at \d+\.\d\d$'), 'path', 'no Webull order ', 'a netted Webull attempt'),
+    'bt_out': (re.compile(r'^backtest exit \d+\.\d\d$'), 'rect', 'backtest out ', 'the backtest exit'),
+    'wb_refused': (re.compile(r'^Webull refused: probe: refused by Webull$'), None, 'Webull refused ', 'a Webull exit try Webull refused'),
+    'wb_unknown': (re.compile(r"^sent - Webull's answer unknown"), None, "Webull's answer unknown", 'a Webull exit try whose answer never came'),
 }
+# the Webull exit try's mark by the outcome the stub fed it (None = FILLED)
+PN_EXIT_MARK = {None: 'wb_out', 'NETTED': 'wb_netted', 'REFUSED': 'wb_refused', 'UNKNOWN': 'wb_unknown'}
 
 
 def panel_layer_problems(tag, o, netted=False):
@@ -5825,7 +6206,8 @@ def panel_layer_problems(tag, o, netted=False):
         return []             # panel_problems already says the chart never drew
     fed = o.get('fed') or {}
     wb = 'wb_netted' if netted else None
-    want = (['signal', 'bt_in', 'book_in', wb or 'wb_in'] if fed.get('entry') else []) + (['book_out', wb or 'wb_out'] if fed.get('exit') else [])
+    xmk = wb or PN_EXIT_MARK.get(fed.get('outcome'), 'wb_out')
+    want = (['signal', 'bt_in', 'book_in', wb or 'wb_in'] if fed.get('entry') else []) + (['book_out', 'bt_out', xmk] if fed.get('exit') else [])
     got = o.get('marks') or []
     bad = []
     if bool(fed.get('netted')) != bool(netted):
@@ -5839,19 +6221,21 @@ def panel_layer_problems(tag, o, netted=False):
             continue
         if not spec[0].match(m.get('t') or ''):
             bad.append('%s is titled %r (want %s)' % (spec[3], m.get('t'), spec[0].pattern))
-        if m.get('sh') != spec[1]:
+        if spec[1] and m.get('sh') != spec[1]:
             bad.append('%s is drawn as <%s>, want <%s>' % (spec[3], m.get('sh'), spec[1]))
     legend = o.get('legend') or ''
     for k in sorted(set(want)):
         spec = PN_LAYERS[k]
         if netted and k == 'wb_netted':
             rows = (['no Webull order in '] if fed.get('entry') else []) + (['no Webull order out '] if fed.get('exit') else [])
+        elif k == 'wb_netted':
+            rows = ['no Webull order out ']
         else:
             rows = [spec[2]]
         for rw in rows:
             if rw not in legend:
                 bad.append('the legend under the chart has no row for %s (%r missing from %r)' % (spec[3], rw, _first(legend, 160)))
-    if netted and want and 'netted against another leg' not in legend:
+    if 'wb_netted' in want and 'netted against another leg' not in legend:
         bad.append('the legend does not say the attempt was netted against another leg (%r)' % _first(legend, 160))
     return ['%s: %s' % (tag, x) for x in bad]
 
@@ -5910,7 +6294,7 @@ def _judge(data, fixture):
                 fails.append('%s: the legend line icons are %spx wide (the legend wraps; want 16px)'
                              % (nm, r.get('lineIconW')))
             key = r.get('key') or ''
-            if 'hatched' not in key or 'book only' not in key:
+            if 'hatched' not in key or 'book only' not in key or 'book price' not in key or not all(k in key for k in KEY_WORDS):
                 fails.append('%s: the caveat / book-only key under the chart reads %r' % (nm, key))
         _judge_list(nm, r.get('lg'), cfg['vp'], cfg['theme'], fixture, None, 'ALL', False, False, fails)
         _judge_cal(nm, r.get('lgcal'), cfg['vp'], cfg['theme'], fixture, None, None, _cal_open_want(cfg['vp'], None), STAT_TODAY, fails)
@@ -6101,6 +6485,48 @@ def _judge(data, fixture):
     return PASS, [], notes, data, False
 
 
+def _keeps_problems(tag, r, ex, fails):
+    """The post-landing keeps on one variant (review 2026-10-07 section 4): the host line, the broker line, the strategy TODAY figure, the hero alarm
+    chips, the share check, the Orders card's sentence, the daily stop's own words."""
+    if ex.get('host'):
+        want_st, subs, green = ex['host']
+        h = r.get('host')
+        if not h:
+            fails.append("%s: the System fold has no 'Running on <host> - one-computer check' line ([data-qbhost])" % tag)
+        else:
+            if h[0] != want_st:
+                fails.append('%s: the host line is marked %r, want %r (%r)' % (tag, h[0], want_st, h[1]))
+            for s in subs:
+                if s not in (h[1] or ''):
+                    fails.append('%s: the host line reads %r, want %r in it' % (tag, h[1], s))
+            if bool(h[2]) != green:
+                fails.append('%s: the host line %s green, want %s (%r)' % (tag, 'draws' if h[2] else 'has no', 'green OK' if green else
+                                                                            'no green: the check is only as current as the doc', h[1]))
+    if ex.get('legtodayval') and r.get('legTodayVal') != ex['legtodayval']:
+        fails.append("%s: the NOISE row's TODAY figure reads %r, want %r (today.legs_record, else the page's own sum on the box's day)"
+                     % (tag, r.get('legTodayVal'), ex['legtodayval']))
+    flags = r.get('flags') or {}
+    for k, want in (ex.get('flags_has') or {}).items():
+        if flags.get(k) != want:
+            fails.append('%s: the hero chip %s is %s, want it drawn %s (chips: %r)' % (tag, k, 'missing' if k not in flags else 'drawn ' + flags[k], want, flags))
+    for k in ex.get('flags_lacks') or []:
+        if any(k in f for f in flags):
+            fails.append('%s: the hero shows a %s chip on a doc that has none (chips: %r)' % (tag, k, flags))
+    if ex.get('recon_is'):
+        st, start = ex['recon_is']
+        if r.get('recon') != st or not (r.get('reconTxt') or '').startswith(start):
+            fails.append('%s: the share check reads %r (%s), want %s starting %r' % (tag, r.get('reconTxt'), r.get('recon'), st, start))
+    for s in ex.get('ordmode_has') or []:
+        if s not in (r.get('ordMode') or ''):
+            fails.append('%s: the Orders card (System) reads %r, want %r in it' % (tag, r.get('ordMode'), s))
+    for s in ex.get('stop_has') or []:
+        if s not in (r.get('stopTxt') or ''):
+            fails.append('%s: the daily stop line reads %r, want %r in it' % (tag, r.get('stopTxt'), s))
+    for s in ex.get('stop_lacks') or []:
+        if s in (r.get('stopTxt') or ''):
+            fails.append('%s: the daily stop line reads %r, it must not say %r' % (tag, r.get('stopTxt'), s))
+
+
 def _judge_variants(data, fixture, fails, unfinished, why):
     """The freshness variants: each chip, label and the top bar chip, against what the variant's
     clock and doc say they must be."""
@@ -6175,6 +6601,7 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             if tuple(r.get('top') or ()) != tuple(ex['top'] or ()):
                 fails.append('%s: the top bar WEBULL chip is %r away from the board, want %r' % (tag, r.get('top'), ex['top']))
             continue
+        _keeps_problems(tag, r, ex, fails)
         fresh = r.get('fresh') or {}
         names = {'silent': 'BOX SILENT', 'keel': 'KEEL', 'publish': 'UPDATES FAILING', 'pubgap': 'UPDATES PAUSED',
                  'tickgap': 'BOX STALLED', 'noread': 'THIS PAGE CANNOT READ'}
@@ -6386,6 +6813,7 @@ def selftest(jobs=1, only=None):
         if jobs > 1:
             # the broken copies run side by side, each in its own process; the verdicts print in the order they finish
             import concurrent.futures as _cf
+            retry = []
             with _cf.ThreadPoolExecutor(max_workers=jobs) as ex:
                 futs = dict((ex.submit(_selftest_one, path), (name, why)) for name, why, path in built)
                 for f in _cf.as_completed(futs):
@@ -6396,8 +6824,18 @@ def selftest(jobs=1, only=None):
                                                                        ' | '.join(h.strip()[:230] for h in head[:3] if h.strip())))
                     else:
                         print('-- mutant %s (%s): expect FAIL -> exit %d: %s' % (name, why, code, (head[0] if head else '')[:200]))
-                    if code != FAIL:
+                    if code == INCONCLUSIVE:
+                        retry.append((name, why, futs[f]))
+                    elif code != FAIL:
                         bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s' % (name, code, why))
+            # a page that did not boot with other copies running beside it (twice) is run once more alone before it counts as not caught
+            paths = dict((nm, pth) for nm, _w, pth in built)
+            for name, why, _ in retry:
+                code, head = _selftest_one(paths[name])
+                print('-- mutant %s (%s): INCONCLUSIVE under parallel load, alone: %s (exit %d): %s'
+                      % (name, why, 'caught' if code == FAIL else 'NOT caught', code, (head[0] if head else '')[:200]))
+                if code != FAIL:
+                    bad.append('mutant %s was NOT caught (exit %d) -- the gate has gone blind to: %s' % (name, code, why))
         else:
             for name, why, path in built:
                 print('-- mutant %s (%s): expect FAIL' % (name, why))

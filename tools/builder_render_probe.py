@@ -37,7 +37,7 @@ run_id too -- and 1 cancelled job. metaStrats/metaMasters/metaEta are stubbed
 with one real strategy and one matching market, so the ticket has a data
 window and a time estimate to compute rather than an empty state.
 
-Same shape as tools/qqq_overview_probe.py and tools/paper_render_probe.py:
+Same shape as tools/paper_render_probe.py:
 stdlib only, plus a subprocess call to local headless Chrome, serving the repo
 over loopback so index.html's own fetches never fire, the probe HTML written
 into a throwaway _bldprobe folder at the repo root and removed in `finally`.

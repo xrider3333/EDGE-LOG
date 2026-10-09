@@ -269,7 +269,7 @@ For the builders, not the owner. Line numbers drift with every ship.
 
 **Paper boards:** see the two inventories named at the top. NT8 branch starts at about 38098; WEBULL branch at about 36012.
 
-**Probes that open the paper boards by internal id:** `tools/paper_render_probe.py`, `tools/qqq_candles_probe.py`, `tools/qqq_orders_probe.py`, `tools/qqq_overview_probe.py`.
+**Probes that open the paper boards by internal id:** `tools/paper_render_probe.py`, `tools/qqq_candles_probe.py`, `tools/webull_board_probe.py` (`tools/qqq_orders_probe.py` and `tools/qqq_overview_probe.py` were retired on 2026-10-08; their checks live in `tools/webull_board_probe.py`).
 
 ## Appendix B: shared parts - adoption contract (TRADING-LOG, 2026-10-05)
 
