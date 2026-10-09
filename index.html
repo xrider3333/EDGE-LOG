@@ -41397,20 +41397,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }
           return groups;
         };
-        // No trade closed in the chosen range (TODAY before the first exit, a weekend, a holiday): the shared
-        // fold then shows only 'No trades in this range.' and leaves the board's own groups out, but the
-        // Account rows (equity, cash, open exposure, the daily loss limit) do not depend on the range, so
-        // they are drawn under that line here. Asked of TRADING-LOG: ledgerMoreStatsHtml drawing ownGroups
-        // when s is null, after which this wrapper can go.
-        const qbMoreEmptyHtml=()=>{
-          const h=ledgerMoreStatsHtml(null,[],{open:true,id:'qb'}),k=h.lastIndexOf('</div>');
-          const g=qbOwnStatGroups().map(gr=>'<div class="lg-ms-group" data-lgmsgroup="'+String(gr.title).replace(/"/g,'')+'"><h4>'+gr.title+'</h4>'
-            +(gr.rows||[]).map(r=>ledgerMsRow(r[0],r[1],r[2])+(r[3]||'')).join('')+'</div>').join('');
-          return k<0?h:(h.slice(0,k)+'<div class="lg-ms-grid" style="margin-top:16px">'+g+'</div><div class="lg-ms-note">Equity, cash, exposure and the loss limit are as of the box\u2019s last update.</div>'+h.slice(k));
-        };
+        // No trade closed in the chosen range (TODAY before the first exit, a weekend, a holiday): since shared
+        // parts round 1 (v73.1141, contract 4f) ledgerMoreStatsHtml(null, ownGroups) draws the board's own groups
+        // under 'No trades in this range.' by itself, so the Account rows (equity, cash, open exposure, the daily
+        // loss limit), which do not depend on the range, stay visible with no board-side wrapper.
         const qbLgStatsHtml=(ledgerStatStripHtml(qbLs,{id:'qb-stat-strip'})
-          +((qbMoreOpen&&!qbLs)?qbMoreEmptyHtml():ledgerMoreStatsHtml(qbLs,qbMoreOpen?qbOwnStatGroups():[],{open:qbMoreOpen,id:'qb',
-            note:'Returns, Risk, Mix and the trade rows follow the chosen range ('+(LEDGER_RANGE_LABEL[qbRange]||qbRange)+') at the P&amp;L of record: Webull fills, else the book price. Equity, cash, exposure and the loss limit are as of the box\u2019s last update.'})));
+          +ledgerMoreStatsHtml(qbLs,qbMoreOpen?qbOwnStatGroups():[],{open:qbMoreOpen,id:'qb',
+            note:'Returns, Risk, Mix and the trade rows follow the chosen range ('+(LEDGER_RANGE_LABEL[qbRange]||qbRange)+') at the P&amp;L of record: Webull fills, else the book price. Equity, cash, exposure and the loss limit are as of the box\u2019s last update.'}));
 
 
         // ── 7. TRADES — the shared trade list frame, with its SHOW MORE below it (the CSV button is in the frame's toolbar).
