@@ -1,0 +1,29 @@
+BOOK QUEUE Q34 - ENGU-Q: ENTRY TIMING vs STOP-EXIT TIMING, and what survives an RTH-only executor that holds overnight (MANAGER #139 item 2;
+follows Q31 / BOOK.md 10an, where WHEN the leg holds was worth ~+12 ROC points standalone). PRE-DATA NOTE for MANAGER + ENGUQ, 2026-10-09.
+A REPORT, WF only (the S1 stretch 2016-07-01..2025-06-29), lockbox unread, no adoption. Uses Q31's valuation exactly (NQ 1m ETH
+back-adjusted master, book UTC days, $20 a point, 1.0 NQ while on); no new number of this item has been computed.
+
+PART A - SPLIT "WHEN" INTO ENTRY TIMING AND EXIT TIMING (one choice each):
+- ENTRY-ONLY TWIN: 1.0 NQ entered at each of the leg's own entry bars, but held for a duration taken from ANOTHER of the leg's WF trades (a
+  random permutation of the leg's own trade durations, in bars), cut short at the leg's next entry so positions never overlap; valued
+  close-to-close like Q31's in-position twin; 200 permutations, seed 20261009, the mean daily $ across them is the row.
+- The chain (standalone ROC@30k and $ a year, DD5 beside; and each as a seat on L like Q31):
+  always-on twin (drift at the average exposure) -> entry-only twin = ENTRY TIMING;
+  entry-only twin -> in-position twin (the real exits, at bar closes) = STOP-EXIT TIMING;
+  in-position twin -> the leg = fills (Q31: +1.6).
+- Costs: the entry-only twin pays the leg's 0.783-pt round trip per trade like the in-position twin.
+
+PART B - THE RTH-ONLY, OVERNIGHT-HOLD EXECUTOR (the Webull paper book, owner GO 10-09):
+- Every entry and exit the leg signals at a bar inside RTH (a regular session's 09:30-15:59 ET bars) fills at that bar's close, as in
+  Part A. A signal outside RTH (overnight / pre-market / a CME-holiday session) fills at the OPEN of the next regular session's 09:30 bar.
+  Positions may be held overnight. Stop exits that trigger overnight therefore fill at the next open (gap risk included).
+- Instrument: NQ itself at 1.0 contract (the QQQ executor's scale and share costs are the paper lanes'; this isolates the timing).
+- Rows: the RTH executor's leg (the same trades, delayed fills); its entry-only twin (same delays); the counts and $ of signals outside RTH
+  (entries / exits); then the Part A chain re-done for the executor: which of ENTRY / EXIT timing survives the delay, in ROC points and $.
+- Also: the RTH executor as a seat on L (L with the executor's ENGU-Q in place of the leg), DD5 beside.
+READ (pre-set wording): each component is reported with its share of the leg's standalone ROC lead over the always-on twin; "survives"
+= the executor keeps at least half of that component's $ a year. Power line first (tools/power_line.py) for leg vs executor and for
+entry-only vs in-position, so a small difference is called "not distinguishable".
+COULD FOOL US: the duration permutation keeps the length distribution but not its link to market state (that link IS exit timing, by
+construction); the executor proxy uses NQ bar opens, not QQQ prints; 2016-25 favours holding.
+LOOKS: none on the lockbox. Script: bookq/q34_enguq_timing.py (committed with the record; witness branch before the run if MANAGER wants it).
