@@ -10,6 +10,7 @@ crossover strategy: workers=1 and workers=2 must agree on every fold row to the 
 import os
 import sys
 import textwrap
+import threading
 import time
 
 import numpy as np
@@ -135,8 +136,27 @@ def test_parallel_pool_boot_timeout_falls_back_to_sequential(strat_path, monkeyp
     and raise instead of hanging, and run_auto's existing pool-failure handling (the `except
     Exception` around its call site) must fall back to the in-line loop and still land on
     the exact rows workers=1 produces."""
+    # The stub blocks on an EVENT, not a sleep, so "did run_auto wait for the boot?" is a
+    #   question about ORDER rather than duration - and a busy machine cannot change the answer.
+    #
+    #   THE STALL MUST OUTLAST THE FALLBACK, and that is the one real constraint. If it were
+    #   shorter, correct code would see the stub finish while the fallback was still running and
+    #   the ordering check would fail for no reason. The fallback here is about 2s, so 60s leaves
+    #   a 30x margin and matches what production actually uses for this timeout. It is not longer
+    #   because a BROKEN build pays the whole stall before failing: at 120s the mutation check
+    #   took 125s, at 60s it takes about half that. Abandoning it costs nothing when the code is
+    #   right - auto.py runs the boot on a daemon thread and the event is released in a finally.
+    BOOT_STALL_S = 60.0
+    entered = threading.Event()     # the boot was attempted at all
+    finished = threading.Event()    # the boot ran to completion - it must NOT, run_auto gives up
+    release = threading.Event()     # lets the stub go at teardown instead of lingering
+
     def _never_returns(*a, **k):
-        time.sleep(5)   # far longer than the patched timeout below
+        entered.set()
+        try:
+            release.wait(BOOT_STALL_S)
+        finally:
+            finished.set()
         raise AssertionError("should have been abandoned long before returning")
 
     monkeypatch.setattr(_auto, "_WF_POOL_BOOT_TIMEOUT_S", 0.2)
@@ -144,11 +164,31 @@ def test_parallel_pool_boot_timeout_falls_back_to_sequential(strat_path, monkeyp
 
     common = dict(arrays=_arrays(), method="walkforward", wf_folds=4, n_trials=20,
                   seed=11, min_trades=5, cost_pts=0.1, oos=True, auto_expand=False)
-    seq = run_auto(strat_path, workers=1, **common)
-    start = time.time()
-    stalled = run_auto(strat_path, workers=2, **common)
-    elapsed = time.time() - start
-    assert elapsed < 5.0, "run_auto should give up on the stalled pool almost immediately"
+    try:
+        # the SAME work, timed on this box under this load, is the yardstick for the next run
+        t0 = time.time()
+        seq = run_auto(strat_path, workers=1, **common)
+        seq_s = time.time() - t0
+
+        t1 = time.time()
+        stalled = run_auto(strat_path, workers=2, **common)
+        stalled_s = time.time() - t1
+        boot_outstanding = not finished.is_set()
+    finally:
+        release.set()
+
+    assert entered.is_set(), ("the pool boot was never attempted, so nothing was abandoned and "
+                              "this test proved nothing")
+    # THE LOAD-INDEPENDENT ONE. run_auto came back while the boot was still outstanding, which
+    #   is precisely "it did not wait for it". No wall clock involved.
+    assert boot_outstanding, ("run_auto waited for the stalled pool boot to finish instead of "
+                              "abandoning it at _WF_POOL_BOOT_TIMEOUT_S")
+    # Backstop, relative so it scales with the machine instead of fighting it: the stalled run
+    #   does the same folds as the sequential one plus a 0.2s abandoned boot, so it may be
+    #   slower, but not by anything like the stall it is supposed to have walked away from.
+    assert stalled_s < seq_s * 3.0 + 10.0, (
+        "the stalled run took %.1fs against %.1fs for the same work run sequentially - it looks "
+        "like it waited on the boot rather than giving up" % (stalled_s, seq_s))
     assert _strip(seq["top"]) == _strip(stalled["top"])
     assert seq["best_params"] == stalled["best_params"]
 
