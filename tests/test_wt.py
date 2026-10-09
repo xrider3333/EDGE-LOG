@@ -193,6 +193,77 @@ def test_every_chrome_selftest_cover_carries_kill_on_exit():
             assert 'tools/kill_on_exit.py' in g.cover, g.key
 
 
+EXIT_PROBE = r'''
+import os, sys
+spec = os.environ['EXIT_PROBE_SPEC']
+if spec != 'silent':
+    print('-- noise first')
+    print('SELFTEST: PASS (probe)' if '--selftest' in sys.argv else 'FXPROBE: PASS (probe)')
+sys.stdout.flush()
+if spec == 'crash':
+    if os.name == 'nt':
+        import ctypes
+        ctypes.windll.kernel32.ExitProcess(0xC000026B)
+    import signal
+    os.kill(os.getpid(), signal.SIGKILL)
+sys.exit(0 if spec == 'silent' else int(spec))
+'''
+
+
+def _exit_gates(tmp_path):
+    (tmp_path / 'tools').mkdir(exist_ok=True)
+    (tmp_path / 'tools' / 'fx_probe.py').write_text(EXIT_PROBE, encoding='utf-8')
+    fast = wt.Gate('fx', 'FX gate', 'tools/fx_probe.py', 'index', 'FX gate FAILED - not pushing',
+                   '(fx probe produced no output)', prefix='FXPROBE:')
+    slow = wt.Gate('fx-selftest', 'FX gate SELF-TEST', 'tools/fx_probe.py', ('tools/fx_probe.py',),
+                   'FX gate SELF-TEST FAILED - not pushing', '(fx probe self-test produced no output)',
+                   prefix='SELFTEST:', args=('--selftest',), slow=True,
+                   cover=('tools/fx_probe.py',))
+    return fast, slow
+
+
+# spec -> what run_gate makes of it: ('pass'|'inconclusive', exit code returned) or ('FAIL', text)
+EXIT_MATRIX = [
+    ('fast', '0', ('ok', 0)),
+    ('fast', '1', ('FAIL', 'FX gate FAILED - not pushing')),
+    ('fast', '2', ('ok', 2)),                                     # INCONCLUSIVE: never blocks
+    ('fast', '3', ('FAIL', 'FX gate FAILED - not pushing (the gate exited 3 ')),
+    ('fast', '255', ('FAIL', 'FX gate FAILED - not pushing (the gate exited 255 ')),
+    ('fast', 'crash', ('FAIL', 'FX gate FAILED - not pushing (the gate exited ')),
+    ('fast', 'silent', ('ok', 2)),                                # no verdict line: INCONCLUSIVE
+    ('slow', '0', ('ok', 0)),
+    ('slow', '1', ('FAIL', 'FX gate SELF-TEST FAILED - not pushing')),
+    ('slow', '2', ('FAIL', 'FX gate SELF-TEST was INCONCLUSIVE (exit 2)')),
+    ('slow', '3', ('FAIL', 'FX gate SELF-TEST FAILED - not pushing (the gate exited 3 ')),
+    ('slow', 'crash', ('FAIL', 'FX gate SELF-TEST FAILED - not pushing (the gate exited ')),
+    ('slow', 'silent', ('FAIL', 'FX gate SELF-TEST was INCONCLUSIVE (exit 0 with no verdict line)')),
+]
+
+
+@pytest.mark.parametrize('kind,spec,want', EXIT_MATRIX,
+                         ids=['%s-%s' % (k, sp) for k, sp, _ in EXIT_MATRIX])
+def test_only_exit_2_is_inconclusive_and_a_silent_exit_0_is_no_pass(tmp_path, monkeypatch,
+                                                                       kind, spec, want):
+    """2026-10-09 (TRADING-LOG): a gate speaks 0 PASS / 1 FAIL / 2 INCONCLUSIVE. Any other exit -
+    a crash (0xC000026B when the PC sleeps), a kill, a stray code - is a FAIL, fast gate or
+    selftest, before the lock or under it; it used to be waved through as if INCONCLUSIVE. And
+    an exit 0 whose verdict line is the gate's own 'empty' text said nothing: INCONCLUSIVE (never
+    stamped - run_plan stamps exit 0 only), never a pass."""
+    fast, slow = _exit_gates(tmp_path)
+    g = fast if kind == 'fast' else slow
+    monkeypatch.setenv('EXIT_PROBE_SPEC', spec)
+    if want[0] == 'FAIL':
+        with pytest.raises(SystemExit) as e:
+            wt.run_gate(str(tmp_path), str(tmp_path), g)
+        assert str(e.value.code).startswith(want[1]), e.value.code
+        if spec == 'crash':
+            assert re.search(r'exited (3221226091|-\d+) ', str(e.value.code)), e.value.code
+    else:
+        line, code = wt.run_gate(str(tmp_path), str(tmp_path), g)
+        assert code == want[1], (line, code)
+        assert (line == g.empty) == (spec == 'silent'), line
+
+
 def test_a_gate_prints_the_line_it_always_printed():
     assert _gate('home').pick('noise\nHOMEPROBE: PASS (x)\nmore') == 'HOMEPROBE: PASS (x)'
     assert _gate('home').pick('nothing useful') == '(HOME probe produced no output)'
@@ -489,6 +560,19 @@ def _held(path):
         os.close(fd)
 
 
+def _exit_as(code):
+    """Leave with `code`: a number, or 'crash' - the way a gate dies when the PC sleeps under it
+    (0xC000026B on Windows), or a signal kill elsewhere (a negative exit)."""
+    sys.stdout.flush()
+    if code == 'crash':
+        if os.name == 'nt':
+            import ctypes
+            ctypes.windll.kernel32.ExitProcess(0xC000026B)
+        import signal
+        os.kill(os.getpid(), signal.SIGKILL)
+    sys.exit(int(code))
+
+
 def _block():
     marker = os.environ['FAKE_BLOCK_MARKER']
     open(marker, 'w').close()
@@ -540,6 +624,13 @@ def main():
         print('SELFTEST: INCONCLUSIVE -- Chrome timed out under load (fake)' if mode == 'selftest'
               else 'HOMEPROBE: INCONCLUSIVE -- Chrome timed out under load (fake)')
         sys.exit(2)
+    for var, when in (('FAKE_EXIT', True), ('FAKE_EXIT_LOCKED', held)):   # '<gate mode>:<code>'
+        who, _, code = os.environ.get(var, '').rpartition(':')
+        if when and who == me:
+            print('HOMEPROBE: PASS (fake, then it dies)')
+            _exit_as(code)
+    if os.environ.get('FAKE_SILENT') == me:          # exit 0, but no verdict line at all
+        return
     if mode == 'selftest':
         n = open('index.html', encoding='utf-8', newline='').read().count(MUTANTS[0][1])
         if n != 1:
@@ -639,6 +730,7 @@ def _env(tmp_path, **extra):
               'FAKE_FAIL', 'FAKE_FAIL_LOCKED', 'FAKE_DIRTY', 'FAKE_HOOK_FAIL', 'FAKE_HOOK_LAND',
               'FAKE_BLOCK_LOCKED', 'FAKE_BLOCK_UNLOCKED', 'FAKE_BLOCK_WT', 'FAKE_BLOCK_MARKER',
               'FAKE_BLOCK_RELEASE', 'FAKE_INCONCLUSIVE', 'FAKE_LAND_DROP_ANCHOR',
+              'FAKE_EXIT', 'FAKE_EXIT_LOCKED', 'FAKE_SILENT',
               'EDGELOG_GATE_SLOT_WAIT_MAX',
               'FAKE_LAND_FILE', 'FAKE_LAND_BUMPS', 'FAKE_LAND_TIMES', 'FAKE_LAND_LEDGER_ROW'):
         env.pop(k, None)                  # only what a test asks for, never the caller's
@@ -1145,6 +1237,71 @@ def test_an_inconclusive_fast_gate_never_blocks_but_runs_again_on_the_final_tree
     assert log.count('preflight_boot plain locked') == 0, 'a real pass on the same tree is reused'
     assert 'HOME render gate: INCONCLUSIVE never blocks a render gate, but it is no pass either' in out
     assert 'home' not in _stamp_of(env, session)['gates']
+
+
+def test_a_fast_gate_that_crashes_under_the_lock_is_a_fail_not_waved_through(tmp_path):
+    """(1) under the lock: main moved, so the HOME probe re-runs on the final tree under the
+    lock - and dies there the way a gate dies when the PC sleeps (0xC000026B). Before
+    2026-10-09 that read as INCONCLUSIVE and the push went ahead."""
+    env = _env(tmp_path, FAKE_LAND=str(tmp_path / 'land.py'), FAKE_LAND_FILE='other.txt',
+               FAKE_EXIT_LOCKED='home_render_probe plain:crash')
+    origin, shared, session = _sandbox(tmp_path, env)
+    rc, out = _ship(env, shared, session)
+    assert rc != 0, out
+    assert re.search(r'HOME render gate FAILED - not pushing \(the gate exited (3221226091|-\d+) '
+                     r'- not PASS, FAIL or INCONCLUSIVE', out), out
+    assert ('LOCKED: HOME render gate FAILED on the final tree - nothing was pushed; the push lock '
+            'goes with this process') in out, out
+    assert not _landed(env, origin, session)
+    assert 'another lane' in _git(env, origin, 'log', '-1', '--format=%s', 'main')
+    _assert_lock_and_queue_free(tmp_path)
+
+
+def test_a_fast_gate_that_exits_with_a_stray_code_before_the_lock_stops_the_ship(tmp_path):
+    """(1) before the lock: exit 3 is no verdict a gate chose - a FAIL, no ticket, no lock."""
+    env = _env(tmp_path, FAKE_EXIT='preflight_boot plain:3')
+    origin, shared, session = _sandbox(tmp_path, env)
+    before = _git(env, origin, 'rev-parse', 'main')
+    rc, out = _ship(env, shared, session)
+    assert rc != 0, out
+    assert 'boot gate FAILED - not pushing (the gate exited 3 - not PASS, FAIL or INCONCLUSIVE' in out
+    assert ('PRE-LOCK: boot gate FAILED before the push lock was taken - no ticket, no lock, '
+            'nothing pushed') in out, out
+    assert _git(env, origin, 'rev-parse', 'main') == before and _never_queued(tmp_path)
+    stamp = os.path.join(_git(env, session, 'rev-parse', '--absolute-git-dir'), wt.STAMP_FILE)
+    assert not os.path.exists(stamp) or 'boot' not in _stamp_of(env, session)['gates']
+
+
+def test_a_fast_gate_that_exits_0_with_no_verdict_line_is_never_stamped(tmp_path):
+    """(2) for a render gate: '(HOME probe produced no output)' with exit 0 is no pass. It does
+    not block - an INCONCLUSIVE never has - but it is not stamped, so the final tree gets its
+    own run under the lock."""
+    env = _env(tmp_path, FAKE_SILENT='home_render_probe plain')
+    origin, shared, session = _sandbox(tmp_path, env)
+    rc, out = _ship(env, shared, session)
+    assert rc == 0, out
+    assert _landed(env, origin, session), out
+    assert '(HOME probe produced no output)' in out, out
+    assert ('HOME render gate exited 0 without its verdict line - no verdict, so it counts as '
+            'INCONCLUSIVE, never as a pass') in out, out
+    assert 'home' not in _stamp_of(env, session)['gates']
+    log = _log(tmp_path)
+    assert log.count('home_render_probe plain unlocked') == 1, out
+    assert log.count('home_render_probe plain locked') == 1, 'it must run again on the final tree'
+
+
+def test_a_selftest_that_exits_0_with_no_verdict_line_stops_the_ship_unstamped(tmp_path):
+    """(2) for a selftest: no verdict line is no verdict - it stops the ship before the lock, as
+    an INCONCLUSIVE selftest does, and the stamp never vouches for it."""
+    env = _env(tmp_path, FAKE_SILENT='home_render_probe selftest')
+    origin, shared, session = _sandbox(tmp_path, env)
+    before = _git(env, origin, 'rev-parse', 'main')
+    rc, out = _ship(env, shared, session)
+    assert rc != 0, out
+    assert 'HOME gate SELF-TEST was INCONCLUSIVE (exit 0 with no verdict line)' in out, out
+    assert ('PRE-LOCK: HOME gate SELF-TEST was INCONCLUSIVE before the push lock was taken') in out
+    assert _git(env, origin, 'rev-parse', 'main') == before and _never_queued(tmp_path)
+    assert 'home-selftest' not in _stamp_of(env, session)['gates']
 
 
 def test_a_gate_failing_under_the_lock_pushes_nothing_and_lets_the_lock_go(tmp_path):

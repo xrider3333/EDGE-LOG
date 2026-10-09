@@ -775,7 +775,19 @@ def run_gate(wt, root, g):
     fast gate's INCONCLUSIVE still never blocks - as always - but it runs again on the final
     tree under the lock instead of being reused. A SELFTEST's stops the ship: carried forward it
     would vouch for a gate nobody saw catch anything, and re-running it round the pre-lock loop
-    would cost an hour a time for the same answer."""
+    would cost an hour a time for the same answer.
+
+    ONLY exit 2 is INCONCLUSIVE (2026-10-09, TRADING-LOG). Every gate speaks 0 PASS / 1 FAIL /
+    2 INCONCLUSIVE; any other exit - a crash such as 0xC000026B (3221226091) when the PC sleeps
+    mid-run, a negative signal exit, a killed process - is no verdict the gate chose, and is a
+    FAIL before the lock and under it alike. Before, a fast gate that crashed under the lock was
+    waved through as if INCONCLUSIVE.
+
+    AN EXIT 0 WITHOUT ITS VERDICT LINE IS NO PASS (2026-10-09). A gate's `empty` text is the line
+    ship prints when the gate printed no verdict line at all ("(... produced no output)") - by
+    the table's own definition, no verdict. So exit 0 with that line counts as INCONCLUSIVE: it
+    is never stamped, a selftest's stops the ship, and a fast gate's runs again on the final tree
+    under the lock, exactly as an exit-2 would."""
     r = subprocess.run(gate_command(wt, root, g), cwd=wt, capture_output=True, text=True,
                        encoding='utf-8', errors='replace')
     out = (r.stdout or '') + (r.stderr or '')
@@ -791,18 +803,30 @@ def run_gate(wt, root, g):
         return line, 0
     line = g.pick(out)
     safe_print(line)
-    if r.returncode == 1:
+    code = r.returncode
+    if code not in (0, 1, 2):
+        if g.dump:
+            sys.stderr.write(out)
+        raise SystemExit('%s (the gate exited %d - not PASS, FAIL or INCONCLUSIVE: it crashed or '
+                         'was killed, e.g. the PC slept mid-run; ship again once it can finish)'
+                         % (g.fail, code))
+    if code == 1:
         if g.dump:
             sys.stderr.write(out)
         raise SystemExit(g.fail)
-    if g.slow and r.returncode != 0:
+    how = 'exit %d' % code
+    if code == 0 and line == g.empty:
+        safe_print('  %s exited 0 without its verdict line - no verdict, so it counts as '
+                   'INCONCLUSIVE, never as a pass' % g.label)
+        code, how = 2, 'exit 0 with no verdict line'
+    if g.slow and code != 0:
         if g.dump:
             sys.stderr.write(out)
-        raise SystemExit('%s was INCONCLUSIVE (exit %d) - a selftest that reached no verdict is '
+        raise SystemExit('%s was INCONCLUSIVE (%s) - a selftest that reached no verdict is '
                          'not a pass, so it is not stamped and nothing was pushed. If Chrome '
                          'timed out under load, ship again; if a mutant anchor moved, update the '
-                         'MUTANTS in %s first.' % (g.label, r.returncode, g.script))
-    return line, r.returncode
+                         'MUTANTS in %s first.' % (g.label, how, g.script))
+    return line, code
 
 
 # ================================================================================= the stamp
@@ -1318,7 +1342,7 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
         try:
             line, code = run_gate(wt, root, g)
         except SystemExit as e:
-            word = 'was INCONCLUSIVE' if 'INCONCLUSIVE (exit' in str(e.code) else 'FAILED'
+            word = 'was INCONCLUSIVE' if ' was INCONCLUSIVE (' in str(e.code) else 'FAILED'
             if phase == 'pre-lock':
                 safe_print('PRE-LOCK: %s %s before the push lock was taken - no ticket, no '
                            'lock, nothing pushed' % (g.label, word))
