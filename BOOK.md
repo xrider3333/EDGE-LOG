@@ -1190,6 +1190,92 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10av. Q37 DIP #424 UNDER THE WEBULL EXECUTOR ON QQQ: it keeps DIP's edge, and the sizing is fixed 1.245x, not KEEL (2026-10-09, a report)
+
+**What it is.**
+- MANAGER #141 item 2. PAPER-WB is starting DIP_424F (fixed 1.245x) and DIP_424K (KEEL v12) as no-order shadows.
+- DIP already decides on the daily close and fills at the next 09:30 open, which is the Webull executor's rule. So the executor read is
+  the same file, at #424's parameters with asset ETF, on QQQ 5-minute Alpaca prints.
+- Both arms go through the KEEL decomposition's own harness (STRATEGY-BEATING's r28, TTM-verified, copied verbatim).
+- The NQ arm first reproduced the published decomposition exactly: plain 23.9039, KEEL 18.5333, fixed 23.9039.
+- Run before main on branch prereg/frontier-dipqqq-1009 (70a09c05): note LF c9eec4b4, script LF 12056a93. One Firestore read (#424's
+  doc).
+- **Common window:** 2017-08-07 to 2025-08-24. DIP needs 430 sessions of history, and the QQQ prints start in 2016. Walk-forward only,
+  lockbox unread.
+
+| Line (common window) | ROC@30k | $ a year | DD5 | Timing $ (null percentile) |
+|---|---|---|---|---|
+| NQ plain (PURE list) | 22.26 | $72,937 | $77,011 | - |
+| NQ fixed at KEEL's mean (1.250) | 22.26 | $91,196 | $96,289 | 0 |
+| NQ KEEL v12 | 17.68 | $81,469 | $106,482 | -$78,692 (7.6) |
+| QQQ plain | 21.34 | $77,860 | $80,546 (one episode) | - |
+| QQQ fixed at KEEL's mean (1.227) | 21.34 | $95,528 | $98,824 (one episode) | 0 |
+| QQQ KEEL v12 (walked on QQQ's trades) | 19.47 | $90,772 | $103,010 (one episode) | -$38,429 (24.0) |
+| QQQ preset tilts only | 19.09 | $83,175 | $103,291 | -$99,811 (0.1) |
+| QQQ learned part only | 22.64 | $103,375 | $96,351 (one episode) | +$63,398 (94.7) |
+
+**Read.**
+- **Power first.** The noise lines are 6.32 ROC points (NQ vs QQQ plain) and 8.45 (QQQ KEEL vs fixed).
+- **Edge:**
+  - On QQQ prints DIP makes 107% of its NQ dollars a year at the same $100,000 notional.
+  - ROC: -0.92 points, **not distinguishable at this resolution**.
+  - Year by year the two nearly match (2020 $219k vs $251k; 2024 $143k vs $112k). The executor keeps DIP's edge.
+- **Sizing: fixed 1.245x** (the pre-set word).
+  - KEEL sits -1.87 points under fixed, inside the line.
+  - KEEL's preset tilts (Friday, compression, pre-statement) lose on QQQ as on NQ: -$99,811, at the 0.1st percentile of their null.
+  - Its learned part does better on QQQ (+$63,398, 94.7th percentile) but is not beyond the null, and is trusted on only 28% of trades.
+- **Not the live object:** the live DIP_424K's KEEL is trained on NQ #424's trades from 2010 and only scores QQQ entries. This arm walks
+  KEEL on QQQ's own trades.
+- DIP_424F is the leg to watch. No change from FRONTIER.
+- **Could fool us:**
+  - Raw QQQ gaps down on ex-dividend mornings (a few extra GAPDN signals a year), and dividends are not in the prints.
+  - The last 5-minute close runs a little under the official close.
+  - Closed-trade booking.
+  - About eight years of data.
+  - 2016-25 favours buying dips.
+
+### 10au. Q36 ENGU-Q #335 ON REAL QQQ PRINTS: NQ's own signals filled on QQQ keep the edge; the crown run on QQQ's own bars does not earn its seat (2026-10-09, a report)
+
+**What it is.**
+- MANAGER #141 item 1. 10as used NQ prices as the stand-in; this report uses real QQQ prints.
+- Walk-forward only, lockbox unread, no adoption.
+- Run before main on branch prereg/frontier-enguqqqq-1009 (f6a04056): note docs/PREDATA_frontier_enguqqqq_2026-10-09.txt (LF 7655fbbe),
+  script tools/rocfrontier/q36_enguq_qqq.py (LF 3d8cac97). Hashes matched.
+- Data: QQQ 1-minute regular-hours bars, 2016-01-04 to 2026-06-30, pulled 10-09 from Alpaca SIP (1,023,757 rows,
+  master_dd092f50.csv, sha256 bdca2595).
+- Size: one NQ contract's notional = 822 QQQ shares (the raw NQ / QQQ ratio sat between 40.9 and 41.6 over the walk-forward).
+  $0.01 a share a side.
+- **B:** NQ #335's own signals, filled on QQQ. A signal at a minute QQQ prints fills at that bar's close; any other signal fills at the
+  next 09:30 open. Positions are held overnight.
+- **A:** the paper leg as it runs: #335's settings on QQQ's own bars.
+
+| Line | ROC@30k | $ a year | DD5 | As a seat on L |
+|---|---|---|---|---|
+| ENGU-Q #335 on NQ (the leg) | 26.09 | $42,266 | $31,177 (one episode) | 121.06 |
+| B: NQ signals filled on QQQ | 28.42 | $41,344 | $34,652 | 114.08 |
+| B on NQ prices (10as) | 24.57 | $38,587 | $35,511 (one episode) | 116.81 |
+| A: the paper leg as it runs (QQQ bars) | 19.91 | $30,129 | $36,136 | **79.36** |
+| L without ENGU-Q | - | - | - | 82.04 |
+
+**Read.**
+- **Power first.** The noise lines are 12.70 ROC points (leg vs B), 20.09 (leg vs A) and 18.14 (A vs B).
+- **B:**
+  - It keeps 98% of the leg's dollars a year.
+  - +2.33 ROC points is inside the line: not distinguishable at this resolution.
+  - QQQ prints against NQ prices under the same rule add +3.85 points (+$2,758 a year).
+- **A:**
+  - It keeps 71% of the leg's dollars. -6.18 ROC points is inside its wide line.
+  - But as a seat it drags L to 79.36, **below L with no ENGU-Q at all** (82.04), with a worst drawdown of $51,133.
+  - A is a different strategy: 308 walk-forward trades against 1,194, only 130 of them on the same sessions as NQ's. This is the mismatch
+    api/cloud_signal.py already flags: regime_len counts sessions, and the $0.50 risk floor binds at QQQ prices.
+- **For the owner:**
+  - The overnight-hold executor is fine.
+  - The signal source is the issue. Feeding the Webull leg NQ #335's signals (from NQ 1-minute overnight bars) and filling on QQQ keeps the
+    edge. Running the crown on QQQ's own bars does not.
+  - That needs a live NQ overnight 1-minute feed on the signal host. It is a design call for PAPER-WB and the owner; no change from FRONTIER.
+- **Could fool us:** QQQ's dividends are not in the prints; SIP closes are not Webull fills; one fixed share count for nine years;
+  2016-25 favours holding.
+
 ### 10at. Q35 NOISE TRIP ANATOMY: July was a run of failed short breaks; the 10aq bands are sized in 2016-25 dollars and over-alarm at today's prices (2026-10-09, a report)
 
 **What it is.** The harm monitor's first read tripped NOISE #422's A1 at the 07-17 check (10ar). This report asks what the July stretch was, and
