@@ -155,10 +155,11 @@ def test_orderflow_only_failure_builds_no_note_and_nothing_is_pushed():
 def test_note_text_is_plain_and_leaves_out_order_flow():
     items = [_it("capture_NQ", detail="only 46% of the last hour's traded bars carry buy/sell"),
              _it("box_push", detail="newest run FAILED (ssh timeout) - the box's KEEL refresh reads stale NQ data"),
+             _it("bundle", detail="last rebuilt 10-04 09:00 ET"),
              _it("repair_NQ", "warn", "8982 no-tick bars since 10-04 18:03 ET")]
     note = S.build_note(items, NOW)
     assert note["title"] == "Paper NT8: needs a fix" and note["priority"] == "default"
-    assert note["message"].split("\n") == ["Trading: not affected.", "The NQ data upload to the cloud box failed.",
+    assert note["message"].split("\n") == ["Trading: not affected.", "The paper board's trade list was not rebuilt.",
                                            "Do: ask Claude (PAPER-NT8 chat)."]
     assert not N.lint(note)
 
@@ -178,7 +179,7 @@ def test_a_strategy_down_is_the_one_high_priority_item():
 def test_every_item_kind_reads_plainly():
     ids = [("task:EdgeLog NT 10s import", "last run ended with code 1 (not 0)"),
            ("task:EdgeLog premarket wake", "last ran 10-01 06:00, more than 80 h ago"),
-           ("box_push", "no successful push since 10-02 21:00"), ("nt_backup_rows", "x"), ("capture_NQ", "newest bar is 9 min old"),
+           ("nt_backup_rows", "x"), ("capture_NQ", "newest bar is 9 min old"),
            ("readiness", "no readiness result for today"), ("report", "no report for 2026-10-06 (the 16:10 ET runner pass)"),
            ("bundle", "last rebuilt 10-04 09:00 ET"), ("something_new", "?")]
     for cid, detail in ids:
@@ -187,7 +188,7 @@ def test_every_item_kind_reads_plainly():
 
 
 def test_push_repeat_rule_once_then_daily_new_at_once_back_only_after_high():
-    box = [_it("box_push")]
+    box = [_it("bundle")]
     a, st, n = S.decide_push(box, {}, 1000, NOW)
     assert a == "push" and n["priority"] == "default"
     assert S.decide_push(box, st, 1000 + 1800, NOW)[0] is None                              # the next 30-minute run
@@ -244,18 +245,18 @@ def test_main_order_flow_only_failure_posts_to_the_inbox_but_never_the_phone(mon
 
 
 def test_main_pushes_once_per_day_while_unchanged(monkeypatch, tmp_path):
-    items = [_it("box_push", detail="newest run FAILED")]
+    items = [_it("bundle", detail="last rebuilt 10-04 09:00 ET")]
     posted, pushed = _stub_main(monkeypatch, tmp_path, items)
     S.main(["--no-firestore"])
     S.main(["--no-firestore"])
     S.main(["--no-firestore"])
     assert len(pushed) == 1 and pushed[0]["title"] == "Paper NT8: needs a fix"
     state = json.load(open(tmp_path / "state.json"))
-    assert state["set"] == ["box_push"] and state["push"]["set"] == {"box_push": 1}         # the inbox state keeps its shape
+    assert state["set"] == ["bundle"] and state["push"]["set"] == {"bundle": 1}         # the inbox state keeps its shape
 
 
 def test_main_failed_delivery_is_retried_next_run(monkeypatch, tmp_path):
-    items = [_it("box_push", detail="newest run FAILED")]
+    items = [_it("bundle", detail="last rebuilt 10-04 09:00 ET")]
     posted, pushed = _stub_main(monkeypatch, tmp_path, items)
     ok = {"v": False}
     monkeypatch.setattr(S, "_push_note", lambda note: pushed.append(note) or ok["v"])
@@ -336,3 +337,26 @@ def test_the_night_mode_task_is_watched_and_reads_plainly():
     assert S.TASK_MAX_AGE_H["EdgeLog NT night mode"] == 80
     d = S._describe(_it("task:EdgeLog NT night mode", detail="last run ended with code 2 (not 0)"))
     assert d["problem"] == "The NinjaTrader end-of-day close failed on its last run."
+
+
+def test_nq_upload_to_the_box_stays_in_the_inbox_and_json_but_never_the_phone(monkeypatch, tmp_path):
+    # PAPER-WB #124: the box monitor's 18:00 ET nq_master check is the one phone owner of 'NQ did not reach the box'
+    items = [_it("box_push", detail="newest run FAILED"), _it("task:EdgeLog push NQ master to box", detail="failed")]
+    assert S.push_items(items) == []
+    posted, pushed = _stub_main(monkeypatch, tmp_path, items)
+    assert S.main(["--no-firestore"]) == 1
+    assert pushed == [] and len(posted) == 1 and "FAIL" in posted[0]
+    saved = json.load(open(tmp_path / "result.json"))
+    assert [i["id"] for i in saved["items"]] == ["box_push", "task:EdgeLog push NQ master to box"]
+
+
+def test_roster_names_a_strategy_held_back_by_the_per_contract_gate(tmp_path):
+    log = tmp_path / "nt_recover.log"
+    log.write_text("2026-10-09 09:00:00  === recover start (WhatIf=False) ===\n"
+                   "2026-10-09 09:00:20  HELD BACK for a person: EdgeLogNOISE - the account holds an open position on its contract:\n"
+                   "2026-10-09 09:00:40  PARTIAL: EdgeLogENGUQ1m Realtime; HELD BACK for a person: EdgeLogNOISE (open position on its contract)\n")
+    now = dt.datetime(2026, 10, 9, 9, 30)
+    it = S.check_roster(now, str(log))[0]
+    assert it["status"] == "fail" and it["detail"].startswith("EdgeLogNOISE HELD BACK since 10-09 09:00")
+    log.write_text(log.read_text() + "2026-10-09 09:20:00  RECOVERED: EdgeLogNOISE, EdgeLogENGUQ1m are Realtime\n")
+    assert S.check_roster(now, str(log))[0]["status"] == "pass"

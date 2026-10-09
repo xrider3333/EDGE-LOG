@@ -232,16 +232,24 @@ def check_roster(now_local, log_path=None):
         tail = open(p, encoding="utf-8", errors="replace").readlines()[-400:]
     except OSError:
         return [_item("roster", "warn", "Strategies running", "watchdog log missing")]
-    bad_since = None
+    bad_since, held = None, None
     for ln in tail:
         try:
             t = dt.datetime.strptime(ln[:19], "%Y-%m-%d %H:%M:%S")
         except ValueError:
             continue
         if "healthy:" in ln or "RECOVERED" in ln:
-            bad_since = None
+            bad_since, held = None, None
+        elif "HELD BACK for a person:" in ln and not ln[21:].startswith("PARTIAL"):
+            # PER-CONTRACT GATE (nt_recover.ps1, 10-09): the others run, this one waits on a person's decision
+            held = ln[21:].split(":", 1)[1].split(" - ", 1)[0].strip()
+            bad_since = bad_since or t
         elif ("STOP:" in ln or "INCOMPLETE" in ln) and bad_since is None:
             bad_since = t
+    if held and bad_since and (now_local - bad_since).total_seconds() > 15 * 60:
+        return [_item("roster", "fail", "Strategies running",
+                      f"{held} HELD BACK since {bad_since:%m-%d %H:%M} - an open position on its contract waits for a person "
+                      f"(flatten it, or enable it knowing it will not manage the trade); the others run")]
     if bad_since and (now_local - bad_since).total_seconds() > 15 * 60:
         return [_item("roster", "fail", "Strategies running",
                       f"the watchdog has not reported healthy since {bad_since:%m-%d %H:%M} (STOP / INCOMPLETE) - a strategy is down")]
@@ -447,9 +455,15 @@ def is_orderflow(it):
     return iid.startswith("repair") or (iid.startswith("capture_") and "buy/sell" in str(it.get("detail", "")))
 
 
+# 'NQ data did not reach the box' has ONE phone owner: the box monitor's nq_master check at 18:00 ET
+# (MANAGER #86 GO, PAPER-WB #124, 10-08). These two items stay in the inbox post and nt8_sweep.json but never
+# buzz the phone from here, or one missed NQ night buzzes twice.
+NQ_UPLOAD_IDS = ("box_push", "task:EdgeLog push NQ master to box")
+
+
 def push_items(items):
-    """The items worth a phone push: FAIL only, never order flow."""
-    return [i for i in items if i["status"] == "fail" and not is_orderflow(i)]
+    """The items worth a phone push: FAIL only, never order flow, never the NQ upload to the box."""
+    return [i for i in items if i["status"] == "fail" and not is_orderflow(i) and i.get("id") not in NQ_UPLOAD_IDS]
 
 
 def _local_clock(text, now_local):
