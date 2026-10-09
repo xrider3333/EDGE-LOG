@@ -1,0 +1,62 @@
+BOOK QUEUE Q29 - CALMTAPE r1: a long index-futures leg held only on a CALM UPTREND, as a seat on the S1 line - the one shape Q28's map says
+the book lacks. FROZEN 2026-10-09 (v1 10-08 15:25 -> MANAGER #125: GO for STEP 1 only; STEP 1 done and passed; v2 folded #125's ONE change
+to the bar -> MANAGER #126 10-09 05:42: GO WITH 2 EDITS, pre-data, folded below and marked [#126]; the harness's open choices are written in
+and marked [H]). No P&L of any leg has been computed. Walk-forward only; the lockbox is not read (every input is cut before 2025-06-30).
+Harness: tools/rocfrontier/r30_calmtape.py (imports r17_resmom.py LF 3151ef0a and Q28's r29_ranatomy.py LF 84306a50 unchanged; pins both,
+the VIX file, the S1 line file and tools/power_line.py at start, and refuses on a mismatch).
+
+WHY. Q28 (BOOK.md 10al): the book harvests volatility - it earns most per day when the tape is stressed and least on a calm, low-VIX
+uptrend (+$262 a day; a third of those days are drawdown days; 81% of R days fall in uptrends). Moreira-Muir (2017) find equity exposure
+scaled down when volatility is high earns more per unit of risk; the equity premium is cheapest to hold when the tape is calm. A leg that is
+long only in that state would earn exactly where the book grinds, and be FLAT in the stressed states where the book already earns.
+NOT A REPEAT: round 62 V / V2 and RISK r1 scaled the BOOK by its own volatility (dead / forward line VT); this is a new leg on the index.
+TV's XASSET (an NQ/ES side signal from TLT) lost to buy-and-hold - noted; buy-and-hold ES is printed as the twin here.
+
+STEP 1 - MAP CHECK FIRST (no P&L, from Q28's states; can close the item): count the R days and L's R loss that fall on days the leg would
+hold (the prior close: VIX <= 16 and ES above its 200-session mean). If those days carry less than 15% of R's dollar loss, the leg cannot
+matter as a seat and the item CLOSES without a backtest. (Q28: the low-VIX tercile alone carries 18% of R's loss.)
+STEP 1 RESULT (2026-10-08 16:45, bookq/q29_mapcheck.py on Q28's committed state functions; no leg P&L): CT1's hold days = 1,189 of 2,626 WF
+days; they hold 380 of R's 762 days and $251,939 of R's $887,447 loss = 28.4% (29.6% without 2020-03) -> PASSES. The book earns only $235 a
+day across those hold days. CT2 holds every uptrend day: 621 R days, 70.5% of R's loss.
+
+THE LEG (if the map check passes). ES futures (roll-corrected 5m RTH master for P&L, the raw master for notional and the roll).
+[#126 (1) NO SAME-CLOSE FILLS] The state is computed from day t's closes (ES's 16:00 RTH print; the CBOE VIX close); the position is taken at
+the FIRST RTH bar open of day t+1 (the open of the 09:30 bar, roll-corrected) and P&L runs from that fill, marked at each 16:00 print (night
++ day). Exits the same way. The twin is held the same way (bought at the first WF session's 09:30 open). Every stretch starts flat.
+[#126 (2) VIX DATA] VIX = C:\EdgeLog\_research_cache\public_series\cboe_vol_daily.csv, column VIX_close (sha256
+9790df06b649df21d34ab7cb31a5ed5e4c3c71fcda33952d1f41e431cb4e2470 - Q28's and the map check's file); rows on or after 2025-06-30 are dropped on
+read. House drop rule (VRPES edit 13 / LATESTRESS): rows dated on a CME-holiday session - an ES RTH master session complete from the 09:30
+bar to a last bar starting 12:55 or 13:00; NYSE early closes (13:10 / 13:15) stay - are DROPPED before any state reads them: 23 rows, all
+2022-05-30 or later (71 CME-holiday sessions in the master; counted from the calendar). A CME-holiday session has no 16:00 print and is not a
+session of the leg (its move falls in the next night). Map share under the final rule (hold flags only): CT1's held sessions carry 28.1%
+of R's loss (step 1: 28.4%; the floor stays 15%).
+- CT1 (switch): 1 MES-equivalent unit long when VIX <= 16 and ES > its 200-session mean, else flat.
+- CT2 (scaled): long w = min(2, 16 / VIX) units while ES > its 200-session mean, else flat (VIX = day t's close).
+[H] ES's 200-session mean = the mean of the 200 16:00 prints through day t (Q28's trend_state on the leg's own sessions); a missing VIX
+value = flat.
+Costs: 1 tick + $1.25 commission per MES side ($2.50), on every change of units at an open; [H ROLLS] a position held through the night of
+a roll (a session whose unadjusted-minus-roll-corrected gap moved) pays two sides a unit. P&L in dollars; sized for the seat by volatility
+exactly as 10ab (the seat pipeline). TWIN: buy-and-hold ES at the same average exposure, with the same fills, entry and roll costs.
+THE BAR (MANAGER #125 - the ONE change: for an explicit long-ES leg beta IS the bet, so the house's '|beta| > 0.20 = R money never
+credited' rule for dollar-neutral sorts does not apply). Each cell is judged against the BUY-AND-HOLD ES TWIN AT THE SAME AVERAGE EXPOSURE
+(the twin holds a constant fraction of a unit equal to the cell's average units over the WF):
+  (i) overall: the cell's WF ROC @ $30k above the twin's, with DD5 beside both; and
+  (ii) on R: the cell's dollars on the S1 line's 762 drawdown days above the twin's, and [H] still above it when the qualifying S1
+      episode where the cell earns most is taken out of BOTH (an S1 line date with no ES session = $0 for both);
+  (iii) robustness: positive in >= 6 of 9 July-June years, positive without its best 1% of days.
+FAMILY NULL (CT1 and CT2 are a family of 2): random hold-day sets with each cell's own number of hold days, drawn as blocks of 20 sessions
+(preserving clustering), applied to the same ES returns, 500 draws per cell on fixed streams; the statistic = the cell's ROC lead over its
+twin, the MAX over the two cells per draw; a cell must beat the null's p95 of that max. [H NULL] The blocks = whole 20-session slots on a
+random phase (circular), the last chosen slot trimmed to the exact count; on a held session the null carries the cell's own average units on
+its held sessions (CT1: 1; CT2: its mean of min(2, 16 / VIX)), so CT2's null tests the timing and the scaling together; the same fills,
+costs and rolls; the null's twin = the cell's twin (the same average units). Seeds 20261009 (CT1) / 20261010 (CT2); draw j of both = one
+family draw. [H POWER] The power line comes from the family null alone (no cell P&L; MANAGER #115's form): the lead over random holding a
+cell needs to clear the null's p95 at 50% / 80% power, found as a daily drift on held sessions, in points and in $ a year; tools/power_line.py's
+SD is printed on the median null draw vs its twin as a proxy. Committed as an addendum BEFORE any cell P&L; stage_a refuses until it is.
+THE SEAT READ (REPORT): L + c x X at 0.25 / 0.10 (the seat pipeline, S1 line 121.06): X's $ on R with and without its best episode, DD5.
+COULD FOOL US: (1) 2016-25 is a strong equity decade - the twin and the halves (2016-07..2020-12 / 2021-01..2025-06, descriptive) say how
+much is just beta; (2) the VIX <= 16 / 200-day
+choices are round published levels, not tuned - no other thresholds are run; (3) the leg is long beta - its crash days are excluded by
+construction only if VIX rises first (the gap risk on a calm day is shown: the worst 5 days).
+LOOKS: two cells (none if closed at the map check). LOCKBOX: not read. ORDER: draft -> MANAGER (#125 GO step 1) -> map check (done, passed) -> MANAGER #126 GO with 2 edits (folded) -> commit + witness branch
+prereg/frontier-calmtape-1009 + hashes to MANAGER (rule #117) -> power line -> commit the power addendum -> Stage A WF -> record -> report.
