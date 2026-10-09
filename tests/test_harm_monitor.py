@@ -59,7 +59,7 @@ def test_empty_and_big_day_watch():
     assert not r["a1"] and not r["a2"] and r["days"] == 0
     b = HM.BANDS["TTM x3"]
     r = HM.evaluate(np.r_[np.full(146, b["mu"]), [b["big"] + 1.0]], b)
-    assert r["big_days"] == 1 and abs(r["big_expected"] - 3.002 * 147 / 292.0) < 1e-9 and "watch line only" in r["watch_text"]
+    assert r["big_days"] == 1 and abs(r["big_expected"] - b["big_per_year"] * 147 / 292.0) < 1e-9 and "watch line only" in r["watch_text"]
 
 
 def test_trip_names_its_first_check_row():
@@ -105,3 +105,4 @@ def test_post_lists_trips_first_then_every_leg():
     assert lines[1].startswith("- TRIP: NOISE")
     assert [l.split(" ")[1] for l in lines[2:6]] == ["ORB", "TTM", "ENGU-Q", "#463"]
     assert "read-only" in lines[0] and "never 'fine'" in lines[-1]
+    assert lines[-2].startswith("- On record: NOISE A1 at the 07-17 check")

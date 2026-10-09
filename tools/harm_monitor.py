@@ -11,7 +11,10 @@ whole loss on 08-06, so they read from 08-07, the first day ENGU-Q starts flat a
 Rows = the book's calendar: every regular session (dates in at least two of the three RTH masters) plus any day a leg has $ (ENGU-Q's Sunday
 evenings), zero where a leg is flat - as the walk-forward rows were. The record ends at the last session before the run day that every RTH
 master holds. A gap of 2+ sessions in a leg's master after its start PAUSES that leg (and the #463 total) instead of reading it.
-Two alarms per leg, frozen from the walk-forward (bookq/q33_harm_spec.py, 2,000 three-year block-bootstrap paths):
+Two alarms per leg, calibrated as bookq/q33_harm_spec.py does (2,000 three-year block-bootstrap paths) but on the LAST THREE walk-forward
+years only, 2022-07-01..2025-06-29 (BOOK.md 10at, MANAGER #141): the legs trade fixed contracts, so their daily $ grows with the index, and
+the whole-walk-forward bands of 10aq ran 0.57-0.70x the forward spread. That fix was drafted after NOISE's first trip was seen; the trip,
+read under the frozen 10aq bands, stays on the record (RECORDED_TRIPS, printed in every post).
   A1 SHORTFALL  S = sum over forward rows of (day $ - WF daily mean); tripped when S < -c x WF daily sd x sqrt(rows) at a weekly check (every
                 6th row from the start, as calibrated); a trip stays a trip
   A2 DRAWDOWN   the forward running drawdown deeper than the 2.5% depth of a three-year path of the backtested leg
@@ -34,17 +37,19 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FORWARD_START = pd.Timestamp("2026-07-01")
 LEG_START = {"ENGU-Q": pd.Timestamp("2026-08-07"), "#463": pd.Timestamp("2026-08-07")}   # the NQ 1m hole (above)
 WEEK_ROWS = 6                     # book rows a week on the walk-forward (24.3 a month); A1 is checked every 6 forward rows
-SPEC = "BOOK.md 10aq"
+SPEC = "BOOK.md 10aq + 10at"
+RECORDED_TRIPS = ("NOISE A1 at the 07-17 check under the frozen 10aq bands (-2.71 vs -2.44), reported to MANAGER #805; it stays on the "
+                  "record (10at)",)
 ORDER = ("ORB", "TTM x3", "NOISE", "ENGU-Q", "#463")
 RTH_LEGS = ("ORB", "TTM x3", "NOISE")
-# frozen from bookq/q33_harm_spec.py on the S1 WF (2016-07-01..2025-06-29): WF daily mean / sd per book row, the A1 constant c, the A2
-# drawdown alarm, and (ORB / TTM) the big-day threshold = the leg's WF 99th percentile day
+# frozen from bookq/q35_recent_bands.py (option 2, MANAGER #141) on the last three WF years 2022-07-01..2025-06-29 (872 book rows): daily
+# mean / sd per book row, the A1 constant c, the A2 drawdown alarm, and (ORB / TTM) the big-day threshold = the leg's 99th percentile day there
 BANDS = {
-    "ORB": {"mu": 114.6947, "sd": 1711.9917, "c": 2.5276, "dd_alarm": 48721.06, "big": 5898.09, "big_per_year": 3.002},
-    "TTM x3": {"mu": 50.3762, "sd": 1176.3535, "c": 2.2034, "dd_alarm": 35583.03, "big": 3032.49, "big_per_year": 3.002},
-    "NOISE": {"mu": 170.4663, "sd": 1457.5755, "c": 2.441, "dd_alarm": 23067.81, "big": None, "big_per_year": None},
-    "ENGU-Q": {"mu": 144.7574, "sd": 2273.4109, "c": 2.3988, "dd_alarm": 63754.45, "big": None, "big_per_year": None},
-    "#463": {"mu": 480.2945, "sd": 4138.5655, "c": 2.234, "dd_alarm": 62640.21, "big": None, "big_per_year": None},
+    "ORB": {"mu": 209.1858, "sd": 2335.4450, "c": 2.4543, "dd_alarm": 52173.56, "big": 7334.44, "big_per_year": 3.005},
+    "TTM x3": {"mu": 49.9952, "sd": 1118.2017, "c": 2.2922, "dd_alarm": 34761.55, "big": 4887.10, "big_per_year": 3.005},
+    "NOISE": {"mu": 251.5922, "sd": 1882.0775, "c": 2.3267, "dd_alarm": 28266.63, "big": None, "big_per_year": None},
+    "ENGU-Q": {"mu": 215.7006, "sd": 3098.7943, "c": 2.2033, "dd_alarm": 74225.31, "big": None, "big_per_year": None},
+    "#463": {"mu": 726.4738, "sd": 5564.1697, "c": 2.2031, "dd_alarm": 74023.59, "big": None, "big_per_year": None},
 }
 LEG_NAME = {"ORB": "ORB", "ENGUQ": "ENGU-Q", "TTMSQZ": "TTM x3", "NOISE": "NOISE"}
 fmt = "{:,.0f}".format
@@ -136,6 +141,8 @@ def format_post(reads, asof, meta=None):
         if r.get("watch_text"):
             txt += " " + r["watch_text"].capitalize() + "."
         lines.append(txt)
+    for rec in RECORDED_TRIPS:
+        lines.append("- On record: " + rec + ".")
     lines.append("- Power reminder (10aq): a leg that starts losing is caught within about a year; a halved edge is invisible within 36 months; "
                  "a quiet 36 months for ORB / TTM / ENGU-Q means 'not shown', never 'fine'.")
     return "\n".join(lines)
