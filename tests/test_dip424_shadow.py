@@ -9,7 +9,8 @@ cleanly when the file is absent.
 COVERS
   1. Config: the champion literal; ETF live params, no asset in KEEL's NQ training params;
      train cost 0.0 from 2010-06-07; const 1.245; shadow, no eod_flat/decide_at_close; the
-     two legs appended after ENGUQ_335; the state file names the NOISE legs use.
+     two legs appended after the NOISE #422 legs (ENGUQ_335 is a live CROWN_LEGS leg again
+     since 2026-10-09); the state file names the NOISE legs use.
   2. Trade ids: slot=None ids byte-identical for every CROWN/SHADOW leg; slot ids valid,
      parsed, distinct; a bad slot gives None.
   3. Keys: _entry_key/_rekey unchanged for slot-less trades; 7 trades on one bar -> 7 keys;
@@ -231,7 +232,7 @@ def test_config_is_the_champion_and_the_two_legs_are_appended():
     assert cs.DIP_424_PARAMS == CHAMPION and "asset" not in cs.DIP_424_PARAMS
     assert cs.DIP_424_CONST_SIZE == 1.245
     assert [m for m, _f in cs.DIP_MECHS] == MECHS
-    assert list(cs.SHADOW_LEGS)[-3:] == ["ENGUQ_335", "DIP_424K", "DIP_424F"]
+    assert list(cs.SHADOW_LEGS)[-3:] == ["NOISE_422_KEEL", "DIP_424K", "DIP_424F"]
     assert not set(LEGS) & set(cs.CROWN_LEGS)
     for key in LEGS:
         leg = cs.SHADOW_LEGS[key]

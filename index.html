@@ -40020,7 +40020,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // rate (a $0 trade is neither a win nor a loss). The shadow legs' own trades in the range stay in qbShadowRange, never counted.
         const qbShadowRange=qbRange?ledgerInRange(qbShadowRows.map(t=>({exitDate:qeTradeDate(t),_t:t})),qbRange).map(r=>r._t):qbShadowRows;
         // THE SHADOW LEGS' OWN BLOCK (MANAGER #87 d, 2026-10-09): the box sends the no-order shadow legs' would-be trades (api/cloud_signal.py
-        // SHADOW_LEGS: ENGU-Q #335, NOISE #422 plain / fixed / KEEL, DIP #424 KEEL / fixed 1.245) as ONE separate top-level key, QE.shadow_trades = {as_of, source,
+        // SHADOW_LEGS: NOISE #422 plain / fixed / KEEL, DIP #424 KEEL / fixed 1.245; plus ENGU-Q #335's 09-28..10-09 shadow rows, kept as history now it is live
+        // again) as ONE separate top-level key, QE.shadow_trades = {as_of, source,
         // base_shares, legs, trades:[{leg, trade_id, side, entry_time, entry_px, exit_time, exit_px, size, shares, seeded, pnl_usd, mark_px,
         // unreal_usd}], capped, error}, paired from its shadow ledger by tools/shadow_legs_report.pair_trades - never rows in trades_all. Only
         // the strategy list's "Shadow - not counted" fold reads qbShTr: never the account number, the chart, the stats, the calendar, the trade
