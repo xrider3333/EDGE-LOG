@@ -131,3 +131,13 @@ harness unchanged).
   queued once that file is on main.
 - **Records:** `tools/r37_results/noise_sectors_r1_stageA.txt`; NOISE.md "NOISE on the sector funds r1 and the TLT fade
   r1".
+
+## AUTO-VALIDATE (XLK, 2026-10-08 evening)
+- **Run #487** used a copied cost of 0.02 per split-adjusted share. XLK split 2-for-1 on 2025-12-05, so that was double
+  this prereg's cost as traded before the split. Kept as a stress row: WEAK, PBO 0.563.
+- **Run #488** is the registered read: cost 0.01 per adjusted share, exact before the split, with the lockbox revalued as
+  traded. **WEAK, PBO 0.639 the only fail.**
+  - Folds 7 of 8.
+  - Winner 60 / 0.75 / 1.25 / 1.75: lockbox ROC 25.6 at $30k.
+  - The Stage A crown on the lockbox: +$65,361, PF 1.18, 44.5.
+- **Nothing changes.** XLK correlates 0.74 with NOISE #422. Second read of XLK's lockbox, disclosed. See NOISE.md.

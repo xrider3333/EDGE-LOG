@@ -1,0 +1,27 @@
+
+======================================================================================================================
+NOISE family on XLK - job Nbi74iUDiB9AcYXjotZk, run #488, file NOISE_1_1_FUNDGRID.py, 900 trials, elapsed 25 min
+  VERDICT WEAK  (5 of 6 gates; checks {"luck": true, "wfe": true, "pbo": false, "consistency": true, "sample": true, "plateau": true})
+  folds held 7 of 8 (anchored; wfe 2.992; OOS net $258,215)   rolling: {"held": 7, "n_folds": 8, "wfe": 2.118}
+  PBO 0.639 (likely overfit selection; 24 configs, 252 splits)   DSR 0.9962203727419369   plateau {"good": 4, "tot": 4, "verdict": "HIGH GROUND"}   trades/param 160.6
+  LOCKBOX (engine, fresh-start strip 2025-06-30..2026-06-30): trades 412  net $51,248  PF 1.126  pass True
+  LOCKBOX (continuous slice): trades 412  net $51,248  PF 1.126
+  WF OOS block (re-fitted folds, stitched): {"trades": 1300, "max_drawdown": 9.5, "wins": 491, "n_folds": 8, "sortino": 3.0631051887728855, "years": 5.697, "avg_win": 0.5, "gross_win": 224.7, "mode": "anchored", "avg_loss": 0.2, "equity_n": 1300, "v": 1, "from": "2019-10-16", "gross_loss": 168.7, "net": 56.0, "src": "validate", "profit_factor": 1.332, "sharpe": 1.4040527704651768, "win_rate": 37.77, "to": "2025-06-27"}
+    -> ROC @ $30k on the re-fitted folds (trade-close DD, the block's own) 31.0 %/yr
+  WINNER settings: {"daytype_lo": 0.2, "window": "all_day", "confirm_bars": 1, "daytype_mode": "skip_bot_short", "vol_skip_pct": 95.0, "band_mult_long": 0.75, "band_mult_short": 1.25, "skip_holidays": false, "stop_mode": "bandwidth", "flat_eod": true, "lookback": 60, "side": "Both", "daytype_hi": 0.8, "stop_k": 1.75, "exit_mode": "vwap"}
+  vs Stage A crown (live): differs on 3 of 4 knobs: {"lookback": [60, 40], "band_mult_long": [0.75, 1.0], "band_mult_short": [1.25, 1.0]}
+  auto-expand: {"n_params_expanded": 3, "converged": true, "n_interaction_unlocks": 0, "global_rounds_used": 2, "n_emerged": 0}
+  searched population saved: 260 points (n_evaluated 260, n_valid 72, n_combos 1800, truncated None)
+    point fields: ['daytype_lo', 'window', 'confirm_bars', 'daytype_mode', 'band_mult_long', 'vol_skip_pct', 'band_mult_short', 'skip_holidays', 'dd', 'stop_mode', 'flat_eod', 'lookback', 'side', 'daytype_hi', 'pnl', 'stop_k', 'exit_mode']
+  IS (Stage A, first 75% of 2016-01-04..2025-06-29, 139025 bars to 2023-02-09): LIVE Stage A crown pnl 23.2 pts/share (2222 trades) -> rank 130 of 260 saved points (top 50.0%); visited by the sampler: True
+  IS (Stage A, first 75% of 2016-01-04..2025-06-29, 139025 bars to 2023-02-09): WINNER             pnl 27.0 pts/share (2409 trades) -> rank 60 of 260 saved points (top 23.1%); visited by the sampler: True
+  windows: optimize ['2016-01-04', '2025-06-29'], WF from 2019-10-16, lockbox ['2025-06-30', '2026-06-30']
+  WINNER             WF 2019-10-16..2025-06-29  n 1851  net $  306,232  PF 1.311  daily DD $ 40,003  ROC @ $30k   40.2 %/yr  DD5 $18,681 at that size (DD5/DD 0.62)
+  WINNER             LB 2025-06-30..2026-06-30  n  412  net $   40,921  PF 1.099  daily DD $ 47,923  ROC @ $30k   25.6 %/yr  DD5 $13,145 at that size (DD5/DD 0.44)  ex-biggest $8,167
+  WINNER             Stage-1 WF 2016-07-01..2025-06-29  n 3080  net $  305,541  PF 1.258  daily DD $ 40,003  ROC @ $30k   25.5 %/yr  DD5 $18,715 at that size (DD5/DD 0.62)
+  LIVE Stage A crown WF 2019-10-16..2025-06-29  n 1717  net $  271,060  PF 1.287  daily DD $ 28,222  ROC @ $30k   50.5 %/yr  DD5 $22,304 at that size (DD5/DD 0.74)
+  LIVE Stage A crown LB 2025-06-30..2026-06-30  n  393  net $   65,361  PF 1.176  daily DD $ 43,945  ROC @ $30k   44.5 %/yr  DD5 $16,739 at that size (DD5/DD 0.56)  ex-biggest $32,607
+  LIVE Stage A crown Stage-1 WF 2016-07-01..2025-06-29  n 2829  net $  273,040  PF 1.241  daily DD $ 28,222  ROC @ $30k   32.3 %/yr  DD5 $24,289 at that size (DD5/DD 0.81)
+  #487 WINNER        WF 2019-10-16..2025-06-29  n 1394  net $  277,537  PF 1.340  daily DD $ 29,057  ROC @ $30k   50.2 %/yr  DD5 $22,952 at that size (DD5/DD 0.77)
+  #487 WINNER        LB 2025-06-30..2026-06-30  n  339  net $   23,729  PF 1.065  daily DD $ 61,860  ROC @ $30k   11.5 %/yr  DD5 $11,369 at that size (DD5/DD 0.38)  ex-biggest $-9,024
+  #487 WINNER        Stage-1 WF 2016-07-01..2025-06-29  n 2333  net $  287,016  PF 1.291  daily DD $ 29,057  ROC @ $30k   32.9 %/yr  DD5 $23,160 at that size (DD5/DD 0.77)

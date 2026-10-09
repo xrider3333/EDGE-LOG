@@ -3591,3 +3591,32 @@ read.
 - The other six funds and the TLT fade are recorded dead, no variants.
 - Records: `tools/r37_results/noise_sectors_r1_stageA.txt`, `tools/r37_results/noise_tltfade_r1_stageA.txt`; the
   ledger rows "NOISE on the sector funds r1" and "the NOISE fade on TLT r1".
+
+## NOISE on XLK - the Auto-Validate (2026-10-08 evening): WEAK on PBO only, nothing changes
+
+Sector funds r1's XLK pass went to the prereg's pinned 900-trial Auto-Validate, with `NOISE_1_1_FUNDGRID.py`: NOISE_1_0
+with the grid's axes open and the NQ filters pinned, parity-checked trade for trade against the Stage A harness.
+- **Run #487 is not the registered read: it charged DOUBLE the prereg's cost.**
+  - XLK split 2-for-1 on 2025-12-05. Before that date the split-adjusted master holds twice the real shares, so the
+    copied cost of $0.02 per adjusted share was $0.04 per real share.
+  - It is kept as a stress row: WEAK, PBO 0.563.
+- **Run #488, cost as traded** (0.01 per adjusted share, exact before the split; the lockbox's post-split months are
+  revalued as traded by the reader): **WEAK, PBO 0.639 the only fail.**
+  - Folds held 7 of 8; plateau HIGH GROUND; DSR 0.996.
+  - **The winner** (60 / 0.75 / 1.25 / 1.75) is off the Stage A crown on 3 of 4 knobs. It reads 25.5 on the WF and 25.6
+    on the lockbox at $30k. Both are driven by one episode (DD5 ratios 0.62 / 0.44), and it makes +$8k without its best
+    lockbox trade.
+  - **The Stage A crown** holds up better on the lockbox: +$65,361, PF 1.18, 44.5 %/yr at $30k (DD5 ratio 0.56).
+- **Reading:** the same as QQQ's #485. The NOISE family holds on a second technology tape, but the search's pick is not
+  reliably better than its neighbours.
+  - XLK correlates 0.74 with NOISE #422, so it is not a new seat and there is no forward line to open.
+  - This was a second read of XLK's lockbox (disclosed); it changes nothing.
+  - Records: ledger row "NOISE on XLK - the Auto-Validate"; `tools/r37_results/noise_xlk_validate_r2.txt`.
+
+**Correction to the #422 anatomy's habitat table (2026-10-05).** It divided $0.02 by the split-adjusted close. For the
+three funds that split 2-for-1 on 2025-12-05 that doubled the cost against the day range:
+- XLK is 1.25%, not 2.49%;
+- XLY is 1.16%, not 2.32%;
+- XLU is 2.49%, not 4.98%.
+The proposed sector order (approved by MANAGER #67) leaned on those numbers. Every sector fund ran anyway, so no result
+changes. The Stage A harnesses always charged cost as traded.
