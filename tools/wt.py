@@ -690,13 +690,17 @@ GATES = [
     Gate('webull', 'WEBULL PAPER render gate', 'tools/webull_board_probe.py', 'index',
          'WEBULL PAPER render gate FAILED - not pushing', '(WEBULL probe produced no output)',
          prefix='WEBULLPROBE:'),
-    # ... and its SELF-TEST (the broken copies must FAIL) when the probe or its fixture changed.
+    # ... and its SELF-TEST (the broken copies must FAIL) when the probe or either fixture changed
+    # (2026-10-09, MANAGER #87 (d): the probe lays tools/fixtures/qqq_exec_shadow_trades.json, the
+    # status doc's shadow_trades block, over qqq_exec_box1005.json for its shadow cases).
     Gate('webull-selftest', 'WEBULL gate SELF-TEST', 'tools/webull_board_probe.py',
-         ('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json'),
+         ('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json',
+          'tools/fixtures/qqq_exec_shadow_trades.json'),
          'WEBULL gate SELF-TEST FAILED - the gate no longer catches a deliberately broken build - '
          'not pushing', '(WEBULL probe self-test produced no output)',
          prefix='SELFTEST:', args=('--selftest',), slow=True,
          cover=('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json',
+                'tools/fixtures/qqq_exec_shadow_trades.json',
                 'tools/ledger_removed.py', 'tools/kill_on_exit.py')),
 
     # FOURTH GATE: STUDIES row numbers stay unique (see KNOWN_DUP_ROWS above). Judged by

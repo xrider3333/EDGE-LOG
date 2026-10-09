@@ -104,7 +104,8 @@ def test_the_triggers_are_the_ones_ship_always_used():
     assert trig['importtz-selftest'] == ('tools/import_tz_probe.py',)
     assert trig['home-selftest'] == ('tools/home_render_probe.py',)
     assert trig['webull-selftest'] == ('tools/webull_board_probe.py',
-                                       'tools/fixtures/qqq_exec_box1005.json')
+                                       'tools/fixtures/qqq_exec_box1005.json',
+                                       'tools/fixtures/qqq_exec_shadow_trades.json')
     assert trig['paper-selftest'] == ('tools/paper_render_probe.py',
                                       'tools/fixtures/paper_board.json')
 
