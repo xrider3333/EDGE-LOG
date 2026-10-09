@@ -42,7 +42,9 @@ from api/market_calendar):
                      KEEL_MAX_STALE_SESSIONS). HIGH -- the second and last push of a missed-night
                      run; api/cloud_signal records instead of pushing while this is open.
                      A SHADOW leg's summary (keel_live_state writes leg_live false on it --
-                     NOISE_422_KEEL, DIP_424K since 2026-10-09; no orders, ever) gets both checks
+                     NOISE_422_KEEL, DIP_424K since 2026-10-09; no orders, ever; and any summary
+                     whose leg key, the name before "_v", is in api/cloud_signal.SHADOW_LEGS,
+                     so an unreadable or unflagged one stays a shadow's) gets both checks
                      too, but always QUIET and MEDIUM, worded "shadow leg, no orders": tracked in
                      status.json and relayed to the PC inboxes, never pushed -- its stale model
                      changes would-be trades only (at the fallback age they size at 1.0). It
@@ -692,6 +694,16 @@ def fmt_age(sec):
 
 
 # -- snapshot: every input, read once ---------------------------------------------------------
+def _shadow_leg_keys():
+    """The leg keys of api/cloud_signal.SHADOW_LEGS (no orders, ever), or None when that import
+    fails -- collect() then falls back to each summary's own leg_live flag."""
+    try:
+        from api.cloud_signal import SHADOW_LEGS
+        return frozenset(str(k) for k in SHADOW_LEGS)
+    except Exception:
+        return None
+
+
 def collect(paths, run_cmd=None):
     snap = {}
     snap["exec_state"], snap["exec_state_err"] = read_json(paths["exec_state"])
@@ -719,6 +731,7 @@ def collect(paths, run_cmd=None):
     snap["qqq_1d_last"] = last_bar_epoch(paths["qqq_1d"])
     snap["nq_last"] = last_bar_epoch(paths["nq_master"])
     keel, keel_shadow = {}, []
+    shadow_keys = ()            # api/cloud_signal.SHADOW_LEGS' keys, imported on first need
     for p in sorted(glob.glob(os.path.join(paths["keel_dir"], "*_summary.json"))):
         data, err = read_json(p)
         name = os.path.basename(p)[:-len("_summary.json")]
@@ -728,8 +741,16 @@ def collect(paths, run_cmd=None):
         keel[name] = ((data.get("data_through") or data.get("last_nq_session"))
                       if isinstance(data, dict) else None)
         # leg_live: tools/keel_live_state writes false on a SHADOW leg's summary (no orders);
-        # a live leg's carries no such key -- anything else counts as live
-        if isinstance(data, dict) and data.get("leg_live") is False:
+        # a live leg's carries no such key. A summary that does not say so (unreadable, half
+        # written, or older than the flag) is still a shadow's when its leg key is in
+        # api/cloud_signal.SHADOW_LEGS -- else a stale DIP_424K / NOISE_422_KEEL model would
+        # page HIGH and miss the pre-open gate. That import failing: the flag alone, as before.
+        shadow = isinstance(data, dict) and data.get("leg_live") is False
+        if not shadow:
+            if shadow_keys == ():
+                shadow_keys = _shadow_leg_keys()
+            shadow = bool(shadow_keys) and name.rsplit("_v", 1)[0] in shadow_keys
+        if shadow:
             keel_shadow.append(name)
     snap["keel"] = keel
     snap["keel_shadow"] = keel_shadow
@@ -992,7 +1013,8 @@ def _keel_leg_word(name):
 
 def _keel_split(snap):
     """(every KEEL summary {name: data_through}, the LIVE legs' ones, the shadow names) --
-    a shadow leg's summary says leg_live false (see collect)."""
+    a shadow leg's summary says leg_live false, or its leg key is in
+    api/cloud_signal.SHADOW_LEGS (see collect)."""
     keel = snap.get("keel") or {}
     shadow = set(snap.get("keel_shadow") or ())
     return keel, {k: v for k, v in keel.items() if k not in shadow}, shadow

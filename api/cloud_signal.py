@@ -289,6 +289,15 @@ DIP_5M_ALL_SESSIONS = 100_000
 # is refused (a split or an adjusted file). 10 bp is a PROPOSAL, not yet measured on the box.
 DIP_CAL_TOL = 0.0010
 DIP_CAL_MIN_OVERLAP = 20
+# ... AND no single overlap session may differ by more than DIP_CAL_MAX_DAY on its close or its
+# open ("cal_split"): the median alone goes back to 0 about 45 sessions after a split one file
+# has and the other has not, while the older half still carries the 2:1 cliff. The worst real
+# day measured is 14 bp; a 2:1 split is ~5,000 bp.
+DIP_CAL_MAX_DAY = 0.02
+# ... AND no session of the series may open outside DIP_SPLIT_GAP x the previous session's close
+# ("cal_split"): a split inside the RAW 5m cache (or a raw QQQ_1d row) is caught even where the
+# two files agree or QQQ_1d.csv has no row to compare. A 2:1 split is 0.5, a 1:2 reverse 2.0.
+DIP_SPLIT_GAP = (0.6, 1.6)
 # A DIP leg hands _diff_leg only trades still open or closed within this many sessions -- every
 # trade ENTERED inside it is among them -- so a cold start does not absorb years of history
 # into state.json.

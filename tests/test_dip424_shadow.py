@@ -22,8 +22,10 @@ COVERS
      pads (two pads lose them), today's high/low/close never matter.
   7. build_daily_series: 5m overrides QQQ_1d, QQQ_1d fills older dates and holes, today
      needs its 09:30 bar, unfinished daily rows dropped, midnight stamps read as dates, a
-     2:1-scaled daily file / a missing previous session / < 430 sessions -> None, a date's
-     source never flips back.
+     2:1-scaled daily file / a missing previous session / < 430 sessions -> None, a session in
+     neither file ANYWHERE -> None ("hole", logged once; 2025-01-09's closure is no hole), a
+     split older than half the overlap (per-session bound) or a split-size open gap where the
+     files agree -> None ("cal_split"), a date's source never flips back.
   8. Trade dicts: entry/exit at the 09:30 bar at t[4]/t[5]; entry_bar is the 5m 09:30 bar;
      shares/slot/still_open; closed trades = NQDIP_1_1.py's own run, prices in points.
   9. Intraday invariance: the same trades from 09:35 to 16:00; an entry absent at 09:34:59,
@@ -35,7 +37,7 @@ COVERS
  11. KEEL (DIP_424K): scored on the 5m arrays at the 09:30 bar; one size for every slot; the
      EXIT reuses it; no state -> 1.0, no push.
  12. Const (DIP_424F): exactly 1.245 on ENTRY, EXIT and a seeded carry; invalid -> 1.0 + reason.
- 13. Memo: the second leg does not recompute.
+ 13. Memo: the second leg does not recompute; a failed probe is memoized and re-raised.
  14. The research files are byte-identical (LF sha256 pins).
 """
 import datetime as dt
@@ -545,6 +547,83 @@ def test_not_ready_guards(tmp_path):
     assert DL.build_daily_series(five_arrays(p, now), now, p, LIVE_PARAMS, log=QUIET)[1][0] == "short"
 
 
+def test_a_session_missing_from_both_files_anywhere_is_a_hole_logged_once(tmp_path, monkeypatch):
+    """A session in NEITHER file anywhere in the series (not only the previous one) -> not ready.
+    The file indexes sessions by ROW: a dropped session would shift every later row (the 400-day
+    trend average, ATR20, dbl_n, the holds, the "decided at" dates) and still read as ready."""
+    monkeypatch.setattr(cs, "_DAILY_CALIBRATION_LOG", {})
+    day = WALK_DAYS[-10]
+    now = at(day, 10, 0, 5)
+    every = {t[0] for t in WALK}
+    # inside the 5m window, and in QQQ_1d-only history older than the last trend_len + 30 rows
+    for gone in (WALK_DAYS[-30], WALK_DAYS[200]):
+        p = write_home(tmp_path / gone.isoformat(), WALK, 45, drop_5m=(gone,),
+                       keep_1d=every - {gone})
+        s, why = DL.build_daily_series(five_arrays(p, now), now, p, LIVE_PARAMS, log=QUIET)
+        assert s is None and why[0] == "hole" and gone.isoformat() in why[1], why
+        assert "in neither the 5m cache nor QQQ_1d.csv" in why[1]
+    # through the leg: no trades on any tick, ONE log line
+    logs = []
+    for hh, mm in ((10, 0), (10, 5), (13, 30)):
+        t = at(day, hh, mm, 5)
+        assert cs.run_dip_leg_trades(cs.SHADOW_LEGS["DIP_424F"], five_arrays(p, t), "DIP_424F", t,
+                                     p, logs.append) is None
+    lines = [ln for ln in logs if "not ready" in ln]
+    assert len(lines) == 1 and WALK_DAYS[200].isoformat() in lines[0], logs
+    # an unscheduled closure the calendar does not model (2025-01-09, a national day of
+    # mourning: no file has a row for it) is not a hole
+    closure = dt.date(2025, 1, 9)
+    assert mc.is_session(closure) and closure in every
+    p = write_home(tmp_path / "closure", WALK, 45, keep_1d=every - {closure})
+    s, why = DL.build_daily_series(five_arrays(p, now), now, p, LIVE_PARAMS, log=QUIET)
+    assert why is None and closure not in s["dates"]
+
+
+def _split_raw(targets, split, k=2.0):
+    """`targets` as a RAW feed prints them across a k:1 split at `split`: every earlier price
+    x k (the split-adjusted history is `targets` itself)."""
+    return [(d, o * k, h * k, lo * k, c * k) if d < split else (d, o, h, lo, c)
+            for d, o, h, lo, c in targets]
+
+
+def test_a_split_older_than_half_the_overlap_is_refused(tmp_path):
+    """QQQ_1d.csv split-adjusted, the 5m cache raw across a 2:1 split 30 sessions back: only 15
+    of the 44 overlap sessions carry the 2x cliff, so the MEDIAN is back to 0 and alone would
+    accept the series. The per-session bound (DIP_CAL_MAX_DAY, 200 bp) refuses it."""
+    day = WALK_DAYS[-1]
+    now = at(day, 10, 0, 5)
+    p = write_home(tmp_path, _split_raw(WALK, WALK_DAYS[-30]), 45, no_1d=True)
+    write_1d(p, WALK)
+    five = DL.five_min_sessions(five_arrays(p, now))
+    daily = DL.daily_rows(p, now, log=QUIET)
+    overlap = [d for d in five if d != day and d in daily and five[d]["complete"]]
+    off = [abs(five[d]["close"] / daily[d][3] - 1.0) for d in overlap]
+    assert len(overlap) == 44 and sum(x > 0.5 for x in off) == 15
+    assert np.median(off) < cs.DIP_CAL_TOL, "the median alone has forgotten the split"
+    s, why = DL.build_daily_series(five_arrays(p, now), now, p, LIVE_PARAMS, log=QUIET)
+    assert s is None and why[0] == "cal_split", why
+    assert "per-session bound 200 bp" in why[1]
+    assert any(f"on {d.isoformat()}:" in why[1] for d in WALK_DAYS[-45:-30]), why[1]
+    assert cs.DIP_CAL_MAX_DAY == 0.02
+
+
+def test_a_split_size_gap_in_the_5m_cache_is_refused_where_the_files_agree(tmp_path):
+    """Both files raw across a 2:1 split 20 sessions back (QQQ_1d's older rows were merged
+    before the split; fetch_and_merge_daily never rewrites them): every overlap session agrees,
+    so neither calibration check can see it -- the open gap between two complete 5m sessions,
+    outside DIP_SPLIT_GAP, refuses the series. A 1:2 reverse split the same way."""
+    day = WALK_DAYS[-1]
+    now = at(day, 10, 0, 5)
+    split = WALK_DAYS[-20]
+    assert cs.DIP_SPLIT_GAP == (0.6, 1.6)
+    for k, ratio in ((2.0, "0."), (0.5, "")):
+        p = write_home(tmp_path / str(k), _split_raw(WALK, split, k), 45)
+        s, why = DL.build_daily_series(five_arrays(p, now), now, p, LIVE_PARAMS, log=QUIET)
+        assert s is None and why[0] == "cal_split", (k, why)
+        assert why[1].startswith(f"{split.isoformat()} opens at {ratio}"), why[1]
+        assert "(5m -> 5m; 1 such gap(s))" in why[1]
+
+
 def test_a_dates_source_never_flips_back(tmp_path):
     paths = write_home(tmp_path, WALK, 45)
     seen = {}
@@ -924,6 +1003,45 @@ def test_a_broken_trade_shape_fails_the_tick_closed(tmp_path, monkeypatch):
         monkeypatch.setattr(cs, "engine_run_backtest", lambda *a_, b=bad, **k: {"trades": [b]})
         assert cs.run_dip_leg_trades(cs.SHADOW_LEGS["DIP_424F"], a, "DIP_424F", now, paths,
                                      QUIET) is None
+
+
+def test_a_failed_probe_is_memoized_and_re_raised(tmp_path, monkeypatch):
+    """The same inputs fail the same way: the second leg and the session's later bars re-raise
+    the memoized failure instead of rerunning the engine (seconds a bar on the 1-CPU box). The
+    next session's 09:30 bar is a new key, tried once."""
+    monkeypatch.setattr(cs, "_DAILY_CALIBRATION_LOG", {})
+    paths = write_home(tmp_path, CRASH, 30)
+    calls = []
+
+    def boom(*_a, **_k):
+        calls.append(1)
+        raise RuntimeError("engine blew up")
+    monkeypatch.setattr(cs, "engine_run_backtest", boom)
+    logs = []
+    for leg, now in (("DIP_424K", at(D_ENTRY, 9, 35, 5)), ("DIP_424F", at(D_ENTRY, 9, 35, 5)),
+                     ("DIP_424F", at(D_ENTRY, 14, 0, 5))):
+        assert cs.run_dip_leg_trades(cs.SHADOW_LEGS[leg], five_arrays(paths, now), leg, now,
+                                     paths, logs.append) is None
+    assert len(calls) == 1
+    assert any("RuntimeError: engine blew up" in ln for ln in logs), logs
+    now = at(D_ENTRY, 9, 35, 5)
+    s, _ = DL.build_daily_series(five_arrays(paths, now), now, paths, LIVE_PARAMS, log=QUIET)
+    with pytest.raises(RuntimeError, match="engine blew up"):
+        DL.dip_positions(s, LIVE_PARAMS)
+    assert len(calls) == 1
+    # a bad trade shape is memoized the same way
+    DL._PROBE_MEMO.clear()
+    monkeypatch.setattr(cs, "engine_run_backtest",
+                        lambda *_a, **_k: calls.append(1) or {"trades": [(400, 401, 1.0, 1, 1.0)]})
+    for _ in range(2):
+        with pytest.raises(DL.DipTradeShapeError):
+            DL.dip_positions(s, LIVE_PARAMS)
+    assert len(calls) == 2
+    nxt = at(D_X1, 9, 35, 5)
+    for _ in range(2):
+        assert cs.run_dip_leg_trades(cs.SHADOW_LEGS["DIP_424F"], five_arrays(paths, nxt), "DIP_424F",
+                                     nxt, paths, QUIET) is None
+    assert len(calls) == 3
 
 
 def test_a_dip_leg_never_reaches_run_leg_trades(tmp_path, monkeypatch):

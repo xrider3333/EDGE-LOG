@@ -44,13 +44,21 @@ run_leg_trades.
    cache is Webull raw / yfinance auto_adjust=False / the Alpaca backfill (split-adjusted).
    QQQ has not split since 2000, so the scales agree; the CALIBRATION guard (median
    |5m close / 1d close - 1| and the same for opens over >= DIP_CAL_MIN_OVERLAP complete
-   overlap sessions, each <= DIP_CAL_TOL; checked whenever the series MIXES the two files)
-   refuses the series if a split or an adjusted file ever breaks that. Known small difference: raw QQQ gaps down on ex-dividend
+   overlap sessions, each <= DIP_CAL_TOL, and EVERY overlap session's close and open within
+   DIP_CAL_MAX_DAY -- the median alone forgets a split once most of the overlap is after it;
+   checked whenever the series MIXES the two files) refuses the series if a split or an
+   adjusted file ever breaks that. So does a SPLIT-SIZE GAP: any session opening outside
+   DIP_SPLIT_GAP x the previous session's close (a split inside the raw 5m cache, caught
+   whether or not QQQ_1d.csv can see it). Known small difference: raw QQQ gaps down on ex-dividend
    mornings (NQ does not) -- with gap_atr 0.0 GAPDN fires on any open at or below the
    prior close, so a few extra GAPDN signals a year are possible.
    NOT READY (None -> no diff and no SEED this tick, logged once per ET day per reason):
    fewer than trend_len + 30 sessions, the previous session missing from both sources,
-   today's 09:30 bar missing, or the calibration failing.
+   today's 09:30 bar missing, the calibration failing, or a HOLE: any session between the
+   series' first and last date (market_calendar's sessions, minus UNSCHEDULED_CLOSURES) that
+   is in neither file. The file indexes sessions by ROW, so a dropped session would shift
+   every later row -- the 400-day trend average, ATR20, dbl_n, the time-only holds and the
+   "decided at the <date> close" text -- with nothing looking wrong.
 
 2. OPEN POSITIONS: THE PROBE (dip_positions). The file reports a trade only when it exits.
    So the series is run once per mechanism (one use_* flag on; the union is the all-on run
@@ -68,7 +76,11 @@ run_leg_trades.
    MEMO: nothing a trade with entry bar <= L shows depends on bar L's high/low/close (a
    decision at L fills inside the pads), so the result is memoized on (strategy, params,
    opens 0..L, highs/lows/closes 0..L-1, dates) -- both legs share one computation, and a
-   session's later 5m bars cost nothing.
+   session's later 5m bars cost nothing. A FAILED probe (DipTradeShapeError or any other
+   exception) is memoized the same way and re-raised on a hit: the same inputs fail the same
+   way, and rerunning all seven engine passes for every leg on every bar costs seconds a bar
+   on the 1-CPU box. The next session's 09:30 bar is a new key, so it is retried then (or on
+   a restart).
 
 3. TRADE DICTS (trade_dicts): one per (mechanism, trade), the shape run_leg_trades returns
    plus "slot" (the mechanism -> api/trade_id.py's per-slot id, so seven trades on one bar
@@ -94,7 +106,14 @@ STRATEGY = "NQDIP_1_1.py"
 HOLD_KEYS = ("pb_hold", "cap_hold", "ibs_hold", "streak_hold", "gap_hold")
 PROBE_PAD_EXTRA = 2
 
-_PROBE_MEMO = {}            # memo key -> tuple of positions (see dip_positions)
+# Exchange closures market_calendar's rule table does not model (national days of mourning,
+# 9/11, Hurricane Sandy): no file has a row for them, so they are never a HOLE. A future one
+# reads as a hole (not ready, logged once a day) until it is added here.
+UNSCHEDULED_CLOSURES = frozenset(_dt.date.fromisoformat(s) for s in (
+    "2001-09-11", "2001-09-12", "2001-09-13", "2001-09-14", "2004-06-11", "2007-01-02",
+    "2012-10-29", "2012-10-30", "2018-12-05", "2025-01-09"))
+
+_PROBE_MEMO = {}            # memo key -> tuple of positions, or a _ProbeFailed (see dip_positions)
 _PROBE_MEMO_KEEP = 4
 PROBE_STATS = {"runs": 0, "hits": 0}   # engine runs / memo hits -- read by the tests
 
@@ -107,6 +126,14 @@ def _cs():
 class DipTradeShapeError(Exception):
     """A probe trade that does not look like NQDIP_1_1.py's own 6-field long trade filled
     at a session open -- the whole call fails closed (no trades this tick)."""
+
+
+class _ProbeFailed:
+    """A memoized probe failure (see the module docstring, 2: MEMO)."""
+    __slots__ = ("exc",)
+
+    def __init__(self, exc):
+        self.exc = exc
 
 
 def _quiet(*_a, **_k):
@@ -200,6 +227,16 @@ def daily_rows(paths, now, log=print):
     return out
 
 
+def missing_sessions(dates):
+    """Sorted sessions between dates[0] and dates[-1] (market_calendar, minus
+    UNSCHEDULED_CLOSURES) that are not in `dates` -- the series' HOLES."""
+    if not dates:
+        return []
+    have = set(dates)
+    return [d for d in market_calendar.sessions_between(dates[0], dates[-1])
+            if d not in have and d not in UNSCHEDULED_CLOSURES]
+
+
 def _session_open_index(dates):
     """Each date's 09:30 ET as one tz-aware DatetimeIndex (same isoformat as build_arrays')."""
     cs = _cs()
@@ -247,17 +284,25 @@ def build_daily_series(arrays, now, paths, params, log=print):
     if prev not in set(dates):
         return None, ("prev_missing", f"the previous session {prev.isoformat()} is in neither the "
                                       f"5m cache nor QQQ_1d.csv")
+    holes = missing_sessions(dates)
+    if holes:
+        shown = ", ".join(d.isoformat() for d in holes[:5])
+        more = f" (+{len(holes) - 5} more)" if len(holes) > 5 else ""
+        return None, ("hole", f"session(s) {shown}{more} are in neither the 5m cache nor "
+                              f"QQQ_1d.csv -- every later row would shift (trend average, ATR, "
+                              f"holds, dates)")
     need = int(params.get("trend_len", 200)) + 30
     if len(dates) < need:
         return None, ("short", f"{len(dates)} daily session(s) (5m cache {len(five)}, QQQ_1d "
                                f"{len(daily)} row(s)); NQDIP_1_1.py needs >= {need}")
     overlap = [d for d in dates
                if d != today and d in daily and d in five and five[d]["complete"]]
-    cal = None
+    cal = worst = None
     if overlap:
-        c_diff = float(np.median([abs(five[d]["close"] / daily[d][3] - 1.0) for d in overlap]))
-        o_diff = float(np.median([abs(five[d]["open"] / daily[d][0] - 1.0) for d in overlap]))
-        cal = (c_diff, o_diff)
+        c_days = [abs(five[d]["close"] / daily[d][3] - 1.0) for d in overlap]
+        o_days = [abs(five[d]["open"] / daily[d][0] - 1.0) for d in overlap]
+        cal = (float(np.median(c_days)), float(np.median(o_days)))
+        worst = max(zip(np.maximum(c_days, o_days), overlap))     # (|ratio - 1|, its date)
     if "1d" in sources and any(s != "1d" for s in sources):     # the two files are MIXED
         if len(overlap) < cs.DIP_CAL_MIN_OVERLAP:
             return None, ("cal_thin", f"only {len(overlap)} complete 5m session(s) also in QQQ_1d.csv "
@@ -268,7 +313,23 @@ def build_daily_series(arrays, now, paths, params, log=print):
                                       f"{cal[1] * 1e4:.1f} bp over {len(overlap)} sessions "
                                       f"(tolerance {cs.DIP_CAL_TOL * 1e4:.1f} bp) -- a split "
                                       f"or an adjusted file?")
+        if worst[0] > cs.DIP_CAL_MAX_DAY:
+            return None, ("cal_split", f"QQQ_1d.csv does not match the 5m cache on "
+                                       f"{worst[1].isoformat()}: |5m / 1d - 1| "
+                                       f"{worst[0] * 1e4:.0f} bp, per-session bound "
+                                       f"{cs.DIP_CAL_MAX_DAY * 1e4:.0f} bp (median "
+                                       f"{max(cal) * 1e4:.1f} bp over {len(overlap)} sessions) "
+                                       f"-- a split one file has and the other has not?")
     arr = np.asarray(rows, float)
+    lo_gap, hi_gap = cs.DIP_SPLIT_GAP
+    gap = arr[1:, 0] / arr[:-1, 3]
+    jumps = np.flatnonzero((gap < lo_gap) | (gap > hi_gap))
+    if len(jumps):
+        i = int(jumps[-1]) + 1
+        return None, ("cal_split", f"{dates[i].isoformat()} opens at {gap[i - 1]:.3f}x the "
+                                   f"{dates[i - 1].isoformat()} close ({sources[i - 1]} -> "
+                                   f"{sources[i]}; {len(jumps)} such gap(s)), outside "
+                                   f"{lo_gap}..{hi_gap} -- a split in the raw data?")
     series_arrays = {"open": arr[:, 0].copy(), "high": arr[:, 1].copy(), "low": arr[:, 2].copy(),
                      "close": arr[:, 3].copy(), "volume": arr[:, 4].copy(),
                      "day_id": np.arange(len(dates), dtype="int64"),
@@ -321,15 +382,34 @@ def _memo_key(strategy, params, series):
 def dip_positions(series, params, strategy=STRATEGY):
     """Every trade of every switched-on mechanism with entry bar <= L, as
     (mechanism, entry_bar, exit_bar or None while open, entry_px, exit_px or None) in
-    series row indices, sorted by entry bar then the file's mechanism order. Memoized (see
-    the module docstring, 2). Raises DipTradeShapeError on a trade that is not the file's
-    own long, filled at a session open."""
-    cs = _cs()
+    series row indices, sorted by entry bar then the file's mechanism order. Memoized, a
+    failure too (see the module docstring, 2). Raises DipTradeShapeError on a trade that is
+    not the file's own long, filled at a session open."""
     key = _memo_key(strategy, params, series)
     hit = _PROBE_MEMO.get(key)
     if hit is not None:
         PROBE_STATS["hits"] += 1
+        if isinstance(hit, _ProbeFailed):
+            raise hit.exc.with_traceback(None)
         return list(hit)
+    try:
+        out = _probe(series, params, strategy)
+    except Exception as e:
+        _memo_put(key, _ProbeFailed(e))
+        raise
+    _memo_put(key, tuple(out))
+    return out
+
+
+def _memo_put(key, value):
+    if len(_PROBE_MEMO) >= _PROBE_MEMO_KEEP:
+        _PROBE_MEMO.pop(next(iter(_PROBE_MEMO)))
+    _PROBE_MEMO[key] = value
+
+
+def _probe(series, params, strategy):
+    """dip_positions' computation, unmemoized: one engine pass per switched-on mechanism."""
+    cs = _cs()
     a, L = series["arrays"], series["L"]
     opens = np.asarray(a["open"], float)
     probe = probe_arrays(a, probe_pads(params))
@@ -358,9 +438,6 @@ def dip_positions(series, params, strategy=STRATEGY):
             else:
                 out.append((mech, eb, xb, float(t[4]), float(t[5])))
     out.sort(key=lambda r: (r[1], order.get(r[0], 99)))
-    if len(_PROBE_MEMO) >= _PROBE_MEMO_KEEP:
-        _PROBE_MEMO.pop(next(iter(_PROBE_MEMO)))
-    _PROBE_MEMO[key] = tuple(out)
     return out
 
 

@@ -1489,7 +1489,9 @@ def test_a_shadow_legs_stale_keel_is_tracked_quietly_never_pushed(tmp_path):
     h.bars(h.now)
     h.keel(through="2026-10-05")
     _shadow_summary(h, "DIP_424K_v12", "2026-10-02")
-    assert wf.collect(h.paths, h.run_cmd)["keel_shadow"] == ["DIP_424K_v12"]
+    # Home.keel writes NOISE_422_KEEL's summary without the flag (as before 10-09): still a
+    # shadow's, by its leg key in api/cloud_signal.SHADOW_LEGS
+    assert wf.collect(h.paths, h.run_cmd)["keel_shadow"] == ["DIP_424K_v12", "NOISE_422_KEEL_v12"]
     out = h.run()
     assert "keel:DIP_424K_v12" in failing(out)
     assert "keel_fallback:DIP_424K_v12" not in failing(out)        # 1 session old
@@ -1561,6 +1563,40 @@ def test_preopen_skips_shadow_keel_summaries(tmp_path):
     snap = wf.collect(h2.paths, h2.run_cmd)
     assert any(m.startswith("KEEL NOISE_382_v12 trained through 2026-09-25")
                for m in wf.preopen_misses(snap, t, wf.exec_view(snap, t, {})))
+
+
+def test_an_unreadable_shadow_keel_summary_stays_quiet(tmp_path):
+    """A SHADOW leg's summary that does not parse (half written, corrupt) is still a shadow's --
+    its leg key (the name before "_v") is in api/cloud_signal.SHADOW_LEGS: tracked quietly at
+    MEDIUM, never pushed, never a pre-open miss. Before, it read as a LIVE leg's: a pushed
+    'KEEL STALE' and a gate miss for a leg that sends no order."""
+    h = Home(tmp_path, et(2026, 10, 5, 19, 5))
+    h.bars(h.now)
+    h.keel(through="2026-10-05")
+    _w(os.path.join(h.paths["keel_dir"], "DIP_424K_v12_summary.json"), '{"data_through": "2026-')
+    assert "DIP_424K_v12" in wf.collect(h.paths, h.run_cmd)["keel_shadow"]
+    out = h.run()
+    v = out["status"]["verdicts"]["keel:DIP_424K_v12"]
+    assert "keel:DIP_424K_v12" in failing(out) and v["severity"] == wf.MEDIUM
+    assert v["title"] == "KEEL STALE (DIP_424K_v12), shadow leg, no orders"
+    assert h.pushes == []
+    # the pre-open gate: an unreadable DIP_424K or NOISE_422_KEEL summary is no miss
+    h2 = Home(tmp_path / "pre", et(2026, 10, 5, 8, 30, 30))
+    for name in ("DIP_424K_v12", "NOISE_422_KEEL_v12"):
+        _w(os.path.join(h2.paths["keel_dir"], f"{name}_summary.json"), "not json")
+    h2.run()
+    assert [p["title"] for p in h2.pushes] == ["QQQ book: OK"]
+    assert h2.status()["preopen"]["slots"]["08:30"]["misses"] == []
+
+
+def test_shadow_keel_summaries_fall_back_to_the_flag_when_cloud_signal_cannot_import(
+        tmp_path, monkeypatch):
+    monkeypatch.setitem(sys.modules, "api.cloud_signal", None)      # the import raises
+    assert wf._shadow_leg_keys() is None
+    h = Home(tmp_path, et(2026, 10, 5, 19, 5))
+    _w(os.path.join(h.paths["keel_dir"], "DIP_424K_v12_summary.json"), "not json")
+    _shadow_summary(h, "ENGUQ_335_v12", "2026-10-02")
+    assert wf.collect(h.paths, h.run_cmd)["keel_shadow"] == ["ENGUQ_335_v12"]
 
 
 def test_only_shadow_keel_summaries_is_still_no_live_model(tmp_path):
