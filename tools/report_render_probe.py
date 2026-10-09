@@ -395,9 +395,9 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
           var ord=[];
           for(var ki=0;ki<kr.length;ki++){
             var tx2=kr[ki].textContent||'';
-            var m=/(-?)\$([0-9]+(?:\.[0-9]+)?)(k?)/.exec(tx2);
+            var m=/(-?)[$]([0-9]+(?:[.][0-9]+)?)(k?)/.exec(tx2);
             if(!m)continue;
-            var fm=/\u00d7([0-9]+\.[0-9]+)/.exec(tx2);
+            var fm=/[×]([0-9]+[.][0-9]+)/.exec(tx2);
             ord.push([kr[ki].getAttribute('data-a2k'),
                       (m[1]?-1:1)*parseFloat(m[2])*(m[3]?1000:1),
                       fm?parseFloat(fm[1]):null]);
