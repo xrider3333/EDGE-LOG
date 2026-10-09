@@ -182,6 +182,15 @@ def publish(db, uid):
         rep["night_mode"] = nt_night_mode.public_state()
     except Exception as e:
         rep["night_mode"] = {"active": False, "error": f"{type(e).__name__}: {e}"}
+    # HELD BACK (2026-10-09, api/nt_held_back.py): what the recover watchdog refuses to restart until a
+    # person decides about an open position -- the board's 'NEEDS YOU' banner. [] when nothing is held.
+    try:
+        from api import nt_held_back
+        live = rep.get("positions") if rep.get("up") and "positions" not in (rep.get("partial") or []) else None
+        orders = (_get("/orders") or {}).get("orders") if rep.get("up") else None
+        rep["held_back"] = nt_held_back.state(live, orders)
+    except Exception:
+        rep["held_back"] = []
     try:
         db.collection("users").document(uid).collection("meta").document(
             "nt_bridge").set(rep)
