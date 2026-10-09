@@ -1190,6 +1190,135 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ap. Q30 EFFECTIVE TRIALS: the book looks are about 2 independent ideas, not 71; #485's 307 settings are about 30 (2026-10-09, a report)
+
+**What it is.** MANAGER #128 item 1, from the owner's reading list: Lopez de Prado & Lewis (2019) for the count, and Bailey & Lopez de Prado
+(2014) for the Deflated Sharpe.
+- **The question:** how many INDEPENDENT trials are the book-look family and one 900-trial Auto-Validate? Then restate #463's WF Deflated
+  Sharpe with that count beside the raw count.
+- **How it ran:** a report, WF only, lockbox unread. MANAGER reviewed the note (#133; TV was named second reviewer and posted nothing by the
+  deadline). It ran before main from branch prereg/frontier-efftrials-1009 (note LF 3c02ff35...; script tools/rocfrontier/q30_efftrials.py,
+  LF eb0e7bb5... after one disclosed fix to #485's validity count, made before any number).
+- **The method (one choice each):** daily series; distance sqrt((1 - rho) / 2); ONC as published (k-means at every k, silhouette t-stat
+  quality, recursion); E = the number of clusters.
+- **The looks:** 39 of LOOKS r1's 71 counted looks could be rebuilt as daily series on the S1 WF, marked to market.
+  - 27 are saved book runs; 12 are arithmetic on #463's records (sizing rules, the agreement tilt, the MDL refs).
+  - The other 32 (round 58's ML-gated looks and one-offs) enter as a band: E_low = E(39), E_high = E(39) + 32.
+  - 15 of the 27 saved runs (09-26/27) rebuild $100-146k lower than stored. The cause is the TTM entry-bar-stop fix (b3242e77, 09-27
+    14:50), which came after them; it is one leg's level and leaves the clusters unchanged.
+- **#485:** all 307 saved settings re-run on its tuning window (2016-01-04..2025-06-29). The run's own count of 243 could not be rebuilt
+  as a subset (every saved setting has 687+ in-sample trades), so the family is all 307, with N = 243 printed beside it.
+
+| Family | Series | Median correlation | E (ONC) | Second seed |
+|---|---|---|---|---|
+| Book looks (rebuildable) | 39 of 71 | 0.951 | 2 (38 #463-type books + the DIP-only book #441) | 2 |
+| #485 settings | 307 | 0.840 | 30 (independence ratio 0.098; the champion's cluster holds 9) | 33 |
+
+| Deflated Sharpe | N | Expected max of N trials (a year) | DSR |
+|---|---|---|---|
+| #463 WF (Sharpe 1.84 a year, 2,626 days) | 2 (E_low) | 0.37 | 1.000 |
+| | 34 (E_high) | 1.52 | 0.889 |
+| | 71 (raw) | 1.72 | 0.677 |
+| #485 champion (Sharpe 1.65, tuning window) | 30 (E) | 0.49 | 0.9999 |
+| | 243 (the run's count) | 0.67 | 0.9995 |
+| | 307 (all saved) | 0.69 | 0.9993 |
+
+**Read.**
+- **The raw look count overstates the trial burden.** The rebuildable looks are near copies of one book (correlation 0.95). Even at the
+  harsh bound, where every un-rebuildable look counts as independent (N = 34), #463's WF Sharpe clears the luck bar (DSR 0.889). At the raw
+  71 it reads 0.677.
+- **Caveat:** the variance of trial Sharpes behind the expected maximum rests on only two clusters.
+- **#485's tuning searched about 30 ideas, not 307 or 900:** the champion sits among 9 near-twins. Its Deflated Sharpe is unaffected
+  (0.999+ at every N).
+- **Per the note, this is EVIDENCE for a family-level luck bar (RESEARCH.md item 7), not a change.** No threshold moves: the 71-look chance
+  bands (10z) and the 900-trial budget stand.
+
+### 10ao. Q32 DECAY NOTE: what Falck, Rej & Thesmar's decay features predict for NOISE and ORB (2026-10-09, a short note)
+
+**What it is.** MANAGER #128 item 3, from the owner's reading list. It is a note, not a test: no forward line, no haircut applied to any
+number. The paper is "Why and how systematic strategies decay" (Quantitative Finance 22(11), 2022; arXiv 2105.01380).
+- **The paper's sample:** 72 published US long-short equity factors.
+- **Average decay:** out-of-sample Sharpe is about 0.57 x in-sample (median ratio 0.55).
+- **What predicts more decay:**
+  - a later publication date: the ratio falls 0.05 a year, and this alone explains 30% of the spread;
+  - a signal that needs more than two operations to compute: -0.49 on the ratio;
+  - an in-sample Sharpe that leans on a few observations: -0.21 per SD (and -0.16 per SD for subsample instability).
+- **What barely matters:** arbitrage proxies (larger, more liquid names decay more) are marginal once the others are in.
+
+**The features, applied** (outlier measures computed on the WF, each leg's marked-to-market daily $; bookq/q32_decay_features.py):
+
+| Leg | WF Sharpe a year | Sharpe without its best 1% of days (27) | Best 1% of days, share of net | > 2 operations |
+|---|---|---|---|---|
+| NOISE | 1.86 | 1.15 (-0.70) | 49% | yes |
+| ORB | 1.06 | 0.26 (-0.80) | 81% | yes |
+| ENGU-Q | 1.01 | 0.32 (-0.69) | 73% | yes |
+| TTM (x3) | 0.68 | -1.03 (-1.71) | 166% | yes |
+| #463 | 1.84 | 1.24 (-0.60) | 46% | - |
+
+- **Complexity:** both NOISE and ORB fall in the paper's riskier "more than two operations" group.
+  - NOISE: a band built from time-of-day moves, a VWAP exit, and volatility and day-type filters.
+  - ORB: the opening range, a buffer, a pace filter, a close confirm, a stop and a breakeven.
+- **Recency:** both start from public templates (Zarattini et al., 2023-24) tuned in-house in 2025-26. The paper's yearly trend was fitted
+  on factors published 1970s-2010 and cannot be extrapolated, but its direction says expect at least the average haircut.
+- **Liquidity:** NQ futures are among the most liquid markets, so trading cost does not shelter the edge from arbitrage.
+- **Dependence on a few days:** this is the feature that separates the legs.
+  - NOISE earns half its net on its best 1% of days and keeps a 1.15 Sharpe without them.
+  - ORB earns 81% there and keeps 0.26.
+  - TTM is negative without its best 1%.
+- **The paper's subsample-instability measure does not separate daily series** (0.08-0.10 for every leg), so it is not used.
+
+**Read.**
+- **On the paper's features, ORB is the more decay-exposed of the two, and NOISE the less** (highest Sharpe, least dependence on a few days).
+  TTM is the most exposed leg of all on this one measure.
+- **Where the haircut applies:** the paper's discount runs from IN-SAMPLE (where a factor was chosen) to out-of-sample. Our WF figures are
+  already walk-forward (post-selection), so the 0.55 ratio belongs to the tuning figures, not to WF.
+- **The decay the paper cannot price** is the next step, WF to live (arbitrage and regime). The book's one lockbox year showed none (LB 155.5
+  vs WF 93.8), but that year is spent.
+- No change. It feeds the forward harm monitors (10u): if a leg decays, ORB's and TTM's forward reads should show it first.
+
+### 10an. Q31 DRIFT TWIN for ENGU-Q: its seat leads a constant-exposure NQ holding by 24.7 ROC points on L - not distinguishable at this resolution (2026-10-09, a report)
+
+**What it is.** MANAGER #128 item 2, from the owner's reading list (Huang, Li, Wang & Zhou 2020, "Time-series momentum: is it there?").
+- **The question:** does ENGU-Q #335's seat add anything over simply holding NQ at the SAME average exposure? If it does, is the gain WHEN it
+  holds or HOW it trades?
+- **How it ran:** a report, walk-forward on the S1 line's stretch, lockbox unread. The pre-data note was reviewed by MANAGER (#130) and by
+  ENGUQ (#131 / #132, four edits folded) and ran before main from branch prereg/frontier-drifttwin-1009 (note LF 06c3f4fc...; script
+  tools/rocfrontier/q31_drifttwin.py).
+- **The facts behind the twins (positions only):** ENGU-Q is long-only, one NQ contract while on, and in the market on 60.5% of WF bars.
+  - Its time-average position is 0.605 NQ.
+  - On days it is fully held, its beta is 0.982 (ENGUQ, R2 0.962).
+- **The rows:** each is valued like the leg's own daily curve (NQ 1m ETH back-adjusted master, book UTC days, rolls from
+  tools/data/rolls_NQ.csv).
+  - The always-on twin holds 0.605 NQ all the time.
+  - The in-position twin holds 1.0 NQ on exactly the bars the leg holds.
+  - Always-on to in-position isolates WHEN; in-position to the leg isolates HOW (fills and exits).
+- **Power first:** the minimum detectable lead (50% line) is 33.4 points for L vs L', 19.9 for the leg vs the always-on twin, and 2.8 for the
+  leg vs the in-position twin.
+
+| Line (WF 2016-07..2025-06) | ROC@30k | DD5 | Worst DD | Sortino | $ a year | $ on R |
+|---|---|---|---|---|---|---|
+| ENGU-Q (the leg) | 26.09 | $31,177 (one episode) | $48,599 | 1.680 | $42,266 | -$360,558 |
+| Always-on twin, 0.605 NQ | 12.29 | $40,915 (one episode) | $61,925 | 0.977 | $25,376 | -$197,969 |
+| In-position twin, 1.0 NQ on the leg's bars | 24.46 | $32,351 (one episode) | $50,125 | 1.603 | $40,876 | -$362,270 |
+| L (ENGU-Q in) | 121.06 | $34,392 | $36,526 | 3.926 | $147,395 | -$887,447 |
+| L' = L with the always-on twin in ENGU-Q's place | 96.41 | $34,443 | $40,610 | 3.907 | $130,506 | -$724,859 |
+| L'' = L with the in-position twin in its place | 117.67 | $34,723 | $37,225 | 3.874 | $146,005 | -$889,159 |
+| L without ENGU-Q (10ak) | 82.04 | $29,208 (one episode) | $38,444 | 3.935 | $105,129 | -$526,890 |
+
+**The read (pre-set wording).**
+- **Not distinguishable at this resolution.** L - L' = +24.65 ROC points, against a minimum detectable lead of 33.41. The leg alone leads
+  the always-on twin by +13.8, against an MDE of 19.9.
+- **The decomposition:**
+  - WHEN the leg holds is worth about +12 points standalone (+$15.5k a year, always-on to in-position). Part of that is the trailing stop
+    getting out during declines, so it is timing, but not proof of skill at entry.
+  - HOW it trades (fills against the bar closes) adds +1.6 points (+$1.4k a year), ahead of the in-position twin in 8 of 9 years.
+  - Gross of costs, the leg reads 27.71 (its ~1,194 WF round trips cost ~$2.1k a year; the twin's rolls cost ~$35).
+- **Where the timing pays:** the leg sat out the always-on twin's two worst episodes (2021-11..2022-12, $61.9k; 2025-02..04, $58.8k). Its
+  own worst is spring 2022 ($48.6k, one episode).
+- **On R the twin loses LESS** (-$198k vs the leg's -$361k), so the leg's seat value is a smaller worst drawdown and more dollars a year,
+  not R money.
+- No weight change, no adoption, no forward line. Book changes are the owner's, and the lockbox is spent (10y / 10z).
+
 ### 10am. Q29 CALMTAPE r1: long ES held only on a calm uptrend FAILS against buy-and-hold at the same exposure (2026-10-09, WF, Stage A)
 
 **What it is.** The one shape Q28's map (10al) shortlisted: a long ES leg held only when the tape is calm and trending up, flat otherwise,
