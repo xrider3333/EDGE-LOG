@@ -41,7 +41,10 @@ RAILS (identical logic shadow and, eventually, live):
       every open lot, set breaker_tripped for the rest of the (ET) trading day, ignore
       further entries.
   (c) entries only inside [session.open, session.last_entry] ET; at session.flat_by,
-      every open lot is closed and tagged "EOD".
+      every open lot is closed and tagged "EOD" -- except a leg in
+      session.hold_overnight_legs (ENGU-Q by default, engine mode only), whose lot holds
+      overnight like its backtest and sells on its own strategy exit (HOLD OVERNIGHT,
+      owner GO 2026-10-09 -- see the section of that name).
   (d) kill file present -> no new lots; close every open lot, tagged "KILL".
   (e) feed staleness (NinjaTrader AddOn heartbeat older than 90s, via
       api.nt_sync._addon_heartbeat) blocks new entries and logs at most one line per
@@ -124,6 +127,14 @@ _WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", os.path.join(EDGE
 BROKER_SYMBOL = "QQQ"
 
 LEGS = ("ORB", "ENGUQ", "NOISE")
+# HOLD OVERNIGHT (OWNER GO 2026-10-09, MANAGER #106): the exec legs whose lot is NOT sold at
+# session.flat_by -- it holds overnight like its backtest and sells on its own engine EXIT
+# on a later day, as a normal market order in regular hours. Code default only:
+# config.json's session.hold_overnight_legs (a list of LEGS) overrides it, read at call
+# time by _hold_legs (never baked into DEFAULT_CONFIG). Engine mode only. See the
+# HOLD OVERNIGHT section near _close_all for the lot's "hold" block, the mark-to-open daily
+# loss rail and the deferred (after-hours) closes.
+HOLD_OVERNIGHT_LEGS = ("ENGUQ",)
 # ENGINE MODE (2026-09-13): maps api/cloud_signal.py's own CROWN_LEGS keys onto this
 # module's short leg keys. Kept explicit (not derived) so a cloud_signal rename never
 # silently breaks this mapping -- update BOTH sides in the same commit. See
@@ -148,9 +159,12 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # <state_dir>/shadow/signals.csv this module never reads). It is back in
 # cloud_signal.CROWN_LEGS with its pre-09-28 cfg, so its ENTRY/EXIT rows are in the live
 # ledger again and map to the "ENGUQ" exec leg here: config shares["ENGUQ"] (10 on the box),
-# max_shares_per_leg, the session window [open, last_entry] (_late_entry_reason) and the
-# flat_by flatten exactly as for ORB/NOISE -- no overnight holding. It STARTS FLAT: the
-# engine cold-starts the leg (cloud_signal LIVE SINCE), so no catch-up order is ever sent.
+# max_shares_per_leg and the session window [open, last_entry] (_late_entry_reason) exactly
+# as for ORB/NOISE. Unlike them it HOLDS OVERNIGHT (owner GO 2026-10-09, MANAGER #106): the
+# flat_by flatten (15:59) sells ORB/NOISE but keeps the ENGU-Q lot (HOLD_OVERNIGHT_LEGS above),
+# which sells on its own engine EXIT on a later day (cloud_signal ENGUQ_335 has no eod_flat).
+# It STARTS FLAT: the engine cold-starts the leg (cloud_signal LIVE SINCE), so no catch-up
+# order is ever sent.
 # Since 2026-10-09 (MANAGER #87 (d)) this module also READS the shadow ledger in exactly one
 # place -- _build_shadow_trades, the status doc's separate, display-only "shadow_trades"
 # block for the board's "Shadow - not counted" fold. That read never reaches an order, a
@@ -460,6 +474,47 @@ def _market_closed_for_orders(nowdt):
         return False
 
 
+def _outside_regular_hours(nowdt):
+    """True when no market order may go out at `nowdt` (HOLD OVERNIGHT, 2026-10-09): not a
+    session day (a weekend or a holiday), before 09:30:00 New York, or from today's session
+    close on (_market_closed_for_orders -- 13:00 on a half day). A held lot's close that
+    falls here is deferred to the next open (lot["close_pending"], see
+    _defer_held_close). Deliberately separate from _market_closed_for_orders, which stays
+    False before the open and on a weekend (its after-close guard is pinned to the
+    second). None or any doubt reads as inside -- the old behaviour. Never raises."""
+    try:
+        if nowdt is None:
+            return False
+        if not market_calendar.is_session(nowdt):
+            return True
+        if _et_hhmm(nowdt) < (9, 30):
+            return True
+        return _market_closed_for_orders(nowdt)
+    except Exception:
+        return False
+
+
+def _hold_legs(cfg):
+    """The exec legs whose lot holds overnight (HOLD OVERNIGHT): config
+    session.hold_overnight_legs when it is a list of known LEGS ([] = none), else the code
+    default HOLD_OVERNIGHT_LEGS. () in ninjatrader mode: a fill dated before today is
+    never replayed there, so an overnight exit would be lost -- that fallback keeps
+    flat-at-close. Read at call time from the tick's own cfg. Never raises."""
+    try:
+        cfg = cfg or {}
+        if str(cfg.get("signal_source") or "engine").strip().lower() != "engine":
+            return ()
+        sess = cfg.get("session")
+        raw = sess.get("hold_overnight_legs") if isinstance(sess, dict) else None
+        if raw is None:
+            return HOLD_OVERNIGHT_LEGS
+        if isinstance(raw, (list, tuple)) and all(isinstance(x, str) and x in LEGS for x in raw):
+            return tuple(raw)
+        return HOLD_OVERNIGHT_LEGS
+    except Exception:
+        return HOLD_OVERNIGHT_LEGS
+
+
 # -- config / state I/O -------------------------------------------------------------
 def _read_config_for_gate(path=None, log=print):
     """Read-only counterpart to load_config, for the SERVING_HOSTS GATE ONLY (major
@@ -528,6 +583,15 @@ def load_config(path=None, log=print):
             f"defaulting to 'engine'")
         src = "engine"
     merged["signal_source"] = src
+    # HOLD OVERNIGHT: session.hold_overnight_legs must be a list of known legs ([] turns the
+    # hold off); anything else is dropped so _hold_legs falls back to the code default
+    sess = merged.get("session")
+    if isinstance(sess, dict) and "hold_overnight_legs" in sess:
+        raw = sess.get("hold_overnight_legs")
+        if not (isinstance(raw, list) and all(isinstance(x, str) and x in LEGS for x in raw)):
+            log(f"[qqq-exec] invalid session.hold_overnight_legs={raw!r} -- using the code "
+                f"default {list(HOLD_OVERNIGHT_LEGS)}")
+            sess.pop("hold_overnight_legs", None)
     return merged
 
 
@@ -735,6 +799,10 @@ def save_state(state, path=None, _retries=12, _sleep=0.05, log=None):
 
 
 def _roll_day(state, today):
+    # HOLD OVERNIGHT: never touches state["legs"] -- a held lot (its "hold" block and any
+    # close_pending decided after the bell) rides through midnight, a weekend and a holiday
+    # unchanged; the new day's open mark is taken by _refresh_held_marks from 09:30
+    # (lot["hold"]["open_mark_day"] says which day a mark belongs to, so nothing is reset)
     if state.get("trading_day") != today:
         state["trading_day"] = today
         state["realized_pnl_today"] = 0.0
@@ -996,15 +1064,34 @@ def _exit_reason_words(reason):
         return "kill switch"
     if r.startswith("BREAKER"):
         return "daily stop"
+    if "HELD" in r:
+        return "strategy exit, held overnight"
     return "strategy exit"
 
 
-def _kill_note():
-    """The kill switch (plan group H): low -- the owner switched it on."""
+def _kill_note(deferred=()):
+    """The kill switch (plan group H): low -- the owner switched it on. `deferred`: held
+    overnight legs whose sell waits for the open (HOLD OVERNIGHT -- nothing is sent outside
+    regular hours)."""
+    if deferred:
+        return ntfy_push.plain(
+            PHONE_AREA, "kill switch on", "the kill switch closes every QQQ trade",
+            f"The kill switch is on; {_legs_words(deferred)}'s held shares sell when the "
+            f"market opens",
+            "nothing if you switched it on, else " + PHONE_ASK, priority="low")
     return ntfy_push.plain(
         PHONE_AREA, "kill switch on", "the kill switch closed every QQQ trade",
         "The kill switch is on: QQQ trades were closed and new ones are blocked",
         "nothing if you switched it on, else " + PHONE_ASK, priority="low")
+
+
+def _held_note(leg, shares):
+    """HOLD OVERNIGHT: the planned overnight hold, one low note a day ("QQQ book: held
+    overnight") -- never an alarm."""
+    return ntfy_push.plain(
+        PHONE_AREA, "held overnight", "not affected (planned)",
+        f"{_leg_word(leg)} keeps its {int(shares)} QQQ shares overnight, as its backtest does",
+        "nothing - it sells on its own exit", priority="low")
 
 
 def _stood_down_note():
@@ -1295,7 +1382,12 @@ TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit
               # with no keel_size on its ENTRY signal -- no overlay on that leg, or a
               # trade opened before this column existed -- never a guess. The web tab's
               # trade drawer uses this to show the plugin_size x keel_size breakdown.
-              + ["keel_size"])
+              + ["keel_size"]
+              # HOLD OVERNIGHT (2026-10-09): appended, never inserted -- a held trade's
+              # overnight gaps added up (shares x (open - prior close) x side, every night)
+              # and the session opens it was carried into. Inside `pnl` (the P&L of record
+              # is exit - entry), kept out of the daily loss limit. "" for a same-day trade.
+              + ["overnight_gap_usd", "nights_held"])
 
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
@@ -1419,6 +1511,11 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
     # KEEL OVERLAY (2026-09-23): "" (never a guessed number) for a lot with no
     # keel_size -- no overlay on that leg, or a lot opened before this column existed.
     row["keel_size"] = lot.get("keel_size") if lot.get("keel_size") is not None else ""
+    # HOLD OVERNIGHT: "" unless the lot was carried into at least one later session
+    hold = lot.get("hold") if isinstance(lot.get("hold"), dict) else {}
+    nights = int(hold.get("nights") or 0) if hold else 0
+    row["overnight_gap_usd"] = round(float(hold.get("gap_usd") or 0.0), 2) if nights else ""
+    row["nights_held"] = nights if nights else ""
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     return pnl
 
@@ -1742,6 +1839,10 @@ def _build_positions_live(state, cfg, log=print):
                 "live_source": live_src,
                 "open_pnl": open_pnl, "time_in_trade_min": time_in_trade_min,
             })
+            # HOLD OVERNIGHT: held flag, gap and marks (the board shows it as planned)
+            legs_out[-1].update(_held_position_fields(
+                lot, state.get("trading_day"),
+                (state.get("_rail_unrl_by_leg") or {}).get(leg)))
         legs_net = sum((lot.get("shares_remaining") or 0) * (1 if lot.get("side") == "long" else -1)
                        for lot in (state.get("legs") or {}).values())
         broker_net = None
@@ -2284,7 +2385,29 @@ def _check_webull_flat_after_eod(state, log=print):
             state["_eod_flat_pushed"] = _say_eod_unread(state, log=log)
             return None, None
         qty = float(broker.get(BROKER_SYMBOL, 0.0) or 0.0)
-        if abs(qty) > 1e-9:
+        # HOLD OVERNIGHT: "flat except held legs" -- Webull should hold exactly the lots the
+        # book holds overnight (signed); only a difference is a problem
+        held = _held_shares_by_leg(state)
+        expected = float(sum(held.values()))
+        if abs(qty - expected) > 1e-9 and held:
+            # `shares` stays what Webull holds (as before); how far that is from the held
+            # lots rides beside it ("off" on the verdict, see the scheduler)
+            off = int(round(abs(qty - expected)))
+            shares = int(round(abs(qty)))
+            msg = (f"Webull holds {qty:g} QQQ after the close but the book holds "
+                   f"{_held_words(held)} overnight -- {off} share(s) off; check the Webull "
+                   f"app by hand")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "broker", msg, log=log)
+            _action, sent = _say(state, "eod_flat", _phone_day(), ntfy_push.plain(
+                PHONE_AREA, "CHECK NOW", "Webull's QQQ does not match the held trade",
+                f"Webull's QQQ is {off} shares off the {_legs_words(sorted(held))} trade "
+                f"held overnight",
+                "check the Webull app, then " + PHONE_ASK, priority="urgent"), log=log)
+            state["_eod_flat_pushed"] = sent is not False
+            state["_eod_flat_off"] = off
+            return False, shares
+        if abs(qty) > 1e-9 and not held:
             shares = int(round(abs(qty)))
             msg = (f"Webull still holds {shares} QQQ after the close -- sell by hand in "
                   f"the Webull app")
@@ -2296,6 +2419,9 @@ def _check_webull_flat_after_eod(state, log=print):
                 "sell them by hand in the Webull app", priority="urgent"), log=log)
             state["_eod_flat_pushed"] = sent is not False
             return False, shares
+        if held:
+            log(f"[qqq-exec] Webull after the close: {qty:g} QQQ = the book's held overnight "
+                f"lots ({_held_words(held)}) -- flat except held legs")
         return True, 0
     except Exception as e:
         log(f"[qqq-exec] Webull flat-check after EOD failed (non-fatal): "
@@ -2381,9 +2507,21 @@ def _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=print):
                           and (not have_kill or checked.get("kill")))
         if already_covered:
             return
+        # HOLD OVERNIGHT: with a lot held overnight (or a close waiting for the open) still in
+        # the book, Webull is judged only from the session close on. Before it the held lot
+        # can still sell -- on its own exit between the flatten and the bell, or at 09:30 on a
+        # KILL decided before the open -- and a verdict stamped earlier would stand for the
+        # day (already_covered), saying "flat except the held lot" after the lot is gone.
+        if any(isinstance((lot or {}).get("hold"), dict)
+               or isinstance((lot or {}).get("close_pending"), dict)
+               for lot in (state.get("legs") or {}).values()) \
+                and not _market_closed_for_orders(nowdt):
+            return
         deadline_passed = nowdt >= _session_flatten_deadline(nowdt)
         if not deadline_passed:
-            if state.get("legs"):
+            # HOLD OVERNIGHT: a lot held overnight is not waited for -- it is expected to stay
+            if any(not isinstance((lot or {}).get("hold"), dict)
+                   for lot in (state.get("legs") or {}).values()):
                 return
             grace = max(0.0, _cfg_num(cfg, "broker_reconcile_post_order_grace_sec",
                                       BROKER_RECONCILE_POST_ORDER_GRACE_SEC))
@@ -2395,6 +2533,7 @@ def _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=print):
             if still_retrying:
                 return
         state.pop("_eod_flat_pushed", None)
+        state.pop("_eod_flat_off", None)
         flat, qty = _check_webull_flat_after_eod(state, log=log)
         state["eod_flat_check_date"] = today
         state["_eod_flat_checked_for"] = {"date": today, "flat_by": have_flat_by,
@@ -2402,7 +2541,15 @@ def _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=print):
         # "pushed": the executor's own note for a not-flat / unread result went out (10-08
         # fourth review) -- the box monitor stays quiet on that result only when it did
         pushed = bool(state.pop("_eod_flat_pushed", False))
+        off = state.pop("_eod_flat_off", None)
         state["_webull_flat_after_eod"] = {"date": today, "flat": flat, "shares": qty}
+        held = _held_shares_by_leg(state)
+        if held:
+            # HOLD OVERNIGHT: flat True here means "flat except these held legs"; "shares"
+            # is what Webull holds, "off" how far that is from the held lots
+            state["_webull_flat_after_eod"]["held"] = held
+            if off is not None:
+                state["_webull_flat_after_eod"]["off"] = off
         if flat is not True:
             state["_webull_flat_after_eod"]["pushed"] = pushed
     except Exception as e:
@@ -4623,7 +4770,7 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
 # api.webull_orders.OrderAdapter.update_daily_pnl() existed since the rail was built
 # but nothing ever called it, so daily_loss_limit_usd could never trip. Fed here, once
 # per tick, from whichever source is actually available -- see _compute_broker_daily_pnl.
-def _broker_realized_today(today, log=print):
+def _broker_realized_today(today, log=print, held_seeds=None):
     """(realized_total, any_broker_priced) from today's BROKER_ORDERS_CSV rows for
     mode PAPER/LIVE with ok truthy -- FIFO pairs each leg's OPEN with its next CLOSE
     using the row's own broker_fill_px (the documented `filled_price`, see
@@ -4631,10 +4778,18 @@ def _broker_realized_today(today, log=print):
     shadow_px for that one row when the broker didn't echo a fill price back yet.
     `any_broker_priced` is True only if at least one row actually had a real
     broker_fill_px -- see _compute_broker_daily_pnl for why that distinction decides
-    the reported source. Never raises; a CSV read problem returns (0.0, False)."""
+    the reported source. Never raises; a CSV read problem returns (0.0, False).
+
+    `held_seeds` (HOLD OVERNIGHT, 2026-10-09): {leg: {"px", "side", "shares"}} for each lot
+    carried into today -- its OPEN row is an earlier day's, so the pairing starts from its
+    open mark (today's first price) instead: its CLOSE today counts exit - open mark, the
+    daily loss limit's mark-to-open (the overnight gap stays out). "at_fill": True (the lot
+    closed before today's first bar was in, so its exit was today's first price) pairs that
+    first CLOSE at its own price -- nothing on the rail."""
     realized = 0.0
     any_broker_priced = False
-    open_px_by_leg = {}
+    open_px_by_leg = {leg: dict(v) for leg, v in (held_seeds or {}).items()
+                      if isinstance(v, dict) and v.get("px") is not None}
     try:
         with open(BROKER_ORDERS_CSV, encoding="utf-8", newline="") as f:
             rows = list(csv.DictReader(f))
@@ -4679,6 +4834,8 @@ def _broker_realized_today(today, log=print):
             # MULTIPLE partial CLOSE mirrors (ninjatrader signal_source mode's partial
             # exits) -- each one closes only part of what's still recorded open here.
             opened = open_px_by_leg[leg]
+            if opened.pop("at_fill", False):
+                opened["px"] = px     # HOLD OVERNIGHT: the held lot's first price today
             side_mult = 1 if opened["side"] == "BUY" else -1
             closed_shares = min(shares, opened["shares"])
             realized += (px - opened["px"]) * side_mult * closed_shares
@@ -4698,19 +4855,34 @@ def _compute_broker_daily_pnl(state, adapter, log=print):
     tick. FALLBACK source="shadow_fallback" (no PAPER/LIVE broker activity recorded
     today at all, so there is nothing broker-side to compute from yet): the shadow
     book's own today realized+unrealized across every leg. Never raises."""
+    # HOLD OVERNIGHT: the rail's marks -- mark-to-open for a lot carried into today, the
+    # record mark for every other lot (a state from before they existed: the record marks)
+    rail_marks = state.get("_rail_unrl_by_leg")
+    if not isinstance(rail_marks, dict):
+        rail_marks = state.get("_unrl_by_leg") or {}
     try:
         today = _now_et().strftime("%Y-%m-%d")
-        realized, any_broker_priced = _broker_realized_today(today, log=log)
+        ht = state.get("held_today")
+        seeds = {}
+        if isinstance(ht, dict) and ht.get("day") == today:
+            for leg, v in (ht.get("legs") or {}).items():
+                if (v or {}).get("open_mark_px") is not None:
+                    seeds[leg] = {"px": float(v["open_mark_px"]),
+                                  "side": _broker_side(v.get("side"), "OPEN"),
+                                  "shares": float(v.get("shares") or 0),
+                                  # closed before today's first bar: its fill IS today's
+                                  # first price, so it adds nothing to the rail
+                                  "at_fill": v.get("open_mark_src") == "exit"}
+        realized, any_broker_priced = _broker_realized_today(today, log=log, held_seeds=seeds)
         if any_broker_priced:
-            unrl_by_leg = state.get("_unrl_by_leg") or {}
             open_legs = adapter.status().get("open_legs") or []
-            unrealized = sum(float(unrl_by_leg.get(leg, 0.0) or 0.0) for leg in open_legs)
+            unrealized = sum(float(rail_marks.get(leg, 0.0) or 0.0) for leg in open_legs)
             return round(realized + unrealized, 2), "broker_fills"
     except Exception as e:
         log(f"[qqq-exec] broker-fill P&L calc failed ({type(e).__name__}: {e}) -- "
             "falling back to the shadow book's own today figures")
-    shadow_realized = float(state.get("realized_pnl_today", 0.0) or 0.0)
-    shadow_unrealized = sum((state.get("_unrl_by_leg") or {}).values())
+    shadow_realized = _rail_realized_today(state)
+    shadow_unrealized = sum(float(v or 0.0) for v in rail_marks.values())
     return round(shadow_realized + shadow_unrealized, 2), "shadow_fallback"
 
 
@@ -6912,9 +7084,14 @@ def _check_feed_engine(state, log=print):
         # the phone. This keeps the log line and a timeline event naming the open lots.
         if state.get("legs"):
             legs_txt = ", ".join(sorted(state["legs"].keys()))
+            held_txt = ", ".join(sorted(leg for leg, lot in state["legs"].items()
+                                        if isinstance((lot or {}).get("hold"), dict)
+                                        or leg in HOLD_OVERNIGHT_LEGS))
             msg = (f"QQQ SIGNAL ENGINE STALLED with an open lot held ({legs_txt}) -- "
                   f"new entries and signal-driven exits are blocked until the heartbeat "
-                  f"recovers; the end-of-day flatten, KILL and breaker still work")
+                  f"recovers; the end-of-day flatten, KILL and breaker still work"
+                  + (f" (the end-of-day flatten does not close {held_txt}: it holds "
+                     f"overnight until its own exit)" if held_txt else ""))
             log(f"[qqq-exec] {msg}")
             _log_event(state, "signal_stall", msg, log=log)
     elif was and not stale:
@@ -7224,7 +7401,20 @@ def _consume_engine_signals(state, cfg, now, log=print):
         # a LEVELS row (the breakeven move) is a state update, not a trade decision: it
         # still applies late (a restart) -- _apply_engine_levels only takes it for the
         # open trade with the same trade id, and the resting stop then follows it
-        if age is not None and age > ENGINE_CONSUME_STALE_SEC and ev != "LEVELS":
+        # HOLD OVERNIGHT: the EXIT of an open lot on a leg that holds overnight is never too
+        # old -- held already or not yet (a same-day exit consumed late): the flat_by flatten
+        # keeps that lot, so its own exit is the only thing that can close it (and free its
+        # leg for new entries). A late one is tagged "late": _route_engine_events then sells
+        # it at a price from now, never at the row's own old price.
+        late = age is not None and age > ENGINE_CONSUME_STALE_SEC and ev != "LEVELS"
+        held_exit = False
+        if ev == "EXIT":
+            xleg = ENGINE_LEG_MAP.get(r.get("leg"))
+            hl = (state.get("legs") or {}).get(xleg)
+            xtid = str(r.get("trade_id") or "").strip()
+            held_exit = bool(hl and xtid and xtid == hl.get("trade_id")
+                             and (isinstance(hl.get("hold"), dict) or xleg in _hold_legs(cfg)))
+        if late and not held_exit:
             log(f"[qqq-exec] engine {ev} {r.get('leg')} consumed {age/60:.0f} min after "
                 f"it was emitted -- too stale to act on, recorded only")
             _log_event(state, "engine_stale_skip",
@@ -7266,6 +7456,8 @@ def _consume_engine_signals(state, cfg, now, log=print):
                 v = _finite_or_none(r.get(k))
                 if v is not None:
                     out[-1][k] = v
+            if late:
+                out[-1]["late"] = True   # HOLD OVERNIGHT: a hold leg's exit consumed late
         except Exception as e:
             log(f"[qqq-exec] engine event row malformed, skipped: {type(e).__name__}: {e}")
     return out
@@ -7520,6 +7712,13 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                         f"{leg} entry signal for {_trade_id.describe(row_tid, _NY)} while the "
                         f"shadow trade {_lot_label(open_lot)} is still open; not taken",
                         nowdt, detail, log=log)
+                    if (leg in _hold_legs(cfg) or isinstance(open_lot.get("hold"), dict)) \
+                            and not isinstance(open_lot.get("close_pending"), dict):
+                        # HOLD OVERNIGHT: the strategy holds one trade at a time, so a new
+                        # entry while the book still holds its lot means that trade's exit
+                        # was missed -- the flatten no longer closes it, so say so (not when
+                        # its exit is known and only waits for a price or the open)
+                        _say_held_exit_missed(state, leg, open_lot, today, log=log)
                 continue
             shares = int(cfg["shares"].get(leg, 0))
             too_late = _late_entry_reason(nowdt, sig_dt, cfg.get("session") or {})
@@ -7598,6 +7797,26 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                     state, "exit_id_mismatch",
                     f"{leg} strategy exit belongs to {exit_of}, but the open shadow trade is "
                     f"{_lot_label(lot)}; nothing closed", nowdt, detail, log=log)
+                continue
+            hold_lot = isinstance(lot.get("hold"), dict) or leg in _hold_legs(cfg)
+            if hold_lot and _outside_regular_hours(nowdt):
+                # HOLD OVERNIGHT: a held lot's exit outside regular hours (the end-of-day
+                # settle row after the bell, a late row consumed before 09:30) keeps the
+                # lot; the first tick from the next open sells it at market
+                _defer_held_close(state, cfg, leg, "signal exit", nowdt, log=log,
+                                  px=float(e["ref_price"]), trade_id=row_tid)
+                continue
+            if hold_lot and _held_exit_px_is_old(lot, e, sig_dt, today):
+                # HOLD OVERNIGHT: the exit's own price is not a price from now -- the row was
+                # consumed late (a same-day exit after a restart or a wedge), or a carried
+                # lot's exit is stamped with an earlier session's bar (a settle row written at
+                # the next morning's first step, a restart that consumed yesterday's
+                # after-bell exit after 09:30). Booked at that price, the overnight gap would
+                # land on the daily loss rail and the trade would record a P&L Webull never
+                # had: the next tick sells it at market at a price from today
+                # (_run_deferred_held_closes, which waits for one until 09:35 at most).
+                _defer_held_close(state, cfg, leg, "signal exit", nowdt, log=log,
+                                  px=float(e["ref_price"]), trade_id=row_tid, late=True)
                 continue
             state["_px_source"] = px_source
             # an EOD SETTLE row (api/cloud_signal.py, after the close) closing a lot the
@@ -7937,6 +8156,11 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
                           nowdt=nowdt, log=log)
     pnl = None
     if lot["shares_remaining"] <= 0:
+        # HOLD OVERNIGHT: a lot carried into today gets its open mark now if today's first
+        # bar was not in yet (the exit price is then today's first price) and its daily
+        # loss rail adjustment -- before _record_trade, which writes its overnight gap.
+        # realized_pnl_today below stays the P&L of record (exit - entry).
+        _finish_held_close(state, leg, lot, fill_px, nowdt=nowdt, log=log)
         # close the round-trip on the full lot's entry (weighted avg exit unnecessary
         # for a single-entry lot -- see module docstring: entries are treated single-shot)
         pnl = _record_trade(lot, fill_px, reason, log=log)
@@ -7945,7 +8169,562 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
     return pnl
 
 
-def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print, nowdt=None):
+# -- HOLD OVERNIGHT (OWNER GO 2026-10-09, MANAGER #106) -------------------------------------
+# ENGU-Q (#335) holds its trade overnight, like its backtest. The flat_by flatten skips a leg
+# in _hold_legs(cfg) (session.hold_overnight_legs, code default HOLD_OVERNIGHT_LEGS, engine
+# mode only): its lot stays in state["legs"] -- and in the adapter's broker_sent_positions,
+# which have no daily reset -- until the engine's own EXIT on a later day (api/cloud_signal.py
+# emits the exit of an emitted entry on any later day), sent as an ordinary market order in
+# regular hours. The lot carries a "hold" block (state.json, so a restart keeps it):
+#   since           ET day the lot was first kept at the flatten
+#   flat_by_day     the last flatten that kept it
+#   nights          session opens it was carried into
+#   close_mark_px   the prior session's last 1m bar close (where the overnight gap starts)
+#   open_mark_px / open_mark_day / open_mark_src
+#                   today's first price: the open of today's first 1m bar in
+#                   api/cloud_signal.py's own bar cache, or the exit price when the lot
+#                   closed before that bar was in
+#   gap_today_usd   shares x (open - prior close) x side -- today's overnight gap
+#   gap_usd         every night's gap added up (the trade's overnight_gap_usd column)
+#   rail_px         today's newest 1m bar close, the daily loss rail's mark (None pre-open)
+# MARK-TO-OPEN DAILY LOSS RAIL: a lot carried into today counts on the rail from today's open
+# mark only -- 0 before it exists, then (mark - open) x shares x side; closed today it adds
+# (exit - open). The overnight gap never reaches the rail but stays in the P&L of record
+# (trades.csv pnl = exit - entry, realized_pnl_today) and is published as its own field
+# (today.overnight_gap_usd, positions[leg].gap_usd). Both rail sites read the same figures:
+# the book breaker (_mark_and_check_breaker, via _rail_realized_today and
+# state["_rail_unrl_by_leg"]) and the adapter's daily_pnl (_compute_broker_daily_pnl, whose
+# broker_orders.csv pairing is seeded with the held lot's open mark from state["held_today"]).
+# HARD STOPS STAY HARD: KILL and the daily loss breaker close a held lot too -- at once inside
+# regular hours. Outside them (after the bell, before 09:30, a weekend) nothing is ever sent:
+# the lot stays in the book with lot["close_pending"] and the first tick from the next open
+# sells it at market (_run_deferred_held_closes). A strategy EXIT for a held lot outside
+# regular hours (an end-of-day settle row after the bell, or a late one consumed before
+# 09:30) waits the same way. A pending KILL close is cancelled if the kill file is gone by
+# the open; a pending BREAKER close still runs although breaker_tripped resets at midnight.
+# The flatten's internal cross never offsets a closing leg against a held lot (the held leg
+# is not in the flatten's legs at all), and next morning's netting sees the held lot through
+# the account net (webull_orders._account_net), like any open leg.
+_PENDING_RANK = {"KILL": 3, "BREAKER": 2, "signal exit": 1}
+HELD_EXIT_REASON = "signal exit (held overnight, sold at the open)"
+# A hold leg's strategy exit whose own price is not from now (consumed late, inside regular
+# hours, for a lot not carried in from an earlier day) -- sold at market at a price from now.
+LATE_EXIT_REASON = "signal exit (late, at market)"
+_DAY_RE = re.compile(r"\d{4}-\d{2}-\d{2}")
+# A close waiting for the open goes out once the book has a price from TODAY to book it at
+# (the live stream, or today's first 1m bar in the engine cache) -- else the book would
+# record the exit at yesterday's close and the overnight gap would leak into the rail
+# through the fill shortfall. Never later than this: the market order itself needs no price.
+HELD_OPEN_PRICE_WAIT_UNTIL = (9, 35)
+
+
+def _held_session_marks(leg, nowdt, log=print):
+    """{"prior_close", "today_open", "today_last", "src"} for a held lot at `nowdt`, read from
+    api.cloud_signal's own 1m QQQ bar cache (RTH bars only; `time` = the bar's START epoch):
+    prior_close = the close of the last bar before today (the prior session's last bar),
+    today_open = the open of today's first bar from 09:30, today_last = the close of today's
+    newest bar (the daily loss rail's mark). A value is None when the cache has no such bar;
+    the whole result is None when the cache is empty or unreadable. `leg` is not used to
+    pick a file (one QQQ tape for every leg) -- it is there so a test can stub per leg.
+    Never raises."""
+    try:
+        cs = _cs_module()
+        df = cs.load_cached_bars("1m", cs.DEFAULT_PATHS)
+        if df is None or not len(df):
+            return None
+        d = nowdt.date()
+        tz = _NY or timezone.utc
+        day_start = datetime(d.year, d.month, d.day, tzinfo=tz).timestamp()
+        open_ep = datetime(d.year, d.month, d.day, 9, 30, tzinfo=tz).timestamp()
+        import pandas as pd
+        t = pd.to_numeric(df["time"], errors="coerce")   # a torn row reads NaN, never raises
+        prior = df[t < day_start].sort_values("time")
+        today = df[(t >= open_ep) & (t < day_start + 86400)].sort_values("time")
+        return {"prior_close": float(prior.iloc[-1]["close"]) if len(prior) else None,
+                "today_open": float(today.iloc[0]["open"]) if len(today) else None,
+                "today_last": float(today.iloc[-1]["close"]) if len(today) else None,
+                "src": "engine_1m_bar"}
+    except Exception as e:
+        log(f"[qqq-exec] held lot marks unreadable for {leg} (rail counts it as 0 until "
+            f"they are): {type(e).__name__}: {e}")
+        return None
+
+
+def _carried_into(lot, day):
+    """True when `lot` was held at an earlier day's flatten -- carried into `day` (an ET date
+    string). Never raises."""
+    try:
+        h = (lot or {}).get("hold")
+        since = str((h or {}).get("since") or "") if isinstance(h, dict) else ""
+        return bool(since and day and since < str(day))
+    except Exception:
+        return False
+
+
+def _held_exit_px_is_old(lot, e, sig_dt, today):
+    """True when a hold leg's strategy EXIT must not be booked at its own engine price: the row
+    was consumed late (_consume_engine_signals tags it "late"), or the lot was carried into
+    `today` and the exit's bar is from an earlier session. Never raises."""
+    try:
+        if e.get("late"):
+            return True
+        if sig_dt is None or not _carried_into(lot, today):
+            return False
+        d = sig_dt.astimezone(_NY) if (_NY is not None and sig_dt.tzinfo is not None) else sig_dt
+        return d.strftime("%Y-%m-%d") < str(today)
+    except Exception:
+        return False
+
+
+def _say_held_exit_missed(state, leg, lot, day, log=print):
+    """A new ENTRY on a hold leg while the book still holds that leg's earlier lot: the
+    strategy trades one position at a time, so that lot's own exit was missed -- and the
+    flat_by flatten no longer closes a held lot. A timeline event, and one plain high note a
+    day per leg ("QQQ book: CHECK NOW"). Never raises."""
+    try:
+        n = int(round(float((lot or {}).get("shares_remaining") or 0)))
+        msg = (f"{_leg_word(leg)}'s strategy opened a new trade while the book still holds its "
+               f"earlier trade {_lot_label(lot)} -- that trade's exit was missed, and the "
+               f"end-of-day flatten does not close a held lot")
+        log(f"[qqq-exec] WARNING: {msg}")
+        _log_event(state, "held_exit_missed", msg, log=log)
+        _say(state, f"held_missed:{leg}", day, ntfy_push.plain(
+            PHONE_AREA, "CHECK NOW", f"{_leg_word(leg)} cannot take new trades",
+            f"{_leg_word(leg)}'s strategy started a new trade, but the book still holds its "
+            f"earlier {n} shares",
+            "check the Webull app, then " + PHONE_ASK, priority="high"), log=log)
+    except Exception as e:
+        log(f"[qqq-exec] held exit-missed note failed for {leg}: {type(e).__name__}: {e}")
+
+
+def _held_today(state, day):
+    """state["held_today"] for `day` -- {leg: the carried lot's open mark, gap and, once it
+    closed today, its rail adjustment} -- started fresh when the day changes."""
+    ht = state.get("held_today")
+    if not isinstance(ht, dict) or ht.get("day") != day:
+        ht = state["held_today"] = {"day": day, "legs": {}}
+    if not isinstance(ht.get("legs"), dict):
+        ht["legs"] = {}
+    return ht
+
+
+def _held_shares_by_leg(state):
+    """{leg: signed shares} for every lot the book holds overnight (lot["hold"] set) --
+    what Webull should still hold after the close. Never raises."""
+    out = {}
+    try:
+        for leg, lot in (state.get("legs") or {}).items():
+            if isinstance((lot or {}).get("hold"), dict):
+                n = int(round(float(lot.get("shares_remaining") or 0)))
+                out[leg] = n if lot.get("side") == "long" else -n
+    except Exception:
+        pass
+    return out
+
+
+def _held_words(held):
+    """{"ENGUQ": 10} -> "ENGU-Q long 10"."""
+    return ", ".join(f"{_leg_word(leg)} {'long' if q > 0 else 'short'} {abs(int(q))}"
+                     for leg, q in sorted((held or {}).items())) or "none"
+
+
+def _set_open_mark(state, leg, lot, day, open_px, prior_close, src, shares=None, log=print):
+    """Stamp today's open mark on a carried lot: the open mark, the prior close it is
+    compared with (the last record mark when the cache had none), today's gap, the gap
+    total and the nights count; noted in state["held_today"] and on the timeline. Never
+    raises."""
+    try:
+        h = lot["hold"]
+        side_mult = 1 if lot.get("side") == "long" else -1
+        n = float(shares if shares is not None else (lot.get("shares_remaining") or 0))
+        close_px = _finite_or_none(prior_close)
+        if close_px is None:
+            close_px = _finite_or_none(lot.get("mark_px"))
+        op = float(open_px)
+        gap = round((op - close_px) * side_mult * n, 2) if close_px is not None else 0.0
+        h.update({"open_mark_px": round(op, 4), "open_mark_day": day, "open_mark_src": src,
+                  "close_mark_px": round(close_px, 4) if close_px is not None else None,
+                  "gap_today_usd": gap, "gap_usd": round(float(h.get("gap_usd") or 0.0) + gap, 2),
+                  "nights": int(h.get("nights") or 0) + 1, "rail_px": None})
+        _held_today(state, day)["legs"][leg] = {
+            "trade_id": lot.get("trade_id"), "side": lot.get("side"), "shares": n,
+            "open_mark_px": h["open_mark_px"], "open_mark_src": src,
+            "close_mark_px": h["close_mark_px"],
+            "gap_usd": gap, "closed": False, "rail_adj": 0.0}
+        msg = (f"{_leg_word(leg)} held overnight: today's open mark {op:.2f}"
+               + (f" (prior close {close_px:.2f}, overnight gap {ntfy_push.usd(gap)})"
+                  if close_px is not None else " (prior close unknown)")
+               + " -- the daily loss limit counts it from the open; the gap stays in its P&L")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "held_open_mark", msg, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] held lot open mark not set for {leg}: {type(e).__name__}: {e}")
+
+
+def _refresh_held_marks(state, nowdt, log=print):
+    """Each tick: for every lot carried into today, from 09:30 on a session day, take today's
+    open mark once (_set_open_mark) and today's newest 1m bar close as the rail's mark
+    (hold["rail_px"]). Before the open, on a weekend or a holiday the rail mark is None --
+    the lot counts 0 on the daily loss rail. Reads the bar cache at most once per lot per
+    tick. Never raises."""
+    try:
+        if nowdt is None:
+            return
+        day = nowdt.strftime("%Y-%m-%d")
+        carried = [(leg, lot) for leg, lot in (state.get("legs") or {}).items()
+                   if _carried_into(lot, day)]
+        if not carried:
+            return
+        open_now = market_calendar.is_session(nowdt) and _et_hhmm(nowdt) >= (9, 30)
+        stamp = nowdt.strftime("%Y-%m-%d %H:%M:%S")
+        for leg, lot in carried:
+            h = lot["hold"]
+            if not open_now:
+                if h.get("open_mark_day") != day:
+                    h["rail_px"] = None
+                continue
+            if h.get("_marks_at") == stamp:
+                continue
+            h["_marks_at"] = stamp
+            marks = _held_session_marks(leg, nowdt, log=log)
+            if not marks:
+                continue
+            if h.get("open_mark_day") != day and marks.get("today_open") is not None:
+                _set_open_mark(state, leg, lot, day, marks["today_open"],
+                               marks.get("prior_close"), marks.get("src") or "engine_1m_bar",
+                               log=log)
+            if h.get("open_mark_day") == day and marks.get("today_last") is not None:
+                h["rail_px"] = round(float(marks["today_last"]), 4)
+    except Exception as e:
+        log(f"[qqq-exec] held lot marks refresh failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _rail_unrl_for_lot(lot, day, record_unrl):
+    """The daily loss rail's open P&L for one lot: the record mark (`record_unrl`, from the
+    entry) for a lot opened today; for a lot carried into `day`, (rail mark - open mark) x
+    shares x side once today's open mark exists, else 0.0. Never raises."""
+    try:
+        if not _carried_into(lot, day):
+            return record_unrl
+        h = lot["hold"]
+        if h.get("open_mark_day") != day:
+            return 0.0
+        op, px = _finite_or_none(h.get("open_mark_px")), _finite_or_none(h.get("rail_px"))
+        if op is None or px is None:
+            return 0.0
+        side_mult = 1 if lot.get("side") == "long" else -1
+        return (px - op) * side_mult * float(lot.get("shares_remaining") or 0)
+    except Exception:
+        return record_unrl
+
+
+def _rail_realized_today(state):
+    """Today's realized P&L as the daily loss rail counts it: realized_pnl_today (the P&L of
+    record) plus, for each lot carried into today that closed today, its rail adjustment
+    (entry - open mark) x shares x side -- so that trade counts exit - open mark. NaN stays
+    NaN (see the breaker's published figure). Never raises."""
+    try:
+        r = state.get("realized_pnl_today", 0.0)
+        r = float(r if r is not None else 0.0)
+    except (TypeError, ValueError):
+        r = 0.0
+    try:
+        ht = state.get("held_today")
+        if isinstance(ht, dict) and ht.get("day") == state.get("trading_day"):
+            r += sum(float((v or {}).get("rail_adj") or 0.0)
+                     for v in (ht.get("legs") or {}).values() if (v or {}).get("closed"))
+    except Exception:
+        pass
+    return r
+
+
+def _overnight_gap_today(state, day):
+    """Today's overnight gap over every lot carried into today (open or closed since). Never
+    raises."""
+    try:
+        ht = state.get("held_today")
+        if isinstance(ht, dict) and ht.get("day") == day:
+            return round(sum(float((v or {}).get("gap_usd") or 0.0)
+                             for v in (ht.get("legs") or {}).values()), 2)
+    except Exception:
+        pass
+    return 0.0
+
+
+def _held_carry_closed_today(state, day):
+    """For each lot carried into `day` that closed today: what it had made by the prior close,
+    (close mark - entry) x shares x side, added up -- the part of today's P&L of record that
+    belongs to earlier days (today.held_carry_usd; the board's today line leaves it out, as it
+    does for a carried lot still open). Never raises."""
+    try:
+        ht = state.get("held_today")
+        if not (isinstance(ht, dict) and ht.get("day") == day):
+            return 0.0
+        tot = 0.0
+        for v in (ht.get("legs") or {}).values():
+            v = v or {}
+            if not v.get("closed"):
+                continue
+            cm, ep = _finite_or_none(v.get("close_mark_px")), _finite_or_none(v.get("entry_px"))
+            if cm is None or ep is None:
+                continue
+            side_mult = 1 if v.get("side") == "long" else -1
+            tot += (cm - ep) * side_mult * float(v.get("shares") or 0)
+        return round(tot, 2)
+    except Exception:
+        return 0.0
+
+
+def _finish_held_close(state, leg, lot, fill_px, nowdt=None, log=print):
+    """_reduce_lot's last close of a lot carried into today: takes today's open mark from
+    the exit price when today's first bar was not in yet (gap = exit - prior close), then
+    notes the rail adjustment in state["held_today"]. Never raises."""
+    try:
+        day = state.get("trading_day")
+        if not _carried_into(lot, day):
+            return
+        h = lot["hold"]
+        n = float(lot.get("shares_total") or 0)
+        if h.get("open_mark_day") != day or _finite_or_none(h.get("open_mark_px")) is None:
+            marks = _held_session_marks(leg, nowdt or _now_et(), log=log)
+            _set_open_mark(state, leg, lot, day, fill_px, (marks or {}).get("prior_close"),
+                           "exit", shares=n, log=log)
+        op = float(h["open_mark_px"])
+        side_mult = 1 if lot.get("side") == "long" else -1
+        rec = _held_today(state, day)["legs"].setdefault(leg, {
+            "trade_id": lot.get("trade_id"), "side": lot.get("side"), "shares": n,
+            "open_mark_px": h.get("open_mark_px"), "close_mark_px": h.get("close_mark_px"),
+            "gap_usd": h.get("gap_today_usd") or 0.0})
+        rec.update({"closed": True, "exit_px": round(float(fill_px), 4),
+                    "entry_px": round(float(lot["entry_px"]), 4),
+                    "close_mark_px": rec.get("close_mark_px") if rec.get("close_mark_px") is not None
+                    else h.get("close_mark_px"),
+                    "rail_adj": round((float(lot["entry_px"]) - op) * side_mult * n, 2)})
+    except Exception as e:
+        log(f"[qqq-exec] held lot close bookkeeping failed for {leg} (the rail counts the "
+            f"whole trade): {type(e).__name__}: {e}")
+
+
+def _mark_held_overnight(state, cfg, leg, nowdt, log=print, push=True):
+    """The flat_by flatten keeps `leg`'s lot: start (or keep) its "hold" block, log a
+    held_overnight event and one low phone note a day. Never raises."""
+    try:
+        lot = (state.get("legs") or {}).get(leg)
+        if not lot:
+            return
+        day = nowdt.strftime("%Y-%m-%d")
+        h = lot.get("hold")
+        if not isinstance(h, dict):
+            # "since" is the lot's entry day when that is earlier (a lot whose flatten was
+            # missed and that is first marked on a later day is still carried into today)
+            entry_day = str(lot.get("entry_ts") or "")[:10]
+            since = entry_day if (_DAY_RE.fullmatch(entry_day) and entry_day < day) else day
+            h = lot["hold"] = {"since": since, "held_at": nowdt.strftime("%Y-%m-%d %H:%M:%S"),
+                               "nights": 0, "gap_usd": 0.0, "gap_today_usd": 0.0,
+                               "close_mark_px": None, "open_mark_px": None,
+                               "open_mark_day": None, "open_mark_src": None, "rail_px": None}
+        h["flat_by_day"] = day
+        if not push:
+            return
+        n = int(round(float(lot.get("shares_remaining") or 0)))
+        msg = (f"{_leg_word(leg)} {lot.get('side')} {n} held overnight -- the end-of-day "
+               f"flatten skips it (it holds like its backtest); it sells on its own strategy "
+               f"exit, at market in regular hours")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "held_overnight", msg, log=log)
+        _say(state, f"held:{leg}", day, _held_note(leg, n), log=log)
+    except Exception as e:
+        log(f"[qqq-exec] held-overnight bookkeeping failed for {leg}: {type(e).__name__}: {e}")
+
+
+def _adopt_missed_holds(state, cfg, nowdt, log=print):
+    """Each tick: a lot on a hold leg opened on an EARLIER day that has no "hold" block -- the
+    executor was down or wedged through that day's flat_by window (the flatten that marks the
+    hold only runs 15:59-16:05) and came back after it, so the lot rode the night unmarked. It
+    is carried all the same: start its hold block now (since = its entry day, no phone note),
+    so mark-to-open on both rail sites, its gap and nights, the never-stale exit and the
+    after-close expectation all apply. Never raises."""
+    try:
+        hold = set(_hold_legs(cfg))
+        if not hold or nowdt is None:
+            return
+        today = nowdt.strftime("%Y-%m-%d")
+        for leg, lot in list((state.get("legs") or {}).items()):
+            if leg not in hold or not isinstance(lot, dict) or isinstance(lot.get("hold"), dict):
+                continue
+            entry_day = str(lot.get("entry_ts") or "")[:10]
+            if not _DAY_RE.fullmatch(entry_day) or entry_day >= today:
+                continue
+            _mark_held_overnight(state, cfg, leg, nowdt, log=log, push=False)
+            h = lot.get("hold")
+            if not isinstance(h, dict):
+                continue
+            h["since"] = h["flat_by_day"] = entry_day
+            n = int(round(float(lot.get("shares_remaining") or 0)))
+            msg = (f"{_leg_word(leg)} {lot.get('side')} {n} was carried from {entry_day} without "
+                   f"its end-of-day hold mark (the book was not running at that flatten) -- held "
+                   f"overnight from its entry day; the daily loss limit counts it from today's open")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "held_overnight", msg, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] missed-hold check failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _held_legs_to_defer(state, cfg, nowdt):
+    """The legs whose close must wait for the next open: outside regular hours, every lot
+    the book holds overnight (a "hold" block, or a leg in _hold_legs(cfg) -- an after-bell
+    flatten that has not marked it yet); inside them, none. Never raises."""
+    try:
+        if not _outside_regular_hours(nowdt):
+            return []
+        hold = set(_hold_legs(cfg))
+        return [leg for leg, lot in (state.get("legs") or {}).items()
+                if isinstance((lot or {}).get("hold"), dict) or leg in hold]
+    except Exception:
+        return []
+
+
+def _defer_held_close(state, cfg, leg, reason, nowdt, log=print, px=None, trade_id=None,
+                      late=False):
+    """Keep a held lot open and mark it to be sold at market by the first tick from the next
+    open (lot["close_pending"]: the top reason -- KILL over BREAKER over a strategy exit --
+    when it was decided, the engine's price for a strategy exit, the trade id, and every
+    reason still pending). Nothing is sent now. Returns True when the lot is marked. Never
+    raises.
+
+    `late` (inside regular hours): a hold leg's strategy exit whose own price is not from now
+    (_held_exit_px_is_old) -- the next tick sells it at a price from today; no hold block is
+    started for it (close_pending["late"])."""
+    try:
+        lot = (state.get("legs") or {}).get(leg)
+        if not lot:
+            return False
+        if not isinstance(lot.get("hold"), dict) and not late:
+            _mark_held_overnight(state, cfg, leg, nowdt, log=log, push=False)
+        cp = lot.get("close_pending") if isinstance(lot.get("close_pending"), dict) else {}
+        reasons = dict(cp.get("reasons") or ({cp["reason"]: cp.get("at")} if cp.get("reason") else {}))
+        at = nowdt.strftime("%Y-%m-%d %H:%M:%S")
+        new = reason not in reasons
+        reasons.setdefault(reason, at)
+        top = max(reasons, key=lambda r: _PENDING_RANK.get(r, 0))
+        lot["close_pending"] = {"reason": top, "at": cp.get("at") or at,
+                                "px": px if px is not None else cp.get("px"),
+                                "trade_id": trade_id or cp.get("trade_id") or lot.get("trade_id"),
+                                "reasons": reasons}
+        if late or cp.get("late"):
+            lot["close_pending"]["late"] = True
+        if new and late:
+            msg = (f"{_leg_word(leg)}'s strategy exit came with a price that is not from now "
+                   f"({nowdt.strftime('%a %H:%M:%S')} New York) -- it sells at market at a "
+                   f"price from today on the next tick, never at that old price")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "held_close_deferred", msg, log=log)
+        elif new:
+            msg = (f"{_leg_word(leg)}'s held lot: {reason} close came outside regular hours "
+                   f"({nowdt.strftime('%a %H:%M:%S')} New York) -- kept, nothing sent; it "
+                   f"sells at market when the market opens")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "held_close_deferred", msg, log=log)
+        return True
+    except Exception as e:
+        log(f"[qqq-exec] could not defer {leg}'s held close: {type(e).__name__}: {e}")
+        return False
+
+
+def _held_open_price_ready(leg, nowdt, log=print):
+    """True when a held lot's close at the open can be booked at a price from today: the
+    live stream is fresh (_exit_price_for_leg's own "live_stream"), or today's first 1m bar
+    is in the engine cache, or it is already HELD_OPEN_PRICE_WAIT_UNTIL (the close never
+    waits longer). Never raises."""
+    try:
+        _px, src = _exit_price_for_leg(leg, log=log)
+        if src == "live_stream":
+            return True
+        if ((_held_session_marks(leg, nowdt, log=log) or {}).get("today_last")) is not None:
+            return True
+        return _et_hhmm(nowdt) >= HELD_OPEN_PRICE_WAIT_UNTIL
+    except Exception:
+        return True
+
+
+def _run_deferred_held_closes(state, cfg, nowdt, quote_fn, ratio_fn, kill_present, log=print):
+    """Each tick: a pending KILL close whose kill file is gone is cancelled (any time);
+    inside regular hours every lot with close_pending is sold at market -- KILL / BREAKER
+    through _close_all (its own reason, priced like any forced close), a strategy exit
+    through _reduce_lot at the live price (HELD_EXIT_REASON) -- each once the book has a
+    price from today (_held_open_price_ready, at most until HELD_OPEN_PRICE_WAIT_UNTIL). A
+    lot that cannot be priced keeps its close_pending for the next tick. Never raises."""
+    for leg in list((state.get("legs") or {}).keys()):
+        saved = None
+        try:
+            lot = state["legs"].get(leg)
+            cp = (lot or {}).get("close_pending")
+            if not isinstance(cp, dict):
+                continue
+            reasons = dict(cp.get("reasons") or ({cp.get("reason"): cp.get("at")}
+                                                 if cp.get("reason") else {}))
+            if "KILL" in reasons and not kill_present:
+                reasons.pop("KILL", None)
+                msg = (f"{_leg_word(leg)}'s held lot: the kill-switch close was cancelled -- "
+                       f"the kill file is gone" + ("" if reasons else "; the lot stays held"))
+                log(f"[qqq-exec] {msg}")
+                _log_event(state, "held_close_cancelled", msg, log=log)
+                if not reasons:
+                    lot.pop("close_pending", None)
+                    continue
+                cp["reasons"] = reasons
+                cp["reason"] = max(reasons, key=lambda r: _PENDING_RANK.get(r, 0))
+            if _outside_regular_hours(nowdt):
+                continue
+            if not _held_open_price_ready(leg, nowdt, log=log):
+                if not cp.get("_waiting_logged"):
+                    cp["_waiting_logged"] = True
+                    log(f"[qqq-exec] {leg}'s held lot: waiting for a price from today before "
+                        f"its sell at the open (at most until "
+                        f"{HELD_OPEN_PRICE_WAIT_UNTIL[0]:02d}:{HELD_OPEN_PRICE_WAIT_UNTIL[1]:02d})")
+                continue
+            top = cp.get("reason")
+            # a late in-session exit of a lot opened today is not a sell at the open
+            late_now = bool(cp.get("late")) and not _carried_into(lot, nowdt.strftime("%Y-%m-%d"))
+            saved = lot.pop("close_pending")
+            saved.pop("_waiting_logged", None)
+            if top in ("KILL", "BREAKER"):
+                _close_all(state, cfg, top, quote_fn, ratio_fn, log=log, nowdt=nowdt, legs=[leg])
+            else:
+                px, src = _exit_price_for_leg(leg, log=log)
+                if px is None:
+                    lot["close_pending"] = saved
+                    log(f"[qqq-exec] {leg}'s held lot: no price yet for its sell at the open "
+                        f"-- tried again next tick")
+                    continue
+                state["_px_source"] = src
+                _reduce_lot(state, cfg, leg, lot["nq_qty_total"], None, px,
+                            cfg.get("slippage_per_share", 0.0),
+                            LATE_EXIT_REASON if late_now else HELD_EXIT_REASON, f=None,
+                            log=log, signal_source=cfg.get("signal_source"), nowdt=nowdt)
+            if leg in state["legs"]:
+                state["legs"][leg]["close_pending"] = saved
+                continue
+            if late_now:
+                msg = (f"{_leg_word(leg)}'s late strategy exit sold at market at a price from "
+                       f"now (decided {saved.get('at')})")
+            else:
+                msg = (f"{_leg_word(leg)}'s held lot sold at market at the open ({top} decided "
+                       f"{saved.get('at')})")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "held_close_at_open", msg, log=log)
+        except Exception as e:
+            log(f"[qqq-exec] deferred held close failed for {leg} (tried again next tick): "
+                f"{type(e).__name__}: {e}")
+            try:   # a lot still open never loses its pending close
+                held = (state.get("legs") or {}).get(leg)
+                if saved and held and not isinstance(held.get("close_pending"), dict):
+                    held["close_pending"] = saved
+            except Exception:
+                pass
+
+
+def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print, nowdt=None, legs=None):
     """BREAKER/EOD/KILL flatten -- branches on signal_source exactly like
     _mark_and_check_breaker: engine mode prices the close off the live Webull stream
     when it is fresh, else api.cloud_signal's own QQQ bar cache (_exit_price_for_leg,
@@ -7962,17 +8741,29 @@ def _close_all(state, cfg, reason, quote_fn, ratio_fn, log=print, nowdt=None):
     -- is sent. The 09-28 15:59 pair (ORB short 10, ENGUQ long 10, account flat) now
     sends nothing instead of a BUY that Webull held pending and a SELL it refused with
     417 OPENAPI_OPEN_ORDER_HAS_BOX_ORDER. The shadow book is unchanged: every lot still
-    closes at its own end-of-day price."""
+    closes at its own end-of-day price.
+
+    `legs` (HOLD OVERNIGHT, 2026-10-09): only these legs are priced, crossed and closed
+    (None = every open lot, as before). The flat_by flatten passes the legs that do NOT
+    hold overnight, so a closing leg is never crossed against a held lot (that would close
+    the held lot in the broker books with no order); KILL / BREAKER inside regular hours
+    still pass None and close held lots too."""
+    want = None if legs is None else set(legs)
+    if want is not None and not (want & set(state["legs"].keys())):
+        return
     # RESTING ORB STOP (2026-09-29), step 1 of every flatten: cancel and confirm each
     # resting order first (a fill found is booked, so its leg is not closed twice) --
     # before the internal cross, which leaves out a leg whose resting order is still live.
-    _cancel_resting_for_flatten(state, cfg, reason, nowdt=nowdt, log=log)
+    if want is None or RESTING_LEG in want:
+        _cancel_resting_for_flatten(state, cfg, reason, nowdt=nowdt, log=log)
     engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
     nq_now = None
     if not engine_mode:
         nq_now, _ts = _latest_nq_px()
     priced = []
     for leg in list(state["legs"].keys()):
+        if want is not None and leg not in want:
+            continue
         lot = state["legs"][leg]
         if engine_mode:
             exit_nq = None
@@ -8013,7 +8804,9 @@ def _internal_cross_for_flatten(state, priced, reason, nowdt=None, log=print):
     send must not rewrite the books either), no broker send still in flight, and not
     after the session close. A leg with anything in the re-send queue keeps its own
     verify-gated path and is left out. Only priced lots with at least one long and one
-    short take part. Never raises."""
+    short take part -- and only the legs _close_all is closing: a lot held overnight is
+    never in `priced` at the flat_by flatten (HOLD OVERNIGHT), so nothing is ever crossed
+    against it. Never raises."""
     try:
         sides = {leg: (1 if (state["legs"].get(leg) or {}).get("side") == "long" else -1)
                  for leg, _nq, _px, _src in priced if state["legs"].get(leg)}
@@ -8263,6 +9056,8 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
     try:
         adapter = _get_broker_adapter(log=log)
         believed = adapter.status().get("believed_positions") or {}
+        # HOLD OVERNIGHT: a lot held overnight is in state["legs"] like any open lot, so its
+        # shares are never an orphan -- this repair can never sell a held lot
         shadow_open = set((state.get("legs") or {}).keys())
         orphans = sorted((leg, int(abs(p.get("qty") or 0))) for leg, p in believed.items()
                          if int(abs(p.get("qty") or 0)) > 0 and leg not in shadow_open)
@@ -8434,8 +9229,11 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
     # `nowdt` (EXIT SAFETY item 4 minor, 2026-09-26 review): the calling tick's own
     # notion of "now", threaded straight through to _close_all -- see
     # _mirror_to_broker's own docstring.
+    # HOLD OVERNIGHT: today's open mark and rail mark for every lot carried into today
+    _refresh_held_marks(state, nowdt, log=log)
     if not state.get("legs"):
         state["_unrl_by_leg"] = {}
+        state["_rail_unrl_by_leg"] = {}
         # FLAT (review 2026-09-28): nothing to mark or close, but today's realized total
         # (plus the fill shortfall) can already be past the limit -- trip now, which
         # blocks new entries (entries_blocked), instead of letting the next entry open
@@ -8444,11 +9242,19 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
         return 0.0  # nothing open: no quote/ratio work, unrealized is zero
     unrl = 0.0
     unrl_by_leg = {}
+    # HOLD OVERNIGHT: the daily loss rail's own open P&L per leg -- the record mark for a lot
+    # opened today, mark-to-open for a lot carried into today (see _rail_unrl_for_lot)
+    rail_raw, rail_by_leg = 0.0, {}
+    day = state.get("trading_day")
     engine_mode = str(cfg.get("signal_source") or "engine").strip().lower() == "engine"
     nq_now = nq_ts = None
     if not engine_mode:
         nq_now, nq_ts = _latest_nq_px()
     for leg, lot in state["legs"].items():
+        if _carried_into(lot, day):
+            r = _rail_unrl_for_lot(lot, day, None)
+            rail_by_leg[leg] = round(r, 2)
+            rail_raw += r
         if engine_mode:
             # ENGINE MODE: mark off api.cloud_signal's own QQQ bar cache -- never NQ.
             lot["mark_nq_px"] = None
@@ -8469,25 +9275,47 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
         leg_unrl = (qqq_px - lot["entry_px"]) * side_mult * lot["shares_remaining"]
         unrl_by_leg[leg] = round(leg_unrl, 2)
         unrl += leg_unrl
+        if not _carried_into(lot, day):
+            rail_by_leg[leg] = round(leg_unrl, 2)
+            rail_raw += leg_unrl
     state["_unrl_by_leg"] = unrl_by_leg
+    state["_rail_unrl_by_leg"] = rail_by_leg
     # P&L OF RECORD on the breaker (2026-09-28 (B), FAIL-SAFE): Webull's fills can only
     # make this input MORE negative, never less -- each closed trade and open lot adds
     # min(0, fill-based - book) (see _breaker_fill_shortfall); a side with no captured
     # fill keeps the book's value, exactly as before.
     adj = _breaker_fill_shortfall(state, log=log)
     state["_breaker_fill_adj"] = adj
-    total = state.get("realized_pnl_today", 0.0) + adj + unrl
+    # HOLD OVERNIGHT: MARK-TO-OPEN -- realized and open marks as the rail counts them (a lot
+    # carried into today from today's open mark; identical to the record for every other lot)
+    total = _rail_realized_today(state) + adj + rail_raw
     _note_breaker_input(state, total)
     limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
     if limit and total <= -abs(limit) and not state.get("breaker_tripped"):
         log(f"[qqq-exec] BREAKER TRIPPED: today's shadow P&L {total:.2f} <= "
             f"-{limit:.2f} -- closing all lots")
-        _close_all(state, cfg, "BREAKER", quote_fn, ratio_fn, log=log, nowdt=nowdt)
+        # a held lot outside regular hours is sold at the next open, never now
+        deferred = _held_legs_to_defer(state, cfg, nowdt)
+        if deferred:
+            closing = [leg for leg in state["legs"] if leg not in deferred]
+            if closing:
+                _close_all(state, cfg, "BREAKER", quote_fn, ratio_fn, log=log, nowdt=nowdt,
+                           legs=closing)
+            for leg in deferred:
+                _defer_held_close(state, cfg, leg, "BREAKER", nowdt, log=log)
+        else:
+            _close_all(state, cfg, "BREAKER", quote_fn, ratio_fn, log=log, nowdt=nowdt)
         state["breaker_tripped"] = True
-        _say_daily_stop(state, total, "open trades were closed", nowdt, log=log)
+        what = "open trades were closed"
+        if deferred:
+            what = (f"open trades were closed; {_legs_words(deferred)}'s held shares sell when "
+                    f"the market opens")
+        _say_daily_stop(state, total, what, nowdt, log=log)
         _log_event(state, "breaker",
                   f"Daily loss breaker tripped at ${total:.2f} (limit -${limit:.2f}) -- "
-                  f"all shadow lots closed", log=log)
+                  f"all shadow lots closed"
+                  + (f" (held overnight, sold at the open: {', '.join(deferred)})"
+                     if deferred else ""), log=log)
     return unrl
 
 
@@ -8537,9 +9365,13 @@ def _refresh_breaker_input(state, log=print, only_worse=False):
     try:
         adj = _breaker_fill_shortfall(state, log=log)
         legs = state.get("legs") or {}
-        marks = state.get("_unrl_by_leg") or {}
+        # HOLD OVERNIGHT: the rail's own marks (mark-to-open for a carried lot); a state
+        # saved before they existed falls back to the record marks
+        marks = state.get("_rail_unrl_by_leg")
+        if not isinstance(marks, dict):
+            marks = state.get("_unrl_by_leg") or {}
         unrl = sum(float(marks[k]) for k in legs if marks.get(k) is not None)
-        total = float(state.get("realized_pnl_today", 0.0) or 0.0) + adj + unrl
+        total = _rail_realized_today(state) + adj + unrl
         if only_worse:
             prev = state.get("_breaker_input") or {}
             pv = _finite_or_none(prev.get("pnl")) if prev.get("day") == state.get("trading_day") else None
@@ -8569,7 +9401,7 @@ def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
             return
         adj = _breaker_fill_shortfall(state, log=log)
         state["_breaker_fill_adj"] = adj
-        total = float(state.get("realized_pnl_today", 0.0) or 0.0) + adj
+        total = _rail_realized_today(state) + adj    # HOLD OVERNIGHT: mark-to-open realized
         _note_breaker_input(state, total)
         if total <= -abs(limit):
             state["breaker_tripped"] = True
@@ -8609,7 +9441,8 @@ def _breaker_fill_shortfall(state, log=print):
             except OSError:
                 sig.append(None)
         lot_sig = tuple(sorted((k, str(v.get("trade_id")), v.get("entry_px"),
-                                v.get("shares_remaining"), v.get("side"))
+                                v.get("shares_remaining"), v.get("side"),
+                                _carried_into(v, day))
                                for k, v in lots.items()))
         key = (day, tuple(sig), lot_sig)
         if _BREAKER_ADJ_CACHE["key"] == key:
@@ -8620,15 +9453,18 @@ def _breaker_fill_shortfall(state, log=print):
             if str(t.get("exit_ts") or "")[:10] != day:
                 continue
             sh = _finite_or_none(t.get("shares")) or 0.0
+            entry_day = str(t.get("entry_ts") or "")[:10]
             for intent in ("OPEN", "CLOSE"):
+                if intent == "OPEN" and entry_day and entry_day != day:
+                    continue   # HOLD OVERNIGHT: a carried trade's entry fill was its entry day's
                 s = _side_parity(t, intent, by_base, None)
                 if s.get("fs") != "ok" or s.get("wb") is None or s.get("bk") is None:
                     continue
                 adj += min(0.0, _edge_ps(s["bk"], s["wb"], _is_buy(t.get("side"), intent)) * sh)
         for leg, lot in lots.items():
             tid = str(lot.get("trade_id") or "").strip()
-            if not tid:
-                continue
+            if not tid or _carried_into(lot, day):
+                continue   # HOLD OVERNIGHT: a carried lot's entry fill counted on its entry day
             brow = _broker_order_for(tid, "OPEN", by_base)
             if brow is None or str(brow.get("ok")).strip().lower() not in ("true", "1"):
                 continue
@@ -10341,6 +11177,17 @@ EOD_GAVE_UP_CHECK_EVERY_SEC = 60.0
 EOD_NOT_SETTLED_AFTER_CLOSE_SEC = 600.0       # no settle and no give-up by then: engine down
 
 
+def _eod_gave_up_order_words(state):
+    """The last sentence of the give-up event: no order depends on a late settle -- unless a
+    lot is held overnight (HOLD OVERNIGHT), whose exit may then come with tomorrow's first
+    step and is sold at the open."""
+    held = _held_shares_by_leg(state)
+    if held:
+        return (f"{_legs_words(sorted(held))} is held overnight: its exit may come with "
+                f"tomorrow's first step and is sold at market when the market opens.")
+    return "No order depends on it."
+
+
 def _maybe_note_eod_gave_up(state, nowdt, log=print, read_cs_state=None):
     """EOD SETTLE GAVE UP (sweep 2026-10-05, finding 30). When api/cloud_signal.py could not
     settle the day (its last bar never arrived by close + 5 min) it records
@@ -10394,7 +11241,7 @@ def _maybe_note_eod_gave_up(state, nowdt, log=print, read_cs_state=None):
                     f"{(since / 60):.0f} min after the close (its last step was {last_at} ET -- "
                     f"it may be stopped or stuck). Today's end-of-day exits will be written "
                     f"tomorrow morning, stamped with today's last-bar time, so today's signal "
-                    f"ledger and parity are off until then. No order depends on it.")
+                    f"ledger and parity are off until then. {_eod_gave_up_order_words(state)}")
             _log_event(state, "eod_settle_gave_up", text, log=log)
             log(f"[qqq-exec] {text}")
             state["_eod_gave_up_noted"] = today
@@ -10402,7 +11249,8 @@ def _maybe_note_eod_gave_up(state, nowdt, log=print, read_cs_state=None):
         why = (rec.get("why") if isinstance(rec, dict) else None) or "the last bar never arrived"
         text = (f"The signal engine could not settle today ({why}): today's end-of-day exits "
                 f"will be written tomorrow morning, stamped with today's last-bar time, so "
-                f"today's signal ledger and parity are off until then. No order depends on it.")
+                f"today's signal ledger and parity are off until then. "
+                f"{_eod_gave_up_order_words(state)}")
         _log_event(state, "eod_settle_gave_up", text, log=log)
         log(f"[qqq-exec] {text}")
         state["_eod_gave_up_noted"] = today
@@ -10528,12 +11376,18 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         # exactly the false reassurance item 4 exists to prevent, so it prints
         # 'not checked' instead of silently defaulting to 'yes'.
         flat_info = state.get("_webull_flat_after_eod") or {}
+        held = flat_info.get("held") if isinstance(flat_info.get("held"), dict) else {}
         if flat_info.get("date") != today:
             flat_txt = "Webull flat: not checked"
+        elif flat_info.get("flat") is False and held:
+            flat_txt = (f"Webull flat: NO ({flat_info.get('shares')} shares; held overnight "
+                        f"{_held_words(held)}, {flat_info.get('off', '?')} off)")
         elif flat_info.get("flat") is False:
             flat_txt = f"Webull flat: NO ({flat_info.get('shares')} shares)"
         elif flat_info.get("flat") is None:
             flat_txt = "Webull flat: could not verify"
+        elif held:
+            flat_txt = f"Webull flat: yes, except held overnight ({_held_words(held)})"
         else:
             flat_txt = "Webull flat: yes"
         roll_txt = " (running average worse)" if parity.get("board_flag") else ""
@@ -10547,9 +11401,12 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         # in the log and the timeline event
         pnl = rec_pnl if isinstance(rec_pnl, (int, float)) else book_pnl
         where = "at Webull prices" if isinstance(rec_pnl, (int, float)) else "in the book"
+        held_n = int(sum(abs(int(q)) for q in held.values())) if held else 0
         flat_words = ("Webull's position was not checked" if flat_info.get("date") != today
                       else "Webull is NOT flat" if flat_info.get("flat") is False
                       else "Webull's position could not be read" if flat_info.get("flat") is None
+                      else (f"Webull holds only {_legs_words(sorted(held))}'s {held_n} shares "
+                            f"held overnight") if held
                       else "Webull is flat")
         if not n:
             problem = f"No trades today; {flat_words}"
@@ -10955,6 +11812,35 @@ def _fit_shadow_trades(doc, block, log=print):
                                 "error": f"{type(e).__name__}: {str(e)[:160]}"}
 
 
+def _round_or_none(v, nd=2):
+    """round(v, nd), or None for a value that is not a finite number."""
+    x = _finite_or_none(v)
+    return None if x is None else round(x, nd)
+
+
+def _held_position_fields(lot, day, rail_unrl=None):
+    """HOLD OVERNIGHT fields for one published position: held_overnight always; for a held
+    lot also since when, the nights carried, the gap (total and today's), the prior close
+    and today's open marks, the rail's own open P&L and any close waiting for the open.
+    Never raises."""
+    h = (lot or {}).get("hold")
+    if not isinstance(h, dict):
+        return {"held_overnight": False}
+    try:
+        today_mark = h.get("open_mark_day") == day
+        cp = lot.get("close_pending") if isinstance(lot.get("close_pending"), dict) else None
+        return {"held_overnight": True, "held_since": h.get("since"),
+                "nights_held": int(h.get("nights") or 0),
+                "gap_usd": _round_or_none(h.get("gap_usd") or 0.0),
+                "gap_today_usd": _round_or_none(h.get("gap_today_usd") or 0.0) if today_mark else 0.0,
+                "close_mark_px": h.get("close_mark_px") if today_mark else None,
+                "open_mark_px": h.get("open_mark_px") if today_mark else None,
+                "unrealized_rail": _round_or_none(rail_unrl),
+                "close_pending": ({"reason": cp.get("reason"), "at": cp.get("at")} if cp else None)}
+    except Exception:
+        return {"held_overnight": True}
+
+
 def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     orders = []
     try:
@@ -11029,6 +11915,9 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     ratio_hist = (state.get("ratio_hist") or [])[-500:]
     ratio_health = _build_ratio_health(state, _now_et(), cfg=cfg, log=log)
     unrl_by_leg = state.get("_unrl_by_leg") or {}
+    rail_by_leg = state.get("_rail_unrl_by_leg")
+    if not isinstance(rail_by_leg, dict):
+        rail_by_leg = unrl_by_leg
     positions = {}
     for leg, lot in state.get("legs", {}).items():
         positions[leg] = {"side": lot["side"], "shares": lot["shares_remaining"],
@@ -11044,6 +11933,8 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
                           "nt_notional_usd": lot.get("nt_notional_usd"),
                           "shadow_notional_usd": lot.get("shadow_notional_usd"),
                           "notional_ratio": lot.get("notional_ratio")}
+        # HOLD OVERNIGHT: a held lot is a planned position, never a stuck one
+        positions[leg].update(_held_position_fields(lot, day, rail_by_leg.get(leg)))
 
     # LATENCY (feature #51): today's orders only, per module docstring.
     latency = _build_latency(orders, log=log)
@@ -11119,7 +12010,18 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
                   # (_legs_record_today), never the raw book rows above.
                   "breaker_input": _published_breaker_input(state, day),
                   "legs_record": _legs_record_today(trades_all, day),
-                  "unrealized_pnl": round(unrealized, 2)},
+                  "unrealized_pnl": round(unrealized, 2),
+                  # HOLD OVERNIGHT (2026-10-09): the daily loss rail's own parts --
+                  # breaker_input = realized_pnl_rail + breaker_fill_adj + unrealized_rail
+                  # (a lot carried into today counts from today's open mark) -- and today's
+                  # overnight gap, kept out of the rail, inside the P&L of record
+                  "realized_pnl_rail": _round_or_none(_rail_realized_today(state)),
+                  "unrealized_rail": round(sum(float(rail_by_leg.get(k) or 0.0)
+                                               for k in (state.get("legs") or {})), 2),
+                  "overnight_gap_usd": _overnight_gap_today(state, day),
+                  # what carried lots that closed today had made by the prior close: in
+                  # realized_pnl_record (exit - entry), not today's own move
+                  "held_carry_usd": _held_carry_closed_today(state, day)},
         "trades_all": trades_all,
         "parity": parity,
         # ENGINE-VS-BROKER PARITY (feature #56): sibling summary to "parity" above --
@@ -11141,9 +12043,14 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         "reprice": reprice,
         "rails": {"shares": cfg.get("shares"), "max_shares_per_leg": cfg.get("max_shares_per_leg"),
                   "daily_loss_limit_usd": cfg.get("daily_loss_limit_usd"),
-                  "session": cfg.get("session"), "slippage_per_share": cfg.get("slippage_per_share"),
+                  # HOLD OVERNIGHT: the session block carries the EFFECTIVE hold list (the
+                  # code default when config.json does not set one), read by the board
+                  "session": dict(cfg.get("session") or {},
+                                  hold_overnight_legs=list(_hold_legs(cfg))),
+                  "slippage_per_share": cfg.get("slippage_per_share"),
                   "kill_file": cfg.get("kill_file"), "size_mode": cfg.get("size_mode"),
-                  "size_fraction": cfg.get("size_fraction")},
+                  "size_fraction": cfg.get("size_fraction"),
+                  "hold_overnight_legs": list(_hold_legs(cfg))},
         # BROKER MIRROR (2026-09-13): api.webull_orders' own status, trimmed flat -- see
         # _build_broker_status. Lets the phone tab eventually show mode/creds/last
         # order/last error without a separate endpoint.
@@ -11234,6 +12141,10 @@ def _compact_published_trades(trades_all):
                 for c in _NT_ONLY_COLS:
                     if t.get(c) in ("", None):
                         t.pop(c, None)
+            # HOLD OVERNIGHT: blank on every same-day trade -- published only when held
+            for c in ("overnight_gap_usd", "nights_held"):
+                if t.get(c) in ("", None):
+                    t.pop(c, None)
         except Exception:
             continue
 
@@ -11918,10 +12829,30 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
                           f"{configured_last_entry} to {half_day_last_entry}", log=log)
                 state["half_day_logged_date"] = today
 
+    # HOLD OVERNIGHT: a hold leg's lot carried from an earlier day without its flatten's hold
+    # mark (the book was down at that flat_by) is adopted as held first; then today's open
+    # mark / rail mark for a lot carried into today, before anything below can close it (a
+    # close before today's first bar uses its exit price)
+    _adopt_missed_holds(state, cfg, nowdt, log=log)
+    _refresh_held_marks(state, nowdt, log=log)
+
     kill_present = os.path.exists(cfg.get("kill_file") or "")
     if kill_present and not state.get("kill_done"):
-        log("[qqq-exec] KILL file present -- closing all shadow lots")
-        _close_all(state, cfg, "KILL", quote_fn, ratio_fn, log=log, nowdt=nowdt)
+        # HOLD OVERNIGHT: hard stops stay hard, but nothing is sent outside regular hours --
+        # a held lot then waits for the next open (close_pending)
+        deferred = _held_legs_to_defer(state, cfg, nowdt)
+        if deferred:
+            log(f"[qqq-exec] KILL file present -- closing all shadow lots; held overnight, "
+                f"sold at the open: {', '.join(deferred)}")
+            closing = [leg for leg in state["legs"] if leg not in deferred]
+            if closing:
+                _close_all(state, cfg, "KILL", quote_fn, ratio_fn, log=log, nowdt=nowdt,
+                           legs=closing)
+            for leg in deferred:
+                _defer_held_close(state, cfg, leg, "KILL", nowdt, log=log)
+        else:
+            log("[qqq-exec] KILL file present -- closing all shadow lots")
+            _close_all(state, cfg, "KILL", quote_fn, ratio_fn, log=log, nowdt=nowdt)
         state["kill_done"] = True
         # EXIT SAFETY item 4 (2026-09-26): dated, like flat_by_done_date -- lets
         # _maybe_check_webull_flat_after_eod run its Webull-flat check on a kill day too
@@ -11929,14 +12860,20 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         # as long as the kill file is present, which can span more than one day).
         state["kill_flatten_date"] = today
         # WEBULL PUSH PLAN 10-07, group H: low -- the owner switched it on
-        _say(state, "kill", today, _kill_note(), log=log)
-        _log_event(state, "kill", "Kill file present -- all shadow lots closed, new entries blocked",
-                  log=log)
+        _say(state, "kill", today, _kill_note(deferred), log=log)
+        _log_event(state, "kill", "Kill file present -- all shadow lots closed, new entries blocked"
+                  + (f" (held overnight, sold at the open: {', '.join(deferred)})"
+                     if deferred else ""), log=log)
     elif not kill_present and state.get("kill_done"):
         state["kill_done"] = False
         log("[qqq-exec] kill file cleared")
         _log_event(state, "kill_clear", "Kill file cleared -- adapter resuming normal operation",
                   log=log)
+
+    # HOLD OVERNIGHT: a held lot's KILL / BREAKER / strategy-exit close decided outside
+    # regular hours goes out now if the market is open (a KILL whose file is gone is
+    # cancelled) -- see _run_deferred_held_closes
+    _run_deferred_held_closes(state, cfg, nowdt, quote_fn, ratio_fn, kill_present, log=log)
 
     # Runs right after KILL so a flatten trigger is honoured even on a killed adapter --
     # webull_orders._check_rails lets a CLOSE through unconditionally for exactly this
@@ -12006,11 +12943,23 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
         if _past_flat_by(nowdt, cfg["session"]) and state.get("flat_by_done_date") != today:
             if state.get("legs"):
-                legs_open = list(state["legs"].keys())
-                log("[qqq-exec] past flat_by -- closing remaining open lots")
-                _close_all(state, cfg, "EOD", quote_fn, ratio_fn, log=log, nowdt=nowdt)
-                _log_event(state, "eod_flatten",
-                          f"End-of-day flatten closed: {', '.join(legs_open)}", log=log)
+                # HOLD OVERNIGHT: a leg in _hold_legs(cfg) keeps its lot (it sells on its own
+                # strategy exit); only the rest are priced, crossed and closed -- so a closing
+                # leg is never crossed against a held lot. Not on a day the daily loss breaker
+                # tripped: a lot still open then is one the stop failed to close (it could not
+                # be priced on the trip tick, and the breaker never retries) -- this flatten
+                # closes it, as before the hold (hard stops stay hard)
+                hold = set() if state.get("breaker_tripped") else set(_hold_legs(cfg))
+                legs_open = [leg for leg in state["legs"] if leg not in hold]
+                legs_held = [leg for leg in state["legs"] if leg in hold]
+                if legs_open:
+                    log("[qqq-exec] past flat_by -- closing remaining open lots")
+                    _close_all(state, cfg, "EOD", quote_fn, ratio_fn, log=log, nowdt=nowdt,
+                               legs=legs_open)
+                    _log_event(state, "eod_flatten",
+                              f"End-of-day flatten closed: {', '.join(legs_open)}", log=log)
+                for leg in legs_held:
+                    _mark_held_overnight(state, cfg, leg, nowdt, log=log)
             state["flat_by_done_date"] = today
 
     unrealized = 0.0
@@ -12150,8 +13099,50 @@ def _reconcile_broker_at_boot(log=print):
             log(f"[qqq-exec] BROKER RECONCILE MISMATCH at boot -- the broker order "
                 f"adapter halts new entries until a later reconcile succeeds: "
                 f"{result.get('mismatches')}")
+        _check_book_holds_broker_lots_at_boot(adapter, log=log)
     except Exception as e:
         log(f"[qqq-exec] broker reconcile at boot failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _check_book_holds_broker_lots_at_boot(adapter, log=print):
+    """HOLD OVERNIGHT: the adapter's reconcile above compares only its own per-leg broker
+    positions with Webull -- never the book's own lots (state.json). Before the hold the book
+    was flat overnight, so a state.json that was missing or unreadable at a restart (load_state
+    then starts empty) lost nothing; now a held lot would vanish from the book while the
+    adapter and Webull still hold it, its exit would land as exit_no_lot and nothing would
+    ever sell it. So: a leg that holds overnight on which the adapter still believes a
+    position the book has no lot for (and no CLOSE waiting in the book's re-send queue) is
+    logged and pushed urgently, in plain words. Read-only (state.json is not written here).
+    Never raises."""
+    try:
+        hold = set(_hold_legs(_read_config_for_gate(log=log)))
+        if not hold:
+            return
+        sent = (adapter.status() or {}).get("broker_sent_positions") or {}
+        state = load_state(log=log)
+        legs = state.get("legs") or {}
+        closing = {str((v or {}).get("leg") or "") for v in (state.get("_broker_resend") or {}).values()
+                   if (v or {}).get("intent") == "CLOSE"}
+        lost = {}
+        for leg, p in sent.items():
+            try:
+                q = int(round(float((p or {}).get("qty") or 0)))
+            except (TypeError, ValueError):
+                continue
+            if q and leg in hold and leg not in legs and leg not in closing:
+                lost[leg] = q
+        if not lost:
+            return
+        words = _held_words(lost)
+        log(f"[qqq-exec] BOOK LOST A HELD LOT at boot: the broker adapter still holds {words} "
+            f"that state.json has no lot for -- its exit can never sell it; check Webull")
+        _say(None, "boot:held_lost", _phone_day(), ntfy_push.plain(
+            PHONE_AREA, "CHECK NOW", f"{_legs_words(sorted(lost))} may stay open",
+            f"After a restart the book lost {_legs_words(sorted(lost))}'s held shares, "
+            f"which Webull still holds",
+            "check the Webull app, then " + PHONE_ASK, priority="urgent"), log=log)
+    except Exception as e:
+        log(f"[qqq-exec] held-lot check at boot failed (non-fatal): {type(e).__name__}: {e}")
 
 
 TICK_FAILURE_ALERT_THRESHOLD = 3  # item 3 (2026-09-26): consecutive failed ticks -> push

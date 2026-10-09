@@ -614,3 +614,53 @@ def test_a_refused_part_of_a_split_sets_last_error(tmp_path, monkeypatch):
                                     side="SHORT", qty=20, intent="OPEN")
     assert rec["partial"] is True
     assert "simulated refusal of the short half" in (adapter._last_error or "")
+
+
+# ── HOLD OVERNIGHT (2026-10-09): a held lot carries across a restart and nets next morning ──
+
+def test_held_overnight_lot_survives_a_restart_and_nets_the_next_morning(tmp_path, monkeypatch):
+    """ENGU-Q's long 10 (held overnight by api/qqq_exec.py) stays in broker_sent_positions
+    and open_legs across an adapter restart -- there is no daily reset of either. Next
+    morning: ENGU-Q's own new OPEN is still refused (one open position per leg); NOISE's
+    short-open nets against the held long (a plain SELL 10); ENGU-Q's exit then opens the
+    short side (SHORT 10); NOISE's cover flattens the account (BUY 10). Every leg's own book
+    is right at every step."""
+    cfg = _cfg(tmp_path)
+    _write_keys(cfg["paper_keys_path"])
+    fake = FakeWebullClient()
+    day1 = WO.OrderAdapter(config=dict(cfg), log=NOOP)
+    monkeypatch.setattr(day1, "_build_client", lambda mode: fake)
+    assert day1.place_stock_order(leg="ENGUQ", signal_id="e-open", symbol="QQQ", side="BUY",
+                                  qty=10, intent="OPEN")["ok"] is True
+
+    adapter = WO.OrderAdapter(config=dict(cfg), log=NOOP)       # the restart
+    monkeypatch.setattr(adapter, "_build_client", lambda mode: fake)
+    assert adapter._state["broker_sent_positions"]["ENGUQ"]["qty"] == 10
+    assert adapter._state["open_legs"] == {"ENGUQ": True}
+    assert adapter._account_net("QQQ") == 10
+
+    again = adapter.place_stock_order(leg="ENGUQ", signal_id="e-open-2", symbol="QQQ",
+                                      side="BUY", qty=10, intent="OPEN")
+    assert again["mode"] == "BLOCKED" and "one_open_position_per_leg" in again["reason"]
+
+    r1 = adapter.place_stock_order(leg="NOISE", signal_id="n-open", symbol="QQQ", side="SHORT",
+                                   qty=10, intent="OPEN")
+    assert _part_sides(r1) == [("SELL", 10)]
+    assert adapter._state["broker_sent_positions"]["NOISE"]["qty"] == -10
+    assert adapter._state["broker_sent_positions"]["ENGUQ"]["qty"] == 10
+    assert fake.positions["QQQ"] == 0
+
+    r2 = adapter.place_stock_order(leg="ENGUQ", signal_id="e-close", symbol="QQQ", side="SELL",
+                                   qty=10, intent="CLOSE")
+    assert _part_sides(r2) == [("SHORT", 10)]
+    assert adapter._state["broker_sent_positions"]["ENGUQ"]["qty"] == 0
+    assert fake.positions["QQQ"] == -10
+
+    r3 = adapter.place_stock_order(leg="NOISE", signal_id="n-close", symbol="QQQ", side="BUY",
+                                   qty=10, intent="CLOSE")
+    assert _part_sides(r3) == [("BUY", 10)]
+    assert {leg: p["qty"] for leg, p in adapter._state["broker_sent_positions"].items()} == \
+        {"ENGUQ": 0, "NOISE": 0}
+    assert fake.positions["QQQ"] == 0 and adapter._account_net("QQQ") == 0
+    assert adapter._state["open_legs"] == {}
+    assert adapter.reconcile(broker_positions_fn=lambda: {})["ok"] is True

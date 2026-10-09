@@ -5940,6 +5940,38 @@ function qbCantRead(){
 //    judges the copy as of the moment this page last checked it and says so ('checked 14:02'), so
 //    it never claims more than the page knows. Words carry the state (MONO has no hue). A tap
 //    opens WEBULL PAPER.
+// ── HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): ENGU-Q's lot is no longer sold at the 15:59 flatten - the box carries it
+//    past the close and the strategy's own exit closes it on a later day. The box marks such a lot per leg (api/qqq_exec.py
+//    _held_position_fields, on positions[leg] and its positions_live.legs[] entry): held_overnight (true), gap_today_usd (today's
+//    overnight gap, shares x (today's open - the prior close) x side) once open_mark_px (today's open mark) is set - before that
+//    the gap is not known yet - gap_usd (every night's gap added up) and close_pending ({reason, at} when a kill, the daily loss
+//    limit or the strategy's own exit came while the market was closed: it sells at the next open). A held lot is never an alarm:
+//    outside the session the top chip reads WEBULL n HELD (grey), its strategy row a grey HELD tag and one plain line with the gap,
+//    Account says held overnight, and the daily stop says the gap is not in it (the breaker counts a held lot from the day's open).
+//    {leg: {gap: number|null, pending: reason|null}} for every leg the doc marks held.
+function qbHeldLegs(QE){
+  const out={};
+  try{
+    const P=(QE&&QE.positions&&typeof QE.positions==='object')?QE.positions:{};
+    const L=(QE&&QE.positions_live&&Array.isArray(QE.positions_live.legs))?QE.positions_live.legs:[];
+    const num=v=>(v===null||v===undefined||v===''||!isFinite(Number(v)))?null:Number(v);
+    // today's gap once today's open mark is in (a doc without the marks: gap_usd as sent, null = not yet)
+    const gapOf=o=>{if(!o||typeof o!=='object')return undefined;
+      if('open_mark_px' in o||'gap_today_usd' in o){if(num(o.open_mark_px)===null)return null;const g=num(o.gap_today_usd);return g!==null?g:num(o.gap_usd);}
+      return 'gap_usd' in o?num(o.gap_usd):undefined;};
+    const mark=(k,a,b)=>{if(!k||out[k])return;let g=gapOf(a);if(g===undefined)g=gapOf(b);
+      const cp=(a&&a.close_pending&&typeof a.close_pending==='object')?a.close_pending:((b&&b.close_pending&&typeof b.close_pending==='object')?b.close_pending:null);
+      out[k]={gap:g===undefined?null:g,pending:cp?String(cp.reason||'exit'):null};};
+    Object.keys(P).forEach(k=>{const p=P[k]||{},l=L.find(x=>x&&x.leg===k)||{};if(p.held_overnight===true||l.held_overnight===true)mark(k,p,l);});
+    L.forEach(l=>{if(l&&l.held_overnight===true)mark(l.leg,l,P[l.leg]);});
+  }catch(e){}
+  return out;
+}
+// a held lot's gap in words ('+$3.20'), or null before the open that sets it
+function qbHeldGapTxt(h){return (h&&h.gap!=null&&isFinite(h.gap))?ledgerSigned(h.gap):null;}
+// a held lot's close that waits for the open, in words ('' when none): nothing is ever sent while the market is closed
+function qbHeldPendTxt(h){if(!h||!h.pending)return '';const r=String(h.pending).toUpperCase();
+  return 'sells at the 09:30 open ('+(r==='KILL'?'the kill switch is on':r==='BREAKER'?'the daily loss limit was hit':'its exit signal came while the market was closed')+')';}
 function qbTopChipHtml(){
   const empty='<span id="qb-top-chip" style="display:none"></span>';
   try{
@@ -5967,6 +5999,9 @@ function qbTopChipHtml(){
     const BR=(QE&&QE.broker)||{},mode=BR.effective_mode||'OFF';
     const PL=QE&&QE.positions_live&&Array.isArray(QE.positions_live.legs)?QE.positions_live.legs:null;
     const nOpen=PL?PL.length:Object.keys((QE&&QE.positions)||{}).length;
+    // HOLD OVERNIGHT: outside the session, a book whose every open lot is held overnight on purpose reads HELD, not OPEN
+    const HL=qbHeldLegs(QE),openKeys=PL?PL.map(l=>l&&l.leg):Object.keys((QE&&QE.positions)||{});
+    const allHeld=nOpen>0&&!F.inSession&&openKeys.every(k=>!!HL[k]);
     const cantRead=qbCantRead();
     const retry=onBoard?'it tries again every minute':'it tries again when the page is shown again or the board is opened';
     let st,txt,col,tip;
@@ -5978,8 +6013,8 @@ function qbTopChipHtml(){
       tip='The Webull paper box had not updated since '+F.sinceTxt+' New York time ('+qbAgoText(F.ageS)+' before '+(live?'now':'this page checked')+'). Everything on the WEBULL PAPER board is from then.'+chkTip;}
     else if(BR.halted){st='halted';txt='WEBULL HALTED'+chkTxt;col='var(--attn-red)';tip='Orders are halted on the Webull paper book. Tap for the board.'+chkTip;}
     else if((mode==='PAPER'||mode==='LIVE')&&BR.lease_ok_to_send===false){st='blocked';txt='WEBULL BLOCKED'+chkTxt;col='var(--attn-amber)';tip='Orders are paused on the Webull paper book. Tap for the board.'+chkTip;}
-    else{st=nOpen>0?'open':'flat';txt=(nOpen>0?('WEBULL '+nOpen+' OPEN'):'WEBULL FLAT')+chkTxt;col='var(--text4)';
-      tip='Webull paper book: '+(nOpen>0?(nOpen+' position'+(nOpen===1?'':'s')+' open'):'no open positions')+'. The box had updated '+qbAgoText(F.ageS)+' before '+(live?'now':'this page checked')+'. Tap for the board.'+chkTip;}
+    else{st=nOpen>0?(allHeld?'held':'open'):'flat';txt=(nOpen>0?('WEBULL '+nOpen+(allHeld?' HELD':' OPEN')):'WEBULL FLAT')+chkTxt;col='var(--text4)';
+      tip='Webull paper book: '+(nOpen>0?(nOpen+' position'+(nOpen===1?'':'s')+(allHeld?' held overnight on purpose (it exits on its strategy\u2019s own signal in a later session)':' open')):'no open positions')+'. The box had updated '+qbAgoText(F.ageS)+' before '+(live?'now':'this page checked')+'. Tap for the board.'+chkTip;}
     return '<span id="qb-top-chip" style="display:inline-flex;align-items:center;padding:4px 10px 4px 2px;font-size:var(--fsxs);letter-spacing:1px;flex-shrink:0">'
       +'<a href="#" data-qbtopchip="'+st+'" onclick="event.stopPropagation();return qbTopChipGo()" title="'+tip.replace(/"/g,'&quot;')+'" style="cursor:pointer;text-decoration:none;white-space:nowrap;color:'+col+'">&#9679; '+txt+'</a></span>';
   }catch(e){return empty;}
@@ -39292,7 +39327,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // crown behind each leg, plain text (never color-only, mono theme has no green/red
       // hue) -- ENGUQ carries its own caveat (ETH-fit crown on an RTH-only QQQ tape, see
       // api/cloud_signal.py's module docstring) shown under its row.
-      const QE_LEGS=[['ORB','ORB','var(--blue)','#314',null],['ENGUQ','ENGU-Q','var(--purple)','#335','Trading on Webull again since Oct 9 (shadow only Sep 28 to Oct 8). ETH-fit crown running on an RTH-only QQQ tape: it trades regular hours only and is flat by the close — exploratory, not evidence-backed'],['NOISE','NOISE','var(--green)','#382',null]];
+      const QE_LEGS=[['ORB','ORB','var(--blue)','#314',null],['ENGUQ','ENGU-Q','var(--purple)','#335','Trading on Webull again since Oct 9 (shadow only Sep 28 to Oct 8). ETH-fit crown running on an RTH-only QQQ tape: it enters in regular hours only — exploratory, not evidence-backed. Holds overnight: its trade is not sold at the 15:59 flatten and exits on its own signal in a later session.'],['NOISE','NOISE','var(--green)','#382',null]];
       // ── LEG VERSION CHANGES (2026-09-24, owner decision) — one row per swap of a leg's
       // underlying run, so the LEGS list, the trades table and the chart can all say which
       // version is live without hardcoding it more than once. Add ONE row here the next
@@ -39495,6 +39530,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // the shared today line's look (signed + arrowed, MONO-safe), with the box's own day for its word
       const qbNotTodayHtml=v=>{const up=v>=0;return '<span data-qbnottoday style="'+qbDimCss+'" title="From '+QF.dayLabel+', the box\u2019s last trading day - not today">'
         +'<span class="'+(up?'hm-up':'hm-down')+'">'+(up?'&#9650; +':'&#9660; -')+ledgerMoney(Math.abs(v))+'</span> <span class="lg-suffix">'+QF.dayLabel+'</span></span>';};
+      // HOLD OVERNIGHT: the line under the hero naming the lots held past the close and their overnight gap ('' when none)
+      const qbHeldNoteHtml=()=>{const H=qbHeldLegs(QE),ks=Object.keys(H);if(!ks.length)return '';
+        const nm=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;};
+        const gs=ks.map(k=>H[k].gap).filter(g=>g!=null&&isFinite(g)),gap=gs.length?gs.reduce((a,b)=>a+b,0):null;
+        return '<div data-qbheldnote style="color:var(--text4)" title="Held overnight on purpose: the trade is not sold at the 15:59 flatten and exits on its strategy\u2019s own signal in a later session. The gap (the prior close to the open) is in the P&amp;L of record but not in the daily stop, which counts a held lot from the day\u2019s open.">'
+          +ks.map(nm).join(' and ')+' held overnight &middot; '+(gap!=null?('gap '+ledgerSigned(gap)+', not in the daily stop'):'its gap is set at the next open')+'</div>';};
       const qbHeroBuild=(netVal,sinceLabel,parFailedForHero,brokerInfo,todayVal,rangeInfo)=>{
         const chips=qbFreshChips();
         if(QE&&QE.breaker_tripped)chips.push(qbChipG('BREAKER TRIPPED','var(--attn-red)'));
@@ -39541,7 +39582,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           today:(todayVal==null||!isFinite(Number(todayVal)))?'':(QF.isToday?ledgerTodayHtml(Number(todayVal)):qbNotTodayHtml(Number(todayVal))),
           range:rangeLine,
           chips:chips.join(''),
-          note:'<div>'+sinceLabel+'</div>'+brokerLine});
+          note:'<div>'+sinceLabel+'</div>'+brokerLine+qbHeldNoteHtml()});
         // LEDGER step 12: the status line is the shared status slot (directly under the hero), the same look on every board
         const heroStrip=ledgerStatusHtml({id:'qb',cls:'qbx-status-strip',line:'<span>'+statusBits+'</span>',
           act:'<button class="qb-hero-refresh lg-status-btn" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button>'});
@@ -39841,6 +39882,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +modelSection+'</div>';
       }else{
         const positions=QE.positions||{};
+        const qbHeld=qbHeldLegs(QE);   // HOLD OVERNIGHT: {leg: {gap}} for the lots the box carries past the close on purpose
         // Shadow legs never enter this board (owner rule). The box keeps them out of trades_all; a row flagged
         // shadow that ever slips in is dropped once, here, so the hero, the chart, the stats, the calendar, the
         // trade list and the export all count the same trades.
@@ -39901,7 +39943,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // Only when it prices EVERY open book position (a leg with no price, or a positions
         // block that failed and came back empty, falls back to the bar-close figure whole).
         const plLegs=QPOSLIVE&&Array.isArray(QPOSLIVE.legs)?QPOSLIVE.legs:null;
-        const openMarkPnl=(plLegs&&plLegs.length===posCount&&plLegs.every(l=>l&&l.open_pnl!=null&&isFinite(Number(l.open_pnl))))
+        const qbOpenLive=!!(plLegs&&plLegs.length===posCount&&plLegs.every(l=>l&&l.open_pnl!=null&&isFinite(Number(l.open_pnl))));
+        const openMarkPnl=qbOpenLive
           ?plLegs.reduce((s,l)=>s+Number(l.open_pnl),0)
           :(Number(QE.today&&QE.today.unrealized_pnl)||0);
         const sinceStartPnl=closedSum+openMarkPnl;
@@ -39921,7 +39964,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const dllStopLbl=qeStopIn!==null
           ?'Counted as the daily loss breaker counts it: closed and open trades today, Webull fills used where they are worse than the book.'
           :'Estimate from today\u2019s P&amp;L: the box has not sent the breaker\u2019s own figure for today yet.';
+        const qbHeldStop=(()=>{const ks=Object.keys(qbHeld),tg=QE.today?qeFinRec(QE.today.overnight_gap_usd):null;if(!ks.length&&!tg)return '';
+          const gs=ks.map(k=>qbHeld[k].gap).filter(g=>g!=null&&isFinite(g)),gap=tg?tg:(gs.length?gs.reduce((a,b)=>a+b,0):null);
+          return ' A held overnight lot counts from today\u2019s open; its overnight gap'+(gap!=null?(' ('+ledgerSigned(gap)+')'):'')+' is not counted.';})();
         const dllStopShort=qeStopIn!==null?'breaker figure':'estimate, box not updated yet';
+        const dllStopLblH=dllStopLbl+qbHeldStop;
         const dllNearLimit=dllLimitAbs!=null&&stopPnl<0&&Math.abs(stopPnl)>=dllLimitAbs*0.8;
         const dllTripped=dllLimitAbs!=null&&(QE.breaker_tripped===true||stopPnl<=-dllLimitAbs);
 
@@ -40134,6 +40181,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // that day -- the day the hero's today figure counts -- else the day it last wrote
         // (review 2026-10-05: a weekend or a stopped runner put the two on different days).
         const qeBoxDay=(()=>{const ok=s=>/^\d{4}-\d{2}-\d{2}$/.test(s);const td=(QE.today&&Array.isArray(QE.today.trades))?QE.today.trades.map(t=>String((t&&t.exit_ts)||'').slice(0,10)).filter(ok).sort():[];if(td.length)return td[td.length-1];const od=(QE.today&&Array.isArray(QE.today.orders))?QE.today.orders.map(o=>String((o&&o.ts_et)||'').slice(0,10)).filter(ok).sort():[];if(od.length)return od[od.length-1];return String(QE.updated_at||'').slice(0,10)||ledgerTodayNY();})();
+        // HOLD OVERNIGHT: a lot carried in from an earlier day counts in TODAY from the prior close (its overnight gap included - the
+        // P&L of record), never with its whole move since the entry. close_mark_px is the prior session's last price (the box sends it
+        // once today's open mark is in); before that open a carried lot has made nothing today. A lot entered today counts in full.
+        // A carried trade that CLOSED today the same way: the box's today.held_carry_usd is what it had made by the prior close, inside
+        // realized_pnl_record (exit - entry), so the today line does not jump by the earlier days' P&L the moment it sells. Defined
+        // here, before the chart, so the scrub's last point leaves the same out (the today line never moves when the mouse comes in).
+        const qbHeldCarry=Object.keys(qbHeld).reduce((s,k)=>{const p=positions[k];if(!p)return s;
+          const mult=p.side==='short'?-1:1,sh=Number(p.shares)||0,ep=qeFinRec(p.entry_px),cm=qeFinRec(p.close_mark_px),since=String(p.held_since||'').slice(0,10);
+          if(cm!==null&&ep!==null)return s+(cm-ep)*mult*sh;
+          if(/^\d{4}-\d{2}-\d{2}$/.test(since)&&since<qeBoxDay){const l=qbOpenLive?plLegs.find(x=>x&&x.leg===k):null;const o=l?qeFinRec(l.open_pnl):qeFinRec(p.unrealized);return s+(o!==null?o:0);}
+          return s;},0)+((QE.today&&qeFinRec(QE.today.held_carry_usd))||0);
         const qeLegsRecord=(QE.today&&QE.today.legs_record&&typeof QE.today.legs_record==='object')
           ?QE.today.legs_record
           :(()=>{const o={};trades.forEach(t=>{if(qeTradeDate(t)!==qeBoxDay)return;const k=(t&&t.leg)||'?';const b=o[k]||(o[k]={pnl:0,n:0,book:0});b.pnl+=qePnlOf(t);b.n++;if(String(t.pnl_record_src||'')!=='webull')b.book++;});return o;})();
@@ -40184,6 +40242,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // never disagrees with the hero or ACCOUNT below -- plus TOTAL = legClosedSum
           // (this row's own closed P&L, already shown in qb-row-value) + that open P&L.
           const legOpenPnl=(liveLeg&&liveLeg.open_pnl!=null&&isFinite(Number(liveLeg.open_pnl)))?Number(liveLeg.open_pnl):null;
+          // HOLD OVERNIGHT: a lot the box carries past the close on purpose - a grey HELD tag beside the side pill and one plain line
+          // with its overnight gap (in the P&L of record, not in the daily stop), never an alarm and never 'stuck'
+          const heldOne=(p||liveLeg)?(qbHeld[key]||null):null,heldGap=qbHeldGapTxt(heldOne);
+          const heldTip='Held overnight on purpose: '+label+' is not sold at the 15:59 flatten; its own signal exits it in a later session.';
+          const heldLineHtml=heldOne?('<div data-qbheld="'+key+'" title="'+heldTip+'">Held overnight &middot; '+(heldGap?('gap '+heldGap+' (prior close to the open), not in the daily stop'):'its gap is set at the next open')
+            +(qbHeldPendTxt(heldOne)?(' &middot; '+qbHeldPendTxt(heldOne)):'')+'</div>'):'';
           const legTotalPnl=legClosedSum+(legOpenPnl!=null?legOpenPnl:0);
           // a silent box (or a page that cannot read): the price is the last one seen, with its time,
           // and the open figures are grey like the leg pill - the page has no current price (finding 8)
@@ -40194,7 +40258,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(QF.stale?liveLastSeen:(' · now '+(liveLeg.live_px!=null?qeMoney(liveLeg.live_px):'—')))+'</div>'
             +'<div style="margin-top:2px"><b data-qbopenpnl="'+key+'" style="color:'+(QF.stale?'var(--text4)':(legOpenPnl!=null?pnlCol(legOpenPnl):'var(--text5)'))+'">Open '+(legOpenPnl!=null?qeMoney(legOpenPnl):'—')+'</b>'
             +' · <b style="color:'+(QF.stale?'var(--text4)':pnlCol(legTotalPnl))+'">Total '+qeMoney(legTotalPnl)+'</b></div>'
-            +'</div>'):'';
+            +heldLineHtml+'</div>'):(heldLineHtml?('<div class="qbx-leg-live">'+heldLineHtml+'</div>'):'');
           // NOTES UNDER AN EXPANDER (2026-09-25, owner: "make it simple. ... hid that
           // under an expander"). The ENGU-Q ETH-fit caveat and NOISE's since/was/KEEL
           // sub-line both used to always render -- exactly the clutter the owner asked
@@ -40221,6 +40285,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div><div class="qb-row-sublabel">UNREALIZED</div><div data-qbunreal="'+key+'" style="font-size:14px;font-weight:600;color:'+(p?(QF.stale?'var(--text4)':pnlCol(legUnreal)):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
             +'<div style="'+qbDimCss+'"><div class="qb-row-sublabel" data-qblegtoday="'+key+'">'+qbDayWord.toUpperCase()+'</div><div data-qblegtodayval="'+key+'" style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
             +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
+            +(heldOne?('<div title="'+heldTip+'"><div class="qb-row-sublabel">HELD OVERNIGHT</div><div data-qbheldgap="'+key+'" style="font-size:14px;font-weight:600;color:var(--text3)">'+(heldGap?('gap '+heldGap):'gap at the next open')+'</div></div>'):'')
             +legTodayNote
             +(notionalHtml?('<div style="width:100%">'+notionalHtml+'</div>'):'')
             +'</div>'):'';
@@ -40229,7 +40294,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // QE_LEG_VERSIONS says is live), the side pill rides beside it, the live position line is the sub-line, the range's P&L of
             // record the value and its trade count and win rate the quieter line under it. No switch: every leg counts, as before.
             const fg=qbRangeFigs(qbRangeTrades.filter(t=>t.leg===key));
-            const pill='<span class="qbx-lg-pill" data-qblegpill="'+key+'"'+badgeTip+' style="color:'+badgeColor+'">'+badge+'</span>';
+            const pill='<span class="qbx-lg-pill" data-qblegpill="'+key+'"'+badgeTip+' style="color:'+badgeColor+'">'+badge+'</span>'
+              +(heldOne?('<span class="qbx-lg-pill" data-qbheldpill="'+key+'" title="'+heldTip+'" style="color:var(--text4);margin-left:4px">HELD</span>'):'');
             qbLegModels.push({key:key,retired:qbRetiredNow,fg:fg,
               row:{key:key,name:label+' '+qeLegShortTag(key,runNo),color:color,tag:pill+infoToggleHtml,
                 sub:liveLineHtml.split('<div').join('<span').split('</div>').join('</span>'),
@@ -40313,7 +40379,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // the phone's one-line header for the list: how many legs trade, what the range made, and the open positions
           qbListSum=bookRows.filter(r=>r.key!=='~other').length+' live &middot; '
             +(qbRangeTrades.length?('<span class="'+ledgerCls(qbRangePnl)+'">'+ledgerSigned(qbRangePnl)+'</span> '+qbRangeWord):qbRangeNone)
-            +(posCount?(' &middot; '+posCount+' open'):'');
+            +(posCount?(' &middot; '+(Object.keys(qbHeld).length>=posCount?(posCount+' held'):(posCount+' open'))):'');
         }
 
         let equityHtml;
@@ -40405,11 +40471,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const h=heroEls();if(!h.big)return;
                 if(!heroSaved)heroSaved={big:h.big.innerHTML,today:h.today?h.today.innerHTML:null,range:h.range?h.range.innerHTML:null};
                 // the last point is now: with a position open the resting big number also carries its open
-                // P&L (openMarkPnl), so add it there too and the number does not jump when the mouse comes in
+                // P&L (openMarkPnl), so add it there too and the number does not jump when the mouse comes in;
+                // the day line on today's last point leaves out what held lots had made before today (qbHeldCarry), as the resting one does
                 const atNow=i===n-1&&posCount>0;
                 h.big.textContent=_hmMoney(qbBase+p.v+(atNow?openMarkPnl:0));
                 let j=i;while(j>0&&pts[j-1].date&&pts[j-1].date===p.date)j--;
-                const dayV=i?Math.round((p.v-(j>0?pts[j-1].v:0)+(atNow&&p.date===qeBoxDay?openMarkPnl:0))*100)/100:0;
+                const dayV=i?Math.round((p.v-(j>0?pts[j-1].v:0)+(i===n-1&&p.date===qeBoxDay?((atNow?openMarkPnl:0)-qbHeldCarry):0))*100)/100:0;
                 const when=p.date?_lgDateLbl(p.date,true):'';
                 if(h.today)h.today.innerHTML=i?('<span class="'+(dayV>=0?'hm-up':'hm-down')+'">'+(dayV>=0?'&#9650; +':'&#9660; -')+_hmMoney(Math.abs(dayV))+'</span> <span class="lg-suffix">on '+when+'</span>')
                   :'<span class="lg-suffix">start of the range</span>';
@@ -40974,7 +41041,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div><div style="color:var(--text5)">SHARES / LEG</div><div>ORB '+naS(rails.shares&&rails.shares.ORB)+' &middot; ENGU-Q '+naS(rails.shares&&rails.shares.ENGUQ)+' &middot; NOISE '+naS(rails.shares&&rails.shares.NOISE)+'</div></div>'
           +'<div><div style="color:var(--text5)">MAX SHARES / LEG</div><div>'+naS(rails.max_shares_per_leg)+'</div></div>'
           +'<div><div style="color:var(--text5)">DAILY LOSS LIMIT</div><div>'+qeMoney(rails.daily_loss_limit_usd)+'</div></div>'
-          +'<div><div style="color:var(--text5)">SESSION (ET)</div><div>open '+naS(sess.open)+' &middot; last entry '+naS(sess.last_entry)+' &middot; flat by '+naS(sess.flat_by)+'</div></div>'
+          +'<div><div style="color:var(--text5)">SESSION (ET)</div><div>open '+naS(sess.open)+' &middot; last entry '+naS(sess.last_entry)+' &middot; flat by '+naS(sess.flat_by)
+            +((Array.isArray(sess.hold_overnight_legs)&&sess.hold_overnight_legs.length)?(' except '+sess.hold_overnight_legs.map(k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:String(k);}).join(', ')+' (held overnight)'):'')+'</div></div>'
           +'<div><div style="color:var(--text5)">SLIPPAGE</div><div>'+qeMoney(rails.slippage_per_share)+'/share</div></div>'
           +'<div><div style="color:var(--text5)">KILL FILE</div><div style="word-break:break-all">'+naS(rails.kill_file)+'</div></div>'
           +'</div>'
@@ -41014,7 +41082,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // 09-24 that read +$21.60 while the book said +$6.58 (broker filled ENGU-Q $1.50
         // better), and its percent is of a $1M paper account, so always +0.00%. The
         // account's own move stays in the ACCOUNT section.
-        const heroTodayVal=qeTodayRealized+openMarkPnl;
+        // HOLD OVERNIGHT: qbHeldCarry (defined before the chart) leaves out what a carried lot had made before today.
+        const heroTodayVal=qeTodayRealized+openMarkPnl-qbHeldCarry;
         // the range line counts closed trades only; with a position open it says so, since the
         // big number and the today line also carry the open P&L
         // the hero's "broker made $X of that" line: the page's own sum over `trades` (shadow rows already dropped), book-only trades left out -
@@ -41138,7 +41207,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'<div style="font-size:13px;color:var(--text2)">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(QF.isToday?'':(' on '+QF.dayLabel+' (not today)'))
                 +(stopTripped?' — <b style="color:var(--attn-red)">stopped for the day</b>':'')+'</div>'
                 +'<div class="qb-bar"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
-                +'<div style="font-size:11px;color:var(--text4);margin-top:4px">'+dllStopLbl+'</div>'
+                +'<div data-qbstoplbl style="font-size:11px;color:var(--text4);margin-top:4px">'+dllStopLblH+'</div>'
                 +'</div>';
             }
 
@@ -41271,7 +41340,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const stopTripped=dllTripped;
               const barCol=stopTripped?'var(--attn-red)':(dllNearLimit?'var(--attn-amber)':'var(--attn-ok)');
               barHtml='<div style="'+qbDimCss+'"><div class="qb-bar" style="margin-top:8px"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
-                +'<div data-qbstop="'+(QF.isToday?'today':QF.dayLabel)+'" style="font-size:11px;color:var(--text4);margin-top:4px" title="'+dllStopLbl+'">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(QF.isToday?'':(' · from '+QF.dayLabel+', not today'))+(stopTripped?' · stopped for the day':' · '+dllStopShort)+'</div></div>';
+                +'<div data-qbstop="'+(QF.isToday?'today':QF.dayLabel)+'" style="font-size:11px;color:var(--text4);margin-top:4px" title="'+dllStopLblH+'">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(QF.isToday?'':(' · from '+QF.dayLabel+', not today'))+(stopTripped?' · stopped for the day':' · '+dllStopShort)+'</div></div>';
             }
             {
               const usedS=Math.abs(Math.min(0,stopPnl));
@@ -41384,7 +41453,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const sideWord=l.side==='long'?'Long':l.side==='short'?'Short':naS(l.side);
               const opn=(l.open_pnl!=null&&isFinite(Number(l.open_pnl)))?Number(l.open_pnl):null;
               return '<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">'
-                +'<span style="color:var(--text3)">'+legDisp(l.leg)+' &middot; '+sideWord+' '+qeInt(l.shares)+'</span>'
+                +'<span style="color:var(--text3)">'+legDisp(l.leg)+' &middot; '+sideWord+' '+qeInt(l.shares)
+                +(qbHeld[l.leg]?(' &middot; <span data-qbacctheld="'+l.leg+'">held overnight'+(qbHeldGapTxt(qbHeld[l.leg])?(', gap '+qbHeldGapTxt(qbHeld[l.leg])):'')+'</span>'):'')+'</span>'
                 +'<span style="font-weight:700;color:'+(opn!=null?pnlCol(opn):'var(--text5)')+'">'+(opn!=null?qeMoney(opn):'—')+'</span>'
                 +'</div>';
             }).join('')+'</div>';
@@ -41407,7 +41477,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(chg!==null)parts.push('<span class="'+ledgerCls(chg)+'">'+(chg>=0?'&#9650; ':'&#9660; ')+ledgerSigned(chg)+'</span> '+(qbAcctEq.chgDay||'today'));
               if(qbAcctEq.stale)parts.push('STALE');
             }else parts.push('equity not read yet');
-            if(posCount)parts.push(posCount+' open');
+            if(posCount){const nh=Object.keys(qbHeld).filter(k=>positions[k]).length;
+              parts.push(nh>=posCount?(posCount+' held overnight'):(posCount+' open'+(nh?(' ('+nh+' held overnight)'):'')));}
             return parts.join(' &middot; ');
           }catch(e){return 'not reported yet';}
         })();

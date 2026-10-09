@@ -462,11 +462,16 @@ def run_once(paths=None, now=None, run_cmd=None, post_fn=None, dry_run=False, lo
     text = compose_post(opened, recovered, expired)
     # AUTO-RESTART inbox alert (owner rule 2026-10-05, MANAGER #69): the box restarts a stuck
     # executor at most once a day and says so in status.json; relay each new restart once.
+    # HOLD OVERNIGHT (owner GO 2026-10-09): a restart may run while the book holds only its
+    # held-overnight lot (ENGU-Q) -- status.json last_restart_held names it, an older box omits it.
     ar = (box.get("status") or {}).get("auto_restart") if box.get("ok") else None
     if isinstance(ar, dict) and ar.get("last_restart_et") and \
             ar.get("last_restart_et") != state.get("relayed_restart_et"):
+        held = ar.get("last_restart_held")
+        book = (f"book flat except the held-overnight lot ({held})" if isinstance(held, str) and held
+                else "book flat")
         rtext = (f"AUTO-RESTART: the box restarted the Webull executor at "
-                 f"{ar['last_restart_et']} (it was stuck; book flat, outside 09:25-16:10 ET; "
+                 f"{ar['last_restart_et']} (it was stuck; {book}, outside 09:25-16:10 ET; "
                  f"at most once a day): {ar.get('last_restart_result') or 'result not known'}")
         text = (text + " | " + rtext) if text else rtext
         if not dry_run:

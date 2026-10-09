@@ -1355,7 +1355,11 @@ class OrderAdapter:
         order they go out in and whether or not the earlier one has filled yet.
 
         `legs`: {leg: +1 | -1}, the side the caller's book holds for each leg it is about
-        to close (long +1, short -1). A leg takes part only when broker_sent_positions
+        to close (long +1, short -1). Only legs that are really closing NOW: a lot held
+        overnight (api/qqq_exec.py HOLD OVERNIGHT, 2026-10-09) is never passed at the
+        flat_by flatten -- crossing a closing leg against it would close the held lot in
+        these books with no order behind it. Its shares stay in broker_sent_positions
+        (no daily reset), so the next morning's netting sees them through _account_net. A leg takes part only when broker_sent_positions
         holds shares for it on that same side, for `symbol`, it has no PENDING order part
         (its real position is not known yet -- it keeps its own verify-gated path), no
         order part younger than `fresh_part_sec` that Webull has not reported terminal

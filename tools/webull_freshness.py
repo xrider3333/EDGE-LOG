@@ -76,7 +76,11 @@ from api/market_calendar):
                      its after-close check (Webull not flat / position unreadable) the moment it
                      has it, so an episode that opens on such a result is QUIET here (status.json
                      and the PC inbox relay only); this monitor pushes "the check did not run"
-                     (the executor cannot report its own absence) and the KILL case.
+                     (the executor cannot report its own absence) and the KILL case. A lot the
+                     executor HOLDS OVERNIGHT (below) is expected at Webull after the close: the
+                     executor stamps flat=true when Webull holds exactly the held lots ("held"
+                     beside it), and every wording here names the held shares to keep instead of
+                     "check Webull is flat".
     eod_settled      cloud_signal eod_settled has today -- #30. The ONE pusher of "today's close
                      was not settled": the engine only records eod_gave_up[today] (named here
                      when present) and the executor only logs the board event.
@@ -130,8 +134,9 @@ again" push for every episode, and "QQQ book ready"/"QQQ book NOT ready" (urgent
                   frozen." / "Do: ask Claude (PAPER-WB chat)."; "Cloud box: needs a fix" (default)
                   for the disk, a big log or a box service the book does not trade through; the
                   shadow legs' heartbeat is a low note (data only).
-  Auto-restart:   "QQQ book: restarted" (low) when it worked -- flat, market closed; "QQQ book: CHECK
-                  NOW" (high) when the restart command failed.
+  Auto-restart:   "QQQ book: restarted" (low) when it worked -- flat, market closed ("not affected
+                  (ENGU-Q's 10 shares held overnight, market closed)" when only a held lot was
+                  open); "QQQ book: CHECK NOW" (high) when the restart command failed.
 
 Outputs, all under <home>/freshness/: status.json (open alerts, this run's verdicts,
 outbox depth, restart gate, the last KEEL_DIFFS_IN_STATUS KEEL size diffs -- what
@@ -148,7 +153,10 @@ an unarmed executor publishes only every 600 s) OR its tick loop has been silent
 the rule is:
 restart edgelog-qqq-exec (and nothing else -- never cloud-signal or any other unit) ONLY
 outside 09:25-16:10 ET on a session day (any time on a non-session day), ONLY while the book
-is flat (state.json legs, _broker_resend and _broker_fill_capture all empty), ONLY while
+is flat (state.json legs, _broker_resend and _broker_fill_capture all empty) or its only open
+lots are ones the executor holds overnight on purpose (HOLD OVERNIGHT below: the lot is in
+state.json, so a restart keeps it and the executor's boot reconcile checks it against Webull),
+ONLY while
 `systemctl is-active` says the unit is active (wedged) or failed -- an inactive unit was
 stopped on purpose and is never started -- at most ONCE A DAY (New York date, the owner's
 rule) and never twice within an hour across midnight (both saved before the restart is
@@ -157,6 +165,15 @@ issued), logged, pushed, and posted to the MANAGER and PAPER-WB inboxes by the P
 {"auto_restart_exec": true} (the JSON literal true; any other value, a "true" string included,
 is OFF); until then the same gate runs and only logs "would restart"
 (once an hour), so the owner can read what it would have done before switching it on.
+
+HOLD OVERNIGHT (OWNER GO 2026-10-09, MANAGER #106). ENGU-Q (executor leg ENGUQ) is no longer sold
+at the executor's flat_by: its lot is carried in state.json past the close and exits on the
+engine's signal in a later session. A HELD lot is an open state.json lot that carries the
+executor's hold marker ("hold" / held_overnight) or whose leg is in the executor's hold list --
+its config's session.hold_overnight_legs (a list of leg names), else HOLD_OVERNIGHT_LEGS below
+(the same code default as api/qqq_exec.py, a test pins it), engine mode only. Such a lot is "flat
+except held" for the auto-restart rule, is named (never "sell by hand") in the after-close
+wording, and is listed in status.json "held_overnight" ([{leg, side, shares}]) for the PC relay.
 
 NEVER READS THE WEBULL TOKEN. token.txt is the SDK's own three-line file (token, expiry in
 epoch ms, status); line 1 is read past and discarded, only lines 2-3 are parsed. Nothing here
@@ -206,6 +223,11 @@ MAY_HOLD = "the QQQ book may still hold shares after the close"
 SHORT_HISTORY = "NOISE trades on a price history that is a day short"
 OWNER_FIXES = ("token_status", "halted", "kill")   # pre-open misses only the owner can clear
 FLAT_DO = "check the Webull app is flat and sell by hand if needed"
+# HOLD OVERNIGHT (module docstring): the executor's legs (api/qqq_exec.LEGS) and the ones it
+# carries past flat_by by default (api/qqq_exec.HOLD_OVERNIGHT_LEGS) -- tests pin both equal
+KNOWN_LEGS = ("ORB", "ENGUQ", "NOISE")
+HOLD_OVERNIGHT_LEGS = ("ENGUQ",)
+LEG_WORDS = {"ENGUQ": "ENGU-Q"}
 # box units by plain name, and whether the book trades through them
 UNIT_WORDS = {
     "edgelog-qqq-exec.service": ("The QQQ order program", True),
@@ -223,6 +245,100 @@ def _plain(problem, action=ASK, affects=None, area=BOOK, priority=None):
     the verdict's severity when trading is affected, else default (see _rec_priority)."""
     return {"area": area, "affects": affects, "problem": problem, "action": action,
             "priority": priority}
+
+
+def hold_legs(exec_cfg):
+    """The legs the executor holds overnight, from its config.json (read here as plain JSON):
+    session.hold_overnight_legs when that is a list of known leg names ([] switches the hold
+    off), else the code default HOLD_OVERNIGHT_LEGS. () when the executor runs in NinjaTrader
+    mode (signal_source other than "engine"): the hold is engine mode only."""
+    cfg = exec_cfg if isinstance(exec_cfg, dict) else {}
+    if str(cfg.get("signal_source") or "engine").strip().lower() != "engine":
+        return ()
+    sess = cfg.get("session") if isinstance(cfg.get("session"), dict) else {}
+    v = sess.get("hold_overnight_legs")
+    if isinstance(v, list) and all(isinstance(x, str) and x in KNOWN_LEGS for x in v):
+        return tuple(v)
+    return HOLD_OVERNIGHT_LEGS
+
+
+def held_lots(snap):
+    """[{leg, side, shares}] of the executor's open state.json lots it holds overnight (the lot's
+    own hold marker, or its leg in snap["hold_legs"] -- the code default when that is missing),
+    sorted by leg. Never raises; [] for an unreadable state."""
+    try:
+        st = (snap or {}).get("exec_state")
+        legs = st.get("legs") if isinstance(st, dict) else None
+        if not isinstance(legs, dict):
+            return []
+        hold = (snap or {}).get("hold_legs")
+        hold = HOLD_OVERNIGHT_LEGS if hold is None else tuple(hold)
+        out = []
+        for leg in sorted(legs):
+            lot = legs[leg] if isinstance(legs[leg], dict) else {}
+            if bool(lot.get("hold")) or lot.get("held_overnight") is True or leg in hold:
+                sh = lot.get("shares_remaining", lot.get("shares"))
+                try:
+                    sh = int(round(abs(float(sh))))
+                except (TypeError, ValueError):
+                    sh = None
+                out.append({"leg": str(leg), "side": lot.get("side"), "shares": sh})
+        return out
+    except Exception:
+        return []
+
+
+def held_text(lots):
+    """Developer words: 'ENGU-Q long 10' (', '-joined); '' when none."""
+    return ", ".join("%s %s%s" % (LEG_WORDS.get(x["leg"], x["leg"]), x.get("side") or "?",
+                                  "" if x.get("shares") is None else " %d" % x["shares"])
+                     for x in lots or [])
+
+
+def held_shares_words(lots, held="held "):
+    """Phone words: "ENGU-Q's 10 held shares" / "ENGU-Q's 10 held short shares" / "ENGU-Q's 10
+    and NOISE's 5 held shares" ("ENGU-Q's 10 shares" with held=""); '' when none."""
+    lots = lots or []
+    if not lots:
+        return ""
+    parts = [("%s's %s" % (LEG_WORDS.get(x["leg"], x["leg"]),
+                           "" if x.get("shares") is None else "%d" % x["shares"])).rstrip()
+             for x in lots]
+    short = all(x.get("side") == "short" for x in lots)
+    return "%s %s%sshares" % (" and ".join(parts), held, "short " if short else "")
+
+
+def flat_do(lots):
+    """The after-close Do: line -- never "sell by hand" for a lot the book holds on purpose."""
+    if not lots:
+        return FLAT_DO
+    return "check the Webull app holds only %s and sell anything else by hand" % held_shares_words(lots)
+
+
+def held_short_do(lots):
+    """The after-close Do: line when Webull holds FEWER shares than the held lot -- nothing to
+    sell; the held trade may be missing shares."""
+    return "check the Webull app for %s, then %s" % (held_shares_words(lots), ASK)
+
+
+def webull_short_of_held(flat, lots):
+    """True when the executor's after-close verdict says Webull holds FEWER shares than the
+    held-overnight lots (on their side): `shares` is what Webull holds (unsigned), `held` the
+    signed held lots and `off` how far Webull is from them. Never raises; False when unsure."""
+    try:
+        held = flat.get("held") if isinstance(flat.get("held"), dict) else None
+        if held:
+            want = sum(int(v) for v in held.values())
+        else:
+            want = sum((x["shares"] if x.get("side") != "short" else -x["shares"]) for x in lots)
+        have = int(flat.get("shares") or 0)
+        if not want or have >= abs(want):
+            return False
+        off = flat.get("off")
+        # same side: off = |held| - shares; on the other side: off = |held| + shares
+        return off is None or int(off) == abs(want) - have
+    except Exception:
+        return False
 
 
 def _plain_age(sec):
@@ -581,6 +697,7 @@ def collect(paths, run_cmd=None):
         snap["tick_crash_mtime"] = mtime(paths["exec_tick_crash"])
     exec_cfg, _ = read_json(paths["exec_config"])
     kill_file = (exec_cfg or {}).get("kill_file") if isinstance(exec_cfg, dict) else None
+    snap["hold_legs"] = list(hold_legs(exec_cfg))
     snap["kill_files"] = [p for p in (kill_file or paths["exec_kill"], paths["orders_kill"])
                           if p and os.path.exists(p)]
     # the EXECUTOR's own KILL file only (not the order adapter's): while it is present the
@@ -648,11 +765,13 @@ def wall_time_age(t, now_et):
 
 
 def exec_view(snap, now_et, mstate):
-    """Publish age, tick-loop age, flatness and the cadence the executor advertised."""
+    """Publish age, tick-loop age, flatness and the cadence the executor advertised. `flat`: no
+    open lot and nothing pending; `flat_except_held`: the same, except open lots the executor
+    holds overnight (`held`, see HOLD OVERNIGHT) -- None for both while state.json is unreadable."""
     now_epoch = now_et.timestamp()
     st = snap.get("exec_state") if isinstance(snap.get("exec_state"), dict) else None
     v = {"readable": st is not None, "publish_age": None, "loop_age": None, "flat": None,
-         "renew": 600.0, "last_ok": None}
+         "flat_except_held": None, "held": [], "renew": 600.0, "last_ok": None}
     if st is None:
         return v
     try:
@@ -682,6 +801,13 @@ def exec_view(snap, now_et, mstate):
     v["loop_age"] = (now_epoch - last_tick) if last_tick else None
     v["flat"] = (not st.get("legs")) and (not st.get("_broker_resend")) \
         and (not st.get("_broker_fill_capture"))
+    held = held_lots(snap)
+    v["held"] = held
+    legs = st.get("legs")
+    keys = set(x["leg"] for x in held)
+    only_held = (not legs) or (isinstance(legs, dict) and all(str(k) in keys for k in legs))
+    v["flat_except_held"] = bool(only_held and (not st.get("_broker_resend"))
+                                 and (not st.get("_broker_fill_capture")))
     return v
 
 
@@ -1099,12 +1225,18 @@ def check_eod(snap, now_et):
     today = d.isoformat()
     st = snap.get("exec_state") if isinstance(snap.get("exec_state"), dict) else {}
     out = []
+    # HOLD OVERNIGHT: the lots the book keeps past the close on purpose -- named in every
+    # wording below, never "check Webull is flat / sell by hand" for them
+    lots = held_lots(snap)
+    keep = held_text(lots)
+    hand = (f"CHECK BY HAND THAT WEBULL HOLDS ONLY THE HELD-OVERNIGHT LOT ({keep})" if lots
+            else "CHECK WEBULL IS FLAT BY HAND")
     done = st.get("eod_summary_done_date") == today
     out.append(_verdict(
         "eod_summary", "eod", done, URGENT, "EOD did not run",
         f"eod_summary_done_date is {st.get('eod_summary_done_date')}, not {today} -- the "
-        f"executor was down or stalled at the close: CHECK WEBULL IS FLAT BY HAND.",
-        plain=_plain("The QQQ book's end-of-day close did not run.", action=FLAT_DO,
+        f"executor was down or stalled at the close: {hand}.",
+        plain=_plain("The QQQ book's end-of-day close did not run.", action=flat_do(lots),
                      affects=MAY_HOLD)))
     flat = st.get("_webull_flat_after_eod") or {}
     flat_ok = flat.get("date") == today and flat.get("flat") is True
@@ -1128,6 +1260,17 @@ def check_eod(snap, now_et):
     elif flat.get("date") != today:
         why = f"the post-close Webull flat check did not run today (last {flat.get('date')})"
         problem = "The after-close Webull position check did not run today."
+    elif flat.get("flat") is False and lots and webull_short_of_held(flat, lots):
+        # Webull LOST some of the held shares: nothing to sell -- the opposite of "not only"
+        why = (f"Webull holds {flat.get('shares')} QQQ after the close, fewer than the "
+               f"held-overnight lot ({keep})")
+        problem = "Webull holds %s QQQ shares after the close, fewer than %s." % (
+            flat.get("shares"), held_shares_words(lots))
+    elif flat.get("flat") is False and lots:
+        why = (f"Webull holds {flat.get('shares')} QQQ after the close, not the held-overnight "
+               f"lot alone ({keep})")
+        problem = "Webull holds %s QQQ shares after the close, not only %s." % (
+            flat.get("shares"), held_shares_words(lots))
     elif flat.get("flat") is False:
         why = f"Webull still holds {flat.get('shares')} QQQ after the close"
         problem = "Webull still holds %s QQQ shares after the close." % flat.get("shares")
@@ -1140,9 +1283,16 @@ def check_eod(snap, now_et):
     # a note whose one send failed is pushed here instead of by nobody
     exec_owns = (flat.get("date") == today and flat.get("flat") is not True
                  and flat.get("pushed") is True)
+    short = bool(lots) and flat.get("date") == today and flat.get("flat") is False \
+        and webull_short_of_held(flat, lots)
     out.append(_verdict("webull_flat", "eod", flat_ok, sev, "Webull NOT confirmed flat",
-                        why + " -- check the Webull app and sell by hand if needed.",
-                        plain=_plain(problem, action=FLAT_DO, affects=affects),
+                        why + (f" -- check the Webull app for the held-overnight lot ({keep}); "
+                               f"the held trade may be missing shares." if short else
+                               f" -- check the Webull app holds only the held-overnight lot "
+                               f"({keep}) and sell anything else by hand." if lots else
+                               " -- check the Webull app and sell by hand if needed."),
+                        plain=_plain(problem, action=held_short_do(lots) if short else flat_do(lots),
+                                     affects=affects),
                         quiet=exec_owns))
     cs = snap.get("cs_state") if isinstance(snap.get("cs_state"), dict) else {}
     settled = today in ((cs or {}).get("eod_settled") or {})
@@ -1560,10 +1710,17 @@ def restart_decision(now_et, ev, mstate, enabled):
             RESTART_PROTECTED[0] <= hhmm(now_et) < RESTART_PROTECTED[1]:
         return {"action": "blocked", "reasons": reasons,
                 "why": "inside 09:25-16:10 ET on a session day"}
+    held = []
     if ev.get("flat") is not True:
-        return {"action": "blocked", "reasons": reasons,
-                "why": "book not confirmed flat (open leg, pending resend/fill capture, or "
-                       "state.json unreadable)"}
+        # HOLD OVERNIGHT (owner GO 2026-10-09): a lot the executor holds overnight on purpose
+        # does not block it -- the lot is in state.json, so the restart keeps it, and the
+        # executor's boot reconcile checks it against Webull. Any other open leg, a pending
+        # re-send or fill capture, or an unreadable state.json still blocks.
+        if ev.get("flat_except_held") is not True or not ev.get("held"):
+            return {"action": "blocked", "reasons": reasons,
+                    "why": "book not confirmed flat (open leg, pending resend/fill capture, or "
+                           "state.json unreadable)"}
+        held = list(ev["held"])
     rs = mstate.get("restart") or {}
     if enabled and rs.get("last_restart_day") == now_et.date().isoformat():
         return {"action": "blocked", "reasons": reasons,
@@ -1571,6 +1728,10 @@ def restart_decision(now_et, ev, mstate, enabled):
     last = float(rs.get("last_restart_epoch" if enabled else "last_would_epoch") or 0.0)
     if now_et.timestamp() - last < RESTART_COOLDOWN_SEC:
         return {"action": "blocked", "reasons": reasons, "why": "at most once per hour"}
+    if held:
+        return {"action": "restart" if enabled else "would_restart", "reasons": reasons,
+                "why": "outside the protected window, flat except the held-overnight lot "
+                       "(%s), cooldown passed" % held_text(held), "held": held}
     return {"action": "restart" if enabled else "would_restart", "reasons": reasons,
             "why": "outside the protected window, flat, cooldown passed"}
 
@@ -1591,12 +1752,14 @@ def exec_unit_state(run_cmd=None):
     return out[0].strip() if out and out[0].strip() else "unknown"
 
 
-def restart_note(ok):
-    """The phone note for an auto-restart (PHONE TEXT): it only ever runs with the book flat and
-    the market closed, so a restart that worked is a low note; one whose command failed leaves
-    the order program stuck -> high."""
+def restart_note(ok, held=None):
+    """The phone note for an auto-restart (PHONE TEXT): it only ever runs with the book flat (or
+    holding only its held-overnight lots, `held`) and the market closed, so a restart that worked
+    is a low note; one whose command failed leaves the order program stuck -> high."""
     if ok:
-        return ntfy_push.plain(BOOK, "restarted", "not affected (the book was flat, market closed)",
+        why = ("not affected (%s held overnight, market closed)" % held_shares_words(held, held="")
+               if held else "not affected (the book was flat, market closed)")
+        return ntfy_push.plain(BOOK, "restarted", why,
                                "The QQQ order program was stuck, so this monitor restarted it.",
                                "nothing", priority="low")
     return ntfy_push.plain(BOOK, "CHECK NOW", "the QQQ book may not trade at the next open",
@@ -1750,6 +1913,8 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
             rs["last_restart_day"] = now_et.date().isoformat()
             rs["last_restart_et"] = label
             rs["last_restart_result"] = "started; the pass ended before the result was known"
+            # HOLD OVERNIGHT: what the book held through this restart (the PC relay names it)
+            rs["last_restart_held"] = held_text(decision.get("held")) or None
             queue_pushes()
             write_json_atomic(paths["monitor_state"], mstate)
             write_json_atomic(paths["outbox"], outbox)
@@ -1757,7 +1922,7 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
             rs["last_restart_result"] = note
             log(f"[freshness] RESTARTED {EXEC_UNIT} ({', '.join(decision['reasons'])}): "
                 f"{'ok' if ok else 'FAILED'} {note}")
-            rn = restart_note(ok)
+            rn = restart_note(ok, decision.get("held"))
             pushes.append((rn["title"], rn["message"], rn["priority"]))
     elif decision["action"] == "blocked":
         # logged when the reason changes, else at most every 30 min (a weekend-long wedge
@@ -1795,7 +1960,9 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
         "outbox_pending": len(outbox), "pushes_sent": sent,
         "preopen": mstate.get("preopen"),
         "auto_restart": {"enabled": enabled, **{k: rs.get(k) for k in (
-            "last_decision", "last_restart_et", "last_restart_result")}},
+            "last_decision", "last_restart_et", "last_restart_result", "last_restart_held")}},
+        # HOLD OVERNIGHT: the open lots the executor holds past the close on purpose
+        "held_overnight": ev.get("held") or [],
         "broker_mode": snap.get("broker_mode"),
         # KEEL size diffs on live NOISE entries (api/cloud_signal.py) -- the PC relays each
         # one once to the inboxes; see KEEL SIZE DIFFS in the docstring

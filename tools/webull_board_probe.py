@@ -266,6 +266,25 @@ beside it, in the BOOK ENGU-Q #335 row - a live leg again since 2026-10-09 - or 
 and no such sentence on any other leg. The trade list run 'a shadow row closed today' gets the
 block too: neither the list nor the CSV may hold one of its trades.
 
+HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): ENGU-Q's lot is carried past the 15:59 flatten on purpose; the box marks it
+per leg (positions[leg] and positions_live.legs[], api/qqq_exec.py _held_position_fields: held_overnight true, gap_today_usd once
+today's open mark open_mark_px is in, close_pending while a close waits for the open). Five variants with ENGU-Q long 10 held: the
+evening it was held (20:41, laptop dark and phone 375x812 with the Strategies fold open), the next morning before the open, the next
+morning with its exit waiting for the open ('sells at the 09:30 open (its exit signal came while the market was closed)'), and the
+next day in the session with a -$5.30 gap (today.overnight_gap_usd). Each: the top bar chip reads WEBULL 1 HELD outside
+the session and WEBULL 1 OPEN in it; ENGU-Q is a BOOK row (a live leg since 2026-10-09: no Retired fold) whose tag is its side
+pill LONG then a HELD tag, with the line 'Held overnight . its gap is set at the next open' (or 'gap -$5.30 (prior close to the open),
+not in the daily stop'); its detail
+(opened) says HELD OVERNIGHT with the gap; the hero carries 'ENGU-Q held overnight . ...'; Account says 'held overnight' on the
+position and '1 held overnight' in its header (the phone list header '1 held'); the daily stop's caption says a held lot counts from
+today's open and its gap is not counted; the share check stays OK; the hero's today line counts the lot in full on the day it was
+entered, nothing of it before the next open, and from the prior close once the open is in (today -$6.80 closed + $4.20 open - the
+$5.30 it had made by the prior close = -$7.90); and none of the held words is drawn red or amber (never an alarm).
+On the phone the ENGU-Q row stays one line. A sixth variant: the held trade closed today (the box's today.held_carry_usd = $5.30,
+what it had made by the prior close, inside today's closed P&L of record): the today line leaves it out (-$6.80 - $5.30 =
+-$12.10), it does not jump by the earlier days' P&L at the sell. In the in-session held variant and this one a scrub to the
+chart's last point writes the same day figure as the resting today line (the line never moves when the mouse comes in).
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -747,6 +766,56 @@ def _variant_docs(fixture):
     out.append(("Friday's doc with the breaker's own figure, Saturday noon", '2026-10-03 12:00:00', fb, dict(none,
                silent='BOX SILENT since Fri 15:58', today='Fri 10-02', top=('stale', 'WEBULL STALE since Fri 15:58'), stop='Fri 10-02',
                eq_stale=True, stop_has=['$120.00 of $400.00 daily stop used', 'from Fri 10-02', 'breaker figure'], stop_lacks=['estimate'])))
+    # HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): ENGU-Q long 10 carried past the close on purpose - never an alarm
+    def held(d, gap=None, pending=None):
+        # the box's own fields (api/qqq_exec.py _held_position_fields): today's gap and the marks only once today's open mark is in
+        f = {'held_overnight': True, 'held_since': '2026-10-05', 'nights_held': 1 if gap is not None else 0,
+             'gap_usd': gap if gap is not None else 0.0, 'gap_today_usd': gap if gap is not None else 0.0,
+             'close_mark_px': 600.63 if gap is not None else None, 'open_mark_px': 600.10 if gap is not None else None,
+             'unrealized_rail': 4.2 if gap is not None else 0.0, 'close_pending': pending}
+        d['positions'] = {'ENGUQ': dict({'side': 'long', 'shares': '10', 'entry_px': '600.10', 'entry_ts': '2026-10-05 10:00:05',
+                                         'unrealized': '4.20'}, **f)}
+        d['positions_live'] = {'legs': [dict({'leg': 'ENGUQ', 'side': 'long', 'shares': 10, 'entry_px': 600.1, 'live_px': 600.52,
+                                              'live_source': 'stream', 'live_age_s': 1.0, 'open_pnl': 4.2, 'time_in_trade_min': 640}, **f)],
+                               'total_open_pnl': 4.2, 'legs_net_qty': 10, 'broker_net_qty': 10, 'mismatch': False}
+        d['today'] = dict(d['today'], overnight_gap_usd=gap if gap is not None else 0.0)
+        d['rails']['session'] = dict(d['rails']['session'], hold_overnight_legs=['ENGUQ'])
+        return d
+    held_ok = ('ok', 'OK \u2014 Webull holds long 10 \u00b7 legs sum to long 10')
+    held_eve = {'line': 'Held overnight \u00b7 its gap is set at the next open',
+                'note': 'ENGU-Q held overnight \u00b7 its gap is set at the next open', 'gap': 'gap at the next open',
+                'acct': 'held overnight', 'acct_sum': '1 held overnight',
+                'stop_tip': 'A held overnight lot counts from today\u2019s open; its overnight gap is not counted.'}
+    eve_doc = held(move_to(base('2026-10-05'), '2026-10-05 20:35:00', '2026-10-05', '2026-10-05 15:59:30', '20:25:00'))
+    eve_ex = dict(none, today='today', top=('held', 'WEBULL 1 HELD'), strip_has=['box updated 6 min ago'], strip_lacks=['BOX SILENT'],
+                  eq_stale=False, recon=held_ok, held=held_eve, open_leg='ENGUQ', hero_today='\u25bc -$2.60 today')
+    out.append(('ENGU-Q held overnight, evening doc', '2026-10-05 20:41:00', eve_doc, eve_ex))
+    out.append(('ENGU-Q held overnight, evening doc (375x812, Strategies open)', '2026-10-05 20:41:00', eve_doc,
+                dict(eve_ex, vp='phone', fold_open=['list'])))
+    out.append(('ENGU-Q held overnight, next morning before the open', '2026-10-06 08:50:00',
+                held(move_to(base('2026-10-05'), '2026-10-06 08:45:00', '2026-10-06', '2026-10-06 08:44:30', '08:35:00')),
+                dict(none, today='today', top=('held', 'WEBULL 1 HELD'), strip_lacks=['BOX SILENT'], eq_stale=False, recon=held_ok,
+                     held=held_eve, open_leg='ENGUQ', hero_today='\u25bc -$6.80 today')))
+    # the strategy's own exit came after the bell: nothing is sent while the market is closed, it sells at the open
+    out.append(('ENGU-Q held overnight, its exit waits for the open', '2026-10-06 08:50:00',
+                held(move_to(base('2026-10-05'), '2026-10-06 08:45:00', '2026-10-06', '2026-10-06 08:44:30', '08:35:00'),
+                     pending={'reason': 'signal exit', 'at': '2026-10-05 16:00:35'}),
+                dict(none, today='today', top=('held', 'WEBULL 1 HELD'), strip_lacks=['BOX SILENT'], eq_stale=False, recon=held_ok,
+                     open_leg='ENGUQ', hero_today='\u25bc -$6.80 today', held=dict(held_eve, line='Held overnight \u00b7 its gap is set at the next open \u00b7 sells at the 09:30 '
+                                                                 'open (its exit signal came while the market was closed)'))))
+    out.append(('ENGU-Q held overnight, in the session the next day (gap -$5.30)', FRESH_NOW, held(base(), gap=-5.3),
+                dict(none, today='today', top=('open', 'WEBULL 1 OPEN'), strip_has=['box updated 24 s ago'], eq_stale=False, recon=held_ok,
+                     open_leg='ENGUQ', hero_today='\u25bc -$7.90 today', scrub=True, held={'line': 'Held overnight \u00b7 gap -$5.30 (prior close to the open), not in the daily stop',
+                                             'note': 'ENGU-Q held overnight \u00b7 gap -$5.30, not in the daily stop', 'gap': 'gap -$5.30',
+                                             'acct': 'held overnight, gap -$5.30', 'acct_sum': '1 held overnight',
+                                             'stop_tip': 'A held overnight lot counts from today\u2019s open; its overnight gap (-$5.30) is not counted.'})))
+    # the held trade sold today: today.held_carry_usd (what it had made by the prior close) is in today's closed P&L of record and is
+    # left out of the today line, as it was while the lot was open -- the line does not jump by the earlier days' P&L at the sell
+    closed_carry = base()
+    closed_carry['today'] = dict(closed_carry['today'], held_carry_usd=5.3, overnight_gap_usd=-5.3)
+    out.append(('ENGU-Q held overnight, its trade closed today', FRESH_NOW, closed_carry,
+                dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 24 s ago'], eq_stale=False,
+                     hero_today='\u25bc -$12.10 today', scrub=True)))
     # three key variants again in MONO at 390x844
     for nm, now, doc, ex in [o for o in out if o[0] in ("Saturday noon, Friday's doc",
                                                         "the page's own read failed, Friday's doc on Monday 08:50",
@@ -2040,6 +2109,63 @@ MUTANTS = [
      "const gShadow={key:'shadow',title:'Shadow - not counted',fold:true,open:qbShadowOpen,",
      "const gShadow={key:'shadow',title:'Shadow - not counted',fold:true,open:qbShadowOpen||qbShTr.length>0,",
      "the Shadow fold opens by itself when the box sends shadow trades (the phone list grows)"),
+    # HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): ENGU-Q's lot held past the close is never an alarm
+    ('held-chip-reads-open',
+     "txt=(nOpen>0?('WEBULL '+nOpen+(allHeld?' HELD':' OPEN')):'WEBULL FLAT')",
+     "txt=(nOpen>0?('WEBULL '+nOpen+' OPEN'):'WEBULL FLAT')",
+     'the top bar chip reads WEBULL 1 OPEN after the close for a lot held overnight on purpose'),
+    ('held-chip-in-session',
+     "const allHeld=nOpen>0&&!F.inSession&&",
+     "const allHeld=nOpen>0&&",
+     'the top bar chip reads HELD in the session, when the held lot is an open trade like any other'),
+    ('held-tag-missing',
+     "+(heldOne?('<span class=\"qbx-lg-pill\" data-qbheldpill=\"'+key+'\"",
+     "+(false?('<span class=\"qbx-lg-pill\" data-qbheldpill=\"'+key+'\"",
+     "ENGU-Q's row has no HELD tag beside its side pill"),
+    ('held-tag-red',
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--text4);margin-left:4px\">HELD</span>",
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--attn-red);margin-left:4px\">HELD</span>",
+     'the HELD tag is drawn red, as an alarm'),
+    ('held-line-missing',
+     "const heldLineHtml=heldOne?(",
+     "const heldLineHtml=false?(",
+     "ENGU-Q's row has no held line with its gap"),
+    ('held-gap-dropped',
+     "heldGap=qbHeldGapTxt(heldOne);",
+     "heldGap=null;",
+     "the held lot's overnight gap is never shown, even after the open set it"),
+    ('held-hero-note-missing',
+     "brokerLine+qbHeldNoteHtml()});",
+     "brokerLine});",
+     'the hero does not name the lot held overnight'),
+    ('held-stop-caption-silent',
+     "if(!ks.length&&!tg)return '';",
+     "if(true)return '';",
+     "the daily stop's caption does not say a held lot counts from the open and its gap is not counted"),
+    ('held-pending-silent',
+     "+(qbHeldPendTxt(heldOne)?(' &middot; '+qbHeldPendTxt(heldOne)):'')",
+     "+''",
+     "a held lot whose exit waits for the open does not say it sells at the 09:30 open"),
+    ('held-acct-words-missing',
+     "+(qbHeld[l.leg]?(' &middot; <span data-qbacctheld=",
+     "+(false?(' &middot; <span data-qbacctheld=",
+     'the Account position line does not say the lot is held overnight'),
+    ('held-today-whole-move',
+     "const heroTodayVal=qeTodayRealized+openMarkPnl-qbHeldCarry;",
+     "const heroTodayVal=qeTodayRealized+openMarkPnl;",
+     "the hero's today line counts a carried lot's whole move since its entry, not from the prior close"),
+    ('held-acct-sum-open',
+     "parts.push(nh>=posCount?(posCount+' held overnight')",
+     "parts.push(false?(posCount+' held overnight')",
+     "the Account fold's header counts the held lot as open"),
+    ('held-today-closed-carry',
+     "return s;},0)+((QE.today&&qeFinRec(QE.today.held_carry_usd))||0);",
+     "return s;},0);",
+     "the hero's today line jumps by a held trade's earlier days' P&L on the day it sells"),
+    ('held-scrub-today-jumps',
+     "+(i===n-1&&p.date===qeBoxDay?((atNow?openMarkPnl:0)-qbHeldCarry):0))*100)/100:0;",
+     "+(atNow&&p.date===qeBoxDay?openMarkPnl:0))*100)/100:0;",
+     "a scrub to the chart's last point counts a held lot's earlier days in the today line (it moves when the mouse comes in)"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -2242,6 +2368,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     w.__probeCalOpen=cfg.calOpen||null;w.__probeFolds=!!cfg.folds;w.__probeFoldOpen=cfg.foldOpen||null;
     // the page's stand-in for its retired list (QE_LEGS_RETIRED, empty since ENGU-Q went live again on 2026-10-09): set only by a case that retires a leg
     w.__qbRetiredLegs=cfg.retired?w.JSON.parse(JSON.stringify(cfg.retired)):null;
+    w.__probeScrub=!!cfg.scrub;
     return w.eval("(function(){try{"
       +"if(!window.__probeLTN)window.__probeLTN=ledgerTodayNY;"
       +"ledgerTodayNY=window.__probeTodayNY?function(){return window.__probeTodayNY;}:window.__probeLTN;"
@@ -2291,6 +2418,13 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.heroMissing=['qb-hero-label','qb-hero-value','qb-hero-today','qb-hero-range','qb-hero-chips'].filter(function(i){return !d.getElementById(i);});
     r.heroBig=txt('#qb-hero-value');
     r.heroToday=txt('#qb-hero-today');
+    // HOLD OVERNIGHT: a scrub to the chart's last point writes the day line the resting hero shows (read, then left)
+    if(w.__probeScrub){var sv0=d.querySelector('#qb-lg-chart svg');
+      if(sv0){var rc0=sv0.getBoundingClientRect(),y0=rc0.top+rc0.height/2;
+        sv0.dispatchEvent(new w.PointerEvent('pointermove',{clientX:rc0.right-1,clientY:y0,pointerType:'mouse',bubbles:true}));
+        r.scrubTodayEnd=txt('#qb-hero-today');
+        sv0.dispatchEvent(new w.PointerEvent('pointerleave',{clientX:rc0.right+5,clientY:y0,pointerType:'mouse',bubbles:true}));
+        r.scrubTodayAfter=txt('#qb-hero-today');}}
     r.pills=[].map.call(d.querySelectorAll('.qbx-range-row [data-qbrange]'),function(b){return b.getAttribute('data-qbrange');}).join(',');
     var csv=d.querySelector('#qb-lg-chart svg');
     r.chart=!!csv;
@@ -2360,6 +2494,15 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.liveLine=txt('[data-qblive="NOISE"]');
     var op=q('[data-qbopenpnl="NOISE"]');r.openPnl=op?(w.getComputedStyle(op).color===greyCol()?'grey':'colour'):null;
     var ur=q('[data-qbunreal="NOISE"]');r.unreal=ur?(w.getComputedStyle(ur).color===greyCol()?'grey':'colour'):null;
+    // HOLD OVERNIGHT: ENGU-Q's held lot - the row's HELD tag, its line and detail, the hero note, the Account words, the list header, the stop's caption
+    r.held=(function(){var o={},red=[cssCol('var(--attn-red)'),cssCol('var(--red)')],amb=cssCol('var(--attn-amber)');
+      function cw(e){var c=w.getComputedStyle(e).color;return red.indexOf(c)>=0?'red':(c===amb?'amber':'ok');}
+      function rd(sel){var e=q(sel);return e?[(e.textContent||'').replace(/\\s+/g,' ').trim(),cw(e)]:null;}
+      o.pill=rd('[data-qbheldpill="ENGUQ"]');o.line=rd('[data-qbheld="ENGUQ"]');o.gap=rd('[data-qbheldgap="ENGUQ"]');o.note=rd('[data-qbheldnote]');
+      o.acct=txt('[data-qbacctheld="ENGUQ"]');o.acctSum=txt('[data-qbfold="account"] [data-qbfoldsum]');o.listSum=txt('[data-qbfold="list"] [data-qbfoldsum]');
+      var sp=q('[data-qbstop]');o.stopTip=sp?(sp.getAttribute('title')||''):null;
+      o.side=txt('[data-qblegpill="ENGUQ"]');
+      return o;})();
     var at=(d.getElementById('app')||{innerText:''}).innerText||'';r.badTok=(at.match(/NaN|undefined|\\[object Object\\]/g)||[]).slice(0,4);
     try{r.cantRead=w.eval('qbCantRead()');}catch(e){r.cantRead='ERR '+e;}
     r.visRead=w.__probeVisRead||null;w.__probeVisRead=null;
@@ -2698,7 +2841,7 @@ __S11JS__
         out.vars={};
         for(var j=0;j<VARS.length;j++){
           var V=VARS[j];
-          await runCase('__var'+j,{vp:V.vp||'laptop',theme:V.theme||'dark',fix:V.doc,nowMs:V.renderMs||V.nowMs,openLeg:'NOISE',systemOpen:V.systemOpen,
+          await runCase('__var'+j,{vp:V.vp||'laptop',theme:V.theme||'dark',fix:V.doc,nowMs:V.renderMs||V.nowMs,openLeg:V.openLeg||'NOISE',systemOpen:V.systemOpen,foldOpen:V.foldOpen||null,scrub:!!V.scrub,
             liveErr:V.liveErr,prev:V.prev,prevCache:V.prevCache,tab:V.tab,checkedMs:V.checkedMs,tick:V.tick,tickTo:V.nowMs,fetch:V.fetch,
             offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin,visread:V.visread,cachesnap:V.cachesnap,tl:false});
           out.vars[V.name]=out.cases['__var'+j];delete out.cases['__var'+j];
@@ -6306,7 +6449,8 @@ def _attempt(chrome, alt_index, fixture):
                  'renderMs': et_ms(exp['render_at']) if exp.get('render_at') else None,
                  'checkedMs': et_ms(exp['checked_at']) if exp.get('checked_at') else None,
                  'tick': bool(exp.get('tick')), 'fetch': exp.get('fetch'), 'theme': exp.get('theme', 'dark'),
-                 'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap'))}
+                 'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap')),
+                 'openLeg': exp.get('open_leg'), 'foldOpen': exp.get('fold_open'), 'scrub': bool(exp.get('scrub'))}
                 for nm, now, doc, exp in _variant_docs(fixture)]
     stats = [{'name': c['name'], 'range': c['range'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'],
               'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'calOpen': c['cal_open'], 'folds': c['folds'],
@@ -6995,6 +7139,62 @@ def _keeps_problems(tag, r, ex, fails):
             fails.append('%s: the daily stop line reads %r, it must not say %r' % (tag, r.get('stopTxt'), s))
 
 
+def _held_problems(tag, r, ex, fails):
+    """HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): ENGU-Q's lot carried past the close on purpose. Its row is a BOOK row (ENGU-Q
+    trades on Webull again since 2026-10-09, MANAGER #102; no case here files it under Retired) whose tag is
+    the side pill then HELD, with one plain line carrying the gap; the detail, the hero note, the Account words and header and the daily stop's
+    caption say the same; none of it is drawn red or amber (never an alarm, never 'stuck')."""
+    want = ex['held']
+    h = r.get('held') or {}
+
+    def t(k):
+        v = h.get(k)
+        return v[0] if isinstance(v, list) else v
+    if h.get('side') != 'LONG':
+        fails.append("%s: ENGU-Q's side pill reads %r, want LONG" % (tag, h.get('side')))
+    if ex.get('hero_today') and r.get('heroToday') != ex['hero_today']:
+        fails.append("%s: the hero's today line reads %r, want %r (a carried lot counts from the prior close, nothing of it before the "
+                     "open; a lot entered today in full)" % (tag, r.get('heroToday'), ex['hero_today']))
+    if t('pill') != 'HELD':
+        fails.append('%s: the ENGU-Q row has no HELD tag beside its side pill (%r)' % (tag, h.get('pill')))
+    if want['line'] not in (t('line') or ''):
+        fails.append("%s: ENGU-Q's held line reads %r, want %r" % (tag, t('line'), want['line']))
+    if t('note') != want['note']:
+        fails.append('%s: the hero says %r about the held lot, want %r' % (tag, t('note'), want['note']))
+    if ex.get('open_leg') == 'ENGUQ' and t('gap') != want['gap']:
+        fails.append("%s: ENGU-Q's opened detail says %r under HELD OVERNIGHT, want %r" % (tag, t('gap'), want['gap']))
+    if h.get('acct') != want['acct']:
+        fails.append('%s: the Account position line says %r about the held lot, want %r' % (tag, h.get('acct'), want['acct']))
+    asum = h.get('acctSum') or ''
+    if not asum.endswith(want['acct_sum']) or ' open' in asum:
+        fails.append("%s: the Account fold's header reads %r, want it to end with %r (a held lot is not counted as open)"
+                     % (tag, asum, want['acct_sum']))
+    if not (h.get('listSum') or '').endswith('1 held'):
+        fails.append("%s: the Strategies fold's header reads %r, want it to end with '1 held'" % (tag, h.get('listSum')))
+    if want['stop_tip'] not in (h.get('stopTip') or ''):
+        fails.append("%s: the daily stop's caption reads %r, want %r in it" % (tag, h.get('stopTip'), want['stop_tip']))
+    if ex.get('theme', 'dark') == 'dark':
+        loud = ['%s %r' % (k, h[k][0]) for k in ('pill', 'line', 'gap', 'note') if isinstance(h.get(k), list) and h[k][1] != 'ok']
+        if loud:
+            fails.append('%s: the held lot is drawn as an alarm (red or amber): %s' % (tag, ', '.join(loud)))
+    groups = (r.get('lg') or {}).get('groups') or []
+    if any(g.get('key') == 'retired' for g in groups):
+        fails.append('%s: a Retired fold is drawn while ENGU-Q holds its lot (ENGU-Q is a BOOK row: a live leg since 2026-10-09)' % tag)
+    book = [g for g in groups if g.get('key') == 'book']
+    row = [x for x in (book[0].get('rows') if book else None) or [] if x.get('key') == 'ENGUQ']
+    if not row:
+        fails.append('%s: no ENGU-Q row under BOOK while it holds its lot' % tag)
+    else:
+        tg = row[0].get('tag') or ''
+        if not tg.startswith('LONG') or 'HELD' not in tg:
+            fails.append("%s: ENGU-Q's row tag reads %r, want its side LONG then HELD" % (tag, tg))
+        if ex.get('vp', 'laptop').startswith('phone'):
+            if row[0].get('h', 0) > PHONE_ROW_MAX_H or not row[0].get('h'):
+                fails.append('%s: on a phone the ENGU-Q row is %s px tall, want one line (1 to %d px)' % (tag, row[0].get('h'), PHONE_ROW_MAX_H))
+        elif 'Held overnight' not in (row[0].get('sub') or ''):
+            fails.append("%s: ENGU-Q's row shows %r under its name, want its held line" % (tag, row[0].get('sub')))
+
+
 def _judge_variants(data, fixture, fails, unfinished, why):
     """The freshness variants: each chip, label and the top bar chip, against what the variant's
     clock and doc say they must be."""
@@ -7181,6 +7381,19 @@ def _judge_variants(data, fixture, fails, unfinished, why):
         # keeps checklist: the hero's broker line and chips, the Account share check, the System host line
         _hero_extras(tag, r, _doc, fails, stale_like=stale_like, colour=ex.get('theme', 'dark') == 'dark', ex=ex,
                      sys_open=bool(ex.get('system') or ex.get('ordmode')))
+        if ex.get('held'):
+            _held_problems(tag, r, ex, fails)
+        elif ex.get('hero_today') and r.get('heroToday') != ex['hero_today']:
+            fails.append("%s: the hero's today line reads %r, want %r (a held trade closed today counts from the prior close)"
+                         % (tag, r.get('heroToday'), ex['hero_today']))
+        if ex.get('scrub'):
+            want = (ex.get('hero_today') or '')[:-len(' today')] + ' '
+            if not (r.get('scrubTodayEnd') or '').startswith(want):
+                fails.append("%s: a scrub to the chart's last point writes %r into the today line, want it to start %r (the resting "
+                             "figure: the line must not move when the mouse comes in)" % (tag, r.get('scrubTodayEnd'), want))
+            if r.get('scrubTodayAfter') != r.get('heroToday'):
+                fails.append('%s: leaving the chart did not put the today line back (%r -> %r)'
+                             % (tag, r.get('heroToday'), r.get('scrubTodayAfter')))
 
 
 def _report(t0, attempt, may_retry, chrome, alt_index, fixture):

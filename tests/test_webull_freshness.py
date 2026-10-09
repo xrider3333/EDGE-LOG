@@ -1288,3 +1288,187 @@ def test_preopen_owner_fixes_lead_the_note(tmp_path):
     assert pre[-1]["message"] == ("Trading: AFFECTED - the QQQ book may not trade at the open.\n"
                                   "The Webull login needs approval. +1 more.\n"
                                   "Do: approve the login in the Webull app.")
+
+
+# -- HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): ENGU-Q's lot rides past the close ----
+ENGUQ_HELD = {"ENGUQ": {"side": "long", "shares_remaining": 10, "entry_px": 600.1,
+                        "entry_ts": "2026-10-05 10:00:05", "trade_id": "ENGUQ_335-x",
+                        "hold": {"since": "2026-10-05", "close_mark_px": 601.0}}}
+
+
+def _exec_cfg(h, **cfg):
+    _wj(h.paths["exec_config"], cfg)
+
+
+def test_hold_legs_follow_the_executor_config():
+    assert wf.hold_legs(None) == ("ENGUQ",) == wf.HOLD_OVERNIGHT_LEGS
+    assert wf.hold_legs({"session": {"flat_by": "15:59"}}) == ("ENGUQ",)
+    assert wf.hold_legs({"session": {"hold_overnight_legs": []}}) == ()            # switched off
+    assert wf.hold_legs({"session": {"hold_overnight_legs": ["NOISE", "ENGUQ"]}}) == ("NOISE", "ENGUQ")
+    for junk in ("ENGUQ", ["ENGU-Q"], [1], {"ENGUQ": 1}, None):                    # code default
+        assert wf.hold_legs({"session": {"hold_overnight_legs": junk}}) == ("ENGUQ",)
+    # engine mode only: the NinjaTrader fallback keeps flat-at-close
+    assert wf.hold_legs({"signal_source": "ninjatrader"}) == ()
+    assert wf.hold_legs({"signal_source": "Engine"}) == ("ENGUQ",)
+
+
+def test_hold_constants_match_the_executor():
+    from api import qqq_exec
+    assert wf.KNOWN_LEGS == tuple(qqq_exec.LEGS)
+    if not hasattr(qqq_exec, "HOLD_OVERNIGHT_LEGS"):
+        pytest.skip("api/qqq_exec.py has no HOLD_OVERNIGHT_LEGS yet (the executor half lands it)")
+    assert wf.HOLD_OVERNIGHT_LEGS == tuple(qqq_exec.HOLD_OVERNIGHT_LEGS)
+
+
+def test_exec_view_flat_except_held(tmp_path):
+    h = Home(tmp_path, SAT_1200)
+    snap_state = h.exec_state(legs=dict(ENGUQ_HELD))
+    ev = wf.exec_view({"exec_state": snap_state, "hold_legs": ["ENGUQ"]}, SAT_1200, {})
+    assert ev["flat"] is False and ev["flat_except_held"] is True
+    assert ev["held"] == [{"leg": "ENGUQ", "side": "long", "shares": 10}]
+    # the leg list alone (a lot the executor did not mark yet) counts; the marker alone too
+    bare = {"ENGUQ": {"side": "short", "shares_remaining": 7}}
+    assert wf.exec_view({"exec_state": dict(snap_state, legs=bare), "hold_legs": ["ENGUQ"]},
+                        SAT_1200, {})["flat_except_held"] is True
+    assert wf.exec_view({"exec_state": dict(snap_state, legs=bare), "hold_legs": []},
+                        SAT_1200, {})["flat_except_held"] is False
+    assert wf.exec_view({"exec_state": dict(snap_state), "hold_legs": []},
+                        SAT_1200, {})["flat_except_held"] is True
+    # anything else open, or anything pending, is not "flat except held"
+    both = dict(ENGUQ_HELD, NOISE={"side": "long", "shares_remaining": 10})
+    assert wf.exec_view({"exec_state": dict(snap_state, legs=both), "hold_legs": ["ENGUQ"]},
+                        SAT_1200, {})["flat_except_held"] is False
+    for k in ("_broker_resend", "_broker_fill_capture"):
+        ev2 = wf.exec_view({"exec_state": dict(snap_state, **{k: {"x": {}}}), "hold_legs": ["ENGUQ"]},
+                           SAT_1200, {})
+        assert ev2["flat_except_held"] is False and ev2["flat"] is False
+    assert wf.exec_view({"exec_state": None}, SAT_1200, {})["flat_except_held"] is None
+
+
+def test_restart_decision_allows_a_book_holding_only_its_held_lot():
+    held = [{"leg": "ENGUQ", "side": "long", "shares": 10}]
+    ev = {"publish_age": 700.0, "loop_age": 5.0, "flat": False, "flat_except_held": True,
+          "held": held, "renew": 20.0}
+    sat = et(2026, 10, 3, 12, 0)
+    d = wf.restart_decision(sat, ev, {}, True)
+    assert d["action"] == "restart" and d["held"] == held
+    assert d["why"] == ("outside the protected window, flat except the held-overnight lot "
+                        "(ENGU-Q long 10), cooldown passed")
+    assert wf.restart_decision(sat, ev, {}, False)["action"] == "would_restart"
+    # the protected window and the once-a-day / hourly rules are unchanged
+    assert wf.restart_decision(et(2026, 10, 5, 12, 0), ev, {}, True)["action"] == "blocked"
+    assert wf.restart_decision(et(2026, 10, 5, 9, 24), ev, {}, True)["action"] == "restart"
+    today = {"restart": {"last_restart_epoch": sat.timestamp() - 5 * 3600, "last_restart_day": "2026-10-03"}}
+    assert wf.restart_decision(sat, ev, today, True)["why"].startswith("at most once a day")
+    # a non-held leg open, something pending, or no held lot at all: blocked
+    for bad in (dict(ev, flat_except_held=False), dict(ev, flat_except_held=None),
+                dict(ev, held=[])):
+        b = wf.restart_decision(sat, bad, {}, True)
+        assert b["action"] == "blocked" and "flat" in b["why"]
+    # a flat book reads as before (no held words)
+    flat = wf.restart_decision(sat, dict(ev, flat=True, held=[]), {}, True)
+    assert flat["why"] == "outside the protected window, flat, cooldown passed" and "held" not in flat
+
+
+def test_auto_restart_runs_with_only_the_held_lot_open(tmp_path):
+    t = et(2026, 10, 5, 18, 0)                                   # session day, after the close
+    h = Home(tmp_path, t)
+    h.config(auto_restart_exec=True)
+    h.exec_state(publish_ago=3600, legs=dict(ENGUQ_HELD))
+    out = h.run()
+    assert out["decision"]["action"] == "restart"
+    assert _sudo_calls(h) == [["sudo", "-n", "systemctl", "restart", "edgelog-qqq-exec.service"]]
+    note = {"title": "QQQ book: restarted", "priority": "low", "message":
+            "Trading: not affected (ENGU-Q's 10 shares held overnight, market closed).\n"
+            "The QQQ order program was stuck, so this monitor restarted it.\n"
+            "Do: nothing."}
+    assert note in h.pushes and ntfy_push.lint(note) == []
+    st = h.status()
+    assert st["auto_restart"]["last_restart_held"] == "ENGU-Q long 10"
+    assert st["held_overnight"] == [{"leg": "ENGUQ", "side": "long", "shares": 10}]
+    # a second open leg that is not held still blocks (the owner's flat rule)
+    h2 = Home(tmp_path / "noise", t)
+    h2.config(auto_restart_exec=True)
+    h2.exec_state(publish_ago=3600, legs=dict(ENGUQ_HELD, NOISE={"side": "long", "shares_remaining": 10}))
+    out2 = h2.run()
+    assert out2["decision"]["action"] == "blocked" and "flat" in out2["decision"]["why"]
+    assert _sudo_calls(h2) == []
+    # the hold switched off in the executor's config: ENGU-Q open after the close blocks too
+    h3 = Home(tmp_path / "off", t)
+    h3.config(auto_restart_exec=True)
+    _exec_cfg(h3, session={"hold_overnight_legs": []})
+    h3.exec_state(publish_ago=3600, legs={"ENGUQ": {"side": "long", "shares_remaining": 10}})
+    assert h3.run()["decision"]["action"] == "blocked" and _sudo_calls(h3) == []
+
+
+def test_eod_with_the_held_lot_confirmed_is_quiet(tmp_path):
+    """The executor's after-close check stamps flat=true when Webull holds exactly the held lot
+    ("held" beside it): nothing to page, and status.json lists the held lot."""
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(legs=dict(ENGUQ_HELD), _webull_flat_after_eod={
+        "date": "2026-10-05", "flat": True, "shares": 10, "held": {"ENGUQ": 10}})
+    out = h.run()
+    assert not ({"eod_summary", "webull_flat"} & failing(out))
+    assert h.pushes == []
+    assert h.status()["held_overnight"] == [{"leg": "ENGUQ", "side": "long", "shares": 10}]
+
+
+def test_eod_that_did_not_run_names_the_held_lot(tmp_path):
+    """The close did not run with ENGU-Q held: the owner is told which shares to KEEP -- never
+    'check the Webull app is flat', which would sell the held lot by hand."""
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(legs=dict(ENGUQ_HELD), eod_summary_done_date="2026-10-02",
+                 _webull_flat_after_eod={"date": "2026-10-02", "flat": True})
+    out = h.run()
+    assert {"eod_summary", "webull_flat"} <= failing(out)
+    assert h.pushes and all(ntfy_push.lint(_note(p)) == [] for p in h.pushes)
+    do = [ln for p in h.pushes for ln in p["message"].split("\n") if ln.startswith("Do: ")]
+    assert do == ["Do: check the Webull app holds only ENGU-Q's 10 held shares and sell anything "
+                  "else by hand."]
+    assert not any("is flat" in p["message"] for p in h.pushes)
+    d = h.status()["verdicts"]["eod_summary"]["detail"]
+    assert "HELD-OVERNIGHT LOT (ENGU-Q long 10)" in d and "IS FLAT BY HAND" not in d
+
+
+@pytest.mark.parametrize("shares,off", [(0, 10), (7, 3), (7, None)])
+def test_eod_webull_holds_fewer_than_the_held_lot(tmp_path, shares, off):
+    """Webull LOST held shares: never 'not only ... sell anything else by hand' -- the opposite
+    of what is wrong."""
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    flat = {"date": "2026-10-05", "flat": False, "shares": shares, "held": {"ENGUQ": 10}}
+    if off is not None:
+        flat["off"] = off
+    h.exec_state(legs=dict(ENGUQ_HELD), _webull_flat_after_eod=flat)
+    out = h.run()
+    assert "webull_flat" in failing(out)
+    (p,) = [x for x in h.pushes if "QQQ shares after the close" in x["message"]]
+    assert p["priority"] == "urgent" and ntfy_push.lint(_note(p)) == []
+    assert p["message"].split("\n")[1:] == [
+        "Webull holds %d QQQ shares after the close, fewer than ENGU-Q's 10 held shares." % shares,
+        "Do: check the Webull app for ENGU-Q's 10 held shares, then ask Claude (PAPER-WB chat)."]
+    assert "sell" not in p["message"]
+    assert "fewer than the held-overnight lot" in h.status()["verdicts"]["webull_flat"]["detail"]
+
+
+def test_eod_webull_on_the_other_side_of_the_held_lot_keeps_the_not_only_words(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(legs=dict(ENGUQ_HELD), _webull_flat_after_eod={
+        "date": "2026-10-05", "flat": False, "shares": 5, "held": {"ENGUQ": 10}, "off": 15})
+    h.run()
+    (p,) = [x for x in h.pushes if "QQQ shares after the close" in x["message"]]
+    assert "not only ENGU-Q's 10 held shares" in p["message"]
+
+
+def test_eod_webull_holds_more_than_the_held_lot(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(legs=dict(ENGUQ_HELD), _webull_flat_after_eod={
+        "date": "2026-10-05", "flat": False, "shares": 17, "held": {"ENGUQ": 10}})
+    out = h.run()
+    assert "webull_flat" in failing(out)
+    p = [x for x in h.pushes if "17" in x["message"]]
+    assert len(p) == 1 and p[0]["priority"] == "urgent" and ntfy_push.lint(_note(p[0])) == []
+    assert p[0]["message"].split("\n")[1:] == [
+        "Webull holds 17 QQQ shares after the close, not only ENGU-Q's 10 held shares.",
+        "Do: check the Webull app holds only ENGU-Q's 10 held shares and sell anything else by hand."]
+    v = h.status()["verdicts"]["webull_flat"]
+    assert v["title"] == "Webull NOT confirmed flat" and "ENGU-Q long 10" in v["detail"]

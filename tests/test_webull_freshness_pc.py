@@ -123,6 +123,23 @@ def test_box_auto_restart_is_posted_to_both_inboxes_once(tmp_path):
     assert len(p.posts) == 2 * len(pc.INBOXES)                 # a new restart, once more
 
 
+def test_box_auto_restart_names_the_held_overnight_lot(tmp_path):
+    """HOLD OVERNIGHT (owner GO 2026-10-09): the box may restart while the book holds only its
+    held-overnight lot; the relay says so instead of 'book flat' (an older box omits the field)."""
+    p = PC(tmp_path, MON_1100)
+    p.ssh.status["auto_restart"] = {"enabled": True, "last_restart_et": "Sat 10-03 17:21 ET",
+                                     "last_restart_result": "ok", "last_restart_held": "ENGU-Q long 10"}
+    p.run()
+    texts = [t for _c, t, _f in p.posts]
+    assert len(texts) == len(pc.INBOXES)
+    assert all("book flat except the held-overnight lot (ENGU-Q long 10)" in t for t in texts)
+    p2 = PC(tmp_path / "flat", MON_1100)
+    p2.ssh.status["auto_restart"] = {"enabled": True, "last_restart_et": "Sat 10-03 17:21 ET",
+                                      "last_restart_result": "ok", "last_restart_held": None}
+    p2.run()
+    assert all("(it was stuck; book flat, outside" in t for _c, t, _f in p2.posts) and p2.posts
+
+
 def test_box_auto_restart_not_relayed_when_the_box_read_failed(tmp_path):
     p = PC(tmp_path, MON_1100)
     p.ssh.fail = "rc"
