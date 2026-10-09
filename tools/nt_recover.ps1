@@ -68,6 +68,11 @@ function Log($m){
 # a position was open - so every overnight hold came back orphaned (09-30, 10-01). Now the
 # gate lets exactly one case through: the only open position is ENGU-Q's own saved trade.
 $enguqName  = 'EdgeLogENGUQ1m'
+# Which contract ROOT each strategy trades (2026-10-09). A position on one root holds back only the strategy
+# that trades it; the others start. On 10-08 a NOISE MNQ short left open by a feed outage kept ENGU-Q (NQ) off
+# all night and the next morning. A position on a root not listed here still stops everything.
+$stratRoot  = @{ 'EdgeLogNOISE' = 'MNQ'; 'EdgeLogENGUQ1m' = 'NQ' }
+$heldBack   = @()
 $enguqState = 'C:\EdgeLog\enguq_state.json'
 
 # Returns $null when the open position is ENGU-Q's saved trade and safe to adopt,
@@ -596,12 +601,29 @@ if ($posJson -and $posJson -notmatch '"positions"\s*:\s*\[\s*\]') {
     Log "enabling with adopt so ENGU-Q resumes managing it (entry, stop and trail from $enguqState)"
     $adoptHold = $true
   } else {
-    Log "STOP: the account is holding a position while strategies are down:"
+    # PER-CONTRACT GATE (2026-10-09). Hold back only the strategies whose contract root has the open
+    # position; start the rest. Anything we cannot place (an unknown root, an unreadable position)
+    # still stops everything, as before.
+    $roots = @()
+    try { $roots = @(@(($posJson | ConvertFrom-Json).positions) | ForEach-Object { ("$($_.instrument)" -split ' ')[0].ToUpper() }) } catch { $roots = @('?') }
+    $known = @($stratRoot.Values)
+    $unknown = @($roots | Where-Object { $known -notcontains $_ })
+    $heldBack = @($expected | Where-Object { $roots -contains $stratRoot[$_] })
+    $free = @($expected | Where-Object { $heldBack -notcontains $_ })
+    if ($roots.Count -eq 0 -or $unknown.Count -gt 0 -or $free.Count -eq 0) {
+      Log "STOP: the account is holding a position while strategies are down:"
+      Log "  $posJson"
+      if ($why) { Log "  not ENGU-Q's adoptable trade: $why" }
+      Log "Not enabling anything -- a strategy starting flat would leave this position unmanaged."
+      Log "Decide by hand: flatten it, or enable the strategy knowing it will not manage this trade."
+      exit 3
+    }
+    Log "HELD BACK for a person: $($heldBack -join ', ') - the account holds an open position on its contract:"
     Log "  $posJson"
     if ($why) { Log "  not ENGU-Q's adoptable trade: $why" }
-    Log "Not enabling anything -- a strategy starting flat would leave this position unmanaged."
-    Log "Decide by hand: flatten it, or enable the strategy knowing it will not manage this trade."
-    exit 3
+    Log "  decide by hand: flatten it, or enable $($heldBack -join ', ') knowing it will not manage this trade"
+    Log "starting the strategies on other contracts: $($free -join ', ')"
+    $expected = $free
   }
 }
 
@@ -722,6 +744,10 @@ $missing = @($expected | Where-Object { $live -notcontains $_ })
 if ($missing.Count -gt 0) {
   Log "INCOMPLETE: still not Realtime -> $($missing -join ', ')"
   exit 1
+}
+if ($heldBack.Count -gt 0) {
+  Log "PARTIAL: $($expected -join ', ') Realtime; HELD BACK for a person: $($heldBack -join ', ') (open position on its contract)"
+  exit 8
 }
 Log "RECOVERED: $($expected -join ', ') are Realtime"
 exit 0
