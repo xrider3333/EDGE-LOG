@@ -16,7 +16,8 @@
 # HARDENING (MANAGER #149, 2026-10-09): every Alpaca call follows NO redirect (requests would re-send the APCA-* headers to the new host);
 # the key lookup's values are stripped; scrub() / import_alpaca_stocks.redact() replace the key's plain, stripped, JSON-escaped, URL-encoded
 # and repr forms, and server text is redacted BEFORE it is truncated; a call gives up after MAX_429 (30) consecutive 429s and the whole
-# pull after MAX_RUN_MIN (240) minutes - both printed by `plan` and at the start of `pull`.
+# pull after MAX_RUN_MIN (360) minutes - both printed by `plan` and at the start of `pull`. 360 = 2.3x the 09-30 rehearsal's real 156 min
+# (5,693 symbols, other lanes pulling; MANAGER GO 2026-10-09 - 240 was only 1.5x and a cap refusal costs a full re-run).
 # WRITTEN OUTSIDE --out (by the shared modules, not by this file): C:\EdgeLog\state\alpaca_rate.json (augur_engine/alpaca_rate.py: the
 # account-wide pace every lane shares), C:\EdgeLog\state\alpaca_pulls.jsonl (augur_engine/pull_provenance.py: one receipt per bars call)
 # and tools/import_alpaca_stocks.log (import_alpaca_stocks.log(): the 429 back-off and progress lines). EDGELOG_HOME moves the first two.
@@ -57,7 +58,7 @@ PAGE_LIMIT = 10000                         # fetch_bars' page size: a symbol's ~
 CA_BATCH = X16.CA_BATCH                    # 50 symbols a calendar request
 NEW_ALLOWANCE = 0.25                       # CHOICE [P16]: plan's placeholder for the new listings it cannot know offline (a guess, replaced by the first real pull's count)
 PROGRESS_EVERY = 250                       # a counts-only progress line every this many symbols
-MAX_RUN_MIN = 240                          # MANAGER #149 (d): the whole pull gives up after this many minutes (nothing published)
+MAX_RUN_MIN = 360                          # MANAGER #149 (d): the whole pull gives up after this many minutes (nothing published)
 _DEADLINE = None                           # set by build(): time.time() past which the pull refuses
 ERR_TEXT, MAX_LIST = 160, 5000             # characters of an error message kept in the manifest; entries of a list kept in the manifest (a count always says how many there were)
 RENAME_TRIES, RENAME_WAIT = 6, 1.0         # CHOICE [P14]: the final directory rename is retried on PermissionError (an indexer or a scanner holding a handle for a moment)
@@ -1857,7 +1858,7 @@ def t_plan():
                      "requests, UPPER BOUND (the whole base list, 100 symbols): bars 2 x 100 symbols x 1 page = 200; calendar >= 2 (50 symbols a request, more for pages); assets 1; total >= 203",
                      "requests, UPPER BOUND with the allowance (125 symbols): bars 250; calendar >= 3; assets 1; total >= 254",
                      "the shared Alpaca budget is 180 requests a minute: the upper-bound counts take about 1.1 min of pace alone, about 1.4 min with the allowance - the active filter makes it shorter",
-                     "caps: a call gives up after 30 consecutive 429s; the whole pull after 240 minutes; no redirect is followed",
+                     "caps: a call gives up after 30 consecutive 429s; the whole pull after 360 minutes; no redirect is followed",
                      "written outside --out by the shared modules: C:\\EdgeLog\\state\\alpaca_rate.json (the shared pace)",
                      "output: would publish to " + os.path.join(w.root, "2026-10-30") + " (a re-pull would become _r2, _r3 ...)",
                      "earliest pull: 2026-10-30 20:00 New York time ([P1] --through is accepted when it is before today's New York date, or is today with the New York clock at or after 20:00); it is 2026-11-02 12:00 there now: a pull would be allowed now"):
