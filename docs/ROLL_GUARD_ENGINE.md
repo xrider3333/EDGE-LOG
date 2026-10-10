@@ -26,6 +26,7 @@ Live, paper and nightly-shadow paths are never refused and never changed. That m
   - C is a whole number of points: the largest back-adjust shift in the window, and at least 500.
   - k is at least 1.5.
   - No change under +C means difference. Otherwise, no change under x k means ratio. Otherwise the file runs raw.
+  - A file that reports dollars (`PNL_UNITS = "usd"`) must also keep its DOLLARS under +C, to the cent (DISC #68, 2026-10-10). DIP 1.0 / 1.1 size micros as notional / price, so their timing passes but their dollars do not: they run raw, and a hold across a switch is refused with a pointer to the roll-aware 1.2-1.4.
 - **Caching:** the result is cached once per (file content, master, window) with the first parameter set seen, so a sweep pays for the test once. A parameter that switches level logic on mid-sweep is not re-tested. The saved run's raw-vs-adjusted check below is the backstop.
 
 ## The roll stamp (every saved NQ / ES run; books per leg + total)
@@ -117,6 +118,11 @@ Also:
 - **A caller counts as the audit tool, a test or a live module only by its real module.**
   - The frame's globals must BE the `__dict__` of a module in `sys.modules`, and the path is its `__spec__.origin` (the script's own path for `__main__`).
   - Tests count only under pytest, and only `test_*.py` / `conftest.py` in this checkout's tests/.
+
+## 10-10 fixes
+
+- **Folded size cost on the ratio path (MANAGER #67):** a file that folds its own size into a trade's P&L (`trade_sizes` + `size_cost_pts`, NOISE's tilt: s x move - (s-1) x cost) had that folded cost divided by the ratio factor too. A 1.75x NOISE #422 trade paid $0.38-1.55 too little (about $706 over the WF). The re-pricing now takes the folded cost out first and puts it back whole. The trial-cache roll key moved to v4, so no result re-priced the old way is replayed.
+- **Dollar files sized from the price (DISC #68):** see the method test above. Probe: #424 and #425 are now refused, naming NQDIP_1_2 / 1_3 / 1_4; TTIBS #300 is unchanged (698 trades, 20,704.716 pts).
 
 ## Known limits (said out loud)
 

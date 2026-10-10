@@ -732,3 +732,98 @@ def test_combine_stamps_sums_the_legs():
     assert c["legs_stamped"] == 2 and c["trades_crossing"] == 3 and c["usd_switch_sessions"] == 6.0
     assert c["master_type"] == ["adjusted", "unadjusted"]
     assert R.combine_stamps([None]) is None
+
+
+# ── 10-10 fixes: a sized ratio file's folded cost (MANAGER #67) and dollar files sized from the
+#    price level (DISC #68) ─────────────────────────────────────────────────────────────────────
+SIZED_PCT = textwrap.dedent('''
+    STRATEGY_NAME = "sized percent file (NOISE-style folded size)"
+    def run_backtest(open_, high, low, close, return_trades=False, s=1.75, pct=0.00043, **kw):
+        n, c0 = len(close), 0.533
+        trades, sizes = [], []
+        for a in range(0, n - 77, 78):          # one long per session when its first range is over pct
+            if (high[a] - low[a]) / close[a] > pct:
+                raw = float(close[a + 77] - close[a])
+                trades.append((a, a + 77, s * raw - (s - 1.0) * c0, 1, float(close[a])))
+                sizes.append(s)
+        res = dict(total_pnl=sum(t[2] for t in trades), num_trades=len(trades), win_rate=0.0,
+                   profit_factor=1.0, max_drawdown=0.0)
+        if return_trades:
+            res.update(trades=trades, trade_sizes=sizes, size_cost_pts=c0)
+        return res
+''')
+
+USD_NOTIONAL = textwrap.dedent('''
+    STRATEGY_NAME = "dollar file sized from the price level (DIP 1.0 / 1.1 style)"
+    PNL_UNITS = "usd"
+    def run_backtest(open_, high, low, close, return_trades=False, mode="hold", fixed=0, **kw):
+        n = len(close)
+        def q(px):
+            return int(fixed) if fixed else max(1, int(round(200000.0 / (px * 2.0))))
+        if mode == "hold":                      # one long across every switch
+            spans = [(0, n - 1)]
+        else:                                   # one long per session, flat overnight
+            spans = [(a, a + 77) for a in range(0, n - 77, 78)]
+        trades = [(a, b, q(close[a]) * 2.0 * float(close[b] - close[a]), 1, float(close[a]))
+                  for a, b in spans]
+        res = dict(total_pnl=sum(t[2] for t in trades), num_trades=len(trades), win_rate=0.0,
+                   profit_factor=1.0, max_drawdown=0.0)
+        if return_trades:
+            res["trades"] = trades
+        return res
+''')
+
+
+def _file(tmp_path, name, code):
+    from augur_engine.strategies import load_strategy
+    p = tmp_path / name
+    p.write_text(code, encoding="utf-8")
+    return load_strategy(str(p))
+
+
+def test_ratio_reprice_keeps_a_sized_files_folded_cost_whole(tmp_path):
+    """#67: NOISE folds its size into t[2] as s*raw - (s-1)*cost. The ratio re-pricing divided that
+    folded cost by the price factor too, so a sized trade paid a little less than size x cost."""
+    import augur_engine as ae
+    mod = _file(tmp_path, "ROLLSIZED_9_9.py", SIZED_PCT)
+    arr = _arrays("db_noadj_rth")
+    r = ae.run_backtest(mod, arrays=arr, cost_pts=0.533, return_trades=True)
+    st = r["_meta"]["roll_stamp"]
+    assert st["signal_method"] == "ratio"
+    raw = _arrays("db_noadj_rth")["close"]
+    want = [1.75 * float(raw[a + 77] - raw[a]) - 0.75 * 0.533 - 0.533 for a in range(0, len(raw) - 77, 78)]
+    got = [float(t[2]) for t in r["trades"]]
+    assert len(got) == len(want) and len(got) > 10
+    # every trade pays size x cost on its raw move - exact, before and after the switch
+    assert got == pytest.approx(want, abs=1e-9)
+    assert r["total_pnl"] == pytest.approx(sum(want), abs=1e-6)
+
+
+def test_dollar_file_sized_from_the_level_is_not_difference(tmp_path):
+    """#68: a +C shift leaves DIP 1.0's TIMING alone but changes its contract count (notional /
+    price), so its dollars read the level. It must not get difference-adjusted signals: it runs raw,
+    and a hold across a switch is refused with a pointer to its roll-aware siblings."""
+    import augur_engine as ae
+    hold = _file(tmp_path, "NQDIP_9_9.py", USD_NOTIONAL)
+    with pytest.raises(R.RollGuardError) as e:
+        ae.run_backtest(hold, arrays=_arrays("db_noadj_rth"))
+    assert "NQDIP_1_2.py" in str(e.value) and "roll-aware" in str(e.value)
+    # flat overnight: runs on RAW prices, sized from the raw price, dollars exact
+    r = ae.run_backtest(hold, arrays=_arrays("db_noadj_rth"), params={"mode": "flat"}, return_trades=True)
+    st = r["_meta"]["roll_stamp"]
+    assert st["signal_method"] == "raw" and st["method_tests"]["shift"] < 1.0
+    raw = _arrays("db_noadj_rth")["close"]
+    want = sum(max(1, int(round(200000.0 / (raw[a] * 2.0)))) * 2.0 * float(raw[a + 77] - raw[a])
+               for a in range(0, len(raw) - 77, 78))
+    assert r["total_pnl"] == pytest.approx(want, abs=1e-6)
+    # a dollar file with FIXED contracts is shift-invariant in dollars too: difference, as before
+    # (its own file: the method test is cached per file and window with the first parameters)
+    fixed = _file(tmp_path, "NQDIP_9_8.py", USD_NOTIONAL.replace('mode="hold", fixed=0', 'mode="flat", fixed=3'))
+    r = ae.run_backtest(fixed, arrays=_arrays("db_noadj_rth"))
+    assert r["_meta"]["roll_stamp"]["signal_method"] == "difference"
+
+
+def test_roll_aware_siblings():
+    assert R.roll_aware_siblings("NQDIP_1_0.py") == ["NQDIP_1_2.py", "NQDIP_1_3.py", "NQDIP_1_4.py"]
+    assert R.roll_aware_siblings("C:/x/NQDIP_1_1.py")[0] == "NQDIP_1_2.py"
+    assert R.roll_aware_siblings("NQDIP_1_3.py") == [] and R.roll_aware_siblings("ORB_3_6_R6.py") == []

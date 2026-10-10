@@ -352,7 +352,7 @@ def build_ctx(mod, arrays, *, cost_pts=0.0, session=None, date_from=None, date_t
         _plan = _m.get("roll_plan") if isinstance(_m, dict) else None
         _root = (_plan or {}).get("root") or _R.unadjusted_futures_root(_m)
         if _root is not None:
-            ctx["roll_guard"] = "v3|%s|%s" % ((_plan or {}).get("kind") or "unplanned",
+            ctx["roll_guard"] = "v4|%s|%s" % ((_plan or {}).get("kind") or "unplanned",
                                              _R.table_sha(_root))
     except Exception:
         return None          # cannot source the roll field -> do not cache this job

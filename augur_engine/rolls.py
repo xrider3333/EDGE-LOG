@@ -558,6 +558,16 @@ def bind(fn, root, times, tf_seconds, strategy=None, table_dir=None, plan=None):
 ROLL_AWARE = frozenset({"NQDIP_1_2.py", "NQDIP_1_3.py", "NQDIP_1_4.py"})
 
 
+def roll_aware_siblings(strategy_name):
+    """The pinned roll-aware files of the same family as `strategy_name` (NQDIP_1_0.py ->
+    NQDIP_1_2.py, NQDIP_1_3.py, NQDIP_1_4.py); [] for a file with none or one that is itself one."""
+    base = os.path.basename(str(strategy_name or ""))
+    fam = base.split("_")[0]
+    if not fam or base in ROLL_AWARE:
+        return []
+    return sorted(n for n in ROLL_AWARE if n.split("_")[0] == fam)
+
+
 class RollGuardError(RuntimeError):
     """A run on an unadjusted NQ / ES master held a position across a contract switch."""
 
@@ -765,12 +775,15 @@ def check_crossings(strategy_name, meta, times, trades, table_dir=None, roll_awa
         import pandas as pd
         days = sorted({str(pd.Timestamp(int(t[int(i)]), unit="s", tz="UTC")
                            .tz_convert("America/New_York").date()) for i in ei[cross][:6]})
+        sib = roll_aware_siblings(base)
         raise RollGuardError(
             "%s held %d trade%s across a %s contract switch on the unadjusted master (entries %s%s). "
-            "Its profit would include the roll step, which is not a price move. Run it on the "
-            "adjusted master (source db_adj_*), or use a roll-aware version of the strategy."
+            "Its profit would include the roll step, which is not a price move. %s"
             % (base or "this strategy", n, "" if n == 1 else "s", root, ", ".join(days),
-               ", ..." if n > len(days) else ""))
+               ", ..." if n > len(days) else "",
+               ("Use its roll-aware version (%s), which removes the roll offset itself." % ", ".join(sib))
+               if sib else "Run it on the adjusted master (source db_adj_*), or use a roll-aware "
+                           "version of the strategy."))
     return n
 
 
@@ -1058,9 +1071,20 @@ def _trade_rows(trades):
     return out
 
 
-def _trade_keys(res):
+def _trade_keys(res, money=False):
+    """Trade keys (entry, exit, side); with `money`, the trade's P&L to the cent as well - for a file
+    that reports dollars, whose size (and so its P&L) can read the price level even when its
+    timing does not (DIP 1.0 / 1.1 size micros as notional / price: DISC #68, 2026-10-10)."""
     tr = (res or {}).get("trades") if isinstance(res, dict) else None
-    return [k for k, _t in _trade_rows(tr)]
+    if not money:
+        return [k for k, _t in _trade_rows(tr)]
+    out = []
+    for k, t in _trade_rows(tr):
+        try:
+            out.append(k + (round(float(t[2]), 2),))
+        except (TypeError, ValueError, IndexError):
+            out.append(k + (None,))
+    return out
 
 
 def _match(k0, k1):
@@ -1266,10 +1290,13 @@ def invariance(mod, arrays, root, times, tf, params=None, strategy_name=None, wa
         p = dict(params or {})
         p.pop("roll_treatment", None)
         O, H, L, Cl = (np.asarray(sl[kk], dtype="float64") for kk in ("open", "high", "low", "close"))
+        usd = str(getattr(mod, "PNL_UNITS", "") or "").lower() == "usd"
         with roll_context(root, times[a:], tf, strategy=strategy_name):
-            k0 = _trade_keys(fn(O, H, L, Cl, return_trades=True, **ex, **p))
-            k1 = _trade_keys(fn(O + C, H + C, L + C, Cl + C, return_trades=True, **ex, **p))
-            out["shift"] = _match(k0, k1)
+            r0 = fn(O, H, L, Cl, return_trades=True, **ex, **p)
+            k0 = _trade_keys(r0)
+            # a +C shift must leave a dollar file's DOLLARS alone too, not just its timing (#68)
+            k1 = _trade_keys(fn(O + C, H + C, L + C, Cl + C, return_trades=True, **ex, **p), money=usd)
+            out["shift"] = _match(_trade_keys(r0, money=usd), k1)
             if out["shift"] < 1.0 or want_scale:
                 k2 = _trade_keys(fn(O * k, H * k, L * k, Cl * k, return_trades=True, **ex, **p))
                 out["scale"] = _match(k0, k2)
@@ -1619,8 +1646,15 @@ def reprice_result(res, plan, offset=0):
     inst, off, _ib = _switch_arrays(plan["root"])
     cum = np.r_[0.0, np.cumsum(off)] if len(inst) else np.zeros(1)
     sc, kc = plan.get("sc"), plan.get("kc")
+    # a file that folds its own size into t[2] (NOISE's tilt: pts = s*raw - (s-1)*cost) says so with
+    # trade_sizes + size_cost_pts. The folded cost is a cost, not a price move: it must not be divided
+    # by the ratio factor (it was, since 10-08: $0.38-1.55 too little per 1.75x trade - MANAGER #67)
+    sizes = res.get("trade_sizes")
+    fold_c = float(res.get("size_cost_pts") or 0.0)
+    if not (isinstance(sizes, (list, tuple)) and len(sizes) == len(res["trades"])):
+        sizes, fold_c = None, 0.0
     out = []
-    for x in res["trades"]:
+    for i_, x in enumerate(res["trades"]):
         if not isinstance(x, (list, tuple)) or len(x) < 4:
             out.append(x)
             continue
@@ -1633,6 +1667,9 @@ def reprice_result(res, plan, offset=0):
                     nt[4] = float(nt[4]) - float(sc[ei])
             elif method == "ratio" and kc is not None:
                 d, p = float(x[3]), float(x[2])
+                s_ = float(sizes[i_]) if sizes is not None else 1.0
+                fc = (s_ - 1.0) * fold_c                  # the folded cost, in points
+                pg = (p + fc) / s_                        # one contract's gross move (x d)
                 step = 0.0
                 if xi >= ei and len(inst):
                     j0 = int(np.searchsorted(inst, t[ei], side="right"))
@@ -1640,11 +1677,11 @@ def reprice_result(res, plan, offset=0):
                     step = float(cum[j1] - cum[j0]) if j1 > j0 else 0.0
                 if len(nt) >= 5 and d != 0:
                     e = float(nt[4])
-                    re, rx = e / kc[ei], (e + p / d) / kc[xi]
-                    nt[2] = d * (rx - re - step)
+                    re, rx = e / kc[ei], (e + pg / d) / kc[xi]
+                    nt[2] = s_ * d * (rx - re - step) - fc
                     nt[4] = re
                 else:
-                    nt[2] = p / kc[ei] - (1.0 if d >= 0 else -1.0) * step
+                    nt[2] = s_ * (pg / kc[ei] - (1.0 if d >= 0 else -1.0) * step) - fc
             out.append(tuple(nt) if isinstance(x, tuple) else nt)
         except (TypeError, ValueError, IndexError, ZeroDivisionError):
             out.append(x)
