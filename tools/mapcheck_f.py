@@ -40,6 +40,7 @@ from augur_engine import seat_pipeline as SP                             # noqa:
 S1_FILE = r"C:\EdgeLog\_anatomy_cache\rocfrontier\resmom_r1\resmom_cells_daily_wf_close.csv"
 S1_SHA = "e204dd53419a22bc"
 M = 2000
+LIFT_MIN = 0.30                                                          # CHOICE: a prereg needs at least a 30% chance of lifting #463 (WF)
 SEED0 = 20261010                                                         # this tool's own seed base; prior k uses [SEED0, k]
 
 # ------------------------------------------------------------------------------------------------ the priors
@@ -66,9 +67,18 @@ PRIORS = [
     dict(name="TRANSFER-CME", n=400, s_mid=0.20, s_sd=0.35, rho_dd=0.15, rho_out="same", tails="t3", vol="clustered",
          src="ledger 2.29 (pre-registered, never run): ORB / NOISE / TTM cores on ZN / 6E / CL / GC via Databento; the fund-proxy "
              "version (2.49 TRANSFER r2) died -> prior ~0 to small; the cores are momentum -> mild positive rho"),
-    dict(name="XLK-NOISE (reference)", n=314, s_mid=1.10, s_sd=0.30, rho_dd=0.5, rho_out="same", tails="t3", vol="clustered",
+    dict(name="EVENT-SLEEVE", n=55, s_mid=0.64, s_sd=0.30, rho_dd=-0.05, rho_out="zero", tails="t3", vol="const",
+         src="book-structure: AUCTION-K5 + MONTHEND-ES + MACRO830-FADE pooled as ONE leg (24 + 8 + 23 = 55 trades a year, enough "
+             "for the seat rule); independent calendars -> Sharpe ~sqrt(0.33^2 + 0.45^2 + 0.30^2) = 0.64; rho ~ their mix"),
+    dict(name="EVENT-SLEEVE (fade=0)", n=55, s_mid=0.45, s_sd=0.30, rho_dd=-0.05, rho_out="zero", tails="t3", vol="const",
+         src="sensitivity: the 08:30 fade carries no edge (it sat under its null) but still trades -> equal-risk sum (0.33 + 0.45 + 0) / "
+             "sqrt(3) = 0.45"),
+    dict(name="EVENT-SLEEVE (halved)", n=55, s_mid=0.31, s_sd=0.30, rho_dd=-0.05, rho_out="zero", tails="t3", vol="const",
+         src="sensitivity: every component halved again for the winner's curse of picking near-misses out of many tested cells"),
+    dict(name="XLK-NOISE (calibration)", n=314, s_mid=2.20, s_sd=0.0, rho_dd=0.5, rho_out="same", tails="t3", vol="clustered",
          src="ledger 2.108: measured own ROC 32.27 (2,829 trades), corr 0.74 with NOISE #422 / 0.51 with #463 -> a with-book leg; "
-             "the measured book add (98.6, bootstrap p5 -20.9) is the check on this tool's calibration"),
+             "s set to reproduce the MEASURED own ROC (~32) so the tool's book add can be checked against the measured 98.6 "
+             "(bootstrap p5 -20.9) - a calibration row, not a candidate"),
 ]
 
 
@@ -125,8 +135,9 @@ def main(names=None):
              f"(#463's lockbox is spent). #463 WF {SW.stats['roc']:.2f} / {SW.stats['sort']:.3f}, bar {M12.BAR_WF_ROC:.2f} / {M12.BAR_WF_SORT:.3f}; "
              f"S1 line WF {LW.stats['roc']:.2f} / {LW.stats['sort']:.3f}, bar {bar_s1[0]:.2f} / {bar_s1[1]:.3f}. Unit volatility "
              f"${V:,.0f} a year (MDL r1's: 1/3 of the book's).",
-             "Close rule (MANAGER #84): median own ROC < ~8 AND P(own >= 15) < ~10% -> close at draft, unless the leg earns while the book "
-             "falls (then P(book lift) decides). Fewer than 50 trades a year = greyed (cannot make 50 sealed-year trades)."]
+             "Rules: (1) fewer than 50 trades a year = GREYED, cannot be a seat alone (no 50 sealed-year trades); (2) median own ROC < ~8 AND "
+             "P(own >= 15) < ~10% (MANAGER #84) -> close, unless it earns while the book falls; (3) P(book lift on #463, WF) under "
+             f"{LIFT_MIN:.0%} -> close. CLEARS = passes all three."]
     rows = []
     for k, p in enumerate(PRIORS):
         if names and p["name"] not in names:
@@ -134,7 +145,14 @@ def main(names=None):
         a = read(SW, V, p, M, [SEED0, k, 0], M12.BAR_WF_ROC, M12.BAR_WF_SORT)
         b = read(LW, VL, p, M, [SEED0, k, 1], *bar_s1)
         closes = a["own_med"] < 8 and a["own_p15"] < 0.10 and a["rho_med"] > -0.15
-        verdict = ("GREYED (< 50 trades a year)" if p["n"] < 50 else "") + (" CLOSE at draft" if closes else " CLEARS - worth a prereg")
+        if p["n"] < 50:
+            verdict = "GREYED - cannot be a seat on its own (< 50 trades a year)"
+        elif closes:
+            verdict = "CLOSE at draft (own-ROC rule)"
+        elif a["lift"] < LIFT_MIN:
+            verdict = f"CLOSE at draft (P(book lift) {a['lift']:.0%} < {LIFT_MIN:.0%})"
+        else:
+            verdict = "CLEARS - worth a prereg"
         rows.append(dict(name=p["name"], n=p["n"], s_mid=p["s_mid"], s_sd=p["s_sd"], rho_dd=p["rho_dd"], own_med=a["own_med"],
                          own_p15=a["own_p15"], rho_real=a["rho_med"], do_med=a["do_med"], lift463=a["lift"], lift_s1=b["lift"],
                          book_roc_med=a["book_roc_med"], verdict=verdict.strip()))
