@@ -119,3 +119,24 @@ net on the other days.
   0.5x cell is the primary.
 - **Honest flag:** R62's numbers, including its lockbox, are already seen. This is a follow-on look on a known split. It is judged on
   WF only, the R62 read is disclosed as prior, and it is counted in the look ledger.
+
+## 6. "Have the best configs keep searching" (owner, 2026-10-10): where search can still pay
+
+**Parameter search inside the four crowns' own files is saturated.** Five saved search populations were checked
+(tools/r16_results/ryr_search_{orb,noise,ttm,enguq_eth,enguq_er}.csv) for leaders sitting at the edge of their ranges.
+- The only edges point to wider trails on ENGU-Q (trail_frac at 4.0) and a wider Keltner on TTM (kc_mult at 2.0).
+- ENGUQ.md §1.0 already shows that the wider-trail corner is a tail artifact: ERW at 5.0 loses money without its top 10 trades.
+- ORB's leaders sit where the crown already is (2-bar range, no partial exit).
+- The meta walk-forward found no forward skill in re-picking ORB parameters, and every recent book challenger sits inside the
+  71-look chance band.
+
+More searching on the same NQ/ES history adds trials, not information.
+
+**Where the crowns can still search: new markets.** TRANSFER r1 (ledger 2.29, tools/rocfrontier/PREREG_TRANSFER_R1.txt, plus
+r1b) runs ORB #314, the NOISE #422 core and the TTM #458 core UNCHANGED on ZN / 6E / CL / GC 1m, plus RTY / YM 5m.
+- It is fully pre-registered and parity-ready. It is blocked only by data: the owner declined Databento on 2026-09-30 (Standard
+  CME plan, $199 for one month).
+- It is the one search that tests the crowns' mechanisms out of sample. A pass would add legs from different asset classes,
+  which is what the book's correlation map needs.
+- **Honest caveat:** TRANSFER r2 found the crowns' edges do not carry to bond or gold FUNDS at 5 minutes and are flat on DIA /
+  IWM. So the prior for ZN / GC is weak. CL and 6E have no fund read.
