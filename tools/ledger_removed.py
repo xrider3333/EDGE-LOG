@@ -32,6 +32,8 @@ REAL = [
     '_hmRenderFeedDay', '_hmRenderFeedTrade', '_hmRenderTable', '_hmSheetHtml', '_hmStatStrip', '_hmTableHeader',
     '_hmTableHeaderSimple', '_hmTableRow', '_hmTableRowSimple', '_hmToolbarHtml', '_hmTradeRow', '_hmWireChart',
     '_HM_VB_W', '_hmEscWired',
+    # the PASTE fold (2026-10-10: the snapshot-link box is always on show at the top of the trade list, no fold)
+    '_hmPasteFold', '_hmPasteSummary', '_hmPasteBodyHtml', 'el_lg_paste_real',
     # classes
     'hm-sheet', 'hm-sheet-close', 'hm-sheet-foot', 'hm-sheet-net', 'hm-sheet-sub', 'hm-sheet-sym', 'hm-backdrop',
     'hm-morestats-toggle', 'hm-morestats-panel', 'hm-ms-grid', 'hm-ms-row', 'hm-ms-bar', 'hm-ms-group', 'hm-ms-note',

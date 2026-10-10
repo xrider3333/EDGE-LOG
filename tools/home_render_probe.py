@@ -43,7 +43,7 @@ Per case:
   * LEDGER step 8, the shared trade list frame ([data-lglist-frame="hm"]): exactly one frame, in the right mode
     (list / table), the chips ALL LONG SHORT WINS LOSSES FUTURES STOCKS, the LIST | TABLE toggle with the right half
     pressed, a search box, a count, one day header [data-lgday] per CLOSE day with a signed net that adds up to the
-    trades' own P&L (an overnight trade sits under the day it closed), one row per trade, the PASTE box, and on a
+    trades' own P&L (an overnight trade sits under the day it closed), one row per trade, the PASTE row at its top, and on a
     phone five cells per row with the list starting within ONE screen of the top of the board (mistake #12)
   * rows come out newest close first, a deposit sits in its day under BY TRADE, the AI ASSESSMENT is a closed fold, the
     account list is one line on a phone (a list on a laptop), and the SIMPLE table fits its box with no sideways scroll
@@ -91,10 +91,10 @@ LEDGER unify step 12 (ONE PAGE FRAME, 2026-10-07), per case and at every width o
     and the ... toggle (none removed)
 LEDGER unify step 11 (REAL: one page order, own sections as closed folds, one set of breakpoints), per case:
   * the page sections come in the FIXED order top to bottom (SECTION_ORDER: hero, range pills, equity chart, stats strip, More stats, calendar,
-    accounts, trade list, then the own folds PASTE, SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT, JOURNAL) at every width of every case and of the
+    accounts, trade list, then the own folds SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT, JOURNAL) at every width of every case and of the
     width sweep, each one drawn with a height, all inside the board
   * every own fold ([data-hmfold]) starts CLOSED (no body in the page), carries a non-empty ONE-LINE summary (one line tall, no stray markup, the
-    number or state it should show for the seeded data), opens on a click and shows its content (the paste box, the setups and the + ADD button,
+    number or state it should show for the seeded data), opens on a click and shows its content (the setups and the + ADD button,
     the deposit chips, the AI read, the journal form and entry), and closes again; the phone account line has its summary too
   * on a 375 px phone the trade list starts no lower than the previous build (PHONE_LIST_TOP_MAX) and within one screen
   * the board's own media rules (every @media whose selector names .hm- or #hm- and matches something on the page) use only the house widths
@@ -103,14 +103,23 @@ LEDGER unify step 11 (REAL: one page order, own sections as closed folds, one se
   * no marker of the removed previous board (OLD_MARKS: #hm-sheet, .hm-backdrop, the FEED / TABLE button ...) is in the page, in any case
 Per fold run (a fifth page load, FOLD_RUNS): every own fold is opened with a click, the page is RELOADED and the same folds are open without a
 click; they are closed with a click, the page is reloaded again and they are closed (open / closed remembered per browser in localStorage)
+PASTE ROW (owner 2026-10-10: the TradingView snapshot-link box is always on show at the top of REAL's trade list - it is no fold and no page
+section any more), per case and at every width of the sweep, read BEFORE any click:
+  * exactly one #hm-paste-chart, inside the trade list frame and inside no fold, drawn (at least 120 px wide), enabled and not covered (scrolled
+    into view, the point in its middle is the box), right under the list toolbar (0 to PASTE_BELOW_BAR_MAX px), above the first day header and
+    the first trade row, inside the window (nothing sideways) and one slim line; on a laptop the muted line beside it says where the next link goes
+Per interaction run (the PASTE row): typed text + Enter, and a paste event (no Enter), each file at once and the note shows right under the box
+(0 to PASTE_MSG_GAP_MAX px), above the first trade row and inside no fold; hmFileChartLink(PASTE_URL) asks FILE ON / HOLD / SHOULD HAVE TRADED
+right under the box and writes nothing; HOLD keeps the link on this device (the held line with "drop it" shows under the box, drop it clears it);
+FILE ON saves the link on that trade and UNDO, under the box, takes it off again; SHOULD HAVE TRADED opens the form with the link filled in
 Per interaction run:
   * a futures trade's panel opens, its chart body ends up holding an <svg> and the info line
     is filled in (the chart really drew), and the POINTS block shows the trade's score
   * the chart's - (zoom out) and DAY buttons redraw it without an error
   * a SHOULD HAVE TRADED panel opens with its symbol, POINTS block and chart
   * + ADD opens the form, SAVE with the fields empty shows a message and writes nothing
-  * hmFileChartLink(<a TradingView link>) shows the paste note with its SHOULD HAVE TRADED
-    button, and that button opens the form with the link filled in
+  * hmFileChartLink(<a TradingView link>) shows the paste question under the PASTE row with FILE ON, HOLD and
+    SHOULD HAVE TRADED; each answers it (see PASTE ROW above), and SHOULD HAVE TRADED opens the form with the link filled in
   * nothing was written to the trades or missed_trades stubs
   * the shared frame: each chip lists the right trades (a $0 trade is neither a WINS nor a LOSSES row), the search
     box filters and keeps the cursor, LIST | TABLE is remembered, BY DAY shows one row per day, SIMPLE | FULL
@@ -223,12 +232,13 @@ LIST_HIDE_ORDER = ['pts', 'strat', 'slot']      # the optional cells of a LIST r
 JUMP_DAY = '2026-09-30'
 
 # LEDGER unify step 11
-SECTION_ORDER = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal', 'acct', 'list', 'paste', 'missed', 'deps', 'ai', 'journal']
+# 'paste' left the page order on 2026-10-10: the PASTE box is a row at the top of the trade list ('list'), always on show, not a section of its own
+SECTION_ORDER = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal', 'acct', 'list', 'missed', 'deps', 'ai', 'journal']
 # LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
 FRAME_MAX_W = '1320px'
 FRAME_SIDE_FROM = 1100
 SLOT_KIND = 'FUTURES,STOCKS'
-OWN_FOLDS = ['paste', 'missed', 'deps', 'ai', 'journal']
+OWN_FOLDS = ['missed', 'deps', 'ai', 'journal']      # no 'paste' since 2026-10-10: the PASTE box is never folded
 HOUSE_WIDTHS = [600, 740, 800, 920, 1100]     # the one set of breakpoints (contract section 5b)
 PHONE_LIST_TOP_MAX = 700                      # px from the top of the board to the trade list on a 375 px phone: 652 before step 12, which
                                               # added the status line under the hero (two lines with the Webull reconcile) and the chart
@@ -239,6 +249,11 @@ OLD_MARKS = ['#hm-sheet', '.hm-backdrop', '#hm-view-toggle', '[data-hmchip]', '#
 FOLD_RUNS = [['laptop', {'vp': 'laptop', 'theme': 'glass', 'cal': True}], ['phone', {'vp': 'phone', 'theme': 'glass'}]]
 
 PASTE_URL = 'https://www.tradingview.com/x/TEST1/'
+# the PASTE row (2026-10-10): at most this many px from the bottom of the trade list toolbar to the top of the box ("right under it"), and from the
+# bottom of the box to the top of its message row ("right under the box")
+PASTE_BELOW_BAR_MAX = 40
+PASTE_MSG_GAP_MAX = 30
+PASTE_MIN_W = 120                             # px: the box is wide enough to tap / click at every width
 
 # Two interaction runs. `tid` is the futures trade whose panel is opened (a 1m trade on the
 # laptop, a 10s trade on the phone, so both bar sizes the reader serves are drawn).
@@ -347,7 +362,7 @@ MUTANTS = [
     ('paste-box-gone',
      '<input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste"',
      '<input type="text" id="hm-paste-chart-gone" class="hm-feed-search hm-paste"',
-     'the PASTE box for snapshot links is gone from the toolbar'),
+     'the PASTE box for snapshot links is gone from the top of the trade list'),
     ('analytics-jump-dead',
      "activeTab='home';homeView='table';",
      "activeTab='home';",
@@ -435,16 +450,16 @@ MUTANTS = [
      'the SIMPLE table brings its # and PTS columns back too early, so it scrolls inside its own box at 975 px'),
     # LEDGER step 11: one page order, the own sections as closed folds with a one-line summary, one set of breakpoints
     ('section-order-wrong',
-     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','paste','missed','deps','ai','journal']);",
-     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','ai','list','paste','missed','deps','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','ai','list','missed','deps','journal']);",
      'the AI ASSESSMENT fold sits above the trade list again, so the page sections are no longer in the fixed order'),
     ('pills-under-chart',
      "const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','pills','chart','stats','more','cal']:",
      "const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','chart','pills','stats','more','cal']:",
      'the range pills are under the chart again instead of between the hero and the chart'),
     ('own-section-removed',
-     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','paste','missed','deps','ai','journal']);",
-     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','paste','missed','ai','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','missed','ai','journal']);",
      'the DEPOSITS section is gone from the page - an own section was removed instead of folded'),
     ('fold-summary-empty',
      'data-hmsum="\'+k+\'">\'+sum+\'</span>',
@@ -478,14 +493,55 @@ MUTANTS = [
      '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);',
      '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);color:#7ac0ff;',
      'the fold summaries carry a hard-coded blue, so MONO is no longer hue-free'),
-    ('paste-question-keeps-fold-closed',
-     "_hmFoldSet('paste',true);   // the question (FILE ON, HOLD ...) is in the PASTE fold: it opens",
-     "",
-     'the question that asks which trade a pasted link is for is written into the PASTE fold but the fold stays closed'),
-    ('paste-note-keeps-fold-closed',
-     "_hmFoldSet('paste',true);   // the note (UNDO, MOVE ...) is in the PASTE fold: it opens",
-     "",
-     'a paste note is written into the PASTE fold but the fold stays closed, so the note (UNDO, MOVE) cannot be seen'),
+    # the PASTE row (owner 2026-10-10): the snapshot-link box always on show at the top of the trade list, its notes right under it
+    ('paste-row-removed',
+     "afterBar:_hmPasteRowHtml()+'<div id=\"hm-newtrade-form\">'",
+     "afterBar:'<div id=\"hm-newtrade-form\">'",
+     'the PASTE row is gone from the top of the trade list'),
+    ('paste-row-in-closed-fold',
+     "afterBar:_hmPasteRowHtml()+'<div id=\"hm-newtrade-form\">'",
+     "afterBar:'<details class=\"hm-paste-fold\"><summary>Paste a snapshot link</summary>'+_hmPasteRowHtml()+'</details><div id=\"hm-newtrade-form\">'",
+     'the PASTE box is back inside a closed fold, so it takes a click to find it'),
+    ('paste-row-hidden',
+     '.hm-pastebar{margin:0 2px 10px;min-width:0}',
+     '.hm-pastebar{margin:0 2px 10px;min-width:0;display:none}',
+     'the PASTE row is in the page but hidden'),
+    ('paste-row-hidden-on-phone',
+     '  .hm-paste-row .hm-paste-next{display:none}',
+     '  .hm-paste-row .hm-paste-next{display:none}.hm-pastebar{display:none}',
+     'the PASTE row is hidden on a phone'),
+    ('paste-row-below-list',
+     "afterBar:_hmPasteRowHtml()+'<div id=\"hm-newtrade-form\">'",
+     "foot:_hmPasteRowHtml(),afterBar:'<div id=\"hm-newtrade-form\">'",
+     'the PASTE row sits under the trade rows instead of at the top of the list'),
+    ('paste-row-wide-on-phone',
+     '.hm-paste-row .hm-paste{min-width:0;flex:0 1 420px;max-width:420px;font-size:11px}',
+     '.hm-paste-row .hm-paste{min-width:420px;flex:0 1 420px;max-width:420px;font-size:11px}',
+     'the PASTE box keeps a 420 px width on a phone, so the page scrolls sideways'),
+    ('paste-note-not-shown',
+     "</div>${msg?'<div class=\"hm-paste-msgrow\">'+msg+'</div>':''}</div>`;",
+     "</div>${''}</div>`;",
+     'the paste note (UNDO, MOVE), the FILE ON / HOLD question and the held link are never shown under the PASTE box'),
+    ('paste-question-dropped',
+     "  renderApp();   // the question (FILE ON, HOLD ...) shows right under the PASTE row",
+     "  window._hmPasteNote=null;renderApp();",
+     'the question that asks which trade a pasted link is for is never shown, so a futures-day paste cannot be answered'),
+    ('paste-enter-dead',
+     "pc.onkeydown=e=>{if(e.key==='Enter'){",
+     "pc.onkeydown=e=>{if(false){",
+     'Enter in the PASTE box no longer files the typed text'),
+    ('paste-event-dead',
+     "pc.onpaste=()=>setTimeout(()=>{const v=pc.value;pc.value='';window.hmFileChartLink(v);},0);",
+     "pc.onpaste=()=>{};",
+     'a paste into the PASTE box no longer files at once'),
+    ('paste-hold-dead',
+     "if(ph)ph.onclick=()=>window.hmHoldChartLink();",
+     "if(ph)ph.onclick=()=>{};",
+     'HOLD FOR A STOCK TRADE does nothing, so the question cannot be answered that way'),
+    ('paste-undo-dead',
+     "if(pu)pu.onclick=()=>window.hmUndoChartLink();",
+     "if(pu)pu.onclick=()=>{};",
+     'UNDO under the PASTE box does nothing'),
     ('phone-overflow-board',
      ".hm-wrap.lg-frame{max-width:1320px}",
      ".hm-wrap.lg-frame{max-width:1320px;min-width:640px}",
@@ -761,6 +817,34 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     try{w.localStorage.removeItem('el_lg_filters_hm');}catch(e){}
     return o;
   }
+  // the PASTE row (owner 2026-10-10): the snapshot-link box at the top of REAL's trade list, on show without any click. Where it is drawn, whether
+  // anything covers it (scrolled into view, the point in its middle must be the box), how far under the toolbar and above the first day header / row
+  function pasteRead(){
+    var d=D(),w=W(),o={};
+    var all=d.querySelectorAll('#hm-paste-chart');o.n=all.length;
+    var pb=all[0];if(!pb)return o;
+    var fr=d.querySelector('[data-lglist-frame="hm"]'),bar=fr?fr.querySelector('.lg-tl-bar'):null;
+    var b=pb.getBoundingClientRect(),cs=w.getComputedStyle(pb);
+    o.w=Math.round(b.width);o.h=Math.round(b.height);
+    o.shown=b.width>=1&&b.height>=1&&cs.visibility!=='hidden'&&parseFloat(cs.opacity||'1')>0.05;
+    o.enabled=!pb.disabled&&!pb.readOnly&&pb.type==='text';
+    o.inFrame=!!(fr&&fr.contains(pb));
+    o.inFold=!!pb.closest('[data-hmfold],.hm-fold-body,.hm-own,details,[hidden]');
+    o.right=Math.round(b.right);o.left=Math.round(b.left);o.cw=d.documentElement.clientWidth;
+    var row1=fr?fr.querySelector('[data-lgtrade]'):null,day1=fr?fr.querySelector('[data-lgday]'):null;
+    o.belowBar=bar?Math.round(b.top-bar.getBoundingClientRect().bottom):null;
+    o.aboveRow=row1?Math.round(row1.getBoundingClientRect().top-b.bottom):null;
+    o.aboveDay=day1?Math.round(day1.getBoundingClientRect().top-b.bottom):null;
+    var rw=pb.closest('.hm-paste-row');o.rowH=rw?Math.round(rw.getBoundingClientRect().height):null;
+    var nx=d.getElementById('hm-paste-next');
+    o.next=(nx&&nx.getBoundingClientRect().width>0)?(nx.textContent||'').replace(/\\s+/g,' ').trim():null;
+    var sx=w.scrollX,sy=w.scrollY;
+    try{pb.scrollIntoView({block:'center',inline:'nearest'});var b2=pb.getBoundingClientRect();
+      var hit=d.elementFromPoint(b2.left+Math.min(b2.width/2,40),b2.top+b2.height/2);o.hit=!!(hit&&(hit===pb||pb.contains(hit)));}
+    catch(e){o.hit=null;o.hitErr=String(e);}
+    try{w.scrollTo(sx,sy);}catch(e){}
+    return o;
+  }
   // a reload of the page under test: the app boots again (a fresh window), the stubs go back in, the console sink is hooked again
   async function reloadFrame(){
     var w0=W();
@@ -828,6 +912,8 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     var acb0=d.querySelector('[data-hmacct-fold]'),acs0=acb0?acb0.querySelector('[data-hmsum]'):null;
     r.acctSum=acs0?(acs0.textContent||'').replace(/\\s+/g,' ').trim():null;
     r.acctBtnH=acb0?Math.round(acb0.getBoundingClientRect().height):null;
+    // the PASTE row, read before anything below is clicked: it must be on show at the top of the trade list without a click
+    try{r.pasteRow=pasteRead();}catch(e){r.pasteRow={err:String(e&&e.stack?e.stack:e)};}
     // LEDGER step 12: the shared page frame, read before anything below opens a fold and moves the page about
     try{r.fr=frameRead();}catch(e){r.fr={err:String(e&&e.stack?e.stack:e)};}
     try{r.filtClick=filtersClick();}catch(e){r.filtClick={err:String(e&&e.stack?e.stack:e)};}
@@ -874,7 +960,6 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     r.depRows=Array.prototype.map.call(d.querySelectorAll('[data-lglist-frame="hm"] .hm-row-static'),function(e){
       var dy=e.closest('[data-lgday]');
       return [dy?dy.getAttribute('data-lgday'):null,((e.querySelector('.l1')||{}).textContent||'').trim(),((e.querySelector('.r1')||{}).textContent||'').trim()];});
-    var pb=d.getElementById('hm-paste-chart');r.paste=!!pb;r.pasteVisible=!!(pb&&pb.getBoundingClientRect().width>0);
     var ms=d.getElementById('hm-missed');
     r.missed=!!ms;
     r.missedRows=ms?ms.querySelectorAll('tr[data-hmmissed]').length:-1;
@@ -934,7 +1019,6 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
         b.click();
         var b2=ownBtn(k),body=d.getElementById('hm-fold-'+k);
         o.exp=b2?b2.getAttribute('aria-expanded'):null;o.body=!!body;o.len=body?(body.innerHTML||'').trim().length:0;
-        if(k==='paste'){var pb=d.getElementById('hm-paste-chart');o.paste=!!pb;o.pasteVisible=!!(pb&&pb.getBoundingClientRect().width>0);}
         if(k==='missed'){var ms1=d.getElementById('hm-missed');o.missed=!!ms1;o.missedRows=ms1?ms1.querySelectorAll('tr[data-hmmissed]').length:-1;o.add=!!d.getElementById('hm-missed-add');}
         if(k==='deps'){o.strip=!!d.querySelector('.hm-ledger-strip');o.chips=d.querySelectorAll('.hm-ledger-chip').length;
           // each chip: its date and its signed amount (a withdrawal is a negative chip)
@@ -1074,32 +1158,70 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       st.msg=txt('#hmmf-msg');
       st.writes=JSON.parse(w.eval('JSON.stringify(window.__probeWrites)'));
     });
-    // 5. a pasted TradingView link: the note asks where it goes and offers SHOULD HAVE TRADED,
-    //    which opens the form with the link filled in
+    // 5. the PASTE row (owner 2026-10-10: always on show at the top of the trade list): typed text + Enter and a paste each file at once and the note
+    //    shows right under the box; a real link asks FILE ON / HOLD / SHOULD HAVE TRADED right under the box, and each answer works
     await step(res,'paste',async function(st){
-      w.eval('window._hmMissedEdit=null;renderApp();');
-      await sleep(40);
-      // a plain note (not a link) is written into the PASTE fold and opens it; closed again, the note is cleared, and then the real link asks where it goes
-      var pf2=q('[data-hmfold="paste"]');
-      if(pf2&&pf2.getAttribute('aria-expanded')==='true'){pf2.click();await sleep(40);}
-      w.eval('window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;renderApp();');
-      await w.hmFileChartLink('not a link');
-      await sleep(80);
-      var pf3=q('[data-hmfold="paste"]');st.foldOpenMsg=pf3?pf3.getAttribute('aria-expanded'):null;
-      if(pf3&&pf3.getAttribute('aria-expanded')==='true'){pf3.click();await sleep(40);}
-      w.eval('window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;renderApp();');
-      await sleep(40);
-      await w.hmFileChartLink(PASTE);
-      await sleep(80);
-      var pf1=q('[data-hmfold="paste"]');st.foldOpen=pf1?pf1.getAttribute('aria-expanded'):null;   // a paste note opens its fold
-      st.note=!!q('#hm-paste-msg');
-      st.noteText=txt('#hm-paste-msg');
-      if(st.noteText&&st.noteText.length>160)st.noteText=st.noteText.slice(0,160);
+      function reset(){w.eval('window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;window._hmMissedEdit=null;homeSheetId=null;renderApp();');
+        try{w.localStorage.removeItem('el_paste_hold');}catch(e){}}
+      function writes(){return JSON.parse(w.eval('JSON.stringify(window.__probeWrites)'));}
+      function data(){return JSON.parse(w.eval('JSON.stringify(window.__probeData)'));}
+      // the message row: on show, right under the box, above the first trade row and inside no fold (and no PASTE fold header anywhere)
+      function msgRead(){
+        var m=q('#hm-paste-msg'),pb=q('#hm-paste-chart'),fr=q('[data-lglist-frame="hm"]'),row1=fr?fr.querySelector('[data-lgtrade]'):null,o={msg:!!m,box:!!pb};
+        if(m){var mb=m.getBoundingClientRect();o.shown=mb.width>0&&mb.height>0&&w.getComputedStyle(m).visibility!=='hidden';
+          o.text=(m.textContent||'').replace(/\\s+/g,' ').trim().slice(0,160);
+          if(pb)o.gap=Math.round(mb.top-pb.getBoundingClientRect().bottom);
+          o.aboveRow=row1?Math.round(row1.getBoundingClientRect().top-mb.bottom):null;
+          o.inFold=!!m.closest('[data-hmfold],.hm-fold-body,.hm-own,details,[hidden]');}
+        o.foldHd=!!q('[data-hmfold="paste"]');
+        return o;}
+      reset();await sleep(40);
+      // a. typed text (not a link) + Enter files it: the note says so under the box
+      var pb=q('#hm-paste-chart');st.box0=!!pb;
+      if(pb){pb.value='not a link';pb.dispatchEvent(new KeyboardEvent('keydown',{key:'Enter',bubbles:true,cancelable:true}));}
+      await sleep(120);
+      st.enter=msgRead();
+      // b. a paste files at once, no Enter
+      reset();await sleep(40);
+      pb=q('#hm-paste-chart');
+      if(pb){pb.value='still not a link';pb.dispatchEvent(new Event('paste',{bubbles:true}));}
+      await sleep(150);
+      st.pasted=msgRead();
+      // c. a real link on a futures day: the question shows under the box and nothing is written yet
+      reset();await sleep(40);
+      w.eval('window.__probeWrites.length=0;window.__probeData.length=0;');
+      await w.hmFileChartLink(PASTE);await sleep(80);
+      st.ask=msgRead();
+      st.askBtns={file:!!q('#hm-paste-msg #hm-paste-file'),hold:!!q('#hm-paste-msg #hm-paste-hold'),missed:!!q('#hm-paste-msg #hm-paste-missed'),pick:!!q('#hm-paste-msg #hm-paste-pick')};
+      st.writesAsk=writes();
+      // d. HOLD answers it: the held note under the box, the link kept on this device; dismissed, the held line (drop it) shows; drop it clears it
+      var hb=q('#hm-paste-hold');st.holdBtn=!!hb;if(hb){hb.click();await sleep(100);}
+      st.held=msgRead();st.holdLs=!!w.localStorage.getItem('el_paste_hold');
+      var px=q('#hm-paste-x');if(px){px.click();await sleep(80);}
+      st.heldLine=msgRead();st.dropBtn=!!q('#hm-paste-msg #hm-hold-drop');
+      var dr=q('#hm-hold-drop');if(dr){dr.click();await sleep(80);}
+      st.dropped={msg:!!q('#hm-paste-msg'),ls:!!w.localStorage.getItem('el_paste_hold')};
+      st.writesHold=writes();
+      // e. FILE ON answers it: the link is saved on that trade and the note with UNDO shows under the box; UNDO takes the link off again
+      reset();await sleep(40);
+      await w.hmFileChartLink(PASTE);await sleep(80);
+      w.eval('window.__probeWrites.length=0;window.__probeData.length=0;');
+      st.target=w.eval('(window._hmPasteAsk||{}).id||null');
+      var fb=q('#hm-paste-file');st.fileBtn=!!fb;if(fb){fb.click();await sleep(150);}
+      st.filed=msgRead();st.undoBtn=!!q('#hm-paste-msg #hm-paste-undo');st.fileData=data();
+      var ub=q('#hm-paste-undo');if(ub){ub.click();await sleep(150);}
+      st.undone=msgRead();st.undoData=data();
+      // f. SHOULD HAVE TRADED opens the form with the link filled in, and writes nothing
+      reset();await sleep(40);
+      w.eval('window.__probeWrites.length=0;window.__probeData.length=0;');
+      await w.hmFileChartLink(PASTE);await sleep(80);
       var b=q('#hm-paste-msg #hm-paste-missed');st.missedBtn=!!b;
       if(b){b.click();await sleep(150);}
       st.form=!!q('#hm-missed-form');
       var u=q('#hmmf-url');st.url=u?u.value:null;
-      st.writes=JSON.parse(w.eval('JSON.stringify(window.__probeWrites)'));
+      st.writes=writes();
+      w.eval('window.__probeWrites.length=0;window.__probeData.length=0;');
+      reset();await sleep(40);
     });
     // 6. LEDGER step 8, the shared trade list frame: the chips (a $0 trade is neither a win nor a loss), the search
     //    box, BY DAY, LIST | TABLE (remembered per board) and SIMPLE | FULL
@@ -1131,9 +1253,9 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       var ts=q('table.lg-tl-table');st.simpleTable=!!(ts&&ts.classList.contains('hm-simple'));st.simpleCols=ts?ts.querySelectorAll('thead th').length:0;
       var lbn=q('[data-lgview="list"]');if(lbn)lbn.click();
       st.modeList=mode();st.savedList=ls('el_lg_view_hm');
-      var pf0=q('[data-hmfold="paste"]');st.pasteFold=!!pf0;
-      if(pf0&&pf0.getAttribute('aria-expanded')!=='true'){pf0.click();await sleep(60);}
-      st.paste=!!q('#hm-paste-chart');
+      // the PASTE box is on show in the list without a click, and there is no PASTE fold any more
+      st.pasteFold=!!q('[data-hmfold="paste"]');
+      var pc0=q('#hm-paste-chart');st.paste=!!(pc0&&pc0.getBoundingClientRect().width>0);
       st.buttons={add:!!q('#hm-add-deposit'),scan:!!q('#hm-scan-dupes'),all:!!q('#hm-open-all'),nt:!!q('#hm-newtrade-toggle')};
       // NEW TRADE opens the form under the toolbar and closes it again
       var nt=q('#hm-newtrade-toggle');
@@ -1587,6 +1709,7 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
         var wr0=d.querySelector('.hm-wrap'),wt0=wr0?wr0.getBoundingClientRect().top:0;
         st.sec=Array.prototype.map.call(d.querySelectorAll('[data-hmsec]'),function(e){var b=e.getBoundingClientRect();return {k:e.getAttribute('data-hmsec'),top:Math.round(b.top-wt0),h:Math.round(b.height)};});
         try{st.fr=frameRead();}catch(e1){st.fr={err:String(e1&&e1.stack?e1.stack:e1)};}
+        try{st.paste=pasteRead();}catch(e3){st.paste={err:String(e3&&e3.stack?e3.stack:e3)};}
         if(i===0){try{res.bp=bpScan();}catch(e0){res.bp={err:String(e0)};}}
         var de=d.documentElement;
         st.innerW=w.innerWidth;st.scrollW=de.scrollWidth;st.clientW=de.clientWidth;
@@ -1619,7 +1742,7 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     }
     out.widths[nm]=res;
   }
-  var LSK=['el_lg_paste_real','el_lg_missed_real','el_lg_deps_real','el_lg_ai_real','el_home_journal_open','el_lg_filters_hm'];
+  var LSK=['el_lg_missed_real','el_lg_deps_real','el_lg_ai_real','el_home_journal_open','el_lg_filters_hm'];
   function lsRead(){var o={};LSK.forEach(function(k){try{o[k]=W().localStorage.getItem(k);}catch(e){o[k]='ERR';}});return o;}
   // the own folds and (LEDGER step 12) the Filters row at the top of the accounts panel
   function foldStates(){var o={};Array.prototype.forEach.call(D().querySelectorAll('[data-hmfold]'),function(b){o[b.getAttribute('data-hmfold')]=b.getAttribute('aria-expanded');});
@@ -1631,7 +1754,7 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     drain();
     var sc={vp:cfg.vp,theme:cfg.theme,missed:2,view:'feed',ledger:'simple'};
     // the folds exactly as the app starts them on a fresh browser, before the seed (which resets them) touches anything
-    try{res.init=JSON.parse(W().eval('JSON.stringify({paste:!!homeOwnOpen.paste,missed:!!homeOwnOpen.missed,deps:!!homeOwnOpen.deps,ai:!!homeAiOpen,journal:!!homeJournalOpen})'));}
+    try{res.init=JSON.parse(W().eval('JSON.stringify({missed:!!homeOwnOpen.missed,deps:!!homeOwnOpen.deps,ai:!!homeAiOpen,journal:!!homeJournalOpen})'));}
     catch(e){res.init='ERR '+(e&&e.stack?e.stack:e);}
     try{res.seed=seed(sc);}catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
     await sleep(150);
@@ -1761,8 +1884,8 @@ INSTALL_JS = r"""
     homeStatsOpen=false;homeExtras=false;homeNewTradeOpen=false;
     // LEDGER step 11: every own fold starts closed and the calendar on its default for this width (open above 600 px), unless the case keeps what the page remembered
     if(!C.keepLs){
-      homeAiOpen=false;homeAcctOpen=false;homeJournalOpen=false;homeOwnOpen.paste=false;homeOwnOpen.missed=false;homeOwnOpen.deps=false;
-      try{['el_lg_ai_real','el_lg_acct_real','el_home_journal_open','el_lg_paste_real','el_lg_missed_real','el_lg_deps_real','el_lg_cal_real','el_lg_filters_hm'].forEach(function(k){localStorage.removeItem(k);});}catch(e){}
+      homeAiOpen=false;homeAcctOpen=false;homeJournalOpen=false;homeOwnOpen.missed=false;homeOwnOpen.deps=false;
+      try{['el_lg_ai_real','el_lg_acct_real','el_home_journal_open','el_lg_missed_real','el_lg_deps_real','el_lg_cal_real','el_lg_filters_hm'].forEach(function(k){localStorage.removeItem(k);});}catch(e){}
       homeCalOpen=(window.innerWidth||1200)>600;
     }
     window._hmMissedEdit=null;window._hmPasteNote=null;window._hmPasteLast=null;window._hmPasteAsk=null;
@@ -2463,6 +2586,7 @@ def _judge_widths(wd, data_obj):
                 if not ok:
                     fails.append('%s: the page sections are not stacked top to bottom in the fixed order (tops %r)' % (t, tp))
             _judge_frame(t, s.get('fr'), px, fails)
+            _judge_paste_row(t, s.get('paste'), fails, px <= 600)
             if not s.get('frame') or s.get('mode') != want_mode:
                 fails.append('%s: the trade list frame is %s, expected one in %s mode (it says %r)'
                              % (t, 'missing' if not s.get('frame') else 'on the page', want_mode, s.get('mode')))
@@ -2502,6 +2626,42 @@ def _judge_widths(wd, data_obj):
                     fails.append('%s: the SIMPLE table scrolls sideways inside its box (scrollWidth %s > clientWidth %s)'
                                  % (t, box.get('sw'), box.get('cw')))
     return fails, unfinished
+
+
+def _judge_paste_row(tag, p, fails, phone):
+    """The PASTE row (owner 2026-10-10), read before any click: ONE snapshot-link box, in the trade list frame and in no fold, drawn at least
+    PASTE_MIN_W px wide, enabled and not covered, right under the list toolbar, above the first day header and the first trade row, inside the window
+    and one slim line; on a laptop the muted line beside it says where the next link goes."""
+    p = p or {}
+    if p.get('err'):
+        fails.append('%s: reading the PASTE row threw -- %s' % (tag, _first(p['err'])))
+        return
+    if p.get('n') != 1:
+        fails.append('%s: the PASTE box for snapshot links (#hm-paste-chart) is %s at the top of the trade list (%s found, expected one)'
+                     % (tag, 'gone' if not p.get('n') else 'drawn more than once', p.get('n')))
+        return
+    if not p.get('inFrame') or p.get('inFold'):
+        fails.append('%s: the PASTE box is not on show at the top of the trade list (inside the list frame: %s, inside a fold: %s)'
+                     % (tag, p.get('inFrame'), p.get('inFold')))
+    if not p.get('shown') or (p.get('w') or 0) < PASTE_MIN_W or p.get('hit') is not True:
+        fails.append('%s: the PASTE box is not visible without a click (drawn %sx%s px, at least %d px wide wanted; on top where it is drawn: %s)'
+                     % (tag, p.get('w'), p.get('h'), PASTE_MIN_W, p.get('hit')))
+    if not p.get('enabled'):
+        fails.append('%s: the PASTE box is not an editable text box' % tag)
+    bb = p.get('belowBar')
+    if bb is None or bb < -1 or bb > PASTE_BELOW_BAR_MAX:
+        fails.append('%s: the PASTE box is %s px below the trade list toolbar, expected right under it (0 to %d px)' % (tag, bb, PASTE_BELOW_BAR_MAX))
+    ar, ad = p.get('aboveRow'), p.get('aboveDay')
+    if ar is None or ar < 0:
+        fails.append('%s: the PASTE box does not sit above the first trade row of the list (%s px between them)' % (tag, ar))
+    if ad is not None and ad < 0:
+        fails.append('%s: the PASTE box does not sit above the first day header of the list (%s px between them)' % (tag, ad))
+    if (p.get('right') or 0) > (p.get('cw') or 0) + 1 or (p.get('left') or 0) < 0:
+        fails.append('%s: the PASTE box sticks out of the window (left %s, right %s, window %s px)' % (tag, p.get('left'), p.get('right'), p.get('cw')))
+    if not p.get('rowH') or p['rowH'] > 40:
+        fails.append('%s: the PASTE row is %s px tall - it must be one slim line' % (tag, p.get('rowH')))
+    if not phone and not re.match(r'^next link goes on \S+', p.get('next') or ''):
+        fails.append('%s: the line beside the PASTE box reads %r, expected where the next link goes' % (tag, p.get('next')))
 
 
 def _removed_lint(root, alt_index):
@@ -2707,8 +2867,7 @@ def _judge_step11(nm, cfg, r, fails, n_missed):
     fc = r.get('foldsClosed') or []
     if [f['k'] for f in fc] != OWN_FOLDS:
         fails.append('%s: the own folds read %r, expected %r' % (nm, [f['k'] for f in fc], OWN_FOLDS))
-    want_sum = {'paste': r'^the next link goes on \S+',
-                'missed': (r'^%d setups not taken' % n_missed) if cfg['missed'] else r'^none filed yet$',
+    want_sum = {'missed': (r'^%d setups not taken' % n_missed) if cfg['missed'] else r'^none filed yet$',
                 'deps': '^%d events? \u00b7 net %s$' % (len(LEDGER_EVENTS), re.escape(_signed(ledger_net()))),
                 'ai': r'^last 9 trades \u00b7 71% won \u00b7 profit factor ',
                 'journal': r'^1 entry \u00b7 newest 2026-09-30$'}
@@ -2972,11 +3131,7 @@ def _judge(data, data_obj):
         if cfg['view'] == 'table' and cfg['ledger'] == 'simple' and tbx and tbx['sw'] > tbx['cw'] + 1:
             fails.append('%s: the SIMPLE table scrolls sideways inside its box (scrollWidth %s > clientWidth %s)'
                          % (nm, tbx['sw'], tbx['cw']))
-        po = fo.get('paste') or {}
-        if not po.get('paste'):
-            fails.append('%s: the PASTE box for snapshot links (#hm-paste-chart) is gone from its fold' % nm)
-        elif not po.get('pasteVisible'):
-            fails.append('%s: the PASTE box is in its open fold but not visible' % nm)
+        _judge_paste_row(nm, r.get('pasteRow'), fails, cfg['vp'] == 'phone')
         if (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1 and cfg['vp'] != 'phone':
             fails.append('%s: the page scrolls sideways on a laptop (scrollWidth %s > clientWidth %s; sticking out: %s)'
                          % (nm, r.get('scrollW'), r.get('clientW'), ', '.join(r.get('wide') or []) or '?'))
@@ -3112,18 +3267,68 @@ def _judge(data, data_obj):
         _errs(tag + ' paste box', ps, fails)
         if ps.get('threw'):
             fails.append('%s paste: %s' % (tag, _first(ps['threw'])))
-        if not ps.get('note') or not ps.get('missedBtn'):
-            fails.append('%s: hmFileChartLink showed no paste note with a SHOULD HAVE TRADED button '
-                         '(note=%s button=%s)' % (tag, ps.get('note'), ps.get('missedBtn')))
-        elif not ps.get('form') or ps.get('url') != PASTE_URL:
-            fails.append('%s: the paste note SHOULD HAVE TRADED button did not open the form with the '
-                         'link filled in (form=%s url=%r)' % (tag, ps.get('form'), ps.get('url')))
-        elif ps.get('foldOpen') != 'true' or ps.get('foldOpenMsg') != 'true':
-            fails.append('%s: a paste note is drawn in the PASTE fold but the fold stayed closed (question: aria-expanded=%r, plain note: %r)'
-                         % (tag, ps.get('foldOpen'), ps.get('foldOpenMsg')))
-        if ps.get('writes'):
-            fails.append('%s: the paste box wrote to the database before anyone chose: %s'
-                         % (tag, ps['writes']))
+        else:
+            def under(what, m, want):
+                # the message row is on show right under the PASTE box, above the first trade row, inside no fold, and says what it should
+                m = m or {}
+                if not m.get('msg') or not m.get('shown'):
+                    fails.append('%s: after %s no message row is on show under the PASTE box (%r)' % (tag, what, m))
+                    return False
+                if m.get('gap') is None or m['gap'] < 0 or m['gap'] > PASTE_MSG_GAP_MAX:
+                    fails.append('%s: after %s the message is %s px under the PASTE box, expected right under it (0 to %d px)'
+                                 % (tag, what, m.get('gap'), PASTE_MSG_GAP_MAX))
+                if m.get('aboveRow') is None or m['aboveRow'] < 0:
+                    fails.append('%s: after %s the message does not sit above the first trade row (%s px)' % (tag, what, m.get('aboveRow')))
+                if m.get('inFold') or m.get('foldHd'):
+                    fails.append('%s: after %s the message is inside a fold (in a fold: %s, a PASTE fold header in the page: %s)'
+                                 % (tag, what, m.get('inFold'), m.get('foldHd')))
+                if not re.search(want, m.get('text') or '', re.I):
+                    fails.append('%s: after %s the message under the PASTE box reads %r, expected %r' % (tag, what, m.get('text'), want))
+                return True
+            if not ps.get('box0'):
+                fails.append('%s: there is no PASTE box at the top of the trade list' % tag)
+            under('typed text + Enter in the PASTE box', ps.get('enter'), r'not a link')
+            under('a paste into the PASTE box (no Enter)', ps.get('pasted'), r'not a link')
+            if under('hmFileChartLink(<a TradingView link>)', ps.get('ask'), r'Which trade is this snapshot for'):
+                ab = ps.get('askBtns') or {}
+                if not (ab.get('file') and ab.get('hold') and ab.get('missed') and ab.get('pick')):
+                    fails.append('%s: the paste question lost one of FILE ON / HOLD / SHOULD HAVE TRADED / another trade (%r)' % (tag, ab))
+            if ps.get('writesAsk'):
+                fails.append('%s: the paste box wrote to the database before anyone chose: %s' % (tag, ps['writesAsk']))
+            # HOLD
+            if not ps.get('holdBtn'):
+                fails.append('%s: the paste question has no HOLD button to click' % tag)
+            else:
+                under('HOLD', ps.get('held'), r'^Held\b')
+                if not ps.get('holdLs'):
+                    fails.append('%s: HOLD did not keep the link on this device (el_paste_hold empty)' % tag)
+                under('dismissing the HOLD note', ps.get('heldLine'), r'held for your next stock trade')
+                dr = ps.get('dropped') or {}
+                if not ps.get('dropBtn') or dr.get('msg') or dr.get('ls'):
+                    fails.append('%s: the held link line has no working "drop it" (button=%s, message after=%s, link still kept=%s)'
+                                 % (tag, ps.get('dropBtn'), dr.get('msg'), dr.get('ls')))
+                if ps.get('writesHold'):
+                    fails.append('%s: HOLD wrote to the database: %s' % (tag, ps['writesHold']))
+            # FILE ON, then UNDO
+            tgt = ps.get('target')
+            if not ps.get('fileBtn') or not tgt:
+                fails.append('%s: the paste question has no FILE ON button (button=%s, trade=%r)' % (tag, ps.get('fileBtn'), tgt))
+            else:
+                if not [x for x in ps.get('fileData') or [] if x.get('id') == tgt and (x.get('d') or {}).get('chartUrl') == PASTE_URL]:
+                    fails.append('%s: FILE ON did not save the link on %s (writes: %r)' % (tag, tgt, ps.get('fileData')))
+                if under('FILE ON', ps.get('filed'), r'filed on') and not ps.get('undoBtn'):
+                    fails.append('%s: the note after FILE ON has no UNDO under the PASTE box' % tag)
+                if not [x for x in ps.get('undoData') or [] if x.get('id') == tgt and (x.get('d') or {}).get('chartUrl') == '']:
+                    fails.append('%s: UNDO did not take the link off %s again (writes: %r)' % (tag, tgt, ps.get('undoData')))
+                under('UNDO', ps.get('undone'), r'Removed the link')
+            # SHOULD HAVE TRADED
+            if not ps.get('missedBtn'):
+                fails.append('%s: the paste question has no SHOULD HAVE TRADED button' % tag)
+            elif not ps.get('form') or ps.get('url') != PASTE_URL:
+                fails.append('%s: the paste note SHOULD HAVE TRADED button did not open the form with the '
+                             'link filled in (form=%s url=%r)' % (tag, ps.get('form'), ps.get('url')))
+            if ps.get('writes'):
+                fails.append('%s: SHOULD HAVE TRADED from the paste box wrote to the database: %s' % (tag, ps['writes']))
         # LEDGER step 8: the shared frame's chips, search, view toggle, BY DAY and SIMPLE | FULL
         T = data_obj['trades']
         fs = st.get('frame') or {}
@@ -3172,8 +3377,9 @@ def _judge(data, data_obj):
             elif (fs.get('fullCols') or 0) <= (fs.get('simpleCols') or 0):
                 fails.append('%s: FULL shows %s columns, SIMPLE %s - FULL must show more'
                              % (tag, fs.get('fullCols'), fs.get('simpleCols')))
-            if not fs.get('pasteFold') or not fs.get('paste'):
-                fails.append('%s: the PASTE box is gone (fold=%s box=%s)' % (tag, fs.get('pasteFold'), fs.get('paste')))
+            if not fs.get('paste') or fs.get('pasteFold'):
+                fails.append('%s: the PASTE box is not on show in the list without a click (box shown=%s, a PASTE fold header in the page=%s)'
+                             % (tag, fs.get('paste'), fs.get('pasteFold')))
             bt = fs.get('buttons') or {}
             if not (bt.get('add') and bt.get('scan') and bt.get('all') and bt.get('nt')):
                 fails.append('%s: the toolbar lost one of NEW TRADE / ADD DEPOSIT / SCAN DUPLICATES / OPEN ALL (%r)' % (tag, bt))
