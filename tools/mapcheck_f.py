@@ -145,7 +145,10 @@ def main(names=None):
         a = read(SW, V, p, M, [SEED0, k, 0], M12.BAR_WF_ROC, M12.BAR_WF_SORT)
         b = read(LW, VL, p, M, [SEED0, k, 1], *bar_s1)
         closes = a["own_med"] < 8 and a["own_p15"] < 0.10 and a["rho_med"] > -0.15
-        if p["n"] < 50:
+        if "calibration" in p["name"]:
+            verdict = (f"CALIBRATION row, not a candidate: tool's median book ROC {a['book_roc_med']:.1f} vs the measured 98.6 "
+                       "(the tool reads a with-book leg conservatively)")
+        elif p["n"] < 50:
             verdict = "GREYED - cannot be a seat on its own (< 50 trades a year)"
         elif closes:
             verdict = "CLOSE at draft (own-ROC rule)"
