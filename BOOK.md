@@ -1264,6 +1264,22 @@ leg here is the roll-corrected paper leg, valued daily.
 - **The tally is a floor.** The WF book reads made since LOOKS r1 closed on 10-05 were never added to the 71. They include RESMOM and the
   S1 line, the basket seats (Q20-Q27), Q29, Q31, Q34, Q36 / Q37, TTM round 23, and ORB rounds 64 / 65 on #234. FRONTIER sweeps the ledger
   for them before the luck-bar rule is frozen (MANAGER #142 (c)).
+- **SWEEP DONE (10-10, MANAGER GO):** every WF book read since 10-05, from RESEARCH_LEDGER and BOOK on main.
+  - File: `C:\EdgeLog\_anatomy_cache\bookq\looks_wf_since1005.csv` (one row per candidate book, with lane, type, WF ROC and reference).
+  - **Found:** 65 rows from 10-05 to 10-10, which are 59 distinct candidate books plus 6 re-reads.
+    - 40 of the 59 are "dead leg, the book number is a report": the leg failed Stage A, so the book-add gates nothing.
+    - 19 are judged reads or seat reads.
+  - **GAMMA counts as three looks:** ARM C, plus the book-add reports of arms A (63.87) and B (95.52), which appear only in its Stage A log.
+  - **Never counted before:** two 10-04 WF reads that LOOKS r1's ledger missed. TTM round 23's 1.5x on #234 / #335 read 90.22. ORB round
+    65's re-sized #234 read 84.4.
+  - **The raw count is 71 + 59 = 130 book looks** (about 132 with the 10-04 extras). It is 90 if the 40 report-only rows are dropped. This
+    replaces the 72 above.
+  - **What it does to #463 under the consistent pairing:** WF DSR is 1.000 at N = 130. The expected best of 130 no-edge looks is 0.46 a
+    year, against #463's 1.84. The inconsistent 2-cluster pairing would read 0.45, which is the artefact TV flagged.
+  - **Three rows are marked DOUBT** in the file:
+    - NOISE's full fixed package, which may duplicate r1's L064 / L067 / L076;
+    - the Q20 RES size sweep;
+    - ORB new-types' book-add, which was never printed.
 
 ### 10av. Q37 DIP #424 UNDER THE WEBULL EXECUTOR ON QQQ: it keeps DIP's edge, and the sizing is fixed 1.245x, not KEEL (2026-10-09, a report)
 
