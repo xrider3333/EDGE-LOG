@@ -20,6 +20,11 @@ read under the frozen 10aq bands, stays on the record (RECORDED_TRIPS, printed i
   A2 DRAWDOWN   the forward running drawdown deeper than the 2.5% depth of a three-year path of the backtested leg
 A trip is "worse than the backtested leg does 2.5% of the time" - harm shown, not decay proven. ORB / TTM also carry a big-day WATCH line
 (days above their WF 99th percentile, ~3 a year expected) - shown, never an alarm. Order: ORB, TTM, NOISE, ENGU-Q, #463.
+WEBULL LEGS (BOOK.md 10ax, MANAGER #146 / #147): the Webull paper book's ORB_R6, NOISE_382 and DIP_424F, read from the newest copy of the
+box ledgers that the pull job (tools/pull_box_ledgers.py) left in the box_backup folder - nothing here connects to the box. Bands PER SHARE
+(bookq/q38_webull_bands.py + addendum 1) on QQQ 2022-07-01..2025-06-29 at $0.02 a share a round trip, printed at each leg's unit; A1 is
+checked every 5 RTH sessions; each trade is booked on its exit day. NOISE_382 is read at its plugin size (KEEL x1.0), with KEEL's extra printed
+as a scale term. A failed Webull read is named in the post and never stops the #463 read.
 
     python tools/harm_monitor.py               # compute and print the Monday post
     python tools/harm_monitor.py --post        # ... and post it to MANAGER's inbox (tools/chat_inbox.py)
@@ -52,12 +57,31 @@ BANDS = {
     "#463": {"mu": 726.4738, "sd": 5564.1697, "c": 2.2031, "dd_alarm": 74023.59, "big": None, "big_per_year": None},
 }
 LEG_NAME = {"ORB": "ORB", "ENGUQ": "ENGU-Q", "TTMSQZ": "TTM x3", "NOISE": "NOISE"}
+# ---- the Webull legs (above). Bands frozen from bookq/q38_webull_bands.py run 2 (addendum 1), per SESSION at each leg's unit of shares:
+# ORB 10 sh, NOISE 10 sh x its plugin size (KEEL x1.0), DIP 6 sh a lot. DIP's c is large because up to 7 lots book on one exit day (worst day
+# 14 sd): its weekly z-line is weak (12% power at 36 months) - stated in the post, never hidden.
+WEBULL_ORDER = ("ORB_R6", "NOISE_382", "DIP_424F")
+WEBULL_UNIT = {"ORB_R6": 10, "NOISE_382": 10, "DIP_424F": 6}
+WEBULL_UNIT_WORDS = {"ORB_R6": "10 sh", "NOISE_382": "10 sh x plugin size", "DIP_424F": "6 sh a lot"}
+WEBULL_EXEC_LEG = {"ORB_R6": "ORB", "NOISE_382": "NOISE", "DIP_424F": "DIP"}     # trades.csv leg column, for a row with no trade_id
+WEBULL_START = {"ORB_R6": "2026-09-09", "NOISE_382": "2026-09-24", "DIP_424F": None}   # None = the leg's first trade
+WEBULL_WEEK_ROWS = 5
+WEBULL_BANDS = {
+    "ORB_R6": {"mu": 2.5041, "sd": 28.0281, "c": 2.3369, "dd_alarm": 560.12, "big": 90.99, "big_per_year": 2.671},
+    "NOISE_382": {"mu": 3.6116, "sd": 30.5142, "c": 2.2758, "dd_alarm": 506.11, "big": None, "big_per_year": None},
+    "DIP_424F": {"mu": 6.2116, "sd": 74.9273, "c": 6.4955, "dd_alarm": 5865.28, "big": None, "big_per_year": None},
+}
+WEBULL_POWER = "power if the edge is gone, by 36 months: ORB_R6 88%, NOISE_382 96%, DIP_424F 12% (its A1 is weak)"
+NYSE_CLOSED = {"2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26",
+               "2026-12-25", "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06",
+               "2027-11-25", "2027-12-24"}                         # NYSE full closes 2026-27 (the Webull legs' session calendar)
 fmt = "{:,.0f}".format
 
 
 # ------------------------------------------------------------------ the read (pure)
-def evaluate(x, band, days_per_year=292.0):
-    """x = the forward daily $ (book rows, in order), band = one BANDS entry -> the leg's read"""
+def evaluate(x, band, days_per_year=292.0, week_rows=None):
+    """x = the forward daily $ (book rows, in order), band = one BANDS entry -> the leg's read. week_rows = the A1 check spacing (WEEK_ROWS for
+    #463's book rows, WEBULL_WEEK_ROWS for the Webull legs' RTH sessions)"""
     x = np.asarray(x, float)
     n = len(x)
     out = {"days": n, "net": float(x.sum())}
@@ -65,7 +89,8 @@ def evaluate(x, band, days_per_year=292.0):
         out.update({"a1": False, "a2": False, "a1_z": None, "dd": 0.0, "a1_text": "no forward days yet", "a2_text": "no forward days yet"})
         return out
     s = np.cumsum(x - band["mu"])
-    chk = np.arange(WEEK_ROWS, n + 1, WEEK_ROWS)        # the alarm looks only at every 6th row from the start, as calibrated (q33 `checks`)
+    w = week_rows or WEEK_ROWS
+    chk = np.arange(w, n + 1, w)                        # the alarm looks only at every w-th row from the start, as calibrated (q33 `checks`)
     z = s[chk - 1] / (band["sd"] * np.sqrt(chk))
     q = np.cumsum(x)
     dd = np.maximum.accumulate(np.concatenate([[0.0], q]))[1:] - q
@@ -112,10 +137,13 @@ def find_holes(have, ref):
     return [r for r in runs if len(r) >= 2], [r[0] for r in runs if len(r) == 1]
 
 
-def format_post(reads, asof, meta=None):
-    """the Monday post: trips first, then paused legs and data notes, then each leg's distance to A1 / A2 in plain words"""
+def format_post(reads, asof, meta=None, webull=None):
+    """the Monday post: trips first, then paused legs and data notes, then each leg's distance to A1 / A2 in plain words, then the Webull
+    legs block (webull = (reads, meta) from read_webull / webull_forward, or None)"""
     meta = meta or {}
+    wreads, wmeta = webull if webull else ({}, {})
     trips = [(nm, r) for nm, r in reads.items() if r.get("a1") or r.get("a2")]
+    trips += [("Webull " + nm, r) for nm, r in wreads.items() if r.get("a1") or r.get("a2")]
     head = "FRONTIER HARM MONITOR %s (%s; engine shadow" % (asof, SPEC)
     if meta.get("end") is not None:
         head += ", data through %s" % pd.Timestamp(meta["end"]).date()
@@ -141,6 +169,8 @@ def format_post(reads, asof, meta=None):
         if r.get("watch_text"):
             txt += " " + r["watch_text"].capitalize() + "."
         lines.append(txt)
+    if webull:
+        lines += webull_lines(wreads, wmeta)
     for rec in RECORDED_TRIPS:
         lines.append("- On record: " + rec + ".")
     lines.append("- Power reminder (10aq): a leg that starts losing is caught within about a year; a halved edge is invisible within 36 months; "
@@ -157,6 +187,124 @@ def read_all(fw, meta):
             continue
         r = evaluate(fw[nm].to_numpy(float), BANDS[nm])
         r["start"] = str(pd.Timestamp(meta.get("starts", {}).get(nm, FORWARD_START)).date())
+        reads[nm] = r
+    return reads
+
+
+def webull_lines(wreads, wmeta):
+    """the Webull legs block (trips are already at the top of the post)"""
+    if wmeta.get("error"):
+        return ["- Webull legs not read: %s." % wmeta["error"]]
+    out = ["- Webull legs (per share at each leg's unit; pull-job folder %s, data through %s; %s):"
+           % (wmeta.get("folder", "?"), wmeta.get("end", "?"), WEBULL_POWER)]
+    for note in wmeta.get("notes", []):
+        out.append("- Webull data note: " + note)
+    for nm in WEBULL_ORDER:
+        r = wreads.get(nm)
+        if r is None:
+            continue
+        if r.get("no_trades"):
+            out.append("- Webull %s at %s: no trades yet." % (nm, WEBULL_UNIT_WORDS[nm]))
+            continue
+        if r.get("a1") or r.get("a2"):
+            continue
+        txt = ("- Webull %s at %s (%d sessions from %s, %d trades, net $%s): A1 %s. A2 %s."
+               % (nm, WEBULL_UNIT_WORDS[nm], r["days"], r.get("start", "?"), r.get("trades", 0), fmt(r["net"]), r["a1_text"], r["a2_text"]))
+        if r.get("watch_text"):
+            txt += " " + r["watch_text"].capitalize() + "."
+        if r.get("keel_scale") is not None:
+            txt += " KEEL scale term %.2f (the $ as sent / the $ at plugin size)." % r["keel_scale"]
+        out.append(txt)
+    return out
+
+
+def webull_sessions(d0, d1):
+    return pd.DatetimeIndex([d for d in pd.bdate_range(d0, d1) if str(d.date()) not in NYSE_CLOSED])
+
+
+def webull_folder(run_day, root=None):
+    """the newest pull-job folder (<root>/<YYYY-MM-DD_HHMM>/ with qqq_exec/trades.csv) dated on or before the run day -> (path, stamp) or None"""
+    import glob
+    root = root or os.environ.get("EDGELOG_BOX_BACKUP", r"C:\EdgeLog\box_backup")
+    best = None
+    for p in sorted(glob.glob(os.path.join(root, "20??-??-??_????"))):
+        try:
+            stamp = pd.to_datetime(os.path.basename(p), format="%Y-%m-%d_%H%M")
+        except ValueError:
+            continue
+        if stamp.normalize() <= run_day and os.path.exists(os.path.join(p, "qqq_exec", "trades.csv")):
+            best = (p, stamp)
+    return best
+
+
+def webull_forward(asof, root=None):
+    """the Webull legs' forward unit $ from the newest pull-job folder (read-only) -> ({leg: daily Series on NYSE sessions}, meta)"""
+    run_day = pd.Timestamp(asof).normalize()
+    f = webull_folder(run_day, root)
+    if f is None:
+        return {}, {"error": "no pull-job folder on or before %s in the box backup" % run_day.date()}
+    path, stamp = f
+    last = stamp.normalize() if (stamp.hour, stamp.minute) >= (14, 30) else stamp.normalize() - pd.Timedelta(days=1)   # 14:30 MST = 16:30 ET
+    last = min(last, run_day - pd.Timedelta(days=1))
+    T = pd.read_csv(os.path.join(path, "qqq_exec", "trades.csv"))
+    sp = os.path.join(path, "cloud_signal", "signals.csv")
+    S = pd.read_csv(sp) if os.path.exists(sp) else pd.DataFrame(columns=["leg", "event", "trade_id", "keel_size", "ref_time"])
+    T["day"] = pd.to_datetime(T["exit_ts"]).dt.normalize()
+    pre = T["trade_id"].fillna("").astype(str).str.split("-").str[0]
+    meta = {"folder": os.path.basename(path), "starts": {}, "trades": {}, "keel_scale": {}, "notes": []}
+    age = int(np.busday_count(stamp.date(), run_day.date()))
+    if age > 2:
+        meta["notes"].append("the newest pull-job folder is %s, %d weekdays before the run day - the box ledger read is stale" % (meta["folder"], age))
+    cal_all = webull_sessions("2026-01-01", last)
+    end = cal_all[-1] if len(cal_all) else last
+    meta["end"] = str(end.date())
+    eng_k = S[(S["event"] == "ENTRY") & S["trade_id"].notna()].drop_duplicates("trade_id", keep="last").set_index("trade_id")["keel_size"]
+    out = {}
+    for nm in WEBULL_ORDER:
+        m = pre.eq(nm)
+        start = WEBULL_START[nm] or (str(T.loc[m, "day"].min().date()) if m.any() else None)
+        if start is None:
+            continue
+        loose = pre.eq("") & T["leg"].eq(WEBULL_EXEC_LEG[nm]) & (T["day"] >= start)
+        x = T[(m | loose) & (T["day"] >= start) & (T["day"] <= end)].copy()
+        if nm == "NOISE_382":                                      # the size column is the SENT size (plugin x KEEL): plugin = size / keel
+            k = x["keel_size"].where(x["keel_size"].notna(), x["trade_id"].map(eng_k))
+            if k.isna().any():
+                meta["notes"].append("%d %s row(s) carry no KEEL size anywhere - read at KEEL 1.0" % (int(k.isna().sum()), nm))
+            size = x["size"].fillna(1.0) / k.fillna(1.0)
+        else:
+            size = 1.0
+        x["unit"] = x["pnl"] / x["shares"] * WEBULL_UNIT[nm] * size
+        cal = webull_sessions(start, end)
+        out[nm] = x.groupby("day")["unit"].sum().reindex(cal).fillna(0.0)
+        meta["starts"][nm], meta["trades"][nm] = start, int(len(x))
+        if int(loose[x.index].sum()):
+            meta["notes"].append("%d %s trade(s) have no trade id (assigned by leg and date)" % (int(loose[x.index].sum()), nm))
+        off = sorted(set(x["day"]) - set(cal))
+        if off:
+            meta["notes"].append("%s has trades on %s, off the NYSE calendar - look first" % (nm, ", ".join(str(d.date()) for d in off)))
+        ex = S[(S["leg"] == nm) & (S["event"] == "EXIT")]
+        if len(ex):
+            ed = pd.to_datetime(ex["ref_time"], utc=True).dt.tz_convert("America/New_York").dt.tz_localize(None).dt.normalize()
+            n_eng = int(((ed >= start) & (ed <= end)).sum())
+            if n_eng != len(x):
+                meta["notes"].append("%s: %d engine exits vs %d executor trades - reconcile before trusting the read" % (nm, n_eng, len(x)))
+        if nm == "NOISE_382" and len(x) and abs(float(x["unit"].sum())) > 1e-9:
+            meta["keel_scale"][nm] = float(x["pnl"].sum() / x["unit"].sum())
+    return out, meta
+
+
+def read_webull(fw, meta):
+    """{leg: forward Series} + meta -> {leg: read}, A1 checked every WEBULL_WEEK_ROWS sessions"""
+    reads = {}
+    for nm in WEBULL_ORDER:
+        if nm not in fw:
+            reads[nm] = {"no_trades": True}
+            continue
+        r = evaluate(fw[nm].to_numpy(float), WEBULL_BANDS[nm], days_per_year=252.0, week_rows=WEBULL_WEEK_ROWS)
+        r["start"], r["trades"] = meta.get("starts", {}).get(nm, "?"), meta.get("trades", {}).get(nm, 0)
+        if nm in meta.get("keel_scale", {}):
+            r["keel_scale"] = meta["keel_scale"][nm]
         reads[nm] = r
     return reads
 
@@ -222,7 +370,12 @@ def main(argv=None):
     try:
         fw, meta = forward_daily(a.asof)
         reads = read_all(fw, meta)
-        txt = format_post(reads, a.asof, meta)
+        try:                                                        # the Webull read never stops the #463 read
+            wf, wmeta = webull_forward(a.asof)
+            webull = (read_webull(wf, wmeta), wmeta)
+        except Exception as e:
+            webull = ({}, {"error": "%s: %s" % (type(e).__name__, e)})
+        txt = format_post(reads, a.asof, meta, webull)
     except Exception as e:                                          # a silent failure is the worst outcome for a monitor: say so
         if a.post:
             _post("FRONTIER HARM MONITOR %s FAILED (%s: %s) - no read this week; FRONTIER to look." % (a.asof, type(e).__name__, e))

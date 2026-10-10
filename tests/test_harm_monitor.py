@@ -106,3 +106,98 @@ def test_post_lists_trips_first_then_every_leg():
     assert [l.split(" ")[1] for l in lines[2:6]] == ["ORB", "TTM", "ENGU-Q", "#463"]
     assert "read-only" in lines[0] and "never 'fine'" in lines[-1]
     assert lines[-2].startswith("- On record: NOISE A1 at the 07-17 check")
+
+
+# ------------------------------------------------------------------ the Webull legs (BOOK.md 10ax)
+def test_webull_bands_frozen_and_complete():
+    assert set(HM.WEBULL_ORDER) == set(HM.WEBULL_BANDS) == set(HM.WEBULL_UNIT) == set(HM.WEBULL_START)
+    for nm, b in HM.WEBULL_BANDS.items():
+        assert b["mu"] > 0 and b["sd"] > 0 and b["c"] > 2.0 and b["dd_alarm"] > 0, nm
+    assert HM.WEBULL_BANDS["ORB_R6"]["big"] and HM.WEBULL_BANDS["NOISE_382"]["big"] is None
+    assert HM.WEBULL_WEEK_ROWS == 5
+
+
+def test_webull_planted_trips_and_quiet_paths():
+    b = HM.WEBULL_BANDS["NOISE_382"]
+    r = HM.evaluate(np.full(300, -1.0), b, 252.0, HM.WEBULL_WEEK_ROWS)          # quietly losing $1 a session: $300 deep (under A2), far behind
+    assert r["a1"] and not r["a2"]
+    o = HM.WEBULL_BANDS["ORB_R6"]
+    r = HM.evaluate(np.r_[np.full(30, o["mu"]), np.full(10, -70.0), np.full(30, o["mu"])], o, 252.0, HM.WEBULL_WEEK_ROWS)
+    assert r["a2"] and r["dd_max"] == 700.0
+    rng = np.random.default_rng(20261010)
+    for nm, b in HM.WEBULL_BANDS.items():
+        assert not any(HM.evaluate(np.full(250, b["mu"]), b, 252.0, 5)[k] for k in ("a1", "a2")), nm
+        x = rng.normal(b["mu"], b["sd"], 252)                  # a backtest-like year (the band's own mean / sd); fixed seed, checked not to trip
+        r = HM.evaluate(x, b, 252.0, 5)
+        assert not r["a1"] and not r["a2"], (nm, r["a1_worst_z"], r["dd_max"])
+
+
+def test_week_rows_sets_the_check_spacing():
+    b = {"mu": 0.0, "sd": 1.0, "c": 2.0, "dd_alarm": 1e9}
+    x = np.r_[np.full(5, -1.0), np.full(1, 3.0)]               # z at row 5 = -5/sqrt(5) = -2.24 (trips); at row 6 = -2/sqrt(6) = -0.82
+    assert HM.evaluate(x, b, week_rows=5)["a1"] and not HM.evaluate(x, b)["a1"]
+    assert HM.evaluate(x, b, week_rows=5)["a1_first_trip_row"] == 5
+
+
+def _box_folder(root, name, trades, signals):
+    import pandas as pd
+    os.makedirs(os.path.join(root, name, "qqq_exec"))
+    os.makedirs(os.path.join(root, name, "cloud_signal"))
+    pd.DataFrame(trades).to_csv(os.path.join(root, name, "qqq_exec", "trades.csv"), index=False)
+    pd.DataFrame(signals).to_csv(os.path.join(root, name, "cloud_signal", "signals.csv"), index=False)
+
+
+def test_webull_forward_reads_the_newest_folder_at_plugin_size(tmp_path):
+    root = str(tmp_path)
+    T = lambda leg, tid, ex, sh, pnl, size=1.0, keel=1.0: {"leg": leg, "trade_id": tid, "exit_ts": ex, "shares": sh, "pnl": pnl, "size": size,
+                                                          "keel_size": keel}
+    trades = [T("NOISE", "NOISE_304-x", "2026-09-22 15:59:00", 10, 50.0),                   # another config, before NOISE_382's start
+              T("NOISE", "NOISE_382-a", "2026-09-25 10:30:00", 15, -30.0, 1.5, None),      # sent at KEEL 1.5; keel only on the engine row
+              T("NOISE", "NOISE_382-b", "2026-09-28 11:00:00", 20, 40.0, 2.0, 1.0),        # plugin size 2
+              T("ORB", "ORB_R6-a", "2026-09-10 15:59:00", 10, 12.0),
+              T("ORB", None, "2026-09-11 15:59:00", 5, -6.0)]                               # no trade id: by leg + date, at 10 sh
+    sig = [{"leg": "NOISE_382", "event": "ENTRY", "trade_id": "NOISE_382-a", "keel_size": 1.5, "ref_time": "2026-09-25T09:40:00-04:00"},
+           {"leg": "NOISE_382", "event": "EXIT", "trade_id": "NOISE_382-a", "keel_size": None, "ref_time": "2026-09-25T10:30:00-04:00"},
+           {"leg": "NOISE_382", "event": "EXIT", "trade_id": "NOISE_382-b", "keel_size": None, "ref_time": "2026-09-28T11:00:00-04:00"}]
+    _box_folder(root, "2026-09-30_1445", trades, sig)
+    _box_folder(root, "2026-10-20_1445", [T("ORB", "ORB_R6-z", "2026-10-19 15:59:00", 10, 999.0)], sig)   # after the run day: ignored
+    fw, meta = HM.webull_forward("2026-10-05", root)
+    assert meta["folder"] == "2026-09-30_1445" and meta["end"] == "2026-09-30"
+    n = fw["NOISE_382"]
+    assert n.index[0].strftime("%Y-%m-%d") == "2026-09-24" and len(n) == 5                  # 09-24, 25, 28, 29, 30
+    assert abs(n.sum() - (-30.0 / 15 * 10 * 1.0 + 40.0 / 20 * 10 * 2.0)) < 1e-9            # -20 at plugin size 1, +40 at plugin size 2
+    assert abs(meta["keel_scale"]["NOISE_382"] - (10.0 / 20.0)) < 1e-9                       # sent $10 / plugin-size $20
+    assert abs(fw["ORB_R6"].sum() - (12.0 - 12.0)) < 1e-9 and meta["trades"]["ORB_R6"] == 2
+    assert "DIP_424F" not in fw
+    assert any("1 ORB_R6 trade(s) have no trade id" in t for t in meta["notes"])
+    assert any("the box ledger read is stale" in t for t in meta["notes"])                   # 09-30 folder, 10-05 run day
+    reads = HM.read_webull(fw, meta)
+    assert reads["DIP_424F"]["no_trades"] and reads["NOISE_382"]["keel_scale"] == meta["keel_scale"]["NOISE_382"]
+
+
+def test_webull_missing_folder_is_an_error_not_a_crash(tmp_path):
+    fw, meta = HM.webull_forward("2026-10-05", str(tmp_path))
+    assert fw == {} and "no pull-job folder" in meta["error"]
+
+
+def test_post_carries_the_webull_block_before_the_record():
+    b = HM.BANDS
+    reads = {nm: HM.evaluate(np.full(60, b[nm]["mu"]), b[nm]) for nm in HM.ORDER}
+    wb = HM.WEBULL_BANDS
+    wreads = {"ORB_R6": HM.evaluate(np.full(20, wb["ORB_R6"]["mu"]), wb["ORB_R6"], 252.0, 5),
+              "NOISE_382": HM.evaluate(np.full(300, -1.0), wb["NOISE_382"], 252.0, 5),
+              "DIP_424F": {"no_trades": True}}
+    for nm in ("ORB_R6", "NOISE_382"):
+        wreads[nm].update({"start": "2026-09-09", "trades": 3})
+    wreads["ORB_R6"]["keel_scale"] = None
+    wmeta = {"folder": "2026-10-10_1445", "end": "2026-10-09", "notes": ["1 ORB_R6 trade(s) have no trade id (assigned by leg and date)"]}
+    lines = HM.format_post(reads, "2026-10-12", None, (wreads, wmeta)).splitlines()
+    assert lines[1].startswith("- TRIP: Webull NOISE_382")
+    i = next(k for k, l in enumerate(lines) if l.startswith("- Webull legs ("))
+    assert lines[i - 1].startswith("- #463 (") and "2026-10-10_1445" in lines[i]
+    assert lines[i + 1].startswith("- Webull data note:") and lines[i + 2].startswith("- Webull ORB_R6 at 10 sh")
+    assert lines[i + 3] == "- Webull DIP_424F at 6 sh a lot: no trades yet."
+    assert not any(l.startswith("- Webull NOISE_382 at") for l in lines)                       # a tripped leg is listed once, at the top
+    assert lines[-2].startswith("- On record: NOISE A1 at the 07-17 check")
+    err = HM.format_post(reads, "2026-10-12", None, ({}, {"error": "FileNotFoundError: x"})).splitlines()
+    assert "- Webull legs not read: FileNotFoundError: x." in err and err[1] == "- No alarm tripped."
