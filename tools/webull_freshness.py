@@ -64,8 +64,10 @@ from api/market_calendar):
                      an older engine, this monitor pages bar_age itself, as before.
     bar_source       a live bar cache came from yfinance on 2 runs in a row (the engine
                      fetches every 20-60 s, so that is 3+ fetches) -- #15. The 5m, plus every
-                     other timeframe the engine stamped in the last BAR_SOURCE_FRESH_SEC (1m
-                     while ENGU-Q is live, again since 2026-10-09). QUIET (not
+                     other timeframe the engine stamped in the last BAR_SOURCE_FRESH_SEC (none
+                     today: ENGU-Q's 1m is fetched by the shadow run since it became a no-order
+                     tracker again, 2026-10-09 ~20:20 MST, and the shadow run never stamps the
+                     live state -- its old 1m entry ages out of the window). QUIET (not
                      pushed) while a fresh engine heartbeat carries yf_fallback_streak: the
                      engine pages it ("QQQ book: backup prices") after 3 fetches in a row.
     tick_gap         tick loop silent over 30 s now, or the day's max gap rose past 30 s -- #3.
@@ -178,7 +180,9 @@ is OFF); until then the same gate runs and only logs "would restart"
 
 HOLD OVERNIGHT (OWNER GO 2026-10-09, MANAGER #106). ENGU-Q (executor leg ENGUQ) is no longer sold
 at the executor's flat_by: its lot is carried in state.json past the close and exits on the
-engine's signal in a later session. A HELD lot is an open state.json lot that carries the
+engine's signal in a later session. (ENGU-Q is a no-order shadow tracker since the OWNER DECISION of
+2026-10-09 ~20:20 MST, so no ENGUQ lot is opened and nothing is held today; the checks below stay
+for DIP #424, which is to be the held live leg later.) A HELD lot is an open state.json lot that carries the
 executor's hold marker ("hold" / held_overnight) or whose leg is in the executor's hold list --
 its config's session.hold_overnight_legs (a list of leg names), else HOLD_OVERNIGHT_LEGS below
 (the same code default as api/qqq_exec.py, a test pins it), engine mode only. Such a lot is "flat
@@ -1235,8 +1239,9 @@ def check_session(snap, now_et, mstate, ev):
                          affects="the QQQ book cannot enter or exit trades"),
             quiet=engine_paged))
     source = src.get("source")
-    # every live timeframe (2026-10-09, ENGU-Q live again on 1m bars): the 5m as before, plus
-    # any other timeframe the engine stamped within BAR_SOURCE_FRESH_SEC
+    # every live timeframe (2026-10-09, for ENGU-Q's 1m while it was meant to be live -- none
+    # today): the 5m as before, plus any other timeframe the engine stamped within
+    # BAR_SOURCE_FRESH_SEC
     sources = {"5m": source} if source else {}
     for tf_, ent in sorted(((cs.get("bar_source") or {}) if cs else {}).items()):
         if tf_ == "5m" or not isinstance(ent, dict) or not ent.get("source"):

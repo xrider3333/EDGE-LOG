@@ -1,6 +1,11 @@
-"""ENGU-Q BACK ON THE LIVE BOOK (OWNER DECISION 2026-10-09, via MANAGER #102) -- the executor
-half: ENGU-Q's engine rows (ENGUQ_335 -> exec leg "ENGUQ") share the ONE Webull QQQ account
-with NOISE and ORB again, so every one of its orders is NETTED (api/webull_orders.py
+"""ONE-ACCOUNT NETTING with a third live leg -- the executor half. Written for ENGU-Q's return to
+the live book (OWNER DECISION 2026-10-09, MANAGER #102); ENGU-Q became a no-order TRACKER again
+that evening (OWNER DECISION ~20:20 MST, MANAGER #113: api/cloud_signal.py writes no live
+ENGUQ_335 row), so these tests keep the MECHANISM covered with a TEST-LOCAL third leg: engine rows
+under the key ENGUQ_335, which api/qqq_exec.ENGINE_LEG_MAP keeps (-> exec leg "ENGUQ") so an old
+row still resolves, routed straight into the executor -- they never depend on cloud_signal shipping
+the leg live. The same netting serves the next live leg (DIP #424 later). Every order of a third
+leg sharing the ONE Webull QQQ account with NOISE and ORB is NETTED (api/webull_orders.py
 _plan_broker_parts, from the ACCOUNT net = the sum of every leg's broker_sent_positions):
   SELL direction: SELL if the account is long >= q, SHORT if flat/short, else SELL the long
                   and SHORT the rest;
@@ -11,9 +16,10 @@ api/qqq_exec._route_engine_events (the engine-mode consumer), a close of every o
 through _close_all, a real api.webull_orders.OrderAdapter in PAPER, and a fake Webull account
 (FakeAccount below) that holds ONE QQQ position and enforces Webull's rules.
 
-HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): the 15:59 flat_by flatten no longer closes
-ENGU-Q -- it holds overnight and sells on its own exit (tests/test_qqq_exec_hold_overnight.py,
-incl. the flatten never crossing a closing leg against the held lot). Cases 1, 3 and 4 below call
+HOLD OVERNIGHT (owner GO 2026-10-09, MANAGER #106): the 15:59 flat_by flatten does not close a
+leg in the hold list (the code default is still ENGUQ) -- it holds overnight and sells on its own
+exit (tests/test_qqq_exec_hold_overnight.py, incl. the flatten never crossing a closing leg
+against the held lot). Cases 1, 3 and 4 below call
 _close_all over EVERY open lot (reason "EOD", at 15:59): what the flatten does with the hold
 turned off (session.hold_overnight_legs []), and what KILL and the daily loss BREAKER still do
 to ENGU-Q inside regular hours -- the netting is the same.
@@ -51,7 +57,7 @@ from api import trade_id as T
 from api import webull_orders as WO
 
 NOOP = lambda *a, **k: None  # noqa: E731
-DAY = "2026-10-09"           # the day ENGU-Q went live again (a Friday session)
+DAY = "2026-10-09"           # a Friday session (the day ENGU-Q was briefly meant to go live again)
 EOD_PX = 745.10
 
 

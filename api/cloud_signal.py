@@ -33,8 +33,9 @@ files, because both write the very same shared OHLC cache and Windows refuses th
 rename outright while any reader -- including the OTHER writer's own read of the same
 file -- still has it open.
 
-THE CROWN (LIVE) LEGS (as of 2026-10-09; NOISE swapped by OWNER DECISION 2026-09-23,
-ENGU-Q back on the order-placing book by OWNER DECISION 2026-10-09 -- see ENGUQ_335 below):
+THE CROWN (LIVE) LEGS (as of 2026-10-09 evening; NOISE swapped by OWNER DECISION 2026-09-23,
+ENGU-Q a no-order shadow TRACKER by OWNER DECISION 2026-09-28 and again 2026-10-09 ~20:20 MST
+-- see SHADOW LEGS below):
   ORB_R6      run #314, ORB_3_6_R6.py, api.paper.ORB_314, 5m RTH, no gate.
   NOISE_382   run #382, NOISE_1_8_CT304.py, params below, 5m RTH, no gate.
               (repointed 2026-09-24 -- run #382 is the #304 crown's own core, written out
@@ -46,22 +47,6 @@ ENGU-Q back on the order-placing book by OWNER DECISION 2026-10-09 -- see ENGUQ_
               itself, not kept alongside. api/paper.py's OWN "NOISE_304" leg (the
               NinjaTrader PAPER board, api.paper.NOISE_304_NBHD) is a DIFFERENT book and
               is UNCHANGED and unrelated to this one.)
-  ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
-              LIVE AGAIN SINCE 2026-10-09 (OWNER DECISION via MANAGER #102, reversing the
-              2026-09-28 move to the shadow legs). It was taken off the book because every
-              ENGU-Q Webull order had been closed by qqq_exec's 15:59 end-of-day flatten, never
-              by the strategy's own multi-day exit; the owner accepts QQQ's RTH-only tape
-              ("idc if its not getting 24hr data"), and since the same day (owner GO
-              2026-10-09, MANAGER #106) the book HOLDS ENGU-Q OVERNIGHT: qqq_exec's 15:59
-              flat_by flatten sells the other legs but keeps the ENGU-Q lot (qqq_exec
-              HOLD_OVERNIGHT_LEGS), which sells on this leg's own EXIT on a later day -- the
-              exit of an emitted ENTRY fires on any later day, also when first seen after
-              the close (EOD SETTLE). qqq_exec only opens it inside its session window.
-              Same cfg it had live before 2026-09-28 (commit
-              fb0f32f0's parent: phantom_safe, max_entry_age_sec, no eod_flat) plus
-              "live_since" -- it STARTS FLAT (see LIVE SINCE above _apply_live_since: its old
-              live state is discarded and it cold-starts, so no catch-up ENTRY and no EXIT
-              for a trade the book no longer holds). api/qqq_exec.py maps it to "ENGUQ".
 
 SHADOW LEGS (OWNER DECISION 2026-09-28, via MANAGER) -- SHADOW_LEGS below. Same engine,
 same bars, NO orders: they write only to their own store, <home>/cloud_signal/shadow/
@@ -72,6 +57,23 @@ their caps or their state. They exist
 so the Custom ML chat can score would-be trades (docs/PREREG_noise_shadow_forward_
 2026-09-28.md; tools/shadow_legs_report.py reads the ledger). Run by run_shadow_step()
 from cloud_signal_thread, after the live step, on fetch ticks only.
+  ENGUQ_335   run #335, ENGUQ_1M_ETH_R2_1_0.py, api.paper.ENGUQ_335, 1m **ETH**, no gate.
+              A TRACKER -- a no-order shadow leg -- by OWNER DECISION 2026-10-09 ~20:20 MST
+              (MANAGER #113): it does NOT trade on Webull. Its would-be trades, with its own
+              multi-day exits, go to the shadow ledger only. Why: on QQQ bars ENGU-Q keeps 71%
+              of the leg and drags the book, and QQQ cannot trade 24 h (the crown is ETH-fit --
+              see ENGINE LIMITATION below). DIP #424 at a fixed 1.245x is to become the live
+              leg later (a separate build). History: live until 2026-09-28 (every ENGU-Q
+              Webull order was closed by qqq_exec's 15:59 flatten, never by the strategy's own
+              exit), a shadow leg from then on; on 2026-10-09 it was put back on CROWN_LEGS in
+              code (MANAGER #102, with qqq_exec's overnight hold, #106 -- never deployed) and
+              made a tracker again the same evening. Its cfg is the one it had live, unchanged
+              (phantom_safe, max_entry_age_sec, no eod_flat: its would-be trade holds
+              overnight like the backtest), plus "shadow" and with NO "live_since": the shadow
+              store's ENGUQ_335 state (its tracker history, seeded 2026-09-29) simply
+              continues -- no new SEED, no replay (and _apply_live_since never touches a
+              shadow leg). api/qqq_exec.py keeps "ENGUQ_335" in ENGINE_LEG_MAP so an old live
+              row still resolves; no new live ENGU-Q row is ever written.
   NOISE_422_PLAIN   run #422, NOISE_1_8_CT304H.py, NOISE_422_PARAMS, 5m RTH, no KEEL.
   NOISE_422_FIXED   the same + KEEL v12's fixed tilts, no model (research arm A3).
   NOISE_422_KEEL    the same + KEEL v12 learned, its own nightly state (NOISE_422_KEEL_v12_*).
@@ -85,10 +87,6 @@ from cloud_signal_thread, after the live step, on fetch ticks only.
               mechanism -> a per-slot trade id) and decides on the DAILY close, filling at the
               next session's 09:30 open -- its daily series is QQQ_1d.csv history plus the 5m
               cache's own sessions. See that module's docstring.
-  (ENGUQ_335 was the fourth shadow leg from 2026-09-28 to 2026-10-09, when it went back to
-  CROWN_LEGS. Its shadow rows stay in the shadow ledger untouched -- tools/
-  shadow_legs_report.py still lists them, as a leg found in the ledger -- and its record in
-  the shadow state.json is simply no longer stepped.)
 
 ENGINE LIMITATION, READ BEFORE TRUSTING THE ENGUQ_335 LEG. The ENGU-Q family crown
 moved to an ETH (23-hour NQ futures) config on 2026-09-08. yfinance QQQ bars (this
@@ -353,11 +351,6 @@ def keel_mode(keel_cfg):
     return mode
 
 
-# LIVE SINCE for ENGUQ_335 (OWNER DECISION 2026-10-09, via MANAGER #102) -- see LIVE SINCE
-# above _apply_live_since. Changing it re-runs that leg's cold start once, on purpose.
-ENGUQ_LIVE_SINCE = "2026-10-09"
-
-
 def keel_paths(leg_key, version, home=None):
     """Where tools/keel_live_state.py writes -- and this module reads -- a leg's KEEL
     state (joblib, this-host-only, never copied across machines) and its JSON summary
@@ -399,16 +392,31 @@ CROWN_LEGS = {
         # Flat at the session's last bar (NOISE_1_0.py's STEP E) -- see EOD SETTLE.
         "eod_flat": True,
     },
-    # LIVE AGAIN SINCE 2026-10-09 (OWNER DECISION via MANAGER #102) -- see the module
-    # docstring. The cfg it had live before 2026-09-28 (fb0f32f0's parent), key for key,
-    # plus "live_since". No "eod_flat": its strategy holds overnight in the backtest, so its
-    # engine trade may stay open past the close -- and since 2026-10-09 (owner GO, MANAGER
-    # #106) the BOOK holds it too: qqq_exec's flat_by flatten skips ENGUQ
-    # (HOLD_OVERNIGHT_LEGS) and sells it on this leg's own EXIT on a later day.
+    # ENGUQ_335 is a no-order SHADOW leg -- a tracker -- in SHADOW_LEGS below (OWNER DECISION
+    # 2026-10-09 ~20:20 MST, MANAGER #113; a shadow leg 2026-09-28..10-09 as well). It sends
+    # no Webull orders.
+}
+
+# ── Shadow legs (OWNER DECISION 2026-09-28) -- see the module docstring's SHADOW LEGS ────
+# Run by run_shadow_step() on the SAME bars as CROWN_LEGS, into shadow_paths()'s store only.
+# "shadow": True is a second, independent guard beside run_shadow_step's fetch=False: every
+# ntfy push step()/_diff_leg can reach checks it (see _push_allowed), so a shadow leg can
+# never page the owner even if a future caller ran it with fetch=True. Keys must not collide
+# with CROWN_LEGS (tests/test_shadow_legs.py) -- a trade id carries the leg key. ORDER MATTERS:
+# api/qqq_exec.py's shadow_trades block and the board list the legs in this order, so a new leg
+# is APPENDED (the DIP #424 pair last, 2026-10-09) -- ENGUQ_335 is FIRST (MANAGER #113).
+SHADOW_LEGS = {
+    # ENGU-Q #335, a TRACKER (OWNER DECISION 2026-10-09 ~20:20 MST, MANAGER #113) -- see the
+    # module docstring. The cfg it had live, unchanged, plus "shadow". No "eod_flat": its
+    # would-be trade holds overnight like the backtest, so its last-bar exit stays an open
+    # trade here. NO "live_since": the box's shadow state for this key (seeded 2026-09-29,
+    # seed_open_format 1, the 09-28 carry closed) simply continues -- see LIVE SINCE above
+    # _apply_live_since, which never touches a shadow leg anyway.
     "ENGUQ_335": {
         "strategy": "ENGUQ_1M_ETH_R2_1_0.py",
         "timeframe": "1m",
-        # phantom_safe=True (2026-09-26, WEBULL_GO_LIVE.md 3.7): ONLY this leg opts in.
+        # phantom_safe=True (2026-09-26, WEBULL_GO_LIVE.md 3.7): ONLY this leg opts in (live until
+        # 2026-09-28, a shadow leg since -- a tracker, 2026-10-09).
         # phantom_safe is a run_backtest KEYWORD ARGUMENT, not a DEFAULT_PARAMS entry (kept out
         # of DEFAULT_PARAMS on purpose so no search space ever sweeps it -- see that file's own
         # comment just above DEFAULT_PARAMS' closing brace). The strategy's own default is False
@@ -425,21 +433,8 @@ CROWN_LEGS = {
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
         # see module docstring "ENGINE LIMITATION" — flagged, not hidden
         "caveat": "ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed",
-        # START FLAT (owner 2026-10-09): the box's live state.json still holds this leg's
-        # pre-2026-09-28 records -- see LIVE SINCE above _apply_live_since.
-        "live_since": ENGUQ_LIVE_SINCE,
+        "shadow": True,
     },
-}
-
-# ── Shadow legs (OWNER DECISION 2026-09-28) -- see the module docstring's SHADOW LEGS ────
-# Run by run_shadow_step() on the SAME bars as CROWN_LEGS, into shadow_paths()'s store only.
-# "shadow": True is a second, independent guard beside run_shadow_step's fetch=False: every
-# ntfy push step()/_diff_leg can reach checks it (see _push_allowed), so a shadow leg can
-# never page the owner even if a future caller ran it with fetch=True. Keys must not collide
-# with CROWN_LEGS (tests/test_shadow_legs.py) -- a trade id carries the leg key. ORDER MATTERS:
-# api/qqq_exec.py's shadow_trades block and the board list the legs in this order, so a new leg
-# is APPENDED (the DIP #424 pair last, 2026-10-09).
-SHADOW_LEGS = {
     # NOISE #422 plain: the plugin's own size (1.0, or 1.75 while the hourly squeeze is on).
     "NOISE_422_PLAIN": {
         "strategy": "NOISE_1_8_CT304H.py",
@@ -477,8 +472,6 @@ SHADOW_LEGS = {
         "eod_flat": True,
         "shadow": True,
     },
-    # ENGUQ_335 was the fourth shadow leg from 2026-09-28 until it went back to CROWN_LEGS on
-    # 2026-10-09 (OWNER DECISION) -- see the module docstring. Its shadow rows stay as history.
     # DIP #424 ("KEEL DIP", MANAGER #108 GO 2026-10-09) -- see the module docstring and
     # api/dip_live.py. Decided on the daily close, filled at the next session's 09:30 open, up
     # to seven positions at once (one per mechanism, each its own trade-id slot), multi-day
@@ -2865,6 +2858,13 @@ SEEDED_REASON_TAG = "seeded=1"
 # position the book never took). The state is stamped leg_state["live_since"] at the discard, so
 # it never repeats; the SEED row's reason names the live_since. A leg whose cfg has no
 # "live_since" behaves exactly as before.
+# NO LEG CARRIES IT TODAY (2026-10-09 ~20:20 MST, OWNER DECISION, MANAGER #113): ENGUQ_335, the
+# leg it was written for, became a no-order shadow tracker again before the box ever ran it
+# live. The mechanism stays, generic and tested, for the next leg that (re)joins the book.
+# NEVER A SHADOW LEG: a shadow leg's state IS its tracker history (its seeded carries, its
+# would-be trades still open), and live_since means "the day it joined the order-placing
+# book", which a shadow leg never does -- so a cfg["shadow"] leg is left untouched even if its
+# cfg carried the key (a leg moved to SHADOW_LEGS with its live_since left on by mistake).
 # WHY (verified on the box 2026-10-09): ENGUQ_335's live state.json still held its
 # pre-2026-09-28 records -- the 09-28 12:32 long (ENGUQ_335-20260928T163200Z-L) with
 # exit_emitted False, which the strategy closed 2026-10-08 13:01 @ 746.8612, and two phantom
@@ -2879,10 +2879,11 @@ def _apply_live_since(leg_key, cfg, leg_state, now=None, log=print):
     counters, last_bar_epoch) and stamp it with that live_since plus a small record of what
     was discarded, timed by the caller's `now` (so a replay's state stays deterministic); the
     caller's next _diff_leg then cold-starts the leg. Returns True when it discarded. Never
-    raises; a cfg with no live_since, or a state already stamped with it, changes nothing."""
+    raises; a cfg with no live_since, a state already stamped with it, or a SHADOW leg
+    (cfg["shadow"] -- its state is its tracker history) changes nothing."""
     try:
         want = (cfg or {}).get(LIVE_SINCE_KEY)
-        if not want or leg_state.get(LIVE_SINCE_KEY) == want:
+        if not want or (cfg or {}).get("shadow") or leg_state.get(LIVE_SINCE_KEY) == want:
             return False
         old_trades = leg_state.get("trades") or {}
         owed = sorted(k for k, rec in old_trades.items()
@@ -3754,7 +3755,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     LIVE SINCE (2026-10-09 -- see the block above _apply_live_since). A cfg carrying
     "live_since" whose value `leg_state` does not carry yet gets its state discarded first
     (step() already did that on its own call; this covers every other caller, e.g. the
-    stream path), so the leg cold-starts here: SEED only, the SEED reason naming it.
+    stream path), so the leg cold-starts here: SEED only, the SEED reason naming it. Never
+    for a shadow leg; no shipped leg carries it today.
 
     AFTER-CLOSE ENTRIES GET ONE LOG LINE (2026-10-09). A live leg's NEW entry first seen once
     its session has closed is still never emitted, but it is no longer silent: one plain line
@@ -4405,11 +4407,12 @@ NOISE_FORWARD_LOG = True
 
 
 def shadow_only_timeframes(live_legs=None, shadow_legs=None):
-    """The timeframes a shadow leg reads that NO live leg does, sorted -- today [] (every
-    shadow leg is 5m; it was ["1m"] while ENGUQ_335 was a shadow leg, 2026-09-28..10-09 --
-    the live step fetches 1m again now that ENGU-Q is live). The live step already fetches
-    every live timeframe once per fetch tick; run_shadow_step fetches only these, so each
-    timeframe is fetched exactly once per tick (Webull rate-limits with 429)."""
+    """The timeframes a shadow leg reads that NO live leg does, sorted -- today ["1m"]
+    (ENGUQ_335, a no-order tracker: a shadow leg since 2026-09-28, again since 2026-10-09
+    ~20:20 MST, OWNER DECISION). The live step already fetches every live timeframe once per
+    fetch tick; run_shadow_step fetches only these, so each timeframe is fetched exactly once
+    per tick (Webull rate-limits with 429) and the 1m cache stays fresh with ENGU-Q off the
+    book."""
     live_legs = CROWN_LEGS if live_legs is None else live_legs
     shadow_legs = SHADOW_LEGS if shadow_legs is None else shadow_legs
     live_tfs = {cfg["timeframe"] for cfg in live_legs.values()}
@@ -4516,10 +4519,12 @@ def _shadow_tick(now, fetch, log=print):
 # last bar -- the backtest's own end-of-day fill. SIGNALS ONLY for every leg that is flat
 # at the close: api/qqq_exec.py never sends a broker order for these rows (its after-close
 # guard; no lot -> nothing to close). The one exception is a lot qqq_exec HOLDS OVERNIGHT
-# (ENGU-Q since 2026-10-09, owner GO, MANAGER #106 -- qqq_exec HOLD_OVERNIGHT_LEGS): a settle
-# EXIT for its trade (the exit of an emitted ENTRY, tagged eod_settle) keeps the lot and is
-# sold at market at the next open (qqq_exec _defer_held_close), never at the row's price.
-# Only the eod_flat legs' last bars are waited for: an ENGU-Q exit on its 1m 15:59 bar that
+# (qqq_exec HOLD_OVERNIGHT_LEGS, owner GO 2026-10-09, MANAGER #106): a settle EXIT for its
+# trade (the exit of an emitted ENTRY, tagged eod_settle) keeps the lot and is sold at market
+# at the next open (qqq_exec _defer_held_close), never at the row's price. No live leg holds
+# overnight today: ENGU-Q, the leg the hold was built for, is a no-order shadow tracker
+# (OWNER DECISION 2026-10-09 ~20:20 MST, MANAGER #113); DIP #424 is to use the hold later.
+# Only the eod_flat legs' last bars are waited for: a held leg's exit on its last bar that
 # misses the settle comes with the next session's first step instead and is sold the same
 # way, at market at a price from that day.
 #
@@ -4714,6 +4719,8 @@ def _note_eod_gave_up(paths, day, close_dt, now, why, log=print):
 #   * the yfinance streak counts a fetch tick on which ANY live timeframe came from yfinance;
 #   * the heartbeat keeps its top-level 5m figures (tools/webull_freshness.py's bar_age reads
 #     them as 5m) and adds stalled_timeframes and feed_by_timeframe {tf: figures + source}.
+# Every live leg is 5m again since ENGU-Q became a no-order tracker (2026-10-09 ~20:20 MST,
+# OWNER DECISION): only the 5m is watched today; the code stays for any non-5m live leg.
 FEED_STALL_GRACE_BARS = 2
 FEED_STALL_EXTRA_SEC = 60.0
 FEED_YF_PUSH_FETCHES = 3
@@ -4844,8 +4851,8 @@ def _feed_health(now, warnings, paths, log=print):
                                          "bar_age_s", "bars_due", "bars_missing", "stalled")}
         fields["bar_timeframe"] = tf
         # EVERY LIVE TIMEFRAME (2026-10-09 -- see the FEED HEALTH block): the 5m first, then
-        # every other timeframe a live leg reads (1m for ENGU-Q); the top-level figures above
-        # stay the 5m's
+        # every other timeframe a live leg reads (none today -- 1m while ENGU-Q was meant to be
+        # live); the top-level figures above stay the 5m's
         watched = [h] + [bh[k] for k in sorted(bh) if bh[k] is not h
                          and isinstance(bh[k], dict) and not bh[k].get("error")]
         paging = [x for x in watched if _feed_stall_pages(x, h)]

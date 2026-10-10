@@ -122,9 +122,10 @@ def _arrays_through(day, n_sessions=300):
 
 
 # ── 1. SHADOW_LEGS carries #422; the live legs are untouched ─────────────────────────────
-def test_live_legs_are_exactly_orb_noise_382_and_enguq_335():
-    # ENGUQ_335 is live again since 2026-10-09 (OWNER DECISION) -- the NOISE leg is unchanged
-    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382", "ENGUQ_335"]
+def test_live_legs_are_exactly_orb_and_noise_382():
+    # ENGUQ_335 is a shadow leg -- a tracker -- (2026-09-28, again 2026-10-09 ~20:20 MST, OWNER
+    # DECISION) -- the NOISE leg is unchanged
+    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382"]
     live = cs.CROWN_LEGS["NOISE_382"]
     assert live["strategy"] == "NOISE_1_8_CT304.py" and live["params"] == cs.NOISE_382_PARAMS
     assert live["keel"] == dict(version="v12", **cs.keel_paths("NOISE_382", "v12"))
@@ -244,9 +245,8 @@ def test_vol_prior_ranges_absent_changes_nothing():
 # ── 4. qqq_exec's leg map still resolves the LIVE NOISE key ─────────────────────────────
 def test_engine_key_for_noise_is_still_the_live_382():
     assert qe._engine_key_for_leg("NOISE", cs) == "NOISE_382"
-    # ENGUQ_335 is a live key again since 2026-10-09 (OWNER DECISION) -> the ENGUQ exec leg
-    assert qe.ENGINE_LEG_MAP["ENGUQ_335"] == "ENGUQ"
-    assert qe._engine_key_for_leg("ENGUQ", cs) == "ENGUQ_335"
+    assert qe.ENGINE_LEG_MAP["ENGUQ_335"] == "ENGUQ", "kept so an old live row still resolves"
+    assert qe._engine_key_for_leg("ENGUQ", cs) == "ENGUQ_335"   # off CROWN_LEGS: its only mapped key
 
 
 # ── 5. the three variants end to end through step() ─────────────────────────────────────

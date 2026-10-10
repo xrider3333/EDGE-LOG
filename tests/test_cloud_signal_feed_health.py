@@ -9,8 +9,9 @@ in session, or the live 5m bars on yfinance for 3+ fetches in a row (each with a
 push). No network: steps run offline (fetch=False) on a temp bar cache, and the push is a
 recorder.
 
-EVERY LIVE TIMEFRAME (2026-10-09, ENGU-Q back on the book on 1m bars): the 1m feed is watched
-too -- a fetch tick with the 1m bars from yfinance counts toward "backup prices", and a frozen
+EVERY LIVE TIMEFRAME (2026-10-09, written for ENGU-Q's return to the book on 1m bars -- a
+no-order tracker again since that evening, so every shipped live leg is 5m; these cases run a
+test-local 1m live leg): the 1m feed is watched too -- a fetch tick with the 1m bars from yfinance counts toward "backup prices", and a frozen
 1m tail pages "prices stopped" once it has been silent for the 5m's own 660 s (not at its own
 180 s verdict, so a 1m tail a few bars behind never flaps a page). The heartbeat keeps its 5m
 top-level figures and adds stalled_timeframes + feed_by_timeframe.
@@ -344,7 +345,7 @@ def test_feed_pushes_leave_the_engine_thread(tmp_path, pushes, monkeypatch):
     assert len(bg) == 1, "the episode bookkeeping still holds the repeat"
 
 
-# -- EVERY LIVE TIMEFRAME (2026-10-09): the 1m feed ENGU-Q trades on --------------------------
+# -- EVERY LIVE TIMEFRAME (2026-10-09): a 1m live leg's feed (test-local; ENGU-Q is a tracker) --
 def bars_1m(day, first="09:30", last="10:00"):
     """1m bars from `first` to `last` (bar START times) on `day`."""
     times = list(pd.date_range(pd.Timestamp(f"{day} {first}:00", tz=cs.TZ),
@@ -361,7 +362,8 @@ def _cache_1m(paths, frame):
 
 
 def _two_legs():
-    """ORB (5m) plus a 1m leg, as the live book reads since ENGU-Q's return."""
+    """ORB (5m) plus a TEST-LOCAL 1m live leg (ENGU-Q's key and 1m bars -- the shape the live book
+    had for ENGU-Q's brief return on 2026-10-09; ENGU-Q itself is a shadow tracker)."""
     legs = _legs()
     legs["ENGUQ_335"] = dict(legs["ORB_R6"], timeframe="1m")
     return legs

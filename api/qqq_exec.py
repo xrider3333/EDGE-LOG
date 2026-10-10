@@ -44,7 +44,8 @@ RAILS (identical logic shadow and, eventually, live):
       every open lot is closed and tagged "EOD" -- except a leg in
       session.hold_overnight_legs (ENGU-Q by default, engine mode only), whose lot holds
       overnight like its backtest and sells on its own strategy exit (HOLD OVERNIGHT,
-      owner GO 2026-10-09 -- see the section of that name).
+      owner GO 2026-10-09 -- see the section of that name). No ENGU-Q lot is ever opened
+      today: ENGU-Q is a no-order shadow tracker (OWNER DECISION 2026-10-09 ~20:20 MST).
   (d) kill file present -> no new lots; close every open lot, tagged "KILL".
   (e) feed staleness (NinjaTrader AddOn heartbeat older than 90s, via
       api.nt_sync._addon_heartbeat) blocks new entries and logs at most one line per
@@ -134,6 +135,13 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # time by _hold_legs (never baked into DEFAULT_CONFIG). Engine mode only. See the
 # HOLD OVERNIGHT section near _close_all for the lot's "hold" block, the mark-to-open daily
 # loss rail and the deferred (after-hours) closes.
+# ENGU-Q, the leg this was built for, is a no-order shadow TRACKER since the OWNER DECISION of
+# 2026-10-09 ~20:20 MST (MANAGER #113): cloud_signal writes no live ENGUQ_335 row, so no ENGUQ
+# lot is ever opened and this default holds nothing. It stays ("ENGUQ",), not (), on purpose:
+# the hold's tests and tools/webull_freshness.py's twin constant pin it, and it changes nothing
+# without an ENGUQ lot (every reader acts on an open lot or a Webull position of the leg). The
+# code stays for DIP #424, which is to be the live (held) leg later -- a separate build adds its
+# exec leg here.
 HOLD_OVERNIGHT_LEGS = ("ENGUQ",)
 # ENGINE MODE (2026-09-13): maps api/cloud_signal.py's own CROWN_LEGS keys onto this
 # module's short leg keys. Kept explicit (not derived) so a cloud_signal rename never
@@ -154,18 +162,13 @@ HOLD_OVERNIGHT_LEGS = ("ENGUQ",)
 # docstring for why a naive "first mapped key" reverse lookup is not safe once two engine
 # keys share one EXEC leg.
 #
-# ENGUQ_335 IS LIVE AGAIN SINCE 2026-10-09 (OWNER DECISION via MANAGER #102, reversing the
-# 2026-09-28 decision that made it a no-order shadow leg -- cloud_signal.SHADOW_LEGS, whose
-# <state_dir>/shadow/signals.csv this module never reads). It is back in
-# cloud_signal.CROWN_LEGS with its pre-09-28 cfg, so its ENTRY/EXIT rows are in the live
-# ledger again and map to the "ENGUQ" exec leg here: config shares["ENGUQ"] (10 on the box),
-# max_shares_per_leg and the session window [open, last_entry] (_late_entry_reason) exactly
-# as for ORB/NOISE. Unlike them it HOLDS OVERNIGHT (owner GO 2026-10-09, MANAGER #106): the
-# flat_by flatten (15:59) sells ORB/NOISE but keeps the ENGU-Q lot (HOLD_OVERNIGHT_LEGS above),
-# which sells on its own engine EXIT on a later day (cloud_signal ENGUQ_335 has no eod_flat).
-# It STARTS FLAT: the engine cold-starts the leg (cloud_signal LIVE SINCE), so no catch-up
-# order is ever sent.
-# Since 2026-10-09 (MANAGER #87 (d)) this module also READS the shadow ledger in exactly one
+# ENGUQ_335 is a no-order SHADOW leg -- a TRACKER -- (cloud_signal.SHADOW_LEGS, writing only to
+# <state_dir>/shadow/signals.csv, which this module never reads FOR ORDERS): since 2026-09-28,
+# and again by OWNER DECISION 2026-10-09 ~20:20 MST (MANAGER #113) after a few hours back on
+# cloud_signal.CROWN_LEGS in code that day (MANAGER #102 -- never deployed). Its key stays here
+# for the same reason NOISE_304's does: an old live ledger row still resolves. No new live
+# ENGU-Q row is ever written, so no ENGU-Q order is sent and no ENGUQ lot is opened.
+# Since 2026-10-09 (MANAGER #87 (d)) this module DOES read the shadow ledger in exactly one
 # place -- _build_shadow_trades, the status doc's separate, display-only "shadow_trades"
 # block for the board's "Shadow - not counted" fold. That read never reaches an order, a
 # lot, a rail, P&L, trades_all, readiness or the export (see SHADOW TRADES).
@@ -7132,14 +7135,11 @@ def _engine_key_for_leg(leg, cs=None):
 
 
 def _engine_leg_cfg(cs, cs_key):
-    """cloud_signal's cfg for an engine key -- CROWN_LEGS first, then SHADOW_LEGS. Used ONLY
-    for the key's timeframe (its bar cache, its bar width). ENGUQ_335 resolves from
-    CROWN_LEGS again since 2026-10-09 (live again, OWNER DECISION; its lot HOLDS OVERNIGHT
-    since the same day's owner GO, MANAGER #106 -- HOLD_OVERNIGHT_LEGS -- so a held ENGU-Q
-    lot is marked off this 1m cache across the night, not flattened); the SHADOW_LEGS fallback
-    -- added 2026-09-28 while it was a shadow leg -- only matters for an exec leg whose every
-    engine key is off the live book, so a leftover lot can still be marked and flattened and
-    an old order row keeps its after-close latency. It never makes a shadow leg's signals
+    """cloud_signal's cfg for an engine key -- CROWN_LEGS first, then SHADOW_LEGS (2026-09-28:
+    ENGUQ_335 moved there, OWNER DECISION; a tracker there again since 2026-10-09 ~20:20 MST).
+    Used ONLY for the key's timeframe (its bar cache, its bar width): an old ENGUQ order row
+    keeps its after-close latency, and a leftover ENGUQ lot could still be marked (a held one
+    across the night, HOLD_OVERNIGHT_LEGS) and flattened. It never makes a shadow leg's signals
     reach this module -- those live in a ledger this module never reads for orders (its one
     read is the display-only shadow_trades block, _build_shadow_trades). None for no key."""
     if not cs_key:
@@ -7727,7 +7727,7 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
             if too_late:
                 # LATE-ENTRY GUARD (2026-09-28): an entry opened now could only be flattened
                 # by nothing (flat_by has run) or sent after the bell -- never opened.
-                # 2026-10-09 (ENGU-Q live again): the orders.csv row is unchanged; the log
+                # 2026-10-09 (any leg): the orders.csv row is unchanged; the log
                 # gets ONE plain line naming the strategy, side, signal time and why
                 # (_entry_not_taken_line) instead of the row's generic "ENTER ... @ None".
                 _record_order(leg, "ENTER", e["side"], shares, None, None, None,
@@ -8172,7 +8172,10 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
 
 
 # -- HOLD OVERNIGHT (OWNER GO 2026-10-09, MANAGER #106) -------------------------------------
-# ENGU-Q (#335) holds its trade overnight, like its backtest. The flat_by flatten skips a leg
+# Built for ENGU-Q (#335) -- a no-order shadow TRACKER since the OWNER DECISION of 2026-10-09
+# ~20:20 MST (MANAGER #113), so no ENGUQ lot is opened and nothing is held today; kept for
+# DIP #424, which is to be the held live leg later. A held leg keeps its trade overnight, like
+# its backtest. The flat_by flatten skips a leg
 # in _hold_legs(cfg) (session.hold_overnight_legs, code default HOLD_OVERNIGHT_LEGS, engine
 # mode only): its lot stays in state["legs"] -- and in the adapter's broker_sent_positions,
 # which have no daily reset -- until the engine's own EXIT on a later day (api/cloud_signal.py
@@ -11653,9 +11656,9 @@ def _shadow_base_shares(cfg, default):
 def _shadow_bar_mark(cs):
     """The newest closed bar close in api.cloud_signal's own bar cache over the timeframes
     the shadow legs read (the newer bar wins), each file cached by its (mtime, size). None
-    when there is none. The live legs' timeframes count too: since 2026-10-09 ENGUQ_335 is a
-    CROWN_LEGS leg again (1m) while its old shadow hold stays in the shadow ledger, and that
-    open trade is still marked from the newest bar (1m), not the shadow legs' older 5m one."""
+    when there is none. The live legs' timeframes count too (added 2026-10-09 while ENGUQ_335
+    was briefly a CROWN_LEGS leg in code): a shadow trade is always marked from the newest bar
+    of ANY leg's timeframe -- today the 1m (ENGUQ_335, a shadow tracker again), not the 5m."""
     best = None
     tfs = sorted({str(c.get("timeframe"))
                   for legs in ((getattr(cs, "SHADOW_LEGS", None) or {}), (getattr(cs, "CROWN_LEGS", None) or {}))

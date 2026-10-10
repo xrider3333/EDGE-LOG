@@ -1,6 +1,14 @@
 """HOLD OVERNIGHT (OWNER GO 2026-10-09, MANAGER #106): ENGU-Q (exec leg ENGUQ, engine key
 ENGUQ_335) holds its trade overnight on the Webull paper QQQ book, like its backtest.
 
+ENGU-Q itself is a no-order TRACKER since the OWNER DECISION of 2026-10-09 ~20:20 MST (MANAGER
+#113): api/cloud_signal.py writes no live ENGUQ_335 row, so the box never opens an ENGUQ lot. The
+hold stays for DIP #424 (the live leg later), and ENGUQ stays its code default
+(api/qqq_exec.HOLD_OVERNIGHT_LEGS -- harmless without a lot), so these tests keep the MECHANISM
+covered on the ENGUQ exec leg: lots opened from rows routed straight into the executor, and end
+to end a TEST-LOCAL live leg (E2E_LIVE_CFG: ENGU-Q's own cfg as the live leg it was briefly meant
+to be) -- never the shipped one.
+
 Covered here (api/qqq_exec.py, with a real api.webull_orders.OrderAdapter in PAPER mode on a
 synchronous fake Webull account -- no SDK, network or credentials):
   * the flat_by flatten skips ENGU-Q and still closes ORB / NOISE; config
@@ -280,6 +288,8 @@ def _exit_event(tid, px, ref_time, reason=""):
 # ── config ─────────────────────────────────────────────────────────────────────────────
 
 def test_hold_legs_default_override_garbage_and_ninjatrader():
+    # the code default stays ENGUQ though ENGU-Q is a no-order tracker since 2026-10-09 ~20:20 MST:
+    # no ENGUQ lot is ever opened, so it holds nothing (see HOLD_OVERNIGHT_LEGS' own comment)
     assert qe.HOLD_OVERNIGHT_LEGS == ("ENGUQ",)
     assert qe._hold_legs({}) == ("ENGUQ",)
     assert qe._hold_legs({"session": {"flat_by": "15:59"}}) == ("ENGUQ",)
@@ -1148,11 +1158,13 @@ def test_feed_stall_and_gave_up_wording_name_the_held_lot():
     assert qe._eod_gave_up_order_words({"legs": {}}) == "No order depends on it."
 
 
-# ── END TO END: the live engine's EXIT reaches the held lot (ENGU-Q live + hold, 2026-10-09) ──
-# ENGU-Q is a CROWN_LEGS leg again (MANAGER #102) AND its lot holds overnight (MANAGER #106).
+# ── END TO END: the live engine's EXIT reaches the held lot (a held live leg, 2026-10-09) ──────
+# A TEST-LOCAL live leg (E2E_LIVE_CFG): ENGU-Q's own cfg as the CROWN_LEGS leg it was for a few
+# hours of code on 2026-10-09 (MANAGER #102) -- the shipped ENGUQ_335 is a no-order tracker again
+# (MANAGER #113) -- whose lot holds overnight (MANAGER #106, ENGUQ in the hold list by default).
 # Nothing between the two halves is stubbed here: api/cloud_signal.step() (fetch=False, a
-# temp 1m bar cache, the SHIPPED ENGUQ_335 cfg -- live_since included -- with only its
-# strategy swapped for a scripted one) writes the SEED / ENTRY / EXIT rows into its own
+# temp 1m bar cache, E2E_LIVE_CFG -- live_since included -- with only its strategy swapped
+# for a scripted one) writes the SEED / ENTRY / EXIT rows into its own
 # signals.csv, qqq_exec's real _consume_engine_signals reads them on its own cursor, and the
 # held lot's prior close / open marks come from that same bar cache (_held_session_marks).
 
@@ -1163,6 +1175,9 @@ E2E_BASE = {"2026-10-08": 710.0, "2026-10-09": 700.0, "2026-10-12": 690.0, "2026
 # engine first sees after the bell (an eod_settle row)
 E2E_T1 = ("2026-10-09T11:00:00-04:00", "2026-10-12T10:30:00-04:00", 1, 700.90, 690.65)
 E2E_T2 = ("2026-10-12T11:00:00-04:00", "2026-10-12T15:59:00-04:00", 1, 690.90, 693.95)
+# the test-local live leg: the shipped shadow cfg without "shadow", plus the live_since it carried
+E2E_LIVE_CFG = dict({k: v for k, v in cs.SHADOW_LEGS["ENGUQ_335"].items() if k != "shadow"},
+                    live_since="2026-10-09")
 
 
 def _e2e_strategy(trades):
@@ -1198,7 +1213,7 @@ def _e2e_strategy(trades):
 class _Engine:
     """api/cloud_signal driven by hand: its own clock (the ledger's emitted_at), its 1m bar
     cache as of `now` (only the bars closed by then, `time` = the bar's START epoch, as the
-    live cache holds them) and a real step() on the shipped ENGUQ_335 cfg."""
+    live cache holds them) and a real step() on the test-local E2E_LIVE_CFG."""
 
     def __init__(self, monkeypatch):
         import datetime as dtm
@@ -1224,7 +1239,7 @@ class _Engine:
                 o = round(base + 0.01 * b, 2)
                 self.rows.append((int((start + pd.Timedelta(minutes=b)).timestamp()), o,
                                   round(o + 0.05, 2), round(o - 0.05, 2), round(o + 0.01, 2), 1000.0))
-        self.legs = {"ENGUQ_335": dict(cs.CROWN_LEGS["ENGUQ_335"], warmup_sessions=10,
+        self.legs = {"ENGUQ_335": dict(E2E_LIVE_CFG, warmup_sessions=10,
                                        strategy=_e2e_strategy([E2E_T1, E2E_T2]))}
 
     def step(self, now):
@@ -1243,8 +1258,8 @@ class _Engine:
 
 
 def test_end_to_end_the_engine_exit_rows_sell_the_held_enguq_lot(env, monkeypatch):
-    """ENGU-Q live + held overnight, end to end: the engine cold-starts the leg (SEED only),
-    emits T1's ENTRY Friday 11:01 -> the book buys 10; the 15:59 flatten keeps it (the engine's
+    """A held live leg end to end (E2E_LIVE_CFG on the ENGUQ exec leg): the engine cold-starts the
+    leg (SEED only), emits T1's ENTRY Friday 11:01 -> the book buys 10; the 15:59 flatten keeps it (the engine's
     own trade stays open past the bell too: no eod_flat, no settle EXIT); it rides the weekend
     and a restart; Monday's open mark comes from the engine's own cache; the engine's later-day
     EXIT (Monday 10:30 bar, regular hours) sells it at market at Monday's price -- P&L of record

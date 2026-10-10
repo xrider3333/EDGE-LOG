@@ -40,13 +40,12 @@ after a same-day disagreement (see _trip_disagreement) -- it only ever changes h
 a decision that was going to happen anyway gets recorded.
 
 SCOPE. 5m legs only (ORB_R6, NOISE_382 today) -- api.webull_stream's hand-off is 5m-only
-by design (see its HANDOFF_TIMEFRAME_SECONDS). ENGUQ_335 is a LIVE leg again since
-2026-10-09 (OWNER DECISION), but a 1m one: it is filtered out here (five_m_legs) and decided
-by cs.step()'s classic REST path only, exactly as before it left the book on 2026-09-28.
-LIVE legs only: `legs` defaults to cs.CROWN_LEGS, never cs.SHADOW_LEGS (OWNER DECISION
-2026-09-28 -- the three NOISE #422 variants run as shadow legs through cs.run_shadow_step's
-classic REST path, never through this module, so no stream decision is ever committed for a
-shadow leg).
+by design (see its HANDOFF_TIMEFRAME_SECONDS); a 1m live leg would be filtered out here
+(five_m_legs) and decided by cs.step()'s classic REST path only. LIVE legs only: `legs`
+defaults to cs.CROWN_LEGS, never cs.SHADOW_LEGS (OWNER DECISION 2026-09-28 -- ENGUQ_335 (a
+no-order tracker again since 2026-10-09 ~20:20 MST, OWNER DECISION), the three NOISE #422
+variants and the DIP #424 pair run as shadow legs through cs.run_shadow_step's classic REST
+path, never through this module, so no stream decision is ever committed for a shadow leg).
 
 FAIL-SAFE. run_stream_aware_step wraps every bit of the logic in this module in one
 try/except and ALWAYS calls the real api.cloud_signal.step() afterward regardless -- a

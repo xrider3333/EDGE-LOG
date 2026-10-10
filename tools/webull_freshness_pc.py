@@ -463,7 +463,8 @@ def run_once(paths=None, now=None, run_cmd=None, post_fn=None, dry_run=False, lo
     # AUTO-RESTART inbox alert (owner rule 2026-10-05, MANAGER #69): the box restarts a stuck
     # executor at most once a day and says so in status.json; relay each new restart once.
     # HOLD OVERNIGHT (owner GO 2026-10-09): a restart may run while the book holds only its
-    # held-overnight lot (ENGU-Q) -- status.json last_restart_held names it, an older box omits it.
+    # held-overnight lot (none today: ENGU-Q is a no-order tracker since 2026-10-09 ~20:20 MST) --
+    # status.json last_restart_held names it, an older box omits it.
     ar = (box.get("status") or {}).get("auto_restart") if box.get("ok") else None
     if isinstance(ar, dict) and ar.get("last_restart_et") and \
             ar.get("last_restart_et") != state.get("relayed_restart_et"):

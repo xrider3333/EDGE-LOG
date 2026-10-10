@@ -109,7 +109,8 @@ def test_an_older_engine_without_the_fields_still_gets_paged_here(tmp_path):
     assert len(h.pushes) == 1 and "newest QQQ price bar" in h.pushes[0]["message"]
 
 
-# -- EVERY LIVE TIMEFRAME (2026-10-09): ENGU-Q is live again, on 1m bars ----------------------
+# -- EVERY LIVE TIMEFRAME (2026-10-09): a live 1m timeframe (ENGU-Q's, while it was meant to be
+# live; a no-order tracker since that evening -- the engine stamps no 1m in the live state then) --
 def _with_1m(h, source, checked_at):
     st = json.load(open(h.paths["cs_state"], encoding="utf-8"))
     st["bar_source"]["1m"] = {"source": source, "newest_epoch": int(checked_at.timestamp()) - 120,

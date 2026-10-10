@@ -166,8 +166,9 @@ def test_block_present_with_the_contract_keys_and_separate_from_trades_all(box):
     assert st["source"] == "cloud_signal/shadow/signals.csv"
     assert datetime.fromisoformat(st["as_of"])
     assert st["base_shares"] == 10 and st["capped"] == 0
-    # SHADOW_LEGS order, only legs with trades; the SEED row makes no trade
-    assert st["legs"] == ["NOISE_422_PLAIN", "NOISE_422_KEEL", "ENGUQ_335"]
+    # SHADOW_LEGS order (ENGUQ_335 first, a tracker again since 2026-10-09), only legs with
+    # trades; the SEED row makes no trade
+    assert st["legs"] == ["ENGUQ_335", "NOISE_422_PLAIN", "NOISE_422_KEEL"]
     assert len(st["trades"]) == 3
     assert all(set(t) == CONTRACT_KEYS for t in st["trades"])
     # newest ENTRY first
@@ -389,7 +390,7 @@ def test_count_cap_never_drops_a_still_open_trade(box, monkeypatch):
     box.positions_live["legs"] = [{"live_px": 751.73}]
     st = box.doc()["shadow_trades"]
     assert [t["trade_id"] for t in st["trades"]] == ["T7", "T6", "T5", "T4", SEED_TID]
-    assert st["capped"] == 4 and st["legs"] == ["NOISE_422_PLAIN", "ENGUQ_335"]
+    assert st["capped"] == 4 and st["legs"] == ["ENGUQ_335", "NOISE_422_PLAIN"]
     seed = st["trades"][-1]
     assert seed["exit_time"] is None and seed["seeded"] is True
     assert seed["mark_px"] == 751.73 and seed["unreal_usd"] == 137.01
