@@ -120,6 +120,17 @@ def _health_check(fresh):
         except OSError: pass
 
 
+# Only the EdgeLogOHLCExport capture writes these columns. C:\EdgeLog\ohlc also holds the QQQ live services' own
+# bar cache (QQQ_1m.csv / QQQ_5m.csv: start-stamped Webull/Alpaca bars, no order flow); this importer took them for
+# NinjaTrader exports from 09-01, registered them as 'QQQ 1m/5m (NT non-adj RTH)' (masters 49/50) and shifted every
+# bar a whole bar EARLY by the END->START rule below (MANAGER #152, 2026-10-10). A file without them is not ours.
+NT_CAPTURE_COLS = ("delta", "buy_vol", "sell_vol", "tick_count", "rt")
+
+
+def is_nt_capture(columns):
+    return all(c in columns for c in NT_CAPTURE_COLS)
+
+
 def main():
     files = sorted(glob.glob(os.path.join(SRC_DIR, "*.csv")))
     if not files:
@@ -134,6 +145,8 @@ def main():
         new = pd.read_csv(f)
         if "time" not in new.columns or new.empty:
             log(f"  skip (no rows): {os.path.basename(f)}"); continue
+        if not is_nt_capture(new.columns):
+            log(f"  skip (not a NinjaTrader capture - no order-flow columns): {os.path.basename(f)}"); continue
         fresh[os.path.basename(f)] = int(new["time"].max())
         _shift = _stamp_shift_secs(tf)
         if _shift:
