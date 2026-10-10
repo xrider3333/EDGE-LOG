@@ -1190,6 +1190,44 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ax. Q38 HARM BANDS FOR THE WEBULL LEGS: ORB_R6 and NOISE_382 can be watched; DIP_424F's weekly line is weak (2026-10-10, a calibration)
+
+**What it is.** MANAGER #141 item 3, GO with edits #146, legs per #147.
+- **The legs:** ORB_R6, NOISE_382 and DIP_424F, which is now live from its first trade. NOISE_422 x3 and DIP_424K are skipped; ENGUQ_335 is a
+  tracker.
+- **How they run:** as api/cloud_signal.py runs them, on the QQQ 5m Alpaca master.
+- **Witness:** prereg/frontier-wbbands-1010. The note is 7f87b8aa (LF 64b82b39...). Addendum 1 is 059366c6 (LF bf9f50fa...).
+- **The script:** tools/rocfrontier/q38_webull_bands.py.
+- **The method:** the bands are PER SHARE at $0.02 a share a round trip (the executor's slippage), printed at each leg's unit.
+  - Units: ORB 10 shares; NOISE 10 shares x the plugin's own size, with KEEL at x1.0; DIP 6 shares a lot.
+  - Each trade is booked on its exit day.
+  - Window: the last three WF years, 2022-07-01..2025-06-29, with 10at's option-2 calibration. A1 is checked every 5 RTH sessions.
+- **The forward read** comes ONLY from the pull job's newest copy of the box ledgers: box_backup/<stamp>/qqq_exec/trades.csv, matched by
+  trade id.
+
+| Leg (unit) | $ a year | A1 c | A2 alarm | Power if the edge is gone, 36 months | Forward to 10-09 |
+|---|---|---|---|---|---|
+| ORB_R6 (10 sh) | $627 | 2.34 | $560 | 88% | 23 sessions, 5 trades, -$14 vs pace +$58, z -0.53: clear |
+| NOISE_382 (10 sh x plugin size) | $904 | 2.28 | $506 | 96% | 12 sessions, 19 trades, -$80 vs pace +$43, z -1.17 (worst -1.66): clear; KEEL scale term 1.26 |
+| DIP_424F (6 sh a lot) | $1,555 | 6.50 | $5,865 | 12% | no trades yet |
+
+**Read.**
+- **ORB_R6 and NOISE_382 can be watched.** Each would catch a dead edge within 36 months nearly every time.
+- **DIP_424F's A1 is weak.** Up to seven lots book together on one exit day. The worst day is -$1,065, which is 14 sd, and the daily kurtosis
+  is 64. A weekly z-line cannot see a dead DIP edge (12% power with A2), so A2 is its only real alarm, and it is weak too. Marking DIP to
+  market daily would need a QQQ daily close in the read; that is left as an option.
+- **NOISE's KEEL scale term is 1.26.** KEEL's extra size (three trades at 1.5) added about $21 of NOISE's $101 forward loss.
+- **The engine and the executor agree.** Engine exits match executor trades (5 / 5 and 19 / 19). One ORB row has no trade id and is
+  assigned by its leg and date.
+- **POST-DATA BUG FIX, disclosed (addendum 1).** The first run read the executor's size column as plugin size. That column is the sent size
+  (plugin x KEEL), so KEEL was not stripped and the scale term printed 1.000 by construction.
+  - The fix: plugin size = size / keel_size, with KEEL taken from the engine's own ENTRY row when the executor row lacks it.
+  - The bands did not move. NOISE's forward read went from -$101 / z -1.37 to -$80 / z -1.17.
+- **Shipped:** tools/harm_monitor.py has a "Webull legs" block in the Monday post (the same numbers, checked in a dry run). A failed Webull
+  read is named in the post and never stops the #463 read.
+- **Could fool us:** the $400 daily rail, the 15:55 last entry and Webull's own bars are not in the backtest. Four weeks of forward data
+  say nothing yet.
+
 ### 10aw. Q30 CORRECTION + THE BOOK LOOKS TALLY: #463's WF Sharpe survives deflation under every consistent pairing; GAMMA ARM C is look 72 (2026-10-10, a correction)
 
 **What changed.** TV posted a second review of Q30 (10ap) on 10-10, after the 10-09 window. FRONTIER re-ran it from Q30's saved files
