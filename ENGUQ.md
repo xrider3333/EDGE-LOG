@@ -1703,3 +1703,47 @@ residual. One twin number cannot stand in for all three.
 **And a power warning handed to FRONTIER rather than discovered afterwards:** with an in-position
 R-squared of 0.962, the residual the leg has to win on is small, so the note needs a power line
 saying what lead would even be detectable before it reports whether a lead exists.
+
+### 2026-10-10 - the best #326 tilt, re-read on the real basis: 0.7 ROC points, not 13.7
+
+MANAGER #59, report only. The row was already marked **not crownable** by the house gate and nothing
+is proposed from this.
+
+**Basis.** The crowned #326 cell (`buf_atr` 0.9, `limit_atr` 0.5, `vol_mult` 0, `tl_len` 170,
+`breakeven_R` 1.5, `stop_mult` 1.0, `trail_frac` 2.5, `regime_len` 5, `min_brk` 1.3, `ema_len` 1380,
+`atr_len` 106, `act_R` 2.5) on the **roll-corrected** overnight master at **0.783**, walk-forward
+2016-10-12..2025-06-30, 8.71 years, **drawdown valued DAILY**. The instrument is the house's own
+code rather than a re-implementation: the probabilities come from the same gate-trades walk that the
+gate-validate block itself calls (tree, threshold 0, min history 30, refit 25, seed 42), and the
+tier weights use the gate's own expression including the pre-lockbox mean-weight match and the 3x
+cap.
+
+| row | net $ | DD $ | DD5 $ | ROC @ $30k | Sortino | one-episode |
+|---|---|---|---|---|---|---|
+| ungated | 391,193 | 62,771 | 39,212 | **21.5** | 3.43 | yes (1.60) |
+| tree/tier tilt | 559,912 | 86,932 | 53,017 | **22.2** | 3.95 | yes (1.64) |
+
+**The lead is 0.7 ROC points.** The indicative figures read off the stored gate-validate block on
+2026-10-09 were 50.7 against 37.0 - a 13.7-point lead - and were labelled indicative precisely
+because the drawdown convention was unverified. **It was the convention.** On the daily-valued curve
+the ungated drawdown is $62,771 against the block's $46,903, and the tilt's is $86,932 against
+$48,317. **The tilt raises net by 43% and raises the drawdown by 38%, so the ratio barely moves.**
+This is the error the daily-marking rule exists to prevent, and it happened to run in the direction
+that flattered the tilt.
+
+**What the tilt does buy is Sortino, 3.43 to 3.95 - not ROC at $30k.** And both rows are flagged
+driven by one episode, so neither is a clean ROC reading in the first place.
+
+**Two limits, stated rather than smoothed over.** First, this is the same RULE on a new basis, NOT a
+reproduction of the stored row: the roll-corrected tape at 0.783 yields 2,889 trades against the
+block's 2,756, so the tree is re-trained on a different trade list and its probabilities differ.
+That is correct for a re-read and it means the two sets of numbers are not line-comparable. Second,
+the 2,756-against-2,078 gap between the stored gate block's trade count and the run's own headline
+is still unexplained; the cell was identified by matching the gate's walk-forward count of 1,634 to
+the crowned candidate exactly, which is a sound identification, but the accounting difference was
+not resolved.
+
+**The lesson, which is the same one this lane keeps paying for in new places: a figure read off a
+stored block inherits that block's conventions, and a drawdown convention is not a detail.** The
+honest move on 10-09 was to label the figures indicative; the necessary move was to re-read them
+before anyone acted, which is what this round did.
