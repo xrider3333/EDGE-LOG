@@ -16,6 +16,8 @@ import q30_efftrials as Q30                                           # onc(), u
 
 NOTE = os.path.join(BQ, "PREDATA_Q39_RHO.txt")
 NOTE_SHA = "a8f353a259fbb995add1e40bbc50c576a06bca6d0b95b1e799ffefac19c0438a"
+ADD1 = os.path.join(BQ, "PREDATA_Q39_RHO_ADD1.txt")
+ADD1_SHA = "f675b42685f156de9178c69c4c7e08e9a3922d330b90737d38b8fa85182fd7e0"
 RUNS = {"ORB": 314, "ENGU-Q": 335, "NOISE": 395, "TTM": 479, "DIP": 358}
 DOC_DIRS = (r"C:\EdgeLog\_anatomy_cache\runs", r"C:\EdgeLog\_anatomy_cache\luckbar\runs")
 SUMMARY = r"C:\EdgeLog\_anatomy_cache\luckbar\runs_summary.csv"
@@ -63,8 +65,14 @@ def measure(fam, n):
     mult = float(d.get("multiplier") or 1.0)
     cost = float(d.get("cost_pts") or 0.0)
     sess = pd.DatetimeIndex(sorted(set(day[day <= pd.Timestamp(win[1])])))
+    cache = os.path.join(OUT, f"q39_series_{n}.csv")
     cols, n_is = {}, {}
-    for i, cfg in enumerate(cfgs):
+    if os.path.exists(cache):                                          # a run killed mid-way (10-09 reboot) re-uses the finished series
+        C = pd.read_csv(cache, index_col=0, parse_dates=True)
+        n_is = json.load(open(cache + ".nis.json"))
+        cols = {c: C[c] for c in C.columns}
+        print(f"   {fam} #{n}: {len(cols)} settings' series re-used from {cache}", flush=True)
+    for i, cfg in enumerate(cfgs if not cols else []):
         bt = run_backtest(d["strategy"], arrays=arr, params=cfg, cost_pts=cost, return_trades=True)
         tr = bt.get("trades") or []
         s = pd.Series([float(t[2]) * mult for t in tr], index=[day[min(int(t[1]), len(day) - 1)] for t in tr]).groupby(level=0).sum()
@@ -73,6 +81,9 @@ def measure(fam, n):
         if (i + 1) % 100 == 0:
             print(f"   {fam} #{n}: {i + 1}/{len(cfgs)} settings", flush=True)
     df = pd.DataFrame(cols)
+    if not os.path.exists(cache):
+        df.to_csv(cache)
+        json.dump(n_is, open(cache + ".nis.json", "w"))
     valid = [c for c in df.columns if n_is[c] >= min_tr and df[c].std() > 0]
     corr = df[valid].corr()
     cl = Q30.onc(corr, seed=Q30.SEED)
@@ -80,17 +91,23 @@ def measure(fam, n):
     out = {"run": n, "strategy": d["strategy"], "master": m["filename"], "window": [d.get("date_from"), win[1]], "is_split": str(split.date()),
            "min_trades": min_tr, "points": len(d.get("points") or []), "distinct": len(cfgs), "valid_rebuilt": len(valid),
            "run_n_valid": d.get("n_valid"), "median_rho_pair": float(np.nanmedian(corr.to_numpy()[np.triu_indices(len(valid), 1)])) if len(valid) > 1 else None,
-           "E": len(cl), "E_check": len(cl2), "rho": len(cl) / len(valid) if valid else None}
+           "E": len(cl), "E_check": len(cl2)}
+    off = corr.to_numpy()[~np.eye(len(valid), dtype=bool)] if len(valid) > 1 else np.array([1.0])
+    rbar = float(np.nanmean(off))
+    n_eff = rbar + (1.0 - rbar) * len(valid)                           # ADDENDUM 1: the average-correlation effective number
+    out.update({"mean_rho_pair": rbar, "N_eff": n_eff, "eff": max(len(cl), n_eff), "rho": max(len(cl), n_eff) / len(valid) if valid else None})
     print(f"{fam} #{n} ({d['strategy']}, {m['filename']}, {out['window'][0]}..{out['window'][1]}): {out['points']} points, {out['distinct']} distinct, "
           f"{out['valid_rebuilt']} valid (run's own {out['run_n_valid']}); median pair correlation {out['median_rho_pair']:.3f}; E = {out['E']} "
-          f"(check seed {out['E_check']}); rho = {out['rho']:.3f}", flush=True)
+          f"(check seed {out['E_check']}); mean pair correlation {out['mean_rho_pair']:.3f} -> N_eff {out['N_eff']:.1f}; used max = {out['eff']:.1f}; rho = {out['rho']:.3f}", flush=True)
     return out
 
 
 def run():
     note_sha = lf(NOTE)
     print(f"PINS: note LF {note_sha}; script LF {lf(__file__)}; q30 LF {lf(os.path.join(BQ, 'q30_efftrials.py'))}", flush=True)
-    if note_sha != NOTE_SHA:
+    add_sha = lf(ADD1)
+    print(f"PINS: addendum 1 LF {add_sha}", flush=True)
+    if note_sha != NOTE_SHA or add_sha != ADD1_SHA:
         raise SystemExit("refused: the note is not the frozen one (nothing computed)")
     res = {fam: measure(fam, n) for fam, n in RUNS.items()}
     S = pd.read_csv(SUMMARY)
@@ -105,7 +122,7 @@ def run():
         fam_out[fam] = {"rho": r["rho"], "N_with_ancestors": n_all, "N_without": n_no, "E_with_ancestors": e_all, "E_without": e_no, "runs": int(len(x))}
         print(f"  {fam:<7} rho {r['rho']:.3f}: N {n_no:,.0f} -> E {e_no:,.0f} without ancestors" +
               (f"; N {n_all:,.0f} -> E {e_all:,.0f} with ENGU's grid runs" if n_all != n_no else " (no ancestors)"))
-    json.dump({"note_sha256_lf": note_sha, "runs": res, "families": fam_out}, open(os.path.join(OUT, "q39_rho.json"), "w"), indent=1, default=float)
+    json.dump({"note_sha256_lf": note_sha, "addendum1_sha256_lf": add_sha, "runs": res, "families": fam_out}, open(os.path.join(OUT, "q39_rho.json"), "w"), indent=1, default=float)
     print("wrote", os.path.join(OUT, "q39_rho.json"))
 
 

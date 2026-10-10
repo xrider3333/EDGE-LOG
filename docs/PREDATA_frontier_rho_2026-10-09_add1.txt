@@ -1,0 +1,13 @@
+Q39 ADDENDUM 1 (2026-10-10, FRONTIER) - written AFTER two partial results were seen (disclosed): the first run died in Friday night's PC
+reboot after ORB #314 and ENGU-Q #335. Both printed E = 2 (rho 0.005 / 0.004) - ORB with a median pair correlation of 0.931, ENGU-Q with
+0.160. Two settings families at opposite ends of correlation cannot both be "2 independent ideas": ONC (k-means + silhouette) has no cluster
+structure to find when every pair is about equally far apart, and its best silhouette then sits at k = 2. ENGU-Q's 2 is that artifact.
+
+CHANGE 1 - TWO ESTIMATORS, THE LARGER IS THE ONE USED. Each family prints (a) ONC's E as pre-set, and (b) the average-correlation effective
+number N_eff = rho_bar + (1 - rho_bar) x N (rho_bar = the mean off-diagonal correlation of the valid settings' daily series; the standard
+approximation for N equi-correlated trials). The luck bar's effective count is max(E_ONC, N_eff) - the harsh end, since ONC can only
+under-count here. Both are printed; nothing else about the measurement changes.
+CHANGE 2 - CONSISTENT RATIO. rho = effective count / the valid settings it was measured on (the rebuilt set), applied to the family's
+valid-config count. The run docs' own n_valid is printed beside: the rebuild counts more valid settings (ORB 382 vs 196, ENGU-Q 516 vs 278),
+because the docs' count comes from the run's own search path; the ratio is taken on one consistent set.
+Everything else in the note stands (runs, windows, the 30-trades validity rule, the ENGU grid bounded at rho(ENGU-Q #335), no crown Sharpe).
