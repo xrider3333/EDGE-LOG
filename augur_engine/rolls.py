@@ -1137,6 +1137,22 @@ def _registry_rows():
         return []
 
 
+def noadj_twin(meta, root):
+    """The unadjusted master to use in place of an adjusted one: the registry's db_noadj row for the
+    same root, timeframe and session ('NQ 5m RTH - no-adj (NOADJ_NQ_5m_RTH.csv, source db_noadj_rth)'),
+    else the source name alone."""
+    meta = meta or {}
+    src = str(meta.get("source") or "").lower()
+    sess = src.split("_")[-1] if "_" in src else str(meta.get("session") or "").lower()
+    tf = str(meta.get("timeframe") or "").lower()
+    want = "db_noadj_" + sess if sess else "db_noadj"
+    for r in _registry_rows():
+        if (normalize_instrument(r.get("instrument")) == root and str(r.get("source") or "").lower() == want
+                and (not tf or str(r.get("timeframe") or "").lower() == tf)):
+            return "the no-adj master %s (%s, source %s)" % (r.get("name"), r.get("filename"), want)
+    return "the no-adj master (source %s)" % want
+
+
 def registry_check(meta):
     """(row, problem). Prices loaded by load_master_arrays carry their registry id and filename; the
     registry row - not the meta strings - says what market and what kind of master they are. A claim
@@ -1375,11 +1391,21 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
         if not report_only and not is_roll_aware(strategy_name, mod) and declared_method(mod) != "difference":
             inv = invariance(mod, arrays, root, times, tf, params, strategy_name)
             plan["tests"] = inv
-            if inv["shift"] < 1.0:
-                plan["warn"] = ("this file's trades move when every price shifts by a constant (it reads "
-                                "levels or %%: %s of them moved), and this master is difference-adjusted, "
-                                "so its signals read shifted levels. Run it on the unadjusted master: the "
-                                "engine then picks its signal method and prices fills raw." % _pct(inv["shift"]))
+            if inv["trades"] == 0:
+                plan["warn"] = ("the signal-method test saw no trades, so this master's difference "
+                                "adjustment could not be checked against the file's logic")
+            elif inv["shift"] < 1.0:
+                # MANAGER #65 (10-09): a level / %% file on a difference-adjusted master is REFUSED,
+                # not warned - its signals read shifted levels (NOISE #422 on db_adj: ROC 37.8 vs 52.2)
+                msg = ("this file's trades move when every price shifts by a constant (it reads levels "
+                       "or %%: %s of them moved), and %s is difference-adjusted, so its signals would "
+                       "read shifted levels. Run it on %s instead: the engine then picks its signal "
+                       "method (ratio for %% logic) and prices fills raw."
+                       % (_pct(inv["shift"]), meta.get("filename") or meta.get("name") or src,
+                          noadj_twin(meta, root)))
+                if not waived:
+                    raise RollGuardError(msg)
+                plan["warn"] = msg
         return plan
     plan["ctx_root"] = root
     treatment = str((params or {}).get("roll_treatment") or "").lower()

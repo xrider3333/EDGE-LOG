@@ -316,9 +316,29 @@ def test_adjusted_master_passes_and_is_stamped(strat, make):
     st = r["_meta"]["roll_stamp"]
     assert st["master_type"] == "adjusted" and st["calendar"] == "adjusted master"
     assert st["trades_crossing"] == 1 and st["usd_roll_step"] == 0.0 and not st["warning"]
-    # #58: a %-reading file on a difference-adjusted master is warned in the stamp
-    r = ae.run_backtest(make("pct")[0], arrays=_arrays("db_adj_rth"))
-    assert "difference-adjusted" in (r["_meta"]["roll_stamp"]["warning"] or "")
+    # #65 (10-09): a %-reading file on a difference-adjusted master is REFUSED, naming the no-adj master
+    with pytest.raises(R.RollGuardError) as e:
+        ae.run_backtest(make("pct")[0], arrays=_arrays("db_adj_rth"))
+    assert "difference-adjusted" in str(e.value) and "db_noadj_rth" in str(e.value)
+
+
+def test_pct_file_on_adjusted_master_refused_names_registry_twin(make, monkeypatch):
+    import augur_engine as ae
+    monkeypatch.setattr(R, "_registry_rows", lambda: [
+        dict(id=37, name="NQ 5m RTH - no-adj", filename="NOADJ_NQ_5m_RTH.csv", instrument="NQ",
+             timeframe="5m", session="rth", source="db_noadj_rth"),
+        dict(id=36, name="NQ 5m ETH - no-adj", filename="NOADJ_NQ_5m_ETH.csv", instrument="NQ",
+             timeframe="5m", session="eth", source="db_noadj_eth")])
+    assert "NOADJ_NQ_5m_RTH.csv" in R.noadj_twin(dict(source="db_adj_rth", timeframe="5m"), "NQ")
+    assert "NOADJ_NQ_5m_ETH.csv" in R.noadj_twin(dict(source="db_fadj_eth", timeframe="5m"), "NQ")
+    assert R.noadj_twin(dict(source="db_adj_rth", timeframe="15m"), "NQ") == \
+        "the no-adj master (source db_noadj_rth)"
+    # a point-logic file still passes on the adjusted master
+    ae.run_backtest(make("gap")[0], arrays=_arrays("db_adj_rth"))
+    # report mode waives the refusal into the stamp's warning
+    with R.guard_mode("report"):
+        r = ae.run_backtest(make("pct")[0], arrays=_arrays("db_adj_rth"))
+    assert "db_noadj_rth" in (r["_meta"]["roll_stamp"]["warning"] or "")
 
 
 def test_stale_adjusted_master_is_refused_past_its_last_applied_switch(strat):

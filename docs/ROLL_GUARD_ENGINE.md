@@ -10,7 +10,7 @@ Owner ask 10-08, relayed by MANAGER #54: "fix so this doesn't happen again." The
 | unadjusted | % logic: changes under shift, unchanged under a x k scale | **ratio-adjusted** series (each switch's offset as a ratio to the old contract's last close) | re-priced to raw: entry / exit divided back by the bar's factor, roll step out, metrics re-derived | allowed (roll-clean) |
 | unadjusted | neither (reads levels), `ROLL_SIGNAL = "raw"`, `roll_treatment="raw"`, or no trades in the test | raw prices + the true seam calendar | raw | **REFUSED** |
 | unadjusted | ROLL_AWARE (NQDIP 1.2-1.4, pinned by sha256) | raw; the file removes the offset itself | the file's own | allowed |
-| `db_adj_*` / `db_fadj_*` | any | the master | the master | allowed; **refused if the master is stale** (a table switch after its build); a level/% file is **warned** in the stamp |
+| `db_adj_*` / `db_fadj_*` | any | the master | the master | allowed; **refused if the master is stale** (a table switch after its build); a level/% file (trades move under a +C shift) is **REFUSED**, and the message names the no-adj master to run instead (MANAGER #65, 2026-10-10) |
 | futures root with no roll table (CL, GC, ZN, RTY, YM ...) | any | - | - | **REFUSED** |
 | no instrument in `arrays["meta"]` | any | - | - | **REFUSED** unless meta says `roll_mode = "none"` (synthetic / stock tapes) or `"live"` (set by `api/cloud_signal.closed_arrays`, the live bar builder; reported only) |
 
@@ -123,7 +123,7 @@ Also:
 1. The method test reads the window it is given. A level threshold no price in the window ever reaches is invisible to it, and harmless in that window.
 2. The test is cached per file and window with the first parameter set; `raw_vs_adjusted` on the saved run is the backstop.
 3. Level-reading files run raw: their indicators still see the roll step near switches, but their trades can't hold across one. The exact fix is a roll-aware or `ROLL_SIGNAL`-declared version of the file.
-4. `db_adj` masters are difference-adjusted. A %-reading file on one is warned, not converted.
+4. `db_adj` masters are difference-adjusted. A %- or level-reading file on one is refused (since 2026-10-10; before that it was only warned); run it on the no-adj master, where the engine gives it ratio-adjusted signals. A file whose test sees no trades is warned, not refused.
 5. Bars a switch falls inside (2026 in-bar splices) are rebuilt as bodies and counted as no-fill bars.
 6. The price check behind the label (`label_check`) works on ETH masters only. On RTH, roll offsets rarely stand clear of overnight gaps; TTM measured 0-1 usable switches per 2-year window, 2021-26.
    - For registered masters the registry row decides instead.
