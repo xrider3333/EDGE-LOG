@@ -1,0 +1,133 @@
+C:\Users\xride\AppData\Local\EdgeLog-worktrees\newtypes\tools\tv_bvcqa_r1.py:93: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  per = b.groupby("day").apply(lambda g: r(g["bvc"], g["D"]) if len(g) > 10 else np.nan).dropna()
+C:\Users\xride\AppData\Local\EdgeLog-worktrees\newtypes\tools\tv_bvcqa_r1.py:93: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  per = b.groupby("day").apply(lambda g: r(g["bvc"], g["D"]) if len(g) > 10 else np.nan).dropna()
+C:\Users\xride\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\numpy\lib\_function_base_impl.py:2999: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+C:\Users\xride\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\numpy\lib\_function_base_impl.py:3000: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+C:\Users\xride\AppData\Local\EdgeLog-worktrees\newtypes\tools\tv_bvcqa_r1.py:93: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  per = b.groupby("day").apply(lambda g: r(g["bvc"], g["D"]) if len(g) > 10 else np.nan).dropna()
+C:\Users\xride\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\numpy\lib\_function_base_impl.py:2999: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[:, None]
+C:\Users\xride\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\numpy\lib\_function_base_impl.py:3000: RuntimeWarning: invalid value encountered in divide
+  c /= stddev[None, :]
+C:\Users\xride\AppData\Local\EdgeLog-worktrees\newtypes\tools\tv_bvcqa_r1.py:93: DeprecationWarning: DataFrameGroupBy.apply operated on the grouping columns. This behavior is deprecated, and in a future version of pandas the grouping columns will be excluded from the operation. Either pass `include_groups=False` to exclude the groupings or explicitly select the grouping columns after groupby to silence this warning.
+  per = b.groupby("day").apply(lambda g: r(g["bvc"], g["D"]) if len(g) > 10 else np.nan).dropna()
+prereg LF sha256 d743889972717976542825d6f914e2cdea78f8def3a40213df5c2590eaa43cbc (pinned d743889972717976542825d6f914e2cdea78f8def3a40213df5c2590eaa43cbc) - OK
+script LF sha256 df19e81837283c3a677ae91f898e9ee627fc718a3a75d1a8fc0a4212a3677ed9
+
+NQ: 442290 duplicate time rows dropped; 77 RTH sessions seen, 25 KEPT (2026-06-30 .. 2026-10-07), 52 dropped:
+   dropped 2026-06-24  live (rt=1) share 0.00
+   dropped 2026-06-25  live (rt=1) share 0.00
+   dropped 2026-06-26  live (rt=1) share 0.00
+   dropped 2026-06-29  live (rt=1) share 0.76
+   dropped 2026-07-01  live (rt=1) share 0.78
+   dropped 2026-07-06  live (rt=1) share 0.00
+   dropped 2026-07-08  live (rt=1) share 0.35
+   dropped 2026-07-09  live (rt=1) share 0.00
+   dropped 2026-07-10  live (rt=1) share 0.00
+   dropped 2026-07-16  live (rt=1) share 0.42
+   dropped 2026-07-17  live (rt=1) share 0.01
+   dropped 2026-07-21  live (rt=1) share 0.00
+   dropped 2026-07-23  live (rt=1) share 0.54
+   dropped 2026-07-24  RTH rows 458 of 2340
+   dropped 2026-07-27  live (rt=1) share 0.00
+   dropped 2026-07-28  live (rt=1) share 0.31
+   dropped 2026-07-29  live (rt=1) share 0.00
+   dropped 2026-07-30  live (rt=1) share 0.92
+   dropped 2026-07-31  live (rt=1) share 0.00
+   dropped 2026-08-03  live (rt=1) share 0.83
+   dropped 2026-08-04  live (rt=1) share 0.00
+   dropped 2026-08-05  live (rt=1) share 0.44
+   dropped 2026-08-06  live (rt=1) share 0.47
+   dropped 2026-08-07  live (rt=1) share 0.58
+   dropped 2026-08-10  live (rt=1) share 0.39
+   dropped 2026-08-11  live (rt=1) share 0.60
+   dropped 2026-08-12  live (rt=1) share 0.00
+   dropped 2026-08-13  live (rt=1) share 0.00
+   dropped 2026-08-14  live (rt=1) share 0.00
+   dropped 2026-08-17  live (rt=1) share 0.89
+   dropped 2026-08-19  live (rt=1) share 0.74
+   dropped 2026-08-20  live (rt=1) share 0.27
+   dropped 2026-08-21  live (rt=1) share 0.00
+   dropped 2026-08-25  live (rt=1) share 0.94
+   dropped 2026-08-26  RTH rows 1593 of 2340
+   dropped 2026-08-31  live (rt=1) share 0.50
+   dropped 2026-09-04  live (rt=1) share 0.40
+   dropped 2026-09-07  RTH rows 1239 of 2340
+   dropped 2026-09-08  live (rt=1) share 0.50
+   dropped 2026-09-09  live (rt=1) share 0.70
+   dropped 2026-09-10  live (rt=1) share 0.39
+   dropped 2026-09-11  live (rt=1) share 0.20
+   dropped 2026-09-14  live (rt=1) share 0.00
+   dropped 2026-09-15  live (rt=1) share 0.84
+   dropped 2026-09-17  live (rt=1) share 0.30
+   dropped 2026-09-18  live (rt=1) share 0.71
+   dropped 2026-09-21  live (rt=1) share 0.85
+   dropped 2026-09-28  live (rt=1) share 0.89
+   dropped 2026-09-29  live (rt=1) share 0.94
+   dropped 2026-09-30  live (rt=1) share 0.01
+   dropped 2026-10-08  MANAGER: 10-08 feed flap
+   dropped 2026-10-09  MANAGER: 10-09 08:03 chart freeze
+  NQ 1-min: 9673 bars used (45 dropped: incomplete / backfill rows; 7 prev-bar gaps)
+     r(BVC, D) 0.137  [1 - r^2 = 0.98 unexplained] | median per-session r 0.592 (IQR 0.131..0.735, 25 sessions)
+     twins: r(V x sign dP, D) 0.101 | r(dP alone, D) 0.587
+  NQ 5-min: 1903 bars used (17 dropped: incomplete / backfill rows; 6 prev-bar gaps)
+     r(BVC, D) 0.316  [1 - r^2 = 0.90 unexplained] | median per-session r 0.614 (IQR 0.114..0.720, 25 sessions)
+     twins: r(V x sign dP, D) 0.196 | r(dP alone, D) 0.586
+
+ES: 432461 duplicate time rows dropped; 76 RTH sessions seen, 31 KEPT (2026-06-30 .. 2026-10-07), 45 dropped:
+   dropped 2026-06-25  live (rt=1) share 0.00
+   dropped 2026-06-26  live (rt=1) share 0.00
+   dropped 2026-06-29  live (rt=1) share 0.05
+   dropped 2026-07-01  live (rt=1) share 0.78
+   dropped 2026-07-06  live (rt=1) share 0.00
+   dropped 2026-07-08  live (rt=1) share 0.35
+   dropped 2026-07-09  live (rt=1) share 0.00
+   dropped 2026-07-10  live (rt=1) share 0.00
+   dropped 2026-07-16  live (rt=1) share 0.42
+   dropped 2026-07-17  live (rt=1) share 0.01
+   dropped 2026-07-21  live (rt=1) share 0.00
+   dropped 2026-07-23  live (rt=1) share 0.54
+   dropped 2026-07-24  RTH rows 458 of 2340
+   dropped 2026-07-27  live (rt=1) share 0.00
+   dropped 2026-07-28  live (rt=1) share 0.31
+   dropped 2026-07-29  live (rt=1) share 0.00
+   dropped 2026-07-30  live (rt=1) share 0.92
+   dropped 2026-07-31  live (rt=1) share 0.00
+   dropped 2026-08-03  live (rt=1) share 0.83
+   dropped 2026-08-04  live (rt=1) share 0.00
+   dropped 2026-08-05  live (rt=1) share 0.44
+   dropped 2026-08-06  live (rt=1) share 0.47
+   dropped 2026-08-07  live (rt=1) share 0.58
+   dropped 2026-08-10  live (rt=1) share 0.39
+   dropped 2026-08-11  live (rt=1) share 0.60
+   dropped 2026-08-12  live (rt=1) share 0.39
+   dropped 2026-08-14  live (rt=1) share 0.00
+   dropped 2026-08-19  live (rt=1) share 0.74
+   dropped 2026-08-21  live (rt=1) share 0.00
+   dropped 2026-08-25  live (rt=1) share 0.79
+   dropped 2026-08-26  RTH rows 1469 of 2340
+   dropped 2026-08-27  live (rt=1) share 0.79
+   dropped 2026-08-31  live (rt=1) share 0.50
+   dropped 2026-09-02  live (rt=1) share 0.34
+   dropped 2026-09-04  live (rt=1) share 0.40
+   dropped 2026-09-07  RTH rows 1177 of 2340
+   dropped 2026-09-11  RTH rows 1628 of 2340
+   dropped 2026-09-15  live (rt=1) share 0.02
+   dropped 2026-09-18  live (rt=1) share 0.71
+   dropped 2026-09-21  live (rt=1) share 0.85
+   dropped 2026-09-28  live (rt=1) share 0.89
+   dropped 2026-09-29  live (rt=1) share 0.94
+   dropped 2026-09-30  live (rt=1) share 0.01
+   dropped 2026-10-08  MANAGER: 10-08 feed flap
+   dropped 2026-10-09  MANAGER: 10-09 08:03 chart freeze
+  ES 1-min: 11964 bars used (90 dropped: incomplete / backfill rows; 15 prev-bar gaps)
+     r(BVC, D) 0.554  [1 - r^2 = 0.69 unexplained] | median per-session r 0.463 (IQR 0.187..0.687, 30 sessions)
+     twins: r(V x sign dP, D) 0.514 | r(dP alone, D) 0.484
+  ES 5-min: 2356 bars used (32 dropped: incomplete / backfill rows; 12 prev-bar gaps)
+     r(BVC, D) 0.558  [1 - r^2 = 0.69 unexplained] | median per-session r 0.452 (IQR 0.218..0.698, 30 sessions)
+     twins: r(V x sign dP, D) 0.477 | r(dP alone, D) 0.481
+
+THE STATISTIC: pooled r(BVC, D), NQ 1-minute = 0.137 -> FAIL (bar r >= 0.60, prereg)

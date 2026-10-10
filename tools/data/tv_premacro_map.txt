@@ -1,0 +1,17 @@
+paper: five 10:00 ET drift releases, mean R2 of the 30-min pre-window on the surprise 0.090; 60 events a year; WF 9 years
+
+ES: 09:30->10:00 move size (sd) 0.301% over 2318 WF days, mean price 3714, cost 0.363 pt ($18.15) RT
+  FOLLOW (paper-era signal, no decay): best watch 10 min -> mean $-1.8 / contract / event net; ROC@30k median -0.4, P(>=15) 0.006
+      stress cost (+0.25 pt): mean $-14.3, ROC median -1.7
+  FOLLOW (McLean-Pontiff on the drift (gamma x 0.42)): best watch 5 min -> mean $-15.3 / contract / event net; ROC@30k median -1.7, P(>=15) 0.002
+      stress cost (+0.25 pt): mean $-27.8, ROC median -2.4
+  ORACLE, paper-era (knows the surprise sign at 09:30 - the leak, NOT tradable): mean $115.9 / event; ROC median 42.4, P(>=15) 0.984
+  ORACLE, McLean-Pontiff (knows the surprise sign at 09:30 - the leak, NOT tradable): mean $38.3 / event; ROC median 7.6, P(>=15) 0.193
+
+NQ: 09:30->10:00 move size (sd) 0.440% over 2318 WF days, mean price 11566, cost 0.533 pt ($10.66) RT
+  FOLLOW (paper-era signal, no decay): best watch 15 min -> mean $16.5 / contract / event net; ROC@30k median 2.0, P(>=15) 0.034
+      stress cost (+0.25 pt): mean $11.5, ROC median 1.3
+  FOLLOW (McLean-Pontiff on the drift (gamma x 0.42)): best watch 5 min -> mean $-5.5 / contract / event net; ROC@30k median -0.4, P(>=15) 0.004
+      stress cost (+0.25 pt): mean $-10.5, ROC median -0.8
+  ORACLE, paper-era (knows the surprise sign at 09:30 - the leak, NOT tradable): mean $233.3 / event; ROC median 50.2, P(>=15) 0.995
+  ORACLE, McLean-Pontiff (knows the surprise sign at 09:30 - the leak, NOT tradable): mean $92.1 / event; ROC median 11.4, P(>=15) 0.346
