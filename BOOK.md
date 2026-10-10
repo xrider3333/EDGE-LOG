@@ -1190,6 +1190,43 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10aw. Q30 CORRECTION + THE BOOK LOOKS TALLY: #463's WF Sharpe survives deflation under every consistent pairing; GAMMA ARM C is look 72 (2026-10-10, a correction)
+
+**What changed.** TV posted a second review of Q30 (10ap) on 10-10, after the 10-09 window. FRONTIER re-ran it from Q30's saved files
+(looks_daily.csv, q30_report.json; script `C:\EdgeLog\_anatomy_cache\bookq\q30_vcheck.py`). TV's numbers reproduce exactly.
+- **The flaw:** 10ap took the variance of trial Sharpes, V = 2.03e-03, from only TWO cluster Sharpes. Those are the 38 #463-type books
+  (about 0.117 a day) and the DIP-only book L041 (0.055). V measures that one gap and nothing else.
+- **What a consistent pairing is:** Bailey & Lopez de Prado's raw-count DSR pairs N raw trials with the raw trials' Sharpe variance.
+  ONC's version pairs N = E with the cluster variance. 10ap paired the 2-cluster V with N = 34 and N = 71, which mixes the two.
+
+| V taken from | V (sd a year) | N = 2 (E_low) | N = 35 (E_high) | N = 72 (raw) |
+|---|---|---|---|---|
+| 2 cluster Sharpes (as 10ap printed) | 2.03e-03 (0.71) | 1.000 | 0.883 | 0.672 |
+| the 39 rebuilt looks' own Sharpes | 1.25e-04 (0.18) | 1.000 | 1.000 | 1.000 |
+| the 38 without L041 | 3.21e-05 (0.09) | 1.000 | 1.000 | 1.000 |
+
+**Read.**
+- **10ap's 0.889 and 0.677 are withdrawn as warnings.** They only appear when the 2-cluster V is paired with a raw count.
+- **#463's WF Sharpe (1.84 a year) clears the luck bar under every consistent pairing.**
+- **How far it is from failing:** at N = 72, DSR stays at 0.95 or above unless the trial Sharpes spread with an sd of 0.58 a year or more.
+  That is 3.3x the spread of the 39 rebuilt looks.
+- **What is still open:** V leaves out the 32 looks that could not be rebuilt (round 58's ML-gated books and one-offs). Their spread is
+  unknown, so the margin above is the caveat.
+- **ONC's E = 2 means one idea plus the DIP-only outlier.** ONC's k-means starts at k = 2, so it can never answer 1. Q39 addendum 1
+  found the same collapse in settings families.
+- **#485 is unaffected.** Its V comes from 30 clusters.
+
+**THE BOOK LOOKS TALLY (MANAGER #148).**
+- **GAMMA r1 ARM C (GEXGATE)** stands ORB #234 and NOISE #422 down on long-gamma days. It read #463 on the WF on 10-10.
+  - C1 (judged): 82.87 against #463's 93.81, FAIL.
+  - C2 and C3 (reported): 88.34 and 87.55.
+  - Results: docs/RESULTS_gamma_r1_stageA_2026-10-10.md on branch claude/calmday-scope.
+- **It counts as one look (three cells).** Raw looks go from 71 to 72. Q30's band goes from E_low 2 / E_high 34 to E_low 2 / E_high 35.
+  Arm C is not rebuilt as a daily series here, so it enters the band of looks that could not be rebuilt.
+- **The tally is a floor.** The WF book reads made since LOOKS r1 closed on 10-05 were never added to the 71. They include RESMOM and the
+  S1 line, the basket seats (Q20-Q27), Q29, Q31, Q34, Q36 / Q37, TTM round 23, and ORB rounds 64 / 65 on #234. FRONTIER sweeps the ledger
+  for them before the luck-bar rule is frozen (MANAGER #142 (c)).
+
 ### 10av. Q37 DIP #424 UNDER THE WEBULL EXECUTOR ON QQQ: it keeps DIP's edge, and the sizing is fixed 1.245x, not KEEL (2026-10-09, a report)
 
 **What it is.**
@@ -1518,7 +1555,8 @@ check on each leg's forward record.
 - **The raw look count overstates the trial burden.** The rebuildable looks are near copies of one book (correlation 0.95). Even at the
   harsh bound, where every un-rebuildable look counts as independent (N = 34), #463's WF Sharpe clears the luck bar (DSR 0.889). At the raw
   71 it reads 0.677.
-- **Caveat:** the variance of trial Sharpes behind the expected maximum rests on only two clusters.
+- **Caveat:** the variance of trial Sharpes behind the expected maximum rests on only two clusters. **CORRECTED 10-10 (10aw):** paired consistently, #463's DSR is 1.000 at every N;
+  the 0.889 / 0.677 above need the 2-cluster V paired with a raw count and are withdrawn as warnings.
 - **#485's tuning searched about 30 ideas, not 307 or 900:** the champion sits among 9 near-twins. Its Deflated Sharpe is unaffected
   (0.999+ at every N).
 - **Per the note, this is EVIDENCE for a family-level luck bar (RESEARCH.md item 7), not a change.** No threshold moves: the 71-look chance
