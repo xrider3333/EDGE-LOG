@@ -1,0 +1,11 @@
+(1) 15:55 EXIT: the paper's deviation is in the 16:00 AUCTION print of stocks; a futures exit at 15:55 trades before it, and the
+    last five minutes of continuous trading revert ~5x less (paper) - no closing-pressure tax on a 15:55 exit, none on 16:00 either.
+
+ES: 16:00 -> next 09:30 move size (sd) 0.736% over 2239 WF nights, mean price 3713; RT cost 0.363 pt = 0.98 bp
+   FADE every night, index deviation 1.0 bp (8.1 / sqrt 70), all of it captured: net $-128 / yr / contract; ROC@30k median -0.1, P(>=15) 0.006
+   FADE same, McLean-Pontiff x 0.42: net $-2734 / yr / contract; ROC@30k median -1.0, P(>=15) 0.002
+   FADE special days only (rebalance / expiry, 12 a year) at the FULL per-stock 8.1 bp: net $1586 / yr / contract; ROC@30k median 4.5, P(>=15) 0.102
+NQ: 16:00 -> next 09:30 move size (sd) 0.856% over 2239 WF nights, mean price 11560; RT cost 0.533 pt = 0.46 bp
+   FADE every night, index deviation 1.8 bp (8.1 / sqrt 20), all of it captured: net $7683 / yr / contract; ROC@30k median 2.7, P(>=15) 0.039
+   FADE same, McLean-Pontiff x 0.42: net $1611 / yr / contract; ROC@30k median 0.4, P(>=15) 0.011
+   FADE special days only (rebalance / expiry, 12 a year) at the FULL per-stock 8.1 bp: net $2118 / yr / contract; ROC@30k median 4.0, P(>=15) 0.090
