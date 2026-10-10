@@ -18,10 +18,10 @@ ran; all eight are dead as standalone legs, and none adds to the book line L = #
 | DIVRUN r1 (2.77) | ~$8,400 (ROC 8-13) | 3.5 | - |
 | EDRIFT r1 (2.85) | - | -2.3 (S1 -2.2) | - |
 | NEWISSUE r1 (2.87) | - | -1.7 | 96.7 / 100.7 (vs 120.82) |
-| NETISS r1 (S1, ticket 160) | ~$6,000 (ROC 5-9) | 7.7, driven by one episode | 108.9 / 111.4 |
-| SHORTINT r1 (S1, ticket 160) | ~$6,000-12,000 (ROC 5-15) | -0.4 | - |
-| EAP r1 (2.103) | ~$4,000-10,000 (ROC 3-15) | -0.3 | 120.30 / 110.94 |
-| BUYBACK r1 (2.104) | ~$4,000-8,000 (ROC 4-8) | 1.1 | 97.95 / 103.88 |
+| NETISS r1 (S1, 2.100) | ~$6,000 (ROC 5-9) | 7.7, driven by one episode | 108.9 / 111.4 |
+| SHORTINT r1 (S1, 2.101) | ~$6,000-12,000 (ROC 5-15) | -0.4 | - |
+| EAP r1 (2.115) | ~$4,000-10,000 (ROC 3-15) | -0.3 | 120.30 / 110.94 |
+| BUYBACK r1 (2.116) | ~$4,000-8,000 (ROC 4-8) | 1.1 | 97.95 / 103.88 |
 | INSIDER r1 (2.78; TV's run, this lane reviewed) | - | 1.9 | - |
 
 Out of this lane or spent: EDRIFT r2 (the earnings family is closed, MANAGER #84); SEASON, 52WH, IVOL, BAB, QUALITY
@@ -92,9 +92,26 @@ families alive was the seat case, and four of those seat cases then died on the 
 
 ## MANAGER's rulings (#145, 2026-10-08)
 
-1. DIVCHG: CLOSED at draft (ledger 2.105).
+1. DIVCHG: CLOSED at draft (ledger 2.107).
 2. The power-first gate: GO as a standing rule (ledger section 5). Every stock-basket prereg prints its MDE in its own
    money beside its pre-data prior; a prior below the MDE closes the family at draft, no Stage A.
 3. Longer history: an owner decision (it likely costs money); MANAGER puts it to the owner as an option, not a
    recommendation, with these numbers (priors $4-12k a year against an MDE of ~$17.5k). Until then, no new stock-basket
    family.
+
+## MANAGER #160 (2026-10-10): GO as written
+
+Ledger ids above corrected to where the rows landed (they renumber while a ship queues): NETISS 2.100, SHORTINT 2.101,
+EAP 2.115, BUYBACK 2.116, DIVCHG 2.107. Longer history with delisted names stays an owner decision.
+
+**The futures-side question (MANAGER #160: draft one futures idea that clears the power-first gate, or say there is none).**
+None, on the data held. The futures bar is the MDL map's: about $15,000 a year at a $30,000 drawdown of its own (ROC 15), at
+least 50 trades a year, and no falling with the book. Every NQ / ES mechanism this lane can name is one of these:
+- already in the book: NOISE, ORB, ENGU-Q, TTM, and DIP (now a fixed-size Webull leg);
+- dead on the ledger: the classic intraday set (0 of 30 cells), the seed hunt (GAPGO failed its sealed year), the overnight
+  dealer drift ($8-17 a trade), the NQ-ES spread, the VIX-level and calm-tape timing, the short-vol carry, trend and rotation;
+- below the bar before any data: the Treasury pre-auction short (ROC 7.9, half the line); the pre-FOMC drift (about 8 trades
+  a year, under the 50 floor, and the published effect faded after 2015);
+- too short to test: the 10-second order-flow tape has months, not years - it can only be a forward shadow (running since 10-01).
+New futures ground (crude, gold, Treasury, euro bars) needs data the owner declined on 09-30; this note does not re-propose it.
+The lane stays on the RESMOM forward line (first rank 10-30, pull Sat 10-31) and the verifier pool.
