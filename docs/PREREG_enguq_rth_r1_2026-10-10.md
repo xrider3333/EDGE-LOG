@@ -177,3 +177,90 @@ reported separately - it added 0.7 ROC points, not the 13.7 the stored block imp
 stand as written, and the stated prior - that this search probably does not beat 28.42 detectably,
 given two WEAK QQQ Auto-Validates and seven dead ENGU-Q entry filters - stands as written rather
 than being softened now that the round is authorised.
+
+## Addendum 2 (2026-10-10, STRATEGY-BEATING's review folded IN FULL, before any data)
+
+MANAGER #68 asked for these as "addendum 1"; addendum 1 above already recorded the GO, so this is
+**addendum 2** and nothing above is edited. Every edit from the review (#67, full text at
+`C:\EdgeLog\manager\reviews\enguq_rth_r1_review_STRATEGY-BEATING_2026-10-10.md`) is folded, and
+**each blocking finding was verified against the strategy file before folding rather than taken on
+trust**. All three were correct; the verification notes are recorded here because two of them are
+more precise than the review states.
+
+### L1 - the lattices could not reach the crown, so the reproduction gate failed by construction
+
+**Confirmed.** `tl_len` 10..780 step 10 cannot reach the crown's **206**; `atr_len` 10..390 step 10
+cannot reach **52**. This is the round-62 defect in a new place: the draft asserted a reachability
+test and then specified a fence that fails it. Replaced with the review's anchored lattices:
+
+| knob | was | **now** | reaches the crown |
+|---|---|---|---|
+| `tl_len` | 10..780 step 10 | **10..782 step 4** | 206 = 10 + 4x49 |
+| `atr_len` | 10..390 step 10 | **12..392 step 4** | 52 = 12 + 4x10 |
+
+### L2 - the efficiency-gate threshold was missing from the table
+
+**Confirmed.** The file carries `er_th` (default 0.0, 0.0..0.5 step 0.05) and the gate is written
+`if float(er_th) > 0`, so **at the crown's 0.0 the gate is off and `er_len` does nothing at all**.
+Added: **`er_th` 0.00..0.50 step 0.05**. `er_len` stays in the table and is only meaningful when
+`er_th` is above zero, which is now searchable rather than silently dead.
+
+### L3 - two hard-coded NQ price floors, and they are the mechanical reason for 308 trades
+
+**Confirmed, and located exactly:** an **ATR floor of 0.25** in the break test
+(`(c[i] - tl_now) / max(a, 0.25) < min_brk`) and a **risk floor of 0.50** in both entry paths
+(`if risk < max(0.25, 0.5)`, twice). Both are absolute NQ POINTS. On QQQ, where a share trades in
+cents, a 0.50-point risk floor and a 0.25 ATR floor reject nearly every candidate bar - which is the
+mechanism behind Q36's **308 walk-forward trades against the leg's 1,194**, and the single most
+important thing the search must be able to move. Added as searchable knobs, both reaching the NQ
+values and QQQ-scale values:
+
+| knob | range | step | note |
+|---|---|---|---|
+| `risk_floor` | 0.00 .. 0.50 | 0.01 | 0.50 = today's hard-coded NQ value; 0.00 = off |
+| `atr_floor` | 0.00 .. 0.25 | 0.01 | 0.25 = today's hard-coded NQ value; 0.00 = off |
+
+### P1 - the power line, by Q36's own method, and what it implies
+
+The line is computed by **Q36's method from the reference series alone** - no cell of the new search
+touches it - and is **posted with the witness branch before any cell P&L**. Q36's published line is
+**12.70 ROC points**. **So clause 1 requires a walk-forward ROC of about 41 to beat the reference's
+28.42 detectably.** That is stated here, in advance, with its consequence: 41 is far above the
+crown's own 26.5 and above the ungated #326 cell's 21.5, so **on this bar the round is very likely
+to fail, and the prior in the draft is strengthened rather than softened by the review.** If the
+search lands between 28.42 and 41 the honest report is "better on the point estimate, not
+distinguishable", and MANAGER puts the operational choice to the owner.
+
+### C2 and C3 - clauses 5 and 6 get real bars instead of being reports
+
+- **Clause 5, the executor read, now has a bar:** the winning cell's ROC under the Webull executor
+  must also beat the reference by the power line, and its seat on the S1 line must be **at least
+  114.08** (Q36's reference seat). A report with no threshold cannot fail, and a clause that cannot
+  fail is not a clause.
+- **Clause 6, the QQQ buy-and-hold twin, now has a bar:** the winning cell must beat the
+  same-exposure QQQ twin by **more than the twin null's 95th percentile** - the CALMTAPE pattern,
+  where a calm-uptrend long lost to its own same-exposure hold. Both the in-position and always-on
+  twins are reported; the in-position one carries the bar.
+
+### Everything else from the review, folded as stated
+
+- **The reference is re-read on the validate's exact walk-forward out-of-sample dates**, not on
+  Q36's window, so the comparison is date-for-date.
+- **The walk-forward stretch decides; the lockbox is veto-only** and is not treated as blind here.
+- **"The winning cell" means the walk-forward chain's cell, never the full-window champion.**
+- **A walk-forward concentration check** is added: the result must survive without its top three
+  trades, and be positive in at least 6 of 9 walk-forward years.
+- **`regime_len` counts 390-bar blocks** - verified in the file (`rb = int(regime_len) * 390`), so
+  on an RTH tape one block is one session while on NQ's overnight tape the crown's 10 is about 2.8
+  sessions. Its existing fence (0..100 step 5) already reaches 10 and already includes **0 = off**,
+  so no change is needed, but the **unit shift is recorded** because it changes what the knob means.
+- **The lattice test compares floats with a tolerance**, not for equality.
+- **Parity is checked two ways before any search:** a code diff against `ENGUQ_1M_ETH_R2_1_0.py`
+  showing only the intended additions, and a trade-for-trade match against the **SAVED #335 trade
+  list** on `db_noadj_eth`, 2010-06-07..2026-06-30.
+- **One trial is timed before 900 are queued** - the file is uncompiled and `tl_len` now reaches
+  782, so the per-trial cost must be measured, not assumed.
+- **The budget stays at 900** (owner rule, never lowered).
+
+**Process, as MANAGER set it:** witness branch and hashes to STRATEGY-BEATING and MANAGER, then
+**STRATEGY-BEATING confirms the folds**, and only then does anything run.
