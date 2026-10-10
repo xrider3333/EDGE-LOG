@@ -118,7 +118,8 @@ def main(names=None):
     x, dates = book463()
     SW, _, V = M12.build_stretches(x, dates)
     xs, ds = line_s1()
-    LW, _, VL = M12.build_stretches(xs, ds)
+    LW = M12.Stretch(xs, ds, M12.trail_std(xs), *M12.WINDOWS["WF"])   # the S1 file holds WF rows only (no LB stretch)
+    VL = M12.unit_vol(LW.x)
     bar_s1 = (1.05 * LW.stats["roc"], LW.stats["sort"])
     lines = [f"MAPCHECK-F (Custom ML; MDL r1's generator, FRONTIER OK #92) - {M} synthetic legs per prior, seed [{SEED0}, k]; WALK-FORWARD only "
              f"(#463's lockbox is spent). #463 WF {SW.stats['roc']:.2f} / {SW.stats['sort']:.3f}, bar {M12.BAR_WF_ROC:.2f} / {M12.BAR_WF_SORT:.3f}; "
