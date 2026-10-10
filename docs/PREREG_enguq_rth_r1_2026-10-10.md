@@ -155,3 +155,25 @@ a clean falsification closes the question instead of leaving it open.
 
 On GO this goes out as a witness branch `prereg/enguq-rth-r1` with the note and harness sha256s
 posted before the run, per the run-before-main rule.
+
+## Addendum 1 (2026-10-10, MANAGER #65 - GO, before any number exists)
+
+MANAGER answered all three questions and this records the rulings; the draft above is otherwise
+unchanged, and nothing in it is edited.
+
+1. **TAPE: the QQQ 1-minute regular-hours master for signals AND fills.** Agreed as proposed.
+2. **BAR: Q36's 28.42 is the right thing to beat** - a fresh fit must beat simply executing NQ
+   #335's signals on QQQ, with **the power line posted BEFORE any cell P&L**. If it cannot beat it
+   detectably, this lane says so plainly and MANAGER puts the operational choice (a QQQ-native leg
+   versus the NQ-feed dependency) to the owner. The map's $15k-a-year row is NOT the bar here.
+3. **EXPOSURE TWIN: QQQ**, the tape the leg trades, not the NQ proxy.
+
+MANAGER also confirmed the running arrangements: witness branch and hashes first, then the
+900-trial Auto-Validate on the house runner with the trial cache on and five workers available, and
+**the #326 tree/tier re-read comes AFTER this search lands** (that re-read has since been done and
+reported separately - it added 0.7 ROC points, not the 13.7 the stored block implied).
+
+**Nothing else moves.** The ranges stay unpinned, the window stays pinned, the six pass clauses
+stand as written, and the stated prior - that this search probably does not beat 28.42 detectably,
+given two WEAK QQQ Auto-Validates and seven dead ENGU-Q entry filters - stands as written rather
+than being softened now that the round is authorised.
