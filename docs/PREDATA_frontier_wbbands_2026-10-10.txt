@@ -1,0 +1,52 @@
+BOOK QUEUE Q38 - HARM BANDS FOR THE WEBULL LEGS (MANAGER #141 item 3; GO with edits #146; legs per #147). PRE-DATA NOTE for MANAGER,
+2026-10-10. A calibration + a forward read, walk-forward data only; no leg is judged and nothing on the box changes.
+
+LEGS (#146 / #147): ORB_R6, NOISE_382 and DIP_424F (live from its first trade; the owner's target is Tue 10-13). Skipped: NOISE_422 x3,
+DIP_424K. ENGUQ_335 is out (a tracker since the owner's 10-09 call).
+- Each leg runs as the box runs it, read from api/cloud_signal.py on main (CROWN_LEGS / SHADOW_LEGS):
+  - ORB_R6 = ORB_3_6_R6.py, 5m, ORB_314 params, flat at the session's last bar.
+  - NOISE_382 = NOISE_1_8_CT304.py, 5m, NOISE_382_PARAMS.
+  - DIP_424F = NQDIP_1_1.py as ETF at DIP_424_PARAMS, decided on the daily close and filled at the next 09:30 open, constant size.
+- Prices: the QQQ 5m Alpaca master (master_ac263357.csv, sha256 782dabdd..., as Q37).
+
+THE UNIT - PER SHARE (#146 option 2). The bands are built per share and printed at each leg's unit.
+- Units: ORB 10 shares (qqq_exec config shares.ORB); NOISE 10 shares x the plugin's own size (1 or 2), KEEL = 1.0; DIP 6 shares per lot
+  (the owner's live spec, 10-10).
+- The alarms are unit-free. A1 is a z-score and A2 scales with the unit, so a different deployed share count only changes the dollar words.
+- Cost: $0.02 a share a round trip (the executor's 0.01 a side), the same basis as the forward ledger. Each leg's P&L is taken gross from
+  the engine and the cost is then subtracted per share.
+  - ORB: the trade's points.
+  - NOISE: the per-share move recovered from the plugin's size fold, pts = s x raw - (s - 1) x 0.533.
+  - DIP: run with cost_bps 0; per-share = the trade's $ / (notional / entry price).
+- Each trade is booked on its exit day (ET), with zero-filled QQQ RTH sessions. For DIP's multi-day holds, the backtest and the forward
+  are booked the same way.
+
+THE METHOD (10aq + MANAGER #141 option 2, unchanged): window 2022-07-01..2025-06-29. q35_recent_bands.calibrate exactly:
+- stationary block bootstrap, 2,000 three-year paths, mean block 20, seed 20261009;
+- A1 = the shortfall z-line (c = the 2.5% quantile of the path minimum), sticky, checked every 5th row. That is one RTH week; #463's
+  legs use 6 because their UTC book days include Sunday;
+- A2 = the 97.5% quantile of the three-year worst drawdown;
+- power = P(an alarm within 36 months) with the edge removed.
+- ORB also carries the big-day WATCH line: its 99th-percentile unit day on the window and that rate a year. It is a watch, never an alarm.
+- NOISE's KEEL extra is printed as a SCALE TERM beside its read: forward $ at the sent size / forward $ at plugin size x1.0. There is no
+  QQQ KEEL walk (#146).
+
+THE FORWARD READ - THE PULL JOB'S FOLDERS ONLY (#146). The newest C:\EdgeLog\box_backup\<YYYY-MM-DD_HHMM>\ written by tools/pull_box_ledgers.py
+on or before the run day. Nothing connects to the box.
+- File: qqq_exec/trades.csv (the executor's book, P&L = shares x the price move, slippage inside the prices).
+- Rows are matched by trade_id prefix (ORB_R6-, NOISE_382-, DIP_424F-). A row with no trade_id is assigned by its leg column and date,
+  and counted in a data note.
+- Forward unit $ = pnl / shares x the unit (NOISE: 10 x its size column).
+- Starts: ORB_R6 at its first trade on the box (09-09); NOISE_382 at 09-24, its first signal (the earlier NOISE_304 rows are another
+  config and are left out); DIP_424F at its first trade.
+- The engine's own ENTRY / EXIT rows (cloud_signal/signals.csv) are counted beside it as a reconcile line, never alarmed.
+
+OUTPUT: per leg - mu, sd, c, the A2 line, the big-day line (ORB), power by 36 months; then today's forward read (rows, A1 z, worst z, dd,
+the NOISE scale term). The bands then go into tools/harm_monitor.py as a "Webull legs" block in the Monday post (a code ship with tests:
+a planted shortfall and a planted drawdown must trip, a WF-like path must not). No phone push, no automatic change.
+COULD FOOL US:
+- the $400 daily rail, the 15:55 last entry and the 09:31 open are not in the backtest;
+- Webull's live bars are not Alpaca's;
+- a few forward weeks cannot say anything (the power line is printed);
+- ORB and NOISE on QQQ were read before (QQQ VALIDATE r1), so these bands calibrate a known leg, they do not test one.
+Script: bookq/q38_webull_bands.py, witness branch prereg/frontier-wbbands-1010 before the run.
