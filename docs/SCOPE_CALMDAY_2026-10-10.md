@@ -140,3 +140,11 @@ r1b) runs ORB #314, the NOISE #422 core and the TTM #458 core UNCHANGED on ZN / 
   which is what the book's correlation map needs.
 - **Honest caveat:** TRANSFER r2 found the crowns' edges do not carry to bond or gold FUNDS at 5 minutes and are flat on DIA /
   IWM. So the prior for ZN / GC is weak. CL and 6E have no fund read.
+
+## 7. Owner decision (2026-10-10 18:21 UTC, project thread)
+
+The owner said: "not buying anyting so you choose". The choice made on that delegation is **GAMMA r1 only, with Arm C added**.
+TRANSFER r1 stays shelved because it needs paid data.
+- This is the owner's go for GAMMA r1 Stage A. It lifts the 2026-08-15 park on the GEX idea for this test only.
+- Arm C (§4) joins the shared family null, and the bars do not move.
+- Order: Arm C parity first (#463 WF 93.81 / 3.816, legs to the cent), then Stage A for all three arms. WF only, lockbox unread.
