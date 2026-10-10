@@ -10,9 +10,19 @@ the first session after the TradingView alerts went live on 2026-10-02), and sco
   A bar that touches both the stop and +1R counts as stopped (the conservative reading of a 1-minute bar).
 
 'Reached +1R' is the hit rate. Each alert is also matched to the owner's SHOULD HAVE TRADED entries (the labelled set,
-tools/missed_pull.py) at the signal minute or the minute after. A forward LOG, not a test: nothing here is tuned, and
-the read MANAGER #31 (c) names (an edge at 50 alerts) is taken only when 50 have printed.
+tools/missed_pull.py) at the signal minute or the minute after. A forward LOG, not a test: nothing here is tuned.
 ES on our side stands for the MES1! chart the alert runs on (same price series).
+
+THE READ PROTOCOL (MANAGER GO 10-10, from DISC's power check; replaces "an edge read at 50 alerts", MANAGER #31 (c)):
+  - At 50 alerts the log can only see HARM, not an edge. Alerts cluster by day (11 on 2026-10-05), so the effective
+    sample is closer to the session count than the alert count. With a per-alert SD of about 1.2R once winners appear,
+    the smallest mean a 50-alert read can tell from zero is about 0.4-0.6R. A plausible setup edge (0.1-0.3R) is
+    far below that.
+  - HARM READ (from HARM_AT = 50 alerts on): mean R < HARM_MEAN_R (-0.3R) AND the session-clustered t < HARM_T (-2)
+    -> "HARM": the alert is losing for real; tell MANAGER and stop treating it as a candidate.
+  - EDGE READ: only from EDGE_AT_ALERTS = 300 alerts AND EDGE_AT_SESSIONS = 60 sessions with an alert. Before that,
+    no edge claim either way.
+  read_status() prints which of these applies; the clustered t uses per-session sums of (R - mean) (CR0).
 
     python tools/cbu_forward_log.py [--from 2026-10-05] [--to YYYY-MM-DD] [--out C:\\EdgeLog\\cbu_forward]
 """
@@ -32,6 +42,12 @@ import cbu_v1_alerts as C  # noqa: E402
 LIVE_FROM = '2026-10-05'
 OUT_DIR = r'C:\EdgeLog\cbu_forward'
 VARIANT = 'sig_any_day'
+# the read protocol (module docstring)
+HARM_AT = 50
+HARM_MEAN_R = -0.3
+HARM_T = -2.0
+EDGE_AT_ALERTS = 300
+EDGE_AT_SESSIONS = 60
 
 
 def walk(po, ph, pl, pc, dord, mod, i, tick):
@@ -106,10 +122,41 @@ def summary(df):
         lines.append('%-12s %6d %3d %3d %6d (%3.0f%%) %7.2f %8.2f %7d' % (
             wk, len(g), int((g.root == 'NQ').sum()), int((g.root == 'ES').sum()), int(g.reached_1R.sum()),
             100 * g.reached_1R.mean(), g.R.mean(), g.R.sum(), int(g.should_have_traded.sum())))
-    lines.append('all          %6d %3d %3d %6d (%3.0f%%) %7.2f %8.2f %7d   (%d sessions with an alert; read at 50 alerts)' % (
+    lines.append('all          %6d %3d %3d %6d (%3.0f%%) %7.2f %8.2f %7d   (%d sessions with an alert)' % (
         len(df), int((df.root == 'NQ').sum()), int((df.root == 'ES').sum()), int(df.reached_1R.sum()),
         100 * df.reached_1R.mean(), df.R.mean(), df.R.sum(), int(df.should_have_traded.sum()), df.session.nunique()))
+    lines.append(read_status(df))
     return '\n'.join(lines)
+
+
+def clustered_t(df):
+    """Mean R / its session-clustered standard error (CR0: per-session sums of R - mean). None below 2 sessions or
+    with no spread."""
+    if df.empty or df.session.nunique() < 2:
+        return None
+    r = df.R.astype(float)
+    dev = (r - r.mean()).groupby(df.session).sum()
+    se = float(np.sqrt((dev ** 2).sum())) / len(r)
+    return float(r.mean()) / se if se > 0 else None
+
+
+def read_status(df):
+    """One line: which read of the protocol (module docstring) applies now, and its numbers."""
+    n = 0 if df.empty else len(df)
+    s = 0 if df.empty else int(df.session.nunique())
+    if n < HARM_AT:
+        return 'READ: none yet - the harm read starts at %d alerts (%d/%d); an edge read needs %d alerts and %d sessions' % (
+            HARM_AT, n, HARM_AT, EDGE_AT_ALERTS, EDGE_AT_SESSIONS)
+    m, t = float(df.R.mean()), clustered_t(df)
+    tt = 'n/a' if t is None else '%.2f' % t
+    harm = t is not None and m < HARM_MEAN_R and t < HARM_T
+    head = ('HARM READ: HARM - mean %.2fR, session-clustered t %s (bar: mean < %.1fR and t < %.0f); tell MANAGER'
+            % (m, tt, HARM_MEAN_R, HARM_T) if harm else
+            'HARM READ: no harm shown - mean %.2fR, session-clustered t %s (bar: mean < %.1fR and t < %.0f)'
+            % (m, tt, HARM_MEAN_R, HARM_T))
+    if n >= EDGE_AT_ALERTS and s >= EDGE_AT_SESSIONS:
+        return head + ' | EDGE READ DUE: %d alerts, %d sessions' % (n, s)
+    return head + ' | edge read waits for %d alerts and %d sessions (now %d / %d)' % (EDGE_AT_ALERTS, EDGE_AT_SESSIONS, n, s)
 
 
 def main(argv=None):

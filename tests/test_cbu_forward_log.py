@@ -67,6 +67,47 @@ def test_missed_entries_mark_only_cbu_longs(tmp_path):
     assert F.missed_cbu(str(p)) == [('NQ', P._epoch('2026-09-30 09:59'))]
 
 
+def _log(rs, per_session):
+    """A fake alerts frame: R values rs, per_session alerts on each session."""
+    import pandas as pd
+    return pd.DataFrame({'R': rs, 'session': ['2026-10-%02d' % (1 + k // per_session) for k in range(len(rs))]})
+
+
+def test_read_status_before_fifty_alerts_makes_no_read():
+    s = F.read_status(_log([-1.0] * 49, 5))
+    assert s.startswith('READ: none yet') and '49/50' in s
+
+
+def test_harm_read_flags_a_real_loser():
+    # 50 alerts, mostly stopped: mean well below -0.3R, spread across 25 sessions -> clustered t far below -2
+    rs = ([-1.0] * 4 + [0.0]) * 10
+    s = F.read_status(_log(rs, 2))
+    assert s.startswith('HARM READ: HARM') and 'edge read waits' in s
+
+
+def test_harm_read_needs_both_mean_and_t():
+    # mean -0.4R but driven by one bad session: the clustered t stays above -2, so no harm is called
+    rs = [-1.0] * 25 + [0.2] * 25
+    s = F.read_status(_log(rs, 25))
+    assert F.clustered_t(_log(rs, 25)) is None or 'no harm shown' in s
+    rs = [-1.0, 0.5] * 25            # mean -0.25R: above the -0.3R bar
+    assert 'no harm shown' in F.read_status(_log(rs, 2))
+
+
+def test_edge_read_waits_for_300_alerts_and_60_sessions():
+    rs = [0.5, -0.2] * 150           # 300 alerts
+    assert 'edge read waits' in F.read_status(_log(rs, 10))          # 30 sessions
+    assert 'EDGE READ DUE: 300 alerts, 60 sessions' in F.read_status(_log(rs, 5))
+
+
+def test_clustered_t_matches_iid_when_one_alert_per_session():
+    import numpy as np
+    rs = [0.3, -0.5, 1.2, -1.0, 0.0, 0.8, -0.2, 0.4]
+    t = F.clustered_t(_log(rs, 1))
+    r = np.array(rs)
+    assert abs(t - r.mean() / (np.sqrt(((r - r.mean()) ** 2).sum()) / len(r))) < 1e-12
+
+
 def test_open_session_is_not_logged(monkeypatch):
     """Alerts on a session that has not run to its close (today, live) never enter the log."""
     import pandas as pd
