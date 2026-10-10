@@ -264,3 +264,75 @@ distinguishable", and MANAGER puts the operational choice to the owner.
 
 **Process, as MANAGER set it:** witness branch and hashes to STRATEGY-BEATING and MANAGER, then
 **STRATEGY-BEATING confirms the folds**, and only then does anything run.
+
+## Addendum 3 (2026-10-10, STRATEGY-BEATING's four pins, before any data)
+
+STRATEGY-BEATING confirmed the addendum-2 folds and its own hash of this note (#69), and set four
+one-line pins; MANAGER's #70 is GO with no further review once they are in. All four are below, plus
+the recomputed power line the pins require. Nothing above is edited.
+
+### Pin 1 - ONE fence for the regime filter
+
+The draft's section (b) said `regime_len` 1..20 step 1 while addendum 2 cited the file's existing
+0..100 step 5 - **two fences for one knob, which the reviewer caught in my document**. Pinned to a
+single range: **`regime_len` 0..20 step 1**. It holds **0 = off** and the crown's 10, at session
+resolution on a 390-bar tape.
+
+### Pin 2 - the concentration check, in the reviewer's exact words
+
+The draft's wording was looser than the review. Replaced with both halves, each a real threshold:
+
+1. **The walk-forward ROC with its top three trades removed is still above the reference's 28.42**,
+   the reference re-read on the same dates.
+2. **The cell is ahead of the reference in at least two-thirds of the validate's walk-forward
+   calendar years** - the count comes from the validate's own fold schedule, not an assumed nine
+   years. "Positive in 6 of 9 years" is dropped, because the reference clears that too and a bar the
+   reference also clears tests nothing.
+
+### Pin 3 - the power line, recomputed on the validate's own dates
+
+**Recomputed with the house tool by Q36's method** - paired stationary block bootstrap on the two
+daily series, mean block 20 sessions, 1,000 draws, seed 20261005, ROC at $30k with the drawdown
+valued daily:
+
+| | value |
+|---|---|
+| SD of the bootstrapped lead | 7.7197 |
+| **5% line (50% power)** | **12.6989** |
+| 80% line (four times in five) | 19.1989 |
+| days / years | 2,626 / 8.994 |
+
+**It equals Q36's 12.70, and for a reason rather than by coincidence: the reference's own daily
+series spans only 2016-07-01..2025-06-29, so clipping it to the validate's window removes nothing.
+The reference series, not the window, is the binding constraint.** If the job's fold schedule trims
+the out-of-sample span materially the line is re-posted; a trim can only shorten it.
+
+**So clause 1 needs a walk-forward ROC of at least 41.1 to beat 28.42 at 50% power, or 47.6 to clear
+it four times in five** - against the crown's own 26.5 and the ungated #326 cell's 21.5.
+
+**And the limit of any line posted before a search exists, stated rather than discovered later:**
+this is the spread of **leg versus reference**, the only two series that exist today. The real bar is
+**candidate versus reference**, whose spread needs the candidate's daily series. So the pre-posted
+number is a **proxy** resting on the candidate's daily volatility resembling the leg's. The true
+paired line is recomputed on the winning cell and **both are reported** - the pass judged on the
+true line, this proxy standing as the record that the bar was not moved after the result was seen.
+If they differ materially that is said loudly.
+
+### Pin 4 - zero guards for the newly exposed floors
+
+Exposing the two hard-coded floors as knobs introduces two numerical holes at 0.00, both guarded in
+the harness:
+
+- **`atr_floor` 0** would let the break test divide by a zero ATR on a flat bar, and infinity passes
+  any `min_brk`. Guard: **`max(a, atr_floor, 1e-9)`**.
+- **`risk_floor` 0** would admit zero-risk entries - the stop sits at the entry and R is undefined.
+  Guard: **skip any trade with `risk <= 0`**.
+
+Both leave NQ parity at the crown's 0.50 / 0.25 untouched, and **the timed trial asserts no infinity
+or not-a-number anywhere in its output**.
+
+### Order of operations from here
+
+Witness branch moved to this commit, addendum hash posted to STRATEGY-BEATING and MANAGER, then the
+ranged file and harness built and hashed, then the 900-trial Auto-Validate queued and its job id
+sent. **Nothing runs before the hash is out.** Budget stays 900.
