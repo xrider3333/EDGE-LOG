@@ -1,0 +1,42 @@
+FAMILY-LEVEL LUCK BAR - FINAL RULE TEXT, FROZEN BY SHA256 BEFORE ANY CROWN NUMBER (MANAGER #142 (c)). FRONTIER, 2026-10-10.
+It is built from the draft bookq/DRAFT_family_luck_bar_2026-10-09.txt (LF f8053fac), which MANAGER reviewed in #142. It folds in the
+decisions of #142 (a)-(d) and #146, and Q39's addendum 1. It is a REPORT rule: it never demotes a crown or changes a book by itself, and the
+web chip and counter wait until the owner has seen the first report (#142 (d)).
+
+1. FAMILY. The lineage of runs_summary.csv's "lin" column (bookq/luck_counts.py over the 437 run docs #1-#488): ORB, ENGU-Q, NOISE, TTM and
+   DIP (the retired NQDIP / ETFDIP names count as DIP); one lineage per other family name. ENGU's grid runs COUNT as ENGU-Q's ancestors
+   (#142 (a)). E_fam is printed with and without ancestors for every family.
+2. RAW COUNT. N_fam = the sum of n_valid over the lineage's runs whose id is at or below the crown's id (runs_summary.csv as built, LF
+   sha256 printed at the run). Fold re-tunes are not multiplied in, and cross-instrument transfers are not counted, so N_fam is a floor.
+3. EFFECTIVE COUNT. E = rho x N, where rho = the family's effective-trial ratio from Q39 (luckbar/q39_rho.json).
+   - rho = max(E_ONC, N_eff) / the valid settings it was measured on. N_eff = rbar + (1 - rbar) x N (addendum 1, the harsh end).
+   - ENGU's grid ancestors take rho(ENGU-Q #335), the harsh end (#146).
+   - A family with no measured rho takes the LARGEST of the five measured rhos (the harsh end). This replaces the draft's 0.098.
+   - Two counts per crown: E_run = rho x the crown run's own n_cfg, and E_fam = rho x N_fam (with and without ancestors). An E below 2 is
+     set to 2 (the engine's minimum).
+4. THE BAR. The engine's own Deflated Sharpe (augur_engine/analytics.py deflated_sharpe), unchanged, with n_cfg replaced by E. The other
+   inputs are all the crown run's own:
+   - the winner's Sharpe = the run doc's stored winner_sharpe;
+   - its trade count, years, skew and kurtosis, from re-running the run's best_params on date_from .. validate.windows.optimize end
+     (where the engine computed it) on today's master, net of the run's cost_pts;
+   - the spread of sampled-config Sharpes, backed out of the run doc's stored luck bar: sqrt(V) = luck_bar / the best-of-n_cfg multiplier.
+   PARITY GATE: these inputs at the run's own n_cfg must reproduce the run doc's stored DSR within 0.001. (A probe before this freeze, on
+   #335 and #314 only, reproduced their stored DSRs within 1.1e-4. It printed only the differences.) A run that does not reproduce is
+   printed as "not reproducible - not scored". It is never patched.
+   Pre-set words:
+   - DSR >= 0.95 at E_fam (without ancestors): "beats the family luck bar". With ancestors, printed beside it as the harsh read.
+   - DSR >= 0.95 at E_run only: "beats its own run's luck bar, not the family's" (not refuted, never "a pass").
+   - DSR < 0.95 at E_run: "does not beat the luck bar".
+   - The raw-count DSR (at N_fam) is printed beside it as the harsh bound, never as the bar.
+5. THE RUNS SCORED (a report).
+   - #463's four crowns: ORB #234, ENGU-Q #335, TTM #459, NOISE #422.
+   - The board leaders, the RUNBOARD watch list's family crowns and live legs not already above: ORB #314 (crown), NOISE #304 (crown),
+     NOISE #382 (live leg), DIP #424 (the Webull leg).
+   - Eight runs, scored once, with no re-fit to the answer.
+6. THE BOOK keeps its own looks rule (BOOK LOOKS r1, the 10-05 decision, Q30 + 10aw). This bar is for single-strategy crowns.
+COULD FOOL US:
+- one measured validate per family stands in for all its runs;
+- a validate's stored points are its sampled settings, not the whole space;
+- ancestors are a judgement call;
+- E_fam is a floor on the true search;
+- the parity gate can leave a crown unscored.
