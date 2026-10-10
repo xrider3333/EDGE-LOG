@@ -1,0 +1,10 @@
+Q38 ADDENDUM 1 (2026-10-10, FRONTIER) - a POST-DATA BUG FIX, disclosed. Written AFTER the first run, which printed NOISE_382's KEEL scale term
+as exactly 1.000.
+- The cause: the note said "NOISE: 10 x its size column". But qqq_exec/trades.csv's size column is the SENT size, the plugin's size times
+  KEEL's. Three NOISE_382 trades went out at KEEL 1.5 (plugin size 1.0, sent 1.5): 09-25 twice and 10-02. So the first forward read
+  normalised to the sent size, not to plugin size x1.0. Its scale term was 1 by construction, and its NOISE A1 / A2 read was not at plugin
+  size as the note intended (#146).
+- THE FIX: plugin size = sent size / keel_size. When the executor row lacks keel_size (two 09-25 rows do), it is taken from the engine's own
+  ENTRY row for the same trade_id (cloud_signal/signals.csv). If both lack it, KEEL is taken as 1.0 and the row is counted in a data note.
+  Forward unit $ = pnl / shares x 10 x plugin size. The KEEL scale term = the forward $ as sent / the forward $ at plugin size.
+- Nothing else changes: the bands, ORB_R6, DIP_424F and the backtest side are untouched. The first run's output is kept beside the new one.

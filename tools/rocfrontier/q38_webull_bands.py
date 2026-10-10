@@ -15,6 +15,8 @@ REPO = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
 BQ = r"C:\EdgeLog\_anatomy_cache\bookq"
 NOTE = os.path.join(BQ, "PREDATA_Q38_WEBULL_BANDS.txt")
 NOTE_SHA = "64b82b397eec23acb3ccd1555ccf71d4dce0f870ea33d485713947dfedb8b656"
+ADD1 = os.path.join(BQ, "PREDATA_Q38_ADD1.txt")                     # POST-DATA bug fix (NOISE plugin size), disclosed
+ADD1_SHA = "bf9f50fab07ece412c9c2a51f694b05d2f16758f5878951bdd76f85247a3e5fe"
 QQQ5_SHA = "782dabdd7dd7d265c9a31626f03c6940cdaaf4d7511da95bf8a8efc41fba5a1d"
 BOX = os.environ.get("EDGELOG_BOX_BACKUP", r"C:\EdgeLog\box_backup")
 OUT = r"C:\EdgeLog\_anatomy_cache\q38"
@@ -134,7 +136,13 @@ def forward(asof, np):
             continue
         loose = pre.eq("") & T["leg"].eq(EXEC_LEG[name]) & (T["day"] >= start)
         x = T[(m | loose) & (T["day"] >= start) & (T["day"] <= pd.Timestamp(end))].copy()
-        size = x["size"].fillna(1.0) if name == "NOISE_382" else 1.0
+        if name == "NOISE_382":                                        # ADDENDUM 1: size = SENT size (plugin x KEEL) -> plugin = size / keel
+            eng_k = S[(S["event"] == "ENTRY") & S["trade_id"].notna()].drop_duplicates("trade_id", keep="last").set_index("trade_id")["keel_size"]
+            k = x["keel_size"].where(x["keel_size"].notna(), x["trade_id"].map(eng_k))
+            no_keel = int(k.isna().sum())
+            size = x["size"].fillna(1.0) / k.fillna(1.0)
+        else:
+            size, no_keel = 1.0, 0
         x["unit"] = x["pnl"] / x["shares"] * UNIT[name] * size
         cal = sessions(start, end)
         daily = x.groupby("day")["unit"].sum().reindex(cal).fillna(0.0)
@@ -142,7 +150,7 @@ def forward(asof, np):
         eng = S[(S["leg"] == name) & (S["event"] == "EXIT") & (pd.to_datetime(S["ref_time"], utc=True).dt.tz_convert("America/New_York")
                                                                  .dt.tz_localize(None).dt.normalize() >= start)]
         leg = {"start": start, "rows": int(len(daily)), "trades": int(len(x)), "no_trade_id": int(loose[x.index].sum()) if len(x) else 0,
-               "engine_exits": int(len(eng)), "days_off_calendar": [str(d.date()) for d in off], "series": daily}
+               "engine_exits": int(len(eng)), "days_off_calendar": [str(d.date()) for d in off], "no_keel_size": no_keel, "series": daily}
         if name == "NOISE_382" and len(x):
             leg["keel_scale"] = float(x["pnl"].sum() / x["unit"].sum()) if abs(x["unit"].sum()) > 1e-9 else None
         res["legs"][name] = leg
@@ -163,7 +171,9 @@ def run(asof):
     qpath = os.path.join(REPO, "augur_uploads", qm["filename"])
     pins = {"note": lf(NOTE), "qqq5m": sha(qpath)}
     print(f"PINS: note LF {pins['note']}; script LF {lf(__file__)}; QQQ 5m {qm['filename']} {pins['qqq5m']}", flush=True)
-    if (pins["note"], pins["qqq5m"]) != (NOTE_SHA, QQQ5_SHA):
+    pins["add1"] = lf(ADD1)
+    print(f"PINS: addendum 1 LF {pins['add1']}", flush=True)
+    if (pins["note"], pins["qqq5m"], pins["add1"]) != (NOTE_SHA, QQQ5_SHA, ADD1_SHA):
         raise SystemExit("refused: a pinned input is not the frozen one (nothing computed)")
     os.makedirs(OUT, exist_ok=True)
     legs = {"ORB_R6": cs.CROWN_LEGS["ORB_R6"], "NOISE_382": cs.CROWN_LEGS["NOISE_382"], "DIP_424F": cs.SHADOW_LEGS["DIP_424F"]}
@@ -204,6 +214,7 @@ def run(asof):
                      f"{'n/a' if r['a1_worst_z'] is None else '%.2f' % r['a1_worst_z']} vs -{band['c']:.2f}, {r['checks']} checks); dd ${r['dd']:,.0f} "
                      f"(deepest ${r['dd_max']:,.0f} vs ${band['dd_alarm']:,.0f}); {'TRIP' if (r['a1'] or r['a2']) else 'clear'}"
                      + (f"; KEEL scale term {L['keel_scale']:.3f}" if L.get("keel_scale") is not None else "")
+                     + (f"; {L['no_keel_size']} rows with no keel_size anywhere (KEEL taken as 1.0)" if L.get("no_keel_size") else "")
                      + (f"; days off the session calendar {L['days_off_calendar']}" if L["days_off_calendar"] else ""))
         elif fw:
             line += "\n          forward: no trades yet"
