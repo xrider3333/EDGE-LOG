@@ -305,6 +305,33 @@ def check_capture(now_ts, ohlc_dir=None):
     return out
 
 
+def check_capture_qa(now_ts, ohlc_dir=None, write=True):
+    """The 10s files' QA list (tools/capture_qa.py, TV #862 / MANAGER #154): rewrite ohlc/_10s_qa.json and
+    WARN when a session in the last 3 days lost its buy/sell split on most bars, or a bar carries an impossible
+    volume (the first bar after a reconnect soaking up the gap). Rows are never edited. Inbox only, never the phone."""
+    sys.path.insert(0, os.path.join(ROOT, "tools"))
+    import capture_qa as Q
+    data = Q.build(ohlc_dir)
+    if write and ohlc_dir is None:
+        Q.write(data)
+    lo = now_ts - 3 * 86400
+    lo_day = dt.datetime.fromtimestamp(lo, ET).strftime("%Y-%m-%d")
+    out = []
+    for sym in ("NQ", "ES"):
+        d = data.get(sym) or {}
+        ss = [x for x in d.get("bad_sessions") or [] if x["date"] >= lo_day]
+        bb = [x for x in d.get("bad_bars") or [] if x["t"] >= lo]
+        if ss or bb:
+            words = [f"session {x['date']} has no buy/sell on {x['share']:.0%} of traded bars (rows say {x['rows_claimed']})" for x in ss]
+            words += [f"bar {x['et']} ET has {x['volume']:,.0f} contracts over {x['tick_count']:.0f} trades" for x in bb]
+            out.append(_item(f"capture_qa_{sym}", "warn", f"10s capture QA {sym}",
+                             "; ".join(words) + " - marked in _10s_qa.json; delta reads must drop it"))
+        else:
+            out.append(_item(f"capture_qa_{sym}", "pass", f"10s capture QA {sym}",
+                             f"last 3 days clean ({len(d.get('bad_sessions') or [])} older bad sessions on the list)"))
+    return out
+
+
 def check_repair(now_ts, ohlc_dir=None):
     ohlc_dir = ohlc_dir or os.path.join(EL, "ohlc")
     out = []
@@ -579,7 +606,7 @@ def main(argv=None):
             items.append(_item("hist_backfill", "warn", "10s order-flow back-fill",
                                f"queue/merge crashed: {type(e).__name__}: {e}"))
     for fn in (lambda: check_tasks(now_local), lambda: check_box_push(now_local), lambda: check_nt_backup(now_local),
-               lambda: check_roster(now_local), lambda: check_capture(now_ts), lambda: check_repair(now_ts),
+               lambda: check_roster(now_local), lambda: check_capture(now_ts), lambda: check_capture_qa(now_ts), lambda: check_repair(now_ts),
                lambda: check_readiness(now_ts), lambda: check_roll_watch(now_local)):
         try:
             items += fn()
