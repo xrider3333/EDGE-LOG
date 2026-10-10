@@ -28,7 +28,21 @@ boundary, unread.
   python tools/gamma_r1_stageA.py --counts   -> parity first, then GEXEXP's counts, then GEXREV's schedule COUNTS
   python tools/gamma_r1_stageA.py --power    -> as --counts, plus the power lines from COIN-FLIP sides on GEXEXP's and on
                                                 GEXREV B1's real schedules
-  python tools/gamma_r1_stageA.py --stageA   -> refuses: GAMMA Stage A waits for the owner GO via MANAGER
+  python tools/gamma_r1_stageA.py --armc-parity -> ARM C's parity only: #463's four legs rebuilt through
+                                                augur_engine.book on #463's pinned masters, summed to the book's daily
+                                                column to the cent, WF ROC@30k 93.81 / Sortino 3.816; no gamma
+  python tools/gamma_r1_stageA.py --stageA   -> STAGE A for arms A, B and C (owner GO 2026-10-10, docs/SCOPE_CALMDAY
+                                                section 7): every parity first, then the real-label cells, then ONE
+                                                shuffled-label family null (1,000 draws, seed 20261007). WF only.
+  python tools/gamma_r1_stageA.py --stageA --dry -> the same code path with the REAL labels replaced by one shuffled
+                                                draw (a plumbing check that reads no real gamma-conditioned return)
+
+ARM C (GEXGATE, docs/SCOPE_CALMDAY_2026-10-10.md section 4): #463's ORB #234 and NOISE #422 take no entry (C1, C3) or
+enter at 0.5x (C2) on long-gamma days (C1 / C2: p >= 2/3; C3: p >= 3/4); ENGU-Q and TTM unchanged. The legs are
+rebuilt with augur_engine.book._leg_trades on #463's pinned legs (api/book_shadow.BOOK463_LEGS) and re-priced through
+augur_engine.book_sizing.resize (the engine's own closed / valued-daily formulas), entry day = the ET session day of
+the entry bar. The null's fast path (book minus the removed-day leg dollars) is asserted equal to the engine path to
+the cent on the real cells.
 """
 import contextlib
 import hashlib
@@ -57,7 +71,15 @@ GEXDIR = os.path.join(HOME, "_research_cache", "squeezemetrics")
 # ARM B (GEXREV): the clock is the only rule constant that differs from BALANCE r1 (prereg ARM B item 4). Stamps are
 # START stamps in minutes after midnight ET, as in BALANCE (a bar stamped t closes at t + 5).
 B_SIG_FIRST, B_SIG_LAST = 600, 925                                      # signal stamps 10:00 .. 15:25 (last fill 15:30)
-STAGE_A_MSG = "GAMMA Stage A waits for the owner GO via MANAGER"
+STAGE_A_MSG = "GAMMA Stage A waits for the owner GO via MANAGER"          # (kept for history; the GO came 2026-10-10)
+NULL_DRAWS = 1000
+H1_END, H2_START = pd.Timestamp("2021-12-31"), pd.Timestamp("2022-01-01")
+# RUN-BEFORE-MAIN (#77): LF sha256 of the frozen prereg and the Arm C scope; the run stops on a mismatch.
+PREREG_SHA = {"docs/PREREG_gamma_r1_2026-10-07.md": "fd3091040344279c140da4444c14cd9aa075e1e6099ed93c8070b1235a457c90",
+              "docs/SCOPE_CALMDAY_2026-10-10.md": "190b3f8e87582008cca7b5ef06ea8dba15841830bbabcb18edbeded421da3729"}
+C_LEGS = ("ORB", "NOISE")                                               # the two legs ARM C gates (ENGU-Q, TTM untouched)
+C_CELLS = (("C1", 2.0 / 3.0, 0.0), ("C2", 2.0 / 3.0, 0.5), ("C3", 0.75, 0.0))   # (cell, p threshold, size on the day)
+LOOK_BAND = "ORB seat +49%, NOISE seat +64%, ORB + ENGU-Q +78% (BOOK.md 10z, K = 71 looks)"
 THIN = 25                                                               # a July-June year under 25 trades is flagged thin
 # BALANCE r1's PUBLISHED ES transfer (docs/PREREG_balance_r1_2026-10-06.md RESULTS: "B1 592 trades, PF 0.99, own ROC
 # -0.28; B2 PF 0.995"; full rows in tools/r37_results/balance_r1_stageA.txt lines 306-312): per cell n, PF (3 dp), net $
@@ -344,9 +366,471 @@ def arm_b_power(b1wf, B, years):
     HH.power_lines(x, B, years)
 
 
+# ================================================================== STAGE A (owner GO 2026-10-10; arms A, B and C)
+def lf_sha(path):
+    return hashlib.sha256(open(path, "rb").read().replace(b"\r\n", b"\n")).hexdigest()
+
+
+def check_hashes():
+    """RUN-BEFORE-MAIN (#77): the prereg and the Arm C scope must be the frozen text; the harness hash is printed."""
+    base = os.path.dirname(HERE)
+    print("FROZEN TEXT CHECK (#77)")
+    for rel, want in PREREG_SHA.items():
+        got = lf_sha(os.path.join(base, rel))
+        print("  %s LF sha256 %s %s" % (rel, got, "OK" if got == want else "MISMATCH"))
+        if got != want:
+            raise SystemExit("%s is not the frozen text - abort" % rel)
+    print("  harness tools/%s LF sha256 %s" % (os.path.basename(__file__), lf_sha(os.path.abspath(__file__))))
+
+
+def dd5_txt(x, bdays):
+    from augur_engine.drawdowns import dd5
+    r = dd5(pd.Series(np.asarray(x, float), index=pd.DatetimeIndex(bdays)))
+    return "DD5 $%s%s" % (format(int(round(r["dd5_usd"])), ","), ", 1 EPISODE" if r["one_episode"] else "")
+
+
+def roc_txt(x, bdays, st=None):
+    st = st or BL.own(x, bdays)
+    return "ROC@30k %.2f (%s)" % (st["roc"], dd5_txt(x, bdays))
+
+
+def fm(v):
+    return ("-$" if v < 0 else "$") + format(int(round(abs(v))), ",")
+
+
+def pf_of(v):
+    return BL.pf(np.asarray(v, float))
+
+
+def _marks_series(marks, bdays):
+    from augur_engine import book as BK
+    d, v = BK._daily(marks)
+    s = pd.Series(v, index=pd.to_datetime(d)).groupby(level=0).sum() if len(d) else pd.Series(dtype=float)
+    s = s[(s.index >= WF0) & (s.index <= WF1)]
+    if (~s.index.isin(bdays)).any():
+        raise SystemExit("a leg mark day is not on the book's WF index - abort")
+    return s.reindex(bdays, fill_value=0.0).to_numpy()
+
+
+def book_legs(B, ref):
+    """ARM C PARITY: #463's four pinned legs through augur_engine.book._leg_trades (keep_state, for re-pricing), each
+    leg's valued-daily marks on the book's WF index, summed and compared with the book's daily column to the cent;
+    plus each gated leg's trades (entry ET session day, $, side), asserted intra-session."""
+    # The legs are CAPTURED from api.book_shadow.book463_valued_daily's own build - the function HH.book() scores
+    # (93.81 / 3.816). That call path is report-only for the engine roll guard (augur_engine/rolls.py
+    # REPORT_ONLY_MODULES), so NOISE's no-adjust leg runs as #463 was adopted; a direct call from a tools/ script
+    # would re-price NOISE's signals under the guard (a different book, reported separately as a side note).
+    import api.book_shadow as BSH
+    from augur_engine import book as BK
+    bdays = pd.DatetimeIndex(B.index)
+    legs, X, T, cap = {}, {}, {}, []
+    orig = BK._leg_trades
+
+    def _capture(leg, date_from, date_to, keep_state=False):
+        tr, inf = orig(leg, date_from, date_to, keep_state=True)
+        cap.append((dict(leg), inf, list(inf.get("_mtm_day") or tr)))
+        return tr, inf
+    BK._leg_trades = _capture
+    try:
+        B2 = BSH.book463_valued_daily(D0, WF1.strftime("%Y-%m-%d"))
+    finally:
+        BK._leg_trades = orig
+    B2 = B2[(B2.index >= WF0) & (B2.index <= WF1)]
+    if not (B2.index.equals(B.index) and np.array_equal(B2.to_numpy(), B.to_numpy())):
+        raise SystemExit("the captured build is not the book HH.book() scored - abort")
+    for leg, inf, marks in cap:
+        key = next(k for k in ("ORB", "ENGUQ", "TTMSQZ", "NOISE") if leg["strategy"].startswith(k))
+        if inf.get("source") != leg["source"] or inf.get("mtm_error"):
+            raise SystemExit("leg %s ran on %r (pinned %r), valuation error %r - abort" % (
+                leg["strategy"], inf.get("source"), leg["source"], inf.get("mtm_error")))
+        legs[key], X[key] = inf, _marks_series(marks, bdays)
+    tot = np.zeros(len(bdays))
+    for k in X:
+        tot = tot + X[k]
+    diff = float(np.abs(tot - B.to_numpy()).max())
+    print("ARM C PARITY (#463's legs rebuilt through augur_engine.book on the pinned masters; no gamma)")
+    for k, inf in legs.items():
+        print("  %-6s %-28s master %-24s source %-13s WF net %s" % (k, inf["strategy"], inf.get("master"), inf["source"],
+                                                                     fm(X[k].sum())))
+    print("  legs summed vs the book's daily column: max |diff| $%.6f over %d WF days; book WF ROC@30k %.2f Sortino %.3f "
+          "(%s)" % (diff, len(bdays), ref["roc"], ref["sort"], dd5_txt(B.to_numpy(), bdays)))
+    if diff >= 0.005:
+        raise SystemExit("ARM C PARITY FAILED - the legs do not sum to the book to the cent - abort")
+    for k in C_LEGS:
+        st = legs[k]["_state"]
+        sidx = st["sess_idx"] if st["sess_idx"] is not None else st["days_idx"]
+        rows = []
+        for t, s in st["sized"]:
+            i0, i1 = int(t[0]), min(int(t[1]), st["last"])
+            if sidx[i0] != sidx[i1] or st["days_idx"][i1] != sidx[i1]:
+                raise SystemExit("%s trade not intra-session / not stamped on its session day - abort" % k)
+            rows.append((sidx[i0], float(t[2]) * st["mult"] * st["weight"] * float(s), float(np.sign(t[3]))))
+        df = pd.DataFrame(rows, columns=["day", "usd", "side"])
+        df["day"] = pd.to_datetime(df["day"])
+        df = df[(df.day >= WF0) & (df.day <= WF1)].reset_index(drop=True)
+        df["bi"] = bdays.get_indexer(df.day)
+        if (df.bi < 0).any():
+            raise SystemExit("%s entry day not on the book index - abort" % k)
+        T[k] = df
+        print("  %s: %d WF trades, all intra-session (entry and exit on one ET session day, stamped there)" % (k, len(df)))
+    print("  PARITY OK")
+    return legs, X, T
+
+
+def gated_engine(B, legs, X, removed, size, keys=C_LEGS):
+    """The gated book through the ENGINE: augur_engine.book_sizing.resize re-prices ORB / NOISE with size `size` on
+    entries whose ET session day is in `removed` (book's own _closed_series / _mtm_increments)."""
+    from augur_engine import book_sizing as BS
+    bdays = pd.DatetimeIndex(B.index)
+    rem = set(pd.DatetimeIndex(removed).values.astype("datetime64[D]").astype("int64").tolist())
+    out = B.to_numpy().copy()
+    for k in keys:
+        st = legs[k]["_state"]
+        sidx = (st["sess_idx"] if st["sess_idx"] is not None else st["days_idx"]).astype("int64")
+        _, _, mtm, _ = BS.resize(st, lambda t, sidx=sidx: size if int(sidx[int(t[0])]) in rem else 1.0)
+        out += _marks_series(mtm, bdays) - X[k]
+    return out
+
+
+def gexrev_trades(es, days_on, thr):
+    """GEXREV's trades WITH their P&L (Stage A; owner GO): the same imported simulate() as gexrev_schedule."""
+    with _clock(B_SIG_FIRST):
+        tr = BL.simulate(es.S, np.asarray(days_on, bool), thr, es.cost, es.mult, es.stress, B_SIG_LAST)
+    if BL.SIG_FIRST != 715:
+        raise SystemExit("BALANCE's clock was not restored - abort")
+    return tr
+
+
+def vix_prior(days):
+    pub = os.path.join(HOME, "_research_cache", "public_series")
+    raw = os.path.join(pub, "cboe", "VIX_History.csv")
+    prov = json.load(open(os.path.join(pub, "public_series_provenance.json"), encoding="utf-8"))["cboe\\VIX_History.csv"]
+    if hashlib.sha256(open(raw, "rb").read()).hexdigest() != prov["sha256"]:
+        raise SystemExit("VIX_History.csv is not the photograph - abort")
+    v = pd.read_csv(raw)
+    s = pd.Series(v["CLOSE"].astype(float).to_numpy(), index=pd.to_datetime(v["DATE"], format="%m/%d/%Y")).sort_index()
+    s = s[s.index <= WF1]
+    k = s.index.searchsorted(pd.DatetimeIndex(days)) - 1                # the close dated strictly before the session
+    return np.where(k >= 0, s.to_numpy()[np.maximum(k, 0)], np.nan)
+
+
+def build(B, ref, es, g):
+    """Everything the cells need, computed ONCE with no state applied: GEXEXP's outcome on every WF session, GEXREV's
+    trades on every trading session (both walks are per-session, so a state mask only selects), #463's legs. The
+    state then enters only as a percentile per session on one union calendar U, which the null shuffles."""
+    F = type("F", (), {})()
+    F.B = B
+    F.bdays = bdays = pd.DatetimeIndex(B.index)
+    F.Bx = B.to_numpy()
+    F.years = (bdays[-1] - bdays[0]).days / 365.25
+    days, G = es30()
+    wf = np.asarray((days >= WF0) & (days <= WF1))
+    side, ent = gexexp_schedule(G, wf)
+    F.a_days, F.a_side, F.a_trade = days, side, wf & (side != 0)
+    F.a_pnl = gexexp_pnl(G, side, ent)
+    F.a_price = np.where(side != 0, G["open"][np.arange(len(side)), np.maximum(ent, 0)], np.nan)
+    F.a_bi = bdays.get_indexer(days)
+    if (F.a_bi[F.a_trade] < 0).any():
+        raise SystemExit("a GEXEXP trade day is not on the book index - abort")
+    F.b, F.b_bi = {}, {}
+    for nm, k in BL.CELLS:
+        tr = gexrev_trades(es, es.trading, k / 12.0)
+        F.b[nm] = tr[tr.stretch == "WF"].reset_index(drop=True)
+        F.b_bi[nm] = bdays.get_indexer(pd.DatetimeIndex(F.b[nm]["session"]))
+        if (F.b_bi[nm] < 0).any():
+            raise SystemExit("a GEXREV session is not on the book index - abort")
+    dates5 = pd.DatetimeIndex(es.S.dates)
+    wf5 = np.asarray((dates5 >= WF0) & (dates5 <= WF1))
+    F.legs, F.X, F.T = book_legs(B, ref)
+    F.U = U = pd.DatetimeIndex(sorted(set(days[wf]) | set(dates5[wf5])))
+    F.pU = state(U, g)[1]
+    if not np.isfinite(F.pU).all():
+        raise SystemExit("a WF ES session has no GEX state - abort")
+    F.yU = {y: np.flatnonzero(U.year == y) for y in sorted(set(U.year))}
+    F.ia = U.get_indexer(days)
+    F.ib = {nm: U.get_indexer(pd.DatetimeIndex(t["session"])) for nm, t in F.b.items()}
+    F.ic = U.get_indexer(bdays)
+    for k, df in F.T.items():
+        off = int((F.ic[df.bi.to_numpy()] < 0).sum())
+        print("  %s WF trades on a day outside the ES session calendar (never gated): %d" % (k, off))
+    F.L = {k: np.bincount(df.bi.to_numpy(), weights=df.usd.to_numpy(), minlength=len(bdays)) for k, df in F.T.items()}
+    for k in F.L:
+        if np.abs(F.L[k] - F.X[k]).max() >= 0.005:
+            raise SystemExit("%s: entry-day dollars differ from its valued-daily marks - abort" % k)
+    return F
+
+
+def pmap(pU, idx):
+    return np.where(idx >= 0, pU[np.maximum(idx, 0)], np.nan)
+
+
+def cell_a(F, pU, thr):
+    sel = F.a_trade & (pmap(pU, F.ia) <= thr)
+    return np.bincount(F.a_bi[sel], weights=F.a_pnl[sel], minlength=len(F.bdays)), sel
+
+
+def cell_b(F, pU, nm):
+    sel = pmap(pU, F.ib[nm]) >= 2.0 / 3.0
+    return np.bincount(F.b_bi[nm][sel], weights=F.b[nm]["net_usd"].to_numpy(float)[sel], minlength=len(F.bdays)), sel
+
+
+def cell_c(F, pU, thr, size, keys=C_LEGS):
+    rem = pmap(pU, F.ic) >= thr
+    L = sum(F.L[k] for k in keys)
+    return F.Bx - (1.0 - size) * L * rem, rem
+
+
+def family(F, pU):
+    """Own ROC@30k of the four A / B cells and ROC gain over #463 of the three C cells, on one labelling."""
+    bd = F.bdays
+    r0 = BL.own(F.Bx, bd)["roc"]
+    v = {"A primary": BL.own(cell_a(F, pU, 1.0 / 3.0)[0], bd)["roc"],
+         "A neighbour": BL.own(cell_a(F, pU, 0.25)[0], bd)["roc"],
+         "B1": BL.own(cell_b(F, pU, "B1")[0], bd)["roc"], "B2": BL.own(cell_b(F, pU, "B2")[0], bd)["roc"]}
+    for nm, thr, size in C_CELLS:
+        v[nm] = BL.own(cell_c(F, pU, thr, size)[0], bd)["roc"] - r0
+    return v
+
+
+def shuffle(F, pU, rng):
+    out = pU.copy()
+    for y, ix in F.yU.items():
+        out[ix] = pU[ix][rng.permutation(len(ix))]
+    return out
+
+
+def run_null(F):
+    from research_beacon import beacon
+    rng = np.random.default_rng(SEED)
+    rows = []
+    with beacon("GAMMA r1 Stage A family null", total=NULL_DRAWS) as b:
+        for i in range(NULL_DRAWS):
+            rows.append(family(F, shuffle(F, F.pU, rng)))
+            b.step(i + 1)
+    return pd.DataFrame(rows)
+
+
+def jy_n(days):
+    j = BL.jy(pd.DatetimeIndex(days)) if len(days) else np.array([], int)
+    return [int((j == y).sum()) for y in range(2016, 2025)]
+
+
+def judge_ab(F, name, x, xn, tusd, tdays, tside, tprice, p95):
+    """Stage A bars A1, A1b, A2, A3, A4 and the counts line for one arm's primary (prereg 'Stage A bars'), then the
+    reported diagnostics. Returns the verdict string."""
+    bd, B, years = F.bdays, F.B, F.years
+    st = BL.own(x, bd)
+    n, pf = len(tusd), pf_of(tusd)
+    yrs = BL.july_june(x, bd)
+    ny = jy_n(tdays)
+    print("  %s: %d WF trades (%.1f a year), net %s, PF %.3f, $/trade %.0f, own %s, Sortino %.3f, $ a year %s" % (
+        name, n, n / years, fm(st["net"]), pf, st["net"] / max(n, 1), roc_txt(x, bd, st), st["sort"],
+        fm(st["net"] / st["years"])))
+    print("    per July-June year net: " + ", ".join("%s %s (%d%s)" % (BL.jy_label(y), fm(v), c, " THIN" if c < THIN else "")
+                                                   for y, v, c in zip(range(2016, 2025), yrs, ny)))
+    a1, no2020, route = HH.standalone(st, pf, n, years, yrs, x, bd, B, name)
+    counts = n >= 100 and n / years >= 50
+    a1_rest = route != "neither route" and pf > 1 and sum(v > 0 for v in yrs) >= 6
+    a2 = st["roc"] > p95
+    a3 = float(np.sum(xn)) > 0
+    exbest = st["net"] - (float(np.max(tusd)) if n else 0.0)
+    cost2 = st["net"] - n * COST * M
+    a4 = exbest > 0 and cost2 > 0
+    print("    A1 standalone (%s; PF %.3f > 1; %d of 9 July-June years positive >= 6; counts >= 100 and >= 50 a year %s): %s"
+          % (route, pf, sum(v > 0 for v in yrs), "MET" if counts else "MISSED", "PASS" if a1 else "FAIL"))
+    print("    A1b without 2020: %s" % ("PASS" if no2020 else "FAIL"))
+    print("    A2 own ROC %.2f > family null p95 %.2f: %s" % (st["roc"], p95, "PASS" if a2 else "FAIL"))
+    print("    A3 neighbour net %s > 0: %s" % (fm(float(np.sum(xn))), "PASS" if a3 else "FAIL"))
+    print("    A4 net without the best trade %s; net at 2x cost %s: %s" % (fm(exbest), fm(cost2), "PASS" if a4 else "FAIL"))
+    ok = a1 and no2020 and a2 and a3 and a4
+    if ok:
+        verdict = "PASS"
+    elif (not counts) and a1_rest and no2020 and a2 and a3 and a4:
+        verdict = "RESEARCH ROW (count-only miss)"
+    else:
+        verdict = "FAIL"
+    print("    VERDICT %s: %s" % (name, verdict))
+    print("    reported (no verdict):")
+    for lab, a, b_ in (("2016-21", WF0, H1_END), ("2022-25", H2_START, WF1)):
+        m = np.asarray((bd >= a) & (bd <= b_))
+        s2 = BL.own(x[m], bd[m])
+        print("      %s: net %s, own %s" % (lab, fm(float(x[m].sum())), roc_txt(x[m], bd[m], s2)))
+    print("      long %d trades net %s / short %d trades net %s" % (
+        int((tside > 0).sum()), fm(float(tusd[tside > 0].sum())), int((tside < 0).sum()), fm(float(tusd[tside < 0].sum()))))
+    print("      cost curve (extra cost per trade = bps x entry price x $50): " + ", ".join(
+        "%d bps net %s" % (bps, fm(float(tusd.sum() - (bps / 1e4 * tprice * M).sum()))) for bps in (0, 5, 10, 20)))
+    RD = r_days()
+    print("      dollars on R days %s" % fm(float(x[np.asarray(bd.isin(RD))].sum())))
+    HH.book_report(x, B, years, name)
+    sides = {}
+    for k, df in F.T.items():
+        for d, s in zip(df.day, df.side):
+            sides.setdefault((k, d), set()).add(s)
+    same = [any(s in sides.get((k, d), ()) for k in C_LEGS) for d, s in zip(pd.DatetimeIndex(tdays), tside)]
+    print("      day-level overlap: %.0f%% of its trades fall on a day ORB or NOISE entered the same side" % (
+        100.0 * np.mean(same) if len(same) else 0.0))
+    return verdict
+
+
+def leg_split_rows(F, rem, label):
+    print("  %s - each leg's WF trades by ENTRY day: removed (long-gamma) days vs other days" % label)
+    for k in C_LEGS + ("ORB+NOISE",):
+        df = pd.concat([F.T[j] for j in C_LEGS]) if k == "ORB+NOISE" else F.T[k]
+        on = rem[df.bi.to_numpy()]
+        for lab, m in (("long-gamma", on), ("other", ~on)):
+            u = df.usd.to_numpy()[m]
+            print("    %-10s %-10s net %10s  trades %5d  PF %6.3f  $/trade %7.1f" % (
+                k, lab, fm(float(u.sum())), len(u), pf_of(u), float(u.mean()) if len(u) else float("nan")))
+
+
+def judge_c(F, pU, p95, ref):
+    bd, years = F.bdays, F.years
+    r0 = ref["roc"]
+    s0 = BL.own(F.Bx, bd)
+    print("\nARM C - GEXGATE (ORB #234 and NOISE #422 stand down on long-gamma days; ENGU-Q and TTM unchanged)")
+    xC1, rem = cell_c(F, pU, 2.0 / 3.0, 0.0)
+    _, rem3 = cell_c(F, pU, 0.75, 0.0)
+    print("  removed days: C1 / C2 (p >= 2/3) %d WF book days, C3 (p >= 3/4) %d" % (int(rem.sum()), int(rem3.sum())))
+    leg_split_rows(F, rem, "FIRST NUMBER (binding), C1 days")
+    leg_split_rows(F, rem3, "C3 days (top quartile)")
+    for nm, thr, size in C_CELLS:                                       # the fast path equals the engine path
+        xf, rm = cell_c(F, pU, thr, size)
+        xe = gated_engine(F.B, F.legs, F.X, bd[rm], size)
+        d = float(np.abs(xf - xe).max())
+        if d >= 0.005:
+            raise SystemExit("ARM C %s: the fast path differs from the engine path by $%.4f - abort" % (nm, d))
+    print("  engine path (augur_engine.book_sizing.resize) == the null's fast path to the cent on C1, C2, C3: asserted")
+    L = F.L["ORB"] + F.L["NOISE"]
+    on_net = float((L * rem).sum())
+    a1 = on_net < 0
+    s1 = BL.own(xC1, bd)
+    a2 = s1["roc"] > r0 and s1["net"] / s1["years"] > s0["net"] / s0["years"]
+    gain = s1["roc"] - r0
+    a3 = gain > p95
+    hh = []
+    for lab, a, b_ in (("2016-21", WF0, H1_END), ("2022-25", H2_START, WF1)):
+        m = np.asarray((bd >= a) & (bd <= b_))
+        hh.append((lab, float((L * rem)[m].sum())))
+    ex20 = float((L * rem)[np.asarray(bd.year != 2020)].sum())
+    dayv = (L * rem)[rem]
+    exworst = float(dayv.sum() - dayv.min()) if len(dayv) else 0.0
+    a4 = all(v < 0 for _, v in hh) and ex20 < 0 and exworst < 0
+    trd = pd.concat([F.T[j] for j in C_LEGS])
+    rtr = trd[rem[trd.bi.to_numpy()]]
+    ny = jy_n(rtr.day)
+    a5 = len(rtr) >= 100 and min(ny) >= 25
+    on3 = float((L * rem3).sum())
+    a6 = on3 < 0
+    print("  #463          WF %s  Sortino %.3f  net %s  $ a year %s" % (roc_txt(F.Bx, bd, s0), s0["sort"], fm(s0["net"]),
+                                                                       fm(s0["net"] / s0["years"])))
+    for nm, thr, size in C_CELLS:
+        x, _ = cell_c(F, pU, thr, size)
+        s = BL.own(x, bd)
+        print("  #463 + %s     WF %s  Sortino %.3f  net %s  $ a year %s  gain %+.2f%s" % (
+            nm, roc_txt(x, bd, s), s["sort"], fm(s["net"]), fm(s["net"] / s["years"]), s["roc"] - r0,
+            "  (judged)" if nm == "C1" else ""))
+    for k in C_LEGS:
+        x, _ = cell_c(F, pU, 2.0 / 3.0, 0.0, keys=(k,))
+        s = BL.own(x, bd)
+        print("  REPORT %-5s only, C1 days: WF %s  Sortino %.3f  net %s  gain %+.2f" % (
+            k, roc_txt(x, bd, s), s["sort"], fm(s["net"]), s["roc"] - r0))
+    print("  C-A1 ORB + NOISE WF net on long-gamma days %s < 0: %s" % (fm(on_net), "PASS" if a1 else "FAIL"))
+    print("  C-A2 #463+C1 ROC %.2f > %.2f AND $ a year %s > %s: %s" % (
+        s1["roc"], r0, fm(s1["net"] / s1["years"]), fm(s0["net"] / s0["years"]), "PASS" if a2 else "FAIL"))
+    print("  C-A3 gain %+.2f > family null p95 %.2f: %s   (71-look chance band, report: %s; gain %+.1f%%)" % (
+        gain, p95, "PASS" if a3 else "FAIL", LOOK_BAND, 100.0 * gain / r0))
+    print("  C-A4 removed-day net: %s; without 2020 %s; without the single worst removed day %s: %s" % (
+        ", ".join("%s %s" % (a, fm(v)) for a, v in hh), fm(ex20), fm(exworst), "PASS" if a4 else "FAIL"))
+    print("  C-A5 removed WF trades %d (>= 100); per July-June year %s (each >= 25): %s" % (
+        len(rtr), ", ".join("%s %d%s" % (BL.jy_label(y), c, " THIN" if c < 25 else "") for y, c in zip(range(2016, 2025), ny)),
+        "PASS" if a5 else "FAIL"))
+    print("  C-A6 C3 removed-day net %s < 0: %s" % (fm(on3), "PASS" if a6 else "FAIL"))
+    verdict = "PASS" if (a1 and a2 and a3 and a4 and a5 and a6) else "FAIL"
+    print("  VERDICT ARM C (C1): %s" % verdict)
+    v = vix_prior(bd)
+    wfv = v[np.isfinite(v)]
+    q1, q2 = np.quantile(wfv, [1 / 3.0, 2 / 3.0])
+    tv = np.where(v <= q1, 0, np.where(v <= q2, 1, 2))
+    print("  VIX confound (report): prior-close VIX terciles over WF book days, cuts %.2f / %.2f" % (q1, q2))
+    for i, lab in enumerate(("low VIX", "mid VIX", "high VIX")):
+        m = tv == i
+        print("    %-8s long-gamma days %4d of %4d; ORB+NOISE net long-gamma %10s, other days %10s" % (
+            lab, int((rem & m).sum()), int(m.sum()), fm(float((L * (rem & m)).sum())), fm(float((L * (~rem & m)).sum()))))
+    return verdict
+
+
+def stage_a(argv):
+    dry = "--dry" in argv
+    check_hashes()
+    B, ref = HH.book()
+    bd = pd.DatetimeIndex(B.index)
+    print("BOOK #463 WF parity: ROC@30k %.2f  Sortino %.3f  (%s)" % (ref["roc"], ref["sort"], dd5_txt(B.to_numpy(), bd)))
+    es = es5()
+    balance_parity(es, bd)
+    g, prov = gex()
+    print("GEX photograph sha256 %s.. verified, %d GEX days to %s" % (prov["sha256"][:8], len(g), g.index[-1].date()))
+    F = build(B, ref, es, g)
+    pU = F.pU
+    if dry:
+        pU = shuffle(F, F.pU, np.random.default_rng(SEED + 99))
+        print("*** DRY RUN: the real labels are REPLACED by one shuffled draw - no real gamma-conditioned return ***")
+    else:                                                               # the counts the prereg froze, re-derived
+        st = np.where(pU <= 1 / 3.0, -1, np.where(pU >= 2 / 3.0, 1, 0))
+        nA = int(cell_a(F, pU, 1.0 / 3.0)[1].sum())
+        nB = int(cell_b(F, pU, "B1")[1].sum())
+        if (nA, nB) != (582, 608):
+            raise SystemExit("counts drift: GEXEXP %d (582), GEXREV B1 %d (608) - abort" % (nA, nB))
+        sch = gexrev_schedule(es, es.trading & (state(pd.DatetimeIndex(es.S.dates), g)[0] == 1), 0.5)
+        sd = pd.DatetimeIndex(sch.session)
+        sch = sch[np.asarray((sd >= WF0) & (sd <= WF1))]
+        sel = F.b["B1"][cell_b(F, pU, "B1")[1]]
+        if not (np.array_equal(pd.DatetimeIndex(sch.session).values, pd.DatetimeIndex(sel.session).values)
+                and np.array_equal(sch.fill_stamp.values, sel.fill_stamp.values)):
+            raise SystemExit("GEXREV selected-from-all differs from the masked run - abort")
+        print("  counts re-derived: GEXEXP 582, GEXREV B1 608; GEXREV select-from-all == masked run; ES state days: short "
+              "%d, long %d" % (int((st == -1).sum()), int((st == 1).sum())))
+    print("\nFAMILY NULL: within-calendar-year shuffles of the session percentile on the ES WF calendar (%d sessions), "
+          "%d draws, seed %d; family max over A primary, A neighbour, B1, B2 (own ROC@30k) and C1, C2, C3 (ROC gain over "
+          "#463)" % (len(F.U), NULL_DRAWS, SEED))
+    N = run_null(F)
+    fam = N.max(axis=1, skipna=True)
+    fam_ab = N[["A primary", "A neighbour", "B1", "B2"]].max(axis=1, skipna=True)
+    p95 = float(np.percentile(fam, 95))
+    print("  family max p95 %.2f (median %.2f); without the C cells p95 %.2f (report)" % (
+        p95, float(fam.median()), float(np.percentile(fam_ab, 95))))
+    print("  per-cell null p95 (report): " + ", ".join("%s %.2f" % (c, float(np.nanpercentile(N[c], 95))) for c in N.columns))
+    real = family(F, pU)
+    print("  real (%s): " % ("DRY draw" if dry else "real labels") + ", ".join("%s %.2f" % (c, v) for c, v in real.items()))
+    print("\nARM A - GEXEXP (ES 30m, short-gamma days)")
+    xa, sa = cell_a(F, pU, 1.0 / 3.0)
+    xn, _ = cell_a(F, pU, 0.25)
+    va = judge_ab(F, "GEXEXP primary", xa, xn, F.a_pnl[sa], F.a_days[sa], F.a_side[sa], F.a_price[sa], p95)
+    print("  neighbour (bottom quartile): own %s, net %s" % (roc_txt(xn, bd), fm(float(xn.sum()))))
+    for lab, m in (("ALL sessions", F.a_trade), ("LONG-gamma days", F.a_trade & (pmap(pU, F.ia) >= 2 / 3.0))):
+        xt = np.bincount(F.a_bi[m], weights=F.a_pnl[m], minlength=len(bd))
+        print("  TWIN %s: %d trades, net %s, own %s" % (lab, int(m.sum()), fm(float(xt.sum())), roc_txt(xt, bd)))
+    print("\nARM B - GEXREV (ES 5m, long-gamma days)")
+    xb, sb = cell_b(F, pU, "B1")
+    xb2, _ = cell_b(F, pU, "B2")
+    t1 = F.b["B1"][sb]
+    vb = judge_ab(F, "GEXREV B1", xb, xb2, t1.net_usd.to_numpy(float), t1.session, t1.side.to_numpy(float),
+                  t1.entry.to_numpy(float), p95)
+    print("  neighbour B2: own %s, net %s" % (roc_txt(xb2, bd), fm(float(xb2.sum()))))
+    pb = pmap(pU, F.ib["B1"])
+    for lab, m in (("ALL sessions", np.ones(len(pb), bool)), ("SHORT-gamma days", pb <= 1 / 3.0)):
+        xt = np.bincount(F.b_bi["B1"][m], weights=F.b["B1"].net_usd.to_numpy(float)[m], minlength=len(bd))
+        print("  TWIN %s B1: %d trades, net %s, own %s" % (lab, int(m.sum()), fm(float(xt.sum())), roc_txt(xt, bd)))
+    vc = judge_c(F, pU, p95, ref)
+    print("\nSUMMARY%s: ARM A GEXEXP %s; ARM B GEXREV %s; ARM C GEXGATE %s" % (" (DRY)" if dry else "", va, vb, vc))
+
+
 def main(argv):
-    if "--stageA" in argv or "--run" in argv:
-        print(STAGE_A_MSG)
+    if "--stageA" in argv:
+        stage_a(argv)
+        return
+    if "--armc-parity" in argv:
+        B, ref = HH.book()
+        book_legs(B, ref)
         return
     arm_b = any(a in argv for a in ("--parity", "--counts", "--power"))
     B, ref = HH.book()
