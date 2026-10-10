@@ -1,0 +1,111 @@
+FROZEN TEXT CHECK (#77)
+  docs/PREREG_gamma_r1_2026-10-07.md LF sha256 fd3091040344279c140da4444c14cd9aa075e1e6099ed93c8070b1235a457c90 OK
+  docs/SCOPE_CALMDAY_2026-10-10.md LF sha256 190b3f8e87582008cca7b5ef06ea8dba15841830bbabcb18edbeded421da3729 OK
+  harness tools/gamma_r1_stageA.py LF sha256 ce075c6328e35967e836cd64dd3e5b91e98957edf47fbb367a0a5407e2f0d16d
+BOOK #463 WF parity: ROC@30k 93.81  Sortino 3.816  (DD5 $36,095)
+PARITY FIRST (GAMMA prereg ARM B item 6): BALANCE r1's own noon classifier and clock (11:55 .. 15:25) on ES master 33, through tools/balance_r1_stageA.py; no gamma
+  ES band / VWAP parity at 5452 #304 decision bars (max |diff| 0); eligible first break on 3868 sessions, 0 mismatches; 61 roll switches (36 in WF)
+  ES B1  n 592  PF 0.992  net -$1,245  own ROC@$30k -0.28  re-entries 55  sessions with a trade 537   (published 592 / 0.992 / -$1,245 / -0.28 / 55 / 537)  MATCH
+  ES B2  n 378  PF 0.995  net -$398  own ROC@$30k -0.12  re-entries 17  sessions with a trade 361   (published 378 / 0.995 / -$398 / -0.12 / 17 / 361)  MATCH
+  PARITY OK: B1 592 trades PF 0.99 (0.992), B2 PF 0.995 - BALANCE r1's printed ES transfer, reproduced exactly
+GEX photograph sha256 64910ffb.. verified, 3561 GEX days to 2025-06-27
+ARM C PARITY (#463's legs rebuilt through augur_engine.book on the pinned masters; no gamma)
+  ORB    ORB_3_6_C2.py                master NQ 5m RTH - back-adjusted source db_adj_rth    WF net $301,188
+  ENGUQ  ENGUQ_1M_ETH_R2_1_0.py       master NQ 1m ETH - back-adjusted source db_adj_eth    WF net $380,133
+  TTMSQZ TTMSQZ_3_0_ES30SSOF2.py      master ES 30m RTH - back-adjusted source db_adj_rth    WF net $132,288
+  NOISE  NOISE_1_8_CT304H.py          master NQ 5m RTH - no-adj       source db_noadj_rth  WF net $447,644
+  legs summed vs the book's daily column: max |diff| $0.000000 over 2626 WF days; book WF ROC@30k 93.81 Sortino 3.816 (DD5 $36,095)
+  ORB: 1442 WF trades, all intra-session (entry and exit on one ET session day, stamped there)
+  NOISE: 2797 WF trades, all intra-session (entry and exit on one ET session day, stamped there)
+  PARITY OK
+  ORB WF trades on a day outside the ES session calendar (never gated): 0
+  NOISE WF trades on a day outside the ES session calendar (never gated): 0
+  counts re-derived: GEXEXP 582, GEXREV B1 608; GEXREV select-from-all == masked run; ES state days: short 659, long 985
+
+FAMILY NULL: within-calendar-year shuffles of the session percentile on the ES WF calendar (2318 sessions), 1000 draws, seed 20261007; family max over A primary, A neighbour, B1, B2 (own ROC@30k) and C1, C2, C3 (ROC gain over #463)
+  family max p95 17.93 (median 7.31); without the C cells p95 16.72 (report)
+  per-cell null p95 (report): A primary 15.68, A neighbour 14.81, B1 6.40, B2 7.70, C1 6.47, C2 12.19, C3 9.60
+  real (real labels): A primary 1.34, A neighbour -0.02, B1 1.88, B2 -1.92, C1 -10.94, C2 -5.47, C3 -6.25
+
+ARM A - GEXEXP (ES 30m, short-gamma days)
+  GEXEXP primary: 582 WF trades (64.7 a year), net $16,924, PF 1.053, $/trade 29, own ROC@30k 1.34 (DD5 $16,564, 1 EPISODE), Sortino 0.169, $ a year $1,882
+    per July-June year net: 2016-17 $1,481 (30), 2017-18 $3,146 (67), 2018-19 -$1,459 (90), 2019-20 -$11,524 (64), 2020-21 -$13,164 (49), 2021-22 $29,448 (111), 2022-23 $6,254 (48), 2023-24 $1,648 (38), 2024-25 $1,095 (85)
+  GEXEXP primary in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $-21,669 at 1 NQ, $-30,652 without its 3 best days; without 2020: own ROC@30k 3.73, net $32,286
+    A1 standalone (neither route; PF 1.053 > 1; 6 of 9 July-June years positive >= 6; counts >= 100 and >= 50 a year MET): FAIL
+    A1b without 2020: FAIL
+    A2 own ROC 1.34 > family null p95 17.93: FAIL
+    A3 neighbour net -$259 > 0: FAIL
+    A4 net without the best trade $7,130; net at 2x cost $6,361: PASS
+    VERDICT GEXEXP primary: FAIL
+    reported (no verdict):
+      2016-21: net -$22,003, own ROC@30k -3.12 (DD5 $9,918, 1 EPISODE)
+      2022-25: net $38,927, own ROC@30k 11.60 (DD5 $12,197, 1 EPISODE)
+      long 333 trades net -$5,706 / short 249 trades net $22,631
+      cost curve (extra cost per trade = bps x entry price x $50): 0 bps net $16,924, 5 bps net -$37,270, 10 bps net -$91,463, 20 bps net -$199,851
+      dollars on R days -$47,895
+  REPORT book #463 + GEXEXP primary at VOL scale          (x0.973 NQ): ROC@30k 63.87  Sortino 3.645  bootstrap p5 -38.3 (SD 15.0)
+  REPORT book #463 + GEXEXP primary at $30k own DD (twin) (x0.710 NQ): ROC@30k 70.50  Sortino 3.718  bootstrap p5 -29.6 (SD 12.1)
+      day-level overlap: 64% of its trades fall on a day ORB or NOISE entered the same side
+  neighbour (bottom quartile): own ROC@30k -0.02 (DD5 $12,358, 1 EPISODE), net -$259
+  TWIN ALL sessions: 1986 trades, net $44,517, own ROC@30k 2.57 (DD5 $24,454, 1 EPISODE)
+  TWIN LONG-gamma days: 830 trades, net -$6,627, own ROC@30k -0.89 (DD5 $11,727, 1 EPISODE)
+
+ARM B - GEXREV (ES 5m, long-gamma days)
+  GEXREV B1: 608 WF trades (67.6 a year), net $6,215, PF 1.061, $/trade 10, own ROC@30k 1.88 (DD5 $5,004, 1 EPISODE), Sortino 0.261, $ a year $691
+    per July-June year net: 2016-17 $2,321 (98), 2017-18 -$1,908 (70), 2018-19 -$398 (35), 2019-20 $5,215 (66), 2020-21 $5,576 (95), 2021-22 -$1,763 (40), 2022-23 -$5,453 (58), 2023-24 $3,732 (85), 2024-25 -$1,107 (61)
+  GEXREV B1 in #463's worst WF drawdown (2020-03-02 .. 2020-03-27): $0 at 1 NQ, $0 without its 3 best days; without 2020: own ROC@30k 0.86, net $2,841
+    A1 standalone (neither route; PF 1.061 > 1; 4 of 9 July-June years positive >= 6; counts >= 100 and >= 50 a year MET): FAIL
+    A1b without 2020: FAIL
+    A2 own ROC 1.88 > family null p95 17.93: FAIL
+    A3 neighbour net -$5,542 > 0: FAIL
+    A4 net without the best trade $4,795; net at 2x cost -$4,820: FAIL
+    VERDICT GEXREV B1: FAIL
+    reported (no verdict):
+      2016-21: net $7,675, own ROC@30k 9.78 (DD5 $3,054, 1 EPISODE)
+      2022-25: net -$1,460, own ROC@30k -1.14 (DD5 $3,421, 1 EPISODE)
+      long 247 trades net $6,542 / short 361 trades net -$327
+      cost curve (extra cost per trade = bps x entry price x $50): 0 bps net $6,215, 5 bps net -$50,496, 10 bps net -$107,207, 20 bps net -$220,629
+      dollars on R days $11,938
+  REPORT book #463 + GEXREV B1 at VOL scale          (x3.702 NQ): ROC@30k 95.52  Sortino 3.768  bootstrap p5 -13.9 (SD 11.2)
+  REPORT book #463 + GEXREV B1 at $30k own DD (twin) (x2.714 NQ): ROC@30k 95.06  Sortino 3.807  bootstrap p5 -9.8 (SD 9.3)
+      day-level overlap: 25% of its trades fall on a day ORB or NOISE entered the same side
+  neighbour B2: own ROC@30k -1.92 (DD5 $2,762, 1 EPISODE), net -$5,542
+  TWIN ALL sessions B1: 1350 trades, net $6,610, own ROC@30k 1.30 (DD5 $9,442, 1 EPISODE)
+  TWIN SHORT-gamma days B1: 354 trades, net -$7,800, own ROC@30k -2.49 (DD5 $9,642)
+
+ARM C - GEXGATE (ORB #234 and NOISE #422 stand down on long-gamma days; ENGU-Q and TTM unchanged)
+  removed days: C1 / C2 (p >= 2/3) 985 WF book days, C3 (p >= 3/4) 794
+  FIRST NUMBER (binding), C1 days - each leg's WF trades by ENTRY day: removed (long-gamma) days vs other days
+    ORB        long-gamma net    $70,924  trades   562  PF  1.249  $/trade   126.2
+    ORB        other      net   $230,264  trades   880  PF  1.373  $/trade   261.7
+    NOISE      long-gamma net    $76,116  trades  1070  PF  1.238  $/trade    71.1
+    NOISE      other      net   $371,528  trades  1727  PF  1.646  $/trade   215.1
+    ORB+NOISE  long-gamma net   $147,040  trades  1632  PF  1.243  $/trade    90.1
+    ORB+NOISE  other      net   $601,792  trades  2607  PF  1.505  $/trade   230.8
+  C3 days (top quartile) - each leg's WF trades by ENTRY day: removed (long-gamma) days vs other days
+    ORB        long-gamma net    $51,307  trades   436  PF  1.255  $/trade   117.7
+    ORB        other      net   $249,881  trades  1006  PF  1.356  $/trade   248.4
+    NOISE      long-gamma net    $32,742  trades   876  PF  1.128  $/trade    37.4
+    NOISE      other      net   $414,902  trades  1921  PF  1.649  $/trade   216.0
+    ORB+NOISE  long-gamma net    $84,049  trades  1312  PF  1.184  $/trade    64.1
+    ORB+NOISE  other      net   $664,783  trades  2927  PF  1.496  $/trade   227.1
+  engine path (augur_engine.book_sizing.resize) == the null's fast path to the cent on C1, C2, C3: asserted
+  #463          WF ROC@30k 93.81 (DD5 $36,095)  Sortino 3.816  net $1,261,253  $ a year $140,235
+  #463 + C1     WF ROC@30k 82.87 (DD5 $37,028)  Sortino 3.607  net $1,114,213  $ a year $123,886  gain -10.94  (judged)
+  #463 + C2     WF ROC@30k 88.34 (DD5 $34,784)  Sortino 3.781  net $1,187,733  $ a year $132,061  gain -5.47
+  #463 + C3     WF ROC@30k 87.55 (DD5 $35,783)  Sortino 3.743  net $1,177,204  $ a year $130,890  gain -6.25
+  REPORT ORB   only, C1 days: WF ROC@30k 88.53 (DD5 $36,316)  Sortino 3.771  net $1,190,329  gain -5.27
+  REPORT NOISE only, C1 days: WF ROC@30k 88.14 (DD5 $34,688)  Sortino 3.720  net $1,185,137  gain -5.66
+  C-A1 ORB + NOISE WF net on long-gamma days $147,040 < 0: FAIL
+  C-A2 #463+C1 ROC 82.87 > 93.81 AND $ a year $123,886 > $140,235: FAIL
+  C-A3 gain -10.94 > family null p95 17.93: FAIL   (71-look chance band, report: ORB seat +49%, NOISE seat +64%, ORB + ENGU-Q +78% (BOOK.md 10z, K = 71 looks); gain -11.7%)
+  C-A4 removed-day net: 2016-21 $22,296, 2022-25 $124,744; without 2020 $115,406; without the single worst removed day $153,646: FAIL
+  C-A5 removed WF trades 1632 (>= 100); per July-June year 2016-17 313, 2017-18 178, 2018-19 71, 2019-20 213, 2020-21 185, 2021-22 96, 2022-23 146, 2023-24 294, 2024-25 136 (each >= 25): PASS
+  C-A6 C3 removed-day net $84,049 < 0: FAIL
+  VERDICT ARM C (C1): FAIL
+  VIX confound (report): prior-close VIX terciles over WF book days, cuts 14.13 / 19.58
+    low VIX  long-gamma days  534 of  876; ORB+NOISE net long-gamma    $74,204, other days    $23,673
+    mid VIX  long-gamma days  303 of  875; ORB+NOISE net long-gamma    $79,031, other days   $141,211
+    high VIX long-gamma days  148 of  875; ORB+NOISE net long-gamma    -$6,194, other days   $436,908
+
+SUMMARY: ARM A GEXEXP FAIL; ARM B GEXREV FAIL; ARM C GEXGATE FAIL
