@@ -218,6 +218,41 @@ def test_drop_incomplete_session_survives_extra_non_array_keys_from_load_master_
     assert arr["fingerprint"] == "deadbeef"
 
 
+def test_the_builders_nq_walk_gets_the_roll_tables_seam_calendar(tmp_path):
+    """main's ENGINE ROLL GUARD reads what market the arrays are from their meta. With no
+    instrument it runs a walk "not roll-checked" and rolls.seam_days answers [] -- NQDIP_1_1.py's
+    NQ model (DIP_424K) then skips no roll session and books every quarterly roll gap as P&L.
+    load_nq_arrays declares the master (NQ_MASTER_META), so the builder's walk -- a report-only
+    path (rolls.REPORT_ONLY_TOOLS: raw prices, never refused or re-planned) -- sees the table's
+    switch sessions: this master spans NQ's 2024-03-10 20:00 ET switch, so 2024-03-11 (its
+    first session on the new contract) is the one seam."""
+    import types
+    from augur_engine import rolls as R
+    path = _write_master_csv(tmp_path / "nq.csv", n_full_days=90, seed=4)
+    arr, _dropped = kls.load_nq_arrays(str(path), date_from=None, log=lambda *a, **k: None)
+    assert arr["meta"] == dict(kls.NQ_MASTER_META, filename="nq.csv")
+    assert kls.NQ_MASTER_META == {"instrument": "NQ", "timeframe": "5m", "session": "rth",
+                                  "source": "db_noadj_rth"}
+    seen = []
+
+    def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
+                     return_trades=False, **_k):
+        did = np.asarray(day_id)
+        first = np.r_[0, np.flatnonzero(did[1:] != did[:-1]) + 1]
+        last = np.r_[first[1:] - 1, len(did) - 1]
+        day_ts = [index[i] for i in first]
+        days = R.seam_days(np.asarray(opens)[first], np.asarray(closes)[last], day_ts)
+        seen.append([day_ts[i].date().isoformat() for i in days])
+        return None
+
+    probe = types.ModuleType("seam_calendar_probe")
+    probe.run_backtest = run_backtest
+    leg = {"leg_key": "PROBE", "strategy": probe, "params": {}, "version": "v12", "live": False}
+    kls.run_nq_backtest(arr, leg=leg, log=lambda *a, **k: None)
+    kls.run_nq_backtest(dict(arr, meta={"filename": "nq.csv"}), leg=leg, log=lambda *a, **k: None)
+    assert seen == [["2024-03-11"], []], "declared: the table's seam; undeclared: none at all"
+
+
 # ── end-to-end build() on a tiny synthetic master ────────────────────────────────────────
 def test_build_writes_a_loadable_state_and_a_json_safe_summary(tmp_path):
     path = _write_master_csv(tmp_path / "nq.csv", n_full_days=90, seed=4)
@@ -634,11 +669,18 @@ def _nq_master():
                     "(set KEEL_TEST_NQ_MASTER to point at one)")
 def test_dip_424k_training_walk_is_run_424s_on_the_real_master():
     """The builder's own path (resolve_leg -> load_nq_arrays -> run_nq_backtest) on run #424's
-    pinned window gives #424's 3,431 trades (the run doc's gate_validate.keel n_trades), as
-    6-field trades with P&L in dollars."""
+    pinned window: 3,423 6-field trades with P&L in dollars, on the roll table's calendar (the
+    report-only plan "raw (live/paper path)": raw prices, NQDIP_1_1.py's own roll-session rule
+    on the table's 65 switches in the window). Run #424 itself saw 3,431 (the run doc's
+    gate_validate.keel n_trades) with the file's own gap detector, which main's ENGINE ROLL
+    GUARD (17279c26) replaced by rolls.seam_days; with no instrument in the arrays' meta the
+    walk would get no seam calendar at all (3,467)."""
     leg = kls.resolve_leg("DIP_424K")
     arr, _dropped = kls.load_nq_arrays(_nq_master(), date_from=leg["date_from"],
                                        date_to="2026-08-24", drop_incomplete=False, log=QUIET)
+    assert arr["meta"]["instrument"] == "NQ" and arr["meta"]["source"] == "db_noadj_rth"
     trades, res = kls.run_nq_backtest(arr, leg=leg, log=QUIET)
-    assert len(trades) == 3431
+    assert len(trades) == 3423
     assert all(len(t) == 6 for t in trades)
+    stamp = res["_meta"]["roll_stamp"]
+    assert stamp["calendar"] == "raw (live/paper path)" and stamp["switches_in_window"] == 65

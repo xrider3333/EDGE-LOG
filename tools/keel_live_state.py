@@ -23,7 +23,8 @@ neither dict carries: instrument NQ, timeframe 5m, source db_noadj_rth, date_fro
 (the #304 crown's own start, used by runs #382 and #422 alike), cost_pts 0.533 (the house NQ
 cost -- both size-tilt files refuse any other), multiplier 20.0 (irrelevant here -- KEEL
 works in raw points/pnl units, never dollars). No Firestore dependency at build time -- the
-box that runs this nightly may have no credentials on it at all.
+box that runs this nightly may have no credentials on it at all. The first three are also
+what load_nq_arrays writes into the arrays' meta (NQ_MASTER_META, main's ENGINE ROLL GUARD).
 
 PER-LEG TRAINING SETTINGS (2026-10-09, DIP #424, MANAGER #108). A learned leg whose "keel"
 block carries a "train" dict trains on ITS OWN run's NQ walk instead of the literals above:
@@ -141,6 +142,15 @@ DATE_FROM = "2010-06-07"          # the #304 crown's own start date (runs #382 a
                                   # date_to floats, see above
 VERSION = "v12"                   # fallback only -- a CROWN_LEGS "keel" block names its own
 FULL_SESSION_BARS = 78            # NQ 5m RTH, 09:30-16:00 ET = 6.5h * 12 bars/h
+# ENGINE ROLL GUARD (main 17279c26, augur_engine/rolls.py). What the NQ master IS, said in the
+# arrays' meta. With no instrument there the engine runs a walk "not roll-checked" and
+# rolls.seam_days answers [] -- so NQDIP_1_1.py's NQ model (DIP_424K's walk) skips no roll
+# session and books every quarterly roll gap as P&L (3,503 trades on the 2026-10-09 master;
+# 3,459 declared). Declared, this script stays what rolls.REPORT_ONLY_TOOLS makes it (raw
+# prices, never refused or re-planned -- MANAGER D2), and a file that asks for the seam
+# calendar gets the roll table's true switch sessions. The NOISE files never ask: their walks
+# are identical either way (4,873 trades each on the same master).
+NQ_MASTER_META = {"instrument": "NQ", "timeframe": "5m", "session": "rth", "source": "db_noadj_rth"}
 
 # --check-run-doc: the run whose Firestore doc a leg's stored gate_validate.keel row lives
 # on. Run #422 (the NOISE_422_KEEL shadow leg's) is listed too although it saved no KEEL row
@@ -471,12 +481,14 @@ def load_nq_arrays(nq_file, date_from=DATE_FROM, date_to=None, drop_incomplete=T
     seconds -> ET tz-aware index, day_id factorized), without requiring it to sit in
     augur_uploads/ or be registered in optimizer_history.db -- neither is guaranteed on
     the box this runs on (a worktree has neither; the nightly Linux box may have neither
-    either). Returns (arrays, dropped_session_date_or_None). When `drop_incomplete`,
-    a final session with fewer than FULL_SESSION_BARS bars (the file is usually updated
-    intraday, so "today" is normally partial) is removed before anything trains on it."""
+    either). The arrays' meta says what the master is (NQ_MASTER_META + its file name) --
+    the engine roll guard reads it. Returns (arrays, dropped_session_date_or_None). When
+    `drop_incomplete`, a final session with fewer than FULL_SESSION_BARS bars (the file is
+    usually updated intraday, so "today" is normally partial) is removed before anything
+    trains on it."""
     import augur_engine.data as _data
     nq_file = os.path.abspath(nq_file)
-    master = {"filename": os.path.basename(nq_file)}
+    master = dict(NQ_MASTER_META, filename=os.path.basename(nq_file))
     old_uploads = _data.UPLOADS
     _data.UPLOADS = os.path.dirname(nq_file)
     try:

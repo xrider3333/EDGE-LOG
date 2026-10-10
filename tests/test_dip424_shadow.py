@@ -16,12 +16,15 @@ COVERS
   3. Keys: _entry_key/_rekey unchanged for slot-less trades; 7 trades on one bar -> 7 keys;
      a re-key never merges slots.
   4. Mechanism split: the union of single-mechanism runs is the all-on run (synthetic; plus the
-     real NQ master, n = 3431, when EDGELOG_NQ_MASTER / augur_uploads has it).
+     real NQ master through the DIP_424K KEEL builder's own walk, n = 3423 on #424's window,
+     when EDGELOG_NQ_MASTER / augur_uploads has it).
   5. The file's own 5m-RTH aggregation equals the daily series run trade for trade.
   6. The probe: parity with the full-history truth at many cuts per mechanism, P = 32,
      closed trades identical with and without pads, CAP/IBS time-only exits forced inside the
      pads (two pads lose them), today's high/low/close never matter.
-  7. build_daily_series: 5m overrides QQQ_1d, QQQ_1d fills older dates and holes, today
+  7. build_daily_series: its arrays (and the probe's) declare QQQ, so main's engine roll guard
+     plans "no contract rolls" on every path and refuses the same series undeclared;
+     5m overrides QQQ_1d, QQQ_1d fills older dates and holes, today
      needs its 09:30 bar, unfinished daily rows dropped, midnight stamps read as dates, a
      2:1-scaled daily file / a missing previous session / < 430 sessions -> None, a session in
      neither file ANYWHERE -> None ("hole", logged once; 2025-01-09's closure is no hole), a
@@ -39,7 +42,9 @@ COVERS
      EXIT reuses it; no state -> 1.0, no push.
  12. Const (DIP_424F): exactly 1.245 on ENTRY, EXIT and a seeded carry; invalid -> 1.0 + reason.
  13. Memo: the second leg does not recompute; a failed probe is memoized and re-raised.
- 14. The research files are byte-identical (LF sha256 pins).
+ 14. The research files are byte-identical (LF sha256 pins; NQDIP_1_1.py's re-pinned once, to
+     main's ENGINE ROLL GUARD edit 17279c26 -- its own seam detector became an import of
+     augur_engine.rolls.seam_days, no strategy logic change).
 """
 import datetime as dt
 import hashlib
@@ -66,6 +71,9 @@ from api import trade_id as T                       # noqa: E402
 from augur_engine.engine import run_backtest        # noqa: E402
 
 QUIET = lambda *a, **k: None   # noqa: E731
+# main's ENGINE ROLL GUARD (augur_engine/rolls.py plan_for) refuses price arrays that do not say
+# which market they are; the synthetic fixtures are no contract's prices, so they say so
+SYNTH_META = {"roll_mode": "none", "name": "tests/test_dip424_shadow synthetic tape"}
 LEGS = ("DIP_424K", "DIP_424F")
 CHAMPION = {"cap_hold": 5, "cap_mult": 0.75, "cap_q": 0.35, "cost_bps": 2.0, "cost_pts_rt": 0.783,
             "dbl_n": 5, "gap_atr": 0.0, "gap_hold": 1, "ibs_exit": 1.0, "ibs_hold": 10,
@@ -187,7 +195,8 @@ def series_from(targets, last, junk_last=False):
     dates = [r[0] for r in rows]
     arr = {"open": a[:, 0].copy(), "high": a[:, 1].copy(), "low": a[:, 2].copy(),
            "close": a[:, 3].copy(), "volume": np.ones(len(rows)),
-           "day_id": np.arange(len(rows)), "index": DL._session_open_index(dates)}
+           "day_id": np.arange(len(rows)), "index": DL._session_open_index(dates),
+           "meta": dict(SYNTH_META)}
     return {"arrays": arr, "dates": dates, "source": ["1d"] * len(rows), "first_bar": {},
             "L": last, "today": True}
 
@@ -341,20 +350,25 @@ def _nq_master():
 @pytest.mark.skipif(_nq_master() is None, reason="no NQ 5m RTH no-adjust master on this machine "
                     "(set EDGELOG_NQ_MASTER)")
 def test_real_nq_run_424_and_its_mechanism_split(monkeypatch):
-    import augur_engine.data as _data
-    path = _nq_master()
-    monkeypatch.setattr(_data, "UPLOADS", os.path.dirname(os.path.abspath(path)))
+    """#424's NQ walk as the DIP_424K KEEL build runs it -- tools/keel_live_state's own loader
+    (the master declared NQ / db_noadj_rth) and runner (a report-only path under main's ENGINE
+    ROLL GUARD: raw prices, the file's own roll-session rule on the roll table's switches) --
+    over run #424's window: 3,423 trades (run #424 saw 3,431 with the file's gap detector,
+    retired by 17279c26), and the union of single-mechanism runs is the all-on run."""
+    import tools.keel_live_state as kls
     monkeypatch.setenv("AUGUR_TRIAL_CACHE", "0")
-    arr = _data.load_master_arrays({"filename": os.path.basename(path)},
-                                   date_from="2010-06-07", date_to="2026-08-24")
-    allon = _trades(arr, dict(cs.DIP_424_PARAMS))
-    assert len(allon) == 3431, "run #424's gate_validate.keel n_trades"
+    leg = kls.resolve_leg("DIP_424K")
+    arr, _dropped = kls.load_nq_arrays(_nq_master(), date_from="2010-06-07", date_to="2026-08-24",
+                                       drop_incomplete=False, log=QUIET)
+    allon, res = kls.run_nq_backtest(arr, leg=leg, log=QUIET)
+    assert len(allon) == 3423 and all(len(t) == 6 for t in allon)
+    assert res["_meta"]["roll_stamp"]["calendar"] == "raw (live/paper path)"
     parts = []
     for _m, f in cs.DIP_MECHS:
         p = dict(cs.DIP_424_PARAMS)
         for _m2, f2 in cs.DIP_MECHS:
             p[f2] = (f2 == f)
-        parts += _trades(arr, p)
+        parts += kls.run_nq_backtest(arr, leg=dict(leg, params=p), log=QUIET)[0]
     assert Counter(map(tuple, allon)) == Counter(map(tuple, parts))
 
 
@@ -362,7 +376,7 @@ def test_real_nq_run_424_and_its_mechanism_split(monkeypatch):
 def test_the_files_own_5m_aggregation_equals_the_daily_series_run():
     rows = WALK[-450:]
     bars = pd.concat([session_bars(*t) for t in rows], ignore_index=True)
-    a5 = cs.build_arrays(bars)
+    a5 = dict(cs.build_arrays(bars), meta=dict(SYNTH_META))
     run5 = _trades(a5, dict(LIVE_PARAMS))                    # asset ETF: the file aggregates
     rund = _trades(full_arrays(rows), dict(LIVE_PARAMS))
     idx5 = a5["index"]
@@ -477,6 +491,34 @@ def test_series_prefers_complete_5m_sessions_and_fills_the_rest_from_qqq_1d(tmp_
     for d, fb in s["first_bar"].items():
         assert a["index"][fb].date() == d and a["index"][fb].strftime("%H:%M") == "09:30"
     assert list(s["arrays"]["day_id"]) == list(range(len(s["dates"])))
+
+
+def test_the_daily_series_says_it_is_qqq_so_the_engine_roll_guard_leaves_it_alone(tmp_path):
+    """main's ENGINE ROLL GUARD refuses price arrays that do not say which market they are.
+    build_daily_series' arrays -- and the probe's padded copy -- declare QQQ (an ETF: no
+    contract rolls), so the engine's plan is "no contract rolls" even on a RESEARCH path (this
+    test calls the engine directly, not through cloud_signal's report-only frames): the file
+    runs on these prices unchanged, the same trades as a roll_mode "none" tape. The same
+    series with its declaration stripped is refused."""
+    from augur_engine import rolls as R
+    from augur_engine.strategies import load_strategy
+    paths = write_home(tmp_path, WALK, 45)
+    now = at(WALK_DAYS[-3], 11, 0, 5)
+    s, why = DL.build_daily_series(five_arrays(paths, now), now, paths, LIVE_PARAMS, log=QUIET)
+    assert why is None and s["arrays"]["meta"] == DL.SERIES_META
+    assert DL.SERIES_META["instrument"] == "QQQ" and R.roll_root("QQQ") is None
+    probe = DL.probe_arrays(s["arrays"], DL.probe_pads(LIVE_PARAMS))
+    assert probe["meta"] == DL.SERIES_META and probe["meta"] is not s["arrays"]["meta"]
+    mod = load_strategy("NQDIP_1_1.py")
+    for arr in (s["arrays"], probe):
+        plan = R.plan_for(mod, arr, "NQDIP_1_1.py", dict(LIVE_PARAMS))
+        assert plan["kind"] == "no contract rolls" and not plan["adjust"], plan["kind"]
+        assert plan["ctx_root"] is None and not plan["refuse_crossings"]
+    declared = _trades(s["arrays"], dict(LIVE_PARAMS))
+    assert declared and declared == _trades(dict(s["arrays"], meta=dict(SYNTH_META)), dict(LIVE_PARAMS))
+    bare = {k: v for k, v in s["arrays"].items() if k != "meta"}
+    with pytest.raises(R.RollGuardError, match="do not say which market they are"):
+        _trades(bare, dict(LIVE_PARAMS))
 
 
 def test_today_joins_only_with_its_0930_bar(tmp_path):
@@ -1057,7 +1099,10 @@ def test_a_dip_leg_never_reaches_run_leg_trades(tmp_path, monkeypatch):
 
 # ── 14. the research files are byte-identical ──────────────────────────────────────────────
 @pytest.mark.parametrize("rel, sha", [
-    ("augur_strategies/NQDIP_1_1.py", "114a0b542d5cbd0472c1ef8675970f120fc3a3cdb5f63dacc0aab6a8e611a514"),
+    # re-pinned 2026-10-09 from 114a0b54... (the file run #424 was validated on) to main's ENGINE
+    # ROLL GUARD edit 17279c26, the only commit to touch it since: its own detect_roll_seams copy
+    # replaced by an import of augur_engine.rolls.seam_days (the one audited seam calendar)
+    ("augur_strategies/NQDIP_1_1.py", "37780ab893b384dae488972b39551ff280d737bf513b5e16e87f82f05203ea14"),
     ("augur_engine/ml_keel.py", "0b4dc36d488fe6db51a56a8e5011d51a29f91fe04a61df6059758796cee202e9"),
 ])
 def test_research_files_are_unchanged(rel, sha):

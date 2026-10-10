@@ -8,6 +8,17 @@ THE STRATEGY FILE RUNS UNCHANGED. NQDIP_1_1.py is a registered research file (it
 is pinned by tests/test_dip424_shadow.py): every live adaptation lives in this module and
 wraps the file, never edits it.
 
+ENGINE ROLL GUARD (main 17279c26, augur_engine/rolls.py plan_for). The engine refuses price
+arrays that do not say which market they are. The daily series is QQQ, an ETF with no
+contract rolls, so build_daily_series stamps its arrays SERIES_META (instrument "QQQ", the
+same declaration as tools/qqq_paper.run_leg) and probe_arrays carries it onto the padded
+copy. The engine's plan is then "no contract rolls": NQDIP_1_1.py runs on these prices
+unchanged -- never re-priced, never refused -- whoever the caller is (on the box the call
+comes through cloud_signal, a report-only path; a test or a script calling dip_live directly
+is a research path, and gets the same plan). In ETF mode the file never asks for the seam
+calendar (NQDIP_1_1.py: seams only when asset == "NQ"). dip_live only ever reaches the file
+through augur_engine.engine.run_backtest (cloud_signal.engine_run_backtest), never directly.
+
 WHY NOT run_leg_trades. cloud_signal's generic runner unpacks five-field trades
 (entry_bar, exit_bar, pnl_pts, side, entry_px) and rebuilds the exit price as
 entry + pnl_pts * side. NQDIP_1_1.py returns SIX fields with the P&L in DOLLARS (PNL_UNITS
@@ -101,6 +112,10 @@ import pandas as pd
 from api import market_calendar
 
 STRATEGY = "NQDIP_1_1.py"
+
+# what the daily series' arrays say they are (see ENGINE ROLL GUARD above): QQQ, no contract
+# rolls -- rolls.plan_for gives such arrays the "no contract rolls" plan on every path
+SERIES_META = {"instrument": "QQQ", "source": "qqq_1d_5m_stitched", "name": "api/dip_live daily series"}
 
 # the hold knobs that bound how long a time-only exit can take (see 2. OPEN POSITIONS)
 HOLD_KEYS = ("pb_hold", "cap_hold", "ibs_hold", "streak_hold", "gap_hold")
@@ -248,7 +263,8 @@ def _session_open_index(dates):
 def build_daily_series(arrays, now, paths, params, log=print):
     """(series, None) or (None, (reason_key, text)) -- see the module docstring, 1.
     `series`: {"arrays": the file's input (open/high/low/close/volume float64, day_id =
-    arange(D), index = each session's 09:30 ET), "dates", "source" (per row: "5m", "1d" or
+    arange(D), index = each session's 09:30 ET, meta = SERIES_META: QQQ, no contract
+    rolls), "dates", "source" (per row: "5m", "1d" or
     "5m_partial"), "first_bar" ({date: 5m index of that session's 09:30 bar}), "L" (the last
     real session's index), "today" (True when row L is today's partial session), "overlap",
     "cal" ((median close diff, median open diff) or None), "n_5m", "n_1d"}. Never raises
@@ -333,7 +349,7 @@ def build_daily_series(arrays, now, paths, params, log=print):
     series_arrays = {"open": arr[:, 0].copy(), "high": arr[:, 1].copy(), "low": arr[:, 2].copy(),
                      "close": arr[:, 3].copy(), "volume": arr[:, 4].copy(),
                      "day_id": np.arange(len(dates), dtype="int64"),
-                     "index": _session_open_index(dates)}
+                     "index": _session_open_index(dates), "meta": dict(SERIES_META)}
     first_bar = {d: s["first_bar"] for d, s in five.items() if s["starts_at_open"]}
     return {"arrays": series_arrays, "dates": dates, "source": sources, "first_bar": first_bar,
             "L": len(dates) - 1, "today": dates[-1] == today, "overlap": len(overlap),
@@ -348,7 +364,8 @@ def probe_pads(params):
 
 def probe_arrays(series_arrays, pads):
     """`series_arrays` plus `pads` sessions at the last close x 1000 (o = h = l = c, volume 0,
-    day_id continuing, index + 1 day each)."""
+    day_id continuing, index + 1 day each); its meta (what market the prices are -- the engine
+    roll guard reads it) carried over unchanged."""
     a = series_arrays
     px = float(np.asarray(a["close"], float)[-1]) * 1000.0
     out = {k: np.concatenate([np.asarray(a[k], float), np.full(pads, px)])
@@ -358,6 +375,8 @@ def probe_arrays(series_arrays, pads):
     last = a["index"][-1]
     out["index"] = a["index"].append(pd.DatetimeIndex([last + pd.Timedelta(days=i + 1)
                                                       for i in range(pads)]))
+    if a.get("meta") is not None:
+        out["meta"] = dict(a["meta"])
     return out
 
 
