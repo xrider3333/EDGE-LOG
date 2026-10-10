@@ -272,6 +272,23 @@ def _day(x):
     return str(x)[:10] if x else None
 
 
+_USD_RE = re.compile(r"^PNL_UNITS\s*=\s*['\"]usd['\"]", re.M | re.I)
+
+
+def pnl_in_dollars(root, strategy):
+    """True when the run's strategy file reports P&L in DOLLARS (PNL_UNITS = "usd": NQDIP / ETFDIP size every trade to a
+    fixed notional). Its blotter's pnl_pts column then holds dollars and its contracts per trade vary, so one row is not
+    one lot and a constant-lot twin compares the wrong things (the 10-09 dry run read DIP #424 at 15.8x its twin)."""
+    name = os.path.basename(str(strategy or ""))
+    if not name:
+        return False
+    try:
+        with open(os.path.join(root, "augur_strategies", name), encoding="utf-8", errors="replace") as f:
+            return bool(_USD_RE.search(f.read()))
+    except OSError:
+        return False
+
+
 def build_entry(rid, d, root, closes_for, regen=None, curve_points=CURVE_POINTS):
     """The exposure entry for one single-strategy run doc `d`, or {"why": ...}. regen(rid, d) -> (rows, reason) is
     called only for a run with no cached trade list, and only when the caller passes it (the CLI's --regen)."""
@@ -294,6 +311,18 @@ def build_entry(rid, d, root, closes_for, regen=None, curve_points=CURVE_POINTS)
     # an ETH futures run: a trade entered after 18:00 New York belongs to the next trading day (module docstring)
     roll_hour = 18 if (str(d.get("session") or "rth").lower() != "rth" and c.get("rolls")) else None
     e = X.exposure(rows, c["closes"], roll_hour=roll_hour)
+    if pnl_in_dollars(root, d.get("strategy")):
+        # a fixed-dollar sizer: keep what the session clock measures honestly (time in the market, holds), drop the lots,
+        #   the points and the twin - the web shows the why line and no tag
+        return {"why": ("this strategy sizes every trade to a fixed dollar amount and reports its result in dollars, so "
+                        "counting lots and a constant-lot buy-and-hold twin do not fit it; it holds a position at %.1f%% "
+                        "of session closes" % (e.get("in_mkt_pct") or 0.0))
+                       + ("" if e.get("hold_med_sessions") is None else
+                          ", median hold %s sessions" % e["hold_med_sessions"]),
+                "sizing": "fixed dollars", "in_mkt_pct": e.get("in_mkt_pct"),
+                "hold_med_sessions": e.get("hold_med_sessions"), "n_trades": e.get("n_trades"),
+                "sessions": e.get("sessions"), "window": [a or e["first"], b or e["last"]], "master": c["master"],
+                "inst": inst, "tf": tf}
     e["window"] = [a or e["first"], b or e["last"]]
     e["master"] = c["master"]
     e["inst"], e["tf"], e["mult"] = inst, tf, run_mult(d)
@@ -396,9 +425,10 @@ def print_table(entries, out=print):
         "twin_pts", "ratio", "master / note"))
     for rid in sorted(entries, key=lambda k: int(k)):
         e = entries[rid]
-        if "in_mkt_pct" not in e:
+        if "in_mkt_pct" not in e or e.get("why"):
             out("%-6s %-5s %-4s %-23s %7s %7s %8s %7s %5s %7s %11s %11s %7s  %s" % (
-                rid, e.get("inst", "-"), e.get("tf", "-"), "-", _f(e.get("n_trades"), "d"), "-", "-", "-", "-", "-",
+                rid, e.get("inst", "-"), e.get("tf", "-"), "-", _f(e.get("n_trades"), "d"),
+                _f(e.get("in_mkt_pct"), ".1f"), "-", "-", "-", _f(e.get("hold_med_sessions"), ".1f"),
                 _f(e.get("strat_pts"), ",.0f"), "-", "-", e.get("why")))
             continue
         note = e["master"] + ("" if e.get("ratio") is not None else "  [ratio null: %s]" % e.get("ratio_why"))

@@ -385,6 +385,27 @@ def test_curve_is_a_json_string_stored_only_when_in_the_market_over_half_the_tim
     assert not rx._has_nested_array(doc)
 
 
+def test_fixed_dollar_sizer_gets_a_why_with_time_in_market_and_no_lots_or_twin(tmp_path):
+    # NQDIP / ETFDIP declare PNL_UNITS = "usd": pnl_pts holds dollars and contracts per trade vary, so no lots / twin
+    os.makedirs(os.path.join(tmp_path, "augur_strategies"), exist_ok=True)
+    with open(os.path.join(tmp_path, "augur_strategies", "NQDIP_1_1.py"), "w", encoding="utf-8") as f:
+        f.writelines(['STRATEGY_NAME = "x"', chr(10), 'PNL_UNITS = "usd"', chr(10)])
+    db = FakeDb()
+    db.seed_run(8, strategy="NQDIP_1_1.py")
+    db.seed_run(9)                                                          # RSIDIV: no such file here -> points, as before
+    write_blotter(tmp_path, 8, [(at(D[0]), at(D[4]), 25000.0)])
+    write_blotter(tmp_path, 9, [(at(D[0]), at(D[4]), 10.0)])
+    _, doc, _, text = go(["--ids", "8", "9", "--dry"], db, tmp_path)
+    e = doc["runs"]["8"]
+    assert e["sizing"] == "fixed dollars" and e["in_mkt_pct"] == pytest.approx(80.0)
+    assert "fixed dollar amount" in e["why"] and "80.0% of session closes" in e["why"]
+    for k in ("lots_mean_all", "lots_mean_in", "lots_max", "strat_pts", "twin_pts", "ratio", "curve", "mult"):
+        assert k not in e, k
+    assert doc["runs"]["9"]["twin_pts"] is not None and "lots_mean_all" in doc["runs"]["9"]
+    assert rx.pnl_in_dollars(str(tmp_path), "NQDIP_1_1.py") and not rx.pnl_in_dollars(str(tmp_path), "RSIDIV_1_0.py")
+    assert not rx.pnl_in_dollars(str(tmp_path), "")
+
+
 def test_intraday_run_reads_zero_and_has_no_curve(tmp_path):
     db = FakeDb()
     db.seed_run(3)
