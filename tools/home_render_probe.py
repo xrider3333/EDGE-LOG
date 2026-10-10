@@ -108,6 +108,13 @@ section any more), per case and at every width of the sweep, read BEFORE any cli
   * exactly one #hm-paste-chart, inside the trade list frame and inside no fold, drawn (at least 120 px wide), enabled and not covered (scrolled
     into view, the point in its middle is the box), right under the list toolbar (0 to PASTE_BELOW_BAR_MAX px), above the first day header and
     the first trade row, inside the window (nothing sideways) and one slim line; on a laptop the muted line beside it says where the next link goes
+SETUP . TF . CHART (owner 2026-10-10: "time frame, setup selector, and chart selector in one spot"), in the width page load, the SIMPLE table at
+KIT_WIDTHS: the setup select, the TF button and the chart link box of a seeded trade are drawn in one cell, inside the box, side by side (one line,
+left to right) at 1400 and 768 px; nothing scrolls sideways (page or box, 375 px included); the TF button opens its picker and not the trade
+panel; the chart box reads "paste link" and is editable; a paste into it saves the link on that trade with no Enter and a saved tick shows on the
+row; a paste of something that is not a link writes nothing and shows the PASTE box's own message.
+FULL rows show NET (owner 2026-10-10): in the interaction run's FULL table the money cell of a trade with fees reads its net, the gross figure is
+in no visible cell of the row (only in the cell's title) and there is no GROSS column.
 Per interaction run (the PASTE row): typed text + Enter, and a paste event (no Enter), each file at once and the note shows right under the box
 (0 to PASTE_MSG_GAP_MAX px), above the first trade row and inside no fold; hmFileChartLink(PASTE_URL) asks FILE ON / HOLD / SHOULD HAVE TRADED
 right under the box and writes nothing; HOLD keeps the link on this device (the held line with "drop it" shows under the box, drop it clears it);
@@ -254,6 +261,11 @@ PASTE_URL = 'https://www.tradingview.com/x/TEST1/'
 PASTE_BELOW_BAR_MAX = 40
 PASTE_MSG_GAP_MAX = 30
 PASTE_MIN_W = 120                             # px: the box is wide enough to tap / click at every width
+# SIMPLE's SETUP . TF . CHART group (2026-10-10): the widths it is read at, the seeded trade (no chart link, fees > 0), the link pasted into its row
+KIT_WIDTHS = [1400, 768, 375]
+KIT_TID = 'probe_t1'
+KIT_URL = 'https://www.tradingview.com/x/KITROW'
+NOT_A_LINK_MSG = 'That is not a link - paste the snapshot link TradingView copies for you.'
 
 # Two interaction runs. `tid` is the futures trade whose panel is opened (a 1m trade on the
 # laptop, a 10s trade on the phone, so both bar sizes the reader serves are drawn).
@@ -538,6 +550,19 @@ MUTANTS = [
      "if(ph)ph.onclick=()=>window.hmHoldChartLink();",
      "if(ph)ph.onclick=()=>{};",
      'HOLD FOR A STOCK TRADE does nothing, so the question cannot be answered that way'),
+    # SIMPLE's SETUP . TF . CHART group and FULL's NET (2026-10-10)
+    ('simple-tf-missing',
+     "'<span class=\"hm-kit\">'+setup(t)+_hmTfBtnHtml(t)+",
+     "'<span class=\"hm-kit\">'+setup(t)+",
+     'the TF picker is gone from the SETUP . TF . CHART group of the SIMPLE table'),
+    ('kit-paste-needs-enter',
+     "inp.onpaste=e=>{",
+     "inp._pasteOff=e=>{",
+     'a paste into a row\'s chart link box no longer saves at once - it waits for Enter or a blur'),
+    ('full-shows-gross',
+     "{k:'fees',label:'FEES',cls:'num',",
+     "{k:'gross',label:'GROSS',cls:'num',td:t=>_hmSigned(t.grossPnl!=null?t.grossPnl:t.pnl)},{k:'fees',label:'FEES',cls:'num',",
+     'the FULL rows show the GROSS figure again next to NET'),
     ('paste-undo-dead',
      "if(pu)pu.onclick=()=>window.hmUndoChartLink();",
      "if(pu)pu.onclick=()=>{};",
@@ -668,7 +693,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html__QS__" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o"></pre>
 <script>
-var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__, FOLDS=__FOLDS__, HOUSE=__HOUSE__, OWN=__OWN__, OLDMARKS=__OLDMARKS__, STUBDEP=__STUBDEP__;
+var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, PASTE=__PASTE__, PANELS=__PANELS__, WIDTHS=__WIDTHS__, FOLDS=__FOLDS__, HOUSE=__HOUSE__, OWN=__OWN__, OLDMARKS=__OLDMARKS__, STUBDEP=__STUBDEP__;
 (function(){
   var out={cases:{},inter:{},panels:{},widths:{},folds:{},notes:[]}, reported=false, t0=Date.now(), sink=null;
   function finish(why){
@@ -1376,6 +1401,10 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
       st.heads=Array.prototype.map.call(D().querySelectorAll('table.lg-tl-table thead th'),function(h){return (h.textContent||'').trim();})
         .filter(function(x){return x==='ACCT'||x==='ACCT%';});
       st.all=cellsNow();
+      // FULL rows show NET (2026-10-10): the money cell of the seeded trade with fees, its title, and the text of every visible cell of its row
+      var nr=D().querySelector('table.lg-tl-table tbody tr[data-lgtrade="'+KIT.tid+'"]'),npc=nr?nr.querySelector('td.lg-c-pnl'):null;
+      st.netRow=nr?{pnl:npc?(npc.textContent||'').trim():null,title:npc?npc.getAttribute('title'):null,grossHead:!!D().querySelector('table.lg-tl-table thead th.lg-c-gross'),
+        cells:Array.prototype.filter.call(nr.children,function(c){var b=c.getBoundingClientRect();return b.width>0&&b.height>0;}).map(function(c){return (c.textContent||'').replace(/\\s+/g,' ').trim();})}:null;
       // the account in view: tap the NinjaTrader row of the account list - the Webull trade (and its P&L) leaves the running balance
       var nb=q('[data-lglist="hm"] [data-lgrow="NinjaTrader"]');st.ntRow=!!nb;
       if(nb){nb.click();await sleep(100);st.nt=cellsNow();}
@@ -1742,6 +1771,60 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
     }
     out.widths[nm]=res;
   }
+  // SIMPLE's SETUP . TF . CHART group (owner 2026-10-10): the three side by side in one cell, no sideways scroll, TF opens its picker, and a paste
+  // into the row's chart link box saves with no Enter (a non-link is refused with the PASTE box's own message)
+  function pasteInto(el,text){
+    var ev=null;
+    try{var dt=new DataTransfer();dt.setData('text/plain',text);ev=new ClipboardEvent('paste',{clipboardData:dt,bubbles:true,cancelable:true});}catch(e){ev=null;}
+    if(!ev||!ev.clipboardData){el.value=text;ev=new Event('paste',{bubbles:true,cancelable:true});}
+    el.dispatchEvent(ev);
+  }
+  async function kitRun(){
+    var w=W(),d=D(),res={widths:{}};
+    await setWidth(KIT.w[0]);
+    drain();
+    try{res.seed=seed({vp:'laptop',theme:'glass',missed:2,view:'table',ledger:'simple'});}catch(e){res.seed='ERR '+(e&&e.stack?e.stack:e);}
+    await sleep(150);
+    res.seedErr=drain();
+    for(var i=0;i<KIT.w.length;i++){
+      var px=KIT.w[i],st={};
+      try{
+        await setWidth(px);
+        w.eval('renderApp();');
+        await sleep(150);
+        var de=d.documentElement;st.innerW=w.innerWidth;st.scrollW=de.scrollWidth;st.clientW=de.clientWidth;
+        var box=q('[data-lglist-frame="hm"] .lg-tl-wrap'),bb=box?box.getBoundingClientRect():null;
+        st.box=box?{sw:box.scrollWidth,cw:box.clientWidth}:null;
+        var RS='[data-lglist-frame="hm"] tr[data-lgtrade="'+KIT.tid+'"]';
+        var kit=q(RS+' td.lg-c-kit');st.kit=!!kit;
+        if(kit){
+          var g=function(sel){var e=kit.querySelector(sel);if(!e)return null;var b=e.getBoundingClientRect();
+            return {l:Math.round(b.left),r:Math.round(b.right),t:Math.round(b.top),b:Math.round(b.bottom),w:Math.round(b.width),
+              shown:b.width>0&&b.height>0&&w.getComputedStyle(e).visibility!=='hidden',inBox:bb?(b.left>=bb.left-1&&b.right<=bb.right+1):null};};
+          st.setup=g('select[data-hmfield="setup"][data-hmid="'+KIT.tid+'"]');
+          st.tf=g('button.tf-btn[data-tid="'+KIT.tid+'"]');
+          st.chart=g('input.hm-curl[data-field="chartUrl"][data-id="'+KIT.tid+'"]');
+          var ci=kit.querySelector('input.hm-curl');st.chartEditable=!!(ci&&!ci.disabled&&!ci.readOnly&&ci.type==='text');st.chartPh=ci?ci.getAttribute('placeholder'):null;
+          var tb=kit.querySelector('button.tf-btn');
+          if(tb){tb.click();await sleep(80);st.tfPop=!!d.getElementById('tf-pop');st.tfPanel=!!q('.lg-panel[data-lgpanel="hm"]');try{w.eval('closeTfPicker();');}catch(e){}}
+          w.eval('window.__probeData.length=0;window.__probeWrites.length=0;window._hmCurlNote=null;');
+          ci=q(RS+' input.hm-curl');
+          if(ci){pasteInto(ci,KIT.url+px+'/');await sleep(150);}
+          st.pasteData=JSON.parse(w.eval('JSON.stringify(window.__probeData)'));
+          var ts=q('[data-hmcurlst="'+KIT.tid+'"]');st.tick=ts?(ts.textContent||'').trim():null;st.tickShown=!!(ts&&ts.getBoundingClientRect().width>0);
+          w.eval('window.__probeData.length=0;window.__probeWrites.length=0;');
+          ci=q(RS+' input.hm-curl');
+          if(ci){pasteInto(ci,'not a link');await sleep(150);}
+          st.badWrites=JSON.parse(w.eval('JSON.stringify(window.__probeWrites)'));
+          var ts2=q('[data-hmcurlst="'+KIT.tid+'"]');st.badMsg=ts2?(ts2.textContent||'').trim():null;
+          w.eval('window._hmCurlNote=null;window.__probeData.length=0;window.__probeWrites.length=0;');
+        }
+      }catch(e){st.threw=String(e&&e.stack?e.stack:e);}
+      Object.assign(st,drain());
+      res.widths[px]=st;
+    }
+    out.kit=res;
+  }
   var LSK=['el_lg_missed_real','el_lg_deps_real','el_lg_ai_real','el_home_journal_open','el_lg_filters_hm'];
   function lsRead(){var o={};LSK.forEach(function(k){try{o[k]=W().localStorage.getItem(k);}catch(e){o[k]='ERR';}});return o;}
   // the own folds and (LEDGER step 12) the Filters row at the top of the accounts panel
@@ -1825,6 +1908,7 @@ var CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BARS=__BARS__, P
         try{await widthRun(WIDTHS[m][0],WIDTHS[m][1],WIDTHS[m][2]);}
         catch(e){out.widths[WIDTHS[m][0]]={threw:String(e&&e.stack?e.stack:e)};}
       }
+      if(WIDTHS.length){try{await kitRun();}catch(e){out.kit={threw:String(e&&e.stack?e.stack:e)};}}
       for(var f=0;f<FOLDS.length;f++){
         try{await foldRun(FOLDS[f][0],FOLDS[f][1]);}
         catch(e){out.folds[FOLDS[f][0]]={threw:String(e&&e.stack?e.stack:e)};}
@@ -2112,6 +2196,7 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, pane
             .replace('__OWN__', json.dumps(OWN_FOLDS))
             .replace('__OLDMARKS__', json.dumps(OLD_MARKS))
             .replace('__STUBDEP__', json.dumps(STUB_DEPOSIT))
+            .replace('__KIT__', json.dumps({'w': KIT_WIDTHS, 'tid': KIT_TID, 'url': KIT_URL}))
             .replace('__INSTALL__', json.dumps(INSTALL_JS)))
     io.open(ppath, 'w', encoding='utf-8').write(html)
 
@@ -2662,6 +2747,69 @@ def _judge_paste_row(tag, p, fails, phone):
         fails.append('%s: the PASTE row is %s px tall - it must be one slim line' % (tag, p.get('rowH')))
     if not phone and not re.match(r'^next link goes on \S+', p.get('next') or ''):
         fails.append('%s: the line beside the PASTE box reads %r, expected where the next link goes' % (tag, p.get('next')))
+
+
+def _judge_kit(wd):
+    """SIMPLE's SETUP . TF . CHART group (owner 2026-10-10), read in the width page load at KIT_WIDTHS."""
+    fails, unfinished = [], []
+    r = (wd or {}).get('kit')
+    if r is None:
+        return fails, ['SETUP . TF . CHART run: never ran']
+    if r.get('threw'):
+        return ['SETUP . TF . CHART run: the probe itself threw -- %s' % _first(r['threw'])], unfinished
+    if r.get('seed') != 'OK':
+        return ['SETUP . TF . CHART run: renderApp threw -- %s' % _first(r.get('seed'))], unfinished
+    _errs('SETUP . TF . CHART run (render)', r.get('seedErr') or {}, fails)
+    for px in KIT_WIDTHS:
+        t = 'SIMPLE SETUP . TF . CHART at %d px' % px
+        s = (r.get('widths') or {}).get(str(px))
+        if s is None:
+            unfinished.append('%s: never ran' % t)
+            continue
+        _errs(t, s, fails)
+        if s.get('threw'):
+            fails.append('%s: %s' % (t, _first(s['threw'])))
+            continue
+        if s.get('innerW') != px:
+            unfinished.append('%s: the window is %spx wide, not %spx' % (t, s.get('innerW'), px))
+            continue
+        sw = s.get('scrollW') or 0
+        if sw > px or sw > (s.get('clientW') or 0) + 1:
+            fails.append('%s: the page scrolls sideways (scrollWidth %s > the %s px window)' % (t, sw, px))
+        bx = s.get('box')
+        if not bx or bx['sw'] > bx['cw'] + 1:
+            fails.append('%s: the SIMPLE table scrolls sideways inside its box (%r)' % (t, bx))
+        if not s.get('kit'):
+            fails.append('%s: the row of %s has no SETUP . TF . CHART cell' % (t, KIT_TID))
+            continue
+        parts = [('the SETUP select', 'setup'), ('the TF button', 'tf'), ('the chart link box', 'chart')]
+        miss = [n for n, k in parts if not (s.get(k) or {}).get('shown')]
+        if miss:
+            fails.append('%s: %s missing or not visible in the group' % (t, ', '.join(miss)))
+            continue
+        outb = [n for n, k in parts if s[k].get('inBox') is False]
+        if outb:
+            fails.append('%s: %s sticks out of the table box' % (t, ', '.join(outb)))
+        if px >= 768:
+            a, b_, c = s['setup'], s['tf'], s['chart']
+            mids = [(x['t'] + x['b']) / 2.0 for x in (a, b_, c)]
+            if max(mids) - min(mids) > 6 or not (a['r'] <= b_['l'] + 1 and b_['r'] <= c['l'] + 1):
+                fails.append('%s: SETUP, TF and the chart link box are not side by side on one line (setup %r, tf %r, chart %r)' % (t, a, b_, c))
+        if (s['chart'].get('w') or 0) < 100 or not s.get('chartEditable') or s.get('chartPh') != 'paste link':
+            fails.append('%s: the chart link box is %s px wide, editable=%s, placeholder %r (expected an editable box reading "paste link", 100+ px)'
+                         % (t, s['chart'].get('w'), s.get('chartEditable'), s.get('chartPh')))
+        if not s.get('tfPop') or s.get('tfPanel'):
+            fails.append('%s: a click on the TF button did not open its picker (picker=%s, trade panel opened=%s)' % (t, s.get('tfPop'), s.get('tfPanel')))
+        want = KIT_URL + str(px) + '/'
+        if not [x for x in s.get('pasteData') or [] if x.get('id') == KIT_TID and (x.get('d') or {}).get('chartUrl') == want]:
+            fails.append('%s: a paste into the chart link box did not save the link on %s at once, with no Enter (writes: %r)' % (t, KIT_TID, s.get('pasteData')))
+        elif 'saved' not in (s.get('tick') or '') or not s.get('tickShown'):
+            fails.append('%s: the link saved but no saved tick shows on the row (%r)' % (t, s.get('tick')))
+        if s.get('badWrites'):
+            fails.append('%s: a paste of something that is not a link was saved: %r' % (t, s['badWrites']))
+        if s.get('badMsg') != NOT_A_LINK_MSG:
+            fails.append('%s: a paste of something that is not a link says %r, expected the PASTE box message %r' % (t, s.get('badMsg'), NOT_A_LINK_MSG))
+    return fails, unfinished
 
 
 def _removed_lint(root, alt_index):
@@ -3520,6 +3668,20 @@ def _judge(data, data_obj):
             if ac.get('back') != ac.get('all'):
                 fails.append('%s: after ALL accounts was tapped again the ACCT cells are not what they were before the scope (%r vs %r)'
                              % (tag, ac.get('back'), ac.get('all')))
+            # FULL rows show NET: the money cell is the net, the gross figure is on no visible cell (only in the title), no GROSS column
+            nt_ = Tm.get(KIT_TID) or {}
+            nr = ac.get('netRow') or {}
+            gross_txt = '$' + format(abs(nt_.get('grossPnl') or 0), ',.2f')
+            if not nr:
+                fails.append('%s: the FULL table has no row for %s' % (tag, KIT_TID))
+            else:
+                if nr.get('pnl') != _signed(nt_.get('pnl') or 0):
+                    fails.append('%s: the FULL money cell of %s reads %r, expected its NET %s' % (tag, KIT_TID, nr.get('pnl'), _signed(nt_.get('pnl') or 0)))
+                shown = [c for c in nr.get('cells') or [] if gross_txt in c]
+                if nr.get('grossHead') or shown:
+                    fails.append('%s: the FULL row of %s shows the gross figure %s (cells %r, a GROSS column: %s)' % (tag, KIT_TID, gross_txt, shown, nr.get('grossHead')))
+                if 'gross' not in (nr.get('title') or ''):
+                    fails.append('%s: the NET cell of %s has no gross / fees hover title (%r)' % (tag, KIT_TID, nr.get('title')))
             pn, ptid = ac.get('panel') or {}, ac.get('panelTrade')
             row = (ac.get('all') or {}).get(ptid) or {}
             if not pn or 'ACCT BALANCE' not in pn or 'ACCT %' not in pn:
@@ -3610,6 +3772,9 @@ def _judge(data, data_obj):
     wf, wu = _judge_widths(data.get('widths'), data_obj)
     fails += wf
     unfinished += wu
+    kf, ku = _judge_kit(data.get('widths'))
+    fails += kf
+    unfinished += ku
     ff, fu = _judge_folds(data.get('folds'))
     fails += ff
     unfinished += fu

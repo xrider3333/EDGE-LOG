@@ -1137,6 +1137,34 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    out in that order as the window narrows. A column comes back only once the box has room for it (a scrollbar can take 15 px): hm-s3 above
    1010 px, hm-s2 above 900 px, hm-s1 above 700 px - the breakpoints used to sit 30 to 45 px too low and the box scrolled inside itself there. */
 .hm-dtable.hm-simple{min-width:0}
+/* SIMPLE's SETUP . TF . CHART group (owner 2026-10-10: "time frame, setup selector, and chart selector in one spot"): the setup select, the TF
+   picker and the chart link box (a paste saves at once) side by side on one line in one cell; the other optional columns drop first. From 740 px
+   down each row is two lines - DATE, SYM, DIR, NET, then the group (wrapping inside its line if it must) - so nothing scrolls sideways. */
+.hm-kit{display:flex;flex-wrap:nowrap;align-items:center;gap:4px 6px;min-width:0}
+.hm-kit select[data-hmfield="setup"]{max-width:96px}
+.lg-tl .hm-dtable.hm-simple td.lg-c-kit{white-space:normal}
+.hm-curl{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--blue);font-family:inherit;font-size:10px;padding:3px 2px;outline:none;width:120px;min-width:110px;box-sizing:border-box}
+.hm-curl:focus{border-bottom-color:var(--blue)}
+.hm-curl::placeholder{color:var(--text5)}
+.hm-curl-st{font-size:9px;letter-spacing:.5px;color:var(--text3)}
+.hm-curl-st:empty{display:none}
+.hm-curl-st.bad{color:var(--yellow)}
+/* the group keeps its room: SIMPLE's cells are 6 px apart at every width, the # row counter is left out, and from 920 px down the date loses its
+   year (the day header has it) */
+.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple td,.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple th{padding-left:6px;padding-right:6px}
+.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple .lg-c-num{display:none}
+@media (max-width:920px){.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple .lg-d-full{display:none}.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple .lg-d-short{display:inline}}
+/* 740 px and down: each row is two lines - DATE, SYM, DIR, NET, then the group on its own line - so nothing scrolls sideways */
+@media (max-width:740px){
+  .hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple,.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple>thead,.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple>tbody{display:block;width:100%}
+  .hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple tr{display:grid;grid-template-columns:86px minmax(0,1fr) 62px 92px;align-items:center}
+  .hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple th,.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple td{display:block;min-width:0;box-sizing:border-box}
+  .hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple .lg-nph,.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple th.lg-c-kit{display:none}
+  .hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple td.lg-c-kit,.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple tr.lg-tl-dayhdrow>td{grid-column:1/-1}
+  .hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple>tbody>tr[data-lgtrade]>td:not(.lg-c-kit){border-bottom:none}
+  .hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple td.lg-c-kit{padding-top:0}
+  .hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple .hm-kit{flex-wrap:wrap}
+}
 /* SHOULD HAVE TRADED form (HOME > REAL, under the ledger) */
 .hm-mf-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;padding:8px 0 12px}
 .hm-mf-grid label{display:flex;flex-direction:column;gap:3px;font-size:9px;letter-spacing:1px;color:var(--text5);min-width:0}
@@ -1258,7 +1286,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1188';
+const VERSION='73.1189';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1276,7 +1304,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL: the snapshot-link paste box is back on show at the top of the trade list, right under its buttons, on a laptop and a phone (no fold to open). Paste a TradingView snapshot link and it files at once; what it did (UNDO, MOVE) or the FILE ON / HOLD question shows right under the box.']},
+const CHANGELOG=[{v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL, SIMPLE table: SETUP, TF and the chart link now sit side by side in one spot on every trade row, so a trade is tagged without switching to FULL. Paste a TradingView snapshot link into the row box and it saves at once (no Enter), with a short saved tick; on a phone the three sit on a second line of the row.','LEDGER > REAL, FULL table: the rows show NET (after fees), the same number SIMPLE and the hero use; GROSS is gone from the row and sits in the hover title of the net figure, FEES stays.']},
+{v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL: the snapshot-link paste box is back on show at the top of the trade list, right under its buttons, on a laptop and a phone (no fold to open). Paste a TradingView snapshot link and it files at once; what it did (UNDO, MOVE) or the FILE ON / HOLD question shows right under the box.']},
 {v:'73.1186',date:'2026-10-09',notes:['ROLL CHECK (owner ask 10-08: the roll defect must not recur; MANAGER #31). Since ORB’s roll guard, every run the PC runner saves carries a roll stamp: the price series it ran on, where its roll dates come from, the contract switches in its window, the trades held across one and their money, any pure roll step booked, and the money made on switch sessions. A run whose stamp says its prices may not follow the true contract roll table - a stale adjusted price file, a wrong label, a market with no roll table, a level-reading file on an adjusted price file, the guard’s refusals waived, or a roll step counted as profit or loss - now carries a ROLL CHECK tag wherever VOID and ROLL tags show. A report, not a void: it changes no ranking.','Run report: a ROLLS chip in the ROBUSTNESS rail for every run with a stamp (true roll table, no contract rolls, true roll table · raw signals, or check) opens the whole stamp in plain words, including the raw-versus-adjusted check (the same file re-run on raw prices, trade by trade). Runs saved before the guard carry no stamp and show no chip; the 22 old roll-detector runs keep their ROLL tag.','Probes: a new RUNBOARD case and a new run-report case, each failing on the build before this one.']},
 {v:'73.1169',date:'2026-10-09',notes:['PAST RUNS SHOWS THE RUN YOU OPENED (owner 10-09: in COMPARE an ENGU-Q row opened a DIP past run). The link was right - it opened run #326 - but Past Runs kept your saved DIP family filter, and #326 is older than the 75 runs loaded, so the page showed a list of DIP runs with no row for the run you had opened. A run opened from another screen (EXPLORE, LEADERBOARD, RUNBOARD, BOOKS) that the list would hide is now pinned as the first row, marked OPENED, with a one-line note saying why (filtered to DIP, older than the runs loaded). Your filters stay as they are; show all clears only the ones hiding that run.','Two clicks that did nothing now open their run: the TOP 10 rows on the older RUNBOARD tab and the paper pointers under the paper-legs study notes.','PRE-ROLL-FIX ENGU-Q tag on books #429, #430 and #431 (FRONTIER Q30, MANAGER GO): their ENGU-Q leg ran on the ENGU-Q price series before the roll fix; rebuilt on 2026-10-09 it books $493,295 against the $603,381 saved. Tag only - nothing is voided and no ranking moves.','Probe: one new COMPARE case sweeps every run link on every screen - EXPLORE configuration rows, LEADERBOARD, the COMPARE legends, RUNBOARD on both hosts, WATCH dots and Past Runs - and fails if a link opens a run of another family, if a TILT, HYBRID or KEEL row opens anything but its own run, or if an opened run the filters hide is not pinned. It fails on the build before this one.']},
 {v:'73.1166',date:'2026-10-09',notes:['NT8 PAPER BOARD CLEAN-UP (owner 10-09: the tab was a mess and the auto-recover switch could not be found). Five fixes agreed with the NT8 lane.','NEEDS YOU: a red box under the big number when NinjaTrader holds a strategy back, saying what is wrong and what to do (for example an open position no strategy is managing).','AUTO-RECOVER SWITCH: always on show next to REFRESH, in words: Auto-recover ON or OFF. At night it adds NinjaTrader off for the night until 05:45. On a phone it sits on its own row.','STATUS LINE: one plain sentence. NinjaTrader is running 1 of 2 strategies turns red whenever fewer than both are running, then the open positions, then how many checks need a look (the details are in its tooltip and inside the fold).','SYSTEM HEALTH: the 10s capture, NinjaTrader detail, cross-engine and gate audit folds now sit inside one closed System health fold with a one-line summary. A warning chip still opens the right card.','FORWARD TESTS group starts closed; the book is the only thing open by default. The strategies list counts legs as counted instead of on.','HAND EXITS: a trade closed from the account (a NinjaTrader flatten, not a strategy signal) reads closed by hand in its trade panel, as the 10-09 NOISE 10 MNQ flatten will once the NT8 lane ships its capture fix.']},{v:'73.1153',date:'2026-10-07',notes:['EXPLORE and STUDIES TABLES: NO MORE BLANK BAND (owner 10-07). The empty stretch in the middle of the table was the ROC @ $30K DD column: once a column width had been dragged, the table gave every spare pixel to any column without a saved width, and that column was added after your widths were saved. Every column now gets exactly the width its heading and figures need, and the room left over is shared out so no column holds a gap.','The freed room now shows more data: on KEY the table fills its width with every column that fits, most useful first - MAR, ROC @ $30K DD, PF, EV R, $/TRD, TRADES and TRADES / YR, then the other ratios, then CONFIG and READ, then TOTAL, DRAWDOWN, the new DD5 and the three stage money columns, then the data window, date and description. The column the table is sorted on and the columns the chart is plotting always stay. When some do not fit, the TABLES heading says how many (+5 COLUMNS - ALL) and a click opens ALL, which shows every column and scrolls sideways inside the table only, never the page. On a phone the table keeps RANK, FAMILY, RUN and the columns the chart is plotting.','DD5 column: the average of the 5 worst drawdowns on the stage in view, as on the RUNBOARD, read off the curve each run or configuration saved (hover for the dips, ~ when the curve is too thin to tell them apart, 1 EPISODE when the worst drawdown is more than 1.3 times DD5). A row with no curve or no saved drawdown for the stage - a written-up study, an older run, a stage the saved curves do not mark - shows a dash with the reason.','TRADES / YR is never cut off now (no heading is) and shows one decimal under 10 and whole numbers above. It is the trade count over the years of the stage in view, the same count and years R / YR uses. The money columns now sit after the ratios. A dragged width now only narrows that one column while room is short.','RAW rows still show a dash for MAR, SHARPE, SORTINO and ROC @ $30K DD with all three stages ticked: the run saves a RAW configuration only its in-sample + walk-forward and lockbox figures separately, and the thinned curves cannot rebuild the whole-run figures honestly (a Sharpe off them read 1.38 against 2.10 saved). The hover now gives what is known exactly: the worst drawdown is at least the deeper of the two saved ones.']},
@@ -14537,9 +14566,10 @@ function _hmScoreHtml(t){
     :scoreNA(t)?naPill(t,scoreNA(t)):`<span class="score-pill" title="Not scored yet" onclick="event.stopPropagation();showTradeScore('${scoreKey(t)}')">-</span>`;
 }
 // SIMPLE ledger (see homeLedger). hm-s1/hm-s2/hm-s3 are the order columns drop out as the window
-// narrows (CSS next to .hm-dtable): PTS and # go first, then IN and SETUP, then CTRS, SCORE,
-// NOTES and the delete button - a phone keeps DATE, SYM, DIR, NET, GRADE and edit. NOTES soaks up
-// whatever width is left, so the row always ends at the edge of the box instead of past it.
+// narrows (CSS next to .hm-dtable): PTS and POINTS go first (1100), then CTRS, SCORE and the delete button (920),
+// then NOTES (740); the SETUP . TF . CHART group is the last to go - from 740 px down each row is two lines, DATE,
+// SYM, DIR, NET and then the group (2026-10-10). NOTES soaks up whatever width is left, so the row always ends at
+// the edge of the box instead of past it.
 // EL's own chart (api/trade_bars.py): a small two-candle glyph that opens the trade's candles.
 // A pasted TradingView snapshot link keeps its own chart-link icon next to it.
 function _hmCandleGlyph(t){
@@ -14627,10 +14657,11 @@ function _hmFrameCols(full){
   const ttl=t=>'title="'+_hmEsc(t.notes||'')+'"';
   if(!full){
     return [
-      {k:'score',label:'SCORE',cls:'hm-s1',td:t=>_hmScoreHtml(t)},
-      {k:'ptsc',label:'POINTS',cls:'hm-s2',td:t=>_hmPtsHtml(t)},
+      {k:'score',label:'SCORE',cls:'hm-s2',td:t=>_hmScoreHtml(t)},
+      {k:'ptsc',label:'POINTS',cls:'hm-s3',td:t=>_hmPtsHtml(t)},
       {k:'grade',label:'GRADE',td:grade},
-      {k:'setup',label:'SETUP',cls:'hm-s2',td:setup},
+      // the SETUP . TF . CHART group (owner 2026-10-10): the three a trade is tagged with, side by side in one cell, the last optional column to go
+      {k:'kit',label:'SETUP &middot; TF &middot; CHART',phone:true,tdCls:'lg-skip',td:t=>'<span class="hm-kit">'+setup(t)+_hmTfBtnHtml(t)+_hmCandleGlyph(t)+_hmCurlCellHtml(t)+'</span>'},
       {k:'notes',label:'NOTES',cls:'hm-s-notes hm-s1',tdCls:'hm-notes-cell lg-skip',attr:ttl,
         td:t=>`<input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:100%;box-sizing:border-box;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)'" onblur="this.style.borderBottomColor='transparent';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`}
     ];
@@ -14641,7 +14672,6 @@ function _hmFrameCols(full){
     {k:'dur',label:'DUR',cls:'hm-col-dur',td:t=>durStr(t)},
     {k:'entry',label:'ENTRY',cls:'num',td:t=>t.entry!=null?t.entry:'--'},
     {k:'exit',label:'EXIT',cls:'num',td:t=>t.exit!=null?t.exit:'--'},
-    {k:'gross',label:'GROSS',cls:'num',td:t=>{const g=t.grossPnl!=null?t.grossPnl:t.pnl;return `<span class="${_hmCls(g)}">${_hmSigned(g)}</span>`;}},
     {k:'fees',label:'FEES',cls:'num',attr:t=>`data-hmfee="${t.id}" style="color:var(--yellow);cursor:pointer"`,td:t=>t.fees>0?'-$'+t.fees.toFixed(2):'--'},
     {k:'acct',label:'ACCT',td:t=>bal(t)!=null?_hmMoney(bal(t)):'--'},
     {k:'acctp',label:'ACCT%',cls:'num',td:t=>{const b=bal(t),p=(b!=null&&t.pnl&&Math.abs(b-t.pnl)>0.005)?((t.pnl/(b-t.pnl))*100):null;return p!=null?`<span class="${_hmCls(p)}">${_hmPct(p)}</span>`:'--';}},
@@ -14659,11 +14689,59 @@ function _hmFrameCols(full){
     .forEach(x=>cols.push({k:'x_'+x[0],label:x[1],td:t=>_hmEsc(t[x[0]]||'--')}));
   return cols;
 }
+// FULL rows show NET, the same number SIMPLE and the hero use (owner 2026-10-10: "make show net bc confusing"); gross is only in the NET cell's title
+function _hmGrossTitle(t){
+  const f=+t.fees||0,g=t.grossPnl!=null?(+t.grossPnl||0):(+t.pnl||0)+f;
+  return 'gross '+ledgerSigned(g)+', fees '+(f>0?'-':'')+ledgerMoney(f);
+}
+// the TF picker button of the SETUP . TF . CHART group (the same picker FULL's TF column opens)
+function _hmTfBtnHtml(t){
+  return `<button type="button" class="tf-btn" data-tid="${_hmEsc(t.id)}" data-tfkey="hm-${_hmEsc(t.id)}" onclick="event.stopPropagation();window.openTfPicker(this)" title="Pick one or more timeframes">${_hmEsc(tfLabel(t.timeframe))}</button>`;
+}
+// the chart link box of the group (owner 2026-10-10: "time frame, setup selector, and chart selector in one spot"). A paste in it saves at once -
+// no Enter, no blur - on the same save path as typing in it (data-field="chartUrl" -> updateTrade) and with the same link check as the PASTE box
+// at the top of the list; a short saved tick (or why it was refused) shows on that row and outlives the redraw the save brings. An empty box
+// reads "paste link"; once the trade has a link its icon sits next to the box, and a paste over it replaces the link.
+const _HM_NOT_A_LINK='That is not a link - paste the snapshot link TradingView copies for you.';
+function _hmCurlProblem(url,id){
+  if(!/^https?:\/\/\S+$/i.test(url))return _HM_NOT_A_LINK;
+  const dup=trades.find(t=>String(t.id)!==String(id)&&String(t.chartUrl||'')===url);
+  if(dup)return 'That link is already on '+_hmTradeLbl(dup)+'.';
+  const mdup=(missedTrades||[]).find(m=>String(m.url||'')===url);
+  if(mdup)return 'That link is already filed under SHOULD HAVE TRADED ('+String(mdup.symbol||'')+' '+String(mdup.date||'')+' '+String(mdup.entryTime||'')+').';
+  return '';
+}
+function _hmCurlStHtml(id){
+  const n=window._hmCurlNote,on=!!(n&&n.id===String(id)&&n.until>Date.now());
+  return '<span class="hm-curl-st'+(on&&!n.ok?' bad':'')+'" data-hmcurlst="'+_hmEsc(id)+'" role="status" aria-live="polite">'+(on?(n.ok?'&#10003; saved':_hmEsc(n.msg)):'')+'</span>';
+}
+function _hmCurlCellHtml(t){
+  const u=String(t.chartUrl||''),e=_hmEsc(u);
+  return `${u?`<a href="${e}" target="_blank" class="clink chart-link hm-curl-a" data-url="${e}" title="your TradingView snapshot" style="text-decoration:none">&#128200;</a>`:''}<input class="inline-txt hm-curl" data-field="chartUrl" data-id="${_hmEsc(t.id)}" value="${e}" placeholder="paste link" autocomplete="off" spellcheck="false" aria-label="chart link" title="${u?e:'Paste a TradingView snapshot link here - it saves at once'}" onblur="if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>${_hmCurlStHtml(t.id)}`;
+}
+function _hmCurlSay(id,ok,msg){
+  const n={id:String(id),ok:!!ok,msg:String(msg||''),until:Date.now()+(ok?2500:6000)};
+  window._hmCurlNote=n;
+  document.querySelectorAll('[data-hmcurlst]').forEach(el=>{const me=el.getAttribute('data-hmcurlst')===n.id;el.className='hm-curl-st'+(me&&!n.ok?' bad':'');el.textContent=me?(n.ok?'\u2713 saved':n.msg):'';});
+  setTimeout(()=>{if(window._hmCurlNote!==n)return;window._hmCurlNote=null;document.querySelectorAll('[data-hmcurlst]').forEach(el=>{el.className='hm-curl-st';el.textContent='';});},n.until-Date.now());
+}
+async function _hmCurlPasted(inp){
+  const id=String(inp.dataset.id||''),url=String(inp.value||'').trim();
+  if(!id)return;
+  if(!url){inp.value=inp.defaultValue;return;}
+  const why=_hmCurlProblem(url,id);
+  if(why){inp.value=inp.defaultValue;_hmCurlSay(id,false,why);return;}
+  inp.value=url;inp.defaultValue=url;   // the blur that may follow has nothing left to save
+  inp.style.opacity='.5';
+  try{await updateTrade(id,{[inp.dataset.field||'chartUrl']:url});_hmCurlSay(id,true,'');}
+  catch(e){_hmCurlSay(id,false,'Could not save: '+String(e&&e.message||e));}
+  inp.style.opacity='1';
+}
 // the row actions at the end of a table row (the same two cells the previous table had)
 function _hmFrameActions(full){
   return [
     {k:'edit',label:'&#9998;',cls:full?'':'hm-s-ic',tdCls:'hm-icon-cell lg-skip',attr:t=>'data-hmedit="'+_hmEsc(t.id)+'"',td:()=>'&#9998;'},
-    {k:'del',label:'&#10005;',cls:full?'':'hm-s-ic hm-s1',tdCls:'hm-icon-cell lg-skip',attr:t=>'data-hmdel="'+_hmEsc(t.id)+'"',td:()=>'&#10005;'}
+    {k:'del',label:'&#10005;',cls:full?'':'hm-s-ic hm-s2',tdCls:'hm-icon-cell lg-skip',attr:t=>'data-hmdel="'+_hmEsc(t.id)+'"',td:()=>'&#10005;'}
   ];
 }
 // the header cells that carry REAL's sort + filter menus (the same menus the previous table had)
@@ -14681,7 +14759,7 @@ function _hmFrameTh(k,label,cls){
     case 'score':return _hmThCell(label,'_score',cls);
     case 'ptsc':return _hmThCell(label,'_points',cls);
     case 'grade':return _hmThCell(label,'grade',cls,_hmThFList('grade',GRADES.filter(g=>g!=='—')));
-    case 'setup':return _hmThCell(label,'setup',cls,_hmThFList('setup',customSetups.filter(s=>s!=='—')));
+    case 'setup':case 'kit':return _hmThCell(label,'setup',cls,_hmThFList('setup',customSetups.filter(s=>s!=='—')));
     case 'tf':return _hmThCell(label,'timeframe',cls,_hmThFList('tf',TIMEFRAMES.filter(x=>x!=='—')));
   }
   return null;
@@ -14728,10 +14806,10 @@ function _hmFrameHtml(list){
     afterBar:_hmPasteRowHtml()+'<div id="hm-newtrade-form">'+(homeNewTradeOpen?_hmNewTradeFormHtml():'')+'</div>',
     empty:_hmEmptyStateHtml(),group:homeFeedMode==='day'?'day':'trade',events:evs,
     cells:_hmFrameCells(full),rowAttr:t=>'data-hmid="'+_hmEsc(t.id)+'"',
-    attr:{time:t=>'title="'+_hmEsc((t.entryTime||'--')+' → '+(t.exitTime||'--'))+'"'},
+    attr:{time:t=>'title="'+_hmEsc((t.entryTime||'--')+' → '+(t.exitTime||'--'))+'"',pnl:t=>(tbl&&full)?'title="'+_hmEsc(_hmGrossTitle(t))+'"':''},
     rowSlot:t=>[t.setup,t.grade].filter(x=>x&&x!=='—').map(x=>'<span class="lg-tl-tag">'+_hmEsc(x)+'</span>').join(''),
     labels:{time:'DATE',sym:'SYM',side:'DIR',size:'CTRS',pnl:'NET',pts:'PTS',strat:'BROKER'},
-    tableHide:full?[]:['strat'],colCls:full?{num:'hm-pin',time:'hm-pin',sym:'hm-pin'}:{num:'hm-s3',size:'hm-s1',pts:'hm-s3'},
+    tableHide:full?[]:['strat','chart'],colCls:full?{num:'hm-pin',time:'hm-pin',sym:'hm-pin'}:{num:'hm-s3',size:'hm-s2',pts:'hm-s3'},
     numbered:true,dayHeaders:_hmFrameDayOn(),dayAsc:sortDir===1,tableBar:_hmTableBarHtml(full),topScroll:full,
     wrapCls:'hm-table-wrap',tableCls:'hm-dtable'+(full?'':' hm-simple'),topCls:'hm-table-topscroll',
     th:_hmFrameTh,cols:_hmFrameCols(full),actions:_hmFrameActions(full)
@@ -15450,6 +15528,13 @@ function _hmWireTableUi(feedC){
       sel.onclick=e=>e.stopPropagation();
     });
     feedC.querySelectorAll('[data-hmfee]').forEach(td=>{td.onclick=(e)=>{e.stopPropagation();showFeeBreakdown(td.dataset.hmfee);};});
+    feedC.querySelectorAll('input.hm-curl[data-field="chartUrl"]').forEach(inp=>{
+      inp.onpaste=e=>{
+        const cd=(e&&e.clipboardData&&e.clipboardData.getData)?String(e.clipboardData.getData('text')||'').trim():'';
+        if(cd){e.preventDefault();inp.value=cd;_hmCurlPasted(inp);}
+        else setTimeout(()=>_hmCurlPasted(inp),0);
+      };
+    });
     feedC.querySelectorAll('[data-hmcandle]').forEach(g=>{
       g.onclick=(e)=>{e.stopPropagation();window._hmOpenCandles(g.dataset.hmcandle,null);};
       g.onkeydown=(e)=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();window._hmOpenCandles(g.dataset.hmcandle,null);}};});
