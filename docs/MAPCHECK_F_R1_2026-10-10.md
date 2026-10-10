@@ -43,6 +43,12 @@ CLEARS = passes all three = worth a prereg.
   sleeve) are not affected by that gap in the same direction, but the S1 column is the stricter read.
 - The S1 bar is harder (P(lift) 0-41%): S1 already holds the residual-momentum leg, so any new leg competes with it.
 
-## Next
-- EVENT-SLEEVE prereg (draft to MANAGER): one leg, three frozen calendars, equal risk per part, real-data Stage A WF
-  only. Its pilot daily series added to #463 = ONE book look (FRONTIER #92) - posted to MANAGER for the tally first.
+## Next - and the catch on the sleeve
+- **All three parts have already been run on the walk-forward years** (2.18 month-end, 2.70 AUCTION K5, 2.95 the
+  08:30 fade mirror), and 2.18's scan printed its lockbox columns. A real-data Stage A of the sleeve on those years
+  would re-add numbers we have seen, picked as the near-misses of 36 + 6 + 8 cells - it cannot be a fresh test.
+  The map prior already halves each part for that selection; the history can only check the pooling arithmetic.
+- **A fair test is forward only:** freeze the three calendars, sizes and the bar now, then judge on trades after the
+  freeze (a paper shadow; ~55 trades a year means ~1 year to 50 trades). MANAGER advised against a forward shadow
+  of AUCTION alone (2.70: the seat moves with K) - the sleeve freezes K = 5 before any forward trade.
+- Any pilot daily series of the sleeve added to #463 = ONE book look (FRONTIER #92): MANAGER's line first.
