@@ -87,8 +87,11 @@ LEDGER unify step 12 (ONE PAGE FRAME, 2026-10-07), per case and at every width o
   * the chart foot ([data-lgchartfoot="hm"]) directly under the chart, holding the EQUITY | P&L switch (both buttons) and a caption
   * the Filters row at the top of the accounts panel, right under its header, CLOSED to start (body hidden); a click opens it and stores
     el_lg_filters_hm=1, a second click closes it and stores 0; the fold run reloads the page and finds it as it was left
-  * REAL's slot row in the trade list toolbar holds FUTURES | STOCKS, the view switch and NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL
-    and the ... toggle (none removed)
+  * REAL's trade list controls (owner 2026-10-11, "make it make sense"), at every case and every width of the sweep: row 1 = the count and ONE
+    view group ([data-lgviews="hm"]) with LIST | TABLE and, side by side on the same line, SIMPLE | FULL on the TABLE (never on the LIST) or
+    BY TRADE | BY DAY on the LIST; row 2 = every filter (search, ALL LONG SHORT WINS LOSSES, FUTURES STOCKS - no chip anywhere else), on ONE
+    line from CTL_ONE_LINE_FROM px; row 3 (#hm-pastebar) = NEW TRADE (on show without a click), the CHART LINK box and ADD DEPOSIT, SCAN
+    DUPLICATES, OPEN ALL with the TOOLS toggle (none removed); the three rows top to bottom, none overlapping
 LEDGER unify step 11 (REAL: one page order, own sections as closed folds, one set of breakpoints), per case:
   * the page sections come in the FIXED order top to bottom (SECTION_ORDER: hero, range pills, equity chart, stats strip, More stats, calendar,
     accounts, trade list, then the own folds SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT, JOURNAL) at every width of every case and of the
@@ -244,7 +247,11 @@ SECTION_ORDER = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal', 'ac
 # LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
 FRAME_MAX_W = '1320px'
 FRAME_SIDE_FROM = 1100
-SLOT_KIND = 'FUTURES,STOCKS'
+# REAL's trade list controls (owner 2026-10-11): the filter row's chips in order, the px two controls' centres may differ and still be one line,
+# and the window width from which every filter shares one line (under it the row wraps; a phone wraps it on purpose)
+FILTER_CHIPS = 'ALL,LONG,SHORT,WINS,LOSSES,FUTURES,STOCKS'
+CTL_LINE_TOL = 4
+CTL_ONE_LINE_FROM = 800
 OWN_FOLDS = ['missed', 'deps', 'ai', 'journal']      # no 'paste' since 2026-10-10: the PASTE box is never folded
 HOUSE_WIDTHS = [600, 740, 800, 920, 1100]     # the one set of breakpoints (contract section 5b)
 PHONE_LIST_TOP_MAX = 700                      # px from the top of the board to the trade list on a 375 px phone: 652 before step 12, which
@@ -531,8 +538,8 @@ MUTANTS = [
      '.hm-paste-row .hm-paste{min-width:420px;flex:0 1 420px;max-width:420px;font-size:11px}',
      'the PASTE box keeps a 420 px width on a phone, so the page scrolls sideways'),
     ('paste-note-not-shown',
-     "</div>${msg?'<div class=\"hm-paste-msgrow\">'+msg+'</div>':''}</div>`;",
-     "</div>${''}</div>`;",
+     "${_hmToolsHtml()}${msg?'<div class=\"hm-paste-msgrow\">'+msg+'</div>':''}</div>`;",
+     "${_hmToolsHtml()}${''}</div>`;",
      'the paste note (UNDO, MOVE), the FILE ON / HOLD question and the held link are never shown under the PASTE box'),
     ('paste-question-dropped',
      "  renderApp();   // the question (FILE ON, HOLD ...) shows right under the PASTE row",
@@ -635,7 +642,16 @@ MUTANTS = [
     ('kind-chips-gone',
      "const kind=['FUTURES','STOCKS'].map(",
      "const kind=[].map(",
-     'FUTURES | STOCKS are gone from REAL\'s toolbar row'),
+     'FUTURES | STOCKS are gone from REAL\'s filter row'),
+    # REAL's trade list controls (owner 2026-10-11): the view switches in ONE group in row 1, every filter in row 2
+    ('view-group-split',
+     "viewX:_hmViewSegHtml(),findX:_hmKindChipsHtml()",
+     "slot:_hmViewSegHtml(),findX:_hmKindChipsHtml()",
+     'SIMPLE | FULL (BY TRADE | BY DAY on the LIST) is split from LIST | TABLE again, on a row of its own under the filters'),
+    ('filters-split',
+     "viewX:_hmViewSegHtml(),findX:_hmKindChipsHtml()",
+     "viewX:_hmViewSegHtml(),slot:_hmKindChipsHtml()",
+     'FUTURES | STOCKS left the filter row for a row of their own, so the filters are in two spots again'),
     ('mode-toggle-off-chart-foot',
      "        x:'<div class=\"hm-mode\" id=\"hm-mode-toggle\">",
      "        y:'<div class=\"hm-mode\" id=\"hm-mode-toggle\">",
@@ -822,10 +838,27 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     o.filters=fl?{exp:fbt?fbt.getAttribute('aria-expanded'):null,hidden:fbd?(!!fbd.hidden||w.getComputedStyle(fbd).display==='none'):null,
       afterHd:!!(fl.previousElementSibling&&fl.previousElementSibling.classList.contains('lg-list-hd')),
       sum:((fl.querySelector('.lg-filters-sum')||{}).textContent||'').trim()}:null;
-    var sl=d.querySelector('[data-lglist-frame="hm"] .lg-tl-slot');
-    o.slot=sl?{kind:Array.prototype.map.call(sl.querySelectorAll('[data-lgchip]'),function(b){return b.getAttribute('data-lgchip');}).join(','),
-      btns:['#hm-newtrade-toggle','#hm-add-deposit','#hm-scan-dupes','#hm-open-all','#hm-tools-toggle'].filter(function(s){return !sl.querySelector(s);}),
-      seg:sl.querySelectorAll('[data-hmledger],[data-hmfeed]').length}:null;
+    // REAL's trade list controls (owner 2026-10-11): row 1 the count and the view group, row 2 every filter, row 3 (#hm-pastebar) NEW TRADE,
+    // the CHART LINK box and the tools. Where each control sits, and how far apart the centres of a row's controls are (one line = close)
+    var tl=d.querySelector('[data-lglist-frame="hm"]');
+    if(tl){
+      var arr=function(s,root){return root?Array.prototype.slice.call(root.querySelectorAll(s)):[];};
+      var vis=function(e){var b=e.getBoundingClientRect();return b.width>0&&b.height>0;};
+      var spread=function(els){var ys=els.filter(vis).map(function(e){var b=e.getBoundingClientRect();return b.top+b.height/2;});
+        return ys.length?Math.round(Math.max.apply(null,ys)-Math.min.apply(null,ys)):null;};
+      var T=function(e,k){return e?Math.round(e.getBoundingClientRect()[k]):null;};
+      var row1=tl.querySelector('.lg-tl-top'),row2=tl.querySelector('.lg-tl-find'),row3=tl.querySelector('#hm-pastebar');
+      var grp=row1?row1.querySelector('[data-lgviews="hm"]'):null;
+      var vb=arr('[data-lgview],[data-hmledger],[data-hmfeed]',tl),nt=d.getElementById('hm-newtrade-toggle');
+      o.ctl={mode:tl.getAttribute('data-lgmode'),count:!!(row1&&row1.querySelector('[data-lgcount]')),
+        lv:arr('[data-lgview]',tl).length,ledger:arr('[data-hmledger]',tl).length,feed:arr('[data-hmfeed]',tl).length,
+        inGroup:!!grp&&vb.length>0&&vb.every(function(b){return grp.contains(b);}),viewSpread:spread(vb),
+        chips:arr('[data-lgchip]',row2).map(function(b){return b.getAttribute('data-lgchip');}).join(','),
+        strayChips:arr('[data-lgchip]',tl).filter(function(b){return !(row2&&row2.contains(b));}).length,
+        search:!!(row2&&row2.querySelector('[data-lgsearch]')),filtSpread:spread(arr('[data-lgsearch],[data-lgchip]',row2)),
+        add:row3?['#hm-newtrade-toggle','#hm-paste-chart','#hm-add-deposit','#hm-scan-dupes','#hm-open-all','#hm-tools-toggle'].filter(function(s){return !row3.querySelector(s);}):null,
+        ntShown:!!(nt&&vis(nt)),tops:[T(row1,'top'),T(row2,'top'),T(row3,'top')],bots:[T(row1,'bottom'),T(row2,'bottom'),T(row3,'bottom')]};
+    }
     return o;
   }
   // a click on the Filters row opens it (and stores 1), a second one closes it (and stores 0); the stored choice is cleared again
@@ -1285,7 +1318,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       // NEW TRADE opens the form under the toolbar and closes it again
       var nt=q('#hm-newtrade-toggle');
       if(nt){nt.click();st.formOpen=!!q('#hm-newtrade-form #hnfsym');var nt2=q('#hm-newtrade-toggle');if(nt2)nt2.click();st.formClosed=!q('#hm-newtrade-form #hnfsym');}
-      // the ... button (a phone only) opens the four action buttons; a laptop always shows them
+      // the TOOLS button (a phone only) opens ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL; a laptop always shows them (NEW TRADE is never in the menu)
       var tt=q('#hm-tools-toggle'),ta=q('#hm-tools');
       st.tools={toggle:tt?w.getComputedStyle(tt).display:null,box:ta?w.getComputedStyle(ta).display:null};
       if(tt&&st.tools.toggle!=='none'){tt.click();var ta2=q('#hm-tools');st.tools.boxOpen=ta2?w.getComputedStyle(ta2).display:null;tt=q('#hm-tools-toggle');if(tt)tt.click();var ta3=q('#hm-tools');st.tools.boxShut=ta3?w.getComputedStyle(ta3).display:null;}
@@ -1472,7 +1505,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       try{
         w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeView="feed";homeFeedMode="trade";window._hmToolsOpen=false;renderApp();');
         await sleep(80);
-        // on a phone the four buttons sit behind the ... button
+        // on a phone the three tools sit behind the TOOLS button
         var tt=q('#hm-tools-toggle');st.toggle=tt?w.getComputedStyle(tt).display:null;
         if(tt&&st.toggle!=='none'){tt.click();await sleep(40);}
         var box=q('#hm-tools');st.toolsBox=box?w.getComputedStyle(box).display:null;
@@ -2912,6 +2945,7 @@ def _judge_frame(tag, fr, px, fails):
             return
     if not fr.get('heroInTop') or not fr.get('listInRest'):
         fails.append('%s: the hero is not in the top block (%s) or the trade list not under it (%s)' % (tag, fr.get('heroInTop'), fr.get('listInRest')))
+    _judge_controls(tag, fr.get('ctl'), px, fails)
     if not fr.get('acctInSide'):
         fails.append('%s: the accounts list is not in the frame\'s list panel ([data-lgframe-side]) - it is no longer the right-hand panel / the '
                      'slot under the calendar' % tag)
@@ -2936,6 +2970,50 @@ def _judge_frame(tag, fr, px, fails):
         elif acct and top and acct.get('h', 0) > 0 and (acct.get('t', 0) < top['b'] - 1 or (lst and lst.get('t', 0) < acct.get('b', 0) - 1)):
             fails.append('%s: under %d px the accounts list is not between the calendar (top block ends at %spx) and the trade list (%spx); it '
                          'runs %s-%spx' % (tag, FRAME_SIDE_FROM, top['b'], lst.get('t'), acct.get('t'), acct.get('b')))
+
+
+def _judge_controls(tag, c, px, fails):
+    """REAL's trade list controls (owner 2026-10-11: "list/table, simple/full all in different spots... make it make sense"), at a window of px:
+    row 1 = the count and ONE view group - LIST | TABLE with SIMPLE | FULL beside it on the TABLE (never on the LIST) or BY TRADE | BY DAY on the
+    LIST, all on one line; row 2 = every filter (search, the five chips, FUTURES STOCKS; nothing of it anywhere else), one line from
+    CTL_ONE_LINE_FROM px; row 3 = NEW TRADE (on show), the CHART LINK box and the tools; the rows top to bottom and not overlapping."""
+    if not c:
+        fails.append('%s: REAL\'s trade list controls could not be read (no trade list frame)' % tag)
+        return
+    tbl = c.get('mode') == 'table'
+    sub = 'SIMPLE | FULL' if tbl else 'BY TRADE | BY DAY'
+    if not c.get('count'):
+        fails.append('%s: row 1 of the trade list controls has no trade count' % tag)
+    want = (2, 0) if tbl else (0, 2)
+    if c.get('lv') != 2 or (c.get('ledger'), c.get('feed')) != want:
+        fails.append('%s: the %s shows %s LIST | TABLE, %s SIMPLE | FULL and %s BY TRADE | BY DAY buttons, expected 2, %d and %d '
+                     '(SIMPLE | FULL only applies to the TABLE)' % (tag, 'TABLE' if tbl else 'LIST', c.get('lv'), c.get('ledger'), c.get('feed'),
+                                                                     want[0], want[1]))
+    elif not c.get('inGroup'):
+        fails.append('%s: LIST | TABLE and %s are not in ONE view group in row 1 ([data-lgviews="hm"]) - the view switches are split apart again'
+                     % (tag, sub))
+    elif c.get('viewSpread') is None or c['viewSpread'] > CTL_LINE_TOL:
+        fails.append('%s: LIST | TABLE and %s are not side by side on one line (their centres are %s px apart, %d at most)'
+                     % (tag, sub, c.get('viewSpread'), CTL_LINE_TOL))
+    if c.get('chips') != FILTER_CHIPS or not c.get('search'):
+        fails.append('%s: row 2 of the controls holds the search box: %s and the chips %r, expected the search box and %s - every filter in one row'
+                     % (tag, c.get('search'), c.get('chips'), FILTER_CHIPS))
+    if c.get('strayChips'):
+        fails.append('%s: %s filter chip(s) sit outside the filter row, so the filters are in more than one spot' % (tag, c.get('strayChips')))
+    if px >= CTL_ONE_LINE_FROM and (c.get('filtSpread') is None or c['filtSpread'] > CTL_LINE_TOL):
+        fails.append('%s: at %d px the filters (search, chips, FUTURES STOCKS) do not share one line (their centres are %s px apart, %d at most)'
+                     % (tag, px, c.get('filtSpread'), CTL_LINE_TOL))
+    if c.get('add') is None:
+        fails.append('%s: there is no row 3 (#hm-pastebar: NEW TRADE, the CHART LINK box, the tools) in the trade list' % tag)
+    elif c['add']:
+        fails.append('%s: row 3 of the controls (#hm-pastebar) lost %s' % (tag, ', '.join(c['add'])))
+    if not c.get('ntShown'):
+        fails.append('%s: NEW TRADE is not on show without a click' % tag)
+    tops, bots = c.get('tops') or [], c.get('bots') or []
+    if len(tops) != 3 or len(bots) != 3 or None in tops or None in bots or not (bots[0] <= tops[1] + 1 and bots[1] <= tops[2] + 1):
+        fails.append('%s: the three rows of controls are not stacked top to bottom (view %s-%s, filters %s-%s, add %s-%s px)'
+                     % (tag, (tops + [None] * 3)[0], (bots + [None] * 3)[0], (tops + [None] * 3)[1], (bots + [None] * 3)[1],
+                        (tops + [None] * 3)[2], (bots + [None] * 3)[2]))
 
 
 def _judge_frame_parts(nm, cfg, fr, fc, fails):
@@ -2982,16 +3060,6 @@ def _judge_frame_parts(nm, cfg, fr, fc, fails):
     elif fc.get('open') != 'true' or fc.get('ls') != '1' or fc.get('back') != 'false' or fc.get('ls2') != '0' or not fc.get('bodyBack') \
             or (cfg['vp'] != 'phone' and not fc.get('bodyShown')):
         fails.append('%s: the Filters row should open on a click (stored 1) and close on a second one (stored 0): %r' % (nm, fc))
-    sl = fr.get('slot')
-    if not sl:
-        fails.append('%s: the trade list toolbar has no board slot row' % nm)
-    else:
-        if sl.get('kind') != SLOT_KIND:
-            fails.append('%s: REAL\'s slot row holds the chips %r, expected %s' % (nm, sl.get('kind'), SLOT_KIND))
-        if sl.get('btns'):
-            fails.append('%s: REAL\'s slot row lost %s' % (nm, ', '.join(sl['btns'])))
-        if sl.get('seg') != 2:
-            fails.append('%s: REAL\'s slot row has %s view-switch buttons (BY TRADE | BY DAY or SIMPLE | FULL), expected 2' % (nm, sl.get('seg')))
 
 
 def _judge_step11(nm, cfg, r, fails, n_missed):
@@ -3537,9 +3605,9 @@ def _judge(data, data_obj):
             tl = fs.get('tools') or {}
             if I['vp'] == 'phone':
                 if tl.get('toggle') == 'none' or tl.get('box') != 'none' or tl.get('boxOpen') != 'flex' or tl.get('boxShut') != 'none':
-                    fails.append('%s: the ... button on a phone should open and close the four action buttons (%r)' % (tag, tl))
+                    fails.append('%s: the TOOLS button on a phone should open and close ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL (%r)' % (tag, tl))
             elif tl.get('toggle') != 'none' or tl.get('box') == 'none':
-                fails.append('%s: on a laptop the four action buttons are always shown and the ... button is not (%r)' % (tag, tl))
+                fails.append('%s: on a laptop ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL are always shown and the TOOLS button is not (%r)' % (tag, tl))
         sm = st.get('sortmenu') or {}
         _errs(tag + ' header sort menu', sm, fails)
         if sm.get('threw'):
@@ -3726,7 +3794,7 @@ def _judge(data, data_obj):
             fails.append('%s toolbar buttons: %s' % (tag, _first(tb['threw'])))
         else:
             if I['vp'] == 'phone' and tb.get('toggle') != 'none' and tb.get('toolsBox') in (None, 'none'):
-                fails.append('%s: the ... button on a phone did not show the toolbar buttons (box display=%r)' % (tag, tb.get('toolsBox')))
+                fails.append('%s: the TOOLS button on a phone did not show the tools (box display=%r)' % (tag, tb.get('toolsBox')))
             asked = tb.get('asked') or []
             if not tb.get('addBtn'):
                 fails.append('%s: there is no ADD DEPOSIT button' % tag)

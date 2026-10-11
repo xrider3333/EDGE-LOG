@@ -914,6 +914,7 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-seg{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
 .lg-seg button{background:transparent;border:none;padding:7px 13px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
 .lg-seg button.active{background:var(--bg1);color:var(--text)}
+.lg-tl-views{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
 .lg-tl-find{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;min-width:0}
 .lg-tl-search{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;padding:6px 2px;min-width:200px;flex:1;max-width:320px;font-family:'JetBrains Mono',monospace}
 .lg-tl-search::placeholder{color:var(--text5)}
@@ -1024,17 +1025,22 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-panel .hm-tags{margin:0 0 12px}
 .lg-panel .hm-notes{margin-bottom:0}
 .lg-panel .hm-excl{margin:0}
-/* REAL's slots in the frame (LEDGER unify step 8): BY TRADE | BY DAY or SIMPLE | FULL and the action buttons (the PASTE row sits right under the toolbar) */
-.hm-slot{display:flex;align-items:center;gap:8px 10px;flex-wrap:wrap;min-width:0}
-.hm-slot .hm-tools-toggle{display:none}
-/* LEDGER step 12: REAL's slot is ONE compact row under the shared toolbar - the view switch, FUTURES | STOCKS and the four actions (behind ... on a
-   phone; behind ... everywhere when LEDGER_TOOLBAR_MORE is 'always') */
-.hm-slot .hm-kind{display:flex;gap:6px;flex:none}
-.hm-slot .hm-seg button{padding:5px 11px}
-.hm-slot .hm-toolbar-actions .hm-ghostbtn{padding:5px 10px}
-.hm-slot.hm-more-always .hm-tools-toggle{display:inline-block}
-.hm-slot.hm-more-always .hm-toolbar-actions{display:none;flex-basis:100%}
-.hm-slot.hm-more-always .hm-toolbar-actions.open{display:flex}
+/* REAL's trade list controls (owner 2026-10-11): ONE control area in three rows. Row 1 = the count and the view group (LIST | TABLE beside
+   SIMPLE | FULL or BY TRADE | BY DAY), row 2 = every filter (search, the five chips, FUTURES STOCKS), row 3 (#hm-pastebar, a grid) = + NEW TRADE,
+   the CHART LINK box and the tools at the right; the paste message row right under the box. From 601 to 1100 px the tools drop to a line of
+   their own at the right; on a phone the box comes first and NEW TRADE sits beside TOOLS, a small menu holding the three tools. */
+.hm-kind{display:flex;gap:6px;flex-wrap:wrap;flex:none}
+.hm-addrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"new paste tools" ". msg msg";align-items:center;gap:8px 12px}
+.hm-addrow #hm-newtrade-toggle{grid-area:new;justify-self:start}
+.hm-addrow .hm-paste-row{grid-area:paste}
+.hm-addrow .hm-tools-wrap{grid-area:tools;justify-self:end;position:relative;display:flex;align-items:center;gap:6px;min-width:0}
+.hm-addrow .hm-paste-msgrow{grid-area:msg;margin-top:0;min-width:0}
+.hm-ghostbtn.hm-primary{color:var(--text);border-color:var(--text4)}
+.hm-addrow .hm-toolbar-actions .hm-ghostbtn{padding:5px 10px;white-space:nowrap;text-align:left}
+.hm-addrow .hm-tools-toggle{display:none;padding:5px 10px}
+.hm-addrow.hm-more-always .hm-tools-toggle{display:inline-block}
+.hm-addrow.hm-more-always .hm-toolbar-actions{display:none}
+.hm-addrow.hm-more-always .hm-toolbar-actions.open{display:flex;position:absolute;right:0;top:calc(100% + 6px);z-index:60;flex-direction:column;align-items:stretch;gap:6px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .hm-wrap.lg-frame{max-width:1320px}
 .hm-sec-chart .lg-chart-foot{margin-bottom:18px}
 /* LEDGER unify step 11: REAL's page is built in ONE fixed order at every width (the markup is in that order - no order: rules): hero, range pills
@@ -1058,6 +1064,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-paste-row .hm-paste{min-width:0;flex:0 1 420px;max-width:420px;font-size:11px}
 .hm-paste-row .hm-paste-next{flex:0 1 auto;min-width:0;font-size:10px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .hm-paste-msgrow{margin-top:8px}
+@media (max-width:1100px){
+  .hm-addrow{grid-template-columns:auto minmax(0,1fr);grid-template-areas:"new paste" ". msg" "tools tools"}
+}
 .hm-fold-body .hm-ledger-strip{background:none;padding:0;margin:0}
 .hm-mis-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 8px}
 .hm-sec-acct .hm-acct-fold{display:none}
@@ -1096,9 +1105,12 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-tl-table .lg-d-short{display:inline}
   .lg-tl-table .lg-c-chart .inline-txt{display:none}
   .lg-tl-wrap{max-height:none}
-  .hm-slot .hm-tools-toggle{display:inline-block}
-  .hm-slot .hm-toolbar-actions{display:none;flex-basis:100%}
-  .hm-slot .hm-toolbar-actions.open{display:flex}
+  [data-lglist-frame="hm"] .lg-tl-views{gap:6px}
+  [data-lglist-frame="hm"] .lg-tl-views button{padding:7px 8px}
+  .hm-addrow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"paste paste" "msg msg" "new tools";gap:6px 10px}
+  .hm-addrow .hm-tools-toggle{display:inline-block}
+  .hm-addrow .hm-toolbar-actions{display:none}
+  .hm-addrow .hm-toolbar-actions.open{display:flex;position:absolute;right:0;top:calc(100% + 6px);z-index:60;flex-direction:column;align-items:stretch;gap:6px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
   .hm-paste-row .hm-paste{flex:1 1 0;max-width:none}
   .hm-paste-row .hm-paste-next{display:none}
 }
@@ -1286,7 +1298,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1209';
+const VERSION='73.1210';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1304,7 +1316,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
+const CHANGELOG=[{v:'73.1210',date:'2026-10-11',notes:['LEDGER > REAL: the trade list controls are in one place, in three rows. Top: the trade count, and on the right the view - LIST | TABLE with SIMPLE | FULL right beside it on the TABLE (BY TRADE | BY DAY on the LIST). Next: every filter on one line - search, ALL LONG SHORT WINS LOSSES, then FUTURES STOCKS. Then: + NEW TRADE and the CHART LINK box together, with ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL grouped at the right (behind one small TOOLS menu on a phone, where the link box comes first). Nothing was removed and every button does what it did.']},
+{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
 {v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL, SIMPLE table: SETUP, TF and the chart link now sit side by side in one spot on every trade row, so a trade is tagged without switching to FULL. Paste a TradingView snapshot link into the row box and it saves at once (no Enter), with a short saved tick; on a phone the three sit on a second line of the row.','LEDGER > REAL, FULL table: the rows show NET (after fees), the same number SIMPLE and the hero use; GROSS is gone from the row and sits in the hover title of the net figure, FEES stays.']},
 {v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL: the snapshot-link paste box is back on show at the top of the trade list, right under its buttons, on a laptop and a phone (no fold to open). Paste a TradingView snapshot link and it files at once; what it did (UNDO, MOVE) or the FILE ON / HOLD question shows right under the box.']},
 {v:'73.1186',date:'2026-10-09',notes:['ROLL CHECK (owner ask 10-08: the roll defect must not recur; MANAGER #31). Since ORB’s roll guard, every run the PC runner saves carries a roll stamp: the price series it ran on, where its roll dates come from, the contract switches in its window, the trades held across one and their money, any pure roll step booked, and the money made on switch sessions. A run whose stamp says its prices may not follow the true contract roll table - a stale adjusted price file, a wrong label, a market with no roll table, a level-reading file on an adjusted price file, the guard’s refusals waived, or a roll step counted as profit or loss - now carries a ROLL CHECK tag wherever VOID and ROLL tags show. A report, not a void: it changes no ranking.','Run report: a ROLLS chip in the ROBUSTNESS rail for every run with a stamp (true roll table, no contract rolls, true roll table · raw signals, or check) opens the whole stamp in plain words, including the raw-versus-adjusted check (the same file re-run on raw prices, trade by trade). Runs saved before the guard carry no stamp and show no chip; the 22 old roll-detector runs keep their ROLL tag.','Probes: a new RUNBOARD case and a new run-report case, each failing on the build before this one.']},
@@ -3738,7 +3751,7 @@ const LEDGER_FRAME_SIDE=true;          // the list is a right-hand panel from 11
 const LEDGER_FRAME_SIDE_W=340;         // the panel width in px (NT8 lets its reader drag it wider or narrower; the stored width wins there)
 const LEDGER_STATUS_UNDER_HERO=true;   // the status line sits directly under the hero numbers (false: under the chart, before the stats)
 const LEDGER_FILTERS_OPEN=false;       // the panel's Filters row starts closed (a viewer's own open / closed choice is remembered)
-const LEDGER_TOOLBAR_MORE='phone';     // a board's own trade-list buttons: 'phone' = one compact row, behind ... on a phone; 'always' = behind ... everywhere
+const LEDGER_TOOLBAR_MORE='phone';     // a board's own trade-list tools: 'phone' = at the right of the ADD row, behind TOOLS on a phone; 'always' = behind TOOLS everywhere
 // the sections beside the list panel, top to bottom (the pills between the hero and the chart since step 11)
 const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','pills','chart','stats','more','cal']:['hero','pills','chart','status','stats','more','cal'];
 // o = {id, top (html, the sections in LEDGER_TOP_ORDER), side (html, the list section), rest (html, the trade list then the board's own
@@ -3849,6 +3862,8 @@ function ledgerTradeViewSet(id,v){try{localStorage.setItem('el_lg_view_'+id,v===
 // o = {id, view 'list'|'table', rows [trade] (already filtered), total (the count after the slash), query, chip,
 //   chips [{k,label}] (a board's own chips after the five), placeholder, countExtra (html next to the count), slot (html,
 //   the board's toolbar row), afterBar (html under the toolbar), empty (html when no rows), pnl(t) / net(t) (default t.pnl),
+//   viewX (html in the view group of the top row, right beside LIST | TABLE: a board's own view switch),
+//   findX (html at the end of the filter row, after the five chips: a board's own filter group),
 //   rowId(t) (default t.id), rowAttr(t) (extra attributes on a row), hide ['strat'], labels {key: header},
 //   cells {time|sym|side|size|pnl|pts|strat|chart: (t, 'list'|'table') => html}, attr {key: t => attributes of that table cell},
 //   colCls {key: classes on that table column}, th(key, label, cls) => a header cell html (a sort / filter menu) or null,
@@ -3952,9 +3967,9 @@ function ledgerTradeListHtml(o){
   const total=o.total!=null?o.total:rows.length;
   const bar='<div class="lg-tl-bar">'
     +'<div class="lg-tl-top"><span class="lg-tl-count"><span data-lgcount>'+rows.length+' / '+total+' trades</span>'+(o.countExtra||'')+'</span>'
-    +'<span class="lg-seg" role="group" aria-label="list or table">'+['list','table'].map(v=>'<button type="button" data-lgview="'+v+'" class="'+(view===v?'active':'')+'" aria-pressed="'+(view===v)+'">'+v.toUpperCase()+'</button>').join('')+'</span></div>'
+    +'<span class="lg-tl-views" data-lgviews="'+esc(id)+'"><span class="lg-seg" role="group" aria-label="list or table">'+['list','table'].map(v=>'<button type="button" data-lgview="'+v+'" class="'+(view===v?'active':'')+'" aria-pressed="'+(view===v)+'">'+v.toUpperCase()+'</button>').join('')+'</span>'+(o.viewX||'')+'</span></div>'
     +'<div class="lg-tl-find"><input type="text" id="'+esc(id)+'-search" data-lgsearch class="lg-tl-search" autocomplete="off" spellcheck="false" placeholder="'+esc(o.placeholder||'Search symbol, setup, note...')+'" aria-label="Search trades" value="'+esc(o.query)+'">'
-    +'<div class="lg-tl-chips" role="group" aria-label="filter trades">'+chips.map(c=>'<button type="button" class="lg-fchip'+(o.chip===c.k?' active':'')+'" data-lgchip="'+esc(c.k)+'" aria-pressed="'+(o.chip===c.k)+'">'+esc(c.label)+'</button>').join('')+'</div></div>'
+    +'<div class="lg-tl-chips" role="group" aria-label="filter trades">'+chips.map(c=>'<button type="button" class="lg-fchip'+(o.chip===c.k?' active':'')+'" data-lgchip="'+esc(c.k)+'" aria-pressed="'+(o.chip===c.k)+'">'+esc(c.label)+'</button>').join('')+'</div>'+(o.findX||'')+'</div>'
     +(o.slot?'<div class="lg-tl-slot">'+o.slot+'</div>':'')+'</div>';
   return '<div class="lg-tl" data-lglist-frame="'+esc(id)+'" data-lgmode="'+view+'">'+bar+(o.afterBar||'')+(view==='table'?(o.tableBar||''):'')+body
     +(o.foot?'<div class="lg-tl-foot" data-lgtlfoot="'+esc(id)+'">'+o.foot+'</div>':'')+'</div>';
@@ -14778,19 +14793,28 @@ function _hmCountExtraHtml(){
   return (anyFilt?`<span onclick="clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline">&#10005; clear filters</span>`:'')
     +(out>0?`<span data-hmempty="all" title="Switch the range pill to ALL" style="cursor:pointer;color:var(--blue);text-decoration:underline">${out} MORE OUTSIDE ${homeRange} &middot; SHOW ALL</span>`:'');
 }
-// REAL's toolbar row in the frame: BY TRADE | BY DAY (list) or SIMPLE | FULL (table) and the four action buttons
-// (behind the ... button on a phone). The PASTE row and its notes sit right under the toolbar, always on show (owner 2026-10-10)
-function _hmToolsHtml(){
-  const tbl=homeView==='table',open=!!window._hmToolsOpen;
-  // FUTURES / STOCKS: REAL's own chips, in its slot row since LEDGER step 12 (the frame wires every [data-lgchip] inside it)
+// REAL's trade list controls (owner 2026-10-11: "list/table, simple/full all in different spots... make it make sense"): ONE control area
+// in three rows. Row 1 (the shared frame's top row): the count, and on the right ONE view group - LIST | TABLE and, right beside it,
+// SIMPLE | FULL on the TABLE (it only applies to the table) or BY TRADE | BY DAY on the LIST (_hmViewSegHtml, the frame's viewX).
+// Row 2 (the frame's filter row): search, ALL LONG SHORT WINS LOSSES, then FUTURES STOCKS (_hmKindChipsHtml, the frame's findX).
+// Row 3 (_hmPasteRowHtml, right under the toolbar): + NEW TRADE, the CHART LINK box with its hint, and the tools at the right
+// (_hmToolsHtml: ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL - behind TOOLS on a phone). The paste message row sits right under the box.
+function _hmViewSegHtml(){
+  return homeView==='table'
+    ?`<div class="hm-seg" id="hm-ledger-seg" role="group" aria-label="simple or full table" title="SIMPLE fits the row on screen - FULL shows every column and scrolls sideways"><button data-hmledger="simple" class="${homeLedger!=='full'?'active':''}">SIMPLE</button><button data-hmledger="full" class="${homeLedger==='full'?'active':''}">FULL</button></div>`
+    :`<div class="hm-seg" id="hm-feed-seg" role="group" aria-label="by trade or by day"><button data-hmfeed="trade" class="${homeFeedMode==='trade'?'active':''}">BY TRADE</button><button data-hmfeed="day" class="${homeFeedMode==='day'?'active':''}">BY DAY</button></div>`;
+}
+// FUTURES / STOCKS: REAL's own chips, at the end of the filter row (the frame wires every [data-lgchip] inside it)
+function _hmKindChipsHtml(){
   const kind=['FUTURES','STOCKS'].map(k=>'<button type="button" class="lg-fchip'+(homeChip===k?' active':'')+'" data-lgchip="'+k+'" aria-pressed="'+(homeChip===k)+'">'+k+'</button>').join('');
-  const seg=tbl
-    ?`<div class="hm-seg" id="hm-ledger-seg" title="SIMPLE fits the row on screen - FULL shows every column and scrolls sideways"><button data-hmledger="simple" class="${homeLedger!=='full'?'active':''}">SIMPLE</button><button data-hmledger="full" class="${homeLedger==='full'?'active':''}">FULL</button></div>`
-    :`<div class="hm-seg" id="hm-feed-seg"><button data-hmfeed="trade" class="${homeFeedMode==='trade'?'active':''}">BY TRADE</button><button data-hmfeed="day" class="${homeFeedMode==='day'?'active':''}">BY DAY</button></div>`;
-  return `<div class="hm-slot${LEDGER_TOOLBAR_MORE==='always'?' hm-more-always':''}">${seg}<span class="hm-kind" role="group" aria-label="futures or stocks">${kind}</span>
-      <button type="button" class="hm-ghostbtn hm-tools-toggle" id="hm-tools-toggle" aria-expanded="${open}" title="NEW TRADE, ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL">&middot;&middot;&middot;</button>
-      <span class="hm-toolbar-actions${open?' open':''}" id="hm-tools">
-        <button class="hm-ghostbtn" id="hm-newtrade-toggle">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>
+  return '<span class="hm-kind" role="group" aria-label="futures or stocks">'+kind+'</span>';
+}
+// the rarely used tools, together at the right of row 3 (behind TOOLS on a phone; behind it everywhere when LEDGER_TOOLBAR_MORE is 'always')
+function _hmToolsHtml(){
+  const open=!!window._hmToolsOpen;
+  return `<div class="hm-tools-wrap">
+      <button type="button" class="hm-ghostbtn hm-tools-toggle" id="hm-tools-toggle" aria-expanded="${open}" aria-controls="hm-tools" title="ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL">TOOLS &#9662;</button>
+      <span class="hm-toolbar-actions${open?' open':''}" id="hm-tools" role="group" aria-label="tools">
         <button class="hm-ghostbtn" id="hm-add-deposit">＋ ADD DEPOSIT</button>
         <button class="hm-ghostbtn" id="hm-scan-dupes">&#128269; SCAN DUPLICATES</button>
         <button class="hm-ghostbtn" id="hm-open-all" title="Open chart links for the trades currently shown on LEDGER">&#128200; OPEN ALL</button>
@@ -14804,7 +14828,7 @@ function _hmFrameHtml(list){
   const evs=(!tbl&&homeFeedMode!=='day'&&!filt)?_hmTradesInRange(scopedLedger()||[],homeRange).map(ev=>({date:ev.date,html:_hmDepositRow(ev)})):[];
   return ledgerTradeListHtml({
     id:'hm',view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:trades.length,query:homeQuery,chip:homeChip,
-    countExtra:_hmCountExtraHtml(),slot:_hmToolsHtml(),
+    countExtra:_hmCountExtraHtml(),viewX:_hmViewSegHtml(),findX:_hmKindChipsHtml(),
     afterBar:_hmPasteRowHtml()+'<div id="hm-newtrade-form">'+(homeNewTradeOpen?_hmNewTradeFormHtml():'')+'</div>',
     empty:_hmEmptyStateHtml(),group:homeFeedMode==='day'?'day':'trade',events:evs,
     cells:_hmFrameCells(full),rowAttr:t=>'data-hmid="'+_hmEsc(t.id)+'"',
@@ -14848,7 +14872,8 @@ function _hmFoldHtml(k,title,sum,body,attr){
     +'</div>';
 }
 // PASTE ROW (owner 2026-10-10: "what happened to the input for the chart links?"): the TradingView snapshot-link box is always on show at the
-// top of the trade list, right under its toolbar, on a laptop and a phone - no fold. A paste files at once, Enter files typed text
+// top of the trade list, right under its toolbar, on a laptop and a phone - no fold. Since 2026-10-11 it is row 3 of the control area:
+// + NEW TRADE, the box, the tools at the right (a grid: on a phone the box comes first, NEW TRADE and TOOLS under it). A paste files at once, Enter files typed text
 // (_hmWireToolbar). Its message row - the last paste's note (UNDO, MOVE ...), the FILE ON / HOLD question, a held link - shows right under it
 // when there is something to say; with nothing to say a laptop shows where the next link goes, in one muted line beside the box.
 function _hmPasteNextHtml(){
@@ -14861,10 +14886,12 @@ function _hmPasteRowHtml(){
   const msg=window._hmPasteNote?`<div id="hm-paste-msg" style="${msgStyle}">${window._hmPasteNote}</div>`
     :(_hmHoldGet()?`<div id="hm-paste-msg" style="${msgStyle}"><span>A snapshot link is held for your next stock trade to reach the journal.</span><span id="hm-hold-drop" style="cursor:pointer;color:var(--text5);text-decoration:underline">drop it</span></div>`:'');
   const nxt=msg?'':_hmPasteNextHtml();
-  return `<div class="hm-pastebar" id="hm-pastebar"><div class="hm-paste-row">
+  return `<div class="hm-addrow hm-pastebar${LEDGER_TOOLBAR_MORE==='always'?' hm-more-always':''}" id="hm-pastebar">
+    <button class="hm-ghostbtn hm-primary" id="hm-newtrade-toggle" aria-expanded="${!!homeNewTradeOpen}" aria-controls="hm-newtrade-form">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>
+    <div class="hm-paste-row">
       <label class="hm-paste-lbl" for="hm-paste-chart">CHART LINK</label>
       <input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste" autocomplete="off" spellcheck="false" placeholder="paste a TradingView snapshot link" title="Paste a TradingView snapshot link here - it goes on your newest trade that has no chart link yet">${nxt?'<span class="hm-paste-next" id="hm-paste-next">'+nxt+'</span>':''}
-    </div>${msg?'<div class="hm-paste-msgrow">'+msg+'</div>':''}</div>`;
+    </div>${_hmToolsHtml()}${msg?'<div class="hm-paste-msgrow">'+msg+'</div>':''}</div>`;
 }
 // SHOULD HAVE TRADED: how many setups are filed and the newest one
 function _hmMissedSummary(){
