@@ -1318,7 +1318,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1210',date:'2026-10-11',notes:['LEDGER > REAL: the trade list controls are in one place, in three rows. Top: the trade count, and on the right the view - LIST | TABLE with SIMPLE | FULL right beside it on the TABLE (BY TRADE | BY DAY on the LIST). Next: every filter on one line - search, ALL LONG SHORT WINS LOSSES, then FUTURES STOCKS. Then: + NEW TRADE and the CHART LINK box together, with ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL grouped at the right (behind one small TOOLS menu on a phone, where the link box comes first). Nothing was removed and every button does what it did.']},
+const CHANGELOG=[{v:'73.1214',date:'2026-10-11',notes:['TRADE CANDLES WINDOW, TRADINGVIEW LAYOUT (owner: all this text and space and I can barely see the chart, no volume either, make it like TradingView). The window now fills the screen (edge to edge on a phone) and the chart takes everything left: one header line (the trade, its net and the bar source, close on the right) and one row of controls (previous / next with the row count, 10S 1M 5M 15M, TOP 10, TRADE and FULL zoom, RTH / ETH, AUTO, + BARS, POINTS, PNG and a ? for the gestures). The hint line under the chart is gone.','VOLUME: a volume histogram along the bottom fifth of the chart on its own scale, each bar in its candle colour (theme colours, so MONO stays white and grey). Every bar source EL draws carries volume - your trade bars (1m and the 10-second capture), the Webull box bars and the bars your PC sends; a source with no volume draws none and the legend says so.','CROSSHAIR AND LEGEND: an OHLCV legend top-left follows the crosshair (the last bar on screen when the mouse is off the chart); the crosshair snaps to the bar with its price on the right axis and its time on the bottom axis; the last price is tagged on the axis; the entry and exit are dashed lines across the chart with their prices on the axis, next to the markers on their candles. The 200 average line stays.','POINTS is one chip in the control row (POINTS 6/9) that opens the same checklist over the chart and folds it again; it starts folded and remembers your choice. iPad: one finger pans, two fingers pinch to zoom, a tap shows that bar in the legend, a double tap resets. Wheel, drag, double-click and the price-scale drag work as before.']},{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
+{v:'73.1210',date:'2026-10-11',notes:['LEDGER > REAL: the trade list controls are in one place, in three rows. Top: the trade count, and on the right the view - LIST | TABLE with SIMPLE | FULL right beside it on the TABLE (BY TRADE | BY DAY on the LIST). Next: every filter on one line - search, ALL LONG SHORT WINS LOSSES, then FUTURES STOCKS. Then: + NEW TRADE and the CHART LINK box together, with ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL grouped at the right (behind one small TOOLS menu on a phone, where the link box comes first). Nothing was removed and every button does what it did.']},
 {v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
 {v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL, SIMPLE table: SETUP, TF and the chart link now sit side by side in one spot on every trade row, so a trade is tagged without switching to FULL. Paste a TradingView snapshot link into the row box and it saves at once (no Enter), with a short saved tick; on a phone the three sit on a second line of the row.','LEDGER > REAL, FULL table: the rows show NET (after fees), the same number SIMPLE and the hero use; GROSS is gone from the row and sits in the hover title of the net figure, FEES stays.']},
 {v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL: the snapshot-link paste box is back on show at the top of the trade list, right under its buttons, on a laptop and a phone (no fold to open). Paste a TradingView snapshot link and it files at once; what it did (UNDO, MOVE) or the FILE ON / HOLD question shows right under the box.']},
@@ -8889,8 +8890,43 @@ window.expandScatter=function(P){
   window.addEventListener('resize',draw);
   return {close:close,draw:draw};
 };
+// ── TRADE CANDLES WINDOW, TradingView layout (owner 2026-10-11: "All this text and space and I can barely see the chart.
+//    No volume either. Need it to be like trading view"). The chart is the hero: the window fills the screen (edge to
+//    edge on a phone), the header is ONE line (the trade, its net and bar source, close on the right), the controls are
+//    ONE row (two at most on a phone) and #chart-body takes every pixel left. No pan / zoom / crosshair of its own: the
+//    candle viewer wires those on #chart-body (_wireCandleSvg). Same ids and the same API as expandChart.
+window._expandChartTv=function(title,svgHTML,opts){
+  opts=opts||{};
+  const phone=(window.innerWidth||1024)<700;
+  const modal=document.createElement('div');
+  modal.className='cndl-modal';
+  modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:stretch;justify-content:center;padding:'+(phone?'0':'10px')+';box-sizing:border-box;overflow:hidden';
+  modal.onclick=e=>{if(e.target===modal)modal.remove();};
+  const hb='background:transparent;border:1px solid var(--border);color:var(--text3);height:24px;min-width:30px;padding:0 8px;cursor:pointer;font-family:inherit;font-size:12px;line-height:1;border-radius:6px;flex:0 0 auto';
+  modal.innerHTML='<div class="cndl-box" style="position:relative;width:100%;max-width:1800px;height:100%;min-width:0;background:var(--bg1);border:'+(phone?'0':'1px solid var(--border)')+';border-radius:'+(phone?'0':'8px')+';display:flex;flex-direction:column;padding:'+(phone?'4px 6px 4px':'5px 10px 8px')+';box-sizing:border-box;cursor:default;overflow:hidden">'
+    +'<div class="cndl-head" style="display:flex;align-items:center;gap:8px;min-width:0;flex:0 0 auto;min-height:26px">'
+    +'<div id="chart-title" style="font-size:12px;font-weight:700;letter-spacing:.5px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:0 1 auto;min-width:0;max-width:60%">'+title+'</div>'
+    +'<div id="chart-sub" style="font-size:10.5px;color:var(--text4);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0">'+(opts.sub||'')+'</div>'
+    +'<button id="chart-close" type="button" title="close (Esc)" style="'+hb+'">&#10005;</button></div>'
+    +'<div id="chart-ctl" style="display:flex;align-items:center;gap:2px 3px;flex-wrap:wrap;flex:0 0 auto;min-width:0;padding:2px 0 4px;border-bottom:1px solid var(--border2)"></div>'
+    +'<div id="chart-body" style="position:relative;flex:1 1 0;min-height:0;min-width:0;overflow:hidden">'+svgHTML+'</div></div>';
+  document.body.appendChild(modal);
+  const body=modal.querySelector('#chart-body'),ctl=modal.querySelector('#chart-ctl'),subEl=modal.querySelector('#chart-sub');
+  // the svg fills its box exactly; the viewer draws it at the box's own size, so nothing is letterboxed
+  const fit=sv=>{if(!sv)return;sv.style.position='absolute';sv.style.left='0';sv.style.top='0';sv.style.width='100%';sv.style.height='100%';sv.style.display='block';sv.style.zIndex='1';};
+  fit(body.querySelector('svg'));
+  const esc=e=>{if(e.key==='Escape')modal.remove();};
+  document.addEventListener('keydown',esc);
+  const _rm=modal.remove.bind(modal);modal.remove=()=>{document.removeEventListener('keydown',esc);_rm();};
+  modal.querySelector('#chart-close').onclick=e=>{e.stopPropagation();modal.remove();};
+  return {modal,ctl,
+    setSub:h=>{if(subEl){subEl.innerHTML=h||'';subEl.title=(subEl.textContent||'').trim();}},
+    setSvg:html=>{const old=body.querySelector('svg');const tmp=document.createElement('div');tmp.innerHTML=html;const ns=tmp.querySelector('svg');
+      if(!ns)return;fit(ns);if(old)old.replaceWith(ns);else body.insertBefore(ns,body.firstChild);}};
+};
 window.expandChart=function(title,svgHTML,opts){
   opts=opts||{};
+  if(opts.tv&&window._expandChartTv)return window._expandChartTv(title,svgHTML,opts);
   const modal=document.createElement('div');
   modal.style.cssText='position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:center;justify-content:center;padding:30px;cursor:pointer';
   modal.onclick=(e)=>{if(e.target===modal)modal.remove();};
@@ -9179,7 +9215,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   const _cB=(x)=>Object.assign({},((_cndl.ctx||{}).B||{}),((x&&x._pb)||{}));
   const _cAll=()=>(((_cndl.ctx||{}).all||(()=>[]))());
   // v73.18: PAPER trades have no run trade-number - they title themselves.
-  const _cTitleOf=x=>((x&&x._label)?String(x._label):('TRADE #'+(x&&x._no)))+' · CANDLES';
+  const _cTitleOf=x=>((x&&x._label)?String(x._label):('TRADE #'+(x&&x._no)));
 
   const _cOrder=()=>(_cndl.grp?_cndl.grp.list:(((_cndl.ctx||{}).order||_cAll)()));
   const fmt$=v=>(v<0?'-$':'$')+Math.abs(Math.round(v)).toLocaleString();
@@ -9197,15 +9233,29 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
   const _cndlAlive=()=>_cndl.api&&_cndl.api.modal&&document.body.contains(_cndl.api.modal);
   // the POINTS breakdown inside the chart window (MANAGER 2026-10-01), for HOME trades and
-  // SHOULD HAVE TRADED entries that carry a point score; open / closed is remembered
-  const _cndlPts=x=>{if(!_cndlAlive())return;const box=_cndl.api.modal.querySelector('#cndl-pts');if(!box)return;
-    const h=(x&&x._psT&&window._hmPtsViewerHtml)?window._hmPtsViewerHtml(x._psT):'';
-    box.style.display=h?'block':'none';box.innerHTML=h;box.open=window._cndlPtsOpen!==false;
-    box.ontoggle=()=>{window._cndlPtsOpen=box.open;};};
+  // SHOULD HAVE TRADED entries that carry a point score. 2026-10-11 (owner: "I can barely see the chart"): it is ONE
+  // chip in the control row (POINTS 6/9) and the same checklist - every point, the signal candle, SMA | EMA, the
+  // context line - opens in a drawer OVER the chart. Folded by default; open / closed is remembered in this browser.
+  const _PTS_OPEN_KEY='el_cndl_pts_open';
+  const _ptsOpenGet=()=>{try{return localStorage.getItem(_PTS_OPEN_KEY)==='1';}catch(_e){return false;}};
+  const _ptsOpenSet=v=>{try{localStorage.setItem(_PTS_OPEN_KEY,v?'1':'0');}catch(_e){}};
+  const _cndlPts=x=>{if(!_cndlAlive())return;const md=_cndl.api.modal,box=md.querySelector('#cndl-pts'),chip=md.querySelector('#cndl-ptschip');if(!box)return;
+    const t=x&&x._psT,h=(t&&window._hmPtsViewerHtml)?window._hmPtsViewerHtml(t):'';
+    let p=null,col='var(--text2)';
+    try{p=(t&&typeof _hmPts==='function')?_hmPts(t):null;if(p&&typeof _hmPtsColor==='function')col=_hmPtsColor(p);}catch(_p){}
+    const open=!!h&&_ptsOpenGet();
+    if(chip){chip.style.display=h?'':'none';
+      chip.innerHTML='POINTS <b style="color:'+col+'">'+(p?(p.total+'/'+p.max):'')+'</b> <span style="color:var(--text5)">'+(open?'&#9662;':'&#9656;')+'</span>';
+      chip.setAttribute('aria-expanded',open?'true':'false');
+      chip.style.background=open?'var(--bg2)':'transparent';}
+    box.innerHTML=h?h.replace('<summary','<div').replace('</summary>','</div>'):'';
+    if(open){const bd=md.querySelector('#chart-body'),ph=(window.innerWidth||1024)<700,rg=ph?6:Math.round(((_cGeo().mR)||64)*_cK())+8;
+      box.style.top=((bd?bd.offsetTop:60)+6)+'px';box.style.right=rg+'px';box.style.width='min(640px,calc(100% - '+(rg+(ph?6:16))+'px))';}
+    box.style.display=open?'block':'none';};
   // SMA | EMA flipped: the line is read from the bars at every draw, so a redraw is all it takes
   window._cndlMaRefresh=()=>{if(!_cndlAlive()||!_cndl.r)return;_renderCandle();_cndlPts(_cndl.x);};
 
-  const _cndlTitle=t=>{if(!_cndlAlive())return;const el3=_cndl.api.modal.querySelector('div[style*="Bebas"]');if(el3)el3.textContent=t;};
+  const _cndlTitle=t=>{if(!_cndlAlive())return;const el3=_cndl.api.modal.querySelector('#chart-title')||_cndl.api.modal.querySelector('div[style*="Bebas"]');if(el3){el3.textContent=t;el3.title=t;}};
 
   // render the CURRENT view slice of the cached bars — pure client-side, instant.
 
@@ -9387,15 +9437,23 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     if(_mk&&window._qbMarkPoints){_pp=window._qbMarkPoints(_mk,all,lo3,hi3,r.tf||_curTf());
       markers.points=_pp.points;markers.lines=_pp.lines;markers.hideSideGlyph=true;markers.hidePosLabels=true;}
 
-    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,{yZoom:_cndl.yZoom||1,yRange:_cndl.yLock||null}));
+    // 2026-10-11: drawn at the size of its box (the svg fills #chart-body; text a touch larger than 1:1 on a wide
+    // screen), and when the bars carry volume the auto-fit price range leaves the bottom fifth free for the volume
+    // pane (TradingView's scale margins). candleSVG itself is unchanged: same bytes for the same arguments.
+    const _sz=_cSize(),_vol=_hasVol(bars);
+    const _cop={yZoom:_cndl.yZoom||1,yRange:_cndl.yLock||(_vol?_cVolRange(bars,ovs,markers):null)};
+    if(_sz){_cop.width=_sz[0];_cop.height=_sz[1];if(_sz[0]<900)_cop.xTicks=Math.max(3,Math.floor(_sz[0]/90));}
+    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,_cop));
     if(x._qbars&&window._qbMarkLegend){try{const _md=_cndl.api.modal;let _lg=_md.querySelector('#cndl-legend');
-      if(!_lg){_lg=document.createElement('div');_lg.id='cndl-legend';_lg.style.cssText='width:100%;flex:0 0 auto';
+      if(!_lg){_lg=document.createElement('div');_lg.id='cndl-legend';_lg.style.cssText='width:100%;flex:0 0 auto;max-height:76px;overflow:auto';
         const _st=_md.querySelector('#cndl-status')||_md.querySelector('#chart-body');if(_st)_st.insertAdjacentElement('afterend',_lg);}
       _lg.innerHTML=window._qbMarkLegend(_mk,r,_pp||{off:[]},x);}catch(_lge){}}
     // remember the price range on screen so a scale-drag can start from exactly there
     try{const _g4=window.CANDLE_GEO||{};if(isFinite(_g4.lo)&&isFinite(_g4.hi))_cndl.yView=[_g4.lo,_g4.hi];
       if(_g4.W)_cndl.geo=_g4;}catch(_e4){}
     _cndl.bars=bars;_cndl.ovs=ovs;
+    _cndl.dec=bars.every(b=>Number.isInteger(+b.o)&&Number.isInteger(+b.h)&&Number.isInteger(+b.l)&&Number.isInteger(+b.c))?0:2;
+    try{_cLayers();_drawVol();_drawLines();_legend(null);}catch(_ly){}
 
     const meta=r.meta||{},zoomed=(lo3>0||hi3<all.length-1);
 
@@ -9414,7 +9472,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     _wireCandleSvg();
     try{const _zl=_cndl.api.modal.querySelector('#cndl-zoom');
-      if(_zl)_zl.textContent=zoomed?(bars.length+' / '+all.length+' bars · double-click for all')
+      if(_zl)_zl.textContent=zoomed?(bars.length+' / '+all.length+' bars')
                                    :(all.length+' bars');}catch(_zz){}
 
     _syncCndlCtl();
@@ -9450,6 +9508,115 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     return ((ev.clientX-rc.left)/rc.width*G.W)>=(G.mL+(G.plotW||(G.W-G.mL-64)))-2;};
   const _clampView=(nlo,nhi,ns,n3)=>{if(nlo<0){nlo=0;nhi=ns-1;}if(nhi>n3-1){nhi=n3-1;nlo=nhi-ns+1;}return [Math.max(0,nlo),Math.min(n3-1,nhi)];};
 
+  // ── TradingView layers over the candles (2026-10-11). The candle svg is drawn by window.candleSVG exactly as before;
+  //    everything new sits in plain layers under / over it, in the svg's own coordinates (the svg fills #chart-body,
+  //    so one viewBox unit is k screen px):
+  //    #cndl-vol    canvas UNDER the svg: the volume histogram in the bottom fifth of the price plot, its own scale,
+  //                 each bar in its candle's colour (the theme's --green / --red, so MONO stays white and grey).
+  //                 A bar source with no volume draws none and the legend says so - volume is never made up.
+  //    #cndl-lines  the entry / exit dashed lines across the plot with their prices tagged on the axis, the last price
+  //    #cndl-xh-*   the crosshair, snapped to the bar centre, its price on the right axis and its time on the bottom one
+  //    #cndl-ro     the OHLCV legend top-left: the bar under the crosshair, else the last bar on screen
+  const _CM={t:10,b:26};    // candleSVG's default top / bottom margins (CANDLE_GEO carries the width, left and right)
+  const _VOL_SHARE=0.2;     // the volume pane: the bottom 20% of the price plot
+  const _cK=()=>{const h=_cHost(),G=_cGeo();return (h&&G.W)?(h.clientWidth/G.W):1;};
+  const _cPlotH=()=>{const G=_cGeo();return Math.max(10,(G.H||360)-_CM.t-_CM.b);};
+  const _hasVol=bars=>(bars||[]).some(b=>+b.v>0);
+  const _cSize=()=>{const h=_cHost();if(!h)return null;const w=h.clientWidth,hh=h.clientHeight;if(w<160||hh<100)return null;
+    const sc=(w<700)?1:1.12;return [Math.round(w/sc),Math.round(hh/sc)];};
+  // candleSVG's own auto-fit (bars, overlays, marker prices, 6% pad, yZoom), stretched down so the candles keep the top
+  // ~77% and the volume pane gets the bottom fifth to itself
+  const _cVolRange=(bars,ovs,mk)=>{let lo=Infinity,hi=-Infinity;
+    bars.forEach(b=>{if(b.l<lo)lo=b.l;if(b.h>hi)hi=b.h;});
+    Object.keys(ovs||{}).forEach(k=>{(ovs[k]||[]).forEach(v=>{if(v!==null&&v!==undefined){if(v>hi)hi=v;if(v<lo)lo=v;}});});
+    (Array.isArray(mk&&mk.points)?mk.points:[]).forEach(pt=>{const v=+pt.price;if(pt.price!=null&&isFinite(v)&&+pt.i>=0&&+pt.i<bars.length){if(v>hi)hi=v;if(v<lo)lo=v;}});
+    if(!isFinite(lo)||!isFinite(hi))return null;
+    const pad=(hi-lo)*0.06||1;lo-=pad;hi+=pad;
+    const yz=+(_cndl.yZoom||1);if(yz>0&&isFinite(yz)&&yz!==1){const m=(lo+hi)/2,hf=(hi-lo)/2/yz;lo=m-hf;hi=m+hf;}
+    return [hi-(hi-lo)/(1-_VOL_SHARE-0.03),hi];};
+  const _cLayer=(id,tag,css)=>{const h=_cHost();if(!h)return null;let el=h.querySelector('#'+id);
+    if(!el){el=document.createElement(tag);el.id=id;el.style.cssText=css;h.appendChild(el);}return el;};
+  const _cLayers=()=>{
+    _cLayer('cndl-vol','canvas','position:absolute;left:0;top:0;z-index:0;pointer-events:none');
+    _cLayer('cndl-lines','div','position:absolute;left:0;top:0;right:0;bottom:0;z-index:2;pointer-events:none;overflow:hidden');
+    const xc='position:absolute;pointer-events:none;display:none;z-index:3';
+    _cLayer('cndl-xh-v','div',xc+';width:0;border-left:1px dashed var(--text4);opacity:.85');
+    _cLayer('cndl-xh-h','div',xc+';height:0;border-top:1px dashed var(--text4);opacity:.85');
+    const tg=xc+';z-index:4;font-size:10.5px;font-weight:700;line-height:16px;height:16px;padding:0 5px;border-radius:3px;white-space:nowrap;background:var(--text3);color:var(--bg)';
+    _cLayer('cndl-xh-py','div',tg);_cLayer('cndl-xh-tx','div',tg+';transform:translateX(-50%)');
+    _cLayer('cndl-ro','div','position:absolute;left:6px;top:3px;z-index:5;pointer-events:none;font-size:11px;line-height:16px;color:var(--text4);max-width:calc(100% - 84px);text-shadow:0 0 3px var(--bg1),0 0 3px var(--bg1),0 0 2px var(--bg1)');
+  };
+  const _xhHide=()=>{const h=_cHost();if(!h)return;['cndl-xh-v','cndl-xh-h','cndl-xh-py','cndl-xh-tx'].forEach(id=>{const e=h.querySelector('#'+id);if(e)e.style.display='none';});};
+  const _cLayersClear=()=>{const h=_cHost();if(!h)return;
+    ['cndl-lines','cndl-ro'].forEach(id=>{const e=h.querySelector('#'+id);if(e)e.innerHTML='';});
+    const cv=h.querySelector('#cndl-vol');if(cv){cv.width=1;cv.height=1;cv.setAttribute('data-vbars','0');}
+    _xhHide();};
+  // the empty stand-in while a trade's bars load: no chart, and nothing of the last trade left over it
+  const _cndlStub=()=>{_cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');_cndl.bars=[];_cLayersClear();};
+  const _fp=v=>{const d=(_cndl.dec==null)?2:_cndl.dec;return (+v).toLocaleString('en-US',{minimumFractionDigits:d,maximumFractionDigits:d});};
+  const _fv=v=>{v=+v||0;const a=Math.abs(v);return a>=1e6?(v/1e6).toFixed(2)+'M':a>=1e4?(v/1e3).toFixed(1)+'K':Math.round(v).toLocaleString('en-US');};
+  const _OVC={vwap:'var(--purple)','200 SMA':'var(--blue)','200 EMA':'var(--blue)'};
+  const _escH=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+  const _drawVol=()=>{const h=_cHost(),cv=h&&h.querySelector('#cndl-vol');if(!cv)return;
+    const bars=_cndl.bars||[],G=_cGeo(),w=h.clientWidth,hh=h.clientHeight,dpr=Math.min(3,window.devicePixelRatio||1);
+    cv.width=Math.max(1,Math.round(w*dpr));cv.height=Math.max(1,Math.round(hh*dpr));cv.style.width=w+'px';cv.style.height=hh+'px';
+    cv.setAttribute('data-vbars','0');
+    let vmax=0;bars.forEach(b=>{if(+b.v>vmax)vmax=+b.v;});
+    const cx=cv.getContext('2d');if(!cx||!(vmax>0)||!bars.length||!G.W)return;
+    const k=w/G.W;cx.setTransform(dpr*k,0,0,dpr*k,0,0);
+    const cs=getComputedStyle(cv),up=cs.getPropertyValue('--green').trim()||'#888',dn=cs.getPropertyValue('--red').trim()||'#666';
+    const n=bars.length,xs=G.plotW/n,bw=Math.max(1.5,xs*0.62),ph=_cPlotH(),base=_CM.t+ph,vh=ph*_VOL_SHARE-2;
+    cx.globalAlpha=0.45;let drawn=0;
+    for(let i=0;i<n;i++){const v=+bars[i].v;if(!(v>0))continue;const hg=Math.max(0.6,v/vmax*vh);
+      cx.fillStyle=(bars[i].c>=bars[i].o)?up:dn;cx.fillRect(G.mL+i*xs+xs/2-bw/2,base-hg,bw,hg);drawn++;}
+    cv.setAttribute('data-vbars',String(drawn));};
+  const _drawLines=()=>{const h=_cHost(),L=h&&h.querySelector('#cndl-lines');if(!L)return;
+    const G=_cGeo(),x=_cndl.x||{},k=_cK(),ph=_cPlotH();
+    if(!G.W||!isFinite(G.lo)||!isFinite(G.hi)||!(G.hi>G.lo)){L.innerHTML='';return;}
+    const yOf=p=>(_CM.t+(G.hi-p)/(G.hi-G.lo)*ph)*k,x0=G.mL*k,x1=(G.mL+G.plotW)*k;
+    let o='';
+    const line=(p,col,dash,key)=>{if(p==null||p===''||!isFinite(+p)||+p<G.lo||+p>G.hi)return;const y=yOf(+p);
+      o+='<div data-cndlline="'+key+'" style="position:absolute;left:'+x0.toFixed(1)+'px;width:'+(x1-x0).toFixed(1)+'px;top:'+y.toFixed(1)+'px;height:0;border-top:1px '+dash+' '+col+';opacity:.8"></div>'
+        +'<div data-cndltag="'+key+'" style="position:absolute;left:'+(x1+1).toFixed(1)+'px;top:'+(y-8).toFixed(1)+'px;height:16px;line-height:16px;padding:0 4px;border-radius:3px;font-size:10.5px;font-weight:700;white-space:nowrap;background:'+col+';color:var(--bg)">'+_fp(p)+'</div>';};
+    const all=(_cndl.r&&_cndl.r.bars)||[],lb=all[all.length-1];
+    if(lb)line(lb.c,(lb.c>=lb.o)?'var(--green)':'var(--red)','dotted','last');
+    // Webull paper rows draw their own fill lines (markers.lines); every other trade gets entry / exit lines
+    if(!x._qbars){line(x._ep,'var(--text3)','dashed','entry');
+      if(!x._missed)line(x._xp,((+x._usd||0)>=0)?'var(--green)':'var(--red)','dashed','exit');}
+    L.innerHTML=o;};
+  const _legend=i=>{const h=_cHost(),ro=h&&h.querySelector('#cndl-ro');if(!ro)return;
+    const bars=_cndl.bars||[],n=bars.length;if(!n){ro.innerHTML='';return;}
+    if(i==null||!(i>=0&&i<n))i=n-1;
+    const b=bars[i],x=_cndl.x||{},col=(b.c>=b.o)?'var(--green)':'var(--red)';
+    const allB=(_cndl.r&&_cndl.r.bars)||[],v0=_cndl.view?Math.max(0,_cndl.view[0]):0;
+    const pv=(i>0)?bars[i-1].c:((v0>0&&allB[v0-1])?allB[v0-1].c:null);
+    const base=(pv!=null&&isFinite(+pv))?+pv:+b.o,ch=b.c-base,pc=base?ch/base*100:0,sg=(ch>=0)?'+':'-';
+    const sym=x._qbars?'QQQ':(x._rbars?String(x._label||'').split(' ')[0]:String(_cB(x).instrument||''));
+    const it=(kk,vv)=>'<span style="white-space:nowrap;margin-right:7px">'+kk+' <span style="color:'+col+'">'+vv+'</span></span>';
+    let o='<div><span style="white-space:nowrap;margin-right:8px"><b style="color:var(--text2)">'+_escH(sym)+'</b> <span style="color:var(--text3)">'+_escH(_curTf().toUpperCase())+'</span> <span style="color:var(--text5)">'+_escH(String(b.t||'').slice(5).replace('-','/'))+'</span></span>'
+      +it('O',_fp(b.o))+it('H',_fp(b.h))+it('L',_fp(b.l))+it('C',_fp(b.c))
+      +'<span style="white-space:nowrap;color:'+col+'">'+sg+_fp(Math.abs(ch))+' ('+sg+Math.abs(pc).toFixed(2)+'%)</span></div>';
+    o+=_hasVol(allB)?('<div>'+it('Vol',_fv(b.v))+'</div>')
+      :'<div style="color:var(--text5)">Vol: none - this bar source carries no volume</div>';
+    const ovs=_cndl.ovs||{},ol=[];
+    Object.keys(ovs).forEach(kk=>{const v=(ovs[kk]||[])[i];if(v!=null&&isFinite(+v))ol.push('<span style="white-space:nowrap;margin-right:7px;color:'+(_OVC[kk]||'var(--text4)')+'">'+_escH(String(kk).toUpperCase())+' '+_fp(v)+'</span>');});
+    if(ol.length)o+='<div>'+ol.join('')+'</div>';
+    ro.innerHTML=o;};
+  // crosshair at a screen point: snapped to the bar centre, price tag on the right axis, time tag on the bottom axis
+  const _xhAt=(cx,cy)=>{const h=_cHost(),rc=_cRect();if(!h||!rc||!(rc.width>0))return;
+    const G=_cGeo(),bars=_cndl.bars||[],n=bars.length;if(!n||!G.W){_xhHide();return;}
+    const k=rc.width/G.W,ph=_cPlotH(),lx=cx-rc.left,ly=cy-rc.top,pL=G.mL*k,pR=(G.mL+G.plotW)*k,pT=_CM.t*k,pB=(_CM.t+ph)*k;
+    if(lx<pL||lx>pR||ly<pT||ly>pB){_xhHide();_legend(null);return;}
+    const xs=G.plotW/n,i=Math.max(0,Math.min(n-1,Math.floor((lx/k-G.mL)/xs))),sx=(G.mL+(i+0.5)*xs)*k;
+    const g=id=>h.querySelector('#'+id),v=g('cndl-xh-v'),hz=g('cndl-xh-h'),py=g('cndl-xh-py'),tx=g('cndl-xh-tx');
+    if(!v||!hz||!py||!tx)return;
+    v.style.display=hz.style.display=py.style.display=tx.style.display='block';
+    v.style.left=sx.toFixed(1)+'px';v.style.top=pT.toFixed(1)+'px';v.style.height=(pB-pT).toFixed(1)+'px';
+    hz.style.left=pL.toFixed(1)+'px';hz.style.width=(pR-pL).toFixed(1)+'px';hz.style.top=ly.toFixed(1)+'px';
+    py.textContent=_fp(G.hi-(ly/k-_CM.t)/ph*(G.hi-G.lo));py.style.left=(pR+1).toFixed(1)+'px';py.style.top=(ly-8).toFixed(1)+'px';
+    tx.textContent=String(bars[i].t||'').slice(5).replace('-','/');tx.style.left=sx.toFixed(1)+'px';tx.style.top=(pB+3).toFixed(1)+'px';
+    _legend(i);};
+
   const _wireCandleSvg=()=>{
     const host=_cHost();if(!host||host._cndlWired)return;
     host._cndlWired=1;
@@ -9461,20 +9628,19 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     try{const sc=host.parentElement;if(sc)sc.style.cursor='default';
       const zb=_cndl.api.modal.querySelector('.xzbar');if(zb)zb.remove();}catch(_z){}
 
-    const _f2=v2=>(+v2).toLocaleString('en-US');
-    // hover readout - plain pointermove, deliberately NOT swallowed so the crosshair still runs
+    // TradingView crosshair (2026-10-11): the OHLCV legend top-left follows it; off the plot it goes back to the last bar
     host.addEventListener('pointermove',ev=>{
       const sv=_cSvg();if(sv)sv.style.cursor=_onAxisEv(ev)?'ns-resize':'crosshair';
-      const ro=_cndl.api.modal.querySelector('#cndl-ro');if(!ro)return;
-      const i2=_barAtEv(ev);if(i2==null)return;
-      const b2=(_cndl.bars||[])[i2];if(!b2)return;
-      const ovs=_cndl.ovs||{},up2=b2.c>=b2.o;
-      let ov2='';
-      Object.keys(ovs).forEach(k2=>{const v2=(ovs[k2]||[])[i2];if(v2!=null)ov2+=' &middot; '+String(k2).toUpperCase()+' '+_f2(v2);});
-      ro.innerHTML='<b style="color:var(--text2)">'+b2.t+'</b> &middot; O '+_f2(b2.o)+' &middot; H '+_f2(b2.h)+' &middot; L '+_f2(b2.l)
-        +' &middot; C <b style="color:'+(up2?'var(--green)':'var(--red)')+'">'+_f2(b2.c)+'</b>'
-        +(b2.v?' &middot; V '+_f2(b2.v):'')+ov2;
+      if(ev.pointerType==='touch'||_cndl.dragging)return;
+      _xhAt(ev.clientX,ev.clientY);
     });
+    host.addEventListener('pointerleave',ev=>{if(ev.pointerType==='touch'||_cndl.dragging)return;_xhHide();_legend(null);});
+    // the chart is drawn at the size of its box, so a turned iPad, a resized window or a control row that wraps redraws it
+    try{let lw=host.clientWidth,lh=host.clientHeight,rq=0;
+      const rob=new ResizeObserver(()=>{if(!document.body.contains(host)){rob.disconnect();return;}
+        const w2=host.clientWidth,h2=host.clientHeight;if(Math.abs(w2-lw)<2&&Math.abs(h2-lh)<2)return;lw=w2;lh=h2;
+        if(rq)return;rq=requestAnimationFrame(()=>{rq=0;if(_cndlAlive())_renderCandle();});});
+      rob.observe(host);}catch(_ro){}
 
     // wheel = zoom the BAR RANGE about the cursor; wheeling out with everything already on
     // screen asks the PC for more history instead of doing nothing.
@@ -9489,42 +9655,38 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const frac=(anchor-ab[0])/span;
       let lo4=Math.round(anchor-frac*ns),hi4=lo4+ns-1;
       const cl=_clampView(lo4,hi4,ns,n3);
-      _cndl.view=(ns>=n3)?null:[cl[0],cl[1]];_renderCandle();
+      _cndl.view=(ns>=n3)?null:[cl[0],cl[1]];_renderCandle();_xhAt(ev.clientX,ev.clientY);
     },{passive:false,capture:true});
 
     host.addEventListener('dblclick',ev=>{ev.stopPropagation();ev.preventDefault();
       _cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_renderCandle();},{capture:true});
 
-    host.addEventListener('pointerdown',ev=>{
-      if(ev.button!==0||ev.pointerType==='touch'&&ev.isPrimary===false)return;
-      ev.stopPropagation();ev.preventDefault();
-      try{host.setPointerCapture(ev.pointerId);}catch(_p){}
+    // Pointers (2026-10-11, iPad): one pans (or drags the price scale, as before), two pinch-zoom the bar range about
+    // their midpoint, a tap puts the crosshair and the legend on that bar, a double tap resets like a double-click.
+    const ptrs=new Map();let pinch=null,endPan=null,lastTap=null;
+    const startPan=(p,pid)=>{
       const rc0=_cRect()||host.getBoundingClientRect();
-      const done=()=>{try{host.releasePointerCapture(ev.pointerId);}catch(_p){}
-        host.removeEventListener('pointermove',mv);
-        host.removeEventListener('pointerup',done);
-        host.removeEventListener('pointercancel',done);};
-      let mv;
-      if(_onAxisEv(ev)){
+      let mv=null;
+      if(_onAxisEv(p)){
         // PRICE-SCALE DRAG: pins the price range (TradingView locks the scale the same way),
         // so panning afterwards no longer re-fits the prices under you.
-        const y0=ev.clientY,base=_cndl.yLock||_cndl.yView||null;
+        const y0=p.clientY,base=_cndl.yLock||_cndl.yView||null;
         const lo0=base?+base[0]:NaN,hi0=base?+base[1]:NaN;
-        if(!isFinite(lo0)||!isFinite(hi0)||!(hi0>lo0)){done();return;}
+        if(!isFinite(lo0)||!isFinite(hi0)||!(hi0>lo0))return null;
         const mid0=(lo0+hi0)/2,half0=(hi0-lo0)/2,rcH=rc0.height||400;
         let raf=0;
-        mv=e2=>{if(raf)return;
+        mv=e2=>{if(e2.pointerId!==pid||pinch||raf)return;
           raf=requestAnimationFrame(()=>{raf=0;
             let z=Math.exp((y0-e2.clientY)/rcH*2.4);z=Math.max(0.12,Math.min(14,z));
             const h2=half0/z;
             _cndl.yZoom=1;_cndl.yLock=[mid0-h2,mid0+h2];_renderCandle();});};
       }else{
-        const ab=_visRange(),n3=ab[2];if(!n3){done();return;}
+        const ab=_visRange(),n3=ab[2];if(!n3)return null;
         if(!_cndl.view)_cndl.view=[ab[0],ab[1]];
-        const v0=[ab[0],ab[1]],span=v0[1]-v0[0]+1,x0=ev.clientX;
+        const v0=[ab[0],ab[1]],span=v0[1]-v0[0]+1,x0=p.clientX;
         const G=_cGeo(),step=G.plotW/span;
         let raf=0,lastShift=0,edged=false;
-        mv=e2=>{
+        mv=e2=>{if(e2.pointerId!==pid||pinch)return;
           const dxBars=Math.round((x0-e2.clientX)/rc0.width*(G.W-G.mL-14)/step);
           if(dxBars===lastShift||raf)return;
           raf=requestAnimationFrame(()=>{raf=0;lastShift=dxBars;
@@ -9536,78 +9698,99 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
             _cndl.view=(span>=n3)?null:[cl[0],cl[1]];_renderCandle();});};
       }
       host.addEventListener('pointermove',mv);
-      host.addEventListener('pointerup',done);
-      host.addEventListener('pointercancel',done);
+      return ()=>host.removeEventListener('pointermove',mv);};
+    const startPinch=()=>{const a=[...ptrs.values()],rc=_cRect();if(!rc||a.length<2)return;
+      const ab=_visRange(),G=_cGeo(),k=rc.width/(G.W||1),mid=(a[0].x+a[1].x)/2;
+      pinch={d0:Math.max(24,Math.abs(a[0].x-a[1].x)),v0:[ab[0],ab[1]],span:ab[1]-ab[0]+1,n:ab[2],raf:0,more:false,
+        frac:Math.max(0,Math.min(1,((mid-rc.left)/k-G.mL)/(G.plotW||1)))};};
+    host.addEventListener('pointerdown',ev=>{
+      if(ev.pointerType!=='touch'&&ev.button!==0)return;
+      ev.stopPropagation();ev.preventDefault();
+      try{host.setPointerCapture(ev.pointerId);}catch(_p){}
+      ptrs.set(ev.pointerId,{x:ev.clientX,y:ev.clientY,x0:ev.clientX,y0:ev.clientY,moved:false,touch:ev.pointerType==='touch'});
+      _cndl.dragging=true;_xhHide();
+      if(ptrs.size===2){if(endPan){endPan();endPan=null;}startPinch();return;}
+      if(ptrs.size>2)return;
+      endPan=startPan(ev,ev.pointerId);
     },{capture:true});
+    host.addEventListener('pointermove',ev=>{const p=ptrs.get(ev.pointerId);if(!p)return;
+      p.x=ev.clientX;p.y=ev.clientY;if(Math.abs(p.x-p.x0)>5||Math.abs(p.y-p.y0)>5)p.moved=true;
+      if(!pinch||ptrs.size<2||pinch.raf)return;
+      pinch.raf=requestAnimationFrame(()=>{if(!pinch)return;pinch.raf=0;
+        const a=[...ptrs.values()];if(a.length<2)return;
+        const d=Math.max(24,Math.abs(a[0].x-a[1].x)),n3=pinch.n;
+        let ns=Math.round(pinch.span*pinch.d0/d);ns=Math.max(8,Math.min(n3,ns));
+        if(ns>=n3&&d<pinch.d0*0.8&&!pinch.more){pinch.more=true;_loadMoreBars();}
+        const anchor=pinch.v0[0]+pinch.frac*pinch.span,lo4=Math.round(anchor-pinch.frac*ns);
+        const cl=_clampView(lo4,lo4+ns-1,ns,n3);
+        _cndl.view=(ns>=n3)?null:[cl[0],cl[1]];_renderCandle();});
+    });
+    const ptrUp=ev=>{const p=ptrs.get(ev.pointerId);if(!p)return;
+      ptrs.delete(ev.pointerId);
+      try{host.releasePointerCapture(ev.pointerId);}catch(_p){}
+      if(pinch){
+        if(ptrs.size<2){if(pinch.raf)cancelAnimationFrame(pinch.raf);pinch=null;
+          if(ptrs.size===1){const e1=[...ptrs.entries()][0];endPan=startPan({clientX:e1[1].x,clientY:e1[1].y},e1[0]);}}
+        return;}
+      if(endPan){endPan();endPan=null;}
+      if(ptrs.size)return;
+      _cndl.dragging=false;
+      if(ev.type!=='pointerup')return;
+      if(p.touch&&!p.moved){
+        const now=Date.now();
+        if(lastTap&&now-lastTap.t<350&&Math.abs(lastTap.x-p.x)<24){lastTap=null;_cndl.view=null;_cndl.yZoom=1;_cndl.yLock=null;_renderCandle();return;}
+        lastTap={t:now,x:p.x};_xhAt(p.x,p.y);}
+      else if(!p.touch)_xhAt(p.x,p.y);};
+    host.addEventListener('pointerup',ptrUp);host.addEventListener('pointercancel',ptrUp);
   };
 
   // control row: built ONCE per modal, then kept in sync per trade/view.
 
   const _buildCndlCtl=()=>{
 
-    const ctl=_cndl.api.ctl;ctl.innerHTML='';
-
-    // v71.96 (owner: "modernize this. messy") - flatter chips, tighter row, the price
-    // readout on its own quiet line underneath instead of shouting in the same strip.
-    const bs='background:transparent;border:1px solid var(--border);color:var(--text3);padding:4px 9px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:.6px;border-radius:7px';
-    // the quiet chips that live in the status strip under the chart (TradingView's bottom bar)
-    const bq='background:transparent;border:0;color:var(--text4);padding:2px 7px;cursor:pointer;font-family:inherit;font-size:9px;letter-spacing:.6px;border-radius:5px;flex:0 0 auto;white-space:nowrap';
-    const _sepH='<span style="width:1px;height:15px;background:var(--border);flex:0 0 auto;margin:0 3px"></span>';
-
+    const ctl=_cndl.api.ctl,md=_cndl.api.modal;ctl.innerHTML='';
+    // 2026-10-11 (owner: "All this text and space and I can barely see the chart ... like trading view"): ONE compact
+    // row - previous / next with the row count, the bar sizes, TOP 10, TRADE / FULL zoom, RTH / ETH, the price scale,
+    // + BARS, the POINTS chip, the bar count, PNG and a ? for the gestures. On a phone the words shrink to their
+    // symbols and the row may wrap once. The BACK button is gone: the close in the header does the same.
+    const ph=(window.innerWidth||1024)<700;
+    const bs='background:transparent;border:1px solid transparent;color:var(--text3);height:24px;padding:0 '+(ph?'5px':'7px')+';cursor:pointer;font-family:inherit;font-size:10.5px;letter-spacing:.4px;border-radius:5px;white-space:nowrap;flex:0 0 auto;display:inline-flex;align-items:center;gap:3px';
+    const sep='<span style="width:1px;height:14px;background:var(--border);flex:0 0 auto;margin:0 '+(ph?'1px':'3px')+'"></span>';
+    const L=(full,short)=>ph?short:full;
+    const help='drag = pan (past the edge loads more bars) &middot; wheel or pinch = zoom &middot; double-click or double-tap = reset &middot; drag the price scale = lock the prices (AUTO undoes it) &middot; hover or tap = that bar in the legend &middot; left / right arrow = previous / next trade &middot; Esc = close';
     ctl.insertAdjacentHTML('beforeend',
+      '<button id="cndl-prev" type="button" title="previous trade (left arrow)" style="'+bs+';font-size:16px">&lsaquo;</button>'
+      +'<span id="cndl-pos" style="font-size:10px;color:var(--text4);letter-spacing:.3px;white-space:nowrap;flex:0 0 auto"></span>'
+      +'<button id="cndl-next" type="button" title="next trade (right arrow)" style="'+bs+';font-size:16px">&rsaquo;</button>'
+      +sep
+      +'<span id="cndl-tfs" style="display:inline-flex;align-items:center;gap:1px;flex:0 0 auto" title="draw this trade on a different bar size"></span>'
+      +sep
+      +'<select id="cndl-top" title="jump to one of the biggest winners or losers" style="'+bs+';border-color:var(--border);background:var(--bg1);max-width:'+(ph?'62px':'92px')+';padding:0 3px"></select>'
+      +'<button id="cndl-grpmore" type="button" title="extend this top-10 set by another 10 trades" style="'+bs+';display:none">+10</button>'
+      +'<button id="cndl-ztrade" type="button" title="zoom to the trade with a little context" style="'+bs+'">'+L('&#8982; TRADE','&#8982;')+'</button>'
+      +'<button id="cndl-zfull" type="button" title="show every bar loaded (or double-click the chart)" style="'+bs+'">'+L('&#10530; FULL','&#10530;')+'</button>'
+      +'<button id="cndl-sess" type="button" style="'+bs+'"></button>'
+      +'<button id="cndl-auto" type="button" title="price scale" style="'+bs+'">AUTO</button>'
+      +'<button id="cndl-more" type="button" style="'+bs+'">+ BARS</button>'
+      +'<button id="cndl-ptschip" type="button" aria-expanded="false" title="the POINTS checklist for this trade - opens over the chart" style="'+bs+';border-color:var(--border);display:none"></button>'
+      +'<span style="flex:1 1 auto"></span>'
+      +'<span id="cndl-zoom" style="font-size:10px;color:var(--text5);letter-spacing:.3px;flex:0 0 auto;white-space:nowrap'+(ph?';display:none':'')+'"></span>'
+      +'<button id="cndl-save" type="button" title="download the current view as a PNG picture" style="'+bs+'">'+L('&#10515; PNG','&#10515;')+'</button>'
+      +'<button id="cndl-help" type="button" title="'+help.replace(/&middot;/g,'-')+'" style="'+bs+';border-color:var(--border);border-radius:50%;width:22px;height:22px;padding:0;justify-content:center">?</button>');
+    // the POINTS drawer sits over the chart, outside #chart-body so its own buttons (SMA | EMA) are not taken by the chart's gestures
+    try{const bx=md.querySelector('.cndl-box')||ctl.parentElement;
+      if(bx&&!bx.querySelector('#cndl-pts')){const dr=document.createElement('div');dr.id='cndl-pts';
+        dr.style.cssText='display:none;position:absolute;z-index:8;right:12px;top:60px;max-height:calc(100% - 80px);overflow:auto;box-sizing:border-box;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:8px 10px;box-shadow:0 8px 28px rgba(0,0,0,.5)';
+        bx.appendChild(dr);}}catch(_d){}
 
-      '<button id="cndl-back" title="close this chart and go back to where you opened it from" style="'+bs+';border-color:color-mix(in srgb,var(--blue) 55%,var(--border));color:var(--blue)">&lsaquo; BACK</button>'
-      +'<button id="cndl-prev" style="'+bs+'">&lsaquo; PREV</button>'
+    const g=id=>md.querySelector('#'+id);
 
-      +'<button id="cndl-next" style="'+bs+'">NEXT &rsaquo;</button>'
-
-      +'<span id="cndl-pos" style="font-size:9px;color:var(--text5);letter-spacing:1px;white-space:nowrap"></span>'
-      +_sepH
-      +'<span id="cndl-tfs" style="display:inline-flex;align-items:center;gap:2px;flex:0 0 auto" title="draw this trade on a different bar size"></span>'
-      +_sepH
-
-      +'<select id="cndl-top" style="'+bs.replace('cursor:pointer','cursor:pointer;max-width:128px')+'"></select>'
-
-      +'<button id="cndl-grpmore" title="extend this top-10 set by another 10 trades" style="'+bs+';display:none">+10 MORE</button>'
-      +'<button id="cndl-ztrade" title="zoom to the held window plus a little context" style="'+bs+'">&#128269; TRADE</button>'
-
-      +'<button id="cndl-zfull" title="show every fetched bar (or double-click the chart)" style="'+bs+'">FULL</button>'
-
-      +'<button id="cndl-save" title="download the current view as a PNG image" style="'+bs+'">&#10515; SAVE PNG</button>'
-
-      // FIXED height + min-width:0 (owner: "looking at the ohlc value still moves the chart"):
-      // the readout swaps a short hint for a long OHLC line on every hover, and BOTH its width
-      // and its line box fed back into the auto-sized modal — measured 39px of chart resize and
-      // a 20px shift per hover. Pinned here; the window also gets a definite width below.
-      // v73.268 (owner: "button placment doesnt match TV for things like etch/rtch
-      // selection"): TradingView keeps the session and price-scale controls in the strip
-      // UNDER the chart, hard right, below the price axis - not in the top toolbar.
-      +'<div id="cndl-status" style="display:flex;align-items:center;gap:6px;flex:1 1 100%;min-width:0;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px">'
-      +'<div id="cndl-ro" style="font-size:10px;color:var(--text4);height:15px;line-height:15px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 auto;min-width:0;letter-spacing:.3px"><span style="color:var(--text5)">hover = OHLC &middot; wheel = zoom &middot; drag = pan (past the edge loads more) &middot; drag the $ scale = lock prices &middot; double-click = reset</span></div>'
-      +'<span id="cndl-zoom" style="font-size:9px;color:var(--text5);letter-spacing:.4px;flex:0 0 auto;white-space:nowrap"></span>'
-      +'<button id="cndl-more" title="fetch more sessions of bars around this trade from your PC (dragging or zooming past the edge of the chart does this on its own)" style="'+bq+'">+ BARS</button>'
-      +'<button id="cndl-sess" title="switch between regular hours (RTH) and the 24-hour session (ETH) - refetches this trade and its context on the other session" style="'+bq+'"></button>'
-      +'<button id="cndl-auto" title="price scale" style="'+bq+'">AUTO</button>'
-      +'</div>'
-      +'<details id="cndl-pts" style="display:none;flex:1 1 100%;min-width:0;border-top:1px solid var(--border2);padding-top:5px;margin-top:2px"></details>');
-    // the shell sizes itself to its content, so ANY text change inside re-lays-out the chart.
-    // A definite width stops that dead — and keeps the chart the same size trade to trade.
-    try{const _sb=_cndl.api.modal.querySelector('#chart-sub');
-      if(_sb){_sb.style.whiteSpace='nowrap';_sb.style.overflow='hidden';_sb.style.textOverflow='ellipsis';}}catch(_e3){}
-    try{const _bd=_cndl.api.modal.querySelector('#chart-body');
-      if(_bd){_bd.style.minWidth='0';_bd.style.width='100%';
-        if(_bd.parentElement){_bd.parentElement.style.width='min(1180px,95vw)';_bd.parentElement.style.boxSizing='border-box';}}}catch(_e){}
-    // v73.274: TradingView's session / scale strip sits UNDER the chart, below the price
-    // axis - not up in the toolbar. Lift it out of the button row and drop it there.
-    try{const _st=ctl.querySelector('#cndl-status'),_bd2=_cndl.api.modal.querySelector('#chart-body');
-      if(_st&&_bd2&&_bd2.parentElement){
-        _bd2.parentElement.insertBefore(_st,_bd2.nextSibling);
-        _st.style.width='100%';_st.style.marginTop='6px';_st.style.paddingTop='6px';
-        _st.style.borderTop='0';_st.style.flex='0 0 auto';}}catch(_e2){}
-
-    const g=id=>_cndl.api.modal.querySelector('#'+id);
-
-    g('cndl-back').onclick=()=>{const m2=_cndl.api&&_cndl.api.modal;if(m2)m2.remove();};
+    g('cndl-ptschip').onclick=ev=>{ev.stopPropagation();_ptsOpenSet(!_ptsOpenGet());_cndlPts(_cndl.x);};
+    g('cndl-help').onclick=ev=>{ev.stopPropagation();const bx=md.querySelector('.cndl-box');if(!bx)return;
+      let hp=bx.querySelector('#cndl-helpbox');if(hp){hp.remove();return;}
+      hp=document.createElement('div');hp.id='cndl-helpbox';
+      hp.style.cssText='position:absolute;z-index:9;right:10px;top:'+(ctl.offsetTop+ctl.offsetHeight+4)+'px;max-width:300px;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:8px 10px;font-size:11px;line-height:1.6;color:var(--text3);box-shadow:0 8px 28px rgba(0,0,0,.5);cursor:pointer';
+      hp.innerHTML=help.split(' &middot; ').map(t=>'<div>'+t+'</div>').join('');hp.onclick=()=>hp.remove();bx.appendChild(hp);};
     g('cndl-grpmore').onclick=()=>{
       const gp=_cndl.grp;if(!gp)return;
       const by=_cAll().slice().sort((a2,b2)=>b2._usd-a2._usd);
@@ -9661,10 +9844,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     const rows=_cOrder(),i3=rows.findIndex(q=>q._no===(_cndl.x&&_cndl.x._no));
 
     const gp=_cndl.grp,gLoaded=gp?gp.list.filter(q=>_barsCache[q._no]).length:0;
-    if(g('cndl-pos'))g('cndl-pos').textContent=(i3>=0
-      ?(gp?((i3+1)+' / '+rows.length+' · '+gp.label+(gLoaded<rows.length?(' · loading '+gLoaded+'/'+rows.length+'…'):' · all loaded'))
-          :('ROW '+(i3+1)+' / '+rows.length+' (table order)'))
-      :'');
+    {const _pe=g('cndl-pos');if(_pe){
+      _pe.textContent=(i3>=0)?((i3+1)+'/'+rows.length+(gp?(' · '+gp.label.replace('WINNERS','W').replace('LOSERS','L')+(gLoaded<rows.length?(' · '+gLoaded+'/'+rows.length+'…'):'')):'')):'';
+      _pe.title=(i3>=0)?(gp?((i3+1)+' of '+rows.length+' - '+gp.label+(gLoaded<rows.length?(' - loading '+gLoaded+' of '+rows.length):' - all loaded')):('row '+(i3+1)+' of '+rows.length+' in table order')):'';}}
 
     if(g('cndl-prev'))g('cndl-prev').disabled=!(i3>0);
     const sb2=g('cndl-sess');
@@ -9672,12 +9854,13 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const base2=String(_cB(_cndl.x).session||'rth').toLowerCase();
       const cur2=(_cndl.sess||base2).toUpperCase();
       const oth2=(cur2==='RTH')?'ETH':'RTH';
-      sb2.innerHTML='<b style="color:var(--blue)">'+cur2+'</b><span style="color:var(--text5)"> &rarr; '+oth2+'</span>';
+      sb2.innerHTML='<b style="color:var(--blue)">'+cur2+'</b>';
+      sb2.title=((cur2==='RTH')?'regular hours on screen':'the 24-hour session on screen')+' - click to switch to '+oth2+' (fetches this trade and its context again)';
     }
     const tfs2=g('cndl-tfs');
     if(tfs2&&_cndl.x){
       const cur3=_curTf(),opts3=_tfOpts();
-      const html3=opts3.map(t=>'<span data-cndltf="'+t+'" style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:.5px;padding:3px 7px;border-radius:6px;'
+      const html3=opts3.map(t=>'<span data-cndltf="'+t+'" style="cursor:pointer;user-select:none;font-size:10.5px;font-weight:700;letter-spacing:.4px;padding:4px 6px;border-radius:5px;'
         +((t===cur3)?'color:var(--blue);background:color-mix(in srgb,var(--blue) 14%,transparent)':'color:var(--text5)')
         +'">'+String(t).toUpperCase()+'</span>').join('');
       if(tfs2.innerHTML!==html3){
@@ -9779,6 +9962,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       const cx2=cv.getContext('2d');
 
       cx2.fillStyle=cs.getPropertyValue('--bg').trim()||'#0d1117';cx2.fillRect(0,0,cv.width,cv.height);
+      try{const _vc=_cndlAlive()?_cndl.api.modal.querySelector('#cndl-vol'):null;if(_vc&&_vc.width>1)cx2.drawImage(_vc,0,0,cv.width,cv.height);}catch(_v){}
 
       cx2.drawImage(img,0,0,cv.width,cv.height);
 
@@ -9822,7 +10006,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       // previous trade's chart and legend on screen under this trade's title
       const _inMem=window._qqqBarsInMem||(()=>false);
       if(!(_inMem(x._et)&&_inMem(x._xt2||x._et))){
-        _cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');
+        _cndlStub();
         _cndl.api.setSub('<b style="color:var(--text3)">loading this day&#39;s candles from the box&hellip;</b>');
         try{const _lg0=_cndl.api.modal.querySelector('#cndl-legend');if(_lg0)_lg0.innerHTML='';}catch(_e0){}
       }
@@ -9835,7 +10019,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     // has no bars, e.g. 10s before the capture started).
     if(x._rbars&&window._rtBarsForTrade){
       if(!(window._rtBarsInMem&&window._rtBarsInMem(x._tid))){
-        _cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');
+        _cndlStub();
         _cndl.api.setSub('<b style="color:var(--text3)">loading the candles&hellip;</b>');
       }
       const tf0=x._tf||'1m';
@@ -9854,7 +10038,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
     // in the sub line (the body cannot be innerHTML-wiped — the crosshair divs live there).
 
-    _cndl.api.setSvg('<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>');
+    _cndlStub();
 
     const t0=Date.now();
 
@@ -9922,7 +10106,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
 
       '<svg viewBox="0 0 1080 8" style="display:block;height:6px"></svg>',
 
-      {sub:'entry '+x._et+' &rarr; exit '+x._xt2});
+      {sub:'entry '+x._et+' &rarr; exit '+x._xt2,tv:true});
 
     _cndl.api=api;
 
