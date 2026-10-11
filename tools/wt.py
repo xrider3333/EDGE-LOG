@@ -122,6 +122,7 @@ reuse.
 Stdlib only. Safe to re-run: `new` on an existing name just prints its path.
 """
 import argparse
+import ast
 import hashlib
 import io
 import json
@@ -750,6 +751,84 @@ def gate_command(wt, root, g):
     return None
 
 
+# ----------------------------------------------------------------- selective mutant replay
+# 2026-10-11 (MANAGER): a probe's --selftest replays EVERY mutant (~101 for HOME, about 70 minutes),
+# so a small UI ship that only added two mutants cost 1.5 h. When the probe's non-MUTANTS code is
+# unchanged versus origin/main, only the mutants that are NEW or whose entry CHANGED need to be
+# replayed; the pass on the real index.html is the plain probe gate (it always runs: ship changes
+# index.html). Anything doubtful falls back to the FULL replay.
+SELECTIVE_SELFTESTS = ('home-selftest', 'paper-selftest', 'webull-selftest')   # probes with --only
+FULL_SELFTEST_ENV = 'EDGELOG_FULL_SELFTEST'
+
+
+def _parse_mutants(src):
+    """(dump of the module without its MUTANTS assignment, {name: dump of the entry}) from a
+    probe's source, or None when it cannot be read that way (no / several MUTANTS assignments, a
+    non-literal name, a duplicate name, a syntax error)."""
+    try:
+        tree = ast.parse(src)
+    except (SyntaxError, ValueError):
+        return None
+    found, rest = [], []
+    for node in tree.body:
+        if (isinstance(node, ast.Assign) and len(node.targets) == 1
+                and isinstance(node.targets[0], ast.Name) and node.targets[0].id == 'MUTANTS'):
+            found.append(node)
+        else:
+            rest.append(node)
+    if len(found) != 1 or not isinstance(found[0].value, (ast.List, ast.Tuple)):
+        return None
+    entries = {}
+    for el in found[0].value.elts:
+        if (not isinstance(el, (ast.Tuple, ast.List)) or not el.elts
+                or not isinstance(el.elts[0], ast.Constant) or not isinstance(el.elts[0].value, str)):
+            return None
+        name = el.elts[0].value
+        if name in entries:
+            return None
+        entries[name] = ast.dump(el)
+    return ast.dump(ast.Module(body=rest, type_ignores=[])), entries
+
+
+def selftest_plan(wt, g, old_src=None, new_src=None, other_changed=None):
+    """What gate `g` (a selftest) must replay: ('full', why) or ('only', [names], [removed names]).
+
+    FULL when: not a selective selftest; EDGELOG_FULL_SELFTEST is set; the probe is new on this
+    branch, unreadable, or its MUTANTS cannot be parsed on either side; its non-MUTANTS code
+    changed (the harness itself changed, so every mutant must be re-proven); or any other file the
+    selftest reads (fixtures, cover) changed. old_src / new_src / other_changed are injectable for
+    tests; by default they are read with git (origin/main) and from the worktree."""
+    if g.key not in SELECTIVE_SELFTESTS:
+        return ('full', 'this probe cannot select mutants')
+    if os.environ.get(FULL_SELFTEST_ENV, '').strip() not in ('', '0'):
+        return ('full', '%s is set' % FULL_SELFTEST_ENV)
+    if old_src is None:
+        old_src = run(['git', '-C', wt, 'show', 'origin/main:' + g.script], check=False, quiet=True)
+    if new_src is None:
+        try:
+            with open(os.path.join(wt, *g.script.split('/')), encoding='utf-8') as f:
+                new_src = f.read()
+        except OSError:
+            return ('full', 'the worktree probe is unreadable')
+    if not old_src:
+        return ('full', 'the probe is not on origin/main (new file)')
+    if other_changed is None:
+        others = [f for f in tuple(g.trigger) + tuple(g.cover) if f != g.script]
+        other_changed = bool(others and run(
+            ['git', '-C', wt, 'diff', '--name-only', 'origin/main', '--'] + others,
+            check=False).strip())
+    if other_changed:
+        return ('full', 'a fixture or helper the selftest reads changed')
+    old, new = _parse_mutants(old_src), _parse_mutants(new_src)
+    if old is None or new is None:
+        return ('full', 'MUTANTS could not be parsed')
+    if old[0] != new[0]:
+        return ('full', 'the probe code outside MUTANTS changed (every mutant must be re-proven)')
+    changed = [n for n, d in new[1].items() if old[1].get(n) != d]
+    removed = [n for n in old[1] if n not in new[1]]
+    return ('only', changed, removed)
+
+
 def applicable_gates(wt, root):
     """The gates that apply to the worktree's tree as it stands against origin/main, in order.
 
@@ -792,7 +871,26 @@ def run_gate(wt, root, g):
     the table's own definition, no verdict. So exit 0 with that line counts as INCONCLUSIVE: it
     is never stamped, a selftest's stops the ship, and a fast gate's runs again on the final tree
     under the lock, exactly as an exit-2 would."""
-    r = subprocess.run(gate_command(wt, root, g), cwd=wt, capture_output=True, text=True,
+    cmd = gate_command(wt, root, g)
+    if g.key in SELECTIVE_SELFTESTS:
+        plan = selftest_plan(wt, g)
+        if plan[0] == 'only':
+            if plan[2]:
+                safe_print('WARNING: %s: mutant(s) REMOVED from %s: %s - the gate is weaker by '
+                           'that much (not blocking)' % (g.label, g.script, ', '.join(plan[2])))
+            if not plan[1]:
+                line = ('SELFTEST: PASS -- no mutant is new or changed and the probe harness is '
+                        'unchanged; nothing to replay (%s: set %s=1 to replay all)'
+                        % (g.label, FULL_SELFTEST_ENV))
+                safe_print(line)
+                return line, 0
+            safe_print('%s: replaying only the %d new/changed mutant(s): %s (the harness is '
+                       'unchanged; %s=1 replays all)'
+                       % (g.label, len(plan[1]), ', '.join(plan[1]), FULL_SELFTEST_ENV))
+            cmd = cmd + ['--only', ','.join(plan[1])]
+        else:
+            safe_print('%s: FULL mutant replay (%s)' % (g.label, plan[1]))
+    r = subprocess.run(cmd, cwd=wt, capture_output=True, text=True,
                        encoding='utf-8', errors='replace')
     out = (r.stdout or '') + (r.stderr or '')
     if g.key == 'registry':

@@ -726,6 +726,9 @@ def _env(tmp_path, **extra):
         'FAKE_TOOLS': str(tmp_path / 'shared' / 'tools'),
         'FAKE_OTHER': str(tmp_path / 'other'),
         'FAKE_LAND_COUNT': str(tmp_path / 'land.count'),
+        # these sandbox ships test gate plumbing with a fake probe whose only change is a comment:
+        # force the full replay so the fake selftest still runs (selection has its own tests)
+        'EDGELOG_FULL_SELFTEST': '1',
     })
     for k in ('EDGELOG_SHIP_LOCKED_RERUN_MAX', 'EDGELOG_GATE_PASSED_TREE', 'FAKE_LAND',
               'FAKE_FAIL', 'FAKE_FAIL_LOCKED', 'FAKE_DIRTY', 'FAKE_HOOK_FAIL', 'FAKE_HOOK_LAND',
@@ -1517,3 +1520,87 @@ def test_a_waiter_takes_a_slot_the_moment_the_cap_rises(tmp_path, monkeypatch, c
     wt.release_gate_slot(b)
     wt.release_gate_slot(a)
     assert all(_other_process_sees(p) == 'free' for p in paths)
+
+
+# ============================================ selective mutant replay (MANAGER 2026-10-11)
+_PROBE_V1 = ("import sys\n\ndef main():\n    return 0\n\nMUTANTS = [\n"
+             "    ('a', 'x', 'y', 'why a'),\n    ('b', 'x2', 'y2', 'why b'),\n]\n")
+
+
+def _plan(old, new, key='home-selftest', other_changed=False):
+    return wt.selftest_plan(ROOT, _gate(key), old_src=old, new_src=new, other_changed=other_changed)
+
+
+def test_only_new_and_changed_mutants_are_replayed(monkeypatch):
+    monkeypatch.delenv(wt.FULL_SELFTEST_ENV, raising=False)
+    new = _PROBE_V1.replace("'y2', 'why b'", "'y3', 'why b'").replace(
+        "]\n", "    ('c', 'x3', 'y4', 'why c'),\n]\n")
+    assert _plan(_PROBE_V1, new) == ('only', ['b', 'c'], [])
+    assert _plan(_PROBE_V1, _PROBE_V1) == ('only', [], [])
+    assert _plan(_PROBE_V1, _PROBE_V1, key='paper-selftest')[0] == 'only'
+    assert _plan(_PROBE_V1, _PROBE_V1, key='webull-selftest')[0] == 'only'
+
+
+def test_a_harness_change_replays_everything(monkeypatch):
+    monkeypatch.delenv(wt.FULL_SELFTEST_ENV, raising=False)
+    new = _PROBE_V1.replace("return 0", "return 1")
+    assert _plan(_PROBE_V1, new)[0] == 'full'
+    assert _plan(_PROBE_V1, _PROBE_V1, other_changed=True)[0] == 'full'
+    assert _plan('', _PROBE_V1)[0] == 'full', 'a probe new on this branch'
+
+
+def test_a_probe_that_cannot_be_parsed_replays_everything(monkeypatch):
+    monkeypatch.delenv(wt.FULL_SELFTEST_ENV, raising=False)
+    assert _plan(_PROBE_V1, "def broken(:\n")[0] == 'full'
+    assert _plan("x = 1\n", _PROBE_V1)[0] == 'full', 'no MUTANTS on the old side'
+    dup = _PROBE_V1.replace("('b'", "('a'")
+    assert _plan(_PROBE_V1, dup)[0] == 'full', 'duplicate names are ambiguous'
+
+
+def test_the_env_var_forces_a_full_replay(monkeypatch):
+    monkeypatch.setenv(wt.FULL_SELFTEST_ENV, '1')
+    assert _plan(_PROBE_V1, _PROBE_V1)[0] == 'full'
+    monkeypatch.setenv(wt.FULL_SELFTEST_ENV, '0')
+    assert _plan(_PROBE_V1, _PROBE_V1)[0] == 'only'
+
+
+def test_probes_without_per_mutant_selection_keep_the_full_replay(monkeypatch):
+    monkeypatch.delenv(wt.FULL_SELFTEST_ENV, raising=False)
+    for key in ('report-selftest', 'importtz-selftest'):
+        assert _plan(_PROBE_V1, _PROBE_V1, key=key)[0] == 'full'
+
+
+def test_a_removed_mutant_is_reported_and_ship_warns_without_blocking(monkeypatch, capsys, tmp_path):
+    monkeypatch.delenv(wt.FULL_SELFTEST_ENV, raising=False)
+    new = _PROBE_V1.replace("    ('b', 'x2', 'y2', 'why b'),\n", "")
+    assert _plan(_PROBE_V1, new) == ('only', [], ['b'])
+    g = _gate('home-selftest')
+    monkeypatch.setattr(wt, 'selftest_plan', lambda w, gg: ('only', [], ['b']))
+    monkeypatch.setattr(wt, 'gate_command', lambda w, r, gg: ['never-run'])
+    line, code = wt.run_gate(str(tmp_path), str(tmp_path), g)
+    out = capsys.readouterr().out
+    assert code == 0 and 'WARNING' in out and 'REMOVED' in out and ': b' in out
+    assert line.startswith(g.prefix)
+
+
+def test_ship_passes_only_to_the_probe_for_the_chosen_mutants(monkeypatch, tmp_path):
+    seen = {}
+
+    class R:
+        returncode, stdout, stderr = 0, 'SELFTEST: PASS -- ok\n', ''
+    monkeypatch.setattr(wt.subprocess, 'run', lambda cmd, **kw: seen.update(cmd=cmd) or R())
+    monkeypatch.setattr(wt, 'selftest_plan', lambda w, gg: ('only', ['b', 'c'], []))
+    monkeypatch.setattr(wt, 'gate_command', lambda w, r, gg: ['py', 'probe', '--selftest'])
+    wt.run_gate(str(tmp_path), str(tmp_path), _gate('home-selftest'))
+    assert seen['cmd'][-2:] == ['--only', 'b,c']
+    monkeypatch.setattr(wt, 'selftest_plan', lambda w, gg: ('full', 'why'))
+    wt.run_gate(str(tmp_path), str(tmp_path), _gate('home-selftest'))
+    assert '--only' not in seen['cmd']
+
+
+def test_the_real_probes_parse_for_selection():
+    for key in wt.SELECTIVE_SELFTESTS:
+        g = _gate(key)
+        with open(os.path.join(ROOT, *g.script.split('/')), encoding='utf-8') as f:
+            parsed = wt._parse_mutants(f.read())
+        assert parsed is not None and len(parsed[1]) > 5, key
