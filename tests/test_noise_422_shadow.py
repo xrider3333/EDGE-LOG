@@ -330,7 +330,8 @@ def test_three_variants_size_as_designed_on_one_synthetic_session(tmp_path):
 def test_learned_shadow_leg_with_no_state_scores_one_silently_even_on_a_cloud_live_tick(
         tmp_path, monkeypatch):
     """The first session after deploy, before the keel-state service has built
-    NOISE_422_KEEL: every entry sizes plugin x 1.0 and NO push goes out -- even with
+    NOISE_422_KEEL: every entry sizes plugin x v12's fixed tilts (KEEL FIXED-TILT FALLBACK,
+    2026-10-11 -- plugin x 1.0 before) and NO push goes out -- even with
     EDGELOG_HOST_ROLE=cloud and a FETCHING step (the "shadow": True guard on its own; the
     shadow runner's fetch=False is the other guard, see tests/test_shadow_legs.py)."""
     sent = []
@@ -344,7 +345,10 @@ def test_learned_shadow_leg_with_no_state_scores_one_silently_even_on_a_cloud_li
     assert not os.path.exists(cfg["keel"]["state_path"])
     _seed, events = run_session(home, {"NOISE_422_KEEL": cfg}, fetch=True)
     entries = [e for e in events if e["event"] == "ENTRY"]
-    assert entries and all(e["keel_size"] == 1.0 and e["size"] in (1.0, 1.75) for e in entries)
+    assert entries and all(e["keel_size"] == e["keel_fixed_size"]
+                           and e["keel_branch"] == "fallback-fixed"
+                           and e["size"] in (e["keel_size"], 1.75 * e["keel_size"])
+                           for e in entries)
     assert sent == []
     # ... and the SAME cfg without the shadow flag (a live leg) WOULD have paged: the
     # silence above is the flag's doing, not an accident of the fixture

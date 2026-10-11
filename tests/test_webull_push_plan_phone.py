@@ -699,6 +699,7 @@ def test_one_push_per_missed_night_then_one_at_the_fallback(tmp_path, monkeypatc
     assert len(h.pushes) == 1, "the pre-open gate does not re-push the same missed night"
 
     # Fri 10-09 evening: still not fixed, the model is 5 sessions old -> sizing falls back
+    # (to the fixed tilts only since 2026-10-11 -- KEEL FIXED-TILT FALLBACK)
     friday = et(2026, 10, 9, 19, 5)
     h.set_now(friday)
     h.exec_state(eod_summary_done_date="2026-10-09",
@@ -709,7 +710,7 @@ def test_one_push_per_missed_night_then_one_at_the_fallback(tmp_path, monkeypatc
     assert len(h.pushes) == 2
     p = h.pushes[1]
     assert p["priority"] == "high" and p["title"] == "QQQ book: CHECK NOW"
-    assert "NOISE trades at base size without its sizing model" in p["message"]
+    assert "NOISE trades on the fixed size tilts only, without its sizing model" in p["message"]
     assert "5 sessions old" in p["message"]
     assert ntfy_push.lint(p) == []
 

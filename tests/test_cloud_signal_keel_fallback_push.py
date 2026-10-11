@@ -215,7 +215,8 @@ def test_scoring_exception_at_a_real_entry_pushes_once(tmp_path, monkeypatch):
     assert len(pushed) == 1
     # WEBULL PUSH PLAN 10-07: the plain phone note names the strategy in words; the
     # developer reason stays on the leg's own record (state.json) and in the log
-    assert "NOISE trades at base size without its sizing model" in pushed[0]
+    # KEEL FIXED-TILT FALLBACK (2026-10-11): the entry sized on the fixed tilts alone
+    assert "NOISE trades on the fixed size tilts only, without its sizing model" in pushed[0]
     assert "failed to size a NOISE trade" in pushed[0]
     assert "keel scoring error" in leg_state["keel_alert"]["last_reason"]
 
@@ -314,7 +315,9 @@ def test_step_pushes_when_the_wired_leg_keel_state_is_missing(tmp_path, monkeypa
 
     cs.step(now=now, legs=legs, paths=paths, fetch=True)
     assert pushed, "step() must push once its wired leg's KEEL state is found missing"
-    assert "NOISE trades at base size" in pushed[0] and "could not be read" in pushed[0]
+    # a learned v12 leg falls back to the fixed tilts only (KEEL FIXED-TILT FALLBACK)
+    assert "NOISE trades on the fixed size tilts only" in pushed[0] \
+        and "could not be read" in pushed[0]
 
 
 def test_no_push_on_the_pc_even_with_a_live_fetching_tick(tmp_path, monkeypatch):

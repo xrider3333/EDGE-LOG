@@ -38,9 +38,11 @@ from api/market_calendar):
                      QUIET -- folded into the
                      nq_master note -- when it opens while nq_master is failing.
     keel_fallback:<leg>  that model is KEEL_FALLBACK_SESSIONS (5) or more sessions old: from the
-                     next session the live leg sizes at base size without it (api/cloud_signal
-                     KEEL_MAX_STALE_SESSIONS). HIGH -- the second and last push of a missed-night
-                     run; api/cloud_signal records instead of pushing while this is open.
+                     next session the live leg sizes on v12's fixed tilts only, without it
+                     (api/cloud_signal KEEL_MAX_STALE_SESSIONS and its KEEL FIXED-TILT FALLBACK,
+                     2026-10-11 -- base size before). HIGH -- the second and last push of a
+                     missed-night run; api/cloud_signal records instead of pushing while this
+                     is open.
                      A SHADOW leg's summary (keel_live_state writes leg_live false on it --
                      NOISE_422_KEEL, DIP_424K since 2026-10-09; no orders, ever; and any summary
                      whose leg key, the name before "_v", is in api/cloud_signal.SHADOW_LEGS --
@@ -48,7 +50,8 @@ from api/market_calendar):
                      unflagged one stays a shadow's) gets both checks
                      too, but always QUIET and MEDIUM, worded "shadow leg, no orders": tracked in
                      status.json and relayed to the PC inboxes, never pushed -- its stale model
-                     changes would-be trades only (at the fallback age they size at 1.0). It
+                     changes would-be trades only (at the fallback age they size on the fixed
+                     tilts only). It
                      never gates the pre-open check either (MANAGER #108).
   SESSION (09:30 to the close, 13:00 on half days)
     engine_hb        cloud_signal heartbeat over 3 min old or ok=false, lot or no lot -- #5.
@@ -1179,13 +1182,14 @@ def check_evening(snap, now_et, mstate=None):
             quiet=fold and not ok))
         out.append(_verdict(
             f"keel_fallback:{leg}", "evening", ok or not old_enough, HIGH,
-            f"KEEL TOO OLD ({leg}): sizing falls back to 1.0",
+            f"KEEL TOO OLD ({leg}): sizing falls back to the fixed tilts",
             f"trained through {through or 'unknown'}, expected {want} -- past "
             f"api/cloud_signal's KEEL_MAX_STALE_SESSIONS from the next session on: the live "
-            f"leg sizes at 1.0 (no model) until it is rebuilt.",
+            f"leg sizes on v12's fixed tilts only (no model) until it is rebuilt.",
             plain=_plain("The KEEL sizing model is %s sessions old, too old to use from the "
                          "next session." % (behind if behind is not None else "too many"),
-                         affects=f"{w} trades at base size without its sizing model",
+                         affects=f"{w} trades on the fixed size tilts only, without its sizing "
+                                 f"model",
                          priority="high")))
     return out
 
@@ -1208,9 +1212,9 @@ def _shadow_keel_verdicts(leg, through, want, behind, ok, old_enough, w):
                  f"KEEL TOO OLD ({leg}): shadow leg, no orders",
                  f"trained through {through or 'unknown'}, expected {want} -- past "
                  f"api/cloud_signal's KEEL_MAX_STALE_SESSIONS: shadow leg, no orders: its "
-                 f"would-be trades size at 1.0 until it is rebuilt.",
+                 f"would-be trades size on the fixed tilts only until it is rebuilt.",
                  plain=_plain("The %s shadow leg's KEEL model is %s sessions old (shadow leg, no "
-                              "orders: its would-be trades size at 1.0)."
+                              "orders: its would-be trades size on the fixed tilts only)."
                               % (w, behind if behind is not None else "too many"), priority="low"),
                  quiet=True),
     ]
@@ -1531,7 +1535,8 @@ def preopen_checks(snap, now_et, ev):
     for leg, through in sorted(live_keel.items()):
         if want and (not through or str(through) < want.isoformat()):
             # WEBULL PUSH PLAN 10-07: a model 1-4 sessions old still sizes (default); only
-            # at the fallback age (api/cloud_signal sizes at 1.0) is trading affected (high)
+            # at the fallback age (api/cloud_signal sizes on the fixed tilts only) is trading
+            # affected (high)
             behind = _keel_behind(through, want)
             fallback = behind is not None and behind >= KEEL_FALLBACK_SESSIONS
             miss("keel:" + leg, f"KEEL {leg} trained through {through}, expected {want}",

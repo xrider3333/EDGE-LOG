@@ -471,7 +471,10 @@ def test_stream_scoring_never_pushes_the_keel_fallback(tmp_path, monkeypatch):
                  arrays=diff_arrays, log=_quiet)
     # WEBULL PUSH PLAN 10-07: the plain note on the phone, the reason on the leg's record
     assert len(pushed) == 1 and "KEEL sizing model could not be read" in pushed[0]
-    assert base["keel_alert"]["last_reason"] == "keel state unavailable"
+    # no "version" on this block, so no fixed tilts to fall back to: 1.0 (KEEL FIXED-TILT
+    # FALLBACK says so in the reason)
+    assert base["keel_alert"]["last_reason"].startswith(
+        "keel state unavailable; the fixed tilts could not be scored either")
 
 
 # ── follow-up 2: first bar of the day vs the not-yet-refreshed daily cache ────────────────

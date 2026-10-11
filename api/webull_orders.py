@@ -1228,6 +1228,23 @@ class OrderAdapter:
     def _believed_total_shares(self):
         return sum(abs(p.get("qty", 0)) for p in (self._state.get("believed_positions") or {}).values())
 
+    def total_position_room(self):
+        """(room, believed_total, cap): how many shares an OPEN can still take before
+        _check_rails refuses it as "projected total position ... exceeds
+        max_total_position_shares" -- the same cap (rails, else DEFAULT_RAILS) and the same
+        believed total that check adds the OPEN's qty to. None when no total cap is set or
+        the book cannot be read. Read-only, never raises. api/qqq_exec.py's _open_lot clamps a
+        non-DIP lot to `room` (TOTAL CAP CLAMP, 2026-10-11) -- the refusal stays the last guard."""
+        try:
+            rails = self.cfg.get("rails") or DEFAULT_RAILS
+            cap = int(rails.get("max_total_position_shares", 0) or 0)
+            if cap <= 0:
+                return None
+            held = int(round(float(self._believed_total_shares())))
+            return cap - held, held, cap
+        except Exception:
+            return None
+
     def _check_rails(self, leg, qty, intent, remainder=False):
         rails = self.cfg.get("rails") or DEFAULT_RAILS
         # CLOSE (flattening) is checked FIRST and unconditionally passes -- a halted

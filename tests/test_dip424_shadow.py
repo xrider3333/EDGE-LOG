@@ -1005,19 +1005,24 @@ def test_keel_scores_the_0930_bar_once_for_every_slot_and_the_exit_reuses_it(tmp
     assert len(x1) == 1 and x1[0]["size"] == ent[0]["size"] and x1[0]["keel_size"] == ent[0]["keel_size"]
 
 
-def test_keel_with_no_state_sizes_one_and_never_pushes(tmp_path, monkeypatch):
+def test_keel_with_no_state_sizes_the_fixed_tilts_and_never_pushes(tmp_path, monkeypatch):
+    """No KEEL state: a learned v12 leg sizes on v12's fixed tilts alone (KEEL FIXED-TILT
+    FALLBACK, 2026-10-11 -- 1.0 before), branch "fallback-fixed"; a shadow leg never pages."""
     sent = []
     monkeypatch.setattr(cs, "_keel_ntfy_push", lambda msg, title, log=print, **k: sent.append(msg))
     monkeypatch.setattr(cs, "_is_cloud_host", lambda: True)
     paths, legs, _seed, by_day = _crash_run(tmp_path)
     assert not os.path.exists(legs["DIP_424K"]["keel"]["state_path"])
     ent = [e for e in by_day[D_ENTRY] if e["leg"] == "DIP_424K"]
-    assert len(ent) == 7 and all(e["keel_size"] == 1.0 and e["size"] == 1.0 for e in ent)
-    assert all(e["keel_branch"] == "fallback-1.0" for e in ent)
+    assert len(ent) == 7 and all(e["keel_size"] == e["keel_fixed_size"] == e["size"] for e in ent)
+    assert all(e["keel_branch"] == "fallback-fixed" for e in ent)
     assert sent == []
     a = five_arrays(paths, at(D_ENTRY, 9, 35, 5))
     bar = [i for i, ts in enumerate(a["index"]) if ts.isoformat() == ent[0]["ref_time"]][0]
-    assert cs._keel_size_for_entry(legs["DIP_424K"]["keel"], a, bar, ent[0]["ref_time"]) ==         (1.0, "keel state unavailable")
+    ks, why = cs._keel_size_for_entry(legs["DIP_424K"]["keel"], a, bar, ent[0]["ref_time"])
+    assert ks == ent[0]["keel_size"] == cs._keel_fixed_size_for_entry(
+        {"version": "v12", "mode": "fixed"}, a, bar)[0]
+    assert why.startswith("keel state unavailable; fell back to the fixed tilts only")
     assert cs._push_allowed(legs["DIP_424K"], True) is False, "a shadow leg never pages"
 
 

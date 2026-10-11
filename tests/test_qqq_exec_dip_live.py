@@ -1115,3 +1115,95 @@ def test_the_status_doc_carries_families_and_dip_s_rail(env, monkeypatch):
     assert doc["signals_day"][-1]["by_leg"]["DIP"]["taken"] == 2
     assert qe._publish_fingerprint(doc)["dip_rail"] == r["dip_rail"]
     json.dumps(doc, allow_nan=False)
+
+
+# ── TOTAL CAP CLAMP (2026-10-11, MANAGER #96 -- KEEL_LIVE_VS_BACKTEST item 7) ──────────────────
+# With DIP's up to 42 held shares, a big KEEL-sized NOISE (or ORB) entry used to be REFUSED by
+# the adapter's gross cap (85). The executor now clamps a non-DIP lot to the room left; a DIP
+# lot is never clamped (refused whole by the adapter, as before).
+
+def noise_entry(day, hh, mm, side, px, size):
+    ref = _ref(day, hh, mm)
+    return {"leg": "NOISE_382", "event": "ENTRY", "side": side, "ref_time": ref, "ref_price": px,
+            "bar_source": "webull", "trade_id": T.make("NOISE_382", ref, side), "size": str(size),
+            "keel_size": "2.25", "reason": ""}
+
+
+def _dip_and_orb_held(e):
+    """DIP's seven lots (42) and ORB's 10, all long: the Webull book holds 52 of 85."""
+    e.enter_dip(SLOTS, DAY, 700.0)
+    e.tick(at(DAY, 10, 5, 5), events=[orb_entry(DAY, 10, 0, "long", 700.0)])
+    assert e.fake.pos == 52 and e.adapter.total_position_room() == (33, 52, 85)
+
+
+def test_a_noise_entry_past_the_total_cap_is_clamped_to_the_room_left_not_refused(env):
+    e = env
+    _dip_and_orb_held(e)
+    start = len(e.fake.sent)
+    e.tick(at(DAY, 10, 35, 5), events=[noise_entry(DAY, 10, 30, "long", 700.0, 4.5)])
+    lot = e.lot("NOISE")
+    assert (lot["shares_total"], lot["shares_wanted"], lot["size"]) == (33, 45, 4.5)
+    assert e.sent(start) == [("BUY", 33)], "85 - 52 = 33, never a refused order"
+    assert e.fake.pos == 85 and e.books()["NOISE"] == 33
+    (row,) = [o for o in e.orders() if o["leg"] == "NOISE"]
+    assert (row["shares"], row["shares_wanted"], row["reason"]) == ("33", "45", "signal entry")
+    (ev,) = [x for x in e.state["events"] if x["kind"] == "size_clamped"]
+    assert "NOISE entry wanted 45 shares, clamped to the total cap: 33 sent" in ev["text"]
+    (b,) = [r for r in e.broker_rows() if r["leg"] == "NOISE"]
+    assert (b["intent"], b["shares"], b["outcome"]) == ("OPEN", "33", "OK")
+    assert qe._build_signals_day(e.state)[0]["by_leg"]["NOISE"]["taken"] == 1
+
+
+def test_a_noise_entry_with_no_room_left_is_refused_with_the_event(env):
+    e = env
+    _dip_and_orb_held(e)
+    e.adapter.cfg["rails"]["max_total_position_shares"] = 52
+    start = len(e.fake.sent)
+    e.tick(at(DAY, 10, 35, 5), events=[noise_entry(DAY, 10, 30, "long", 700.0, 4.5)])
+    assert "NOISE" not in e.state["legs"] and e.sent(start) == []
+    (row,) = [o for o in e.orders() if o["leg"] == "NOISE"]
+    assert row["reason"] == "REFUSED total cap: Webull book holds 52 of max_total_position_shares 52"
+    (ev,) = [x for x in e.state["events"] if x["kind"] == "total_cap"]
+    assert "NOISE entry not taken" in ev["text"] and "52" in ev["text"]
+    assert qe._build_signals_day(e.state)[0]["by_leg"]["NOISE"]["refused"] == 1
+
+
+def test_a_dip_lot_is_never_clamped_the_adapter_refuses_it_whole(env):
+    e = env
+    e.adapter.cfg["rails"]["max_total_position_shares"] = 40     # room for six lots and 4 shares
+    e.enter_dip(SLOTS, DAY, 700.0)
+    assert all(e.lot(leg)["shares_total"] == e.lot(leg)["shares_wanted"] == 6 for leg in DIP)
+    assert e.sent() == [("BUY", 6)] * 6 and e.fake.pos == 36, "never a 4-share DIP lot"
+    (b,) = [r for r in e.broker_rows() if r["leg"] == "DIP_GAPDN"]
+    assert "projected total position 42 exceeds max_total_position_shares 40" in b["reason"]
+    assert not [x for x in e.state["events"] if x["kind"] in ("size_clamped", "total_cap")]
+
+
+def test_an_off_adapter_means_no_clamp_as_before(env, monkeypatch):
+    e = env
+    off = WO.OrderAdapter(config=dict(json.loads(json.dumps(e.wo_cfg)), mode="OFF"), log=NOOP)
+    off._state["believed_positions"] = {"DIP_RSI": {"symbol": "QQQ", "qty": 80}}
+    monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: off)
+    assert off.total_position_room() == (5, 80, 85) and qe._broker_total_room(log=NOOP) is None
+    e.tick(at(DAY, 10, 35, 5), events=[noise_entry(DAY, 10, 30, "long", 700.0, 4.5)])
+    lot = e.lot("NOISE")
+    assert (lot["shares_total"], lot["shares_wanted"]) == (45, 45)
+    assert not [x for x in e.state["events"] if x["kind"] in ("size_clamped", "total_cap")]
+
+
+def test_an_unreadable_adapter_means_no_clamp_and_no_cap_set_nothing_to_clamp_to(env, monkeypatch):
+    e = env
+    _dip_and_orb_held(e)
+    e.adapter.cfg["rails"]["max_total_position_shares"] = 0
+    assert e.adapter.total_position_room() is None and qe._broker_total_room(log=NOOP) is None
+    e.adapter.cfg["rails"]["max_total_position_shares"] = 85
+
+    def broken(log=print):
+        raise RuntimeError("adapter state unreadable")
+    monkeypatch.setattr(qe, "_get_broker_adapter", broken)
+    lines = []
+    assert qe._broker_total_room(log=lines.append) is None
+    assert lines and "no clamp; the adapter's own rail still guards" in lines[0]
+    e.tick(at(DAY, 10, 35, 5), events=[noise_entry(DAY, 10, 30, "long", 700.0, 4.5)])
+    lot = e.lot("NOISE")
+    assert (lot["shares_total"], lot["shares_wanted"]) == (45, 45)

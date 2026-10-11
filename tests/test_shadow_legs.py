@@ -366,7 +366,9 @@ def test_no_push_from_shadow_legs_even_with_keel_state_missing_on_a_cloud_host(t
                                      shadow_legs=shadow, live_paths=paths, log=QUIET)
     assert seen_fetch and set(seen_fetch) == {False}, "the shadow step never fetches"
     keel_entries = [e for e in events if e["leg"] == "NOISE_422_KEEL" and e["event"] == "ENTRY"]
-    assert keel_entries and all(e["keel_size"] == 1.0 for e in keel_entries)
+    # KEEL FIXED-TILT FALLBACK (2026-10-11): no state -> v12's fixed tilts alone (was 1.0)
+    assert keel_entries and all(e["keel_size"] == e["keel_fixed_size"]
+                                and e["keel_branch"] == "fallback-fixed" for e in keel_entries)
     assert sent == []
     st = json.load(open(cs.shadow_paths(paths)["state_path"], encoding="utf-8"))
     assert "keel_alerts" not in st and not any("keel_alert" in v for v in st["legs"].values())

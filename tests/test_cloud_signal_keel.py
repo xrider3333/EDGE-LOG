@@ -8,7 +8,8 @@ COVERS:
   2. KEEL is scored EXACTLY ONCE per trade, at ENTRY, and the EXIT reuses that same
      value -- never recomputed.
   3. Every failure path (missing state, unreadable state, feature-column mismatch, a
-     stale state, a scoring exception) falls back to keel_size 1.0 -- logged, never
+     stale state, a scoring exception) falls back -- to v12's fixed tilts alone since
+     2026-10-11 (KEEL FIXED-TILT FALLBACK; 1.0 on these Tuesday bars) -- logged, never
      raised, never blocking the trade.
   4. The cold-start SEED path never calls the KEEL scorer at all.
   5. signals.csv's "keel_size" column: blank for a non-KEEL leg and for SEED rows, a
@@ -246,7 +247,7 @@ def test_missing_state_file_falls_back_to_1_0(tmp_path):
     size, reason = cs._keel_size_for_entry(keel_cfg, arrays, 10, arrays["index"][10],
                                           log=logged.append)
     assert size == 1.0
-    assert reason == "keel state unavailable"
+    assert reason.startswith("keel state unavailable; fell back to the fixed tilts only")
 
 
 def test_corrupt_state_file_falls_back_to_1_0_and_logs(tmp_path):
@@ -258,7 +259,7 @@ def test_corrupt_state_file_falls_back_to_1_0_and_logs(tmp_path):
     size, reason = cs._keel_size_for_entry(keel_cfg, arrays, 10, arrays["index"][10],
                                           log=logged.append)
     assert size == 1.0
-    assert reason == "keel state unavailable"
+    assert reason.startswith("keel state unavailable; fell back to the fixed tilts only")
     assert logged and "unreadable" in logged[0]
 
 
@@ -270,7 +271,7 @@ def test_feature_column_mismatch_falls_back_to_1_0(tmp_path):
     keel_cfg = _write_state(tmp_path, state)
     size, reason = cs._keel_size_for_entry(keel_cfg, arrays, 10, arrays["index"][10])
     assert size == 1.0
-    assert reason == "keel feature columns do not match the state"
+    assert reason.startswith("keel feature columns do not match the state; fell back to the fixed tilts only")
 
 
 def test_stale_state_falls_back_to_1_0(tmp_path):

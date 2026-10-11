@@ -334,10 +334,13 @@ DIP_LIVE_MAX_ENTRY_AGE_SEC = 25 * 60
 # backtest like the validation." See augur_engine/ml_keel.py's keel_build_state /
 # keel_score_from_state (the build-once/score-many split this overlay is built on) and
 # tools/keel_live_state.py (the nightly job that writes the files keel_paths() below
-# names). AN OVERLAY, NEVER A GATE: every failure path in _keel_size_for_entry returns
-# keel_size 1.0 (unsized -- exactly today's un-overlaid behaviour), logged, never raised
-# -- see that function's own docstring. KEEL_MAX_STALE_SESSIONS caps how many trading
-# sessions a state may lag "now" before it is treated as unavailable rather than trusted.
+# names). AN OVERLAY, NEVER A GATE: every failure path in _keel_size_for_entry returns a
+# safe size, logged, never raised -- a LEARNED leg whose model cannot be used sizes on v12's
+# fixed tilts alone (KEEL FIXED-TILT FALLBACK, 2026-10-11 -- see the block above
+# _load_keel_state), and only an entry that cannot score even those sizes 1.0 (unsized,
+# exactly the un-overlaid behaviour) -- see that function's own docstring.
+# KEEL_MAX_STALE_SESSIONS caps how many trading sessions a state may lag "now" before it is
+# treated as unavailable rather than trusted.
 KEEL_MAX_STALE_SESSIONS = 5
 
 # FOUR SHAPES OF A LEG'S "keel" KEY (2026-09-27, docs/PREREG_keel_422_parts_2026-09-27.md
@@ -357,7 +360,8 @@ KEEL_MAX_STALE_SESSIONS = 5
 # A learned block may also carry "train" (DIP_424K: the params / cost_pts / date_from its NQ
 # training run uses -- read by tools/keel_live_state.py only; nothing in this module reads it).
 # Any other "mode" is a configuration error: every entry sizes 1.0 and the fallback push says
-# so (see _keel_size_for_entry / _keel_fallback_reason), same as a broken learned state.
+# so (see _keel_size_for_entry / _keel_fallback_reason). A broken LEARNED state sizes on the
+# fixed tilts instead (KEEL FIXED-TILT FALLBACK, above _load_keel_state).
 KEEL_MODE_LEARNED = "learned"
 KEEL_MODE_FIXED = "fixed"
 KEEL_MODE_CONST = "const"
@@ -2147,7 +2151,7 @@ _KEEL_STATE_CACHE = {}   # state_path -> (mtime, state, summary-or-None)
 # KEEL FALLBACK PUSH (deadman/deadman_keel_guard, 2026-09-26). How many trading sessions
 # a KEEL state may lag "now" (by data_through/last_nq_session) before this module NOTES it
 # (_keel_fallback_reason) -- DELIBERATELY TIGHTER than KEEL_MAX_STALE_SESSIONS above (which
-# governs when the SIZING itself gives up and falls back to 1.0).
+# governs when the SIZING itself gives up on the model and falls back to the fixed tilts only).
 # WEBULL PUSH PLAN 10-07 (MANAGER #86, section 2): the phone used to hear "KEEL fell back to
 # 1.0" from 2 stale sessions on, while sizing only falls back past KEEL_MAX_STALE_SESSIONS --
 # a false title most of the time (box proof: NOISE_382 pushed 10-05 at 4 stale sessions).
@@ -2155,6 +2159,60 @@ _KEEL_STATE_CACHE = {}   # state_path -> (mtime, state, summary-or-None)
 # state["keel_alerts"] only (the box monitor tools/webull_freshness.py owns "KEEL not
 # rebuilt"); the phone hears only a REAL fallback (_keel_fallback_is_real).
 KEEL_PUSH_STALE_SESSIONS = 1
+
+# KEEL FIXED-TILT FALLBACK (2026-10-11, owner via MANAGER #96 -- KEEL_LIVE_VS_BACKTEST item 4).
+# The backtest that adopted KEEL v12 on NOISE #382 (run #382's Auto-Validate KEEL row) never
+# falls back: every trade gets v12's fixed tilts (Friday 1.5x, 60-minute squeeze 1.5x, cap 3.0,
+# FOMC pre-statement 0.5x) and the learned part on top once the model has trust. A LEARNED leg
+# whose model cannot be used here -- state missing/unreadable, more than KEEL_MAX_STALE_SESSIONS
+# stale, a feature-column mismatch, a non-finite size, a scoring exception, no state_path -- used
+# to size 1.0, which dropped the fixed tilts too although they need no state. It now sizes on the
+# fixed tilts ALONE (_keel_learned_fallback: _keel_fixed_size_for_entry on the same arrays and
+# entry bar, the block's own version). It is still a FALLBACK: the reason string comes back
+# instead of a diag dict, "<why>; fell back to the fixed tilts only (1.5x)", so the scoring-time
+# push, the log line and keel_branch ("fallback-fixed") all report it; the phone note says the
+# leg trades on the fixed size tilts only. Only when the fixed tilts cannot be scored either
+# (an unsupported version, a bad entry bar, an error) does the entry size 1.0, as before.
+# Nothing else changes: a SEED never scores, mode const / fixed are untouched, and the trust rule
+# is left exactly as it is (trust 0 = fixed tilts only is the backtest's own answer today).
+KEEL_FIXED_FALLBACK_NOTE = "fell back to the fixed tilts only"
+KEEL_BRANCH_FALLBACK_FIXED = "fallback-fixed"     # keel_branch of an entry sized that way
+_KEEL_FIXED_FALLBACK_TAG = "; " + KEEL_FIXED_FALLBACK_NOTE
+_KEEL_FIXED_FAILED_TAG = "; the fixed tilts could not be scored either"
+
+
+def _keel_learned_fallback(keel_cfg, arrays, entry_bar, why, log=print, feats=None):
+    """(size, reason) for a LEARNED leg whose model could not size this entry (`why`): v12's
+    fixed tilts alone at `entry_bar` of `arrays` (_keel_fixed_size_for_entry with the block's
+    own "version"), reason "<why>; fell back to the fixed tilts only (<size>x)" -- or (1.0,
+    "<why>; the fixed tilts could not be scored either (<their reason>) -- sized 1.0") when
+    they cannot be. Always a reason STRING, never a diag dict: it is a fallback. Never raises."""
+    try:
+        size, fdiag = _keel_fixed_size_for_entry(
+            {"version": (keel_cfg or {}).get("version"), "mode": KEEL_MODE_FIXED},
+            arrays, entry_bar, log=log, feats=feats)
+        if isinstance(fdiag, dict):
+            return float(size), f"{why}{_KEEL_FIXED_FALLBACK_TAG} ({float(size):g}x)"
+        failed = fdiag
+    except Exception as e:
+        failed = f"keel fixed tilts error: {type(e).__name__}: {e}"
+    return 1.0, f"{why}{_KEEL_FIXED_FAILED_TAG} ({failed}) -- sized 1.0"
+
+
+def _keel_fell_back_to_fixed(reason):
+    """True when a KEEL reason string says the entry was sized on the fixed tilts only."""
+    return isinstance(reason, str) and _KEEL_FIXED_FALLBACK_TAG in reason
+
+
+def _keel_fallback_cause(reason):
+    """The cause part of a KEEL fallback reason -- what went wrong, without the fixed-tilt
+    suffix _keel_learned_fallback / _maybe_push_keel_fallback add."""
+    s = str(reason or "")
+    for tag in (_KEEL_FIXED_FALLBACK_TAG, _KEEL_FIXED_FAILED_TAG):
+        i = s.find(tag)
+        if i >= 0:
+            s = s[:i]
+    return s
 
 
 def _load_keel_state(state_path, summary_path, log=print):
@@ -2164,7 +2222,7 @@ def _load_keel_state(state_path, summary_path, log=print):
     Returns (state, summary) -- summary may be None even when state loads fine (its
     file missing/unreadable is not fatal, only staleness reporting degrades). NEVER
     raises: every failure returns (None, None), which _keel_size_for_entry turns into
-    the safe keel_size 1.0 fallback."""
+    its fixed-tilt fallback (KEEL FIXED-TILT FALLBACK above)."""
     try:
         mtime = os.path.getmtime(state_path)
     except OSError:
@@ -2196,24 +2254,27 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
     `entry_bar`, and scores it against the nightly-built NQ state -- see
     augur_engine.ml_keel.keel_score_from_state.
 
-    ALWAYS returns a finite float > 0 as its first element -- 1.0 (unsized, i.e.
-    "behave exactly like no overlay") on ANY failure: the state file missing or
-    unreadable, feature columns that do not match what the state was built on, more
-    than KEEL_MAX_STALE_SESSIONS trading sessions between the state's last trained NQ
-    session and this entry's own session, or an exception anywhere in the scoring
-    call. Every failure is logged with a short reason (the second return value) and
-    NEVER raised -- KEEL is an OVERLAY, not a gate, so a broken overlay must never
-    block or delay the trade it would have merely resized. The second return value is
-    a short human-readable reason string on any fallback, or a diagnostics dict
+    ALWAYS returns a finite float > 0 as its first element. On ANY failure of the model --
+    the state file missing or unreadable, feature columns that do not match what the state
+    was built on, more than KEEL_MAX_STALE_SESSIONS trading sessions between the state's last
+    trained NQ session and this entry's own session, a non-finite/non-positive size, or an
+    exception anywhere in the scoring call -- it is v12's FIXED TILTS ALONE at this entry bar
+    (KEEL FIXED-TILT FALLBACK, above _load_keel_state; the backtest never drops them), and
+    1.0 (unsized) only when even those cannot be scored. Every failure is logged with a
+    short reason (the second return value) and NEVER raised -- KEEL is an OVERLAY, not a
+    gate, so a broken overlay must never block or delay the trade it would have merely
+    resized. The second return value is a short human-readable reason string on any
+    fallback ("<why>; fell back to the fixed tilts only (1.5x)"), or a diagnostics dict
     (z/trust/rho/t_fast) on a real score -- for logging only.
 
     A mode="fixed" block (see FOUR SHAPES above keel_paths) never reaches the state
     file: _keel_fixed_size_for_entry scores it, under the same contract. A mode="const"
     block is its one size (_keel_const_size), whatever the entry bar. An unknown mode
-    is a configuration error -> 1.0 with its reason, like any other fallback. So is a
-    learned block with no "state_path" (dict(version="v12") alone, or a misspelt "mode"
-    KEY, both read as learned): _diff_leg and step()'s per-leg loop have no try of their
-    own, so a KeyError here would stop every leg's tick, not just this entry's KEEL.
+    is a configuration error -> 1.0 with its reason. A learned block with no "state_path"
+    (dict(version="v12") alone, or a misspelt "mode" KEY, both read as learned) is a learned
+    fallback like any other (the fixed tilts, with its reason): _diff_leg and step()'s
+    per-leg loop have no try of their own, so a KeyError here would stop every leg's tick,
+    not just this entry's KEEL.
 
     `scratch` (a dict, optional -- _diff_leg passes one): on a learned leg whose feature
     columns match the state, receives "feats" (the keel_features (F, names) just computed
@@ -2232,10 +2293,13 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
         return 1.0, f"unknown keel mode {mode!r}"
     state_path = keel_cfg.get("state_path")
     if not state_path:
-        return 1.0, "keel config has no state_path"
+        return _keel_learned_fallback(keel_cfg, arrays, entry_bar,
+                                      "keel config has no state_path", log=log)
     state, summary = _load_keel_state(state_path, keel_cfg.get("summary_path", ""), log=log)
     if state is None:
-        return 1.0, "keel state unavailable"
+        return _keel_learned_fallback(keel_cfg, arrays, entry_bar, "keel state unavailable",
+                                      log=log)
+    feats = None
     try:
         # ITEM D (2026-09-25): staleness must be counted from the DATA, not the last
         # trade. "last_nq_session" (ml_keel.py's own field) is the date of the last NQ
@@ -2243,7 +2307,7 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
         # trade at all, that date stops advancing even though tools/keel_live_state.py
         # keeps rebuilding on fully current data every night, which would eventually
         # (after KEEL_MAX_STALE_SESSIONS quiet sessions) trip this guard and fall back
-        # to size 1.0 for no real reason. "data_through" (the ET date of the last BAR
+        # to the fixed tilts for no real reason. "data_through" (the ET date of the last BAR
         # actually used -- see tools/keel_live_state.py's build()) tracks the data
         # itself, so prefer it; fall back to last_nq_session for a summary written
         # before this field existed.
@@ -2255,11 +2319,16 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
             sessions = market_calendar.sessions_between(last_session, entered.date().isoformat())
             n_stale = max(0, len(sessions) - 1)
             if n_stale > KEEL_MAX_STALE_SESSIONS:
-                return 1.0, (f"keel state stale: {n_stale} session(s) since {last_session}")
+                return _keel_learned_fallback(
+                    keel_cfg, arrays, entry_bar,
+                    f"keel state stale: {n_stale} session(s) since {last_session}", log=log)
         from augur_engine import ml_keel as _keel
         F, names = _keel.keel_features(arrays)
+        feats = (F, names)
         if list(names) != list(state.get("feature_names") or []):
-            return 1.0, "keel feature columns do not match the state"
+            return _keel_learned_fallback(keel_cfg, arrays, entry_bar,
+                                          "keel feature columns do not match the state",
+                                          log=log, feats=feats)
         if isinstance(scratch, dict):
             scratch["feats"] = (F, names)
             scratch["rule_cfg"] = state.get("cfg") or _keel.CFG.get(state.get("version"))
@@ -2267,11 +2336,16 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
         size, diag = _keel.keel_score_from_state(state, arrays, row, x_row=F[row:row + 1],
                                                  cross_series=True)
         if not math.isfinite(size) or size <= 0:
-            return 1.0, f"keel scoring returned a non-finite/non-positive size ({size!r})"
+            return _keel_learned_fallback(
+                keel_cfg, arrays, entry_bar,
+                f"keel scoring returned a non-finite/non-positive size ({size!r})", log=log,
+                feats=feats)
         return float(size), diag
     except Exception as e:
         log(f"[cloud-signal] KEEL scoring failed: {type(e).__name__}: {e}")
-        return 1.0, f"keel scoring error: {type(e).__name__}: {e}"
+        return _keel_learned_fallback(keel_cfg, arrays, entry_bar,
+                                      f"keel scoring error: {type(e).__name__}: {e}", log=log,
+                                      feats=feats)
 
 
 def _keel_const_size(keel_cfg):
@@ -2383,7 +2457,8 @@ def _keel_entry_extras(keel_cfg, arrays, entry_bar, diag, log=print, feats=None,
                        rule_cfg=None):
     """The KEEL ENTRY EXTRAS columns (KEEL_EXTRA_COLS) for ONE entry on a LEARNED KEEL leg
     -- see the block above. `diag` is what _keel_size_for_entry returned beside keel_size
-    for this same entry (a dict on a real score, a reason string on its 1.0 fallback). The
+    for this same entry (a dict on a real score, a reason string on a fallback: branch
+    "fallback-fixed" when that fallback sized on the fixed tilts, else "fallback-1.0"). The
     fixed-tilt size reuses _keel_fixed_size_for_entry on the SAME `arrays` and `entry_bar`
     (for a decide-at-close probe: the probe arrays and its stand-in S1, exactly what the
     NOISE_422_FIXED shadow leg scores). All blank for any other leg, when the switch is off,
@@ -2399,9 +2474,12 @@ def _keel_entry_extras(keel_cfg, arrays, entry_bar, diag, log=print, feats=None,
         return out
     try:
         from augur_engine import ml_keel as _keel
-        # a fallback score (diag not a dict) is "fallback-1.0" without reading cfg -- skip
-        # the state load on the entry path in exactly that degraded case
-        if not isinstance(diag, dict):
+        # a fallback score (diag not a dict) is "fallback-fixed" (KEEL FIXED-TILT FALLBACK:
+        # sized on the fixed tilts) or "fallback-1.0" without reading cfg -- skip the state
+        # load on the entry path in exactly that degraded case
+        if _keel_fell_back_to_fixed(diag):
+            out["keel_branch"] = KEEL_BRANCH_FALLBACK_FIXED
+        elif not isinstance(diag, dict):
             out["keel_branch"] = _keel.keel_branch(diag, None)
         else:
             out["keel_branch"] = _keel.keel_branch(
@@ -2543,9 +2621,9 @@ def _note_keel_entries(events, legs, paths, fetch, log=print, push=None):
     change an order. Never raises.
 
     `push`: the sender (default _engine_push, synchronous); the stream commit passes
-    _engine_push_background. A "fallback-1.0" difference (KEEL could not score, so it sized
-    1.0) is RECORDED for the inbox relay but not pushed: the KEEL fallback alert already
-    paged that cause at high priority."""
+    _engine_push_background. A fallback difference ("fallback-1.0" / "fallback-fixed": KEEL
+    could not score) is RECORDED for the inbox relay but not pushed: the KEEL fallback alert
+    already paged that cause at high priority."""
     for e in events or []:
         try:
             if e.get("event") != "ENTRY" or e.get("keel_size") in ("", None) \
@@ -2573,9 +2651,10 @@ def _note_keel_entries(events, legs, paths, fetch, log=print, push=None):
             new = _record_keel_diff(paths, rec, log=log)
             if new is False:
                 continue
-            if rec["branch"] == "fallback-1.0":
-                log(f"[cloud-signal] KEEL size diff on {rec['leg']} {when} is the 1.0 fallback "
-                    f"-- recorded, no second push (the KEEL fallback alert covers it)")
+            if str(rec["branch"]).startswith("fallback"):
+                log(f"[cloud-signal] KEEL size diff on {rec['leg']} {when} is a KEEL fallback "
+                    f"({rec['branch']}) -- recorded, no second push (the KEEL fallback alert "
+                    f"covers it)")
                 continue
             from api import ntfy_push
             # PLAIN PHONE FORMAT (api/ntfy_push.plain/dedupe): owner's clock, no codes, ONE
@@ -2592,9 +2671,10 @@ def _note_keel_entries(events, legs, paths, fetch, log=print, push=None):
 
 
 def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
-    """Would KEEL fall back to keel_size 1.0 right now, and if so why -- a STANDALONE
-    freshness read, independent of any actual trade entry. _keel_size_for_entry above
-    only ever runs at the moment a NEW entry is about to be emitted, which on a quiet
+    """Would KEEL fall back right now (a learned leg: to the fixed tilts only), and if so
+    why -- a STANDALONE freshness read, independent of any actual trade entry.
+    _keel_size_for_entry above only ever runs at the moment a NEW entry is about to be
+    emitted, which on a quiet
     leg can be hours or days away; a broken/stale KEEL state should not have to wait
     for a trade to be noticed (deadman/deadman_keel_guard, 2026-09-26).
 
@@ -2602,7 +2682,7 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
     staleness by data_through/last_nq_session against KEEL_PUSH_STALE_SESSIONS (tighter
     than KEEL_MAX_STALE_SESSIONS -- see that constant's own comment), and -- only when
     `arrays` is given -- the feature-column match _keel_size_for_entry also checks. A
-    feature-column mismatch is a REAL fallback to 1.0, so it wins over a stale reason
+    feature-column mismatch is a REAL fallback, so it wins over a stale reason
     (10-08 review: a model 2-5 sessions old with a mismatch used to read as stale-only,
     so this step-time check stayed silent on a real fallback). `arrays` is optional because this is called
     every tick a leg's bars actually advance (see step()), and the two array-free
@@ -2732,10 +2812,11 @@ def _keel_stale_sessions(reason):
 
 
 def _keel_fallback_is_real(reason):
-    """True when `reason` means sizing REALLY falls back to 1.0 (WEBULL PUSH PLAN 10-07): the
-    state missing or unreadable, a feature mismatch, a scoring or check error, an unknown
-    mode -- or a stale state past KEEL_MAX_STALE_SESSIONS, the exact bound
-    _keel_size_for_entry uses. A stale state within it still sizes on the model: False."""
+    """True when `reason` means sizing REALLY falls back (WEBULL PUSH PLAN 10-07) -- a learned
+    leg to the fixed tilts only (KEEL FIXED-TILT FALLBACK), anything else to 1.0: the state
+    missing or unreadable, a feature mismatch, a scoring or check error, an unknown mode --
+    or a stale state past KEEL_MAX_STALE_SESSIONS, the exact bound _keel_size_for_entry uses.
+    A stale state within it still sizes on the model: False."""
     if not reason:
         return False
     n = _keel_stale_sessions(reason)
@@ -2749,11 +2830,12 @@ def _keel_leg_word(leg_key):
 
 def _keel_fallback_note(leg_key, reason):
     """The plain phone note for a REAL KEEL fallback (api/ntfy_push.plain): high -- the
-    leg's trades are sized at base size without their model."""
+    leg's trades are sized without their model: on the fixed size tilts only when `reason`
+    says so (KEEL FIXED-TILT FALLBACK -- a learned leg), else at base size."""
     from api import ntfy_push
     w = _keel_leg_word(leg_key)
     n = _keel_stale_sessions(reason)
-    r = str(reason or "")
+    r = _keel_fallback_cause(reason)
     if n is not None:
         problem = f"The KEEL sizing model is {n} trading sessions old, too old to use"
     elif "feature columns" in r:
@@ -2768,8 +2850,10 @@ def _keel_fallback_note(leg_key, reason):
         problem = "The KEEL sizing model check failed on the cloud box"
     else:
         problem = "The KEEL sizing model could not be read on the cloud box"
-    return ntfy_push.plain("QQQ book", "CHECK NOW",
-                           f"{w} trades at base size without its sizing model", problem,
+    affects = (f"{w} trades on the fixed size tilts only, without its sizing model"
+               if _keel_fell_back_to_fixed(reason)
+               else f"{w} trades at base size without its sizing model")
+    return ntfy_push.plain("QQQ book", "CHECK NOW", affects, problem,
                            "ask Claude (PAPER-WB chat)", priority="high")
 
 
@@ -2823,7 +2907,9 @@ def _keel_fallback_push_once(leg_key, reason, today, stamps, log=print):
 
 def _maybe_push_keel_fallback(leg_key, keel_cfg, now, state, arrays=None, log=print):
     """Tells the owner, ONCE PER (ET calendar) DAY, when `leg_key`'s KEEL overlay REALLY
-    falls back to keel_size 1.0 -- WEBULL PUSH PLAN 10-07: the state missing/unreadable, a
+    falls back (a learned v12 leg: to the fixed tilts only -- the pushed reason then carries
+    "; fell back to the fixed tilts only", KEEL FIXED-TILT FALLBACK; else to keel_size 1.0)
+    -- WEBULL PUSH PLAN 10-07: the state missing/unreadable, a
     feature-column mismatch, an exception in the check itself, or a state stale PAST
     KEEL_MAX_STALE_SESSIONS (_keel_fallback_is_real). A stale state within that bound
     (KEEL_PUSH_STALE_SESSIONS < n <= KEEL_MAX_STALE_SESSIONS) still sizes on the model: it
@@ -2850,6 +2936,12 @@ def _maybe_push_keel_fallback(leg_key, keel_cfg, now, state, arrays=None, log=pr
                     f"(falls back only past {KEEL_MAX_STALE_SESSIONS}); no push, the box "
                     f"monitor owns it")
             return
+        if (keel_mode(keel_cfg) == KEEL_MODE_LEARNED
+                and keel_cfg.get("version") in KEEL_FIXED_VERSIONS
+                and not _keel_fell_back_to_fixed(reason)):
+            # KEEL FIXED-TILT FALLBACK: a learned v12 leg's entries size on the fixed tilts
+            reason = f"{reason}{_KEEL_FIXED_FALLBACK_TAG}"
+            rec["last_reason"] = reason
         leg_alert = ((state.get("legs") or {}).get(leg_key) or {}).get("keel_alert")
         stamps = [rec] + ([leg_alert] if isinstance(leg_alert, dict) else [])
         _keel_fallback_push_once(leg_key, reason, today, stamps, log=log)
@@ -3143,10 +3235,10 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # multiplier ALONE (this leg's "size" column above is plugin_size x this
               # value), for the trade drawer's breakdown display and for telling apart
               # "no keel overlay on this leg" (blank) from "keel ran and stood down at
-              # 1.0" or "keel failed safe to 1.0" (a real 1.0, logged -- see
-              # _keel_size_for_entry) -- both real numbers, never blank. Blank on SEED
-              # rows, on every non-KEEL leg's rows, and on any row written before this
-              # column existed.
+              # 1.0" or "keel failed safe" (the fixed tilts alone, or 1.0 when even those
+              # cannot score -- logged, see _keel_size_for_entry) -- both real numbers,
+              # never blank. Blank on SEED rows, on every non-KEEL leg's rows, and on any
+              # row written before this column existed.
               "keel_size",
               # appended, never inserted (2026-09-29, resting ORB stops) -- the engine's own
               # cent-rounded levels (see RESTING LEVELS above _leg_accepts_return_levels),
@@ -3194,8 +3286,10 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # ENTRY row of a LEARNED KEEL leg only (NOISE_382 live, NOISE_422_KEEL shadow):
               # keel_branch = which branch of the KEEL rule set the model part
               # (augur_engine.ml_keel.keel_branch: trust / shade / fixed-only /
-              # fallback-1.0); keel_fixed_size = what v12's fixed tilts ALONE would size
-              # the same entry bar (_keel_fixed_size_for_entry, the NOISE_422_FIXED rule);
+              # fallback-1.0; "fallback-fixed" = the model failed and the entry sized on the
+              # fixed tilts alone, KEEL FIXED-TILT FALLBACK); keel_fixed_size = what v12's
+              # fixed tilts ALONE would size the same entry bar (_keel_fixed_size_for_entry,
+              # the NOISE_422_FIXED rule);
               # keel_t_fast / keel_trust / keel_score = the score's own diag (fast ledger,
               # trust after the fast cut, z). LOGGING ONLY: computed after keel_size, never
               # read to size or send anything (see KEEL ENTRY EXTRAS). Blank on every other
@@ -4117,7 +4211,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 # Never for a shadow leg (cfg["shadow"] -- see _push_allowed).
                 # WEBULL PUSH PLAN 10-07: the plain note through api/ntfy_push, at most once a
                 # day per leg across this push and step()'s (_keel_fallback_push_once) -- every
-                # reason here is a REAL fallback (this trade was just sized at 1.0).
+                # reason here is a REAL fallback (this trade was just sized without the model:
+                # on the fixed tilts only -- KEEL FIXED-TILT FALLBACK -- or at 1.0).
                 if isinstance(_diag, str) and _push_allowed(cfg, fetch):
                     alert = leg_state.setdefault("keel_alert", {})
                     _keel_fallback_push_once(leg_key, _diag, today, [alert], log=log)

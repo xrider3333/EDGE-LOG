@@ -8206,6 +8206,38 @@ def _sized_shares(base_shares, size):
     return max(1, int(round(base_shares * size)))
 
 
+# TOTAL CAP CLAMP (2026-10-11, owner via MANAGER #96 -- item 7 of Custom ML's
+# C:\EdgeLog\manager\KEEL_LIVE_VS_BACKTEST_2026-10-11.md). The Webull adapter REFUSES an OPEN
+# whose projected gross total (its believed book + the order) passes
+# rails.max_total_position_shares (85 in code; the box config may name its own). With DIP's up
+# to 42 held shares a big KEEL-sized NOISE entry (or an ORB one) would be refused OUTRIGHT, while
+# the backtest that adopted KEEL sizes every trade. So _open_lot CLAMPS a non-DIP lot to the room
+# left under that cap -- the same cap and believed total the adapter checks, read from this
+# process's own adapter (_broker_total_room) -- at least 1 share; with no room (< 1) the entry is
+# refused as before, with a "total_cap" event. Wanted vs sent is recorded like the per-leg clamp
+# (lot["shares_wanted"], orders.csv shares_wanted, a "size_clamped" event naming "clamped to the
+# total cap"). A DIP lot is NEVER clamped (fixed 6 shares, its own 42 cap; the adapter refuses
+# it whole, as before). The adapter OFF, no cap set, or the book unreadable: no clamp (as
+# before). The adapter's own refusal stays the last guard.
+def _broker_total_room(log=print):
+    """(room, believed_total, cap) under the Webull adapter's gross cap (OrderAdapter.
+    total_position_room) while it is PAPER or LIVE; None when it is OFF, has no cap, or cannot
+    be read -- the caller then does not clamp. Never raises."""
+    try:
+        adapter = _get_broker_adapter(log=log)
+        mode, _why = adapter.effective_mode()
+        if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            return None
+        room = adapter.total_position_room()
+        if not room:
+            return None
+        return int(room[0]), int(room[1]), int(room[2])
+    except Exception as e:
+        log(f"[qqq-exec] the Webull total cap could not be read ({type(e).__name__}: {e}) -- "
+            f"no clamp; the adapter's own rail still guards")
+        return None
+
+
 def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print,
               sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None, size=None,
               keel_size=None, nowdt=None, decided_at_ref=False):
@@ -8235,7 +8267,11 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
 
     `size` (2026-09-23): the per-trade multiplier an engine ENTRY signal may carry --
     see _resolve_entry_size/_sized_shares just above. Never given by a NinjaTrader-
-    mirrored fill (`f` set): fills.csv has no size column, and _route_fills passes none."""
+    mirrored fill (`f` set): fills.csv has no size column, and _route_fills passes none.
+
+    TOTAL CAP CLAMP (2026-10-11, see the block above _broker_total_room): a non-DIP lot is
+    clamped to the room left under the Webull adapter's gross cap (refused only with no room
+    at all); shares_wanted keeps what the signal wanted."""
     max_shares = int(cfg.get("max_shares_per_leg", 0) or 0)
     size_mode = str(cfg.get("size_mode") or "fixed").strip().lower()
     instrument = (f.get("instrument") if f else "") or ""
@@ -8299,6 +8335,30 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
 
     if shares <= 0:
         return False
+
+    if not is_dip_leg(leg):
+        # TOTAL CAP CLAMP (2026-10-11) -- see the block above _broker_total_room. Never a DIP lot.
+        total = _broker_total_room(log=log)
+        if total is not None and shares > total[0]:
+            room, held, cap = total
+            if room < 1:
+                why = (f"REFUSED total cap: Webull book holds {held} of "
+                       f"max_total_position_shares {cap}")
+                _record_order(leg, "ENTER", side, shares, nq_px, None, None, why, log,
+                              fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source,
+                              decided_at_ref=decided_at_ref)
+                _log_event(state, "total_cap",
+                           f"{leg} entry not taken: the Webull book already holds {held} shares, "
+                           f"the total cap of {cap} leaves no room for its {shares}", log=log)
+                return False
+            log(f"[qqq-exec] {leg} entry wanted {wanted_shares} shares, {shares} after the per-leg "
+                f"rail, clamped to the total cap: {room} ({cap} max_total_position_shares - "
+                f"{held} held)")
+            _log_event(state, "size_clamped",
+                       f"{leg} entry wanted {wanted_shares} shares, clamped to the total cap: "
+                       f"{room} sent (the Webull book holds {held} of its {cap}-share total cap)",
+                       log=log)
+            shares = room
 
     if is_dip_leg(leg):
         # DIP TOTAL CAP (OWNER GO 2026-10-10): every open DIP lot's shares together stay within

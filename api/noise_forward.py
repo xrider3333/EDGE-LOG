@@ -318,12 +318,15 @@ def keel_meta(keel_cfg):
     return out
 
 
-def keel_fallback(keel_cfg, entry_time, keel_size, arrays=None):
-    """Why a learned KEEL leg's `keel_size` at this entry was the 1.0 FALLBACK
+def keel_fallback(keel_cfg, entry_time, keel_size, arrays=None, fixed_size=None):
+    """Why a learned KEEL leg's `keel_size` at this entry was a FALLBACK
     (cloud_signal._keel_size_for_entry) rather than a model score; "" when it scored.
 
-    A fallback is always exactly 1.0, so any other keel_size is a real score and nothing is
-    checked. At 1.0 (a real score can be 1.0 too -- zero trust) the leg's own checks are
+    A fallback is v12's fixed tilts alone at the entry bar (cloud_signal's KEEL FIXED-TILT
+    FALLBACK, 2026-10-11), or 1.0 when even those could not be scored -- so a keel_size equal
+    to neither 1.0 nor `fixed_size` (the fixed tilts at this entry, when the caller has them)
+    is a real score and nothing is checked. Otherwise (a real score can equal them too -- zero
+    trust sizes on the fixed tilts alone) the leg's own checks are
     replayed without ever loading a state file: the config, the state file on disk, the
     summary's data_through more than KEEL_MAX_STALE_SESSIONS sessions before the entry's
     session, the state having been loaded in THIS process (the leg loaded it moments ago;
@@ -332,7 +335,10 @@ def keel_fallback(keel_cfg, entry_time, keel_size, arrays=None):
     block, a blank keel_size and a mode="fixed" block (no state, nothing to fall back
     from). Never raises: a failing check is its own reason."""
     ks = _f(keel_size)
-    if not keel_cfg or ks is None or ks != 1.0:
+    if not keel_cfg or ks is None:
+        return ""
+    fx = _f(fixed_size)
+    if ks != 1.0 and not _close(ks, fx):
         return ""
     try:
         from api import cloud_signal as cs
@@ -470,6 +476,7 @@ def _row(row_type, sid, primary, arms, bars, ctx, now):
     problems = []
 
     m = {a: None for a in ARMS}
+    tilt = None              # v12's fixed tilts at this entry -- a KEEL fallback's own size
     arrays, eb, why = decision_arrays(bars(), ref_time, ctx["warmup"])
     if arrays is None:
         notes.append(f"flags unavailable: {why}")
@@ -487,7 +494,8 @@ def _row(row_type, sid, primary, arms, bars, ctx, now):
         size, ks = _f(primary.get("size")), _f(primary.get("keel_size"))
         m["382keel"] = size
         r["keel382_size"] = _num(ks)
-        r["keel382_fallback"] = keel_fallback(ctx.get("keel382_cfg"), ref_time, ks, arrays)
+        r["keel382_fallback"] = keel_fallback(ctx.get("keel382_cfg"), ref_time, ks, arrays,
+                                              fixed_size=tilt)
         leg_plain = (size / ks) if (size is not None and ks) else size
         r["leg_m_382plain"] = _num(leg_plain)
         if m["382plain"] is not None and not _close(m["382plain"], leg_plain):
@@ -507,7 +515,8 @@ def _row(row_type, sid, primary, arms, bars, ctx, now):
         size, ks = _f(arms[KEEL_LEG].get("size")), _f(arms[KEEL_LEG].get("keel_size"))
         m["422keel"] = size
         r["keel422_size"] = _num(ks)
-        r["keel422_fallback"] = keel_fallback(ctx.get("keel422_cfg"), ref_time, ks, arrays)
+        r["keel422_fallback"] = keel_fallback(ctx.get("keel422_cfg"), ref_time, ks, arrays,
+                                              fixed_size=tilt)
         plugin = (size / ks) if (size is not None and ks) else size
         if m["422plain"] is not None and not _close(m["422plain"], plugin):
             problems.append(f"{KEEL_LEG} plugin size {plugin} vs m_422plain {m['422plain']:g}")

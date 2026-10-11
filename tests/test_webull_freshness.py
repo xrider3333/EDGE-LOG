@@ -1689,8 +1689,8 @@ def test_a_shadow_legs_stale_keel_is_tracked_quietly_never_pushed(tmp_path):
 
 
 def test_a_shadow_legs_fallback_age_is_quiet_too(tmp_path):
-    """Five sessions old: the would-be trades size at 1.0 -- said in the status text, never
-    paged (a live leg at this age is the HIGH 'CHECK NOW')."""
+    """Five sessions old: the would-be trades size on the fixed tilts only -- said in the
+    status text, never paged (a live leg at this age is the HIGH 'CHECK NOW')."""
     h = Home(tmp_path, et(2026, 10, 9, 19, 5))
     h.bars(h.now)
     h.keel(through="2026-10-09")
@@ -1699,7 +1699,8 @@ def test_a_shadow_legs_fallback_age_is_quiet_too(tmp_path):
     assert {"keel:DIP_424K_v12", "keel_fallback:DIP_424K_v12"} <= failing(out)
     fb = out["status"]["verdicts"]["keel_fallback:DIP_424K_v12"]
     assert fb["severity"] == wf.MEDIUM
-    assert "shadow leg, no orders: its would-be trades size at 1.0" in fb["detail"]
+    assert ("shadow leg, no orders: its would-be trades size on the fixed tilts only"
+            in fb["detail"])
     opened = {r["key"]: r for r in out["opened"]}
     assert opened["keel_fallback:DIP_424K_v12"]["quiet"] is True
     assert "5 sessions old" in opened["keel_fallback:DIP_424K_v12"]["plain"]["problem"]

@@ -239,20 +239,23 @@ def test_bad_fixed_config_or_unknown_mode_falls_back_and_pushes(monkeypatch):
 def test_hand_typed_near_misses_fall_back_and_never_raise(monkeypatch):
     """The go-day operation is typing ONE line by hand, so its likeliest slips: a keel dict
     with no mode and no paths (reads as learned, has no state file), a misspelt "mode"
-    KEY (same), and a keel value that is not a dict at all. Each sizes 1.0 with a reason,
-    reports the same reason to the push check, and _diff_leg still emits the ENTRY --
-    never a KeyError out of step(), which would stop every leg's tick."""
+    KEY (same), and a keel value that is not a dict at all. Each falls back with a reason
+    (the two learned ones to v12's fixed tilts since 2026-10-11 -- KEEL FIXED-TILT FALLBACK;
+    the non-dict to 1.0), reports the same cause to the push check, and _diff_leg still emits
+    the ENTRY -- never a KeyError out of step(), which would stop every leg's tick."""
     sent = []
     monkeypatch.setattr(cs, "_keel_ntfy_push", lambda msg, title, log=print: sent.append(msg))
     monkeypatch.setattr(cs, "_is_cloud_host", lambda: True)
     A = T422._arrays_through(T422._DAYS[-1])
     bar = len(A["close"]) - 10
     now = pd.Timestamp(A["index"][bar]).to_pydatetime() + pd.Timedelta(minutes=5)
-    for bad, why in ((dict(version="v12"), "keel config has no state_path"),
-                     (dict(version="v12", mod="fixed"), "keel config has no state_path"),
-                     (True, "unknown keel mode '?'")):
+    fixed = cs._keel_fixed_size_for_entry(FIXED, A, bar)[0]
+    for bad, why, want in ((dict(version="v12"), "keel config has no state_path", fixed),
+                           (dict(version="v12", mod="fixed"), "keel config has no state_path",
+                            fixed),
+                           (True, "unknown keel mode '?'", 1.0)):
         ks, diag = cs._keel_size_for_entry(bad, A, bar, now.isoformat())
-        assert (ks, diag) == (1.0, why)
+        assert ks == want and diag.startswith(why)
         assert cs._keel_fallback_reason(bad, now) == why
         ev = cs._diff_leg("NOISE_422", [_one_new_entry(A, bar)], {"seeded": True, "trades": {}},
                           now, max_entry_age_sec=900, cfg={"keel": bad}, arrays=A, fetch=True,
@@ -261,9 +264,9 @@ def test_hand_typed_near_misses_fall_back_and_never_raise(monkeypatch):
         ev_sh = cs._diff_leg("NOISE_422", [_one_new_entry(A, bar)], {"seeded": True, "trades": {}},
                              now, max_entry_age_sec=900, cfg={"keel": bad, "shadow": True},
                              arrays=A, fetch=True, log=lambda *a, **k: None)
-        assert ev_sh[0]["keel_size"] == 1.0
+        assert ev_sh[0]["keel_size"] == want
         assert [e["event"] for e in ev] == ["ENTRY"]
-        assert ev[0]["keel_size"] == 1.0 and ev[0]["size"] == 1.75
+        assert ev[0]["keel_size"] == want and ev[0]["size"] == 1.75 * want
     # WEBULL PUSH PLAN 10-07: the plain note (the reason itself is on the leg's record)
     assert len(sent) == 3 and all("KEEL sizing setting on the cloud box is not valid" in m
                                   for m in sent)
