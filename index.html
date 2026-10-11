@@ -1286,7 +1286,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1205';
+const VERSION='73.1206';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1304,7 +1304,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.']},
+const CHANGELOG=[{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
 {v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL, SIMPLE table: SETUP, TF and the chart link now sit side by side in one spot on every trade row, so a trade is tagged without switching to FULL. Paste a TradingView snapshot link into the row box and it saves at once (no Enter), with a short saved tick; on a phone the three sit on a second line of the row.','LEDGER > REAL, FULL table: the rows show NET (after fees), the same number SIMPLE and the hero use; GROSS is gone from the row and sits in the hover title of the net figure, FEES stays.']},
 {v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL: the snapshot-link paste box is back on show at the top of the trade list, right under its buttons, on a laptop and a phone (no fold to open). Paste a TradingView snapshot link and it files at once; what it did (UNDO, MOVE) or the FILE ON / HOLD question shows right under the box.']},
 {v:'73.1186',date:'2026-10-09',notes:['ROLL CHECK (owner ask 10-08: the roll defect must not recur; MANAGER #31). Since ORB’s roll guard, every run the PC runner saves carries a roll stamp: the price series it ran on, where its roll dates come from, the contract switches in its window, the trades held across one and their money, any pure roll step booked, and the money made on switch sessions. A run whose stamp says its prices may not follow the true contract roll table - a stale adjusted price file, a wrong label, a market with no roll table, a level-reading file on an adjusted price file, the guard’s refusals waived, or a roll step counted as profit or loss - now carries a ROLL CHECK tag wherever VOID and ROLL tags show. A report, not a void: it changes no ranking.','Run report: a ROLLS chip in the ROBUSTNESS rail for every run with a stamp (true roll table, no contract rolls, true roll table · raw signals, or check) opens the whole stamp in plain words, including the raw-versus-adjusted check (the same file re-run on raw prices, trade by trade). Runs saved before the guard carry no stamp and show no chip; the 22 old roll-detector runs keep their ROLL tag.','Probes: a new RUNBOARD case and a new run-report case, each failing on the build before this one.']},
@@ -16332,10 +16332,10 @@ function renderApp(){
   // which one was open so the PAPER TRADE button returns to it.
   if(activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper')){try{localStorage.setItem('el_paperSub',augurSub);}catch(e){}}
   // TABS-NAV COLLAPSE (2026-09-26): LIBRARY and REFERENCE are now inner toggles inside BUILDER
-  // and RESEARCH, the same PAPER TRADE pattern just above - remember which one was open so the
-  // BUILDER / RESEARCH strip button returns to it (see the [data-asubtop] handler below).
+  // and RESEARCH, the same PAPER TRADE pattern just above - remember whether LIBRARY was open so
+  // the BUILDER strip button returns to it (see the [data-asubtop] handler below). RESEARCH no
+  // longer remembers REFERENCE (owner 2026-10-11): it always opens on RESEARCH, where ML RESEARCH is.
   if(activeTab==='augur'&&(augurSub==='exec2'||augurSub==='lib')){try{localStorage.setItem('el_builderSub',augurSub);}catch(e){}}
-  if(activeTab==='augur'&&(augurSub==='research'||augurSub==='ref')){try{localStorage.setItem('el_researchSub',augurSub);}catch(e){}}
   // ONE ROW OF TABS: remember which HOME subtab (REAL / NT8 PAPER / WEBULL PAPER) was open so the
   // HOME button returns to it.
   {const _hs=activeTab==='home'?'real':((activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper'))?augurSub:'');
@@ -16489,17 +16489,17 @@ function renderApp(){
   wrap.querySelectorAll('[data-master]').forEach(b=>{b.onclick=()=>{const m=b.dataset.master;if(m==='backtester'){activeTab='augur';if(!ASUBS.some(s=>s[0]===augurSub)&&augurSub!=='qqqpaper'&&augurSub!=='lib'&&augurSub!=='ref')augurSub='lib';}else{if(activeTab==='augur'){activeTab=_liveLogTab(window._lastLogTab||'home');if(activeTab==='overview'&&!window.LOG_OVERVIEW_ESCAPE_HATCH)activeTab='home';}}renderApp();};});
   wrap.querySelectorAll('[data-tab]').forEach(b=>{b.onclick=()=>{activeTab=b.dataset.tab;window._lastLogTab=b.dataset.tab;renderApp();};});
   // HOME returns to whichever of its subtabs was open last (el_homeSub, written at the top of
-  // renderApp) - the same way BUILDER / RESEARCH return to LIBRARY / REFERENCE.
+  // renderApp) - the same way BUILDER returns to LIBRARY.
   wrap.querySelectorAll('[data-hometab]').forEach(b=>{b.onclick=()=>{let _hs='';try{_hs=localStorage.getItem('el_homeSub')||'';}catch(e){}
     if(_hs==='paper2'||_hs==='qqqpaper'){activeTab='augur';augurSub=_hs;}else{activeTab='home';window._lastLogTab='home';}renderApp();};});
-  // TABS-NAV COLLAPSE: BUILDER and RESEARCH restore their last inner toggle (LIBRARY / REFERENCE)
-  // the same way PAPER TRADE restores NT8 FUTURES vs WEBULL QQQ, just above. Not under ?oldtabs=1:
-  // there LIBRARY and REFERENCE have their own strip buttons and the inner toggle rows are not
-  // drawn, so BUILDER and RESEARCH must always open exactly themselves.
+  // TABS-NAV COLLAPSE: BUILDER restores its last inner toggle (LIBRARY) the same way PAPER TRADE
+  // restores NT8 FUTURES vs WEBULL QQQ, just above. Not under ?oldtabs=1: there LIBRARY has its own
+  // strip button and the inner toggle row is not drawn, so BUILDER must always open exactly itself.
+  // RESEARCH always opens on its RESEARCH toggle (owner 2026-10-11, MANAGER): the ML RESEARCH
+  // section lives there, and REFERENCE stays one click away on the inner toggle.
   wrap.querySelectorAll('[data-asubtop]').forEach(b=>{b.onclick=()=>{activeTab='augur';augurSub=b.dataset.asubtop;
     if(augurSub==='paper2'){let _lp='';try{_lp=localStorage.getItem('el_paperSub')||'';}catch(e){}if(_lp==='qqqpaper')augurSub='qqqpaper';}
     else if(!_oldStrip&&augurSub==='exec2'){let _lb='';try{_lb=localStorage.getItem('el_builderSub')||'';}catch(e){}if(_lb==='lib')augurSub='lib';}
-    else if(!_oldStrip&&augurSub==='research'){let _lr='';try{_lr=localStorage.getItem('el_researchSub')||'';}catch(e){}if(_lr==='ref')augurSub='ref';}
     augurRunSel=null;augurLibSel=null;augurLibDel=false;augurLibMsg='';renderApp();};});
   // STUDIES split toggle. APREF is not built yet at this point in renderApp, so it writes
   //   augurPrefs directly - the same way the toggle above it reads them - and re-renders.

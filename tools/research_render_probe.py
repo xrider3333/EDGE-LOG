@@ -15,14 +15,17 @@ sub-tab strip from another tab - and checks what renders, on a laptop and on a p
 WHAT IT DOES
 ------------
 Serves the repo over loopback, loads index.html in an iframe (the iframe IS the viewport), keeps the
-signed-out screen off the page, parks the app on RESULTS, clears the remembered RESEARCH / REFERENCE
-toggle and clicks the RESEARCH strip button. Cases: laptop 1400x900, phone 375x812, phone 375x812 in
-the MONO theme (the owner's theme: --green is white, --red is grey).
+signed-out screen off the page, opens REFERENCE (so it is the last inner toggle used, and sets the
+el_researchSub key an older build remembered it by), parks the app on RESULTS and clicks the RESEARCH
+strip button. Cases: laptop 1400x900, phone 375x812, phone 375x812 in the MONO theme (the owner's
+theme: --green is white, --red is grey).
 
 WHAT IT ASSERTS (per case)
 --------------------------
   * renderApp returned; no window.onerror, no console.error, no load error and no LOAD ERROR overlay
-  * the strip has a visible RESEARCH button and a click on it lands on augurSub='research'
+  * the strip has a visible RESEARCH button and a click on it lands on augurSub='research' even
+    though REFERENCE was the last toggle used (owner 2026-10-11: RESEARCH always opens on RESEARCH)
+  * REFERENCE stays one click away: the inner toggle's REFERENCE button lands on augurSub='ref'
   * #ml-research is on the page, OPEN with no click (not inside a closed <details>, has height) and
     its top is inside the first screen
   * it draws one [data-mlrow] per ML_RESEARCH_ROWS entry, and at least 10
@@ -99,7 +102,10 @@ PROBE_HTML = """<!DOCTYPE html>
         console.error=function(){window._rsProbeErr.push('console.error: '+Array.prototype.slice.call(arguments).join(' '));ce.apply(console,arguments);};
         currentUser=currentUser||{uid:'probe-uid'};
         __THEME__
-        try{localStorage.removeItem('el_researchSub');}catch(e){}
+        // the worst start: REFERENCE was the last inner toggle used (opened for real, and the key an
+        // older build remembered it by set too), then the owner went to RESULTS
+        activeTab='augur';augurSub='ref';renderApp();
+        try{localStorage.setItem('el_researchSub','ref');}catch(e){}
         activeTab='augur';augurSub='runs';renderApp();
         var b=document.querySelector('[data-asubtop="research"]');
         if(!b)return 'NO RESEARCH BUTTON';
@@ -142,6 +148,18 @@ PROBE_HTML = """<!DOCTYPE html>
       out.scrollW=de.scrollWidth;out.clientW=de.clientWidth;
       out.loadErr=w.eval("(window._rsLoadErr||[]).join(' | ')+(window.loadError?' loadError='+String(window.loadError):'')");
       out.overlay=[].slice.call(d.body.children).filter(function(e){return /^\\s*LOAD ERROR/.test(e.textContent||'');}).length;
+      // REFERENCE stays one click away on the inner toggle (measured last: it redraws the page)
+      out.refClick=w.eval(`(function(){try{
+        var r=document.querySelector('[data-researchsub="ref"]');
+        if(!r)return {ok:false,why:'no REFERENCE toggle'};
+        r.click();
+        var o={ok:true,augurSub:augurSub,mlGone:!document.getElementById('ml-research')};
+        // and back, so the page (and the screenshot) ends on RESEARCH with the ML section
+        var b=document.querySelector('[data-researchsub="research"]');
+        if(b)b.click();
+        o.backSub=augurSub;o.mlBack=!!document.getElementById('ml-research');
+        return o;
+      }catch(e){return {ok:false,why:String(e&&e.stack?e.stack:e)};}})()`);
       out.errs=w.eval('window._rsProbeErr||[]');
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='RSPROBE: '+JSON.stringify(out);
@@ -204,7 +222,12 @@ def judge(nm, r):
     if not r.get('btnVisible'):
         f.append('%s: the RESEARCH strip button is missing or hidden' % nm)
     if r.get('augurSub') != 'research':
-        f.append('%s: a click on RESEARCH left augurSub=%r' % (nm, r.get('augurSub')))
+        f.append('%s: a click on RESEARCH (last toggle REFERENCE) left augurSub=%r, expected research'
+                 % (nm, r.get('augurSub')))
+    rc = r.get('refClick') or {}
+    if not (rc.get('ok') and rc.get('augurSub') == 'ref' and rc.get('mlGone')
+            and rc.get('backSub') == 'research' and rc.get('mlBack')):
+        f.append('%s: REFERENCE is not one click away on the inner toggle: %r' % (nm, rc))
     if r.get('errs'):
         f.append('%s: errors on the page: %s' % (nm, r['errs'][:5]))
     if r.get('loadErr'):
@@ -275,7 +298,8 @@ def main():
         for x in fails:
             print('  - ' + x)
         return 1
-    print('RSPROBE: PASS (RESEARCH opens on a click from another tab; ML RESEARCH open, >= 10 rows, '
+    print('RSPROBE: PASS (RESEARCH opens on RESEARCH from another tab even with REFERENCE last used; '
+          'REFERENCE one click away; ML RESEARCH open, >= 10 rows, '
           'laptop 1400 + phone 375 + MONO 375, no sideways scroll, no console error)')
     return 0
 
