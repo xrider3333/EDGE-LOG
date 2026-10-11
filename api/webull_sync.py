@@ -390,6 +390,39 @@ def reconcile(fills, keys, log=print):
             "positions": brk, "checked_at": time.time()}
 
 
+def drift_text(recon):
+    """The one plain ASCII line for a reconcile drift: 'QQQ Webull 6 vs journal 0; ...'.
+    ASCII on purpose (MANAGER #128, 2026-10-11): the PC runner's console is cp1252, and a
+    warning-sign glyph in this line raised UnicodeEncodeError on every cycle -- the reconcile
+    itself had run, but the runner logged 'reconcile failed' and the drift was never shown."""
+    parts = []
+    for m in (recon or {}).get("mismatches") or []:
+        parts.append(f"{m.get('symbol')} Webull {m.get('broker', 0.0):g} vs journal "
+                     f"{m.get('log', 0.0):g}")
+    return "; ".join(parts) or "no detail"
+
+
+def reconcile_and_log(fills, keys, log=print):
+    """reconcile() plus its log line; the result (or None) for meta/webull_sync. A failure to
+    READ positions logs 'reconcile failed'; a drift logs 'WARNING reconcile drift: ...' -- and
+    a log callable that cannot print a character can never turn a finished reconcile into a
+    'failed' one (the result is kept). Never raises."""
+    try:
+        recon = reconcile(fills, keys, log=log)
+    except Exception as e:
+        try:
+            log(f"  [webull] reconcile failed: {type(e).__name__}: {e}")
+        except Exception:
+            pass
+        return None
+    if recon and not recon["ok"]:
+        try:
+            log(f"  [webull] WARNING reconcile drift: {drift_text(recon)}")
+        except Exception:
+            pass
+    return recon
+
+
 # ── FIFO pairing (stock math) ──────────────────────────────────────
 
 def build_trades(fills):
@@ -530,7 +563,7 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
     try:
         import webull  # noqa: F401 — presence check only
     except ImportError:
-        log("  [webull] SDK missing — pip install --upgrade webull-openapi-python-sdk")
+        log("  [webull] SDK missing - pip install --upgrade webull-openapi-python-sdk")
         return {"skipped": "sdk-missing"}
 
     from firebase_admin import firestore
@@ -551,7 +584,7 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
         msg = f"{type(e).__name__}: {e}"
         u = msg.upper()
         reauth = ("TOKEN" in u) or ("NORMAL" in u) or ("VERIF" in u) or ("INIT_TOKEN" in u)
-        log(f"  [webull] pull failed{' — token needs re-approval in the Webull app' if reauth else ''}: {msg}")
+        log(f"  [webull] pull failed{' - token needs re-approval in the Webull app' if reauth else ''}: {msg}")
         # back off ~30 min so we don't re-block the runner every loop; surface for the UI
         state["fail_until"] = time.time() + 1800
         try:
@@ -610,13 +643,7 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
         log(f"  [webull] balance fetch failed: {type(e).__name__}: {e}")
 
     # reconcile: broker live positions vs the fills-implied positions (independent check).
-    recon = None
-    try:
-        recon = reconcile(fills, keys, log=log)
-        if recon and not recon["ok"]:
-            log(f"  [webull] ⚠ reconcile drift: {recon['mismatches']}")
-    except Exception as e:
-        log(f"  [webull] reconcile failed: {type(e).__name__}: {e}")
+    recon = reconcile_and_log(fills, keys, log=log)
 
     # status doc for the web UI (mirrors meta/nt_sync) — one write per day, cheap.
     # total_trades = cumulative Webull round-trips in the journal (from the persisted
