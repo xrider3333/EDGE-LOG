@@ -188,6 +188,14 @@ its config's session.hold_overnight_legs (a list of leg names), else HOLD_OVERNI
 (the same code default as api/qqq_exec.py, a test pins it), engine mode only. Such a lot is "flat
 except held" for the auto-restart rule, is named (never "sell by hand") in the after-close
 wording, and is listed in status.json "held_overnight" ([{leg, side, shares}]) for the PC relay.
+DIP #424 LIVE (OWNER GO 2026-10-10, MANAGER #115): the executor trades DIP as SEVEN one-lot exec
+legs, one per mechanism (DIP_RSI, DIP_DBL, DIP_PB, DIP_CAP, DIP_IBS, DIP_STREAK, DIP_GAPDN --
+family "DIP", api/qqq_exec.DIP_LEGS), each 6 shares, every one held overnight by default; on
+most days some are open after the close. They are KNOWN_LEGS and HOLD_OVERNIGHT_LEGS here (tests
+pin both to the executor's), so after the close and for the auto-restart a book holding only its
+DIP lots is "flat except held". Every wording names the family ONCE with the lots counted --
+'DIP #424 long 18 (3 lots)' (developer text), "DIP #424's 18 held shares" (phone) -- never seven
+leg names.
 
 NEVER READS THE WEBULL TOKEN. token.txt is the SDK's own three-line file (token, expiry in
 epoch ms, status); line 1 is read past and discarded, only lines 2-3 are parsed. Nothing here
@@ -242,10 +250,16 @@ SHORT_HISTORY = "NOISE trades on a price history that is a day short"
 OWNER_FIXES = ("token_status", "halted", "kill")   # pre-open misses only the owner can clear
 FLAT_DO = "check the Webull app is flat and sell by hand if needed"
 # HOLD OVERNIGHT (module docstring): the executor's legs (api/qqq_exec.LEGS) and the ones it
-# carries past flat_by by default (api/qqq_exec.HOLD_OVERNIGHT_LEGS) -- tests pin both equal
-KNOWN_LEGS = ("ORB", "ENGUQ", "NOISE")
-HOLD_OVERNIGHT_LEGS = ("ENGUQ",)
-LEG_WORDS = {"ENGUQ": "ENGU-Q"}
+# carries past flat_by by default (api/qqq_exec.HOLD_OVERNIGHT_LEGS) -- tests pin both equal.
+# DIP #424 LIVE (OWNER GO 2026-10-10, MANAGER #115): seven one-lot exec legs, one per
+# mechanism, family "DIP" (api/qqq_exec.DIP_LEGS / is_dip_leg -- pinned too), all held
+# overnight. The words name the family once with its lots counted, never seven leg names.
+DIP_LEGS = ("DIP_RSI", "DIP_DBL", "DIP_PB", "DIP_CAP", "DIP_IBS", "DIP_STREAK", "DIP_GAPDN")
+KNOWN_LEGS = ("ORB", "ENGUQ", "NOISE") + DIP_LEGS
+HOLD_OVERNIGHT_LEGS = ("ENGUQ",) + DIP_LEGS
+LEG_FAMILIES = {leg: "DIP" for leg in DIP_LEGS}
+FAMILY_WORDS = {"DIP": "DIP #424"}
+LEG_WORDS = dict({"ENGUQ": "ENGU-Q"}, **{leg: FAMILY_WORDS["DIP"] for leg in DIP_LEGS})
 # box units by plain name, and whether the book trades through them
 UNIT_WORDS = {
     "edgelog-qqq-exec.service": ("The QQQ order program", True),
@@ -306,22 +320,64 @@ def held_lots(snap):
         return []
 
 
+def is_dip_leg(leg):
+    """True for one of DIP #424's exec legs (api/qqq_exec.is_dip_leg's twin -- a test pins it)."""
+    return str(leg or "") in DIP_LEGS
+
+
+def leg_word(leg):
+    """'ENGUQ' -> 'ENGU-Q', 'DIP_RSI' -> 'DIP #424' (its family), any other leg as it is."""
+    return LEG_WORDS.get(str(leg), str(leg))
+
+
+def _held_groups(lots):
+    """The held lots as the words name them: one entry per leg, except a FAMILY's lots (DIP
+    #424's up to seven) -- ONE entry per family and side, shares summed (None once any lot's
+    is unknown) and counted in "lots" (None on a plain leg). First-seen order. Never raises on
+    a lot list held_lots() built."""
+    out, fam_at = [], {}
+    for x in lots or []:
+        fam = LEG_FAMILIES.get(str(x.get("leg")))
+        if fam is None:
+            out.append({"word": leg_word(x.get("leg")), "side": x.get("side"),
+                        "shares": x.get("shares"), "lots": None})
+            continue
+        g = fam_at.get((fam, x.get("side")))
+        if g is None:
+            g = fam_at[(fam, x.get("side"))] = {"word": FAMILY_WORDS.get(fam, fam),
+                                                "side": x.get("side"), "shares": 0, "lots": 0}
+            out.append(g)
+        g["lots"] += 1
+        sh = x.get("shares")
+        g["shares"] = None if (sh is None or g["shares"] is None) else g["shares"] + sh
+    return out
+
+
 def held_text(lots):
-    """Developer words: 'ENGU-Q long 10' (', '-joined); '' when none."""
-    return ", ".join("%s %s%s" % (LEG_WORDS.get(x["leg"], x["leg"]), x.get("side") or "?",
-                                  "" if x.get("shares") is None else " %d" % x["shares"])
-                     for x in lots or [])
+    """Developer words: 'ENGU-Q long 10', 'DIP #424 long 18 (3 lots)' (', '-joined); '' when
+    none."""
+    return ", ".join("%s %s%s%s" % (g["word"], g.get("side") or "?",
+                                    "" if g.get("shares") is None else " %d" % g["shares"],
+                                    "" if g["lots"] is None else
+                                    " (%d lot%s)" % (g["lots"], "" if g["lots"] == 1 else "s"))
+                     for g in _held_groups(lots))
+
+
+def held_lot_word(lots):
+    """'lot' for one held lot, 'lots' for several (DIP #424 holds up to seven)."""
+    return "lot" if len(lots or []) == 1 else "lots"
 
 
 def held_shares_words(lots, held="held "):
     """Phone words: "ENGU-Q's 10 held shares" / "ENGU-Q's 10 held short shares" / "ENGU-Q's 10
-    and NOISE's 5 held shares" ("ENGU-Q's 10 shares" with held=""); '' when none."""
+    and NOISE's 5 held shares" / "DIP #424's 18 held shares" (a family's lots summed -- Webull
+    shows one QQQ position, so the phone names the shares, not the lots) ("ENGU-Q's 10 shares"
+    with held=""); '' when none."""
     lots = lots or []
     if not lots:
         return ""
-    parts = [("%s's %s" % (LEG_WORDS.get(x["leg"], x["leg"]),
-                           "" if x.get("shares") is None else "%d" % x["shares"])).rstrip()
-             for x in lots]
+    parts = [("%s's %s" % (g["word"], "" if g.get("shares") is None else "%d" % g["shares"])).rstrip()
+             for g in _held_groups(lots)]
     short = all(x.get("side") == "short" for x in lots)
     return "%s %s%sshares" % (" and ".join(parts), held, "short " if short else "")
 
@@ -1319,7 +1375,10 @@ def _open_lot_words(snap):
     legs = sorted((st.get("legs") or {}).keys()) if isinstance(st.get("legs"), dict) else []
     if not legs:
         return ""
-    ws = [{"ENGUQ": "ENGU-Q"}.get(str(x), str(x)) for x in legs]
+    ws = []
+    for x in legs:                     # DIP #424's lots name their family once
+        if leg_word(x) not in ws:
+            ws.append(leg_word(x))
     return ", with an open %s trade" % (" and ".join(ws) if len(ws) < 3 else ", ".join(ws))
 
 
@@ -1343,8 +1402,9 @@ def check_eod(snap, now_et):
     # wording below, never "check Webull is flat / sell by hand" for them
     lots = held_lots(snap)
     keep = held_text(lots)
-    hand = (f"CHECK BY HAND THAT WEBULL HOLDS ONLY THE HELD-OVERNIGHT LOT ({keep})" if lots
-            else "CHECK WEBULL IS FLAT BY HAND")
+    lw = held_lot_word(lots)
+    hand = (f"CHECK BY HAND THAT WEBULL HOLDS ONLY THE HELD-OVERNIGHT {lw.upper()} ({keep})"
+            if lots else "CHECK WEBULL IS FLAT BY HAND")
     done = st.get("eod_summary_done_date") == today
     out.append(_verdict(
         "eod_summary", "eod", done, URGENT, "EOD did not run",
@@ -1377,12 +1437,12 @@ def check_eod(snap, now_et):
     elif flat.get("flat") is False and lots and webull_short_of_held(flat, lots):
         # Webull LOST some of the held shares: nothing to sell -- the opposite of "not only"
         why = (f"Webull holds {flat.get('shares')} QQQ after the close, fewer than the "
-               f"held-overnight lot ({keep})")
+               f"held-overnight {lw} ({keep})")
         problem = "Webull holds %s QQQ shares after the close, fewer than %s." % (
             flat.get("shares"), held_shares_words(lots))
     elif flat.get("flat") is False and lots:
         why = (f"Webull holds {flat.get('shares')} QQQ after the close, not the held-overnight "
-               f"lot alone ({keep})")
+               f"{lw} alone ({keep})")
         problem = "Webull holds %s QQQ shares after the close, not only %s." % (
             flat.get("shares"), held_shares_words(lots))
     elif flat.get("flat") is False:
@@ -1400,9 +1460,9 @@ def check_eod(snap, now_et):
     short = bool(lots) and flat.get("date") == today and flat.get("flat") is False \
         and webull_short_of_held(flat, lots)
     out.append(_verdict("webull_flat", "eod", flat_ok, sev, "Webull NOT confirmed flat",
-                        why + (f" -- check the Webull app for the held-overnight lot ({keep}); "
+                        why + (f" -- check the Webull app for the held-overnight {lw} ({keep}); "
                                f"the held trade may be missing shares." if short else
-                               f" -- check the Webull app holds only the held-overnight lot "
+                               f" -- check the Webull app holds only the held-overnight {lw} "
                                f"({keep}) and sell anything else by hand." if lots else
                                " -- check the Webull app and sell by hand if needed."),
                         plain=_plain(problem, action=held_short_do(lots) if short else flat_do(lots),
@@ -1846,8 +1906,9 @@ def restart_decision(now_et, ev, mstate, enabled):
         return {"action": "blocked", "reasons": reasons, "why": "at most once per hour"}
     if held:
         return {"action": "restart" if enabled else "would_restart", "reasons": reasons,
-                "why": "outside the protected window, flat except the held-overnight lot "
-                       "(%s), cooldown passed" % held_text(held), "held": held}
+                "why": "outside the protected window, flat except the held-overnight %s "
+                       "(%s), cooldown passed" % (held_lot_word(held), held_text(held)),
+                "held": held}
     return {"action": "restart" if enabled else "would_restart", "reasons": reasons,
             "why": "outside the protected window, flat, cooldown passed"}
 

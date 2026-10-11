@@ -1,8 +1,11 @@
 """api/dip_live.py -- DIP #424 ("KEEL DIP": run #424 = augur_strategies/NQDIP_1_1.py at its
 validate champion) live on QQQ for the two NO-ORDER shadow legs DIP_424K (KEEL v12 learned)
 and DIP_424F (constant size 1.245) -- api/cloud_signal.py SHADOW_LEGS, MANAGER #108 GO,
-2026-10-09. Both legs write only to <state_dir>/shadow/signals.csv; nothing here can reach
-an order.
+2026-10-09 -- and, from 2026-10-13, the LIVE leg DIP_424 (api/cloud_signal.py CROWN_LEGS,
+OWNER GO 2026-10-10, MANAGER #115: DIP_424F's cfg without "shadow" or its KEEL block). The
+shadow pair writes only to <state_dir>/shadow/signals.csv; the live leg's rows go to the
+live signals.csv that api/qqq_exec.py turns into orders. Nothing in THIS module places an
+order or knows which store its trades land in -- the three legs run the very same code.
 
 THE STRATEGY FILE RUNS UNCHANGED. NQDIP_1_1.py is a registered research file (its LF sha256
 is pinned by tests/test_dip424_shadow.py): every live adaptation lives in this module and
@@ -86,11 +89,12 @@ run_leg_trades.
    needed (api/etf_book_shadow.py _probe_arrays is the precedent).
    MEMO: nothing a trade with entry bar <= L shows depends on bar L's high/low/close (a
    decision at L fills inside the pads), so the result is memoized on (strategy, params,
-   opens 0..L, highs/lows/closes 0..L-1, dates) -- both legs share one computation, and a
-   session's later 5m bars cost nothing. A FAILED probe (DipTradeShapeError or any other
-   exception) is memoized the same way and re-raised on a hit: the same inputs fail the same
-   way, and rerunning all seven engine passes for every leg on every bar costs seconds a bar
-   on the 1-CPU box. The next session's 09:30 bar is a new key, so it is retried then (or on
+   opens 0..L, highs/lows/closes 0..L-1, dates) -- every DIP leg with the same params (the
+   live DIP_424 and the shadow DIP_424K / DIP_424F: seven engine runs a session, not 21)
+   shares one computation, and a session's later 5m bars cost nothing. A FAILED probe
+   (DipTradeShapeError or any other exception) is memoized the same way and re-raised on a
+   hit: the same inputs fail the same way, and rerunning all seven engine passes for every
+   leg on every bar costs seconds a bar on the 1-CPU box. The next session's 09:30 bar is a new key, so it is retried then (or on
    a restart).
 
 3. TRADE DICTS (trade_dicts): one per (mechanism, trade), the shape run_leg_trades returns
@@ -127,6 +131,12 @@ PROBE_PAD_EXTRA = 2
 UNSCHEDULED_CLOSURES = frozenset(_dt.date.fromisoformat(s) for s in (
     "2001-09-11", "2001-09-12", "2001-09-13", "2001-09-14", "2004-06-11", "2007-01-02",
     "2012-10-29", "2012-10-30", "2018-12-05", "2025-01-09"))
+# QQQ's first trading day. A QQQ_1d.csv row dated before it cannot be QQQ: it is a TORN row
+# (a write cut short leaves e.g. "75,700,..." -- epoch 75 = 1969-12-31 ET) and, kept, it would
+# start the series in 1969 -> ~13,600 HOLE sessions -> the live leg silently NOT READY
+# (DISC #117/#118, 2026-10-10). daily_rows drops such rows (logged once a day). The 5m cache
+# needs no floor: closed_arrays keeps only recent RTH bars, so a torn 5m row never lands.
+QQQ_FIRST_SESSION = _dt.date(1999, 3, 10)
 
 _PROBE_MEMO = {}            # memo key -> tuple of positions, or a _ProbeFailed (see dip_positions)
 _PROBE_MEMO_KEEP = 4
@@ -214,7 +224,8 @@ def five_min_sessions(arrays):
 def daily_rows(paths, now, log=print):
     """{date: (open, high, low, close, volume)} from <ohlc_dir>/QQQ_1d.csv: finished sessions
     only (_drop_unfinished_session_rows), dated by the ET date of the row's stamp, the LAST
-    row of a date kept, a row with a NaN or non-positive price dropped. {} when the file is
+    row of a date kept, a row with a NaN or non-positive price dropped, a row dated before
+    QQQ_FIRST_SESSION (a torn write) dropped and logged once a day. {} when the file is
     missing or empty."""
     cs = _cs()
     df = cs.load_cached_bars("1d", paths)
@@ -227,7 +238,11 @@ def daily_rows(paths, now, log=print):
     dates = pd.to_datetime(df["time"].astype("int64"), unit="s", utc=True).dt.tz_convert(cs.TZ).dt.date
     vols = df["volume"] if "volume" in df.columns else pd.Series(0.0, index=df.index)
     out = {}
+    torn = []
     for d, o, h, lo, c, v in zip(dates, df["open"], df["high"], df["low"], df["close"], vols):
+        if d < QQQ_FIRST_SESSION:
+            torn.append(d)
+            continue
         try:
             px = (float(o), float(h), float(lo), float(c))
         except (TypeError, ValueError):
@@ -239,6 +254,12 @@ def daily_rows(paths, now, log=print):
         except (TypeError, ValueError):
             vf = 0.0
         out[d] = px + (vf if math.isfinite(vf) else 0.0,)
+    if torn:
+        cs._log_fail_safe_once(
+            "dip_torn_1d",
+            f"[cloud-signal] DIP daily series: dropped {len(torn)} QQQ_1d.csv row(s) dated "
+            f"before QQQ's first session {QQQ_FIRST_SESSION.isoformat()} (first "
+            f"{min(torn).isoformat()}) -- a torn write, not a session", log)
     return out
 
 
@@ -513,11 +534,13 @@ def trade_dicts(positions, series, now, keep_sessions=None):
     return out
 
 
-def run_dip_leg_trades(cfg, arrays, leg_key=None, now=None, paths=None, log=print):
+def run_dip_leg_trades(cfg, arrays, leg_key=None, now=None, paths=None, log=print, why_out=None):
     """A DIP leg's trade dicts for this tick (see the module docstring), or None when the
     daily series is not ready or the call failed -- step() then skips the leg's diff (no
     SEED either) and retries on the next new bar. Every reason is logged once per ET day.
-    Never raises."""
+    `why_out` (a dict, optional): on None it receives {"key": reason key ("hole", "short",
+    "cal_fail", ... or "error"), "text": the plain reason} -- step() pages on a LIVE leg's
+    (cloud_signal._note_live_leg_not_ready, FIXER 2026-10-10). Never raises."""
     cs = _cs()
     label = cs._leg_label(cfg, leg_key)
     try:
@@ -528,6 +551,8 @@ def run_dip_leg_trades(cfg, arrays, leg_key=None, now=None, paths=None, log=prin
         series, why = build_daily_series(arrays, now, paths, params, log=log)
         if series is None:
             key, text = why
+            if why_out is not None:
+                why_out.update(key=key, text=text)
             cs._log_fail_safe_once(
                 f"dip:{label}:{key}",
                 f"[cloud-signal] {label}: DIP daily series not ready -- {text}; no trades this "
@@ -536,6 +561,8 @@ def run_dip_leg_trades(cfg, arrays, leg_key=None, now=None, paths=None, log=prin
         positions = dip_positions(series, params, strategy=strategy)
         return trade_dicts(positions, series, now)
     except Exception as e:
+        if why_out is not None:
+            why_out.update(key="error", text=f"the DIP runner failed ({type(e).__name__}: {e})")
         cs._log_fail_safe_once(
             f"dip:{label}:error:{type(e).__name__}",
             f"[cloud-signal] {label}: DIP runner failed ({type(e).__name__}: {e}) -- no trades "

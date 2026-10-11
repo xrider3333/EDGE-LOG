@@ -134,6 +134,16 @@ try:
 except Exception:  # pragma: no cover
     _NY = None
 
+# The ONE broker-id rule (api/trade_id.py broker_signal_base, 2026-10-10, DIP #424 live leg):
+# imported, not duplicated -- api/trade_id.py is stdlib-only (re, datetime), so this adds no
+# import chain a sibling module's same-day edit could break (the reason the bar fetch helpers
+# below stay duplicated, see SOURCE PREFERENCE), and a DIP slot id's one-character slot code
+# can never drift from the executor's.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from api import trade_id as _trade_id  # noqa: E402  (stdlib-only, see above)
+
 OUT_DIR = os.environ.get("EDGELOG_QQQ_EXEC_DIR", r"C:\EdgeLog\qqq_exec")
 TRADES_CSV = os.path.join(OUT_DIR, "trades.csv")
 SIDECAR_CSV = os.path.join(OUT_DIR, "reprice.csv")
@@ -458,13 +468,13 @@ def _nearest_bar_close(bars, ts, tolerance_min=NEAREST_BAR_TOLERANCE_MIN):
 # -- Webull's own fills (2026-09-28, owner decision C) ---------------------------------
 def _signal_base(trade_id, intent):
     """The broker_orders.csv signal id api/qqq_exec.py's _broker_signal_id gives one side
-    of a trade -- "qx" + the trade id with every non-alphanumeric character removed +
-    O/C. Duplicated, not imported (see SOURCE PREFERENCE for why this tool stays
-    standalone). None without a trade id."""
+    of a trade -- "qx" + the trade id's letters and digits + O/C, a DIP mechanism slot as its
+    one-character code: api/trade_id.py broker_signal_base, the ONE shared rule (imported,
+    see the import block). None without a trade id."""
     tid = str(trade_id or "").strip()
     if not tid:
         return None
-    return "qx" + re.sub(r"[^A-Za-z0-9]", "", tid) + ("O" if intent == "OPEN" else "C")
+    return _trade_id.broker_signal_base(tid, "OPEN" if intent == "OPEN" else "CLOSE")
 
 
 # (E) 2026-09-28: fills captured before the 09-26 order-status guard that do not fit the

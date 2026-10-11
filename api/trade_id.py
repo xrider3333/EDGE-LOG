@@ -36,6 +36,20 @@ naive timestamp (no offset) is only accepted when the caller names the zone it m
 The id only uses [A-Za-z0-9_-], so api/webull_orders.py's client_order_id sanitizer leaves
 it unchanged (no lossy character mapping between two different ids).
 
+BROKER ORDER IDS (2026-10-10, DIP #424 live leg, OWNER GO MANAGER #115) -- broker_signal_base
+below is the ONE place a trade id becomes the Webull client_order_id base ("qx" + the id's
+letters and digits + O/C), shared by api/qqq_exec.py (_broker_signal_id), tools/qqq_reprice.py
+and tools/qqq_bars_publish.py so the three can never derive different ids for one order. An id
+WITHOUT a slot is byte-identical to the rule it always was. An id whose slot is a DIP mechanism
+carries a ONE-character slot code instead of the slot name (BROKER_SLOT_CODES: RSI R, DBL D,
+PB P, CAP C, IBS I, STREAK S, GAPDN G) -- qxDIP42420261013T133000ZLRO, 27 characters for every
+mechanism. With the slot NAME, STREAK made 32 (Webull's documented max): its resends R1-R3 went
+over and were hashed, and a split order trims its base to 30 characters before "-<n>", so
+STREAK's OPEN and CLOSE part ids both became "...LSTREA-1" and the adapter's idempotency cache
+answered the CLOSE with the OPEN's record (the CLOSE never sent). At 27 a resend is 29, a split
+part of a resend 31: nothing is hashed or trimmed and OPEN / CLOSE stay distinct. A slot that is
+not a known mechanism keeps the old rule (letters and digits of the whole id).
+
 ONE POSITION PER LEG -- UNLESS THE LEG NAMES A SLOT: two different trades of one leg cannot
 share an entry bar and side unless a strategy pyramids. None of the crowned plugins do, and
 the executor itself holds at most one lot per leg. The one exception is the DIP #424 shadow
@@ -51,6 +65,13 @@ _ID_RE = re.compile(r"^([A-Za-z0-9_]+)-(\d{8}T\d{6}Z)-([LS])(?:-([A-Z0-9]{1,12})
 _SLOT_RE = re.compile(r"^[A-Z0-9]{1,12}$")
 _SIDE_CODE = {"long": "L", "short": "S", "l": "L", "s": "S"}
 _CODE_SIDE = {"L": "long", "S": "short"}
+_NON_ALNUM = re.compile(r"[^A-Za-z0-9]")
+# DIP #424's seven mechanisms (api/cloud_signal.DIP_MECHS order, NQDIP_1_1.py:286-287) -> the
+# one-character code a broker order id carries for that slot (see BROKER ORDER IDS above).
+# The keys are also the live leg's slots: api/qqq_exec.py maps slot X to exec leg DIP_<X>.
+BROKER_SLOT_CODES = {"RSI": "R", "DBL": "D", "PB": "P", "CAP": "C", "IBS": "I",
+                     "STREAK": "S", "GAPDN": "G"}
+_INTENT_CODE = {"OPEN": "O", "CLOSE": "C"}
 
 
 def _as_aware_datetime(value, default_tz=None):
@@ -121,6 +142,28 @@ def parse(trade_id):
 
 def is_valid(trade_id):
     return parse(trade_id) is not None
+
+
+def broker_id_body(trade_id):
+    """The letters and digits of `trade_id` a broker order id carries (see BROKER ORDER IDS):
+    the whole id with its separators removed -- except a DIP mechanism slot, which becomes its
+    one-character code (BROKER_SLOT_CODES). Never raises; "" for no id."""
+    s = str(trade_id or "")
+    p = parse(s)
+    code = BROKER_SLOT_CODES.get((p or {}).get("slot") or "")
+    if p is None or code is None:
+        return _NON_ALNUM.sub("", s)
+    m = _ID_RE.match(s.strip())
+    return (_NON_ALNUM.sub("", m.group(1)) + m.group(2) + m.group(3) + code)
+
+
+def broker_signal_base(trade_id, intent):
+    """The broker signal id base for one side of a trade: "qx" + broker_id_body + the intent
+    code (OPEN "O", CLOSE "C", any other intent its first letter, upper-cased). Every caller --
+    api/qqq_exec.py _broker_signal_id, tools/qqq_reprice.py, tools/qqq_bars_publish.py -- goes
+    through here. Never raises."""
+    it = str(intent or "").upper()
+    return "qx" + broker_id_body(trade_id) + _INTENT_CODE.get(it, it[:1])
 
 
 def describe(trade_id, tz=None):

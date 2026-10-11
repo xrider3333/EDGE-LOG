@@ -693,7 +693,9 @@ GATES = [
          prefix='WEBULLPROBE:'),
     # ... and its SELF-TEST (the broken copies must FAIL) when the probe or either fixture changed
     # (2026-10-09, MANAGER #87 (d): the probe lays tools/fixtures/qqq_exec_shadow_trades.json, the
-    # status doc's shadow_trades block, over qqq_exec_box1005.json for its shadow cases).
+    # status doc's shadow_trades block, over qqq_exec_box1005.json for its shadow cases). The cover
+    # also lists tools/fixtures/qqq_exec_dip_live.json (2026-10-10, DIP #424 live: the seven-lot
+    # DIP overlay the probe reads), so a stamp is never reused across a change to it.
     Gate('webull-selftest', 'WEBULL gate SELF-TEST', 'tools/webull_board_probe.py',
          ('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json',
           'tools/fixtures/qqq_exec_shadow_trades.json'),
@@ -701,7 +703,7 @@ GATES = [
          'not pushing', '(WEBULL probe self-test produced no output)',
          prefix='SELFTEST:', args=('--selftest',), slow=True,
          cover=('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json',
-                'tools/fixtures/qqq_exec_shadow_trades.json',
+                'tools/fixtures/qqq_exec_shadow_trades.json', 'tools/fixtures/qqq_exec_dip_live.json',
                 'tools/ledger_removed.py', 'tools/kill_on_exit.py')),
 
     # FOURTH GATE: STUDIES row numbers stay unique (see KNOWN_DUP_ROWS above). Judged by

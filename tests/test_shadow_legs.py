@@ -3,15 +3,18 @@ via MANAGER): ENGU-Q #335 moved off the live book, NOISE #422 plain / + KEEL v12
 + KEEL v12 learned, and the DIP #424 pair, all logging would-be trades from the box's own bars
 into <home>/cloud_signal/shadow/ -- no orders, no effect on the live legs. ENGU-Q is a TRACKER
 again by OWNER DECISION 2026-10-09 ~20:20 MST (MANAGER #113), after a few hours back on
-CROWN_LEGS in code that day (never deployed).
+CROWN_LEGS in code that day (never deployed). DIP #424 at a fixed 1.245x joins the LIVE legs as
+DIP_424 from 2026-10-13 (OWNER GO 2026-10-10, MANAGER #115) while its shadow pair stays.
 
 COVERS:
-  1. The dicts: CROWN_LEGS is ORB_R6 + NOISE_382 exactly; SHADOW_LEGS is ENGUQ_335 first, the
-     three #422 keys, then the DIP #424 pair (2026-10-09), none colliding with a live key;
-     ENGUQ_335 is a shadow leg with its phantom-safe cfg unchanged and NO live_since.
+  1. The dicts: CROWN_LEGS is ORB_R6 + NOISE_382 + DIP_424 exactly; SHADOW_LEGS is ENGUQ_335
+     first, the three #422 keys, then the DIP #424 pair (2026-10-09), none colliding with a live
+     key; ENGUQ_335 is a shadow leg with its phantom-safe cfg unchanged and NO live_since (the
+     live DIP_424 is the one leg carrying one).
   2. The live step's events, state.json and signals.csv are byte-identical with and without
      the shadow run beside it (emitted_at -- the wall clock -- aside), over one synthetic
-     session with every real leg.
+     session with every real leg (the live DIP_424 shares its probe memo with the shadow DIP
+     pair, and that changes nothing either way).
   3. Shadow events land ONLY in the shadow store; the live store gains no shadow row, no
      shadow leg state and no heartbeat from the shadow run.
   4. api/qqq_exec.py's engine reader consumes the live ledger only -- a shadow ENGU-Q ENTRY
@@ -61,7 +64,8 @@ QUIET = lambda *a, **k: None   # noqa: E731
 SHADOW_KEYS = ["ENGUQ_335",                      # first: a tracker again, 2026-10-09 (MANAGER #113)
                "NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL",
                "DIP_424K", "DIP_424F"]          # DIP #424 appended 2026-10-09 (MANAGER #108)
-LIVE_KEYS = ["ORB_R6", "NOISE_382"]
+LIVE_KEYS = ["ORB_R6", "NOISE_382",
+             "DIP_424"]                          # live from 2026-10-13 (MANAGER #115)
 
 
 # ── 1. the dicts ─────────────────────────────────────────────────────────────────────────
@@ -94,8 +98,9 @@ def test_enguq_335_is_a_tracker_with_its_phantom_safe_cfg_unchanged():
     assert set(leg) == {"strategy", "timeframe", "params", "max_entry_age_sec",
                         "warmup_sessions", "caveat", "shadow"}
     assert qe.ENGINE_LEG_MAP["ENGUQ_335"] == "ENGUQ", "kept so an old live row still resolves"
-    assert not any(cfg.get("live_since") for cfg in list(cs.CROWN_LEGS.values())
-                   + list(cs.SHADOW_LEGS.values())), "no shipped leg carries live_since today"
+    carrying = {k: cfg["live_since"] for k, cfg in list(cs.CROWN_LEGS.items())
+                + list(cs.SHADOW_LEGS.items()) if cfg.get("live_since")}
+    assert carrying == {"DIP_424": "2026-10-13"}, "only the live DIP leg carries live_since"
 
 
 def test_shadow_paths_share_the_bars_and_nothing_else(tmp_path):
@@ -172,10 +177,14 @@ def _make_home(root):
 
 def _live_legs(home):
     """The SHIPPED live legs, NOISE_382's KEEL pointed at this test home (no state there --
-    it scores 1.0, and fetch here is patched so no push can be sent)."""
+    it scores 1.0, and fetch here is patched so no push can be sent). DIP_424 as shipped but
+    with its live_since moved to the synthetic tape's first session (its shipped 2026-10-13 is
+    also a date gate, and the tape ends 2026-09-25): it reads the synthetic QQQ_1d.csv
+    _make_home writes and SEEDs like its shadow pair."""
     return {"ORB_R6": dict(cs.CROWN_LEGS["ORB_R6"]),
             "NOISE_382": dict(cs.CROWN_LEGS["NOISE_382"],
-                              keel=dict(version="v12", **cs.keel_paths("NOISE_382", "v12", home=home)))}
+                              keel=dict(version="v12", **cs.keel_paths("NOISE_382", "v12", home=home))),
+            "DIP_424": dict(cs.CROWN_LEGS["DIP_424"], live_since=str(T422._DAYS[0]))}
 
 
 def _shadow_legs(home):
@@ -305,6 +314,8 @@ _BOX_LIVE_ENGUQ = {
 
 def test_live_step_writes_no_enguq_row(tmp_path, offline):
     """ENGUQ_335 is off CROWN_LEGS (a tracker, 2026-10-09 ~20:20 MST): the SHIPPED live step
+    (ORB_R6, NOISE_382 and, from 2026-10-13, DIP_424 -- its live_since is also a date gate, so
+    on this synthetic tape, which ends 2026-09-25, it does nothing and writes no state)
     (default legs) never emits an ENGU-Q row, however much 1m history sits in the cache, and
     never fetches 1m itself -- also on the EOD SETTLE step (post_close). The box's stale
     legs.ENGUQ_335 record in the LIVE state.json is never read, changed or acted on: no EXIT
@@ -323,7 +334,9 @@ def test_live_step_writes_no_enguq_row(tmp_path, offline):
     assert rows and not [r for r in rows if r["leg"].startswith("ENGUQ")], "no ENGU-Q row in the LIVE ledger"
     legs = json.load(open(paths["state_path"], encoding="utf-8"))["legs"]
     assert legs["ENGUQ_335"] == _BOX_LIVE_ENGUQ, "the stale live record is simply unused"
-    assert set(legs) == {"ENGUQ_335"} | set(LIVE_KEYS)
+    assert str(T422._DAYS[-1]) < cs.DIP_424_LIVE_SINCE
+    assert set(legs) == {"ENGUQ_335"} | (set(LIVE_KEYS) - {"DIP_424"}), \
+        "DIP_424 is idle before its live_since (no state at all)"
     assert set(offline) == {"5m"}
 
 

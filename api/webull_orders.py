@@ -119,7 +119,12 @@ file (default C:\\EdgeLog\\webull_orders\\KILL, same pattern as api/qqq_exec.py'
 KILL flatten switch), one open position per leg, and reconcile() -- comparing the
 broker's live position (PAPER/LIVE) against the sum of this adapter's own lots that
 actually reached the broker (see reconcile()'s own docstring for why that is NOT the
-same as this module's "believed" bookkeeping). A mismatch, OR a failed/timed-out
+same as this module's "believed" bookkeeping). OWN LOSS RAIL (2026-10-10, DIP #424 live leg,
+OWNER GO MANAGER #115): a leg whose name starts with one of rails.own_loss_rail_prefixes
+(code default ["DIP_"]) carries its own daily loss rail in the book (api/qqq_exec.py, -$800,
+blocks only that leg family's next-session entries) -- the shared daily loss limit here never
+blocks its OPEN, and the caller leaves its P&L out of update_daily_pnl(); every other rail
+(the gross max_total_position_shares included) still counts it. A mismatch, OR a failed/timed-out
 position read (2026-09-14: this used to silently do nothing), halts all new entries
 (CLOSE intents still pass) -- self-clearing once a LATER reconcile succeeds, or via a
 fresh adapter/state file, same as before.
@@ -223,11 +228,19 @@ _PLACEHOLDERS = ("", "PASTE_APP_KEY_HERE", "PASTE_APP_SECRET_HERE")
 
 DEFAULT_RAILS = {
     "max_shares_per_leg": 10,
-    "max_total_position_shares": 50,
+    # GROSS CAP 85 (2026-10-10, OWNER GO MANAGER #115): summed over every leg, DIP's seven
+    # lots (up to 42) included. A code default -- a config.json rails block that names its own
+    # value (the box's 80 until the deploy's hand edit) still wins.
+    "max_total_position_shares": 85,
     "daily_loss_limit_usd": 200.0,
     "session_start": "09:30",   # NY local, HH:MM, inclusive
     "session_end": "16:00",
     "one_open_position_per_leg": True,
+    # OWN LOSS RAIL (2026-10-10, see the module docstring's RAILS): legs starting with one of
+    # these carry their own daily loss rail in the book -- daily_loss_limit_usd above never
+    # blocks their OPEN. A code default, so it survives a config.json rails block that does
+    # not name it (load_config merges rails one key at a time).
+    "own_loss_rail_prefixes": ["DIP_"],
 }
 
 # ── account selection (2026-09-14, first LIVE paper smoke test) ────────────────────
@@ -908,6 +921,21 @@ def load_live_keys(path=None):
     return {"app_key": ak, "app_secret": sk}
 
 
+def _own_loss_rail_leg(leg, rails):
+    """True when `leg` carries its own daily loss rail in the book (OWN LOSS RAIL, see the
+    module docstring's RAILS): its name starts with one of rails["own_loss_rail_prefixes"]
+    (code default ["DIP_"]; a config value that is not a list of non-empty strings falls back
+    to that default). Never raises."""
+    try:
+        pre = (rails or {}).get("own_loss_rail_prefixes", DEFAULT_RAILS["own_loss_rail_prefixes"])
+        if not (isinstance(pre, (list, tuple)) and all(isinstance(p, str) and p for p in pre)):
+            pre = DEFAULT_RAILS["own_loss_rail_prefixes"]
+        name = str(leg or "")
+        return any(name.startswith(p) for p in pre)
+    except Exception:
+        return False
+
+
 def load_config(path=None):
     """Order-adapter config: {"mode": "OFF"|"PAPER"|"LIVE", "rails": {...}, ...}.
     Missing file -> full defaults, i.e. mode OFF. A malformed file is treated the
@@ -915,7 +943,7 @@ def load_config(path=None):
     path = path or DEFAULT_CONFIG_PATH
     cfg = {
         "mode": MODE_OFF,
-        "rails": dict(DEFAULT_RAILS),
+        "rails": json.loads(json.dumps(DEFAULT_RAILS)),   # deep: never share the default's list
         "account": dict(DEFAULT_ACCOUNT_SELECT),
         "paper_keys_path": DEFAULT_PAPER_KEYS,
         "paper_token_dir": DEFAULT_PAPER_TOKEN_DIR,
@@ -1222,7 +1250,8 @@ class OrderAdapter:
             if projected > max_total:
                 return False, f"projected total position {projected} exceeds max_total_position_shares {max_total}"
         limit = float(rails.get("daily_loss_limit_usd", 0) or 0)
-        if limit and self._state.get("daily_pnl", 0.0) <= -abs(limit):
+        if limit and self._state.get("daily_pnl", 0.0) <= -abs(limit) \
+                and not _own_loss_rail_leg(leg, rails):
             return False, f"daily loss limit hit ({self._state.get('daily_pnl', 0.0):.2f} <= -{limit})"
         if not self._in_session_window(rails):
             return False, f"outside session window {rails.get('session_start')}-{rails.get('session_end')} NY"

@@ -23,6 +23,20 @@ WHAT ONE RUN DOES, IN ORDER
      state file (ssh failure, missing file, bad JSON) is NEVER treated as an empty,
      flat book -- _read_remote_json returns None on any such failure, and both
      _book_is_flat and main() refuse rather than guess.
+     HOLD-AWARE (DIP #424 LIVE, OWNER GO 2026-10-10, MANAGER #115): DIP's seven one-lot
+     legs hold overnight and some are open on most days, so "no open legs" alone would
+     block nearly every deploy. A lot the executor HOLDS OVERNIGHT on purpose is
+     accepted (_book_check) when ALL of: it carries the executor's "hold" block, or its
+     leg is in the executor's hold list (the box's qqq_exec/config.json
+     session.hold_overnight_legs, else the code default -- tools/webull_freshness.hold_legs;
+     an unreadable config counts the hold blocks alone); it has no pending close
+     (close_pending); its side and shares read cleanly; and webull_orders'
+     broker_sent_positions for that leg is exactly the lot's signed shares. Such a lot is
+     kept in state.json across the restart and the executor's boot reconcile checks it
+     against Webull. Every accepted lot is printed by name before anything is touched.
+     Still refused: any pending resend / fill capture, any open lot that is not held,
+     any held lot with a pending close or that does not match Webull, any other non-zero
+     broker position, and any unreadable or malformed state (never guessed).
   4. Refuses if the box's repo has any local change to a tracked file
      (_remote_git_clean) -- a `git checkout` would carry it onto the new commit, so
      the code actually running could silently differ from the sha this script prints
@@ -52,8 +66,9 @@ WHAT ONE RUN DOES, IN ORDER
      before touching anything -- steps 1-6 include a 180s git fetch and dozens of ssh
      round trips, long enough for the book to open a leg (ENGUQ_335 trades the ETH
      session, so this can happen outside 09:25-16:05 ET too) in the gap since step 3.
-     Aborts, logs it, and touches nothing if the book is no longer flat, or if the
-     clock has moved into the protected window since step 2.
+     Aborts, logs it, and touches nothing if the book is no longer flat (held lots
+     judged as in step 3), or if the clock has moved into the protected window since
+     step 2.
   8. On the box: `git checkout --detach <sha>` (a detached HEAD, not a branch merge --
      correct for a rollback just as much as a roll-forward; no fetch here -- the sha
      was already fetched and resolved in step 4, so re-fetching would only reopen the
@@ -104,6 +119,7 @@ if ROOT not in sys.path:
 
 from api import market_calendar  # noqa: E402
 from tools import box_config_snapshot  # noqa: E402
+from tools import webull_freshness  # noqa: E402  (hold_legs: the executor's hold list, no I/O)
 
 try:
     from zoneinfo import ZoneInfo
@@ -145,6 +161,9 @@ _STATIC_BOOK_PATHS = [
     "api/webull_sync.py",
     "api/cloud_signal.py",
     "api/cloud_signal_stream.py",
+    # the live DIP #424 leg's runner, and the trade / Webull order id helper (FIXER 2026-10-10)
+    "api/dip_live.py",
+    "api/trade_id.py",
     "api/market_calendar.py",
     "augur_engine/ml_keel.py",
     "augur_engine/fastloop.py",
@@ -220,7 +239,146 @@ def _in_protected_window(now_et):
     return PROTECTED_START <= t < PROTECTED_END
 
 
-def _book_is_flat(qqq_state, webull_state):
+def _hold_legs_from_config(exec_cfg):
+    """The exec legs whose lot the executor holds overnight, from the box's
+    qqq_exec/config.json as read by _read_remote_json: session.hold_overnight_legs when it
+    is a list of known legs, else the code default (tools/webull_freshness.hold_legs, the
+    executor's twin -- a test pins it to api/qqq_exec.HOLD_OVERNIGHT_LEGS); () in
+    NinjaTrader mode. An unreadable config (None) gives () -- then only a lot's own hold
+    block counts as held, never a guessed list."""
+    if not isinstance(exec_cfg, dict):
+        return ()
+    return tuple(webull_freshness.hold_legs(exec_cfg))
+
+
+def _held_lot_words(lot):
+    """One accepted held lot in plain words: 'DIP_RSI long 6 (held since 2026-10-13,
+    Webull holds 6 for it)'."""
+    since = lot.get("since")
+    return (f"{lot['leg']} {lot['side']} {lot['shares']} ("
+            + (f"held since {since}, " if since else "held overnight, ")
+            + f"Webull holds {lot['shares']} for it)")
+
+
+def _book_check(qqq_state, webull_state, hold_legs=None):
+    """_book_is_flat's full answer: (ok, [reason, ...], [accepted held lot, ...]).
+
+    HOLD-AWARE (module docstring, step 3): an open lot the executor holds overnight -- a
+    "hold" block on the lot, or its leg in `hold_legs` (_hold_legs_from_config; None or ()
+    = the hold blocks alone) -- is ACCEPTED, not a reason, when it has no pending close,
+    its side is long/short with a positive whole share count, and webull_orders'
+    broker_sent_positions[leg] (a QQQ position) holds exactly its signed shares. Each
+    accepted lot is {"leg", "side", "shares", "since"}. Everything else refuses exactly as
+    before; ok is True exactly when reasons is empty. Never raises on bad shape."""
+    reasons = []
+    if not isinstance(qqq_state, dict):
+        reasons.append("qqq_exec state.json unreadable")
+    if not isinstance(webull_state, dict):
+        reasons.append("webull_orders state.json unreadable")
+    if reasons:
+        return (False, reasons, [])
+
+    def _mapping_or_flag(container, key, human):
+        """container[key] if it's a dict (missing key -> {}), else None plus a
+        reason appended to `reasons` -- callers must treat None as "don't know",
+        same as the top-level unreadable-state case."""
+        val = container.get(key)
+        if val is None:
+            return {}
+        if not isinstance(val, dict):
+            reasons.append(f"{human} is not a mapping (got {type(val).__name__}) "
+                           "-- treating as not flat")
+            return None
+        return val
+
+    legs = _mapping_or_flag(qqq_state, "legs", "qqq_exec state.json 'legs'")
+    resend = _mapping_or_flag(qqq_state, "_broker_resend", "qqq_exec state.json '_broker_resend'")
+    fillcap = _mapping_or_flag(qqq_state, "_broker_fill_capture",
+                               "qqq_exec state.json '_broker_fill_capture'")
+    positions = _mapping_or_flag(webull_state, "broker_sent_positions",
+                                 "webull_orders state.json 'broker_sent_positions'")
+    hold = set(str(x) for x in (hold_legs or ()))
+    accepted, not_held = [], []
+    for leg in sorted(legs or {}, key=str):
+        lot = legs[leg]
+        if not isinstance(lot, dict):
+            reasons.append(f"qqq_exec state.json legs[{leg!r}] is not a mapping (got "
+                           f"{type(lot).__name__}) -- treating as not flat")
+            continue
+        h = lot.get("hold")
+        if not (isinstance(h, dict) or str(leg) in hold):
+            not_held.append(leg)
+            continue
+        cp = lot.get("close_pending")
+        if isinstance(cp, dict) or cp:      # the executor's marker is any dict, {} included
+            why = cp.get("reason") if isinstance(cp, dict) else None
+            reasons.append(f"held lot {leg} has a pending close"
+                           + (f" ({why})" if why else "") + " -- it sells at the next open; "
+                           "deploy after it has sold")
+            continue
+        side = lot.get("side")
+        raw = lot.get("shares_remaining", lot.get("shares"))
+        try:
+            fshares = float(raw)
+            shares = int(round(fshares))
+        except (TypeError, ValueError, OverflowError):
+            fshares, shares = None, None
+        if side not in ("long", "short") or shares is None or shares <= 0 \
+                or abs(fshares - shares) > 1e-9:
+            reasons.append(f"held lot {leg} has an unreadable side/shares "
+                           f"(side={side!r}, shares={raw!r}) -- treating as not flat")
+            continue
+        want = shares if side == "long" else -shares
+        if positions is None:
+            reasons.append(f"held lot {leg} {side} {shares} cannot be checked against Webull "
+                           f"(broker_sent_positions unreadable)")
+            continue
+        p = positions.get(leg)
+        got = None
+        if isinstance(p, dict) and str(p.get("symbol") or "QQQ").upper() == "QQQ":
+            try:
+                got = float(p.get("qty") or 0)
+            except (TypeError, ValueError):
+                got = None
+        if got is None or abs(got - want) > 1e-9:
+            # the qty (and a non-QQQ symbol) only -- never the entry's account field
+            have = ("missing" if p is None else
+                    f"qty {p.get('qty')!r}" + ("" if str(p.get("symbol") or "QQQ").upper() == "QQQ"
+                                                 else f" of {p.get('symbol')!r}")
+                    if isinstance(p, dict) else f"not a mapping ({type(p).__name__})")
+            reasons.append(f"held lot {leg} {side} {shares} does not match Webull "
+                           f"(broker_sent_positions[{leg!r}]: {have}; want qty {want})")
+            continue
+        accepted.append({"leg": str(leg), "side": side, "shares": shares,
+                         "since": h.get("since") if isinstance(h, dict) else None})
+    if not_held:
+        reasons.append(f"qqq_exec state.json has open legs that are not held overnight: "
+                       f"{sorted(not_held, key=str)}")
+    if resend:
+        reasons.append(f"pending broker resend entries: {sorted(resend)}")
+    if fillcap:
+        reasons.append(f"pending broker fill-capture entries: {sorted(fillcap)}")
+
+    if positions:
+        ok_legs = set(x["leg"] for x in accepted)
+        nonzero = {}
+        for k, v in positions.items():
+            if not isinstance(v, dict):
+                reasons.append(f"webull_orders broker_sent_positions[{k!r}] is not a "
+                               f"mapping (got {type(v).__name__}) -- treating as not flat")
+                nonzero[k] = "malformed"
+                continue
+            if str(k) in ok_legs:
+                continue        # an accepted held lot: its qty was matched above
+            qty = v.get("qty")
+            if qty:
+                nonzero[k] = qty
+        if nonzero:
+            reasons.append(f"webull_orders broker_sent_positions not flat: {nonzero}")
+    return (not reasons, reasons, accepted)
+
+
+def _book_is_flat(qqq_state, webull_state, hold_legs=None):
     """Mirrors ~/edgelog/flat_restart_once.sh's own flatness check (see that script,
     retired by this change -- deploy/cloud/CHANGE_CONTROL.md) in plain Python so it
     can be unit tested: flat only when qqq_exec's state.json has no open legs and no
@@ -245,55 +403,14 @@ def _book_is_flat(qqq_state, webull_state):
     on the first malformed entry -- still fail-closed in effect (nothing was ever
     stopped or started), but not a clean, logged refusal.
 
+    HOLD-AWARE (2026-10-10, DIP #424 live): a lot the executor holds overnight on purpose
+    and that matches Webull exactly is accepted, not a reason -- see _book_check, which
+    also returns the accepted lots for main() to print. `hold_legs` is the executor's hold
+    list (_hold_legs_from_config); None = the lots' own hold blocks alone.
+
     Returns (is_flat, [reason, ...]); reasons is empty exactly when is_flat is True."""
-    reasons = []
-    if not isinstance(qqq_state, dict):
-        reasons.append("qqq_exec state.json unreadable")
-    if not isinstance(webull_state, dict):
-        reasons.append("webull_orders state.json unreadable")
-    if reasons:
-        return (False, reasons)
-
-    def _mapping_or_flag(container, key, human):
-        """container[key] if it's a dict (missing key -> {}), else None plus a
-        reason appended to `reasons` -- callers must treat None as "don't know",
-        same as the top-level unreadable-state case."""
-        val = container.get(key)
-        if val is None:
-            return {}
-        if not isinstance(val, dict):
-            reasons.append(f"{human} is not a mapping (got {type(val).__name__}) "
-                           "-- treating as not flat")
-            return None
-        return val
-
-    legs = _mapping_or_flag(qqq_state, "legs", "qqq_exec state.json 'legs'")
-    if legs:
-        reasons.append(f"qqq_exec state.json has open legs: {sorted(legs)}")
-    resend = _mapping_or_flag(qqq_state, "_broker_resend", "qqq_exec state.json '_broker_resend'")
-    if resend:
-        reasons.append(f"pending broker resend entries: {sorted(resend)}")
-    fillcap = _mapping_or_flag(qqq_state, "_broker_fill_capture",
-                               "qqq_exec state.json '_broker_fill_capture'")
-    if fillcap:
-        reasons.append(f"pending broker fill-capture entries: {sorted(fillcap)}")
-
-    positions = _mapping_or_flag(webull_state, "broker_sent_positions",
-                                 "webull_orders state.json 'broker_sent_positions'")
-    if positions:
-        nonzero = {}
-        for k, v in positions.items():
-            if not isinstance(v, dict):
-                reasons.append(f"webull_orders broker_sent_positions[{k!r}] is not a "
-                               f"mapping (got {type(v).__name__}) -- treating as not flat")
-                nonzero[k] = "malformed"
-                continue
-            qty = v.get("qty")
-            if qty:
-                nonzero[k] = qty
-        if nonzero:
-            reasons.append(f"webull_orders broker_sent_positions not flat: {nonzero}")
-    return (not reasons, reasons)
+    ok, reasons, _held = _book_check(qqq_state, webull_state, hold_legs)
+    return (ok, reasons)
 
 
 # -- ssh/scp transport (never exercised in tests) ----------------------------------------
@@ -580,8 +697,18 @@ def main(argv=None):
     if not isinstance(qqq_state, dict) or not isinstance(webull_state, dict):
         print("REFUSED: could not read book state -- refusing")
         return 2
+    # HOLD-AWARE (step 3): the executor's hold list from its config on the box; unreadable
+    # -> only lots carrying their own hold block count as held (never a guessed list)
     try:
-        flat, reasons = _book_is_flat(qqq_state, webull_state)
+        exec_cfg = _read_remote_json(f"{REMOTE_HOME}/qqq_exec/config.json")
+    except (OSError, subprocess.TimeoutExpired):
+        exec_cfg = None
+    hold_legs = _hold_legs_from_config(exec_cfg)
+    if exec_cfg is None:
+        print("note: could not read qqq_exec/config.json on the box -- only lots carrying "
+              "their own hold mark count as held overnight")
+    try:
+        flat, reasons, held = _book_check(qqq_state, webull_state, hold_legs)
     except Exception as e:  # deliberately broad -- must never end in a bare traceback; fail closed
         print(f"REFUSED: could not evaluate book flatness ({type(e).__name__}: {e}) -- refusing")
         return 2
@@ -589,8 +716,16 @@ def main(argv=None):
         print("REFUSED: the book is not flat on the box:")
         for r_ in reasons:
             print(f"  - {r_}")
+        for lot in held:
+            print(f"  (held overnight and matching Webull, fine on its own: {_held_lot_words(lot)})")
         return 1
-    print("book is flat on the box.")
+    if held:
+        print(f"book is flat on the box except {len(held)} lot(s) held overnight on purpose, "
+              f"each matching Webull -- ACCEPTED (they stay open through the restart):")
+        for lot in held:
+            print(f"  - {_held_lot_words(lot)}")
+    else:
+        print("book is flat on the box.")
 
     try:
         current = _remote_head_sha()
@@ -645,7 +780,9 @@ def main(argv=None):
     if pre_diff:
         print(pre_diff)
 
-    _log(f"DEPLOY START target={target} current={current} waiver={args.owner_waiver!r}")
+    _log(f"DEPLOY START target={target} current={current} waiver={args.owner_waiver!r}"
+         + (" held=" + ",".join(f"{x['leg']}:{x['side']}:{x['shares']}" for x in held)
+            if held else ""))
 
     # One more flatness (and protected-window) check, as close to the restart as this
     # script can get it: steps so far include a 180s git fetch and dozens of ssh round
@@ -664,7 +801,7 @@ def main(argv=None):
               "nothing was stopped or started.")
         return 2
     try:
-        flat2, reasons2 = _book_is_flat(qqq_state2, webull_state2)
+        flat2, reasons2, held2 = _book_check(qqq_state2, webull_state2, hold_legs)
     except Exception as e:  # deliberately broad -- fail closed with a clean ABORTED line
         _log(f"DEPLOY ABORTED re-check-flatness-error error={e!r}")
         print(f"ABORTED: could not evaluate book flatness just before the restart "
@@ -683,7 +820,13 @@ def main(argv=None):
         print(f"ABORTED: {now_et2:%Y-%m-%d %H:%M} ET is now inside the 09:25-16:05 "
               f"protected window -- nothing was stopped or started.")
         return 1
-    print("book is still flat.")
+    if held2:
+        print(f"book is still flat except {len(held2)} held-overnight lot(s), each matching "
+              f"Webull -- ACCEPTED:")
+        for lot in held2:
+            print(f"  - {_held_lot_words(lot)}")
+    else:
+        print("book is still flat.")
 
     try:
         n0_qqq = _remote_line_count(QQQ_LOG)

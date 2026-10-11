@@ -295,6 +295,28 @@ what it had made by the prior close, inside today's closed P&L of record): the t
 -$12.10), it does not jump by the earlier days' P&L at the sell. In the in-session held variant and this one a scrub to the
 chart's last point writes the same day figure as the resting today line (the line never moves when the mouse comes in).
 
+DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): the box trades DIP #424 as seven one-lot exec legs (DIP_RSI, DIP_DBL, DIP_PB, DIP_CAP,
+DIP_IBS, DIP_STREAK, DIP_GAPDN: family DIP, 6 shares a lot, up to 7 lots = 42 shares), fed by one engine key whose trade ids carry the
+mechanism (DIP_424-<entry bar UTC>-L-RSI); the status doc names each leg's family (leg_families, positions[leg].family). The board shows the
+family as ONE strategy. tools/fixtures/qqq_exec_dip_live.json is laid over the base doc (_dip_doc): ORB long 10 and NOISE short 10 bought
+today, each DIP lot carried overnight (a -$9.66 gap a lot at today's open), three closed DIP trades, ENGU-Q a retired tracker, plus the
+box's shadow block. Five variants: in the session on a laptop (System, Rails and every list fold open, the DIP row's detail open), on a
+375x812 phone with the Strategies fold open, on a 375x812 phone in MONO, the evening with only the DIP lots held (an old rail hit reset), and
+its own rail hit on Friday (entries paused through Monday). Each (_dip_problems, against DIP_WANT, pinned by hand): the BOOK rows are ORB #314,
+NOISE #382, DIP #424 (one row for seven lots), the DIP row's tag LONG then HELD, its line 'Long 42 . 7 lots @ avg $746.90 . now $751.73' with
+the open P&L summed and 'Held overnight . gap -$67.62 (prior close to the open), outside the rails', its range figure and trades; none of its
+held words red or amber (never an alarm); on a phone the row is one line and the trade list still starts within 757 px (the hero's DIP line
+is left to the row and the Account there); the hero's one DIP line counts the lots; ONE Account line 'DIP #424 . Long 42 . 7 lots . held
+overnight, gap -$67.62' (three position lines in all) and the Account / Strategies headers count strategies ('3 open (1 held overnight)',
+'3 open'; the evening '1 held overnight', '1 held'); the top chip WEBULL 3 OPEN (the evening WEBULL 1 HELD); trade rows 'DIP #424 . GAPDN',
+'DIP #424 . STREAK', 'DIP #424 . PB', none cut (where the list box is 800 px or narrower the mechanism goes under the name), and a 'DIP #424'
+chip that keeps exactly those three; one DIP #424 chart line; the daily stop leaves DIP out ($23.80 of $400.00, not
+$0.00) and its words never name DIP, its rail or its held lots; DIP's own rail line is drawn beside each daily stop shown and never inside
+its block ('DIP #424 own rail: $0.00 of $800.00 used today (not in this stop) ...' from the box's today.dip_rail_input, the limit alone on a
+box that does not send it; when hit: 'DIP #424 rail hit Fri 10-02 (-$812.40): no new
+DIP #424 entries through Mon 10-05; nothing is sold', amber, the Orders header saying it is paused and the row a plain line, the $400 stop
+untouched); no raw exec leg name (DIP_RSI) anywhere on the board; the Shadow fold's DIP #424 KEEL / fixed 1.245 rows unchanged.
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -330,6 +352,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_box1005.json')
 # MANAGER #87 d: the status doc's separate shadow_trades block, laid over FIXTURE by the shadow block cases
 SHADOW_FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_shadow_trades.json')
+# DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): the box's seven one-lot DIP exec legs, laid over FIXTURE by the DIP variants
+DIP_FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_dip_live.json')
 
 VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'phone390': [390, 844]}
 CASES = [['%s/%s' % (vp, th), {'vp': vp, 'theme': th}] for vp in ('laptop', 'phone') for th in ('dark', 'mono')]
@@ -394,6 +418,63 @@ def leg_today_want(doc, leg):
         days = sorted(d for d in (str((o or {}).get('ts_et') or '')[:10] for o in today.get('orders') or []) if ok(d))
     box_day = days[-1] if days else str(doc.get('updated_at') or '')[:10]
     return qe_money(sum(qe_pnl_of(t) for t in doc.get('trades_all') or [] if not _is_shadow(t) and t.get('leg') == leg and _close_day(t) == box_day))
+
+
+# DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115). The box trades DIP #424 as seven one-lot exec legs (DIP_RSI ... DIP_GAPDN, family DIP,
+# 6 shares a lot, up to 7 lots = 42), fed by one engine key whose trade ids carry the mechanism (DIP_424-<entry bar UTC>-L-RSI). The board
+# shows the family as ONE strategy. The variants lay DIP_FIXTURE over the base doc: ORB long 10 and NOISE short 10 bought today, the seven DIP
+# lots each carried overnight (Friday's last price 750.95, today's open 749.34: a -$9.66 gap a lot), three closed DIP trades, ENGU-Q a retired
+# tracker. What the page must say is pinned here (worked out by hand from the fixture), so a drift in a helper cannot hide a wrong page.
+DIP_PHONE_TOP_MAX = 757       # phone 375x812: with seven DIP lots held the trade list still starts within step 12's 757 px
+# its rail line beside the daily stop: its own figure today (today.dip_rail_input: +$100.38, so nothing used), or on a box that does not send
+# the figure, the limit alone
+DIP_RAIL_OK = ('ok', 'DIP #424 own rail: $0.00 of $800.00 used today (not in this stop); a breach pauses its entries for the next session and never sells')
+DIP_RAIL_NOFIG = ('ok', 'DIP #424 has its own -$800.00 daily rail (not in this stop); a breach pauses its entries for the next session and never sells')
+DIP_WANT = {
+    'book': ['ORB #314', 'NOISE #382', 'DIP #424'],                      # ONE row for the seven lots, after the live legs
+    'live': 'Long 42 \u00b7 7 lots @ avg $746.90 \u00b7 now $751.73',     # the shares, the lots, the share-weighted average entry
+    'open': 'Open $202.92 \u00b7 Total $238.44',                          # the lots' open P&L summed; + the family's closed $35.52
+    'line': 'Held overnight \u00b7 gap -$67.62 (prior close to the open), outside the rails',
+    'value': ('+$35.52', '3 trades \u00b7 67% won'),
+    'note': 'DIP #424 held overnight (7 lots) \u00b7 gap -$67.62, outside the rails',
+    'acct': 'DIP #424 \u00b7 Long 42 \u00b7 7 lots \u00b7 held overnight, gap -$67.62', 'acct_pnl': '$202.92', 'acct_lines': 3,
+    'acct_sum': '3 open (1 held overnight)', 'list_sum': ('3 live', '3 open'),
+    # the daily stop leaves DIP out: closed -$6.80 (NOISE) + open -$11.70 (ORB) - $5.30 (NOISE); with DIP's +$202.92 it would read $0.00
+    'stop': '$23.80 of $400.00 daily stop used',
+    'rail': DIP_RAIL_OK, 'row_rail': None,
+    'trades': ['DIP #424 \u00b7 GAPDN', 'DIP #424 \u00b7 STREAK', 'DIP #424 \u00b7 PB'],   # STREAK: the longest mechanism, kept whole on a phone
+    'chip': 'DIP #424', 'lines': ['ORB #314', 'ENGU-Q #335', 'NOISE #382', 'DIP #424'],
+    'detail': ['42 sh in 7 lots @ avg $746.90', 'gap -$67.62'],
+}
+
+
+def _dip_doc(base, evening=False, rail=None, shadow=True, rail_input=True):
+    """`base` with DIP #424 live (DIP_FIXTURE): leg_families, positions and positions_live replaced, rails and today merged one level, the
+    closed DIP trades added to trades_all where they closed (newest close first, the base rows' order kept), plus the box's shadow block
+    (the Shadow fold must be unchanged). evening: after the close, ORB and NOISE flat - only the DIP lots held. rail: rails.dip_rail.
+    rail_input False: a box that does not send today.dip_rail_input (the rail's own figure)."""
+    d = json.loads(json.dumps(base))
+    o = json.load(io.open(DIP_FIXTURE, encoding='utf-8'))
+    for k in ('leg_families', 'positions', 'positions_live'):
+        d[k] = o[k]
+    d['rails'] = dict(d.get('rails') or {}, **o['rails'])
+    d['today'] = dict(d.get('today') or {}, **o['today'])
+    rows = list(d.get('trades_all') or [])
+    for t in sorted(o['trades'], key=lambda x: x['exit_ts'], reverse=True):
+        i = next((j for j, x in enumerate(rows) if str(x.get('exit_ts') or '') < t['exit_ts']), len(rows))
+        rows.insert(i, t)
+    d['trades_all'] = rows
+    if evening:
+        d['positions'] = dict((k, v) for k, v in d['positions'].items() if k.startswith('DIP_'))
+        pl = d['positions_live']
+        pl['legs'] = [x for x in pl['legs'] if str(x.get('leg')).startswith('DIP_')]
+        pl['total_open_pnl'] = round(sum(x['open_pnl'] for x in pl['legs']), 2)
+        d['today']['unrealized_pnl'] = pl['total_open_pnl']
+    if rail is not None:
+        d['rails']['dip_rail'] = rail
+    if not rail_input:
+        d['today'].pop('dip_rail_input', None)
+    return _shtr_doc(d) if shadow else d
 
 
 def _variant_docs(fixture):
@@ -826,6 +907,35 @@ def _variant_docs(fixture):
     out.append(('ENGU-Q held overnight, its trade closed today', FRESH_NOW, closed_carry,
                 dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 24 s ago'], eq_stale=False,
                      hero_today='\u25bc -$12.10 today', scrub=True)))
+    # DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): ORB + NOISE bought today, seven DIP lots held overnight, ENGU-Q a retired tracker.
+    # One BOOK row 'DIP #424' (Long 42 . 7 lots), held words grey (never an alarm), trade rows 'DIP #424 . RSI', a DIP chip, its rail beside the
+    # daily stop (never inside it, never counted in it), the Shadow fold unchanged
+    dip_ok = ('ok', 'OK \u2014 Webull holds long 42 \u00b7 legs sum to long 42')
+    dip_ex = dict(none, today='today', top=('open', 'WEBULL 3 OPEN'), strip_has=['box updated 24 s ago'], strip_lacks=['BOX SILENT'], eq_stale=False,
+                  recon=dip_ok, hero_today='\u25b2 +$8.96 today', open_leg='DIP', dip=dict(DIP_WANT))
+    out.append(('DIP #424 live: ORB + NOISE open, 7 DIP lots held (System open, folds open)', FRESH_NOW, _dip_doc(base()),
+                dict(dip_ex, system=True, folds=True, fold_open=['rails'], scrub=True, dip_chip=True,
+                     dip=dict(DIP_WANT, shadow=True, rails_n=2, rail_cfg='7 lots, one per mechanism, up to 42 shares \u00b7 its own -$800.00 daily rail'))))
+    out.append(('DIP #424 live (375x812, Strategies open)', FRESH_NOW, _dip_doc(base()),
+                dict(dip_ex, vp='phone', fold_open=['list'], dip=dict(DIP_WANT, phone_row=True))))
+    out.append(('DIP #424 live (375x812, MONO)', FRESH_NOW, _dip_doc(base()),
+                dict(dip_ex, vp='phone', theme='mono', dip=dict(DIP_WANT, top_max=DIP_PHONE_TOP_MAX))))
+    # after the close: only the DIP lots held (WEBULL 1 HELD); a rail hit on Thursday paused Friday's entries and has reset since; a box that
+    # does not send the rail's own figure (the line names the limit alone)
+    out.append(('DIP #424 live: the evening, only its lots held, an old rail hit reset', '2026-10-05 20:41:00',
+                _dip_doc(move_to(base('2026-10-05'), '2026-10-05 20:35:00', '2026-10-05', '2026-10-05 15:59:30', '20:25:00'), evening=True,
+                         rail={'tripped_on': '2026-10-01', 'blocks_until': '2026-10-02', 'loss_usd': -805.0}, rail_input=False),
+                dict(none, today='today', top=('held', 'WEBULL 1 HELD'), strip_lacks=['BOX SILENT'], eq_stale=False, recon=dip_ok, open_leg='DIP',
+                     dip=dict(DIP_WANT, acct_lines=1, acct_sum='1 held overnight', list_sum=('3 live', '1 held'), rail=DIP_RAIL_NOFIG,
+                              stop='$6.80 of $400.00 daily stop used'))))
+    # DIP's own rail hit on Friday: its entries are paused through Monday (the next session), nothing is sold, the $400 stop is untouched
+    out.append(("DIP #424 live: its own rail hit Friday, entries paused through Monday", FRESH_NOW,
+                _dip_doc(base(), rail={'tripped_on': '2026-10-02', 'blocks_until': '2026-10-05', 'loss_usd': -812.4}),
+                dict(dip_ex, ordsum_has=['$23.80 of $400.00 daily stop used', 'DIP #424 paused through Mon 10-05'],
+                     ordsum_lacks=['stopped for the day'], flags_lacks=['BREAKER TRIPPED'],
+                     dip=dict(DIP_WANT, rail=('paused', 'DIP #424 rail hit Fri 10-02 (-$812.40): no new DIP #424 entries through Mon 10-05; '
+                                                         'nothing is sold'), rail_col='amber',
+                              row_rail='rail hit Fri 10-02: no new entries through Mon 10-05'))))
     # three key variants again in MONO at 390x844
     for nm, now, doc, ex in [o for o in out if o[0] in ("Saturday noon, Friday's doc",
                                                         "the page's own read failed, Friday's doc on Monday 08:50",
@@ -867,8 +977,8 @@ MUTANTS = [
      'let qbRetOpen=true;',
      'the Retired group opens by default'),
     ('bare-leg-on-rows',
-     "'<span class=\"qb-trade-leg\" title=\"the strategy (family and run number) that took this trade\">'+qeTradeLegName(t)+'</span>'",
-     "'<span class=\"qb-trade-leg\">'+naS(t&&t.leg)+'</span>'",
+     "return '<span class=\"qb-trade-leg\" title=\"the strategy (family and run number) that took this trade\">'",
+     "return '<span class=\"qb-trade-leg\">'+naS(t&&t.leg)+'</span>';const _bare='<span>'",
      "trade rows name the box's bare leg key again ('ENGUQ')"),
     ('caveat-days-lost',
      "bands.push({i:i,title:tip+'. These trades still count.'});",
@@ -1242,8 +1352,8 @@ MUTANTS = [
      "[gBook,gRet].filter(Boolean)",
      'the strategy list has no Shadow - not counted group'),
     ('shadow-in-list-total',
-     "const fg=qbRangeFigs(qbRangeTrades.filter(t=>t.leg===key));",
-     "const fg=qbRangeFigs(qbRangeTrades.concat(qbShadowRange).filter(t=>t.leg===key));",
+     "const fg=qbRangeFigs(qbRangeTrades.filter(t=>qbFamOf(t.leg)===key));",
+     "const fg=qbRangeFigs(qbRangeTrades.concat(qbShadowRange).filter(t=>qbFamOf(t.leg)===key));",
      "a shadow leg's money is added into a BOOK row (and so into the list's total)"),
     ('row-without-run-number',
      "row:{key:key,name:label+' '+qeLegShortTag(key,runNo),",
@@ -1414,7 +1524,7 @@ MUTANTS = [
      'chips:[],',
      'the strategy chips and BOOK ONLY are not on the list'),
     ('tl-leg-chip-no-filter',
-     "if(qbChipSel!=='ALL'&&qbOwnChips.some(c=>c.k===qbChipSel))return v._t.leg===qbChipSel;",
+     "if(qbChipSel!=='ALL'&&qbOwnChips.some(c=>c.k===qbChipSel))return qbFamOf(v._t.leg)===qbChipSel;",
      "if(qbChipSel!=='ALL'&&qbOwnChips.some(c=>c.k===qbChipSel))return true;",
      'a strategy chip (ORB, ENGU-Q, NOISE) leaves every trade in the list'),
     ('tl-bookonly-chip-no-filter',
@@ -1535,8 +1645,8 @@ MUTANTS = [
      "const dllStopShort='breaker figure';",
      "the daily stop calls an estimate the breaker's own figure"),
     ('stop-ignores-breaker-figure',
-     'const stopPnl=qeStopIn!==null?qeStopIn:todayPnl;',
-     'const stopPnl=todayPnl;',
+     'const stopPnl=qeStopIn!==null?qeStopIn:Math.round((todayPnl-qbDipStopOut)*100)/100;',
+     'const stopPnl=Math.round((todayPnl-qbDipStopOut)*100)/100;',
      "the daily stop ignores the breaker's own figure"),
     ('orders-paper-sentence',
      "sentence='Sending orders to the Webull paper (practice) account.';",
@@ -1979,8 +2089,8 @@ MUTANTS = [
      "''",
      'the hero says 2 PARITY MISMATCH (no -ES) for several'),
     ('host-line-gone',
-     "+modeRow+lossRow+sizeRow+hostRow+lastRow;",
-     "+modeRow+lossRow+sizeRow+lastRow;",
+     "+modeRow+lossRow+qbDipRailHtml+sizeRow+hostRow+lastRow;",
+     "+modeRow+lossRow+qbDipRailHtml+sizeRow+lastRow;",
      "the System fold has no 'Running on <host> . one-computer check' line"),
     ('host-name-unknown',
      "(hostTxt||'an unknown computer')",
@@ -2056,8 +2166,8 @@ MUTANTS = [
      "const qbCalDays=ledgerCalDays(qbRangeTrades.concat(qbShRangeClosed),{pnl:qePnlOf,day:t=>t.exitDate||qeTradeDate(t)});",
      "the shadow block's trades are added into the calendar's days and month total"),
     ('shadow-trades-in-list-total',
-     "const fg=qbRangeFigs(qbRangeTrades.filter(t=>t.leg===key));",
-     "const fg=qbRangeFigs(qbRangeTrades.concat(qbShRangeClosed.map(t=>Object.assign({},t,{leg:t.leg.split('_')[0]}))).filter(t=>t.leg===key));",
+     "const fg=qbRangeFigs(qbRangeTrades.filter(t=>qbFamOf(t.leg)===key));",
+     "const fg=qbRangeFigs(qbRangeTrades.concat(qbShRangeClosed.map(t=>Object.assign({},t,{leg:t.leg.split('_')[0]}))).filter(t=>qbFamOf(t.leg)===key));",
      "the shadow block's trades are added into their family's BOOK row (NOISE #422 into NOISE #382)"),
     ('shadow-trades-in-chart',
      "const chrono=qbRangeTrades.slice().sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);",
@@ -2165,8 +2275,8 @@ MUTANTS = [
      "const heroTodayVal=qeTodayRealized+openMarkPnl;",
      "the hero's today line counts a carried lot's whole move since its entry, not from the prior close"),
     ('held-acct-sum-open',
-     "parts.push(nh>=posCount?(posCount+' held overnight')",
-     "parts.push(false?(posCount+' held overnight')",
+     "parts.push(nh>=nf?(nf+' held overnight')",
+     "parts.push(false?(nf+' held overnight')",
      "the Account fold's header counts the held lot as open"),
     ('held-today-closed-carry',
      "return s;},0)+((QE.today&&qeFinRec(QE.today.held_carry_usd))||0);",
@@ -2209,6 +2319,88 @@ MUTANTS = [
      "+(qbShInfo(s.lk)?qbShInfo(s.lk).note:'')",
      "",
      "the DIP #424 rows' hover no longer says each trade is decided on a daily close and entered at the next session's 09:30 open"),
+    # DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): seven one-lot exec legs are ONE strategy; held lots never an alarm; its own rail
+    # beside the daily stop, never inside it or counted in it
+    ('dip-split-rows',
+     "QE_LEGS.forEach(([key,label,color,runNo,caveat])=>{",
+     "QE_LEGS.filter(l=>l[0]!=='DIP').concat(qbDipLegs.map(k=>[k,'DIP '+qbDipMech({leg:k}),'var(--yellow)','#424',null])).forEach(([key,label,color,runNo,caveat])=>{",
+     'DIP #424 is drawn as seven BOOK rows, one per exec leg, not one row for the family'),
+    ('dip-family-raw-legs',
+     "const qbFamOf=k=>qbLegFamily(QE,k);",
+     "const qbFamOf=k=>String(k==null?'':k);",
+     "the board reads each DIP exec leg as a strategy of its own: no DIP #424 row, chip or Account line, the raw legs (DIP_RSI ...) show"),
+    ('dip-row-always',
+     "if(key==='DIP'&&!qbDipLegs.length)return;",
+     "",
+     'a DIP #424 BOOK row is drawn on a doc whose box does not trade DIP'),
+    ('dip-lots-wrong',
+     "const lv=live.length?{side:side(live),shares:sum(live,l=>l.shares),lots:live.length,",
+     "const lv=live.length?{side:side(live),shares:sum(live,l=>l.shares),lots:new Set(live.map(l=>l.entry_px)).size,",
+     "DIP #424's lots are counted by entry price (3 lots), not one per exec leg (7)"),
+    ('dip-held-tag-amber',
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--text4);margin-left:4px\">HELD</span>",
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:'+(key==='DIP'?'var(--attn-amber)':'var(--text4)')+';margin-left:4px\">HELD</span>",
+     "DIP #424's HELD tag is drawn amber, as an alarm"),
+    ('dip-acct-held-red',
+     "+(H?(' &middot; <span data-qbacctheld=\"DIP\">'",
+     "+(H?(' &middot; <span data-qbacctheld=\"DIP\" style=\"color:var(--attn-red)\">'",
+     "the Account draws DIP #424's held lots red, as an alarm"),
+    ('dip-gap-words',
+     "(key==='DIP'?'outside the rails':'not in the daily stop')",
+     "'not in the daily stop'",
+     "DIP #424's held line says its gap is out of the daily stop, not outside both rails"),
+    ('dip-hero-note-raw',
+     "const dk=ks.filter(qbIsDipLeg),ok=ks.filter(k=>!qbIsDipLeg(k));",
+     "const dk=[],ok=ks;",
+     "the hero names DIP #424's held lots by their exec legs (DIP_RSI and DIP_DBL and ...)"),
+    ('dip-hero-note-on-phone',
+     "  .qbx-lg6 .qbx-hero .qbx-held-dip{display:none}",
+     "  .qbx-lg6 .qbx-hero .qbx-held-dip{display:block}",
+     "DIP #424's held line takes a hero line on a phone (the trade list starts below 757 px)"),
+    ('dip-acct-every-lot',
+     "legs.filter(l=>!(l&&qbIsDipLeg(l.leg))||l===dipFirst)",
+     "legs.filter(l=>!!l)",
+     "the Account lists DIP #424's lots one by one (9 position lines, not 3)"),
+    ('dip-top-chip-lots',
+     "const nOpen=openKeys.map(k=>qbLegFamily(QE,k)).filter((f,i,a)=>a.indexOf(f)===i).length;",
+     "const nOpen=openKeys.length;",
+     "the top bar chip counts DIP #424's lots one by one (WEBULL 9 OPEN), not strategies"),
+    ('dip-mechanism-cut-on-phone',
+     "@container qbtl (max-width:800px){.qbx-tl .qbx-mech{display:block;font-size:10px;line-height:1.2;color:var(--text4)}.qbx-tl .qbx-mech-sep{display:none}}",
+     "",
+     "a phone's DIP trade row keeps the mechanism on the name's line, so the cell cuts it ('DIP #424 \u00b7 GA...')"),
+    ('dip-trade-row-no-mechanism',
+     "const mc=(f&&k==='DIP')?qbDipMech(t):'';",
+     "const mc='';",
+     "a DIP trade row no longer names its mechanism ('DIP #424', not 'DIP #424 \u00b7 RSI')"),
+    ('dip-chip-matches-leg',
+     "return qbFamOf(v._t.leg)===qbChipSel;",
+     "return v._t.leg===qbChipSel;",
+     "the DIP chip matches the exec leg key, so it keeps none of DIP #424's trades"),
+    ('dip-counted-in-stop',
+     'const stopPnl=qeStopIn!==null?qeStopIn:Math.round((todayPnl-qbDipStopOut)*100)/100;',
+     'const stopPnl=qeStopIn!==null?qeStopIn:Math.round(todayPnl*100)/100;',
+     "the daily stop's estimate counts DIP #424's lots (DIP is not in the $400 stop)"),
+    ('dip-held-in-stop-caption',
+     "const hAll=Object.keys(qbHeld),ks=hAll.filter(k=>!qbIsDipLeg(k)),",
+     "const hAll=Object.keys(qbHeld),ks=hAll,",
+     "the daily stop's caption speaks of DIP #424's held lots and their gap (DIP is not in the $400 stop)"),
+    ('dip-rail-in-stop-bar',
+     "(stopTripped?' \u00b7 stopped for the day':' \u00b7 '+dllStopShort)+'</div></div>';",
+     "(stopTripped?' \u00b7 stopped for the day':' \u00b7 '+dllStopShort)+'</div>'+qbDipRailHtml+'</div>';",
+     "DIP #424's own rail is drawn inside the daily stop's block"),
+    ('dip-rail-missing',
+     "const qbDipRailHtml=(!qbDipLegs.length&&!qbDipRail.trip)?'':(",
+     "const qbDipRailHtml=true?'':(",
+     "DIP #424's own rail is not shown beside the daily stop"),
+    ('dip-rail-figure-ignored',
+     "used:ri!==null?Math.round(Math.abs(Math.min(0,ri))*100)/100:null,",
+     "used:null,",
+     "DIP #424's rail line never shows the rail's own figure today (today.dip_rail_input)"),
+    ('dip-rail-never-resets',
+     "blocking:!!(until&&until>=(QF.todayNY||ledgerTodayNY()))};})();",
+     "blocking:!!until};})();",
+     "a DIP #424 rail hit keeps pausing its entries after the next session (it never resets)"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -2546,6 +2738,26 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       var sp=q('[data-qbstop]');o.stopTip=sp?(sp.getAttribute('title')||''):null;
       o.side=txt('[data-qblegpill="ENGUQ"]');
       return o;})();
+    // DIP #424 LIVE: its row's held words and their colour, its live line, the hero note, the Account line(s), its rail beside (never inside)
+    // the daily stop, the stop's own words, the trade list's chips, and any raw exec leg name (DIP_RSI ...) drawn anywhere on the board
+    r.dip=(function(){var o={},red=[cssCol('var(--attn-red)'),cssCol('var(--red)')],amb=cssCol('var(--attn-amber)');
+      function cw(e){var c=w.getComputedStyle(e).color;return red.indexOf(c)>=0?'red':(c===amb?'amber':'ok');}
+      function tx(e){return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;}
+      function rd(sel){var e=q(sel);return e?[tx(e),cw(e)]:null;}
+      o.pill=rd('[data-qbheldpill="DIP"]');o.side=rd('[data-qblegpill="DIP"]');o.line=rd('[data-qbheld="DIP"]');o.live=txt('[data-qblive="DIP"]');
+      o.gap=rd('[data-qbheldgap="DIP"]');o.acctHeld=rd('[data-qbacctheld="DIP"]');
+      var ne=q('[data-qbheldnote="DIP"]');o.note=ne?[tx(ne),cw(ne)]:null;o.noteShown=ne?w.getComputedStyle(ne).display!=='none':null;
+      o.acct=[].map.call(d.querySelectorAll('[data-qbacctdip]'),tx);o.acctPos=[].map.call(d.querySelectorAll('[data-qbacctpos]'),tx);
+      o.detail=txt('[data-qbextra="DIP"]');o.rowRail=txt('[data-qbdiprowrail]');o.railCfg=txt('[data-qbraildip]');
+      o.rails=[].map.call(d.querySelectorAll('[data-qbdiprail]'),function(e){return {st:e.getAttribute('data-qbdiprail'),txt:tx(e),col:cw(e),
+        inStop:!!(e.closest('[data-qbstopbox]')||e.closest('[data-qbstop]')||e.querySelector('.qb-bar'))};});
+      var sp=q('[data-qbstop]');o.stopWords=[sp?tx(sp):'',sp?(sp.getAttribute('title')||''):''].concat([].map.call(d.querySelectorAll('[data-qbstoplbl]'),tx)).join(' | ');
+      o.chips=[].map.call(d.querySelectorAll('[data-lglist-frame="wb"] [data-lgchip]'),function(b){return [b.getAttribute('data-lgchip'),tx(b)];});
+      var app=d.getElementById('app');o.raw=(((app&&app.textContent)||'').match(/DIP_[A-Z]+/g)||[]).slice(0,6);
+      // each DIP trade row's strategy cell: its words, and whether the cell cuts them (a phone keeps the whole name: the mechanism goes under it)
+      o.sym=[].filter.call(d.querySelectorAll('[data-lgtrade]'),function(e){var s=e.querySelector('.qb-trade-leg');return s&&/^DIP /.test((s.textContent||'').trim());})
+        .map(function(e){var c=e.querySelector('.lg-c-sym');return c?[tx(c),c.scrollWidth>c.clientWidth+1]:[null,null];});
+      return o;})();
     var at=(d.getElementById('app')||{innerText:''}).innerText||'';r.badTok=(at.match(/NaN|undefined|\\[object Object\\]/g)||[]).slice(0,4);
     try{r.cantRead=w.eval('qbCantRead()');}catch(e){r.cantRead='ERR '+e;}
     r.visRead=w.__probeVisRead||null;w.__probeVisRead=null;
@@ -2681,6 +2893,10 @@ __S11JS__
     await sleep(200);
     if(cfg.tick||cfg.fetch||cfg.visread||cfg.cachesnap){try{r.after=await after(cfg);}catch(e){r.after='ERR '+(e&&e.stack?e.stack:e);}await sleep(300);}
     try{Object.assign(r,sample(cfg.tl!==false));}catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
+    // DIP #424 LIVE: the trade list's DIP chip keeps every lot of the family and nothing else (then ALL again)
+    if(cfg.dipChip){try{var cb=q('[data-lglist-frame="wb"] [data-lgchip="DIP"]');r.dipChip={label:cb?(cb.textContent||'').trim():null,legs:null};
+      if(cb){cb.click();await sleep(150);r.dipChip.legs=[].map.call(D().querySelectorAll('[data-lgtrade] .qb-trade-leg'),function(e){return (e.textContent||'').trim();});
+        var ab=q('[data-lglist-frame="wb"] [data-lgchip="ALL"]');if(ab){ab.click();await sleep(150);}}}catch(e){r.dipChip={err:String(e&&e.stack?e.stack:e)};}}
     Object.assign(r,drain());
     out.cases[nm]=r;
   }
@@ -2885,7 +3101,7 @@ __S11JS__
           var V=VARS[j];
           await runCase('__var'+j,{vp:V.vp||'laptop',theme:V.theme||'dark',fix:V.doc,nowMs:V.renderMs||V.nowMs,openLeg:V.openLeg||'NOISE',systemOpen:V.systemOpen,foldOpen:V.foldOpen||null,scrub:!!V.scrub,
             liveErr:V.liveErr,prev:V.prev,prevCache:V.prevCache,tab:V.tab,checkedMs:V.checkedMs,tick:V.tick,tickTo:V.nowMs,fetch:V.fetch,
-            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin,visread:V.visread,cachesnap:V.cachesnap,tl:false});
+            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin,visread:V.visread,cachesnap:V.cachesnap,tl:false,folds:V.folds,dipChip:V.dipChip});
           out.vars[V.name]=out.cases['__var'+j];delete out.cases['__var'+j];
         }
         try{W().eval('delete navigator.onLine');}catch(e){}
@@ -6536,7 +6752,8 @@ def _attempt(chrome, alt_index, fixture):
                  'checkedMs': et_ms(exp['checked_at']) if exp.get('checked_at') else None,
                  'tick': bool(exp.get('tick')), 'fetch': exp.get('fetch'), 'theme': exp.get('theme', 'dark'),
                  'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap')),
-                 'openLeg': exp.get('open_leg'), 'foldOpen': exp.get('fold_open'), 'scrub': bool(exp.get('scrub'))}
+                 'openLeg': exp.get('open_leg'), 'foldOpen': exp.get('fold_open'), 'scrub': bool(exp.get('scrub')),
+                 'folds': bool(exp.get('folds')), 'dipChip': bool(exp.get('dip_chip'))}
                 for nm, now, doc, exp in _variant_docs(fixture)]
     stats = [{'name': c['name'], 'range': c['range'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'],
               'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'calOpen': c['cal_open'], 'folds': c['folds'],
@@ -7281,6 +7498,121 @@ def _held_problems(tag, r, ex, fails):
             fails.append("%s: ENGU-Q's row shows %r under its name, want its held line" % (tag, row[0].get('sub')))
 
 
+def _dip_problems(tag, r, ex, fails):
+    """DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): the seven one-lot exec legs are ONE strategy on the board - one BOOK row 'DIP #424'
+    whose tag is LONG then HELD and whose live line reads 'Long 42 . 7 lots @ avg ...', its held words grey (never red or amber), one line on a
+    phone; one hero note and one Account line with the lots counted; the top chip and the Account / Strategies headers count strategies; trade
+    rows 'DIP #424 . RSI' and a DIP chip that keeps exactly the family's trades; one chart line; its own rail BESIDE the daily stop (never inside
+    the stop's block, never named in the stop's words) and DIP never counted in the stop; no raw exec leg name (DIP_RSI) anywhere; the Shadow
+    fold's DIP #424 KEEL / fixed 1.245 rows unchanged; on a 375x812 phone the trade list still starts within 757 px."""
+    want = ex['dip']
+    g = r.get('dip') or {}
+    groups = (r.get('lg') or {}).get('groups') or []
+    book = [x for gg in groups if gg.get('key') == 'book' for x in gg.get('rows') or []]
+    names = [x.get('name') for x in book]
+    if names != want['book']:
+        fails.append("%s: the BOOK rows are %r, want %r (DIP #424's seven lots are ONE row)" % (tag, names, want['book']))
+    row = [x for x in book if x.get('key') == 'DIP']
+    if not row:
+        fails.append('%s: no DIP #424 row under BOOK while the box trades its legs' % tag)
+    else:
+        row = row[0]
+        tg = row.get('tag') or ''
+        if not tg.startswith('LONG') or 'HELD' not in tg:
+            fails.append("%s: the DIP #424 row's tag reads %r, want its side LONG then HELD" % (tag, tg))
+        if (row.get('value'), row.get('value2')) != want['value']:
+            fails.append("%s: the DIP #424 row reads %r / %r, want %r / %r (its family's closed trades in the range)"
+                         % (tag, row.get('value'), row.get('value2'), want['value'][0], want['value'][1]))
+        if want.get('phone_row') and (not row.get('h') or row['h'] > PHONE_ROW_MAX_H):
+            fails.append('%s: on a phone the DIP #424 row is %s px tall, want one line (1 to %d px)' % (tag, row.get('h'), PHONE_ROW_MAX_H))
+    live = g.get('live') or ''
+    for s in (want['live'], want['open'], want['line']):
+        if s not in live:
+            fails.append("%s: the DIP #424 row's position line reads %r, want %r in it" % (tag, live, s))
+    if (g.get('rowRail') or None) != want.get('row_rail'):
+        fails.append("%s: the DIP #424 row's rail line reads %r, want %r" % (tag, g.get('rowRail'), want.get('row_rail')))
+    if (g.get('note') or [None])[0] != want['note']:
+        fails.append("%s: the hero's held line reads %r, want %r (DIP #424 named once, its lots counted)" % (tag, (g.get('note') or [None])[0], want['note']))
+    # DIP #424 holds overnight most days: its hero line is drawn on a laptop and left to its row and the Account on a phone (757 px)
+    phone = ex.get('vp', 'laptop').startswith('phone')
+    if g.get('noteShown') is not (not phone):
+        fails.append("%s: DIP #424's held line in the hero is %s, want it %s" % (tag, 'drawn' if g.get('noteShown') else 'hidden',
+                     'hidden on a phone (its row and the Account say it; the trade list must start within 757 px)' if phone else 'drawn on a laptop'))
+    acct = g.get('acct') or []
+    if len(acct) != 1 or not acct[0].startswith(want['acct']) or not acct[0].endswith(want['acct_pnl']):
+        fails.append("%s: the Account lists DIP #424 as %r, want ONE line %r ... %s" % (tag, acct, want['acct'], want['acct_pnl']))
+    if len(g.get('acctPos') or []) != want['acct_lines']:
+        fails.append('%s: the Account lists %d positions, want %d (a strategy a line): %r' % (tag, len(g.get('acctPos') or []), want['acct_lines'], g.get('acctPos')))
+    h = r.get('held') or {}
+    asum = h.get('acctSum') or ''
+    if not asum.endswith(want['acct_sum']):
+        fails.append("%s: the Account fold's header reads %r, want it to end with %r (a strategy counts once)" % (tag, asum, want['acct_sum']))
+    ls = h.get('listSum') or ''
+    if not ls.startswith(want['list_sum'][0]) or not ls.endswith(want['list_sum'][1]):
+        fails.append("%s: the Strategies fold's header reads %r, want %r ... %r" % (tag, ls, want['list_sum'][0], want['list_sum'][1]))
+    if ex.get('theme', 'dark') == 'dark':
+        loud = ['%s %r' % (k, g[k][0]) for k in ('pill', 'line', 'gap', 'note', 'acctHeld') if isinstance(g.get(k), list) and g[k][1] != 'ok']
+        if loud:
+            fails.append('%s: the held DIP #424 lots are drawn as an alarm (red or amber): %s' % (tag, ', '.join(loud)))
+    # the daily stop: DIP never counted in it, its rail never inside its block or its words
+    if want['stop'] not in (r.get('stopTxt') or ''):
+        fails.append("%s: the daily stop reads %r, want %r (DIP #424 is not in the $400 stop)" % (tag, r.get('stopTxt'), want['stop']))
+    sw = g.get('stopWords') or ''
+    if 'DIP' in sw or '800' in sw or 'held overnight lot' in sw:
+        fails.append("%s: the daily stop's own words name DIP #424, its rail or its held lots (%r): DIP is not in the $400 stop" % (tag, sw))
+    rails = g.get('rails') or []
+    if len(rails) != want.get('rails_n', 1):
+        fails.append("%s: DIP #424's rail line is drawn %d times, want %d (once beside each daily stop shown)" % (tag, len(rails), want.get('rails_n', 1)))
+    for x in rails:
+        if x.get('inStop'):
+            fails.append("%s: DIP #424's rail is drawn INSIDE the daily stop's block (%r)" % (tag, x.get('txt')))
+        if (x.get('st'), x.get('txt')) != tuple(want['rail']):
+            fails.append("%s: DIP #424's rail line reads %r (%s), want %r (%s)" % (tag, x.get('txt'), x.get('st'), want['rail'][1], want['rail'][0]))
+        if ex.get('theme', 'dark') == 'dark' and x.get('col') != want.get('rail_col', 'ok'):
+            fails.append("%s: DIP #424's rail line is drawn %s, want %s" % (tag, x.get('col'), want.get('rail_col', 'ok')))
+    # the trade list: the mechanism on each DIP row, the DIP chip, never a raw exec leg name
+    legs = r.get('tradeLegs') or []
+    miss = [n for n in want['trades'] if n not in legs]
+    if miss:
+        fails.append('%s: the trade list lacks %r (a DIP lot names family, run and mechanism); rows %r' % (tag, miss, sorted(set(legs))[:8]))
+    if g.get('raw'):
+        fails.append('%s: the board shows raw DIP exec leg names %r (DIP #424 is one strategy)' % (tag, g['raw']))
+    sym = g.get('sym') or []
+    if len(sym) != len(want['trades']) or any(x[1] is not False for x in sym):
+        fails.append("%s: the DIP trade rows' strategy cells are %r ([words, cut]), want %d rows none cut (the mechanism goes under the name on a "
+                     "narrow list)" % (tag, sym, len(want['trades'])))
+    chips = [c[1] for c in g.get('chips') or [] if c[0] == 'DIP']
+    if chips != [want['chip']]:
+        fails.append("%s: the trade list's DIP chip reads %r, want one chip %r (chips %r)" % (tag, chips, want['chip'], g.get('chips')))
+    if ex.get('dip_chip'):
+        dc = r.get('dipChip') or {}
+        if sorted(dc.get('legs') or []) != sorted(want['trades']):
+            fails.append('%s: the DIP chip leaves %r in the list, want exactly %r' % (tag, dc.get('legs') if 'legs' in dc else dc, sorted(want['trades'])))
+    if not ex.get('vp', 'laptop').startswith('phone') and r.get('lines') != want['lines']:
+        fails.append("%s: the chart legend lines are %r, want %r (DIP #424's lots on ONE line)" % (tag, r.get('lines'), want['lines']))
+    if ex.get('open_leg') == 'DIP' and not ex.get('vp', 'laptop').startswith('phone'):
+        for s in want['detail']:
+            if s not in (g.get('detail') or ''):
+                fails.append("%s: the DIP #424 row's detail reads %r, want %r in it" % (tag, g.get('detail'), s))
+    if want.get('rail_cfg') and want['rail_cfg'] not in (g.get('railCfg') or ''):
+        fails.append("%s: the Rails fold's DIP #424 item reads %r, want %r in it" % (tag, g.get('railCfg'), want['rail_cfg']))
+    if want.get('top_max'):
+        tp = _shadow_phone_top(r)
+        if tp is None or tp > want['top_max']:
+            fails.append('%s: on a 375x812 phone the trade list starts %s px under the board top with DIP #424 held, want at most %d'
+                         % (tag, tp, want['top_max']))
+    if want.get('shadow'):
+        sh = [x for gg in groups if gg.get('key') == 'shadow' for x in gg.get('rows') or []]
+        if [x.get('name') for x in sh] != SHADOW_ROW_ORDER:
+            fails.append('%s: the Shadow fold reads %r, want %r (the DIP #424 shadows unchanged beside the live leg)'
+                         % (tag, [x.get('name') for x in sh], SHADOW_ROW_ORDER))
+        for x in sh:
+            if x.get('name') in SHADOW_DIP_OPEN and x.get('open') != SHADOW_DIP_OPEN[x['name']]:
+                fails.append("%s: the Shadow fold's %s row reads %r, want %r" % (tag, x['name'], x.get('open'), SHADOW_DIP_OPEN[x['name']]))
+        if [gg.get('key') for gg in groups] != ['book', 'retired', 'shadow']:
+            fails.append('%s: the strategy list groups are %r, want BOOK, Retired (ENGU-Q), Shadow' % (tag, [gg.get('key') for gg in groups]))
+
+
 def _judge_variants(data, fixture, fails, unfinished, why):
     """The freshness variants: each chip, label and the top bar chip, against what the variant's
     clock and doc say they must be."""
@@ -7467,6 +7799,8 @@ def _judge_variants(data, fixture, fails, unfinished, why):
         # keeps checklist: the hero's broker line and chips, the Account share check, the System host line
         _hero_extras(tag, r, _doc, fails, stale_like=stale_like, colour=ex.get('theme', 'dark') == 'dark', ex=ex,
                      sys_open=bool(ex.get('system') or ex.get('ordmode')))
+        if ex.get('dip'):
+            _dip_problems(tag, r, ex, fails)
         if ex.get('held'):
             _held_problems(tag, r, ex, fails)
         elif ex.get('hero_today') and r.get('heroToday') != ex['hero_today']:
@@ -7666,6 +8000,9 @@ def main(argv=None):
         return INCONCLUSIVE
     if not os.path.isfile(FIXTURE):
         print('WEBULLPROBE: INCONCLUSIVE -- fixture missing: %s' % FIXTURE)
+        return INCONCLUSIVE
+    if not os.path.isfile(DIP_FIXTURE):
+        print('WEBULLPROBE: INCONCLUSIVE -- fixture missing: %s' % DIP_FIXTURE)
         return INCONCLUSIVE
     if not os.path.isfile(SHADOW_FIXTURE):
         print('WEBULLPROBE: INCONCLUSIVE -- fixture missing: %s' % SHADOW_FIXTURE)

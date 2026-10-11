@@ -14,8 +14,9 @@ carried over unchanged; everything about the live leg is now the opposite assert
 
 COVERS:
   1. SHADOW_LEGS carries the three #422 variants with every field NOISE_382 carries (5m,
-     the same warm-up, decide_at_close) plus "shadow": True; CROWN_LEGS is untouched
-     (ORB_R6 + NOISE_382 exactly) and no #422 key is in qqq_exec's ENGINE_LEG_MAP.
+     the same warm-up, decide_at_close) plus "shadow": True; CROWN_LEGS's NOISE leg is
+     untouched (ORB_R6 + NOISE_382, then the live DIP_424 since 2026-10-10's GO) and no #422 key
+     is in qqq_exec's ENGINE_LEG_MAP.
   2. The cell is admissible in NOISE_1_8_CT304H.py's OWN fence (and a one-step-off value
      is refused), and the file trades a synthetic series with sizes {1.0, 1.75} only.
   3. The two live-engine hooks on CT304H (262-session window; vol_prior_ranges reaches
@@ -122,10 +123,10 @@ def _arrays_through(day, n_sessions=300):
 
 
 # ── 1. SHADOW_LEGS carries #422; the live legs are untouched ─────────────────────────────
-def test_live_legs_are_exactly_orb_and_noise_382():
+def test_live_legs_are_orb_noise_382_and_dip_424():
     # ENGUQ_335 is a shadow leg -- a tracker -- (2026-09-28, again 2026-10-09 ~20:20 MST, OWNER
-    # DECISION) -- the NOISE leg is unchanged
-    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382"]
+    # DECISION) -- the NOISE leg is unchanged; DIP #424 is live from 2026-10-13 (MANAGER #115)
+    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382", "DIP_424"]
     live = cs.CROWN_LEGS["NOISE_382"]
     assert live["strategy"] == "NOISE_1_8_CT304.py" and live["params"] == cs.NOISE_382_PARAMS
     assert live["keel"] == dict(version="v12", **cs.keel_paths("NOISE_382", "v12"))

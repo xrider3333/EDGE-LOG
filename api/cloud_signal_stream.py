@@ -41,11 +41,18 @@ a decision that was going to happen anyway gets recorded.
 
 SCOPE. 5m legs only (ORB_R6, NOISE_382 today) -- api.webull_stream's hand-off is 5m-only
 by design (see its HANDOFF_TIMEFRAME_SECONDS); a 1m live leg would be filtered out here
-(five_m_legs) and decided by cs.step()'s classic REST path only. LIVE legs only: `legs`
-defaults to cs.CROWN_LEGS, never cs.SHADOW_LEGS (OWNER DECISION 2026-09-28 -- ENGUQ_335 (a
-no-order tracker again since 2026-10-09 ~20:20 MST, OWNER DECISION), the three NOISE #422
-variants and the DIP #424 pair run as shadow legs through cs.run_shadow_step's classic REST
-path, never through this module, so no stream decision is ever committed for a shadow leg).
+(five_m_legs) and decided by cs.step()'s classic REST path only. NEVER A DIP LEG
+(cfg["runner"] == cs.DIP_RUNNER -- the live DIP_424 from 2026-10-13, MANAGER #115), though
+it is a 5m leg: it decides on the DAILY close and fills at the next 09:30 open
+(api/dip_live.py), so a stream bar could only move its ENTRY rows a few seconds earlier, at
+the price of a seven-engine-run probe per dry run (the stream decision AND the REST what-if)
+on the 1-CPU box, keyed on a stream-built frame that would evict the probe memo the live and
+shadow DIP legs share. Classic cs.step() decides it, on the bar the REST cache holds.
+LIVE legs only: `legs` defaults to cs.CROWN_LEGS, never cs.SHADOW_LEGS (OWNER DECISION
+2026-09-28 -- ENGUQ_335 (a no-order tracker again since 2026-10-09 ~20:20 MST, OWNER
+DECISION), the three NOISE #422 variants and the DIP #424 pair run as shadow legs through
+cs.run_shadow_step's classic REST path, never through this module, so no stream decision is
+ever committed for a shadow leg).
 
 FAIL-SAFE. run_stream_aware_step wraps every bit of the logic in this module in one
 try/except and ALWAYS calls the real api.cloud_signal.step() afterward regardless -- a
@@ -546,7 +553,10 @@ def run_stream_aware_step(now=None, legs=None, paths=None, fetch=True, warnings=
         now = now.replace(tzinfo=cs._zi(cs.TZ))
     legs = legs if legs is not None else cs.CROWN_LEGS
     paths = paths or cs.DEFAULT_PATHS
-    five_m_legs = {k: v for k, v in legs.items() if v.get("timeframe") == "5m"}
+    # never a DIP leg (cfg["runner"] == cs.DIP_RUNNER) -- see the module docstring's SCOPE: the
+    # classic step() below still decides it, like every leg this filter leaves out
+    five_m_legs = {k: v for k, v in legs.items()
+                   if v.get("timeframe") == "5m" and v.get("runner") != cs.DIP_RUNNER}
 
     try:
         if five_m_legs:

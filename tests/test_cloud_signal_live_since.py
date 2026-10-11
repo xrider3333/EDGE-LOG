@@ -219,6 +219,31 @@ def test_a_leg_without_live_since_is_unchanged_which_is_the_trap(tmp_path):
     assert ls["trades"][GHOST_0917]["exit_emitted"] is False, "ghosts untouched as before"
 
 
+def test_a_live_leg_does_nothing_before_its_live_since_date(tmp_path):
+    """FIXER 10-10: live_since is also a DATE GATE. A step on an earlier day (a deploy that lands
+    before the GO date) emits nothing, discards nothing and seeds nothing -- the earlier stint's
+    state is left exactly as it was; the leg cold-starts on its live_since day as before. The
+    same holds for a direct _diff_leg caller."""
+    paths = _home(tmp_path)
+    legs = {LEG: _cfg([ENGINE_OLD, OPEN_AT_SEED, NEW])}
+    before = _leg_state(paths)
+    for now in (_now("2026-10-08", 9, 45), _now("2026-10-08", 13, 30)):
+        assert cs.step(now=now, legs=legs, paths=paths, fetch=False) == []
+    assert _leg_state(paths) == before, "untouched until the live_since day"
+    assert not os.path.exists(paths["signals_path"]) or _ledger_events(paths) == []
+    ls = _box_leg_state()
+    old = _trade(ENGINE_OLD[0], ENGINE_OLD[1], exit_px=ENGINE_OLD[4])
+    assert cs._diff_leg(LEG, [old], ls, _now("2026-10-08", 13, 30), max_entry_age_sec=660,
+                        cfg=LIVE_CFG, log=QUIET) == []
+    assert ls == _box_leg_state()
+    assert cs._before_live_since(LIVE_CFG, _now("2026-10-08", 23, 59)) is True
+    assert cs._before_live_since(LIVE_CFG, _now("2026-10-09", 0, 0)) is False
+    assert cs._before_live_since(dict(LIVE_CFG, shadow=True), _now("2026-10-08", 9, 45)) is False
+    assert cs._before_live_since({}, _now("2026-10-08", 9, 45)) is False
+    first = cs.step(now=_now("2026-10-09", 9, 45), legs=legs, paths=paths, fetch=False)
+    assert [e["event"] for e in first] == ["SEED"] and "live_since=2026-10-09" in first[0]["reason"]
+
+
 # ── 3. direct _diff_leg callers, once per value, no key -> untouched ────────────────────
 def _trade(entry_ts, exit_ts=None, side="long", entry_px=738.0295, exit_px=None):
     return {"entry_time": entry_ts, "side": side, "entry_px": entry_px, "shares": 135,
@@ -370,13 +395,38 @@ def test_step_discards_the_old_state_before_the_no_new_bar_short_circuit(tmp_pat
 
 
 # ── 6. shadow legs: never discarded; the box's shadow ENGUQ_335 simply continues ────────
-def test_no_shipped_leg_carries_live_since_and_enguq_is_a_shadow_leg():
+def test_only_the_live_dip_leg_carries_live_since_and_enguq_is_a_shadow_leg():
     """OWNER DECISION 2026-10-09 ~20:20 MST (MANAGER #113): ENGU-Q is a no-order tracker --
-    a shadow leg with no live_since -- and no live leg carries the key either."""
+    a shadow leg with no live_since. The one shipped leg carrying the key is the live DIP_424
+    (OWNER GO 2026-10-10, MANAGER #115: 2026-10-13, its one cold start --
+    tests/test_dip424_live_engine.py)."""
     assert LEG in cs.SHADOW_LEGS and LEG not in cs.CROWN_LEGS
     assert cs.SHADOW_LEGS[LEG]["shadow"] is True
+    carrying = {}
     for key, cfg in list(cs.CROWN_LEGS.items()) + list(cs.SHADOW_LEGS.items()):
-        assert cs.LIVE_SINCE_KEY not in cfg, key
+        if cs.LIVE_SINCE_KEY in cfg:
+            carrying[key] = cfg[cs.LIVE_SINCE_KEY]
+    assert carrying == {"DIP_424": "2026-10-13"} and cs.DIP_424_LIVE_SINCE == "2026-10-13"
+    assert not cs.CROWN_LEGS["DIP_424"].get("shadow")
+
+
+def test_a_leg_never_seen_before_seeds_with_no_earlier_state():
+    """A brand-new live leg (DIP_424's first cold start): the live_since stamp records it had no
+    state, and the SEED says so -- "no earlier state, starts flat", never "discarded"."""
+    ls = {"trades": {}}
+    assert cs._apply_live_since("NEW_1", {"live_since": "2026-10-13"}, ls, log=QUIET) is True
+    assert ls["live_since_reset"]["had_state"] is False and ls["live_since_reset"]["discarded_trades"] == 0
+    ev = cs._diff_leg("NEW_1", [], ls, _now("2026-10-13", 9, 30), cfg={"live_since": "2026-10-13"},
+                      log=QUIET)
+    assert [e["event"] for e in ev] == ["SEED"]
+    assert ev[0]["reason"].endswith("; live_since=2026-10-13 (no earlier state, starts flat)")
+    # a state from an earlier stint still reads "discarded" (and a stamp written before had_state
+    # existed reads as discarded too)
+    old = _box_leg_state()
+    assert cs._apply_live_since(LEG, dict(LIVE_CFG, live_since="2026-10-13"), old, log=QUIET)
+    assert old["live_since_reset"]["had_state"] is True
+    assert cs._live_since_discarded(old) is True
+    assert cs._live_since_discarded({"live_since_reset": {"discarded_trades": 0}}) is True
 
 
 def test_a_shadow_cfg_with_live_since_never_discards_its_state():

@@ -195,7 +195,235 @@ def test_none_states_refuse_rather_than_count_as_empty():
     assert reasons != []
 
 
+# ── _book_check / _book_is_flat: HOLD-AWARE (DIP #424 live, OWNER GO 2026-10-10) ────────
+# DIP's seven one-lot legs hold overnight and some are open on most days: a lot the executor
+# holds on purpose, with no pending close and matching Webull exactly, is accepted; anything
+# else still refuses, and nothing unreadable is guessed.
+DIP_HOLD = ("ENGUQ", "DIP_RSI", "DIP_DBL", "DIP_PB", "DIP_CAP", "DIP_IBS", "DIP_STREAK", "DIP_GAPDN")
+
+
+def _held_lot(shares=6, side="long", hold=True, **over):
+    lot = {"side": side, "shares_remaining": shares, "entry_px": 600.0,
+           "entry_ts": "2026-10-13 09:35:20", "trade_id": "DIP_424-20261013T133000Z-L-RSI"}
+    if hold:
+        lot["hold"] = {"since": "2026-10-13", "close_mark_px": 601.0}
+    lot.update(over)
+    return lot
+
+
+def _pos(qty, symbol="QQQ"):
+    return {"symbol": symbol, "qty": qty, "account_id": "ACCT-must-never-print-0001"}
+
+
+def _dip_book(*legs, shares=6):
+    qqq = {"legs": {leg: _held_lot(shares) for leg in legs}, "_broker_resend": {},
+           "_broker_fill_capture": {}}
+    webull = {"broker_sent_positions": dict({leg: _pos(shares) for leg in legs},
+                                            ORB={"symbol": "QQQ", "qty": 0})}
+    return qqq, webull
+
+
+def test_held_dip_lots_matching_webull_are_accepted():
+    qqq, webull = _dip_book("DIP_RSI", "DIP_PB", "DIP_CAP")
+    ok, reasons, held = box_deploy._book_check(qqq, webull, DIP_HOLD)
+    assert ok is True and reasons == []
+    assert held == [{"leg": "DIP_CAP", "side": "long", "shares": 6, "since": "2026-10-13"},
+                    {"leg": "DIP_PB", "side": "long", "shares": 6, "since": "2026-10-13"},
+                    {"leg": "DIP_RSI", "side": "long", "shares": 6, "since": "2026-10-13"}]
+    assert box_deploy._book_is_flat(qqq, webull, DIP_HOLD) == (True, [])
+    # the hold block alone is enough (no hold list given / config unreadable)
+    assert box_deploy._book_is_flat(qqq, webull) == (True, [])
+    assert box_deploy._held_lot_words(held[0]) == ("DIP_CAP long 6 (held since 2026-10-13, "
+                                                   "Webull holds 6 for it)")
+
+
+def test_all_seven_dip_lots_held_are_accepted():
+    legs = DIP_HOLD[1:]
+    qqq, webull = _dip_book(*legs)
+    ok, reasons, held = box_deploy._book_check(qqq, webull, DIP_HOLD)
+    assert ok is True and len(held) == 7 and sum(x["shares"] for x in held) == 42
+
+
+def test_a_lot_on_the_hold_list_without_its_hold_block_is_accepted():
+    qqq = {"legs": {"DIP_IBS": _held_lot(hold=False)}}
+    webull = {"broker_sent_positions": {"DIP_IBS": _pos(6)}}
+    ok, reasons, held = box_deploy._book_check(qqq, webull, DIP_HOLD)
+    assert ok is True and held == [{"leg": "DIP_IBS", "side": "long", "shares": 6, "since": None}]
+    assert "held overnight, Webull holds 6" in box_deploy._held_lot_words(held[0])
+    # ...but not when the hold list is unknown or switched off: then it is an open leg
+    for hl in (None, ()):
+        ok, reasons, held = box_deploy._book_check(qqq, webull, hl)
+        assert ok is False and held == []
+        assert any("open legs that are not held overnight: ['DIP_IBS']" in r for r in reasons)
+        assert any("broker_sent_positions not flat" in r for r in reasons)
+
+
+def test_a_non_held_open_lot_beside_held_dip_lots_refuses():
+    qqq, webull = _dip_book("DIP_RSI", "DIP_PB")
+    qqq["legs"]["NOISE"] = {"side": "long", "shares_remaining": 10}
+    webull["broker_sent_positions"]["NOISE"] = _pos(10)
+    ok, reasons, held = box_deploy._book_check(qqq, webull, DIP_HOLD)
+    assert ok is False
+    assert any("open legs that are not held overnight: ['NOISE']" in r for r in reasons)
+    assert any("broker_sent_positions not flat: {'NOISE': 10}" in r for r in reasons)
+    # the held lots were fine on their own (main prints them beside the refusal)
+    assert [x["leg"] for x in held] == ["DIP_PB", "DIP_RSI"]
+    assert box_deploy._book_is_flat(qqq, webull, DIP_HOLD)[0] is False
+
+
+def test_pending_resend_or_fill_capture_refuses_with_held_lots():
+    for key, entry in (("_broker_resend", {"DIP_DBL:OPEN": {"tries": 1}}),
+                       ("_broker_fill_capture", {"DIP_RSI:CLOSE": {"leg": "DIP_RSI"}})):
+        qqq, webull = _dip_book("DIP_RSI", "DIP_PB")
+        qqq[key] = entry
+        ok, reasons, _held = box_deploy._book_check(qqq, webull, DIP_HOLD)
+        assert ok is False
+        assert any(("resend" if key == "_broker_resend" else "fill-capture") in r for r in reasons)
+
+
+def test_a_held_lot_with_a_pending_close_refuses():
+    qqq, webull = _dip_book("DIP_RSI", "DIP_PB")
+    qqq["legs"]["DIP_PB"]["close_pending"] = {"reason": "exit", "at": "2026-10-13 16:20:00"}
+    ok, reasons, held = box_deploy._book_check(qqq, webull, DIP_HOLD)
+    assert ok is False
+    assert any("held lot DIP_PB has a pending close (exit)" in r for r in reasons)
+    # its Webull shares are then not "accepted" either
+    assert any("broker_sent_positions not flat: {'DIP_PB': 6}" in r for r in reasons)
+    assert [x["leg"] for x in held] == ["DIP_RSI"]
+    # an empty close_pending block is still the executor's pending-close marker
+    qqq["legs"]["DIP_PB"]["close_pending"] = {}
+    ok, reasons, _held = box_deploy._book_check(qqq, webull, DIP_HOLD)
+    assert ok is False and any("held lot DIP_PB has a pending close --" in r for r in reasons)
+
+
+def test_a_held_lot_that_does_not_match_webull_refuses():
+    cases = [
+        ({"DIP_RSI": _pos(5)}, "qty 5"),                       # fewer shares at Webull
+        ({"DIP_RSI": _pos(12)}, "qty 12"),                     # more
+        ({}, "missing"),                                        # nothing booked at Webull
+        ({"DIP_RSI": _pos(0)}, "qty 0"),
+        ({"DIP_RSI": _pos(-6)}, "qty -6"),                     # the other side
+        ({"DIP_RSI": _pos(6, symbol="SPY")}, "of 'SPY'"),      # another symbol
+        ({"DIP_RSI": {"symbol": "QQQ", "qty": "six"}}, "qty 'six'"),
+        ({"DIP_RSI": 6}, "not a mapping"),
+    ]
+    for positions, words in cases:
+        qqq = {"legs": {"DIP_RSI": _held_lot()}}
+        ok, reasons, held = box_deploy._book_check(qqq, {"broker_sent_positions": positions}, DIP_HOLD)
+        assert ok is False and held == [], positions
+        r = [x for x in reasons if x.startswith("held lot DIP_RSI long 6 does not match Webull")]
+        assert r and words in r[0] and "want qty 6" in r[0], (positions, reasons)
+        # never the position's account field
+        assert not any("ACCT" in x for x in reasons)
+
+
+def test_a_held_short_lot_matches_a_negative_broker_qty():
+    qqq = {"legs": {"ENGUQ": _held_lot(10, side="short")}}
+    ok, _reasons, held = box_deploy._book_check(qqq, {"broker_sent_positions": {"ENGUQ": _pos(-10)}},
+                                                DIP_HOLD)
+    assert ok is True and held[0]["side"] == "short" and held[0]["shares"] == 10
+    ok, _reasons, _held = box_deploy._book_check(qqq, {"broker_sent_positions": {"ENGUQ": _pos(10)}},
+                                                 DIP_HOLD)
+    assert ok is False
+
+
+def test_a_held_lot_with_unreadable_side_or_shares_refuses():
+    for over in ({"side": "flat"}, {"side": None}, {"shares_remaining": None},
+                 {"shares_remaining": "x"}, {"shares_remaining": 0}, {"shares_remaining": -6},
+                 {"shares_remaining": 6.5}, {"shares_remaining": float("nan")}):
+        qqq = {"legs": {"DIP_RSI": _held_lot(**over)}}
+        ok, reasons, held = box_deploy._book_check(qqq, {"broker_sent_positions": {"DIP_RSI": _pos(6)}},
+                                                   DIP_HOLD)
+        assert ok is False and held == [], over
+        assert any("unreadable side/shares" in r for r in reasons), (over, reasons)
+    # "shares" is read when shares_remaining is absent
+    lot = _held_lot()
+    lot["shares"] = lot.pop("shares_remaining")
+    assert box_deploy._book_check({"legs": {"DIP_RSI": lot}},
+                                  {"broker_sent_positions": {"DIP_RSI": _pos(6)}}, DIP_HOLD)[0] is True
+
+
+def test_held_lots_with_unreadable_or_malformed_state_refuse():
+    qqq, webull = _dip_book("DIP_RSI")
+    assert box_deploy._book_check(None, webull, DIP_HOLD) == (
+        False, ["qqq_exec state.json unreadable"], [])
+    assert box_deploy._book_check(qqq, None, DIP_HOLD) == (
+        False, ["webull_orders state.json unreadable"], [])
+    ok, reasons, held = box_deploy._book_check(qqq, {"broker_sent_positions": "junk"}, DIP_HOLD)
+    assert ok is False and held == []
+    assert any("cannot be checked against Webull" in r for r in reasons)
+    ok, reasons, _held = box_deploy._book_check({"legs": {"DIP_RSI": "junk"}}, webull, DIP_HOLD)
+    assert ok is False and any("legs['DIP_RSI'] is not a mapping" in r for r in reasons)
+
+
+def test_hold_legs_from_the_box_config():
+    from tools import webull_freshness as wf
+    assert box_deploy._hold_legs_from_config(None) == ()            # unreadable: blocks only
+    assert box_deploy._hold_legs_from_config("junk") == ()
+    assert box_deploy._hold_legs_from_config({}) == wf.HOLD_OVERNIGHT_LEGS
+    assert set(DIP_HOLD) <= set(box_deploy._hold_legs_from_config({"session": {}}))
+    assert box_deploy._hold_legs_from_config(
+        {"session": {"hold_overnight_legs": ["DIP_RSI"]}}) == ("DIP_RSI",)
+    assert box_deploy._hold_legs_from_config({"session": {"hold_overnight_legs": []}}) == ()
+    assert box_deploy._hold_legs_from_config({"signal_source": "ninjatrader"}) == ()
+
+
+class _Stop(Exception):
+    pass
+
+
+def _run_main_to_the_git_step(monkeypatch, qqq, webull, exec_cfg):
+    """main() up to its first box-git call with every ssh read faked (no network): returns
+    what it printed before the git step (which raises _Stop) or its return code."""
+    files = {f"{box_deploy.REMOTE_HOME}/qqq_exec/state.json": qqq,
+             f"{box_deploy.REMOTE_HOME}/webull_orders/state.json": webull,
+             f"{box_deploy.REMOTE_HOME}/qqq_exec/config.json": exec_cfg}
+    monkeypatch.setattr(box_deploy, "_read_remote_json", lambda path: files.get(path))
+    monkeypatch.setattr(box_deploy, "_in_protected_window", lambda now: False)
+
+    def stop():
+        raise _Stop()
+    monkeypatch.setattr(box_deploy, "_remote_head_sha", stop)
+    return box_deploy.main(["--commit", "abc1234", "--dry-run"])
+
+
+def test_main_prints_the_accepted_held_lots_plainly(monkeypatch, capsys):
+    qqq, webull = _dip_book("DIP_RSI", "DIP_PB")
+    try:
+        _run_main_to_the_git_step(monkeypatch, qqq, webull, {"session": {}})
+    except _Stop:
+        pass
+    out = capsys.readouterr().out
+    assert ("book is flat on the box except 2 lot(s) held overnight on purpose, each matching "
+            "Webull -- ACCEPTED (they stay open through the restart):") in out
+    assert "  - DIP_PB long 6 (held since 2026-10-13, Webull holds 6 for it)" in out
+    assert "  - DIP_RSI long 6 (held since 2026-10-13, Webull holds 6 for it)" in out
+    assert "ACCT" not in out
+
+
+def test_main_refuses_a_mismatched_held_lot_and_names_the_good_ones(monkeypatch, capsys):
+    qqq, webull = _dip_book("DIP_RSI", "DIP_PB")
+    webull["broker_sent_positions"]["DIP_PB"] = _pos(3)
+    rc = _run_main_to_the_git_step(monkeypatch, qqq, webull, None)
+    out = capsys.readouterr().out
+    assert rc == 1
+    assert "REFUSED: the book is not flat on the box:" in out
+    assert "held lot DIP_PB long 6 does not match Webull" in out
+    assert "(held overnight and matching Webull, fine on its own: DIP_RSI long 6" in out
+    assert "could not read qqq_exec/config.json" in out          # hold blocks alone counted
+    assert "ACCT" not in out
+
+
 # ── strategy-chain parsing (pure text, no ssh) ────────────────────────────────────────
+def test_book_pathspecs_cover_the_dip_runner_and_the_broker_id_helper():
+    """FIXER 10-10: api/dip_live.py decides the live DIP leg's orders and api/trade_id.py builds
+    every Webull client_order_id (broker_signal_base) -- a deploy that changes either must list
+    it under the book's code paths."""
+    got = box_deploy._book_pathspecs(lambda relpath: None)
+    for path in ("api/dip_live.py", "api/trade_id.py", "api/qqq_exec.py", "api/cloud_signal.py"):
+        assert path in got, path
+
+
 def test_parse_crown_strategy_files_from_cloud_signal_source():
     src = '''
 CROWN_LEGS = {

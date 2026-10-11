@@ -3,7 +3,8 @@ ENGUQ_335) holds its trade overnight on the Webull paper QQQ book, like its back
 
 ENGU-Q itself is a no-order TRACKER since the OWNER DECISION of 2026-10-09 ~20:20 MST (MANAGER
 #113): api/cloud_signal.py writes no live ENGUQ_335 row, so the box never opens an ENGUQ lot. The
-hold stays for DIP #424 (the live leg later), and ENGUQ stays its code default
+hold stays for DIP #424 (its seven exec legs DIP_RSI ... DIP_GAPDN join the code default on
+2026-10-10, MANAGER #115 -- tests/test_qqq_exec_dip_live.py), and ENGUQ stays in that default
 (api/qqq_exec.HOLD_OVERNIGHT_LEGS -- harmless without a lot), so these tests keep the MECHANISM
 covered on the ENGUQ exec leg: lots opened from rows routed straight into the executor, and end
 to end a TEST-LOCAL live leg (E2E_LIVE_CFG: ENGU-Q's own cfg as the live leg it was briefly meant
@@ -287,16 +288,20 @@ def _exit_event(tid, px, ref_time, reason=""):
 
 # ── config ─────────────────────────────────────────────────────────────────────────────
 
+DEFAULT_HOLD = ("ENGUQ", "DIP_RSI", "DIP_DBL", "DIP_PB", "DIP_CAP", "DIP_IBS", "DIP_STREAK", "DIP_GAPDN")
+
+
 def test_hold_legs_default_override_garbage_and_ninjatrader():
-    # the code default stays ENGUQ though ENGU-Q is a no-order tracker since 2026-10-09 ~20:20 MST:
-    # no ENGUQ lot is ever opened, so it holds nothing (see HOLD_OVERNIGHT_LEGS' own comment)
-    assert qe.HOLD_OVERNIGHT_LEGS == ("ENGUQ",)
-    assert qe._hold_legs({}) == ("ENGUQ",)
-    assert qe._hold_legs({"session": {"flat_by": "15:59"}}) == ("ENGUQ",)
+    # the code default keeps ENGUQ though ENGU-Q is a no-order tracker since 2026-10-09 ~20:20 MST:
+    # no ENGUQ lot is ever opened, so it holds nothing (see HOLD_OVERNIGHT_LEGS' own comment) --
+    # and DIP #424's seven exec legs hold overnight since 2026-10-10 (MANAGER #115)
+    assert qe.HOLD_OVERNIGHT_LEGS == DEFAULT_HOLD
+    assert qe._hold_legs({}) == DEFAULT_HOLD
+    assert qe._hold_legs({"session": {"flat_by": "15:59"}}) == DEFAULT_HOLD
     assert qe._hold_legs({"session": {"hold_overnight_legs": []}}) == ()
     assert qe._hold_legs({"session": {"hold_overnight_legs": ["ENGUQ", "NOISE"]}}) == ("ENGUQ", "NOISE")
     for bad in ("ENGUQ", ["SPY"], [1], {"ENGUQ": 1}):
-        assert qe._hold_legs({"session": {"hold_overnight_legs": bad}}) == ("ENGUQ",)
+        assert qe._hold_legs({"session": {"hold_overnight_legs": bad}}) == DEFAULT_HOLD
     assert qe._hold_legs({"signal_source": "ninjatrader"}) == (), \
         "the NinjaTrader fallback never replays an old fill, so it keeps flat-at-close"
 
@@ -310,7 +315,7 @@ def test_load_config_keeps_a_list_and_drops_a_bad_value(tmp_path):
     lines = []
     p.write_text(json.dumps({"session": {"hold_overnight_legs": "ENGUQ"}}), encoding="utf-8")
     cfg = qe.load_config(path=str(p), log=lines.append)
-    assert "hold_overnight_legs" not in cfg["session"] and qe._hold_legs(cfg) == ("ENGUQ",)
+    assert "hold_overnight_legs" not in cfg["session"] and qe._hold_legs(cfg) == DEFAULT_HOLD
     assert any("invalid session.hold_overnight_legs" in ln for ln in lines)
     assert "hold_overnight_legs" not in qe.DEFAULT_CONFIG["session"], \
         "code default only -- nothing baked into DEFAULT_CONFIG"
@@ -954,8 +959,8 @@ def test_status_doc_shows_the_held_lot_as_planned_with_its_gap(env, monkeypatch)
     assert t["realized_pnl_rail"] == 0.0
     assert t["breaker_input"] == round(t["realized_pnl_rail"] + t["breaker_fill_adj"]
                                        + t["unrealized_rail"], 2)
-    assert doc["rails"]["hold_overnight_legs"] == ["ENGUQ"]
-    assert doc["rails"]["session"]["hold_overnight_legs"] == ["ENGUQ"], "the effective list"
+    assert doc["rails"]["hold_overnight_legs"] == list(DEFAULT_HOLD)
+    assert doc["rails"]["session"]["hold_overnight_legs"] == list(DEFAULT_HOLD), "the effective list"
     assert doc["rails"]["session"]["flat_by"] == "15:59"
     live = doc["positions_live"]
     (leg,) = live["legs"]
@@ -1417,7 +1422,8 @@ def test_status_doc_carries_the_held_lot_and_the_shadow_block_inside_the_firesto
     doc = build()
     held = {k: v for k, v in doc["positions"]["ENGUQ"].items()}
     assert held["held_overnight"] is True and held["gap_usd"] == -500.0
-    assert doc["today"]["overnight_gap_usd"] == -500.0 and doc["rails"]["hold_overnight_legs"] == ["ENGUQ"]
+    assert doc["today"]["overnight_gap_usd"] == -500.0 \
+        and doc["rails"]["hold_overnight_legs"] == list(DEFAULT_HOLD)
     st = doc["shadow_trades"]
     assert "error" not in st and len(st["trades"]) == 6 and st["capped"] == 0
     assert not {t.get("trade_id") for t in st["trades"]} & {t.get("trade_id") for t in doc["trades_all"]}

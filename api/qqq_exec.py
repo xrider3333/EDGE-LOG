@@ -39,13 +39,18 @@ RAILS (identical logic shadow and, eventually, live):
   (a) shares > max_shares_per_leg -> refuse the lot (WARN, no lot opened).
   (b) daily shadow loss (realized + open marks) beyond daily_loss_limit_usd -> close
       every open lot, set breaker_tripped for the rest of the (ET) trading day, ignore
-      further entries.
+      further entries. DIP #424's seven lots (DIP_LEGS, OWNER GO 2026-10-10) are OFF this
+      rail -- never counted, never closed by it -- and carry their OWN rail
+      (dip_daily_loss_limit_usd, $800): a breach only blocks DIP entries through the next
+      session, never sells (DIP RAIL, see _check_dip_rail). DIP lots also have their own
+      total cap (dip_max_total_shares, 42).
   (c) entries only inside [session.open, session.last_entry] ET; at session.flat_by,
       every open lot is closed and tagged "EOD" -- except a leg in
-      session.hold_overnight_legs (ENGU-Q by default, engine mode only), whose lot holds
-      overnight like its backtest and sells on its own strategy exit (HOLD OVERNIGHT,
-      owner GO 2026-10-09 -- see the section of that name). No ENGU-Q lot is ever opened
-      today: ENGU-Q is a no-order shadow tracker (OWNER DECISION 2026-10-09 ~20:20 MST).
+      session.hold_overnight_legs (ENGU-Q and DIP #424's seven lots by default, engine mode
+      only), whose lot holds overnight like its backtest and sells on its own strategy exit
+      (HOLD OVERNIGHT, owner GO 2026-10-09 -- see the section of that name). No ENGU-Q lot is
+      ever opened today: ENGU-Q is a no-order shadow tracker (OWNER DECISION 2026-10-09
+      ~20:20 MST); DIP #424 is the held live leg (OWNER GO 2026-10-10, MANAGER #115).
   (d) kill file present -> no new lots; close every open lot, tagged "KILL".
   (e) feed staleness (NinjaTrader AddOn heartbeat older than 90s, via
       api.nt_sync._addon_heartbeat) blocks new entries and logs at most one line per
@@ -127,7 +132,61 @@ _WEBULL_TOKEN_DIR = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR", os.path.join(EDGE
 # The symbol this module's shadow lots (and now the broker mirror) always trade.
 BROKER_SYMBOL = "QQQ"
 
-LEGS = ("ORB", "ENGUQ", "NOISE")
+# DIP #424 LIVE LEG (OWNER GO 2026-10-10, MANAGER #115) -- Option A of
+# C:\EdgeLog\manager\paperwb_1007\DIP_LIVE_BUILD_MAP_1010.md: SEVEN one-lot exec legs, one
+# per NQDIP_1_1.py mechanism (DIP_RSI ... DIP_GAPDN, family "DIP"), all fed by ONE engine key,
+# DIP_424, whose trade ids carry the mechanism as their slot (<leg>-<UTC>-L-<SLOT>, see
+# api/trade_id.py) -- _exec_leg_for maps slot X to exec leg DIP_<X>. Everything below that is
+# keyed by exec leg (state["legs"], the adapter's per-leg books and one_open_position_per_leg,
+# the resend queue keys, the hold, the boot / orphan / after-close checks) then holds one DIP
+# lot per mechanism exactly as it holds one ORB lot. The sizes and rails are CODE DEFAULTS (they
+# survive load_config's one-level merge of the box's config.json, whose "shares" block names
+# only ORB / ENGUQ / NOISE): 6 shares a lot (the fixed 1.245x is already inside the 6 -- no KEEL
+# or engine size multiplies it, see _open_lot), at most 42 DIP shares in all
+# (dip_max_total_shares), and DIP's OWN daily loss rail (dip_daily_loss_limit_usd, -$800) that
+# only BLOCKS DIP entries through the next session and never sells (DIP RAIL, see
+# _check_dip_rail) -- DIP is OFF the shared daily loss breaker (it never counts there and the
+# breaker never closes it). The shared KILL still sells every DIP lot (deferred to the open
+# outside regular hours, like any held lot), and DIP holds overnight (HOLD_OVERNIGHT_LEGS).
+DIP_FAMILY = "DIP"
+DIP_ENGINE_KEY = "DIP_424"
+DIP_SLOTS = tuple(_trade_id.BROKER_SLOT_CODES)          # RSI DBL PB CAP IBS STREAK GAPDN
+DIP_LEGS = tuple(f"DIP_{s}" for s in DIP_SLOTS)
+DIP_LEG_FOR_SLOT = dict(zip(DIP_SLOTS, DIP_LEGS))
+DIP_SHARES_PER_LOT = 6
+DIP_MAX_TOTAL_SHARES = 42
+DIP_DAILY_LOSS_LIMIT_USD = 800.0
+DIP_RAIL_BLOCK_SESSIONS = 1      # sessions after the trip day that DIP entries stay blocked
+# the shared rail's family name (every leg that is not DIP) -- see _rail_family
+RAIL_SHARED = "shared"
+
+LEGS = ("ORB", "ENGUQ", "NOISE") + DIP_LEGS
+# The families the status doc aggregates by (signals_day, cum_pnl) -- see leg_family.
+FAMILIES = ("ORB", "ENGUQ", "NOISE", DIP_FAMILY)
+
+
+def is_dip_leg(leg):
+    """True for one of DIP #424's seven live exec legs (DIP_RSI ... DIP_GAPDN)."""
+    return str(leg or "") in DIP_LEGS
+
+
+def leg_family(leg):
+    """'DIP_RSI' -> 'DIP'; every other leg is its own family ('ORB' -> 'ORB')."""
+    return DIP_FAMILY if is_dip_leg(leg) else str(leg or "")
+
+
+def _rail_family(leg):
+    """Which daily loss rail counts `leg`: DIP_FAMILY (its own -$800 rail) or RAIL_SHARED."""
+    return DIP_FAMILY if is_dip_leg(leg) else RAIL_SHARED
+
+
+def _in_rail(leg, family):
+    """`family` None = every leg (the whole book); else only legs of that rail family."""
+    return family is None or _rail_family(leg) == family
+
+
+# {exec leg: family} -- published whole as doc["leg_families"]
+LEG_FAMILIES = {leg: leg_family(leg) for leg in LEGS}
 # HOLD OVERNIGHT (OWNER GO 2026-10-09, MANAGER #106): the exec legs whose lot is NOT sold at
 # session.flat_by -- it holds overnight like its backtest and sells on its own engine EXIT
 # on a later day, as a normal market order in regular hours. Code default only:
@@ -140,9 +199,9 @@ LEGS = ("ORB", "ENGUQ", "NOISE")
 # lot is ever opened and this default holds nothing. It stays ("ENGUQ",), not (), on purpose:
 # the hold's tests and tools/webull_freshness.py's twin constant pin it, and it changes nothing
 # without an ENGUQ lot (every reader acts on an open lot or a Webull position of the leg). The
-# code stays for DIP #424, which is to be the live (held) leg later -- a separate build adds its
-# exec leg here.
-HOLD_OVERNIGHT_LEGS = ("ENGUQ",)
+# code stays for DIP #424: its seven exec legs hold overnight like its backtest (multi-day
+# holds, OWNER GO 2026-10-10, MANAGER #115).
+HOLD_OVERNIGHT_LEGS = ("ENGUQ",) + DIP_LEGS
 # ENGINE MODE (2026-09-13): maps api/cloud_signal.py's own CROWN_LEGS keys onto this
 # module's short leg keys. Kept explicit (not derived) so a cloud_signal rename never
 # silently breaks this mapping -- update BOTH sides in the same commit. See
@@ -173,6 +232,22 @@ HOLD_OVERNIGHT_LEGS = ("ENGUQ",)
 # block for the board's "Shadow - not counted" fold. That read never reaches an order, a
 # lot, a rail, P&L, trades_all, readiness or the export (see SHADOW TRADES).
 ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE", "NOISE_304": "NOISE"}
+# DIP_424 is deliberately NOT in ENGINE_LEG_MAP: one engine key feeds SEVEN exec legs, picked by
+# the row's trade-id slot -- every engine-key -> exec-leg lookup goes through _exec_leg_for.
+
+
+def _exec_leg_for(engine_key, trade_id=None):
+    """The exec leg an engine row (key + trade id) belongs to: ENGINE_LEG_MAP for every leg but
+    DIP; for DIP_424 the mechanism slot in the trade id ("...-L-RSI" -> "DIP_RSI"). None when
+    this module does not mirror the key, or a DIP_424 id names no known slot (the caller
+    records an "unknown_slot" trade-id issue for that). Never raises."""
+    try:
+        if engine_key == DIP_ENGINE_KEY:
+            p = _trade_id.parse(trade_id)
+            return DIP_LEG_FOR_SLOT.get((p or {}).get("slot") or "")
+        return ENGINE_LEG_MAP.get(engine_key)
+    except Exception:
+        return None
 ENGINE_HEARTBEAT_STALE_SEC = 90.0     # mirrors FEED_STALE_SEC's role, for cloud_signal's own heartbeat
 ENGINE_CONSUME_STALE_SEC = 30 * 60.0  # this adapter was down too long to act on a queued signal
 ENGINE_SHORT_READ_TICKS = 3           # consecutive short ledger reads before accepting a replaced file
@@ -199,9 +274,15 @@ TRADES_KEEP = 500
 
 DEFAULT_CONFIG = {
     "mode": "SHADOW",
-    "shares": {"ORB": 5, "ENGUQ": 5, "NOISE": 5},
+    "shares": dict({"ORB": 5, "ENGUQ": 5, "NOISE": 5},
+                   **{leg: DIP_SHARES_PER_LOT for leg in DIP_LEGS}),
     "max_shares_per_leg": 10,
     "daily_loss_limit_usd": 150,
+    # DIP #424 (OWNER GO 2026-10-10): the family's own caps -- code defaults, see DIP_LEGS.
+    # dip_max_total_shares: every open DIP lot's shares together (0 = no cap);
+    # dip_daily_loss_limit_usd: DIP's own rail (0 = off), never the shared one above.
+    "dip_max_total_shares": DIP_MAX_TOTAL_SHARES,
+    "dip_daily_loss_limit_usd": DIP_DAILY_LOSS_LIMIT_USD,
     "session": {"open": "09:31", "last_entry": "15:55", "flat_by": "15:58"},
     "kill_file": os.path.join(OUT_DIR, "KILL"),
     # NOTE: "flatten_broker_file" is deliberately NOT defaulted here. load_config deep-
@@ -806,9 +887,12 @@ def _roll_day(state, today):
     # close_pending decided after the bell) rides through midnight, a weekend and a holiday
     # unchanged; the new day's open mark is taken by _refresh_held_marks from 09:30
     # (lot["hold"]["open_mark_day"] says which day a mark belongs to, so nothing is reset)
+    # DIP RAIL: state["dip_rail"] is NOT cleared here -- it blocks DIP entries through its
+    # blocks_until session and is reset by _dip_rail_expire after that
     if state.get("trading_day") != today:
         state["trading_day"] = today
         state["realized_pnl_today"] = 0.0
+        state["realized_pnl_today_dip"] = 0.0   # DIP's part of the line above (its own rail)
         state["breaker_tripped"] = False
         state["flat_by_done_date"] = None
         state["kill_done"] = False
@@ -911,8 +995,11 @@ _PHONE_PROCESS_STORE = {}
 
 
 def _leg_word(leg):
-    """'ENGUQ' -> 'ENGU-Q'; 'ORB' / 'NOISE' as they are; anything else -> 'a strategy'."""
+    """'ENGUQ' -> 'ENGU-Q'; 'ORB' / 'NOISE' as they are; every DIP lot (DIP_RSI ...) -> 'DIP'
+    (the phone speaks of the strategy, never a mechanism); anything else -> 'a strategy'."""
     s = str(leg or "").strip()
+    if is_dip_leg(s):
+        return DIP_FAMILY
     return PHONE_LEG_WORDS.get(s.upper(), s) or "a strategy"
 
 
@@ -924,8 +1011,8 @@ def _a_leg_word(leg):
 
 
 def _legs_words(legs):
-    """['NOISE', 'ORB'] -> 'NOISE and ORB'."""
-    ws = [_leg_word(x) for x in legs if x]
+    """['NOISE', 'ORB'] -> 'NOISE and ORB'; several DIP lots say 'DIP' once."""
+    ws = list(dict.fromkeys(_leg_word(x) for x in legs if x))
     return " and ".join([", ".join(ws[:-1]), ws[-1]]) if len(ws) > 1 else (ws[0] if ws else "a strategy")
 
 
@@ -1056,6 +1143,82 @@ def _fill_note(leg, what, problem):
                            priority="low")
 
 
+# BATCHED FAMILY NOTES (DIP #424, 2026-10-10): up to seven DIP lots fill at one session open
+# (and exit together), so their fill notes are queued on state["_fill_note_batch"] by
+# _open_lot / _reduce_lot and sent ONE per family and kind (bought / sold, with its exit
+# reason) by _flush_fill_notes -- at the end of _route_engine_events and of every tick (so a
+# KILL / end-of-day / at-the-open close of several lots in one tick is one note). Every other
+# leg's note goes out at once, exactly as before.
+def _queue_fill_note(state, leg, kind, side, px, reason=None, trade_id=None):
+    """Queue one family fill note (kind "open" / "close") for _flush_fill_notes. Never raises."""
+    try:
+        state.setdefault("_fill_note_batch", []).append({
+            "leg": leg, "kind": kind, "side": side, "px": _finite_or_none(px),
+            "reason": reason, "tid": trade_id})
+    except Exception:
+        pass
+
+
+def _flush_fill_notes(state, log=print):
+    """Send the queued family fill notes: one low note per (family, kind, exit reason) --
+    "QQQ fill: DIP bought" / "Bought QQQ for several DIP lots at 701.25 (...)". Never raises."""
+    try:
+        batch = state.pop("_fill_note_batch", None) or []
+        groups = {}
+        for b in batch:
+            if not isinstance(b, dict):
+                continue
+            words = _exit_reason_words(b.get("reason")) if b.get("kind") == "close" else ""
+            groups.setdefault((leg_family(b.get("leg")), b.get("kind"), words), []).append(b)
+        for (fam, kind, words), items in groups.items():
+            pxs = [i["px"] for i in items if i.get("px") is not None]
+            px = (sum(pxs) / len(pxs)) if pxs else None
+            px_txt = (("about " if len({round(p, 2) for p in pxs}) > 1 else "")
+                      + ntfy_push.price(px)) if px is not None else "the market price"
+            long_ = items[0].get("side") != "short"
+            many = len(items) > 1
+            lots = f" for several {fam} lots" if many else ""
+            if kind == "open":
+                what = "bought" if long_ else "sold short"
+                problem = (f"{'Bought' if long_ else 'Sold short'} QQQ{lots} at {px_txt} "
+                           f"(share count{'s' if many else ''} stay{'' if many else 's'} on the board)")
+            else:
+                what = "sold" if long_ else "bought back"
+                problem = f"{'Sold' if long_ else 'Bought back'} QQQ{lots} at {px_txt} ({words})"
+            pid = f"{kind} {items[0].get('tid') or ''} +{len(items)}"
+            _say(state, f"fill:{fam}", pid, _fill_note(items[0].get("leg"), what, problem), log=log)
+    except Exception as e:
+        log(f"[qqq-exec] family fill notes failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _say_family_held(state, legs, nowdt, log=print):
+    """HOLD OVERNIGHT for a family's lots kept at one flatten (DIP's up to seven): ONE
+    timeline event ("DIP long 42 (7 lots) held overnight ...") and ONE low phone note a day,
+    instead of one per lot. The hold blocks themselves are _mark_held_overnight's (push=False).
+    Never raises."""
+    try:
+        day = nowdt.strftime("%Y-%m-%d")
+        held = {}
+        for leg in legs:
+            lot = (state.get("legs") or {}).get(leg)
+            if lot:
+                n = int(round(float(lot.get("shares_remaining") or 0)))
+                held[leg] = n if lot.get("side") == "long" else -n
+        if not held:
+            return
+        total = sum(abs(q) for q in held.values())
+        msg = (f"{_held_words(held)} held overnight -- the end-of-day flatten skips it (it holds "
+               f"like its backtest); each lot sells on its own strategy exit, at market in "
+               f"regular hours")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "held_overnight", msg, log=log)
+        first = sorted(held)[0]
+        _say(state, f"held:{leg_family(first)}", day, _held_note(first, total, lots=len(held)),
+             log=log)
+    except Exception as e:
+        log(f"[qqq-exec] family held-overnight note failed: {type(e).__name__}: {e}")
+
+
 def _exit_reason_words(reason):
     """'EOD (px: live_stream)' -> 'end-of-day close'; 'signal exit' -> 'strategy exit'."""
     r = str(reason or "").strip().upper()
@@ -1088,12 +1251,13 @@ def _kill_note(deferred=()):
         "nothing if you switched it on, else " + PHONE_ASK, priority="low")
 
 
-def _held_note(leg, shares):
+def _held_note(leg, shares, lots=1):
     """HOLD OVERNIGHT: the planned overnight hold, one low note a day ("QQQ book: held
-    overnight") -- never an alarm."""
+    overnight") -- never an alarm. `lots` > 1: a family's lots in one note (DIP)."""
     return ntfy_push.plain(
         PHONE_AREA, "held overnight", "not affected (planned)",
-        f"{_leg_word(leg)} keeps its {int(shares)} QQQ shares overnight, as its backtest does",
+        f"{_leg_word(leg)} keeps its {int(shares)} QQQ shares overnight"
+        + (" across its open lots" if int(lots or 1) > 1 else "") + ", as its backtest does",
         "nothing - it sells on its own exit", priority="low")
 
 
@@ -1229,21 +1393,25 @@ def _ensure_signals_day(state, day, log=print):
 
 
 def _build_signals_day(state):
-    """[{date,fired,taken,refused,oos,by_leg:{ORB:{...},ENGUQ:{...},NOISE:{...}}}, ...]
-    oldest-first, last 60 days -- see module docstring feature (4)."""
+    """[{date,fired,taken,refused,oos,by_leg:{ORB:{...},ENGUQ:{...},NOISE:{...},DIP:{...}}},
+    ...] oldest-first, last 60 days -- see module docstring feature (4). by_leg is keyed by
+    FAMILY (2026-10-10): DIP's seven exec legs are added up under "DIP" (the board shows DIP
+    #424 as one strategy); the counters themselves stay per exec leg in state."""
     out = []
     days = state.get("signals_days") or {}
     for day in sorted(days.keys()):
         try:
             raw = days[day] or {}
             totals = {"fired": 0, "taken": 0, "refused": 0, "oos": 0}
-            by_leg_out = {}
+            by_leg_out = {fam: {"fired": 0, "taken": 0, "refused": 0, "oos": 0} for fam in FAMILIES}
             for leg in LEGS:
                 d = raw.get(leg) or {}
                 row = {"fired": int(d.get("fired", 0) or 0), "taken": int(d.get("taken", 0) or 0),
                       "refused": int(d.get("refused", 0) or 0), "oos": int(d.get("oos", 0) or 0)}
-                by_leg_out[leg] = row
+                fam = by_leg_out.setdefault(leg_family(leg),
+                                            {"fired": 0, "taken": 0, "refused": 0, "oos": 0})
                 for k in totals:
+                    fam[k] += row[k]
                     totals[k] += row[k]
             out.append({"date": day, "fired": totals["fired"], "taken": totals["taken"],
                        "refused": totals["refused"], "oos": totals["oos"],
@@ -1835,7 +2003,8 @@ def _build_positions_live(state, cfg, log=print):
             except Exception:
                 time_in_trade_min = None
             legs_out.append({
-                "leg": leg, "side": side, "shares": shares, "entry_px": entry_px,
+                "leg": leg, "family": leg_family(leg), "side": side, "shares": shares,
+                "entry_px": entry_px,
                 "trade_id": lot.get("trade_id"),
                 "live_px": live_px,
                 "live_age_s": round(live_age, 1) if live_age is not None else None,
@@ -1999,8 +2168,11 @@ def _broker_signal_id(leg, ts, intent, seq=0, trade_id=None):
     that predates trade ids and is still open in state.json, or a direct caller/test. No
     production open path creates a lot without one any more (see _open_lot)."""
     if trade_id:
-        code = {"OPEN": "O", "CLOSE": "C"}.get(str(intent).upper(), str(intent)[:1].upper())
-        base = "qx" + _NON_ALNUM.sub("", str(trade_id)) + code
+        # api/trade_id.py broker_signal_base -- the ONE rule (2026-10-10), shared with
+        # tools/qqq_reprice.py and tools/qqq_bars_publish.py: byte-identical for every id
+        # without a slot; a DIP mechanism slot is a one-character code (27 characters for
+        # every DIP id, 29 with a resend R<n> -- never hashed, never trimmed by a split)
+        base = _trade_id.broker_signal_base(trade_id, intent)
         return base if not seq or int(seq) <= 1 else f"{base}{int(seq)}"
     base = f"qqqexec-{leg}-{ts}-{intent}"
     return base if not seq else f"{base}-{seq}"
@@ -2177,11 +2349,12 @@ def _is_serving_standalone():
 # -- the give-up, a stalled retry, a sell after the bell (urgent) -- and otherwise at most
 # once a day while it stands. NOT one push per retry, and no longer one every 5 minutes.
 def _exit_key(leg):
-    return f"exit:{leg}"
+    # DIP: one phone episode for the family (seven lots fail together, the owner hears it once)
+    return f"exit:{leg_family(leg)}"
 
 
 def _entry_key(leg):
-    return f"entry:{leg}"
+    return f"entry:{leg_family(leg)}"
 
 
 def _close_fail_alert_reset(state, leg):
@@ -2297,6 +2470,25 @@ def _alert_broker_send_unknown(state, *, leg, intent, side, shares, reason,
             _log_event(state, "broker", msg, log=log)
     except Exception as e:
         log(f"[qqq-exec] broker-unknown alert failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _book_only_legs(legs, log=print):
+    """The legs among `legs` whose lot Webull never got: the broker adapter is armed (PAPER or
+    LIVE) and BOTH its books (believed_positions and broker_sent_positions) hold 0 shares for the
+    leg -- its OPEN was refused (the gross cap, a rails or lease block, a re-send that gave up)
+    and nothing reached Webull. FIXER 2026-10-10 (DIP #424 live leg): the flat_by flatten closes
+    such a lot instead of holding it overnight -- held, it would read as Webull missing shares
+    every evening (_check_webull_flat_after_eod) and block every deploy (tools/box_deploy.py)
+    until its strategy exit, up to ~30 sessions for DIP's PB. Its CLOSE sends nothing (the
+    adapter's nothing-to-close guard). An adapter that is OFF or cannot be read lists nothing:
+    the lots stay held. Never raises."""
+    try:
+        mode, _why = _get_broker_adapter(log=log).effective_mode()
+        if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            return []
+    except Exception:
+        return []
+    return [leg for leg in legs or [] if _believed_qty_for_leg(leg, log=log, larger=True) == 0]
 
 
 def _believed_qty_for_leg(leg, log=print, larger=False):
@@ -2901,7 +3093,8 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         return
     signal_id = _broker_signal_id(leg, ts, intent, seq=seq, trade_id=trade_id)
     if resend:
-        signal_id = f"{signal_id}R{int(resend)}"   # 28 + 2 chars for NOISE/ENGUQ, inside 32
+        # 28 + 2 chars for NOISE/ENGUQ, 27 + 2 for every DIP slot id -- inside 32, never hashed
+        signal_id = f"{signal_id}R{int(resend)}"
     # AFTER-CLOSE GUARD (2026-09-28, see _market_closed_for_orders): judged on the calling
     # tick's own clock, so only when the caller passes one (every tick() path does, the
     # FLATTEN_BROKER orphan repair included). No order call, no re-send queue. A CLOSE
@@ -3123,6 +3316,25 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
             _log_event(state, "broker",
                        f"QQQ BROKER OPEN NOT OK: {leg} {row['side']} {shares}sh -- Webull still "
                        f"had an opposite order working; re-sent in a few seconds", log=log)
+        elif requeue and trade_id and "DUPLICATE_ORDER_CHECK" in row["reason"]:
+            # 2026-10-10 (DIP #424 live leg: up to seven identical BUY 6 at one open, and
+            # identical SELL 6 when several mechanisms exit together): Webull's same-instant
+            # duplicate rule -- the order was never placed, and _queue_broker_resend queues it
+            # (why="duplicate") for ONE re-send per tick once the identical one has filled. No
+            # push now (it would cry wolf every DIP morning): an accepted re-send is group E
+            # (timeline only); the give-up pushes the strategy's one "entry missed" (an OPEN)
+            # or the urgent "Webull may still hold" (a CLOSE).
+            _log_event(state, "broker",
+                       f"QQQ BROKER {intent} NOT OK: {leg} {row['side']} {shares}sh -- Webull saw "
+                       f"an identical order still working; re-sent in a few seconds", log=log)
+        elif (requeue and intent == "OPEN" and trade_id
+              and _open_waits_for_own_close(state, rec, leg, intent)):
+            # FIXER 2026-10-10: the leg's previous position is still being sold (its CLOSE is in
+            # the re-send queue) -- _queue_broker_resend queues this buy (why="after_close") to go
+            # right after that sell. No push now; the give-up pushes the one "entry missed" note.
+            _log_event(state, "broker",
+                       f"QQQ BROKER OPEN NOT OK: {leg} {row['side']} {shares}sh -- its earlier "
+                       f"position's sell is still queued; bought right after it goes", log=log)
         elif requeue and not rec.get("nothing_to_close") and not rec.get("inflight_blocked"):
             # PAGING STORM (minor, 2026-09-26 review): `inflight_blocked` (see
             # _place_stock_order_with_timeout) means this specific record is just this
@@ -3223,6 +3435,25 @@ def _broker_send_status_code(text, code=None):
         return int(m.group(1)) if m else None
     except Exception:
         return None
+
+
+def _open_waits_for_own_close(state, rec, leg, intent):
+    """True when this OPEN was refused ONLY because the adapter still books the leg's PREVIOUS
+    position (its one_open_position_per_leg rail) while that position's own CLOSE sits in the
+    re-send queue (a Webull same-instant duplicate, a close_retry). FIXER 2026-10-10 (DIP #424
+    live leg): two DIP slots exit at one open and one re-enters -- the two identical SELL 6 meet
+    Webull's duplicate rule, the second is queued, and the re-entering slot's BUY 6 then meets the
+    rail. That buy is not a decision to skip the trade: it goes once its own sell has gone
+    (_queue_broker_resend's why="after_close"). Never raises."""
+    try:
+        if intent != "OPEN" or (rec or {}).get("mode") != "BLOCKED" or (rec or {}).get("sent"):
+            return False
+        if "one_open_position_per_leg" not in str(rec.get("reason") or rec.get("error") or ""):
+            return False
+        return any((v or {}).get("leg") == leg and (v or {}).get("intent") == "CLOSE"
+                   for v in (state.get("_broker_resend") or {}).values())
+    except Exception:
+        return False
 
 
 def _whole_qty(v):
@@ -3330,6 +3561,11 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
             # order not yet confirmed cancelled, or an earlier part still working at
             # Webull. Nothing reached Webull; it goes again like a same-instant duplicate.
             why = "busy"
+        elif _open_waits_for_own_close(state, rec, leg, intent):
+            # FIXER 2026-10-10: the leg's previous position is still being sold through this
+            # queue -- the buy waits for that sell, then goes like a duplicate (same window,
+            # same tries; _maybe_resend_broker_orders holds it while the sell is queued)
+            why = "after_close"
         elif intent == "CLOSE" and not rec.get("nothing_to_close"):
             why = "close_retry"
         if not why or not trade_id:
@@ -3490,6 +3726,7 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
                   "box_order": "Webull still had an opposite order working",
                   "halt": "blocked by a reconcile halt",
                   "busy": "held back by the order gateway",
+                  "after_close": "waiting for this leg's own earlier sell to go through",
                   "close_retry": f"broker record not ok ({text or 'see the broker log'})"}[why]
         tries_txt = (f"{int(resend or 0)} re-sends so far" if why == "close_retry"
                     else f"{int(resend or 0)} of {BROKER_RESEND_MAX_TRIES} re-sends used")
@@ -3892,6 +4129,7 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                           else "refused while an opposite order was still working"
                           if why == "box_order"
                           else "held back by the order gateway" if why == "busy"
+                          else "waiting for its own earlier sell" if why == "after_close"
                           else "not ok at the broker")
                 msg = (f"QQQ BROKER: gave up re-sending the {leg} {what} ({cause}; first try "
                        f"{why_txt}). "
@@ -3919,6 +4157,10 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                 continue
             if why == "halt" and _broker_halt_source(log=log) is not None:
                 continue  # still halted -- the 30 s halted re-check clears a false one
+            if why == "after_close" and any(
+                    (v or {}).get("leg") == leg and (v or {}).get("intent") == "CLOSE"
+                    for k, v in q.items() if k != key):
+                continue  # FIXER 2026-10-10: its own leg's earlier sell goes first
             gap = _close_resend_backoff(tries) if close_retry else BROKER_RESEND_MIN_GAP_SEC
             if now - float(item.get("last_at") or 0) < gap:
                 continue
@@ -4137,6 +4379,7 @@ def _maybe_resend_broker_orders(state, cfg, nowdt, active, log=print):
                           else "after a same-instant duplicate" if why == "duplicate"
                           else "after the opposite order finished" if why == "box_order"
                           else "after the order gateway held it back" if why == "busy"
+                          else "after its own sell went through" if why == "after_close"
                           else "after a retry") + ")")
                 # WEBULL PUSH PLAN 10-07, group E (fixed itself): log + timeline only
                 log(f"[qqq-exec] {msg}")
@@ -4773,7 +5016,7 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
 # api.webull_orders.OrderAdapter.update_daily_pnl() existed since the rail was built
 # but nothing ever called it, so daily_loss_limit_usd could never trip. Fed here, once
 # per tick, from whichever source is actually available -- see _compute_broker_daily_pnl.
-def _broker_realized_today(today, log=print, held_seeds=None):
+def _broker_realized_today(today, log=print, held_seeds=None, family=None):
     """(realized_total, any_broker_priced) from today's BROKER_ORDERS_CSV rows for
     mode PAPER/LIVE with ok truthy -- FIFO pairs each leg's OPEN with its next CLOSE
     using the row's own broker_fill_px (the documented `filled_price`, see
@@ -4788,7 +5031,10 @@ def _broker_realized_today(today, log=print, held_seeds=None):
     open mark (today's first price) instead: its CLOSE today counts exit - open mark, the
     daily loss limit's mark-to-open (the overnight gap stays out). "at_fill": True (the lot
     closed before today's first bar was in, so its exit was today's first price) pairs that
-    first CLOSE at its own price -- nothing on the rail."""
+    first CLOSE at its own price -- nothing on the rail.
+
+    `family` (DIP #424, 2026-10-10): None = every leg's rows; RAIL_SHARED = every leg but DIP
+    (the adapter's shared daily_pnl -- DIP has its own rail in the book)."""
     realized = 0.0
     any_broker_priced = False
     open_px_by_leg = {leg: dict(v) for leg, v in (held_seeds or {}).items()
@@ -4804,6 +5050,8 @@ def _broker_realized_today(today, log=print, held_seeds=None):
         if row.get("mode") not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
             continue
         if str(row.get("ok")) != "True":
+            continue
+        if not _in_rail(row.get("leg"), family):
             continue
         try:
             shares = float(row.get("shares") or 0)
@@ -4857,7 +5105,12 @@ def _compute_broker_daily_pnl(state, adapter, log=print):
     reasonable proxy for a live broker quote rather than a second Webull call every
     tick. FALLBACK source="shadow_fallback" (no PAPER/LIVE broker activity recorded
     today at all, so there is nothing broker-side to compute from yet): the shadow
-    book's own today realized+unrealized across every leg. Never raises."""
+    book's own today realized+unrealized across every leg. Never raises.
+
+    DIP #424 (2026-10-10): every DIP row, open DIP leg and DIP mark is left out -- this is the
+    SHARED daily loss figure the adapter's own daily_loss_limit_usd checks; DIP has its own
+    rail in the book (_check_dip_rail) and the adapter exempts DIP's OPENs from the shared one
+    (webull_orders rails.own_loss_rail_prefixes)."""
     # HOLD OVERNIGHT: the rail's marks -- mark-to-open for a lot carried into today, the
     # record mark for every other lot (a state from before they existed: the record marks)
     rail_marks = state.get("_rail_unrl_by_leg")
@@ -4869,23 +5122,25 @@ def _compute_broker_daily_pnl(state, adapter, log=print):
         seeds = {}
         if isinstance(ht, dict) and ht.get("day") == today:
             for leg, v in (ht.get("legs") or {}).items():
-                if (v or {}).get("open_mark_px") is not None:
+                if (v or {}).get("open_mark_px") is not None and not is_dip_leg(leg):
                     seeds[leg] = {"px": float(v["open_mark_px"]),
                                   "side": _broker_side(v.get("side"), "OPEN"),
                                   "shares": float(v.get("shares") or 0),
                                   # closed before today's first bar: its fill IS today's
                                   # first price, so it adds nothing to the rail
                                   "at_fill": v.get("open_mark_src") == "exit"}
-        realized, any_broker_priced = _broker_realized_today(today, log=log, held_seeds=seeds)
+        realized, any_broker_priced = _broker_realized_today(today, log=log, held_seeds=seeds,
+                                                             family=RAIL_SHARED)
         if any_broker_priced:
             open_legs = adapter.status().get("open_legs") or []
-            unrealized = sum(float(rail_marks.get(leg, 0.0) or 0.0) for leg in open_legs)
+            unrealized = sum(float(rail_marks.get(leg, 0.0) or 0.0) for leg in open_legs
+                             if not is_dip_leg(leg))
             return round(realized + unrealized, 2), "broker_fills"
     except Exception as e:
         log(f"[qqq-exec] broker-fill P&L calc failed ({type(e).__name__}: {e}) -- "
             "falling back to the shadow book's own today figures")
-    shadow_realized = _rail_realized_today(state)
-    shadow_unrealized = sum(float(v or 0.0) for v in rail_marks.values())
+    shadow_realized = _rail_realized_today(state, RAIL_SHARED)
+    shadow_unrealized = sum(float(v or 0.0) for leg, v in rail_marks.items() if not is_dip_leg(leg))
     return round(shadow_realized + shadow_unrealized, 2), "shadow_fallback"
 
 
@@ -7126,6 +7381,8 @@ def _engine_key_for_leg(leg, cs=None):
     falls back to the first mapped key at all when NONE of them are (every mapped key for
     this leg has been retired -- callers already treat a missing CROWN_LEGS entry as "no
     price available", so this never raises)."""
+    if is_dip_leg(leg):
+        return DIP_ENGINE_KEY      # all seven DIP exec legs trade the one DIP_424 engine leg
     cs = cs or _cs_module()
     keys = [k for k, short in ENGINE_LEG_MAP.items() if short == leg]
     for k in keys:
@@ -7144,7 +7401,13 @@ def _engine_leg_cfg(cs, cs_key):
     read is the display-only shadow_trades block, _build_shadow_trades). None for no key."""
     if not cs_key:
         return None
-    return cs.CROWN_LEGS.get(cs_key) or (getattr(cs, "SHADOW_LEGS", None) or {}).get(cs_key)
+    shadow = getattr(cs, "SHADOW_LEGS", None) or {}
+    got = cs.CROWN_LEGS.get(cs_key) or shadow.get(cs_key)
+    if got is None and cs_key == DIP_ENGINE_KEY:
+        # DIP #424: the live key's timeframe is its shadow twins' (5m) -- a held DIP lot is
+        # still marked if this module runs ahead of the engine's own DIP_424 entry
+        got = shadow.get("DIP_424F") or shadow.get("DIP_424K")
+    return got
 
 
 def _engine_mark_price(leg, log=print):
@@ -7411,7 +7674,7 @@ def _consume_engine_signals(state, cfg, now, log=print):
         late = age is not None and age > ENGINE_CONSUME_STALE_SEC and ev != "LEVELS"
         held_exit = False
         if ev == "EXIT":
-            xleg = ENGINE_LEG_MAP.get(r.get("leg"))
+            xleg = _exec_leg_for(r.get("leg"), r.get("trade_id"))
             hl = (state.get("legs") or {}).get(xleg)
             xtid = str(r.get("trade_id") or "").strip()
             held_exit = bool(hl and xtid and xtid == hl.get("trade_id")
@@ -7479,6 +7742,7 @@ TRADE_ID_ISSUES = (
     "entry_other_session",  # ENTRY bar is not from today's session (replay leftovers): not taken
     "entry_duplicate",      # ENTRY for the very trade already open: ignored
     "entry_leg_busy",       # ENTRY for a different trade while a lot is open on the leg: not taken
+    "unknown_slot",         # DIP_424 row whose trade id names no known mechanism slot: not acted on
 )
 # Bookkeeping rather than a refused signal -- left out of the published refused_today sum.
 _TRADE_ID_INFO_ONLY = ("exit_no_lot", "entry_duplicate")
@@ -7619,7 +7883,8 @@ def _merge_backtest_exits(trades_all, state):
         pass
 
 
-def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=None):
+def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=None,
+                         dip_entries_blocked=None):
     """engine mode's equivalent of _route_fills: consumes api.cloud_signal ENTRY/EXIT
     events (already idempotent and de-duplicated by _consume_engine_signals' cursor)
     and opens/closes shadow lots directly from the engine's own signal price -- no
@@ -7656,12 +7921,30 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
     onto this code (or switch signal_source from ninjatrader to engine) only while it is flat.
 
     Identity refusals are not added to the fired/refused signal counters: this adapter cannot
-    show such a row is one of today's strategy signals, only that it cannot be attributed."""
+    show such a row is one of today's strategy signals, only that it cannot be attributed.
+
+    DIP #424 (2026-10-10): a DIP_424 row goes to the exec leg its trade-id slot names
+    (_exec_leg_for; no known slot -> an "unknown_slot" issue, nothing done). Its entry id check
+    rebuilds the id WITH that slot. `entries_blocked` is the shared rails' verdict (the daily
+    loss breaker, feed, kill); a DIP entry is blocked by `dip_entries_blocked` instead (DIP's
+    own rail, feed, kill -- never the shared breaker) when the caller passes it. A mechanism
+    that exits and re-enters at one session open has both rows in one batch: every DIP ENTRY is
+    routed after the batch's other rows, so its EXIT frees the slot first."""
     nowdt = now or _now_et()
     today = nowdt.strftime("%Y-%m-%d")
+    events = sorted(events or [], key=lambda ev: 1 if (str(ev.get("leg")) == DIP_ENGINE_KEY
+                                                       and ev.get("event") == "ENTRY") else 0)
     for e in events:
-        leg = ENGINE_LEG_MAP.get(e["leg"])
+        leg = _exec_leg_for(e["leg"], str(e.get("trade_id") or "").strip())
         if leg is None:
+            if e.get("leg") == DIP_ENGINE_KEY:
+                tid0 = str(e.get("trade_id") or "").strip()
+                _record_trade_id_issue(
+                    state, "unknown_slot",
+                    f"DIP #424 {str(e.get('event') or '').lower()} signal's trade id "
+                    f"{tid0 or '(none)'} names no known mechanism slot -- not acted on", nowdt,
+                    {"leg": e.get("leg"), "event": e.get("event"), "row_trade_id": tid0,
+                     "ref_time": str(e.get("ref_time") or "")}, log=log)
             continue  # a cloud_signal leg this module doesn't (yet) mirror
         try:
             sig_dt = datetime.fromisoformat(str(e["ref_time"]))
@@ -7686,7 +7969,11 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                     f"-- written by a signal engine that predates trade ids; not taken",
                     nowdt, detail, log=log)
                 continue
-            own_tid = _trade_id.make(e["leg"], e.get("ref_time"), e.get("side"), default_tz=_NY)
+            # a slot id (DIP #424's mechanism) is rebuilt WITH its slot -- else every DIP entry
+            # would read as a conflict; an id without one is checked exactly as before
+            row_slot = (_trade_id.parse(row_tid) or {}).get("slot")
+            own_tid = _trade_id.make(e["leg"], e.get("ref_time"), e.get("side"), default_tz=_NY,
+                                     slot=row_slot)
             if own_tid != row_tid:
                 _record_trade_id_issue(
                     state, "entry_id_conflict",
@@ -7742,9 +8029,24 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                            f"{leg} entry signal ({_trade_id.describe(row_tid, _NY)}) not taken "
                            f"-- {too_late}", log=log)
                 continue
-            if entries_blocked:
+            blocked = entries_blocked
+            if is_dip_leg(leg) and dip_entries_blocked is not None:
+                blocked = dip_entries_blocked
+            if blocked:
+                why = "REFUSED -- breaker/feed/kill blocked"
+                if is_dip_leg(leg) and _dip_rail_blocking(state, today):
+                    until = (state.get("dip_rail") or {}).get("blocks_until")
+                    why = (f"REFUSED -- DIP daily loss rail (tripped "
+                           f"{(state.get('dip_rail') or {}).get('tripped_on')}) blocks DIP "
+                           f"entries through {until}")
+                    if state.get("_dip_rail_block_noted") != today:
+                        state["_dip_rail_block_noted"] = today
+                        _log_event(state, "dip_rail_blocked",
+                                   f"DIP entry signals not taken today: DIP's own daily loss "
+                                   f"rail blocks DIP entries through {until} (nothing is sold)",
+                                   log=log)
                 _record_order(leg, "ENTER", e["side"], shares, None, None, None,
-                             "REFUSED -- breaker/feed/kill blocked", log, fill_dt=sig_dt,
+                             why, log, fill_dt=sig_dt,
                              signal_source=cfg.get("signal_source"), decided_at_ref=decided_at_ref)
                 _accumulate_signal(state, sig_dt or _now_et(), leg, "fired", log=log)
                 _accumulate_signal(state, sig_dt or _now_et(), leg, "refused", log=log)
@@ -7830,6 +8132,8 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                        cfg.get("slippage_per_share", 0.0), exit_reason, f=None, log=log,
                        sig_dt=sig_dt, signal_source=cfg.get("signal_source"), nowdt=nowdt,
                        decided_at_ref=decided_at_ref)
+    # a family's lots that filled in this batch: one phone note per family (DIP)
+    _flush_fill_notes(state, log=log)
 
 
 def _apply_slippage(px, side, entering, slip):
@@ -7955,6 +8259,12 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     else:
         # Default behaviour (size_mode == "fixed").
         base_shares = int(cfg["shares"].get(leg, 0))
+        if is_dip_leg(leg) and _resolve_entry_size(size) != 1.0:
+            # DIP #424 (OWNER GO 2026-10-10): FIXED 1.245x is already inside the 6 shares a lot
+            # -- no engine size or KEEL multiplies a DIP lot
+            log(f"[qqq-exec] {leg} entry size {size!r} from the engine ignored -- DIP trades a "
+                f"fixed {base_shares} shares a lot")
+            size = None
         sized = _resolve_entry_size(size)
         wanted_shares = _sized_shares(base_shares, sized)
         if sized == 1.0:
@@ -7989,6 +8299,22 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
 
     if shares <= 0:
         return False
+
+    if is_dip_leg(leg):
+        # DIP TOTAL CAP (OWNER GO 2026-10-10): every open DIP lot's shares together stay within
+        # dip_max_total_shares (42 = 7 lots x 6) -- a lot that would pass it is refused whole
+        cap = _dip_cap(cfg)
+        held = sum(int(round(float((lt or {}).get("shares_remaining") or 0)))
+                   for k, lt in (state.get("legs") or {}).items() if is_dip_leg(k) and k != leg)
+        if cap and held + shares > cap:
+            why = f"REFUSED DIP total {held} + {shares} > dip_max_total_shares {cap}"
+            _record_order(leg, "ENTER", side, shares, nq_px, None, None, why, log,
+                          fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source,
+                          decided_at_ref=decided_at_ref)
+            _log_event(state, "dip_cap",
+                       f"{leg} entry not taken: DIP already holds {held} shares and this lot's "
+                       f"{shares} would pass the DIP cap of {cap}", log=log)
+            return False
 
     fill_px = _apply_slippage(qqq_px_raw, side, True, slip)
     lot = {
@@ -8046,11 +8372,15 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
                  "signal entry", log, fill_dt=(f.get("dt") if f else sig_dt),
                  signal_source=signal_source, shares_wanted=wanted_shares, size=sized,
                  decided_at_ref=decided_at_ref)
-    # WEBULL PUSH PLAN 10-07, group F: a fill is a low note (no buzz)
-    _say(state, f"fill:{leg}", f"open {lot.get('trade_id') or lot.get('entry_ts')}",
-         _fill_note(leg, "bought" if side == "long" else "sold short",
-                    f"{'Bought' if side == 'long' else 'Sold short'} QQQ at "
-                    f"{ntfy_push.price(fill_px)} (share count stays on the board)"), log=log)
+    # WEBULL PUSH PLAN 10-07, group F: a fill is a low note (no buzz) -- a DIP lot's waits for
+    # its batch: one note for every DIP lot that filled in the same pass (_flush_fill_notes)
+    if is_dip_leg(leg):
+        _queue_fill_note(state, leg, "open", side, fill_px, trade_id=lot.get("trade_id"))
+    else:
+        _say(state, f"fill:{leg}", f"open {lot.get('trade_id') or lot.get('entry_ts')}",
+             _fill_note(leg, "bought" if side == "long" else "sold short",
+                        f"{'Bought' if side == 'long' else 'Sold short'} QQQ at "
+                        f"{ntfy_push.price(fill_px)} (share count stays on the board)"), log=log)
     # BROKER MIRROR: after the shadow's own order is already recorded above -- see the
     # "broker mirror" section docstring near _mirror_to_broker. A broker error here
     # never unwinds the shadow lot just opened.
@@ -8114,7 +8444,10 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
                  size=lot.get("size"), decided_at_ref=decided_at_ref)
     # WEBULL PUSH PLAN 10-07, group F: ONE fill note per exit -- none when the resting stop
     # already closed this lot at Webull and sent its own (lot["broker_closed"])
-    if not lot.get("broker_closed"):
+    if not lot.get("broker_closed") and is_dip_leg(leg):
+        _queue_fill_note(state, leg, "close", lot.get("side"), fill_px, reason=reason,
+                         trade_id=lot.get("trade_id"))
+    elif not lot.get("broker_closed"):
         long_ = lot.get("side") == "long"
         _say(state, f"fill:{leg}",
              f"close {lot.get('trade_id') or lot.get('entry_ts')} {lot['shares_remaining']}",
@@ -8167,6 +8500,10 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
         # for a single-entry lot -- see module docstring: entries are treated single-shot)
         pnl = _record_trade(lot, fill_px, reason, log=log)
         state["realized_pnl_today"] = round(state.get("realized_pnl_today", 0.0) + pnl, 2)
+        if is_dip_leg(leg):
+            # DIP's own part of today's realized: its own rail counts it, the shared one not
+            state["realized_pnl_today_dip"] = round(
+                float(state.get("realized_pnl_today_dip", 0.0) or 0.0) + pnl, 2)
         del state["legs"][leg]
     return pnl
 
@@ -8293,7 +8630,7 @@ def _say_held_exit_missed(state, leg, lot, day, log=print):
                f"end-of-day flatten does not close a held lot")
         log(f"[qqq-exec] WARNING: {msg}")
         _log_event(state, "held_exit_missed", msg, log=log)
-        _say(state, f"held_missed:{leg}", day, ntfy_push.plain(
+        _say(state, f"held_missed:{leg_family(leg)}", day, ntfy_push.plain(
             PHONE_AREA, "CHECK NOW", f"{_leg_word(leg)} cannot take new trades",
             f"{_leg_word(leg)}'s strategy started a new trade, but the book still holds its "
             f"earlier {n} shares",
@@ -8328,9 +8665,15 @@ def _held_shares_by_leg(state):
 
 
 def _held_words(held):
-    """{"ENGUQ": 10} -> "ENGU-Q long 10"."""
-    return ", ".join(f"{_leg_word(leg)} {'long' if q > 0 else 'short'} {abs(int(q))}"
-                     for leg, q in sorted((held or {}).items())) or "none"
+    """{"ENGUQ": 10} -> "ENGU-Q long 10"; DIP lots grouped: {"DIP_RSI": 6, "DIP_PB": 6} ->
+    "DIP long 12 (2 lots)"."""
+    grouped = {}
+    for leg, q in sorted((held or {}).items()):
+        key = (_leg_word(leg), "long" if q > 0 else "short")
+        n, lots = grouped.get(key, (0, 0))
+        grouped[key] = (n + abs(int(q)), lots + 1)
+    return ", ".join(f"{w} {side} {n}" + (f" ({lots} lots)" if lots > 1 else "")
+                     for (w, side), (n, lots) in grouped.items()) or "none"
 
 
 def _set_open_mark(state, leg, lot, day, open_px, prior_close, src, shares=None, log=print):
@@ -8423,21 +8766,33 @@ def _rail_unrl_for_lot(lot, day, record_unrl):
         return record_unrl
 
 
-def _rail_realized_today(state):
+def _rail_realized_today(state, family=None):
     """Today's realized P&L as the daily loss rail counts it: realized_pnl_today (the P&L of
     record) plus, for each lot carried into today that closed today, its rail adjustment
     (entry - open mark) x shares x side -- so that trade counts exit - open mark. NaN stays
-    NaN (see the breaker's published figure). Never raises."""
+    NaN (see the breaker's published figure). Never raises.
+
+    `family` (DIP #424, 2026-10-10): None = the whole book (as before); RAIL_SHARED = every
+    leg but DIP (the shared daily loss breaker's own figure); DIP_FAMILY = DIP's lots only
+    (its own -$800 rail) -- from realized_pnl_today_dip, DIP's part of realized_pnl_today."""
     try:
         r = state.get("realized_pnl_today", 0.0)
         r = float(r if r is not None else 0.0)
     except (TypeError, ValueError):
         r = 0.0
+    if family is not None:
+        try:
+            d = state.get("realized_pnl_today_dip", 0.0)
+            d = float(d if d is not None else 0.0)
+        except (TypeError, ValueError):
+            d = 0.0
+        r = d if family == DIP_FAMILY else r - d
     try:
         ht = state.get("held_today")
         if isinstance(ht, dict) and ht.get("day") == state.get("trading_day"):
             r += sum(float((v or {}).get("rail_adj") or 0.0)
-                     for v in (ht.get("legs") or {}).values() if (v or {}).get("closed"))
+                     for leg, v in (ht.get("legs") or {}).items()
+                     if (v or {}).get("closed") and _in_rail(leg, family))
     except Exception:
         pass
     return r
@@ -9235,6 +9590,9 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
     # notion of "now", threaded straight through to _close_all -- see
     # _mirror_to_broker's own docstring.
     # HOLD OVERNIGHT: today's open mark and rail mark for every lot carried into today
+    # DIP #424 (2026-10-10): the shared breaker below counts and closes every leg BUT DIP;
+    # DIP's lots are marked here too and checked against DIP's own rail (_check_dip_rail,
+    # which never sells) -- see DIP_LEGS.
     _refresh_held_marks(state, nowdt, log=log)
     if not state.get("legs"):
         state["_unrl_by_leg"] = {}
@@ -9244,6 +9602,7 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
         # blocks new entries (entries_blocked), instead of letting the next entry open
         # and be flattened at once. Never calls _close_all: there is nothing to close.
         _check_breaker_while_flat(state, cfg, log=log, nowdt=nowdt)
+        _check_dip_rail(state, cfg, {}, log=log, nowdt=nowdt)
         return 0.0  # nothing open: no quote/ratio work, unrealized is zero
     unrl = 0.0
     unrl_by_leg = {}
@@ -9285,24 +9644,35 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
             rail_raw += leg_unrl
     state["_unrl_by_leg"] = unrl_by_leg
     state["_rail_unrl_by_leg"] = rail_by_leg
+    # DIP RAIL: DIP's own realized + fill shortfall + rail marks against its own limit --
+    # blocks DIP entries only, never sells (see _check_dip_rail)
+    _check_dip_rail(state, cfg, rail_by_leg, log=log, nowdt=nowdt)
+    dip_open = [leg for leg in state["legs"] if is_dip_leg(leg)]
+    if len(dip_open) == len(state["legs"]):
+        # only DIP lots open: the shared rail is FLAT -- its own realized + shortfall only
+        _check_breaker_while_flat(state, cfg, log=log, nowdt=nowdt)
+        return unrl
+    rail_raw = sum(float(v) for leg, v in rail_by_leg.items() if not is_dip_leg(leg))
     # P&L OF RECORD on the breaker (2026-09-28 (B), FAIL-SAFE): Webull's fills can only
     # make this input MORE negative, never less -- each closed trade and open lot adds
     # min(0, fill-based - book) (see _breaker_fill_shortfall); a side with no captured
     # fill keeps the book's value, exactly as before.
-    adj = _breaker_fill_shortfall(state, log=log)
+    adj = _breaker_fill_shortfall(state, log=log, family=RAIL_SHARED)
     state["_breaker_fill_adj"] = adj
     # HOLD OVERNIGHT: MARK-TO-OPEN -- realized and open marks as the rail counts them (a lot
     # carried into today from today's open mark; identical to the record for every other lot)
-    total = _rail_realized_today(state) + adj + rail_raw
+    total = _rail_realized_today(state, RAIL_SHARED) + adj + rail_raw
     _note_breaker_input(state, total)
     limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
     if limit and total <= -abs(limit) and not state.get("breaker_tripped"):
         log(f"[qqq-exec] BREAKER TRIPPED: today's shadow P&L {total:.2f} <= "
-            f"-{limit:.2f} -- closing all lots")
-        # a held lot outside regular hours is sold at the next open, never now
-        deferred = _held_legs_to_defer(state, cfg, nowdt)
-        if deferred:
-            closing = [leg for leg in state["legs"] if leg not in deferred]
+            f"-{limit:.2f} -- closing all lots"
+            + (" but DIP's (its own rail)" if dip_open else ""))
+        # a held lot outside regular hours is sold at the next open, never now; DIP's lots are
+        # not on this rail and are never closed by it
+        deferred = [leg for leg in _held_legs_to_defer(state, cfg, nowdt) if not is_dip_leg(leg)]
+        if deferred or dip_open:
+            closing = [leg for leg in state["legs"] if leg not in deferred and not is_dip_leg(leg)]
             if closing:
                 _close_all(state, cfg, "BREAKER", quote_fn, ratio_fn, log=log, nowdt=nowdt,
                            legs=closing)
@@ -9315,12 +9685,16 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
         if deferred:
             what = (f"open trades were closed; {_legs_words(deferred)}'s held shares sell when "
                     f"the market opens")
+        if dip_open:
+            what += "; DIP is not on this limit and keeps its trades"
         _say_daily_stop(state, total, what, nowdt, log=log)
         _log_event(state, "breaker",
                   f"Daily loss breaker tripped at ${total:.2f} (limit -${limit:.2f}) -- "
                   f"all shadow lots closed"
                   + (f" (held overnight, sold at the open: {', '.join(deferred)})"
-                     if deferred else ""), log=log)
+                     if deferred else "")
+                  + (f" except DIP's ({len(dip_open)} lot{'s' if len(dip_open) != 1 else ''}, "
+                     f"its own rail)" if dip_open else ""), log=log)
     return unrl
 
 
@@ -9368,15 +9742,16 @@ def _refresh_breaker_input(state, log=print, only_worse=False):
     already noted today, so it can never read better than the breaker's own check.
     Never trips, never closes, never raises."""
     try:
-        adj = _breaker_fill_shortfall(state, log=log)
+        # DIP #424: the shared breaker's figure -- every leg but DIP (its own rail)
+        adj = _breaker_fill_shortfall(state, log=log, family=RAIL_SHARED)
         legs = state.get("legs") or {}
         # HOLD OVERNIGHT: the rail's own marks (mark-to-open for a carried lot); a state
         # saved before they existed falls back to the record marks
         marks = state.get("_rail_unrl_by_leg")
         if not isinstance(marks, dict):
             marks = state.get("_unrl_by_leg") or {}
-        unrl = sum(float(marks[k]) for k in legs if marks.get(k) is not None)
-        total = _rail_realized_today(state) + adj + unrl
+        unrl = sum(float(marks[k]) for k in legs if marks.get(k) is not None and not is_dip_leg(k))
+        total = _rail_realized_today(state, RAIL_SHARED) + adj + unrl
         if only_worse:
             prev = state.get("_breaker_input") or {}
             pv = _finite_or_none(prev.get("pnl")) if prev.get("day") == state.get("trading_day") else None
@@ -9404,9 +9779,10 @@ def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
             # only -- the trip decision is unchanged.
             _refresh_breaker_input(state, log=log)
             return
-        adj = _breaker_fill_shortfall(state, log=log)
+        # DIP #424: "flat" means no lot on THIS rail -- DIP's lots (its own rail) may be open
+        adj = _breaker_fill_shortfall(state, log=log, family=RAIL_SHARED)
         state["_breaker_fill_adj"] = adj
-        total = _rail_realized_today(state) + adj    # HOLD OVERNIGHT: mark-to-open realized
+        total = _rail_realized_today(state, RAIL_SHARED) + adj   # HOLD OVERNIGHT: mark-to-open
         _note_breaker_input(state, total)
         if total <= -abs(limit):
             state["breaker_tripped"] = True
@@ -9414,7 +9790,10 @@ def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
                 f"-{limit:.2f} -- new entries blocked for the day")
             now = nowdt or _now_et()
             if (9, 30) <= _et_hhmm(now) < (16, 0):
-                _say_daily_stop(state, total, "no trades were open", now, log=log)
+                dip_open = any(is_dip_leg(k) for k in (state.get("legs") or {}))
+                _say_daily_stop(state, total, ("no trades on this limit were open; DIP is not on "
+                                               "it and keeps its trades") if dip_open
+                                else "no trades were open", now, log=log)
             _log_event(state, "breaker",
                        f"Daily loss breaker tripped at ${total:.2f} (limit -${limit:.2f}) "
                        f"with no lots open -- new entries blocked for the day", log=log)
@@ -9422,10 +9801,152 @@ def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
         log(f"[qqq-exec] flat breaker check failed: {type(e).__name__}: {e}")
 
 
+# -- DIP RAIL (OWNER GO 2026-10-10, MANAGER #115) -------------------------------------------
+# DIP #424's OWN daily loss rail, beside (never inside) the shared daily loss breaker above:
+# DIP's realized today + DIP's fill shortfall + DIP's open rail marks (mark-to-open for a lot
+# carried into today -- an overnight gap is outside every rail, it stays in the P&L of record)
+# against dip_daily_loss_limit_usd ($800, code default). A breach NEVER sells anything: it
+# stores state["dip_rail"] = {"tripped_on", "blocks_until", "loss_usd"} and every DIP entry is
+# refused from then through the blocks_until session (the next session after the trip day,
+# DIP_RAIL_BLOCK_SESSIONS -- block length pending owner confirm); the first tick after that
+# session resets it (_dip_rail_expire: state["dip_rail"] None, the record kept as
+# state["dip_rail_last"], timeline "dip_rail_reset"). _roll_day never clears it. Timeline kind
+# "dip_rail" -- never "breaker" (readiness counts breaker events). Published as
+# doc["rails"]["dip_rail"]; the rail's own figure today as doc["today"]["dip_rail_input"]. The
+# shared KILL still sells DIP's lots; the shared breaker neither counts nor closes them.
+def _dip_cap(cfg):
+    """dip_max_total_shares from the tick's cfg: the code default (DIP_MAX_TOTAL_SHARES) when
+    missing or unreadable; 0 = no cap. Never raises."""
+    try:
+        v = (cfg or {}).get("dip_max_total_shares")
+        if v is None:
+            return DIP_MAX_TOTAL_SHARES
+        n = int(float(v))
+        return n if n >= 0 else DIP_MAX_TOTAL_SHARES
+    except (TypeError, ValueError):
+        return DIP_MAX_TOTAL_SHARES
+
+
+def _dip_limit(cfg):
+    """dip_daily_loss_limit_usd from the tick's cfg: the code default when missing or
+    unreadable; 0 = DIP's rail off. Never raises."""
+    try:
+        v = (cfg or {}).get("dip_daily_loss_limit_usd")
+        if v is None:
+            return DIP_DAILY_LOSS_LIMIT_USD
+        x = float(v)
+        return abs(x) if math.isfinite(x) else DIP_DAILY_LOSS_LIMIT_USD
+    except (TypeError, ValueError):
+        return DIP_DAILY_LOSS_LIMIT_USD
+
+
+def _next_session_after(day, n=1):
+    """The ET date string `n` sessions after `day` (market_calendar: weekends and holidays
+    skipped). Never raises -- an unreadable day reads as itself plus n calendar days."""
+    try:
+        d = datetime.strptime(str(day)[:10], "%Y-%m-%d").date()
+    except Exception:
+        d = _now_et().date()
+    try:
+        left, cur = max(1, int(n)), d
+        for _ in range(40):
+            cur += timedelta(days=1)
+            if market_calendar.is_session(cur):
+                left -= 1
+                if left == 0:
+                    return cur.strftime("%Y-%m-%d")
+    except Exception:
+        pass
+    return (d + timedelta(days=max(1, int(n or 1)))).strftime("%Y-%m-%d")
+
+
+def _dip_rail_blocking(state, day):
+    """True while DIP's own rail blocks DIP entries on `day` (tripped_on <= day <=
+    blocks_until). Never raises."""
+    try:
+        dr = (state or {}).get("dip_rail")
+        if not isinstance(dr, dict):
+            return False
+        d = str(day or "")[:10]
+        return str(dr.get("tripped_on") or "9999") <= d <= str(dr.get("blocks_until") or "")
+    except Exception:
+        return False
+
+
+def _dip_rail_expire(state, today, log=print):
+    """Reset DIP's rail once `today` is past its blocks_until session (the record is kept as
+    state["dip_rail_last"]). Never raises."""
+    try:
+        dr = state.get("dip_rail")
+        if not isinstance(dr, dict):
+            return
+        until = str(dr.get("blocks_until") or "")
+        if until and str(today) > until:
+            state["dip_rail_last"] = dict(dr, reset_on=str(today))
+            state["dip_rail"] = None
+            msg = (f"DIP's own daily loss rail reset: it blocked DIP entries from "
+                   f"{dr.get('tripped_on')} through {until}; DIP takes new trades again")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "dip_rail_reset", msg, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] DIP rail reset check failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _check_dip_rail(state, cfg, rail_by_leg, log=print, nowdt=None):
+    """DIP's own daily loss rail (DIP RAIL above): note today's figure, and on a breach (once
+    per trip day) store state["dip_rail"], log, add a "dip_rail" event and push ONE high note.
+    Never closes or sells anything. Never raises."""
+    try:
+        day = state.get("trading_day") or (nowdt or _now_et()).strftime("%Y-%m-%d")
+        legs = state.get("legs") or {}
+        marks = rail_by_leg if isinstance(rail_by_leg, dict) else {}
+        unrl = sum(float(marks[k]) for k in legs if is_dip_leg(k) and marks.get(k) is not None)
+        realized = _rail_realized_today(state, DIP_FAMILY)
+        adj = _breaker_fill_shortfall(state, log=log, family=DIP_FAMILY)
+        total = realized + adj + unrl
+        state["_dip_rail_input"] = {"day": day, "pnl": round(total, 2),
+                                    "realized": round(realized, 2), "fill_adj": adj,
+                                    "unrealized": round(unrl, 2)}
+        limit = _dip_limit(cfg)
+        if not limit or not (total <= -abs(limit)):
+            return
+        cur = state.get("dip_rail")
+        if isinstance(cur, dict) and cur.get("tripped_on") == day:
+            return
+        until = _next_session_after(day, DIP_RAIL_BLOCK_SESSIONS)
+        state["dip_rail"] = {"tripped_on": day, "blocks_until": until, "loss_usd": round(total, 2)}
+        n_open = sum(1 for k in legs if is_dip_leg(k))
+        msg = (f"DIP's own daily loss rail tripped at ${total:.2f} (limit -${abs(limit):.2f}) -- "
+               f"DIP entries blocked through {until}; nothing sold ({n_open} DIP lot"
+               f"{'s' if n_open != 1 else ''} stay open on their own exits; the shared daily "
+               f"stop is not affected)")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "dip_rail", msg, log=log)
+        _say(state, "dip_rail", day, ntfy_push.plain(
+            PHONE_AREA, "DIP stop hit", "no new DIP trades today or next session",
+            f"DIP lost {ntfy_push.usd(total)} today, past its own daily limit; its open trades "
+            f"stay and sell on their own exits",
+            "nothing - DIP takes trades again after the next session", priority="high"), log=log)
+    except Exception as e:
+        log(f"[qqq-exec] DIP rail check failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _published_dip_rail_input(state, day):
+    """today.dip_rail_input: DIP's rail figure noted on `day` ({pnl, realized, fill_adj,
+    unrealized}), else None. Never raises."""
+    try:
+        v = state.get("_dip_rail_input") or {}
+        if v.get("day") != day:
+            return None
+        return {k: _round_or_none(v.get(k)) for k in ("pnl", "realized", "fill_adj", "unrealized")}
+    except Exception:
+        return None
+
+
 _BREAKER_ADJ_CACHE = {"key": None, "val": 0.0}
 
 
-def _breaker_fill_shortfall(state, log=print):
+def _breaker_fill_shortfall(state, log=print, family=None):
     """<= 0.0 -- how much WORSE today's book reads at Webull's own fills than at the
     book's prices: for EACH SIDE of each trade closed today, min(0, (Webull fill - book
     price) a share, signed, x shares) -- per fill, so a helpful capture on one side can
@@ -9434,7 +9955,12 @@ def _breaker_fill_shortfall(state, log=print):
     positive, so feeding it to the daily loss breaker can only make the breaker trip
     sooner, never later (owner 2026-09-28: stay fail-safe; a side with no fill keeps the
     book's value). Cached on both ledgers' size/mtime and the open lots. Never raises:
-    0.0 (the old behaviour) on any error."""
+    0.0 (the old behaviour) on any error.
+
+    `family` (DIP #424, 2026-10-10): None = every leg (as before); RAIL_SHARED = every leg but
+    DIP (the shared breaker); DIP_FAMILY = DIP's lots and trades only (DIP's own rail). One
+    pass computes all three; the cache keeps them together."""
+    fam_key = family if family in (RAIL_SHARED, DIP_FAMILY) else None
     try:
         day = state.get("trading_day") or _now_et().strftime("%Y-%m-%d")
         lots = state.get("legs") or {}
@@ -9450,13 +9976,15 @@ def _breaker_fill_shortfall(state, log=print):
                                 _carried_into(v, day))
                                for k, v in lots.items()))
         key = (day, tuple(sig), lot_sig)
-        if _BREAKER_ADJ_CACHE["key"] == key:
-            return _BREAKER_ADJ_CACHE["val"]
+        cached = _BREAKER_ADJ_CACHE.get("val")
+        if _BREAKER_ADJ_CACHE["key"] == key and isinstance(cached, dict):
+            return cached.get(fam_key, 0.0)
         by_base = _broker_orders_by_base(_all_broker_orders_from_csv())
-        adj = 0.0
+        adj_by = {RAIL_SHARED: 0.0, DIP_FAMILY: 0.0}
         for t in _all_trades_from_csv(cap=200):
             if str(t.get("exit_ts") or "")[:10] != day:
                 continue
+            tfam = _rail_family(t.get("leg"))
             sh = _finite_or_none(t.get("shares")) or 0.0
             entry_day = str(t.get("entry_ts") or "")[:10]
             for intent in ("OPEN", "CLOSE"):
@@ -9465,7 +9993,8 @@ def _breaker_fill_shortfall(state, log=print):
                 s = _side_parity(t, intent, by_base, None)
                 if s.get("fs") != "ok" or s.get("wb") is None or s.get("bk") is None:
                     continue
-                adj += min(0.0, _edge_ps(s["bk"], s["wb"], _is_buy(t.get("side"), intent)) * sh)
+                adj_by[tfam] += min(0.0, _edge_ps(s["bk"], s["wb"],
+                                                  _is_buy(t.get("side"), intent)) * sh)
         for leg, lot in lots.items():
             tid = str(lot.get("trade_id") or "").strip()
             if not tid or _carried_into(lot, day):
@@ -9482,11 +10011,13 @@ def _breaker_fill_shortfall(state, log=print):
                 continue
             dir_mult = 1 if lot.get("side") == "long" else -1
             sh = float(lot.get("shares_remaining") or 0)
-            adj += min(0.0, (book_entry - fill) * dir_mult * sh)
-        adj = round(min(0.0, adj), 2)
+            adj_by[_rail_family(leg)] += min(0.0, (book_entry - fill) * dir_mult * sh)
+        val = {RAIL_SHARED: round(min(0.0, adj_by[RAIL_SHARED]), 2),
+               DIP_FAMILY: round(min(0.0, adj_by[DIP_FAMILY]), 2),
+               None: round(min(0.0, adj_by[RAIL_SHARED] + adj_by[DIP_FAMILY]), 2)}
         _BREAKER_ADJ_CACHE["key"] = key
-        _BREAKER_ADJ_CACHE["val"] = adj
-        return adj
+        _BREAKER_ADJ_CACHE["val"] = val
+        return val[fam_key]
     except Exception as e:
         log(f"[qqq-exec] breaker fill shortfall failed (book value kept): {type(e).__name__}: {e}")
         return 0.0
@@ -10009,6 +10540,10 @@ FP_WHY = {
     "kill": "the kill switch closed the book; the backtest exits on its own bar",
     "breaker": "the daily loss breaker closed the book; the backtest exits on its own bar",
     "suspect": "the Webull fill is outside the prices traded in that minute",
+    # DIP #424 (2026-10-10): its backtest fills at the session's 09:30 open; live sends a
+    # market order once the engine sees that bar close (about 09:35)
+    "open": "the backtest fills at the 09:30 open; live sends a market order once that bar "
+            "has closed, about 09:35",
 }
 # RESTING ORB STOP codes: kept out of FP_WHY (published whole as the parity block's
 # why_text) and added to why_text only when a published side carries one, so a book that
@@ -10291,6 +10826,8 @@ def _side_parity(row, intent, by_base, eng):
     elif intent == "OPEN":
         if leg in LIMIT_ENTRY_LEGS:
             design, why = edge, "limit"
+        elif is_dip_leg(leg):
+            design, why = edge, "open"      # DIP #424: the 09:30 open vs the ~09:35 market order
         elif leg == "NOISE" and not dac:
             design, why = edge, ("late" if _before_noise_dac(ev, row, intent) else "nodac")
     else:
@@ -10330,6 +10867,8 @@ def _side_parity(row, intent, by_base, eng):
         elif rail:
             design = _edge_ps(bt, book, buy) if book is not None else edge
             why = RAIL_EXIT_WHY[rail]
+        elif is_dip_leg(leg):
+            design, why = edge, "open"      # DIP #424 exits at the 09:30 open too
         elif leg in LEVEL_EXIT_LEGS:
             design, why = edge, "level"
         elif leg == "NOISE" and not dac:
@@ -10513,7 +11052,7 @@ _NT_MIRROR_NOTE = "n/a -- this trade mirrors NinjaTrader, see NT parity"
 
 # A side whose whole gap is design by construction (slippage fixed at 0) -- see
 # _side_parity. Left out of the running slippage average (_roll_block).
-DESIGN_ONLY_WHY = ("limit", "level", "late", "nodac")
+DESIGN_ONLY_WHY = ("limit", "level", "late", "nodac", "open")
 # Every side whose gap has a design part: the all-design codes plus the book's own rails.
 DESIGN_WHY = DESIGN_ONLY_WHY + tuple(RAIL_EXIT_WHY.values())
 
@@ -10876,11 +11415,13 @@ def _cum_pnl_by_leg(all_trades):
     each trade's _curve_pnl in chronological order. The web tab now draws its curve
     from trades_all itself (2026-09-21); this published copy stays for other readers
     and must never carry a NaN."""
-    out = {leg: [] for leg in LEGS}
-    running = {leg: 0.0 for leg in LEGS}
-    by_leg_date = {leg: {} for leg in LEGS}
+    # DIP #424 (2026-10-10): keyed by FAMILY -- DIP's seven exec legs' trades add up into
+    # ONE "DIP" curve (FAMILIES); ORB / ENGUQ / NOISE are their own family, as before
+    out = {leg: [] for leg in FAMILIES}
+    running = {leg: 0.0 for leg in FAMILIES}
+    by_leg_date = {leg: {} for leg in FAMILIES}
     for t in sorted(all_trades, key=lambda r: (r.get("exit_ts") or r.get("entry_ts") or "")):
-        leg = t.get("leg")
+        leg = leg_family(t.get("leg"))
         if leg not in by_leg_date:
             continue
         date = str(t.get("exit_ts") or t.get("entry_ts") or "")[:10]
@@ -10888,15 +11429,15 @@ def _cum_pnl_by_leg(all_trades):
             continue
         running[leg] = round(running[leg] + _curve_pnl(t), 2)
         by_leg_date[leg][date] = running[leg]  # last value wins for that date
-    for leg in LEGS:
+    for leg in FAMILIES:
         out[leg] = [{"date": d, "cum_pnl": v} for d, v in sorted(by_leg_date[leg].items())]
     # total: merge all legs onto the union of dates, carrying each leg's last-known value
-    all_dates = sorted({p["date"] for leg in LEGS for p in out[leg]})
-    last = {leg: 0.0 for leg in LEGS}
-    idx = {leg: 0 for leg in LEGS}
+    all_dates = sorted({p["date"] for leg in FAMILIES for p in out[leg]})
+    last = {leg: 0.0 for leg in FAMILIES}
+    idx = {leg: 0 for leg in FAMILIES}
     total_pts = []
     for d in all_dates:
-        for leg in LEGS:
+        for leg in FAMILIES:
             series = out[leg]
             while idx[leg] < len(series) and series[idx[leg]]["date"] <= d:
                 last[leg] = series[idx[leg]]["cum_pnl"]
@@ -11372,6 +11913,9 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         today_feed = next((d for d in doc["feed_days"] if d["date"] == today), None)
         uptime_txt = f"{today_feed['uptime_pct'] * 100:.1f}%" if today_feed else "n/a"
         rail_trips = 1 if doc.get("breaker_tripped") else 0
+        dip_rail = state.get("dip_rail")
+        if isinstance(dip_rail, dict) and dip_rail.get("tripped_on") == today:
+            rail_trips += 1          # DIP's own rail tripped today (it never sells)
         # EXIT SAFETY item 4 (2026-09-26; narrowed 2026-09-26 review): the item-4 check
         # (_maybe_check_webull_flat_after_eod, run earlier in the same tick loop once the
         # flatten/re-sends have had their window) stashes its verdict on state, dated. A
@@ -11523,7 +12067,8 @@ def _build_keel_status(log=print):
         keel_cfg = (leg_cfg or {}).get("keel")
         if not keel_cfg:
             continue
-        exec_key = ENGINE_LEG_MAP.get(engine_key, engine_key)
+        exec_key = (DIP_FAMILY if engine_key == DIP_ENGINE_KEY
+                    else ENGINE_LEG_MAP.get(engine_key, engine_key))
         summary_path = keel_cfg.get("summary_path", "")
         if not summary_path or not os.path.exists(summary_path):
             continue
@@ -11946,7 +12491,10 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
                           "nt_mult": lot.get("nt_mult"),
                           "nt_notional_usd": lot.get("nt_notional_usd"),
                           "shadow_notional_usd": lot.get("shadow_notional_usd"),
-                          "notional_ratio": lot.get("notional_ratio")}
+                          "notional_ratio": lot.get("notional_ratio"),
+                          # DIP #424: which strategy the exec leg belongs to ("DIP" for
+                          # DIP_RSI ... DIP_GAPDN, else the leg itself) -- see leg_families
+                          "family": leg_family(leg)}
         # HOLD OVERNIGHT: a held lot is a planned position, never a stuck one
         positions[leg].update(_held_position_fields(lot, day, rail_by_leg.get(leg)))
 
@@ -12029,9 +12577,15 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
                   # breaker_input = realized_pnl_rail + breaker_fill_adj + unrealized_rail
                   # (a lot carried into today counts from today's open mark) -- and today's
                   # overnight gap, kept out of the rail, inside the P&L of record
-                  "realized_pnl_rail": _round_or_none(_rail_realized_today(state)),
+                  # DIP #424 (2026-10-10): the SHARED rail's parts -- every leg but DIP;
+                  # DIP's own rail figure is dip_rail_input, its realized realized_pnl_dip
+                  "realized_pnl_rail": _round_or_none(_rail_realized_today(state, RAIL_SHARED)),
                   "unrealized_rail": round(sum(float(rail_by_leg.get(k) or 0.0)
-                                               for k in (state.get("legs") or {})), 2),
+                                               for k in (state.get("legs") or {})
+                                               if not is_dip_leg(k)), 2),
+                  "realized_pnl_dip": _round_or_none(state.get("realized_pnl_today_dip", 0.0)
+                                                     if state.get("trading_day") == day else 0.0),
+                  "dip_rail_input": _published_dip_rail_input(state, day),
                   "overnight_gap_usd": _overnight_gap_today(state, day),
                   # what carried lots that closed today had made by the prior close: in
                   # realized_pnl_record (exit - entry), not today's own move
@@ -12064,7 +12618,18 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
                   "slippage_per_share": cfg.get("slippage_per_share"),
                   "kill_file": cfg.get("kill_file"), "size_mode": cfg.get("size_mode"),
                   "size_fraction": cfg.get("size_fraction"),
-                  "hold_overnight_legs": list(_hold_legs(cfg))},
+                  "hold_overnight_legs": list(_hold_legs(cfg)),
+                  # DIP #424 (OWNER GO 2026-10-10): DIP's own caps and rail state --
+                  # dip_rail {tripped_on, blocks_until, loss_usd} while it blocks, else None
+                  "dip_max_total_shares": _dip_cap(cfg),
+                  "dip_daily_loss_limit_usd": _dip_limit(cfg),
+                  "dip_rail": (state.get("dip_rail") if isinstance(state.get("dip_rail"), dict)
+                               else None),
+                  "dip_rail_last": (state.get("dip_rail_last")
+                                    if isinstance(state.get("dip_rail_last"), dict) else None)},
+        # DIP #424 (2026-10-10): {exec leg: family} -- the seven DIP exec legs (DIP_RSI ...)
+        # are one strategy, "DIP"; every other leg is its own family
+        "leg_families": dict(LEG_FAMILIES),
         # BROKER MIRROR (2026-09-13): api.webull_orders' own status, trimmed flat -- see
         # _build_broker_status. Lets the phone tab eventually show mode/creds/last
         # order/last error without a separate endpoint.
@@ -12549,6 +13114,8 @@ def _publish_fingerprint(doc):
         "feed_stale": doc.get("feed_stale"),
         "px_feed_stale": doc.get("px_feed_stale"),
         "breaker_tripped": doc.get("breaker_tripped"),
+        # DIP #424: DIP's own rail tripping (or resetting) is a rail change too
+        "dip_rail": (doc.get("rails") or {}).get("dip_rail"),
         "kill": doc.get("kill"),
         "positions": positions,
         "orders_count_today": len(today.get("orders") or []),
@@ -12731,6 +13298,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     nowdt = now or _now_et()
     today = nowdt.strftime("%Y-%m-%d")
     _roll_day(state, today)
+    _dip_rail_expire(state, today, log=log)    # DIP RAIL: reset once past its blocks_until
     state["_px_source"] = None
 
     # CROSS-HOST LEASE (2026-09-14): computed ONCE per tick, read later by every
@@ -12923,10 +13491,14 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     if active and not kill_present:
         entries_blocked = (state.get("breaker_tripped") or feed_stale or px_feed_stale
                           or kill_present)
+        # DIP #424: the shared breaker never blocks DIP; DIP's own rail blocks only DIP
+        dip_entries_blocked = bool(_dip_rail_blocking(state, today) or feed_stale
+                                   or px_feed_stale or kill_present)
         if src_mode == "engine":
             events = _consume_engine_signals(state, cfg, nowdt, log=log)
             if events:
-                _route_engine_events(state, cfg, events, entries_blocked, log=log, now=nowdt)
+                _route_engine_events(state, cfg, events, entries_blocked, log=log, now=nowdt,
+                                     dip_entries_blocked=dip_entries_blocked)
         else:
             fills = nt_sync.parse_fills(fills_path)
             # fills.csv "Time" is UTC (EdgeLogExport.cs: ex.Time.ToUniversalTime()). Convert to
@@ -12963,9 +13535,22 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
                 # tripped: a lot still open then is one the stop failed to close (it could not
                 # be priced on the trip tick, and the breaker never retries) -- this flatten
                 # closes it, as before the hold (hard stops stay hard)
-                hold = set() if state.get("breaker_tripped") else set(_hold_legs(cfg))
+                # DIP #424: the shared breaker never closes DIP, so on a breaker day DIP's lots
+                # still hold (DIP's own rail never sells)
+                hold = ({leg for leg in _hold_legs(cfg) if is_dip_leg(leg)}
+                        if state.get("breaker_tripped") else set(_hold_legs(cfg)))
                 legs_open = [leg for leg in state["legs"] if leg not in hold]
                 legs_held = [leg for leg in state["legs"] if leg in hold]
+                # FIXER 2026-10-10: a lot Webull never got is not held -- it closes here with
+                # the day's other lots (no sell goes out; see _book_only_legs)
+                book_only = _book_only_legs(legs_held, log=log) if legs_held else []
+                if book_only:
+                    legs_open += book_only
+                    legs_held = [leg for leg in legs_held if leg not in book_only]
+                    _log_event(state, "eod_flatten",
+                               f"Not held overnight (Webull never held them, only the book): "
+                               f"{', '.join(book_only)} -- closed in the book, no sell sent",
+                               log=log)
                 if legs_open:
                     log("[qqq-exec] past flat_by -- closing remaining open lots")
                     _close_all(state, cfg, "EOD", quote_fn, ratio_fn, log=log, nowdt=nowdt,
@@ -12973,7 +13558,12 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
                     _log_event(state, "eod_flatten",
                               f"End-of-day flatten closed: {', '.join(legs_open)}", log=log)
                 for leg in legs_held:
-                    _mark_held_overnight(state, cfg, leg, nowdt, log=log)
+                    # DIP's lots: one event and one note for the family (_say_family_held)
+                    _mark_held_overnight(state, cfg, leg, nowdt, log=log,
+                                         push=not is_dip_leg(leg))
+                dip_held = [leg for leg in legs_held if is_dip_leg(leg)]
+                if dip_held:
+                    _say_family_held(state, dip_held, nowdt, log=log)
             state["flat_by_done_date"] = today
 
     unrealized = 0.0
@@ -13024,6 +13614,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     if src_mode == "engine":
         _maybe_note_eod_gave_up(state, nowdt, log=log)
 
+    _flush_fill_notes(state, log=log)      # DIP: any family fill notes still queued
     doc = _build_doc(cfg, state, feed_stale, unrealized, log=log)
     _maybe_send_eod_summary(state, doc, nowdt, log=log)
     _maybe_log_fs_usage(state, log=log)

@@ -33,9 +33,9 @@ files, because both write the very same shared OHLC cache and Windows refuses th
 rename outright while any reader -- including the OTHER writer's own read of the same
 file -- still has it open.
 
-THE CROWN (LIVE) LEGS (as of 2026-10-09 evening; NOISE swapped by OWNER DECISION 2026-09-23,
-ENGU-Q a no-order shadow TRACKER by OWNER DECISION 2026-09-28 and again 2026-10-09 ~20:20 MST
--- see SHADOW LEGS below):
+THE CROWN (LIVE) LEGS (as of 2026-10-10; NOISE swapped by OWNER DECISION 2026-09-23, ENGU-Q a
+no-order shadow TRACKER by OWNER DECISION 2026-09-28 and again 2026-10-09 ~20:20 MST -- see
+SHADOW LEGS below -- and DIP #424 live from 2026-10-13 by OWNER GO 2026-10-10, MANAGER #115):
   ORB_R6      run #314, ORB_3_6_R6.py, api.paper.ORB_314, 5m RTH, no gate.
   NOISE_382   run #382, NOISE_1_8_CT304.py, params below, 5m RTH, no gate.
               (repointed 2026-09-24 -- run #382 is the #304 crown's own core, written out
@@ -47,6 +47,21 @@ ENGU-Q a no-order shadow TRACKER by OWNER DECISION 2026-09-28 and again 2026-10-
               itself, not kept alongside. api/paper.py's OWN "NOISE_304" leg (the
               NinjaTrader PAPER board, api.paper.NOISE_304_NBHD) is a DIFFERENT book and
               is UNCHANGED and unrelated to this one.)
+  DIP_424     run #424 at a FIXED 1.245x ("KEEL DIP" without the model), NQDIP_1_1.py,
+              DIP_424_PARAMS, asset="ETF" -- LIVE from DIP_424_LIVE_SINCE (2026-10-13; OWNER GO
+              2026-10-10, MANAGER #115). DIP_424F's cfg (below) minus "shadow" and minus its
+              const KEEL block: the 1.245 is inside api/qqq_exec.py's 6 shares per lot, so this
+              leg's rows carry the plugin's own size 1.0. Same api/dip_live.py runner (decided on
+              the DAILY close, filled at the next 09:30 open, up to seven positions at once, one
+              per mechanism -> per-slot trade ids DIP_424-<UTC>-L-<SLOT>), and the same params, so
+              the same probe memo key as the two shadow DIP legs beside it: ONE seven-engine-run
+              probe a session serves all three. api/qqq_exec.py maps each slot onto its own
+              one-lot exec leg (DIP_RSI .. DIP_GAPDN). max_entry_age_sec DIP_LIVE_MAX_ENTRY_AGE_SEC
+              (25 min, not the shadows' whole session). live_since -> ONE cold start whose SEED
+              absorbs every position open at the seed and emits nothing (the leg starts FLAT;
+              each slot sits out until its absorbed position exits -- see LIVE SINCE and
+              _diff_leg's COLD START). Decided by step() only, never by
+              api/cloud_signal_stream.py's stream path (see run_stream_aware_step).
 
 SHADOW LEGS (OWNER DECISION 2026-09-28, via MANAGER) -- SHADOW_LEGS below. Same engine,
 same bars, NO orders: they write only to their own store, <home>/cloud_signal/shadow/
@@ -62,8 +77,8 @@ from cloud_signal_thread, after the live step, on fetch ticks only.
               (MANAGER #113): it does NOT trade on Webull. Its would-be trades, with its own
               multi-day exits, go to the shadow ledger only. Why: on QQQ bars ENGU-Q keeps 71%
               of the leg and drags the book, and QQQ cannot trade 24 h (the crown is ETH-fit --
-              see ENGINE LIMITATION below). DIP #424 at a fixed 1.245x is to become the live
-              leg later (a separate build). History: live until 2026-09-28 (every ENGU-Q
+              see ENGINE LIMITATION below). DIP #424 at a fixed 1.245x is the live leg instead,
+              from 2026-10-13 (DIP_424 above). History: live until 2026-09-28 (every ENGU-Q
               Webull order was closed by qqq_exec's 15:59 flatten, never by the strategy's own
               exit), a shadow leg from then on; on 2026-10-09 it was put back on CROWN_LEGS in
               code (MANAGER #102, with qqq_exec's overnight hold, #106 -- never deployed) and
@@ -300,6 +315,18 @@ DIP_SPLIT_GAP = (0.6, 1.6)
 # trade ENTERED inside it is among them -- so a cold start does not absorb years of history
 # into state.json.
 DIP_DIFF_SESSIONS = 60
+# DIP #424 LIVE (OWNER GO 2026-10-10, MANAGER #115) -- CROWN_LEGS["DIP_424"]. The day it joins the
+# order-placing book: its "live_since" (see LIVE SINCE above _apply_live_since -- one cold start,
+# SEED only, the leg starts flat).
+DIP_424_LIVE_SINCE = "2026-10-13"
+# The LIVE DIP leg's max_entry_age_sec. An entry is stamped at its session's 09:30 bar start (the
+# backtest fill at that open) and first seen at that bar's close, 09:35:05 -- ~5 minutes old at
+# best. 25 minutes rides out a few missed fetch ticks and still refuses an entry first seen at
+# ~09:55 or later (a restart, an outage, a late REST bar): the executor would buy far from the
+# open the book records, so that slot sits out the trade (recorded "late", its EXIT suppressed
+# with it -- see _diff_leg). The shadow DIP legs keep the whole session (no order is sent and
+# their fill price, the 09:30 open, does not depend on when the box saw the bar).
+DIP_LIVE_MAX_ENTRY_AGE_SEC = 25 * 60
 
 
 # ── KEEL v12 overlay (OWNER DECISION 2026-09-23) ─────────────────────────────────────────
@@ -395,6 +422,26 @@ CROWN_LEGS = {
     # ENGUQ_335 is a no-order SHADOW leg -- a tracker -- in SHADOW_LEGS below (OWNER DECISION
     # 2026-10-09 ~20:20 MST, MANAGER #113; a shadow leg 2026-09-28..10-09 as well). It sends
     # no Webull orders.
+    #
+    # DIP #424 at a FIXED 1.245x, LIVE from 2026-10-13 (OWNER GO 2026-10-10, MANAGER #115) -- see
+    # the module docstring. SHADOW_LEGS["DIP_424F"]'s cfg minus "shadow" and minus its const KEEL
+    # block (the 1.245 is already inside api/qqq_exec.py's 6 shares per DIP lot; a "keel" block
+    # here would size the row 1.245 and the executor would multiply it in a second time), plus
+    # live_since and a 25-minute entry age. NO eod_flat / decide_at_close / resting_levels: it
+    # holds overnight (per-slot exec legs on qqq_exec's hold list) and its exits are 09:30-open
+    # fills. APPENDED after NOISE_382 on purpose: on a live tick NOISE_382's vol_prior_ranges
+    # bridge refreshes QQQ_1d.csv first (_maybe_refresh_daily_cache), so this leg and the shadow
+    # DIP legs (run after the live step) read the same daily file -> the same series -> the
+    # same probe memo key (api/dip_live.py MEMO: one seven-engine-run probe for all three).
+    "DIP_424": {
+        "strategy": "NQDIP_1_1.py",
+        "timeframe": "5m",
+        "runner": DIP_RUNNER,
+        "params": dict(DIP_424_PARAMS, asset="ETF"),
+        "warmup_sessions": DIP_5M_ALL_SESSIONS,
+        "max_entry_age_sec": DIP_LIVE_MAX_ENTRY_AGE_SEC,
+        "live_since": DIP_424_LIVE_SINCE,          # LIVE_SINCE_KEY (defined further down)
+    },
 }
 
 # ── Shadow legs (OWNER DECISION 2026-09-28) -- see the module docstring's SHADOW LEGS ────
@@ -2821,9 +2868,12 @@ def _entry_key(leg, trade):
     cannot be formed (never the case for a well-formed engine trade); such a trade's rows
     carry an empty trade_id and api/qqq_exec.py refuses to act on them.
 
-    SLOT (2026-10-09): a trade that names a "slot" (only the DIP #424 shadow legs' -- seven
-    mechanisms can fill at one bar) gets the per-slot id "<leg>-<time>-L-<SLOT>"; every other
-    trade has no slot and keeps exactly the id it always had."""
+    SLOT (2026-10-09): a trade that names a "slot" (only a DIP #424 leg's -- the shadow pair's
+    and, from 2026-10-13, the live DIP_424's: seven mechanisms can fill at one bar) gets the
+    per-slot id "<leg>-<time>-L-<SLOT>" (the full mechanism name, e.g.
+    DIP_424-20261013T133000Z-L-STREAK; api/qqq_exec.py maps the slot onto its exec leg and
+    shortens it only inside a broker order id); every other trade has no slot and keeps exactly
+    the id it always had."""
     return (_trade_id.make(leg, trade.get("entry_time"), trade.get("side"), slot=trade.get("slot"))
             or _legacy_entry_key(leg, trade))
 
@@ -2857,10 +2907,28 @@ SEEDED_REASON_TAG = "seeded=1"
 # one still open, so no catch-up ENTRY for a trade the strategy is already in, and no EXIT for a
 # position the book never took). The state is stamped leg_state["live_since"] at the discard, so
 # it never repeats; the SEED row's reason names the live_since. A leg whose cfg has no
-# "live_since" behaves exactly as before.
-# NO LEG CARRIES IT TODAY (2026-10-09 ~20:20 MST, OWNER DECISION, MANAGER #113): ENGUQ_335, the
-# leg it was written for, became a no-order shadow tracker again before the box ever ran it
-# live. The mechanism stays, generic and tested, for the next leg that (re)joins the book.
+# "live_since" behaves exactly as before. It is also a DATE GATE (FIXER 2026-10-10,
+# _before_live_since): before that ET date the leg does nothing at all -- no state, no SEED, no
+# row -- so an early deploy cannot start it a session before its GO date.
+# ONE LEG CARRIES IT (2026-10-10, OWNER GO, MANAGER #115): DIP_424, live_since
+# DIP_424_LIVE_SINCE ("2026-10-13"). ENGUQ_335, the leg it was written for, became a no-order
+# shadow tracker again (2026-10-09 ~20:20 MST, MANAGER #113) before the box ever ran it live.
+# DIP_424 has no earlier stint, so there is nothing to discard: the stamp marks its one cold start.
+# DIP_424's SEED TIME. The box steps the engine only in session (plus the EOD settle window, to
+# close + 5 min), and a DIP leg's daily series takes TODAY only once today's 09:30 bar has closed
+# (09:35:05 -- api/dip_live.py), so:
+#   * a deploy after the settle window (Monday after 16:05) -- or ANY time before 2026-10-13: the
+#     date gate (_before_live_since) keeps the leg idle until then -- seeds DIP_424 on the next
+#     session's first step, 09:30:0x, with the series still ending at the PREVIOUS session: the SEED absorbs
+#     every position entered up to that session (no ENTRY, and never an EXIT, for any of them --
+#     each slot sits out until its absorbed position exits) and NOT that day's own entries
+#     (decided at the previous close, filled at the 09:30 open, entry bar > the series' last
+#     row): they emit as ENTRY rows at the 09:30 bar's close, 09:35:05. A seed any time from the
+#     previous session's 09:35 bar through 09:34:59 absorbs exactly the same trades.
+#   * if the series is NOT ready at 09:30 (a hole, the calibration, a missing QQQ_1d.csv) the SEED
+#     slides to the 09:35:05 step and swallows that day's entries too -- fail safe: those slots
+#     sit the day out (flat until their positions exit). Check the DIP_424 SEED row by 09:34.
+# tests/test_dip424_live_engine.py drives both.
 # NEVER A SHADOW LEG: a shadow leg's state IS its tracker history (its seeded carries, its
 # would-be trades still open), and live_since means "the day it joined the order-placing
 # book", which a shadow leg never does -- so a cfg["shadow"] leg is left untouched even if its
@@ -2899,6 +2967,9 @@ def _apply_live_since(leg_key, cfg, leg_state, now=None, log=print):
             "discarded_trades": len(old_trades),
             # ids only, capped -- what WOULD have emitted an EXIT had the state been kept
             "discarded_exit_owed": owed[:20],
+            # False for a leg never seen before (DIP_424's first cold start) -- the SEED
+            # reason then says "no earlier state" (_live_since_discarded)
+            "had_state": had or prev is not None,
         }
         if had:
             log(f"[cloud-signal] {leg_key}: live since {want} -- its earlier state "
@@ -2912,6 +2983,33 @@ def _apply_live_since(leg_key, cfg, leg_state, now=None, log=print):
     except Exception as e:
         log(f"[cloud-signal] {leg_key}: live_since check failed ({type(e).__name__}: {e}) -- "
             f"state left as it was")
+        return False
+
+
+def _live_since_discarded(leg_state):
+    """True unless `leg_state`'s live_since stamp records that it discarded nothing (a leg never
+    seen before -- DIP_424's first cold start): only the SEED reason's wording reads it."""
+    reset = leg_state.get("live_since_reset")
+    if not isinstance(reset, dict):
+        return True
+    return bool(reset.get("had_state", True))
+
+
+def _before_live_since(cfg, now):
+    """True while a LIVE leg's cfg carries "live_since" and `now`'s ET date is still before it.
+    FIXER 2026-10-10: live_since is also a DATE GATE -- the leg does nothing at all before that
+    day (step() skips it before _apply_live_since, _diff_leg returns no event), so a deploy that
+    lands early (a weekend, Monday 10-12 before 09:25) can never seed DIP_424 at Monday's 09:30
+    and send real DIP orders a session before the owner's GO date; its one cold start lands on
+    its first step from the live_since day. Never a shadow leg (live_since never applies to
+    one); a cfg without the key, or a `now` that cannot be read, is never gated. Never raises."""
+    try:
+        want = (cfg or {}).get(LIVE_SINCE_KEY)
+        if not want or (cfg or {}).get("shadow"):
+            return False
+        et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+        return et.date().isoformat() < str(want)
+    except Exception:
         return False
 
 
@@ -3357,7 +3455,7 @@ def _decide_at_close_probe(arrays, trades, tf, now, run, log=print):
         return trades, arrays
 
 
-def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print):
+def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print, why_out=None):
     """(trades, diff_arrays): everything step() does to one leg between closed_arrays and
     _diff_leg -- run_leg_trades with `now`/`paths`/`fetch` (the session_in_progress and
     vol_prior_ranges pass-throughs), then, for a cfg["decide_at_close"] leg, the
@@ -3370,9 +3468,10 @@ def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print):
     A DIP leg (cfg["runner"] == DIP_RUNNER) goes to api/dip_live.py instead and NEVER reaches
     run_leg_trades (whose 5-field unpack raises on the file's 6-field trades and would read
     its dollar P&L as a price move): (trades, arrays), where trades is None while its daily
-    series is not ready -- step() then skips the leg's diff (no SEED) and retries next bar."""
+    series is not ready -- step() then skips the leg's diff (no SEED) and retries next bar.
+    `why_out` (optional dict) then receives the reason (see api/dip_live.run_dip_leg_trades)."""
     if cfg.get("runner") == DIP_RUNNER:
-        return run_dip_leg_trades(cfg, arrays, leg_key, now, paths, log), arrays
+        return run_dip_leg_trades(cfg, arrays, leg_key, now, paths, log, why_out=why_out), arrays
     trades = run_leg_trades(cfg, arrays, leg_key=leg_key, log=log, now=now, paths=paths,
                             fetch=fetch)
     diff_arrays = arrays
@@ -3388,11 +3487,69 @@ def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print):
     return trades, diff_arrays
 
 
-def run_dip_leg_trades(cfg, arrays, leg_key=None, now=None, paths=None, log=print):
+def run_dip_leg_trades(cfg, arrays, leg_key=None, now=None, paths=None, log=print, why_out=None):
     """A DIP #424 leg's trade dicts for this tick, or None while its daily series is not ready
     (see api/dip_live.py run_dip_leg_trades -- this is the module's one entry point here)."""
     from api import dip_live as _dip
-    return _dip.run_dip_leg_trades(cfg, arrays, leg_key=leg_key, now=now, paths=paths, log=log)
+    return _dip.run_dip_leg_trades(cfg, arrays, leg_key=leg_key, now=now, paths=paths, log=log,
+                                   why_out=why_out)
+
+
+# A LIVE leg that is NOT READY is never silent (FIXER 2026-10-10). Only a DIP leg's runner ever
+# says "not ready" (its daily series -- api/dip_live.py), and the live DIP_424 holds real shares
+# overnight whose exits come only from that runner: a series that stays not ready (a hole -- an
+# unscheduled closure not yet in dip_live.UNSCHEDULED_CLOSURES --, a QQQ_1d.csv scale mismatch, a
+# memoized probe failure) used to leave one log line a day and nothing else, so held lots got no
+# exit day after day with nobody told. step() now names the reason in its `warnings`
+# ("legs_not_ready") every time, and from LIVE_NOT_READY_PAGE_FROM (ET; the 09:30-09:35 seed
+# window and a REST tail still filling today's first bar are normal) sends ONE high plain phone
+# note per ET day per leg -- only where every engine page may go (_push_allowed: a live fetching
+# tick on the box, never a shadow leg). The repeat rule (_engine_note) also holds it across a
+# restart.
+LIVE_NOT_READY_PAGE_FROM = "09:40"
+_LIVE_NOT_READY_NOTED = {}          # leg key -> the ET date its note was handed to _engine_note
+_NOT_READY_WORDS = {
+    "hole": "A trading day is missing from its daily QQQ prices.",
+    "prev_missing": "The previous trading day is missing from its daily QQQ prices.",
+    "short": "Its daily QQQ price history is too short.",
+    "today_open": "Today's first QQQ price bar has not arrived.",
+    "cal_thin": "Its two QQQ price files do not overlap enough to check each other.",
+    "cal_fail": "Its two QQQ price files disagree (a split or a bad file).",
+    "cal_split": "Its QQQ prices jump like a split.",
+    "error": "Its strategy run failed.",
+}
+
+
+def _note_live_leg_not_ready(leg_key, cfg, why, now, paths, fetch, warnings=None, log=print):
+    """A live leg's runner returned no trades (see the block above): name it in `warnings`, and
+    page once a day from LIVE_NOT_READY_PAGE_FROM. Never raises."""
+    try:
+        if (cfg or {}).get("shadow"):
+            return
+        reason = str((why or {}).get("key") or "unknown")
+        text = str((why or {}).get("text") or "no reason given")
+        if warnings is not None:
+            warnings.setdefault("legs_not_ready", {})[leg_key] = {"reason": reason, "text": text}
+        et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+        if et.strftime("%H:%M") < LIVE_NOT_READY_PAGE_FROM or not _push_allowed(cfg, fetch):
+            return
+        day = et.date().isoformat()
+        if _LIVE_NOT_READY_NOTED.get(leg_key) == day:
+            return
+        _LIVE_NOT_READY_NOTED[leg_key] = day
+        parts = str(leg_key).split("_")
+        area = f"{parts[0]} #{parts[1]}" if len(parts) == 2 and parts[1].isdigit() else str(leg_key)
+        log(f"[cloud-signal] {leg_key}: NOT READY page -- {text}")
+        from api import ntfy_push
+        note = ntfy_push.plain(
+            area, "not trading",
+            f"{area} takes no new trades and sends no exit for its held shares",
+            _NOT_READY_WORDS.get(reason, "Its daily QQQ prices are not ready."),
+            "ask Claude (PAPER-WB chat) to check it today", priority="high")
+        _engine_note(f"leg_not_ready:{leg_key}", leg_key, note, paths, log=log,
+                     push=_engine_push_background)
+    except Exception as e:
+        log(f"[cloud-signal] {leg_key}: not-ready note failed ({type(e).__name__}: {e})")
 
 
 def _dip_daily_series(arrays, now, paths, params=None, log=print):
@@ -3480,6 +3637,10 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
             if bar_sources and bar_sources.get(tf):
                 tf_source[tf] = bar_sources[tf]
         epoch_df = tf_cache[tf]
+        if _before_live_since(cfg, now):
+            # LIVE SINCE is also a date gate (FIXER 2026-10-10): nothing at all before that day --
+            # no state, no stamp, no SEED, no row
+            continue
         leg_state = state["legs"].setdefault(key, {"trades": {}})
         # LIVE SINCE (2026-10-09): an earlier stint's state is discarded before anything reads
         # it -- including the "no new bar" short-circuit below -- and persisted as discarded
@@ -3544,11 +3705,14 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
         # run_leg_trades (+ the decide_at_close probe for a flagged leg) -- shared with the
         # stream path (api/cloud_signal_stream.py) so the two can never decide differently
         # off the same bars; see leg_decision_trades.
-        trades, diff_arrays = leg_decision_trades(cfg, arrays, key, tf, now, paths, fetch)
+        not_ready = {}
+        trades, diff_arrays = leg_decision_trades(cfg, arrays, key, tf, now, paths, fetch,
+                                                  why_out=not_ready)
         if trades is None:
             # only a DIP leg's runner ever says "not ready" (its daily series -- see
             # api/dip_live.py): no diff and no SEED; last_bar_epoch already moved, so the next
-            # new bar retries
+            # new bar retries. A LIVE leg's is never silent (_note_live_leg_not_ready).
+            _note_live_leg_not_ready(key, cfg, not_ready, now, paths, fetch, warnings=warnings)
             continue
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
         # so late, but never hours late (see _diff_leg's LATE ENTRIES note). A leg may set
@@ -3751,12 +3915,18 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     once: state.json's leg_state["seeded"] stops a second cold start, so a restart never
     repeats it. A shadow leg seeded before this existed is upgraded once by
     _carry_seeded_open (below).
+    THE LIVE DIP LEG IS NOT A SHADOW LEG (DIP_424, from 2026-10-13): its SEED absorbs every
+    position open at the seed -- no ENTRY now, no EXIT later -- while the shadow DIP_424F /
+    DIP_424K beside it carry theirs. The live leg starts FLAT: each mechanism (slot) holding
+    a position at the seed sits out until that position exits, then trades normally. A slot
+    leg's SEED reason names its open slots ("open_slots=PB,CAP").
 
     LIVE SINCE (2026-10-09 -- see the block above _apply_live_since). A cfg carrying
     "live_since" whose value `leg_state` does not carry yet gets its state discarded first
     (step() already did that on its own call; this covers every other caller, e.g. the
     stream path), so the leg cold-starts here: SEED only, the SEED reason naming it. Never
-    for a shadow leg; no shipped leg carries it today.
+    for a shadow leg; the one shipped leg carrying it is DIP_424 (2026-10-13 -- see the block
+    above _apply_live_since for when its SEED lands and what it absorbs).
 
     AFTER-CLOSE ENTRIES GET ONE LOG LINE (2026-10-09). A live leg's NEW entry first seen once
     its session has closed is still never emitted, but it is no longer silent: one plain line
@@ -3794,12 +3964,15 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     """
     events = []
     levels_on = bool((cfg or {}).get("resting_levels"))
+    if _before_live_since(cfg, now):
+        return events      # LIVE SINCE is also a date gate (FIXER 2026-10-10): nothing before it
     _apply_live_since(leg_key, cfg, leg_state, now=now, log=log)   # LIVE SINCE -- see the docstring
     _rekey_recorded_trades(leg_key, leg_state)
     recorded = leg_state.setdefault("trades", {})
     carry_open = bool((cfg or {}).get("shadow"))      # SHADOW legs only -- see SEED_OPEN_FORMAT
     if not leg_state.get("seeded"):
         open_at_seed = "none"
+        open_slots = []          # a DIP leg's mechanisms holding a position at the seed
         carried = []
         for t in trades:
             key = _entry_key(leg_key, t)
@@ -3814,6 +3987,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 recorded[key]["slot"] = t["slot"]      # DIP legs only (see _entry_key)
             if t["still_open"]:
                 open_at_seed = f"{t['side']} @ {t['entry_px']} ({t['entry_time']})"
+                if t.get("slot"):
+                    open_slots.append(str(t["slot"]))
             if carry:
                 carried.append((key, t))
         leg_state["seeded"] = True
@@ -3830,9 +4005,16 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
             "keel_size": "",
             "reason": (f"cold start: absorbed {len(trades)} historical trade(s) without "
                        f"emitting; open_at_seed={open_at_seed}"
+                       # a DIP leg holds up to seven positions: name every open slot (a LIVE
+                       # DIP leg absorbs them -- each slot sits out until its position exits)
+                       + ((f"; open_slots={','.join(open_slots)}"
+                           + ("" if carried else " (absorbed: each slot sits out until its "
+                                                 "position exits)")) if open_slots else "")
                        + ("; shadow leg: carried as an open would-be trade" if carried else "")
-                       + (f"; live_since={leg_state[LIVE_SINCE_KEY]} (earlier state discarded, "
-                          "starts flat)" if leg_state.get(LIVE_SINCE_KEY) else "")),
+                       + (f"; live_since={leg_state[LIVE_SINCE_KEY]} ("
+                          + ("earlier state discarded" if _live_since_discarded(leg_state)
+                             else "no earlier state")
+                          + ", starts flat)" if leg_state.get(LIVE_SINCE_KEY) else "")),
         })
         for key, t in carried:
             events.append(_seeded_entry_event(leg_key, key, t, recorded[key], bar_source,
@@ -4438,13 +4620,25 @@ def run_shadow_step(now=None, fetch=True, live_legs=None, shadow_legs=None, live
     `post_close`: the EOD SETTLE step (_eod_settle_shadow) -- passed to step(), so no shadow
     ENTRY is emitted after the bell.
 
+    A LIVE KEY IS NEVER STEPPED HERE (2026-10-10, the live DIP_424 beside its shadow pair): a
+    `shadow_legs` key that is also a `live_legs` key is dropped (logged once a day), so a live
+    leg's rows -- its own trade ids -- can never land in the shadow ledger, whatever dict a
+    caller hands in. SHADOW_LEGS and CROWN_LEGS never share a key (tests/test_shadow_legs.py).
+
     The live store is only ever READ here (its state.json's bar_source, to label the
     shadow rows with the feed that priced them) -- never written. May raise: the thread
     calls it through _shadow_tick, which never does."""
     shadow_legs = SHADOW_LEGS if shadow_legs is None else shadow_legs
+    live_legs = CROWN_LEGS if live_legs is None else live_legs
+    clash = sorted(set(shadow_legs or {}) & set(live_legs or {}))
+    if clash:
+        _log_fail_safe_once(
+            "shadow_live_clash:" + ",".join(clash),
+            f"[cloud-signal] shadow step: {', '.join(clash)} is a LIVE leg key -- never stepped "
+            f"into the shadow store (its rows belong to the live ledger only)", log)
+        shadow_legs = {k: v for k, v in shadow_legs.items() if k not in live_legs}
     if not shadow_legs:
         return []
-    live_legs = CROWN_LEGS if live_legs is None else live_legs
     live_paths = live_paths or DEFAULT_PATHS
     spaths = shadow_paths(live_paths)
     sources = {tf: info.get("source") for tf, info in (read_bar_source(live_paths) or {}).items()
@@ -4521,9 +4715,11 @@ def _shadow_tick(now, fetch, log=print):
 # guard; no lot -> nothing to close). The one exception is a lot qqq_exec HOLDS OVERNIGHT
 # (qqq_exec HOLD_OVERNIGHT_LEGS, owner GO 2026-10-09, MANAGER #106): a settle EXIT for its
 # trade (the exit of an emitted ENTRY, tagged eod_settle) keeps the lot and is sold at market
-# at the next open (qqq_exec _defer_held_close), never at the row's price. No live leg holds
-# overnight today: ENGU-Q, the leg the hold was built for, is a no-order shadow tracker
-# (OWNER DECISION 2026-10-09 ~20:20 MST, MANAGER #113); DIP #424 is to use the hold later.
+# at the next open (qqq_exec _defer_held_close), never at the row's price. ENGU-Q, the leg the
+# hold was built for, is a no-order shadow tracker (OWNER DECISION 2026-10-09 ~20:20 MST, MANAGER
+# #113); the live leg that holds overnight is DIP_424 (from 2026-10-13, MANAGER #115), whose
+# exits are 09:30-open fills the engine first sees at that bar's close, 09:35:05 -- never at
+# the settle (a DIP exit row carries no eod_settle tag; see _diff_leg).
 # Only the eod_flat legs' last bars are waited for: a held leg's exit on its last bar that
 # misses the settle comes with the next session's first step instead and is sold the same
 # way, at market at a price from that day.

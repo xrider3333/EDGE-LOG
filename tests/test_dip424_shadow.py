@@ -559,6 +559,45 @@ def test_unfinished_daily_rows_are_dropped_and_midnight_stamps_are_dates(tmp_pat
     assert WALK_DAYS[6] in rows and rows[WALK_DAYS[6]][0] == WALK[6][1]
 
 
+
+def test_a_torn_row_in_either_file_never_dates_a_1969_session(tmp_path, monkeypatch):
+    """DISC #117 / MANAGER #118 (2026-10-10): the PC's QQQ_5m.csv had a TORN row on line 2
+    (time 75, empty close). Every torn shape -- with or without a close, in the 5m cache or in
+    QQQ_1d.csv -- must leave the series exactly as the clean files give it. The dangerous one is
+    a QQQ_1d.csv row that KEPT its prices: epoch 75 dates 1969-12-31 ET, and kept it would start
+    the series in 1969 (~13,600 HOLE sessions -> the live DIP leg NOT READY). daily_rows drops
+    rows dated before QQQ's first session and says so once a day."""
+    monkeypatch.setattr(cs, "_DAILY_CALIBRATION_LOG", {})
+    day = WALK_DAYS[-10]
+    now = at(day, 10, 0, 5)
+    clean = write_home(tmp_path / "clean", WALK, 45)
+    want, why = DL.build_daily_series(five_arrays(clean, now), now, clean, LIVE_PARAMS, log=QUIET)
+    assert why is None
+    cases = (("5m_no_close", "QQQ_5m.csv", "75,1,1,1,,", False),
+             ("5m_close", "QQQ_5m.csv", "75,700,700,700,700,1", False),
+             ("1d_close", "QQQ_1d.csv", "75,700,700,700,700,1", True),
+             ("1d_no_close", "QQQ_1d.csv", "75,700,700,700,,", True))
+    for name, fname, row, said in cases:
+        cs._DAILY_CALIBRATION_LOG.clear()
+        p = write_home(tmp_path / name, WALK, 45)
+        f = os.path.join(p["ohlc_dir"], fname)
+        with open(f, newline="") as fh:
+            lines = fh.read().splitlines()
+        lines.insert(1, row)                                   # line 2, as on the PC
+        with open(f, "w", newline="") as fh:
+            fh.write("\n".join(lines) + "\n")
+        logs = []
+        s, why = DL.build_daily_series(five_arrays(p, now), now, p, LIVE_PARAMS, log=logs.append)
+        assert why is None, (name, why)
+        assert s["dates"] == want["dates"] and s["dates"][0].year >= 1999, name
+        for k in ("open", "high", "low", "close"):
+            np.testing.assert_array_equal(s["arrays"][k], want["arrays"][k], err_msg=name)
+        torn = [x for x in logs if "torn write" in x]
+        assert len(torn) == (1 if said else 0), (name, logs)
+        if said:
+            assert "1969-12-31" in torn[0] and "1999-03-10" in torn[0]
+    assert DL.QQQ_FIRST_SESSION == dt.date(1999, 3, 10)
+
 def test_not_ready_guards(tmp_path):
     day = WALK_DAYS[-10]
     now = at(day, 10, 0, 5)

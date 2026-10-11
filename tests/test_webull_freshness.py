@@ -1300,24 +1300,50 @@ def _exec_cfg(h, **cfg):
     _wj(h.paths["exec_config"], cfg)
 
 
+DIP7 = ("DIP_RSI", "DIP_DBL", "DIP_PB", "DIP_CAP", "DIP_IBS", "DIP_STREAK", "DIP_GAPDN")
+
+
 def test_hold_legs_follow_the_executor_config():
-    assert wf.hold_legs(None) == ("ENGUQ",) == wf.HOLD_OVERNIGHT_LEGS
-    assert wf.hold_legs({"session": {"flat_by": "15:59"}}) == ("ENGUQ",)
+    # DIP #424 LIVE (OWNER GO 2026-10-10, MANAGER #115): its seven one-lot legs hold overnight
+    default = ("ENGUQ",) + DIP7
+    assert wf.DIP_LEGS == DIP7
+    assert wf.hold_legs(None) == default == wf.HOLD_OVERNIGHT_LEGS
+    assert wf.hold_legs({"session": {"flat_by": "15:59"}}) == default
     assert wf.hold_legs({"session": {"hold_overnight_legs": []}}) == ()            # switched off
     assert wf.hold_legs({"session": {"hold_overnight_legs": ["NOISE", "ENGUQ"]}}) == ("NOISE", "ENGUQ")
-    for junk in ("ENGUQ", ["ENGU-Q"], [1], {"ENGUQ": 1}, None):                    # code default
-        assert wf.hold_legs({"session": {"hold_overnight_legs": junk}}) == ("ENGUQ",)
+    assert wf.hold_legs({"session": {"hold_overnight_legs": ["DIP_RSI", "DIP_PB"]}}) == ("DIP_RSI", "DIP_PB")
+    # junk -- the family name and the engine key are not exec legs -- keeps the code default
+    for junk in ("ENGUQ", ["ENGU-Q"], [1], {"ENGUQ": 1}, None, ["DIP"], ["DIP_424"]):
+        assert wf.hold_legs({"session": {"hold_overnight_legs": junk}}) == default
     # engine mode only: the NinjaTrader fallback keeps flat-at-close
     assert wf.hold_legs({"signal_source": "ninjatrader"}) == ()
-    assert wf.hold_legs({"signal_source": "Engine"}) == ("ENGUQ",)
+    assert wf.hold_legs({"signal_source": "Engine"}) == default
 
 
 def test_hold_constants_match_the_executor():
+    """The twins of api/qqq_exec's leg constants (this monitor never imports it at run time):
+    LEGS, HOLD_OVERNIGHT_LEGS and DIP_LEGS as sets (only membership is read here), is_dip_leg
+    and the {leg: family} map exactly, and the plain legs' words exactly. A DIP leg's word here
+    is the family with its run ('DIP #424', the family-name rule); the executor's phone word
+    for it must name the same family ('DIP')."""
     from api import qqq_exec
-    assert wf.KNOWN_LEGS == tuple(qqq_exec.LEGS)
-    if not hasattr(qqq_exec, "HOLD_OVERNIGHT_LEGS"):
-        pytest.skip("api/qqq_exec.py has no HOLD_OVERNIGHT_LEGS yet (the executor half lands it)")
-    assert wf.HOLD_OVERNIGHT_LEGS == tuple(qqq_exec.HOLD_OVERNIGHT_LEGS)
+    if not hasattr(qqq_exec, "DIP_LEGS"):
+        pytest.skip("api/qqq_exec.py has no DIP_LEGS yet (the DIP #424 executor track lands it)")
+    for mine, theirs in ((wf.KNOWN_LEGS, qqq_exec.LEGS),
+                         (wf.HOLD_OVERNIGHT_LEGS, qqq_exec.HOLD_OVERNIGHT_LEGS),
+                         (wf.DIP_LEGS, qqq_exec.DIP_LEGS)):
+        assert len(set(mine)) == len(mine)
+        assert set(mine) == set(theirs)
+    for leg in wf.KNOWN_LEGS + ("DIP_424", "DIP", "", None):
+        assert wf.is_dip_leg(leg) is bool(qqq_exec.is_dip_leg(leg)), leg
+    assert {leg: wf.LEG_FAMILIES.get(leg, leg) for leg in wf.KNOWN_LEGS} == dict(qqq_exec.LEG_FAMILIES)
+    for leg in wf.KNOWN_LEGS:
+        if wf.is_dip_leg(leg):
+            fam = wf.LEG_FAMILIES[leg]
+            assert wf.leg_word(leg) == wf.FAMILY_WORDS[fam] == "DIP #424"
+            assert qqq_exec._leg_word(leg).split()[0] == fam, leg
+        else:
+            assert wf.leg_word(leg) == qqq_exec._leg_word(leg), leg
 
 
 def test_exec_view_flat_except_held(tmp_path):
@@ -1472,6 +1498,152 @@ def test_eod_webull_holds_more_than_the_held_lot(tmp_path):
         "Do: check the Webull app holds only ENGU-Q's 10 held shares and sell anything else by hand."]
     v = h.status()["verdicts"]["webull_flat"]
     assert v["title"] == "Webull NOT confirmed flat" and "ENGU-Q long 10" in v["detail"]
+
+
+# -- DIP #424 LIVE (OWNER GO 2026-10-10, MANAGER #115): up to seven one-lot legs held overnight --
+def _dip_held(*legs, shares=6, since="2026-10-05"):
+    """state.json lots of DIP #424's exec legs as the executor carries them past the close."""
+    return {leg: {"side": "long", "shares_remaining": shares, "entry_px": 600.0,
+                  "entry_ts": since + " 09:35:20",
+                  "trade_id": "DIP_424-20261005T133000Z-L-" + leg[4:],
+                  "hold": {"since": since, "close_mark_px": 601.0}} for leg in legs}
+
+
+DIP3 = _dip_held("DIP_RSI", "DIP_PB", "DIP_CAP")
+DIP3_LOTS = [{"leg": leg, "side": "long", "shares": 6} for leg in ("DIP_CAP", "DIP_PB", "DIP_RSI")]
+
+
+def test_dip_lots_are_named_once_as_their_family():
+    assert wf.is_dip_leg("DIP_STREAK") and not wf.is_dip_leg("ENGUQ") and not wf.is_dip_leg(None)
+    assert wf.leg_word("DIP_GAPDN") == "DIP #424" and wf.leg_word("ENGUQ") == "ENGU-Q"
+    assert wf.leg_word("NOISE") == "NOISE"
+    assert wf.held_text(DIP3_LOTS) == "DIP #424 long 18 (3 lots)"
+    assert wf.held_text(DIP3_LOTS[:1]) == "DIP #424 long 6 (1 lot)"
+    assert wf.held_shares_words(DIP3_LOTS) == "DIP #424's 18 held shares"
+    assert wf.held_shares_words(DIP3_LOTS, held="") == "DIP #424's 18 shares"
+    assert wf.held_lot_word(DIP3_LOTS) == "lots" and wf.held_lot_word(DIP3_LOTS[:1]) == "lot"
+    seven = [{"leg": leg, "side": "long", "shares": 6} for leg in sorted(DIP7)]
+    assert wf.held_text(seven) == "DIP #424 long 42 (7 lots)"
+    # beside another held leg: each named once, in held_lots' (leg-sorted) order
+    both = DIP3_LOTS + [{"leg": "ENGUQ", "side": "long", "shares": 10}]
+    assert wf.held_text(both) == "DIP #424 long 18 (3 lots), ENGU-Q long 10"
+    assert wf.held_shares_words(both) == "DIP #424's 18 and ENGU-Q's 10 held shares"
+    assert wf.flat_do(both) == ("check the Webull app holds only DIP #424's 18 and ENGU-Q's 10 "
+                                "held shares and sell anything else by hand")
+    # one lot's shares unreadable: the family total is not guessed
+    unk = DIP3_LOTS[:2] + [{"leg": "DIP_RSI", "side": "long", "shares": None}]
+    assert wf.held_text(unk) == "DIP #424 long (3 lots)"
+    assert wf.held_shares_words(unk) == "DIP #424's held shares"
+    # the stall note names the family once too
+    snap = {"exec_state": {"legs": dict(DIP3, NOISE={})}}
+    assert wf._engine_problem(300, {}, snap) == (
+        "The QQQ signal program has not reported for 5 min, with an open DIP #424 and NOISE trade.")
+
+
+def test_exec_view_flat_except_held_dip_lots(tmp_path):
+    h = Home(tmp_path, SAT_1200)
+    st = h.exec_state(legs=dict(DIP3))
+    hold = list(wf.HOLD_OVERNIGHT_LEGS)
+    ev = wf.exec_view({"exec_state": st, "hold_legs": hold}, SAT_1200, {})
+    assert ev["flat"] is False and ev["flat_except_held"] is True
+    assert ev["held"] == DIP3_LOTS
+    # the hold list alone (a lot not marked yet) counts, and so does the marker alone
+    bare = {leg: {"side": "long", "shares_remaining": 6} for leg in ("DIP_RSI", "DIP_PB")}
+    assert wf.exec_view({"exec_state": dict(st, legs=bare), "hold_legs": hold},
+                        SAT_1200, {})["flat_except_held"] is True
+    assert wf.exec_view({"exec_state": dict(st, legs=bare), "hold_legs": []},
+                        SAT_1200, {})["flat_except_held"] is False
+    assert wf.exec_view({"exec_state": st, "hold_legs": []}, SAT_1200, {})["flat_except_held"] is True
+    # a NOISE lot beside them, or anything pending, is not "flat except held"
+    assert wf.exec_view({"exec_state": dict(st, legs=dict(DIP3, NOISE={"side": "long",
+                                                                       "shares_remaining": 10})),
+                         "hold_legs": hold}, SAT_1200, {})["flat_except_held"] is False
+    for k in ("_broker_resend", "_broker_fill_capture"):
+        ev2 = wf.exec_view({"exec_state": dict(st, **{k: {"DIP_RSI:OPEN": {}}}), "hold_legs": hold},
+                           SAT_1200, {})
+        assert ev2["flat_except_held"] is False
+
+
+def test_collect_reads_the_dip_hold_list_from_the_executor_config(tmp_path):
+    h = Home(tmp_path, SAT_1200)
+    assert wf.collect(h.paths, h.run_cmd)["hold_legs"] == list(wf.HOLD_OVERNIGHT_LEGS)
+    _exec_cfg(h, session={"hold_overnight_legs": ["DIP_RSI"]})
+    assert wf.collect(h.paths, h.run_cmd)["hold_legs"] == ["DIP_RSI"]
+
+
+def test_auto_restart_runs_with_only_held_dip_lots_open(tmp_path):
+    t = et(2026, 10, 5, 18, 0)                                   # session day, after the close
+    h = Home(tmp_path, t)
+    h.config(auto_restart_exec=True)
+    h.exec_state(publish_ago=3600, legs=dict(DIP3))
+    out = h.run()
+    assert out["decision"]["action"] == "restart"
+    assert out["decision"]["why"] == ("outside the protected window, flat except the held-overnight "
+                                      "lots (DIP #424 long 18 (3 lots)), cooldown passed")
+    assert _sudo_calls(h) == [["sudo", "-n", "systemctl", "restart", "edgelog-qqq-exec.service"]]
+    note = {"title": "QQQ book: restarted", "priority": "low", "message":
+            "Trading: not affected (DIP #424's 18 shares held overnight, market closed).\n"
+            "The QQQ order program was stuck, so this monitor restarted it.\n"
+            "Do: nothing."}
+    assert note in h.pushes and ntfy_push.lint(note) == []
+    st = h.status()
+    assert st["auto_restart"]["last_restart_held"] == "DIP #424 long 18 (3 lots)"
+    assert st["held_overnight"] == DIP3_LOTS
+    # a NOISE lot open beside them still blocks (the owner's flat rule)
+    h2 = Home(tmp_path / "noise", t)
+    h2.config(auto_restart_exec=True)
+    h2.exec_state(publish_ago=3600, legs=dict(DIP3, NOISE={"side": "long", "shares_remaining": 10}))
+    out2 = h2.run()
+    assert out2["decision"]["action"] == "blocked" and "flat" in out2["decision"]["why"]
+    assert _sudo_calls(h2) == []
+    # a pending DIP re-send blocks too
+    h3 = Home(tmp_path / "resend", t)
+    h3.config(auto_restart_exec=True)
+    h3.exec_state(publish_ago=3600, legs=dict(DIP3), _broker_resend={"DIP_DBL:OPEN": {"tries": 1}})
+    assert h3.run()["decision"]["action"] == "blocked" and _sudo_calls(h3) == []
+
+
+def test_eod_with_held_dip_lots_confirmed_is_quiet(tmp_path):
+    """The executor's after-close check found Webull holding exactly the held DIP lots."""
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(legs=dict(DIP3), _webull_flat_after_eod={
+        "date": "2026-10-05", "flat": True, "shares": 18,
+        "held": {"DIP_RSI": 6, "DIP_PB": 6, "DIP_CAP": 6}})
+    out = h.run()
+    assert not ({"eod_summary", "webull_flat"} & failing(out))
+    assert h.pushes == []
+    assert h.status()["held_overnight"] == DIP3_LOTS
+
+
+def test_eod_that_did_not_run_names_the_held_dip_lots_once(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(legs=dict(DIP3), eod_summary_done_date="2026-10-02",
+                 _webull_flat_after_eod={"date": "2026-10-02", "flat": True})
+    out = h.run()
+    assert {"eod_summary", "webull_flat"} <= failing(out)
+    assert h.pushes and all(ntfy_push.lint(_note(p)) == [] for p in h.pushes)
+    do = [ln for p in h.pushes for ln in p["message"].split("\n") if ln.startswith("Do: ")]
+    assert do == ["Do: check the Webull app holds only DIP #424's 18 held shares and sell anything "
+                  "else by hand."]
+    assert not any("DIP_" in p["message"] or "is flat" in p["message"] for p in h.pushes)
+    d = h.status()["verdicts"]["eod_summary"]["detail"]
+    assert "HELD-OVERNIGHT LOTS (DIP #424 long 18 (3 lots))" in d
+
+
+def test_eod_webull_holds_fewer_than_the_held_dip_lots(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    h.exec_state(legs=dict(DIP3), _webull_flat_after_eod={
+        "date": "2026-10-05", "flat": False, "shares": 12, "off": 6,
+        "held": {"DIP_RSI": 6, "DIP_PB": 6, "DIP_CAP": 6}})
+    out = h.run()
+    assert "webull_flat" in failing(out)
+    (p,) = [x for x in h.pushes if "QQQ shares after the close" in x["message"]]
+    assert p["priority"] == "urgent" and ntfy_push.lint(_note(p)) == []
+    assert p["message"].split("\n")[1:] == [
+        "Webull holds 12 QQQ shares after the close, fewer than DIP #424's 18 held shares.",
+        "Do: check the Webull app for DIP #424's 18 held shares, then ask Claude (PAPER-WB chat)."]
+    v = h.status()["verdicts"]["webull_flat"]["detail"]
+    assert "fewer than the held-overnight lots (DIP #424 long 18 (3 lots))" in v
 
 
 # -- SHADOW KEEL legs (2026-10-09, MANAGER #108): tracked, never pushed, never gate the open ----

@@ -643,7 +643,10 @@ def test_replay_same_day_twice_is_idempotent(tmp_path):
     with open(paths["state_path"]) as f:
         import json
         state = json.load(f)
-    assert set(state["legs"].keys()) == set(cs.CROWN_LEGS.keys())
+    # a live leg whose live_since is after `day` (DIP_424 before 2026-10-13) is idle: no state
+    close = pd.Timestamp(f"{day} 16:00", tz=cs.TZ).to_pydatetime()
+    assert set(state["legs"].keys()) == {k for k, cfg in cs.CROWN_LEGS.items()
+                                         if not cs._before_live_since(cfg, close)}
     del first  # only used to keep the variable name self-documenting above
 
 

@@ -133,6 +133,14 @@ try:
 except ImportError:  # pragma: no cover - py<3.9
     ZoneInfo = None
 
+# The ONE broker-id rule (api/trade_id.py broker_signal_base, 2026-10-10, DIP #424 live leg):
+# imported so a DIP slot id's one-character slot code can never drift from the executor's.
+# api/trade_id.py is stdlib-only (re, datetime) -- no heavier import chain comes with it.
+_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+if _ROOT not in sys.path:
+    sys.path.insert(0, _ROOT)
+from api import trade_id as _trade_id  # noqa: E402  (stdlib-only, see above)
+
 ET = ZoneInfo("America/New_York") if ZoneInfo else None
 
 SCHEMA_VERSION = 1
@@ -347,10 +355,11 @@ def _truthy(v):
 
 def signal_id_base(trade_id, intent):
     """The broker signal id qqq_exec derives from a trade id ("qx" + the id's letters and
-    digits + O/C) -- the SAME rule as api/qqq_exec.py _broker_signal_id (a unit test pins
-    the two together so they can never drift)."""
-    code = {"OPEN": "O", "CLOSE": "C"}[str(intent).upper()]
-    return "qx" + _NON_ALNUM.sub("", str(trade_id)) + code
+    digits + O/C, a DIP mechanism slot as its one-character code) -- api/trade_id.py
+    broker_signal_base, the ONE rule api/qqq_exec.py _broker_signal_id also uses (a unit test
+    still pins the two together). OPEN / CLOSE only (anything else raises KeyError)."""
+    {"OPEN": "O", "CLOSE": "C"}[str(intent).upper()]
+    return _trade_id.broker_signal_base(str(trade_id), str(intent).upper())
 
 
 def broker_by_base(rows):

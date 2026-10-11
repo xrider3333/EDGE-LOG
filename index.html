@@ -593,6 +593,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
    width of 1279 px, a number only this board used. The box width is what the row needs: 796 px holds every cell. */
 .qbx-tl{container-type:inline-size;container-name:qbtl}
 @container qbtl (max-width:800px){.qbx-tl .qbx-cav{display:block}}
+@container qbtl (max-width:800px){.qbx-tl .qbx-mech{display:block;font-size:10px;line-height:1.2;color:var(--text4)}.qbx-tl .qbx-mech-sep{display:none}}
 @media(max-width:600px){
   .qbx-lg6 .qbx-history>.qb-section-hd{display:none}
   .qbx-lg6 .qbx-history.qbx-section{padding-top:0;border-top:0}
@@ -689,6 +690,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
   .qbx-lg6 .qbx-hero .lg-hero-today{margin-top:4px}
   .qbx-lg6 .qbx-hero .lg-hero-note{margin-top:4px;line-height:1.4;font-size:11px}
   .qbx-lg6 .qbx-hero .lg-chip{padding:2px 8px}
+  .qbx-lg6 .qbx-hero .qbx-held-dip{display:none}
   .qbx-lg6 .qbx-chart .qb-chart-wrap{margin-bottom:6px}
   .qbx-lg6 .qbx-chart .qbx-range-row{margin:8px 0 6px}
   .qbx-lg6 .lg-chart-foot-row:has(>.lg-chart-cap>.qbx-cap-all:only-child){display:none}
@@ -6001,6 +6003,16 @@ function qbCantRead(){
 //    outside the session the top chip reads WEBULL n HELD (grey), its strategy row a grey HELD tag and one plain line with the gap,
 //    Account says held overnight, and the daily stop says the gap is not in it (the breaker counts a held lot from the day's open).
 //    {leg: {gap: number|null, pending: reason|null}} for every leg the doc marks held.
+// ── DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): the box trades DIP #424 as seven one-lot exec legs, DIP_RSI, DIP_DBL, DIP_PB,
+//    DIP_CAP, DIP_IBS, DIP_STREAK and DIP_GAPDN (one per dip mechanism, 6 shares a lot, up to 7 lots = 42 shares), all of family "DIP",
+//    fed by one engine key whose trade ids carry the mechanism (DIP_424-<entry bar UTC>-L-RSI). Every Webull reader shows the family as
+//    ONE strategy. A leg's family: the status doc's own leg_families map (api/qqq_exec.py), else 'DIP' for a leg named DIP_<word> (never
+//    the no-order shadow keys DIP_424K / DIP_424F - a digit after the underscore - which only the board's Shadow fold reads), else the leg.
+function qbLegFamily(QE,k){
+  k=String(k==null?'':k);
+  try{const F=QE&&QE.leg_families;if(F&&typeof F==='object'&&!Array.isArray(F)&&Object.prototype.hasOwnProperty.call(F,k)&&F[k])return String(F[k]).toUpperCase();}catch(e){}
+  return /^DIP_[A-Za-z]/.test(k)?'DIP':k;
+}
 function qbHeldLegs(QE){
   const out={};
   try{
@@ -6050,9 +6062,11 @@ function qbTopChipHtml(){
     const chkTip=(live||!chk)?'':(' This page last checked at '+(chkOld?(qbDayLabel(chkP.date)+' '):'')+chkP.hm+' New York time; it checks again when the board is opened, or when the page is shown again 5 min or more after its last check.');
     const BR=(QE&&QE.broker)||{},mode=BR.effective_mode||'OFF';
     const PL=QE&&QE.positions_live&&Array.isArray(QE.positions_live.legs)?QE.positions_live.legs:null;
-    const nOpen=PL?PL.length:Object.keys((QE&&QE.positions)||{}).length;
+    // one count per strategy: DIP #424's lots (one per mechanism, up to 7) are one family, so ORB + NOISE + 7 DIP lots read WEBULL 3 OPEN
+    const openKeys=PL?PL.map(l=>l&&l.leg):Object.keys((QE&&QE.positions)||{});
+    const nOpen=openKeys.map(k=>qbLegFamily(QE,k)).filter((f,i,a)=>a.indexOf(f)===i).length;
     // HOLD OVERNIGHT: outside the session, a book whose every open lot is held overnight on purpose reads HELD, not OPEN
-    const HL=qbHeldLegs(QE),openKeys=PL?PL.map(l=>l&&l.leg):Object.keys((QE&&QE.positions)||{});
+    const HL=qbHeldLegs(QE);
     const allHeld=nOpen>0&&!F.inSession&&openKeys.every(k=>!!HL[k]);
     const cantRead=qbCantRead();
     const retry=onBoard?'it tries again every minute':'it tries again when the page is shown again or the board is opened';
@@ -6066,7 +6080,7 @@ function qbTopChipHtml(){
     else if(BR.halted){st='halted';txt='WEBULL HALTED'+chkTxt;col='var(--attn-red)';tip='Orders are halted on the Webull paper book. Tap for the board.'+chkTip;}
     else if((mode==='PAPER'||mode==='LIVE')&&BR.lease_ok_to_send===false){st='blocked';txt='WEBULL BLOCKED'+chkTxt;col='var(--attn-amber)';tip='Orders are paused on the Webull paper book. Tap for the board.'+chkTip;}
     else{st=nOpen>0?(allHeld?'held':'open'):'flat';txt=(nOpen>0?('WEBULL '+nOpen+(allHeld?' HELD':' OPEN')):'WEBULL FLAT')+chkTxt;col='var(--text4)';
-      tip='Webull paper book: '+(nOpen>0?(nOpen+' position'+(nOpen===1?'':'s')+(allHeld?' held overnight on purpose (it exits on its strategy\u2019s own signal in a later session)':' open')):'no open positions')+'. The box had updated '+qbAgoText(F.ageS)+' before '+(live?'now':'this page checked')+'. Tap for the board.'+chkTip;}
+      tip='Webull paper book: '+(nOpen>0?(nOpen+' strateg'+(nOpen===1?'y':'ies')+(allHeld?' held overnight on purpose (it exits on its strategy\u2019s own signal in a later session)':' with an open position')):'no open positions')+'. The box had updated '+qbAgoText(F.ageS)+' before '+(live?'now':'this page checked')+'. Tap for the board.'+chkTip;}
     return '<span id="qb-top-chip" style="display:inline-flex;align-items:center;padding:4px 10px 4px 2px;font-size:var(--fsxs);letter-spacing:1px;flex-shrink:0">'
       +'<a href="#" data-qbtopchip="'+st+'" onclick="event.stopPropagation();return qbTopChipGo()" title="'+tip.replace(/"/g,'&quot;')+'" style="cursor:pointer;text-decoration:none;white-space:nowrap;color:'+col+'">&#9679; '+txt+'</a></span>';
   }catch(e){return empty;}
@@ -39508,7 +39522,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // crown behind each leg, plain text (never color-only, mono theme has no green/red
       // hue) -- ENGUQ carries its own caveat (ETH-fit crown on an RTH-only QQQ tape, see
       // api/cloud_signal.py's module docstring) shown under its row.
-      const QE_LEGS=[['ORB','ORB','var(--blue)','#314',null],['ENGUQ','ENGU-Q','var(--purple)','#335','A tracker since Oct 9: no orders on Webull - its would-be trades are in the Shadow fold. Its Webull trades (Sep 17 to Sep 28) still count. ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed.'],['NOISE','NOISE','var(--green)','#382',null]];
+      const QE_LEGS=[['ORB','ORB','var(--blue)','#314',null],['ENGUQ','ENGU-Q','var(--purple)','#335','A tracker since Oct 9: no orders on Webull - its would-be trades are in the Shadow fold. Its Webull trades (Sep 17 to Sep 28) still count. ETH-fit crown running on an RTH-only QQQ tape — exploratory, not evidence-backed.'],['NOISE','NOISE','var(--green)','#382',null],['DIP','DIP','var(--yellow)','#424','A live leg since the owner\u2019s GO of Oct 10: seven long-only dip mechanisms, one 6-share lot each (up to 7 lots, 42 shares), each decided on a daily close and bought at the next session\u2019s 09:30 open. It holds overnight on purpose. It is not in the $400 daily stop: it has its own -$800 daily rail, which only pauses its entries for the next session and never sells.']];
       // ── LEG VERSION CHANGES (2026-09-24, owner decision) — one row per swap of a leg's
       // underlying run, so the LEGS list, the trades table and the chart can all say which
       // version is live without hardcoding it more than once. Add ONE row here the next
@@ -39523,6 +39537,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // trades in its Retired row (still counted). window.__qbRetiredLegs (an array) stands in for the list
       // in tools/webull_board_probe.py only, so the list with no leg retired stays tested too.
       const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:['ENGUQ'];
+      // ── DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): the box's seven one-lot exec legs (DIP_RSI, DIP_DBL, DIP_PB, DIP_CAP, DIP_IBS,
+      // DIP_STREAK, DIP_GAPDN: one per mechanism, 6 shares a lot, up to 7 lots = 42 shares) are ONE strategy on this board: one BOOK row
+      // 'DIP #424' ('Long 42 · 7 lots'), one chart line, one trade-list chip, one Account line, one count in the top chip; a trade row names its
+      // mechanism ('DIP #424 · RSI'). Its daily rail (-$800, its own: a breach only pauses DIP's entries for the next session) is shown beside the
+      // $400 daily stop, never inside it, and DIP is never counted in that stop. qbFamOf = an exec leg's family (qbLegFamily: the doc's
+      // leg_families, else DIP_<word>); qbDipLegs = the DIP exec legs this doc knows (leg_families, positions, trades, share sizes) - the row,
+      // the chip and the rail line are drawn only while there is one (before the box trades DIP there is nothing to show).
+      const qbFamOf=k=>qbLegFamily(QE,k);
+      const qbIsDipLeg=k=>qbFamOf(k)==='DIP';
+      const qbDipLegs=(()=>{const s=[],add=k=>{k=String(k==null?'':k);if(k&&qbIsDipLeg(k)&&s.indexOf(k)<0)s.push(k);};
+        try{if(QE){Object.keys((QE.leg_families&&typeof QE.leg_families==='object')?QE.leg_families:{}).forEach(add);
+          Object.keys(QE.positions||{}).forEach(add);((QE.positions_live&&QE.positions_live.legs)||[]).forEach(l=>add(l&&l.leg));
+          (QE.trades_all||[]).forEach(t=>add(t&&t.leg));Object.keys((QE.rails&&QE.rails.shares)||{}).forEach(add);}}catch(e){}
+        return s;})();
+      const qbDipName=(f=>f?(f[1]+' '+f[3]):'DIP')(QE_LEGS.find(x=>x[0]==='DIP'));
+      // a DIP trade's mechanism: its trade id's slot (DIP_424-<entry bar UTC>-L-RSI), else its exec leg's own word (DIP_RSI)
+      const qbDipMech=t=>{const m=/-[LS]-([A-Za-z]+)$/.exec(String((t&&t.trade_id)||''));if(m)return m[1].toUpperCase();
+        const k=String((t&&t.leg)||'');return /^DIP_[A-Za-z]/.test(k)?k.slice(4).toUpperCase():'';};
+      // a leg named where this board names one by family (the orders, the last order, the Account lines): ORB, ENGU-Q, NOISE; a DIP lot
+      // by family, run number and mechanism ('DIP #424 · RSI')
+      const qbLegDisp=k=>{const fk=qbFamOf(k),f=QE_LEGS.find(x=>x[0]===fk);if(!f)return String(k||'\u2014');if(fk!=='DIP')return f[1];
+        const mc=qbDipMech({leg:k});return qbDipName+(mc?' \u00b7 '+mc:'');};
       const QE_LEG_VERSIONS=[{leg:'NOISE',date:'2026-09-24',from:'#304',to:'#382',note:'the #304 crown’s own core plus the validated compression size tilt (squeeze on the 30-minute chart doubles the trade)'}];
       // "#382 since Sep 24 &middot; was #304" for a leg QE_LEG_VERSIONS covers; the plain
       // runNo (e.g. "#314") for one it does not.
@@ -39565,7 +39601,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // date, so it stays correct even if a switch date is edited later. null (no tag) for
       // an id-less row (an old ledger predating trade ids) -- degrades quietly like every
       // other optional field on this tab.
-      const qeTradeVersionTag=t=>{const m=/^([A-Za-z0-9_]+)-\d{8}T\d{6}Z-[LS]$/.exec(String((t&&t.trade_id)||''));if(!m)return null;const dg=/_(\d+)$/.exec(m[1]);return dg?('#'+dg[1]):null;};
+      const qeTradeVersionTag=t=>{const m=/^([A-Za-z0-9_]+)-\d{8}T\d{6}Z-[LS](?:-[A-Za-z]+)?$/.exec(String((t&&t.trade_id)||''));if(!m)return null;const dg=/_(\d+)$/.exec(m[1]);return dg?('#'+dg[1]):null;};
       // small muted tag beside a NOISE trade row's leg name, e.g. "#382" -- empty string
       // (nothing rendered) for a leg with no version history, or a trade whose id cannot
       // be read (see qeTradeVersionTag).
@@ -39576,8 +39612,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // took the trade: read off its trade id when the id carries a number (NOISE_304-...),
       // else from QE_LEG_VERSIONS by the day it was entered, else the leg's current run.
       const qeTradeRunNo=t=>{
-        const k=t&&t.leg;
-        const m=/^([A-Za-z0-9_]+)-\d{8}T\d{6}Z-[LS]$/.exec(String((t&&t.trade_id)||''));
+        const k=qbFamOf(t&&t.leg);   // a DIP lot's run is its family's (DIP #424)
+        const m=/^([A-Za-z0-9_]+)-\d{8}T\d{6}Z-[LS](?:-[A-Za-z]+)?$/.exec(String((t&&t.trade_id)||''));
         const dg=m?/_(\d+)$/.exec(m[1]):null;
         if(dg)return '#'+dg[1];
         const vs=QE_LEG_VERSIONS.filter(v=>v.leg===k).sort((a,b)=>a.date<b.date?-1:1);
@@ -39588,9 +39624,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         }
         const f=QE_LEGS.find(x=>x[0]===k);return f?f[3]:'';
       };
-      const qeTradeLegName=t=>{const k=t&&t.leg;const f=QE_LEGS.find(x=>x[0]===k);const r=qeTradeRunNo(t);return (f?f[1]:String(naS(k)))+(r?' '+r:'');};
-      const qeTradeLegHtml=t=>'<span class="qb-trade-leg" title="the strategy (family and run number) that took this trade">'+qeTradeLegName(t)+'</span>';
-      const legColorQE=k=>({ORB:'var(--blue)',ENGUQ:'var(--purple)',NOISE:'var(--green)'}[k]||'var(--text3)');
+      // DIP #424 LIVE: a DIP lot's trade names its mechanism after the family and run number ('DIP #424 · RSI')
+      const qeTradeLegName=t=>{const k=qbFamOf(t&&t.leg);const f=QE_LEGS.find(x=>x[0]===k);const r=qeTradeRunNo(t);const mc=(f&&k==='DIP')?qbDipMech(t):'';
+        return (f?f[1]:String(naS(t&&t.leg)))+(r?' '+r:'')+(mc?' \u00b7 '+mc:'');};
+      // a DIP lot's mechanism rides in its own span: on one line on a wide list ('DIP #424 · RSI'), under the name where the list box is 800 px or
+      // narrower (a phone row keeps the whole name, never 'DIP #424 · GA...')
+      const qeTradeLegHtml=t=>{const nm=qeTradeLegName(t),mc=qbFamOf(t&&t.leg)==='DIP'?qbDipMech(t):'',cut=mc?nm.lastIndexOf(' \u00b7 '+mc):-1;
+        return '<span class="qb-trade-leg" title="the strategy (family and run number) that took this trade">'
+          +(cut>0?(nm.slice(0,cut)+'<span class="qbx-mech"><span class="qbx-mech-sep"> \u00b7 </span>'+mc+'</span>'):nm)+'</span>';};
+      const legColorQE=k=>({ORB:'var(--blue)',ENGUQ:'var(--purple)',NOISE:'var(--green)',DIP:'var(--yellow)'}[qbFamOf(k)]||'var(--text3)');
       const qePill=(txt,col,filled)=>'<span style="font-size:9px;font-weight:700;letter-spacing:.06em;padding:3px 9px;border-radius:999px;white-space:nowrap;border:1px solid '+col+';color:'+(filled?'var(--bg)':col)+(filled?';background:'+col:'')+'">'+txt+'</span>'; const qeKeelSizeHtml=(t,shares)=>{const hasKeel=t&&t.keel_size!=null&&String(t.keel_size)!==''&&!isNaN(Number(t.keel_size));const sizeNum=Number(t.size);const wantedSuffix=(t.shares_wanted!=null&&Number(t.shares_wanted)!==shares)?(' &rarr; wanted '+qeInt(t.shares_wanted)+' sh, capped to '+qeInt(shares)):'';if(!hasKeel)return '<br><span style="color:var(--text4)">signal size</span> '+sizeNum.toFixed(2)+'x'+wantedSuffix;const keelNum=Number(t.keel_size);const pluginNum=keelNum!==0?(sizeNum/keelNum):sizeNum;const tag=qeTradeVersionTag(t);const label=(tag?tag+' ':'')+pluginNum.toFixed(2)+' x KEEL '+keelNum.toFixed(2)+' = '+sizeNum.toFixed(2);return '<br><span style="color:var(--text4)">size</span> '+label+wantedSuffix;};
 
       // ── NT PARITY / FEED UPTIME / RATIO HEALTH — 2026-09-05 additions. Every field below
@@ -39713,9 +39755,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // HOLD OVERNIGHT: the line under the hero naming the lots held past the close and their overnight gap ('' when none)
       const qbHeldNoteHtml=()=>{const H=qbHeldLegs(QE),ks=Object.keys(H);if(!ks.length)return '';
         const nm=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;};
-        const gs=ks.map(k=>H[k].gap).filter(g=>g!=null&&isFinite(g)),gap=gs.length?gs.reduce((a,b)=>a+b,0):null;
-        return '<div data-qbheldnote style="color:var(--text4)" title="Held overnight on purpose: the trade is not sold at the 15:59 flatten and exits on its strategy\u2019s own signal in a later session. The gap (the prior close to the open) is in the P&amp;L of record but not in the daily stop, which counts a held lot from the day\u2019s open.">'
-          +ks.map(nm).join(' and ')+' held overnight &middot; '+(gap!=null?('gap '+ledgerSigned(gap)+', not in the daily stop'):'its gap is set at the next open')+'</div>';};
+        const gapOf=a=>{const gs=a.map(k=>H[k].gap).filter(g=>g!=null&&isFinite(g));return gs.length?gs.reduce((x,y)=>x+y,0):null;};
+        // DIP #424's lots (one per mechanism) are one strategy, named once with their count; its gap is outside both rails (the daily stop and
+        // its own). It holds overnight most days, so its line is its own (data-qbheldnote="DIP"), drawn on a laptop only: on a phone its row and
+        // the Account say it, and the trade list still starts within one screen (757 px)
+        const dk=ks.filter(qbIsDipLeg),ok=ks.filter(k=>!qbIsDipLeg(k));
+        const tip='Held overnight on purpose: the trade is not sold at the 15:59 flatten and exits on its strategy\u2019s own signal in a later session. The gap (the prior close to the open) is in the P&amp;L of record but not in the daily stop, which counts a held lot from the day\u2019s open.';
+        let h='';
+        if(ok.length){const gap=gapOf(ok);h+='<div data-qbheldnote style="color:var(--text4)" title="'+tip+'">'
+          +ok.map(nm).join(' and ')+' held overnight &middot; '+(gap!=null?('gap '+ledgerSigned(gap)+', not in the daily stop'):'its gap is set at the next open')+'</div>';}
+        if(dk.length){const gap=gapOf(dk);h+='<div data-qbheldnote="DIP" class="qbx-held-dip" style="color:var(--text4)" title="'+tip+' '+qbDipName+' is in neither the daily stop nor its own daily rail overnight: its rail counts a held lot from the open too.">'
+          +qbDipName+' held overnight ('+dk.length+' lot'+(dk.length===1?'':'s')+') &middot; '+(gap!=null?('gap '+ledgerSigned(gap)+', outside the rails'):'its gap is set at the next open')+'</div>';}
+        return h;};
       const qbHeroBuild=(netVal,sinceLabel,parFailedForHero,brokerInfo,todayVal,rangeInfo)=>{
         const chips=qbFreshChips();
         if(QE&&QE.breaker_tripped)chips.push(qbChipG('BREAKER TRIPPED','var(--attn-red)'));
@@ -40140,11 +40191,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // figure too -- read before qeFin, which would turn null into $0 (review 2026-10-05).
         const qeStopRaw=QE.today?QE.today.breaker_input:null;
         const qeStopIn=(qeStopRaw===null||qeStopRaw===undefined||qeStopRaw==='')?null:qeFin(qeStopRaw);
-        const stopPnl=qeStopIn!==null?qeStopIn:todayPnl;
+        // DIP #424 LIVE: DIP is never in this stop (it has its own daily rail): the box's breaker figure already leaves it out, and the page's
+        // own estimate leaves out its lots too - what they closed today (today.legs_record) and what they hold open (their unrealized)
+        const qbDipStopOut=(()=>{let v=0;const LR=(QE.today&&QE.today.legs_record&&typeof QE.today.legs_record==='object')?QE.today.legs_record:{};
+          Object.keys(LR).forEach(k=>{if(qbIsDipLeg(k))v+=qeFin(LR[k]&&LR[k].pnl)||0;});
+          Object.keys(positions).forEach(k=>{if(qbIsDipLeg(k))v+=qeFin(positions[k]&&positions[k].unrealized)||0;});
+          return Math.round(v*100)/100;})();
+        const stopPnl=qeStopIn!==null?qeStopIn:Math.round((todayPnl-qbDipStopOut)*100)/100;
         const dllStopLbl=qeStopIn!==null
           ?'Counted as the daily loss breaker counts it: closed and open trades today, Webull fills used where they are worse than the book.'
           :'Estimate from today\u2019s P&amp;L: the box has not sent the breaker\u2019s own figure for today yet.';
-        const qbHeldStop=(()=>{const ks=Object.keys(qbHeld),tg=QE.today?qeFinRec(QE.today.overnight_gap_usd):null;if(!ks.length&&!tg)return '';
+        // a DIP #424 lot held overnight is not in this stop at all (its own rail counts it), so only the other legs' held lots are named here,
+        // and the box's overnight gap total (which can carry DIP's gap) is left for those legs' own gaps when a DIP lot is held
+        const qbHeldStop=(()=>{const hAll=Object.keys(qbHeld),ks=hAll.filter(k=>!qbIsDipLeg(k)),tg=(QE.today&&ks.length===hAll.length)?qeFinRec(QE.today.overnight_gap_usd):null;if(!ks.length&&!tg)return '';
           const gs=ks.map(k=>qbHeld[k].gap).filter(g=>g!=null&&isFinite(g)),gap=tg?tg:(gs.length?gs.reduce((a,b)=>a+b,0):null);
           return ' A held overnight lot counts from today\u2019s open; its overnight gap'+(gap!=null?(' ('+ledgerSigned(gap)+')'):'')+' is not counted.';})();
         const dllStopShort=qeStopIn!==null?'breaker figure':'estimate, box not updated yet';
@@ -40386,18 +40445,65 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qeLegsRecord=(QE.today&&QE.today.legs_record&&typeof QE.today.legs_record==='object')
           ?QE.today.legs_record
           :(()=>{const o={};trades.forEach(t=>{if(qeTradeDate(t)!==qeBoxDay)return;const k=(t&&t.leg)||'?';const b=o[k]||(o[k]={pnl:0,n:0,book:0});b.pnl+=qePnlOf(t);b.n++;if(String(t.pnl_record_src||'')!=='webull')b.book++;});return o;})();
+        // DIP #424 LIVE: its lots (one per mechanism, up to 7) added up as ONE position for its row and the Account line - the side, the
+        // shares, the lots, the share-weighted average entry, the open P&L summed, and the held lots (their gaps summed, null until today's
+        // open sets them; the first close that waits for the open)
+        const qbDipAgg=(()=>{
+          const num=v=>{const n=Number(v);return (v===null||v===undefined||v===''||!isFinite(n))?null:n;};
+          const sum=(a,f)=>a.reduce((s,x)=>s+(num(f(x))||0),0);
+          const avg=(a,sh,px)=>{let w=0,v=0;a.forEach(x=>{const s=num(sh(x)),q=num(px(x));if(s!==null&&q!==null){w+=s;v+=s*q;}});return w>0?Math.round(v/w*10000)/10000:null;};
+          const side=a=>{const ss=a.map(x=>String((x&&x.side)||'').toLowerCase()).filter((v,i,b)=>v&&b.indexOf(v)===i);return ss.length===1?ss[0]:(ss.length?'mixed':'');};
+          const lots=qbDipLegs.filter(k=>positions[k]),live=(QPOSLIVE&&Array.isArray(QPOSLIVE.legs))?QPOSLIVE.legs.filter(l=>l&&qbIsDipLeg(l.leg)):[];
+          const pos=lots.length?{side:side(lots.map(k=>positions[k])),shares:sum(lots,k=>positions[k].shares),lots:lots.length,
+            entry_px:avg(lots,k=>positions[k].shares,k=>positions[k].entry_px),unrealized:Math.round(sum(lots,k=>positions[k].unrealized)*100)/100}:null;
+          const lv=live.length?{side:side(live),shares:sum(live,l=>l.shares),lots:live.length,entry_px:avg(live,l=>l.shares,l=>l.entry_px),
+            live_px:(live.find(l=>num(l.live_px)!==null)||{}).live_px,
+            open_pnl:live.every(l=>num(l.open_pnl)!==null)?Math.round(sum(live,l=>l.open_pnl)*100)/100:null}:null;
+          const hk=qbDipLegs.filter(k=>qbHeld[k]&&(positions[k]||live.some(l=>l.leg===k)));
+          const gs=hk.map(k=>qbHeld[k].gap);
+          const held=hk.length?{n:hk.length,of:Math.max(hk.length,pos?pos.lots:0,lv?lv.lots:0),
+            gap:gs.every(g=>g!=null&&isFinite(g))?Math.round(gs.reduce((a,b)=>a+b,0)*100)/100:null,
+            pending:hk.map(k=>qbHeld[k].pending).find(Boolean)||null}:null;
+          return {pos:pos,live:lv,held:held};
+        })();
+        // DIP #424's OWN daily rail (MANAGER #115): -$800 (rails.dip_daily_loss_limit_usd when the box sends it, else the owner's figure),
+        // DIP's own money only and never part of the $400 daily stop. A breach never sells: it pauses DIP's entries for the next session
+        // (rails.dip_rail = {tripped_on, blocks_until, loss_usd}), then resets. blocking: the pause still covers today or a later session.
+        // used: the rail's own figure on the box's day (today.dip_rail_input.pnl: DIP's closed P&L, fill shortfall and open lots from the
+        // open), null on a box that does not send it.
+        const qbDipRail=(()=>{const R=(rails.dip_rail&&typeof rails.dip_rail==='object')?rails.dip_rail:null,ds=v=>/^\d{4}-\d{2}-\d{2}$/.test(String(v||''))?String(v):null;
+          const lim=qeFinRec(rails.dip_daily_loss_limit_usd),until=R?ds(R.blocks_until):null;
+          const ri=(QE.today&&QE.today.dip_rail_input&&typeof QE.today.dip_rail_input==='object')?qeFinRec(QE.today.dip_rail_input.pnl):null;
+          return {limAbs:(lim!==null&&lim!==0)?Math.abs(lim):800,trip:R?ds(R.tripped_on):null,until:until,loss:R?qeFinRec(R.loss_usd):null,
+            used:ri!==null?Math.round(Math.abs(Math.min(0,ri))*100)/100:null,
+            blocking:!!(until&&until>=(QF.todayNY||ledgerTodayNY()))};})();
+        // the rail's own line, drawn BESIDE the daily stop (after its bar, never inside it) in the Orders fold and the System Orders card
+        const qbDipRailHtml=(!qbDipLegs.length&&!qbDipRail.trip)?'':('<div data-qbdiprail="'+(qbDipRail.blocking?'paused':'ok')+'" style="font-size:11px;line-height:1.5;margin:6px 0 10px;color:'+(qbDipRail.blocking?'var(--attn-amber)':'var(--text4)')+'"'
+          +' title="'+qbDipName+' is not in the daily stop: its own daily rail counts only its own money (closed trades, and its open lots from each day\u2019s open; the overnight gap is outside it). A breach sells nothing; it pauses '+qbDipName+'\u2019s entries for the next session, then resets.">'
+          +(qbDipRail.blocking
+            ?('<b>'+qbDipName+' rail hit</b>'+(qbDipRail.trip?(' '+qbDayLabel(qbDipRail.trip)):'')+(qbDipRail.loss!==null?(' ('+ledgerSigned(qbDipRail.loss)+')'):'')
+              +': no new '+qbDipName+' entries through '+qbDayLabel(qbDipRail.until)+'; nothing is sold')
+            :((qbDipRail.used!==null?(qbDipName+' own rail: '+ledgerMoney(qbDipRail.used)+' of '+ledgerMoney(qbDipRail.limAbs)+' used '+(QF.isToday?'today':('on '+QF.dayLabel)))
+              :(qbDipName+' has its own '+ledgerMoney(-qbDipRail.limAbs)+' daily rail'))
+              +' (not in this stop); a breach pauses its entries for the next session and never sells'))
+          +'</div>');
+        // the open strategies (a family counts once: DIP #424's lots are one) and how many of them hold only lots carried overnight
+        const qbPosKeys=Object.keys(positions),qbPosFams=qbPosKeys.map(qbFamOf).filter((f,i,a)=>a.indexOf(f)===i);
+        const qbPosFamsHeld=qbPosFams.filter(f=>qbPosKeys.filter(k=>qbFamOf(k)===f).every(k=>qbHeld[k])).length;
         let legListHtml='';
         let qbListSum='';   // the strategy list's one-line header on a phone (LEDGER unify step 11)
         const qbRetiredInfo=[],qbLegModels=[];   // qbLegModels: one entry per leg for the shared strategy list (LEDGER unify step 10)
         QE_LEGS.forEach(([key,label,color,runNo,caveat])=>{
-          const p=positions[key];
+          // DIP #424 LIVE: its row is drawn only while the doc knows a DIP exec leg; its lots are read as one position (qbDipAgg)
+          if(key==='DIP'&&!qbDipLegs.length)return;
+          const p=key==='DIP'?qbDipAgg.pos:positions[key];
           const badge=p?(p.side==='long'?'LONG':'SHORT'):'FLAT';
           // a silent box: the position is the last known one - grey, with its time (finding 8)
           const badgeColor=QF.stale?'var(--text4)':(p?(p.side==='long'?'var(--green)':'var(--red)'):'var(--text4)');
           const badgeTip=QF.stale?(' title="Last known, as of '+QF.sinceTxt+' New York time"'):'';
-          const legTradesArr=trades.filter(t=>t.leg===key);
+          const legTradesArr=trades.filter(t=>qbFamOf(t.leg)===key);
           const legClosedSum=legTradesArr.reduce((s,t)=>s+qePnlOf(t),0);
-          const legRec=qeLegsRecord[key]||{};
+          const legRec=key!=='DIP'?(qeLegsRecord[key]||{}):qbDipLegs.reduce((o,k)=>{const r=qeLegsRecord[k];if(r){o.pnl=(o.pnl||0)+(qeFin(r.pnl)||0);o.n=(o.n||0)+(Number(r.n)||0);o.book=(o.book||0)+(Number(r.book)||0);}return o;},{});
           const legTodayRealized=qeFin(legRec.pnl)!==null?Number(legRec.pnl):0;
           const legTodayN=Number(legRec.n)||0,legTodayBook=Number(legRec.book)||0;
           // a trade with no usable Webull fill on a side counts at the book price there -- say so.
@@ -40426,7 +40532,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // below) -- reads QPOSLIVE.legs (the SAME feed the old qb-sec-positions card
           // read) rather than the older `positions[key]`/legUnreal figures, which stay
           // exactly as they were, still reachable one tap away in qb-leg-detail below.
-          const liveLeg=(QPOSLIVE&&Array.isArray(QPOSLIVE.legs))?QPOSLIVE.legs.find(l=>l&&l.leg===key):null;
+          const liveLeg=key==='DIP'?qbDipAgg.live:((QPOSLIVE&&Array.isArray(QPOSLIVE.legs))?QPOSLIVE.legs.find(l=>l&&l.leg===key):null);
           // TWO-LINE OPEN/TOTAL (2026-09-25, owner: "for postions put any open pnl and
           // then total"). Line 1 is the position (side/shares/entry/now); line 2 is this
           // leg's OPEN P&L -- the SAME QPOSLIVE figure the hero's openMarkPnl sums, so it
@@ -40435,9 +40541,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const legOpenPnl=(liveLeg&&liveLeg.open_pnl!=null&&isFinite(Number(liveLeg.open_pnl)))?Number(liveLeg.open_pnl):null;
           // HOLD OVERNIGHT: a lot the box carries past the close on purpose - a grey HELD tag beside the side pill and one plain line
           // with its overnight gap (in the P&L of record, not in the daily stop), never an alarm and never 'stuck'
-          const heldOne=(p||liveLeg)?(qbHeld[key]||null):null,heldGap=qbHeldGapTxt(heldOne);
-          const heldTip='Held overnight on purpose: '+label+' is not sold at the 15:59 flatten; its own signal exits it in a later session.';
-          const heldLineHtml=heldOne?('<div data-qbheld="'+key+'" title="'+heldTip+'">Held overnight &middot; '+(heldGap?('gap '+heldGap+' (prior close to the open), not in the daily stop'):'its gap is set at the next open')
+          const heldOne=key==='DIP'?qbDipAgg.held:((p||liveLeg)?(qbHeld[key]||null):null),heldGap=qbHeldGapTxt(heldOne);
+          const heldTip=key==='DIP'
+            ?('Held overnight on purpose: '+qbDipName+' is not sold at the 15:59 flatten; each lot is sold at a later session\u2019s open on its own mechanism\u2019s exit signal. The overnight gap is outside both the daily stop and its own rail.')
+            :('Held overnight on purpose: '+label+' is not sold at the 15:59 flatten; its own signal exits it in a later session.');
+          // DIP #424: '5 of 7 lots held overnight' while some of its lots were bought today; its gap is outside both rails
+          const heldLineHtml=heldOne?('<div data-qbheld="'+key+'" title="'+heldTip+'">'+((heldOne.n&&heldOne.n<heldOne.of)?(heldOne.n+' of '+heldOne.of+' lots held overnight'):'Held overnight')+' &middot; '+(heldGap?('gap '+heldGap+' (prior close to the open), '+(key==='DIP'?'outside the rails':'not in the daily stop')):'its gap is set at the next open')
             +(qbHeldPendTxt(heldOne)?(' &middot; '+qbHeldPendTxt(heldOne)):'')+'</div>'):'';
           const legTotalPnl=legClosedSum+(legOpenPnl!=null?legOpenPnl:0);
           // a silent box (or a page that cannot read): the price is the last one seen, with its time,
@@ -40445,7 +40554,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const liveLastSeen=QF.stale?(' · last seen '+(liveLeg&&liveLeg.live_px!=null?qeMoney(liveLeg.live_px):'—')+' at '+(QF.docDate===QF.todayNY?QF.docHm:QF.sinceTxt)):'';
           const liveLineHtml=liveLeg?('<div class="qbx-leg-live" data-qblive="'+key+'">'
             +'<div>'+(liveLeg.side==='long'?'Long':liveLeg.side==='short'?'Short':naS(liveLeg.side))+' '+qeInt(liveLeg.shares)
-            +' @ '+(liveLeg.entry_px!=null?qeMoney(liveLeg.entry_px):'—')
+            +(liveLeg.lots!=null?(' &middot; '+liveLeg.lots+' lot'+(liveLeg.lots===1?'':'s')+' @ avg '):' @ ')+(liveLeg.entry_px!=null?qeMoney(liveLeg.entry_px):'—')
             +(QF.stale?liveLastSeen:(' · now '+(liveLeg.live_px!=null?qeMoney(liveLeg.live_px):'—')))+'</div>'
             +'<div style="margin-top:2px"><b data-qbopenpnl="'+key+'" style="color:'+(QF.stale?'var(--text4)':(legOpenPnl!=null?pnlCol(legOpenPnl):'var(--text5)'))+'">Open '+(legOpenPnl!=null?qeMoney(legOpenPnl):'—')+'</b>'
             +' · <b style="color:'+(QF.stale?'var(--text4)':pnlCol(legTotalPnl))+'">Total '+qeMoney(legTotalPnl)+'</b></div>'
@@ -40462,7 +40571,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const noteOpen=!!legNoteOpenMap[key];
           const infoToggleHtml=hasNote?('<span class="qb-tap" data-qbleginfo="'+key+'" title="'+(noteOpen?'hide note':'show note')+'" style="font-size:10px;color:var(--text5);line-height:1;padding:0 1px">ⓘ</span>'):'';
           // RETIRED (owner decision 9): no position (book or live) and nothing closed on the box's day
-          const qbHeldLive=(QPOSLIVE&&Array.isArray(QPOSLIVE.legs))?QPOSLIVE.legs.some(l=>l&&l.leg===key):false;
+          const qbHeldLive=(QPOSLIVE&&Array.isArray(QPOSLIVE.legs))?QPOSLIVE.legs.some(l=>l&&qbFamOf(l.leg)===key):false;
           const qbRetiredNow=QE_LEGS_RETIRED.indexOf(key)>=0&&!p&&!qbHeldLive&&!legTodayN;
           if(qbRetiredNow)qbRetiredInfo.push({key:key,label:label+' '+qeLegShortTag(key,runNo),
             since:legTradesArr.map(qeTradeDate).filter(Boolean).sort().pop()||null});
@@ -40475,7 +40584,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div><div class="qb-row-sublabel">SINCE START</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legClosedSum)+'">'+ledgerSigned(legClosedSum)+'</div></div>'
             +'<div><div class="qb-row-sublabel">UNREALIZED</div><div data-qbunreal="'+key+'" style="font-size:14px;font-weight:600;color:'+(p?(QF.stale?'var(--text4)':pnlCol(legUnreal)):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
             +'<div style="'+qbDimCss+'"><div class="qb-row-sublabel" data-qblegtoday="'+key+'">'+qbDayWord.toUpperCase()+'</div><div data-qblegtodayval="'+key+'" style="font-size:14px;font-weight:600;color:'+pnlCol(legTodayRealized)+'">'+qeMoney(legTodayRealized)+'</div></div>'
-            +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh @ '+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
+            +'<div><div class="qb-row-sublabel">POSITION</div><div style="font-size:14px;font-weight:600">'+(p?(qeInt(p.shares)+' sh'+(p.lots!=null?(' in '+p.lots+' lot'+(p.lots===1?'':'s')+' @ avg '):' @ ')+qeMoney(p.entry_px)):'no open lot')+'</div></div>'
             +(heldOne?('<div title="'+heldTip+'"><div class="qb-row-sublabel">HELD OVERNIGHT</div><div data-qbheldgap="'+key+'" style="font-size:14px;font-weight:600;color:var(--text3)">'+(heldGap?('gap '+heldGap):'gap at the next open')+'</div></div>'):'')
             +legTodayNote
             +(notionalHtml?('<div style="width:100%">'+notionalHtml+'</div>'):'')
@@ -40484,12 +40593,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // THIS LEG'S ROW ON THE SHARED STRATEGY LIST (LEDGER unify step 10): the name is family + run number (QE_LEGS, with the run
             // QE_LEG_VERSIONS says is live), the side pill rides beside it, the live position line is the sub-line, the range's P&L of
             // record the value and its trade count and win rate the quieter line under it. No switch: every leg counts, as before.
-            const fg=qbRangeFigs(qbRangeTrades.filter(t=>t.leg===key));
+            const fg=qbRangeFigs(qbRangeTrades.filter(t=>qbFamOf(t.leg)===key));
+            // DIP #424's rail paused its entries: one plain line under the row (never an alarm: nothing is sold)
+            const railRowHtml=(key==='DIP'&&qbDipRail.blocking)?('<div class="qbx-leg-live"><div data-qbdiprowrail>rail hit'+(qbDipRail.trip?(' '+qbDayLabel(qbDipRail.trip)):'')+': no new entries through '+qbDayLabel(qbDipRail.until)+'</div></div>'):'';
             const pill='<span class="qbx-lg-pill" data-qblegpill="'+key+'"'+badgeTip+' style="color:'+badgeColor+'">'+badge+'</span>'
               +(heldOne?('<span class="qbx-lg-pill" data-qbheldpill="'+key+'" title="'+heldTip+'" style="color:var(--text4);margin-left:4px">HELD</span>'):'');
             qbLegModels.push({key:key,retired:qbRetiredNow,fg:fg,
               row:{key:key,name:label+' '+qeLegShortTag(key,runNo),color:color,tag:pill+infoToggleHtml,
-                sub:liveLineHtml.split('<div').join('<span').split('</div>').join('</span>'),
+                sub:(liveLineHtml+railRowHtml).split('<div').join('<span').split('</div>').join('</span>'),
                 value:fg.n?ledgerSigned(fg.net):'&mdash;',cls:fg.n?ledgerCls(fg.net):'',value2:qbFigsLine(fg)},
               extra:(noteOpen?subLineHtml:'')+qbKeelWarnHtml+qbCaveatHtml+qbDetailHtml});
           }
@@ -40509,7 +40620,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const esc=s=>String(s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
           const bookRows=qbLegModels.filter(m=>!m.retired).map(m=>m.row),retModels=qbLegModels.filter(m=>m.retired);
           // a leg that closed trades but is not one of QE_LEGS is drawn as 'Other legs', so the rows always add up to the hero's range figure
-          const oth=qbRangeFigs(qbRangeTrades.filter(t=>!QE_LEGS.some(l=>l[0]===t.leg)));
+          const oth=qbRangeFigs(qbRangeTrades.filter(t=>!QE_LEGS.some(l=>l[0]===qbFamOf(t.leg))));
           if(oth.n)bookRows.push({key:'~other',name:'Other legs',sub:'not in the strategy roster',value:ledgerSigned(oth.net),cls:ledgerCls(oth.net),value2:qbFigsLine(oth)});
           const retOne=retModels.length===1?qbRetiredInfo[0]:null;
           // the shadow legs, one row per leg, faded: their money is never part of anything above. Two sources: the box's own block
@@ -40525,7 +40636,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           shOld.forEach(t=>shGet(qeTradeLegName(t),null).closed.push(t));
           // the live order a shadow trade shares its signal with (ENGU-Q's 09-28 long: Webull flattened it that day, the shadow leg holds on)
           const shLiveById={};trades.forEach(t=>{const id=String((t&&t.trade_id)||'');if(id)shLiveById[id]=t;});
-          const shLiveGroup=k=>{const m=qbLegModels.find(x=>x.key===k);return m?(m.retired?'Retired':'BOOK'):'Other legs';};
+          const shLiveGroup=k=>{const m=qbLegModels.find(x=>x.key===qbFamOf(k));return m?(m.retired?'Retired':'BOOK'):'Other legs';};
           // the open line. One trade: '1 open, long since 09-28 @ 738.03 · +$137.01 at 751.73'. Several at once (DIP #424 holds one per
           // mechanism, up to 7): '3 open, long since 10-01 · +$259.34 at 751.73' - the side and the OLDEST open entry (held since then),
           // their open P&L summed, at the price they are all marked at (else 'at the last price'); open both ways, each side's count and date
@@ -40577,7 +40688,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // the phone's one-line header for the list: how many legs trade, what the range made, and the open positions
           qbListSum=bookRows.filter(r=>r.key!=='~other').length+' live &middot; '
             +(qbRangeTrades.length?('<span class="'+ledgerCls(qbRangePnl)+'">'+ledgerSigned(qbRangePnl)+'</span> '+qbRangeWord):qbRangeNone)
-            +(posCount?(' &middot; '+(Object.keys(qbHeld).length>=posCount?(posCount+' held'):(posCount+' open'))):'');
+            +(qbPosFams.length?(' &middot; '+(qbPosFamsHeld>=qbPosFams.length?(qbPosFams.length+' held'):(qbPosFams.length+' open'))):'');
         }
 
         let equityHtml;
@@ -40605,7 +40716,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             let run=0;
             const raw=[{v:0,date:null,legs:{}}];
             chrono.forEach(t=>{
-              const pv=qePnlOf(t),k=(t&&t.leg)||'?',d=qeTradeDate(t);
+              const pv=qePnlOf(t),k=qbFamOf((t&&t.leg)||'?'),d=qeTradeDate(t);
               run=Math.round((run+pv)*100)/100;legRun[k]=Math.round(((legRun[k]||0)+pv)*100)/100;
               raw.push({v:run,date:d,legs:Object.assign({},legRun)});
               if(d){const f=(flags[d]=flags[d]||{n:0,rep:0,par:0,bo:0});f.n++;if(qeRepriced(t))f.rep++;if(qeParityFailed(t))f.par++;if(t.book_only)f.bo++;}
@@ -40749,7 +40860,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
 
         // one-line headers for the own folds (LEDGER unify step 11)
         const qbOrdTodaySum=ordersArr.length?(ordersArr.length+' order'+(ordersArr.length===1?'':'s')+' &middot; last '+qeFmtETTime(ordersArr[ordersArr.length-1].ts_et)
-          +' '+String(ordersArr[ordersArr.length-1].action||'').toUpperCase()+' '+String(ordersArr[ordersArr.length-1].leg||'')):'none';
+          +' '+String(ordersArr[ordersArr.length-1].action||'').toUpperCase()+' '+(l=>qbIsDipLeg(l)?qbLegDisp(l):String(l||''))(ordersArr[ordersArr.length-1].leg)):'none';
         let tradesHtml;
         // ── LEDGER unify step 8: this board's trade list on TRADING-LOG's shared frame (ledgerTradeListHtml / ledgerTradeListWire). ──
         // The frame draws the toolbar, the day headers (the New York day a trade CLOSED, with that day's net), the common columns and the
@@ -40757,7 +40868,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let qbFrameHtml='',qbMoreHtml='';
         const qbEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         // this board's own chips after the shared five: one per strategy (family + run number) and BOOK ONLY
-        const qbOwnChips=QE_LEGS.map(l=>({k:l[0],label:l[1]+' '+qeLegShortTag(l[0],l[3])})).concat([{k:'BOOKONLY',label:'BOOK ONLY'}]);
+        const qbOwnChips=QE_LEGS.filter(l=>l[0]!=='DIP'||qbDipLegs.length).map(l=>({k:l[0],label:l[1]+' '+qeLegShortTag(l[0],l[3])})).concat([{k:'BOOKONLY',label:'BOOK ONLY'}]);
         const qbTlClear=!!(qbQuery.trim()||qbChipSel!=='ALL');
         // the options every draw of the frame shares (an empty range draws it too); rows = the page being shown, matchedN = what the list matches
         // (the rows go in oldest first: the frame sorts them by close and reverses, so trades closed in the same second keep the order this board
@@ -40920,7 +41031,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const qbMatch=v=>{
                 if(!ledgerTradeMatch(v,qbChipSel,qbQuery,{pnl:x=>x.pnl,hay:qbHay}))return false;   // search + ALL / LONG / SHORT / WINS / LOSSES
                 if(qbChipSel==='BOOKONLY')return !!v._t.book_only;
-                if(qbChipSel!=='ALL'&&qbOwnChips.some(c=>c.k===qbChipSel))return v._t.leg===qbChipSel;
+                if(qbChipSel!=='ALL'&&qbOwnChips.some(c=>c.k===qbChipSel))return qbFamOf(v._t.leg)===qbChipSel;
                 return true;
               };
               const qbAllVm=qbRangeTrades.map(qbVm);
@@ -41204,7 +41315,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const bNotChecked=Number(QBPAR.not_checked||0);
           const bd=QBPAR.board||{};
           const tolT=qeNum((Number(QBPAR.tol_trade_ps)||0.15)*100,0),tolR=qeNum((Number(QBPAR.tol_roll_ps)||0.05)*100,0);
-          const legName=k=>({ENGUQ:'ENGU-Q'}[k]||k);
+          const legName=k=>qbIsDipLeg(k)?qbLegDisp(k):({ENGUQ:'ENGU-Q'}[k]||k);
           const legLines=Object.keys(QBPAR.legs||{}).sort().map(k=>{const L=QBPAR.legs[k]||{};return '<div>'+legName(k)+': '+(L.n||0)+' trade'+(L.n===1?'':'s')+(L.avg_exec_ps===null||L.avg_exec_ps===undefined?', no fills with slippage to compare yet':(', slippage '+qeCentsTxtP(L.avg_exec_ps)+(L.fills?' over '+L.fills+' fill'+(L.fills===1?'':'s'):'')))+(L.suspect_fills?(' ('+L.suspect_fills+(L.suspect_fills===1?' fill that looks':' fills that look')+' wrong left out)'):'')+(L.flag?' &middot; <b>'+qePill('RUNNING AVG WORSE','var(--attn-red)')+'</b>':'')+'</div>';}).join('');
           brokerParityPanelHtml='<div class="hero-card" style="background:'+(bLoud?'color-mix(in srgb,var(--attn-red) 8%,var(--bg2))':'var(--bg2)')+';border:1px solid '+(bLoud?'var(--attn-red)':'color-mix(in srgb,var(--border) 45%,transparent)')+';border-radius:13px;padding:13px 15px;margin-bottom:14px">'
             +'<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">'
@@ -41238,13 +41349,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // the legs the box holds overnight, a leg filed under Retired left out: ENGU-Q stays in the box's default hold list
         // (api/qqq_exec.py HOLD_OVERNIGHT_LEGS) but is a no-order tracker since 2026-10-09 and never holds a lot (one that did would be
         // a BOOK row again, owner decision 9, and named here)
-        const qbHeldRail=(Array.isArray(sess.hold_overnight_legs)?sess.hold_overnight_legs:[]).filter(k=>!qbLegModels.some(m=>m.key===k&&m.retired));
+        const qbHeldRail=(Array.isArray(sess.hold_overnight_legs)?sess.hold_overnight_legs:[]).map(qbFamOf).filter((k,i,a)=>a.indexOf(k)===i).filter(k=>!qbLegModels.some(m=>m.key===k&&m.retired));
+        // DIP #424: one lot a mechanism - its share size (rails.shares, keyed per exec leg), the lots and the family's share cap
+        const qbDipLot=(()=>{const S=rails.shares||{},v=qbDipLegs.map(k=>qeFinRec(S[k])).filter(x=>x!==null);const cap=qeFinRec(rails.dip_max_total_shares);
+          return {sh:v.length?v[0]:null,lots:qbDipLegs.length,cap:cap!==null?cap:(v.length?v[0]*qbDipLegs.length:null)};})();
         const railsHtml='<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:10px;font-size:var(--fsxs);color:var(--text3)">'
-          +'<div><div style="color:var(--text5)">SHARES / LEG</div><div>ORB '+naS(rails.shares&&rails.shares.ORB)+' &middot; ENGU-Q '+naS(rails.shares&&rails.shares.ENGUQ)+' &middot; NOISE '+naS(rails.shares&&rails.shares.NOISE)+'</div></div>'
+          +'<div><div style="color:var(--text5)">SHARES / LEG</div><div>ORB '+naS(rails.shares&&rails.shares.ORB)+' &middot; ENGU-Q '+naS(rails.shares&&rails.shares.ENGUQ)+' &middot; NOISE '+naS(rails.shares&&rails.shares.NOISE)
+            +(qbDipLegs.length?(' &middot; DIP '+naS(qbDipLot.sh)+' a lot'):'')+'</div></div>'
+          +(qbDipLegs.length?('<div data-qbraildip><div style="color:var(--text5)">'+qbDipName+' (OWN RAIL)</div><div>'+qbDipLot.lots+' lots, one per mechanism'+(qbDipLot.cap!=null?(', up to '+qeInt(qbDipLot.cap)+' shares'):'')
+            +' &middot; its own '+ledgerMoney(-qbDipRail.limAbs)+' daily rail, not the daily loss limit: a breach pauses its entries for the next session, never sells</div></div>'):'')
           +'<div><div style="color:var(--text5)">MAX SHARES / LEG</div><div>'+naS(rails.max_shares_per_leg)+'</div></div>'
           +'<div><div style="color:var(--text5)">DAILY LOSS LIMIT</div><div>'+qeMoney(rails.daily_loss_limit_usd)+'</div></div>'
           +'<div><div style="color:var(--text5)">SESSION (ET)</div><div>open '+naS(sess.open)+' &middot; last entry '+naS(sess.last_entry)+' &middot; flat by '+naS(sess.flat_by)
-            +(qbHeldRail.length?(' except '+qbHeldRail.map(k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:String(k);}).join(', ')+' (held overnight)'):'')+'</div></div>'
+            +(qbHeldRail.length?(' except '+qbHeldRail.map(k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?(k==='DIP'?qbDipName:f[1]):String(k);}).join(', ')+' (held overnight)'):'')+'</div></div>'
           +'<div><div style="color:var(--text5)">SLIPPAGE</div><div>'+qeMoney(rails.slippage_per_share)+'/share</div></div>'
           +'<div><div style="color:var(--text5)">KILL FILE</div><div style="word-break:break-all">'+naS(rails.kill_file)+'</div></div>'
           +'</div>'
@@ -41405,7 +41522,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const usedPct=Math.min(100,Math.round(used/dllLimitAbs*100));
               const stopTripped=dllTripped;
               const barCol=stopTripped?'var(--attn-red)':(dllNearLimit?'var(--attn-amber)':'var(--attn-ok)');
-              lossRow='<div style="margin-bottom:10px;'+qbDimCss+'">'
+              lossRow='<div data-qbstopbox style="margin-bottom:10px;'+qbDimCss+'">'
                 +'<div style="font-size:13px;color:var(--text2)">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(QF.isToday?'':(' on '+QF.dayLabel+' (not today)'))
                 +(stopTripped?' — <b style="color:var(--attn-red)">stopped for the day</b>':'')+'</div>'
                 +'<div class="qb-bar"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
@@ -41425,6 +41542,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               ?('<div style="font-size:13px;color:var(--text2);margin-bottom:10px">'
                 +(shTxt||'—')
                 +(rails.max_shares_per_leg!=null?(' · up to '+qeInt(rails.max_shares_per_leg)+' shares open in one strategy at a time'):'')
+                +(qbDipLegs.length&&qbDipLot.sh!=null?(' · '+qbDipName+' '+qeInt(qbDipLot.sh)+' shares a lot, one lot a mechanism'+(qbDipLot.cap!=null?(', up to '+qeInt(qbDipLot.cap)+' shares'):'')):'')
                 +'</div>')
               :'';
 
@@ -41448,7 +41566,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // -- last order + last error. legDisplay/sideWord reuse the SAME leg labels
             // and side vocabulary the rest of this tab already shows (QE_LEGS above) --
             // never the raw ORB/ENGUQ/BUY/SELL code values.
-            const legDisplay=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:(k||'—');};
+            const legDisplay=qbLegDisp;
             const sideWord=s=>({BUY:'bought',SELL:'sold',SHORT:'shorted'}[String(s||'').toUpperCase()]||null);
             const LO=BR.last_order||{};
             const loHasAny=LO.leg||LO.symbol||LO.side||LO.qty!=null;
@@ -41504,7 +41622,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'</div>';
 
             return '<div class="qb-section-hd">Orders</div>'
-              +modeRow+lossRow+sizeRow+hostRow+lastRow;
+              +modeRow+lossRow+qbDipRailHtml+sizeRow+hostRow+lastRow;
           }catch(e){
             return '<div class="qb-section-hd">Orders</div>'
               +'<div style="font-size:13px;color:var(--text4);padding:4px 2px 2px">Order status not reported yet.</div>';
@@ -41541,17 +41659,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const usedPct=Math.min(100,Math.round(used/dllLimitAbs*100));
               const stopTripped=dllTripped;
               const barCol=stopTripped?'var(--attn-red)':(dllNearLimit?'var(--attn-amber)':'var(--attn-ok)');
-              barHtml='<div style="'+qbDimCss+'"><div class="qb-bar" style="margin-top:8px"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
+              barHtml='<div data-qbstopbox style="'+qbDimCss+'"><div class="qb-bar" style="margin-top:8px"><div style="width:'+usedPct+'%;background:'+barCol+'"></div></div>'
                 +'<div data-qbstop="'+(QF.isToday?'today':QF.dayLabel)+'" style="font-size:11px;color:var(--text4);margin-top:4px" title="'+dllStopLblH+'">'+qeMoney(used)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(QF.isToday?'':(' · from '+QF.dayLabel+', not today'))+(stopTripped?' · stopped for the day':' · '+dllStopShort)+'</div></div>';
             }
             {
               const usedS=Math.abs(Math.min(0,stopPnl));
               qbMiniSum=pillTxt+(dllLimitAbs!=null
                 ?(' &middot; '+qeMoney(usedS)+' of '+qeMoney(dllLimitAbs)+' daily stop used'+(dllTripped?' &middot; stopped for the day':(dllNearLimit?' &middot; near the limit':''))+(QF.isToday?'':(' &middot; from '+QF.dayLabel)))
-                :' &middot; no daily stop set');
+                :' &middot; no daily stop set')
+                +(qbDipRail.blocking?(' &middot; '+qbDipName+' paused through '+qbDayLabel(qbDipRail.until)):'');
             }
             const LO=BR.last_order||{};
-            const legDisplayMini=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:(k||'—');};
+            const legDisplayMini=qbLegDisp;
             const sideWordMini=s=>({BUY:'bought',SELL:'sold',SHORT:'shorted'}[String(s||'').toUpperCase()]||'traded');
             const lastLine=(LO.leg||LO.symbol||LO.side||LO.qty!=null)
               ?('Last order: '+legDisplayMini(LO.leg)+', '+sideWordMini(LO.side)+' '+qeInt(LO.qty)+' shares'
@@ -41560,6 +41679,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             return '<div data-qbminipill style="display:flex;align-items:center;gap:8px;flex-wrap:wrap">'+modePillMini(pillTxt,pillCol,filled)+'</div>'
               +lastKnown
               +barHtml
+              +qbDipRailHtml
               +'<div class="qbx-orders-mini-line">'+lastLine+'</div>';
           }catch(e){
             return '<div class="qbx-orders-mini-line" style="color:var(--text4)">Orders not reported yet.</div>';
@@ -41650,11 +41770,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // then total"). One line per open leg above the total line -- the SAME
             // QPOSLIVE.legs feed and open_pnl figure the Strategies sidebar and the hero
             // already read, so this list never disagrees with either.
-            const legDisp=k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:(k||'—');};
-            const posListHtml='<div style="padding:0 0 8px">'+legs.map(l=>{
+            const legDisp=qbLegDisp;
+            const dipFirst=legs.find(l=>l&&qbIsDipLeg(l.leg));
+            const posListHtml='<div style="padding:0 0 8px">'+legs.filter(l=>!(l&&qbIsDipLeg(l.leg))||l===dipFirst).map(l=>{
+              if(l===dipFirst){const A=qbDipAgg.live||{},H=qbDipAgg.held,gp=qbHeldGapTxt(H),opn=(A.open_pnl!=null&&isFinite(Number(A.open_pnl)))?Number(A.open_pnl):null;
+                return '<div data-qbacctpos data-qbacctdip style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">'
+                  +'<span style="color:var(--text3)">'+qbDipName+' &middot; '+(A.side==='long'?'Long':A.side==='short'?'Short':naS(A.side))+' '+qeInt(A.shares)+' &middot; '+A.lots+' lot'+(A.lots===1?'':'s')
+                  +(H?(' &middot; <span data-qbacctheld="DIP">'+(H.n<H.of?(H.n+' of '+H.of+' lots '):'')+'held overnight'+(gp?(', gap '+gp):'')+'</span>'):'')+'</span>'
+                  +'<span style="font-weight:700;color:'+(opn!=null?pnlCol(opn):'var(--text5)')+'">'+(opn!=null?qeMoney(opn):'—')+'</span>'
+                  +'</div>';}
               const sideWord=l.side==='long'?'Long':l.side==='short'?'Short':naS(l.side);
               const opn=(l.open_pnl!=null&&isFinite(Number(l.open_pnl)))?Number(l.open_pnl):null;
-              return '<div style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">'
+              return '<div data-qbacctpos style="display:flex;justify-content:space-between;align-items:center;padding:2px 0;font-size:12px">'
                 +'<span style="color:var(--text3)">'+legDisp(l.leg)+' &middot; '+sideWord+' '+qeInt(l.shares)
                 +(qbHeld[l.leg]?(' &middot; <span data-qbacctheld="'+l.leg+'">held overnight'+(qbHeldGapTxt(qbHeld[l.leg])?(', gap '+qbHeldGapTxt(qbHeld[l.leg])):'')+'</span>'):'')+'</span>'
                 +'<span style="font-weight:700;color:'+(opn!=null?pnlCol(opn):'var(--text5)')+'">'+(opn!=null?qeMoney(opn):'—')+'</span>'
@@ -41679,8 +41806,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(chg!==null)parts.push('<span class="'+ledgerCls(chg)+'">'+(chg>=0?'&#9650; ':'&#9660; ')+ledgerSigned(chg)+'</span> '+(qbAcctEq.chgDay||'today'));
               if(qbAcctEq.stale)parts.push('STALE');
             }else parts.push('equity not read yet');
-            if(posCount){const nh=Object.keys(qbHeld).filter(k=>positions[k]).length;
-              parts.push(nh>=posCount?(posCount+' held overnight'):(posCount+' open'+(nh?(' ('+nh+' held overnight)'):'')));}
+            // a strategy counts once (DIP #424's lots are one), held when every lot it holds was carried overnight
+            if(posCount){const nh=qbPosFamsHeld,nf=qbPosFams.length;
+              parts.push(nh>=nf?(nf+' held overnight'):(nf+' open'+(nh?(' ('+nh+' held overnight)'):'')));}
             return parts.join(' &middot; ');
           }catch(e){return 'not reported yet';}
         })();
@@ -41716,7 +41844,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               acct.push(['Account change '+(chgDay?('on '+chgDay):'today'),ledgerSigned(chg)+(pct!==null&&Math.abs(pct)>=0.005?(' ('+(pct>=0?'+':'')+qeNum(pct,2)+'%)'):''),ledgerCls(chg)]);
             }
           }else acct.push(['Account equity','not read yet']);
-          acct.push(['Open exposure',ledgerMoney(openExposure)+(posCount?sub(posCount+' open'):'')]);
+          acct.push(['Open exposure',ledgerMoney(openExposure)+(posCount?sub(qbPosFams.length+' open'):'')]);
           acct.push(['Daily loss limit',rails.daily_loss_limit_usd!=null&&qeFin(rails.daily_loss_limit_usd)!==null?ledgerMoney(-Math.abs(Number(rails.daily_loss_limit_usd))):'--',dllNearLimit?'lg-down':'']);
           const n=qbStatRows.length;
           if(n){
