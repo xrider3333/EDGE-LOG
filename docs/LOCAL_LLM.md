@@ -1,7 +1,7 @@
 # LOCAL MODEL - hand long reading to the local qwen, keep it out of your context
 
 Owner 2026-10-11: "set up your local Qwen so the chats can hand it long reading (logs, papers)
-and save tokens". The model is qwen3.6:latest (36B MoE, Q4, 23 GB) in Ollama at
+and save tokens". The model is qwen3.8:27b (27B dense, Q4, 17 GB; replaced qwen3.6 on 2026-10-11 after a race: more accurate, 3-4x slower) in Ollama at
 127.0.0.1:11434. Code: `tools/local_llm.py` (CLI) and `tools/local_llm_mcp.py` (MCP server,
 same functions). Every call is appended to `C:\EdgeLog\local_llm.log` (question + answer,
 never the file text).
@@ -10,7 +10,7 @@ never the file text).
 
 **PYTHON COMPUTES, THE MODEL COMMENTS.** Its answer is a pointer to where to look, never a
 fact. Every answer is printed under
-`LOCAL MODEL SUMMARY (qwen3.6, unverified - quote nothing from it as fact)`. If it says "the
+`LOCAL MODEL SUMMARY (qwen3.8, unverified - quote nothing from it as fact)`. If it says "the
 push failed at PAPERPROBE", open the log and quote the line yourself.
 
 ## Use it for
@@ -60,7 +60,7 @@ Exit code 2 and one line on stderr when Ollama is down:
 `Ollama not reachable at 127.0.0.1:11434 - start Ollama`.
 
 Every call sends `num_ctx` 32768 and `think: false`. Do not change num_ctx per call: Ollama
-reloads the 23 GB weights when it changes.
+reloads the 17 GB weights when it changes.
 
 ## MCP (for the chats)
 

@@ -1,4 +1,4 @@
-"""local_llm.py -- run the LOCAL model (Ollama / qwen3.6) as a triage assistant.
+"""local_llm.py -- run the LOCAL model (Ollama / qwen3.8:27b) as a triage assistant.
 
 WHY THIS EXISTS (owner 2026-09-05): "in order to save tokens and run longer backtests,
 consider use ollama qwen ... to help allocate more robust/longer testing, while you stay
@@ -17,7 +17,7 @@ read. The supervisor then sees ~15 lines instead of 300 rows.
 
 THE HARD RULE, enforced by the output format: **PYTHON COMPUTES, THE MODEL COMMENTS.**
 Every number printed under DETERMINISTIC comes from pandas and can be quoted. Everything
-under MODEL is a 23 GB local model's opinion, is not verified, and must never reach a doc,
+under MODEL is a 17 GB local model's opinion, is not verified, and must never reach a doc,
 a bookmark, a board row or the owner as fact without being re-derived. The model is shown
 the numbers; it is not asked to produce them.
 
@@ -53,7 +53,7 @@ you ask for (`--tail N` last lines, `--grep-first PATTERN` matching lines +-3), 
 every line that looks like a key / token / password / ntfy topic BEFORE anything is
 sent, cuts the rest into chunks of ~24k tokens (char estimate), map-reduces them with
 the question in view, and prints a short answer under the header
-"LOCAL MODEL SUMMARY (qwen3.6, unverified - quote nothing from it as fact)".
+"LOCAL MODEL SUMMARY (qwen3.8, unverified - quote nothing from it as fact)".
 Same rule as above: the answer tells you WHERE to look; quote the file, never the model.
 tools/local_llm_mcp.py exposes the same thing to the chats as an MCP server
 (local_summarize / local_status). docs/LOCAL_LLM.md has when-to-use / when-not.
@@ -89,7 +89,9 @@ import urllib.error
 import urllib.request
 
 HOST = (os.environ.get("AUGUR_LOCAL_LLM_HOST") or "http://127.0.0.1:11434").rstrip("/")
-MODEL = "qwen3.6:latest"
+# qwen3.8:27b (dense, 17 GB) replaced qwen3.6 on 2026-10-11 (owner pick after a 4-job race:
+# more accurate, 3-4x slower; ~61% on the 16 GB GPU at num_ctx 32768, 52% at 65536).
+MODEL = "qwen3.8:27b"
 KEEP_ALIVE = "30m"          # hold the weights in RAM so the next call is warm
 # One context size for EVERY call (see the docstring): a 24k-token chunk + the prompt +
 # the answer fits with room to spare, and the model never reloads between calls.

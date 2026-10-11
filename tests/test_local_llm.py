@@ -65,7 +65,7 @@ class FakeOllama:
         if url.endswith("/api/version"):
             out = {"version": "test"}
         elif url.endswith("/api/tags"):
-            out = {"models": [{"name": local_llm.MODEL, "size": 23.9e9,
+            out = {"models": [{"name": local_llm.MODEL, "size": 17.4e9,
                                "details": {"parameter_size": "36.0B", "quantization_level": "Q4_K_M"}}]}
         elif url.endswith("/api/ps"):
             out = {"models": [{"name": local_llm.MODEL, "size": 100, "size_vram": 0,
@@ -126,7 +126,7 @@ def test_summarize_clamps_the_chunk_to_fit_num_ctx(tmp_path, fake):
     p.write_text("one line\n", encoding="utf-8")
     res = local_llm.summarize([str(p)], "q", chunk_tokens=10 ** 6)
     assert res["chunk_tokens"] < local_llm.NUM_CTX
-    # every generate call carries the same num_ctx (a different one reloads the 23 GB weights)
+    # every generate call carries the same num_ctx (a different one reloads the 17 GB weights)
     assert {b["options"]["num_ctx"] for b in fake.generate_bodies()} == {local_llm.NUM_CTX}
     assert all(b["think"] is False for b in fake.generate_bodies())
 
@@ -156,7 +156,7 @@ def test_keys_never_reach_the_request_body(tmp_path, fake):
     assert b"PREFLIGHT: PASS" in sent and b"[REDACTED]" in sent
     assert res["redacted"] == len(SECRETS)
     out = local_llm.format_summary(res)
-    assert out.splitlines()[0] == ("LOCAL MODEL SUMMARY (qwen3.6, unverified - quote nothing "
+    assert out.splitlines()[0] == ("LOCAL MODEL SUMMARY (qwen3.8, unverified - quote nothing "
                                    "from it as fact)")
     assert "redacted: %d lines" % len(SECRETS) in out
     assert "reading 50 tok/s, writing 10.0 tok/s" in out

@@ -1,4 +1,4 @@
-"""local_llm_mcp.py -- the LOCAL model (Ollama / qwen3.6) as an MCP server, so a chat can hand
+"""local_llm_mcp.py -- the LOCAL model (Ollama / qwen3.8) as an MCP server, so a chat can hand
 it long reading (logs, papers, big CSVs) instead of pulling the text into its own context.
 
 Owner 2026-10-11: "set up your local Qwen so the chats can hand it long reading (logs, papers)
@@ -42,7 +42,7 @@ SERVER_VERSION = "1.0.0"
 DEFAULT_PROTOCOL = "2025-06-18"
 
 INSTRUCTIONS = (
-    "Local qwen3.6 model on the owner's PC (Ollama). Hand it LONG READING you would otherwise "
+    "Local qwen3.8 model on the owner's PC (Ollama). Hand it LONG READING you would otherwise "
     "pull into context: logs, papers (PDF), long .md/.py, big CSV/JSON - for first-pass "
     "screening ('did the ship land and why not', 'what does this paper validate on'). "
     "Its answer is UNVERIFIED: quote the file, never the model; never use it for numbers, "
@@ -56,7 +56,7 @@ TOOLS = [
         "description": (
             "Read text files / logs / .md / .py / .csv / .json / PDFs on this PC (globs OK, "
             "e.g. C:/EdgeLog/manager/ship_*.log), redact any key/token/password line, and have "
-            "the LOCAL qwen3.6 model answer ONE question in a short reply (default <= 200 "
+            "the LOCAL qwen3.8 model answer ONE question in a short reply (default <= 200 "
             "words). Saves context tokens on long reading. The answer is UNVERIFIED - use it "
             "to know where to look, then quote the file itself. Use `tail` for big logs and "
             "`grep` to send only matching lines (+-3 lines). Takes seconds warm, minutes cold "
@@ -84,7 +84,7 @@ TOOLS = [
         "name": "local_status",
         "title": "Local model: status",
         "description": (
-            "Is Ollama up at 127.0.0.1:11434, is qwen3.6 installed / loaded / on the GPU, and "
+            "Is Ollama up at 127.0.0.1:11434, is qwen3.8 installed / loaded / on the GPU, and "
             "a one-line warm test with tokens/sec (the warm test loads the model if cold - "
             "minutes; pass warm_test=false to skip it)."),
         "inputSchema": {
@@ -225,7 +225,7 @@ class Server:
                 self._result(mid, {
                     "protocolVersion": pv if isinstance(pv, str) and pv else DEFAULT_PROTOCOL,
                     "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": SERVER_NAME, "title": "Local qwen3.6 reader",
+                    "serverInfo": {"name": SERVER_NAME, "title": "Local qwen3.8 reader",
                                    "version": SERVER_VERSION},
                     "instructions": INSTRUCTIONS,
                 })
