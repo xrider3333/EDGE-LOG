@@ -35,7 +35,7 @@ per-trade push; this file is the math and the proof it must match.
   - **Otherwise:** `state = keel_append_trade(...)`, then write it atomically (tmp + os.replace) as `NOISE_382_v12_intraday.joblib`. The scorer prefers the intraday file when its `data_through` matches and it reloads by mtime (the scorer already does).
 - **Nightly 18:30 ET:** the full rebuild stays the anchor. **Before overwriting, compare the day's appended state with the rebuild**: n, n_fits, fitted_on, the last z / trust / t_fast_now to 1e-9. A mismatch = alert (data or push problem), never silent.
 - **Missed push at entry time:** still score (nightly behaviour), but mark the entry `ledger_behind=N` so the parity report can count it.
-- **Library:** exact parity also needs the box on scikit-learn **1.6.1** (the backtest's), per DISC's addendum 2. Otherwise ExtraTrees z differs by up to 0.023 (about 0.03x size).
+- **Library:** no pin needed. PAPER-WB #108 rebuilt the state on the box with scikit-learn 1.6.1 and it is IDENTICAL to the live 1.9.1 state on all 4,873 rows (max diff 0.0). The small PC-vs-box gap DISC found (ExtraTrees z up to 0.023, about 0.03x size) is the platform's floating point (Windows PC vs the ARM box), not the library version. Build and append on the box only, so every state lives on one platform.
 
 ## The proof
 - **Tests** (`tests/test_ml_keel_state.py`, section 4):
