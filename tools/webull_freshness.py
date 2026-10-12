@@ -30,24 +30,40 @@ from api/market_calendar):
                      THE ONE PUSHER of "NQ data did not reach the box" (WEBULL PUSH PLAN 10-07,
                      MANAGER #86 section 3): keel_live_state keeps its log line and marker, the
                      PC sweep its JSON and inbox, cloud_signal its state.json; none of them
-                     pushes it. Default priority (KEEL still sizes on yesterday's model).
+                     pushes it. HIGH since 2026-10-11 while a live leg has a KEEL model and one
+                     missed rebuild is a fallback (KEEL_FALLBACK_SESSIONS 1, below): "Trading:
+                     AFFECTED - NOISE trades on the fixed size tilts only until the upload lands
+                     and its sizing model is rebuilt." -- the ONE push of that stale episode
+                     (the KEEL legs fold into it, quiet). Default before (KEEL still sized on
+                     yesterday's model), and again if KEEL_FALLBACK_SESSIONS goes back above 1.
     keel:<leg>       a KEEL summary's data_through older than the latest session whose 19:00 ET
                      has passed (or the session before it when that one was a half day: the
-                     builder drops a short final session) -- #11, #12. DEFAULT while the model
-                     is 1 to 4 sessions old (sizing still uses it; the pre-open gate too), and
-                     QUIET -- folded into the
+                     builder drops a short final session) -- #11, #12. QUIET -- folded into the
                      nq_master note -- when it opens while nq_master is failing.
-    keel_fallback:<leg>  that model is KEEL_FALLBACK_SESSIONS (5) or more sessions old: from the
-                     next session the live leg sizes on v12's fixed tilts only, without it
-                     (api/cloud_signal KEEL_MAX_STALE_SESSIONS and its KEEL FIXED-TILT FALLBACK,
-                     2026-10-11 -- base size before). HIGH -- the second and last push of a
-                     missed-night run; api/cloud_signal records instead of pushing while this
-                     is open.
+                     STALE KEEL NEVER SIZES (2026-10-11, owner via MANAGER #125): with
+                     KEEL_FALLBACK_SESSIONS 1 (= api/cloud_signal KEEL_MAX_STALE_SESSIONS) ONE
+                     missed rebuild already sizes the live leg on v12's fixed tilts only from
+                     the next session, so this IS the fallback episode: ONE HIGH push the
+                     evening the rebuild is missed ("QQQ book: CHECK NOW" / "Trading: AFFECTED -
+                     NOISE trades on the fixed size tilts only until its sizing model is
+                     rebuilt." / "The KEEL sizing model was not rebuilt after the close." / "Do:
+                     ask Claude (PAPER-WB chat)."), nothing more while it stays open (the
+                     pre-open gate counts it pushed; api/cloud_signal records its own fallback
+                     instead of pushing while it is open -- _monitor_owns_keel_stale), and one
+                     low "OK" when the model is rebuilt. DEFAULT ("still sizing") only for a
+                     summary whose age cannot be read: the engine keeps that model. Before
+                     10-11: DEFAULT while 1 to 4 sessions old, then keel_fallback:<leg>.
+    keel_fallback:<leg>  only while KEEL_FALLBACK_SESSIONS is above 1: that model is that many
+                     sessions old -- from the next session the live leg sizes on v12's fixed
+                     tilts only (KEEL FIXED-TILT FALLBACK). HIGH -- the second and last push of
+                     a missed-night run. At 1 (today) it is folded into keel:<leg> and never
+                     opens; a record an older monitor left open is kept as it is (no false "OK")
+                     until the model is current, then closes.
                      A SHADOW leg's summary (keel_live_state writes leg_live false on it --
                      NOISE_422_KEEL, DIP_424K since 2026-10-09; no orders, ever; and any summary
                      whose leg key, the name before "_v", is in api/cloud_signal.SHADOW_LEGS --
                      read from that file's source, never imported -- so an unreadable or
-                     unflagged one stays a shadow's) gets both checks
+                     unflagged one stays a shadow's) gets the same checks
                      too, but always QUIET and MEDIUM, worded "shadow leg, no orders": tracked in
                      status.json and relayed to the PC inboxes, never pushed -- its stale model
                      changes would-be trades only (at the fallback age they size on the fixed
@@ -247,7 +263,13 @@ BOOK, BOX = "QQQ book", "Cloud box"
 ASK = "ask Claude (PAPER-WB chat)"
 NO_ORDERS = "the QQQ book cannot send orders"
 MAY_NOT_TRADE = "the QQQ book may not trade at the open"
-OLD_MODEL = "the QQQ book sizes NOISE trades on an old model"
+# STALE KEEL NEVER SIZES (MANAGER #125): what a KEEL model too old to use does to the live leg
+KEEL_NOT_REBUILT = "The KEEL sizing model was not rebuilt after the close"
+
+
+def keel_fixed_tilts_affects(word="NOISE"):
+    """The Trading line of a KEEL model too old to use: the leg trades on the fixed tilts only."""
+    return f"{word} trades on the fixed size tilts only until its sizing model is rebuilt"
 MAY_HOLD = "the QQQ book may still hold shares after the close"
 SHORT_HISTORY = "NOISE trades on a price history that is a day short"
 OWNER_FIXES = ("token_status", "halted", "kill")   # pre-open misses only the owner can clear
@@ -454,7 +476,7 @@ EOD_CHECK_FROM = (16, 10)
 EVENING_CHECK_FROM = (19, 0)
 NQ_CHECK_FROM = (18, 0)              # before the 18:30 ET KEEL rebuild (WEBULL PUSH PLAN 10-07)
 KEEL_REBUILD_AT = (18, 30)           # deploy/cloud/edgelog-keel-state.timer, New York time
-KEEL_FALLBACK_SESSIONS = 5           # = api/cloud_signal.KEEL_MAX_STALE_SESSIONS (a test pins it)
+KEEL_FALLBACK_SESSIONS = 1           # = api/cloud_signal.KEEL_MAX_STALE_SESSIONS (a test pins it)
 NQ_MARKER = "nq_stale_alert.json"    # tools/keel_live_state.STALE_MARKER, in the keel dir
 PREOPEN_SLOTS = ((8, 30), (9, 15))
 PREOPEN_LEASE_FLOOR_SEC = 90.0
@@ -1125,6 +1147,10 @@ def check_evening(snap, now_et, mstate=None):
     alerts = (mstate or {}).get("alerts") or {}
     out = []
     nq_bad = False
+    keel, live_keel, shadow = _keel_split(snap)
+    # STALE KEEL NEVER SIZES (MANAGER #125): with KEEL_FALLBACK_SESSIONS 1 one missed rebuild
+    # is a fallback -- keel:<leg> carries it (ONE push), keel_fallback:<leg> never opens
+    one_night = KEEL_FALLBACK_SESSIONS <= 1
     if nq_due is not None:
         nq = snap.get("nq_last")
         nq_day = epoch_to_et_date(nq) if nq else None
@@ -1147,14 +1173,19 @@ def check_evening(snap, now_et, mstate=None):
                           "(its last day is incomplete).") if cut_short and nq_day is not None
                          and nq_day >= nq_due else
                          "The PC's after-close NQ data upload did not reach the cloud box.",
-                         action=act, priority="default")))
+                         action=act,
+                         # the ONE push of the stale episode it causes (the KEEL legs fold
+                         # into it): a model one missed rebuild old is not used (MANAGER #125)
+                         affects=("NOISE trades on the fixed size tilts only until the upload "
+                                  "lands and its sizing model is rebuilt")
+                         if one_night and live_keel else None,
+                         priority="high" if one_night and live_keel else "default")))
     if due is None:
         return out
     # a KEEL miss that opens while the NQ data is missing is the SAME missed night: tracked,
     # folded into the nq_master note (quiet), never a second push
     fold = nq_bad or bool((alerts.get("nq_master") or {}).get("open"))
     want = keel_expected(due)
-    keel, live_keel, shadow = _keel_split(snap)
     if not live_keel:
         out.append(_verdict("keel:none", "evening", False, HIGH, "no KEEL summary on the box",
                             _keel_none_detail(keel),
@@ -1168,18 +1199,34 @@ def check_evening(snap, now_et, mstate=None):
         # a model whose summary carries no session date (keel:<leg> names it, at default)
         old_enough = behind is not None and behind >= KEEL_FALLBACK_SESSIONS
         if leg in shadow:
-            out += _shadow_keel_verdicts(leg, through, want, behind, ok, old_enough, w)
+            out += _shadow_keel_verdicts(leg, through, want, behind, ok, old_enough, w,
+                                         one_night=one_night)
             continue
-        out.append(_verdict(
-            f"keel:{leg}", "evening", ok, HIGH, f"KEEL STALE ({leg}), still sizing",
-            f"trained through {through or 'unknown'}, expected {want}"
-            + (f" ({behind} session(s) behind)" if behind is not None else "")
-            + ". The live leg keeps sizing on the stale model until it is rebuilt.",
-            plain=_plain(("The KEEL sizing model was not rebuilt after the close (it is %d "
-                          "session%s old)." % (behind, "" if behind == 1 else "s")) if behind else
-                         "The KEEL sizing model was not rebuilt after the close.",
-                         priority="default"),
-            quiet=fold and not ok))
+        age = f" ({behind} session(s) behind)" if behind is not None else ""
+        if one_night and old_enough:
+            # ONE PUSH PER STALE EPISODE (MANAGER #125): the fallback, at HIGH, on keel:<leg>
+            out.append(_verdict(
+                f"keel:{leg}", "evening", ok, HIGH,
+                f"KEEL STALE ({leg}): sizing falls back to the fixed tilts",
+                f"trained through {through or 'unknown'}, expected {want}{age} -- past "
+                f"api/cloud_signal's KEEL_MAX_STALE_SESSIONS from the next session on: the live "
+                f"leg sizes on v12's fixed tilts only (no model) until it is rebuilt.",
+                plain=_plain(KEEL_NOT_REBUILT + "." if behind == 1 else
+                             "%s (it is %d sessions old)." % (KEEL_NOT_REBUILT, behind),
+                             affects=keel_fixed_tilts_affects(w), priority="high"),
+                quiet=fold and not ok))
+        else:
+            out.append(_verdict(
+                f"keel:{leg}", "evening", ok, HIGH, f"KEEL STALE ({leg}), still sizing",
+                f"trained through {through or 'unknown'}, expected {want}{age}"
+                + ". The live leg keeps sizing on the stale model until it is rebuilt.",
+                plain=_plain(("%s (it is %d session%s old)." % (
+                    KEEL_NOT_REBUILT, behind, "" if behind == 1 else "s")) if behind else
+                    KEEL_NOT_REBUILT + ".", priority="default"),
+                quiet=fold and not ok))
+        if one_night:
+            out.append(_keel_fallback_folded(leg, ok, old_enough))
+            continue
         out.append(_verdict(
             f"keel_fallback:{leg}", "evening", ok or not old_enough, HIGH,
             f"KEEL TOO OLD ({leg}): sizing falls back to the fixed tilts",
@@ -1194,20 +1241,47 @@ def check_evening(snap, now_et, mstate=None):
     return out
 
 
-def _shadow_keel_verdicts(leg, through, want, behind, ok, old_enough, w):
+def _keel_fallback_folded(leg, ok, old_enough):
+    """keel_fallback:<leg> while KEEL_FALLBACK_SESSIONS is 1: keel:<leg> carries the fallback,
+    so this never fails -- it never opens. ok None (no change) while the model is still too old,
+    so a record an older monitor left open is neither re-pushed nor closed with a false "OK";
+    True once the model is current (or its age unreadable), which closes such a record."""
+    return _verdict(f"keel_fallback:{leg}", "evening", True if (ok or not old_enough) else None,
+                    HIGH, f"KEEL TOO OLD ({leg}): folded into keel:{leg}",
+                    "KEEL_FALLBACK_SESSIONS is 1: the keel:<leg> episode is the fallback.")
+
+
+def _shadow_keel_verdicts(leg, through, want, behind, ok, old_enough, w, one_night=False):
     """keel:<leg> and keel_fallback:<leg> for a SHADOW leg's summary (MANAGER #108): the same
     tests as a live leg's, but QUIET (status.json and the PC relay, never a push) and MEDIUM --
-    a shadow leg sends no order, so its stale model changes only its would-be trades."""
+    a shadow leg sends no order, so its stale model changes only its would-be trades. With
+    `one_night` (KEEL_FALLBACK_SESSIONS 1) keel:<leg> says the fallback and keel_fallback:<leg>
+    is folded into it, as for a live leg."""
     age = f" ({behind} session(s) behind)" if behind is not None else ""
+    if one_night and old_enough:
+        return [
+            _verdict(f"keel:{leg}", "evening", ok, MEDIUM,
+                     f"KEEL STALE ({leg}), shadow leg, no orders",
+                     f"trained through {through or 'unknown'}, expected {want}{age}. Shadow leg, "
+                     f"no orders: from the next session its would-be trades size on the fixed "
+                     f"tilts only until it is rebuilt.",
+                     plain=_plain("The %s shadow leg's KEEL model was not rebuilt after the close "
+                                  "(shadow leg, no orders: its would-be trades size on the fixed "
+                                  "tilts only)." % w, priority="low"),
+                     quiet=True),
+            _keel_fallback_folded(leg, ok, old_enough)]
+    keel_v = _verdict(f"keel:{leg}", "evening", ok, MEDIUM,
+                      f"KEEL STALE ({leg}), shadow leg, no orders",
+                      f"trained through {through or 'unknown'}, expected {want}{age}. Shadow leg, "
+                      f"no orders: its would-be trades keep sizing on the stale model until it is "
+                      f"rebuilt.",
+                      plain=_plain("The %s shadow leg's KEEL model was not rebuilt after the close "
+                                   "(shadow leg, no orders)." % w, priority="low"),
+                      quiet=True)
+    if one_night:
+        return [keel_v, _keel_fallback_folded(leg, ok, old_enough)]
     return [
-        _verdict(f"keel:{leg}", "evening", ok, MEDIUM,
-                 f"KEEL STALE ({leg}), shadow leg, no orders",
-                 f"trained through {through or 'unknown'}, expected {want}{age}. Shadow leg, "
-                 f"no orders: its would-be trades keep sizing on the stale model until it is "
-                 f"rebuilt.",
-                 plain=_plain("The %s shadow leg's KEEL model was not rebuilt after the close "
-                              "(shadow leg, no orders)." % w, priority="low"),
-                 quiet=True),
+        keel_v,
         _verdict(f"keel_fallback:{leg}", "evening", ok or not old_enough, MEDIUM,
                  f"KEEL TOO OLD ({leg}): shadow leg, no orders",
                  f"trained through {through or 'unknown'}, expected {want} -- past "
@@ -1534,14 +1608,15 @@ def preopen_checks(snap, now_et, ev):
              affects="the QQQ book sizes NOISE trades without its model")
     for leg, through in sorted(live_keel.items()):
         if want and (not through or str(through) < want.isoformat()):
-            # WEBULL PUSH PLAN 10-07: a model 1-4 sessions old still sizes (default); only
-            # at the fallback age (api/cloud_signal sizes on the fixed tilts only) is trading
-            # affected (high)
+            # WEBULL PUSH PLAN 10-07: a model younger than the fallback age still sizes
+            # (default); at the fallback age -- one missed rebuild since 2026-10-11, MANAGER
+            # #125 -- api/cloud_signal sizes on the fixed tilts only: trading affected (high).
+            # An age that cannot be read keeps the model (default).
             behind = _keel_behind(through, want)
             fallback = behind is not None and behind >= KEEL_FALLBACK_SESSIONS
             miss("keel:" + leg, f"KEEL {leg} trained through {through}, expected {want}",
                  "The KEEL sizing model was not rebuilt after the last close.",
-                 affects=OLD_MODEL if fallback else None)
+                 affects=keel_fixed_tilts_affects(_keel_leg_word(leg)) if fallback else None)
     # QQQ_1d.csv is refreshed by cloud_signal's step(), which only runs in RTH, at most once
     # per calendar day (_maybe_refresh_daily_cache): the previous session's bar first lands
     # at about 09:35 ET. Before the open the most the cache can hold is the session BEFORE

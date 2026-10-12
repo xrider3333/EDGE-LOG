@@ -71,7 +71,10 @@ def _stale(tmp_path, arrays, monkeypatch):
 def _mismatch(tmp_path, arrays, monkeypatch):
     state, _ = _fitted_state(arrays)
     state = dict(state, feature_names=list(state["feature_names"])[::-1])
-    return _write_state(tmp_path, state), "keel feature columns do not match the state"
+    # trained through the entry's own Friday: since 2026-10-11 (KEEL_MAX_STALE_SESSIONS 1) the
+    # helper's default 2026-09-05 is 3 sessions back -- a stale state, which is checked first
+    return _write_state(tmp_path, state, last_nq_session="2026-09-11"), \
+        "keel feature columns do not match the state"
 
 
 def _non_finite(tmp_path, arrays, monkeypatch):
@@ -192,8 +195,13 @@ def test_the_step_time_push_says_fixed_tilts_for_a_learned_v12_leg(tmp_path, mon
 def test_the_reason_parsers_read_through_the_fixed_tilt_suffix():
     stale = "keel state stale: 7 session(s) since 2026-09-01; fell back to the fixed tilts only (1.5x)"
     assert cs._keel_stale_sessions(stale) == 7 and cs._keel_fallback_is_real(stale)
+    # a count within KEEL_MAX_STALE_SESSIONS (1 since 2026-10-11: _keel_stale_reason never
+    # gives one any more) would still size on the model; one past it is real
     assert not cs._keel_fallback_is_real(
-        "keel state stale: 3 session(s) since 2026-09-01; fell back to the fixed tilts only")
+        f"keel state stale: {cs.KEEL_MAX_STALE_SESSIONS} session(s) since 2026-09-01; fell back "
+        f"to the fixed tilts only")
+    assert cs._keel_fallback_is_real(
+        "keel state stale: 2 session(s) since 2026-09-01; fell back to the fixed tilts only")
     for reason, problem in (
             (stale, "The KEEL sizing model is 7 trading sessions old, too old to use."),
             ("keel feature columns do not match the state; fell back to the fixed tilts only "

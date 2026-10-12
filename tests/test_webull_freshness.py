@@ -1223,16 +1223,18 @@ def test_a_unit_the_book_trades_through_is_check_now(tmp_path):
 
 
 def test_two_keel_legs_count_once_and_the_lead_problem_sets_the_text(tmp_path):
-    """The NQ data landed but KEEL was not rebuilt: both legs' "not rebuilt" count once, at
-    DEFAULT (WEBULL PUSH PLAN 10-07: the model is 1 session old -- sizing still uses it)."""
+    """The NQ data landed but KEEL was not rebuilt: both legs' "not rebuilt" count once (the
+    shadow NOISE_422_KEEL's quietly). Was DEFAULT (WEBULL PUSH PLAN 10-07: a model 1 session
+    old still sized); HIGH since 2026-10-11 (MANAGER #125: one missed rebuild sizes on the
+    fixed tilts only from the next session) -- the ONE push of the episode."""
     h = Home(tmp_path, et(2026, 10, 5, 19, 5))
     h.bars(h.now)                                               # the NQ upload landed ...
     h.keel(through="2026-10-02")                                # ... but both KEEL legs are old
     h.run()
-    assert h.pushes == [{"title": "QQQ book: needs a fix", "priority": "default", "message":
-                         "Trading: not affected.\n"
-                         "The KEEL sizing model was not rebuilt after the close (it is 1 "
-                         "session old).\n"
+    assert h.pushes == [{"title": "QQQ book: CHECK NOW", "priority": "high", "message":
+                         "Trading: AFFECTED - NOISE trades on the fixed size tilts only until its "
+                         "sizing model is rebuilt.\n"
+                         "The KEEL sizing model was not rebuilt after the close.\n"
                          "Do: ask Claude (PAPER-WB chat)."}]
 
 
@@ -1244,8 +1246,10 @@ def test_keel_not_rebuilt_folds_into_the_missed_nq_upload(tmp_path):
     h.keel(through="2026-10-02")
     out = h.run()
     assert {"nq_master", "keel:NOISE_382_v12", "keel:NOISE_422_KEEL_v12"} <= failing(out)
-    assert h.pushes == [{"title": "QQQ book: needs a fix", "priority": "default", "message":
-                         "Trading: not affected.\n"
+    # HIGH since 2026-10-11 (MANAGER #125): the next session sizes on the fixed tilts only
+    assert h.pushes == [{"title": "QQQ book: CHECK NOW", "priority": "high", "message":
+                         "Trading: AFFECTED - NOISE trades on the fixed size tilts only until "
+                         "the upload lands and its sizing model is rebuilt.\n"
                          "The PC's after-close NQ data upload did not reach the cloud box.\n"
                          "Do: run the upload on the PC (the model rebuilds when it lands), or "
                          "ask Claude (PAPER-WB chat)."}]
@@ -1689,36 +1693,42 @@ def test_a_shadow_legs_stale_keel_is_tracked_quietly_never_pushed(tmp_path):
 
 
 def test_a_shadow_legs_fallback_age_is_quiet_too(tmp_path):
-    """Five sessions old: the would-be trades size on the fixed tilts only -- said in the
-    status text, never paged (a live leg at this age is the HIGH 'CHECK NOW')."""
+    """At the fallback age the would-be trades size on the fixed tilts only -- said in the
+    status text, never paged (a live leg at this age is the HIGH 'CHECK NOW'). Since 2026-10-11
+    (MANAGER #125) that age is one missed rebuild and keel:<leg> says it (keel_fallback:<leg>
+    is folded into it and never opens); was a separate keel_fallback episode at 5 sessions."""
     h = Home(tmp_path, et(2026, 10, 9, 19, 5))
     h.bars(h.now)
     h.keel(through="2026-10-09")
     _shadow_summary(h, "DIP_424K_v12", "2026-10-02")
     out = h.run()
-    assert {"keel:DIP_424K_v12", "keel_fallback:DIP_424K_v12"} <= failing(out)
-    fb = out["status"]["verdicts"]["keel_fallback:DIP_424K_v12"]
-    assert fb["severity"] == wf.MEDIUM
-    assert ("shadow leg, no orders: its would-be trades size on the fixed tilts only"
-            in fb["detail"])
+    assert "keel:DIP_424K_v12" in failing(out)
+    assert "keel_fallback:DIP_424K_v12" not in failing(out)
+    v = out["status"]["verdicts"]["keel:DIP_424K_v12"]
+    assert v["severity"] == wf.MEDIUM
+    assert ("Shadow leg, no orders: from the next session its would-be trades size on the fixed "
+            "tilts only" in v["detail"])
     opened = {r["key"]: r for r in out["opened"]}
-    assert opened["keel_fallback:DIP_424K_v12"]["quiet"] is True
-    assert "5 sessions old" in opened["keel_fallback:DIP_424K_v12"]["plain"]["problem"]
+    assert opened["keel:DIP_424K_v12"]["quiet"] is True
+    assert "its would-be trades size on the fixed tilts only" in \
+        opened["keel:DIP_424K_v12"]["plain"]["problem"]
+    assert not [k for k in opened if k.startswith("keel_fallback:")]
     assert h.pushes == []
 
 
 def test_noise_382_still_pages_beside_a_stale_shadow_leg(tmp_path):
-    """The live leg's wording and push are unchanged: the shadow leg adds nothing to the note."""
+    """The live leg's push is its own (HIGH since 2026-10-11, MANAGER #125): the shadow leg adds
+    nothing to the note."""
     h = Home(tmp_path, et(2026, 10, 5, 19, 5))
     h.bars(h.now)
     h.keel(through="2026-10-02")
     _shadow_summary(h, "DIP_424K_v12", "2026-10-02")
     out = h.run()
     assert out["status"]["verdicts"]["keel:NOISE_382_v12"]["severity"] == wf.HIGH
-    assert h.pushes == [{"title": "QQQ book: needs a fix", "priority": "default", "message":
-                         "Trading: not affected.\n"
-                         "The KEEL sizing model was not rebuilt after the close (it is 1 "
-                         "session old).\n"
+    assert h.pushes == [{"title": "QQQ book: CHECK NOW", "priority": "high", "message":
+                         "Trading: AFFECTED - NOISE trades on the fixed size tilts only until its "
+                         "sizing model is rebuilt.\n"
+                         "The KEEL sizing model was not rebuilt after the close.\n"
                          "Do: ask Claude (PAPER-WB chat)."}]
 
 

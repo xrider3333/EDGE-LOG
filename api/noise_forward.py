@@ -329,8 +329,9 @@ def keel_fallback(keel_cfg, entry_time, keel_size, arrays=None, fixed_size=None)
     trust sizes on the fixed tilts alone) the leg's own checks are
     replayed without ever loading a state file: the config, the state file on disk, the
     summary's data_through more than KEEL_MAX_STALE_SESSIONS sessions before the entry's
-    session, the state having been loaded in THIS process (the leg loaded it moments ago;
-    not there = it could not be read), and -- with `arrays` -- its feature columns. A
+    session (cloud_signal._keel_stale_reason, the leg's own rule), the state having been
+    loaded in THIS process (the leg loaded it moments ago; not there = it could not be
+    read), and -- with `arrays` -- its feature columns. A
     scoring-time exception is not visible from here (the leg logs it). "" too for no KEEL
     block, a blank keel_size and a mode="fixed" block (no state, nothing to fall back
     from). Never raises: a failing check is its own reason."""
@@ -361,10 +362,10 @@ def keel_fallback(keel_cfg, entry_time, keel_size, arrays=None, fixed_size=None)
         last = s.get("data_through") or s.get("last_nq_session")
         if last:
             entered = _dt.datetime.fromisoformat(str(entry_time))
-            sessions = cs.market_calendar.sessions_between(last, entered.date().isoformat())
-            n_stale = max(0, len(sessions) - 1)
-            if n_stale > cs.KEEL_MAX_STALE_SESSIONS:
-                return f"keel state stale: {n_stale} session(s) since {last}"
+            # the leg's own rule (KEEL_MAX_STALE_SESSIONS, half-day allowance included)
+            stale = cs._keel_stale_reason(last, entered.date())
+            if stale:
+                return stale
         hit = cs._KEEL_STATE_CACHE.get(state_path)
         if not hit or hit[1] is None:
             return ("keel state not loaded in this process (unreadable at the entry, or a "

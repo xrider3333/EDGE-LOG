@@ -11,7 +11,9 @@ contract (api/ntfy_push.plain / dedupe / lint).
      for state.json and the log.
   3. "NQ data did not reach the box": ONE push per missed night across the box monitor
      (tools/webull_freshness.py nq_master, from 18:00 ET), tools/keel_live_state.py (marker,
-     no push) and the pre-open gate; a second only when the model reaches its fallback age.
+     no push) and the pre-open gate. Since 2026-10-11 (MANAGER #125: one missed rebuild already
+     sizes on the fixed tilts only -- KEEL_MAX_STALE_SESSIONS 1) that one push is HIGH and there
+     is no second one at a later "fallback age" (tests/test_keel_stale_never_sizes.py).
 
 No network, no live files: every sender is a fake, every path is under tmp_path.
 """
@@ -508,7 +510,8 @@ def test_only_a_real_fallback_is_real():
     assert cs._keel_fallback_is_real("keel state unavailable")
     assert cs._keel_fallback_is_real("keel feature columns do not match the state")
     assert cs._keel_fallback_is_real("keel scoring error: RuntimeError: x")
-    assert not cs._keel_fallback_is_real("keel state stale: 2 session(s) since 2026-10-01")
+    # 2026-10-11 (MANAGER #125): KEEL_MAX_STALE_SESSIONS is 1 -- one missed rebuild (2) is real
+    assert cs._keel_fallback_is_real("keel state stale: 2 session(s) since 2026-10-01")
     assert not cs._keel_fallback_is_real(
         f"keel state stale: {cs.KEEL_MAX_STALE_SESSIONS} session(s) since 2026-10-01")
     assert cs._keel_fallback_is_real(
@@ -522,25 +525,33 @@ def _stale_keel(tmp_path, last_session):
     return _write_state(tmp_path, state, last_nq_session=last_session), arrays
 
 
-def test_a_few_stale_sessions_are_recorded_not_pushed(tmp_path, monkeypatch):
+def test_a_stale_count_within_the_sizing_bound_is_recorded_not_pushed(tmp_path, monkeypatch):
     """Box proof (10-05): 4 stale sessions pushed "KEEL fell back to 1.0" while sizing had
-    not. Now: the facts in state.json and one log line a day, no push."""
+    not. Since 2026-10-11 (MANAGER #125) the push bound IS the sizing bound
+    (KEEL_MAX_STALE_SESSIONS 1): a state one session behind -- the normal case after the
+    nightly rebuild -- gives no reason at all, and every stale reason is a real fallback. The
+    "still sizing" branch stays as a guard: a stale count within the bound is recorded with one
+    log line a day, never pushed."""
     pushed, logs = [], []
     monkeypatch.setattr(cs, "_keel_ntfy_push", lambda msg, title, log=print: pushed.append(msg))
-    keel_cfg, _ = _stale_keel(tmp_path, "2026-09-02")         # Wed -> Tue 09-08: 3 sessions
+    assert cs.KEEL_PUSH_STALE_SESSIONS == cs.KEEL_MAX_STALE_SESSIONS == 1
+    keel_cfg, arrays = _stale_keel(tmp_path, "2026-09-04")    # Fri -> Tue 09-08 (Labor Day): 1
     st = {}
     now = pd.Timestamp("2026-09-08 12:00:00", tz=cs.TZ)
+    cs._maybe_push_keel_fallback("NOISE_382", keel_cfg, now, st, log=logs.append)
+    assert pushed == [] and st == {} and logs == []
+    size, diag = cs._keel_size_for_entry(keel_cfg, arrays, 10,
+                                         pd.Timestamp("2026-09-08 10:20:00", tz=cs.TZ))
+    assert isinstance(diag, dict), "one session behind: the model sizes it"
+    within = f"keel state stale: {cs.KEEL_MAX_STALE_SESSIONS} session(s) since 2026-09-04"
+    monkeypatch.setattr(cs, "_keel_fallback_reason", lambda *a, **k: within)
     cs._maybe_push_keel_fallback("NOISE_382", keel_cfg, now, st, log=logs.append)
     cs._maybe_push_keel_fallback("NOISE_382", keel_cfg, now, st, log=logs.append)
     assert pushed == []
     rec = st["keel_alerts"]["NOISE_382"]
-    assert rec["stale_sessions"] == 3 and "stale" in rec["last_reason"]
+    assert rec["stale_sessions"] == 1 and rec["last_reason"] == within
     assert rec["last_stale_date"] == "2026-09-08" and "last_pushed_date" not in rec
     assert sum("still sizing on the model" in ln for ln in logs) == 1
-    # the sizing itself agrees: still the model (not the 1.0 fallback)
-    size, diag = cs._keel_size_for_entry(keel_cfg, _stale_keel(tmp_path, "2026-09-02")[1], 10,
-                                         pd.Timestamp("2026-09-08 10:20:00", tz=cs.TZ))
-    assert not (isinstance(diag, str) and "stale" in diag)
 
 
 def test_past_the_sizing_limit_it_pushes_once_a_day_plain(tmp_path, monkeypatch):
@@ -651,11 +662,13 @@ def test_keel_fallback_age_matches_the_engine():
     assert wf.NQ_MARKER == kls.STALE_MARKER
 
 
-def test_one_push_per_missed_night_then_one_at_the_fallback(tmp_path, monkeypatch):
-    """Mon 10-05: the PC's upload never lands. 18:00 ET the monitor pushes (default, with the
-    15:30 Arizona deadline); 18:30 keel_live_state notes it (no push); 19:05 the KEEL legs go
-    stale (folded, quiet); Tue 08:30 the pre-open gate sees the KEEL miss (no second buzz).
-    One push for the night. Fri 10-09 the model is 5 sessions old: the second (high) push."""
+def test_one_push_per_missed_night_and_none_at_a_later_age(tmp_path, monkeypatch):
+    """Mon 10-05: the PC's upload never lands. 18:00 ET the monitor pushes (HIGH since 2026-10-11,
+    MANAGER #125: the next session sizes on the fixed tilts only -- with the 15:30 Arizona
+    deadline); 18:30 keel_live_state notes it (no push); 19:05 the KEEL legs go stale (folded,
+    quiet); Tue 08:30 the pre-open gate sees the KEEL miss (no second buzz). One push for the
+    night -- and, the fallback being one missed rebuild now, no second one on Fri 10-09 (was:
+    the high "5 sessions old" push)."""
     from api import ntfy_push as np_mod
 
     def boom(*a, **k):
@@ -670,8 +683,9 @@ def test_one_push_per_missed_night_then_one_at_the_fallback(tmp_path, monkeypatc
     h.run()
     assert len(h.pushes) == 1
     p = h.pushes[0]
-    assert p["title"] == "QQQ book: needs a fix" and p["priority"] == "default"
-    assert p["message"] == ("Trading: not affected.\n"
+    assert p["title"] == "QQQ book: CHECK NOW" and p["priority"] == "high"
+    assert p["message"] == ("Trading: AFFECTED - NOISE trades on the fixed size tilts only until "
+                            "the upload lands and its sizing model is rebuilt.\n"
                             "The PC's after-close NQ data upload did not reach the cloud box.\n"
                             "Do: run the upload on the PC before 15:30, or ask Claude "
                             "(PAPER-WB chat).")
@@ -698,21 +712,17 @@ def test_one_push_per_missed_night_then_one_at_the_fallback(tmp_path, monkeypatc
     assert any(m.startswith("KEEL") for m in out["status"]["preopen"]["slots"]["08:30"]["misses"])
     assert len(h.pushes) == 1, "the pre-open gate does not re-push the same missed night"
 
-    # Fri 10-09 evening: still not fixed, the model is 5 sessions old -> sizing falls back
-    # (to the fixed tilts only since 2026-10-11 -- KEEL FIXED-TILT FALLBACK)
+    # Fri 10-09 evening: still not fixed, the model is 5 sessions old -- the same episode, no
+    # second push (it sized on the fixed tilts only from Tue already)
     friday = et(2026, 10, 9, 19, 5)
     h.set_now(friday)
     h.exec_state(eod_summary_done_date="2026-10-09",
                  _webull_flat_after_eod={"date": "2026-10-09", "flat": True, "shares": 0})
     h.cs_state(settled_days=["2026-10-09"])
     h.advance(friday)
-    h.run()
-    assert len(h.pushes) == 2
-    p = h.pushes[1]
-    assert p["priority"] == "high" and p["title"] == "QQQ book: CHECK NOW"
-    assert "NOISE trades on the fixed size tilts only, without its sizing model" in p["message"]
-    assert "5 sessions old" in p["message"]
-    assert ntfy_push.lint(p) == []
+    out = h.run()
+    assert len(h.pushes) == 1
+    assert not any(r["key"].startswith("keel_fallback:") for r in out["opened"])
 
 
 def test_a_cut_short_upload_is_named_from_the_marker(tmp_path):
@@ -730,13 +740,14 @@ def test_a_cut_short_upload_is_named_from_the_marker(tmp_path):
     assert ntfy_push.lint(h.pushes[0]) == []
 
 
-def test_keel_not_rebuilt_alone_is_default_and_still_one_push(tmp_path):
-    """The data landed but KEEL was not rebuilt (a build failure): its own default note --
+def test_keel_not_rebuilt_alone_is_high_and_still_one_push(tmp_path):
+    """The data landed but KEEL was not rebuilt (a build failure): its own note -- HIGH since
+    2026-10-11 (MANAGER #125: the next session sizes on the fixed tilts only; was default) --
     and the next morning's pre-open gate does not buzz for it again."""
     h = Home(tmp_path, et(2026, 10, 5, 19, 5))
     h.keel(through="2026-10-02")
     h.run()
-    assert len(h.pushes) == 1 and h.pushes[0]["priority"] == "default"
+    assert len(h.pushes) == 1 and h.pushes[0]["priority"] == "high"
     h.advance(et(2026, 10, 6, 8, 30))
     h.run()
     assert len(h.pushes) == 1
@@ -1066,9 +1077,11 @@ def test_a_dead_entry_the_book_already_closed_does_not_say_it_counts(notes):
     _lint_all(notes)
 
 
-def test_the_pre_open_keel_miss_is_default_until_the_fallback_age():
-    """Review (minor): a model 1-4 sessions old still sizes -- the pre-open gate names it at
-    default; only at the fallback age (sizing at 1.0) is it high."""
+def test_the_pre_open_keel_miss_is_high_from_one_missed_rebuild():
+    """Review (minor): a model younger than the fallback age still sized -- the pre-open gate
+    named it at default; at the fallback age it is high. Since 2026-10-11 (MANAGER #125) the
+    fallback age is one missed rebuild (sizing on the fixed tilts only), so a KEEL miss is high
+    and says so; only an age that cannot be read (the engine keeps that model) is default."""
     now = et(2026, 10, 6, 8, 30)
     want = wf.keel_expected(wf.prev_session(now.date()))
     ev = {"readable": True, "renew": 20.0, "publish_age": 5.0}
@@ -1078,14 +1091,18 @@ def test_the_pre_open_keel_miss_is_default_until_the_fallback_age():
         ms = [m for m in wf.preopen_checks(snap, now, ev) if m["id"].startswith("keel:")]
         assert len(ms) == 1
         return ms[0]
-    young = "2026-10-01"
-    assert 1 <= wf._keel_behind(young, want) < wf.KEEL_FALLBACK_SESSIONS
-    m = keel_miss(young)
-    assert m["priority"] == "default" and m["affects"] is None
+    one_night = "2026-10-02"                  # Monday's rebuild was missed
+    assert wf._keel_behind(one_night, want) == 1 == wf.KEEL_FALLBACK_SESSIONS
+    m = keel_miss(one_night)
+    assert m["priority"] == "high"
+    assert m["affects"] == "NOISE trades on the fixed size tilts only until its sizing model is " \
+                           "rebuilt" == wf.keel_fixed_tilts_affects()
     old = "2026-09-25"
     assert wf._keel_behind(old, want) >= wf.KEEL_FALLBACK_SESSIONS
     m = keel_miss(old)
-    assert m["priority"] == "high" and m["affects"] == wf.OLD_MODEL
+    assert m["priority"] == "high" and m["affects"] == wf.keel_fixed_tilts_affects()
+    m = keel_miss(None)                           # no data_through: age unreadable
+    assert m["priority"] == "default" and m["affects"] is None
 
 
 def test_an_unreadable_keel_age_is_not_a_fallback(tmp_path):

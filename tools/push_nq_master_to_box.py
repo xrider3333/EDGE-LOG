@@ -37,9 +37,12 @@ stayed at 09-29 and KEEL v12 rebuilt on stale data for days. Now:
     when the newest NQ session it was given is older than the last completed trading day (no
     push); the box monitor's nq_master check (tools/webull_freshness.py, from 18:00 ET) is the
     ONE pusher of "NQ data did not reach the box".
-A failed run changes nothing on the box. KEEL keeps scoring from the last state it has and
-falls back to size 1.0 on its own once that state is more than 5 sessions old
-(api/cloud_signal.KEEL_MAX_STALE_SESSIONS), so a PC that is off for a night costs nothing.
+A failed run changes nothing on the box files. But a stale KEEL never sizes a live trade
+(2026-10-11, MANAGER #125): the 18:30 ET rebuild then trains on old data, and from the next
+session the NOISE leg sizes on v12's fixed tilts only until a rebuild on current data
+(api/cloud_signal.KEEL_MAX_STALE_SESSIONS = 1) -- so a PC that is off for a night costs that
+session's model sizing; the box monitor's nq_master check pages it once (high), in time for a
+hand re-run before the rebuild.
 
 Scheduled on the PC as "EdgeLog push NQ master to box" (Mon-Fri 14:20 local = 17:20 ET).
 Usage: python tools/push_nq_master_to_box.py [--dry-run]

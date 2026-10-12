@@ -340,8 +340,16 @@ DIP_LIVE_MAX_ENTRY_AGE_SEC = 25 * 60
 # _load_keel_state), and only an entry that cannot score even those sizes 1.0 (unsized,
 # exactly the un-overlaid behaviour) -- see that function's own docstring.
 # KEEL_MAX_STALE_SESSIONS caps how many trading sessions a state may lag "now" before it is
-# treated as unavailable rather than trusted.
-KEEL_MAX_STALE_SESSIONS = 5
+# treated as unavailable rather than trusted (_keel_stale_reason counts them).
+# STALE KEEL NEVER SIZES (2026-10-11, owner via MANAGER #125: "live KEEL must behave like its
+# adopting backtest"): 1, was 5. The nightly rebuild after session S (18:30 ET) trains through
+# S, so an entry the next session is 1 session behind -- the normal case, sized on the model.
+# One missed rebuild is 2: that entry sizes on v12's fixed tilts only (KEEL FIXED-TILT
+# FALLBACK), never on the old model. The one allowance: after a HALF DAY the builder drops that
+# short session (tools/keel_live_state.py), so a state trained through the session before it
+# is current for the next session (_keel_stale_reason; tools/webull_freshness.keel_expected,
+# the same rule). tools/webull_freshness.KEEL_FALLBACK_SESSIONS equals this (a test pins it).
+KEEL_MAX_STALE_SESSIONS = 1
 
 # FOUR SHAPES OF A LEG'S "keel" KEY (2026-09-27, docs/PREREG_keel_422_parts_2026-09-27.md
 # RESULT; the first three run side by side on the NOISE #422 shadow legs since 2026-09-28; the
@@ -2150,15 +2158,16 @@ _KEEL_STATE_CACHE = {}   # state_path -> (mtime, state, summary-or-None)
 
 # KEEL FALLBACK PUSH (deadman/deadman_keel_guard, 2026-09-26). How many trading sessions
 # a KEEL state may lag "now" (by data_through/last_nq_session) before this module NOTES it
-# (_keel_fallback_reason) -- DELIBERATELY TIGHTER than KEEL_MAX_STALE_SESSIONS above (which
-# governs when the SIZING itself gives up on the model and falls back to the fixed tilts only).
-# WEBULL PUSH PLAN 10-07 (MANAGER #86, section 2): the phone used to hear "KEEL fell back to
-# 1.0" from 2 stale sessions on, while sizing only falls back past KEEL_MAX_STALE_SESSIONS --
-# a false title most of the time (box proof: NOISE_382 pushed 10-05 at 4 stale sessions).
-# Now a STALE-ONLY reason within KEEL_MAX_STALE_SESSIONS is a fact for the log and
-# state["keel_alerts"] only (the box monitor tools/webull_freshness.py owns "KEEL not
-# rebuilt"); the phone hears only a REAL fallback (_keel_fallback_is_real).
-KEEL_PUSH_STALE_SESSIONS = 1
+# (_keel_fallback_reason). It was DELIBERATELY TIGHTER (1) than KEEL_MAX_STALE_SESSIONS (5):
+# WEBULL PUSH PLAN 10-07 (MANAGER #86, section 2) made a STALE-ONLY reason within the sizing
+# bound a fact for the log and state["keel_alerts"] only, and the phone hear only a REAL
+# fallback (_keel_fallback_is_real). ONE BOUND since 2026-10-11 (MANAGER #125): the sizing
+# bound is 1 too, so every stale reason is a real fallback -- this is the same number, by
+# construction, and the "still sizing on the model" branch of _maybe_push_keel_fallback is
+# never reached by a stale reason any more. Who pages a stale model: the box monitor
+# (tools/webull_freshness.py keel:<leg>, ONE push the evening the rebuild is missed); this
+# module only when the monitor has no open episode for it (_monitor_owns_keel_stale).
+KEEL_PUSH_STALE_SESSIONS = KEEL_MAX_STALE_SESSIONS
 
 # KEEL FIXED-TILT FALLBACK (2026-10-11, owner via MANAGER #96 -- KEEL_LIVE_VS_BACKTEST item 4).
 # The backtest that adopted KEEL v12 on NOISE #382 (run #382's Auto-Validate KEEL row) never
@@ -2247,6 +2256,35 @@ def _load_keel_state(state_path, summary_path, log=print):
     return state, summary
 
 
+def _keel_half_day_allowance(day):
+    """1 when the latest session BEFORE `day` (a datetime.date) closed early, else 0:
+    tools/keel_live_state.py drops a short final session, so the rebuild after a half day
+    trains through the session before it (see KEEL_MAX_STALE_SESSIONS)."""
+    d = day - _dt.timedelta(days=1)
+    for _ in range(15):
+        if market_calendar.is_session(d):
+            return 0 if market_calendar.session_close_et(d) == "16:00" else 1
+        d -= _dt.timedelta(days=1)
+    return 0
+
+
+def _keel_stale_reason(last_session, day):
+    """"keel state stale: N session(s) since <last_session>" when a KEEL state trained through
+    `last_session` (an ISO date: data_through, else last_nq_session) is too old to size an
+    entry on `day` (a datetime.date), else None. N = the trading sessions after last_session
+    up to and including `day` (the nightly rebuild after session S trains through S, so the
+    next session's entry is N = 1). Too old = N > KEEL_MAX_STALE_SESSIONS, plus one when the
+    session before `day` was a half day (_keel_half_day_allowance). THE ONE STALENESS RULE:
+    the sizing (_keel_size_for_entry), the step-time freshness read (_keel_fallback_reason)
+    and api/noise_forward.keel_fallback all call this. Raises on an unreadable date (every
+    caller catches)."""
+    sessions = market_calendar.sessions_between(last_session, day.isoformat())
+    n_stale = max(0, len(sessions) - 1)
+    if n_stale > KEEL_MAX_STALE_SESSIONS + _keel_half_day_allowance(day):
+        return f"{_KEEL_STALE_PREFIX}{n_stale} session(s) since {last_session}"
+    return None
+
+
 def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scratch=None):
     """The KEEL multiplier for ONE new entry about to be emitted (design: "compute the
     KEEL size once" -- see _diff_leg, the only caller). Reads the trade's own feature
@@ -2257,7 +2295,8 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
     ALWAYS returns a finite float > 0 as its first element. On ANY failure of the model --
     the state file missing or unreadable, feature columns that do not match what the state
     was built on, more than KEEL_MAX_STALE_SESSIONS trading sessions between the state's last
-    trained NQ session and this entry's own session, a non-finite/non-positive size, or an
+    trained NQ session and this entry's own session (_keel_stale_reason: a state not rebuilt
+    after the previous session), a non-finite/non-positive size, or an
     exception anywhere in the scoring call -- it is v12's FIXED TILTS ALONE at this entry bar
     (KEEL FIXED-TILT FALLBACK, above _load_keel_state; the backtest never drops them), and
     1.0 (unsized) only when even those cannot be scored. Every failure is logged with a
@@ -2316,12 +2355,11 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
             entered = entry_time
             if isinstance(entered, str):
                 entered = _dt.datetime.fromisoformat(entered)
-            sessions = market_calendar.sessions_between(last_session, entered.date().isoformat())
-            n_stale = max(0, len(sessions) - 1)
-            if n_stale > KEEL_MAX_STALE_SESSIONS:
-                return _keel_learned_fallback(
-                    keel_cfg, arrays, entry_bar,
-                    f"keel state stale: {n_stale} session(s) since {last_session}", log=log)
+            # STALE KEEL NEVER SIZES (MANAGER #125): a state not rebuilt after the previous
+            # session sizes this entry on the fixed tilts only -- see KEEL_MAX_STALE_SESSIONS
+            stale = _keel_stale_reason(last_session, entered.date())
+            if stale:
+                return _keel_learned_fallback(keel_cfg, arrays, entry_bar, stale, log=log)
         from augur_engine import ml_keel as _keel
         F, names = _keel.keel_features(arrays)
         feats = (F, names)
@@ -2679,8 +2717,8 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
     for a trade to be noticed (deadman/deadman_keel_guard, 2026-09-26).
 
     Checks: the state file itself (missing/unreadable -- see _load_keel_state),
-    staleness by data_through/last_nq_session against KEEL_PUSH_STALE_SESSIONS (tighter
-    than KEEL_MAX_STALE_SESSIONS -- see that constant's own comment), and -- only when
+    staleness by data_through/last_nq_session (_keel_stale_reason -- the sizing's own rule
+    since 2026-10-11, KEEL_PUSH_STALE_SESSIONS == KEEL_MAX_STALE_SESSIONS), and -- only when
     `arrays` is given -- the feature-column match _keel_size_for_entry also checks. A
     feature-column mismatch is a REAL fallback, so it wins over a stale reason
     (10-08 review: a model 2-5 sessions old with a mismatch used to read as stale-only,
@@ -2717,10 +2755,9 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
         stale = None
         last_session = (summary or {}).get("data_through") or (summary or {}).get("last_nq_session")
         if last_session:
-            sessions = market_calendar.sessions_between(last_session, now.date().isoformat())
-            n_stale = max(0, len(sessions) - 1)
-            if n_stale > KEEL_PUSH_STALE_SESSIONS:
-                stale = f"keel state stale: {n_stale} session(s) since {last_session}"
+            # the sizing's own rule (KEEL_PUSH_STALE_SESSIONS == KEEL_MAX_STALE_SESSIONS since
+            # 2026-10-11, half-day allowance included): a stale reason here IS a fallback
+            stale = _keel_stale_reason(last_session, now.date())
         if arrays is not None:
             from augur_engine import ml_keel as _keel
             F, names = _keel.keel_features(arrays)
@@ -2815,8 +2852,9 @@ def _keel_fallback_is_real(reason):
     """True when `reason` means sizing REALLY falls back (WEBULL PUSH PLAN 10-07) -- a learned
     leg to the fixed tilts only (KEEL FIXED-TILT FALLBACK), anything else to 1.0: the state
     missing or unreadable, a feature mismatch, a scoring or check error, an unknown mode --
-    or a stale state past KEEL_MAX_STALE_SESSIONS, the exact bound _keel_size_for_entry uses.
-    A stale state within it still sizes on the model: False."""
+    or a stale state past KEEL_MAX_STALE_SESSIONS, the exact bound _keel_size_for_entry uses
+    (since 2026-10-11 every stale reason _keel_stale_reason gives is past it). A stale count
+    within it would still size on the model: False."""
     if not reason:
         return False
     n = _keel_stale_sessions(reason)
@@ -2857,19 +2895,33 @@ def _keel_fallback_note(leg_key, reason):
                            "ask Claude (PAPER-WB chat)", priority="high")
 
 
+_MONITOR_KEEL_PREFIXES = ("keel:", "keel_fallback:")
+
+
 def _monitor_owns_keel_stale(leg_key, paths=None):
-    """True when the box monitor (tools/webull_freshness.py) already pushed this leg's
-    "KEEL too old" episode (an open, not-quiet keel_fallback:<leg>... alert in
-    <home>/freshness/state.json): ONE ALERTER PER PROBLEM -- a stale-only fallback is then
-    recorded here, not pushed a second time. Reads one small local file; never raises."""
+    """True when the box monitor (tools/webull_freshness.py) already told the owner about this
+    leg's old model: ONE ALERTER PER PROBLEM -- a stale-only fallback is then recorded here,
+    not pushed a second time. Its episode is an OPEN alert in <home>/freshness/state.json named
+    for the leg's summary (e.g. keel:NOISE_382_v12): keel:<leg> -- since 2026-10-11 (MANAGER
+    #125) the ONE high push of a missed rebuild -- or keel_fallback:<leg> (the older second
+    push, still used while the monitor's KEEL_FALLBACK_SESSIONS > 1), when it pushed (not
+    quiet), or a QUIET one while the monitor's nq_master episode is open and pushed: the
+    missed NQ upload that left the model old was the push (the fold of the monitor's own
+    pre-open gate, _keel_miss_pushed). Reads one small local file at every call, so a
+    restart of this process changes nothing. Never raises."""
     try:
         home = (paths or DEFAULT_PATHS).get("home") or edgelog_home()
         with open(os.path.join(home, "freshness", "state.json"), encoding="utf-8") as f:
             alerts = (json.load(f) or {}).get("alerts") or {}
+        nq = alerts.get("nq_master")
+        nq_loud = isinstance(nq, dict) and bool(nq.get("open")) and not nq.get("quiet")
         for key, rec in alerts.items():
-            name = str(key)[len("keel_fallback:"):] if str(key).startswith("keel_fallback:") else None
-            if (name and (name == leg_key or name.startswith(f"{leg_key}_"))
-                    and isinstance(rec, dict) and rec.get("open") and not rec.get("quiet")):
+            key = str(key)
+            name = next((key[len(p):] for p in _MONITOR_KEEL_PREFIXES if key.startswith(p)),
+                        None)
+            if not name or not (name == leg_key or name.startswith(f"{leg_key}_")):
+                continue
+            if isinstance(rec, dict) and rec.get("open") and (not rec.get("quiet") or nq_loud):
                 return True
     except Exception:
         pass
@@ -2911,10 +2963,12 @@ def _maybe_push_keel_fallback(leg_key, keel_cfg, now, state, arrays=None, log=pr
     "; fell back to the fixed tilts only", KEEL FIXED-TILT FALLBACK; else to keel_size 1.0)
     -- WEBULL PUSH PLAN 10-07: the state missing/unreadable, a
     feature-column mismatch, an exception in the check itself, or a state stale PAST
-    KEEL_MAX_STALE_SESSIONS (_keel_fallback_is_real). A stale state within that bound
-    (KEEL_PUSH_STALE_SESSIONS < n <= KEEL_MAX_STALE_SESSIONS) still sizes on the model: it
-    is logged once a day and kept in state["keel_alerts"][leg_key] (last_reason,
-    stale_sessions, last_stale_date) -- no push; the box monitor owns "KEEL not rebuilt".
+    KEEL_MAX_STALE_SESSIONS (_keel_fallback_is_real) -- since 2026-10-11 (MANAGER #125) one
+    missed nightly rebuild, and then the box monitor's open keel:<leg> episode normally owns
+    the page (_monitor_owns_keel_stale: recorded here, no second push). A stale state within
+    the bound (a reason that is not real -- no longer produced since the two bounds are one,
+    see KEEL_PUSH_STALE_SESSIONS) still sizes on the model: it is logged once a day and kept
+    in state["keel_alerts"][leg_key] (last_reason, stale_sessions, last_stale_date) -- no push.
     Dedupe lives in state["keel_alerts"][leg_key]["last_pushed_date"] (and the leg's own
     leg_state["keel_alert"], shared with the scoring-time push in _diff_leg) -- state.json,
     the SAME ledger step() already loads/persists every tick. A day with NO reason leaves
