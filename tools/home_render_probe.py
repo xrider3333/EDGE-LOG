@@ -164,7 +164,8 @@ Usage:
   python tools/home_render_probe.py --selftest --only NAME[,NAME...]
                                                    # just those mutants (an unknown name is an error),
                                                    # one "caught / NOT caught" line each; the real-file
-                                                   # run is left out. Newest mutants: mode-toggle-dead,
+                                                   # run is left out. Newest mutants: viewer-volume-gone,
+                                                   # viewer-points-open, viewer-chart-squashed, viewer-wider-than-phone, mode-toggle-dead,
                                                    # acct-col-blank, panel-acct-off-by-one, tf-picker-gone,
                                                    # panel-tags-gone, add-deposit-dead, scan-dupes-dead,
                                                    # open-all-dead, withdrawal-unsigned, withdrawal-chip-unsigned
@@ -274,6 +275,13 @@ KIT_TID = 'probe_t1'
 KIT_URL = 'https://www.tradingview.com/x/KITROW'
 NOT_A_LINK_MSG = 'That is not a link - paste the snapshot link TradingView copies for you.'
 
+# The full TRADE CANDLES viewer (2026-10-11, owner: "All this text and space and I can barely see the chart. No volume either. Need it to be
+# like trading view"), opened from each interaction run's trade: #chart-body must take at least this share of the window height, the control
+# row stays one row on a laptop (two at most on a phone), a volume pane draws whenever the bars carry volume, POINTS is one chip folded by
+# default that opens and folds again, the old hint line is gone, and with the viewer open nothing sticks out past the window.
+VIEWER_MIN_SHARE = 0.65
+VIEWER_CTL_MAX = {'laptop': 40, 'phone': 70}     # px: one row of 24 px controls on a laptop, two on a phone
+
 # Two interaction runs. `tid` is the futures trade whose panel is opened (a 1m trade on the
 # laptop, a 10s trade on the phone, so both bar sizes the reader serves are drawn).
 INTERACTIONS = [
@@ -288,6 +296,23 @@ INTERACTIONS = [
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
+    # the full TRADE CANDLES viewer (2026-10-11)
+    ('viewer-volume-gone',
+     "const cx=cv.getContext('2d');if(!cx||!(vmax>0)||!bars.length||!G.W)return;",
+     "const cx=cv.getContext('2d');return;",
+     'the candle viewer stops drawing its volume pane although the bars carry volume'),
+    ('viewer-points-open',
+     'const open=!!h&&_ptsOpenGet();',
+     'const open=!!h;',
+     'the POINTS checklist opens with the candle viewer and its chip no longer folds it'),
+    ('viewer-chart-squashed',
+     '<div id="chart-body" style="position:relative;flex:1 1 0;',
+     '<div id="chart-body" style="position:relative;flex:0 0 260px;',
+     'the candle viewer chart is a short strip again instead of taking the window'),
+    ('viewer-wider-than-phone',
+     '<div class="cndl-box" style="position:relative;width:100%;max-width:1800px;height:100%;min-width:0;',
+     '<div class="cndl-box" style="position:relative;width:100%;max-width:1800px;height:100%;min-width:1100px;',
+     'the candle viewer box is wider than a phone window'),
     ('missed-section-throws',
      'function _hmMissedSectionHtml(){',
      'function _hmMissedSectionHtml(){_hmProbeNoSuchHelper();',
@@ -1185,6 +1210,38 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       st.redrew=!!(s&&res._svg0&&s.outerHTML!==res._svg0);
     });
     delete res._svg0;
+    // 2b. the full CANDLES viewer for the same trade (opened directly: a phone's chart icon routes to the panel above)
+    await step(res,'viewer',async function(st){
+      try{w.localStorage.removeItem('el_cndl_pts_open');}catch(e){}
+      var row=w.eval('(window._hmCandleRows||[]).find(function(q){return String(q._tid)==='+JSON.stringify(I.tid)+';})||null');
+      st.row=!!row;if(!row)return;
+      w._openTradeCandles(row,null,{B:{},all:function(){return [row];},order:function(){return [row];}});
+      st.drew=await waitFor(function(){return q('#chart-body svg line');},6000);
+      await sleep(150);
+      var vh=w.innerHeight,bd=q('#chart-body'),br=bd?bd.getBoundingClientRect():null;
+      st.share=br?Math.round(br.height/vh*100)/100:0;
+      var cv=q('#cndl-vol');st.vol=cv?+(cv.getAttribute('data-vbars')||0):-1;
+      st.barsVol=w.eval('(_cndl&&_cndl.bars)?_cndl.bars.filter(function(b){return +b.v>0;}).length:-1');
+      st.legend=txt('#cndl-ro');if(st.legend)st.legend=st.legend.slice(0,140);
+      var chip=q('#cndl-ptschip'),dr=q('#cndl-pts');
+      st.chip=txt('#cndl-ptschip');
+      st.chipShown=!!chip&&w.getComputedStyle(chip).display!=='none';
+      st.ptsShut=!!dr&&w.getComputedStyle(dr).display==='none';
+      if(chip)chip.click();
+      await sleep(80);
+      dr=q('#cndl-pts');st.ptsOpen=!!dr&&w.getComputedStyle(dr).display!=='none';
+      st.ptsText=txt('#cndl-pts');if(st.ptsText)st.ptsText=st.ptsText.slice(0,80);
+      var c2=q('#cndl-ptschip');if(c2)c2.click();
+      await sleep(60);
+      dr=q('#cndl-pts');st.ptsBack=!!dr&&w.getComputedStyle(dr).display==='none';
+      var ctl=q('#chart-ctl');st.ctlH=ctl?Math.round(ctl.getBoundingClientRect().height):0;
+      var bx=q('.cndl-box');st.hint=/wheel = zoom/.test(bx?(bx.textContent||''):'');
+      st.boxR=bx?Math.round(bx.getBoundingClientRect().right):0;st.vw=w.innerWidth;
+      st.scrollW=D().documentElement.scrollWidth;st.clientW=D().documentElement.clientWidth;
+      var cl=q('#chart-close');if(cl)cl.click();
+      await sleep(60);
+      st.closed=!q('#chart-body');
+    });
     // 3. a SHOULD HAVE TRADED entry's panel
     await step(res,'missedPanel',async function(st){
       w.eval('homeSheetId='+JSON.stringify('missed:'+I.mid)+';renderApp();');
@@ -3454,6 +3511,41 @@ def _judge(data, data_obj):
                 fails.append('%s: the chart vanished after - / DAY' % tag)
             elif not z.get('redrew'):
                 fails.append('%s: - and DAY did not redraw the chart (it still shows the trade view)' % tag)
+        vw = st.get('viewer') or {}
+        _errs(tag + ' candle viewer', vw, fails)
+        if vw.get('threw'):
+            fails.append('%s candle viewer: %s' % (tag, _first(vw['threw'])))
+        elif not vw.get('row'):
+            fails.append('%s: no candle row for %s, so the full viewer could not be opened' % (tag, I['tid']))
+        elif not vw.get('drew'):
+            fails.append('%s: the full candle viewer never drew its chart' % tag)
+        else:
+            if (vw.get('share') or 0) < VIEWER_MIN_SHARE:
+                fails.append('%s: the candle viewer chart takes %d%% of the window height (it must take at least %d%%)'
+                             % (tag, round((vw.get('share') or 0) * 100), round(VIEWER_MIN_SHARE * 100)))
+            if (vw.get('barsVol') or 0) > 0 and (vw.get('vol') or 0) <= 0:
+                fails.append('%s: the bars carry volume but the candle viewer drew no volume pane (data-vbars=%r)' % (tag, vw.get('vol')))
+            if not all(k + ' ' in (vw.get('legend') or '') for k in ('O', 'H', 'L', 'C', 'Vol')):
+                fails.append('%s: the candle viewer has no OHLCV legend (%r)' % (tag, vw.get('legend')))
+            if not vw.get('chipShown') or 'POINTS' not in (vw.get('chip') or '') or I['pts'] not in (vw.get('chip') or ''):
+                fails.append('%s: the candle viewer has no POINTS %s chip (%r)' % (tag, I['pts'], vw.get('chip')))
+            if not vw.get('ptsShut'):
+                fails.append('%s: the POINTS checklist is open when the candle viewer opens (it must start folded to its chip)' % tag)
+            if not vw.get('ptsOpen') or 'POINTS' not in (vw.get('ptsText') or ''):
+                fails.append('%s: a click on the POINTS chip did not open the checklist (%r)' % (tag, vw.get('ptsText')))
+            if not vw.get('ptsBack'):
+                fails.append('%s: a second click on the POINTS chip did not fold the checklist again' % tag)
+            ctl_max = VIEWER_CTL_MAX['phone' if nm == 'phone' else 'laptop']
+            if (vw.get('ctlH') or 0) > ctl_max:
+                fails.append('%s: the candle viewer controls take %spx (more than %s: one row on a laptop, two on a phone)'
+                             % (tag, vw.get('ctlH'), ctl_max))
+            if vw.get('hint'):
+                fails.append('%s: the candle viewer still prints the hover / wheel / drag hint line' % tag)
+            if (vw.get('scrollW') or 0) > (vw.get('clientW') or 0) + 1 or (vw.get('boxR') or 0) > (vw.get('vw') or 0) + 1:
+                fails.append('%s: with the candle viewer open the page reaches past the window (scrollWidth %s, client %s, box right %s, window %s)'
+                             % (tag, vw.get('scrollW'), vw.get('clientW'), vw.get('boxR'), vw.get('vw')))
+            if not vw.get('closed'):
+                fails.append('%s: the close button did not shut the candle viewer' % tag)
         mp = st.get('missedPanel') or {}
         _errs(tag + ' SHOULD HAVE TRADED panel', mp, fails)
         if mp.get('threw'):
