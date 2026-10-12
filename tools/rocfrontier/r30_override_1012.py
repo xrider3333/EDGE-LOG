@@ -32,7 +32,7 @@ _gg = ilu.module_from_spec(_sp); _sp.loader.exec_module(_gg)
 detect_roll_seams = _gg.detect_roll_seams
 
 NOTE = os.path.join(REPO, "docs", "PREREG_SB_OVERRIDE_RUNS_2026-10-12.md")
-NOTE_SHA = "6d11c2759461692be465e4e31c3457d74bb3da77bc54a5df14fc0566a272ec4b"                                                      # LF sha256 of the note as frozen on the witness branch
+NOTE_SHA = "6321517f75e5e3407c61af895245aecef716d648a6591f1d410e47fbd113fb28"                                                      # LF sha256 of the note as frozen on the witness branch
 OUT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\override1012"
 TS = pd.Timestamp
 MULT = 20.0
@@ -45,6 +45,10 @@ NEWEST = "2026-10-09"                                                     # the 
 # ADDENDUM 1: parity against the roll audit's TRUE-calendar restatement of round 37 at 0.533 pt (rollaudit/work/harness-r35-38/r37_scalp_triage_true.csv)
 PARITY_COST = 0.533
 GROSS_REF = {"M4-RANGEBURST x4/T1": (677, 13403), "M3-PDHL stop0.10/T2": (3468, 9410), "M1-MICROORB or5/first/T1": (2659, -20155)}
+# ADDENDUM 2: parity runs on the master copy saved before 2020-06-30 10:11-close was filled (the data the audit read on 09-25)
+PARITY_FILE = "NOADJ_NQ_1m_RTH.csv.bak-20260717"
+PARITY_FILE_SHA = "848991b653a217dad5a3b444e677f7535ff8a0bd218ca0b501f8428d0040a97d"
+PARITY_COUNTS = (1485957, 3868, 61)                                      # bars / sessions / seams, the audit's r37m3_true.log line
 EDGAR = r"C:\EdgeLog\_research_cache\edgar\earnings_calendar_ndx.csv"
 MEMBERS = os.path.join(DATA_REPO, "tools", "data", "ndx_members.csv")
 DAILY = r"C:\EdgeLog\alpaca_cache\siporb"
@@ -78,8 +82,11 @@ def ride(o, h, l, c, i_open, i_end, entry, stop0, side, mode):
     return c[i_end - 1], i_end - i_open
 
 
-def world(**win):
-    A = load_master_arrays(find_master("NQ", "1m", "rth", "db_noadj_rth"), **win)
+def world(filename=None, **win):
+    m = find_master("NQ", "1m", "rth", "db_noadj_rth")
+    if filename:                                                         # ADDENDUM 2: parity only - same master record, saved copy
+        m = dict(m); m["filename"] = filename
+    A = load_master_arrays(m, **win)
     o, h, l, c, v, did = A["open"], A["high"], A["low"], A["close"], A["volume"], A["day_id"]
     idx = pd.DatetimeIndex(A["index"]); mins = (idx.hour * 60 + idx.minute).values
     n = len(c)
@@ -301,7 +308,14 @@ def main():
     os.makedirs(OUT, exist_ok=True)
     print(f"note {got[:16]}... verified; owner override 10-12 (MANAGER #169)", flush=True)
     # parity: round 37's own window, zero cost
-    W0 = world(**R37_WIN)
+    fp = os.path.join(DATA_REPO, "augur_uploads", PARITY_FILE)
+    if hashlib.sha256(open(fp, "rb").read()).hexdigest() != PARITY_FILE_SHA:
+        raise SystemExit(f"refused: {PARITY_FILE} is not the copy addendum 2 pinned (nothing run)")
+    W0 = world(filename=PARITY_FILE, **R37_WIN)
+    got_counts = (W0["n"], W0["nd"], len(W0["seams"]))
+    print(f"parity master {PARITY_FILE}: bars / sessions / seams {got_counts}, audit {PARITY_COUNTS}", flush=True)
+    if got_counts != PARITY_COUNTS:
+        raise SystemExit("refused: the parity master does not give the audit's bar / session / seam counts (nothing read)")
     ref = cells(W0)
     for k, (n_ref, net_ref) in GROSS_REF.items():
         n, net = len(ref[k]), round(sum((g - PARITY_COST) * MULT for d, g, hb in ref[k]))

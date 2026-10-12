@@ -75,3 +75,17 @@ The first start stopped at its seam step: round 37's roll-seam detector was reti
 - The stored GROSS figures in section A came from the old detector; they still pick the cells, unchanged.
 - Nothing else changes.
 
+## Addendum 2 (10-12, before any result was read)
+The second start stopped at the parity gate. M4 and M1 matched to the dollar; M3 matched its trade count (3,468) but
+netted $9,333 against the audit's $9,410 at 0.533 pt. No WF, AFTER or MEGACAP-EARN figure was computed.
+- **Cause, found:** the NQ master gained 349 bars after the roll audit ran (09-25). They fill a hole on 2020-06-30 from
+  10:11 to the close. No existing bar changed, and no other bar inside round 37's window was added or removed.
+  - The filled session moves M3's prior-day high / low for 07-01 and its 20-day range average for 20 sessions.
+  - M1 and M4 do not read those levels, so they are unchanged.
+- **Proof the code is a faithful copy:** on the master copy saved before the fill
+  (`augur_uploads/NOADJ_NQ_1m_RTH.csv.bak-20260717`, sha256 848991b653a217da...), the harness gives 1,485,957 bars,
+  3,868 sessions and 61 seam sessions (the audit's own log line) and all three cells match the audit to the dollar.
+- **Change:** the parity gate now runs on that saved copy, checked by its sha256 and by the audit's bar, session and
+  seam counts. The gate still refuses on any mismatch.
+- **The readings themselves use the CURRENT master** (hole filled), through 2026-10-09, as written above.
+- Nothing else changes.
