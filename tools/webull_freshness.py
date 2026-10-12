@@ -78,6 +78,16 @@ from api/market_calendar):
                      changes would-be trades only (at the fallback age they size on the fixed
                      tilts only). It
                      never gates the pre-open check either (MANAGER #108).
+    keel_live:<leg>  LIVE KEEL (2026-10-12, MANAGER #143; the alert rules: Custom ML 10-12):
+                     keel/keel_live_check.json (tools/keel_live_state.live_check, after each
+                     nightly REFERENCE rebuild) says the leg's LIVE model failed one of its
+                     alerts -- EXACT (the live state no longer equals its cut + a replay of its
+                     append log), UNITS (its QQQ trades' median |P| outside 0.5x-2x of the NQ
+                     ledger's) or CHAIN (the append handler refused a missed / doubled close).
+                     ONE plain default-priority note per episode, worded by the first reason, no
+                     "OK" push when it closes; ok null (the check failed) = no change. No file:
+                     not checked. The live model DRIFTING from its NQ reference is expected (a
+                     QQQ feed) and never pushed: keel/keel_drift.json is a report only.
   SESSION (09:30 to the close, 13:00 on half days)
     engine_hb        cloud_signal heartbeat over 3 min old or ok=false, lot or no lot -- #5.
     bar_age          newest CLOSED 5m bar closed more than 660 s ago (from 09:41) -- #6.
@@ -492,6 +502,7 @@ NQ_CHECK_FROM = (18, 0)              # before the 18:30 ET KEEL rebuild (WEBULL 
 KEEL_REBUILD_AT = (18, 30)           # deploy/cloud/edgelog-keel-state.timer, New York time
 KEEL_FALLBACK_SESSIONS = 1           # = api/cloud_signal.KEEL_MAX_STALE_SESSIONS (a test pins it)
 NQ_MARKER = "nq_stale_alert.json"    # tools/keel_live_state.STALE_MARKER, in the keel dir
+KEEL_LIVE_CHECK_FILE = "keel_live_check.json"  # tools/keel_live_state.LIVE_CHECK_FILE (keel dir)
 PREOPEN_SLOTS = ((8, 30), (9, 15))
 PREOPEN_LEASE_FLOOR_SEC = 90.0
 PREOPEN_LEASE_MARGIN = 2.0
@@ -879,6 +890,8 @@ def collect(paths, run_cmd=None):
     snap["keel_shadow"] = keel_shadow
     marker, _err = read_json(os.path.join(paths["keel_dir"], NQ_MARKER))
     snap["nq_marker"] = marker if isinstance(marker, dict) else None
+    live_check, _err = read_json(os.path.join(paths["keel_dir"], KEEL_LIVE_CHECK_FILE))
+    snap["keel_live_check"] = live_check if isinstance(live_check, dict) else None
     snap["keel_diffs"] = read_keel_diffs(paths["keel_diffs"]) if paths.get("keel_diffs") else []
     tokens = {}
     for p in paths["token_files"]:
@@ -1266,6 +1279,44 @@ def check_evening(snap, now_et, mstate=None):
                                  f"model",
                          priority="high")))
     return out
+
+
+def _keel_live_problem(d):
+    """The phone line for a failed keel/keel_live_check.json, by its first reason."""
+    reasons = list(d.get("reasons") or [])
+    lead = reasons[0] if reasons else None
+    if lead == "units":
+        try:
+            x = float((d.get("units") or {}).get("ratio"))
+            return ("KEEL's live trades are on a different scale from its NQ trades (%.1fx), so it "
+                    "may be learning wrong numbers." % x)
+        except (TypeError, ValueError):
+            pass
+        return ("KEEL's live trades are on a different scale from its NQ trades, so it may be "
+                "learning wrong numbers.")
+    if lead == "chain":
+        return ("KEEL's live model skipped a NOISE trade: a close before it was missing or "
+                "doubled.")
+    return "KEEL's live model no longer matches a rebuild from its own trade record."
+
+
+def check_keel_live(snap):
+    """keel_live:<leg> from keel/keel_live_check.json (see the module docstring); None (not
+    checked) when there is no file. ok null in the file (its check failed) = no change this run."""
+    d = snap.get("keel_live_check")
+    if not isinstance(d, dict):
+        return None
+    leg = str(d.get("leg") or "NOISE_382")
+    ok = d.get("ok")
+    reasons = ", ".join(d.get("reasons") or []) or "none"
+    return [_verdict(
+        f"keel_live:{leg}", "keel_live", None if ok is None else bool(ok), MEDIUM,
+        f"KEEL live model check failed ({leg}): {reasons}",
+        f"exact {((d.get('exact') or {}).get('mismatches'))}; units "
+        f"{(d.get('units') or {}).get('details')}; chain "
+        f"{len((d.get('chain') or {}).get('alerts') or [])} alert(s) "
+        f"(checked {d.get('checked_at') or '?'})",
+        plain=_plain(_keel_live_problem(d), priority="default"))]
 
 
 def _keel_fallback_folded(leg, ok, old_enough):
@@ -2163,6 +2214,7 @@ def evaluate(snap, now_et, mstate):
         ("evening", lambda: check_evening(snap, now_et, mstate)),
         ("session", lambda: check_session(snap, now_et, mstate, ev)),
         ("eod", lambda: check_eod(snap, now_et)),
+        ("keel_live", lambda: check_keel_live(snap)),
     ]
     for group, fn in checks:
         try:

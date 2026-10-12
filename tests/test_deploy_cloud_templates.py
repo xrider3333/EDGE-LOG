@@ -196,3 +196,64 @@ def test_logrotate_still_rotates_as_the_box_user_with_copytruncate():
     text = _read("edgelog.logrotate")
     assert re.search(r"^\s*su __EDGELOG_USER__ __EDGELOG_USER__\s*$", text, re.MULTILINE)
     assert re.search(r"^\s*copytruncate\s*$", text, re.MULTILINE)
+
+
+# ── 2026-10-12: PER-TRADE KEEL -- edgelog-keel-append.path/.service (tools/keel_intraday.py) ──────
+def test_keel_append_path_unit_watches_the_inbox_directory_and_triggers_the_service():
+    lines = _active_lines(_read("edgelog-keel-append.path"))
+    assert "[Path]" in lines
+    assert "DirectoryNotEmpty=__EDGELOG_HOME__/cloud_signal/keel_inbox" in lines
+    assert "Unit=edgelog-keel-append.service" in lines
+    assert "WantedBy=multi-user.target" in lines
+    # a runaway loop (an entry the service cannot move) is stopped, not re-run for ever
+    assert any(ln.startswith("TriggerLimitIntervalSec=") for ln in lines)
+    assert any(ln.startswith("TriggerLimitBurst=") for ln in lines)
+    # the handler's done/rejected dirs are siblings of the inbox, never inside the watched dir
+    import sys
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    import tools.keel_intraday as KI
+    paths = KI.inbox_paths("/h")
+    for k in ("done", "rejected", "tmp"):
+        assert os.path.dirname(paths[k]) == os.path.dirname(paths["inbox"])
+    assert paths["inbox"].replace(os.sep, "/").endswith("cloud_signal/keel_inbox")
+
+
+def test_keel_append_service_runs_the_handler_like_the_keel_state_unit():
+    lines = _active_lines(_read("edgelog-keel-append.service"))
+    state = _active_lines(_read("edgelog-keel-state.service"))
+    assert "Type=oneshot" in lines
+    for same in ("User=__EDGELOG_USER__", "WorkingDirectory=__EDGELOG_REPO__",
+                 "EnvironmentFile=__EDGELOG_HOME__/edgelog.env"):
+        assert same in lines and same in state
+    (start,) = [ln for ln in lines if ln.startswith("ExecStart=")]
+    assert start == ("ExecStart=__EDGELOG_VENV__/bin/python -u tools/keel_intraday.py "
+                     "--nq-file __EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv --home __EDGELOG_HOME__")
+    nq = [ln for ln in state if ln.startswith("ExecStart=")][0]
+    assert "--nq-file __EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv" in nq, "the nightly's own master"
+    assert "StandardOutput=append:__EDGELOG_HOME__/logs/keel_intraday.log" in lines
+    assert not any("systemctl" in ln for ln in lines if ln.startswith("Exec"))
+
+
+def test_keel_append_units_are_installed_enabled_and_their_dirs_made_by_install_sh():
+    sh = _install_sh()
+    units = re.search(r"for unit in ([^\n]+); do", sh).group(1).split()
+    assert "edgelog-keel-append.service" in units and "edgelog-keel-append.path" in units
+    enable_lines = [ln for ln in sh.splitlines()
+                    if "systemctl enable" in ln and not ln.strip().startswith("#")]
+    assert any("edgelog-keel-append.path" in ln for ln in enable_lines)
+    logs = re.search(r"for log in ([^;\n]+); do", sh).group(1).split()
+    assert "keel_intraday" in logs
+    for d in ("keel_inbox", "keel_inbox_tmp", "keel_inbox_done", "keel_inbox_rejected"):
+        assert f'"${{EDGELOG_HOME}}/cloud_signal/{d}"' in sh, d
+    # made before the units are installed, as the run user (no sudo on the mkdir)
+    assert 'mkdir -p "${EDGELOG_HOME}/cloud_signal/keel_inbox"' in sh
+    assert 'sudo mkdir -p "${EDGELOG_HOME}/cloud_signal/keel_inbox"' not in sh
+    assert sh.index('"${EDGELOG_HOME}/cloud_signal/keel_inbox"') < sh.index("for unit in ")
+
+
+def test_keel_append_units_are_utf8_lf_text():
+    for fname in ("edgelog-keel-append.path", "edgelog-keel-append.service"):
+        raw = open(os.path.join(CLOUD_DIR, fname), "rb").read()
+        assert b"\x00" not in raw and b"\r" not in raw
+        raw.decode("utf-8")

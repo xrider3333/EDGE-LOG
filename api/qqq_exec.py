@@ -1688,6 +1688,7 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
     row["overnight_gap_usd"] = round(float(hold.get("gap_usd") or 0.0), 2) if nights else ""
     row["nights_held"] = nights if nights else ""
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
+    lot["_exit_ts"] = row["exit_ts"]      # LIVE KEEL close hook: the exit stamp trades.csv holds
     return pnl
 
 
@@ -8559,6 +8560,10 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
         # close the round-trip on the full lot's entry (weighted avg exit unnecessary
         # for a single-entry lot -- see module docstring: entries are treated single-shot)
         pnl = _record_trade(lot, fill_px, reason, log=log)
+        # LIVE KEEL CLOSE HOOK (2026-10-12, MANAGER #143): THE one place every full close of a
+        # lot passes -- strategy exit, flatten, breaker, KILL, a late or carried exit -- see
+        # _queue_keel_close. Never raises.
+        _queue_keel_close(state, lot, fill_px, pnl, reason, log=log)
         state["realized_pnl_today"] = round(state.get("realized_pnl_today", 0.0) + pnl, 2)
         if is_dip_leg(leg):
             # DIP's own part of today's realized: its own rail counts it, the shared one not
@@ -8566,6 +8571,185 @@ def _reduce_lot(state, cfg, leg, nq_qty_closed, nq_px, qqq_px_raw, slip, reason,
                 float(state.get("realized_pnl_today_dip", 0.0) or 0.0) + pnl, 2)
         del state["legs"][leg]
     return pnl
+
+
+# -- LIVE KEEL CLOSE HOOK (owner call 2026-10-12, MANAGER #143) ------------------------------------
+# Per-trade KEEL on NOISE_382 learns from THIS book's own live trades (api/cloud_signal.py LIVE KEEL,
+# tools/keel_intraday.py). Every FULL close of a lot -- the engine's strategy exit, the flat_by / EOD
+# flatten, the daily loss BREAKER, KILL (at once or deferred to the open), a late or carried exit --
+# passes through ONE place: _reduce_lot's `if lot["shares_remaining"] <= 0:` branch, right after
+# _record_trade (the only trades.csv writer; _close_all and the engine router both close through
+# _reduce_lot). For a NOISE lot carrying NOISE_382's engine id (KEEL_LEARN_ENGINE_LEG -- never a
+# NOISE_304 id, never ORB / DIP / ENGU-Q) on the box (EDGELOG_HOST_ROLE=cloud -- the PC and the tests
+# never queue anything) _queue_keel_close keeps the trade in state["_keel_closes"] (state.json: a
+# restart keeps it), and _maybe_emit_keel_closes (every tick, after the fill capture) turns each into
+# ONE JSON file, <cloud_signal>/keel_inbox/<trade_id>.json (written in keel_inbox_tmp/, then
+# os.replace'd in -- the edgelog-keel-append.path unit fires on it), in close order: {leg, trade_id,
+# entry_ts, exit_ts (as trades.csv has them), side, shares, pnl_usd, entry_px, exit_px, pnl_source,
+# ...}. pnl_usd is the P&L OF RECORD, the publisher's own _pnl_of_record on the trade: Webull's fill
+# for each side when captured, else the book's price --
+#   pnl_source "webull_fill"  both sides Webull fills (emitted as soon as they are captured);
+#   pnl_source "book"         neither side has a Webull fill (adapter OFF, refused, never captured);
+#   pnl_source "webull_part"  one side Webull, the other the book's price.
+# entry_px / exit_px are the prices that P&L used; prev_trade_id = the previous live NOISE_382 close
+# this book queued (state["_keel_last_tid"]) -- the handler's missed / duplicated trade check (Custom
+# ML 10-12, item d: KEEL's n cannot be known here). A trade waits while broker_orders.csv shows an
+# accepted order of it with no fill price yet -- at most KEEL_CLOSE_FILL_WAIT_SEC from its close --
+# then goes with what is known; a later close never overtakes it. Never blocks or breaks the
+# executor: each step is try/except with one log line.
+KEEL_LEARN_ENGINE_LEG = "NOISE_382"
+KEEL_LEARN_EXEC_LEG = "NOISE"
+KEEL_CLOSE_FILL_WAIT_SEC = 300.0
+KEEL_CLOSE_RETRY_SEC = 60.0
+KEEL_CLOSE_QUEUE_MAX = 50
+KEEL_INBOX_DIR = "keel_inbox"          # under <EDGELOG_HOME>/cloud_signal/ (the path unit watches it)
+KEEL_INBOX_TMP_DIR = "keel_inbox_tmp"  # a sibling: the file is complete before it lands in the inbox
+KEEL_PNL_SOURCES = {"webull": "webull_fill", "part": "webull_part", "book": "book"}
+
+
+def _keel_close_hook_on():
+    """True on the box only (EDGELOG_HOST_ROLE=cloud, as _host_role_label reads it)."""
+    return str(os.environ.get("EDGELOG_HOST_ROLE") or "").strip().lower() == "cloud"
+
+
+def _keel_learns_from(lot):
+    """True for a NOISE lot whose engine id is KEEL_LEARN_ENGINE_LEG's."""
+    tid = str((lot or {}).get("trade_id") or "")
+    return (lot or {}).get("leg") == KEEL_LEARN_EXEC_LEG and tid.startswith(KEEL_LEARN_ENGINE_LEG + "-")
+
+
+def _queue_keel_close(state, lot, exit_px, pnl, reason, log=print):
+    """Queue one FULLY CLOSED live NOISE_382 trade for the KEEL inbox (see the block above).
+    Called from _reduce_lot's full-close branch only. Never raises."""
+    try:
+        if not _keel_learns_from(lot) or not _keel_close_hook_on():
+            return
+        q = state.setdefault("_keel_closes", [])
+        tid = lot["trade_id"]
+        if any(isinstance(it, dict) and it.get("trade_id") == tid for it in q):
+            return
+        q.append({"leg": KEEL_LEARN_ENGINE_LEG, "trade_id": tid, "entry_ts": lot.get("entry_ts"),
+                  "exit_ts": lot.get("_exit_ts") or _now_et().strftime("%Y-%m-%d %H:%M:%S"),
+                  "side": lot.get("side"), "shares": int(lot.get("shares_total") or 0),
+                  "entry_px": float(lot["entry_px"]), "exit_px": float(exit_px),
+                  "pnl_book": pnl, "exit_reason": reason, "queued_at": time.time(),
+                  # THE CHAIN (Custom ML 10-12, item d): the trade id of the previous live
+                  # NOISE_382 close this book queued -- the handler refuses (and alerts) a trade
+                  # whose previous close is not the last one its ledger saw (missed / duplicated)
+                  "prev_trade_id": state.get("_keel_last_tid")})
+        state["_keel_last_tid"] = tid
+        while len(q) > KEEL_CLOSE_QUEUE_MAX:
+            gone = q.pop(0)
+            log(f"[qqq-exec] KEEL close queue over {KEEL_CLOSE_QUEUE_MAX}: dropped "
+                f"{gone.get('trade_id')} -- it never reaches the live KEEL ledger")
+        log(f"[qqq-exec] KEEL close queued: {tid} ({reason})")
+    except Exception as e:
+        log(f"[qqq-exec] KEEL close hook failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _keel_close_record(item, by_base):
+    """The inbox JSON for one queued close and its P&L-of-record source ("webull" / "part" /
+    "book", _pnl_of_record's). The same functions the publisher uses (_side_parity on the trade's
+    broker_orders.csv rows, _pnl_of_record)."""
+    row = {"leg": KEEL_LEARN_EXEC_LEG, "trade_id": item["trade_id"], "side": item["side"],
+           "shares": item["shares"], "entry_px": item["entry_px"], "exit_px": item["exit_px"],
+           "pnl": item.get("pnl_book")}
+    en = _side_parity(row, "OPEN", by_base, None)
+    ex = _side_parity(row, "CLOSE", by_base, None)
+    rec = _pnl_of_record(row, en, ex)
+
+    def _px(s, book):
+        return s["wb"] if s.get("fs") == "ok" and s.get("wb") is not None else book
+
+    src = rec.get("pnl_record_src") or "book"
+    out = {"leg": item["leg"], "trade_id": item["trade_id"], "entry_ts": item["entry_ts"],
+           "exit_ts": item["exit_ts"], "side": item["side"], "shares": item["shares"],
+           "pnl_usd": rec.get("pnl_record"), "entry_px": _px(en, item["entry_px"]),
+           "exit_px": _px(ex, item["exit_px"]), "pnl_source": KEEL_PNL_SOURCES.get(src, "book"),
+           "pnl_note": rec.get("pnl_record_note") or "", "pnl_book": item.get("pnl_book"),
+           "exit_reason": item.get("exit_reason"), "prev_trade_id": item.get("prev_trade_id"),
+           "written_at": _now_et().strftime("%Y-%m-%d %H:%M:%S")}
+    for k in ("pnl_usd", "entry_px", "exit_px", "pnl_book"):
+        # an unmarked exit (pnl "nan") still goes -- as null, so the handler refuses it on the
+        # record instead of the queue retrying it forever
+        out[k] = _finite_or_none(out[k])
+    if out["entry_px"] is None or out["exit_px"] is None:
+        # no price for a side: _pnl_of_record's fallback figure (the book's pnl, else 0) is not a
+        # trade result KEEL may learn from
+        out["pnl_usd"] = None
+    return out, src
+
+
+def _keel_fill_pending(trade_id, by_base):
+    """True while broker_orders.csv shows an ACCEPTED order of this trade (its OPEN or CLOSE)
+    with no fill price yet -- Webull's price may still come (the fill capture's job)."""
+    for intent in ("OPEN", "CLOSE"):
+        brow = _broker_order_for(trade_id, intent, by_base)
+        if brow is not None and str(brow.get("ok")).strip().lower() in ("true", "1") \
+                and _finite_or_none(brow.get("broker_fill_px")) is None:
+            return True
+    return False
+
+
+def _keel_inbox_dirs():
+    from . import cloud_signal as cs
+    d = cs.DEFAULT_PATHS["state_dir"]
+    return os.path.join(d, KEEL_INBOX_DIR), os.path.join(d, KEEL_INBOX_TMP_DIR)
+
+
+def _write_keel_inbox(rec, log=print):
+    """<inbox>/<trade_id>.json, written beside it in the tmp dir and os.replace'd in. True when
+    it landed. Never raises."""
+    tmp = None
+    try:
+        inbox, tmpdir = _keel_inbox_dirs()
+        os.makedirs(inbox, exist_ok=True)
+        os.makedirs(tmpdir, exist_ok=True)
+        name = f"{rec['trade_id']}.json"
+        tmp = os.path.join(tmpdir, f"{name}.{os.getpid()}.tmp")
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(rec, f, sort_keys=True, allow_nan=False)
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, os.path.join(inbox, name))
+        return True
+    except Exception as e:
+        log(f"[qqq-exec] KEEL inbox write failed for {rec.get('trade_id')} (non-fatal, retried): "
+            f"{type(e).__name__}: {e}")
+        if tmp:
+            try:
+                os.remove(tmp)
+            except OSError:
+                pass
+        return False
+
+
+def _maybe_emit_keel_closes(state, log=print):
+    """Every tick: hand the queued closes (_queue_keel_close) to the KEEL inbox in close order --
+    see the block above. Never raises."""
+    q = state.get("_keel_closes")
+    if not q:
+        return
+    try:
+        by_base = _broker_orders_by_base(_all_broker_orders_from_csv())
+        now = time.time()
+        while q:
+            item = q[0]
+            if now < float(item.get("retry_at") or 0.0):
+                return
+            rec, src = _keel_close_record(item, by_base)
+            age = now - float(item.get("queued_at") or now)
+            if src != "webull" and age < KEEL_CLOSE_FILL_WAIT_SEC \
+                    and _keel_fill_pending(item["trade_id"], by_base):
+                return          # FIFO: a later close never overtakes this one
+            if not _write_keel_inbox(rec, log=log):
+                item["retry_at"] = now + KEEL_CLOSE_RETRY_SEC
+                return
+            q.pop(0)
+            log(f"[qqq-exec] KEEL close sent to the keel inbox: {rec['trade_id']} "
+                f"pnl {rec['pnl_usd']} ({rec['pnl_source']})")
+    except Exception as e:
+        log(f"[qqq-exec] KEEL close emit failed (non-fatal): {type(e).__name__}: {e}")
 
 
 # -- HOLD OVERNIGHT (OWNER GO 2026-10-09, MANAGER #106) -------------------------------------
@@ -13653,6 +13837,9 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # BROKER FILL CAPTURE (feature #57, DEFERRED 2026-09-22): queued by _mirror_to_broker,
     # serviced here -- see _maybe_capture_broker_fills for why this is off the order path.
     _maybe_capture_broker_fills(state, cfg, nowdt, active, log=log)
+    # LIVE KEEL (2026-10-12, MANAGER #143): closed NOISE_382 trades -> the KEEL inbox, in close
+    # order, once their Webull fills are in (or the wait is over) -- see _maybe_emit_keel_closes
+    _maybe_emit_keel_closes(state, log=log)
     # DAILY-STOP BAR (review 2026-10-05): a fill captured just now can only make the
     # breaker's figure worse; take it now rather than one tick late, so the bar never
     # reads better than the hero's today line for that tick. Not on the tick the breaker

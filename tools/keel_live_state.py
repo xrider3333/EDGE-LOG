@@ -107,6 +107,15 @@ WRITES under --out-dir (nothing else on the filesystem, no Firestore writes, no 
                                      the box monitor tools/webull_freshness.py reads
                                      for its nq_master note; removed again once the
                                      data is current.
+  keel_drift.json                 -- LIVE KEEL (2026-10-12): a live-learning leg's live
+                                     state vs this build (the REFERENCE), REPORT ONLY --
+                                     see drift_check.
+  keel_live_check.json            -- LIVE KEEL: the live state's two alerts (exact
+                                     rebuild, units) and the handler's chain alerts --
+                                     see live_check; the box monitor pushes from it.
+                                     The live state itself (<LEG>_<version>_live*.joblib,
+                                     its cut, append log and ack -- tools/keel_intraday.py)
+                                     is NEVER written, moved or reset here.
 
 NQ FRESHNESS ALERT (2026-10-05). The PC's nightly push (tools/push_nq_master_to_box.py)
 failed 09-30, 10-01 and 10-03 and did not run 10-02, so the box's master stayed at 09-29 and
@@ -663,7 +672,328 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
     log(f"[keel-live-state] wrote {state_path}")
     log(f"[keel-live-state] wrote {summary_path}")
     log(f"[keel-live-state] TOTAL {total_s:.2f}s")
+    # LIVE KEEL NIGHTLY CHECKS (2026-10-12): after the reference swap; never block or fail the build
+    try:
+        from api import cloud_signal as _cs
+        live_leg = leg_key in _cs.KEEL_LIVE_LEARN_LEGS
+    except Exception:
+        live_leg = False
+    if live_leg:
+        for name, fn in (("drift report", lambda: drift_check(state, out_dir, leg_key, version,
+                                                              log=log, day=data_through)),
+                         ("live check", lambda: live_check(state, out_dir, leg_key, version,
+                                                           log=log))):
+            try:
+                fn()
+            except Exception as e:
+                log(f"[keel-live-state] {name} raised (non-fatal, the build stands): "
+                    f"{type(e).__name__}: {e}")
     return state, summary
+
+
+# -- LIVE KEEL: THE NIGHTLY CHECKS (owner call 2026-10-12, MANAGER #143; rules: Custom ML 10-12) ---
+# A live-learning leg (api/cloud_signal.KEEL_LIVE_LEARN_LEGS: NOISE_382) sizes on its LIVE state:
+# tools/keel_intraday.py appends each closed live QQQ trade to it, and this script NEVER writes,
+# moves or resets it -- the NQ state built above is the REFERENCE. After each reference rebuild
+# (never blocking or failing it), two checks run; no live state yet (before the cut): neither writes
+# a file (a stale one is removed). Neither raises.
+#
+# 1. DRIFT -- REPORT ONLY, NO PUSH (a QQQ-fed state drifts from the NQ-fed backtest BY DESIGN:
+#    Custom ML's replay, docs/KEEL_PERTRADE_SPEC_2026-10-12.md addendum 1). drift_check writes
+#    DRIFT_FILE (keel/keel_drift.json) EVERY night: both states' trust_now, t_fast_now and branch_now
+#    (the branch an entry with a non-zero model score would take on that state now), and THE DAY'S
+#    live entries (the session the reference was just built through: their recorded feature rows,
+#    <leg>_xrows.jsonl) scored with both states -- size and branch (ml_keel.keel_branch). NOTES (still
+#    no push) when |trust_now live - reference| is outside the envelope for the months since the cut
+#    (DRIFT_TRUST_ENVELOPE: > 0.41 in months 0-3, > 0.56 in months 3-6, none after) or an entry's
+#    size differs by more than DRIFT_SIZE_NOTE (1.5x).
+# 2. THE ALERTS -- live_check writes LIVE_CHECK_FILE (keel/keel_live_check.json); the box monitor
+#    (tools/webull_freshness.py keel_live:<leg>) pushes ONE plain note per episode when ok is false:
+#      exact  the live state rebuilt from scratch = the cut state + a replay of the append log
+#             (tools/keel_intraday.rebuild_from, keel_append_trade row by row) must equal the
+#             stored live state to 1e-9 on n, n_fits, fitted_on, trust_now, t_fast_now and the
+#             last z (keel_intraday.exact_mismatches) -- a miss is a plumbing bug;
+#      units  the median |P| of the last UNITS_LAST appended QQQ trades must be within UNITS_BAND
+#             (0.5x-2x) of the median |P| of the NQ reference ledger's last UNITS_REF (600) --
+#             Custom ML's replay: 25.3 vs 29.2; a missing NQ/QQQ ratio would read ~0.6. Skipped
+#             (null) until UNITS_LAST QQQ trades exist;
+#      chain  the handler refused a trade as a missed / doubled close, or found its append log and
+#             the live state disagreeing (the ack's "alerts", Custom ML MUST d): those recorded
+#             after the previous check, or within CHAIN_WINDOW_SEC of this one.
+#    ok null (the check itself failed): the monitor leaves its episode as it is.
+DRIFT_FILE = "keel_drift.json"
+DRIFT_TRUST_ENVELOPE = ((3, 0.41), (6, 0.56))     # (months since the cut, note above), then none
+DRIFT_SIZE_NOTE = 1.5
+LIVE_CHECK_FILE = "keel_live_check.json"
+UNITS_LAST = 20
+UNITS_REF = 600
+UNITS_BAND = (0.5, 2.0)
+CHAIN_WINDOW_SEC = 24 * 3600
+
+
+def _drift_float(v):
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return f if f == f else None
+
+
+def _state_rule_cfg(state):
+    from augur_engine import ml_keel as K
+    return state.get("cfg") or K.CFG[state["version"]]
+
+
+def state_branch_now(state):
+    """The branch (ml_keel.keel_branch) an entry with a non-zero model score would take on `state`
+    now: its trust_now cut by the fast line (t_fast_now), as keel_score_from_state does over the
+    whole ledger (cross_series)."""
+    from augur_engine import ml_keel as K
+    cfg = _state_rule_cfg(state)
+    tr = _drift_float(state.get("trust_now")) or 0.0
+    tf = _drift_float(state.get("t_fast_now"))
+    fast = cfg.get("fast")
+    if fast and tf is not None:
+        tr *= min(max((tf - fast["lo"]) / (fast["hi"] - fast["lo"]), 0.0), 1.0)
+    return K.keel_branch({"nd": int(state["n"]), "t_fast": tf, "trust": tr, "z": 1.0}, cfg)
+
+
+def _entry_day(rec):
+    import pandas as pd
+    ts = pd.Timestamp(rec.get("entry_bar_time") or rec.get("entry_time"))
+    if ts.tzinfo is not None:
+        ts = ts.tz_convert("America/New_York")
+    return str(ts.date())
+
+
+def _trust_envelope(cut_day, day):
+    """(months band, |trust gap| note line) for `day` (ISO) after a cut on `cut_day`; (None, None)
+    past the last band (no trust note) or when either day is unknown."""
+    import pandas as pd
+    if not cut_day or not day:
+        return None, None
+    c, d = pd.Timestamp(str(cut_day)[:10]), pd.Timestamp(str(day)[:10])
+    lo = 0
+    for months, line in DRIFT_TRUST_ENVELOPE:
+        if d < c + pd.DateOffset(months=months):
+            return f"{lo}-{months}", line
+        lo = months
+    return None, None
+
+
+def _write_report(path, report, log):
+    try:
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(report, f, indent=2, default=str)
+        os.replace(tmp, path)
+    except Exception as e:
+        log(f"[keel-live-state] could not write {path}: {type(e).__name__}: {e}")
+
+
+def _no_live_yet(path, report, leg_key, what, log):
+    report.update(live=False, details="no live state yet (before the cut) -- nothing to compare")
+    log(f"[keel-live-state] {what} {leg_key}: {report['details']}")
+    if os.path.exists(path):
+        os.remove(path)
+    return report
+
+
+def drift_check(reference, out_dir, leg_key, version, log=print, now_iso=None, day=None):
+    """DRIFT, report only -- see the block above. `day`: the session the reference was built
+    through (None: the latest day with an entry record). Returns the report written to
+    DRIFT_FILE. Reads the live state, never writes it."""
+    path = os.path.join(out_dir, DRIFT_FILE)
+    report = {"report_only": True, "leg": leg_key, "version": version,
+              "checked_at": now_iso or _dt_now_iso(),
+              "envelope": {"trust": [list(b) for b in DRIFT_TRUST_ENVELOPE],
+                           "size": DRIFT_SIZE_NOTE}}
+    try:
+        import numpy as np
+        import pandas as pd
+        from api import cloud_signal as _cs
+        from augur_engine import ml_keel as K
+        names = _cs.keel_live_names(leg_key, version)
+        live_path = os.path.join(out_dir, names["live"])
+        if not os.path.exists(live_path):
+            return _no_live_yet(path, report, leg_key, "drift", log)
+        import joblib
+        live = joblib.load(live_path)
+        meta = _cs.keel_live_meta(live) or {}
+        cfg_live, cfg_ref = _state_rule_cfg(live), _state_rule_cfg(reference)
+        recs = sorted(_cs.read_keel_xrows(os.path.join(out_dir, names["xrows"])).values(),
+                      key=lambda r: str(r.get("entry_bar_time") or r.get("entry_time") or ""))
+        days = []
+        for r in recs:
+            try:
+                days.append(_entry_day(r))
+            except Exception:
+                days.append(None)
+        if day is None:
+            day = max((d for d in days if d), default=None)
+        day = str(day)[:10] if day else None
+        entries, skipped = [], 0
+        for r, d in zip(recs, days):
+            if day is None or d != day:
+                continue
+            fn = list(r.get("feature_names") or [])
+            x = r.get("x_row")
+            if fn != list(live["feature_names"]) or fn != list(reference["feature_names"]) \
+                    or not isinstance(x, list) or len(x) != len(fn):
+                skipped += 1
+                continue
+            row = np.array([np.nan if v is None else float(v) for v in x], float).reshape(1, -1)
+            arr = {"index": pd.DatetimeIndex([pd.Timestamp(r.get("entry_bar_time")
+                                                           or r["entry_time"])])}
+            s_live, d_live = K.keel_score_from_state(live, arr, 0, x_row=row, cross_series=True)
+            s_ref, d_ref = K.keel_score_from_state(reference, arr, 0, x_row=row, cross_series=True)
+            entries.append({"trade_id": r.get("trade_id"), "entry_time": r.get("entry_time"),
+                            "size_live": float(s_live), "size_reference": float(s_ref),
+                            "diff": abs(float(s_live) - float(s_ref)),
+                            "branch_live": K.keel_branch(d_live, cfg_live),
+                            "branch_reference": K.keel_branch(d_ref, cfg_ref)})
+        tl, tr = _drift_float(live.get("trust_now")), _drift_float(reference.get("trust_now"))
+        d_trust = abs(tl - tr) if tl is not None and tr is not None else None
+        fl, fr = _drift_float(live.get("t_fast_now")), _drift_float(reference.get("t_fast_now"))
+        max_size = max((e["diff"] for e in entries), default=0.0)
+        split = [e for e in entries if e["branch_live"] != e["branch_reference"]]
+        band, line = _trust_envelope((meta.get("cut") or {}).get("data_through"), day)
+        notes = []
+        if line is not None and d_trust is not None and d_trust > line:
+            notes.append(f"trust_now {tl:.3f} live vs {tr:.3f} reference: a gap of {d_trust:.3f}, "
+                         f"past {line} for months {band} since the cut")
+        big = [e for e in entries if e["diff"] > DRIFT_SIZE_NOTE]
+        if big:
+            notes.append(f"{len(big)} of the day's {len(entries)} entries sized more than "
+                         f"{DRIFT_SIZE_NOTE}x apart (up to {max_size:.2f}x)")
+        report.update(
+            live=True, day=day, months_band=band, trust_note_above=line, noted=bool(notes),
+            notes=notes, live_n=int(live["n"]), reference_n=int(reference["n"]),
+            live_appended=len(meta.get("appended") or []), cut=meta.get("cut"),
+            trust_now_live=tl, trust_now_reference=tr, d_trust=d_trust,
+            t_fast_now_live=fl, t_fast_now_reference=fr,
+            d_t_fast=abs(fl - fr) if fl is not None and fr is not None else None,
+            branch_now_live=state_branch_now(live), branch_now_reference=state_branch_now(reference),
+            max_size_diff=max_size, branch_splits=len(split), entries=entries,
+            entries_skipped=skipped)
+        log(f"[keel-live-state] drift {leg_key} (report only): "
+            f"{'; '.join(notes) if notes else 'inside the envelope'} -- trust_now {tl} / {tr}, "
+            f"t_fast_now {fl} / {fr}, branch_now {report['branch_now_live']} / "
+            f"{report['branch_now_reference']} (live / reference); {len(entries)} entries of {day}, "
+            f"sizes up to {max_size:.2f}x apart, {len(split)} on another branch")
+    except Exception as e:
+        log(f"[keel-live-state] drift report failed (non-fatal): {type(e).__name__}: {e}")
+        report.update(noted=None, error=f"{type(e).__name__}: {e}")
+    _write_report(path, report, log)
+    return report
+
+
+def _units(live, reference, meta):
+    """The units check: {ok (None = skipped), n_qqq, median_qqq, median_nq, ratio, band}."""
+    import numpy as np
+    cut_n = int((meta.get("cut") or {}).get("n"))
+    q = np.asarray(live["P"], float)[cut_n:]
+    out = {"ok": None, "n_qqq": int(len(q)), "last": UNITS_LAST, "ref_last": UNITS_REF,
+           "band": list(UNITS_BAND), "median_qqq": None, "median_nq": None, "ratio": None}
+    if len(q) < UNITS_LAST:
+        out["details"] = f"skipped: {len(q)} QQQ trades appended, {UNITS_LAST} needed"
+        return out
+    mq = float(np.median(np.abs(q[-UNITS_LAST:])))
+    mn = float(np.median(np.abs(np.asarray(reference["P"], float)[-UNITS_REF:])))
+    ratio = mq / mn if mn > 0 else float("inf")
+    ok = UNITS_BAND[0] <= ratio <= UNITS_BAND[1]
+    out.update(ok=bool(ok), median_qqq=mq, median_nq=mn, ratio=ratio,
+               details=f"median |P| {mq:.3f} on the last {UNITS_LAST} QQQ trades vs {mn:.3f} on the "
+                       f"NQ reference's last {UNITS_REF}: {ratio:.2f}x "
+                       f"({'inside' if ok else 'OUTSIDE'} {UNITS_BAND[0]}x-{UNITS_BAND[1]}x)")
+    return out
+
+
+def _iso_epoch(s):
+    import datetime as _dt
+    try:
+        d = _dt.datetime.fromisoformat(str(s))
+    except (TypeError, ValueError):
+        return None
+    if d.tzinfo is None:
+        d = d.replace(tzinfo=_dt.timezone.utc)
+    return d.timestamp()
+
+
+def live_check(reference, out_dir, leg_key, version, log=print, now_iso=None):
+    """THE ALERTS (exact, units, chain) -- see the block above. Returns the report written to
+    LIVE_CHECK_FILE. Reads the live state, its cut and append log, the ack; writes none of them."""
+    path = os.path.join(out_dir, LIVE_CHECK_FILE)
+    now_iso = now_iso or _dt_now_iso()
+    report = {"ok": None, "leg": leg_key, "version": version, "checked_at": now_iso, "reasons": []}
+    try:
+        from api import cloud_signal as _cs
+        from tools import keel_intraday as KI
+        names = _cs.keel_live_names(leg_key, version)
+        live_path = os.path.join(out_dir, names["live"])
+        if not os.path.exists(live_path):
+            return _no_live_yet(path, report, leg_key, "live check", log)
+        try:
+            with open(path, encoding="utf-8") as f:
+                prev = json.load(f)
+        except (OSError, ValueError):
+            prev = None
+        # one consistent view: the live state, its cut, its append log and the ack are read under
+        # the append handler's own lock (<home>/cloud_signal/keel_inbox.lock), so a trade being
+        # appended right now is either wholly in it or not at all; the replay runs after
+        with KI._Lock(os.path.join(os.path.dirname(os.path.abspath(out_dir)), KI.LOCK_NAME)):
+            live = KI._load_joblib(live_path)
+            cut = KI._load_joblib(os.path.join(out_dir, names["live_cut"]))
+            rows = KI.read_appends(os.path.join(out_dir, names["appends"]))
+            try:
+                with open(os.path.join(out_dir, names["live_ack"]), encoding="utf-8") as f:
+                    ack = json.load(f)
+            except (OSError, ValueError):
+                ack = {}
+        # 1. exact
+        exact = {"ok": False, "tol": KI.EXACT_TOL, "fields": {}, "mismatches": []}
+        try:
+            if not isinstance(live, dict):
+                raise ValueError("the live state cannot be read")
+            if not isinstance(cut, dict):
+                raise ValueError(f"no cut state at {names['live_cut']}")
+            reb = KI.replay(cut, rows)
+            exact["fields"], exact["mismatches"] = KI.exact_mismatches(live, reb)
+            exact["ok"] = not exact["mismatches"]
+        except Exception as e:
+            exact["mismatches"] = [f"not rebuilt: {type(e).__name__}: {e}"]
+        # 2. units
+        meta = _cs.keel_live_meta(live) if isinstance(live, dict) else None
+        try:
+            units = _units(live, reference, meta or {}) if meta else {
+                "ok": None, "details": "skipped: no readable live state"}
+        except Exception as e:
+            units = {"ok": None, "details": f"not checked: {type(e).__name__}: {e}"}
+        # 3. chain
+        since = _iso_epoch((prev or {}).get("checked_at")) if isinstance(prev, dict) else None
+        now_ep = _iso_epoch(now_iso)
+        new = []
+        for a in (ack.get("alerts") or []) if isinstance(ack, dict) else []:
+            at = _iso_epoch(a.get("at")) if isinstance(a, dict) else None
+            if at is None:
+                continue
+            if since is None or at > since or (now_ep is not None and at >= now_ep - CHAIN_WINDOW_SEC):
+                new.append(a)
+        chain = {"ok": not new, "alerts": new, "since": (prev or {}).get("checked_at")
+                 if isinstance(prev, dict) else None}
+        reasons = [k for k, v in (("exact", exact), ("units", units), ("chain", chain))
+                   if v.get("ok") is False]
+        report.update(ok=not reasons, reasons=reasons, live=True, exact=exact, units=units,
+                      chain=chain, live_n=int(live["n"]) if isinstance(live, dict) else None,
+                      cut=(meta or {}).get("cut"))
+        log(f"[keel-live-state] live check {leg_key}: {'OK' if report['ok'] else 'ALERT'} -- exact "
+            f"{'ok' if exact['ok'] else 'MISMATCH ' + ', '.join(exact['mismatches'])}; units "
+            f"{units.get('details')}; chain {len(new)} new alert(s)")
+    except Exception as e:
+        log(f"[keel-live-state] live check failed (non-fatal): {type(e).__name__}: {e}")
+        report.update(ok=None, error=f"{type(e).__name__}: {e}")
+    _write_report(path, report, log)
+    return report
 
 
 def check_against_run_doc(run_id=None, leg=None, log=print):

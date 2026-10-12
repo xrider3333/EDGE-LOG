@@ -414,9 +414,11 @@ def test_diff_file_stays_bounded_and_skips_torn_lines(tmp_path, monkeypatch):
 
 
 def test_signal_cols_append_the_extras_at_the_end_and_decision_cols_unchanged():
-    assert cs.SIGNAL_COLS[-5:] == ["keel_branch", "keel_fixed_size", "keel_t_fast",
-                                   "keel_trust", "keel_score"]
-    assert cs.KEEL_EXTRA_COLS == cs.SIGNAL_COLS[-5:]
+    # the LIVE KEEL ledger columns (2026-10-12, MANAGER #143) were appended after the extras
+    assert cs.SIGNAL_COLS[-7:-2] == ["keel_branch", "keel_fixed_size", "keel_t_fast",
+                                     "keel_trust", "keel_score"]
+    assert cs.KEEL_EXTRA_COLS == cs.SIGNAL_COLS[-7:-2]
+    assert cs.SIGNAL_COLS[-2:] == cs.KEEL_LEDGER_COLS == ["keel_ledger_n", "keel_ledger_behind"]
     assert cs.DECISION_COLS[0] == "dec_bar_start" and cs.DECISION_COLS[-1] == "dec_bar_source"
     assert not set(cs.DECISION_COLS) & set(cs.KEEL_EXTRA_COLS)
 

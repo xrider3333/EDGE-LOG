@@ -13,7 +13,7 @@
 #   5. write ~/edgelog/edgelog.env ONCE (fill in the CHANGE-ME lines yourself)
 #   6. install + enable the systemd units (edgelog-runner.service,
 #      edgelog-healthcheck.timer/.service, edgelog-keel-state.timer/.path/.service,
-#      edgelog-freshness.timer/.service)
+#      edgelog-keel-append.path/.service, edgelog-freshness.timer/.service)
 #   7. install /etc/logrotate.d/edgelog (daily, size-capped -- see
 #      deploy/cloud/edgelog.logrotate)
 #
@@ -82,9 +82,16 @@ mkdir -p "${EDGELOG_HOME}/ohlc" "${EDGELOG_HOME}/qqq_exec" "${EDGELOG_HOME}/logs
 # it runs FIRST because `touch` on a root-owned file fails, and set -e would stop here. -h:
 # a symlink among the logs has the LINK chowned, never the file it points at.
 sudo chown -h "${RUN_USER}:${RUN_USER}" "${EDGELOG_HOME}"/logs/*.log 2>/dev/null || true
-for log in runner qqq_exec cloud_signal keel_state qqq_bars freshness; do
+for log in runner qqq_exec cloud_signal keel_state keel_intraday qqq_bars freshness; do
   touch "${EDGELOG_HOME}/logs/${log}.log"
 done
+# LIVE KEEL (2026-10-12): the inbox edgelog-keel-append.path watches, the executor's tmp dir beside
+# it and the handler's done/rejected dirs -- created HERE as ${RUN_USER} (api/qqq_exec.py and
+# tools/keel_intraday.py run as that user; a root-made dir would refuse them). done/rejected are
+# SIBLINGS of the inbox: a subdirectory would keep the DirectoryNotEmpty trigger firing forever.
+mkdir -p "${EDGELOG_HOME}/cloud_signal/keel_inbox" "${EDGELOG_HOME}/cloud_signal/keel_inbox_tmp" \
+         "${EDGELOG_HOME}/cloud_signal/keel_inbox_done" "${EDGELOG_HOME}/cloud_signal/keel_inbox_rejected" \
+         "${EDGELOG_HOME}/cloud_signal/keel"
 
 # 5. env file -- write once, never clobber an owner-edited file --------------------
 ENV_FILE="${EDGELOG_HOME}/edgelog.env"
@@ -144,7 +151,7 @@ fi
 # 6. systemd units ------------------------------------------------------------------
 echo "==> installing systemd units"
 UNIT_SRC="${REPO_DIR}/deploy/cloud"
-for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path edgelog-freshness.service edgelog-freshness.timer; do
+for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path edgelog-keel-append.service edgelog-keel-append.path edgelog-freshness.service edgelog-freshness.timer; do
   sed \
     -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
     -e "s#__EDGELOG_REPO__#${REPO_DIR}#g" \
@@ -162,6 +169,10 @@ sudo systemctl enable edgelog-qqq-exec.service edgelog-cloud-signal.service
 # rebuilds immediately whenever the NQ master itself changes (item E, 2026-09-25 --
 # closes the gap a late/overnight push left, see edgelog-keel-state.path's own comment).
 sudo systemctl enable edgelog-keel-state.timer edgelog-keel-state.path
+# LIVE KEEL (2026-10-12): append each closed live NOISE_382 trade to the live KEEL state as the
+# executor drops it into cloud_signal/keel_inbox/ (tools/keel_intraday.py). Enabled, not started here --
+# `sudo systemctl start edgelog-keel-append.path` (or a reboot) arms it.
+sudo systemctl enable edgelog-keel-append.path
 # Webull pipeline freshness monitor (2026-10-05): read-only checks every 2 minutes, 24/7,
 # paging ntfy once per episode -- see tools/webull_freshness.py. Its executor auto-restart is
 # OFF until the owner writes {"auto_restart_exec": true} to

@@ -1,0 +1,22 @@
+[Unit]
+# LIVE KEEL (owner call 2026-10-12 via MANAGER #143): appends each CLOSED live Webull NOISE_382 trade
+# (api/qqq_exec.py's keel inbox file: the P&L of record) to the leg's LIVE KEEL v12 state with
+# ml_keel.keel_append_trade -- see tools/keel_intraday.py. Fired by edgelog-keel-append.path. Reads
+# the NQ master the nightly edgelog-keel-state.service builds from and the QQQ bar cache (the NQ/QQQ
+# price ratio; it never writes either), the nightly state (once, to cut the live state from) and
+# api/cloud_signal.py's entry records (cloud_signal/keel/NOISE_382_xrows.jsonl). Writes only
+# cloud_signal/keel/NOISE_382_v12_live*.{joblib,json} and the inbox's done/rejected folders.
+# api/cloud_signal.py picks the live state up by its mtime -- no restart needed.
+Description=EDGE-LOG KEEL v12 live-trade append (NOISE_382)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+ExecStart=__EDGELOG_VENV__/bin/python -u tools/keel_intraday.py --nq-file __EDGELOG_HOME__/nq/NOADJ_NQ_5m_RTH.csv --home __EDGELOG_HOME__
+Nice=5
+TimeoutStartSec=10min
+StandardOutput=append:__EDGELOG_HOME__/logs/keel_intraday.log
+StandardError=append:__EDGELOG_HOME__/logs/keel_intraday.log

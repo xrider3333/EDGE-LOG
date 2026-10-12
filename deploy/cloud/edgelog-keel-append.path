@@ -1,0 +1,22 @@
+[Unit]
+# LIVE KEEL (owner call 2026-10-12 via MANAGER #143): KEEL on NOISE_382 learns from the box's OWN live
+# Webull trades. api/qqq_exec.py writes one JSON per fully closed live NOISE_382 trade into
+# cloud_signal/keel_inbox_tmp/ and os.replace's it into cloud_signal/keel_inbox/. This unit starts
+# edgelog-keel-append.service whenever the inbox holds anything; the service
+# (tools/keel_intraday.py) appends each trade to the live KEEL state and moves EVERY inbox entry
+# out (to keel_inbox_done/ or keel_inbox_rejected/, siblings of the inbox -- never subdirectories
+# of it, or the inbox would never be empty and this unit would fire forever).
+#
+# The trigger limit stops a runaway loop (an inbox entry the service cannot move) instead of
+# re-running it for ever: normal use is one run per closed NOISE trade (a few a day).
+Description=Watch the KEEL inbox -> append closed live NOISE_382 trades to the live KEEL state
+Documentation=https://github.com/xrider3333/EDGE-LOG/blob/main/tools/keel_intraday.py
+
+[Path]
+DirectoryNotEmpty=__EDGELOG_HOME__/cloud_signal/keel_inbox
+Unit=edgelog-keel-append.service
+TriggerLimitIntervalSec=10min
+TriggerLimitBurst=40
+
+[Install]
+WantedBy=multi-user.target

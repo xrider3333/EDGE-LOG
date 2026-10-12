@@ -376,8 +376,9 @@ def test_entry_and_exit_rows_carry_the_same_trade_id(tmp_path):
         header = f.readline().strip().split(",")
         f.seek(0)
         rows = list(csv.DictReader(f))
-    # appended last: DECISION BARS, then the KEEL ENTRY EXTRAS (2026-10-05, MANAGER #76)
-    assert header == cs.SIGNAL_COLS and header[-1] == "keel_score"
+    # appended last: DECISION BARS, then the KEEL ENTRY EXTRAS (2026-10-05, MANAGER #76), then the
+    # LIVE KEEL ledger columns (2026-10-12, MANAGER #143)
+    assert header == cs.SIGNAL_COLS and header[-1] == "keel_ledger_behind"
     assert header.index("dec_bar_source") == header.index("keel_branch") - 1
     assert [r["event"] for r in rows] == ["SEED", "ENTRY", "EXIT"]
     assert rows[0]["trade_id"] == "" and rows[1]["trade_id"] == rows[2]["trade_id"] == want

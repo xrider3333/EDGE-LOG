@@ -395,15 +395,50 @@ def keel_mode(keel_cfg):
     return mode
 
 
+# LIVE KEEL (owner call 10-12, MANAGER #143): the legs whose KEEL learns from the box's OWN live
+# Webull trades -- each closed live trade is appended to a LIVE state that persists across nights
+# (tools/keel_intraday.py), while tools/keel_live_state.py keeps rebuilding the NQ nightly as the
+# REFERENCE. Only these legs' keel_paths() carry the live files; every other learned leg scores
+# on its nightly state exactly as before.
+KEEL_LIVE_LEARN_LEGS = ("NOISE_382",)
+
+
+def keel_live_names(leg_key, version):
+    """The LIVE KEEL files' base names inside the keel dir: the live state, the state before its
+    last append (the same-bar rule), the handler's ack, the entry records (one JSON line per live
+    entry: the exact feature row it scored), the CUT state (the nightly copy the live state grew
+    from, never changed) and the append-only log of every appended trade (live state == the cut
+    state + a replay of that log -- tools/keel_intraday.rebuild_live_state). NONE ends in
+    _summary.json -- tools/webull_freshness.py reads every *_summary.json in the keel dir as a leg."""
+    return {"live": f"{leg_key}_{version}_live.joblib",
+            "live_prev": f"{leg_key}_{version}_live_prev.joblib",
+            "live_ack": f"{leg_key}_{version}_live_ack.json",
+            "live_cut": f"{leg_key}_{version}_live_cut.joblib",
+            "appends": f"{leg_key}_live_appends.jsonl",
+            "xrows": f"{leg_key}_xrows.jsonl"}
+
+
 def keel_paths(leg_key, version, home=None):
     """Where tools/keel_live_state.py writes -- and this module reads -- a leg's KEEL
     state (joblib, this-host-only, never copied across machines) and its JSON summary
-    (plain-safe, freely readable). Same EDGELOG_HOME convention as _paths() above."""
+    (plain-safe, freely readable). Same EDGELOG_HOME convention as _paths() above.
+    LIVE KEEL (2026-10-12): a KEEL_LIVE_LEARN_LEGS leg also gets live_path / live_prev_path /
+    live_ack_path / live_cut_path / appends_path (tools/keel_intraday.py writes them) and
+    xrows_path (this module's entry records) -- see LIVE KEEL above _keel_live_pick."""
     home = home or edgelog_home()
     d = os.path.join(home, "cloud_signal", "keel")
-    return {"dir": d,
+    out = {"dir": d,
            "state_path": os.path.join(d, f"{leg_key}_{version}_state.joblib"),
            "summary_path": os.path.join(d, f"{leg_key}_{version}_summary.json")}
+    if leg_key in KEEL_LIVE_LEARN_LEGS:
+        names = keel_live_names(leg_key, version)
+        out.update({"live_path": os.path.join(d, names["live"]),
+                    "live_prev_path": os.path.join(d, names["live_prev"]),
+                    "live_ack_path": os.path.join(d, names["live_ack"]),
+                    "live_cut_path": os.path.join(d, names["live_cut"]),
+                    "appends_path": os.path.join(d, names["appends"]),
+                    "xrows_path": os.path.join(d, names["xrows"])})
+    return out
 
 
 CROWN_LEGS = {
@@ -2290,6 +2325,371 @@ def _keel_stale_reason(last_session, day):
     return None
 
 
+# ── LIVE KEEL: KEEL learns from the box's own live trades (owner call 10-12, MANAGER #143) ─────
+# Per-trade KEEL on NOISE_382 learns from the box's OWN live Webull QQQ NOISE_382 trades, not NQ
+# bars (the owner was told this is no longer the exact NQ backtest and chose it). THE FLOW:
+#   1. ENTRY RECORD (here): every NEW entry scored on a KEEL_LIVE_LEARN_LEGS leg -- a real score or
+#      the fixed-tilt fallback -- carries the exact feature row it scored (keel_features on the
+#      QQQ arrays used), the names, the entry bar time + index, the engine size, keel_size and the
+#      state it used (_keel_xrow_record); after the signal rows are written it is appended as ONE
+#      JSON line per trade_id to <keel dir>/<leg>_xrows.jsonl (_record_keel_xrows).
+#   2. CLOSE: api/qqq_exec.py drops one JSON per FULLY CLOSED live trade (the P&L of record) into
+#      cloud_signal/keel_inbox; tools/keel_intraday.py (edgelog-keel-append.path) appends it to the
+#      LIVE state with ml_keel.keel_append_trade: <leg>_<v>_live.joblib, _live_prev.joblib (the
+#      state before its last append) and _live_ack.json. The live state carries a KEEL_LIVE_META
+#      dict (the cut, the appended trades). It is made ONCE, at the CUT -- a copy of the nightly
+#      state the first time the handler needs it (Custom ML 10-12: tonight's nightly, live trades
+#      from 10-13 on, no backfill), kept as _live_cut.joblib -- and persists across nights; every
+#      append is also a row of the append-only <leg>_live_appends.jsonl, so the live state == the
+#      cut + a replay of that log (tools/keel_intraday.rebuild_live_state). The nightly build
+#      (tools/keel_live_state.py) keeps rebuilding the NQ state as the REFERENCE, never touching it;
+#      after it, a drift REPORT (keel_drift.json, never pushed) and the live state's alerts
+#      (keel_live_check.json: exact rebuild, units, missed / doubled closes -> the box monitor's
+#      keel_live:<leg> push).
+#   3. SCORING (_keel_live_size): the live state scores when it loads and its feature names match
+#      the entry's. The date rule (KEEL_MAX_STALE_SESSIONS on data_through) gates the NIGHTLY
+#      reference only. SAME-BAR RULE: when the last appended trade's exit bar starts at or after
+#      this entry's bar, _live_prev scores (the walk's strict exit < entry); a _prev that does not
+#      fit -> the live state anyway, logged. A live state that cannot score -> the nightly
+#      reference exactly as before (logged). Before the cut there is no live state: entries score
+#      on the nightly -- the very state the cut will copy (it never rebuilds in session).
+#   HEALTH: each entry records keel_ledger_n (the n of the state used) and keel_ledger_behind = live
+#   NOISE_382 trades after the cut (the executor's own trades.csv: entered after the cut's NQ data
+#   and on / after its live_from day) that are neither in the live state's appended trades nor
+#   rejected by the handler (its ack) -- waiting for their Webull fill, queued in the inbox, or
+#   lost. RULE: more than
+#   KEEL_LEDGER_BEHIND_WARN behind -> the live state still scores (it is the best ledger there is),
+#   with a warning line in the log.
+KEEL_LIVE_META = "live"
+KEEL_SOURCE_NIGHTLY = "nightly"
+KEEL_SOURCE_LIVE = "live"
+KEEL_SOURCE_LIVE_PREV = "live_prev"
+KEEL_SOURCE_FALLBACK = "fallback"
+KEEL_LEDGER_BEHIND_WARN = 3
+KEEL_BAR = "5min"                       # NOISE_382's bar: an exit's bar = its 5-minute bar
+
+
+def _keel_entry_ts(entry_time):
+    """`entry_time` (ISO string, "YYYY-mm-dd HH:MM:SS", datetime or Timestamp; naive = ET) as a
+    tz-aware ET Timestamp."""
+    import pandas as pd
+    ts = pd.Timestamp(entry_time)
+    return ts.tz_localize(TZ) if ts.tzinfo is None else ts.tz_convert(TZ)
+
+
+def keel_bar_start(ts):
+    """The start of the 5-minute bar holding `ts` (see _keel_entry_ts), tz-aware ET."""
+    return _keel_entry_ts(ts).floor(KEEL_BAR)
+
+
+def keel_live_meta(state):
+    """The KEEL_LIVE_META dict of a live state, else None."""
+    m = state.get(KEEL_LIVE_META) if isinstance(state, dict) else None
+    return m if isinstance(m, dict) else None
+
+
+def _keel_live_misfit(cand, keel_cfg, names):
+    """None when `cand` (a state tools/keel_intraday.py wrote) may score an entry whose feature
+    columns are `names`, else a short reason."""
+    if not isinstance(cand, dict):
+        return "unreadable"
+    if keel_live_meta(cand) is None:
+        return "no live meta"
+    if keel_cfg.get("version") and cand.get("version") != keel_cfg.get("version"):
+        return f"version {cand.get('version')!r}, the leg's is {keel_cfg.get('version')!r}"
+    if list(cand.get("feature_names") or []) != list(names):
+        return "feature columns differ from the entry's"
+    return None
+
+
+def _keel_exec_trades_path(keel_cfg):
+    """api/qqq_exec.py's trades.csv on this host, built like that module's TRADES_CSV
+    (EDGELOG_QQQ_EXEC_DIR, else <home>/qqq_exec) with <home> = the keel dir's own
+    (<home>/cloud_signal/keel)."""
+    d = os.environ.get("EDGELOG_QQQ_EXEC_DIR")
+    if not d:
+        kd = (keel_cfg or {}).get("dir")
+        home = os.path.dirname(os.path.dirname(kd)) if kd else edgelog_home()
+        d = os.path.join(home, "qqq_exec")
+    return os.path.join(d, "trades.csv")
+
+
+def keel_ledger_behind(keel_cfg, leg_key, meta, log=print):
+    """Live trades of `leg_key` entered after the cut and neither appended (`meta`, the live
+    state's KEEL_LIVE_META) nor rejected by the handler (its ack) -- see HEALTH above. None when
+    it cannot be counted (no cut, trades.csv unreadable). Never raises."""
+    try:
+        cut = (meta or {}).get("cut") or {}
+        # after the cut = ENTERED after its NQ data (data_through) and on / after live_from, as the
+        # handler's own cut gate (tools/keel_intraday.before_the_cut); a cut record without
+        # data_through: closed at or after its first exit
+        through = str(cut.get("data_through") or "")[:10]
+        first = str(cut.get("live_from") or "")[:10]
+        since = str(cut.get("from_exit_ts") or "")
+        if not through and not since:
+            return None
+        done = {str(a.get("trade_id")) for a in (meta.get("appended") or []) if isinstance(a, dict)}
+        try:
+            with open(keel_cfg["live_ack_path"], encoding="utf-8") as f:
+                ack = json.load(f)
+            done |= set(map(str, (ack.get("rejected") or {}) if isinstance(ack, dict) else {}))
+        except (OSError, ValueError, KeyError):
+            pass
+        import csv
+        prefix = f"{leg_key}-"
+        behind = 0
+        with open(_keel_exec_trades_path(keel_cfg), encoding="utf-8", newline="") as f:
+            for row in csv.DictReader(f):
+                tid = str(row.get("trade_id") or "")
+                if not tid.startswith(prefix) or tid in done:
+                    continue
+                if through:
+                    day = str(row.get("entry_ts") or "")[:10]
+                    after = day > through and day >= first
+                else:
+                    after = str(row.get("exit_ts") or "") >= since
+                if after:
+                    behind += 1
+        return behind
+    except FileNotFoundError:
+        return None                     # no executor ledger on this host: nothing to count
+    except Exception as e:
+        log(f"[cloud-signal] KEEL live ledger health not counted: {type(e).__name__}: {e}")
+        return None
+
+
+def _keel_leg_of(keel_cfg):
+    """The leg key a live keel block belongs to (its live file's name: <leg>_<version>_live...)."""
+    name = os.path.basename(str((keel_cfg or {}).get("live_path") or ""))
+    suffix = f"_{keel_cfg.get('version')}_live.joblib"
+    return name[:-len(suffix)] if name.endswith(suffix) else ""
+
+
+def _keel_behind_now(keel_cfg, log=print):
+    """keel_ledger_behind for an entry the NIGHTLY reference scored: counted against the live
+    state's meta when one exists, else None (before the cut, off the live-learning legs)."""
+    try:
+        path = (keel_cfg or {}).get("live_path")
+        if not path or not os.path.exists(path):
+            return None
+        live, _ = _load_keel_state(path, "", log=log)
+        meta = keel_live_meta(live)
+        if not meta:
+            return None
+        return keel_ledger_behind(keel_cfg, meta.get("leg") or _keel_leg_of(keel_cfg), meta, log=log)
+    except Exception:
+        return None
+
+
+def _keel_live_pick(keel_cfg, names, entry_time, log=print):
+    """(state, info) -- the live state (or its _prev, the same-bar rule) for an entry whose
+    feature columns are `names` and whose bar starts at `entry_time`; (None, why) when the live
+    state cannot score it (why None: there is no live state at all). info: source ("live" /
+    "live_prev"), meta (the LIVE state's KEEL_LIVE_META -- the health count reads it even when
+    _prev scores), why (a note, else None). Never raises."""
+    try:
+        path = (keel_cfg or {}).get("live_path")
+        if not path or not os.path.exists(path):
+            return None, None
+        cand, _ = _load_keel_state(path, "", log=log)
+        why = _keel_live_misfit(cand, keel_cfg, names)
+        if why:
+            return None, f"live state not used: {why}"
+        meta = keel_live_meta(cand)
+        info = {"source": KEEL_SOURCE_LIVE, "meta": meta, "why": None}
+        entry_ts = _keel_entry_ts(entry_time)
+        last_bar = meta.get("last_exit_bar_ts")
+        if not last_bar or _keel_entry_ts(last_bar) < entry_ts:
+            return cand, info
+        # SAME-BAR: the last appended trade exited on this entry's bar -- not in its ledger
+        ppath = keel_cfg.get("live_prev_path")
+        prev = _load_keel_state(ppath, "", log=log)[0] if ppath and os.path.exists(ppath) else None
+        pwhy = _keel_live_misfit(prev, keel_cfg, names) if prev is not None else "missing"
+        if pwhy is None and int(prev.get("n", -1)) != int(cand.get("n", -1)) - 1:
+            pwhy = "not the state before the last append"
+        if pwhy is None:
+            pbar = (keel_live_meta(prev) or {}).get("last_exit_bar_ts")
+            if pbar and _keel_entry_ts(pbar) >= entry_ts:
+                pwhy = "its own last exit is on this bar too"
+        if pwhy is None:
+            return prev, dict(info, source=KEEL_SOURCE_LIVE_PREV,
+                              why=f"same-bar: {meta.get('last_trade_id')} exited on this entry's bar")
+        return cand, dict(info, why=f"same-bar rule not kept: the state before "
+                                    f"{meta.get('last_trade_id')} {pwhy}")
+    except Exception as e:
+        return None, f"live state not used: {type(e).__name__}: {e}"
+
+
+def _keel_live_would_score(keel_cfg, arrays=None, log=print):
+    """True when the leg's live state exists, loads and fits (feature names: `arrays`' when given,
+    else its own) -- _keel_fallback_reason's view: such a leg is not falling back. Never raises."""
+    try:
+        path = (keel_cfg or {}).get("live_path")
+        if not path or not os.path.exists(path):
+            return False
+        cand, _ = _load_keel_state(path, "", log=log)
+        if arrays is not None:
+            from augur_engine import ml_keel as _keel
+            names = _keel.keel_features(arrays)[1]
+        else:
+            names = (cand or {}).get("feature_names") or [] if isinstance(cand, dict) else []
+        return _keel_live_misfit(cand, keel_cfg, names) is None
+    except Exception:
+        return False
+
+
+def _keel_live_size(keel_cfg, arrays, entry_bar, entry_time, log=print, scratch=None):
+    """(size, diag) for ONE entry scored on the LIVE state (_keel_live_pick), or None when it
+    cannot be -- then _keel_size_for_entry's nightly path sizes it exactly as before. Fills
+    `scratch` like that path (feats, rule_cfg, ledger_n, ledger_behind, state_source). Logs the
+    source when it is not the plain live state, and the HEALTH warning. Never raises."""
+    if not (keel_cfg or {}).get("live_path") or not os.path.exists(keel_cfg["live_path"]):
+        return None
+    try:
+        from augur_engine import ml_keel as _keel
+        F, names = _keel.keel_features(arrays)
+        use, info = _keel_live_pick(keel_cfg, names, entry_time, log=log)
+        if use is None:
+            if info:
+                log(f"[cloud-signal] KEEL {info} -- the {entry_time} entry scores on the nightly "
+                    f"reference")
+            return None
+        row = int(min(max(int(entry_bar), 0), len(F) - 1))
+        size, diag = _keel.keel_score_from_state(use, arrays, row, x_row=F[row:row + 1],
+                                                 cross_series=True)
+        if not math.isfinite(size) or size <= 0:
+            log(f"[cloud-signal] KEEL live state gave a non-finite/non-positive size ({size!r}) "
+                f"-- the {entry_time} entry scores on the nightly reference")
+            return None
+        meta = info["meta"]
+        behind = keel_ledger_behind(keel_cfg, meta.get("leg") or _keel_leg_of(keel_cfg), meta,
+                                    log=log)
+        if info.get("why"):
+            log(f"[cloud-signal] KEEL {info['source']} state (n={int(use['n'])}) scored the "
+                f"{entry_time} entry -- {info['why']}")
+        if behind is not None and behind > KEEL_LEDGER_BEHIND_WARN:
+            log(f"[cloud-signal] WARNING KEEL live ledger is {behind} closed live trade(s) behind "
+                f"(more than {KEEL_LEDGER_BEHIND_WARN}) -- scoring the {entry_time} entry on it "
+                f"anyway (n={int(use['n'])}); check edgelog-keel-append / the keel inbox")
+        if isinstance(scratch, dict):
+            scratch["feats"] = (F, names)
+            scratch["rule_cfg"] = use.get("cfg") or _keel.CFG.get(use.get("version"))
+            scratch["ledger_n"] = int(use["n"])
+            scratch["ledger_behind"] = behind
+            scratch["state_source"] = info["source"]
+        return float(size), diag
+    except Exception as e:
+        log(f"[cloud-signal] KEEL live state scoring failed ({type(e).__name__}: {e}) -- the "
+            f"{entry_time} entry scores on the nightly reference")
+        return None
+
+
+def _jsonable_row(row):
+    """A feature row as JSON-safe floats (NaN / inf -> None), exactly round-tripping finite values."""
+    out = []
+    for v in row:
+        f = float(v)
+        out.append(f if math.isfinite(f) else None)
+    return out
+
+
+def _keel_xrow_record(leg_key, tid, t, arrays, keel_cfg, ks, diag, plugin_size, final_size,
+                      scratch, log=print):
+    """The ENTRY RECORD (LIVE KEEL step 1) for one new entry, or None when it cannot be built
+    (logged). The row is keel_features on `arrays` at the scorer's own (clamped) entry bar --
+    the score's own F when it computed one. Never raises."""
+    try:
+        from augur_engine import ml_keel as _keel
+        feats = (scratch or {}).get("feats")
+        F, names = feats if feats is not None else _keel.keel_features(arrays)
+        import pandas as pd
+        row = int(min(max(int(t.get("entry_bar")), 0), len(F) - 1))
+        idx = pd.DatetimeIndex(arrays["index"])
+        model = isinstance(diag, dict)
+        return {"leg": leg_key, "trade_id": tid, "side": t.get("side"),
+                "entry_time": str(t["entry_time"]), "entry_bar": row,
+                "entry_bar_time": idx[row].isoformat(), "arrays_last": idx[-1].isoformat(),
+                "feature_names": list(names), "x_row": _jsonable_row(F[row]),
+                "engine_size": float(final_size), "plugin_size": float(plugin_size),
+                "keel_size": float(ks),
+                "state_source": (scratch or {}).get("state_source") if model else KEEL_SOURCE_FALLBACK,
+                "state_n": (scratch or {}).get("ledger_n") if model else None,
+                "ledger_behind": (scratch or {}).get("ledger_behind") if model else None,
+                "keel_reason": "" if model else str(diag or ""),
+                "recorded_at": _dt.datetime.now(tz=_zi(TZ)).isoformat()}
+    except Exception as e:
+        log(f"[cloud-signal] KEEL entry record not built for {tid}: {type(e).__name__}: {e}")
+        return None
+
+
+def read_keel_xrows(path):
+    """{trade_id: record} from a <leg>_xrows.jsonl file (the FIRST record of a trade id wins; a
+    torn or bad line is skipped). Missing file -> {}. Never raises."""
+    out = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            for ln in f:
+                ln = ln.strip()
+                if not ln:
+                    continue
+                try:
+                    rec = json.loads(ln)
+                except ValueError:
+                    continue
+                if isinstance(rec, dict) and rec.get("trade_id") and rec["trade_id"] not in out:
+                    out[rec["trade_id"]] = rec
+    except OSError:
+        return {}
+    return out
+
+
+def _append_keel_xrow(path, rec, log=print):
+    """Append `rec` as one JSON line unless its trade_id is already there: ONE write on an
+    append-mode file (a torn last line from a crash is closed with a newline first), flushed and
+    fsynced. True (new) / False (already there) / None (could not write, logged). Never raises."""
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        if rec["trade_id"] in read_keel_xrows(path):
+            return False
+        line = json.dumps(rec, sort_keys=True, allow_nan=False) + "\n"
+        lead = ""
+        try:
+            with open(path, "rb") as f:
+                f.seek(0, os.SEEK_END)
+                if f.tell():
+                    f.seek(-1, os.SEEK_END)
+                    lead = "" if f.read(1) == b"\n" else "\n"
+        except OSError:
+            pass
+        with open(path, "a", encoding="utf-8", newline="\n") as f:
+            f.write(lead + line)
+            f.flush()
+            os.fsync(f.fileno())
+        return True
+    except Exception as e:
+        log(f"[cloud-signal] KEEL entry record not written ({type(e).__name__}: {e}): "
+            f"{rec.get('trade_id') if isinstance(rec, dict) else rec}")
+        return None
+
+
+def _record_keel_xrows(events, legs, fetch, log=print):
+    """LIVE KEEL step 1: after a batch of signal rows is APPENDED (step(), a stream commit), write
+    each ENTRY's record (the private "_keel_xrow" key _diff_leg put on it) for a live-learning leg
+    on a live tick on the box (_push_allowed) to its keel block's xrows_path. Never raises."""
+    for e in events or []:
+        try:
+            rec = e.get("_keel_xrow")
+            if not rec or e.get("event") != "ENTRY":
+                continue
+            cfg = (legs or {}).get(e.get("leg")) or {}
+            path = (cfg.get("keel") or {}).get("xrows_path")
+            if not path or not _push_allowed(cfg, fetch):
+                continue
+            _append_keel_xrow(path, rec, log=log)
+        except Exception as ex:
+            log(f"[cloud-signal] KEEL entry record failed: {type(ex).__name__}: {ex}")
+
+
 def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scratch=None):
     """The KEEL multiplier for ONE new entry about to be emitted (design: "compute the
     KEEL size once" -- see _diff_leg, the only caller). Reads the trade's own feature
@@ -2324,7 +2724,12 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
     columns match the state, receives "feats" (the keel_features (F, names) just computed
     on `arrays`) and "rule_cfg" (the state's rule cfg), so the KEEL ENTRY EXTRAS
     (_keel_entry_extras, logging only) never recompute them on the entry path. Writing it
-    changes nothing this function returns.
+    changes nothing this function returns. When the model sized the entry it also receives
+    "ledger_n", "ledger_behind" and "state_source" (KEEL_LEDGER_COLS, the entry record).
+
+    LIVE KEEL (2026-10-12, MANAGER #143): on a KEEL_LIVE_LEARN_LEGS leg the LIVE state scores
+    first (_keel_live_size -- no date rule on it); only when it cannot (none yet, unreadable,
+    other feature columns, an error) does the nightly reference below, exactly as before.
     """
     if keel_cfg and keel_mode(keel_cfg) == KEEL_MODE_CONST:
         return _keel_const_size(keel_cfg)
@@ -2335,6 +2740,11 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
         return _keel_fixed_size_for_entry(keel_cfg, arrays, entry_bar, log=log)
     if mode != KEEL_MODE_LEARNED:
         return 1.0, f"unknown keel mode {mode!r}"
+    # LIVE KEEL (2026-10-12, MANAGER #143): the live state first -- no date rule on it (see LIVE
+    # KEEL above _keel_live_pick); None = it cannot score this entry, the nightly path below does
+    live = _keel_live_size(keel_cfg, arrays, entry_bar, entry_time, log=log, scratch=scratch)
+    if live is not None:
+        return live
     state_path = keel_cfg.get("state_path")
     if not state_path:
         return _keel_learned_fallback(keel_cfg, arrays, entry_bar,
@@ -2383,6 +2793,11 @@ def _keel_size_for_entry(keel_cfg, arrays, entry_bar, entry_time, log=print, scr
                 keel_cfg, arrays, entry_bar,
                 f"keel scoring returned a non-finite/non-positive size ({size!r})", log=log,
                 feats=feats)
+        if isinstance(scratch, dict):
+            # LIVE KEEL: the ledger this entry was scored with (KEEL_LEDGER_COLS, the entry record)
+            scratch["ledger_n"] = int(state.get("n") or 0)
+            scratch["state_source"] = KEEL_SOURCE_NIGHTLY
+            scratch["ledger_behind"] = _keel_behind_now(keel_cfg, log=log)
         return float(size), diag
     except Exception as e:
         log(f"[cloud-signal] KEEL scoring failed: {type(e).__name__}: {e}")
@@ -2666,7 +3081,11 @@ def _note_keel_entries(events, legs, paths, fetch, log=print, push=None):
     `push`: the sender (default _engine_push, synchronous); the stream commit passes
     _engine_push_background. A fallback difference ("fallback-1.0" / "fallback-fixed": KEEL
     could not score) is RECORDED for the inbox relay but not pushed: the KEEL fallback alert
-    already paged that cause at high priority."""
+    already paged that cause at high priority.
+
+    LIVE KEEL (2026-10-12): first writes the batch's ENTRY RECORDS (_record_keel_xrows) -- this
+    runs at both places a decision is committed (step() and the stream commit)."""
+    _record_keel_xrows(events, legs, fetch, log=log)
     for e in events or []:
         try:
             if e.get("event") != "ENTRY" or e.get("keel_size") in ("", None) \
@@ -2751,6 +3170,10 @@ def _keel_fallback_reason(keel_cfg, now, arrays=None, log=print):
                     else f"keel fixed tilts: unsupported version {version!r}")
         if mode != KEEL_MODE_LEARNED:
             return f"unknown keel mode {mode!r}"
+        # LIVE KEEL (2026-10-12): a live state that would score the next entry is no fallback,
+        # whatever the nightly reference's age -- the date rule gates the reference only
+        if _keel_live_would_score(keel_cfg, arrays, log=log):
+            return None
         state_path = keel_cfg.get("state_path")
         if not state_path:
             return "keel config has no state_path"
@@ -3354,13 +3777,38 @@ SIGNAL_COLS = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "s
               # read to size or send anything (see KEEL ENTRY EXTRAS). Blank on every other
               # row and leg, on rows written before these existed, and wherever computing
               # one failed (the trade itself is never touched).
-              "keel_branch", "keel_fixed_size", "keel_t_fast", "keel_trust", "keel_score"]
+              "keel_branch", "keel_fixed_size", "keel_t_fast", "keel_trust", "keel_score",
+              # appended, never inserted (2026-10-12, LIVE KEEL -- owner call via MANAGER #143) --
+              # on the ENTRY row of a LEARNED KEEL leg whose model sized it: keel_ledger_n = the n
+              # of the state that scored it (the live state, its _prev, or the nightly
+              # reference); keel_ledger_behind = live NOISE_382 trades closed since the live
+              # state's cut and not yet appended to it at scoring time (see LIVE KEEL above
+              # _keel_live_pick; blank before the cut and off the live-learning legs). LOGGING
+              # ONLY. Blank on every other row, on a fallback entry and on rows written before
+              # these existed.
+              "keel_ledger_n", "keel_ledger_behind"]
 
 # The decision-bar columns above, in order -- the only columns _decision_cols fills.
 DECISION_COLS = SIGNAL_COLS[SIGNAL_COLS.index("dec_bar_start"):SIGNAL_COLS.index("dec_bar_source") + 1]
 
 # The KEEL ENTRY EXTRAS columns above, in order -- the only columns _keel_entry_extras fills.
 KEEL_EXTRA_COLS = SIGNAL_COLS[SIGNAL_COLS.index("keel_branch"):SIGNAL_COLS.index("keel_score") + 1]
+
+# The LIVE KEEL ledger columns above, in order -- the only columns _keel_ledger_cols fills.
+KEEL_LEDGER_COLS = SIGNAL_COLS[SIGNAL_COLS.index("keel_ledger_n"):SIGNAL_COLS.index("keel_ledger_behind") + 1]
+
+
+def _keel_ledger_cols(scratch):
+    """The KEEL_LEDGER_COLS values for one learned-leg ENTRY from _keel_size_for_entry's
+    `scratch` (blank when the model did not size it). Never raises."""
+    try:
+        if isinstance(scratch, dict) and scratch.get("ledger_n") is not None:
+            behind = scratch.get("ledger_behind")
+            return {"keel_ledger_n": int(scratch["ledger_n"]),
+                    "keel_ledger_behind": "" if behind is None else int(behind)}
+    except Exception:
+        pass
+    return {c: "" for c in KEEL_LEDGER_COLS}
 
 
 def _read_signals_header(path):
@@ -4283,6 +4731,17 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                                                      _diag, log=log,
                                                      feats=_ks_scratch.get("feats"),
                                                      rule_cfg=_ks_scratch.get("rule_cfg"))
+                    # LIVE KEEL: which ledger scored it (KEEL_LEDGER_COLS, logging only)
+                    keel_extras = dict(keel_extras or {}, **_keel_ledger_cols(_ks_scratch))
+                    # LIVE KEEL step 1: the entry record of a live-learning leg on the box --
+                    # written by _record_keel_xrows once the row is appended (a stream dry run's
+                    # event never reaches it unless that decision is committed)
+                    if keel_cfg.get("xrows_path") and tid and not (cfg or {}).get("shadow") \
+                            and _is_cloud_host():
+                        _xrow = _keel_xrow_record(leg_key, tid, t, arrays, keel_cfg, ks, _diag,
+                                                  plugin_size, final_size, _ks_scratch, log=log)
+                        if _xrow:
+                            keel_extras["_keel_xrow"] = _xrow
             rec = recorded[key]
             rec["size"] = final_size
             rec["keel_size"] = keel_size
