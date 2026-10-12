@@ -365,8 +365,8 @@ MUTANTS = [
      'const i=Math.floor((_ledgerHm(t.entryTime)-36000)/1800),v=+t.pnl||0;',
      'the time of day strip files trades a half hour late'),
     ('missed-group-gone',
-     '_hmDisciplineGroup(rangeTrades),_hmMissedGroup());',
-     '_hmDisciplineGroup(rangeTrades));',
+     '_hmDisciplineGroup(rangeTrades),_hmMissedGroup(),',
+     '_hmDisciplineGroup(rangeTrades),',
      'the missed trades group is gone from More stats'),
     # LEDGER improvement 2 (2026-10-12): the rule check
     ('rules-row-gone',
@@ -519,8 +519,8 @@ MUTANTS = [
      "function ledgerTradeViewSet(id,v){try{}catch(e){}}",
      'LIST | TABLE is no longer remembered per board'),
     ('list-below-the-fold',
-     "'<div id=\"hm-feed-container\" data-hmsec=\"list\">'+_hmFrameHtml(list)+'</div>'",
-     "'<div style=\"height:900px\"></div><div id=\"hm-feed-container\" data-hmsec=\"list\">'+_hmFrameHtml(list)+'</div>'",
+     "'<div id=\"hm-feed-container\" data-hmsec=\"list\">'+_hmWeekCardHtml()+_hmFrameHtml(list)+'</div>'",
+     "'<div style=\"height:900px\"></div><div id=\"hm-feed-container\" data-hmsec=\"list\">'+_hmWeekCardHtml()+_hmFrameHtml(list)+'</div>'",
      'something tall sits above the trade list, so it starts more than a screen down on a phone (mistake #12)'),
     ('ai-box-open-by-default',
      "homeAiOpen=localStorage.getItem('el_lg_ai_real')==='1'",
@@ -657,8 +657,8 @@ MUTANTS = [
      '\'<div class="lg-more-panel hm-fold-body" id="hm-fold-\'+k+\'">\'+\'\'+\'</div>\'',
      'an own fold opens but shows nothing - its content is lost'),
     ('phone-list-too-low',
-     '\'<div id="hm-feed-container" data-hmsec="list">\'+_hmFrameHtml(list)+\'</div>\'',
-     '\'<div style="height:60px"></div><div id="hm-feed-container" data-hmsec="list">\'+_hmFrameHtml(list)+\'</div>\'',
+     '\'<div id="hm-feed-container" data-hmsec="list">\'+_hmWeekCardHtml()+_hmFrameHtml(list)+\'</div>\'',
+     '\'<div style="height:60px"></div><div id="hm-feed-container" data-hmsec="list">\'+_hmWeekCardHtml()+_hmFrameHtml(list)+\'</div>\'',
      'something 60 px tall sits above the trade list: still inside one screen on a phone, but lower than the build before step 11'),
     ('fold-summary-two-lines',
      '.hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}',
@@ -780,8 +780,8 @@ MUTANTS = [
      "    status:'',",
      'REAL has no status line'),
     ('recon-chip-back-in-hero',
-     "function _hmHeroChips(){return '';}",
-     "function _hmHeroChips(){return [reconBadge(),ntReconBadge()].filter(Boolean).map(b=>'<span class=\"lg-chip\">'+b+'</span>').join('');}",
+     "function _hmHeroChips(){",
+     "function _hmHeroChips(){return [reconBadge(),ntReconBadge()].filter(Boolean).map(b=>'<span class=\"lg-chip\">'+b+'</span>').join('');",
      'the Webull reconcile check is a chip in the hero again (top right) instead of the status line'),
     ('filters-open-by-default',
      "const LEDGER_FILTERS_OPEN=false;",
@@ -2248,6 +2248,8 @@ INSTALL_JS = r"""
     var C=JSON.parse(cj),S=JSON.parse(window.__probeDataJson);
     prefs.theme=C.theme;applyTheme();
     trades=S.trades;missedTrades=C.missed?S.missed:[];
+    // LEDGER improvement 8: the week card shows Friday to Sunday only; the probe keeps it off so a run on a Friday draws the same board
+    try{HM_WEEK_CARD_DAYS.length=0;}catch(_e){}
     // LEDGER improvements 1 + 5: the daily loss limit (a case without one has none, as a fresh browser) and the day's losses dated TODAY in New York
     // time by the page's own ledgerTodayNY() - the same clock the bar and the tilt chips use
     if(C.stop>0)prefs.dailyStop=C.stop;else delete prefs.dailyStop;
@@ -3896,14 +3898,14 @@ def _judge(data, data_obj):
                 fails.append('%s: max drawdown reads %r (must be a positive dollar amount)' % (nm, vals['maxdd']))
             if not re.match(r'^(\d+\.\d\d|no losses|--)$', vals['pf']):
                 fails.append('%s: profit factor reads %r' % (nm, vals['pf']))
-        # a case that installs no SHOULD HAVE TRADED entries (missed0) has no Missed trades group
-        has_missed = bool(re.search(r'/missed[1-9]', nm))
+        # a case that installs no SHOULD HAVE TRADED entries (cfg missed 0) has no Missed trades group
+        has_missed = bool(cfg.get('missed'))
         want_groups = MORE_GROUPS if has_missed else MORE_GROUPS.replace(',Missed trades', '')
         if r.get('moreGroups') != want_groups:
             fails.append('%s: More stats opened with groups %r, not %s'
                          % (nm, r.get('moreGroups'), want_groups.replace(',', ', ')))
         else:
-            _judge_edge_groups(nm, r, data_obj['trades'], fails, data_obj.get('missed') if has_missed else None)
+            _judge_edge_groups(nm, r, tcase, fails, data_obj.get('missed') if has_missed else None)
         cal = r.get('cal')
         if not cal:
             fails.append('%s: the LEDGER calendar fold is missing' % nm)
