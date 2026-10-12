@@ -350,6 +350,15 @@ INTERACTIONS = [
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
+    # LEDGER improvement 7 (2026-10-12): the NT8 book day on REAL
+    ('bookday-gone',
+     '${list}${_hmBookDayHtml()}</div>`;',
+     '${list}</div>`;',
+     'the NT8 book day line is gone from under the accounts'),
+    ('bookday-ignores-setting',
+     "if(prefs&&prefs.hideBookOnReal)return '';",
+     '',
+     'the NT8 book day line ignores the Settings switch that hides it'),
     # LEDGER improvements 10 + 12 (2026-10-12): fees by month, the CSV export
     ('fees-group-gone',
      '_hmMissedGroup(),_hmFeesGroup(rangeTrades));',
@@ -1808,6 +1817,18 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
         try{w.eval("closeSettings();delete prefs.dailyStop;delete prefs.setPane;");}catch(_e1){}
         if(prefs0===null)w.localStorage.removeItem('el_prefs');else w.localStorage.setItem('el_prefs',prefs0);
       }
+    });
+    // 17. LEDGER improvement 7: the NT8 book's day under REAL's accounts - drawn when the NT8 board left today's figure, gone for another
+    //     day, gone when Settings hides it (prefs.hideBookOnReal). Runs once (the laptop run); the page is put back afterwards.
+    if(I.settings)await step(res,'bookDay',async function(st){
+      try{
+        var td=w.eval('ledgerTodayNY()');
+        w.eval('window._p2BookDay={run:463,day:'+JSON.stringify(td)+',net:420,openN:1,openV:12.5};renderApp();');await sleep(60);
+        st.you=w.eval('ledgerSigned(_hmTodayNet())');
+        var b=q('[data-hmbook]');st.txt=b?(b.textContent||'').replace(/\\s+/g,' ').trim():null;st.inAcct=!!(b&&b.closest('[data-hmsec="acct"]'));
+        w.eval('prefs.hideBookOnReal=true;renderApp();');await sleep(60);st.hidden=!q('[data-hmbook]');
+        w.eval('delete prefs.hideBookOnReal;window._p2BookDay={run:463,day:"2000-01-01",net:420,openN:0,openV:0};renderApp();');await sleep(60);st.oldDay=!q('[data-hmbook]');
+      }finally{try{w.eval('delete prefs.hideBookOnReal;window._p2BookDay=null;renderApp();');}catch(_e){}}
     });
     try{w.eval('homeSheetId=null;window._hmMissedEdit=null;window._hmPasteNote=null;renderApp();');}catch(_e){}
     drain();
@@ -4382,6 +4403,17 @@ def _judge(data, data_obj):
         # 16. SETTINGS > TRADING LOG > DAILY LOSS LIMIT ($) (the laptop run): 750 + SAVE writes prefs.dailyStop and el_prefs, the box shows it when
         #     Settings is reopened, a blank box or 0 + SAVE clears it to null
         if I.get('settings'):
+            bk = st.get('bookDay') or {}
+            _errs(tag + ' book day on REAL', bk, fails)
+            want_bk = 'Today: you %s · BOOK #463 +$420.00 (+ 1 open +$12.50) · paper, not counted' % (bk.get('you') or '?')
+            if bk.get('threw'):
+                fails.append('%s book day on REAL: %s' % (tag, _first(bk['threw'])))
+            elif bk.get('txt') != want_bk or not bk.get('inAcct'):
+                fails.append('%s: the NT8 book day line under the accounts reads %r (inside the accounts: %s), expected %r'
+                             % (tag, bk.get('txt'), bk.get('inAcct'), want_bk))
+            elif not bk.get('hidden') or not bk.get('oldDay'):
+                fails.append('%s: the NT8 book day line still shows when Settings hides it (%s) or when its figure is from another day (%s)'
+                             % (tag, not bk.get('hidden'), not bk.get('oldDay')))
             ds = st.get('dailyStop') or {}
             _errs(tag + ' Settings daily loss limit', ds, fails)
             if ds.get('threw'):
