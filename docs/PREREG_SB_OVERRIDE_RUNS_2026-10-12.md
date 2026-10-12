@@ -89,3 +89,12 @@ netted $9,333 against the audit's $9,410 at 0.533 pt. No WF, AFTER or MEGACAP-EA
   seam counts. The gate still refuses on any mismatch.
 - **The readings themselves use the CURRENT master** (hole filled), through 2026-10-09, as written above.
 - Nothing else changes.
+
+## Addendum 3 (10-12, before any P&L was computed)
+The third start passed the parity gate (all three cells to the dollar on the pinned copy), then stopped at its first
+stretch: the session dates carried the master's Eastern time zone and could not be compared with the plain stretch dates.
+- The only output before the stop was M1's trade count on the full window. No P&L, ROC or win rate was computed.
+- **Change:** session dates are plain dates. The same fix stops B from silently matching no sessions.
+- **Disclosed, not changed:** B's event file counts every 8-K carrying item 2.02, as written above. Tesla files its
+  quarterly delivery reports under 2.02 as well, so it has about 78 events instead of 40. Those stay in.
+- Nothing else changes.

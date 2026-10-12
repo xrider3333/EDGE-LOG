@@ -32,7 +32,7 @@ _gg = ilu.module_from_spec(_sp); _sp.loader.exec_module(_gg)
 detect_roll_seams = _gg.detect_roll_seams
 
 NOTE = os.path.join(REPO, "docs", "PREREG_SB_OVERRIDE_RUNS_2026-10-12.md")
-NOTE_SHA = "6321517f75e5e3407c61af895245aecef716d648a6591f1d410e47fbd113fb28"                                                      # LF sha256 of the note as frozen on the witness branch
+NOTE_SHA = "328b26f10b6d7b3d8de88d9ace243106aebac96d3bc053e0aac5347349a11125"                                                      # LF sha256 of the note as frozen on the witness branch
 OUT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\override1012"
 TS = pd.Timestamp
 MULT = 20.0
@@ -102,7 +102,7 @@ def world(filename=None, **win):
         seams = set(detect_roll_seams(do, dc, [idx[x] for x, y in sess]))
     atr20 = np.full(nd, np.nan)
     for d in range(20, nd): atr20[d] = (dh[d - 20:d] - dl[d - 20:d]).mean()
-    days = pd.DatetimeIndex([idx[x].normalize() for x, y in sess])
+    days = pd.DatetimeIndex([idx[x].normalize() for x, y in sess]).tz_localize(None)   # ADDENDUM 3: plain session dates (the master stamps are Eastern-aware)
     return dict(o=o, h=h, l=l, c=c, v=v, mins=mins, sess=sess, nd=nd, dh=dh, dl=dl, seams=seams, atr20=atr20, days=days, n=n)
 
 
