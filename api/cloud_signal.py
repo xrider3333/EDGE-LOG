@@ -317,8 +317,13 @@ DIP_SPLIT_GAP = (0.6, 1.6)
 DIP_DIFF_SESSIONS = 60
 # DIP #424 LIVE (OWNER GO 2026-10-10, MANAGER #115) -- CROWN_LEGS["DIP_424"]. The day it joins the
 # order-placing book: its "live_since" (see LIVE SINCE above _apply_live_since -- one cold start,
-# SEED only, the leg starts flat).
-DIP_424_LIVE_SINCE = "2026-10-13"
+# SEED only, the leg starts flat). OWNER ORDER 2026-10-12 (MANAGER #135: "immediate"): moved from
+# 2026-10-13 to 2026-10-12 -- its first step after the mid-session deploy seeds it and ABSORBS
+# every open DIP position, today's 09:30 entries included (no late buy: they are past their
+# 25-minute entry age anyway); each slot then sits out until its absorbed position exits, and the
+# first real DIP entries are the next qualifying 09:35 (tests/test_dip424_live_engine.py, the
+# late-seed case).
+DIP_424_LIVE_SINCE = "2026-10-12"
 # The LIVE DIP leg's max_entry_age_sec. An entry is stamped at its session's 09:30 bar start (the
 # backtest fill at that open) and first seen at that bar's close, 09:35:05 -- ~5 minutes old at
 # best. 25 minutes rides out a few missed fetch ticks and still refuses an entry first seen at

@@ -253,14 +253,56 @@ def _hold_legs_from_config(exec_cfg):
 
 def _held_lot_words(lot):
     """One accepted held lot in plain words: 'DIP_RSI long 6 (held since 2026-10-13,
-    Webull holds 6 for it)'."""
+    Webull holds 6 for it)'; an --adopt-open lot: 'NOISE short 20 (open now, adopted through
+    the restart, Webull holds 20 for it)'."""
+    if lot.get("adopted"):
+        return (f"{lot['leg']} {lot['side']} {lot['shares']} (open now, adopted through the "
+                f"restart, Webull holds {lot['shares']} for it)")
     since = lot.get("since")
     return (f"{lot['leg']} {lot['side']} {lot['shares']} ("
             + (f"held since {since}, " if since else "held overnight, ")
             + f"Webull holds {lot['shares']} for it)")
 
 
-def _book_check(qqq_state, webull_state, hold_legs=None):
+# ADOPT OPEN (owner order 2026-10-12, MANAGER #135: "no longer waiting for market to close to
+# make changes. immediate."). With --adopt-open (only together with --owner-waiver) an open
+# intraday lot is ADOPTED through the restart instead of refusing the deploy: it must pass
+# exactly the held-lot checks (no pending close, a readable side and whole share count, and
+# Webull's broker_sent_positions[leg] holding exactly its signed shares); pending resends /
+# fill captures and any mismatch still refuse. The restart itself waits for a QUIET WINDOW in
+# the 5-minute bar cycle (QUIET_FROM_S..QUIET_TO_S seconds past a :x0/:x5 boundary): the legs
+# decide at a bar's close + a few seconds, so restarting just after that leaves ~4 minutes
+# before the next decision. The executor reloads its lots from state.json and reconciles them
+# against Webull at boot ("broker reconcile OK at boot") -- nothing is flattened or re-sent.
+QUIET_FROM_S = 20
+QUIET_TO_S = 150
+
+
+def _seconds_into_bar(now_et):
+    return (now_et.minute % 5) * 60 + now_et.second
+
+
+def _wait_for_quiet_window(now_fn, sleep_fn, log=print, max_wait_s=330):
+    """Sleeps until now_fn() is QUIET_FROM_S..QUIET_TO_S seconds into a 5-minute bar (at most
+    max_wait_s). Returns the time it reached the window, or None if it never did."""
+    waited = 0.0
+    while True:
+        now = now_fn()
+        s = _seconds_into_bar(now)
+        if QUIET_FROM_S <= s <= QUIET_TO_S:
+            return now
+        if waited >= max_wait_s:
+            return None
+        nap = (QUIET_FROM_S - s) if s < QUIET_FROM_S else (300 - s + QUIET_FROM_S)
+        nap = max(1.0, min(float(nap), max_wait_s - waited))
+        if waited == 0.0:
+            log(f"waiting {nap:.0f}s for a quiet minute (just after a 5-minute bar decision) "
+                f"before the restart...")
+        sleep_fn(nap)
+        waited += nap
+
+
+def _book_check(qqq_state, webull_state, hold_legs=None, adopt_open=False):
     """_book_is_flat's full answer: (ok, [reason, ...], [accepted held lot, ...]).
 
     HOLD-AWARE (module docstring, step 3): an open lot the executor holds overnight -- a
@@ -306,7 +348,8 @@ def _book_check(qqq_state, webull_state, hold_legs=None):
                            f"{type(lot).__name__}) -- treating as not flat")
             continue
         h = lot.get("hold")
-        if not (isinstance(h, dict) or str(leg) in hold):
+        held_proper = isinstance(h, dict) or str(leg) in hold
+        if not (held_proper or adopt_open):
             not_held.append(leg)
             continue
         cp = lot.get("close_pending")
@@ -350,7 +393,8 @@ def _book_check(qqq_state, webull_state, hold_legs=None):
                            f"(broker_sent_positions[{leg!r}]: {have}; want qty {want})")
             continue
         accepted.append({"leg": str(leg), "side": side, "shares": shares,
-                         "since": h.get("since") if isinstance(h, dict) else None})
+                         "since": h.get("since") if isinstance(h, dict) else None,
+                         **({} if held_proper else {"adopted": True})})
     if not_held:
         reasons.append(f"qqq_exec state.json has open legs that are not held overnight: "
                        f"{sorted(not_held, key=str)}")
@@ -663,6 +707,9 @@ def main(argv=None):
     ap.add_argument("--owner-waiver", default=None, metavar="TEXT",
                     help="explicit owner text authorizing a deploy inside the "
                          "09:25-16:05 ET protected window on a trading day; logged")
+    ap.add_argument("--adopt-open", action="store_true",
+                    help="with --owner-waiver only: adopt open intraday lots that match Webull "
+                         "exactly through the restart (restart waits for a quiet minute)")
     ap.add_argument("--yes", action="store_true",
                     help="actually deploy (without this, prints the plan and stops)")
     ap.add_argument("--dry-run", action="store_true",
@@ -671,6 +718,9 @@ def main(argv=None):
 
     if args.yes and args.dry_run:
         print("REFUSED: --yes and --dry-run together make no sense -- pick one")
+        return 2
+    if args.adopt_open and not args.owner_waiver:
+        print("REFUSED: --adopt-open needs --owner-waiver '<why>' (it deploys with open lots)")
         return 2
 
     now_et = _dt.datetime.now(_NY) if _NY else _dt.datetime.now()
@@ -708,7 +758,8 @@ def main(argv=None):
         print("note: could not read qqq_exec/config.json on the box -- only lots carrying "
               "their own hold mark count as held overnight")
     try:
-        flat, reasons, held = _book_check(qqq_state, webull_state, hold_legs)
+        flat, reasons, held = _book_check(qqq_state, webull_state, hold_legs,
+                                          adopt_open=args.adopt_open)
     except Exception as e:  # deliberately broad -- must never end in a bare traceback; fail closed
         print(f"REFUSED: could not evaluate book flatness ({type(e).__name__}: {e}) -- refusing")
         return 2
@@ -784,6 +835,15 @@ def main(argv=None):
          + (" held=" + ",".join(f"{x['leg']}:{x['side']}:{x['shares']}" for x in held)
             if held else ""))
 
+    if args.adopt_open:
+        reached = _wait_for_quiet_window(
+            lambda: _dt.datetime.now(_NY) if _NY else _dt.datetime.now(), time.sleep)
+        if reached is None:
+            _log("DEPLOY ABORTED no-quiet-window")
+            print("ABORTED: no quiet minute reached -- nothing was stopped or started.")
+            return 1
+        print(f"quiet minute reached at {reached:%H:%M:%S} ET")
+
     # One more flatness (and protected-window) check, as close to the restart as this
     # script can get it: steps so far include a 180s git fetch and dozens of ssh round
     # trips, long enough for the book to open a leg since the first check above.
@@ -801,7 +861,8 @@ def main(argv=None):
               "nothing was stopped or started.")
         return 2
     try:
-        flat2, reasons2, held2 = _book_check(qqq_state2, webull_state2, hold_legs)
+        flat2, reasons2, held2 = _book_check(qqq_state2, webull_state2, hold_legs,
+                                             adopt_open=args.adopt_open)
     except Exception as e:  # deliberately broad -- fail closed with a clean ABORTED line
         _log(f"DEPLOY ABORTED re-check-flatness-error error={e!r}")
         print(f"ABORTED: could not evaluate book flatness just before the restart "

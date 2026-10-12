@@ -719,3 +719,72 @@ def test_unit_or_deps_pattern_matches_only_the_expected_files():
         "deploy/cloud/requirements-cloud.txt",
         "deploy/cloud/edgelog.logrotate",
     ]
+
+
+# ── --adopt-open (owner order 2026-10-12, MANAGER #135) ─────────────────────────────────────
+def _noise_open(qty_webull=-20, **lot_kw):
+    qqq = {"legs": {"NOISE": dict({"side": "short", "shares_remaining": 20,
+                                   "trade_id": "NOISE_382-20261012T141000Z-S"}, **lot_kw)}}
+    webull = {"broker_sent_positions": {"NOISE": {"symbol": "QQQ", "qty": qty_webull}}}
+    return qqq, webull
+
+
+def test_an_open_intraday_lot_refuses_without_adopt_open():
+    qqq, webull = _noise_open()
+    ok, reasons, acc = box_deploy._book_check(qqq, webull)
+    assert not ok and acc == [] and any("not held overnight" in r for r in reasons)
+
+
+def test_adopt_open_accepts_an_open_lot_that_matches_webull_and_words_it():
+    qqq, webull = _noise_open()
+    ok, reasons, acc = box_deploy._book_check(qqq, webull, adopt_open=True)
+    assert ok and reasons == []
+    assert acc == [{"leg": "NOISE", "side": "short", "shares": 20, "since": None,
+                    "adopted": True}]
+    assert box_deploy._held_lot_words(acc[0]) == \
+        "NOISE short 20 (open now, adopted through the restart, Webull holds 20 for it)"
+
+
+def test_adopt_open_still_refuses_a_mismatch_a_pending_close_and_resends():
+    qqq, webull = _noise_open(qty_webull=-10)
+    ok, reasons, _ = box_deploy._book_check(qqq, webull, adopt_open=True)
+    assert not ok and any("does not match Webull" in r for r in reasons)
+    qqq, webull = _noise_open(close_pending={"reason": "exit"})
+    ok, reasons, _ = box_deploy._book_check(qqq, webull, adopt_open=True)
+    assert not ok and any("pending close" in r for r in reasons)
+    qqq, webull = _noise_open()
+    qqq["_broker_resend"] = {"NOISE:CLOSE": {}}
+    ok, reasons, _ = box_deploy._book_check(qqq, webull, adopt_open=True)
+    assert not ok and any("pending broker resend" in r for r in reasons)
+
+
+def test_a_held_lot_is_not_marked_adopted():
+    qqq = {"legs": {"DIP_RSI": {"side": "long", "shares_remaining": 6,
+                                "hold": {"since": "2026-10-12"}}}}
+    webull = {"broker_sent_positions": {"DIP_RSI": {"symbol": "QQQ", "qty": 6}}}
+    ok, _r, acc = box_deploy._book_check(qqq, webull, adopt_open=True)
+    assert ok and "adopted" not in acc[0]
+
+
+def test_adopt_open_needs_the_owner_waiver(capsys):
+    assert box_deploy.main(["--adopt-open", "--dry-run", "--commit", "abc"]) == 2
+    assert "needs --owner-waiver" in capsys.readouterr().out
+
+
+def test_the_quiet_window_waits_until_just_after_a_bar_decision():
+    import datetime as dt
+    t = [dt.datetime(2026, 10, 12, 10, 14, 50)]          # 290 s into the 10:10 bar
+    slept = []
+
+    def sleep(s):
+        slept.append(s)
+        t[0] = t[0] + dt.timedelta(seconds=s)
+    got = box_deploy._wait_for_quiet_window(lambda: t[0], sleep, log=lambda *a: None)
+    assert got == dt.datetime(2026, 10, 12, 10, 15, 20) and slept == [30.0]
+    t[0] = dt.datetime(2026, 10, 12, 10, 16, 0)            # 60 s in: already quiet
+    slept.clear()
+    assert box_deploy._wait_for_quiet_window(lambda: t[0], sleep, log=lambda *a: None) == t[0]
+    assert slept == []
+    t[0] = dt.datetime(2026, 10, 12, 10, 17, 40)           # 160 s in: wait for 10:20:20
+    assert box_deploy._wait_for_quiet_window(lambda: t[0], sleep, log=lambda *a: None) == \
+        dt.datetime(2026, 10, 12, 10, 20, 20)

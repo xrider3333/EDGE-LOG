@@ -141,9 +141,9 @@ def test_live_leg_is_dip_424f_without_shadow_or_keel_plus_live_since_and_25_minu
         "appended after NOISE_382 (its daily-cache refresh runs first on a live tick)"
     assert LIVE not in cs.SHADOW_LEGS and not set(SHADOW) & set(cs.CROWN_LEGS)
     want = {k: v for k, v in f.items() if k not in ("shadow", "keel", "max_entry_age_sec")}
-    want.update(live_since="2026-10-13", max_entry_age_sec=25 * 60)
+    want.update(live_since="2026-10-12", max_entry_age_sec=25 * 60)
     assert live == want
-    assert cs.DIP_424_LIVE_SINCE == "2026-10-13" and cs.DIP_LIVE_MAX_ENTRY_AGE_SEC == 1500
+    assert cs.DIP_424_LIVE_SINCE == "2026-10-12" and cs.DIP_LIVE_MAX_ENTRY_AGE_SEC == 1500
     assert live["runner"] == cs.DIP_RUNNER and live["timeframe"] == "5m"
     assert cs.leg_warmup_sessions(live) == cs.DIP_5M_ALL_SESSIONS
     for flag in ("shadow", "keel", "eod_flat", "decide_at_close", "resting_levels"):
@@ -421,7 +421,7 @@ def test_the_shipped_live_leg_does_nothing_before_2026_10_13(tmp_path, offline):
     step from 2026-10-13, as the SEED TIME notes describe."""
     paths = S.write_home(tmp_path, S.CRASH, 30)
     live = {LIVE: dict(cs.CROWN_LEGS[LIVE])}
-    assert live[LIVE]["live_since"] == "2026-10-13" > D_X2.isoformat()
+    assert live[LIVE]["live_since"] == "2026-10-12" > D_X2.isoformat()
     shadow = S._dip_legs(paths["home"])
     for now in (at(D_CRASH, 17, 0), at(D_ENTRY, 9, 30, 5), at(D_ENTRY, 9, 35, 5),
                 at(D_X1, 9, 35, 5)):
@@ -431,8 +431,8 @@ def test_the_shipped_live_leg_does_nothing_before_2026_10_13(tmp_path, offline):
     assert not os.path.exists(paths["signals_path"]) or _ledger_legs(paths["signals_path"]) == set()
     assert _ledger_legs(cs.shadow_paths(paths)["signals_path"]) == set(SHADOW)
     import datetime as _d
-    assert cs._before_live_since(live[LIVE], _d.datetime(2026, 10, 12, 15, 59, tzinfo=cs._zi(cs.TZ)))
-    assert not cs._before_live_since(live[LIVE], _d.datetime(2026, 10, 13, 9, 30, 5,
+    assert cs._before_live_since(live[LIVE], _d.datetime(2026, 10, 9, 15, 59, tzinfo=cs._zi(cs.TZ)))
+    assert not cs._before_live_since(live[LIVE], _d.datetime(2026, 10, 12, 10, 45, 5,
                                                                 tzinfo=cs._zi(cs.TZ)))
 
 

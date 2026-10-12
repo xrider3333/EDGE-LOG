@@ -406,7 +406,7 @@ def test_only_the_live_dip_leg_carries_live_since_and_enguq_is_a_shadow_leg():
     for key, cfg in list(cs.CROWN_LEGS.items()) + list(cs.SHADOW_LEGS.items()):
         if cs.LIVE_SINCE_KEY in cfg:
             carrying[key] = cfg[cs.LIVE_SINCE_KEY]
-    assert carrying == {"DIP_424": "2026-10-13"} and cs.DIP_424_LIVE_SINCE == "2026-10-13"
+    assert carrying == {"DIP_424": "2026-10-12"} and cs.DIP_424_LIVE_SINCE == "2026-10-12"
     assert not cs.CROWN_LEGS["DIP_424"].get("shadow")
 
 

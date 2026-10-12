@@ -100,7 +100,7 @@ def test_enguq_335_is_a_tracker_with_its_phantom_safe_cfg_unchanged():
     assert qe.ENGINE_LEG_MAP["ENGUQ_335"] == "ENGUQ", "kept so an old live row still resolves"
     carrying = {k: cfg["live_since"] for k, cfg in list(cs.CROWN_LEGS.items())
                 + list(cs.SHADOW_LEGS.items()) if cfg.get("live_since")}
-    assert carrying == {"DIP_424": "2026-10-13"}, "only the live DIP leg carries live_since"
+    assert carrying == {"DIP_424": "2026-10-12"}, "only the live DIP leg carries live_since"
 
 
 def test_shadow_paths_share_the_bars_and_nothing_else(tmp_path):
