@@ -1747,3 +1747,79 @@ not resolved.
 stored block inherits that block's conventions, and a drawdown convention is not a detail.** The
 honest move on 10-09 was to label the figures indicative; the necessary move was to re-read them
 before anyone acted, which is what this round did.
+
+## HOLD CAP r1 - the owner's quick-exit question, answered with real runs (2026-10-12)
+
+**Owner override 10-12 of the power-first gate** (MANAGER #76, relaying "what was the roc/yr on
+those tested. Keep testing them"). The 10-12 scatter had closed the quick-exit angle at draft on an
+EX-POST slice: of the crown's walk-forward trades, the 187 held under an hour have a **zero percent
+win rate**, because in this family a fast exit IS a trailing-stop hit. The owner's objection was
+fair - that slicing can only describe trades that happened to exit fast. **This section asks the
+runnable question: what if fast exits are FORCED?**
+
+**Instrument.** `ENGUQ_1M_ETH_HC_1_0.py`, the crown base with the hold cap the engine already
+supports but the crown hard-codes to off, the interpreted-path cap block copied verbatim from the
+existing time-cap file so both code paths cap identically. The fence is step 5 rather than the time
+-cap file's step 100, because 15 and 60 bars are unreachable on a 100-step lattice.
+**Gate: cap OFF reproduces the crown trade for trade, 2,053 against 2,053.**
+
+**Walk-forward 2016-10-01..2025-06-30, roll-corrected overnight master, cost 0.783 points a round
+trip, drawdown valued DAILY.**
+
+| cell | n | net | ROC@30k | worst DD | DD5 | DD% peak | Sortino | win | avg win | avg loss | w/l |
+|---|---|---|---|---|---|---|---|---|---|---|---|
+| crown (no cap) | 1,178 | $375,267 | 26.5 | $48,566 | $30,408 | 14.80% | 3.66 | 30.0% | $3,025 | $835 | 3.62 |
+| cap 15 min | 10,548 | -$47,993 | -2.2 | - | $76,538 | 76.54% | -0.75 | 44.9% | $181 | $156 | 1.16 |
+| cap 30 min | 8,305 | $24,989 | 1.4 | - | $18,121 | 63.20% | 0.33 | 47.1% | $251 | $218 | 1.15 |
+| cap 1 hour | 6,426 | $97,699 | 12.1 | - | $15,225 | 27.79% | 1.17 | 47.2% | $361 | $295 | 1.22 |
+| **cap 4 hours** | 5,070 | $246,152 | **29.8** | $28,296 | $20,185 | 19.01% | **2.20** | 41.7% | $775 | $471 | 1.65 |
+| cap 1 session | 2,496 | $363,337 | 25.2 | $49,532 | $31,820 | 14.51% | 3.06 | 33.2% | $1,827 | $689 | 2.65 |
+| cap 1 week | 1,501 | $331,160 | 20.6 | - | $31,485 | 17.02% | 2.97 | 30.6% | $2,542 | $802 | 3.17 |
+
+### What is real here, and what my own prior got wrong
+
+**The file carried a pre-registered prior that every cap would lose money and that tighter caps
+would lose more. The second half holds. The first half is FALSE at four hours and at one session.**
+That is recorded here rather than smoothed over, because a prior written before a run is only worth
+something if its failure is reported as loudly as its success would have been.
+
+**The 4-hour cap beats the crown on the house yardstick: ROC at $30k of 29.8 against 26.5.** It gets
+there by earning LESS money - $246,152 against $375,267 - on a much smaller DD5, $20,185 against
+$30,408, over 4.3 times the trades. The trade count explodes because capping frees the slot and the
+walk takes more signals: **the refill effect, which has killed four entry filters in this family,
+working FOR the capped version.**
+
+### Why it is still not a candidate
+
+- **Sortino collapses, 2.20 against 3.66.** The house bar requires beating the raw twin on ROC
+  **and** Sortino. It does not.
+- **It is one-episode driven.** Worst drawdown $28,296 over DD5 $20,185 is a ratio of 1.40, above
+  the 1.3 threshold. So is the crown (1.60) and the one-session cell (1.56) - all three are
+  one-episode rows, and the cap's is merely the least bad.
+- **The two risk measures disagree and neither should be quoted alone.** DD5 improves while
+  **DD% from peak worsens**, 19.01% against 14.80%. Shallower typical episodes, a deeper worst one
+  relative to its own high. A reader given only DD5 would overstate the improvement.
+
+### The owner's actual question: are there higher win rates?
+
+**Yes, and they are the trap he named in the same order.** The win rate goes from 30.0% to 47.2% at
+the 1-hour cap and 44.9% at 15 minutes - but **win/loss falls from 3.62 to 1.16-1.22**, the
+15-minute cell loses $47,993 and the 30-minute cell is marginal at ROC 1.4. The high win rate is
+bought by cutting the winners that pay for everything, which is the same thing the scatter said from
+the other direction: 490 trades held 24 hours or more made $1.03M while 1,563 shorter ones lost
+$539k.
+
+### Ledger consequence
+
+The hold cap is on this house's dead list. **This round says the dead-list entry is too strongly
+worded and deserves a note rather than deletion:** a 4-hour cap is not a money-loser, it is a
+different risk shape that trades Sortino for ROC and fails the bar on the half it loses. The shape
+is monotone and now mapped from 15 minutes to a week, so **no cap sweep should be given any part of
+the 900-trial budget.** The only unmeasured point worth a cell is 2 hours, between the 1-hour and
+4-hour readings. RUNBOARD row `ENGUQ-HOLDCAP-R1`. Crown stays frozen; nothing live or paper changes.
+
+**One process note against myself:** the first version of that RUNBOARD row carried an *estimated*
+worst drawdown, because the run script printed DD5 and DD% but not worst DD and I filled the field
+from the shape of the other numbers. The estimate was $38,300 against a true $28,296, and it hid the
+one-episode flag above. Corrected in place and reported to MANAGER (#958). The script now prints
+worst DD per cell.
