@@ -1,0 +1,37 @@
+NQ ATR(14) median over WF: 1m 6.77 pt, 5m 15.88 pt (30s ~ 4.79, 1h ~ 54.99 by sqrt-time); ES 5m 3.71 pt
+owner-rule cost per round trip: NQ 0.706 pt ($14.12), ES 0.582 pt ($29.12)
+
+NQ/MNQ Super Scalper [BACKTEST] (Crispigino, open source; MNQ 1m, 24/5, 6 entry paths x 8-factor score, pyramiding 20; 1 year)
+   author: win 63.7%, PF 1.23 -> avg win / avg loss 0.70; avg loss ~10.2 pt, avg win ~7.1 pt; 2934 trades a year (author's PF already NET of 2 ticks a side + commission)
+   as claimed                         win 63.7%: net $   49692 / yr / contract; ROC@30k median  273.5, P(>=15) 1.000 | DD5 - | DD% - | Sortino -
+   edge x 0.5 (OOS ~ half IS)         win 61.2%: net $   24849 / yr / contract; ROC@30k median   84.3, P(>=15) 1.000 | DD5 - | DD% - | Sortino -
+   edge x 0.25 (+ publication decay)  win 60.0%: net $   12435 / yr / contract; ROC@30k median   27.7, P(>=15) 0.899 | DD5 - | DD% - | Sortino -
+
+30-second NQ/ES '80% winrate' scalper (tight trailing ATR target, static stop 2.5 x ATR14 on 30s; 'long-term PF 1.3')
+   author: win 80.0%, PF 1.30 -> avg win / avg loss 0.32; avg loss ~12.0 pt, avg win ~3.9 pt; 1500 trades a year (no costs stated: read as GROSS)
+   cost = 18% of the average win; break-even win rate after costs 79.9% (author 80.0%)
+   as claimed                         win 80.0%: net $     317 / yr / contract; ROC@30k median    0.6, P(>=15) 0.009 | DD5 - | DD% - | Sortino -
+   edge x 0.5 (OOS ~ half IS)         win 77.7%: net $  -10437 / yr / contract; ROC@30k median   -3.3, P(>=15) 0.000 | DD5 - | DD% - | Sortino -
+   edge x 0.25 (+ publication decay)  win 76.6%: net $  -15820 / yr / contract; ROC@30k median   -3.3, P(>=15) 0.000 | DD5 - | DD% - | Sortino -
+
+TS V1 Nasdaq Scalping System (doerki87, PROTECTED; 1-HOUR chart despite the name; trend + counter-trend)
+   author: win 72.4%, PF 1.43 -> avg win / avg loss 0.55; avg loss ~55.0 pt, avg win ~30.1 pt; 150 trades a year (no costs stated: read as GROSS)
+   cost = 2% of the average win; break-even win rate after costs 65.5% (author 72.4%)
+   as claimed                         win 72.4%: net $   17403 / yr / contract; ROC@30k median   45.7, P(>=15) 0.993 | DD5 - | DD% - | Sortino -
+   edge x 0.5 (OOS ~ half IS)         win 68.5%: net $    7569 / yr / contract; ROC@30k median   12.6, P(>=15) 0.392 | DD5 - | DD% - | Sortino -
+   edge x 0.25 (+ publication decay)  win 66.6%: net $    2652 / yr / contract; ROC@30k median    3.1, P(>=15) 0.047 | DD5 - | DD% - | Sortino -
+
+VWAP-RSI Scalper FINAL v1 (michaelriggs, open source; RSI(3) extreme with VWAP + EMA trend, stop 1 ATR / target 2 ATR, <= 3 a day)
+   author: win 42.0%, PF 1.37 -> avg win / avg loss 1.89; avg loss ~15.9 pt, avg win ~30.0 pt; 375 trades a year (no costs stated: read as GROSS)
+   cost = 2% of the average win; break-even win rate after costs 36.1% (author 42.0%)
+   as claimed                         win 42.0%: net $   20285 / yr / contract; ROC@30k median   68.5, P(>=15) 1.000 | DD5 - | DD% - | Sortino -
+   edge x 0.5 (OOS ~ half IS)         win 38.3%: net $    7531 / yr / contract; ROC@30k median   14.9, P(>=15) 0.495 | DD5 - | DD% - | Sortino -
+   edge x 0.25 (+ publication decay)  win 36.4%: net $    1144 / yr / contract; ROC@30k median    1.4, P(>=15) 0.018 | DD5 - | DD% - | Sortino -
+
+same VWAP-RSI on ES 5m
+   author: win 42.0%, PF 1.37 -> avg win / avg loss 1.89; avg loss ~3.7 pt, avg win ~7.0 pt; 375 trades a year (no costs stated: read as GROSS)
+   cost = 8% of the average win; break-even win rate after costs 40.0% (author 42.0%)
+   as claimed                         win 42.0%: net $    4042 / yr / contract; ROC@30k median   12.6, P(>=15) 0.402 | DD5 - | DD% - | Sortino -
+   edge x 0.5 (OOS ~ half IS)         win 38.3%: net $   -3418 / yr / contract; ROC@30k median   -2.8, P(>=15) 0.000 | DD5 - | DD% - | Sortino -
+   edge x 0.25 (+ publication decay)  win 36.4%: net $   -7154 / yr / contract; ROC@30k median   -3.2, P(>=15) 0.000 | DD5 - | DD% - | Sortino -
+
