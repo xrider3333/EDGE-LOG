@@ -179,6 +179,7 @@ import io
 import json
 import os
 import random
+import math
 import re
 import shutil
 import subprocess
@@ -296,6 +297,23 @@ INTERACTIONS = [
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
+    # LEDGER improvements 3 + 6 (2026-10-12): REAL's More stats entry quality / what works groups
+    ('edge-groups-gone',
+     'function _hmEdgeGroups(rangeTrades){',
+     'function _hmEdgeGroups(rangeTrades){return [];',
+     'the entry quality and what works groups are gone from More stats'),
+    ('edge-ignored-counted',
+     'const L=bScope(rangeTrades||[]).filter(t=>t&&!t.statsExcluded&&isFinite(+t.pnl));',
+     'const L=bScope(rangeTrades||[]).filter(t=>t&&isFinite(+t.pnl));',
+     'a trade marked ignore in metrics is counted in the what works groups'),
+    ('edge-buckets-off',
+     "const B=[['7-9',7,99],['4-6',4,6],['0-3',0,3]];",
+     "const B=[['7-9',8,99],['4-6',4,7],['0-3',0,3]];",
+     'a 7-point trade lands in the 4-6 entry quality bucket'),
+    ('edge-setups-unsorted',
+     'agg(m[k]))).sort((a,b)=>b.net-a.net);',
+     'agg(m[k]))).sort((a,b)=>a.net-b.net);',
+     'the what works rows are worst first'),
     # the full TRADE CANDLES viewer (2026-10-11)
     ('viewer-volume-gone',
      "const cx=cv.getContext('2d');if(!cx||!(vmax>0)||!bars.length||!G.W)return;",
@@ -1077,6 +1095,11 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     r.moreGroups='';
     if(mb){mb.click();
       r.moreGroups=Array.prototype.map.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){return g.getAttribute('data-lgmsgroup');}).join(',');
+      // LEDGER improvements 3 + 6: the rows of the entry quality and what works groups, and the account in view they are scoped to
+      r.moreRows={};Array.prototype.forEach.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){var gt=g.getAttribute('data-lgmsgroup');
+        if(/^(Entry quality|What works)/.test(gt))r.moreRows[gt]=Array.prototype.map.call(g.querySelectorAll('.lg-ms-row'),function(x){
+          var l=x.querySelector('.l'),v=x.querySelector('.v');return [((l||{}).textContent||'').replace(/\\s+/g,' ').trim(),((v||{}).textContent||'').replace(/\\s+/g,' ').trim()];});});
+      try{r.msBroker=d.defaultView.eval('typeof activeBroker!=="undefined"?activeBroker:null')||'';}catch(_e){r.msBroker='?';}
       var mb2=d.querySelector('[data-lgmore="hm"]');if(mb2)mb2.click();}
     // LEDGER shared calendar (unify step 7): the fold opens, the month's day counts add up to its header, and
     // tapping a day in the feed flashes that day's group
@@ -2433,6 +2456,73 @@ def _cents(text):
     return -v if m.group(1) else v
 
 
+# LEDGER improvements 3 + 6 (2026-10-12): REAL's More stats carries three own groups after Account, judged from the fixture trades
+MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,What works: setups,What works: grades'
+
+
+def _edge_expect(trades, broker):
+    L = [t for t in trades if not t.get('statsExcluded') and (not broker or t.get('broker') == broker)]
+
+    def agg(a):
+        n = len(a)
+        net = sum(t['pnl'] for t in a)
+        w = sum(1 for t in a if t['pnl'] > 0)
+        return n, net, (net / n if n else 0.0), (int(math.floor(w / n * 100 + 0.5)) if n else 0)
+
+    def tr(n):
+        return '%d trade%s' % (n, '' if n == 1 else 's')
+    out = {}
+    sc = [t for t in L if (t.get('pointScore') or {}).get('total') is not None and (t.get('pointScore') or {}).get('max') is not None]
+    if sc:
+        rows = []
+        for lab, lo, hi in (('7-9', 7, 99), ('4-6', 4, 6), ('0-3', 0, 3)):
+            n, net, avg, wr = agg([t for t in sc if lo <= t['pointScore']['total'] <= hi])
+            rows.append(['Score %s \u00b7 %s \u00b7 %d%% won' % (lab, tr(n), wr), ('avg', avg)] if n else ['Score ' + lab, 'no trades'])
+        rows.append(['Not scored', tr(len(L) - len(sc))])
+        out['Entry quality'] = rows
+    for key, title, mx in (('setup', 'What works: setups', 6), ('grade', 'What works: grades', 5)):
+        m = {}
+        for t in L:
+            k = str(t.get(key) if t.get(key) is not None else '').strip()
+            if k and k != '\u2014':
+                m.setdefault(k, []).append(t)
+        ks = sorted(((k,) + agg(v) for k, v in m.items()), key=lambda x: -x[2])
+        if ks:
+            rows = [['%s \u00b7 %s \u00b7 %d%% won' % (k, tr(n), wr), ('net', net)] for k, n, net, avg, wr in ks[:mx]]
+            if len(ks) > mx:
+                rows.append(['and %d more' % (len(ks) - mx), ''])
+            out[title] = rows
+    return out
+
+
+def _signed_cents(text):
+    m = re.match(r'^([+-])\$([\d,]+)\.(\d\d)$', (text or '').strip())
+    if not m:
+        return None
+    v = int(m.group(2).replace(',', '')) * 100 + int(m.group(3))
+    return -v if m.group(1) == '-' else v
+
+
+def _judge_edge_groups(nm, r, trades, fails):
+    got, exp = r.get('moreRows') or {}, _edge_expect(trades, r.get('msBroker') or '')
+    for title, rows in exp.items():
+        g = got.get(title)
+        if g is None:
+            fails.append('%s: More stats has no %r group' % (nm, title))
+            continue
+        if [x[0] for x in g] != [x[0] for x in rows]:
+            fails.append('%s: More stats %r rows read %r, expected %r' % (nm, title, [x[0] for x in g], [x[0] for x in rows]))
+            continue
+        for (gl, gv), (el, ev) in zip(g, rows):
+            if isinstance(ev, tuple):
+                txt = gv[:-4] if ev[0] == 'avg' and gv.endswith(' avg') else (None if ev[0] == 'avg' else gv)
+                c = _signed_cents(txt)
+                if c is None or abs(c - round(ev[1] * 100)) > 1:
+                    fails.append('%s: More stats %r row %r reads %r, expected %s %s' % (nm, title, gl, gv, _signed(ev[1]), ev[0]))
+            elif gv != ev:
+                fails.append('%s: More stats %r row %r reads %r, expected %r' % (nm, title, gl, gv, ev))
+
+
 def _pct_val(text):
     """'+12.34%' / '-0.50%' -> float, None when it is not a plain percentage."""
     m = re.match(r'^([+-]?\d+\.\d\d)%$', (text or '').strip())
@@ -3450,9 +3540,11 @@ def _judge(data, data_obj):
                 fails.append('%s: max drawdown reads %r (must be a positive dollar amount)' % (nm, vals['maxdd']))
             if not re.match(r'^(\d+\.\d\d|no losses|--)$', vals['pf']):
                 fails.append('%s: profit factor reads %r' % (nm, vals['pf']))
-        if r.get('moreGroups') != 'Returns,Risk,Mix,Account':
-            fails.append('%s: More stats opened with groups %r, not Returns, Risk, Mix, Account'
-                         % (nm, r.get('moreGroups')))
+        if r.get('moreGroups') != MORE_GROUPS:
+            fails.append('%s: More stats opened with groups %r, not %s'
+                         % (nm, r.get('moreGroups'), MORE_GROUPS.replace(',', ', ')))
+        else:
+            _judge_edge_groups(nm, r, data_obj['trades'], fails)
         cal = r.get('cal')
         if not cal:
             fails.append('%s: the LEDGER calendar fold is missing' % nm)
