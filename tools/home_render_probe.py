@@ -83,7 +83,8 @@ LEDGER unify step 12 (ONE PAGE FRAME, 2026-10-07), per case and at every width o
     the RIGHT-HAND panel ([data-lgframe-side]) beside the top block (its header level with the hero, left of nothing), the trade list the
     full width under both; under 1100 px one column with the accounts under the calendar, in the same slot
   * the status line ([data-lgstatus="hm"]) directly under the hero numbers, one or two lines tall, carrying the broker syncs and the reconcile
-    check (the probe seeds a Webull reconcile), and the hero's top-right chip slot empty (the check left it)
+    check (the probe seeds a Webull reconcile), and the hero's top-right chip slot empty (the check left it; only the tilt chips of a case
+    with trades closed today may sit there)
   * the chart foot ([data-lgchartfoot="hm"]) directly under the chart, holding the EQUITY | P&L switch (both buttons) and a caption
   * the Filters row at the top of the accounts panel, right under its header, CLOSED to start (body hidden); a click opens it and stores
     el_lg_filters_hm=1, a second click closes it and stores 0; the fold run reloads the page and finds it as it was left
@@ -92,6 +93,19 @@ LEDGER unify step 12 (ONE PAGE FRAME, 2026-10-07), per case and at every width o
     BY TRADE | BY DAY on the LIST; row 2 = every filter (search, ALL LONG SHORT WINS LOSSES, FUTURES STOCKS - no chip anywhere else), on ONE
     line from CTL_ONE_LINE_FROM px; row 3 (#hm-pastebar) = NEW TRADE (on show without a click), the CHART LINK box and ADD DEPOSIT, SCAN
     DUPLICATES, OPEN ALL with the TOOLS toggle (none removed); the three rows top to bottom, none overlapping
+LEDGER improvements 1 + 5 (owner order 2026-10-12: REAL's DAILY LOSS BAR and TILT CHIPS), per case:
+  * no daily limit set (every case but the loss/ ones): no [data-hmloss] anywhere on the page, no tilt chip, and the hero chip slot empty
+  * the loss/ cases set prefs.dailyStop and (all but idle) add three MNQ losses dated TODAY in New York time (-$180 -$150 -$90, sizes 1 2 2, each
+    entered 2 minutes after the last exit), dated by the page's own ledgerTodayNY(); every row / day / order / AI summary check counts them:
+    - the bar sits inside the status block and reads "Today -$420.00 . 84% of the $500.00 daily limit" at level warn (fill 84%, "near your
+      daily limit"), "Today -$420.00 . 105% of the $400.00 daily limit" at level hit (fill 100%, "daily limit hit - stop for today"), and with
+      no trade today "Today $0.00 . $500.00 daily limit" at level ok (fill 0, no words, no chip); it stays inside the window on a phone
+    - the hero chip slot holds exactly the chips "3 losses in a row", "size up after a loss", "back in 2 min after a loss" (after the warning
+      glyph) and nothing but [data-hmtilt] chips
+    - with the NinjaTrader account in view the bar and chips read the same; with Webull in view the bar is the idle one and no chip shows
+    - MONO (laptop warn, phone hit): the existing hue check passes with the bar and chips on screen
+  * Settings > TRADING LOG > DAILY LOSS LIMIT ($) (interaction run, laptop): 750 + SAVE writes prefs.dailyStop and el_prefs.dailyStop, the box
+    shows 750 when Settings is reopened, a blank box or 0 + SAVE writes null; prefs and el_prefs are put back afterwards
 LEDGER unify step 11 (REAL: one page order, own sections as closed folds, one set of breakpoints), per case:
   * the page sections come in the FIXED order top to bottom (SECTION_ORDER: hero, range pills, equity chart, stats strip, More stats, calendar,
     accounts, trade list, then the own folds SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT, JOURNAL) at every width of every case and of the
@@ -164,7 +178,9 @@ Usage:
   python tools/home_render_probe.py --selftest --only NAME[,NAME...]
                                                    # just those mutants (an unknown name is an error),
                                                    # one "caught / NOT caught" line each; the real-file
-                                                   # run is left out. Newest mutants: viewer-volume-gone,
+                                                   # run is left out. Newest mutants: lossbar-gone, lossbar-never-warns,
+                                                   # tilt-streak-gone, tilt-sizeup-gone, tilt-quick-gone, daily-stop-not-saved,
+                                                   # lossbar-mono-hue, tilt-mono-hue, viewer-volume-gone,
                                                    # viewer-points-open, viewer-chart-squashed, viewer-wider-than-phone, mode-toggle-dead,
                                                    # acct-col-blank, panel-acct-off-by-one, tf-picker-gone,
                                                    # panel-tags-gone, add-deposit-dead, scan-dupes-dead,
@@ -206,6 +222,38 @@ for _vp in ('laptop', 'phone'):
 # MONO: no colour on the board may carry a hue (the own folds are opened for it)
 for _vp in ('laptop', 'phone'):
     CASES.append(['%s/mono/missed2/feed' % _vp, {'vp': _vp, 'theme': 'mono', 'missed': 2, 'view': 'feed', 'ledger': 'simple'}])
+# LEDGER improvements 1 + 5 (owner order 10-12): REAL's DAILY LOSS BAR (under the status line, drawn only while prefs.dailyStop is set) and the
+# TILT CHIPS (hero chip slot, from the trades in view that were entered AND closed today). A case with a 'stop' sets prefs.dailyStop; a case with
+# 'today' adds the three losses of LOSS_TODAY to the fixture, dated with the page's own ledgerTodayNY() (so a run near midnight cannot split them
+# from the board's idea of today) - the judge reads that day back (r['todayNY']) and counts the extra trades in every row / day / order check.
+# Three NinjaTrader MNQ losses (sizes 1, 2, 2), each entered 2 minutes after the last exit: all three tilt signs show, and -$420.00 of a $500.00
+# limit is 84% (warn, from 80%) while of a $400.00 limit it is 105% (hit, from 100%). 'loss' names the expected bar in LOSS_WANT.
+def _loss_trade(i, t_in, t_out, size, pnl, mins):
+    entry = 20000.0
+    return {'id': 'probe_loss%d' % i, 'symbol': 'MNQ', 'type': 'LONG', 'entryTime': t_in, 'exitTime': t_out, 'timeframe': '1m',
+            'entry': entry, 'exit': entry + pnl / (size * 2), 'size': size, 'grossPnl': pnl, 'fees': 0.0, 'pnl': pnl, 'setup': 'CBU',
+            'grade': 'B', 'broker': 'NinjaTrader', 'account': 'probe', 'notes': '', 'tags': [], 'source': 'probe', 'durationMins': mins}
+
+
+LOSS_TODAY = [_loss_trade(1, '09:35:00', '09:40:00', 1, -180.0, 5), _loss_trade(2, '09:42:00', '09:50:00', 2, -150.0, 8),
+              _loss_trade(3, '09:52:00', '09:58:00', 2, -90.0, 6)]
+LOSS_WANT = {
+    'warn': {'text': 'Today -$420.00 · 84% of the $500.00 daily limit', 'level': 'warn', 'fill': 84.0, 'words': 'near your daily limit'},
+    'hit': {'text': 'Today -$420.00 · 105% of the $400.00 daily limit', 'level': 'hit', 'fill': 100.0,      # the fill stops at 100%
+            'words': 'daily limit hit - stop for today'},
+    'idle': {'text': 'Today $0.00 · $500.00 daily limit', 'level': 'ok', 'fill': 0.0, 'words': ''},       # a limit, nothing traded today
+}
+LOSS_CHIPS = [['streak', '3 losses in a row'], ['sizeup', 'size up after a loss'], ['quick', 'back in 2 min after a loss']]
+AI_SUMMARY = {False: (9, 71), True: (9 + len(LOSS_TODAY), 50)}     # the AI ASSESSMENT fold's "last N trades - W% won" without / with LOSS_TODAY
+for _vp, _view in (('laptop', 'table'), ('phone', 'feed')):
+    for _sfx, _stop, _today in (('warn', 500, True), ('hit', 400, True), ('idle', 500, False)):
+        CASES.append(['loss/%s/glass/%s' % (_vp, _sfx),
+                      {'vp': _vp, 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': 'simple', 'stop': _stop,
+                       'today': LOSS_TODAY if _today else [], 'loss': _sfx}])
+# MONO with the bar at warn (laptop) and at hit (phone) and the tilt chips on screen: the existing hue check must pass with no exception for them
+for _vp, _sfx, _stop in (('laptop', 'warn', 500), ('phone', 'hit', 400)):
+    CASES.append(['loss/%s/mono/%s' % (_vp, _sfx),
+                  {'vp': _vp, 'theme': 'mono', 'missed': 2, 'view': 'feed', 'ledger': 'simple', 'stop': _stop, 'today': LOSS_TODAY, 'loss': _sfx}])
 # a narrower laptop window: the SIMPLE table (it fits its box with no sideways scroll) and the list
 for _nm, _view, _led in (LEDGERS[0], LEDGERS[2]):
     CASES.append(['narrow/glass/missed0/%s' % _nm, {'vp': 'narrow', 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': _led}])
@@ -259,6 +307,11 @@ HOUSE_WIDTHS = [600, 740, 800, 920, 1100]     # the one set of breakpoints (cont
 PHONE_LIST_TOP_MAX = 700                      # px from the top of the board to the trade list on a 375 px phone: 652 before step 12, which
                                               # added the status line under the hero (two lines with the Webull reconcile) and the chart
                                               # foot with the EQUITY | P&L switch (693 px measured on 2026-10-07); still inside one 812 px screen
+# LEDGER improvements 1 + 5 add height to the phone's top block ONLY when the owner turned them on: the loss bar (a limit set; the bar and its
+# track wrap onto their own lines on a phone) and, with trades closed today, the warning words and the tilt chips under the big number. Measured
+# on 2026-10-12 against 679 without: +30 px with the bar alone (idle), +114 px with the bar at warn / hit and all three chips. The allowance is
+# what they add, not a new floor: the list must still start inside one screen, and a bar or chip that grows past it fails.
+PHONE_LOSS_EXTRA = {'idle': 40, 'warn': 125, 'hit': 125}      # px, keyed by a loss/ case's 'loss'
 # what the removed previous board drew: none of it may be in the page (the page-side readout lists the ones it finds)
 OLD_MARKS = ['#hm-sheet', '.hm-backdrop', '#hm-view-toggle', '[data-hmchip]', '#hm-morestats-toggle', '.hm-morestats-panel', '.hm-stat-strip',
              '.hm-toolbar', '.hm-range-pills', '.hm-day-header', '.hm-ms-grid']
@@ -288,7 +341,7 @@ VIEWER_CTL_MAX = {'laptop': 40, 'phone': 70}     # px: one row of 24 px controls
 INTERACTIONS = [
     ['laptop', {'vp': 'laptop', 'theme': 'glass', 'view': 'table', 'ledger': 'simple',
                 'tid': 'probe_t1', 'pts': '7/8', 'mid': 'probe_m1', 'msym': 'MNQ', 'mpts': '5/9',
-                'jumpday': JUMP_DAY}],
+                'jumpday': JUMP_DAY, 'settings': True}],
     ['phone', {'vp': 'phone', 'theme': 'paper', 'view': 'feed', 'ledger': 'simple',
                'tid': 'probe_t3', 'pts': '6/9', 'mid': 'probe_m1', 'msym': 'MNQ', 'mpts': '5/9',
                'jumpday': JUMP_DAY}],
@@ -345,6 +398,39 @@ MUTANTS = [
      'agg(m[k]))).sort((a,b)=>b.net-a.net);',
      'agg(m[k]))).sort((a,b)=>a.net-b.net);',
      'the what works rows are worst first'),
+    # the daily loss bar and the tilt chips (LEDGER improvements 1 + 5, 2026-10-12)
+    ('lossbar-gone',
+     'function _hmLossBarHtml(){',
+     "function _hmLossBarHtml(){return '';",
+     'the daily loss bar is never drawn although a daily limit is set'),
+    ('lossbar-never-warns',
+     "lv=pct>=100?'hit':(pct>=80?'warn':'ok');",
+     "lv='ok';",
+     'the daily loss bar stays at level ok - no warning at 80% and no stop at 100% of the limit'),
+    ('tilt-streak-gone',
+     "if(run>=2)out.push({k:'streak'",
+     "if(false)out.push({k:'streak'",
+     'the tilt chip for 2 or more losses in a row is never shown'),
+    ('tilt-sizeup-gone',
+     "if(up)out.push({k:'sizeup'",
+     "if(false)out.push({k:'sizeup'",
+     'the tilt chip for a bigger size right after a loss is never shown'),
+    ('tilt-quick-gone',
+     'if(quick){const m=Math.max(0',
+     'if(false){const m=Math.max(0',
+     'the tilt chip for a new trade within 5 minutes of a losing exit is never shown'),
+    ('daily-stop-not-saved',
+     "savePref('dailyStop',(isFinite(v)&&v>0)?Math.round(v*100)/100:null);",
+     '',
+     'SAVE in Settings > TRADING LOG no longer writes the daily loss limit'),
+    ('lossbar-mono-hue',
+     '[data-theme="mono"] .hm-lossbar .hm-lossbar-fill{background:var(--text)}[data-theme="mono"] .hm-lossbar .hm-lossbar-w{color:var(--text)}',
+     '',
+     'under MONO the daily loss bar fill and its words keep the amber / red hue'),
+    ('tilt-mono-hue',
+     '[data-theme="mono"] .hm-tilt{border-color:var(--text3);color:var(--text)}',
+     '',
+     'under MONO the tilt chips keep their amber hue'),
     # the full TRADE CANDLES viewer (2026-10-11)
     ('viewer-volume-gone',
      "const cx=cv.getContext('2d');if(!cx||!(vmax>0)||!bars.length||!G.W)return;",
@@ -903,6 +989,10 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     o.status=st?{r:R(st),sec:st.getAttribute('data-hmsec'),line:((st.querySelector('.lg-status-line')||{}).textContent||'').replace(/\\s+/g,' ').trim(),
       lineH:Math.round((st.querySelector('.lg-status-line')||st).getBoundingClientRect().height)}:null;
     var hc=d.getElementById('hm-hero-chips');o.heroChips=hc?(hc.textContent||'').replace(/\\s+/g,' ').trim():null;
+    // LEDGER improvement 5: whatever else sits in the slot once the tilt chips ([data-hmtilt]) are taken out - text, or any other element
+    if(hc){var hcl=hc.cloneNode(true);Array.prototype.forEach.call(hcl.querySelectorAll('[data-hmtilt]'),function(e){e.remove();});
+      o.heroChipsRest=((hcl.textContent||'').replace(/\\s+/g,' ').trim())+(hcl.children.length?' <'+hcl.children.length+' other element(s)>':'');}
+    else o.heroChipsRest=null;
     var ft=d.querySelector('[data-lgchartfoot="hm"]'),cw=d.getElementById('hm-chart-wrap');
     o.foot=ft?{r:R(ft),eq:!!ft.querySelector('#hm-mode-toggle [data-hmmode="equity"]'),pnl:!!ft.querySelector('#hm-mode-toggle [data-hmmode="pnl"]'),
       cap:((ft.querySelector('.lg-chart-cap')||{}).textContent||'').trim(),gap:cw?Math.round(ft.getBoundingClientRect().top-cw.getBoundingClientRect().bottom):null,
@@ -933,6 +1023,24 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
         add:row3?['#hm-newtrade-toggle','#hm-paste-chart','#hm-add-deposit','#hm-scan-dupes','#hm-open-all','#hm-tools-toggle'].filter(function(s){return !row3.querySelector(s);}):null,
         ntShown:!!(nt&&vis(nt)),tops:[T(row1,'top'),T(row2,'top'),T(row3,'top')],bots:[T(row1,'bottom'),T(row2,'bottom'),T(row3,'bottom')]};
     }
+    return o;
+  }
+  // LEDGER improvements 1 + 5 (owner order 10-12): the DAILY LOSS BAR in the status block (n = how many [data-hmloss] are on the page: none unless a limit
+  // is set) and the TILT CHIPS in the hero chip slot, as drawn now - the bar's text, level, fill width and warning words, whether it is inside the
+  // status block and inside the window, and each chip as [key, text after the warning glyph]
+  function lossRead(){
+    var d=D(),o={},all=d.querySelectorAll('[data-hmloss]'),b=all[0],hc=d.getElementById('hm-hero-chips');
+    o.n=all.length;
+    o.chips=hc?Array.prototype.map.call(hc.querySelectorAll('[data-hmtilt]'),function(c){
+      return [c.getAttribute('data-hmtilt'),(c.textContent||'').replace(/^[^A-Za-z0-9]+/,'').replace(/\\s+/g,' ').trim()];}):null;
+    if(!b)return o;
+    var t=b.querySelector('.hm-lossbar-t'),f=b.querySelector('.hm-lossbar-fill'),wd=b.querySelector('.hm-lossbar-w'),r=b.getBoundingClientRect();
+    o.inStatus=!!b.closest('[data-lgstatus="hm"]');
+    o.level=b.getAttribute('data-level');
+    o.text=t?(t.textContent||'').replace(/\\s+/g,' ').trim():null;
+    o.words=wd?(wd.textContent||'').replace(/\\s+/g,' ').trim():'';
+    o.fill=f?parseFloat(f.style.width):null;
+    o.left=Math.round(r.left);o.right=Math.round(r.right);o.cw=d.documentElement.clientWidth;
     return o;
   }
   // a click on the Filters row opens it (and stores 1), a second one closes it (and stores 0); the stored choice is cleared again
@@ -1048,6 +1156,8 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     try{r.pasteRow=pasteRead();}catch(e){r.pasteRow={err:String(e&&e.stack?e.stack:e)};}
     // LEDGER step 12: the shared page frame, read before anything below opens a fold and moves the page about
     try{r.fr=frameRead();}catch(e){r.fr={err:String(e&&e.stack?e.stack:e)};}
+    // LEDGER improvements 1 + 5: the loss bar and the tilt chips, read before anything below is clicked; todayNY = the day the page calls today
+    try{r.loss=lossRead();r.todayNY=w.eval('ledgerTodayNY()');}catch(e){r.loss={err:String(e&&e.stack?e.stack:e)};}
     try{r.filtClick=filtersClick();}catch(e){r.filtClick={err:String(e&&e.stack?e.stack:e)};}
     // LEDGER shared trade list frame (unify step 8): toolbar, day headers with a signed net, rows, five cells on a phone.
     // Measured first, before the folds below are opened and move the page about.
@@ -1202,8 +1312,13 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     r.acctSel=(d.querySelector('[data-lglist="hm"] [data-lgrow].sel')||{getAttribute:function(){return null;}}).getAttribute('data-lgrow');
     r.acctPill=Array.prototype.some.call(d.querySelectorAll('button'),function(b){return /setBroker\\(/.test(b.getAttribute('onclick')||'');});
     var nb=d.querySelector('[data-lglist="hm"] [data-lgrow="NinjaTrader"]');r.acctScoped=null;
+    r.lossNinja=null;
     if(nb){nb.click();var hl=d.getElementById('hm-hero-label');r.acctScoped=hl?(hl.textContent||'').indexOf('NINJATRADER')>=0:false;
+      r.lossNinja=lossRead();      // today's losses are NinjaTrader's: the bar and the chips read the same with that account in view
       var ab=d.querySelector('[data-lglist="hm"] [data-lgrow=""]');if(ab)ab.click();}
+    // ... and with Webull in view none of them counts: an empty bar, no tilt chip
+    var wbr=d.querySelector('[data-lglist="hm"] [data-lgrow="Webull"]');r.lossWebull=null;
+    if(wbr){wbr.click();r.lossWebull=lossRead();var abw=d.querySelector('[data-lglist="hm"] [data-lgrow=""]');if(abw)abw.click();}
     r.scrollW=d.documentElement.scrollWidth;
     r.clientW=d.documentElement.clientWidth;
     if(r.scrollW>r.clientW+1)r.wide=offenders(d);
@@ -1665,6 +1780,35 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
         try{w.eval('homeChip="ALL";window._hmToolsOpen=false;trades=trades.filter(function(x){return x.id!=="probe_dup";});renderApp();');}catch(_x){}
       }
     });
+    // 16. LEDGER improvement 1 (owner order 10-12): SETTINGS > TRADING LOG has a DAILY LOSS LIMIT ($) card. 750 + SAVE writes prefs.dailyStop and
+    //     el_prefs, the box shows it again when Settings is reopened, and a blank box (or 0) + SAVE clears it to null. Runs once (the laptop run).
+    //     The prefs, the stored el_prefs and the open board are put back afterwards: the harness's cases expect no limit.
+    if(I.settings)await step(res,'dailyStop',async function(st){
+      var prefs0=w.localStorage.getItem('el_prefs');
+      function pv(){return w.eval('prefs.dailyStop===undefined?"undef":JSON.stringify(prefs.dailyStop)');}
+      function lv(){try{var p=JSON.parse(w.localStorage.getItem('el_prefs')||'{}');return p.dailyStop===undefined?'undef':JSON.stringify(p.dailyStop);}catch(e){return 'ERR';}}
+      function save(v){var i=q('#set-daily-stop'),b=q('#save-daily-stop');if(!i||!b)return false;i.value=v;b.click();return true;}
+      try{
+        w.eval("openSettings('log')");
+        await sleep(80);
+        st.card=((q('#set-body')||{}).textContent||'').indexOf('DAILY LOSS LIMIT')>=0&&!!q('#set-daily-stop')&&!!q('#save-daily-stop');
+        st.start=q('#set-daily-stop')?q('#set-daily-stop').value:null;
+        st.saved750=save('750');
+        st.p750=pv();st.l750=lv();
+        var tick=q('#daily-stop-saved');st.tick=tick?tick.style.display:null;
+        w.eval("openSettings('log')");
+        await sleep(60);
+        st.reopen=q('#set-daily-stop')?q('#set-daily-stop').value:null;
+        st.savedBlank=save('');
+        st.pBlank=pv();st.lBlank=lv();
+        save('750');
+        st.savedZero=save('0');
+        st.pZero=pv();st.lZero=lv();
+      }finally{
+        try{w.eval("closeSettings();delete prefs.dailyStop;delete prefs.setPane;");}catch(_e1){}
+        if(prefs0===null)w.localStorage.removeItem('el_prefs');else w.localStorage.setItem('el_prefs',prefs0);
+      }
+    });
     try{w.eval('homeSheetId=null;window._hmMissedEdit=null;window._hmPasteNote=null;renderApp();');}catch(_e){}
     drain();
     out.inter[nm]=res;
@@ -2104,6 +2248,10 @@ INSTALL_JS = r"""
     var C=JSON.parse(cj),S=JSON.parse(window.__probeDataJson);
     prefs.theme=C.theme;applyTheme();
     trades=S.trades;missedTrades=C.missed?S.missed:[];
+    // LEDGER improvements 1 + 5: the daily loss limit (a case without one has none, as a fresh browser) and the day's losses dated TODAY in New York
+    // time by the page's own ledgerTodayNY() - the same clock the bar and the tilt chips use
+    if(C.stop>0)prefs.dailyStop=C.stop;else delete prefs.dailyStop;
+    if(C.today&&C.today.length){var td=ledgerTodayNY();trades=trades.concat(C.today.map(function(t){return Object.assign({},t,{date:td});}));}
     // LEDGER step 12: a Webull sync with a reconcile on file - its check is in the status line under the hero, no longer a chip in the hero
     wbSync={last_sync:Math.floor(Date.now()/1000)-300,recon:{ok:true,flat:true}};ntSync=null;
     ledgerEvents=S.ledger||[];lessons=S.lessons||[];
@@ -3323,7 +3471,11 @@ def _judge_frame_parts(nm, cfg, fr, fc, fails):
         ln = st.get('line') or ''
         if 'Webull synced' not in ln or 'reconciled w/ Webull' not in ln:
             fails.append('%s: the status line reads %r - it must carry the broker syncs and the Webull reconcile check' % (nm, ln))
-    if fr.get('heroChips'):
+    if cfg.get('today'):
+        # LEDGER improvement 5: a case with trades closed today may carry tilt chips in the slot ([data-hmtilt]) and nothing else
+        if fr.get('heroChipsRest'):
+            fails.append('%s: the hero chip slot holds %r besides the tilt chips - only [data-hmtilt] chips may sit in it' % (nm, fr.get('heroChipsRest')))
+    elif fr.get('heroChips'):
         fails.append('%s: the hero chip slot still reads %r - the sync / reconcile checks are in the status line now' % (nm, fr.get('heroChips')))
     ft = fr.get('foot')
     if not ft:
@@ -3377,7 +3529,7 @@ def _judge_step11(nm, cfg, r, fails, n_missed):
         fails.append('%s: the own folds read %r, expected %r' % (nm, [f['k'] for f in fc], OWN_FOLDS))
     want_sum = {'missed': (r'^%d setups not taken' % n_missed) if cfg['missed'] else r'^none filed yet$',
                 'deps': '^%d events? \u00b7 net %s$' % (len(LEDGER_EVENTS), re.escape(_signed(ledger_net()))),
-                'ai': r'^last 9 trades \u00b7 71% won \u00b7 profit factor ',
+                'ai': r'^last %d trades \u00b7 %d%% won \u00b7 profit factor ' % AI_SUMMARY[bool(cfg.get('today'))],
                 'journal': r'^1 entry \u00b7 newest 2026-09-30$'}
     for f in fc:
         k = f['k']
@@ -3437,6 +3589,55 @@ def _judge_step11(nm, cfg, r, fails, n_missed):
             fails.append('%s: the MONO colour scan looked at nothing' % nm)
         elif hu.get('bad'):
             fails.append('%s: MONO has a hue on the board (%d colours checked): %s' % (nm, hu['checked'], '; '.join(hu['bad'])))
+
+
+def _case_trades(data_obj, cfg, r):
+    """The trades one CASE draws: the fixture's, plus (a case with 'today') LOSS_TODAY dated with the New York day the page itself calls today."""
+    if not cfg.get('today'):
+        return data_obj['trades']
+    return data_obj['trades'] + [dict(t, date=r.get('todayNY')) for t in cfg['today']]
+
+
+def _judge_lossbar(tag, ls, want, chips, fails):
+    """One read of the daily loss bar and the tilt chips (lossRead). `want` = {text, level, fill, words} of the bar, None = there is no bar
+    ([data-hmloss]) at all; `chips` = the [key, text] tilt chips in the hero chip slot, in order."""
+    if not ls or ls.get('err'):
+        fails.append('%s: could not read the daily loss bar -- %s' % (tag, _first((ls or {}).get('err') or 'no readout')))
+        return
+    if want is None:
+        if ls.get('n'):
+            fails.append('%s: %s daily loss bar(s) ([data-hmloss]) on the page although no daily limit is set - no limit, no bar' % (tag, ls['n']))
+    elif ls.get('n') != 1:
+        fails.append('%s: the page draws %s daily loss bars ([data-hmloss]), expected exactly one while a daily limit is set' % (tag, ls.get('n')))
+    else:
+        if not ls.get('inStatus'):
+            fails.append('%s: the daily loss bar is not inside the status block ([data-lgstatus="hm"], under the status line)' % tag)
+        if ls.get('text') != want['text']:
+            fails.append('%s: the daily loss bar reads %r, expected %r' % (tag, ls.get('text'), want['text']))
+        if ls.get('level') != want['level']:
+            fails.append('%s: the daily loss bar is at level %r, expected %r (warn from 80%% of the limit lost, hit from 100%%)'
+                         % (tag, ls.get('level'), want['level']))
+        if ls.get('fill') is None or abs(ls['fill'] - want['fill']) > 0.06:
+            fails.append('%s: the daily loss bar is filled to %s%%, expected %s%% (the fill never runs past 100%%)' % (tag, ls.get('fill'), want['fill']))
+        if (ls.get('words') or '') != want['words']:
+            fails.append('%s: the daily loss bar says %r, expected %r' % (tag, ls.get('words') or '', want['words']))
+        if (ls.get('left') or 0) < -1 or (ls.get('right') or 0) > (ls.get('cw') or 0) + 1:
+            fails.append('%s: the daily loss bar runs outside the window (%s to %s px of %s)' % (tag, ls.get('left'), ls.get('right'), ls.get('cw')))
+    if ls.get('chips') != chips:
+        fails.append('%s: the tilt chips in the hero chip slot read %r, expected %r' % (tag, ls.get('chips'), chips))
+
+
+def _judge_loss(nm, cfg, r, fails):
+    """LEDGER improvements 1 + 5 on one case: no limit set = no bar and no tilt chip; the bar with LOSS_TODAY on the board at warn / hit and with
+    no trade today at ok; the tilt chips; and the same bar scoped to the account in view (NinjaTrader's losses count there, Webull's view has none)."""
+    want = LOSS_WANT.get(cfg.get('loss'))
+    chips = LOSS_CHIPS if cfg.get('today') else []
+    _judge_lossbar(nm, r.get('loss'), want, chips, fails)
+    if want is not None:
+        _judge_lossbar(nm + ' (NinjaTrader in view)', r.get('lossNinja'), want, chips, fails)
+        # Webull in view: none of today's trades are Webull's, so nothing is used - the idle bar for the same limit, no chip
+        wb = dict(LOSS_WANT['idle'], text='Today $0.00 · %s daily limit' % _usd(cfg['stop']))
+        _judge_lossbar(nm + ' (Webull in view)', r.get('lossWebull'), wb, [], fails)
 
 
 def _judge_folds(fd):
@@ -3521,6 +3722,13 @@ def _judge(data, data_obj):
             continue
         if r.get('theme') != cfg['theme']:
             fails.append('%s: data-theme is %r, not %r' % (nm, r.get('theme'), cfg['theme']))
+        # LEDGER improvements 1 + 5: a case with 'today' draws the fixture plus LOSS_TODAY dated with the page's own New York day (r['todayNY']);
+        # every count, day header and row order below follows that list
+        if cfg.get('today') and not r.get('todayNY'):
+            fails.append('%s: the page did not report its own New York day, so the trades added for today cannot be judged' % nm)
+            continue
+        tcase = _case_trades(data_obj, cfg, r)
+        n_trades = len(tcase)
         if cfg.get('kind') == 'legacy':
             # LEDGER step 8 / mistake #14: the legacy TRADES and JOURNAL tabs draw on a phone, in one column
             lg = r.get('legacy') or {}
@@ -3551,7 +3759,8 @@ def _judge(data, data_obj):
             fails.append('%s: SHOULD HAVE TRADED shows %s rows for %s entries'
                          % (nm, mo.get('missedRows'), n_missed if cfg['missed'] else 0))
         _judge_step11(nm, cfg, r, fails, n_missed)
-        want_kind = cfg['ledger'] if cfg['view'] == 'table' else 'feed'
+        _judge_loss(nm, cfg, r, fails)
+        want_kind =cfg['ledger'] if cfg['view'] == 'table' else 'feed'
         if not r.get('feed'):
             fails.append('%s: no ledger container (#hm-feed-container)' % nm)
         elif r.get('ledgerKind') != want_kind:
@@ -3577,8 +3786,8 @@ def _judge(data, data_obj):
                 fails.append('%s: the frame has no search box' % nm)
             if r.get('count') != '%d / %d trades' % (n_trades, n_trades):
                 fails.append('%s: the frame count reads %r, expected %d / %d trades' % (nm, r.get('count'), n_trades, n_trades))
-            exp = expected_days(data_obj['trades'])
-            got_days = [x.split('=', 1) for x in (r.get('days') or [])]
+            exp = expected_days(tcase)
+            got_days =[x.split('=', 1) for x in (r.get('days') or [])]
             if [g[0] for g in got_days] != sorted(exp, reverse=True):
                 fails.append('%s: the day headers read %r, expected the close days %r newest first'
                              % (nm, [g[0] for g in got_days], sorted(exp, reverse=True)))
@@ -3600,11 +3809,13 @@ def _judge(data, data_obj):
                 if r.get('listTop') is None or r.get('listTop') > (r.get('viewH') or 0):
                     fails.append('%s: the trade list starts %spx below the top of the board on a phone, more than one '
                                  'screen (%spx) - mistake #12' % (nm, r.get('listTop'), r.get('viewH')))
-                elif r.get('listTop') > PHONE_LIST_TOP_MAX:
+                elif r.get('listTop') > PHONE_LIST_TOP_MAX + PHONE_LOSS_EXTRA.get(cfg.get('loss'), 0):
                     fails.append('%s: the trade list starts %spx below the top of the board on a 375 px phone; it may start at most %spx down since '
-                                 'step 12 and must not grow' % (nm, r.get('listTop'), PHONE_LIST_TOP_MAX))
+                                 'step 12 (%d, plus %d for the loss bar / tilt chips of this case) and must not grow'
+                                 % (nm, r.get('listTop'), PHONE_LIST_TOP_MAX + PHONE_LOSS_EXTRA.get(cfg.get('loss'), 0), PHONE_LIST_TOP_MAX,
+                                    PHONE_LOSS_EXTRA.get(cfg.get('loss'), 0)))
         if cfg['view'] == 'feed' and r.get('frame'):
-            exp_order = [t['id'] for t in sorted(data_obj['trades'], key=_close_key, reverse=True)]
+            exp_order = [t['id'] for t in sorted(tcase, key=_close_key, reverse=True)]
             if r.get('order') != exp_order:
                 fails.append('%s: the list rows run %r, expected newest close first %r' % (nm, r.get('order'), exp_order))
             if r.get('depositRows') != len(LEDGER_EVENTS):
@@ -4166,6 +4377,31 @@ def _judge(data, data_obj):
                 if tb.get('openedStocks') or not any('No chart links' in a for a in (tb.get('alertsStocks') or [])):
                     fails.append('%s: OPEN ALL with only STOCKS shown (no chart link) opened %r and alerted %r, expected no window and the "No chart links" alert'
                                  % (tag, tb.get('openedStocks'), tb.get('alertsStocks')))
+        # 16. SETTINGS > TRADING LOG > DAILY LOSS LIMIT ($) (the laptop run): 750 + SAVE writes prefs.dailyStop and el_prefs, the box shows it when
+        #     Settings is reopened, a blank box or 0 + SAVE clears it to null
+        if I.get('settings'):
+            ds = st.get('dailyStop') or {}
+            _errs(tag + ' Settings daily loss limit', ds, fails)
+            if ds.get('threw'):
+                fails.append('%s Settings daily loss limit: %s' % (tag, _first(ds['threw'])))
+            elif not ds.get('card'):
+                fails.append('%s: SETTINGS > TRADING LOG has no DAILY LOSS LIMIT ($) card with its box (#set-daily-stop) and SAVE (#save-daily-stop)' % tag)
+            else:
+                if ds.get('start') != '':
+                    fails.append('%s: the daily loss limit box starts as %r with no limit set, expected it blank' % (tag, ds.get('start')))
+                if not ds.get('saved750') or ds.get('p750') != '750' or ds.get('l750') != '750':
+                    fails.append('%s: typing 750 and SAVE left prefs.dailyStop = %s and the stored el_prefs dailyStop = %s, expected 750 in both'
+                                 % (tag, ds.get('p750'), ds.get('l750')))
+                if ds.get('tick') != 'inline':
+                    fails.append('%s: SAVE showed no saved tick (#daily-stop-saved display %r)' % (tag, ds.get('tick')))
+                if ds.get('reopen') != '750':
+                    fails.append('%s: Settings reopened with the daily loss limit box reading %r, expected the saved 750' % (tag, ds.get('reopen')))
+                if not ds.get('savedBlank') or ds.get('pBlank') != 'null' or ds.get('lBlank') != 'null':
+                    fails.append('%s: a blank box and SAVE left prefs.dailyStop = %s and the stored el_prefs dailyStop = %s, expected null in both'
+                                 % (tag, ds.get('pBlank'), ds.get('lBlank')))
+                if not ds.get('savedZero') or ds.get('pZero') != 'null' or ds.get('lZero') != 'null':
+                    fails.append('%s: 0 and SAVE left prefs.dailyStop = %s and the stored el_prefs dailyStop = %s, expected null in both (0 or less = off)'
+                                 % (tag, ds.get('pZero'), ds.get('lZero')))
 
     of, ou = _judge_flag(data.get('flag'), data, data_obj)
     fails += of
