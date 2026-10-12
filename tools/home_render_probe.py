@@ -297,10 +297,15 @@ INTERACTIONS = [
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
+    # LEDGER improvements 10 + 12 (2026-10-12): fees by month, the CSV export
+    ('fees-group-gone',
+     '_hmMissedGroup(),_hmFeesGroup(rangeTrades));',
+     '_hmMissedGroup());',
+     'the fees by month group is gone from More stats'),
     # LEDGER improvements 4 + 11 (2026-10-12): the time of day strip and the missed trades group
     ('tod-gone',
-     "+_hmCalendarHtml(rangeTrades)+_hmTodStripHtml(rangeTrades)+'</div>',",
-     "+_hmCalendarHtml(rangeTrades)+'</div>',",
+     'open:homeCalOpen,after:_hmTodStripHtml(rangeTrades)});',
+     'open:homeCalOpen});',
      'the time of day strip is gone from under the calendar'),
     ('tod-slot-shifted',
      'const i=Math.floor((_ledgerHm(t.entryTime)-34200)/1800),v=+t.pnl||0;',
@@ -1123,12 +1128,9 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       r.moreGroups=Array.prototype.map.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){return g.getAttribute('data-lgmsgroup');}).join(',');
       // LEDGER improvements 3 + 6: the rows of the entry quality and what works groups, and the account in view they are scoped to
       r.moreRows={};Array.prototype.forEach.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){var gt=g.getAttribute('data-lgmsgroup');
-        if(/^(Entry quality|What works|Discipline|Missed trades)/.test(gt))r.moreRows[gt]=Array.prototype.map.call(g.querySelectorAll('.lg-ms-row'),function(x){
+        if(/^(Entry quality|What works|Discipline|Missed trades|Fees)/.test(gt))r.moreRows[gt]=Array.prototype.map.call(g.querySelectorAll('.lg-ms-row'),function(x){
           var l=x.querySelector('.l'),v=x.querySelector('.v');return [((l||{}).textContent||'').replace(/\\s+/g,' ').trim(),((v||{}).textContent||'').replace(/\\s+/g,' ').trim()];});});
       try{r.msBroker=d.defaultView.eval('typeof activeBroker!=="undefined"?activeBroker:null')||'';}catch(_e){r.msBroker='?';}
-      // LEDGER improvement 4: the time of day strip under the calendar (slot, title) and its outside-the-session line
-      r.tod=Array.prototype.map.call(d.querySelectorAll('[data-hmtod] [data-hmtodslot]'),function(x){return [x.getAttribute('data-hmtodslot'),x.getAttribute('title')||'',!!x.querySelector('i')];});
-      r.todOff=((d.querySelector('[data-hmtodoff]')||{}).textContent||'').replace(/\\s+/g,' ').trim();
       r.goal=!!d.querySelector('[data-hmgoal]');
       var mb2=d.querySelector('[data-lgmore="hm"]');if(mb2)mb2.click();}
     // LEDGER shared calendar (unify step 7): the fold opens, the month's day counts add up to its header, and
@@ -1138,6 +1140,9 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     if(cf){var wasOpen=cf.getAttribute('aria-expanded')==='true';
       if(!wasOpen){cf.click();}
       var cg=d.querySelector('[data-lgcal="hm"].lg-cal'),c={days:0,sumN:0,hdN:null};
+      // LEDGER improvement 4: the time of day strip inside the open calendar (slot, title, bar drawn) and its outside-the-session line
+      r.tod=Array.prototype.map.call(d.querySelectorAll('#hm-cal [data-hmtod] [data-hmtodslot]'),function(x){return [x.getAttribute('data-hmtodslot'),x.getAttribute('title')||'',!!x.querySelector('i')];});
+      r.todOff=((d.querySelector('#hm-cal [data-hmtodoff]')||{}).textContent||'').replace(/\\s+/g,' ').trim();
       if(cg){var ds=cg.querySelectorAll('[data-lgcalday]');c.days=ds.length;
         Array.prototype.forEach.call(ds,function(b){var n=b.querySelector('.n');c.sumN+=n?parseInt(n.textContent,10)||0:0;});
         var sm=(cg.querySelector('.lg-cal-sum')||{textContent:''}).textContent.match(/(\\d+) trades?/);c.hdN=sm?+sm[1]:0;
@@ -2487,7 +2492,7 @@ def _cents(text):
 
 
 # LEDGER improvements 3 + 6 (2026-10-12): REAL's More stats carries three own groups after Account, judged from the fixture trades
-MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,What works: setups,What works: grades,Discipline,Missed trades'
+MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,What works: setups,What works: grades,Discipline,Missed trades,Fees'
 RULES_DEFAULT = {'minPts': 5, 'setup': True, 'maxSize': None}     # LEDGER improvement 2: the rules a fresh browser checks
 
 
@@ -2600,6 +2605,22 @@ def _tod_expect(trades, broker):
     return slots, off
 
 
+def _fees_expect(trades, broker):
+    """LEDGER improvement 10: fees by close month and account, newest first, at most 6 rows."""
+    MN = ['Jan', 'Feb', 'Mar', 'Apr', 'May', 'Jun', 'Jul', 'Aug', 'Sep', 'Oct', 'Nov', 'Dec']
+    m = {}
+    for t in trades:
+        if (broker and t.get('broker') != broker) or not (t.get('fees') or 0) > 0:
+            continue
+        k = (_close_day(t)[:7], t.get('broker') or 'other')
+        m[k] = m.get(k, 0.0) + t['fees']
+    ks = sorted(m, reverse=True)
+    rows = [['%s %s \u00b7 %s' % (MN[int(mo[5:7]) - 1], mo[:4], b), _usd(m[(mo, b)])] for mo, b in ks[:6]]
+    if len(ks) > 6:
+        rows.append(['and %d more' % (len(ks) - 6), ''])
+    return rows
+
+
 def _missed_expect(missed):
     M = [m for m in missed if m.get('date')]
     if not M:
@@ -2619,6 +2640,9 @@ def _judge_edge_groups(nm, r, trades, fails, missed=None):
     me = _missed_expect(missed or [])
     if me:
         exp['Missed trades'] = me
+    fe = _fees_expect(trades, r.get('msBroker') or '')
+    if fe:
+        exp['Fees'] = fe
     slots, off = _tod_expect(trades, r.get('msBroker') or '')
     if [tuple(x) for x in (r.get('tod') or [])] != slots:
         fails.append('%s: the time of day strip reads %r, expected %r' % (nm, r.get('tod'), slots))
@@ -3661,11 +3685,14 @@ def _judge(data, data_obj):
                 fails.append('%s: max drawdown reads %r (must be a positive dollar amount)' % (nm, vals['maxdd']))
             if not re.match(r'^(\d+\.\d\d|no losses|--)$', vals['pf']):
                 fails.append('%s: profit factor reads %r' % (nm, vals['pf']))
-        if r.get('moreGroups') != MORE_GROUPS:
+        # a case that installs no SHOULD HAVE TRADED entries (missed0) has no Missed trades group
+        has_missed = bool(re.search(r'/missed[1-9]', nm))
+        want_groups = MORE_GROUPS if has_missed else MORE_GROUPS.replace(',Missed trades', '')
+        if r.get('moreGroups') != want_groups:
             fails.append('%s: More stats opened with groups %r, not %s'
-                         % (nm, r.get('moreGroups'), MORE_GROUPS.replace(',', ', ')))
+                         % (nm, r.get('moreGroups'), want_groups.replace(',', ', ')))
         else:
-            _judge_edge_groups(nm, r, data_obj['trades'], fails, data_obj.get('missed'))
+            _judge_edge_groups(nm, r, data_obj['trades'], fails, data_obj.get('missed') if has_missed else None)
         cal = r.get('cal')
         if not cal:
             fails.append('%s: the LEDGER calendar fold is missing' % nm)
