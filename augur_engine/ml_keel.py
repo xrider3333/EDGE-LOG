@@ -925,6 +925,90 @@ def keel_score_from_state(state, arrays, entry_bar, x_row=None, feats=None, cros
     return float(size), diag
 
 
+# -- PER-TRADE LIVE UPDATE (owner 10-12 via MANAGER #102: live KEEL = the backtest walk, trade by trade) ----
+# THE GAP IT CLOSES. keel_build_state is rebuilt NIGHTLY, so a second or third live entry on one day is scored
+# with a ledger that misses that day's earlier NQ exits - the walk (keel_walk, the Auto-Validate row the owner
+# adopted) would have counted them. DISC's parity replay (2026-10-11): 557 of 4,873 #382 trades (11.4%), all
+# 2nd+ entries after a same-day exit, size differently by mean 0.18x. keel_append_trade advances a state by ONE
+# RESOLVED trade exactly as one more pass of keel_walk's loop would, so a scorer that appends each NQ #382 trade
+# as it closes scores the next entry with the walk's own ledger, refit schedule and z history.
+#
+# THE CONTRACT (what makes it exact; tests/test_ml_keel_state.py proves it to 1e-12 on every cut point):
+#   * append trades in ENTRY order, each only after it has EXITED, and only when no other trade is open
+#     (the walk's ledger for trade k = trades with exit bar < k's entry bar; with no overlaps that is "every
+#     trade before k" - the invariant #382 holds: zero overlaps over 4,825 trades);
+#   * `x_row` = keel_features on the NQ arrays at the trade's ENTRY bar (the same row keel_walk reads,
+#     F[E]); `pnl` = the trade's P in the walk's own units (tools/keel_live_state.run_nq_backtest);
+#   * a live entry on the SAME bar an NQ trade exits on must be scored BEFORE that trade is appended (the
+#     walk's strict "exit < entry" rule; never seen in #382, but the scorer must order it that way).
+# What it does, line for line from keel_build_state's loop body with nd = n, led = arange(n): the refit due
+# for this trade, its member z's, trust-weighted ensemble z, skill trust and fast cut, stored on the trade;
+# then the trade joins the ledger and the refit due for the NEXT trade is baked in (as keel_build_state's
+# end-of-walk step does). Returns a NEW state dict; the input is not modified.
+def keel_append_trade(state, x_row, pnl, entry_bar=-1, exit_bar=-1):
+    cfg = state.get("cfg") or CFG[state["version"]]
+    W, t_lo, t_hi, ledger = cfg["W"], cfg["t_lo"], cfg["t_hi"], cfg["ledger"]
+    fast = cfg.get("fast")
+    shade = cfg.get("shade")
+    seed = state["seed"]
+    x_row = np.asarray(x_row, dtype=float).reshape(1, -1)
+    if x_row.shape[1] != state["X"].shape[1]:
+        raise ValueError("keel_append_trade: x_row has %d features, the state %d"
+                         % (x_row.shape[1], state["X"].shape[1]))
+    n = int(state["n"])
+    X = state["X"]; P = state["P"]
+    sc, members, fitted_on, n_fits = state["sc"], state["members"], state["fitted_on"], state["n_fits"]
+    zm = {k: v for k, v in state["z_members"].items()}
+    z_k = np.nan; tr = 0.0; rh = np.nan
+    zm_k = {k: np.nan for k in zm}
+    if n >= MIN_HISTORY:
+        led = np.arange(n)
+        sc, members, fitted_on, n_fits = _maybe_refit(sc, members, fitted_on, n_fits, X, P, led, n, seed, cfg)
+        zs = _predict_z(sc, members, x_row)
+        for kk, v in zs.items():
+            zm_k[kk] = v
+        if cfg["stack"] == "equal":
+            z_k = float(np.mean(list(zs.values())))
+        else:
+            num = 0.0; den = 0.0
+            for kk, v in zs.items():
+                t_m, _, _ = _trust(zm[kk][led], P[led], W, t_lo, t_hi, ledger) if len(led) else (0.0, np.nan, 0.0)
+                num += t_m * v; den += t_m
+            z_k = float(num / den) if den > 0 else 0.0
+        if state.get("trust_mode", "skill") == "skill":
+            tr, rh, _ = _trust(state["z"][led], P[led], W, t_lo, t_hi, ledger) if len(led) else (0.0, np.nan, 0.0)
+            if cfg["stack"] != "equal" and den <= 0:
+                tr = 0.0
+        else:
+            tr, rh = 1.0, np.nan
+        if fast and len(led) and (tr > 0 or shade):
+            _, _, t_fast = _trust(state["z"][led], P[led], fast["W"], 0.0, 1.0, ledger)
+            tr *= float(np.clip((t_fast - fast["lo"]) / (fast["hi"] - fast["lo"]), 0.0, 1.0))
+    X2 = np.vstack([X, x_row])
+    P2 = np.append(P, float(pnl))
+    z2 = np.append(state["z"], z_k)
+    zm2 = {k: np.append(v, zm_k.get(k, np.nan)) for k, v in zm.items()}
+    trust2 = np.append(state["trust"], tr)
+    rho2 = np.append(state["rho"], rh)
+    E2 = np.append(np.asarray(state["E"], dtype=np.int64), np.int64(entry_bar))
+    Xi2 = np.append(np.asarray(state["Xi"], dtype=np.int64), np.int64(exit_bar))
+    n2 = n + 1
+    trust_now, t_fast_now = 0.0, None
+    if n2 >= MIN_HISTORY:
+        led_next = np.arange(n2)
+        sc, members, fitted_on, n_fits = _maybe_refit(sc, members, fitted_on, n_fits, X2, P2, led_next, n2, seed, cfg)
+        trust_now, _rho_now, _ = _trust(z2[led_next], P2[led_next], W, t_lo, t_hi, ledger)
+        if fast:
+            _, _, t_fast_now = _trust(z2[led_next], P2[led_next], fast["W"], 0.0, 1.0, ledger)
+    out = dict(state)
+    out.update({"sc": sc, "members": members, "fitted_on": fitted_on, "n_fits": n_fits,
+                "trust_now": float(trust_now),
+                "t_fast_now": (float(t_fast_now) if t_fast_now is not None else None),
+                "n": n2, "E": E2, "Xi": Xi2, "X": X2, "P": P2, "z": z2, "z_members": zm2,
+                "trust": trust2, "rho": rho2})
+    return out
+
+
 # -- which branch of the rule sized one score (logging only, 2026-10-05, MANAGER #76) --------
 KEEL_BRANCH_TRUST = "trust"
 KEEL_BRANCH_SHADE = "shade"

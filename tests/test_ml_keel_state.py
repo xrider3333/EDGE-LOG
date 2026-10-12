@@ -333,3 +333,75 @@ def test_maybe_refit_fires_when_due_and_not_otherwise():
     sc3, members3, fitted_on3, n_fits3 = K._maybe_refit(
         sc, members, fitted_on, n_fits, X2, P2, np.arange(nd2), nd2, K.SEED, cfg)
     assert fitted_on3 == nd2 and n_fits3 == n_fits + 1
+
+
+# ── 4. keel_append_trade: the PER-TRADE live update (owner 10-12, MANAGER #102) ────────────
+def _nan_equal(a, b, tol=1e-12):
+    a = np.asarray(a, float); b = np.asarray(b, float)
+    if a.shape != b.shape:
+        return False
+    both_nan = np.isnan(a) & np.isnan(b)
+    return bool(np.all(both_nan | (np.abs(a - b) <= tol)))
+
+
+def test_append_trade_walks_exactly_like_keel_walk_from_an_empty_state(ground_truth):
+    """Start from an EMPTY state, then for every trade in entry order: score it live
+    (cross_series=True, every appended trade counts as resolved) and only THEN append it.
+    Every size must equal keel_walk's own to 1e-12 (warm-up, every refit boundary, Fridays,
+    the squeeze and the FOMC morning included), and the final state must equal a fresh
+    keel_build_state over the whole list - same ledgers, same refit count, same models."""
+    feats, kw = ground_truth
+    F = feats[0]
+    T = kw["trades"]
+    state = K.keel_build_state(_ARRAYS, [], feats=feats, version="v12")
+    bad = []
+    for k, (e, x, p) in enumerate(T):
+        size, _ = K.keel_score_from_state(state, _ARRAYS, e, feats=feats, cross_series=True)
+        if abs(size - float(kw["size"][k])) > 1e-12:
+            bad.append((k, size, float(kw["size"][k])))
+        state = K.keel_append_trade(state, F[e:e + 1], p, entry_bar=e, exit_bar=x)
+    assert not bad, "per-trade sizes differ from keel_walk at %d trades (first 5): %s" % (len(bad), bad[:5])
+
+    ref = K.keel_build_state(_ARRAYS, T, feats=feats, version="v12")
+    assert state["n"] == ref["n"] == _N
+    assert state["fitted_on"] == ref["fitted_on"] and state["n_fits"] == ref["n_fits"]
+    for key in ("E", "Xi"):
+        assert np.array_equal(state[key], ref[key]), key
+    for key in ("X", "P", "z", "trust", "rho"):
+        assert _nan_equal(state[key], ref[key]), key
+    for kk in ref["z_members"]:
+        assert _nan_equal(state["z_members"][kk], ref["z_members"][kk]), kk
+    assert state["trust_now"] == pytest.approx(ref["trust_now"], abs=1e-12)
+    assert (state["t_fast_now"] is None) == (ref["t_fast_now"] is None)
+    if ref["t_fast_now"] is not None:
+        assert state["t_fast_now"] == pytest.approx(ref["t_fast_now"], abs=1e-12)
+    # same fitted models: identical scores on every training row
+    za = [K._predict_z(state["sc"], state["members"], F[e:e + 1]) for e, _, _ in T[-20:]]
+    zb = [K._predict_z(ref["sc"], ref["members"], F[e:e + 1]) for e, _, _ in T[-20:]]
+    assert za == zb
+
+
+def test_append_trade_from_a_mid_walk_state_and_leaves_its_input_untouched(ground_truth):
+    """The production shape: a nightly state built on trades[:m], then today's trades
+    appended one by one as they close. Sizes match keel_walk; the input state is not
+    modified (a scorer may still be reading it)."""
+    feats, kw = ground_truth
+    F = feats[0]
+    T = kw["trades"]
+    m = 100
+    state0 = K.keel_build_state(_ARRAYS, T[:m], feats=feats, version="v12")
+    n0, z0 = state0["n"], state0["z"].copy()
+    state = state0
+    for k in range(m, _N):
+        e, x, p = T[k]
+        size, _ = K.keel_score_from_state(state, _ARRAYS, e, feats=feats, cross_series=True)
+        assert size == pytest.approx(float(kw["size"][k]), abs=1e-12), k
+        state = K.keel_append_trade(state, F[e:e + 1], p, entry_bar=e, exit_bar=x)
+    assert state0["n"] == n0 and _nan_equal(state0["z"], z0)
+
+
+def test_append_trade_refuses_a_wrong_width_row(ground_truth):
+    feats, kw = ground_truth
+    state = K.keel_build_state(_ARRAYS, kw["trades"][:40], feats=feats, version="v12")
+    with pytest.raises(ValueError):
+        K.keel_append_trade(state, np.zeros((1, state["X"].shape[1] + 1)), 1.0)
