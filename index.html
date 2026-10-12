@@ -1056,16 +1056,19 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-addrow.hm-more-always .hm-toolbar-actions{display:none}
 .hm-addrow.hm-more-always .hm-toolbar-actions.open{display:flex;position:absolute;right:0;top:calc(100% + 6px);z-index:60;flex-direction:column;align-items:stretch;gap:6px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .hm-wrap.lg-frame{max-width:1320px}
-.hm-sec-chart .lg-chart-foot{margin-bottom:18px}
+.hm-sec-chart .lg-chart-foot{margin-bottom:10px}
 /* LEDGER unify step 11: REAL's page is built in ONE fixed order at every width (the markup is in that order - no order: rules): hero, range pills
    with the EQUITY | P&L switch, equity chart, the four tiles, More stats, calendar, accounts, the trade list, then REAL's own sections, each a closed
    fold with a one-line summary. Breakpoints: only the house numbers - 600 phone, 740 / 800 / 920 list cells, 1100 rail (contract section 5b). */
 .hm-wrap.lg-flow>*{min-width:0}
-.hm-ctl{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 14px;margin:18px 0 0}
+.hm-ctl{display:flex;align-items:center;justify-content:space-between;flex-wrap:wrap;gap:10px 14px;margin:10px 0 0}
 .hm-mode{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
 .hm-mode button{background:transparent;border:none;padding:7px 14px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
 .hm-mode button.active{background:var(--bg1);color:var(--text)}
-.hm-wrap.lg-flow .hm-chart-wrap{margin:12px 0 0}
+.hm-wrap.lg-flow .hm-chart-wrap{margin:8px 0 0}
+/* LEDGER tight (owner 10-12): smaller gaps above REAL's list; the phone block below keeps its own, tighter values */
+.hm-wrap.lg-flow .lg-stats{margin-bottom:10px}
+.hm-wrap.lg-flow .lg-more{padding-top:8px;margin-bottom:12px}
 .hm-fold{gap:10px}
 .hm-fold .hm-fold-t{flex:none;white-space:nowrap}
 .hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1168,7 +1171,7 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    down each row is two lines - DATE, SYM, DIR, NET, then the group (wrapping inside its line if it must) - so nothing scrolls sideways. */
 .hm-kit{display:flex;flex-wrap:nowrap;align-items:center;gap:4px 6px;min-width:0}
 .hm-kit select[data-hmfield="setup"]{max-width:96px}
-.lg-tl .hm-dtable.hm-simple td.lg-c-kit{white-space:normal}
+.lg-tl .hm-dtable.hm-simple td.lg-c-kit{white-space:nowrap}
 .hm-curl{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--blue);font-family:inherit;font-size:10px;padding:3px 2px;outline:none;width:120px;min-width:110px;box-sizing:border-box}
 .hm-curl:focus{border-bottom-color:var(--blue)}
 .hm-curl::placeholder{color:var(--text5)}
@@ -1206,6 +1209,19 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 @media (max-width:920px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s2{display:none}}
 @media (max-width:740px){.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-s1{display:none}.hm-wrap.lg-flow .hm-dtable.hm-simple td,.hm-wrap.lg-flow .hm-dtable.hm-simple th{padding-left:6px;padding-right:6px}}
 @media (max-width:600px){.hm-wrap.lg-flow .hm-dtable.hm-simple td,.hm-wrap.lg-flow .hm-dtable.hm-simple th{padding-left:4px;padding-right:4px}}
+/* LEDGER tight (owner 10-12: 'ledger rows should be one line ... too much space between the trade columns ... too busy'): REAL only.
+   The day header is one short line (label, count and the day's net together); a trade row never wraps above 740 px; cells 4 px apart;
+   the SIMPLE date reads 10/08 09:55; the setup picker is narrower (the link box keeps its 100 px); the gaps above the list are smaller. */
+.hm-wrap.lg-flow .lg-tl .lg-tl-dayhd{padding:8px 2px 3px;flex-wrap:nowrap;white-space:nowrap}
+.hm-wrap.lg-flow .lg-tl .lg-tl-dayhd .lg-tl-daynet{font-size:15px;line-height:1}
+.hm-wrap.lg-flow .lg-tl-table tr.lg-tl-dayhdrow .lg-tl-dayhd{padding:5px 8px 2px;min-width:min(320px,88vw)}
+.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple td,.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple th{padding-left:4px;padding-right:4px}
+.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple td{padding-top:3px;padding-bottom:3px}
+.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple .hm-d{white-space:nowrap;font-variant-numeric:tabular-nums}
+.hm-wrap.lg-flow .hm-dtable.hm-simple select[data-hmfield="setup"]{min-width:64px;max-width:84px}
+.hm-wrap.lg-flow .hm-dtable.hm-simple select[data-hmfield="grade"]{min-width:44px}
+.hm-wrap.lg-flow .hm-dtable.hm-simple .hm-curl{width:100px;min-width:100px}
+@media (max-width:740px){.hm-wrap.lg-flow .lg-tl .hm-dtable.hm-simple td.lg-c-kit{white-space:normal}}
 /* Row flash after a calendar-day / chart-dot jump (window.hmShowTrades). Pinned cells carry
    their own opaque background, so they get the same tint mixed onto it. */
 .hm-dtable tbody tr.hm-flash td.hm-pin{background:color-mix(in srgb,var(--yellow) 20%,var(--bg))}
@@ -1312,7 +1328,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1218';
+const VERSION='73.1219';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1330,7 +1346,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1217',date:'2026-10-12',notes:['LEDGER, REAL: DAILY LOSS BAR (owner order 10-12). Set your daily stop in Settings, TRADING LOG. A thin bar under the status line fills as the day goes red, says near your daily limit at 80 per cent and daily limit hit - stop for today at 100 per cent. Blank = no bar.','LEDGER, REAL: TILT CHIPS. Top right of the big number (under it on a phone), from your trades closed today: 2 or more losses in a row, size up after a loss, back in under 5 minutes after a loss. They only warn; nothing is blocked.']},{v:'73.1215',date:'2026-10-11',notes:['TRADE CANDLES WINDOW, TRADINGVIEW LAYOUT (owner: all this text and space and I can barely see the chart, no volume either, make it like TradingView). The window now fills the screen (edge to edge on a phone) and the chart takes everything left: one header line (the trade, its net and the bar source, close on the right) and one row of controls (previous / next with the row count, 10S 1M 5M 15M, TOP 10, TRADE and FULL zoom, RTH / ETH, AUTO, + BARS, POINTS, PNG and a ? for the gestures). The hint line under the chart is gone.','VOLUME: a volume histogram along the bottom fifth of the chart on its own scale, each bar in its candle colour (theme colours, so MONO stays white and grey). Every bar source EL draws carries volume - your trade bars (1m and the 10-second capture), the Webull box bars and the bars your PC sends; a source with no volume draws none and the legend says so.','CROSSHAIR AND LEGEND: an OHLCV legend top-left follows the crosshair (the last bar on screen when the mouse is off the chart); the crosshair snaps to the bar with its price on the right axis and its time on the bottom axis; the last price is tagged on the axis; the entry and exit are dashed lines across the chart with their prices on the axis, next to the markers on their candles. The 200 average line stays.','POINTS is one chip in the control row (POINTS 6/9) that opens the same checklist over the chart and folds it again; it starts folded and remembers your choice. iPad: one finger pans, two fingers pinch to zoom, a tap shows that bar in the legend, a double tap resets. Wheel, drag, double-click and the price-scale drag work as before.']},{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
+const CHANGELOG=[{v:'73.1219',date:'2026-10-12',notes:['LEDGER, REAL: YOUR SETUPS SHOW AGAIN (owner 10-12). Nothing was lost: the 54 trades still carry CBU, ENGU, EBU, CBD and ENGD. The setup picker only listed the setups saved on the device you were using, so on a device without your list a stored ENGU showed as a dash. Every picker now also lists every setup already on a trade, and always shows the trade own value.','LEDGER, REAL: DENSER TRADE LIST. The day header is one short line with the day net beside the label, trade rows never wrap on a laptop or iPad, cells sit closer, the SIMPLE date reads 10/08 09:55, the setup picker is narrower, and the gaps above the list are smaller. Nothing was removed.']},{v:'73.1217',date:'2026-10-12',notes:['LEDGER, REAL: DAILY LOSS BAR (owner order 10-12). Set your daily stop in Settings, TRADING LOG. A thin bar under the status line fills as the day goes red, says near your daily limit at 80 per cent and daily limit hit - stop for today at 100 per cent. Blank = no bar.','LEDGER, REAL: TILT CHIPS. Top right of the big number (under it on a phone), from your trades closed today: 2 or more losses in a row, size up after a loss, back in under 5 minutes after a loss. They only warn; nothing is blocked.']},{v:'73.1215',date:'2026-10-11',notes:['TRADE CANDLES WINDOW, TRADINGVIEW LAYOUT (owner: all this text and space and I can barely see the chart, no volume either, make it like TradingView). The window now fills the screen (edge to edge on a phone) and the chart takes everything left: one header line (the trade, its net and the bar source, close on the right) and one row of controls (previous / next with the row count, 10S 1M 5M 15M, TOP 10, TRADE and FULL zoom, RTH / ETH, AUTO, + BARS, POINTS, PNG and a ? for the gestures). The hint line under the chart is gone.','VOLUME: a volume histogram along the bottom fifth of the chart on its own scale, each bar in its candle colour (theme colours, so MONO stays white and grey). Every bar source EL draws carries volume - your trade bars (1m and the 10-second capture), the Webull box bars and the bars your PC sends; a source with no volume draws none and the legend says so.','CROSSHAIR AND LEGEND: an OHLCV legend top-left follows the crosshair (the last bar on screen when the mouse is off the chart); the crosshair snaps to the bar with its price on the right axis and its time on the bottom axis; the last price is tagged on the axis; the entry and exit are dashed lines across the chart with their prices on the axis, next to the markers on their candles. The 200 average line stays.','POINTS is one chip in the control row (POINTS 6/9) that opens the same checklist over the chart and folds it again; it starts folded and remembers your choice. iPad: one finger pans, two fingers pinch to zoom, a tap shows that bar in the legend, a double tap resets. Wheel, drag, double-click and the price-scale drag work as before.']},{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
 {v:'73.1210',date:'2026-10-11',notes:['LEDGER > REAL: the trade list controls are in one place, in three rows. Top: the trade count, and on the right the view - LIST | TABLE with SIMPLE | FULL right beside it on the TABLE (BY TRADE | BY DAY on the LIST). Next: every filter on one line - search, ALL LONG SHORT WINS LOSSES, then FUTURES STOCKS. Then: + NEW TRADE and the CHART LINK box together, with ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL grouped at the right (behind one small TOOLS menu on a phone, where the link box comes first). Nothing was removed and every button does what it did.']},
 {v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
 {v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL, SIMPLE table: SETUP, TF and the chart link now sit side by side in one spot on every trade row, so a trade is tagged without switching to FULL. Paste a TradingView snapshot link into the row box and it saves at once (no Enter), with a short saved tick; on a phone the three sit on a second line of the row.','LEDGER > REAL, FULL table: the rows show NET (after fees), the same number SIMPLE and the hero use; GROSS is gone from the row and sits in the hover title of the net figure, FEES stays.']},
@@ -2924,6 +2940,14 @@ const NAV_ROW=[...LOG_TABS_STRIP.map(t=>['tab',t,LOG_TAB_LABELS[t]||t.toUpperCas
 const HOME_SUBS=[['real','REAL','Your real trades - P&L and the ledger'],['paper2','NT8 PAPER','NinjaTrader paper legs (futures)'],['qqqpaper','WEBULL PAPER','Webull paper trading (QQQ shares)']];
 const ASUB_ICON={lib:'◫',exec:'▸',exec2:'▸',runs:'▦',rank:'▤',cmp:'◧',cmp2:'◨',paper:'◷',paper2:'◑',qqqpaper:'◔',ref:'◈',research:'◎',set:'◆'};
 const DEFAULT_SETUPS=['—','Breakout','Pullback','Reversal','Trend','Gap Fill','VWAP','S/D Zone','Momentum','ICT','Order Block','FVG'];
+// owner 10-12 ('what happened to all the setups i annotated'): the saved setup list is per device (el_setups), so a device without
+// ENGU / CBU / ... drew a stored ENGU as '—' in every picker. The options are now that list + every setup stored on a trade + this one.
+function setupOpts(cur){
+  const out=[],seen={},add=v=>{v=String(v==null?'':v);if(!v||seen[v])return;seen[v]=1;out.push(v);};
+  add('\u2014');(customSetups||[]).forEach(add);
+  try{(trades||[]).forEach(t=>{if(t&&t.setup)add(t.setup);});}catch(e){}
+  add(cur);return out;
+}
 const KPI_INFO={
   'WIN RATE':{info:'% of trades that are profitable. Must be paired with good R:R — a 40% WR can be profitable with 2R+.',warn:v=>v<0.4?'danger':v<0.5?'warn':null,msg:v=>v<0.4?'Win rate below 40% — review entries':'Below 50% — ensure R:R compensates'},
   'PROFIT FACTOR':{info:'Gross profit ÷ gross loss. > 1.5 healthy · > 2.0 excellent · < 1.0 losing money overall.',warn:v=>v<1?'danger':v<1.5?'warn':null,msg:v=>v<1?'PF < 1 — losing strategy':'PF below 1.5 — marginal edge'},
@@ -14040,7 +14064,7 @@ function openEditModal(tradeId){
         <div><label class="lbl">DIRECTION</label><select id="${mid}_t"><option${t.type==='LONG'?' selected':''}>LONG</option><option${t.type==='SHORT'?' selected':''}>SHORT</option></select></div>
         <div><label class="lbl">ACCOUNT</label><input id="${mid}_acct" value="${t.account||''}" placeholder="e.g. NT8-DEMO, IB-Main" list="accts-list"/><datalist id="accts-list">${[...new Set(trades.map(x=>x.account).filter(Boolean))].map(a=>`<option>${a}</option>`).join('')}</datalist></div>
       <div><label class="lbl">BROKER</label><input id="${mid}_brk" value="${t.broker||''}" placeholder="e.g. NinjaTrader, IBKR, TopstepX" list="brks-list"/><datalist id="brks-list">${[...new Set(trades.map(x=>x.broker).filter(Boolean))].map(b=>`<option>${b}</option>`).join('')}</datalist></div>
-      <div><label class="lbl">SETUP</label><select id="${mid}_s">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></div>
+      <div><label class="lbl">SETUP</label><select id="${mid}_s">${setupOpts(t.setup).map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select></div>
         <div><label class="lbl">GRADE</label><select id="${mid}_g">${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}</select></div>
       </div>
       <div style="display:grid;grid-template-columns:1fr 1fr 1fr;gap:8px">
@@ -14621,7 +14645,7 @@ function _hmSheetParts(t){
     ['SOURCE',t.source||'--']
   ];
   // the grade and the setup are editors here too (LEDGER step 8: a phone row keeps five cells and the editing lives in the panel)
-  const sheetSel=(field,opts,cur)=>`<select class="inline-sel" data-hmsheetfield="${field}" aria-label="${field}">${opts.map(o=>`<option${o===(cur||'—')?' selected':''}>${_hmEsc(o)}</option>`).join('')}</select>`;
+  const sheetSel=(field,opts,cur)=>`<select class="inline-sel" data-hmsheetfield="${field}" aria-label="${field}">${(field==='setup'?setupOpts(cur):opts).map(o=>`<option${o===(cur||'—')?' selected':''}>${_hmEsc(o)}</option>`).join('')}</select>`;
   const numbers=rows.map(r=>{
     const ed=r[0]==='GRADE'?sheetSel('grade',GRADES,t.grade):(r[0]==='SETUP'?sheetSel('setup',customSetups,t.setup):null);
     return [r[0],ed!=null?ed:_hmEsc(r[1])];
@@ -14911,7 +14935,8 @@ function _hmFrameRows(list){
 function _hmFrameCells(full){
   const lnk=t=>t.chartUrl?`<a href="${_hmEsc(t.chartUrl)}" target="_blank" class="clink chart-link" data-url="${_hmEsc(t.chartUrl)}" title="your TradingView snapshot" style="text-decoration:none;margin-left:2px">&#128200;</a>`:'';
   return {
-    time:(t,v)=>(v==='table'&&full)?'<span class="lg-d-full">'+_hmEsc(t.date||'')+'</span><span class="lg-d-short">'+_hmEsc(String(t.date||'').slice(5))+'</span> '+_hmEsc(t.entryTime||'--'):null,
+    time:(t,v)=>(v==='table'&&full)?'<span class="lg-d-full">'+_hmEsc(t.date||'')+'</span><span class="lg-d-short">'+_hmEsc(String(t.date||'').slice(5))+'</span> '+_hmEsc(t.entryTime||'--')
+      :(v==='table'?'<span class="hm-d" title="'+_hmEsc((t.date||'')+' '+(t.entryTime||''))+'">'+_hmEsc(String(t.date||'').slice(5,7)+'/'+String(t.date||'').slice(8,10))+' '+_hmEsc(String(t.entryTime||'--').slice(0,5))+'</span>':null),
     sym:t=>_hmEsc(t.symbol)+(isFut(t.symbol)?'':'<span class="hm-badge-s">S</span>')+(t.statsExcluded?'<span class="hm-excl-dot" title="Ignored in metrics">&#8856;</span>':''),
     size:t=>t.size!=null?_hmEsc(t.size):'--',
     pts:t=>_hmPtsText(t),
@@ -14922,7 +14947,7 @@ function _hmFrameCells(full){
 // REAL's own table columns, after the common ones: SIMPLE = score, points, grade, setup, notes; FULL = every other column
 function _hmFrameCols(full){
   const grade=t=>`<select class="inline-sel" data-hmfield="grade" data-hmid="${t.id}">${GRADES.map(g=>`<option${g===(t.grade||'—')?' selected':''}>${g}</option>`).join('')}</select>`;
-  const setup=t=>`<select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}">${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select>`;
+  const setup=t=>`<select class="inline-sel" data-hmfield="setup" data-hmid="${t.id}" title="${_hmEsc(t.setup||'')}">${setupOpts(t.setup).map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}</select>`;
   const ttl=t=>'title="'+_hmEsc(t.notes||'')+'"';
   if(!full){
     return [
@@ -17714,7 +17739,7 @@ function renderApp(){
             return `<span class="score-pill" style="color:${scoreColor(sc.overall)};border-color:color-mix(in srgb,${scoreColor(sc.overall)} 35%,transparent);background:color-mix(in srgb,${scoreColor(sc.overall)} 10%,transparent)" title="Setup ${sc.setup.total} / Execution ${sc.exec.total} — click for the full report" onclick="event.stopPropagation();showTradeScore('${scoreKey(t)}')">${sc.overall} ${scoreBand(sc.overall)}</span>`;})()}</td>
           <!-- INLINE SETUP -->
           <td><select class="inline-sel" data-field="setup" data-id="${t.id}">
-            ${customSetups.map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}
+            ${setupOpts(t.setup).map(s=>`<option${s===(t.setup||'—')?' selected':''}>${s}</option>`).join('')}
           </select></td>
           <!-- INLINE TIMEFRAME -->
           <td><button type="button" class="tf-btn" data-tid="${t.id}" data-tfkey="trd-${t.id}" onclick="event.stopPropagation();window.openTfPicker(this)" title="Pick one or more timeframes">${tfLabel(t.timeframe)}</button></td>
