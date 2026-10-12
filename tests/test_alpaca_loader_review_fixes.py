@@ -220,3 +220,18 @@ def test_the_half_day_list_covers_the_data_the_loader_can_pull():
 
 def test_an_empty_frame_is_handled():
     assert alp.rth_filter(pd.DataFrame({"time": []})) is not None
+
+
+def test_QQQ_alone_falls_back_to_its_split_adjusted_master_when_nothing_else_exists(monkeypatch):
+    """MANAGER #156 (2026-10-12): masters 49/50 retired; QQQ never split after 2000, so its Alpaca bars are the
+    traded prices. Only QQQ, only when no non-adjusted master exists, and never a roll-corrected futures master."""
+    from augur_engine import data
+    rows = [dict(instrument="QQQ", timeframe="5m", session="rth", source="alpaca_split_rth", filename="q.csv"),
+            dict(instrument="AAPL", timeframe="5m", session="rth", source="alpaca_split_rth", filename="a.csv"),
+            dict(instrument="NQ", timeframe="5m", session="rth", source="db_adj_rth", filename="n.csv")]
+    monkeypatch.setattr(data, "list_masters", lambda: rows)
+    assert data.find_master("QQQ", "5m", session="rth")["filename"] == "q.csv"
+    assert data.find_master("AAPL", "5m", session="rth") is None
+    assert data.find_master("NQ", "5m", session="rth") is None
+    rows.append(dict(instrument="QQQ", timeframe="5m", session="rth", source="nt_noadj_rth", filename="nt.csv"))
+    assert data.find_master("QQQ", "5m", session="rth")["filename"] == "nt.csv"   # a plain master still wins

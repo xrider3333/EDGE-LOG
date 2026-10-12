@@ -63,6 +63,14 @@ def list_masters():
 # as the September regression that re-pointed the live gate at back-adjusted prices.
 ADJUSTED_SOURCE_PREFIXES = ("db_adj", "db_fadj", "alpaca_")
 
+# The ONE exception, by ticker (MANAGER #156, 2026-10-12): an unpinned lookup for a ticker listed here may fall
+# back to its split-adjusted Alpaca master, and only when no non-adjusted master of that timeframe exists. QQQ
+# last split in 2000-03, so over the Alpaca masters' 2016+ window split-adjusted bars ARE the traded prices.
+# Its non-adjusted 'NT' 1m/5m masters (49/50) were the QQQ live bar cache mis-imported a whole bar early and
+# were retired; without this, unpinned QQQ 1m/5m lookups (api/bars.py and friends) found nothing. Never add a
+# ticker that split inside its master's window, and never a futures root (roll-corrected levels stay opt-in).
+UNPINNED_SPLIT_ADJUSTED_OK = {"QQQ"}
+
 
 def is_adjusted_source(source):
     """True for a source an unpinned lookup must not substitute: roll-corrected futures
@@ -89,7 +97,10 @@ def find_master(instrument, timeframe, session=None, source=None):
     if source:
         cand = [m for m in cand if str(m.get("source", "")) == source]
     else:
-        cand = [m for m in cand if not is_adjusted_source(m.get("source"))]
+        plain = [m for m in cand if not is_adjusted_source(m.get("source"))]
+        if not plain and str(instrument) in UNPINNED_SPLIT_ADJUSTED_OK:
+            plain = [m for m in cand if str(m.get("source", "")).startswith("alpaca_split")]
+        cand = plain
     return cand[0] if cand else None
 
 
