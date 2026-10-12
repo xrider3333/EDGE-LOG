@@ -6697,6 +6697,98 @@
    ],
    "overall": 48,
    "summary": "You shorted the bottom of a big 09:54 flush, so the trade had little room and a wide stop from the start. Price gave you only about 10 points before snapping back, and you cut it near the structural stop, which kept the loss from growing as MNQ rallied to 31260 afterwards. Next time wait for a retest of the broken range low around 31200 to short with a tighter stop."
+  },
+  {
+   "sym": "MNDR",
+   "date": "2026-10-12",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "09:32",
+   "exit_time": "09:33",
+   "entry": 3.11,
+   "exit": 3.29,
+   "qty": 50,
+   "breakout_candle": "09:31",
+   "stop": 2.46,
+   "setup": [
+    {
+     "label": "Catalyst / RVOL",
+     "weight": 15,
+     "score": 12,
+     "note": "Gapped from 2.20 premarket to a 2.585 open on 58M shares in the first minute, so relative volume was extreme; no catalyst was logged."
+    },
+    {
+     "label": "Front-side structure",
+     "weight": 20,
+     "score": 16,
+     "note": "The 09:31 bar broke the 2.65 open high and closed 2.87, and 09:32 made a higher high at 3.22, a clean front side."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 9,
+     "note": "You bought 3.11, already 0.60 (24%) above the 2.51 open after two straight thrust bars, which is a chase."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 7,
+     "note": "The signal bar low was 2.46, 0.65 below entry, and even the 09:32 bar low of 2.66 was 0.45 away."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 5,
+     "note": "The next level was the 3.39 high of 09:33-09:34, only 0.28 above entry against a 0.45 to 0.65 structural risk."
+    },
+    {
+     "label": "Liquidity",
+     "weight": 10,
+     "score": 10,
+     "note": "The stock traded 2.0M to 2.3M shares a minute through 09:33, so 50 shares filled with no friction."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 8,
+     "note": "Entry at 09:32 sat in the opening drive, the best momentum window but also the most volatile."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 14,
+     "note": "The fill at 3.11 came in the upper part of the 09:32 bar (2.66 to 3.22), late in the surge rather than on a pullback."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 21,
+     "note": "Heat was small: the 09:33 bar low was 3.05, about 0.06 under your entry."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 13,
+     "note": "You sold 3.29 while 09:33 reached 3.39, and over the next 15 minutes price hit 3.55 at 09:36 and 3.77 at 09:45, with dips to 3.00 between."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 12,
+     "note": "Fifty shares (about $155) was a sensible starter size for a name swinging 0.30 to 0.50 a minute."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 5,
+     "note": "No setup, grade or notes were logged, so the trade cannot be checked against a plan."
+    }
+   ],
+   "overall": 66,
+   "summary": "You caught a strong opening-drive gapper with real volume and kept the heat to about 6 cents, which is good. The entry at 3.11 chased two big thrust bars with no tight structural stop, and you sold 3.29 while the stock went on to 3.55 within three minutes. Next time, wait for a first pullback that holds above the prior bar and log the setup so the plan can be checked."
   }
  ],
  "na": [
