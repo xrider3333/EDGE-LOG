@@ -19,7 +19,8 @@ BARS (per leg, cost 0.783): beat the leg's own WF ROC@30k AND daily Sortino; mon
 (2,000 draws, seed 20261012, paired: the same months for both); its neighbour's delta ROC > 0. Printed beside every cell:
 the four numbers (ROC@30k, DD5, DD% from the peak on $100k, Sortino), win rate, avg win / avg loss, trades, PF.
 
-  python noise_target_r1_stageA.py --parity     the patched file at target = off must rebuild #304 / #382 / #422
+  python noise_target_r1_stageA.py --parity     the patched file at target = off must rebuild #304 / #382 / #422 (sizes too,
+                                                addendum 1: the gate read on the engine's own ratio-adjusted arrays)
   python noise_target_r1_stageA.py              Stage A (refuses unless the prereg's LF hash matches its pin; the harness's own hash is posted)
 """
 import argparse
@@ -92,11 +93,38 @@ def run(m, cost):
     return tr
 
 
+CAP = {}
+
+
+def engine_arrays():
+    """ADDENDUM 1 (post-data parity fix, disclosed): the arrays the engine actually hands a strategy. Since the 10-08 roll
+    guard it runs signals on a ratio-adjusted series, so the squeeze gate (and so each leg's size) must be read on those
+    arrays, not on the raw master - run 1 read it on raw prices and mis-sized 9 (#422) / 14 (#382) WF trades."""
+    if CAP:
+        return CAP
+    import functools
+    m = build(None, "full")
+    orig = m.run_backtest
+
+    @functools.wraps(orig)
+    def probe(opens, highs, lows, closes, *args, **kw):
+        CAP.update(high=np.asarray(highs, float), low=np.asarray(lows, float), close=np.asarray(closes, float),
+                   day_id=kw.get("day_id"), index=kw.get("index"))
+        return orig(opens, highs, lows, closes, *args, **kw)
+    m.run_backtest = probe
+    run_backtest(m, arrays=R.A, params=R.CROWN, cost_pts=0.0, return_trades=True)
+    assert CAP and CAP["day_id"] is not None, "could not capture the engine's strategy arrays"
+    if CAP["index"] is None:
+        CAP["index"] = R.A["index"]
+    return CAP
+
+
 def sizes(tr, gate):
     if gate is None:
         return np.ones(len(tr))
     tf, ln, ratio, tilt = gate
-    comp = R.SQ._compression(R.H, R.L, R.C, np.asarray(R.A["day_id"]), R.A["index"], tf, ln, ratio)
+    E = engine_arrays()
+    comp = R.SQ._compression(E["high"], E["low"], E["close"], np.asarray(E["day_id"]), E["index"], tf, ln, ratio)
     return np.array([tilt if bool(comp[int(t[0]) - 1]) else 1.0 for t in tr])
 
 
@@ -158,7 +186,12 @@ def main():
                    key=lambda z: int(z[0]))
         assert [(int(x[0]), int(x[1])) for x in e] == [(int(x[0]), int(x[1])) for x in tb], "PARITY: %s entries/exits" % name
         sz = sizes(tb, gate)
-        print("PARITY %s: %d trades, entries and exits identical; sizes %s" % (
+        es = np.array([float(x) for x in run_backtest(R.load(fn), arrays=R.A, params=params, cost_pts=0.0,
+                                                       return_trades=True)["trade_sizes"]])
+        eo = np.argsort([int(x[0]) for x in run_backtest(R.load(fn), arrays=R.A, params=params, cost_pts=0.0,
+                                                          return_trades=True)["trades"]], kind="stable")
+        assert np.array_equal(es[eo], sz), "PARITY: %s sizes differ from the engine's (%d)" % (name, int((es[eo] != sz).sum()))
+        print("PARITY %s: %d trades, entries, exits and sizes identical to the engine; sizes %s" % (
             name, len(e), dict(zip(*np.unique(sz, return_counts=True)))))
     print("PARITY #304 core: %d trades identical to the cent (patched file, target off)" % len(tb))
     if a.parity:
