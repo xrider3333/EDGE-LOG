@@ -116,3 +116,56 @@ def test_the_nt_file_is_read_as_bar_end(tmp_path):
     pd.DataFrame({"time": [1582727400 + 60], "open": [1.0], "high": [1.0], "low": [1.0], "close": [1.0],
                   "volume": [5]}).to_csv(p, index=False)
     assert int(sp.load_nt(str(p))["time"].iloc[0]) == 1582727400
+
+
+def test_a_pull_one_minute_short_of_the_close_is_refused(tmp_path):
+    """The real 2020-02-28 pulls ended at the bar ending 15:59 ET: the closing minute was missing."""
+    db, up, originals, hole, ntp = _build(tmp_path)
+    hole.iloc[:-1].to_csv(ntp, index=False)                           # drop the 15:59-16:00 minute
+    res = sp.run("ES", DAYS[1], str(ntp), commit=True, db=db, uploads=up, log=lambda *_: None)
+    assert all(r[2] == "refused" and "short of the session's last minute" in r[3] for r in res)
+
+
+def test_a_long_bar_cut_in_its_first_hour_is_checked_on_its_open():
+    """The real 2020-06-30 cut at 10:10 ET leaves the 60m master one PARTIAL 09:30 bar and no complete one;
+    its open is final, so the level is checked there - and a feed at another level is still refused."""
+    full = _rth_minutes()
+    m60 = pd.concat([sp.derive(full, 60, "rth", d) for d in DAYS], ignore_index=True)
+    day0 = int(pd.Timestamp(f"{DAYS[1]} 09:30", tz="US/Eastern").timestamp())
+    cut = int(pd.Timestamp(f"{DAYS[1]} 10:10", tz="US/Eastern").timestamp())
+    part = sp.derive(full[full["time"] < cut], 60, "rth", DAYS[1])
+    trunc = pd.concat([m60[m60["time"] < day0], part], ignore_index=True)
+    new, rep = sp.splice_plan(trunc, full, 60, "rth", DAYS[1], 0.0)
+    assert rep["overlap_bars"] == 1 and rep["level_offset"] == 0.0
+    assert np.allclose(new[["time", "open", "high", "low", "close"]].values,
+                       m60[["time", "open", "high", "low", "close"]].values)
+    shifted = full.copy()
+    shifted[["open", "high", "low", "close"]] += 1.0
+    with pytest.raises(sp.Refused, match="level offset"):
+        sp.splice_plan(trunc, shifted, 60, "rth", DAYS[1], 0.0)
+
+
+def test_a_one_tick_opening_print_does_not_move_the_day():
+    """NQ 60m 2020-06-30: the master's partial 09:30 bar opened one tick above NT's first minute (an opening print
+    on the other side of the minute). The splice accepts it (within a tick) but writes the day at the master's own
+    reference offset, not at the one-print measurement."""
+    full = _rth_minutes()
+    m60 = pd.concat([sp.derive(full, 60, "rth", d) for d in DAYS], ignore_index=True)
+    day0 = int(pd.Timestamp(f"{DAYS[1]} 09:30", tz="US/Eastern").timestamp())
+    cut = int(pd.Timestamp(f"{DAYS[1]} 10:10", tz="US/Eastern").timestamp())
+    part = sp.derive(full[full["time"] < cut], 60, "rth", DAYS[1])
+    part.loc[0, "open"] += 0.25
+    part.loc[0, "high"] = max(part.loc[0, "high"], part.loc[0, "open"])
+    trunc = pd.concat([m60[m60["time"] < day0], part], ignore_index=True)
+    new, rep = sp.splice_plan(trunc, full, 60, "rth", DAYS[1], 0.0)
+    assert rep["level_offset"] == 0.25
+    later = new[new["time"] > day0]
+    assert np.allclose(later[["open", "high", "low", "close"]].values,
+                       m60[m60["time"] > day0][["open", "high", "low", "close"]].values)
+
+
+def test_registry_connections_wait_for_the_runners_locks(tmp_path):
+    db = tmp_path / "r.db"
+    con = sp._connect(str(db))
+    assert con.execute("PRAGMA busy_timeout").fetchone()[0] == 120000
+    con.close()

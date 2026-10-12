@@ -149,13 +149,29 @@ def splice_plan(master, nt_1m, tf, session, date, ref_offset):
     if derived.empty:
         raise Refused(f"{date}: the NT file has no minutes in this session")
     last_have = int(have["time"].max())
+    # COMPLETENESS (10-12): the NT minutes must run from at/before the master's last bar to the session's LAST
+    # minute. A pull whose end is one minute short loses exactly the closing minute - the 16:00 close - and a
+    # resample would then build a wrong last bar without any other check noticing.
+    s0, s1 = session_window(date, session)
+    nt_in = nt_1m[(nt_1m["time"] >= _epoch(s0)) & (nt_1m["time"] < _epoch(s1))]
+    if int(nt_in["time"].max()) < _epoch(s1) - 60:
+        raise Refused(f"{date}: the NT minutes stop at {str(to_et([int(nt_in['time'].max())]).iloc[0])[11:16]} ET, "
+                      f"short of the session's last minute ({str(s1 - pd.Timedelta(minutes=1))[11:16]}) - re-pull")
+    if int(nt_in["time"].min()) > last_have:
+        raise Refused(f"{date}: the NT minutes start after the master's last bar - nothing to check the level on")
     # The master's last bar on the day was built from a truncated source, so it may be partial: every bucket from
     # the one holding the master's last bar onward is replaced; everything before it must agree with NT.
     cut = last_have
     before = derived[derived["time"] < cut].merge(have[have["time"] < cut], on="time", suffixes=("_nt", "_m"))
-    if len(before) < 1:
-        raise Refused(f"{date}: no overlapping bar before the truncation to check the NT level against")
-    off = before["close_m"] - before["close_nt"]
+    if len(before) >= 1:
+        off = before["close_m"] - before["close_nt"]
+    else:
+        # A long bar (60m) cut in its first hour has no complete bar before it. Its OPEN is still final - it is
+        # the bucket's first minute, which the truncated source did hold - so the level is checked on that one price.
+        before = derived[derived["time"] == cut].merge(have[have["time"] == cut], on="time", suffixes=("_nt", "_m"))
+        if len(before) < 1:
+            raise Refused(f"{date}: no overlapping bar before the truncation to check the NT level against")
+        off = before["open_m"] - before["open_nt"]
     level = float(off.median())
     if abs(level - ref_offset) > TICK + 1e-9:
         raise Refused(f"{date}: NT level offset {level:+.2f} differs from the master's own {ref_offset:+.2f}")
@@ -165,8 +181,10 @@ def splice_plan(master, nt_1m, tf, session, date, ref_offset):
     add = derived[derived["time"] >= cut].copy()
     if "source" in master.columns:                                # the masters' row-provenance column
         add["source"] = "nt_hist_splice"
+    # The master's OWN offset (exact, from the reference session) - not the measured one, which on a one-bar
+    # overlap is a single print and can sit a tick away (NQ 60m 2020-06-30 measured +0.25).
     for c in ("open", "high", "low", "close"):
-        add[c] = add[c] + level
+        add[c] = add[c] + ref_offset
     s1 = _epoch(session_window(date, session)[1])
     replace = ((master["time"] >= cut) & (master["time"] < s1)).values
     stray = master[replace & ~master["time"].isin(add["time"]).values]
@@ -183,8 +201,16 @@ def splice_plan(master, nt_1m, tf, session, date, ref_offset):
 
 
 # ----------------------------------------------------------------------------- registry + run
+def _connect(db):
+    # The runner processes poll this sqlite file continuously; a plain connect gives up on their short locks
+    # ("database is locked" after the master file was already written, 10-12). Wait for them instead.
+    con = sqlite3.connect(db, timeout=120)
+    con.execute("PRAGMA busy_timeout = 120000")
+    return con
+
+
 def targets(db, root, date):
-    con = sqlite3.connect(db)
+    con = _connect(db)
     rows = con.execute("select id, name, filename, timeframe, source, rows, provenance from csv_files "
                        "where is_master=1 and instrument=? and date_from<=? and date_to>=?", (root, date, date)).fetchall()
     con.close()
@@ -192,7 +218,7 @@ def targets(db, root, date):
 
 
 def parent_1m(db, root, session):
-    con = sqlite3.connect(db)
+    con = _connect(db)
     r = con.execute("select filename from csv_files where is_master=1 and instrument=? and timeframe='1m' and source=?",
                     (root, f"db_noadj_{session}")).fetchone()
     con.close()
@@ -256,7 +282,7 @@ def run(root, date, nt_path, commit=False, db=None, uploads=None, log=print):
             f"max diff {rep['max_overlap_diff']:.2f}, level {rep['level_offset']:+.2f} (ref {ref})")
         if commit and rep["bars_added"] > 0:
             write_master_csv(new, path, known_rows=nrows)
-            con = sqlite3.connect(db)
+            con = _connect(db)
             record_splice(con, mid, prov, dict(date=date, nt_file=os.path.basename(nt_path), nt_sha256=nt_sha,
                                                 rows_added=rep["bars_added"], at=datetime.now(timezone.utc).isoformat()[:19],
                                                 by="tools/splice_nt_sessions.py"), len(new))
