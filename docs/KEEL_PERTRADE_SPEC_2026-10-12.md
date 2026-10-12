@@ -46,3 +46,24 @@ per-trade push; this file is the math and the proof it must match.
   - It builds the morning state, then scores each NQ trade and appends it after it closes, for every trade. It compares against `keel_walk` trade by trade and prints the nightly design's gap beside it.
   - Exit 0 = exact on every trade. CSV: C:\EdgeLog\custom_ml\keel_pertrade\replay_NOISE_382.csv.
 - **PAPER-WB's wiring check:** feed the replay's trade sequence through the box handler (push payloads built from the same arrays) and assert the handler's states give the replay's `live_size` column to 1e-12.
+
+## Addendum 1 (2026-10-12 afternoon) - the owner chose the LIVE QQQ trades as the feed (MANAGER #106, PAPER-WB #107)
+- **Units (confirmed):** P = (Webull P&L of record / shares) x plugin size (engine size / keel_size) x (NQ close / QQQ close, prior session).
+  - The walk's P already carries the plugin size (pts = s*raw - (s-1)*cost).
+  - Replay sanity: QQQ trades in NQ-point terms have median |P| 25.3 vs the NQ ledger's 29.2.
+  - A missing price ratio would read about 0.6, so this is a cheap units alarm.
+- **Cut:** the nightly NQ state of the cut night, then QQQ trades appended. No backfill of 09-24..10-12 (rows never persisted; trust 0 on both).
+- **How far a QQQ-fed state drifts from the NQ-fed backtest** (scratch replay, 9 cut-years 2017-2025, each 12 months; both states score the same QQQ entries):
+  - **Sizes:** sizes differ on **56%** of entries, mean **0.21x**, p95 0.79x, p99 1.5x, max 2.25x. The branch differs on 21%.
+    - This happens only when trust is on in either state; both are at trust 0 today.
+  - **Growth over time:** the drift grows with time since the cut.
+    - Nightly |trust_now| difference p99: 0.41 (months 0-3), 0.56 (3-6), 1.00 (6-12).
+    - |t_fast_now| p99: 1.5 / 2.1 / 1.9.
+  - **Money:** the feed's effect is -464 NQ pts over 9 years (about -$1k a year at one contract). The sign is mixed by year (-828 to +580), so there is no edge either way.
+  - **Plain reading:** once trust turns on, a QQQ-fed KEEL is NOT the backtest. It sizes about half the entries differently within 3 months. It costs nothing measurable, and it cannot stay "exact".
+- **Alert design** (natural drift is too large for a drift alarm to catch bugs):
+  1. **EXACT (alert):** nightly, rebuild the live state from the cut state plus the persisted QQQ rows, and compare to the live state to 1e-9: n, n_fits, fitted_on, trust_now, t_fast_now, last z. Any miss = plumbing bug.
+  2. **UNITS (alert):** the median |P| of the last 20 appended trades must be within 0.5x-2x of the median |P| of the NQ ledger's last 600.
+  3. **DRIFT (report, not alert):** log live vs NQ-reference trust_now / t_fast_now / branch nightly.
+     - Note it only when outside the envelope above for its months since the cut: |trust| > 0.41 (0-3), > 0.56 (3-6); none after 6 months.
+     - Or note it when an entry's size differs by more than 1.5x.
