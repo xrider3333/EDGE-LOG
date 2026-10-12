@@ -15,6 +15,10 @@ With no target the copy must reproduce the twin to the trade.
 RESULT 2026-10-12 (owner order via MANAGER #104): both exit lines CLOSED AT DRAFT by the power-first gate - every
 variant loses money on the tuning years, and WF could only detect >= ~$500-900 a year per contract. No WF variant run,
 no lockbox. Log: tools/data/ttmsqz_r25_scalp_exits.txt.
+
+OWNER OVERRIDE 2026-10-12 (MANAGER #107: "what was the roc/yr on those tested"): `wfcells` runs every cell on WF
+2016-06-30 .. 2025-06-30 (lockbox still not read), at the real and the house cost. Log: tools/data/ttmsqz_r25_wf_cells.txt.
+Every cell is below #459 on ROC, Sortino and money.
 """
 import os
 import sys
@@ -301,6 +305,22 @@ def wf_scatter():
     print("  top 10%% of trades = %.0f%% of net" % (100 * top.head(max(1, len(top) // 10)).sum() / net.sum()))
 
 
+
+def wf_cells():
+    """OWNER OVERRIDE 10-12: every r25 cell on WF, real and house cost (lockbox not read)."""
+    arr, idx, cal = load()
+    cells = [("#459 twin (as traded)", None, None)] + [("target +%.2fR" % k, k, None) for k in (0.25, 0.5, 0.75, 1.0, 1.5)] + \
+            [("not working by bar %d" % nn, None, (nn, 0.25)) for nn in (2, 3, 4)]
+    for lab, cost in (("REAL COST 0.613 pt (commission + 1 tick each side)", COST_REAL), ("house cost 0.363 pt", COST_HOUSE)):
+        print("\n=== WF %s .. %s, %s ===" % (WF0, WF_END, lab))
+        base = None
+        for name, k, nw in cells:
+            _, rk = run(arr, make_sim(k, nw))
+            x = four(frame(rk, idx), cost, WF0, WF_END, cal)
+            base = base or x
+            print("  %-24s %s | $/yr %+6.0f vs twin" % (name, fmt(x), (x["net"] - base["net"]) / 9.0))
+
+
 if __name__ == "__main__":
     mode = sys.argv[1] if len(sys.argv) > 1 else "design"
     if mode == "design":
@@ -309,5 +329,7 @@ if __name__ == "__main__":
         nowork_design()
     elif mode == "wfscatter":
         wf_scatter()
+    elif mode == "wfcells":
+        wf_cells()
     else:
         raise SystemExit("closed at draft - no Stage A")

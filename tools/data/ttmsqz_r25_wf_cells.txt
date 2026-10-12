@@ -1,0 +1,22 @@
+
+=== WF 2016-06-30 .. 2025-06-30, REAL COST 0.613 pt (commission + 1 tick each side) ===
+  #459 twin (as traded)    n 212  net $  20,477  ROC@30k  12.53  DD5 $ 3,621  DD%pk   5.1%  Sortino  1.18 | win  42.5%  avg win $  668 / avg loss $  325 (x2.06) | $/yr     +0 vs twin
+  target +0.25R            n 213  net $  12,203  ROC@30k  11.26  DD5 $ 2,352  DD%pk   3.5%  Sortino  0.83 | win  59.2%  avg win $  301 / avg loss $  296 (x1.02) | $/yr   -919 vs twin | targets hit 120
+  target +0.50R            n 213  net $   8,603  ROC@30k   5.18  DD5 $ 3,328  DD%pk   5.5%  Sortino  0.50 | win  47.9%  avg win $  449 / avg loss $  335 (x1.34) | $/yr  -1319 vs twin | targets hit 62
+  target +0.75R            n 213  net $  13,987  ROC@30k   8.23  DD5 $ 3,731  DD%pk   5.5%  Sortino  0.81 | win  46.0%  avg win $  532 / avg loss $  332 (x1.60) | $/yr   -721 vs twin | targets hit 42
+  target +1.00R            n 213  net $  16,372  ROC@30k   9.66  DD5 $ 3,684  DD%pk   5.3%  Sortino  0.95 | win  44.1%  avg win $  591 / avg loss $  329 (x1.80) | $/yr   -456 vs twin | targets hit 29
+  target +1.50R            n 213  net $  19,778  ROC@30k  11.26  DD5 $ 3,710  DD%pk   5.5%  Sortino  1.14 | win  43.7%  avg win $  637 / avg loss $  329 (x1.94) | $/yr    -78 vs twin | targets hit 15
+  not working by bar 2     n 214  net $  12,441  ROC@30k   5.80  DD5 $ 4,013  DD%pk   6.8%  Sortino  0.87 | win  33.6%  avg win $  649 / avg loss $  241 (x2.69) | $/yr   -893 vs twin
+  not working by bar 3     n 212  net $  12,965  ROC@30k   6.02  DD5 $ 4,091  DD%pk   6.8%  Sortino  0.80 | win  37.3%  avg win $  624 / avg loss $  273 (x2.28) | $/yr   -835 vs twin
+  not working by bar 4     n 212  net $  11,977  ROC@30k   5.95  DD5 $ 4,100  DD%pk   6.4%  Sortino  0.69 | win  40.1%  avg win $  611 / avg loss $  315 (x1.94) | $/yr   -944 vs twin
+
+=== WF 2016-06-30 .. 2025-06-30, house cost 0.363 pt ===
+  #459 twin (as traded)    n 212  net $  23,127  ROC@30k  15.74  DD5 $ 3,364  DD%pk   4.6%  Sortino  1.36 | win  42.5%  avg win $  681 / avg loss $  313 (x2.18) | $/yr     +0 vs twin
+  target +0.25R            n 213  net $  14,865  ROC@30k  15.67  DD5 $ 2,194  DD%pk   3.1%  Sortino  1.03 | win  59.6%  avg win $  311 / avg loss $  287 (x1.09) | $/yr   -918 vs twin | targets hit 120
+  target +0.50R            n 213  net $  11,265  ROC@30k   7.53  DD5 $ 3,078  DD%pk   4.9%  Sortino  0.67 | win  48.4%  avg win $  458 / avg loss $  326 (x1.40) | $/yr  -1318 vs twin | targets hit 62
+  target +0.75R            n 213  net $  16,650  ROC@30k  10.85  DD5 $ 3,463  DD%pk   4.9%  Sortino  0.99 | win  46.0%  avg win $  545 / avg loss $  320 (x1.71) | $/yr   -720 vs twin | targets hit 42
+  target +1.00R            n 213  net $  19,034  ROC@30k  12.44  DD5 $ 3,450  DD%pk   4.8%  Sortino  1.12 | win  44.1%  avg win $  603 / avg loss $  317 (x1.91) | $/yr   -455 vs twin | targets hit 29
+  target +1.50R            n 213  net $  22,440  ROC@30k  14.10  DD5 $ 3,440  DD%pk   4.9%  Sortino  1.32 | win  43.7%  avg win $  649 / avg loss $  316 (x2.05) | $/yr    -76 vs twin | targets hit 15
+  not working by bar 2     n 214  net $  15,116  ROC@30k   7.78  DD5 $ 3,683  DD%pk   6.1%  Sortino  1.08 | win  36.0%  avg win $  619 / avg loss $  237 (x2.61) | $/yr   -890 vs twin
+  not working by bar 3     n 212  net $  15,615  ROC@30k   8.00  DD5 $ 3,791  DD%pk   6.1%  Sortino  0.99 | win  40.1%  avg win $  592 / avg loss $  273 (x2.17) | $/yr   -835 vs twin
+  not working by bar 4     n 212  net $  14,627  ROC@30k   8.09  DD5 $ 3,790  DD%pk   5.7%  Sortino  0.85 | win  40.6%  avg win $  617 / avg loss $  305 (x2.02) | $/yr   -944 vs twin
