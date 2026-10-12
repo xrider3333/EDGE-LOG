@@ -297,6 +297,19 @@ INTERACTIONS = [
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
+    # LEDGER improvement 2 (2026-10-12): the rule check
+    ('rules-row-gone',
+     "    ['RULES',_hmRulesText(t)],",
+     '',
+     'the trade panel has no RULES row'),
+    ('rules-unscored-counted',
+     'ok:p?p.total>=R.minPts:null',
+     'ok:p?p.total>=R.minPts:false',
+     'a trade not scored yet counts as breaking the point score rule'),
+    ('rules-default-off',
+     'const HM_RULES_DEFAULT={minPts:5,setup:true,maxSize:null};',
+     'const HM_RULES_DEFAULT={minPts:null,setup:true,maxSize:null};',
+     'a fresh browser no longer checks the point score rule'),
     # LEDGER improvements 3 + 6 (2026-10-12): REAL's More stats entry quality / what works groups
     ('edge-groups-gone',
      'function _hmEdgeGroups(rangeTrades){',
@@ -1097,7 +1110,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       r.moreGroups=Array.prototype.map.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){return g.getAttribute('data-lgmsgroup');}).join(',');
       // LEDGER improvements 3 + 6: the rows of the entry quality and what works groups, and the account in view they are scoped to
       r.moreRows={};Array.prototype.forEach.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){var gt=g.getAttribute('data-lgmsgroup');
-        if(/^(Entry quality|What works)/.test(gt))r.moreRows[gt]=Array.prototype.map.call(g.querySelectorAll('.lg-ms-row'),function(x){
+        if(/^(Entry quality|What works|Discipline)/.test(gt))r.moreRows[gt]=Array.prototype.map.call(g.querySelectorAll('.lg-ms-row'),function(x){
           var l=x.querySelector('.l'),v=x.querySelector('.v');return [((l||{}).textContent||'').replace(/\\s+/g,' ').trim(),((v||{}).textContent||'').replace(/\\s+/g,' ').trim()];});});
       try{r.msBroker=d.defaultView.eval('typeof activeBroker!=="undefined"?activeBroker:null')||'';}catch(_e){r.msBroker='?';}
       var mb2=d.querySelector('[data-lgmore="hm"]');if(mb2)mb2.click();}
@@ -2457,7 +2470,8 @@ def _cents(text):
 
 
 # LEDGER improvements 3 + 6 (2026-10-12): REAL's More stats carries three own groups after Account, judged from the fixture trades
-MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,What works: setups,What works: grades'
+MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,What works: setups,What works: grades,Discipline'
+RULES_DEFAULT = {'minPts': 5, 'setup': True, 'maxSize': None}     # LEDGER improvement 2: the rules a fresh browser checks
 
 
 def _edge_expect(trades, broker):
@@ -2492,7 +2506,45 @@ def _edge_expect(trades, broker):
             if len(ks) > mx:
                 rows.append(['and %d more' % (len(ks) - mx), ''])
             out[title] = rows
+    # LEDGER improvement 2: the Discipline group, each rule kept of the trades it could judge (default rules)
+    C = [_rule_check(t) for t in L]
+    keys = [c['label'] for c in _rule_check({})]
+    if L and keys:
+        def pc(a, b):
+            return ('%d%%' % int(math.floor(a / b * 100 + 0.5))) if b else '--'
+        alln = sum(1 for c in C if all(x['ok'] is not False for x in c))
+        rows = [['All rules kept', '%d of %d · %s' % (alln, len(L), pc(alln, len(L)))]]
+        for i, lab in enumerate(keys):
+            j = [c[i] for c in C if c[i]['ok'] is not None]
+            ok = sum(1 for x in j if x['ok'])
+            rows.append([lab, '%d of %d · %s' % (ok, len(j), pc(ok, len(j)))])
+        out['Discipline'] = rows
     return out
+
+
+def _rule_check(t, R=None):
+    R = R or RULES_DEFAULT
+    out = []
+    if R.get('minPts'):
+        ps = t.get('pointScore') or {}
+        sc = ps.get('total') is not None and ps.get('max') is not None
+        out.append({'label': 'Point score %d+' % R['minPts'], 'ok': (ps['total'] >= R['minPts']) if sc else None,
+                    'got': ('%d/%d' % (ps['total'], ps['max'])) if sc else 'not scored'})
+    if R.get('setup'):
+        v = str(t.get('setup') if t.get('setup') is not None else '').strip()
+        out.append({'label': 'Setup tagged', 'ok': bool(v) and v != '—', 'got': v if (v and v != '—') else 'none'})
+    if R.get('maxSize'):
+        z = t.get('size') or 0
+        out.append({'label': 'Size %d or less' % R['maxSize'], 'ok': z <= R['maxSize'], 'got': str(z)})
+    return out
+
+
+def _rules_text(t):
+    C = _rule_check(t)
+    if not C:
+        return 'no rules set'
+    return ' · '.join(('- ' if c['ok'] is None else ('✓ ' if c['ok'] else '✗ ')) + c['label']
+                           + ('' if c['ok'] is True else ' (%s)' % c['got']) for c in C)
 
 
 def _signed_cents(text):
@@ -3944,6 +3996,10 @@ def _judge(data, data_obj):
                                  % (tag, ptid, pn['ACCT BALANCE'], row.get('acct'), _usd(exp_all.get(ptid, 0))))
                 if pn['ACCT %'] != row.get('pct'):
                     fails.append('%s: the trade panel of %s says ACCT %% %r, the FULL table says %r' % (tag, ptid, pn['ACCT %'], row.get('pct')))
+            # LEDGER improvement 2: the panel's RULES row says which of the default rules this trade kept
+            tt = next((x for x in T if x['id'] == ptid), None)
+            if pn and tt is not None and pn.get('RULES') != _rules_text(tt):
+                fails.append('%s: the trade panel of %s has RULES %r, expected %r' % (tag, ptid, pn.get('RULES'), _rules_text(tt)))
         # 14. the TF picker and the TAGS editor
         tg = st.get('tfTags') or {}
         _errs(tag + ' TF picker / TAGS editor', tg, fails)
