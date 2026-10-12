@@ -61,3 +61,17 @@ unrun. A size-only variant would be a different idea and is NOT substituted.
 - Results go to MANAGER as a read first, with the four numbers per stretch.
 - Then one ledger line. The ledger ship waits until MANAGER says the priority ships have landed.
 - Nothing changes in augur_engine.
+
+## Addendum 1 (10-12, before any number was read)
+The first start stopped at its seam step: round 37's roll-seam detector was retired by the 10-08 roll fix
+(`augur_engine.rolls`), and its replacement needs a roll context.
+- **Change:** seam sessions now come from the house's TRUE roll calendar. The call is wrapped in
+  `rolls.roll_context("NQ", bar times, 60)`, the same calendar the engine applies to every run.
+- **Parity reference:** the roll audit's restatement of round 37 on that calendar
+  (`rollaudit/work/harness-r35-38/r37_scalp_triage_true.csv`), at its 0.533 pt cost:
+  - M4 x4/T1 677 trades / +$13,403;
+  - M3 stop0.10/T2 3,468 / +$9,410;
+  - M1 or5/first/T1 2,659 / -$20,155.
+- The stored GROSS figures in section A came from the old detector; they still pick the cells, unchanged.
+- Nothing else changes.
+

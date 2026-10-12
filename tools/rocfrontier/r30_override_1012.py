@@ -25,13 +25,14 @@ for p in (DATA_REPO, os.path.join(DATA_REPO, "tools")):
         sys.path.insert(0, p)
 from augur_engine.data import find_master, load_master_arrays          # noqa: E402
 from augur_engine import seat_pipeline as SP, drawdowns as DD           # noqa: E402
+from augur_engine import rolls as RL                                   # noqa: E402
 
 _sp = ilu.spec_from_file_location("gapgo", os.path.join(DATA_REPO, "augur_strategies", "GAPGO_1_0.py"))
 _gg = ilu.module_from_spec(_sp); _sp.loader.exec_module(_gg)
 detect_roll_seams = _gg.detect_roll_seams
 
 NOTE = os.path.join(REPO, "docs", "PREREG_SB_OVERRIDE_RUNS_2026-10-12.md")
-NOTE_SHA = "033dca3ce9bcffbdfb0fe77ce5d3d27b20552e52df6dace874dcc44c2069774d"                                                      # LF sha256 of the note as frozen on the witness branch
+NOTE_SHA = "6d11c2759461692be465e4e31c3457d74bb3da77bc54a5df14fc0566a272ec4b"                                                      # LF sha256 of the note as frozen on the witness branch
 OUT = r"C:\EdgeLog\_anatomy_cache\rocfrontier\override1012"
 TS = pd.Timestamp
 MULT = 20.0
@@ -41,7 +42,9 @@ WF = (TS("2016-07-01"), TS("2025-06-29"))
 AFTER0 = TS("2025-06-30")
 R37_WIN = dict(date_from="2010-06-07", date_to="2025-06-29")
 NEWEST = "2026-10-09"                                                     # the last COMPLETE RTH session on file (10-12 is in progress)
-GROSS_REF = {"M4-RANGEBURST x4/T1": (674, 21810), "M3-PDHL stop0.10/T2": (3489, 47972), "M1-MICROORB or5/first/T1": (2664, 15460)}
+# ADDENDUM 1: parity against the roll audit's TRUE-calendar restatement of round 37 at 0.533 pt (rollaudit/work/harness-r35-38/r37_scalp_triage_true.csv)
+PARITY_COST = 0.533
+GROSS_REF = {"M4-RANGEBURST x4/T1": (677, 13403), "M3-PDHL stop0.10/T2": (3468, 9410), "M1-MICROORB or5/first/T1": (2659, -20155)}
 EDGAR = r"C:\EdgeLog\_research_cache\edgar\earnings_calendar_ndx.csv"
 MEMBERS = os.path.join(DATA_REPO, "tools", "data", "ndx_members.csv")
 DAILY = r"C:\EdgeLog\alpaca_cache\siporb"
@@ -88,7 +91,8 @@ def world(**win):
     nd = len(sess)
     do = np.array([o[x] for x, y in sess]); dc = np.array([c[y - 1] for x, y in sess])
     dh = np.array([h[x:y].max() for x, y in sess]); dl = np.array([l[x:y].min() for x, y in sess])
-    seams = set(detect_roll_seams(do, dc, [idx[x] for x, y in sess]))
+    with RL.roll_context("NQ", idx, 60):                                 # ADDENDUM 1: the house TRUE roll calendar (10-08 roll fix)
+        seams = set(detect_roll_seams(do, dc, [idx[x] for x, y in sess]))
     atr20 = np.full(nd, np.nan)
     for d in range(20, nd): atr20[d] = (dh[d - 20:d] - dl[d - 20:d]).mean()
     days = pd.DatetimeIndex([idx[x].normalize() for x, y in sess])
@@ -300,8 +304,8 @@ def main():
     W0 = world(**R37_WIN)
     ref = cells(W0)
     for k, (n_ref, net_ref) in GROSS_REF.items():
-        n, net = len(ref[k]), round(sum(g for d, g, hb in ref[k]) * MULT)
-        print(f"parity {k}: {n} trades / ${net:,} gross vs stored {n_ref} / ${net_ref:,}", flush=True)
+        n, net = len(ref[k]), round(sum((g - PARITY_COST) * MULT for d, g, hb in ref[k]))
+        print(f"parity {k}: {n} trades / ${net:,} at {PARITY_COST} pt vs the roll audit's true-calendar {n_ref} / ${net_ref:,}", flush=True)
         if (n, net) != (n_ref, net_ref):
             raise SystemExit(f"refused: {k} does not reproduce round 37 on its own window (nothing read)")
     del W0, ref
