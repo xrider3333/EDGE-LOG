@@ -336,3 +336,97 @@ or not-a-number anywhere in its output**.
 Witness branch moved to this commit, addendum hash posted to STRATEGY-BEATING and MANAGER, then the
 ranged file and harness built and hashed, then the 900-trial Auto-Validate queued and its job id
 sent. **Nothing runs before the hash is out.** Budget stays 900.
+
+## Addendum 4 (2026-10-12, the built harness and what its gates caught - still before any P&L)
+
+The ranged file and the harness now exist and every gate passes. Three things below were NOT known
+when addenda 2 and 3 were written, and one of them is a defect in my own fences that the review did
+not catch either. Nothing above is edited.
+
+Files: `augur_strategies/ENGUQ_RTH_1_0.py` (built by patching the crown, not retyped) and
+`tests/test_enguq_rth_lattice.py`.
+
+### 4.1 - A THIRD lattice break, in `stop_mult`, and why both earlier checks missed it
+
+The lattice gate failed on first run: **`stop_mult` = 1.2 is not reachable on 0.50..2.00 step
+0.25.** Fixed to **step 0.1**, which is also the file's own native step, and the gate now passes.
+
+**Why this matters more than the fix.** STRATEGY-BEATING's L1 found exactly this class of defect in
+`tl_len` and `atr_len`, I folded it, and I then asserted a reachability test - and the space was
+*still* unable to express the crown. The reason is a distinction neither the draft nor the review
+drew:
+
+> **The crown FILE's defaults and RUN #335's champion settings are different numbers.**
+
+`ENGUQ_1M_ETH_R2_1_0.py` carries `tl_len` 206, `atr_len` 52, `ema_len` 220, `stop_mult` 1.0. Run
+#335's stored champion is `tl_len` 238, `atr_len` 28, `ema_len` 1340, **`stop_mult` 1.2**. Both the
+draft and the review checked the FILE, where 1.0 sits on a 0.25 lattice; the RUN, which is what the
+house means by "the crown", does not. **Checking the file's defaults is not checking the run.** The
+test now pins BOTH cells by name and would fail if either became unreachable.
+
+### 4.2 - Parity, two ways, both run
+
+**A. Code equivalence - PASS, trade for trade.** The new file at run #335's champion settings with
+both floors at their NQ values reproduces the crown file's trade list exactly on `db_noadj_eth`
+2010-06-07..2026-06-30: **1,387 trades against 1,387, every entry bar, exit bar and P&L identical.**
+This is also a free re-proof that the compiled and interpreted walks agree at these settings, since
+the crown dispatches to the compiler here and the new file cannot.
+
+**B. Against the saved #335 export - 98.36%, and the residual is explained rather than waved at.**
+The stored export (`C:\EdgeLog\book_legs\ENGUQ335_raw_trades.csv`, 1,344 trades) shares **1,322
+entry bars** with this run's 1,387. The 22 misses and 65 extras are scattered across ten years, not
+at the window edges, and cluster in the most recent years (17 extras in 2024, 20 in 2026).
+**The cause is the tape, not the code:** the export was written **2026-09-27**, and the
+`db_noadj_eth` master was last rewritten **2026-10-12 12:28** and now runs to 2026-10-12. Feeds
+restate recent bars, which is exactly where the residual sits. Gate A - both files on today's tape -
+is the gate that tests this patch, and it is exact.
+
+### 4.3 - The floors DO move the walk, and by much less than the prereg implied
+
+A knob a search can move that moves nothing is the defect this round exists to fix, so the harness
+asserts the new floors bite. They do - but the measured size changes the story:
+
+| tape | floors | trades |
+|---|---|---|
+| NQ overnight, #335 settings | NQ values (0.50 / 0.25) | 1,387 |
+| NQ overnight, #335 settings | both 0 | 1,389 |
+| **QQQ regular hours, crown lookbacks** | **NQ values (Q36's published row)** | **308** |
+| **QQQ regular hours, crown lookbacks** | **both 0** | **398** |
+
+**On NQ the floors are nearly inert** - two trades in 1,387 - which is precisely why they survived
+as hard-coded constants for so long without anyone noticing. **On QQQ they bite, but they recover
+only about a third of the gap:** 308 to 398, not 308 to the leg's 1,194.
+
+**This corrects a claim in addendum 2.** That note called the two floors "the single most important
+thing the search must be able to move", and the review named them as the mechanism behind
+308-against-1,194. **Measured, they explain roughly 90 of the 886 missing trades.** The larger part
+of the gap has to be the tape itself: the regular-hours master holds **1,023,757 bars against the
+overnight master's 5,503,474** - a fifth as many bars to find signals in. No re-fit can conjure
+that back. **So the prior gets weaker again, not stronger:** the lever we identified as the main one
+is real but small, and the dominant constraint is one the search cannot touch.
+
+These are **trade COUNTS at cells fixed in advance** - the crown's own settings and the fence
+corners. **No P&L on the QQQ tape has been computed or looked at.**
+
+### 4.4 - The timed trial (addendum 2's requirement)
+
+On the QQQ 1-minute regular-hours master (`master_dd092f50.csv`, id 144, 1,023,757 rows,
+2016-01-04..2026-06-30), uncompiled, single-threaded:
+
+- **worst corner** (`tl_len` 782, `ema_len` 1560, `atr_len` 392, floors 0): **7.5 s**, 126 trades.
+- **mid space** (the crown's own lookbacks, floors 0): **7.4 s**, 398 trades.
+- **Pin 4 holds:** no infinity and no not-a-number in either output with both floors at 0.00.
+- 900 single trials is about **1.9 hours** single-threaded, **0.6 hours** at three workers. The
+  validate multiplies this by its fold schedule, so the queued job is hours, not minutes - but it is
+  affordable and the budget stays **900**.
+
+**One operational note found while timing:** `find_master("QQQ", "1m", "rth")` returned the QQQ
+**daily** total-return master, a 2,637-bar tape that would have run silently and produced a
+meaningless search. The harness selects FRONTIER's pull by filename instead, and the master's name,
+rows, window, source and session are printed before anything runs.
+
+### 4.5 - What runs next
+
+Witness branch and these hashes to STRATEGY-BEATING and MANAGER, then the Auto-Validate: **900
+trials, window pinned 2016-01-04..2026-06-30, master `master_dd092f50.csv`, full ranges**. The six
+pass clauses, the 41.1 bar and the veto-only lockbox are unchanged.
