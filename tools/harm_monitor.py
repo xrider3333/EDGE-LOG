@@ -25,6 +25,17 @@ box ledgers that the pull job (tools/pull_box_ledgers.py) left in the box_backup
 (bookq/q38_webull_bands.py + addendum 1) on QQQ 2022-07-01..2025-06-29 at $0.02 a share a round trip, printed at each leg's unit; A1 is
 checked every 5 RTH sessions; each trade is booked on its exit day. NOISE_382 is read at its plugin size (KEEL x1.0), with KEEL's extra printed
 as a scale term. A failed Webull read is named in the post and never stops the #463 read.
+ORB TREND-DAY CAPTURE (ORB lane #857 item 1, MANAGER #70 GO 10-11; report-only, no rule change, #314 untouched): ORB makes its money on
+NQ's big trend days (24 of the ORB leg's 26 best walk-forward days are NQ top-5% move days), so this reads whether ORB still catches them -
+a decay alarm that has power long before the leg's own dollars do. A trend day = |last RTH close - first RTH open| / first open >= 1.73% on
+the NQ 5m RTH NO-ADJUST master (raw prices: a true %), the walk-forward's top 10% (2016-07-01..2025-06-29, 232 of 2,318 days, 25.8 a year);
+a hit = the ORB leg's forward day $ > 0 on it (walk-forward 60.8%). Forward trend days are cut into NON-overlapping blocks of 26 from
+2026-07-01; a block with <= 11 hits is a TREND TRIP (false alarm 4.35% a block, 93.4% power if the hit rate halves). A trip stays on the
+record. A failed trend read is named in the post and never stops the #463 read.
+ORB_R6 EXECUTION (ORB lane #857 item 2, MANAGER #70 GO; report-only): the Webull ORB_R6 executor against the cloud engine's own signals, trade
+by trade on trade_id - engine $ = side x (EXIT ref_price - ENTRY ref_price) at the unit, executor $ = its fill P&L at the unit. ORB's year
+lives in a few big days, so a big engine day (>= the band's big-day line, $90.99 at 10 sh, ~2.7 a year) must be booked at >= 80% by the
+executor, and an engine trade with no executor fill is a MISS. Also printed: fills vs the engine's prices over every matched trade.
 
     python tools/harm_monitor.py               # compute and print the Monday post
     python tools/harm_monitor.py --post        # ... and post it to MANAGER's inbox (tools/chat_inbox.py)
@@ -81,6 +92,12 @@ WEBULL_POWER = ("power if the edge is gone, by 36 months: ORB_R6 88%, NOISE_382 
 # closes (exit price - its previous mark). The band is Q42's, calibrated the same way on the same window.
 WEBULL_MTM = ("DIP_424F",)
 MARK_AFTER = (14, 30)                # a pull folder stamped before 14:30 MST (16:30 ET) holds intraday marks, not the close
+EXEC_LEG, EXEC_SHARE = "ORB_R6", 0.80   # a big engine day must be booked at >= 80% by the executor
+TREND_MASTER = ("NQ", "5m", "rth", "db_noadj_rth")
+TREND_THR = 0.017319              # the walk-forward's 90th percentile of |close - open| / open (frozen 10-12, scratchpad trendcap_freeze.py)
+TREND_BASE = 0.6078               # the ORB leg up on 141 of those 232 walk-forward days
+TREND_BLOCK, TREND_ALARM = 26, 11  # non-overlapping blocks of 26 trend days; a block with <= 11 hits trips
+TREND_POWER = "alarm at <= 11 of a block of 26 (backtest 61%: false alarm 4% a block, 93% power if the hit rate halves)"
 NYSE_CLOSED = {"2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26",
                "2026-12-25", "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06",
                "2027-11-25", "2027-12-24"}                         # NYSE full closes 2026-27 (the Webull legs' session calendar)
@@ -146,6 +163,53 @@ def find_holes(have, ref):
     return [r for r in runs if len(r) >= 2], [r[0] for r in runs if len(r) == 1]
 
 
+def trend_capture(moves, orb):
+    """moves = forward day |close - open| / open (NQ RTH, raw); orb = the ORB leg's forward day $ -> the trend-day read: every trend day
+    with its $, the closed blocks of TREND_BLOCK (hits, tripped) and the open block's count so far"""
+    q = moves[moves >= TREND_THR].sort_index()
+    usd = orb.reindex(q.index).fillna(0.0)
+    hit = (usd > 0).astype(int)
+    blocks = []
+    for b in range(len(hit) // TREND_BLOCK):
+        h = int(hit.iloc[b * TREND_BLOCK:(b + 1) * TREND_BLOCK].sum())
+        blocks.append({"end": str(hit.index[(b + 1) * TREND_BLOCK - 1].date()), "hits": h, "tripped": h <= TREND_ALARM})
+    rest = hit.iloc[len(blocks) * TREND_BLOCK:]
+    return {"days": int(len(hit)), "hits": int(hit.sum()), "blocks": blocks, "open_days": int(len(rest)), "open_hits": int(rest.sum()),
+            "tripped": any(b["tripped"] for b in blocks),
+            "recent": [(str(d.date()), round(float(q[d]) * 100, 2), float(usd[d])) for d in q.index[-3:]]}
+
+
+def trend_line(t, start):
+    """the trend-day read in plain words (report-only)"""
+    if t.get("error"):
+        return "- ORB trend-day capture not read: %s." % t["error"]
+    if not t["days"]:
+        return ("- ORB trend-day capture (report-only): no NQ trend day (>= %.2f%% open to close) since %s; %s."
+                % (TREND_THR * 100, start, TREND_POWER))
+    txt = ("- ORB trend-day capture (report-only): NQ moved >= %.2f%% open to close on %d day(s) since %s; ORB was up on %d (%.0f%%; backtest %.0f%%)."
+           % (TREND_THR * 100, t["days"], start, t["hits"], 100.0 * t["hits"] / t["days"], TREND_BASE * 100))
+    for b in t["blocks"]:
+        txt += (" TREND TRIP: the block of %d ending %s had %d up." if b["tripped"] else " Block of %d ending %s: %d up.") % (TREND_BLOCK, b["end"], b["hits"])
+    txt += " Open block: %d up of %d so far; %s." % (t["open_hits"], t["open_days"], TREND_POWER)
+    txt += " Latest: %s." % ", ".join("%s %.2f%% ORB $%s" % (d, m, fmt(u)) for d, m, u in t["recent"])
+    return txt
+
+
+def trend_read(asof, fw, meta):
+    """the forward trend days on the no-adjust NQ RTH master, read against the ORB leg's forward day $ (read-only)"""
+    sys.path.insert(0, ROOT)
+    from augur_engine.data import find_master, load_master_arrays
+    run_day = pd.Timestamp(asof).normalize()
+    m = find_master(*TREND_MASTER)
+    arr = load_master_arrays(m, date_from=str(FORWARD_START.date()), date_to=str(run_day.date()))
+    idx = pd.DatetimeIndex(arr["index"]).tz_localize(None)
+    df = pd.DataFrame({"o": np.asarray(arr["open"], float), "c": np.asarray(arr["close"], float)}, index=idx)
+    day = df.groupby(df.index.normalize()).agg(o=("o", "first"), c=("c", "last"))
+    end = meta.get("end")
+    day = day[(day.index >= FORWARD_START) & (day.index < run_day) & ((day.index <= end) if end is not None else True)]
+    return trend_capture((day["c"] - day["o"]).abs() / day["o"], fw["ORB"])
+
+
 def format_post(reads, asof, meta=None, webull=None):
     """the Monday post: trips first, then paused legs and data notes, then each leg's distance to A1 / A2 in plain words, then the Webull
     legs block (webull = (reads, meta) from read_webull / webull_forward, or None)"""
@@ -178,6 +242,8 @@ def format_post(reads, asof, meta=None, webull=None):
         if r.get("watch_text"):
             txt += " " + r["watch_text"].capitalize() + "."
         lines.append(txt)
+    if meta.get("trend") is not None:
+        lines.append(trend_line(meta["trend"], str(FORWARD_START.date())))
     if webull:
         lines += webull_lines(wreads, wmeta)
     for rec in RECORDED_TRIPS:
@@ -198,6 +264,54 @@ def read_all(fw, meta):
         r["start"] = str(pd.Timestamp(meta.get("starts", {}).get(nm, FORWARD_START)).date())
         reads[nm] = r
     return reads
+
+
+def webull_exec_check(S, T, start, end, nm=EXEC_LEG):
+    """engine signals (signals.csv rows) vs executor fills (trades.csv rows) for one leg, matched on trade_id, at the leg's unit
+    -> {engine, filled, missed [(day, engine $)], big [(day, engine $, executor $ or None, ok)], slip_mean, slip_n}"""
+    unit = WEBULL_UNIT[nm]
+    if not len(S) or not {"leg", "event", "side", "ref_price", "ref_time", "trade_id"} <= set(S.columns):
+        return {"engine": 0, "filled": 0, "missed": [], "big": [], "slip_mean": None, "slip_n": 0}
+    s = S[(S["leg"] == nm) & S["trade_id"].notna()]
+    en = s[s["event"] == "ENTRY"].drop_duplicates("trade_id", keep="last").set_index("trade_id")
+    ex = s[s["event"] == "EXIT"].drop_duplicates("trade_id", keep="last").set_index("trade_id")
+    e = en[["side", "ref_price"]].join(ex[["ref_price", "ref_time"]], rsuffix="_x", how="inner")
+    if not len(e):
+        return {"engine": 0, "filled": 0, "missed": [], "big": [], "slip_mean": None, "slip_n": 0}
+    sg = np.where(e["side"].astype(str).str.lower().str.startswith("s"), -1.0, 1.0)
+    e["eng"] = sg * (e["ref_price_x"].astype(float) - e["ref_price"].astype(float)) * unit
+    e["day"] = pd.to_datetime(e["ref_time"], utc=True).dt.tz_convert("America/New_York").dt.tz_localize(None).dt.normalize()
+    e = e[(e["day"] >= pd.Timestamp(start)) & (e["day"] <= pd.Timestamp(end))]
+    t = T[T["trade_id"].astype(str).isin(set(e.index))].drop_duplicates("trade_id", keep="last").set_index("trade_id")
+    e["exe"] = (t["pnl"].astype(float) / t["shares"].astype(float) * unit).reindex(e.index)
+    big_line = WEBULL_BANDS[nm]["big"]
+    big = [(str(d.date()), float(g), None if pd.isna(x) else float(x), (not pd.isna(x)) and float(x) >= EXEC_SHARE * float(g))
+           for d, g, x in zip(e["day"], e["eng"], e["exe"]) if big_line is not None and g >= big_line]
+    missed = [(str(d.date()), float(g)) for d, g, x in zip(e["day"], e["eng"], e["exe"]) if pd.isna(x)]
+    slip = (e["exe"] - e["eng"]).dropna()
+    return {"engine": int(len(e)), "filled": int(e["exe"].notna().sum()), "missed": missed, "big": big,
+            "slip_mean": float(slip.mean()) if len(slip) else None, "slip_n": int(len(slip))}
+
+
+def exec_line(c, nm=EXEC_LEG):
+    """the execution check in plain words (report-only)"""
+    if c.get("error"):
+        return "- Webull %s execution not read: %s." % (nm, c["error"])
+    if not c["engine"]:
+        return "- Webull %s execution (report-only): no closed engine trade in the ledgers yet." % nm
+    txt = "- Webull %s execution (report-only): %d engine trade(s), %d filled" % (nm, c["engine"], c["filled"])
+    txt += (", MISSED %s." % ", ".join("%s (engine $%s)" % (d, fmt(g)) for d, g in c["missed"])) if c["missed"] else "."
+    if c["slip_n"]:
+        txt += (" Fills ran $%.2f a trade %s the engine's prices at %s (%d trade(s))."
+                % (abs(c["slip_mean"]), "below" if c["slip_mean"] < 0 else "above", WEBULL_UNIT_WORDS[nm], c["slip_n"]))
+    if c["big"]:
+        for d, g, x, ok in c["big"]:
+            txt += (" Big day %s: engine $%s, executor $%s (%s)." % (d, fmt(g), "none" if x is None else fmt(x),
+                                                                     "booked" if ok else "SHORT of 80%"))
+    else:
+        txt += " No big engine day yet (>= $%s at %s, ~%.1f a year)." % (fmt(WEBULL_BANDS[nm]["big"]), WEBULL_UNIT_WORDS[nm],
+                                                                         WEBULL_BANDS[nm]["big_per_year"])
+    return txt
 
 
 def webull_lines(wreads, wmeta):
@@ -224,6 +338,8 @@ def webull_lines(wreads, wmeta):
         if r.get("keel_scale") is not None:
             txt += " KEEL scale term %.2f (the $ as sent / the $ at plugin size)." % r["keel_scale"]
         out.append(txt)
+    if wmeta.get("exec") is not None:
+        out.append(exec_line(wmeta["exec"]))
     return out
 
 
@@ -364,6 +480,11 @@ def webull_forward(asof, root=None):
                 meta["notes"].append("%s: %d engine exits vs %d executor trades - reconcile before trusting the read" % (nm, n_eng, len(x)))
         if nm == "NOISE_382" and len(x) and abs(float(x["unit"].sum())) > 1e-9:
             meta["keel_scale"][nm] = float(x["pnl"].sum() / x["unit"].sum())
+    if EXEC_LEG in meta["starts"]:
+        try:                                                        # report-only; never stops the Webull read
+            meta["exec"] = webull_exec_check(S, T, meta["starts"][EXEC_LEG], end)
+        except Exception as e:
+            meta["exec"] = {"error": "%s: %s" % (type(e).__name__, e)}
     return out, meta
 
 
@@ -443,6 +564,10 @@ def main(argv=None):
     try:
         fw, meta = forward_daily(a.asof)
         reads = read_all(fw, meta)
+        try:                                                        # the ORB trend-day read never stops the #463 read either
+            meta["trend"] = trend_read(a.asof, fw, meta)
+        except Exception as e:
+            meta["trend"] = {"error": "%s: %s" % (type(e).__name__, e)}
         try:                                                        # the Webull read never stops the #463 read
             wf, wmeta = webull_forward(a.asof)
             webull = (read_webull(wf, wmeta), wmeta)

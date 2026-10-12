@@ -254,3 +254,66 @@ def test_webull_dip_is_marked_to_market_from_the_folder_marks(tmp_path):
     assert abs(d.sum() - 2 * 6 * (746.0 - 739.55)) < 1e-9                                # MTM sums to the booked P&L
     assert any("taken before the close" in n for n in meta["notes"])
     assert HM.WEBULL_BANDS["DIP_424F"]["c"] < 4.0 and "DIP_424F" in HM.WEBULL_MTM
+
+
+def _trend_days(n, up, start="2026-07-01"):
+    import pandas as pd
+    d = pd.bdate_range(start, periods=n)
+    moves = pd.Series(0.02, index=d)                             # every day a trend day (>= 1.73%)
+    orb = pd.Series([100.0 if i in up else -50.0 for i in range(n)], index=d)
+    return moves, orb
+
+
+def test_trend_capture_frozen_rule():
+    assert HM.TREND_THR == 0.017319 and HM.TREND_BLOCK == 26 and HM.TREND_ALARM == 11 and HM.TREND_BASE == 0.6078
+    import pandas as pd
+    moves, orb = _trend_days(60, set(range(0, 20)) | set(range(26, 37)))   # block 1: 20 up, block 2: 11 up (trips), open: 0 of 8
+    moves.iloc[-1] = 0.0172                                       # just under the threshold: not a trend day
+    t = HM.trend_capture(moves, orb)
+    assert t["days"] == 59 and [b["hits"] for b in t["blocks"]] == [20, 11]
+    assert [b["tripped"] for b in t["blocks"]] == [False, True] and t["tripped"]
+    assert t["open_days"] == 7 and t["open_hits"] == 0
+    line = HM.trend_line(t, "2026-07-01")
+    assert "TREND TRIP" in line and "report-only" in line and "1.73%" in line
+    quiet = HM.trend_capture(*_trend_days(30, set(range(0, 16))))
+    assert not quiet["tripped"] and "TREND TRIP" not in HM.trend_line(quiet, "2026-07-01")
+    none = HM.trend_capture(pd.Series(0.001, index=moves.index), orb)
+    assert none["days"] == 0 and "no NQ trend day" in HM.trend_line(none, "2026-07-01")
+    assert "not read" in HM.trend_line({"error": "boom"}, "2026-07-01")
+
+
+def test_post_carries_the_trend_line_after_the_legs():
+    t = HM.trend_capture(*_trend_days(10, {1, 2}))
+    reads = {nm: HM.evaluate(np.full(20, b["mu"]), b) for nm, b in HM.BANDS.items()}
+    txt = HM.format_post(reads, "2026-10-12", {"trend": t})
+    lines = txt.split("\n")
+    i = [k for k, ln in enumerate(lines) if ln.startswith("- ORB trend-day capture")]
+    assert len(i) == 1 and i[0] > max(k for k, ln in enumerate(lines) if ln.startswith("- #463"))
+
+
+def test_exec_check_big_day_miss_and_slip():
+    import pandas as pd
+    S = pd.DataFrame([
+        # trade A: a big long day, engine +$120 at 10 sh, executor +$100 (83%: booked)
+        dict(leg="ORB_R6", event="ENTRY", side="long", ref_price=700.0, ref_time="2026-10-05T10:00:00-04:00", trade_id="ORB_R6-A"),
+        dict(leg="ORB_R6", event="EXIT", side="long", ref_price=712.0, ref_time="2026-10-05T15:55:00-04:00", trade_id="ORB_R6-A"),
+        # trade B: a big short day, engine +$100, executor +$50 (short of 80%)
+        dict(leg="ORB_R6", event="ENTRY", side="short", ref_price=700.0, ref_time="2026-10-06T10:00:00-04:00", trade_id="ORB_R6-B"),
+        dict(leg="ORB_R6", event="EXIT", side="short", ref_price=690.0, ref_time="2026-10-06T15:55:00-04:00", trade_id="ORB_R6-B"),
+        # trade C: an ordinary day the executor never filled (a MISS)
+        dict(leg="ORB_R6", event="ENTRY", side="long", ref_price=700.0, ref_time="2026-10-07T10:00:00-04:00", trade_id="ORB_R6-C"),
+        dict(leg="ORB_R6", event="EXIT", side="long", ref_price=701.0, ref_time="2026-10-07T15:55:00-04:00", trade_id="ORB_R6-C"),
+        # another leg's signals are ignored
+        dict(leg="NOISE_382", event="ENTRY", side="long", ref_price=1.0, ref_time="2026-10-07T10:00:00-04:00", trade_id="NOISE_382-X"),
+    ])
+    T = pd.DataFrame([dict(trade_id="ORB_R6-A", pnl=100.0, shares=10), dict(trade_id="ORB_R6-B", pnl=50.0, shares=10)])
+    c = HM.webull_exec_check(S, T, "2026-09-09", "2026-10-09")
+    assert c["engine"] == 3 and c["filled"] == 2 and c["missed"] == [("2026-10-07", 10.0)]
+    assert [(d, round(g, 6), x, ok) for d, g, x, ok in c["big"]] == [("2026-10-05", 120.0, 100.0, True), ("2026-10-06", 100.0, 50.0, False)]
+    assert c["slip_n"] == 2 and abs(c["slip_mean"] - (-35.0)) < 1e-9
+    line = HM.exec_line(c)
+    assert "MISSED 2026-10-07" in line and "SHORT of 80%" in line and "booked" in line and "report-only" in line
+    none = HM.webull_exec_check(S.iloc[:0], T.iloc[:0], "2026-09-09", "2026-10-09")
+    assert none["engine"] == 0 and "no closed engine trade" in HM.exec_line(none)
+    assert "not read" in HM.exec_line({"error": "x"})
+
