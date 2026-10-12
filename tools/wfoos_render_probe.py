@@ -253,7 +253,16 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     var K=kpi(), UW=(FIXW.gate_validate||{}).ungated_wf||{};
     A('R6 1E exact WF Sharpe / Sortino = the champion held constant','NEW',kc(K,'SHARPE','WF')===(+UW.sharpe).toFixed(2)&&kc(K,'SORTINO','WF')===(+UW.sortino).toFixed(2),'WF SHARPE '+kc(K,'SHARPE','WF')+' SORTINO '+kc(K,'SORTINO','WF')+' expect '+UW.sharpe+'/'+UW.sortino);
     var LBv=FIXW.validate.lockbox||{};
-    A('R7 1E exact LB Sortino follows the lockbox strip','NOREG',kc(K,'SORTINO','LB')===(+LBv.sortino).toFixed(2)&&kc(K,'SHARPE','LB')===(+LBv.sharpe).toFixed(2),'LB '+kc(K,'SHARPE','LB')+'/'+kc(K,'SORTINO','LB'));
+    // THE WARM LOCKBOX SWAP (index.html eef0b0bf5, 2026-09-28, MANAGER audit #10). This run
+    //   scored its own lockbox COLD (no validate.windows.warm_days) and also carries a
+    //   continuous replay of the same stretch, so _lbWarmOf swaps it in - 334 trades against
+    //   the cold block's 301 - and the LOCKBOX column reads the replay. This check used to
+    //   assert the COLD figures and so pinned behaviour the page deliberately dropped.
+    //   It now asserts the WARM ones AND that the cell says which reading it is: the old
+    //   version would have passed a swapped figure with no badge at all.
+    var ULBv=((FIXW.gate_validate||{}).ungated_lockbox)||{};
+    var lbWarmBadge=q('span[title]').filter(function(e){return norm(e.textContent)==='LB warm';});
+    A('R7 1E exact LB Sortino / Sharpe follow the WARM lockbox slice, and the cell says so','NOREG',kc(K,'SORTINO','LB')===(+ULBv.sortino).toFixed(2)&&kc(K,'SHARPE','LB')===(+ULBv.sharpe).toFixed(2)&&lbWarmBadge.length>=1&&!!(lbWarmBadge[0].getAttribute('title')||'').trim(),'LB '+kc(K,'SHARPE','LB')+'/'+kc(K,'SORTINO','LB'));
     A('R8 1E exact TOTAL Sharpe / Sortino unchanged','NOREG',kc(K,'SHARPE','TOTAL')===(+FIXW.validate.total_sharpe).toFixed(2)&&kc(K,'SORTINO','TOTAL')===(+FIXW.validate.total_sortino).toFixed(2),'TOTAL '+kc(K,'SHARPE','TOTAL')+'/'+kc(K,'SORTINO','TOTAL'));
     var pill=q('span[title]').map(function(e){return e.getAttribute('title');}).filter(function(t){return t.indexOf('each re-picking its OWN best config')>=0;})[0]||'';
     A('R9 WF TEST pill: fold count + the block','NEW',pill.indexOf(FL.length+' folds')>=0&&pill.indexOf('see 1C for the curve')>=0&&pill.indexOf('PF '+(+B.profit_factor).toFixed(2))>=0&&pill.indexOf('eight folds')<0,pill);
@@ -545,31 +554,31 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
 
     // ── Past Runs (projected rows only) ─────────────────────────────────────────────────
     var PLAIN=clone(FIXB);delete PLAIN.validate;PLAIN.id=305;
-    var cP=render({},[lite(FIXW),lite(FIXBK),lite(PLAIN)],[],'999999'); clean('pastruns',cP);
+    var cP=render({},[lite(FIXW),lite(FIXBK),lite(PLAIN)],[],null); clean('pastruns',cP);
     var RW=rows(), rw=RW.filter(function(r){return r.id===String(FIXW.id);})[0], rbk=RW.filter(function(r){return r.id===String(FIXBK.id);})[0];
     var wfTitle=function(r){return r?r.titles.filter(function(t){return /walk-forward/i.test(t)&&t.indexOf('whole-run total')<0;}).join(' || '):'';};
     A('P1 WF cell hover carries the block (projected row)','NEW',!!rw&&wfTitle(rw).indexOf('Walk-forward test (each fold re-tuned): net '+fmtUsd(sN*M))>=0&&wfTitle(rw).indexOf('PF '+(+B.profit_factor).toFixed(2))>=0&&wfTitle(rw).indexOf((+B.trades).toLocaleString()+' trades')>=0,wfTitle(rw));
     // the list reader must follow the PROJECTION: the same run read through a mask without the block reads as "saved before"
     var Lno=L.filter(function(f){return f!=='validate.wf_oos';}), pNo=project(FIXW,Lno);pNo.id=String(FIXW.id);
-    render({},[mk(pNo,true)],[],'999999');var rNo=rows()[0];
+    render({},[mk(pNo,true)],[],null);var rNo=rows()[0];
     A('P1b the list reads what the mask projects (no block in the mask = saved before)','NEW',!!rNo&&wfTitle(rNo).indexOf('saved before walk-forward detail was recorded')>=0&&wfTitle(rNo).indexOf('Walk-forward test (each fold re-tuned)')<0,wfTitle(rNo));
-    render({},[lite(FIXW),lite(FIXBK),lite(PLAIN)],[],'999999');
+    render({},[lite(FIXW),lite(FIXBK),lite(PLAIN)],[],null);
     A('P3 book row says a book has no walk-forward folds','NEW',!!rbk&&wfTitle(rbk).indexOf('a book trades frozen configurations')>=0,wfTitle(rbk));
     var cellsW=rw?rw.cells.join(' | '):'';
-    var cP2=render({},[lite(FIXB),lite(FIXBK),lite(PLAIN)],[],'999999');
+    var cP2=render({},[lite(FIXB),lite(FIXBK),lite(PLAIN)],[],null);
     var rb=rows().filter(function(r){return r.id===String(FIXB.id);})[0];
     A('P2 run saved before the block: WF cell hover gives the reason','NEW',!!rb&&wfTitle(rb).indexOf('saved before walk-forward detail was recorded')>=0,wfTitle(rb));
     A('P4 whole-run cells identical with and without the block','NOREG',!!rb&&cellsW===rb.cells.join(' | '),cellsW+'  VS  '+(rb?rb.cells.join(' | '):''));
     var sorts=['id','date','score','pnl','perday','maxdd','mar','pf','sharpe','wr','trd','days','took'], ordW={}, snap={};
-    sorts.forEach(function(s){render({rfSort:s},[lite(FIXW),lite(FIXBK),lite(PLAIN)],[],'999999');ordW[s]=rows().map(function(r){return r.id;}).join(',');});
+    sorts.forEach(function(s){render({rfSort:s},[lite(FIXW),lite(FIXBK),lite(PLAIN)],[],null);ordW[s]=rows().map(function(r){return r.id;}).join(',');});
     var sameOrd=true, bad=[];
-    sorts.forEach(function(s){render({rfSort:s},[lite(FIXB),lite(FIXBK),lite(PLAIN)],[],'999999');var rr=rows();snap[s]=rr.map(function(r){return r.id+' :: '+r.cells.join(' | ');});
+    sorts.forEach(function(s){render({rfSort:s},[lite(FIXB),lite(FIXBK),lite(PLAIN)],[],null);var rr=rows();snap[s]=rr.map(function(r){return r.id+' :: '+r.cells.join(' | ');});
       var o=rr.map(function(r){return r.id;}).join(',');if(o!==ordW[s]){sameOrd=false;bad.push(s+': '+o+' vs '+ordW[s]);}});
     A('P5 sort order identical with and without the block','NOREG',sameOrd,bad.join(' ; '));
     out.snap=snap;
     var nsP=clone(FIXW);delete nsP.validate.total_sharpe;var nsB=clone(FIXB);delete nsB.validate.total_sharpe;
-    render({},[lite(nsP)],[],'999999');var tSh=(rows()[0]||{titles:[]}).titles.filter(function(t){return /whole-run Sharpe needs/.test(t);})[0]||'';
-    render({},[lite(nsB)],[],'999999');var tShB=(rows()[0]||{titles:[]}).titles.filter(function(t){return /whole-run Sharpe needs/.test(t);})[0]||'';
+    render({},[lite(nsP)],[],null);var tSh=(rows()[0]||{titles:[]}).titles.filter(function(t){return /whole-run Sharpe needs/.test(t);})[0]||'';
+    render({},[lite(nsB)],[],null);var tShB=(rows()[0]||{titles:[]}).titles.filter(function(t){return /whole-run Sharpe needs/.test(t);})[0]||'';
     A('P7 Sharpe fallback hover is the walk-forward test Sharpe, only with the block','NEW',tSh.indexOf('Walk-forward Sharpe (per trade) '+(+B.sharpe).toFixed(2))>=0&&tShB.indexOf('Walk-forward Sharpe')<0&&tShB.indexOf('Out-of-sample Sharpe')<0,tSh+'  ||  '+tShB);
 
     // ── Books (whole document on the report) ─────────────────────────────────────────────
@@ -1357,7 +1366,7 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       ['total_avg_win','total_avg_loss','total_win_rate'].forEach(function(k){delete x.validate[k];});
       if(x.validate.gate_bakeoff)delete x.validate.gate_bakeoff.ungated_full;return x;}
     var EV01=dxOldRun(+FIXB.id+930041,'ZEVENOLD_1_0.py',1.0),TW01=dxOldRun(+FIXB.id+930042,'ZEVENTWIN_1_0.py',1.0002);
-    function pastPf(x){var c=render({},[lite(x)],[],'999999'),tr=q('tr.arow[data-run]')[0];if(c!=='OK'||!tr)return '(render)';
+    function pastPf(x){var c=render({},[lite(x)],[],null),tr=q('tr.arow[data-run]')[0];if(c!=='OK'||!tr)return '(render)';
       var tb=tr.closest('table'),ths=tb?Array.prototype.slice.call(tb.querySelectorAll('thead th')):[];
       var i=ths.map(function(th){return norm(th.textContent);}).findIndex(function(t){return /^PF\b/.test(t);});
       return (i>=0&&tr.children[i])?norm(tr.children[i].textContent):'(no PF column)';}
@@ -1417,7 +1426,13 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     //   on the first 73.820 build. Walk-forward keeps its own clause, and in-sample inherits a broken-even fold's clause.
     var OLD19=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930015);x.strategy='ZOLDAVG_1_0.py';x.starred=false;
       delete x.validate.total_avg_win;delete x.validate.total_avg_loss;return lite(x);})();
+    // LBN19 must actually HAVE a lockbox with no averages. Since eef0b0bf5 a cold-lockbox
+    //   run reads its continuous replay instead (_lbWarmOf), and that replay keeps both
+    //   averages - so deleting them from the cold block alone left nothing missing and the
+    //   note correctly said nothing. Dropping the replay too puts the page back on the cold
+    //   block, which is the case this check is about.
     var LBN19=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930016);x.strategy='ZLBNOAVG_1_0.py';x.starred=false;
+      if(x.gate_validate)delete x.gate_validate.ungated_lockbox;
       var lb=x.validate.lockbox;delete lb.avg_win;delete lb.avg_loss;lb.pf=null;return lite(x);})();
     var SP19=dxFold(+FIXB.id+930019,'ZSPLIT_1_0.py',3,function(f){f.oos_pf=0;delete f.oos_wins;});
     var OK19a=(function(){var x=clone(FIXB);x.id=String(+FIXB.id+930017);x.strategy='ZFINE_1_0.py';x.starred=false;return lite(x);})();
@@ -1495,13 +1510,30 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
       (w._cmpEqxNoCurve||[]).forEach(function(n){o.why[String(n.id)]=n.why||'';});
       // (repair) the no-curve rows themselves: one short line each, the run's reason in the hover
       q('.cmpovl-key > div:not([data-ovltog])').forEach(function(e){var t=norm(e.textContent);
-        if(!/^#[0-9]+ /.test(t))return;
+        // THE RUN-OPEN LINK GLYPH SITS RIGHT AFTER THE ID (index.html 8f3e92504, owner ask
+        //   10-07): a board row reads "#900307<glyph> ZNOBL 1.0 · no walk-forward curve", with no
+        //   space between the id and the glyph, so a detector demanding "#digits SPACE" skipped
+        //   every no-curve row on the views that show the link - the board found 0 of 2 and
+        //   DX31c failed for want of rows rather than for anything being wrong. Nothing is
+        //   loosened by this: the row still has to end in the no-curve phrase and still has to
+        //   carry its OWN run's reason in the hover.
+        if(!/^#[0-9]+/.test(t))return;
         o.nc.push({t:t,tip:e.getAttribute('title')||'',ws:w.getComputedStyle(e).whiteSpace,h:e.offsetHeight});});
       return o;}
     // a key row for a run with no walk-forward curve stays one short line (the key box sits over the plot), its reason in the hover
-    function nc31(o,n){var whys=Object.keys(o.why).map(function(k){return o.why[k];});
-      return o.nc.length===n&&o.rowH>0&&o.nc.every(function(r){return r.ws==='nowrap'&&/ · no walk-forward curve$/.test(r.t)
-        &&!!r.tip&&whys.indexOf(r.tip)>=0&&r.t.indexOf(r.tip)<0&&r.h<=o.rowH+2;});}
+    // THE HOVER NOW LEADS WITH WHAT IS MISSING, then gives the run's own reason: a row reads
+    //   "no walk-forward curve - this run was saved before walk-forward detail was recorded..."
+    //   while _cmpEqxNoCurve[].why holds only the bare reason, so the exact equality this used
+    //   to assert no longer holds. The replacement is STRONGER, not looser: each row's hover
+    //   must contain the reason belonging to ITS OWN run, read by the id in the row text. The
+    //   old version accepted any row's reason in any row's hover, so a build that paired them
+    //   up wrongly would have passed it.
+    function nc31(o,n){
+      return o.nc.length===n&&o.rowH>0&&o.nc.every(function(r){
+        var m=/^#([0-9]+)/.exec(r.t),wy=m?(o.why[m[1]]||''):'';
+        return r.ws==='nowrap'&&/ · no walk-forward curve$/.test(r.t)
+          &&!!r.tip&&!!wy&&r.tip.indexOf(wy)>=0
+          &&r.t.indexOf(r.tip)<0&&r.h<=o.rowH+2;});}
     function ok31(o,withBook){return o.key.indexOf('in-sample')<0&&/· [0-9]+[.][0-9]y/.test(o.row)
       &&(o.why[NOBID]||'')===NCW(NOB)&&(o.why[String(FIXZ.id)]||'').indexOf('took no trades in the walk-forward folds')>=0
       &&(!withBook||o.why[String(FIXBK.id)]==='a book tunes nothing, so it has no walk-forward folds');}
