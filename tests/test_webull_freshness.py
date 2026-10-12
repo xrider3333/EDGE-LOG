@@ -1255,6 +1255,142 @@ def test_keel_not_rebuilt_folds_into_the_missed_nq_upload(tmp_path):
                          "ask Claude (PAPER-WB chat)."}]
 
 
+# -- the KEEL rebuild JOB failed (owner YES 2026-10-12 via MANAGER): one push per stale episode
+KEEL_UNIT_KEY = "failed_unit:edgelog-keel-state.service"
+KEEL_NOTE = {"title": "QQQ book: CHECK NOW", "priority": "high", "message":
+             "Trading: AFFECTED - NOISE trades on the fixed size tilts only until its sizing "
+             "model is rebuilt.\n"
+             "The KEEL sizing model was not rebuilt after the close.\n"
+             "Do: ask Claude (PAPER-WB chat)."}
+KEEL_NOTE_JOB_FAILED = dict(KEEL_NOTE, message=KEEL_NOTE["message"].replace(
+    "after the close.", "after the close - the rebuild job failed on the box."))
+KEEL_JOB_NOTE = {"title": "Cloud box: needs a fix", "priority": "default", "message":
+                 "Trading: not affected.\n"
+                 "The KEEL model rebuild failed on the cloud box.\n"
+                 "Do: ask Claude (PAPER-WB chat)."}
+
+
+def _open_alert(h, key):
+    return next((a for a in h.status()["open_alerts"] if a["key"] == key), None)
+
+
+def test_a_failed_rebuild_job_is_one_high_keel_push_naming_it(tmp_path):
+    """Mon 10-05: the NQ data landed, the 18:30 ET rebuild JOB failed. 18:32: its unit is held
+    (the 19:00 KEEL check decides); 19:05: ONE high push -- the KEEL fallback, naming the failed
+    job -- and the unit's episode opens QUIET (status.json / the PC relay). Nothing more while
+    it is open, the pre-open gate included; Tuesday's good rebuild ends it with one low OK."""
+    h = Home(tmp_path, et(2026, 10, 5, 18, 32))
+    h.failed = ["edgelog-keel-state.service"]
+    out = h.run()
+    assert h.pushes == [], "held until the 19:00 ET KEEL check"
+    assert out["status"]["verdicts"][KEEL_UNIT_KEY]["ok"] is None
+    assert "HELD" in out["status"]["verdicts"][KEEL_UNIT_KEY]["detail"]
+    h.advance(et(2026, 10, 5, 19, 5))
+    out = h.run()
+    assert h.pushes == [KEEL_NOTE_JOB_FAILED] and ntfy_push.lint(h.pushes[0]) == []
+    opened = {r["key"]: r for r in out["opened"]}
+    assert opened[KEEL_UNIT_KEY]["quiet"] is True
+    assert not opened["keel:NOISE_382_v12"].get("quiet")
+    assert _open_alert(h, KEEL_UNIT_KEY)["quiet"] is True, "kept for the PC relay"
+    for t in (et(2026, 10, 5, 19, 7), et(2026, 10, 5, 21, 0), et(2026, 10, 6, 8, 30),
+              et(2026, 10, 6, 9, 15)):
+        h.advance(t)
+        h.run()
+    assert h.pushes == [KEEL_NOTE_JOB_FAILED]
+    t = et(2026, 10, 6, 19, 6)                                  # Tuesday: the job ran fine
+    h.failed = []
+    h.set_now(t)
+    h.exec_state()
+    h.cs_state()
+    h.advance(t)
+    h.bars(t)
+    h.keel(through="2026-10-06")
+    out = h.run()
+    assert {"keel:NOISE_382_v12", KEEL_UNIT_KEY} <= {r["key"] for r in out["recovered"]}
+    assert [p["title"] for p in h.pushes] == ["QQQ book: CHECK NOW", "QQQ book: OK"]
+
+
+def test_a_failed_rebuild_job_with_a_current_model_is_the_box_note_as_before(tmp_path):
+    """The model is current (the NQ-push rebuild worked, then a hand re-run failed): the unit's
+    own note goes out at once, as before -- the hold is only for a model not yet rebuilt."""
+    h = Home(tmp_path, et(2026, 10, 5, 18, 32))
+    h.keel(through="2026-10-05")
+    h.failed = ["edgelog-keel-state.service"]
+    h.run()
+    assert h.pushes == [KEEL_JOB_NOTE] and ntfy_push.lint(h.pushes[0]) == []
+    h.advance(et(2026, 10, 5, 19, 5))
+    h.run()
+    assert h.pushes == [KEEL_JOB_NOTE], "the KEEL check passes: nothing more"
+    # the same minute with the model NOT yet rebuilt: held, no note
+    h2 = Home(tmp_path / "pending", et(2026, 10, 5, 18, 32))
+    h2.failed = ["edgelog-keel-state.service"]
+    h2.run()
+    assert h2.pushes == []
+
+
+def test_another_failed_unit_is_still_its_own_push_beside_the_keel_alert(tmp_path):
+    """Another box unit failing the same evening is a separate problem: its note at 18:32, the
+    KEEL alert (no cause named) at 19:05 -- two pushes, as before. The KEEL job's unit in the
+    same timeline: one push."""
+    for unit, want in (
+            ("edgelog-qqq-bars.service",
+             [{"title": "Cloud box: needs a fix", "priority": "default", "message":
+               "Trading: not affected.\n"
+               "The QQQ chart download failed on the cloud box.\n"
+               "Do: ask Claude (PAPER-WB chat)."}, KEEL_NOTE]),
+            ("edgelog-keel-state.service", [KEEL_NOTE_JOB_FAILED])):
+        h = Home(tmp_path / unit, et(2026, 10, 5, 18, 32))
+        h.failed = [unit]
+        h.run()
+        h.advance(et(2026, 10, 5, 19, 5))
+        h.run()
+        assert h.pushes == want, unit
+
+
+def test_a_rebuild_job_note_already_pushed_still_lets_the_keel_alert_push_once(tmp_path):
+    """Reverse order: the job's unit failed in the session (the model was current then), so its
+    note went out; that night's rebuild fails too -- at 19:05 the KEEL alert still pushes once
+    (it is the one that says trading is affected) and names the failed job."""
+    h = Home(tmp_path, et(2026, 10, 5, 14, 0))
+    h.failed = ["edgelog-keel-state.service"]
+    h.run()
+    assert h.pushes == [KEEL_JOB_NOTE]
+    h.advance(et(2026, 10, 5, 19, 5))
+    h.run()
+    assert h.pushes == [KEEL_JOB_NOTE, KEEL_NOTE_JOB_FAILED]
+
+
+def test_a_rebuild_job_that_fails_after_the_keel_alert_is_no_second_push(tmp_path):
+    """The KEEL alert went out at 19:05; a hand re-run of the job fails at 21:00: tracked quietly
+    (the open KEEL episode already paged it), and the KEEL record now names the cause."""
+    h = Home(tmp_path, et(2026, 10, 5, 19, 5))
+    h.run()
+    assert h.pushes == [KEEL_NOTE]
+    h.failed = ["edgelog-keel-state.service"]
+    h.advance(et(2026, 10, 5, 21, 0))
+    out = h.run()
+    assert h.pushes == [KEEL_NOTE]
+    assert [r["quiet"] for r in out["opened"] if r["key"] == KEEL_UNIT_KEY] == [True]
+    with open(h.paths["monitor_state"], encoding="utf-8") as f:
+        rec = json.load(f)["alerts"]["keel:NOISE_382_v12"]
+    assert rec["plain"]["problem"].endswith("- the rebuild job failed on the box.")
+
+
+def test_a_failed_rebuild_job_after_the_missed_nq_upload_is_no_second_push(tmp_path):
+    """The PC's upload never landed: nq_master pushed at 18:00 (the night's one push); the
+    18:30 ET job then fails on the old data -- its unit stays quiet, the KEEL legs fold in."""
+    h = Home(tmp_path, et(2026, 10, 5, 18, 0))
+    h.bars(h.now, nq_day=dt.date(2026, 10, 2))
+    h.run()
+    assert len(h.pushes) == 1 and "NQ data upload" in h.pushes[0]["message"]
+    h.failed = ["edgelog-keel-state.service"]
+    for t in (et(2026, 10, 5, 18, 32), et(2026, 10, 5, 19, 5)):
+        h.advance(t)
+        h.run()
+    assert len(h.pushes) == 1
+    assert _open_alert(h, KEEL_UNIT_KEY)["quiet"] is True
+
+
 def test_an_episode_saved_before_the_plain_format_still_pushes_plain_text(tmp_path):
     """A deploy in the middle of an episode: the record in state.json has no "plain" wording.
     Its recovery must still be a plain note, never the old developer title."""

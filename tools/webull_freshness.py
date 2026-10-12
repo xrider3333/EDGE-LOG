@@ -19,7 +19,14 @@ from api/market_calendar):
                      lease read failing, every real order blocked (fail-CLOSED) -- #1, #3.
     exec_loop        the tick loop's own heartbeat (SERVING.lock, rewritten every tick, or
                      state.json's mtime) older than 10 min -- process wedged or gone.
-    failed_unit:<u>  `systemctl --failed` lists a unit -- #17, #28, #33.
+    failed_unit:<u>  `systemctl --failed` lists a unit -- #17, #28, #33. The KEEL rebuild's own
+                     unit (edgelog-keel-state.service) is no second push for a missed rebuild
+                     (owner YES 2026-10-12 via MANAGER; fold_keel_rebuild_unit): QUIET while a
+                     live leg's keel:<leg> or nq_master episode pushed (or opens pushed in the
+                     same run); HELD (not opened) on a session day from the close to the 19:00 ET
+                     KEEL check while the model is not yet trained through that session, so the
+                     check decides; else (the model is current -- a failed hand re-run after a
+                     good nightly build) its "Cloud box: needs a fix" note as before.
     disk / log_size  / at or above 80 %, any log over 100 MB -- #33.
     nq_master        the NQ master's last bar is older than the latest session whose 18:00 ET
                      has passed, or tools/keel_live_state.py's marker (keel/nq_stale_alert.json)
@@ -47,11 +54,13 @@ from api/market_calendar):
                      evening the rebuild is missed ("QQQ book: CHECK NOW" / "Trading: AFFECTED -
                      NOISE trades on the fixed size tilts only until its sizing model is
                      rebuilt." / "The KEEL sizing model was not rebuilt after the close." / "Do:
-                     ask Claude (PAPER-WB chat)."), nothing more while it stays open (the
-                     pre-open gate counts it pushed; api/cloud_signal records its own fallback
-                     instead of pushing while it is open -- _monitor_owns_keel_stale), and one
-                     low "OK" when the model is rebuilt. DEFAULT ("still sizing") only for a
-                     summary whose age cannot be read: the engine keeps that model. Before
+                     ask Claude (PAPER-WB chat)." -- while edgelog-keel-state.service is failed
+                     the problem line ends "... after the close - the rebuild job failed on the
+                     box." and the unit's own note stays quiet), nothing more while it stays
+                     open (the pre-open gate counts it pushed; api/cloud_signal records its own
+                     fallback instead of pushing while it is open -- _monitor_owns_keel_stale),
+                     and one low "OK" when the model is rebuilt. DEFAULT ("still sizing") only
+                     for a summary whose age cannot be read: the engine keeps that model. Before
                      10-11: DEFAULT while 1 to 4 sessions old, then keel_fallback:<leg>.
     keel_fallback:<leg>  only while KEEL_FALLBACK_SESSIONS is above 1: that model is that many
                      sessions old -- from the next session the live leg sizes on v12's fixed
@@ -295,6 +304,11 @@ UNIT_WORDS = {
     "edgelog-runner.service": ("The job runner", False),
     "edgelog-healthcheck.service": ("The box health check", False),
 }
+# the KEEL rebuild's unit (deploy/cloud: the 18:30 ET timer and the NQ-push path both start it).
+# While it is failed a live leg's keel:<leg> note names that cause, and the unit's own note is
+# no second push for the same missed rebuild (fold_keel_rebuild_unit; owner YES 2026-10-12)
+KEEL_UNIT = "edgelog-keel-state.service"
+KEEL_REBUILD_FAILED = "the rebuild job failed on the box"
 
 
 def _plain(problem, action=ASK, affects=None, area=BOOK, priority=None):
@@ -1135,6 +1149,15 @@ def _keel_none_detail(keel):
             + ", ".join(sorted(keel)) + ")")
 
 
+def _keel_cause(problem, rebuild_failed):
+    """A live leg's keel:<leg> problem line; while KEEL_UNIT is failed it names that cause:
+    "The KEEL sizing model was not rebuilt after the close - the rebuild job failed on the box."
+    """
+    if not rebuild_failed:
+        return problem
+    return "%s - %s." % (problem.rstrip("."), KEEL_REBUILD_FAILED)
+
+
 def check_evening(snap, now_et, mstate=None):
     """NQ master freshness against the latest session whose 18:00 ET has passed (WEBULL PUSH
     PLAN 10-07: before the 18:30 ET rebuild), KEEL freshness against the latest session whose
@@ -1185,6 +1208,8 @@ def check_evening(snap, now_et, mstate=None):
     # a KEEL miss that opens while the NQ data is missing is the SAME missed night: tracked,
     # folded into the nq_master note (quiet), never a second push
     fold = nq_bad or bool((alerts.get("nq_master") or {}).get("open"))
+    # the rebuild JOB failed: a live leg's note names that cause (fold_keel_rebuild_unit)
+    rebuild_failed = KEEL_UNIT in (snap.get("failed_units") or ())
     want = keel_expected(due)
     if not live_keel:
         out.append(_verdict("keel:none", "evening", False, HIGH, "no KEEL summary on the box",
@@ -1211,8 +1236,10 @@ def check_evening(snap, now_et, mstate=None):
                 f"trained through {through or 'unknown'}, expected {want}{age} -- past "
                 f"api/cloud_signal's KEEL_MAX_STALE_SESSIONS from the next session on: the live "
                 f"leg sizes on v12's fixed tilts only (no model) until it is rebuilt.",
-                plain=_plain(KEEL_NOT_REBUILT + "." if behind == 1 else
-                             "%s (it is %d sessions old)." % (KEEL_NOT_REBUILT, behind),
+                plain=_plain(_keel_cause(KEEL_NOT_REBUILT + "." if behind == 1 else
+                                         "%s (it is %d sessions old)." % (KEEL_NOT_REBUILT,
+                                                                          behind),
+                                         rebuild_failed),
                              affects=keel_fixed_tilts_affects(w), priority="high"),
                 quiet=fold and not ok))
         else:
@@ -1220,9 +1247,9 @@ def check_evening(snap, now_et, mstate=None):
                 f"keel:{leg}", "evening", ok, HIGH, f"KEEL STALE ({leg}), still sizing",
                 f"trained through {through or 'unknown'}, expected {want}{age}"
                 + ". The live leg keeps sizing on the stale model until it is rebuilt.",
-                plain=_plain(("%s (it is %d session%s old)." % (
+                plain=_plain(_keel_cause(("%s (it is %d session%s old)." % (
                     KEEL_NOT_REBUILT, behind, "" if behind == 1 else "s")) if behind else
-                    KEEL_NOT_REBUILT + ".", priority="default"),
+                    KEEL_NOT_REBUILT + ".", rebuild_failed), priority="default"),
                 quiet=fold and not ok))
         if one_night:
             out.append(_keel_fallback_folded(leg, ok, old_enough))
@@ -1292,6 +1319,63 @@ def _shadow_keel_verdicts(leg, through, want, behind, ok, old_enough, w, one_nig
                               % (w, behind if behind is not None else "too many"), priority="low"),
                  quiet=True),
     ]
+
+
+def _pushes_episode(v, alerts):
+    """True when verdict `v` fails this run in an episode that pushed (open, not quiet) or that
+    opens pushed this run (its min_runs-th failing run, not quiet). Read before apply_verdicts.
+    """
+    if v.get("ok") is not False:
+        return False
+    rec = alerts.get(v["key"]) or {}
+    if rec.get("open"):
+        return not rec.get("quiet")
+    return (not v.get("quiet")
+            and int(rec.get("bad_runs", 0)) + 1 >= int(v.get("min_runs", 1)))
+
+
+def _keel_rebuild_pending(live_keel, now_et):
+    """True on a session day from its close to the 19:00 ET KEEL check while a live leg's model
+    is not yet trained through that session (keel_expected): that night's rebuild -- the
+    NQ-push path or the 18:30 ET timer -- has not produced it yet."""
+    today = now_et.date()
+    if not live_keel or not market_calendar.is_session(today):
+        return False
+    if not at(today, close_hhmm(today)) <= now_et < at(today, EVENING_CHECK_FROM):
+        return False
+    want = keel_expected(today).isoformat()
+    return any(not through or str(through) < want for through in live_keel.values())
+
+
+def fold_keel_rebuild_unit(verdicts, snap, now_et, alerts):
+    """ONE PUSH PER STALE EPISODE when the rebuild JOB fails (owner YES 2026-10-12 via MANAGER):
+    failed_unit:<KEEL_UNIT> is no second push for a missed KEEL rebuild. Runs on this run's
+    verdicts after every check (in place, before apply_verdicts):
+      QUIET -- tracked in status.json and relayed to the PC as before, never pushed -- while a
+        live leg's keel:<leg> or nq_master fails in an episode that pushed or opens pushed this
+        run: that note is the one push (keel:<leg> names the cause, _keel_cause).
+      HELD (ok None: not opened yet) while _keel_rebuild_pending -- the unit failed on that
+        night's rebuild and the 19:00 ET KEEL check decides: a stale model opens keel:<leg>
+        (the one push, naming the cause) and this QUIET in the same run; a current one, this
+        unit's note as below.
+      Else unchanged: "Cloud box: needs a fix" -- e.g. a failed hand re-run after a good nightly
+        build (the model is current). An episode that already pushed stays as it was (a quiet
+        flag is read when an episode opens): a keel:<leg> that opens after it still pushes once
+        -- it is the one that says trading is affected. Every other unit: unchanged."""
+    key = "failed_unit:" + KEEL_UNIT
+    unit = next((v for v in verdicts if v["key"] == key and v["ok"] is False), None)
+    if unit is None:
+        return
+    _keel, live_keel, _shadow = _keel_split(snap)
+    owners = {"nq_master"} | {"keel:" + leg for leg in live_keel}
+    if any(_pushes_episode(v, alerts) for v in verdicts if v["key"] in owners):
+        unit["quiet"] = True
+        unit["detail"] += (" -- QUIET: the open KEEL stale (or NQ upload) alert is this missed "
+                           "rebuild's one push")
+    elif _keel_rebuild_pending(live_keel, now_et):
+        unit["ok"] = None
+        unit["detail"] += (" -- HELD until the 19:00 ET KEEL check: a stale model pushes the "
+                           "KEEL alert (naming this cause) instead of a second note")
 
 
 # the executor refreshes its tick_crash.json marker on every failed tick (every ~5 s): one
@@ -2094,6 +2178,10 @@ def evaluate(snap, now_et, mstate):
             groups.add(group)
             verdicts.extend(out)
     groups.add("check_error")
+    try:
+        fold_keel_rebuild_unit(verdicts, snap, now_et, (mstate or {}).get("alerts") or {})
+    except Exception:   # never blinds the checks: the unit's note then goes out as before
+        pass
     return verdicts, groups, ev
 
 
