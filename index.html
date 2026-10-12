@@ -708,6 +708,22 @@ select option:checked{background:var(--bg3);color:var(--text)}
    ten themes (incl. paper, the light one) keep working unchanged. */
 .hm-wrap{max-width:1080px;margin:0 auto}
 .hm-micro{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text5)}
+/* the POINTS checklist (owner 2026-10-12): one layout for the trade panel and the chart window - header, one aligned list
+   (mark, label, value vs level in right-aligned tabular figures), the 10th point set apart and dimmed, the context line last */
+.hm-pts{font-size:11px;line-height:1.4;color:var(--text3)}
+.hm-pts-head{display:flex;align-items:center;gap:6px 10px;flex-wrap:wrap;margin:0 0 8px}
+.hm-pts-score{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:22px;line-height:1;font-variant-numeric:tabular-nums}
+.hm-pts-sig{font-size:10px;color:var(--text5);white-space:nowrap}
+.hm-pts-grid{display:grid;grid-template-columns:14px minmax(0,1fr) auto auto auto;column-gap:8px;row-gap:4px;align-items:baseline;font-variant-numeric:tabular-nums}
+.hm-pts-mk{font-weight:700;text-align:center;font-size:11px}
+.hm-pts-lab{min-width:0;overflow-wrap:anywhere}
+.hm-pts-v{text-align:right;white-space:nowrap;color:var(--text2)}
+.hm-pts-vs{font-size:9px;color:var(--text5)}
+.hm-pts-na{grid-column:3/6;text-align:right;font-size:10px;color:var(--text5)}
+.hm-pts-sep{grid-column:1/-1;border-top:1px dashed var(--border);margin-top:4px;padding-top:4px;font-size:9px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text5)}
+.hm-pts-ten{opacity:.5}
+.hm-pts-ctx{font-size:9.5px;line-height:1.45;color:var(--text5);margin-top:9px}
+.hm-pts-x{margin-left:auto;background:none;border:0;color:var(--text4);font-size:14px;line-height:1;cursor:pointer;padding:2px 4px;font-family:inherit}
 .hm-hero-value{font-family:'Bebas Neue','JetBrains Mono',monospace;font-size:clamp(52px,7vw,76px);line-height:1;color:var(--text);margin-top:6px;font-variant-numeric:tabular-nums}
 .hm-hero-delta{display:flex;align-items:baseline;gap:6px;font-size:13px;margin-top:8px;font-variant-numeric:tabular-nums;flex-wrap:wrap}
 .hm-hero-delta .hm-suffix{color:var(--text5)}
@@ -1328,7 +1344,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1219';
+const VERSION='73.1220';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1346,7 +1362,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1219',date:'2026-10-12',notes:['LEDGER, REAL: YOUR SETUPS SHOW AGAIN (owner 10-12). Nothing was lost: the 54 trades still carry CBU, ENGU, EBU, CBD and ENGD. The setup picker only listed the setups saved on the device you were using, so on a device without your list a stored ENGU showed as a dash. Every picker now also lists every setup already on a trade, and always shows the trade own value.','LEDGER, REAL: DENSER TRADE LIST. The day header is one short line with the day net beside the label, trade rows never wrap on a laptop or iPad, cells sit closer, the SIMPLE date reads 10/08 09:55, the setup picker is narrower, and the gaps above the list are smaller. Nothing was removed.']},{v:'73.1217',date:'2026-10-12',notes:['LEDGER, REAL: DAILY LOSS BAR (owner order 10-12). Set your daily stop in Settings, TRADING LOG. A thin bar under the status line fills as the day goes red, says near your daily limit at 80 per cent and daily limit hit - stop for today at 100 per cent. Blank = no bar.','LEDGER, REAL: TILT CHIPS. Top right of the big number (under it on a phone), from your trades closed today: 2 or more losses in a row, size up after a loss, back in under 5 minutes after a loss. They only warn; nothing is blocked.']},{v:'73.1215',date:'2026-10-11',notes:['TRADE CANDLES WINDOW, TRADINGVIEW LAYOUT (owner: all this text and space and I can barely see the chart, no volume either, make it like TradingView). The window now fills the screen (edge to edge on a phone) and the chart takes everything left: one header line (the trade, its net and the bar source, close on the right) and one row of controls (previous / next with the row count, 10S 1M 5M 15M, TOP 10, TRADE and FULL zoom, RTH / ETH, AUTO, + BARS, POINTS, PNG and a ? for the gestures). The hint line under the chart is gone.','VOLUME: a volume histogram along the bottom fifth of the chart on its own scale, each bar in its candle colour (theme colours, so MONO stays white and grey). Every bar source EL draws carries volume - your trade bars (1m and the 10-second capture), the Webull box bars and the bars your PC sends; a source with no volume draws none and the legend says so.','CROSSHAIR AND LEGEND: an OHLCV legend top-left follows the crosshair (the last bar on screen when the mouse is off the chart); the crosshair snaps to the bar with its price on the right axis and its time on the bottom axis; the last price is tagged on the axis; the entry and exit are dashed lines across the chart with their prices on the axis, next to the markers on their candles. The 200 average line stays.','POINTS is one chip in the control row (POINTS 6/9) that opens the same checklist over the chart and folds it again; it starts folded and remembers your choice. iPad: one finger pans, two fingers pinch to zoom, a tap shows that bar in the legend, a double tap resets. Wheel, drag, double-click and the price-scale drag work as before.']},{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
+const CHANGELOG=[{v:'73.1220',date:'2026-10-12',notes:['POINTS, ONE LAYOUT AND ONE SOURCE (owner: points compact makes no sense layout wise and is inaccurate). The trade panel and the chart window now show the same checklist: POINTS 6/9 with the signal candle and SMA | EMA on one line, then one aligned list - tick or cross, the point, the value vs the level it was checked against, numbers lined up on the right (prices to the cent, volume to the contract). The 10th point sits under a rule, dimmed, marked not counted in the score. The missed: sentence is gone (it repeated the crosses) and the context line is small and last.','CHART WINDOW: the POINTS checklist opens top-left under the controls, at most 420 px wide, scrolls inside when tall, and closes on Esc, a tap outside it or its X (the chip still opens and folds it). Its score is read from your trades every time the page draws, the same record the ledger badge and the trade panel read - before, the window kept the copy of the trade it was opened with, so it could keep showing an older score next to a newer row.']},{v:'73.1217',date:'2026-10-12',notes:['LEDGER, REAL: DAILY LOSS BAR (owner order 10-12). Set your daily stop in Settings, TRADING LOG. A thin bar under the status line fills as the day goes red, says near your daily limit at 80 per cent and daily limit hit - stop for today at 100 per cent. Blank = no bar.','LEDGER, REAL: TILT CHIPS. Top right of the big number (under it on a phone), from your trades closed today: 2 or more losses in a row, size up after a loss, back in under 5 minutes after a loss. They only warn; nothing is blocked.']},{v:'73.1215',date:'2026-10-11',notes:['TRADE CANDLES WINDOW, TRADINGVIEW LAYOUT (owner: all this text and space and I can barely see the chart, no volume either, make it like TradingView). The window now fills the screen (edge to edge on a phone) and the chart takes everything left: one header line (the trade, its net and the bar source, close on the right) and one row of controls (previous / next with the row count, 10S 1M 5M 15M, TOP 10, TRADE and FULL zoom, RTH / ETH, AUTO, + BARS, POINTS, PNG and a ? for the gestures). The hint line under the chart is gone.','VOLUME: a volume histogram along the bottom fifth of the chart on its own scale, each bar in its candle colour (theme colours, so MONO stays white and grey). Every bar source EL draws carries volume - your trade bars (1m and the 10-second capture), the Webull box bars and the bars your PC sends; a source with no volume draws none and the legend says so.','CROSSHAIR AND LEGEND: an OHLCV legend top-left follows the crosshair (the last bar on screen when the mouse is off the chart); the crosshair snaps to the bar with its price on the right axis and its time on the bottom axis; the last price is tagged on the axis; the entry and exit are dashed lines across the chart with their prices on the axis, next to the markers on their candles. The 200 average line stays.','POINTS is one chip in the control row (POINTS 6/9) that opens the same checklist over the chart and folds it again; it starts folded and remembers your choice. iPad: one finger pans, two fingers pinch to zoom, a tap shows that bar in the legend, a double tap resets. Wheel, drag, double-click and the price-scale drag work as before.']},{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
+{v:'73.1219',date:'2026-10-12',notes:['LEDGER, REAL: YOUR SETUPS SHOW AGAIN (owner 10-12). Nothing was lost: the 54 trades still carry CBU, ENGU, EBU, CBD and ENGD. The setup picker only listed the setups saved on the device you were using, so on a device without your list a stored ENGU showed as a dash. Every picker now also lists every setup already on a trade, and always shows the trade own value.','LEDGER, REAL: DENSER TRADE LIST. The day header is one short line with the day net beside the label, trade rows never wrap on a laptop or iPad, cells sit closer, the SIMPLE date reads 10/08 09:55, the setup picker is narrower, and the gaps above the list are smaller. Nothing was removed.']},{v:'73.1217',date:'2026-10-12',notes:['LEDGER, REAL: DAILY LOSS BAR (owner order 10-12). Set your daily stop in Settings, TRADING LOG. A thin bar under the status line fills as the day goes red, says near your daily limit at 80 per cent and daily limit hit - stop for today at 100 per cent. Blank = no bar.','LEDGER, REAL: TILT CHIPS. Top right of the big number (under it on a phone), from your trades closed today: 2 or more losses in a row, size up after a loss, back in under 5 minutes after a loss. They only warn; nothing is blocked.']},{v:'73.1215',date:'2026-10-11',notes:['TRADE CANDLES WINDOW, TRADINGVIEW LAYOUT (owner: all this text and space and I can barely see the chart, no volume either, make it like TradingView). The window now fills the screen (edge to edge on a phone) and the chart takes everything left: one header line (the trade, its net and the bar source, close on the right) and one row of controls (previous / next with the row count, 10S 1M 5M 15M, TOP 10, TRADE and FULL zoom, RTH / ETH, AUTO, + BARS, POINTS, PNG and a ? for the gestures). The hint line under the chart is gone.','VOLUME: a volume histogram along the bottom fifth of the chart on its own scale, each bar in its candle colour (theme colours, so MONO stays white and grey). Every bar source EL draws carries volume - your trade bars (1m and the 10-second capture), the Webull box bars and the bars your PC sends; a source with no volume draws none and the legend says so.','CROSSHAIR AND LEGEND: an OHLCV legend top-left follows the crosshair (the last bar on screen when the mouse is off the chart); the crosshair snaps to the bar with its price on the right axis and its time on the bottom axis; the last price is tagged on the axis; the entry and exit are dashed lines across the chart with their prices on the axis, next to the markers on their candles. The 200 average line stays.','POINTS is one chip in the control row (POINTS 6/9) that opens the same checklist over the chart and folds it again; it starts folded and remembers your choice. iPad: one finger pans, two fingers pinch to zoom, a tap shows that bar in the legend, a double tap resets. Wheel, drag, double-click and the price-scale drag work as before.']},{v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
 {v:'73.1210',date:'2026-10-11',notes:['LEDGER > REAL: the trade list controls are in one place, in three rows. Top: the trade count, and on the right the view - LIST | TABLE with SIMPLE | FULL right beside it on the TABLE (BY TRADE | BY DAY on the LIST). Next: every filter on one line - search, ALL LONG SHORT WINS LOSSES, then FUTURES STOCKS. Then: + NEW TRADE and the CHART LINK box together, with ADD DEPOSIT, SCAN DUPLICATES and OPEN ALL grouped at the right (behind one small TOOLS menu on a phone, where the link box comes first). Nothing was removed and every button does what it did.']},
 {v:'73.1206',date:'2026-10-11',notes:['RESEARCH: an ML RESEARCH section, open by default at the top of the RESEARCH tab - every ML study we ran (21 so far: gates, sizers, KEEL, stock models, forecasters, order flow), what it tested, its verdict (DEAD / FAIL / PASS-small / OPEN), the date and links to the evidence on GitHub, the Reading Shelf and the Kelly and Xiu paper. One row per study in one list, so a lane adds a study with a one-line edit.','RESEARCH: the RESEARCH tab now always opens on RESEARCH (it used to reopen REFERENCE if that was the last one used), so the ML section is the first thing you see; REFERENCE is one click away on the inner toggle.']},
 {v:'73.1189',date:'2026-10-10',notes:['LEDGER > REAL, SIMPLE table: SETUP, TF and the chart link now sit side by side in one spot on every trade row, so a trade is tagged without switching to FULL. Paste a TradingView snapshot link into the row box and it saves at once (no Enter), with a short saved tick; on a phone the three sit on a second line of the row.','LEDGER > REAL, FULL table: the rows show NET (after fees), the same number SIMPLE and the hero use; GROSS is gone from the row and sits in the hover title of the net figure, FEES stays.']},
@@ -9275,8 +9292,12 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   const _PTS_OPEN_KEY='el_cndl_pts_open';
   const _ptsOpenGet=()=>{try{return localStorage.getItem(_PTS_OPEN_KEY)==='1';}catch(_e){return false;}};
   const _ptsOpenSet=v=>{try{localStorage.setItem(_PTS_OPEN_KEY,v?'1':'0');}catch(_e){}};
+  // 2026-10-12: the chip and the checklist read the trade from `trades` at every draw (window._hmPtsHolder), the
+  // same record the ledger badge and the trade panel read, and every page render redraws them (_cndlPtsRefresh).
+  // The checklist sits top-left under the toolbar, at most 420 px wide, scrolls inside, and closes on Esc or a tap outside.
   const _cndlPts=x=>{if(!_cndlAlive())return;const md=_cndl.api.modal,box=md.querySelector('#cndl-pts'),chip=md.querySelector('#cndl-ptschip');if(!box)return;
-    const t=x&&x._psT,h=(t&&window._hmPtsViewerHtml)?window._hmPtsViewerHtml(t):'';
+    let t=null;try{t=x?(window._hmPtsHolder?window._hmPtsHolder(x):x._psT):null;}catch(_h){t=x&&x._psT;}
+    const h=(t&&window._hmPtsViewerHtml)?window._hmPtsViewerHtml(t):'';
     let p=null,col='var(--text2)';
     try{p=(t&&typeof _hmPts==='function')?_hmPts(t):null;if(p&&typeof _hmPtsColor==='function')col=_hmPtsColor(p);}catch(_p){}
     const open=!!h&&_ptsOpenGet();
@@ -9284,10 +9305,17 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       chip.innerHTML='POINTS <b style="color:'+col+'">'+(p?(p.total+'/'+p.max):'')+'</b> <span style="color:var(--text5)">'+(open?'&#9662;':'&#9656;')+'</span>';
       chip.setAttribute('aria-expanded',open?'true':'false');
       chip.style.background=open?'var(--bg2)':'transparent';}
-    box.innerHTML=h?h.replace('<summary','<div').replace('</summary>','</div>'):'';
-    if(open){const bd=md.querySelector('#chart-body'),ph=(window.innerWidth||1024)<700,rg=ph?6:Math.round(((_cGeo().mR)||64)*_cK())+8;
-      box.style.top=((bd?bd.offsetTop:60)+6)+'px';box.style.right=rg+'px';box.style.width='min(640px,calc(100% - '+(rg+(ph?6:16))+'px))';}
+    if(box._h!==h){box.innerHTML=h;box._h=h;}   // unchanged: keep where it is scrolled to
+    const xb=box.querySelector('[data-ptsclose]');if(xb)xb.onclick=ev=>{ev.stopPropagation();_ptsOpenSet(false);_cndlPts(_cndl.x);};
+    if(open){const bd=md.querySelector('#chart-body'),top=(bd?bd.offsetTop:60)+6,left=(bd?bd.offsetLeft:0)+6;
+      box.style.top=top+'px';box.style.left=left+'px';box.style.right='auto';
+      box.style.width='min(420px,calc(100% - '+(left+6)+'px))';box.style.maxHeight='calc(100% - '+(top+10)+'px)';}
     box.style.display=open?'block':'none';};
+  window._cndlPtsRefresh=()=>{if(_cndlAlive()&&_cndl.x)_cndlPts(_cndl.x);};
+  // Esc folds the checklist first (the window itself closes on the next Esc); one listener for the page's life
+  if(!window._cndlPtsEscOn){window._cndlPtsEscOn=1;
+    document.addEventListener('keydown',ev=>{if(ev.key!=='Escape'||!_cndlAlive())return;const dr=_cndl.api.modal.querySelector('#cndl-pts');
+      if(!dr||dr.style.display==='none')return;ev.stopImmediatePropagation();ev.preventDefault();_ptsOpenSet(false);_cndlPts(_cndl.x);},true);}
   // SMA | EMA flipped: the line is read from the bars at every draw, so a redraw is all it takes
   window._cndlMaRefresh=()=>{if(!_cndlAlive()||!_cndl.r)return;_renderCandle();_cndlPts(_cndl.x);};
 
@@ -9816,8 +9844,12 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     // the POINTS drawer sits over the chart, outside #chart-body so its own buttons (SMA | EMA) are not taken by the chart's gestures
     try{const bx=md.querySelector('.cndl-box')||ctl.parentElement;
       if(bx&&!bx.querySelector('#cndl-pts')){const dr=document.createElement('div');dr.id='cndl-pts';
-        dr.style.cssText='display:none;position:absolute;z-index:8;right:12px;top:60px;max-height:calc(100% - 80px);overflow:auto;box-sizing:border-box;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:8px 10px;box-shadow:0 8px 28px rgba(0,0,0,.5)';
-        bx.appendChild(dr);}}catch(_d){}
+        dr.style.cssText='display:none;position:absolute;z-index:8;left:12px;top:60px;max-width:420px;max-height:calc(100% - 80px);overflow:auto;overscroll-behavior:contain;box-sizing:border-box;background:var(--bg1);border:1px solid var(--border);border-radius:8px;padding:10px 12px;box-shadow:0 8px 28px rgba(0,0,0,.5)';
+        bx.appendChild(dr);
+        // a tap anywhere outside the checklist (and outside its chip, which toggles it) folds it
+        md.addEventListener('pointerdown',ev=>{const d2=md.querySelector('#cndl-pts'),c2=md.querySelector('#cndl-ptschip');
+          if(!d2||d2.style.display==='none'||d2.contains(ev.target)||(c2&&c2.contains(ev.target)))return;
+          _ptsOpenSet(false);_cndlPts(_cndl.x);},true);}}catch(_d){}
 
     const g=id=>md.querySelector('#'+id);
 
@@ -14836,21 +14868,46 @@ function _hmPtsHtml(t){
   const c=_hmPtsColor(p);
   return `<span class="score-pill" style="color:${c};border-color:color-mix(in srgb,${c} 35%,transparent);background:color-mix(in srgb,${c} 10%,transparent)" title="${_hmEsc(_hmPtsTitle(p))}">${p.total}/${p.max}</span>${p.na_count?`<span style="font-size:8px;color:var(--text5);margin-left:3px">${p.na_count} NA</span>`:''}`;
 }
-// the trade panel's POINTS block: every point with its tick / cross / NA and what it was checked against
+// ONE source for every POINTS surface (owner 2026-10-12): the ledger badge, the trade panel and the chart window all read
+// the trade as it is in `trades` NOW, through _hmPts. The chart window used to keep the trade object it was opened with,
+// and every database update replaces every trade object, so its chip could keep an older score than the row beside it.
+window._hmPtsHolder=function(x){
+  if(!x)return null;
+  if(x._missed){const m=_hmMissedById(String(x._tid||'').replace(/^missed_/,''));return m?_hmMissedPtsHolder(m):(x._psT||null);}
+  const id=String(x._tid||''),t=id?(trades||[]).find(q=>String(q.id)===id):null;
+  return t||x._psT||null;
+};
+// a price to the cent, a volume to the contract: every number in a column has the same shape, so they line up
+function _hmPtsFmt(q,v){
+  if(v==null||v===''||!isFinite(+v))return '--';
+  const n=+v;
+  return /vol/.test(String(q.k||''))?Math.round(n).toLocaleString('en-US'):n.toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});
+}
+// The POINTS checklist, the same in the trade panel and over the chart (owner 2026-10-12: "points compact makes no sense
+// layout wise"): a header (POINTS 6/9, the signal candle, SMA | EMA), ONE aligned list - mark, label, value vs level - the
+// 10th point under a rule and dimmed (it is not in the score), the context line small and last. The old "missed: ..."
+// sentence is gone: it repeated the crosses in the list.
+function _hmPtsBlockHtml(p,opt){
+  opt=opt||{};
+  const c=_hmPtsColor(p);
+  const row=(q,ten)=>{
+    const col=q.hit===true?'var(--green)':(q.hit===false?'var(--red)':'var(--text5)'),mk=q.hit===true?'✓':(q.hit===false?'✗':'NA'),cls=ten?' hm-pts-ten':'';
+    const nums=q.hit==null?`<span class="hm-pts-na${cls}">${_hmEsc(q.na_reason||'could not be checked')}</span>`
+      :`<span class="hm-pts-v${cls}">${_hmPtsFmt(q,q.val)}</span><span class="hm-pts-vs${cls}">vs</span><span class="hm-pts-v${cls}">${_hmPtsFmt(q,q.ref)}</span>`;
+    return `<span class="hm-pts-mk${cls}" style="color:${col}">${mk}</span><span class="hm-pts-lab${cls}">${_hmEsc(String(q.label||q.k||''))}</span>${nums}`;};
+  return `<div class="hm-pts-head"><span class="hm-micro">POINTS</span><b class="hm-pts-score" style="color:${c}">${p.total}/${p.max}</b>`
+      +(p.na_count?`<span class="hm-pts-sig">${p.na_count} NA</span>`:'')
+      +`<span class="hm-pts-sig">signal candle ${_hmEsc(String(p.signal_bar||'').slice(11,16))} ET</span>`
+      +`<span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">${_hmPtsMaToggle(p)}</span>`
+      +(opt.close?'<button type="button" class="hm-pts-x" data-ptsclose title="close (Esc)" aria-label="close the POINTS checklist">&#10005;</button>':'')+`</div>`
+    +`<div class="hm-pts-grid">${(p.points||[]).map(q=>row(q,false)).join('')}`
+      +(p.trend?`<span class="hm-pts-sep">not counted in the score</span>${row(p.trend,true)}`:'')+`</div>`
+    +`<div class="hm-pts-ctx">${_HM_PTS_CTX}</div>`;
+}
+// the trade panel's POINTS block
 function _hmPtsSheetHtml(t){
   const p=_hmPts(t);if(!p)return '';
-  const c=_hmPtsColor(p);
-  const row=q=>{const l=_hmPtsLine(q);const col=q.hit===true?'var(--green)':(q.hit===false?'var(--red)':'var(--text5)');
-    return `<div class="hm-dl-row"><div class="dt" style="display:flex;gap:8px;align-items:center"><span style="color:${col};font-weight:700;min-width:16px">${l.mark}</span>${_hmEsc(l.label)}</div><div class="dd" style="color:var(--text4);font-size:10px;white-space:normal;overflow:visible;min-width:96px">${_hmEsc(l.det)}</div></div>`;};
-  return `<div class="hm-sheet-points" style="margin:0 0 16px">
-    <div style="display:flex;align-items:baseline;gap:8px;margin-bottom:4px"><span class="hm-micro">POINTS</span>
-      <span style="font-family:'Bebas Neue',monospace;font-size:20px;color:${c}">${p.total}/${p.max}</span>
-      <span style="font-size:10px;color:var(--text5)">${p.na_count?p.na_count+' NA &middot; ':''}signal candle ${_hmEsc(String(p.signal_bar||'').slice(11))} ET</span>
-      <span style="margin-left:auto;display:inline-flex;gap:6px;align-items:center;flex-wrap:wrap">${_hmPtsMaToggle(p)}</span></div>
-    <div style="font-size:10px;line-height:1.5;color:var(--text5);margin:0 0 6px">${_HM_PTS_CTX}</div>
-    ${(p.points||[]).map(row).join('')}
-    ${p.trend?`<div style="font-size:10px;color:var(--text5);margin-top:6px">10th point, not counted in the score:</div>${row(p.trend)}`:''}
-  </div>`;
+  return `<div class="hm-sheet-points hm-pts" style="margin:0 0 16px">${_hmPtsBlockHtml(p)}</div>`;
 }
 // The SCORE cell, shared by the FULL and SIMPLE ledgers.
 function _hmScoreHtml(t){
@@ -15490,22 +15547,10 @@ function _hmWireMissedSheet(sheetEl,id){
   const sn=sheetEl.querySelector('#hm-msheet-snap');if(sn)sn.onclick=()=>window.open(m.url,'_blank','noopener');
   const dl=sheetEl.querySelector('#hm-msheet-del');if(dl)dl.onclick=()=>window.hmDeleteMissed(id);
 }
-// The POINTS breakdown for the chart window (window._openTradeCandles): one summary line with what the
-// trade missed and any NA, and every point with what it was checked against, in a two-column grid.
+// The POINTS checklist for the chart window (window._openTradeCandles): the same block as the trade panel, plus a close button.
 window._hmPtsViewerHtml=function(t){
   const p=_hmPts(t);if(!p)return '';
-  const c=_hmPtsColor(p),pts=p.points||[];
-  const miss=pts.filter(q=>q.hit===false).map(q=>String(q.label||q.k));
-  const na=pts.filter(q=>q.hit==null).map(q=>String(q.label||q.k));
-  const syn=(miss.length?'missed: '+miss.join('; '):'every point that could be checked was hit')+(na.length?' - NA: '+na.join('; '):'')
-    +(p.trend?' - daily trend (10th, not counted): '+_hmPtsLine(p.trend).mark:'');
-  const cell=(q,ten)=>{const l=_hmPtsLine(q),col=q.hit===true?'var(--green)':(q.hit===false?'var(--red)':'var(--text5)');
-    return `<div style="display:flex;gap:6px;align-items:baseline;min-width:0"><span style="color:${col};font-weight:700;min-width:16px">${l.mark}</span><span style="color:var(--text3)">${ten?'10th, not counted: ':''}${_hmEsc(l.label)}</span><span style="color:var(--text5);margin-left:auto;padding-left:8px;white-space:nowrap">${_hmEsc(l.det)}</span></div>`;};
-  return `<summary style="cursor:pointer;font-size:10px;color:var(--text4);display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;list-style:none">
-      <span class="hm-micro">POINTS</span><b style="color:${c};font-size:13px">${p.total}/${p.max}</b>${_hmPtsMaToggle(p)}
-      <span>signal candle ${_hmEsc(String(p.signal_bar||'').slice(11,16))} ET</span><span style="color:var(--text5)">${_hmEsc(syn)}</span></summary>
-    <div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(320px,1fr));gap:3px 22px;font-size:10px;margin-top:6px">${pts.map(q=>cell(q,false)).join('')}${p.trend?cell(p.trend,true):''}</div>
-    <div style="font-size:10px;color:var(--text5);margin-top:5px">${_HM_PTS_CTX}</div>`;
+  return `<div class="hm-pts">${_hmPtsBlockHtml(p,{close:true})}</div>`;
 };
 // every chartUrl write of the paste box goes through one batch, so a move is all-or-nothing
 async function _hmChartWrites(map){
@@ -15867,6 +15912,8 @@ function _hmRenderHome(content){
     const _seen=new Set(window._hmCandleRows.map(r=>r._tid));
     trades.forEach(t=>{if(!_seen.has(String(t.id))){const r=window._hmCandleRow?window._hmCandleRow(t):null;if(r)window._hmCandleRows.push(r);}});
     _hmMissedSorted().forEach(m=>{const r=window._hmMissedCandleRow?window._hmMissedCandleRow(m):null;if(r)window._hmCandleRows.push(r);});}catch(_e){window._hmCandleRows=[];}
+  // an open chart window redraws its POINTS chip from the same trades this render draws the ledger from
+  try{if(window._cndlPtsRefresh)window._cndlPtsRefresh();}catch(_e){}
   // LEDGER step 11: the board is built in ONE fixed order (_hmPageHtml)
   content.innerHTML=_hmPageHtml(list,rangeStats,rangeTrades);
 
