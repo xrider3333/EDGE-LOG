@@ -1,0 +1,52 @@
+PARITY copy (no target) == #459 twin to the trade: True (340 trades through 2025-06-30)
+
+=== DESIGN READ - IS ONLY (2010-06-07 .. 2016-06-29, #459's tuning stretch): 128 trades ===
+  #459 as is, house cost 0.363 pt n 128  net $  11,827  ROC@30k  39.23  DD5 $   670  DD%pk   1.5%  Sortino  2.99 | win  50.0%  avg win $  332 / avg loss $  147 (x2.25)
+  #459 as is, real cost 0.613 pt  n 128  net $  10,227  ROC@30k  26.40  DD5 $   794  DD%pk   1.9%  Sortino  2.46 | win  49.2%  avg win $  325 / avg loss $  157 (x2.06)
+
+  SCATTER (IS, real cost): winners 63, losers 65
+  MFE in R   winners q10/25/50/75/90: 0.27 / 0.38 / 0.62 / 0.82 / 1.33
+  MFE in R   losers  q10/25/50/75/90: 0.04 / 0.10 / 0.19 / 0.41 / 0.96
+  MAE in R   winners q10/25/50/75/90: 0.00 / 0.05 / 0.11 / 0.23 / 0.33
+  final in R winners q10/25/50/75/90: 0.13 / 0.22 / 0.39 / 0.60 / 0.97
+  losers that were >= +0.25R first:  26 of 65 (40%); winners that reached it: 59 of 63
+  losers that were >= +0.50R first:  13 of 65 (20%); winners that reached it: 38 of 63
+  losers that were >= +0.75R first:   9 of 65 (14%); winners that reached it: 22 of 63
+  losers that were >= +1.00R first:   7 of 65 (11%); winners that reached it: 11 of 63
+  give-back (MFE - final, pts) winners median 2.00 / losers median 3.75; R median 11.62 pts
+  hold bars median winners 8 / losers 3; corr(net, hold) 0.35; exit kinds {'eod': 66, 'fade': 44, 'stop': 18}
+  by MFE bucket (R): n / win%% / mean net $
+    [0.00, 0.25):  42 /   9.5% /    -169
+    [0.25, 0.50):  34 /  61.8% /     +58
+    [0.50, 1.00):  33 /  81.8% /    +314
+    [1.00, 2.00):  11 /  72.7% /    +366
+    [2.00, 99.00):   7 /  42.9% /    +143
+
+  TARGET WHAT-IFS (IS only; same fires, the loop re-runs so an early exit can free a later entry):
+  k 0.25R  n 128  net $   3,761  ROC@30k  13.62  DD5 $   650  DD%pk   1.3%  Sortino  1.01 | win  58.6%  avg win $  156 / avg loss $  149 (x1.04) | targets hit 75 | daily diff sd $62
+  k 0.50R  n 128  net $   8,783  ROC@30k  25.69  DD5 $   760  DD%pk   1.7%  Sortino  2.19 | win  52.3%  avg win $  273 / avg loss $  155 (x1.75) | targets hit 43 | daily diff sd $43
+  k 0.75R  n 128  net $   9,786  ROC@30k  31.86  DD5 $   872  DD%pk   1.5%  Sortino  2.36 | win  49.2%  avg win $  318 / avg loss $  157 (x2.02) | targets hit 23 | daily diff sd $34
+  k 1.00R  n 128  net $   9,089  ROC@30k  28.48  DD5 $   739  DD%pk   1.5%  Sortino  2.19 | win  48.4%  avg win $  312 / avg loss $  155 (x2.01) | targets hit 11 | daily diff sd $23
+  k 1.50R  n 128  net $   9,346  ROC@30k  24.13  DD5 $   802  DD%pk   1.9%  Sortino  2.25 | win  49.2%  avg win $  311 / avg loss $  157 (x1.97) | targets hit 5 | daily diff sd $18
+
+  POWER: WF = 9 trading years; MDE ($/yr, 80% power, 2-sided 5%) = 2.8 x daily-diff sd x sqrt(252) / sqrt(years)
+IS twin  n 128  net $  10,227  ROC@30k  26.40  DD5 $   794  DD%pk   1.9%  Sortino  2.46 | win  49.2%  avg win $  325 / avg loss $  157 (x2.06)
+N 2 thr 0.25R n 128  net $   4,277  ROC@30k   8.57  DD5 $   886  DD%pk   2.4%  Sortino  1.19 | win  42.2%  avg win $  255 / avg loss $  129 (x1.99) | daily diff sd $61 -> WF MDE ~$910/yr; IS gain $-982/yr
+N 3 thr 0.25R n 128  net $   5,377  ROC@30k  13.62  DD5 $   732  DD%pk   1.9%  Sortino  1.45 | win  43.0%  avg win $  267 / avg loss $  127 (x2.09) | daily diff sd $54 -> WF MDE ~$803/yr; IS gain $-800/yr
+N 4 thr 0.25R n 128  net $   6,714  ROC@30k  28.99  DD5 $   822  DD%pk   1.1%  Sortino  1.87 | win  47.7%  avg win $  252 / avg loss $  129 (x1.95) | daily diff sd $51 -> WF MDE ~$750/yr; IS gain $-580/yr
+WF 2016-06-30 .. 2025-06-30: 212 trades
+  #459 WF house n 212  net $  23,127  ROC@30k  15.74  DD5 $ 3,364  DD%pk   4.6%  Sortino  1.36 | win  42.5%  avg win $  681 / avg loss $  313 (x2.18)
+  #459 WF real  n 212  net $  20,477  ROC@30k  12.53  DD5 $ 3,621  DD%pk   5.1%  Sortino  1.18 | win  42.5%  avg win $  668 / avg loss $  325 (x2.06)
+  MFE R winners: 0.22 / 0.37 / 0.59 / 1.16 / 1.78
+  MFE R losers : 0.03 / 0.08 / 0.23 / 0.37 / 1.20
+  final R winners: 0.09 / 0.19 / 0.40 / 0.76 / 1.36
+  losers >= +0.25R first: 57 of 122 (47%)
+  losers >= +0.50R first: 24 of 122 (20%)
+  losers >= +1.00R first: 14 of 122 (11%)
+  hold median winners 7 / losers 3; corr(net, hold) 0.37; exits {'eod': 114, 'fade': 60, 'stop': 38}
+    MFE [0.00, 0.25)R:  75 / win  13.3% / mean $   -300 / sum $  -22524
+    MFE [0.25, 0.50)R:  63 / win  47.6% / mean $     -8 / sum $    -481
+    MFE [0.50, 1.00)R:  34 / win  70.6% / mean $   +460 / sum $  +15645
+    MFE [1.00, 2.00)R:  26 / win  76.9% / mean $   +931 / sum $  +24216
+    MFE [2.00, 99.00)R:  14 / win  42.9% / mean $   +259 / sum $   +3621
+  top 10% of trades = 182% of net; top 5 trades $14,272 of $20,477
