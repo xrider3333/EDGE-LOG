@@ -4,6 +4,12 @@
 //  Pine port of docs/POINT_SCORE_SPEC.md (spec v1.3 for the Pine; records "ps1.2") and of tools/point_score.py
 //  v1.2 (2026-10-02): the four "200" lines are a plain moving average (SMA) by default; the
 //  "Moving average" setting switches them to the EMA of v1.1.
+//  v1.4 (2026-10-13, owner): every table cell shows an ARROW for where price IS against its level
+//  (up = above, down = below), so it always matches the chart; green / red still mean the point was
+//  earned / missed for the side shown, and that side is spelled out (LONG 6/9 / SHORT 4/8). On a chart
+//  above 1 minute the table now follows the last CLOSED 1-minute bar on live bars too (before, it
+//  stopped at the last bar that was historical when the chart loaded). Display only: the score, the
+//  labels, the alerts and the exported columns are unchanged (records stay ps1.2).
 //  v1.3 (2026-10-06): works on ANY chart timeframe; on a 1-minute or seconds chart it always scores
 //  the last CLOSED 1-minute bar. The whole score is computed on 1-minute bars (one
 //  request.security(..., "1", ...) call), so a 10-second pane shows the same score as the 1-minute
@@ -205,6 +211,23 @@ f_pos(string p) =>
         => position.top_right
 
 f_col(float h) => na(h) ? C_NA : (h > 0.5 ? C_HIT : C_MISS)
+// v1.4: where the signal bar's close IS against a level - up arrow = above, down arrow = below (owner 2026-10-13).
+f_arrow(float c, float lvl) => na(c) or na(lvl) ? "" : (c > lvl ? " ▲" : (c < lvl ? " ▼" : " ="))
+// v1.4: the daily trend as an arrow - up = higher high and higher low, down = lower high and lower low, sideways = mixed.
+f_trArrow(float trl, float trs) => na(trl) and na(trs) ? "" : (trl > 0.5 ? " ▲" : (trs > 0.5 ? " ▼" : " ↔"))
+f_sideTxt(bool isL) => isL ? "LONG" : "SHORT"
+// v1.4: a float array to text and back, so a varip STRING can carry the live closed-minute snapshot.
+f_pack(array<float> a) =>
+    string out = ""
+    for i = 0 to array.size(a) - 1
+        float x = array.get(a, i)
+        out += (i == 0 ? "" : ";") + (na(x) ? "na" : str.tostring(x, "#.##########"))
+    out
+f_unpack(string txt) =>
+    array<float> a = array.new_float(0)
+    for t in str.split(txt, ";")
+        array.push(a, t == "na" ? na : str.tonumber(t))
+    a
 f_score(float tot, float mx) => na(tot) or na(mx) ? "-" : str.tostring(int(tot)) + "/" + str.tostring(int(mx)) + (mx < 9 ? " (" + str.tostring(int(9 - mx)) + " NA)" : "")
 f_warm(string nm, float n) => nm + " " + (na(n) ? "n/a" : str.tostring(int(n))) + (not na(n) and n < minBars ? " (warming up)" : "")
 
@@ -484,8 +507,27 @@ if barstate.isconfirmed and sigInBar
     snapN := curN
     snapT := oSigT
 
+// -- v1.4: live closed-minute snapshot on charts ABOVE 1 minute ------------------
+// On a live chart bar above 1 minute the 1-minute request returns the minute that is still forming, and at the chart
+// bar's close it may already carry the next minute - so the confirmed snapshot above skips live bars (sigInBar) and
+// the table stood still on the last bar that was historical when the chart loaded. varip keeps every live update;
+// when the request moves on to a new minute, the values last seen for the previous minute are that minute's final
+// (closed) values, and they become the table's snapshot. 1-minute and seconds charts are unchanged.
+bool aboveMin = timeframe.in_seconds() > 60
+varip string lvPack = ""
+varip int    lvT    = na
+varip string rtPack = ""
+varip int    rtT    = na
+if aboveMin and barstate.isrealtime and not na(oSigT)
+    if not na(lvT) and oSigT > lvT
+        rtPack := lvPack
+        rtT    := lvT
+    lvPack := f_pack(curL) + "|" + f_pack(curS) + "|" + f_pack(curR) + "|" + f_pack(curN)
+    lvT    := oSigT
+
 // -- Short names (compact table, labels, tooltips) ----------------------------
 var array<string> CMP = array.from("10s", "1m", "5m", "30m", "Y-L", "Y-C", "Y-H", "Body", "Vol")
+string LEGEND = "\n\nArrows: ▲ price is above the level, ▼ below it (trend: ▲ higher high + higher low, ▼ lower, ↔ mixed). Colour: green = point earned for the side shown, red = missed, grey = NA."
 var array<string> SHORTN = array.from("MA 10s", "MA 1m", "MA 5m", "MA 30m", "Y-L", "Y-C", "Y-H", "Body", "Vol")
 
 f_sc(float tot, float mx) => na(tot) or na(mx) ? "-" : str.tostring(int(tot)) + "/" + str.tostring(int(mx))
@@ -585,29 +627,44 @@ plot(oSigT, title = "R signal_1m_time", display = display.data_window)
 // -- Table: the 1-minute bar of the LAST CLOSED chart bar --------------------------
 var table tb = table.new(f_pos(tblPos), 6, 15, bgcolor = C_BG, border_color = C_BORD, border_width = 1, frame_color = C_BORD, frame_width = 1)
 if barstate.islast
-    float snapSide = array.get(snapN, 6)
+    // v1.4: the newer of the confirmed snapshot and the live closed-minute snapshot
+    // (if blocks, not ?:, so an unused branch can never index an empty array)
+    array<float> tL = snapL
+    array<float> tS = snapS
+    array<float> tR = snapR
+    array<float> tN = snapN
+    int tT = snapT
+    if not na(rtT) and rtPack != "" and (na(snapT) or rtT > snapT)
+        array<string> rtParts = str.split(rtPack, "|")
+        if array.size(rtParts) == 4
+            tL := f_unpack(array.get(rtParts, 0))
+            tS := f_unpack(array.get(rtParts, 1))
+            tR := f_unpack(array.get(rtParts, 2))
+            tN := f_unpack(array.get(rtParts, 3))
+            tT := rtT
+    float snapSide = array.get(tN, 6)
     bool  snapLong = snapSide > 0.5
-    array<float> sv = snapLong ? snapL : snapS
+    array<float> sv = snapLong ? tL : tS
     if layout == "Compact"
         // row 0: MA + the four averages, then the side and the score; row 1: yesterday's levels, body, volume, trend
         table.cell(tb, 0, 0, "MA", text_color = C_DIM, text_size = size.small, bgcolor = C_HDR)
         for k = 0 to 3
-            table.cell(tb, 1 + k, 0, array.get(CMP, k), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
-        table.cell(tb, 5, 0, (snapLong ? "L " : "S ") + f_sc(array.get(sv, 10), array.get(sv, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = C_HDR, tooltip = f_tip(sv, snapLong))
+            table.cell(tb, 1 + k, 0, array.get(CMP, k) + f_arrow(array.get(tR, 13), array.get(tR, k)), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
+        table.cell(tb, 5, 0, f_sideTxt(snapLong) + " " + f_sc(array.get(sv, 10), array.get(sv, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = C_HDR, tooltip = f_tip(sv, snapLong) + LEGEND)
         for k = 4 to 8
-            table.cell(tb, k - 4, 1, array.get(CMP, k), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
+            table.cell(tb, k - 4, 1, array.get(CMP, k) + (k < 7 ? f_arrow(array.get(tR, 13), array.get(tR, k)) : ""), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)))
         if showTrend
-            table.cell(tb, 5, 1, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
+            table.cell(tb, 5, 1, "trend" + f_trArrow(array.get(tL, 9), array.get(tS, 9)), text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
     else if layout == "Minimal"
         float tot = array.get(sv, 10)
         float mx  = array.get(sv, 11)
         color bc  = na(tot) or na(mx) ? C_NA : (tot >= labThr ? C_HIT : (mx > 0 and tot / mx < 0.5 ? C_MISS : C_NA))
-        table.cell(tb, 0, 0, f_sc(tot, mx) + (snapLong ? " L" : " S"), text_color = C_WHITE, text_size = size.normal, bgcolor = bc, tooltip = f_tip(sv, snapLong))
+        table.cell(tb, 0, 0, f_sideTxt(snapLong) + " " + f_sc(tot, mx), text_color = C_WHITE, text_size = size.normal, bgcolor = bc, tooltip = f_tip(sv, snapLong) + LEGEND)
         if showTrend
-            table.cell(tb, 1, 0, "trend", text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
+            table.cell(tb, 1, 0, "trend" + f_trArrow(array.get(tL, 9), array.get(tS, 9)), text_color = C_WHITE, text_size = size.tiny, bgcolor = f_col(array.get(sv, 9)))
     else
         // row 0: title, the 1-minute signal bar's time, close
-        string hdrTxt = "POINT SCORE  " + (na(snapT) ? "(no closed bar yet)" : str.format_time(snapT, "yyyy-MM-dd HH:mm", TZ) + " NY, 1m bar") + "   C " + f_px(array.get(snapR, 13))
+        string hdrTxt = "POINT SCORE  " + (na(tT) ? "(no closed bar yet)" : str.format_time(tT, "yyyy-MM-dd HH:mm", TZ) + " NY, 1m bar") + "   C " + f_px(array.get(tR, 13))
         table.cell(tb, 0, 0, hdrTxt, text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
         table.cell(tb, 1, 0, "", bgcolor = C_HDR)
         table.cell(tb, 2, 0, "", bgcolor = C_HDR)
@@ -617,7 +674,7 @@ if barstate.islast
         // row 1: which side Auto picked (or the forced side); on a chart that is not 1-minute, also that it scores 1-minute bars
         string sideNote = sideIn == "Auto" ? "Auto side: " + (snapLong ? "LONG (bar closed up)" : "SHORT (bar closed down)") : "Forced side: " + (snapLong ? "LONG" : "SHORT")
         string tfName = timeframe.isseconds ? str.tostring(timeframe.multiplier) + "-second" : timeframe.isminutes ? str.tostring(timeframe.multiplier) + "-minute" : timeframe.isdaily ? str.tostring(timeframe.multiplier) + "-day" : timeframe.isweekly ? str.tostring(timeframe.multiplier) + "-week" : timeframe.ismonthly ? str.tostring(timeframe.multiplier) + "-month" : timeframe.period
-        string noteTxt = timeframe.period == "1" ? sideNote : sideNote + " - scored on 1-minute bars (this is a " + tfName + " chart)"
+        string noteTxt = (timeframe.period == "1" ? sideNote : sideNote + " - scored on 1-minute bars (this is a " + tfName + " chart)") + "  |  ▲ above / ▼ below the level; green / red = earned / missed for the side"
         table.cell(tb, 0, 1, noteTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
         table.cell(tb, 1, 1, "")
         table.cell(tb, 2, 1, "")
@@ -632,9 +689,9 @@ if barstate.islast
 
         // rows 3-11: the nine points
         for i = 0 to 8
-            float hl = array.get(snapL, i)
-            float hs = array.get(snapS, i)
-            string refTxt = i < 7 ? f_px(array.get(snapR, i)) : (i == 7 ? "L " + f_px(array.get(snapR, 7)) + " | S " + f_px(array.get(snapR, 9)) : "L " + f_int(array.get(snapR, 8)) + " | S " + f_int(array.get(snapR, 10)))
+            float hl = array.get(tL, i)
+            float hs = array.get(tS, i)
+            string refTxt = i < 7 ? str.trim(f_arrow(array.get(tR, 13), array.get(tR, i)) + " " + f_px(array.get(tR, i))) : (i == 7 ? "L " + f_px(array.get(tR, 7)) + " | S " + f_px(array.get(tR, 9)) : "L " + f_int(array.get(tR, 8)) + " | S " + f_int(array.get(tR, 10)))
             table.cell(tb, 0, 3 + i, array.get(LBL, i), text_color = C_TXT, text_halign = text.align_left, text_size = size.small)
             table.cell(tb, 1, 3 + i, f_mark(hl), text_color = f_col(hl), text_size = size.small, bgcolor = snapLong ? C_AUTO : C_BG)
             table.cell(tb, 2, 3 + i, f_mark(hs), text_color = f_col(hs), text_size = size.small, bgcolor = snapLong ? C_BG : C_AUTO)
@@ -642,21 +699,23 @@ if barstate.islast
 
         // row 12: totals
         table.cell(tb, 0, 12, "Total (of the 9)", text_color = C_TXT, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR)
-        table.cell(tb, 1, 12, f_score(array.get(snapL, 10), array.get(snapL, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
-        table.cell(tb, 2, 12, f_score(array.get(snapS, 10), array.get(snapS, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
+        table.cell(tb, 1, 12, f_score(array.get(tL, 10), array.get(tL, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_AUTO : C_HDR)
+        table.cell(tb, 2, 12, f_score(array.get(tS, 10), array.get(tS, 11)), text_color = C_WHITE, text_size = size.small, bgcolor = snapLong ? C_HDR : C_AUTO)
         table.cell(tb, 3, 12, "", bgcolor = C_HDR)
 
         // row 13: trend point (separate, never in the /9)
-        float trl = array.get(snapL, 9)
-        float trs = array.get(snapS, 9)
-        string trRef = showTrend and not na(array.get(snapN, 4)) and not na(array.get(snapR, 11)) ? "H " + f_px(array.get(snapN, 4)) + " / " + f_px(array.get(snapR, 11)) + "  L " + f_px(array.get(snapN, 5)) + " / " + f_px(array.get(snapR, 12)) : (showTrend ? "-" : "")
+        float trl = array.get(tL, 9)
+        float trs = array.get(tS, 9)
+        string trArr = showTrend ? str.trim(f_trArrow(trl, trs)) : ""
+        string trRef0 = showTrend and not na(array.get(tN, 4)) and not na(array.get(tR, 11)) ? "H " + f_px(array.get(tN, 4)) + " / " + f_px(array.get(tR, 11)) + "  L " + f_px(array.get(tN, 5)) + " / " + f_px(array.get(tR, 12)) : (showTrend ? "-" : "")
         table.cell(tb, 0, 13, showTrend ? "Daily trend (not in the 9)" : "", text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
         table.cell(tb, 1, 13, showTrend ? f_mark(trl) : "", text_color = f_col(trl), text_size = size.small)
         table.cell(tb, 2, 13, showTrend ? f_mark(trs) : "", text_color = f_col(trs), text_size = size.small)
+        string trRef = trArr == "" ? trRef0 : trArr + " " + trRef0
         table.cell(tb, 3, 13, trRef, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
 
         // row 14: warm-up counts (an average's point is NA until its timeframe has minBars bars)
-        string warmTxt = "Bars loaded: " + f_warm("1m", array.get(snapN, 0)) + " | " + f_warm("10s", array.get(snapN, 1)) + " | " + f_warm("5m", array.get(snapN, 2)) + " | " + f_warm("30m", array.get(snapN, 3))
+        string warmTxt = "Bars loaded: " + f_warm("1m", array.get(tN, 0)) + " | " + f_warm("10s", array.get(tN, 1)) + " | " + f_warm("5m", array.get(tN, 2)) + " | " + f_warm("30m", array.get(tN, 3))
         table.cell(tb, 0, 14, warmTxt, text_color = C_DIM, text_halign = text.align_left, text_size = size.small)
         table.cell(tb, 1, 14, "")
         table.cell(tb, 2, 14, "")
