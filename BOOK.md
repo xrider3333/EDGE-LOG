@@ -1190,6 +1190,51 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ay. Q39 + Q40 FAMILY LUCK BAR: five of the scored crowns clear it; TTM #459 clears only its own run's bar (2026-10-12, a report)
+
+**What it is.** MANAGER #142 (b)-(c) and #146.
+- **Q39** measures each family's effective-trial ratio rho: the independent ideas per valid setting, taken from one validate per family.
+  - Witness: prereg/frontier-rho-1009. The note is LF a8f353a2...; addendum 1 is f675b426..., written after two partial results and
+    disclosed; the script is ceed35c6.
+  - Effective count = max(ONC clusters, N_eff = rbar + (1 - rbar) N), the harsh end. ONC sits at k = 2 when settings do not cluster.
+- **Q40** is the engine's own Deflated Sharpe with the run's n_cfg replaced by the family's effective count. It runs under the rule text
+  frozen before any crown number: docs/RULE_frontier_family_luck_bar_2026-10-10.txt, LF d548ef10..., branch prereg/frontier-luckbar-1010.
+- **A report:** nothing is demoted or changed. The web chip and counter wait until the owner has seen this (#142 (d)).
+
+| Family (run measured) | Valid settings | Mean pair correlation | rho | Valid configs (E_fam) |
+|---|---|---|---|---|
+| ORB (#314) | 382 | 0.913 | 0.089 | 10,460 (935) |
+| NOISE (#395) | 729 | 0.816 (ONC 219 clusters) | 0.300 | 8,530 (2,563) |
+| TTM (#479) | 75 | 0.506 | 0.501 | 1,485 (744) |
+| DIP (#358) | 479 | 0.364 | 0.637 | 13,395 (8,528) |
+| ENGU-Q (#335) | 516 | 0.211 | 0.789 | 8,447 (6,669); 186,779 with ENGU's grid runs (147,453) |
+
+| Run | Sharpe a year | DSR at E_run | DSR at E_fam (count up to the run) | Verdict (pre-set words) |
+|---|---|---|---|---|
+| ENGU-Q #335 (#463) | 0.78 | 0.997 (220) | 0.990 (2,237); 0.950 with ancestors (143,022) | beats the family luck bar |
+| TTM #459 (#463) | 0.92 | 0.999 (4.5) | 0.614 (699) | beats its own run's luck bar, not the family's |
+| NOISE #422 (#463) | 1.48 | 1.000 (8) | 1.000 (2,441) | beats the family luck bar |
+| ORB #314 (leader) | 0.88 | 1.000 (17.5) | 0.999 (549) | beats the family luck bar |
+| NOISE #304 (leader) | 1.37 | 1.000 (70) | 1.000 (612) | beats the family luck bar |
+| NOISE #382 (leader) | 1.48 | 1.000 (7) | 1.000 (1,423) | beats the family luck bar |
+| ORB #234 (#463) | - | - | - | not scored: a one-config pinned run with no stored luck bar |
+| DIP #424 (leader) | - | - | - | not scored: the roll guard refuses NQDIP_1_1 on today's NQ master (187 trades held across rolls; see #434) |
+
+**Read.**
+- **ORB, NOISE and ENGU-Q crowns clear the luck bar at the family's full search, not just their own run's.** NOISE clears by the widest
+  margin. ENGU-Q still clears (0.950) at the harshest count, with ENGU's whole grid treated as independent ancestors.
+- **TTM #459 is the exception.** Its Sharpe of 0.92 a year sits under the best-of-699 luck line (0.87 a year, DSR 0.614). The TTM family's
+  search is small but its settings are fairly independent (rho 0.50). That fits the TTM leg's lumpy record (its harm line is 27% of the way
+  to A1).
+- **Settings families differ widely in redundancy:** ORB's 382 settings act like about 34 ideas; ENGU-Q's 516 act like about 407.
+- **Parity:** every scored run reproduced its stored DSR within 0.0005 at its own n_cfg.
+- **POST-RUN FIX, disclosed:** the first Q40 run crashed on DIP #424's refused rebuild before writing results (script f7e7a44c). It was
+  patched to record "not scored", as the rule says, and the seven other runs reprinted identically.
+- **Could fool us:**
+  - one validate per family stands in for all its runs;
+  - E_fam is a floor (fold re-tunes and transfers are not counted);
+  - ancestors are a judgement call.
+
 ### 10ax. Q38 HARM BANDS FOR THE WEBULL LEGS: ORB_R6 and NOISE_382 can be watched; DIP_424F's weekly line is weak (2026-10-10, a calibration)
 
 **What it is.** MANAGER #141 item 3, GO with edits #146, legs per #147.
