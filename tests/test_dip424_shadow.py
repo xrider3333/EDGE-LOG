@@ -1148,7 +1148,10 @@ def test_a_dip_leg_never_reaches_run_leg_trades(tmp_path, monkeypatch):
     # ROLL GUARD edit 17279c26, the only commit to touch it since: its own detect_roll_seams copy
     # replaced by an import of augur_engine.rolls.seam_days (the one audited seam calendar)
     ("augur_strategies/NQDIP_1_1.py", "37780ab893b384dae488972b39551ff280d737bf513b5e16e87f82f05203ea14"),
-    ("augur_engine/ml_keel.py", "0b4dc36d488fe6db51a56a8e5011d51a29f91fe04a61df6059758796cee202e9"),
+    # ml_keel.py re-pinned 2026-10-12 from 0b4dc36d... to Custom ML's keel_append_trade (per-trade
+    # KEEL, MANAGER #102/#143): a pure ADDITION of 84 lines - keel_walk / keel_build_state /
+    # keel_score_from_state byte-identical (git diff shows 0 removed lines)
+    ("augur_engine/ml_keel.py", "2edf06c89bc09d0ee79d670af2df2f94260026f8913c4b5464040847ea89817f"),
 ])
 def test_research_files_are_unchanged(rel, sha):
     with open(os.path.join(ROOT, rel), "rb") as f:
