@@ -70,7 +70,13 @@ def run():
         m = find_master(d["instrument"], d["timeframe"], "eth" if src.endswith("_eth") else "rth", d.get("data_source"))
         w_end = (((d.get("validate") or {}).get("windows") or {}).get("optimize") or [None, None])[1]
         arr = load_master_arrays(m, date_from=d.get("date_from"), date_to=w_end)
-        bt = run_backtest(d["strategy"], arrays=arr, params=bp, cost_pts=0.0, return_trades=True)
+        try:                                                          # POST-RUN FIX 10-12 (disclosed): a refused rebuild = not reproducible
+            bt = run_backtest(d["strategy"], arrays=arr, params=bp, cost_pts=0.0, return_trades=True)
+        except Exception as e:
+            r["verdict"] = "not reproducible - not scored (the rebuild is refused today: %s: %s)" % (type(e).__name__, str(e)[:160])
+            print(f"#{n} {fam} ({role}): {r['verdict']}", flush=True)
+            out["runs"][n] = r
+            continue
         pn = [float(t[2]) - float(d.get("cost_pts") or 0.0) for t in bt["trades"]]
         ix = arr["index"]
         yrs = max(0.1, (ix[-1] - ix[0]).days / 365.25)
