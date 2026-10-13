@@ -165,8 +165,10 @@ _STATIC_BOOK_PATHS = [
     "api/dip_live.py",
     "api/trade_id.py",
     "api/market_calendar.py",
-    "augur_engine/ml_keel.py",
-    "augur_engine/fastloop.py",
+    # the WHOLE engine (2026-10-12): every live leg runs through augur_engine (engine, rolls, data,
+    # fastloop, ml_keel); ORB's roll-guard ship changed rolls.py / data.py and this list showed
+    # only cloud_signal.py in the deploy's review diff
+    "augur_engine",
     "tools/keel_live_state.py",
     "deploy/cloud",
 ]

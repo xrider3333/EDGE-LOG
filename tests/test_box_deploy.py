@@ -788,3 +788,10 @@ def test_the_quiet_window_waits_until_just_after_a_bar_decision():
     t[0] = dt.datetime(2026, 10, 12, 10, 17, 40)           # 160 s in: wait for 10:20:20
     assert box_deploy._wait_for_quiet_window(lambda: t[0], sleep, log=lambda *a: None) == \
         dt.datetime(2026, 10, 12, 10, 20, 20)
+
+
+def test_book_pathspecs_cover_the_whole_engine():
+    """2026-10-12: ORB's roll-guard ship changed augur_engine/rolls.py and data.py, which every live
+    leg runs through, and the deploy's review diff showed only api/cloud_signal.py."""
+    got = box_deploy._book_pathspecs(lambda relpath: None)
+    assert "augur_engine" in got
