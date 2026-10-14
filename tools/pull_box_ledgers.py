@@ -50,6 +50,8 @@ FILES = [
 DEFAULT_DEST = r"C:\EdgeLog\box_backup"
 LOG_PATH = r"C:\EdgeLog\logs\pull_box_ledgers.log"
 KEEP_DAYS = 60
+SCP_TIMEOUT_S = 120
+RETRY_WAIT_S = 30     # one second pass over the failed files: a network blip hung the first copy on 2026-10-14 14:45
 
 
 def _log(line):
@@ -69,6 +71,31 @@ def _prune(dest, keep):
         shutil.rmtree(os.path.join(dest, old), ignore_errors=True)
 
 
+def _sleep(sec):
+    import time
+    time.sleep(sec)
+
+
+def _copy_one(rel, run_dir):
+    """'ok' | 'missing' | a short failure reason. Never raises: a hung or broken copy is a FAIL line in the log
+    (2026-10-14: an uncaught scp timeout exited 1 with no log line, and the NT8 sweep's phone push read as NinjaTrader)."""
+    local = os.path.join(run_dir, *rel.split("/"))
+    try:
+        os.makedirs(os.path.dirname(local), exist_ok=True)
+        r = subprocess.run(["scp", "-q", *SSH_OPTS, f"{HOST}:{REMOTE_HOME}/{rel}", local],
+                           capture_output=True, text=True, encoding="utf-8", errors="replace",
+                           timeout=SCP_TIMEOUT_S)
+    except subprocess.TimeoutExpired:
+        return f"timed out after {SCP_TIMEOUT_S}s"
+    except OSError as e:
+        return f"error {e.__class__.__name__}"
+    if r.returncode == 0:
+        return "ok"
+    if "No such file" in (r.stderr or ""):
+        return "missing"
+    return f"scp exit {r.returncode}"
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -81,18 +108,21 @@ def main(argv=None):
         _log(f"DRY-RUN would copy {len(FILES)} file(s) from {HOST} into {run_dir}")
         return 0
     copied, missing, failed = 0, [], []
-    for rel in FILES:
-        local = os.path.join(run_dir, *rel.split("/"))
-        os.makedirs(os.path.dirname(local), exist_ok=True)
-        r = subprocess.run(["scp", "-q", *SSH_OPTS, f"{HOST}:{REMOTE_HOME}/{rel}", local],
-                           capture_output=True, text=True, encoding="utf-8", errors="replace",
-                           timeout=120)
-        if r.returncode == 0:
-            copied += 1
-        elif "No such file" in (r.stderr or ""):
-            missing.append(rel)
-        else:
-            failed.append(rel)
+    todo = list(FILES)
+    for attempt in (1, 2):
+        failed = []
+        for rel in todo:
+            res = _copy_one(rel, run_dir)
+            if res == "ok":
+                copied += 1
+            elif res == "missing":
+                missing.append(rel)
+            else:
+                failed.append(f"{rel} ({res})")
+        if not failed or attempt == 2:
+            break
+        todo = [f.split(" (")[0] for f in failed]
+        _sleep(RETRY_WAIT_S)
     try:
         _prune(args.dest, KEEP_DAYS)
     except OSError:
