@@ -1000,6 +1000,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 [data-lglist-frame="nt8"] .lg-tl-table td.lg-c-sym{max-width:160px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 @media (max-width:600px){[data-lglist-frame="nt8"] .lg-tl-row[data-lgtrade]{min-height:44px}}
 .lg-tl-row:hover{background:var(--bg1)}
+/* o.ghost: a row shown for the record and counted nowhere (WEBULL PAPER missed signals) */
+.lg-tl-row.lg-tl-ghost,.lg-tl-table tr.lg-tl-ghost>td{opacity:.5}
+.lg-tl-row.lg-tl-ghost:hover,.lg-tl-table tr.lg-tl-ghost:hover>td{opacity:.8}
 .lg-tl-row .lg-c{min-width:0}
 .lg-tl-row .lg-c-time{flex:0 0 78px;font-size:12px;color:var(--text2);font-variant-numeric:tabular-nums}
 .lg-tl-row .lg-c-time small,.lg-tl-row .lg-c-sym small{display:block;font-size:10px;color:var(--text5);margin-top:2px;font-weight:400}
@@ -1385,7 +1388,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1258';
+const VERSION='73.1259';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1403,7 +1406,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1229',date:'2026-10-12',notes:['SCORES: 1 trade from 2026-10-12 scored, 0 marked NA (no price data).']},{v:'73.1227',date:'2026-10-12',notes:['LEDGER, NT8 PAPER LIST AND TABLE TIGHTER (owner 10-12): every trade is one line (entry and exit time side by side, 10:05 then 15:55), the day header is a thin line, the table has no day-total rows (a narrow DAY column next to NET holds the day total on the first trade of each day), table cells sit closer and a long strategy name ends in dots instead of widening the table.']},{v:'73.2007',date:'2026-10-12',notes:['LEDGER, REAL TABLE: NO DAY-TOTAL ROWS (owner 10-12). Every row is one trade on one line. The day total sits in a narrow DAY column next to NET on the first trade of each day, and days are split by a thin line. A phone keeps its thin day header.']},{v:'73.1221',date:'2026-10-07',notes:['RUN REPORT, CONFIG FUNNEL: EQUAL RISK (owner ask 10-07). A new toggle beside ONE CURVE and DOORS. Switched on, every family line - the raw config, the gate, the size tilt, KEEL, the hybrids - is resized so that all of them took the SAME worst drawdown, and then compared on the money they made at that one level of risk. The point is run 424: KEEL made more dollars than the crowned raw config but against a far deeper drawdown, so it was winning by trading bigger rather than by being better. At equal risk the ranking can turn over, and this is the view that shows it.','The size for each line is worked out ONLY from the tuning stretch, before the first walk-forward test begins, and then applied unchanged to the walk-forward and the lockbox. So the size is never chosen with knowledge of the held-out years. Each line is labelled with its size - x1.39 - beside its ending dollars. Default budget is a 30,000 dollar worst drawdown, the house yardstick; MATCH ML instead reads every line at whatever drawdown the crowned machine-learning line actually ran.','What the size is measured from, stated because it changes what the numbers mean: a saved run holds no day-by-day equity for these lines, so the drawdown used is the one the engine computed trade by trade over the tuning stretch, not a daily one. That is the deeper and more cautious of the two, so the sizes here are if anything on the small side and the equal-risk dollars understated rather than flattered. A line whose tuning drawdown was not saved is left at its own size and says so rather than pretending it was already at the budget. A size the budget would push past 25 times is capped, with an exclamation mark, because that means the tuning stretch was too quiet to size from at all.','Switched off, the chart is exactly as it was. The report render check now covers both states, and it fails if the toggle is on but nothing was actually resized - which is how it behaved on the first run, before the labels existed.','Hover any family line for what its size rests on: the tuning drawdown the size was worked out from, what that size is worth over the held-out years, and - marked HINDSIGHT, because it is not used - the size the whole curve would have allowed if you had known it in advance. On the probe run that second figure is about six and a half times the first, which is the gap the no-hindsight rule exists to close.','DD5 is in the hover too, beside the worst drawdown, read off the line as drawn - so it is the DD5 this line would have run AT the budget, which is the whole point of the toggle. It carries a tilde like every other DD5 on the site, and it also carries the number of saved points it was read from: this chart compares a raw line against a machine-learning line, and those curves are saved at different densities - about 160 points against 300 - so two DD5 figures here are not equally resolved and the count says which is the coarser. A line whose worst dip is more than 1.3 times its DD5 says 1 EPISODE, the same words RUNBOARD uses.']},
+const CHANGELOG=[{v:'73.1259',date:'2026-10-14',notes:['LEDGER, WEBULL PAPER: THE MISSED ORB TRADES ARE LISTED (owner 10-14). The 7 trades ORB #314 took between Sep 10 and Sep 25 that Webull never got (the half-day rule wrongly dropped them as late, fixed Sep 26) sit among the trades, dimmed, with a MISSED chip: engine prices at 10 shares, +$55.20 together. They count in no total, tile, chart, calendar day or CSV. The Sep 18 ORB trade with no exit carries a NOTE: the exit was refused after the bell and the shares were sold by hand on Sep 21 at 09:42, with no fill price captured.']},
+{v:'73.1229',date:'2026-10-12',notes:['SCORES: 1 trade from 2026-10-12 scored, 0 marked NA (no price data).']},{v:'73.1227',date:'2026-10-12',notes:['LEDGER, NT8 PAPER LIST AND TABLE TIGHTER (owner 10-12): every trade is one line (entry and exit time side by side, 10:05 then 15:55), the day header is a thin line, the table has no day-total rows (a narrow DAY column next to NET holds the day total on the first trade of each day), table cells sit closer and a long strategy name ends in dots instead of widening the table.']},{v:'73.2007',date:'2026-10-12',notes:['LEDGER, REAL TABLE: NO DAY-TOTAL ROWS (owner 10-12). Every row is one trade on one line. The day total sits in a narrow DAY column next to NET on the first trade of each day, and days are split by a thin line. A phone keeps its thin day header.']},{v:'73.1221',date:'2026-10-07',notes:['RUN REPORT, CONFIG FUNNEL: EQUAL RISK (owner ask 10-07). A new toggle beside ONE CURVE and DOORS. Switched on, every family line - the raw config, the gate, the size tilt, KEEL, the hybrids - is resized so that all of them took the SAME worst drawdown, and then compared on the money they made at that one level of risk. The point is run 424: KEEL made more dollars than the crowned raw config but against a far deeper drawdown, so it was winning by trading bigger rather than by being better. At equal risk the ranking can turn over, and this is the view that shows it.','The size for each line is worked out ONLY from the tuning stretch, before the first walk-forward test begins, and then applied unchanged to the walk-forward and the lockbox. So the size is never chosen with knowledge of the held-out years. Each line is labelled with its size - x1.39 - beside its ending dollars. Default budget is a 30,000 dollar worst drawdown, the house yardstick; MATCH ML instead reads every line at whatever drawdown the crowned machine-learning line actually ran.','What the size is measured from, stated because it changes what the numbers mean: a saved run holds no day-by-day equity for these lines, so the drawdown used is the one the engine computed trade by trade over the tuning stretch, not a daily one. That is the deeper and more cautious of the two, so the sizes here are if anything on the small side and the equal-risk dollars understated rather than flattered. A line whose tuning drawdown was not saved is left at its own size and says so rather than pretending it was already at the budget. A size the budget would push past 25 times is capped, with an exclamation mark, because that means the tuning stretch was too quiet to size from at all.','Switched off, the chart is exactly as it was. The report render check now covers both states, and it fails if the toggle is on but nothing was actually resized - which is how it behaved on the first run, before the labels existed.','Hover any family line for what its size rests on: the tuning drawdown the size was worked out from, what that size is worth over the held-out years, and - marked HINDSIGHT, because it is not used - the size the whole curve would have allowed if you had known it in advance. On the probe run that second figure is about six and a half times the first, which is the gap the no-hindsight rule exists to close.','DD5 is in the hover too, beside the worst drawdown, read off the line as drawn - so it is the DD5 this line would have run AT the budget, which is the whole point of the toggle. It carries a tilde like every other DD5 on the site, and it also carries the number of saved points it was read from: this chart compares a raw line against a machine-learning line, and those curves are saved at different densities - about 160 points against 300 - so two DD5 figures here are not equally resolved and the count says which is the coarser. A line whose worst dip is more than 1.3 times its DD5 says 1 EPISODE, the same words RUNBOARD uses.']},
 {v:'73.1228',date:'2026-10-12',notes:['LEDGER, REAL and NT8 PAPER tables: the line between two days is now a clear 2 px line, so days read apart without any day rows. NT8 PAPER table rows are shorter (about 28 px, like REAL).','Settings, ABOUT: each version note shows once (a merge had copied about 60 older notes), and a note that shipped together with another shows that release number.']},
 {v:'73.1227',date:'2026-10-12',notes:['LEDGER, NT8 PAPER LIST AND TABLE TIGHTER (owner 10-12): every trade is one line (entry and exit time side by side, 10:05 then 15:55), the day header is a thin line, the table has no day-total rows (a narrow DAY column next to NET holds the day total on the first trade of each day), table cells sit closer and a long strategy name ends in dots instead of widening the table.']},{v:'73.2007',date:'2026-10-12',notes:['LEDGER, REAL TABLE: NO DAY-TOTAL ROWS (owner 10-12). Every row is one trade on one line. The day total sits in a narrow DAY column next to NET on the first trade of each day, and days are split by a thin line. A phone keeps its thin day header.']},{v:'73.1221',date:'2026-10-07',notes:['RUN REPORT, CONFIG FUNNEL: EQUAL RISK (owner ask 10-07). A new toggle beside ONE CURVE and DOORS. Switched on, every family line - the raw config, the gate, the size tilt, KEEL, the hybrids - is resized so that all of them took the SAME worst drawdown, and then compared on the money they made at that one level of risk. The point is run 424: KEEL made more dollars than the crowned raw config but against a far deeper drawdown, so it was winning by trading bigger rather than by being better. At equal risk the ranking can turn over, and this is the view that shows it.','The size for each line is worked out ONLY from the tuning stretch, before the first walk-forward test begins, and then applied unchanged to the walk-forward and the lockbox. So the size is never chosen with knowledge of the held-out years. Each line is labelled with its size - x1.39 - beside its ending dollars. Default budget is a 30,000 dollar worst drawdown, the house yardstick; MATCH ML instead reads every line at whatever drawdown the crowned machine-learning line actually ran.','What the size is measured from, stated because it changes what the numbers mean: a saved run holds no day-by-day equity for these lines, so the drawdown used is the one the engine computed trade by trade over the tuning stretch, not a daily one. That is the deeper and more cautious of the two, so the sizes here are if anything on the small side and the equal-risk dollars understated rather than flattered. A line whose tuning drawdown was not saved is left at its own size and says so rather than pretending it was already at the budget. A size the budget would push past 25 times is capped, with an exclamation mark, because that means the tuning stretch was too quiet to size from at all.','Switched off, the chart is exactly as it was. The report render check now covers both states, and it fails if the toggle is on but nothing was actually resized - which is how it behaved on the first run, before the labels existed.','Hover any family line for what its size rests on: the tuning drawdown the size was worked out from, what that size is worth over the held-out years, and - marked HINDSIGHT, because it is not used - the size the whole curve would have allowed if you had known it in advance. On the probe run that second figure is about six and a half times the first, which is the gap the no-hindsight rule exists to close.','DD5 is in the hover too, beside the worst drawdown, read off the line as drawn - so it is the DD5 this line would have run AT the budget, which is the whole point of the toggle. It carries a tilde like every other DD5 on the site, and it also carries the number of saved points it was read from: this chart compares a raw line against a machine-learning line, and those curves are saved at different densities - about 160 points against 300 - so two DD5 figures here are not equally resolved and the count says which is the coarser. A line whose worst dip is more than 1.3 times its DD5 says 1 EPISODE, the same words RUNBOARD uses.']},
 {v:'73.2007',date:'2026-10-12',notes:['LEDGER, REAL TABLE: NO DAY-TOTAL ROWS (owner 10-12). Every row is one trade on one line. The day total sits in a narrow DAY column next to NET on the first trade of each day, and days are split by a thin line. A phone keeps its thin day header.']},{v:'73.1221',date:'2026-10-07',notes:['RUN REPORT, CONFIG FUNNEL: EQUAL RISK (owner ask 10-07). A new toggle beside ONE CURVE and DOORS. Switched on, every family line - the raw config, the gate, the size tilt, KEEL, the hybrids - is resized so that all of them took the SAME worst drawdown, and then compared on the money they made at that one level of risk. The point is run 424: KEEL made more dollars than the crowned raw config but against a far deeper drawdown, so it was winning by trading bigger rather than by being better. At equal risk the ranking can turn over, and this is the view that shows it.','The size for each line is worked out ONLY from the tuning stretch, before the first walk-forward test begins, and then applied unchanged to the walk-forward and the lockbox. So the size is never chosen with knowledge of the held-out years. Each line is labelled with its size - x1.39 - beside its ending dollars. Default budget is a 30,000 dollar worst drawdown, the house yardstick; MATCH ML instead reads every line at whatever drawdown the crowned machine-learning line actually ran.','What the size is measured from, stated because it changes what the numbers mean: a saved run holds no day-by-day equity for these lines, so the drawdown used is the one the engine computed trade by trade over the tuning stretch, not a daily one. That is the deeper and more cautious of the two, so the sizes here are if anything on the small side and the equal-risk dollars understated rather than flattered. A line whose tuning drawdown was not saved is left at its own size and says so rather than pretending it was already at the budget. A size the budget would push past 25 times is capped, with an exclamation mark, because that means the tuning stretch was too quiet to size from at all.','Switched off, the chart is exactly as it was. The report render check now covers both states, and it fails if the toggle is on but nothing was actually resized - which is how it behaved on the first run, before the labels existed.','Hover any family line for what its size rests on: the tuning drawdown the size was worked out from, what that size is worth over the held-out years, and - marked HINDSIGHT, because it is not used - the size the whole curve would have allowed if you had known it in advance. On the probe run that second figure is about six and a half times the first, which is the gap the no-hindsight rule exists to close.','DD5 is in the hover too, beside the worst drawdown, read off the line as drawn - so it is the DD5 this line would have run AT the budget, which is the whole point of the toggle. It carries a tilde like every other DD5 on the site, and it also carries the number of saved points it was read from: this chart compares a raw line against a machine-learning line, and those curves are saved at different densities - about 160 points against 300 - so two DD5 figures here are not equally resolved and the count says which is the coarser. A line whose worst dip is more than 1.3 times its DD5 says 1 EPISODE, the same words RUNBOARD uses.']},
@@ -3987,7 +3991,8 @@ function ledgerTradeViewSet(id,v){try{localStorage.setItem('el_lg_view_'+id,v===
 //   TABLE: tableHide ['strat'] (common columns left out of the table only), cols / actions [{k, label, cls (header and cell), tdCls (cell
 //   only), phone, attr(t), td(t, i)}] (the board's columns, then its row actions),
 //   numbered (a # column), dayHeaders (rows in close order under day headers; else the rows keep the board's own sort),
-//   dayAsc, tableBar (html above the table), topScroll, wrapCls, tableCls, topCls}
+//   dayAsc, tableBar (html above the table), topScroll, wrapCls, tableCls, topCls,
+//   ghost(t) (true = a row drawn dimmed (.lg-tl-ghost) and counted nowhere: not in the count, a day's net or trades, the DAY cell or BY DAY)}
 // Markers: [data-lglist-frame] (data-lgmode), [data-lgcount], [data-lgsearch], [data-lgchip], [data-lgview], [data-lgday]
 // (a day group / header row, with .lg-tl-daynet: the day's signed net), [data-lgtrade] (a trade row), .lg-tl-foot[data-lgtlfoot].
 function ledgerTradeListHtml(o){
@@ -3995,6 +4000,7 @@ function ledgerTradeListHtml(o){
   const id=o.id||'lg',view=o.view==='table'?'table':'list',rows=(o.rows||[]).slice(),cells=o.cells||{},labels=o.labels||{},colCls=o.colCls||{},attrs=o.attr||{};
   const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const P=o.pnl||(t=>+t.pnl||0),N=o.net||P,tid=t=>esc(o.rowId?o.rowId(t):t.id),hm=s=>String(s||'').slice(0,5);
+  const G=o.ghost||(()=>false),real=list=>list.filter(t=>!G(t));
   const common=LEDGER_TL_COLS.filter(c=>(o.hide||[]).indexOf(c[0])<0);
   const dflt={
     time:(t,v)=>v==='table'
@@ -4015,7 +4021,7 @@ function ledgerTradeListHtml(o){
   const net2=list=>Math.round(list.reduce((s,t)=>s+(+N(t)||0),0)*100)/100;
   const dA=(ds,list)=>{const x=o.dayAttr?o.dayAttr(ds,list):'';return x?' '+x:'';};
   const dayHd=(ds,list)=>{
-    const n=list.length,net=net2(list);
+    const n=real(list).length,net=net2(real(list));
     return '<div class="lg-tl-dayhd"><span class="lg-tl-daylbl">'+ledgerDayLabel(ds)+'</span>'
       +(n?'<span class="lg-tl-daymeta">'+n+' trade'+(n===1?'':'s')+'</span><span class="lg-tl-daynet '+ledgerPnlCls(net)+'">'+ledgerSigned(net)+'</span>':'')+'</div>';
   };
@@ -4036,7 +4042,7 @@ function ledgerTradeListHtml(o){
       +tcommon.map(c=>th(c[0],labels[c[0]]||c[1],cellCls(c[0],'table'))+(dayOn&&c[0]===dayAfter?'<th class="lg-c lg-c-daycol lg-nph" title="the day total, on the first trade of each day">DAY</th>':'')).join('')
       +bcols.map(c=>th(c.k,c.label||'','lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:''))).join('')
       +'</tr>';
-    const trow=(t,i,dc)=>'<tr data-lgtrade="'+tid(t)+'"'+(o.rowAttr?' '+o.rowAttr(t):'')+'>'
+    const trow=(t,i,dc)=>'<tr data-lgtrade="'+tid(t)+'"'+(G(t)?' class="lg-tl-ghost"':'')+(o.rowAttr?' '+o.rowAttr(t):'')+'>'
       +(o.numbered?'<td class="num lg-c lg-c-num lg-nph'+(colCls.num?' '+colCls.num:'')+'">'+String(rows.length-i).padStart(2,'0')+'</td>':'')
       +tcommon.map(c=>'<td class="'+cellCls(c[0],'table')+'"'+(attrs[c[0]]?' '+attrs[c[0]](t):'')+'>'+cell(c[0],t,'table')+'</td>'+(dayOn&&c[0]===dayAfter?dayTd(dc):'')).join('')
       +bcols.map(c=>'<td class="lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:'')+(c.tdCls?' '+c.tdCls:'')+'"'+(c.attr?' '+c.attr(t):'')+'>'+c.td(t,i)+'</td>').join('')
@@ -4046,8 +4052,8 @@ function ledgerTradeListHtml(o){
       const g=byDay(closeOrder());let i=0;
       g.order.forEach(ds=>{
         trs+='<tr class="lg-tl-dayhdrow'+(dayOn?' lg-tl-daydiv':'')+'" data-lgday="'+ds+'"'+dA(ds,g.m[ds])+'><td colspan="'+nCols+'">'+dayHd(ds,g.m[ds])+'</td></tr>';
-        const dn=net2(g.m[ds]),dl=g.m[ds].length;
-        g.m[ds].forEach((t,j)=>{trs+=trow(t,i++,(dayOn&&j===0)?'<span class="lg-tl-daynet '+ledgerPnlCls(dn)+'" title="'+esc(ledgerDayLabel(ds).replace(/<[^>]*>/g,''))+': '+dl+' trade'+(dl===1?'':'s')+'">'+ledgerSigned(dn)+'</span>':'');});
+        const dn=net2(real(g.m[ds])),dl=real(g.m[ds]).length,fj=g.m[ds].findIndex(t=>!G(t));
+        g.m[ds].forEach((t,j)=>{trs+=trow(t,i++,(dayOn&&j===fj)?'<span class="lg-tl-daynet '+ledgerPnlCls(dn)+'" title="'+esc(ledgerDayLabel(ds).replace(/<[^>]*>/g,''))+': '+dl+' trade'+(dl===1?'':'s')+'">'+ledgerSigned(dn)+'</span>':'');});
       });
     }else trs=rows.map(trow).join('');
     body=(o.topScroll?'<div class="lg-tl-topscroll'+(o.topCls?' '+o.topCls:'')+'" id="'+esc(id)+'-table-topscroll"><div style="height:1px"></div></div>':'')
@@ -4061,14 +4067,14 @@ function ledgerTradeListHtml(o){
     g.order.sort((a,b)=>a<b?(o.dayAsc?-1:1):(a>b?(o.dayAsc?1:-1):0));
     if(o.group==='day'){
       // BY DAY: one summary row per close day
-      body=g.order.filter(ds=>g.m[ds].length).map(ds=>{
-        const ts=g.m[ds],net=net2(ts),w=ts.filter(t=>(+P(t)||0)>0).length,l=ts.filter(t=>(+P(t)||0)<0).length,flat=ts.length-w-l;
+      body=g.order.filter(ds=>real(g.m[ds]).length).map(ds=>{
+        const ts=real(g.m[ds]),net=net2(ts),w=ts.filter(t=>(+P(t)||0)>0).length,l=ts.filter(t=>(+P(t)||0)<0).length,flat=ts.length-w-l;
         return '<div class="lg-tl-day lg-tl-byday" data-lgday="'+ds+'"'+dA(ds,ts)+'><div class="lg-tl-row lg-tl-dayrow"><span class="lg-tl-tile">'+(+ds.slice(8,10))+'</span>'
           +'<span class="lg-tl-daymain"><b>'+ledgerDayLabel(ds)+'</b><small>'+ts.length+' trade'+(ts.length===1?'':'s')+' &middot; '+w+'W '+l+'L'+(flat?' '+flat+' even':'')+'</small></span>'
           +'<span class="lg-tl-dayend"><span class="lg-tl-daynet '+ledgerPnlCls(net)+'">'+ledgerSigned(net)+'</span><small>win rate '+(w+l?Math.round(w/(w+l)*100):0)+'%</small></span></div></div>';
       }).join('');
     }else{
-      const lrow=t=>'<div class="lg-tl-row" data-lgtrade="'+tid(t)+'"'+(o.rowAttr?' '+o.rowAttr(t):'')+' tabindex="0" role="button" aria-label="'+esc(t.symbol||t.strategy||'')+' trade detail">'
+      const lrow=t=>'<div class="lg-tl-row'+(G(t)?' lg-tl-ghost':'')+'" data-lgtrade="'+tid(t)+'"'+(o.rowAttr?' '+o.rowAttr(t):'')+' tabindex="0" role="button" aria-label="'+esc(t.symbol||t.strategy||'')+' trade detail">'
         +common.map(c=>{
           let h=cell(c[0],t,'list');
           if(c[0]==='sym'&&o.sub){const s=o.sub(t);if(s)h+='<small>'+s+'</small>';}
@@ -4084,7 +4090,7 @@ function ledgerTradeListHtml(o){
   const chips=LEDGER_TL_CHIPS.map(k=>({k:k,label:k})).concat(o.chips||[]);
   const total=o.total!=null?o.total:rows.length;
   const bar='<div class="lg-tl-bar">'
-    +'<div class="lg-tl-top"><span class="lg-tl-count"><span data-lgcount>'+rows.length+' / '+total+' trades</span>'+(o.countExtra||'')+'</span>'
+    +'<div class="lg-tl-top"><span class="lg-tl-count"><span data-lgcount>'+real(rows).length+' / '+total+' trades</span>'+(o.countExtra||'')+'</span>'
     +'<span class="lg-tl-views" data-lgviews="'+esc(id)+'"><span class="lg-seg" role="group" aria-label="list or table">'+['list','table'].map(v=>'<button type="button" data-lgview="'+v+'" class="'+(view===v?'active':'')+'" aria-pressed="'+(view===v)+'">'+v.toUpperCase()+'</button>').join('')+'</span>'+(o.viewX||'')+'</span></div>'
     +'<div class="lg-tl-find"><input type="text" id="'+esc(id)+'-search" data-lgsearch class="lg-tl-search" autocomplete="off" spellcheck="false" placeholder="'+esc(o.placeholder||'Search symbol, setup, note...')+'" aria-label="Search trades" value="'+esc(o.query)+'">'
     +'<div class="lg-tl-chips" role="group" aria-label="filter trades">'+chips.map(c=>'<button type="button" class="lg-fchip'+(o.chip===c.k?' active':'')+'" data-lgchip="'+esc(c.k)+'" aria-pressed="'+(o.chip===c.k)+'">'+esc(c.label)+'</button>').join('')+'</div>'+(o.findX||'')+'</div>'
@@ -5748,6 +5754,22 @@ function loadQqqExec(uidArg,force){
     if(typeof qbTopChipRefresh==='function')qbTopChipRefresh();
     if(activeTab==='augur'&&augurSub==='qqqpaper')renderApp();
   });
+}
+// ── WEBULL PAPER annotations (owner 10-14 via MANAGER #97): users/{uid}/meta/qb_annot, written by tools/qb_annot.py. `missed` = engine
+//    trades the live leg never sent to Webull (drawn dimmed in the trade list, counted nowhere); `notes` = words on one real trade
+//    (family + entry minute). One-shot read when the board draws, again at most every 5 minutes; a missing doc = nothing to add.
+function loadQbAnnot(){
+  if(window._qbAnnotLoading||(window._qbAnnotTried&&Date.now()-window._qbAnnotTried<300000))return;
+  const u=(typeof auth!=='undefined'&&auth&&auth.currentUser&&auth.currentUser.uid)||null;
+  if(typeof db==='undefined'||!db||!u)return;
+  window._qbAnnotTried=Date.now();window._qbAnnotLoading=true;
+  try{
+    db.collection('users').doc(u).collection('meta').doc('qb_annot').get().then(d=>{
+      const was=JSON.stringify(window._qbAnnot||null);
+      window._qbAnnot=(d&&d.exists)?d.data():null;window._qbAnnotLoading=false;
+      if(JSON.stringify(window._qbAnnot||null)!==was&&activeTab==='augur'&&augurSub==='qqqpaper')renderApp();
+    }).catch(()=>{window._qbAnnotLoading=false;});
+  }catch(e){window._qbAnnotLoading=false;}
 }
 // ── keep the LAST TICK read honest on a page left open: loadQqqExec above is a one-shot
 //    .get() (Spark-quota reasoning, same as loadQqqPaper), so without this a browser tab
@@ -40160,6 +40182,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       window._qbPanelSpec=null;   // rebuilt below where the trade list is built (new boards); none = the open trade panel has no trade left and closes (_qbSyncPanel)
       if(!window._qqqExecLoaded&&!window._qqqExecLoading)loadQqqExec();
       else if(!window._qqqExecLoading&&Date.now()-(window._qqqExecTriedAt||0)>60000)loadQqqExec(null,true);
+      try{loadQbAnnot();}catch(e){}
       if(!window._qqqPaperLoaded&&!window._qqqPaperLoading)loadQqqPaper();
       const QE=window._qqqExec||null;
       const qeErr=window._qqqExecErr;
@@ -41692,11 +41715,27 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   symbol:qeTradeLegName(t),strategy:qeTradeLegName(t),side:t.side?String(t.side).toUpperCase():'',
                   size:isFinite(sh)?sh:null,pnl:pnl,points:(isFinite(sh)&&sh>0)?pnl/sh:null,_t:t};
               };
-              const qbFlagsHtml=t=>tagFor(t.exit_reason)+bookOnlyChip(t)+parityChip(t);
+              // MISSED SIGNALS (owner 10-14: 'add the Webull ORB trades, just annotate they were not picked up by Webull'): the engine trades
+              // the live leg never sent, from users/{uid}/meta/qb_annot (tools/qb_annot.py). They sit among the trades dimmed, with a MISSED
+              // chip and the reason, and count NOWHERE: not the hero, tiles, chart, calendar, RUNNING, the day totals or the CSV export.
+              // A note (same doc) puts a NOTE chip and its words on one real trade, found by family and entry minute.
+              const qbAnn=window._qbAnnot||{};
+              const qbMissedTs=(()=>{const M=Array.isArray(qbAnn.missed)?qbAnn.missed:[];
+                const ts=M.filter(m=>m&&m.entry_ts&&m.exit_ts).map(m=>({trade_id:'MISSED-'+String(m.leg||'')+'-'+String(m.entry_ts),leg:m.leg,side:m.side,shares:m.shares,
+                  entry_ts:m.entry_ts,exit_ts:m.exit_ts,entry_px:m.entry_px,exit_px:m.exit_px,pnl:m.pnl_usd,exit_reason:m.exit_reason||'',
+                  note:String(m.note||'MISSED - Webull never got this signal')+(m.why?' ('+String(m.why)+')':''),_missed:true}));
+                return qbRange?ledgerInRange(ts.map(t=>({exitDate:qeTradeDate(t),_t:t})),qbRange).map(r=>r._t):ts;})();
+              const qbAnnotNote=t=>{if(!t||t._missed)return '';const N=Array.isArray(qbAnn.notes)?qbAnn.notes:[],m=String(t.entry_ts||'').slice(0,16);
+                const x=N.find(n=>n&&qbFamOf(n.leg)===qbFamOf(t.leg)&&String(n.entry_ts||'').slice(0,16)===m);return x?String(x.note||''):'';};
+              const qbAnnChip=t=>{
+                if(t&&t._missed)return ' <span title="'+qbEsc(t.note)+'. Not counted in any total.">'+qePill('MISSED','var(--attn-amber)')+'</span>';
+                const n=qbAnnotNote(t);return n?' <span title="'+qbEsc(n)+'">'+qePill('NOTE','var(--text4)')+'</span>':'';};
+              const qbFlagsHtml=t=>(t&&t._missed)?qbAnnChip(t):(tagFor(t.exit_reason)+bookOnlyChip(t)+parityChip(t)+qbAnnChip(t));
               const qbFlagsText=t=>qbFlagsHtml(t).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
               // the one caveat word a row carries where the flags column is not drawn (a phone row, a list box 800 px or narrower): the first of these
               // that the row's own flags hold, so it can never say a word the flags column does not; every flag stays in its tooltip and in the panel
               const QB_CAV_ORDER=['BOOK ONLY','CHECK FILL','FILL GAP','BOOK PRICE','PART BOOK PRICE','NOT COMPARED'];
+              QB_CAV_ORDER.unshift('MISSED');QB_CAV_ORDER.push('NOTE');   // a missed signal says so first; NOTE only when nothing else is flagged
               const qbCavWord=t=>{const h=qbFlagsHtml(t),w=[],re=/<span style="[^"]*">([A-Z][A-Z ]*[A-Z])<\/span>/g;let m;while((m=re.exec(h)))w.push(m[1]);return QB_CAV_ORDER.find(k=>w.indexOf(k)>=0)||'';};
               const qbHay=v=>[v.strategy,v._t.leg,v.side,'QQQ',v._t.exit_reason,v._t.trade_id,v.date,String(v._t.exit_ts||'').slice(0,10),qbFlagsText(v._t)].join(' ');
               const qbMatch=v=>{
@@ -41707,10 +41746,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               };
               const qbAllVm=qbRangeTrades.map(qbVm);
               const qbMatchedVm=ledgerByClose(qbAllVm.filter(qbMatch)).reverse();   // newest close first, the order the frame walks them
-              let qbCut=Math.min(qbMatchedVm.length,Math.max(1,shown));
+              // the missed signals join the list only (never qbAllVm: RUNNING, the hero and the stats are the real trades)
+              const qbGhostVm=qbMissedTs.map(t=>Object.assign(qbVm(t),{_ghost:true}));
+              if(qbGhostVm.length)qbMatchedVm.splice(0,qbMatchedVm.length,...ledgerByClose(qbAllVm.concat(qbGhostVm).filter(qbMatch)).reverse());
+              // a page is `shown` real trades; a missed signal rides along without using up a place
+              let qbCut=0;{let rN=0;while(qbCut<qbMatchedVm.length&&rN<Math.max(1,shown)){if(!qbMatchedVm[qbCut]._ghost)rN++;qbCut++;}}
               while(qbCut<qbMatchedVm.length&&ledgerCloseDay(qbMatchedVm[qbCut])===ledgerCloseDay(qbMatchedVm[qbCut-1]))qbCut++;   // SHOW MORE never cuts a day in two
               const qbShownVm=qbMatchedVm.slice(0,qbCut);
               window._qeTradesForExport=qbMatchedVm.map(v=>v._t);   // the CSV button exports every trade the list matches, not just this page
+              window._qeTradesForExport=window._qeTradesForExport.filter(t=>!(t&&t._missed));   // ... never a missed signal (Webull never held it)
               window._qeExportScope=qbExportScope;                     // ... and its file name says which (the range, the chip, the search)
               // the range's running total in the order the trades closed, whatever the search and the paging show
               const qbRun={};{let run=0;ledgerByClose(qbAllVm).forEach(v=>{run+=v.pnl;qbRun[v.id]=run;});}
@@ -41746,8 +41790,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   return '<span style="color:'+(rp!=null?pnlCol(rp):'var(--text5)')+'">'+(rp!=null?qeMoney(rp):'—')+'</span>';}),
                 tcol('slip','SLIP/SH',v=>{const sp=avgSlip(v._t);return '<span style="color:var(--text3)">'+(sp!=null?qeNum(sp,3):'—')+'</span>';})
               ]);
-              qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts(qbShownVm,qbMatchedVm.length),{
-                dayHeaders:true,
+              qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts(qbShownVm,window._qeTradesForExport.length),{
+                dayHeaders:true,ghost:v=>!!v._ghost,
                 empty:'<div class="lg-tl-empty">No trades match this search or chip. <span class="qbx-tl-clear" data-qbclear role="button" tabindex="0">clear</span></div>',
                 rowAttr:v=>'data-qbday="'+qbEsc(qeTradeDate(v._t)||'')+'"',
                 cells:{
@@ -41786,7 +41830,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 'CHECK FILL':'a Webull fill that does not fit the tape, so check it',
                 'NOT COMPARED':'no fill comparison against the backtest was possible',
                 'EOD':'closed at the end of the day','BREAKER':'closed by the daily loss breaker','KILL':'closed by the kill switch',
-                'PARITY NOTE':'a NinjaTrader parity note is on this trade','RECONSTRUCTED':'the NinjaTrader side was rebuilt from the order ledger'};
+                'PARITY NOTE':'a NinjaTrader parity note is on this trade','RECONSTRUCTED':'the NinjaTrader side was rebuilt from the order ledger',
+                'MISSED':'the strategy took this trade but Webull never got the signal, so it was never a Webull trade; shown for the record, counted in no total',
+                'NOTE':'a note added to this trade afterwards'};
               const qbOpenCandles=(x,btn)=>{const rows=window._qeCandleRows||[],all=rows.some(q=>q&&String(q._no)===String(x._no))?rows:[x];
                 if(window._openTradeCandles)window._openTradeCandles(x,btn,{B:{},all:()=>all,order:()=>all});};
               // why the box flagged a trade's fills (fp.flag), the same causes in the same order as api/qqq_exec.py's note: one fill more than
@@ -41869,6 +41915,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   +'<div class="qbx-pn-line"><span class="qbx-pn-k">RE-PRICED FROM REAL QQQ BARS</span>'+repriced+'</div></div>'
                   +'<div class="qbx-pn-foot">HOLD is the time between the entry and exit stamps, to the second, New York time. RUNNING is the range total of the P&amp;L of record in the order the trades closed. SLIP/SH is the average of the entry and exit slip, in dollars a share. RECORD vs BACKTEST is the P&amp;L of record minus the backtest\u2019s. FILL GAP $ is Webull\u2019s fills against the backtest\u2019s prices at this trade\u2019s shares (+ = Webull did better); DESIGN GAP $ is the part the book\u2019s known design explains (a market order after a resting limit or a level, the 15:59 flatten, a late bar); SLIPPAGE + UNEXPLAINED $ is the rest.</div>';
               };
+              // a missed signal's numbers: what the engine did, at the shares the leg trades, none of it counted
+              const qbMissedNumbers=t=>{const pnl=qePnlOf(t),sh=Number(t.shares)||0;
+                return ledgerTradePanelRows([['SHARES',qeInt(t.shares)],['ENTRY $ (engine)',qeMoney(t.entry_px)],['EXIT $ (engine)',qeMoney(t.exit_px)],
+                  ['ENGINE P&L',ledgerSigned(pnl)+(sh?' &middot; '+(pnl>=0?'+':'-')+'$'+Math.abs(pnl/sh).toFixed(2)+' a share':''),ledgerPnlCls(pnl)],['COUNTED','no: Webull never held it']])
+                  +'<div class="qbx-pn-foot">Engine prices with no cost: the strategy took this trade, but Webull never got the signal, so there is no fill.</div>';};
               const qbPanelNotes=t=>{
                 const lines=[],ln=(k,h)=>lines.push('<div class="qbx-pn-line"><span class="qbx-pn-k">'+k+'</span>'+h+'</div>');
                 const r=String(t.exit_reason||''),gl=/BREAKER/i.test(r)?'the daily loss breaker closed it':(/KILL/i.test(r)?'the kill switch closed it':(/^EOD/i.test(r)?'closed at the end of the day':(/signal/i.test(r)?'the strategy gave its own exit signal':'')));
@@ -41878,10 +41929,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 ln('FLAGS',fl.length?fl.map(p=>'<b>'+p[0]+'</b>: '+(QB_FLAG_WORDS[p[0]]||'')+(p[1]&&p[1]!==pnT?' ('+p[1]+')':'')).join('<br>'):'none');
                 if(pn)ln('PARITY',qbEsc(pn));
                 if(t.note)ln('NOTE',qbEsc(t.note));
+                const an=qbAnnotNote(t);if(an)ln('NOTE',qbEsc(an));
                 if(t.size!=null&&String(t.size)!==''&&Number(t.size)!==1)ln('SIZE (KEEL)',qeKeelSizeHtml(t,Number(t.shares)||0).replace(/^<br>/,''));
                 return '<div class="qbx-pn-hint" data-qbpnotes>WEBULL PAPER keeps no notes. These lines come from the trade record and are read-only.</div>'+lines.join('');
               };
+              const qbPanelPool=qbRangeTrades.concat(qbMissedTs);   // the panel opens a missed signal too
               const qbPanelSpec=key=>{
+                const qbRangeTrades=qbPanelPool;
                 const t=qbRangeTrades.find(q=>window._qeRowKey(q)===key);
                 if(!t)return null;
                 const row=qbCandleRow(t,qePnlOf(t)),phone=(window.innerWidth||1024)<=600;
@@ -41896,7 +41950,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                     {k:'chart',html:row._et?window._qbSheetCandlesHtml(row):'',sig:'chart|'+fig+'|'+(phone?'p':'l'),render:el=>{
                       const c=el.querySelector('[data-qbcandles]');if(c&&window._qbSheetCandlesFill)window._qbSheetCandlesFill(c,row);
                       el.querySelectorAll('[data-qbcandlesexpand]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();qbOpenCandles(row,b);};});}},
-                    {k:'numbers',html:qbPanelNumbers(t,key)},
+                    {k:'numbers',html:t._missed?qbMissedNumbers(t):qbPanelNumbers(t,key)},
                     {k:'notes',html:qbPanelNotes(t)},
                     {k:'actions',sig:'actions|'+fig,
                       html:(row._et?'<button type="button" data-qbpcandles title="open the full candle viewer for this trade: zoom, pan, step through the trades, save a picture">OPEN CANDLES &#8599;</button>':'')
@@ -41905,7 +41959,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   onClose:()=>{if(String(window._qbPanelKey)===key)window._qbPanelKey=null;}};
               };
               window._qbPanelSpec=qbPanelSpec;
-              qbMoreHtml=qbMatchedVm.length>qbShownVm.length?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeshowmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+(qbMatchedVm.length-qbShownVm.length)+' more)</button></div>'):'';
+              qbMoreHtml=qbMatchedVm.length>qbShownVm.length?('<div style="text-align:center;margin-top:10px"><button class="btn-ghost" data-qeshowmore style="border:1px solid var(--border);border-radius:6px;padding:5px 14px;font-size:var(--fsxs)">SHOW MORE ('+qbMatchedVm.slice(qbShownVm.length).filter(v=>!v._ghost).length+' more)</button></div>'):'';
             }
           }
         }
