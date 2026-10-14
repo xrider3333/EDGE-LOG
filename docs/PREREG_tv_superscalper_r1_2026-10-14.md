@@ -51,3 +51,14 @@ numbers survive costs and a 75% haircut - everything else on the list closed at 
 - The author's year is MNQ on TradingView's data; ours is NQ (same index, ten times the size) on the no-adjust master.
 - 20 stacked tickets make one bad day many losing trades at once; DD5 and the best-5%-of-days share are printed to show it.
 - SPY is replaced by ES in the relative-strength factor; QQQ exists only in regular hours (carried forward overnight).
+
+## Amendment 1 (2026-10-14, before any port number; MANAGER #118)
+- The reference is the AUTHOR's published Strategy report (not a fresh chart run): 274 trades on MNQ1! 1-minute, entries
+  2026-03-29 .. 2026-04-21, 1 contract, published settings (pyramiding 20, 2 ticks slippage, $0.62 a contract); trade 274 still
+  open (excluded). File `superscalper_tv_trades_published.csv` in the folder above (MANAGER export of the page's report).
+- Its times are CHICAGO (exchange) time: checked on the first three entries against our NQ 1-minute bars - each TradingView entry
+  equals the open of the bar one hour later in New York time plus / minus the 2-tick slippage. (A data check on three prices, no P&L.)
+- That window lies INSIDE the lockbox year (2025-06-30 .. 2026-06-30). To keep the lockbox read for the Auto-Validate alone, the
+  fidelity harness prints ONLY match statistics: share of TradingView trades matched, share of port trades matched, entry / exit price
+  differences in ticks, exit-reason agreement and the matched pairs' P&L correlation. It never prints the port's own totals, win rate,
+  net or drawdown on that window, and nobody reads them. The pass rule above is unchanged (80% matched AND correlation >= 0.80).
