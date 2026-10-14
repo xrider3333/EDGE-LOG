@@ -36,6 +36,15 @@ ORB_R6 EXECUTION (ORB lane #857 item 2, MANAGER #70 GO; report-only): the Webull
 by trade on trade_id - engine $ = side x (EXIT ref_price - ENTRY ref_price) at the unit, executor $ = its fill P&L at the unit. ORB's year
 lives in a few big days, so a big engine day (>= the band's big-day line, $90.99 at 10 sh, ~2.7 a year) must be booked at >= 80% by the
 executor, and an engine trade with no executor fill is a MISS. Also printed: fills vs the engine's prices over every matched trade.
+ORB_R6 REPLAY PARITY (MANAGER #80 follow-up, report-only): ORB_R6 through the engine on the box's own 5m bar cache (ohlc/QQQ_5m.csv, pulled
+like the 1m) against the live engine's ENTRY rows, by day and side since the leg's start - a trade the replay takes and the box never emitted is
+named (it caught 09-21..09-25, five trades and a big day, PAPER-WB #158).
+ORB RELAY SHADOW (ORB-RELAY r1 forward, MANAGER #80 GO; report-only): the same ORB settings on NQ's 5m bars (back-adjusted master), filled on
+the box's OWN live QQQ 1m bar cache (pulled read-only into each box_backup folder as ohlc/QQQ_1m.csv; every folder's copy is merged, the
+newest winning) the way RELAY r1 did it - entry at the open of the first QQQ minute after the NQ signal bar (one minute of executor lag), exit
+at the QQQ close of the first NQ 1m minute that reaches the NQ exit level, EOD at the close of the session's last minute - at 10 shares and
+$0.02 a share a round trip, beside the live ORB_R6 leg over the same days. No new data pull. A harm / parity line, never a decider: a
+forward gap between two one-episode ROCs is unreadable for years (BOOK.md 10y).
 
     python tools/harm_monitor.py               # compute and print the Monday post
     python tools/harm_monitor.py --post        # ... and post it to MANAGER's inbox (tools/chat_inbox.py)
@@ -93,6 +102,7 @@ WEBULL_POWER = ("power if the edge is gone, by 36 months: ORB_R6 88%, NOISE_382 
 WEBULL_MTM = ("DIP_424F",)
 MARK_AFTER = (14, 30)                # a pull folder stamped before 14:30 MST (16:30 ET) holds intraday marks, not the close
 EXEC_LEG, EXEC_SHARE = "ORB_R6", 0.80   # a big engine day must be booked at >= 80% by the executor
+RELAY_COST = 0.02                 # $ a share a round trip, as the leg's bands
 TREND_MASTER = ("NQ", "5m", "rth", "db_noadj_rth")
 TREND_THR = 0.017319              # the walk-forward's 90th percentile of |close - open| / open (frozen 10-12, scratchpad trendcap_freeze.py)
 TREND_BASE = 0.6078               # the ORB leg up on 141 of those 232 walk-forward days
@@ -314,6 +324,118 @@ def exec_line(c, nm=EXEC_LEG):
     return txt
 
 
+def box_qqq_1m(root=None, tf="1m", full=False):
+    """every box_backup folder's ohlc/QQQ_<tf>.csv (the box's own live bar cache, copied read-only by tools/pull_box_ledgers.py), merged
+    with the newest copy winning -> DataFrame (o, c; with `full` also h, l, v) on US/Eastern bar starts, or None"""
+    root = root or os.environ.get("EDGELOG_BOX_BACKUP", r"C:\EdgeLog\box_backup")
+    parts = []
+    for d in sorted(os.listdir(root)) if os.path.isdir(root) else []:
+        f = os.path.join(root, d, "ohlc", "QQQ_%s.csv" % tf)
+        if os.path.exists(f):
+            x = pd.read_csv(f)
+            x["rank"] = d
+            parts.append(x)
+    if not parts:
+        return None
+    x = pd.concat(parts).sort_values(["time", "rank"]).drop_duplicates("time", keep="last")
+    ix = pd.to_datetime(x["time"].astype("int64"), unit="s", utc=True).dt.tz_convert("America/New_York").dt.tz_localize(None)
+    cols = {"o": "open", "c": "close"}
+    if full:
+        cols.update(h="high", l="low", v="volume")
+    return pd.DataFrame({k: x[c].astype(float).to_numpy() for k, c in cols.items()}, index=pd.DatetimeIndex(ix))
+
+
+def replay_parity(q5, S, start, end):
+    """ORB_R6 through the engine on the box's own 5m bars (q5, full) vs the live engine's ENTRY rows (signals.csv S) -> dict: the engine's
+    entries and the live ones (day, side) since `start`, and which are missing either way"""
+    sys.path.insert(0, ROOT)
+    from api import cloud_signal as cs
+    from augur_engine.engine import run_backtest
+    leg = cs.CROWN_LEGS[EXEC_LEG]
+    ix = q5.index.tz_localize("America/New_York")
+    arr = {"open": q5["o"].to_numpy(), "high": q5["h"].to_numpy(), "low": q5["l"].to_numpy(), "close": q5["c"].to_numpy(),
+           "volume": q5["v"].to_numpy(), "index": ix, "day_id": pd.factorize(q5.index.normalize())[0],
+           "meta": {"instrument": "QQQ", "source": "box_cache", "roll_mode": "none", "name": "harm_monitor.replay_parity"}}
+    r = run_backtest(leg["strategy"], arrays=arr, params=dict(leg["params"]), cost_pts=0.0, return_trades=True)
+    s0, s1 = pd.Timestamp(start), pd.Timestamp(end)
+    eng = {(str(q5.index[int(t[0])].date()), 1 if int(t[3]) > 0 else -1) for t in (r or {}).get("trades") or []
+           if s0 <= q5.index[int(t[0])].normalize() <= s1}
+    e = S[(S["leg"] == EXEC_LEG) & (S["event"] == "ENTRY")] if len(S) and "event" in S.columns else S.iloc[:0]
+    lt = pd.to_datetime(e["ref_time"], utc=True).dt.tz_convert("America/New_York").dt.tz_localize(None) if len(e) else pd.Series([], dtype="datetime64[ns]")
+    live = {(str(t.date()), -1 if str(sd).lower().startswith("s") else 1) for t, sd in zip(lt, e["side"]) if s0 <= t.normalize() <= s1}
+    return {"engine": len(eng), "live": len(live), "missing_live": sorted(eng - live), "extra_live": sorted(live - eng)}
+
+
+def parity_line(pr):
+    """the replay parity in plain words (report-only)"""
+    if pr.get("error"):
+        return "- ORB_R6 replay parity not read: %s." % pr["error"]
+    txt = ("- ORB_R6 replay parity (report-only): the engine on the box's own 5m bars takes %d trade(s) in the window; the live engine emitted %d."
+           % (pr["engine"], pr["live"]))
+    if pr["missing_live"]:
+        txt += " NOT EMITTED LIVE: %s." % ", ".join("%s %s" % (d, "long" if s > 0 else "short") for d, s in pr["missing_live"])
+    if pr["extra_live"]:
+        txt += " Live only: %s." % ", ".join("%s %s" % (d, "long" if s > 0 else "short") for d, s in pr["extra_live"])
+    if not pr["missing_live"] and not pr["extra_live"]:
+        txt += " Same days and sides."
+    return txt
+
+
+def relay_trades(q1, start, end):
+    """the ORB_R6 settings on NQ 5m (back-adjusted) through the engine, each trade filled on QQQ 1m prints (q1) -> list of
+    (day, side, $ at 10 sh) for trades entering on or after `start` and exiting on or before `end`; trades with no QQQ minute are skipped"""
+    sys.path.insert(0, ROOT)
+    from api import cloud_signal as cs
+    from augur_engine.data import find_master, load_master_arrays
+    from augur_engine.engine import run_backtest
+    leg = cs.CROWN_LEGS["ORB_R6"]
+    s0, s1 = pd.Timestamp(start), pd.Timestamp(end)
+    warm = str((s0 - pd.Timedelta(days=150)).date())
+    a5 = load_master_arrays(find_master("NQ", "5m", "rth", "db_adj_rth"), date_from=warm, date_to=str(s1.date()))
+    a1 = load_master_arrays(find_master("NQ", "1m", "rth", "db_adj_rth"), date_from=str(s0.date()), date_to=str(s1.date()))
+    r = run_backtest(leg["strategy"], arrays=a5, params=dict(leg["params"]), cost_pts=0.0, return_trades=True)
+
+    def et(ix):
+        ix = pd.DatetimeIndex(ix)
+        return ix.tz_convert("America/New_York").tz_localize(None) if ix.tz is not None else ix
+
+    ix5 = et(a5["index"])
+    n1 = pd.DataFrame({"h": np.asarray(a1["high"], float), "l": np.asarray(a1["low"], float)}, index=et(a1["index"]))
+    close5 = np.asarray(a5["close"], float)
+    last = pd.Series(np.arange(len(ix5)), index=ix5).groupby(ix5.normalize()).max()
+    one = pd.Timedelta(minutes=1)
+    out = []
+    for t in (r or {}).get("trades") or []:
+        ei, xi, pts, d, e = int(t[0]), int(t[1]), float(t[2]), int(t[3]), float(t[4])
+        te, tx = ix5[ei], ix5[min(xi, len(ix5) - 1)]
+        if te.normalize() < s0 or tx.normalize() > s1:
+            continue
+        lvl = e + pts * d
+        if xi == int(last[tx.normalize()]) and abs(lvl - close5[xi]) < 1e-6:
+            xt = tx + 4 * one
+        else:
+            mins = n1.loc[tx:tx + 4 * one]
+            if d > 0:
+                hit = mins.index[(mins["l"] <= lvl).to_numpy()] if lvl <= e else mins.index[(mins["h"] >= lvl).to_numpy()]
+            else:
+                hit = mins.index[(mins["h"] >= lvl).to_numpy()] if lvl >= e else mins.index[(mins["l"] <= lvl).to_numpy()]
+            xt = hit[0] if len(hit) else tx + 4 * one
+        if (te + 5 * one) not in q1.index or xt not in q1.index:
+            continue
+        qe, qx = float(q1.at[te + 5 * one, "o"]), float(q1.at[xt, "c"])
+        out.append((str(tx.normalize().date()), d, WEBULL_UNIT[EXEC_LEG] * (d * (qx - qe) - RELAY_COST)))
+    return out
+
+
+def relay_line(rl, live_net, live_n, start):
+    """the relay shadow in plain words (report-only)"""
+    if rl.get("error"):
+        return "- ORB relay shadow not read: %s." % rl["error"]
+    return ("- ORB relay shadow (report-only, NQ signals on the box's QQQ 1m bars, one-minute lag, 10 sh): %d trade(s) since %s, net $%s; "
+            "the live ORB_R6 leg over the same days: %d trade(s), net $%s. A parity line, not a decider."
+            % (rl["n"], start, fmt(rl["net"]), live_n, fmt(live_net)))
+
+
 def webull_lines(wreads, wmeta):
     """the Webull legs block (trips are already at the top of the post)"""
     if wmeta.get("error"):
@@ -340,6 +462,11 @@ def webull_lines(wreads, wmeta):
         out.append(txt)
     if wmeta.get("exec") is not None:
         out.append(exec_line(wmeta["exec"]))
+    if wmeta.get("relay") is not None:
+        r = wreads.get(EXEC_LEG) or {}
+        out.append(relay_line(wmeta["relay"], r.get("net", 0.0), r.get("trades", 0), wmeta.get("starts", {}).get(EXEC_LEG, "?")))
+    if wmeta.get("parity") is not None:
+        out.append(parity_line(wmeta["parity"]))
     return out
 
 
@@ -570,6 +697,24 @@ def main(argv=None):
             meta["trend"] = {"error": "%s: %s" % (type(e).__name__, e)}
         try:                                                        # the Webull read never stops the #463 read
             wf, wmeta = webull_forward(a.asof)
+            if EXEC_LEG in wmeta.get("starts", {}):
+                try:                                                # report-only; never stops the Webull read
+                    q1 = box_qqq_1m()
+                    if q1 is None:
+                        raise RuntimeError("no ohlc/QQQ_1m.csv in any box_backup folder yet (the pull job copies it nightly)")
+                    rt = relay_trades(q1, wmeta["starts"][EXEC_LEG], wmeta["end"])
+                    wmeta["relay"] = {"n": len(rt), "net": float(sum(v for _d, _s, v in rt)), "trades": rt}
+                except Exception as e:
+                    wmeta["relay"] = {"error": "%s: %s" % (type(e).__name__, e)}
+                try:                                                # report-only; never stops the Webull read
+                    q5 = box_qqq_1m(tf="5m", full=True)
+                    if q5 is None:
+                        raise RuntimeError("no ohlc/QQQ_5m.csv in any box_backup folder yet (the pull job copies it nightly)")
+                    f = webull_folder(pd.Timestamp(a.asof).normalize())
+                    S = pd.read_csv(os.path.join(f[0], "cloud_signal", "signals.csv"))
+                    wmeta["parity"] = replay_parity(q5, S, wmeta["starts"][EXEC_LEG], wmeta["end"])
+                except Exception as e:
+                    wmeta["parity"] = {"error": "%s: %s" % (type(e).__name__, e)}
             webull = (read_webull(wf, wmeta), wmeta)
         except Exception as e:
             webull = ({}, {"error": "%s: %s" % (type(e).__name__, e)})

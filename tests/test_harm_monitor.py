@@ -317,3 +317,30 @@ def test_exec_check_big_day_miss_and_slip():
     assert none["engine"] == 0 and "no closed engine trade" in HM.exec_line(none)
     assert "not read" in HM.exec_line({"error": "x"})
 
+
+def test_box_qqq_1m_merges_folders_newest_wins(tmp_path):
+    import pandas as pd
+    for d, rows in (("2026-10-12_1445", [(1792000000, 1.0, 1.5), (1792000060, 2.0, 2.5)]),
+                    ("2026-10-13_1445", [(1792000060, 9.0, 9.5), (1792000120, 3.0, 3.5)])):
+        os.makedirs(tmp_path / d / "ohlc")
+        pd.DataFrame([dict(time=t, open=o, high=o, low=o, close=c, volume=0) for t, o, c in rows]).to_csv(tmp_path / d / "ohlc" / "QQQ_1m.csv",
+                                                                                                     index=False)
+    q = HM.box_qqq_1m(str(tmp_path))
+    assert len(q) == 3 and list(q["o"]) == [1.0, 9.0, 3.0]                # the newer folder's copy of the shared minute wins
+    assert q.index[0] == pd.Timestamp(1792000000, unit="s", tz="UTC").tz_convert("America/New_York").tz_localize(None)
+    assert HM.box_qqq_1m(str(tmp_path / "none")) is None
+
+
+def test_parity_line_words():
+    pr = {"engine": 3, "live": 2, "missing_live": [("2026-09-21", 1)], "extra_live": []}
+    line = HM.parity_line(pr)
+    assert "NOT EMITTED LIVE: 2026-09-21 long" in line and "report-only" in line
+    assert "Same days and sides" in HM.parity_line({"engine": 1, "live": 1, "missing_live": [], "extra_live": []})
+    assert "not read" in HM.parity_line({"error": "x"})
+
+
+def test_relay_line_words():
+    assert "not read" in HM.relay_line({"error": "x"}, 0.0, 0, "2026-09-09")
+    line = HM.relay_line({"n": 4, "net": 12.5}, -7.0, 5, "2026-09-09")
+    assert "report-only" in line and "4 trade(s) since 2026-09-09" in line and "5 trade(s)" in line and "not a decider" in line
+
