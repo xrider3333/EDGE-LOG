@@ -1,0 +1,62 @@
+NOISE PnL SCATTER r1 - #304 core trades, WF signal dates 2016-07-01 .. 2025-06-29: 2803 trades (312 a year), 2318 sessions
+exit kinds: {'VWAP exit': 1949, 'held to close': 745, 'stop': 109}
+
+A. THE LEGS, WF (four numbers + win rate; DD%% on $100k at the traded size; Sortino daily)
+  core 1x  cost 0.533  ROC@30k  65.71  DD5 $ 12284 (1 EPISODE)  DD%  5.65  Sortino 3.57 | win 37.4%  avg win $1076  avg loss $ 457  (2.36x)  PF 1.409  net $36440/yr
+  core 1x  cost 0.783  ROC@30k  60.82  DD5 $ 12661 (1 EPISODE)  DD%  6.41  Sortino 3.39 | win 36.8%  avg win $1090  avg loss $ 457  (2.38x)  PF 1.387  net $34882/yr
+  #382     cost 0.533  ROC@30k  82.00  DD5 $ 17765  DD%  7.57  Sortino 3.69 | win 37.4%  avg win $1534  avg loss $ 624  (2.46x)  PF 1.469  net $57153/yr
+  #382     cost 0.783  ROC@30k  78.11  DD5 $ 18236  DD%  9.80  Sortino 3.53 | win 36.8%  avg win $1554  avg loss $ 625  (2.49x)  PF 1.448  net $55079/yr
+  #422     cost 0.533  ROC@30k  87.64  DD5 $ 12686 (1 EPISODE)  DD%  6.15  Sortino 4.30 | win 37.4%  avg win $1279  avg loss $ 510  (2.51x)  PF 1.500  net $49707/yr
+  #422     cost 0.783  ROC@30k  82.94  DD5 $ 12995 (1 EPISODE)  DD%  6.99  Sortino 4.12 | win 36.8%  avg win $1296  avg loss $ 511  (2.54x)  PF 1.476  net $47930/yr
+
+  R (entry to initial stop): median 62.7 pt, p10 20.1, p90 169.1
+
+B. PnL against MFE (best open profit, in R) (core 1x, cost 0.783)
+  MFE <0.25R     n  1330 (47.4%)  win  13.6%  $/trade   -385  share of net -163.3%  | close  12% VWAP  84% stop   4%
+  0.25-0.5R      n   441 (15.7%)  win  30.8%  $/trade   -195  share of net  -27.5%  | close  28% VWAP  66% stop   5%
+  0.5-1R         n   451 (16.1%)  win  46.3%  $/trade   +237  share of net  +34.0%  | close  35% VWAP  60% stop   5%
+  1-2R           n   364 (13.0%)  win  80.2%  $/trade   +937  share of net +108.7%  | close  44% VWAP  55% stop   1%
+  2-3R           n   125 ( 4.5%)  win  98.4%  $/trade  +1990  share of net  +79.3%  | close  65% VWAP  35% stop   0%
+  >=3R           n    90 ( 3.2%)  win 100.0%  $/trade  +2403  share of net  +68.9%  | close  77% VWAP  23% stop   0%
+
+C. PnL against MAE (worst open loss, in R) (core 1x, cost 0.783)
+  MAE <0.25R     n  1313 (46.8%)  win  59.7%  $/trade   +563  share of net +235.8%  | close  40% VWAP  60% stop   0%
+  0.25-0.5R      n   676 (24.1%)  win  27.8%  $/trade    +53  share of net  +11.4%  | close  25% VWAP  75% stop   0%
+  0.5-0.75R      n   394 (14.1%)  win  12.4%  $/trade   -328  share of net  -41.1%  | close  11% VWAP  89% stop   0%
+  0.75-1R        n   168 ( 6.0%)  win   4.8%  $/trade   -706  share of net  -37.8%  | close   5% VWAP  95% stop   0%
+  past 1R (gap)  n   252 ( 9.0%)  win   0.8%  $/trade   -850  share of net  -68.2%  | close   0% VWAP  56% stop  43%
+
+D. PnL against hold time (core 1x, cost 0.783)
+  <10 min        n   752 (26.8%)  win  20.1%  $/trade   -227  share of net  -54.4%  | close   5% VWAP  90% stop   6%
+  10-30          n   529 (18.9%)  win   7.8%  $/trade   -439  share of net  -73.9%  | close   5% VWAP  87% stop   8%
+  30-60          n   347 (12.4%)  win  19.3%  $/trade   -358  share of net  -39.6%  | close  16% VWAP  80% stop   4%
+  60-120         n   351 (12.5%)  win  40.5%  $/trade    +27  share of net   +3.1%  | close  29% VWAP  69% stop   1%
+  120-240        n   380 (13.6%)  win  58.2%  $/trade   +298  share of net  +36.1%  | close  42% VWAP  57% stop   1%
+  >=240          n   444 (15.8%)  win  92.1%  $/trade  +1617  share of net +228.8%  | close  82% VWAP  18% stop   0%
+
+E. PnL against entry time (core 1x, cost 0.783)
+  09:30-10:00    n   822 (29.3%)  win  34.7%  $/trade   +141  share of net  +36.9%  | close  12% VWAP  81% stop   8%
+  10-11          n   656 (23.4%)  win  34.0%  $/trade   +104  share of net  +21.8%  | close  24% VWAP  71% stop   5%
+  11-12          n   351 (12.5%)  win  38.7%  $/trade    +96  share of net  +10.7%  | close  34% VWAP  64% stop   2%
+  12-13          n   256 ( 9.1%)  win  40.6%  $/trade    +71  share of net   +5.8%  | close  32% VWAP  67% stop   1%
+  13-14          n   226 ( 8.1%)  win  35.4%  $/trade   +107  share of net   +7.7%  | close  32% VWAP  67% stop   1%
+  14-15          n   259 ( 9.2%)  win  39.4%  $/trade   +202  share of net  +16.7%  | close  39% VWAP  59% stop   2%
+  15-16          n   233 ( 8.3%)  win  43.3%  $/trade     +6  share of net   +0.4%  | close  49% VWAP  50% stop   0%
+
+F. By exit kind (core 1x, cost 0.783): MFE in R, median / p75 / p90
+  VWAP exit      n  1949  win  20.5%  avg win $  360  avg loss $  414  net $  -497801  MFE 0.19 / 0.56 / 1.21 R  hold median 20 min
+  held to close  n   745  win  84.8%  avg win $ 1551  avg loss $  380  net $  +937013  MFE 0.78 / 1.65 / 2.92 R  hold median 230 min
+C:\EdgeLog\_anatomy_cache\noise_scatter\noise_scatter_r1.py:118: RuntimeWarning: Mean of empty slice.
+  return 100 * len(w) / len(p), w.mean(), -l.mean(), w.sum() / -l.sum()
+C:\Users\xride\AppData\Local\Packages\PythonSoftwareFoundation.Python.3.13_qbz5n2kfra8p0\LocalCache\local-packages\Python313\site-packages\numpy\_core\_methods.py:147: RuntimeWarning: invalid value encountered in scalar divide
+  ret = ret.dtype.type(ret / rcount)
+  stop           n   109  win   0.0%  avg win $    0  avg loss $ 1151  net $  -125488  MFE 0.24 / 0.51 / 0.69 R  hold median 10 min
+  giveback: VWAP exits that ran >= 0.5R and closed at a loss: 282 (10.1% of trades), $-85111
+  giveback: VWAP exits that ran >= 1.0R and closed at a loss: 69 (2.5% of trades), $-17501
+  giveback: VWAP exits that ran >= 2.0R and closed at a loss: 2 (0.1% of trades), $-191
+  top  10 trades =  24.1% of net (0.4% of trades)
+  top  50 trades =  86.7% of net (1.8% of trades)
+  top 100 trades = 141.2% of net (3.6% of trades)
+  top 250 trades = 246.3% of net (8.9% of trades)
+
+chart: noise_scatter_r1.png

@@ -1,0 +1,32 @@
+#422 WF trades 2803, unit $327739, sized $447740 (anatomy parity: 2,797 / $330,878 unit)
+exit kinds (anatomy: 745 eod / 1,943 VWAP / 109 stops): {'vwap': 1949, 'eod': 745, 'stop': 109}
+#422 sized, own WF ROC@30k 87.79, max DD $17012, sessions 2318
+
+N1 GAMMA-SORT  DIX.csv sha256 64910ffb94b58d65
+  July-June 2016: short-gamma  31  long-gamma 153  middle  74
+  July-June 2017: short-gamma  76  long-gamma 114  middle  67
+  July-June 2018: short-gamma 107  long-gamma  55  middle  94
+  July-June 2019: short-gamma  69  long-gamma 115  middle  75
+  July-June 2020: short-gamma  57  long-gamma 125  middle  76
+  July-June 2021: short-gamma 127  long-gamma  69  middle  63
+  July-June 2022: short-gamma  60  long-gamma  92  middle 106
+  July-June 2023: short-gamma  40  long-gamma 159  middle  58
+  July-June 2024: short-gamma  92  long-gamma 103  middle  61
+  mean size 0.930 (1.0 = no leverage change)
+  null delta ROC (tilt - #422): median -9.81  p95 21.90  SD 18.20
+  MDE 50% = 31.71 ROC points (= $31714 a year at a $30k drawdown); 80% = 47.00 ($47004)
+
+N2 HALVES (band units = signed move / (sigma x entry), cost included)
+  all trades           n  2803 (312 a yr)  mean +0.152  sd 1.473 band units  share 100.0%
+  held to close        n   745 (83 a yr)  mean +1.477  sd 2.040 band units  share 26.6%
+  VWAP exits (failed)  n  1949 (217 a yr)  mean -0.264  sd 0.730 band units  share 69.5%
+  stops                n   109 (12 a yr)  mean -1.474  sd 0.279 band units  share 3.9%
+  edge gone (mean 0)   needs   582 forward trades = 22.4 months at 312 a year (80%, one-sided 5%)
+  edge halved          needs  2326 forward trades = 89.6 months at 312 a year (80%, one-sided 5%)
+  failed-break share 69.5%: +10 points needs 120 forward trades = 4.6 months
+
+N3 MIRROR (first VWAP exit of the session, opposite side, next-open fill, held to the last close, no stop)
+  schedule: 938 trades (104 a year), |move| median 40.4 pt
+  coin-flip null ROC@30k: median -0.37  p95 7.18  SD 3.38  -> bar = max(15, p95) = 15.00
+  MDE 50%: true edge 11.0 pt a trade ($219 at 1 NQ) = $15851 a year at a $30k drawdown
+  MDE 80%: 15.3 pt a trade = $25576 a year at a $30k drawdown

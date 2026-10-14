@@ -1,0 +1,26 @@
+PARITY NOISE #382 (30-min gate 16/1.15, 2.0x): 4854 trades, entries, exits and sizes identical to the engine; sizes {np.float64(1.0): np.int64(3175), np.float64(2.0): np.int64(1679)}
+PARITY NOISE #422 (60-min gate 20/1.15, 1.75x): 4854 trades, entries, exits and sizes identical to the engine; sizes {np.float64(1.0): np.int64(3861), np.float64(1.75): np.int64(993)}
+PARITY #304 core: 4854 trades identical to the cent (patched file, target off)
+PINS: draft LF 619f6ef083111fef52e047783501f3c45aba41bd5489deaf48bb7e1971fb092b; harness LF 85162dc286e41131f5209f38953570613a6c01306fe3e53e71ff618017ded124
+
+NOISE #382 (30-min gate 16/1.15, 2.0x) - WF 2016-07-01 .. 2025-06-29, cost 0.783 (house 0.533 in brackets for base)
+  base   ROC@30k  78.56  DD5 $ 18236       DD%  9.89  Sortino 3.55 | trades 2802  win 36.8%  avg win $ 1558  avg loss $  625 (2.49x)  PF 1.450
+  T25    ROC@30k  48.02  DD5 $ 19476       DD% 17.88  Sortino 2.34 | trades 6591  win 63.8%  avg win $  535  avg loss $  805 (0.66x)  PF 1.169
+  SO25   ROC@30k  51.79  DD5 $ 14885       DD% 10.18  Sortino 2.27 | trades 2802  win 45.4%  avg win $  888  avg loss $  564 (1.57x)  PF 1.310
+  T100   ROC@30k  82.39  DD5 $ 16731       DD% 10.73  Sortino 3.47 | trades 3593  win 41.3%  avg win $ 1314  avg loss $  694 (1.89x)  PF 1.332
+  T200   ROC@30k  77.62  DD5 $ 17703       DD% 10.51  Sortino 3.43 | trades 3035  win 37.8%  avg win $ 1478  avg loss $  641 (2.31x)  PF 1.400
+  (base at the house cost: ROC@30k 82.47, Sortino 3.70)
+  T25   delta ROC -30.54  delta Sortino -1.20  P(delta>0) 0.01 (SD 13.3)  neighbour delta -26.77  win +27.0 pts  -> FAIL
+  SO25  delta ROC -26.77  delta Sortino -1.27  P(delta>0) 0.00 (SD 11.0)  neighbour delta -30.54  win  +8.6 pts  -> FAIL
+  T100  delta ROC  +3.83  delta Sortino -0.07  P(delta>0) 0.39 (SD 10.1)  neighbour delta  -0.94  win  +4.5 pts  -> FAIL
+
+NOISE #422 (60-min gate 20/1.15, 1.75x) - WF 2016-07-01 .. 2025-06-29, cost 0.783 (house 0.533 in brackets for base)
+  base   ROC@30k  83.22  DD5 $ 12995 (1 EP)  DD%  7.03  Sortino 4.13 | trades 2802  win 36.8%  avg win $ 1298  avg loss $  511 (2.54x)  PF 1.478
+  T25    ROC@30k  52.13  DD5 $ 15567       DD% 19.21  Sortino 2.82 | trades 6591  win 63.8%  avg win $  471  avg loss $  702 (0.67x)  PF 1.179
+  SO25   ROC@30k  62.86  DD5 $  9611 (1 EP)  DD%  6.11  Sortino 3.36 | trades 2802  win 46.8%  avg win $  757  avg loss $  471 (1.61x)  PF 1.416
+  T100   ROC@30k  96.88  DD5 $ 11788       DD%  9.17  Sortino 3.91 | trades 3593  win 41.3%  avg win $ 1105  avg loss $  583 (1.89x)  PF 1.333
+  T200   ROC@30k  82.99  DD5 $ 12895 (1 EP)  DD%  8.47  Sortino 4.03 | trades 3035  win 37.8%  avg win $ 1242  avg loss $  530 (2.34x)  PF 1.422
+  (base at the house cost: ROC@30k 87.93, Sortino 4.31)
+  T25   delta ROC -31.09  delta Sortino -1.31  P(delta>0) 0.00 (SD 15.6)  neighbour delta -20.36  win +27.0 pts  -> FAIL
+  SO25  delta ROC -20.36  delta Sortino -0.77  P(delta>0) 0.21 (SD 13.7)  neighbour delta -31.09  win +10.0 pts  -> FAIL
+  T100  delta ROC +13.67  delta Sortino -0.22  P(delta>0) 0.27 (SD 8.9)  neighbour delta  -0.23  win  +4.5 pts  -> FAIL

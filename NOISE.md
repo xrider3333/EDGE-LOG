@@ -3620,3 +3620,56 @@ three funds that split 2-for-1 on 2025-12-05 that doubled the cost against the d
 - XLU is 2.49%, not 4.98%.
 The proposed sector order (approved by MANAGER #67) leaned on those numbers. Every sector fund ran anyway, so no result
 changes. The Stage A harnesses always charged cost as traded.
+
+## NOISE next three (2026-10-10, MANAGER #82 / #83) - all three close at the power-first gate; HALVES becomes a report line
+
+MANAGER asked for three items aimed at the failed-break half (FRONTIER's Q35: July was failed breaks cut at VWAP), each with a
+power check first. The power lines read no candidate result. Record: `docs/DRAFT_noise_next3_2026-10-10.md`, ledger 2.151-2.153.
+
+- **GAMMA-SORT (#422 x1.5 on short-gamma days, x0.5 on long-gamma days, GAMMA r1's GEX state): closed.** To clear the label
+  shuffle half the time it needs +31.7 ROC points (= $31,700 a year at a $30k drawdown), against a prior of about +2.
+- **MIRROR (the opposite side of the first failed break, held to the close): closed.** It needs $219 a trade (= $15,850 a year
+  at $30k), against a prior of $1,000-2,000; every fade and VWAP-cross trend rule on NQ is already dead.
+- **HALVES (the failed-break share, forward): no alarm.** The share swings 60-80% by year, so the harm monitor stays the alarm.
+  `tools/noise_halves_read.py` prints it weekly beside the WF year range, as a report. First print (master to 2026-10-12): 60
+  forward trades, 76.7% failed, inside the range.
+- **Engine footnote:** since the 10-08 roll guard (signals ratio-adjusted, fills raw), a sized wrapper's extra-size cost is
+  divided by the adjust ratio: #422's 1.75x trades are charged $0.38-1.55 too little each ($706 over the WF). Unit P&L can no
+  longer be backed out of a wrapper's pnl as pnl / size - run the #304 core instead. Routed to ORB (roll-guard owner).
+
+## NOISE PnL scatter r1 + TARGET r1 (2026-10-12, owner order 'scalping with higher win rates'; run on the owner's override) - all six cells fail
+
+**The scatter (a report on #382 / #422's own WF trades, cost 0.783 = commission + one tick a side;
+`tools/r37_results/noise_scatter_r1.txt` / `.png`).** NOISE is a right-tail strategy:
+- It wins 36.8% of trades, with the average win 2.5x the average loss.
+- The top 50 trades (1.8%) make 87% of net. Trades held four hours or more make 229%; every hold under an hour loses.
+- 47% of trades never get +0.25R in their favour (R = fill to the initial stop, median 63 pt). The 21% that reach 1R make
+  257% of net, mostly held to the close.
+- So only a target under about 0.25R can lift the win rate, and it caps the trades that carry the money.
+
+**TARGET r1** (`docs/PREREG_noise_target_r1_2026-10-12.md` + addendum 1; ledger 2.154).
+- **The cells:** a resting profit target, re-simulated on each leg's own size rule.
+  - T25 = all out at +0.25R (the scalp).
+  - SO25 = half out at +0.25R; the other half rides.
+  - T100 = all out at +1R.
+- **Status:** MANAGER closed it at draft (power-first). The owner overrode the gate on 10-12 to get real numbers.
+- **Results** (WF, ROC@30k / DD5 / DD% / Sortino, then win rate):
+
+| Cell | NOISE #422 | NOISE #382 |
+|---|---|---|
+| Base | 83.2 / $13.0k / 7.0% / 4.13, win 36.8% | 78.6 / $18.2k / 9.9% / 3.55, win 36.8% |
+| T25 | 52.1 / $15.6k / 19.2% / 2.82, win 63.8% | 48.0 / $19.5k / 17.9% / 2.34, win 63.8% |
+| SO25 | 62.9 / $9.6k / 6.1% / 3.36, win 46.8% | 51.8 / $14.9k / 10.2% / 2.27, win 45.4% |
+| T100 | 96.9 / $11.8k / 9.2% / 3.91, win 41.3% | 82.4 / $16.7k / 10.7% / 3.47, win 41.3% |
+
+**Read.**
+- **T25 is the high-win-rate trap.** It wins 64% of the time, but its average win ($471) is smaller than its average loss
+  ($702), ROC falls by about 30 points and the DD% doubles.
+- **T100's ROC lift is one episode.** Sortino falls on both legs and DD% rises. The month-block bootstrap gives P(gain)
+  of only 0.27 / 0.39. Its 2R neighbour gives the lift back (83.0 / 77.6).
+- **Nothing changes.**
+
+**Disclosed:**
+- Run 1 read the size gate on raw prices instead of the engine's roll-adjusted ones. It mis-sized 9 / 14 trades and is
+  withdrawn (addendum 1).
+- Parity is now exact on entries, exits and sizes.
