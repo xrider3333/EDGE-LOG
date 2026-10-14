@@ -428,7 +428,14 @@ BROKER_RESEND_MIN_GAP_SEC = 4.0         # never in the tick right after the fail
 
 # -- small time helpers ------------------------------------------------------------
 def _now_et():
-    return datetime.now(_NY) if _NY else datetime.utcnow()
+    """Now in New York. EOD audit G8 (2026-10-14): without the America/New_York zone this used
+    to fall back to UTC SILENTLY -- every session time (the 15:59 flatten, the after-close
+    guard, entries) would then fire 4-5 hours early. It refuses instead: the tick fails, the
+    book sends nothing, and the box monitor's tick-loop check pages."""
+    if _NY is None:
+        raise RuntimeError("the America/New_York time zone is missing (install tzdata) -- the "
+                           "QQQ book refuses to run on UTC")
+    return datetime.now(_NY)
 
 
 def _hhmm(s):
@@ -13647,6 +13654,25 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # comfortably inside the half-day session and the day's last new entry is not still
     # open at the bell.
     sess_close = market_calendar.session_close_et(nowdt)
+    # EOD audit G5 (2026-10-14): a NORMAL day's flat_by is clamped too -- to the last minute
+    # inside the session (15:59). A config of "16:00" (the 2026-09-17/18 setting) fired the
+    # flatten at 16:00:0x, after the bell, and every close was refused; the after-close guard
+    # would now block them all and the shares would wait for the after-hours / next-open
+    # fallback. In memory only, never edits config.json; logged once a day.
+    if sess_close == "16:00":
+        last_flat = _hhmm_minus(sess_close, 1)
+        sess_before = cfg.get("session") or {}
+        configured_flat = str(sess_before.get("flat_by", "15:58"))
+        if configured_flat > last_flat:
+            cfg = dict(cfg)
+            cfg["session"] = dict(sess_before)
+            cfg["session"]["flat_by"] = last_flat
+            if state.get("flat_by_clamp_logged_date") != today:
+                msg = (f"session.flat_by {configured_flat} is at or after the 16:00 close -- "
+                       f"clamped to {last_flat} for today (config.json unchanged)")
+                log(f"[qqq-exec] {msg}")
+                _log_event(state, "flat_by_clamped", msg, log=log)
+                state["flat_by_clamp_logged_date"] = today
     if sess_close != "16:00":
         half_day_flat = _hhmm_minus(sess_close, 3)
         half_day_last_entry = _hhmm_minus(sess_close, 10)
