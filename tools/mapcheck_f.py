@@ -147,7 +147,7 @@ def main(names=None):
         closes = a["own_med"] < 8 and a["own_p15"] < 0.10 and a["rho_med"] > -0.15
         if "calibration" in p["name"]:
             verdict = (f"CALIBRATION row, not a candidate: tool's median book ROC {a['book_roc_med']:.1f} vs the measured 98.6 "
-                       "(the tool reads a with-book leg conservatively)")
+                       "(98.6 sits at the 63rd percentile of the tool's 2,000 draws: inside p25-p75, no bias shown - FRONTIER #111)")
         elif p["n"] < 50:
             verdict = "GREYED - cannot be a seat on its own (< 50 trades a year)"
         elif closes:

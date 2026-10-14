@@ -39,8 +39,9 @@ CLEARS = passes all three = worth a prereg.
 - **Closed at draft:** OVERNIGHT-DOWNDAY (too thin), GEX-MOMENTUM (moves with the book; GAMMA r1 2.135-2.137 has
   since closed GEX as a filter on real data), TRANSFER-CME (moves with the book, thin per trade).
 - **Calibration:** the measured XLK book add was 98.6 (2.108); the tool's median for a leg built to XLK's measured
-  strength is 94.9 (lift 34%). The tool reads with-book legs conservatively; legs that move apart from the book (the
-  sleeve) are not affected by that gap in the same direction, but the S1 column is the stricter read.
+  strength is 94.9 (lift 34%). **Correction 10-14 (FRONTIER #111):** 98.6 sits at the 63rd percentile of that
+  prior's 2,000 draws (p25 86.4, p75 101.8) - one draw inside the middle half, so no bias is shown; it was also read
+  after XLK was chosen. The generator stays frozen; where a measured book add exists, print it beside the map.
 - The S1 bar is harder (P(lift) 0-41%): S1 already holds the residual-momentum leg, so any new leg competes with it.
 
 ## Next - and the catch on the sleeve
