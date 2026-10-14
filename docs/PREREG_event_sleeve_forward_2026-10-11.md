@@ -91,3 +91,44 @@ parts' marked-to-market P&L.
 ## 7. What would void this
 - Any change to sections 1-5 after the freeze voids the forward read up to that date. The read restarts at the change, with a dated addendum.
 - Any look at pre-freeze sleeve P&L beyond the section-3 scale is reported as a breach.
+
+## ADDENDUM 1 (2026-10-14, before the freeze - no forward trade scored)
+- **Scorer:** `tools/event_sleeve_shadow.py` (commit 398fd56c). LF sha256 `399d914f72874fe627b0142be15664f73abc1475be7e5261dc64410000462352`.
+- **Constants file:** `C:\EdgeLog\event_sleeve\addendum1_constants.json` (written by `constants`, same sha inside).
+
+**Parity** (each part rebuilt by its own source harness; WF only; no lockbox number printed):
+- **A AUCTION K5:** source +$35.5k, t 1.997, 7 of 9 years -> rebuilt +$35,503, t 1.997, 7 of 9 (PF 1.25, ROC 7.9, DD $14,915).
+- **B MONTH-END ES:** source 133 trades, PF 2.27, 12 of 16 years -> rebuilt 133, PF 2.27, 12 of 16.
+- **C 08:30 FADE NQ:** source 210 WF trades, +$37,066, t 1.77 -> rebuilt 210, +$37,066, t 1.77.
+
+**Measured trade rates** (2016-07-16..2025-06-30 = 8.96 years):
+- **A:** 621 trades = about 69 a year. One continuous position per fund is one trade, as in the source. The "about 24 trades a year" in section 1A was wrong.
+- **B:** 79 trades = about 8.8 a year.
+- **C:** 209 trades = about 23.3 a year.
+- **Pooled:** 909 trades = 101.5 a year, not the 55 of sections 2, 4 and 5.
+- **So 50 trades come about 5.9 months after the shadow starts,** not about 2027-09. The start is the day all three feeds are approved - not yet.
+- **The map prior** (MAPCHECK-F, ledger 2.138) used n = 55. With the measured rate the per-trade figures change; the yearly Sharpe prior (0.64 +- 0.30) does not.
+
+**Frozen scale factors** (one risk unit = $1,000 of per-trade SD; trades wholly inside the stretch; sample SD):
+- **A:** SD $711.19 on 621 trades -> scale 1.406090 x $50,000 per fund.
+- **B:** SD $4,296.73 on 79 trades -> 0.232735 ES contracts.
+- **C:** SD $1,447.99 on 209 trades -> 0.690612 NQ contracts.
+
+**Harm bar** (section 5, recomputed at the measured rate):
+- Same draws: 20,000, seed 20261011, yearly Sharpe ~ N(0.64, 0.30), t3 unit-SD noise, per-trade mean = Sharpe / sqrt(101.5).
+- **CLOSE if cumulative forward P&L at 50 trades < -8.2749 risk units** (about -$8,275). At 55 a year it would have been -7.3603.
+
+**ES cost:** 0.363 pt a round trip, per section 1B, for the constants and the forward read. The 0.533 pt of `rebal_scan.run` was used only to rebuild the source for parity. Month-end holds never cross a roll, so B's SD is the same at either cost.
+
+**B's constants use the source's 09-24 ES cache** (`ES_daily_rth.csv`).
+- The 10-14 fill of the ES master moves two 2020 closes (2020-02-28, 2020-06-30).
+- On the new master B's SD is $4,087.96 - reported, not used. The forward read uses the master.
+
+**Calendar and data notes:**
+- Part C's forward days come from `tools/data/bls_dates.txt` in the shared checkout (untracked; another lane owns it). It ends 2026-12-10, and the scorer prints its path and last date.
+- Over the WF it holds the same 216 release days as the source's `cpi_dates.csv` + `nfp_dates.csv`.
+- The forward read applies section 6's every-bar rule. On the WF that drops one source trade, 2022-12-13 (one 1-minute bar missing).
+
+**The clock has not started.**
+- Parts A and B refuse on stale data (fund closes end 2026-09-08 / 2026-09-23; the auction calendar was fetched 2026-10-05) until the owner approves the two feeds (MANAGER #1041).
+- Part C runs. The check run used `--since 2026-10-14`, so no forward trade was scored.
