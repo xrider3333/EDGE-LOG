@@ -5295,6 +5295,83 @@ def _refuse_beside_live_writer(paths, label):
     return 2
 
 
+# ONE ENGINE PER HOST (owner 2026-10-14 via MANAGER #162/#163). On 09-21 the box ran TWO copies
+# of this engine, each rewriting state.json / signals.csv / heartbeat.json from its own memory
+# (two writers lose each other's records and can re-emit or drop a trade). The heartbeat check
+# above only guards a HAND run, and never cloud_signal_thread itself (a stale heartbeat must not
+# stop the real writer). So every live entry point -- cloud_signal_thread (the box's systemd
+# service and the PC runner's thread), cmd_once, cmd_loop -- first takes a NON-BLOCKING OS lock
+# on <state_dir>/engine.lock (msvcrt on Windows, flock elsewhere: api/qqq_exec.py
+# _acquire_host_slot's pattern). A copy that finds it held logs one line and returns at once,
+# before writing anything. The OS drops the lock when the holder exits, hard kill included, so
+# there is nothing stale to clean up. Not re-entrant, on purpose: a second engine thread in the
+# SAME process is a second writer too. --replay is not a live writer (isolated by default;
+# --live-paths has its own heartbeat refusal) and takes no lock.
+ENGINE_LOCK_FILE = "engine.lock"
+
+
+def _engine_lock_path(paths=None):
+    return os.path.join((paths or DEFAULT_PATHS)["state_dir"], ENGINE_LOCK_FILE)
+
+
+def _acquire_engine_lock(paths=None, log=print):
+    """Open handle holding this host's engine lock (see the block above), or None when another
+    engine holds it -- or the lock file cannot even be opened (then no engine may run here
+    either: refusing is loud, two writers are silent). Never raises."""
+    path = _engine_lock_path(paths)
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        fh = open(path, "a+b")
+    except Exception as e:
+        log(f"[cloud-signal] could not open the engine lock {path}: {type(e).__name__}: {e}")
+        return None
+    try:
+        try:
+            import msvcrt
+        except ImportError:
+            msvcrt = None
+        if msvcrt is not None:
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_EX | fcntl.LOCK_NB)
+        return fh
+    except OSError:
+        fh.close()
+        return None
+
+
+def _release_engine_lock(fh):
+    """Unlock (explicitly, before closing: a child forked while the lock was held shares it on
+    POSIX) and close. Never raises; None is a no-op."""
+    if fh is None:
+        return
+    try:
+        try:
+            import msvcrt
+        except ImportError:
+            msvcrt = None
+        if msvcrt is not None:
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_UNLCK, 1)
+        else:
+            import fcntl
+            fcntl.flock(fh.fileno(), fcntl.LOCK_UN)
+    except Exception:
+        pass
+    try:
+        fh.close()
+    except Exception:
+        pass
+
+
+def _engine_lock_refusal(paths, label):
+    return (f"cloud_signal {label}: REFUSED -- another signal engine on this host holds "
+            f"{_engine_lock_path(paths)} (one engine per host: a second copy would rewrite "
+            f"state.json/signals.csv/heartbeat.json beside it). Nothing written.")
+
+
 def cmd_replay(day, live_paths=False):
     """--replay. Isolated by default: the session replays in an isolated_paths() copy that
     is kept and named on screen, so its state.json/signals.csv can be read afterwards,
@@ -5336,7 +5413,8 @@ def cmd_once():
     serving_hosts -- see _serving_hosts_ok's docstring: that gate protects
     cloud_signal_thread, but a hand-run `--once` on an excluded host bypassed it (MINOR
     review fix, 2026-09-26). Returns the process exit code; main() passes it to
-    sys.exit()."""
+    sys.exit(). Also refused (returns 2) while another engine on this host holds the engine
+    lock -- ONE ENGINE PER HOST (2026-10-14), see _acquire_engine_lock."""
     paths = DEFAULT_PATHS
     hosts_ok, hosts_reason = _serving_hosts_ok()
     if not hosts_ok:
@@ -5345,15 +5423,22 @@ def cmd_once():
     rc = _refuse_beside_live_writer(paths, "--once")
     if rc:
         return rc
-    log_history_windows(paths=paths)
-    warnings = {}
-    events = step(fetch=True, paths=paths, warnings=warnings)
-    cache_failed = bool(warnings.get("cache_write_failed"))
-    note = f"{len(events)} event(s)" + (" (cache_write_failed)" if cache_failed else "")
-    _write_heartbeat(paths, ok=True, note=note, cache_write_failed=cache_failed)
-    print(f"cloud_signal --once: {len(events)} new event(s)")
-    print(_fmt_ledger_table(events))
-    return 0
+    lock = _acquire_engine_lock(paths)
+    if lock is None:
+        print(_engine_lock_refusal(paths, "--once"))
+        return 2
+    try:
+        log_history_windows(paths=paths)
+        warnings = {}
+        events = step(fetch=True, paths=paths, warnings=warnings)
+        cache_failed = bool(warnings.get("cache_write_failed"))
+        note = f"{len(events)} event(s)" + (" (cache_write_failed)" if cache_failed else "")
+        _write_heartbeat(paths, ok=True, note=note, cache_write_failed=cache_failed)
+        print(f"cloud_signal --once: {len(events)} new event(s)")
+        print(_fmt_ledger_table(events))
+        return 0
+    finally:
+        _release_engine_lock(lock)
 
 
 THREAD_STEP_SEC = 30.0   # see cloud_signal_thread
@@ -6212,12 +6297,32 @@ def cloud_signal_thread(stop=None, log=print):
     returns at once, never touching signals.csv, state.json or the heartbeat file.
 
     EOD SETTLE (2026-09-28): for five minutes after each session's close this thread runs
-    the settle step instead of idling -- see the EOD SETTLE block above _eod_settle_tick."""
+    the settle step instead of idling -- see the EOD SETTLE block above _eod_settle_tick.
+
+    ONE ENGINE PER HOST (2026-10-14): right after the serving_hosts gate it takes the engine
+    lock (_acquire_engine_lock, <state_dir>/engine.lock); a second copy on the same host --
+    the box ran two on 09-21 -- logs one REFUSING line and returns at once, writing nothing.
+    The lock is released when this function returns (stop set) or the process ends."""
     hosts_ok, hosts_reason = _serving_hosts_ok(log=log)
     if not hosts_ok:
         log(f"[cloud-signal] REFUSING to run the signal engine: {hosts_reason} -- never "
             "stepping, never writing signals.csv/state.json/heartbeat.json")
         return
+    lock = _acquire_engine_lock(DEFAULT_PATHS, log=log)
+    if lock is None:
+        log(f"[cloud-signal] REFUSING to run the signal engine: another engine on this host "
+            f"holds {_engine_lock_path(DEFAULT_PATHS)} (one engine per host) -- never stepping, "
+            "never writing signals.csv/state.json/heartbeat.json")
+        return
+    try:
+        _engine_thread_run(stop=stop, log=log)
+    finally:
+        _release_engine_lock(lock)
+
+
+def _engine_thread_run(stop=None, log=print):
+    """cloud_signal_thread's body once its serving_hosts gate and engine lock are passed --
+    see that function's docstring. Never call it directly: it takes no lock itself."""
     log("[cloud-signal] parallel run: ON (signals only, no order path)")
     # engine pushes the last process could not deliver (finding 16) -- retried off this loop
     if _is_cloud_host():
@@ -6363,7 +6468,11 @@ def cmd_loop():
     never inside the loop below. This loop writes the heartbeat itself every iteration
     (ok=True, "outside session hours" or an event count), so checking freshness again
     inside the loop would see the stamp IT JUST WROTE a moment before and refuse itself
-    on the very next pass."""
+    on the very next pass.
+
+    ONE ENGINE PER HOST (2026-10-14): then the engine lock (_acquire_engine_lock) -- refused
+    (returns 2, nothing written) while another engine on this host holds it; held for the
+    whole loop and released when it ends (Ctrl+C included)."""
     paths = DEFAULT_PATHS
     hosts_ok, hosts_reason = _serving_hosts_ok()
     if not hosts_ok:
@@ -6372,6 +6481,18 @@ def cmd_loop():
     rc = _refuse_beside_live_writer(paths, "--loop")
     if rc:
         return rc
+    lock = _acquire_engine_lock(paths)
+    if lock is None:
+        print(_engine_lock_refusal(paths, "--loop"))
+        return 2
+    try:
+        return _cmd_loop_run(paths)
+    finally:
+        _release_engine_lock(lock)
+
+
+def _cmd_loop_run(paths):
+    """cmd_loop's loop once its checks and engine lock are passed. Never returns on its own."""
     log_history_windows(paths=paths)
     print("cloud_signal --loop: stepping every 20s during session hours (Ctrl+C to stop)")
     while True:
