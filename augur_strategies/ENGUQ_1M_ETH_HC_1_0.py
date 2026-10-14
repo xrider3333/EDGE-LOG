@@ -23,9 +23,20 @@ convert survivors into non-survivors. The expected result is that every cap lose
 tighter caps lose more. This is run to produce the NUMBERS the owner asked for, not because the
 prior changed.
 
-LATTICE NOTE. `max_hold_bars` is fenced 0..20000 step 5 rather than TCAP's step 100, because the
-cells that answer the question (15 and 60 bars) are not reachable on a 100-step lattice. If this
-file is ever sent to an Auto-Validate, that fence is what makes the short cells evaluable.
+LATTICE NOTE, re-cut 2026-10-14 for HOLD CAP r2 (docs/PREREG_enguq_holdcap_r2_2026-10-14.md).
+`max_hold_bars` is fenced 0..6900 step 60 -- one-hour resolution, capped at one week.
+
+The r1 fence was 0..20000 step 5, which r1 needed to reach its 15-minute cell. A full Auto-Validate
+does not: the owner's smallest named cell is 2 hours, and r1 already measured 15, 30 and 60 minutes
+and found them dead or marginal. 4,001 lattice points for one knob inside a 900-trial search over
+fourteen knobs is resolution nobody asked for, bought with trials the other knobs need.
+
+The fence holds all five of the owner's named cells EXACTLY -- off 0, two hours 60x2, four hours
+60x4, one session 60x23, one week 60x115 -- and still searches 116 values with 0 = off in the
+space, so it is a re-cut and not a pinning. tools/enguq_queue_holdcap_r2.py asserts all five land
+on the declared lattice and REFUSES to queue if any does not; that check sits in the queue path
+rather than in tests/ so the ship stays on the fast contract tier, and it blocks the run itself
+rather than a push, which is the thing that matters.
 """
 import numpy as np
 
@@ -96,7 +107,7 @@ DEFAULT_PARAMS = {
     'regime_len': {'default': 10, 'min': 0, 'max': 100, 'step': 5, 'type': 'int',
                   'label': 'Regime SMA (days, 0=off)',
                   'tooltip': 'Only go long when close is above its N-DAY simple average. 0=off.'},
-    'max_hold_bars': {'default': 0, 'min': 0, 'max': 20000, 'step': 5, 'type': 'int',
+    'max_hold_bars': {'default': 0, 'min': 0, 'max': 6900, 'step': 60, 'type': 'int',
                       'label': 'Hold cap (bars, 0 = off)',
                       'tooltip': 'Force-close at this bar\'s close once the position has been open this many 1-minute bars. 0 = OFF = parity with the crown. 15 = quarter hour, 60 = one hour, 1380 = one session.'},
     'breakeven_R': {'default': 2.0, 'min': 1.0, 'max': 2.5, 'step': 0.5, 'type': 'float',
