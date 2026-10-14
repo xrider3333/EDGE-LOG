@@ -360,3 +360,8 @@ def test_roster_names_a_strategy_held_back_by_the_per_contract_gate(tmp_path):
     assert it["status"] == "fail" and it["detail"].startswith("EdgeLogNOISE HELD BACK since 10-09 09:00")
     log.write_text(log.read_text() + "2026-10-09 09:20:00  RECOVERED: EdgeLogNOISE, EdgeLogENGUQ1m are Realtime\n")
     assert S.check_roster(now, str(log))[0]["status"] == "pass"
+
+
+def test_tonights_report_is_not_due_before_17_45_et():
+    # the nightly pass lands ~17:00-17:15 ET (10-12 17:15, 10-13 17:11); 16:42 / 17:02 ET sweeps must still read yesterday's
+    assert S.REPORT_DUE_ET == dt.time(17, 45)

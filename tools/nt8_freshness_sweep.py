@@ -391,9 +391,14 @@ def check_readiness(now_ts, path=None):
     return [_item("readiness", "pass", "Premarket readiness", f"ran today ({'READY' if j.get('ok') else 'NOT READY - it pushed its own alert'})")]
 
 
+REPORT_DUE_ET = dt.time(17, 45)
+
+
 def check_report_and_bundle(now_ts, db=None, uid=None):
     now_et = dt.datetime.fromtimestamp(now_ts, ET)
-    want = now_et.date() if (_trading_day(now_et.date()) and now_et.time() >= dt.time(16, 40)) else _prev_trading_day(now_et.date())
+    # The nightly pass WRITES the report at ~17:00-17:15 ET (it waits for the 17:00 ET session end; 10-12 landed 17:15,
+    # 10-13 17:11), not at 16:10. A 16:40 cutoff made the 16:42 / 17:02 ET sweeps cry 'no report' every evening (#171/#174).
+    want = now_et.date() if (_trading_day(now_et.date()) and now_et.time() >= REPORT_DUE_ET) else _prev_trading_day(now_et.date())
     out = []
     try:
         if db is None:
@@ -409,7 +414,7 @@ def check_report_and_bundle(now_ts, db=None, uid=None):
         snap = u.collection("paper_reports").document(want.isoformat()).get()
         if not snap.exists:
             out.append(_item("report", "fail", "Nightly paper report",
-                             f"no report for {want} (the 16:10 ET runner pass did not write it)"))
+                             f"no report for {want} (the nightly runner pass, which lands ~17:00-17:15 ET, did not write it)"))
         else:
             out.append(_item("report", "pass", "Nightly paper report", f"{want} present"))
         meta = u.collection("paper_bundle").document("0").get()        # part 0 carries gen / parts / n_total
