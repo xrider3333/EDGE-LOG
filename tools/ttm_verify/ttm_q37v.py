@@ -21,7 +21,7 @@ OUT = "C:/EdgeLog/_anatomy_cache/ttm_q37v"
 sys.path.insert(0, REPO)
 os.chdir(REPO)
 os.environ["AUGUR_TRIAL_CACHE"] = "0"
-from augur_engine.data import load_master_arrays           # noqa: E402
+from augur_engine.data import list_masters, load_master_arrays   # noqa: E402
 from augur_engine.engine import run_backtest               # noqa: E402
 from augur_engine.drawdowns import dd5, dd_pct_peak         # noqa: E402
 from api import cloud_signal as CS                          # noqa: E402
@@ -67,7 +67,11 @@ def main():
     assert sha(PURE) == PIN_PURE, "PURE list pin"
     fp = os.path.join(REPO, "augur_strategies", "NQDIP_1_1.py")
     print("NQDIP_1_1.py sha256", sha(fp))
-    A = load_master_arrays({"filename": MASTER})
+    # FIX 1 (before any output, disclosed): the roll guard refuses a hand-built {"filename"} row - load the registry row
+    row = [x for x in list_masters() if x.get("filename") == MASTER]
+    assert len(row) == 1, row
+    print("master row", {k: row[0].get(k) for k in ("id", "instrument", "timeframe", "source", "session")})
+    A = load_master_arrays(row[0])
     idx = pd.DatetimeIndex(A["index"])
     sessions = pd.DatetimeIndex(sorted(set(idx.tz_localize(None).normalize())))
     m = types.ModuleType("ttm_q37v_dip")

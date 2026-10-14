@@ -21,3 +21,7 @@ MATCH RULE (fixed now). VERIFIED if, against q37_dip_qqq.json: QQQ trade count i
 cause before any verdict word. My output's sha256 is posted to MANAGER before the JSON is opened.
 COULD FOOL US: same strategy file and same master as Q37 (the check is the booking / window / yardstick, not DIP's logic); no
 dividends in the prints; closed-trade booking.
+
+ADDENDUM 1 (2026-10-14, after the first launch, BEFORE any P&L was computed or printed): the engine's roll guard refused the harness's
+hand-built master row {"filename": ...} (RollGuardError: registry master id 113, source alpaca_split_rth, instrument QQQ). Fix: load
+the registry row from list_masters() by filename. Nothing else changed; the match rule stands.
