@@ -1016,6 +1016,60 @@ def test_fetch_and_merge_all_dropped_fetch_keeps_the_cache_without_warning(tmp_p
     assert pd.read_csv(cs._cache_path("1m", paths))["time"].tolist() == [_B]
 
 
+def test_yfinance_fallback_never_overwrites_cached_bars(tmp_path, monkeypatch):
+    """YAHOO FALLBACK NEVER REWRITES HISTORY (owner 2026-10-14 via MANAGER #162/#163). 10-02 on
+    the box a Webull read timed out, the fallback pulled yfinance's whole window and the merge
+    kept Yahoo's copy of every bar the cache already held -- history restated in one fetch.
+    The cached bars (volume 1000) must stay exactly as they were; only the new bar is added."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    cached = {i: _FINAL[i] for i in (0, 1, 2)}
+    _epoch_rows(cached).to_csv(cs._cache_path("1m", paths), index=False)
+    monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})
+    monkeypatch.setattr(cs, "_YF_KEPT_LOGGED", {})
+    _pin_wall(monkeypatch, _B + 400)                  # every bar below has long settled
+    restated = {i: (o + 0.05, h + 0.05, l + 0.05, c + 0.05, 2000.0)
+                for i, (o, h, l, c, _v) in cached.items()}
+    _yf_only(monkeypatch, {**restated, 3: (702.4, 702.6, 702.2, 702.5, 2000.0)})
+    logged = []
+
+    merged, source, cache_ok = cs.fetch_and_merge("1m", paths, log=logged.append)
+
+    assert source == "yfinance" and cache_ok is True
+    for frame in (merged, pd.read_csv(cs._cache_path("1m", paths))):
+        by_t = frame.set_index("time")
+        assert by_t.index.tolist() == [_B, _B + 60, _B + 120, _B + 180]
+        for i, (o, h, l, c, v) in cached.items():
+            assert by_t.loc[_B + 60 * i, ["open", "high", "low", "close", "volume"]].tolist() == \
+                [o, h, l, c, 1000.0], f"cached bar {i} was rewritten"
+        assert by_t.loc[_B + 180, "volume"] == 2000.0, "the new bar is appended"
+    assert sum("left exactly as they were" in m for m in logged) == 1
+
+    # a second fallback fetch the same run: still nothing rewritten, not logged again
+    _pin_wall(monkeypatch, _B + 460)
+    merged, _, _ = cs.fetch_and_merge("1m", paths, log=logged.append)
+    assert merged.set_index("time").loc[_B, "volume"] == 1000.0
+    assert sum("left exactly as they were" in m for m in logged) == 1
+
+
+def test_a_webull_fetch_still_replaces_a_cached_bar(tmp_path, monkeypatch):
+    """The primary source keeps today's behaviour: its copy of a bar the cache holds wins."""
+    paths = cs._paths(home=str(tmp_path / "home"))
+    os.makedirs(paths["ohlc_dir"], exist_ok=True)
+    _epoch_rows({0: _FINAL[0]}).to_csv(cs._cache_path("1m", paths), index=False)
+    monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})
+    _pin_wall(monkeypatch, _B + 400)
+    o, h, l, c, _v = _FINAL[0]
+    monkeypatch.setattr(cs, "_fetch_webull", lambda timeframe, log=print: _epoch_rows(
+        {0: (o, h, l, c, 2000.0), 1: _FINAL[1]}))
+
+    merged, source, _ = cs.fetch_and_merge("1m", paths, log=lambda *_: None)
+
+    assert source == "webull"
+    assert merged.set_index("time").loc[_B, "volume"] == 2000.0
+    assert pd.read_csv(cs._cache_path("1m", paths)).set_index("time").loc[_B, "volume"] == 2000.0
+
+
 def test_unsettled_drop_is_logged_once_per_run_not_every_fetch(tmp_path, monkeypatch):
     paths = cs._paths(home=str(tmp_path / "home"))
     monkeypatch.setattr(cs, "_UNSETTLED_DROP_LOGGED", {})

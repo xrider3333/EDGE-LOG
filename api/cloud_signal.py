@@ -838,6 +838,34 @@ def _fetch_webull(timeframe, count=WEBULL_TAIL_BARS, log=print):
 _WEBULL_LAST_ERR = {"text": None}
 
 
+# YAHOO FALLBACK NEVER REWRITES HISTORY (owner 2026-10-14 via MANAGER #162/#163). On 10-02 a
+# Webull read timed out on the box ("falling back to yfinance for 5m bars"); the fallback pulls
+# yfinance's whole window (60 days of 5m bars -- tools/qqq_paper.py _fetch_yf), and the merge
+# in fetch_and_merge keeps the LATEST copy of each bar, so Yahoo's versions of bars the cache
+# already held (other volumes, a cent off here and there) replaced them: the history every
+# leg's trailing filters read was restated in one fetch. Under the fallback a fetch now adds
+# ONLY bars newer than the cache's newest bar; every cached row stays exactly as it was. The
+# Webull path is unchanged (its rows still replace a cached copy of the same bar).
+_YF_KEPT_LOGGED = {}    # timeframe -> True while a run of fallback fetches keeps cached rows
+
+
+def _yf_only_newer_than_cache(fresh, old, timeframe, log=print):
+    """`fresh` (a yfinance fallback fetch) minus every bar at or before the cache's newest bar
+    -- see the block above. Logs once per fallback run (until a Webull fetch lands) how many
+    bars it left alone. A cold cache takes the whole fetch."""
+    if fresh is None or not len(fresh) or old is None or not len(old):
+        return fresh
+    newest = int(old["time"].max())
+    keep = fresh["time"].astype("int64") > newest
+    kept_back = int((~keep).sum())
+    if kept_back and not _YF_KEPT_LOGGED.get(timeframe):
+        _YF_KEPT_LOGGED[timeframe] = True
+        log(f"[cloud-signal] yfinance fallback {timeframe}: {kept_back} bar(s) the cache already "
+            f"holds left exactly as they were -- only bars after {newest} are added (logged once "
+            f"until Webull bars land again)")
+    return fresh[keep].reset_index(drop=True)
+
+
 def fetch_and_merge(timeframe, paths=None, log=print):
     """Pull fresh bars, merge into the cache under EDGELOG_HOME, and return
     (merged_epoch_frame, source, cache_ok) where source is "webull" or "yfinance" --
@@ -872,7 +900,10 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     the time the rename is attempted, so this function returns it regardless of
     whether the rename succeeded -- the caller (step()) can still evaluate signals off
     it even when cache_ok is False, and only the ON-DISK cache is a step behind until
-    the next successful fetch."""
+    the next successful fetch.
+
+    YAHOO FALLBACK NEVER REWRITES HISTORY (2026-10-14, see _yf_only_newer_than_cache): a
+    yfinance fallback fetch adds only bars newer than the cache's newest bar."""
     import pandas as pd
     paths = paths or DEFAULT_PATHS
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
@@ -889,6 +920,8 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     fresh = _fetch_webull(timeframe, log=log)
     settled_by = _wall_epoch()
     source = "webull"
+    if fresh is not None and len(fresh):
+        _YF_KEPT_LOGGED.pop(timeframe, None)      # a fallback run (if any) has ended
     if fresh is None or not len(fresh):
         log(f"[cloud-signal] falling back to yfinance for {timeframe} bars")
         settled_by = _wall_epoch() - YF_SETTLE_SECONDS
@@ -896,6 +929,8 @@ def fetch_and_merge(timeframe, paths=None, log=print):
         fresh = qp._to_epoch_frame(fresh_df)
         source = "yfinance"
     fresh = _drop_unsettled(fresh, timeframe, settled_by, source, log=log)
+    if source == "yfinance":
+        fresh = _yf_only_newer_than_cache(fresh, old, timeframe, log=log)
     # concat only non-empty frames: an all-dropped fetch is routine under the yfinance
     # fallback, and concatenating an empty frame raises pandas' FutureWarning
     parts = [f for f in (old, fresh) if f is not None and len(f)]
