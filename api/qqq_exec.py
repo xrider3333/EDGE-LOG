@@ -85,6 +85,7 @@ import traceback
 import urllib.error
 import urllib.request  # noqa: F401 -- api/ntfy_push posts through it; tests patch qe.urllib.request
 from datetime import datetime, timedelta, timezone
+from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
 
 from . import market_calendar
 from . import nt_sync
@@ -2710,6 +2711,11 @@ def _maybe_check_webull_flat_after_eod(state, cfg, nowdt, log=print):
                           and (not have_kill or checked.get("kill")))
         if already_covered:
             return
+        # AFTER-HOURS EOD FALLBACK (2026-10-14): while it is still selling today's leftover
+        # shares, Webull is not judged (a "sell by hand" now would race its order); once every
+        # leg is done it clears _eod_flat_checked_for when all ended flat, so this runs again
+        if _ah_active_today(state, today):
+            return
         # HOLD OVERNIGHT: with a lot held overnight (or a close waiting for the open) still in
         # the book, Webull is judged only from the session close on. Before it the held lot
         # can still sell -- on its own exit between the flatten and the bell, or at 09:30 on a
@@ -2980,12 +2986,16 @@ def _broker_row_outcome(rec):
 
 
 def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qty,
-                                    intent, mode, log=print, remainder=False):
+                                    intent, mode, log=print, remainder=False, order_kwargs=None):
     """adapter.place_stock_order(...) bounded to BROKER_SEND_HARD_TIMEOUT_SEC wall-clock
     on its own worker thread -- see the module comment above this function for why and
     what a timeout returns. Never raises (an unexpected exception from the executor
     itself is left to propagate to _mirror_to_broker's own outer except, same as before
     this function existed).
+
+    `order_kwargs` (2026-10-14, AFTER-HOURS EOD FALLBACK only -- _ah_send): extra keyword
+    arguments for place_stock_order (order_type / limit_price / tif / extended_hours). None
+    (every other caller) passes nothing extra, so their call is exactly what it was.
 
     MAJOR REVIEW FIX #2 (2026-09-26): refuses to submit at all while a previous send is
     still running on the shared single worker (_send_inflight_future) -- see the module
@@ -3015,7 +3025,8 @@ def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qt
                "inflight_blocked": True}
     fut = _place_order_executor.submit(
         adapter.place_stock_order, leg=leg, signal_id=signal_id, symbol=symbol,
-        side=side, qty=qty, intent=intent, **({"remainder": True} if remainder else {}))
+        side=side, qty=qty, intent=intent, **({"remainder": True} if remainder else {}),
+        **(order_kwargs or {}))
     _inflight_send["future"] = fut
     _inflight_send["leg"] = leg
     _inflight_send["intent"] = intent
@@ -5435,6 +5446,12 @@ def _maybe_run_broker_reconcile(state, cfg, adapter, nowdt, active, log=print):
         return
     if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
         return  # OFF -- no broker to reconcile against, no network call, ever.
+    if _ah_in_flight(state):
+        # AFTER-HOURS EOD FALLBACK (2026-10-14): one of its LIMIT orders is booked in full on
+        # Webull's ack but may still be working unfilled -- a look now would read our own
+        # unsold shares as a mismatch and halt. Held until every such order is terminal;
+        # _after_hours_flatten then sets _reconcile_due (with the post-order grace).
+        return
 
     due, why = False, None
     if state.get("_reconcile_due"):
@@ -9672,6 +9689,12 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
         shadow_open = set((state.get("legs") or {}).keys())
         orphans = sorted((leg, int(abs(p.get("qty") or 0))) for leg, p in believed.items()
                          if int(abs(p.get("qty") or 0)) > 0 and leg not in shadow_open)
+        # SHORT ORPHANS (2026-10-14, EOD audit G3): the side comes from the sign of the books'
+        # quantity -- a short orphan closes with a BUY (_broker_side, the regular close's
+        # mapping). The repair used to send every orphan as "long" (SELL), which the adapter
+        # refuses for a short leg as nothing to close, so a short was never repaired.
+        lot_side = {leg: ("short" if float(p.get("qty") or 0) < 0 else "long")
+                    for leg, p in believed.items()}
         tries = state.setdefault("_flatten_tries", {})
         day = nowdt.strftime("%Y%m%d")
         live = [(leg, qty) for leg, qty in orphans
@@ -9696,9 +9719,10 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
             key = f"{day}:{leg}"
             tries[key] = int(tries.get(key, 0)) + 1
             qqq_px, src = _engine_mark_price(leg, log=log)
-            log(f"[qqq-exec] FLATTEN_BROKER: closing orphan broker lot {leg} {qty} sh "
+            side = lot_side.get(leg, "long")
+            log(f"[qqq-exec] FLATTEN_BROKER: closing orphan broker lot {leg} {side} {qty} sh "
                 f"(attempt {tries[key]} of {FLATTEN_MAX_TRIES}; shadow book holds no lot for it)")
-            _mirror_to_broker(state, leg=leg, side="long", shares=qty, shadow_px=qqq_px,
+            _mirror_to_broker(state, leg=leg, side=side, shares=qty, shadow_px=qqq_px,
                              intent="CLOSE", ts=nowdt, requeue=False,
                              trade_id=f"FIX-{leg}-{nowdt:%Y%m%d%H%M%S}", nowdt=nowdt,
                              log=log)
@@ -9718,6 +9742,1069 @@ def _maybe_flatten_orphan_broker(state, cfg, nowdt, log=print):
         except Exception as e:
             log(f"[qqq-exec] could not consume the FLATTEN_BROKER trigger at {path}: "
                 f"{type(e).__name__}: {e}")
+
+
+# -- AFTER-HOURS EOD FALLBACK (2026-10-14, OWNER ORDER via MANAGER #155) ---------------------
+# THE OWNER: "there's something called POST MARKET!! ... I want NO more EOD issues."
+#
+# WHY. The end-of-day flatten closes the book's lots at session.flat_by (15:59) with market
+# orders and re-sends a refused CLOSE until 15:59:50. When a CLOSE still has not reached Webull
+# by the session close -- refused to the end, a stalled or late flatten tick, a restart across
+# 15:59, a KILL or breaker that fires after the bell -- the shadow book has closed the lot but
+# Webull keeps the shares. Until now that only paged the owner, and the shares waited for a
+# hand-dropped FLATTEN_BROKER trigger (_maybe_flatten_orphan_broker) to sell them at market in
+# the next session: a night of unplanned risk. Webull takes only LIMIT orders outside regular
+# hours (417 "Only limit orders are supported for extended-hours trading", 2026-09-17/18), so
+# this sells those shares AFTER HOURS with a marketable LIMIT on the extended session
+# (support_trading_session "ALL", DAY), re-priced until session.after_hours_end (20:00 New
+# York); only if that fails too does it arm the next-open repair. The after-close guard in
+# _mirror_to_broker is unchanged: this path never goes through it and never sends a MARKET
+# order after the bell (the adapter itself refuses extended_hours with anything but a LIMIT).
+#
+# TARGETS: a leg the broker adapter's books still hold shares for (the SMALLER of
+# believed_positions and broker_sent_positions -- the reading _alert_close_blocked_after_close
+# uses) while the shadow book has NO lot for it. A leg with a book lot -- a lot held overnight
+# (HOLD_OVERNIGHT_LEGS: ENGUQ, DIP_*), a close_pending one -- is never touched. It targets by
+# broker-vs-book, not by reason: an EOD close refused to the end, a KILL or a breaker after the
+# bell (and _close_book_lots_after_close's late close) all leave the same orphan.
+#
+# NEVER GUESSES: the adapter's reconcile-mismatch halt, or a Webull position read that differs
+# from the adapter's own books (read before a send whenever none of our orders is working),
+# sends nothing -- one note, and it looks again. Orphan legs on BOTH sides are first crossed in
+# the books (OrderAdapter.cross_legs_internally: already flat against each other at Webull, no
+# order); a close that would open a short or cross the account through zero is not sent after
+# hours (the next-open repair takes it).
+#
+# ONE SEND PER TICK, a fresh client_order_id per attempt (qxAH<leg><YYYYMMDDHHMMSS>C -- the
+# orphan repair's FIX-id pattern with an "AH" marker; a DIP lot carries its one-character slot
+# code, qxAHDIPS...C), and never two identical orders working at once (Webull's duplicate rule
+# compares the ORDER -- see _maybe_flatten_orphan_broker). PRICE: a marketable limit through
+# the freshest price this executor has (_ah_reference_price); the cushion widens on every
+# re-price (AH_CUSHION_START, +AH_CUSHION_STEP, at most AH_CUSHION_MAX).
+#
+# LOOP per leg: send -> read its status (OrderAdapter.order_status = get_order_detail, bounded)
+# -> FILLED: done; still working AH_REPRICE_SEC after its send: cancel_order, then read until
+# Webull reports it terminal (the fill found, whole or partial, is booked through
+# apply_order_outcome, so the books count exactly what sold), and the next attempt sends the
+# remainder at a wider cushion; refused: counted, AH_MAX_REFUSALS in a row give up; AH_END or
+# AH_MAX_ATTEMPTS: cancel, confirm, give up. GIVE UP -> NEXT OPEN: the FLATTEN_BROKER trigger
+# is written (its path resolved at call time, like the repair's own) so the orphan goes at
+# market in the next session -- never while the leg is on hold because the book and Webull
+# disagree (that is the owner's to sort out, never a blind market order).
+#
+# STATE: state["after_hours_flatten"][day][leg] = {attempts, refusals, reprices, coid, sent_at,
+# limit, side, qty, status, filled_qty, filled_px, history, ...}. status: idle (between
+# attempts) / working / cancelling / unknown (an order Webull may hold) / filled / done /
+# gave_up. A restart resumes from it: an order recorded as working is read, and cancelled when
+# due, before anything else is sent -- never doubled; an AH order the adapter recorded but
+# this state never saw (a crash between the send and the state save) is adopted the same way
+# while its leg still shows shares (an UNKNOWN send, still booked).
+# Older days are pruned (one with an order still in flight never is).
+AH_END_DEFAULT = "20:00"              # config session.after_hours_end overrides it
+AH_CUSHION_START = 0.005              # the first limit sits 0.5% through the reference price,
+AH_CUSHION_STEP = 0.005               # 0.5% further on every re-price,
+AH_CUSHION_MAX = 0.03                 # never more than 3%
+AH_REPRICE_SEC = 45.0                 # a limit still not filled this long after its send is cancelled
+AH_MAX_REFUSALS = 3                   # refusals in a row before the leg gives up for the day
+AH_MAX_ATTEMPTS = 30                  # sends per leg per day
+AH_PRICE_MAX_AGE_SEC = 120.0          # a live print older than this is not "fresh"
+AH_STATUS_EVERY_SEC = 10.0            # a working order is read at most this often (always when due)
+AH_CANCEL_RESEND_SEC = 15.0           # a cancel Webull has not confirmed is sent again after this
+AH_ACCOUNT_RECHECK_SEC = 30.0         # Webull's QQQ position is re-read at most this often
+AH_ACCOUNT_ALERT_AFTER = 2            # disagreeing reads in a row before the on-hold note (fill lag)
+AH_UNRESOLVED_GIVE_UP_SEC = 1800.0    # an order no read settles is given up this long past AH_END
+AH_CALL_TIMEOUT_SEC = ORDER_STATUS_HARD_TIMEOUT_SEC
+AH_DAYS_KEEP = 5
+AH_HISTORY_KEEP = 30
+AH_ID_MARKER = "AH"
+AH_FILLED = "FILLED"
+# Webull's terminal answers for an order that did not (fully) fill. EXPIRED (a DAY order past
+# its session) is dead too, but not in the adapter's DEAD_STATUSES, so it is booked as CANCELLED.
+AH_DEAD_STATUSES = tuple(webull_orders.DEAD_STATUSES) + ("EXPIRED",)
+AH_IN_FLIGHT = ("working", "cancelling", "unknown")
+AH_DONE = ("filled", "done", "gave_up")
+
+# BOUNDED ORDER CALLS: the status reads and cancels run on their own single worker with a hard
+# timeout, like _order_status_executor -- this SDK's own timeouts are not reliably honoured.
+_ah_executor = concurrent.futures.ThreadPoolExecutor(max_workers=1,
+                                                     thread_name_prefix="qqq-afterhours")
+_ah_call_state = {"future": None}
+
+
+def _ah_call(fn, *args):
+    """fn(*args) on the after-hours worker, bounded to AH_CALL_TIMEOUT_SEC. Refuses to queue
+    behind an earlier call that is still running (RuntimeError) -- it would only run later, out
+    of context. A timeout raises concurrent.futures.TimeoutError."""
+    prev = _ah_call_state.get("future")
+    if prev is not None and not prev.done():
+        raise RuntimeError("an earlier after-hours order call is still running")
+    fut = _ah_executor.submit(fn, *args)
+    _ah_call_state["future"] = fut
+    return fut.result(timeout=AH_CALL_TIMEOUT_SEC)
+
+
+def _ah_records(state):
+    """[(day, leg, rec)] for every after-hours record on file. Never raises."""
+    out = []
+    try:
+        for day, legs in sorted((state.get("after_hours_flatten") or {}).items()):
+            if isinstance(legs, dict):
+                out.extend((day, leg, rec) for leg, rec in sorted(legs.items())
+                           if isinstance(rec, dict))
+    except Exception:
+        pass
+    return out
+
+
+def _ah_in_flight(state):
+    """True while an after-hours order of ours may still be working at Webull (booked in full
+    on its ack, possibly unfilled). Never raises."""
+    return any(rec.get("status") in AH_IN_FLIGHT for _d, _leg, rec in _ah_records(state))
+
+
+def _ah_active_today(state, day):
+    """True while any of `day`'s after-hours records is not finished (between attempts too)."""
+    return any(d == day and rec.get("status") not in AH_DONE for d, _leg, rec in _ah_records(state))
+
+
+def _ah_enabled(cfg):
+    """The owner's switch: config after_hours_flatten.enabled (default true)."""
+    conf = (cfg or {}).get("after_hours_flatten")
+    return not (isinstance(conf, dict) and conf.get("enabled") is False)
+
+
+def _ah_end_dt(cfg, nowdt):
+    """Today's after-hours end (config session.after_hours_end, default AH_END_DEFAULT 20:00 New
+    York) -- the same on a half day. An unreadable value falls back to the default."""
+    raw = ((cfg or {}).get("session") or {}).get("after_hours_end") or AH_END_DEFAULT
+    try:
+        h, m = _hhmm(raw)
+        if not (0 <= h <= 23 and 0 <= m <= 59):
+            raise ValueError(raw)
+    except Exception:
+        h, m = _hhmm(AH_END_DEFAULT)
+    return nowdt.replace(hour=h, minute=m, second=0, microsecond=0)
+
+
+def _ah_epoch(nowdt):
+    """Epoch seconds of the tick's own clock (a naive datetime is New York wall time) -- every
+    after-hours timer runs on it, so a test's simulated clock drives the loop."""
+    return _phone_epoch(nowdt)
+
+
+def _ah_leg_code(leg):
+    """The leg in an after-hours order id: 'ORB', 'NOISE'; a DIP lot 'DIP' + its one-character
+    slot code (api/trade_id.BROKER_SLOT_CODES: DIP_STREAK -> 'DIPS')."""
+    s = str(leg or "")
+    if is_dip_leg(s):
+        return DIP_FAMILY + _trade_id.BROKER_SLOT_CODES.get(s[len("DIP_"):], "")
+    return _NON_ALNUM.sub("", s)
+
+
+def _ah_client_order_id(leg, nowdt):
+    """A fresh client_order_id for one after-hours attempt, stamped to the second:
+    qxAH<leg><YYYYMMDDHHMMSS>C -- built like the orphan repair's FIX ids (the trade-id broker
+    rule over a non-trade-id body), 22-24 characters, letters and digits only. Never collides
+    with a trade's own ids (qx<engine leg key>...), a FIX id or a resting id."""
+    return _trade_id.broker_signal_base(
+        f"{AH_ID_MARKER}-{_ah_leg_code(leg)}-{nowdt:%Y%m%d%H%M%S}", "CLOSE")
+
+
+def _ah_cushion(reprices):
+    """The limit's distance through the reference price after `reprices` re-prices."""
+    return round(min(AH_CUSHION_START + AH_CUSHION_STEP * max(0, int(reprices or 0)),
+                     AH_CUSHION_MAX), 6)
+
+
+def _ah_limit(ref_px, broker_side, cushion):
+    """The marketable limit: ref x (1 - c) for a SELL rounded DOWN to the cent, ref x (1 + c)
+    for a BUY rounded UP -- always away from the market's favour, so the cushion is never
+    trimmed by the rounding. Exact decimal arithmetic (no float cent drift)."""
+    ref = Decimal(str(ref_px))
+    c = Decimal(str(cushion))
+    if str(broker_side).upper() == "BUY":
+        return float((ref * (1 + c)).quantize(Decimal("0.01"), rounding=ROUND_CEILING))
+    return float((ref * (1 - c)).quantize(Decimal("0.01"), rounding=ROUND_FLOOR))
+
+
+def _ah_reference_price(leg, log=print):
+    """(px, source, age_s) -- the freshest QQQ price this executor has after the bell:
+
+      1. "live_stream": the live Webull stream's last trade, when a stream is running and that
+         print is at most AH_PRICE_MAX_AGE_SEC old. In practice only the first minutes after
+         the bell: the stream runs 09:29-16:02 (_stream_should_run, 13:02 on a half day).
+      2. "session_close": the newest closed bar of the engine's own QQQ bar cache
+         (_engine_mark_price; this leg's timeframe first, then any other leg's -- all are QQQ).
+         That cache is regular-hours only (api/cloud_signal pulls prepost=False), so after the
+         bell its newest bar IS the session's close. age_s = how long ago that bar closed.
+
+    None of this executor's other price paths sees an after-hours print: quote_fn (the Webull
+    snapshot) is asked without extend_hour_required and only ninjatrader mode calls it, and the
+    yfinance ratio calibration is prepost=False. The cushion growing on every re-price is what
+    makes a limit marketable whatever the stale reference. (None, None, None) when nothing
+    prices QQQ at all. Never raises."""
+    try:
+        streamer = _qqq_stream_instance()
+        if streamer is not None:
+            t = streamer.last_trade()
+            px = _finite_or_none((t or {}).get("price"))
+            if px is not None and px > 0:
+                age = float((t or {}).get("age") or 0.0)
+                if age <= AH_PRICE_MAX_AGE_SEC:
+                    return px, "live_stream", round(age, 1)
+    except Exception as e:
+        log(f"[qqq-exec] after-hours: live-stream price read failed for {leg} (using the "
+            f"session close): {type(e).__name__}: {e}")
+    for cand in [leg] + [x for x in LEGS if x != leg]:
+        px, _src = _engine_mark_price(cand, log=log)
+        px = _finite_or_none(px)
+        if px is not None and px > 0:
+            age = _leg_timeframe_bar_close_age(cand, log=log)
+            return px, "session_close", (round(float(age), 1) if age is not None else None)
+    return None, None, None
+
+
+def _ah_books_qty(status, leg):
+    """Signed QQQ shares the adapter's books hold at Webull for `leg`: the SMALLER of
+    believed_positions and broker_sent_positions (the after-close alert's reading), signed by
+    the sent book. 0 when either is flat, or the two disagree on the side. Never raises."""
+    try:
+        b = ((status or {}).get("believed_positions") or {}).get(leg) or {}
+        s = ((status or {}).get("broker_sent_positions") or {}).get(leg) or {}
+        for p in (b, s):
+            if p and str(p.get("symbol") or BROKER_SYMBOL).upper() != BROKER_SYMBOL:
+                return 0
+        bq, sq = float(b.get("qty") or 0), float(s.get("qty") or 0)
+        if abs(bq) < 1e-9 or abs(sq) < 1e-9 or (bq > 0) != (sq > 0):
+            return 0
+        q = int(round(min(abs(bq), abs(sq))))
+        return q if sq > 0 else -q
+    except Exception:
+        return 0
+
+
+def _ah_orphans(state, status):
+    """{leg: signed shares} the adapter's books hold at Webull while the shadow book has NO lot
+    for the leg (a held lot, a close_pending one, any book lot: never). A leg whose CLOSE is
+    still in the regular re-send queue is left to it. Never raises."""
+    out = {}
+    try:
+        book = state.get("legs") or {}
+        queued = {str((v or {}).get("leg") or "") for v in (state.get("_broker_resend") or {}).values()
+                  if (v or {}).get("intent") == "CLOSE"}
+        names = set(((status or {}).get("believed_positions") or {}).keys()) | set(
+            ((status or {}).get("broker_sent_positions") or {}).keys())
+        for leg in sorted(names):
+            if leg in book or leg in queued:
+                continue
+            q = _ah_books_qty(status, leg)
+            if q:
+                out[leg] = q
+    except Exception:
+        return {}
+    return out
+
+
+def _ah_account_net(status):
+    """The account's QQQ net in the adapter's books: every leg's broker_sent_positions (the
+    figure its order netting plans from and reconcile() compares with Webull)."""
+    total = 0.0
+    for p in ((status or {}).get("broker_sent_positions") or {}).values():
+        if isinstance(p, dict) and str(p.get("symbol") or BROKER_SYMBOL).upper() == BROKER_SYMBOL:
+            total += float(p.get("qty") or 0)
+    return total
+
+
+def _ah_lease_block(state):
+    """None when this process may send to Webull now, else the reason -- the same cross-host
+    lease gate _mirror_to_broker applies to a CLOSE (its narrow outage exemption included).
+    Never raises (a failed check blocks)."""
+    try:
+        at_send = _LEASE.send_gate(_LEASE.uid)
+        if not state.get("_broker_lease_ok", True):
+            reason = state.get("_broker_lease_reason") or "lease unverifiable"
+        elif at_send is not None and not at_send[0]:
+            reason = at_send[1]
+        else:
+            return None
+        reason = str(reason or "lease unverifiable")
+        if (reason.startswith("lease unverifiable") and "claims the lease" not in reason
+                and (_LEASE.uid is None or _LEASE.held) and _is_serving_standalone()):
+            return None
+        return reason
+    except Exception as e:
+        return f"lease check failed: {type(e).__name__}: {e}"
+
+
+def _ah_read_order(adapter, coid, log=print):
+    """{"status", "filled", "price"} from Webull's own record of order `coid`
+    (OrderAdapter.order_status -> order_v3.get_order_detail, parsed by
+    webull_orders.order_status_fields), or None when there is no clear answer: a timeout, an
+    error, a record about another order, no status. Never raises."""
+    try:
+        res = _ah_call(adapter.order_status, coid)
+    except Exception as e:
+        log(f"[qqq-exec] after-hours: status read for {coid} failed: {type(e).__name__}: {e}")
+        return None
+    try:
+        if not isinstance(res, dict) or not res.get("ok"):
+            log(f"[qqq-exec] after-hours: no status for {coid}: "
+                f"{(res or {}).get('reason') if isinstance(res, dict) else res}")
+            return None
+        resp = res.get("response")
+        item_coid = webull_orders._field(webull_orders._order_item(resp, coid),
+                                         "client_order_id", "clientOrderId")
+        if item_coid is not None and str(item_coid) != str(coid):
+            return None   # never read (or book) another order's record
+        fields = webull_orders.order_status_fields(resp, coid)
+        st = webull_orders._norm_status(fields.get("status"))
+        if not st:
+            return None
+        px = _finite_or_none(fields.get("filled_price"))
+        return {"status": st, "filled": webull_orders._to_qty(fields.get("filled_quantity")),
+                "price": px if px is not None and px > 0 else None}
+    except Exception as e:
+        log(f"[qqq-exec] after-hours: status parse for {coid} failed: {type(e).__name__}: {e}")
+        return None
+
+
+def _ah_cancel(adapter, coid, log=print):
+    """One cancel_order for `coid` (OrderAdapter.cancel_order -> order_v3.cancel_order),
+    bounded. Its answer is only ever read from a later status read. Never raises."""
+    try:
+        res = _ah_call(adapter.cancel_order, coid)
+    except Exception as e:
+        log(f"[qqq-exec] after-hours: cancel of {coid} failed: {type(e).__name__}: {e} -- "
+            f"its next status read decides")
+        return False
+    ok = isinstance(res, dict) and bool(res.get("ok"))
+    if not ok:
+        log(f"[qqq-exec] after-hours: cancel of {coid} not ok: "
+            f"{(res or {}).get('reason') if isinstance(res, dict) else res} -- its next status "
+            f"read decides")
+    return ok
+
+
+def _ah_arm_next_open(cfg, why, nowdt, log=print):
+    """GIVE UP -> NEXT OPEN: write the FLATTEN_BROKER trigger _maybe_flatten_orphan_broker reads
+    (cfg flatten_broker_file, else <the CURRENT OUT_DIR>/FLATTEN_BROKER -- resolved now, never
+    at import, see the note in DEFAULT_CONFIG), so the orphan goes at market inside the next
+    session. An existing trigger is left as it is. Returns the path, or None. Never raises."""
+    path = (cfg or {}).get("flatten_broker_file") or os.path.join(OUT_DIR, "FLATTEN_BROKER")
+    try:
+        if not os.path.exists(path):
+            os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(f"armed by the after-hours EOD fallback at {nowdt:%Y-%m-%d %H:%M:%S} "
+                        f"New York: {why}\n")
+        return path
+    except Exception as e:
+        log(f"[qqq-exec] after-hours: could not arm the next-open repair at {path}: "
+            f"{type(e).__name__}: {e}")
+        return None
+
+
+def _ah_new_rec(leg, signed, nowdt, ah_end):
+    qty = abs(int(signed))
+    return {"leg": leg, "day": nowdt.strftime("%Y-%m-%d"),
+            "lot_side": "long" if signed > 0 else "short",
+            "side": _broker_side("long" if signed > 0 else "short", "CLOSE"),
+            "qty_start": qty, "qty": qty, "attempts": 0, "refusals": 0, "reprices": 0,
+            "status": "idle", "coid": None, "sent_at": None, "limit": None,
+            "filled_qty": 0, "filled_value": 0.0, "filled_px": None, "history": [],
+            "first_seen_et": nowdt.strftime("%Y-%m-%d %H:%M:%S"),
+            "ah_end_e": _ah_epoch(ah_end)}
+
+
+def _ah_row(*, leg, side, qty, coid, rec_b, ref_px, reason, mode=None, outcome=None,
+            fill_px=None, ok=None, sent=None):
+    """One broker_orders.csv row (the same writer and columns every other send uses)."""
+    rec_b = rec_b or {}
+    row = {
+        "ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "leg": leg, "intent": "CLOSE",
+        "side": side, "shares": qty, "signal_id": coid,
+        "client_order_id": rec_b.get("client_order_id") or "",
+        "mode": mode or rec_b.get("mode") or "",
+        "ok": rec_b.get("ok") if ok is None else ok,
+        "sent": rec_b.get("sent") if sent is None else sent,
+        "shadow_px": round(ref_px, 4) if ref_px is not None else "",
+        "broker_fill_px": round(fill_px, 4) if fill_px is not None else "",
+        "slippage": (round(fill_px - ref_px, 4)
+                     if fill_px is not None and ref_px is not None else ""),
+        "reason": reason, "duplicate": bool(rec_b.get("duplicate", False)),
+        "host_id": _lease_host_id(), "outcome": outcome or _broker_row_outcome(rec_b),
+    }
+    _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, BROKER_ORDERS_KEEP)
+
+
+# -- the after-hours phone notes: one each per leg per day (plan group A / F) --
+def _ah_verbs(broker_side):
+    """('selling', 'sold', 'sell') for a SELL; ('buying back', 'bought back', 'buy-back') for
+    the BUY that closes a short."""
+    if str(broker_side or "").upper() == "BUY":
+        return "buying back", "bought back", "buy-back"
+    return "selling", "sold", "sell"
+
+
+def _ah_say_started(state, leg, rec, ah_end, nowdt, log=print):
+    ing, _ed, noun = _ah_verbs(rec.get("side"))
+    n = int(rec.get("qty") or rec.get("qty_start") or 0)
+    return _say(state, f"after_hours:start:{leg}", _phone_day(nowdt), ntfy_push.plain(
+        PHONE_AREA, f"{ing} after hours",
+        f"the {_leg_word(leg)} end-of-day {noun} missed the close",
+        f"EOD exit missed: {ing} {n} QQQ after hours",
+        f"nothing - do not trade QQQ by hand; it re-prices until {_phone_clock(ah_end)}, then "
+        f"the 09:30 open takes over", priority="high"), log=log)
+
+
+def _ah_say_filled(state, leg, rec, nowdt, log=print):
+    _ing, ed, _noun = _ah_verbs(rec.get("side"))
+    px = rec.get("filled_px")
+    return _say(state, f"after_hours:fill:{leg}", _phone_day(nowdt), ntfy_push.plain(
+        PHONE_AREA, f"{ed} after hours", f"not affected ({_leg_word(leg)} is flat at Webull)",
+        f"{ed[:1].upper()}{ed[1:]} {int(rec.get('filled_qty') or 0)} QQQ after hours at "
+        + (f"${ntfy_push.price(px)}" if px is not None else "its limit price"),
+        "nothing", priority="default"), log=log)
+
+
+def _ah_say_gave_up(state, leg, rec, n, armed, nowdt, log=print):
+    _ing, _ed, noun = _ah_verbs(rec.get("side"))
+    if armed:
+        will = "sell" if noun == "sell" else "be bought back"
+        problem = f"After-hours {noun} failed: {n} QQQ will {will} at the 09:30 open"
+        do = ("nothing - the next session does it at the open; trade by hand only to get out "
+              "tonight")
+    elif rec.get("blocked_why"):
+        problem = f"After-hours {noun} not sent: the book and Webull disagree on {n} QQQ"
+        do = "check the Webull app and fix it by hand"
+    else:
+        problem = f"After-hours {noun} failed: {n} QQQ stay at Webull"
+        do = "check the Webull app and close them by hand"
+    return _say(state, f"after_hours:gave_up:{leg}", _phone_day(nowdt), ntfy_push.plain(
+        PHONE_AREA, "CHECK NOW", f"Webull still holds the {_leg_word(leg)} shares overnight",
+        problem, do, priority="urgent"), log=log)
+
+
+def _ah_say_blocked(state, why_words, ah_end, nowdt, log=print):
+    return _say(state, "after_hours:blocked", _phone_day(nowdt), ntfy_push.plain(
+        PHONE_AREA, "CHECK NOW", "QQQ shares may stay at Webull overnight",
+        f"The after-hours sell is on hold: {why_words}",
+        f"check the Webull app; it looks again until {_phone_clock(ah_end)}",
+        priority="high"), log=log)
+
+
+def _ah_after_episode(state, day):
+    """Every one of `day`'s records finished: ask for a confirming reconcile (after the post-order
+    grace) and, when all of them ended flat, let the after-close Webull check run again so the
+    day's verdict says what Webull holds now. Never raises."""
+    try:
+        if _ah_active_today(state, day):
+            return
+        state["_reconcile_due"] = True
+        state["_last_broker_send_at"] = time.time()
+        if all(rec.get("status") in ("filled", "done")
+               for d, _leg, rec in _ah_records(state) if d == day):
+            state.pop("_eod_flat_checked_for", None)
+    except Exception:
+        pass
+
+
+def _ah_finish_leg(state, leg, rec, nowdt, log=print):
+    """The books hold nothing for `leg` any more: filled (we sold it) or done. Never raises."""
+    try:
+        _ing, ed, _noun = _ah_verbs(rec.get("side"))
+        if int(rec.get("filled_qty") or 0) > 0:
+            rec["status"] = "filled"
+            px = rec.get("filled_px")
+            msg = (f"After-hours EOD fallback: {leg} {ed} {rec['filled_qty']} sh after hours"
+                   + (f" at {px:.2f}" if px is not None else "") + " -- flat at Webull")
+            _ah_say_filled(state, leg, rec, nowdt, log=log)
+        else:
+            rec["status"] = "done"
+            msg = (f"After-hours EOD fallback: the books no longer hold {leg} shares at Webull "
+                   f"-- nothing left to sell")
+        rec["done_at_et"] = nowdt.strftime("%Y-%m-%d %H:%M:%S")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "broker", msg, log=log)
+        _ah_after_episode(state, rec.get("day") or nowdt.strftime("%Y-%m-%d"))
+    except Exception as e:
+        log(f"[qqq-exec] after-hours finish failed for {leg} (non-fatal): {type(e).__name__}: {e}")
+
+
+def _ah_give_up(state, cfg, leg, rec, nowdt, why, log=print, n=None):
+    """The leg gives up after hours for today: arm the next-open repair -- unless the leg is
+    on hold because the book and Webull disagree (rec["blocked_why"], cleared by the next read
+    that agrees): that is the owner's to sort out, never a blind market order at the open. One
+    urgent note, one event. Never sends anything. Never raises."""
+    try:
+        if rec.get("status") == "gave_up":
+            return
+        armed = not rec.get("blocked_why")
+        n = int(n if n is not None else (rec.get("qty") or rec.get("qty_start") or 0))
+        rec.update(status="gave_up", why=why, gave_up_at_et=nowdt.strftime("%Y-%m-%d %H:%M:%S"))
+        path = _ah_arm_next_open(cfg, f"{leg} {n} sh: {why}", nowdt, log=log) if armed else None
+        rec["next_open_armed"] = bool(path)
+        msg = (f"After-hours EOD fallback GAVE UP on {leg} {n} sh ({why}) -- "
+               + ("the next session's open repair is armed (FLATTEN_BROKER)" if path
+                  else "the open repair was NOT armed: the book and Webull disagree -- check by hand"
+                  if not armed else "could NOT arm the open repair -- drop FLATTEN_BROKER by hand"))
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "broker", msg, log=log)
+        _ah_say_gave_up(state, leg, rec, n, bool(path), nowdt, log=log)
+        _ah_after_episode(state, rec.get("day") or nowdt.strftime("%Y-%m-%d"))
+    except Exception as e:
+        log(f"[qqq-exec] after-hours give-up failed for {leg} (non-fatal): "
+            f"{type(e).__name__}: {e}")
+
+
+def _ah_attempt_done(state, cfg, adapter, leg, rec, nowdt, st, got, px, stop, log=print):
+    """Webull reported attempt `rec["coid"]` terminal (`st`, `got` shares filled, already booked
+    through apply_order_outcome): note the fill, finish its broker_orders.csv row, then either
+    the leg is flat (filled), it gives up (the window is over, AH_MAX_REFUSALS, AH_MAX_ATTEMPTS)
+    or the next tick sends the remainder at a wider cushion."""
+    coid = rec.get("coid")
+    qty = int(rec.get("qty") or 0)
+    our_cancel = rec.get("cancel_sent_at") is not None
+    if got > 0:
+        use = px if px is not None else float(rec.get("limit") or 0)
+        rec["filled_qty"] = int(rec.get("filled_qty") or 0) + got
+        rec["filled_value"] = round(float(rec.get("filled_value") or 0) + got * use, 4)
+        rec["filled_px"] = round(rec["filled_value"] / rec["filled_qty"], 4)
+    updates = {"outcome": st,
+               "reason": (f"{rec.get('row_reason') or 'after-hours EOD fallback'}; Webull {st}: "
+                          f"{got} of {qty} filled"
+                          + (" (no fill price reported)" if got and px is None else ""))}
+    if got != qty:
+        updates["shares"] = got   # what sold -- an unfilled attempt must never pair as a close
+    if got > 0 and px is not None:
+        updates["broker_fill_px"] = round(px, 4)
+        if rec.get("ref_px") is not None:
+            updates["slippage"] = round(px - float(rec["ref_px"]), 4)
+    if coid:
+        _update_broker_order_row(coid, updates, log=log)
+    hist = rec.setdefault("history", [])
+    hist.append({"coid": coid, "limit": rec.get("limit"), "qty": qty, "status": st,
+                 "filled": got, "px": px, "sent_at_et": rec.get("sent_at_et")})
+    del hist[:-AH_HISTORY_KEEP]
+    if got > 0 or st == AH_FILLED:
+        rec["refusals"] = 0
+    if st in ("REJECTED", "FAILED") and not our_cancel and got == 0:
+        rec["refusals"] = int(rec.get("refusals") or 0) + 1   # Webull killed it, not us
+    elif st != AH_FILLED:
+        rec["reprices"] = int(rec.get("reprices") or 0) + 1   # re-priced: a wider cushion next
+    rec.update(status="idle", last_coid=coid, coid=None, cancel_sent_at=None, cancel_tries=0,
+               attempt_filled=0, read_at=None, sent_at=None)
+    state["_reconcile_due"] = True
+    state["_last_broker_send_at"] = time.time()
+    msg = (f"After-hours EOD fallback: {leg} attempt {rec.get('attempts')} ({coid}) is {st} at "
+           f"Webull -- {got} of {qty} filled" + (f" at {px:.2f}" if got and px is not None else ""))
+    log(f"[qqq-exec] {msg}")
+    _log_event(state, "broker", msg, log=log)
+    remaining = abs(_ah_books_qty(adapter.status(), leg))
+    if remaining == 0:
+        _ah_finish_leg(state, leg, rec, nowdt, log=log)
+        return
+    rec["qty"] = remaining
+    if stop:
+        _ah_give_up(state, cfg, leg, rec, nowdt, "the after-hours window is over", log=log,
+                    n=remaining)
+    elif int(rec.get("refusals") or 0) >= AH_MAX_REFUSALS:
+        _ah_give_up(state, cfg, leg, rec, nowdt,
+                    f"Webull refused it {rec['refusals']} times in a row", log=log, n=remaining)
+    elif int(rec.get("attempts") or 0) >= AH_MAX_ATTEMPTS:
+        _ah_give_up(state, cfg, leg, rec, nowdt, f"{AH_MAX_ATTEMPTS} attempts used", log=log,
+                    n=remaining)
+
+
+def _ah_service(state, cfg, adapter, leg, rec, nowdt, stop=False, log=print):
+    """One look at an order of ours Webull may still be working: read its status (at most every
+    AH_STATUS_EVERY_SEC, always once it is due); terminal -> book exactly what filled and close
+    the attempt; still working AH_REPRICE_SEC after its send (or `stop`: the window is over, an
+    earlier day's order, the owner's switch off) -> cancel it, and again every
+    AH_CANCEL_RESEND_SEC until Webull confirms it terminal. Never sends a new order. Never
+    raises."""
+    try:
+        coid = rec.get("coid")
+        if not coid:
+            rec["status"] = "idle"
+            return
+        now_e = _ah_epoch(nowdt)
+        sent_e = float(rec.get("sent_at") or now_e)
+        due = bool(stop) or (now_e - sent_e) >= AH_REPRICE_SEC
+        last_read = rec.get("read_at")
+        if (rec.get("status") == "working" and not due and last_read is not None
+                and now_e - float(last_read) < AH_STATUS_EVERY_SEC):
+            return
+        ans = _ah_read_order(adapter, coid, log=log)
+        rec["read_at"] = now_e
+        st = (ans or {}).get("status")
+        filled = (ans or {}).get("filled")
+        if st:
+            rec["last_status"] = st
+        if st == AH_FILLED or (st in AH_DEAD_STATUSES and filled is not None):
+            got = int(rec.get("qty") or 0) if st == AH_FILLED else int(round(filled))
+            res = adapter.apply_order_outcome(coid, "CANCELLED" if st == "EXPIRED" else st, got)
+            if isinstance(res, dict) and res.get("deferred"):
+                return   # the adapter's books are busy (a send in flight): booked next tick
+            _ah_attempt_done(state, cfg, adapter, leg, rec, nowdt, st, got,
+                             (ans or {}).get("price"), stop, log=log)
+            return
+        if st and st not in AH_DEAD_STATUSES:
+            # working at Webull (PENDING / SUBMITTED / PARTIAL_FILLED / any other live word)
+            if filled is not None:
+                rec["attempt_filled"] = int(round(filled))
+            if rec.get("status") == "unknown":
+                rec["status"] = "working"
+        if due and rec.get("cancel_sent_at") is None:
+            _ah_cancel(adapter, coid, log=log)
+            rec["cancel_sent_at"] = now_e
+            rec["cancel_tries"] = 1
+            if rec.get("status") == "working":
+                rec["status"] = "cancelling"
+            msg = (f"After-hours EOD fallback: {leg} {coid} "
+                   + ("cancelled -- the after-hours window is over" if stop else
+                      f"not filled {int(now_e - sent_e)}s after its send (limit "
+                      f"{float(rec.get('limit') or 0):.2f}) -- cancelled, re-priced once Webull "
+                      f"confirms it")
+                   + (f" ({rec.get('attempt_filled')} filled so far)"
+                      if rec.get("attempt_filled") else ""))
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "broker", msg, log=log)
+        elif (rec.get("cancel_sent_at") is not None
+              and now_e - float(rec["cancel_sent_at"]) >= AH_CANCEL_RESEND_SEC):
+            _ah_cancel(adapter, coid, log=log)
+            rec["cancel_sent_at"] = now_e
+            rec["cancel_tries"] = int(rec.get("cancel_tries") or 0) + 1
+        if (stop and int(rec.get("cancel_tries") or 0) >= 3
+                and now_e - float(rec.get("ah_end_e") or now_e) >= AH_UNRESOLVED_GIVE_UP_SEC):
+            # no read has settled it long past the window (a DAY order is dead by now anyway)
+            rec["unresolved_coid"] = coid
+            _ah_give_up(state, cfg, leg, rec, nowdt,
+                        f"Webull never confirmed order {coid} terminal", log=log)
+    except Exception as e:
+        log(f"[qqq-exec] after-hours order check failed for {leg} (non-fatal): "
+            f"{type(e).__name__}: {e}")
+
+
+def _ah_send(state, cfg, adapter, leg, rec, nowdt, ah_end, *, bside, qty, limit, cushion,
+             ref_px, ref_src, ref_age, mode, log=print):
+    """One after-hours attempt for `leg`: place_stock_order(intent CLOSE, LIMIT at `limit`, DAY,
+    extended_hours=True -> support_trading_session "ALL") under a fresh id, bounded like every
+    send (_place_stock_order_with_timeout) -- never through _mirror_to_broker and its after-close
+    guard. One broker_orders.csv row, one event."""
+    coid = _ah_client_order_id(leg, nowdt)
+    attempt = int(rec.get("attempts") or 0) + 1
+    reason = (f"after-hours EOD fallback, attempt {attempt}, limit {limit:.2f} (LIMIT DAY, "
+              f"extended hours, support_trading_session ALL; reference {ref_px:.2f} "
+              f"{ref_src}" + (f" {ref_age:.0f}s old" if ref_age is not None else "")
+              + f", cushion {cushion * 100:.1f}%)")
+    try:
+        rec_b = _place_stock_order_with_timeout(
+            adapter, leg=leg, signal_id=coid, symbol=BROKER_SYMBOL, side=bside, qty=int(qty),
+            intent="CLOSE", mode=mode, log=log,
+            order_kwargs={"order_type": "LIMIT", "limit_price": limit, "tif": "DAY",
+                          "extended_hours": True})
+    except Exception as e:
+        rec_b = {"ok": False, "sent": False, "mode": "ERROR",
+                 "error": f"{type(e).__name__}: {e}", "client_order_id": ""}
+    if not isinstance(rec_b, dict):
+        rec_b = {"ok": False, "sent": False, "mode": "ERROR", "error": f"no record ({rec_b!r})"}
+    err = str(rec_b.get("reason") or rec_b.get("error") or "")
+    if rec_b.get("duplicate"):
+        log(f"[qqq-exec] after-hours: {coid} is already on file at the adapter -- nothing sent; "
+            f"a fresh id next tick")
+        return
+    if rec_b.get("busy") or rec_b.get("inflight_blocked"):
+        log(f"[qqq-exec] after-hours: {leg} held back this tick ({err}) -- tried again next tick")
+        return
+    if rec_b.get("nothing_to_close") or rec_b.get("closed_by_resting"):
+        msg = (f"After-hours EOD fallback: {leg} -- the adapter says nothing is left to close "
+               f"({err}); nothing sent")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "broker", msg, log=log)
+        return
+    sent, ok = bool(rec_b.get("sent")), bool(rec_b.get("ok"))
+    if sent:
+        rec["attempts"] = attempt
+        state["_reconcile_due"] = True
+        state["_last_broker_send_at"] = time.time()
+    _ah_row(leg=leg, side=bside, qty=int(qty), coid=coid, rec_b=rec_b, ref_px=ref_px,
+            reason=reason + (f" -- {err}" if not ok and err else ""))
+    unknown = sent and not ok and (_is_unknown_outcome(rec_b) or _broker_row_ambiguous_send(
+        sent, ok, err, rec_b.get("http_status")))
+    now_e = _ah_epoch(nowdt)
+    if (ok and sent) or unknown:
+        rec.update(status="working" if ok else "unknown",
+                   coid=webull_orders._sanitize_client_order_id(coid), sent_at=now_e,
+                   sent_at_et=nowdt.strftime("%Y-%m-%d %H:%M:%S"), limit=limit, cushion=cushion,
+                   qty=int(qty), side=bside, ref_px=ref_px, ref_src=ref_src, ref_age_s=ref_age,
+                   cancel_sent_at=None, cancel_tries=0, read_at=now_e, attempt_filled=0,
+                   row_reason=reason)
+        if ok:
+            rec["refusals"] = 0
+        _ing, _ed, noun = _ah_verbs(bside)
+        msg = (f"After-hours EOD fallback: {leg} {noun} {int(qty)} sh sent as a LIMIT "
+               f"{limit:.2f} on the extended session ({coid}, attempt {attempt}, reference "
+               f"{ref_px:.2f} {ref_src})" + ("" if ok else f" -- outcome UNKNOWN ({err}); read "
+                                                         f"before anything else is sent"))
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "broker", msg, log=log)
+        if ok:
+            _ah_say_started(state, leg, rec, ah_end, nowdt, log=log)
+        return
+    dup = "DUPLICATE_ORDER_CHECK" in err
+    if not dup:
+        rec["refusals"] = int(rec.get("refusals") or 0) + 1
+    rec["last_refusal"] = err[:300]
+    msg = (f"After-hours EOD fallback: {leg} attempt {attempt} ({coid}, limit {limit:.2f}) NOT "
+           f"accepted ({_plain_broker_error(err) or err or 'no reason'})"
+           + (" -- Webull saw an identical order working; not counted" if dup else
+              f" -- refusal {rec['refusals']} of {AH_MAX_REFUSALS}"))
+    log(f"[qqq-exec] {msg}")
+    _log_event(state, "broker", msg, log=log)
+    if int(rec.get("refusals") or 0) >= AH_MAX_REFUSALS:
+        _ah_give_up(state, cfg, leg, rec, nowdt,
+                    f"Webull refused it {rec['refusals']} times in a row "
+                    f"({_plain_broker_error(err) or err or 'no reason'})", log=log, n=int(qty))
+    elif int(rec.get("attempts") or 0) >= AH_MAX_ATTEMPTS:
+        _ah_give_up(state, cfg, leg, rec, nowdt, f"{AH_MAX_ATTEMPTS} attempts used", log=log,
+                    n=int(qty))
+
+
+def _ah_cross(state, adapter, orphans, recs, nowdt, mode, log=print):
+    """Orphan legs on BOTH sides: their shares are already flat against each other at Webull, so
+    they are crossed in the adapter's books with no order (OrderAdapter.cross_legs_internally --
+    the end-of-day flatten's own cross), one NETTED broker_orders.csv row per crossed leg. Only
+    legs with no order of ours working take part. True when something was crossed."""
+    legs = {leg: (1 if q > 0 else -1) for leg, q in orphans.items()
+            if (recs.get(leg) or {}).get("status") not in AH_IN_FLIGHT}
+    if len(set(legs.values())) < 2:
+        return False    # the other side is still being worked: wait for it
+    cross = getattr(adapter, "cross_legs_internally", None)
+    res = cross(BROKER_SYMBOL, legs) if callable(cross) else None
+    crossed = {leg: int(n) for leg, n in ((res or {}).get("crossed") or {}).items() if int(n) > 0}
+    if not crossed:
+        log("[qqq-exec] after-hours: orphan legs hold both sides but the adapter could not cross "
+            "them yet -- nothing sent; looked at again next tick")
+        return False
+    px, src, _age = _ah_reference_price(sorted(crossed)[0], log=log)
+    for leg, n in sorted(crossed.items()):
+        others = ", ".join(f"{o} {'long' if legs[o] > 0 else 'short'}" for o in sorted(crossed)
+                           if legs[o] != legs[leg])
+        _ah_row(leg=leg, side=_broker_side("long" if legs[leg] > 0 else "short", "CLOSE"),
+                qty=n, coid=_ah_client_order_id(leg, nowdt)[:-1] + "X", rec_b={}, ref_px=px,
+                reason=(f"after-hours EOD fallback: crossed internally against {others} "
+                        f"({(res or {}).get('id')}) -- already flat at Webull, no order sent"
+                        + (f"; priced at the {src} {px:.2f}" if px is not None else "")),
+                mode=mode, outcome="NETTED", fill_px=px, ok=True, sent=False)
+        rec = recs.get(leg)
+        if isinstance(rec, dict):
+            rec.setdefault("history", []).append({"netted": n, "cross": (res or {}).get("id")})
+    msg = ("After-hours EOD fallback: orphan legs on both sides crossed in the books, no order "
+           "sent: " + ", ".join(f"{leg} {'long' if legs[leg] > 0 else 'short'} {n}"
+                                for leg, n in sorted(crossed.items())))
+    log(f"[qqq-exec] {msg}")
+    _log_event(state, "broker", msg, log=log)
+    state["_reconcile_due"] = True
+    return True
+
+
+def _ah_account_agrees(state, adapter, status, nowdt, log=print):
+    """True when Webull's own QQQ position (adapter.positions, bounded) equals the adapter's
+    books (the sum of broker_sent_positions -- what reconcile() compares), False when it
+    differs, None when it could not be read. Read at most every AH_ACCOUNT_RECHECK_SEC; the
+    answer is kept in state["_ah_account"] (with how many disagreeing reads in a row: Webull's
+    position can lag a fill by seconds, so the on-hold note waits for AH_ACCOUNT_ALERT_AFTER)."""
+    day = nowdt.strftime("%Y-%m-%d")
+    now_e = _ah_epoch(nowdt)
+    acct = state.get("_ah_account") if isinstance(state.get("_ah_account"), dict) else {}
+    if acct.get("day") == day and now_e - float(acct.get("at") or 0) < AH_ACCOUNT_RECHECK_SEC:
+        return acct.get("ok")
+    info = _positions_with_timeout(adapter, log=log)
+    broker = info.get("broker")
+    books = _ah_account_net(status)
+    if broker is None:
+        ok, webull = None, None
+        log(f"[qqq-exec] after-hours: Webull's QQQ position could not be read "
+            f"({info.get('error') or 'no client'}) -- nothing sent this tick")
+    else:
+        webull = float(broker.get(BROKER_SYMBOL, 0.0) or 0.0)
+        ok = abs(webull - books) < 1e-6
+    streak = (int(acct.get("streak") or 0) + 1) if (ok is False and acct.get("day") == day) \
+        else (1 if ok is False else 0)
+    state["_ah_account"] = {"day": day, "at": now_e, "ok": ok, "webull": webull, "books": books,
+                            "streak": streak}
+    if ok is False:
+        log(f"[qqq-exec] after-hours: Webull holds {webull:g} QQQ but the books count {books:g} "
+            f"-- nothing sent (read {streak} in a row)")
+    return ok
+
+
+def _ah_blocked(state, recs, legs, nowdt, ah_end, why, why_words, log=print):
+    """NEVER GUESSES: nothing is sent for `legs` this tick -- the reason goes on their records
+    (so a give-up never arms a blind market order for them), one log line and event per reason
+    per day, one high note a day."""
+    for leg in legs:
+        if isinstance(recs.get(leg), dict):
+            recs[leg]["blocked_why"] = why
+    day = nowdt.strftime("%Y-%m-%d")
+    seen = state.get("_ah_blocked_logged") if isinstance(state.get("_ah_blocked_logged"), dict) else {}
+    if seen.get("day") != day or seen.get("why") != why:
+        state["_ah_blocked_logged"] = {"day": day, "why": why}
+        msg = (f"After-hours EOD fallback ON HOLD for {', '.join(legs)}: {why} -- nothing sent; "
+               f"it looks again")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "broker", msg, log=log)
+    _ah_say_blocked(state, why_words, ah_end, nowdt, log=log)
+
+
+def _ah_adopt_untracked(state, adapter, book, recs, nowdt, ah_end, log=print):
+    """RESTART SAFETY: an after-hours order part the adapter recorded (it caches the id before it
+    sends) that no record here knows -- a crash between the send and this state's save -- is
+    adopted as "unknown", so it is read (and cancelled when due) before anything else is sent
+    for its leg. Only parts Webull may hold (booked or pending, not terminal, under a day old).
+    Never raises."""
+    try:
+        fn = getattr(adapter, "order_parts", None)
+        if not callable(fn):
+            return
+        known = set()
+        for _d, _leg, rec in _ah_records(state):
+            known.update(c for c in [rec.get("coid"), rec.get("last_coid"), rec.get("unresolved_coid")]
+                         + [(h or {}).get("coid") for h in rec.get("history") or []] if c)
+        prefix = "qx" + AH_ID_MARKER
+        for p in fn(intent="CLOSE") or []:
+            coid = str((p or {}).get("client_order_id") or "")
+            if not coid.startswith(prefix) or coid in known:
+                continue
+            if p.get("final_status") or p.get("resting"):
+                continue
+            if not (int(p.get("booked") or 0) > 0 or p.get("pending")):
+                continue
+            if time.time() - float(p.get("ts") or 0) > 86400:
+                continue
+            leg = str(p.get("leg") or "")
+            rec = recs.get(leg)
+            if isinstance(rec, dict) and rec.get("status") in AH_IN_FLIGHT:
+                continue
+            side = str(p.get("side") or "SELL").upper()
+            qty = int(p.get("qty") or 0)
+            if not isinstance(rec, dict):
+                rec = recs[leg] = _ah_new_rec(leg, qty if side != "BUY" else -qty, nowdt, ah_end)
+            rec.update(status="unknown", coid=coid, sent_at=_ah_epoch(nowdt), qty=qty, side=side,
+                       cancel_sent_at=None, cancel_tries=0, read_at=None)
+            msg = (f"After-hours EOD fallback: adopted {leg} order {coid} the adapter recorded but "
+                   f"this book never saved (a restart mid-send?) -- read before anything is sent")
+            log(f"[qqq-exec] {msg}")
+            _log_event(state, "broker", msg, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] after-hours adopt check failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _ah_prune(book, today):
+    """Keep today and the AH_DAYS_KEEP - 1 newest earlier days; a day with an order still in
+    flight is never dropped."""
+    days = sorted(d for d in book if d != today)
+    keep = set(days[-(AH_DAYS_KEEP - 1):]) if AH_DAYS_KEEP > 1 else set()
+    for d in days:
+        legs = book.get(d)
+        if d in keep:
+            continue
+        if isinstance(legs, dict) and any(isinstance(r, dict) and r.get("status") in AH_IN_FLIGHT
+                                          for r in legs.values()):
+            continue
+        book.pop(d, None)
+
+
+def _after_hours_flatten(state, cfg, nowdt, log=print):
+    """THE AFTER-HOURS EOD FALLBACK (see the section comment above). Called every tick; never
+    raises. Active only when the broker adapter is PAPER or LIVE, on a session day, from the
+    session close (_market_closed_for_orders: 16:00, 13:00 on a half day) until
+    session.after_hours_end (20:00 New York); an order of ours still in flight is serviced
+    whenever it is found (a restart the next morning included), and from AH_END on every leg
+    still holding shares gives up (next-open repair armed). At most ONE new order per tick."""
+    try:
+        in_flight = [(d, leg, rec) for d, leg, rec in _ah_records(state)
+                     if rec.get("status") in AH_IN_FLIGHT]
+        in_window = bool(nowdt is not None and market_calendar.is_session(nowdt)
+                         and _market_closed_for_orders(nowdt))
+        if not in_flight and not in_window:
+            return
+        adapter = _get_broker_adapter(log=log)
+        mode, _mode_why = adapter.effective_mode()
+        if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            return
+        if _send_inflight_future() is not None:
+            return    # a hung send still holds the adapter: nothing this tick
+        enabled = _ah_enabled(cfg)
+        day = nowdt.strftime("%Y-%m-%d")
+        ah_end = _ah_end_dt(cfg, nowdt)
+        now_e = _ah_epoch(nowdt)
+        over = nowdt >= ah_end
+        # 1. orders of ours Webull may still be working: read / cancel / book them first
+        for d, leg, rec in in_flight:
+            _ah_service(state, cfg, adapter, leg, rec, nowdt,
+                        stop=(d != day or over or not enabled), log=log)
+        if not in_window or not enabled:
+            return
+        status = adapter.status()
+        orphans = _ah_orphans(state, status)
+        existing = state.get("after_hours_flatten")
+        if not orphans and not (isinstance(existing, dict) and existing.get(day)):
+            return     # nothing left at Webull and nothing on record today: state untouched
+        book = state.setdefault("after_hours_flatten", {})
+        _ah_prune(book, day)
+        recs = book.setdefault(day, {})
+        if orphans:
+            # a send this state never saw (UNKNOWN: still booked) would make its leg look unsold
+            _ah_adopt_untracked(state, adapter, book, recs, nowdt, ah_end, log=log)
+        for leg, rec in list(recs.items()):
+            if isinstance(rec, dict) and rec.get("status") == "idle" and leg not in orphans:
+                _ah_finish_leg(state, leg, rec, nowdt, log=log)
+        live = [leg for leg in sorted(orphans)
+                if (recs.get(leg) or {}).get("status") not in AH_IN_FLIGHT + AH_DONE]
+        if over:
+            for leg in live:
+                rec = recs.setdefault(leg, _ah_new_rec(leg, orphans[leg], nowdt, ah_end))
+                _ah_give_up(state, cfg, leg, rec, nowdt,
+                            f"the after-hours window closed at {ah_end:%H:%M} New York",
+                            log=log, n=abs(orphans[leg]))
+            return
+        if not live:
+            return
+        for leg in live:
+            if not isinstance(recs.get(leg), dict):
+                recs[leg] = _ah_new_rec(leg, orphans[leg], nowdt, ah_end)
+        # NEVER GUESSES (a): the adapter's own reconcile halt
+        try:
+            halted, source, hreason = adapter.halt_state()
+        except Exception:
+            halted, source, hreason = False, None, None
+        if halted and source == "reconcile":
+            _ah_blocked(state, recs, live, nowdt, ah_end, f"the adapter is halted ({hreason})",
+                        "the book and Webull disagree on QQQ shares", log=log)
+            if now_e - float(state.get("_ah_reconcile_asked") or 0) >= 60.0:
+                state["_ah_reconcile_asked"] = now_e
+                state["_reconcile_due"] = True    # a fresh look clears a halt that no longer holds
+            return
+        # orphans on both sides: crossed in the books first, no order
+        if len({1 if q > 0 else -1 for q in orphans.values()}) > 1:
+            _ah_cross(state, adapter, orphans, recs, nowdt, mode, log=log)
+            return
+        # NEVER GUESSES (b): Webull's own position must equal the books (only while none of our
+        # orders is working -- one that is counts as sold in the books but not yet at Webull)
+        if not _ah_in_flight(state):
+            agree = _ah_account_agrees(state, adapter, status, nowdt, log=log)
+            if agree is not True:
+                acct = state.get("_ah_account") or {}
+                if agree is False and int(acct.get("streak") or 0) >= AH_ACCOUNT_ALERT_AFTER:
+                    _ah_blocked(state, recs, live, nowdt, ah_end,
+                                f"Webull holds {float(acct.get('webull') or 0):g} QQQ but the books "
+                                f"count {float(acct.get('books') or 0):g}",
+                                "Webull's QQQ position does not match the book", log=log)
+                return
+            for leg in live:
+                recs[leg].pop("blocked_why", None)
+        lease = _ah_lease_block(state)
+        if lease:
+            seen = state.get("_ah_lease_logged")
+            if seen != f"{day}:{lease}":
+                state["_ah_lease_logged"] = f"{day}:{lease}"
+                log(f"[qqq-exec] after-hours: nothing sent -- {lease}")
+            return
+        net = _ah_account_net(status)
+        working = {(r.get("side"), int(r.get("qty") or 0), r.get("limit"))
+                   for _d, _leg, r in _ah_records(state) if r.get("status") in AH_IN_FLIGHT}
+        for leg in live:
+            rec = recs[leg]
+            if int(rec.get("attempts") or 0) >= AH_MAX_ATTEMPTS:
+                _ah_give_up(state, cfg, leg, rec, nowdt, f"{AH_MAX_ATTEMPTS} attempts used",
+                            log=log, n=abs(orphans[leg]))
+                continue
+            q = orphans[leg]
+            qty = abs(q)
+            bside = _broker_side("long" if q > 0 else "short", "CLOSE")
+            plan = webull_orders._plan_broker_parts(net, "BUY" if bside == "BUY" else "SELL", qty)
+            if len(plan) != 1 or plan[0][0] == "SHORT":
+                _ah_give_up(state, cfg, leg, rec, nowdt,
+                            f"closing it after hours would "
+                            f"{'open a short' if plan and plan[0][0] == 'SHORT' else 'cross the account through zero'}"
+                            f" (account net {net:g})", log=log, n=qty)
+                continue
+            ref_px, ref_src, ref_age = _ah_reference_price(leg, log=log)
+            if ref_px is None:
+                if rec.get("why_wait") != "no price":
+                    rec["why_wait"] = "no price"
+                    log(f"[qqq-exec] after-hours: no QQQ price to set {leg}'s limit -- nothing "
+                        f"sent; tried again next tick")
+                continue
+            rec.pop("why_wait", None)
+            cushion = _ah_cushion(rec.get("reprices"))
+            limit = _ah_limit(ref_px, bside, cushion)
+            if (bside, qty, limit) in working:
+                continue   # Webull's duplicate rule: never two identical orders working
+            _ah_send(state, cfg, adapter, leg, rec, nowdt, ah_end, bside=bside, qty=qty,
+                     limit=limit, cushion=cushion, ref_px=ref_px, ref_src=ref_src,
+                     ref_age=ref_age, mode=mode, log=log)
+            return   # ONE new order per tick
+    except Exception as e:
+        log(f"[qqq-exec] after-hours EOD fallback failed (non-fatal): {type(e).__name__}: {e}")
+
+
+# -- LATE CLOSE AFTER THE BELL (2026-10-14, EOD audit G2) --------------------------------------
+# The executor down or stalled across 15:59 (back at, say, 16:10), or a lot the flatten could not
+# price: the flat_by block only runs while the tick loop is active (to 16:05) and once a day, so a
+# NON-held lot could still be open in the shadow book after the close -- the after-hours sweep
+# above never sees it (it targets "Webull holds shares the book has no lot for"), and the lot
+# would ride to the next day's 15:59. From the session close on, on a session day, such a lot is
+# closed in the book like the regular flatten ("EOD", priced by _close_all: a fresh live print,
+# else the session close from the engine's bar cache, the source in its exit note). The
+# after-close guard then blocks the market mirror (its own push), so its shares become an orphan
+# that the after-hours sweep sells. A lot held overnight (lot["hold"]), a lot on a hold leg
+# (_hold_legs(cfg); on a breaker day only DIP's -- the flat_by block's own rule) and a
+# close_pending lot are never touched: an unmarked hold-leg lot is adopted as held the next
+# morning (_adopt_missed_holds, pinned by tests/test_qqq_exec_hold_overnight.py). flat_by_done_date
+# is stamped (so the after-close Webull check judges the day) only when no such unmarked lot is
+# open -- that check would read its shares as "still holds, sell by hand".
+AFTER_CLOSE_SWEEP_EVERY_SEC = 60.0
+
+
+def _close_book_lots_after_close(state, cfg, nowdt, quote_fn, ratio_fn, log=print):
+    """See the section comment. Tried at most every AFTER_CLOSE_SWEEP_EVERY_SEC (a lot that
+    still cannot be priced is not retried every 5 s). Never raises."""
+    try:
+        if nowdt is None or not market_calendar.is_session(nowdt)                 or not _market_closed_for_orders(nowdt):
+            return
+        legs = state.get("legs") or {}
+        if not legs:
+            return
+        # the flat_by block's own hold rule: on a breaker day only DIP's lots hold
+        hold = ({leg for leg in _hold_legs(cfg) if is_dip_leg(leg)}
+                if state.get("breaker_tripped") else set(_hold_legs(cfg)))
+        open_lots = sorted(leg for leg, lot in legs.items()
+                           if isinstance(lot, dict) and not isinstance(lot.get("hold"), dict)
+                           and not isinstance(lot.get("close_pending"), dict))
+        closing = [leg for leg in open_lots if leg not in hold]
+        if not closing:
+            return
+        day = nowdt.strftime("%Y-%m-%d")
+        now_e = _ah_epoch(nowdt)
+        last = state.get("_after_close_sweep") if isinstance(state.get("_after_close_sweep"), dict) else {}
+        if last.get("day") == day and now_e - float(last.get("at") or 0) < AFTER_CLOSE_SWEEP_EVERY_SEC:
+            return
+        state["_after_close_sweep"] = {"day": day, "at": now_e}
+        msg = (f"After the close ({nowdt:%H:%M:%S} New York): {', '.join(closing)} still open in "
+               f"the book -- the end-of-day flatten never closed "
+               f"{'it' if len(closing) == 1 else 'them'}; closed in the book now (EOD), Webull's "
+               f"shares go to the after-hours sell")
+        log(f"[qqq-exec] {msg}")
+        _log_event(state, "eod_flatten", msg, log=log)
+        _close_all(state, cfg, "EOD", quote_fn, ratio_fn, log=log, nowdt=nowdt, legs=closing)
+        unmarked_held = [leg for leg in open_lots if leg in hold and leg in (state.get("legs") or {})]
+        if state.get("flat_by_done_date") != day and not unmarked_held:
+            state["flat_by_done_date"] = day   # the day's flatten has now happened
+    except Exception as e:
+        log(f"[qqq-exec] after-close book close failed (non-fatal): {type(e).__name__}: {e}")
 
 
 # -- fill routing ------------------------------------------------------------------------
@@ -13853,6 +14940,11 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
                     _say_family_held(state, dip_held, nowdt, log=log)
             state["flat_by_done_date"] = today
 
+    # LATE CLOSE AFTER THE BELL (2026-10-14, EOD audit G2): a non-held lot still in the book from
+    # the session close on (the loop was down or stalled across flat_by) is closed in the book
+    # now; its shares go to the after-hours fallback below -- see _close_book_lots_after_close
+    _close_book_lots_after_close(state, cfg, nowdt, quote_fn, ratio_fn, log=log)
+
     unrealized = 0.0
     tripped_before_check = bool(state.get("breaker_tripped"))
     if not kill_present:
@@ -13873,6 +14965,11 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # BROKER RE-SEND (2026-09-21): after housekeeping, so a reconcile that just cleared a
     # halt lets the OPEN it blocked go out in the same tick -- see _maybe_resend_broker_orders.
     _maybe_resend_broker_orders(state, cfg, nowdt, active, log=log)
+    # AFTER-HOURS EOD FALLBACK (2026-10-14, OWNER ORDER via MANAGER #155): shares Webull still
+    # holds for a leg the book has closed are sold after hours with a marketable LIMIT on the
+    # extended session, from the session close to session.after_hours_end -- see
+    # _after_hours_flatten. Before the after-close Webull check, which waits while it works.
+    _after_hours_flatten(state, cfg, nowdt, log=log)
     # EXIT SAFETY item 4 (2026-09-26): after the flatten and its CLOSE re-sends above have
     # had their full window, read Webull's own position once and push urgently if it is
     # not flat -- see _maybe_check_webull_flat_after_eod.

@@ -784,6 +784,26 @@ def _to_px(v):
     return f if math.isfinite(f) and f > 0 else None
 
 
+# EXTENDED HOURS (2026-10-14): the v3 order dict's support_trading_session -- "CORE" (regular
+# hours only, every order before this), "ALL" (pre-market + after-hours too), "NIGHT" (not used).
+TRADING_SESSION_CORE = "CORE"
+TRADING_SESSION_ALL = "ALL"
+
+
+def _trading_session(extended_hours, order_type, limit_price):
+    """support_trading_session for one order: "CORE" unless `extended_hours`, then "ALL" --
+    which Webull takes only for a LIMIT order, so anything else (another order type, a missing,
+    non-numeric, zero or negative limit price) is a ValueError, never a silent CORE send."""
+    if not extended_hours:
+        return TRADING_SESSION_CORE
+    if str(order_type).upper() != "LIMIT":
+        raise ValueError(f"extended_hours=True needs order_type 'LIMIT' (Webull takes only limit "
+                         f"orders outside regular hours), got {order_type!r}")
+    if isinstance(limit_price, bool) or _to_px(limit_price) is None:
+        raise ValueError(f"extended_hours=True needs a positive limit_price, got {limit_price!r}")
+    return TRADING_SESSION_ALL
+
+
 def _not_found_error(e):
     """True when a lookup exception says Webull has no such order."""
     text = str(e).upper()
@@ -3242,7 +3262,17 @@ class OrderAdapter:
         "busy"). A CLOSE whose leg the gateway (or an earlier resting fill) already
         closed at Webull sends nothing and returns ok=True, sent=False,
         closed_by_resting={client_order_id, kind, filled, filled_price, trade_id}. With
-        no resting order recorded and prev_terminal off, none of this runs."""
+        no resting order recorded and prev_terminal off, none of this runs.
+
+        EXTENDED HOURS (2026-10-14, OWNER ORDER via MANAGER #155 -- api/qqq_exec.py's
+        after-hours EOD fallback): `extended_hours=True` sends support_trading_session "ALL"
+        (pre-market and after-hours included, developer.webull.com/apis/docs/trade-api/stock)
+        in every order dict this call builds, and REQUIRES order_type "LIMIT" with a positive
+        limit_price (ValueError otherwise, like the other argument checks): Webull takes only
+        limit orders outside regular hours (the 2026-09-17/18 417 "Only limit orders are
+        supported for extended-hours trading"). The limit then goes over as a 2-decimal string.
+        The record carries extended_hours=True and support_trading_session="ALL". The default
+        (False) is unchanged byte for byte: "CORE", no new record keys."""
         with self._sends_lock:
             self._stock_sends += 1
         try:
@@ -3271,6 +3301,7 @@ class OrderAdapter:
             raise ValueError(f"tif must be one of {ORDER_TIFS}, got {tif!r}")
         if intent not in ("OPEN", "CLOSE"):
             raise ValueError(f"intent must be OPEN or CLOSE, got {intent!r}")
+        trading_session = _trading_session(extended_hours, order_type, limit_price)
 
         send_started = time.time()   # SEND_LOOKUP_BUDGET_SEC counts from here (lock wait too)
         with self._lock:
@@ -3288,6 +3319,10 @@ class OrderAdapter:
                       "qty": qty, "intent": intent, "order_type": order_type,
                       "limit_price": limit_price, "tif": tif, "client_order_id": coid,
                       "ts": time.time()}
+            if trading_session != "CORE":
+                # EXTENDED HOURS: only then -- a regular order's record keeps its old keys
+                record["extended_hours"] = True
+                record["support_trading_session"] = trading_session
 
             ok, reason = self._check_rails(leg, qty, intent, remainder=remainder)
             if not ok:
@@ -3426,12 +3461,13 @@ class OrderAdapter:
                     new_order = {
                         "combo_type": "NORMAL", "client_order_id": part_coid, "symbol": symbol,
                         "instrument_type": "EQUITY", "market": market, "order_type": order_type,
-                        "quantity": str(part_qty), "support_trading_session": "CORE",
+                        "quantity": str(part_qty), "support_trading_session": trading_session,
                         "side": part_side, "time_in_force": tif, "entrust_type": "QTY",
                     }
                     if order_type in ("LIMIT", "STOP_LOSS_LIMIT", "ENHANCED_LIMIT",
                                       "AT_AUCTION_LIMIT") and limit_price is not None:
-                        new_order["limit_price"] = str(limit_price)
+                        new_order["limit_price"] = (str(limit_price) if trading_session == "CORE"
+                                                    else _px_str(limit_price))
                     # books move per ACCEPTED part, inside _send_part (see _apply_intent_to_sent)
                     parts.append(self._send_part(
                         client, account_id, mode, leg, symbol, intent, part_side, part_qty,
@@ -3492,8 +3528,10 @@ class OrderAdapter:
 
     def preview_stock_order(self, *, symbol, side, qty, order_type="MARKET",
                             limit_price=None, market="US", account_id=None,
-                            instrument_id=None):
-        """Preview only exists against a live SDK client -- OFF has nothing to preview."""
+                            instrument_id=None, extended_hours=False):
+        """Preview only exists against a live SDK client -- OFF has nothing to preview.
+        `extended_hours` as in place_stock_order (LIMIT + a limit price, session "ALL")."""
+        trading_session = _trading_session(extended_hours, str(order_type).upper(), limit_price)
         mode, reason = self.effective_mode()
         if mode not in (MODE_PAPER, MODE_LIVE):
             return {"ok": False, "reason": f"preview needs PAPER or LIVE (mode={mode}): {reason}"}
@@ -3504,10 +3542,11 @@ class OrderAdapter:
             account_id = account_id or self._account_id(mode, client)
             order = {"combo_type": "NORMAL", "symbol": symbol, "instrument_type": "EQUITY",
                     "market": market, "order_type": str(order_type).upper(),
-                    "quantity": str(qty), "support_trading_session": "CORE",
+                    "quantity": str(qty), "support_trading_session": trading_session,
                     "side": str(side).upper(), "time_in_force": "DAY", "entrust_type": "QTY"}
             if limit_price is not None:
-                order["limit_price"] = str(limit_price)
+                order["limit_price"] = (str(limit_price) if trading_session == "CORE"
+                                        else _px_str(limit_price))
             resp = client.order_v3.preview_order(account_id, [order])
             return {"ok": True, "mode": mode, "response": _safe_response(resp)}
         except Exception as e:
