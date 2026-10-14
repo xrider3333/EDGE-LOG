@@ -1,0 +1,27 @@
+TTM VERIFY Q37 - BLIND RE-CHECK OF THE LIVE DIP LEG'S BACKTEST (DIP #424 on QQQ 5m prints, fixed 1.245x = Webull DIP_424F)
+TTM (house verifier, MANAGER #89; owner 10-14 via MANAGER #108 "keep testing"), 2026-10-14. Written BEFORE any run of the script below
+and before reading tools/rocfrontier/q37_dip_qqq.py or C:\EdgeLog\_anatomy_cache\q37\q37_dip_qqq.json. Known to me already: the
+headline numbers printed in RESEARCH_LEDGER row 2.134 / BOOK 10av (QQQ ROC@30k 21.34, NQ 22.26, QQQ = 107% of NQ's $ a year).
+
+WHY. DIP_424F trades live on Webull since 2026-10-13 on the strength of Q37 (no independent re-check on record), and its forward harm
+band has only 12% power (Q38) - the backtest is nearly the whole case. Q37 also predates the FOUR NUMBERS rule (10-11).
+
+WHAT (built from docs/PREDATA_frontier_dipqqq_2026-10-09.txt + the strategy file only):
+- QQQ arm: engine run_backtest, NQDIP_1_1.py at api/cloud_signal.DIP_424_PARAMS + asset "ETF", on augur_uploads/master_ac263357.csv
+  (sha256 782dabdd... pinned, asserted). $ on each trade's EXIT session, zero days kept, $100k notional a trade.
+- Window: [QQQ arm's first entry session .. 2025-08-24]; trades kept if their exit session is in it.
+- NQ arm: the PURE roll-restated list (sha256 ce575097... asserted), trades with entry and exit inside the same window, same booking.
+- Read: ROC@30k (30 x $ a year / worst daily-curve DD, years = calendar days / 365.25), DD5 (augur_engine.drawdowns.dd5), DD% from
+  peak (dd_pct_peak, start $100k), Sortino (daily, zero days in, x sqrt 252); at RAW 1x and at F 1.245x (ROC is size-free); at the
+  file's cost (2 bp of notional RT) and at the owner's real cost (Webull $0 commission + 1 tick = $0.01 a share each side).
+- NOT re-done: KEEL v12 walk on QQQ, FT / LO split, shuffle nulls, power lines (the live leg is the FIXED arm).
+
+MATCH RULE (fixed now). VERIFIED if, against q37_dip_qqq.json: QQQ trade count in window equal; QQQ RAW ROC@30k within 0.05 of 21.34
+(or the JSON's own value); NQ ROC@30k within 0.05; QQQ/NQ $ a year within 1 percentage point. Any miss = DIFFERENCE, traced to its
+cause before any verdict word. My output's sha256 is posted to MANAGER before the JSON is opened.
+COULD FOOL US: same strategy file and same master as Q37 (the check is the booking / window / yardstick, not DIP's logic); no
+dividends in the prints; closed-trade booking.
+
+ADDENDUM 1 (2026-10-14, after the first launch, BEFORE any P&L was computed or printed): the engine's roll guard refused the harness's
+hand-built master row {"filename": ...} (RollGuardError: registry master id 113, source alpaca_split_rth, instrument QQQ). Fix: load
+the registry row from list_masters() by filename. Nothing else changed; the match rule stands.

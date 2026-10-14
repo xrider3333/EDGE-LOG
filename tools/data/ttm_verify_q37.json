@@ -1,0 +1,68 @@
+{
+ "NQ RAW (PURE list)": {
+  "dd5": 73538.15,
+  "dd_pct_peak": 41.1619,
+  "max_dd": 92465.0539999996,
+  "net": 570679.0619999999,
+  "one_episode": false,
+  "per_yr": 70970.5575061287,
+  "roc30": 23.02617727540472,
+  "sortino": 2.5916807701411733,
+  "years": 8.041067761806982
+ },
+ "QQQ $ / NQ $ a year": 1.0958013355312584,
+ "QQQ F 1.245x house": {
+  "dd5": 100279.75,
+  "dd_pct_peak": 43.1852,
+  "max_dd": 136273.43162310554,
+  "net": 778561.8434826605,
+  "one_episode": true,
+  "per_yr": 96823.19146477417,
+  "roc30": 21.31520215897114,
+  "sortino": 2.5597563892323256,
+  "years": 8.041067761806982
+ },
+ "QQQ F 1.245x real": {
+  "dd5": 99627.08,
+  "dd_pct_peak": 42.3371,
+  "max_dd": 135638.85822263418,
+  "net": 805922.7995619804,
+  "one_episode": true,
+  "per_yr": 100225.8435614618,
+  "roc30": 22.16750676202692,
+  "sortino": 2.657628640452536,
+  "years": 8.041067761806982
+ },
+ "QQQ RAW house (2 bp RT)": {
+  "dd5": 80545.98,
+  "dd_pct_peak": 38.5845,
+  "max_dd": 109456.57158482377,
+  "net": 625350.8782993257,
+  "one_episode": true,
+  "per_yr": 77769.6316986138,
+  "roc30": 21.315202158971132,
+  "sortino": 2.559756389232326,
+  "years": 8.041067761806982
+ },
+ "QQQ RAW real (1 tick each side)": {
+  "dd5": 80021.75,
+  "dd_pct_peak": 37.8811,
+  "max_dd": 108946.8740744046,
+  "net": 647327.5498489802,
+  "one_episode": true,
+  "per_yr": 80502.68559153557,
+  "roc30": 22.167506762026992,
+  "sortino": 2.6576286404525358,
+  "years": 8.041067761806982
+ },
+ "n_sessions": 2023,
+ "nq_exit_days_off_calendar": 42,
+ "nq_trades_in_window": 1759,
+ "qqq_trades_entry_in_but_exit_after": 5,
+ "qqq_trades_in_window": 1777,
+ "real_cost_per_trade_mean": 7.6327115646289005,
+ "window": [
+  "2017-08-07",
+  "2025-08-24"
+ ]
+}

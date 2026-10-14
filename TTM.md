@@ -139,6 +139,7 @@ JUMPSPLIT r1 (2026-10-08, same route): ride the morning's direction from noon to
 GAMMA r1 (2026-10-10, owner GO; run before main under MANAGER #77): dealer gamma from the SqueezeMetrics GEX photograph - DEAD on all three arms. A (ES breakout on short-gamma days) 1.34, B (ES balance fade on long-gamma days, with DISC) 1.88, against a null p95 of 17.93. C (ORB + NOISE stand down on long-gamma days inside BOOK #463) cuts the book from 93.81 to 82.87: those days are weaker but still profitable. GEX is closed as a filter; the TTM scope map has no drafted item left.
 r25 (2026-10-12, owner order 'scalping with higher win rates'): profit-target and 'not working' exits on #459 - closed at draft. Targets raise the win rate but cut the runners that make the money (top 10% of trades = 182% of WF net); the losses are trades that never go green. #459's exits stay as they are.
 r26 (2026-10-14, 'keep testing'): two new TTM leg ideas map-checked - the #459 rules on 14 ETFs, and on ES overnight hours - both closed at the map (own median ROC@30k 1.4 / 1.6). The TTM family has no idea left that can move the book; the lane works as the house's verifier.
+VERIFIER 2026-10-14: the live Webull legs' evidence re-checked blind - Q37 (DIP on QQQ, the live DIP leg's backtest) and Q38 (the harm bands of ORB_R6 / NOISE_382 / DIP_424F) both reproduce exactly; each live leg now carries its four numbers at the owner's real cost.
 
 ## Discipline this family taught the shop
 
