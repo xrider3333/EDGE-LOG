@@ -23,8 +23,14 @@
 # The roll-corrected ADJ/FADJ twins are NOT touched here: rebuild them afterwards with
 # tools/build_adjusted_masters.py, then re-run the TTM #459 parity (355 trades, $72,716 on ADJ ES 30m).
 #
+# WINDOWS (10-14): --from/--to fills every session in a date range that a master is MISSING outright (the July 2026
+# 1m hole) as well as truncated ones, with the held sessions in the window as the level check (fill_plan).
+# --accept hlv (owner call 10-14) accepts on high/low/volume agreement and records the open/close minute-edge
+# differences in the provenance instead of refusing on them.
+#
 # Run (dry run is the default; nothing is written without --commit):
 #   python tools/splice_nt_sessions.py --root ES --date 2020-02-28 --nt C:\EdgeLog\nt_hist\out\ES_0320_1m_20200228.csv
+#   python tools/splice_nt_sessions.py --root ES --from 2026-06-30 --to 2026-08-06 --accept hlv --nt <ESU6 file>
 #   python tools/splice_nt_sessions.py ... --commit
 import argparse
 import hashlib
@@ -200,6 +206,154 @@ def splice_plan(master, nt_1m, tf, session, date, ref_offset):
     return new, rep
 
 
+# ----------------------------------------------------------------------------- window fills + acceptance rules
+# Owner call 10-14 (MANAGER #59): fill NQ 2020-02-28 and the July 2026 1m hole, accepting on high/low/volume
+# agreement. Two feeds that put a print on the other side of a minute boundary disagree on that minute's open
+# and close, never on its range or its traded size (NQ 2020-02-28: highs and lows identical on 88 of 88 minutes,
+# opens/closes apart on 16 by up to 2 points). Those open/close differences are counted and recorded in the
+# provenance - not used to refuse. Measured 10-14 on every overlap (NQ Feb, ES/NQ July, RTH and ETH): highs/lows
+# within a tick on 99.1-100% of bars, volume within 5% on 98.5-100%.
+ACCEPT_RULES = ("close", "hlv")
+HLV_MIN_HL = 0.98      # share of overlap bars whose high AND low sit within one tick of the level
+HLV_MIN_VOL = 0.95     # share whose volume is within VOL_TOL (not checked for a TradingView master)
+VOL_TOL = 0.05
+# A MISSING session that NT holds from the open but that ends this many minutes or more before the regular close is a
+# short session (an early close, or CME trading through an NYSE holiday) - skipped and reported, never written. The
+# house masters hold none for 2026-07-03 (NYSE closed, CME short session to 13:00). A pull that stops a minute or
+# two short of the close is a bad pull, not a short session, and is still refused.
+SHORT_SESSION_MIN = 30
+
+
+def _hhmm(sec):
+    return str(to_et([int(sec)]).iloc[0])[11:16]
+
+
+def agreement(both, accept="close", check_volume=True):
+    """(level, stats, ok, why) on overlapping bars: `both` has the master's columns as *_m and NT's as *_nt.
+
+    close (the original rule): closes within one tick of one constant level on 90% of bars.
+    hlv: highs and lows within one tick on HLV_MIN_HL of bars and volume within VOL_TOL on HLV_MIN_VOL."""
+    if accept == "close":
+        off = both["close_m"] - both["close_nt"]
+        level = float(off.median())
+        agree = (off - level).abs() <= TICK + 1e-9
+        stats = dict(rule="close", overlap_bars=len(both), agree=round(float(agree.mean()), 4),
+                     max_diff=float((off - level).abs().max()))
+        return level, stats, agree.mean() >= 0.9, \
+            f"only {agree.mean():.0%} of {len(both)} overlapping bars agree within one tick"
+    dh, dl = both["high_m"] - both["high_nt"], both["low_m"] - both["low_nt"]
+    level = float(pd.concat([dh, dl]).median())
+    hl = ((dh - level).abs() <= TICK + 1e-9) & ((dl - level).abs() <= TICK + 1e-9)
+    vol = (both["volume_m"] - both["volume_nt"]).abs() / both["volume_m"].clip(lower=1) <= VOL_TOL
+    do = (both["open_m"] - both["open_nt"] - level).abs()
+    dc = (both["close_m"] - both["close_nt"] - level).abs()
+    stats = dict(rule="hlv", overlap_bars=len(both), agree=round(float(hl.mean()), 4),
+                 max_diff=float(max((dh - level).abs().max(), (dl - level).abs().max())),
+                 volume_within_5pct=round(float(vol.mean()), 4) if check_volume else None,
+                 open_close_differ=int(((do > TICK + 1e-9) | (dc > TICK + 1e-9)).sum()),
+                 max_open_close_diff=float(max(do.max(), dc.max())))
+    ok = hl.mean() >= HLV_MIN_HL and (not check_volume or vol.mean() >= HLV_MIN_VOL)
+    why = (f"high/low within one tick on {hl.mean():.1%} of {len(both)} overlapping bars (need {HLV_MIN_HL:.0%})"
+           + (f", volume within 5% on {vol.mean():.1%} (need {HLV_MIN_VOL:.0%})" if check_volume else ""))
+    return level, stats, ok, why
+
+
+def nt_sessions(nt_1m, session, d0, d1):
+    """Weekdays in [d0, d1] on which the NT file has minutes inside the session."""
+    out = []
+    for d in pd.bdate_range(d0, d1).strftime("%Y-%m-%d"):
+        a, b = (_epoch(x) for x in session_window(d, session))
+        if ((nt_1m["time"] >= a) & (nt_1m["time"] < b)).any():
+            out.append(d)
+    return out
+
+
+def _last_bucket(a, b, tf):
+    """Start of the session's last bar at `tf` minutes (grid from the open; 2m rows pair from the open)."""
+    step = tf * 60
+    return a + ((b - 60 - a) // step) * step
+
+
+def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", check_volume=True):
+    """New master frame with every session in [d0, d1] that the master is MISSING or holds TRUNCATED rebuilt from NT.
+
+    Each NT session is HELD (the master reaches its last bar: an anchor, nothing written), TRUNCATED (the master
+    stops early: its bars before the cut are anchors, the cut bucket onward is written) or MISSING (no master bar:
+    the whole session is written). The level is measured on every anchor bar in the window together, so a run of
+    missing days is pinned by the held sessions around it. A written session must be whole in NT - from its first
+    minute (MISSING) or from before the cut (TRUNCATED) to its last minute - or the master is refused."""
+    sessions = nt_sessions(nt_1m, session, d0, d1)
+    if not sessions:
+        raise Refused(f"{d0}..{d1}: the NT file has no minutes in any {session.upper()} session")
+    pool, writes, counts, cut_bars, skipped = [], [], {"held": 0, "truncated": 0, "missing": 0}, [], []
+    for d in sessions:
+        a, b = (_epoch(x) for x in session_window(d, session))
+        nt_in = nt_1m[(nt_1m["time"] >= a) & (nt_1m["time"] < b)]
+        first, last = int(nt_in["time"].min()), int(nt_in["time"].max())
+        whole_end = last >= b - 60
+        der = derive(nt_1m, tf, session, d)
+        if not whole_end and tf > 1:
+            der = der.iloc[:-1]                        # the bucket holding NT's last minute may be short
+        have = master[(master["time"] >= a) & (master["time"] < b)]
+        if have.empty:
+            if first <= a and last < b - SHORT_SESSION_MIN * 60:
+                skipped.append(f"{d} (short session {_hhmm(first)}..{_hhmm(last + 60)} ET)")
+                continue
+            if not whole_end or first > a:
+                raise Refused(f"{d}: the master has no bar that session and the NT minutes run {_hhmm(first)}.."
+                              f"{_hhmm(last)} ET, not the whole session - re-pull")
+            writes.append((d, a, b, der)); counts["missing"] += 1
+            continue
+        last_have = int(have["time"].max())
+        if last_have >= _last_bucket(a, b, tf):        # HELD: an anchor only
+            pool.append(der.merge(have, on="time", suffixes=("_nt", "_m"))); counts["held"] += 1
+            continue
+        if not whole_end:
+            raise Refused(f"{d}: the master stops at {_hhmm(last_have)} ET and the NT minutes stop at {_hhmm(last)} ET, "
+                          f"short of the session's last minute - re-pull")
+        if first > last_have:
+            raise Refused(f"{d}: the NT minutes start after the master's last bar - nothing to check the level on")
+        pool.append(der[der["time"] < last_have].merge(have[have["time"] < last_have], on="time",
+                                                       suffixes=("_nt", "_m")))
+        cut_bars.append(der[der["time"] == last_have].merge(have[have["time"] == last_have], on="time",
+                                                            suffixes=("_nt", "_m")))
+        writes.append((d, last_have, b, der[der["time"] >= last_have])); counts["truncated"] += 1
+    both = pd.concat(pool, ignore_index=True) if pool else pd.DataFrame()
+    if both.empty:
+        # A 60m master cut in its first hour, alone in the window: the partial bar's OPEN is final (its first minute
+        # was in the truncated source), so the level is checked on that one price and the closes rule applies.
+        both = pd.concat(cut_bars, ignore_index=True) if cut_bars else pd.DataFrame()
+        if both.empty:
+            raise Refused(f"{d0}..{d1}: no bar the master already holds overlaps the NT minutes - nothing to check "
+                          f"the level on")
+        both = both.assign(close_m=both["open_m"], close_nt=both["open_nt"])
+        accept = "close"
+    level, stats, ok, why = agreement(both, accept, check_volume)
+    if abs(level - ref_offset) > TICK + 1e-9:
+        raise Refused(f"{d0}..{d1}: NT level offset {level:+.2f} differs from the master's own {ref_offset:+.2f}")
+    if not ok:
+        raise Refused(f"{d0}..{d1}: {why}")
+    new, added = master, []
+    for d, start, end, rows in writes:
+        add = rows.copy()
+        if "source" in master.columns:
+            add["source"] = "nt_hist_splice"
+        for c in ("open", "high", "low", "close"):
+            add[c] = add[c] + ref_offset              # the master's own exact offset, not the measured one
+        replace = ((new["time"] >= start) & (new["time"] < end)).values
+        stray = new[replace & ~new["time"].isin(add["time"]).values]
+        if len(stray):
+            raise Refused(f"{d}: {len(stray)} master bar(s) after the cut are not in the NT data")
+        new = pd.concat([new[~replace], add[list(master.columns)]], ignore_index=True)
+        added.append(d)
+    new = new.sort_values("time").reset_index(drop=True)
+    if new["time"].duplicated().any():
+        raise Refused(f"{d0}..{d1}: the fill would duplicate a timestamp")
+    rep = dict(stats, level_offset=level, sessions=counts, sessions_written=added, sessions_skipped=skipped,
+               bars_added=len(new) - len(master))
+    return new, rep
+
+
 # ----------------------------------------------------------------------------- registry + run
 def _connect(db):
     # The runner processes poll this sqlite file continuously; a plain connect gives up on their short locks
@@ -291,14 +445,73 @@ def run(root, date, nt_path, commit=False, db=None, uploads=None, log=print):
     return results
 
 
+def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, uploads=None, log=print):
+    """fill_plan for every no-adjust / TradingView master of `root` that covers d0: missing and truncated sessions in
+    [d0, d1] are rebuilt from the NT file; held sessions are the level check. One provenance entry per master."""
+    if accept not in ACCEPT_RULES:
+        raise ValueError(f"accept must be one of {ACCEPT_RULES}")
+    db = db or os.path.join(ROOT, "optimizer_history.db")
+    uploads = uploads or os.path.join(ROOT, "augur_uploads")
+    nt = load_nt(nt_path)
+    nt_sha = sha256(nt_path)
+    parents, results = {}, []
+    for mid, name, fn, tf_s, src, nrows, prov in targets(db, root, d0):
+        session = "eth" if src.endswith("_eth") or "ETH" in name else "rth"
+        tf = TF_MIN[tf_s]
+        if session not in parents:
+            parents[session] = pd.read_csv(os.path.join(uploads, parent_1m(db, root, session)))
+        par = parents[session]
+        path = os.path.join(uploads, fn)
+        m = pd.read_csv(path)
+        try:
+            ref = reference_date(par, d0, session)
+            off = acceptance_reference(m, par, tf, session, ref, check_volume=(src != "tv"))
+            new, rep = fill_plan(m, nt, tf, session, d0, d1, off, accept, check_volume=(src != "tv"))
+        except Refused as e:
+            log(f"REFUSED  #{mid} {name}: {e}")
+            results.append((mid, name, "refused", str(e)))
+            continue
+        s = rep["sessions"]
+        extra = (f", volume within 5% {rep['volume_within_5pct']:.1%}" if rep.get("volume_within_5pct") is not None else "") \
+            + (f", open/close apart on {rep['open_close_differ']} bars (max {rep['max_open_close_diff']:.2f})"
+               if rep["rule"] == "hlv" else "")
+        log(f"{'SPLICE ' if commit else 'DRY-RUN'}  #{mid} {name}: +{rep['bars_added']} bars; sessions written "
+            f"{len(rep['sessions_written'])} ({s['missing']} missing, {s['truncated']} truncated), {s['held']} held"
+            f"{'; skipped ' + ', '.join(rep['sessions_skipped']) if rep['sessions_skipped'] else ''}; "
+            f"overlap {rep['overlap_bars']} bars, {rep['rule']} agree {rep['agree']:.1%}{extra}, level "
+            f"{rep['level_offset']:+.2f} (ref {ref})")
+        if commit and rep["bars_added"] > 0:
+            write_master_csv(new, path, known_rows=nrows)
+            entry = dict(window=[d0, d1], sessions_written=rep["sessions_written"],
+                         sessions_skipped=rep["sessions_skipped"], nt_file=os.path.basename(nt_path),
+                         nt_sha256=nt_sha, rows_added=rep["bars_added"], level_offset=rep["level_offset"],
+                         acceptance={k: rep[k] for k in ("rule", "overlap_bars", "agree", "max_diff",
+                                                         "volume_within_5pct", "open_close_differ",
+                                                         "max_open_close_diff") if k in rep},
+                         at=datetime.now(timezone.utc).isoformat()[:19], by="tools/splice_nt_sessions.py")
+            con = _connect(db)
+            record_splice(con, mid, prov, entry, len(new))
+            con.commit(); con.close()
+        results.append((mid, name, "spliced" if commit else "planned", rep))
+    return results
+
+
 def main(argv=None):
-    ap = argparse.ArgumentParser(description="Fill truncated ES/NQ sessions from NinjaTrader 1-minute history.")
+    ap = argparse.ArgumentParser(description="Fill truncated or missing ES/NQ sessions from NinjaTrader 1-minute history.")
     ap.add_argument("--root", required=True, choices=("ES", "NQ"))
-    ap.add_argument("--date", required=True, help="the truncated session's trade date, YYYY-MM-DD")
+    ap.add_argument("--date", help="one truncated session's trade date, YYYY-MM-DD (same as --from D --to D)")
+    ap.add_argument("--from", dest="d0", help="first trade date of a window to fill, YYYY-MM-DD")
+    ap.add_argument("--to", dest="d1", help="last trade date of the window, YYYY-MM-DD")
     ap.add_argument("--nt", required=True, help="EdgeLogHistFetch output (1m, END-stamped unix UTC)")
+    ap.add_argument("--accept", default="close", choices=ACCEPT_RULES,
+                    help="close: closes within a tick (default); hlv: highs/lows within a tick + volume within 5%%, "
+                         "open/close minute-edge differences recorded, not refused (owner call 10-14)")
     ap.add_argument("--commit", action="store_true", help="write; the default is a dry run")
     a = ap.parse_args(argv)
-    res = run(a.root, a.date, a.nt, a.commit)
+    d0, d1 = (a.date, a.date) if a.date else (a.d0, a.d1)
+    if not (d0 and d1):
+        ap.error("give --date, or --from and --to")
+    res = run_window(a.root, d0, d1, a.nt, a.commit, a.accept)
     bad = [r for r in res if r[2] == "refused"]
     print(f"{len(res) - len(bad)} master(s) {'spliced' if a.commit else 'ready'}, {len(bad)} refused."
           + ("" if a.commit else " Dry run - nothing written. Re-run with --commit, then tools/build_adjusted_masters.py."))

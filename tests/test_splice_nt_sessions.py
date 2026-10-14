@@ -8,6 +8,7 @@ disagree with the bars the master already holds, or when the master has no bar a
 lane's split_qa folder and matched to the bar.)
 """
 import importlib.util
+import json
 import os
 import sqlite3
 
@@ -169,3 +170,137 @@ def test_registry_connections_wait_for_the_runners_locks(tmp_path):
     con = sp._connect(str(db))
     assert con.execute("PRAGMA busy_timeout").fetchone()[0] == 120000
     con.close()
+
+
+# ----------------------------------------------------------------------------- window fills (10-14)
+WDAYS = ["2026-07-06", "2026-07-07", "2026-07-08", "2026-07-09"]     # Mon-Thu: held, truncated, missing, held
+
+
+def _minutes(days, seed=11):
+    rows, rng, px = [], np.random.default_rng(seed), 20000.0
+    for d in days:
+        t0 = pd.Timestamp(f"{d} 09:30", tz="US/Eastern")
+        for i in range(390):
+            o = px
+            px = round((px + rng.integers(-6, 7) * 0.25) * 4) / 4
+            rows.append(dict(time=int((t0 + pd.Timedelta(minutes=i)).timestamp()), open=o, high=max(o, px) + 0.5,
+                             low=min(o, px) - 0.5, close=px, volume=int(rng.integers(200, 2000))))
+    return pd.DataFrame(rows)
+
+
+def _window_master(tf):
+    full = _minutes(WDAYS)
+    m = pd.concat([sp.derive(full, tf, "rth", d) for d in WDAYS], ignore_index=True)
+    cut = int(pd.Timestamp(f"{WDAYS[1]} 10:58", tz="US/Eastern").timestamp())
+    d2 = sp.session_window(WDAYS[2], "rth")
+    keep = ~((m["time"] >= cut) & (m["time"] < sp._epoch(sp.session_window(WDAYS[1], "rth")[1])))
+    keep &= ~((m["time"] >= sp._epoch(d2[0])) & (m["time"] < sp._epoch(d2[1])))
+    return full, m, m[keep].reset_index(drop=True)
+
+
+@pytest.mark.parametrize("tf", [1, 5, 60])
+def test_a_window_fills_a_missing_day_and_a_truncated_one_exactly(tf):
+    full, whole, holed = _window_master(tf)
+    new, rep = sp.fill_plan(holed, full, tf, "rth", WDAYS[0], WDAYS[-1], 0.0)
+    assert rep["sessions"] == {"held": 2, "truncated": 1, "missing": 1}
+    assert rep["sessions_written"] == [WDAYS[1], WDAYS[2]]
+    assert len(new) == len(whole)
+    assert np.allclose(new[["time", "open", "high", "low", "close", "volume"]].values,
+                       whole[["time", "open", "high", "low", "close", "volume"]].values)
+
+
+def test_a_window_at_another_level_is_refused_even_with_no_truncated_day():
+    full, whole, holed = _window_master(5)
+    shifted = full.copy()
+    shifted[["open", "high", "low", "close"]] += 1.0
+    with pytest.raises(sp.Refused, match="level offset"):
+        sp.fill_plan(holed, shifted, 5, "rth", WDAYS[0], WDAYS[-1], 0.0)
+
+
+def test_a_missing_day_needs_the_whole_session_in_nt():
+    full, whole, holed = _window_master(1)
+    d2 = sp.session_window(WDAYS[2], "rth")
+    late = full[~((full["time"] >= sp._epoch(d2[0])) & (full["time"] < sp._epoch(d2[0]) + 600))]   # 09:30-09:39 gone
+    with pytest.raises(sp.Refused, match="not the whole session"):
+        sp.fill_plan(holed, late, 1, "rth", WDAYS[0], WDAYS[-1], 0.0)
+
+
+def _edge_prints(full, share=0.3, seed=3):
+    """Move a trade across the minute boundary on `share` of minutes: this minute's close and the next one's open
+    shift, its high/low and volume do not (what NQ 2020-02-28 looks like between Databento and NinjaTrader)."""
+    rng = np.random.default_rng(seed)
+    nt = full.copy()
+    idx = rng.choice(len(nt) - 1, int(share * len(nt)), replace=False)
+    for i in idx:
+        lo, hi = nt.at[i, "low"], nt.at[i, "high"]
+        nt.at[i, "close"] = min(hi, max(lo, nt.at[i, "close"] + 0.75))
+        lo2, hi2 = nt.at[i + 1, "low"], nt.at[i + 1, "high"]
+        nt.at[i + 1, "open"] = min(hi2, max(lo2, nt.at[i + 1, "open"] - 0.75))
+    return nt
+
+
+def test_hlv_accepts_minute_edge_prints_the_close_rule_refuses_and_counts_them():
+    full, whole, holed = _window_master(1)
+    nt = _edge_prints(full)
+    with pytest.raises(sp.Refused, match="agree within one tick"):
+        sp.fill_plan(holed, nt, 1, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="close")
+    new, rep = sp.fill_plan(holed, nt, 1, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv")
+    assert rep["rule"] == "hlv" and rep["agree"] == 1.0 and rep["volume_within_5pct"] == 1.0
+    assert rep["open_close_differ"] > 0 and rep["max_open_close_diff"] == 0.75
+    assert len(new) == len(whole)
+
+
+def test_hlv_refuses_a_different_range_or_volume():
+    full, whole, holed = _window_master(1)
+    wide = full.copy()
+    wide.loc[wide.index % 10 == 0, "high"] += 1.0        # ranges disagree on 10% of minutes: a different tape
+    with pytest.raises(sp.Refused, match="high/low within one tick"):
+        sp.fill_plan(holed, wide, 1, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv")
+    thin = full.copy()
+    thin["volume"] = (thin["volume"] * 0.5).astype(int)  # half the volume: another contract or a thin feed
+    with pytest.raises(sp.Refused, match="volume within 5%"):
+        sp.fill_plan(holed, thin, 1, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv")
+    new, _ = sp.fill_plan(holed, thin, 1, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv", check_volume=False)
+    assert len(new) == len(whole)                        # a TradingView master is not volume-checked
+
+
+def test_run_window_records_the_acceptance_in_the_provenance(tmp_path):
+    full = _minutes(WDAYS)
+    up = tmp_path / "up"; up.mkdir()
+    db = tmp_path / "reg.db"
+    con = sqlite3.connect(db)
+    con.execute(f"create table csv_files ({', '.join(COLS)})")
+    m1 = full.copy()
+    d2 = sp.session_window(WDAYS[2], "rth")
+    holed = m1[~((m1["time"] >= sp._epoch(d2[0])) & (m1["time"] < sp._epoch(d2[1])))]
+    holed.to_csv(up / "NOADJ_NQ_1m_RTH.csv", index=False)
+    con.execute(f"insert into csv_files values ({','.join('?' * len(COLS))})",
+                (1, "NQ 1m RTH", "NOADJ_NQ_1m_RTH.csv", "NQ", "1m", "db_noadj_rth", len(holed), WDAYS[0], WDAYS[-1],
+                 1, '{"source": "db_noadj_rth"}'))
+    con.commit(); con.close()
+    nt = _edge_prints(full).copy()
+    nt["time"] = nt["time"] + 60                         # NinjaTrader stamps the bar END
+    ntp = tmp_path / "nt.csv"
+    nt.to_csv(ntp, index=False)
+    res = sp.run_window("NQ", WDAYS[1], WDAYS[-1], str(ntp), commit=True, accept="hlv", db=str(db), uploads=str(up),
+                        log=lambda *_: None)
+    assert [r[2] for r in res] == ["spliced"]
+    con = sqlite3.connect(db)
+    rows, prov = con.execute("select rows, provenance from csv_files where id=1").fetchone()
+    p = json.loads(prov)["splices"][-1]
+    assert rows == len(full) and p["window"] == [WDAYS[1], WDAYS[-1]] and p["sessions_written"] == [WDAYS[2]]
+    assert p["acceptance"]["rule"] == "hlv" and p["acceptance"]["open_close_differ"] > 0 and p["nt_sha256"]
+
+
+def test_a_short_session_is_skipped_not_written_and_a_pull_a_minute_short_is_still_refused():
+    """2026-07-03: NYSE closed, CME traded to 13:00 ET; the house masters hold no bars that day, so the fill skips
+    it. A missing day whose NT minutes stop one minute before the close is a bad pull and refuses the master."""
+    full, whole, holed = _window_master(1)
+    d2a, d2b = (sp._epoch(x) for x in sp.session_window(WDAYS[2], "rth"))
+    early = full[~((full["time"] >= d2a + 210 * 60) & (full["time"] < d2b))]      # the missing day ends 13:00
+    new, rep = sp.fill_plan(holed, early, 1, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv")
+    assert rep["sessions_written"] == [WDAYS[1]] and rep["sessions_skipped"][0].startswith(WDAYS[2])
+    assert not ((new["time"] >= d2a) & (new["time"] < d2b)).any()
+    short = full[~((full["time"] >= d2b - 60) & (full["time"] < d2b))]            # the 15:59 minute missing
+    with pytest.raises(sp.Refused, match="not the whole session"):
+        sp.fill_plan(holed, short, 1, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv")
