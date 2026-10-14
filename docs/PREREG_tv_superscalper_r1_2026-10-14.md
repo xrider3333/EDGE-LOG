@@ -82,3 +82,27 @@ Everything below is OUR PORT ("MISC_SUPERSCALPER"), not the published script (St
   (sl_scale 0.4-1.2, tp1_mult 2-6, max_hold_bars 0-240, be_trigger 0-2, vix_feed none/daily) plus the existing ranges, 900 trials,
   NOADJ_NQ_1m_ETH.csv pinned, window 2016-07-01 .. 2026-06-30, cost 0.706, intrabar 'worst', queued behind NOISE #422+TP. Runtime guard
   unchanged. Reported: run number, the four numbers WF and LB apart, PBO, DSR, win rate, average win / loss.
+
+## Amendment 3 (2026-10-14, before any improvement number; NOISE review GO WITH EDITS, C:/EdgeLog/manager/reviews/superscalper_r1_amendment2_review_NOISE_2026-10-14.md)
+Accepted in full; replaces Amendment 2 where they differ.
+- Units: the as-ported 2024 figures 15.5 / 33.4 are GROSS points per trade; NET at 0.706 they are 14.8 / 34.0 (payoff 0.44).
+- E1: the script's "3 ATR hard cap" (Pine lines 687 / 692 / 702 / 707) is a no-op (a stop below the close is always under close +
+  3 ATR), copied faithfully - regular-hours stops are uncapped. New knob sl_cap_atr {off = as-ported, 3.0 = the author's stated cap,
+  applied}; cap first, then sl_scale.
+- E2: tp1_mult only moves a fallback target (the nearest of ~22 structural levels usually wins), so the target axis becomes
+  tp_scale {1.0, 1.5, 2.0}: tp = c + (tp - c) x tp_scale on every path, applied after the minProfit entry gate. tp1_mult stays at 4.
+- Every exit change applies AFTER all entry gates: entries are the as-ported entries; defaults reproduce the as-ported trades (test).
+- The grid (216 cells): sl_cap_atr {off, 3.0} x sl_scale {0.5, 0.75, 1.0} x tp_scale {1.0, 1.5, 2.0} x max_hold_bars {0, 30, 90} x
+  be_trigger {0, 1.0} x vix_feed {none, daily}. Breakeven moves the stop from the bar AFTER its trigger bar.
+- Daily VIX: `C:\EdgeLog\_research_cache\public_series\cboe_vol_daily.csv`, sha256 9790df06...; non-NQ-session rows dropped (the
+  CME-holiday rows from 2022); day D's close usable from 16:15 ET on D; the 10-session lookback counts NQ sessions.
+- Selection (stricter): adopt a cell as the improved defaults ONLY if its development-year net PF >= 1.0 AND the median net PF of its
+  one-step grid neighbours > 0.962 (a plateau, not one cell); otherwise the as-ported defaults stand. The +0.25-point stress line is
+  printed for the chosen cell. The harness checks this file's LF sha256 at start.
+- Validate lattice (a development choice must lie on it): sl_scale 0.40..1.20 step 0.05; tp_scale 1.0..2.0 step 0.25; max_hold_bars
+  0..240 step 30; be_trigger 0..2 step 0.5; sl_cap_atr {off, 3.0}; vix_feed {none, daily}; the existing knobs keep their ranges.
+- The validate's walk-forward read is printed with the 2024 fold shown apart and the chain WITHOUT it (knobs were chosen on 2024).
+- Runtime guard, measured before queueing: NOISE timed ~20 s per year of 1-minute ETH (~3 minutes a full-window trial); 900 trials on
+  the optimize window plus the walk-forward re-searches likely exceed ~2 days. TV measures on this machine and, if the guard trips,
+  reports the timing to MANAGER before queueing (900 trials is the owner's rule; a shorter window / coarser bars need his call).
+- Priors stated before the number: NOISE and STRATEGY-BEATING both ~5-10% that the Auto-Validate's WF clears ROC 15.
