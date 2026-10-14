@@ -365,3 +365,19 @@ def test_roster_names_a_strategy_held_back_by_the_per_contract_gate(tmp_path):
 def test_tonights_report_is_not_due_before_17_45_et():
     # the nightly pass lands ~17:00-17:15 ET (10-12 17:15, 10-13 17:11); 16:42 / 17:02 ET sweeps must still read yesterday's
     assert S.REPORT_DUE_ET == dt.time(17, 45)
+def test_coverage_ignores_the_nights_backfilled_bars_after_the_morning_start(tmp_path, monkeypatch):
+    # #173/#176: the 06:30 MST sweep read 44-50% because its hour reached back over night mode's rt=3 back-fill
+    monkeypatch.setattr(S, "EL", str(tmp_path))
+    ohlc = tmp_path / "ohlc"
+    ohlc.mkdir()
+    now = THU_0845 + 50 * 60
+    start = THU_0845 + 15 * 60                                   # NinjaTrader up and classifying from here
+    lines = ["time,open,high,low,close,volume,delta,buy_vol,sell_vol,tick_count,rt"]
+    for t in range(THU_0845 - 1800, now + 1, 10):
+        ok = t >= start
+        lines.append("%d,1,1,1,1,5,1,%d,%d,%d,%s" % (t, 3 if ok else 0, 2 if ok else 0, 5 if ok else 0, 1 if ok else 3))
+    for sym in ("NQ", "ES"):
+        (ohlc / ("%s_10s.csv" % sym)).write_text("\n".join(lines) + "\n")
+    _night(WED_1620, THU_0845)
+    cap = S.check_capture(now, str(ohlc))
+    assert [c["status"] for c in cap] == ["pass", "pass"], cap

@@ -295,7 +295,14 @@ def check_capture(now_ts, ohlc_dir=None):
         if age > 5:
             out.append(_item(f"capture_{sym}", "fail", f"10s capture {sym}", f"newest bar is {age:.0f} min old"))
             continue
-        hour = [r for r in rows if r[0] >= now_ts - 3600 and r[1] > 0]
+        # Count only bars NinjaTrader could have seen: an hour back, but never before night mode's end + 15 min. The
+        # night's bars are back-filled honestly as rt=3 (no ticks), so a 06:30 sweep read 44-50% (#173/#176) on a
+        # capture that was 100% from its 06:00 start.
+        lo = now_ts - 3600
+        w = _night(lo, grace=False)
+        if w:
+            lo = max(lo, w["end"].timestamp() + 900)
+        hour = [r for r in rows if r[0] >= lo and r[1] > 0]
         cov = (sum(1 for r in hour if r[2] > 0 and r[3] != "3") / len(hour)) if len(hour) >= 30 else 1.0
         if cov < 0.8:
             out.append(_item(f"capture_{sym}", "fail", f"10s capture {sym}",
