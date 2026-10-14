@@ -496,7 +496,8 @@ BAR_CHECK_AFTER_OPEN_MIN = 11        # 09:30 bar closes 09:35; +660 s = 09:46 at
 QQQ_1D_CHECK_FROM = (9, 40)          # the engine refreshes QQQ_1d once a day at ~09:35
 TICK_GAP_SESSION_SEC = 30.0
 SESSION_OPEN = (9, 30)
-EOD_CHECK_FROM = (16, 10)
+EOD_CHECK_FROM = (16, 10)              # a normal day; eod_check_from() moves it on a half day
+EOD_CHECK_AFTER_CLOSE_MIN = 10
 EVENING_CHECK_FROM = (19, 0)
 NQ_CHECK_FROM = (18, 0)              # before the 18:30 ET KEEL rebuild (WEBULL PUSH PLAN 10-07)
 KEEL_REBUILD_AT = (18, 30)           # deploy/cloud/edgelog-keel-state.timer, New York time
@@ -1613,9 +1614,22 @@ def _engine_problem(age, hb, snap=None):
     return "The QQQ signal program has not reported for %s%s." % (_plain_age(age), lot)
 
 
+def eod_check_from(d):
+    """(h, m) the EOD checks start on session day `d`: its close + EOD_CHECK_AFTER_CLOSE_MIN --
+    16:10 normally (EOD_CHECK_FROM), 13:10 on a recognised half day (EOD audit G7, 2026-10-14:
+    the fixed 16:10 came ~3 h late on a half day; the executor's own EOD summary now goes at the
+    close + 5 min, api/qqq_exec._eod_summary_from). Never raises: any doubt reads EOD_CHECK_FROM."""
+    try:
+        h, m = (int(x) for x in str(market_calendar.session_close_et(d) or "16:00").split(":"))
+        t = h * 60 + m + EOD_CHECK_AFTER_CLOSE_MIN
+        return (t // 60, t % 60)
+    except Exception:
+        return EOD_CHECK_FROM
+
+
 def check_eod(snap, now_et):
     d = now_et.date()
-    if not market_calendar.is_session(d) or hhmm(now_et) < EOD_CHECK_FROM:
+    if not market_calendar.is_session(d) or hhmm(now_et) < eod_check_from(d):
         return None
     today = d.isoformat()
     st = snap.get("exec_state") if isinstance(snap.get("exec_state"), dict) else {}

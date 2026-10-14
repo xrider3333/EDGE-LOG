@@ -12134,12 +12134,29 @@ def _build_readiness(feed_days, parity, reprice, state, log=print):
 
 
 # -- EOD phone summary (feature #55) --------------------------------------------------
+EOD_SUMMARY_AFTER_CLOSE_MIN = 5     # the summary goes 5 min after the session close
+
+
+def _eod_summary_from(nowdt):
+    """(h, m) the EOD summary may go from: today's session close + EOD_SUMMARY_AFTER_CLOSE_MIN --
+    16:05 normally, 13:05 on a recognised half day (EOD audit G7, 2026-10-14: a fixed 16:05
+    summary, and the box monitor's fixed 16:10 check that reads it, came ~3 h late on a half
+    day -- the first is 2026-11-27). Never raises: any doubt reads 16:05, the old time."""
+    try:
+        h, m = _hhmm(market_calendar.session_close_et(nowdt) or "16:00")
+    except Exception:
+        h, m = 16, 0
+    t = h * 60 + m + EOD_SUMMARY_AFTER_CLOSE_MIN
+    return (t // 60, t % 60)
+
+
 def _maybe_send_eod_summary(state, doc, nowdt, log=print):
-    """Once per ET weekday, at/after 16:05 ET, pushes one ntfy summary of the day."""
+    """Once per ET weekday, at/after the session close + 5 min (16:05 ET; 13:05 on a half
+    day -- _eod_summary_from), pushes one ntfy summary of the day."""
     try:
         if not _is_weekday(nowdt):
             return
-        if _et_hhmm(nowdt) < (16, 5):
+        if _et_hhmm(nowdt) < _eod_summary_from(nowdt):
             return
         today = nowdt.strftime("%Y-%m-%d")
         if state.get("eod_summary_done_date") == today:
