@@ -1695,6 +1695,21 @@ def check_eod(snap, now_et):
                  and flat.get("pushed") is True)
     short = bool(lots) and flat.get("date") == today and flat.get("flat") is False \
         and webull_short_of_held(flat, lots)
+    ah_legs = after_hours_in_progress(st, today, now_et)
+    if ah_legs and not flat_ok:
+        # AFTER-HOURS EOD FALLBACK (api/qqq_exec.py, review of 1fdde9fb item 2): the executor is
+        # still selling today's left-over shares after hours, and its after-close Webull check
+        # waits for that -- no verdict either way yet (never "sell by hand" while its limit
+        # order works), quiet
+        out.append(_verdict(
+            "webull_flat", "eod", None, sev, "after-hours sell in progress",
+            f"the executor's after-hours sell is still working ({', '.join(ah_legs)}) -- its "
+            f"post-close Webull check runs once it is done",
+            plain=_plain("The after-hours sell of today's left-over QQQ shares is still working.",
+                         action="nothing - leave QQQ alone in the Webull app",
+                         affects="the QQQ book is still selling today's left-over shares"),
+            quiet=True))
+        return _eod_settled_verdicts(snap, today, out)
     out.append(_verdict("webull_flat", "eod", flat_ok, sev, "Webull NOT confirmed flat",
                         why + (f" -- check the Webull app for the held-overnight {lw} ({keep}); "
                                f"the held trade may be missing shares." if short else
@@ -1704,6 +1719,27 @@ def check_eod(snap, now_et):
                         plain=_plain(problem, action=held_short_do(lots) if short else flat_do(lots),
                                      affects=affects),
                         quiet=exec_owns))
+    return _eod_settled_verdicts(snap, today, out)
+
+
+def after_hours_in_progress(st, today, now_et):
+    """The legs today's after-hours EOD sell (api/qqq_exec.py state.json after_hours_flatten)
+    is still working on -- a record not filled / done / gave_up -- while its window (the
+    record's ah_end_e) plus 30 minutes has not passed; [] otherwise (a dead executor never
+    keeps this monitor quiet past its window). Never raises."""
+    try:
+        day = ((st or {}).get("after_hours_flatten") or {}).get(today) or {}
+        now_e = now_et.timestamp()
+        return sorted(leg for leg, rec in day.items()
+                      if isinstance(rec, dict)
+                      and rec.get("status") not in ("filled", "done", "gave_up")
+                      and now_e < float(rec.get("ah_end_e") or 0) + 1800.0)
+    except Exception:
+        return []
+
+
+def _eod_settled_verdicts(snap, today, out):
+    """check_eod's last verdict (the engine settled today's close), appended to `out`."""
     cs = snap.get("cs_state") if isinstance(snap.get("cs_state"), dict) else {}
     settled = today in ((cs or {}).get("eod_settled") or {})
     # ONE ALERTER PER PROBLEM (api/ntfy_push): this check is the only pusher of "today's close

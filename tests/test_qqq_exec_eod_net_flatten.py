@@ -609,6 +609,10 @@ def test_a_close_blocked_after_the_bell_pushes_once_while_the_adapter_holds_shar
     adapter, fake = book
     cfg = _cfg()
     state = {"legs": {}, "events": [], "_px_source": "test"}
+    # the AFTER-HOURS FALLBACK switched off (state["_ah_cfg"], what tick() keeps from the
+    # config): nobody sells it after the bell, so this stays URGENT. With it on the note says
+    # the after-hours sell takes it -- tests/test_qqq_exec_after_hours_flatten.py
+    state["_ah_cfg"] = {"enabled": False}
     _open(state, cfg, "ORB", "short", ORB_TID)
     pushes = []
     monkeypatch.setattr(qe, "_notify", lambda *a, **k: pushes.append((a, k)))
@@ -652,7 +656,12 @@ def test_the_orphan_repair_passes_its_tick_clock_to_the_after_close_guard(tmp_pa
     trigger = out / "FLATTEN_BROKER"
     trigger.write_text("", encoding="utf-8")
     adapter = MagicMock()
-    adapter.status.return_value = {"believed_positions": {"ENGUQ": {"symbol": "QQQ", "qty": 10}}}
+    adapter.status.return_value = {"believed_positions": {"ENGUQ": {"symbol": "QQQ", "qty": 10}},
+                                   "broker_sent_positions": {"ENGUQ": {"symbol": "QQQ", "qty": 10}}}
+    # review of 1fdde9fb: the repair reads Webull's position (it agrees) and the adapter's
+    # unsettled parts (none) before it sends
+    adapter.positions.return_value = {"broker": {"QQQ": 10.0}}
+    adapter.unsettled_parts.return_value = []
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
     monkeypatch.setattr(qe, "_engine_mark_price", lambda leg, log=print: (736.5, "test"))
     seen = []
@@ -660,7 +669,10 @@ def test_the_orphan_repair_passes_its_tick_clock_to_the_after_close_guard(tmp_pa
     cfg = _cfg()
     cfg["flatten_broker_file"] = str(trigger)
     nowdt = datetime.datetime(2026, 9, 28, 10, 0, 0)
-    qe._maybe_flatten_orphan_broker({"legs": {}, "events": []}, cfg, nowdt, log=NOOP)
+    # ENGU-Q holds overnight: the book's own record that it closed it (BLOCKER 1)
+    qe._maybe_flatten_orphan_broker({"legs": {}, "events": [], "_book_closes": {
+        "ENGUQ": {"day": "2026-09-25", "at_et": "2026-09-25 15:59:00", "reason": "KILL"}}},
+        cfg, nowdt, log=NOOP)
     assert len(seen) == 1 and seen[0]["nowdt"] == nowdt
 
 

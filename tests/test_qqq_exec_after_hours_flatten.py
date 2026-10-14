@@ -16,7 +16,7 @@ no real C:\EdgeLog path (every qqq_exec path is repointed at tmp_path, the trigg
 """
 import csv
 import json
-from datetime import datetime
+from datetime import datetime, timedelta
 from unittest.mock import MagicMock
 
 import pytest
@@ -196,6 +196,10 @@ class Env:
         self.state = {"legs": {}, "events": []}
         self.lines = []
         qe._ah_call_state["future"] = None
+        # a fresh process: its first after-hours step runs the restart recovery scan once
+        monkeypatch.setitem(qe._PROCESS, "ah_boot_scan", False)
+        monkeypatch.setitem(qe._AH_SETTLED_TICK, "key", None)
+        monkeypatch.setattr(qe, "_PHONE_PROCESS_STORE", {})
 
     def log(self, *a, **k):
         self.lines.append(" ".join(str(x) for x in a))
@@ -220,6 +224,13 @@ class Env:
     def held(self, leg):
         q = qe._ah_books_qty(self.adapter.status(), leg)
         return q
+
+    def closed_by_book(self, *legs, day=DAY):
+        """The book's own record that IT closed these legs on `day` (what _reduce_lot writes) --
+        a hold leg's shares are sold after hours / at the next open only on it."""
+        for leg in legs:
+            self.state.setdefault("_book_closes", {})[leg] = {
+                "day": ds(day), "at_et": f"{ds(day)} 15:59:00", "reason": "EOD"}
 
     def ah(self, now):
         """One after-hours step, exactly as tick() calls it."""
@@ -404,6 +415,7 @@ def test_two_identical_orders_are_never_working_at_once(env):
 
 def test_dip_lots_carry_their_one_character_slot_code_in_the_id(env):
     env.books(DIP_STREAK=6)
+    env.closed_by_book("DIP_STREAK")          # a KILL / breaker close the book made today
     env.ah(at(DAY, 16, 0, 5))
     (o,) = env.fake.orders
     assert o["client_order_id"] == "qxAHDIPS20261014160005C" and o["quantity"] == "6"
@@ -438,13 +450,20 @@ def test_a_partial_fill_is_kept_working_then_only_the_remainder_is_resent(env):
 # ── 6. refusals -> give up -> next open ────────────────────────────────────────────────────────
 
 def test_three_refusals_in_a_row_give_up_and_arm_the_next_open_repair(env):
+    """Review of 1fdde9fb, item 6: refused tries are spaced 45 s apart -- three refusals take at
+    least 90 s, never a whole evening given up in 15."""
     env.books(ORB=10)
     env.fake.refuse = ["OPENAPI_CAN_NOT_TRADING_FOR_FIXGW_NOT_READY_MARKET"] * 3
     assert "flatten_broker_file" not in env.cfg
     env.ah(at(DAY, 16, 0, 5))
-    env.ah(at(DAY, 16, 0, 10))
-    assert not env.trigger().exists()
-    env.ah(at(DAY, 16, 0, 15))
+    for s in (10, 15, 20, 25, 30, 35, 40, 45):
+        env.ah(at(DAY, 16, 0, s))
+    assert len(env.fake.orders) == 1, "no retry sooner than 45 s after the refusal at 16:00:05"
+    env.ah(at(DAY, 16, 0, 50))
+    assert len(env.fake.orders) == 2, "the retry at 16:00:50"
+    env.ah(at(DAY, 16, 1, 30))
+    assert len(env.fake.orders) == 2 and not env.trigger().exists()
+    env.ah(at(DAY, 16, 1, 35))
     rec = env.rec("ORB")
     assert (rec["status"], rec["attempts"], rec["refusals"]) == ("gave_up", 3, 3)
     assert env.trigger().exists(), "the trigger resolved against the CURRENT OUT_DIR"
@@ -453,8 +472,9 @@ def test_three_refusals_in_a_row_give_up_and_arm_the_next_open_repair(env):
     assert note["priority"] == "urgent" and ntfy_push.lint(note) == []
     assert "After-hours sell failed: 10 QQQ will sell at the 09:30 open" in note["message"]
     assert env.titled("QQQ book: selling after hours") == [], "nothing was ever accepted"
-    for s in range(20, 60, 5):
-        env.ah(at(DAY, 16, 0, s))
+    for s in range(40, 60, 5):
+        env.ah(at(DAY, 16, 1, s))
+    env.ah(at(DAY, 16, 5, 0))
     assert len(env.fake.orders) == 3, "given up: nothing more today"
     assert [r["outcome"] for r in env.rows()] == ["REFUSED"] * 3
     assert env.held("ORB") == 10
@@ -464,10 +484,11 @@ def test_three_refusals_in_a_row_give_up_and_arm_the_next_open_repair(env):
 def test_a_duplicate_refusal_waits_and_is_not_counted(env):
     env.books(ORB=10)
     env.fake.refuse = ["OPENAPI_ORDER_RISK_RULE_DUPLICATE_ORDER_CHECK"] * 3
-    for s in (5, 10, 15):
-        env.ah(at(DAY, 16, 0, s))
+    for t in (at(DAY, 16, 0, 5), at(DAY, 16, 0, 50), at(DAY, 16, 1, 35)):
+        env.ah(t)
+    assert len(env.fake.orders) == 3
     assert env.rec("ORB")["refusals"] == 0 and env.rec("ORB")["status"] == "idle"
-    env.ah(at(DAY, 16, 0, 20))
+    env.ah(at(DAY, 16, 2, 20))
     assert env.rec("ORB")["status"] == "working"
 
 
@@ -601,14 +622,24 @@ def test_weekends_and_holidays_send_nothing(env, when):
     assert env.fake.orders == []
 
 
-def test_a_half_day_starts_at_13_00_and_still_ends_at_20_00(env):
+def test_a_half_day_starts_at_13_00_and_ends_at_17_00(env):
+    """Review of 1fdde9fb: Webull's post-market ends 4 h after the close -- the window ends at
+    min(after_hours_end, close + 4 h), 17:00 on the 13:00 close of 2026-11-27."""
     env.books(ORB=10)
     env.ah(at(HALF, 12, 59, 58))
     assert env.fake.orders == []
     env.ah(at(HALF, 13, 0, 5))
     (o,) = env.fake.orders
     assert o["support_trading_session"] == "ALL" and o["client_order_id"] == "qxAHORB20261127130005C"
-    assert qe._ah_end_dt(env.cfg, at(HALF, 13, 0, 5)) == at(HALF, 20, 0, 0)
+    assert qe._ah_end_dt(env.cfg, at(HALF, 13, 0, 5)) == at(HALF, 17, 0, 0)
+    assert qe._ah_end_dt(env.cfg, at(DAY, 16, 0, 5)) == at(DAY, 20, 0, 0), "a full day: 20:00"
+    env.cfg["session"]["after_hours_end"] = "16:30"
+    assert qe._ah_end_dt(env.cfg, at(HALF, 13, 0, 5)) == at(HALF, 16, 30, 0), "the earlier wins"
+    env.cfg["session"].pop("after_hours_end")
+    env.ah(at(HALF, 17, 0, 0))
+    assert env.fake.cancels == [o["client_order_id"]], "cancelled at 17:00"
+    env.ah(at(HALF, 17, 0, 5))
+    assert env.rec("ORB", day=HALF)["status"] == "gave_up" and env.trigger().exists()
 
 
 def test_the_owner_switch_turns_it_off(env):
@@ -718,6 +749,8 @@ def test_the_after_close_webull_check_waits_for_the_sale_then_judges_again(env, 
     env.ah(at(DAY, 16, 0, 15))
     assert "_eod_flat_checked_for" not in env.state, "ended flat: the day is judged again"
     qe._maybe_check_webull_flat_after_eod(env.state, env.cfg, at(DAY, 16, 0, 16), log=NOOP)
+    assert checks == [], "review item 2: not in the same tick -- after the post-order grace"
+    qe._maybe_check_webull_flat_after_eod(env.state, env.cfg, at(DAY, 16, 0, 45), log=NOOP)
     assert checks == [1]
 
 
@@ -842,8 +875,8 @@ def test_the_open_repair_still_sells_a_long_orphan(env):
 def test_a_failed_after_hours_buy_back_is_bought_back_at_the_next_open(env):
     env.books(ORB=-10)
     env.fake.refuse = ["OPENAPI_CAN_NOT_TRADING_FOR_FIXGW_NOT_READY_MARKET"] * 3
-    for s in (0, 5, 10):
-        env.ah(at(DAY, 16, 0, s))
+    for t in (at(DAY, 16, 0, 0), at(DAY, 16, 0, 45), at(DAY, 16, 1, 30)):
+        env.ah(t)
     assert env.rec("ORB")["status"] == "gave_up" and env.trigger().exists()
     assert [o["side"] for o in env.fake.orders] == ["BUY"] * 3
     _no_market_after_close(env.fake)
@@ -966,3 +999,531 @@ def test_a_held_dip_lot_alone_at_16_03_is_untouched(tenv):
     e.tick(at(DAY, 16, 3, 5))
     assert "DIP_PB" in e.state["legs"] and len(e.fake.orders) == n
     assert not (e.state.get("after_hours_flatten") or {}).get(ds(DAY))
+
+
+# ══ REVIEW OF 1fdde9fb (independent adversarial review, 2026-10-14) ═════════════════════════════
+# The reviewer's scenario tests (S1-S8) are reused below with the behaviour they now pin.
+
+def _open_row(leg, side, qty, px, coid):
+    """broker_orders.csv's OPEN row for a leg (what _mirror_to_broker writes at the entry)."""
+    qe._append_csv(qe.BROKER_ORDERS_CSV, qe.BROKER_ORDER_COLS, {
+        "ts_et": f"{ds(DAY)} 10:00:05", "leg": leg, "intent": "OPEN", "side": side,
+        "shares": qty, "signal_id": coid, "client_order_id": coid, "mode": "PAPER", "ok": True,
+        "sent": True, "shadow_px": px, "broker_fill_px": px, "slippage": 0.0, "reason": "",
+        "duplicate": False, "host_id": "test", "outcome": "OK"}, qe.BROKER_ORDERS_KEEP)
+
+
+# ── BLOCKER 1: a held lot the book lost is never sold ──────────────────────────────────────────
+
+@pytest.mark.parametrize("leg,qty", [("DIP_PB", 12), ("ENGUQ", 10)])
+def test_review_b1_a_held_lot_lost_with_state_json_is_never_sold_after_hours_or_at_the_open(
+        env, monkeypatch, leg, qty):
+    """S3: state.json was missing / unreadable at a restart, so the book starts empty while the
+    adapter (and Webull) still hold a HOLD leg's lot. Nothing is sent at 16:00 (or at 20:00),
+    nothing at 09:31 even with the FLATTEN_BROKER trigger dropped, and the existing urgent boot
+    alert still fires."""
+    env.books(**{leg: qty})
+    env.state = qe._default_state()                    # what load_state hands back
+    monkeypatch.setattr(env.adapter, "reconcile", lambda *a, **k: {"ok": True})
+    qe._reconcile_broker_at_boot(log=env.log)
+    (boot,) = [p for p in env.pushes if "may stay open" in p["title"] + p["message"]]
+    assert boot["priority"] == "urgent", "the existing boot alert still fires"
+    for t in (at(DAY, 16, 0, 0), at(DAY, 16, 0, 5), at(DAY, 16, 1, 0), at(DAY, 20, 30, 0)):
+        env.ah(t)
+    assert env.fake.orders == [] and not env.trigger().exists()
+    assert not (env.state.get("after_hours_flatten") or {}).get(ds(DAY))
+    assert any("never sold after hours" in ev["text"] for ev in env.state["events"])
+    env.trigger().write_text("flatten\n", encoding="utf-8")      # dropped by hand
+    env.clock[0] = at(DAY2, 9, 31)
+    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31), log=env.log)
+    assert env.fake.orders == [], "the next-open repair never sells a held lot blind either"
+    assert env.held(leg) == qty and env.fake.pos == qty
+    assert any("never sold blind" in ev["text"] for ev in env.state["events"])
+
+
+def test_review_b1_a_hold_leg_the_book_closed_yesterday_is_repaired_at_the_open(env):
+    """The other side of BLOCKER 1: the book's own record that it closed the hold leg (a KILL /
+    breaker close yesterday whose sell never reached Webull) lets the repair sell it."""
+    env.books(ENGUQ=10)
+    env.closed_by_book("ENGUQ", day=DAY)
+    env.trigger().write_text("flatten\n", encoding="utf-8")
+    env.clock[0] = at(DAY2, 9, 31)
+    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31), log=env.log)
+    (o,) = env.fake.orders
+    assert (o["side"], o["quantity"], o["order_type"]) == ("SELL", "10", "MARKET")
+
+
+def test_review_b1_the_book_records_its_own_closes(env):
+    """_reduce_lot's full close writes the record the hold rule reads."""
+    qe._note_book_close(env.state, "DIP_PB", at(DAY, 15, 59, 0), "KILL")
+    assert env.state["_book_closes"]["DIP_PB"]["day"] == ds(DAY)
+    assert qe._book_closed_on(env.state, "DIP_PB", [ds(DAY)])
+    assert not qe._book_closed_on(env.state, "DIP_PB", [ds(DAY2)])
+
+
+def test_review_s2_a_held_short_beside_a_long_orphan_never_shorts(env):
+    env.books(ENGUQ=-10, NOISE=5)
+    env.state["legs"] = {"ENGUQ": {"leg": "ENGUQ", "side": "short", "shares_remaining": 10,
+                                   "hold": {"since": ds(DAY)}}}
+    env.ah(at(DAY, 16, 0, 5))
+    assert env.fake.orders == []
+    assert env.rec("NOISE")["status"] == "gave_up" and env.trigger().exists()
+
+
+def test_review_s1_a_short_legs_buy_back_on_an_account_a_held_lot_keeps_long_waits_for_the_open(
+        env):
+    """S1, changed on purpose by the adapter backstop (review item: only a single-order REDUCE of
+    the account's position goes out after hours): held DIP 12 long + an ORB -10 orphan leave the
+    account +2 -- the BUY 10 would INCREASE the account's long position, so it is not sent after
+    hours; the open repair buys it back."""
+    env.books(DIP_PB=12, ORB=-10)
+    env.state["legs"] = {"DIP_PB": {"leg": "DIP_PB", "side": "long", "shares_remaining": 12,
+                                    "hold": {"since": ds(DAY)}}}
+    env.ah(at(DAY, 16, 0, 5))
+    assert env.fake.orders == []
+    rec = env.rec("ORB")
+    assert rec["status"] == "gave_up" and "increase" in rec["why"] and env.trigger().exists()
+    (note,) = env.titled("QQQ book: CHECK NOW")
+    assert "will be bought back at the 09:30 open" in note["message"]
+
+
+# ── item 2: one story on the phone ────────────────────────────────────────────────────────────
+
+def test_review_2_a_close_refused_to_the_deadline_never_says_by_hand(tenv):
+    """15:59:00 -> 16:00:30 through tick(): ORB's end-of-day sell is refused until the re-send
+    gives up at the 15:59:50 deadline. No push says "by hand", exactly one "selling after hours"
+    note goes out, and the after-close Webull check waits for the after-hours run -- then judges
+    the day 30 s after its fill."""
+    e = tenv
+    e.tick(at(DAY, 10, 5, 5), events=[_orb_entry(DAY, 10, 0, "long", REF)])
+    n0 = len(e.fake.orders)
+    e.fake.refuse = ["OPENAPI_CAN_NOT_TRADING_FOR_FIXGW_NOT_READY_MARKET"] * 500
+    t = at(DAY, 15, 59, 0)
+    while t <= at(DAY, 16, 0, 30):
+        if t >= at(DAY, 15, 59, 55):
+            e.fake.refuse = []                  # Webull takes the after-hours limit
+        e.tick(t)
+        t += timedelta(seconds=5)
+    regular = [o for o in e.fake.orders[n0:] if o["order_type"] == "MARKET"]
+    assert regular and all(o["side"] == "SELL" for o in regular), "refused to the deadline"
+    (ah,) = e.fake.limits()
+    assert (ah["side"], ah["quantity"], ah["support_trading_session"]) == ("SELL", "10", "ALL")
+    assert not [p for p in e.pushes if "by hand" in p["message"]], \
+        [p["message"] for p in e.pushes if "by hand" in p["message"]]
+    assert len(e.titled("QQQ book: selling after hours")) == 1
+    assert "_webull_flat_after_eod" not in e.state, "no verdict while the after-hours sell works"
+    e.fake.fill(ah["client_order_id"], px=599.0)
+    while t <= at(DAY, 16, 1, 30):
+        e.tick(t)
+        t += timedelta(seconds=5)
+    assert e.state["after_hours_flatten"][ds(DAY)]["ORB"]["status"] == "filled"
+    assert e.state["_webull_flat_after_eod"]["flat"] is True
+    assert not [p for p in e.pushes if p["priority"] == "urgent"]
+
+
+def test_review_2_the_after_bell_note_says_the_after_hours_sell_takes_it(env):
+    env.books(ORB=10)
+    qe._alert_close_blocked_after_close(env.state, "ORB", at(DAY, 16, 0, 1), log=env.log)
+    (note,) = env.pushes
+    assert "by hand" not in note["message"] and "leave QQQ alone" in note["message"]
+    assert note["priority"] == "high" and ntfy_push.lint(note) == []
+    # with the owner's switch off the old wording stands
+    env.state["_ah_cfg"] = {"enabled": False}
+    env.state.pop("_after_close_blocked_alerted", None)
+    env.state.pop("_phone_dedupe", None)
+    qe._alert_close_blocked_after_close(env.state, "ORB", at(DAY, 16, 0, 2), log=env.log)
+    assert "by hand" in env.pushes[-1]["message"] and env.pushes[-1]["priority"] == "urgent"
+
+
+def test_review_2_a_mid_day_stuck_exit_still_says_sell_by_hand(env):
+    """Hours before the after-hours window, the urgent "sell by hand" is unchanged."""
+    env.books(ORB=10)
+    qe._say_exit_stuck(env.state, "ORB", "The ORB sell is stuck", log=env.log,
+                       nowdt=at(DAY, 11, 0, 0), cfg=env.cfg)
+    assert "by hand" in env.pushes[-1]["message"] and env.pushes[-1]["priority"] == "urgent"
+
+
+# ── item 3: never on top of an unsettled regular close ───────────────────────────────────────
+
+def _pending_close(env, coid="qxORBR620261014T140000ZLC", leg="ORB"):
+    import time as _t
+    env.adapter._state.setdefault("order_parts", {})[coid] = {
+        "leg": leg, "symbol": "QQQ", "side": "SELL", "qty": 10, "intent": "CLOSE",
+        "account_id": "ACCT1", "ts": _t.time(), "booked": 0, "pending": True}
+    env.adapter._save_state()
+    return coid
+
+
+@pytest.mark.parametrize("outcome,sent_after", [("CANCELLED", 1), ("FILLED", 0)])
+def test_review_3_a_pending_regular_close_holds_the_after_hours_sell_until_it_settles(
+        env, outcome, sent_after):
+    """S7: an UNKNOWN regular close of ORB (a pending part) at 16:00 -- nothing is sent until it
+    settles: dead -> the after-hours sell goes; filled -> nothing is left to sell."""
+    env.books(ORB=10)
+    coid = _pending_close(env)
+    for s in (0, 5, 30):
+        env.ah(at(DAY, 16, 0, s))
+    assert env.fake.orders == [], "never on top of a close whose outcome is unknown"
+    assert any("waits" in ev["text"] and coid in ev["text"] for ev in env.state["events"])
+    env.adapter.apply_order_outcome(coid, outcome, 10 if outcome == "FILLED" else 0)
+    if outcome == "FILLED":
+        env.fake.pos = 0
+    env.ah(at(DAY, 16, 0, 35))
+    assert len(env.fake.orders) == sent_after
+
+
+def test_review_3_the_after_hours_sell_waits_30s_after_the_legs_last_regular_send(env):
+    env.books(ORB=10)
+    qe._ah_note_regular_send(env.state, "ORB", at(DAY, 15, 59, 55))
+    for s in (0, 5, 20):
+        env.ah(at(DAY, 16, 0, s))
+    assert env.fake.orders == []
+    env.ah(at(DAY, 16, 0, 25))
+    assert len(env.fake.orders) == 1
+
+
+def test_review_3_a_regular_send_is_stamped_on_the_ticks_clock(env):
+    env.books(ORB=10)
+    tid = T.make("ORB_R6", "2026-10-14T14:00:00-04:00", "long")
+    qe._mirror_to_broker(env.state, leg="ORB", side="long", shares=10, shadow_px=REF,
+                         intent="CLOSE", trade_id=tid, nowdt=at(DAY, 15, 59, 30), log=NOOP)
+    assert env.state["_broker_send_e"]["ORB"] == qe._ah_epoch(at(DAY, 15, 59, 30))
+
+
+# ── item 4: never a blind open order on an unknown outcome ───────────────────────────────────
+
+def _unknown_fill_then_silence(env, monkeypatch, when=at(DAY, 19, 59, 55)):
+    """S8: the limit went out with no answer, it DID fill at Webull, and no read ever says so."""
+    monkeypatch.setattr(WO, "_sleep", NOOP)
+    env.books(ORB=10)
+    env.fake.drop_answer = True
+    env.fake.detail_fail = 10 ** 6
+    env.ah(when)
+    coid = env.rec("ORB")["coid"]
+    env.fake.fill(coid)
+    return coid
+
+
+def test_review_4_an_unconfirmed_fill_never_arms_a_blind_open_order(env, monkeypatch):
+    coid = _unknown_fill_then_silence(env, monkeypatch)
+    t = at(DAY, 20, 0, 0)
+    while t <= at(DAY, 20, 31, 0):
+        env.ah(t)
+        t += timedelta(seconds=15)
+    rec = env.rec("ORB")
+    assert rec["status"] == "gave_up" and rec["unresolved_coid"] == coid
+    assert rec["next_open_armed"] is False and rec["next_open_allowed"] is False
+    assert not env.trigger().exists()
+    (note,) = [p for p in env.pushes if p["priority"] == "urgent"]
+    assert "unconfirmed" in note["message"] and ntfy_push.lint(note) == []
+    # even a trigger dropped by hand sells nothing: the record is unsettled, and Webull (0)
+    # disagrees with the books (10)
+    env.trigger().write_text("flatten\n", encoding="utf-8")
+    env.clock[0] = at(DAY2, 9, 31)
+    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31), log=env.log)
+    assert [o["order_type"] for o in env.fake.orders] == ["LIMIT"], "no MARKET SELL at the open"
+    assert env.fake.pos == 0, "never short"
+
+
+def test_review_4_the_repair_checks_webull_before_every_send(env):
+    env.books(NOISE=10)
+    env.fake.pos = 0                                  # sold by hand (or by our limit) overnight
+    env.trigger().write_text("flatten\n", encoding="utf-8")
+    env.clock[0] = at(DAY2, 9, 31)
+    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31), log=env.log)
+    assert env.fake.orders == [] and env.trigger().exists(), "kept for when they agree"
+    assert len(env.titled("QQQ book: CHECK NOW")) == 1
+    env.fake.pos = 10
+    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31, 10), log=env.log)
+    assert env.fake.orders == [], "a disagreement is re-read after 30 s, not every tick"
+    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31, 40), log=env.log)
+    (o,) = env.fake.orders
+    assert (o["side"], o["quantity"], o["order_type"]) == ("SELL", "10", "MARKET")
+
+
+@pytest.mark.parametrize("webull_did", ["EXPIRED", "FILLED"])
+def test_review_4_the_tick_settles_yesterdays_order_before_the_open_repair(tenv, webull_did):
+    """A limit still working when the box went down at 19:59:56; back at 09:31 the next day with
+    the trigger on disk. The tick reads that order FIRST: expired -> the books take the 10 back
+    and the repair sells them; filled -> the books are flat and the repair sends nothing."""
+    e = tenv
+    e.books(ORB=10)
+    e.ah(at(DAY, 19, 59, 55))
+    (lim,) = e.fake.orders
+    if webull_did == "FILLED":
+        e.fake.fill(lim["client_order_id"])
+    else:
+        e.fake.st[lim["client_order_id"]]["status"] = "EXPIRED"
+    e.trigger().write_text("flatten\n", encoding="utf-8")
+    e.tick(at(DAY2, 9, 31, 0))
+    market = [o for o in e.fake.orders if o["order_type"] == "MARKET"]
+    if webull_did == "FILLED":
+        assert market == [] and e.fake.pos == 0
+        assert e.state["after_hours_flatten"][ds(DAY)]["ORB"]["status"] == "filled"
+    else:
+        assert [(o["side"], o["quantity"]) for o in market] == [("SELL", "10")]
+        assert e.fake.pos == 0
+
+
+# ── item 5: a restart right after an accepted send ───────────────────────────────────────────
+
+def test_review_5_a_restart_after_an_accepted_send_reads_and_settles_the_working_order(env):
+    """S4: the limit was accepted (booked: the books read flat), then the process died before
+    the state was saved. The recovery scan runs every tick of the window whatever the books
+    hold: the order is adopted, read, cancelled at its 45 s, and the shares re-sent."""
+    env.books(ORB=10)
+    env.ah(at(DAY, 16, 0, 5))
+    first = "qxAHORB20261014160005C"
+    assert env.held("ORB") == 0, "acked: booked as sold"
+    env.state = {"legs": {}, "events": []}
+    env.new_adapter()
+    assert qe._ah_reconcile_hold(env.state, env.adapter), "the reconcile waits for it"
+    env.ah(at(DAY, 16, 0, 10))
+    rec = env.rec("ORB")
+    assert rec["coid"] == first and rec["status"] in qe.AH_IN_FLIGHT and rec["adopted"]
+    for s in (15, 50):
+        env.ah(at(DAY, 16, 0, s))
+    assert env.fake.cancels == [first], "cancelled 45 s after its own send"
+    env.ah(at(DAY, 16, 0, 55))
+    assert env.rec("ORB")["history"][0]["coid"] == first
+    assert len(env.fake.orders) == 2 and env.fake.orders[1]["limit_price"] == "594.12"
+    assert env.row(first)["outcome"] == "CANCELLED"
+
+
+def test_review_5_a_restart_after_the_window_still_finds_and_settles_the_order(env, monkeypatch):
+    """The same crash at 19:59:30, back at 20:10 -- outside the window: the boot scan of the new
+    process finds it, cancels it, and the boot reconcile waits for it."""
+    env.books(ORB=10)
+    env.ah(at(DAY, 19, 59, 30))
+    (o,) = env.fake.orders
+    env.state = {"legs": {}, "events": []}
+    qe.save_state(env.state)
+    env.new_adapter()
+    monkeypatch.setitem(qe._PROCESS, "ah_boot_scan", False)      # a new process
+    calls = []
+    monkeypatch.setattr(env.adapter, "reconcile", lambda *a, **k: calls.append(1) or {"ok": True})
+    qe._reconcile_broker_at_boot(log=env.log)
+    assert calls == [], "no reconcile at boot while an after-hours order may be working"
+    assert any("reconcile at boot HELD" in ln for ln in env.lines)
+    env.ah(at(DAY, 20, 10, 0))
+    assert env.fake.cancels == [o["client_order_id"]]
+    env.ah(at(DAY, 20, 10, 5))
+    rec = env.rec("ORB")
+    assert rec["status"] == "gave_up" and env.held("ORB") == 10 and env.trigger().exists()
+    assert len(env.fake.orders) == 1
+
+
+# ── P&L of record ─────────────────────────────────────────────────────────────────────────────
+
+def test_review_pnl_an_unknown_attempt_that_fills_turns_its_row_ok(env, monkeypatch):
+    monkeypatch.setattr(WO, "_sleep", NOOP)
+    env.books(ORB=10)
+    _open_row("ORB", "BUY", 10, 595.0, "qxORBR620261014T140000ZLO")
+    env.fake.drop_answer = True
+    env.fake.detail_fail = 3
+    env.ah(at(DAY, 16, 0, 5))
+    coid = env.rec("ORB")["coid"]
+    assert env.row(coid)["ok"] == "False" and env.rec("ORB")["status"] == "unknown"
+    assert qe._broker_realized_today(ds(DAY))[0] == 0.0, "an unknown send is not a close yet"
+    env.fake.fill(coid, px=599.0)
+    env.ah(at(DAY, 16, 0, 15))
+    row = env.row(coid)
+    assert (row["ok"], row["outcome"], row["shares"], float(row["broker_fill_px"])) == (
+        "True", "FILLED", "10", 599.0)
+    assert qe._broker_realized_today(ds(DAY)) == (40.0, True)
+
+
+def test_review_pnl_an_unresolved_give_up_leaves_no_ok_full_quantity_row(env):
+    env.books(ORB=10)
+    _open_row("ORB", "BUY", 10, 595.0, "qxORBR620261014T140000ZLO")
+    env.ah(at(DAY, 16, 0, 5))                          # acked: an ok row for 10
+    coid = env.rec("ORB")["coid"]
+    assert env.row(coid)["ok"] == "True"
+    env.fake.detail_fail = 10 ** 6                     # and then Webull never answers again
+    t = at(DAY, 16, 0, 15)
+    while t <= at(DAY, 16, 10, 30):
+        env.ah(t)
+        t += timedelta(seconds=15)
+    rec = env.rec("ORB")
+    assert rec["status"] == "gave_up" and rec["unresolved_coid"] == coid
+    row = env.row(coid)
+    assert (row["ok"], row["outcome"]) == ("False", "UNRESOLVED")
+    assert qe._broker_realized_today(ds(DAY))[0] == 0.0, "never counted as a full close"
+
+
+# ── silent stall ──────────────────────────────────────────────────────────────────────────────
+
+def test_review_stall_an_unknown_send_unresolved_10_min_pushes_once_and_moves_on(env, monkeypatch):
+    monkeypatch.setattr(WO, "_sleep", NOOP)
+    env.books(ORB=10)
+    env.fake.drop_answer = True
+    env.fake.detail_fail = 10 ** 6
+    env.ah(at(DAY, 16, 0, 5))
+    coid = env.rec("ORB")["coid"]
+    t = at(DAY, 16, 0, 20)
+    while t < at(DAY, 16, 10, 5):
+        env.ah(t)
+        t += timedelta(seconds=15)
+    assert qe._ah_in_flight(env.state) and env.rec("ORB")["status"] in qe.AH_IN_FLIGHT
+    assert not [p for p in env.pushes if p["priority"] == "urgent"]
+    env.ah(at(DAY, 16, 10, 5))
+    rec = env.rec("ORB")
+    assert rec["status"] == "gave_up" and rec["unresolved_coid"] == coid
+    assert not qe._ah_in_flight(env.state), "the reconcile is no longer held"
+    assert not qe._ah_active_today(env.state, ds(DAY)), "the after-close check may judge the day"
+    for m in (11, 12, 20):
+        env.ah(at(DAY, 16, m, 0))
+    (note,) = [p for p in env.pushes if p["priority"] == "urgent"]
+    assert "unconfirmed" in note["message"]
+    assert len(env.fake.orders) == 1, "never a second order on top of the unconfirmed one"
+    # Webull answers again: the order settles (it filled) -- books, record and row follow
+    env.fake.fill(coid, px=598.0)
+    env.fake.detail_fail = 0
+    env.ah(at(DAY, 16, 21, 0))
+    rec = env.rec("ORB")
+    assert rec["settled"] and rec["filled_qty"] == 10 and env.held("ORB") == 0
+    assert env.row(coid)["ok"] == "True" and env.row(coid)["outcome"] == "FILLED"
+    assert not env.trigger().exists()
+
+
+def test_review_stall_an_unconfirmed_order_that_expired_arms_the_open_once_it_settles(
+        env, monkeypatch):
+    coid = _unknown_fill_then_silence(env, monkeypatch, when=at(DAY, 16, 0, 5))
+    env.fake.st[coid].update(status="CANCELLED", filled=0)      # it did NOT fill after all
+    env.fake.pos = 10
+    t = at(DAY, 16, 0, 20)
+    while t <= at(DAY, 16, 10, 30):
+        env.ah(t)
+        t += timedelta(seconds=15)
+    assert env.rec("ORB")["status"] == "gave_up" and not env.trigger().exists()
+    env.fake.detail_fail = 0
+    env.ah(at(DAY, 16, 12, 0))
+    rec = env.rec("ORB")
+    assert rec["settled"] and env.held("ORB") == 10
+    assert rec["next_open_armed"] is True and env.trigger().exists()
+    assert "will sell at the 09:30 open" in env.titled("QQQ book: CHECK NOW")[-1]["message"]
+
+
+# ── boot reconcile ────────────────────────────────────────────────────────────────────────────
+
+def test_review_boot_reconcile_waits_while_a_saved_after_hours_order_works(env, monkeypatch):
+    env.books(ORB=10)
+    env.ah(at(DAY, 16, 0, 5))
+    qe.save_state(env.state)
+    calls = []
+    monkeypatch.setattr(env.adapter, "reconcile", lambda *a, **k: calls.append(1) or {"ok": True})
+    qe._reconcile_broker_at_boot(log=env.log)
+    assert calls == []
+    env.fake.fill("qxAHORB20261014160005C")
+    env.ah(at(DAY, 16, 0, 15))
+    qe.save_state(env.state)
+    qe._reconcile_broker_at_boot(log=env.log)
+    assert calls == [1]
+
+
+# ── log spam ──────────────────────────────────────────────────────────────────────────────────
+
+def test_review_could_not_cross_logs_once_a_day(env, monkeypatch):
+    env.books(ORB=10, NOISE=-10)
+    monkeypatch.setattr(env.adapter, "cross_legs_internally", lambda *a, **k: {})
+    for s in range(0, 60, 5):
+        env.ah(at(DAY, 16, 0, s))
+    assert sum("could not cross" in ln for ln in env.lines) == 1
+
+
+def test_review_nothing_to_close_logs_once_a_day_and_retries_spaced(env, monkeypatch):
+    env.books(ORB=10)
+    sends = []
+    monkeypatch.setattr(qe, "_place_stock_order_with_timeout", lambda *a, **k: sends.append(1) or {
+        "ok": False, "sent": False, "mode": "BLOCKED", "nothing_to_close": True,
+        "reason": "nothing to close at the broker"})
+    t = at(DAY, 16, 0, 0)
+    while t <= at(DAY, 16, 2, 0):
+        env.ah(t)
+        t += timedelta(seconds=5)
+    assert len(sends) == 3, "16:00:00, 16:00:45, 16:01:30 -- not every 5 s"
+    assert sum("nothing is left to close" in ev["text"] for ev in env.state["events"]) == 1
+
+
+# ── the adapter's own after-hours backstop ────────────────────────────────────────────────────
+
+def _books_on(adapter, fake, legs):
+    for leg, (qty, acct) in legs.items():
+        adapter._state.setdefault("believed_positions", {})[leg] = {"symbol": "QQQ", "qty": qty}
+        adapter._state.setdefault("broker_sent_positions", {})[leg] = {
+            "symbol": "QQQ", "qty": qty, "account_id": acct}
+    adapter._save_state()
+
+
+@pytest.mark.parametrize("legs,leg,side,qty,why", [
+    ({"ORB": (10, "ACCT1"), "NOISE": (-10, "ACCT1")}, "ORB", "SELL", 10, "would open"),   # net 0
+    ({"ORB": (10, "ACCT1"), "NOISE": (-5, "ACCT1")}, "ORB", "SELL", 10, "never split"),   # net 5
+    ({"DIP_PB": (12, "ACCT1"), "ORB": (-10, "ACCT1")}, "ORB", "BUY", 10, "increase"),     # net 2
+])
+def test_review_backstop_refuses_an_after_hours_order_that_opens_increases_or_crosses(
+        tmp_path, monkeypatch, legs, leg, side, qty, why):
+    a, fake = _adapter(tmp_path, monkeypatch)
+    _books_on(a, fake, legs)
+    rec = a.place_stock_order(leg=leg, signal_id="qxAHX20261014160005C", symbol="QQQ", side=side,
+                              qty=qty, intent="CLOSE", order_type="LIMIT", limit_price=600.0,
+                              extended_hours=True)
+    assert fake.orders == [], "refused before anything reaches Webull"
+    assert rec["extended_refused"] is True and rec["ok"] is False and rec["sent"] is False
+    assert why in rec["reason"]
+    assert a._state["believed_positions"][leg]["qty"] == legs[leg][0], "the books never move"
+
+
+def test_review_backstop_refuses_an_extended_hours_open(tmp_path, monkeypatch):
+    a, fake = _adapter(tmp_path, monkeypatch)
+    rec = a.place_stock_order(leg="ORB", signal_id="qxAHOPEN", symbol="QQQ", side="BUY", qty=10,
+                              intent="OPEN", order_type="LIMIT", limit_price=600.0,
+                              extended_hours=True)
+    assert fake.orders == [] and rec["extended_refused"] is True and "only close" in rec["reason"]
+
+
+@pytest.mark.parametrize("legs,leg,side", [
+    ({"ORB": (10, "ACCT1")}, "ORB", "SELL"),
+    ({"ORB": (-10, "ACCT1")}, "ORB", "BUY"),
+    # the adapter's own account filter: a stale lot under another account never counts
+    ({"ORB": (10, "ACCT1"), "NOISE": (-10, "OLDACCT")}, "ORB", "SELL"),
+])
+def test_review_backstop_lets_a_pure_reduce_through(tmp_path, monkeypatch, legs, leg, side):
+    a, fake = _adapter(tmp_path, monkeypatch)
+    _books_on(a, fake, legs)
+    rec = a.place_stock_order(leg=leg, signal_id="qxAHY20261014160005C", symbol="QQQ", side=side,
+                              qty=10, intent="CLOSE", order_type="LIMIT", limit_price=600.0,
+                              extended_hours=True)
+    assert rec["ok"] is True and not rec.get("extended_refused")
+    (o,) = fake.orders
+    assert (o["side"], o["quantity"], o["support_trading_session"]) == (side, "10", "ALL")
+
+
+def test_review_2_after_a_give_up_the_after_close_check_adds_no_second_page(env):
+    """The after-hours sell gave up (its own urgent note says what happens at the open); the
+    after-close check then reads Webull still holding the shares -- recorded, not paged twice,
+    and stamped as the executor's own note (the box monitor stays quiet on it)."""
+    env.books(ORB=10)
+    env.state.update(flat_by_done_date=ds(DAY), _last_broker_send_at=0.0)
+    env.fake.refuse = ["OPENAPI_CAN_NOT_TRADING_FOR_FIXGW_NOT_READY_MARKET"] * 3
+    for t in (at(DAY, 16, 0, 5), at(DAY, 16, 0, 50), at(DAY, 16, 1, 35)):
+        env.ah(t)
+        qe._maybe_check_webull_flat_after_eod(env.state, env.cfg, t, log=env.log)
+    assert env.rec("ORB")["status"] == "gave_up"
+    assert "_webull_flat_after_eod" not in env.state, "held: the give-up was less than 30 s ago"
+    qe._maybe_check_webull_flat_after_eod(env.state, env.cfg, at(DAY, 16, 2, 10), log=env.log)
+    flat = env.state["_webull_flat_after_eod"]
+    assert (flat["flat"], flat["shares"], flat["pushed"]) == (False, 10, True)
+    urgent = [p for p in env.pushes if p["priority"] == "urgent"]
+    assert len(urgent) == 1 and "will sell at the 09:30 open" in urgent[0]["message"]
+
+
+def test_review_2_the_day_summary_says_the_after_hours_sell_is_still_working(env):
+    env.books(ORB=10)
+    env.ah(at(DAY, 16, 0, 5))
+    doc = {"today": {"trades": [], "realized_pnl": 0.0}, "parity": {"checked": 0, "failed": 0},
+           "feed_days": []}
+    qe._maybe_send_eod_summary(env.state, doc, at(DAY, 16, 5, 0), log=env.log)
+    (note,) = env.titled("QQQ book: day done")
+    assert "the after-hours sell is still working" in note["message"]
+    assert any("Webull flat: after-hours sell in progress" in ev["text"]
+               for ev in env.state["events"])

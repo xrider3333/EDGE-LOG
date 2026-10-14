@@ -804,6 +804,29 @@ def _trading_session(extended_hours, order_type, limit_price):
     return TRADING_SESSION_ALL
 
 
+def _extended_hours_refusal(intent, side, qty, net, plan):
+    """None when an extended-hours order may go out, else why not (review of 1fdde9fb: the
+    adapter's own backstop). Outside regular hours the book only ever REDUCES a position it
+    already holds: a CLOSE, sent as ONE order (never split), on the same side as the account's
+    position, no larger than it -- `net` is the account's net position in this adapter's books
+    (_account_net, filtered to the sending account), `plan` the _plan_broker_parts plan. An
+    order that would open, increase or cross a position after hours is refused, never sent."""
+    if str(intent).upper() != "CLOSE":
+        return f"an extended-hours order may only close a position (intent {intent})"
+    if len(plan or []) != 1:
+        return (f"an extended-hours order is never split -- this one would be "
+                f"{', '.join(f'{s} {q}' for s, q in plan or []) or 'empty'} (account net {net:g})")
+    part_side, part_qty = plan[0]
+    side = str(side).upper()
+    if side == "SELL" and part_side == "SELL" and net > 1e-9 and part_qty <= net + 1e-9:
+        return None
+    if side == "BUY" and part_side == "BUY" and net < -1e-9 and part_qty <= -net + 1e-9:
+        return None
+    return (f"an extended-hours {side} {qty} would open, increase or cross the account's "
+            f"position (account net {net:g}) -- only a reduce of the position it holds goes out "
+            f"after hours")
+
+
 def _not_found_error(e):
     """True when a lookup exception says Webull has no such order."""
     text = str(e).upper()
@@ -2540,6 +2563,35 @@ class OrderAdapter:
         except Exception:
             return []
 
+    def unsettled_parts(self, leg=None, prefix=None, lock_timeout=1.0):
+        """Copies of the stock order parts Webull may still be working, or whose outcome is not
+        settled: no final_status, not a resting order, and either booked (acked) or pending
+        (outcome UNKNOWN) -- {client_order_id, leg, symbol, side, qty, intent, booked, pending,
+        ts}. Narrowed to `leg` and to ids starting with `prefix` when given. No network. []
+        when the lock stays busy or on any problem. Never raises. Used by api/qqq_exec.py's
+        after-hours fallback: its restart recovery (an order the book never saved), the leg
+        it must not sell on top of an unsettled close, and the reconcile it holds."""
+        try:
+            if not self._lock.acquire(timeout=lock_timeout):
+                return []
+            try:
+                out = []
+                for coid, p in (self._state.get("order_parts") or {}).items():
+                    if not isinstance(p, dict) or p.get("resting") or p.get("final_status"):
+                        continue
+                    if leg is not None and p.get("leg") != leg:
+                        continue
+                    if prefix is not None and not str(coid).startswith(prefix):
+                        continue
+                    if not (int(p.get("booked") or 0) > 0 or p.get("pending")):
+                        continue
+                    out.append(dict(json.loads(json.dumps(p)), client_order_id=coid))
+                return out
+            finally:
+                self._lock.release()
+        except Exception:
+            return []
+
     def _resting_refusal(self, leg, symbol, direction, qty):
         """(outcome, reason) when a resting order may not be placed now, else None. Caller
         holds the lock."""
@@ -3430,6 +3482,18 @@ class OrderAdapter:
                     # -- degrade to the pre-netting shape rather than sending nothing
                     # silently and calling it ok.
                     parts_plan = [(side, int(round(qty)))]
+                if trading_session != TRADING_SESSION_CORE:
+                    # EXTENDED HOURS BACKSTOP (review of 1fdde9fb): only a single-order reduce
+                    # of the position this account holds goes out after hours
+                    refusal = _extended_hours_refusal(intent, side, qty, net_before, parts_plan)
+                    if refusal:
+                        record.update(mode=mode, ok=False, sent=False, reason=refusal,
+                                      extended_refused=True, account_id=account_id)
+                        self._record_order(coid, record)
+                        self._last_error = refusal
+                        self.log(f"  [webull-orders] NOT SENT {symbol} {side} {qty} (leg {leg}): "
+                                 f"{refusal}")
+                        return record
 
                 # a crash from here on must never re-send this signal: cache UNKNOWN first
                 self._prune_parts()

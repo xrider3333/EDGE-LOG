@@ -86,13 +86,29 @@ def _setup(tmp_path, monkeypatch, *, believed, shadow_legs):
     monkeypatch.setattr(qe, "_get_broker_adapter", lambda log=print: adapter)
     monkeypatch.setattr(qe, "_engine_mark_price", lambda leg, log=print: (712.5, "test"))
     monkeypatch.setattr(qe, "_notify", lambda *a, **k: None)
+
+    # Webull's own QQQ position is what the adapter's books sent (on 09-18 Webull really held
+    # those shares) -- the repair reads it before every send and sends nothing while the two
+    # differ (review of 1fdde9fb, item 4)
+    def _webull_position(account_id):
+        q = sum(float((p or {}).get("qty") or 0)
+                for p in (adapter._state.get("broker_sent_positions") or {}).values())
+        resp = MagicMock()
+        resp.json.return_value = {"data": [{"symbol": "QQQ", "quantity": str(abs(q)),
+                                            "side": "SHORT" if q < 0 else "LONG"}] if q else []}
+        return resp
+    client.account_v2.get_account_position.side_effect = _webull_position
     trigger = out / "FLATTEN_BROKER"
     trigger.write_text("flatten\n", encoding="utf-8")
     cfg = dict(qe.DEFAULT_CONFIG)
     cfg["session"] = {"open": "09:31", "last_entry": "15:55", "flat_by": "15:59"}
     cfg["flatten_broker_file"] = str(trigger)
     cfg["kill_file"] = str(out / "KILL")
-    state = {"legs": {leg: {"nq_qty_remaining": 1} for leg in shadow_legs}, "events": []}
+    state = {"legs": {leg: {"nq_qty_remaining": 1} for leg in shadow_legs}, "events": [],
+             # the 09-18 incident: the book itself flattened these legs on Friday 09-18 --
+             # the record a hold leg (ENGU-Q) needs before the repair may sell it (BLOCKER 1)
+             "_book_closes": {leg: {"day": "2026-09-18", "at_et": "2026-09-18 16:00:02",
+                                    "reason": "EOD"} for leg in believed}}
     return cfg, state, adapter, client, trigger, out
 
 

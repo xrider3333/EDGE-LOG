@@ -510,6 +510,40 @@ def test_eod_on_a_half_day(tmp_path):
     assert not ({"eod_summary", "webull_flat", "eod_settled"} & failing(out))
 
 
+
+def test_eod_after_hours_sell_in_progress_is_quiet(tmp_path):
+    """api/qqq_exec.py's after-hours EOD fallback (review of 1fdde9fb, item 2): while today's
+    after-hours sell still works, the executor's after-close check waits for it -- no verdict
+    here either way and no push (never "sell by hand" while its limit order works)."""
+    h = Home(tmp_path, et(2026, 10, 5, 16, 12))
+    end = et(2026, 10, 5, 20, 0).timestamp()
+    h.exec_state(_webull_flat_after_eod={"date": "2026-10-02", "flat": True},
+                 after_hours_flatten={"2026-10-05": {"ORB": {"status": "working",
+                                                             "ah_end_e": end}}})
+    out = h.run()
+    assert "webull_flat" not in failing(out)
+    assert h.pushes == []
+    v = h.status()["verdicts"]["webull_flat"]
+    assert v["title"] == "after-hours sell in progress" and "ORB" in v["detail"]
+    # done: the executor's own check has judged the day -- the ordinary verdict again
+    h.advance(et(2026, 10, 5, 16, 20))
+    h.exec_state(after_hours_flatten={"2026-10-05": {"ORB": {"status": "filled",
+                                                             "ah_end_e": end}}})
+    out = h.run()
+    assert "webull_flat" not in failing(out) and h.pushes == []
+    assert h.status()["verdicts"]["webull_flat"]["title"] == "Webull NOT confirmed flat"
+
+
+def test_eod_after_hours_sell_past_its_window_is_judged_again(tmp_path):
+    """A dead executor never keeps the check quiet past the after-hours window + 30 min."""
+    h = Home(tmp_path, et(2026, 10, 5, 20, 31))
+    end = et(2026, 10, 5, 20, 0).timestamp()
+    h.exec_state(_webull_flat_after_eod={"date": "2026-10-02", "flat": True},
+                 after_hours_flatten={"2026-10-05": {"ORB": {"status": "working",
+                                                             "ah_end_e": end}}})
+    out = h.run()
+    assert "webull_flat" in failing(out)
+
 # -- EVENING (19:00): NQ master + KEEL ------------------------------------------------------
 def test_nq_master_and_keel_due_after_1900(tmp_path):
     t = et(2026, 10, 5, 19, 5)
