@@ -1,0 +1,9 @@
+FAMILY LUCK BAR - ADDENDUM 1 (2026-10-14, FRONTIER; proposed in MANAGER #980 item 2). Written AFTER Q40's report, which printed DIP #424 as
+"not scored" because the engine's roll guard refuses NQDIP_1_1 on today's NQ master.
+
+ONE RUN ADDED: DIP #434 (NQDIP_1_3.py, NQ 5m, the roll-aware version of #424's mechanism; n_cfg 898). It is the DIP family's board leader
+on the RUNBOARD watch list ("#424 superseded by #434 (roll fix)") and the DIP leg is now live on the Webull book.
+The frozen rule (LF d548ef10) applies unchanged, with the same inputs, parity gate, words and rho:
+- DIP rho = 0.637 (Q39, #358);
+- N_fam = DIP-lineage valid configs with id <= 434 (runs_summary.csv as built).
+The wrapper imports bookq/q40_luck_bar.py unchanged and replaces only its run list and output folder. Nothing else is re-scored.
