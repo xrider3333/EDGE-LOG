@@ -1962,10 +1962,47 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       var s=q(PN+' [data-lgpanel-sym]');
       if(s){s.click();await sleep(40);}
       st.keptOnInside=!!q(PN);
-      var pt=cfg.vp==='phone'?[Math.round(w.innerWidth/2),20]:[30,Math.round(w.innerHeight/2)];
-      var el=d.elementFromPoint(pt[0],pt[1]);
+      // WHERE TO TAP, read off the panel instead of guessed. This used to be
+      //   cfg.vp==='phone' ? [w/2,20] : [30,h/2] - but the page draws a BOTTOM SHEET at 600px and
+      //   under, not only on the phone, so the edge600 case aimed the right-hand-panel point at a
+      //   full-width sheet: inside it horizontally, and inside it vertically whenever the sheet was
+      //   taller than half the screen or still sliding in. The tap hit the candle chart in the
+      //   sheet, the close never fired, and the case flaked under load (10-10 and 10-14, passing on
+      //   retry with index.html unchanged). Now: finish the slide-in (a headless page may never run
+      //   the frames a CSS animation needs - look() does the same), wait for the rect to stop
+      //   moving, then aim ABOVE a bottom sheet or LEFT of a side panel, whichever this layout is.
+      try{d.getAnimations().forEach(function(a){try{a.finish();}catch(e1){}});}catch(e2){}
+      var pr=null,prev=null,settled=false;
+      for(var tries=0;tries<25;tries++){
+        var pel=q(PN);
+        if(!pel)break;
+        var r=pel.getBoundingClientRect();
+        pr={l:Math.round(r.left),t:Math.round(r.top),r:Math.round(r.right),b:Math.round(r.bottom),
+            w:Math.round(r.width),h:Math.round(r.height)};
+        if(prev&&prev.l===pr.l&&prev.t===pr.t&&prev.r===pr.r&&prev.b===pr.b){settled=true;break;}
+        prev=pr;
+        await sleep(30);
+      }
+      st.rect=pr;st.settled=settled;
+      var pt=null;
+      if(pr){
+        // WHICH SIDE, by the panel's own shape rather than by whichever edge has room: a panel as
+        //   wide as the viewport is the bottom sheet, so the dim layer is the strip ABOVE it;
+        //   anything narrower is the right-hand panel, with the layer to its LEFT. Asking "is
+        //   there room above?" first would tap over page content on any side panel not flush with
+        //   the top of the screen - true today only by accident of it running the full height.
+        var fullW=pr.l<=1&&pr.r>=w.innerWidth-1;
+        if(fullW&&pr.t>8)pt=[Math.round((pr.l+pr.r)/2),Math.max(2,Math.round(pr.t/2))];
+        else if(!fullW&&pr.l>8)pt=[Math.max(2,Math.round(pr.l/2)),Math.round((pr.t+pr.b)/2)];
+        else if(pr.t>8)pt=[Math.round((pr.l+pr.r)/2),Math.max(2,Math.round(pr.t/2))];
+      }
+      st.pt=pt;
+      // the point must be PROVABLY outside the panel - a sheet covering the whole screen leaves
+      //   nowhere to tap, and that is a failure, not something to tap around
+      st.ptOutside=!!(pr&&pt&&(pt[0]<pr.l-1||pt[0]>pr.r+1||pt[1]<pr.t-1||pt[1]>pr.b+1));
+      var el=pt?d.elementFromPoint(pt[0],pt[1]):null;
       st.hit=(el&&el.classList&&el.classList.contains('lg-panel-layer'))?'layer':(el?el.tagName+'.'+el.className:null);
-      if(el){el.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,pointerType:cfg.vp==='phone'?'touch':'mouse'}));el.click();}
+      if(el){el.dispatchEvent(new w.PointerEvent('pointerdown',{bubbles:true,pointerType:(cfg.vp==='phone'||cfg.vp==='edge600')?'touch':'mouse'}));el.click();}
       await sleep(80);
       st.open=!!q(PN);st.g=geo();
       if(st.open)shut();
@@ -3053,8 +3090,17 @@ def _judge_panels(panels, data_obj):
         if not ou.get('opened'):
             fails.append('%s: the panel did not open a second time' % tag)
         else:
+            if not ou.get('settled'):
+                fails.append('%s: the panel rect was still moving after 25 reads (%r) - the tap point '
+                             'cannot be aimed at a panel that has not finished laying out'
+                             % (tag, ou.get('rect')))
+            if not ou.get('ptOutside'):
+                fails.append('%s: there is no point outside the panel to tap - it is at %r, the step aimed at %r '
+                             '(a panel covering the whole screen cannot be dismissed by tapping beside it)'
+                             % (tag, ou.get('rect'), ou.get('pt')))
             if ou.get('hit') != 'layer':
-                fails.append('%s: the point outside the panel is %r, not the dim layer' % (tag, ou.get('hit')))
+                fails.append('%s: the point outside the panel is %r, not the dim layer (aimed at %r, panel at %r)'
+                             % (tag, ou.get('hit'), ou.get('pt'), ou.get('rect')))
             if not ou.get('keptOnInside'):
                 fails.append('%s: a click inside the panel closed it' % tag)
             if ou.get('open'):
