@@ -382,26 +382,6 @@ _JIT = {}
 _JIT_WARNED = set()
 
 
-def _register_module():
-    """The engine loads strategy files under a name that is not in sys.modules; Numba's
-    on-disk cache needs the module importable by that name to reload compiled kernels in a
-    new process, so put this module object there (the loader's own name, stable per file)."""
-    import gc
-    import sys
-    import types
-    g = globals()
-    name = g.get("__name__")
-    if not name:
-        return
-    m = sys.modules.get(name)
-    if m is not None and getattr(m, "__dict__", None) is g:
-        return
-    for obj in gc.get_referrers(g):
-        if isinstance(obj, types.ModuleType) and obj.__dict__ is g:
-            sys.modules[name] = obj
-            return
-
-
 # Below this many bars the interpreted kernels are quicker than Numba's one-time compile
 # (tests, the contract suite, short probes); the output is identical either way.
 _FAST_MIN_BARS = 20000
@@ -410,15 +390,17 @@ _N_BARS = [0]
 
 def _kern(name):
     """The kernel `_k_<name>`: compiled when allowed, else the Python function itself."""
-    f = globals()["_k_" + name]
+    f = {"rma": _k_rma, "hurst": _k_hurst, "pivot": _k_pivot, "state": _k_state, "fvg": _k_fvg, "vrz": _k_vrz,
+         "ob": _k_ob, "bos": _k_bos, "profile": _k_profile, "walk": _k_walk}[name]
     if not _fast_enabled() or _N_BARS[0] < _FAST_MIN_BARS:
         return f
     j = _JIT.get(name)
     if j is None:
         try:
             from numba import njit
-            _register_module()
-            j = njit(cache=True)(f)
+            # compiled once per process (~25 s), no on-disk cache: the engine loads strategy files under a name
+            # Numba cannot re-import, and registering it needs module tricks the roll-guard lint forbids
+            j = njit(cache=False)(f)
         except Exception:
             j = f
         _JIT[name] = j
