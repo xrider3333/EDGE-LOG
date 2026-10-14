@@ -682,7 +682,7 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
         for name, fn in (("drift report", lambda: drift_check(state, out_dir, leg_key, version,
                                                               log=log, day=data_through)),
                          ("live check", lambda: live_check(state, out_dir, leg_key, version,
-                                                           log=log))):
+                                                           log=log, data_through=data_through))):
             try:
                 fn()
             except Exception as e:
@@ -896,14 +896,14 @@ def _units(live, reference, meta):
     out = {"ok": None, "n_qqq": int(len(q)), "last": UNITS_LAST, "ref_last": UNITS_REF,
            "band": list(UNITS_BAND), "median_qqq": None, "median_nq": None, "ratio": None}
     if len(q) < UNITS_LAST:
-        out["details"] = f"skipped: {len(q)} QQQ trades appended, {UNITS_LAST} needed"
+        out["details"] = f"skipped: {len(q)} trades appended, {UNITS_LAST} needed"
         return out
     mq = float(np.median(np.abs(q[-UNITS_LAST:])))
     mn = float(np.median(np.abs(np.asarray(reference["P"], float)[-UNITS_REF:])))
     ratio = mq / mn if mn > 0 else float("inf")
     ok = UNITS_BAND[0] <= ratio <= UNITS_BAND[1]
     out.update(ok=bool(ok), median_qqq=mq, median_nq=mn, ratio=ratio,
-               details=f"median |P| {mq:.3f} on the last {UNITS_LAST} QQQ trades vs {mn:.3f} on the "
+               details=f"median |P| {mq:.3f} on the last {UNITS_LAST} appended trades vs {mn:.3f} on the "
                        f"NQ reference's last {UNITS_REF}: {ratio:.2f}x "
                        f"({'inside' if ok else 'OUTSIDE'} {UNITS_BAND[0]}x-{UNITS_BAND[1]}x)")
     return out
@@ -920,8 +920,35 @@ def _iso_epoch(s):
     return d.timestamp()
 
 
-def live_check(reference, out_dir, leg_key, version, log=print, now_iso=None):
-    """THE ALERTS (exact, units, chain) -- see the block above. Returns the report written to
+def feed_check(ack, nightly_through):
+    """THE NQ FEED's alert (owner call 10-14, tools/keel_intraday.py): the feed's last settled bar
+    (the ack's feed.bars_through) must be on or after the nightly reference's data_through -- else
+    trades of the sessions in between were never learned (Yahoo down, the timer stopped, a contract
+    switch held). ok None (not checked) under the qqq_inbox feed or with no nightly date. The
+    feed's own notes ride along: the Yahoo result, a roll hold, restated trades (report only).
+    `nightly_through`: the reference's data_through (YYYY-MM-DD)."""
+    fb = (ack or {}).get("feed") if isinstance(ack, dict) else None
+    if not isinstance(fb, dict) or fb.get("feed") != "nq_yahoo":
+        return {"ok": None, "details": "skipped: not the nq_yahoo feed"}
+    out = {"ok": None, "bars_through": fb.get("bars_through"), "checked_at": fb.get("checked_at"),
+           "yahoo": fb.get("yahoo"), "roll_hold": fb.get("roll_hold"),
+           "restated": len(fb.get("restated") or []), "last_learned": fb.get("last_learned")}
+    ref_day = str(nightly_through)[:10] if nightly_through else None
+    if not ref_day:
+        out["details"] = "skipped: no nightly data_through to compare"
+        return out
+    got = str(fb.get("bars_through") or "")[:10]
+    out["nightly_through"] = ref_day
+    out["ok"] = bool(got) and got >= ref_day
+    out["details"] = (f"feed bars through {got or 'nothing'}, nightly through {ref_day}"
+                      + ("" if out["ok"] else " -- the feed is BEHIND: trades of the missing "
+                         f"session(s) were not learned (Yahoo {fb.get('yahoo')})"))
+    return out
+
+
+def live_check(reference, out_dir, leg_key, version, log=print, now_iso=None, data_through=None):
+    """THE ALERTS (exact, units, chain, feed) -- see the block above; `data_through` the reference's
+    (the feed check: feed_check). Returns the report written to
     LIVE_CHECK_FILE. Reads the live state, its cut and append log, the ack; writes none of them."""
     path = os.path.join(out_dir, LIVE_CHECK_FILE)
     now_iso = now_iso or _dt_now_iso()
@@ -981,10 +1008,13 @@ def live_check(reference, out_dir, leg_key, version, log=print, now_iso=None):
                 new.append(a)
         chain = {"ok": not new, "alerts": new, "since": (prev or {}).get("checked_at")
                  if isinstance(prev, dict) else None}
-        reasons = [k for k, v in (("exact", exact), ("units", units), ("chain", chain))
-                   if v.get("ok") is False]
+        # 4. feed (THE NQ FEED, owner 10-14): its bars must reach the nightly's own data
+        feed = feed_check(ack, data_through)
+        reasons = [k for k, v in (("exact", exact), ("units", units), ("chain", chain),
+                                  ("feed", feed)) if v.get("ok") is False]
         report.update(ok=not reasons, reasons=reasons, live=True, exact=exact, units=units,
-                      chain=chain, live_n=int(live["n"]) if isinstance(live, dict) else None,
+                      chain=chain, feed=feed,
+                      live_n=int(live["n"]) if isinstance(live, dict) else None,
                       cut=(meta or {}).get("cut"))
         log(f"[keel-live-state] live check {leg_key}: {'OK' if report['ok'] else 'ALERT'} -- exact "
             f"{'ok' if exact['ok'] else 'MISMATCH ' + ', '.join(exact['mismatches'])}; units "

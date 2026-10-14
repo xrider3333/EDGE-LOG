@@ -315,7 +315,7 @@ def test_the_live_state_is_written_atomically(w, monkeypatch):
 def test_the_handler_main_reads_the_box_paths(w, monkeypatch):
     monkeypatch.setattr(KI, "LIVE_FROM_DAY", str(w.live_days[0]))
     _prep(w, w.live_trades[:1])
-    assert KI.main(["--home", w.home, "--nq-file", w.nq_master]) == 0
+    assert KI.main(["--home", w.home, "--nq-file", w.nq_master, "--feed", KI.FEED_QQQ_INBOX]) == 0
     assert w.inbox() == [] and w.load("live_path")["n"] == w.nightly["n"] + 1
     with open(w.files["xrows_path"], encoding="utf-8") as f:
         assert len(f.read().splitlines()) == 1

@@ -1,0 +1,18 @@
+[Unit]
+# THE NQ FEED (owner call 2026-10-14 via MANAGER #149): every 5 minutes on weekdays, 09:00-17:55 ET,
+# run edgelog-keel-append.service -- tools/keel_intraday.py reads NQ=F 5-minute bars from Yahoo,
+# keeps the settled RTH bars past the nightly NQ master and appends each FINAL NOISE #382 NQ trade
+# to the LIVE KEEL state (~21-26 min after its exit: 15 min settle + one more bar + this timer).
+# The :40 second offset lines a run up just after Yahoo settles a bar. The handler is idempotent and
+# cheap (a few seconds), so a missed or extra run changes nothing; edgelog-keel-append.path still
+# fires the same service on an executor close file (set aside unread under this feed).
+Description=LIVE KEEL NQ feed: learn settled NOISE #382 NQ trades (every 5 min, weekdays 09:00-17:55 ET)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09..17:00/5:40 America/New_York
+AccuracySec=5s
+Persistent=false
+Unit=edgelog-keel-append.service
+
+[Install]
+WantedBy=timers.target

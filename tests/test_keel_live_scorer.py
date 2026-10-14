@@ -174,7 +174,8 @@ def _row(tid, exit_ts, leg="NOISE"):
             "pnl": 1.0, "trade_id": tid}
 
 
-def test_ledger_behind_counts_closed_live_trades_neither_appended_nor_rejected(w):
+def test_ledger_behind_counts_closed_live_trades_neither_appended_nor_rejected(w, monkeypatch):
+    monkeypatch.setattr(cs, "KEEL_LIVE_FEED", cs.KEEL_LIVE_FEED_QQQ)   # the QQQ feed's own count
     ts = w.live_trades
     _grow(w, ts[:2])
     # a rejected one (no entry record) -- the handler's ack names it

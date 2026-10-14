@@ -401,6 +401,14 @@ def keel_mode(keel_cfg):
 # REFERENCE. Only these legs' keel_paths() carry the live files; every other learned leg scores
 # on its nightly state exactly as before.
 KEEL_LIVE_LEARN_LEGS = ("NOISE_382",)
+# WHAT THE LIVE LEDGER LEARNS (tools/keel_intraday.py --feed defaults to this):
+#   nq_yahoo  -- OWNER CALL 10-14 via MANAGER #149 (supersedes #143): #382's OWN NQ trades, the
+#                backtest's trades, read from Yahoo's NQ=F bars ~21-26 min after each exit
+#                (edgelog-keel-append.timer); the book's QQQ closes are set aside unread.
+#   qqq_inbox -- 10-12..10-14 (#143): the book's own live QQQ trades (api/qqq_exec.py's close files).
+KEEL_LIVE_FEED_NQ = "nq_yahoo"
+KEEL_LIVE_FEED_QQQ = "qqq_inbox"
+KEEL_LIVE_FEED = KEEL_LIVE_FEED_NQ
 
 
 def keel_live_names(leg_key, version):
@@ -2333,7 +2341,11 @@ def _keel_stale_reason(last_session, day):
 #      QQQ arrays used), the names, the entry bar time + index, the engine size, keel_size and the
 #      state it used (_keel_xrow_record); after the signal rows are written it is appended as ONE
 #      JSON line per trade_id to <keel dir>/<leg>_xrows.jsonl (_record_keel_xrows).
-#   2. CLOSE: api/qqq_exec.py drops one JSON per FULLY CLOSED live trade (the P&L of record) into
+#   2. LEARN (KEEL_LIVE_FEED; OWNER CALL 10-14 = nq_yahoo): tools/keel_intraday.py
+#      (edgelog-keel-append.timer, every 5 min) appends each FINAL NQ #382 trade -- read from
+#      Yahoo's settled NQ=F bars on top of the nightly's NQ master, with the walk's own feature row
+#      and NQ points -- to the LIVE state (THE NQ FEED in that file). Under the old qqq_inbox feed:
+#   2b. CLOSE: api/qqq_exec.py drops one JSON per FULLY CLOSED live trade (the P&L of record) into
 #      cloud_signal/keel_inbox; tools/keel_intraday.py (edgelog-keel-append.path) appends it to the
 #      LIVE state with ml_keel.keel_append_trade: <leg>_<v>_live.joblib, _live_prev.joblib (the
 #      state before its last append) and _live_ack.json. The live state carries a KEEL_LIVE_META
@@ -2417,7 +2429,13 @@ def _keel_exec_trades_path(keel_cfg):
 def keel_ledger_behind(keel_cfg, leg_key, meta, log=print):
     """Live trades of `leg_key` entered after the cut and neither appended (`meta`, the live
     state's KEEL_LIVE_META) nor rejected by the handler (its ack) -- see HEALTH above. None when
-    it cannot be counted (no cut, trades.csv unreadable). Never raises."""
+    it cannot be counted (no cut, trades.csv unreadable) -- and always under the nq_yahoo feed
+    (KEEL_LIVE_FEED, owner 10-14): the ledger learns #382's NQ trades, which no file on this host
+    lists before the handler reads them, so the book's QQQ trades are no measure of it (the
+    handler's ack keeps the feed's own health: bars_through, the last trade learned and how long
+    after its exit). Never raises."""
+    if KEEL_LIVE_FEED != KEEL_LIVE_FEED_QQQ:
+        return None
     try:
         cut = (meta or {}).get("cut") or {}
         # after the cut = ENTERED after its NQ data (data_through) and on / after live_from, as the

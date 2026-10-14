@@ -1,8 +1,19 @@
-r"""tools/keel_intraday.py -- LIVE KEEL on the box: appends each CLOSED live Webull NOISE_382 trade to
-the leg's LIVE KEEL v12 state (owner call 10-12 via MANAGER #143: per-trade KEEL learns from the box's
-OWN live QQQ trades, not NQ bars -- the owner was told this is no longer the exact NQ backtest and
-chose it; Custom ML, KEEL's owner, confirmed the rules 10-12). The whole flow: api/cloud_signal.py,
-LIVE KEEL (above _keel_live_pick).
+r"""tools/keel_intraday.py -- LIVE KEEL on the box: appends each CLOSED NOISE_382 trade to the leg's
+LIVE KEEL v12 state, one trade at a time. The whole flow: api/cloud_signal.py, LIVE KEEL (above
+_keel_live_pick).
+
+THE FEED (api/cloud_signal.KEEL_LIVE_FEED; main's --feed):
+  nq_yahoo  (OWNER CALL 10-14 via MANAGER #149, supersedes #143; THE DEFAULT) -- the ledger learns
+            #382's OWN NQ trades, the trades of the backtest that justified KEEL, read from Yahoo's
+            NQ=F 5-minute bars ~21-26 min after each exit: see THE NQ FEED below (process_nq_feed).
+            The append, the cut, the log, the exact replay and the alerts are the ones below.
+  qqq_inbox (owner call 10-12 via MANAGER #143, 10-12..10-14) -- the book's own live QQQ trades from
+            api/qqq_exec.py's close files (process_inbox). Custom ML's #961 replay: once trust is on,
+            56% of entries size differently from the NQ backtest (mean 0.21x, max 2.25x) -- why the
+            owner moved to nq_yahoo. Kept for a rollback; under nq_yahoo the executor's close files
+            are moved to keel_inbox_done/ unread (set_aside_inbox).
+The rest of this docstring describes the qqq_inbox path; THE NQ FEED's own block is above
+process_nq_feed.
 
 THE CUT (Custom ML 10-12): the live state starts from the nightly NQ state built on the night of
 2026-10-12 and learns the live QQQ trades ENTERED from LIVE_FROM_DAY (2026-10-13) on -- NO backfill of
@@ -783,19 +794,25 @@ def _reject_record(paths, name, ack):
         pass
 
 
-def _write_ack(files, live, rejected, last, last_processed=None, alerts=None, log=_log):
+def _write_ack(files, live, rejected, last, last_processed=None, alerts=None, log=_log, feed=None):
     """The ack: n, the last appended trade, the last trade handled (the chain), the cut, the
-    rejected trade ids (newest REJECTED_KEEP), the chain / ledger alerts (newest ALERTS_KEEP).
-    Written before the cut too (n null)."""
+    rejected trade ids (newest REJECTED_KEEP), the chain / ledger alerts (newest ALERTS_KEEP), and
+    THE NQ FEED's own block (`feed`; None keeps the one already in the ack). Written before the cut
+    too (n null)."""
     from api import cloud_signal as cs
     meta = cs.keel_live_meta(live) or {}
     keep = dict(list(rejected.items())[-REJECTED_KEEP:])
+    if feed is None:
+        old = _load_json(files["live_ack_path"])
+        feed = old.get("feed") if isinstance(old, dict) else None
     ack = {"leg": meta.get("leg"), "version": meta.get("version"),
            "n": int(live["n"]) if isinstance(live, dict) and "n" in live else None,
            "last_trade_id": meta.get("last_trade_id"), "last_exit_ts": meta.get("last_exit_ts"),
            "appended": len(meta.get("appended") or []), "cut": meta.get("cut"),
            "last_processed": last_processed, "rejected": keep,
            "alerts": list(alerts or [])[-ALERTS_KEEP:], "last": last, "updated_at": _now_iso()}
+    if feed is not None:
+        ack["feed"] = feed
     try:
         _atomic_json(ack, files["live_ack_path"])
     except OSError as e:
@@ -951,6 +968,380 @@ def process_inbox(home, nq_file, leg_key=LEG_KEY, log=_log, max_rounds=20, ratio
     return results
 
 
+# ── THE NQ FEED (OWNER CALL 10-14 via MANAGER #149, supersedes #143) ────────────────────────────
+# The ledger learns #382's OWN NQ trades -- the backtest's trades -- not the book's QQQ trades. One
+# run (edgelog-keel-append.timer every 5 minutes on weekdays, 09:00-17:55 ET; the path unit still
+# fires on an executor close file):
+#   1. BARS: NQ=F 5-minute bars from Yahoo (YAHOO_PERIOD), SETTLED and RTH only by
+#      tools/refresh_noadj_yahoo's own helpers (a bar is used once bar end + 15 min has passed), the
+#      ones later than the box's NQ master (the nightly's own input; nothing before its last bar is
+#      ever read from Yahoo), cut at an in-bar contract switch (augur_engine.roll_guard, as the master
+#      refresh does). A failed pull -> the master alone (nothing new), said in the ack.
+#   2. TRADES: #382 on master + those bars with the nightly's own code and arrays (keel_live_state.
+#      load_nq_arrays on one CSV of both, run_nq_backtest). A trade is FINAL when its exit bar is
+#      before the last bar, or the last bar ends its session (api/market_calendar: 15:55, 12:55 on a
+#      half day): NOISE's STEP E closes an open trade at the array's last bar, so a trade exiting
+#      there while the session runs on is not a trade yet. Trade id NOISE_382-NQ-<entry bar UTC>-<L|S>.
+#   3. APPEND: each final trade ENTERED on / after the cut's live_from and after the cut's NQ data,
+#      not yet appended (and not refused before), in entry order, through THE SAME append as the
+#      inbox path (log row first, then keel_append_trade, _prev, the state, the ack) with the walk's
+#      own inputs: x_row = keel_features(arrays)[entry bar], P = the trade's NQ points net of the
+#      leg's cost (run_nq_backtest's, as keel_build_state), entry / exit = master bar indices (the
+#      cut's own index space). keel_append_trade's ledger is every trade before (the walk's: every
+#      trade that EXITED before the entry bar) -- equal unless a trade enters on or before the last
+#      appended exit bar, which #382 never did on NQ (0 of 4,873, 10-14 box read): such a trade is
+#      REFUSED with an alert ("order"), never appended out of the walk's order.
+#   4. STAMP: every row carries exit_close_ts (the exit bar's end) and learned_min_after_exit (from
+#      then to the append) -- ~21-26 min (15 min settle + one more bar + the 5-minute timer);
+#      the ack's feed block keeps the last one, bars_through, master_through, the Yahoo result.
+# NOT BIT-EXACT WITH THE NIGHTLY: Yahoo's opens / closes for one bar differ between pulls (10-14 box
+# read: 149 of 234 opens over 3 sessions, up to 2.25 pts; highs / lows equal), and the nightly
+# master is the PC's own pull. On 09-01..10-13 a fresh pull changed no trade's bars and one trade's
+# P by 1.5 pts. The ack lists appended trades a later run's bars no longer give alike ("restated",
+# report only); the nightly drift report shows the state-level gap.
+FEED_NQ_YAHOO = "nq_yahoo"        # api/cloud_signal.KEEL_LIVE_FEED_NQ
+FEED_QQQ_INBOX = "qqq_inbox"      # api/cloud_signal.KEEL_LIVE_FEED_QQQ
+YAHOO_TICKER = "NQ=F"
+YAHOO_PERIOD = "5d"               # covers a long weekend + a missed nightly push
+NQ_TAG = "NQ"                     # trade ids: <leg>-NQ-<entry bar UTC>-<L|S>
+RESTATED_KEEP = 50
+
+
+def fetch_yahoo_nq(now_s=None):
+    """Yahoo's NQ=F 5-minute bars as a TV frame (time = bar start, UTC s), SETTLED RTH bars only --
+    tools/refresh_noadj_yahoo's own helpers (_to_tv, _drop_unclosed, _rth). Raises on a failed or
+    empty pull."""
+    import yfinance as yf
+    from tools import refresh_noadj_yahoo as R
+    now_s = int(time.time()) if now_s is None else int(now_s)
+    h = yf.Ticker(YAHOO_TICKER).history(period=YAHOO_PERIOD, interval="5m")
+    if h is None or not len(h):
+        raise ValueError(f"Yahoo returned no {YAHOO_TICKER} bars")
+    return R._rth(R._drop_unclosed(R._to_tv(h), "5m", now_s))
+
+
+def bars_after_master(master_last, fresh):
+    """(bars, roll_hit): the rows of the TV frame `fresh` after the master's last bar `master_last`
+    (UTC s), in time order, one per bar, cut at an in-bar contract switch (roll_guard: nothing from
+    the suspect bar on; roll_hit = its hit dict, else None)."""
+    from augur_engine import roll_guard
+    if fresh is None or not len(fresh):
+        return fresh, None
+    new = (fresh[fresh["time"] > int(master_last)].sort_values("time")
+           .drop_duplicates("time", keep="last").reset_index(drop=True))
+    if not len(new):
+        return new, None
+    return roll_guard.split_tv_frame(new, after_time=int(master_last), root="NQ")
+
+
+def nq_arrays(nq_file, bars, date_from):
+    """The nightly's arrays (keel_live_state.load_nq_arrays, no session dropped) over the master +
+    `bars`: both written as ONE CSV in a temp dir (RAM-backed when /dev/shm exists) and read by the
+    nightly's own loader -- the arrays the nightly will read once the master holds these bars."""
+    import tempfile
+    import pandas as pd
+    from tools import keel_live_state as L
+    quiet = lambda *a, **k: None  # noqa: E731
+    if bars is None or not len(bars):
+        return L.load_nq_arrays(nq_file, date_from=date_from, drop_incomplete=False, log=quiet)[0]
+    cur = pd.read_csv(nq_file)
+    add = bars.copy()
+    for c in cur.columns:
+        if c not in add.columns:
+            add[c] = "keel_yahoo" if c == "source" else None
+    both = pd.concat([cur, add[list(cur.columns)]], ignore_index=True)
+    base = "/dev/shm" if os.path.isdir("/dev/shm") else None
+    with tempfile.TemporaryDirectory(dir=base, prefix="keel_nq_") as d:
+        p = os.path.join(d, os.path.basename(nq_file))
+        both.to_csv(p, index=False)
+        return L.load_nq_arrays(p, date_from=date_from, drop_incomplete=False, log=quiet)[0]
+
+
+def _ends_session(ts):
+    """True when the 5-minute bar starting at `ts` (ET) is its session's last bar."""
+    from api import market_calendar as mc
+    import pandas as pd
+    d = ts.date()
+    if not mc.is_session(d):
+        return False
+    close = pd.Timestamp(f"{d.isoformat()} {mc.session_close_et(d)}", tz=ts.tz)
+    return ts + pd.Timedelta(seconds=TF_SECONDS) == close
+
+
+def final_nq_trades(arr, trades, leg_key=LEG_KEY):
+    """The FINAL trades of `trades` (run_nq_backtest's tuples: entry bar, exit bar, P, side, entry
+    price) on `arr`, in entry order, as dicts (trade_id, entry_bar, exit_bar, P, side, entry_px,
+    entry_bar_time, exit_bar_time, exit_close_epoch). A trade exiting on the array's last bar counts
+    only when that bar ends its session -- see THE NQ FEED, step 2."""
+    import pandas as pd
+    idx = pd.DatetimeIndex(arr["index"])
+    last = len(idx) - 1
+    if last < 0:
+        return []
+    ends = _ends_session(idx[last])
+    out = []
+    for t in sorted(trades, key=lambda a: (int(a[0]), int(a[1]))):
+        e, x = int(t[0]), int(t[1])
+        if x > last or (x == last and not ends):
+            continue
+        side = "long" if float(t[3]) > 0 else "short"
+        ent, ex = idx[e], idx[x]
+        out.append({"trade_id": f"{leg_key}-{NQ_TAG}-{ent.tz_convert('UTC'):%Y%m%dT%H%M%SZ}-"
+                                f"{side[0].upper()}",
+                    "entry_bar": e, "exit_bar": x, "P": float(t[2]), "side": side,
+                    "entry_px": float(t[4]) if len(t) > 4 else None,
+                    "entry_bar_time": ent.isoformat(), "exit_bar_time": ex.isoformat(),
+                    "exit_close_epoch": int(ex.timestamp()) + TF_SECONDS})
+    return out
+
+
+def _et_iso(epoch):
+    from zoneinfo import ZoneInfo
+    return _dt.datetime.fromtimestamp(int(epoch), tz=ZoneInfo(ET)).isoformat()
+
+
+def _json_float(v):
+    """A feature value for the JSON log: NaN -> None (apply_append_row reads None back as NaN);
+    every other float exactly (json writes repr)."""
+    v = float(v)
+    return None if math.isnan(v) else v
+
+
+def nq_append_row(live, t, x_row, now_s, feed):
+    """The APPEND LOG row for final NQ trade `t` (final_nq_trades) on `live`, `x_row` its feature
+    row: n_before / n_after, x_row, P, entry / exit bars (indices) and bar times, side, the feed
+    (bars_through, master_through) and THE STAMP (exit_close_ts, learned_min_after_exit). Raises
+    ValueError on a refusal: no live record, or an entry on / before the last appended exit bar."""
+    from api import cloud_signal as cs
+    meta = cs.keel_live_meta(live)
+    if meta is None:
+        raise ValueError("the live state has no live record")
+    last_bar = meta.get("last_exit_bar_ts")
+    if last_bar and _parse_ts(t["entry_bar_time"]) <= _parse_ts(last_bar):
+        raise ValueError(f"entry bar {t['entry_bar_time']} is on or before the last appended exit "
+                         f"bar {last_bar} ({meta.get('last_trade_id')}): the walk's ledger order "
+                         f"cannot hold it -- refused, never appended out of order")
+    entry = _parse_ts(t["entry_bar_time"])
+    now_iso = _dt.datetime.fromtimestamp(int(now_s), _dt.timezone.utc).isoformat(timespec="seconds")
+    return {"leg": meta.get("leg"), "trade_id": t["trade_id"], "feed": FEED_NQ_YAHOO,
+            "n_before": int(live["n"]), "n_after": int(live["n"]) + 1,
+            "entry_ts": entry.strftime(TS_FMT),
+            "exit_ts": _parse_ts(_et_iso(t["exit_close_epoch"])).strftime(TS_FMT),
+            "entry_bar_time": t["entry_bar_time"], "exit_bar_time": t["exit_bar_time"],
+            "entry_bar": int(t["entry_bar"]), "exit_bar": int(t["exit_bar"]), "side": t["side"],
+            "entry_px": t.get("entry_px"), "P": float(t["P"]),
+            "x_row": [_json_float(v) for v in x_row],
+            "bars_through": (feed or {}).get("bars_through"),
+            "master_through": (feed or {}).get("master_through"),
+            "exit_close_ts": _et_iso(t["exit_close_epoch"]),
+            "learned_min_after_exit": round((int(now_s) - int(t["exit_close_epoch"])) / 60.0, 1),
+            "appended_at": now_iso}
+
+
+def _restated(meta, fin, arr):
+    """Appended NQ trades (feed nq_yahoo) whose entry is inside `arr` but which this run's final
+    trades `fin` no longer give alike: gone, or another exit bar / P. Report only."""
+    import pandas as pd
+    first = pd.DatetimeIndex(arr["index"])[0] if len(arr["index"]) else None
+    by_id = {t["trade_id"]: t for t in fin}
+    last_exit = max((t["exit_bar"] for t in fin), default=-1)
+    out = []
+    for a in (meta or {}).get("appended") or []:
+        if not isinstance(a, dict) or a.get("feed") != FEED_NQ_YAHOO:
+            continue
+        if first is None or _parse_ts(a.get("entry_bar_time")) < first:
+            continue
+        now = by_id.get(a.get("trade_id"))
+        if now is None:
+            if int(a.get("exit_bar", -1)) < last_exit:
+                out.append({"trade_id": a.get("trade_id"), "was_P": a.get("P"), "now": "gone"})
+            continue
+        if now["exit_bar_time"] != a.get("exit_bar_time") or abs(now["P"] - float(a.get("P"))) > 1e-9:
+            out.append({"trade_id": a.get("trade_id"), "was_P": a.get("P"), "now_P": now["P"],
+                        "was_exit": a.get("exit_bar_time"), "now_exit": now["exit_bar_time"]})
+    return out[-RESTATED_KEEP:]
+
+
+def _master_last_time(nq_file):
+    import pandas as pd
+    return int(pd.read_csv(nq_file, usecols=["time"])["time"].max())
+
+
+def process_nq_feed(home, nq_file, leg_key=LEG_KEY, log=_log, now_s=None, fetch_fn=None,
+                    trades_fn=None, live_from=None):
+    """ONE RUN OF THE NQ FEED (see its block above). Test seams: `fetch_fn(now_s)` -> a settled TV
+    frame (default fetch_yahoo_nq); `trades_fn(arrays, leg)` -> run_nq_backtest's trade tuples
+    (default: the leg's own walk); `live_from` the first entry day learned when the cut is made here
+    (default LIVE_FROM_DAY). Returns {status, appended: [rows without x_row], refused: [...], feed}.
+    Never leaves the ledger half-written: the same log-first append as process_inbox."""
+    from api import cloud_signal as cs
+    from augur_engine import ml_keel as K
+    from tools import keel_live_state as L
+    now_s = int(time.time()) if now_s is None else int(now_s)
+    now_iso = _dt.datetime.fromtimestamp(now_s, _dt.timezone.utc).isoformat(timespec="seconds")
+    paths = inbox_paths(home)
+    out = {"status": None, "appended": [], "refused": [], "feed": None}
+    with _Lock(paths["lock"]):
+        leg = L.resolve_leg(leg_key)
+        version = leg["version"]
+        files = leg_files(home, leg_key, version)
+        old_ack = _load_json(files["live_ack_path"])
+        old_ack = old_ack if isinstance(old_ack, dict) else {}
+        old_feed = old_ack.get("feed") if isinstance(old_ack.get("feed"), dict) else {}
+        rejected = dict(old_ack.get("rejected") or {})
+        alerts = [a for a in old_ack.get("alerts") or [] if isinstance(a, dict)]
+        last_processed = old_ack.get("last_processed") if isinstance(
+            old_ack.get("last_processed"), dict) else None
+        feed = {"feed": FEED_NQ_YAHOO, "checked_at": now_iso, "yahoo": None, "yahoo_bars": 0,
+                "master_through": None, "bars_through": None, "roll_hold": None,
+                "final_trades_since_cut": None, "restated": [],
+                "last_learned": old_feed.get("last_learned")}
+        out["feed"] = feed
+        live = None
+        try:
+            if os.path.exists(files["live_path"]):
+                live = _load_joblib(files["live_path"])
+                if live is None:
+                    raise ValueError("the live state file exists but cannot be read -- refused "
+                                     "(a live state is never re-cut over it)")
+                live, applied = _catch_up(live, files, log=log)
+            else:
+                live = make_cut(files, leg_key, version, None, now_iso, live_from=live_from)
+                _install_cut(files, live, log=log)
+            meta = cs.keel_live_meta(live)
+            if meta is None:
+                raise ValueError("the live state has no live record (not written by this handler)")
+        except LedgerError as e:
+            alerts.append({"kind": "ledger", "trade_id": None, "at": now_iso, "reason": str(e)})
+            out["status"] = f"refused: {e}"
+            log(f"NQ FEED REFUSED: {e} [ALERT]")
+            if live is not None:
+                _write_ack(files, live, rejected, {"status": "refused", "reason": str(e)},
+                           last_processed, alerts, log=log, feed=feed)
+            return out
+        except ValueError as e:
+            out["status"] = f"refused: {e}"
+            log(f"NQ FEED: nothing learned -- {e}")
+            return out
+        cut = meta.get("cut") or {}
+        # 1. bars
+        master_last = _master_last_time(nq_file)
+        feed["master_through"] = _et_iso(master_last)
+        bars = None
+        try:
+            fresh = (fetch_fn or fetch_yahoo_nq)(now_s)
+            bars, hit = bars_after_master(master_last, fresh)
+            feed["yahoo"] = "ok"
+            feed["yahoo_bars"] = int(len(bars)) if bars is not None else 0
+            if hit is not None:
+                from augur_engine import roll_guard
+                feed["roll_hold"] = {"et_date": hit.get("et_date"), "why": roll_guard.describe(hit)}
+                log(f"NQ FEED: Yahoo bars held back from an in-bar contract switch on "
+                    f"{hit.get('et_date')}")
+        except Exception as e:
+            bars = None
+            feed["yahoo"] = f"failed: {type(e).__name__}: {e}"[:300]
+            log(f"NQ FEED: Yahoo pull failed ({type(e).__name__}: {e}) -- the master alone")
+        # 2. trades
+        arr = nq_arrays(nq_file, bars, L._leg_date_from(leg))
+        import pandas as pd
+        idx = pd.DatetimeIndex(arr["index"])
+        feed["bars_through"] = idx[-1].isoformat() if len(idx) else None
+        if trades_fn is None:
+            def trades_fn(a, lg):
+                return L.run_nq_backtest(a, leg=lg, log=lambda *x, **k: None)[0]
+        fin = final_nq_trades(arr, trades_fn(arr, leg), leg_key)
+        through = cut.get("data_through")
+        first = _day(cut.get("live_from") or live_from or LIVE_FROM_DAY)
+        since = [t for t in fin if _day(t["entry_bar_time"]) >= first
+                 and (not through or _day(t["entry_bar_time"]) > _day(through))]
+        feed["final_trades_since_cut"] = len(since)
+        done = {str(a.get("trade_id")) for a in meta.get("appended") or [] if isinstance(a, dict)}
+        todo = [t for t in since if t["trade_id"] not in done and t["trade_id"] not in rejected]
+        # 3. append
+        F = None
+        for t in todo:
+            tid = t["trade_id"]
+            res = {"trade_id": tid, "status": "rejected", "reason": None, "alert": False,
+                   "processed_at": now_iso}
+            try:
+                if F is None:
+                    F_, names = K.keel_features(arr)
+                    if list(names) != list(live.get("feature_names") or []):
+                        raise LedgerError("this run's NQ feature names differ from the live "
+                                          "state's -- nothing appended until a hand fix")
+                    F = F_
+                row = nq_append_row(live, t, F[int(t["entry_bar"])], now_s, feed)
+                res["n_before"] = row["n_before"]
+                row = _append_log(files["appends_path"], row)
+                nxt = apply_append_row(live, row, now_iso)
+                try:
+                    _atomic_joblib(live, files["live_prev_path"])
+                    _atomic_joblib(nxt, files["live_path"])
+                except Exception as e:
+                    raise LedgerError(f"the live state was not written ({type(e).__name__}: {e}); "
+                                      f"the append log holds the trade -- the next run applies it")
+                live = nxt
+                res.update(status="appended", n=int(live["n"]), P=row["P"],
+                           learned_min_after_exit=row["learned_min_after_exit"])
+                feed["last_learned"] = {k: row[k] for k in (
+                    "trade_id", "side", "entry_bar_time", "exit_bar_time", "exit_close_ts", "P",
+                    "appended_at", "learned_min_after_exit", "n_after")}
+                out["appended"].append({k: v for k, v in row.items() if k != "x_row"})
+            except LedgerError as e:
+                res.update(reason=str(e), alert=True)
+                alerts.append({"kind": "ledger", "trade_id": tid, "at": now_iso, "reason": str(e)})
+                out["refused"].append(res)
+                log(f"NQ FEED: {tid} not appended -- {e} [ALERT]")
+                break
+            except ValueError as e:
+                res.update(reason=str(e), alert=True)
+                rejected[tid] = str(e)
+                alerts.append({"kind": "order", "trade_id": tid, "at": now_iso, "reason": str(e)})
+                out["refused"].append(res)
+                log(f"REFUSED {tid}: {e} [ALERT]")
+                continue
+            last_processed = {"trade_id": tid, "exit_ts": row["exit_ts"], "status": "appended",
+                              "at": now_iso}
+            log(f"APPENDED {tid}: n={live['n']} P={row['P']:.4f} pts (exit bar "
+                f"{row['exit_bar_time']}, learned {row['learned_min_after_exit']:.1f} min after "
+                f"the exit bar closed)")
+        feed["restated"] = _restated(cs.keel_live_meta(live), fin, arr)
+        if feed["restated"]:
+            log(f"NQ FEED: {len(feed['restated'])} appended trade(s) differ on this run's bars "
+                f"(Yahoo restated; report only)")
+        last = (out["refused"][-1] if out["refused"] else
+                {"status": "appended", "trade_id": out["appended"][-1]["trade_id"]} if out["appended"]
+                else {"status": "nothing new", "bars_through": feed["bars_through"]})
+        _write_ack(files, live, rejected, last, last_processed, alerts, log=log, feed=feed)
+        out["status"] = "ok"
+        if not out["appended"] and not out["refused"]:
+            log(f"NQ FEED: nothing new (n={live['n']}; bars through {feed['bars_through']}; Yahoo "
+                f"{feed['yahoo']}, {feed['yahoo_bars']} bar(s) past the master)")
+    return out
+
+
+def set_aside_inbox(home, log=_log):
+    """Under the nq_yahoo feed no QQQ trade is learned: every executor close file in the inbox moves
+    to keel_inbox_done/ unread (the path unit fires on them; an emptied inbox stops it). Returns the
+    names moved."""
+    paths = inbox_paths(home)
+    moved = []
+    try:
+        names = sorted(os.listdir(paths["inbox"]))
+    except OSError:
+        return moved
+    for n in names:
+        if _move(os.path.join(paths["inbox"], n), paths["done"], log=log):
+            moved.append(n)
+    if moved:
+        log(f"SET ASIDE {len(moved)} executor close file(s) ({', '.join(moved[:3])}"
+            f"{'...' if len(moved) > 3 else ''}): KEEL learns #382's NQ trades (feed {FEED_NQ_YAHOO}), "
+            f"not the book's QQQ trades")
+    _prune(paths["done"])
+    return moved
+
+
 def make_live_cut(home, leg_key=LEG_KEY, live_from=None, log=_log):
     """--cut: make the cut NOW from the current nightly (the hand step right after the nightly the
     cut must copy). Refused once a live state exists (never re-cut). Returns {status, ...}."""
@@ -992,6 +1383,8 @@ def main(argv=None):
     ap.add_argument("--nq-file", default=None, help="the box's NQ 5m RTH master, for the NQ/QQQ "
                     "price ratio (default: <home>/nq/NOADJ_NQ_5m_RTH.csv)")
     ap.add_argument("--leg", default=LEG_KEY)
+    ap.add_argument("--feed", default=None, choices=(FEED_NQ_YAHOO, FEED_QQQ_INBOX),
+                    help="what the ledger learns (default: api/cloud_signal.KEEL_LIVE_FEED)")
     ap.add_argument("--cut", action="store_true", help="make the cut now from the current nightly "
                     "(refused once a live state exists)")
     ap.add_argument("--verify", action="store_true", help="check live state == cut + append log "
@@ -1004,6 +1397,14 @@ def main(argv=None):
     if a.cut:
         return 0 if make_live_cut(home, a.leg)["status"] == "cut" else 1
     nq_file = a.nq_file or os.path.join(home, "nq", MASTER_NAME)
+    feed = a.feed or getattr(cs, "KEEL_LIVE_FEED", FEED_QQQ_INBOX)
+    if feed == FEED_NQ_YAHOO:
+        set_aside_inbox(home)
+        if not os.path.exists(nq_file):
+            _log(f"NQ master not found: {nq_file} -- nothing learned")
+            return 1
+        res = process_nq_feed(home, nq_file, a.leg)
+        return 0 if res.get("status") == "ok" else 1
     if not os.path.exists(nq_file):
         _log(f"NQ master not found: {nq_file} -- every trade will be refused (no price ratio)")
     process_inbox(home, nq_file, a.leg)

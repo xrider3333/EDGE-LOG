@@ -257,3 +257,28 @@ def test_keel_append_units_are_utf8_lf_text():
         raw = open(os.path.join(CLOUD_DIR, fname), "rb").read()
         assert b"\x00" not in raw and b"\r" not in raw
         raw.decode("utf-8")
+
+
+# ── 2026-10-14: THE NQ FEED -- edgelog-keel-append.timer (owner call via MANAGER #149) ─────────────
+def test_keel_append_timer_runs_the_append_service_every_five_minutes_on_weekdays_et():
+    lines = _active_lines(_read("edgelog-keel-append.timer"))
+    assert "[Timer]" in lines
+    assert "OnCalendar=Mon..Fri *-*-* 09..17:00/5:40 America/New_York" in lines
+    assert "Unit=edgelog-keel-append.service" in lines
+    assert "Persistent=false" in lines
+    assert "WantedBy=timers.target" in lines
+
+
+def test_keel_append_timer_is_installed_and_enabled_by_install_sh():
+    sh = _install_sh()
+    units = re.search(r"for unit in ([^\n]+); do", sh).group(1).split()
+    assert "edgelog-keel-append.timer" in units
+    enable_lines = [ln for ln in sh.splitlines()
+                    if "systemctl enable" in ln and not ln.strip().startswith("#")]
+    assert any("edgelog-keel-append.timer" in ln for ln in enable_lines)
+
+
+def test_keel_append_timer_is_utf8_lf_text():
+    raw = open(os.path.join(CLOUD_DIR, "edgelog-keel-append.timer"), "rb").read()
+    assert b"\x00" not in raw and b"\r" not in raw
+    raw.decode("utf-8")

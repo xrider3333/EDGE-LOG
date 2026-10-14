@@ -1295,8 +1295,17 @@ def _keel_live_problem(d):
         return ("KEEL's live trades are on a different scale from its NQ trades, so it may be "
                 "learning wrong numbers.")
     if lead == "chain":
+        kinds = {a.get("kind") for a in (d.get("chain") or {}).get("alerts") or []
+                 if isinstance(a, dict)}
+        if kinds and kinds <= {"order"}:
+            return ("KEEL refused a NOISE NQ trade that started before the last trade it learned "
+                    "had ended, so it could not learn it in order.")
         return ("KEEL's live model skipped a NOISE trade: a close before it was missing or "
                 "doubled.")
+    if lead == "feed":
+        f = d.get("feed") or {}
+        return ("KEEL stopped learning NOISE's NQ trades: its Yahoo bars end %s but the nightly has "
+                "%s." % (str(f.get("bars_through") or "nothing")[:10], f.get("nightly_through") or "?"))
     return "KEEL's live model no longer matches a rebuild from its own trade record."
 
 
@@ -1314,8 +1323,8 @@ def check_keel_live(snap):
         f"KEEL live model check failed ({leg}): {reasons}",
         f"exact {((d.get('exact') or {}).get('mismatches'))}; units "
         f"{(d.get('units') or {}).get('details')}; chain "
-        f"{len((d.get('chain') or {}).get('alerts') or [])} alert(s) "
-        f"(checked {d.get('checked_at') or '?'})",
+        f"{len((d.get('chain') or {}).get('alerts') or [])} alert(s); feed "
+        f"{(d.get('feed') or {}).get('details')} (checked {d.get('checked_at') or '?'})",
         plain=_plain(_keel_live_problem(d), priority="default"))]
 
 

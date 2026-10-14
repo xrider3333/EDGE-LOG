@@ -13,7 +13,7 @@
 #   5. write ~/edgelog/edgelog.env ONCE (fill in the CHANGE-ME lines yourself)
 #   6. install + enable the systemd units (edgelog-runner.service,
 #      edgelog-healthcheck.timer/.service, edgelog-keel-state.timer/.path/.service,
-#      edgelog-keel-append.path/.service, edgelog-freshness.timer/.service)
+#      edgelog-keel-append.path/.service/.timer, edgelog-freshness.timer/.service)
 #   7. install /etc/logrotate.d/edgelog (daily, size-capped -- see
 #      deploy/cloud/edgelog.logrotate)
 #
@@ -151,7 +151,7 @@ fi
 # 6. systemd units ------------------------------------------------------------------
 echo "==> installing systemd units"
 UNIT_SRC="${REPO_DIR}/deploy/cloud"
-for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path edgelog-keel-append.service edgelog-keel-append.path edgelog-freshness.service edgelog-freshness.timer; do
+for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path edgelog-keel-append.service edgelog-keel-append.path edgelog-keel-append.timer edgelog-freshness.service edgelog-freshness.timer; do
   sed \
     -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
     -e "s#__EDGELOG_REPO__#${REPO_DIR}#g" \
@@ -173,6 +173,10 @@ sudo systemctl enable edgelog-keel-state.timer edgelog-keel-state.path
 # executor drops it into cloud_signal/keel_inbox/ (tools/keel_intraday.py). Enabled, not started here --
 # `sudo systemctl start edgelog-keel-append.path` (or a reboot) arms it.
 sudo systemctl enable edgelog-keel-append.path
+# THE NQ FEED (owner call 2026-10-14, MANAGER #149): the same service every 5 minutes on weekdays,
+# 09:00-17:55 ET -- learns #382's settled NQ trades from Yahoo (tools/keel_intraday.py). Enabled,
+# not started here: `sudo systemctl start edgelog-keel-append.timer` (or a reboot) arms it.
+sudo systemctl enable edgelog-keel-append.timer
 # Webull pipeline freshness monitor (2026-10-05): read-only checks every 2 minutes, 24/7,
 # paging ntfy once per episode -- see tools/webull_freshness.py. Its executor auto-restart is
 # OFF until the owner writes {"auto_restart_exec": true} to
