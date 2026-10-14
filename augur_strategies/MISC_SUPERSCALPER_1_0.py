@@ -89,6 +89,56 @@ x0.5..x1.5). DROPPED (no effect on any order):
   Kept although labelled "Show ...": useOB (gates OB detection), showQQQLevels /
   showORBMid / showONRange (feed TP targets and S/R levels).
 Port knobs: intrabar, close_rule, pyramiding, spy_proxy, footprint, daily_close.
+Our-port knobs (not in the script): sl_cap_atr, sl_scale, tp_scale, max_hold_bars,
+be_trigger, vix_feed - see OUR PORT ADDITIONS.
+
+OUR PORT ADDITIONS (improvement-round knobs; every default reproduces the as-ported
+trades exactly - tests/test_misc_superscalper.py pins it on synthetic data and on NQ 1m
+ETH 2024-06-03..06-14)
+  Exit knobs act only on each ticket's bracket, AFTER every entry gate (minProfit, R:R,
+  score and star checks all see the script's own levels), so the candidate entries are
+  unchanged; only the position-dependent gates (pyramiding cap, flat-only OD, no long
+  while short) see the different positions the new exits leave.
+  - sl_cap_atr 'off' | '3.0': the author's comment says the session stop is "never > 3
+    ATR", but math.min(close + atr*3, ...) / math.max(close - atr*3, ...) is a no-op.
+    '3.0' applies it where the author wrote it (Pine lines 687/692/702/707): the session
+    stops slEthL / slRthL / slEthS / slRthS, i.e. the tickets of the paths whose stop IS
+    the session stop - MAIN, BOS and RE: stop distance from the signal close <= 3 x ATR
+    (the session-selected ATR of those lines). Capping on those lines or on the finished
+    session stop gives the same price (the ETH points cap and the 1-ATR floor commute with
+    it). TRAP's own stop is bounded at 1.5-2.5 ATR, so a capped session-stop input never
+    changes it; OB and OD keep their own stops, uncapped.
+    cap scope = the author's lines only (TV decision 10-14, before any number)
+  - sl_scale (0.40..1.20): stop = close + (stop - close) x sl_scale on every path, after
+    the cap.
+  - tp_scale (1.0..2.0): target = close + (target - close) x tp_scale on every path,
+    close = the signal bar's close. Both scales and the cap run before the 0.25 tick
+    rounding of order prices.
+  - max_hold_bars (0 = off): a trade open N bars (its fill bar included) exits at the
+    open of bar fill+N (market), before that bar's entries; reason 'time'. Bars, not
+    minutes (the 17:00 ET halt and weekends count no bars). Under FIFO pairing the oldest
+    trade is the one that times out; one live bracket is cancelled with it (its own if
+    still live, else the oldest).
+  - be_trigger (0 = off): once a bar trades at entry + be_trigger x initial risk (longs;
+    entry - ... for shorts; entry = the fill price, risk = |entry - initial stop|), that
+    ticket's stop moves to its entry price from the NEXT bar on - a bar that reaches the
+    trigger is still judged against the old stop. Tickets with no positive risk never arm.
+  - vix_feed 'none' | 'daily': 'daily' replaces the missing CBOE:VIX 1m (PORT GAP 2) with
+    CBOE's daily VIX close, New York dates. Source = hidden param _vix_file:
+      'raw' (default)  C:\\EdgeLog\\_research_cache\\public_series\\cboe\\VIX_History.csv
+                       (CBOE's own file, DATE MM/DD/YYYY, CLOSE), sha256 6edc3e39...b565a
+      'derived'        C:\\EdgeLog\\_research_cache\\public_series\\cboe_vol_daily.csv
+                       (VIX_close; ends 2025-06-27), sha256 9790df06...4e2470
+    The digest is checked at every load (refused on any mismatch), and every row dated after
+    the last chart bar's CME trading date is dropped immediately after parsing, before any
+    other use (a 2024 run never holds a 2025 row). Rows dated on a day that is not an NQ
+    session day on the tape (no bar
+    13:00-15:59 ET: CME holiday sessions, which the file carries from 2022) are dropped.
+    Day D's close is usable from 16:15 ET on D (bars stamped 16:15 or later); vixClose =
+    the latest usable close; vixPrev = the usable close as of the session 10 NQ sessions
+    earlier (sessions counted on the tape, not VIX rows). The script's own f_vixRiseThresh
+    / f_vixFallThresh / vixMag then score dirScoreFull factor 6 unchanged. Warm-up: na
+    (factor 0) until the tape's first 16:15 / its 11th session.
 
 PORT GAPS (closest honest equivalent; what / why / expected effect)
   1. request.footprint(50, 70) needs TV Premium tick data we do not hold for history.
@@ -101,6 +151,7 @@ PORT GAPS (closest honest equivalent; what / why / expected effect)
   2. USI:TICK and CBOE:VIX 1m are not held -> na, as TV returns for a missing symbol:
      dirScoreFull factors 5 (TICK, up to +-2) and 6 (VIX, up to +-1.5) are 0. Effect:
      medium on the dirScore vetoes / confidence, none on the ORB/OB/BOS geometry.
+     vix_feed='daily' (ours) is a daily stand-in for factor 6, not TV's 1m slope.
   3. SPY 1m not held -> ES stand-in (see spy_proxy). Only the NQ-vs-SPY relative-strength
      vote (+-0.5) uses it. Effect: small.
   4. TV daily bars for futures default to settlement-as-close; settlement is approximated
@@ -133,6 +184,7 @@ LOOK-AHEAD / REPAINT NOTES ON THE PINE (for the record): none found that uses fu
 Needs `index` (bar timestamps) and must run inside an engine roll context (run it through
 augur_engine.run_backtest); returns None without an index.
 """
+import hashlib
 import io
 import math
 import os
@@ -233,33 +285,64 @@ DEFAULT_PARAMS = {
     "ob_min_rules": _knob_i(2, 0, 5, "OB min rules (obMinRules)",
                             "Script default 2 of 5 (+1 in thin sessions)."),
     # ── port mechanics ──
-    "intrabar": {"default": "worst", "type": "str", "options": ["worst", "tv"],
+    # Each carries ONE search option (TV 10-14, prereg Amendment 4): the Auto-Validate searches every str knob's
+    # options, and a fill model or a stand-in feed is a fidelity setting, never a tuning knob. Passing another value
+    # explicitly still works (the Stage 0 parity harness runs intrabar='tv').
+    "intrabar": {"default": "worst", "type": "str", "options": ["worst"],
                  "label": "Intrabar order (fill model)",
                  "tooltip": "worst = stop leg first whenever a bar touches both legs. tv = "
                             "TradingView broker-emulator path (O-H-L-C when the high is "
                             "closer to the open, else O-L-H-C). A fill-honesty choice: pin "
                             "it, do not search it."},
-    "close_rule": {"default": "fifo", "type": "str", "options": ["fifo", "any"],
+    "close_rule": {"default": "fifo", "type": "str", "options": ["fifo"],
                    "label": "Trade pairing (close_entries_rule)",
                    "tooltip": "fifo = TV default for futures (an exit closes the oldest open "
                               "trade). any = each bracket closes its own ticket. Same total "
                               "points; per-trade rows differ."},
     "pyramiding": _knob_i(20, 1, 30, "Max concurrent entries (pyramiding)",
                           "Script strategy() pyramiding=20."),
-    "spy_proxy": {"default": "es_rth", "type": "str", "options": ["es_rth", "es", "none"],
+    "spy_proxy": {"default": "es_rth", "type": "str", "options": ["es_rth"],
                   "label": "SPY stand-in",
                   "tooltip": "SPY 1m is not held. es_rth = ES close (roll-adjusted) sampled "
                              "09:30-16:00 ET and carried forward like SPY's session; es = ES "
                              "all hours; none = na (relative strength vote off)."},
-    "footprint": {"default": "none", "type": "str", "options": ["none", "clv"],
+    "footprint": {"default": "none", "type": "str", "options": ["none"],
                   "label": "Footprint data",
                   "tooltip": "request.footprint is TV Premium tick data. none = the script's "
                              "own no-footprint branch (exact). clv = close-location buy/sell "
                              "split per bar (approximation)."},
-    "daily_close": {"default": "settle", "type": "str", "options": ["settle", "last"],
+    "daily_close": {"default": "settle", "type": "str", "options": ["settle"],
                     "label": "Daily close",
                     "tooltip": "settle = TV's settlement-as-close daily bars (approximated by "
                                "the 15:59 ET bar close). last = the session's last trade."},
+    # ── OUR PORT ADDITIONS (not in the script; defaults = the as-ported trades exactly) ──
+    "sl_cap_atr": {"default": "off", "type": "str", "options": ["off", "3.0"],
+                   "label": "Stop cap x ATR (ours)",
+                   "tooltip": "3.0 = the author's stated 'never > 3 ATR' stop cap, actually "
+                              "applied on the lines he wrote it on: the session stops (MAIN, "
+                              "BOS, RE tickets) sit <= 3 x ATR from the signal close. OB / OD "
+                              "stops stay uncapped. off = as written (the script's "
+                              "math.min/max is a no-op)."},
+    "sl_scale": _knob_f(1.0, 0.40, 1.20, 0.05, "Stop distance x (ours)",
+                        "Every ticket's stop distance from the signal close x this, after the "
+                        "cap and after every entry gate. 1.0 = as written."),
+    "tp_scale": _knob_f(1.0, 1.0, 2.0, 0.25, "Target distance x (ours)",
+                        "Every path's target: tp = close + (tp - close) x this, close = the "
+                        "signal bar's close; applied after the minProfit entry gate. 1.0 = as "
+                        "written."),
+    "max_hold_bars": _knob_i(0, 0, 240, "Max hold bars (ours)",
+                             "0 = off. A ticket open N bars (fill bar included) exits at the "
+                             "next bar's open (market): exit bar = fill bar + N.", step=30),
+    "be_trigger": _knob_f(0.0, 0.0, 2.0, 0.5, "Breakeven trigger x risk (ours)",
+                          "0 = off. Once price trades at entry + this x initial risk (longs; "
+                          "mirrored for shorts) the ticket's stop moves to its entry price from "
+                          "the NEXT bar on; never on the trigger bar itself."),
+    "vix_feed": {"default": "none", "type": "str", "options": ["none", "daily"],
+                 "label": "VIX stand-in (ours)",
+                 "tooltip": "none = CBOE:VIX 1m not held -> na (as ported). daily = CBOE daily "
+                            "VIX close (sha256-pinned file), each day's close usable from 16:15 "
+                            "ET, vixPrev = the close 10 NQ sessions earlier; feeds the script's "
+                            "own VIX rising/falling vote."},
 }
 
 PARAM_GRID_PRESETS = {
@@ -276,7 +359,7 @@ PARAM_GRID_PRESETS = {
 }
 
 PATH_NAMES = {1: "MAIN", 2: "BOS", 3: "OB", 4: "RE", 5: "TRAP", 6: "OD"}
-EXIT_NAMES = {1: "stop", 2: "limit", 3: "reverse", 4: "roll_flat"}
+EXIT_NAMES = {1: "stop", 2: "limit", 3: "reverse", 4: "roll_flat", 5: "time"}
 
 # ═════════════════════════════════════════════════════════════════════════════
 # Compiled kernels. Each _k_* function is plain Python that Numba can compile; the same
@@ -757,10 +840,14 @@ def _k_profile(c, o, v, hvb_hi, hvb_lo, lookback, bins):
 
 def _k_walk(o, h, l, c, chain_l, tp_l, sl_l, od_l, odtp_l, odsl_l,
             chain_s, tp_s, sl_s, od_s, odtp_s, odsl_s,
-            no_fill, flat_bar, cap, mode_tv, fifo, max_trades):
+            no_fill, flat_bar, cap, mode_tv, fifo, max_trades, max_hold, be_mult):
     """The broker: next-open market entries, per-ticket stop/limit brackets active from
     the fill bar, intrabar path ordering, FIFO / own-ticket pairing, pyramiding cap,
-    same-bar reversal, roll-seam force-flat. Trades still open at the end are dropped."""
+    same-bar reversal, roll-seam force-flat. Trades still open at the end are dropped.
+    OUR PORT ADDITIONS (0 = off, the as-ported broker exactly): max_hold = a trade open
+    that many bars exits at the next open (market, before that bar's entries); be_mult =
+    once a bar trades at entry +/- be_mult x initial risk, that ticket's stop moves to its
+    entry price from the NEXT bar on."""
     n = c.shape[0]
     cap_alloc = cap + 4
     # open trades (FIFO queue, oldest first)
@@ -772,6 +859,8 @@ def _k_walk(o, h, l, c, chain_l, tp_l, sl_l, od_l, odtp_l, odsl_l,
     # live brackets (insertion order = age)
     b_sl = np.zeros(cap_alloc); b_tp = np.zeros(cap_alloc)
     b_own = np.zeros(cap_alloc, np.int64)
+    b_ep = np.zeros(cap_alloc); b_trig = np.zeros(cap_alloc)       # breakeven (ours)
+    b_arm = np.zeros(cap_alloc, np.bool_)
     nbr = 0
     side = 0
     next_id = 0
@@ -792,6 +881,33 @@ def _k_walk(o, h, l, c, chain_l, tp_l, sl_l, od_l, odtp_l, odsl_l,
     f_key = np.zeros(cap_alloc); f_px = np.zeros(cap_alloc)
     f_rs = np.zeros(cap_alloc, np.int64); f_b = np.zeros(cap_alloc, np.int64)
     for u in range(n):
+        # ── 0) max-hold market exits at this bar's open (ours; oldest trade first) ──
+        if max_hold > 0:
+            while ntr > 0 and u - t_bar[0] >= max_hold:
+                if nout < max_trades:
+                    oe[nout] = t_bar[0]; ox[nout] = u; osd[nout] = side
+                    oep[nout] = t_px[0]; oxp[nout] = o[u]; ors[nout] = 5
+                    opa[nout] = t_path[0]; osg[nout] = t_sig[0]
+                    osl[nout] = t_sl[0]; otp[nout] = t_tp[0]
+                    obsl[nout] = np.nan; obtp[nout] = np.nan
+                    nout += 1
+                bi = 0                              # its own bracket if alive, else the oldest
+                for b in range(nbr):
+                    if b_own[b] == t_id[0]:
+                        bi = b
+                        break
+                for b in range(bi, nbr - 1):
+                    b_sl[b] = b_sl[b + 1]; b_tp[b] = b_tp[b + 1]; b_own[b] = b_own[b + 1]
+                    b_ep[b] = b_ep[b + 1]; b_trig[b] = b_trig[b + 1]; b_arm[b] = b_arm[b + 1]
+                nbr -= 1
+                for j in range(ntr - 1):
+                    t_bar[j] = t_bar[j + 1]; t_px[j] = t_px[j + 1]
+                    t_path[j] = t_path[j + 1]; t_id[j] = t_id[j + 1]
+                    t_sig[j] = t_sig[j + 1]; t_sl[j] = t_sl[j + 1]; t_tp[j] = t_tp[j + 1]
+                ntr -= 1
+            if ntr == 0:
+                side = 0
+                nbr = 0
         # ── 1) market entries at this bar's open ──
         if npd > 0:
             order0 = 0
@@ -819,6 +935,11 @@ def _k_walk(o, h, l, c, chain_l, tp_l, sl_l, od_l, odtp_l, odsl_l,
                         t_sl[ntr] = p_sl[k]; t_tp[ntr] = p_tp[k]
                         ntr += 1
                         b_sl[nbr] = p_sl[k]; b_tp[nbr] = p_tp[k]; b_own[nbr] = next_id
+                        b_ep[nbr] = o[u]; b_trig[nbr] = np.nan; b_arm[nbr] = False
+                        if be_mult > 0.0:
+                            risk = (o[u] - p_sl[k]) if sd > 0 else (p_sl[k] - o[u])
+                            if risk > 0.0:
+                                b_trig[nbr] = o[u] + sd * be_mult * risk
                         nbr += 1
                         next_id += 1
                         side = sd
@@ -926,10 +1047,23 @@ def _k_walk(o, h, l, c, chain_l, tp_l, sl_l, od_l, odtp_l, odsl_l,
                 for b in range(nbr):
                     if not dead[b]:
                         b_sl[m] = b_sl[b]; b_tp[m] = b_tp[b]; b_own[m] = b_own[b]
+                        b_ep[m] = b_ep[b]; b_trig[m] = b_trig[b]; b_arm[m] = b_arm[b]
                         m += 1
                 nbr = m
                 if ntr == 0:
                     side = 0
+        # ── 2b) breakeven arming (ours): a surviving ticket whose trigger traded on this
+        #        bar gets its stop at entry from the next bar on (this bar's fills are done) ──
+        if be_mult > 0.0 and nbr > 0:
+            for b in range(nbr):
+                tg = b_trig[b]
+                if not b_arm[b] and tg == tg:
+                    if (side > 0 and h[u] >= tg) or (side < 0 and l[u] <= tg):
+                        b_arm[b] = True
+                        if side > 0:
+                            b_sl[b] = max(b_sl[b], b_ep[b])
+                        else:
+                            b_sl[b] = min(b_sl[b], b_ep[b])
         # ── 3) roll-seam eve: flat at this bar's close ──
         if flat_bar[u] and ntr > 0:
             for j in range(ntr):
@@ -1320,6 +1454,123 @@ def _feeds(epoch, mode_spy, want, inject_es=None, inject_qqq=None):
     return es_h, es_l, spy, qqq_c
 
 
+# ── OUR PORT ADDITION: daily VIX stand-in for CBOE:VIX 1m (vix_feed='daily') ──
+# _vix_file -> (path, sha256, date column, date format, close column)
+_VIX_FILES = {
+    "raw": (r"C:\EdgeLog\_research_cache\public_series\cboe\VIX_History.csv",
+            "6edc3e3928c4b164b9e4ed1ec874e0ed53c7d52997557adebb7d6b7451db565a",
+            "DATE", "%m/%d/%Y", "CLOSE"),
+    "derived": (r"C:\EdgeLog\_research_cache\public_series\cboe_vol_daily.csv",
+                "9790df06b649df21d34ab7cb31a5ed5e4c3c71fcda33952d1f41e431cb4e2470",
+                "date", "%Y-%m-%d", "VIX_close"),
+}
+_VIX_MEMO = {}
+_VIX_USABLE_MIN = 16 * 60 + 15          # day D's close is usable from 16:15 ET on D
+_VIX_PREV_SESSIONS = 10
+
+
+def _load_vix_daily(which, last_day):
+    """(NY date as days since 1970-01-01, close) from the sha256-pinned CBOE file `which`
+    ('raw' | 'derived'), holding no row dated after `last_day` (the last chart bar's CME
+    trading date): those rows are dropped right after parsing, before anything else reads
+    the table. Refuses (ValueError) when the file's bytes do not match its pinned digest.
+    Memo key = (file choice, path, mtime, size, last_day)."""
+    if which not in _VIX_FILES:
+        raise ValueError("MISC_SUPERSCALPER: _vix_file must be one of %s, got %r"
+                         % (sorted(_VIX_FILES), which))
+    path, sha, dcol, dfmt, vcol = _VIX_FILES[which]
+    st = os.stat(path)
+    key = (which, path, st.st_mtime_ns, st.st_size, int(last_day))
+    hit = _VIX_MEMO.get(key)
+    if hit is not None:
+        return hit
+    with open(path, "rb") as fh:
+        blob = fh.read()
+    digest = hashlib.sha256(blob).hexdigest()
+    if digest != sha:
+        raise ValueError("MISC_SUPERSCALPER: refused %s - sha256 %s does not match the pinned "
+                         "%s" % (path, digest, sha))
+    df = pd.read_csv(io.BytesIO(blob), usecols=[dcol, vcol], dtype={dcol: str})
+    d = pd.to_datetime(df[dcol], format=dfmt).to_numpy().astype("datetime64[D]").astype(np.int64)
+    keep = d <= int(last_day)                  # lockbox-honest: nothing after the window
+    out = _vix_table(d[keep], df[vcol].to_numpy()[keep])
+    if len(_VIX_MEMO) >= 8:
+        _VIX_MEMO.pop(next(iter(_VIX_MEMO)))
+    _VIX_MEMO[key] = out
+    return out
+
+
+def _vix_table(dates, closes):
+    """Sorted, de-duplicated (day number since 1970-01-01, close) arrays; `dates` may be
+    day numbers or anything pandas reads as a calendar date."""
+    d = np.asarray(dates)
+    if d.dtype.kind not in "iu":
+        d = pd.to_datetime(pd.Series(d)).to_numpy().astype("datetime64[D]").astype(np.int64)
+    d = d.astype(np.int64)
+    v = pd.to_numeric(pd.Series(np.asarray(closes)), errors="coerce").to_numpy(np.float64)
+    order = np.argsort(d, kind="stable")
+    d = d[order]; v = v[order]
+    last = np.r_[d[1:] != d[:-1], True] if len(d) else np.zeros(0, bool)
+    return d[last], v[last]
+
+
+def _vix_daily(loc, vdate, vclose):
+    """(vixClose, vixPrev) per chart bar from daily closes, no look-ahead.
+    NQ session days = ET dates on which this tape has a bar stamped 13:00-15:59 ET (CME
+    holiday sessions halt at 13:00 ET; NYSE early closes run to 13:15). VIX rows dated on
+    any other day are dropped (the CBOE file carries CME-holiday rows from 2022). A bar
+    stamped at or after 16:15 ET on session day D sees D's close: vixClose = the latest
+    kept close dated on or before the latest such D; vixPrev = the same value as of the
+    session 10 NQ sessions before D (sessions counted on the tape, not VIX rows). Both are
+    na until the tape holds enough sessions (warm-up)."""
+    loc = np.asarray(loc, np.int64)
+    n = len(loc)
+    day = loc // 86400
+    mod = (loc // 60) % 1440
+    sess = np.unique(day[(mod >= 13 * 60) & (mod < 16 * 60)])
+    if not len(sess):
+        return np.full(n, np.nan), np.full(n, np.nan)
+    vdate = np.asarray(vdate, np.int64)
+    vclose = _f(vclose)
+    keep = np.isin(vdate, sess) & np.isfinite(vclose)
+    vd = vdate[keep]; vc = vclose[keep]
+    asof = np.full(len(sess), np.nan)
+    if len(vd):
+        j = np.searchsorted(vd, sess, side="right") - 1
+        asof = np.where(j >= 0, vc[np.maximum(j, 0)], np.nan)
+    usable = sess * 86400 + _VIX_USABLE_MIN * 60
+    k = np.searchsorted(usable, loc, side="right") - 1
+    vix_close = np.where(k >= 0, asof[np.maximum(k, 0)], np.nan)
+    kp = k - _VIX_PREV_SESSIONS
+    vix_prev = np.where(kp >= 0, asof[np.maximum(kp, 0)], np.nan)
+    return vix_close, vix_prev
+
+
+# ── OUR PORT ADDITIONS: exit levels, applied after every entry gate ──
+# chain path codes whose ticket stop IS the session stop (sessionSlLong / sessionSlShort)
+_SESSION_STOP_PATHS = (1, 2, 4)                # MAIN, BOS, RE
+
+
+def _exit_levels(c, atr, tp, sl, is_long, P, cap_mask=None):
+    """Stop cap (sl_cap_atr, only where cap_mask: the session-stop tickets), then stop
+    scale (sl_scale, every ticket), and target scale (tp_scale, every ticket) on the signal
+    bar's levels; c = the signal bar's close, atr = the session-selected ATR the script's
+    stop code uses. Each step is skipped at its default, so the as-ported prices pass
+    through bit-for-bit."""
+    tp = _f(tp); sl = _f(sl)
+    if P["sl_cap_atr"] != "off" and cap_mask is not None:
+        k = float(P["sl_cap_atr"])
+        bound = c - k * atr if is_long else c + k * atr
+        capped = np.maximum(sl, bound) if is_long else np.minimum(sl, bound)
+        sl = np.where(np.asarray(cap_mask, bool) & np.isfinite(bound) & np.isfinite(sl),
+                      capped, sl)
+    if P["sl_scale"] != 1.0:
+        sl = c + (sl - c) * P["sl_scale"]
+    if P["tp_scale"] != 1.0:
+        tp = c + (tp - c) * P["tp_scale"]
+    return tp, sl
+
+
 # ═════════════════════════════════════════════════════════════════════════════
 # Higher-timeframe and daily requests
 # ═════════════════════════════════════════════════════════════════════════════
@@ -1388,6 +1639,7 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     ct_day = (loc - 3600) // 86400
     new_day = np.zeros(n, bool)
     new_day[1:] = ct_day[1:] != ct_day[:-1]
+    ct_day = None  # free
     tdate = (loc + 6 * 3600) // 86400                      # CME trading date (18:00 ET)
     I = lambda a, b: _in_sess(m_ct, a, b)                  # noqa: E731
     isOpen = I(830, 930); isMorning = I(930, 1100); isLunch = I(1100, 1300)
@@ -1412,17 +1664,25 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     ema9 = _ema(c, 9); ema21 = _ema(c, 21); ema100 = _ema(c, 100); ema200 = _ema(c, 200)
     e12 = _ema(c, 12); e26 = _ema(c, 26)
     macdLine = e12 - e26
+    e12 = e26 = None  # free
     macdSig = _ema(macdLine, 9)
     macdHist = macdLine - macdSig
     macdBear = (macdLine < macdSig) & (macdHist < 0)
     macdBull = (macdLine > macdSig) & (macdHist > 0)
+    macdHist = macdLine = macdSig = None  # free
 
-    esHigh, esLow, spyClose, qqqClose = feeds
+    esHigh, esLow, spyClose, qqqClose = feeds[:4]
+    if len(feeds) > 5:
+        vixClose, vixPrev = feeds[4], feeds[5]
+    else:
+        vixClose = np.full(n, np.nan); vixPrev = np.full(n, np.nan)
     c10 = _sh(c, 10)
     rocNQ = np.where(_ne(c, 0) & _ne(c10, 0), (c - c10) / c10 * 100.0, 0.0)
     spy10 = _sh(spyClose, 10)
     rocSPY = np.where(_ne(spyClose, 0) & _ne(spy10, 0), (spyClose - spy10) / spy10 * 100.0, 0.0)
+    spy10 = spyClose = None  # free
     rsSpread = rocNQ - rocSPY
+    rocNQ = rocSPY = None  # free
 
     nanv = np.full(n, np.nan)
     qinc = float(P["qqq_increment"])
@@ -1436,9 +1696,11 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
         qqqUp2 = np.where(okq, (qU1 + qinc) * qqqRatio, np.nan)
         qqqDn1 = np.where(okq, qD1 * qqqRatio, np.nan)
         qqqDn2 = np.where(okq, (qD1 - qinc) * qqqRatio, np.nan)
+    okq = qD1 = qU1 = qinc = qqqClose = qqqRatio = None  # free
 
     prevDayH, prevDayL, prevDayC, prev2DayH, prev2DayL = _daily_prev(
         tdate, m_et, h, l, c, P["daily_close"])
+    m_et = None  # free
     pivotPP = (prevDayH + prevDayL + prevDayC) / 3.0
     pivotR1 = 2 * pivotPP - prevDayL
     pivotS1 = 2 * pivotPP - prevDayH
@@ -1448,8 +1710,11 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     dBullCont = nn(prevDayC) & nn(prev2DayH) & (prevDayC > prev2DayH)
     dBearCont = nn(prevDayC) & nn(prev2DayL) & (prevDayC < prev2DayL)
     dBullRev = nn(prevDayL) & nn(prev2DayL) & nn(prevDayC) & (prevDayL < prev2DayL) & (prevDayC > prev2DayL)
+    prev2DayL = None  # free
     dBearRev = nn(prevDayH) & nn(prev2DayH) & nn(prevDayC) & (prevDayH > prev2DayH) & (prevDayC < prev2DayH)
+    prev2DayH = None  # free
     dailyBias = _sel(dBullCont, 1.0, dBullRev, 1.0, dBearCont, -1.0, dBearRev, -1.0, 0.0)
+    dBearCont = dBearRev = dBullCont = dBullRev = None  # free
 
     # VWAP bands: reset on Chicago calendar-day change
     gday = np.cumsum(new_day)
@@ -1457,42 +1722,58 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     cumVolPr = _group_cumsum(hlc3 * v, gday)
     cumVolPr2 = _group_cumsum(hlc3 * hlc3 * v, gday)
     vwapCalc = np.where(cumVol2 > 0, cumVolPr / cumVol2, c)
+    cumVolPr = None  # free
     vwapVar = np.where(cumVol2 > 0, cumVolPr2 / cumVol2 - vwapCalc * vwapCalc, 0.0)
+    cumVol2 = cumVolPr2 = None  # free
     vwapStd = np.sqrt(np.maximum(0.0, vwapVar))
+    vwapVar = None  # free
     vwapUp1 = vwapCalc + vwapStd; vwapDn1 = vwapCalc - vwapStd
     vwapUp2 = vwapCalc + vwapStd * 2; vwapDn2 = vwapCalc - vwapStd * 2
+    vwapStd = None  # free
 
     rsiRaw = _rsi(c, 7)
     bbBasis = _sma(c, 20)
     bbDev = 1.5 * _stdev(c, 20)
     bbUpper = bbBasis + bbDev; bbLower = bbBasis - bbDev
+    bbBasis = bbDev = None  # free
     kcMid = _ema(c, 20)
     kcUpper = kcMid + atrSlow * 1.5; kcLower = kcMid - atrSlow * 1.5
+    kcMid = None  # free
     sqzOn = (bbUpper < kcUpper) & (bbLower > kcLower)
+    kcLower = kcUpper = None  # free
     sqzFired = _shb(sqzOn, 1) & ~sqzOn
     sqzHL = _highest(h, 20); sqzLL = _lowest(l, 20)
     sqzMidRef = ((sqzHL + sqzLL) / 2.0 + _sma(c, 20)) / 2.0
     sqzMom = _linreg(c - sqzMidRef, 20, 0)
+    sqzMidRef = None  # free
     sm1 = _sh(sqzMom, 1); sm2 = _sh(sqzMom, 2); sm3 = _sh(sqzMom, 3)
     momRecentBull = (sqzMom > 0) & ((sm1 <= 0) | (sm2 <= 0) | (sm3 <= 0))
     momRecentBear = (sqzMom < 0) & ((sm1 >= 0) | (sm2 >= 0) | (sm3 >= 0))
+    sm2 = sm3 = None  # free
     bbWidth = bbUpper - bbLower
+    bbUpper = None  # free
     bbPos = np.where(bbWidth > 0, (c - bbLower) / bbWidth, 0.5)
+    bbLower = bbWidth = None  # free
 
     # ── AER regime (uses ATR14 - `atr` before its session re-selection) ──
     aerDisp = np.abs(c - c10)
     aerPath = _rsum(np.abs(c - c1), 10)
     aerER = np.where(_ne(aerPath, 0), aerDisp / aerPath, 0.0)
+    aerDisp = aerPath = None  # free
     aerMeanATR = _sma(atrMed, 50)
     aerATRatio = np.where(_ne(aerMeanATR, 0), atrMed / aerMeanATR, 1.0)
     aerDynThresh = np.minimum(0.25 * aerATRatio, 0.65)
     aerTrending = aerER > aerDynThresh
     aerUptrend = aerTrending & (c > c10)
     aerDowntrend = aerTrending & (c < c10)
+    c10 = None  # free
     aerNonTrending = aerER <= aerDynThresh
+    aerDynThresh = aerER = None  # free
     aerChoppy = aerNonTrending & (atrMed > aerMeanATR)
     aerConsolidation = aerNonTrending & (atrMed <= aerMeanATR)
+    aerNonTrending = None  # free
     T = aerTrending; C_ = aerChoppy
+    aerTrending = aerChoppy = None  # free
 
     hurst = _kern("hurst")(np.ascontiguousarray(c))
 
@@ -1508,14 +1789,18 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     csBullBar = c > o; csBearBar = c < o
     csBullEngulf = csBullBar & _shb(csBearBar, 1) & (csBody > csAvgBody) & (c > o1) & (o <= c1)
     csBearEngulf = csBearBar & _shb(csBullBar, 1) & (csBody > csAvgBody) & (c < o1) & (o >= c1)
+    csBearBar = csBullBar = o1 = None  # free
     csHammer = (csLowerWk > csBody * 2.0) & (csUpperWk < csBody * 0.3) & (csBody < csAvgBody) & (csBody > 0)
     csShootSt = (csUpperWk > csBody * 2.0) & (csLowerWk < csBody * 0.3) & (csBody < csAvgBody) & (csBody > 0)
+    csAvgBody = None  # free
     csDojiFactor = _sel(I(830, 930), 0.08, I(1700, 100), 0.03, I(1100, 1300), 0.04, 0.05)
     csDoji = (csRange > 0) & (csBody < csRange * csDojiFactor)
+    csDojiFactor = None  # free
 
     # session-selected ATR
     atr = np.where((ph == 0) | (ph == 1) | (ph == 4), atrFast,
                    np.where((ph == 2) | (ph == 3), atrMed, atrSlow))
+    atrFast = atrMed = atrSlow = None  # free
 
     # ── ADF ──
     adfDy = c - c1
@@ -1531,16 +1816,23 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
         sse = np.maximum(0.0, sDy2 - 2 * a * sDy - 2 * g * sXY + a * a * N + 2 * a * g * sX + g * g * sX2)
         se = np.where(_ne(d, 0), np.sqrt(np.maximum(0.0, sse / (N - 2) * N / d)), 1.0)
         adf[N] = np.where(se > 0, g / se, 0.0)
+    N = a = adfDy = adfDy2 = adfX = adfX2 = adfXY = g = None  # free
+    sDy = sDy2 = sX = sX2 = sXY = se = sse = None  # free
     adfStat = np.where(np.isin(ph, (0, 1, 4)), adf[30], np.where(np.isin(ph, (2, 3)), adf[50], adf[80]))
+    adf = None  # free
     adfN = _S(ph, 30, 30, 50, 50, 30, 80, 80, 80)
     adfMeanRevert = adfStat < (-2.86 - 2.74 / adfN)
+    adfN = None  # free
     adfTrending = adfStat > -1.0
+    adfStat = None  # free
     adfSessWt = np.where(adfMeanRevert, _S(ph, 1.0, 0.9, 1.2, 1.0, 0.9, 2.5, 2.0, 2.0),
                          _S(ph, 1.0, 0.9, 0.7, 0.8, 0.9, 0.5, 0.6, 0.4))
     adfShift = (_sel(adfMeanRevert, 0.03, adfTrending, -0.03, 0.0) * adfSessWt
                 * _sel(T, 1.1, C_, 0.8, 1.0) * _sel(adx >= 35, 1.1, adx < 15, 0.7, 1.0))
+    adfSessWt = None  # free
     hurstPersist = hurst > (0.55 - adfShift)
     hurstRevert = hurst < (0.45 + adfShift)
+    adfShift = hurst = None  # free
 
     def f_dyn(b, sO, sL, sA, rT, rC, aH, aL, lo, hi, ahi=30):
         sess = _S(ph, sO, -sO * 0.3, sL, sL * 0.5, sO * 0.3, sA, sA * 0.8, sA)
@@ -1560,24 +1852,36 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     prof = _kern("profile")(np.ascontiguousarray(c), np.ascontiguousarray(o),
                             np.ascontiguousarray(v), np.ascontiguousarray(hvbHi),
                             np.ascontiguousarray(hvbLo), hvbL, hvbB)
+    hvbB = hvbHi = hvbL = hvbLo = None  # free
     z1, z2, z3, pov, vah, val, pbp, prb, prs, ns = prof
+    prof = None  # free
     hvbZone1 = _sh(z1, 1); hvbZone2 = _sh(z2, 1); hvbZone3 = _sh(z3, 1)
+    z1 = z2 = z3 = None  # free
     povLevel = _sh(pov, 1); vahLevel = _sh(vah, 1); valLevel = _sh(val, 1)
+    pov = vah = val = None  # free
     pocBuyPct = _sh(pbp, 1); pocBuyPct[:1] = 50.0
+    pbp = None  # free
     pocRawBuy = _sh(prb, 1); pocRawBuy[:1] = 0.0
+    prb = None  # free
     pocRawSell = _sh(prs, 1); pocRawSell[:1] = 0.0
+    prs = None  # free
     nodeStrength = _sh(ns, 1); nodeStrength[:1] = 0.0
+    ns = None  # free
 
     povDist = np.where(nn(povLevel), np.abs(c - povLevel) / atr, 99.0)
     nearPoV = povDist < _S(ph, 0.8, 0.9, 1.2, 1.0, 0.8, 1.5, 1.3, 1.5)
+    povDist = None  # free
 
     # VRZ
     vrzMult = _clamp(1.8 + _S(ph, 0.5, -0.15, -0.3, -0.15, 0.2, 0.3, 0.24, 0.3)
                      + regTC(0.2, -0.2) + adxA(0.2, -0.15), 1.2, 2.8)
     isVrz = (v > avgVol * vrzMult) & (atr > 0)
+    vrzMult = None  # free
     vrzH, vrzL, vrzMid = _kern("vrz")(np.ascontiguousarray(isVrz), np.ascontiguousarray(h),
                                       np.ascontiguousarray(l))
+    isVrz = None  # free
     vrzBias = np.where(nn(vrzMid), _sel(c > vrzMid, 1.0, c < vrzMid, -1.0, 0.0), 0.0)
+    vrzMid = None  # free
 
     # RSI thresholds
     rsiBullFloor = _clamp(55.0 + _S(ph, -3.0, 0.9, 2.0, 1.0, -0.9, 3.0, 2.4, 3.0)
@@ -1592,12 +1896,15 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                           + _sel(aerDowntrend, -3.0, C_, 3.0, 0.0), 14.0, 28.0)
     rsi1 = _sh(rsiRaw, 1)
     rsiBull = (rsiRaw >= rsiBullFloor) & (rsiRaw < rsiBullCap) & (rsiRaw > rsi1)
+    rsiBullCap = rsiBullFloor = None  # free
     rsiBear = (rsiRaw <= rsiBearCap) & (rsiRaw > rsiBearFloor) & (rsiRaw < rsi1)
+    rsi1 = rsiBearCap = rsiBearFloor = rsiRaw = None  # free
 
     rsThr = _clamp(0.1 + _S(ph, -0.03, 0.009, 0.03, 0.015, -0.009, 0.04, 0.032, 0.04)
                    + regTC(-0.02, 0.02) + adxA(-0.02, 0.02), 0.04, 0.20)
     rsWeak = rsSpread < -rsThr
     rsStrong = rsSpread > rsThr
+    rsSpread = rsThr = None  # free
 
     trapFpRatio = f_dyn(1.3, 0.3, -0.15, -0.2, 0.15, -0.1, 0.15, -0.1, 1.0, 2.0)
     bosVolThresh = f_dyn(1.3, 0.3, -0.2, -0.3, 0.1, -0.1, 0.15, -0.15, 0.9, 2.0)
@@ -1612,20 +1919,26 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     mfiExhBuyThresh = f_dyn(80.0, 3.0, -2.0, -3.0, 2.0, -2.0, 2.0, -2.0, 72.0, 90.0, ahi=35)
     mfiExhSelThresh = f_dyn(20.0, -3.0, 2.0, 3.0, -2.0, 2.0, -2.0, 2.0, 10.0, 28.0, ahi=35)
     bosBreakMult = f_dyn(0.5, 0.15, -0.1, -0.1, 0.1, -0.05, 0.1, -0.05, 0.25, 0.8)
+    f_dyn = None  # free
 
     # ── stateful session levels / ORB ──
     st = _kern("state")(*[np.ascontiguousarray(x) for x in (
         o, h, l, c, inRTH, inAsia, inLondon, new_day, inPreMarket, inOvernight, inORBBuild,
         orbLockBar)])
+    inORBBuild = inOvernight = new_day = orbLockBar = None  # free
     (rthHigh, rthLow, asiaHigh, asiaLow, londonHigh, londonLow, orbHigh, orbLow, orbMid,
      orbLocked, pmHigh, pmLow, pmMid, onHigh, onLow, onHighPrev, onLowPrev,
      orbBrokenUp, orbBrokenDown) = st
+    st = None  # free
 
     asiaRW = np.where(nn(asiaHigh), asiaHigh, h) - np.where(nn(asiaLow), asiaLow, l)
     londonRW = np.where(nn(londonHigh), londonHigh, h) - np.where(nn(londonLow), londonLow, l)
     onRW = np.where(nn(onHighPrev), onHighPrev, h) - np.where(nn(onLowPrev), onLowPrev, l)
+    onHighPrev = onLowPrev = None  # free
     sessionRW = np.where(inAsia, asiaRW, np.where(inLondon, np.maximum(asiaRW, londonRW), onRW))
+    asiaRW = londonRW = onRW = None  # free
     ethSlCap = np.maximum(15.0, sessionRW * 1.5)
+    sessionRW = None  # free
 
     kz = kzAM | kzPM
     volAdjF = _sel(relVol >= exitVolClimax, 0.10, relVol >= mfiWtHi, 0.05, relVol < mfiWtLo, -0.05, 0.0)
@@ -1640,6 +1953,7 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                                            inLondon, 0.05, inPreMkt, -0.05, 0.0)
                                 + _sel(aerUptrend, 0.25, aerConsolidation, -0.10, C_, -0.20, 0.0)
                                 + adxF + volAdjF, 1.0, 3.0)
+    adxF = volAdjF = None  # free
     slSess = _S(ph, 0.3, -0.09, 0.2, 0.1, 0.09, 0.2, 0.15, 0.25)
     slAdx = adxA(-0.10, 0.20)
     slVol = volR(0.20, -0.10)
@@ -1649,12 +1963,15 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     dynSlDistShort = atr * _clamp(2.0 + slSess + _sel(aerDowntrend, -0.20, aerUptrend, 0.50,
                                                       aerConsolidation, 0.30, C_, 0.80, 0.0)
                                   + slAdx + slVol, 1.2, 4.5)
+    slAdx = slSess = slVol = None  # free
     bufSess = _S(ph, 0.5, -0.15, 0.3, 0.15, 0.15, 0.0, 0.0, 0.0)
     bufVol = volR(0.50, -0.30)
     dynBufLong = volRatio * _clamp(2.0 + bufSess + bufVol, 1.0, 5.0)
     dynBufShort = volRatio * _clamp(3.0 + bufSess + bufVol, 1.0, 6.0)
+    bufSess = None  # free
     dynBufETH = volRatio * _clamp(3.0 + _sel(inAsia, -0.50, inLondon, 0.20, inPreMkt, 0.10, 0.0)
                                   + bufVol, 1.0, 6.0)
+    bufVol = None  # free
     sessionTpLong = c + dynFloorLong * 2.0
     sessionTpShort = c - dynFloorSell * 2.0
 
@@ -1663,75 +1980,104 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
         b = epoch // (P_ * 60)
         return b, (b + 1) * P_ * 60
     b5, e5 = bucket_minutes(5); b15, e15 = bucket_minutes(15); b60, e60 = bucket_minutes(60)
+    bucket_minutes = None  # free
     mss = (m_ct - 1020) % 1440                             # minutes since 17:00 CT
     b240 = tdate * 6 + mss // 240
+    tdate = None  # free
     sess_end = epoch - (mss * 60) - (epoch % 60) + 23 * 3600   # 16:00 CT = start + 23h
     e240 = np.minimum(epoch - (mss % 240) * 60 - (epoch % 60) + 240 * 60, sess_end)
+    mss = sess_end = None  # free
     h5f, h5s, h5c, h5mid = _htf_values(b5, e5, epoch, tf, h, l, c)
+    b5 = e5 = None  # free
     h15f, h15s, h15c, h15mid = _htf_values(b15, e15, epoch, tf, h, l, c)
+    b15 = e15 = None  # free
     h60f, h60s, h60c, h60mid = _htf_values(b60, e60, epoch, tf, h, l, c)
+    b60 = e60 = None  # free
     h4f, h4s, _h4c, _h4m = _htf_values(b240, e240, epoch, tf, h, l, c)
+    _h4c = _h4m = b240 = e240 = None  # free
     h4sep = np.abs(h4f - h4s) / c * 100.0
     h4notBear = (h4f > h4s) | (h4sep < 0.5)
     h4notBull = (h4f < h4s) | (h4sep < 0.5)
+    h4f = h4s = h4sep = None  # free
     htfBull = (h5f > h5s) & (h15f > h15s) & (h60f > h60s) & h4notBear
+    h4notBear = None  # free
     htfBear = (h5f < h5s) & (h15f < h15s) & (h60f < h60s) & h4notBull
+    h4notBull = None  # free
 
     adxMin = float(P["adx_min"])
     trendUp = htfBull & (ema9 > ema21) & (ema21 > ema100) & (c > vwapVal) & (adx > adxMin)
     trendDown = htfBear & (ema9 < ema21) & (ema21 < ema100) & (c < vwapVal) & (adx > adxMin)
+    adxMin = None  # free
 
     hh5 = _highest(h, 5); ll5 = _lowest(l, 5)
     swH = _sh(hh5, 1); swL = _sh(ll5, 1); prevSwH = _sh(hh5, 2); prevSwL = _sh(ll5, 2)
+    hh5 = ll5 = None  # free
     brkL = (c > swH) & (c1 > prevSwH)
+    prevSwH = None  # free
     brkS = (c < swL) & (c1 < prevSwL)
+    prevSwL = None  # free
     longBrkClean = c > swH + atr * 0.2
+    swH = None  # free
     shortBrkConf = c < swL
+    swL = None  # free
 
     # ── strategy A (ORB retest) / B (failed ORB rotation) ──
     retProx = _clamp(0.002 + _S(ph, 0.001, -0.0003, 0.0, 0.0, 0.0003, 0.0, 0.0, 0.0)
                      + regTC(0.0005, -0.0005), 0.001, 0.004)
     orbRetestLong = orbBrokenUp & (l <= orbHigh * (1 + retProx)) & (l >= orbHigh * (1 - retProx))
     orbRetestShort = orbBrokenDown & (h >= orbLow * (1 - retProx)) & (h <= orbLow * (1 + retProx))
+    retProx = None  # free
     orbWickLong = orbRetestLong & ((np.minimum(o, c) - l) > np.abs(c - o) * 0.5)
     orbWickShort = orbRetestShort & ((h - np.maximum(o, c)) > np.abs(c - o) * 0.5)
     orbFlowLong = orbRetestLong & (c > o) & (v > v1)
     orbFlowShort = orbRetestShort & (c < o) & (v > v1)
     orbConfirmLong = orbRetestLong & (c > orbHigh) & (orbWickLong | orbFlowLong)
+    orbFlowLong = orbRetestLong = orbWickLong = None  # free
     orbConfirmShort = orbRetestShort & (c < orbLow) & (orbWickShort | orbFlowShort)
+    orbFlowShort = orbRetestShort = orbWickShort = None  # free
     stratA_Long = orbLocked & orbConfirmLong
     stratA_Short = orbLocked & orbConfirmShort
     orbFailed = orbLocked & nn(orbHigh) & ~orbBrokenUp & ~orbBrokenDown
     atORBHigh = np.abs(c - orbHigh) / orbHigh < 0.003
     atORBLow = np.abs(c - orbLow) / orbLow < 0.003
     rejAtHigh = orbFailed & atORBHigh & (h > orbHigh) & (c < orbHigh) & ((h - c) > (c - l) * 1.5)
+    atORBHigh = None  # free
     rejAtLow = orbFailed & atORBLow & (l < orbLow) & (c > orbLow) & ((c - l) > (h - c) * 1.5)
+    atORBLow = orbFailed = None  # free
     cleanCandle = (csRange > atr * 0.3) & (csBody > csRange * 0.3)
     stratB_Short = rejAtHigh & cleanCandle
+    rejAtHigh = None  # free
     stratB_Long = rejAtLow & cleanCandle
+    cleanCandle = rejAtLow = None  # free
 
     # ── opening drive (base) ──
     odRTHOpen = I(830, 836); odEconData = I(728, 733); odSecondWave = I(900, 906)
+    I = None  # free
     odWindow = bool(P["use_od"]) & (odRTHOpen | odEconData | odSecondWave)
     odVolThresh = _clamp(_sel(odRTHOpen, 2.5, odEconData, 3.0, odSecondWave, 2.0, 2.5)
                          + regTC(-0.3, 0.4)
                          + _sel(adx >= 35, -0.3, adx >= 25, -0.15, adx < 15, 0.3, 0.0)
                          + hurA(-0.2, 0.2), 1.5, 4.0)
     odVolSpike = v > avgVol * odVolThresh
+    odVolThresh = None  # free
     odBuildupThresh = _clamp(1.5 + regTC(-0.2, 0.3) + adxA(-0.15, 0.15), 1.0, 2.5)
     odPriorVol = (_nz(v1) + _nz(v2)) / 2.0
+    v1 = v2 = None  # free
     odVolBuildup = odPriorVol > avgVol * odBuildupThresh
+    odBuildupThresh = odPriorVol = None  # free
     odBodyRatioMin = _clamp(0.50 + regTC(-0.05, 0.08) + _sel(adx >= 35, -0.05, adx < 15, 0.05, 0.0)
                             + np.where(relVol >= 3.0, -0.05, 0.0), 0.35, 0.65)
     odBodyRatio = np.where(csRange > 0, csBody / csRange, 0.0)
     odStrongBull = (c > o) & (odBodyRatio > odBodyRatioMin) & ~csDoji
     odStrongBear = (c < o) & (odBodyRatio > odBodyRatioMin) & ~csDoji
+    odBodyRatio = odBodyRatioMin = None  # free
     odPmBiasLong = np.where(nn(pmMid), c > pmMid, True)
     odPmBiasShort = np.where(nn(pmMid), c < pmMid, True)
     odHtfBiasLong = (h60f > h60s) | (h15f > h15s)
     odHtfBiasShort = (h60f < h60s) | (h15f < h15s)
     odPrevDayBiasLong = nn(prevDayC) & (c > prevDayC)
     odPrevDayBiasShort = nn(prevDayC) & (c < prevDayC)
+    prevDayC = None  # free
     odAboveOvernightH = nn(onHigh) & (c > onHigh)
     odBelowOvernightL = nn(onLow) & (c < onLow)
     odOvernightWt = _sel(T & (adx >= 25), 2, isOpen, 2, C_, 1, 1)
@@ -1743,66 +2089,85 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                       + np.where(odAboveOvernightH, odOvernightWt, 0.0)
                       + np.where(odVolBuildup, odBuildupWt, 0.0)
                       + np.where(csBullEngulf | csHammer, odEngulfWt, 0.0))
+    odAboveOvernightH = odHtfBiasLong = odPmBiasLong = odPrevDayBiasLong = None  # free
     odConfShortBase = (odPmBiasShort.astype(float) + odHtfBiasShort + odPrevDayBiasShort
                        + np.where(odBelowOvernightL, odOvernightWt, 0.0)
                        + np.where(odVolBuildup, odBuildupWt, 0.0)
                        + np.where(csBearEngulf | csShootSt, odEngulfWt, 0.0))
+    odBelowOvernightL = odBuildupWt = odEngulfWt = odHtfBiasShort = odOvernightWt = odPmBiasShort = odPrevDayBiasShort = odVolBuildup = None  # free
     odMinConf = _clamp(_sel(odRTHOpen, 4, odEconData, 5, odSecondWave, 4, 4)
                        + _sel(C_, 1, T & (adx >= 30), -1, 0)
                        + _sel(hurstRevert, 1, hurstPersist, -1, 0), 3, 7)
+    odSecondWave = None  # free
     odBuyGateEarly = odWindow & odVolSpike & odStrongBull & (odConfLongBase >= odMinConf)
     odSellGateEarly = odWindow & odVolSpike & odStrongBear & (odConfShortBase >= odMinConf)
     odBuf = atr * _clamp(_sel(odRTHOpen, 0.4, odEconData, 0.6, 0.4) + regTC(-0.05, 0.1)
                          + _sel(adx >= 35, -0.05, adx < 15, 0.05, 0.0)
                          + np.where(relVol >= 4.0, 0.1, 0.0), 0.2, 0.8)
+    odEconData = odRTHOpen = None  # free
     odSlLong = l - odBuf
     odSlShort = h + odBuf
+    odBuf = None  # free
     odTpFloor = _clamp(1.5 + regTC(0.5, -0.3) + _sel(adx >= 35, 0.3, adx < 15, -0.2, 0.0), 0.8, 3.0)
     tpRR = _sel(T & (adx >= 25), 2.5, C_, 1.5, 2.0)
     tgt = c + (c - odSlLong) * tpRR
     for lvl, extra in ((prevDayH, True), (onHigh, True), (pivotR1, True), (orbHigh, orbLocked)):
         tgt = np.where(nn(lvl) & (lvl > c) & (lvl < tgt) & extra, lvl, tgt)
+    prevDayH = None  # free
     odTpLong = np.maximum(tgt, c + atr * odTpFloor)
     tgt = c - (odSlShort - c) * tpRR
+    tpRR = None  # free
     for lvl, extra in ((prevDayL, True), (onLow, True), (pivotS1, True), (orbLow, orbLocked)):
         tgt = np.where(nn(lvl) & (lvl < c) & (lvl > tgt) & extra, lvl, tgt)
+    extra = prevDayL = None  # free
     odTpShort = np.minimum(tgt, c - atr * odTpFloor)
+    odTpFloor = tgt = None  # free
 
     # ── FVG ──
     fvgMinSize = atr * float(P["fvg_min_pct"])
     bullFVG = bool(P["use_fvg"]) & (l > h2) & ((l - h2) >= fvgMinSize)
     bearFVG = bool(P["use_fvg"]) & (h < l2) & ((l2 - h) >= fvgMinSize)
+    fvgMinSize = None  # free
     fvgMaxAge = _sel(isOpen, 80, isMorning, 100, isLunch, 280, isAfternoon, 200, inAsia, 150,
                      T, 120, 200)
     fvgMaxFill = _sel(T, 0.80, C_, 0.65, 0.75)
     fvgMaxTouch = _sel(T, 5, C_, 3, 4)
     fv = _kern("fvg")(*[np.ascontiguousarray(x) for x in (
         h, l, c, bullFVG, bearFVG, fvgMaxAge, fvgMaxFill, fvgMaxTouch)])
+    bearFVG = bullFVG = fvgMaxAge = fvgMaxFill = fvgMaxTouch = None  # free
     fvgBullHi, fvgBullLo, fvgBullFill, fvgBullAge, fvgBullTouch = fv[:5]
     fvgBearHi, fvgBearLo, fvgBearFill, fvgBearAge, fvgBearTouch = fv[5:]
+    fv = None  # free
     fvgAgeDecay = _sel(isOpen, 0.004, isMorning, 0.0035, isLunch, 0.001, isAfternoon, 0.002,
                        inAsia, 0.003, T, 0.003, 0.002)
     fvgTouchPen = _sel(T, 0.12, C_, 0.20, 0.15)
     fvgBullQuality = np.where(nn(fvgBullHi), np.maximum(
         0.0, 1.0 - fvgBullFill - fvgBullTouch * fvgTouchPen - fvgBullAge * fvgAgeDecay), 0.0)
+    fvgBullAge = fvgBullFill = fvgBullTouch = None  # free
     fvgBearQuality = np.where(nn(fvgBearHi), np.maximum(
         0.0, 1.0 - fvgBearFill - fvgBearTouch * fvgTouchPen - fvgBearAge * fvgAgeDecay), 0.0)
+    fvgAgeDecay = fvgBearAge = fvgBearFill = fvgBearTouch = fvgTouchPen = None  # free
     fvgQualityGate = _sel(isOpen, 0.20, isMorning, 0.25, isLunch, 0.40, isAfternoon, 0.30,
                           inAsia, 0.35, T & (adx >= 25), 0.25, C_, 0.40, 0.30)
 
     # ── OTE ──
     swingHigh = sqzHL; swingLow = sqzLL; swingRange = swingHigh - swingLow
+    sqzHL = sqzLL = None  # free
     inOTELong = bool(P["use_ote"]) & (c >= swingHigh - swingRange * 0.79) & (c <= swingHigh - swingRange * 0.62)
     inOTEShort = bool(P["use_ote"]) & (c <= swingLow + swingRange * 0.79) & (c >= swingLow + swingRange * 0.62)
     oteMidLong = ((swingHigh - swingRange * 0.62) + (swingHigh - swingRange * 0.79)) / 2.0
+    swingHigh = None  # free
     oteMidShort = ((swingLow + swingRange * 0.79) + (swingLow + swingRange * 0.62)) / 2.0
+    swingLow = None  # free
 
     # ── order blocks ──
     obLookback = int(P["ob_lookback"])
     obEnabled = bool(P["use_ob"]) & (bar > obLookback)
     strongMoveUp = (c > c1 + atr * float(P["ob_min_move"])) & (c > o) & (v > avgVol * obVolThresh)
     strongMoveDown = (c < c1 - atr * float(P["ob_min_move"])) & (c < o) & (v > avgVol * obVolThresh)
+    c1 = obVolThresh = None  # free
     obInKZ = kz02 | kzAM | kzPM
+    kz02 = kzAM = kzPM = None  # free
     starsBull = (htfBull.astype(np.int64) + (c < vwapVal) + (l > h2) + (relVol >= mfiWtHi) + obInKZ)
     starsBear = (htfBear.astype(np.int64) + (c > vwapVal) + (h < l2) + (relVol >= mfiWtHi) + obInKZ)
     obMinDyn = (int(P["ob_min_rules"]) + _sel(inAsia, 1, inLondon, 1, inPreMkt, 1, isLast, 1, 0)).astype(np.int64)
@@ -1810,19 +2175,25 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
         o, h, l, c, obEnabled, strongMoveUp, strongMoveDown, starsBull.astype(np.int64),
         starsBear.astype(np.int64), obMinDyn, dynSlDistLong, dynSlDistShort)],
         obLookback, bool(P["use_ob_trade"]))
+    obEnabled = obLookback = obMinDyn = starsBear = starsBull = strongMoveDown = strongMoveUp = None  # free
     obBullMid, obBearMid, obBullTradeFire, obBullSl, obBearTradeFire, obBearSl = obr
+    obr = None  # free
 
     # ── TP engine ──
     tpRegimeMult = _sel(aerUptrend | aerDowntrend, 1.2, aerConsolidation, 0.8, 0.6)
     tpRegimeMultSell = _sel(aerDowntrend, 1.2, aerConsolidation, 0.7, 0.6)
     adxTpScale = _sel(adx > 30, 1.2, adx > 20, 1.0, 0.85)
     tpVolScale = np.maximum(0.8, np.minimum(volRatio, 1.5))
+    volRatio = None  # free
     tpSessionMult = _sel(kz, 1.05, isOpen, 1.10, isLunch, 0.85, isLast, 1.03, inAsia, 0.90, 1.0)
     tpMultBuy = tpRegimeMult * adxTpScale * tpVolScale * tpSessionMult
+    tpRegimeMult = None  # free
     tpMultSell = tpRegimeMultSell * adxTpScale * tpVolScale * tpSessionMult
+    adxTpScale = tpRegimeMultSell = tpSessionMult = tpVolScale = None  # free
     tpFloorBuy = dynFloorLong
     tpFloorSell = dynFloorSell
     fpPocMid = nanv                                         # footprint POC: na (PORT GAP 1)
+    nanv = None  # free
     showORBMid = bool(P["show_orb_mid"]); showON = bool(P["show_on_range"])
     showQ = bool(P["show_qqq_levels"])
     T_ = np.ones(n, bool)
@@ -1833,6 +2204,7 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                   (povLevel, T_), (vahLevel, T_), (fvgBullLo, fvgBullQuality > fvgQualityGate),
                   (fvgBearHi, fvgBearQuality > fvgQualityGate), (obBullMid, T_), (obBearMid, T_),
                   (oteMidShort, trendDown & (swingRange > atr * 2))]
+    fvgBullLo = oteMidShort = qqqUp2 = vwapUp2 = None  # free
     sup_levels = [(pivotS1, T_), (pivotS2, T_), (pivotPP, T_), (orbLow, orbLocked),
                   (pmLow, T_), (pmMid, T_), (vwapDn1, T_), (vwapDn2, T_), (fpPocMid, T_),
                   (orbMid, orbLocked & showORBMid), (onLow, T_ & showON),
@@ -1840,12 +2212,15 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                   (povLevel, T_), (valLevel, T_), (fvgBullHi, fvgBullQuality > fvgQualityGate),
                   (fvgBearLo, fvgBearQuality > fvgQualityGate), (obBullMid, T_), (obBearMid, T_),
                   (oteMidLong, trendUp & (swingRange > atr * 2))]
+    fpPocMid = fvgBearLo = fvgBearQuality = fvgBullQuality = fvgQualityGate = oteMidLong = qqqDn2 = vwapDn2 = None  # free
     nearestResAbove = c + atr * float(P["tp1_mult"])
     for lvl, m in res_levels:
         nearestResAbove = np.where(m & (lvl > c) & (lvl < nearestResAbove), lvl, nearestResAbove)
+    res_levels = None  # free
     nearestSupBelow = c - atr * float(P["tp1_mult"])
     for lvl, m in sup_levels:
         nearestSupBelow = np.where(m & (lvl < c) & (lvl > nearestSupBelow), lvl, nearestSupBelow)
+    sup_levels = None  # free
 
     # footprint (PORT GAP 1)
     if P["footprint"] == "clv":
@@ -1855,12 +2230,16 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     else:
         fpBuyVol = np.zeros(n)
         fpSellVol = np.zeros(n)
+    rng = None  # free
     fpDelta = fpBuyVol - fpSellVol
     cumFpDelta = _group_cumsum(fpDelta, gday)
+    gday = None  # free
     fpDeltaSlope = cumFpDelta - _sh(cumFpDelta, 10)
+    cumFpDelta = None  # free
     fpDeltaBull = fpDeltaSlope > 0
     fpDeltaBear = fpDeltaSlope < 0
     deltaMag = np.where(avgVol > 0, np.minimum(2.0, np.abs(fpDeltaSlope) / (avgVol * 0.1)), 1.0)
+    fpDeltaSlope = None  # free
     fpBuyRatio = np.where(fpSellVol > 0, fpBuyVol / fpSellVol, 99.0)
     fpSellRatio = np.where(fpBuyVol > 0, fpSellVol / fpBuyVol, 99.0)
     flowA = lambda bv, rv: _sel(fpDeltaBull, bv, fpDeltaBear, rv, 0.0)      # noqa: E731
@@ -1869,6 +2248,7 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     starAdx = _sel(adx >= 30, 0.08, adx >= 20, 0.0, -0.08)
     starSess = _sel(kz, 0.05, isOpen, 0.05, isLunch, -0.30, isLast, 0.03, inPreMkt, -0.20,
                     inLondon, -0.20, inAsia, -0.25, isAfternoon, -0.10, 0.0)
+    inPreMkt = kz = None  # free
     flowS = _sel((fpDelta < 0) & (fpSellRatio >= trapFpRatio), 0.05 * deltaMag, fpDeltaBear,
                  0.03 * deltaMag, -0.05)
     flowL = _sel((fpDelta > 0) & (fpBuyRatio >= trapFpRatio), 0.05 * deltaMag, fpDeltaBull,
@@ -1891,27 +2271,42 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     mainTpLong = np.maximum(nearestResAbove, c + dynFloorLong * 1.8)
     mainTpShort = np.maximum(nearestSupBelow, c - dynFloorSell * 1.5)
     mainTpLongAdj = np.maximum(c + (mainTpLong - c) * tpMultBuy - tpBuffer, c + tpFloorBuy)
+    mainTpLong = None  # free
     mainTpShortAdj = np.minimum(c - (c - mainTpShort) * tpMultSell + tpBuffer, c - tpFloorSell)
+    mainTpShort = None  # free
     bosTpLong = np.maximum(nearestResAbove, c + dynFloorLong * 1.2)
     bosTpShort = np.maximum(nearestSupBelow, c - dynFloorSell * 1.2)
     bosTpLongAdj = np.maximum(c + (bosTpLong - c) * tpMultBuy * 0.7, c + tpFloorBuy)
+    bosTpLong = None  # free
     bosTpShortAdj = np.minimum(c - (c - bosTpShort) * tpMultSell * 0.7, c - tpFloorSell)
+    bosTpShort = None  # free
     obTpLong = np.maximum(nearestResAbove, c + dynFloorLong * 1.5)
+    dynFloorLong = nearestResAbove = None  # free
     obTpShort = np.maximum(nearestSupBelow, c - dynFloorSell * 1.0)
+    dynFloorSell = None  # free
     obTpLongAdj = np.maximum(c + (obTpLong - c) * tpMultBuy - tpBuffer, c + tpFloorBuy)
+    obTpLong = tpMultBuy = None  # free
     obTpShortAdj = np.minimum(c - (c - obTpShort) * tpMultSell + tpBuffer, c - tpFloorSell)
+    obTpShort = tpBuffer = tpMultSell = None  # free
 
     # ── BOS ──
     bosLen = int(P["bos_len"])
     bosHighVal = _sh(_highest(h, bosLen), 1)
     bosLowVal = _sh(_lowest(l, bosLen), 1)
+    bosLen = None  # free
     bosBreakSize = atr * bosBreakMult
+    bosBreakMult = None  # free
     useBOS = bool(P["use_bos"])
     bosBullRaw = useBOS & (c > bosHighVal) & ((c - bosHighVal) > bosBreakSize) & (relVol >= bosVolThresh) & (c > o)
+    bosHighVal = None  # free
     bosBearRaw = useBOS & (c < bosLowVal) & ((bosLowVal - c) > bosBreakSize) & (relVol >= bosVolThresh) & (c < o)
+    bosBreakSize = bosLowVal = bosVolThresh = useBOS = None  # free
     bullBOS, bearBOS = _kern("bos")(np.ascontiguousarray(bosBullRaw), np.ascontiguousarray(bosBearRaw))
+    bosBearRaw = bosBullRaw = None  # free
     bosCreatedFVG = (l > h2) | (h < l2)
+    h2 = l2 = None  # free
     bosInKZ = obInKZ
+    obInKZ = None  # free
     bosBuyConfBase = np.where(bullBOS, (
         (h5f > h5s).astype(np.int64) + (c > vwapVal) + (adx > 25) + aerUptrend + bosInKZ
         + bosCreatedFVG + (c > ema21) + (relVol >= 1.5) + fpDeltaBull + (fpBuyRatio >= 1.5)
@@ -1920,11 +2315,13 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
         (h5f < h5s).astype(np.int64) + (c < vwapVal) + (adx > 25) + aerDowntrend + bosInKZ
         + bosCreatedFVG + (c < ema21) + (relVol >= 1.5) + fpDeltaBear + (fpSellRatio >= 1.5)
         + csBearEngulf + ~csDoji), 0)
+    bosCreatedFVG = bosInKZ = csDoji = None  # free
 
     # ── liquidity trap (sweep) ──
     sweepLen = int(P["sweep_len"])
     swpHighVal = _sh(_highest(h, sweepLen), 1)
     swpLowVal = _sh(_lowest(l, sweepLen), 1)
+    sweepLen = None  # free
     swpAvgRange = _sma(csRange, 20)
     swpWickMin = atr * _clamp(0.6 + _S(ph, 0.15, -0.045, 0.1, -0.05, 0.05, 0.15, 0.12, 0.15)
                               + regTC(0.1, -0.1), 0.3, 1.0)
@@ -1939,56 +2336,90 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     swpStdevFactor = _sel(isOpen, 1.2, isMorning, 1.3, isLunch, 1.8, isAfternoon, 1.5, inAsia, 1.8,
                           T & (adx >= 30), 1.1, T, 1.3, C_, 1.7, adx < 15, 1.7, 1.5)
     swpStdevOkHigh = csUpperWk > swpMeanUpper + swpStdevFactor * swpStdUpper
+    csUpperWk = swpMeanUpper = swpStdUpper = None  # free
     swpStdevOkLow = csLowerWk > swpMeanLower + swpStdevFactor * swpStdLower
+    csLowerWk = swpMeanLower = swpStdLower = swpStdevFactor = None  # free
     swpFakeHigh = (h > swpHighVal) & (c < swpHighVal)
+    swpHighVal = None  # free
     swpFakeLow = (l < swpLowVal) & (c > swpLowVal)
+    swpLowVal = None  # free
     upW = h - np.maximum(o, c); loW = np.minimum(o, c) - l
     swpWickOk = (upW > swpWickMin) | (loW > swpWickMin)
+    swpWickMin = None  # free
     swpWickBody = np.where(csBody > 0, np.maximum(upW, loW) / csBody >= swpWickBodyThresh, True)
+    swpWickBodyThresh = None  # free
     swpVolOk = relVol >= swpVolThresh
+    swpVolThresh = None  # free
     swpRangeOk = csRange > swpAvgRange * swpRangeThresh
+    swpAvgRange = swpRangeThresh = None  # free
     useSweep = bool(P["use_sweep"])
     bullSweep = useSweep & swpFakeHigh & swpWickOk & swpWickBody & swpVolOk & swpRangeOk & swpStdevOkHigh
+    swpFakeHigh = swpStdevOkHigh = None  # free
     bearSweep = useSweep & swpFakeLow & swpWickOk & swpWickBody & swpVolOk & swpRangeOk & swpStdevOkLow
+    swpFakeLow = swpRangeOk = swpStdevOkLow = swpVolOk = swpWickBody = swpWickOk = useSweep = None  # free
 
     longsEnabled = bool(P["longs_enabled"])
     baseL = trendUp & rsiBull & brkL & longBrkClean
+    brkL = longBrkClean = rsiBull = trendUp = None  # free
     baseS = trendDown & rsiBear & brkS & shortBrkConf
+    brkS = rsiBear = shortBrkConf = trendDown = None  # free
     vizSigL = liquidityOk & longsEnabled & baseL
+    baseL = None  # free
     vizSigS = liquidityOk & baseS
+    baseS = liquidityOk = None  # free
     stratC_Long = inOTELong & (swingRange > atr * 2)
+    inOTELong = None  # free
     stratC_Short = inOTEShort & (swingRange > atr * 2)
+    inOTEShort = swingRange = None  # free
 
     # ── swing structure (pivots 3/3) ──
     pk = _kern("pivot")
     pivLow = pk(np.ascontiguousarray(l), 3, 3, False)
     pivHigh = pk(np.ascontiguousarray(h), 3, 3, True)
     sl0, sl1 = _last_two(pivLow)
+    pivLow = None  # free
     sh0, sh1 = _last_two(pivHigh)
+    pivHigh = None  # free
     hlBullish = nn(sl0) & nn(sl1) & (sl0 > sl1)
     llBearish = nn(sl0) & nn(sl1) & (sl0 < sl1)
+    sl1 = None  # free
     hhBullish = nn(sh0) & nn(sh1) & (sh0 > sh1)
     lhBearish = nn(sh0) & nn(sh1) & (sh0 < sh1)
+    sh1 = None  # free
     fullBullStruct = hhBullish & hlBullish
     fullBearStruct = llBearish & lhBearish
     chochBull = fullBearStruct & nn(sh0) & (c > sh0)
+    sh0 = None  # free
     chochBear = fullBullStruct & nn(sl0) & (c < sl0)
+    sl0 = None  # free
 
     # ── SMT (NQ vs ES pivots 5/5) ──
     esPivH = pk(np.ascontiguousarray(_f(esHigh)), 5, 5, True)
+    esHigh = None  # free
     esPivL = pk(np.ascontiguousarray(_f(esLow)), 5, 5, False)
+    esLow = pk = None  # free
     esSwHi1, esSwHi2 = _last_two(esPivH)
+    esPivH = None  # free
     esSwLo1, esSwLo2 = _last_two(esPivL)
+    esPivL = None  # free
     smtBearRaw = hhBullish & nn(esSwHi1) & nn(esSwHi2) & (esSwHi1 <= esSwHi2)
+    esSwHi1 = esSwHi2 = None  # free
     smtBullRaw = llBearish & nn(esSwLo1) & nn(esSwLo2) & (esSwLo1 >= esSwLo2)
+    esSwLo1 = esSwLo2 = None  # free
     smtLatch = _clamp(_sel(isOpen, 10, isMorning, 12, isLunch, 20, isAfternoon, 16, inAsia, 25,
                            T, 12, 15) + _sel(adx >= 35, -3, adx < 15, 5, 0), 5, 35)
     smtBearBar = np.maximum.accumulate(np.where(smtBearRaw, bar, 0))
+    smtBearRaw = None  # free
     smtBullBar = np.maximum.accumulate(np.where(smtBullRaw, bar, 0))
+    smtBullRaw = None  # free
     smtBear = ((bar - smtBearBar) <= smtLatch) & (smtBearBar > 0)
+    smtBearBar = None  # free
     smtBull = ((bar - smtBullBar) <= smtLatch) & (smtBullBar > 0)
+    smtBullBar = smtLatch = None  # free
     bosBuyConf = bosBuyConfBase + (bullBOS & fullBullStruct)
+    bosBuyConfBase = None  # free
     bosSellConf = bosSellConfBase + (bearBOS & fullBearStruct)
+    bosSellConfBase = None  # free
 
     # ── range position ──
     lo30 = _lowest(l, 30); lo90 = _lowest(l, 90); lo180 = _lowest(l, 180)
@@ -1996,11 +2427,16 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     wide = isLunch | C_ | inAsia | inPreMarket
     rangeLoNow = _sel(isOpen & (adx >= 30), lo30, isMorning, lo90, T & (adx >= 25), lo90,
                       isAfternoon, lo90, isLast, lo90, wide, lo180, lo90)
+    lo180 = lo30 = lo90 = None  # free
     rangeHiNow = _sel(isOpen & (adx >= 30), hi30, isMorning, hi90, T & (adx >= 25), hi90,
                       isAfternoon, hi90, isLast, hi90, wide, hi180, hi90)
+    hi180 = hi30 = hi90 = isLast = wide = None  # free
     rangeLo = _sh(rangeLoNow, 1); rangeHi = _sh(rangeHiNow, 1)
+    rangeLoNow = rangeHiNow = None  # free
     rangeSz = rangeHi - rangeLo
+    rangeHi = None  # free
     rangePos = np.where(rangeSz > 0, (c - rangeLo) / rangeSz, 0.5)
+    rangeLo = rangeSz = None  # free
     pmAsia = inPreMarket | inAsia
     rLowBlockShort = _clamp(0.20 + adxA(-0.03, 0.04)
                             + _sel(aerDowntrend, -0.08, aerUptrend, 0.08, C_, 0.05, 0.0)
@@ -2011,14 +2447,19 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     rHighBlockLong = _clamp(0.80 + adxA(0.03, -0.04)
                             + _sel(aerUptrend, 0.08, aerDowntrend, -0.08, C_, -0.05, 0.0)
                             + volR(-0.05, 0.03) + np.where(pmAsia, -0.08, 0.0), 0.60, 0.92)
+    pmAsia = None  # free
     rLowBlockLong = _clamp(0.35 + adxA(-0.05, 0.05)
                            + _sel(aerDowntrend, 0.10, aerUptrend, -0.15, C_, 0.0, 0.0)
                            + _sel(fpDeltaBear, 0.05 * deltaMag, fpDeltaBull, -0.05 * deltaMag, 0.0),
                            0.15, 0.45)
     rangeBlocksShort_low = (rangePos >= 0.0) & (rangePos < rLowBlockShort)
+    rLowBlockShort = None  # free
     rangeBlocksShort_high = (rangePos <= 1.0) & (rangePos > rHighBlockShort)
+    rHighBlockShort = None  # free
     rangeBlocksLong_high = (rangePos <= 1.0) & (rangePos > rHighBlockLong)
+    rHighBlockLong = None  # free
     rangeBlocksLong_low = (rangePos >= 0.0) & (rangePos < rLowBlockLong)
+    rLowBlockLong = rangePos = None  # free
 
     # ── capitulation ──
     ud = aerUptrend | aerDowntrend
@@ -2030,28 +2471,38 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
         big = (rk >= capVol) & (np.abs(ck - okk) >= atr * capBody)
         cdn.append((ck < okk) & big)
         cup.append((ck > okk) & big)
+    big = capBody = capVol = ck = okk = rk = None  # free
     capDepth = _sel((adx >= 30) & ud, 2, isOpen, 3, isMorning, 3, isAfternoon, 4,
                     C_ | inAsia | inPreMarket | isLunch, 5, T, 3, 4)
+    inPreMarket = ud = None  # free
 
     def cap_any(lst):
         return np.where(capDepth >= 5, lst[0] | lst[1] | lst[2] | lst[3] | lst[4],
                         np.where(capDepth >= 4, lst[0] | lst[1] | lst[2] | lst[3],
                                  np.where(capDepth >= 3, lst[0] | lst[1] | lst[2], lst[0] | lst[1])))
     capitulationDown = cap_any(cdn)
+    cdn = None  # free
     capitulationUp = cap_any(cup)
+    cap_any = cup = None  # free
 
     bigLowerWick = (loW >= atr * 0.8) & (loW > upW)
     bigUpperWick = (upW >= atr * 0.8) & (upW > loW)
+    loW = upW = None  # free
     wickBlocksShort = bigLowerWick
+    bigLowerWick = None  # free
     wickBlocksLong = bigUpperWick
+    bigUpperWick = None  # free
 
     # ── HTF confluence ──
     def tf_vote(cc, fE, sE, mid):
         return (_sel(cc > sE, 0.5, cc < sE, -0.5, 0.0) + _sel(fE > sE, 1.0, fE < sE, -1.0, 0.0)
                 + _sel(cc > mid, 0.5, cc < mid, -0.5, 0.0))
     h5Vote = tf_vote(h5c, h5f, h5s, h5mid)
+    h5c = h5mid = None  # free
     h15Vote = tf_vote(h15c, h15f, h15s, h15mid)
+    h15c = h15f = h15mid = None  # free
     h60Vote = tf_vote(h60c, h60f, h60s, h60mid)
+    h60c = h60f = h60mid = tf_vote = None  # free
     htfConfScore = h5Vote * 1.0 + h15Vote * 1.5 + h60Vote * 2.0
     htfDivWt = (_S(ph, 1.0, 0.9, 0.7, 0.8, 0.9, 0.5, 0.6, 0.4) * _sel(T, 1.1, C_, 0.7, 0.9)
                 * _sel(adx >= 35, 1.2, adx >= 25, 1.0, adx < 15, 0.6, 0.8)
@@ -2060,7 +2511,9 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     pen = np.zeros(n)
     pen = np.where((h5Vote <= -1.0) & (h15Vote >= 1.0) & (h60Vote >= 1.0), -2.0 * htfDivWt, pen)
     pen = np.where((h5Vote >= 1.0) & (h15Vote <= -1.0) & (h60Vote <= -1.0), 2.0 * htfDivWt, pen)
+    h15Vote = h5Vote = h60Vote = htfDivWt = None  # free
     htfConfScore = htfConfScore + pen
+    pen = None  # free
     X7 = _sel(isOpen, 7.0, T, 6.5, 6.0)
     X4 = _sel(isOpen, 4.0, T, 3.5, 3.0)
     X5o = np.where(isOpen, 5.0, 4.0)
@@ -2072,28 +2525,38 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     odDeltaWt = _sel(isOpen & (adx >= 25), 2, T, 1, 1)
     odConfLong = (odConfLongBase + np.where(smtBull, odSmtWt, 0.0) + np.where(chochBull, odChochWt, 0.0)
                   + np.where(fullBullStruct, odStructWt, 0.0) + np.where(fpDeltaBull, odDeltaWt, 0.0))
+    odConfLongBase = None  # free
     odConfShort = (odConfShortBase + np.where(smtBear, odSmtWt, 0.0) + np.where(chochBear, odChochWt, 0.0)
                    + np.where(fullBearStruct, odStructWt, 0.0) + np.where(fpDeltaBear, odDeltaWt, 0.0))
+    odChochWt = odConfShortBase = odDeltaWt = odSmtWt = odStructWt = None  # free
     odHtfVetoThresh = _sel(isOpen, 5.0, isMorning, 4.5, isLunch, 3.5, isAfternoon, 4.0, inAsia, 3.0,
                            T & (adx >= 30), 4.5, C_, 3.0, 4.0)
     odHtfVetoBuy = htfConfScore <= -odHtfVetoThresh
     odHtfVetoSell = htfConfScore >= odHtfVetoThresh
+    odHtfVetoThresh = None  # free
     pmRng = pmHigh - pmLow
     odPmRangePos = np.where(nn(pmHigh) & nn(pmLow) & (pmRng > 0), (c - pmLow) / pmRng, 0.5)
+    pmRng = None  # free
     odPmBlockSellBelow = _sel(T, 0.25, C_, 0.35, adx >= 30, 0.22, adx < 15, 0.35, isOpen, 0.28, 0.30)
     odPmBlockBuyAbove = _sel(T, 0.75, C_, 0.65, adx >= 30, 0.78, adx < 15, 0.65, isOpen, 0.72, 0.70)
     odPmVetoBuy = odPmRangePos > odPmBlockBuyAbove
+    odPmBlockBuyAbove = None  # free
     odPmVetoSell = odPmRangePos < odPmBlockSellBelow
+    odPmBlockSellBelow = odPmRangePos = None  # free
     odContraHigh = _sel(isOpen, 3.5, T & (adx >= 30), 2.5, C_, 2.0, 3.0)
     odContraMid = _sel(isOpen, 2.0, T, 1.0, 1.5)
     odContraAdj = _sel(htfConfScore >= odContraHigh, 2, htfConfScore >= odContraMid, 1, 0)
     odContraAdjBuy = _sel(htfConfScore <= -odContraHigh, 2, htfConfScore <= -odContraMid, 1, 0)
+    odContraHigh = odContraMid = None  # free
     odBuyRaw = ((odBuyGateEarly | (odWindow & odVolSpike & odStrongBull
                                    & (odConfLong >= odMinConf + odContraAdjBuy)))
                 & ~odHtfVetoBuy & ~odPmVetoBuy)
+    odBuyGateEarly = odConfLong = odContraAdjBuy = odHtfVetoBuy = odPmVetoBuy = odStrongBull = None  # free
     odSellRaw = ((odSellGateEarly | (odWindow & odVolSpike & odStrongBear
                                      & (odConfShort >= odMinConf + odContraAdj)))
                  & ~odHtfVetoSell & ~odPmVetoSell)
+    odConfShort = odContraAdj = odHtfVetoSell = odMinConf = odPmVetoSell = odSellGateEarly = odStrongBear = odVolSpike = None  # free
+    odWindow = None  # free
 
     htfVetoShort = _clamp(3.0 + _S(ph, -0.5, 0.15, 1.0, 0.5, -0.15, 0.5, 0.4, 0.5)
                           + _sel(aerUptrend, -1.0, aerDowntrend, 1.0, C_, 0.5, 0.0)
@@ -2105,12 +2568,16 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                          + _sel(fpDeltaBear, 0.5, fpDeltaBull, -0.5, 0.0)
                          + hurA(0.3, -0.3), -6.0, -1.0)
     htfBlocksShort = htfConfScore >= htfVetoShort
+    htfVetoShort = None  # free
     htfBlocksLong = htfConfScore <= htfVetoLong
+    htfVetoLong = None  # free
 
     shortAux = (hlBullish.astype(np.int64) + hhBullish + rangeBlocksShort_high + capitulationDown
                 + wickBlocksShort)
+    capitulationDown = rangeBlocksShort_high = None  # free
     longAux = (llBearish.astype(np.int64) + lhBearish + rangeBlocksLong_low + capitulationUp
                + wickBlocksLong)
+    capitulationUp = rangeBlocksLong_low = None  # free
     auxSess = _S(ph, -0.3, -0.15, 0.3, 0.1, -0.1, 0.3, 0.2, 0.3)
     auxAdx = adxA(-0.2, 0.2)
     auxHur = hurA(-0.15, 0.2)
@@ -2127,68 +2594,111 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                         + auxSess + auxAdx + auxHur + auxVol
                         + _sel(c < ema100 - atr * 1.0, -0.3, c > ema100 + atr * 1.0, 0.5, 0.0)
                         + _sel(fpDeltaBear, -0.2, fpDeltaBull, 0.2, 0.0), 1.0, 4.0)
+    auxAdx = auxHur = auxSess = auxVol = None  # free
     structBlocksShort = rangeBlocksShort_low | htfBlocksShort | (shortAux >= shortAuxThr)
+    htfBlocksShort = rangeBlocksShort_low = shortAux = shortAuxThr = None  # free
     structBlocksLong = rangeBlocksLong_high | htfBlocksLong | (longAux >= longAuxThr)
+    htfBlocksLong = longAux = longAuxThr = rangeBlocksLong_high = None  # free
 
     # ── retest ──
     bearRetest = aerDowntrend & (h > ema21) & (c < ema21) & ~hlBullish
     bullRetest = aerUptrend & (l < ema21) & (c > ema21) & ~llBearish
     cleanBody = (csRange > 0) & (csBody / csRange > 0.3)
+    csRange = None  # free
     bullRetestScore = ((adx > 25).astype(np.int64) + (relVol >= confVolBounce) + (c > vwapVal)
                        + htfBull + cleanBody + fpDeltaBull)
+    htfBull = None  # free
     bearRetestScore = ((adx > 25).astype(np.int64) + (relVol >= confVolBounce) + (c < vwapVal)
                        + htfBear + cleanBody + fpDeltaBear)
+    cleanBody = htfBear = None  # free
     rmr = float(P["retest_min_rules"])
     retestMinBear = np.minimum(6.0, rmr + hhBullish + (htfConfScore >= 3.0) + (c > ema100))
     retestMinBull = np.minimum(6.0, rmr + lhBearish + (htfConfScore <= -3.0) + (c < ema100)
                                + _S(ph, 1.5, 1.0, 0.0, 0.0, 0.5, 1.0, 0.0, 0.5))
+    rmr = None  # free
     bullRetestOk = bullRetest & (bullRetestScore >= retestMinBull)
+    bullRetest = bullRetestScore = retestMinBull = None  # free
     bearRetestOk = bearRetest & (bearRetestScore >= retestMinBear)
+    bearRetest = bearRetestScore = retestMinBear = None  # free
 
     # ── structural gates (shorts) ──
     shortHtfSlopeOk = (h15s < _sh(h15s, 5)) & (h60s < _sh(h60s, 3))
     shortVwapSlopeOk = vwapVal <= _sh(vwapVal, 5)
     shortRolledOver = c < _highest(h, 10) - atr * 1.0
     structGateCount = shortHtfSlopeOk.astype(np.int64) + shortVwapSlopeOk + shortRolledOver
+    shortHtfSlopeOk = shortRolledOver = shortVwapSlopeOk = None  # free
 
     mfiVal = _mfi(hlc3, v, 14)
+    hlc3 = None  # free
     mfiBull = (mfiVal > 50) & (mfiVal < 80)
     mfiBear = (mfiVal < 50) & (mfiVal > 20)
     mfiExhBuy = mfiVal >= mfiExhBuyThresh
+    mfiExhBuyThresh = None  # free
     mfiExhSel = mfiVal <= mfiExhSelThresh
+    mfiExhSelThresh = None  # free
     # TICK / VIX: not held -> na (PORT GAP 2): tickBull/Bear false, tickMag 0, vix flags false.
     lrSlope = _linreg(c, 40, 0) - _linreg(c, 40, 1)
     emaSlope = (ema9 - _sh(ema9, 5)) / 5.0
     vwapBias = _sel(c > vwapCalc, 1.0, c < vwapCalc, -1.0, 0.0)
+    vwapCalc = None  # free
     htfSlope = h5f - h5s
+    h5f = None  # free
     sgn = lambda x: _sel(x > 0, 1.0, x < 0, -1.0, 0.0)      # noqa: E731
+    x = None  # free
 
     # ── dirScoreFull (pre-entry part; the post-hoc divergence/absorption terms come after
     #    the entry block in the script and never reach an order) ──
     mfiMag = np.minimum(1.5, np.abs(mfiVal - 50.0) / 30.0)
+    mfiVal = None  # free
     rawFlowDelta = fpBuyVol - fpSellVol
+    fpBuyVol = fpSellVol = None  # free
     rawFlowMag = np.where(avgVol > 0, np.minimum(1.5, np.abs(rawFlowDelta) / (avgVol * 0.3)), 0.0)
+    avgVol = None  # free
     d = np.zeros(n)
     d = d + sgn(lrSlope)
+    lrSlope = None  # free
     d = d + sgn(emaSlope)
+    emaSlope = None  # free
     d = d + vwapBias
+    vwapBias = None  # free
     d = d + sgn(htfSlope)
+    htfSlope = None  # free
     d = d + 0.0                                            # 5. TICK (na)
-    d = d + 0.0                                            # 6. VIX (na)
+    if P["vix_feed"] == "none":
+        d = d + 0.0                                        # 6. VIX (na)
+    else:                                                  # 6. VIX, daily stand-in (ours)
+        vixRiseT = np.maximum(1.005, np.minimum(1.05, 1.01 + _S(
+            ph, 0.02, -0.006, -0.005, -0.0025, 0.006, -0.005, -0.004, -0.005)
+            + _sel(T, 0.005, C_, -0.005, 0.0)))
+        vixFallT = np.maximum(0.95, np.minimum(0.995, 0.99 + _S(
+            ph, -0.02, 0.006, 0.005, 0.0025, -0.006, 0.005, 0.004, 0.005)
+            + _sel(T, -0.005, C_, 0.005, 0.0)))
+        vixOk = nn(vixClose) & nn(vixPrev)
+        vixRising = vixOk & (vixClose > vixPrev * vixRiseT)
+        vixFalling = vixOk & (vixClose < vixPrev * vixFallT)
+        vixMag = np.where(nn(vixClose), np.minimum(1.5, np.maximum(0.5, vixClose / 20.0)), 1.0)
+        d = d + _sel(vixFalling, 1.0 * vixMag, vixRising, -1.0 * vixMag, 0.0)
+    vixClose = vixFallT = vixFalling = vixMag = vixOk = vixPrev = vixRiseT = vixRising = None  # free
     d = d + _sel(fpDeltaBull, 1.5 * deltaMag, fpDeltaBear, -1.5 * deltaMag, 0.0)
     d = d + _sel(mfiBull, 0.5 * mfiMag, mfiBear, -0.5 * mfiMag, 0.0)
+    mfiBear = mfiBull = None  # free
     d = d + np.where(mfiExhBuy, -1.0, 0.0)
     d = d + np.where(mfiExhSel, 1.0, 0.0)
     d = d + _sel((rawFlowDelta > 0) & (c > o), 0.5 * rawFlowMag, (rawFlowDelta < 0) & (c < o),
                  -0.5 * rawFlowMag, 0.0)
+    rawFlowDelta = rawFlowMag = None  # free
     d = d + _sel(aerUptrend, 1.5, aerDowntrend, -1.5, 0.0)
     d = d + dailyBias
+    dailyBias = None  # free
     d = d + np.where(hurstPersist, _sel(aerUptrend, 1.0, aerDowntrend, -1.0, 0.0), 0.0)
     d = d + np.where(hurstRevert, _sel(aerUptrend, -0.5, aerDowntrend, 0.5, 0.0), 0.0)
     d = d + _sel(rsStrong, 0.5, rsWeak, -0.5, 0.0)
+    rsStrong = rsWeak = None  # free
     d = d + _sel(macdBull, 0.5, macdBear, -0.5, 0.0)
+    macdBear = macdBull = None  # free
     d = d + vrzBias * _sel(isOpen, 0.7, isMorning, 0.6, isLunch, 0.3, isAfternoon, 0.4, inAsia, 0.3,
                            T, 0.6, adx >= 30, 0.6, 0.5)
+    vrzBias = None  # free
     d = d + _sel(c > ema200, 0.5, c < ema200, -0.5, 0.0)
     structWt = _sel(isOpen, 2.0, isMorning, 1.8, isLunch, 0.8, isAfternoon, 1.2, inAsia, 0.5,
                     T & (adx >= 25), 1.8, 1.5)
@@ -2196,39 +2706,53 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                            T & (adx >= 25), 0.6, 0.5)
     d = d + _sel(fullBullStruct, structWt, fullBearStruct, -structWt,
                  hlBullish & hhBullish, structPartialWt, llBearish & lhBearish, -structPartialWt, 0.0)
+    fullBearStruct = fullBullStruct = structPartialWt = structWt = None  # free
     smtWt = _sel(isOpen, 1.5, isMorning, 1.3, inAsia, 0.4, isLunch, 0.7, isAfternoon, 0.9,
                  T & (adx >= 25), 1.3, 1.0)
     d = d + _sel(smtBull, smtWt, smtBear, -smtWt, 0.0)
+    smtBear = smtBull = smtWt = None  # free
     chochWt = _sel(isOpen, 2.0, isMorning, 1.8, isLunch, 0.8, isAfternoon, 1.2, inAsia, 0.6,
                    T & (adx >= 30), 2.0, T, 1.8, adx >= 25, 1.5, 1.2)
     d = d + _sel(chochBull, chochWt, chochBear, -chochWt, 0.0)
+    chochBear = chochBull = chochWt = None  # free
     csWt = _sel(isOpen, 0.7, isMorning, 0.6, isLunch, 0.3, isAfternoon, 0.4, inAsia, 0.2,
                 T & (adx >= 30), 0.7, T, 0.6, C_, 0.4, 0.5)
     d = d + _sel(csBullEngulf | csHammer, csWt, csBearEngulf | csShootSt, -csWt, 0.0)
+    csBearEngulf = csBullEngulf = csHammer = csShootSt = csWt = None  # free
     pocWt = (_sel(isOpen, 0.6, isMorning, 0.5, isLunch, 0.3, isAfternoon, 0.4, inAsia, 0.2, T, 0.5, 0.4)
              * _sel(nodeStrength >= 15, 1.3, nodeStrength >= 10, 1.0, 0.7))
     d = d + _sel(pocBuyPct > 60, pocWt, pocBuyPct < 40, -pocWt, 0.0)
+    pocBuyPct = pocWt = None  # free
     pocDelta = pocRawBuy - pocRawSell
+    pocRawBuy = pocRawSell = None  # free
     pocDeltaNorm = np.where(nodeStrength >= 10, sgn(pocDelta), 0.0)
+    pocDelta = sgn = None  # free
     pocRawWt = _sel(isOpen, 0.8, isMorning, 0.7, isLunch, 0.3, isAfternoon, 0.5, inAsia, 0.2, T, 0.6, 0.4)
     d = d + pocDeltaNorm * pocRawWt
+    pocDeltaNorm = pocRawWt = None  # free
     povWt = _sel(isOpen, 0.4, isMorning, 0.35, isLunch, 0.2, isAfternoon, 0.25, inAsia, 0.15, T, 0.35, 0.25)
     d = d + _sel(nearPoV & (c > o), povWt, nearPoV & (c < o), -povWt, 0.0)
+    nearPoV = povWt = None  # free
     bosWt = _sel(isOpen, 2.5, isMorning, 2.0, isLunch, 0.8, isAfternoon, 1.5, inAsia, 0.5,
                  T & (adx >= 30), 2.0, C_, 0.6, 1.5)
     d = d + _sel(bullBOS, bosWt, bearBOS, -bosWt, 0.0)
+    bosWt = None  # free
     sqzWt = _sel(isOpen, 1.5, isMorning, 1.3, isLunch, 0.5, isAfternoon, 0.8, inAsia, 0.3, T, 1.2, 0.7)
     d = d + _sel(sqzFired & (sqzMom > 0), sqzWt, sqzFired & (sqzMom < 0), -sqzWt, 0.0)
+    sqzWt = None  # free
     retestWt = _sel(isOpen, 1.5, isMorning, 1.2, isLunch, 0.5, isAfternoon, 0.8, inAsia, 0.3,
                     T & (adx >= 25), 1.2, C_, 0.4, hurstPersist, 1.0, 0.7)
     d = d + _sel(bullRetestOk, retestWt, bearRetestOk, -retestWt, 0.0)
+    retestWt = None  # free
     momFlipWt = _sel(isOpen, 0.8, isMorning, 0.7, isLunch, 0.3, isAfternoon, 0.5, inAsia, 0.2,
                      T, 0.6, C_, 0.2, 0.4)
     d = d + _sel(momRecentBull, momFlipWt, momRecentBear, -momFlipWt, 0.0)
+    momFlipWt = None  # free
     regFlipWt = _sel(isOpen, 1.5, isMorning, 1.2, isLunch, 0.5, isAfternoon, 0.8, inAsia, 0.3,
                      adx >= 30, 1.3, adx < 20, 0.4, hurstPersist, 1.0, 0.7)
     d = d + _sel(aerUptrend & ~_shb(aerUptrend, 1), regFlipWt, aerDowntrend & ~_shb(aerDowntrend, 1),
                  -regFlipWt, 0.0)
+    regFlipWt = None  # free
     useORB = bool(P["use_orb"])
     orbWt = np.where(orbLocked, _sel(isMorning, 1.5, isOpen, 1.2, isAfternoon, 0.5, inAsia, 0.2,
                                      adx >= 30, 1.3, C_, 0.3, hurstPersist, 1.0, 0.5), 0.0)
@@ -2236,13 +2760,16 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
         d = d + _sel(orbBrokenUp, orbWt, orbBrokenDown, -orbWt, 0.0)
     else:
         d = d + 0.0
+    orbBrokenDown = orbBrokenUp = orbWt = None  # free
     orbConfWt = np.where(orbLocked, _sel(isMorning, 2.0, isOpen, 1.5, isAfternoon, 0.5, adx >= 30, 1.5,
                                          C_, 0.3, hurstPersist, 1.2, 0.5), 0.0)
     if useORB:
         d = d + _sel(orbConfirmLong, orbConfWt, orbConfirmShort, -orbConfWt, 0.0)
     else:
         d = d + 0.0
+    orbConfWt = orbConfirmLong = orbConfirmShort = useORB = None  # free
     dirScoreFull = d
+    d = None  # free
 
     dsVetoShort = _clamp(2.0 + _S(ph, -0.3, 0.09, 0.5, 0.25, -0.09, 0.3, 0.24, 0.3)
                          + _sel(aerUptrend, -0.5, aerDowntrend, 0.8, C_, 0.3, 0.0)
@@ -2254,13 +2781,19 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                         + _sel(fpDeltaBear, 0.3, fpDeltaBull, -0.3, 0.0)
                         + hurA(0.2, -0.2), -4.0, -1.0)
     dirBlocksShortFull = dirScoreFull >= dsVetoShort
+    dsVetoShort = None  # free
     dirBlocksLongFull = dirScoreFull <= dsVetoLong
+    dsVetoLong = None  # free
 
     early = np.zeros(n)
     early = early + _sel(h5s > _sh(h5s, 5), 1.0, h5s < _sh(h5s, 5), -1.0, 0.0)
+    h5s = None  # free
     early = early + _sel(h15s > _sh(h15s, 5), 1.0, h15s < _sh(h15s, 5), -1.0, 0.0)
+    h15s = None  # free
     early = early + _sel(h60s > _sh(h60s, 3), 1.0, h60s < _sh(h60s, 3), -1.0, 0.0)
+    h60s = None  # free
     early = early + _sel(ema9 > ema21, 1.0, ema9 < ema21, -1.0, 0.0)
+    ema9 = None  # free
     early = early + _sel(c > vwapVal, 1.0, c < vwapVal, -1.0, 0.0)
     early = early + _sel(aerUptrend, 1.5, aerDowntrend, -1.5, 0.0)
     vSess = _S(ph, -0.5, 0.15, 0.5, 0.25, -0.15, 0.3, 0.24, 0.3)
@@ -2272,42 +2805,57 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                                   + _sel(aerUptrend, -0.3, C_, 0.3, 0.0) + adxA(-0.2, 0.2)
                                   + volR(-0.15, 0.15) + flowA(-0.2, 0.2) + hurA(-0.15, 0.15),
                                   1.0, 3.5)
+    flowA = None  # free
     dirVetoThreshBuy = _clamp(4.0 + vSess + _sel(aerDowntrend, -0.5, aerUptrend, 0.5,
                                                  aerConsolidation, 0.3, C_, 0.5, 0.0)
                               + adxA(-0.3, 0.3) + volR(-0.3, 0.3)
                               + _sel(fpDeltaBear, -0.3, fpDeltaBull, 0.3, 0.0)
                               + hurA(-0.2, 0.2), 2.5, 6.0)
+    vSess = None  # free
     dirBlocksShortHard = early >= dirVetoThreshSell
+    dirVetoThreshSell = None  # free
     dirTightensShort = (early >= dirTightenThreshSell) & ~dirBlocksShortHard
+    dirTightenThreshSell = None  # free
     structReqShort = np.where(dirTightensShort, 2, 1)
+    dirTightensShort = None  # free
     shortStructOk = ~dirBlocksShortHard & (structGateCount >= structReqShort)
+    dirBlocksShortHard = structGateCount = structReqShort = None  # free
     dirBlocksLong = early <= -dirVetoThreshBuy
+    dirVetoThreshBuy = early = None  # free
 
     trendAlignBuf = atr * _clamp(0.3 + _S(ph, 0.2, -0.06, 0.1, -0.05, 0.06, 0.05, 0.04, 0.05)
                                  + volR(0.15, -0.10) + _sel(C_, 0.15, aerConsolidation, -0.05, 0.0)
                                  + adxA(0.1, -0.1) + hurA(0.05, -0.05), 0.1, 0.8)
+    aerConsolidation = volR = None  # free
     tsl = _sel(adx >= 30, 3, adx >= 20, 5, 7)
     tsl = tsl + _S(ph, -1, -1, 1, 0, 0, 1, 1, 1)
     tsl = tsl + _sel(T, -1, C_, 1, 0)
     tsl = tsl + hurA(-1, 1)
     tsl = np.clip(tsl, 2, 10).astype(np.int64)
     lagi = bar - tsl
+    bar = tsl = None  # free
     ema100Lag = np.where(lagi >= 0, ema100[np.maximum(lagi, 0)], np.nan)
+    lagi = None  # free
     shortTrendAlignOk = (c < ema100 - trendAlignBuf) & (ema100 < ema100Lag)
     longTrendAlignOk = (c > ema100 + trendAlignBuf) & (ema100 > ema100Lag)
+    ema100 = ema100Lag = trendAlignBuf = None  # free
 
     shortVolumeScore = ((relVol >= mfiWtHi).astype(np.int64)
                         + ((fpDelta < 0) & (fpSellRatio >= trapFpRatio)) + fpDeltaBear
                         + (ema21 < _sh(ema21, 5)) + ((vwapVal - c) > atr * 0.5) + aerDowntrend
                         + ((c - nearestSupBelow) > atr * 1.0) + ((c < o) & ((o - c) > atr * 0.3)))
+    fpDelta = nearestSupBelow = None  # free
     shortVolumeOk = shortStructOk & (shortVolumeScore >= int(P["short_min_rules"]))
+    shortStructOk = shortVolumeScore = None  # free
 
     # ── overextension ──
     ema21DistAtr = (c - ema21) / atr
+    ema21 = None  # free
     vwapDistAtr = (c - vwapVal) / atr
     sessDistAdj = _S(ph, 0.5, 0.3, -0.3, 0.0, 0.2, 0.0, 0.0, -0.4)
     vwapDyn = _sel(adx >= 35, 2.5, adx >= 25, 1.8, 1.2) + sessDistAdj
     mfiWt = _sel(relVol >= mfiWtHi, 1.5, relVol >= mfiWtLo, 1.0, 0.5)
+    mfiWtHi = None  # free
     lowVolThr = _sel(isOpen, 0.6, isMorning, 0.65, isLunch, 0.9, isAfternoon, 0.8, inAsia, 0.9, T, 0.7, 0.8)
     sessThreshAdj = _S(ph, 0.75, 0.4, -0.5, -0.1, 0.3, 0.0, 0.0, -0.5)
     nodeAdjOx = _sel(nodeStrength >= 15, -0.3, nodeStrength >= 10, -0.15, nodeStrength < 5, 0.2, 0.0)
@@ -2316,11 +2864,14 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     emaDynL = _sel(aerUptrend & (adx >= 30), 2.5, T, 2.0, C_, 1.0, 1.5) + sessDistAdj
     sc = np.zeros(n)
     sc = sc + _sel(ema21DistAtr >= emaDynL * 1.5, 2.0, ema21DistAtr >= emaDynL, 1.0, 0.0)
+    emaDynL = None  # free
     sc = sc + _sel(vwapDistAtr >= vwapDyn * 1.3, 1.5, vwapDistAtr >= vwapDyn, 0.75, 0.0)
     sc = sc + np.where(lhBearish, _sel(htfConfScore >= X7, 0.5, htfConfScore >= X4, 1.0, 1.5), 0.0)
     sc = sc + np.where(mfiExhBuy, mfiWt * mfiMag, 0.0)
+    mfiExhBuy = None  # free
     sc = sc + np.where(relVol < lowVolThr, _sel(htfConfScore >= X4, 1.0, 0.5), 0.0)
     sc = sc + np.where(wickBlocksShort, 0.5, 0.0)
+    wickBlocksShort = None  # free
     th = np.full(n, 3.0)
     th = th + _sel(htfConfScore >= X7, 1.5, htfConfScore >= X4, 0.75, 0.0)
     th = th + _sel(aerUptrend, 0.5, C_, -0.5, 0.0)
@@ -2332,28 +2883,41 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     longOverextended = sc >= _clamp(th, 2.0, 6.5)
 
     emaDynS = _sel(aerDowntrend & (adx >= 30), 2.5, T, 2.0, C_, 1.0, 1.5) + sessDistAdj
+    sessDistAdj = None  # free
     sc = np.zeros(n)
     sc = sc + _sel(-ema21DistAtr >= emaDynS * 1.5, 2.0, -ema21DistAtr >= emaDynS, 1.0, 0.0)
+    emaDynS = None  # free
     sc = sc + _sel(-vwapDistAtr >= vwapDyn * 1.3, 1.5, -vwapDistAtr >= vwapDyn, 0.75, 0.0)
+    vwapDistAtr = vwapDyn = None  # free
     sc = sc + np.where(hhBullish, _sel(htfConfScore <= -X7, 0.5, htfConfScore <= -X4, 1.0, 1.5), 0.0)
     sc = sc + np.where(mfiExhSel, mfiWt * mfiMag, 0.0)
+    mfiExhSel = mfiMag = mfiWt = None  # free
     sc = sc + np.where(relVol < lowVolThr, _sel(htfConfScore <= -X4, 1.0, 0.5), 0.0)
+    lowVolThr = None  # free
     sc = sc + np.where(wickBlocksLong, 0.5, 0.0)
+    wickBlocksLong = None  # free
     th = np.full(n, 3.0)
     th = th + _sel(htfConfScore <= -X7, 1.5, htfConfScore <= -X4, 0.75, 0.0)
     th = th + _sel(aerDowntrend, 0.5, C_, -0.5, 0.0)
     th = th + adxOx
+    adxOx = None  # free
     th = th + _sel(fpDeltaBear, 0.3 * deltaMag, fpDeltaBull, -0.3 * deltaMag, 0.0)
+    deltaMag = None  # free
     th = th + hurA(0.3, -0.3)
     th = th + nodeAdjOx
+    nodeAdjOx = None  # free
     th = th + sessThreshAdj
+    sessThreshAdj = None  # free
     shortOverextended = sc >= _clamp(th, 2.0, 6.5)
+    sc = th = None  # free
 
     sessionAllowed = bool(P["eth_enabled"]) | inRTH
     sigL = (sessionAllowed & vizSigL & (stratA_Long | stratB_Long | stratC_Long) & ~dirBlocksLong
             & ~dirBlocksLongFull & ~structBlocksLong & longTrendAlignOk & ~longOverextended)
+    stratA_Long = stratB_Long = stratC_Long = vizSigL = None  # free
     sigS = (sessionAllowed & vizSigS & (stratA_Short | stratB_Short | stratC_Short) & shortVolumeOk
             & ~dirBlocksShortFull & ~structBlocksShort & shortTrendAlignOk & ~shortOverextended)
+    stratA_Short = stratB_Short = stratC_Short = vizSigS = None  # free
 
     # ── confidence ──
     proxDist = _clamp(0.5 + _S(ph, 0.2, -0.06, -0.1, -0.05, 0.06, -0.15, -0.12, -0.15)
@@ -2369,23 +2933,32 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                    | (near(pivotPP) & (c < pivotPP)) | near(pivotR1))
                   & (((h - np.maximum(o, c)) > csBody * 0.5) | ((c < o) & fpDeltaBear)
                      | ((c < o) & (relVol >= confVolBounce))))
+    confVolBounce = csBody = near = vwapVal = None  # free
     momThresh = _sel(T, 0.25, C_, 0.45, 0.35)
     adjThresh = np.maximum(0.1, momThresh + _S(ph, -0.08, 0.024, 0.1, 0.05, -0.024, 0.1, 0.08, 0.1))
+    momThresh = None  # free
     inHotZone = (np.abs(sqzMom) / atr >= adjThresh) & (atr >= aerMeanATR * 0.85)
+    adjThresh = aerMeanATR = None  # free
     htfConfThr = _sel(isOpen, 5.0, T, 4.5, 4.0)
     meanOk = np.abs(ema21DistAtr) <= 1.5
+    ema21DistAtr = None  # free
     smU = sqzMom > sm1
     smD = sqzMom < sm1
+    sm1 = None  # free
     momL = ((sqzFired & (sqzMom > 0)) | (sqzOn & (sqzMom > 0) & smU) | momRecentBull
             | (inHotZone & (sqzMom > 0) & smU))
+    momRecentBull = smU = None  # free
     momS = ((sqzFired & (sqzMom < 0)) | (sqzOn & (sqzMom < 0) & smD) | momRecentBear
             | (inHotZone & (sqzMom < 0) & smD))
+    inHotZone = momRecentBear = smD = sqzFired = sqzMom = sqzOn = None  # free
     confLong = ((htfConfScore >= htfConfThr).astype(np.int64) + (dirScoreFull >= 3.0)
                 + (hlBullish & hhBullish) + fpDeltaBull + meanOk + momL
                 + (bbPos <= _sel(aerUptrend, 0.25, C_, 0.45, 0.35)) + nearSupKey)
+    momL = nearSupKey = None  # free
     confShort = ((htfConfScore <= -htfConfThr).astype(np.int64) + (dirScoreFull <= -3.0)
                  + (llBearish & lhBearish) + fpDeltaBear + meanOk + momS
                  + (bbPos >= _sel(aerDowntrend, 0.75, C_, 0.55, 0.65)) + nearResKey)
+    bbPos = htfConfThr = meanOk = momS = nearResKey = None  # free
 
     # ── macro veto ──
     mvSess = _S(ph, 0.3, 0.25, 0.0, 0.1, 0.15, 0.0, 0.05, 0.0)
@@ -2409,11 +2982,15 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
     thrL = _clamp(_sel(aerDowntrend, 2.5, C_, 2.0, 1.5) + mvThrSess + mvThrAdx + mvThrHur + mvThrVol,
                   1.0, 3.5)
     macroVetoLong = (llBearish & lhBearish) & (ovL < thrL)
+    lhBearish = llBearish = ovL = thrL = None  # free
     ovS = macro_override(_sel(htfConfScore <= -X7, 1.0, htfConfScore <= -X4, 0.5, 0.0),
                          fpDeltaBear, dirScoreFull <= -4.0)
+    X4 = X7 = macro_override = None  # free
     thrS = _clamp(_sel(aerUptrend, 2.5, C_, 2.0, 1.5) + mvThrSess + mvThrAdx + mvThrHur + mvThrVol,
                   1.0, 3.5)
+    mvThrAdx = mvThrHur = mvThrSess = mvThrVol = None  # free
     macroVetoShort = (hlBullish & hhBullish) & (ovS < thrS)
+    hhBullish = hlBullish = ovS = thrS = None  # free
 
     ssExtra = _S(ph, 0, 0, 2, 0, 3, 0, 2, 1) + _sel(C_ & (adx < 20), 2, C_, 1, 0)
 
@@ -2425,10 +3002,14 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
                       + _sel(aerUptrend, 0.05, C_, -0.05, 0.0), 0.8, 1.2)
     trapTpMult = _clamp(0.85 + _S(ph, -0.1, 0.05, 0.0, -0.05, -0.1, -0.05, -0.2, -0.1)
                         + regTC(0.05, -0.05), 0.6, 1.0)
+    regTC = None  # free
 
     gAdx = adxA(-0.2, 0.2)
+    adxA = None  # free
     gHur = hurA(-0.1, 0.15)
+    hurA = None  # free
     gVol = _sel(relVol >= exitVolClimax, -0.2, relVol < mfiWtLo, 0.2, 0.0)
+    mfiWtLo = None  # free
     bosGateReqLong = np.maximum(_S(ph, 0.0, 0.0, 1.0, 0.0, 0.0, 1.0, 0.5, 0.5), np.minimum(
         2.0, 1.0 + np.where(bosBuyConf >= 6, -0.5, 0.0)
         + _S(ph, -0.3, -0.15, 0.3, 0.15, -0.1, 0.5, 0.15, 0.2)
@@ -2439,17 +3020,21 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
         + _S(ph, -0.3, -0.15, 0.3, 0.15, -0.1, 0.5, 0.4, 0.5)
         + _sel(htfConfScore <= -X5o, -0.3, htfConfScore >= X3o, 0.3, 0.0)
         + _sel(aerDowntrend, -0.15, aerUptrend, 0.2, C_, 0.15, 0.0) + gAdx + gHur + gVol))
+    X3o = X5o = aerDowntrend = aerUptrend = gAdx = gHur = gVol = htfConfScore = None  # free
     bosLongOptGates = (~structBlocksLong).astype(np.int64) + ~longOverextended
     bosShortOptGates = (~structBlocksShort).astype(np.int64) + ~shortOverextended
 
     povProxAtr = np.where(nn(povLevel), np.abs(c - povLevel) / atr, 99.0)
     pbt = _S(ph, 99.0, 99.0, 99.0, 99.0, 99.0, 1.5, 1.3, 1.5)
     pbt = pbt + _sel(adfMeanRevert, -0.2, adfTrending, 0.3, 0.0)
+    adfMeanRevert = adfTrending = None  # free
     pbt = pbt + _sel(nodeStrength >= 15, -0.15, nodeStrength < 5, 0.2, 0.0)
+    nodeStrength = None  # free
     pbt = pbt + _sel(adx < 20, -0.1, adx >= 35, 0.2, 0.0)
     pbt = pbt + _sel(hurstRevert, -0.1, hurstPersist, 0.15, 0.0)
     pbt = np.maximum(0.8, pbt)
     ethPovBlock = povProxAtr < pbt
+    pbt = povProxAtr = None  # free
 
     # ── nearSup / nearRes (end of bar; the entry block reads the previous bar's) ──
     sup_c = [(pivotS1, T_), (pivotS2, T_), (pivotPP, T_), (orbLow, orbLocked), (pmLow, T_),
@@ -2457,114 +3042,168 @@ def _build_inner(o, h, l, c, v, epoch, loc, tf, P, feeds, n):
              (qqqDn1, T_ & showQ), (hvbZone1, T_), (hvbZone2, T_), (hvbZone3, T_), (povLevel, T_),
              (valLevel, T_), (vahLevel, T_), (fvgBullHi, T_), (obBullMid, T_), (obBearMid, T_),
              (rthLow, inETH | isOpen), (ema200, T_)]
+    fvgBullHi = orbLow = pivotS1 = pivotS2 = pmLow = qqqDn1 = rthLow = vwapDn1 = None  # free
     res_c = [(pivotR1, T_), (pivotR2, T_), (pivotPP, T_), (orbHigh, orbLocked), (pmHigh, T_),
              (pmMid, T_), (vwapUp1, T_), (orbMid, orbLocked & showORBMid), (onHigh, T_ & showON),
              (qqqUp1, T_ & showQ), (hvbZone1, T_), (hvbZone2, T_), (hvbZone3, T_), (povLevel, T_),
              (vahLevel, T_), (valLevel, T_), (fvgBearHi, T_), (obBullMid, T_), (obBearMid, T_),
              (rthHigh, inETH | isOpen), (ema200, T_)]
+    ema200 = fvgBearHi = hvbZone1 = hvbZone2 = hvbZone3 = obBearMid = obBullMid = orbHigh = None  # free
+    orbLocked = orbMid = pivotPP = pivotR1 = pivotR2 = pmHigh = pmMid = povLevel = None  # free
+    qqqUp1 = rthHigh = showON = showORBMid = showQ = vahLevel = valLevel = vwapUp1 = None  # free
     for k in range(3):
         sup_c += [(vrzL[:, k], T_), (vrzH[:, k], T_)]
         res_c += [(vrzH[:, k], T_), (vrzL[:, k], T_)]
+    T_ = k = vrzH = vrzL = None  # free
     nearSupNow = np.full(n, -np.inf)
     for lvl, m in sup_c:
         nearSupNow = np.where(m & (lvl < c) & (lvl > nearSupNow), lvl, nearSupNow)
+    sup_c = None  # free
     nearResNow = np.full(n, np.inf)
     for lvl, m in res_c:
         nearResNow = np.where(m & (lvl > c) & (lvl < nearResNow), lvl, nearResNow)
+    lvl = m = res_c = None  # free
     nearSupNow = np.where(np.isinf(nearSupNow), np.nan, nearSupNow)
     nearResNow = np.where(np.isinf(nearResNow), np.nan, nearResNow)
     nearSup = _sh(nearSupNow, 1)
+    nearSupNow = None  # free
     nearRes = _sh(nearResNow, 1)
+    nearResNow = None  # free
 
     # ── session SL (reads nearSup/nearRes from the previous bar) ──
     sessLow = np.where(inAsia, np.where(nn(asiaLow), asiaLow, l),
                        np.where(inLondon, np.minimum(np.where(nn(asiaLow), asiaLow, l),
                                                      np.where(nn(londonLow), londonLow, l)),
                                 np.where(nn(onLow), onLow, l)))
+    asiaLow = londonLow = onLow = None  # free
     sessHigh = np.where(inAsia, np.where(nn(asiaHigh), asiaHigh, h),
                         np.where(inLondon, np.maximum(np.where(nn(asiaHigh), asiaHigh, h),
                                                       np.where(nn(londonHigh), londonHigh, h)),
                                  np.where(nn(onHigh), onHigh, h)))
+    asiaHigh = londonHigh = onHigh = None  # free
     atrSlL = c - dynSlDistLong
     structEthL = np.where(sessLow > 0, sessLow - dynBufETH, c - dynSlDistLong)
+    sessLow = None  # free
     slEthL = np.maximum(np.minimum(c + atr * 3.0, np.minimum(structEthL, atrSlL)), c - ethSlCap)
+    structEthL = None  # free
     structRthL = np.where(nn(nearSup) & (nearSup < c), nearSup - dynBufLong, c - dynSlDistLong)
+    dynBufLong = dynSlDistLong = nearSup = None  # free
     slRthL = np.minimum(c + atr * 3.0, np.minimum(structRthL, atrSlL))
+    atrSlL = structRthL = None  # free
     sessionSlLong = np.minimum(np.where(inETH, slEthL, slRthL), c - atr * 1.0)
+    slEthL = slRthL = None  # free
     atrSlS = c + dynSlDistShort
     structEthS = np.where(sessHigh > 0, sessHigh + dynBufETH, c + dynSlDistShort)
+    dynBufETH = sessHigh = None  # free
     slEthS = np.minimum(np.maximum(c - atr * 3.0, np.maximum(structEthS, atrSlS)), c + ethSlCap)
+    ethSlCap = structEthS = None  # free
     structRthS = np.where(nn(nearRes) & (nearRes > c), nearRes + dynBufShort, c + dynSlDistShort)
+    dynBufShort = dynSlDistShort = nearRes = None  # free
     slRthS = np.maximum(c - atr * 3.0, np.maximum(structRthS, atrSlS))
+    atrSlS = structRthS = None  # free
     sessionSlShort = np.maximum(np.where(inETH, slEthS, slRthS), c + atr * 1.0)
+    inETH = slEthS = slRthS = None  # free
 
     # ═══ ENTRY CANDIDATES (position-independent; the walk applies isLong/isShort/isFlat) ═══
     minProfit = float(P["min_profit"])
     bosMinRules = int(P["bos_min_rules"])
     common_l = ~dirBlocksLong & ~dirBlocksLongFull & ~macroVetoLong
+    dirBlocksLong = dirBlocksLongFull = None  # free
     common_s = ~dirBlocksShortFull & ~macroVetoShort
+    dirBlocksShortFull = None  # free
 
     tp1 = starAdjTpLong(np.where(inRTH, mainTpLongAdj, sessionTpLong), confLong)
     ok1 = sigL & ~macroVetoLong & ((tp1 - c) >= minProfit)
+    sigL = None  # free
     tp2 = starAdjTpLong(np.where(inRTH, bosTpLongAdj, sessionTpLong), confLong)
+    bosTpLongAdj = None  # free
     tp2 = c + (tp2 - c) * bosTpMult
     ok2 = (sessionAllowed & bullBOS & (bosBuyConf >= bosMinRules) & longTrendAlignOk & common_l
            & ~ethPovBlock & (bosLongOptGates >= bosGateReqLong) & ((tp2 - c) >= minProfit))
+    bosBuyConf = bosGateReqLong = bosLongOptGates = bullBOS = None  # free
     tp3 = starAdjTpLong(np.where(inRTH, obTpLongAdj, sessionTpLong), confLong)
+    obTpLongAdj = None  # free
     tp3 = c + (tp3 - c) * obTpMult
     ok3 = (sessionAllowed & obBullTradeFire & common_l & ~structBlocksLong & longTrendAlignOk
            & ~longOverextended & ((tp3 - c) >= minProfit))
+    obBullTradeFire = None  # free
     reRawL = np.where(inRTH, np.maximum(c + (mainTpLongAdj - c), c + tpFloorBuy), sessionTpLong)
     tp4 = c + (starAdjTpLong(reRawL, confLong) - c) * reTpMult
+    reRawL = None  # free
     ok4 = (sessionAllowed & bullRetestOk & longsEnabled & common_l & ~structBlocksLong
            & longTrendAlignOk & ~longOverextended & ((tp4 - c) >= minProfit))
+    bullRetestOk = None  # free
     trapRawL = np.where(inRTH, np.maximum(c + (mainTpLongAdj - c) * 0.9, c + tpFloorBuy), sessionTpLong)
+    mainTpLongAdj = sessionTpLong = None  # free
     tp5 = c + (starAdjTpLong(trapRawL, confLong) - c) * trapTpMult
+    starAdjTpLong = trapRawL = None  # free
     trapCap = _sel(isOpen, 2.5, isMorning, 2.0, isLunch, 1.8, isAfternoon, 2.0, inAsia, 1.5,
                    inLondon, 1.8, T, 2.2, 1.8)
+    inAsia = inLondon = isAfternoon = isLunch = isMorning = isOpen = None  # free
     sl5 = np.maximum(np.minimum(sessionSlLong, l - atr * 0.3), c - atr * trapCap)
     ok5 = (sessionAllowed & bearSweep & longsEnabled & common_l & ~structBlocksLong
            & longTrendAlignOk & ~longOverextended & (fpDeltaBull | (fpBuyRatio >= trapFpRatio))
            & (confLong >= ssExtra + 1) & ((tp5 - c) >= minProfit))
+    bearSweep = common_l = confLong = fpBuyRatio = longOverextended = longTrendAlignOk = structBlocksLong = None  # free
     chainL = _first_code([ok1, ok2, ok3, ok4, ok5])
     tpL = np.select([ok1, ok2, ok3, ok4, ok5], [tp1, tp2, tp3, tp4, tp5], np.nan)
+    tp1 = tp2 = tp3 = tp4 = tp5 = None  # free
     slL = np.select([ok1, ok2, ok3, ok4, ok5],
                     [sessionSlLong, sessionSlLong, obBullSl, sessionSlLong, sl5], np.nan)
+    obBullSl = ok1 = ok2 = ok3 = ok4 = ok5 = sessionSlLong = sl5 = None  # free
     odL = (odBuyRaw & longsEnabled & (dirScoreFull >= 0) & ~macroVetoLong
            & ((odTpLong - c) >= minProfit))
+    longsEnabled = macroVetoLong = odBuyRaw = None  # free
 
     tq1 = starAdjTpShort(np.where(inRTH, mainTpShortAdj, sessionTpShort), confShort)
     oq1 = sigS & ~macroVetoShort & ((c - tq1) >= minProfit)
+    sigS = None  # free
     tq2 = starAdjTpShort(np.where(inRTH, bosTpShortAdj, sessionTpShort), confShort)
+    bosTpShortAdj = None  # free
     tq2 = c - (c - tq2) * bosTpMult
+    bosTpMult = None  # free
     oq2 = (sessionAllowed & bearBOS & (bosSellConf >= bosMinRules) & shortTrendAlignOk & shortVolumeOk
            & common_s & ~ethPovBlock & (bosShortOptGates >= bosGateReqShort)
            & (confShort >= ssExtra + 3) & ((c - tq2) >= minProfit))
+    bearBOS = bosGateReqShort = bosMinRules = bosSellConf = bosShortOptGates = ethPovBlock = None  # free
     tq3 = starAdjTpShort(np.where(inRTH, obTpShortAdj, sessionTpShort), confShort)
+    obTpShortAdj = None  # free
     tq3 = c - (c - tq3) * obTpMult
+    obTpMult = None  # free
     oq3 = (sessionAllowed & obBearTradeFire & shortVolumeOk & common_s & ~structBlocksShort
            & shortTrendAlignOk & ~shortOverextended & (confShort >= ssExtra + 1)
            & ((c - tq3) >= minProfit))
+    obBearTradeFire = None  # free
     reRawS = np.where(inRTH, np.minimum(c - (c - mainTpShortAdj), c - tpFloorSell), sessionTpShort)
     tq4 = c - (c - starAdjTpShort(reRawS, confShort)) * reTpMult
+    reRawS = reTpMult = None  # free
     oq4 = (sessionAllowed & bearRetestOk & shortVolumeOk & common_s & ~structBlocksShort
            & shortTrendAlignOk & ~shortOverextended & (confShort >= ssExtra + 1)
            & ((c - tq4) >= minProfit))
+    bearRetestOk = None  # free
     trapRawS = np.where(inRTH, np.minimum(c - (c - mainTpShortAdj) * 0.9, c - tpFloorSell), sessionTpShort)
+    inRTH = mainTpShortAdj = sessionTpShort = None  # free
     tq5 = c - (c - starAdjTpShort(trapRawS, confShort)) * trapTpMult
+    starAdjTpShort = trapRawS = trapTpMult = None  # free
     sq5 = np.minimum(np.maximum(sessionSlShort, h + atr * 0.3), c + atr * trapCap)
+    trapCap = None  # free
     oq5 = (sessionAllowed & bullSweep & shortVolumeOk & common_s & ~structBlocksShort
            & shortTrendAlignOk & ~shortOverextended & (fpDeltaBear | (fpSellRatio >= trapFpRatio))
            & (confShort >= ssExtra + 1) & ((c - tq5) >= minProfit))
+    bullSweep = common_s = confShort = fpSellRatio = sessionAllowed = shortOverextended = shortTrendAlignOk = shortVolumeOk = None  # free
+    ssExtra = structBlocksShort = trapFpRatio = None  # free
     chainS = _first_code([oq1, oq2, oq3, oq4, oq5])
     tpS = np.select([oq1, oq2, oq3, oq4, oq5], [tq1, tq2, tq3, tq4, tq5], np.nan)
+    tq1 = tq2 = tq3 = tq4 = tq5 = None  # free
     slS = np.select([oq1, oq2, oq3, oq4, oq5],
                     [sessionSlShort, sessionSlShort, obBearSl, sessionSlShort, sq5], np.nan)
+    obBearSl = oq1 = oq2 = oq3 = oq4 = oq5 = sessionSlShort = sq5 = None  # free
     odS = (odSellRaw & (dirScoreFull <= 0) & ~macroVetoShort & ((c - odTpShort) >= minProfit))
+    dirScoreFull = macroVetoShort = minProfit = odSellRaw = None  # free
 
     return dict(chainL=chainL, tpL=tpL, slL=slL, odL=np.asarray(odL, bool), odTpL=odTpLong,
                 odSlL=odSlLong, chainS=chainS, tpS=tpS, slS=slS, odS=np.asarray(odS, bool),
-                odTpS=odTpShort, odSlS=odSlShort)
+                odTpS=odTpShort, odSlS=odSlShort, atr=atr)
 
 
 # ═════════════════════════════════════════════════════════════════════════════
@@ -2663,6 +3302,15 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
             want = False
     feeds = _feeds(epoch, P["spy_proxy"], want and feeds_mode != "off",
                    inject_es=params.get("_feed_es"), inject_qqq=params.get("_feed_qqq"))
+    if P["vix_feed"] == "daily":
+        last_day = int((loc[-1] + 6 * 3600) // 86400)   # the last bar's CME trading date
+        inj = params.get("_feed_vix")         # tests: (dates, closes) instead of a file
+        if inj is not None:
+            vd, vc = _vix_table(*inj)
+            vd, vc = vd[vd <= last_day], vc[vd <= last_day]
+        else:
+            vd, vc = _load_vix_daily(str(params.get("_vix_file", "raw")), last_day)
+        feeds = tuple(feeds) + _vix_daily(loc, vd, vc)
 
     sig = _build(o, h, l, c, v, epoch, loc, tf, P, feeds)
     no_fill, flat_bar = _seam_masks(epoch, loc, tf)
@@ -2677,14 +3325,20 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
     def lvl(x):                     # TV rounds order prices to the symbol tick (nearest)
         x = _f(x)
         return np.ascontiguousarray(np.floor(x / tick + 0.5) * tick if tick > 0 else x)
+    atr = sig["atr"]                # OUR PORT exit knobs: after every entry gate
+    tpL, slL = _exit_levels(c, atr, sig["tpL"], sig["slL"], True, P,
+                            np.isin(sig["chainL"], _SESSION_STOP_PATHS))
+    odTpL, odSlL = _exit_levels(c, atr, sig["odTpL"], sig["odSlL"], True, P)     # OD: no cap
+    tpS, slS = _exit_levels(c, atr, sig["tpS"], sig["slS"], False, P,
+                            np.isin(sig["chainS"], _SESSION_STOP_PATHS))
+    odTpS, odSlS = _exit_levels(c, atr, sig["odTpS"], sig["odSlS"], False, P)
     walk = _kern("walk")
     res = walk(o, h, l, c,
-               sig["chainL"], lvl(sig["tpL"]), lvl(sig["slL"]),
-               sig["odL"], lvl(sig["odTpL"]), lvl(sig["odSlL"]),
-               sig["chainS"], lvl(sig["tpS"]), lvl(sig["slS"]),
-               sig["odS"], lvl(sig["odTpS"]), lvl(sig["odSlS"]),
+               sig["chainL"], lvl(tpL), lvl(slL), sig["odL"], lvl(odTpL), lvl(odSlL),
+               sig["chainS"], lvl(tpS), lvl(slS), sig["odS"], lvl(odTpS), lvl(odSlS),
                no_fill, flat_bar, int(P["pyramiding"]), P["intrabar"] == "tv",
-               P["close_rule"] == "fifo", max_trades)
+               P["close_rule"] == "fifo", max_trades, int(P["max_hold_bars"]),
+               float(P["be_trigger"]))
     eb, xb, sd, ep, xp, rs, pa, sg, tsl, ttp, bsl, btp, max_open = res
     if len(eb) == 0:
         return None
@@ -2709,7 +3363,8 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
              "pnl_pts": float(pnls[i]), "path": PATH_NAMES.get(int(pa[i]), "?"),
              "exit_reason": EXIT_NAMES.get(int(rs[i]), "?"),
              "ticket_sl": float(tsl[i]), "ticket_tp": float(ttp[i]),
-             "exit_order_sl": float(bsl[i]), "exit_order_tp": float(btp[i])}
+             "exit_order_sl": float(bsl[i]), "exit_order_tp": float(btp[i]),
+             "signal_close": float(c[sg[i]]), "signal_atr": float(atr[sg[i]])}
             for i in range(len(eb))]
         out["max_open_tickets"] = int(max_open)
     return out

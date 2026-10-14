@@ -106,3 +106,26 @@ Accepted in full; replaces Amendment 2 where they differ.
   the optimize window plus the walk-forward re-searches likely exceed ~2 days. TV measures on this machine and, if the guard trips,
   reports the timing to MANAGER before queueing (900 trials is the owner's rule; a shorter window / coarser bars need his call).
 - Priors stated before the number: NOISE and STRATEGY-BEATING both ~5-10% that the Auto-Validate's WF clears ROC 15.
+
+## Amendment 4 (2026-10-14, before any improvement number; port build questions + runtime guard)
+Replaces Amendments 2 / 3 where they differ. No development-year number has been read since Amendment 3.
+- Stop cap scope: sl_cap_atr = 3.0 caps ONLY the session stops the author wrote the cap on (Pine 687 / 692 / 702 / 707), i.e. the
+  MAIN, BOS and RE tickets; OB and OD keep their own stops, TRAP is self-bounded (<= 2.5 ATR). This is the literal reading of "the
+  author's stated cap". sl_scale applies on every path, after the cap.
+- Exit mechanics as built: max_hold_bars exits at the open of fill bar + N (before that bar's new entries); breakeven risk = fill price
+  to initial stop, a ticket with no positive risk never arms, the stop moves from the bar AFTER the trigger bar.
+- VIX session day = a date with a tape bar between 13:00 and 15:59 ET; the value is empty until the tape's first 16:15 and the
+  10-session value until its 11th session (cold start, as every indicator).
+- VIX file: the improvement round reads the pinned derived file above (the harness passes _vix_file='derived'). The Auto-Validate
+  needs VIX through 2026-06-30 (its lockbox stretch) and the derived file stops at 2025-06-27, so the port's default is the raw CBOE
+  photograph `C:\EdgeLog\_research_cache\public_series\cboe\VIX_History.csv` (sha256 6edc3e3928c4b164b9e4ed1ec874e0ed53c7d52997557adebb7d6b7451db565a,
+  fetched 2026-10-05, in public_series_provenance.json), CLOSE column. Both files are sha-checked on every load and drop every row
+  dated after the run's last bar right after parsing; a test pins identical VIX arrays under both files on all of 2024.
+- Port mechanics are pinned for the validate: intrabar, close_rule, spy_proxy, footprint and daily_close each offer ONE search option
+  (the default; intrabar 'worst'), because the Auto-Validate searches every option of a text knob. The script's own knobs, pyramiding
+  and the new exit / VIX knobs keep their ranges.
+- Memory (runtime guard): one as-ported trial needed ~1.5 GB per year of 1-minute bars (a full-window trial exhausted free RAM and was
+  stopped). The port now releases each working array after its last use - a mechanical edit by `tools/free_locals.py`, values
+  untouched; 8 of 8 configurations (defaults + 7 random, new knobs included) give identical trades on 2024 - about 0.2-0.4 GB per year.
+  Also an engine fix outside this round: rolls.epoch_seconds no longer boxes every bar time (~2.3 s per year on every backtest call).
+- Runtime (MANAGER #122): trials are never cut; after the speed-ups the validate is queued with the measured ETA posted.
