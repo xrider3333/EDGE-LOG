@@ -304,3 +304,106 @@ def test_a_short_session_is_skipped_not_written_and_a_pull_a_minute_short_is_sti
     short = full[~((full["time"] >= d2b - 60) & (full["time"] < d2b))]            # the 15:59 minute missing
     with pytest.raises(sp.Refused, match="not the whole session"):
         sp.fill_plan(holed, short, 1, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv")
+
+
+# ----------------------------------------------------------------------------- stub-bar repair (MANAGER #65, 10-14)
+def _et(d, hhmm):
+    return int(pd.Timestamp(f"{d} {hhmm}", tz="US/Eastern").timestamp())
+
+
+def _stubbed(tf, day=WDAYS[1]):
+    """A complete master with the bar holding 10:50 ET turned into a 2026-06-30-style stub: a fraction of its volume
+    and (above 1m) a low that misses the real one."""
+    full = _minutes(WDAYS)
+    whole = pd.concat([sp.derive(full, tf, "rth", d) for d in WDAYS], ignore_index=True)
+    a, b = (sp._epoch(x) for x in sp.session_window(day, "rth"))
+    t = max(int(x) for x in whole["time"] if a <= x <= _et(day, "10:50"))
+    stub = whole.copy()
+    i = stub.index[stub["time"] == t][0]
+    stub.at[i, "volume"] = 0 if tf == 1 else int(stub.at[i, "volume"]) // 5
+    if tf > 1:
+        stub.at[i, "low"] = stub.at[i, "low"] + 2.0
+    return full, whole, stub, t
+
+
+@pytest.mark.parametrize("tf", [1, 2, 5, 15, 60])
+def test_a_stub_bar_is_rewritten_exactly_and_nothing_else(tf):
+    full, whole, stub, t = _stubbed(tf)
+    new, rep = sp.repair_plan(stub, full, tf, "rth", WDAYS[1], (_et(WDAYS[1], "10:45"), _et(WDAYS[1], "10:55")), 0.0)
+    assert rep["bars_repaired"] == 1 and rep["repairs"][0]["time"] == t
+    assert rep["repairs"][0]["after"][4] == int(whole.loc[whole["time"] == t, "volume"].iloc[0])
+    assert len(new) == len(stub)
+    assert np.allclose(new[["time", "open", "high", "low", "close", "volume"]].values,
+                       whole[["time", "open", "high", "low", "close", "volume"]].values)
+
+
+def test_bars_that_agree_are_left_alone_and_a_tv_master_keeps_its_offset():
+    full, whole, stub, t = _stubbed(5)
+    new, rep = sp.repair_plan(stub, full, 5, "rth", WDAYS[1], (_et(WDAYS[1], "12:00"), _et(WDAYS[1], "12:10")), 0.0)
+    assert rep["bars_repaired"] == 0 and rep["window_bars"] == 2 and new.equals(stub)
+    tv = stub.copy()
+    tv[["open", "high", "low", "close"]] += 100.0
+    new, rep = sp.repair_plan(tv, full, 5, "rth", WDAYS[1], (_et(WDAYS[1], "10:45"), _et(WDAYS[1], "10:55")), 100.0)
+    fixed = new.loc[new["time"] == t].iloc[0]
+    want = whole.loc[whole["time"] == t].iloc[0]
+    assert rep["bars_repaired"] == 1 and fixed["low"] == want["low"] + 100.0 and fixed["volume"] == want["volume"]
+
+
+def test_a_repair_refuses_another_level_another_tape_or_too_many_bars():
+    full, whole, stub, t = _stubbed(5)
+    win = (_et(WDAYS[1], "10:45"), _et(WDAYS[1], "10:55"))
+    shifted = full.copy()
+    shifted[["open", "high", "low", "close"]] += 1.0
+    with pytest.raises(sp.Refused, match="level offset"):
+        sp.repair_plan(stub, shifted, 5, "rth", WDAYS[1], win, 0.0)
+    thin = full.copy()
+    thin["volume"] = (thin["volume"] * 0.5).astype(int)
+    with pytest.raises(sp.Refused, match="volume within 5%"):
+        sp.repair_plan(stub, thin, 5, "rth", WDAYS[1], win, 0.0)
+    many = whole.copy()
+    hour = (many["time"] >= _et(WDAYS[1], "10:00")) & (many["time"] < _et(WDAYS[1], "10:20"))
+    many.loc[hour, "volume"] = 1                                   # four bars in the window disagree
+    with pytest.raises(sp.Refused, match="not a stub"):
+        sp.repair_plan(many, full, 5, "rth", WDAYS[1], (_et(WDAYS[1], "10:00"), _et(WDAYS[1], "10:20")), 0.0)
+
+
+def test_a_repair_needs_every_minute_behind_the_bar_and_a_held_session():
+    full, whole, stub, t = _stubbed(5)
+    win = (_et(WDAYS[1], "10:45"), _et(WDAYS[1], "10:55"))
+    gap = full[full["time"] != _et(WDAYS[1], "10:52")]
+    with pytest.raises(sp.Refused, match="every minute behind the 10:50 ET bar"):
+        sp.repair_plan(stub, gap, 5, "rth", WDAYS[1], win, 0.0)
+    a, b = (sp._epoch(x) for x in sp.session_window(WDAYS[1], "rth"))
+    with pytest.raises(sp.Refused, match="a fill, not a repair"):
+        sp.repair_plan(stub[(stub["time"] < a) | (stub["time"] >= b)], full, 5, "rth", WDAYS[1], win, 0.0)
+
+
+def test_run_repair_writes_the_bar_and_records_before_and_after(tmp_path):
+    full, whole, stub, t = _stubbed(1)
+    up = tmp_path / "up"; up.mkdir()
+    db = tmp_path / "reg.db"
+    con = sqlite3.connect(db)
+    con.execute(f"create table csv_files ({', '.join(COLS)})")
+    stub.to_csv(up / "NOADJ_NQ_1m_RTH.csv", index=False)
+    con.execute(f"insert into csv_files values ({','.join('?' * len(COLS))})",
+                (1, "NQ 1m RTH", "NOADJ_NQ_1m_RTH.csv", "NQ", "1m", "db_noadj_rth", len(stub), WDAYS[0], WDAYS[-1],
+                 1, '{"source": "db_noadj_rth"}'))
+    con.commit(); con.close()
+    nt = full.copy()
+    nt["time"] = nt["time"] + 60                                    # NinjaTrader stamps the bar END
+    ntp = tmp_path / "nt.csv"
+    nt.to_csv(ntp, index=False)
+    dry = sp.run_repair("NQ", WDAYS[1], ("10:45", "10:55"), str(ntp), db=str(db), uploads=str(up), log=lambda *_: None)
+    assert [r[2] for r in dry] == ["planned"] and pd.read_csv(up / "NOADJ_NQ_1m_RTH.csv").equals(stub)
+    res = sp.run_repair("NQ", WDAYS[1], ("10:45", "10:55"), str(ntp), commit=True, db=str(db), uploads=str(up),
+                        log=lambda *_: None)
+    assert [r[2] for r in res] == ["repaired"]
+    out = pd.read_csv(up / "NOADJ_NQ_1m_RTH.csv")
+    assert len(out) == len(stub) and out.equals(whole.reset_index(drop=True))
+    con = sqlite3.connect(db)
+    rows, prov = con.execute("select rows, provenance from csv_files where id=1").fetchone()
+    p = json.loads(prov)
+    assert rows == len(stub) and "splices" not in p
+    e = p["repairs"][-1]
+    assert e["window"] == ["10:45", "10:55"] and e["repairs"][0]["before"][4] == 0 and e["nt_sha256"]
+    assert e["repairs"][0]["after"][4] == int(whole.loc[whole["time"] == t, "volume"].iloc[0])

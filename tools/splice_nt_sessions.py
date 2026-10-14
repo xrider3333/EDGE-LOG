@@ -28,9 +28,14 @@
 # --accept hlv (owner call 10-14) accepts on high/low/volume agreement and records the open/close minute-edge
 # differences in the provenance instead of refusing on them.
 #
+# STUB REPAIR (10-14, MANAGER #65): --date D --repair HH:MM-HH:MM rewrites, in a COMPLETE session, only the bars that
+# overlap those ET minutes and disagree with NT (high/low beyond a tick, volume beyond 5%), at most 3 per master, after
+# the session's other bars pass the hlv agreement at the master's own level. Before/after go in the provenance.
+#
 # Run (dry run is the default; nothing is written without --commit):
 #   python tools/splice_nt_sessions.py --root ES --date 2020-02-28 --nt C:\EdgeLog\nt_hist\out\ES_0320_1m_20200228.csv
 #   python tools/splice_nt_sessions.py --root ES --from 2026-06-30 --to 2026-08-06 --accept hlv --nt <ESU6 file>
+#   python tools/splice_nt_sessions.py --root NQ --date 2026-06-30 --repair 10:45-10:55 --nt <NQU6 file>
 #   python tools/splice_nt_sessions.py ... --commit
 import argparse
 import hashlib
@@ -354,6 +359,81 @@ def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", ch
     return new, rep
 
 
+# ----------------------------------------------------------------------------- stub-bar repair
+# MANAGER #65 (10-14). The source behind 2026-06-30 stopped mid-morning (NQ 10:49, ES 10:44 ET) and the rest of the
+# day came from another feed, so the bar holding the cut is a STUB: NQ 5m 10:50 traded 999 of 5,309 contracts and
+# misses the 30310.50 low, the NQ 1m 10:50 minute has volume 0, and the 30m/60m bars around them run short on volume.
+# The session is complete, so this is not a fill. --repair rewrites only the bars that overlap the named minutes AND
+# disagree with NT, after every other bar of the session that NT holds whole has passed the hlv agreement at the
+# master's own level.
+REPAIR_MAX_BARS = 3    # per master: more than this is a different feed or a different defect, not a stub
+
+
+def _bucket(t, tf, a, b):
+    """[start, end) of the minutes behind the bar labelled `t`: the grid bucket from the session open (2m: the row pair,
+    assumed whole)."""
+    step = tf * 60
+    if tf in (1, 2):
+        return t, min(t + step, b)
+    s = a + ((t - a) // step) * step
+    return s, min(s + step, b)
+
+
+def repair_plan(master, nt_1m, tf, session, date, minutes, ref_offset, check_volume=True):
+    """Master frame with the stub bars of `date` overlapping `minutes` ([m0, m1) epoch seconds) rewritten from NT.
+
+    A bar is rewritten only when NT holds every minute behind it and it disagrees with the NT bar: high or low more
+    than a tick from the master's offset, or (when checked) volume more than VOL_TOL from NT's. Row count unchanged."""
+    a, b = (_epoch(x) for x in session_window(date, session))
+    m0, m1 = minutes
+    have = master[(master["time"] >= a) & (master["time"] < b)]
+    if have.empty:
+        raise Refused(f"{date}: the master has no bar that session - that is a fill, not a repair")
+    der = derive(nt_1m, tf, session, date)
+    if der.empty:
+        raise Refused(f"{date}: the NT file has no minutes in this session")
+    nt_t = set(nt_1m["time"].astype("int64").tolist())
+    whole = [all(s + 60 * k in nt_t for k in range((e - s) // 60))
+             for s, e in (_bucket(int(t), tf, a, b) for t in der["time"])]
+    der = der[np.array(whole, bool)].reset_index(drop=True)
+    near_m = np.array([s < m1 and e > m0 for s, e in (_bucket(int(t), tf, a, b) for t in have["time"])], bool)
+    unseen = sorted(set(have["time"][near_m].astype("int64")) - set(der["time"].astype("int64")))
+    if unseen:
+        raise Refused(f"{date}: NT does not hold every minute behind the {_hhmm(unseen[0])} ET bar - cannot check it")
+    both = der.merge(have, on="time", suffixes=("_nt", "_m"))
+    near = both["time"].isin(have["time"][near_m]).values
+    rest = both[~near]
+    if len(rest) < 2:
+        raise Refused(f"{date}: fewer than two other bars to check the NT level on")
+    level, stats, ok, why = agreement(rest, "hlv", check_volume)
+    if abs(level - ref_offset) > TICK + 1e-9:
+        raise Refused(f"{date}: NT level offset {level:+.2f} differs from the master's own {ref_offset:+.2f}")
+    if not ok:
+        raise Refused(f"{date}: {why}")
+    off_h = (both["high_m"] - both["high_nt"] - ref_offset).abs() > TICK + 1e-9
+    off_l = (both["low_m"] - both["low_nt"] - ref_offset).abs() > TICK + 1e-9
+    off_v = (both["volume_m"] - both["volume_nt"]).abs() > VOL_TOL * both["volume_nt"].clip(lower=1)
+    bad = both[near & (off_h | off_l | (off_v if check_volume else False)).values]
+    if len(bad) > REPAIR_MAX_BARS:
+        raise Refused(f"{date}: {len(bad)} bars in the window disagree with NT (at most {REPAIR_MAX_BARS}) - "
+                      f"not a stub")
+    new = master.copy()
+    fixes = []
+    for r in bad.itertuples(index=False):
+        i = new.index[new["time"] == r.time][0]
+        before = [float(new.at[i, c]) for c in ("open", "high", "low", "close")] + [int(new.at[i, "volume"])]
+        for c in ("open", "high", "low", "close"):
+            new.at[i, c] = getattr(r, f"{c}_nt") + ref_offset     # the master's own exact offset
+        new.at[i, "volume"] = getattr(r, "volume_nt")
+        if "source" in new.columns:
+            new.at[i, "source"] = "nt_hist_repair"
+        fixes.append(dict(time=int(r.time), et=_hhmm(r.time), before=before,
+                          after=[float(new.at[i, c]) for c in ("open", "high", "low", "close")]
+                          + [int(new.at[i, "volume"])]))
+    rep = dict(stats, level_offset=level, window_bars=int(near.sum()), bars_repaired=len(fixes), repairs=fixes)
+    return new, rep
+
+
 # ----------------------------------------------------------------------------- registry + run
 def _connect(db):
     # The runner processes poll this sqlite file continuously; a plain connect gives up on their short locks
@@ -393,7 +473,7 @@ def reference_date(parent, date, session):
     raise SystemExit("no full reference session in the 10 days before the hole")
 
 
-def record_splice(con, mid, provenance, entry, rows):
+def record_splice(con, mid, provenance, entry, rows, key="splices"):
     try:
         p = json.loads(provenance or "{}")
         if not isinstance(p, dict):
@@ -401,7 +481,7 @@ def record_splice(con, mid, provenance, entry, rows):
     except ValueError:
         p = None
     if p is not None:
-        p.setdefault("splices", []).append(entry)
+        p.setdefault(key, []).append(entry)
         con.execute("update csv_files set rows=?, provenance=? where id=?", (rows, json.dumps(p), mid))
     else:
         con.execute("update csv_files set rows=? where id=?", (rows, mid))
@@ -496,6 +576,52 @@ def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, upl
     return results
 
 
+def run_repair(root, date, window, nt_path, commit=False, db=None, uploads=None, log=print):
+    """repair_plan for every no-adjust / TradingView master of `root` holding `date`; `window` = ("HH:MM", "HH:MM") ET.
+    One provenance entry per repaired master, under "repairs", with every bar's before and after."""
+    db = db or os.path.join(ROOT, "optimizer_history.db")
+    uploads = uploads or os.path.join(ROOT, "augur_uploads")
+    m0, m1 = (_epoch(pd.Timestamp(f"{date} {w}", tz=ET)) for w in window)
+    if m1 <= m0:
+        raise ValueError(f"empty repair window {window[0]}-{window[1]}")
+    nt = load_nt(nt_path)
+    nt_sha = sha256(nt_path)
+    parents, results = {}, []
+    for mid, name, fn, tf_s, src, nrows, prov in targets(db, root, date):
+        session = "eth" if src.endswith("_eth") or "ETH" in name else "rth"
+        tf = TF_MIN[tf_s]
+        if session not in parents:
+            parents[session] = pd.read_csv(os.path.join(uploads, parent_1m(db, root, session)))
+        par = parents[session]
+        path = os.path.join(uploads, fn)
+        m = pd.read_csv(path)
+        try:
+            ref = reference_date(par, date, session)
+            off = acceptance_reference(m, par, tf, session, ref, check_volume=(src != "tv"))
+            new, rep = repair_plan(m, nt, tf, session, date, (m0, m1), off, check_volume=(src != "tv"))
+        except Refused as e:
+            log(f"REFUSED  #{mid} {name}: {e}")
+            results.append((mid, name, "refused", str(e)))
+            continue
+        bars = "; ".join(f"{f['et']} {f['before']} -> {f['after']}" for f in rep["repairs"]) or "none disagree"
+        log(f"{'REPAIR ' if commit else 'DRY-RUN'}  #{mid} {name}: {rep['bars_repaired']} of {rep['window_bars']} "
+            f"window bar(s) rewritten ({bars}); rest of session hlv agree {rep['agree']:.1%}"
+            + (f", volume within 5% {rep['volume_within_5pct']:.1%}" if rep.get("volume_within_5pct") is not None else "")
+            + f", level {rep['level_offset']:+.2f} (ref {ref})")
+        if commit and rep["bars_repaired"] > 0:
+            write_master_csv(new, path, known_rows=nrows)
+            entry = dict(date=date, window=list(window), repairs=rep["repairs"], nt_file=os.path.basename(nt_path),
+                         nt_sha256=nt_sha, level_offset=rep["level_offset"],
+                         acceptance={k: rep[k] for k in ("rule", "overlap_bars", "agree", "max_diff",
+                                                         "volume_within_5pct", "open_close_differ") if k in rep},
+                         at=datetime.now(timezone.utc).isoformat()[:19], by="tools/splice_nt_sessions.py --repair")
+            con = _connect(db)
+            record_splice(con, mid, prov, entry, len(new), key="repairs")
+            con.commit(); con.close()
+        results.append((mid, name, ("repaired" if rep["bars_repaired"] else "clean") if commit else "planned", rep))
+    return results
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Fill truncated or missing ES/NQ sessions from NinjaTrader 1-minute history.")
     ap.add_argument("--root", required=True, choices=("ES", "NQ"))
@@ -506,8 +632,18 @@ def main(argv=None):
     ap.add_argument("--accept", default="close", choices=ACCEPT_RULES,
                     help="close: closes within a tick (default); hlv: highs/lows within a tick + volume within 5%%, "
                          "open/close minute-edge differences recorded, not refused (owner call 10-14)")
+    ap.add_argument("--repair", metavar="HH:MM-HH:MM",
+                    help="with --date: rewrite the stub bars overlapping these ET minutes from NT (complete sessions only)")
     ap.add_argument("--commit", action="store_true", help="write; the default is a dry run")
     a = ap.parse_args(argv)
+    if a.repair:
+        if not a.date:
+            ap.error("--repair needs --date")
+        res = run_repair(a.root, a.date, tuple(a.repair.split("-")), a.nt, a.commit)
+        bad = [r for r in res if r[2] == "refused"]
+        print(f"{len(res) - len(bad)} master(s) {'checked/repaired' if a.commit else 'ready'}, {len(bad)} refused."
+              + ("" if a.commit else " Dry run - nothing written. Re-run with --commit, then tools/build_adjusted_masters.py."))
+        return 1 if bad else 0
     d0, d1 = (a.date, a.date) if a.date else (a.d0, a.d1)
     if not (d0 and d1):
         ap.error("give --date, or --from and --to")
