@@ -1146,6 +1146,85 @@ def _session_in_progress(arrays, now):
         return False
 
 
+# HALF-DAY RULE PINNED (owner 2026-10-14 via MANAGER #162/#163). The 09-21..09-25 drops came
+# from a leg whose strategy runs the length-based half-day skip on the live engine's
+# still-building session; the session_in_progress pass-through above fixes it ONLY for a
+# strategy that names the keyword. So a LIVE leg whose strategy runs that skip
+# (_leg_has_half_day_rule) but does not take the flag is REFUSED, never run:
+# leg_decision_trades returns no trades with why "half_day_rule" -- step() then says so in its
+# `warnings` and pages once a day like any live leg that is not ready
+# (_note_live_leg_not_ready), the stream path makes no decision for it, and
+# cloud_signal_thread names it at boot. Silently dropping its morning entries as "late" is
+# exactly what this replaces. A SHADOW leg (no orders) still runs, with one warning line a day.
+# tests/test_cloud_signal_session_in_progress.py pins every shipped leg against this.
+def _leg_has_half_day_rule(cfg):
+    """True when this leg's strategy runs the length-based half-day / holiday skip
+    (skip_holidays ON for the call the engine makes): cfg["params"] when it names
+    skip_holidays, else a wrapper's pinned _FROZEN value (NOISE_1_8_CT304*.py pin it off),
+    else run_backtest's own default (the engine passes params as keywords and never merges
+    DEFAULT_PARAMS), else the file's DEFAULT_PARAMS default. A DIP runner leg never reaches
+    run_leg_trades, so never. Best-effort: anything unreadable reads as False."""
+    try:
+        cfg = cfg or {}
+        if cfg.get("runner") == DIP_RUNNER:
+            return False
+        params = cfg.get("params") or {}
+        if "skip_holidays" in params:
+            return bool(params["skip_holidays"])
+        mod = _strategy_module_for_sizing(cfg.get("strategy"))
+        if mod is None:
+            return False
+        frozen = getattr(mod, "_FROZEN", None)
+        if isinstance(frozen, dict) and "skip_holidays" in frozen:
+            return bool(frozen["skip_holidays"])
+        try:
+            p = inspect.signature(mod.run_backtest).parameters.get("skip_holidays")
+        except (TypeError, ValueError, AttributeError):
+            p = None
+        if p is not None and p.default is not inspect.Parameter.empty:
+            return bool(p.default)
+        dp = (getattr(mod, "DEFAULT_PARAMS", None) or {}).get("skip_holidays")
+        if isinstance(dp, dict) and "default" in dp:
+            return bool(dp["default"])
+        return False
+    except Exception:
+        return False
+
+
+def half_day_rule_refusal(cfg):
+    """None, or why this leg must not run live (see the block above): its strategy skips
+    short sessions as half days but cannot be told today's session is still in progress."""
+    if not _leg_has_half_day_rule(cfg):
+        return None
+    strategy = (cfg or {}).get("strategy")
+    if _leg_accepts_session_in_progress(strategy):
+        return None
+    name = strategy if isinstance(strategy, str) else getattr(strategy, "__name__", str(strategy))
+    return (f"its strategy ({name}) skips short sessions as half days (skip_holidays) but "
+            f"does not accept session_in_progress, so today's unfinished session would read "
+            f"as a half day and every morning entry would surface late")
+
+
+_HALF_DAY_REFUSAL_LOGGED = {}       # leg key -> the ET date its refusal line was last logged
+
+
+def _log_half_day_refusal(leg_key, why, now, shadow=False, log=print):
+    """One line per leg per ET day (a refused leg is asked again on every new bar)."""
+    try:
+        et = now.astimezone(_zi(TZ)) if now is not None and now.tzinfo is not None else now
+        day = et.date().isoformat() if et is not None else "?"
+    except Exception:
+        day = "?"
+    if _HALF_DAY_REFUSAL_LOGGED.get(leg_key) == day:
+        return
+    _HALF_DAY_REFUSAL_LOGGED[leg_key] = day
+    if shadow:
+        log(f"[cloud-signal] {leg_key}: WARNING (shadow leg, run anyway -- no orders): {why}")
+    else:
+        log(f"[cloud-signal] {leg_key}: REFUSED live -- {why}. It takes no trades until its "
+            f"strategy accepts session_in_progress.")
+
+
 def _cache_session_count(tf, paths):
     """How many DISTINCT RTH sessions the bar cache holds for `tf` right now, INCLUDING
     any older Alpaca-backfill history (historical_bars) -- the same day-bucketing
@@ -4193,9 +4272,20 @@ def leg_decision_trades(cfg, arrays, leg_key, tf, now, paths, fetch, log=print, 
     run_leg_trades (whose 5-field unpack raises on the file's 6-field trades and would read
     its dollar P&L as a price move): (trades, arrays), where trades is None while its daily
     series is not ready -- step() then skips the leg's diff (no SEED) and retries next bar.
-    `why_out` (optional dict) then receives the reason (see api/dip_live.run_dip_leg_trades)."""
+    `why_out` (optional dict) then receives the reason (see api/dip_live.run_dip_leg_trades).
+
+    HALF-DAY RULE PINNED (owner 2026-10-14 -- see the block above _leg_has_half_day_rule): a
+    LIVE leg whose strategy runs the half-day skip but cannot take session_in_progress gets
+    (None, arrays) the same way, why "half_day_rule", and its strategy is never run."""
     if cfg.get("runner") == DIP_RUNNER:
         return run_dip_leg_trades(cfg, arrays, leg_key, now, paths, log, why_out=why_out), arrays
+    refusal = half_day_rule_refusal(cfg)
+    if refusal:
+        _log_half_day_refusal(leg_key, refusal, now, shadow=bool(cfg.get("shadow")), log=log)
+        if not cfg.get("shadow"):
+            if why_out is not None:
+                why_out.update(key="half_day_rule", text=refusal)
+            return None, arrays
     trades = run_leg_trades(cfg, arrays, leg_key=leg_key, log=log, now=now, paths=paths,
                             fetch=fetch)
     diff_arrays = arrays
@@ -4241,6 +4331,8 @@ _NOT_READY_WORDS = {
     "cal_fail": "Its two QQQ price files disagree (a split or a bad file).",
     "cal_split": "Its QQQ prices jump like a split.",
     "error": "Its strategy run failed.",
+    # HALF-DAY RULE PINNED (owner 2026-10-14) -- leg_decision_trades / half_day_rule_refusal
+    "half_day_rule": "Its strategy would skip today as a half day, so the engine will not run it.",
 }
 
 
@@ -4433,9 +4525,10 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
         trades, diff_arrays = leg_decision_trades(cfg, arrays, key, tf, now, paths, fetch,
                                                   why_out=not_ready)
         if trades is None:
-            # only a DIP leg's runner ever says "not ready" (its daily series -- see
-            # api/dip_live.py): no diff and no SEED; last_bar_epoch already moved, so the next
-            # new bar retries. A LIVE leg's is never silent (_note_live_leg_not_ready).
+            # a DIP leg's runner says "not ready" (its daily series -- see api/dip_live.py), and
+            # a live leg refused by the HALF-DAY RULE guard (half_day_rule_refusal): no diff and
+            # no SEED; last_bar_epoch already moved, so the next new bar retries. A LIVE leg's
+            # is never silent (_note_live_leg_not_ready).
             _note_live_leg_not_ready(key, cfg, not_ready, now, paths, fetch, warnings=warnings)
             continue
         # Three bars of grace by default: a signal may legitimately be discovered a bar or
@@ -6136,6 +6229,15 @@ def cloud_signal_thread(stop=None, log=print):
         log_history_windows(log=log)
     except Exception as e:                     # diagnostic only -- must never block startup
         log(f"[cloud-signal] history window logging failed ({type(e).__name__}: {e}) -- continuing")
+    # HALF-DAY RULE PINNED (owner 2026-10-14): a live leg the guard refuses is named at boot,
+    # not first at its first new bar (see half_day_rule_refusal; step() pages for it)
+    try:
+        for _key, _cfg in CROWN_LEGS.items():
+            _why = half_day_rule_refusal(_cfg)
+            if _why:
+                _log_half_day_refusal(_key, _why, _dt.datetime.now(tz=_zi(TZ)), log=log)
+    except Exception as e:
+        log(f"[cloud-signal] half-day rule check failed ({type(e).__name__}: {e}) -- continuing")
     if SHADOW_LEGS:
         log(f"[cloud-signal] shadow legs: {', '.join(SHADOW_LEGS)} (no orders; ledger "
             f"{shadow_paths()['signals_path']})")

@@ -232,6 +232,10 @@ def _dry_run_decision(leg_key, cfg, df, now_et, leg_state, bar_source, log, path
         return None, None
     trades, diff_arrays = cs.leg_decision_trades(cfg, arrays, leg_key, "5m", now_et, paths,
                                                  False, log=log)
+    if trades is None:
+        # a live leg the HALF-DAY RULE guard refuses (cs.half_day_rule_refusal): no decision
+        # here either -- step() reports it and pages (cs._note_live_leg_not_ready)
+        return None, None
     leg_state_copy = copy.deepcopy(leg_state)
     max_age = cfg.get("max_entry_age_sec", 3 * cs.TIMEFRAME_SECONDS["5m"])
     events = cs._diff_leg(leg_key, trades, leg_state_copy, now_et, max_entry_age_sec=max_age,
