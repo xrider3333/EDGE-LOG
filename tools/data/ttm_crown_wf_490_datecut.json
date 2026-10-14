@@ -1,0 +1,127 @@
+{
+ "champion": {
+  "gate_len": 16,
+  "gate_ratio": 1.15,
+  "tilt_mult": 1.75,
+  "tp": "off"
+ },
+ "cost_pts_run": 0.533,
+ "file_defaults_differing": {
+  "gate_len": 20
+ },
+ "master": "NOADJ_NQ_5m_RTH.csv",
+ "master_sha256": "0eac0373ccb00e77a14b283835fe94a5f5e4d9f7b60ff30a5a186a539bdc8d19",
+ "multiplier": 20.0,
+ "parity": {
+  "PARITY_OK": false,
+  "crowned_flag": true,
+  "is": {
+   "mine_pts": 1467.2086,
+   "mine_trades": 1707,
+   "ok": false,
+   "stored_pts": 1475.8266,
+   "stored_trades": 1711
+  },
+  "n_matching_candidates": 1,
+  "wf": {
+   "mine_pts": 22579.4552,
+   "mine_trades": 2805,
+   "ok": false,
+   "stored_pts": 22570.8372,
+   "stored_trades": 2801
+  }
+ },
+ "run": 490,
+ "store_wf_oos_stitched_refolds": {
+  "from": "2016-07-01",
+  "max_drawdown": 940.4,
+  "mode": "anchored",
+  "net": 22403.2,
+  "sortino": 4.075900189248183,
+  "to": "2025-07-15",
+  "trades": 2833
+ },
+ "strategy": "NOISE_1_8_CT304H_TP.py",
+ "strategy_sha256": "b39c7cfd4edb69d03c4a3c52d3f5edb8acf9be4c73b43450cd915df2efcdb236",
+ "wf": {
+  "from": "2016-07-01",
+  "house_cost": {
+   "avg_win_loss": [
+    1350.9230190476192,
+    550.9288124942485
+   ],
+   "closed": {
+    "dd5": 15268.61,
+    "dd_pct_peak": 6.1447,
+    "max_dd": 18763.197675088188,
+    "net": 451589.1040725939,
+    "one_episode": false,
+    "per_yr": 49967.56142457283,
+    "roc30": 79.89186431305555,
+    "sortino": 3.861208259839539,
+    "years": 9.037645448323067
+   },
+   "valued_daily": {
+    "dd5": 15268.61,
+    "dd_pct_peak": 6.1447,
+    "max_dd": 18763.197675088188,
+    "net": 451589.1040725939,
+    "one_episode": false,
+    "per_yr": 49967.56142457283,
+    "roc30": 79.89186431305555,
+    "sortino": 3.861208259839539,
+    "years": 9.037645448323067
+   },
+   "win_rate": 0.37433155080213903
+  },
+  "n_days": 2330,
+  "real_cost": {
+   "avg_win_loss": [
+    1368.2115310077518,
+    551.2710834333931
+   ],
+   "closed": {
+    "dd5": 15197.53,
+    "dd_pct_peak": 8.3642,
+    "max_dd": 19087.547675089096,
+    "net": 434590.66907259385,
+    "one_episode": false,
+    "per_yr": 48086.713686387426,
+    "roc30": 75.57814315111536,
+    "sortino": 3.690163085444819,
+    "years": 9.037645448323067
+   },
+   "valued_daily": {
+    "dd5": 15197.53,
+    "dd_pct_peak": 8.3642,
+    "max_dd": 19087.547675089096,
+    "net": 434590.66907259385,
+    "one_episode": false,
+    "per_yr": 48086.713686387426,
+    "roc30": 75.57814315111536,
+    "sortino": 3.690163085444819,
+    "years": 9.037645448323067
+   },
+   "win_rate": 0.3679144385026738
+  },
+  "to": "2025-07-15",
+  "trades": 2805
+ },
+ "window": [
+  "2010-06-07",
+  "2026-07-16"
+ ],
+ "windows": {
+  "lockbox": [
+   "2025-07-16",
+   "2026-07-16"
+  ],
+  "lockbox_months": 12,
+  "optimize": [
+   "2010-06-07",
+   "2025-07-15"
+  ],
+  "warm_days": 300,
+  "wf_split": "2016-07-01"
+ }
+}

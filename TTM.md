@@ -140,6 +140,7 @@ GAMMA r1 (2026-10-10, owner GO; run before main under MANAGER #77): dealer gamma
 r25 (2026-10-12, owner order 'scalping with higher win rates'): profit-target and 'not working' exits on #459 - closed at draft. Targets raise the win rate but cut the runners that make the money (top 10% of trades = 182% of WF net); the losses are trades that never go green. #459's exits stay as they are.
 r26 (2026-10-14, 'keep testing'): two new TTM leg ideas map-checked - the #459 rules on 14 ETFs, and on ES overnight hours - both closed at the map (own median ROC@30k 1.4 / 1.6). The TTM family has no idea left that can move the book; the lane works as the house's verifier.
 VERIFIER 2026-10-14: the live Webull legs' evidence re-checked blind - Q37 (DIP on QQQ, the live DIP leg's backtest) and Q38 (the harm bands of ORB_R6 / NOISE_382 / DIP_424F) both reproduce exactly; each live leg now carries its four numbers at the owner's real cost.
+CROWN RE-CHECKS 2026-10-14 (MANAGER #110): run #490 (NOISE #422 + target knob) verified exact - the target knob was not picked and the crowned gate_len 16 reads ~7 ROC points below #422 on WF.
 
 ## Discipline this family taught the shop
 

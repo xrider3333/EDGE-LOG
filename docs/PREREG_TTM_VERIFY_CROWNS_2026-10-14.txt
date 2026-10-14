@@ -1,0 +1,41 @@
+TTM VERIFY CROWNS - BLIND RE-CHECK OF AUTO-VALIDATE CROWNS AS THEY LAND (MANAGER #110)
+TTM (house verifier), 2026-10-14 ~14:40 MST. Written and pushed while both target validates are STILL RUNNING (job V0vxSbATqNcoX9VPl4HY
+ENGU-Q #335 hold cap, ENGUQ_1M_ETH_HC_1_0.py, 58%; job vAUrpEP13IanjkYuzGHN NOISE #422+TP, NOISE_1_8_CT304H_TP.py, 32%) - no result
+of either exists. One harness for every crown: tools/ttm_verify/ttm_crown_wf.py <run | job id>.
+
+WHAT, per crown (read from its run doc by id: strategy, instrument, data_source, timeframe, window, cost_pts, multiplier,
+validate.champion, validate.windows; nothing else is taken from the run's own computations):
+- The run's master (find_master on instrument / timeframe / session / data_source; file sha256 printed) over the run's own window; the
+  saved strategy file (sha256 printed) at validate.champion, file defaults that differ printed beside (FILE DEFAULTS != THE RUN);
+  engine run_backtest at cost 0, then the cost subtracted per trade, any size fold undone (raw = (pts + (s-1) k) / s; net = s x (raw -
+  cost) x multiplier).
+- The run is made on the PRE-lockbox window [date_from, optimize end], exactly as the validate reads its candidates
+  (augur_engine/validate.py: selection.candidates[].cal, entry-bar slices at the first bar on/after wf_split).
+- PARITY first, against the candidate whose params == validate.champion: cal.is and cal.wf trades and net points (run cost).
+  PARITY OK = trades equal and points within 0.01 on BOTH. No parity = DIFFERENCE, traced (a restated master is the known suspect:
+  NOADJ_NQ_5m_RTH.csv was rewritten 10-14 10:14, the NQ 1m hole fills) before any verdict word.
+- WF = the trades whose entry bar is on/after wf_split in that run (= the validate's cal.wf set), booked (a) on their exit ET date
+  (closed) and (b) valued
+  daily (open positions marked at each ET date's last bar close, cost on the exit date); calendar = the master's ET dates in the window
+  UNION the kept exit dates. Lockbox NOT read.
+- FOUR NUMBERS, each booking, at the run's cost and at the owner's real cost ($5.65 commission + 1 tick each side: NQ 0.7825 pt, ES
+  0.613 pt RT): ROC@30k (30 x $ a year / worst DD, years = calendar days / 365.25), DD5 (augur_engine.drawdowns.dd5), DD% from peak
+  (dd_pct_peak, start $100k), Sortino (zero days in, x sqrt 252); $ a year, trades, win rate, avg win / avg loss.
+- Printed beside, NOT compared: the store's wf_oos (the stitched re-tuned walk-forward - a different object from the champion on WF).
+OUTPUT sha256 posted to MANAGER before the result is read against anything else. Report: parity verdict + four numbers + ROC/yr.
+COULD FOOL US: same engine and strategy file as the validate (the check is master, params, cost, booking, yardstick); ET-date booking vs
+the book's UTC days moves DD5 slightly for ETH legs; champion-on-WF reads in-sample-chosen settings on WF (the validate's champion was
+picked on the whole optimize window, which contains WF).
+
+HARNESS SMOKE TEST (disclosed; NOT a target): run on the existing NOISE crown #422 to check the harness, 10-14 ~14:35. Parity against
+#422's cal: IS 1,706 = 1,706 trades but 1,228.44 vs 1,256.46 pts; WF 2,806 vs 2,804 trades, 22,406.21 vs 22,409.40 pts - consistent with
+the 5m RTH master rewritten 10-14 10:14, after #422 ran (09-24). #422's champion on WF from that test (today's master): ROC@30k 87.40
+house / 82.71 real cost, DD5 $12,686 / $12,995, DD% from peak 6.1% / 7.0%, Sortino 4.24 / 4.06. It is the twin of the NOISE+TP crown;
+known before that crown lands.
+
+ADDENDUM 1 (2026-10-14 ~16:20, AFTER run #490's output sha 6ac34c00 was posted, BEFORE the ENGU-Q hold cap crown has landed): the
+validate's IS / WF cut is not the first bar of the wf_split date but _wfB0 = the first anchored fold's train_bars
+(augur_engine/validate.py:450), which can sit inside that day (#490: bar 119292 = 2016-07-01 13:10 vs the date cut's bar 119248). The
+date cut moved 4 trades (8.62 pts) from IS to WF; re-sliced at the stored bar, #490 matches cal.is and cal.wf EXACTLY (trace_split.py).
+From here the harness cuts at fold 1's train_bars read from the run doc's top10_results (date cut only if that is missing), and the
+WF set + calendar start at that bar. Nothing else changes.
