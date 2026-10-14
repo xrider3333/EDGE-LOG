@@ -65,15 +65,25 @@ def test_forward_refuses_without_frozen_constants(tmp_path):
 
 
 # ------------------------------------------------------------------ section 5: harm bar
+def test_pooled_rate_is_wf_trades_over_wf_years():
+    years = (pd.Timestamp("2025-06-30") - pd.Timestamp("2016-07-16")).days / 365.25
+    assert S.wf_years() == pytest.approx(years)
+    assert S.pooled_rate([621, 79, 209]) == pytest.approx(909 / years)
+    assert S.months_to(50, 100.0) == pytest.approx(6.0)
+
+
 def test_harm_threshold_is_deterministic_with_its_seed():
-    a, sa = S.harm_threshold()
-    b, sb = S.harm_threshold()
+    rate = 101.4
+    a, sa = S.harm_threshold(rate)
+    b, sb = S.harm_threshold(rate)
     assert a == b and sa == sb
-    c, _ = S.harm_threshold(seed=S.HARM["seed"] + 1)
+    c, _ = S.harm_threshold(rate, seed=S.HARM["seed"] + 1)
     assert c != a
-    # the prior-predictive mean is 50 x 0.64 / sqrt(55); the 5th percentile sits well below zero
-    assert sa["mean"] == pytest.approx(50 * 0.64 / math.sqrt(55), abs=0.15)
-    assert -9.0 < a < -6.0
+    # the prior-predictive mean is 50 x 0.64 / sqrt(rate); the 5th percentile sits well below zero
+    assert sa["mean"] == pytest.approx(50 * 0.64 / math.sqrt(rate), abs=0.15)
+    assert -10.0 < a < -6.0
+    # a higher trade rate spreads the same yearly Sharpe over more trades: a lower per-trade mean, a lower bar
+    assert S.harm_threshold(55.0)[0] > a
 
 
 def test_harm_noise_has_unit_variance():
