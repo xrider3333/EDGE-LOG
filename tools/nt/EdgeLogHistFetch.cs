@@ -16,6 +16,9 @@
 //   period=Minute|Second|Tick     (bars only)   value=1
 //   from=2026-10-07T04:38:00Z     UTC, ISO, inclusive        to=2026-10-07T12:51:00Z   UTC, exclusive
 //   out=C:\EdgeLog\ohlc\replay\NQ_10s_backfill_20261007.csv
+//   hours=CME US Index Futures ETH   OPTIONAL trading-hours template by name (added 2026-10-14, TBIS #178). Without
+//                                 it NT uses the instrument's DEFAULT template, and NQ's default returned RTH-only bars;
+//                                 an unknown name fails the request rather than silently falling back.
 // The request file is renamed .running while it works, then .done (with the row count appended) or
 // .failed (with the reason appended). It never writes outside the path it is given, never places an
 // order, never touches a chart, an account or a strategy. Read-only history.
@@ -153,10 +156,21 @@ namespace NinjaTrader.NinjaScript.AddOns
             }
             DateTime fromLocal = TimeZoneInfo.ConvertTimeFromUtc(fromUtc, TimeZoneInfo.Local);
             DateTime toLocal = TimeZoneInfo.ConvertTimeFromUtc(toUtc, TimeZoneInfo.Local);
-            Log("request " + Path.GetFileName(file) + ": " + name + " " + kind + " " + fromUtc.ToString("s") + "Z.." + toUtc.ToString("s") + "Z");
+            string hoursName = Get(d, "hours", "");
+            TradingHours th = null;
+            if (hoursName.Length > 0)
+            {
+                try { th = TradingHours.Get(hoursName); } catch { }
+                if (th == null) { Finish(file, false, "unknown trading hours " + hoursName); return; }
+            }
+            string dfltHours = instr.MasterInstrument != null && instr.MasterInstrument.TradingHours != null
+                               ? instr.MasterInstrument.TradingHours.Name : "?";
+            Log("request " + Path.GetFileName(file) + ": " + name + " " + kind + " " + fromUtc.ToString("s") + "Z.." + toUtc.ToString("s") + "Z"
+                + " hours=" + (th != null ? th.Name : "default (" + dfltHours + ")"));
 
             req = new BarsRequest(instr, fromLocal, toLocal);
             req.BarsPeriod = bp;
+            if (th != null) req.TradingHours = th;
             req.Request(delegate(BarsRequest rq, ErrorCode ec, string em)
             {
                 try
