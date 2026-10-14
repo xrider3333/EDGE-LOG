@@ -1,0 +1,42 @@
+BOOK QUEUE Q41 - THE WEBULL BOOK YARDSTICK (MANAGER #158: next best-ROI test, standing order 10-04). PRE-DATA NOTE for MANAGER, 2026-10-14.
+A report; nothing on the box changes and no sizing is adopted.
+
+WHY. The live Webull paper book has never been read AS A BOOK. Its four numbers and its ROC a year don't exist. Q36 / Q37 / Q38 read its
+legs one at a time. Its share counts were set leg by leg (ORB 10, NOISE 10 x plugin size, DIP 6 a lot). Whether DIP, the book's biggest
+risk, lifts or dilutes the book's ROC per unit of drawdown has not been measured.
+
+THE BOOK as deployed (api/cloud_signal.py CROWN_LEGS / SHADOW_LEGS on main; the box's qqq_exec config):
+- ORB_R6 at 10 shares; NOISE_382 at 10 shares x its plugin size (1 or 2), KEEL x1.0 as in Q38; DIP_424F at 6 shares a lot (up to 7 lots).
+- Per-share P&L exactly as Q38's unit_trades (bookq/q38_webull_bands.py, imported unchanged): $0.02 a share a round trip, each trade on its
+  exit day (ET), zero-filled QQQ RTH sessions.
+- Prices: the QQQ 5m Alpaca master (master_ac263357.csv, sha256 782dabdd...).
+
+STRETCHES.
+- WF = 2017-08-07..2025-06-29: DIP's first QQQ trade (its 400-day trend needs the history before it) to #463's WF end.
+- LB = 2025-06-30..2026-06-30, printed APART as a report only.
+  - The legs' QQQ lockbox years were already read (QQQ VALIDATE r1; Q37 to 2025-08-24), so nothing is judged on it.
+  - Per BOOK LOOKS r1, no candidate is passed on a lockbox year.
+
+FOUR NUMBERS per row and stretch (owner 10-11): ROC@30k, DD5, DD% from peak (augur_engine.drawdowns.dd_pct_peak, start $100k, the curve at
+its own size), Sortino (seat_pipeline_final.sortino); plus $ a year.
+
+ROWS, all pre-set (each is a BOOK LOOK for the tally):
+- V0 AS DEPLOYED: ORB + NOISE + DIP at the units above. This is the yardstick.
+- V1 WITHOUT DIP: ORB + NOISE.
+- V2 EQUAL RISK: each leg scaled so its daily sd over the first two WF years (2017-08-07..2019-08-06) is equal, then the book rescaled so
+  its daily sd matches V0's. That is the house's vol rule, sized before any book number, so it is not tuned to the answer.
+- Each leg alone at its unit, with its daily-$ correlations to the others.
+
+PRE-SET READING (words fixed now):
+- V0 is the Webull book's yardstick.
+- "DIP lifts the book" if V0's WF ROC@30k > V1's (ROC@30k already prices the drawdown). Otherwise: "DIP adds dollars, not ROC per drawdown".
+- If V0's worst drawdown is more than 1.3 x its DD5, it is called driven by one episode.
+- V2 is a report: re-weighting has no forward skill (round 56), so a better V2 is "worth the owner's eye", never a change.
+
+POWER / COULD FOOL US:
+- one WF path;
+- DIP's lumpy exit-day booking (Q38: worst day 14 sd) makes DD5 noisy;
+- the $400 daily rail, the 85-share gross cap and KEEL's live sizing are not simulated (at these units the cap is not reached: 10 + 20 +
+  42 < 85);
+- Webull's own bars are not Alpaca's.
+Script: bookq/q41_webull_book.py; witness branch prereg/frontier-wbbook-1014 before the run.
