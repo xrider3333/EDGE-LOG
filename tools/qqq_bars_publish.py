@@ -66,7 +66,11 @@ SAFETY
       order path, so nothing here can stall or change trading.
     * Reads the ledgers only; the one file it ever writes is its own small state
       (qqq_bars/publish_state.json under EDGELOG_HOME: the intraday throttle and the
-      ledgers' last row counts), and never under --dry-run.
+      ledgers' last row counts), and never under --dry-run. After its own work, every run
+      but --dry-run also refreshes qqq_exec/eod_fill_gap.csv (MANAGER #152: each EOD exit
+      beside the engine's 15:55-bar price, tools/eod_fill_gap.py) -- a separate measurement
+      log that writes only that file and cannot change this run's docs or exit code
+      (run_eod_fill_gap).
     * A ledger read that looks mid-rewrite (api/qqq_exec.py trims trades.csv and
       broker_orders.csv by truncating and rewriting them in place) is read once more a
       second later; if it still looks torn -- no header, a short or over-long row, or far
@@ -861,8 +865,34 @@ def summarize(doc):
             + ("  (1m DROPPED: over cap)" if doc.get("bars_dropped") else ""))
 
 
+def run_eod_fill_gap(paths, out, sleep=time.sleep):
+    """MANAGER #152 (ORB COSTSTRESS r1): refresh qqq_exec/eod_fill_gap.csv -- every EOD exit
+    beside the engine's 15:55-bar price (tools/eod_fill_gap.py). main() calls it AFTER its
+    own work on every run that may write (never --dry-run), including one that stopped early
+    (no Firestore credentials, no day to publish) -- but not after a torn ledger read, which
+    it would only read torn again. It reads the same ledgers and writes only its own file,
+    and can never change this run's docs, output lines or exit code: any error is logged
+    here and swallowed."""
+    try:
+        from tools import eod_fill_gap
+        eod_fill_gap.write_for_home(paths.get("home"), paths=paths, sleep=sleep,
+                                    log=lambda s: print(s, file=out))
+    except Exception as e:  # noqa: BLE001 -- a measurement log never fails the publisher
+        print(f"[qqq-bars] EOD fill gap log not refreshed ({type(e).__name__}: {e}) -- "
+              f"the publish is unaffected", file=out)
+
+
 def main(argv=None, db_factory=init_firestore, now=None, out=None, sleep=time.sleep):
     out = out or sys.stdout
+    hook = {}
+    try:
+        return _main(argv, db_factory, now, out, sleep, hook)
+    finally:
+        if hook.get("paths"):
+            run_eod_fill_gap(hook["paths"], out, sleep=sleep)
+
+
+def _main(argv, db_factory, now, out, sleep, hook):
     ap = argparse.ArgumentParser(description=__doc__,
                                  formatter_class=argparse.RawDescriptionHelpFormatter)
     ap.add_argument("--dry-run", action="store_true", help="print the doc(s), write nothing")
@@ -888,10 +918,13 @@ def main(argv=None, db_factory=init_firestore, now=None, out=None, sleep=time.sl
     a = ap.parse_args(argv)
     now = now or _et_now()
     paths = default_paths(a.home, a.ohlc_dir, a.exec_dir, a.signals)
+    if not a.dry_run:
+        hook["paths"] = paths     # main() runs the EOD fill gap log after this returns
     state = _load_state(paths["state"])
     try:
         data = load_all(paths, a.shadow_trades, prev_counts=state.get("_ledger_rows"), sleep=sleep)
     except LedgerUnreliable as e:
+        hook.pop("paths", None)   # the same torn ledger: the EOD fill gap log waits too
         print(f"[qqq-bars] ledger read looks mid-rewrite ({e}) -- nothing published; "
               f"the next run retries", file=out)
         return 1
