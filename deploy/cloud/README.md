@@ -412,6 +412,19 @@ or writing anything. Its auto-restart of `edgelog-qqq-exec` is **off** until the
 writes `{"auto_restart_exec": true}` to `~/edgelog/freshness/config.json`; until then it
 only logs "would restart".
 
+### Nightly parity check (2026-10-14)
+
+`edgelog-parity.timer` runs `tools/live_parity_check.py` at 16:20 ET Mon-Fri (owner order via
+MANAGER #163, after the live ORB leg silently dropped five trades 09-21..09-25). It replays every
+live Webull leg (the `CROWN_LEGS` that send orders; never a shadow tracker) with the engine's own
+code on the box's own bar cache and compares the replay with the day's live ENTRY/EXIT rows and
+Webull fills: ENGINE_ONLY (a backtest trade with no live signal), LIVE_ONLY, TIME_DIFF (bar time off
+by <= 30 min), NO_FILL (a live signal with no Webull fill, with the refusal reason on record) and
+UNREADABLE (an input it could not read). All findings go in ONE plain push that night; a clean day is
+one "parity OK" line in `~/edgelog/logs/live_parity.log`. Each run writes
+`~/edgelog/cloud_signal/parity/<day>.json`. Re-check any day by hand, without a push:
+`venv/bin/python tools/live_parity_check.py --home ~/edgelog --day 2026-10-13 --no-push`.
+
 ---
 
 ## ntfy alerts — moving to a private topic (WEBULL_GO_LIVE.md 1.10)

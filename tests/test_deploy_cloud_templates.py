@@ -282,3 +282,54 @@ def test_keel_append_timer_is_utf8_lf_text():
     raw = open(os.path.join(CLOUD_DIR, "edgelog-keel-append.timer"), "rb").read()
     assert b"\x00" not in raw and b"\r" not in raw
     raw.decode("utf-8")
+
+
+# ── 2026-10-14: NIGHTLY PARITY CHECK -- edgelog-parity.service/.timer (tools/live_parity_check.py,
+# OWNER ORDER via MANAGER #163) ────────────────────────────────────────────────────────────────────
+def test_parity_service_runs_the_check_like_the_keel_append_unit():
+    lines = _active_lines(_read("edgelog-parity.service"))
+    keel = _active_lines(_read("edgelog-keel-append.service"))
+    assert "Type=oneshot" in lines
+    for same in ("User=__EDGELOG_USER__", "WorkingDirectory=__EDGELOG_REPO__",
+                 "EnvironmentFile=__EDGELOG_HOME__/edgelog.env", "Nice=5"):
+        assert same in lines and same in keel
+    (start,) = [ln for ln in lines if ln.startswith("ExecStart=")]
+    assert start == ("ExecStart=__EDGELOG_VENV__/bin/python -u tools/live_parity_check.py "
+                     "--home __EDGELOG_HOME__")
+    assert os.path.exists(os.path.join(ROOT, "tools", "live_parity_check.py"))
+    assert "StandardOutput=append:__EDGELOG_HOME__/logs/live_parity.log" in lines
+    assert "StandardError=append:__EDGELOG_HOME__/logs/live_parity.log" in lines
+    assert not any("systemctl" in ln for ln in lines if ln.startswith("Exec"))
+    assert not any("--no-push" in ln for ln in lines)
+
+
+def test_parity_timer_runs_after_the_close_on_weekdays_et():
+    lines = _active_lines(_read("edgelog-parity.timer"))
+    assert "[Timer]" in lines
+    assert "OnCalendar=Mon..Fri *-*-* 16:20:00 America/New_York" in lines
+    assert "Persistent=true" in lines
+    assert "Unit=edgelog-parity.service" in lines
+    assert "WantedBy=timers.target" in lines
+
+
+def test_parity_units_are_installed_and_the_timer_enabled_not_started_by_install_sh():
+    sh = _install_sh()
+    units = re.search(r"for unit in ([^\n]+); do", sh).group(1).split()
+    assert "edgelog-parity.service" in units and "edgelog-parity.timer" in units
+    active = [ln for ln in sh.splitlines() if not ln.strip().startswith("#")]
+    enable_lines = [ln for ln in active if "systemctl enable" in ln]
+    assert any("edgelog-parity.timer" in ln for ln in enable_lines)
+    # the timer fires the oneshot; neither is started (or enabled --now) by the installer
+    assert not any("edgelog-parity.service" in ln for ln in enable_lines)
+    assert not any("edgelog-parity" in ln and ("--now" in ln or "systemctl start" in ln)
+                   for ln in active)
+    logs = re.search(r"for log in ([^;\n]+); do", sh).group(1).split()
+    assert "live_parity" in logs
+
+
+def test_parity_units_are_utf8_lf_text():
+    for fname in ("edgelog-parity.service", "edgelog-parity.timer"):
+        raw = open(os.path.join(CLOUD_DIR, fname), "rb").read()
+        assert b"\x00" not in raw and b"\r" not in raw
+        raw.decode("utf-8")
+        assert set(PLACEHOLDER_RE.findall(raw.decode("utf-8"))) <= _sed_substituted_tokens(_install_sh())

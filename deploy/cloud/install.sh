@@ -13,7 +13,8 @@
 #   5. write ~/edgelog/edgelog.env ONCE (fill in the CHANGE-ME lines yourself)
 #   6. install + enable the systemd units (edgelog-runner.service,
 #      edgelog-healthcheck.timer/.service, edgelog-keel-state.timer/.path/.service,
-#      edgelog-keel-append.path/.service/.timer, edgelog-freshness.timer/.service)
+#      edgelog-keel-append.path/.service/.timer, edgelog-freshness.timer/.service,
+#      edgelog-parity.timer/.service)
 #   7. install /etc/logrotate.d/edgelog (daily, size-capped -- see
 #      deploy/cloud/edgelog.logrotate)
 #
@@ -82,7 +83,7 @@ mkdir -p "${EDGELOG_HOME}/ohlc" "${EDGELOG_HOME}/qqq_exec" "${EDGELOG_HOME}/logs
 # it runs FIRST because `touch` on a root-owned file fails, and set -e would stop here. -h:
 # a symlink among the logs has the LINK chowned, never the file it points at.
 sudo chown -h "${RUN_USER}:${RUN_USER}" "${EDGELOG_HOME}"/logs/*.log 2>/dev/null || true
-for log in runner qqq_exec cloud_signal keel_state keel_intraday qqq_bars freshness; do
+for log in runner qqq_exec cloud_signal keel_state keel_intraday qqq_bars freshness live_parity; do
   touch "${EDGELOG_HOME}/logs/${log}.log"
 done
 # LIVE KEEL (2026-10-12): the inbox edgelog-keel-append.path watches, the executor's tmp dir beside
@@ -151,7 +152,7 @@ fi
 # 6. systemd units ------------------------------------------------------------------
 echo "==> installing systemd units"
 UNIT_SRC="${REPO_DIR}/deploy/cloud"
-for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path edgelog-keel-append.service edgelog-keel-append.path edgelog-keel-append.timer edgelog-freshness.service edgelog-freshness.timer; do
+for unit in edgelog-runner.service edgelog-qqq-exec.service edgelog-cloud-signal.service edgelog-healthcheck.service edgelog-healthcheck.timer edgelog-keel-state.service edgelog-keel-state.timer edgelog-keel-state.path edgelog-keel-append.service edgelog-keel-append.path edgelog-keel-append.timer edgelog-freshness.service edgelog-freshness.timer edgelog-parity.service edgelog-parity.timer; do
   sed \
     -e "s#__EDGELOG_USER__#${RUN_USER}#g" \
     -e "s#__EDGELOG_REPO__#${REPO_DIR}#g" \
@@ -182,6 +183,11 @@ sudo systemctl enable edgelog-keel-append.timer
 # OFF until the owner writes {"auto_restart_exec": true} to
 # ${EDGELOG_HOME}/freshness/config.json, so enabling it here restarts nothing.
 sudo systemctl enable edgelog-freshness.timer
+# NIGHTLY PARITY CHECK (OWNER ORDER 2026-10-14, MANAGER #163): 16:20 ET Mon-Fri, replays every live
+# Webull leg on the box's own bars and compares it with the day's live signals and Webull fills --
+# one plain push only when they differ (tools/live_parity_check.py). Enabled, not started here:
+# `sudo systemctl start edgelog-parity.timer` (or a reboot) arms it.
+sudo systemctl enable edgelog-parity.timer
 # The job runner does NOT run on this box (2026-09-21 -- api/runner.py refuses on
 # EDGELOG_HOST_ROLE=cloud; see _cloud_runner_refusal there for what went wrong when one
 # did). Its unit is still installed so the refusal is logged if anyone starts it, but it

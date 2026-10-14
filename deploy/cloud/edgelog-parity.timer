@@ -1,0 +1,15 @@
+[Unit]
+# 16:20 New York time, Mon-Fri: after the engine's EOD settle (16:00:30-16:05 -- the day's last EXIT
+# rows) and the executor's 15:59 flatten, so the day's live rows and fills are complete. On a market
+# holiday the tool logs "not a trading session" and exits. Persistent=true: if the box was down at
+# 16:20, systemd runs it at boot; without --day the tool then checks the last SETTLED session (the
+# one it missed), and a re-run with the same findings never pushes twice.
+Description=Nightly parity check of the live Webull legs (16:20 ET Mon-Fri, after the EOD settle)
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 16:20:00 America/New_York
+Persistent=true
+Unit=edgelog-parity.service
+
+[Install]
+WantedBy=timers.target

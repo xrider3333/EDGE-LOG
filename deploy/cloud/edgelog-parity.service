@@ -1,0 +1,23 @@
+[Unit]
+# NIGHTLY PARITY CHECK (OWNER ORDER 2026-10-14 via MANAGER #163, after the live ORB leg silently
+# dropped five trades 09-21..09-25): one pass of tools/live_parity_check.py, fired after the close
+# by edgelog-parity.timer. It replays every LIVE Webull leg (api/cloud_signal.py CROWN_LEGS that
+# send orders -- never a shadow tracker) with the engine's own code on the box's own bar cache and
+# compares the replay with the day's live signals (cloud_signal/signals.csv) and Webull fills
+# (qqq_exec/broker_orders.csv). Any difference -> ONE plain phone push that night (api/ntfy_push,
+# NTFY_TOPIC from edgelog.env); otherwise one quiet "parity OK" log line. Read-only except its own
+# output: cloud_signal/parity/<day>.json. Never calls Webull, never touches the network but the push.
+Description=EDGE-LOG nightly parity check: live Webull legs vs the engine replay
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+ExecStart=__EDGELOG_VENV__/bin/python -u tools/live_parity_check.py --home __EDGELOG_HOME__
+Nice=5
+# A pass is a few engine runs on the cached bars (seconds) plus at most one 8 s push.
+TimeoutStartSec=10min
+StandardOutput=append:__EDGELOG_HOME__/logs/live_parity.log
+StandardError=append:__EDGELOG_HOME__/logs/live_parity.log
