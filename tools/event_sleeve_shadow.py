@@ -50,7 +50,8 @@ PREREG = "docs/PREREG_event_sleeve_forward_2026-10-11.md"
 SD_WINDOW = (pd.Timestamp("2016-07-16"), pd.Timestamp("2025-06-30"))   # prereg section 3, as written
 RISK_UNIT = 1000.0
 STALE_BDAYS = 3
-HARM = dict(n_draws=20000, seed=20261011, sharpe_mu=0.64, sharpe_sd=0.30, trades_per_year=55, n_trades=50, tails="t3", pct=5.0)
+# the trade rate is NOT a constant here: it is the measured pooled WF rate (pooled_rate), per ADDENDUM 1
+HARM = dict(n_draws=20000, seed=20261011, sharpe_mu=0.64, sharpe_sd=0.30, n_trades=50, tails="t3", pct=5.0)
 
 K_AUC = 5
 ES_MULT, K_ME, TH_ME = 50.0, 5, 0.02
@@ -117,11 +118,27 @@ def draw_unit_noise(rng, shape, tails):
     return draw_e(rng, shape, tails)
 
 
-def harm_threshold(n_draws=HARM["n_draws"], seed=HARM["seed"], sharpe_mu=HARM["sharpe_mu"], sharpe_sd=HARM["sharpe_sd"],
-                   trades_per_year=HARM["trades_per_year"], n_trades=HARM["n_trades"], tails=HARM["tails"], pct=HARM["pct"]):
-    """Prereg section 5: prior-predictive cumulative P&L (risk units) of an n_trades sleeve. Per draw: yearly Sharpe ~
-    Normal(mu, sd); per-trade P&L = unit-SD noise (t3 / sqrt 3) + Sharpe / sqrt(trades a year). Draw order is fixed: all
-    Sharpes first, then the (n_draws x n_trades) noise block. Returns (pct-th percentile, summary dict)."""
+def wf_years(window=SD_WINDOW):
+    """Length of the section-3 stretch in years (days / 365.25)."""
+    return (window[1] - window[0]).days / 365.25
+
+
+def pooled_rate(counts, window=SD_WINDOW):
+    """ADDENDUM 1: the sleeve's measured trade rate = the parts' WF trade counts summed / the stretch's years."""
+    return float(sum(counts)) / wf_years(window)
+
+
+def months_to(n_trades, rate):
+    """Months for `n_trades` to arrive at `rate` trades a year."""
+    return 12.0 * n_trades / rate
+
+
+def harm_threshold(trades_per_year, n_draws=HARM["n_draws"], seed=HARM["seed"], sharpe_mu=HARM["sharpe_mu"],
+                   sharpe_sd=HARM["sharpe_sd"], n_trades=HARM["n_trades"], tails=HARM["tails"], pct=HARM["pct"]):
+    """Prereg section 5 (+ ADDENDUM 1: trades_per_year = the measured pooled WF rate, not 55): prior-predictive cumulative
+    P&L (risk units) of an n_trades sleeve. Per draw: yearly Sharpe ~ Normal(mu, sd); per-trade P&L = unit-SD noise
+    (t3 / sqrt 3) + Sharpe / sqrt(trades a year). Draw order is fixed: all Sharpes first, then the (n_draws x n_trades)
+    noise block. Returns (pct-th percentile, summary dict)."""
     rng = np.random.default_rng(seed)
     sharpe = rng.normal(sharpe_mu, sharpe_sd, size=n_draws)
     noise = draw_unit_noise(rng, (n_draws, n_trades), tails)
@@ -494,7 +511,7 @@ def part_c_forward(since, ends, out_dir, today):
     days = [d for d in release_days(bls) if pd.Timestamp(since) < d <= pd.Timestamp(today)]
     upcoming = [d for d in release_days(bls) if d > max(pd.Timestamp(since), pd.Timestamp(today))]
     last_bar = master_last_bar("NQ", "1m", "eth", "db_noadj_eth")
-    notes = []
+    notes = ["calendar %s, last date %s (read from the shared checkout; untracked in git)" % (BLS_FILE, cal_end.date())]
     if cal_end < pd.Timestamp(today):
         notes.append("LOGGED: bls_dates.txt ends %s - part C does not trade after it until the next schedule is added"
                      % cal_end.date())
@@ -620,6 +637,7 @@ def mode_parity():
               len(FR), fsk, len(W), len(both), int((both.side == both.src_side).sum()), both.pnl.sum(), both.src_pnl.sum()))
     print("  C calendars, WF: bls_dates.txt 08:30 CPI/EMP days %d vs the source's cpi+nfp csv days %d (bls only %d, csv only %d)" % (
         len(wf_bls), len(src_cal), len(set(wf_bls) - set(src_cal)), len(set(src_cal) - set(wf_bls))))
+    print("    forward calendar: %s, last date %s" % (BLS_FILE, parse_bls().date.max().date()))
     print("\nPARITY: %s" % ("ALL THREE PARTS REPRODUCE" if ok_all else "MISMATCH - stop and report; nothing is tuned to match"))
     return ok_all
 
@@ -656,7 +674,7 @@ def mode_constants(force=False, out_dir=OUT_DIR):
         sd = trade_sd(t.pnl)
         parts[p] = dict(name=PART_NAME[p], source_unit=SOURCE_UNIT[p], cost=cost[p], n_trades=int(len(t)),
                         first_entry=str(pd.Timestamp(t.entry.min()).date()), last_exit=str(pd.Timestamp(t.exit.max()).date()),
-                        sd_usd=round(sd, 2), scale=round(RISK_UNIT / sd, 6), trades_per_year=round(len(t) / ((SD_WINDOW[1] - SD_WINDOW[0]).days / 365.25), 1))
+                        sd_usd=round(sd, 2), scale=round(RISK_UNIT / sd, 6), trades_per_year=round(len(t) / wf_years(), 1))
         print("  %s %-14s n %4d  per-trade SD $%9.2f  scale %.6f x (%s)  ~%.1f trades/yr" % (
             p, PART_NAME[p], len(t), sd, RISK_UNIT / sd, SOURCE_UNIT[p], parts[p]["trades_per_year"]))
     alt = win(tB[ES_COST_SOURCE])
@@ -667,13 +685,15 @@ def mode_constants(force=False, out_dir=OUT_DIR):
     parts["B"]["sd_usd_on_todays_master"] = round(trade_sd(tbm.pnl), 2)
     print("    (B on today's ES master instead of the source's 09-24 cache: n %d, SD $%.2f - reported, not used)" % (
         len(tbm), trade_sd(tbm.pnl)))
-    pooled = sum(parts[p]["trades_per_year"] for p in PARTS)
-    print("    trades a year over the stretch: %s -> pooled %.1f (the prereg and the harm bar assume 55: A ~24, B ~8, C ~23)%s" % (
-        ", ".join("%s %.1f" % (p, parts[p]["trades_per_year"]) for p in PARTS), pooled,
-        "  ** FLAG: pooled rate differs from 55 by > 20 % - for the lane / MANAGER, not changed here" if abs(pooled / 55 - 1) > 0.2 else ""))
-    thr, summ = harm_threshold()
-    print("\nSection 5 harm bar: %d draws, seed %d, Sharpe ~ N(%.2f, %.2f), %d trades/yr, t3 tails, %d trades" % (
-        HARM["n_draws"], HARM["seed"], HARM["sharpe_mu"], HARM["sharpe_sd"], HARM["trades_per_year"], HARM["n_trades"]))
+    counts = [parts[p]["n_trades"] for p in PARTS]
+    rate = pooled_rate(counts)
+    print("\nMeasured trade rate (ADDENDUM 1; replaces the 55 a year of sections 4-5): (%s) = %d trades / %.4f WF years = "
+          "%.2f trades a year (%s) -> %d trades about %.1f months after the shadow starts" % (
+              " + ".join(str(c) for c in counts), sum(counts), wf_years(), rate,
+              ", ".join("%s %.1f" % (p, parts[p]["trades_per_year"]) for p in PARTS), HARM["n_trades"], months_to(HARM["n_trades"], rate)))
+    thr, summ = harm_threshold(rate)
+    print("\nSection 5 harm bar: %d draws, seed %d, Sharpe ~ N(%.2f, %.2f), %.2f trades/yr (measured), t3 tails, %d trades" % (
+        HARM["n_draws"], HARM["seed"], HARM["sharpe_mu"], HARM["sharpe_sd"], rate, HARM["n_trades"]))
     print("  cumulative P&L at 50 trades (risk units): mean %.3f  median %.3f  SD %.3f  p1 %.3f  p10 %.3f" % (
         summ["mean"], summ["median"], summ["sd"], summ["p1"], summ["p10"]))
     print("  CLOSE threshold (5th percentile): %.4f risk units = $%.0f at the frozen scale" % (thr, thr * RISK_UNIT))
@@ -685,7 +705,11 @@ def mode_constants(force=False, out_dir=OUT_DIR):
                scorer="tools/event_sleeve_shadow.py", scorer_sha256_lf=sha256_lf(os.path.abspath(__file__)),
                risk_unit_usd=RISK_UNIT, sd_window=[str(SD_WINDOW[0].date()), str(SD_WINDOW[1].date())],
                sd_rule="sample SD (ddof 1) of per-trade $ over trades wholly inside the window (entry >= start, exit <= end)",
-               parts=parts, harm=dict(HARM, threshold_risk_units=round(thr, 6), distribution=summ,
+               parts=parts,
+               trade_rate=dict(wf_trade_counts=dict(zip(PARTS, counts)), wf_years=round(wf_years(), 6), pooled_per_year=rate,
+                               months_to_50_trades=round(months_to(HARM["n_trades"], rate), 2),
+                               note="measured pooled WF rate (ADDENDUM 1); sections 4-5 of the prereg assumed 55"),
+               harm=dict(HARM, trades_per_year=rate, threshold_risk_units=round(thr, 6), distribution=summ,
                                       rule="CLOSE the sleeve if cumulative forward P&L (risk units) at 50 trades < threshold"),
                data_sha256=data)
     os.makedirs(out_dir, exist_ok=True)
