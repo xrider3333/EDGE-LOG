@@ -5744,7 +5744,7 @@ def tl_has_nt(trades):
 
 def tl_heads(has_nt):
     """The table's header row: the common columns (this board's labels), then its own."""
-    return (['ENTRY (ET)', 'STRATEGY', 'SIDE', 'SHARES', 'P&L', 'PTS', 'EXIT / FLAGS', 'CHART', 'EXIT (ET)', 'ENTRY $', 'EXIT $', 'RUNNING']
+    return (['ENTRY (ET)', 'STRATEGY', 'SIDE', 'SHARES', 'P&L', 'DAY', 'PTS', 'EXIT / FLAGS', 'CHART', 'EXIT (ET)', 'ENTRY $', 'EXIT $', 'RUNNING']
             + (['NT POINTS', 'EXPECTED $', 'TRACK ERR'] if has_nt else []) + ['REAL P&L', 'SLIP/SH'])
 
 
