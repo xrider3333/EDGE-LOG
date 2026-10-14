@@ -1209,13 +1209,22 @@ def test_review_0930_findings_on_the_real_bars():
     by = {p['k']: p for p in r['points']}
     assert (by['y_low']['ref'], by['y_close']['ref'], by['y_high']['ref']) == (7478.75, 7490.75, 7524.0)
     assert by['y_low']['hit'] is True and by['y_close']['hit'] is True and by['y_high']['hit'] is True
-    # finding 1: 2026-07-24's capture stops at 10:46, so Monday 07-27 has NO yesterday levels (and no trend), not wrong ones
+    # finding 1: 2026-07-24's capture stops at 10:46, so Monday 07-27 has NO yesterday levels (and no trend), not wrong ones.
+    # TBIS filled the summer hole in the NOADJ masters from NinjaTrader on 2026-10-14; once 07-24 has its 15:59 bar from a
+    # master, the levels are real and must score.
     r = ps.score_trade(dict(sym='MES', side='LONG', fill='2026-07-27 12:25:37'))
     by = {p['k']: p for p in r['points']}
-    for k in ('y_low', 'y_close', 'y_high'):
-        assert by[k]['hit'] is None and by[k]['na_reason'] == ps.NA_INCOMPLETE
-    assert r['trend']['hit'] is None and r['trend']['na_reason'] == ps.NA_INCOMPLETE
-    assert r['max'] == 9 - r['na_count'] and r['na_count'] >= 3
+    es = ps.load_bars('ES')
+    i_close = es.find(ps._epoch('2026-07-24 15:59'))
+    if i_close >= 0 and not es.from_cap[i_close]:
+        for k in ('y_low', 'y_close', 'y_high'):
+            assert by[k]['hit'] is not None and by[k]['na_reason'] is None
+    else:
+        for k in ('y_low', 'y_close', 'y_high'):
+            assert by[k]['hit'] is None and by[k]['na_reason'] == ps.NA_INCOMPLETE
+        assert r['trend']['hit'] is None and r['trend']['na_reason'] == ps.NA_INCOMPLETE
+        assert r['na_count'] >= 3
+    assert r['max'] == 9 - r['na_count']
     # finding 4: NQ's capture lost 13:34:50-15:39:30 on 2026-08-26, so the 10s point of 15:39-15:59 is NA...
     b = ps.load_bars('NQ')
     ser = ps.score_series('NQ', 'LONG', '2026-08-26', '2026-08-26', bars=b)
@@ -1246,10 +1255,12 @@ def test_master_and_capture_bars_load_with_the_expected_shape():
     for root in ('NQ', 'ES'):
         b = ps.load_bars(root)
         assert b.t[0] >= ps._epoch(ps.HISTORY_FROM) and np.all(np.diff(b.t) > 0)
-        assert b.from_cap.sum() > 30000                          # the summer hole is filled from the capture
         assert len(b.t10) > 500000 and b.t10[0] >= ps._epoch(ps.TEN_SEC_FROM) - 86400
+        # the summer hole: filled from the capture, or (since TBIS's 2026-10-14 NinjaTrader fill) by the master itself
         f_hole = b.find(ps._epoch('2026-07-15 10:00'))
-        assert f_hole >= 0 and b.from_cap[f_hole]
+        assert f_hole >= 0
+        if b.from_cap[f_hole]:
+            assert b.from_cap.sum() > 30000
         assert not b.from_cap[b.find(ps._epoch('2026-05-15 10:00'))]
 
 
