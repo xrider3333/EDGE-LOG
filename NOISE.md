@@ -3673,3 +3673,36 @@ power check first. The power lines read no candidate result. Record: `docs/DRAFT
 - Run 1 read the size gate on raw prices instead of the engine's roll-adjusted ones. It mis-sized 9 / 14 trades and is
   withdrawn (addendum 1).
 - Parity is now exact on entries, exits and sizes.
+
+## NOISE #422 + profit-target knob - the Auto-Validate, run #490 (2026-10-14, owner 'autovalidate the top 3'): WEAK, the crown picks no target
+
+**The search.** NOISE_1_8_CT304H_TP opens a profit target (off / 1 / 1.5 / 2 / 3 R) on top of #422's own 27 cells, 135
+cells in all, with the core pinned. It runs on run #422's own job shape: 900 trials, the same window, master and cost.
+Parity was checked before the queue (`docs/PREREG_noise_422_tp_validate_2026-10-14.md`, ledger 2.162).
+
+**The read.**
+
+| | ROC@30k | DD5 | DD% | Sortino | Win rate | Avg win / avg loss |
+|---|---|---|---|---|---|---|
+| WF chain (rebuilt) | 79.3 | $15.4k | 6.6% | 3.87 | 37.6% | 2.43x |
+| Lockbox (spent, a report) | 130.1 | $14.9k | 13.4% | 3.25 | 38.7% | 2.12x |
+
+- **Verdict:** WEAK. PBO 0.591 is the only gate it fails.
+- **The crown has no target** (16 / 1.15 / 1.75), so the target lift fails at the prereg's first condition and **nothing
+  changes**.
+- **The chain was rebuilt fold by fold** (`tools/noise_chain_read.py`). It matched the stored chain exactly: 22,403.2 pts and
+  2,833 trades.
+
+**The target at the crown's cell** (WF hindsight rows, paired):
+
+| Target | WF ROC@30k | WF Sortino |
+|---|---|---|
+| Off | 79.9 | 3.91 |
+| 1R | 94.8 | 3.82 |
+| 1.5R | 79.0 | 3.77 |
+| 2R | 80.1 | 3.83 |
+| 3R | 78.4 | 3.85 |
+
+- 1R lifts ROC with Sortino down and flat neighbours: the same one-episode pattern as TARGET r1.
+- Only 2 of the 8 fold champions picked a target.
+- The conditional #382 + target run is cancelled.

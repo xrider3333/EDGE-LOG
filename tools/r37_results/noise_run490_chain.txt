@@ -1,0 +1,28 @@
+run #490 NOISE_1_8_CT304H_TP.py on NOADJ_NQ_5m_RTH.csv (db_noadj_rth), cost 0.533, mult 20; optimize 2010-06-07 .. 2025-07-15; lockbox 2025-07-16 .. 2026-07-16; champion {'tp': 'off', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}
+WF chain: 8 folds (anchored), stored net 22403.2 pts, 2833 trades, max DD 940.4 pts, Sortino 4.08
+  fold 1 {'tp': '3.0', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}  bars 119292..141659  454 trades / 84.02 pts  (stored 454 / 84.02)  OK
+  fold 2 {'tp': '3.0', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}  bars 141659..164026  322 trades / 1028.93 pts  (stored 322 / 1028.93)  OK
+  fold 3 {'tp': 'off', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}  bars 164026..186393  382 trades / 1862.79 pts  (stored 382 / 1862.79)  OK
+  fold 4 {'tp': 'off', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}  bars 186393..208760  354 trades / 3323.33 pts  (stored 354 / 3323.33)  OK
+  fold 5 {'tp': 'off', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}  bars 208760..231127  337 trades / 2288.91 pts  (stored 337 / 2288.91)  OK
+  fold 6 {'tp': 'off', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}  bars 231127..253494  316 trades / 6104.18 pts  (stored 316 / 6104.18)  OK
+  fold 7 {'tp': 'off', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}  bars 253494..275861  364 trades / 2316.32 pts  (stored 364 / 2316.32)  OK
+  fold 8 {'tp': 'off', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15}  bars 275861..298231  304 trades / 5394.70 pts  (stored 304 / 5394.70)  OK
+PARITY PASS: chain 22403.2 pts / 2833 trades vs stored 22403.2 / 2833
+
+FOUR NUMBERS (daily, $ at mult 20; DD% on $100k)
+  WF chain 2016-07-01 .. 2025-07-15 (9.04 yrs) ROC@30k  79.27 | DD5 $ 15351 | DD%  6.60 | Sortino 3.87 || trades 2833  win 37.6%  avg win/loss 2.43x  net $49576/yr  worst DD $18763
+  LB crown {'tp': 'off', 'tilt_mult': 1.75, 'gate_len': 16, 'gate_ratio': 1.15} ROC@30k 130.05 | DD5 $ 14900 | DD% 13.37 | Sortino 3.25 || trades  315  win 38.7%  avg win/loss 2.12x  net $77224/yr  worst DD $17814
+  (stored lockbox: 315 trades, 3858.6 pts)
+
+TARGET READ (the crown's gate cell, tp varied; WF = the crown re-read on the chain's dates - a hindsight row, paired; LB apart)
+  WF tp off  <- crown                ROC@30k  79.89 | DD5 $ 15269 | DD%  6.14 | Sortino 3.91 || trades 2805  win 37.4%  avg win/loss 2.45x  net $49966/yr  worst DD $18763
+  LB tp off                          ROC@30k 130.05 | DD5 $ 14900 | DD% 13.37 | Sortino 3.25 || trades  315  win 38.7%  avg win/loss 2.12x  net $77224/yr  worst DD $17814
+  WF tp 1.0                          ROC@30k  94.81 | DD5 $ 13697 | DD%  7.93 | Sortino 3.82 || trades 3595  win 41.8%  avg win/loss 1.86x  net $48942/yr  worst DD $15486
+  LB tp 1.0                          ROC@30k 139.25 | DD5 $ 14073 | DD% 13.28 | Sortino 3.37 || trades  388  win 41.5%  avg win/loss 1.79x  net $80275/yr  worst DD $17294
+  WF tp 1.5                          ROC@30k  78.95 | DD5 $ 14622 | DD%  8.16 | Sortino 3.77 || trades 3219  win 39.3%  avg win/loss 2.13x  net $48288/yr  worst DD $18349
+  LB tp 1.5                          ROC@30k 151.91 | DD5 $ 14932 | DD% 13.24 | Sortino 3.79 || trades  351  win 38.7%  avg win/loss 2.12x  net $90203/yr  worst DD $17814
+  WF tp 2.0                          ROC@30k  80.06 | DD5 $ 14610 | DD%  7.53 | Sortino 3.83 || trades 3037  win 38.3%  avg win/loss 2.28x  net $49080/yr  worst DD $18392
+  LB tp 2.0                          ROC@30k 117.14 | DD5 $ 14900 | DD% 13.37 | Sortino 2.87 || trades  338  win 37.9%  avg win/loss 2.07x  net $69556/yr  worst DD $17814
+  WF tp 3.0                          ROC@30k  78.36 | DD5 $ 15364 | DD%  6.59 | Sortino 3.85 || trades 2903  win 37.6%  avg win/loss 2.39x  net $49231/yr  worst DD $18849
+  LB tp 3.0                          ROC@30k 125.33 | DD5 $ 14900 | DD% 13.37 | Sortino 3.13 || trades  322  win 38.8%  avg win/loss 2.05x  net $74421/yr  worst DD $17814
