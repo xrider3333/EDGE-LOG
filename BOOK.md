@@ -1190,6 +1190,39 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10az. Q41 THE WEBULL BOOK YARDSTICK: NOISE carries the live QQQ book; DIP adds dollars, not ROC per drawdown (2026-10-14, a report)
+
+**What it is.** MANAGER #158 asked for the next best-ROI test. The live Webull paper book had never been read as a book.
+- **The book as deployed:** ORB_R6 at 10 shares, NOISE_382 at 10 shares x its plugin size, DIP_424F at 6 shares a lot. Each leg's
+  per-share P&L is Q38's (QQQ 5m Alpaca master, $0.02 a share a round trip, booked by exit day).
+- **Stretches:** WF 2017-08-07..2025-06-29 (from DIP's first QQQ trade). The LB year 2025-26 is printed apart, as a report only.
+- **Witness:** prereg/frontier-wbbook-1014 = 34940799 (note LF aef2fc1d..., script f0a056d7...).
+- **Script:** tools/rocfrontier/q41_webull_book.py.
+- **Every row below is a book look** for the tally.
+
+| Row | WF ROC@30k | DD5 | DD% from peak ($100k) | Sortino | $ a year | LB ROC@30k (report) |
+|---|---|---|---|---|---|---|
+| V0 as deployed | 25.21 | $1,480 | 2.36% | 3.10 | $2,380 (one episode) | 312 |
+| V1 without DIP | 62.40 | $365 | 0.53% | 3.55 | $1,112 | 160 |
+| V2 equal risk (ORB x1.54, NOISE x1.29, DIP x0.63) | 41.08 | $1,137 | 1.44% | 3.59 | $2,332 | 344 |
+| NOISE_382 alone | 83.08 | $225 | 0.25% | 3.53 | $728 | 137 |
+| ORB_R6 alone | 26.21 | $290 | 0.44% | 1.95 | $385 | 108 |
+| DIP_424F alone | 11.39 | $1,631 | 2.98% | 1.87 | $1,267 | 230 |
+
+**Read.**
+- **Pre-set verdict: "DIP adds dollars, not ROC per drawdown."** Over the WF, DIP more than doubles the book's dollars, but its DD5 is
+  four times the rest of the book's. Book ROC@30k falls from 62 to 25.
+- **NOISE carries the book.** It is the best leg (83) and correlates only with ORB (0.34). DIP is uncorrelated with both (about 0), yet it
+  still dilutes, because its own ROC per drawdown is low (11).
+- **Robustness (post-run, NOT pre-registered).** Every leg trades fixed shares, and QQQ ran from $140 to $548 over the WF, so price drift
+  depresses every ROC. Restated at today's price (constant notional): V0 29.6, V1 37.4, V2 31.0; NOISE 87.0, DIP 15.6, ORB 14.8. The
+  verdict holds in both frames.
+- **DIP's 2025-26 was strong** (LB 230), but that year is a report only and its legs were already read (BOOK LOOKS r1).
+- **Sizing is the owner's call.** This is a report: re-weighting has no forward skill (round 56), so V2 is "worth the owner's eye", not a
+  change.
+- **Could fool us:** one WF path; DIP's exit-day lumps (worst day 14 sd, Q38); the $400 rail, the 85-share cap and KEEL's live size are not
+  simulated.
+
 ### 10ay. Q39 + Q40 FAMILY LUCK BAR: five of the scored crowns clear it; TTM #459 clears only its own run's bar (2026-10-12, a report)
 
 **What it is.** MANAGER #142 (b)-(c) and #146.
