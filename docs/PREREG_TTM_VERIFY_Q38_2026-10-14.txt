@@ -1,0 +1,30 @@
+TTM VERIFY Q38 - BLIND RE-CHECK OF THE LIVE WEBULL LEGS' HARM-BAND CALIBRATION (ORB_R6, NOISE_382, DIP_424F) + THEIR FOUR NUMBERS
+TTM (house verifier, MANAGER #89; owner 10-14 via MANAGER #108 "keep testing"), 2026-10-14. Written BEFORE any run of the script below
+and before reading tools/rocfrontier/q38_webull_bands.py or C:\EdgeLog\_anatomy_cache\q38\q38_bands.json. Known to me already: the
+numbers printed in RESEARCH_LEDGER row 2.146 (ORB_R6 $627/yr c 2.34 A2 $560 power 88%; NOISE_382 $904/yr c 2.28 A2 $506 power 96%;
+DIP_424F $1,555/yr c 6.50 A2 $5,865 power 12%), and q35_recent_bands.calibrate (a house function the Q38 note names; read).
+
+WHY. These bands decide whether a live Webull leg is flagged as broken (tools/harm_monitor.py Webull block, Monday post). A wrong
+per-share series would make a band trip a good leg or sleep through a bad one. No independent check is on record.
+
+WHAT (from docs/PREDATA_frontier_wbbands_2026-10-10.txt; addendum 1 touches only the forward read, which is NOT re-done):
+- Each leg on the QQQ 5m master master_ac263357.csv (registry row, sha256 782dabdd... asserted), engine run_backtest, cost 0 in the
+  engine, then $0.02 a share a round trip subtracted per share (the owner's real cost: Webull $0 commission + 1 tick each side):
+  - ORB_R6 = ORB_3_6_R6.py at api.paper.ORB_314; per share = the trade's points; unit 10 shares.
+  - NOISE_382 = NOISE_1_8_CT304.py at NOISE_382_PARAMS; per share = the plugin's size fold undone (raw = (pts + (s-1) k) / s, s and k
+    from the file's own trade_sizes / size_cost_pts); unit 10 shares x s.
+  - DIP_424F = NQDIP_1_1.py as ETF at DIP_424_PARAMS with cost_bps 0; per share = trade $ / (notional / entry price); unit 6 shares
+    (the lot; the 1.245x is inside it). Cross-check printed: per share vs (exit - entry) price.
+- Booked on the exit day (ET), zero-filled QQQ RTH sessions of the master.
+- Band: window 2022-07-01..2025-06-29; stationary block bootstrap, 2,000 paths of H = round(36 x rows per month) rows, mean block 20,
+  seed 20261009 (tools/power_line.stationary_indices); A1 c = the 2.5% quantile of the path-minimum z, checked every 5th row; A2 = the
+  97.5% quantile of the path's worst drawdown; power = P(an alarm within H rows) with the edge removed - q35's calibrate, as the note says.
+- Four numbers per leg at its live unit and real cost on WF 2016-06-30..2025-06-30 (DIP from its first trade): ROC@30k, DD5, DD% from
+  peak (start $100k), Sortino (zero days in, x sqrt 252); win rate and avg win / avg loss. Lockbox not read.
+- NOT re-done: the forward read, ORB's big-day watch line, the NOISE KEEL scale term, the harm_monitor code.
+
+MATCH RULE (fixed now). VERIFIED if, per leg against q38_bands.json: mu and sd within 1% each; c within 0.05; A2 within 3%; power within
+3 points; trade counts equal where Q38 prints them. Any miss = DIFFERENCE, traced to its cause before any verdict word. My output's sha256
+is posted to MANAGER before the JSON is opened.
+COULD FOOL US: same files, master and band function as Q38 (the check is the per-share series, units, cost and booking); H's rows-per-
+month convention is my reading of the note.
