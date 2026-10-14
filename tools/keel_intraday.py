@@ -369,6 +369,21 @@ def _atomic_json(obj, path):
         raise
 
 
+def _atomic_json_lines(rows, path):
+    """`rows` as a JSON-lines file at `path`, written beside it and renamed in ([] = empty)."""
+    tmp = path + ".tmp"
+    try:
+        with open(tmp, "w", encoding="utf-8") as f:
+            for r in rows:
+                f.write(json.dumps(r, default=str) + "\n")
+            f.flush()
+            os.fsync(f.fileno())
+        os.replace(tmp, path)
+    except BaseException:
+        _drop_tmp(tmp)
+        raise
+
+
 def _load_joblib(path):
     import joblib
     try:
@@ -569,6 +584,17 @@ def _append_log(path, row):
     return row
 
 
+def rows_of_cut(state, rows):
+    """The append-log `rows` that belong to `state`'s cut: a row stamped with a cut_at (THE NQ
+    FEED's rows) only when it is this cut's; an unstamped row (the qqq_inbox feed's) always. THE
+    NIGHTLY RE-CUT (keel_live_state.nightly_recut) installs the new cut BEFORE it empties the log,
+    so a run that dies in between leaves old-cut rows that must never be applied to the new cut."""
+    from api import cloud_signal as cs
+    cut_at = ((cs.keel_live_meta(state) or {}).get("cut") or {}).get("cut_at") \
+        if isinstance(state, dict) else None
+    return [r for r in rows if not r.get("cut_at") or r.get("cut_at") == cut_at]
+
+
 def _catch_up(live, files, log=_log):
     """(live, applied): `live` brought level with the append log -- each row it lacks applied in
     order and written (prev, then the state). LedgerError when they disagree: a trade the state
@@ -576,7 +602,7 @@ def _catch_up(live, files, log=_log):
     from api import cloud_signal as cs
     meta = cs.keel_live_meta(live) or {}
     have = [str(a.get("trade_id")) for a in meta.get("appended") or [] if isinstance(a, dict)]
-    rows = read_appends(files["appends_path"])
+    rows = rows_of_cut(live, read_appends(files["appends_path"]))
     logged = {str(r["trade_id"]) for r in rows}
     lost = [t for t in have if t not in logged]
     if lost:
@@ -606,7 +632,7 @@ def replay(cut_state, rows):
     if not isinstance(cut_state, dict):
         raise ValueError("no cut state")
     st = cut_state
-    for r in rows:
+    for r in rows_of_cut(cut_state, rows):
         st = apply_append_row(st, r)
     return st
 
@@ -1126,6 +1152,7 @@ def nq_append_row(live, t, x_row, now_s, feed):
     entry = _parse_ts(t["entry_bar_time"])
     now_iso = _dt.datetime.fromtimestamp(int(now_s), _dt.timezone.utc).isoformat(timespec="seconds")
     return {"leg": meta.get("leg"), "trade_id": t["trade_id"], "feed": FEED_NQ_YAHOO,
+            "cut_at": (meta.get("cut") or {}).get("cut_at"),
             "n_before": int(live["n"]), "n_after": int(live["n"]) + 1,
             "entry_ts": entry.strftime(TS_FMT),
             "exit_ts": _parse_ts(_et_iso(t["exit_close_epoch"])).strftime(TS_FMT),

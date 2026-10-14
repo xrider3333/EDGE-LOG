@@ -590,6 +590,7 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
     t0 = time.time()
     trades, _res = run_nq_backtest(arr, leg=leg, log=log)
     backtest_s = time.time() - t0
+    trade_sizes = list((_res or {}).get("trade_sizes") or []) if isinstance(_res, dict) else []
 
     t0 = time.time()
     state = K.keel_build_state(arr, trades, version=version)
@@ -682,7 +683,11 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
         for name, fn in (("drift report", lambda: drift_check(state, out_dir, leg_key, version,
                                                               log=log, day=data_through)),
                          ("live check", lambda: live_check(state, out_dir, leg_key, version,
-                                                           log=log, data_through=data_through))):
+                                                           log=log, data_through=data_through)),
+                         # LAST, after both checks read the day's appends (owner feed 10-14)
+                         ("nightly re-cut", lambda: nightly_recut(
+                             state, arr, trades, out_dir, leg_key, version, log=log,
+                             trade_sizes=trade_sizes) if recut_wanted() else None)):
             try:
                 fn()
             except Exception as e:
@@ -1023,6 +1028,186 @@ def live_check(reference, out_dir, leg_key, version, log=print, now_iso=None, da
         log(f"[keel-live-state] live check failed (non-fatal): {type(e).__name__}: {e}")
         report.update(ok=None, error=f"{type(e).__name__}: {e}")
     _write_report(path, report, log)
+    return report
+
+
+# -- THE NIGHTLY RE-CUT (Custom ML #151 item 2 + DISC #154, 2026-10-14; the nq_yahoo feed only) ---
+# Under THE NQ FEED tonight's reference IS the backtest -- #382's own NQ trades on the current master
+# -- so after the checks above have read the day's appends, the live state is RE-CUT from it: live
+# := tonight's nightly (a fresh cut), the append log starts empty, and tomorrow's feed appends only
+# trades entered after tonight's data_through. Without it Yahoo's pull-to-pull jitter (opens /
+# closes <= 2.25 pts) would stay in the ledger's P for good, and the 10-12 cut would keep that
+# night's master for ever (the 10-14 master fill changed #382's own 2020 trades: DISC #154).
+# BEFORE the swap, a REPORT (RECUT_REPORT_FILE + a copy in keel/archive/): the day's appended trades
+# against tonight's rebuild -- same entry / exit bars and P within s x RECUT_P_TOL_PTS (s = the
+# trade's plugin size) -- the rebuild's trades the feed never learned ("missed") and appended ones
+# it does not hold ("extra"), and per live entry since the last cut how many NQ trades had exited
+# before its bar but were not yet in the state that scored it ("behind": the walk's ledger n at
+# that bar minus the entry record's state_n -- the feed's lag, counted after the fact; no host can
+# know an NQ exit before Yahoo settles it). Report only: nothing here alerts.
+# REFUSED (logged, the live state kept): no live state yet, or tonight's data_through is before the
+# live cut's (a stale master). ORDER: the archive copy, then the new cut + live state (atomic), then
+# the stale _prev removed, then the log emptied -- a run that dies between leaves old-cut rows that
+# keel_intraday.rows_of_cut never applies to the new cut.
+RECUT_REPORT_FILE = "keel_recut_report.json"
+RECUT_P_TOL_PTS = 4.5             # 2 x the 2.25-pt pull-to-pull jitter (entry + exit), per unit of size
+RECUT_ARCHIVE_DIR = "archive"
+
+
+def recut_wanted():
+    """True under the nq_yahoo feed (api/cloud_signal.KEEL_LIVE_FEED)."""
+    try:
+        from api import cloud_signal as _cs
+        return getattr(_cs, "KEEL_LIVE_FEED", None) == getattr(_cs, "KEEL_LIVE_FEED_NQ", "nq_yahoo")
+    except Exception:
+        return False
+
+
+def _recut_compare(rows, arr, trades, trade_sizes, cut):
+    """(matched, differ, missed, extra) -- see THE NIGHTLY RE-CUT."""
+    import pandas as pd
+    idx = pd.DatetimeIndex(arr["index"])
+    sizes = trade_sizes if len(trade_sizes) == len(trades) else [None] * len(trades)
+    ref = {}
+    for t, s in zip(trades, sizes):
+        e, x = int(t[0]), int(t[1])
+        side = "long" if float(t[3]) > 0 else "short"
+        ref[(idx[e].isoformat(), side)] = {"entry_bar_time": idx[e].isoformat(),
+                                           "exit_bar_time": idx[x].isoformat(), "side": side,
+                                           "P": float(t[2]), "size": (float(s) if s else None)}
+    through = str((cut or {}).get("data_through") or "")[:10]
+    live_from = str((cut or {}).get("live_from") or "")[:10]
+    matched, differ, extra, seen = [], [], [], set()
+    for r in rows:
+        if r.get("feed") != "nq_yahoo":
+            continue
+        key = (r.get("entry_bar_time"), r.get("side"))
+        t = ref.get(key)
+        if t is None:
+            extra.append({"trade_id": r.get("trade_id"), "entry_bar_time": key[0], "P": r.get("P")})
+            continue
+        seen.add(key)
+        tol = RECUT_P_TOL_PTS * float(t["size"] or 2.0)
+        dP = float(r.get("P")) - t["P"]
+        rec = {"trade_id": r.get("trade_id"), "entry_bar_time": key[0], "exit_live": r.get("exit_bar_time"),
+               "exit_rebuild": t["exit_bar_time"], "P_live": r.get("P"), "P_rebuild": t["P"],
+               "dP": dP, "tol": tol}
+        (matched if (r.get("exit_bar_time") == t["exit_bar_time"] and abs(dP) <= tol) else differ).append(rec)
+    missed = [t for k, t in ref.items() if k not in seen and t["entry_bar_time"][:10] > through
+              and (not live_from or t["entry_bar_time"][:10] >= live_from)]
+    return matched, differ, missed, extra
+
+
+def _recut_behind(xrows, arr, trades, cut):
+    """Per live entry since the last cut: {trade_id, entry_bar_time, state_n, walk_n, behind}."""
+    import pandas as pd
+    idx = pd.DatetimeIndex(arr["index"])
+    exits = sorted(idx[int(t[1])] for t in trades)
+    through = str((cut or {}).get("data_through") or "")[:10]
+    out = []
+    for tid, rec in sorted((xrows or {}).items(), key=lambda kv: str(kv[1].get("entry_bar_time"))):
+        ebt = rec.get("entry_bar_time")
+        if not ebt or str(ebt)[:10] <= through:
+            continue
+        t = pd.Timestamp(ebt)
+        walk_n = int(sum(1 for x in exits if x < t))
+        sn = rec.get("state_n")
+        out.append({"trade_id": tid, "entry_bar_time": ebt, "state_source": rec.get("state_source"),
+                    "state_n": sn, "walk_n": walk_n,
+                    "behind": (walk_n - int(sn)) if sn is not None else None})
+    return out
+
+
+def nightly_recut(state, arr, trades, out_dir, leg_key, version, log=print, trade_sizes=None,
+                  now_iso=None):
+    """THE NIGHTLY RE-CUT (see the block above): the report, then live := tonight's nightly.
+    Returns the report (also written to RECUT_REPORT_FILE). Never raises -- a failure is logged
+    and reported, and the live state is left as it was."""
+    import shutil
+    now_iso = now_iso or _dt_now_iso()
+    path = os.path.join(out_dir, RECUT_REPORT_FILE)
+    report = {"report_only": True, "leg": leg_key, "version": version, "at": now_iso,
+              "recut": False, "reason": None}
+    try:
+        from api import cloud_signal as _cs
+        from tools import keel_intraday as KI
+        if not os.path.exists(os.path.join(out_dir, _cs.keel_live_names(leg_key, version)["live"])):
+            # no live state in this dir (before the cut, or a build into another dir): no file,
+            # and a stale report is removed -- as the two checks above do
+            try:
+                os.remove(path)
+            except OSError:
+                pass
+            report["reason"] = "no live state yet -- the feed makes the cut"
+            log(f"[keel-live-state] re-cut {leg_key}: {report['reason']}")
+            return report
+        home = os.path.dirname(os.path.dirname(os.path.abspath(out_dir)))
+        files = KI.leg_files(home, leg_key, version)
+        if os.path.abspath(files["dir"]) != os.path.abspath(out_dir):
+            raise ValueError(f"the keel dir {out_dir} is not {files['dir']}")
+        with KI._Lock(os.path.join(os.path.dirname(os.path.abspath(out_dir)), KI.LOCK_NAME)):
+            live = KI._load_joblib(files["live_path"])
+            if not isinstance(live, dict):
+                report["reason"] = "no live state yet -- the feed makes the cut"
+                log(f"[keel-live-state] re-cut {leg_key}: {report['reason']}")
+                return report
+            meta = _cs.keel_live_meta(live) or {}
+            cut = meta.get("cut") or {}
+            summary = KI._load_json(files["summary_path"]) or {}
+            through = str(summary.get("data_through") or "")[:10]
+            report.update(old_cut=cut, old_n=int(live["n"]), nightly_through=through,
+                          nightly_n=int(state["n"]))
+            if not through or (cut.get("data_through") and through < str(cut["data_through"])[:10]):
+                report["reason"] = (f"tonight's nightly holds NQ through {through or 'nothing'}, before "
+                                    f"the live cut's {cut.get('data_through')} -- live state kept")
+                log(f"[keel-live-state] re-cut {leg_key} REFUSED: {report['reason']}")
+                return report
+            rows = KI.rows_of_cut(live, KI.read_appends(files["appends_path"]))
+            matched, differ, missed, extra = _recut_compare(rows, arr, trades, trade_sizes or [], cut)
+            behind = _recut_behind(_cs.read_keel_xrows(files["xrows_path"]), arr, trades, cut)
+            report.update(appended=len(rows), matched=len(matched), differ=differ, missed=missed,
+                          extra=extra, entries=behind,
+                          entries_behind=sum(1 for b in behind if (b.get("behind") or 0) > 0))
+            # 1. archive the day's log + this report
+            arch = os.path.join(out_dir, RECUT_ARCHIVE_DIR)
+            os.makedirs(arch, exist_ok=True)
+            tag = f"{str(cut.get('data_through') or 'none')[:10]}_to_{through}"
+            if os.path.exists(files["appends_path"]) and os.path.getsize(files["appends_path"]):
+                shutil.copy2(files["appends_path"],
+                             os.path.join(arch, f"{leg_key}_live_appends_{tag}.jsonl"))
+            # 2. the new cut + live state (atomic; the cut file first)
+            new = KI.make_cut(files, leg_key, version, None, now_iso,
+                              live_from=cut.get("live_from") or None)
+            if int(new["n"]) != int(state["n"]):
+                raise ValueError(f"the nightly on disk has n {new['n']}, tonight's build {state['n']}")
+            KI._install_cut(files, new, log=lambda m: log(f"[keel-live-state] re-cut {leg_key}: {m}"))
+            # 3. the stale _prev, then 4. the emptied log
+            try:
+                os.remove(files["live_prev_path"])
+            except OSError:
+                pass
+            KI._atomic_json_lines([], files["appends_path"])
+            old_ack = KI._load_json(files["live_ack_path"]) or {}
+            KI._write_ack(files, new, {}, {"status": "recut", "at": now_iso, "n": int(new["n"])},
+                          None, old_ack.get("alerts"),
+                          log=lambda m: log(f"[keel-live-state] re-cut {leg_key}: {m}"))
+            report.update(recut=True, new_cut=_cs.keel_live_meta(new)["cut"], new_n=int(new["n"]))
+        log(f"[keel-live-state] re-cut {leg_key}: live := tonight's nightly (n {report['old_n']} -> "
+            f"{report['new_n']}, NQ through {through}); the day's {len(rows)} appended trade(s): "
+            f"{len(matched)} match the rebuild, {len(differ)} differ, {len(missed)} missed, "
+            f"{len(extra)} extra; {report['entries_behind']} of {len(behind)} entries scored behind")
+    except Exception as e:
+        report.update(recut=False, reason=f"failed: {type(e).__name__}: {e}")
+        log(f"[keel-live-state] re-cut {leg_key} FAILED (live state kept): {type(e).__name__}: {e}")
+    try:
+        _write_report(path, report, log)
+        if report.get("recut"):
+            arch = os.path.join(out_dir, RECUT_ARCHIVE_DIR)
+            with open(os.path.join(arch, f"{leg_key}_recut_{report['nightly_through']}.json"), "w",
+                      encoding="utf-8") as f:
+                json.dump(report, f, indent=2, default=str)
+    except Exception as e:
+        log(f"[keel-live-state] re-cut report not written: {type(e).__name__}: {e}")
     return report
 
 

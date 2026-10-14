@@ -88,7 +88,8 @@ def _plus_months(day, months):
 
 
 # ── the nightly never touches the live state ────────────────────────────────────────────────────
-def test_the_nightly_build_leaves_the_live_state_alone_and_writes_both_reports(w):
+def test_the_nightly_build_leaves_the_live_state_alone_and_writes_both_reports(w, monkeypatch):
+    monkeypatch.setattr(cs, "KEEL_LIVE_FEED", cs.KEEL_LIVE_FEED_QQQ)   # the qqq feed: no re-cut
     live = _grow(w, w.live_trades[:3])
     day1 = w.live_trades[4:6]                         # entries of the build's last session, open
     assert {t["entry_time"].date() for t in day1} == {w.live_days[1]}
