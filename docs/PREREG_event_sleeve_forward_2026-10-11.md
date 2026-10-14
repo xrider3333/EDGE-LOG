@@ -132,3 +132,5 @@ parts' marked-to-market P&L.
 **The clock has not started.**
 - Parts A and B refuse on stale data (fund closes end 2026-09-08 / 2026-09-23; the auction calendar was fetched 2026-10-05) until the owner approves the two feeds (MANAGER #1041).
 - Part C runs. The check run used `--since 2026-10-14`, so no forward trade was scored.
+
+**Host (MANAGER #121, replaces section 6's proposal):** the owner's PC, run by Custom ML - forward / report-only, never the box.
