@@ -62,3 +62,23 @@ numbers survive costs and a 75% haircut - everything else on the list closed at 
   fidelity harness prints ONLY match statistics: share of TradingView trades matched, share of port trades matched, entry / exit price
   differences in ticks, exit-reason agreement and the matched pairs' P&L correlation. It never prints the port's own totals, win rate,
   net or drawdown on that window, and nobody reads them. The pass rule above is unchanged (80% matched AND correlation >= 0.80).
+
+## Amendment 2 (2026-10-14, after the Stage 0 FAIL, before any improvement number; owner GO via MANAGER #119)
+Everything below is OUR PORT ("MISC_SUPERSCALPER"), not the published script (Stage 0 showed the port cannot reproduce it).
+- ONE improvement round on the DEVELOPMENT YEAR only: NQ 1-minute ETH no-adjust, 2024-01-01 .. 2024-12-31 (already read once, as
+  ported: net PF 0.962, 68.8% wins, average win 15.5 vs loss 33.4 points - it lost on size, not hit rate). Lockbox unread.
+- New knobs (defaults reproduce the as-ported trades exactly; a test pins that): sl_scale (stop distance x, default 1.0),
+  max_hold_bars (time-out, 0 = off), be_trigger (move the stop to entry after +k x initial risk, 0 = off), vix_feed ('none' |
+  'daily': CBOE daily VIX photograph, the last COMPLETED day's close vs the close 10 sessions earlier, in place of the 1-minute VIX).
+  NYSE TICK stays absent (dropped). A footprint stand-in from our 10-second delta export is NOT possible: that capture starts
+  2026-06-23, after the development year and the whole walk-forward window.
+- The grid, fixed now (108 cells): sl_scale {0.5, 0.75, 1.0} x tp1_mult {2, 4, 6} x max_hold_bars {0, 30, 90} x be_trigger {0, 1.0}
+  x vix_feed {none, daily}; every other knob at its default; cost 0.706 points; intrabar 'worst'.
+- Selection: the cell with the highest development-year NET profit factor among cells with at least 500 trades. It becomes the
+  "improved" defaults ONLY if its net PF beats the as-ported cell's (0.962); otherwise the as-ported defaults stand. Printed for both:
+  trades, win rate, average win / average loss, net PF, net points. The best of 108 cells on one year is optimistic by construction -
+  the Auto-Validate's walk-forward and lockbox, not this round, decide.
+- Auto-Validate (replaces the section above where it differs): the ranged file with the chosen defaults, the new exit knobs OPEN
+  (sl_scale 0.4-1.2, tp1_mult 2-6, max_hold_bars 0-240, be_trigger 0-2, vix_feed none/daily) plus the existing ranges, 900 trials,
+  NOADJ_NQ_1m_ETH.csv pinned, window 2016-07-01 .. 2026-06-30, cost 0.706, intrabar 'worst', queued behind NOISE #422+TP. Runtime guard
+  unchanged. Reported: run number, the four numbers WF and LB apart, PBO, DSR, win rate, average win / loss.
