@@ -1065,7 +1065,9 @@ def _ends_session(ts):
     if not mc.is_session(d):
         return False
     close = pd.Timestamp(f"{d.isoformat()} {mc.session_close_et(d)}", tz=ts.tz)
-    return ts + pd.Timedelta(seconds=TF_SECONDS) == close
+    # epoch seconds, not Timestamp + Timedelta: on the box's numpy 2.5 that sum logs a
+    # DeprecationWarning ('generic' timedelta unit) on every 5-minute run
+    return int(ts.timestamp()) + TF_SECONDS == int(close.timestamp())
 
 
 def final_nq_trades(arr, trades, leg_key=LEG_KEY):
