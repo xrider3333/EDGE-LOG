@@ -1,0 +1,75 @@
+{
+ "params": {
+  "buf_atr": 0.4,
+  "tl_len": 238,
+  "trail_frac": 4.0,
+  "limit_atr": 0.1,
+  "atr_len": 28,
+  "act_R": 2.5,
+  "breakeven_R": 1.0,
+  "ema_len": 1340,
+  "er_len": 100,
+  "stop_mult": 1.2,
+  "regime_len": 5,
+  "min_brk": 1.4,
+  "vol_mult": 0.0,
+  "er_th": 0.0,
+  "max_hold_bars": 0
+ },
+ "master": "ADJ_NQ_1m_ETH.csv",
+ "n_trades_all": 1240,
+ "house_cost": {
+  "wf_trades": 755,
+  "wf_pts": 19527.286607142836,
+  "is_trades": 485,
+  "closed": {
+   "net": 390545.73214285675,
+   "per_yr": 44829.29876341245,
+   "years": 8.711841204654347,
+   "max_dd": 71677.3271428574,
+   "roc30": 18.762961964554645,
+   "dd5": 35638.19,
+   "one_episode": true,
+   "dd_pct_peak": 21.5469,
+   "sortino": 2.805734662544952
+  },
+  "valued_daily": {
+   "net": 390545.73214285675,
+   "per_yr": 44829.29876341245,
+   "years": 8.711841204654347,
+   "max_dd": 79463.45142857154,
+   "roc30": 16.924497221357978,
+   "dd5": 47243.74,
+   "one_episode": true,
+   "dd_pct_peak": 25.684,
+   "sortino": 1.3104285638850552
+  }
+ },
+ "real_cost": {
+  "wf_trades": 755,
+  "wf_pts": 19527.66410714283,
+  "is_trades": 485,
+  "closed": {
+   "net": 390553.2821428566,
+   "per_yr": 44830.16539996178,
+   "years": 8.711841204654347,
+   "max_dd": 71675.6071428571,
+   "roc30": 18.76377495231139,
+   "dd5": 35637.69,
+   "one_episode": true,
+   "dd_pct_peak": 21.5461,
+   "sortino": 2.8058016354054094
+  },
+  "valued_daily": {
+   "net": 390553.2821428566,
+   "per_yr": 44830.16539996178,
+   "years": 8.711841204654347,
+   "max_dd": 79461.72142857139,
+   "roc30": 16.925192883063783,
+   "dd5": 47243.24,
+   "one_episode": true,
+   "dd_pct_peak": 25.6835,
+   "sortino": 1.310455928603136
+  }
+ }
+}

@@ -1,0 +1,156 @@
+{
+ "champion": {
+  "act_R": 0.0,
+  "atr_len": 136,
+  "breakeven_R": 1.0,
+  "buf_atr": 0.85,
+  "ema_len": 700,
+  "er_len": 30,
+  "er_th": 0.15,
+  "limit_atr": 0.65,
+  "max_hold_bars": 4440,
+  "min_brk": 0.4,
+  "regime_len": 10,
+  "stop_mult": 1.4,
+  "tl_len": 222,
+  "trail_frac": 4.0,
+  "vol_mult": 0.2
+ },
+ "cost_pts_run": 0.783,
+ "file_defaults_differing": {
+  "act_R": 1.5,
+  "atr_len": 52,
+  "breakeven_R": 2.0,
+  "buf_atr": 0.3,
+  "ema_len": 220,
+  "er_len": 100,
+  "er_th": 0.0,
+  "limit_atr": 0.55,
+  "max_hold_bars": 0,
+  "min_brk": 1.6,
+  "stop_mult": 1.0,
+  "tl_len": 206,
+  "trail_frac": 2.5,
+  "vol_mult": 1.1
+ },
+ "master": "ADJ_NQ_1m_ETH.csv",
+ "master_sha256": "1081b431ab6d19c74b75fefb25639c7e02a29bccd84300090a167fc4f9f00801",
+ "multiplier": 20.0,
+ "parity": {
+  "PARITY_OK": true,
+  "crowned_flag": true,
+  "is": {
+   "mine_pts": 918.5561,
+   "mine_trades": 1093,
+   "ok": true,
+   "stored_pts": 918.5561,
+   "stored_trades": 1093
+  },
+  "n_matching_candidates": 1,
+  "wf": {
+   "mine_pts": 18611.2033,
+   "mine_trades": 1508,
+   "ok": true,
+   "stored_pts": 18611.2033,
+   "stored_trades": 1508
+  }
+ },
+ "run": 491,
+ "store_wf_oos_stitched_refolds": {
+  "from": "2016-10-12",
+  "max_drawdown": 2817.7,
+  "mode": "anchored",
+  "net": 6940.8,
+  "sortino": 1.2756862935132816,
+  "to": "2025-06-29",
+  "trades": 1401
+ },
+ "strategy": "ENGUQ_1M_ETH_HC_1_0.py",
+ "strategy_sha256": "3fa3683d83fc9b9164173ef0b7b2a6608b706f5dfbeb6572e0eca1d7aa542dc1",
+ "wf": {
+  "from": "2016-10-12",
+  "house_cost": {
+   "avg_win_loss": [
+    3591.6942110100613,
+    597.7167556673829
+   ],
+   "closed": {
+    "dd5": 27727.71,
+    "dd_pct_peak": 10.1143,
+    "max_dd": 32752.90139705906,
+    "net": 372224.0663235296,
+    "one_episode": false,
+    "per_yr": 42726.22257217762,
+    "roc30": 39.13505742976475,
+    "sortino": 2.5511608653576174,
+    "years": 8.711841204654347
+   },
+   "valued_daily": {
+    "dd5": 31063.72,
+    "dd_pct_peak": 12.6091,
+    "max_dd": 42731.767794117855,
+    "net": 372224.0663235296,
+    "one_episode": true,
+    "per_yr": 42726.22257217762,
+    "roc30": 29.996106955859897,
+    "sortino": 1.9191539809512779,
+    "years": 8.711841204654347
+   },
+   "win_rate": 0.20159151193633953
+  },
+  "n_days": 2710,
+  "real_cost": {
+   "avg_win_loss": [
+    3591.7042110100606,
+    597.706755667383
+   ],
+   "closed": {
+    "dd5": 27727.24,
+    "dd_pct_peak": 10.1139,
+    "max_dd": 32752.461397058883,
+    "net": 372239.1463235294,
+    "one_episode": false,
+    "per_yr": 42727.95354955032,
+    "roc30": 39.137168683194496,
+    "sortino": 2.5512791231913763,
+    "years": 8.711841204654347
+   },
+   "valued_daily": {
+    "dd5": 31063.15,
+    "dd_pct_peak": 12.6086,
+    "max_dd": 42731.147794117685,
+    "net": 372239.1463235294,
+    "one_episode": true,
+    "per_yr": 42727.95354955032,
+    "roc30": 29.99775743592279,
+    "sortino": 1.919239967584424,
+    "years": 8.711841204654347
+   },
+   "win_rate": 0.20159151193633953
+  },
+  "to": "2025-06-29",
+  "trades": 1508
+ },
+ "wf_cut": {
+  "bar": 2034525,
+  "from_fold1_train_bars": true,
+  "time": "2016-10-12 01:53:00-04:00"
+ },
+ "window": [
+  "2010-06-07",
+  "2026-06-30"
+ ],
+ "windows": {
+  "lockbox": [
+   "2025-06-30",
+   "2026-06-30"
+  ],
+  "lockbox_months": 12,
+  "optimize": [
+   "2010-06-07",
+   "2025-06-29"
+  ],
+  "warm_days": 300,
+  "wf_split": "2016-10-12"
+ }
+}
