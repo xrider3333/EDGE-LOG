@@ -1229,14 +1229,18 @@ def test_review_4_the_repair_checks_webull_before_every_send(env):
     env.books(NOISE=10)
     env.fake.pos = 0                                  # sold by hand (or by our limit) overnight
     env.trigger().write_text("flatten\n", encoding="utf-8")
-    env.clock[0] = at(DAY2, 9, 31)
-    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31), log=env.log)
+    cfg = _repair_cfg(env)
+    for t in (at(DAY2, 9, 31, 0), at(DAY2, 9, 31, 10)):
+        env.clock[0] = t
+        qe._maybe_flatten_orphan_broker(env.state, cfg, t, log=env.log)
     assert env.fake.orders == [] and env.trigger().exists(), "kept for when they agree"
-    assert len(env.titled("QQQ book: CHECK NOW")) == 1
+    assert env.titled("QQQ book: CHECK NOW") == [], "one lag-sized disagreement: no note yet"
+    qe._maybe_flatten_orphan_broker(env.state, cfg, at(DAY2, 9, 31, 30), log=env.log)
+    assert len(env.titled("QQQ book: CHECK NOW")) == 1, "two reads 30 s apart disagree: noted"
     env.fake.pos = 10
-    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31, 10), log=env.log)
-    assert env.fake.orders == [], "a disagreement is re-read after 30 s, not every tick"
-    qe._maybe_flatten_orphan_broker(env.state, _repair_cfg(env), at(DAY2, 9, 31, 40), log=env.log)
+    qe._maybe_flatten_orphan_broker(env.state, cfg, at(DAY2, 9, 31, 40), log=env.log)
+    assert env.fake.orders == [], "a confirmed disagreement is re-read after 30 s, not every tick"
+    qe._maybe_flatten_orphan_broker(env.state, cfg, at(DAY2, 9, 32, 0), log=env.log)
     (o,) = env.fake.orders
     assert (o["side"], o["quantity"], o["order_type"]) == ("SELL", "10", "MARKET")
 
@@ -1527,3 +1531,88 @@ def test_review_2_the_day_summary_says_the_after_hours_sell_is_still_working(env
     assert "the after-hours sell is still working" in note["message"]
     assert any("Webull flat: after-hours sell in progress" in ev["text"]
                for ev in env.state["events"])
+
+
+# ══ VERIFY PASS ON df972313 (2026-10-14) ═════════════════════════════════════════════════════
+
+@pytest.mark.parametrize("back", [at(DAY, 20, 45, 0), at(DAY2, 8, 0, 0)])
+def test_verify_1_a_crash_between_one_attempts_settle_and_the_next_send_is_recovered(
+        env, monkeypatch, back):
+    """The tick that settled attempt 1 (CANCELLED) and sent attempt 2 crashed before its state was
+    saved; the restart comes outside the sending window -- at 20:45, or the next morning (before
+    the next session's close, when no in-window scan runs). The saved state still shows attempt
+    1 in flight, so the startup scan cannot adopt attempt 2 yet -- it is adopted as soon as
+    attempt 1 is serviced and settled, read, cancelled and settled, and the reconcile it held
+    resumes."""
+    env.books(ORB=10)
+    env.ah(at(DAY, 16, 0, 5))
+    first = "qxAHORB20261014160005C"
+    env.ah(at(DAY, 16, 0, 50))                         # due: cancel sent, Webull not yet confirmed
+    assert env.rec("ORB")["status"] == "cancelling"
+    qe.save_state(env.state)                           # the last state that reached the disk
+    env.ah(at(DAY, 16, 0, 55))                         # attempt 1 settled + attempt 2 sent ...
+    second = env.fake.orders[1]["client_order_id"]
+    assert second == "qxAHORB20261014160055C" and env.held("ORB") == 0, "acked: booked as sold"
+    env.state = qe.load_state()                        # ... and the crash: back to attempt 1
+    env.new_adapter()
+    monkeypatch.setitem(qe._PROCESS, "ah_boot_scan", False)
+    assert env.state["after_hours_flatten"][ds(DAY)]["ORB"]["coid"] == first
+    assert qe._ah_reconcile_hold(env.state, env.adapter)
+
+    env.ah(back)
+    rec = env.rec("ORB")
+    assert rec["coid"] == second and rec["status"] in qe.AH_IN_FLIGHT and rec["adopted"], \
+        "adopted in the same tick its leg's earlier order was settled"
+    assert rec["history"][-1]["coid"] == first and "_ah_adopt_wait" not in env.state
+    env.ah(back + timedelta(seconds=5))                # read: still working -- cancelled
+    assert env.fake.cancels[-1] == second
+    env.ah(back + timedelta(seconds=10))               # Webull confirms: the 10 are back
+    rec = env.rec("ORB")
+    assert rec["status"] == "gave_up" and env.held("ORB") == 10 and env.trigger().exists()
+    assert len(env.fake.orders) == 2, "nothing new sent after the window"
+    assert not qe._ah_reconcile_hold(env.state, env.adapter)
+    calls = []
+    monkeypatch.setattr(env.adapter, "reconcile", lambda *a, **k: calls.append(1) or {"ok": True})
+    env.state["_last_broker_send_at"] = 0.0
+    qe._maybe_run_broker_reconcile(env.state, env.cfg, env.adapter,
+                                   back + timedelta(seconds=60), False, log=NOOP)
+    assert calls == [1], "the reconcile resumes"
+
+
+def test_verify_2_one_lagging_position_read_holds_the_repair_silently(env):
+    """Webull's position read lags a fill: the first read disagrees, the next agrees -- no note,
+    and the repair goes out on the agreeing tick."""
+    env.books(NOISE=10)
+    env.trigger().write_text("flatten\n", encoding="utf-8")
+    cfg = _repair_cfg(env)
+    env.fake.pos = 0                                   # the lagging read
+    env.clock[0] = at(DAY2, 9, 31, 0)
+    qe._maybe_flatten_orphan_broker(env.state, cfg, at(DAY2, 9, 31, 0), log=env.log)
+    assert env.fake.orders == [] and env.pushes == []
+    env.fake.pos = 10                                  # caught up
+    env.clock[0] = at(DAY2, 9, 31, 5)
+    qe._maybe_flatten_orphan_broker(env.state, cfg, at(DAY2, 9, 31, 5), log=env.log)
+    (o,) = env.fake.orders
+    assert (o["side"], o["quantity"], o["order_type"]) == ("SELL", "10", "MARKET")
+    assert env.pushes == [], "a single lagging read never pages"
+    assert "_repair_account" not in env.state
+
+
+def test_verify_3_a_give_up_does_not_hide_other_shares_webull_still_holds(env):
+    """ORB's after-hours sell gave up on its 10 (its own urgent note covers them); Webull holds
+    16. The after-close check pushes once, about the 6 beyond the give-up."""
+    env.books(ORB=10)
+    env.state.update(flat_by_done_date=ds(DAY), _last_broker_send_at=0.0)
+    env.fake.refuse = ["OPENAPI_CAN_NOT_TRADING_FOR_FIXGW_NOT_READY_MARKET"] * 3
+    for t in (at(DAY, 16, 0, 5), at(DAY, 16, 0, 50), at(DAY, 16, 1, 35)):
+        env.ah(t)
+    assert env.rec("ORB")["status"] == "gave_up"
+    env.fake.pos = 16                                  # 6 more than the books know about
+    n = len(env.pushes)
+    qe._maybe_check_webull_flat_after_eod(env.state, env.cfg, at(DAY, 16, 2, 10), log=env.log)
+    (note,) = env.pushes[n:]
+    assert note["priority"] == "urgent" and ntfy_push.lint(note) == []
+    assert "Webull holds 6 QQQ shares beyond the after-hours give-up" in note["message"]
+    flat = env.state["_webull_flat_after_eod"]
+    assert (flat["flat"], flat["shares"], flat["pushed"]) == (False, 16, True)
+    # exactly the given-up shares: no second page (test_review_2_after_a_give_up_...)
