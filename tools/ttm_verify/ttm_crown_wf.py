@@ -120,7 +120,12 @@ def main(key):
     wf0, opt1 = pd.Timestamp(w["wf_split"]), pd.Timestamp(w["optimize"][1])
     cands = [c for c in (d.get("selection") or {}).get("candidates", []) if c.get("params") == P]
     st = cands[0].get("cal", {}) if cands else {}
-    b0 = int(np.searchsorted(idxn, wf0))                   # first bar on/after wf_split = the validate's _wfB0
+    # ADDENDUM 1 (after #490's output, before ENGU-Q's): the validate's cut is _wfB0 = the first anchored fold's train_bars
+    #   (augur_engine/validate.py:450), a bar that can sit inside the wf_split day - read it from top10_results; date cut = fallback
+    t10 = RW.run_ref(RW.real_client(), int(run)).get(field_paths=["top10_results"]).to_dict().get("top10_results") or []
+    tb = sorted({int(x["train_bars"]) for x in t10 if x.get("fold") == 1 and x.get("train_bars")})
+    b0 = tb[0] if len(tb) == 1 else int(np.searchsorted(idxn, wf0))
+    res["wf_cut"] = {"bar": b0, "time": str(idx[b0]), "from_fold1_train_bars": len(tb) == 1}
     mine = {"is": H[H["eb"] < b0], "wf": H[H["eb"] >= b0]}
     par = {}
     for nm in ("is", "wf"):
@@ -133,8 +138,8 @@ def main(key):
     # WF: trades entered in [wf_split, optimize end]; calendar = the master's ET dates in it UNION the kept exit dates
     keep = H["eb"] >= b0
     ex = H["exit"][keep].dt.normalize()
-    cal = pd.DatetimeIndex(sorted(set(idxn.normalize()[(idxn >= wf0) & (idxn < opt1 + pd.Timedelta(days=1))]) | set(ex)))
-    res["wf"] = {"from": str(wf0.date()), "to": str(opt1.date()), "trades": int(keep.sum()), "n_days": len(cal)}
+    cal = pd.DatetimeIndex(sorted(set(idxn.normalize()[(idxn >= idxn[b0].normalize()) & (idxn < opt1 + pd.Timedelta(days=1))]) | set(ex)))
+    res["wf"] = {"from": str(idxn[b0].date()), "to": str(opt1.date()), "trades": int(keep.sum()), "n_days": len(cal)}
     for lab, D in (("house_cost", H[keep]), ("real_cost", Rl[keep])):
         u = D["usd"]
         res["wf"][lab] = {"closed": four(daily_closed(D, cal), cal),

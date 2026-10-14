@@ -32,3 +32,10 @@ HARNESS SMOKE TEST (disclosed; NOT a target): run on the existing NOISE crown #4
 the 5m RTH master rewritten 10-14 10:14, after #422 ran (09-24). #422's champion on WF from that test (today's master): ROC@30k 87.40
 house / 82.71 real cost, DD5 $12,686 / $12,995, DD% from peak 6.1% / 7.0%, Sortino 4.24 / 4.06. It is the twin of the NOISE+TP crown;
 known before that crown lands.
+
+ADDENDUM 1 (2026-10-14 ~16:20, AFTER run #490's output sha 6ac34c00 was posted, BEFORE the ENGU-Q hold cap crown has landed): the
+validate's IS / WF cut is not the first bar of the wf_split date but _wfB0 = the first anchored fold's train_bars
+(augur_engine/validate.py:450), which can sit inside that day (#490: bar 119292 = 2016-07-01 13:10 vs the date cut's bar 119248). The
+date cut moved 4 trades (8.62 pts) from IS to WF; re-sliced at the stored bar, #490 matches cal.is and cal.wf EXACTLY (trace_split.py).
+From here the harness cuts at fold 1's train_bars read from the run doc's top10_results (date cut only if that is missing), and the
+WF set + calendar start at that bar. Nothing else changes.
