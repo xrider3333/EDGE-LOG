@@ -1,0 +1,41 @@
+BOOK QUEUE Q43 - THE WEBULL BOOK'S NOISE SEAT: NOISE #422's file (CT304H, squeeze tilt 1.75) vs today's NOISE_382 (CT304, tilt 2.0) on QQQ.
+FRONTIER queue (MANAGER #160: best-ROI test, power-first gate, prereg before main). PRE-DATA NOTE for MANAGER, 2026-10-14. A report: the seat
+is the owner's call.
+
+WHY.
+- Q41 showed NOISE carries the live Webull book (NOISE alone 83 ROC@30k; the book 25 with DIP, 62 without).
+- The NQ book's NOISE leg is #422 (CT304H, the hourly-squeeze tilt), and the squeeze carries inside #463 (sq60 x1.5: WF 101.1 vs twin 95.9).
+- The Webull book runs NOISE_382 (CT304) instead. The box already logs NOISE_422_PLAIN as a no-order shadow (since 09-28), but #422's file
+  has never been read as the Webull book's NOISE seat on the walk-forward.
+
+THE ARMS, both exactly as api/cloud_signal.py on main runs them:
+- S382 = NOISE_382, NOISE_1_8_CT304.py at NOISE_382_PARAMS.
+- S422 = NOISE_422_PLAIN, NOISE_1_8_CT304H.py at NOISE_422_PARAMS.
+- Both at 10 shares x the plugin's own size, KEEL x1.0; both read the same QQQ 5m Alpaca master (master_ac263357, sha256 782dabdd...).
+- Per-share P&L as Q38: the plugin's size fold is inverted (pts = s x raw - (s - 1) x size_cost_pts), $0.02 a share a round trip, each trade
+  on its exit day, zero-filled QQQ RTH sessions.
+- The other legs: ORB_R6 and DIP_424F from Q41's saved daily series (bookq/q41 q41_legs_daily.csv), unchanged.
+
+STRETCHES: WF 2017-08-07..2025-06-29 (as Q41); LB 2025-06-30..2026-06-30 apart, as a report only (the legs' QQQ lockbox years were read
+before).
+
+ROWS (four numbers each: ROC@30k, DD5, DD% from peak at $100k, Sortino; plus $ a year):
+- the NOISE seat alone: S382, S422;
+- the book without DIP: ORB + S382 (= Q41 V1), ORB + S422;
+- the book as deployed: ORB + S382 + DIP (= Q41 V0), ORB + S422 + DIP.
+These are 4 book looks for the tally; S382's two rows repeat Q41 and must reproduce its numbers to $1 (a parity gate).
+
+PRE-SET TEST: a paired stationary block bootstrap of the daily rows (2,000 draws, mean block 20, seed 20261014). The same resampled days go to
+both arms, and each draw records the difference in book WF ROC@30k (S422 book minus S382 book), for the book with DIP and the book without.
+The words are fixed now:
+- "the #422 seat lifts the Webull book" if the 5th percentile of the difference is > 0;
+- "the #422 seat lowers it" if the 95th percentile is < 0;
+- otherwise "not distinguishable on the walk-forward".
+The interval's width is printed beside the verdict, as the power line: the difference a 90% interval can resolve.
+
+COULD FOOL US:
+- one WF path;
+- KEEL's live sizing is not simulated;
+- #422 was crowned on NQ, so its QQQ read is a transfer (QQQ VALIDATE r1: NOISE keeps 0.94 of its NQ edge);
+- the box's forward NOISE_422_PLAIN shadow (since 09-28) is too short to say anything and is not read here.
+Script: bookq/q43_webull_noise_seat.py; witness prereg/frontier-wbnoise-1014 before the run.
