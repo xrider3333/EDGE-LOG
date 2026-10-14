@@ -467,6 +467,10 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
                f"{len(events)} event(s), bar_source=stream")
             for line in not_taken:   # this commit IS the leg's real decision (see above)
                 log(line)
+            # LATE SKIPS ARE NEVER SILENT (owner 2026-10-14): the dry run could not page
+            # (fetch=False) and step() never re-diffs this bar -- the commit pages instead
+            cs._push_committed_late_skips(leg_key, cfg, baseline, mutated, effective_now,
+                                          paths=paths, log=log)
         elif want_live:
             log(f"[cloud-signal-stream] {leg_key}: stream decision computed but not fired "
                f"live -- disagreement latch tripped today ({today})")

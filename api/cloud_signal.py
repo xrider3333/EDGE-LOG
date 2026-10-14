@@ -3653,6 +3653,111 @@ def _not_taken_after_close_line(leg_key, t, now):
             f"seen at {seen_txt}, after {close_txt}. No order.")
 
 
+# LATE SKIPS ARE NEVER SILENT (owner 2026-10-14 via MANAGER #162/#163: "make sure it does not
+# happen again"). The live ORB_R6 leg dropped five trades 09-21..09-25 as "late" and nobody was
+# told: today's still-building session read as a half day until ~14:05 (fixed 09-26 by the
+# session_in_progress pass-through), so each morning entry first showed up hours after its bar,
+# past max_entry_age_sec, and _diff_leg recorded it in late_skipped WITHOUT a word. Every "late"
+# skip now writes one log line (_not_taken_late_line: leg, bar time, side, age, the limit), and
+# a LIVE leg's FIRST late skip of the ET day sends ONE high plain phone note per leg
+# (_late_skip_push_once): the stamp is leg_state["late_alert"]["last_pushed_date"] (state.json,
+# so a restart never repeats it) and the note goes through _engine_note (the house repeat rule,
+# problem id = that ET date) on _engine_push_background, only where every engine page may go
+# (_push_allowed: a live fetching tick on the cloud box). A shadow leg logs the line only.
+def _not_taken_late_line(leg_key, t, now, max_age_sec, shadow=False):
+    """The ONE log line for a NEW entry _diff_leg records as "late" (see the block above): leg,
+    side, the signal's bar time, how old it was when first seen, and the freshness limit it
+    missed. Never raises."""
+    try:
+        when = _dt.datetime.fromisoformat(str(t.get("entry_time")))
+        when = when.astimezone(_zi(TZ)) if when.tzinfo else when.replace(tzinfo=_zi(TZ))
+        seen = now.astimezone(_zi(TZ)) if now.tzinfo else now.replace(tzinfo=_zi(TZ))
+        age = (seen - when).total_seconds()
+        at = f"{when:%H:%M} ET bar on {when:%Y-%m-%d}"
+        age_txt = f"{age:.0f}s ({age / 60:.1f} min)"
+        seen_txt = f"{seen:%H:%M:%S} ET"
+    except Exception:
+        at, age_txt, seen_txt = str(t.get("entry_time")), "unknown", str(now)
+    try:
+        lim = float(max_age_sec)
+        lim_txt = f"{lim:.0f}s ({lim / 60:.1f} min)"
+    except (TypeError, ValueError):
+        lim_txt = str(max_age_sec)
+    return (f"[cloud-signal] {leg_key} NOT TAKEN - late: {_keel_leg_word(leg_key)} "
+            f"{t.get('side')} entry at the {at} was first seen at {seen_txt}, {age_txt} old -- "
+            f"past the {lim_txt} freshness limit (max_entry_age_sec). "
+            + ("Shadow leg: no order either way." if shadow else "No order."))
+
+
+def _late_skip_note(leg_key, rec, now):
+    """The plain phone note (api/ntfy_push.plain) for a live leg's late skip: high -- a trade
+    the backtest takes was not taken."""
+    from api import ntfy_push
+    w = _keel_leg_word(leg_key)
+    side = str(rec.get("side") or "").lower()
+    what = {"long": "buy", "short": "short sale"}.get(side, "trade")
+    try:
+        when = _dt.datetime.fromisoformat(str(rec.get("entry_time")))
+        when = when if when.tzinfo else when.replace(tzinfo=_zi(TZ))
+        seen = now if now.tzinfo else now.replace(tzinfo=_zi(TZ))
+        mins = max(0, int(round((seen - when).total_seconds() / 60.0)))
+        clock = ntfy_push.hhmm(when, now=seen)
+    except Exception:
+        mins, clock = None, "earlier today"
+    problem = (f"The signal reached the engine {mins} minutes after its bar, too late to trade"
+               if mins is not None else "The signal reached the engine too late to trade")
+    return ntfy_push.plain(w, "trade not taken",
+                           f"{w} did not take its {what} signal from {clock}", problem,
+                           "ask Claude (PAPER-WB chat) why it was late, today", priority="high")
+
+
+def _late_skip_push_once(leg_key, rec, now, leg_state, paths=None, log=print):
+    """ONE phone note per leg per ET day for a live leg's late skip (see the block above
+    _not_taken_late_line). The caller gates it (_push_allowed). The day is stamped on
+    leg_state["late_alert"] (state.json) once _engine_note pushed -- its repeat rule (problem
+    id = the ET date, phone_dedupe.json) is the second hold, so a note it holds (already sent
+    today) or could not record leaves the stamp alone and costs at most a log line at the next
+    late skip. The push runs on a daemon thread with the engine outbox behind it, so the
+    decision path never waits on the network. Returns True when it pushed. Never raises."""
+    try:
+        et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+        day = et.date().isoformat()
+        if (leg_state.get("late_alert") or {}).get("last_pushed_date") == day:
+            return False
+        note = _late_skip_note(leg_key, rec, now)
+        action = _engine_note(f"late_skip:{leg_key}", day, note, paths, log=log,
+                              push=_engine_push_background)
+        if action != "push":
+            return False
+        alert = leg_state.setdefault("late_alert", {})
+        alert["last_pushed_date"] = day
+        alert["last_trade_entry"] = str(rec.get("entry_time"))
+        alert["last_side"] = str(rec.get("side"))
+        return True
+    except Exception as e:
+        log(f"[cloud-signal] {leg_key}: late-skip push failed ({type(e).__name__}: {e})")
+        return False
+
+
+def _push_committed_late_skips(leg_key, cfg, baseline, leg_state, now, paths=None, log=print):
+    """For the stream path's COMMIT (api/cloud_signal_stream._handle_handoff_window): its dry
+    run ran _diff_leg with fetch=False, so a late skip it recorded paged no one, and step()
+    never diffs that bar again. The first late record NEW against `baseline` gets the same
+    once-per-leg-per-day note here. Only the live thread commits, hence fetch=True for the
+    gate. Never raises; True when it pushed."""
+    try:
+        if not _push_allowed(cfg, True):
+            return False
+        before = (baseline or {}).get("trades") or {}
+        for key, rec in (leg_state.get("trades") or {}).items():
+            if key not in before and (rec or {}).get("skipped") == "late":
+                return _late_skip_push_once(leg_key, rec, now, leg_state, paths=paths, log=log)
+        return False
+    except Exception as e:
+        log(f"[cloud-signal] {leg_key}: late-skip push failed ({type(e).__name__}: {e})")
+        return False
+
+
 def _merge_rank(rec):
     """Which of two memory records for ONE trade id to keep when re-keying: a record whose
     ENTRY really was emitted beats a skipped/seeded twin (its EXIT may still be owed), and
@@ -4340,7 +4445,8 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
                            max_entry_age_sec=cfg.get("max_entry_age_sec",
                                                      3 * TIMEFRAME_SECONDS[tf]),
                            bar_source=(state.get("bar_source", {}).get(tf, {}).get("source")),
-                           cfg=cfg, arrays=diff_arrays, fetch=fetch, post_close=post_close)
+                           cfg=cfg, arrays=diff_arrays, fetch=fetch, post_close=post_close,
+                           paths=paths)
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
 
@@ -4469,7 +4575,7 @@ def _carry_seeded_open(leg_key, trades, leg_state, bar_source, now, cfg=None):
 
 def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_source=None,
              cfg=None, arrays=None, fetch=True, log=print, post_close=False,
-             not_taken_log=None):
+             not_taken_log=None, paths=None):
     """Mutates leg_state['trades'] (entry_key -> record) in place; returns the list of
     NEW ENTRY/EXIT event dicts this call discovered.
 
@@ -4560,6 +4666,14 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
     dry runs on throwaway state copies (api/cloud_signal_stream._dry_run_decision) collect it
     and log it only for a decision they commit, so a tick through the stream path still logs
     it once -- not once per dry run plus once more from step().
+
+    LATE SKIPS ARE NEVER SILENT (owner 2026-10-14, MANAGER #162/#163 -- see the block above
+    _not_taken_late_line). Every "late" skip writes ONE line through the same `not_taken_log`
+    channel ("NOT TAKEN - late": leg, side, bar time, age, the limit) -- a shadow leg's too,
+    marked as such -- and a LIVE leg's first late skip of the ET day sends one phone note
+    (_late_skip_push_once, gated by _push_allowed -- so never from a fetch=False dry run;
+    the stream's commit sends its own, see api/cloud_signal_stream). `paths` (optional) is the
+    store whose phone_dedupe.json / outbox that note uses (None -> DEFAULT_PATHS).
 
     TRADE ID (2026-09-14). Every ENTRY and EXIT event carries `trade_id` (api/trade_id.py),
     the same value on both rows of one trade, and it is also the key of this leg's memory
@@ -4688,7 +4802,17 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 counter = f"{skip}_skipped"
                 leg_state[counter] = int(leg_state.get(counter, 0)) + 1
                 note = log if not_taken_log is None else not_taken_log
-                if note and not (cfg or {}).get("shadow") and (
+                shadow = bool((cfg or {}).get("shadow"))
+                if skip == "late":
+                    # LATE SKIPS ARE NEVER SILENT (see the docstring): one line, and a live
+                    # leg's first of the ET day pages once
+                    if note:
+                        note(_not_taken_late_line(leg_key, t, now, max_entry_age_sec,
+                                                  shadow=shadow))
+                    if _push_allowed(cfg, fetch):
+                        _late_skip_push_once(leg_key, recorded[key], now, leg_state,
+                                             paths=paths, log=log)
+                elif note and not shadow and (
                         skip == "after_close"
                         or (skip == "stale" and _entry_from_previous_session(t, now))):
                     # the market is closed: never emitted, never silent (see the docstring)
