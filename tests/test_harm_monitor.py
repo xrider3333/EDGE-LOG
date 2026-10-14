@@ -201,3 +201,27 @@ def test_post_carries_the_webull_block_before_the_record():
     assert lines[-2].startswith("- On record: NOISE A1 at the 07-17 check")
     err = HM.format_post(reads, "2026-10-12", None, ({}, {"error": "FileNotFoundError: x"})).splitlines()
     assert "- Webull legs not read: FileNotFoundError: x." in err and err[1] == "- No alarm tripped."
+
+
+def test_webull_dip_reads_the_live_engine_key_and_slot_legs(tmp_path):
+    """the live DIP leg trades under engine key DIP_424 (trade ids DIP_424-<UTC>-L-<SLOT>, executor legs DIP_STREAK .. DIP_GAPDN), not
+    under its band name DIP_424F - a band-name match would never see a DIP trade (found 10-14 on the box's first DIP lots)"""
+    root = str(tmp_path)
+    T = lambda leg, tid, ex, sh, pnl: {"leg": leg, "trade_id": tid, "exit_ts": ex, "shares": sh, "pnl": pnl, "size": 1.0, "keel_size": None}
+    trades = [T("DIP_STREAK", "DIP_424-20261013T133000Z-L-STREAK", "2026-10-15 09:35:00", 6, 24.0),
+              T("DIP_GAPDN", "DIP_424-20261013T133000Z-L-GAPDN", "2026-10-15 09:35:00", 6, 18.0),
+              T("DIP_RSI", None, "2026-10-16 09:35:00", 6, -12.0)]                         # no trade id: by the DIP_ slot-leg prefix
+    sig = [{"leg": "DIP_424", "event": "EXIT", "trade_id": "DIP_424-20261013T133000Z-L-STREAK", "keel_size": None,
+            "ref_time": "2026-10-15T09:30:00-04:00"},
+           {"leg": "DIP_424", "event": "EXIT", "trade_id": "DIP_424-20261013T133000Z-L-GAPDN", "keel_size": None,
+            "ref_time": "2026-10-15T09:30:00-04:00"},
+           {"leg": "DIP_424", "event": "EXIT", "trade_id": "DIP_424-20261014T133000Z-L-RSI", "keel_size": None,
+            "ref_time": "2026-10-16T09:30:00-04:00"}]
+    _box_folder(root, "2026-10-16_1445", trades, sig)
+    fw, meta = HM.webull_forward("2026-10-19", root)
+    assert "DIP_424F" in fw and meta["trades"]["DIP_424F"] == 3 and meta["starts"]["DIP_424F"] == "2026-10-15"
+    assert abs(fw["DIP_424F"].sum() - (24.0 + 18.0 - 12.0)) < 1e-9                         # 6 sh a lot: the $ as booked
+    assert any("1 DIP_424F trade(s) have no trade id" in t for t in meta["notes"])
+    assert not any("engine exits" in t for t in meta["notes"])                                # 3 engine exits = 3 executor trades
+    r = HM.read_webull(fw, meta)
+    assert not r["DIP_424F"].get("no_trades") and r["DIP_424F"]["trades"] == 3

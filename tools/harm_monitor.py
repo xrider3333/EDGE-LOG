@@ -63,7 +63,10 @@ LEG_NAME = {"ORB": "ORB", "ENGUQ": "ENGU-Q", "TTMSQZ": "TTM x3", "NOISE": "NOISE
 WEBULL_ORDER = ("ORB_R6", "NOISE_382", "DIP_424F")
 WEBULL_UNIT = {"ORB_R6": 10, "NOISE_382": 10, "DIP_424F": 6}
 WEBULL_UNIT_WORDS = {"ORB_R6": "10 sh", "NOISE_382": "10 sh x plugin size", "DIP_424F": "6 sh a lot"}
-WEBULL_EXEC_LEG = {"ORB_R6": "ORB", "NOISE_382": "NOISE", "DIP_424F": "DIP"}     # trades.csv leg column, for a row with no trade_id
+# the box names the trades of a leg by its ENGINE key: trade ids "<key>-<UTC>-<side>[-<slot>]" and the engine rows in signals.csv. DIP_424F (the
+# constant-size shadow) went live as engine key DIP_424, one executor leg per mechanism slot (DIP_RSI .. DIP_GAPDN; box 10-12/13)
+WEBULL_ENGINE_KEY = {"ORB_R6": "ORB_R6", "NOISE_382": "NOISE_382", "DIP_424F": "DIP_424"}
+WEBULL_EXEC_LEG = {"ORB_R6": "ORB", "NOISE_382": "NOISE", "DIP_424F": "DIP_"}    # trades.csv leg column (DIP: the prefix of its slot legs), for a row with no trade_id
 WEBULL_START = {"ORB_R6": "2026-09-09", "NOISE_382": "2026-09-24", "DIP_424F": None}   # None = the leg's first trade
 WEBULL_WEEK_ROWS = 5
 WEBULL_BANDS = {
@@ -261,11 +264,14 @@ def webull_forward(asof, root=None):
     eng_k = S[(S["event"] == "ENTRY") & S["trade_id"].notna()].drop_duplicates("trade_id", keep="last").set_index("trade_id")["keel_size"]
     out = {}
     for nm in WEBULL_ORDER:
-        m = pre.eq(nm)
+        key = WEBULL_ENGINE_KEY[nm]
+        m = pre.eq(key)
         start = WEBULL_START[nm] or (str(T.loc[m, "day"].min().date()) if m.any() else None)
         if start is None:
             continue
-        loose = pre.eq("") & T["leg"].eq(WEBULL_EXEC_LEG[nm]) & (T["day"] >= start)
+        el = WEBULL_EXEC_LEG[nm]
+        legcol = T["leg"].astype(str)
+        loose = pre.eq("") & (legcol.str.startswith(el) if el.endswith("_") else legcol.eq(el)) & (T["day"] >= start)
         x = T[(m | loose) & (T["day"] >= start) & (T["day"] <= end)].copy()
         if nm == "NOISE_382":                                      # the size column is the SENT size (plugin x KEEL): plugin = size / keel
             k = x["keel_size"].where(x["keel_size"].notna(), x["trade_id"].map(eng_k))
@@ -283,7 +289,7 @@ def webull_forward(asof, root=None):
         off = sorted(set(x["day"]) - set(cal))
         if off:
             meta["notes"].append("%s has trades on %s, off the NYSE calendar - look first" % (nm, ", ".join(str(d.date()) for d in off)))
-        ex = S[(S["leg"] == nm) & (S["event"] == "EXIT")]
+        ex = S[(S["leg"] == key) & (S["event"] == "EXIT")]
         if len(ex):
             ed = pd.to_datetime(ex["ref_time"], utc=True).dt.tz_convert("America/New_York").dt.tz_localize(None).dt.normalize()
             n_eng = int(((ed >= start) & (ed <= end)).sum())
