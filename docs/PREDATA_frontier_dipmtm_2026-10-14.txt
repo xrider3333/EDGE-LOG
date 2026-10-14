@@ -1,0 +1,41 @@
+BOOK QUEUE Q42 - DIP_424F MARKED TO MARKET IN THE WEBULL HARM READ (FRONTIER queue item, MANAGER #158 standing order; follows Q38 / 10ax).
+PRE-DATA NOTE for MANAGER, 2026-10-14. A calibration; nothing on the box changes.
+
+WHY. Q38's DIP band books each trade on its exit day. Up to seven lots close together, so the worst day is 14 sd and the daily kurtosis is 64.
+- The weekly A1 line then needs c = 6.50.
+- Power if DIP's edge is gone is only 12% by 36 months: the alarm cannot see a dead DIP.
+- DIP is the live Webull book's biggest risk (Q41: DD5 4x the rest of the book).
+- Marking open lots to market each day spreads a hold's P&L over the days it was earned, which should shrink the tails.
+
+THE BACKTEST SIDE (bands). DIP_424F exactly as Q38 (NQDIP_1_1.py as ETF, DIP_424_PARAMS, QQQ 5m master_ac263357, cost_bps 0, then $0.02 a
+share a round trip, 6 shares a lot).
+- Each trade's per-share path:
+  - entry at the entry bar's open (Q38 verified: rel. diff 0);
+  - exit price = entry + the trade's per-share move;
+  - marked at each RTH session's last 5m close in between.
+- Daily P&L per lot:
+  - entry day = close - entry;
+  - each middle day = close - previous close;
+  - exit day = exit - previous close, minus the $0.02;
+  - a trade opened and closed the same session = exit - entry.
+- Window and method unchanged from 10at option 2 / Q38: 2022-07-01..2025-06-29; q35_recent_bands.calibrate (copied as in Q38), 2,000
+  three-year paths, block 20, seed 20261009, A1 checked every 5 sessions; power = P(alarm within 36 months) with the edge removed.
+- Parity: the MTM series must sum to Q38's exit-day series over the window (same trades, same costs) within $0.01.
+
+THE FORWARD SIDE (the Monday read), from the pull job's folders only (#146), each folder = one day's snapshot after the close:
+- Open DIP lots come from qqq_exec/state.json legs DIP_* (entry_px, shares_remaining, mark_px, trade_id).
+- Closed lots come from qqq_exec/trades.csv (trade ids DIP_424-*).
+- Day D's MTM $ = for each lot open at D's snapshot: (mark_D - the lot's previous mark, or its entry) x shares; plus for each lot closed
+  on D: (exit_px - its previous mark, or its entry) x shares.
+- A missing day's folder puts two days' change on the next folder's day. This is counted in a data note, never interpolated.
+- A snapshot taken before 14:30 MST (16:30 ET) is not a close mark: the day is skipped, with a note.
+
+PRE-SET READING:
+- Q42 replaces Q38's DIP band only if the MTM band's power by 36 months is above Q38's 12%.
+- Either way the numbers are reported. ORB_R6 / NOISE_382 bands do not change.
+
+COULD FOOL US:
+- Webull marks are not Alpaca closes;
+- the 15:59 mark_px may differ from the official close;
+- one WF path.
+Script: bookq/q42_dip_mtm.py; witness prereg/frontier-dipmtm-1014 before the run.
