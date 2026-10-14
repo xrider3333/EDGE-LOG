@@ -616,9 +616,13 @@ def epoch_seconds(stamps):
     """Bar / session timestamps (pandas index, datetime64, Timestamps or epoch numbers) -> int64 s."""
     if stamps is None:
         return np.zeros(0, dtype="int64")
-    a = np.asarray(stamps)
-    if a.dtype.kind in "iuf":
-        a = a.astype("int64")
+    # Read the kind from the container's own dtype first: np.asarray() on a tz-aware pandas index
+    # builds one Python Timestamp per bar (~2.3 s a year of 1-minute bars, on every backtest call).
+    kind = getattr(getattr(stamps, "dtype", None), "kind", None)
+    if kind is None:                              # a list / tuple: let numpy say what it holds
+        kind = np.asarray(stamps).dtype.kind
+    if kind in "iuf":
+        a = np.asarray(stamps).astype("int64")
         return a // 1000 if len(a) and a.max() > 10 ** 11 else a     # ms stamps -> s
     import pandas as pd
     idx = pd.DatetimeIndex(stamps)
