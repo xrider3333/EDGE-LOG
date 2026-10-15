@@ -67,14 +67,20 @@ WEBULL_UNIT_WORDS = {"ORB_R6": "10 sh", "NOISE_382": "10 sh x plugin size", "DIP
 # constant-size shadow) went live as engine key DIP_424, one executor leg per mechanism slot (DIP_RSI .. DIP_GAPDN; box 10-12/13)
 WEBULL_ENGINE_KEY = {"ORB_R6": "ORB_R6", "NOISE_382": "NOISE_382", "DIP_424F": "DIP_424"}
 WEBULL_EXEC_LEG = {"ORB_R6": "ORB", "NOISE_382": "NOISE", "DIP_424F": "DIP_"}    # trades.csv leg column (DIP: the prefix of its slot legs), for a row with no trade_id
-WEBULL_START = {"ORB_R6": "2026-09-09", "NOISE_382": "2026-09-24", "DIP_424F": None}   # None = the leg's first trade
+WEBULL_START = {"ORB_R6": "2026-09-09", "NOISE_382": "2026-09-24", "DIP_424F": "2026-10-13"}   # DIP: live_since 10-13 (its first lots)
 WEBULL_WEEK_ROWS = 5
 WEBULL_BANDS = {
     "ORB_R6": {"mu": 2.5041, "sd": 28.0281, "c": 2.3369, "dd_alarm": 560.12, "big": 90.99, "big_per_year": 2.671},
     "NOISE_382": {"mu": 3.6116, "sd": 30.5142, "c": 2.2758, "dd_alarm": 506.11, "big": None, "big_per_year": None},
-    "DIP_424F": {"mu": 6.2116, "sd": 74.9273, "c": 6.4955, "dd_alarm": 5865.28, "big": None, "big_per_year": None},
+    "DIP_424F": {"mu": 6.3861, "sd": 120.0606, "c": 3.9496, "dd_alarm": 5991.10, "big": None, "big_per_year": None},   # Q42: marked to market
 }
-WEBULL_POWER = "power if the edge is gone, by 36 months: ORB_R6 88%, NOISE_382 96%, DIP_424F 12% (its A1 is weak)"
+WEBULL_POWER = ("power if the edge is gone, by 36 months: ORB_R6 88%, NOISE_382 96%, DIP_424F 13% (marked to market; a dead DIP is "
+                "barely visible inside 36 months, its A2 sees open-lot losses)")
+# Q42 (BOOK.md 10ba, prereg/frontier-dipmtm-1014): DIP holds lots for days, so it is read MARKED TO MARKET - each pull folder's state.json
+# carries every open lot's mark_px at the close; a lot's daily $ = (mark - its previous mark, or its entry) x shares, and the day it
+# closes (exit price - its previous mark). The band is Q42's, calibrated the same way on the same window.
+WEBULL_MTM = ("DIP_424F",)
+MARK_AFTER = (14, 30)                # a pull folder stamped before 14:30 MST (16:30 ET) holds intraday marks, not the close
 NYSE_CLOSED = {"2026-01-01", "2026-01-19", "2026-02-16", "2026-04-03", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26",
                "2026-12-25", "2027-01-01", "2027-01-18", "2027-02-15", "2027-03-26", "2027-05-31", "2027-06-18", "2027-07-05", "2027-09-06",
                "2027-11-25", "2027-12-24"}                         # NYSE full closes 2026-27 (the Webull legs' session calendar)
@@ -240,6 +246,62 @@ def webull_folder(run_day, root=None):
     return best
 
 
+def webull_folders(run_day, root=None):
+    """every pull-job folder dated on or before the run day -> [(path, stamp)], the LAST one of each date, oldest first"""
+    import glob
+    root = root or os.environ.get("EDGELOG_BOX_BACKUP", r"C:\EdgeLog\box_backup")
+    by_day = {}
+    for p in sorted(glob.glob(os.path.join(root, "20??-??-??_????"))):
+        try:
+            stamp = pd.to_datetime(os.path.basename(p), format="%Y-%m-%d_%H%M")
+        except ValueError:
+            continue
+        if stamp.normalize() <= run_day and os.path.exists(os.path.join(p, "qqq_exec", "state.json")):
+            by_day[stamp.normalize()] = (p, stamp)
+    return [by_day[d] for d in sorted(by_day)]
+
+
+def webull_mtm(closed, folders, exec_prefix, unit, start, end, cal):
+    """Q42: a holding leg's daily $ at its unit, marked to market. closed = its trades.csv rows (trade_id, day, entry_px, exit_px, shares);
+    folders = webull_folders(); open lots come from each folder's state.json legs with the exec_prefix. -> (daily Series on cal, notes)"""
+    import json
+    daily = pd.Series(0.0, index=cal)
+    marks, notes, skipped, seen = {}, [], [], set()
+    for path, stamp in folders:
+        d = stamp.normalize()
+        if (stamp.hour, stamp.minute) < MARK_AFTER:
+            skipped.append(str(d.date()))
+            continue
+        if d < start or d > end:
+            continue
+        seen.add(d)
+        try:
+            st = json.load(open(os.path.join(path, "qqq_exec", "state.json"), encoding="utf-8"))
+        except (OSError, ValueError):
+            notes.append("%s: state.json unreadable - its marks are not read" % os.path.basename(path))
+            continue
+        for k, v in (st.get("legs") or {}).items():
+            if not str(k).startswith(exec_prefix) or not v.get("shares_remaining") or v.get("mark_px") is None:
+                continue
+            tid = v.get("trade_id") or k
+            prev = marks.get(tid, float(v["entry_px"]))
+            if d in daily.index:
+                daily[d] += (float(v["mark_px"]) - prev) * unit
+            marks[tid] = float(v["mark_px"])
+    for _, r in closed.iterrows():
+        d = r["day"]
+        if d < start or d > end or d not in daily.index:
+            continue
+        prev = marks.get(r["trade_id"], float(r["entry_px"]))
+        daily[d] += (float(r["exit_px"]) - prev) * unit
+    held = [d for d in cal if d not in seen and daily.index.min() <= d]
+    if skipped:
+        notes.append("pull folder(s) %s were taken before the close - their marks are not read" % ", ".join(skipped))
+    if held and len(seen):
+        notes.append("%d session(s) with no pull folder - the next folder's marks carry their change" % len(held))
+    return daily, notes
+
+
 def webull_forward(asof, root=None):
     """the Webull legs' forward unit $ from the newest pull-job folder (read-only) -> ({leg: daily Series on NYSE sessions}, meta)"""
     run_day = pd.Timestamp(asof).normalize()
@@ -267,7 +329,7 @@ def webull_forward(asof, root=None):
         key = WEBULL_ENGINE_KEY[nm]
         m = pre.eq(key)
         start = WEBULL_START[nm] or (str(T.loc[m, "day"].min().date()) if m.any() else None)
-        if start is None:
+        if start is None or pd.Timestamp(start) > end:                 # not live yet in this folder's data = "no trades yet"
             continue
         el = WEBULL_EXEC_LEG[nm]
         legcol = T["leg"].astype(str)
@@ -282,7 +344,12 @@ def webull_forward(asof, root=None):
             size = 1.0
         x["unit"] = x["pnl"] / x["shares"] * WEBULL_UNIT[nm] * size
         cal = webull_sessions(start, end)
-        out[nm] = x.groupby("day")["unit"].sum().reindex(cal).fillna(0.0)
+        if nm in WEBULL_MTM:                                       # Q42: marked to market from the folders' marks
+            out[nm], mnotes = webull_mtm(x.assign(trade_id=x["trade_id"].fillna("")), webull_folders(run_day, root),
+                                         WEBULL_EXEC_LEG[nm], WEBULL_UNIT[nm], pd.Timestamp(start), end, cal)
+            meta["notes"] += ["%s: %s" % (nm, t) for t in mnotes]
+        else:
+            out[nm] = x.groupby("day")["unit"].sum().reindex(cal).fillna(0.0)
         meta["starts"][nm], meta["trades"][nm] = start, int(len(x))
         if int(loose[x.index].sum()):
             meta["notes"].append("%d %s trade(s) have no trade id (assigned by leg and date)" % (int(loose[x.index].sum()), nm))

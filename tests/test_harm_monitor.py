@@ -207,7 +207,8 @@ def test_webull_dip_reads_the_live_engine_key_and_slot_legs(tmp_path):
     """the live DIP leg trades under engine key DIP_424 (trade ids DIP_424-<UTC>-L-<SLOT>, executor legs DIP_STREAK .. DIP_GAPDN), not
     under its band name DIP_424F - a band-name match would never see a DIP trade (found 10-14 on the box's first DIP lots)"""
     root = str(tmp_path)
-    T = lambda leg, tid, ex, sh, pnl: {"leg": leg, "trade_id": tid, "exit_ts": ex, "shares": sh, "pnl": pnl, "size": 1.0, "keel_size": None}
+    T = lambda leg, tid, ex, sh, pnl: {"leg": leg, "trade_id": tid, "exit_ts": ex, "shares": sh, "pnl": pnl, "size": 1.0, "keel_size": None,
+                                       "entry_px": 700.0, "exit_px": 700.0 + pnl / sh}
     trades = [T("DIP_STREAK", "DIP_424-20261013T133000Z-L-STREAK", "2026-10-15 09:35:00", 6, 24.0),
               T("DIP_GAPDN", "DIP_424-20261013T133000Z-L-GAPDN", "2026-10-15 09:35:00", 6, 18.0),
               T("DIP_RSI", None, "2026-10-16 09:35:00", 6, -12.0)]                         # no trade id: by the DIP_ slot-leg prefix
@@ -219,9 +220,37 @@ def test_webull_dip_reads_the_live_engine_key_and_slot_legs(tmp_path):
             "ref_time": "2026-10-16T09:30:00-04:00"}]
     _box_folder(root, "2026-10-16_1445", trades, sig)
     fw, meta = HM.webull_forward("2026-10-19", root)
-    assert "DIP_424F" in fw and meta["trades"]["DIP_424F"] == 3 and meta["starts"]["DIP_424F"] == "2026-10-15"
+    assert "DIP_424F" in fw and meta["trades"]["DIP_424F"] == 3 and meta["starts"]["DIP_424F"] == "2026-10-13"
     assert abs(fw["DIP_424F"].sum() - (24.0 + 18.0 - 12.0)) < 1e-9                         # 6 sh a lot: the $ as booked
     assert any("1 DIP_424F trade(s) have no trade id" in t for t in meta["notes"])
     assert not any("engine exits" in t for t in meta["notes"])                                # 3 engine exits = 3 executor trades
     r = HM.read_webull(fw, meta)
     assert not r["DIP_424F"].get("no_trades") and r["DIP_424F"]["trades"] == 3
+
+
+def test_webull_dip_is_marked_to_market_from_the_folder_marks(tmp_path):
+    """Q42: an open DIP lot's $ is booked day by day from each pull folder's state.json mark_px; the close books exit - last mark. A folder
+    taken before 14:30 MST holds intraday marks and is not read."""
+    import json
+    root = str(tmp_path)
+    lot = lambda tid, mark: {"trade_id": tid, "shares_remaining": 6, "entry_px": 739.55, "mark_px": mark}
+    sig = [{"leg": "DIP_424", "event": "EXIT", "trade_id": "DIP_424-A", "keel_size": None, "ref_time": "2026-10-15T09:30:00-04:00"},
+           {"leg": "DIP_424", "event": "EXIT", "trade_id": "DIP_424-B", "keel_size": None, "ref_time": "2026-10-15T09:30:00-04:00"}]
+    closed = [{"leg": "DIP_STREAK", "trade_id": "DIP_424-A", "exit_ts": "2026-10-15 09:35:00", "shares": 6, "pnl": 6 * (746.0 - 739.55),
+               "size": 1.0, "keel_size": None, "entry_px": 739.55, "exit_px": 746.0},
+              {"leg": "DIP_GAPDN", "trade_id": "DIP_424-B", "exit_ts": "2026-10-15 09:35:00", "shares": 6, "pnl": 6 * (746.0 - 739.55),
+               "size": 1.0, "keel_size": None, "entry_px": 739.55, "exit_px": 746.0}]
+    for name, marks, rows in (("2026-10-13_1445", (743.57, 743.57), []), ("2026-10-14_1445", (745.0, 745.0), []),
+                              ("2026-10-15_1445", None, closed), ("2026-10-16_1100", None, closed)):     # 10-16 11:00 = intraday
+        _box_folder(root, name, rows or [dict(closed[0], trade_id="NOISE_382-x", leg="NOISE", exit_ts="2026-09-30 10:00:00")], sig)
+        legs = {} if marks is None else {"DIP_STREAK": lot("DIP_424-A", marks[0]), "DIP_GAPDN": lot("DIP_424-B", marks[1])}
+        json.dump({"legs": legs}, open(os.path.join(root, name, "qqq_exec", "state.json"), "w"))
+    fw, meta = HM.webull_forward("2026-10-16", root)
+    d = fw["DIP_424F"]
+    assert abs(d["2026-10-13"] - 2 * 6 * (743.57 - 739.55)) < 1e-9
+    assert meta["end"] == "2026-10-15"                                                    # the 10-16 11:00 folder is not a close
+    assert abs(d["2026-10-14"] - 2 * 6 * (745.0 - 743.57)) < 1e-9
+    assert abs(d["2026-10-15"] - 2 * 6 * (746.0 - 745.0)) < 1e-9
+    assert abs(d.sum() - 2 * 6 * (746.0 - 739.55)) < 1e-9                                # MTM sums to the booked P&L
+    assert any("taken before the close" in n for n in meta["notes"])
+    assert HM.WEBULL_BANDS["DIP_424F"]["c"] < 4.0 and "DIP_424F" in HM.WEBULL_MTM
