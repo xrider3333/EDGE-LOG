@@ -331,14 +331,6 @@ def test_box_qqq_1m_merges_folders_newest_wins(tmp_path):
     assert HM.box_qqq_1m(str(tmp_path / "none")) is None
 
 
-def test_parity_line_words():
-    pr = {"engine": 3, "live": 2, "missing_live": [("2026-09-21", 1)], "extra_live": []}
-    line = HM.parity_line(pr)
-    assert "NOT EMITTED LIVE: 2026-09-21 long" in line and "report-only" in line
-    assert "Same days and sides" in HM.parity_line({"engine": 1, "live": 1, "missing_live": [], "extra_live": []})
-    assert "not read" in HM.parity_line({"error": "x"})
-
-
 def test_relay_line_words():
     assert "not read" in HM.relay_line({"error": "x"}, 0.0, 0, "2026-09-09")
     line = HM.relay_line({"n": 4, "net": 12.5}, -7.0, 5, "2026-09-09")

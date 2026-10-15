@@ -45,7 +45,7 @@ FILES = [
     "cloud_signal/keel/DIP_424K_v12_summary.json",
     # the box's own live QQQ 1m bar cache (read-only copy) - the ORB relay shadow in tools/harm_monitor.py fills on it (MANAGER #80:
     # the bars the live leg trades on, no separate data pull)
-    "ohlc/QQQ_1m.csv", "ohlc/QQQ_5m.csv",
+    "ohlc/QQQ_1m.csv",
 ]
 DEFAULT_DEST = r"C:\EdgeLog\box_backup"
 LOG_PATH = r"C:\EdgeLog\logs\pull_box_ledgers.log"
