@@ -1,0 +1,36 @@
+pre-stated read sha256 OK 1cd933b545a32bf0
+unit object: #304 core, NQ 5m RTH no-adjust to 2026-10-14, cost 0.533, band units a trade
+
+MAIN: PRE 2016-07-01..2024-05-31 vs POST 2024-06-01..2026-10-14
+  POWER (printed first): SE(POST - PRE) 0.0543 bu (month blocks); McLean-Pontiff drop 0.58 x PRE = 0.0725 bu = 1.33 SE -> UNDERPOWERED (< 2.5 SE)
+  PRE  n 2508  months  95  mean +0.1250 bu   |  POST n  665  months  29  mean +0.1474 bu
+  R = POST/PRE 1.18   90% CI 0.55 .. 2.18   (contains 1.0: True; contains 0.42: False)
+  READING: NO DETECTABLE DECAY [power line: underpowered]
+    PRE  held to close 26.6% (mean +1.43 bu) | VWAP exit 69.7% (mean -0.29 bu) | stop  3.7%
+    POST held to close 27.2% (mean +1.46 bu) | VWAP exit 69.0% (mean -0.28 bu) | stop  3.8%
+
+POST-DESIGN (report): PRE vs 2025-07-16..2026-10-14 (lockbox spent + forward)
+  POWER (printed first): SE(POST - PRE) 0.0586 bu (month blocks); McLean-Pontiff drop 0.58 x PRE = 0.0725 bu = 1.24 SE -> UNDERPOWERED (< 2.5 SE)
+  PRE  n 2508  months  95  mean +0.1250 bu   |  POST n  368  months  16  mean +0.1081 bu
+  R = POST/PRE 0.87   90% CI 0.22 .. 1.78   (contains 1.0: True; contains 0.42: True)
+  READING: CAN'T TELL (underpowered) [power line: underpowered]
+    PRE  held to close 26.6% (mean +1.43 bu) | VWAP exit 69.7% (mean -0.29 bu) | stop  3.7%
+    POST held to close 27.4% (mean +1.27 bu) | VWAP exit 69.8% (mean -0.28 bu) | stop  2.7%
+
+SENSITIVITY: PRE 2016-07-01..2024-04-30 vs POST from 2024-05-01
+  POWER (printed first): SE(POST - PRE) 0.0531 bu (month blocks); McLean-Pontiff drop 0.58 x PRE = 0.0732 bu = 1.38 SE -> UNDERPOWERED (< 2.5 SE)
+  PRE  n 2486  months  94  mean +0.1261 bu   |  POST n  687  months  30  mean +0.1424 bu
+  R = POST/PRE 1.13   90% CI 0.53 .. 2.08   (contains 1.0: True; contains 0.42: False)
+  READING: NO DETECTABLE DECAY [power line: underpowered]
+    PRE  held to close 26.5% (mean +1.44 bu) | VWAP exit 69.8% (mean -0.29 bu) | stop  3.7%
+    POST held to close 27.4% (mean +1.43 bu) | VWAP exit 68.7% (mean -0.27 bu) | stop  3.9%
+
+context - band units a trade by year: 2016 +0.050 (223), 2017 +0.028 (326), 2018 +0.284 (304), 2019 +0.077 (363), 2020 +0.190 (260), 2021 +0.119 (313), 2022 +0.198 (274), 2023 +0.086 (322), 2024 +0.196 (291), 2025 +0.081 (274), 2026 +0.130 (223)
+
+DOLLARS - NOISE #422 crown {'tilt_mult': 1.75, 'gate_len': 20, 'gate_ratio': 1.15}, $ at mult 20, four numbers per stretch (DD% on $100k)
+  PRE 2016-07-01..2024-05-31 @0.5330 ROC@30k 104.82 | DD5 $ 11518 | DD%  6.16 | Sortino 3.97 || trades 2508  win 37.4%  avg win/loss 2.45x  net $42539/yr  worst DD $12175
+  PRE 2016-07-01..2024-05-31 @0.7825 ROC@30k  95.21 | DD5 $ 11785 | DD%  7.02 | Sortino 3.77 || trades 2508  win 36.7%  avg win/loss 2.48x  net $40729/yr  worst DD $12834
+  POST 2024-06-01..2026-10-14 @0.5330 ROC@30k 111.22 | DD5 $ 16432 (1 EPISODE) | DD%  8.35 | Sortino 4.54 || trades  665  win 38.0%  avg win/loss 2.41x  net $83104/yr  worst DD $22416
+  POST 2024-06-01..2026-10-14 @0.7825 ROC@30k 108.65 | DD5 $ 16674 (1 EPISODE) | DD%  8.76 | Sortino 4.44 || trades  665  win 37.7%  avg win/loss 2.42x  net $81519/yr  worst DD $22508
+  POST-DESIGN 2025-07-16..2026-10-14 @0.5330 ROC@30k  92.32 | DD5 $ 15203 (1 EPISODE) | DD% 12.27 | Sortino 3.47 || trades  368  win 38.0%  avg win/loss 2.20x  net $68981/yr  worst DD $22416
+  POST-DESIGN 2025-07-16..2026-10-14 @0.7825 ROC@30k  89.76 | DD5 $ 15304 (1 EPISODE) | DD% 12.44 | Sortino 3.38 || trades  368  win 37.8%  avg win/loss 2.21x  net $67347/yr  worst DD $22508

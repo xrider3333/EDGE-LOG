@@ -3726,3 +3726,43 @@ re-costed per contract: `noise_chain_read.py --cost 0.7825`. 810 of the 2,833 WF
 - The re-search moved gate_len 20 -> 16, and the chain sits under #422's own WF read, so it found no better #422 either.
 - PBO 0.591 is what a search over 135 near-equal cells gives. Read the WEAK as "the knob is noise", not as doubt about #422's
   pinned core.
+
+## Publication decay - did NOISE's edge fade after its source paper went public? (2026-10-15, MANAGER #100; ledger 2.172)
+
+**The paper:** Zarattini, Aziz & Barbon, "Beat the Market" (SSRN 4824172), posted May 2024 and widely read since.
+
+**The haircut papers on the shelf:**
+- McLean & Pontiff: published predictors lose about 58% after publication.
+- Falck, Rej & Thesmar: about half.
+
+**Departure audit first.** Every place NOISE departs from the paper is already tested or dominated:
+- the half-hour decision cadence (DEAD, round 63);
+- band width and exit forms (rounds 10-16);
+- vol-target sizing (RISK r1 on the intraday legs).
+
+There is no new strategy test in the paper. The open question is decay.
+
+**The read.**
+- Pre-stated before any number: `docs/PRESTATED_noise_pubdecay_2026-10-15.md`, sha checked at start.
+- Unit: #304-core band units a trade.
+
+| Stretch | Trades | Band units a trade | POST / PRE (90% CI) |
+|---|---|---|---|
+| PRE 2016-07 .. 2024-05 | 2,508 | +0.125 | - |
+| POST 2024-06 .. 2026-10-14 | 665 | +0.147 | 1.18 (0.55 .. 2.18) |
+| POST-DESIGN 2025-07-16 .. (lockbox spent + forward) | 368 | +0.108 | 0.87 (0.22 .. 1.78) |
+
+- **Verdict: NO DETECTABLE DECAY, underpowered.**
+  - The CI excludes McLean-Pontiff's 0.42.
+  - The power line says a 58% drop would be only 1.33 standard errors.
+- **The mechanism looks intact.** The held-to-close share is 26.6% -> 27.2%, with its mean +1.43 -> +1.46 band units.
+
+**NOISE #422, four numbers** (cost 0.533; real 0.7825 in brackets):
+
+| Stretch | ROC@30k | DD5 | DD% | Sortino |
+|---|---|---|---|---|
+| PRE | 104.8 (95.2) | $11.5k | 6.2% | 3.97 |
+| POST | 111.2 (108.7) | $16.4k, 1 episode | 8.4% | 4.54 |
+| POST-DESIGN | 92.3 (89.8) | $15.2k, 1 episode | 12.3% | 3.47 |
+
+**What it means:** no extra haircut on NOISE's forward expectation. Re-read at the 12-month forward mark.
