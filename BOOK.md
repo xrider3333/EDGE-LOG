@@ -1190,6 +1190,50 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10ba. Q42 + Q43 THE WEBULL LEGS: DIP is now read marked to market; the NOISE seat stays #382; a bug that hid the live DIP leg is fixed (2026-10-15, reports)
+
+**Q42 - DIP marked to market (a calibration).** Witness prereg/frontier-dipmtm-1014 = c3d0fc51.
+- **Why:** Q38's DIP band booked each trade on its exit day. Up to seven lots close together, so the worst day was 14 sd, the A1
+  constant was 6.50 and the power to catch a dead DIP was 12%.
+- **The method:** each lot is marked at every RTH session's last 5m close (QQQ master, 6 shares a lot, $0.02 a share a round trip).
+  Parity: the exit-day rebuild equals Q38 to $0.0000.
+
+| DIP_424F band (2022-07..2025-06) | sd a session | A1 c | A2 alarm | Worst day | Kurtosis | Power, 36 months |
+|---|---|---|---|---|---|---|
+| Exit day (Q38) | $74.93 | 6.50 | $5,865 | -14.2 sd | 63.5 | 12% |
+| Marked to market | $120.06 | 3.95 | $5,991 | -6.1 sd | 7.9 | 13% |
+
+- **Read:** marking tames the tails but not the power. DIP's edge is small next to its daily swing (a yearly Sharpe of about 0.85), so no
+  36-month line can tell a dead DIP from a live one. That is a property of the leg, not of the monitor.
+- **Shipped:** the pre-set rule (power 13% > 12%) puts the MTM band in. tools/harm_monitor.py now reads DIP from each pull folder's
+  state.json close marks.
+- **What that buys:** A2 sees open-lot losses day by day, not only when lots close. On the first live lots it read +$48 on 10-13 and
+  -$175 on 10-14, while both lots were still open.
+
+**BUG FOUND AND FIXED (10-14).** The Webull block matched DIP on its band name, DIP_424F, and on the leg column 'DIP'. But the box books
+live DIP lots under engine key DIP_424 (trade ids DIP_424-<UTC>-L-<SLOT>), with executor legs DIP_STREAK .. DIP_GAPDN. So no DIP trade
+would ever have been read. It was caught on the first live lots before any closed, so no read was lost, and a test now uses the box's
+real naming.
+
+**Q43 - the Webull book's NOISE seat.** NOISE #422's file (CT304H, squeeze tilt 1.75) against today's NOISE_382 (CT304, tilt 2.0), both
+on QQQ at 10 shares x plugin size. Witness prereg/frontier-wbnoise-1014 = c2eb916f; parity with Q41 to $0.00. WF 2017-08-07..2025-06-29.
+
+| Row | WF ROC@30k | DD5 | DD% ($100k) | Sortino | $ a year | LB ROC@30k (report) |
+|---|---|---|---|---|---|---|
+| NOISE_382 alone | 83.08 | $225 | 0.25% | 3.53 | $728 | 137 |
+| NOISE #422 file alone | 73.10 | $180 | 0.25% | 4.12 | $638 (one episode) | 172 |
+| ORB + 382 | 62.40 | $365 | 0.53% | 3.55 | $1,112 | 160 |
+| ORB + 422 | 60.40 | $305 | 0.50% | 3.69 | $1,022 | 168 |
+| ORB + 382 + DIP (as deployed) | 25.21 | $1,480 | 2.36% | 3.10 | $2,380 | 312 |
+| ORB + 422 + DIP | 23.18 | $1,506 | 2.49% | 3.05 | $2,290 | 330 |
+
+- **Paired block bootstrap of the book ROC@30k difference (422 - 382):**
+  - without DIP: p5 -8.98 / p50 +0.22 / p95 +19.92;
+  - with DIP: p5 -4.52 / p50 -1.76 / p95 +1.19.
+- **Pre-set verdict, both books: not distinguishable on the walk-forward.** The #422 file trades smoother (higher Sortino, smaller DD5)
+  but earns less on QQQ. The squeeze's in-book gain on NQ (10ab) does not show up here, so NOISE_382 stays the Webull seat.
+- **Tally:** 4 book looks, 2 of them repeats of Q41. The box's NOISE_422_PLAIN forward shadow stays the place to watch.
+
 ### 10az. Q41 THE WEBULL BOOK YARDSTICK: NOISE carries the live QQQ book; DIP adds dollars, not ROC per drawdown (2026-10-14, a report)
 
 **What it is.** MANAGER #158 asked for the next best-ROI test. The live Webull paper book had never been read as a book.
