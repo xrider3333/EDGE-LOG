@@ -141,3 +141,86 @@ def test_default_margin_covers_yahoo_futures_delay():
     start = now - 300 - 11 * 60
     assert R._drop_unclosed(_tv([start]), "5m", now)["time"].tolist() == []
     assert R._drop_unclosed(_tv([now - 300 - R.YAHOO_SETTLE_S]), "5m", now)["time"].tolist() == [now - 300 - R.YAHOO_SETTLE_S]
+
+
+# ── a locked registry costs one row count, never the masters after it ─────────────────
+def test_connect_waits_out_another_writer(tmp_path):
+    conn = R._connect(str(tmp_path / "r.db"))
+    try:
+        assert conn.execute("PRAGMA busy_timeout").fetchone()[0] == R.REGISTRY_BUSY_MS == 120_000
+    finally:
+        conn.close()
+
+
+def test_locked_registry_update_does_not_stop_later_masters(tmp_path, monkeypatch, capsys):
+    """2026-10-14, 17:22 ET pre-push run: NQ 1m RTH's file was written, its registry UPDATE hit
+    'database is locked', and the exception ended the loop - so NQ 5m RTH (sorted after it, and
+    the master pushed to the box) was never topped up and went out at 13:00 ET. Now the 1m row
+    count is reported as a failure and the 5m master is still refreshed and registered."""
+    m1, m5 = "NOADJ_NQ_1m_RTH.csv", "NOADJ_NQ_5m_RTH.csv"
+    last_1m, new_1m = 1790276280, 1790276340   # 2026-09-24 14:58 / 14:59 ET
+    last_5m, new_5m = 1790276100, 1790276400   # 2026-09-24 14:55 / 15:00 ET
+    now_s = 1790277720                         # 15:22 ET: both new bars settled
+
+    up_dir = tmp_path / "augur_uploads"
+    up_dir.mkdir()
+    for fn, t in ((m1, last_1m), (m5, last_5m)):
+        pd.DataFrame({"time": [t], "open": [30690.0], "high": [30695.0], "low": [30685.0],
+                      "close": [30692.0], "volume": [1200]}).to_csv(up_dir / fn, index=False)
+    db_path = tmp_path / "optimizer_history.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("CREATE TABLE csv_files (id INTEGER PRIMARY KEY, name TEXT, filename TEXT,"
+                 " instrument TEXT, rows INTEGER, date_from TEXT, date_to TEXT,"
+                 " created_at TEXT, timeframe TEXT, is_master INTEGER, source TEXT,"
+                 " provenance TEXT, session TEXT)")
+    for i, (fn, tf) in enumerate(((m1, "1m"), (m5, "5m")), start=1):
+        conn.execute("INSERT INTO csv_files (id, name, filename, instrument, rows, timeframe,"
+                     " is_master, source, session) VALUES (?,?,?,?,?,?,?,?,?)",
+                     (i, fn, fn, "NQ", 1, tf, 1, "db_noadj", "rth"))
+    conn.commit()
+    conn.close()
+
+    def _hist(t):
+        return pd.DataFrame({"Open": [30693.0], "High": [30700.0], "Low": [30688.0],
+                             "Close": [30699.0], "Volume": [2502]},
+                            index=pd.to_datetime([t], unit="s", utc=True))
+
+    class _FakeTicker:
+        def __init__(self, symbol):
+            assert symbol == "NQ=F"
+
+        def history(self, period=None, interval=None):
+            return _hist(new_1m if interval == "1m" else new_5m)
+
+    real_connect = R._connect
+
+    class _LockedForTheFirstMaster:
+        """The registry as it was at 17:22 ET: another writer holds it while id 1 updates."""
+        def __init__(self, c):
+            self._c = c
+
+        def execute(self, sql, params=()):
+            if sql.lstrip().upper().startswith("UPDATE") and params[-1] == 1:
+                raise sqlite3.OperationalError("database is locked")
+            return self._c.execute(sql, params)
+
+        def __getattr__(self, name):
+            return getattr(self._c, name)
+
+    monkeypatch.setitem(sys.modules, "yfinance", types.SimpleNamespace(Ticker=_FakeTicker))
+    monkeypatch.setattr(R, "UP", str(up_dir))
+    monkeypatch.setattr(R, "DB", str(db_path))
+    monkeypatch.setattr(R, "_connect", lambda db: _LockedForTheFirstMaster(real_connect(db)))
+
+    assert R.main(now_s=now_s) == 1                  # the failure is still named in the exit code
+
+    assert pd.read_csv(up_dir / m1)["time"].tolist() == [last_1m, new_1m]
+    assert pd.read_csv(up_dir / m5)["time"].tolist() == [last_5m, new_5m]
+    conn = sqlite3.connect(str(db_path))
+    rows = dict(conn.execute("SELECT filename, rows FROM csv_files").fetchall())
+    conn.close()
+    assert rows == {m1: 1, m5: 2}                     # 1m's count left for the next append
+    out = capsys.readouterr().out
+    assert f"{m1}: written, but the registry row was NOT updated - OperationalError" in out
+    assert f"  {m5}: +1 bars -> 2 total, now through 2026-09-24" in out
+    assert "1 master(s) were NOT written:" in out

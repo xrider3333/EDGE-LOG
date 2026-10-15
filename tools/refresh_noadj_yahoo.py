@@ -51,6 +51,16 @@ YAHOO_SETTLE_S = 15 * 60   # Yahoo's CME futures feed runs ~10 min behind; 15 mi
 # years from one bad pull, so only the last few days are correctable and settled history is
 # not. The 5m pull already asks for 60 days, so this costs no extra request.
 RESTATE_WINDOW_S = 3 * 24 * 60 * 60
+# HOW LONG A REGISTRY WRITE WAITS FOR ANOTHER WRITER. sqlite's default is 5 s. On 2026-10-14 the
+# 17:22 ET pre-push run hit "database is locked" on NQ 1m RTH's row update, the exception ended
+# the whole loop, and NQ 5m RTH - the master the box's KEEL build reads - went out at 13:00 ET.
+REGISTRY_BUSY_MS = 120_000
+
+
+def _connect(db):
+    conn = sqlite3.connect(db, timeout=REGISTRY_BUSY_MS / 1000)
+    conn.execute(f"PRAGMA busy_timeout = {REGISTRY_BUSY_MS}")
+    return conn
 
 
 def _to_tv(h):
@@ -146,7 +156,7 @@ def main(now_s=None):
         print("yfinance not installed:", e); return
     if now_s is None:
         now_s = int(time.time())
-    conn = sqlite3.connect(DB)
+    conn = _connect(DB)
     masters = conn.execute(
         "SELECT id,filename,instrument,timeframe,session,rows FROM csv_files "
         "WHERE is_master=1 AND source LIKE 'db_noadj%'").fetchall()
@@ -220,8 +230,18 @@ def main(now_s=None):
                   f"Carrying on with the next master.")
             continue
         d1 = str(pd.to_datetime(merged["time"].max(), unit="s", utc=True).tz_convert("US/Eastern").date())
-        conn.execute("UPDATE csv_files SET rows=?, date_to=? WHERE id=?", (len(merged), d1, mid))
-        conn.commit()
+        # Same rule for the registry row: a locked database costs this master's row count,
+        # never the masters after it. The file is already written; the next run's append
+        # brings the count back in line (the guard compares against the larger of the two).
+        try:
+            conn.execute("UPDATE csv_files SET rows=?, date_to=? WHERE id=?", (len(merged), d1, mid))
+            conn.commit()
+        except sqlite3.Error as _re:
+            failures.append((fn, "file written, registry row NOT updated - %s: %s"
+                             % (type(_re).__name__, _re)))
+            print(f"  {fn}: written, but the registry row was NOT updated - {type(_re).__name__}: "
+                  f"{_re}. Carrying on with the next master.")
+            continue
         print(f"  {fn}: +{len(new):,} bars -> {len(merged):,} total, now through {d1}")
     conn.close()
     if failures:
