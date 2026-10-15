@@ -202,7 +202,7 @@ def _window_master(tf):
 def test_a_window_fills_a_missing_day_and_a_truncated_one_exactly(tf):
     full, whole, holed = _window_master(tf)
     new, rep = sp.fill_plan(holed, full, tf, "rth", WDAYS[0], WDAYS[-1], 0.0)
-    assert rep["sessions"] == {"held": 2, "truncated": 1, "missing": 1}
+    assert rep["sessions"] == {"held": 2, "truncated": 1, "missing": 1, "replaced": 0}
     assert rep["sessions_written"] == [WDAYS[1], WDAYS[2]]
     assert len(new) == len(whole)
     assert np.allclose(new[["time", "open", "high", "low", "close", "volume"]].values,
@@ -407,3 +407,76 @@ def test_run_repair_writes_the_bar_and_records_before_and_after(tmp_path):
     e = p["repairs"][-1]
     assert e["window"] == ["10:45", "10:55"] and e["repairs"][0]["before"][4] == 0 and e["nt_sha256"]
     assert e["repairs"][0]["after"][4] == int(whole.loc[whole["time"] == t, "volume"].iloc[0])
+
+
+# ----------------------------------------------------------------------------- replace held sessions (MANAGER #67, 10-14)
+def _yahooish(m, days, seed=5):
+    """Yahoo NQ=F since 10-05: same highs, lows and volume as NT, opens/closes on the other side of the bar boundary."""
+    out = m.copy()
+    rng = np.random.default_rng(seed)
+    for d in days:
+        a, b = (sp._epoch(x) for x in sp.session_window(d, "rth"))
+        idx = out.index[(out["time"] >= a) & (out["time"] < b)]
+        pick = rng.choice(idx, len(idx) // 2, replace=False)
+        out.loc[pick, "close"] = np.minimum(out.loc[pick, "high"], out.loc[pick, "close"] + 0.5)
+        out.loc[pick, "open"] = np.maximum(out.loc[pick, "low"], out.loc[pick, "open"] - 0.25)
+    return out
+
+
+@pytest.mark.parametrize("tf", [1, 5, 60])
+def test_replace_from_rewrites_held_sessions_whole_and_anchors_on_the_rest(tf):
+    full = _minutes(WDAYS)
+    whole = pd.concat([sp.derive(full, tf, "rth", d) for d in WDAYS], ignore_index=True)
+    held = _yahooish(whole, WDAYS[2:])
+    assert not np.allclose(held[["open", "close"]].values, whole[["open", "close"]].values)
+    new, rep = sp.fill_plan(held, full, tf, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv", replace_from=WDAYS[2])
+    assert rep["sessions"] == {"held": 2, "truncated": 0, "missing": 0, "replaced": 2}
+    assert rep["sessions_written"] == WDAYS[2:] and rep["bars_added"] == 0 and rep["replace_from"] == WDAYS[2]
+    assert np.allclose(new[["time", "open", "high", "low", "close", "volume"]].values,
+                       whole[["time", "open", "high", "low", "close", "volume"]].values)
+
+
+def test_replacing_a_session_needs_nt_through_everything_the_master_holds():
+    full = _minutes(WDAYS)
+    whole = pd.concat([sp.derive(full, 5, "rth", d) for d in WDAYS], ignore_index=True)
+    a, b = (sp._epoch(x) for x in sp.session_window(WDAYS[3], "rth"))
+    short = full[~((full["time"] >= b - 3600) & (full["time"] < b))]          # NT stops at 15:00 on a full day
+    with pytest.raises(sp.Refused, match="replacing a session needs NT minutes"):
+        sp.fill_plan(_yahooish(whole, WDAYS[2:]), short, 5, "rth", WDAYS[0], WDAYS[-1], 0.0, accept="hlv",
+                     replace_from=WDAYS[2])
+    # an early close: the master and NT both end at 13:00 -> replaced up to the master's last bar
+    early_nt = full[~((full["time"] >= a + 210 * 60) & (full["time"] < b))]
+    early_m = whole[~((whole["time"] >= a + 210 * 60) & (whole["time"] < b))]
+    new, rep = sp.fill_plan(_yahooish(early_m, WDAYS[2:]), early_nt, 5, "rth", WDAYS[0], WDAYS[-1], 0.0,
+                            accept="hlv", replace_from=WDAYS[2])
+    assert rep["sessions"]["replaced"] == 2 and len(new) == len(early_m)
+    assert np.allclose(new[["open", "close"]].values, early_m[["open", "close"]].values)
+
+
+def test_run_window_replace_writes_with_no_new_rows_and_leaves_other_sources_alone(tmp_path):
+    full = _minutes(WDAYS)
+    up = tmp_path / "up"; up.mkdir()
+    db = tmp_path / "reg.db"
+    con = sqlite3.connect(db)
+    con.execute(f"create table csv_files ({', '.join(COLS)})")
+    m1 = _yahooish(full, WDAYS[2:])
+    m1.to_csv(up / "NOADJ_NQ_1m_RTH.csv", index=False)
+    m1.to_csv(up / "tv_NQ_1m.csv", index=False)
+    for mid, fn, src in ((1, "NOADJ_NQ_1m_RTH.csv", "db_noadj_rth"), (2, "tv_NQ_1m.csv", "tv")):
+        con.execute(f"insert into csv_files values ({','.join('?' * len(COLS))})",
+                    (mid, fn, fn, "NQ", "1m", src, len(m1), WDAYS[0], WDAYS[-1], 1, '{"source": "%s"}' % src))
+    con.commit(); con.close()
+    nt = full.copy()
+    nt["time"] = nt["time"] + 60                                    # NinjaTrader stamps the bar END
+    ntp = tmp_path / "nt.csv"
+    nt.to_csv(ntp, index=False)
+    res = sp.run_window("NQ", WDAYS[1], WDAYS[-1], str(ntp), commit=True, accept="hlv", db=str(db), uploads=str(up),
+                        log=lambda *_: None, sources=("db_noadj_rth",), replace_from=WDAYS[2])
+    assert [(r[0], r[2]) for r in res] == [(1, "spliced")]
+    out = pd.read_csv(up / "NOADJ_NQ_1m_RTH.csv")
+    assert len(out) == len(full) and np.allclose(out[["open", "close"]].values, full[["open", "close"]].values)
+    assert np.allclose(pd.read_csv(up / "tv_NQ_1m.csv")[["close"]].values, m1[["close"]].values)
+    con = sqlite3.connect(db)
+    e = json.loads(con.execute("select provenance from csv_files where id=1").fetchone()[0])["splices"][-1]
+    assert e["replace_from"] == WDAYS[2] and e["sessions"]["replaced"] == 2 and e["sessions_written"] == WDAYS[2:]
+    assert e["rows_added"] == 0

@@ -279,18 +279,23 @@ def _last_bucket(a, b, tf):
     return a + ((b - 60 - a) // step) * step
 
 
-def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", check_volume=True):
+def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", check_volume=True, replace_from=None):
     """New master frame with every session in [d0, d1] that the master is MISSING or holds TRUNCATED rebuilt from NT.
 
     Each NT session is HELD (the master reaches its last bar: an anchor, nothing written), TRUNCATED (the master
     stops early: its bars before the cut are anchors, the cut bucket onward is written) or MISSING (no master bar:
     the whole session is written). The level is measured on every anchor bar in the window together, so a run of
     missing days is pinned by the held sessions around it. A written session must be whole in NT - from its first
-    minute (MISSING) or from before the cut (TRUNCATED) to its last minute - or the master is refused."""
+    minute (MISSING) or from before the cut (TRUNCATED) to its last minute - or the master is refused.
+
+    replace_from (MANAGER #67, 10-14): every session on or after that date that the master HOLDS is REPLACED -
+    rewritten whole from NT, whatever the master holds (Yahoo bars whose opens/closes sit on the other side of the
+    bar boundary). Those sessions are never part of the level check; the sessions before replace_from are. NT must
+    hold the session from its first minute through everything the master holds (an early close ends early)."""
     sessions = nt_sessions(nt_1m, session, d0, d1)
     if not sessions:
         raise Refused(f"{d0}..{d1}: the NT file has no minutes in any {session.upper()} session")
-    pool, writes, counts, cut_bars, skipped = [], [], {"held": 0, "truncated": 0, "missing": 0}, [], []
+    pool, writes, counts, cut_bars, skipped = [], [], {"held": 0, "truncated": 0, "missing": 0, "replaced": 0}, [], []
     for d in sessions:
         a, b = (_epoch(x) for x in session_window(d, session))
         nt_in = nt_1m[(nt_1m["time"] >= a) & (nt_1m["time"] < b)]
@@ -310,6 +315,14 @@ def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", ch
             writes.append((d, a, b, der)); counts["missing"] += 1
             continue
         last_have = int(have["time"].max())
+        if replace_from and d >= replace_from:         # REPLACED: written whole from NT, never an anchor
+            need = b - 60 if last_have >= _last_bucket(a, b, tf) else last_have
+            if first > a or last < need:
+                raise Refused(f"{d}: replacing a session needs NT minutes from the open through {_hhmm(need)} ET; "
+                              f"they run {_hhmm(first)}..{_hhmm(last)} ET - re-pull")
+            full = derive(nt_1m, tf, session, d)         # untrimmed: an early close ends where the master does
+            writes.append((d, a, b, full if whole_end else full[full["time"] <= last_have])); counts["replaced"] += 1
+            continue
         if last_have >= _last_bucket(a, b, tf):        # HELD: an anchor only
             pool.append(der.merge(have, on="time", suffixes=("_nt", "_m"))); counts["held"] += 1
             continue
@@ -355,7 +368,7 @@ def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", ch
     if new["time"].duplicated().any():
         raise Refused(f"{d0}..{d1}: the fill would duplicate a timestamp")
     rep = dict(stats, level_offset=level, sessions=counts, sessions_written=added, sessions_skipped=skipped,
-               bars_added=len(new) - len(master))
+               bars_added=len(new) - len(master), replace_from=replace_from)
     return new, rep
 
 
@@ -525,9 +538,11 @@ def run(root, date, nt_path, commit=False, db=None, uploads=None, log=print):
     return results
 
 
-def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, uploads=None, log=print):
+def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, uploads=None, log=print,
+               sources=None, replace_from=None):
     """fill_plan for every no-adjust / TradingView master of `root` that covers d0: missing and truncated sessions in
-    [d0, d1] are rebuilt from the NT file; held sessions are the level check. One provenance entry per master."""
+    [d0, d1] are rebuilt from the NT file; held sessions are the level check. One provenance entry per master.
+    sources: only masters of these registry sources (default SPLICE_SOURCES). replace_from: see fill_plan."""
     if accept not in ACCEPT_RULES:
         raise ValueError(f"accept must be one of {ACCEPT_RULES}")
     db = db or os.path.join(ROOT, "optimizer_history.db")
@@ -536,6 +551,8 @@ def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, upl
     nt_sha = sha256(nt_path)
     parents, results = {}, []
     for mid, name, fn, tf_s, src, nrows, prov in targets(db, root, d0):
+        if sources and src not in sources:
+            continue
         session = "eth" if src.endswith("_eth") or "ETH" in name else "rth"
         tf = TF_MIN[tf_s]
         if session not in parents:
@@ -546,7 +563,8 @@ def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, upl
         try:
             ref = reference_date(par, d0, session)
             off = acceptance_reference(m, par, tf, session, ref, check_volume=(src != "tv"))
-            new, rep = fill_plan(m, nt, tf, session, d0, d1, off, accept, check_volume=(src != "tv"))
+            new, rep = fill_plan(m, nt, tf, session, d0, d1, off, accept, check_volume=(src != "tv"),
+                                 replace_from=replace_from)
         except Refused as e:
             log(f"REFUSED  #{mid} {name}: {e}")
             results.append((mid, name, "refused", str(e)))
@@ -556,13 +574,15 @@ def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, upl
             + (f", open/close apart on {rep['open_close_differ']} bars (max {rep['max_open_close_diff']:.2f})"
                if rep["rule"] == "hlv" else "")
         log(f"{'SPLICE ' if commit else 'DRY-RUN'}  #{mid} {name}: +{rep['bars_added']} bars; sessions written "
-            f"{len(rep['sessions_written'])} ({s['missing']} missing, {s['truncated']} truncated), {s['held']} held"
+            f"{len(rep['sessions_written'])} ({s['missing']} missing, {s['truncated']} truncated, {s['replaced']} replaced), "
+            f"{s['held']} held"
             f"{'; skipped ' + ', '.join(rep['sessions_skipped']) if rep['sessions_skipped'] else ''}; "
             f"overlap {rep['overlap_bars']} bars, {rep['rule']} agree {rep['agree']:.1%}{extra}, level "
             f"{rep['level_offset']:+.2f} (ref {ref})")
-        if commit and rep["bars_added"] > 0:
+        if commit and rep["sessions_written"]:
             write_master_csv(new, path, known_rows=nrows)
             entry = dict(window=[d0, d1], sessions_written=rep["sessions_written"],
+                         sessions=rep["sessions"], replace_from=replace_from,
                          sessions_skipped=rep["sessions_skipped"], nt_file=os.path.basename(nt_path),
                          nt_sha256=nt_sha, rows_added=rep["bars_added"], level_offset=rep["level_offset"],
                          acceptance={k: rep[k] for k in ("rule", "overlap_bars", "agree", "max_diff",
@@ -634,6 +654,10 @@ def main(argv=None):
                          "open/close minute-edge differences recorded, not refused (owner call 10-14)")
     ap.add_argument("--repair", metavar="HH:MM-HH:MM",
                     help="with --date: rewrite the stub bars overlapping these ET minutes from NT (complete sessions only)")
+    ap.add_argument("--replace-from", metavar="YYYY-MM-DD",
+                    help="with --from/--to: rewrite every session the master HOLDS from this date on, whole, from NT "
+                         "(Yahoo bars -> NT bars); the sessions before it are the level check")
+    ap.add_argument("--sources", help="comma list of registry sources to touch (default: no-adjust RTH/ETH + tv)")
     ap.add_argument("--commit", action="store_true", help="write; the default is a dry run")
     a = ap.parse_args(argv)
     if a.repair:
@@ -647,7 +671,8 @@ def main(argv=None):
     d0, d1 = (a.date, a.date) if a.date else (a.d0, a.d1)
     if not (d0 and d1):
         ap.error("give --date, or --from and --to")
-    res = run_window(a.root, d0, d1, a.nt, a.commit, a.accept)
+    res = run_window(a.root, d0, d1, a.nt, a.commit, a.accept,
+                     sources=tuple(a.sources.split(",")) if a.sources else None, replace_from=a.replace_from)
     bad = [r for r in res if r[2] == "refused"]
     print(f"{len(res) - len(bad)} master(s) {'spliced' if a.commit else 'ready'}, {len(bad)} refused."
           + ("" if a.commit else " Dry run - nothing written. Re-run with --commit, then tools/build_adjusted_masters.py."))
