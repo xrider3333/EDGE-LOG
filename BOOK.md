@@ -1190,6 +1190,71 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10bc. Q45 READING SHELF No. 12 - Risk-Constrained Kelly weights for #463's legs: CLOSED AT DRAFT on the pre-WF rows (2026-10-15)
+
+**What it is.** The reading-shelf pick for FRONTIER (MANAGER #163; claim posted as #1139): Busseti, Ryu & Boyd 2016, "Risk-Constrained
+Kelly Gambling" (Journal of Investing 25(3); arXiv 1603.06183). The paper sizes bets for maximum log growth under a cap on the chance
+of a chosen drawdown - here our yardstick's $30k on $100k. One book scale knob is leverage only and cannot move ROC@30k, so the testable
+claim is the MULTI-BET version: per-leg weights. Screened with the house rule for size tilts (the real rule on the pre-WF rows only; no
+WF or LB row read; not a book look). Script and record: `C:\EdgeLog\_anatomy_cache\bookq\q45_rck_screen.py` / `.json`.
+
+**Rule, stated in the script before running.** Each leg's daily marked P&L at #463's size over $100,000 (RISK r1 records, rule U).
+Weights w >= 0 maximise mean log(1 + w.x) subject to mean (1 + w.x)^(-lambda) <= 1, lambda = log 0.10 / log 0.70 = 6.46 (a fall to
+70% at most 10% of the time). PRIMARY: refit each year on 2011-01-03 .. year end before, trade the next year (2014, 2015, 2016 to
+06-30), each vector scaled to #463's daily SD on its fit window. Clear only if ROC@30k >= 1.05x #463 AND Sortino >= #463's on
+2014 .. 2016-06.
+
+| 2014 .. 2016-06 (pre-WF) | ROC@30k | DD5 | DD% from peak | Sortino | $ a year |
+|---|---|---|---|---|---|
+| #463 (fixed weights) | 102.49 | $7,565 | 5.45% | 2.892 | $28,417 |
+| RCK, yearly refit (PRIMARY) | 100.91 | $6,558 | 5.59% | 3.242 | $29,807 |
+| RCK, one fit on 2011-13 | 50.44 | $18,381 | 11.85% | 1.725 | $40,885 |
+| WF / LB | - | - | - | - | not read |
+
+**Read.**
+- **Closed at draft:** the yearly refit trails #463 on ROC@30k (-1.58), so it misses the 1.05x bar. A single fit halves the ROC.
+- **Why:** the fitted weights swing with the window - TTM 0.01 -> 0.63 -> 1.62, NOISE 1.82 -> 2.07 -> 1.04, ORB 0.31 -> 0.12. That
+  is DeMiguel-Garlappi-Uppal's estimation error (shelf No. 13): with our data length, fixed weights are the default to beat. The
+  in-sample fit (66.2 vs 47.6 on 2011 .. 2016-06) is the fit scoring its own data, not evidence.
+- **Power number for any re-weighting of #463** (paired 21-day block bootstrap on 2014 .. 2016-06, 2,000 draws, scaled to 9 WF years):
+  SD of the ROC@30k difference 17.7 points, MDE80 49.6, against a bar of +4.7. No plausible weighting gain reaches it. Handed to the
+  No. 13 owners (STRATEGY-BEATING, ELWA) so it is computed once.
+- The paper's PDF was not downloaded; the screen needs only the paper's convex program, not its text.
+
+### 10bb. Q44 TTM ADOPTION PAGE: TTM's own edge is unproven at the family level, but in the book it pays - keep it, watch its harm line (2026-10-15, a synthesis)
+
+**What it is.** One page for the owner on the one #463 leg that fails the family luck bar (MANAGER #162). It joins reads already on
+record, so it is not a new book look. The four numbers were rebuilt from the RISK r1 records cache (rule U), which reproduces #463 at
+WF 93.81 / LB 155.54. Owner page: `C:\EdgeLog\_anatomy_cache\bookq\Q44_TTM_ADOPTION_PAGE.md`; scripts `bookq\q44_ttm_page.py`,
+`bookq\q44_ttm_episode.py`.
+
+| Book | ROC@30k | DD5 | DD% from peak | Sortino | $ a year |
+|---|---|---|---|---|---|
+| WF #463 | 93.81 | $36,095 | 13.09% | 3.816 | $140,235 |
+| WF #463 without TTM | 99.56 | $34,798 | 12.39% | 3.532 | $125,527 |
+| LB #463 (report; the lockbox is spent) | 155.54 | $35,034 | 18.33% | 4.150 | $258,472 |
+| LB #463 without TTM (report) | 136.75 | $35,846 | 18.77% | 3.638 | $227,247 |
+
+| Read | Source | What it says |
+|---|---|---|
+| Family luck bar | 10ay (Q40) | TTM #459's Sharpe of 0.92 a year beats its own run's luck bar (DSR 0.999 at 4.5 ideas) but NOT the family's (0.614 at 699 ideas; the line is 0.87 a year). Its edge alone is not shown to beat luck. |
+| #463 without TTM | 10ad (Q22), 10af, this page | WF 99.56 vs 93.81 (+5.75), but Sortino 3.53 vs 3.82 and $14,709 a year less. The gain is ONE episode: #463's worst WF drop is March 2020 ($44,849, peak 03-02, low 03-27) and TTM lost $7,404 inside it. Without TTM the worst drop moves to Feb - Apr 2024 ($37,825), where TTM made +$12,702. On DD5, #463 leads 116.6 vs 108.2. |
+| L without TTM | 10ak (A3) | 118.09 vs L's 121.06: on the S1 line TTM pays its way, as every leg does. |
+| TTM's share of the book's drawdown-day losses | 10ak | 7%, the smallest of the four legs (ENGU-Q 53%, ORB 33%, NOISE 25%). |
+| Forward | harm monitor, 10-12 | TTM x3 is 27% of the way to its A1 shortfall line, with no trip. A quiet 36 months would mean "not shown", never "fine" (10aq). |
+
+**Read.**
+- **Keep TTM at x3.** In the book it adds about $15k a year and barely touches the drawdowns. Its removal gain is one episode (March
+  2020), and on the S1 line removing it costs ROC. The LB (report only) agrees: 155.54 with TTM vs 136.75 without.
+- **What is unproven is TTM's own edge.** Counted against the TTM family's whole search, its stand-alone Sharpe sits under the luck line.
+  So TTM's place rests on the book evidence (low drawdown-day share, steady dollars), not on its own backtest.
+- **What would change this:**
+  - the harm monitor trips TTM's A1 or A2;
+  - the forward "#463 without TTM" line (Q22's book_shadow_nottm) pulls ahead on its paired stops.
+  Either goes to the owner. Nothing changes automatically.
+- **Not proposed:** re-sizing TTM (x3 -> x1). Re-sizing has no forward skill (round 56; 10bc below finds the same for fitted weights),
+  and it would be another book look.
+
 ### 10ba. Q42 + Q43 THE WEBULL LEGS: DIP is now read marked to market; the NOISE seat stays #382; a bug that hid the live DIP leg is fixed (2026-10-15, reports)
 
 **Q42 - DIP marked to market (a calibration).** Witness prereg/frontier-dipmtm-1014 = c3d0fc51.
