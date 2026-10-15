@@ -134,3 +134,51 @@ parts' marked-to-market P&L.
 - Part C runs. The check run used `--since 2026-10-14`, so no forward trade was scored.
 
 **Host (MANAGER #121, replaces section 6's proposal):** the owner's PC, run by Custom ML - forward / report-only, never the box.
+
+## ADDENDUM 2 (2026-10-14, evening - before any forward trade is scored): the two forward feeds
+
+**Owner YES**, 2026-10-14 about 17:40 MST, via MANAGER #124: "Yes, both pulls."
+- **Start of the forward read:** Addendum 1 says the start is the day all three feeds are approved, so it is 2026-10-14.
+- The read counts trades ENTERED after 2026-10-14 (`forward --since 2026-10-14`).
+- **Sections 1-5 and Addendum 1's constants are unchanged.** This addendum changes only where the forward read gets fund prices and the auction calendar.
+
+**Feeds:** `tools/event_sleeve_pull.py` writes only under `C:\EdgeLog\event_sleeve\fwd_data\`.
+- Every pull is a new file. Nothing is overwritten.
+- Each pull gets a record in `provenance.jsonl`: source, time fetched, bytes, sha256 and the tool's own hash.
+- **yahoo:**
+  - yfinance daily closes for SPY, TLT and IEF.
+  - Adjusted with auto_adjust=True, the house convention of `build_etf_masters.py`, from 2025-06-01.
+  - A session still open (before 16:30 ET) is dropped.
+  - Run after each close.
+- **auctions:**
+  - The same Fiscal Data query as `tvnt2_triage.fetch()`, saved byte for byte.
+  - Run weekly.
+
+**How a pull is used (forward mode only; `parity` and `constants` are unchanged):**
+- The research snapshots are never rewritten:
+  - the yahoo_adj 1d masters for SPY and TLT;
+  - `nonequity_close.csv` for IEF;
+  - `treasury_auctions_raw.json`.
+- **Splice:**
+  - Forward prices are the snapshot through its last date L.
+  - After L they are the newest pull's closes times snapshot[L] / pull[L]. So every return after L is the pull's own return.
+  - If the pull has no close on L, the part refuses.
+- **Acceptance:**
+  - The pull is used only if its close-to-close returns agree with the snapshot's within 0.001 on at least 95% of at least 20 common days.
+  - Otherwise the part refuses that day, and the share and the largest difference are printed.
+- **Integrity:**
+  - The newest pull's sha256 is checked again before use. A mismatch refuses its parts; there is no fallback to an older pull.
+- **Staleness:**
+  - Same 3-business-day rule.
+  - It is read on the spliced series and on the forward calendar's fetch date.
+- **Part C:** unchanged.
+
+**Cadence:**
+- Custom ML runs the pulls and the scorer from its own turns on the PC.
+- No scheduled task is registered; that needs the owner's own yes.
+- A missed day only delays scoring. A trade's P&L comes from the bars, never from the day the scorer runs.
+
+**Hashes** (LF sha256; posted to MANAGER before the first forward run; witness branch `prereg/custom-ml-event-sleeve-a2`):
+- Scorer `tools/event_sleeve_shadow.py`: `316c7c0925a795b4ab6cd00ce952b2ad88f0ac9d7e351d70c4a049c175a2dc92`.
+- Puller `tools/event_sleeve_pull.py`: `4616219c123a4e35409c8530ee7da4b6d64c192bc733760fd2e96e561585ecd4`.
+- This file's own hash after this addendum goes to MANAGER with the push.
