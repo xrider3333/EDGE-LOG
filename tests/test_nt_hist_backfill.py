@@ -67,3 +67,13 @@ def test_holes_finds_a_span_with_no_rows_inside_cme_hours(tmp_path):
     got = H.holes(str(d / "NQ_10s.csv"), b + 3600)
     assert len(got) == 1 and got[0][:2] == (a, b)
     assert 13 * 360 < got[0][2] < 14 * 360         # about 13.7 h of session minutes, the halt hour left out
+
+
+def test_a_finished_request_is_not_queued_again(tmp_path, monkeypatch):
+    monkeypatch.setattr(H, "EL", str(tmp_path))
+    base = int(1_791_400_000)
+    d = _capture(tmp_path, [_row(base + 10 * i, 5, 0, 3) for i in range(20)])
+    made = H.queue(now_ts=base + 3600, ohlc_dir=str(d), log=lambda m: None)
+    req = os.path.join(H.qdir(), made[0] + ".req")
+    os.replace(req, req + ".done")                     # what the add-on leaves behind (rows appended)
+    assert H.queue(now_ts=base + 3600, ohlc_dir=str(d), log=lambda m: None) == []

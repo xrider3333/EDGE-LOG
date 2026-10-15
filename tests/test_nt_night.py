@@ -89,8 +89,27 @@ class World:
         mp.setattr(T, "push", self.push)
         mp.setattr(T, "start_recover", lambda: self.calls.append("start_recover") or "started the watchdog task now")
         mp.setattr(T, "take_lock", lambda: True)
+        self.daily = {}                      # queued daily pulls: name -> fields
+        self.daily_result = ("done", "done 780 rows -> NQ_daily.csv (780 source bars)")
+        self.daily_after = 0                 # seconds of waiting before the add-on finishes
+        self.daily_t0 = None
+        mp.setattr(T, "queue_daily_pull", self.queue_daily)
+        mp.setattr(T, "daily_pull_result", self.daily_res)
+        mp.setattr(T, "front_contract", lambda root, day: root + " 12-26")
 
     # seams
+    def queue_daily(self, name, fields):
+        self.calls.append("daily " + name)
+        fresh = name not in self.daily
+        self.daily[name] = fields
+        self.daily_t0 = self.mono
+        return fresh
+
+    def daily_res(self, name):
+        if self.pids == [] or self.mono - self.daily_t0 < self.daily_after:
+            return None
+        return self.daily_result
+
     def sleep(self, s):
         self.mono += s
         self.t += dt.timedelta(seconds=s)
@@ -464,3 +483,36 @@ def test_eod_safe_that_cannot_reach_the_bridge_is_not_a_flat_account(w, monkeypa
     out = T.sequence("switch")
     assert out["result"] == "left-on-unknown" and not out["night"]
     assert "post /shutdown" not in w.calls and "kill" not in w.calls
+
+# ---------------------------------------------------------------------------------------------- daily NQ pull
+def test_daily_nq_pull_is_queued_before_the_close_and_waited_for(w):
+    w.daily_after = 120
+    out = T.sequence("eod")
+    name = "bars_NQ_daily_20261007"
+    assert w.calls.index("daily " + name) < w.calls.index("eod_safe whatif=False")
+    f = w.daily[name]
+    # previous trading day 09:30 ET .. today's 16:00 close + 1 min (to is exclusive), NQ front month, NT default hours
+    assert (f["instrument"], f["kind"], f["period"], f["value"]) == ("NQ 12-26", "bars", "Minute", "1")
+    assert (f["from"], f["to"]) == ("2026-10-06T13:30:00Z", "2026-10-07T20:01:00Z") and "hours" not in f
+    assert f["out"].endswith("NQ_daily_20261007.csv")
+    assert out["daily_pull"]["status"] == "done" and "780 rows" in w.log()
+
+
+def test_daily_nq_pull_that_does_not_finish_does_not_hold_the_close(w):
+    w.daily_after = 10 ** 6
+    out = T.sequence("eod")
+    assert out["daily_pull"]["status"] == "late" and "closing anyway" in w.log()
+    assert "eod_safe whatif=False" in w.calls
+
+
+def test_daily_nq_pull_after_a_monday_reaches_back_to_friday(w):
+    name, f = T.daily_pull_request(dt.date(2026, 10, 12))
+    assert name == "bars_NQ_daily_20261012" and f["from"] == "2026-10-09T13:30:00Z"
+    _, f = T.daily_pull_request(dt.date(2026, 11, 3))      # after the DST switch: 09:30 ET = 14:30Z
+    assert f["from"] == "2026-11-02T14:30:00Z" and f["to"] == "2026-11-03T21:01:00Z"
+
+
+def test_the_off_switch_before_the_close_queues_no_daily_pull(monkeypatch, tmp_path):
+    w = World(monkeypatch, tmp_path, now=az(2026, 10, 7, 11, 0))      # 14:00 New York
+    T.sequence("switch")
+    assert not any(c.startswith("daily ") for c in w.calls) and "session is not over - not queued" in w.log()

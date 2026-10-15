@@ -231,6 +231,34 @@ def run_backup():
     return nt_backup.run_nightly()
 
 
+def queue_daily_pull(name, fields):
+    """Drop a HistFetch request (tools/nt_hist_backfill.write_req). False when one by that name already exists."""
+    from tools import nt_hist_backfill as H
+    if H._already(name):
+        return False
+    H.write_req(name, fields)
+    return True
+
+
+def daily_pull_result(name):
+    """None while queued / running; else ('done' | 'failed', the add-on's appended result line)."""
+    from tools import nt_hist_backfill as H
+    for ext, status in ((".req.done", "done"), (".req.failed", "failed"), (".done", "done"), (".failed", "failed")):
+        p = os.path.join(H.qdir(), name + ext)
+        if os.path.exists(p):
+            try:
+                tail = [ln.strip() for ln in open(p, encoding="utf-8", errors="replace") if ln.startswith("# result=")]
+            except OSError:
+                tail = []
+            return status, (tail[-1][len("# result="):] if tail else "")
+    return None
+
+
+def front_contract(root, day):
+    from tools import nt_hist_backfill as H
+    return H.front_contract(root, day)
+
+
 def fills_ids():
     try:
         with open(FILLS_CSV, "r", encoding="utf-8-sig", errors="replace", newline="") as fh:
@@ -413,6 +441,81 @@ def step_backfill(mode, dry):
             return {"status": "gap", "words": words}
         log("2 10s data: not complete - repairing again in %d min (gives up after %d)" % (nm.BACKFILL_RETRY_MIN, give_up))
         _sleep(nm.BACKFILL_RETRY_MIN * 60)
+
+
+# ---------------------------------------------------------------------------------------------- daily NQ pull
+# MANAGER #184 / TBIS #185 (2026-10-14): every trading day NinjaTrader's own NQ 1-minute bars for yesterday + today
+# (NT's default hours for NQ = RTH) go to C:\EdgeLog\nt_hist\out\NQ_daily_<YYYYMMDD>.csv, so TBIS can splice NT
+# prices into the NQ RTH masters before the 17:25 ET box push. Queued at the start of the end-of-day sequence (the
+# add-on runs it while NinjaTrader is still up); the close waits up to DAILY_PULL_WAIT_MIN for it.
+DAILY_PULL_WAIT_MIN = 10
+DAILY_PULL_POLL_S = 15
+
+
+def _prev_trading_day(day):
+    d = day - dt.timedelta(days=1)
+    while not nm.is_trading_day(d):
+        d -= dt.timedelta(days=1)
+    return d
+
+
+def daily_pull_request(day):
+    """(name, fields) for the day's NQ pull: previous trading day 09:30 ET .. today's close + 1 min ET (to is
+    exclusive), front month from tools/nt_rollover, NT's default trading hours."""
+    from api import market_calendar as MC
+    hh, mm = (int(x) for x in MC.session_close_et(day).split(":"))
+    prev = _prev_trading_day(day)
+    frm = dt.datetime(prev.year, prev.month, prev.day, 9, 30, tzinfo=nm.ET)
+    to = dt.datetime(day.year, day.month, day.day, hh, mm, tzinfo=nm.ET) + dt.timedelta(minutes=1)
+    z = lambda t: t.astimezone(dt.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+    stamp = day.strftime("%Y%m%d")
+    return "bars_NQ_daily_" + stamp, {
+        "instrument": front_contract("NQ", day), "kind": "bars", "period": "Minute", "value": "1",
+        "from": z(frm), "to": z(to), "out": os.path.join(nm.EL, "nt_hist", "out", "NQ_daily_%s.csv" % stamp)}
+
+
+def step_daily_pull(dry):
+    now_et = _now().astimezone(nm.ET)
+    day = now_et.date()
+    if not nm.is_trading_day(day):
+        return {"status": "skip", "words": "not a trading day"}
+    from api import market_calendar as MC
+    hh, mm = (int(x) for x in MC.session_close_et(day).split(":"))
+    if now_et < now_et.replace(hour=hh, minute=mm, second=0, microsecond=0):
+        log("1b daily NQ pull: the session is not over - not queued")
+        return {"status": "skip", "words": "session not over"}
+    try:
+        name, fields = daily_pull_request(day)
+    except Exception as e:
+        log("1b daily NQ pull: could not build the request (%s: %s)" % (type(e).__name__, e))
+        return {"status": "error", "words": type(e).__name__}
+    if dry:
+        log("1b daily NQ pull: would queue %s (%s %s..%s)" % (name, fields["instrument"], fields["from"], fields["to"]))
+        return {"status": "dry", "name": name}
+    try:
+        fresh = queue_daily_pull(name, fields)
+    except Exception as e:
+        log("1b daily NQ pull: queueing failed (%s: %s)" % (type(e).__name__, e))
+        return {"status": "error", "words": type(e).__name__}
+    log("1b daily NQ pull: %s %s (%s %s..%s -> %s)" % ("queued" if fresh else "already queued", name,
+                                                        fields["instrument"], fields["from"], fields["to"], fields["out"]))
+    return {"status": "queued", "name": name, "out": fields["out"]}
+
+
+def wait_daily_pull(dp, dry):
+    if dry or (dp or {}).get("status") != "queued":
+        return dp
+    t0 = _mono()
+    while True:
+        res = daily_pull_result(dp["name"])
+        if res:
+            dp = dict(dp, status=res[0], words=res[1])
+            log("1b daily NQ pull: %s - %s" % (res[0], res[1] or "no result line"))
+            return dp
+        if (_mono() - t0) / 60.0 >= DAILY_PULL_WAIT_MIN:
+            log("1b daily NQ pull: not finished after %d min - closing anyway; it runs at the next start" % DAILY_PULL_WAIT_MIN)
+            return dict(dp, status="late")
+        _sleep(DAILY_PULL_POLL_S)
 
 
 def step_fills(dry):
@@ -801,8 +904,10 @@ def sequence(mode, dry=False):
     log("=== night mode %s%s: NinjaTrader to close, back at %s Arizona ==="
         % ("END OF DAY" if mode == "eod" else "OFF SWITCH", " (DRY RUN)" if dry else "", until.strftime("%a %Y-%m-%d %H:%M")))
     step_backup(dry)
+    dp = step_daily_pull(dry)
     bf = step_backfill(mode, dry)
     fl = step_fills(dry)
+    dp = wait_daily_pull(dp, dry)
     out = step_close(mode, dry, until, started=now)
     extra = ""
     if bf.get("status") == "gap":
@@ -812,7 +917,7 @@ def sequence(mode, dry=False):
     if fl.get("status") == "missing":
         extra += " %d fill(s) not recorded (logged)." % len(fl.get("missing") or [])
     out["last"] = (out.get("last") or "") + (extra if out.get("night") else "")
-    out["backfill"], out["fills"] = bf, fl
+    out["backfill"], out["fills"], out["daily_pull"] = bf, fl, dp
     log("=== result: %s - %s" % (out["result"], out["last"]))
     return out
 

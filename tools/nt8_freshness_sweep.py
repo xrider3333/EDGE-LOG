@@ -144,7 +144,8 @@ def read_tasks():
           "[pscustomobject]@{name=$_.TaskName; enabled=($_.State -ne 'Disabled'); "
           "last=$(if($i.LastRunTime){$i.LastRunTime.ToString('s')}else{''}); result=$i.LastTaskResult} } "
           "| ConvertTo-Json -Compress")
-    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, timeout=60)
+    # 180 s: the first pass after the PC wakes can take over a minute (10-15 06:33 timed out at 60 s, inbox #187)
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, timeout=180)
     rows = json.loads(r.stdout or "[]")
     rows = rows if isinstance(rows, list) else [rows]
     for x in rows:
@@ -479,12 +480,15 @@ TASK_WORDS = {
     "EdgeLog NT futures rollover": "the futures contract roll job",
     "EdgeLog premarket wake": "the morning wake-up job",
     "EdgeLog NT readiness": "the morning check",
-    "EdgeLog pull box ledgers": "the cloud trade-record download",
+    "EdgeLog pull box ledgers": "the copy of the Webull trade records to the PC",
     "EdgeLog push NQ master to box": "the NQ data upload to the cloud box",
     "EdgeLog nightly backup": "the nightly backup",
     "EdgeLog NT night mode": "the NinjaTrader end-of-day close",
 }
 ASK = "ask Claude (PAPER-NT8 chat)"
+# Jobs this sweep watches that do not involve NinjaTrader at all. Their phone text says so: on 2026-10-14 the owner
+# read 'Paper NT8: the cloud trade-record download failed' as NinjaTrader breaking again (MANAGER #182).
+NOT_NINJATRADER = {"EdgeLog pull box ledgers", "EdgeLog push NQ master to box", "EdgeLog nightly backup"}
 
 
 def is_orderflow(it):
@@ -522,8 +526,10 @@ def _describe(it, now_local=None):
     if iid.startswith("task:"):
         name = TASK_WORDS.get(iid[5:], iid[5:])
         stale = "more than" in detail
+        tail = " NinjaTrader is fine." if iid[5:] in NOT_NINJATRADER else ""
         return {"affects": None, "rank": 1, "action": ASK,
-                "problem": (name[:1].upper() + name[1:]) + (" has not run on time." if stale else " failed on its last run.")}
+                "problem": (name[:1].upper() + name[1:]) + (" has not run on time." if stale else " failed on its last run.")
+                + tail}
     if iid == "roster":
         m = re.search(r"since (\d\d-\d\d \d\d:\d\d)", detail)
         return {"affects": "a strategy is down", "rank": 2, "action": "open NinjaTrader and check the strategies",
@@ -551,7 +557,15 @@ def _describe(it, now_local=None):
 def build_note(items, now_local=None):
     """The plain phone note for the push-worthy failures."""
     from api import ntfy_push
-    return ntfy_push.compose(AREA, [_describe(i, now_local) for i in push_items(items)])
+    cur = push_items(items)
+    return ntfy_push.compose(_area(cur), [_describe(i, now_local) for i in cur])
+
+
+def _area(cur):
+    """The note's title area: 'PC data jobs' when nothing failing involves NinjaTrader (MANAGER #182)."""
+    if cur and all(str(i.get("id", ""))[5:] in NOT_NINJATRADER for i in cur):
+        return "PC data jobs"
+    return AREA
 
 
 def decide_push(items, push_state, now_ts, now_local=None):

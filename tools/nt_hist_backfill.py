@@ -109,8 +109,14 @@ def holes(path, now_ts, reach_days=REACH_DAYS):
     return [r for r in runs if r[2] >= MIN_RUN_ROWS]
 
 
+# The add-on renames <name>.req -> .req.running -> .req.done | .req.failed. Until 2026-10-15 only '.done' / '.failed'
+# were looked for, so a finished request was never seen and every sweep pass re-queued every hole still open
+# (one NQ night ran 33 times).
+FINISHED_EXTS = (".req.done", ".req.failed", ".done", ".failed")
+
+
 def _already(name):
-    return any(os.path.exists(os.path.join(qdir(), name + ext)) for ext in (".req", ".req.running", ".done", ".failed"))
+    return any(os.path.exists(os.path.join(qdir(), name + ext)) for ext in (".req", ".req.running") + FINISHED_EXTS)
 
 
 def write_req(name, fields):

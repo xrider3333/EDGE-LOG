@@ -381,3 +381,16 @@ def test_coverage_ignores_the_nights_backfilled_bars_after_the_morning_start(tmp
     _night(WED_1620, THU_0845)
     cap = S.check_capture(now, str(ohlc))
     assert [c["status"] for c in cap] == ["pass", "pass"], cap
+
+
+def test_a_non_ninjatrader_job_says_so_on_the_phone():
+    it = {"id": "task:EdgeLog pull box ledgers", "status": "fail", "label": "EdgeLog pull box ledgers",
+          "detail": "last run ended with code 1 (not 0)"}
+    d = S._describe(it)
+    assert d["problem"] == "The copy of the Webull trade records to the PC failed on its last run. NinjaTrader is fine."
+    nt = S._describe({"id": "task:EdgeLog NT 10s import", "status": "fail", "detail": "last run ended with code 1 (not 0)"})
+    assert "NinjaTrader is fine" not in nt["problem"]
+    from api import ntfy_push
+    note = S.build_note([it])
+    assert ntfy_push.lint(note) == [] and note["title"].startswith("PC data jobs")
+    assert S.build_note([it, {"id": "readiness", "status": "fail", "detail": ""}])["title"].startswith("Paper NT8")
