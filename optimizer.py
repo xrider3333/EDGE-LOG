@@ -40,6 +40,7 @@ _AUGUR_ROOT = os.path.dirname(os.path.abspath(__file__))
 if _AUGUR_ROOT not in _sys.path:
     _sys.path.insert(0, _AUGUR_ROOT)
 from augur_engine import roll_guard
+from augur_engine import refresh_rules
 
 # CPU / parallelism. The i7-1260P has 4 P-cores + 8 E-cores (16 logical).
 # Default to a value that uses the fast cores plus a couple E-cores while
@@ -1366,12 +1367,25 @@ def auto_refresh_masters(progress_cb=None) -> list:
             frames.append(fdf); labels.append("tv-drop")
             parts.append(f"{os.path.basename(fpath)} ({len(fdf):,})")
 
+        # A NO-ADJUST MASTER ONLY GROWS (MANAGER #68, 2026-10-14). The pull used to win every overlap, so
+        # each pass rewrote the master's last week with Yahoo's NQ=F opens/closes over NinjaTrader-spliced
+        # bars. Recent corrections there belong to tools/refresh_noadj_yahoo.py (3-day window, never an NT
+        # bar). augur_engine/refresh_rules.py has the why.
+        if refresh_rules.append_only(src):
+            for _i in range(1, len(frames)):
+                frames[_i] = refresh_rules.past_last_bar(frames[_i], existing_df)
+            _keep = [i for i, f in enumerate(frames) if i == 0 or (f is not None and not f.empty)]
+            frames = [frames[i] for i in _keep]; labels = [labels[i] for i in _keep]
+
         if len(frames) <= 1:
             continue   # nothing new to add
 
         merged, info = combine_ohlcv_frames(frames, tf, labels=labels)
         if merged is None or len(merged) <= before_rows:
             continue   # no net-new rows
+        # Stored rows keep their own source tag (an NT splice stays marked as one).
+        merged = refresh_rules.keep_source_tags(
+            merged, refresh_rules.stored_source_tags(os.path.join(CSV_DIR, m["filename"])))
 
         # NEVER STORE A BAR THAT SPANS A CONTRACT SWITCH. Yahoo's continuous front-month
         # series changes contract mid-session without marking it, and twice in 2026 the
@@ -1409,7 +1423,8 @@ def auto_refresh_masters(progress_cb=None) -> list:
                            f"append skipped as a precaution")
             continue
 
-        prov = _build_provenance(info, src, parts)
+        # The splice / repair history survives the rebuilt provenance.
+        prov = refresh_rules.carry_provenance(_build_provenance(info, src, parts), m.get("provenance"))
         ok, _r = save_master_csv(merged, m["name"], inst, tf, source=src,
                                  provenance=prov, overwrite_filename=m["filename"],
                                  session=msess)
