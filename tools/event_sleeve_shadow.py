@@ -27,6 +27,14 @@ Conventions (stated once):
     past 10:00 ET of the day. A release day with any 1-minute bar missing in 08:29..09:59 is SKIPPED and written to
     forward_skips.csv; once there it stays skipped (no later fill from another source).
   * The forward P&L uses the frozen scale factors in addendum1_constants.json; the scorer never recomputes them.
+  * Forward feeds (owner-approved, MANAGER #1041; `forward` mode ONLY - parity and constants never read them): the newest
+    pull of each kind recorded in <out dir>\\fwd_data\\provenance.jsonl (tools/event_sleeve_pull.py writes them; the scorer
+    makes no network call). A pull whose file no longer has its recorded sha256 refuses the parts it feeds. Yahoo SPY / TLT /
+    IEF closes are RATIO-SPLICED onto the snapshots (the yahoo_adj 1d masters, nonequity_close.csv): history through the
+    snapshot's last date L is the snapshot verbatim; each pull date after L = pull close x snapshot[L] / pull[L]. A pull is
+    used only when L is in it and its close-to-close returns agree with the snapshot's within 1e-3 on >= 95 % of >= 20
+    common days; otherwise the part is REFUSED. The forward auction calendar replaces treasury_auctions_raw.json (and its
+    fetch date) for part A. No pull on record = exactly the snapshot path (stale refusal). The snapshots are never written.
 """
 import argparse
 import contextlib
@@ -58,6 +66,12 @@ ES_MULT, K_ME, TH_ME = 50.0, 5, 0.02
 ES_COST_PREREG, ES_COST_SOURCE = 0.363, 0.533
 NQ_MKT = "NQ"
 BLS_FILE = os.path.join(SHARED, "tools", "data", "bls_dates.txt")   # untracked in git: it lives in the shared checkout only
+
+# forward feeds (forward mode only): where tools/event_sleeve_pull.py files them, and the splice-acceptance rule
+FWD_SUBDIR, FWD_PROV = "fwd_data", "provenance.jsonl"
+FWD_KINDS = ("yahoo", "auctions")
+SPLICE_TOL, SPLICE_SHARE, SPLICE_MIN_DAYS = 1e-3, 0.95, 20
+_AUC_FETCH_OVERRIDE = None          # set only inside auction_feed(): the forward calendar's fetch date
 
 # headline numbers as the ledger / source docs print them
 REF = {
@@ -341,6 +355,8 @@ def load_fund_closes_fwd():
 
 
 def auction_calendar_fetch_date():
+    if _AUC_FETCH_OVERRIDE is not None:           # forward mode, inside auction_feed(): the forward pull's fetch date
+        return _AUC_FETCH_OVERRIDE
     _, T2 = _imp_auction()
     try:
         with open(T2.PROV_FILE) as f:
@@ -367,11 +383,12 @@ def part_a_source():
     return C, ev, early, info
 
 
-def part_a_forward(since, ends):
+def part_a_forward(since, ends, closes=None):
+    """closes: the fund-close frame (default: the snapshot loader; forward feeds pass the spliced frame). The data end is the
+    earlier of the IEF and TLT inputs' last dates, read from `ends` by their 'IEF close' / 'TLT close' labels."""
     _, T2 = _imp_auction()
-    C = load_fund_closes_fwd()
-    last = min(pd.Timestamp(ends["IEF close (research cache nonequity_close.csv)"]),
-               pd.Timestamp(ends["TLT close (yahoo_adj 1d master)"]))
+    C = load_fund_closes_fwd() if closes is None else closes
+    last = min(pd.Timestamp(v) for k, v in ends.items() if k.startswith(("IEF close", "TLT close")))
     C = C[C.index <= last]
     old_cut = T2.CUT
     try:
@@ -540,6 +557,285 @@ def part_c_forward(since, ends, out_dir, today):
     return fwd, daily, dict(pending=pending, new_skips=new_skips, skipped_total=len(prior_c) + len(new_skips),
                             next_release=str(upcoming[0].date()) if upcoming else None, calendar_end=str(cal_end.date()),
                             notes=notes)
+
+
+# ================================================================================================ forward feeds (forward only)
+def fwd_dir(out_dir):
+    return os.path.join(out_dir, FWD_SUBDIR)
+
+
+def read_provenance(fdir):
+    """Every record in fwd_data/provenance.jsonl, oldest first (file order). A damaged line is skipped, never raised (the
+    house rule of augur_engine/pull_provenance.read_all)."""
+    out = []
+    try:
+        with open(os.path.join(fdir, FWD_PROV), encoding="utf-8") as f:
+            for line in f:
+                line = line.strip()
+                if not line:
+                    continue
+                try:
+                    r = json.loads(line)
+                except ValueError:
+                    continue
+                if isinstance(r, dict):
+                    out.append(r)
+    except OSError:
+        return []
+    return out
+
+
+def _rec_time(r):
+    try:
+        return float(r["fetched_at_epoch"])
+    except (KeyError, TypeError, ValueError):
+        try:
+            return pd.Timestamp(r.get("fetched_at")).timestamp()
+        except (TypeError, ValueError):
+            return 0.0
+
+
+def latest_pull(fdir, kind):
+    """The newest record of `kind` whose file exists -> (record, path, None); (record, path, reason) when that file's sha256
+    is not the recorded one (its parts are REFUSED - never fed from an older pull instead); (None, None, None) when no pull
+    of that kind is on record. Newest = fetched_at_epoch, ties broken by position in the append-only file (house
+    pull_provenance.history)."""
+    rows = [(i, r) for i, r in enumerate(read_provenance(fdir)) if r.get("kind") == kind]
+    rows.sort(key=lambda q: (_rec_time(q[1]), q[0]), reverse=True)
+    for _, r in rows:
+        name = os.path.basename(str(r.get("file") or ""))
+        path = os.path.join(fdir, name)
+        if not name or not os.path.isfile(path):
+            continue
+        got = sha256_file(path)
+        if got != r.get("sha256"):
+            return r, path, "forward %s pull %s: sha256 %s... is not the recorded %s... (the file changed after the pull)" % (
+                kind, name, got[:16], str(r.get("sha256"))[:16])
+        return r, path, None
+    return None, None, None
+
+
+def load_pull_csv(path):
+    """A yahoo pull file (date,SPY,TLT,IEF) -> float frame on a sorted tz-naive date index. round_trip: the closes come back
+    bit for bit as yfinance gave them (pandas' default fast parser can be off in the last bit)."""
+    df = pd.read_csv(path, index_col=0, parse_dates=True, float_precision="round_trip")
+    df.index = pd.DatetimeIndex(df.index).normalize()
+    return df.sort_index().astype(float)
+
+
+def forward_feeds(out_dir):
+    """kind -> None (no pull on record) or dict(record, path, file, error, + df (yahoo) | fetched_at, fetch_date (auctions))."""
+    fdir = fwd_dir(out_dir)
+    out = {}
+    for kind in FWD_KINDS:
+        rec, path, why = latest_pull(fdir, kind)
+        if rec is None:
+            out[kind] = None
+            continue
+        f = dict(record=rec, path=path, file=os.path.basename(path), error=why)
+        if why is None:
+            try:
+                if kind == "yahoo":
+                    f["df"] = load_pull_csv(path)
+                else:
+                    f["fetched_at"] = str(rec["fetched_at"])
+                    f["fetch_date"] = pd.Timestamp(f["fetched_at"][:10])
+            except (KeyError, TypeError, ValueError) as e:
+                f["error"] = "forward %s pull %s unreadable: %s" % (kind, f["file"], e)
+        out[kind] = f
+    return out
+
+
+def overlap_agreement(snap, pull, tol=SPLICE_TOL):
+    """Close-to-close returns of the pull vs the snapshot on the dates both hold (each return runs between consecutive common
+    dates, so a date missing on one side spans the same interval on both). -> (n return days, share within tol, max |diff|)."""
+    a, b = snap.dropna(), pull.dropna()
+    common = a.index.intersection(b.index).sort_values()
+    if len(common) < 2:
+        return 0, 0.0, float("nan")
+    x, y = a.reindex(common).to_numpy(float), b.reindex(common).to_numpy(float)
+    d = np.abs((y[1:] / y[:-1] - 1.0) - (x[1:] / x[:-1] - 1.0))
+    return int(len(d)), float(np.mean(d <= tol)), float(np.max(d))
+
+
+def ratio_splice(snap, pull):
+    """The snapshot verbatim through its last valid date L, then pull x snap[L] / pull[L] on every pull date after L (the
+    pull's own returns, carried on the snapshot's level). -> (spliced, L, ratio); ValueError when the pull has no close on L."""
+    L = snap.last_valid_index()
+    p = pull.dropna()
+    if L is None or L not in p.index:
+        raise ValueError("pull does not overlap the snapshot (no pull close on the snapshot's last date %s)"
+                         % (None if L is None else pd.Timestamp(L).date()))
+    k = float(snap[L]) / float(p[L])
+    out = pd.concat([snap[snap.index <= L], p[p.index > L] * k])
+    out.name = snap.name
+    return out, pd.Timestamp(L), k
+
+
+def checked_splice(name, snap, feed):
+    """One column of a yahoo pull spliced onto its snapshot under the acceptance rule (L in the pull; returns agree within
+    SPLICE_TOL on >= SPLICE_SHARE of >= SPLICE_MIN_DAYS common days). -> (spliced, L, note, None) or (None, None, note, reason)."""
+    df = feed["df"]
+    if name not in df.columns:
+        why = "forward pull %s has no %s column" % (feed["file"], name)
+        return None, None, why, why
+    pull = df[name]
+    try:
+        sp, L, k = ratio_splice(snap, pull)
+    except ValueError as e:
+        why = "%s: %s %s" % (name, feed["file"], e)
+        return None, None, why, why
+    n, share, mx = overlap_agreement(snap, pull)
+    note = "%s pull vs snapshot: %d common return days, %.1f %% within %g (max |diff| %.2e)" % (
+        name, n, 100.0 * share, SPLICE_TOL, mx)
+    if n < SPLICE_MIN_DAYS or share < SPLICE_SHARE:
+        why = "%s %s disagrees with its snapshot: %s; needs >= %d days and >= %.0f %%" % (
+            name, feed["file"], note, SPLICE_MIN_DAYS, 100.0 * SPLICE_SHARE)
+        return None, None, note, why
+    note += "; spliced after L %s x %.6f, last %s" % (L.date(), k, pd.Timestamp(sp.last_valid_index()).date())
+    return sp, L, note, None
+
+
+def splice_fund_frame(C, spliced, L):
+    """Part A: the snapshot fund-close frame (load_fund_closes_fwd), its session calendar extended by the pull's sessions
+    after its last row; a column's dates after its own L take the spliced series, its dates <= L are left exactly as they are."""
+    extra = sorted({d for s in spliced.values() for d in s.dropna().index if d > C.index[-1]})
+    out = C.reindex(C.index.append(pd.DatetimeIndex(extra)))
+    for f, s in spliced.items():
+        m = out.index > L[f]
+        out.loc[m, f] = s.reindex(out.index[m]).to_numpy(float)
+    return out
+
+
+@contextlib.contextmanager
+def auction_feed(path, fetch_date):
+    """Part A forward: tvnt2_triage.AUC_FILE (read by load_auctions) -> the forward calendar file, and the calendar's fetch
+    date (auction_calendar_fetch_date: the staleness end and the settle rule) -> the pull's own. Both restored on exit."""
+    global _AUC_FETCH_OVERRIDE
+    _, T2 = _imp_auction()
+    old = T2.AUC_FILE, _AUC_FETCH_OVERRIDE
+    T2.AUC_FILE, _AUC_FETCH_OVERRIDE = path, pd.Timestamp(fetch_date)
+    try:
+        yield T2
+    finally:
+        T2.AUC_FILE, _AUC_FETCH_OVERRIDE = old
+
+
+@contextlib.contextmanager
+def rebal_series(spy, tlt):
+    """Part B forward: rebal_scan's module-level SPY / TLT (run() reads them with .asof) -> the spliced series; restored on exit."""
+    R = _imp_rebal()
+    old = R.SPY, R.TLT
+    R.SPY, R.TLT = spy, tlt
+    try:
+        yield R
+    finally:
+        R.SPY, R.TLT = old
+
+
+def snapshot_ief():
+    """Part A's IEF snapshot: the research cache's nonequity_close.csv column (what load_fund_closes_fwd reads)."""
+    T1, _ = _imp_auction()
+    return pd.read_csv(os.path.join(T1.CACHE, "nonequity_close.csv"), index_col=0, parse_dates=True)["IEF"]
+
+
+def master_close(sym):
+    """A yahoo_adj 1d master's closes on a tz-naive date index (the build of rebal_scan.yahoo / load_fund_closes_fwd)."""
+    find_master, load_master_arrays = _data()
+    A = load_master_arrays(find_master(sym, "1d", "rth", "yahoo_adj"))
+    return pd.Series(np.asarray(A["close"], float), index=pd.DatetimeIndex(A["index"]).tz_localize(None).normalize())
+
+
+def _master_file(inst, tf, session, source):
+    find_master, _ = _data()
+    m = find_master(inst, tf, session, source)
+    return m["filename"] if m else "(no master registered)"
+
+
+def _refused_plan(data, why, notes=()):
+    return dict(ends=None, run=None, ctx=contextlib.nullcontext, data=data, notes=list(notes), refuse=why)
+
+
+def _plan_a(feeds, since):
+    y, a = feeds.get("yahoo"), feeds.get("auctions")
+    tlt_file = _master_file("TLT", "1d", "rth", "yahoo_adj")
+    if y is None and a is None:
+        return dict(ends=part_a_ends, run=lambda e: part_a_forward(since, e), ctx=contextlib.nullcontext, notes=[], refuse=None,
+                    data="IEF nonequity_close.csv | TLT %s | auctions treasury_auctions_raw.json (snapshots; no forward pull "
+                         "on record)" % tlt_file)
+    data = "IEF nonequity_close.csv%s | TLT %s%s | auctions %s" % (
+        " + " + y["file"] if y else "", tlt_file, " + " + y["file"] if y else "",
+        "%s (fetched %s)" % (a["file"], a.get("fetched_at")) if a else "treasury_auctions_raw.json (snapshot)")
+    for f in (y, a):
+        if f is not None and f["error"]:
+            return _refused_plan(data, f["error"])
+    notes, sp, L = [], {}, {}
+    if y is not None:
+        for name, snap in (("IEF", snapshot_ief()), ("TLT", master_close("TLT"))):
+            s, l, note, why = checked_splice(name, snap, y)
+            notes.append(note)
+            if why:
+                return _refused_plan(data, why, notes)
+            sp[name], L[name] = s, l
+
+    def ends():
+        e = part_a_ends() if y is None else {}
+        if y is not None:
+            e["IEF close (nonequity_close.csv to %s + %s)" % (L["IEF"].date(), y["file"])] = sp["IEF"].last_valid_index()
+            e["TLT close (yahoo_adj 1d master to %s + %s)" % (L["TLT"].date(), y["file"])] = sp["TLT"].last_valid_index()
+        e.pop("auction calendar (treasury_auctions_raw.json fetch)", None)
+        if a is not None:
+            e["auction calendar (%s fetch)" % a["file"]] = a["fetch_date"]
+        else:
+            e["auction calendar (treasury_auctions_raw.json fetch)"] = auction_calendar_fetch_date()
+        return e
+
+    def run(e):
+        closes = splice_fund_frame(load_fund_closes_fwd(), sp, L) if y is not None else None
+        return part_a_forward(since, e, closes=closes)
+
+    ctx = (lambda: auction_feed(a["path"], a["fetch_date"])) if a is not None else contextlib.nullcontext
+    return dict(ends=ends, run=run, ctx=ctx, data=data, notes=notes, refuse=None)
+
+
+def _plan_b(feeds, since):
+    y = feeds.get("yahoo")
+    files = (_master_file("SPY", "1d", "rth", "yahoo_adj"), _master_file("TLT", "1d", "rth", "yahoo_adj"),
+             _master_file("ES", "5m", "rth", "db_noadj_rth"))
+    if y is None:
+        return dict(ends=part_b_ends, run=lambda e: part_b_forward(since, e), ctx=contextlib.nullcontext, notes=[], refuse=None,
+                    data="SPY %s | TLT %s (yahoo_adj 1d masters; no forward pull on record) | ES %s" % files)
+    data = "SPY %s + %s | TLT %s + %s | ES %s" % (files[0], y["file"], files[1], y["file"], files[2])
+    if y["error"]:
+        return _refused_plan(data, y["error"])
+    R = _imp_rebal()
+    notes, sp, L = [], {}, {}
+    for name, snap in (("SPY", R.SPY), ("TLT", R.TLT)):
+        s, l, note, why = checked_splice(name, snap, y)
+        notes.append(note)
+        if why:
+            return _refused_plan(data, why, notes)
+        sp[name], L[name] = s, l
+
+    def ends():
+        return {"SPY close (yahoo_adj 1d master to %s + %s)" % (L["SPY"].date(), y["file"]): sp["SPY"].last_valid_index(),
+                "TLT close (yahoo_adj 1d master to %s + %s)" % (L["TLT"].date(), y["file"]): sp["TLT"].last_valid_index(),
+                "ES 5m RTH (db_noadj_rth master)": _day(master_last_bar("ES", "5m", "rth", "db_noadj_rth"))}
+
+    return dict(ends=ends, run=lambda e: part_b_forward(since, e), ctx=lambda: rebal_series(sp["SPY"], sp["TLT"]), data=data,
+                notes=notes, refuse=None)
+
+
+def part_plan(p, feeds, since, out_dir, today):
+    """How `forward` reads part p: dict(ends, run, ctx, data, notes, refuse). With no forward pull on record a part is read
+    exactly as before the feeds existed (part_x_ends / part_x_forward on the snapshots, no overlay). Part C never uses one."""
+    if p == "A":
+        return _plan_a(feeds, since)
+    if p == "B":
+        return _plan_b(feeds, since)
+    return dict(ends=part_c_ends, run=lambda e: part_c_forward(since, e, out_dir, today), ctx=contextlib.nullcontext, notes=[],
+                refuse=None, data="NQ %s (1m ETH db_noadj_eth master) | calendar %s" % (
+                    _master_file("NQ", "1m", "eth", "db_noadj_eth"), BLS_FILE))
 
 
 # ================================================================================================ modes
@@ -741,18 +1037,28 @@ def mode_forward(since, out_dir=OUT_DIR):
     scale = {p: float(consts["parts"][p]["scale"]) for p in PARTS}
     print("EVENT SLEEVE forward shadow - trades ENTERED after %s, today %s, frozen scales %s (constants sha %s)\n" % (
         since.date(), today.date(), {p: round(v, 6) for p, v in scale.items()}, sha256_file(path)[:16]))
-    enders = {"A": part_a_ends, "B": part_b_ends, "C": part_c_ends}
-    runners = {"A": lambda e: part_a_forward(since, e), "B": lambda e: part_b_forward(since, e),
-               "C": lambda e: part_c_forward(since, e, out_dir, today)}
+    feeds = forward_feeds(out_dir)
     trades, dailies, status, new_skips = [], {}, {}, []
     for p in PARTS:
-        ends = enders[p]()
-        ok, why, _ = staleness(ends, today)
-        if not ok:
-            print("PART %s %-14s REFUSED - %s" % (p, PART_NAME[p], why))
-            status[p] = dict(status="REFUSED", reason=why, ends={k: str(pd.Timestamp(v).date()) for k, v in ends.items()})
+        plan = part_plan(p, feeds, since, out_dir, today)
+        lines = ["data: " + plan["data"]] + ["feed check: " + n for n in plan["notes"]]
+        if plan["refuse"]:
+            print("PART %s %-14s REFUSED - %s" % (p, PART_NAME[p], plan["refuse"]))
+            for n in lines:
+                print("      " + n)
+            status[p] = dict(status="REFUSED", reason=plan["refuse"], ends={}, data=plan["data"], feed_checks=plan["notes"])
             continue
-        t, d, info = runners[p](ends)
+        with plan["ctx"]():
+            ends = plan["ends"]()
+            ok, why, _ = staleness(ends, today)
+            if not ok:
+                print("PART %s %-14s REFUSED - %s" % (p, PART_NAME[p], why))
+                for n in lines:
+                    print("      " + n)
+                status[p] = dict(status="REFUSED", reason=why, ends={k: str(pd.Timestamp(v).date()) for k, v in ends.items()},
+                                 data=plan["data"], feed_checks=plan["notes"])
+                continue
+            t, d, info = plan["run"](ends)
         t = t.copy()
         t["scale"] = scale[p]
         t["pnl_usd_unit_sized"] = t.pnl * scale[p]
@@ -761,11 +1067,12 @@ def mode_forward(since, out_dir=OUT_DIR):
         dailies[p] = d * scale[p]
         new_skips += info.pop("new_skips", [])
         status[p] = dict(status="SCORED", reason=why, n_trades=int(len(t)), pnl_usd_unit_sized=round(float(t.pnl_usd_unit_sized.sum()), 2),
-                         ends={k: str(pd.Timestamp(v).date()) for k, v in ends.items()}, **info)
+                         ends={k: str(pd.Timestamp(v).date()) for k, v in ends.items()}, data=plan["data"],
+                         feed_checks=plan["notes"], **info)
         print("PART %s %-14s scored - %d trades, $%.2f unit-sized (%.3f risk units); %s%s" % (
             p, PART_NAME[p], len(t), t.pnl_usd_unit_sized.sum(), t.pnl_risk_units.sum(), why,
             "".join("; %s %s" % (k, v) for k, v in info.items() if k in ("pending", "skipped_total", "months_through", "next_release"))))
-        for n in info.get("notes", []):
+        for n in lines + info.get("notes", []):
             print("      " + n)
     cols = ["part", "instrument", "entry", "exit", "side", "pnl", "scale", "pnl_usd_unit_sized", "pnl_risk_units", "detail"]
     T = pd.concat(trades, ignore_index=True)[cols] if trades else pd.DataFrame(columns=cols)
