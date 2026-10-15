@@ -1,0 +1,264 @@
+# QWEN LAB - the local Qwen as a strategy tester
+
+Owner 2026-10-15 (MANAGER #130): "using qwen to read but not push buttons on EL or develop the backtest (which is in
+python not qwen) doesn't make sense." So the local model (qwen3.8:27b in Ollama, `tools/local_llm.py` is the house
+client) now proposes an idea, writes a strategy plugin, and `tools/qwen_lab.py` gates it, runs it and reports it.
+Built by CUSTOM-ML. Tests: `tests/test_qwen_lab.py`.
+
+## The rule
+
+**PYTHON COMPUTES EVERY NUMBER.** Qwen's text never supplies a number that is reported. The four numbers, the map
+read, trade counts and the validate bar are computed by the harness (with the house helpers) from the engine's trade
+list and the pinned master. Qwen sees them as tool results. Posts and preregs are composed by the harness from those
+computed dicts; Qwen's free text appears only in the prereg's quoted hypothesis / mechanism and is labelled as such.
+Its stated prior (yearly Sharpe, trades a year) is a pre-data INPUT and is labelled that way wherever it appears.
+
+## What one session does
+
+One session = one idea from one SOURCE. The sources ROTATE (MANAGER #133, 2026-10-15 - the lab's first #8 runs repeated
+two lanes' closed work, so it must not loop on one source):
+
+1. **the owner's scalper ask** - a profitable short-hold NQ / ES strategy. Qwen gets the hard facts up front (the 10-12
+   scalp hunt, memory `edgelog-scalp-hunt-1012`): 59 NQ 1m short-hold cells dead (micro opening range, open drive,
+   PDH/PDL, range burst, VWAP cross, sweep-reclaim, chop-fade, volume ignition, box break) plus BALANCE VWAP fade,
+   REVERT 10s fades and MISC range fades; best gross win rate at ZERO cost 52.1%; median gross $6.60 a trade against a
+   $15.66 NQ round trip (0.783 pt), ES 0.613 pt; the only short-hold earner is NOISE's band on 2m bars (4-12 min holds,
+   win rate 17-25%, payoff ~4x) - so a scalp must target a large payoff per trade or long-tail winners, never a high
+   win rate (fixed-target scalps are dead). Its Stage A (and validate job) charges that basis: **NQ 0.783, ES 0.613**.
+   The NQ 2m master (`NOADJ_NQ_2m_RTH.csv`) is pinned for it.
+2. **Qwen's own idea** - a new NQ / ES intraday mechanism, checked against `dead_list()` before `propose` (and by the
+   harness at `propose` and again at Stage A).
+3. **a reading-shelf paper MANAGER opened** (`C:\EdgeLog\manager\papers\reading_shelf.html`). MANAGER #142: #30
+   was picked three times, so the shelf is now explicit. A paper the lab has run a PRE-WF Stage A on is CLOSED
+   (`closed_shelf` in `state.json`, seeded with 8, 30 and every shelf paper already run) and the picker never takes it
+   again. The shelf slot runs ONLY on papers MANAGER opens: `python tools/qwen_lab.py shelf-open 31 32` appends a dated
+   line to `C:\EdgeLog\qwen_lab\shelf_open.txt` (a line of bare numbers works too); the running lab reads it at its
+   next pick, so there is no state.json race. An open overrides the skip list (2, 3, 6, 8, 10, 12-19, 21, 22, 26, 27,
+   29), the shelf's live / dead marks and ledger citations; a paper re-opened after it was closed is open again. While
+   no paper is open the shelf slot is skipped and the rotation is scalper -> own -> scalper -> own.
+
+Each pick is recorded in `state.json` (`next_pick`, `picks`, `rotation_index`) and posted to MANAGER as harness text,
+`QWEN LAB next pick: ...`; after every idea the harness records and posts the following pick. `--idea N` forces a shelf
+paper (refused when it is closed - `shelf-open N` re-opens it), `--source scalper|own|shelf` forces a source,
+`next-pick` records and posts without running.
+
+Qwen talks to the harness only through these tools:
+
+| tool | what it does |
+|---|---|
+| `read_repo_file(path, start_line)` | read-only, shared checkout (and the lab's plugin folder) only; secrets / `.env` / key / credential / `.git` / registry paths refused; 12k characters a call; key-looking lines redacted (`local_llm.redact_lines`) |
+| `list_strategies()` | house plugin files + the lab's own |
+| `dead_list(query)` | the closed rows of `RESEARCH_LEDGER.md` section 2, compact |
+| `ideas()` | this session's source, its brief, the rotation, the open shelf papers |
+| `shelf_ideas()` | the papers still open to the lab |
+| `propose(name, hypothesis, mechanism, prior_sharpe_yearly, trades_per_year, instrument, timeframe)` | recorded PRE-DATA; runs the dead-list check; may be revised (3 proposals) until the map reads it inside `run_stage_a`, then frozen (the plugin freezes too once the prereg is posted) |
+| `write_plugin(name, code)` | safety gate, then written to `augur_strategies/qwen_lab/<name>.py` in the WORKTREE, then contract + look-ahead in the sandbox |
+| `run_stage_a(name)` | the dead-list gate, the power-first map (recorded, not a stop), the auto prereg naming both stages posted to MANAGER, the PRE-WF Stage A, and the WF Stage A only if promoted; returns the computed numbers |
+| `queue_validate(name)` | the 900-trial Auto-Validate, only past the bar |
+| `finish(note)` | ends the session (the note is stored, never posted) |
+
+Tool calling: **native Ollama `/api/chat` tool calls work with qwen3.8:27b** (Ollama 0.40.4, verified 2026-10-15,
+`think: false`). A strict JSON-action fallback (`{"tool": ..., "arguments": {...}}` in plain text) is parsed too; each
+idea's `protocol` block counts which one the model used.
+
+## The gates, in order
+
+MANAGER #134 (2026-10-15, owner: the lab must actually TEST - its first three ideas all closed at the map with no
+backtest): gates 1-5 are HARD; the power-first map (6) is recorded and posted but no longer stops an idea; every idea
+that passes 1-5 gets the PRE-WF Stage A.
+
+1. **Safety gate** (AST, before the code is written, imported or run). Imports: `numpy`, `pandas`, `math`,
+   `from augur_engine.rolls import seam_days` only. Refused: `open`, `exec`, `eval`, `compile`, `__import__`,
+   `globals` / `locals` / `vars`, `getattr` / `setattr` / `hasattr`, `print`, `type`, classes, `global`, attribute
+   assignment (no monkeypatching numpy), any dunder or leading-underscore attribute, `'__'` in any string, bytes,
+   module-level code other than imports / constants / functions, and the I/O surface of numpy / pandas (`np.load`,
+   `np.save*`, `tofile`, `memmap`, `np.lib`, `ctypes`, `ctypeslib`, `pd.read_*`, every `to_*` writer, `query`, `eval`,
+   `options`, `plot`, ...). The reasons go back to Qwen.
+2. **Sandbox** - the plugin only ever runs in a child process (`python tools/qwen_lab.py _sandbox`), never in the
+   harness: secret-looking environment variables stripped, one thread, a wall-clock timeout, a 6 GB memory watchdog,
+   restricted builtins (a guarded `__import__`, no `open` / `eval` / `exec` / `getattr` ...), and an audit hook that,
+   while plugin code runs, blocks every file write, reads outside the Python / engine / roll-table folders, subprocess,
+   socket, ctypes, registry, `os.*` file operations and new threads. Any blocked event fails the gate. The child
+   re-checks the plugin's LF sha256 before it executes a line.
+3. **Contract** (sandbox): `STRATEGY_NAME`, `DEFAULT_PARAMS` with at least one RANGED numeric knob (a pinned file cannot
+   be Auto-Validated), valid `ROLL_SIGNAL`; the synthetic battery of `tests/test_strategy_contract.py` (well-formed,
+   5-field trades, deterministic, truncation no-look-ahead); a real-data smoke on the pinned master over the
+   PRE-walk-forward bars only (2015-01-02..2016-06-30, through the engine and its roll guard; trade counts reported,
+   never P&L); every ranged knob at its min and its max. A `str`
+   knob with several options is warned (the validate searches every option - port trap 2).
+4. **Look-ahead** (sandbox): `tools/exec_feasibility_audit.py`'s file checks on the one file (hidden-knob sweep,
+   fabricated metrics, gap-through stops, known leak knobs), then a **perturbation audit** on real PRE-walk-forward
+   bars (2015-01-02..2016-06-30; 1m: 2015-07-01..2016-06-30): for 8 sampled trades, everything that did not exist at the
+   fill is replaced - every later bar, plus the fill bar's high / low / close / volume for an open fill, or its close /
+   volume for an intrabar fill - in two opposite phases, and the trade must not change (entry: bar, side, price; exit:
+   bar and P&L). The sample is 8 trades spread through the window PLUS up to 4 of the shortest holds (exits on the
+   entry bar first). An INTRABAR fill gets two more phases: the extreme it crossed is pushed further (a stop / limit
+   level from bars <= k-1 fills at the same price; a level built from the fill bar's own high / low moves), and for a
+   stop-type exit the other extreme is widened by 5 median ranges (catches a trailing extreme updated with the fill
+   bar before the check, and a same-bar target checked before the stop). Added 10-15 after the first PRE-WF run:
+   QL_ES_MOMBREAK v4 passed the 8-trade audit with an ATR over bars up to AND including the entry bar, used for a stop
+   checked on that bar; the new phases catch it on real data and pass QL_MTP_NQ, QL_SCALP2M and the template. Plus
+   **fill realism**: every entry and exit price must sit inside its bar's range (a stop on a bar that
+   opened through it must book the open; P&L must be side x (exit - entry)). `tools/gate_lookahead_audit.py` audits the
+   ML gate's feature matrix; a Qwen plugin has no ML gate, so it does not apply. The tests prove the audit catches four
+   leak shapes the static gate cannot see (next-bar close, same-bar close with an open fill, a whole-series percentile,
+   an exit that peeks a bar ahead) plus a fabricated P&L. A failure returns `how_to_fix` hints by fill kind (open / intrabar /
+   close). A file byte-identical to an earlier attempt that failed a gate is refused without using an attempt (the
+   10-15 live run re-sent one leaking file three times verbatim).
+5. **Dead list**: the proposal's name against closed family names (`ONDRIFT`, `XGAP`, ...), and its content words
+   against each closed row (refused at >= 50% of the proposal's words with >= 5 shared). Lexical - it catches clear
+   re-runs; Qwen also gets `dead_list()`. Re-run at Stage A on the frozen proposal. On top of the ledger, the lab's
+   own closed families (`LAB_DEAD`) refuse any source's proposal that names them: **GAMMA** - gamma exposure, GEX,
+   dealer gamma / dealer hedging (MANAGER #142: GAMMA r1 is dead in ledger rows 2.135-2.137, the lab's QL_GAMMA_MOM and
+   QL_GAMMA_ORB lost, and gamma is an owner ask-first idea). They head every `dead_list()` answer.
+6. **Power first** (inside `run_stage_a`, after gates 1-5 - the order the owner set): `tools/mapcheck_f.py`'s
+   generator and rules on the stated prior (Sharpe s as stated, sd max(0.30, s/2), rho 0, t3 tails, clustered vol, the
+   tool's 2,000 draws, own seed printed). The stated trades a year are checked against the plugin's own trade COUNT on
+   the pre-walk-forward smoke (no P&L); a stated rate off by more than 2x is a factual error about the rule's schedule,
+   and the map uses the counted rate (both printed in the prereg) - house power lines also use the real schedule.
+   The verdict (CLEARS; GREYED under 50 trades a year; CLOSE) is final for that proposal (the prior is not re-stated
+   upward), written into the prereg and both posts - but since MANAGER #134 it is **recorded, not a stop**: the idea
+   goes on to the PRE-WF Stage A whatever the map says (`map.stops_idea = false`). Priors above a yearly Sharpe of 1.5
+   are refused at `propose`.
+7. **Auto prereg** - `C:\EdgeLog\qwen_lab\preregs\<name>_<date>.md`, naming BOTH stages: the source, Qwen's
+   hypothesis and mechanism verbatim, the prior, the map read (marked "recorded, not a stop"), the dead-list read, the
+   gates passed, the pinned master by filename with the PRE-WF slice's fingerprint, both windows, the promotion rule,
+   the cost, the reading rules, a line that no walk-forward bar was read before it (gates 3-4 ran on pre-walk-forward
+   bars), and the LF sha256 of the plugin and of `tools/qwen_lab.py`. Posted to MANAGER (`chat_inbox.py post MANAGER
+   --from QWEN-LAB`; MANAGER's inbox exists so no `--new`; the sender has no inbox, so posts say "Replies ->
+   CUSTOM-ML-MODEL-OPTIMIZATION") BEFORE any run. If the post fails, no stage runs. Both hashes are re-checked against
+   the prereg before EACH stage (a mismatch refuses that stage).
+   Note: the lab does not push a `prereg/<lane>-<name>` branch (MANAGER #77) - it never pushes; the hashes posted
+   before the run and the prereg file under `C:\EdgeLog\qwen_lab\preregs\` are the record.
+
+## Stage A - two stages (MANAGER #134)
+
+Both stages run the plugin's FILE DEFAULTS (no tuning) on its PINNED master (by filename: `NOADJ_NQ_5m_RTH.csv`,
+`NOADJ_NQ_1m_RTH.csv`, `NOADJ_NQ_2m_RTH.csv`, `NOADJ_ES_5m_RTH.csv`, ... source `db_noadj_rth`; the engine's roll
+guard adjusts signals and re-prices fills to raw). House costs: NQ 0.533 pt x $20, ES 0.363 pt x $50, one contract
+(the scalper source: NQ 0.783, ES 0.613 - the scalp hunt's basis). Single-threaded sandbox, `AUGUR_TRIAL_CACHE=1`.
+
+1. **PRE-WF Stage A - every idea that passes the hard gates.** Window **2010-06-07..2016-06-30**, the pre-walk-forward
+   rows only (the house WF starts 2016-07-01; the validate job's window starts 2010-06-07). Data are loaded for that
+   window and nothing later: `PREWF1 < WF0` is asserted at import, the sandbox refuses a pre-WF load that reaches
+   2016-07-01 (before and after loading), and the harness asserts it again on its own slice and inside
+   `four_numbers`. Never a WF row, never the lockbox. Output: `numbers_pre_wf.json`, `pre_wf_trades.csv`, and the
+   MANAGER post `QWEN LAB: <idea> PRE-WF ...` (four numbers + trades + trades a year, the promotion verdict, the map
+   verdict, the prereg and numbers paths). The contract smoke and the look-ahead audit read 2015-01-02..2016-06-30
+   (inside this window) and report trade counts and pass / fail only - never P&L.
+2. **Broken-plugin check, before any verdict (MANAGER #139).** QL_MOMDRIVE made 1 trade in 6 years - a bug that read
+   as a dead idea. If the PRE-WF trades a year are more than 3x below the proposal's stated rate, under 20 a year, or
+   under 100 a year for a scalp idea (the scalper source, or "scalp" in the proposal) - or the plugin crashes on the
+   window - NO verdict is recorded and nothing is posted. Qwen gets the count, trades by year, its first trades and
+   three real sessions of bars from the PRE-WF window where it did not trade (the biggest up day, the biggest down day,
+   a median-range day; up to 40 bars each, with the session bar index) to check its entry condition against, and
+   fixes the plugin. The fix goes through every hard gate again (`write_plugin` reopens for it; +3 attempts and +4
+   model turns per retry); `run_stage_a` then appends an ADDENDUM line with the new plugin hash and the harness hash
+   to the prereg and posts it to MANAGER (`QWEN LAB: PREREG ADDENDUM <k> ...`) BEFORE the re-run - a failed post
+   refuses the run. At most 2 retries. Still failing (or the model finishes / runs out of turns mid-fix): the idea
+   closes `BROKEN PLUGIN (n trades)` with its numbers posted - a broken plugin, NOT a dead idea.
+3. **Promotion**: the WF Stage A runs only if the PRE-WF **ROC@30k >= 15 AND not one episode**. Not promoted: the idea
+   closes `PRE-WF DONE - not promoted (...)` and the PRE-WF post is its result post (no second post).
+4. **WF Stage A - promoted ideas only.** Data loaded 2015-01-02..2025-06-29 (the warm-up years let indicators settle;
+   trades entering before 2016-07-01 are dropped); the stretch is the house walk-forward **2016-07-01..2025-06-29
+   only**. The lockbox (2025-06-30..2026-06-30) is never loaded: the sandbox and the harness both assert the last bar
+   is before it. Output: `numbers.json`, `stage_a_trades.csv`, then the Auto-Validate rule below.
+
+For each stage the harness loads the same slice itself, checks the sandbox's bar count and fingerprint match, and
+computes:
+
+- the valued-daily series with `augur_engine.book._mtm_increments` (open trades marked at each session's last close),
+  every session of the stretch, zeros included;
+- **ROC %/yr at a $30k drawdown**, **Sortino**, **DD % from peak** ($100k start) - `augur_engine.book_sizing.stretch_reading`;
+- **DD5** and the **one-episode** flag - `augur_engine.drawdowns.dd5`;
+- trades, trades a year, **net per trade in points and $** (MANAGER #142: every loser so far read about -4.5 to
+  -5.0 ROC@30k, so the per-trade net tells a steady small loser from a broken one), net, PF, win rate, peak RAM.
+
+Every result line (posts, `status`, `run.log`) reads `ROC@30k | DD5 | DD% | Sortino | trades (n/yr) | net/trade
+<pts> pt ($)`.
+
+## Load courtesy (MANAGER #143)
+
+While a ship holds the machine-wide push lock (`C:\EdgeLog\state\push.lock`, `tools/push_lock.py`), the lab starts no
+NEW Qwen generation and no NEW Stage A; it re-checks every 60 s, logs the wait (`LOAD COURTESY: ...` in `run.log`, the
+last 50 in `state.json` `courtesy_waits`) and finishes whatever is already running. It only READS the file - never
+takes, creates or deletes the lock. Held vs stale: push_lock holds an OS lock on byte 0 and writes the holder's name
+from byte 1, and the name stays after a release, so the name alone proves nothing. On Windows the byte-0 lock is
+mandatory, so reading byte 0 fails with a permission error exactly while a ship holds it (elsewhere: a named holder
+whose pid is alive). A STOP file ends a wait before a generation or before Stage A starts (nothing has been written
+then); the short wait right before each stage is not interruptible. `status` shows the lock and the last waits.
+
+## Auto-Validate
+
+Only for a PROMOTED idea whose WF Stage A has WF ROC@30k >= 15, not one episode, >= 100 WF trades and a sandbox
+peak under 4 GB (a validate runs three fold processes - port trap 1). Then:
+
+1. at most ONE Qwen-lab validate queued / running / paused (Firestore read, the lanes' query; fail closed if it cannot
+   be read);
+2. the file must be on main with the SAME LF hash (`augur_strategies/<name>.py` or `augur_strategies/qwen_lab/<name>.py`
+   in the shared checkout - the runner reads the shared checkout and executes the plugin in-process, unsandboxed, so a
+   Claude lane review comes first). Not there: the request is recorded as **pending review** in `state.json`;
+   `python tools/qwen_lab.py queue-pending` queues it once the reviewed file has landed;
+3. `tools/queue_guard.py`'s `guard()` runs in the sandbox (an ARTIFACT verdict refuses; its printout, which includes
+   the guard's own lockbox slice, stays in the idea folder and is never shown to Qwen or posted);
+4. the job is the lanes' shape (`tools/noise_queue_422_tp_validate.BASE`): 900 trials (owner rule), window
+   2010-06-07..2026-06-30 with a 12-month lockbox (split 2025-06-30 = the house lockbox start), 8 folds, warm_days 300,
+   the pinned source, house cost; preset / note tagged `QWEN LAB`.
+
+`--dry-run-validate` runs all of it except the Firestore write (and, when the file is not on main yet, still builds
+the job and runs the guard on the worktree file so the path is exercised); the job lands in `validate_job.json`.
+
+## Run, stop, resume
+
+```
+python tools/qwen_lab.py next-pick                               # record + post the next pick (rotation)
+python tools/qwen_lab.py run --once --dry-run-validate            # test the recorded pick, validate in dry run
+python tools/qwen_lab.py run --source scalper --dry-run-validate  # force a source (or --idea N for a shelf paper)
+python tools/qwen_lab.py run                                      # idea after idea, rotating the sources
+python tools/qwen_lab.py launch [flags]                           # the same, detached (pythonw, no console)
+python tools/qwen_lab.py stop                                     # STOP file: saves and exits at the next step
+python tools/qwen_lab.py status
+python tools/qwen_lab.py queue-pending [--dry-run-validate]
+python tools/qwen_lab.py shelf-open 31 32                         # MANAGER opens shelf papers for the lab
+```
+
+Run it from a git **worktree**: plugins are written to `<worktree>\augur_strategies\qwen_lab\` and the tool refuses the
+shared checkout as the plugin repo. A second `run` refuses while one is alive (`run.lock`). A stopped or killed run
+resumes the open idea from its saved transcript. Ollama must be up (`python tools/local_llm.py --status`; CPU ONLY
+after a reboot = restart Ollama). Long runs show on the top-bar dials through `tools/research_beacon.py` (`--no-beacon`
+to skip).
+
+Limits: 18 model turns an idea (every tool result carries `steps_left`), at most 3 turns of pure reading before a
+proposal (the first live run spent 9 turns on one-word `dead_list` searches), 6 plugin attempts, 3 proposals, 4 h wall, 30 min a model reply, sandbox timeouts
+15 / 25 / 40 / 40 min (contract / look-ahead / Stage A / guard), 6 GB sandbox memory, 32k context (old tool results and
+old plugin code are trimmed from what is sent; the transcript keeps everything).
+
+## Where outputs go
+
+`C:\EdgeLog\qwen_lab\`:
+- `state.json` - current idea, done ideas (outcome + PRE-WF and WF four numbers), validates, pending reviews, the
+  shelf skip list, `closed_shelf`, the source rotation and picks, `courtesy_waits`
+- `shelf_open.txt` - the papers MANAGER opened (`shelf-open`), one dated line per call
+- `run.log` - every step, tool call and gate result
+- `ideas\<id>\` - `idea.json` (events in order, proposal, map, gates, prereg, Stage A, validate), `transcript.json`
+  (every message and model timing), `plugin_v<k>.py.txt` (inert copies of each attempt), `gates_v<k>.json`,
+  `sandbox_*` requests / results / logs, `pre_wf_trades.csv` + `numbers_pre_wf.json` (PRE-WF stage),
+  `stage_a_trades.csv` + `numbers.json` (WF stage), `sanity_r<k>.json` + `pre_wf_r<k>_trades.csv` (broken-plugin
+  retries), `validate_job.json`, a prereg copy (with any addenda)
+- `preregs\<name>_<date>.md`
+
+MANAGER posts per idea: the prereg (`QWEN LAB: PREREG ...`) before any run, the `QWEN LAB: <name> PRE-WF ...` post
+with the PRE-WF numbers, and - for a promoted idea, or one that ended before the PRE-WF stage - one end post
+`QWEN LAB: <name> (<source>) - ...` (both stages' numbers, or `-` and why); then the harness's `QWEN LAB next pick:
+...` post. A run resumed under a changed harness gets the current system prompt and a note of what changed. A plugin's `write_plugin` result also carries a
+`schedule_check`: its own trade COUNT on the pre-walk-forward bars against the proposal (counts only) - a rate off by
+more than 2x, or under the map's 50 a year, is flagged so Qwen can revise before the map reads it; a revised proposal
+forces the plugin to be rewritten and re-gated.
+
+## Shipping
+
+**Nothing in `augur_strategies/qwen_lab/` ships to main without a Claude lane review.** The lab writes into a
+worktree; it never commits, pushes, ships, touches the box, NinjaTrader, Webull, live or paper systems, or downloads
+anything. A lane reviews the plugin (the same audit as any new strategy file: `tests/test_roll_detector_lint.py`, the
+strategy contract tests, a peak-RAM read on the full window - see the port-validate traps) before it ships, and only a
+shipped file with the prereg's hash can be Auto-Validated.
