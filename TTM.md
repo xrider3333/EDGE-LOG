@@ -141,6 +141,7 @@ r25 (2026-10-12, owner order 'scalping with higher win rates'): profit-target an
 r26 (2026-10-14, 'keep testing'): two new TTM leg ideas map-checked - the #459 rules on 14 ETFs, and on ES overnight hours - both closed at the map (own median ROC@30k 1.4 / 1.6). The TTM family has no idea left that can move the book; the lane works as the house's verifier.
 VERIFIER 2026-10-14: the live Webull legs' evidence re-checked blind - Q37 (DIP on QQQ, the live DIP leg's backtest) and Q38 (the harm bands of ORB_R6 / NOISE_382 / DIP_424F) both reproduce exactly; each live leg now carries its four numbers at the owner's real cost.
 CROWN RE-CHECKS 2026-10-14 (MANAGER #110): run #490 (NOISE #422 + target knob) verified exact - the target knob was not picked and the crowned gate_len 16 reads ~7 ROC points below #422 on WF.
+r27 (2026-10-15, reading shelf No. 8 'Momentum turning points'): an ES market-phase side-gate on #459 loses money in all three draft cells on the tuning years, and a speed-blended trend leg fails the map - closed at draft. #459's counter-trend shorts in bull phases are part of its edge.
 
 ## Discipline this family taught the shop
 

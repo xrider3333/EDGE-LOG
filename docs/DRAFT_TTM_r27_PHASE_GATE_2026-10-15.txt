@@ -1,0 +1,20 @@
+TTM r27 DRAFT - SHELF No. 8 (Goulding, Harvey & Mazzoleni 2023, JFE 149(3) 'Momentum turning points') AS A SIDE-GATE ON TTM #459
+TTM, 2026-10-15, written BEFORE any phase number is computed. Power-first gate: IS-only design read (#459's tuning stretch 2010-06-07..
+2016-06-29); WF and lockbox not read unless a cell clears the gate and a prereg is pushed.
+
+THE PAPER (full text not read - no open copy; a download needs the owner's own OK; abstract + the authors' published convention): four
+market phases from a SLOW (12-month) and a FAST (1-month) time-series-momentum signal - Bull (slow +, fast +), Correction (+, -), Bear (-, -),
+Rebound (-, +). Their claim: Bear phases predict NEGATIVE next returns; blending speeds earns alpha. Book-level uses overlap dead tests
+(Q9 TREND seat 1/3/12-month blend FAIL, ledger 2.58; CALMTAPE 2.126; TRENDSIZE 2.159; crash-regime short 2.16) - not re-run.
+
+THE UNTESTED USE: gate #459's trades by the ES phase at entry. Phase from the ES 30m db_adj_rth master's SESSION closes, strictly before the
+entry session: slow = sign(close[d-1] - close[d-1-252 sessions]), fast = sign(close[d-1] - close[d-1-21]) (difference-adjusted series:
+point changes are true contract moves). Trades with no phase (first 253 sessions of the master) are kept.
+CELLS (fixed now):
+- G1 AGREE: skip a long in Bear, skip a short in Bull.
+- G2 SLOW: skip a long when slow < 0, skip a short when slow > 0.
+- G3 BEAR-ONLY (the paper's sharpest claim): skip a long in Bear; shorts unchanged.
+READ (IS only, real cost 0.613 pt = $5.65 + 1 tick each side, x1 contract): per phase x side: n, mean $, sum $; per cell: $ a year added
+(= minus the sum of the trades it skips), ROC@30k / DD5 / DD% from peak / Sortino on IS vs #459 as is.
+GATE: a cell goes to a prereg only if its IS $ a year added is > 0 AND above the WF detection line r25 measured (~$500-900 a year per
+contract, #459's WF trade count 212). Otherwise CLOSED AT DRAFT. Three cells = a small family; no cell is tuned.

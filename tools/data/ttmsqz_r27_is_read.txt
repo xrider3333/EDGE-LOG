@@ -1,0 +1,18 @@
+IS 2010-06-07..2016-06-29: 128 trades (81 long / 47 short), phase 'none' 26; master first session 2010-06-07
+
+phase x side (IS, real cost 0.613 pt, $ per contract):
+  Bull       long  n  50  mean $    -3.6  sum $     -182  win   40%
+  Bull       short n  23  mean $  +154.7  sum $    +3558  win   52%
+  Correction long  n  12  mean $  +221.4  sum $    +2657  win   67%
+  Correction short n   9  mean $    -7.0  sum $      -63  win   44%
+  Bear       long  n   1  mean $  +406.9  sum $     +407  win  100%
+  Bear       short n   3  mean $  +844.3  sum $    +2533  win  100%
+  Rebound    long  n   3  mean $  +161.0  sum $     +483  win   33%
+  Rebound    short n   1  mean $   -30.6  sum $      -31  win    0%
+  none       long  n  15  mean $   +91.0  sum $    +1365  win   67%
+  none       short n  11  mean $   -45.4  sum $     -500  win   36%
+
+#459 as is, IS real cost: n 128  net $  10,227  ROC@30k  26.40  DD5 $   794  DD%pk   1.9%  Sortino  2.46 | win  49.2%  avg win $  325 / avg loss $  157 (x2.06)
+G1 AGREE      skips  24 trades | $ a year added    -654 | n 104  net $   6,262  ROC@30k  16.08  DD5 $   840  DD%pk   1.9%  Sortino  1.60 | win  48.1%  avg win $  306 / avg loss $  168 (x1.83)
+G2 SLOW       skips  36 trades | $ a year added    -723 | n  92  net $   5,843  ROC@30k  16.92  DD5 $   662  DD%pk   1.7%  Sortino  1.62 | win  48.9%  avg win $  300 / avg loss $  163 (x1.84)
+G3 BEAR-ONLY  skips   1 trades | $ a year added     -67 | n 127  net $   9,820  ROC@30k  25.35  DD5 $   794  DD%pk   1.9%  Sortino  2.37 | win  48.8%  avg win $  323 / avg loss $  157 (x2.05)

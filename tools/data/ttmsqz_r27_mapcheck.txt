@@ -1,0 +1,8 @@
+MAPCHECK-F (Custom ML; MDL r1's generator, FRONTIER OK #92) - 2000 synthetic legs per prior, seed [20261010, k]; WALK-FORWARD only (#463's lockbox is spent). #463 WF 93.81 / 3.816, bar 98.50 / 3.816; S1 line WF 121.06 / 3.926, bar 127.11 / 3.926. Unit volatility $21,895 a year (MDL r1's: 1/3 of the book's).
+Rules: (1) fewer than 50 trades a year = GREYED, cannot be a seat alone (no 50 sealed-year trades); (2) median own ROC < ~8 AND P(own >= 15) < ~10% (MANAGER #84) -> close, unless it earns while the book falls; (3) P(book lift on #463, WF) under 30% -> close. CLEARS = passes all three.
+
+TURNING-POINTS-LEG: n 24/yr, yearly Sharpe 0.25 +- 0.30, rho_dd -0.15 (zero), t3 tails, clustered vol
+  own WF ROC @ $30k: median +2.8, P(>= 15) 12%; realised rho_dd -0.03, DO +0.043
+  P(book lift, WF): #463 24% (median book ROC 94.5), S1 line 13%
+  -> GREYED - cannot be a seat on its own (< 50 trades a year)
+  prior source: Dynamic slow (12m) / fast (1m) TSMOM blend on ES + NQ, monthly re-sizing, long or short (~12 position changes a market a year). The paper's US-market timing is a century of monthly data; published-to-live decay ~half (shelf No. 17 / 19). The house's own read of the static version - Q9 TREND seat, 1/3/12-month blend on 11 futures funds (ledger 2.58) - FAILED: it earned in #463's drawdown days but bled ~$1.7k a year between crises (7 of 9 WF years down). Prior 0.25 +- 0.30 a year (paper ~0.5 halved); crisis hedge -> rho_dd -0.15, flat with the book otherwise
