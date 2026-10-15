@@ -85,7 +85,7 @@ def test_pipeline_deterministic():
 def test_pipeline_fill_timing_and_exit_order(seed):
     bars = _bars(seed=seed)
     o = bars[0]
-    r = _run(bars)
+    r = _run(bars, **MOD.AS_PORTED_OURS)                       # the script's own exits
     assert r is not None and r["num_trades"] > 0
     for d in r["trade_detail"]:
         assert d["entry_bar"] == d["signal_bar"] + 1          # next bar's open, never the signal bar
@@ -224,7 +224,8 @@ def _fp(trades):
 
 
 def _defaults_ours():
-    return {k: MOD.DEFAULT_PARAMS[k]["default"] for k in OURS}
+    """The AS-PORTED values of the new knobs (the file defaults moved to the improvement round's cell)."""
+    return dict(MOD.AS_PORTED_OURS)
 
 
 def test_new_knobs_lattices_and_order():
@@ -236,12 +237,12 @@ def test_new_knobs_lattices_and_order():
     assert (p["sl_scale"]["min"], p["sl_scale"]["max"], p["sl_scale"]["step"],
             p["sl_scale"]["default"]) == (0.40, 1.20, 0.05, 1.0)
     assert (p["tp_scale"]["min"], p["tp_scale"]["max"], p["tp_scale"]["step"],
-            p["tp_scale"]["default"]) == (1.0, 2.0, 0.25, 1.0)
+            p["tp_scale"]["default"]) == (1.0, 2.0, 0.25, 2.0)
     assert (p["max_hold_bars"]["type"], p["max_hold_bars"]["min"], p["max_hold_bars"]["max"],
             p["max_hold_bars"]["step"], p["max_hold_bars"]["default"]) == ("int", 0, 240, 30, 0)
     assert (p["be_trigger"]["min"], p["be_trigger"]["max"], p["be_trigger"]["step"],
-            p["be_trigger"]["default"]) == (0.0, 2.0, 0.5, 0.0)
-    assert p["vix_feed"]["options"] == ["none", "daily"] and p["vix_feed"]["default"] == "none"
+            p["be_trigger"]["default"]) == (0.0, 2.0, 0.5, 1.0)
+    assert p["vix_feed"]["options"] == ["none", "daily"] and p["vix_feed"]["default"] == "daily"
 
 
 # Fingerprints of the PRE-CHANGE module's trade lists (as ported, before these knobs).
@@ -319,7 +320,7 @@ def test_exit_levels_cap_then_scales():
     atr = rng.uniform(2, 12, n)
     d_sl = rng.uniform(0.5, 6.0, n) * atr
     d_tp = rng.uniform(1.0, 8.0, n) * atr
-    P = MOD._params({})
+    P = MOD._params(dict(MOD.AS_PORTED_OURS))
     for is_long, sgn in ((True, 1.0), (False, -1.0)):
         sl = c - sgn * d_sl
         tp = c + sgn * d_tp
@@ -352,14 +353,15 @@ def _by_signal(r):
 
 def test_pipeline_exit_knobs_move_the_tickets(fast_kernels):
     bars = _bars(n=6000, seed=4, start="2024-03-05 08:00")
-    base = _run(bars)
+    A = dict(MOD.AS_PORTED_OURS)                                   # knobs move FROM the script's exits
+    base = _run(bars, **A)
     assert base is not None and base["num_trades"] > 5
-    cap = _run(bars, sl_cap_atr="3.0")
+    cap = _run(bars, **dict(A, sl_cap_atr="3.0"))
     for d in cap["trade_detail"]:                                  # tick rounding: +-1/2 tick
         if d["path"] in SESSION_PATHS:
             assert abs(d["signal_close"] - d["ticket_sl"]) <= 3.0 * d["signal_atr"] + 0.125 + 1e-9
-    half = _run(bars, sl_scale=0.5)
-    dbl = _run(bars, tp_scale=2.0)
+    half = _run(bars, **dict(A, sl_scale=0.5))
+    dbl = _run(bars, **dict(A, tp_scale=2.0))
     b0 = _by_signal(base)
     for run_, field, mult in ((half, "ticket_sl", 0.5), (dbl, "ticket_tp", 2.0)):
         common = [(k, d) for k, d in _by_signal(run_).items() if k in b0]
@@ -368,10 +370,10 @@ def test_pipeline_exit_knobs_move_the_tickets(fast_kernels):
             full = b0[k][field] - b0[k]["signal_close"]
             new = d[field] - d["signal_close"]
             assert abs(new - mult * full) <= 0.125 * (1 + mult) + 1e-9, (k, field)  # tick rounding
-    held = _run(bars, max_hold_bars=30)
+    held = _run(bars, **dict(A, max_hold_bars=30))
     assert all(d["exit_bar"] - d["entry_bar"] <= 30 for d in held["trade_detail"])
     for kw in (dict(be_trigger=1.0), dict(vix_feed="daily", _feed_vix=([], []))):
-        r = _run(bars, **kw)
+        r = _run(bars, **dict(A, **kw))
         assert r is None or r["num_trades"] == len(r["trades"])
 
 
@@ -678,3 +680,22 @@ def test_build_releases_its_locals():
         subprocess.run([sys.executable, os.path.join(root, "tools", "free_locals.py"), src, "_build_inner", out],
                        check=True, capture_output=True)
         assert open(out, "rb").read() == open(src, "rb").read()
+
+
+def test_file_defaults_are_the_improvement_rounds_cell():
+    """Defaults = the 216-cell round's chosen cell (2024 dev year, prereg Amendments 3-4); AS_PORTED_OURS = the script."""
+    dflt = {k: MOD.DEFAULT_PARAMS[k]["default"] for k in OURS}
+    assert dflt == MOD.IMPROVED_R1
+    assert MOD.IMPROVED_R1 == dict(sl_cap_atr="off", sl_scale=1.0, tp_scale=2.0, max_hold_bars=0, be_trigger=1.0, vix_feed="daily")
+    assert MOD.AS_PORTED_OURS == dict(sl_cap_atr="off", sl_scale=1.0, tp_scale=1.0, max_hold_bars=0, be_trigger=0.0, vix_feed="none")
+
+
+def test_missing_vix_file_runs_without_vix(monkeypatch, fast_kernels):
+    """A machine without the VIX photograph (CI) warns and runs as vix_feed='none'; a present file is sha-checked."""
+    monkeypatch.setitem(MOD._VIX_FILES, "raw", ("C:/nowhere/VIX_History.csv",) + tuple(MOD._VIX_FILES["raw"][1:]))
+    monkeypatch.setattr(MOD, "_VIX_MISSING_WARNED", set())
+    bars = _bars(n=6000, seed=3, start="2024-03-04 18:00")
+    base = dict(MOD.AS_PORTED_OURS)
+    with pytest.warns(UserWarning, match="not on this machine"):
+        daily = _run(bars, **dict(base, vix_feed="daily"))["trades"]
+    assert daily == _run(bars, **base)["trades"]

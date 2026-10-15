@@ -315,7 +315,9 @@ DEFAULT_PARAMS = {
                     "label": "Daily close",
                     "tooltip": "settle = TV's settlement-as-close daily bars (approximated by "
                                "the 15:59 ET bar close). last = the session's last trade."},
-    # ── OUR PORT ADDITIONS (not in the script; defaults = the as-ported trades exactly) ──
+    # ── OUR PORT ADDITIONS (not in the script). DEFAULTS = the improvement round's chosen cell (TV 10-14, prereg
+    # Amendments 3-4, 2024 development year: tp_scale 2.0, be_trigger 1.0, vix_feed daily; the other three at their
+    # as-ported values). The AS-PORTED trades = AS_PORTED_OURS below, passed explicitly (tests pin both). ──
     "sl_cap_atr": {"default": "off", "type": "str", "options": ["off", "3.0"],
                    "label": "Stop cap x ATR (ours)",
                    "tooltip": "3.0 = the author's stated 'never > 3 ATR' stop cap, actually "
@@ -326,18 +328,18 @@ DEFAULT_PARAMS = {
     "sl_scale": _knob_f(1.0, 0.40, 1.20, 0.05, "Stop distance x (ours)",
                         "Every ticket's stop distance from the signal close x this, after the "
                         "cap and after every entry gate. 1.0 = as written."),
-    "tp_scale": _knob_f(1.0, 1.0, 2.0, 0.25, "Target distance x (ours)",
+    "tp_scale": _knob_f(2.0, 1.0, 2.0, 0.25, "Target distance x (ours)",
                         "Every path's target: tp = close + (tp - close) x this, close = the "
                         "signal bar's close; applied after the minProfit entry gate. 1.0 = as "
                         "written."),
     "max_hold_bars": _knob_i(0, 0, 240, "Max hold bars (ours)",
                              "0 = off. A ticket open N bars (fill bar included) exits at the "
                              "next bar's open (market): exit bar = fill bar + N.", step=30),
-    "be_trigger": _knob_f(0.0, 0.0, 2.0, 0.5, "Breakeven trigger x risk (ours)",
+    "be_trigger": _knob_f(1.0, 0.0, 2.0, 0.5, "Breakeven trigger x risk (ours)",
                           "0 = off. Once price trades at entry + this x initial risk (longs; "
                           "mirrored for shorts) the ticket's stop moves to its entry price from "
                           "the NEXT bar on; never on the trigger bar itself."),
-    "vix_feed": {"default": "none", "type": "str", "options": ["none", "daily"],
+    "vix_feed": {"default": "daily", "type": "str", "options": ["none", "daily"],
                  "label": "VIX stand-in (ours)",
                  "tooltip": "none = CBOE:VIX 1m not held -> na (as ported). daily = CBOE daily "
                             "VIX close (sha256-pinned file), each day's close usable from 16:15 "
@@ -357,6 +359,11 @@ PARAM_GRID_PRESETS = {
         "intrabar": ["worst", "tv"],
     },
 }
+
+AS_PORTED_OURS = dict(sl_cap_atr="off", sl_scale=1.0, tp_scale=1.0, max_hold_bars=0, be_trigger=0.0,
+                      vix_feed="none")   # the as-ported script, before the improvement round
+IMPROVED_R1 = dict(sl_cap_atr="off", sl_scale=1.0, tp_scale=2.0, max_hold_bars=0, be_trigger=1.0,
+                   vix_feed="daily")      # the round's chosen cell = the file defaults
 
 PATH_NAMES = {1: "MAIN", 2: "BOS", 3: "OB", 4: "RE", 5: "TRAP", 6: "OD"}
 EXIT_NAMES = {1: "stop", 2: "limit", 3: "reverse", 4: "roll_flat", 5: "time"}
@@ -1447,6 +1454,7 @@ _VIX_FILES = {
                 "date", "%Y-%m-%d", "VIX_close"),
 }
 _VIX_MEMO = {}
+_VIX_MISSING_WARNED = set()
 _VIX_USABLE_MIN = 16 * 60 + 15          # day D's close is usable from 16:15 ET on D
 _VIX_PREV_SESSIONS = 10
 
@@ -1461,6 +1469,12 @@ def _load_vix_daily(which, last_day):
         raise ValueError("MISC_SUPERSCALPER: _vix_file must be one of %s, got %r"
                          % (sorted(_VIX_FILES), which))
     path, sha, dcol, dfmt, vcol = _VIX_FILES[which]
+    if not os.path.exists(path):              # e.g. the CI box: no VIX = the script's own missing-data branch
+        if which not in _VIX_MISSING_WARNED:
+            _VIX_MISSING_WARNED.add(which)
+            warnings.warn("MISC_SUPERSCALPER: VIX file %s is not on this machine - vix_feed='daily' runs with "
+                          "NO VIX (same as 'none')" % path)
+        return np.zeros(0, np.int64), np.zeros(0, np.float64)
     st = os.stat(path)
     key = (which, path, st.st_mtime_ns, st.st_size, int(last_day))
     hit = _VIX_MEMO.get(key)
