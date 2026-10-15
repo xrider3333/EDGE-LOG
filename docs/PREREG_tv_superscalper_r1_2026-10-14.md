@@ -129,3 +129,13 @@ Replaces Amendments 2 / 3 where they differ. No development-year number has been
   untouched; 8 of 8 configurations (defaults + 7 random, new knobs included) give identical trades on 2024 - about 0.2-0.4 GB per year.
   Also an engine fix outside this round: rolls.epoch_seconds no longer boxes every bar time (~2.3 s per year on every backtest call).
 - Runtime (MANAGER #122): trials are never cut; after the speed-ups the validate is queued with the measured ETA posted.
+
+## Amendment 5 (2026-10-15, before the Auto-Validate is queued; MANAGER #135)
+- New search knob `session_filter` {all, outside_rth, rth}, default all (= the improvement round's defaults, unchanged trades):
+  entries only from signal bars outside / inside 09:30-15:59 New York time; exits untouched. It is in the Auto-Validate's search
+  space so the 900-trial walk-forward finds or rejects it - it is NOT hand-picked.
+- Disclosure: the knob comes from development-year decompositions. r2 E1 (2024): every RTH window lost, outside RTH carried it (PF
+  1.085). r2b (2023): the mirror - RTH PF 1.209, outside RTH 1.024. The effect flips sign between the two development years.
+- Also disclosed (r2 E0): the improvement round's pick did NOT hold on 2023 (net PF 1.071 vs as-ported 1.073); the validate still
+  runs (owner order) with those defaults as its anchor, labelled.
+- The walk-forward read prints the folds overlapping 2023 AND 2024 apart, plus the chain without them (both are development years now).

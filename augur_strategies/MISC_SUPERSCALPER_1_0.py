@@ -345,6 +345,12 @@ DEFAULT_PARAMS = {
                             "VIX close (sha256-pinned file), each day's close usable from 16:15 "
                             "ET, vixPrev = the close 10 NQ sessions earlier; feeds the script's "
                             "own VIX rising/falling vote."},
+    "session_filter": {"default": "all", "type": "str", "options": ["all", "outside_rth", "rth"],
+                       "label": "Entry session (ours)",
+                       "tooltip": "all = as written. outside_rth = entries only from signal bars outside "
+                                  "09:30-15:59 New York time; rth = only from signal bars inside it. Exits "
+                                  "are untouched. Added for the Auto-Validate's search (prereg Amendment 5, "
+                                  "MANAGER #135) after r2 found every RTH window losing on 2024."},
 }
 
 PARAM_GRID_PRESETS = {
@@ -3309,6 +3315,15 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         feeds = tuple(feeds) + _vix_daily(loc, vd, vc)
 
     sig = _build(o, h, l, c, v, epoch, loc, tf, P, feeds)
+    if P["session_filter"] != "all":        # OUR PORT: entries only from the chosen signal-bar window (New York time)
+        m_ny = (loc // 60) % 1440
+        in_rth = (m_ny >= 570) & (m_ny < 960)                      # 09:30-15:59, the r2 E1 split
+        drop = in_rth if P["session_filter"] == "outside_rth" else ~in_rth
+        sig = dict(sig)
+        for k in ("chainL", "chainS"):
+            sig[k] = np.where(drop, 0, sig[k]).astype(sig[k].dtype)
+        for k in ("odL", "odS"):
+            sig[k] = np.asarray(sig[k], bool) & ~drop
     no_fill, flat_bar = _seam_masks(epoch, loc, tf)
     if _stop_event is not None and _stop_event.is_set():
         return None

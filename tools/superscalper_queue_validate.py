@@ -1,6 +1,6 @@
 """AUTO-VALIDATE 900 - MISC_SUPERSCALPER (our port), owner 10-14 via MANAGER #116 / #119 / #122.
 
-Prereg docs/PREREG_tv_superscalper_r1_2026-10-14.md (Amendments 1-4, LF sha256 bd316e49..., witness branch
+Prereg docs/PREREG_tv_superscalper_r1_2026-10-14.md (Amendments 1-5, witness branch
 prereg/tv-superscalper-1014). The ranged port file MISC_SUPERSCALPER_1_0.py - never a pinned copy - with the defaults the
 improvement round chose (or the as-ported ones), the exit / VIX knobs OPEN on their registered lattices, the script's knobs
 on their ranges, the fill model and stand-in feeds pinned to one option. NQ 1-minute ETH no-adjust master pinned by filename
@@ -29,7 +29,7 @@ UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 TAG = "AUTO-VALIDATE 900 MISC_SUPERSCALPER (our port, owner 10-14)"
 STRATEGY = "MISC_SUPERSCALPER_1_0.py"
 PREREG = os.path.join("docs", "PREREG_tv_superscalper_r1_2026-10-14.md")
-PREREG_LF_SHA = "bd316e49eabf9bc99e241cc54311e7bea099a724d9a5d0063de9122f175744ae"
+PREREG_LF_SHA = "b664af51afb85ffafb25aabae1ac775a69fc7aab5029fe84c2f3dda8639b0017"
 NOISE_JOB = "vAUrpEP13IanjkYuzGHN"
 LOGDIR = r"C:\EdgeLog\_research_cache\tv_scalp\superscalper"
 JOB = dict(
@@ -43,7 +43,7 @@ JOB = dict(
     dsr=True, neighbors=True, regime=True, pills=True, context=True, equity_points=400,
 )
 LATTICE = dict(sl_scale=(0.40, 1.20, 0.05), tp_scale=(1.0, 2.0, 0.25), max_hold_bars=(0, 240, 30), be_trigger=(0.0, 2.0, 0.5))
-CATS = dict(sl_cap_atr=["off", "3.0"], vix_feed=["none", "daily"])
+CATS = dict(sl_cap_atr=["off", "3.0"], vix_feed=["none", "daily"], session_filter=["all", "outside_rth", "rth"])
 PINNED = ("intrabar", "close_rule", "spy_proxy", "footprint", "daily_close")
 
 
@@ -63,9 +63,11 @@ def note(dp):
     return ("%s. MANAGER #116/#119/#122 (owner 10-14: 'either validate it or improve it'). OUR PORT of Crispigino's NQ/MNQ Super "
             "Scalper (TradingView PUB;46d5b263 v1.0) - NOT the published script: Stage 0 matched 52.7%% of its 273 published trades "
             "(bar 80%%) because it reads footprint, NYSE TICK and 1-minute VIX the house does not hold. Prereg %s (LF sha256 %s, "
-            "Amendments 1-4, witness prereg/tv-superscalper-1014). Exit / VIX knobs ours (stop cap on the author's session stops, "
-            "stop scale, target scale, max hold, breakeven, daily VIX stand-in), defaults %s chosen on the 2024 development year "
-            "(inside the walk-forward window - read the WF chain with the 2024 fold apart and WITHOUT it). Fill model 'worst', "
+            "Amendments 1-5, witness prereg/tv-superscalper-1014). Exit / VIX knobs ours (stop cap on the author's session stops, "
+            "stop scale, target scale, max hold, breakeven, daily VIX stand-in, entry session), defaults %s chosen on the 2024 "
+            "development year - and that pick DID NOT HOLD on 2023 (net PF 1.071 vs as-ported 1.073). 2023 and 2024 are both "
+            "development years inside the walk-forward window: read the WF chain with their folds apart AND without them. "
+            "Fill model 'worst', "
             "stand-in feeds pinned. NQ 1m ETH no-adjust master id 34 NOADJ_NQ_1m_ETH.csv pinned, window %s..%s, 12-month lockbox, "
             "8 folds, warm 300 days, cost 0.706 pt, 900 trials (OWNER RULE). Reported: run number + ROC@30k, DD5, DD%% from peak, "
             "Sortino, WF and LB apart; PBO, DSR, win rate, avg win / loss. Priors (NOISE, STRATEGY-BEATING): 5-10%% that WF clears "

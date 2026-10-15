@@ -207,7 +207,7 @@ def test_compiled_kernels_match_interpreted(monkeypatch):
 def test_defaults_cover_the_script_inputs():
     p = MOD.DEFAULT_PARAMS
     script_knobs = [k for k in p if k not in ("intrabar", "close_rule", "pyramiding", "spy_proxy",
-                                              "footprint", "daily_close") + OURS]
+                                              "footprint", "daily_close", "session_filter") + OURS]
     assert len(script_knobs) == 31                         # 41 inputs - 10 dropped (docstring)
     assert p["adx_min"]["default"] == 25 and p["short_min_rules"]["default"] == 5
     assert p["pyramiding"]["default"] == 20 and p["intrabar"]["default"] == "worst"
@@ -231,8 +231,8 @@ def _defaults_ours():
 def test_new_knobs_lattices_and_order():
     p = MOD.DEFAULT_PARAMS
     keys = list(p)
-    assert keys[-6:] == list(OURS)                          # appended; old order untouched
-    assert keys.index("daily_close") == len(keys) - 7
+    assert keys[-7:] == list(OURS) + ["session_filter"]     # appended; old order untouched
+    assert keys.index("daily_close") == len(keys) - 8
     assert p["sl_cap_atr"]["options"] == ["off", "3.0"] and p["sl_cap_atr"]["default"] == "off"
     assert (p["sl_scale"]["min"], p["sl_scale"]["max"], p["sl_scale"]["step"],
             p["sl_scale"]["default"]) == (0.40, 1.20, 0.05, 1.0)
@@ -699,3 +699,20 @@ def test_missing_vix_file_runs_without_vix(monkeypatch, fast_kernels):
     with pytest.warns(UserWarning, match="not on this machine"):
         daily = _run(bars, **dict(base, vix_feed="daily"))["trades"]
     assert daily == _run(bars, **base)["trades"]
+
+
+def test_session_filter_gates_entries_by_signal_bar_time(fast_kernels):
+    """session_filter (prereg Amendment 5): 'all' = unchanged; 'rth' keeps only signal bars 09:30-15:59 New York, 'outside_rth'
+    only the others; exits untouched."""
+    bars = _bars(n=6000, seed=4, start="2024-03-05 08:00")
+    idx = bars[5].tz_convert("America/New_York") if bars[5].tz is not None else bars[5]
+    mins = idx.hour * 60 + idx.minute
+    A = dict(MOD.AS_PORTED_OURS)
+    base = _run(bars, **A)
+    assert _run(bars, **dict(A, session_filter="all"))["trades"] == base["trades"]
+    for mode, inside in (("rth", True), ("outside_rth", False)):
+        r = _run(bars, **dict(A, session_filter=mode))
+        assert r is not None and r["num_trades"] > 0, mode
+        for d in r["trade_detail"]:
+            m = int(mins[d["signal_bar"]])
+            assert (570 <= m < 960) == inside, (mode, m)
