@@ -130,6 +130,17 @@ def _restatements(cur, fresh):
     return out
 
 
+def _nt_rows(cur):
+    """Times of the bars a NinjaTrader splice or repair wrote (`source` nt_hist_*).
+
+    MANAGER #67 (2026-10-14): NT prices are the reference the order-flow gates check against, and
+    Yahoo's NQ=F prints wander by up to a couple of points between pulls - so a Yahoo restatement
+    must never write over an NT bar, however recent."""
+    if "source" not in cur.columns:
+        return cur["time"].iloc[:0]
+    return cur.loc[cur["source"].astype(str).str.startswith("nt_"), "time"]
+
+
 def _apply_restatements(cur, fresh):
     """`cur` with the overlapping bars taken from `fresh`. Row count and order are unchanged.
 
@@ -187,6 +198,7 @@ def main(now_s=None):
         #   see RESTATE_WINDOW_S for why that line exists at all.
         restate_from = now_s - RESTATE_WINDOW_S
         fresh = new[(new["time"] <= last) & (new["time"] >= restate_from)]
+        fresh = fresh[~fresh["time"].isin(_nt_rows(cur))]   # NinjaTrader bars are never restated
         new = new[new["time"] > last]                       # only bars past the seam
         restated = _restatements(cur, fresh)
         if len(restated):

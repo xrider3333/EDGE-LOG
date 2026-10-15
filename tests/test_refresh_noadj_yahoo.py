@@ -224,3 +224,50 @@ def test_locked_registry_update_does_not_stop_later_masters(tmp_path, monkeypatc
     assert f"{m1}: written, but the registry row was NOT updated - OperationalError" in out
     assert f"  {m5}: +1 bars -> 2 total, now through 2026-09-24" in out
     assert "1 master(s) were NOT written:" in out
+
+
+# ── NinjaTrader bars are never restated from Yahoo (MANAGER #67, 2026-10-14) ──────────
+def test_restatement_never_writes_over_a_ninjatrader_bar(tmp_path, monkeypatch, capsys):
+    """Yahoo's NQ=F prints wander between pulls; the NT-spliced bars are the reference the order-flow
+    gates check against. Inside the restate window a Yahoo-sourced bar is still corrected, an NT one
+    is left exactly as it was."""
+    t = [1790276100, 1790276400, 1790276700]     # 2026-09-24 14:55 / 15:00 / 15:05 ET
+    now_s = 1790279000                           # all three settled, all inside the 3-day window
+    up_dir = tmp_path / "augur_uploads"
+    up_dir.mkdir()
+    fn = "NOADJ_NQ_5m_RTH.csv"
+    held = pd.DataFrame({"time": t, "open": [30690.0] * 3, "high": [30695.0] * 3, "low": [30685.0] * 3,
+                         "close": [30692.0] * 3, "volume": [1200] * 3,
+                         "source": ["nt_hist_splice", "yahoo", "nt_hist_repair"]})
+    held.to_csv(up_dir / fn, index=False)
+    db_path = tmp_path / "optimizer_history.db"
+    conn = sqlite3.connect(str(db_path))
+    conn.execute("CREATE TABLE csv_files (id INTEGER PRIMARY KEY, name TEXT, filename TEXT,"
+                 " instrument TEXT, rows INTEGER, date_from TEXT, date_to TEXT,"
+                 " created_at TEXT, timeframe TEXT, is_master INTEGER, source TEXT,"
+                 " provenance TEXT, session TEXT)")
+    conn.execute("INSERT INTO csv_files (name, filename, instrument, rows, timeframe, is_master, source, session)"
+                 " VALUES (?,?,?,?,?,?,?,?)", (fn, fn, "NQ", 3, "5m", 1, "db_noadj", "rth"))
+    conn.commit()
+    conn.close()
+    hist = pd.DataFrame({"Open": [30691.0] * 3, "High": [30696.5] * 3, "Low": [30684.0] * 3,
+                         "Close": [30693.5] * 3, "Volume": [1500] * 3},
+                        index=pd.to_datetime(t, unit="s", utc=True))
+
+    class _FakeTicker:
+        def __init__(self, symbol):
+            pass
+
+        def history(self, period=None, interval=None):
+            return hist
+
+    monkeypatch.setitem(sys.modules, "yfinance", types.SimpleNamespace(Ticker=_FakeTicker))
+    monkeypatch.setattr(R, "UP", str(up_dir))
+    monkeypatch.setattr(R, "DB", str(db_path))
+    R.main(now_s=now_s)
+    out = pd.read_csv(up_dir / fn)
+    assert out.loc[[0, 2], ["open", "high", "low", "close", "volume"]].equals(
+        held.loc[[0, 2], ["open", "high", "low", "close", "volume"]])             # NT bars untouched
+    assert out.loc[1, "close"] == 30693.5 and out.loc[1, "volume"] == 1500      # the Yahoo bar corrected
+    assert out["source"].tolist() == ["nt_hist_splice", "yahoo", "nt_hist_repair"]
+    assert "RESTATED" in capsys.readouterr().out
