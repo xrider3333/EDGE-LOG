@@ -28,8 +28,16 @@ episode here equals that figure's worst drawdown to the cent.
     r = dd5(daily)                 # daily: pd.Series of $ per day, indexed by date (zeros included)
     r["dd5_usd"], r["n"], r["max_dd"], r["one_episode"], r["episodes"]
 
+THE FOUR NUMBERS in one call (MANAGER #170, 2026-10-15) - every result's ROC@30k, DD5, DD% from peak
+and Sortino from ONE source, so no lane re-implements them:
+
+    from augur_engine.drawdowns import four_numbers
+    f = four_numbers(daily)        # one stretch (WF or LB, never both), zero days included
+    f["roc30"], f["dd5_usd"], f["dd_pct_peak"], f["sortino"], f["one_episode"]
+
 Stdlib only (pandas / numpy inputs are accepted, never required).
 """
+import datetime
 import math
 
 ONE_EPISODE_RATIO = 1.3
@@ -163,3 +171,68 @@ def dd5(daily_pnl, n=5, dates=None, ratio=ONE_EPISODE_RATIO):
             "max_dd": round(worst, 2),
             "one_episode": bool(top) and worst > float(ratio) * avg,
             "episodes_total": len(allep)}
+
+
+def _day(d):
+    if isinstance(d, datetime.datetime):
+        return d.date()
+    if isinstance(d, datetime.date):
+        return d
+    return datetime.date.fromisoformat(str(d)[:10])
+
+
+def four_numbers(daily_pnl, dates=None, start=DEFAULT_START_USD, years=None):
+    """THE FOUR NUMBERS of one stretch's daily P&L - the house convention, written once (MANAGER #170).
+
+    daily_pnl as dd5 takes it: a pd.Series of $ per day indexed by date, a sequence of daily $ with
+    dates=[...], or (date, $) pairs. ONE stretch only (WF or LB - they are always read apart), rows
+    sorted by date, and EVERY day of the stretch present, zero days included: the curve is valued
+    daily, not per trade. Feeding per-TRADE P&L gives a different Sortino and is the mistake this
+    function exists to stop (ENGU-Q's hold-cap rows, 10-15).
+
+      * roc30   ROC %/yr at a $30k worst drawdown = 30 x (net / years) / worst drawdown, the drawdown
+                from a peak that starts at 0 (BOOK.md 10r; book_sizing.stretch_reading). None when
+                the stretch never draws down.
+      * dd5_usd the average of the 5 deepest drawdown episodes (dd5 above); one_episode = the worst
+                is more than 1.3 x DD5, so the ROC rests on one episode.
+      * dd_pct_peak  the worst fall from an equity high, in %, on an account of `start` dollars
+                (dd_pct_peak above; 13.09 = 13.09%).
+      * sortino mean / sqrt(mean(min(x, 0)^2)) x sqrt(252) over EVERY row, zero days included (FRONTIER
+                #73). None when no day loses.
+    years: (last date - first date) / 365.25 by default; pass it to use a fixed window's length
+    instead (seat_pipeline.figures divides by its window's end - start). Without dates, years= is
+    required for roc30.
+    Also returned: net, years, net_per_year, max_dd, n (episodes behind DD5), from / to dates.
+    Nothing is rounded except the dollar figures dd5 rounds to the cent."""
+    vals, dts = _rows(daily_pnl, dates)
+    if dts is not None and len(dts) != len(vals):
+        raise ValueError("four_numbers: %d dates for %d daily values" % (len(dts), len(vals)))
+    if len(vals) < 2:
+        raise ValueError("four_numbers: a stretch needs at least 2 daily rows (%d given)" % len(vals))
+    for i, v in enumerate(vals):
+        if not math.isfinite(v):
+            raise ValueError("four_numbers: daily P&L row %d is not a finite number (%r)" % (i, v))
+    d0 = d1 = None
+    if dts is not None:
+        d0, d1 = _day(dts[0]), _day(dts[-1])
+        if d1 <= d0:
+            raise ValueError("four_numbers: rows must be sorted by date and span more than one day (%s .. %s)" % (d0, d1))
+    if years is None:
+        if d0 is None:
+            raise ValueError("four_numbers: pass dates (or a dated series) or years=")
+        years = (d1 - d0).days / 365.25
+    years = float(years)
+    if not math.isfinite(years) or years <= 0:
+        raise ValueError("four_numbers: years must be a positive number (%r)" % (years,))
+    r5 = dd5(vals)
+    net = math.fsum(vals)
+    worst = max((e["depth"] for e in episodes(vals)), default=0.0)       # unrounded, for the ratio
+    dn = math.sqrt(math.fsum(min(v, 0.0) ** 2 for v in vals) / len(vals))
+    mean = net / len(vals)
+    return {"roc30": 30.0 * (net / years) / worst if worst > 0 else None,
+            "dd5_usd": r5["dd5_usd"],
+            "dd_pct_peak": dd_pct_peak(vals, start),
+            "sortino": mean / dn * math.sqrt(252.0) if dn > 0 else None,
+            "one_episode": r5["one_episode"],
+            "net": net, "years": years, "net_per_year": net / years, "max_dd": r5["max_dd"], "n": r5["n"],
+            "from": d0.isoformat() if d0 else None, "to": d1.isoformat() if d1 else None}
