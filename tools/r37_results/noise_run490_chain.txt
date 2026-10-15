@@ -26,3 +26,9 @@ TARGET READ (the crown's gate cell, tp varied; WF = the crown re-read on the cha
   LB tp 2.0                          ROC@30k 117.14 | DD5 $ 14900 | DD% 13.37 | Sortino 2.87 || trades  338  win 37.9%  avg win/loss 2.07x  net $69556/yr  worst DD $17814
   WF tp 3.0                          ROC@30k  78.36 | DD5 $ 15364 | DD%  6.59 | Sortino 3.85 || trades 2903  win 37.6%  avg win/loss 2.39x  net $49231/yr  worst DD $18849
   LB tp 3.0                          ROC@30k 125.33 | DD5 $ 14900 | DD% 13.37 | Sortino 3.13 || trades  322  win 38.8%  avg win/loss 2.05x  net $74421/yr  worst DD $17814
+
+--- added 10-14 (STRATEGY-BEATING #98: say the cost): python tools/noise_chain_read.py --run 490 --cost 0.7825
+AT COST 0.7825 (the run's own 0.5330 above; same trades, each re-costed size x 0.2495)
+  sized trades: WF 810 of 2833, LB 78 of 315
+  WF chain at 0.7825                 ROC@30k  74.93 | DD5 $ 15280 | DD%  8.91 | Sortino 3.70 || trades 2833  win 36.9%  avg win/loss 2.46x  net $47676/yr  worst DD $19088
+  LB crown at 0.7825                 ROC@30k 126.31 | DD5 $ 14978 | DD% 13.52 | Sortino 3.16 || trades  315  win 38.4%  avg win/loss 2.14x  net $75359/yr  worst DD $17899

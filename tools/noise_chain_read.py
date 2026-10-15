@@ -12,6 +12,9 @@ validate.windows.lockbox, same numbers.
 
   python tools/noise_chain_read.py --run 490 [--twin]   one Firestore read of users/<uid>/runs/<n>, cached as run<n>.json
   extra for the TP job: --twin  prints the crown with tp off and the crown's tp neighbours on the WF and LB stretches
+  --cost 0.7825  also prints the chain + lockbox at the owner's real cost (commission + 1 tick a side): the same
+                 trades, each re-costed per contract (size x the cost difference) - never a re-run at another
+                 cost_pts, which under-charges NOISE's tilted trades (the tilt folds (s-1) x 0.533 itself)
 """
 import argparse
 import json
@@ -48,8 +51,17 @@ def fetch(n):
 
 
 def trades(strategy, arrays, params, cost):
-    r = run_backtest(strategy, arrays=arrays, params=params, cost_pts=cost, return_trades=True)
-    return sorted((r or {}).get("trades") or [], key=lambda t: int(t[0]))
+    """the engine's trades, entry-sorted, each with its SIZE appended as the last field (1.0 for unsized files). A file
+    that folds its size into the P&L (NOISE's tilt: pts = s*raw - (s-1)*size_cost_pts, engine cost once) must have
+    folded the run's own cost, or no re-costing below is valid."""
+    r = run_backtest(strategy, arrays=arrays, params=params, cost_pts=cost, return_trades=True) or {}
+    T = r.get("trades") or []
+    S = r.get("trade_sizes")
+    S = [1.0] * len(T) if not (isinstance(S, (list, tuple)) and len(S) == len(T)) else S
+    fc = r.get("size_cost_pts")
+    if fc is not None and any(float(s) != 1.0 for s in S) and abs(float(fc) - cost) > 1e-9:
+        raise SystemExit("file folds size cost %.4f but the run costs %.4f - read at the file's cost" % (float(fc), cost))
+    return sorted([tuple(t) + (float(s),) for t, s in zip(T, S)], key=lambda t: int(t[0]))
 
 
 def four(dates, pnl_usd, sess, years):
@@ -77,6 +89,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument("--run", type=int, required=True)
     ap.add_argument("--twin", action="store_true")
+    ap.add_argument("--cost", type=float, default=None,
+                    help="also read the chain + lockbox at this cost (points a round trip); refused if any trade moves")
     a = ap.parse_args()
     d = fetch(a.run)
     v = d["validate"]
@@ -109,12 +123,17 @@ def main():
     def sliced(lo, hi):
         return {k: (x[lo:hi] if hasattr(x, "__len__") and not isinstance(x, (str, dict)) and len(x) == len(idx) else x)
                 for k, x in A.items()}
-    for r in rows:
+    def fold_trades(r, c):
         s0 = int(r["train_bars"])
         s1 = s0 + int(r["test_bars"])
         pp = {k: r[k] for k in pkeys}
         w = warm_start(s0)                                  # the validate scores each fold WARM, on the slice [w, s1)
-        tr = [(int(t[0]) + w,) + tuple(t[1:]) for t in trades(strat, sliced(w, s1), pp, cost) if int(t[0]) >= s0 - w]
+        return s0, s1, pp, [(int(t[0]) + w,) + tuple(t[1:]) for t in trades(strat, sliced(w, s1), pp, c)
+                            if int(t[0]) >= s0 - w]
+    fold_tr = []
+    for r in rows:
+        s0, s1, pp, tr = fold_trades(r, cost)
+        fold_tr.append(tr)
         net = sum(float(t[2]) for t in tr)
         good = abs(net - float(r["oos_pnl"])) < 1e-6 * max(1.0, abs(net)) + 1e-6 and len(tr) == int(r["oos_trades"])
         ok &= good
@@ -139,12 +158,28 @@ def main():
     ly = (lb1 - lb0).days / 365.25
     champ = dict(v.get("champion") or d["best_params"])
 
-    def stretch(params, lo, hi, sessions, yrs):
-        tr = [t for t in trades(strat, B, params, cost) if lo <= bi[int(t[0]) - 1].normalize() <= hi]
+    def stretch(params, lo, hi, sessions, yrs, c=cost, keep=None):
+        tr = [t for t in trades(strat, B, params, c) if lo <= bi[int(t[0]) - 1].normalize() <= hi]
+        if keep is not None:
+            keep.extend(tr)
         return four([bi[int(t[0]) - 1].normalize() for t in tr], [float(t[2]) * mult for t in tr], sessions, yrs)
-    lbc = stretch(champ, lb0, lb1, lsess, ly)
+    lb_tr = []
+    lbc = stretch(champ, lb0, lb1, lsess, ly, keep=lb_tr)
     print(line("LB crown %s" % champ, lbc))
     print("  (stored lockbox: %d trades, %.1f pts)" % (v["lockbox"]["trades"], v["lockbox"]["pnl"]))
+    if a.cost is not None:
+        # the SAME trades (the parity-checked chain and the lockbox read above) re-costed per contract: a size-s trade
+        # pays s x the cost. NOT a re-run at cost_pts=c - the engine charges cost once a trade and NOISE's tilt folds
+        # (s-1) x its own 0.533, so a re-run under-charges every sized trade by (s-1) x (c - 0.533).
+        dc = a.cost - cost
+        print("\nAT COST %.4f (the run's own %.4f above; same trades, each re-costed size x %.4f)" % (a.cost, cost, dc))
+        ft = [t for tr in fold_tr for t in tr]
+        print("  sized trades: WF %d of %d, LB %d of %d" % (sum(t[-1] != 1.0 for t in ft), len(ft),
+                                                          sum(t[-1] != 1.0 for t in lb_tr), len(lb_tr)))
+        print(line("WF chain at %.4f" % a.cost, four(ch_d, [(float(t[2]) - t[-1] * dc) * mult for t in ft], sess,
+                                                    float(wf["years"]))))
+        print(line("LB crown at %.4f" % a.cost, four([bi[int(t[0]) - 1].normalize() for t in lb_tr],
+                                                    [(float(t[2]) - t[-1] * dc) * mult for t in lb_tr], lsess, ly)))
     if a.twin and "tp" in champ:
         w0, w1 = pd.Timestamp(wf["from"]), pd.Timestamp(wf["to"])
         print("\nTARGET READ (the crown's gate cell, tp varied; WF = the crown re-read on the chain's dates - a hindsight row,"

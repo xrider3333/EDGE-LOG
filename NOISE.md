@@ -3678,7 +3678,7 @@ power check first. The power lines read no candidate result. Record: `docs/DRAFT
 
 **The search.** NOISE_1_8_CT304H_TP opens a profit target (off / 1 / 1.5 / 2 / 3 R) on top of #422's own 27 cells, 135
 cells in all, with the core pinned. It runs on run #422's own job shape: 900 trials, the same window, master and cost.
-Parity was checked before the queue (`docs/PREREG_noise_422_tp_validate_2026-10-14.md`, ledger 2.162).
+Parity was checked before the queue (`docs/PREREG_noise_422_tp_validate_2026-10-14.md`, ledger 2.167).
 
 **The read.**
 
@@ -3686,6 +3686,18 @@ Parity was checked before the queue (`docs/PREREG_noise_422_tp_validate_2026-10-
 |---|---|---|---|---|---|---|
 | WF chain (rebuilt) | 79.3 | $15.4k | 6.6% | 3.87 | 37.6% | 2.43x |
 | Lockbox (spent, a report) | 130.1 | $14.9k | 13.4% | 3.25 | 38.7% | 2.12x |
+| WF chain at the owner's real cost 0.7825 | 74.9 | $15.3k | 8.9% | 3.70 | 36.9% | 2.46x |
+| Lockbox at 0.7825 (spent, a report) | 126.3 | $15.0k | 13.5% | 3.16 | 38.4% | 2.14x |
+
+The first two rows are at the run's own cost, 0.533 (run #422's job shape). The real-cost rows hold the same trades, each
+re-costed per contract: `noise_chain_read.py --cost 0.7825`. 810 of the 2,833 WF trades carry the 1.75x tilt.
+
+**Cost trap (found here).** Never re-run a NOISE tilt file (CT304, CT304H, CT304H_TP, CT422V) at a cost other than 0.533.
+- The file folds (s - 1) x 0.533 into each sized trade itself, and the engine charges cost_pts once a trade.
+- So a re-run at 0.7825 under-charges every 1.75x trade by 0.75 x 0.2495 pt. Here that is $335 a year, and nothing warns.
+- The files' docstring says "any other cost_pts is refused", but a strategy file never sees the cost, so nothing refuses.
+- All 7 saved runs of these files used 0.533.
+- The reader now re-costs per contract and refuses a fold that does not match the run's cost.
 
 - **Verdict:** WEAK. PBO 0.591 is the only gate it fails.
 - **The crown has no target** (16 / 1.15 / 1.75), so the target lift fails at the prereg's first condition and **nothing
@@ -3706,3 +3718,11 @@ Parity was checked before the queue (`docs/PREREG_noise_422_tp_validate_2026-10-
 - 1R lifts ROC with Sortino down and flat neighbours: the same one-episode pattern as TARGET r1.
 - Only 2 of the 8 fold champions picked a target.
 - The conditional #382 + target run is cancelled.
+
+**Second reviews.**
+- TTM (ledger 2.166) re-ran the crown and matched it exactly.
+- STRATEGY-BEATING (#98) agrees: no target lift. It re-did the arithmetic: worst DD / DD5 is 1.22 on WF and 1.20 on the
+  lockbox, so neither stretch is one episode.
+- The re-search moved gate_len 20 -> 16, and the chain sits under #422's own WF read, so it found no better #422 either.
+- PBO 0.591 is what a search over 135 near-equal cells gives. Read the WEAK as "the knob is noise", not as doubt about #422's
+  pinned core.
