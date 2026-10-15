@@ -3727,7 +3727,7 @@ re-costed per contract: `noise_chain_read.py --cost 0.7825`. 810 of the 2,833 WF
 - PBO 0.591 is what a search over 135 near-equal cells gives. Read the WEAK as "the knob is noise", not as doubt about #422's
   pinned core.
 
-## Publication decay - did NOISE's edge fade after its source paper went public? (2026-10-15, MANAGER #100; ledger 2.172)
+## Publication decay - did NOISE's edge fade after its source paper went public? (2026-10-15, MANAGER #100; ledger 2.177)
 
 **The paper:** Zarattini, Aziz & Barbon, "Beat the Market" (SSRN 4824172), posted May 2024 and widely read since.
 
