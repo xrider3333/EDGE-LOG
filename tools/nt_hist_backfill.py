@@ -34,6 +34,10 @@ SYMS = ("NQ", "ES")
 REACH_DAYS = 3            # how far back to look for holes (NinjaTrader tick history is kept for days, not months)
 MIN_RUN_ROWS = 6          # ignore a run shorter than a minute
 JOIN_GAP_SEC = 1800       # rows closer than 30 min belong to one run
+# Every tick request names the full-session template. NinjaTrader's DEFAULT for NQ is 'EDGELOG RTH 0930-1600', so
+# without this every NQ back-fill came back with 0 rows (2026-10-15: all NQ nights since 10-08; ES's default is ETH).
+ETH_HOURS = "CME US Index Futures ETH"
+NAME_TAG = "_eth"         # new request names: holes the RTH-only requests left open are asked for again, once
 
 
 def qdir():
@@ -126,10 +130,11 @@ def queue(now_ts=None, ohlc_dir=None, dry_run=False, log=print):
         for first, last, n in holes(os.path.join(ohlc_dir, f"{sym}_10s.csv"), now_ts):
             frm, to = first - 10, last + 1                          # rows are END-stamped: cover the first bar's start
             day = dt.datetime.fromtimestamp(first, ET).date()
-            name = f"{sym}_{dt.datetime.fromtimestamp(frm, dt.timezone.utc):%Y%m%dT%H%M}_{n}"
+            name = f"{sym}_{dt.datetime.fromtimestamp(frm, dt.timezone.utc):%Y%m%dT%H%M}_{n}{NAME_TAG}"
             if _already(name):
                 continue
             fields = {"instrument": front_contract(sym, day), "kind": "ticks10s", "from": _iso(frm), "to": _iso(to),
+                      "hours": ETH_HOURS,
                       "out": os.path.join(ohlc_dir, "replay", f"{name}_backfill.csv"), "sym": sym}
             log(("would queue " if dry_run else "queued ") + f"{name}: {fields['instrument']} {fields['from']}..{fields['to']} ({n} rows)")
             if not dry_run:

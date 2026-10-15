@@ -38,6 +38,8 @@ def test_queue_is_idempotent_and_names_the_front_contract(tmp_path, monkeypatch)
     assert len(made) == 1
     req = H._read_req(os.path.join(H.qdir(), made[0] + ".req"))
     assert req["instrument"] == "NQ 12-26" and req["kind"] == "ticks10s" and req["sym"] == "NQ"
+    # NQ's NinjaTrader default hours are RTH-only: without the ETH template every overnight NQ back-fill was empty
+    assert req["hours"] == "CME US Index Futures ETH" and made[0].endswith("_eth")
     assert H.queue(now_ts=base + 3600, ohlc_dir=str(d), log=lambda m: None) == []
 
 
