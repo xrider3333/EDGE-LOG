@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1295';
+const VERSION='73.1296';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1413,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1281',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
+const CHANGELOG=[{v:'73.1296',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
+{v:'73.1281',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
 {v:'73.1269',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
 {v:'73.1289',date:'2026-10-16',notes:['LEDGER, REAL: THE MONTHLY GOAL IS ON THE CHART (owner order 10-12, item 9). With a goal set in Settings, TRADING LOG, the chart draws it as a dashed level: where the curve has to reach by the end of the month (its value before the first trade of the month, plus the goal), labelled, for example, Oct goal +$2,000.00. It shows for ranges that start on or before the 1st (1M, 3M, YTD, ALL); the line under the chart still reads the month progress on every range.','LEDGER, REAL: TOOLS, IMAGE saves the board as a picture for your journal (item 12): account, range and date, the big number and its change, the four stats, the chart as drawn now and the goal line, as one PNG in the theme you use.']},
 {v:'73.1285',date:'2026-10-14',notes:['LEDGER, WEBULL PAPER LIST AND TABLE TIGHTER (owner 10-12): one line per trade (entry and exit time side by side), a thin day header, shorter rows, and the table has no day-total rows: a narrow DAY column next to P&L holds the day total on the first trade of each day, as on REAL and NT8 PAPER.']},
