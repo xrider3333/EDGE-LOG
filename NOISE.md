@@ -3766,3 +3766,81 @@ There is no new strategy test in the paper. The open question is decay.
 | POST-DESIGN | 92.3 (89.8) | $15.2k, 1 episode | 12.3% | 3.47 |
 
 **What it means:** no extra haircut on NOISE's forward expectation. Re-read at the 12-month forward mark.
+## Round 64 delta shadow - outcome-blind progress check (2026-10-15; prereg addendum 5)
+
+**The count, since 10-01:** 10 sessions, all usable; 7 #304 trades, all tagged. No P&L was read.
+
+| Shadow | Backed / unbacked | Status |
+|---|---|---|
+| Signal-bar tag | 6 / 1 | **CLOSED at the power gate** |
+| Cumulative tag | 2 / 5 | Stays, read once at 150 tagged trades |
+
+- **Why the signal-bar shadow closes:** about 14% of trades come out unbacked, so 150 trades hold only about 21. Its own
+  criterion 3 (50 trades in each bucket) cannot be met.
+- **The cumulative shadow** keeps every criterion unchanged. At 0.5 tagged trades a calendar day, the read lands about
+  2027-07.
+
+Four numbers: '-' (a count, no curve).
+
+## Shelf No. 42 - Patton-Sheppard signed-volatility forecast for NOISE sizing (2026-10-15): CLOSED AT DRAFT
+
+**The check.** An outcome-free map check, pre-stated (`docs/PRESTATED_noise_shar_mapcheck_2026-10-15.md`); no NOISE P&L was
+read.
+
+| Forecast (2016-07 .. 2025-07) | QLIKE |
+|---|---|
+| Plain HAR | 0.265 |
+| SHAR | 0.278 |
+| Trailing vol | 0.368 |
+
+- **SHAR forecasts worse than plain HAR on NQ,** so the paper does not replicate here.
+- Its sizes correlate 0.93 with HAR's. Most of the gap is in 2016-18 (140 of 161 sessions).
+- HAR-family sizing already failed (RISK r1).
+- **MANAGER closed it at the draft (#115).**
+
+## Scalper / book-lift hunt r1 (2026-10-16, owner standing order): 0 survivors; the tested-mechanism catalogue
+
+**THE CATALOGUE.** `docs/TESTED_CATALOGUE_2026-10-16.json` lists 289 mechanisms the house has already tested, each with its
+verdict and ledger reference. Start any new ideation from it.
+
+**The hunt.** Four lenses proposed four honest candidates, with priors of 0.3-2%. The screen killed all four:
+- each needs 2.4-4.1 pt gross a trade, 3-5x the cost;
+- two re-test dead lines.
+
+There was nothing to map-check.
+
+**Bar lesson.** A pre-WF ROC bar must be set against the incumbent's own pre-WF level. NOISE #422 scores only 10.99 pre-WF at
+0.783. The 12.3 first quoted hit the cost-fold trap and kept non-NYSE days.
+
+**Data traps:**
+- Six 2014 days are missing from every NQ/ES source.
+- ETH loads leak the next CME session's evening bars.
+- A 2% open-gap rule does not find rolls. That rule lived only in this hunt's scripts; roll days come from the roll
+  table (`augur_engine.rolls.seam_days_for`), per TBIS #121.
+
+## Scalper / book-lift hunt r2 (2026-10-16): nothing found, and the calibrated bar failed
+
+**The calibrated bar went negative.** At 0.783 a contract, on NYSE sessions only:
+
+| Leg | Pre-WF ROC@30k | WF ROC@30k |
+|---|---|---|
+| NOISE #422 | 10.99 | 86.19 |
+| ORB #314 | -0.71 | 35.04 |
+| ORB #234 | -1.48 | 33.64 |
+
+- Both ORB crowns LOSE pre-WF at house cost, so the median ratio is negative.
+- My formula capped the ratio at 1 but never floored it at 0: a design error, disclosed.
+- **Lesson:** pre-WF 2010-16 is a weak screen for intraday NQ/ES. Screen on gross edge a trade vs cost instead.
+
+**The screen killed three of four:**
+- the owner's-setups plan (a re-test of SETUPS r1);
+- an ES VIX-residual long (beta);
+- an ES balance fade (the fade family is dead).
+
+**The survivor, PINES** (ES expiry-afternoon strike pin), matched exactly in the independent re-run. It is DEAD:
+- 182 trades, gross +0.615 pt a trade against a 0.61 cost.
+- ROC@30k 0.04 / DD5 $1,353 (1 episode) / 5.4% / Sortino 0.01; -1.67 at stress.
+- The SPX-equivalent strike grid shows no pin at all.
+
+**ORB's paired-Sharpe reading of the dead r70 short tilt** does not reopen it: it is a different statistic on the same spent
+WF. The forward SHORTS sub-arm reads it on fresh trades.

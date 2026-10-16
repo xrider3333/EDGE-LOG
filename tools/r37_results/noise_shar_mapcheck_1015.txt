@@ -1,0 +1,12 @@
+pre-stated sha256 OK 52855576230ba5a6
+sessions 3880 (2010-06-07 .. 2025-07-15)
+scored stretch 2016-07-01 .. 2025-07-14, 2329 sessions; forecasts floored at the 1st pct of RV in 0 / 0 / 0 rows (TRAIL/HAR/SHAR)
+  QLIKE TRAIL 0.3682
+  QLIKE HAR   0.2646
+  QLIKE SHAR  0.2781
+  size TRAIL CV 0.410  p5 0.45  p95 1.76
+  size HAR   CV 0.333  p5 0.48  p95 1.54
+  size SHAR  CV 0.400  p5 0.45  p95 1.76
+  corr(SHAR size, HAR size) 0.9301 | corr(SHAR size, TRAIL size) 0.7884 | corr(HAR, TRAIL) 0.8429
+  sessions with |SHAR size - HAR size| > 0.25: 161 of 2329 (6.9%); by year: 2016 32, 2017 67, 2018 41, 2019 19, 2020 2
+READING: SIZES DIFFER - draft a pinned WF-only Stage A for MANAGER's GO

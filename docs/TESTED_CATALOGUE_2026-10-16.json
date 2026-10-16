@@ -1,0 +1,2314 @@
+[
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Opening-gap FADE and GO-WITH on NQ (gap size buckets, with/without overnight retrace)",
+  "instruments": "NQ",
+  "horizon": "intraday to close",
+  "verdict": "DEAD - 0 of 40 leg-scan cells; best gap-fade g>=0.3 ADR PF 1.43 but 12-17 trades/yr, ~$29k/15y = thin",
+  "ref": "Ledger 2.5; docs/anatomy/LEG_SCAN_IDEAS.md"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "OOPS gap-reversal (open beyond prior range, fade back)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - best MAR 2.09, round 16 0/30",
+  "ref": "MISC_SWEEP.md round 16; memory edgelog-misc-round16"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Gap continuation (ride the opening gap, daily-bar version)",
+  "instruments": "NQ",
+  "horizon": "1 session-days",
+  "verdict": "DEAD - round 17 0/16; completes the gap pair (fade and ride both dead)",
+  "ref": "MISC_SWEEP.md round 17"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "GAPFADE (fixed-band and ATR-band gap fade builds, IBS-conditioned)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD twice independently - 0/36 plateaus, best ~$1.8k/yr; ATR build MAR 0.11; side-agnostic noise",
+  "ref": "memory edgelog-web-strategy-shortlist (round 9); GAPFADE_1_0.py"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "GAPGO 1.0: trade the overnight-gap direction once a 5m bar closes beyond the first bar, BE 1R",
+  "instruments": "NQ",
+  "horizon": "intraday to close",
+  "verdict": "FAILED SEALED YEAR - 6/6 gates, WF 8/8, then lockbox -$39,179 PF 0.77 (run #330); 6 causal regime gates explain nothing; family CLOSED. A new trigger on ORB's opening-momentum factor (63% ORB days)",
+  "ref": "memory edgelog-family-seed-hunt (rounds 32-39); run #330"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "GAPGO TRAVEL: 10:00 ET |close-open| >= 0.3 ATR20 continuation, stop at the open",
+  "instruments": "NQ",
+  "horizon": "intraday to close",
+  "verdict": "FAILED SEALED YEAR - run #329 lockbox -$15,923 PF 0.90; edge decays with the clock (10:30 PF 1.23, 11:00 1.16)",
+  "ref": "memory edgelog-family-seed-hunt; run #329"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "GAPGO on ES (frozen transfer)",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "DEAD - same sign, a quarter of the edge (PF 1.20, top-10 72%); point/clock-measured mechanisms do not travel to ES",
+  "ref": "memory edgelog-family-seed-hunt rounds 35-36"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Gap direction as prior-day candle / overnight-range position as direction read",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - prior-day candle PF 1.10 top-10 135%; overnight-range position 88% top-10, not adopted",
+  "ref": "memory edgelog-family-seed-hunt rounds 35-36"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "DRIVE 1.0 first-hour momentum (sign of first 12 5m bars, ride)",
+  "instruments": "NQ, ES",
+  "horizon": "intraday to close",
+  "verdict": "DEAD - WF 3/6 frozen folds, WFE 0.32-0.43; ES transfer PF 1.04; lockbox unspent",
+  "ref": "BACKTESTING_STACK.md DRIVE 1.0 (2026-07-13)"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Prior-day-extreme break (PDX) and N-day high/low break (NDAY)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - PF <= 1.14, MAR <= 2.6",
+  "ref": "BACKTESTING_STACK.md DRIVE triage siblings"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Late-day momentum LDM (incl. academic gap-inclusive last-half-hour signal)",
+  "instruments": "NQ",
+  "horizon": "last 30-60 min",
+  "verdict": "DEAD - real but thin $142k MAR 6.0; deep-dive best MAR 6.8; lives in the 2020-22 COVID-vol window",
+  "ref": "BACKTESTING_STACK.md rounds 1, 4, 8; ledger 2.5 last-hour momentum"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "LDM-0DTE reframe: late-day momentum as a 2022-07+ 0DTE-era effect",
+  "instruments": "NQ",
+  "horizon": "last hour",
+  "verdict": "ARTIFACT, CLOSED 0/4 - no knob-free config PF >= 1.25 in the 0DTE era; placebo cut confirms",
+  "ref": "BACKTESTING_STACK.md challenger round 8"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Last-hour MOC drift (ride into the close)",
+  "instruments": "NQ",
+  "horizon": "last hour",
+  "verdict": "DEAD - nearest miss PF 1.246 but 2010-17 flat and 73% of profit post-2021; fade side -$199k",
+  "ref": "MISC_SWEEP.md round 16-17; memory edgelog-misc-round16"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "LATESTRESS: last-half-hour momentum 15:30->16:00 only on stress days (VIX top fifth or day move >= 2x median), Baltussen et al. 2021",
+  "instruments": "NQ, ES",
+  "horizon": "30 min",
+  "verdict": "DEAD at Stage A 0/4 - all cells ~0 (NQ T1 t -0.06); earns March 2020, gives back April 2025",
+  "ref": "Ledger 2.102; ORB_LATESTRESS_R1.md"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Leveraged-ETF late-day rebalancing: trade 15:30->16:00/16:15 in the day's direction",
+  "instruments": "NQ",
+  "horizon": "30-45 min",
+  "verdict": "DEAD - flat to negative, -$1.9/trade, 4 of 16 years",
+  "ref": "Ledger 2.14; tools/rocfrontier/flow_scan.py"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "MIDDAY lunch-range continuation breakout",
+  "instruments": "NQ",
+  "horizon": "afternoon",
+  "verdict": "DEAD - best MAR 19.5 artifact-flagged, thin n=488",
+  "ref": "BACKTESTING_STACK.md challenger rounds 2-3"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "PULLBACK: first pullback continuation after the OR break, structural stop",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - best MAR 2.2",
+  "ref": "BACKTESTING_STACK.md challenger rounds 2-3"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "EXPAND: ATR range-expansion breakout from the open (volatility breakout)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - best MAR 16.9 but overlap diagnostic = ORB in disguise",
+  "ref": "BACKTESTING_STACK.md challenger round 5"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "VWAPT: trend-side VWAP cross-and-hold",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD in triage",
+  "ref": "BACKTESTING_STACK.md challenger round 5"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "VWAP with-trend (r18) and VWAP fade family (VWAP_FADE)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - VWAP pair closed; every fade negative",
+  "ref": "MISC_SWEEP.md round 18; memory edgelog-misc-round16"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Volume-ignition momentum (volume as the signal)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - best MAR 3.3; 1m version (60-bar break) also dead in round 38",
+  "ref": "BACKTESTING_STACK.md round 4; memory edgelog-family-seed-hunt round 38"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "SWEEP stop-run reversal: intrabar sweep of prior-day high/low then close-back reclaim, fade",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - best MAR 2.78 n=176, 0/36; fires on 3-7% of sessions",
+  "ref": "BACKTESTING_STACK.md challenger round 8"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Turtle soup (fade N-day breakouts)",
+  "instruments": "NQ",
+  "horizon": "intraday-days",
+  "verdict": "DEAD - completes the fade graveyard: NQ pays breakout-followers at every timescale",
+  "ref": "MISC_SWEEP.md round 21"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "REVERT r1: fade a failed new RTH high/low (5m bar makes new high, closes down; short next open, 30-min hold)",
+  "instruments": "NQ, ES",
+  "horizon": "30 min",
+  "verdict": "DEAD price-only - loses BEFORE cost (NQ -$28/trade t -3.6, ES -$30 t -5.9); continuation mirror loses after cost",
+  "ref": "Ledger 2.38; tools/rocfrontier/r6_revert.py"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "BALANCE: on no-NOISE-break-by-noon days, fade 5m stretches from VWAP toward the band edge back to VWAP",
+  "instruments": "NQ (ES report)",
+  "horizon": "intraday",
+  "verdict": "DEAD at Stage A - B1 PF 1.08, ROC@30k 1.90, t 0.66 vs null 1.74; ES PF 0.99; VWAP family stays closed",
+  "ref": "Ledger 2.90; docs/PREREG_balance_r1_2026-10-06.md"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "10 o'clock fade",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - worst idea of the hunt, -$110k..-$294k",
+  "ref": "MISC_SWEEP.md round 17"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "NR7 / NR4 / inside-day breakout",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - NR4 PF 1.225, round 16",
+  "ref": "MISC_SWEEP.md round 16"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Floor-pivot FADE and BREAKOUT",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - fade -$89k..-$110k; breakout PF 1.16 (a worse ORB)",
+  "ref": "MISC_SWEEP.md round 16"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Prior-day VALUE AREA (in/out of value)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - PF ~1.0 on all 8 cells; ORB X5 value-area map also fails (folklore inverted)",
+  "ref": "memory edgelog-family-seed-hunt round 32; ORB.md 4.23"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Pre-event RELEASE (trade into 08:30 / coiled 10:00 releases)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - 08:30 loses everywhere; 10:00 coiled = 16 trades/yr, ex-top-10 negative",
+  "ref": "memory edgelog-family-seed-hunt round 32"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "VOLBAR relative-volume bars",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD",
+  "ref": "memory edgelog-family-seed-hunt round 32"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Break-and-retest of a level",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - PF 1.09, a worse ORB",
+  "ref": "memory edgelog-family-seed-hunt round 32"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "STREAK and FAILED FILL (gap-fill failure) mechanisms",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - 17 cells",
+  "ref": "memory edgelog-family-seed-hunt rounds 35-36"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "WEEKLY opening range (Monday range breakout Tue-Fri)",
+  "instruments": "NQ",
+  "horizon": "1-4 days",
+  "verdict": "DEAD - best MAR 3.82 regime-concentrated; r32 weekly OR PF 1.21 but top-10 125%, ex-top-10 -$37k",
+  "ref": "BACKTESTING_STACK.md round 6; memory edgelog-family-seed-hunt"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Opening-range mechanism at the Asia and London opens",
+  "instruments": "NQ ETH",
+  "horizon": "session",
+  "verdict": "DEAD - decisively negative PF 0.82-0.86; the 09:30 open is special",
+  "ref": "MISC_SWEEP.md round 20"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "GLOBEX London-ORB / Asia-range break traded overnight",
+  "instruments": "NQ ETH",
+  "horizon": "overnight session",
+  "verdict": "DEAD - best MAR 2.27 regime-concentrated and fill-artifact flagged; r16 London PF 1.11",
+  "ref": "BACKTESTING_STACK.md round 6; MISC_SWEEP.md round 16"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "RELAY: 09:30 entry in the overnight/London-drive direction, overnight-range stop",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - best MAR 1.08; 2010-20 subtotal negative",
+  "ref": "BACKTESTING_STACK.md challenger round 6"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "ES->NQ lead-lag at 5m",
+  "instruments": "NQ, ES",
+  "horizon": "minutes",
+  "verdict": "DEAD - every cell loses; mirror = plain momentum",
+  "ref": "memory edgelog-family-seed-hunt round 32"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "NQ-vs-ES first-hour spread (relative strength) continuation",
+  "instruments": "NQ, ES",
+  "horizon": "intraday",
+  "verdict": "DEAD - 2.5 scan 0 leads; continuation beats reversion but thin",
+  "ref": "Ledger 2.5"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "SPREAD r2: beta-neutral NQ vs ES, long the first-hour leader at 10:30, out 15:55",
+  "instruments": "NQ, ES",
+  "horizon": "10:30-15:55",
+  "verdict": "DEAD at Stage A - before cost +$23-49/trade vs ~$37 two-market cost; best ROC@30k 1.0. Do not re-test intraday NQ-ES RV",
+  "ref": "Ledger 2.45; tools/rocfrontier/r10_spread.py"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "ES/NQ spread reversion intraday (and log-ratio pairs at 1:1)",
+  "instruments": "NQ, ES",
+  "horizon": "intraday",
+  "verdict": "DEAD - 23/24 configs net-negative; r16 pairs edge eaten by $28.81 double cost",
+  "ref": "BACKTESTING_STACK.md round 4; MISC_SWEEP.md round 16"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "HALFHOUR: same-half-hour seasonality (trade each RTH half-hour in the sign of its trailing 40-session mean)",
+  "instruments": "NQ",
+  "horizon": "30 min",
+  "verdict": "DEAD - -$306,571, 0 of 9 years; wrong-slot null loses the same - no slot effect",
+  "ref": "Ledger 2.72"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "ROUND: stop cascades at round 100-point NQ prices (cross or reject)",
+  "instruments": "NQ",
+  "horizon": "30-60 min",
+  "verdict": "DEAD - PF 0.948, ROC -2.50; off-round null identical",
+  "ref": "Ledger 2.73"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "BONDLEAD: IEF morning move sets NQ afternoon side (gradual diffusion)",
+  "instruments": "NQ, IEF",
+  "horizon": "noon-close",
+  "verdict": "DEAD - -$80,629, PF 0.893; below permuted null; own-morning twin +10.72 = known continuation",
+  "ref": "Ledger 2.74"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "JUMPSPLIT: ride the morning direction noon->close on low-jump-share (diffusive) mornings",
+  "instruments": "NQ, ES",
+  "horizon": "noon-close",
+  "verdict": "DEAD both arms - NQ 4.81 loses to its all-mornings twin 17.2 (a 2022-25 LDM/DRIVE effect); ES -0.47",
+  "ref": "Ledger 2.104"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "IMPLIEDMOVE: first hour range >= k x VIX-implied hourly move, ride 10:30->close",
+  "instruments": "ES",
+  "horizon": "10:30-close",
+  "verdict": "DEAD - ROC@30k 3.00; beats realized-vol twin but 2010-16 and R-days lose; all money 2022-25",
+  "ref": "Ledger 2.89"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "NQBRD: NQ trend-day trigger from Nasdaq-100 breadth at 10:00 (theta 0.70/0.80)",
+  "instruments": "NQ + NDX stocks",
+  "horizon": "10:00-15:55",
+  "verdict": "DEAD at Stage A - ROC@30k 10.5, t 1.89; control (NQ's own 09:30-10:00 direction) makes +$124.7k - breadth repeats opening momentum",
+  "ref": "Ledger 2.48"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "MACRO830: carry the 08:30 CPI/payroll futures move 08:35->10:00",
+  "instruments": "NQ, ES",
+  "horizon": "85 min",
+  "verdict": "DEAD - continuation loses (NQ t -1.98); fade mirror under null, not proposed",
+  "ref": "Ledger 2.95; ORB_NEWTYPES_R1.md"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "PRE-RELEASE DRIFT (Kurov et al. 2019): follow the 5-20 min post-09:30 drift into 10:00 releases",
+  "instruments": "NQ, ES",
+  "horizon": "30 min",
+  "verdict": "CLOSED AT MAP twice - FOLLOW median ROC ES -0.4 / NQ 2.0; only an oracle clears",
+  "ref": "Ledger 2.139, 2.174; memory tv-map-checks-1010"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "FOMC 2pm breakout",
+  "instruments": "NQ",
+  "horizon": "afternoon",
+  "verdict": "UNUSABLE - 19 triggers in 15 years",
+  "ref": "Ledger 2.5; memory edgelog-ideas-round-2026-09-08"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Standalone walk-forward xgboost direction model at every 30-min mark (24 causal features)",
+  "instruments": "NQ",
+  "horizon": "30 min-close",
+  "verdict": "DEAD - best MAR 0.39 vs 1.09 for plain noise-momentum; momentum IC +0.02-0.03 in every vol regime, no reversal",
+  "ref": "Ledger 2.17"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Hourly intraday mean reversion (RSI + Bollinger) on 30m/60m",
+  "instruments": "NQ, ES",
+  "horizon": "hours",
+  "verdict": "DEAD - pooled OOS PF 1.00 MAR 0.03",
+  "ref": "MISC_SWEEP.md round 26 screen 2"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "A second NQ/ES trend-day catcher (ES ORB at #234 settings as a book leg)",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "CLOSED AT DRAFT - $6.3k/yr ROC 4.7, corr 0.66 with NQ ORB, #463 93.8 -> 78.7; any trend catcher shares ORB's days",
+  "ref": "memory edgelog-orb-trend-day-catcher"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Capitulation buying (buy after extreme down move)",
+  "instruments": "NQ",
+  "horizon": "days",
+  "verdict": "DEAD as a leg - PF 1.81 MAR 4.0 = the dip fingerprint again",
+  "ref": "MISC_SWEEP.md round 20"
+ },
+ {
+  "cat": "NQES-intraday",
+  "mechanism": "Crown risk engine (in-session stop machinery) transplanted onto dips / turtle",
+  "instruments": "NQ",
+  "horizon": "days",
+  "verdict": "DEAD - deletes the multi-day edge; works only where the edge realises within its own session",
+  "ref": "MISC_SWEEP.md rounds 22-23"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "Overnight dealer-inventory drift (Boyarchenko-Larsen-Whelan 2023): long NQ 01:30->04:00 ET, all nights / after down sessions",
+  "instruments": "NQ",
+  "horizon": "overnight 2.5h",
+  "verdict": "DEAD for ROC - $8.5/trade, $16.6 after a down session",
+  "ref": "Ledger 2.13"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "ONDRIFT: buy RTH close above 200d SMA, sell next RTH open",
+  "instruments": "NQ",
+  "horizon": "overnight",
+  "verdict": "RETRACTED pass - harness foresight (roll-night skip by own jump); honest PF 1.205 MAR 5.24; causal vol filters recover nothing",
+  "ref": "MISC_SWEEP.md round 18 + correction; ONDRIFT_1_0.py"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "Unconditional / short overnight hold; 10 overnight time segments",
+  "instruments": "NQ",
+  "horizon": "overnight",
+  "verdict": "DEAD - all segment cells PF ~1.0",
+  "ref": "MISC_SWEEP.md rounds 18, 20"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "European-morning momentum: sign of 02:00-04:00 ET predicts 04:00-09:25",
+  "instruments": "NQ",
+  "horizon": "5 h overnight",
+  "verdict": "DEAD - momentum -$39/trade; fade +$8 after cost",
+  "ref": "Ledger 2.15"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "DD-WEEK r1 overnight: long NQ/ES at 16:00 after a down cash session, out 03:30 or 09:30",
+  "instruments": "NQ, ES",
+  "horizon": "overnight",
+  "verdict": "DEAD 0/12 - best +$48.8/night ROC 3.7, t 0.87 vs null 3.01; -$1.3k over #463's 460 DD days; overnight seat CLOSED",
+  "ref": "Ledger 2.75; docs/DDWEEK_OVERNIGHT_R1.md"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "DAILYFADE (DD-WEEK r2): fade NQ/ES cash-session moves, enter 16:00, hold one session",
+  "instruments": "NQ, ES",
+  "horizon": "1 session",
+  "verdict": "DEAD 0/8 - best ROC 6.08 t 1.23 vs null 2.07; EARLY negative everywhere",
+  "ref": "Ledger 2.68; docs/DDWEEK_FADE_R1.md"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "WKND: weekend gap on the Sunday reopen (continuation / fade)",
+  "instruments": "NQ, ES",
+  "horizon": "Sunday evening",
+  "verdict": "DEAD at Stage A - best WF t 1.85 vs null 2.71, ROC <= 8.6",
+  "ref": "Ledger 2.33"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "EARN: hold overnight after a mega-cap earnings evening",
+  "instruments": "NQ, ES",
+  "horizon": "overnight",
+  "verdict": "DEAD - continuation loses (NQ -$26k..-$52k WF); fade t <= 1.1",
+  "ref": "Ledger 2.33"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "REVERT r2: fade the 15:50-16:00 closing push in 16:00-16:15",
+  "instruments": "NQ, ES",
+  "horizon": "15 min post-close",
+  "verdict": "DEAD - reversal real (+0.2 pt NQ gross) but < 0.53 pt cost; continuation worse",
+  "ref": "Ledger 2.41"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "CLOSING PRESSURE overnight fade of index closing-auction push (Bogousslavsky-Muravyev)",
+  "instruments": "NQ, ES",
+  "horizon": "overnight",
+  "verdict": "CLOSED AT MAP - 1-2 bp push vs ~80 bp overnight noise; <= ROC 4.5 even given the sign",
+  "ref": "Ledger 2.141"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "OVERNIGHT-DOWNDAY leg (overnight long after down day) on the power map",
+  "instruments": "NQ",
+  "horizon": "overnight",
+  "verdict": "CLOSED AT DRAFT - median ROC 1.5, P(book lift) 14%",
+  "ref": "Ledger 2.138; memory edgelog-mapcheck-f-r1"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "ORB overnight holdover (hold winning ORB trades on ETH) / round 61 carry of >=1R winners",
+  "instruments": "NQ",
+  "horizon": "overnight-3 days",
+  "verdict": "DEAD - flat-EOD confirmed; r61 carry raises DD $28.9k->$34.1k; carry = plain overnight drift",
+  "ref": "ORB.md 4.22; ORB_ROUND61_62_ALPHA_HUNT.md"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "ATTN: buy 20 stocks-in-play at the close, sell next open, NQ-hedged",
+  "instruments": "US stocks + NQ",
+  "horizon": "overnight",
+  "verdict": "DEAD - hedged -$221,883 PF 0.71; premium +7 bps < 10 bps cost; NQ hedge adds cost",
+  "ref": "Ledger 2.61"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "ONMOM: overnight-return persistence across 21 funds, nightly",
+  "instruments": "ETFs",
+  "horizon": "overnight",
+  "verdict": "DEAD - ROC -3.2; ~$16k/yr costs vs ~$3k gross",
+  "ref": "Ledger 2.69; docs/TV_NEWTYPES_R1.md"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "NOISE / TTM / ORB on the 24-hour ETH tape",
+  "instruments": "NQ",
+  "horizon": "intraday ETH",
+  "verdict": "DEAD - NOISE #243 fails 24h (PF 1.21 MAR 5.89); TTM tape dead; ORB NQ 24h -$69,681",
+  "ref": "NOISE.md round 5; TTM.md round 6; memory edgelog-which-orb-to-trade"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "TTM-ES-OVERNIGHT: #459 rules on ES overnight hours",
+  "instruments": "ES",
+  "horizon": "overnight",
+  "verdict": "CLOSED AT MAP - median ROC 1.6, P(lift) 12%, greyed (~25/yr)",
+  "ref": "Ledger 2.155"
+ },
+ {
+  "cat": "overnight",
+  "mechanism": "ENGU-Q on day session only / RTH-only executor",
+  "instruments": "NQ, ES",
+  "horizon": "multi-day",
+  "verdict": "Day-session-only ES PF 1.40 n/DD 5.8 not a leg; RTH executor keeps ~91% of $ (not distinguishable)",
+  "ref": "memory edgelog-family-seed-hunt round 39; ledger 2.130"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "Round 37 NQ 1m short-hold scalps: micro opening range, open drive, PDH/PDL break, range burst, VWAP cross after 30 bars - each with 1R/2R fixed target and ride",
+  "instruments": "NQ 1m",
+  "horizon": "minutes",
+  "verdict": "DEAD 0/39 - fixed targets lose or make nothing; at zero cost best gross win 52.1%, median gross $6.60 vs $15.66 RT",
+  "ref": "NOISE.md round 37 part B; memory edgelog-scalp-hunt-1012"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "Round 38 NQ 1m scalps part C: sweep-reclaim, chop-fade, volume ignition, 5-bar box break (fixed and ride exits)",
+  "instruments": "NQ 1m",
+  "horizon": "minutes",
+  "verdict": "DEAD 0/20 - fixed cells flat gross on 11k-43k trades; ride PF 0.87-0.95",
+  "ref": "memory edgelog-family-seed-hunt round 38"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "Owner-override re-runs of the best fixed-target cells: RANGE-BURST x4/T1, PDH/PDL stop 0.10/T2, MICRO-ORB or5/T1 at 0.783 pt",
+  "instruments": "NQ 1m",
+  "horizon": "minutes",
+  "verdict": "DEAD on WF - ROC@30k 5.5 / 2.6 / -1.3",
+  "ref": "Ledger 2.164; memory edgelog-scalp-hunt-1012"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "Opening-drive scalps, VWAP reclaim, range-edge fades (owner 'higher win rate' families)",
+  "instruments": "NQ, ES",
+  "horizon": "minutes",
+  "verdict": "CLOSED AT DRAFT (power-first gate) 10-12",
+  "ref": "memory edgelog-scalp-hunt-1012"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "TV scalper map: 30s NQ '80% win', VWAP-RSI(3) 5m, TS V1 Nasdaq, '99-100% win' ES scripts",
+  "instruments": "NQ, ES",
+  "horizon": "seconds-minutes",
+  "verdict": "CLOSED AT MAP - high-win-rate trap (80% win, W/L 0.32 -> ROC 0.6); 99% scripts have no stop",
+  "ref": "Ledger 2.147"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "SUPERSCALPER port (Crispigino NQ/MNQ Super Scalper 1m) + r1 improvement + r2 time windows/ES + r2b session split + r2c RTH hours",
+  "instruments": "NQ, ES 1m",
+  "horizon": "minutes",
+  "verdict": "Stage 0 FAIL (52.7% matched); 2024 lift did not hold on 2023; session effect flips sign; ES dead; edge down to one hour of one year",
+  "ref": "Ledger 2.172, 2.173, 2.178, 2.183"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "NOISE band on 2m / 1m bars as a scalp (run #334, 4-min hold)",
+  "instruments": "NQ",
+  "horizon": "4-40 min",
+  "verdict": "PASS validate but = the crown re-expressed (loses on crown-flat days); 2m not anyone's best bar; 1m past the point; not adopted",
+  "ref": "NOISE.md rounds 37, 38, 41"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "ORB on 1-minute bars (finer trail, sub-5m ranges)",
+  "instruments": "NQ 1m",
+  "horizon": "intraday",
+  "verdict": "CLOSED - slippage-fragile",
+  "ref": "ORB.md 4.21"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "Owner's own futures scalps (60 journal trades)",
+  "instruments": "MNQ, MES",
+  "horizon": "~2 min",
+  "verdict": "Net -$200 PF 0.69 after commission + 1 tick a side (75% gross winners -> 48%); his exits beat time stops; no scalp algo",
+  "ref": "memory edgelog-scalp-hunt-1012, edgelog-owner-real-trades-scalp-read"
+ },
+ {
+  "cat": "scalp",
+  "mechanism": "AUCTION-1300 (13:00 Treasury auction reaction scalp)",
+  "instruments": "NQ/ES/TLT",
+  "horizon": "minutes",
+  "verdict": "CLOSED AT MAP - median ROC 1.4, lift 14%; not run (needs bid-to-cover)",
+  "ref": "Ledger 2.163"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE pyramid: add 1 contract at entry +1R riding the original exit",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD at triage - ROC@30k WF 66.0 -> 48.2; leverage on the path",
+  "ref": "Ledger 2.31; NOISE.md round 63"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE half-hour decision checkpoints (entries only on HH:00/HH:30 closes); quarter-hour neighbour",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - LB ROC 87.3 -> 36.4; quarter-hour also loses LB",
+  "ref": "Ledger 2.31"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE two-hour time stop (exit after 24 bars, slot re-enters)",
+  "instruments": "NQ",
+  "horizon": "<=2h",
+  "verdict": "DEAD - WF ROC up only via smaller DD; Sortino falls; 12-bar neighbour collapses; exits closed",
+  "ref": "Ledger 2.36"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE time-decay exit (24/36/48 bars) and vol-conditional exit switch",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - time decay -$11k..-$34k; exit switch already harvested by the k1.75 stop",
+  "ref": "NOISE.md variant campaign 2026-08-17 (A1, B2)"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE ES confirmation: skip NQ breaks ES's own band does not share",
+  "instruments": "NQ, ES",
+  "horizon": "intraday",
+  "verdict": "DEAD - LB 87.3 -> 37.8; ES adds no edge",
+  "ref": "Ledger 2.42"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE overnight clearance: break must clear the overnight high/low",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - LB 87.3 -> 60.9; breaks inside the overnight range are not worse",
+  "ref": "Ledger 2.43"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE breakeven at +1R on a bar close then ride",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - WF ROC and Sortino fall slightly on #382/#422",
+  "ref": "Ledger 2.46"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE exit management: trailing stops and breakeven (round 52)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD/wash - every trail worse, tighter = worse; breakeven a wash",
+  "ref": "NOISE.md round 52"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE profit targets T25 (+0.25R scalp), SO25 half off, T100 (+1R)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "ALL SIX FAIL - T25 64% wins ROC 52 vs 83; T100 96.9 is one episode (Sortino down, P(gain) 0.27)",
+  "ref": "Ledger 2.154; memory edgelog-noise-scatter-winrate-trap"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE #422 + profit-target knob Auto-Validate (tp off/1/1.5/2/3R), run #490",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "WEAK (PBO 0.591), crown picks target OFF; nothing changes",
+  "ref": "Ledger 2.167; 2.166"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE asymmetric stop_k long/short",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - no plateau",
+  "ref": "NOISE.md variant campaign B3"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE skip LOW-vol days",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - no plateau",
+  "ref": "NOISE.md variant campaign A2"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE tighten stop in high vol",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Clears small, dominated; not selected",
+  "ref": "NOISE.md variant campaign A3"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE filter stack combinations (skip_bot_all/short x weak-close thresholds x vol-skip 90/95/98)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "CLEAN NEGATIVE - 18 cells, nothing clears; do not re-propose a filter stack",
+  "ref": "NOISE.md combination study 2026-08-21"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE trade-context FDR scan (16 features incl. gap_pct, MACD, efficiency ratio, range percentile)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Nothing new survives correction; gap_pct 78% inside vol_skip",
+  "ref": "NOISE.md 2026-08-18 scan"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE conditional sweep: 12 states tilted by data (compression, sides vs slow mean, etc.)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "11 say nothing; the 12th (longs below slow mean) was a one-bar look-ahead - retracted",
+  "ref": "NOISE.md rounds 47 + retraction"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE faster variants (mirror test of 'tape rewards speed')",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - 0/8 faster variants better recently, 7/8 worse both eras",
+  "ref": "NOISE.md round 46"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE bar-size ladder (2/3/5/10/15/30/60m) and confirm_bars=2",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "15m/confirm-2 better 2010-23 but behind 2024-26; validates #388/#391/#393 crown worse cells; crown stays 5m confirm 1",
+  "ref": "NOISE.md rounds 44-45, 57"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE cost-robust geometry corner C3 (band exit, ATR stop 0.75, confirm 3, afternoon block)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "NOT QUEUED - concentration fails (top-10 32% vs 23.6%), recent stretch flat PF 1.028",
+  "ref": "NOISE.md round 43"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE volatility estimator variants (vs plain session-mean displacement)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - plain mean wins",
+  "ref": "NOISE.md round 48"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE band anchored to a moving reference (VWAP etc.) instead of the fixed open",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - destroys the edge; the fixed level is the mechanism",
+  "ref": "NOISE.md round 49"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE trading the discarded signals (lift the single-position rule)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - every version loses to trading the strategy larger",
+  "ref": "NOISE.md round 50"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE slower-timeframe vote (15m/10m agreement)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - first pass was open-stamp look-ahead; causal version net/DD 11.55 vs 19.14",
+  "ref": "NOISE.md round 51"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE same-direction re-entry cooldown",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "NOT ADOPTED - re-entries net positive (+$47.6k); 1-bar cooldown +2%, loses recent era",
+  "ref": "memory noise-reentry-economics"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE entry geometry re-searched on compressed hours only (GEO304, run #420)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Bar NOT met - PBO 0.349; crowned cell lower PF both eras",
+  "ref": "NOISE.md round 61"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE hourly squeeze as a FILTER (keep only compressed-hour trades; #321, #390, #398, HSQ304)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Passes but earns 40% less at lower ROC; same edge as the tilt in fewer trades; do not crown as filter; filter went silent for months",
+  "ref": "Ledger 2.7; NOISE.md rounds 55-60"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE hourly compression SIZE tilt 1.75x (#422) - the adopted add-on",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "ADOPTED (run #422 PASS PBO 0.19) - the one add-on that holds; 30-min 2.0x gate (#382) fails continuous lockbox",
+  "ref": "Ledger 2.8, 4.8; NOISE.md rounds 55, 61"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE compression tilt depth 2.0 / 2.25 / 2.75x",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - WF ROC falls as size-up grows (84.6 -> 78.3); 1.75x at/past the top",
+  "ref": "Ledger 2.50"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE shorts x1.5 side tilt",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - leg 84.6 -> 102.6 but paired bootstrap p5 -14.9; adds return not protection",
+  "ref": "Ledger 2.53; NOISE.md round 70"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE hedge tilt: x1.5 short vs ENGU-Q open long, x0.5 stacked long",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - 90.5 vs twin 88.3 below #463; stacked longs are NOISE's best longs",
+  "ref": "Ledger 2.55"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE 09-27 fixed package: KEEL 60-min squeeze x1.5, Friday x1.5, FOMC pre-statement x0.5",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Squeeze carries in-book WF only (101.1 vs twin 95.9); Friday and FOMC do not; forward shadow",
+  "ref": "Ledger 2.56; NOISE.md round 69 (b)"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE GAMMA-SORT: 1.5x short-gamma / 0.5x long-gamma days",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "CLOSED AT DRAFT - MDE $31.7k/yr vs prior ~$2k",
+  "ref": "Ledger 2.151"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE MIRROR: take the opposite side after the first VWAP exit, hold to close",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "CLOSED AT DRAFT - MDE $15.9k/yr vs prior $1-2k",
+  "ref": "Ledger 2.153"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE failed-break HALVES share as an alarm",
+  "instruments": "NQ",
+  "horizon": "forward",
+  "verdict": "No alarm - report line only (share swings 60-80% by year)",
+  "ref": "Ledger 2.152"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE order-flow delta at the breakout (skip trades whose signal-bar delta opposes)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "No read possible; signal-bar shadow CLOSED at power gate (10-15); cumulative-delta forward shadow to ~2027-07",
+  "ref": "Ledger 2.35; memory edgelog-orderflow-r1"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE + KEEL v12 learned overlay on the live crown",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Leverage on the tuning era plus three trades in the sealed year; KEEL does not improve the crown",
+  "ref": "NOISE.md round 53, 62"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE SHAR signed-semivariance vol forecast for sizing",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "MAP - SHAR forecasts worse than HAR (QLIKE 0.278 vs 0.265); recommend close",
+  "ref": "memory edgelog-noise-shar-mapcheck-1015"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "COMPLEXITY r0: random-feature ridge (Kelly-Malamud-Zhou) sizing of NOISE #422 in #463",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "CLOSED AT DRAFT - pre-WF ROC 101.5 -> 78.2",
+  "ref": "memory edgelog-complexity-r0"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE mega-cap earnings reaction sessions as a size bucket",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Clean NO - random day-sets match 40%; LB EV R 0.00",
+  "ref": "NOISE.md round 60"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE point score (owner ps1.2) as label of trade R",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "PASS small (rho +0.053) - label only, never a gate or size",
+  "ref": "Ledger 2.144"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE vol-skip memory 68 vs 252 sessions (#447)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Non-inferior - live memory acceptable; not 'better'",
+  "ref": "NOISE.md round 62"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE late fills (one bar late entry/exit)",
+  "instruments": "NQ, QQQ",
+  "horizon": "intraday",
+  "verdict": "Report - ~0.45-0.66 pt a trade (~10% of edge), WF DD grows $21k->$34k on #382; #422 more robust",
+  "ref": "NOISE.md round 61"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE publication decay since Zarattini 2024",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "No detectable decay (R 1.18, CI 0.55-2.18) but underpowered",
+  "ref": "Ledger 2.180"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE on ES (transfer, native re-tune, ES-picked config, validate #344)",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "DEAD - native config loses on 18-month holdout; ES earns $44-57/trade vs $25-30 cost; #344 WEAK PBO 0.675",
+  "ref": "NOISE.md ES-native study 2026-08-22; memory edgelog-family-seed-hunt round 42"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE on QQQ (calibration + Auto-Validate #485)",
+  "instruments": "QQQ",
+  "horizon": "intraday",
+  "verdict": "Calibration fair (CAL 0.92-0.94); #485 WEAK PBO 0.687; nothing changes",
+  "ref": "Ledger 2.97"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE on IWM (54-cell grid)",
+  "instruments": "IWM",
+  "horizon": "intraday",
+  "verdict": "DEAD - all 54 cells negative; chops more",
+  "ref": "Ledger 2.98"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE on sector funds XLK/XLY/XLI/XLV/XLP/XLU/XLF",
+  "instruments": "sector ETFs",
+  "horizon": "intraday",
+  "verdict": "XLK passes Stage A but corr 0.74 with #422 (same factor), validate #488 WEAK; others dead",
+  "ref": "Ledger 2.108, 2.110"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE FADE on TLT (mirror every NOISE trade)",
+  "instruments": "TLT, IEF",
+  "horizon": "intraday",
+  "verdict": "DEAD - all 54 cells negative, flat before cost",
+  "ref": "Ledger 2.109"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE on SPY / DIA / GLD as book seats",
+  "instruments": "SPY, DIA, GLD",
+  "horizon": "intraday",
+  "verdict": "CLOSED AT MAP - SPY/DIA 0% lift (with-book), GLD own ROC 0.9",
+  "ref": "Ledger 2.163"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE core transferred to IEF / GLD (and FXE/USO dropped by gates)",
+  "instruments": "IEF, GLD",
+  "horizon": "intraday",
+  "verdict": "DEAD - IEF -$48,636 PF 0.61, GLD -$31,597",
+  "ref": "Ledger 2.49"
+ },
+ {
+  "cat": "noise",
+  "mechanism": "NOISE ADJ (back-adjusted) vs no-adjust master",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Keep no-adjust (percent levels shift under adjustment)",
+  "ref": "NOISE.md round 69 (c)"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB touch entry gated on the breakout bar's finished volume (ORB 3.0/3.1, #125, #205-#209)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "VOID - look-ahead; ~91% of the edge; honest ceiling ~$44-69k/16y",
+  "ref": "ORB.md 2026-08-11 banner; memory edgelog-orb-volfilter-lookahead"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB delayed / second opening range (09:45, 10:00)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - 09:45 halves it (MAR 0.85->0.21), 10:00 flat; the 09:30 open IS the edge",
+  "ref": "memory edgelog-which-orb-to-trade"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB entry window cutoffs (stop entries early/late)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD 0/40 - late entries still earn (bars 6-11 PF 1.93); never cut late trades",
+  "ref": "memory edgelog-which-orb-to-trade; ORB.md round 10 TS"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB geometry re-search (or_bars, buffer, target_R, breakeven)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "0/38 - crown at/beside the peak; or_bars is a SPIKE (3 bars failed lockbox three times)",
+  "ref": "memory edgelog-which-orb-to-trade"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB structure forks: same-direction re-entry, failed-breakout reversal, pyramiding, entry cutoff, time stop, stale-out",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD 0/66",
+  "ref": "ORB.md round 10"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB direction rules: gap, gap-fade, prior-day, prior-day fade, range vs prior close, both sides",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - first-candle wins every window",
+  "ref": "ORB.md round 10b"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB prior-day close-position filter (skip longs after 0.60-0.85 close), validate #325",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "FAIL - PBO 0.65 + transfer fail; tested twice on two bases",
+  "ref": "ORB.md 2026-09-08; CROSSFAMILY_DAYTYPE.md"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "NOISE's skip-shorts-after-weak-close filter transferred to ORB",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Does NOT transfer - costs ~$15k; sign flipped (ORB shorts after weak close +$86)",
+  "ref": "ORB.md 2026-08-18; CROSSFAMILY_DAYTYPE.md"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB loosen volatility filters to cut droughts",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD 0/36 - MAR falls in every cell",
+  "ref": "memory edgelog-which-orb-to-trade"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB level shape: flex stop/target with day width; vol-measured buffer; 2-3 confirming closes; body vs wick width (34 alternatives)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - ~110 configs; wicks are signal",
+  "ref": "ORB.md round 11"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB 'barely-clearing entries' distance quartile",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "FAILS its null - marginal artifact",
+  "ref": "ORB.md round 11b"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB on the legal base: NR7/inside-day tilts, OR-width gate, gap buckets, ATR-floor stop, prior-day range gate (ORB_4_0), re-entry after BE scratch, 2-lot ensembles",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - verdicts flip vs leaky-base record",
+  "ref": "memory edgelog-which-orb-to-trade"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB constant-risk / vol-target / risk-parity sizing; morning time tilt; short tilt (ORB 3.1-era stack)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "RETRACTED/DEAD - on honest base net $397k->$124k; any rule shrinking size on wide days destroys ORB; fixed_sizing r1 confirms on #314",
+  "ref": "memory edgelog-which-orb-to-trade, edgelog-fixed-sizing-r1; ORB.md 4.7/4.10/4.11"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB breakeven at +1R then ride (no target)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - target fires 2-4 times in 16 yrs; LB 103.8 -> 83.1 on #234",
+  "ref": "Ledger 2.93"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB size by breakout-bar relative volume (thirds 1.5/1/0.5x)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - WF #314 35.3 -> 29.7; thirds inverted; breakout volume dead as gate or tilt",
+  "ref": "Ledger 2.94"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB 1.5x on the session after mega-cap earnings",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - 77th percentile of random calendars",
+  "ref": "ORB_ROUND61_62_ALPHA_HUNT.md round 62"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB fixed tilts (compression / Friday / FOMC) and first-30-min / short-side size tilts",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Leverage, not edge (+13% money at +14% DD; +49-57% LB DD)",
+  "ref": "ORB_ROUND61_62_ALPHA_HUNT.md idea list"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "TRENDSIZE: ORB 2.0x on high 5/60 range-ratio days (pre-open trend-day score), else 0.75x",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - #463 WF 93.81 -> 66.39; doubles ORB into 2020 crash",
+  "ref": "Ledger 2.159"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB with vs against the opening gap (GAP38)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "NO GAP EFFECT on WF (t 0.31); pre-WF t 2.6 died",
+  "ref": "ORB_GAP38_R1.md; memory edgelog-orb-gap38-r1"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB x NOISE overlap cap inside the book (arm O)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "FAIL - agreement trades are the best (PF 1.56 vs 1.30)",
+  "ref": "Ledger 2.32"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB #257 volatility filter 0.50 (vs off)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "SPIKE - 11 trades, p 0.085, none removed since 2021",
+  "ref": "ORB_ROUND59_FILTER_INTERIOR.md"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB re-optimising (meta walk-forward) and re-fitted neighbourhoods #421 / #480",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "No forward advantage (3 of 11 years); re-tuned cells pick worse; region real, pick is luck",
+  "ref": "memory edgelog-reoptimising-doesnt-pay; ORB_BEST_WF.md; ORB.md crown statement"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB DD-throttle sizing and equity-curve gate",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "FAIL lockbox gate",
+  "ref": "ORB.md 4.19 (N, O)"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB black-swan regime filters (daily trend structure + VIX) and vol circuit breaker",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - no filter improves MAR either window",
+  "ref": "ORB.md 4.13, 4.17"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB VIX / VIX3M / DOW / FOMC-CPI-NFP / put-call conditioning",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "None graduate; VIX pattern already harvested by risk sizing; Wednesday = FOMC contamination",
+  "ref": "memory edgelog-web-strategy-shortlist round 11; ORB.md 4.21 X9-X12, 4.23 X11"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB round-3 tilts: RVOL (look-ahead), VWAP-side, measured-move targets, ES-NQ breadth, lunch trail, OR-close direction, context composite v2",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD/no-adopt (leaky-base era); only compression x1.25 graduated then",
+  "ref": "ORB.md 4.21-4.24"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB smarter trails (chandelier ATR) / trail with no partial on the legal crown",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Chandelier overfit; trail with no partial catastrophic (MAR 0.08-0.23)",
+  "ref": "ORB.md 4.5; memory edgelog-which-orb-to-trade"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB midday time stop",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "REJECTED - every setting worse",
+  "ref": "ORB.md 4.9"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB re-entry / stop-and-reverse, failed-break fade, pyramid at +1R, chop detector",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - no standalone fade edge; pyramid crushed",
+  "ref": "ORB.md 4.19-4.20"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB ML gate cut / size tilt / hybrid (rf, tree, xgb)",
+  "instruments": "NQ, ES",
+  "horizon": "intraday",
+  "verdict": "Original gate edge was a look-ahead leak; learned ML coin flip OOS; model choice unstable NQ vs ES",
+  "ref": "ORB.md 4.25-4.29; memory edgelog-gate-tilt, edgelog-ml-edge-audit-0927"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB on ES / RTY / YM transfer",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "ES PF 1.06 (top-10 174%), dead; RTY/YM pre-registered not run (owner declined Databento)",
+  "ref": "memory edgelog-which-orb-to-trade; ledger 2.29"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB on QQQ (calibration, Auto-Validate #486)",
+  "instruments": "QQQ",
+  "horizon": "intraday",
+  "verdict": "CAL 0.78/0.75; #486 WEAK PBO 0.976",
+  "ref": "Ledger 2.96"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB core on IEF / GLD / IWM / DIA",
+  "instruments": "ETFs",
+  "horizon": "intraday",
+  "verdict": "DEAD - flat (DIA 2.7 %/yr)",
+  "ref": "Ledger 2.49"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB live leg on QQQ fed NQ signals (RELAY) / last-minute close exit / cost stress",
+  "instruments": "QQQ",
+  "horizon": "intraday",
+  "verdict": "Leads not distinguishable; no closing tax; carries $0.097/sh",
+  "ref": "ORB_RELAY_R1.md, ORB_CLOSEXIT_R1.md, ORB_COSTSTRESS_R1.md"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB #314 vs #234 forward tiebreak",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Undecidable - 80% power needs ~840 years",
+  "ref": "memory edgelog-which-orb-to-trade"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB entry: close-confirm vs touch vs limit-back-at-level; next-open fill realism",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Close-confirm crown is legal; next-open fill costs $800/16y - honest",
+  "ref": "memory edgelog-which-orb-to-trade; ORB.md 4.18"
+ },
+ {
+  "cat": "orb",
+  "mechanism": "ORB quarterly expiry-week 1.5x",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "OPEN - forward read only from 2026-10-05",
+  "ref": "ORB.md crown statement"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM squeeze below 15m bars",
+  "instruments": "NQ, ES",
+  "horizon": "intraday",
+  "verdict": "DEAD - costs eat it",
+  "ref": "TTM.md round 1"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM fade-the-fire; daily-squeeze gate",
+  "instruments": "NQ, ES",
+  "horizon": "intraday",
+  "verdict": "DEAD",
+  "ref": "TTM.md round 2"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM on daily bars (futures and ETFs)",
+  "instruments": "NQ, ES, ETFs",
+  "horizon": "days",
+  "verdict": "DEAD - only month-long bull holds",
+  "ref": "TTM.md rounds 3, 7b"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM directional higher-timeframe gates (sign, rising, recently fired)",
+  "instruments": "NQ, ES",
+  "horizon": "intraday",
+  "verdict": "Mostly fail; value is the hour still COILED",
+  "ref": "TTM.md round 4"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM compression dial loosened (gate_ratio, gate_len)",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "Overturned - the strict gate IS the edge",
+  "ref": "TTM.md round 5"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM twelve one-change variants of the crown",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "0/12",
+  "ref": "TTM.md round 8"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM ES-only sub-book / ES 15m cell as a leg (#343)",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "No - #343 WEAK; only 30m cell uncorrelated",
+  "ref": "TTM.md rounds 9, validated runs"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM Squeeze Pro grading, coil shape, pullback entries, fixed time exits, scale-out at 1R, cross-instrument compression",
+  "instruments": "ES, NQ",
+  "horizon": "intraday",
+  "verdict": "CLOSED - do not re-propose",
+  "ref": "TTM.md Closed list"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM stack transferred to NQ unchanged; 90/120/150-min frames",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Does not transfer (1 of 4); 90/120 collapse; hourly frame a spike",
+  "ref": "TTM.md rounds 16-17"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM crown on 35 large US stocks",
+  "instruments": "US stocks",
+  "horizon": "intraday",
+  "verdict": "Loses money",
+  "ref": "TTM.md closed list (20c)"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM multi-cell sleeve inside BOOK #463 (#469 swap / #470 add)",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "FAIL both",
+  "ref": "Ledger 2.34"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM hourly compression as flat 1.5x size on ORB #234 and ENGU-Q #335 legs (R23)",
+  "instruments": "NQ",
+  "horizon": "intraday/multi-day",
+  "verdict": "DEAD - WF 90.22 vs 93.81; sizes up into the coiled tape before 2020",
+  "ref": "Ledger 2.84"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM 10:00-ET entry: opening effect vs squeeze effect (R24)",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "Squeeze effect; no-fire 10:00 entry loses; O1 research row only",
+  "ref": "Ledger 2.86"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM breakeven at +1R, order flow on gated fires, candle proxy, clean-engine stack #479",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "CLOSED - BE arms 25/355 trades; #479 WEAK PBO 0.64",
+  "ref": "TTM.md closed list rounds 19-23"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM profit targets (+0.25..1.5R) and 'not working' exits on #459",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "All below #459 on ROC/Sortino/money; +0.25R = high-win-rate trap",
+  "ref": "Ledger 2.148"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM ES market-phase side gate (Goulding-Harvey-Mazzoleni phases) / speed-blended trend leg",
+  "instruments": "ES, NQ",
+  "horizon": "intraday/days",
+  "verdict": "CLOSED AT DRAFT - every cell loses money on IS; trend leg map P(lift) 24%",
+  "ref": "Ledger 2.179"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM-ETF-SLEEVE: #459 rules on 14 ETFs at 30m",
+  "instruments": "ETFs",
+  "horizon": "intraday",
+  "verdict": "CLOSED AT MAP - median ROC 1.4, P(lift) 0%",
+  "ref": "Ledger 2.155"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM runner trail (lock +1R after +2R)",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "Dropped - touches 1-2 trades/yr, <$1k/yr",
+  "ref": "Ledger 2.155"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "TTM KEEL / learned sizing on #458",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "No fixed part carries the gain; 76th pct of shuffled sizes",
+  "ref": "memory edgelog-fixed-sizing-r1"
+ },
+ {
+  "cat": "ttm",
+  "mechanism": "Keep TTM in #463 (Q44) and its forward decay",
+  "instruments": "ES",
+  "horizon": "intraday",
+  "verdict": "KEEP x3 (WF gain without TTM is one episode); but fails family luck bar 0.614 and decay LB/WF -0.12",
+  "ref": "Ledger 2.175, 2.150, 2.177"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q regime filter (battery U)",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "FAILED 0/5",
+  "ref": "ENGUQ.md 1.4"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q equal-dollar-risk sizing",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "Measures worse - big-stop trades carry $259k of $358k",
+  "ref": "ENGUQ.md 1.3"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q higher-timeframe gates: session VWAP, 15m/60m momentum, ATR expansion, higher lows, efficiency 0.35",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "Six died; ER >= 0.25 survived battery (crown later runs er_th 0)",
+  "ref": "ENGUQ.md 1B"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q four signal-time entry rules (round 57)",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "DEAD at selection; freed slots refill with worse trades",
+  "ref": "ENGUQ.md round 57; memory enguq-r57-entry-rules-dead"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q cash-session entry window (round 62)",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "FAILS pre-registered bar (best entry result of the family)",
+  "ref": "ENGUQ.md 2026-09-28 round 62"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q partial exit on the ETH crown",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "DEAD 0/12",
+  "ref": "ENGUQ.md 2026-09-28"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q entry-bar order flow (rounds 63-64)",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "Not testable (22 trades with flow); no survivor information, sign backwards",
+  "ref": "ENGUQ.md rounds 63-64"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q distance below recent high (round 65) / initial risk width selector (round 66)",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "Survival effect real but worth nothing; r66 FAILS - entry-filter direction closed",
+  "ref": "ENGUQ.md rounds 65-66"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q hold cap (roll-corrected) and HOLD CAP r1 forced quick exits (15m..1 session)",
+  "instruments": "NQ",
+  "horizon": "capped hours",
+  "verdict": "Fails bar - 4h cap ROC 29.8 vs 26.5 but Sortino 2.20 vs 3.66, one episode; short caps = high-win trap",
+  "ref": "ENGUQ.md 2026-09-27 + HOLD CAP r1; ledger 2.162"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q on ES (#370, #442) / ES 5th leg",
+  "instruments": "ES",
+  "horizon": "multi-day",
+  "verdict": "CLOSED-NO - tail-driven, 3/16 years survive removing top 3; one trade carried LB",
+  "ref": "ENGUQ.md 2026-09-26; ledger 2.11"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q short mirror only in downtrends",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "DEAD - every gate loses, 1-4/16 years",
+  "ref": "Ledger 2.19"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q ML gate moved onto the book leg",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "Does not carry - LB $107,941 -> $14,705; seed-specific",
+  "ref": "Ledger 1.16, 2.20"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q on 5m bars",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "PF 1.33 -> 1.11 - needs 1m",
+  "ref": "MISC_SWEEP.md round 22"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q #335 settings on QQQ's own bars as paper leg",
+  "instruments": "QQQ",
+  "horizon": "multi-day",
+  "verdict": "Drags L to 79.36 - signal source must be NQ",
+  "ref": "Ledger 2.133"
+ },
+ {
+  "cat": "enguq",
+  "mechanism": "ENGU-Q timing vs always-on NQ twin (drift twin, entry vs stop-exit split)",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "Not distinguishable; leg ~= 1 long NQ while on",
+  "ref": "Ledger 2.127, 2.130; ENGUQ.md anatomy r1"
+ },
+ {
+  "cat": "setups",
+  "mechanism": "Owner setups CBU/CBD/EBU/ENGU/ENGD as 1m rules (516 cells)",
+  "instruments": "NQ, ES 1m",
+  "horizon": "intraday",
+  "verdict": "1/516 passed; validate #427 FAIL; 74% of trades on NOISE #382 days",
+  "ref": "memory setups-round1-backtest; SETUPS_PREREG.md"
+ },
+ {
+  "cat": "setups",
+  "mechanism": "Point-score leads (largest body + volume since low, trend filters) as CBU-Q PTS rules",
+  "instruments": "NQ, ES 1m",
+  "horizon": "intraday",
+  "verdict": "DEAD 0/40",
+  "ref": "SETUPS_PREREG_R2.md"
+ },
+ {
+  "cat": "setups",
+  "mechanism": "CBU rules v1 (close at new high of day, 200 EMA, volume) round 3, validate #481",
+  "instruments": "NQ, ES 1m",
+  "horizon": "intraday",
+  "verdict": "FAIL - LB ROC -40.1; NOISE #382 shadow 3rd time; alert-only",
+  "ref": "SETUPS_PREREG_R3_CBU_V1.md; memory setups-round1-backtest"
+ },
+ {
+  "cat": "event",
+  "mechanism": "Scheduled-event SIZE scan: 10 calendars x offsets x windows x multipliers x 3 crowns (1,080 cells)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "NOISE - 40 survivors vs 32 random (p 0.12); only FOMC pre-statement shrink real",
+  "ref": "Ledger 2.6; memory edgelog-event-size-scan"
+ },
+ {
+  "cat": "event",
+  "mechanism": "Calendar / NQ-vs-ES / overnight / vol term-structure features on crown trades",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "Nothing carries",
+  "ref": "Ledger 2.4"
+ },
+ {
+  "cat": "event",
+  "mechanism": "OPEX fade; month-turn / month-end long",
+  "instruments": "NQ",
+  "horizon": "intraday-days",
+  "verdict": "DEAD",
+  "ref": "Ledger 2.5"
+ },
+ {
+  "cat": "event",
+  "mechanism": "Turn-of-month calendar drift",
+  "instruments": "NQ",
+  "horizon": "days",
+  "verdict": "Real but MAR 2.19 - a fact, not a leg",
+  "ref": "memory edgelog-web-strategy-shortlist"
+ },
+ {
+  "cat": "event",
+  "mechanism": "Month-end pension rebalancing (SPY-minus-TLT MTD, K days before month end)",
+  "instruments": "ES",
+  "horizon": "days",
+  "verdict": "Real but small (~$7.6k/yr, MAR 0.49); 0/20 book weightings; lockbox read",
+  "ref": "Ledger 2.18"
+ },
+ {
+  "cat": "event",
+  "mechanism": "FOMC drift / FOMC-cycle even weeks (FOMCWK)",
+  "instruments": "NQ, ES",
+  "horizon": "days",
+  "verdict": "DEAD - post-2015 dead; even/odd weeks flipped after sample",
+  "ref": "Ledger 2.33; memory edgelog-web-strategy-shortlist"
+ },
+ {
+  "cat": "event",
+  "mechanism": "Calendar + VIX day filters (Mondays, opex Friday, VIX terciles)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD 0/18",
+  "ref": "memory edgelog-misc-round16 round 24"
+ },
+ {
+  "cat": "event",
+  "mechanism": "Treasury auction supply cycle on IEF/TLT (short into, long after)",
+  "instruments": "IEF, TLT",
+  "horizon": "days",
+  "verdict": "DEAD near miss - K5 7.9 %/yr, t 1.997",
+  "ref": "Ledger 2.70"
+ },
+ {
+  "cat": "event",
+  "mechanism": "EVENT SLEEVE: TLT pre-auction short + ES month-end + NQ 08:30 fade as one leg",
+  "instruments": "TLT, ES, NQ",
+  "horizon": "intraday-days",
+  "verdict": "OPEN - only idea clearing MAPCHECK-F (P lift 56%); parts already seen; forward shadow from 2026-10-14",
+  "ref": "Ledger 2.138; memory edgelog-event-sleeve-forward"
+ },
+ {
+  "cat": "event",
+  "mechanism": "MEGACAP-EARN continuation (NQ 09:31-close after a top-9 NDX report)",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD - WF ROC 2.1",
+  "ref": "Ledger 2.163, 2.164"
+ },
+ {
+  "cat": "event",
+  "mechanism": "Earnings family in stocks: EDRIFT volume-confirmed news drift, EAP earnings-announcement premium",
+  "instruments": "US stocks",
+  "horizon": "monthly / 5 sessions",
+  "verdict": "DEAD - family CLOSED (EDRIFT ROC -2.3/-1.7; EAP -0.3/-1.3)",
+  "ref": "Ledger 2.85, 2.115, 2.105"
+ },
+ {
+  "cat": "event",
+  "mechanism": "DIVRUN pre-ex-dividend run-up, ES-hedged",
+  "instruments": "US stocks + MES",
+  "horizon": "10-20 sessions",
+  "verdict": "DEAD - run-up real (+28 bps) = the cost",
+  "ref": "Ledger 2.77"
+ },
+ {
+  "cat": "event",
+  "mechanism": "INSIDER Form 4 open-market purchases",
+  "instruments": "NDX stocks + NQ",
+  "horizon": "5-60 sessions",
+  "verdict": "DEAD - best ROC 1.88; no post-buy drift",
+  "ref": "Ledger 2.78"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "VOLCARRY: -0.5x VIX futures (SVXY) only in contango",
+  "instruments": "VIXY/SVXY",
+  "horizon": "daily",
+  "verdict": "DEAD - 11.07 %/yr below null; volatility premium too thin",
+  "ref": "Ledger 2.39"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "LONGVOL (long VIXY) / HAVEN (TLT+GLD+yen) / STEEPENER (SHY-TLT) when VIX >= VIX3M",
+  "instruments": "ETFs",
+  "horizon": "daily",
+  "verdict": "FAIL - crisis hedges answer March 2020 only; inversion seat family closed",
+  "ref": "Ledger 2.59, 2.64"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "VRPES: long ES for a month when variance risk premium top tercile",
+  "instruments": "ES",
+  "horizon": "monthly",
+  "verdict": "DEAD - 0.77 vs always-long 7.49",
+  "ref": "Ledger 2.103"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "VVIXTAIL: short ES 5 sessions when VVIX/VIX top 2%",
+  "instruments": "ES",
+  "horizon": "5 sessions",
+  "verdict": "DEAD - shorts complacency, ROC -2.44",
+  "ref": "Ledger 2.92"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "CALMTAPE: long ES only on calm uptrend (VIX <= 16, above 200d)",
+  "instruments": "ES/MES",
+  "horizon": "daily",
+  "verdict": "FAIL 0/2 vs same-exposure buy-hold",
+  "ref": "Ledger 2.126; memory edgelog-calmtape-r1"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "GAMMA r1: ES breakout on short-gamma days, ES balance fade on long-gamma days, ORB+NOISE stand-down on long-gamma days",
+  "instruments": "ES, NQ",
+  "horizon": "intraday",
+  "verdict": "DEAD all three; GEX closed as a filter on any cut",
+  "ref": "Ledger 2.135-2.137"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "DIXSTATE (SqueezeMetrics DIX -> long ES next session)",
+  "instruments": "ES",
+  "horizon": "1 session",
+  "verdict": "MAP FAIL - needs ~9 bps excess/day vs 1-3 implied",
+  "ref": "memory setups-round1-backtest (SCOPE_DISC addendum A)"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "Crash-regime short NQ below falling MAs with vol spike",
+  "instruments": "NQ",
+  "horizon": "multi-day",
+  "verdict": "DEAD 18/18 lose",
+  "ref": "Ledger 2.16"
+ },
+ {
+  "cat": "vol",
+  "mechanism": "Kronos foundation model as next-session range forecaster",
+  "instruments": "NQ, ES",
+  "horizon": "1 session",
+  "verdict": "FAIL - HAR beats it in every cell",
+  "ref": "Ledger 2.54"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "XASSET: TLT's past return sets NQ/ES side weekly",
+  "instruments": "NQ, ES, TLT",
+  "horizon": "weekly",
+  "verdict": "DEAD - loses to buy-hold (2.3 vs 13.0)",
+  "ref": "Ledger 2.70"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "COT hedging pressure across 11 markets",
+  "instruments": "funds",
+  "horizon": "weekly",
+  "verdict": "DEAD - t -3.1",
+  "ref": "Ledger 2.70"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "PAIRS (8 fixed fund pairs, z reversion)",
+  "instruments": "ETFs",
+  "horizon": "days",
+  "verdict": "DEAD - 2.5 %/yr",
+  "ref": "Ledger 2.69"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "RELVOL: ES-vs-NQ relative volatility, beta-neutral, next session",
+  "instruments": "NQ, ES",
+  "horizon": "1 session",
+  "verdict": "DEAD - 0.97 vs null 6.84",
+  "ref": "Ledger 2.88"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "SKEWREAL weekly realized skewness across funds",
+  "instruments": "ETFs",
+  "horizon": "weekly",
+  "verdict": "DEAD - -1.06",
+  "ref": "Ledger 2.91"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "SPREAD r1: NQ/ES ratio momentum and z-reversion daily",
+  "instruments": "NQ, ES",
+  "horizon": "days-weeks",
+  "verdict": "DEAD 0/12",
+  "ref": "Ledger 2.24"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "Fund time-series momentum (TREND r1, Q9 trend seat)",
+  "instruments": "11 non-equity funds",
+  "horizon": "monthly",
+  "verdict": "FAIL - bleeds between crises",
+  "ref": "Ledger 2.58; memory edgelog-rotation-sector-dead"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "Dual momentum ROTATION; SECTOR momentum/reversal rotation",
+  "instruments": "ETFs",
+  "horizon": "monthly/weekly",
+  "verdict": "DEAD 0/16, 2/24, 0/9",
+  "ref": "memory edgelog-rotation-sector-dead"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "SAFEHAVEN: long IEF/GLD 10:35->close when ES down k x median by 10:30",
+  "instruments": "IEF, GLD",
+  "horizon": "intraday",
+  "verdict": "DEAD - negative before cost",
+  "ref": "Ledger 2.95"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "FIXREV London 4pm fix reversal on FXE",
+  "instruments": "FXE",
+  "horizon": "30 min",
+  "verdict": "Dies on capacity",
+  "ref": "memory setups-round1-backtest (addendum A)"
+ },
+ {
+  "cat": "xasset",
+  "mechanism": "TRANSFER r1: ORB/NOISE/TTM unchanged on ZN/6E/CL/GC (+ RTY/YM)",
+  "instruments": "CME futures",
+  "horizon": "intraday",
+  "verdict": "NOT RUN - shelved (owner declined Databento); map TRANSFER-CME lift 4%",
+  "ref": "Ledger 2.29, 2.138"
+ },
+ {
+  "cat": "orderflow",
+  "mechanism": "REVERT r1 absorption variant (fade failed high when delta still with push)",
+  "instruments": "NQ, ES",
+  "horizon": "30 min",
+  "verdict": "OPEN forward shadow - read at 150 trades",
+  "ref": "Ledger 2.38"
+ },
+ {
+  "cat": "orderflow",
+  "mechanism": "Order-flow r1 size rule (signal-window imbalance 1.5x/0.5x) on ORB #314 and NOISE #422",
+  "instruments": "NQ",
+  "horizon": "intraday",
+  "verdict": "OPEN forward shadows",
+  "ref": "memory edgelog-orderflow-r1"
+ },
+ {
+  "cat": "orderflow",
+  "mechanism": "BVC bulk volume classification as a delta proxy",
+  "instruments": "NQ, ES",
+  "horizon": "1m",
+  "verdict": "FAIL r 0.137; BVC = price change",
+  "ref": "Ledger 2.140"
+ },
+ {
+  "cat": "orderflow",
+  "mechanism": "VPIN for NQ day-range forecast",
+  "instruments": "NQ",
+  "horizon": "1 session",
+  "verdict": "CLOSED AT DRAFT - adds nothing, sign backwards",
+  "ref": "memory edgelog-vpin-shelf26"
+ },
+ {
+  "cat": "orderflow",
+  "mechanism": "First half-hour order flow vs price as rest-of-day call",
+  "instruments": "NQ",
+  "horizon": "rest of day",
+  "verdict": "Dropped - agree 77-79% of days",
+  "ref": "Ledger 2.39"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "SIPORB stocks-in-play 5m ORB (Zarattini-Barbon-Aziz 2024)",
+  "instruments": "US stocks",
+  "horizon": "intraday",
+  "verdict": "DEAD - WF PF 0.48; tight stops need sub-minute fills",
+  "ref": "Ledger 2.60"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "PMFAIL: short small-cap gapper's failed premarket high",
+  "instruments": "small caps",
+  "horizon": "intraday",
+  "verdict": "DEAD - ROC -0.30; spreads + locate eat gross",
+  "ref": "Ledger 2.142"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "RUNNER2: short day 2 of small-cap runner under VWAP",
+  "instruments": "small caps",
+  "horizon": "intraday",
+  "verdict": "DEAD - ROC -2.40; habitat closed",
+  "ref": "Ledger 2.143"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "XGAP: fade NDX firm-specific overnight gap 09:35->close",
+  "instruments": "NDX stocks",
+  "horizon": "intraday",
+  "verdict": "DEAD - gross ~0 either way",
+  "ref": "Ledger 2.63"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "DDW L1 weekly reversal / L2 no-news gap fade",
+  "instruments": "top-500 stocks",
+  "horizon": "week / intraday",
+  "verdict": "DEAD 0/4 - reversal carries crash beta",
+  "ref": "Ledger 2.62"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "RESMOM residual 12-1 momentum, top/bottom 50",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD standalone (7.35) but book line #463 + 0.264 x RES opened forward",
+  "ref": "Ledger 2.76, 2.99"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "UNICORN '13-Sharpe' 1/price + reversal factor",
+  "instruments": "top-500 stocks",
+  "horizon": "daily",
+  "verdict": "DEAD - Sharpe 0.38 on survivor list",
+  "ref": "Ledger 2.165"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "ETF weak-edge dip BOOK (RSI2/DBL7/PB20/capitulation)",
+  "instruments": "GLD/TLT/IWM/QQQ/NQ",
+  "horizon": "days",
+  "verdict": "Passed #332/#338; legs fail WF efficiency (unsettled); widening dead",
+  "ref": "Ledger 2.9; memory edgelog-ideas-round-2026-09-08"
+ },
+ {
+  "cat": "public",
+  "mechanism": "TradingView 12 most-boosted strategies",
+  "instruments": "NQ, ES",
+  "horizon": "intraday",
+  "verdict": "DEAD 0/12",
+  "ref": "TV_SWEEP.md"
+ },
+ {
+  "cat": "public",
+  "mechanism": "TTIBS daily buy-weakness (IBS)",
+  "instruments": "NQ",
+  "horizon": "days",
+  "verdict": "FAILED lockbox",
+  "ref": "memory edgelog-web-strategy-shortlist"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "NETISS: net share issuance sort (long shrinkers / short issuers)",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD - N12 ROC 0.3, N24 7.7; earns in book drawdowns but bleeds in growth rallies; A2 108.9/111.4 vs L 121.06",
+  "ref": "Ledger 2.100"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "SHORTINT: days-to-cover / short-interest ratio sort (FINRA)",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD - D1 -2.4, S1 -0.4; GME Jan-2021 -$62.7k; S1 is short beta",
+  "ref": "Ledger 2.101"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "BUYBACK: net payout / net repurchase yield sort",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD - P 0.3, R 1.1; drawdown insurance paid for by the 2019-21 bleed",
+  "ref": "Ledger 2.116"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "NEWISSUE: short recent listings 6-24 months old, ES-hedged",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD - E -1.9, M -1.7; one boom-bust, wrong half first",
+  "ref": "Ledger 2.87, 2.105"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "Single-stock BAB (betting against beta) and low-volatility",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD - BETA 2.69, VOL -1.00 (VOL is short market, beta -0.47); BAB closed in every form",
+  "ref": "Ledger 2.117; TV BAB on funds 2.69"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "SEASON same-calendar-month seasonality (Heston-Sadka)",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD - LAG12 -1.79, AVG -3.30",
+  "ref": "Ledger 2.120"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "HIGH52 52-week-high effect (George-Hwang)",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "FAIL - PTH 2.28, PTHX -1.62; short-market bets",
+  "ref": "Ledger 2.121"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "QUALITY gross / operating profitability (point-in-time XBRL)",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "FAIL - GPA 7.06 (all pre-2022), OPA -1.05; fundamentals-basket line CLOSED",
+  "ref": "Ledger 2.122"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "RREV one-month reversal, raw and residual",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "CLOSED AT COST MAP - turnover 88-92%/month; break-even spread above literature",
+  "ref": "Ledger 2.123"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "DIVCHG dividend raisers vs cutters",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "CLOSED AT DRAFT under power-first gate (prior below MDE ~$17.5k/yr)",
+  "ref": "Ledger 2.107"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "XSML learned signals: weekly GBM pattern ranker, daily PCA-residual OU stat-arb, monthly crash classifier",
+  "instruments": "top-500 stocks",
+  "horizon": "daily-monthly",
+  "verdict": "DEAD all three - A 2.3 (twin 8.9), B -3.0 (costs $69k/yr), C -0.1",
+  "ref": "Ledger 2.111"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "FUND-ML learned ranker on point-in-time XBRL fundamentals",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD - net ROC -0.2 vs null p95 10.5",
+  "ref": "Ledger 2.112"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "DISTRESS-ML learned crash classifier (short likely crashers / long safest)",
+  "instruments": "top-500 stocks",
+  "horizon": "monthly",
+  "verdict": "DEAD - -0.8; classifier forecasts crashes (AUC 0.60-0.82) but crashers also rally",
+  "ref": "Ledger 2.113"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "EARN-FCST learned earnings direction; LAZY-PRICES 10-K text similarity",
+  "instruments": "US stocks",
+  "horizon": "monthly",
+  "verdict": "CLOSED AT MAP CHECK - median ROC +0.2 / +0.5",
+  "ref": "Ledger 2.114"
+ },
+ {
+  "cat": "stocks",
+  "mechanism": "Pooled defensive / short-growth basket sleeve (the 'earns while #463 falls' baskets together)",
+  "instruments": "US stocks",
+  "horizon": "monthly",
+  "verdict": "Owner call only - every earner but TREND is one shared short-beta exposure and each failed alone",
+  "ref": "Ledger 2.161"
+ },
+ {
+  "cat": "public",
+  "mechanism": "Classic daily playbook on NQ: RSI-2 dip, double-7s, Donchian turtle 20/10 and 55/20, pullback-to-20-EMA",
+  "instruments": "NQ",
+  "horizon": "days",
+  "verdict": "DEAD 0/16 - best PB20 long MAR 4.59 vs bar 8; buy-weakness shelf never clears",
+  "ref": "MISC_SWEEP.md round 17"
+ },
+ {
+  "cat": "public",
+  "mechanism": "Classics on ETFs via free daily data (GLD/TLT/IWM/USO/QQQ)",
+  "instruments": "ETFs",
+  "horizon": "days",
+  "verdict": "DEAD 0/33 - QQQ RSI2 MAR 7.67 nearest miss",
+  "ref": "MISC_SWEEP.md round 19b"
+ },
+ {
+  "cat": "public",
+  "mechanism": "SWING 2.0 N-day Donchian long-only (multi-day trend)",
+  "instruments": "NQ, ES",
+  "horizon": "days-weeks",
+  "verdict": "FAILED lockbox - combined -$13,373 with blow-up losses",
+  "ref": "BACKTESTING_STACK.md challenger round 4"
+ },
+ {
+  "cat": "public",
+  "mechanism": "Quantpedia free tier, Alvarez, Quantifiable Edges, Davey/Build Alpha, fresh SSRN/arXiv; Zarattini stock-picking; vendor order-flow rules",
+  "instruments": "various",
+  "horizon": "various",
+  "verdict": "EMPTY / ruled out - round 11 deep dive found nothing new",
+  "ref": "memory edgelog-web-strategy-shortlist"
+ },
+ {
+  "cat": "book",
+  "mechanism": "Walk-forward re-weighting of the book's legs (round 56)",
+  "instruments": "BOOK #397",
+  "horizon": "book",
+  "verdict": "No forward skill - won 6/12 years, pick at 49th pct of random mixes; weights stay 1/1/3/1",
+  "ref": "Ledger 2.11"
+ },
+ {
+  "cat": "book",
+  "mechanism": "Mean-variance and inverse-vol leg weights (DeMiguel 1/N shelf #13)",
+  "instruments": "BOOK #463",
+  "horizon": "book",
+  "verdict": "Both closed - MV loses 136 ROC points OOS; inverse-vol +20 below 59-point paired bar",
+  "ref": "memory edgelog-shelf13-weights-r1"
+ },
+ {
+  "cat": "book",
+  "mechanism": "Risk-constrained Kelly leg weights, yearly refit",
+  "instruments": "BOOK #463",
+  "horizon": "book",
+  "verdict": "CLOSED AT DRAFT - 100.91 vs 102.49 pre-WF; weights unstable; MDE80 49.6 ROC points",
+  "ref": "Ledger 2.176"
+ },
+ {
+  "cat": "book",
+  "mechanism": "Book vol target V (dollar target) and V2 (scale-free) - round 62 + RISK r1",
+  "instruments": "BOOK #463",
+  "horizon": "book",
+  "verdict": "FAIL - V2 beat both stretches only via 2020 crash + June 2026; E1 2011-16 worse (47.6 -> 32.1); VT stays a forward shadow",
+  "ref": "Ledger 2.32, 2.47"
+ },
+ {
+  "cat": "book",
+  "mechanism": "V3 learned 5-day book-risk forecast (ridge/GBM) inside the vol target",
+  "instruments": "BOOK #463",
+  "horizon": "book",
+  "verdict": "FAIL - DM p 0.152; no better risk forecast",
+  "ref": "Ledger 2.52"
+ },
+ {
+  "cat": "book",
+  "mechanism": "AG agreement tilt / book-state sizing (overlap and drawdown throttles)",
+  "instruments": "BOOK #463",
+  "horizon": "book",
+  "verdict": "AG evidence was same-bar look-ahead; book-state sizing family WITHDRAWN (shares V2's mechanism)",
+  "ref": "Ledger 2.44; memory edgelog-roc-frontier-new-strategy-hunt round 13"
+ },
+ {
+  "cat": "book",
+  "mechanism": "Learned ML legs in the book (ORB tree, ENGU-Q rf, TTM KEEL) at matched drawdown",
+  "instruments": "BOOK #463",
+  "horizon": "book",
+  "verdict": "Add nothing; learned ML gating/sizing = coin flip; no sized leg aims in both WF and LB (shuffle audit)",
+  "ref": "Ledger 2.27, 2.10; memory edgelog-ml-edge-audit-0927, edgelog-orderflow-r1"
+ },
+ {
+  "cat": "book",
+  "mechanism": "KEEL decomposition on DIP #424 (fixed tilts Friday/compression/FOMC + learned part)",
+  "instruments": "NQ, QQQ",
+  "horizon": "days",
+  "verdict": "All leverage; timing -$110.7k (2.6th pct); tilts are NOISE's not general; live DIP fixed 1.245x",
+  "ref": "Ledger 2.131, 2.134"
+ },
+ {
+  "cat": "book",
+  "mechanism": "DIP on ES as a seat / own book with DIP NQ",
+  "instruments": "ES, NQ",
+  "horizon": "days",
+  "verdict": "FAIL drawdown clauses (#439/#440); own book 24.8 at matched DD",
+  "ref": "Ledger 2.23, 2.27"
+ },
+ {
+  "cat": "book",
+  "mechanism": "ENGU-Q size ladder over the RESMOM line (x0.75 / x0.5 / x0)",
+  "instruments": "BOOK L",
+  "horizon": "book",
+  "verdict": "Report only - drawdown-shaped gains, never a run trigger",
+  "ref": "Ledger 2.81"
+ },
+ {
+  "cat": "book",
+  "mechanism": "Carry finalists as a 1/N basket instead of crowning one",
+  "instruments": "any family",
+  "horizon": "book",
+  "verdict": "RETRACTED - basket net = average finalist; pool across families never within a shortlist",
+  "ref": "Ledger 1.9"
+ },
+ {
+  "cat": "book",
+  "mechanism": "ORB x ENGU-Q $835k blend and its sizing-overlay menu",
+  "instruments": "NQ",
+  "horizon": "book",
+  "verdict": "HISTORICAL - measured on the leaked ORB 3.1 leg; overlays destructive on honest base",
+  "ref": "memory edgelog-blend-hold"
+ },
+ {
+  "cat": "book",
+  "mechanism": "Seats: NQBRD, TREND, LONGVOL, HAVEN, STEEPENER, CALMTAPE, stock baskets in #463",
+  "instruments": "BOOK #463",
+  "horizon": "book",
+  "verdict": "FAIL - crisis hedges answer March 2020 only; #463's other drawdowns are leg-specific give-backs",
+  "ref": "Ledger 2.58, 2.59, 2.64, 2.126, 2.161"
+ },
+ {
+  "cat": "book",
+  "mechanism": "ORB #314/#239/#257 and NOISE #398/#382/#125 seat swaps and Q4 post-hoc",
+  "instruments": "BOOK #463",
+  "horizon": "book",
+  "verdict": "Inside the 71-look no-edge bands; Q4 and ORB239 forward shadows only (cannot be read forward with power)",
+  "ref": "Ledger 2.44, 2.65, 2.66"
+ }
+]

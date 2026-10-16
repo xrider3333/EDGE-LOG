@@ -86,3 +86,30 @@ back-filled bars without ticks); it is MISSING, not zero. Every read, the forwar
 untagged when its window holds such a row (R64_MISSING_RULE=0 reproduces the earlier reads). Effect on the historical
 read (guarded): signal-bar tag unchanged; cumulative tag 23 tagged instead of 28 - five of its seven 'unbacked' trades
 sat in such windows, the remaining two made +$183. Nothing else changes.
+
+## ADDENDUM 5 - 2026-10-15, outcome-blind progress check (MANAGER standing order), before any forward outcome is read
+
+**The count.** `tools/r64_forward_count.py` is this read's own code up to the tags, with every P&L field removed. Run on the
+master and capture through 2026-10-14:
+
+| Item | Count |
+|---|---|
+| Capture sessions since 10-01 | 10 |
+| Usable sessions since 10-01 (the capture is healthy since the PAPER-NT8 fixes) | 10 |
+| #304 trades, all tagged | 7 |
+| Signal-bar tag: backed / unbacked | 6 / 1 |
+| Cumulative tag: backed / unbacked | 2 / 5 |
+
+**Power gate, on tag shares only - no outcome seen.**
+- The signal-bar tag leaves about 14% of trades unbacked: 1 of 7 forward, 4 of 29 in history.
+- At 150 tagged trades that is about 21 unbacked, so criterion 3 (at least 50 trades in each bucket) cannot be met at the
+  read point.
+- Meeting it would take about 350 tagged trades, roughly two years at the pace.
+- **The SIGNAL-BAR shadow is therefore CLOSED here, at the power gate.** It is never read for outcomes.
+- **The CUM-BACKED shadow stays exactly as written:**
+  - read once at 150 tagged forward trades;
+  - all three criteria unchanged;
+  - the permutation line stays at fewer than 5% of shuffles. It is not loosened, although only one shadow is now left.
+
+**Read date.** The pace is 0.50 tagged trades a calendar day, so 150 arrives about 2027-07, not "about six months". Re-check
+the count monthly with the counter; never read P&L before 150.
