@@ -4,6 +4,7 @@ it reads house data only and writes under C:\\EdgeLog\\event_sleeve\\.
 
     python tools/event_sleeve_shadow.py parity                       # rebuild each part's WF trades from its source, vs the ledger
     python tools/event_sleeve_shadow.py constants [--force]          # section 3 scale factors + section 5 harm bar -> addendum1_constants.json
+    python tools/event_sleeve_shadow.py constants --addendum 3       # ADDENDUM 3: equal yearly risk per part -> addendum3_constants.json
     python tools/event_sleeve_shadow.py forward --since YYYY-MM-DD   # score trades ENTERED after --since (stale parts are REFUSED)
 
 The three parts and the harnesses they are imported from (logic is imported, never re-written; the few pieces that are not
@@ -26,7 +27,13 @@ Conventions (stated once):
     the auction calendar's fetch date; part B when its month is closed in all three inputs; part C when the master holds bars
     past 10:00 ET of the day. A release day with any 1-minute bar missing in 08:29..09:59 is SKIPPED and written to
     forward_skips.csv; once there it stays skipped (no later fill from another source).
-  * The forward P&L uses the frozen scale factors in addendum1_constants.json; the scorer never recomputes them.
+  * The forward P&L uses frozen scale factors; the scorer never recomputes them. ADDENDUM 3 (equal YEARLY risk per part)
+    supersedes Addendum 1's equal risk per trade: `constants --addendum 3` derives addendum3_constants.json once from
+    addendum1_constants.json (n_p = WF trades / WF years; R_pooled = $1,000 x sqrt(sum n_p); R_part = R_pooled / sqrt 3;
+    u_p = R_part / sqrt n_p; scale_p = Addendum 1 scale_p x u_p / $1,000) and re-draws the harm bar for that sizing
+    (harm_threshold_a3). `parity` and `constants` (Addendum 1) are unchanged. forward reads addendum3_constants.json; with
+    ADDENDUM3_REQUIRED on it REFUSES on addendum1_constants.json alone. The file and sha256 used are printed and written to
+    forward_status.json. A risk unit stays $1,000: forward risk units = trade P&L at the frozen scales / 1,000.
   * Forward feeds (owner-approved, MANAGER #1041; `forward` mode ONLY - parity and constants never read them): the newest
     pull of each kind recorded in <out dir>\\fwd_data\\provenance.jsonl (tools/event_sleeve_pull.py writes them; the scorer
     makes no network call). A pull whose file no longer has its recorded sha256 refuses the parts it feeds. Yahoo SPY / TLT /
@@ -60,6 +67,13 @@ RISK_UNIT = 1000.0
 STALE_BDAYS = 3
 # the trade rate is NOT a constant here: it is the measured pooled WF rate (pooled_rate), per ADDENDUM 1
 HARM = dict(n_draws=20000, seed=20261011, sharpe_mu=0.64, sharpe_sd=0.30, n_trades=50, tails="t3", pct=5.0)
+
+# ADDENDUM 3 (MANAGER #153c / FRONTIER remap #1281): equal YEARLY risk per part replaces Addendum 1's equal risk per trade.
+# Built ONCE by `constants --addendum 3` from Addendum 1's frozen file (its WF counts and scales, checked against the values
+# Addendum 1's text froze); forward reads addendum3_constants.json and, with ADDENDUM3_REQUIRED on, refuses on Addendum 1's alone.
+CONSTANTS3_FILE = "addendum3_constants.json"
+ADDENDUM3_REQUIRED = True
+ADD1_FROZEN = {"A": (621, 1.406090), "B": (79, 0.232735), "C": (209, 0.690612)}   # (WF trades, scale) as Addendum 1 posts them
 
 K_AUC = 5
 ES_MULT, K_ME, TH_ME = 50.0, 5, 0.02
@@ -160,6 +174,64 @@ def harm_threshold(trades_per_year, n_draws=HARM["n_draws"], seed=HARM["seed"], 
     thr = float(np.percentile(cum, pct))
     return thr, dict(threshold=thr, pct=pct, mean=float(cum.mean()), median=float(np.median(cum)), sd=float(cum.std(ddof=1)),
                      p1=float(np.percentile(cum, 1)), p10=float(np.percentile(cum, 10)))
+
+
+def addendum3_sizing(counts, scales1, years=None, risk_unit=RISK_UNIT):
+    """ADDENDUM 3 rule (equal YEARLY risk per part), from each part's WF trade count and its Addendum 1 scale (1 risk unit of
+    per-trade SD = risk_unit / SD_p). counts / scales1: {part: value}, parts in the order given.
+      n_p      = counts_p / years                     trades a year (years = the section-3 stretch, wf_years())
+      R_pooled = risk_unit x sqrt(sum n_p)            the sleeve's yearly risk under Addendum 1 ($1,000 a trade), kept
+      R_part   = R_pooled / sqrt(#parts)              equal yearly risk per part (parts independent)
+      u_p      = R_part / sqrt(n_p)                   $ of per-trade SD for part p
+      scale_p  = scale1_p x u_p / risk_unit           = u_p / SD_p
+    Returns a dict of plain floats (unrounded) plus each part's yearly risk n_p u_p^2 share, and Addendum 1's share n_p / N."""
+    years = wf_years() if years is None else float(years)
+    parts = tuple(counts)
+    n = {p: float(counts[p]) / years for p in parts}
+    N = sum(n.values())
+    R_pooled = risk_unit * math.sqrt(N)
+    R_part = R_pooled / math.sqrt(len(parts))
+    u = {p: R_part / math.sqrt(n[p]) for p in parts}
+    scale = {p: float(scales1[p]) * u[p] / risk_unit for p in parts}
+    var = {p: n[p] * u[p] ** 2 for p in parts}
+    return dict(parts=parts, years=years, n=n, N=N, R_pooled=R_pooled, R_part=R_part, u=u, scale=scale,
+                yearly_risk={p: math.sqrt(var[p]) for p in parts},
+                share={p: var[p] / sum(var.values()) for p in parts},
+                share_addendum1={p: n[p] / N for p in parts})
+
+
+def harm_threshold_a3(rates, u, R_pooled, n_draws=HARM["n_draws"], seed=HARM["seed"], sharpe_mu=HARM["sharpe_mu"],
+                      sharpe_sd=HARM["sharpe_sd"], n_trades=HARM["n_trades"], tails=HARM["tails"], pct=HARM["pct"],
+                      risk_unit=RISK_UNIT):
+    """ADDENDUM 3 harm bar: prior-predictive cumulative P&L (risk units) of an n_trades sleeve sized by addendum3_sizing.
+    rates / u: {part: n_p trades a year / u_p $ per-trade SD}, parts in the order given (A, B, C); R_pooled in $.
+    Model, per draw i: sleeve yearly Sharpe S_i ~ Normal(mu, sd); every part gets an equal share of the sleeve's yearly mean,
+    so a part-p trade's mean is S_i x R_pooled / (#parts x n_p) $; its noise is u_p x (t3 / sqrt 3); the n_trades trades
+    are assigned to parts i.i.d. with probabilities n_p / sum n; cumulative $ / risk_unit.
+    Draw order (ONE generator, np.random.default_rng(seed)):
+      1. sharpe = rng.normal(mu, sd, size=n_draws)                 - the same call as harm_threshold: the same Sharpes
+      2. noise  = draw_unit_noise(rng, (n_draws, n_trades), tails)  - the same call as harm_threshold: the same noise block
+      3. U      = rng.random((n_draws, n_trades)); trade (i, k)'s part index = searchsorted(cumsum(probs), U[i, k],
+                  side="right") (cumsum's last entry set to exactly 1.0), in the order of `rates`.
+    With equal rates every u_p is risk_unit and this reduces to harm_threshold's sum. Returns (pct-th percentile, summary)."""
+    parts = tuple(rates)
+    nv = np.array([float(rates[p]) for p in parts])
+    uv = np.array([float(u[p]) for p in parts])
+    probs = nv / nv.sum()
+    cp = np.cumsum(probs)
+    cp[-1] = 1.0
+    rng = np.random.default_rng(seed)
+    sharpe = rng.normal(sharpe_mu, sharpe_sd, size=n_draws)
+    noise = draw_unit_noise(rng, (n_draws, n_trades), tails)
+    k = np.minimum(np.searchsorted(cp, rng.random((n_draws, n_trades)), side="right"), len(parts) - 1)
+    mean_per_sharpe = R_pooled / (len(parts) * nv)                  # $ of trade mean per unit of yearly Sharpe, by part
+    cum = (sharpe[:, None] * mean_per_sharpe[k] + uv[k] * noise).sum(axis=1) / risk_unit
+    thr = float(np.percentile(cum, pct))
+    mix = np.bincount(k.ravel(), minlength=len(parts)) / k.size
+    return thr, dict(threshold=thr, pct=pct, mean=float(cum.mean()), median=float(np.median(cum)), sd=float(cum.std(ddof=1)),
+                     p1=float(np.percentile(cum, 1)), p10=float(np.percentile(cum, 10)),
+                     trade_mix_drawn={p: float(mix[i]) for i, p in enumerate(parts)},
+                     trade_mix_probs={p: float(probs[i]) for i, p in enumerate(parts)})
 
 
 def runs(pos):
@@ -1026,17 +1098,135 @@ def mode_constants(force=False, out_dir=OUT_DIR):
     return doc
 
 
+def data_shas():
+    """The data block `constants` records (same three files, same keys), for Addendum 3's file."""
+    T1, T2 = _imp_auction()
+    return {"treasury_auctions_raw.json": sha256_file(T2.AUC_FILE),
+            "nonequity_close.csv": sha256_file(os.path.join(T1.CACHE, "nonequity_close.csv")),
+            "ES_daily_rth.csv (rebal_scan cache)": sha256_file(os.path.join(_imp_rebal().CACHE, "ES_daily_rth.csv"))}
+
+
+def mode_constants_a3(force=False, out_dir=OUT_DIR):
+    """`constants --addendum 3`: ADDENDUM 3's frozen scale factors (equal yearly risk per part) and its harm bar, built from
+    Addendum 1's frozen file in out_dir (never from re-read trades) -> addendum3_constants.json. Addendum 1's file is only
+    read. REFUSED when it is missing or its WF counts / scales are not the ones Addendum 1 posted (ADD1_FROZEN)."""
+    a1_path = os.path.join(out_dir, CONSTANTS_FILE)
+    if not os.path.exists(a1_path):
+        raise SystemExit("REFUSED: %s missing - Addendum 3 is built from Addendum 1's frozen constants" % a1_path)
+    with open(a1_path) as f:
+        a1 = json.load(f)
+    a1_sha = sha256_file(a1_path)
+    counts = {p: int(a1["parts"][p]["n_trades"]) for p in PARTS}
+    scales1 = {p: float(a1["parts"][p]["scale"]) for p in PARTS}
+    bad = ["%s: file n %d scale %.6f vs posted n %d scale %.6f" % (p, counts[p], scales1[p], ADD1_FROZEN[p][0], ADD1_FROZEN[p][1])
+           for p in PARTS if counts[p] != ADD1_FROZEN[p][0] or abs(scales1[p] - ADD1_FROZEN[p][1]) > 5e-7]
+    if bad:
+        raise SystemExit("REFUSED: %s is not Addendum 1's frozen file (%s)" % (a1_path, "; ".join(bad)))
+    z = addendum3_sizing(counts, scales1)
+    print("EVENT SLEEVE - ADDENDUM 3 constants: equal YEARLY risk per part (MANAGER #153c / FRONTIER remap #1281)")
+    print("  built from %s  sha256 %s (Addendum 1: equal risk per trade - superseded; WF counts + scales match its text)\n" % (
+        CONSTANTS_FILE, a1_sha))
+    print("Trade rates n_p = WF trades / %.6f years (%s..%s, days / 365.25):" % (z["years"], SD_WINDOW[0].date(), SD_WINDOW[1].date()))
+    for p in PARTS:
+        print("  %s %-14s %4d trades  n_p %.6f a year" % (p, PART_NAME[p], counts[p], z["n"][p]))
+    print("  %-16s %4d trades  N   %.6f a year" % ("pooled", sum(counts.values()), z["N"]))
+    print("\nR_pooled = $%.0f x sqrt(N) = $%.4f a year (Addendum 1's pooled yearly risk, kept)" % (RISK_UNIT, z["R_pooled"]))
+    print("R_part   = R_pooled / sqrt(3) = $%.4f a year per part\n" % z["R_part"])
+    print("  %-2s %-14s %12s %10s %10s %10s %12s %8s %8s" % ("", "", "u_p $/trade", "SD_p (A1)", "A1 scale", "A3 scale",
+                                                            "yearly risk", "share", "A1 share"))
+    for p in PARTS:
+        print("  %-2s %-14s %12.4f %10.2f %10.6f %10.6f %12.4f %8.4f %8.4f  x %s" % (
+            p, PART_NAME[p], z["u"][p], float(a1["parts"][p]["sd_usd"]), scales1[p], z["scale"][p], z["yearly_risk"][p],
+            z["share"][p], z["share_addendum1"][p], SOURCE_UNIT[p]))
+    thr, summ = harm_threshold_a3(z["n"], z["u"], z["R_pooled"])
+    print("\nHarm bar (ADDENDUM 3): %d draws, seed %d, sleeve Sharpe ~ N(%.2f, %.2f), part trade mean = S x R_pooled / (3 n_p), "
+          "noise u_p x t3/sqrt3, %d trades assigned i.i.d. by n_p / N" % (HARM["n_draws"], HARM["seed"], HARM["sharpe_mu"],
+                                                                         HARM["sharpe_sd"], HARM["n_trades"]))
+    print("  draw order: Sharpes, then the noise block (both as Addendum 1), then the part-assignment uniforms")
+    print("  trade mix drawn: %s (probabilities %s)" % (
+        ", ".join("%s %.4f" % (p, v) for p, v in summ["trade_mix_drawn"].items()),
+        ", ".join("%s %.4f" % (p, v) for p, v in summ["trade_mix_probs"].items())))
+    print("  cumulative P&L at 50 trades (risk units): mean %.4f  median %.4f  SD %.4f  p1 %.4f  p10 %.4f" % (
+        summ["mean"], summ["median"], summ["sd"], summ["p1"], summ["p10"]))
+    print("  CLOSE threshold (5th percentile): %.4f risk units = %s$%s (Addendum 1's was %.4f)" % (
+        thr, "-" if thr < 0 else "", format(abs(thr) * RISK_UNIT, ",.0f"), float(a1["harm"]["threshold_risk_units"])))
+    data = data_shas()
+    same_data = data == a1.get("data_sha256")
+    print("\ndata sha256 %s Addendum 1's (%s)" % ("SAME as" if same_data else "DIFFERS from",
+                                                 "; ".join("%s %s" % (k, v[:16]) for k, v in data.items())))
+    parts = {p: dict(name=PART_NAME[p], source_unit=SOURCE_UNIT[p], n_trades=counts[p], trades_per_year=z["n"][p],
+                     sd_usd_addendum1=float(a1["parts"][p]["sd_usd"]), scale_addendum1=scales1[p],
+                     u_usd=z["u"][p], u_over_risk_unit=z["u"][p] / RISK_UNIT,
+                     scale=round(z["scale"][p], 6), scale_unrounded=z["scale"][p],
+                     yearly_risk_usd=z["yearly_risk"][p], yearly_risk_share=z["share"][p],
+                     yearly_risk_share_addendum1=z["share_addendum1"][p],
+                     harm_trade_mean_usd_per_unit_sharpe=z["R_pooled"] / (len(PARTS) * z["n"][p]))
+              for p in PARTS}
+    doc = dict(prereg=PREREG, addendum=3, generated_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"),
+               scorer="tools/event_sleeve_shadow.py", scorer_sha256_lf=sha256_lf(os.path.abspath(__file__)),
+               rule="equal YEARLY risk per part (MANAGER #153c / FRONTIER remap #1281): n_p = WF trades / WF years; "
+                    "R_pooled = 1000 x sqrt(sum n_p) (Addendum 1's pooled yearly risk); R_part = R_pooled / sqrt(3); "
+                    "u_p = R_part / sqrt(n_p) $ of per-trade SD; scale_p = Addendum 1 scale_p x u_p / 1000 (= u_p / SD_p). "
+                    "Forward P&L in risk units = sum of trade P&L at these scales / 1000.",
+               supersedes=dict(addendum=1, file=CONSTANTS_FILE, sha256=a1_sha, scorer_sha256_lf=a1.get("scorer_sha256_lf")),
+               risk_unit_usd=RISK_UNIT, sd_window=[str(SD_WINDOW[0].date()), str(SD_WINDOW[1].date())],
+               trade_rate=dict(wf_trade_counts=counts, wf_years=z["years"], per_year=z["n"], pooled_per_year=z["N"]),
+               risk=dict(R_pooled_usd=z["R_pooled"], R_part_usd=z["R_part"], u_usd=z["u"], yearly_risk_share=z["share"]),
+               parts=parts,
+               harm=dict(HARM, threshold_risk_units=round(thr, 6), distribution=summ,
+                         model="per draw: sleeve yearly Sharpe S ~ N(mu, sd); part-p trade = S x R_pooled / (3 n_p) + u_p x t3/sqrt3; "
+                               "50 trades assigned to parts i.i.d. with probabilities n_p / sum n; cumulative $ / 1000",
+                         draw_order="one np.random.default_rng(seed): (1) rng.normal(mu, sd, n_draws) Sharpes; (2) draw_e t3/sqrt3 "
+                                    "noise block (n_draws x n_trades); (3) rng.random((n_draws, n_trades)) uniforms -> part "
+                                    "index searchsorted(cumsum(n_p / N) with last = 1.0, u, side='right'), parts A, B, C",
+                         rule="CLOSE the sleeve if cumulative forward P&L (risk units) at 50 trades < threshold"),
+               data_sha256=data, data_sha256_same_as_addendum1=same_data)
+    os.makedirs(out_dir, exist_ok=True)
+    path = os.path.join(out_dir, CONSTANTS3_FILE)
+    if os.path.exists(path) and not force:
+        with open(path) as f:
+            old = json.load(f)
+        same = old.get("parts") == json.loads(json.dumps(parts)) and \
+            old.get("harm", {}).get("threshold_risk_units") == doc["harm"]["threshold_risk_units"]
+        if not same:
+            print("\nREFUSED: %s exists with different constants (frozen once written; --force only before the freeze)" % path)
+            return doc
+        print("\n%s exists with the same constants - left unchanged" % path)
+        return doc
+    with open(path, "w") as f:
+        json.dump(doc, f, indent=1, default=str)
+    print("\nwritten %s  (sha256 %s; scorer LF sha256 %s)" % (path, sha256_file(path), doc["scorer_sha256_lf"]))
+    return doc
+
+
+def forward_constants(out_dir, required=None):
+    """The frozen constants the forward read uses -> (path, doc). addendum3_constants.json when present; with only
+    addendum1_constants.json: REFUSED while ADDENDUM3_REQUIRED is on (Addendum 3 supersedes it), else Addendum 1's file."""
+    required = ADDENDUM3_REQUIRED if required is None else required
+    p3, p1 = os.path.join(out_dir, CONSTANTS3_FILE), os.path.join(out_dir, CONSTANTS_FILE)
+    if os.path.exists(p3):
+        path = p3
+    elif os.path.exists(p1) and required:
+        raise SystemExit("REFUSED: %s missing - Addendum 3 sizing is required (ADDENDUM3_REQUIRED) and %s alone (Addendum 1, "
+                         "equal risk per trade) is superseded; run `constants --addendum 3`" % (p3, CONSTANTS_FILE))
+    elif os.path.exists(p1):
+        path = p1
+    else:
+        raise SystemExit("REFUSED: %s missing - run `constants`%s first (the forward read uses the frozen scale only)" % (
+            p3 if required else p1, " then `constants --addendum 3`" if required else ""))
+    with open(path) as f:
+        return path, json.load(f)
+
+
 def mode_forward(since, out_dir=OUT_DIR):
     since = pd.Timestamp(since)
     today = pd.Timestamp(datetime.date.today())
-    path = os.path.join(out_dir, CONSTANTS_FILE)
-    if not os.path.exists(path):
-        raise SystemExit("REFUSED: %s missing - run `constants` first (the forward read uses the frozen scale only)" % path)
-    with open(path) as f:
-        consts = json.load(f)
+    path, consts = forward_constants(out_dir)
+    cfile, csha = os.path.basename(path), sha256_file(path)
     scale = {p: float(consts["parts"][p]["scale"]) for p in PARTS}
-    print("EVENT SLEEVE forward shadow - trades ENTERED after %s, today %s, frozen scales %s (constants sha %s)\n" % (
-        since.date(), today.date(), {p: round(v, 6) for p, v in scale.items()}, sha256_file(path)[:16]))
+    print("EVENT SLEEVE forward shadow - trades ENTERED after %s, today %s, frozen scales %s (constants sha %s)" % (
+        since.date(), today.date(), {p: round(v, 6) for p, v in scale.items()}, csha[:16]))
+    print("constants: %s (addendum %s) sha256 %s\n" % (cfile, consts.get("addendum"), csha))
     feeds = forward_feeds(out_dir)
     trades, dailies, status, new_skips = [], {}, {}, []
     for p in PARTS:
@@ -1089,11 +1279,13 @@ def mode_forward(since, out_dir=OUT_DIR):
         sk.to_csv(os.path.join(out_dir, "forward_skips.csv"), index=False)
     with open(os.path.join(out_dir, "forward_status.json"), "w") as f:
         json.dump(dict(run_utc=datetime.datetime.now(datetime.timezone.utc).isoformat(timespec="seconds"), since=str(since.date()),
-                       today=str(today.date()), constants_sha256=sha256_file(path), parts=status), f, indent=1, default=str)
+                       today=str(today.date()), constants_file=cfile, constants_addendum=consts.get("addendum"),
+                       constants_sha256=csha, scales=scale, harm_threshold_risk_units=consts["harm"]["threshold_risk_units"],
+                       parts=status), f, indent=1, default=str)
     n = len(T)
     cum = float(T.pnl_risk_units.sum()) if n else 0.0
-    print("\nSLEEVE: %d forward trades, cumulative %.3f risk units; harm read at %d trades (CLOSE below %.3f)" % (
-        n, cum, HARM["n_trades"], consts["harm"]["threshold_risk_units"]))
+    print("\nSLEEVE: %d forward trades, cumulative %.3f risk units; harm read at %d trades (CLOSE below %.4f, %s)" % (
+        n, cum, HARM["n_trades"], consts["harm"]["threshold_risk_units"], cfile))
     print("written %s (forward_trades.csv, forward_daily.csv, forward_status.json%s)" % (out_dir, ", forward_skips.csv" if new_skips else ""))
     return T, D, status
 
@@ -1103,14 +1295,20 @@ def main(argv=None):
     sub = ap.add_subparsers(dest="mode", required=True)
     sub.add_parser("parity")
     c = sub.add_parser("constants")
-    c.add_argument("--force", action="store_true", help="overwrite an existing addendum1_constants.json (before the freeze only)")
+    c.add_argument("--force", action="store_true", help="overwrite an existing constants file of that addendum (before the freeze only)")
+    c.add_argument("--addendum", type=int, choices=(1, 3), default=1,
+                   help="1 (default): Addendum 1's equal risk per trade from the WF trades -> addendum1_constants.json; "
+                        "3: equal yearly risk per part from addendum1_constants.json -> addendum3_constants.json")
     f = sub.add_parser("forward")
     f.add_argument("--since", required=True, help="score trades ENTERED strictly after this date (YYYY-MM-DD)")
     a = ap.parse_args(argv)
     if a.mode == "parity":
         return 0 if mode_parity() else 2
     if a.mode == "constants":
-        mode_constants(force=a.force)
+        if a.addendum == 3:
+            mode_constants_a3(force=a.force)
+        else:
+            mode_constants(force=a.force)
         return 0
     mode_forward(a.since)
     return 0

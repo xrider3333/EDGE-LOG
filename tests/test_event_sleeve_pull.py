@@ -427,9 +427,12 @@ def test_no_pull_plans_are_the_snapshot_functions(home, monkeypatch):
 
 
 def _constants(tmp):
+    """Frozen constants for forward: Addendum 1's file and the Addendum 3 file forward requires (ADDENDUM3_REQUIRED)."""
     os.makedirs(str(tmp), exist_ok=True)
     with open(os.path.join(str(tmp), S.CONSTANTS_FILE), "w") as f:
-        json.dump(dict(parts={p: dict(scale=1.0) for p in S.PARTS}, harm=dict(threshold_risk_units=-8.2749)), f)
+        json.dump(dict(addendum=1, parts={p: dict(scale=1.0) for p in S.PARTS}, harm=dict(threshold_risk_units=-8.2749)), f)
+    with open(os.path.join(str(tmp), S.CONSTANTS3_FILE), "w") as f:
+        json.dump(dict(addendum=3, parts={p: dict(scale=1.0) for p in S.PARTS}, harm=dict(threshold_risk_units=-8.0465)), f)
 
 
 def _stub_parts(monkeypatch):
