@@ -39,7 +39,12 @@ two lanes' closed work, so it must not loop on one source):
    **MANAGER closes a paper with `python tools/qwen_lab.py shelf-close 31 [32 ...] [--why "..."]`** (MANAGER #147) -
    it appends a dated `YYYY-MM-DD HH:MM:SS CLOSE 31  # why` line to the same file, so nobody hand-edits it. The
    LATEST line naming a paper is authoritative: a close after an open = closed, an open after a close = open; a line
-   of bare numbers (or `open: ...`) still means open; `# ...` is a comment. It never touches `state.json` (the lab's
+   of bare numbers (or `open: ...`) still means open; `# ...` is a comment. A line is `[YYYY-MM-DD [HH:MM[:SS]]]
+   [open...|clos...] n [n, ...]` (`closing 31`, `closes 30`, `2026-10-16 CLOSE 32` all close); ANY other line is
+   ignored - it never opens a paper - and `status` / `shelf-open` / `shelf-close` print it as a WARNING. An UNDATED
+   line is older than any closure the lab recorded (review round 3: it used to take the file's write time, so the next
+   `shelf-close` of another paper re-opened a paper the lab had run) - re-open a paper the lab ran with `shelf-open N`
+   (dated). It never touches `state.json` (the lab's
    own closures stay there) and uses the lab's home (`--home`, else `QWEN_LAB_HOME`, else `C:\EdgeLog\qwen_lab`).
    `--idea N` refuses a paper MANAGER closed, and a recorded next pick whose paper was closed after it was posted is
    dropped and picked again. `status` lists the papers closed by the lab, the papers closed by MANAGER (with the
@@ -61,7 +66,7 @@ Qwen talks to the harness only through these tools:
 | `shelf_ideas()` | the papers still open to the lab |
 | `propose(name, hypothesis, mechanism, prior_sharpe_yearly, trades_per_year, instrument, timeframe, first_signal_bar)` | recorded PRE-DATA; refuses an idea the lab already ran (MANAGER #148, no slot used) and runs the dead-list check; `first_signal_bar = {"index": k, "clock": "HH:MM"}` is REQUIRED (TTM #144); may be revised (3 proposals) until the map reads it inside `run_stage_a`, then frozen (the plugin freezes too once the prereg is posted) |
 | `write_plugin(name, code)` | safety gate, then written to `augur_strategies/qwen_lab/<name>.py` in the WORKTREE, then contract + look-ahead in the sandbox |
-| `run_stage_a(name)` | the dead-list gate, the power-first map (recorded, not a stop), the auto prereg naming both stages posted to MANAGER, the PRE-WF Stage A, and the WF Stage A only if promoted; returns the computed numbers |
+| `run_stage_a(name)` | the dead-list gate, the power-first map (recorded, not a stop), the auto prereg naming both stages posted to MANAGER, the PRE-WF Stage A, and the WF Stage A only if promoted; returns the computed numbers. Refuses a proposal with no `first_signal_bar` (call `propose` again - a proposal the map or a prereg froze only records the bar, written into the prereg / its addendum) and a plugin gated by an older harness (`gates_version` < 2: `write_plugin` again) - an in-flight idea from before TTM #144/#145 never runs "not checked" |
 | `queue_validate(name)` | the 900-trial Auto-Validate, only past the bar |
 | `finish(note)` | ends the session (the note is stored, never posted) |
 
@@ -98,10 +103,15 @@ that passes 1-5 gets the PRE-WF Stage A.
    but its plugin fired from bar 20. So every proposal states `first_signal_bar` - the 0-based in-session index of
    the EARLIEST bar on which an entry may FILL, with the clock time of that bar's open (`{"index": 26, "clock":
    "11:40"}` on 5m bars; `propose` refuses a clock that is not that bar's open, an index outside the session, or a
-   missing field - no slot used). The smoke counts each entry's in-session index (the entry bar minus its session's
-   first bar, `first_bar_violations`): any entry before `first_signal_bar.index` with the default knobs is a HARD
-   contract failure, and Qwen gets the offending entries (bar, session bar, time, side) plus a `how_to_fix`; a knob
-   corner that fires earlier is only a warning (the bar is pre-registered for the defaults). The PRE-WF Stage A checks
+   missing field - no slot used). The smoke reads each entry's in-session index FROM ITS OPEN CLOCK
+   (`session_bar_index`: (minutes since 09:30) // bar minutes - the prompt's convention; review round 3: counting
+   positions flagged a plugin that entered at 10:30 = bar 60 on 1m holiday sessions with missing bars, e.g.
+   2015-02-16, where 10:30 is the 59th bar; `first_bar_violations`): any entry before `first_signal_bar.index` with
+   the default knobs is a HARD contract failure, and Qwen gets the offending entries (bar, session bar, time, side)
+   plus a `how_to_fix`. So is an entry before it at ANY ranged knob's min or max (review round 3: it was a warning, yet
+   the Auto-Validate searches those values - the template's `range_bars` searched down to 3 fills from bar 4 (09:50
+   open)): the pre-registered bar holds for the searched rule, Qwen narrows the knob or pre-registers the earliest
+   searched bar, and the validate job's note names the bar. The PRE-WF Stage A checks
    EVERY entry again before any verdict: a violation there is not a verdict - the plugin goes back to Qwen like a
    broken plugin (same 2 fix retries, an ADDENDUM posted before each re-run; still violating -> `BROKEN PLUGIN
    (first-signal-bar contract: n entries before bar k)`). The prereg and its MANAGER post name the first entry bar.
@@ -120,16 +130,34 @@ that passes 1-5 gets the PRE-WF Stage A.
    **Entry-bar inputs phase (TTM #145).** Those phases only see a level built from the entry bar when a sampled trade
    happens to exit ON that bar - a wider stop (3 x an ATR that includes the entry bar) passed them. A plugin reports
    only (entry, exit, P&L, side, price), so the levels and the size are read through the exit: for up to 6 sampled
-   trades with an open or close entry, the first bar at risk (the entry bar for an open fill; the next bar for a close
-   fill; an entry price equal to both counts as a close fill) has its adverse extreme, then its favourable one, pushed
-   10 and 30 median bar ranges further, and 90 when 10 did not reach the level; the 30 and 90 pushes also replace
-   every later bar. The entry must not change, and two pushes that both exit on that bar must exit at the SAME price with the
-   SAME P&L (a level known at the fill is crossed by both and fills at itself; a level or size that reads the bar's
-   own high / low, or a later bar, moves). A trade that exits there at 10 but not at 30 fails too. No exit on that bar
-   = inconclusive (no failure). The failure returns a `how_to_fix` (build levels and size from bars <= k-1 and bar
-   k's open, `atr[k-1]`; trailing levels updated after the bar's check). Checked 10-16 on the lab's own gated
-   plugins on real pre-WF bars: it catches QL_ES_MOMBREAK v4 on 5 of 6 trades and passes QL_MTP_NQ, QL_SCALP2M,
-   QL_GAMMA_MOM, QL_MOMDRIVE, QL_VWAPREVERT_NQ v2, QL_GAMMA_ORB and QL_TOM_CALENDAR_NQ v8. Plus
+   trades, the FIRST BAR AT RISK (the entry bar for an open fill AND for an intrabar stop / limit fill - only its open
+   and the crossed level existed at that fill; the next bar for a close fill; an entry price equal to both the open
+   and the close counts as a close fill) is re-drawn as a ONE-WAY bar from its unchanged open: its adverse extreme
+   pushed 10, 30 (and 90) median bar ranges beyond its own with the other extreme pulled in to the open (an intrabar
+   fill's price stays inside), then the favourable side mirrored - so only the levels on the pushed side can be
+   crossed and a stop-first / target-first order never flips the exit between two pushes. Each push also puts that
+   bar's close at a different place (15 / 85 / 50% of the way from the open to the pushed extreme) and its volume at
+   0.37 / 1.9 / 1x the median; the deeper pushes replace every later bar (around the bar's new close). The entry must
+   not change, and two pushes that both exit on that bar AT A LEVEL (not at its close, which an exit may read) must
+   exit at the SAME price with the SAME P&L (a level known at the fill is crossed by both and fills at itself; a
+   level or size that reads the bar's own high / low / close / volume, or a later bar, moves); a trade that exits
+   there at a level on one push and not on that bar at all on the next, deeper one fails too. The same phase then
+   runs at each ranged numeric knob's min and max (up to 4 knobs, 2 trades each - the Auto-Validate searches there).
+   No level exit on that bar = inconclusive (no failure; a warning when no sampled trade was conclusive). Review round
+   3: the phase had moved only the high / low, so a stop anchored at the entry bar's close, a close-to-close
+   volatility that included it, a close fill whose stop read the next bar's close (`LEAKS` L1b / L1 / L3) and a stop
+   entry with an ATR that included the entry bar (L2, intrabar entries were skipped) all passed - the tests now hold
+   them. A stop that scales with the entry bar's OWN range by >= 1x (stop = entry - 1.5 x that range) can never be
+   crossed on that bar, so its trades are exactly those of a rule that sets the same level at the bar's close and
+   checks it from the next bar - realisable, inconclusive by design (the tests prove the equality); at a knob value
+   where the scale drops below 1x (stop_frac 0.25 -> 0.375x) it leaks, and the knob-corner pass catches it. The
+   failure returns a `how_to_fix` (build levels and size from bars <= k-1 and bar k's open, `atr[k-1]`; trailing
+   levels updated after the bar's check). Re-checked 10-16 (round 3) on copies of the lab's 10 gated plugins on real
+   pre-WF bars, the request `write_plugin` builds: it still catches QL_ES_MOMBREAK v4 (6 of 6 trades conclusive) and
+   passes QL_MTP_NQ, QL_SCALP2M, QL_GAMMA_MOM, QL_MOMDRIVE, QL_VWAPREVERT_NQ v2, QL_GAMMA_ORB, QL_TRENDN and
+   QL_NOISE2M_TREND at the defaults and at every knob corner, and QL_TOM_CALENDAR_NQ v8 (no level on the entry bar:
+   inconclusive, with the warning). The look-ahead sandbox timeout is 2400 s (QL_NOISE2M_TREND on 2m bars took 508 s
+   on a busy machine with the corner pass). Plus
    **fill realism**: every entry and exit price must sit inside its bar's range (a stop on a bar that
    opened through it must book the open; P&L must be side x (exit - entry)). `tools/gate_lookahead_audit.py` audits the
    ML gate's feature matrix; a Qwen plugin has no ML gate, so it does not apply. The tests prove the audit catches four
@@ -151,29 +179,50 @@ that passes 1-5 gets the PRE-WF Stage A.
    `idea.json` `dedupe_refusals`):
    - the same NORMALISED name (`QL_`, NQ / ES / MNQ / MES / RTH, version and timeframe tokens out:
      `QL_ES_MOMBREAK` = `QL_MOMBREAK_ES_V2` = `MOMBREAK`) - any source, since plugin files are keyed by name;
-   - the same mechanism FAMILY as a run idea (map below; read from the name and the mechanism, never the
-     hypothesis, where Qwen may name an idea it contrasts with);
-   - a near copy of a run idea's rule that names no family: Jaccard of the mechanisms' content words (house
-     `keywords()` minus rule boilerplate) >= 0.45 with >= 6 shared words, against every plugin a name ran with
-     (calibrated 10-16 on the lab's real proposals: distinct ideas top out at 0.23 - QL_ES_MOMBREAK vs QL_MOMDRIVE).
+   - the same mechanism FAMILY as a run idea (map below; read from the name and from the mechanism, each on its own,
+     never the hypothesis, where Qwen may name an idea it contrasts with);
+   - a near copy of a run idea's rule that names no family: Jaccard of the SIGNAL / ENTRY clauses' content words
+     (`signal_text`: the stop / exit / target / trailing / flat / one-trade clauses out, then house `keywords()`
+     minus rule boilerplate) >= 0.45 with >= 6 shared words, against every plugin a name ran with. Re-calibrated 10-16
+     on the lab's 11 real proposals: distinct pairs top out at 0.17 (QL_GAMMA_MOM vs QL_MOMDRIVE), a copy with a
+     reworded parameter is 1.0; the lab's real REWORDED repeat (QL_TRENDN of QL_ES_MOMBREAK) shares only 3 signal
+     words (0.27), which no word count can catch without refusing distinct ideas - the family map catches it. Review
+     round 3: on the whole text, an inside-bar breakout that copied QL_MOMDRIVE's chandelier-stop sentence was refused
+     at 69%; on the signal it is 0.25.
+
+   The NAME check covers every run idea. The family and overlap checks skip a run that was NOT a verdict on the idea -
+   a `BROKEN PLUGIN` or an operator `ABORTED` run (MANAGER #139: a broken plugin is a bug) - and, for a session on a
+   shelf paper MANAGER RE-OPENED after the lab ran it (`shelf-open N` over the lab's closure), that paper's own
+   earlier runs; such a mechanism may be retried under a new name (the list marks those runs "NOT a verdict"; their
+   families are not counted as taken). An idea that CLOSED but never got its `done_ideas` row (the run was killed
+   between the close and the bookkeeping) is still read from its folder, and the next `run` records it (result post
+   and row) before anything else.
 
    A shelf paper the lab ran is closed by the shelf list; a NEW paper (or the scalper / own source) whose mechanism
    repeats a run idea is refused here. The family map (`IDEA_FAMILIES` in `tools/qwen_lab.py`) - every pattern is a
    family-SPECIFIC phrase; "momentum", "breakout", "VWAP", "range", "month", "first hour", "Tom" or "or breaks"
-   alone match nothing (the tests hold 14 such negatives, including a VWAP trend rule, a 50-bar breakout, an NR7
-   range breakout, a Donchian break after skipping the first 30 minutes and Tom DeMark's TD9):
+   alone match nothing, and a phrase in a FILTER / NEGATED clause is a passing mention, not the rule ("No entries in
+   the first hour", "skip days where the first-hour range ...", "do not trade on the last 2 days of the month", "avoid
+   fading", a warm-up; the revert-to-VWAP patterns also ignore an EXIT clause - "exit when price reverts to VWAP" is
+   how a VWAP-trend rule exits). The tests hold 28 such negatives (a VWAP trend rule, a 50-bar breakout, an NR7
+   breakout, Donchian breaks after a skipped / warm-up first hour, an afternoon fade with a first-hour filter, a trend
+   rule with a month-end filter, "breaks above or below", "not over-extended", "with the opening gap direction", a
+   morning-move FADE, `QL_TOM_DEMARK_SEQ`, ...):
 
    | family | what puts an idea in it |
    |---|---|
-   | `VWAP_REVERSION` | name `VWAPREVERT` / `VWAPFADE` / `VWAPSNAP` / `VWAPMR`; "VWAP revert / reversion / fade / snap back / mean-revert"; "revert / fade / snap back ... to VWAP"; "target / take profit at VWAP"; VWAP within 80 chars of "mean-revert / reversion / fade / over-extended"; the band fade without the words: "close > VWAP + x, enter short" (and the mirror) |
-   | `OPENING_RANGE` | name `ORB` / `OR_BREAK` / `IB_BREAK` / `OPENINGRANGE` / `MORNINGMOM...`; "opening range breakout", "initial balance break / extension"; an opening range / initial balance / morning range / first-N-minutes window followed by a break OF THAT RANGE (break of the range, above / below / > the range high / low); "above the first 30-minute high"; continuation: "in the direction of / with / following the morning / opening / first-window move / trend / return", "morning momentum", "first half hour's return ... predicts / continues" |
+   | `VWAP_REVERSION` | name `VWAPREVERT` / `VWAPFADE` / `VWAPSNAP` / `VWAPMR`; "VWAP revert / reversion / fade / snap back / mean-revert"; "revert / fade / snap back ... to VWAP" (not in an exit clause); "target / take profit at VWAP"; VWAP within one clause of "mean-revert / reversion / fade"; the band fade without the words: "close > VWAP + x, enter short" (and the mirror); a VWAP-deviation number with a contrarian entry: "d = (close - VWAP)/ATR; d > 2.5 short", "z-score of (close - VWAP) ... z > 2 sell" |
+   | `OPENING_RANGE` | name `ORB` / `OR_BREAK` / `IB_BREAK` / `OPENINGRANGE` / `MORNINGMOM...`; "opening range breakout", "initial balance break / extension"; a range DEFINED over the opening window (opening range / initial balance / morning range / "first-hour range" / "first 12 bars form a range" / "the high and low of the first 30 minutes") followed by a break OF A RANGE (break of the range / box / OR high, above / below / > the range high / low - never a bare "or"); "breaks above the opening range high"; "above the first 30-minute high"; continuation: "in the direction / sign of / with / following the morning / opening / first-window / 09:30-10:30 move / trend / return / displacement" (not "with the opening GAP direction"), "morning momentum", "first half hour's return ... predicts / continues / persists", and the morning quantity followed by an entry IN ITS SIGN ("first-hour close displacement ... > 0, go long", "the 09:30-10:30 return is larger than 0.5% buy" - a fade of the morning move is not this family) |
    | `OPEN_DRIVE` | name `OPENDRIVE` / `MOMDRIVE`; "open(ing) drive", "momentum drive", "drive from / off the open" |
    | `GAMMA` | the `LAB_DEAD` GAMMA pattern (gamma, GEX, dealer gamma / hedging) - closed for the lab anyway |
-   | `TURN_OF_MONTH` | name `TOM` / `TURNOFMONTH` / `MONTHEND`; "turn of the month", "month-end / month-start", "end / start of (each / the) month", "last / first N trading days of the month" |
+   | `TURN_OF_MONTH` | name `TOM` (not `TOM_DEMARK`) / `TURNOFMONTH` / `MONTHEND`; "turn of the month", "month-end / month-start", "end / start of (each / the) month", "last / first N trading days of the month" |
 
-   The 10-16 history in that map: QL_VWAPREVERT_NQ -> VWAP_REVERSION; QL_ES_MOMBREAK, QL_GAMMA_MOM, QL_GAMMA_ORB ->
-   OPENING_RANGE (the GAMMA pair also GAMMA); QL_MOMDRIVE -> OPENING_RANGE + OPEN_DRIVE; QL_TOM_CALENDAR_NQ ->
-   TURN_OF_MONTH; QL_TPT_NQ, QL_MTP_NQ, QL_SCALP2M -> no family (the overlap check covers copies of them).
+   The 10-16 history in that map: QL_VWAPREVERT_NQ -> VWAP_REVERSION; QL_ES_MOMBREAK, QL_GAMMA_MOM, QL_GAMMA_ORB,
+   QL_TRENDN -> OPENING_RANGE (the GAMMA pair also GAMMA; QL_TRENDN, QL_ES_MOMBREAK's rule moved to NQ, was accepted
+   at 13:42 under the round-2 map); QL_MOMDRIVE -> OPENING_RANGE + OPEN_DRIVE; QL_TOM_CALENDAR_NQ -> TURN_OF_MONTH
+   (a BROKEN PLUGIN run - its mechanism may be retried under a new name); QL_TPT_NQ, QL_MTP_NQ, QL_SCALP2M,
+   QL_NOISE2M_TREND -> no family (the overlap check covers copies of them). Names are normalised with timeframe /
+   version / instrument tokens out also as a token's suffix: `QL_NOISE2M_TREND` = `QL_NOISE_2M_TREND`.
 6. **Power first** (inside `run_stage_a`, after gates 1-5 - the order the owner set): `tools/mapcheck_f.py`'s
    generator and rules on the stated prior (Sharpe s as stated, sd max(0.30, s/2), rho 0, t3 tails, clustered vol, the
    tool's 2,000 draws, own seed printed). The stated trades a year are checked against the plugin's own trade COUNT on
@@ -186,8 +235,11 @@ that passes 1-5 gets the PRE-WF Stage A.
 7. **Auto prereg** - `C:\EdgeLog\qwen_lab\preregs\<name>_<date>.md`, naming BOTH stages: the source, Qwen's
    hypothesis and mechanism verbatim, the bar-index convention, the timing contract (the first entry bar as
    `bar k (HH:MM open)` and what Python checks it on), the prior, the map read (marked "recorded, not a stop"), the
-   dead-list and dedupe reads (the proposal's families), the
-   gates passed, the pinned master by filename with the PRE-WF slice's fingerprint, both windows, the promotion rule,
+   dead-list read, the dedupe read (the result `propose` STORED, plus a re-check at prereg time), the
+   gates passed with their version - and every check that did not run is written "NOT checked" (review round 3: a
+   resumed pre-change idea's prereg claimed "none matched" and the first-signal-bar / entry-bar checks it never had;
+   the MANAGER post says "first entry not stated - not checked" the same way) - the pinned master by filename with
+   the PRE-WF slice's fingerprint, both windows, the promotion rule,
    the cost, the reading rules, a line that no walk-forward bar was read before it (gates 3-4 ran on pre-walk-forward
    bars), and the LF sha256 of the plugin and of `tools/qwen_lab.py`. Posted to MANAGER (`chat_inbox.py post MANAGER
    --from QWEN-LAB`; MANAGER's inbox exists so no `--new`; the sender has no inbox, so posts say "Replies ->
@@ -201,7 +253,9 @@ that passes 1-5 gets the PRE-WF Stage A.
 Bars are named ONE way everywhere - the system prompt, the proposal, `first_signal_bar`, the prereg, the gate
 messages: **bar k = the 0-based IN-SESSION index (bar 0 = the first regular-hours bar, the 09:30 open), always with
 the clock time of that bar's OPEN** - `bar 12 (10:30 open)` on 5m bars is the bar from 10:30 to 10:35, `bar 12 (09:42
-open)` on 1m bars; bar k's close is bar k+1's open time (on 5m bars bar 11 closes at 10:30). Every entry and exit says
+open)` on 1m bars; bar k's close is bar k+1's open time (on 5m bars bar 11 closes at 10:30). The harness numbers
+bars BY THE CLOCK (bar k opens at 09:30 + k x bar minutes), so on a 1m / 2m session with missing bars the 10:30 bar
+is still bar 60 on 1m bars (the prompt says so). Every entry and exit says
 whether it fills at a bar's OPEN or at its CLOSE ("decide on bar 11's close (10:30), enter at bar 12's open (10:30
 open)"); the trade list records the FILL bar. `propose` returns a soft `bar_convention` note when the text names a bar
 without its clock or with a clock that is not that bar's open (`bar_convention_notes`; never a refusal), and the

@@ -24,8 +24,9 @@ ORDER OF GATES (each refuses with a reason that goes back to Qwen as data):
   3. LOOK-AHEAD (sandbox mode 'lookahead'): tools/exec_feasibility_audit.py's file checks on the single file, plus a
      PERTURBATION audit on real pre-walk-forward bars - for sampled trades, every bar after the fill (and the
      unknowable part of the fill bar) is replaced and the trade must not change; the ENTRY-BAR INPUTS phase (TTM #145)
-     pushes the first bar at risk's high / low and requires the same exit price and size - plus fill realism (every
-     fill inside its bar's range). No walk-forward bar is read before the prereg.
+     re-draws the first bar at risk (high / low pushed, close / volume moved; open, close and intrabar fills; at the
+     defaults and at every ranged knob's min / max) and requires the same exit price and size - plus fill realism
+     (every fill inside its bar's range). No walk-forward bar is read before the prereg.
      tools/gate_lookahead_audit.py audits the ML gate's feature matrix; a Qwen plugin has no ML gate, so it does not apply.
   4. DEAD LIST: the proposal's name / mechanism against RESEARCH_LEDGER.md's closed rows; clear matches are refused.
      IDEA DEDUPE (MANAGER #148, at propose): an idea the lab already ran - same normalised name, same mechanism family
@@ -130,11 +131,20 @@ PRIOR_TRADES_RANGE = (5, 3000)
 MAX_STEPS = 18                                                   # model turns per idea
 MAX_PLUGIN_ATTEMPTS = 6
 MAX_PROPOSALS = 3
+# the version of the hard gates a plugin passed (gates record + plugin record). 2 = the first-signal-bar contract (TTM
+# #144, clock index, every searched knob's min / max) and the entry-bar inputs audit (TTM #145, high / low / close /
+# volume, intrabar entries, knob corners). run_stage_a refuses a plugin gated by an older version: write_plugin again.
+GATES_VERSION = 2
+NO_FSB_REFUSAL = ("the proposal %s predates the first-signal-bar contract (TTM #144): it has no first_signal_bar, so "
+                  "neither the contract nor the PRE-WF check can hold it to one. Call propose(...) again WITH "
+                  "first_signal_bar = {\"index\": k, \"clock\": \"HH:MM\"} (a proposal the map or a prereg has frozen "
+                  "keeps everything else and only records the bar), then write_plugin(name, code), then run_stage_a")
 MAX_LOOK_TURNS = 3                                               # turns of pure reading allowed before a proposal
 LOOK_TOOLS = {"read_repo_file", "list_strategies", "dead_list", "shelf_ideas", "ideas"}
 MODEL_TIMEOUT = 1800                                             # s per model reply (cold load is minutes)
 IDEA_WALL_S = 4 * 3600
-SANDBOX_TIMEOUT = {"contract": 900, "lookahead": 1500, "stage_a": 2400, "guard": 2400, "synthetic": 300}
+SANDBOX_TIMEOUT = {"contract": 900, "lookahead": 2400, "stage_a": 2400, "guard": 2400, "synthetic": 300}   # look-ahead:
+# the entry-bar phase also runs at every ranged knob's min / max (QL_NOISE2M_TREND on 2m bars: 508 s on a busy box)
 SANDBOX_MEM_GB = 6.0
 NUM_PREDICT = 6000
 MAX_CTX_CHARS = 75000                                            # ~21k tokens of the 32k context
@@ -260,6 +270,11 @@ def under(path, root):
 
 
 # ------------------------------------------------------------------------------------------------ the lab's home
+# one shelf_open.txt line: [YYYY-MM-DD [HH:MM[:SS]]] [open...|close...[:]] n [n, ...]
+_SHELF_LINE_RX = re.compile(r"^(?:(\d{4}-\d\d-\d\d)(?:[ T](\d\d:\d\d)(:\d\d)?)?\s+)?(?:(open\w*|clos\w*)\b[\s:]*)?"
+                            r"(?=[\d\s,]*\d)([\d\s,]+)$", re.I)
+
+
 class Lab:
     """State, run log and per-idea folders under LAB_HOME. All writes of the lab go here (or to the plugin folder)."""
 
@@ -270,6 +285,7 @@ class Lab:
         self.log_path = os.path.join(self.home, "run.log")
         self.stop_path = os.path.join(self.home, "STOP")
         self.lock_path = os.path.join(self.home, "run.lock")
+        self.shelf_warnings = []
         os.makedirs(self.home, exist_ok=True)
         self.state = jload(self.state_path, None) or {
             "created": now_s(), "skip_shelf": list(DEFAULT_SKIP_SHELF), "current_idea": None,
@@ -326,28 +342,31 @@ class Lab:
     def shelf_marks(self):
         """{paper number: (action, when)} from shelf_open.txt - the LATEST line naming a paper wins (lines are appended
         in time order, so file order is the authority; MANAGER #147). A line is 'YYYY-MM-DD HH:MM:SS n n ...' (what
-        `shelf-open` appends) = OPEN, or 'YYYY-MM-DD HH:MM:SS CLOSE n n ...' (what `shelf-close` appends) = CLOSED; a
-        line of bare numbers still means OPEN; an undated line is stamped with the file's last write; '# ...' is a
-        comment. So a close after an open = closed, an open after a close = open."""
+        `shelf-open` appends) = OPEN, or 'YYYY-MM-DD HH:MM:SS CLOSE n n ...' (what `shelf-close` appends) = CLOSED
+        ('open...' / 'close...' words, ':' and HH:MM or a date alone are accepted); a line of bare numbers still means
+        OPEN. An UNDATED line is dated '' - older than any closure the lab recorded (never the file's write time, which
+        moves with every append). Any other line is IGNORED and listed in self.shelf_warnings (a malformed line never
+        opens a paper); '# ...' is a comment. So a close after an open = closed, an open after a close = open."""
         out = {}
+        self.shelf_warnings = []
         try:
             with open(self.shelf_open_path, encoding="utf-8") as f:
                 lines = f.read().splitlines()
-            mtime = _dt.datetime.fromtimestamp(os.path.getmtime(self.shelf_open_path)).strftime("%Y-%m-%d %H:%M:%S")
         except OSError:
             return out
-        for ln in lines:
-            ln = ln.split("#")[0].strip()
+        for i, raw in enumerate(lines, 1):
+            ln = raw.split("#")[0].strip()
             if not ln:
                 continue
-            m = re.match(r"(\d{4}-\d\d-\d\d \d\d:\d\d:\d\d)\s+(.*)$", ln)
-            at, rest = (m.group(1), m.group(2)) if m else (mtime, ln)
-            act = "open"
-            k = re.match(r"(?i)(open(?:ed)?|close(?:d)?)\b[\s:]*(.*)$", rest.strip())
-            if k:
-                act = "close" if k.group(1).lower().startswith("close") else "open"
-                rest = k.group(2)
-            for tok in re.findall(r"\d+", rest):
+            m = _SHELF_LINE_RX.match(ln)
+            if not m:
+                self.shelf_warnings.append("shelf_open.txt line %d ignored (not '[date [time]] [open|close] numbers'): "
+                                           "%r" % (i, raw.strip()[:80]))
+                continue
+            date, hhmm, ss, word, nums = m.groups()
+            at = ("%s %s%s" % (date, hhmm or "00:00", ss or ":00")) if date else ""
+            act = "close" if (word or "").lower().startswith("clos") else "open"
+            for tok in re.findall(r"\d+", nums):
                 out[int(tok)] = (act, at)
         return out
 
@@ -360,7 +379,8 @@ class Lab:
         return {n: at for n, (act, at) in self.shelf_marks().items() if act == "close"}
 
     def open_shelf_numbers(self):
-        """Papers MANAGER opened and the lab has not run a Stage A on since."""
+        """Papers MANAGER opened and the lab has not run a Stage A on since (an undated open line is older than any lab
+        closure)."""
         closed = self.state.get("closed_shelf", {})
         return sorted(n for n, at in self.shelf_opened().items()
                       if str(n) not in closed or at > str(closed[str(n)].get("at") or ""))
@@ -736,85 +756,133 @@ def dead_check(name, hypothesis, mechanism, rows=None):
 # keyed by name), (2) its mechanism falls in the same mechanism FAMILY as an idea the lab already ran, or (3) its
 # mechanism's content words overlap one run idea's (a near copy that names no family). A shelf paper the lab ran is
 # closed by the shelf list; a NEW shelf paper whose mechanism repeats a run idea is refused here like any source.
-# Families are read from the NAME (name_rx: patterns that are only safe in a file name, e.g. 'TOM', 'ORB') and the
-# NAME + MECHANISM (rx) - never the hypothesis, where Qwen may name an idea it is contrasting with. Every pattern is a
-# family-SPECIFIC phrase: 'momentum', 'breakout', 'VWAP', 'range', 'month' or 'first hour' alone match nothing, so the
-# map cannot block every momentum, every breakout or every VWAP idea (tests/test_qwen_lab.py holds the negatives).
+# Families are read from the NAME (name_rx: patterns that are only safe in a file name, e.g. 'TOM', 'ORB'; rx too) and
+# the MECHANISM (rx), each on its own (no pattern runs across the two) - never the hypothesis, where Qwen may name an
+# idea it is contrasting with. Every pattern is a family-SPECIFIC phrase: 'momentum', 'breakout', 'VWAP', 'range',
+# 'month' or 'first hour' alone match nothing, so the map cannot block every momentum, every breakout or every VWAP
+# idea. A phrase in a FILTER / NEGATED clause ('No entries in the first hour', 'skip days where the first-hour range
+# ...', 'do not trade on the last 2 days of the month', 'avoid fading') is a passing mention, not the rule
+# (_family_hit); the VWAP revert-to patterns also ignore an EXIT clause ('exit when price reverts to VWAP' is how a
+# VWAP-trend rule exits). tests/test_qwen_lab.py holds the positives (the lab's own real repeats) and the negatives.
 _WORDNUM = r"(?:\d+|n|k|few|several|five|ten|fifteen|twenty|thirty|sixty|[a-z_]*bars?)"
 _FIRST_WINDOW = (r"(?<!skip the )(?<!after the )(?<!ignore the )(?<!skipping the )(?<!excluding the )"
                  r"first[\s\-]+(?:half[\s\-]+(?:an[\s\-]+)?hour|hour|%s[\s\-]*(?:min(?:ute)?s?|bars?|candles?))"
                  % _WORDNUM)
+_OPEN_CLOCK = r"0?9:30\s*(?:-|\u2013|to|until|through)\s*(?:0?9:[3-5]\d|1[0-2]:\d\d)"   # '09:30-10:30'
 _EARLY = r"(?:(?:opening|morning|initial|early)\s+)?"
+# a break OF a range: 'breaks above the range', 'close > range high', 'above the OR high' (a bare 'or' is English)
 _RANGE_BREAK = (r"(?:\bbreak\w*\s+(?:out\s+)?(?:above|below|through|of|out\s+of)?\s*(?:the\s+|its\s+|that\s+|this\s+)?"
-                + _EARLY + r"(?:range|or|ib|box)\b"
+                + _EARLY + r"(?:range|ib|box|or[\s_\-]*(?:high|low|hi|lo))\b"
                 r"|(?:>|<|\babove|\bbelow|\bthrough|\bpast|\bbeyond|\bover|\bunder)\s*(?:the\s+|its\s+|that\s+)?"
                 + _EARLY + r"(?:range|or|ib|box)(?:['\u2019]s)?[\s_\-]*(?:high|low|hi|lo|top|bottom)s?\b)")
+# a range DEFINED over the session's opening window: 'opening range', 'initial balance', 'first-hour range', 'first 12
+# bars (24 min) form a range', 'the high and low of the first 30 minutes' ('the first 6 bars are warm-up' is not one)
+_OR_DEF = (r"(?:opening[\s\-]*range|initial[\s\-]*balance|morning[\s\-]*range"
+           r"|opening\s+%(wn)s[\s\-]*(?:min(?:ute)?s?|bars?)[\s\-]+range"
+           r"|%(fw)s(?:['\u2019]s?)?[\s\-]+(?:range|box|high[\s\-]*(?:/|and|-)[\s\-]*low|extremes?)\b"
+           r"|%(fw)s\s*(?:\([^)]{0,40}\)\s*)?(?:forms?|defines?|sets?|makes?|builds?|is|are)\s+(?:a|the|its|our)\s+"
+           r"(?:\w+\s+)?(?:range|box)\b"
+           r"|(?:range|box|high(?:\s+and\s+|\s*/\s*)low)\s+(?:=|is|of|over|from|across|for|during)\s+(?:the\s+)?%(fw)s)"
+           % {"wn": _WORDNUM, "fw": _FIRST_WINDOW})
+_MORNING_WIN = r"(?:%s|morning|opening|%s)" % (_FIRST_WINDOW, _OPEN_CLOCK)
+_NUM = r"\+?\d[\d.,]*%?"
+# an entry IN THE SIGN of the morning quantity: '> 0, go long', 'larger than 0.5% buy', '< 0 ... short' (a fade - the
+# morning move up, then a SHORT - is a different idea and does not match)
+_SAME_SIGN_ENTRY = (r"(?:(?:>\s*\+?0(?![\d.])|\bpositive\b|\b(?:larger|greater|bigger|more|higher)\s+than\s+%(n)s|"
+                    r"\bexceeds?\s+%(n)s|\babove\s+%(n)s)[^;]{0,40}?\b(?:go(?:es)?\s+long|buy|long)\b"
+                    r"|(?:<\s*-?\s*0(?![\d.])|\bnegative\b|\b(?:smaller|less|lower)\s+than\s+-\s*%(n)s|"
+                    r"\bbelow\s+-\s*%(n)s)[^;]{0,40}?\b(?:go(?:es)?\s+short|sell|short)\b)" % {"n": _NUM})
+# VWAP deviation as a number: '(close - VWAP)/ATR', 'z-score of close vs VWAP', 'distance from VWAP'
+_VWAP_DEV = (r"(?:(?:close|price)(?:\[\w*\])?\s*-\s*(?:the\s+)?(?:session\s+)?vwap|vwap[\s\-]*(?:deviation|distance|"
+             r"z[\s\-]*score|spread)|(?:deviation|distance|z[\s\-]*score|spread|stretch)\s+(?:of\s+(?:the\s+)?"
+             r"(?:close|price)\s+)?(?:from|to|vs\.?|versus|over|above|below)\s+(?:the\s+)?(?:session\s+)?vwap)")
+# ... then a CONTRARIAN entry on it: '> 2.5 short', '< -2 buy'
+_CONTRA_ENTRY = (r"(?:(?:>|\babove|\bexceeds?|\bover)\s*%(n)s[^;]{0,25}?\b(?:short|sell)\b"
+                 r"|(?:<|\bbelow|\bunder)\s*-\s*%(n)s[^;]{0,25}?\b(?:long|buy)\b)" % {"n": _NUM})
+_IN_CLAUSE = r"(?:[^.;]|\.(?=\d)){0,80}?"                         # up to 80 chars, not past a sentence end
 IDEA_FAMILIES = [
     {"family": "VWAP_REVERSION", "label": "fade a stretch away from VWAP / mean-revert to VWAP",
      "name_rx": [r"vwap\s*(?:rev\w*|fade\w*|snap\w*|mr\b|mean\w*)|(?:rev\w*|fade\w*|snap\w*)\s*vwap"],
      "rx": [r"vwap[\s\-]*(?:revert\w*|reversion|fade\w*|snap[\s\-]*back|mean[\s\-]*rever\w*)",
-            r"(?:revert\w*|reversion|fad(?:e|es|ing)|snap(?:s|ping)?[\s\-]*back|mean[\s\-]*rever\w*)\s+(?:\w+\s+){0,3}?"
-            r"(?:to|toward|towards|into)\s+(?:the\s+)?(?:session(?:['\u2019]s)?\s+|intraday\s+|daily\s+|anchored\s+)?"
-            r"vwap\b",
+            (r"(?:revert\w*|reversion|fad(?:e|es|ing)|snap(?:s|ping)?[\s\-]*back|mean[\s\-]*rever\w*)\s+(?:\w+\s+){0,3}?"
+             r"(?:to|toward|towards|into)\s+(?:the\s+)?(?:session(?:['\u2019]s)?\s+|intraday\s+|daily\s+|anchored\s+)?"
+             r"vwap\b", {"exit_ctx": True}),
             r"(?:target|take[\s\-]*profit|objective)\w*\s*(?:\w+\s+){0,2}?(?:at|to|=|:|is)\s*(?:the\s+)?"
             r"(?:session(?:['\u2019]s)?\s+|intraday\s+)?vwap\b",
-            r"vwap\b.{0,80}?(?:mean[\s\-]*rever\w*|reversion|\bfad(?:e|es|ed|ing)\b|over[\s\-]*(?:extend|stretch)\w*)",
-            r"(?:mean[\s\-]*rever\w*|reversion|\bfad(?:e|es|ed|ing)\b|over[\s\-]*(?:extend|stretch)\w*).{0,80}?\bvwap",
+            (r"vwap\b" + _IN_CLAUSE + r"(?:mean[\s\-]*rever\w*|reversion|\bfad(?:e|es|ed|ing)\b)", {"exit_ctx": True}),
+            (r"(?:mean[\s\-]*rever\w*|reversion|\bfad(?:e|es|ed|ing)\b)" + _IN_CLAUSE + r"\bvwap", {"exit_ctx": True}),
             # the band fade without the word: 'close > VWAP + 2.5*ATR, enter SHORT' (QL_VWAPREVERT_NQ's own rule)
             r"(?:>|\babove|\bover|\bexceeds?)\s*(?:the\s+)?(?:session(?:['\u2019]s)?\s+)?vwap\s*\+[^,;]{0,30}?,?\s*"
             r"(?:then\s+)?(?:(?:enter|go)\s+short|sell\b)",
             r"(?:<|\bbelow|\bunder)\s*(?:the\s+)?(?:session(?:['\u2019]s)?\s+)?vwap\s*-[^,;]{0,30}?,?\s*"
-            r"(?:then\s+)?(?:(?:enter|go)\s+long|buy\b)"]},
+            r"(?:then\s+)?(?:(?:enter|go)\s+long|buy\b)",
+            # the same fade on a VWAP-deviation number: 'd = (close - VWAP)/ATR20; d > 2.5 short, d < -2.5 long'
+            _VWAP_DEV + r".{0,200}?" + _CONTRA_ENTRY]},
     {"family": "OPENING_RANGE", "label": "opening-range / morning-range breakout, morning momentum continuation",
      "name_rx": [r"\borb\b|\bor\s*break\w*|\bib\s*break\w*|opening\s*range|morning\s*(?:mom\w*|break\w*|range)"],
      "rx": [r"opening[\s\-]*range[\s\-]*break\w*|initial[\s\-]*balance[\s\-]*(?:break\w*|extension)",
-            # a range set over the session's opening window, then a break of THAT range
-            r"(?:opening[\s\-]*range|initial[\s\-]*balance|morning[\s\-]*range|%s).{0,250}?%s"
-            % (_FIRST_WINDOW, _RANGE_BREAK),
+            # a range DEFINED over the session's opening window, then a break of THAT range
+            _OR_DEF + r".{0,300}?" + _RANGE_BREAK,
+            # a break whose object is the opening range itself: 'breaks above the opening range high'
+            r"(?:\bbreak\w*\s+(?:out\s+)?(?:above|below|through|of|out\s+of)?\s*|(?:>|<|\babove|\bbelow|\bthrough|"
+            r"\bpast|\bbeyond)\s*)(?:the\s+|its\s+|today['\u2019]s\s+)?(?:opening[\s\-]*range|initial[\s\-]*balance|"
+            r"morning[\s\-]*range)",
             # a break of the opening window's own extreme: 'a close above the first 30-minute high'
-            r"(?:>|<|\babove|\bbelow|\bthrough|\bpast|\bbeyond|\bbreak\w*)\s*(?:the\s+)?(?:%s|opening[\s\-]+%s[\s\-]*"
-            r"(?:min(?:ute)?s?|bars?))(?:['\u2019]s)?[\s\-]+(?:range[\s\-]+)?(?:high|low|hi|lo|extreme)s?\b"
-            % (_FIRST_WINDOW, _WORDNUM),
-            # morning momentum CONTINUATION: trade in the direction of the morning / opening / first-window move
-            r"(?:in\s+the\s+(?:same\s+)?direction\s+of|\bwith|\bfollow(?:s|ing)?|\bcontinu\w*(?:\s+of)?)\s+(?:the\s+)?"
-            r"(?:morning|opening|%s(?:['\u2019]s)?)(?:[\s\-]+\w+){0,2}?[\s\-]+(?:move|direction|trend|momentum|drive|"
-            r"return)\b" % _FIRST_WINDOW,
+            r"(?:>|<|\babove|\bbelow|\bthrough|\bpast|\bbeyond|\bbreak\w*(?:\s+(?:out\s+)?(?:above|below|through|of))?)"
+            r"\s*(?:the\s+)?(?:%s|opening[\s\-]+%s[\s\-]*(?:min(?:ute)?s?|bars?))(?:['\u2019]s?)?[\s\-]+"
+            r"(?:range[\s\-]+)?(?:high|low|hi|lo|extreme)s?\b" % (_FIRST_WINDOW, _WORDNUM),
+            # morning momentum CONTINUATION: trade in the direction / sign of the morning / opening / first-window move
+            # ('with the opening GAP direction' is a gap idea, not this one)
+            r"(?:in\s+the\s+(?:same\s+)?(?:direction|sign)\s+of|\bwith|\bfollow(?:s|ing)?|\bcontinu\w*(?:\s+of)?)\s+"
+            r"(?:the\s+)?(?:morning|opening|%s(?:['\u2019]s?)?|%s)(?:[\s\-]+(?!gap\b)\w+){0,2}?[\s\-]+(?:move|direction|"
+            r"trend|momentum|drive|return|displacement)\b" % (_FIRST_WINDOW, _OPEN_CLOCK),
             r"morning[\s\-]+momentum",
-            r"%s(?:['\u2019]s)?\s+(?:\w+\s+){0,2}?(?:return|move|momentum)\b.{0,120}?(?:predict\w*|continu\w*|"
-            r"same\s+direction|direction\s+of)" % _FIRST_WINDOW]},
+            r"%s(?:['\u2019]s?)?\s+(?:(?!gap\b)\w+\s+){0,2}?(?:return|move|momentum|displacement|change)\b.{0,160}?"
+            r"(?:predict\w*|continu\w*|persist\w*|same\s+direction|(?:direction|sign)\s+of)" % _MORNING_WIN,
+            # the morning quantity, then an entry in ITS sign (QL_TRENDN: 'the first-hour close displacement (close[11]
+            # - open[0]) ... displacement > 0, go long'; '09:30-10:30 return is larger than 0.5% buy')
+            r"%s(?:['\u2019]s?)?[\s\-]+(?:close[\s\-]+)?(?:displacement|return|move|change|drift)\b.{0,200}?%s"
+            % (_MORNING_WIN, _SAME_SIGN_ENTRY)]},
     {"family": "OPEN_DRIVE", "label": "open drive / momentum drive from the open",
      "name_rx": [r"open\s*drive|\bmom\w*\s*drive"],
      "rx": [r"open(?:ing)?[\s\-]*drive|\bmom(?:entum)?[\s\-]*drive|drive[\s\-]+(?:from|off)[\s\-]+the[\s\-]+open"]},
     {"family": "GAMMA", "label": "gamma exposure / GEX / dealer gamma (closed for the lab, MANAGER #142)",
      "name_rx": [], "rx": [LAB_DEAD[0]["rx"]]},
     {"family": "TURN_OF_MONTH", "label": "turn-of-the-month / month-end calendar",
-     "name_rx": [r"\btom\b|turn\s*of\s*(?:the\s*)?month|month\s*(?:end|start|turn)"],
+     "name_rx": [r"\btom\b(?![\s_]*demark)|turn\s*of\s*(?:the\s*)?month|month\s*(?:end|start|turn)"],
      "rx": [r"turn[\s\-]*of[\s\-]*(?:the[\s\-]*)?month|\bmonth[\s\-]*(?:end|start)\b",
             r"\b(?:end|start)[\s\-]+of[\s\-]+(?:the[\s\-]+|each[\s\-]+|every[\s\-]+|a[\s\-]+)?(?:calendar[\s\-]+)?"
             r"month\b",
             r"\b(?:last|first)[\s\-]+(?:(?:\d+|one|two|three|four|five)[\s\-]+)?(?:trading[\s\-]+)?(?:days?|sessions?)"
             r"[\s\-]+(?:of|in)[\s\-]+(?:the|each|every|a)[\s\-]+(?:new[\s\-]+)?(?:calendar[\s\-]+)?month\b"]},
 ]
-# generic fallback: Jaccard of the mechanisms' content words (keywords() minus rule boilerplate). Calibrated 10-16 on
-# the lab's real proposals: distinct ideas top out at 0.23 with 5 shared words (QL_ES_MOMBREAK vs QL_MOMDRIVE); a copy
-# is 1.0
+# generic fallback: Jaccard of the SIGNAL / ENTRY clauses' content words (signal_text - the stop / exit / target /
+# trailing clauses out - keywords() minus rule boilerplate), >= 0.45 with >= 6 shared words. Re-calibrated 10-16 on
+# the lab's 11 real proposals: distinct pairs top out at 0.17 (QL_GAMMA_MOM vs QL_MOMDRIVE); a copy with a reworded
+# parameter is 1.0 (QL_TPT_NQ, 9 shared words); the lab's real REWORDED repeat (QL_TRENDN of QL_ES_MOMBREAK) shares
+# only 3 signal words (0.27) - the OPENING_RANGE family catches it, a word count cannot; a new signal that re-uses a run
+# idea's stop sentence (an inside-bar breakout with QL_MOMDRIVE's chandelier stop: 0.69 on the whole text) is 0.25 with
+# 2 shared words once the risk clauses are out
 DEDUPE_JACCARD, DEDUPE_MIN_SHARED = 0.45, 6
 _DEDUPE_BOILERPLATE = set("""
 compute computed enter entered flat books book gap-through intrabar whose max min away favor favour hit proxy since
 t0930-t1600 t0930 t1600 regular-hours regular contract contracts one per checked check fill fills filled bar's
 session's default otherwise else either above below greater less equal than wins win loss losses side sides
+chandelier chandelier-style highest lowest longs shorts plus minus trailing trail breakeven ratchet ratchets
 """.split())
 RAN_LIST_MAX = 25                                                # run ideas LISTED to Qwen (~300 chars each)
 
 
 def norm_idea_name(name):
-    """'QL_VWAPREVERT_NQ' -> 'VWAPREVERT': QL_ prefix, instrument / timeframe / version tokens and underscores out."""
+    """'QL_VWAPREVERT_NQ' -> 'VWAPREVERT': QL_ prefix, instrument / timeframe / version tokens and underscores out -
+    also as a token's SUFFIX ('NOISE2M' -> 'NOISE', 'TRENDV2' -> 'TREND', 'VWAPNQ' -> 'VWAP'), so 'QL_NOISE2M_TREND'
+    and 'QL_NOISE_2M_TREND' are one name."""
     toks = [t for t in re.split(r"[\W_]+", str(name or "").upper()) if t]
     if toks and toks[0] == "QL":
         toks = toks[1:]
-    keep = [t for t in toks if t not in ("NQ", "ES", "MNQ", "MES", "RTH")
+    keep = [re.sub(r"(?<=[A-Z])(?:\d+M|V\d+|M?NQ)$", "", t) for t in toks if t not in ("NQ", "ES", "MNQ", "MES", "RTH")
             and not re.fullmatch(r"V\d+|R\d+|\d+|\d+M", t)]
-    return "".join(keep or toks)
+    return "".join(keep) or "".join(toks)
 
 
 def _name_text(name):
@@ -822,26 +890,93 @@ def _name_text(name):
     return re.sub(r"[_\W]+", " ", re.sub(r"(?i)^ql_", "", str(name or ""))).lower().strip()
 
 
-def _family_text(name, mechanism):
-    return "%s | %s" % (_name_text(name), re.sub(r"\s+", " ", str(mechanism or "")).lower())
+# a FILTER / NEGATED clause around a family phrase: 'No entries in the first hour', 'skip days where ...', 'do not
+# trade on the last 2 days of the month', 'avoid fading', 'the first 6 bars are warm-up'
+_NEG_CTX_RX = re.compile(r"\b(?:not|never|avoid\w*|skip\w*|ignor\w*|exclud\w*|except|unless|without|don\W?t|"
+                         r"warm[\s\-]*up|no\s+(?:new\s+)?(?:entr\w*|trad\w*|signals?|positions?|longs?|shorts?))\b")
+# an EXIT clause: 'exit when price reverts to VWAP' is how a VWAP-trend rule exits, not a VWAP fade
+_EXIT_CTX_RX = re.compile(r"\b(?:exit\w*|stop\w*|cover\w*|flat|liquidat\w*)\b")
+_CLAUSE_END_RX = re.compile(r"[;:!?\n,()]|\.(?!\d)")
+
+
+def _context_before(text, pos, words=6):
+    """The last `words` words of the clause before `pos` (a match's own clause: 'No entries in the first hour.' does
+    not reach into the next sentence; a decimal point is not a clause end)."""
+    head = text[:pos]
+    cut = 0
+    for m in _CLAUSE_END_RX.finditer(head):
+        cut = m.end()
+    return " ".join(head[cut:].split()[-words:])
+
+
+def _family_hit(rx, text, exit_ctx=False):
+    """The first match of `rx` in `text` that is not a passing mention - no negation / filter word in the clause before
+    it (and with exit_ctx, no exit / stop word either). Every start position is tried, so a rejected match never hides
+    a later real one."""
+    p = re.compile(rx, re.S)
+    pos = 0
+    while pos <= len(text):
+        m = p.search(text, pos)
+        if not m:
+            return None
+        ctx = _context_before(text, m.start())
+        if not _NEG_CTX_RX.search(ctx) and not (exit_ctx and _EXIT_CTX_RX.search(ctx)):
+            return m
+        pos = m.start() + 1
+    return None
 
 
 def idea_families(name, mechanism):
-    """{family: the phrase that put the idea in it} - the name (name_rx + rx) and the mechanism (rx) only, never the
-    hypothesis (see IDEA_FAMILIES)."""
-    nm, txt = _name_text(name), _family_text(name, mechanism)
+    """{family: the phrase that put the idea in it} - the name (name_rx, rx) and the mechanism (rx), each on its own,
+    never the hypothesis (see IDEA_FAMILIES)."""
+    nm = _name_text(name)
+    mech = re.sub(r"\s+", " ", str(mechanism or "")).lower()
     out = {}
     for fam in IDEA_FAMILIES:
-        for rx, where in [(r, nm) for r in fam.get("name_rx") or []] + [(r, txt) for r in fam["rx"]]:
-            m = re.search(rx, where, re.S)
-            if m:
-                out[fam["family"]] = m.group(0)[:80]
+        hit = next((m for m in (re.search(rx, nm) for rx in fam.get("name_rx") or []) if m), None)
+        for item in ([] if hit else fam["rx"]):
+            rx, opts = item if isinstance(item, tuple) else (item, {})
+            hit = _family_hit(rx, nm, **opts) or _family_hit(rx, mech, **opts)
+            if hit:
                 break
+        if hit:
+            out[fam["family"]] = hit.group(0)[:80]
     return out
 
 
+# the near-copy overlap reads the SIGNAL and ENTRY only: a stop / exit / target / trailing / one-trade clause is the
+# risk boilerplate Qwen re-uses from earlier lab proposals (an inside-bar breakout that copies QL_MOMDRIVE's chandelier
+# stop sentence is a new signal)
+_RISK_CLAUSE_RX = re.compile(r"^\W*(?:stop\w*|exits?\b|exiting|target\w*|take[\s\-]*profits?|trail\w*|risk\w*|flat\b|"
+                             r"cover\w*|one\s+trade|max(?:imum)?\s+one|time[\s\-]*stops?|after\s+(?:the\s+)?(?:entry|"
+                             r"fill)|then\s+(?:exit|flat))", re.I)
+
+
+def _clauses(text):
+    """The sentences / ';' parts of a rule, split OUTSIDE parentheses (a decimal point is not a sentence end)."""
+    s = str(text or "")
+    out, cur, depth = [], [], 0
+    for i, ch in enumerate(s):
+        if ch in "([{":
+            depth += 1
+        elif ch in ")]}":
+            depth = max(0, depth - 1)
+        cur.append(ch)
+        if depth == 0 and (ch in ";\n" or (ch == "." and (i + 1 >= len(s) or s[i + 1].isspace()))):
+            out.append("".join(cur).strip())
+            cur = []
+    out.append("".join(cur).strip())
+    return [c for c in out if c]
+
+
+def signal_text(mechanism):
+    """The mechanism without its risk clauses (stop, exit, target, trailing, flat, one trade a session)."""
+    keep = [c for c in _clauses(mechanism) if not _RISK_CLAUSE_RX.match(c)]
+    return " ".join(keep) if keep else str(mechanism or "")
+
+
 def _mech_words(mechanism):
-    return {w for w in keywords(mechanism) if w not in _DEDUPE_BOILERPLATE}
+    return {w for w in keywords(signal_text(mechanism)) if w not in _DEDUPE_BOILERPLATE}
 
 
 def _one_line(s, n):
@@ -849,48 +984,81 @@ def _one_line(s, n):
     return s if len(s) <= n else s[:n].rsplit(" ", 1)[0] + " ..."
 
 
+# outcomes that are NOT a verdict on the idea (MANAGER #139: a broken plugin is a bug; an operator abort tested nothing):
+# such a run still blocks its NAME (plugin files are keyed by name) but not its mechanism family / rule
+_NOT_A_VERDICT_RX = re.compile(r"^\s*(?:BROKEN PLUGIN|ABORTED)\b", re.I)
+
+
 def ran_ideas(lab, exclude=None):
-    """Every idea the lab has already RUN (state.json done_ideas + aborted_ideas, read from their idea folders), one
-    entry per normalised name, oldest first: name, source, runs, one-line mechanism, verdict, families. An idea with no
-    accepted proposal (aborted before it proposed) is not an idea yet and is left out. ALL of them are checked by
-    propose(); only the latest RAN_LIST_MAX are listed to Qwen. Read only - no folder is created."""
+    """Every idea the lab has already RUN (state.json done_ideas + aborted_ideas, read from their idea folders, plus any
+    CLOSED idea folder that state.json never recorded - a run killed between the close and its bookkeeping), one entry
+    per normalised name, oldest first: name, source, runs, one-line mechanism, verdict, families, the shelf papers it
+    came from, and retry_ok (every run was a BROKEN PLUGIN or an abort - not a verdict). An idea with no accepted
+    proposal (aborted before it proposed) is not an idea yet and is left out. ALL of them are checked by propose();
+    only the latest RAN_LIST_MAX are listed to Qwen. Read only - no folder is created."""
     out, by = [], {}
     st = lab.state or {}
-    for rec in list(st.get("done_ideas") or []) + list(st.get("aborted_ideas") or []):
-        iid = (rec or {}).get("id")
+    recs = [dict(r or {}) for r in list(st.get("done_ideas") or []) + list(st.get("aborted_ideas") or [])]
+    seen = {str(r.get("id")) for r in recs}
+    try:
+        folders = sorted(d for d in os.listdir(os.path.join(lab.home, "ideas")) if d not in seen)
+    except OSError:
+        folders = []
+    recs += [{"id": d, "_folder": True} for d in folders]
+    for rec in recs:
+        iid = rec.get("id")
         if not iid or iid == exclude:
             continue
         idea = jload(os.path.join(lab.home, "ideas", str(iid), "idea.json"), None) or {}
+        if rec.get("_folder") and idea.get("status") != "closed":
+            continue                                             # the idea in flight (or an empty folder)
         pr = idea.get("proposal") or {}
         name = pr.get("name")
         if not name:
             continue
         key = norm_idea_name(name)
-        verdict = _one_line(rec.get("outcome") or idea.get("outcome") or "-", 110)
+        outcome = str(rec.get("outcome") or idea.get("outcome") or "-")
+        verdict = _one_line(outcome, 110)
+        is_verdict = not _NOT_A_VERDICT_RX.match(outcome)
+        shelf_n = idea.get("shelf_n") if idea.get("shelf_n") is not None else rec.get("shelf_n")
         if key in by:
             e = by[key]
             e["runs"] += 1
             e["ids"].append(iid)
             e["verdict"] = verdict                               # the latest run's verdict
+            e["verdict_runs"] += int(is_verdict)
+            e["retry_ok"] = e["verdict_runs"] == 0
             e["families"] = sorted(set(e["families"]) | set(idea_families(name, pr.get("mechanism"))))
+            if shelf_n is not None and int(shelf_n) not in e["shelf_ns"]:
+                e["shelf_ns"].append(int(shelf_n))
             if str(pr.get("mechanism") or "") not in e["_mechs"]:
                 e["_mechs"].append(str(pr.get("mechanism") or ""))
             continue
         e = {"name": name, "norm": key, "source": idea.get("source") or rec.get("source") or "shelf", "runs": 1,
              "ids": [iid], "mechanism": _one_line(pr.get("mechanism"), 170), "verdict": verdict,
-             "families": sorted(idea_families(name, pr.get("mechanism"))), "_mechs": [str(pr.get("mechanism") or "")]}
+             "families": sorted(idea_families(name, pr.get("mechanism"))), "_mechs": [str(pr.get("mechanism") or "")],
+             "verdict_runs": int(is_verdict), "retry_ok": not is_verdict,
+             "shelf_ns": [int(shelf_n)] if shelf_n is not None else []}
         by[key] = e
         out.append(e)
     return out
+
+
+def families_taken(ran):
+    """The mechanism families of the run ideas that got a verdict (a BROKEN PLUGIN / aborted run leaves its family
+    open to a retry under a new name)."""
+    return sorted({f for r in ran or [] if not r.get("retry_ok") for f in r["families"]})
 
 
 def ran_ideas_brief(ran, limit=RAN_LIST_MAX):
     """One line per run idea, for Qwen (name, families, source, runs, mechanism, verdict) - the latest `limit`, with a
     count of the older ones (propose() checks every one)."""
     shown = list(ran or [])[-limit:] if limit else list(ran or [])
-    out = ["%s%s (%s%s): %s -> %s" % (r["name"], (" [%s]" % ", ".join(r["families"])) if r["families"] else "",
-                                      r["source"], (", ran %dx" % r["runs"]) if r["runs"] > 1 else "",
-                                      r["mechanism"], r["verdict"]) for r in shown]
+    out = ["%s%s (%s%s): %s -> %s%s" % (r["name"], (" [%s]" % ", ".join(r["families"])) if r["families"] else "",
+                                        r["source"], (", ran %dx" % r["runs"]) if r["runs"] > 1 else "",
+                                        r["mechanism"], r["verdict"],
+                                        " (NOT a verdict on the idea: its mechanism may be retried under a NEW name)"
+                                        if r.get("retry_ok") else "") for r in shown]
     if len(ran or []) > len(shown):
         out.append("... and %d older ideas (not listed; propose() checks them too)" % (len(ran) - len(shown)))
     return out
@@ -900,17 +1068,23 @@ def family_map_brief():
     return {f["family"]: f["label"] for f in IDEA_FAMILIES}
 
 
-def dedupe_check(name, mechanism, ran):
+def dedupe_check(name, mechanism, ran, reopened_shelf=None):
     """MANAGER #148: refuse a proposal that repeats an idea the lab already ran - same normalised name, same mechanism
-    family, or a near copy of a run idea's mechanism (word overlap). Returns {refused, reason, matches[], families}."""
+    family, or a near copy of a run idea's signal / entry rule (word overlap). The NAME check covers every run idea;
+    the family and overlap checks skip a run that was no verdict (BROKEN PLUGIN / aborted - MANAGER #139) and, for a
+    session on a shelf paper MANAGER RE-OPENED after the lab ran it (`reopened_shelf`), that paper's own earlier runs.
+    Returns {refused, reason, matches[], families, retry_allowed[]}."""
     key = norm_idea_name(name)
     fams = idea_families(name, mechanism)
     words = _mech_words(mechanism)
-    matches = []
+    matches, retry = [], []
     for r in ran or []:
         if r["norm"] == key:
             matches.append({"why": "name", "idea": r["name"], "verdict": r["verdict"],
                             "detail": "normalised name %s" % key})
+            continue
+        if r.get("retry_ok") or (reopened_shelf is not None and int(reopened_shelf) in (r.get("shelf_ns") or [])):
+            retry.append(r["name"])
             continue
         common = sorted(set(fams) & set(r["families"]))
         if common:
@@ -932,14 +1106,17 @@ def dedupe_check(name, mechanism, ran):
                             "detail": "%.0f%% word overlap with its mechanism (%s)"
                                       % (100 * jac, ", ".join(sorted(shared)[:10]))})
     if not matches:
-        return {"refused": False, "families": sorted(fams), "matches": [],
-                "reason": "not a repeat of the %d idea%s the lab already ran" % (len(ran or []),
-                                                                                "" if len(ran or []) == 1 else "s")}
+        return {"refused": False, "families": sorted(fams), "matches": [], "retry_allowed": retry,
+                "reason": "not a repeat of the %d idea%s the lab already ran%s"
+                          % (len(ran or []), "" if len(ran or []) == 1 else "s",
+                             (" (mechanism retry allowed after %s: no verdict, or a shelf paper MANAGER re-opened)"
+                              % ", ".join(retry)) if retry else "")}
     m = matches[0]
     reason = ("the lab already ran %s (%s) - %s" % (m["idea"], m["verdict"], m["detail"]) if m["why"] != "name" else
               "the lab already ran an idea named %s (%s) - a repeat under the same name is refused" % (m["idea"],
                                                                                                     m["verdict"]))
-    return {"refused": True, "reason": reason, "matches": matches[:5], "families": sorted(fams)}
+    return {"refused": True, "reason": reason, "matches": matches[:5], "families": sorted(fams),
+            "retry_allowed": retry}
 
 
 # ---- the bar-index convention (TTM #145) and the first-signal-bar contract (TTM #144)
@@ -1035,10 +1212,27 @@ def bar_convention_notes(text, tf):
     return out[:4]
 
 
-def first_bar_violations(trades, day_id, index=None, first_bar=0, limit=8):
-    """Entries that FILL before the pre-registered first_signal_bar (TTM #144). The in-session index is the plugin's
-    own: the entry bar minus the first bar of its session (day_id). Returns {n, checked, earliest_session_bar,
-    first_signal_bar, examples[]}."""
+def session_bar_index(e, start, index=None, tf=None):
+    """The in-session index of bar e BY THE CLOCK (the convention: bar k opens at 09:30 + k x bar minutes), so a session
+    with missing bars (1m / 2m holidays: 2015-02-16 10:30 is the 59th bar, yet bar 60 by the clock) keeps the prompt's
+    numbering. Falls back to the position in the session (e - start) without timestamps / timeframe, or for a stamp
+    outside the regular session."""
+    pos = int(e) - int(start)
+    if index is None or not tf:
+        return pos
+    try:
+        ts = index[int(e)]
+        k = (int(ts.hour) * 60 + int(ts.minute) - RTH_OPEN_MIN) // tf_minutes(tf)
+    except (AttributeError, TypeError, ValueError, IndexError):
+        return pos
+    return int(k) if 0 <= k < bars_per_session(tf) else pos
+
+
+def first_bar_violations(trades, day_id, index=None, first_bar=0, limit=8, tf=None):
+    """Entries that FILL before the pre-registered first_signal_bar (TTM #144). The in-session index is read from the
+    entry bar's OPEN clock (session_bar_index - the prompt's convention); without timestamps / timeframe it is the
+    entry bar minus the first bar of its session (day_id). Returns {n, checked, earliest_session_bar,
+    first_signal_bar, index_by, examples[]}."""
     import numpy as np
     did = np.asarray(day_id)
     n = len(did)
@@ -1049,14 +1243,16 @@ def first_bar_violations(trades, day_id, index=None, first_bar=0, limit=8):
         if not (0 <= e < n):
             continue
         checked += 1
-        k = e - int(starts[np.searchsorted(starts, e, side="right") - 1])
+        start = int(starts[np.searchsorted(starts, e, side="right") - 1])
+        k = session_bar_index(e, start, index, tf)
         earliest = k if earliest is None else min(earliest, k)
         if k < int(first_bar):
             bad.append({"entry_bar": e, "session_bar": int(k),
                         "time": str(index[e])[:16] if index is not None else None,
-                        "side": int(t[3]) if len(t) > 3 and t[3] is not None else None})
+                        "side": int(t[3]) if len(t) > 3 and t[3] is not None else None,
+                        **({"position_in_session": e - start} if e - start != k else {})})
     return {"n": len(bad), "checked": checked, "earliest_session_bar": earliest, "first_signal_bar": int(first_bar),
-            "examples": bad[:limit]}
+            "index_by": "clock" if (index is not None and tf) else "position", "examples": bad[:limit]}
 
 
 # ------------------------------------------------------------------------------------------------ the SAFETY GATE
@@ -1518,9 +1714,12 @@ def _sb_contract(mod, src, req, out):
     # TTM #144: the FIRST-SIGNAL-BAR contract - no entry may fill before the pre-registered in-session bar (defaults:
     # a hard failure with the offending entries; a knob corner that moves it is a warning)
     fsb = req.get("first_signal_bar")
+    tf_req = req.get("timeframe")
     if fsb is not None:
-        v = first_bar_violations(_sb_norm_trades(r if isinstance(r, dict) else None), A["day_id"], A["index"], int(fsb))
-        out["first_signal_bar"] = {k: v[k] for k in ("first_signal_bar", "checked", "n", "earliest_session_bar")}
+        v = first_bar_violations(_sb_norm_trades(r if isinstance(r, dict) else None), A["day_id"], A["index"], int(fsb),
+                                 tf=tf_req)
+        out["first_signal_bar"] = {k: v[k] for k in ("first_signal_bar", "checked", "n", "earliest_session_bar",
+                                                     "index_by")}
         if v["n"]:
             out["first_signal_bar_violations"] = v["examples"]
             problems.append("FIRST-SIGNAL-BAR CONTRACT (TTM #144): %d of %d smoke entries (%s..%s, default knobs) fill "
@@ -1528,8 +1727,10 @@ def _sb_contract(mod, src, req, out):
                             "e.g. %s" % (v["n"], v["checked"], DATA_FROM, smoke_to, int(fsb), v["earliest_session_bar"],
                                          "; ".join("%s session bar %d" % (x["time"], x["session_bar"])
                                                    for x in v["examples"][:3])))
-    # every ranged knob at its min and its max (the validate will search there)
-    corners = []
+    # every ranged knob at its min and its max (the validate will search there). TTM #144: the first-signal-bar contract
+    # holds for the SEARCHED rule too - a knob value that fills before first_signal_bar is a hard failure (the validate
+    # would pick it), not a warning
+    corners, fsb_corners, fsb_corner_bad = [], [], []
     for k in ranged[:8]:
         for end in ("min", "max"):
             p2 = dict(params)
@@ -1541,15 +1742,27 @@ def _sb_contract(mod, src, req, out):
                 corners.append("%s=%s: %d trades" % (k, p2[k], len((rr or {}).get("trades") or [])))
                 if fsb is not None:
                     vc = first_bar_violations(_sb_norm_trades(rr if isinstance(rr, dict) else None), A["day_id"],
-                                              None, int(fsb))
+                                              A["index"], int(fsb), limit=2, tf=tf_req)
+                    fsb_corners.append({"knob": k, "value": p2[k], "checked": vc["checked"], "n": vc["n"],
+                                        "earliest_session_bar": vc["earliest_session_bar"]})
                     if vc["n"]:
-                        warns.append("%s=%s: %d entries fill before first_signal_bar %d (earliest bar %s) - the "
-                                     "pre-registered bar is for the DEFAULT knobs; fine only if this knob moves it"
-                                     % (k, p2[k], vc["n"], int(fsb), vc["earliest_session_bar"]))
+                        fsb_corner_bad.append({"knob": k, "value": p2[k], "n": vc["n"], "checked": vc["checked"],
+                                               "earliest_session_bar": vc["earliest_session_bar"],
+                                               "examples": vc["examples"]})
             except Exception as e:                               # noqa: BLE001
                 problems.append("crashes with %s=%s (the validate searches there): %s: %s"
                                 % (k, p2[k], type(e).__name__, str(e)[:160]))
     out["corners"] = corners
+    if fsb is not None:
+        out["first_signal_bar_corners"] = fsb_corners
+    if fsb_corner_bad:
+        out["first_signal_bar_corner_violations"] = fsb_corner_bad
+        problems.append("FIRST-SIGNAL-BAR CONTRACT (TTM #144) at the knob values the Auto-Validate searches: %s - the "
+                        "pre-registered first_signal_bar %d must hold for EVERY searched value (narrow the knob's "
+                        "range, or pre-register the earliest bar a searched value can fill on)"
+                        % ("; ".join("%s=%s: %d of %d smoke entries before it (earliest at bar %s)"
+                                     % (b["knob"], b["value"], b["n"], b["checked"], b["earliest_session_bar"])
+                                     for b in fsb_corner_bad[:4]), int(fsb)))
     out.update(ok=not problems, problems=problems[:20], warnings=warns)
 
 
@@ -1613,101 +1826,171 @@ def _sb_widen(A, k, px, amp, vmed, phase, lo_w, hi_w):
     return B
 
 
-def _sb_push(A, f, side, which, d, later=None):
-    """Bar f's ADVERSE extreme (a long's low, a short's high) or its FAVOURABLE extreme pushed d points further. With
-    later=(amp, vmed) every bar AFTER f is replaced too (the _sb_perturb pattern around bar f's close); otherwise every
-    other value of every bar is unchanged. Returns (arrays, 'low' | 'high')."""
+def _sb_push(A, f, side, which, d, later=None, close_q=None, vol=None, keep=None):
+    """Bar f re-drawn as a ONE-WAY bar from its (unchanged) open. which='adverse': it trades only AGAINST the position -
+    the adverse extreme (a long's low, a short's high) pushed d points beyond its own, the other extreme pulled in to
+    the open; 'favourable': only WITH it, mirrored. So only the levels on the pushed side can be crossed on bar f (a
+    stop-first / target-first order never flips the exit between two pushes). `keep` (an intrabar entry's fill price on
+    bar f) stays inside the bar. close_q puts bar f's close that fraction of the way from the open to the pushed
+    extreme, vol sets bar f's volume (bar f's close and volume did not exist at the fill either). With later=(amp, vmed)
+    every bar AFTER f is replaced too (the _sb_perturb pattern around bar f's new close). Returns (arrays, 'low' |
+    'high')."""
     import numpy as np
-    B = _sb_perturb(A, f, "close", None, later[0], later[1], 1.0) if later else A
-    H = np.array(B["high"], dtype=float, copy=True)
-    L = np.array(B["low"], dtype=float, copy=True)
+    H = np.array(A["high"], dtype=float, copy=True)
+    L = np.array(A["low"], dtype=float, copy=True)
+    C = np.array(A["close"], dtype=float, copy=True)
+    o = float(A["open"][f])
     lower = (which == "adverse") == (side > 0)
     if lower:
-        L[f] = L[f] - d
+        L[f] = float(A["low"][f]) - d
+        H[f] = max(o, keep) if keep is not None else o
+        ext = L[f]
     else:
-        H[f] = H[f] + d
-    return dict(B, high=H, low=L), ("low" if lower else "high")
+        H[f] = float(A["high"][f]) + d
+        L[f] = min(o, keep) if keep is not None else o
+        ext = H[f]
+    if close_q is not None:
+        C[f] = o + float(close_q) * (ext - o)
+    B = dict(A, high=H, low=L, close=C)
+    if vol is not None and A.get("volume") is not None:
+        V = np.array(A["volume"], dtype=float, copy=True)
+        V[f] = float(vol)
+        B["volume"] = V
+    if later:
+        B = _sb_perturb(B, f, "close", None, later[0], later[1], 1.0)
+    return B, ("low" if lower else "high")
 
 
-# TTM #145 entry-bar inputs: the first bar at risk's extreme is pushed by these many median bar ranges. The second and
-# third pushes also replace every bar after it; the third runs only when the first did not reach the level (a wide
-# stop / target, e.g. one from a daily range).
+# TTM #145 entry-bar inputs: the first bar at risk is pushed by these many median bar ranges (a third depth runs only
+# when the first two settle nothing - a wide stop / target, e.g. one from a daily range); the deeper pushes also replace
+# every bar after it. Each push puts bar f's close at a different place (a fraction of the way from its open to the
+# pushed extreme) and sets a different volume (x the median), so a level / size that reads them moves too.
 ENTRY_BAR_PUSH = (10.0, 30.0, 90.0)
+ENTRY_BAR_CLOSE_Q = (0.15, 0.85, 0.5)
+ENTRY_BAR_VOL_X = (0.37, 1.9, 1.0)
 ENTRY_BAR_K = 6
+ENTRY_BAR_CORNER_KNOBS, ENTRY_BAR_CORNER_K = 4, 2       # the same phase at each ranged knob's min / max (2 trades each)
 
 
-def _sb_entry_bar_inputs(mod, A, params, root, tf, full, pick, amp, vmed=1000.0, k_max=ENTRY_BAR_K):
-    """TTM #145: a stop, target or size set at ENTRY may only use what existed at the fill. A plugin reports only
-    (entry, exit, pnl, side, price), so the levels and the size are read through the exit: for an entry filled at bar
-    e's OPEN the first bar at risk is f = e (its high / low did not exist at the fill); for a fill at bar e's CLOSE it is
-    f = e + 1 (an entry price equal to both the open and the close counts as a close fill - the lenient reading). Bar
-    f's adverse extreme (then its favourable one) is pushed ENTRY_BAR_PUSH median ranges further; the deeper pushes
-    also replace every bar after f. A level from information known at the fill is crossed by every push deep enough to
-    reach it and fills at the SAME price with the SAME size (P&L) each time, whatever the later bars are; a level or
-    size that reads bar f's own high / low (an ATR / range including the entry bar, a trailing extreme updated before
-    the check) or a bar after f (a centred / forward window) moves with the push. Conclusive when two consecutive
-    pushes both exit on bar f; inconclusive (no failure) otherwise - e.g. a stop that is never checked on bar f.
-    Returns (fails, checked, conclusive)."""
+def _sb_entry_bar_cands(A, full, pick):
+    """[(trade index, first bar at risk f, fill kind)] for the entry-bar phase: f = e for an entry filled at bar e's
+    OPEN or INSIDE bar e (a stop / limit level: only the open and the level existed at the fill), f = e + 1 for a fill
+    at bar e's CLOSE (an entry price equal to both the open and the close counts as a close fill - the lenient
+    reading); f must be in the same session and not after the exit."""
     import numpy as np
     did = np.asarray(A["day_id"]) if A.get("day_id") is not None else None
     n = len(A["close"])
-    cands = []
+    out = []
     for j in pick:
         e, x, pnl, side, px = full[j]
         if side not in (1, -1) or px is None:
             continue
         ke = _sb_kind(px, e, A)
-        if ke == "intrabar":                                     # an intrabar entry has the widen phases
-            continue
         if ke == "open" and abs(px - float(A["close"][e])) <= 1e-6 * max(1.0, abs(px)):
             ke = "close"                                         # open == close: ambiguous, read it as a close fill
-        f = e if ke == "open" else e + 1
+        f = e + 1 if ke == "close" else e
         if f >= n or f > x or (did is not None and did[f] != did[e]):
             continue
-        cands.append((j, f, ke))
+        out.append((j, f, ke))
+    return out
+
+
+def _sb_entry_bar_inputs(mod, A, params, root, tf, full, pick, amp, vmed=1000.0, k_max=ENTRY_BAR_K, tag=""):
+    """TTM #145: a stop, target or size set at ENTRY may only use what existed at the fill. A plugin reports only
+    (entry, exit, pnl, side, price), so the levels and the size are read through the exit, on the FIRST BAR AT RISK f
+    (_sb_entry_bar_cands: the fill bar for an open or intrabar fill, the next bar for a close fill). Bar f is re-drawn
+    one-way from its unchanged open (_sb_push): its adverse extreme (then its favourable one) pushed ENTRY_BAR_PUSH
+    median ranges, its close moved (ENTRY_BAR_CLOSE_Q) and its volume set (ENTRY_BAR_VOL_X) differently in each push;
+    the deeper pushes also replace every bar after f. A level known at the fill is crossed by every push deep enough to
+    reach it and fills at the SAME price with the SAME size (P&L) each time; a level or size that reads bar f's own
+    high / low / close / volume (an ATR / range / volatility including the entry bar, a trailing extreme updated before
+    the check, a stop anchored at the entry bar's close) or a bar after f (a centred / forward window) moves. Only EXITS
+    ON BAR f AT A LEVEL are compared (an exit at bar f's close may read that close). Conclusive when two pushes exit
+    there; a trade that exits there at a level on a push and not at all on bar f on the next, deeper push fails too.
+    No level exit on bar f = inconclusive (no failure): a rule with no stop / target on that bar - or a level that
+    scales with bar f's own range by >= 1x, which can never be crossed on bar f, so its trades equal those of a rule that
+    sets the level at bar f's close and checks it from the next bar (realisable). Returns (fails, checked, conclusive)."""
+    cands = _sb_entry_bar_cands(A, full, pick)
     fails, conclusive = [], 0
     for j, f, ke in cands[:k_max]:
         e, x, pnl, side, px = full[j]
-        head = "ENTRY-BAR INPUT at bar %d (%s fill %.4f), first bar at risk %d" % (e, ke, px, f)
-        failed, conc0 = False, conclusive
+        tol = 1e-6 * max(1.0, abs(px))
+        keep = px if ke == "intrabar" else None
+        head = "%sENTRY-BAR INPUT at bar %d (%s fill %.4f), first bar at risk %d" % (tag, e, ke, px, f)
+        failed, conc = False, False
         for which in ("adverse", "favourable"):
-            got = []                     # (depth, trade); a third depth runs only when the first did not exit on bar f
+            prev = None                                  # the last push whose trade exited on bar f at a level
             for i, mult in enumerate(ENTRY_BAR_PUSH):
-                B, ext = _sb_push(A, f, side, which, mult * amp, later=(amp, vmed) if i else None)
+                B, ext = _sb_push(A, f, side, which, mult * amp, later=(amp, vmed) if i else None,
+                                  close_q=ENTRY_BAR_CLOSE_Q[i], vol=vmed * ENTRY_BAR_VOL_X[i] + 1.0, keep=keep)
                 tr = _sb_direct(mod, B, params, root, tf)
-                u = next((u for u in tr if u[0] == e and u[3] == side
-                          and abs((u[4] or 0) - px) <= 1e-6 * max(1, abs(px))), None)
-                got.append((mult, u))
+                u = next((u for u in tr if u[0] == e and u[3] == side and abs((u[4] or 0) - px) <= tol), None)
+                what = "bar %d's %s was pushed %.0f median ranges further (its close / volume moved)%s" % (
+                    f, ext, mult, " and the bars after it were replaced" if i else "")
                 if u is None:
-                    fails.append("%s: the ENTRY itself changed when bar %d's %s was pushed %.0f median ranges further%s "
-                                 "(the entry may not read the first bar at risk%s)"
-                                 % (head, f, ext, mult, " and the bars after it were replaced" if i else "",
-                                    " or any later bar" if i else ""))
+                    fails.append("%s: the ENTRY itself changed when %s - the entry may not read the first bar at risk%s"
+                                 % (head, what, " or any later bar" if i else ""))
                     failed = True
                     break
-                if len(got) >= 2:
-                    (m1, u1), (m2, u2) = got[-2], got[-1]
-                    if u1[1] == f and u2[1] == f:
-                        conclusive += 1
-                        p1, p2 = float(u1[2]), float(u2[2])
+                xp = px + side * float(u[2])
+                at_level = u[1] == f and abs(xp - float(B["close"][f])) > 1e-6 * max(1.0, abs(xp))
+                if prev is not None:
+                    m1, u1 = prev
+                    if at_level:
+                        conc = True
+                        p1, p2 = float(u1[2]), float(u[2])
                         if abs(p1 - p2) > 1e-6 * max(1.0, abs(p1), abs(p2)):
-                            fails.append("%s: pushes of bar %d's %s by %.0f and %.0f median ranges both exit on bar %d, "
-                                         "but at %+.4f pt (exit %.4f) and %+.4f pt (exit %.4f) - the stop / target "
-                                         "level or the size moved with that bar's own %s (or a bar after it)"
-                                         % (head, f, ext, m1, m2, f, p1, px + side * p1, p2, px + side * p2, ext))
+                            fails.append("%s: pushes of bar %d's %s by %.0f and %.0f median ranges both exit on bar %d "
+                                         "at a level, but at %+.4f pt (exit %.4f) and %+.4f pt (exit %.4f) - the stop / "
+                                         "target level or the size moved with that bar's own high / low / close / "
+                                         "volume (or a bar after it)"
+                                         % (head, f, ext, m1, mult, f, p1, px + side * p1, p2, px + side * p2))
                             failed = True
                         break
-                    if u1[1] == f and u2[1] != f:
-                        conclusive += 1
-                        fails.append("%s: the trade exits on bar %d when its %s is pushed %.0f median ranges but NOT "
-                                     "when it is pushed %.0f - a level known at the fill is crossed at least as early "
-                                     "by the bigger push" % (head, f, ext, m1, m2))
+                    if u[1] != f:
+                        conc = True
+                        fails.append("%s: the trade exits on bar %d at a level when its %s is pushed %.0f median ranges "
+                                     "but NOT on bar %d when it is pushed %.0f - a level known at the fill is crossed at "
+                                     "least as early by the bigger push" % (head, f, ext, m1, f, mult))
                         failed = True
                         break
+                elif at_level:
+                    prev = (mult, u)
             if failed:
                 break
-        conclusive = conc0 + (conclusive > conc0)                # trades with at least one conclusive side
+        conclusive += int(conc)                                  # trades with at least one conclusive side
     return fails, len(cands[:k_max]), conclusive
+
+
+def _sb_entry_bar_corners(mod, A, params, root, tf, amp, vmed, k_per=ENTRY_BAR_CORNER_K,
+                          n_knobs=ENTRY_BAR_CORNER_KNOBS):
+    """The entry-bar phase at each RANGED numeric knob's min and max (the Auto-Validate searches there): a level that
+    scales with the entry bar's own range by a knob (stop = stop_frac x 1.5 x the entry bar's range) is >= 1x at the
+    default - never crossed on that bar, realisable - but < 1x at a searched corner, where it leaks. Returns (fails,
+    [{knob, value, trades, checked, conclusive}])."""
+    import numpy as np
+    dp = getattr(mod, "DEFAULT_PARAMS", None) or {}
+    fails, rows = [], []
+    knobs = [k for k, v in dp.items() if isinstance(v, dict) and v.get("type", "float") in ("int", "float")
+             and "min" in v and "max" in v and float(v["max"]) > float(v["min"])][:n_knobs]
+    for k in knobs:
+        for end in ("min", "max"):
+            val = dp[k][end]
+            val = int(val) if dp[k].get("type") == "int" else float(val)
+            if params.get(k) == val:
+                continue
+            p2 = dict(params, **{k: val})
+            full2 = _sb_direct(mod, A, p2, root, tf)
+            cands = _sb_entry_bar_cands(A, full2, range(len(full2)))
+            if not cands:
+                rows.append({"knob": k, "value": val, "trades": len(full2), "checked": 0, "conclusive": 0})
+                continue
+            pick = sorted({cands[int(q)][0] for q in np.linspace(0, len(cands) - 1, min(k_per, len(cands))).round()})
+            f2, n2, c2 = _sb_entry_bar_inputs(mod, A, p2, root, tf, full2, pick, amp, vmed, k_per,
+                                              tag="at %s=%s: " % (k, val))
+            rows.append({"knob": k, "value": val, "trades": len(full2), "checked": n2, "conclusive": c2})
+            fails += f2
+    return fails, rows
 
 
 def _sb_cross_side(px, k, A, side, what):
@@ -1837,16 +2120,27 @@ def _sb_lookahead(mod, src, req, out):
                         "bar k+1's open; an intrabar stop/limit may use the bar's high/low, never its close or volume."
                         % (len(fails), len(pick), "; ".join(fails[:3])))
     # (e) ENTRY-BAR INPUTS (TTM #145): the phases above check the entry tuple and each exit bar; a stop / target / size
-    # set at entry from the entry bar's own high / low (open fill) or from a bar after a close fill only showed when a
-    # sampled trade happened to exit on that bar. This phase forces the first bar at risk to hit the levels.
+    # set at entry from the entry bar's own high / low / close / volume (open or intrabar fill) or from a bar after a
+    # close fill only showed when a sampled trade happened to exit on that bar. This phase forces the first bar at risk
+    # to hit the levels - at the defaults, then at each ranged knob's min and max (the Auto-Validate searches there).
     eb_fails, eb_n, eb_conc = _sb_entry_bar_inputs(mod, A, params, root, tf, full, pick, amp, vmed,
                                                    int(req.get("eb_k", ENTRY_BAR_K)))
     out["entry_bar_checked"], out["entry_bar_conclusive"] = eb_n, eb_conc
+    if eb_n and not eb_conc:
+        warns.append("entry-bar inputs (TTM #145): none of the %d sampled trades exited on its first bar at risk at a "
+                     "price level under any push, so the stop / target levels on that bar were not exercised - fine "
+                     "for a rule with no stop or target on that bar" % eb_n)
+    if int(req.get("eb_k", ENTRY_BAR_K)) and int(req.get("eb_corner_knobs", ENTRY_BAR_CORNER_KNOBS)):
+        cf, rows = _sb_entry_bar_corners(mod, A, params, root, tf, amp, vmed,
+                                         n_knobs=int(req.get("eb_corner_knobs", ENTRY_BAR_CORNER_KNOBS)))
+        out["entry_bar_corners"] = rows
+        eb_fails += cf
     if eb_fails:
-        problems.append("LOOK-AHEAD (entry-bar inputs, TTM #145): %d of %d trades: %s. A stop, target or size set at "
+        problems.append("LOOK-AHEAD (entry-bar inputs, TTM #145): %d trades: %s. A stop, target or size set at "
                         "entry may use only what existed at the fill: bars <= k-1 and bar k's open for a fill at bar "
-                        "k's open; bars <= k for a fill at bar k's close." % (len(eb_fails), eb_n,
-                                                                               "; ".join(eb_fails[:2])))
+                        "k's open (never bar k's high / low / close / volume); bars <= k-1, bar k's open and the fill "
+                        "level for a stop / limit fill inside bar k; bars <= k for a fill at bar k's close."
+                        % (len(eb_fails), "; ".join(eb_fails[:2])))
     out.update(ok=not problems, problems=problems[:12], warnings=warns[:12], notes=notes)
 
 
@@ -2365,16 +2659,23 @@ _LA_WIDE_HINT = ("the fill at bar %d is an intrabar stop / limit whose LEVEL mov
 
 
 _LA_ENTRYBAR_HINT = {
-    "open": "the trade entered at bar %d's OPEN has a stop / target / size that moved with bar %d's own high / low (or "
-            "with a later bar) - which did not exist when it filled at that open. Usual cause: an ATR / range / "
-            "volatility window that INCLUDES the entry bar (a rolling window ending at k, tr[k] in the mean, "
-            "max(high[a:k+1])) used for a level checked on the entry bar, or for the size; or a centred / forward "
-            "window. Fix: build every level and the size from bars <= k-1 and bar k's open (atr[k-1], the range of "
-            "the bars BEFORE k); update trailing levels with bar k's high / low only AFTER bar k's stop / target check.",
-    "close": "the trade entered at bar %d's CLOSE has a stop / target / size that moved with bar %d's high / low (or "
-             "a later bar) - bars AFTER the fill. Usual cause: a centred or forward window (rolling(..., "
-             "center=True), shift(-1)), or a level computed from the next bar. Fix: levels and size from bars <= k at "
-             "a close fill; the first bar after the fill may only be checked against them.",
+    "open": "the trade entered at bar %d's OPEN has a stop / target / size that moved with bar %d's own high / low / "
+            "close / volume (or with a later bar) - which did not exist when it filled at that open. Usual cause: an "
+            "ATR / range / volatility window that INCLUDES the entry bar (a rolling window ending at k, tr[k] or "
+            "|c[k] - c[k-1]| in the mean, max(high[a:k+1])) used for a level checked on the entry bar, or for the "
+            "size; a stop anchored at c[k] instead of the entry price; or a centred / forward window. Fix: build every "
+            "level and the size from bars <= k-1 and bar k's open (atr[k-1], the range of the bars BEFORE k); update "
+            "trailing levels with bar k's high / low / close only AFTER bar k's stop / target check.",
+    "intrabar": "the trade entered INSIDE bar %d at a stop / limit level has a stop / target / size that moved with bar "
+                "%d's own high / low / close / volume - only the bar's open and the crossed level existed at that "
+                "fill. Usual cause: an ATR / range including the entry bar (h[k] - l[k] in the mean) for a stop "
+                "checked on the entry bar. Fix: levels and size from bars <= k-1, bar k's open and the entry level "
+                "(atr[k-1]).",
+    "close": "the trade entered at bar %d's CLOSE has a stop / target / size that moved with bar %d's high / low / "
+             "close / volume (or a later bar) - bars AFTER the fill. Usual cause: a centred or forward window "
+             "(rolling(..., center=True), shift(-1), c[k+1] in a volatility), or a level computed from the next bar. "
+             "Fix: levels and size from bars <= k at a close fill; the first bar after the fill may only be checked "
+             "against them.",
 }
 
 
@@ -2382,8 +2683,8 @@ def lookahead_hints(problems):
     """Concrete fix hints for the perturbation audit's findings (text only - no numbers)."""
     out = []
     for p in problems or []:
-        for m in re.finditer(r"ENTRY-BAR INPUT at bar (\d+) \((open|close) fill [-0-9.]+\), first bar at risk (\d+)",
-                             str(p)):
+        for m in re.finditer(r"ENTRY-BAR INPUT at bar (\d+) \((open|intrabar|close) fill [-0-9.]+\), first bar at "
+                             r"risk (\d+)", str(p)):
             h = _LA_ENTRYBAR_HINT[m.group(2)] % (int(m.group(1)), int(m.group(3)))
             if h not in out:
                 out.append(h)
@@ -2485,15 +2786,18 @@ def compose_prereg_post(idea, prereg):
     return ("%s: PREREG %s (%s) - %s %s RTH, master %s (%s) pinned; TWO STAGES (MANAGER #134): PRE-WF %s..%s "
             "(pre-walk-forward rows only, file defaults, no tuning), then the WF Stage A %s..%s ONLY if pre-WF "
             "ROC@30k >= %.0f and not one episode; lockbox %s..%s never read (asserted); cost %s pt x $%s. Stated "
-            "pre-data prior (Qwen's input, not a result): Sharpe %s, %s trades/yr (map used %s/yr); first entry %s "
-            "(pre-registered, checked on every PRE-WF entry - TTM #144). Map (python, "
+            "pre-data prior (Qwen's input, not a result): Sharpe %s, %s trades/yr (map used %s/yr); first entry %s. "
+            "Map (python, "
             "mapcheck_f, recorded - no longer a stop): own WF ROC median %s, P(>=15) %s, P(lift #463) %s -> %s. "
             "Plugin %s LF sha256 %s; harness tools/qwen_lab.py LF sha256 %s; prereg %s sha256 %s. Each stage re-checks "
             "both hashes. Replies -> %s."
             % (TAG, _safe_name(pr["name"]), source_ref(idea), pr["instrument"], pr["timeframe"], prereg["master"],
                prereg["source"], PREWF0, PREWF1, WF0, WF1, PROMOTE_ROC, LB0, LB1, prereg["cost_pts"],
                int(prereg["mult"]), pr["prior_sharpe_yearly"], pr["trades_per_year"], (mp.get("prior") or {}).get("n"),
-               (pr.get("first_signal_bar") or {}).get("label") or "not stated", mp["own_wf_roc_median"],
+               ("%s (pre-registered%s; checked on every PRE-WF entry - TTM #144)"
+                % (pr["first_signal_bar"]["label"], ", amended" if pr.get("first_signal_bar_amended_at") else "")
+                if (pr.get("first_signal_bar") or {}).get("label") else "not stated - not checked"),
+               mp["own_wf_roc_median"],
                mp["p_own_roc_ge_15"], mp["p_lift_463"], mp["verdict"].split(" -")[0].split(" (")[0],
                os.path.basename(prereg["plugin_path"]), prereg["plugin_sha"], prereg["harness_sha"], prereg["path"],
                prereg["sha"], REPLY_TO))
@@ -2599,7 +2903,8 @@ def lanes_job_base():
         sys.path[:] = path
 
 
-def build_validate_job(name, strategy_ref, instrument, timeframe, plugin_sha, prereg_path, cost=None, mult=None):
+def build_validate_job(name, strategy_ref, instrument, timeframe, plugin_sha, prereg_path, cost=None, mult=None,
+                       first_signal_bar=None):
     pin = MASTERS[(instrument, timeframe)]
     if cost is None or mult is None:
         cost, mult = COSTS[instrument]
@@ -2612,9 +2917,12 @@ def build_validate_job(name, strategy_ref, instrument, timeframe, plugin_sha, pr
     job["note"] = ("%s AUTO-VALIDATE 900: %s (Qwen-written plugin, LF sha256 %s, reviewed onto main). Prereg %s. %s %s "
                    "RTH, source %s (master %s) pinned, window %s..%s, %d-month lockbox, 8 folds, warm_days 300, cost %s "
                    "pt x $%s, 900 trials (OWNER RULE). Queued by tools/qwen_lab.py; Stage A cleared the house bar "
-                   "(WF ROC@30k >= %.0f, not one episode, >= %d WF trades)."
+                   "(WF ROC@30k >= %.0f, not one episode, >= %d WF trades).%s"
                    % (TAG, name, plugin_sha, prereg_path, instrument, timeframe, pin["source"], pin["filename"],
-                      VALIDATE_FROM, VALIDATE_TO, VALIDATE_LB_MONTHS, cost, mult, VALIDATE_BAR_ROC, MIN_WF_TRADES))
+                      VALIDATE_FROM, VALIDATE_TO, VALIDATE_LB_MONTHS, cost, mult, VALIDATE_BAR_ROC, MIN_WF_TRADES,
+                      (" Pre-registered first entry %s: checked at the defaults and at every searched knob's min / max "
+                       "(TTM #144) - a chosen param set that fills earlier is not the pre-registered rule."
+                       % first_signal_bar) if first_signal_bar else ""))
     assert job["n_trials"] == 900
     return job
 
@@ -2675,7 +2983,8 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
         if rng <= 0:
             continue
         # in-session bar index = k - a (bar 0 = the 09:30 open). The first decision is on bar range_bars's close and
-        # the first fill at bar range_bars+1's open: bar 7 (10:05 open) on 5m bars = first_signal_bar index 7, "10:05"
+        # the first fill at bar range_bars+1's open: bar 7 (10:05 open) with the default 6 on 5m bars. range_bars is
+        # searched down to 3 (first fill bar 4 (09:50 open)), so first_signal_bar = {"index": 4, "clock": "09:50"}
         for k in range(a + rb, b - 2):          # decide on bar k's CLOSE
             side = 1 if c[k] > hi else (-1 if c[k] < lo else 0)
             if side == 0:
@@ -2739,12 +3048,16 @@ near copy of a run idea's rule (such a refusal uses no proposal slot) - propose 
 BAR INDEX CONVENTION - name bars ONE way everywhere (hypothesis, mechanism, first_signal_bar, code comments)
 - bar k = the 0-based IN-SESSION index: bar 0 is the first regular-hours bar (the 09:30 open). Always write it WITH \
 the clock time of that bar's OPEN: on 5m bars 'bar 12 (10:30 open)' is the bar from 10:30 to 10:35; on 1m bars \
-'bar 12 (09:42 open)'. Bar k's close is bar k+1's open time: on 5m bars bar 11 closes at 10:30.
+'bar 12 (09:42 open)'. Bar k's close is bar k+1's open time: on 5m bars bar 11 closes at 10:30. The harness numbers \
+bars BY THE CLOCK (bar k opens at 09:30 + k x bar minutes), so on a session with missing bars the 10:30 bar is still \
+bar 60 on 1m bars.
 - For every entry and exit say whether it fills at a bar's OPEN or at its CLOSE, e.g. 'decide on bar 11's close \
 (10:30), enter at bar 12's open (10:30 open)'. The trade list records the FILL bar.
 - propose() needs first_signal_bar = {"index": k, "clock": "HH:MM"}: the earliest bar on which an entry may FILL, with \
-that bar's open time (the harness refuses a clock that is not bar k's open). The contract smoke and every PRE-WF \
-trade are checked: an entry that fills before it is a hard gate failure.
+that bar's open time (the harness refuses a clock that is not bar k's open), for the default knobs AND every knob \
+value the Auto-Validate searches (a knob that sets a warm-up or a range length moves the first fill: use its MIN). \
+The contract smoke (defaults and every knob's min and max) and every PRE-WF trade are checked: an entry that fills \
+before it is a hard gate failure.
 
 PLUGIN CONTRACT (the harness checks every point)
 - File = one Python module. Imports: numpy, pandas, math, and `from augur_engine.rolls import seam_days` - nothing else.
@@ -2765,9 +3078,11 @@ k+1's open. An intrabar stop/limit may use the bar's high/low, never its close o
 level, book the open (gap-through). Never use any bar after the fill bar to decide an entry, nor after the exit bar to \
 decide an exit; no whole-array statistics (full-series mean / percentile / max) - only trailing windows.
 - STOP / TARGET / SIZE at entry use only what was known at the fill: for a fill at bar k's open, bars <= k-1 and bar \
-k's open (atr[k-1] - never an ATR / range / volatility window that includes bar k); for a fill at bar k's close, bars \
-<= k. The audit pushes the first bar at risk's high / low further and requires the same exit price and size. Update a \
-trailing level with a bar's high / low only AFTER that bar's stop / target check.
+k's open (atr[k-1] - never an ATR / range / volatility window that includes bar k, nor bar k's close or volume); for \
+an intrabar stop / limit fill inside bar k, bars <= k-1, bar k's open and the fill level; for a fill at bar k's close, \
+bars <= k. The audit re-draws the first bar at risk (its high / low pushed further, its close and volume moved) and \
+requires the same exit price and size. Update a trailing level with a bar's high / low / close only AFTER that bar's \
+stop / target check.
 - Be flat by each session's last bar. Deterministic (no randomness).
 - Forbidden: print, open, file / network / OS access, eval / exec / compile, getattr / setattr / hasattr, globals, \
 classes, global statements, assigning attributes (x.y = ...), names or attributes with leading underscores or dunders, \
@@ -2808,9 +3123,10 @@ TOOLS = [
          "timeframe": {"type": "string", "enum": ["1m", "2m", "5m", "15m"],
                        "description": "bar size (default 5m; 2m is NQ only)"},
          "first_signal_bar": {"type": "object",
-                              "description": "the EARLIEST in-session bar on which an entry may FILL: 0-based index "
-                                             "(bar 0 = the 09:30 open) and the clock time of that bar's OPEN, e.g. "
-                                             "{\"index\": 12, \"clock\": \"10:30\"} on 5m bars. No entry may fill "
+                              "description": "the EARLIEST in-session bar on which an entry may FILL - with the "
+                                             "default knobs and every searched knob value: 0-based index (bar 0 = the "
+                                             "09:30 open, counted by the clock) and the clock time of that bar's OPEN, "
+                                             "e.g. {\"index\": 12, \"clock\": \"10:30\"} on 5m bars. No entry may fill "
                                              "before it (checked).",
                               "properties": {"index": {"type": "integer"}, "clock": {"type": "string"}},
                               "required": ["index", "clock"]}},
@@ -2853,12 +3169,12 @@ def ran_ideas_block(ran):
     """The 'already run' block of the idea prompt (MANAGER #148) - harness text built from state.json + idea folders."""
     if not ran:
         return ""
-    fams = sorted({f for r in ran for f in r["families"]})
+    fams = families_taken(ran)
     fm = family_map_brief()
     return ("\n\nIDEAS THE LAB HAS ALREADY RUN - do not propose any of them again. propose() refuses the same name, the "
-            "same mechanism family, or a near copy of the rule (no proposal slot used):\n- %s\nMechanism families "
-            "already taken: %s." % ("\n- ".join(ran_ideas_brief(ran)),
-                                    "; ".join("%s (%s)" % (f, fm.get(f, f)) for f in fams) or "none"))
+            "same mechanism family, or a near copy of the rule (no proposal slot used); a run that was NOT a verdict "
+            "(a broken plugin, an abort) blocks only its name:\n- %s\nMechanism families already taken: %s."
+            % ("\n- ".join(ran_ideas_brief(ran)), "; ".join("%s (%s)" % (f, fm.get(f, f)) for f in fams) or "none"))
 
 
 def idea_prompt(idea, max_steps, max_attempts, ran=None):
@@ -3039,12 +3355,44 @@ class IdeaSession:
                 "open_shelf_papers": ["#%s %s" % (p["n"], p["title"]) for p in open_shelf_papers(self.lab)],
                 "closed_for_the_lab": [d["family"] for d in LAB_DEAD],
                 "already_run": ran_ideas_brief(ran),                           # MANAGER #148
-                "families_taken": sorted({f for r in ran for f in r["families"]}),
+                "families_taken": families_taken(ran),
                 "family_map": family_map_brief(), "_cap": 10000}
+
+    def _reopened_shelf(self):
+        """The shelf paper of this session when the lab ran it before (closed_shelf) - MANAGER re-opened it, so its
+        own earlier runs do not block its mechanism (the name check still does)."""
+        n = self.idea.get("shelf_n")
+        if (self.idea.get("source") or "shelf") != "shelf" or n is None:
+            return None
+        return int(n) if str(int(n)) in (self.lab.state.get("closed_shelf") or {}) else None
+
+    def _amend_first_signal_bar(self, name, first_signal_bar):
+        """A FROZEN proposal from before TTM #144 (no first_signal_bar) records the bar and nothing else: the contract
+        (write_plugin again) and every PRE-WF entry are checked against it, and the prereg addendum names it."""
+        pr = self.idea["proposal"]
+        if self._name(name) != pr["name"]:
+            raise ToolRefused("the proposal is frozen (%s): call propose with ITS name to record first_signal_bar - the "
+                              "rest of the frozen proposal is kept" % pr["name"])
+        fsb = parse_first_signal_bar(first_signal_bar, pr["timeframe"])
+        pr["first_signal_bar"] = fsb
+        pr["first_signal_bar_amended_at"] = now_s()
+        self.idea["plugin"]["gates_ok"] = False                      # the contract must check the bar: re-gate
+        self.event("first_signal_bar_amended", first_signal_bar=fsb["label"])
+        return {"accepted": True, "amended": "first_signal_bar", "name": pr["name"],
+                "first_signal_bar": "%s on %s bars: no entry may FILL before it - checked by the contract and on every "
+                                    "PRE-WF trade" % (fsb["label"], pr["timeframe"]),
+                "note": "the frozen proposal is otherwise unchanged; the amendment is written into the prereg (or its "
+                        "addendum) before the next Stage A",
+                "next": "write_plugin(name, code) - the current gates check the bar - then run_stage_a(name)"}
 
     def t_propose(self, name, hypothesis, mechanism, prior_sharpe_yearly, trades_per_year, instrument,
                   timeframe="5m", first_signal_bar=None):
-        if self.idea.get("stage_pre_wf") or (self.idea.get("prereg") or {}).get("posted_id"):
+        prereg_posted = bool((self.idea.get("prereg") or {}).get("posted_id"))
+        cur = self.idea.get("proposal")
+        if (cur and (cur.get("first_signal_bar") or {}).get("index") is None and not self.idea.get("stage_pre_wf")
+                and (self.idea.get("map") or prereg_posted) and (not prereg_posted or self.idea.get("sanity_open"))):
+            return self._amend_first_signal_bar(name, first_signal_bar)       # TTM #144 on a frozen older proposal
+        if self.idea.get("stage_pre_wf") or prereg_posted:
             raise ToolRefused("the prereg is posted / Stage A ran - the pre-data proposal is frozen")
         if self.idea.get("map"):
             raise ToolRefused("the power-first map already read this session's proposal - it is frozen")
@@ -3070,7 +3418,7 @@ class IdeaSession:
         # MANAGER #148: an idea the lab already ran (same name, same mechanism family, or a near copy) is refused here,
         # BEFORE it takes a proposal slot - the reason goes back to Qwen with the list of run ideas
         ran = ran_ideas(self.lab, exclude=self.idea.get("id"))
-        dd = dedupe_check(name, mech, ran)
+        dd = dedupe_check(name, mech, ran, reopened_shelf=self._reopened_shelf())
         if dd["refused"]:
             self.idea.setdefault("dedupe_refusals", []).append({"at": now_s(), "name": name, "reason": dd["reason"],
                                                                 "matches": dd["matches"]})
@@ -3078,13 +3426,15 @@ class IdeaSession:
             return {"accepted": False, "gate": "already run (MANAGER #148)", "reason": dd["reason"],
                     "matches": dd["matches"], "proposal_slots_left": MAX_PROPOSALS - len(self.idea["proposals"]),
                     "already_run": ran_ideas_brief(ran),
-                    "families_taken": sorted({f for r in ran for f in r["families"]}),
+                    "families_taken": families_taken(ran),
                     "family_map": family_map_brief(),
                     "next": "propose a mechanism the lab has NOT run - outside every family taken above and not a "
                             "copy of a run idea's rule (this refusal used no proposal slot)", "_cap": 10000}
         prop = {"name": name, "hypothesis": hyp[:2000], "mechanism": mech[:2000], "prior_sharpe_yearly": s,
                 "trades_per_year": n, "instrument": inst, "timeframe": tf, "first_signal_bar": fsb,
-                "families": dd["families"], "at": now_s()}
+                "families": dd["families"], "at": now_s(),
+                "dedupe": {"reason": dd["reason"], "families": dd["families"], "retry_allowed": dd["retry_allowed"],
+                           "ideas_checked": len(ran), "at": now_s()}}
         self.idea["proposals"].append(prop)
         dc = dead_check(name, hyp, mech, self.dead_rows_fn())
         prop["dead_check"] = dc
@@ -3115,6 +3465,8 @@ class IdeaSession:
         if (self.idea.get("stage_pre_wf") or (self.idea.get("prereg") or {}).get("posted_id")) \
                 and not self.idea.get("sanity_open"):
             raise ToolRefused("the prereg is posted / Stage A ran - the plugin is frozen (its hash is pre-registered)")
+        if (pr.get("first_signal_bar") or {}).get("index") is None:
+            raise ToolRefused(NO_FSB_REFUSAL % pr["name"])
         name = self._name(name)
         if name != pr["name"]:
             raise ToolRefused("the plugin name must be the proposal's: %s" % pr["name"])
@@ -3171,11 +3523,19 @@ class IdeaSession:
             if c.get("first_signal_bar_violations"):                     # TTM #144: the offending entries
                 out["offending_entries"] = c["first_signal_bar_violations"]
                 out["how_to_fix"] = ["your proposal pre-registered %s as the earliest bar an entry may FILL on; these "
-                                     "entries fill earlier (session_bar = the 0-based in-session index of the entry "
-                                     "bar). Start the entry loop so the FILL bar is >= %d - e.g. a decision on bar "
-                                     "k's close filled at bar k+1's open needs k + 1 >= %d - or the proposal and the "
-                                     "plugin disagree about the bar index (bar 0 = the 09:30 open)."
-                                     % (fsb.get("label"), fsb.get("index"), fsb.get("index"))]
+                                     "entries fill earlier (session_bar = the in-session index of the entry bar by its "
+                                     "OPEN clock: 09:30 + index x bar minutes). Start the entry loop so the FILL bar "
+                                     "is >= %d - e.g. a decision on bar k's close filled at bar k+1's open needs k + 1 "
+                                     ">= %d - or the proposal and the plugin disagree about the bar index (bar 0 = the "
+                                     "09:30 open)." % (fsb.get("label"), fsb.get("index"), fsb.get("index"))]
+            if c.get("first_signal_bar_corner_violations"):              # a searched knob value fires earlier
+                out["offending_knob_values"] = c["first_signal_bar_corner_violations"]
+                out.setdefault("how_to_fix", []).append(
+                    "the Auto-Validate searches every knob between its min and max, and at the knob values above the "
+                    "plugin fills before %s - so the pre-registered bar does not hold for the searched rule. Narrow "
+                    "that knob's range (e.g. raise its min) so no searched value fills before bar %d, or (proposal "
+                    "slots allowing) propose again with first_signal_bar = the earliest bar any searched value can "
+                    "fill on." % (fsb.get("label"), fsb.get("index")))
             return out
         la_from, la_to = ("2015-07-01", SMOKE_TO) if pr["timeframe"] == "1m" else (DATA_FROM, SMOKE_TO)
         la = self.sandbox("lookahead", path, sha, dict(req, la_from=la_from, la_to=la_to, la_k=8), self.dir,
@@ -3188,14 +3548,17 @@ class IdeaSession:
                     "where_in_your_file": plugin_traceback(la, path), "problems": la.get("problems"),
                     "how_to_fix": lookahead_hints(la.get("problems")),
                     "attempts_left": self._attempt_limit() - k}
-        pl.update(gates_ok=True, gates_sha=sha, gates_file="gates_v%d.json" % k)
-        self.idea["gates"] = {"sha": sha, "safety": True, "contract": True, "lookahead": True,
+        pl.update(gates_ok=True, gates_sha=sha, gates_file="gates_v%d.json" % k, gates_version=GATES_VERSION)
+        self.idea["gates"] = {"sha": sha, "version": GATES_VERSION, "safety": True, "contract": True,
+                              "lookahead": True,
                               "contract_warnings": c.get("warnings"), "lookahead_warnings": la.get("warnings"),
                               "smoke": c.get("smoke"), "la_window": la.get("la_window"),
                               "perturbed_trades": la.get("perturbed_trades"), "fills_checked": la.get("fills_checked"),
                               "first_signal_bar": c.get("first_signal_bar"),
+                              "first_signal_bar_corners": c.get("first_signal_bar_corners"),
                               "entry_bar_checked": la.get("entry_bar_checked"),
-                              "entry_bar_conclusive": la.get("entry_bar_conclusive")}
+                              "entry_bar_conclusive": la.get("entry_bar_conclusive"),
+                              "entry_bar_corners": la.get("entry_bar_corners")}
         self.event("gates_passed", attempt=k, sha=sha)
         sched = schedule_check(pr["trades_per_year"], (c.get("smoke") or {}).get("trades_per_year"))
         return {"passed": True, "sha256": sha, "contract": {"smoke": c.get("smoke"), "warnings": c.get("warnings"),
@@ -3243,6 +3606,53 @@ class IdeaSession:
         g = self.idea.get("gates") or {}
         fsb = pr.get("first_signal_bar") or {}
         fsc = g.get("first_signal_bar") or {}
+        # every 'checked' line below says what the gates RECORDED - a check that did not run is written 'not checked'
+        if fsb.get("index") is None:
+            fsb_check = "- (no first-signal-bar check: not stated - the proposal predates TTM #144)"
+        elif not fsc:
+            fsb_check = ("- NOT checked by the contract (the plugin's gates record has no first-signal-bar result); "
+                         "checked on EVERY PRE-WF trade before any verdict")
+        else:
+            fsb_check = ("- checked by Python: the contract smoke (%s..%s, default knobs: %s entries checked, %s before "
+                         "bar %s; earliest entry at session bar %s), every searched knob at its min and its max (%s), "
+                         "and EVERY PRE-WF trade before any verdict - the in-session index is read from each bar's "
+                         "OPEN clock. A violation is a hard gate failure: no verdict, the plugin goes back to Qwen with "
+                         "the offending entries (a fix retry with an ADDENDUM, like a broken plugin)"
+                         % (DATA_FROM, SMOKE_TO, fsc.get("checked"), fsc.get("n"), fsb.get("index"),
+                            fsc.get("earliest_session_bar"),
+                            "%d knob values, none earlier" % len(g["first_signal_bar_corners"])
+                            if g.get("first_signal_bar_corners") is not None else "not recorded"))
+        ddp = pr.get("dedupe")
+        try:
+            dd_now = dedupe_check(pr["name"], pr["mechanism"], ran_ideas(self.lab, exclude=self.idea.get("id")),
+                                  reopened_shelf=self._reopened_shelf())
+            now_txt = "re-checked now: %s" % dd_now["reason"]
+        except Exception as e:                                   # noqa: BLE001
+            now_txt = "re-check failed (%s)" % e
+        if ddp:
+            dedupe_line = ("- ideas the lab already ran (MANAGER #148: same name / mechanism family / near copy refused "
+                           "at propose): checked at propose (%s): %s; %s; this proposal's families: %s"
+                           % (ddp.get("at"), ddp.get("reason"), now_txt, ", ".join(ddp.get("families") or []) or "none"))
+        elif "families" in pr:
+            dedupe_line = ("- ideas the lab already ran (MANAGER #148): checked at propose - no match; %s; this "
+                           "proposal's families: %s" % (now_txt, ", ".join(pr.get("families") or []) or "none"))
+        else:
+            dedupe_line = ("- ideas the lab already ran (MANAGER #148): NOT checked at propose (the proposal predates "
+                           "MANAGER #148); %s" % now_txt)
+        gates_done = ["safety gate (AST whitelist)",
+                      "contract test (synthetic battery + real smoke + every knob at min/max%s)"
+                      % (" + the first-signal-bar check" if fsc else "; first-signal-bar check NOT recorded"),
+                      "look-ahead audit (exec_feasibility_audit file checks; perturbation of %s sampled trades; %s; %s "
+                      "fills inside their bars)"
+                      % (g.get("perturbed_trades"),
+                         ("entry-bar inputs - the first bar at risk's high / low / close / volume moved - on %s trades, "
+                          "%s conclusive%s" % (g.get("entry_bar_checked"), g.get("entry_bar_conclusive"),
+                                               ", plus %s knob corners" % len(g["entry_bar_corners"])
+                                               if g.get("entry_bar_corners") else ""))
+                         if g.get("entry_bar_checked") is not None else "entry-bar inputs NOT checked (older gates)",
+                         g.get("fills_checked")),
+                      "idea dedupe" if (ddp or "families" in pr) else "idea dedupe NOT run at propose",
+                      "dead list"]
         lines = [
             "# QWEN LAB PREREG - %s (%s)" % (pr["name"], today()), "",
             "Written by tools/qwen_lab.py BEFORE either Stage A and posted to MANAGER before any run. Every number in "
@@ -3262,15 +3672,12 @@ class IdeaSession:
             "- an entry 'at bar k's open' fills at bar k's OPEN price (its decision used bars <= k-1); 'at bar k's "
             "close' fills at bar k's CLOSE (its decision used bars <= k). The trade list records the FILL bar.", "",
             "## Timing contract - the first entry bar (TTM #144)",
-            ("- first_signal_bar (Qwen's stated pre-data input): %s - no entry may FILL at an in-session bar index "
-             "< %d" % (fsb.get("label"), fsb.get("index")) if fsb.get("index") is not None else
+            ("- first_signal_bar (Qwen's stated pre-data input%s): %s - no entry may FILL at an in-session bar index "
+             "< %d, with the default knobs or any knob value the Auto-Validate searches"
+             % (", amended %s" % pr["first_signal_bar_amended_at"] if pr.get("first_signal_bar_amended_at") else "",
+                fsb.get("label"), fsb.get("index")) if fsb.get("index") is not None else
              "- first_signal_bar: not stated (the proposal predates TTM #144) - not checked"),
-            ("- checked by Python: the contract smoke (%s..%s, default knobs: %s entries checked, %s before bar %s; "
-             "earliest entry at session bar %s) and EVERY PRE-WF trade before any verdict. A violation is a hard gate "
-             "failure: no verdict, the plugin goes back to Qwen with the offending entries (a fix retry with an "
-             "ADDENDUM, like a broken plugin)" % (DATA_FROM, SMOKE_TO, fsc.get("checked"), fsc.get("n"),
-                                                  fsb.get("index"), fsc.get("earliest_session_bar"))
-             if fsb.get("index") is not None else "- (no first-signal-bar check)"), "",
+            fsb_check, "",
             "## Prior (Qwen's stated pre-data input)",
             "- yearly Sharpe after costs and decay: %s" % pr["prior_sharpe_yearly"],
             "- trades a year: %s" % pr["trades_per_year"], "",
@@ -3287,14 +3694,9 @@ class IdeaSession:
             "## Dead list (computed by Python)", "- %s" % pr.get("dead_check", {}).get("reason"),
             "- nearest closed rows: %s" % ", ".join("%s (%.2f)" % (x["row"], x["match"])
                                                     for x in pr.get("dead_check", {}).get("nearest", [])),
-            "- ideas the lab already ran (MANAGER #148: same name / mechanism family / near copy refused at propose): "
-            "none matched; this proposal's families: %s" % (", ".join(pr.get("families") or []) or "none"), "",
-            "## Hard gates passed before this prereg",
-            "- safety gate (AST whitelist), contract test (synthetic battery + real smoke + every knob at min/max + the "
-            "first-signal-bar check), look-ahead audit (exec_feasibility_audit file checks; perturbation of %s sampled "
-            "trades; entry-bar inputs - the first bar at risk's high / low pushed - on %s trades, %s conclusive; %s "
-            "fills inside their bars), idea dedupe, dead list" % (g.get("perturbed_trades"), g.get("entry_bar_checked"),
-                                                                  g.get("entry_bar_conclusive"), g.get("fills_checked")),
+            dedupe_line, "",
+            "## Hard gates passed before this prereg (gates v%s)" % (g.get("version") or pl.get("gates_version") or 1),
+            "- " + ", ".join(gates_done),
             "- the contract smoke and the look-ahead audit read pre-walk-forward bars only (%s..%s); no walk-forward "
             "bar was read before this prereg" % (DATA_FROM, SMOKE_TO), "",
             "## Data (both stages)",
@@ -3349,13 +3751,19 @@ class IdeaSession:
         last = self.idea["sanity"][-1]
         harness_sha = lf_sha256_file(HARNESS_PATH)
         rel = os.path.relpath(path, self.lab.plugin_repo).replace("\\", "/")
+        pr = self.idea["proposal"]
+        amend = ""
+        if pr.get("first_signal_bar_amended_at") and not self.idea.get("fsb_amendment_posted"):
+            amend = (" first_signal_bar AMENDED at %s to %s (TTM #144: the frozen proposal predated the field; no entry "
+                     "may fill before it - checked on the contract smoke, at every searched knob's min / max and on "
+                     "every PRE-WF entry)." % (pr["first_signal_bar_amended_at"], pr["first_signal_bar"]["label"]))
         line = ("ADDENDUM %d (%s; MANAGER #139 / TTM #144 fix retry %d of %d): the previous plugin (sha %s): %s - "
-                "a check before any verdict (broken plugin / first-signal-bar contract), NOT a verdict on the idea. "
+                "a check before any verdict (broken plugin / first-signal-bar contract), NOT a verdict on the idea.%s "
                 "New plugin %s LF sha256 %s passed the safety gate, "
-                "the contract test and the look-ahead audit again (%s). Harness LF sha256 %s. Same windows, master, "
-                "cost and promotion rule; both hashes are re-checked before each stage."
-                % (retry, now_s(), retry, SANITY_MAX_RETRIES, last["plugin_sha"][:16], last["why"], rel, new_sha,
-                   self.idea["plugin"].get("gates_file"), harness_sha))
+                "the contract test and the look-ahead audit again (gates v%s, %s). Harness LF sha256 %s. Same windows, "
+                "master, cost and promotion rule; both hashes are re-checked before each stage."
+                % (retry, now_s(), retry, SANITY_MAX_RETRIES, last["plugin_sha"][:16], last["why"], amend, rel, new_sha,
+                   self.idea["plugin"].get("gates_version"), self.idea["plugin"].get("gates_file"), harness_sha))
         text = "%s: PREREG ADDENDUM %d %s (%s) - %s Prereg %s. Replies -> %s." % (
             TAG, retry, _safe_name(self.idea["proposal"]["name"]), source_ref(self.idea), line, prereg["path"], REPLY_TO)
         try:
@@ -3363,6 +3771,8 @@ class IdeaSession:
         except Exception as e:                                   # noqa: BLE001
             self.event("prereg_addendum_post_failed", error=str(e)[:300])
             raise ToolRefused("the prereg addendum could not be posted to MANAGER (%s) - no Stage A runs without it" % e)
+        if amend:
+            self.idea["fsb_amendment_posted"] = pid
         for p in (prereg["path"], os.path.join(self.dir, os.path.basename(prereg["path"]))):
             try:
                 with open(p, "a", encoding="utf-8", newline="\n") as f:
@@ -3465,6 +3875,10 @@ class IdeaSession:
         if not pr or name != pr.get("name"):
             raise ToolRefused("propose first; the name must be the proposal's")
         pl = self.idea["plugin"]
+        # TTM #144: a proposal from before the first-signal-bar contract is never run 'not checked' - it records the bar
+        # first (propose again; a frozen proposal only records the bar)
+        if (pr.get("first_signal_bar") or {}).get("index") is None:
+            raise ToolRefused(NO_FSB_REFUSAL % pr["name"])
         # hard gate 1: safety, re-run on the file as it is on disk now
         path = self.plugin_path(name)
         if not os.path.isfile(path):
@@ -3478,6 +3892,11 @@ class IdeaSession:
         if not pl.get("gates_ok") or pl.get("gates_sha") != sha:
             raise ToolRefused("the plugin on disk (sha %s) has not passed the contract and look-ahead gates - call "
                               "write_plugin" % sha[:12])
+        if pl.get("gates_version") != GATES_VERSION:                 # gated by an older harness (TTM #144/#145)
+            raise ToolRefused("the plugin on disk (sha %s) passed an OLDER version of the gates (v%s; now v%d: the "
+                              "first-signal-bar contract and the entry-bar look-ahead audit, TTM #144/#145) - call "
+                              "write_plugin(name, code) again so the current gates run" % (
+                                  sha[:12], pl.get("gates_version") or 1, GATES_VERSION))
         self.event("gate_order", gate="safety+contract+lookahead", sha=sha)
         # hard gate 4: dead list (re-run on the frozen proposal)
         dc = dead_check(pr["name"], pr["hypothesis"], pr["mechanism"], self.dead_rows_fn())
@@ -3553,9 +3972,10 @@ class IdeaSession:
         fsb = pr.get("first_signal_bar") or {}
         fsb_v = None
         if rec is not None and fsb.get("index") is not None:
-            fsb_v = first_bar_violations(trades, pre_arrays["day_id"], pre_arrays["index"], int(fsb["index"]))
+            fsb_v = first_bar_violations(trades, pre_arrays["day_id"], pre_arrays["index"], int(fsb["index"]),
+                                         tf=pr["timeframe"])
             rec["first_signal_bar_check"] = {k: fsb_v[k] for k in ("first_signal_bar", "checked", "n",
-                                                                    "earliest_session_bar")}
+                                                                    "earliest_session_bar", "index_by")}
         # BROKEN-PLUGIN CHECK before any verdict (MANAGER #139)
         kind = "crash" if rec is None else "sanity"
         if rec is None:
@@ -3749,7 +4169,8 @@ def queue_validate_for(lab, idea, *, dry_run, sandbox=run_sandbox, live_jobs=fir
     if g.get("verdict") == "ARTIFACT":
         return {"status": "refused", "why": "queue_guard verdict ARTIFACT: %s" % "; ".join(g.get("reasons") or [])[:400]}
     job = build_validate_job(name, strategy_ref, pr["instrument"], pr["timeframe"], sha,
-                             idea.get("prereg", {}).get("path"), cost=cost, mult=mult)
+                             idea.get("prereg", {}).get("path"), cost=cost, mult=mult,
+                             first_signal_bar=(pr.get("first_signal_bar") or {}).get("label"))
     jdump(os.path.join(idea_dir, "validate_job.json"), job)
     if dry_run:
         rec = {"idea": idea["id"], "name": name, "status": "dry_run", "dry_run": True, "at": now_s(),
@@ -3882,8 +4303,13 @@ HARNESS_UPDATE_NOTE = ("MANAGER #134: the power-first map is recorded and posted
                        "family or a near copy - ideas() lists them); a NEW proposal needs first_signal_bar {index, "
                        "clock}, checked on the contract smoke and every PRE-WF entry; name bars 'bar k (HH:MM open)' "
                        "and say open or close fill; the look-ahead audit now also pushes the first bar at risk's "
-                       "high / low (a stop / target / size from the entry bar itself fails). Continue from where you "
-                       "were." % (PREWF0, PREWF1, PROMOTE_ROC))
+                       "high / low (a stop / target / size from the entry bar itself fails). Fix round 3: the bar "
+                       "index is counted by the clock; first_signal_bar must hold for every knob value the validate "
+                       "searches; the entry-bar audit also moves that bar's close / volume and covers stop / limit "
+                       "entries and knob corners; a plugin gated by the older gates must be re-gated (write_plugin), "
+                       "and a proposal WITHOUT first_signal_bar must call propose again with it (a proposal the map or "
+                       "a prereg froze keeps everything else and only records the bar) before run_stage_a. Continue "
+                       "from where you were." % (PREWF0, PREWF1, PROMOTE_ROC))
 
 
 def run_idea(lab, idea, chat, *, dry_run_validate=False, max_steps=MAX_STEPS, beacon=None, session_kw=None):
@@ -4014,6 +4440,31 @@ def run_idea(lab, idea, chat, *, dry_run_validate=False, max_steps=MAX_STEPS, be
     return "closed"
 
 
+def record_done(lab, idea, poster):
+    """A closed idea's bookkeeping: the result post (unless the idea already posted it inline or tried before), the
+    done_ideas row (once), current_idea cleared. Also the recovery path for an idea that closed in a run killed before
+    this ran."""
+    if not idea.get("result_posted_inline") and not idea.get("result_post"):   # a not-promoted idea's PRE-WF post IS
+        text = compose_result_post(idea)                                       # its result
+        try:
+            pid = poster(text)
+            idea["result_post"] = {"inbox_id": pid, "text": text, "at": now_s()}
+        except Exception as e:                                   # noqa: BLE001
+            idea["result_post"] = {"error": str(e)[:300], "text": text}
+            lab.log("result post FAILED: %s" % e, idea["id"])
+    jdump(os.path.join(lab.idea_dir(idea["id"]), "idea.json"), idea)
+    done = lab.state.setdefault("done_ideas", [])
+    if not any((d or {}).get("id") == idea["id"] for d in done):
+        done.append({"id": idea["id"], "shelf_n": idea.get("shelf_n"), "source": idea.get("source", "shelf"),
+                     "outcome": idea.get("outcome"),
+                     "pre_wf": fmt_four((idea.get("stage_pre_wf") or {}).get("numbers")),
+                     "four": fmt_four((idea.get("stage_a") or {}).get("numbers"))})
+    if lab.state.get("current_idea") == idea["id"]:
+        lab.state["current_idea"] = None
+    lab.save()
+    lab.log("idea %s done: %s" % (idea["id"], idea.get("outcome")))
+
+
 def run(args, chat=None, session_kw=None):
     lab = Lab(home=args.home, plugin_repo=args.plugin_repo)
     check_plugin_repo(lab.plugin_repo)
@@ -4040,6 +4491,13 @@ def run(args, chat=None, session_kw=None):
             cur = lab.state.get("current_idea")
             if cur:
                 idea = jload(os.path.join(lab.idea_dir(cur), "idea.json"), None)
+                if idea is not None and idea.get("status") == "closed" and not any(
+                        (d or {}).get("id") == cur for d in lab.state.get("done_ideas") or []):
+                    # the idea CLOSED but the run died before its bookkeeping (result post, done row): finish it now,
+                    # so ran_ideas / the dedupe still see it
+                    lab.log("idea %s closed without its done row (the run was killed) - recording it now" % cur)
+                    record_done(lab, idea, (session_kw or {}).get("poster") or post_manager)
+                    continue
                 if idea is None or idea.get("status") == "closed":
                     lab.state["current_idea"] = None
                     lab.save()
@@ -4091,26 +4549,7 @@ def run(args, chat=None, session_kw=None):
             if how in ("stopped", "model_error"):
                 lab.log("idea %s left open (%s) - `run` resumes it" % (idea["id"], how))
                 return 2 if how == "model_error" else 0
-            poster = (session_kw or {}).get("poster") or post_manager
-            if not idea.get("result_posted_inline"):             # a not-promoted idea's PRE-WF post IS its result
-                text = compose_result_post(idea)
-                try:
-                    pid = poster(text)
-                    idea["result_post"] = {"inbox_id": pid, "text": text, "at": now_s()}
-                except Exception as e:                           # noqa: BLE001
-                    idea["result_post"] = {"error": str(e)[:300], "text": text}
-                    lab.log("result post FAILED: %s" % e, idea["id"])
-            jdump(os.path.join(lab.idea_dir(idea["id"]), "idea.json"), idea)
-            lab.state.setdefault("done_ideas", []).append({"id": idea["id"], "shelf_n": idea.get("shelf_n"),
-                                                           "source": idea.get("source", "shelf"),
-                                                           "outcome": idea.get("outcome"),
-                                                           "pre_wf": fmt_four((idea.get("stage_pre_wf") or {}).get(
-                                                               "numbers")),
-                                                           "four": fmt_four((idea.get("stage_a") or {}).get(
-                                                               "numbers"))})
-            lab.state["current_idea"] = None
-            lab.save()
-            lab.log("idea %s done: %s" % (idea["id"], idea.get("outcome")))
+            record_done(lab, idea, (session_kw or {}).get("poster") or post_manager)
             if not args.no_next_pick:
                 record_pick(lab, compute_next_pick(lab), (session_kw or {}).get("poster") or post_manager)
             if args.once or args.idea is not None or getattr(args, "source", None):
@@ -4170,10 +4609,14 @@ def status(args):
     print("closed shelf by MANAGER (shelf-close; latest line wins): %s"
           % (", ".join("#%d (%s)" % (n, at) for n, at in sorted(mc.items())) or "none"))
     print("open shelf (MANAGER shelf-open): %s" % (lab.open_shelf_numbers() or "none - the shelf slot is skipped"))
+    for w in lab.shelf_warnings:
+        print("  WARNING %s" % w)
     ran = ran_ideas(lab)
-    fams = sorted({f for r in ran for f in r["families"]})
-    print("ideas already run (refused at propose - MANAGER #148): %d names; families taken: %s"
-          % (len(ran), ", ".join(fams) or "none"))
+    fams = families_taken(ran)
+    retry = [r["name"] for r in ran if r.get("retry_ok")]
+    print("ideas already run (refused at propose - MANAGER #148): %d names; families taken: %s%s"
+          % (len(ran), ", ".join(fams) or "none",
+             ("; no verdict (a new name may retry the mechanism): %s" % ", ".join(retry)) if retry else ""))
     held, who = push_lock_state()
     print("push lock: %s" % (("HELD by %s - new generations / Stage A wait" % who) if held else "free"))
     for w in s.get("courtesy_waits", [])[-5:]:
@@ -4215,6 +4658,8 @@ def shelf_open(args):
             note += "  (re-opened after the lab closed it)"
         print("shelf #%s opened for the lab%s%s" % (n, (": " + p["title"]) if p else "", note))
     print("open now: %s" % lab.open_shelf_numbers())
+    for w in lab.shelf_warnings:
+        print("WARNING %s" % w)
     return 0
 
 
@@ -4231,6 +4676,8 @@ def shelf_close(args):
     for n in nums:
         print("shelf #%s CLOSED for the lab%s" % (n, "" if n in was_open else " (it was not open)"))
     print("open now: %s" % (lab.open_shelf_numbers() or "none - the shelf slot is skipped"))
+    for w in lab.shelf_warnings:
+        print("WARNING %s" % w)
     return 0
 
 
