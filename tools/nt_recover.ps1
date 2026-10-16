@@ -528,6 +528,14 @@ function MaybeRepair {
   } catch { Log "WARN: repair step failed: $_" }
 }
 
+# ONE pass at a time. The watchdog task, the night-mode ON switch and hand runs each start a pass; on 2026-10-16
+# (13:15-13:24) two or three overlapped, launched two NinjaTraders at once (one died on 'Assertion Failed') and
+# killed each other's half-started instance as 'hung'. A second pass now just leaves.
+$script:recoverMutex = New-Object System.Threading.Mutex($false, 'Global\EdgeLogNtRecover')
+$gotMutex = $false
+try { $gotMutex = $script:recoverMutex.WaitOne(0) } catch [System.Threading.AbandonedMutexException] { $gotMutex = $true }
+if (-not $gotMutex) { Log "another recover pass is already running - this one exits without touching anything"; exit 0 }
+
 Log "=== recover start (WhatIf=$WhatIf) ==="
 
 # ── 1. already healthy? ────────────────────────────────────────────────────────────

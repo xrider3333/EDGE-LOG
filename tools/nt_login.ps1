@@ -174,8 +174,11 @@ try {
     }
 
     Write-Host "Waiting for the login window..."
-    $win = Find-NtWindow -name 'Welcome' -timeoutSec 25
-    if (-not $win) { throw "login window did not appear within 25s" }
+    # 120 s, not 25: under load (2026-10-16 13:18-13:26, ship test runs) NinjaTrader took over 25 s to show the
+    # Welcome window, every login attempt gave up, and each retry killed and relaunched it - 10 minutes lost while
+    # a paper position waited to be flattened.
+    $win = Find-NtWindow -name 'Welcome' -timeoutSec 120
+    if (-not $win) { throw "login window did not appear within 120s" }
 
     $userEl = Find-Child $win 'tbUserName'
     $passEl = Find-Child $win 'passwordBox'
