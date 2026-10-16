@@ -182,3 +182,43 @@ parts' marked-to-market P&L.
 - Scorer `tools/event_sleeve_shadow.py`: `316c7c0925a795b4ab6cd00ce952b2ad88f0ac9d7e351d70c4a049c175a2dc92`.
 - Puller `tools/event_sleeve_pull.py`: `4616219c123a4e35409c8530ee7da4b6d64c192bc733760fd2e96e561585ecd4`.
 - This file's own hash after this addendum goes to MANAGER with the push.
+
+## ADDENDUM 3 (2026-10-16, before any forward trade is scored): equal YEARLY risk per part
+
+**Why** (MANAGER #153c, FRONTIER remap #1281):
+- Addendum 1 froze equal risk PER TRADE. AUCTION K5 trades about 69 times a year, so it carried about 68% of the sleeve's yearly risk (B 9%, C 23%).
+- That dropped the pooled Sharpe the map was built on. MANAGER's design intent (#94) was equal YEARLY risk per part.
+- **Zero forward trades had been scored when this was frozen.** No trade is ever scored under Addendum 1's sizing. Sections 1-5 are otherwise unchanged, and so are Addendum 2's feeds.
+
+**Rule:**
+- n_p = each part's WF trade count / 8.955510 years: A 69.342785, B 8.821385, C 23.337588 a year (pooled 101.501758).
+- The pooled yearly risk stays at Addendum 1's: R_pooled = $1,000 x sqrt(sum n_p) = $10,074.81.
+- Each part gets an equal share: R_part = R_pooled / sqrt(3) = $5,816.69 a year.
+- Per-trade risk u_p = R_part / sqrt(n_p): A $698.51, B $1,958.43, C $1,204.06 of per-trade SD.
+- **New scales** = Addendum 1 scale x u_p / 1,000:
+  - A 0.982174 x $50,000 per fund;
+  - B 0.455795 ES;
+  - C 0.831538 NQ.
+- The risk unit for reading stays $1,000: forward P&L in risk units = trade P&L at the new scales / 1,000.
+
+**Harm bar, recomputed:**
+- Same 20,000 draws, seed 20261011, yearly Sharpe ~ N(0.64, 0.30), t3 unit-SD noise, 50 trades, 5th percentile.
+- Each part gets an equal share of the sleeve's yearly mean, so a part-p trade's mean = S x R_pooled / (3 n_p).
+- A draw's trades are assigned to parts by their trade rates.
+- RNG order: Sharpes, then the t3 noise block (both exactly as in Addendum 1), then the part draws. With equal trade rates this reproduces Addendum 1's bar exactly.
+- **CLOSE if the cumulative forward P&L at 50 trades < -8.0465 risk units** (Addendum 1's bar was -8.2749).
+
+**Verification:**
+- An independent blind recompute from this rule's text alone matched the code to full precision: n_p, u_p, R and the scales at relative difference 0, and the bar at -8.046525.
+- It also reproduced Addendum 1's -8.2749 as a calibration.
+- Drawing the part assignments before the noise would give -8.2656. That gap is Monte Carlo noise (SE of the 5th percentile about 0.11); the order above is the one that nests Addendum 1.
+
+**Implementation:**
+- `constants --addendum 3` writes `C:\EdgeLog\event_sleeve\addendum3_constants.json`. It is built only from the frozen `addendum1_constants.json` (sha b56a4e39...) and records that it supersedes it.
+- `forward` now requires the Addendum 3 constants file and records its name and sha256 in `forward_status.json`.
+- `parity` and the Addendum 1 `constants` path are unchanged.
+
+**Hashes** (LF sha256; posted to MANAGER before the next scoring day; witness branch `prereg/custom-ml-event-sleeve-a3`):
+- Scorer `tools/event_sleeve_shadow.py`: `50b9a0285f69a95f232d0acaae8c48a41a9cff96db93d34e23dda94acfa1a524`.
+- Puller unchanged: `4616219c123a4e35409c8530ee7da4b6d64c192bc733760fd2e96e561585ecd4`.
+- This file's own hash after this addendum goes to MANAGER with the push.
