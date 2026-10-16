@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1288';
+const VERSION='73.1289';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1413,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.2012',date:'2026-10-16',notes:['LEDGER, REAL: THE MONTHLY GOAL IS ON THE CHART (owner order 10-12, item 9). With a goal set in Settings, TRADING LOG, the chart draws it as a dashed level: where the curve has to reach by the end of the month (its value before the first trade of the month, plus the goal), labelled, for example, Oct goal +$2,000.00. It shows for ranges that start on or before the 1st (1M, 3M, YTD, ALL); the line under the chart still reads the month progress on every range.','LEDGER, REAL: TOOLS, IMAGE saves the board as a picture for your journal (item 12): account, range and date, the big number and its change, the four stats, the chart as drawn now and the goal line, as one PNG in the theme you use.']},
+const CHANGELOG=[{v:'73.1289',date:'2026-10-16',notes:['LEDGER, REAL: THE MONTHLY GOAL IS ON THE CHART (owner order 10-12, item 9). With a goal set in Settings, TRADING LOG, the chart draws it as a dashed level: where the curve has to reach by the end of the month (its value before the first trade of the month, plus the goal), labelled, for example, Oct goal +$2,000.00. It shows for ranges that start on or before the 1st (1M, 3M, YTD, ALL); the line under the chart still reads the month progress on every range.','LEDGER, REAL: TOOLS, IMAGE saves the board as a picture for your journal (item 12): account, range and date, the big number and its change, the four stats, the chart as drawn now and the goal line, as one PNG in the theme you use.']},
 {v:'73.1285',date:'2026-10-14',notes:['LEDGER, WEBULL PAPER LIST AND TABLE TIGHTER (owner 10-12): one line per trade (entry and exit time side by side), a thin day header, shorter rows, and the table has no day-total rows: a narrow DAY column next to P&L holds the day total on the first trade of each day, as on REAL and NT8 PAPER.']},
 {v:'73.1259',date:'2026-10-14',notes:['LEDGER, WEBULL PAPER: THE MISSED ORB TRADES ARE LISTED (owner 10-14). The 7 trades ORB #314 took between Sep 10 and Sep 25 that Webull never got (the half-day rule wrongly dropped them as late, fixed Sep 26) sit among the trades, dimmed, with a MISSED chip: engine prices at 10 shares, +$55.20 together. They count in no total, tile, chart, calendar day or CSV. The Sep 18 ORB trade with no exit carries a NOTE: the exit was refused after the bell and the shares were sold by hand on Sep 21 at 09:42, with no fill price captured.']},
 {v:'73.1281',date:'2026-10-15',notes:['SCORES: 2 trades from 2026-10-15 scored, 0 marked NA (no price data).']},{v:'73.1259',date:'2026-10-14',notes:['LEDGER, WEBULL PAPER: THE MISSED ORB TRADES ARE LISTED (owner 10-14). The 7 trades ORB #314 took between Sep 10 and Sep 25 that Webull never got (the half-day rule wrongly dropped them as late, fixed Sep 26) sit among the trades, dimmed, with a MISSED chip: engine prices at 10 shares, +$55.20 together. They count in no total, tile, chart, calendar day or CSV. The Sep 18 ORB trade with no exit carries a NOTE: the exit was refused after the bell and the shares were sold by hand on Sep 21 at 09:42, with no fill price captured.']},
@@ -3715,8 +3715,10 @@ function ledgerRangePillsHtml(active,attr,ranges){
 //   o.lines = [{name, color, vals (one per point, null = gap), on}]  faint lines + legend toggles (onToggle(name, on))
 //   o.bands = [{i, title}]  a hatched amber column on point i (a caveat day; the hatch survives MONO)
 //   o.marks = [{i, label}]  a dotted vertical marker on point i with a small label at the top (a version change)
-//   o.refs = [{v, i, label, title}]  a dashed level at value v from point i to the right edge, labelled (REAL's monthly goal); the
-//     y range always takes it in, so a level above or below the curve is drawn inside the chart, never cut off
+//   o.refs = [{v, i, label, title}]  a dashed level at value v from point i (at least 40 px before the scale) to the right edge,
+//     labelled (REAL's monthly goal). The y range takes it in, unless that would squeeze the curve into under a quarter of the
+//     height: then it is pinned to the top or bottom edge and its label says above / below the chart. A label that would run into
+//     the scale ends at the plot edge instead.
 function ledgerDailyPoints(pts){
   pts=pts||[];
   const days=new Set(pts.map(p=>p.date).filter(Boolean));
@@ -4355,11 +4357,12 @@ function ledgerChartRender(wrap,o){
         +'<text data-lgtick="1" x="'+(L+pw+6)+'" y="'+(+yy+3)+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc((o.fmtAxis||_lgAxisMoney)(tv))+'</text>';});
     const by=Y(pts[0].v).toFixed(1);
     h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+by+'" y2="'+by+'" style="stroke:var(--text5)" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 4"/>';
-    refs.forEach(r=>{const yy=(r.pin==='top'?T+1:(r.pin==='bottom'?T+ph-1:Y(r.v))).toFixed(1),i0=Math.max(0,Math.min(n-1,+r.i||0)),x0=X(i0)<L+pw-40?X(i0):L;
+    refs.forEach(r=>{const yy=(r.pin==='top'?T+1:(r.pin==='bottom'?T+ph-1:Y(r.v))).toFixed(1),i0=Math.max(0,Math.min(n-1,+r.i||0)),x0=Math.min(X(i0),L+pw-40);
       if(r.pin&&r.label)r.label+=r.pin==='top'?' ↑ above the chart':' ↓ below the chart';
+      const lw=String(r.label||'').length*5.6,lEnd=x0+3+lw>L+pw-3;   // 9 px mono is about 5.6 px a character; past the scale: end it at the plot edge
       h+='<line data-lgref="1" x1="'+x0.toFixed(1)+'" x2="'+(L+pw)+'" y1="'+yy+'" y2="'+yy+'" style="stroke:var(--text3)" stroke-width="1.2" stroke-dasharray="6 4">'
         +(r.title?'<title>'+esc(r.title)+'</title>':'')+'</line>'
-        +(r.label?'<text data-lgreflbl="1" x="'+(x0+3).toFixed(1)+'" y="'+(r.pin==='top'?+yy+10:+yy-4)+'" font-size="9" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(r.label)+'</text>':'');});
+        +(r.label?'<text data-lgreflbl="1" x="'+(lEnd?L+pw-3:x0+3).toFixed(1)+'" y="'+(r.pin==='top'?+yy+10:+yy-4)+'"'+(lEnd?' text-anchor="end"':'')+' font-size="9" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(r.label)+'</text>':'');});
     // each faint line also gets its own dash, so the lines stay apart under MONO where every colour turns grey
     lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
       if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="0.6" stroke-width="1.2" stroke-dasharray="'+_lgDash(l,o.lines)+'"/>';});
@@ -14590,66 +14593,92 @@ function _hmTodStripHtml(rangeTrades){
 // LEDGER improvement 9 (owner order 10-12): this month against the monthly goal set in Settings > TRADING LOG (blank = hidden),
 // as a line in the chart foot: realised P&L by close day, this calendar month, account in view
 function _hmMonthGoal(){const v=+(prefs&&prefs.monthGoal);return isFinite(v)&&v>0?v:null;}
-// LEDGER improvement 9, the chart half: the monthly goal as a dashed level on the chart - where the curve has to reach by the month's
-// end: its value just before this month's first trade (the range start when the month has none yet), plus the goal. Drawn only when a
-// goal is set and the range starts on or before the 1st, so that value is on the chart (TODAY or a week inside the month: the line
-// under the chart still says how far the month is).
 // LEDGER improvement 12, the image half (owner order 10-12): TOOLS > IMAGE saves the board as one PNG for the journal - the account,
-// range and date, the big number and its change, the four stats and the chart exactly as drawn now (EQUITY or P&L, the goal level, the
-// broker lines), plus the month-goal words. Read from the page, so it is what the owner sees; theme colours are resolved first, so MONO
-// stays grey. Saved through a Blob link (the way EXPORT CSV saves), which an iPad accepts.
+// range and date, the big number and its change, the four stats, the chart (redrawn at the picture's width, so a phone does not blow
+// it up), its account key and the month-goal words. The numbers are read from the page, so they are what the owner sees; theme
+// colours are resolved first, so MONO stays grey. The chart is copied with XMLSerializer (a no-break space in a European number
+// format stays valid XML). Saved through a Blob link (the way EXPORT CSV saves), which an iPad accepts.
 function _hmBoardSvg(){
   const q=s=>document.querySelector(s),txt=e=>e?String(e.textContent||'').replace(/\s+/g,' ').trim():'';
   const x=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   const sv=q('#hm-chart-wrap svg');if(!sv)return null;
   const FN='JetBrains Mono, monospace',W=1000,P=36,CW=W-2*P;
-  const sw=+sv.getAttribute('width')||600,sh=+sv.getAttribute('height')||260,CH=Math.round(CW*sh/sw);
-  const dEl=q('#hm-hero-delta'),dUp=!!(dEl&&dEl.querySelector('.hm-up')),dDn=!!(dEl&&dEl.querySelector('.hm-down'));
+  const dEl=q('#hm-hero-delta'),dSpan=dEl&&dEl.querySelector('.hm-up,.hm-down');
+  const dCol=dSpan?getComputedStyle(dSpan).color:'var(--text3)';   // the colour the page shows (MONO turns a loss grey, not dark red)
   const stats=[...document.querySelectorAll('.hm-wrap .lg-stats .lg-stat')].slice(0,4).map(e=>[txt(e.querySelector('.lg-stat-lbl')),txt(e.querySelector('.lg-stat-val')),txt(e.querySelector('.lg-stat-sub'))]);
   const goal=txt(q('#hm-goal'));
-  const head=['EDGE LOG','REAL',activeBroker||'all accounts',_HM_RANGE_LABEL[homeRange]||homeRange,homeChartMode==='equity'?'equity':'P&L',ledgerTodayNY()].join('  \u00b7  ');
+  const head=['EDGE LOG','REAL',activeBroker||'all accounts',_HM_RANGE_LABEL[homeRange]||homeRange,homeChartMode==='equity'?'equity':'P&L',ledgerTodayNY()].join('  ·  ');
   const T=(xx,yy,sz,fill,t,ex)=>'<text x="'+xx+'" y="'+yy+'" font-size="'+sz+'" style="fill:'+fill+'" font-family="'+FN+'"'+(ex||'')+'>'+x(t)+'</text>';
   let y=0,b='';
   b+=T(P,(y+=44),13,'var(--text4)',head,' letter-spacing="1"');
   b+=T(P,(y+=30),11,'var(--text5)',txt(q('#hm-hero-label')).toUpperCase(),' letter-spacing="1.5"');
   b+=T(P,(y+=46),40,'var(--text)',txt(q('#hm-hero-value')),' font-weight="600"');
-  b+=T(P,(y+=26),14,dUp?'var(--green)':(dDn?'var(--red)':'var(--text3)'),dEl?[...dEl.children].map(txt).filter(Boolean).join(' '):'');
+  b+=T(P,(y+=26),14,dCol,dEl?[...dEl.children].map(txt).filter(Boolean).join(' '):'');
   if(stats.length){y+=22;const cw=CW/stats.length;
     stats.forEach((st,k)=>{const xx=Math.round(P+k*cw);
       b+=T(xx,y+12,10,'var(--text5)',st[0].toUpperCase(),' letter-spacing="1"')+T(xx,y+36,20,'var(--text)',st[1])+(st[2]?T(xx,y+54,10,'var(--text5)',st[2]):'');});
     y+=66;}
   y+=10;
-  const inner=sv.innerHTML.replace(/<line data-lgx="1"[^>]*\/>/,'').replace(/<circle data-lgdot="1"[^>]*\/>/,'');
-  b+='<svg x="'+P+'" y="'+y+'" width="'+CW+'" height="'+CH+'" viewBox="0 0 '+sw+' '+sh+'">'+inner+'</svg>';
-  y+=CH;
+  // the chart again, drawn off screen at the picture's width with the same series, colour, account lines and goal level
+  const ser=ledgerDailyPoints(_hmRangeSeries(homeRange,homeChartMode));
+  const pl=sv.querySelector('polyline'),up=!/--red/.test((pl&&pl.getAttribute('style'))||'');
+  const box=document.createElement('div');box.style.cssText='position:absolute;left:-10000px;top:0;width:'+CW+'px';document.body.appendChild(box);
+  let chart='',CH=0,key=[];
+  try{
+    ledgerChartRender(box,{id:'hmx',pts:ser,up:up,aria:'',lines:_hmBrokerLines(ser),refs:_hmGoalRefs(ser)});
+    const esv=box.querySelector('svg');
+    if(esv){
+      esv.querySelectorAll('[data-lgx],[data-lgdot]').forEach(e=>e.remove());
+      esv.removeAttribute('style');esv.setAttribute('x',P);esv.setAttribute('y',y);
+      CH=+esv.getAttribute('height')||260;
+      chart=new XMLSerializer().serializeToString(esv);
+    }
+    key=[...box.querySelectorAll('.lg-legend button:not(.off)')].map(bt=>{const ln=bt.querySelector('line');
+      return {name:txt(bt),stroke:((ln&&ln.getAttribute('style'))||'').replace(/^stroke:/,''),dash:(ln&&ln.getAttribute('stroke-dasharray'))||''};});
+  }finally{if(box._lgRO)box._lgRO.disconnect();box.remove();}
+  if(!chart)return null;
+  b+=chart;y+=CH;
+  // the account key under the chart (P&L view, all accounts: one faint line per broker)
+  if(key.length){y+=20;let kx=P;
+    key.forEach(k=>{b+='<line x1="'+kx+'" x2="'+(kx+18)+'" y1="'+(y-4)+'" y2="'+(y-4)+'" style="stroke:'+(k.stroke||'var(--text4)')+'" stroke-width="2"'+(k.dash?' stroke-dasharray="'+x(k.dash)+'"':'')+'/>'
+      +T(kx+24,y,11,'var(--text4)',k.name);kx+=24+Math.round(k.name.length*6.8)+22;});}
   if(goal)b+=T(P,(y+=24),12,'var(--text4)',goal);
-  b+=T(P,(y+=30),9,'var(--text5)','edgelog \u00b7 saved from LEDGER, REAL');
+  b+=T(P,(y+=30),9,'var(--text5)','edgelog · saved from LEDGER, REAL');
   y+=18;
   const svg='<svg xmlns="http://www.w3.org/2000/svg" width="'+W+'" height="'+y+'" viewBox="0 0 '+W+' '+y+'"><rect width="'+W+'" height="'+y+'" style="fill:var(--bg)"/>'+b+'</svg>';
   const cs=getComputedStyle(document.documentElement);
   return {svg:svg.replace(/var\((--[a-z0-9-]+)(?:,[^)]*)?\)/gi,(m,v)=>cs.getPropertyValue(v).trim()||'#888'),w:W,h:y};
 }
 function _hmExportBoardPng(btn){
-  const B=_hmBoardSvg();if(!B){alert('The chart is not drawn yet. Try again in a moment.');return;}
+  const fail=why=>{console.warn('[hm] board image:',why);alert('The picture could not be made ('+why+'). EXPORT CSV still works.');};
+  let B=null;try{B=_hmBoardSvg();}catch(e){fail(String(e&&e.message||e));return;}
+  if(!B){alert('The chart is not drawn yet. Try again in a moment.');return;}
   const img=new Image();
   img.onload=()=>{try{
     const cv=document.createElement('canvas');cv.width=B.w*2;cv.height=B.h*2;
     const cx=cv.getContext('2d');cx.scale(2,2);cx.drawImage(img,0,0,B.w,B.h);
-    cv.toBlob(bl=>{if(!bl)return;const a=document.createElement('a');a.href=URL.createObjectURL(bl);
+    cv.toBlob(bl=>{if(!bl){fail('the browser made no file');return;}const a=document.createElement('a');a.href=URL.createObjectURL(bl);
       a.download='edgelog_real_'+String(homeRange||'ALL').toLowerCase()+'_'+ledgerTodayNY()+'.png';document.body.appendChild(a);a.click();
       setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href);},1000);},'image/png');
-  }catch(e){console.warn('[hm] board image failed',e);}};
-  img.onerror=()=>console.warn('[hm] board image: the picture did not load');
+  }catch(e){fail(String(e&&e.message||e));}};
+  img.onerror=()=>fail('the picture did not load');
   img.src='data:image/svg+xml;charset=utf-8,'+encodeURIComponent(B.svg);
 }
+// LEDGER improvement 9, the chart half: the monthly goal as a dashed level on the chart - where the curve has to reach by the month's
+// end: its value just before this month's first point (the last point when the month has none yet), plus the goal, plus (EQUITY) the
+// deposits and withdrawals made this month, so money moved in or out is never counted as progress (as the line under the chart and
+// the hero already do). Drawn only when a goal is set and the range starts on or before the 1st, so that value is on the chart (TODAY
+// or a week inside the month: the line under the chart still says how far the month is).
 function _hmGoalRefs(ser){
   const g=_hmMonthGoal();if(!g||!ser||!ser.length)return [];
   const today=ledgerTodayNY(),ms=today.slice(0,7)+'-01',cut=ledgerCutoff(homeRange);
   if(cut&&cut>ms)return [];
-  const i0=ser.findIndex(p=>p&&p.date&&p.date>=ms),from=i0<0?0:Math.max(0,i0-1),base=+ser[i0<0?ser.length-1:from].v||0;
+  const i0=ser.findIndex(p=>p&&p.date&&p.date>=ms),from=i0<0?ser.length-1:Math.max(0,i0-1),base=+ser[from].v||0;
+  const dep=homeChartMode==='equity'?+(_hmTradesInRange(scopedLedger()||[],homeRange)||[]).filter(e=>e&&e.date&&e.date>=ms).reduce((s,e)=>s+(+e.amount||0),0).toFixed(2):0;
   const MN=['January','February','March','April','May','June','July','August','September','October','November','December'],mn=MN[(+today.slice(5,7))-1]||'';
-  return [{v:Math.round((base+g)*100)/100,i:from,label:mn.slice(0,3)+' goal +'+ledgerMoney(g),
-    title:mn+' goal: '+ledgerMoney(g)+' on top of where this '+(homeChartMode==='equity'?'balance':'P&L')+' stood before the month began. Set it in Settings, TRADING LOG.'}];
+  return [{v:Math.round((base+g+dep)*100)/100,i:from,label:mn.slice(0,3)+' goal +'+ledgerMoney(g),
+    title:mn+' goal: '+ledgerMoney(g)+' on top of where this '+(homeChartMode==='equity'?'balance':'P&L')+' stood before the month began'
+      +(dep?' (with this month deposits and withdrawals, '+ledgerSigned(dep)+', added, so they do not count as progress)':'')+'. Set it in Settings, TRADING LOG.'}];
 }
 function _hmGoalHtml(){
   const g=_hmMonthGoal();if(!g)return '';
