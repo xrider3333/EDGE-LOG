@@ -2378,12 +2378,14 @@ def test_the_prereg_says_not_checked_when_a_check_did_not_run(tmp_path):
 
 
 # ---- D. the entry-bar phase: close / volume of the first bar at risk, intrabar entries, mutation survivors
-def _eb_plugin(stop=None, target=None, fill="open", check_from_next=False):
+def _eb_plugin(stop=None, target=None, fill="open", check_from_next=False, strict=False):
     """One trade a session: side = sign(close of bar 3 - open of bar 0); fill at bar 4's OPEN ('open'), at bar 3's
-    CLOSE ('close', checked from bar 4), or INSIDE bar 4 at bar 3's high / low ('intrabar': a stop entry, only when bar
-    4 opens inside it and trades through it). stop / target(o, h, l, c, v, e, side, entry) -> a level, set at entry;
-    stop checked first, from the first bar at risk (check_from_next: one bar later); a bar that opens past a level
-    books its open; else flat at the session's last close."""
+    CLOSE ('close', checked from bar 4), INSIDE bar 4 at bar 3's high / low ('intrabar': a stop entry, only when bar
+    4 opens inside it and trades through it) or at bar 3's low / high ('limit': a buy limit below bar 4's open, a sell
+    limit above it). strict: the entry needs the bar to trade strictly PAST the level ('high > level'). stop /
+    target(o, h, l, c, v, e, side, entry) -> a level, set at entry; stop checked first, from the first bar at risk
+    (check_from_next: one bar later); a bar that opens past a level books its open; else flat at the session's last
+    close."""
     def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, return_trades=False, **_ignore):
         o, h, l, c = (np.asarray(x, float) for x in (opens, highs, lows, closes))
         v = np.asarray(volumes, float) if volumes is not None else np.ones(len(c))
@@ -2400,9 +2402,16 @@ def _eb_plugin(stop=None, target=None, fill="open", check_from_next=False):
                 e, entry, j0 = k + 1, o[k + 1], k + 1
             elif fill == "close":
                 e, entry, j0 = k, c[k], k + 1
+            elif fill == "limit":
+                e, lvl = k + 1, (l[k] if side > 0 else h[k])
+                past = (lvl > l[e] if strict else lvl >= l[e]) if side > 0 else (lvl < h[e] if strict else lvl <= h[e])
+                if not ((o[e] > lvl if side > 0 else o[e] < lvl) and past):
+                    continue
+                entry, j0 = lvl, e
             else:
                 e, lvl = k + 1, (h[k] if side > 0 else l[k])
-                if not ((side > 0 and o[e] < lvl <= h[e]) or (side < 0 and o[e] > lvl >= l[e])):
+                past = (h[e] > lvl if strict else h[e] >= lvl) if side > 0 else (l[e] < lvl if strict else l[e] <= lvl)
+                if not ((o[e] < lvl if side > 0 else o[e] > lvl) and past):
                     continue
                 entry, j0 = lvl, e
             st = stop(o, h, l, c, v, e, side, entry) if stop else None
@@ -2528,6 +2537,106 @@ def test_entry_bar_phase_needs_the_anomaly_branch_the_later_bars_and_the_third_p
     mod = _eb_plugin(stop=lambda o, h, l, c, v, e, s, x: x - s * (15 * amp + 0.3 * (h[e] - l[e])))
     fails, _, _ = _eb(mod, A)
     assert fails and "by 30 and 90 median ranges" in fails[0]
+
+
+# ---- review round 4: a strict stop / limit entry keeps its fill; a level dragged past bar f's unchanged open
+def test_entry_bar_push_keeps_an_intrabar_fill_crossed():
+    A = _eb_bars()
+    f = next(k for k in range(20, len(A["close"])) if min(A["high"][k] - A["open"][k], A["open"][k] - A["low"][k]) > 1)
+    o, h, l = (float(A[k][f]) for k in ("open", "high", "low"))
+    buy_stop, buy_limit = o + 0.5 * (h - o), o - 0.5 * (o - l)
+    # a buy STOP crossed the high: the adverse push pulls the high in, but it stays past the fill by min(overshoot, pen)
+    B, _ = Q._sb_push(A, f, 1, "adverse", 7.0, keep=buy_stop, pen=0.1)
+    assert B["high"][f] == buy_stop + 0.1 and B["low"][f] == l - 7.0
+    B, _ = Q._sb_push(A, f, 1, "adverse", 7.0, keep=buy_stop, pen=100.0)
+    assert B["high"][f] == h                                                         # never past its own extreme
+    assert Q._sb_push(A, f, 1, "adverse", 7.0, keep=buy_stop)[0]["high"][f] == buy_stop   # pen 0: exactly the fill
+    # a buy LIMIT crossed the low: the favourable push pulls the low in, past the fill; the adverse one keeps the open
+    B, _ = Q._sb_push(A, f, 1, "favourable", 7.0, keep=buy_limit, pen=0.1)
+    assert B["low"][f] == buy_limit - 0.1 and B["high"][f] == h + 7.0
+    assert Q._sb_push(A, f, 1, "adverse", 7.0, keep=buy_limit, pen=0.1)[0]["high"][f] == o
+    # a SELL stop (below the open) mirrored
+    B, _ = Q._sb_push(A, f, -1, "adverse", 7.0, keep=buy_limit, pen=0.1)
+    assert B["low"][f] == buy_limit - 0.1 and B["high"][f] == h + 7.0
+
+
+@pytest.mark.parametrize("fill", ["intrabar", "limit"])
+def test_entry_bar_phase_keeps_a_strict_stop_or_limit_entry_filled(fill):
+    # the one-way re-draw used to pull the crossed extreme in to EXACTLY the fill level, so a legit stop / limit entry
+    # written with a strict test ('high > level') lost its fill on every push: 'the ENTRY itself changed' - a false
+    # look-ahead that failed a clean rule at write_plugin
+    A = _eb_bars()
+    clean = lambda o, h, l, c, v, e, s, x: x - s * 3 * _atr_before(h, l, e)
+    leak = lambda o, h, l, c, v, e, s, x: x - s * 3 * float(np.mean(h[e - 9:e + 1] - l[e - 9:e + 1]))
+    for strict in (False, True):
+        fails, n, conc = _eb(_eb_plugin(fill=fill, strict=strict, stop=clean), A)
+        assert not fails and n >= 3 and conc >= 3, (fill, strict, fails[:1])
+        fails, n, conc = _eb(_eb_plugin(fill=fill, strict=strict, stop=leak), A)
+        assert fails and "both exit on bar" in fails[0] and "(intrabar fill" in fails[0], (fill, strict, fails[:1])
+
+
+def test_entry_bar_phase_sees_a_level_dragged_past_the_open():
+    # leaks.py L4: a stop hung off the entry bar's FAVOURABLE extreme (a chandelier from the session high INCLUDING the
+    # entry bar). The favourable push drags it past bar f's unchanged open, so every push books that open - the same
+    # P&L each time, invisible to the level comparison. A level known at the fill that is past that open books it on
+    # the real bars too; this one never does.
+    A = _eb_bars()
+    amp = _eb_amp()[0]
+    hi = (lambda n: lambda o, h, l, c, v, e, s, x:
+          (float(np.max(h[e - 5:e + n])) if s > 0 else float(np.min(l[e - 5:e + n]))) - s * 2 * amp)
+    for fill, n in (("open", 1), ("close", 2)):                    # the entry bar / the bar after a close fill
+        fails, _, _ = _eb(_eb_plugin(fill=fill, stop=hi(n)), A)
+        assert fails and "OPEN" in fails[0] and "but not on the real bars" in fails[0], (fill, fails[:1])
+        assert fails[0].startswith("ENTRY-BAR INPUT at bar") and "(%s fill" % fill in fails[0]
+    for fill, n in (("open", 0), ("close", 1)):                    # the same chandelier from what existed at the fill
+        fails, _, conc = _eb(_eb_plugin(fill=fill, stop=hi(n)), A)
+        assert not fails and conc >= 3, (fill, fails[:1])
+    # a level known at the fill that is already past the open books that open on the real bars too - not a leak
+    fails, _, conc = _eb(_eb_plugin(stop=lambda o, h, l, c, v, e, s, x: x + s * 0.5 * amp), A)
+    assert not fails and conc >= 3, fails[:1]
+
+
+def _chandelier_plugin(update_first):
+    """QL_MOMDRIVE's exit (the lab's real 10-15 plugin, both runs 'not promoted'): fill at bar 4's open, a chandelier
+    stop = best close since entry -/+ 2 x the ATR of the bars before the fill; update_first raises `best` with bar j's
+    CLOSE before checking bar j's low (as QL_MOMDRIVE did), else after the check."""
+    def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, return_trades=False, **_ignore):
+        o, h, l, c = (np.asarray(x, float) for x in (opens, highs, lows, closes))
+        did = np.asarray(day_id)
+        starts = np.flatnonzero(np.r_[True, did[1:] != did[:-1]])
+        trades = []
+        for a, b in zip(starts, np.r_[starts[1:], len(c)]):
+            if a < 20 or b - a < 12:
+                continue
+            side = 1 if c[a + 3] >= o[a] else -1
+            e = a + 4
+            entry, atr, best = o[e], _atr_before(h, l, e), o[e]
+            x, px = b - 1, c[b - 1]
+            for j in range(e, b):
+                if update_first:
+                    best = max(best, c[j]) if side > 0 else min(best, c[j])
+                st = best - side * 2 * atr
+                if l[j] <= st if side > 0 else h[j] >= st:
+                    x, px = j, (o[j] if (o[j] < st if side > 0 else o[j] > st) else st)
+                    break
+                if not update_first:
+                    best = max(best, c[j]) if side > 0 else min(best, c[j])
+            trades.append((int(e), int(x), float(side * (px - entry)), int(side), float(entry)))
+        return {"trades": trades} if trades else None
+    import types
+    return types.SimpleNamespace(run_backtest=run_backtest, DEFAULT_PARAMS={})
+
+
+def test_entry_bar_phase_catches_a_chandelier_raised_with_the_bars_own_close():
+    # review round 4, on COPIES of the lab's gated plugins on real pre-WF bars (scratchpad r4_real_la.py): the new
+    # open check fails QL_MOMDRIVE - its chandelier takes bar j's close BEFORE bar j's low is checked, so on the entry
+    # bar a strong close drags the stop past the open (a look-ahead the round-3 phases passed); with the update after
+    # the check it passes
+    A = _eb_bars()
+    fails, _, _ = _eb(_chandelier_plugin(update_first=True), A)
+    assert fails and "OPEN" in fails[0] and "but not on the real bars" in fails[0], fails[:1]
+    fails, n, conc = _eb(_chandelier_plugin(update_first=False), A)
+    assert not fails and n >= 3, fails[:1]
 
 
 def test_a_stop_scaled_1x_or_more_by_the_entry_bars_range_is_realisable_at_that_scale():

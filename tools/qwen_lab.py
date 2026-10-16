@@ -133,7 +133,9 @@ MAX_PLUGIN_ATTEMPTS = 6
 MAX_PROPOSALS = 3
 # the version of the hard gates a plugin passed (gates record + plugin record). 2 = the first-signal-bar contract (TTM
 # #144, clock index, every searched knob's min / max) and the entry-bar inputs audit (TTM #145, high / low / close /
-# volume, intrabar entries, knob corners). run_stage_a refuses a plugin gated by an older version: write_plugin again.
+# volume, intrabar entries incl. strict stop / limit tests, a level dragged past the bar's open, knob corners) - never
+# shipped before these review rounds, so their changes stay v2. run_stage_a refuses a plugin gated by an older version:
+# write_plugin again.
 GATES_VERSION = 2
 NO_FSB_REFUSAL = ("the proposal %s predates the first-signal-bar contract (TTM #144): it has no first_signal_bar, so "
                   "neither the contract nor the PRE-WF check can hold it to one. Call propose(...) again WITH "
@@ -1826,28 +1828,31 @@ def _sb_widen(A, k, px, amp, vmed, phase, lo_w, hi_w):
     return B
 
 
-def _sb_push(A, f, side, which, d, later=None, close_q=None, vol=None, keep=None):
+def _sb_push(A, f, side, which, d, later=None, close_q=None, vol=None, keep=None, pen=0.0):
     """Bar f re-drawn as a ONE-WAY bar from its (unchanged) open. which='adverse': it trades only AGAINST the position -
     the adverse extreme (a long's low, a short's high) pushed d points beyond its own, the other extreme pulled in to
     the open; 'favourable': only WITH it, mirrored. So only the levels on the pushed side can be crossed on bar f (a
     stop-first / target-first order never flips the exit between two pushes). `keep` (an intrabar entry's fill price on
-    bar f) stays inside the bar. close_q puts bar f's close that fraction of the way from the open to the pushed
-    extreme, vol sets bar f's volume (bar f's close and volume did not exist at the fill either). With later=(amp, vmed)
-    every bar AFTER f is replaced too (the _sb_perturb pattern around bar f's new close). Returns (arrays, 'low' |
-    'high')."""
+    bar f) stays inside the bar, and when the pulled-in extreme is the one the entry CROSSED (a buy stop above the open,
+    a buy limit below it, mirrored for a sell) it stays past the fill by min(its own overshoot, pen): a stop / limit
+    entry written with a strict test ('high > level') still fills - the crossing is what that entry legitimately read.
+    close_q puts bar f's close that fraction of the way from the open to the pushed extreme, vol sets bar f's volume
+    (bar f's close and volume did not exist at the fill either). With later=(amp, vmed) every bar AFTER f is replaced
+    too (the _sb_perturb pattern around bar f's new close). Returns (arrays, 'low' | 'high')."""
     import numpy as np
     H = np.array(A["high"], dtype=float, copy=True)
     L = np.array(A["low"], dtype=float, copy=True)
     C = np.array(A["close"], dtype=float, copy=True)
     o = float(A["open"][f])
+    pen = max(0.0, float(pen or 0.0))
     lower = (which == "adverse") == (side > 0)
     if lower:
         L[f] = float(A["low"][f]) - d
-        H[f] = max(o, keep) if keep is not None else o
+        H[f] = o if keep is None or keep <= o else max(keep, min(float(A["high"][f]), keep + pen))
         ext = L[f]
     else:
         H[f] = float(A["high"][f]) + d
-        L[f] = min(o, keep) if keep is not None else o
+        L[f] = o if keep is None or keep >= o else min(keep, max(float(A["low"][f]), keep - pen))
         ext = H[f]
     if close_q is not None:
         C[f] = o + float(close_q) * (ext - o)
@@ -1868,6 +1873,7 @@ def _sb_push(A, f, side, which, d, later=None, close_q=None, vol=None, keep=None
 ENTRY_BAR_PUSH = (10.0, 30.0, 90.0)
 ENTRY_BAR_CLOSE_Q = (0.15, 0.85, 0.5)
 ENTRY_BAR_VOL_X = (0.37, 1.9, 1.0)
+ENTRY_BAR_KEEP_PEN = 0.25          # an intrabar entry's crossed extreme stays up to 0.25 median ranges past its fill
 ENTRY_BAR_K = 6
 ENTRY_BAR_CORNER_KNOBS, ENTRY_BAR_CORNER_K = 4, 2       # the same phase at each ranged knob's min / max (2 trades each)
 
@@ -1906,7 +1912,10 @@ def _sb_entry_bar_inputs(mod, A, params, root, tf, full, pick, amp, vmed=1000.0,
     high / low / close / volume (an ATR / range / volatility including the entry bar, a trailing extreme updated before
     the check, a stop anchored at the entry bar's close) or a bar after f (a centred / forward window) moves. Only EXITS
     ON BAR f AT A LEVEL are compared (an exit at bar f's close may read that close). Conclusive when two pushes exit
-    there; a trade that exits there at a level on a push and not at all on bar f on the next, deeper push fails too.
+    there; a trade that exits there at a level on a push and not at all on bar f on the next, deeper push fails too, and
+    so does a push that books bar f's (unchanged) OPEN when the real bars do not (a level known at the fill that is past
+    that open books it on the real bars too; a stop hung off bar f's own favourable extreme or close - a chandelier
+    raised with bar f before its check - is dragged past the open and books it on every push at the same P&L).
     No level exit on bar f = inconclusive (no failure): a rule with no stop / target on that bar - or a level that
     scales with bar f's own range by >= 1x, which can never be crossed on bar f, so its trades equal those of a rule that
     sets the level at bar f's close and checks it from the next bar (realisable). Returns (fails, checked, conclusive)."""
@@ -1917,12 +1926,17 @@ def _sb_entry_bar_inputs(mod, A, params, root, tf, full, pick, amp, vmed=1000.0,
         tol = 1e-6 * max(1.0, abs(px))
         keep = px if ke == "intrabar" else None
         head = "%sENTRY-BAR INPUT at bar %d (%s fill %.4f), first bar at risk %d" % (tag, e, ke, px, f)
+        o_f = float(A["open"][f])
+        tol_o = 1e-6 * max(1.0, abs(o_f))
+        # on the real bars, did the trade exit at bar f's OPEN (a level known at the fill that is already past it)?
+        orig_at_open = x == f and abs(px + side * float(pnl) - o_f) <= tol_o
         failed, conc = False, False
         for which in ("adverse", "favourable"):
             prev = None                                  # the last push whose trade exited on bar f at a level
             for i, mult in enumerate(ENTRY_BAR_PUSH):
                 B, ext = _sb_push(A, f, side, which, mult * amp, later=(amp, vmed) if i else None,
-                                  close_q=ENTRY_BAR_CLOSE_Q[i], vol=vmed * ENTRY_BAR_VOL_X[i] + 1.0, keep=keep)
+                                  close_q=ENTRY_BAR_CLOSE_Q[i], vol=vmed * ENTRY_BAR_VOL_X[i] + 1.0, keep=keep,
+                                  pen=ENTRY_BAR_KEEP_PEN * amp)
                 tr = _sb_direct(mod, B, params, root, tf)
                 u = next((u for u in tr if u[0] == e and u[3] == side and abs((u[4] or 0) - px) <= tol), None)
                 what = "bar %d's %s was pushed %.0f median ranges further (its close / volume moved)%s" % (
@@ -1934,6 +1948,17 @@ def _sb_entry_bar_inputs(mod, A, params, root, tf, full, pick, amp, vmed=1000.0,
                     break
                 xp = px + side * float(u[2])
                 at_level = u[1] == f and abs(xp - float(B["close"][f])) > 1e-6 * max(1.0, abs(xp))
+                if (ke != "intrabar" and u[1] == f and abs(xp - o_f) <= tol_o and not orig_at_open):
+                    # bar f's open is unchanged by every push: a stop / target known at the fill that is past it books
+                    # that open on the real bars too. Booking it only on a push = the level jumped past the open with
+                    # bar f's own extreme / close / volume (a stop hung off the entry bar's high, then gap-through)
+                    conc = True
+                    fails.append("%s: the trade exits at bar %d's OPEN (%.4f) when %s, but not on the real bars - a "
+                                 "stop / target known at the fill that is past that open exits there on the real bars "
+                                 "too; this level moved past it with bar %d's own high / low / close / volume (or a "
+                                 "bar after it)" % (head, f, o_f, what, f))
+                    failed = True
+                    break
                 if prev is not None:
                     m1, u1 = prev
                     if at_level:

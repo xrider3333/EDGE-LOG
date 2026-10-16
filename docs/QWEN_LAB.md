@@ -134,30 +134,41 @@ that passes 1-5 gets the PRE-WF Stage A.
    and the crossed level existed at that fill; the next bar for a close fill; an entry price equal to both the open
    and the close counts as a close fill) is re-drawn as a ONE-WAY bar from its unchanged open: its adverse extreme
    pushed 10, 30 (and 90) median bar ranges beyond its own with the other extreme pulled in to the open (an intrabar
-   fill's price stays inside), then the favourable side mirrored - so only the levels on the pushed side can be
-   crossed and a stop-first / target-first order never flips the exit between two pushes. Each push also puts that
+   fill's price stays inside, and the extreme its stop / limit entry CROSSED stays past it by up to 0.25 median
+   ranges, so an entry written 'high > level' still fills), then the favourable side mirrored - so only the levels on
+   the pushed side can be crossed and a stop-first / target-first order never flips the exit between two pushes. Each
+   push also puts that
    bar's close at a different place (15 / 85 / 50% of the way from the open to the pushed extreme) and its volume at
    0.37 / 1.9 / 1x the median; the deeper pushes replace every later bar (around the bar's new close). The entry must
    not change, and two pushes that both exit on that bar AT A LEVEL (not at its close, which an exit may read) must
    exit at the SAME price with the SAME P&L (a level known at the fill is crossed by both and fills at itself; a
    level or size that reads the bar's own high / low / close / volume, or a later bar, moves); a trade that exits
-   there at a level on one push and not on that bar at all on the next, deeper one fails too. The same phase then
+   there at a level on one push and not on that bar at all on the next, deeper one fails too, and so does a push that
+   exits at that bar's (unchanged) OPEN when the real bars do not (a level known at the fill that is past the open books
+   it on the real bars too; a stop hung off the entry bar's own favourable extreme - a chandelier from the session high
+   INCLUDING the entry bar - is dragged past the open by the favourable push and books it on every push at the same
+   P&L, which the level comparison cannot see: `leaks.py` L4, review round 4). The same phase then
    runs at each ranged numeric knob's min and max (up to 4 knobs, 2 trades each - the Auto-Validate searches there).
    No level exit on that bar = inconclusive (no failure; a warning when no sampled trade was conclusive). Review round
    3: the phase had moved only the high / low, so a stop anchored at the entry bar's close, a close-to-close
    volatility that included it, a close fill whose stop read the next bar's close (`LEAKS` L1b / L1 / L3) and a stop
    entry with an ATR that included the entry bar (L2, intrabar entries were skipped) all passed - the tests now hold
-   them. A stop that scales with the entry bar's OWN range by >= 1x (stop = entry - 1.5 x that range) can never be
+   them. Review round 4: that re-draw pulled a stop / limit entry's crossed extreme in to EXACTLY the fill level, so a
+   clean entry written with a strict test ('high > level') lost its fill on every push and failed as "the ENTRY itself
+   changed" - the crossed extreme now stays past the fill (tests: strict and non-strict stop and limit entries, clean
+   and leaky). A stop that scales with the entry bar's OWN range by >= 1x (stop = entry - 1.5 x that range) can never be
    crossed on that bar, so its trades are exactly those of a rule that sets the same level at the bar's close and
    checks it from the next bar - realisable, inconclusive by design (the tests prove the equality); at a knob value
    where the scale drops below 1x (stop_frac 0.25 -> 0.375x) it leaks, and the knob-corner pass catches it. The
    failure returns a `how_to_fix` (build levels and size from bars <= k-1 and bar k's open, `atr[k-1]`; trailing
-   levels updated after the bar's check). Re-checked 10-16 (round 3) on copies of the lab's 10 gated plugins on real
-   pre-WF bars, the request `write_plugin` builds: it still catches QL_ES_MOMBREAK v4 (6 of 6 trades conclusive) and
-   passes QL_MTP_NQ, QL_SCALP2M, QL_GAMMA_MOM, QL_MOMDRIVE, QL_VWAPREVERT_NQ v2, QL_GAMMA_ORB, QL_TRENDN and
-   QL_NOISE2M_TREND at the defaults and at every knob corner, and QL_TOM_CALENDAR_NQ v8 (no level on the entry bar:
-   inconclusive, with the warning). The look-ahead sandbox timeout is 2400 s (QL_NOISE2M_TREND on 2m bars took 508 s
-   on a busy machine with the corner pass). Plus
+   levels updated after the bar's check). Re-checked 10-16 (rounds 3 and 4) on copies of the lab's 10 gated plugins on
+   real pre-WF bars, the request `write_plugin` builds: it still catches QL_ES_MOMBREAK v4 (6 of 6 trades conclusive);
+   round 4's open check also fails QL_MOMDRIVE (both runs 'not promoted', so no verdict moves) - its chandelier takes bar
+   j's CLOSE before bar j's low is checked, so a strong entry-bar close drags the stop past the open; the same file with
+   the update after the check passes. It passes QL_MTP_NQ, QL_SCALP2M, QL_GAMMA_MOM, QL_VWAPREVERT_NQ v2, QL_GAMMA_ORB,
+   QL_TRENDN and QL_NOISE2M_TREND at the defaults and at every knob corner, and QL_TOM_CALENDAR_NQ v8 (no level on the
+   entry bar: inconclusive, with the warning). The look-ahead sandbox timeout is 2400 s (QL_NOISE2M_TREND on 2m bars
+   took 508 s on a busy machine with the corner pass). Plus
    **fill realism**: every entry and exit price must sit inside its bar's range (a stop on a bar that
    opened through it must book the open; P&L must be side x (exit - entry)). `tools/gate_lookahead_audit.py` audits the
    ML gate's feature matrix; a Qwen plugin has no ML gate, so it does not apply. The tests prove the audit catches four
