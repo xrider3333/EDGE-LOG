@@ -483,6 +483,32 @@ def _read():
             list((strats or {}).get("strategies") or []))
 
 
+def _paper_account_ready():
+    """True only when NinjaTrader says the paper account is CONNECTED - an empty position list from an account that
+    is not connected (or not synced yet after a restart) means nothing. 2026-10-16 12:03: a NinjaTrader restarted 6 min
+    earlier answered 'no positions' and the OFF switch closed it as flat over an open 11-contract paper short."""
+    acc = bridge_get("/accounts")
+    if acc is None:
+        return False
+    for a in acc.get("accounts") or []:
+        if str(a.get("name")) == nm.DEMO_ACCOUNT:
+            return bool(a.get("connected"))
+    return False
+
+
+def _unknown(why):
+    """NinjaTrader stays ON: what is open cannot be confirmed. Never call that flat."""
+    log("4 %s - the open positions can NOT be confirmed, so NinjaTrader is left ON (never assumed flat)" % why)
+    return _left_on("left-on-unknown",
+                    "NinjaTrader left ON: its open positions could not be confirmed (%s). Check NinjaTrader." % why,
+                    _plain("CHECK NOW", None,
+                           "NinjaTrader could not confirm what is open on the paper account, so it stays on.",
+                           "open NinjaTrader and check the paper account", nm.PRIORITY_FAILED))
+
+
+_BRIDGE_DOWN_WORDS = "bridge is not answering"
+
+
 def _split(snap):
     positions, orders, strategies = snap
     real_p = [p for p in positions if str(p.get("account")) == nm.LIVE_ACCOUNT]
@@ -580,6 +606,9 @@ def _step_close(mode, dry, until, started, depth):
                         _plain("needs a fix", None,
                                "NinjaTrader did not report its positions at the end of the day, so it stays on tonight.",
                                "ask Claude (PAPER-NT8 chat)", nm.PRIORITY_FAILED))
+
+    if not _paper_account_ready():
+        return _unknown("the paper account is not connected")
 
     real_p, real_o, paper_p, paper_o = _split(snap)
     strategies = snap[2]
@@ -684,6 +713,11 @@ def _close_flat(mode, dry, until, until_w, already_stopped=False):
         rc, lines = run_eod_safe(whatif=dry)
         for ln in lines:
             log("    [eod-safe] " + ln)
+        if rc == 0 and any(_BRIDGE_DOWN_WORDS in ln for ln in lines):
+            # nt_eod_safe.ps1 exits 0 with 'nothing to check' when the bridge is gone - that is NOT a flat account
+            if not dry:
+                _save(lambda st: nm.clear(st, _now(), "left on"))
+            return _unknown("the end-of-day check could not reach NinjaTrader")
         if rc != 0:
             if not dry:
                 _save(lambda st: nm.clear(st, _now(), "left on"))

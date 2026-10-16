@@ -60,7 +60,9 @@ class World:
         self.pids = [4242]
         self.bridge = {"/health": {"ok": True}, "/positions": {"positions": []}, "/orders": {"orders": []},
                        "/strategies": {"strategies": [dict(s) for s in STRATS]},
-                       "/executions": {"executions": [{"exec_id": "e1"}, {"exec_id": "e2"}]}}
+                       "/executions": {"executions": [{"exec_id": "e1"}, {"exec_id": "e2"}]},
+                       "/accounts": {"accounts": [{"name": "DEMO7240108", "connected": True},
+                                                  {"name": "1810769", "connected": False}]}}
         self.eod_rc = None                   # None = 0 when flat, 2 when a position is open
         self.on_eod_safe = None
         self.capture = lambda inst, day: rth()
@@ -442,3 +444,23 @@ def test_pressing_on_while_the_strategies_stop_keeps_ninjatrader_open(w):
     T.main(["eod"])
     assert "post /shutdown" not in w.calls and "kill" not in w.calls
     assert (state().get("active") or None) is None and "start_recover" in w.calls
+
+
+# ---------------------------------------------------------------------------------------------- never "flat" unseen
+def test_a_paper_account_that_is_not_connected_is_not_called_flat(w):
+    w.bridge["/accounts"] = {"accounts": [{"name": "DEMO7240108", "connected": False}]}
+    out = T.sequence("switch")
+    assert out["result"] == "left-on-unknown" and not out["night"]
+    assert "kill" not in w.calls and "post /shutdown" not in w.calls
+    assert not any(c.startswith("eod_safe") for c in w.calls)
+    assert "can NOT be confirmed" in w.log() and w.pids == [4242]
+
+
+def test_eod_safe_that_cannot_reach_the_bridge_is_not_a_flat_account(w, monkeypatch):
+    def eod_safe(whatif):
+        w.calls.append("eod_safe whatif=%s" % whatif)
+        return 0, ["bridge is not answering - NinjaTrader is already down. Nothing to check."]
+    monkeypatch.setattr(T, "run_eod_safe", eod_safe)
+    out = T.sequence("switch")
+    assert out["result"] == "left-on-unknown" and not out["night"]
+    assert "post /shutdown" not in w.calls and "kill" not in w.calls
