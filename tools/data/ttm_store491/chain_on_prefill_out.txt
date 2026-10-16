@@ -1,0 +1,29 @@
+CHAIN REBUILD (bit-exact)  ENGUQ_1M_ETH_HC_1_0.py  run 491
+  db_adj_eth  mult 20.0  cost 0.783  warm_days 300  mode anchored
+  optimize window 2010-06-07 .. 2025-06-29
+[ttm] masked 740 bars inserted after #491 ran
+  master: ADJ_NQ_1m_ETH.csv  optimize arrays 5086313 bars  2010-06-07 .. 2025-06-29
+
+PARITY, fold by fold - the engine's own slice evaluator on [train_bars, +test_bars):
+  fold         a         b        net  trades     stored  stored  
+  1      2034525   2415998     1199.6      52     1199.6      52  OK
+  2      2415998   2797471      388.8      63      388.8      63  OK
+  3      2797471   3178944     1000.8     184     1000.8     184  OK
+  4      3178944   3560417     -945.1      79     -945.1      79  OK
+  5      3560417   3941890     2568.1     130     2568.1     130  OK
+  6      3941890   4323363    -2730.0     190    -2730.0     190  OK
+  7      4323363   4704836     1082.3     361     1082.3     361  OK
+  8      4704836   5086313     4376.4     342     4376.4     342  OK
+
+  chain: 1401 trades, net 6940.8 pts | stored: 1401 trades, net 6940.8  -> BIT-EXACT PARITY
+
+THE WALK-FORWARD CHAIN, DAILY-VALUED - the four numbers the store could not give
+  2016-10-12..2025-06-29  8.712 years  1401 trades
+  net             $138816   ($15934 a year)
+  ROC@30k          8.3
+  DD5             $37547
+  DD% from peak    31.02%
+  Sortino          1.28
+  worst DD        $57646  ratio to DD5 1.54 -> ONE EPISODE
+  win rate         28.7%   avg win $2459  avg loss $851  w/l 2.89
+  stored trade-level DD was $56354 for comparison

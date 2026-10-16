@@ -1,0 +1,959 @@
+{
+ "B_literal_equals_stage1_armB": true,
+ "arm_A": {
+  "house": {
+   "cost_pts": 0.533,
+   "dd5": 7557.46,
+   "dd5_n": 2,
+   "dd_pct_peak": 14.7914,
+   "max_dd": 14909.259999999978,
+   "net_usd": -13598.880000000006,
+   "one_episode": true,
+   "per_yr": -2242.4338239277663,
+   "profit_factor": 0.7362829668592858,
+   "roc30": -4.512163227271715,
+   "sortino": -0.9593403426837364,
+   "trades": 218,
+   "trades_per_yr": 35.947855530474044,
+   "win_rate": 0.43577981651376146,
+   "years": 6.064339493497604
+  },
+  "real": {
+   "cost_pts": 0.7825,
+   "dd5": 8086.4,
+   "dd5_n": 2,
+   "dd_pct_peak": 15.8399,
+   "max_dd": 15962.149999999945,
+   "net_usd": -14686.7,
+   "one_episode": true,
+   "per_yr": -2421.813623024831,
+   "profit_factor": 0.7185374842252625,
+   "roc30": -4.551668082980374,
+   "sortino": -1.0279681828989449,
+   "trades": 218,
+   "trades_per_yr": 35.947855530474044,
+   "win_rate": 0.43577981651376146,
+   "years": 6.064339493497604
+  },
+  "stress": {
+   "cost_pts": 1.033,
+   "dd5": 8617.46,
+   "dd5_n": 2,
+   "dd_pct_peak": 16.8931,
+   "max_dd": 17019.259999999977,
+   "net_usd": -15778.880000000006,
+   "one_episode": true,
+   "per_yr": -2601.9123792325067,
+   "profit_factor": 0.7011396894208056,
+   "roc30": -4.586413943789291,
+   "sortino": -1.0957646526347053,
+   "trades": 218,
+   "trades_per_yr": 35.947855530474044,
+   "win_rate": 0.43119266055045874,
+   "years": 6.064339493497604
+  }
+ },
+ "b_plugin_way_matches_100pct": true,
+ "bars": 119248,
+ "direct_call_equals_engine": true,
+ "fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+ "folder": "20261015-1212-shelf30",
+ "four_numbers": {
+  "house": "ROC@30k -4.51 | DD5 $7,557 | DD% from peak 14.8% | Sortino -0.96 | trades 218 (36/yr) | $/yr -2,242 | ONE EPISODE",
+  "real": "ROC@30k -4.55 | DD5 $8,086 | DD% from peak 15.8% | Sortino -1.03 | trades 218 (36/yr) | $/yr -2,422 | ONE EPISODE",
+  "stress": "ROC@30k -4.59 | DD5 $8,617 | DD% from peak 16.9% | Sortino -1.10 | trades 218 (36/yr) | $/yr -2,602 | ONE EPISODE"
+ },
+ "idea": "QL_GAMMA_MOM",
+ "lab_sandbox_out": {
+  "all_match": true,
+  "bars": 119248,
+  "fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+  "first": "2010-06-07 09:30:00-04:00",
+  "last": "2016-06-30 15:55:00-04:00",
+  "trades": 218
+ },
+ "lab_trades_csv": {
+  "all_match": true,
+  "arm_A": 218,
+  "first_bad": [],
+  "rows": 218,
+  "rows_matching": 218
+ },
+ "lab_vs_arm_A_numbers_pre_wf": [
+  {
+   "field": "trades",
+   "lab": 218,
+   "match": true,
+   "mine": 218,
+   "tol": 0
+  },
+  {
+   "field": "net_usd",
+   "lab": -13598.88,
+   "match": true,
+   "mine": -13598.88,
+   "tol": 1.0
+  },
+  {
+   "field": "roc_30k",
+   "lab": -4.512,
+   "match": true,
+   "mine": -4.512163,
+   "tol": 0.005
+  },
+  {
+   "field": "dd5_usd",
+   "lab": 7557.46,
+   "match": true,
+   "mine": 7557.46,
+   "tol": 1.0
+  },
+  {
+   "field": "max_dd_usd",
+   "lab": 14909.26,
+   "match": true,
+   "mine": 14909.26,
+   "tol": 1.0
+  },
+  {
+   "field": "dd_pct_peak",
+   "lab": 14.7914,
+   "match": true,
+   "mine": 14.7914,
+   "tol": 0.01
+  },
+  {
+   "field": "sortino",
+   "lab": -0.9593,
+   "match": true,
+   "mine": -0.95934,
+   "tol": 0.001
+  },
+  {
+   "field": "one_episode",
+   "lab": true,
+   "match": true,
+   "mine": true,
+   "tol": null
+  },
+  {
+   "field": "win_rate (lab %, mine x100)",
+   "lab": 43.58,
+   "match": true,
+   "mine": 43.578,
+   "tol": 0.05
+  },
+  {
+   "field": "dd5_n (extra)",
+   "lab": 2,
+   "match": true,
+   "mine": 2,
+   "tol": 0
+  },
+  {
+   "field": "years (extra)",
+   "lab": 6.064,
+   "match": true,
+   "mine": 6.0643,
+   "tol": 0.001
+  },
+  {
+   "field": "sessions (extra)",
+   "lab": 1550,
+   "match": true,
+   "mine": 1550,
+   "tol": 0
+  },
+  {
+   "field": "trades_per_year (extra, lab 1dp)",
+   "lab": 35.9,
+   "match": true,
+   "mine": 35.948,
+   "tol": 0.05
+  },
+  {
+   "field": "profit_factor (extra)",
+   "lab": 0.7363,
+   "match": true,
+   "mine": 0.736283,
+   "tol": 0.001
+  },
+  {
+   "field": "cost_pts (extra)",
+   "lab": 0.533,
+   "match": true,
+   "mine": 0.533,
+   "tol": 0
+  },
+  {
+   "field": "bars (extra)",
+   "lab": 119248,
+   "match": true,
+   "mine": 119248,
+   "tol": 0
+  },
+  {
+   "field": "fingerprint (extra)",
+   "lab": "66f906272ba2dba5645708c9956ecf2360515b64",
+   "match": true,
+   "mine": "66f906272ba2dba5645708c9956ecf2360515b64",
+   "tol": null
+  }
+ ],
+ "lookahead_fill_checks": {
+  "OR_bars_before_signal": 218,
+  "entry_eq_open": 218,
+  "exit_px_inside_exit_bar": 218,
+  "n": 218,
+  "signal_close_beyond_OR": 218,
+  "stop_dist_eq_OR_range": 64,
+  "stop_exits": 64,
+  "time_exits": 154,
+  "time_exits_at_last_close": 154
+ },
+ "lookahead_perturbation": {
+  "entry_moved": 0,
+  "first_moved": [],
+  "runs_where_earlier_entries_changed": 0,
+  "trades_tested": 218
+ },
+ "numbers_all_match": true,
+ "plugin_lf_sha256": "cb3017465f3309d49616364cb722b0f76509e8f5036ea416fb945b2894214ceb",
+ "registry_id": 37,
+ "secs": 128.0,
+ "session_length": {
+  "counts_short": {
+   "24": 14,
+   "42": 13,
+   "45": 12,
+   "46": 1
+  },
+  "max": 78,
+  "min": 24,
+  "n_le_8": 0,
+  "n_lt_78": 40
+ },
+ "sessions": 1550,
+ "stage": "2 compare + trace",
+ "stage1_sha_ok": true,
+ "trade_count_anatomy": {
+  "actual_trades_per_yr": 35.95,
+  "exact_ties": 2,
+  "first_breakout_on_last_bar": 2,
+  "first_breakout_on_second_to_last_bar": 0,
+  "prior_trades_per_yr": 60.0,
+  "sessions": 1550,
+  "sessions_with_20_prior": 1530,
+  "warmup_sessions_5_to_19_prior": 15,
+  "wide_day_pct": 14.84,
+  "wide_days_no_breakout": 11,
+  "wide_days_strict": 227,
+  "wide_days_with_close_breakout": 216
+ },
+ "variants": {
+  "B+scan_end_b-2": {
+   "four_numbers": {
+    "house": "ROC@30k -4.63 | DD5 $7,767 | DD% from peak 15.3% | Sortino -1.01 | trades 214 (35/yr) | $/yr -2,364 | ONE EPISODE",
+    "real": "ROC@30k -4.65 | DD5 $8,291 | DD% from peak 16.3% | Sortino -1.08 | trades 214 (35/yr) | $/yr -2,540 | ONE EPISODE",
+    "stress": "ROC@30k -4.68 | DD5 $8,817 | DD% from peak 17.3% | Sortino -1.15 | trades 214 (35/yr) | $/yr -2,717 | ONE EPISODE"
+   },
+   "only_A": [
+    [
+     "2010-06-24 10:55:00",
+     -1,
+     5.25
+    ],
+    [
+     "2010-06-29 10:05:00",
+     -1,
+     11.75
+    ],
+    [
+     "2010-08-31 10:05:00",
+     1,
+     -17.25
+    ],
+    [
+     "2013-04-15 10:05:00",
+     -1,
+     39.25
+    ]
+   ],
+   "only_B": [],
+   "scores": {
+    "house": {
+     "cost_pts": 0.533,
+     "dd5": 7766.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 15.255,
+     "max_dd": 15327.939999999979,
+     "net_usd": -14336.240000000007,
+     "one_episode": true,
+     "per_yr": -2364.0233227990984,
+     "profit_factor": 0.7200528328944908,
+     "roc30": -4.626890481302318,
+     "sortino": -1.0133215183270223,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.42990654205607476,
+     "years": 6.064339493497604
+    },
+    "real": {
+     "cost_pts": 0.7825,
+     "dd5": 8290.75,
+     "dd5_n": 2,
+     "dd_pct_peak": 16.2954,
+     "max_dd": 16370.849999999946,
+     "net_usd": -15404.1,
+     "one_episode": true,
+     "per_yr": -2540.1117494356663,
+     "profit_factor": 0.7027343094175337,
+     "roc30": -4.654819541017738,
+     "sortino": -1.0803003737741532,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.42990654205607476,
+     "years": 6.064339493497604
+    },
+    "stress": {
+     "cost_pts": 1.033,
+     "dd5": 8816.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 17.3403,
+     "max_dd": 17417.939999999977,
+     "net_usd": -16476.240000000005,
+     "one_episode": true,
+     "per_yr": -2716.905941309256,
+     "profit_factor": 0.6857549267439714,
+     "roc30": -4.6794958668635775,
+     "sortino": -1.1464686200870273,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.4252336448598131,
+     "years": 6.064339493497604
+    }
+   },
+   "sum_gross_pts": -602.75,
+   "switches": {
+    "plugin_scan_end": true
+   },
+   "trades": 214,
+   "vs_A": {
+    "A": 218,
+    "B": 214,
+    "exact": 214,
+    "match_100pct": false,
+    "same_entry_side": 214
+   }
+  },
+  "B+session_len_guard": {
+   "four_numbers": {
+    "house": "ROC@30k -4.63 | DD5 $7,767 | DD% from peak 15.3% | Sortino -1.01 | trades 214 (35/yr) | $/yr -2,364 | ONE EPISODE",
+    "real": "ROC@30k -4.65 | DD5 $8,291 | DD% from peak 16.3% | Sortino -1.08 | trades 214 (35/yr) | $/yr -2,540 | ONE EPISODE",
+    "stress": "ROC@30k -4.68 | DD5 $8,817 | DD% from peak 17.3% | Sortino -1.15 | trades 214 (35/yr) | $/yr -2,717 | ONE EPISODE"
+   },
+   "only_A": [
+    [
+     "2010-06-24 10:55:00",
+     -1,
+     5.25
+    ],
+    [
+     "2010-06-29 10:05:00",
+     -1,
+     11.75
+    ],
+    [
+     "2010-08-31 10:05:00",
+     1,
+     -17.25
+    ],
+    [
+     "2013-04-15 10:05:00",
+     -1,
+     39.25
+    ]
+   ],
+   "only_B": [],
+   "scores": {
+    "house": {
+     "cost_pts": 0.533,
+     "dd5": 7766.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 15.255,
+     "max_dd": 15327.939999999979,
+     "net_usd": -14336.240000000007,
+     "one_episode": true,
+     "per_yr": -2364.0233227990984,
+     "profit_factor": 0.7200528328944908,
+     "roc30": -4.626890481302318,
+     "sortino": -1.0133215183270223,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.42990654205607476,
+     "years": 6.064339493497604
+    },
+    "real": {
+     "cost_pts": 0.7825,
+     "dd5": 8290.75,
+     "dd5_n": 2,
+     "dd_pct_peak": 16.2954,
+     "max_dd": 16370.849999999946,
+     "net_usd": -15404.1,
+     "one_episode": true,
+     "per_yr": -2540.1117494356663,
+     "profit_factor": 0.7027343094175337,
+     "roc30": -4.654819541017738,
+     "sortino": -1.0803003737741532,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.42990654205607476,
+     "years": 6.064339493497604
+    },
+    "stress": {
+     "cost_pts": 1.033,
+     "dd5": 8816.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 17.3403,
+     "max_dd": 17417.939999999977,
+     "net_usd": -16476.240000000005,
+     "one_episode": true,
+     "per_yr": -2716.905941309256,
+     "profit_factor": 0.6857549267439714,
+     "roc30": -4.6794958668635775,
+     "sortino": -1.1464686200870273,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.4252336448598131,
+     "years": 6.064339493497604
+    }
+   },
+   "sum_gross_pts": -602.75,
+   "switches": {
+    "plugin_len_guard": true
+   },
+   "trades": 214,
+   "vs_A": {
+    "A": 218,
+    "B": 214,
+    "exact": 214,
+    "match_100pct": false,
+    "same_entry_side": 214
+   }
+  },
+  "B+tie_inclusive": {
+   "four_numbers": {
+    "house": "ROC@30k -4.62 | DD5 $7,557 | DD% from peak 14.8% | Sortino -0.98 | trades 216 (36/yr) | $/yr -2,295 | ONE EPISODE",
+    "real": "ROC@30k -4.65 | DD5 $8,086 | DD% from peak 15.9% | Sortino -1.05 | trades 216 (36/yr) | $/yr -2,473 | ONE EPISODE",
+    "stress": "ROC@30k -4.67 | DD5 $8,617 | DD% from peak 16.9% | Sortino -1.12 | trades 216 (36/yr) | $/yr -2,651 | ONE EPISODE"
+   },
+   "only_A": [
+    [
+     "2010-06-24 10:55:00",
+     -1,
+     5.25
+    ],
+    [
+     "2010-06-29 10:05:00",
+     -1,
+     11.75
+    ]
+   ],
+   "only_B": [],
+   "scores": {
+    "house": {
+     "cost_pts": 0.533,
+     "dd5": 7557.46,
+     "dd5_n": 2,
+     "dd_pct_peak": 14.8383,
+     "max_dd": 14909.259999999977,
+     "net_usd": -13917.560000000007,
+     "one_episode": true,
+     "per_yr": -2294.9836523702043,
+     "profit_factor": 0.7301029473193472,
+     "roc30": -4.617902536484456,
+     "sortino": -0.9818217955979802,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4305555555555556,
+     "years": 6.064339493497604
+    },
+    "real": {
+     "cost_pts": 0.7825,
+     "dd5": 8086.4,
+     "dd5_n": 2,
+     "dd_pct_peak": 15.8886,
+     "max_dd": 15962.149999999943,
+     "net_usd": -14995.4,
+     "one_episode": true,
+     "per_yr": -2472.7177652370206,
+     "profit_factor": 0.7126214187633371,
+     "roc30": -4.6473396727327385,
+     "sortino": -1.0495750638225632,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4305555555555556,
+     "years": 6.064339493497604
+    },
+    "stress": {
+     "cost_pts": 1.033,
+     "dd5": 8617.46,
+     "dd5_n": 2,
+     "dd_pct_peak": 16.9434,
+     "max_dd": 17019.259999999973,
+     "net_usd": -16077.560000000007,
+     "one_episode": true,
+     "per_yr": -2651.1642392776535,
+     "profit_factor": 0.6954825326667273,
+     "roc30": -4.673230632726083,
+     "sortino": -1.1165064915008944,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.42592592592592593,
+     "years": 6.064339493497604
+    }
+   },
+   "sum_gross_pts": -580.75,
+   "switches": {
+    "tie_inclusive": true
+   },
+   "trades": 216,
+   "vs_A": {
+    "A": 218,
+    "B": 216,
+    "exact": 216,
+    "match_100pct": false,
+    "same_entry_side": 216
+   }
+  },
+  "B+warmup_fallback": {
+   "four_numbers": {
+    "house": "ROC@30k -4.52 | DD5 $7,767 | DD% from peak 15.2% | Sortino -0.99 | trades 216 (36/yr) | $/yr -2,311 | ONE EPISODE",
+    "real": "ROC@30k -4.56 | DD5 $8,291 | DD% from peak 16.2% | Sortino -1.06 | trades 216 (36/yr) | $/yr -2,489 | ONE EPISODE",
+    "stress": "ROC@30k -4.59 | DD5 $8,817 | DD% from peak 17.3% | Sortino -1.13 | trades 216 (36/yr) | $/yr -2,668 | ONE EPISODE"
+   },
+   "only_A": [
+    [
+     "2010-08-31 10:05:00",
+     1,
+     -17.25
+    ],
+    [
+     "2013-04-15 10:05:00",
+     -1,
+     39.25
+    ]
+   ],
+   "only_B": [],
+   "scores": {
+    "house": {
+     "cost_pts": 0.533,
+     "dd5": 7766.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 15.2068,
+     "max_dd": 15327.93999999998,
+     "net_usd": -14017.560000000009,
+     "one_episode": true,
+     "per_yr": -2311.4734943566605,
+     "profit_factor": 0.7262757730247608,
+     "roc30": -4.52403942282524,
+     "sortino": -0.9907964140137258,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4351851851851852,
+     "years": 6.064339493497604
+    },
+    "real": {
+     "cost_pts": 0.7825,
+     "dd5": 8290.75,
+     "dd5_n": 2,
+     "dd_pct_peak": 16.2455,
+     "max_dd": 16370.849999999946,
+     "net_usd": -15095.4,
+     "one_episode": true,
+     "per_yr": -2489.2076072234763,
+     "profit_factor": 0.7086915492876206,
+     "roc30": -4.561536402612236,
+     "sortino": -1.0586510255237473,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4351851851851852,
+     "years": 6.064339493497604
+    },
+    "stress": {
+     "cost_pts": 1.033,
+     "dd5": 8816.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 17.2888,
+     "max_dd": 17417.939999999977,
+     "net_usd": -16177.560000000007,
+     "one_episode": true,
+     "per_yr": -2667.6540812641097,
+     "profit_factor": 0.6914515370434153,
+     "roc30": -4.59466632896447,
+     "sortino": -1.1256855259194507,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4305555555555556,
+     "years": 6.064339493497604
+    }
+   },
+   "sum_gross_pts": -585.75,
+   "switches": {
+    "warmup_min": 5
+   },
+   "trades": 216,
+   "vs_A": {
+    "A": 218,
+    "B": 216,
+    "exact": 216,
+    "match_100pct": false,
+    "same_entry_side": 216
+   }
+  },
+  "B_literal": {
+   "four_numbers": {
+    "house": "ROC@30k -4.63 | DD5 $7,767 | DD% from peak 15.3% | Sortino -1.01 | trades 214 (35/yr) | $/yr -2,364 | ONE EPISODE",
+    "real": "ROC@30k -4.65 | DD5 $8,291 | DD% from peak 16.3% | Sortino -1.08 | trades 214 (35/yr) | $/yr -2,540 | ONE EPISODE",
+    "stress": "ROC@30k -4.68 | DD5 $8,817 | DD% from peak 17.3% | Sortino -1.15 | trades 214 (35/yr) | $/yr -2,717 | ONE EPISODE"
+   },
+   "only_A": [
+    [
+     "2010-06-24 10:55:00",
+     -1,
+     5.25
+    ],
+    [
+     "2010-06-29 10:05:00",
+     -1,
+     11.75
+    ],
+    [
+     "2010-08-31 10:05:00",
+     1,
+     -17.25
+    ],
+    [
+     "2013-04-15 10:05:00",
+     -1,
+     39.25
+    ]
+   ],
+   "only_B": [],
+   "scores": {
+    "house": {
+     "cost_pts": 0.533,
+     "dd5": 7766.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 15.255,
+     "max_dd": 15327.939999999979,
+     "net_usd": -14336.240000000007,
+     "one_episode": true,
+     "per_yr": -2364.0233227990984,
+     "profit_factor": 0.7200528328944908,
+     "roc30": -4.626890481302318,
+     "sortino": -1.0133215183270223,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.42990654205607476,
+     "years": 6.064339493497604
+    },
+    "real": {
+     "cost_pts": 0.7825,
+     "dd5": 8290.75,
+     "dd5_n": 2,
+     "dd_pct_peak": 16.2954,
+     "max_dd": 16370.849999999946,
+     "net_usd": -15404.1,
+     "one_episode": true,
+     "per_yr": -2540.1117494356663,
+     "profit_factor": 0.7027343094175337,
+     "roc30": -4.654819541017738,
+     "sortino": -1.0803003737741532,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.42990654205607476,
+     "years": 6.064339493497604
+    },
+    "stress": {
+     "cost_pts": 1.033,
+     "dd5": 8816.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 17.3403,
+     "max_dd": 17417.939999999977,
+     "net_usd": -16476.240000000005,
+     "one_episode": true,
+     "per_yr": -2716.905941309256,
+     "profit_factor": 0.6857549267439714,
+     "roc30": -4.6794958668635775,
+     "sortino": -1.1464686200870273,
+     "trades": 214,
+     "trades_per_yr": 35.288261851015804,
+     "win_rate": 0.4252336448598131,
+     "years": 6.064339493497604
+    }
+   },
+   "sum_gross_pts": -602.75,
+   "switches": {},
+   "trades": 214,
+   "vs_A": {
+    "A": 218,
+    "B": 214,
+    "exact": 214,
+    "match_100pct": false,
+    "same_entry_side": 214
+   }
+  },
+  "PLUGIN_WAY(all four)": {
+   "four_numbers": {
+    "house": "ROC@30k -4.51 | DD5 $7,557 | DD% from peak 14.8% | Sortino -0.96 | trades 218 (36/yr) | $/yr -2,242 | ONE EPISODE",
+    "real": "ROC@30k -4.55 | DD5 $8,086 | DD% from peak 15.8% | Sortino -1.03 | trades 218 (36/yr) | $/yr -2,422 | ONE EPISODE",
+    "stress": "ROC@30k -4.59 | DD5 $8,617 | DD% from peak 16.9% | Sortino -1.10 | trades 218 (36/yr) | $/yr -2,602 | ONE EPISODE"
+   },
+   "only_A": [],
+   "only_B": [],
+   "scores": {
+    "house": {
+     "cost_pts": 0.533,
+     "dd5": 7557.46,
+     "dd5_n": 2,
+     "dd_pct_peak": 14.7914,
+     "max_dd": 14909.259999999978,
+     "net_usd": -13598.880000000006,
+     "one_episode": true,
+     "per_yr": -2242.4338239277663,
+     "profit_factor": 0.7362829668592858,
+     "roc30": -4.512163227271715,
+     "sortino": -0.9593403426837364,
+     "trades": 218,
+     "trades_per_yr": 35.947855530474044,
+     "win_rate": 0.43577981651376146,
+     "years": 6.064339493497604
+    },
+    "real": {
+     "cost_pts": 0.7825,
+     "dd5": 8086.4,
+     "dd5_n": 2,
+     "dd_pct_peak": 15.8399,
+     "max_dd": 15962.149999999945,
+     "net_usd": -14686.7,
+     "one_episode": true,
+     "per_yr": -2421.813623024831,
+     "profit_factor": 0.7185374842252625,
+     "roc30": -4.551668082980374,
+     "sortino": -1.0279681828989449,
+     "trades": 218,
+     "trades_per_yr": 35.947855530474044,
+     "win_rate": 0.43577981651376146,
+     "years": 6.064339493497604
+    },
+    "stress": {
+     "cost_pts": 1.033,
+     "dd5": 8617.46,
+     "dd5_n": 2,
+     "dd_pct_peak": 16.8931,
+     "max_dd": 17019.259999999977,
+     "net_usd": -15778.880000000006,
+     "one_episode": true,
+     "per_yr": -2601.9123792325067,
+     "profit_factor": 0.7011396894208056,
+     "roc30": -4.586413943789291,
+     "sortino": -1.0957646526347053,
+     "trades": 218,
+     "trades_per_yr": 35.947855530474044,
+     "win_rate": 0.43119266055045874,
+     "years": 6.064339493497604
+    }
+   },
+   "sum_gross_pts": -563.75,
+   "switches": {
+    "plugin_len_guard": true,
+    "plugin_scan_end": true,
+    "tie_inclusive": true,
+    "warmup_min": 5
+   },
+   "trades": 218,
+   "vs_A": {
+    "A": 218,
+    "B": 218,
+    "exact": 218,
+    "match_100pct": true,
+    "same_entry_side": 218
+   }
+  },
+  "PLUGIN_WAY_minus_tie": {
+   "four_numbers": {
+    "house": "ROC@30k -4.52 | DD5 $7,767 | DD% from peak 15.2% | Sortino -0.99 | trades 216 (36/yr) | $/yr -2,311 | ONE EPISODE",
+    "real": "ROC@30k -4.56 | DD5 $8,291 | DD% from peak 16.2% | Sortino -1.06 | trades 216 (36/yr) | $/yr -2,489 | ONE EPISODE",
+    "stress": "ROC@30k -4.59 | DD5 $8,817 | DD% from peak 17.3% | Sortino -1.13 | trades 216 (36/yr) | $/yr -2,668 | ONE EPISODE"
+   },
+   "only_A": [
+    [
+     "2010-08-31 10:05:00",
+     1,
+     -17.25
+    ],
+    [
+     "2013-04-15 10:05:00",
+     -1,
+     39.25
+    ]
+   ],
+   "only_B": [],
+   "scores": {
+    "house": {
+     "cost_pts": 0.533,
+     "dd5": 7766.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 15.2068,
+     "max_dd": 15327.93999999998,
+     "net_usd": -14017.560000000009,
+     "one_episode": true,
+     "per_yr": -2311.4734943566605,
+     "profit_factor": 0.7262757730247608,
+     "roc30": -4.52403942282524,
+     "sortino": -0.9907964140137258,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4351851851851852,
+     "years": 6.064339493497604
+    },
+    "real": {
+     "cost_pts": 0.7825,
+     "dd5": 8290.75,
+     "dd5_n": 2,
+     "dd_pct_peak": 16.2455,
+     "max_dd": 16370.849999999946,
+     "net_usd": -15095.4,
+     "one_episode": true,
+     "per_yr": -2489.2076072234763,
+     "profit_factor": 0.7086915492876206,
+     "roc30": -4.561536402612236,
+     "sortino": -1.0586510255237473,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4351851851851852,
+     "years": 6.064339493497604
+    },
+    "stress": {
+     "cost_pts": 1.033,
+     "dd5": 8816.8,
+     "dd5_n": 2,
+     "dd_pct_peak": 17.2888,
+     "max_dd": 17417.939999999977,
+     "net_usd": -16177.560000000007,
+     "one_episode": true,
+     "per_yr": -2667.6540812641097,
+     "profit_factor": 0.6914515370434153,
+     "roc30": -4.59466632896447,
+     "sortino": -1.1256855259194507,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4305555555555556,
+     "years": 6.064339493497604
+    }
+   },
+   "sum_gross_pts": -585.75,
+   "switches": {
+    "plugin_len_guard": true,
+    "plugin_scan_end": true,
+    "warmup_min": 5
+   },
+   "trades": 216,
+   "vs_A": {
+    "A": 218,
+    "B": 216,
+    "exact": 216,
+    "match_100pct": false,
+    "same_entry_side": 216
+   }
+  },
+  "PLUGIN_WAY_minus_warmup": {
+   "four_numbers": {
+    "house": "ROC@30k -4.62 | DD5 $7,557 | DD% from peak 14.8% | Sortino -0.98 | trades 216 (36/yr) | $/yr -2,295 | ONE EPISODE",
+    "real": "ROC@30k -4.65 | DD5 $8,086 | DD% from peak 15.9% | Sortino -1.05 | trades 216 (36/yr) | $/yr -2,473 | ONE EPISODE",
+    "stress": "ROC@30k -4.67 | DD5 $8,617 | DD% from peak 16.9% | Sortino -1.12 | trades 216 (36/yr) | $/yr -2,651 | ONE EPISODE"
+   },
+   "only_A": [
+    [
+     "2010-06-24 10:55:00",
+     -1,
+     5.25
+    ],
+    [
+     "2010-06-29 10:05:00",
+     -1,
+     11.75
+    ]
+   ],
+   "only_B": [],
+   "scores": {
+    "house": {
+     "cost_pts": 0.533,
+     "dd5": 7557.46,
+     "dd5_n": 2,
+     "dd_pct_peak": 14.8383,
+     "max_dd": 14909.259999999977,
+     "net_usd": -13917.560000000007,
+     "one_episode": true,
+     "per_yr": -2294.9836523702043,
+     "profit_factor": 0.7301029473193472,
+     "roc30": -4.617902536484456,
+     "sortino": -0.9818217955979802,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4305555555555556,
+     "years": 6.064339493497604
+    },
+    "real": {
+     "cost_pts": 0.7825,
+     "dd5": 8086.4,
+     "dd5_n": 2,
+     "dd_pct_peak": 15.8886,
+     "max_dd": 15962.149999999943,
+     "net_usd": -14995.4,
+     "one_episode": true,
+     "per_yr": -2472.7177652370206,
+     "profit_factor": 0.7126214187633371,
+     "roc30": -4.6473396727327385,
+     "sortino": -1.0495750638225632,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.4305555555555556,
+     "years": 6.064339493497604
+    },
+    "stress": {
+     "cost_pts": 1.033,
+     "dd5": 8617.46,
+     "dd5_n": 2,
+     "dd_pct_peak": 16.9434,
+     "max_dd": 17019.259999999973,
+     "net_usd": -16077.560000000007,
+     "one_episode": true,
+     "per_yr": -2651.1642392776535,
+     "profit_factor": 0.6954825326667273,
+     "roc30": -4.673230632726083,
+     "sortino": -1.1165064915008944,
+     "trades": 216,
+     "trades_per_yr": 35.618058690744924,
+     "win_rate": 0.42592592592592593,
+     "years": 6.064339493497604
+    }
+   },
+   "sum_gross_pts": -580.75,
+   "switches": {
+    "plugin_len_guard": true,
+    "plugin_scan_end": true,
+    "tie_inclusive": true
+   },
+   "trades": 216,
+   "vs_A": {
+    "A": 218,
+    "B": 216,
+    "exact": 216,
+    "match_100pct": false,
+    "same_entry_side": 216
+   }
+  }
+ }
+}

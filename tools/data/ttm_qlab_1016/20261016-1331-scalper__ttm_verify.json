@@ -1,0 +1,468 @@
+{
+ "A_plugin": {
+  "bars_held_counts": {
+   "1": 51,
+   "2": 96,
+   "3": 137,
+   "4": 95,
+   "5": 91,
+   "6": 57,
+   "7": 1023
+  },
+  "bars_held_mean": 5.801290322580646,
+  "bars_held_median": 7.0,
+  "default_params": {
+   "band_bars": "{'default': 12, 'min': 6, 'max': 30, 'step': 6, 'type': 'int', 'label': 'Noise band lookback (bars)'}",
+   "max_hold": "{'default': 6, 'min': 3, 'max': 15, 'step': 3, 'type': 'int', 'label': 'Max hold (bars)'}",
+   "stop_mult": "{'default': 1.5, 'min': 0.5, 'max': 3.0, 'step': 0.5, 'type': 'float', 'label': 'Stop multiplier (x band width)'}"
+  },
+  "engine_total_pnl_pts": -285.125,
+  "engine_trade_tuple_len": 5,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    103.62938356164385,
+    93.68018633540373
+   ],
+   "cost_pts": 0.783,
+   "dd5": 29975.5,
+   "dd_pct_peak": 29.9755,
+   "gross_per_trade_pts": -0.18395161290322581,
+   "max_dd": 29975.499999999804,
+   "net_per_trade_pts": -0.9669516129032258,
+   "net_per_trade_usd": -19.339032258064517,
+   "net_usd": -29975.5,
+   "one_episode": false,
+   "per_yr_usd": -4942.912584650113,
+   "roc30": -4.9469525959368275,
+   "sortino": -3.4741188483649443,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate": 0.3767741935483871,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_win_loss_usd": [
+    103.63938356164385,
+    93.67018633540376
+   ],
+   "cost_pts": 0.7825,
+   "dd5": 29960.0,
+   "dd_pct_peak": 29.96,
+   "gross_per_trade_pts": -0.18395161290322581,
+   "max_dd": 29960.000000000495,
+   "net_per_trade_pts": -0.9664516129032258,
+   "net_per_trade_usd": -19.329032258064508,
+   "net_usd": -29959.999999999985,
+   "one_episode": false,
+   "per_yr_usd": -4940.35665914221,
+   "roc30": -4.946952595936711,
+   "sortino": -3.472582051789011,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate": 0.3767741935483871,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    100.74625000000002,
+    99.68335984095428
+   ],
+   "cost_pts": 1.283,
+   "dd5": 45475.5,
+   "dd_pct_peak": 45.4755,
+   "gross_per_trade_pts": -0.18395161290322581,
+   "max_dd": 45475.50000000108,
+   "net_per_trade_pts": -1.4669516129032258,
+   "net_per_trade_usd": -29.339032258064506,
+   "net_usd": -45475.499999999985,
+   "one_episode": false,
+   "per_yr_usd": -7498.838092550788,
+   "roc30": -4.9469525959366765,
+   "sortino": -4.898714721295946,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate": 0.35096774193548386,
+   "years": 6.064339493497604
+  },
+  "sum_gross_pts": -285.125
+ },
+ "A_replica_post_read": {
+  "exact_same_exit_and_pts_as_A": 1550,
+  "exit_at_text_12min_mh5_house_cost": {
+   "gross_per_trade_pts": -0.13923387096774192,
+   "net_usd": -28589.25,
+   "one_episode": false,
+   "roc30": -4.946952595936827,
+   "trades": 1550,
+   "win_rate": 0.4012903225806452
+  },
+  "first_mismatches": [],
+  "note": "written AFTER reading the plugin; not blind; checks the engine path only",
+  "only_A": 0,
+  "only_replica": 0,
+  "same_entry_and_side_as_A": 1550,
+  "sum_gross_pts": -285.125,
+  "trades": 1550
+ },
+ "A_vs_B": {
+  "A_trades": 1550,
+  "B_trades": 1550,
+  "exact_same_exit_and_pts": 1,
+  "first_exit_diffs": [
+   [
+    "2010-08-02 10:02:00",
+    1,
+    "2010-08-02 10:14:00",
+    "2010-08-02 10:12:00",
+    5.75,
+    5.75
+   ],
+   [
+    "2010-10-01 10:02:00",
+    -1,
+    "2010-10-01 10:12:00",
+    "2010-10-01 10:12:00",
+    -4.6875,
+    -3.9375
+   ],
+   [
+    "2011-03-31 10:04:00",
+    -1,
+    "2011-03-31 10:16:00",
+    "2011-03-31 10:14:00",
+    -2.75,
+    -2.0
+   ],
+   [
+    "2011-05-10 09:56:00",
+    1,
+    "2011-05-10 10:08:00",
+    "2011-05-10 10:06:00",
+    -1.0,
+    -1.25
+   ],
+   [
+    "2012-03-09 09:58:00",
+    -1,
+    "2012-03-09 10:02:00",
+    "2012-03-09 10:02:00",
+    -3.375,
+    -3.1875
+   ],
+   [
+    "2012-06-14 10:00:00",
+    1,
+    "2012-06-14 10:12:00",
+    "2012-06-14 10:10:00",
+    0.0,
+    -0.25
+   ],
+   [
+    "2014-10-14 09:56:00",
+    -1,
+    "2014-10-14 10:08:00",
+    "2014-10-14 10:06:00",
+    -1.75,
+    6.5
+   ],
+   [
+    "2015-08-31 10:00:00",
+    -1,
+    "2015-08-31 10:12:00",
+    "2015-08-31 10:10:00",
+    5.0,
+    8.25
+   ]
+  ],
+  "first_only_A": [
+   [
+    "2010-06-07 10:10:00",
+    1
+   ],
+   [
+    "2010-06-08 09:56:00",
+    -1
+   ],
+   [
+    "2010-06-09 09:56:00",
+    -1
+   ],
+   [
+    "2010-06-10 09:56:00",
+    1
+   ],
+   [
+    "2010-06-11 09:56:00",
+    1
+   ],
+   [
+    "2010-06-14 10:02:00",
+    1
+   ],
+   [
+    "2010-06-15 09:56:00",
+    1
+   ],
+   [
+    "2010-06-16 10:00:00",
+    1
+   ]
+  ],
+  "first_only_B": [
+   [
+    "2010-06-07 10:32:00",
+    -1
+   ],
+   [
+    "2010-06-08 09:46:00",
+    -1
+   ],
+   [
+    "2010-06-09 09:38:00",
+    -1
+   ],
+   [
+    "2010-06-10 09:32:00",
+    1
+   ],
+   [
+    "2010-06-11 09:34:00",
+    1
+   ],
+   [
+    "2010-06-14 09:32:00",
+    1
+   ],
+   [
+    "2010-06-15 09:32:00",
+    1
+   ],
+   [
+    "2010-06-16 09:32:00",
+    -1
+   ]
+  ],
+  "only_A": 1538,
+  "only_B": 1538,
+  "same_entry_and_side": 12,
+  "same_exit_bar": 4,
+  "same_gross_pts": 2,
+  "sessions_traded_A": 1550,
+  "sessions_traded_B": 1550,
+  "sessions_traded_both": 1550
+ },
+ "B_alt_readings_house_cost": {
+  "N10": {
+   "knobs": {
+    "N": 10
+   },
+   "net_usd_house": -30385.499999999993,
+   "one_episode": true,
+   "roc30_house": -4.669093476337436,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate_house": 0.32064516129032256
+  },
+  "N14": {
+   "knobs": {
+    "N": 14
+   },
+   "net_usd_house": -31905.499999999996,
+   "one_episode": false,
+   "roc30_house": -4.6365941235728485,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate_house": 0.30774193548387097
+  },
+  "N30": {
+   "knobs": {
+    "N": 30
+   },
+   "net_usd_house": -33546.75,
+   "one_episode": false,
+   "roc30_house": -4.6469988899494705,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate_house": 0.2870967741935484
+  },
+  "anchor_day_open": {
+   "knobs": {
+    "anchor": "day_open"
+   },
+   "net_usd_house": -15229.249999999995,
+   "one_episode": true,
+   "roc30_house": -4.348605796900107,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate_house": 0.3367741935483871
+  },
+  "anchor_median_high_low": {
+   "knobs": {
+    "anchor": "median_hl"
+   },
+   "net_usd_house": -36294.25,
+   "one_episode": false,
+   "roc30_house": -4.850657798539752,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate_house": 0.2954838709677419
+  },
+  "anchor_prev_bar_high_low": {
+   "knobs": {
+    "anchor": "prev_hl"
+   },
+   "net_usd_house": -30946.019999999997,
+   "one_episode": false,
+   "roc30_house": -4.698296485493351,
+   "trades": 1547,
+   "trades_per_yr": 255.09785553047405,
+   "win_rate_house": 0.308338720103426
+  },
+  "band_incl_signal_bar": {
+   "knobs": {
+    "band_incl_k": true
+   },
+   "net_usd_house": -30240.499999999996,
+   "one_episode": true,
+   "roc30_house": -4.598250124176508,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate_house": 0.3103225806451613
+  },
+  "session_reset_band": {
+   "knobs": {
+    "session_reset": true
+   },
+   "net_usd_house": -19303.0,
+   "one_episode": false,
+   "roc30_house": -4.936891087602061,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate_house": 0.40258064516129033
+  }
+ },
+ "B_own_rule": {
+  "bars_held_counts": {
+   "1": 404,
+   "2": 225,
+   "3": 108,
+   "4": 86,
+   "5": 66,
+   "6": 661
+  },
+  "bars_held_mean": 3.753548387096774,
+  "bars_held_median": 4.0,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    113.7536460554371,
+    77.71481036077705
+   ],
+   "cost_pts": 0.783,
+   "dd5": 16511.0,
+   "dd_pct_peak": 32.7103,
+   "gross_per_trade_pts": -0.20600806451612902,
+   "max_dd": 32817.24999999982,
+   "net_per_trade_pts": -0.989008064516129,
+   "net_per_trade_usd": -19.780161290322578,
+   "net_usd": -30659.249999999996,
+   "one_episode": true,
+   "per_yr_usd": -5055.661879232505,
+   "roc30": -4.621650393527063,
+   "sortino": -4.262410064356591,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate": 0.3025806451612903,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_win_loss_usd": [
+    113.76364605543705,
+    77.70481036077706
+   ],
+   "cost_pts": 0.7825,
+   "dd5": 16503.58,
+   "dd_pct_peak": 32.6956,
+   "gross_per_trade_pts": -0.20600806451612902,
+   "max_dd": 32802.50000000058,
+   "net_per_trade_pts": -0.988508064516129,
+   "net_per_trade_usd": -19.770161290322573,
+   "net_usd": -30643.749999999985,
+   "one_episode": true,
+   "per_yr_usd": -5053.105953724603,
+   "roc30": -4.621391010189327,
+   "sortino": -4.260680693682827,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate": 0.3025806451612903,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    111.57112128146453,
+    85.27927223719675
+   ],
+   "cost_pts": 1.283,
+   "dd5": 47773.37,
+   "dd_pct_peak": 47.6338,
+   "gross_per_trade_pts": -0.20600806451612902,
+   "max_dd": 47773.37000000121,
+   "net_per_trade_pts": -1.489008064516129,
+   "net_per_trade_usd": -29.78016129032257,
+   "net_usd": -46159.249999999985,
+   "one_episode": false,
+   "per_yr_usd": -7611.5873871331805,
+   "roc30": -4.779809789721546,
+   "sortino": -5.827520078528224,
+   "trades": 1550,
+   "trades_per_yr": 255.59255079006775,
+   "win_rate": 0.28193548387096773,
+   "years": 6.064339493497604
+  }
+ },
+ "bars": 298018,
+ "costs_pts": {
+  "house_cost": 0.783,
+  "real_cost": 0.7825,
+  "stress_cost": 1.283
+ },
+ "first_bar": "2010-06-07 09:30:00",
+ "folder": "C:/EdgeLog/qwen_lab/ideas/20261016-1331-scalper",
+ "idea": "QL_NOISE2M_TREND",
+ "last_bar": "2016-06-30 15:58:00",
+ "master": "NOADJ_NQ_2m_RTH.csv",
+ "master_sha256": "35bb8e867341ea0fe64af111c866ce13e49a6e10a7254aafdaf7ad23bac173ca",
+ "mult_usd_per_pt": 20.0,
+ "own_rule_reading": [
+  "bars: NOADJ_NQ_2m_RTH.csv registry row (id 42), window 2010-06-07..2016-06-30 (ET dates), session = ET calendar day (day_id).",
+  "band width w(k) = median of (high - low) over the N bars BEFORE the signal bar k (k-N..k-1), global bars (crosses sessions), N=20 (N is not stated in the text; 20 picked); no signal until N prior bars exist.",
+  "band edges: the text names no centre; TTM centres the trailing band on the PREVIOUS bar's close: upper = close[k-1] + w, lower = close[k-1] - w ('trailing' = re-anchored every bar). A day-open centre was rejected as primary because the text adds a separate 'day's trend' filter, which a day-open-centred band would make redundant. The previous bar may be the prior session's last bar (no session reset stated).",
+  "break: close[k] > upper -> up break; close[k] < lower -> down break (strict).",
+  "day's trend: close[k] vs the session's first bar open; long needs close[k] > day open, short needs close[k] < day open (strict).",
+  "entry at open of bar k+1; k+1 must be in the same session (a signal on the session's last bar is dropped).",
+  "stop distance = 1.5 x w(k) (band width at the signal bar) from the entry price, fixed for the trade.",
+  "stop: checked intrabar from the entry bar on (low <= stop long / high >= stop short fills at the stop); a bar after the entry bar that OPENS past the stop fills at its open; within a bar the stop is checked before the time exit.",
+  "time stop: exit at the CLOSE of the T-th bar held counting the entry bar (bar k+T, T=6 -> 12 min after the entry open).",
+  "flat by the session's last bar: if the time-stop bar is past the session's last bar, exit at the session's last bar close.",
+  "one trade per session max: the first qualifying signal only; no further signals that session after it (win or lose).",
+  "pts gross = side x (exit - entry); cost subtracted per trade afterwards; $ booked on the exit bar's ET date."
+ ],
+ "own_rule_source_sha256": "e3d6dd7112cd9df6e067f114d532c853263585969e651378bd4c8fbe74662b68",
+ "plugin": "C:/EdgeLog/qwen_lab/ideas/20261016-1331-scalper/plugin_v1.py.txt",
+ "plugin_lf_sha256": "441a4056706cc78b514f0c3babee1dbb65fd03469869c0aa5604f703674b3508",
+ "plugin_pin_ok": true,
+ "plugin_vs_text_notes": [
+  "band lookback band_bars=12 (text gives no N; TTM blind pick was 20)",
+  "band centre = median close of the window, edges = centre +/- 0.5 x width (text names no centre; TTM blind pick: previous close +/- 1.0 x width)",
+  "band window includes the signal bar and resets each session (first signal bar = session bar 13)",
+  "time stop exits at the close of bar entry+6 = 7 bars counting the entry bar = 14 min after the entry open; the text says '6 bars = 12 min' (off by one bar vs the text; TTM blind exit = close of bar entry+5)",
+  "gap-through-stop books the open (matches the text); flat at the session's last bar (matches); one trade per session (matches)"
+ ],
+ "prereg": "C:/EdgeLog/qwen_lab/ideas/20261016-1331-scalper/QL_NOISE2M_TREND_2026-10-16.md",
+ "prereg_lf_sha256": "7dd82c5d8dcc9c9aa0310f05036da0258e295a93baf1953d2aa030e4b5a68601",
+ "registry_id": 42,
+ "sessions": 1550,
+ "window": [
+  "2010-06-07",
+  "2016-06-30"
+ ]
+}

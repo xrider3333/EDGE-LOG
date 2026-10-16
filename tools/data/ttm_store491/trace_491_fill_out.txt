@@ -1,0 +1,25 @@
+today's optimize arrays 5087053 bars; bars absent from the pre-fill backup: 740
+ by ET date: {'2020-02-28': 346, '2020-06-30': 394}
+OLD arrays 5086313 bars
+
+== OLD (pre-fill): stored bounds on these arrays
+  fold 1 [2034525, 2415998) 2016-10-12 01:53 .. 2017-11-23 11:15  net 1199.6 / 52 tr | stored 1199.6 / 52  OK  today's arrays are shifted +0 bars at a, +0 at b
+  fold 2 [2415998, 2797471) 2017-11-23 11:16 .. 2018-12-30 19:18  net 388.8 / 63 tr | stored 388.8 / 63  OK  today's arrays are shifted +0 bars at a, +0 at b
+  fold 3 [2797471, 3178944) 2018-12-30 19:19 .. 2020-02-03 02:46  net 1000.8 / 184 tr | stored 1000.8 / 184  OK  today's arrays are shifted +0 bars at a, +0 at b
+  fold 4 [3178944, 3560417) 2020-02-03 02:47 .. 2021-03-09 03:05  net -945.1 / 79 tr | stored -945.1 / 79  OK  today's arrays are shifted +0 bars at a, +740 at b
+  fold 5 [3560417, 3941890) 2021-03-09 03:06 .. 2022-04-04 23:25  net 2568.1 / 130 tr | stored 2568.1 / 130  OK  today's arrays are shifted +740 bars at a, +740 at b
+  fold 6 [3941890, 4323363) 2022-04-04 23:26 .. 2023-05-03 03:23  net -2730.0 / 190 tr | stored -2730.0 / 190  OK  today's arrays are shifted +740 bars at a, +740 at b
+  fold 7 [4323363, 4704836) 2023-05-03 03:24 .. 2024-05-30 07:39  net 1082.3 / 361 tr | stored 1082.3 / 361  OK  today's arrays are shifted +740 bars at a, +740 at b
+  fold 8 [4704836, 5086313) 2024-05-30 07:40 .. 2025-06-29 23:59  net 4376.4 / 342 tr | stored 4376.4 / 342  OK  today's arrays are shifted +740 bars at a, +740 at b
+  chain 1401 trades net 6940.8 | stored 1401 / 6940.8 -> BIT-EXACT; folds missing: []
+
+== TODAY: stored bounds on these arrays
+  fold 1 [2034525, 2415998) 2016-10-12 01:53 .. 2017-11-23 11:15  net 1199.6 / 52 tr | stored 1199.6 / 52  OK
+  fold 2 [2415998, 2797471) 2017-11-23 11:16 .. 2018-12-30 19:18  net 388.8 / 63 tr | stored 388.8 / 63  OK
+  fold 3 [2797471, 3178944) 2018-12-30 19:19 .. 2020-02-03 02:46  net 1000.8 / 184 tr | stored 1000.8 / 184  OK
+  fold 4 [3178944, 3560417) 2020-02-03 02:47 .. 2021-03-08 13:30  net -1310.2 / 80 tr | stored -945.1 / 79  MISMATCH
+  fold 5 [3560417, 3941890) 2021-03-08 13:31 .. 2022-04-04 10:05  net 2462.4 / 130 tr | stored 2568.1 / 130  MISMATCH
+  fold 6 [3941890, 4323363) 2022-04-04 10:06 .. 2023-05-02 14:02  net -2731.0 / 190 tr | stored -2730.0 / 190  MISMATCH
+  fold 7 [4323363, 4704836) 2023-05-02 14:03 .. 2024-05-29 19:19  net 1082.3 / 361 tr | stored 1082.3 / 361  OK
+  fold 8 [4704836, 5086313) 2024-05-29 19:20 .. 2025-06-27 10:39  net 4353.3 / 341 tr | stored 4376.4 / 342  MISMATCH
+  chain 1401 trades net 6445.8 | stored 1401 / 6940.8 -> MISMATCH; folds missing: [4, 5, 6, 8]

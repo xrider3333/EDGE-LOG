@@ -1,0 +1,351 @@
+[
+ {
+  "idea": "QL_GAMMA_MOM",
+  "folder": "20261015-1212-shelf30",
+  "verdict": "VERIFIED EXACT",
+  "four_house": "ROC@30k -4.51 | DD5 $7,557 | DD% from peak 14.8% | Sortino -0.96 | trades 218 (36/yr) | $/yr -2,242 | one episode (cost 0.533 pt RT)",
+  "four_real": "ROC@30k -4.55 | DD5 $8,086 | DD% from peak 15.8% | Sortino -1.03 | trades 218 (36/yr) | $/yr -2,422 | one episode (cost 0.7825 pt RT)",
+  "four_stress": "ROC@30k -4.59 | DD5 $8,617 | DD% from peak 16.9% | Sortino -1.10 | trades 218 (36/yr) | $/yr -2,602 | one episode (cost 1.033 pt RT = house + 0.5 pt)",
+  "slips": [
+   {
+    "what": "Warm-up fallback for the trailing median",
+    "prereg_says": "\"range > 1.5x the trailing 20-session median range\". The literal reading needs 20 prior sessions, and nothing is loaded before 2010-06-07.",
+    "plugin_does": "For sessions 5-19 of the window it takes np.median over ALL prior sessions ('elif idx >= 5: window = session_ranges[:idx]'). This adds 2 trades: 2010-06-24 short +5.25 pt (13 prior sessions) and 2010-06-29 short +11.75 pt (16 prior sessions).",
+    "literal_reading_numbers": "Plugin with only this slip removed (216 trades). House: ROC@30k -4.62 | DD5 $7,557 | DD% from peak 14.8% | Sortino -0.98 | trades 216 (36/yr) | $/yr -2,295 | one episode. Real: ROC@30k -4.65 | DD5 $8,086 | DD% 15.9% | Sortino -1.05 | $/yr -2,473. Full literal reading, both slips removed (arm B, 214 trades). House: ROC@30k -4.63 | DD5 $7,767 | DD% 15.3% | Sortino -1.01 | trades 214 (35/yr) | $/yr -2,364 | one episode. Real: ROC@30k -4.65 | DD5 $8,291 | DD% 16.3% | Sortino -1.08 | $/yr -2,540. Stress: ROC@30k -4.68 | DD5 $8,817 | DD% 17.3% | Sortino -1.15.",
+    "verdict_changing": false
+   },
+   {
+    "what": "Tie at exactly 1.5x the median trades",
+    "prereg_says": "\"If range > 1.5x the trailing 20-session median range\" (strictly greater)",
+    "plugin_does": "It skips only when 'rng < wm * med', so range == 1.5 x median still counts as a wide day. This adds 2 exact ties: 2010-08-31 long -17.25 pt (17.25 == 1.5 x 11.5) and 2013-04-15 short +39.25 pt (12.0 == 1.5 x 8.0).",
+    "literal_reading_numbers": "Plugin with only this slip removed (216 trades). House: ROC@30k -4.52 | DD5 $7,767 | DD% from peak 15.2% | Sortino -0.99 | trades 216 (36/yr) | $/yr -2,311 | one episode. Real: ROC@30k -4.56 | DD5 $8,291 | DD% 16.2% | Sortino -1.06 | $/yr -2,489. Full literal reading (arm B, 214 trades). House: ROC@30k -4.63 | DD5 $7,767 | DD% 15.3% | Sortino -1.01 | $/yr -2,364 | one episode.",
+    "verdict_changing": false
+   },
+   {
+    "what": "Breakout scan ends early: the second-to-last bar can never be the signal bar",
+    "prereg_says": "\"on the first bar whose CLOSE breaks above the range high, buy at next bar's open ... Flat at session's last bar\". Nothing bars a signal on the second-to-last bar (entry at the last bar's open, flat at its close).",
+    "plugin_does": "The loop 'for k in range(a + rb, b - 2)' stops at the third-to-last bar. A wide day whose first close-breakout lands on the second-to-last bar would get no trade.",
+    "literal_reading_numbers": "No change in this window. 0 of the 227 wide days had their first breakout on the second-to-last bar (2 had it on the last bar, which gives no trade under either reading). Numbers equal the plugin's: house ROC@30k -4.51 | DD5 $7,557 | DD% 14.8% | Sortino -0.96 | 218 trades.",
+    "verdict_changing": false
+   },
+   {
+    "what": "Session-length guard and zero-range bookkeeping, not in the prereg",
+    "prereg_says": "Nothing about short sessions. The only requirement is 6 bars for the opening range.",
+    "plugin_does": "It skips sessions with <= 8 bars (b - a <= rb + 2), and books range 0.0 into later medians for sessions with <= 6 bars. It also skips rng <= 0 and med <= 0.",
+    "literal_reading_numbers": "No change in this window. The shortest session has 24 bars (CME holiday sessions 09:30-11:25), so 0 sessions are affected. Numbers equal the plugin's: house ROC@30k -4.51 | DD5 $7,557 | DD% 14.8% | Sortino -0.96 | 218 trades.",
+    "verdict_changing": false
+   }
+  ],
+  "b_plugin_way_100pct": true,
+  "promotion": "NOT PROMOTED. Pre-WF ROC@30k is -4.51 at house cost, against a bar of 15, and the drawdown is one episode: max DD $14,909 is more than 1.3 x DD5 $7,557, with dd5_n = 2. Both conditions fail at house, real and stress cost, and under every slip variant, including the full literal reading (-4.63). The lab's own promotion line says the same. The WF stage must not run.",
+  "degenerate": "NOT DEGENERATE. 218 trades in 6.06 years is 36 a year. That is the rule working as written, not a bug. 1,530 sessions have 20 prior sessions. The strict wide-day filter (OR range > 1.5 x the trailing 20-session median) passes 227 of them (14.8%). 216 of those have a close-breakout and 11 have none. 2 break out only on the last bar, which leaves 214 literal trades. The plugin's 4 extra trades (2 warm-up, 2 ties) bring it to 218. The prereg prior of 60 a year would need about 24% of days to be wide days, so the prior overstated the rate. LOOK-AHEAD (item 3): none found. (a) The OR uses bars a..a+5, and every signal bar comes after it (218/218). The signal is c[k] beyond the OR edge (218/218), and the fill is at o[k+1] (218/218). (b) The stop is entry -/+ 1.0 x OR range, set from bars complete before the signal, and is strictly beyond the entry open, so a touch on the entry bar comes after the fill. All 64 stop exits are at the stop or a gap-through open. All 154 time exits are at the last bar's close, and every exit price is inside its bar. (c) The trailing median uses prior sessions only. The plugin precomputes ranges for future sessions but never reads them. (d) Perturbation test: I scrambled every o/h/l/c from the entry bar on (keeping the entry open) and re-ran all 218 trades. 0 entries moved, and 0 runs changed any earlier entry. (e) Calling the plugin directly on the raw arrays gives the same trades as the engine call. The only forward knowledge is the session end b, used for the time exit and the scan bound. That comes from the exchange calendar: the short sessions are CME holiday and early-close days, and only one trade (2011-11-25, early close) falls in one. NOT SLIPS: (1) 'Stop = 1.0x range away' is measured from the entry fill by both the plugin and my blind reading. A range-edge anchor is a possible other reading, but it is not a plugin departure and I did not score it. (2) Holiday 24-bar sessions enter the trailing median under both readings. Files: trace C:/EdgeLog/_anatomy_cache/ttm_qlab/20261015-1212-shelf30/ttm_trace_20261015-1212-shelf30.py, output ttm_trace.json (sha256 0bf72c86e101507d12077a009a0e8d5122e1aa310f866e706db43a46d25dfde0), log trace_run.log. The stage-1 output sha 68dc4f43... was re-checked unchanged, and the plugin LF sha256 matches the prereg's cb3017465f33....",
+  "lab_vs_a_mismatches": [],
+  "skeptic": {
+   "verdict_upheld": true,
+   "slips_judged": [
+    {
+     "what": "Warm-up fallback for the trailing median (sessions 5-19 use a median over all prior sessions)",
+     "real": true,
+     "why": "The prereg says a 'trailing 20-session median'. The plugin's 'elif idx >= 5: window = session_ranges[:idx]' uses 13-session and 16-session medians for 2 trades: 2010-06-24 +5.25 pt and 2010-06-29 +11.75 pt. The master's first bar is 2010-06-07 09:30, so no earlier data exists, and the literal reading simply cannot trade the first 20 sessions. I re-ran the plugin with this branch disabled and got 216 trades, house ROC@30k -4.62, DD5 $7,557, DD% 14.84, Sortino -0.98, one episode. That matches the verifier exactly. Real but not verdict-changing."
+    },
+    {
+     "what": "Tie at exactly 1.5x the median counts as a wide day (>= instead of >)",
+     "real": true,
+     "why": "The prereg text says 'range > 1.5x', which is strict. The plugin skips only when 'rng < wm * med'. I confirmed the 2 exact ties independently: 2010-08-31 (17.25 vs 1.5 x 11.5) and 2013-04-15 (12.0 vs 1.5 x 8.0). Quarter-point ranges are exact in floating point, so these are true ties. With the strict test the plugin gives 216 trades, house ROC -4.52, DD5 $7,767, DD% 15.21, Sortino -0.99, matching the verifier. Real but not verdict-changing."
+    },
+    {
+     "what": "Breakout scan stops at the third-to-last bar (range(a+rb, b-2))",
+     "real": false,
+     "why": "There is a reasonable other reading. 'Flat at session's last bar' can mean no new position opens on the bar where you must be flat, and the plugin's bound is a guard against that. It also has zero effect. The verifier's evidence counted only the 227 strict wide days that have 20 prior sessions, which leaves out the plugin's own warm-up and tie days. I closed that gap: the plugin with the bound changed to b-1 gives the identical 218 trades and identical numbers (ROC -4.5122)."
+    },
+    {
+     "what": "Session-length guard (<= rb+2 bars skipped) and zero-range bookkeeping",
+     "real": false,
+     "why": "The prereg says nothing about short sessions, and the verifier's own 'prereg_says' admits this. That makes it a defensive implementation detail, not a departure from clear prereg text. It also has zero effect. The shortest session is 24 bars, and the plugin with the guard reduced to the 6-bar OR requirement gives the identical 218 trades."
+    }
+   ],
+   "missed_issues": [
+    "MINOR, not verdict-changing: the master holds 27 CME-only US-holiday sessions (cash market closed) that feed the trailing 20-session median and add zero days to the calendar. Coverage is uneven: 24-bar sessions (09:30-11:25) in 2010-2012, none from 2013 to early 2014, and 42-bar sessions (09:30-12:55) from 2014-05 on. The verifier mentioned only the 24-bar ones. With all 27 removed: 215 trades, house ROC@30k -4.54, DD5 $8,119, DD% 15.9, Sortino -1.04, still one episode. Keeping them in the calendar is correct under the house rule ('every session of the master').",
+    "MINOR evidence gap, conclusion still correct: the verifier's 'no change' claim for the scan-end slip rested on an anatomy of the 227 strict wide days only. It left out the plugin-way warm-up and tie days. My direct variant run confirms 0 changed trades."
+   ],
+   "notes": "I re-ran everything independently, read-only on the repo. My scripts and their printed output are the only record (no JSON written): C:/Users/xride/AppData/Local/Temp/claude/C--Users-xride-OneDrive-Desktop/52930482-892e-410f-a49c-a4c036b9fe02/scratchpad/skeptic_gamma/skeptic.py and short.py.\n\n(a) The VERIFIED EXACT verdict holds.\n- Same file and data: plugin LF sha256 cb3017465f33... matches the prereg. The master is the registry row id 37 (NOADJ_NQ_5m_RTH.csv, db_noadj_rth), with 119248 bars, fingerprint 66f906272ba2..., window 2010-06-07 09:30 to 2016-06-30 15:55 US/Eastern, and 1550 sessions.\n- Same trades: the engine gives 218 trades, and a direct call on the raw arrays gives the identical list. The roll stamp says signal_method 'difference', no_fill_bars 0, no warning. All trades enter and exit in the same session; the last exit is 2016-06-28, so no trade is lost at the window edge.\n- Same numbers: my own scorer (exit-session ET date, zero days kept, max DD from a 0 start, house dd5 and dd_pct_peak, Sortino with sqrt(252)) reproduces the lab exactly.\n  - House 0.533 pt: ROC -4.5122 | DD5 $7,557.46 (n=2, one episode) | DD% 14.7914 | Sortino -0.9593 | net -$13,598.88 | 6.0643 yrs.\n  - Real 0.7825 pt: ROC -4.5517 | DD5 $8,086 | DD% 15.84 | Sortino -1.028.\n  - Stress 1.033 pt: ROC -4.5864 | DD5 $8,617 | DD% 16.89 | Sortino -1.096.\n- The multiplier is $20/pt and the cost arithmetic is right.\n\n(c) Nothing verdict-relevant was missed.\n- No look-ahead: the trailing median reads only prior sessions, the signal is c[k] with k >= a+6, the fill is o[k+1], and a stop on the entry bar is strictly beyond the open. The session end b comes from the exchange calendar.\n- No wrong window or master. Every session starts at 09:30, the 6 opening-range bars are contiguous (09:30-09:55), and no bar has inconsistent OHLC. The master has no data before 2010-06-07.\n- Not run before: the other stop reading (stop measured from the range edge) gives ROC -4.56, one episode.\n\nVerdict: every variant stays near -4.5 to -4.7 ROC against a bar of 15, and all are one episode, so NOT PROMOTED is robust and the WF stage must not run."
+  }
+ },
+ {
+  "idea": "QL_MOMDRIVE",
+  "folder": "20261015-1221-scalper",
+  "verdict": "VERIFIED EXACT",
+  "four_house": "ROC@30k -4.95 | DD5 $127 (n=1, not one episode) | DD% from peak 0.13% | Sortino -0.40 | trades 1 (0.16/yr) | $/yr -21 (net -$127.09 over 6.06 yrs; cost 0.783 pt)",
+  "four_real": "ROC@30k -4.95 | DD5 $127 (n=1, not one episode) | DD% from peak 0.13% | Sortino -0.40 | trades 1 (0.16/yr) | $/yr -21 (net -$127.08; cost 0.7825 pt = $5.65 commission + 1 tick each side)",
+  "four_stress": "ROC@30k -4.95 | DD5 $137 (n=1, not one episode) | DD% from peak 0.14% | Sortino -0.40 | trades 1 (0.16/yr) | $/yr -23 (net -$137.09; cost 1.283 pt = house + 1 tick each side). With one losing trade, ROC = -30/years whatever the cost.",
+  "slips": [
+   {
+    "what": "S1 (the slip that matters): the trail ATR is frozen at the end of the setup window",
+    "prereg_says": "\"Stop: 2.0 x ATR trailing (chandelier-style: highest close since entry minus 2*ATR ...)\", where ATR is \"ATR(14 bars, trailing)\". A chandelier stop reads the current trailing ATR, so it rolls bar by bar.",
+    "plugin_does": "Computes atr_val once at the last setup bar (session bar 11) and uses that same value for every bar of the trail. In a 'quiet' session that value is pumped up by the overnight gap in the first bar's true range, so the stop sits far wider than a rolling ATR(14) would put it once the gap bar leaves the window.",
+    "literal_reading_numbers": "Default (compress_k 1.0), house cost, S1 reverted alone: the one trade exits at 10:30 for +1.25 pts gross, net +$9.34. ROC@30k undefined (no drawdown) | DD5 $0 | DD% from peak 0.00% | Sortino undefined (no down day) | trades 1 (0.16/yr) | $/yr +2. Full literal arm B (every slip reverted, raw prices): +1.714 pts gross, house net +$18.63, real +$18.64, stress +$8.63; ROC and Sortino undefined; DD5 $0; 1 trade; $/yr +3. Mechanics check at compress_k 2.0 (not a result, k picked after seeing data): plugin way ROC 21.61 falls to -0.55 with S1 reverted alone (112 of 114 trades change). Literal B there is ROC 3.50 | DD5 $694 | DD% 1.25% | Sortino 0.33 | 114 trades (18.8/yr) | $/yr 148. So the frozen, gap-pumped ATR accounts for all of the plugin's apparent edge in that cell.",
+    "verdict_changing": false
+   },
+   {
+    "what": "S2: the best close starts at the entry price",
+    "prereg_says": "\"highest close since entry minus 2*ATR for longs; lowest close plus 2*ATR for shorts\" (closes only)",
+    "plugin_does": "best = entry (the fill open), then takes the max or min with closes from the entry bar on, so the fill price counts as a close",
+    "literal_reading_numbers": "Default, S2 reverted alone: trade unchanged. ROC@30k -4.95 | DD5 $127 | DD% from peak 0.13% | Sortino -0.40 | trades 1 (0.16/yr) | $/yr -21. Mechanics at k 2.0: 15/114 trades change, ROC 21.61 -> 19.91.",
+    "verdict_changing": false
+   },
+   {
+    "what": "S3: look-ahead in the stop from the same bar's close, including an open fill on the entry bar",
+    "prereg_says": "\"highest close since entry\" (closes of finished bars), and \"stop hit (intrabar, gap-through books the open)\"",
+    "plugin_does": "Updates best with c[j] BEFORE testing bar j's low or high against the stop, so bar j's own close moves the stop that bar j is then tested against. If the moved stop sits beyond o[j], the plugin books o[j], which uses close[j] to set a fill at open[j]. On the entry bar this books a 0-pt exit at the entry price.",
+    "literal_reading_numbers": "Default, S3 reverted alone: trade unchanged. ROC@30k -4.95 | DD5 $127 | DD% from peak 0.13% | Sortino -0.40 | trades 1 (0.16/yr) | $/yr -21. k 2.0 / trail 2.0: 1/114 trades change, ROC 21.61 -> 21.70. k 2.0 / trail 1.0 (file minimum): 16/114 exits change, 2 of them 0-pt exits on the entry bar; gross 75.2 pts with the leak vs 160.6 causal (house ROC -0.73 vs 4.45). The leak costs the plugin money rather than flattering it, but it must be fixed before any validate.",
+    "verdict_changing": false
+   },
+   {
+    "what": "S4: the signal scan stops at the session's third-last bar",
+    "prereg_says": "\"Signal: a bar whose close breaks above the range high ... Entry: next bar's open\" (any bar after the setup; TTM read it as up to the second-last bar)",
+    "plugin_does": "for k in range(a+sb, b-2): the last bar allowed to signal is b-3",
+    "literal_reading_numbers": "0 trades change at default and at k 2.0. ROC@30k -4.95 | DD5 $127 | DD% from peak 0.13% | Sortino -0.40 | trades 1 | $/yr -21",
+    "verdict_changing": false
+   },
+   {
+    "what": "S5: sessions of 15 bars or fewer are skipped",
+    "prereg_says": "nothing (no minimum session length)",
+    "plugin_does": "if sess_len <= setup_bars + 3: continue. The session length is known from the exchange calendar ahead of time, so this is harmless.",
+    "literal_reading_numbers": "0 trades change (1550/1550 sessions pass). Arm A numbers unchanged",
+    "verdict_changing": false
+   },
+   {
+    "what": "S6: sessions with zero range or zero ATR are skipped",
+    "prereg_says": "nothing",
+    "plugin_does": "if atr_val <= 0 or rng <= 0: continue",
+    "literal_reading_numbers": "0 trades change. Arm A numbers unchanged",
+    "verdict_changing": false
+   },
+   {
+    "what": "S0 (engine convention, not in the Mechanism text): signals run on difference-adjusted prices",
+    "prereg_says": "\"master pinned BY FILENAME: NOADJ_NQ_2m_RTH.csv\". TTM's arm B read the raw NOADJ arrays.",
+    "plugin_does": "Declares ROLL_SIGNAL='difference'. The engine applies the roll plan: signals on difference-adjusted prices, fills on raw prices. The lab's numbers file records this ('difference-adjusted signals', declared).",
+    "literal_reading_numbers": "Default: 0 trades change. k 2.0: 113/114 entries the same on raw vs adjusted prices (1 roll-seam entry moves), B literal ROC 3.50 raw vs 3.34 adjusted",
+    "verdict_changing": false
+   }
+  ],
+  "b_plugin_way_100pct": true,
+  "promotion": "NOT PROMOTED. Pre-WF ROC@30k is -4.95 at house cost, real cost and +1-tick stress alike, against a bar of 15. one_episode is false, but the ROC bar fails. The literal prereg reading (arm B) does not promote either: one +1.714-pt trade in 6.06 years (+$18.63, $3/yr), no drawdown, so ROC is undefined. That cannot clear a bar of >= 15 with a measurable drawdown. The k 2.0 cell (plugin way 21.61) is a mechanics probe only. It is not the prereg's parameter (params = file defaults, no tuning), and almost all of its edge comes from slip S1. It must not be read as a promotion.",
+  "degenerate": "The rule itself is that rare. It is not a plugin bug. (1) Funnel at k 1.0 in TTM's own blind build, written from the prereg text alone: 1550 sessions -> 1550 long enough -> 1549 with ATR(14) defined -> 1 quiet -> 1 signal -> 1 trade. The plugin, the frozen own_rule and an independent pandas recount all find the same single session. (2) The ratio of the 12-bar range to ATR(14) at session bar 11, over 1549 sessions: median 3.11, 10th percentile 2.11, 1st 1.57, 0.1th 1.30, minimum 0.85. Only one session falls at or below 1.0: Labor Day 2015-09-07, a thin 103-bar holiday session with a 4.5-pt range against an ATR of 5.29. That ATR was pumped up by a 34-pt overnight gap in the first bar's true range (the three outside bars' true ranges sum to 50.75). (3) Why it is structurally near-impossible: each true range of session bars 1..11 is at most the 12-bar range (checked in all 1549 sessions). So range <= 1.0 x ATR(14) needs the 3 bars outside that set (the prior session's last 2 bars, plus the first bar with its gap) to sum to at least 3x the range. The median of that sum is 1.28x the range. 139 sessions pass this necessary condition and only 1 passes the full test. A 12-bar range is about sqrt(12), roughly 3.5x, a one-bar ATR on a random walk, so k = 1.0 asks for an opening that barely moves. (4) Units are points vs points, the session filter passes 1550/1550, there are no ties at 1.0, and no off-by-one changes the count: TTM's independent build agrees exactly. (5) Rate by compress_k, same in my build and the plugin's: 0.16/yr at 1.0 and 1.25, 1.6 at 1.5, 6.9 at 1.75, 18.8 at 2.0 (the file maximum), 58 at 2.5, 113 at 3.0. Reaching the prior's 120/yr needs k of about 3.1, outside the file's 0.5-2.0 range. Root cause: a design error in the idea. The default compress_k of 1.0 scales a 12-bar range against a single bar's ATR. The model's 120 trades/yr prior implicitly assumes k near 3.",
+  "lab_vs_a_mismatches": [],
+  "skeptic": {
+   "verdict_upheld": true,
+   "slips_judged": [
+    {
+     "what": "S1: the trail ATR is frozen at the last setup bar (session bar 11)",
+     "real": false,
+     "why": "The prereg defines one ATR, 'ATR(14 bars, trailing)', at the compression test. The stop formula ('highest close since entry minus 2*ATR') never says that ATR rolls bar by bar. 'Chandelier-style' points that way but does not require it, and freezing the defined value is a reasonable reading. The numbers check out exactly in my run. At the default, a rolling ATR exits at 10:30 for +1.25 pts. At k 2.0, ROC goes from 21.61 to -0.55 with 112 of 114 trades changed. So the choice matters a lot at other knob settings, and the prereg should spell it out before any validate. It does not change this verdict."
+    },
+    {
+     "what": "S2: the best close starts at the entry price and the entry price stays in the max/min for the whole trade",
+     "real": true,
+     "why": "The text says 'highest close' and 'lowest close'. The plugin takes max(entry open, closes), so the entry open counts for the whole trade, not just on the entry bar. It has no effect at the default: the lowest close, 4207.25, is below the 4212.25 entry. It is small at k 2.0 (15 of 114 trades). It does not change the verdict."
+    },
+    {
+     "what": "S3: bar j's close moves the stop before bar j's own high/low is tested, and an open fill can be booked from that moved stop",
+     "real": true,
+     "why": "The stop is checked inside the bar, so it must be set from closes through j-1. The plugin updates best with c[j] first and then tests l[j] or h[j], and it can book o[j] off a stop that depends on c[j]. That is a clear same-bar look-ahead. At the default it changes 0 trades: my causal replica gives the identical trade. At k 2.0 with trail 1.0 I reproduce the verifier: 16 exits change, 2 are 0-pt exits on the entry bar, gross 75.2 pts with the leak vs 160.6 causal, ROC -0.73 vs 4.45. The leak costs money rather than adding it, but it must be fixed before any validate."
+    },
+    {
+     "what": "S4: the signal scan stops at bar b-3",
+     "real": true,
+     "why": "The text lets any bar after the setup signal, as long as a next bar exists. A signal on the second-last bar would enter at the last bar's open and exit at its close, which the text allows. The plugin drops that one bar per session. This is a literal deviation, but it changes 0 trades at the default and at k 2.0."
+    },
+    {
+     "what": "S5: sessions of 15 bars or fewer are skipped",
+     "real": false,
+     "why": "The prereg says nothing about session length. This is a guard on a known, scheduled property. The shortest session in the window has 47 bars, so 0 sessions are affected."
+    },
+    {
+     "what": "S6: sessions with zero range or zero ATR are skipped",
+     "real": false,
+     "why": "The prereg is silent and the case is degenerate (a 12-bar NQ range of 0). It has no effect."
+    },
+    {
+     "what": "S0: signals run on difference-adjusted prices (ROLL_SIGNAL='difference')",
+     "real": false,
+     "why": "This is the house engine's roll convention (signals adjusted, fills raw). The plugin declares it and the numbers file records it. On the trade session and across its ATR window the offset is a constant 3832 pts with no roll seam, so ranges, true ranges and P&L are unchanged. A replica on raw prices gives the identical trade."
+    }
+   ],
+   "missed_issues": [
+    "The only trade (2015-09-07) is on a CME holiday session, not a cash RTH day. On Labor Day the NYSE is closed and Globex stops around 13:00 ET. The master's session has 103 bars ending 12:57, with 3-minute bar steps at 12:19, 12:38 and 12:51. The window holds 40 short sessions (about 26 full exchange holidays plus half-days). At the default k 1.0, the rule never fired on a normal cash session in 6.06 years, so its one 'quiet open' comes from the holiday tape. The verifier named the day as Labor Day but put the rarity down to the k design alone. This does not change the verdict: dropping holidays leaves 0 trades, so there are no numbers and the idea is still NOT PROMOTED. At k 2.0 only 8 of 114 trades are on these sessions.",
+    "The lab's look-ahead gate could not have caught S3. It perturbed only 1 sampled trade, and the default's single trade is unaffected by the leak. That is a blind spot in the lab's hard gate for rare-firing plugins, and nobody flagged it.",
+    "Stop exits fill at a level off the 0.25-pt tick: 4217.82, where a real buy stop fills at 4218.00, 0.18 pt or $3.57 worse. This is the engine's convention and slightly optimistic. The +1-tick stress covers it, and it does not change the verdict.",
+    "With a single drawdown episode, the house dd5 one_episode flag is False by construction (the worst episode equals the DD5 average). So 'not one episode' is met trivially by a one-trade result. It is moot here because the ROC bar fails.",
+    "The 12:21 and 13:10 folders are the same idea run twice: same prereg, same plugin sha 8ae66698, same trade, posted to MANAGER twice. The verifier compared both folders but did not flag the duplicate. This is a process note only."
+   ],
+   "notes": "VERIFIED EXACT holds. I rebuilt everything independently and read the repo only.\n\n- **Plugin and data:** the plugin's LF sha256 is 8ae66698..., matching the prereg. The registry row is id 42, NOADJ_NQ_2m_RTH.csv, loaded via list_masters. The window is 2010-06-07..2016-06-30: 298018 bars, 1550 sessions, fingerprint 21a9952e. A separate pandas read of the CSV matches the loader bar for bar.\n- **Engine run** (plugin loaded with exec, params=None, cost 0): one trade, 257516 to 257560, short, raw entry 4212.25, gross -5.5714 pts. At cost 0.783 the engine gives -6.3544, exactly the lab's sandbox and CSV row.\n- **House yardstick from my own code:** $ booked on the exit session, zero days kept, years 6.0643, house dd5 and dd_pct_peak.\n  - House cost: net -$127.09, ROC@30k -4.947, max DD $127.09, DD5 $127.09 (n=1), one_episode False, DD% from peak 0.1271%, Sortino -0.4032.\n  - Real cost (0.7825): -$127.08, same ROC.\n  - Stress (1.283): -$137.09, ROC -4.947, DD5 $137.09, DD% 0.1371%.\n  - All of these match the lab file and the verifier.\n- **Lab harness:** the run used commit 3f001212, whose LF sha is cfc186cf, the prereg pin. Its four_numbers uses mark-to-market increments with an entry-session filter. That is the same as exit-session booking for trades that are flat by the close, and it dropped nothing at the window edges.\n- **Promotion:** -4.95 < 15, so NOT PROMOTED. Under the literal reading the trade has no drawdown. The harness's stretch_reading then returns roc_30k=None and promotion_bar returns NOT PROMOTED, so no reading of the slips changes the decision.\n- **Verifier's mechanics claims:** I reproduced all of them exactly.\n  - Default: S1 alone exits at 10:30 for +1.25. Full literal arm B exits at 10:48 for +1.714.\n  - k 2.0: the plugin way is ROC 21.61 on 114 trades, and my replica matches it 114/114. S1 alone gives -0.55 (112 trades change). Literal B on raw prices gives ROC 3.50, DD5 $694, DD% 1.25%, Sortino 0.33, $148/yr.\n  - k 2.0 with trail 1.0: the S3 numbers match as listed under S3.\n- **Blind protocol:** own_rule and atr14 are byte-identical to the copy frozen at 11:31 (sha b1e47b05).\n- **Diagnosis of the trade:** the ATR(14) at session bar 11 is 5.2857, pumped by the Friday 15:58 bar (TR 12.25) and the 34.75-pt gap bar. The setup range is 4.5 pts.\n\nScripts are in C:/Users/xride/AppData/Local/Temp/claude/C--Users-xride-OneDrive-Desktop/52930482-892e-410f-a49c-a4c036b9fe02/scratchpad/skeptic_momdrive/ (skeptic.py, k2.py, hol.py, hol2.py)."
+  }
+ },
+ {
+  "idea": "QL_GAMMA_ORB",
+  "folder": "20261015-1301-shelf30",
+  "verdict": "VERIFIED EXACT",
+  "four_house": "ROC@30k -3.73 | DD5 $4,556 (one episode) | DD% from peak 12.3% | Sortino -0.72 | trades 752 (124/yr) | $/yr -1,568  [cost 0.533 pt RT; net -$9,509; max DD $12,604; win rate 34.8%]",
+  "four_real": "ROC@30k -4.43 | DD5 $3,930 (one episode) | DD% from peak 14.7% | Sortino -0.99 | trades 752 (124/yr) | $/yr -2,187  [cost 0.7825 pt RT; net -$13,261; max DD $14,794]",
+  "four_stress": "ROC@30k -4.67 | DD5 $9,136 (one episode) | DD% from peak 18.0% | Sortino -1.25 | trades 752 (124/yr) | $/yr -2,808  [house + 0.5 pt = 1.033 pt RT; net -$17,029. Not a short-hold scalper; reported anyway]",
+  "slips": [
+   {
+    "what": "S1 warm-up of the trailing median (the only slip that changes trades: the 8 extra A trades)",
+    "prereg_says": "Trailing threshold = median of the last lookback_days (default 20) sessions' opening ranges (trailing window, no whole-array stats).",
+    "plugin_does": "Uses whatever prior sessions exist when fewer than 20 are loaded (session_ranges[:idx]), drops zeros, and arms once it has >= 3 non-zero priors. So it trades from session 4 of the window (first trade 2010-06-10). The 8 trades from 2010-06-10 to 06-30 sum to -24.75 gross pts, exactly the A-B gross gap.",
+    "literal_reading_numbers": "Full 20 prior sessions required (= frozen arm B, 744 trades). House: ROC@30k -3.50 | DD5 $4,461 | DD% from peak 12.3% | Sortino -0.68 | trades 744 (123/yr) | $/yr -1,472, one_episode true. Real: ROC@30k -4.23 | DD5 $3,827 | DD% 14.6% | Sortino -0.95 | $/yr -2,084, one_episode true.",
+    "verdict_changing": false
+   },
+   {
+    "what": "S2 zero ranges dropped from the median window",
+    "prereg_says": "median of the last lookback_days sessions' opening ranges (no exclusion stated; 'Skip if range <= 0' applies to today only).",
+    "plugin_does": "window = window[window > 0]. Prior sessions with a zero range, or with <= 6 bars (stored as 0.0), are left out of the median.",
+    "literal_reading_numbers": "No effect in this window: 0 zero opening ranges and min session length 24 bars. The literal reading is identical to arm A: ROC@30k -3.73 | DD5 $4,556 | DD% 12.3% | Sortino -0.72 | 752 trades.",
+    "verdict_changing": false
+   },
+   {
+    "what": "S3 breakout scan stops one bar early",
+    "prereg_says": "On the first bar k >= a+range_bars where close > range high / close < range low, fill at bar k+1's open (k+1 may be the session's last bar).",
+    "plugin_does": "for k in range(a+rb, b-2): the last signal bar scanned is b-3. A first breakout on the second-to-last bar is skipped, and the session gets no trade.",
+    "literal_reading_numbers": "No effect: 0 such sessions. Identical to arm A (ROC@30k -3.73, 752 trades).",
+    "verdict_changing": false
+   },
+   {
+    "what": "S4 short-session cutoff",
+    "prereg_says": "Skip if range <= 0 or session too short (no number given).",
+    "plugin_does": "Skips sessions with <= rb+2 = 8 bars. TTM's reading was < 8.",
+    "literal_reading_numbers": "No effect: 0 sessions with <= 8 bars (min 24). Identical to arm A.",
+    "verdict_changing": false
+   },
+   {
+    "what": "S5 stop wording: 'range midpoint' vs the formula (an ambiguity in the prereg, not a plugin error)",
+    "prereg_says": "Stop = range midpoint (entry - side * 0.5 * range); a bar that opens past the stop books its open.",
+    "plugin_does": "Uses the parenthetical formula: stop = entry - side*0.5*range, checked intrabar from the entry bar. A gap past the stop books the open. This is TTM's primary reading too.",
+    "literal_reading_numbers": "True midpoint (hi+lo)/2, all else the plugin's way (752 trades). House: ROC@30k -4.35 | DD5 $3,812 | DD% 13.5% | Sortino -0.77 | $/yr -1,969, one_episode true. Real: ROC@30k -4.64 | DD5 $8,477 | DD% 16.7% | Sortino -1.00 | $/yr -2,587. Fully literal B with true midpoint (744 trades), house: ROC -4.07 | DD5 $3,701 | DD% 13.4% | Sortino -0.73.",
+    "verdict_changing": false
+   }
+  ],
+  "b_plugin_way_100pct": true,
+  "promotion": "NOT PROMOTED. Pre-WF ROC@30k is -3.73 at house cost and -4.43 at real cost, both far below 15. one_episode is also true (max DD $12,604 is about 2.8x DD5). The lab reached the same verdict. No literal reading promotes: the best is arm B at -3.50 house, and every reading is flagged one_episode. The WF Stage A correctly does not run.",
+  "degenerate": "Not degenerate. The plugin trades 752 times (124/yr, 48.5% of 1,550 sessions, 387 long / 365 short). The prereg's stated prior was 60/yr. By construction, 'range >= trailing median' arms about half the sessions, and almost every armed day gets a close outside the 30-minute range. Python's own count at draft was 121.3/yr. Look-ahead check found no look-ahead. Each session's opening range uses only its first 6 bars. The median uses only prior sessions. The signal uses close[k] with the fill at open[k+1]. The stop comes from the entry price and the opening range, and is checked intrabar from the fill bar on. The exit is the last bar's close. The probes passed 752/752. One technicality: the short-session skip (b-a <= 8) and the scan end (b-3) use the session's total bar count. That is calendar knowledge, and it never binds here (min 24 bars).",
+  "lab_vs_a_mismatches": [],
+  "skeptic": {
+   "verdict_upheld": true,
+   "slips_judged": [
+    {
+     "what": "S1: warm-up of the trailing median (plugin uses the median of 3-19 prior sessions from session 4 on; the verifier's literal reading waits for 20)",
+     "real": true,
+     "why": "The prereg gives a number: the median of the last 20 sessions. On sessions 4-20 the plugin uses fewer, and its 'at least 3 non-zero priors' floor is a constant the prereg never states. Without that floor the count is 753, not 752. The slip only touches warm-up. I rebuilt it independently: the 8 extra trades run 2010-06-10..06-30 and total -24.75 gross pts. The literal reading gives 744 trades, ROC@30k -3.50 at house cost, and is still one episode. Not verdict-changing."
+    },
+    {
+     "what": "S2: zero ranges dropped from the median window",
+     "real": false,
+     "why": "The prereg's own 'skip if range <= 0' marks zero-range sessions as bad data, so leaving them out is a reasonable reading. The code path also never runs in this window: 0 zero opening ranges and 0 sessions of 6 bars or fewer. It is a dormant difference in the code, not a slip in the run."
+    },
+    {
+     "what": "S3: breakout scan stops at b-3 (no fill on the session's last bar)",
+     "real": false,
+     "why": "The verifier's prereg_says adds '(k+1 may be the session's last bar)'. That phrase is not in the prereg. Since the prereg says 'flat at the session's last bar', not opening a trade on that bar is a reasonable reading. It also never binds: I checked every session, armed or not, and none has its first breakout at b-2."
+    },
+    {
+     "what": "S4: short-session cutoff (<= 8 bars)",
+     "real": false,
+     "why": "The prereg says 'session too short' and gives no number, so <= 8 is a valid choice. It is also inert: the shortest session has 24 bars."
+    },
+    {
+     "what": "S5: 'range midpoint' wording vs the parenthetical formula",
+     "real": false,
+     "why": "This is an ambiguity inside the prereg, not a plugin error. The plugin follows the explicit formula entry - side*0.5*range, which is also the verifier's primary reading. Every true-midpoint variant is worse (house ROC -4.35 / -4.07) and still one episode."
+    }
+   ],
+   "missed_issues": [
+    "DD5 is printed without its episode count where n < 5. The house drawdowns docstring says to print '(n=k)' when fewer than 5 episodes exist. Arm A at stress cost has only 2 episodes in the whole curve, so 'DD5 $9,136' should read 'DD5 $9,136 (n=2)'. The jump from $3,930 (real, n=5) to $9,136 (stress) is that averaging artifact, not a new drawdown. The S5 real/stress DD5s ($8,477 / $10,351) are probably the same artifact. Reporting only; no verdict effect.",
+    "S3's prereg_says is a misquote. The parenthetical '(k+1 may be the session's last bar)' is the verifier's own gloss, not prereg text. The slip list should quote the prereg exactly.",
+    "Minor, folded into S1: the plugin's 'at least 3 non-zero priors' floor is an invented constant. A plain expanding window would give 753 trades. Immaterial."
+   ],
+   "notes": "VERIFIED EXACT holds; I could not refute it. I re-ran it independently in my scratchpad (read-only on the repo). The plugin LF sha256 49fc27d8... matches the prereg. I used the registry row id 37 for NOADJ_NQ_5m_RTH.csv. The master itself starts 2010-06-07, so no warm-up bars exist before the window. Loaded bars: 119,248, fingerprint 66f90627..., ending 2016-06-30 15:55, before the WF start. The engine gives 752 trades, the same as the plugin called directly on raw arrays. All 752 exit inside their entry session, so nothing is dropped at the window edge.\n\nMy own scorer uses the ET exit date, all 1,550 master sessions as the calendar, a 0-start drawdown, years = 6.06434, and the house dd5/dd_pct_peak functions. It reproduces every figure:\n- House: ROC -3.7321, DD5 $4,556.33 (n=5), one_episode true, DD% 12.3381, Sortino -0.72294, win rate 34.84%.\n- Real (0.7825 pt): ROC -4.4343, DD5 $3,930.16, DD% 14.7046, Sortino -0.98984.\n- Stress (1.033 pt): ROC -4.6663, DD5 $9,135.59 (n=2), DD% 18.0321.\n- Lab PF 0.909 also matches the net-of-cost win/loss sums.\n\nMy own literal implementation gives 744 trades, all exact matches inside A, at ROC -3.5043. Costs ($20/pt; 0.533 / 0.7825 / 1.033) and the yardstick both match the house definition. I found no look-ahead:\n- The opening range uses the first 6 bars, the median uses prior sessions only, the signal is close[k] and the fill is open[k+1].\n- The verifier's probes (session cut, post-signal noise, stop level) are sound. Their only blind spot is session-length knowledge, which the verifier disclosed and which is exchange-calendar knowledge.\n\nObservation, not an error: the master counts 14 CME-holiday 24-bar sessions (09:30-11:25) as sessions. They enter the trailing median and the calendar. The plugin traded none of them (3 trades fall on 45-bar early-close days).\n\nNOT PROMOTED stands under every reading: ROC is at most -3.50 against a bar of 15, and every reading is one episode."
+  }
+ },
+ {
+  "idea": "QL_VWAPREVERT_NQ (second run, plugin v2 dbcf3008)",
+  "folder": "20261015-1320-own",
+  "verdict": "VERIFIED EXACT",
+  "four_house": "ROC@30k -4.91 | DD5 $20,276 | DD% from peak 20.2% | Sortino -2.69 | trades 1,451 (239/yr) | $/yr -3,317",
+  "four_real": "ROC@30k -4.92 | DD5 $27,511 | DD% from peak 27.5% | Sortino -3.50 | trades 1,451 (239/yr) | $/yr -4,511",
+  "four_stress": "ROC@30k -4.93 | DD5 $34,776 | DD% from peak 34.7% | Sortino -4.24 | trades 1,451 (239/yr) | $/yr -5,709",
+  "slips": [
+   {
+    "what": "S1 warm-up bar index",
+    "prereg_says": "At each bar k (k >= 25)",
+    "plugin_does": "if k < aw: continue, with a global k and aw = atr_window = 20, so it warms up at k >= 20. This only touches the first session of the window: the plugin takes 2010-06-07 11:15 (signal k=20, +8.625 gross) where the literal rule takes 14:20 the same day (-3.85).",
+    "literal_reading_numbers": "Only k>=25 reverted (S1): house ROC@30k -4.95 | DD5 $20,363 | DD% from peak 20.4% | Sortino -2.72 | trades 1,451 (239/yr) | $/yr -3,358; real ROC@30k -4.95 | DD5 $27,604 | DD% 27.6% | Sortino -3.53. Other reading of k>=25 (counted inside each session, a sensitivity only): house ROC@30k -4.71 | DD5 $4,136 | DD% 19.2% | Sortino -2.62 | trades 1,436 (237/yr) | $/yr -3,049 | ONE EPISODE; under that reading the plugin differs on 514 trades.",
+    "verdict_changing": false
+   },
+   {
+    "what": "S2 unstated skip of short sessions (it also reads the session's future bar count)",
+    "prereg_says": "No session filter. The text says only 'On NQ 5m regular-hours bars (09:30-16:00 ET). At each bar k ...'",
+    "plugin_does": "if b - a < aw + 5: continue skips every session with fewer than 25 bars. That is 14 holiday sessions of 24 bars (09:30-11:25), and 7 of them had a literal-rule trade (2010-07-05, 2010-11-25, 2011-01-17, 2011-02-21, 2012-01-16, 2012-07-04, 2012-09-03). Those 7 trades total -0.41 gross pts.",
+    "literal_reading_numbers": "Only the skip removed (S2): house ROC@30k -4.91 | DD5 $20,358 | DD% from peak 20.3% | Sortino -2.70 | trades 1,458 (240/yr) | $/yr -3,330; real ROC@30k -4.92 | DD5 $27,629 | DD% 27.6% | Sortino -3.51",
+    "verdict_changing": false
+   },
+   {
+    "what": "S3 order of stop and target checks on a later bar that gaps",
+    "prereg_says": "Stop: 1.0*ATR20 against entry (intrabar, gap-through books the open). Target: 1.5*ATR20 in favor (intrabar, gap-through books the open). TTM read this as: a gap through either level books the open, then the intrabar check with stop first.",
+    "plugin_does": "Checks the stop first, including a stop gap, and only then the target, including a target gap. So a bar that opens beyond the target and also trades back to the stop books the stop, not the open. This happens 0 times inside the plugin's trades in this window.",
+    "literal_reading_numbers": "Same as the plugin, trade for trade (1451/1451): house ROC@30k -4.91 | DD5 $20,276 | DD% 20.2% | Sortino -2.69",
+    "verdict_changing": false
+   },
+   {
+    "what": "S4 unstated skip of bars with ATR <= 0",
+    "prereg_says": "No such guard. The text says only 'If close[k] > VWAP + 2.5*ATR20 ...'",
+    "plugin_does": "if atr <= 0: continue. No bar in the window has ATR20 <= 0.",
+    "literal_reading_numbers": "Same as the plugin, trade for trade (1451/1451): house ROC@30k -4.91 | DD5 $20,276 | DD% 20.2% | Sortino -2.69",
+    "verdict_changing": false
+   },
+   {
+    "what": "ALL slips reverted = the full literal reading (stage-1 arm B, reproduced exactly)",
+    "prereg_says": "the Mechanism text as written",
+    "plugin_does": "S1 + S2 (S3 and S4 never fire). Together they are worth +12.88 gross pts to the plugin over 6.06 years.",
+    "literal_reading_numbers": "house ROC@30k -4.95 | DD5 $20,446 | DD% from peak 20.4% | Sortino -2.73 | trades 1,458 (240/yr) | $/yr -3,371; real ROC@30k -4.95 | DD5 $27,721 | DD% 27.7% | Sortino -3.54; stress ROC@30k -4.95 | DD5 $35,026 | DD% 35.0% | Sortino -4.29",
+    "verdict_changing": false
+   }
+  ],
+  "b_plugin_way_100pct": true,
+  "promotion": "NOT PROMOTED. Pre-WF ROC@30k is -4.91 at house cost, against a bar of 15. It is also -4.92 at real cost, -4.93 at stress, -4.95 under the literal reading and -4.71 under the in-session warm-up reading. It is not one episode (DD5 n=1, flag false), but the ROC bar fails on its own. ROC sits near the floor of -30/6.06 yrs because the curve ends at its low from a 0 start. The idea loses money before any cost: -232.3 gross pts, with a 37.8% gross win rate. This agrees with the lab's own line: 'NOT PROMOTED: pre-WF ROC@30k -4.91 < 15'.",
+  "degenerate": "Not degenerate. The plugin makes 1,451 trades (239/yr) over 1,550 sessions, so it trades on about 94% of days. That is 2x the prereg's stated 120/yr and the same as the prereg's own map count of 240.6/yr. The broken-plugin check passes. Look-ahead check (3): the signal, stop, target and size are clean. VWAP uses close[session_start..k], and ATR uses bars k-19..k, so the signal bar is complete before the fill at open[k+1]. On all 1,450 sliced trades, randomising every bar after k left the entry unchanged. Entry-bar shocks gave a stop distance of exactly 1.0x ATR(k-19..k) and a target distance of exactly 1.5x, so ATR does not include the entry bar. The one peek is the S2 session-length skip, which reads the session's total bar count. When a session is cut right after the entry bar, 437 trades vanish, exactly those whose signal bar is before in-session bar 23. In this data it only binds on 14 holiday sessions of 24 bars. An exchange calendar knows those days in advance. It drops 7 trades worth -0.41 gross pts, which does not matter.",
+  "lab_vs_a_mismatches": [],
+  "skeptic": {
+   "verdict_upheld": true,
+   "slips_judged": [
+    {
+     "what": "S1 warm-up bar index (prereg 'k >= 25', plugin 'k < atr_window' = global k >= 20)",
+     "real": true,
+     "why": "The prereg's VWAP formula subtracts session_start from k, so k is a global index and 'k >= 25' is a global warm-up. The plugin warms up at k >= 20. It has no in-session warm-up either, so it does not apply k >= 25 under any reading. My re-run confirms the effect is one trade in the first session (2010-06-07: 11:15 at +8.625 gross versus 14:20 at -3.85). House ROC goes from -4.907 to -4.947, DD5 $20,363, DD% 20.36, Sortino -2.722. This does not change the verdict."
+    },
+    {
+     "what": "S2 unstated skip of sessions under 25 bars (b - a < aw + 5), which reads the session's total bar count",
+     "real": true,
+     "why": "The prereg has no session filter, and the plugin drops 14 holiday sessions of 24 bars (MLK, Presidents Day, July 4, Labor Day, Thanksgiving). Under the literal global-k reading that is 7 lost trades worth -0.41 gross pts. Re-run: 1,458 trades, ROC -4.908, DD5 $20,358. One nuance: the in-session reading of 'k >= 25' would also produce no trades on 24-bar sessions, so S2 is a slip only under the global reading. The verifier takes that reading as literal, and so do I. The peek at the bar count does no harm, because those days are on the exchange calendar in advance. This does not change the verdict."
+    },
+    {
+     "what": "S3 order of stop and target checks on a later bar that opens beyond the target and also trades to the stop",
+     "real": true,
+     "why": "The prereg says a gap through the target books the open, and the open comes before anything else in the bar, so there is no real ordering question. The plugin checks the stop first and would book the stop on that bar instead. That contradicts the text in this one case, but the case never happens: 0 such bars inside the plugin's trades, and the S3-reverted variant matches the plugin on 1,451 of 1,451 trades. The slip has no effect."
+    },
+    {
+     "what": "S4 unstated skip of bars with ATR20 <= 0",
+     "real": false,
+     "why": "This is a guard against bad input, for a state the prereg's text does not cover: a zero 20-bar range would put the stop, the target and the entry at the same price. It is a reasonable way to implement the rule, not a departure from it. No bar in the window has ATR20 <= 0, and reverting the guard gives 1,451 of 1,451 identical trades. It is not a slip in any sense that matters."
+    },
+    {
+     "what": "ALL slips reverted (the full literal reading = stage-1 arm B), made up of S1 + S2",
+     "real": true,
+     "why": "This is the combined effect of S1 and S2, since S3 and S4 never fire. I wrote my own vectorised literal rule without using the verifier's code. It reproduces the verifier's arm B trade for trade: 1,458 trades, gross -245.18 pts, house ROC -4.947, DD5 $20,446, DD% 20.45, Sortino -2.732. The in-session reading is a sensitivity check, not a slip, and also reproduces: 514 trades differ from the plugin, 1,436 trades, ROC -4.707, DD5 $4,136, one episode. Neither reading comes near the bar of 15."
+    }
+   ],
+   "missed_issues": [],
+   "notes": "Verdict VERIFIED EXACT holds, NOT PROMOTED holds. I re-ran everything independently (read-only on the repo; my scripts are in the scratchpad):\n\n- Plugin pin: plugin_v2.py.txt has LF sha dbcf3008...e942. The worktree file the lab ran (qwenlab-1015/augur_strategies/qwen_lab/QL_VWAPREVERT_NQ.py) has the same sha.\n- Master: NOADJ_NQ_5m_RTH.csv, registry id 37, found through list_masters by filename. The master itself starts on 2010-06-07, so the window 2010-06-07..2016-06-30 is the master's start up to the day before the WF start (2016-07-01). 119,248 bars, fingerprint 66f90627. 1,550 sessions, all bars between 09:30 and 15:55 ET. engine day_id breaks exactly on ET dates.\n- Session lengths: 1,510 sessions of 78 bars, 13 of 42, 12 of 45, 1 of 46, 14 of 24. No data holes.\n- Engine run: 1,451 trades, gross -232.30 pts. The difference roll plan has no effect: the plugin called directly on raw arrays gives the same 1,451 trades. That makes sense, since the signals depend only on in-session closes and bar ranges.\n- Window edge: 0 cross-session trades, so nothing is dropped. The last trade exits 2016-06-30 at 12:15.\n- The lab's pre_wf_trades.csv matches my engine trades on all 1,451 rows (bars, side, entry price, pnl).\n- House yardstick, recomputed with my own code (exit-session ET date, zero days kept, curve from 0, years 6.0643): net -$20,113.66, $/yr -3,316.71, max DD $20,275.50, ROC@30k -4.9075, DD5 $20,275.5 (n=1; with only one episode the one-episode flag cannot fire, by the house definition), DD% from peak 20.2427, Sortino -2.6895, net win rate 37.70%. Profit factor works out to 0.7563, which agrees with the lab.\n- Real cost (0.7825 pt): ROC -4.919 | DD5 $27,511 | DD% 27.47 | Sortino -3.498.\n- Stress (house + 0.5 = 1.033 pt, as the brief defines it): ROC -4.925 | DD5 $34,776 | DD% 34.72 | Sortino -4.241.\n- Before any cost the idea still loses: -$4,646, ROC -3.70.\n- Look-ahead: the trace's figures check out (1,450 slices, 1,450 future-randomised trades with the same entry, 1,450 stop shocks and 1,450 target shocks with distances equal to ATR(k-19..k), 1,013 trades still taken after truncation plus 437 that vanish = 1,450). The only reads of future data are the session end (the short-session skip, and the last bar for the flat exit). Both are known from the exchange calendar, so there is no real look-ahead.\n- The verifier's ttm_trace.json and ttm_verify.json hash to the stated shas (3595644b and 9c5084e4), and trace.log and trace_rerun.log are byte-identical.\n\nNothing material was missed."
+  }
+ }
+]

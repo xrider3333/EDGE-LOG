@@ -1,0 +1,582 @@
+{
+ "A_plugin": {
+  "engine_total_pnl_pts": -5.5714285714284415,
+  "gross_pts_sum": -5.5714285714284415,
+  "house_cost": {
+   "avg_loss_usd": 127.08857142856884,
+   "avg_win_usd": null,
+   "cost_pts": 0.783,
+   "dd5": 127.09,
+   "dd_pct_peak": 0.1271,
+   "max_dd": 127.08857142856884,
+   "net_usd": -127.08857142856884,
+   "one_episode": false,
+   "per_yr": -20.956704611415248,
+   "roc30": -4.946952595936795,
+   "sortino": -0.4032129030193483,
+   "trades": 1,
+   "trades_per_yr": 0.16489841986455983,
+   "win_rate": 0.0,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_loss_usd": 127.07857142856882,
+   "avg_win_usd": null,
+   "cost_pts": 0.7825,
+   "dd5": 127.08,
+   "dd_pct_peak": 0.1271,
+   "max_dd": 127.07857142856882,
+   "net_usd": -127.07857142856882,
+   "one_episode": false,
+   "per_yr": -20.9550556272166,
+   "roc30": -4.946952595936795,
+   "sortino": -0.40321290301934826,
+   "trades": 1,
+   "trades_per_yr": 0.16489841986455983,
+   "win_rate": 0.0,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_loss_usd": 137.08857142856883,
+   "avg_win_usd": null,
+   "cost_pts": 1.283,
+   "dd5": 137.09,
+   "dd_pct_peak": 0.1371,
+   "max_dd": 137.08857142856883,
+   "net_usd": -137.08857142856883,
+   "one_episode": false,
+   "per_yr": -22.605688810060844,
+   "roc30": -4.9469525959367955,
+   "sortino": -0.40321290301934826,
+   "trades": 1,
+   "trades_per_yr": 0.16489841986455983,
+   "win_rate": 0.0,
+   "years": 6.064339493497604
+  },
+  "trade_tuple_len": 5
+ },
+ "A_vs_B": {
+  "A_trades": 1,
+  "B_trades": 1,
+  "exact": 0,
+  "first_exit_diffs": [
+   [
+    "2015-09-07 10:02:00",
+    -1,
+    "2015-09-07 11:30:00",
+    "2015-09-07 10:48:00",
+    -5.5714285714284415,
+    1.7142857142853245
+   ]
+  ],
+  "first_only_A": [],
+  "first_only_B": [],
+  "only_A": 0,
+  "only_B": 0,
+  "same_entry_and_side": 1,
+  "same_exit_bar": 0,
+  "same_gross_pts": 0
+ },
+ "B_alternates_vs_A": {
+  "tr=0|stop_atr=current|ratchet=0": {
+   "B_trades": 0,
+   "exact": 0,
+   "house_net_usd": null,
+   "house_roc30": null,
+   "only_A": 1,
+   "only_B": 0,
+   "same_entry_and_side": 0
+  },
+  "tr=0|stop_atr=current|ratchet=1": {
+   "B_trades": 0,
+   "exact": 0,
+   "house_net_usd": null,
+   "house_roc30": null,
+   "only_A": 1,
+   "only_B": 0,
+   "same_entry_and_side": 0
+  },
+  "tr=0|stop_atr=signal|ratchet=0": {
+   "B_trades": 0,
+   "exact": 0,
+   "house_net_usd": null,
+   "house_roc30": null,
+   "only_A": 1,
+   "only_B": 0,
+   "same_entry_and_side": 0
+  },
+  "tr=0|stop_atr=signal|ratchet=1": {
+   "B_trades": 0,
+   "exact": 0,
+   "house_net_usd": null,
+   "house_roc30": null,
+   "only_A": 1,
+   "only_B": 0,
+   "same_entry_and_side": 0
+  },
+  "tr=1|stop_atr=current|ratchet=0": {
+   "B_trades": 1,
+   "exact": 0,
+   "house_net_usd": 18.62571428570649,
+   "house_roc30": null,
+   "only_A": 0,
+   "only_B": 0,
+   "same_entry_and_side": 1
+  },
+  "tr=1|stop_atr=current|ratchet=1": {
+   "B_trades": 1,
+   "exact": 0,
+   "house_net_usd": 21.482857142862343,
+   "house_roc30": null,
+   "only_A": 0,
+   "only_B": 0,
+   "same_entry_and_side": 1
+  },
+  "tr=1|stop_atr=signal|ratchet=0": {
+   "B_trades": 1,
+   "exact": 0,
+   "house_net_usd": 8.62571428570649,
+   "house_roc30": null,
+   "only_A": 0,
+   "only_B": 0,
+   "same_entry_and_side": 1
+  },
+  "tr=1|stop_atr=signal|ratchet=1": {
+   "B_trades": 1,
+   "exact": 0,
+   "house_net_usd": 8.62571428570649,
+   "house_roc30": null,
+   "only_A": 0,
+   "only_B": 0,
+   "same_entry_and_side": 1
+  }
+ },
+ "B_compress_k_from_file_default": 1.0,
+ "B_own_rule": {
+  "gross_pts_sum": 1.7142857142853245,
+  "house_cost": {
+   "avg_loss_usd": null,
+   "avg_win_usd": 18.62571428570649,
+   "cost_pts": 0.783,
+   "dd5": 0.0,
+   "dd_pct_peak": 0.0,
+   "max_dd": 0.0,
+   "net_usd": 18.62571428570649,
+   "one_episode": false,
+   "per_yr": 3.071350854561759,
+   "roc30": null,
+   "sortino": null,
+   "trades": 1,
+   "trades_per_yr": 0.16489841986455983,
+   "win_rate": 1.0,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_loss_usd": null,
+   "avg_win_usd": 18.63571428570649,
+   "cost_pts": 0.7825,
+   "dd5": 0.0,
+   "dd_pct_peak": 0.0,
+   "max_dd": 0.0,
+   "net_usd": 18.63571428570649,
+   "one_episode": false,
+   "per_yr": 3.0729998387604045,
+   "roc30": null,
+   "sortino": null,
+   "trades": 1,
+   "trades_per_yr": 0.16489841986455983,
+   "win_rate": 1.0,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_loss_usd": null,
+   "avg_win_usd": 8.625714285706492,
+   "cost_pts": 1.283,
+   "dd5": 0.0,
+   "dd_pct_peak": 0.0,
+   "max_dd": 0.0,
+   "net_usd": 8.625714285706492,
+   "one_episode": false,
+   "per_yr": 1.4223666559161607,
+   "roc30": null,
+   "sortino": null,
+   "trades": 1,
+   "trades_per_yr": 0.16489841986455983,
+   "win_rate": 1.0,
+   "years": 6.064339493497604
+  }
+ },
+ "POST_READ": {
+  "B_frozen_copy": "C:/EdgeLog/_anatomy_cache/ttm_qlab/20261015-1221-scalper/ttm_verify_B_frozen_before_plugin_read.py",
+  "B_frozen_harness_sha256_before_plugin_read": "b1e47b05d55bf02e58d745b9088c659a1dcbfa706328d199b596c1cd2f651776",
+  "default_k": {
+   "A_trades": [
+    [
+     "2015-09-07 10:02:00",
+     "2015-09-07 11:30:00",
+     -1,
+     -5.5714285714284415
+    ]
+   ],
+   "B_trades": [
+    [
+     "2015-09-07 10:02:00",
+     "2015-09-07 10:48:00",
+     -1,
+     1.7142857142853245
+    ]
+   ],
+   "causal_replica_vs_A": {
+    "A_trades": 1,
+    "B_trades": 1,
+    "exact": 1,
+    "first_exit_diffs": [],
+    "first_only_A": [],
+    "first_only_B": [],
+    "only_A": 0,
+    "only_B": 0,
+    "same_entry_and_side": 1,
+    "same_exit_bar": 1,
+    "same_gross_pts": 1
+   },
+   "causal_trades": [
+    [
+     "2015-09-07 10:02:00",
+     "2015-09-07 11:30:00",
+     -1,
+     -5.5714285714284415
+    ]
+   ],
+   "replica_vs_A": {
+    "A_trades": 1,
+    "B_trades": 1,
+    "exact": 1,
+    "first_exit_diffs": [],
+    "first_only_A": [],
+    "first_only_B": [],
+    "only_A": 0,
+    "only_B": 0,
+    "same_entry_and_side": 1,
+    "same_exit_bar": 1,
+    "same_gross_pts": 1
+   },
+   "session_bars_on_trade_days": {
+    "2015-09-07": 103
+   }
+  },
+  "engine_roll_plan": {
+   "adjust": true,
+   "bars_changed_by_adjust": 298018,
+   "kind": "difference-adjusted signals",
+   "method": "difference"
+  },
+  "max_k_mechanics": {
+   "A_engine_trades": 114,
+   "A_gross_pts_sum": 417.7142857142835,
+   "B_own_rule_vs_A": {
+    "A_trades": 114,
+    "B_trades": 114,
+    "exact": 0,
+    "first_exit_diffs": [
+     [
+      "2010-07-05 10:08:00",
+      -1,
+      "2010-07-05 11:28:00",
+      "2010-07-05 11:04:00",
+      1.5,
+      -0.07142857142866887
+     ],
+     [
+      "2010-07-20 09:56:00",
+      1,
+      "2010-07-20 15:58:00",
+      "2010-07-20 10:04:00",
+      46.5,
+      -6.10714285714289
+     ],
+     [
+      "2010-08-02 10:02:00",
+      1,
+      "2010-08-02 15:58:00",
+      "2010-08-02 10:38:00",
+      6.75,
+      3.2142857142857792
+     ],
+     [
+      "2010-08-24 09:56:00",
+      -1,
+      "2010-08-24 10:00:00",
+      "2010-08-24 10:10:00",
+      -0.75,
+      1.8928571428571104
+     ],
+     [
+      "2010-09-09 10:36:00",
+      -1,
+      "2010-09-09 11:32:00",
+      "2010-09-09 11:02:00",
+      -5.8214285714284415,
+      -1.5357142857142208
+     ]
+    ],
+    "first_only_A": [
+     [
+      "2016-03-11 10:08:00",
+      -1
+     ]
+    ],
+    "first_only_B": [
+     [
+      "2015-09-11 10:00:00",
+      -1
+     ]
+    ],
+    "only_A": 1,
+    "only_B": 1,
+    "same_entry_and_side": 113,
+    "same_exit_bar": 10,
+    "same_gross_pts": 0
+   },
+   "compress_k": 2.0,
+   "lookahead_effect": {
+    "exits_changed_by_causal_fix": 1,
+    "gross_pts_sum_causal": 421.2142857142853,
+    "gross_pts_sum_plugin": 419.785714285714,
+    "mean_gross_pts_causal": 3.694862155388468,
+    "mean_gross_pts_plugin": 3.6823308270676667,
+    "trades": 114
+   },
+   "replica_vs_A": {
+    "A_trades": 114,
+    "B_trades": 114,
+    "exact": 112,
+    "first_exit_diffs": [
+     [
+      "2016-06-10 10:34:00",
+      1,
+      "2016-06-10 12:18:00",
+      "2016-06-10 12:32:00",
+      -12.857142857143117,
+      -14.035714285714675
+     ]
+    ],
+    "first_only_A": [
+     [
+      "2016-03-11 10:08:00",
+      -1
+     ]
+    ],
+    "first_only_B": [
+     [
+      "2015-09-11 10:00:00",
+      -1
+     ]
+    ],
+    "only_A": 1,
+    "only_B": 1,
+    "same_entry_and_side": 113,
+    "same_exit_bar": 112,
+    "same_gross_pts": 112
+   },
+   "trades_per_yr_A": 18.798419864559822
+  },
+  "on_engine_signal_arrays": {
+   "default_k": {
+    "B_own_rule_vs_A": {
+     "A_trades": 1,
+     "B_trades": 1,
+     "exact": 0,
+     "first_exit_diffs": [
+      [
+       "2015-09-07 10:02:00",
+       -1,
+       "2015-09-07 11:30:00",
+       "2015-09-07 10:48:00",
+       -5.5714285714284415,
+       1.7142857142853245
+      ]
+     ],
+     "first_only_A": [],
+     "first_only_B": [],
+     "only_A": 0,
+     "only_B": 0,
+     "same_entry_and_side": 1,
+     "same_exit_bar": 0,
+     "same_gross_pts": 0
+    },
+    "replica_vs_A": {
+     "A_trades": 1,
+     "B_trades": 1,
+     "exact": 1,
+     "first_exit_diffs": [],
+     "first_only_A": [],
+     "first_only_B": [],
+     "only_A": 0,
+     "only_B": 0,
+     "same_entry_and_side": 1,
+     "same_exit_bar": 1,
+     "same_gross_pts": 1
+    }
+   },
+   "max_k": {
+    "B_own_rule_vs_A": {
+     "A_trades": 114,
+     "B_trades": 114,
+     "exact": 0,
+     "first_exit_diffs": [
+      [
+       "2010-07-05 10:08:00",
+       -1,
+       "2010-07-05 11:28:00",
+       "2010-07-05 11:04:00",
+       1.5,
+       -0.0714285714284415
+      ],
+      [
+       "2010-07-20 09:56:00",
+       1,
+       "2010-07-20 15:58:00",
+       "2010-07-20 10:04:00",
+       46.5,
+       -6.107142857143117
+      ],
+      [
+       "2010-08-02 10:02:00",
+       1,
+       "2010-08-02 15:58:00",
+       "2010-08-02 10:38:00",
+       6.75,
+       3.2142857142853245
+      ],
+      [
+       "2010-08-24 09:56:00",
+       -1,
+       "2010-08-24 10:00:00",
+       "2010-08-24 10:10:00",
+       -0.75,
+       1.892857142856883
+      ],
+      [
+       "2010-09-09 10:36:00",
+       -1,
+       "2010-09-09 11:32:00",
+       "2010-09-09 11:02:00",
+       -5.8214285714284415,
+       -1.5357142857146755
+      ]
+     ],
+     "first_only_A": [],
+     "first_only_B": [],
+     "only_A": 0,
+     "only_B": 0,
+     "same_entry_and_side": 114,
+     "same_exit_bar": 10,
+     "same_gross_pts": 0
+    },
+    "lookahead_effect": {
+     "changed_examples": [
+      [
+       "2010-08-24 09:56:00",
+       -1,
+       "2010-08-24 10:00:00",
+       "2010-08-24 10:16:00",
+       -0.75,
+       0.6785714285715585
+      ]
+     ],
+     "exits_changed_by_causal_fix": 1,
+     "gross_pts_sum_causal": 419.14285714285506,
+     "gross_pts_sum_plugin": 417.7142857142835,
+     "trades": 114
+    },
+    "replica_vs_A": {
+     "A_trades": 114,
+     "B_trades": 114,
+     "exact": 114,
+     "first_exit_diffs": [],
+     "first_only_A": [],
+     "first_only_B": [],
+     "only_A": 0,
+     "only_B": 0,
+     "same_entry_and_side": 114,
+     "same_exit_bar": 114,
+     "same_gross_pts": 114
+    }
+   },
+   "max_k_min_trail_lookahead": {
+    "compress_k": 2.0,
+    "exits_changed_by_causal_fix": 16,
+    "gross_pts_sum_causal": 160.6249999999991,
+    "gross_pts_sum_plugin": 75.17857142856974,
+    "trades": 114,
+    "trail_k": 1.0
+   }
+  }
+ },
+ "atr14_source_sha256": "69dc48dd19fe78ebbde7143299e75d511258b5a0cc690143c2dadc3b45bf3005",
+ "bars": 298018,
+ "costs_pts": {
+  "house": 0.783,
+  "real": 0.7825,
+  "stress": 1.283
+ },
+ "fingerprint": "21a9952e0aba01fe84fa726066cbf2f955f539fe",
+ "idea": "QL_MOMDRIVE",
+ "idea_folder": "C:/EdgeLog/qwen_lab/ideas/20261015-1221-scalper",
+ "master": "NOADJ_NQ_2m_RTH.csv",
+ "master_sha256": "35bb8e867341ea0fe64af111c866ce13e49a6e10a7254aafdaf7ad23bac173ca",
+ "master_source": "db_noadj_rth",
+ "own_rule_source_sha256": "1795d34609d445a89dd41fa2cd56b0ef75ecc152f1c522b3e7cc48be1c4cda3a",
+ "plugin": "C:/EdgeLog/qwen_lab/ideas/20261015-1221-scalper/plugin_v1.py.txt",
+ "plugin_default_params": {
+  "atr_bars": {
+   "default": 14,
+   "label": "ATR window (bars)",
+   "max": 28,
+   "min": 7,
+   "step": 7,
+   "type": "int"
+  },
+  "compress_k": {
+   "default": 1.0,
+   "label": "Compression threshold (x ATR)",
+   "max": 2.0,
+   "min": 0.5,
+   "step": 0.25,
+   "type": "float"
+  },
+  "setup_bars": {
+   "default": 12,
+   "label": "Setup window (bars)",
+   "max": 30,
+   "min": 6,
+   "step": 6,
+   "type": "int"
+  },
+  "trail_k": {
+   "default": 2.0,
+   "label": "Trailing stop (x ATR)",
+   "max": 4.0,
+   "min": 1.0,
+   "step": 0.5,
+   "type": "float"
+  }
+ },
+ "plugin_lf_sha256": "8ae66698585945cd3a61c0d79a58cb406202866865b4c03b045dd642929ea0fa",
+ "plugin_pin_ok": true,
+ "prereg": "C:/EdgeLog/qwen_lab/ideas/20261015-1221-scalper/QL_MOMDRIVE_2026-10-15.md",
+ "prereg_lf_sha256": "4f4c92fa209b0912a6cc24271cf317a17c1e70f8abb17794dce36b5b688357eb",
+ "registry_id": 42,
+ "sessions": 1550,
+ "summary": {
+  "entries": "plugin entries = TTM's text reading (same entry bar and side 1/1 at default; 114/114 at compress_k=2.0 on the engine's signal arrays; 113/114 on raw prices - the 1+1 miss is a roll-seam week)",
+  "exits": "plugin trail uses ATR FIXED at the setup window's last bar and starts the best close at the entry price; TTM's literal chandelier reading rolls ATR(14) to the last closed bar -> exits differ on all but 10 of 114",
+  "plugin_defect": "same-bar look-ahead in the trailing stop: bar j's CLOSE updates the stop before bar j's high/low is tested against it; 0 of 1 trades changed at default, small at compress_k=2.0 (see lookahead_effect); must be fixed before any validate",
+  "verdict_default": "file default compress_k=1.0 trades ONCE in 6.06 pre-WF years (2015-09-07, Labor Day holiday session, 103 bars); fails the promotion rule (ROC@30k >= 15) in both arms; prior said 120 trades/yr"
+ },
+ "usd_per_pt": 20.0,
+ "window": [
+  "2010-06-07",
+  "2016-06-30"
+ ]
+}

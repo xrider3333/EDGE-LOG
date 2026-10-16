@@ -1,0 +1,22 @@
+{
+ "A_trades": 752,
+ "P1_cut_after_session_identical": {
+  "bad": [],
+  "ok": 752,
+  "pass": true
+ },
+ "P2_noise_after_signal_entry_identical": {
+  "bad": [],
+  "ok": 752,
+  "pass": true
+ },
+ "P3_stop_exits_book_formula_level_or_gap_open": {
+  "bad": [],
+  "ok": 442,
+  "pass": true,
+  "stop_exits": 442
+ },
+ "plugin_direct_raw_arrays_eq_engine_arm_A": true,
+ "plugin_lf_sha256": "49fc27d828e6991c634d02ab39f394006ea18bb22d436a491b165a1fc5fee822",
+ "probe_src_lf_sha256": "a3f8e6044a58da28bf0b019bca72284b6052a177f0720d34666863f421bef02c"
+}

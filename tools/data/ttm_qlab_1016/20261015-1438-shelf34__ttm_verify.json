@@ -1,0 +1,250 @@
+{
+ "A_plugin": {
+  "default_params": {
+   "block_len": {
+    "default": 21,
+    "label": "Sessions per block (approx month)",
+    "max": 24,
+    "min": 18,
+    "step": 1,
+    "type": "int"
+   },
+   "tail_len": {
+    "default": 3,
+    "label": "Tail sessions to trade (last N of block)",
+    "max": 5,
+    "min": 2,
+    "step": 1,
+    "type": "int"
+   }
+  },
+  "engine_total_pnl_pts": -20.5,
+  "house_cost": {
+   "cost_pts": 0.533,
+   "dd5": 441.98,
+   "dd_pct_peak": 0.442,
+   "gross_pts_total": -20.5,
+   "max_dd": 441.98,
+   "net_pts_per_trade": -7.366333333333334,
+   "net_usd": -441.98,
+   "net_usd_per_trade": -147.32666666666668,
+   "one_episode": false,
+   "per_yr_usd": -72.88180361173815,
+   "roc30": -4.946952595936795,
+   "sortino": -0.6237442230258204,
+   "trades": 3,
+   "trades_per_yr": 0.4946952595936795,
+   "win_rate": 0.0,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "cost_pts": 0.7825,
+   "dd5": 456.95,
+   "dd_pct_peak": 0.4569,
+   "gross_pts_total": -20.5,
+   "max_dd": 456.95,
+   "net_pts_per_trade": -7.615833333333333,
+   "net_usd": -456.95,
+   "net_usd_per_trade": -152.31666666666666,
+   "one_episode": false,
+   "per_yr_usd": -75.35033295711061,
+   "roc30": -4.946952595936795,
+   "sortino": -0.6278511898136402,
+   "trades": 3,
+   "trades_per_yr": 0.4946952595936795,
+   "win_rate": 0.0,
+   "years": 6.064339493497604
+  },
+  "trades_list": [
+   [
+    "2010-07-01 09:30:00",
+    "2010-07-01 15:55:00",
+    1,
+    1740.75,
+    -10.5
+   ],
+   [
+    "2010-07-02 09:30:00",
+    "2010-07-02 15:55:00",
+    1,
+    1734.25,
+    -8.25
+   ],
+   [
+    "2010-07-05 09:30:00",
+    "2010-07-05 11:25:00",
+    1,
+    1721.75,
+    -1.75
+   ]
+  ]
+ },
+ "A_vs_B": {
+  "A_trades": 3,
+  "B_trades": 219,
+  "exact": 0,
+  "first_exit_diffs": [],
+  "first_only_A": [
+   "2010-07-01 09:30:00",
+   "2010-07-02 09:30:00",
+   "2010-07-05 09:30:00"
+  ],
+  "first_only_B": [
+   "2010-06-28 09:30:00",
+   "2010-06-29 09:30:00",
+   "2010-06-30 09:30:00",
+   "2010-07-28 09:30:00",
+   "2010-07-29 09:30:00",
+   "2010-07-30 09:30:00",
+   "2010-08-27 09:30:00",
+   "2010-08-30 09:30:00"
+  ],
+  "only_A": 3,
+  "only_A_sessions": 3,
+  "only_B": 219,
+  "only_B_sessions": 219,
+  "same_entry_and_side": 0,
+  "same_entry_session": 0,
+  "same_exit_bar": 0,
+  "same_gross_pts": 0
+ },
+ "B_own_rule": {
+  "house_cost": {
+   "cost_pts": 0.533,
+   "dd5": 2873.5,
+   "dd_pct_peak": 7.6592,
+   "gross_pts_total": 220.0,
+   "max_dd": 8130.739999999999,
+   "net_pts_per_trade": 0.4715662100456613,
+   "net_usd": 2065.4599999999964,
+   "net_usd_per_trade": 9.431324200913226,
+   "one_episode": true,
+   "per_yr_usd": 340.59109029345314,
+   "roc30": 1.256679307025387,
+   "sortino": 0.1538201584518771,
+   "trades": 219,
+   "trades_per_yr": 36.1127539503386,
+   "win_rate": 0.502283105022831,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "cost_pts": 0.7825,
+   "dd5": 2945.36,
+   "dd_pct_peak": 7.9034,
+   "gross_pts_total": 220.0,
+   "max_dd": 8325.350000000002,
+   "net_pts_per_trade": 0.2220662100456623,
+   "net_usd": 972.6499999999978,
+   "net_usd_per_trade": 4.441324200913246,
+   "one_episode": true,
+   "per_yr_usd": 160.38844808126376,
+   "roc30": 0.5779520911959151,
+   "sortino": 0.07196458541563962,
+   "trades": 219,
+   "trades_per_yr": 36.1127539503386,
+   "win_rate": 0.4931506849315068,
+   "years": 6.064339493497604
+  }
+ },
+ "B_sensitivity": {
+  "exante_scheduled_calendar": {
+   "added_vs_B": [],
+   "dropped_vs_B": [
+    "2012-10-25",
+    "2012-10-26",
+    "2014-12-26"
+   ],
+   "house_cost": {
+    "dd5": 2873.5,
+    "max_dd": 8130.739999999999,
+    "net_usd": 1987.4399999999969,
+    "one_episode": true,
+    "roc30": 1.2092099202862971,
+    "sortino": 0.1483867278273549,
+    "trades": 216
+   },
+   "real_cost": {
+    "dd5": 2945.36,
+    "max_dd": 8325.350000000002,
+    "net_usd": 909.5999999999981,
+    "one_episode": true,
+    "roc30": 0.5404875568311359,
+    "sortino": 0.06747320860642192,
+    "trades": 216
+   },
+   "trades": 216,
+   "what": "calendar = master sessions + Sandy closures + master data-gap days (what a trader knew in advance); a picked day the master lacks is skipped"
+  },
+  "nyse_calendar": {
+   "added_vs_B": [
+    "2011-05-26",
+    "2014-11-25",
+    "2015-11-25",
+    "2016-05-26"
+   ],
+   "dropped_vs_B": [
+    "2011-05-30",
+    "2014-11-27",
+    "2014-12-26",
+    "2015-11-26",
+    "2016-05-30"
+   ],
+   "house_cost": {
+    "dd5": 3337.9,
+    "max_dd": 8140.739999999999,
+    "net_usd": 2176.1199999999963,
+    "one_episode": true,
+    "roc30": 1.3223813170633087,
+    "sortino": 0.16206895617012604,
+    "trades": 218
+   },
+   "real_cost": {
+    "dd5": 3412.75,
+    "max_dd": 8335.350000000002,
+    "net_usd": 1088.299999999998,
+    "one_episode": true,
+    "roc30": 0.6458959144076736,
+    "sortino": 0.08052554684019311,
+    "trades": 218
+   },
+   "trades": 218,
+   "what": "calendar = NYSE full-day sessions (hand holiday list); CME holiday half-sessions never count"
+  }
+ },
+ "bars": 119248,
+ "cost_house_pts": 0.533,
+ "cost_real_pts": 0.7825,
+ "data_fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+ "half_day_sessions": 40,
+ "idea": "QL_TOM_CALENDAR_NQ",
+ "idea_folder": "C:/EdgeLog/qwen_lab/ideas/20261015-1438-shelf34",
+ "master": "NOADJ_NQ_5m_RTH.csv",
+ "master_sha256": "41f684ca56c6ff98abd2eb54fd0e396f311db3c000f5b7b041efe6d9c8634343",
+ "mult": 20.0,
+ "own_rule_reading": [
+  "trading days = the master's own day_id sessions (prereg: 'determined by day_id session dates'), so CME holiday half-sessions in the master (e.g. Memorial Day, Thanksgiving) COUNT as trading days and a master data gap (2014-12-31) does not",
+  "calendar month = ET date of the session's first bar; a session qualifies when fewer than 3 later master sessions share its year-month (3 per month, 73 months, 219 trades)",
+  "entry = open of the session's FIRST bar (the 09:30 start-stamped bar), filled at that open, no signal-bar delay (the decision is calendar-only, known before the session)",
+  "exit = close of the session's LAST bar (15:55 bar = 16:00 ET on full days; the session's own last bar on half-days)",
+  "long 1 contract, no stop, no target, no intrabar exit, flat overnight: each of the 3 days is its own trade",
+  "the first (partial) month June 2010 and the last month June 2016 both end inside the window, so both get 3 trades",
+  "only calendar knowledge is used; the master-session calendar differs from an ex-ante scheduled calendar on 3 trades (Sandy closure 2012-10-25/26 picked ex-post; 2014-12-26 picked because 2014-12-31 is a data gap) - see B_sensitivity"
+ ],
+ "plugin": "C:/EdgeLog/qwen_lab/ideas/20261015-1438-shelf34/plugin_v8.py.txt",
+ "plugin_diagnosis": {
+  "bug_line": "if pos_in_block >= block_end - tl:   (block_end is an absolute session index; pos_in_block is 0..bl-1)",
+  "effect": "only the first 21-session block of the loaded window trades: sessions 18,19,20 -> 3 trades in the whole window",
+  "fixed_block_intent_overlap_with_B": 19,
+  "fixed_block_intent_trades": 222,
+  "mechanism_mismatch": "even fixed, the plugin uses fixed 21-session blocks counted from the window start, not the prereg's calendar month (day_id session dates); blocks drift off month-end",
+  "plugin_versions_v1_v8_same_lf_sha256": true
+ },
+ "plugin_lf_sha256": "83b2429ee3c2e77cfdca2bd7aa81f23b645bbcd32910269e66fe61f349122eea",
+ "plugin_pin_ok": true,
+ "registry_id": 37,
+ "sessions": 1550,
+ "window": [
+  "2010-06-07",
+  "2016-06-30"
+ ]
+}

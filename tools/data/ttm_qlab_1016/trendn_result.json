@@ -1,0 +1,74 @@
+[
+ {
+  "idea": "QL_TRENDN",
+  "folder": "20261016-1342-own",
+  "verdict": "VERIFIED EXACT",
+  "four_house": "ROC@30k -2.14 | DD5 $3,288 (one episode) | DD% from peak 7.3% | Sortino -0.23 | trades 1,073 (177/yr) | $/yr -541",
+  "four_real": "ROC@30k -4.53 | DD5 $3,871 (one episode) | DD% from peak 9.4% | Sortino -0.61 | trades 1,073 (177/yr) | $/yr -1,424",
+  "four_stress": "ROC@30k -4.81 | DD5 $5,267 (one episode) | DD% from peak 14.4% | Sortino -0.97 | trades 1,073 (177/yr) | $/yr -2,311 (house +0.5 pt; this is not a short-hold scalper, but the stress is reported anyway)",
+  "slips": [
+   {
+    "what": "Fill bar: the plugin enters one bar earlier than the text says",
+    "prereg_says": "Mechanism: 'Signal: at bar 12 (end of first hour, 10:30 ET) ... go long at bar 13's open' (bar 13 = 10:35 ET; bars counted from 0 because the text says 'bars 0-11')",
+    "plugin_does": "e = a + 12: fills at session bar 12's open (10:30 ET), the bar right after signal bar 11 (its comment says 'the bar after the signal bar 11'). No look-ahead, because close[11] is complete by bar 12's open. This is the ONLY reason arm A and arm B differ: my own rule with entry_pos=12 reproduces the plugin 1073/1073 (same entry bar, side, entry price, exit bar and gross points)",
+    "literal_reading_numbers": "Literal bar-13 fill (= arm B). House: ROC@30k -3.87 | DD5 $3,777 (one episode) | DD% from peak 10.0% | Sortino -0.56 | trades 1,073 (177/yr) | $/yr -1,317. Real: ROC@30k -4.91 | DD5 $3,987 (one episode) | DD% from peak 13.4% | Sortino -0.92 | $/yr -2,200. Gross 172.6 pts against the plugin's 407.75, so the 10:30 fill is worth about 235 pts over 6.06 yrs",
+    "verdict_changing": false
+   },
+   {
+    "what": "Short-side threshold: the text is ambiguous and the plugin takes the symmetric reading (my blind arm B took the same one, R4)",
+    "prereg_says": "'If |displacement| >= threshold_frac x range AND displacement > 0, go long at bar 13's open. If displacement < 0, go short.' Read word for word, the short clause has no threshold",
+    "plugin_does": "if abs(disp) < threshold_frac*rng: continue, so the threshold gates both sides (570 longs, 503 shorts)",
+    "literal_reading_numbers": "Shorts on any disp < 0, plugin's bar-12 fill: House ROC@30k -3.31 | DD5 $3,751 (one episode) | DD% from peak 10.1% | Sortino -0.47 | trades 1,314 (217/yr) | $/yr -1,154; Real ROC@30k -4.51 | DD5 $3,254 (one episode) | DD% 14.7% | Sortino -0.89 | $/yr -2,235. Fully literal (bar 13 + no short threshold): House ROC@30k -4.71 | DD5 $3,128 (one episode) | DD% from peak 13.9% | Sortino -0.87 | trades 1,314 (217/yr) | $/yr -2,194; Real ROC@30k -4.83 | DD5 $7,226 (one episode) | DD% 20.3% | Sortino -1.28 | $/yr -3,276",
+    "verdict_changing": false
+   },
+   {
+    "what": "Filters the text does not mention: session under 15 bars, entry bar = last bar, first-hour range <= 0, n < 50",
+    "prereg_says": "Nothing (only 'Flat at session's last bar. One trade per session.')",
+    "plugin_does": "Skips those sessions. They change nothing on this window: the shortest session has 24 bars, 0 sessions are under 15 bars and 0 have a zero first-hour range",
+    "literal_reading_numbers": "Same as arm A (no trade changes)",
+    "verdict_changing": false
+   },
+   {
+    "what": "A gap in the text, not a departure by the plugin: the Hypothesis has a range-size filter and a 'close beyond the range' condition that the Mechanism does not",
+    "prereg_says": "Hypothesis: 'only enter when the morning range is large enough' and 'close beyond the first hour's range by a vol-scaled threshold'. The Mechanism gives no range-size number and tests displacement against a fraction of the range. close[11] can never be outside the high/low of bars 0-11",
+    "plugin_does": "Follows the Mechanism: no range-size filter, threshold on |close[11]-open[0]| / range. Same as my arm B",
+    "literal_reading_numbers": "Cannot be tested without making up a number; the Mechanism reading is arm A / arm B above",
+    "verdict_changing": false
+   }
+  ],
+  "b_plugin_way_100pct": true,
+  "promotion": "NOT PROMOTED, and the lab's call is right. Pre-WF ROC@30k is -2.14 at house cost (the bar is 15) and one_episode is true, so it fails both parts. No reading passes. Literal bar-13 fill: -3.87. Shorts without a threshold: -3.31. Both literal: -4.71. All lose at house cost, and every one except the arm B stress run is one episode. Look-ahead: none. The signal reads o[a], high/low of bars a..a+11 and c[a+11], all complete before the fill at o[a+12]. The stop width is the fixed first-hour range. The trail at bar j uses only c[j-1], and the stop test on bar j uses that bar's open, low and high against a level set from earlier bars. I checked this on every trade. (a) Junk prices 1000 pts for or against the trade on every bar after the exit: 1073/1073 trades unchanged. (b) Junk high/low/close from the fill bar on: 1073/1073 keep the same entry bar, side and price. (c) Data cut one bar before the exit: 1049/1049 tested trades are still open and go flat at the cut bar's close. The prereg's own look-ahead audit agrees. Broken-plugin check passes: 176.9 trades a year against the stated 120. One slip in stage 1's summary, with no effect: it lists arm A gross_pts_sum as 407.95, but ttm_verify.json and the engine both say 407.75 (net -3283.18 = (407.75 - 1073 x 0.533) x 20). Files: trace script C:/EdgeLog/_anatomy_cache/ttm_qlab/20261016-1342-own/ttm_trace_20261016-1342-own.py, output ttm_trace.json (sha256 a0c20e8648a3603d286d0f8ef4c8d3693126f8864595c1d550dc9a09d4f3d18e) and trace_stdout.txt in the same folder. Arm B file hash checked unchanged (08e54167...). Nothing was committed or edited in EDGE-LOG.",
+  "degenerate": "Not degenerate. 1073 trades in 1550 sessions (176.9 a year against Qwen's stated 120). The plugin trades about 69% of sessions, wherever |close[11]-open[0]| >= 0.3 x the first-hour range. It loses because the edge per trade is small: +0.38 pt gross against 0.533 pt house cost, 40.4% winners, profit factor 0.97. The number of trades is not the problem.",
+  "lab_vs_a_mismatches": [],
+  "skeptic": {
+   "verdict_upheld": true,
+   "slips_judged": [
+    {
+     "what": "Fill bar: the plugin fills at session bar 12's open (10:30 ET), but the text says bar 13's open (10:35 ET)",
+     "real": true,
+     "why": "The Mechanism counts from 0 ('bars 0-11'), and that numbering also fits 'at bar 12 (end of first hour, 10:30 ET)' (0-based bar 12 opens at 10:30). So 'bar 13's open' can only be 10:35. Counting from 1 would put the fill at 10:30, but it contradicts 'bars 0-11' in the same sentence. The plugin even contradicts itself: its DESCRIPTION says 'at the end of the first hour (bar 12) ... enter at the next bar's open', yet the code sets e = a + 12 and its comment renames the signal bar to 11. I confirmed the effect another way, by changing only that line of the plugin in memory: bar-13 fill gives gross 172.625 pts and house ROC@30k -3.87 (DD5 $3,777, one episode), real -4.91, exactly the verifier's arm B. Not verdict-changing: the literal reading loses more."
+    },
+    {
+     "what": "Short-side threshold: the plugin applies |disp| >= threshold_frac x range to shorts as well",
+     "real": false,
+     "why": "This is a reasonable alternative reading, not a clear departure. The absolute value in '|displacement| >= threshold_frac x range' would do nothing if it only gated longs (displacement > 0 already makes it positive). The Hypothesis also asks for a 'clear directional move ... by a vol-scaled threshold' with no side named. The verifier itself calls it ambiguous, and its blind arm B (R4) chose the same symmetric reading. Its literal-reading numbers are right: an in-memory plugin edit gives 1,314 trades, house ROC -3.31 at the bar-12 fill and -4.71 with both literal readings. Neither changes the verdict."
+    },
+    {
+     "what": "Filters the text does not mention (session under 15 bars, entry bar = last bar, first-hour range <= 0, n < 50)",
+     "real": false,
+     "why": "These are defensive guards. The text does not clearly say anything that they break, and none of them removes a trade here. I re-checked: the shortest session is 24 bars, no session is under 15 bars, no session has a zero first-hour range, and the window has 119,248 bars. Every one of the 1,550 sessions starts at 09:30, none has a gap in bars 0-13, and every entry is exactly at session start + 12."
+    },
+    {
+     "what": "Hypothesis has a range-size filter and a 'close beyond the range' condition that the Mechanism does not",
+     "real": false,
+     "why": "This is a gap in the text, not a plugin slip, and the verifier labels it that way. The Mechanism is the operative spec and gives no range-size number. close[11] is inside the bars 0-11 range by construction, so 'close beyond the range' cannot be literal. The plugin follows the Mechanism."
+    }
+   ],
+   "missed_issues": [
+    "Minor wording, no effect: the diagnosis puts '40.4% winners, profit factor 0.97' next to '+0.38 pt gross', but both figures are AFTER house cost. Before cost the plugin has 41.9% winners and profit factor 1.076; after house cost it has 40.35% and 0.9711, which are the lab's figures.",
+    "Minor note on the master's calendar, no effect: the 24-bar 'shortest sessions' are 14 US-holiday sessions (2010-07-05 .. 2012-09-03: July 4, Labor Day, Thanksgiving, MLK, Presidents Day, Memorial Day). Each ends at 11:25 ET, and the master has no holiday sessions after 2012-09. The plugin traded 10 of them for -$371.60 at house cost. The house rule takes the master's own calendar, so this is not a slip by the verifier or the lab, but the calendar is not consistent over time."
+   ],
+   "notes": "VERIFIED EXACT holds; I found nothing that refutes it. I re-ran everything independently, read-only on the repo. Scripts: C:/Users/xride/AppData/Local/Temp/claude/C--Users-xride-OneDrive-Desktop/52930482-892e-410f-a49c-a4c036b9fe02/scratchpad/skeptic_trendn/sk.py and sk2.py.\n\nRe-run, my own scoring code (not the verifier's four()):\n- Inputs: plugin LF sha dbc02a2e... matches the prereg. Registry row id 37 (NOADJ_NQ_5m_RTH.csv, db_noadj_rth) found through list_masters. The master starts 2010-06-07, so the pre-WF window is all the history before 2016-07-01. Window 2010-06-07 09:30 to 2016-06-30 15:55 ET: 119,248 bars, fingerprint 66f90627... matches, 1,550 sessions, and day_id runs equal ET-date runs.\n- Engine: 1,073 trades. Calling the plugin directly on raw prices gives the same 1,073, so the difference-adjusted signals change nothing. The roll stamp shows 0 trades crossing a roll.\n- Trades CSV: all 1,073 rows match (entry bar, exit bar, side, entry price, gross - 0.533, exit_time).\n- House numbers: net -$3,283.18; years 6.0643; max DD $7,591.04 measured from a 0 start; ROC@30k -2.1396; DD5 $3,288.04, one episode; DD% from peak 7.2781; Sortino -0.2349 over every session with zero days kept; win rate 40.35%; 176.94 trades a year; -0.153 pt net per trade.\n- Real cost (0.7825 pt) and stress (1.033 pt): -4.53 and -4.81, as reported.\n\nCost, window and edges:\n- Cost and multiplier are right: house 0.533 pt, real 0.7825 pt (0.5 pt for a tick each side + $5.65 / $20), $20 per point.\n- Window edges: the first session (2010-06-07) has |disp| / range = 0.247, below 0.3, so it has no trade for a real reason. The last session's trade enters and exits on 2016-06-30. Every trade exits in its own session, and none is dropped at an edge.\n\nLook-ahead: none. The signal reads o[a], high/low of bars a..a+11 and c[a+11]; the fill is at o[a+12]. The trail uses c[j-1], and I showed the stop is always below c[j-1] for a long, so a gap through it is booked at the open. The stop test uses the current bar's open, low and high. The verifier's three perturbation and truncation tests passed on all trades. Hold is 21 bars median, and 878 of 1,073 trades exit on the stop.\n\nLiteral readings: I rebuilt each one by editing a copy of the plugin in memory, which is a different route from the verifier's arm B. All four of the verifier's house and real results match exactly: plugin -2.14, bar-13 fill -3.87, shorts with no threshold -3.31, both literal -4.71. The verifier's line 'every one except the arm B stress run is one episode' is also correct.\n\nPromotion: NOT PROMOTED is right under every reading (ROC is far below 15, and the drawdown is one episode).\n\nSlips: only the fill-bar slip (10:30 against the text's 10:35) is a real departure from the text, and it does not change the verdict."
+  }
+ }
+]

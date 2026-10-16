@@ -1,0 +1,119 @@
+[
+ {
+  "idea": "QL_NOISE2M_TREND",
+  "folder": "20261016-1331-scalper",
+  "verdict": "VERIFIED EXACT",
+  "four_house": "ROC@30k -4.95 | DD5 $29,976 (not one episode; 1 episode in all) | DD% from peak 30.0% | Sortino -3.47 | trades 1,550 (256/yr) | $/yr -4,943 | gross -0.184 pt/trade, win rate 37.7%, cost 0.783 pt",
+  "four_real": "ROC@30k -4.95 | DD5 $29,960 (not one episode) | DD% from peak 30.0% | Sortino -3.47 | trades 1,550 (256/yr) | $/yr -4,940 | cost 0.7825 pt ($5.65 + 1 tick each side)",
+  "four_stress": "ROC@30k -4.95 | DD5 $45,476 (not one episode) | DD% from peak 45.5% | Sortino -4.90 | trades 1,550 (256/yr) | $/yr -7,499 | cost 1.283 pt (house + 1 tick each side), win rate 35.1%",
+  "slips": [
+   {
+    "what": "S1 time stop is one bar late (the only real departure from words the text states)",
+    "prereg_says": "'Exit: time stop after T bars (default 6 bars = 12 min)'",
+    "plugin_does": "exit_bar = min(e + max_hold, b - 1) with max_hold=6, so it exits at the close of bar entry+6. That is 7 bars counting the entry bar, 14 min after the entry open. 1023 of 1550 trades hold the full 7 bars.",
+    "literal_reading_numbers": "Plugin way with a 6-bar / 12-min exit, house cost: ROC@30k -4.95 | DD5 $28,589 | DD% from peak 28.6% | Sortino -3.43 | trades 1,550 (256/yr) | $/yr -4,714 | gross -0.139 pt/trade (1023 trades changed)",
+    "verdict_changing": false
+   },
+   {
+    "what": "S2 band lookback N is not in the text, so the plugin picks 12",
+    "prereg_says": "'compute a trailing noise band (median of last N bars' high-low range)', with no N given",
+    "plugin_does": "band_bars=12 (the file default)",
+    "literal_reading_numbers": "Plugin way with my blind N=20, house: ROC@30k -4.87 | DD5 $8,157 (ONE EPISODE) | DD% from peak 24.2% | Sortino -3.03 | trades 1,550 (256/yr) | $/yr -3,928 | gross +0.015 pt/trade against 0.783 cost (1477 changed)",
+    "verdict_changing": false
+   },
+   {
+    "what": "S3 the band window includes the signal bar",
+    "prereg_says": "'trailing noise band (median of last N bars' high-low range). When a bar CLOSES beyond the band'",
+    "plugin_does": "window = slice(k-bb+1, k+1), so the signal bar's own range is inside the band it has to break",
+    "literal_reading_numbers": "Plugin way with the band from bars k-N..k-1, house: ROC@30k -4.95 | DD5 $28,382 | DD% from peak 28.4% | Sortino -3.25 | trades 1,550 (256/yr) | $/yr -4,680 | gross -0.133 pt/trade (415 changed)",
+    "verdict_changing": false
+   },
+   {
+    "what": "S4 the band resets each session (the text never says so)",
+    "prereg_says": "a 'trailing' band; no session reset is stated",
+    "plugin_does": "the band uses only today's bars, and k starts at a+bb, so the first signal is session bar 13 and the first entry is 09:56",
+    "literal_reading_numbers": "Plugin way with a global trailing band across sessions, house: ROC@30k -4.80 | DD5 $39,123 | DD% from peak 39.1% | Sortino -4.64 | trades 1,550 (256/yr) | $/yr -6,258 | gross -0.441 pt/trade (1487 changed)",
+    "verdict_changing": false
+   },
+   {
+    "what": "S5 band centre and edges (the text names no centre)",
+    "prereg_says": "'When a bar CLOSES beyond the band (above high or below low)'",
+    "plugin_does": "centre = median close of the window; edges = centre +/- 0.5 x median range, so the whole band is one median range wide",
+    "literal_reading_numbers": "Plugin way with my blind reading (previous close +/- 1.0 x w), house: ROC@30k -4.88 | DD5 $8,195 (ONE EPISODE) | DD% from peak 24.4% | Sortino -3.19 | $/yr -3,978 | gross +0.005 pt/trade (1237 changed). Day-open centre +/- 1w: ROC -4.87 | DD5 $25,236 | DD% 25.2% | Sortino -2.90 | $/yr -4,096 | gross -0.018. Median close +/- 1w: ROC -4.92 | DD5 $28,133 | DD% 28.1% | Sortino -3.41 | $/yr -4,614",
+    "verdict_changing": false
+   },
+   {
+    "what": "S6 two extra guards the text does not have: sessions of 15 bars or fewer are skipped, and no signal on the last 2 bars",
+    "prereg_says": "only 'Flat by session's last bar. One trade per session max.'",
+    "plugin_does": "skips a session when b - a <= bb + 3; signal loop is range(a+bb, b-2)",
+    "literal_reading_numbers": "With the guards off: 0 trades change. ROC@30k -4.95 | DD5 $29,976 | DD% from peak 30.0% | Sortino -3.47 | $/yr -4,943. No session has 15 bars or fewer; the shortest has 47.",
+    "verdict_changing": false
+   },
+   {
+    "what": "ALL readings at once = the full literal / blind reading (arm B); the cumulative path from the plugin lands on arm B 1550/1550",
+    "prereg_says": "the Mechanism paragraph read literally, with N=20 and the band at previous close +/- median range",
+    "plugin_does": "S1-S6 together",
+    "literal_reading_numbers": "House: ROC@30k -4.62 | DD5 $16,511 (ONE EPISODE) | DD% from peak 32.7% | Sortino -4.26 | trades 1,550 (256/yr) | $/yr -5,056 | gross -0.206 pt/trade. Real: ROC -4.62 | DD5 $16,504 (ONE EP) | DD% 32.7% | Sortino -4.26 | $/yr -5,053. Stress: ROC -4.78 | DD5 $47,773 | DD% 47.6% | Sortino -5.83 | $/yr -7,612",
+    "verdict_changing": false
+   },
+   {
+    "what": "Matches the text (not slips)",
+    "prereg_says": "day trend = close vs open; entry at next open; stop 1.5x band width, and a bar that opens past it books its open; one trade per session",
+    "plugin_does": "close[k] vs the session's first open; entry o[k+1]; stop 1.5 x median range, with a gap-through fill at the open; first signal only",
+    "literal_reading_numbers": "n/a",
+    "verdict_changing": false
+   }
+  ],
+  "b_plugin_way_100pct": true,
+  "promotion": "NOT PROMOTED. Pre-WF ROC@30k is -4.95, far below the bar of 15. The lab's own line says the same ('NOT PROMOTED: pre-WF ROC@30k -4.95 < 15'). The one-episode flag is false but does not matter. The flag is false only because the curve has a single drawdown episode (dd5_n=1, so DD5 = max DD and the 1.3x test cannot trip). The curve peaks near its start and ends at its low, so ROC = -30/years = -4.947 at every cost level. Gross per trade is the number that separates the readings: -0.18 pt (plugin) and -0.21 pt (literal). The best single-slip variant makes +0.015 pt against a 0.783 pt cost. No reading of the text comes near the bar.",
+  "degenerate": "The premise is wrong: the lab did NOT report 1 trade. numbers_pre_wf.json says trades 1550, trades_per_year 255.6 and trades_total_incl_warmup 1550. pre_wf_trades.csv has 1550 rows and sandbox_pre_wf_out.json lists 1550 trades, and both match the engine trade for trade. The contract smoke gave 386 trades on 2015-01..2016-06 (258.7/yr). The only '1' in the lab numbers is dd5_n = 1, the number of drawdown episodes DD5 averages over; it is not a trade count. That count is 1 because the curve never regains its early high. The plugin is degenerate the other way: it fires every session. My own build of the rule finds qualifying signal bars as follows. Literal reading: 24,803 bars (about 4,090 a year, 8.4% of bars, median 16 per session), in 1550/1550 sessions. The first signal comes by session bar 3 in 1332/1550 sessions, median bar 1. Plugin's reading: 106,678 bars (38% of eligible bars, median 69 per session), in 1550/1550 sessions. In 847/1550 sessions the first signal is the very first eligible bar (session bar 13, entry 09:56). So the break filter barely filters, and the cap of one trade per session sets the count. That is why every knob corner gives the same 386 trades. It is not a units, threshold, session-filter or off-by-one bug. The off-by-one exit (S1) changes holds, not counts. The prereg's prior of 120/yr was simply wrong. Look-ahead is clean: in all 1550 sessions, perturbing every bar from the entry bar on (entry open kept) changed 0 entries, and perturbing every bar after the exit changed 0 exits. The signal reads h/l/c of bar k only and fills at o[k+1]. The stop width w(k) is known before entry. The stop is checked intrabar from the entry bar. The only future reads are the session-length guards; they changed 0 trades (S6), and no session is 15 bars or shorter.",
+  "lab_vs_a_mismatches": [],
+  "skeptic": {
+   "verdict_upheld": true,
+   "slips_judged": [
+    {
+     "what": "S1: time stop exits one bar late (close of bar entry+6, so 7 bars or 14 min from the entry fill)",
+     "real": true,
+     "why": "Real, but small. The text pins the hold: '6 bars = 12 min'. The plugin fills at the open of bar e and exits at the close of bar e+6, so the trade is open for 14 min (1023 of 1550 trades run the full hold). The opposing case: the house's own REPLAY_1_0.py uses the same ek_fill + max_hold_bars convention, and the bar stamps are 12 min apart. That convention still does not make the time in the trade 12 min. It does not change the verdict: with the 12-min exit, ROC@30k is -4.95 and DD5 is $28,589."
+    },
+    {
+     "what": "S2: band lookback N is not given; the plugin uses band_bars=12",
+     "real": false,
+     "why": "The text gives no N, so any N is a free choice and none can contradict it. 12 sits inside the plugin's own declared 6-30 range. This is a reading choice, not a slip. The verifier's N=20 alternative is also only a pick."
+    },
+    {
+     "what": "S3: the band window includes the signal bar (k-N+1..k)",
+     "real": false,
+     "why": "'Median of last N bars' high-low range', worked out when bar k closes, can reasonably include bar k. The text never says 'prior N bars'. This is a reasonable alternative reading and uses no future data."
+    },
+    {
+     "what": "S4: the band resets each session, so the first signal is at session bar 12 (entry 09:56)",
+     "real": false,
+     "why": "The text says 'trailing' and says nothing about session handling. A per-session band is a reasonable reading for an RTH intraday rule, and it keeps the overnight gap out of the band. The text does not forbid it."
+    },
+    {
+     "what": "S5: band centre is the median close of the window, edges are +/- 0.5 x median range",
+     "real": false,
+     "why": "The text names no centre. The plugin's band is exactly one median range wide, which fits 'noise band (median of ... range)' and the stop of '1.5x the band width'. The verifier's literal reading (previous close +/- 1w) gives a band 2w wide while keeping the stop at 1.5w, so it fits the text no better."
+    },
+    {
+     "what": "S6: extra guards (skip sessions of 15 bars or fewer; no signal on the last 2 bars)",
+     "real": false,
+     "why": "The text says nothing about them. They only use the known session schedule, and they change 0 trades: no session is 15 bars or fewer (shortest 47), and the latest first entry is session bar 53. I confirmed this myself."
+    },
+    {
+     "what": "ALL readings at once (plugin -> literal arm B path)",
+     "real": false,
+     "why": "This combines the readings above and is not a separate slip. The cumulative path landing on arm B at 1550/1550 checks the verifier's own coding. Every point on the path has ROC between -4.62 and -4.95, so nothing changes the verdict."
+    },
+    {
+     "what": "Items the verifier says match the text (day trend = close vs session open, entry at next open, 1.5x stop with gap-through filled at the open, flat by the last bar, one trade per session)",
+     "real": false,
+     "why": "I confirm all of these. Every entry price equals open[e]. No entry falls on a session's first bar. Every exit price sits inside its exit bar's high-low range. The first signal is the only trade each session. A trade that would run past the session ends at the session's last bar close."
+    }
+   ],
+   "missed_issues": [],
+   "notes": "VERIFIED EXACT is upheld. I re-checked it myself, read-only on the repo. Scripts: C:/Users/xride/AppData/Local/Temp/claude/C--Users-xride-OneDrive-Desktop/52930482-892e-410f-a49c-a4c036b9fe02/scratchpad/skeptic/sk1.py and sk2.py.\n\n(1) Plugin pin\n- The worktree file augur_strategies/qwen_lab/QL_NOISE2M_TREND.py and plugin_v1.py.txt both have LF sha256 441a4056... (the prereg's hash) and are byte-identical after LF normalisation.\n\n(2) Master and window\n- Registry row id 42, NOADJ_NQ_2m_RTH.csv, db_noadj_rth, found by filename.\n- Window 2010-06-07 09:30 to 2016-06-30 15:58 ET: 298,018 bars, 1550 sessions. The master itself starts 2010-06-07, so no data is missing before the window.\n- day_id boundaries equal the ET-date boundaries.\n\n(3) Engine path\n- Running the engine (params=None, cost 0) gives the same 1550 trades as calling the plugin directly on raw arrays.\n- No in-session price jump exceeds 5 pts, so there is no roll splice inside a trade.\n- All trades enter and exit the same session, so no trade is dropped at the window edge (dropped_before_wf 0).\n\n(4) My own yardstick code\nI booked $ on the exit ET date, kept zero days, used every master session as the calendar, and took max DD from a 0 start. House cost 0.783 x $20 gives:\n- trades 1550, net -$29,975.50, years 6.06434\n- ROC@30k -4.94695\n- DD5 $29,975.50 (n=1, one_episode False)\n- DD% from peak 29.9755\n- Sortino -3.47412\n- win rate 37.677%, gross -0.18395 pt/trade, PF 0.6688, net -0.967 pt/trade\nThese match every lab field and the verifier's arm A. Real cost (0.7825) and stress (1.283) also match the verifier: ROC -4.95 for both; DD5 $29,960 and $45,476; Sortino -3.47 and -4.90.\n- The lab's pre_wf_trades.csv matches the engine 1550/1550 on entry bar, exit bar, side and net pts, and its exit dates match my booking days.\n\n(5) Look-ahead, tested two independent ways\n- I scrambled every bar from each trade's entry bar to the session end (entry open kept): 0 of 1550 entries changed.\n- I scrambled every bar after each exit: 0 of 1550 trades changed.\n- By inspection, the signal reads only bars up to k, and the only reads of later bars are the session schedule.\n\nCosmetic points (not misses)\n- The verifier says the curve 'peaks near its start'. In fact the net curve never rises above its 0 start at any cost level tested (the gross curve peaked at +60.6 pts). That is exactly why ROC = -30/years at every cost.\n- The 1550 sessions (255.6 a year) include about 30 CME holiday sessions that close at 11:28 ET (2010-13) or 12:57 ET (2014 on). Counting them is right under the house calendar rule.\n- The verifier's literal arm B can signal on session bar 0 against the prior session's close (the overnight gap). This affects only arm B and the slip rows, not the verdict.\n\nPromotion\n- NOT PROMOTED is correct: ROC is -4.95 against the bar of 15, and every reading of the text scores between -4.62 and -4.95.\n- The broken-plugin check does not apply. It fires only when the trade count is too low, and 255.6 a year is about 2x the stated prior of 120, not below it."
+  }
+ }
+]

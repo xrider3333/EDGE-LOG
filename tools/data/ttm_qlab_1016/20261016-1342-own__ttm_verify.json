@@ -1,0 +1,261 @@
+{
+ "A_plugin": {
+  "engine_total_pnl_pts": 407.75,
+  "gross_pts_sum": 407.75,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    254.66909930715934,
+    177.42953125000003
+   ],
+   "dd5": 3288.04,
+   "dd_pct_peak": 7.2781,
+   "max_dd": 7591.04,
+   "net_per_trade_pts": -0.15299068033550794,
+   "net_per_trade_usd": -3.0598136067101622,
+   "net_usd": -3283.1800000000044,
+   "one_episode": true,
+   "per_yr_usd": -541.3911941309262,
+   "roc30": -2.139592970650634,
+   "sortino": -0.23490364579077583,
+   "trades": 1073,
+   "trades_per_yr": 176.9360045146727,
+   "win_rate": 0.40354147250698974,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_win_loss_usd": [
+    256.24573459715634,
+    179.37503840245776
+   ],
+   "dd5": 3871.46,
+   "dd_pct_peak": 9.3591,
+   "max_dd": 9433.64999999992,
+   "net_per_trade_pts": -0.4024906803355079,
+   "net_per_trade_usd": -8.049813606710156,
+   "net_usd": -8637.45,
+   "one_episode": true,
+   "per_yr_usd": -1424.3018566591425,
+   "roc30": -4.529429828303429,
+   "sortino": -0.6071019135934439,
+   "trades": 1073,
+   "trades_per_yr": 176.9360045146727,
+   "win_rate": 0.3932898415657036,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    258.02613138686127,
+    181.362416918429
+   ],
+   "dd5": 5266.8,
+   "dd_pct_peak": 14.3613,
+   "max_dd": 14419.69999999986,
+   "net_per_trade_pts": -0.6529906803355079,
+   "net_per_trade_usd": -13.059813606710158,
+   "net_usd": -14013.18,
+   "one_episode": true,
+   "per_yr_usd": -2310.7512392776525,
+   "roc30": -4.807488170927983,
+   "sortino": -0.9676575221902545,
+   "trades": 1073,
+   "trades_per_yr": 176.9360045146727,
+   "win_rate": 0.3830382106244175,
+   "years": 6.064339493497604
+  }
+ },
+ "A_vs_B": {
+  "A_trades": 1073,
+  "B_trades": 1073,
+  "exact": 0,
+  "first_exit_diffs": [],
+  "first_only_A": [
+   [
+    "2010-06-08 10:30:00",
+    -1
+   ],
+   [
+    "2010-06-09 10:30:00",
+    -1
+   ],
+   [
+    "2010-06-10 10:30:00",
+    1
+   ],
+   [
+    "2010-06-11 10:30:00",
+    1
+   ],
+   [
+    "2010-06-14 10:30:00",
+    1
+   ]
+  ],
+  "first_only_B": [
+   [
+    "2010-06-08 10:35:00",
+    -1
+   ],
+   [
+    "2010-06-09 10:35:00",
+    -1
+   ],
+   [
+    "2010-06-10 10:35:00",
+    1
+   ],
+   [
+    "2010-06-11 10:35:00",
+    1
+   ],
+   [
+    "2010-06-14 10:35:00",
+    1
+   ]
+  ],
+  "only_A": 1073,
+  "only_B": 1073,
+  "same_entry_and_side": 0,
+  "same_entry_px": 0,
+  "same_exit_bar": 0,
+  "same_gross_pts": 0
+ },
+ "B_own_rule": {
+  "gross_pts_sum": 172.625,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    264.95728395061724,
+    172.59488023952096
+   ],
+   "dd5": 3776.6,
+   "dd_pct_peak": 10.0162,
+   "max_dd": 10214.53999999998,
+   "net_per_trade_pts": -0.3721192917054986,
+   "net_per_trade_usd": -7.442385834109977,
+   "net_usd": -7985.680000000004,
+   "one_episode": true,
+   "per_yr_usd": -1316.8260135440187,
+   "roc30": -3.867504597007857,
+   "sortino": -0.5620026976500135,
+   "trades": 1073,
+   "trades_per_yr": 176.9360045146727,
+   "win_rate": 0.37744641192917056,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_win_loss_usd": [
+    263.89887218045106,
+    176.01721068249262
+   ],
+   "dd5": 3987.45,
+   "dd_pct_peak": 13.4308,
+   "max_dd": 13442.79999999976,
+   "net_per_trade_pts": -0.6216192917054986,
+   "net_per_trade_usd": -12.432385834109969,
+   "net_usd": -13339.950000000003,
+   "one_episode": true,
+   "per_yr_usd": -2199.7366760722352,
+   "roc30": -4.909103779135912,
+   "sortino": -0.9225567520559784,
+   "trades": 1073,
+   "trades_per_yr": 176.9360045146727,
+   "win_rate": 0.3718546132339236,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    260.8614646464646,
+    180.23163958641067
+   ],
+   "dd5": 18719.36,
+   "dd_pct_peak": 18.7194,
+   "max_dd": 18719.35999999986,
+   "net_per_trade_pts": -0.8721192917054985,
+   "net_per_trade_usd": -17.442385834109977,
+   "net_usd": -18715.68,
+   "one_episode": false,
+   "per_yr_usd": -3086.186058690745,
+   "roc30": -4.94598008482785,
+   "sortino": -1.2719681246342474,
+   "trades": 1073,
+   "trades_per_yr": 176.9360045146727,
+   "win_rate": 0.36905871388630007,
+   "years": 6.064339493497604
+  }
+ },
+ "armb_file": "C:/EdgeLog/_anatomy_cache/ttm_qlab/20261016-1342-own\\ttm_armb_own_rule.py",
+ "armb_lf_sha256": "08e541671ab34d24211fa98757edee62162ef012c76bd68b1d17cd7a2e5d24d3",
+ "armb_reading": [
+  "R1 bars 0-based within session (day_id run); bar 0 = 09:30 ET (all 1550 pre-WF sessions start 09:30, none has a gap in bars 0-13)",
+  "R2 range = max(high[0..11]) - min(low[0..11]); displacement = close[11] - open[0]",
+  "R3 entry = open of session bar 13 (10:35 ET), literal 'bar 13's open'; signal bar 12 itself is not traded on",
+  "R4 threshold |disp| >= threshold_frac*range applies to longs AND shorts (the abs value read as symmetric); disp == 0 -> no trade",
+  "R5 initial stop = entry_px - side*stop_frac*range, range = first-hour range held fixed for the trade",
+  "R6 trail: from bar entry+1 on, stop = max(stop, max close since entry (closes of bars entry..j-1) - trail_frac*range) for long, mirror short; ratchet never loosens; no look-ahead",
+  "R7 exit: bar j > entry opening at/through the stop -> fill at open; else low<=stop (long) / high>=stop (short) -> fill at the stop (touch = through, no tick rounding); entry bar: intrabar test only",
+  "R8 no stop -> flat at the session's last bar close; one trade per session; sessions with < 14 bars skipped"
+ ],
+ "bars": 119248,
+ "bars_match_prereg": true,
+ "checks": {
+  "A_equals_text_with_entry_at_bar12_exactly": true,
+  "broken_plugin_check_A_ok (>= 120/3 and >= 20 per yr)": true,
+  "finding": "plugin = the Mechanism text trade-for-trade EXCEPT the fill bar: it enters at session bar 12's open (10:30 ET, the bar after signal bar 11; no look-ahead) where the text literally says bar 13's open (10:35). Threshold on both sides, ratchet, gap-through fill at the open and flat-at-close all match. Both readings lose after house cost.",
+  "promotion_rule_A_roc30_ge_15_and_not_one_episode": false,
+  "promotion_rule_B_roc30_ge_15_and_not_one_episode": false
+ },
+ "costs_pts_rt": {
+  "house": 0.533,
+  "real": 0.7825,
+  "stress": 1.033
+ },
+ "diag_variants_not_armB": {
+  "entry_bar12": {
+   "exact_vs_A": 1073,
+   "house_net_usd": -3283.1800000000044,
+   "house_roc30": -2.139592970650634,
+   "only_A": 0,
+   "only_B": 0,
+   "same_entry_and_side_vs_A": 1073,
+   "trades": 1073
+  },
+  "entry_bar12_and_short_no_threshold": {
+   "exact_vs_A": 1073,
+   "house_net_usd": -6997.240000000004,
+   "house_roc30": -3.3075546352941614,
+   "only_A": 0,
+   "only_B": 241,
+   "same_entry_and_side_vs_A": 1073,
+   "trades": 1314
+  },
+  "short_no_threshold": {
+   "exact_vs_A": 0,
+   "house_net_usd": -13307.240000000003,
+   "house_roc30": -4.713840102679672,
+   "only_A": 1073,
+   "only_B": 1314,
+   "same_entry_and_side_vs_A": 0,
+   "trades": 1314
+  }
+ },
+ "fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+ "fingerprint_matches_prereg": true,
+ "folder": "20261016-1342-own",
+ "idea": "QL_TRENDN",
+ "master": "NOADJ_NQ_5m_RTH.csv",
+ "master_sha256": "2878d5960867fb5778bd0e1facd164e03b5018ce30990cd2c12e9db4d20923ed",
+ "params_used": {
+  "stop_frac": 1.0,
+  "threshold_frac": 0.3,
+  "trail_frac": 0.5
+ },
+ "plugin": "C:/EdgeLog/qwen_lab/ideas/20261016-1342-own/plugin_v1.py.txt",
+ "plugin_lf_sha256": "dbc02a2e11c364dcdcd9eb18be18067fa77e5ce9a0ff01dff43d8a56a670f2ae",
+ "plugin_pin_ok": true,
+ "registry_id": 37,
+ "sessions": 1550,
+ "usd_per_pt": 20.0,
+ "window": [
+  "2010-06-07",
+  "2016-06-30"
+ ]
+}

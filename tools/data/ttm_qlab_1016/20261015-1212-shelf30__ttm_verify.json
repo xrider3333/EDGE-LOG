@@ -1,0 +1,223 @@
+{
+ "A_plugin": {
+  "engine_total_pnl_pts": -563.75,
+  "house_cost": {
+   "avg_win_loss": [
+    399.6557894736839,
+    419.2372357723578
+   ],
+   "cost_pts": 0.533,
+   "dd5": 7557.46,
+   "dd_pct_peak": 14.7914,
+   "max_dd": 14909.259999999978,
+   "net_usd": -13598.880000000006,
+   "one_episode": true,
+   "per_yr": -2242.4338239277663,
+   "roc30": -4.512163227271715,
+   "sortino": -0.9593403426837364,
+   "trades": 218,
+   "trades_per_yr": 35.947855530474044,
+   "win_rate": 0.43577981651376146,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_win_loss": [
+    394.66578947368413,
+    424.22723577235774
+   ],
+   "cost_pts": 0.7825,
+   "dd5": 8086.4,
+   "dd_pct_peak": 15.8399,
+   "max_dd": 15962.149999999945,
+   "net_usd": -14686.7,
+   "one_episode": true,
+   "per_yr": -2421.813623024831,
+   "roc30": -4.551668082980374,
+   "sortino": -1.0279681828989449,
+   "trades": 218,
+   "trades_per_yr": 35.947855530474044,
+   "win_rate": 0.43577981651376146,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_win_loss": [
+    393.80808510638275,
+    425.78096774193557
+   ],
+   "cost_pts": 1.033,
+   "dd5": 8617.46,
+   "dd_pct_peak": 16.8931,
+   "max_dd": 17019.259999999977,
+   "net_usd": -15778.880000000006,
+   "one_episode": true,
+   "per_yr": -2601.9123792325067,
+   "roc30": -4.586413943789291,
+   "sortino": -1.0957646526347053,
+   "trades": 218,
+   "trades_per_yr": 35.947855530474044,
+   "win_rate": 0.43119266055045874,
+   "years": 6.064339493497604
+  },
+  "sum_gross_pts": -563.75
+ },
+ "A_vs_B": {
+  "A_trades": 218,
+  "B_trades": 214,
+  "exact": 214,
+  "first_exit_diffs": [],
+  "first_only_A": [
+   [
+    "2010-06-24 10:55:00",
+    -1,
+    5.25
+   ],
+   [
+    "2010-06-29 10:05:00",
+    -1,
+    11.75
+   ],
+   [
+    "2010-08-31 10:05:00",
+    1,
+    -17.25
+   ],
+   [
+    "2013-04-15 10:05:00",
+    -1,
+    39.25
+   ]
+  ],
+  "first_only_B": [],
+  "only_A": 4,
+  "only_A_gross_pts_sum": 39.0,
+  "only_A_reasons": [
+   [
+    "2010-06-24",
+    13,
+    21.25,
+    13.25,
+    "warm-up: plugin trades with only 13 prior sessions (its fallback median over >= 5); prereg says trailing 20",
+    5.25
+   ],
+   [
+    "2010-06-29",
+    16,
+    27.0,
+    15.625,
+    "warm-up: plugin trades with only 16 prior sessions (its fallback median over >= 5); prereg says trailing 20",
+    11.75
+   ],
+   [
+    "2010-08-31",
+    61,
+    17.25,
+    11.5,
+    "tie: range == 1.5 x median exactly; plugin skips only range < 1.5 x median (>=), own rule needs strict >",
+    -17.25
+   ],
+   [
+    "2013-04-15",
+    732,
+    12.0,
+    8.0,
+    "tie: range == 1.5 x median exactly; plugin skips only range < 1.5 x median (>=), own rule needs strict >",
+    39.25
+   ]
+  ],
+  "only_B": 0,
+  "same_entry_and_side": 214,
+  "same_exit_bar": 214,
+  "same_gross_pts": 214
+ },
+ "B_own_rule": {
+  "house_cost": {
+   "avg_win_loss": [
+    400.8073913043477,
+    419.75836065573776
+   ],
+   "cost_pts": 0.533,
+   "dd5": 7766.8,
+   "dd_pct_peak": 15.255,
+   "max_dd": 15327.939999999979,
+   "net_usd": -14336.240000000007,
+   "one_episode": true,
+   "per_yr": -2364.0233227990984,
+   "roc30": -4.626890481302318,
+   "sortino": -1.0133215183270223,
+   "trades": 214,
+   "trades_per_yr": 35.288261851015804,
+   "win_rate": 0.42990654205607476,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_win_loss": [
+    395.8173913043478,
+    424.74836065573766
+   ],
+   "cost_pts": 0.7825,
+   "dd5": 8290.75,
+   "dd_pct_peak": 16.2954,
+   "max_dd": 16370.849999999946,
+   "net_usd": -15404.1,
+   "one_episode": true,
+   "per_yr": -2540.1117494356663,
+   "roc30": -4.654819541017738,
+   "sortino": -1.0803003737741532,
+   "trades": 214,
+   "trades_per_yr": 35.288261851015804,
+   "win_rate": 0.42990654205607476,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_win_loss": [
+    395.10923076923063,
+    426.269756097561
+   ],
+   "cost_pts": 1.033,
+   "dd5": 8816.8,
+   "dd_pct_peak": 17.3403,
+   "max_dd": 17417.939999999977,
+   "net_usd": -16476.240000000005,
+   "one_episode": true,
+   "per_yr": -2716.905941309256,
+   "roc30": -4.6794958668635775,
+   "sortino": -1.1464686200870273,
+   "trades": 214,
+   "trades_per_yr": 35.288261851015804,
+   "win_rate": 0.4252336448598131,
+   "years": 6.064339493497604
+  },
+  "sum_gross_pts": -602.75
+ },
+ "bars": 119248,
+ "costs_pts": {
+  "house": 0.533,
+  "real": 0.7825,
+  "stress": 1.033
+ },
+ "fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+ "folder": "20261015-1212-shelf30",
+ "idea": "QL_GAMMA_MOM",
+ "master": "NOADJ_NQ_5m_RTH.csv",
+ "master_sha256": "41f684ca56c6ff98abd2eb54fd0e396f311db3c000f5b7b041efe6d9c8634343",
+ "own_rule_reading": [
+  "opening range (OR) = the session's first 6 bars of the master (positional, by day_id), OR high = max(high), OR low = min(low), range = OR high - OR low",
+  "'trailing 20-session median range' = median of the OR ranges (same 6-bar quantity) of the 20 PRIOR sessions, today excluded; sessions with < 20 prior sessions in the loaded window do not trade (no warm-up outside the window)",
+  "wide-range day = range > 1.5 x that median (strict >)",
+  "breakout search starts at the 7th bar (first bar after the OR); signal = first bar whose close > OR high (long) or close < OR low (short), strict; whichever side comes first is the session's only signal",
+  "entry = next bar's open; the signal bar must not be the session's last bar (the entry bar must be in the same session); if the first breakout is on the last bar there is no trade",
+  "stop = entry fill price -/+ 1.0 x OR range (distance measured from the fill, not from the range edge); no target",
+  "stop checked intrabar from the entry bar on (low <= stop long / high >= stop short fills AT the stop); a later bar that OPENS beyond the stop fills at its open (gap-through books the open)",
+  "otherwise flat at the close of the session's last bar",
+  "one trade per session; no re-entry after a stop"
+ ],
+ "plugin_lf_sha256": "cb3017465f3309d49616364cb722b0f76509e8f5036ea416fb945b2894214ceb",
+ "plugin_pin_ok": true,
+ "registry_id": 37,
+ "sessions": 1550,
+ "usd_per_pt": 20.0,
+ "window": [
+  "2010-06-07",
+  "2016-06-30"
+ ]
+}
