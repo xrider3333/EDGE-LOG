@@ -785,6 +785,14 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
     row["fold"] = f + 1
     row["test_bars"] = te_e - te_s
     row["train_bars"] = tr_end - tr_start   # IS window length (for WFE)
+    # The test slice's OWN bar bounds. test_bars/train_bars are LENGTHS, and te_s is only
+    # recoverable from them in ANCHORED mode (validate._anchored_fold_bounds assumes
+    # test_start == train_bars, true only because anchored training starts at bar 0). In
+    # ROLLING mode -- which is the DEFAULT primary, since ties go to rolling -- train_bars is
+    # the constant window length for every fold while te_s keeps advancing, so the derivation
+    # is wrong. Storing the bounds is the only way a later reader gets them right.
+    row["test_start"] = int(te_s)
+    row["test_end"] = int(te_e)
     row["oos_pnl"] = float(om["total_pnl"]) if om else 0.0
     row["oos_trades"] = int(om["num_trades"]) if om else 0
     # OOS per-trade net PnLs + heat/reach for the report's walk-forward distribution
@@ -803,6 +811,14 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
             # per-trade curve built from this array must read the net value straight,
             # exactly like row["oos_pnl"] (om['total_pnl']) already does.
             row["_oos_pnls"] = [round(float(t[2]), 4) for t in _tr]
+            # The trades' ENTRY and EXIT bar indices, SLICE-LOCAL (0 == bar te_s). They are
+            # already in the tuple -- (entry_idx, exit_idx, pnl, side, entry_px) -- and were
+            # simply discarded here. Without them validate.wf_oos cannot be turned back into a
+            # DAILY curve, so a walk-forward chain can carry no DD5 and no DD% from peak.
+            # The warm path does NOT shift them: keep_trades_entering_at_or_after rebases every
+            # surviving trade into the cold-slice frame before this row is built.
+            row["_oos_ei"] = [int(t[0]) for t in _tr]
+            row["_oos_xi"] = [int(t[1]) for t in _tr]
             from .analytics import mae_mfe as _mmfe_wf
             _mm = _mmfe_wf(_tr, H[te_s:te_e], L[te_s:te_e])
             if _mm and _mm.get("mae"):
@@ -823,6 +839,15 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
             if _d0:
                 row["oos_from"] = _d0
                 row["oos_to"] = _d1
+            # The bounds' own bar TIMESTAMPS, which oos_from/oos_to (calendar DATES) cannot
+            # replace. A master refill inserts bars INSIDE an optimize window and silently
+            # shifts every bar index after it -- that is what made run #491 unreproducible
+            # until the inserted bars were masked. A timestamp survives the refill, so a
+            # reader can re-find the bound by time instead of trusting the integer.
+            _n_ix = len(index)
+            if _n_ix:
+                row["test_start_ts"] = str(index[min(max(int(te_s), 0), _n_ix - 1)])
+                row["test_end_ts"] = str(index[min(max(int(te_e) - 1, 0), _n_ix - 1)])
     except Exception:
         pass
     return row
@@ -1269,7 +1294,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         row.update({k: r.get(k) for k in _METRIC_KEYS if k in r})
         for k in ("oos_pnl", "oos_trades", "oos_pf", "oos_wins", "oos_win_rate",
                   "fold", "test_bars", "train_bars", "oos_from", "oos_to",
-                  "_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won"):
+                  "test_start", "test_end", "test_start_ts", "test_end_ts",
+                  "_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won", "_oos_ei", "_oos_xi"):
             if k in r:
                 row[k] = r[k]
         top.append(row)

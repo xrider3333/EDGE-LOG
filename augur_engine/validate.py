@@ -1061,7 +1061,20 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 [{"fold": _fr.get("fold"), "pnls": list(_fr.get("_oos_pnls") or []),
                   "oos_pnl": _fr.get("oos_pnl"), "oos_trades": _fr.get("oos_trades"),
                   "oos_wins": _fr.get("oos_wins"), "oos_pf": _fr.get("oos_pf"),
-                  "from": _fr.get("oos_from"), "to": _fr.get("oos_to")} for _fr in folds],
+                  "from": _fr.get("oos_from"), "to": _fr.get("oos_to"),
+                  # the chain's own trades + the slice they were measured in, so a reader can
+                  # rebuild the DAILY curve (and from it DD5 and DD% from peak) without
+                  # re-running anything. See analytics.wf_oos_block.
+                  "ei": list(_fr.get("_oos_ei") or []),
+                  "xi": list(_fr.get("_oos_xi") or []),
+                  "a": _fr.get("test_start"), "b": _fr.get("test_end"),
+                  "a_ts": _fr.get("test_start_ts"), "b_ts": _fr.get("test_end_ts")}
+                 for _fr in folds],
+                # No `arrays=` here: the optimize-window arrays are not in scope at this
+                # point in run_validate, and the fingerprint is a nice-to-have. The
+                # per-fold a_ts / b_ts timestamps already give a reader what the
+                # fingerprint was for - a way to notice the tape moved under the bar
+                # indices after a refill.
                 mode=_prim["mode"], src="validate")
     except Exception as _wf_oos_e:
         print(f"[validate] wf_oos_block failed ({type(_wf_oos_e).__name__}: {_wf_oos_e}) "
@@ -1070,7 +1083,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
 
     for _rowset in (folds, (_altw.get("folds") if isinstance(_altw, dict) else None)):
         for _fr in (_rowset or []):
-            for _k in ("_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won"):
+            for _k in ("_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won",
+                       "_oos_ei", "_oos_xi"):
                 _fr.pop(_k, None)
 
     # ── Per-trade Win% / Sharpe so the report's KPI matrix + Past-runs columns aren't blank.

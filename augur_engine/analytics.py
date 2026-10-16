@@ -403,14 +403,40 @@ def _wf_oos_fold_start_index(idx_map, offset):
 #    transient arrays before they are popped) and tools/backfill_wf_oos.py (re-running
 #    each fold's OOS slice against that fold's saved params) can never compute this
 #    differently.
-def wf_oos_block(folds, *, mode, dp=1, cap=200, src="validate"):
+def wf_oos_block(folds, *, mode, dp=1, cap=200, src="validate", arrays=None,
+                 trade_budget=40000):
     """Stitch walk-forward per-fold OOS trades into the saved `validate.wf_oos` block.
 
     `folds` — list of dicts, ONE per fold, IN FOLD ORDER (the PRIMARY scheme's folds —
     the alt scheme's rows carry no params and cannot be rebuilt, see ENGINE_BRIEF D1):
         {"fold": int, "pnls": [per-trade NET pts, in trade order], "oos_pnl": pts,
          "oos_trades": int, "oos_wins": int|None, "oos_pf": float,
-         "from": "YYYY-MM-DD"|None, "to": "YYYY-MM-DD"|None}
+         "from": "YYYY-MM-DD"|None, "to": "YYYY-MM-DD"|None,
+         # optional, all five together or not at all (2026-10-16):
+         "ei": [entry bar index], "xi": [exit bar index],   # SLICE-LOCAL: 0 == bar `a`
+         "a": int, "b": int,                                 # the test slice's bar bounds
+         "a_ts": str|None, "b_ts": str|None}                 # those bounds' bar timestamps
+
+    THE CHAIN'S TRADES (`ei`/`xi`/`a`/`b`) - why they are here. Without bar indices the saved
+    chain is a list of P&Ls with no time attached, so no DAILY equity curve can be built from
+    it, so a walk-forward chain carries NO DD5 and NO "DD% from peak" - two of the house's four
+    numbers. Runs #489 and #491 both had to be reported with '-' in those columns.
+    Rebuilding instead was tried and rejected: it needs the bounds, the scored params AND the
+    warm convention, and even with all three it was not bit-exact, because a master refill can
+    insert bars INSIDE an optimize window and silently shift every later bar index (TTM traced
+    exactly this on #491 - masking the 740 inserted bars made all 8 folds reproduce).
+    `a_ts`/`b_ts` and `fp` exist for that failure: a timestamp and a fingerprint survive a
+    refill, an integer index does not.
+    FRAME: `ei`/`xi` are relative to `a`, and the WARM path does not shift them (auto.py's
+    keep_trades_entering_at_or_after rebases trades into the cold-slice frame first).
+
+    `arrays` - optional; the optimize-window arrays the indices were measured against. Only
+    its length and endpoints are read, to store a `fp` fingerprint so a later reader can tell
+    whether the tape still matches.
+    `trade_budget` - drop `ei`/`xi` (keeping bounds, P&L and everything else) once the chain
+    exceeds this many trades, so the Firestore 1 MiB document cap can never be reached through
+    this field. At ~25 bytes a trade the default is about 1 MB of indices; folds are capped at
+    8 by auto.py, so the realistic chain is ~1,400 trades / ~36 KB and never trims.
     `mode`  — "rolling" | "anchored": which walk-forward scheme this is (the run's
               wf_best_mode / PRIMARY scheme).
     `dp`    — decimal places for the rounded points figures (net, gross_win,
@@ -485,9 +511,62 @@ def wf_oos_block(folds, *, mode, dp=1, cap=200, src="validate"):
                   f"disagrees with oos_pnl={oos_pnl:.4f} by {disagree:.4f} (tol "
                   f"{tol:.4f}) — refusing to save the block")
             return None
+        # The new index arrays get the SAME treatment as pnls: a short or long one would
+        # otherwise produce a block that LOOKS reconciled while mapping trades to the wrong
+        # bars - silently wrong is the one outcome this guard exists to prevent.
+        _ei = list(fr.get("ei") or [])
+        _xi = list(fr.get("xi") or [])
+        if _ei or _xi:
+            if len(_ei) != oos_trades or len(_xi) != oos_trades:
+                print(f"[wf_oos_block] fold {fr.get('fold')}: len(ei)={len(_ei)} "
+                      f"len(xi)={len(_xi)} != oos_trades={oos_trades} — refusing to save "
+                      f"the block")
+                return None
+            try:
+                _ei = [int(v) for v in _ei]
+                _xi = [int(v) for v in _xi]
+            except (TypeError, ValueError):
+                print(f"[wf_oos_block] fold {fr.get('fold')}: a bar index is not an integer "
+                      f"— refusing to save the block")
+                return None
         pnls_all.extend(pnls)
-        fold_rows.append({"f": fr.get("fold"), "from": fr.get("from"), "to": fr.get("to"),
-                          "trades": oos_trades, "net": round(oos_pnl, dp)})
+        _row = {"f": fr.get("fold"), "from": fr.get("from"), "to": fr.get("to"),
+                "trades": oos_trades, "net": round(oos_pnl, dp)}
+        # the slice bounds travel even when the indices are trimmed - they are 4 values a
+        # fold and they are what makes the fold auditable at all
+        for _k_src, _k_dst in (("a", "a"), ("b", "b"), ("a_ts", "a_ts"), ("b_ts", "b_ts")):
+            _v = fr.get(_k_src)
+            if _v is not None:
+                _row[_k_dst] = int(_v) if _k_dst in ("a", "b") else str(_v)
+        if _ei:
+            _row["ei"] = _ei
+            _row["xi"] = _xi
+        fold_rows.append(_row)
+
+    # FIRESTORE 1 MiB GUARD. Bounds and P&L always stay; only the per-trade index arrays
+    # are droppable, and dropping them costs DD5/DD% from peak, not correctness - the block
+    # still reconciles. `chain_trimmed` says so out loud rather than leaving a reader to
+    # wonder why ei is missing.
+    chain_trimmed = False
+    if trade_budget and len(pnls_all) > int(trade_budget):
+        for _r in fold_rows:
+            _r.pop("ei", None)
+            _r.pop("xi", None)
+        chain_trimmed = True
+        print(f"[wf_oos_block] chain of {len(pnls_all)} trades is over the {trade_budget} "
+              f"budget — dropped the per-trade bar indices (bounds and P&L kept)")
+
+    # A FINGERPRINT OF THE TAPE THE INDICES MEAN SOMETHING ON. Bar indices are only valid
+    # against the exact array they were measured in; a refill that inserts bars inside the
+    # window shifts everything after it. Length plus the two endpoint timestamps is enough for
+    # a reader to notice the tape moved.
+    fp = None
+    try:
+        _ix = (arrays or {}).get("index")
+        if _ix is not None and len(_ix):
+            fp = {"n": int(len(_ix)), "first": str(_ix[0]), "last": str(_ix[-1])}
+    except Exception:
+        fp = None
 
     trades = len(pnls_all)
     wins = sum(1 for x in pnls_all if x > 0)
@@ -535,7 +614,7 @@ def wf_oos_block(folds, *, mode, dp=1, cap=200, src="validate"):
         "max_drawdown": round(max_drawdown, dp),
         "sharpe": sharpe, "sortino": sortino,
         "equity": equity, "equity_n": trades, "fold_idx": fold_idx,
-        "folds": fold_rows, "src": src,
+        "folds": fold_rows, "src": src, "chain_trimmed": chain_trimmed, "fp": fp,
     }
 
 
