@@ -36,6 +36,14 @@ two lanes' closed work, so it must not loop on one source):
    next pick, so there is no state.json race. An open overrides the skip list (2, 3, 6, 8, 10, 12-19, 21, 22, 26, 27,
    29), the shelf's live / dead marks and ledger citations; a paper re-opened after it was closed is open again. While
    no paper is open the shelf slot is skipped and the rotation is scalper -> own -> scalper -> own.
+   **MANAGER closes a paper with `python tools/qwen_lab.py shelf-close 31 [32 ...] [--why "..."]`** (MANAGER #147) -
+   it appends a dated `YYYY-MM-DD HH:MM:SS CLOSE 31  # why` line to the same file, so nobody hand-edits it. The
+   LATEST line naming a paper is authoritative: a close after an open = closed, an open after a close = open; a line
+   of bare numbers (or `open: ...`) still means open; `# ...` is a comment. It never touches `state.json` (the lab's
+   own closures stay there) and uses the lab's home (`--home`, else `QWEN_LAB_HOME`, else `C:\EdgeLog\qwen_lab`).
+   `--idea N` refuses a paper MANAGER closed, and a recorded next pick whose paper was closed after it was posted is
+   dropped and picked again. `status` lists the papers closed by the lab, the papers closed by MANAGER (with the
+   time) and the open ones.
 
 Each pick is recorded in `state.json` (`next_pick`, `picks`, `rotation_index`) and posted to MANAGER as harness text,
 `QWEN LAB next pick: ...`; after every idea the harness records and posts the following pick. `--idea N` forces a shelf
@@ -49,9 +57,9 @@ Qwen talks to the harness only through these tools:
 | `read_repo_file(path, start_line)` | read-only, shared checkout (and the lab's plugin folder) only; secrets / `.env` / key / credential / `.git` / registry paths refused; 12k characters a call; key-looking lines redacted (`local_llm.redact_lines`) |
 | `list_strategies()` | house plugin files + the lab's own |
 | `dead_list(query)` | the closed rows of `RESEARCH_LEDGER.md` section 2, compact |
-| `ideas()` | this session's source, its brief, the rotation, the open shelf papers |
+| `ideas()` | this session's source, its brief, the rotation, the open shelf papers, and every idea the lab already ran (name, families, one-line rule, verdict) with the mechanism-family map |
 | `shelf_ideas()` | the papers still open to the lab |
-| `propose(name, hypothesis, mechanism, prior_sharpe_yearly, trades_per_year, instrument, timeframe)` | recorded PRE-DATA; runs the dead-list check; may be revised (3 proposals) until the map reads it inside `run_stage_a`, then frozen (the plugin freezes too once the prereg is posted) |
+| `propose(name, hypothesis, mechanism, prior_sharpe_yearly, trades_per_year, instrument, timeframe, first_signal_bar)` | recorded PRE-DATA; refuses an idea the lab already ran (MANAGER #148, no slot used) and runs the dead-list check; `first_signal_bar = {"index": k, "clock": "HH:MM"}` is REQUIRED (TTM #144); may be revised (3 proposals) until the map reads it inside `run_stage_a`, then frozen (the plugin freezes too once the prereg is posted) |
 | `write_plugin(name, code)` | safety gate, then written to `augur_strategies/qwen_lab/<name>.py` in the WORKTREE, then contract + look-ahead in the sandbox |
 | `run_stage_a(name)` | the dead-list gate, the power-first map (recorded, not a stop), the auto prereg naming both stages posted to MANAGER, the PRE-WF Stage A, and the WF Stage A only if promoted; returns the computed numbers |
 | `queue_validate(name)` | the 900-trial Auto-Validate, only past the bar |
@@ -86,6 +94,17 @@ that passes 1-5 gets the PRE-WF Stage A.
    PRE-walk-forward bars only (2015-01-02..2016-06-30, through the engine and its roll guard; trade counts reported,
    never P&L); every ranged knob at its min and its max. A `str`
    knob with several options is warned (the validate searches every option - port trap 2).
+   **First-signal-bar contract (TTM #144).** QL_VWAPREVERT_NQ's prereg said signals start at in-session bar k >= 25,
+   but its plugin fired from bar 20. So every proposal states `first_signal_bar` - the 0-based in-session index of
+   the EARLIEST bar on which an entry may FILL, with the clock time of that bar's open (`{"index": 26, "clock":
+   "11:40"}` on 5m bars; `propose` refuses a clock that is not that bar's open, an index outside the session, or a
+   missing field - no slot used). The smoke counts each entry's in-session index (the entry bar minus its session's
+   first bar, `first_bar_violations`): any entry before `first_signal_bar.index` with the default knobs is a HARD
+   contract failure, and Qwen gets the offending entries (bar, session bar, time, side) plus a `how_to_fix`; a knob
+   corner that fires earlier is only a warning (the bar is pre-registered for the defaults). The PRE-WF Stage A checks
+   EVERY entry again before any verdict: a violation there is not a verdict - the plugin goes back to Qwen like a
+   broken plugin (same 2 fix retries, an ADDENDUM posted before each re-run; still violating -> `BROKEN PLUGIN
+   (first-signal-bar contract: n entries before bar k)`). The prereg and its MANAGER post name the first entry bar.
 4. **Look-ahead** (sandbox): `tools/exec_feasibility_audit.py`'s file checks on the one file (hidden-knob sweep,
    fabricated metrics, gap-through stops, known leak knobs), then a **perturbation audit** on real PRE-walk-forward
    bars (2015-01-02..2016-06-30; 1m: 2015-07-01..2016-06-30): for 8 sampled trades, everything that did not exist at the
@@ -97,7 +116,20 @@ that passes 1-5 gets the PRE-WF Stage A.
    stop-type exit the other extreme is widened by 5 median ranges (catches a trailing extreme updated with the fill
    bar before the check, and a same-bar target checked before the stop). Added 10-15 after the first PRE-WF run:
    QL_ES_MOMBREAK v4 passed the 8-trade audit with an ATR over bars up to AND including the entry bar, used for a stop
-   checked on that bar; the new phases catch it on real data and pass QL_MTP_NQ, QL_SCALP2M and the template. Plus
+   checked on that bar; the new phases catch it on real data and pass QL_MTP_NQ, QL_SCALP2M and the template.
+   **Entry-bar inputs phase (TTM #145).** Those phases only see a level built from the entry bar when a sampled trade
+   happens to exit ON that bar - a wider stop (3 x an ATR that includes the entry bar) passed them. A plugin reports
+   only (entry, exit, P&L, side, price), so the levels and the size are read through the exit: for up to 6 sampled
+   trades with an open or close entry, the first bar at risk (the entry bar for an open fill; the next bar for a close
+   fill; an entry price equal to both counts as a close fill) has its adverse extreme, then its favourable one, pushed
+   10 and 30 median bar ranges further, and 90 when 10 did not reach the level; the 30 and 90 pushes also replace
+   every later bar. The entry must not change, and two pushes that both exit on that bar must exit at the SAME price with the
+   SAME P&L (a level known at the fill is crossed by both and fills at itself; a level or size that reads the bar's
+   own high / low, or a later bar, moves). A trade that exits there at 10 but not at 30 fails too. No exit on that bar
+   = inconclusive (no failure). The failure returns a `how_to_fix` (build levels and size from bars <= k-1 and bar
+   k's open, `atr[k-1]`; trailing levels updated after the bar's check). Checked 10-16 on the lab's own gated
+   plugins on real pre-WF bars: it catches QL_ES_MOMBREAK v4 on 5 of 6 trades and passes QL_MTP_NQ, QL_SCALP2M,
+   QL_GAMMA_MOM, QL_MOMDRIVE, QL_VWAPREVERT_NQ v2, QL_GAMMA_ORB and QL_TOM_CALENDAR_NQ v8. Plus
    **fill realism**: every entry and exit price must sit inside its bar's range (a stop on a bar that
    opened through it must book the open; P&L must be side x (exit - entry)). `tools/gate_lookahead_audit.py` audits the
    ML gate's feature matrix; a Qwen plugin has no ML gate, so it does not apply. The tests prove the audit catches four
@@ -111,6 +143,37 @@ that passes 1-5 gets the PRE-WF Stage A.
    own closed families (`LAB_DEAD`) refuse any source's proposal that names them: **GAMMA** - gamma exposure, GEX,
    dealer gamma / dealer hedging (MANAGER #142: GAMMA r1 is dead in ledger rows 2.135-2.137, the lab's QL_GAMMA_MOM and
    QL_GAMMA_ORB lost, and gamma is an owner ask-first idea). They head every `dead_list()` answer.
+   **Idea dedupe (MANAGER #148)** - QL_VWAPREVERT_NQ ran twice under one name with two different plugins. Qwen's
+   first message (and `ideas()`, and a resume note before a proposal) lists every idea the lab already ran - built by
+   the harness from `state.json` `done_ideas` + `aborted_ideas` and their `idea.json` files: name, mechanism families,
+   one-line rule, verdict (the latest 25 listed; all of them checked). `propose` then REFUSES - with the reason, the
+   matches and the list returned to Qwen, and WITHOUT using one of the 3 proposal slots (recorded in
+   `idea.json` `dedupe_refusals`):
+   - the same NORMALISED name (`QL_`, NQ / ES / MNQ / MES / RTH, version and timeframe tokens out:
+     `QL_ES_MOMBREAK` = `QL_MOMBREAK_ES_V2` = `MOMBREAK`) - any source, since plugin files are keyed by name;
+   - the same mechanism FAMILY as a run idea (map below; read from the name and the mechanism, never the
+     hypothesis, where Qwen may name an idea it contrasts with);
+   - a near copy of a run idea's rule that names no family: Jaccard of the mechanisms' content words (house
+     `keywords()` minus rule boilerplate) >= 0.45 with >= 6 shared words, against every plugin a name ran with
+     (calibrated 10-16 on the lab's real proposals: distinct ideas top out at 0.23 - QL_ES_MOMBREAK vs QL_MOMDRIVE).
+
+   A shelf paper the lab ran is closed by the shelf list; a NEW paper (or the scalper / own source) whose mechanism
+   repeats a run idea is refused here. The family map (`IDEA_FAMILIES` in `tools/qwen_lab.py`) - every pattern is a
+   family-SPECIFIC phrase; "momentum", "breakout", "VWAP", "range", "month", "first hour", "Tom" or "or breaks"
+   alone match nothing (the tests hold 14 such negatives, including a VWAP trend rule, a 50-bar breakout, an NR7
+   range breakout, a Donchian break after skipping the first 30 minutes and Tom DeMark's TD9):
+
+   | family | what puts an idea in it |
+   |---|---|
+   | `VWAP_REVERSION` | name `VWAPREVERT` / `VWAPFADE` / `VWAPSNAP` / `VWAPMR`; "VWAP revert / reversion / fade / snap back / mean-revert"; "revert / fade / snap back ... to VWAP"; "target / take profit at VWAP"; VWAP within 80 chars of "mean-revert / reversion / fade / over-extended"; the band fade without the words: "close > VWAP + x, enter short" (and the mirror) |
+   | `OPENING_RANGE` | name `ORB` / `OR_BREAK` / `IB_BREAK` / `OPENINGRANGE` / `MORNINGMOM...`; "opening range breakout", "initial balance break / extension"; an opening range / initial balance / morning range / first-N-minutes window followed by a break OF THAT RANGE (break of the range, above / below / > the range high / low); "above the first 30-minute high"; continuation: "in the direction of / with / following the morning / opening / first-window move / trend / return", "morning momentum", "first half hour's return ... predicts / continues" |
+   | `OPEN_DRIVE` | name `OPENDRIVE` / `MOMDRIVE`; "open(ing) drive", "momentum drive", "drive from / off the open" |
+   | `GAMMA` | the `LAB_DEAD` GAMMA pattern (gamma, GEX, dealer gamma / hedging) - closed for the lab anyway |
+   | `TURN_OF_MONTH` | name `TOM` / `TURNOFMONTH` / `MONTHEND`; "turn of the month", "month-end / month-start", "end / start of (each / the) month", "last / first N trading days of the month" |
+
+   The 10-16 history in that map: QL_VWAPREVERT_NQ -> VWAP_REVERSION; QL_ES_MOMBREAK, QL_GAMMA_MOM, QL_GAMMA_ORB ->
+   OPENING_RANGE (the GAMMA pair also GAMMA); QL_MOMDRIVE -> OPENING_RANGE + OPEN_DRIVE; QL_TOM_CALENDAR_NQ ->
+   TURN_OF_MONTH; QL_TPT_NQ, QL_MTP_NQ, QL_SCALP2M -> no family (the overlap check covers copies of them).
 6. **Power first** (inside `run_stage_a`, after gates 1-5 - the order the owner set): `tools/mapcheck_f.py`'s
    generator and rules on the stated prior (Sharpe s as stated, sd max(0.30, s/2), rho 0, t3 tails, clustered vol, the
    tool's 2,000 draws, own seed printed). The stated trades a year are checked against the plugin's own trade COUNT on
@@ -121,7 +184,9 @@ that passes 1-5 gets the PRE-WF Stage A.
    goes on to the PRE-WF Stage A whatever the map says (`map.stops_idea = false`). Priors above a yearly Sharpe of 1.5
    are refused at `propose`.
 7. **Auto prereg** - `C:\EdgeLog\qwen_lab\preregs\<name>_<date>.md`, naming BOTH stages: the source, Qwen's
-   hypothesis and mechanism verbatim, the prior, the map read (marked "recorded, not a stop"), the dead-list read, the
+   hypothesis and mechanism verbatim, the bar-index convention, the timing contract (the first entry bar as
+   `bar k (HH:MM open)` and what Python checks it on), the prior, the map read (marked "recorded, not a stop"), the
+   dead-list and dedupe reads (the proposal's families), the
    gates passed, the pinned master by filename with the PRE-WF slice's fingerprint, both windows, the promotion rule,
    the cost, the reading rules, a line that no walk-forward bar was read before it (gates 3-4 ran on pre-walk-forward
    bars), and the LF sha256 of the plugin and of `tools/qwen_lab.py`. Posted to MANAGER (`chat_inbox.py post MANAGER
@@ -130,6 +195,17 @@ that passes 1-5 gets the PRE-WF Stage A.
    the prereg before EACH stage (a mismatch refuses that stage).
    Note: the lab does not push a `prereg/<lane>-<name>` branch (MANAGER #77) - it never pushes; the hashes posted
    before the run and the prereg file under `C:\EdgeLog\qwen_lab\preregs\` are the record.
+
+## One bar-index convention (TTM #145)
+
+Bars are named ONE way everywhere - the system prompt, the proposal, `first_signal_bar`, the prereg, the gate
+messages: **bar k = the 0-based IN-SESSION index (bar 0 = the first regular-hours bar, the 09:30 open), always with
+the clock time of that bar's OPEN** - `bar 12 (10:30 open)` on 5m bars is the bar from 10:30 to 10:35, `bar 12 (09:42
+open)` on 1m bars; bar k's close is bar k+1's open time (on 5m bars bar 11 closes at 10:30). Every entry and exit says
+whether it fills at a bar's OPEN or at its CLOSE ("decide on bar 11's close (10:30), enter at bar 12's open (10:30
+open)"); the trade list records the FILL bar. `propose` returns a soft `bar_convention` note when the text names a bar
+without its clock or with a clock that is not that bar's open (`bar_convention_notes`; never a refusal), and the
+template plugin's comments use the same convention.
 
 ## Stage A - two stages (MANAGER #134)
 
@@ -220,6 +296,7 @@ python tools/qwen_lab.py stop                                     # STOP file: s
 python tools/qwen_lab.py status
 python tools/qwen_lab.py queue-pending [--dry-run-validate]
 python tools/qwen_lab.py shelf-open 31 32                         # MANAGER opens shelf papers for the lab
+python tools/qwen_lab.py shelf-close 31 --why "done"              # MANAGER closes them (the latest line wins)
 ```
 
 Run it from a git **worktree**: plugins are written to `<worktree>\augur_strategies\qwen_lab\` and the tool refuses the
@@ -238,7 +315,8 @@ old plugin code are trimmed from what is sent; the transcript keeps everything).
 `C:\EdgeLog\qwen_lab\`:
 - `state.json` - current idea, done ideas (outcome + PRE-WF and WF four numbers), validates, pending reviews, the
   shelf skip list, `closed_shelf`, the source rotation and picks, `courtesy_waits`
-- `shelf_open.txt` - the papers MANAGER opened (`shelf-open`), one dated line per call
+- `shelf_open.txt` - the papers MANAGER opened (`shelf-open`) or closed (`shelf-close`: a `CLOSE` line), one dated
+  line per call; the latest line per paper wins
 - `run.log` - every step, tool call and gate result
 - `ideas\<id>\` - `idea.json` (events in order, proposal, map, gates, prereg, Stage A, validate), `transcript.json`
   (every message and model timing), `plugin_v<k>.py.txt` (inert copies of each attempt), `gates_v<k>.json`,
