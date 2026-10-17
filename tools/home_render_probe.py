@@ -106,6 +106,32 @@ LEDGER improvements 1 + 5 (owner order 2026-10-12: REAL's DAILY LOSS BAR and TIL
     - MONO (laptop warn, phone hit): the existing hue check passes with the bar and chips on screen
   * Settings > TRADING LOG > DAILY LOSS LIMIT ($) (interaction run, laptop): 750 + SAVE writes prefs.dailyStop and el_prefs.dailyStop, the box
     shows 750 when Settings is reopened, a blank box or 0 + SAVE writes null; prefs and el_prefs are put back afterwards
+LEDGER improvements 9 + 12 (owner order 2026-10-12: REAL's MONTHLY GOAL on the chart and TOOLS > IMAGE), per case:
+  * no goal set (every case but the goal/ ones): no level ([data-lgref]) on REAL's chart and no month goal words line ([data-hmgoal])
+  * the goal/ cases set prefs.monthGoal (500 on a laptop, a phone, MONO and the P&L view, 500000 on a laptop) and add LOSS_TODAY exactly as the
+    loss/ cases do, so the current New York month has trades: ONE level, drawn DASHED (a stroke-dasharray, never solid), whose label starts
+    "<Mon> goal +" (the month of the New York day the seed dated today's trades with, r['seedDay']) with the goal as $500.00 / $500,000.00, its
+    box inside the svg (left edge at 0 or more) and ending left of the price scale; its title names the view (balance / P&L) and, in EQUITY, this
+    month's deposits and withdrawals when there are any; the words line under the chart is the ONE [data-hmgoal] inside #hm-goal and reads
+    "<Month> goal: <this month's net> of <goal> . N%"; a 500 goal is a real level AT the right value - its height, read back into dollars on the
+    price scale ([data-lgtick] labels), is where the curve stood before the month began plus the goal (plus, in EQUITY, this month's deposits),
+    worked out here from the fixture (_goal_level_want), within GOAL_VALUE_TOL_PX; a 500000 one would squeeze the curve flat so it is pinned to the
+    top edge (y1 <= GOAL_PIN_Y_MAX) and its label ends "above the chart"; MONO: the existing hue scan covers the level's stroke
+  * goal/laptop/glass is read once more after its sample, seeded with a GOAL_DEP_NOW deposit dated today (no other check sees it): the level's
+    title names "deposits and withdrawals, +$1,000.00" and the level sits where _goal_level_want puts it with that deposit
+  * goal/laptop/account (paper) is read once more after its sample with ONE account in view (activeBroker = GOAL_ACCT, NinjaTrader: the account
+    of every October trade and of LOSS_TODAY) and a GOAL_DEP_NOW deposit dated today on ANOTHER account (GOAL_ACCT_DEP_BROKER, Webull; again no
+    other check sees it): that deposit is out of view, so the level sits where _goal_level_want puts it for NinjaTrader alone (its own trades and
+    events), its title names no deposits and the words line is this month's NinjaTrader net. Every seed sets activeBroker (and el_active_broker)
+    from the case's 'broker', so every other case and run draws all accounts
+  * TOOLS > IMAGE (interaction runs, laptop AND phone - on a phone IMAGE sits behind the TOOLS toggle -, step 18; URL.createObjectURL, an anchor's
+    click and alert stubbed): a click on IMAGE hands over ONE PNG Blob (image/png, over IMAGE_MIN_BYTES) under ONE download name
+    edgelog_real_<range>_<YYYY-MM-DD>.png, nothing alerts, and the picture is not blank: decoded in the page and drawn at 250 x 138, at least
+    IMAGE_MIN_INK of its pixels differ from the top-left (background) one. The chart is in it too, not just the words: the page's _hmBoardSvg(),
+    called in the same step, holds ONE nested <svg> IMAGE_CHART_W (928) wide - the chart redrawn at the picture's width, never copied at its
+    on-screen width (about 343 px on a phone, which the picture would blow up) - holding the curve (a <polyline>); the decoded picture is that
+    markup at twice its size; and inside the chart band (the nested svg's y to y + height, as rows of the decoded picture, read at 500 px
+    across) at least IMAGE_CHART_MIN_INK of the pixels differ from the background
 LEDGER unify step 11 (REAL: one page order, own sections as closed folds, one set of breakpoints), per case:
   * the page sections come in the FIXED order top to bottom (SECTION_ORDER: hero, range pills, equity chart, stats strip, More stats, calendar,
     accounts, trade list, then the own folds SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT, JOURNAL) at every width of every case and of the
@@ -178,7 +204,12 @@ Usage:
   python tools/home_render_probe.py --selftest --only NAME[,NAME...]
                                                    # just those mutants (an unknown name is an error),
                                                    # one "caught / NOT caught" line each; the real-file
-                                                   # run is left out. Newest mutants: lossbar-gone, lossbar-never-warns,
+                                                   # run is left out. Newest mutants: image-no-chart,
+                                                   # goal-level-all-accounts, image-chart-screen-copy,
+                                                   # image-blank, goal-level-no-base,
+                                                   # goal-level-half, goal-level-no-deposits, goal-level-solid,
+                                                   # goal-words-rewrapped, goal-line-gone, goal-never-pins,
+                                                   # image-button-dead, lossbar-gone, lossbar-never-warns,
                                                    # tilt-streak-gone, tilt-sizeup-gone, tilt-quick-gone, daily-stop-not-saved,
                                                    # lossbar-mono-hue, tilt-mono-hue, viewer-volume-gone,
                                                    # viewer-points-open, viewer-chart-squashed, viewer-wider-than-phone, mode-toggle-dead,
@@ -225,7 +256,8 @@ for _vp in ('laptop', 'phone'):
 # LEDGER improvements 1 + 5 (owner order 10-12): REAL's DAILY LOSS BAR (under the status line, drawn only while prefs.dailyStop is set) and the
 # TILT CHIPS (hero chip slot, from the trades in view that were entered AND closed today). A case with a 'stop' sets prefs.dailyStop; a case with
 # 'today' adds the three losses of LOSS_TODAY to the fixture, dated with the page's own ledgerTodayNY() (so a run near midnight cannot split them
-# from the board's idea of today) - the judge reads that day back (r['todayNY']) and counts the extra trades in every row / day / order check.
+# from the board's idea of today) - the seed records that day (window.__probeSeedDay, read back as r['seedDay']) and the judge counts the extra
+# trades, dated with it, in every row / day / order check.
 # Three NinjaTrader MNQ losses (sizes 1, 2, 2), each entered 2 minutes after the last exit: all three tilt signs show, and -$420.00 of a $500.00
 # limit is 84% (warn, from 80%) while of a $400.00 limit it is 105% (hit, from 100%). 'loss' names the expected bar in LOSS_WANT.
 def _loss_trade(i, t_in, t_out, size, pnl, mins):
@@ -254,6 +286,41 @@ for _vp, _view in (('laptop', 'table'), ('phone', 'feed')):
 for _vp, _sfx, _stop in (('laptop', 'warn', 500), ('phone', 'hit', 400)):
     CASES.append(['loss/%s/mono/%s' % (_vp, _sfx),
                   {'vp': _vp, 'theme': 'mono', 'missed': 2, 'view': 'feed', 'ledger': 'simple', 'stop': _stop, 'today': LOSS_TODAY, 'loss': _sfx}])
+# LEDGER improvement 9 (owner order 10-12): REAL's MONTHLY GOAL, a dashed level on the chart and a words line under it, drawn only while
+# prefs.monthGoal is set. A case with a 'goal' sets it (every other case deletes it, as a fresh browser has none) and carries LOSS_TODAY exactly
+# as the loss/ cases do, so the current New York month has trades whatever day the probe runs. No 'stop' and no 'loss': there is no loss bar, and
+# the tilt chips of today's losses show as _judge_loss expects for any case with 'today'. A 500 goal is a real level on the chart; 500000 would
+# squeeze the curve into under a quarter of the plot, so it is pinned to the top edge ('pin') and its label says it is above the chart.
+# goal/laptop/pnl draws REAL in the P&L view ('chartMode', seeded into homeChartMode): there the level sits on the running P&L, not the balance.
+# goal/laptop/glass carries 'depNow': after its sample it is seeded once more with a deposit of that size dated today and only the level is read
+# again (r['goalDep']) - so the deposit never reaches the sample's checks, which count the fixture's LEDGER_EVENTS (DEPOSITS fold, list rows, ACCT).
+# goal/laptop/account carries 'acctNow' the same low-touch way: after its sample (all accounts, as every case) it is seeded once more with ONE
+# account in view (activeBroker = GOAL_ACCT) and a deposit dated today on ANOTHER account (GOAL_ACCT_DEP_BROKER), and only the level is read again
+# (r['goalAcct']): a deposit on an account out of view must not move the level nor reach its title (scopedLedger, not every account's events).
+GOAL_DEP_NOW = 1000.0
+GOAL_ACCT = 'NinjaTrader'           # the account of every October trade in the fixture and of LOSS_TODAY: in view, the month still has trades
+GOAL_ACCT_DEP_BROKER = 'Webull'     # the other account, whose deposit today is out of view
+for _nm, _vp, _th, _mi, _view, _goal, _xtra in (
+        ('laptop/glass', 'laptop', 'glass', 0, 'table', 500, {'depNow': GOAL_DEP_NOW}), ('phone/glass', 'phone', 'glass', 0, 'feed', 500, {}),
+        ('laptop/mono', 'laptop', 'mono', 2, 'feed', 500, {}), ('laptop/pinned', 'laptop', 'glass', 0, 'table', 500000, {}),
+        ('laptop/pnl', 'laptop', 'glass', 0, 'feed', 500, {'chartMode': 'pnl'}),
+        ('laptop/account', 'laptop', 'paper', 0, 'table', 500,
+         {'acctNow': {'broker': GOAL_ACCT, 'dep': GOAL_DEP_NOW, 'depBroker': GOAL_ACCT_DEP_BROKER}})):
+    CASES.append(['goal/%s' % _nm, dict({'vp': _vp, 'theme': _th, 'missed': _mi, 'view': _view, 'ledger': 'simple', 'today': LOSS_TODAY,
+                                         'goal': _goal, 'pin': _goal >= 100000}, **_xtra)])
+GOAL_PIN_Y_MAX = 14             # px: a pinned level is drawn on the top edge of the plot (T + 1 = 13 in ledgerChartRender)
+GOAL_VALUE_TOL_PX = 1.5         # px: how far a level may sit from its value on the price scale, and never more than 2% of the plotted span (the y
+                                # attributes are rounded to 0.1 px, so the read is good to about 0.2 px; a wrong base or goal is 15+ px off)
+MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+IMAGE_MIN_BYTES = 5000          # TOOLS > IMAGE: a PNG of the board at twice its size is far bigger; an empty or broken canvas is not
+IMAGE_MIN_INK = 0.02            # TOOLS > IMAGE: the share of the picture's pixels (drawn at 250 x 138) that differ from its top-left (background) pixel
+                                # by more than 24 in a channel - the real board has words, numbers and a chart; a blank canvas is about 0
+IMAGE_NAME_RE = r'^edgelog_real_[a-z0-9]+_\d{4}-\d{2}-\d{2}\.png$'
+IMAGE_CHART_W = 1000 - 2 * 36   # TOOLS > IMAGE: the chart in the picture is redrawn at the picture's width (1000) less its 36 px side margins -
+                                # on a phone too; copied at its on-screen width it would be about 343 px there, and the picture would blow it up
+IMAGE_CHART_MIN_INK = 0.01      # TOOLS > IMAGE: the share of the chart band's pixels (the nested svg's rows of the decoded picture, read at 500 px
+                                # across) that differ from the picture's background - grid lines, price scale, dates and the curve; a band left
+                                # empty (the words drawn, the chart not) is about 0
 # a narrower laptop window: the SIMPLE table (it fits its box with no sideways scroll) and the list
 for _nm, _view, _led in (LEDGERS[0], LEDGERS[2]):
     CASES.append(['narrow/glass/missed0/%s' % _nm, {'vp': 'narrow', 'theme': 'glass', 'missed': 0, 'view': _view, 'ledger': _led}])
@@ -312,6 +379,16 @@ PHONE_LIST_TOP_MAX = 700                      # px from the top of the board to 
 # on 2026-10-12 against 679 without: +30 px with the bar alone (idle), +114 px with the bar at warn / hit and all three chips. The allowance is
 # what they add, not a new floor: the list must still start inside one screen, and a bar or chip that grows past it fails.
 PHONE_LOSS_EXTRA = {'idle': 40, 'warn': 125, 'hit': 125}      # px, keyed by a loss/ case's 'loss'
+# LEDGER improvement 9 adds height only while a monthly goal is set: the words line under the chart. The goal/ phone case also carries LOSS_TODAY
+# with no daily limit, so the tilt chips sit under the big number (no loss bar). Measured on 2026-10-16 against 679 without: +82 px with the chips and
+# the goal line together. The same rule as above: the allowance is what they add, not a new floor.
+PHONE_GOAL_EXTRA = 92
+
+
+def _phone_extra(cfg):
+    """px a phone case may add to PHONE_LIST_TOP_MAX: the loss bar and tilt chips of a loss/ case, or the tilt chips and the month goal line of a
+    goal/ case."""
+    return PHONE_LOSS_EXTRA.get(cfg.get('loss'), 0) + (PHONE_GOAL_EXTRA if cfg.get('goal') else 0)
 # what the removed previous board drew: none of it may be in the page (the page-side readout lists the ones it finds)
 OLD_MARKS = ['#hm-sheet', '.hm-backdrop', '#hm-view-toggle', '[data-hmchip]', '#hm-morestats-toggle', '.hm-morestats-panel', '.hm-stat-strip',
              '.hm-toolbar', '.hm-range-pills', '.hm-day-header', '.hm-ms-grid']
@@ -337,19 +414,71 @@ VIEWER_MIN_SHARE = 0.65
 VIEWER_CTL_MAX = {'laptop': 40, 'phone': 70}     # px: one row of 24 px controls on a laptop, two on a phone
 
 # Two interaction runs. `tid` is the futures trade whose panel is opened (a 1m trade on the
-# laptop, a 10s trade on the phone, so both bar sizes the reader serves are drawn).
+# laptop, a 10s trade on the phone, so both bar sizes the reader serves are drawn). TOOLS > IMAGE ('image') runs in both: on the phone the
+# button sits behind the TOOLS toggle, and the chart in the picture must still be drawn at the picture's width, not the phone's.
 INTERACTIONS = [
     ['laptop', {'vp': 'laptop', 'theme': 'glass', 'view': 'table', 'ledger': 'simple',
                 'tid': 'probe_t1', 'pts': '7/8', 'mid': 'probe_m1', 'msym': 'MNQ', 'mpts': '5/9',
-                'jumpday': JUMP_DAY, 'settings': True}],
+                'jumpday': JUMP_DAY, 'settings': True, 'image': True}],
     ['phone', {'vp': 'phone', 'theme': 'paper', 'view': 'feed', 'ledger': 'simple',
                'tid': 'probe_t3', 'pts': '6/9', 'mid': 'probe_m1', 'msym': 'MNQ', 'mpts': '5/9',
-               'jumpday': JUMP_DAY}],
+               'jumpday': JUMP_DAY, 'image': True}],
 ]
 
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
+    # LEDGER improvements 9 + 12 (2026-10-16, round 3): the picture's chart, the goal level per account, the picture's chart width on a phone
+    ('image-no-chart',
+     'b+=chart;y+=CH;',
+     'y+=CH;',
+     'TOOLS > IMAGE leaves the chart out of the picture - the words and numbers are drawn, the room for the chart stays empty'),
+    ('goal-level-all-accounts',
+     '_hmTradesInRange(scopedLedger()||[],homeRange)||[]).filter(e=>e&&e.date&&e.date>=ms)',
+     '_hmTradesInRange(ledgerEvents||[],homeRange)||[]).filter(e=>e&&e.date&&e.date>=ms)',
+     'with one account in view the monthly goal level adds every account deposits this month, so money paid into another account moves it'),
+    ('image-chart-screen-copy',
+     "box.style.cssText='position:absolute;left:-10000px;top:0;width:'+CW+'px';",
+     "box.style.cssText='position:absolute;left:-10000px;top:0;width:'+(sv.getBoundingClientRect().width|0)+'px';",
+     'TOOLS > IMAGE redraws the chart at its on-screen width, so on a phone the picture carries a 343 px chart blown up in a 1000 px picture'),
+    # LEDGER improvements 9 + 12 (2026-10-16): the monthly goal level on REAL's chart, pinned to the edge when it would squash the curve; TOOLS > IMAGE
+    ('goal-line-gone',
+     'lines:_hmBrokerLines(ser),refs:_hmGoalRefs(ser),',
+     'lines:_hmBrokerLines(ser),',
+     'REAL\'s chart no longer draws the monthly goal as a dashed level although a goal is set'),
+    ('goal-never-pins',
+     "if(dhi-dlo>0&&(dhi-dlo)/(nhi-nlo)<0.25){r.pin=r.v>dhi?'top':'bottom';return;}",
+     '',
+     'a goal far above the curve squashes it flat instead of being pinned to the top edge and labelled above the chart'),
+    ('image-button-dead',
+     'if(ep)ep.onclick=()=>_hmExportBoardPng(ep);',
+     '',
+     'TOOLS > IMAGE does nothing when clicked - no picture of the board is saved'),
+    ('image-blank',
+     'cx.drawImage(img,0,0,B.w,B.h);',
+     '',
+     'TOOLS > IMAGE saves a blank picture - the board is never drawn onto the canvas, yet a PNG of a real size is still handed over'),
+    ('goal-level-no-base',
+     'return [{v:Math.round((base+g+dep)*100)/100,',
+     'return [{v:Math.round((g+dep)*100)/100,',
+     'the monthly goal level forgets where the curve stood before the month began and is drawn at the bare goal'),
+    ('goal-level-half',
+     'return [{v:Math.round((base+g+dep)*100)/100,',
+     'return [{v:Math.round((base+g*0.5+dep)*100)/100,',
+     'the monthly goal level is drawn at half the goal above where the month began'),
+    ('goal-level-no-deposits',
+     "const dep=homeChartMode==='equity'?+(_hmTradesInRange(scopedLedger()||[],homeRange)||[]).filter(e=>e&&e.date&&e.date>=ms)"
+     ".reduce((s,e)=>s+(+e.amount||0),0).toFixed(2):0;",
+     'const dep=0;',
+     'in EQUITY the monthly goal level leaves out this month deposits, so money paid in counts as progress toward the goal'),
+    ('goal-level-solid',
+     'stroke-width="1.2" stroke-dasharray="6 4">',
+     'stroke-width="1.2">',
+     'the monthly goal level is drawn as a solid line, like the curve or a grid line, instead of dashed'),
+    ('goal-words-rewrapped',
+     'key:\'<div id="hm-goal">\'+_hmGoalHtml()+\'</div>\',',
+     'key:\'<div id="hm-goal2">\'+_hmGoalHtml()+\'</div>\',',
+     'the month goal words line is drawn outside #hm-goal, so the hero redraw (getElementById hm-goal, null-guarded) never refreshes it'),
     # LEDGER improvement 7 (2026-10-12): the NT8 book day on REAL
     ('bookday-gone',
      '${list}${_hmBookDayHtml()}</div>`;',
@@ -1052,6 +1181,30 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     o.left=Math.round(r.left);o.right=Math.round(r.right);o.cw=d.documentElement.clientWidth;
     return o;
   }
+  // LEDGER improvement 9 (owner order 10-12): REAL's MONTHLY GOAL as drawn now - every level on the chart ([data-lgref]: its y1, the stroke and
+  // the stroke-dasharray the page computes, its <title>), every level label ([data-lgreflbl]: its text and where its box starts and ends), the svg
+  // width and height, the price scale (every [data-lgtick] text: its x, its y - 3 px under its grid line - and its label; the smallest x is where
+  // the scale starts), and the words line under the chart (#hm-goal: its text, how many [data-hmgoal] are in it)
+  function goalRead(){
+    var d=D(),w=W(),o={},sv=d.querySelector('#hm-chart-wrap svg'),gw=d.getElementById('hm-goal');
+    o.words=gw?(gw.textContent||'').replace(/\\s+/g,' ').trim():null;
+    o.wordsN=gw?gw.querySelectorAll('[data-hmgoal]').length:0;
+    o.svg=!!sv;
+    if(!sv)return o;
+    o.svgW=parseFloat(sv.getAttribute('width'));o.svgH=parseFloat(sv.getAttribute('height'));
+    o.ticks=Array.prototype.map.call(sv.querySelectorAll('[data-lgtick]'),function(t){
+      return {x:parseFloat(t.getAttribute('x')),y:parseFloat(t.getAttribute('y')),t:(t.textContent||'').trim()};});
+    var tx=o.ticks.map(function(t){return t.x;}).filter(isFinite);
+    o.scaleX=tx.length?Math.min.apply(null,tx):null;
+    o.n=sv.querySelectorAll('[data-lgref]').length;
+    o.lines=Array.prototype.map.call(sv.querySelectorAll('[data-lgref]'),function(l){var cs=w.getComputedStyle(l),tt=l.querySelector('title');
+      return {y1:parseFloat(l.getAttribute('y1')),stroke:cs.stroke,dash:cs.strokeDasharray,dashAttr:l.getAttribute('stroke-dasharray'),
+        title:tt?(tt.textContent||'').replace(/\\s+/g,' ').trim():null};});
+    o.labels=Array.prototype.map.call(sv.querySelectorAll('[data-lgreflbl]'),function(t){var b=null;try{b=t.getBBox();}catch(e){}
+      return {text:(t.textContent||'').replace(/\\s+/g,' ').trim(),anchor:t.getAttribute('text-anchor'),
+        left:b?Math.round(b.x*10)/10:null,right:b?Math.round((b.x+b.width)*10)/10:null,w:b?Math.round(b.width*10)/10:null};});
+    return o;
+  }
   // a click on the Filters row opens it (and stores 1), a second one closes it (and stores 0); the stored choice is cleared again
   function filtersClick(){
     var d=D(),w=W(),b=d.querySelector('[data-lgfilt="hm"]');
@@ -1165,8 +1318,12 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     try{r.pasteRow=pasteRead();}catch(e){r.pasteRow={err:String(e&&e.stack?e.stack:e)};}
     // LEDGER step 12: the shared page frame, read before anything below opens a fold and moves the page about
     try{r.fr=frameRead();}catch(e){r.fr={err:String(e&&e.stack?e.stack:e)};}
+    // the New York day the seed dated today's trades with (window.__probeSeedDay): the judges use it, not a later read of the clock (see _judge_goal)
+    r.seedDay=w.__probeSeedDay||null;
     // LEDGER improvements 1 + 5: the loss bar and the tilt chips, read before anything below is clicked; todayNY = the day the page calls today
     try{r.loss=lossRead();r.todayNY=w.eval('ledgerTodayNY()');}catch(e){r.loss={err:String(e&&e.stack?e.stack:e)};}
+    // LEDGER improvement 9: the monthly goal level on REAL's chart and the words line under it, read before anything below is clicked
+    try{r.goalChart=goalRead();}catch(e){r.goalChart={err:String(e&&e.stack?e.stack:e)};}
     try{r.filtClick=filtersClick();}catch(e){r.filtClick={err:String(e&&e.stack?e.stack:e)};}
     // LEDGER shared trade list frame (unify step 8): toolbar, day headers with a signed net, rows, five cells on a phone.
     // Measured first, before the folds below are opened and move the page about.
@@ -1307,11 +1464,11 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     if(cfg.theme==='mono'){var hw=d.querySelector('.hm-wrap');r.hue=hw?hueScan(hw):null;}
     OWN.forEach(function(k){var b=ownBtn(k);if(b&&b.getAttribute('aria-expanded')==='true')b.click();});
     // the legend under the chart (P&L view, two brokers): each name is one short line - a chart-size rule once
-    // made every swatch 260px tall. Switch to P&L, measure, switch back.
+    // made every swatch 260px tall. Switch to P&L, measure, switch back to the case's own view (EQUITY, or P&L for a 'chartMode' case).
     W().eval("homeChartMode='pnl';renderApp();");
     var lgb=d.querySelectorAll('#hm-chart-wrap .lg-legend button');r.legendN=lgb.length;
     r.legendH=Math.max.apply(null,[0].concat(Array.prototype.map.call(lgb,function(b){return Math.round(b.getBoundingClientRect().height);})));
-    W().eval("homeChartMode='equity';renderApp();");
+    W().eval('homeChartMode='+JSON.stringify(cfg.chartMode||'equity')+';renderApp();');
     // LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer); that is also what keeps a closed
     // panel from taking room or widening the page (LEDGER mistake #13)
     r.panelsInDom=d.querySelectorAll('.lg-panel,.lg-panel-layer').length;
@@ -1338,10 +1495,29 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     var r={};
     await setVp(cfg.vp);
     drain();
-    try{r.call=seed(cfg);}catch(e){r.call='ERR '+(e&&e.stack?e.stack:e);}
+    // LEDGER improvement 9: a case's depNow deposit is seeded only for the second read below, so no check of the sample sees it
+    var c0=Object.assign({},cfg);delete c0.depNow;
+    try{r.call=seed(c0);}catch(e){r.call='ERR '+(e&&e.stack?e.stack:e);}
     await sleep(150);   // deferred work (hold check, chart wiring) gets to run, and to throw
     try{Object.assign(r,sample(cfg));}catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
     Object.assign(r,drain());
+    // ... and then (goal/laptop/glass) seeded again WITH a deposit of depNow dated today, and only the month goal level read: its title and height
+    if(cfg.depNow>0){
+      try{r.depCall=seed(cfg);}catch(e){r.depCall='ERR '+(e&&e.stack?e.stack:e);}
+      await sleep(150);
+      try{r.goalDep=goalRead();r.goalDepDay=W().__probeSeedDay||null;}catch(e){r.goalDep={err:String(e&&e.stack?e.stack:e)};}
+      r.goalDepNoise=drain();r.goalDepNoise.overlay=overlays();
+    }
+    // ... and (goal/laptop/account) seeded again with ONE account in view (broker: activeBroker) and a deposit of dep dated today on ANOTHER
+    // account (depBroker), and only the month goal level read: that deposit is out of view. The next seed puts every account back in view.
+    if(cfg.acctNow){
+      var ca=Object.assign({},c0,{broker:cfg.acctNow.broker,depNow:cfg.acctNow.dep,depBroker:cfg.acctNow.depBroker});
+      try{r.acctCall=seed(ca);}catch(e){r.acctCall='ERR '+(e&&e.stack?e.stack:e);}
+      await sleep(150);
+      try{r.goalAcct=goalRead();r.goalAcctDay=W().__probeSeedDay||null;r.goalAcctBroker=W().eval('activeBroker');}
+      catch(e){r.goalAcct={err:String(e&&e.stack?e.stack:e)};}
+      r.goalAcctNoise=drain();r.goalAcctNoise.overlay=overlays();
+    }
     out.cases[nm]=r;
   }
   function q(sel){return D().querySelector(sel);}
@@ -1830,6 +2006,82 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
         w.eval('delete prefs.hideBookOnReal;window._p2BookDay={run:463,day:"2000-01-01",net:420,openN:0,openV:0};renderApp();');await sleep(60);st.oldDay=!q('[data-hmbook]');
       }finally{try{w.eval('delete prefs.hideBookOnReal;window._p2BookDay=null;renderApp();');}catch(_e){}}
     });
+    // 18. LEDGER improvement 12, the image half: TOOLS > IMAGE saves the board as one PNG. URL.createObjectURL records the Blob it is handed (and
+    //     gives back blob:probe), an anchor's click records its download name instead of navigating, alert records what it is told; the stubs
+    //     are put back afterwards. The picture is made off the main path (Image.onload, canvas.toBlob), so the step waits for the Blob. Runs once.
+    //     The Blob itself is kept and decoded in the page (a FileReader data URL, no object URL needed), drawn at 250 x 138 and its pixels counted
+    //     against the top-left (background) one: a PNG of the right size can still be a blank canvas. The picture's markup is read too - the
+    //     page's own _hmBoardSvg(), called just before the click in the same state: the chart in it is a nested <svg> (its width, height, x, y and
+    //     whether it holds the curve, a <polyline>), and its y and height mark the chart band, whose pixels are counted on their own (at 500 px
+    //     across) - the words alone fill the whole-picture count. Runs in the laptop and the phone run (on a phone IMAGE sits behind TOOLS).
+    if(I.image)await step(res,'image',async function(st){
+      var U=w.URL,co0=U.createObjectURL,rv0=U.revokeObjectURL,AP=w.HTMLAnchorElement.prototype,had=Object.prototype.hasOwnProperty.call(AP,'click'),ck0=AP.click,al0=w.alert;
+      var blobs=[],names=[],alerts=[],kept=[];
+      U.createObjectURL=function(b){blobs.push({type:b&&b.type,size:b&&b.size});kept.push(b);return 'blob:probe';};
+      U.revokeObjectURL=function(){};
+      AP.click=function(){names.push(String(this.download||''));};
+      w.alert=function(m){alerts.push(String(m));};
+      try{
+        w.eval('homeSheetId=null;homeChip="ALL";homeQuery="";homeView="feed";homeFeedMode="trade";homeChartMode="equity";window._hmToolsOpen=false;renderApp();');
+        await sleep(80);
+        st.chart=!!q('#hm-chart-wrap svg');
+        // on a phone IMAGE sits behind the TOOLS button
+        var tt=q('#hm-tools-toggle');st.toggle=tt?w.getComputedStyle(tt).display:null;
+        if(tt&&st.toggle!=='none'){tt.click();await sleep(40);}
+        var eb=q('#hm-export-png');st.btn=!!eb;st.btnShown=!!(eb&&eb.getBoundingClientRect().width>0);
+        // the picture's markup, made just as the click below makes it: the outer svg's size, and every nested <svg> in it (the chart)
+        try{
+          var B=w.eval('_hmBoardSvg()'),SN='http://www.w3.org/2000/svg';
+          if(!B||!B.svg)st.mk={none:true};
+          else{
+            var xd=new w.DOMParser().parseFromString(B.svg,'image/svg+xml'),rt=xd.documentElement;
+            st.mk={w:B.w,h:B.h,rootW:parseFloat(rt.getAttribute('width')),rootH:parseFloat(rt.getAttribute('height')),
+              parseErr:xd.getElementsByTagName('parsererror').length,
+              nested:Array.prototype.map.call(rt.getElementsByTagNameNS(SN,'svg'),function(s){
+                var pl=s.getElementsByTagNameNS(SN,'polyline'),pp=pl.length?String(pl[0].getAttribute('points')||'').trim():'';
+                return {w:parseFloat(s.getAttribute('width')),h:parseFloat(s.getAttribute('height')),x:parseFloat(s.getAttribute('x')),
+                  y:parseFloat(s.getAttribute('y')),poly:pl.length,pts:pp?pp.split(/ +/).length:0};})};
+          }
+        }catch(e){st.mkErr=String(e&&e.message||e);}
+        if(eb){eb.click();st.got=await waitFor(function(){return blobs.length>0&&names.length>0;},6000);}
+        await sleep(1100);      // the page drops its link and revokes the URL a second after the click: let it, with the stubs still in
+        st.blobs=blobs.slice();st.names=names.slice();st.alerts=alerts.slice();
+        if(kept.length&&kept[0]){
+          try{
+            // a FileReader data URL into an Image, polled: createImageBitmap never settles under the headless run's virtual clock (tried), and an
+            // awaited promise with no timer pending lets that clock jump straight to the backstop
+            var dec={},rd=new w.FileReader();
+            rd.onload=function(){var im=new w.Image();im.onload=function(){dec.bm=im;};im.onerror=function(){dec.err='the PNG did not load as an image';};im.src=rd.result;};
+            rd.onerror=function(){dec.err='the Blob could not be read';};
+            rd.readAsDataURL(kept[0]);
+            await waitFor(function(){return dec.bm||dec.err;},8000);
+            if(!dec.bm)throw new Error(dec.err||'the PNG did not decode within 8 s');
+            var bm=dec.bm,cv=w.document.createElement('canvas');cv.width=250;cv.height=138;
+            var cx=cv.getContext('2d');cx.drawImage(bm,0,0,250,138);
+            var px=cx.getImageData(0,0,250,138).data,r0=px[0],g0=px[1],b0=px[2],ink=0;
+            for(var pi=0;pi<px.length;pi+=4){if(Math.abs(px[pi]-r0)>24||Math.abs(px[pi+1]-g0)>24||Math.abs(px[pi+2]-b0)>24)ink++;}
+            st.bmp=[bm.naturalWidth,bm.naturalHeight];st.ink=Math.round(ink/(250*138)*10000)/10000;
+            // ... and the chart band alone: the nested svg's y to y + height of the markup's height, as rows of the decoded picture, read at
+            // 500 px across and counted against the same background pixel
+            var nk=st.mk&&st.mk.nested&&st.mk.nested[0],oh=st.mk&&st.mk.rootH;
+            if(nk&&oh>0&&isFinite(nk.y)&&nk.h>0){
+              var nw=bm.naturalWidth,nh=bm.naturalHeight,ya=Math.max(0,Math.round(nk.y/oh*nh)),yb=Math.min(nh,Math.round((nk.y+nk.h)/oh*nh));
+              if(yb>ya){
+                var bh=Math.max(1,Math.round((yb-ya)*500/nw)),cb=w.document.createElement('canvas');cb.width=500;cb.height=bh;
+                var cbx=cb.getContext('2d');cbx.drawImage(bm,0,ya,nw,yb-ya,0,0,500,bh);
+                var bp=cbx.getImageData(0,0,500,bh).data,bink=0;
+                for(var bi=0;bi<bp.length;bi+=4){if(Math.abs(bp[bi]-r0)>24||Math.abs(bp[bi+1]-g0)>24||Math.abs(bp[bi+2]-b0)>24)bink++;}
+                st.band=[ya,yb,500,bh];st.bandInk=Math.round(bink/(500*bh)*10000)/10000;
+              }
+            }
+          }catch(e){st.decodeErr=String(e&&e.message||e);}
+        }
+      }finally{
+        U.createObjectURL=co0;U.revokeObjectURL=rv0;w.alert=al0;
+        if(had)AP.click=ck0;else delete AP.click;
+        try{w.eval('window._hmToolsOpen=false;renderApp();');}catch(_x){}
+      }
+    });
     try{w.eval('homeSheetId=null;window._hmMissedEdit=null;window._hmPasteNote=null;renderApp();');}catch(_e){}
     drain();
     out.inter[nm]=res;
@@ -2311,16 +2563,29 @@ INSTALL_JS = r"""
     // LEDGER improvements 1 + 5: the daily loss limit (a case without one has none, as a fresh browser) and the day's losses dated TODAY in New York
     // time by the page's own ledgerTodayNY() - the same clock the bar and the tilt chips use
     if(C.stop>0)prefs.dailyStop=C.stop;else delete prefs.dailyStop;
-    if(C.today&&C.today.length){var td=ledgerTodayNY();trades=trades.concat(C.today.map(function(t){return Object.assign({},t,{date:td});}));}
+    // LEDGER improvement 9: the monthly goal (a case without one has none, as a fresh browser) - the chart level and the words line read it
+    if(C.goal>0)prefs.monthGoal=C.goal;else delete prefs.monthGoal;
+    // the New York day this seed dates today's trades (and a goal case's deposit) with, kept for the judges (sample() hands it back as seedDay):
+    // a run that crosses midnight between this seed and a later read of the clock still judges the month and the day the board was drawn for
+    var td=ledgerTodayNY();window.__probeSeedDay=td;
+    if(C.today&&C.today.length){trades=trades.concat(C.today.map(function(t){return Object.assign({},t,{date:td});}));}
     // LEDGER step 12: a Webull sync with a reconcile on file - its check is in the status line under the hero, no longer a chip in the hero
     wbSync={last_sync:Math.floor(Date.now()/1000)-300,recon:{ok:true,flat:true}};ntSync=null;
     ledgerEvents=S.ledger||[];lessons=S.lessons||[];
+    // LEDGER improvement 9: a deposit this month (cfg depNow: only the second seed of goal/laptop/glass and of goal/laptop/account) - dated today,
+    // on NinjaTrader unless the case names another account (depBroker). ledgerEvents is rebuilt from the fixture on every seed, so the next seed has
+    // it gone again
+    if(C.depNow>0)ledgerEvents=ledgerEvents.concat([{date:td,amount:C.depNow,desc:'probe goal deposit',broker:C.depBroker||'NinjaTrader'}]);
+    // the account in view: all accounts unless the case names one (cfg broker: only the second seed of goal/laptop/account), as setBroker keeps it
+    // (el_active_broker too, so a reload boots on the same one) - every other seed puts all accounts back in view
+    activeBroker=C.broker||'';
+    try{if(activeBroker)localStorage.setItem('el_active_broker',activeBroker);else localStorage.removeItem('el_active_broker');}catch(e){}
     // one custom tag, so the tag editors (a FULL table row, the trade panel) have a button to show
     customTags=[S.tag];
     // the legacy TRADES / JOURNAL tabs only draw behind ?oldtabs=1 (the app reads this flag on every render)
     window.LOG_OLDTABS_ESCAPE_HATCH=!!C.tab;window._lastLogTab=C.tab||undefined;
     activeTab=C.tab||'home';homeView=C.view;homeLedger=C.ledger;homeSheetId=null;
-    homeRange='ALL';homeChip='ALL';homeQuery='';homeFeedMode='trade';homeChartMode='equity';
+    homeRange='ALL';homeChip='ALL';homeQuery='';homeFeedMode='trade';homeChartMode=C.chartMode||'equity';
     homeStatsOpen=false;homeExtras=false;homeNewTradeOpen=false;
     // LEDGER step 11: every own fold starts closed and the calendar on its default for this width (open above 600 px), unless the case keeps what the page remembered
     if(!C.keepLs){
@@ -2843,7 +3108,7 @@ def _missed_expect(missed):
             ['Most missed setup', '%s (%d)' % (top, by[top])], ['Long / short', '%d / %d' % (lo, len(M) - lo)]]
 
 
-def _judge_edge_groups(nm, r, trades, fails, missed=None):
+def _judge_edge_groups(nm, r, trades, fails, missed=None, goal=None):
     got, exp = r.get('moreRows') or {}, _edge_expect(trades, r.get('msBroker') or '')
     me = _missed_expect(missed or [])
     if me:
@@ -2856,8 +3121,11 @@ def _judge_edge_groups(nm, r, trades, fails, missed=None):
         fails.append('%s: the time of day strip reads %r, expected %r' % (nm, r.get('tod'), slots))
     if (r.get('todOff') or '') != off:
         fails.append('%s: the time of day strip outside line reads %r, expected %r' % (nm, r.get('todOff'), off))
-    if r.get('goal'):
+    # LEDGER improvement 9: the month goal words line ([data-hmgoal]) shows while a goal is set (`goal`, the case's prefs.monthGoal) and only then
+    if r.get('goal') and not goal:
         fails.append('%s: the month goal line shows although no goal is set' % nm)
+    elif goal and not r.get('goal'):
+        fails.append('%s: the month goal line ([data-hmgoal]) is missing although a goal of %s is set' % (nm, _usd(goal)))
     for title, rows in exp.items():
         g = got.get(title)
         if g is None:
@@ -3661,10 +3929,12 @@ def _judge_step11(nm, cfg, r, fails, n_missed):
 
 
 def _case_trades(data_obj, cfg, r):
-    """The trades one CASE draws: the fixture's, plus (a case with 'today') LOSS_TODAY dated with the New York day the page itself calls today."""
+    """The trades one CASE draws: the fixture's, plus (a case with 'today') LOSS_TODAY dated with the New York day the seed dated them with
+    (r['seedDay'], the page's own ledgerTodayNY() at seed time; r['todayNY'], read a moment later, only for a readout without it)."""
     if not cfg.get('today'):
         return data_obj['trades']
-    return data_obj['trades'] + [dict(t, date=r.get('todayNY')) for t in cfg['today']]
+    day = r.get('seedDay') or r.get('todayNY')
+    return data_obj['trades'] + [dict(t, date=day) for t in cfg['today']]
 
 
 def _judge_lossbar(tag, ls, want, chips, fails):
@@ -3707,6 +3977,239 @@ def _judge_loss(nm, cfg, r, fails):
         # Webull in view: none of today's trades are Webull's, so nothing is used - the idle bar for the same limit, no chip
         wb = dict(LOSS_WANT['idle'], text='Today $0.00 · %s daily limit' % _usd(cfg['stop']))
         _judge_lossbar(nm + ' (Webull in view)', r.get('lossWebull'), wb, [], fails)
+
+
+def _axis_money(text):
+    """One price scale label of REAL's chart (_lgAxisMoney: '$600', '-$200', '$1,200', '$2.5'; a 'k' / 'M' suffix is read too) -> dollars, None
+    when it is not one."""
+    m = re.match(r'^(-?)\$([\d.,\u00a0\u202f ]+)([kKmM]?)$', (text or '').strip())
+    if not m:
+        return None
+    try:
+        v = float(re.sub(r'[,\u00a0\u202f ]', '', m.group(2))) * {'': 1.0, 'k': 1e3, 'K': 1e3, 'm': 1e6, 'M': 1e6}[m.group(3)]
+    except ValueError:
+        return None
+    return -v if m.group(1) else v
+
+
+def _acct_of(x):
+    """The account a trade or a deposit / withdrawal belongs to, as the page reads it (bScope / _evBroker): an untagged one is NinjaTrader's."""
+    return x.get('broker') or 'NinjaTrader'
+
+
+def _goal_level_want(tcase, events, day, goal, mode, broker=None):
+    """Where REAL's month goal level must sit (range ALL; all accounts in view, or only `broker`'s trades and events when one is) - a mirror of
+    _hmGoalRefs: the curve's value just before its first point in the New York month of `day`, plus the goal, plus (EQUITY) the deposits and
+    withdrawals dated in that month. P&L: the curve is the running P&L from $0, so that value is the P&L of every trade closed before the month.
+    EQUITY: the curve starts at the live balance less every trade and event in the range (START_EQUITY less every event, as the probe seeds no
+    balance - nor one for any single account) and walks them forward, so that value is the start plus every event and trade dated before the
+    month. Returns (the level in dollars, this month's deposits and withdrawals as the title names them - 0 in P&L)."""
+    if broker:
+        tcase = [t for t in tcase if _acct_of(t) == broker]
+        events = [e for e in events if _acct_of(e) == broker]
+    ms = day[:7] + '-01'
+    pre = sum(t['pnl'] for t in tcase if _close_day(t) < ms)
+    if mode == 'pnl':
+        return round(pre + goal, 2), 0.0
+    dep_all = sum(e['amount'] for e in events)
+    dep_in = round(sum(e['amount'] for e in events if e['date'] >= ms), 2)
+    base = (START_EQUITY - dep_all) + (dep_all - dep_in) + pre
+    return round(base + goal + dep_in, 2), dep_in
+
+
+def _goal_level_checks(tag, cfg, g, day, mode, want, dep_in, fails):
+    """One read of REAL's month goal level (goalRead) with a goal set: exactly one level and one label; the label "<Mon> goal +<goal>" for the
+    month of `day`, its box inside the svg (left edge at 0 or more) and ending left of the price scale; the level DASHED (a stroke-dasharray
+    that is not none - a solid level reads as the curve or a grid line); its title naming the view (balance / P&L) and this month's deposits and
+    withdrawals when there are any (`dep_in`); pinned to the top edge with "above the chart" when the goal would squash the curve (cfg 'pin'),
+    else a real level at `want` dollars - its y1 read back into dollars on the price scale (the two [data-lgtick] labels furthest apart, each
+    3 px under its grid line), within GOAL_VALUE_TOL_PX and never more than 2% of the plotted span."""
+    goal = cfg['goal']
+    mon = MONTHS[int(day[5:7]) - 1]
+    amt = '$' + format(goal, ',.2f')
+    lines, labels = g.get('lines') or [], g.get('labels') or []
+    if g.get('n') != 1 or len(lines) != 1 or len(labels) != 1:
+        fails.append('%s: REAL\'s chart draws %s month goal level(s) ([data-lgref]) and %d label(s) with a goal of %s set, expected exactly one of each'
+                     % (tag, g.get('n'), len(labels), amt))
+        return
+    lb, ln = labels[0], lines[0]
+    txt = lb.get('text') or ''
+    if not txt.startswith(mon[:3] + ' goal +') or amt not in txt:
+        fails.append('%s: the month goal level is labelled %r, expected it to start "%s goal +" and carry the goal %s' % (tag, txt, mon[:3], amt))
+    lf, rt, sw, sx = lb.get('left'), lb.get('right'), g.get('svgW'), g.get('scaleX')
+    if lf is None or rt is None or sw is None or sx is None or lf < 0 or rt > sw + 0.5 or rt > sx + 0.5:
+        fails.append('%s: the month goal label runs from x=%s to x=%s - outside the svg (0 to %s) or into the price scale (it starts at x=%s)'
+                     % (tag, lf, rt, sw, sx))
+    dash = (ln.get('dash') or '').strip()
+    if not dash or dash == 'none':
+        fails.append('%s: the month goal level is drawn solid (stroke-dasharray %r, attribute %r) - it is a DASHED level, not the curve or a grid line'
+                     % (tag, ln.get('dash'), ln.get('dashAttr')))
+    ttl = ln.get('title') or ''
+    head = '%s goal: %s on top of where this %s stood before the month began' % (mon, amt, 'balance' if mode == 'equity' else 'P&L')
+    clause = 'deposits and withdrawals, %s' % _signed(dep_in)
+    if not ttl.startswith(head):
+        fails.append('%s: the month goal level\'s title reads %r, expected it to start %r' % (tag, ttl, head))
+    elif dep_in and clause not in ttl:
+        fails.append('%s: the month goal level\'s title %r does not name this month\'s %s - money moved in counts as progress' % (tag, ttl, clause))
+    elif not dep_in and 'deposits and withdrawals' in ttl:
+        fails.append('%s: the month goal level\'s title %r names deposits and withdrawals although none are counted this month (%s view)'
+                     % (tag, ttl, 'EQUITY' if mode == 'equity' else 'P&L'))
+    y1 = ln.get('y1')
+    if cfg.get('pin'):
+        if not txt.endswith('above the chart'):
+            fails.append('%s: a %s goal would squash the curve flat, yet its label %r does not end "above the chart"' % (tag, amt, txt))
+        if y1 is None or y1 > GOAL_PIN_Y_MAX:
+            fails.append('%s: a %s goal would squash the curve flat, yet its level is drawn at y1=%s, not pinned to the top edge (%d px at most)'
+                         % (tag, amt, y1, GOAL_PIN_Y_MAX))
+        return
+    if 'above the chart' in txt or 'below the chart' in txt or y1 is None or y1 <= GOAL_PIN_Y_MAX:
+        fails.append('%s: a %s goal fits on the chart, yet its level is pinned to an edge (label %r, y1=%s)' % (tag, amt, txt, y1))
+        return
+    # the level's height turned back into dollars on the price scale: a tick label sits 3 px under its grid line (ledgerChartRender)
+    tk = [(t['y'] - 3, _axis_money(t.get('t'))) for t in (g.get('ticks') or []) if isinstance(t.get('y'), (int, float))]
+    tk = [x for x in tk if x[1] is not None]
+    pairs = [(a, b) for i, a in enumerate(tk) for b in tk[i + 1:] if abs(a[0] - b[0]) >= 1]
+    if not pairs:
+        fails.append('%s: the price scale has no two readable labels ([data-lgtick]: %r), so the month goal level cannot be read in dollars'
+                     % (tag, [t.get('t') for t in (g.get('ticks') or [])]))
+        return
+    a, b = max(pairs, key=lambda p: abs(p[0][0] - p[1][0]))
+    per = (b[1] - a[1]) / (b[0] - a[0])             # dollars per px (negative: y grows downwards)
+    got = a[1] + (y1 - a[0]) * per
+    tol = abs(per) * GOAL_VALUE_TOL_PX
+    span = abs(per) * ((g.get('svgH') or 0) - 34)      # the plot is the svg less 12 px on top and 22 px under it
+    if span > 0:
+        tol = min(tol, 0.02 * span)
+    if abs(got - want) > tol:
+        fails.append('%s: the month goal level is drawn at %s on the price scale (y1=%s; %s at y=%s, %s at y=%s), expected %s - where the %s stood '
+                     'before %s began plus the %s goal%s - within %s'
+                     % (tag, _usd(round(got, 2)), y1, _usd(a[1]), round(a[0], 1), _usd(b[1]), round(b[0], 1), _usd(want), 'balance' if mode == 'equity' else 'P&L',
+                        mon, amt, (' plus this month\'s %s deposits and withdrawals' % _signed(dep_in)) if dep_in else '', _usd(round(tol, 2))))
+
+
+def _goal_words_check(tag, g, day, goal, tcase, fails):
+    """The month goal words line under the chart (goalRead): the ONE [data-hmgoal] inside #hm-goal reads "<Month> goal: <this month's net,
+    signed> of <goal> . <N>%" (N never below 0), the net of `tcase` (the trades in view) closed in the New York month of `day`."""
+    mon = MONTHS[int(day[5:7]) - 1]
+    amt = '$' + format(goal, ',.2f')
+    if g.get('wordsN') != 1:
+        fails.append('%s: #hm-goal under the chart holds %s month goal words lines ([data-hmgoal]), expected exactly one while a goal of %s is set '
+                     '(#hm-goal reads %r)' % (tag, g.get('wordsN'), amt, g.get('words')))
+        return
+    mo = day[:7]
+    net = round(sum(t['pnl'] for t in tcase if _close_day(t)[:7] == mo), 2)
+    pct = int(math.floor(max(0.0, net / goal * 100) + 0.5))
+    want_w = '%s goal: %s of %s · %d%%' % (mon, _signed(net), amt, pct)
+    if g.get('words') != want_w:
+        fails.append('%s: the month goal line under the chart reads %r, expected %r' % (tag, g.get('words'), want_w))
+
+
+def _judge_image_chart(tag, im, got_blob, fails):
+    """TOOLS > IMAGE, the chart half (the image step's readout): the page's _hmBoardSvg() markup, made in the same state as the click, holds ONE
+    nested <svg> - the chart - IMAGE_CHART_W px wide (redrawn at the picture's width, on a phone too: copied at its on-screen width it would be
+    about 343 px there) and holding the curve (a <polyline> of two points or more); and once a Blob was handed over (`got_blob`), the decoded
+    picture is that markup at twice its size and its chart band (the nested svg's rows) is not empty - at least IMAGE_CHART_MIN_INK of it
+    differs from the background, so the words alone cannot pass for a picture of the board."""
+    mk = im.get('mk') or {}
+    nest = mk.get('nested') or []
+    if im.get('mkErr') or mk.get('none') or mk.get('parseErr'):
+        fails.append('%s: the TOOLS > IMAGE picture markup (_hmBoardSvg) could not be read -- %s'
+                     % (tag, im.get('mkErr') or ('it gave no picture' if mk.get('none') else 'it is not well-formed SVG')))
+        return
+    if len(nest) != 1:
+        fails.append('%s: the TOOLS > IMAGE picture holds %d chart(s) (nested <svg> in _hmBoardSvg()), expected ONE - the chart of the board'
+                     % (tag, len(nest)))
+        return
+    c = nest[0]
+    if c.get('w') != IMAGE_CHART_W:
+        fails.append('%s: the chart in the TOOLS > IMAGE picture is %s px wide, expected %d - redrawn at the picture\'s width (1000 less 36 px a side), '
+                     'not copied at its on-screen width' % (tag, c.get('w'), IMAGE_CHART_W))
+    if not c.get('poly') or (c.get('pts') or 0) < 2:
+        fails.append('%s: the chart in the TOOLS > IMAGE picture has no curve (%s <polyline>, %s points)' % (tag, c.get('poly'), c.get('pts')))
+    if not got_blob or im.get('decodeErr') or im.get('ink') is None:
+        return          # nothing decoded to measure (already a fail above)
+    want_px = [2 * (mk.get('rootW') or 0), 2 * (mk.get('rootH') or 0)]
+    if im.get('bmp') != want_px:
+        fails.append('%s: the TOOLS > IMAGE picture decoded at %s px, expected its markup (%s x %s) at twice its size, %s'
+                     % (tag, im.get('bmp'), mk.get('rootW'), mk.get('rootH'), want_px))
+    if im.get('bandInk') is None:
+        fails.append('%s: the chart band of the TOOLS > IMAGE picture could not be measured (chart y=%s height=%s in a %s px tall picture)'
+                     % (tag, c.get('y'), c.get('h'), mk.get('rootH')))
+    elif im['bandInk'] < IMAGE_CHART_MIN_INK:
+        fails.append('%s: the chart band of the TOOLS > IMAGE picture is empty - %.2f%% of its pixels (rows %s of the decoded picture, read at 500 px '
+                     'across) differ from the background, expected at least %.0f%% for the grid, price scale, dates and curve'
+                     % (tag, im['bandInk'] * 100, (im.get('band') or [None, None])[:2], IMAGE_CHART_MIN_INK * 100))
+
+
+def _judge_goal(nm, cfg, r, data_obj, fails):
+    """LEDGER improvement 9 on one case (goalRead): no goal set = no level ([data-lgref]) on REAL's chart; a goal set = the level as
+    _goal_level_checks wants it, at the value _goal_level_want works out from the fixture for the case's view (cfg 'chartMode', EQUITY when
+    unset); the words line under the chart, the ONE [data-hmgoal] inside #hm-goal (not just one anywhere on the page: the hero redraw refreshes
+    #hm-goal by id), this month's net (close day, all accounts) against the goal (_goal_words_check); (cfg 'depNow') the second read, seeded with
+    that deposit dated today, where the title names it and the level still sits where _goal_level_want puts it; and (cfg 'acctNow') the second
+    read with ONE account in view and a deposit dated today on another, where the level sits where _goal_level_want puts it for that account
+    alone, its title names no deposits and the words line is that account's net this month. The month is the one of the day the seed dated
+    today's trades with (r['seedDay'], window.__probeSeedDay), never a later read of the clock: a run that crosses midnight - or a month end -
+    between the seed and the read judges the board for the day it was drawn for (no mutant: it is the probe's own clock, not the page's).
+    Whether a words line is on the page at all is also judged with More stats (_judge_edge_groups); MONO's grey is the hue scan's job."""
+    g = r.get('goalChart') or {}
+    if g.get('err'):
+        fails.append('%s: could not read the month goal level -- %s' % (nm, _first(g['err'])))
+        return
+    if not g.get('svg'):
+        fails.append('%s: there is no chart svg (#hm-chart-wrap svg) to read the month goal level from' % nm)
+        return
+    goal = cfg.get('goal')
+    if not goal:
+        if g.get('n') or g.get('labels'):
+            fails.append('%s: REAL\'s chart draws %s month goal level(s) ([data-lgref]) and %d label(s) although no goal is set - no goal, no level'
+                         % (nm, g.get('n'), len(g.get('labels') or [])))
+        return
+    day = r.get('seedDay') or ''
+    if not re.match(r'^\d{4}-\d{2}-\d{2}$', day):
+        fails.append('%s: the seed did not report the New York day it dated today\'s trades with (%r), so the month goal cannot be judged' % (nm, day))
+        return
+    mode = cfg.get('chartMode') or 'equity'
+    tcase = _case_trades(data_obj, cfg, r)
+    want, dep_in = _goal_level_want(tcase, LEDGER_EVENTS, day, goal, mode)
+    _goal_level_checks(nm, cfg, g, day, mode, want, dep_in, fails)
+    _goal_words_check(nm, g, day, goal, tcase, fails)
+    if cfg.get('acctNow'):
+        # the second read with ONE account in view and a deposit dated today on ANOTHER: it is out of view, so it neither moves the level (only
+        # that account's trades and events count) nor reaches the title (the account's own deposits this month - none in the fixture)
+        an = cfg['acctNow']
+        tag = '%s (seeded again with %s in view and a %s %s deposit today)' % (nm, an['broker'], _usd(an['dep']), an['depBroker'])
+        _errs(tag, r.get('goalAcctNoise') or {}, fails)
+        ga, aday = r.get('goalAcct') or {}, r.get('goalAcctDay') or ''
+        if r.get('acctCall') != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (tag, _first(r.get('acctCall'))))
+        elif ga.get('err') or not ga.get('svg'):
+            fails.append('%s: could not read the month goal level -- %s' % (tag, _first(ga.get('err') or 'no chart svg')))
+        elif r.get('goalAcctBroker') != an['broker']:
+            fails.append('%s: the page has %r in view (activeBroker), not %r - the seed did not put the one account in view'
+                         % (tag, r.get('goalAcctBroker'), an['broker']))
+        elif not re.match(r'^\d{4}-\d{2}-\d{2}$', aday):
+            fails.append('%s: the seed did not report the New York day it dated the deposit with (%r)' % (tag, aday))
+        else:
+            ev = LEDGER_EVENTS + [{'date': aday, 'amount': an['dep'], 'broker': an['depBroker']}]
+            ta = _case_trades(data_obj, cfg, {'seedDay': aday})
+            want3, dep3 = _goal_level_want(ta, ev, aday, goal, mode, broker=an['broker'])
+            _goal_level_checks(tag, cfg, ga, aday, mode, want3, dep3, fails)
+            _goal_words_check(tag, ga, aday, goal, [t for t in ta if _acct_of(t) == an['broker']], fails)
+    if cfg.get('depNow'):
+        tag = '%s (seeded again with a %s deposit today)' % (nm, _usd(cfg['depNow']))
+        _errs(tag, r.get('goalDepNoise') or {}, fails)
+        gd, dday = r.get('goalDep') or {}, r.get('goalDepDay') or ''
+        if r.get('depCall') != 'OK':
+            fails.append('%s: renderApp threw -- %s' % (tag, _first(r.get('depCall'))))
+        elif gd.get('err') or not gd.get('svg'):
+            fails.append('%s: could not read the month goal level -- %s' % (tag, _first(gd.get('err') or 'no chart svg')))
+        elif not re.match(r'^\d{4}-\d{2}-\d{2}$', dday):
+            fails.append('%s: the seed did not report the New York day it dated the deposit with (%r)' % (tag, dday))
+        else:
+            ev = LEDGER_EVENTS + [{'date': dday, 'amount': cfg['depNow']}]
+            want2, dep2 = _goal_level_want(_case_trades(data_obj, cfg, {'seedDay': dday}), ev, dday, goal, mode)
+            _goal_level_checks(tag, cfg, gd, dday, mode, want2, dep2, fails)
 
 
 def _judge_folds(fd):
@@ -3793,7 +4296,7 @@ def _judge(data, data_obj):
             fails.append('%s: data-theme is %r, not %r' % (nm, r.get('theme'), cfg['theme']))
         # LEDGER improvements 1 + 5: a case with 'today' draws the fixture plus LOSS_TODAY dated with the page's own New York day (r['todayNY']);
         # every count, day header and row order below follows that list
-        if cfg.get('today') and not r.get('todayNY'):
+        if cfg.get('today') and not (r.get('seedDay') or r.get('todayNY')):
             fails.append('%s: the page did not report its own New York day, so the trades added for today cannot be judged' % nm)
             continue
         tcase = _case_trades(data_obj, cfg, r)
@@ -3829,6 +4332,7 @@ def _judge(data, data_obj):
                          % (nm, mo.get('missedRows'), n_missed if cfg['missed'] else 0))
         _judge_step11(nm, cfg, r, fails, n_missed)
         _judge_loss(nm, cfg, r, fails)
+        _judge_goal(nm, cfg, r, data_obj, fails)
         want_kind =cfg['ledger'] if cfg['view'] == 'table' else 'feed'
         if not r.get('feed'):
             fails.append('%s: no ledger container (#hm-feed-container)' % nm)
@@ -3878,11 +4382,10 @@ def _judge(data, data_obj):
                 if r.get('listTop') is None or r.get('listTop') > (r.get('viewH') or 0):
                     fails.append('%s: the trade list starts %spx below the top of the board on a phone, more than one '
                                  'screen (%spx) - mistake #12' % (nm, r.get('listTop'), r.get('viewH')))
-                elif r.get('listTop') > PHONE_LIST_TOP_MAX + PHONE_LOSS_EXTRA.get(cfg.get('loss'), 0):
+                elif r.get('listTop') > PHONE_LIST_TOP_MAX + _phone_extra(cfg):
                     fails.append('%s: the trade list starts %spx below the top of the board on a 375 px phone; it may start at most %spx down since '
-                                 'step 12 (%d, plus %d for the loss bar / tilt chips of this case) and must not grow'
-                                 % (nm, r.get('listTop'), PHONE_LIST_TOP_MAX + PHONE_LOSS_EXTRA.get(cfg.get('loss'), 0), PHONE_LIST_TOP_MAX,
-                                    PHONE_LOSS_EXTRA.get(cfg.get('loss'), 0)))
+                                 'step 12 (%d, plus %d for the loss bar / tilt chips / month goal line of this case) and must not grow'
+                                 % (nm, r.get('listTop'), PHONE_LIST_TOP_MAX + _phone_extra(cfg), PHONE_LIST_TOP_MAX, _phone_extra(cfg)))
         if cfg['view'] == 'feed' and r.get('frame'):
             exp_order = [t['id'] for t in sorted(tcase, key=_close_key, reverse=True)]
             if r.get('order') != exp_order:
@@ -3972,7 +4475,7 @@ def _judge(data, data_obj):
             fails.append('%s: More stats opened with groups %r, not %s'
                          % (nm, r.get('moreGroups'), want_groups.replace(',', ', ')))
         else:
-            _judge_edge_groups(nm, r, tcase, fails, data_obj.get('missed') if has_missed else None)
+            _judge_edge_groups(nm, r, tcase, fails, data_obj.get('missed') if has_missed else None, cfg.get('goal'))
         cal = r.get('cal')
         if not cal:
             fails.append('%s: the LEDGER calendar fold is missing' % nm)
@@ -4482,6 +4985,34 @@ def _judge(data, data_obj):
                 if not ds.get('savedZero') or ds.get('pZero') != 'null' or ds.get('lZero') != 'null':
                     fails.append('%s: 0 and SAVE left prefs.dailyStop = %s and the stored el_prefs dailyStop = %s, expected null in both (0 or less = off)'
                                  % (tag, ds.get('pZero'), ds.get('lZero')))
+        # 18. TOOLS > IMAGE (the laptop and the phone run): one click hands over ONE PNG Blob of a real size under ONE download name, nothing
+        #     alerts, and the picture holds the chart, redrawn at the picture's width (_judge_image_chart)
+        if I.get('image'):
+            im = st.get('image') or {}
+            _errs(tag + ' TOOLS > IMAGE', im, fails)
+            if im.get('threw'):
+                fails.append('%s TOOLS > IMAGE: %s' % (tag, _first(im['threw'])))
+            elif not im.get('chart'):
+                fails.append('%s: there is no chart on REAL to make the TOOLS > IMAGE picture from' % tag)
+            elif not im.get('btn') or not im.get('btnShown'):
+                fails.append('%s: TOOLS has no IMAGE button on show (#hm-export-png found=%s, drawn=%s)' % (tag, im.get('btn'), im.get('btnShown')))
+            else:
+                bl, nmz, al = im.get('blobs') or [], im.get('names') or [], im.get('alerts') or []
+                if not bl:
+                    fails.append('%s: a click on TOOLS > IMAGE handed no file over (no Blob reached URL.createObjectURL within 6 s; alerts %r)' % (tag, al))
+                elif len(bl) != 1 or bl[0].get('type') != 'image/png' or (bl[0].get('size') or 0) <= IMAGE_MIN_BYTES:
+                    fails.append('%s: TOOLS > IMAGE handed over %r, expected ONE image/png Blob of more than %d bytes' % (tag, bl, IMAGE_MIN_BYTES))
+                if bl and (len(nmz) != 1 or not re.match(IMAGE_NAME_RE, nmz[0])):
+                    fails.append('%s: TOOLS > IMAGE saved under the download name(s) %r, expected ONE matching %s' % (tag, nmz, IMAGE_NAME_RE))
+                if al:
+                    fails.append('%s: TOOLS > IMAGE alerted %r - the picture could not be made' % (tag, al))
+                # the picture itself, decoded in the page and drawn at 250 x 138: a PNG of the right size can still be a blank canvas
+                if bl and (im.get('decodeErr') or im.get('ink') is None):
+                    fails.append('%s: the TOOLS > IMAGE picture could not be decoded in the page (%s)' % (tag, im.get('decodeErr') or 'no reading'))
+                elif bl and im['ink'] < IMAGE_MIN_INK:
+                    fails.append('%s: the TOOLS > IMAGE picture is blank - %.1f%% of its pixels (%s decoded, drawn at 250 x 138) differ from its background, '
+                                 'expected at least %.0f%% for the words, numbers and chart of the board' % (tag, im['ink'] * 100, im.get('bmp'), IMAGE_MIN_INK * 100))
+                _judge_image_chart(tag, im, bool(bl), fails)
 
     of, ou = _judge_flag(data.get('flag'), data, data_obj)
     fails += of
