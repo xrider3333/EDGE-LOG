@@ -30,6 +30,8 @@ import qwen_lab as Q  # noqa: E402
 
 HAVE_SHARED = os.path.isdir(os.path.join(Q.SHARED, "augur_engine"))
 FSB0 = {"index": 0, "clock": "09:30"}          # first_signal_bar (TTM #144): bar 0 (09:30 open) - every entry allowed
+EF0 = {"at": "open", "bar": -1}                # entry_fill (MANAGER #160b/#162): the OPEN of the fill bar, any bar
+C0 = dict(first_signal_bar=FSB0, entry_fill=EF0, time_stop_bars=0)   # the timing contract every proposal states
 needs_shared = pytest.mark.skipif(not HAVE_SHARED, reason="needs the shared checkout's engine (sandbox child)")
 
 
@@ -205,13 +207,13 @@ def test_propose_refuses_a_dead_idea_and_never_maps_early(tmp_path):
                       dead_rows_fn=lambda: Q.dead_rows(LEDGER))
     r = s.t_propose("QL_OVERNIGHT_DOWN", "Dealer inventory drift lifts NQ overnight after a down session.",
                     "Long NQ from 01:30 to 04:00 ET after a down day session (dealer-inventory drift).", 0.5, 120, "NQ",
-                    first_signal_bar=FSB0)
+                    **C0)
     assert r["accepted"] is False and r["gate"] == "dead list" and not s.closed
     with pytest.raises(Q.ToolRefused):
         s.t_write_plugin("QL_OVERNIGHT_DOWN", Q.TEMPLATE_PLUGIN)
     r = s.t_propose("QL_NEW_THING", "A different idea about intraday reversals after gaps open.",
                     "Fade the first 15 minutes after a gap larger than its trailing median; exit at noon.", 0.4,
-                    150, "NQ", first_signal_bar=FSB0)
+                    150, "NQ", **C0)
     assert r["accepted"] is True and not maps          # the map runs inside run_stage_a, after the plugin gates
 
 
@@ -395,7 +397,8 @@ def _pre_trades(promote=True):
                 ix = np.flatnonzero(did == d)
                 tr.append((int(ix[0]), int(ix[-1]), float(rng.normal(6.0, 4.0) if promote else rng.normal(-1.0, 6.0)),
                            1, float(P["open"][ix[0]])))
-            ok = Q.promotion_bar(Q.four_numbers(tr, P, 20.0, wf0=Q.PREWF0, wf1=Q.PREWF1, label="PRE-WF"))[0]
+            ok = Q.promotion_bar(Q.four_numbers(tr, P, 20.0, wf0=Q.PREWF0, wf1=Q.PREWF1, label="PRE-WF",
+                                                cost_pts=0.533))[0]
             if ok == promote:
                 break
         _PRE_CACHE[key] = tr
@@ -415,14 +418,19 @@ class Harness:
         self.calls.append(("sandbox", mode))
         if mode == "contract":
             fsb = req.get("first_signal_bar")
+            ef, ts = req.get("entry_fill"), req.get("time_stop_bars")
             return {"ok": True, "warnings": [], "smoke": {"trades": 223, "years": 1.49, "trades_per_year": 149.7},
                     "corners": [],
                     **({"first_signal_bar": {"first_signal_bar": fsb, "checked": 223, "n": 0,
                                              "earliest_session_bar": fsb, "index_by": "clock"},
-                        "first_signal_bar_corners": []} if fsb is not None else {})}
+                        "first_signal_bar_corners": []} if fsb is not None else {}),
+                    **({"entry_fill": dict(ef, checked=223, n=0)} if ef else {}),
+                    **({"time_stop": {"time_stop_bars": ts, "checked": 223 if ts else 0, "n": 0, "held_past": 0,
+                                      "at_time_stop": 40 if ts else 0}} if ts is not None else {})}
         if mode == "lookahead":
             return {"ok": True, "warnings": [], "la_window": {"trades": 9}, "perturbed_trades": 8, "fills_checked": 18,
-                    "entry_bar_checked": 6, "entry_bar_conclusive": 4, "entry_bar_corners": []}
+                    "entry_bar_checked": 6, "entry_bar_conclusive": 4, "entry_bar_corners": [],
+                    "open_exits_checked": 2}
         if mode == "stage_a":
             self.stretches.append((req.get("stretch"), req.get("load_from"), req.get("load_to")))
             A, tr = (self.P, self.pre_trades) if req.get("stretch") == "pre_wf" else (self.A, self.trades)
@@ -464,7 +472,7 @@ def _session(tmp_path, harness, **kw):
 def _propose_and_write(s):
     r = s.t_propose("QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark turning points in NQ.",
                     "Trade NQ open to close in the direction both trend speeds agree on; flat when they disagree.",
-                    0.6, 150, "NQ", "5m", first_signal_bar=FSB0)
+                    0.6, 150, "NQ", "5m", **C0)
     assert r["accepted"], r
     w = s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
     assert w["passed"], w
@@ -524,7 +532,8 @@ def test_pre_wf_stage_numbers_come_from_python_and_are_posted(tmp_path):
     lab, s = _session(tmp_path, h)
     _propose_and_write(s)
     r = s.t_run_stage_a("QL_TURNPT_NQ")
-    expect = Q.four_numbers(_pre_trades(True), _pre_arrays(), 20.0, wf0=Q.PREWF0, wf1=Q.PREWF1, label="PRE-WF")
+    expect = Q.four_numbers(_pre_trades(True), _pre_arrays(), 20.0, wf0=Q.PREWF0, wf1=Q.PREWF1, label="PRE-WF",
+                            cost_pts=0.533)
     st = s.idea["stage_pre_wf"]
     assert r["pre_wf_numbers"] == expect and st["numbers"] == expect
     assert expect["stretch"] == "PRE-WF %s..%s" % (Q.PREWF0, Q.PREWF1)
@@ -557,11 +566,21 @@ def test_not_promoted_stops_before_the_wf_stage(tmp_path):
 
 
 def test_promotion_bar():
-    nm = {"roc_30k": 15.0, "one_episode": False}
-    assert Q.promotion_bar(nm)[0]
-    assert not Q.promotion_bar(dict(nm, roc_30k=14.99))[0]
+    # MANAGER 10-16 15:45 (amends #134): gross / trade >= the round-trip cost AND net ROC@30k > 0 AND one-episode False
+    nm = {"roc_30k": 0.5, "one_episode": False, "gross_pts_per_trade": 0.533, "cost_pts": 0.533}
+    ok, why = Q.promotion_bar(nm)
+    assert ok and why.startswith("PROMOTED: pre-WF gross/trade +0.533 pt >= cost 0.533 pt (gross/cost 1.00)"), why
+    assert Q.promotion_bar(dict(nm, roc_30k=10.99))[0]                   # NOISE #422's own pre-WF read now promotes
+    assert not Q.promotion_bar(dict(nm, gross_pts_per_trade=0.532))[0]
+    assert not Q.promotion_bar(dict(nm, roc_30k=0.0))[0] and not Q.promotion_bar(dict(nm, roc_30k=-1.2))[0]
     assert not Q.promotion_bar(dict(nm, one_episode=True))[0]
+    no, why = Q.promotion_bar(dict(nm, one_episode="NOT TESTABLE", one_episode_why="DD5 is built from 1 episode"))
+    assert not no and "one-episode NOT TESTABLE (DD5 is built from 1 episode)" in why
+    assert not Q.promotion_bar(dict(nm, cost_pts=None))[0]              # no cost recorded: cannot read the gross bar
     assert not Q.promotion_bar(None)[0] and not Q.promotion_bar({"roc_30k": None})[0]
+    no, why = Q.promotion_bar(dict(nm, roc_30k=-2.0, gross_pts_per_trade=0.3))
+    assert why == ("NOT PROMOTED: pre-WF gross/trade +0.300 pt < cost 0.533 pt (gross/cost 0.56); pre-WF net ROC@30k "
+                   "-2.00 <= 0")
 
 
 def test_pre_wf_window_ends_before_the_wf_start():
@@ -619,7 +638,7 @@ def test_power_first_uses_the_counted_rate_when_the_stated_one_is_off(tmp_path):
     lab, s = _session(tmp_path, h, mapcheck=mapcheck)
     s.t_propose("QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark turning points in NQ.",
                 "Trade NQ open to close in the direction both trend speeds agree on; flat when they disagree.",
-                0.3, 40, "NQ", "5m", first_signal_bar=FSB0)
+                0.3, 40, "NQ", "5m", **C0)
     assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)["passed"]
     s.t_run_stage_a("QL_TURNPT_NQ")
     assert seen == [(0.3, 149.7)]                       # Sharpe as stated; the rate the rule actually trades
@@ -676,9 +695,10 @@ def test_stage_a_numbers_come_only_from_python(tmp_path):
     lab, s = _session(tmp_path, h)
     _propose_and_write(s)
     r = s.t_run_stage_a("QL_TURNPT_NQ")
-    expect = Q.four_numbers(tr, A, 20.0)
+    expect = Q.four_numbers(tr, A, 20.0, cost_pts=0.533)
     assert r["numbers"] == expect and s.idea["stage_a"]["numbers"] == expect
-    pre = Q.four_numbers(_pre_trades(True), _pre_arrays(), 20.0, wf0=Q.PREWF0, wf1=Q.PREWF1, label="PRE-WF")
+    pre = Q.four_numbers(_pre_trades(True), _pre_arrays(), 20.0, wf0=Q.PREWF0, wf1=Q.PREWF1, label="PRE-WF",
+                         cost_pts=0.533)
     s.t_finish("my ROC was 999 and the Sortino 99")
     post = Q.compose_result_post(s.idea)
     assert Q.fmt_four(expect) in post and Q.fmt_four(pre) in post and "promoted" in post
@@ -696,7 +716,8 @@ def test_full_loop_with_a_scripted_model(tmp_path):
                                                           "points in NQ.",
                      "mechanism": "Trade NQ open to close in the direction both trend speeds agree on.",
                      "prior_sharpe_yearly": 0.6, "trades_per_year": 150, "instrument": "NQ", "timeframe": "5m",
-                     "first_signal_bar": {"index": 0, "clock": "09:30"}}),
+                     "first_signal_bar": {"index": 0, "clock": "09:30"}, "entry_fill": {"at": "open", "bar": -1},
+                     "time_stop_bars": 0}),
         ("write_plugin", {"name": "QL_TURNPT_NQ", "code": "import os\n"}),           # refused by the safety gate
         '{"tool": "write_plugin", "arguments": {"name": "QL_TURNPT_NQ", "code": %s}}' % json.dumps(Q.TEMPLATE_PLUGIN),
         ("run_stage_a", {"name": "QL_TURNPT_NQ"}),
@@ -708,7 +729,7 @@ def test_full_loop_with_a_scripted_model(tmp_path):
     idea = json.load(open(os.path.join(lab.idea_dir("t-idea"), "idea.json"), encoding="utf-8"))
     assert out == "closed" and idea["status"] == "closed"
     assert idea["plugin"]["attempts"] == 2 and idea["protocol"]["json_fallback"] == 1
-    assert idea["stage_a"]["numbers"] == Q.four_numbers(tr, A, 20.0)
+    assert idea["stage_a"]["numbers"] == Q.four_numbers(tr, A, 20.0, cost_pts=0.533)
     assert "999" not in Q.compose_result_post(idea)
     tr_ = json.load(open(os.path.join(lab.idea_dir("t-idea"), "transcript.json"), encoding="utf-8"))
     tool_msgs = [m for m in tr_["messages"] if m.get("role") == "tool"]
@@ -1129,7 +1150,7 @@ def test_a_revised_proposal_must_be_rewritten_and_regated(tmp_path):
     _propose_and_write(s)
     s.t_propose("QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark turning points in NQ (revised).",
                 "Trade NQ open to close in the direction both trend speeds agree on; exit at 14:00 instead.",
-                0.5, 150, "NQ", "5m", first_signal_bar=FSB0)
+                0.5, 150, "NQ", "5m", **C0)
     with pytest.raises(Q.ToolRefused, match="has not passed"):
         s.t_run_stage_a("QL_TURNPT_NQ")
 
@@ -1171,7 +1192,7 @@ def test_a_failed_file_resent_verbatim_is_refused_without_using_an_attempt(tmp_p
     lab, s = _session(tmp_path, h)
     s.t_propose("QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark turning points in NQ.",
                 "Trade NQ open to close in the direction both trend speeds agree on; flat when they disagree.",
-                0.6, 150, "NQ", "5m", first_signal_bar=FSB0)
+                0.6, 150, "NQ", "5m", **C0)
     w = s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
     assert not w["passed"] and w["gate"] == "look-ahead audit"
     assert w["how_to_fix"] and "AFTER the bar-k exit check" in w["how_to_fix"][0] and "bar 12" in w["how_to_fix"][0]
@@ -1199,10 +1220,11 @@ _FAKE_SHELF = [{"n": 30, "title": "Gamma Fragility", "authors": "Andrea Barbon, 
 def test_the_closed_shelf_is_seeded_and_the_picker_never_retakes_a_closed_paper(tmp_path, monkeypatch):
     home = tmp_path / "home"
     home.mkdir()
-    (home / "state.json").write_text(json.dumps({"done_ideas": [{"id": "x", "shelf_n": 12}], "current_idea": None}),
-                                     encoding="utf-8")
+    (home / "state.json").write_text(json.dumps({"done_ideas": [
+        {"id": "x", "shelf_n": 12, "outcome": "PRE-WF DONE - not promoted (x)"},
+        {"id": "y", "shelf_n": 13}], "current_idea": None}), encoding="utf-8")    # (fix round 3: no sane run, no seed)
     lab = Q.Lab(home=str(home), plugin_repo=str(tmp_path / "repo"))
-    assert {"8", "12", "30"} <= set(lab.state["closed_shelf"])
+    assert {"8", "12", "30"} <= set(lab.state["closed_shelf"]) and "13" not in lab.state["closed_shelf"]
     monkeypatch.setattr(Q, "shelf_ideas", lambda *a, **k: [dict(p) for p in _FAKE_SHELF])
     assert Q.open_shelf_papers(lab) == []                       # nothing opened by MANAGER: the shelf slot is skipped
     open(lab.shelf_open_path, "w", encoding="utf-8").write("2026-10-15 09:00:00 30 31\n")
@@ -1267,7 +1289,7 @@ def test_gamma_is_closed_for_the_lab(tmp_path):
     A = _arrays()
     lab, s = _session(tmp_path, Harness(A, _intraday_trades(A)))
     r = s.t_propose("QL_DEALERS", "Dealer gamma positioning sets the intraday regime.", "Fade or follow by gamma sign.",
-                    0.4, 120, "NQ", "5m", first_signal_bar=FSB0)
+                    0.4, 120, "NQ", "5m", **C0)
     assert r.get("accepted") is not True
 
 
@@ -1346,7 +1368,7 @@ def test_a_plugin_that_barely_trades_goes_back_to_qwen_and_the_fix_is_preregiste
     ev = [e["event"] for e in s.idea["events"]]
     assert ev.index("prereg_addendum") < ev.index("pre_wf_r1_started")
     assert r2["promotion"].startswith("PROMOTED") and h.posts[2].startswith("QWEN LAB: QL_TURNPT_NQ PRE-WF")
-    assert "Broken-plugin fix retries: 1" in h.posts[2]
+    assert "broken-plugin fix retries 1/2" in h.posts[2]                 # MANAGER #153a: visible on the result line
 
 
 def test_still_broken_after_two_retries_is_a_broken_plugin_not_a_dead_idea(tmp_path):
@@ -1360,8 +1382,9 @@ def test_still_broken_after_two_retries_is_a_broken_plugin_not_a_dead_idea(tmp_p
     assert r["fix_retries_left"] == 1 and "crashed" in r["verdict"] and "IndexError" in r["error"]
     s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# try 3\n")
     r = s.t_run_stage_a("QL_TURNPT_NQ")
-    assert r["verdict"] == "BROKEN PLUGIN (1 trade)" and s.closed
-    assert s.idea["outcome"].startswith("BROKEN PLUGIN (1 trade)") and "dead" not in s.idea["outcome"].lower()
+    assert r["verdict"] == "BROKEN PLUGIN (1 trade; retries 2/2 still broken)" and s.closed
+    assert s.idea["outcome"].startswith("BROKEN PLUGIN (1 trade; retries 2/2 still broken) - still")
+    assert "dead" not in s.idea["outcome"].lower() and "broken-plugin fix retries 2/2" in h.posts[-1]
     assert "BROKEN PLUGIN" in h.posts[-1] and h.posts[-1].startswith("QWEN LAB: QL_TURNPT_NQ PRE-WF")
     assert [p.split(" ")[4] for p in h.posts if "ADDENDUM" in p] == ["1", "2"]
     assert s.idea["result_posted_inline"] and s.idea["stage_pre_wf"]["broken"]
@@ -1374,7 +1397,8 @@ def test_finishing_during_a_fix_records_a_broken_plugin(tmp_path):
     _propose_and_write(s)
     s.t_run_stage_a("QL_TURNPT_NQ")
     s.t_finish("it is fine")
-    assert s.idea["outcome"].startswith("BROKEN PLUGIN (4 trades)") and "finished without a fix" in s.idea["outcome"]
+    assert s.idea["outcome"].startswith("BROKEN PLUGIN (4 trades; retries 0/2)")
+    assert "finished without a fix" in s.idea["outcome"]
 
 
 # ---- load courtesy (MANAGER #143)
@@ -1741,7 +1765,8 @@ def test_families_read_the_name_and_mechanism_never_the_hypothesis(tmp_path):
     r = s.t_propose("QL_HIGH50_NQ", "Unlike a VWAP mean-reversion fade to VWAP or an opening range breakout, a fresh "
                     "50-bar high late in the day marks trend continuation.",
                     "Buy at bar 60 (14:30 open) when bar 59's close is a 50-bar high; exit at the session's last bar.",
-                    0.4, 120, "NQ", "5m", first_signal_bar={"index": 60, "clock": "14:30"})
+                    0.4, 120, "NQ", "5m", first_signal_bar={"index": 60, "clock": "14:30"}, entry_fill=EF0,
+                    time_stop_bars=0)
     assert r["accepted"] is True, r
 
 
@@ -1795,28 +1820,29 @@ def test_propose_refuses_an_idea_the_lab_already_ran_without_using_a_slot(tmp_pa
     hyp = "A hypothesis about intraday NQ behaviour that is long enough."
     # (1) the same name, a different plugin (the 10-15 QL_VWAPREVERT_NQ x2)
     r = s.t_propose("QL_VWAPREVERT_NQ", hyp, "Short a close 3 ATR above the 50-bar mean; cover at the mean.", 0.4,
-                    150, "NQ", "5m", first_signal_bar=FSB0)
+                    150, "NQ", "5m", **C0)
     assert r["accepted"] is False and r["gate"] == "already run (MANAGER #148)"
     assert "already ran an idea named QL_VWAPREVERT_NQ" in r["reason"] and r["proposal_slots_left"] == Q.MAX_PROPOSALS
     assert any(x.startswith("QL_VWAPREVERT_NQ [VWAP_REVERSION]") for x in r["already_run"])
     # (2) a new name in a family the lab ran - a shelf idea whose mechanism duplicates a run idea
     r = s.t_propose("QL_SNAPBACK_NQ", hyp, "Fade moves of more than 2 ATR away from the session VWAP; target the VWAP.",
-                    0.4, 150, "NQ", "5m", first_signal_bar=FSB0)
+                    0.4, 150, "NQ", "5m", **C0)
     assert r["accepted"] is False and "mechanism family VWAP_REVERSION" in r["reason"]
     assert "QL_VWAPREVERT_NQ" in r["reason"]
     r = s.t_propose("QL_FIRSTBAR_ES", hyp, "Buy a close above the first 30-minute high; sell below its low.", 0.4, 150,
-                    "ES", "5m", first_signal_bar=FSB0)
+                    "ES", "5m", **C0)
     assert r["accepted"] is False and r["matches"][0]["family"] == "OPENING_RANGE"
     # (3) a near copy of a run idea's rule under a new name (no family)
     r = s.t_propose("QL_EMAPHASE_NQ", hyp, _TPT.replace("span=20", "span 20").replace("One trade per session. ", ""),
-                    0.4, 150, "NQ", "5m", first_signal_bar=FSB0)
+                    0.4, 150, "NQ", "5m", **C0)
     assert r["accepted"] is False and r["matches"][0]["why"] == "overlap" and "QL_TPT_NQ" in r["reason"]
     assert s.idea["proposals"] == [] and len(s.idea["dedupe_refusals"]) == 4          # no slot used
     assert [e["event"] for e in s.idea["events"]].count("dedupe_refused") == 4
     # a momentum idea that is in no taken family passes
     r = s.t_propose("QL_ROC12_NQ", hyp, "Buy at bar 13 (10:35 open) when the 12-bar rate of change is positive and the "
                     "50-bar slope is up; exit at the session's last bar.", 0.4, 150, "NQ", "5m",
-                    first_signal_bar={"index": 13, "clock": "10:35"})
+                    first_signal_bar={"index": 13, "clock": "10:35"}, entry_fill={"at": "open", "bar": 13},
+                    time_stop_bars=0)
     assert r["accepted"] is True and "not a repeat of the 6 ideas" in r["already_run"]
     assert s.idea["proposal"]["families"] == [] and len(s.idea["proposals"]) == 1
     dd = s.idea["proposal"]["dedupe"]                                            # stored for the prereg (review #16)
@@ -1872,11 +1898,11 @@ def test_propose_requires_the_first_signal_bar_and_lints_bar_names(tmp_path):
             "Decide on bar 25's close, enter at bar 26 (11:45 open) in the direction both trend speeds agree on.",
             0.6, 150, "NQ", "5m")
     with pytest.raises(Q.ToolRefused, match="first_signal_bar is required"):
-        s.t_propose(*args)
+        s.t_propose(*args, entry_fill=EF0, time_stop_bars=0)
     with pytest.raises(Q.ToolRefused, match="disagree"):
-        s.t_propose(*args, first_signal_bar={"index": 26, "clock": "11:45"})
+        s.t_propose(*args, first_signal_bar={"index": 26, "clock": "11:45"}, entry_fill=EF0, time_stop_bars=0)
     assert s.idea["proposals"] == []                                           # refusals use no slot
-    r = s.t_propose(*args, first_signal_bar={"index": 26, "clock": "11:40"})
+    r = s.t_propose(*args, first_signal_bar={"index": 26, "clock": "11:40"}, entry_fill=EF0, time_stop_bars=0)
     assert r["accepted"] and r["first_signal_bar"].startswith("bar 26 (11:40 open) on 5m bars")
     assert s.idea["proposal"]["first_signal_bar"] == {"index": 26, "clock": "11:40", "label": "bar 26 (11:40 open)",
                                                       "timeframe": "5m"}
@@ -1920,7 +1946,8 @@ def test_a_smoke_entry_before_the_first_signal_bar_fails_the_contract_gate(tmp_p
     lab, s = _session(tmp_path, h)
     assert s.t_propose("QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark turning points in NQ.",
                        "Decide on bar 6's close (10:05), fill at bar 7 (10:05 open); trade with both trend speeds.",
-                       0.6, 150, "NQ", "5m", first_signal_bar={"index": 7, "clock": "10:05"})["accepted"]
+                       0.6, 150, "NQ", "5m", first_signal_bar={"index": 7, "clock": "10:05"}, entry_fill=EF0,
+                       time_stop_bars=0)["accepted"]
     w = s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
     assert not w["passed"] and w["gate"] == "contract" and w["offending_entries"][0]["session_bar"] == 3
     assert "bar 7 (10:05 open)" in w["how_to_fix"][0] and "FILL bar is >= 7" in w["how_to_fix"][0]
@@ -1946,7 +1973,8 @@ def _fsb_session(tmp_path, pre_sets):
     lab, s = _session(tmp_path, h)
     assert s.t_propose("QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark turning points in NQ.",
                        "Decide on bar 6's close (10:05), fill at bar 7 (10:05 open) in the direction both trend speeds "
-                       "agree on.", 0.6, 150, "NQ", "5m", first_signal_bar={"index": 7, "clock": "10:05"})["accepted"]
+                       "agree on.", 0.6, 150, "NQ", "5m", first_signal_bar={"index": 7, "clock": "10:05"},
+                       entry_fill=EF0, time_stop_bars=0)["accepted"]
     assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)["passed"]
     return lab, s, h
 
@@ -1964,6 +1992,8 @@ def test_a_pre_wf_entry_before_the_first_signal_bar_is_a_hard_gate_not_a_verdict
     assert s.idea["sanity"][-1]["kind"] == "first_signal_bar"
     text = open(s.idea["prereg"]["path"], encoding="utf-8").read()
     assert "## Timing contract - the first entry bar (TTM #144)" in text and "bar 7 (10:05 open)" in text
+    assert "- entry fill (Qwen's stated pre-data input): the OPEN of the fill bar" in text
+    assert "- time stop (Qwen's stated pre-data input): none (time_stop_bars 0)" in text
     assert "no entry may FILL at an in-session bar index < 7" in text and "first entry bar 7 (10:05 open)" in h.posts[0]
     assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# entries from bar 1\n")["passed"]
     r2 = s.t_run_stage_a("QL_TURNPT_NQ")
@@ -1978,7 +2008,8 @@ def test_still_entering_early_after_two_retries_is_a_broken_plugin(tmp_path):
     for k in (1, 2):
         assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# try %d\n" % k)["passed"]
         r = s.t_run_stage_a("QL_TURNPT_NQ")
-    assert r["verdict"].startswith("BROKEN PLUGIN (first-signal-bar contract: %d entries before bar 7)" % len(early))
+    assert r["verdict"] == ("BROKEN PLUGIN (first-signal-bar contract: %d entries before bar 7; retries 2/2 still "
+                            "broken)" % len(early))
     assert s.closed and "dead" not in s.idea["outcome"].lower()
 
 
@@ -2022,7 +2053,7 @@ def test_the_prompt_and_the_prereg_name_bars_one_way(tmp_path):
     assert "entry-bar inputs - the first bar at risk's high / low / close / volume moved - on 6 trades, 4 conclusive" \
         in text
     assert "every searched knob at its min and its max (0 knob values, none earlier)" in text
-    assert "## Hard gates passed before this prereg (gates v2)" in text
+    assert "## Hard gates passed before this prereg (gates v%d)" % Q.GATES_VERSION in text and Q.GATES_VERSION == 3
     assert not re.search(r"NOT (?:checked|recorded|run)", text)                 # every check here ran (review #16)
     assert "checked at propose (" in text and "re-checked now: not a repeat" in text
 
@@ -2046,9 +2077,13 @@ _ATR_BEFORE = ("            atr = float(np.mean(h[max(0, e - 14):e] - l[max(0, e
 def test_entry_bar_phase_catches_an_atr_that_includes_the_entry_bar(tmp_path):
     code = Q.TEMPLATE_PLUGIN.replace(_STOP_LINE, _ATR_INCL)
     assert code != Q.TEMPLATE_PLUGIN and Q.safety_gate(code)[0]
-    old = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ", eb_k=0)
+    old = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ", eb_k=0, corner_knobs=0)
     assert old["ok"], "the exit-bar phases alone should miss this shape (else the test proves nothing): %s" % old
     assert old["entry_bar_checked"] == 0
+    # fix round 3: with the knob corners on, the exit-bar phases alone already catch it at stop_frac=0.25 (a 0.75 x
+    # ATR stop is hit on the entry bar)
+    corners = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ", eb_k=0)
+    assert not corners["ok"] and "at stop_frac=0.25: EXIT at bar" in corners["problems"][-1], corners
     r = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ")
     assert not r["ok"] and r["entry_bar_conclusive"] >= 1
     p = next(p for p in r["problems"] if p.startswith("LOOK-AHEAD (entry-bar inputs, TTM #145)"))
@@ -2223,17 +2258,17 @@ def test_a_run_with_no_verdict_and_a_reopened_paper_block_only_their_name(tmp_pa
     tom = "Buy at bar 0 (09:30 open) on the last 2 trading days of each calendar month; flat at the session's last bar."
     shelf = Q.IdeaSession(lab, {"id": "t-34", "source": "shelf", "shelf": {"n": 34}, "shelf_n": 34},
                           dead_rows_fn=lambda: [])
-    assert shelf.t_propose("QL_TOM_CALENDAR_NQ", hyp, tom, 0.3, 30, "NQ", "5m", first_signal_bar=FSB0)[
+    assert shelf.t_propose("QL_TOM_CALENDAR_NQ", hyp, tom, 0.3, 30, "NQ", "5m", **C0)[
         "gate"] == "already run (MANAGER #148)"                      # the name: never
-    r = shelf.t_propose("QL_TOM_V2_NQ", hyp, tom, 0.3, 30, "NQ", "5m", first_signal_bar=FSB0)
+    r = shelf.t_propose("QL_TOM_V2_NQ", hyp, tom, 0.3, 30, "NQ", "5m", **C0)
     assert r["accepted"] is True and "QL_TOM_CALENDAR_NQ" in r["already_run"]    # reopen.py: was refused
     own = Q.IdeaSession(lab, {"id": "t-own", "source": "own"}, dead_rows_fn=lambda: [])
-    r = own.t_propose("QL_MONTHFLOW_NQ", hyp, tom, 0.3, 30, "NQ", "5m", first_signal_bar=FSB0)
+    r = own.t_propose("QL_MONTHFLOW_NQ", hyp, tom, 0.3, 30, "NQ", "5m", **C0)
     assert r["accepted"] is False and r["matches"][0]["family"] == "TURN_OF_MONTH"   # another source: still refused
     drive = "Trade the open drive: if the first 3 bars all close down, sell bar 3's open; stop above bar 0's high."
-    r = own.t_propose("QL_DRIVE_NQ", hyp, drive, 0.3, 60, "NQ", "5m", first_signal_bar=FSB0)
+    r = own.t_propose("QL_DRIVE_NQ", hyp, drive, 0.3, 60, "NQ", "5m", **C0)
     assert r["accepted"] is False and r["matches"][0]["why"] == "name"
-    r = own.t_propose("QL_OPENDRIVE_SHORT", hyp, drive, 0.3, 60, "NQ", "5m", first_signal_bar=FSB0)
+    r = own.t_propose("QL_OPENDRIVE_SHORT", hyp, drive, 0.3, 60, "NQ", "5m", **C0)
     assert r["accepted"] is True and "QL_DRIVE_NQ" in r["already_run"]   # BROKEN PLUGIN: a retry under a new name
 
 
@@ -2258,7 +2293,8 @@ def test_a_closed_idea_without_its_done_row_is_still_an_idea_the_lab_ran(tmp_pat
     chat = ScriptChat([("propose", {"name": "QL_VWAPREVERT_NQ", "hypothesis": "A stretch from VWAP snaps back intraday.",
                                     "mechanism": _REAL_VWAPREVERT, "prior_sharpe_yearly": 0.4, "trades_per_year": 150,
                                     "instrument": "NQ", "timeframe": "5m", "first_signal_bar": {"index": 26,
-                                                                                                "clock": "11:40"}}),
+                                                                                                "clock": "11:40"},
+                                    "entry_fill": EF0, "time_stop_bars": 0}),
                        ("finish", {})])
     args = argparse.Namespace(home=str(home), plugin_repo=str(repo), idea=None, source="own", think=False,
                               no_beacon=True, max_steps=4, dry_run_validate=True, once=True, no_next_pick=True)
@@ -2313,9 +2349,9 @@ def test_a_proposal_without_first_signal_bar_never_reaches_stage_a(tmp_path):
     pr["first_signal_bar"] = None
     pr.pop("families")
     pr.pop("dedupe")
-    with pytest.raises(Q.ToolRefused, match="predates the first-signal-bar contract"):
+    with pytest.raises(Q.ToolRefused, match="predates the timing contract .* it lacks first_signal_bar"):
         s.t_run_stage_a("QL_TURNPT_NQ")
-    with pytest.raises(Q.ToolRefused, match="predates the first-signal-bar contract"):
+    with pytest.raises(Q.ToolRefused, match="predates the timing contract"):
         s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
     assert not s.idea.get("prereg") and not s.idea.get("map") and h.posts == []
     # not frozen: a full new proposal (the dedupe runs again), then the current gates, then Stage A
@@ -2339,19 +2375,20 @@ def test_a_frozen_older_proposal_records_only_its_first_signal_bar(tmp_path):
     with pytest.raises(Q.ToolRefused, match="predates"):
         s.t_run_stage_a("QL_TURNPT_NQ")
     with pytest.raises(Q.ToolRefused, match="call propose with ITS name"):
-        s.t_propose("QL_OTHER_NQ", "x" * 30, "y" * 30, 0.5, 100, "NQ", "5m", first_signal_bar=FSB0)
+        s.t_propose("QL_OTHER_NQ", "x" * 30, "y" * 30, 0.5, 100, "NQ", "5m", **C0)
     with pytest.raises(Q.ToolRefused, match="disagree"):
         s.t_propose("QL_TURNPT_NQ", "x" * 30, "y" * 30, 0.5, 100, "NQ", "5m", first_signal_bar={"index": 7,
                                                                                                "clock": "10:00"})
     r = s.t_propose("QL_TURNPT_NQ", "ignored", "ignored", 9, 9, "NQ", "5m", first_signal_bar={"index": 0,
                                                                                              "clock": "09:30"})
-    assert r["amended"] == "first_signal_bar" and pr["hypothesis"].startswith("Slow and fast") and pr["trades_per_year"] == 150
+    assert r["amended"] == ["first_signal_bar"] and pr["hypothesis"].startswith("Slow and fast")
+    assert pr["trades_per_year"] == 150 and pr["entry_fill"]["at"] == "open"           # the rest is kept
     assert pr["first_signal_bar"]["label"] == "bar 0 (09:30 open)" and not s.idea["plugin"]["gates_ok"]
     with pytest.raises(Q.ToolRefused, match="has not passed"):
         s.t_run_stage_a("QL_TURNPT_NQ")
     assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# fixed\n")["passed"]
     s.t_run_stage_a("QL_TURNPT_NQ")
-    assert "first_signal_bar AMENDED at" in h.posts[1] and "to bar 0 (09:30 open)" in h.posts[1]
+    assert "Timing contract AMENDED at" in h.posts[1] and "first_signal_bar bar 0 (09:30 open)" in h.posts[1]
     assert "## Addendum 1" in open(s.idea["prereg"]["path"], encoding="utf-8").read()
 
 
@@ -2363,7 +2400,8 @@ def test_the_prereg_says_not_checked_when_a_check_did_not_run(tmp_path):
     pr, g = s.idea["proposal"], s.idea["gates"]
     pr.pop("families")
     pr.pop("dedupe")
-    for k in ("first_signal_bar", "entry_bar_checked", "entry_bar_conclusive", "version"):
+    for k in ("first_signal_bar", "entry_bar_checked", "entry_bar_conclusive", "version", "entry_fill", "time_stop",
+              "rate_check", "open_exits_checked"):
         g.pop(k, None)
     s.idea["map"] = _clears_map(pr["name"], 0.6, 150)
     pre = s.write_prereg({"filename": "NOADJ_NQ_5m_RTH.csv", "source": "db_noadj_rth", "id": 37}, _pre_arrays())
@@ -2371,10 +2409,14 @@ def test_the_prereg_says_not_checked_when_a_check_did_not_run(tmp_path):
     assert "NOT checked at propose (the proposal predates MANAGER #148); re-checked now: not a repeat" in text
     assert "NOT checked by the contract" in text and "first-signal-bar check NOT recorded" in text
     assert "entry-bar inputs NOT checked (older gates)" in text and "idea dedupe NOT run at propose" in text
+    assert "entry fill / time stop NOT checked by the contract" in text and "entry-fill check NOT recorded" in text
+    assert "open-exit phase NOT run (older gates)" in text and "NOT checked at the contract (older gates)" in text
     assert "none matched" not in text
     pr["first_signal_bar"] = None
+    pr["entry_fill"], pr["time_stop_bars"] = None, None
     post = Q.compose_prereg_post(s.idea, pre)
     assert "first entry not stated - not checked" in post and "checked on every PRE-WF entry" not in post
+    assert "entry fill not stated - not checked; time stop not stated - not checked" in post
 
 
 # ---- D. the entry-bar phase: close / volume of the first bar at risk, intrabar entries, mutation survivors
@@ -2596,10 +2638,11 @@ def test_entry_bar_phase_sees_a_level_dragged_past_the_open():
     assert not fails and conc >= 3, fails[:1]
 
 
-def _chandelier_plugin(update_first):
+def _chandelier_plugin(update_first, k=2.0, extreme=False):
     """QL_MOMDRIVE's exit (the lab's real 10-15 plugin, both runs 'not promoted'): fill at bar 4's open, a chandelier
-    stop = best close since entry -/+ 2 x the ATR of the bars before the fill; update_first raises `best` with bar j's
-    CLOSE before checking bar j's low (as QL_MOMDRIVE did), else after the check."""
+    stop = best close since entry -/+ k x the ATR of the bars before the fill; update_first raises `best` with bar j's
+    CLOSE before checking bar j's low (as QL_MOMDRIVE did), else after the check. extreme: `best` tracks the bar's
+    favourable extreme (a long's high, a short's low) instead of its close."""
     def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, return_trades=False, **_ignore):
         o, h, l, c = (np.asarray(x, float) for x in (opens, highs, lows, closes))
         did = np.asarray(day_id)
@@ -2613,14 +2656,15 @@ def _chandelier_plugin(update_first):
             entry, atr, best = o[e], _atr_before(h, l, e), o[e]
             x, px = b - 1, c[b - 1]
             for j in range(e, b):
+                fav = (h[j] if side > 0 else l[j]) if extreme else c[j]
                 if update_first:
-                    best = max(best, c[j]) if side > 0 else min(best, c[j])
-                st = best - side * 2 * atr
+                    best = max(best, fav) if side > 0 else min(best, fav)
+                st = best - side * k * atr
                 if l[j] <= st if side > 0 else h[j] >= st:
                     x, px = j, (o[j] if (o[j] < st if side > 0 else o[j] > st) else st)
                     break
                 if not update_first:
-                    best = max(best, c[j]) if side > 0 else min(best, c[j])
+                    best = max(best, fav) if side > 0 else min(best, fav)
             trades.append((int(e), int(x), float(side * (px - entry)), int(side), float(entry)))
         return {"trades": trades} if trades else None
     import types
@@ -2675,3 +2719,592 @@ def test_lookahead_audit_checks_the_entry_bar_at_the_knob_corners(tmp_path):
     assert "at stop_frac=0.25: ENTRY-BAR INPUT" in p
     rows = {(c["knob"], c["value"]): c for c in r["entry_bar_corners"]}
     assert rows[("stop_frac", 0.25)]["conclusive"] >= 1 and rows[("stop_frac", 2.0)]["conclusive"] == 0
+
+
+# ======================================================================== fix round 3 (MANAGER #153/#156/#158/#160/#162)
+# ---- 1. the dates contract (MANAGER #156): REAL dates + the session-calendar helpers
+from augur_engine import session_calendar as SC  # noqa: E402
+
+# a calendar plugin: long the last n_last sessions of each calendar month, first bar's open to last bar's close - the
+# literal build TTM checked (219 trades 2010-06..2016-06 on NQ 5m, 36 a year)
+_CAL_PLUGIN = '''"""QL_CAL_TEST - long the last n_last sessions of each calendar month, open to close (MANAGER #156)."""
+import numpy as np
+from augur_engine.session_calendar import is_last_n_sessions_of_month
+
+STRATEGY_NAME = "QL CAL TEST"
+DESCRIPTION = "Long the last n_last trading sessions of each calendar month, from the first bar's open to the close."
+_AUGUR_MARKET = {"instrument": "NQ", "timeframe": "5m"}
+ROLL_SIGNAL = "difference"
+DEFAULT_PARAMS = {"n_last": {"default": 3, "min": 2, "max": 5, "step": 1, "type": "int", "label": "Last n sessions"}}
+
+
+def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None, n_last=3,
+                 return_trades=False, _stop_event=None, _pause_event=None, **_ignore):
+    o = np.asarray(opens, float)
+    c = np.asarray(closes, float)
+    n = len(c)
+    if day_id is None or index is None or n < 2:
+        return None
+    did = np.asarray(day_id)
+    last = is_last_n_sessions_of_month(index, int(n_last), day_id)
+    starts = np.flatnonzero(np.r_[True, did[1:] != did[:-1]])
+    ends = np.r_[starts[1:], n]
+    trades = []
+    for a, b in zip(starts, ends):
+        if last[a]:
+            trades.append((int(a), int(b - 1), float(c[b - 1] - o[a]), 1, float(o[a])))
+    if not trades:
+        return None
+    p = np.array([t[2] for t in trades], float)
+    gw, gl = float(p[p > 0].sum()), float(-p[p < 0].sum())
+    out = {"total_pnl": float(p.sum()), "num_trades": int(len(p)), "win_rate": 100.0 * float((p > 0).mean()),
+           "profit_factor": gw / gl if gl > 0 else 0.0,
+           "max_drawdown": float((np.cumsum(p) - np.maximum.accumulate(np.cumsum(p))).min()),
+           "avg_pnl": float(p.mean()), "wins": int((p > 0).sum()), "losses": int((p < 0).sum())}
+    if return_trades:
+        out["trades"] = trades
+    return out
+'''
+
+
+def _cal_index(d0, d1, per_day=3):
+    """Bars on the exchange calendar's sessions d0..d1, per_day 5m bars from each 09:30 (US/Eastern)."""
+    days = SC.exchange_sessions(d0, d1)
+    idx = (pd.DatetimeIndex(days).repeat(per_day)
+           + pd.to_timedelta(np.tile(570 + 5 * np.arange(per_day), len(days)), unit="min")).tz_localize("US/Eastern")
+    return idx, np.repeat(np.arange(len(days)), per_day), days
+
+
+def test_session_calendar_helpers_read_real_dates():
+    idx, did, days = _cal_index("2026-01-01", "2026-04-30")
+    cal = SC.session_calendar(idx, did)
+    starts = np.flatnonzero(np.r_[True, did[1:] != did[:-1]])
+    by = {int(cal["date"][a]): {k: int(v[a]) for k, v in cal.items()} for a in starts}
+    # the CME equity-index RTH calendar: New Year's Day and Good Friday closed; MLK / Presidents Day are (short) sessions
+    assert 20260101 not in by and 20260403 not in by and 20260119 in by and 20260216 in by
+    assert SC.is_exchange_session("2025-12-25") is False and SC.is_exchange_session("2026-05-25") is True
+    last3 = sorted(d for d in by if by[d]["days_to_month_end"] < 3)
+    assert last3 == [20260128, 20260129, 20260130, 20260225, 20260226, 20260227, 20260327, 20260330, 20260331,
+                     20260428, 20260429, 20260430]
+    assert by[20260102]["session_index_in_month"] == 0 and by[20260105]["session_index_in_month"] == 1
+    assert by[20260130]["sessions_in_month"] == 21 and by[20260130]["days_to_month_end"] == 0
+    assert by[20260116]["week_of_month"] == 3 and by[20260102]["weekday"] == 4          # the third Friday; a Friday
+    # one value per bar, equal on every bar of a session; the convenience helpers are the dict's columns
+    assert (SC.is_last_n_sessions_of_month(idx, 3, did) == (cal["days_to_month_end"] < 3)).all()
+    assert (SC.is_first_n_sessions_of_month(idx, 2, did) == (cal["session_index_in_month"] < 2)).all()
+    assert (SC.session_dates(idx, did)[:3] == 20260102).all() and SC.session_dates(idx, did)[3] == 20260105
+    assert (SC.week_of_month(idx, did) == cal["week_of_month"]).all()
+    assert (SC.days_to_month_end(idx, did) == cal["days_to_month_end"]).all()
+    assert (SC.session_index_in_month(idx, did) == cal["session_index_in_month"]).all()
+
+
+def test_session_calendar_is_causal_and_knows_the_month_past_the_data():
+    idx, did, days = _cal_index("2026-01-01", "2026-04-30")
+    full = SC.session_calendar(idx, did)
+    keys = ("date", "session_index_in_month", "sessions_in_month", "days_to_month_end", "week_of_month")
+    for cut in (25, 40, 61):                       # sessions kept - cut mid-month: the published calendar fills the rest
+        n = 3 * cut
+        part = SC.session_calendar(idx[:n], did[:n])
+        assert all((part[k] == full[k][:n]).all() for k in keys), cut
+    # a load that starts mid-month counts from the month's real first session (PRE-WF: 2010-06-07 is June's 5th)
+    later = SC.session_calendar(idx[30:], did[30:])
+    assert all((later[k] == full[k][30:]).all() for k in keys)
+    assert (SC.session_calendar(idx)["date"] == full["date"]).all()              # without day_id: the bar's date
+    # inside the loaded span the data's OWN sessions are the calendar (a data hole is not a session)
+    keep = np.r_[np.arange(0, 3 * 18), np.arange(3 * 19, len(idx))]               # drop January's 19th session
+    holed = SC.session_calendar(idx[keep], did[keep])
+    assert int(holed["sessions_in_month"][0]) == 20 and int(full["sessions_in_month"][0]) == 21
+
+
+def test_the_gate_allows_the_calendar_helpers_by_name_and_the_prompt_teaches_them():
+    assert Q.safety_gate(_CAL_PLUGIN)[0], Q.safety_gate(_CAL_PLUGIN)[1]
+    for bad in ("from augur_engine.session_calendar import _easter\n", "import augur_engine.session_calendar\n",
+                "from augur_engine.session_calendar import *\n", "from augur_engine.session_calendar import closed_days\n"):
+        assert not Q.safety_gate(bad)[0], bad
+    sp = Q.system_prompt()
+    assert "DATES AND THE SESSION CALENDAR (MANAGER #156)" in sp and "is_last_n_sessions_of_month(index, n, day_id)" in sp
+    assert "never count sessions from the start of the data" in sp
+    assert "index=None" in Q.TEMPLATE_PLUGIN and "augur_engine.session_calendar" in Q.TEMPLATE_PLUGIN
+    S = Q._sb_synthetic(60)                                         # the sandbox's synthetic bars sit on real sessions
+    d = pd.DatetimeIndex(S["index"])
+    assert str(d[0]) == "2026-03-02 09:30:00-05:00" and len(set(d.date)) == 60
+    assert pd.Timestamp("2026-04-03").date() not in set(d.date)    # Good Friday
+
+
+@needs_shared
+def test_the_sandbox_hands_a_calendar_plugin_real_dates(tmp_path):
+    r = _sb(tmp_path, "synthetic", _CAL_PLUGIN, days=60)
+    assert r["ok"], r
+    assert r["calendar_module"].replace("\\", "/").endswith("augur_engine/session_calendar.py")
+    S = Q._sb_synthetic(60)
+    last = SC.is_last_n_sessions_of_month(S["index"], 3, S["day_id"])
+    starts = np.flatnonzero(np.r_[True, S["day_id"][1:] != S["day_id"][:-1]])
+    assert [t[0] for t in r["trades"]] == [int(a) for a in starts if last[a]] and len(r["trades"]) == 6
+
+
+@needs_shared
+def test_a_calendar_plugin_trades_exactly_the_last_3_sessions_of_each_month_on_real_pre_wf_bars(tmp_path):
+    # MANAGER #156 / TTM's literal build: 219 trades 2010-06..2016-06, 36 a year - the old day_id blocks made 3
+    base = dict(instrument="NQ", timeframe="5m", source="db_noadj_rth", session="rth",
+                master_filename="NOADJ_NQ_5m_RTH.csv", cost_pts=0.533, mult=20.0, stretch="pre_wf",
+                load_from=Q.PREWF0, load_to=Q.PREWF1)
+    (tmp_path / "cal").mkdir()
+    (tmp_path / "all").mkdir()
+    r = _sb(tmp_path / "cal", "stage_a", _CAL_PLUGIN, **base)
+    every = _sb(tmp_path / "all", "stage_a", _CAL_PLUGIN.replace("        if last[a]:", "        if a >= 0:"), **base)
+    assert r["ok"] and every["ok"], (r.get("error"), every.get("error"))
+    sessions = sorted({t[:10] for t in every["entry_times"]})          # every session of the same bars
+    by_month = {}
+    for d in sessions:
+        by_month.setdefault(d[:7], []).append(d)
+    expect = sorted(d for ds in by_month.values() for d in ds[-3:])
+    got = [t[:10] for t in r["entry_times"]]
+    assert len(got) == 219 == len(expect) and got == expect and len(by_month) == 73
+    assert all(t.endswith("09:30:00") for t in r["entry_times"])       # the first bar's open of each marked session
+    yrs = (pd.Timestamp(sessions[-1]) - pd.Timestamp(sessions[0])).days / 365.25
+    assert abs(219 / yrs - 36.1) < 0.2
+
+
+# ---- 2. dedupe on the plugin sha + the rule text, at propose / write / Stage A and on RESUME (MANAGER #158/#162)
+_REAL_TRENDN_SHA = "dbc02a2e11c364dcdcd9eb18be18067fa77e5ce9a0ff01dff43d8a56a670f2ae"    # 20261016-1342-own and -1402-own
+
+
+def _add_prereg(lab, iid, sha):
+    p = os.path.join(lab.home, "ideas", iid, "idea.json")
+    idea = json.load(open(p, encoding="utf-8"))
+    idea["prereg"] = {"posted_id": 1, "plugin_sha": sha}
+    idea["plugin"] = {"name": idea["proposal"]["name"], "sha": sha, "gates_sha": sha}
+    Q.jdump(p, idea)
+
+
+def test_a_plugin_the_lab_already_ran_is_refused_before_any_stage_a(tmp_path):
+    A = _arrays()
+    h = Harness(A, _intraday_trades(A))
+    lab = _ran_lab(tmp_path, [("r1", "own", "done", "QL_TRENDN", _REAL_TRENDN, "PRE-WF DONE - not promoted (x)")])
+    sha = Q.lf_sha256_bytes(Q.TEMPLATE_PLUGIN.encode("utf-8"))
+    _add_prereg(lab, "r1", sha)
+    assert Q.plugin_sha_ran_elsewhere(lab, sha)["idea"] == "r1" and Q.plugin_sha_ran_elsewhere(lab, sha, "r1") is None
+    os.makedirs(os.path.join(lab.plugin_repo, "augur_strategies"), exist_ok=True)
+    s = Q.IdeaSession(lab, {"id": "t-dup", "source": "own"}, poster=h.poster, sandbox=h.sandbox, mapcheck=_clears_map,
+                      dead_rows_fn=lambda: [], master_loader=h.loader)
+    assert s.t_propose("QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark turning points in NQ.",
+                       "Trade NQ open to close in the direction both trend speeds agree on.", 0.6, 150, "NQ", "5m",
+                       **C0)["accepted"]
+    r = s.dispatch("write_plugin", {"name": "QL_TURNPT_NQ", "code": Q.TEMPLATE_PLUGIN})
+    assert "the lab never runs the same plugin twice" in r["refused"] and "idea r1 (QL_TRENDN)" in r["refused"]
+    assert s.idea["plugin"].get("attempts", 0) == 0 and h.calls == []           # no attempt used, no gate run
+    assert "write_plugin REFUSED" in open(lab.log_path, encoding="utf-8").read()  # visible in run.log
+    # a plugin that reached the disk another way (an older harness) is refused at run_stage_a too
+    assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# v2\n")["passed"]
+    with open(s.plugin_path("QL_TURNPT_NQ"), "w", encoding="utf-8", newline="\n") as f:
+        f.write(Q.TEMPLATE_PLUGIN)
+    s.idea["plugin"].update(sha=sha, gates_sha=sha)
+    with pytest.raises(Q.ToolRefused, match="byte-identical to the plugin idea r1"):
+        s.t_run_stage_a("QL_TURNPT_NQ")
+    assert not s.idea.get("prereg") and ("sandbox", "stage_a") not in h.calls and h.posts == []
+
+
+def test_resume_closes_an_open_duplicate_without_a_run_and_picks_a_fresh_idea(tmp_path):
+    # the live 10-16 case (C:\EdgeLog\qwen_lab, read-only): 20261016-1402-own re-proposed QL_TRENDN and gated the SAME
+    # plugin (LF sha dbc02a2e...) that 20261016-1342-own had run; the lab stopped at 14:09 with 1402 open
+    import argparse
+    lab = _ran_lab(tmp_path, [("20261016-1342-own", "own", "done", "QL_TRENDN", _REAL_TRENDN,
+                               "PRE-WF DONE - not promoted (pre-WF ROC@30k -2.14 < 15; one episode drives the pre-WF "
+                               "drawdown (worst > 1.3 x DD5))")])
+    _add_prereg(lab, "20261016-1342-own", _REAL_TRENDN_SHA)
+    os.makedirs(os.path.join(lab.plugin_repo, "augur_strategies"), exist_ok=True)
+    d = os.path.join(lab.home, "ideas", "20261016-1402-own")
+    Q.jdump(os.path.join(d, "idea.json"), {
+        "id": "20261016-1402-own", "source": "own", "status": "open", "steps": 6, "events": [],
+        "proposal": {"name": "QL_TRENDN", "hypothesis": "h" * 40, "mechanism": _REAL_TRENDN,
+                     "prior_sharpe_yearly": 0.4, "trades_per_year": 120.0, "instrument": "NQ", "timeframe": "5m"},
+        "plugin": {"attempts": 1, "name": "QL_TRENDN", "sha": _REAL_TRENDN_SHA, "gates_ok": True,
+                   "gates_sha": _REAL_TRENDN_SHA}})
+    st = json.load(open(lab.state_path, encoding="utf-8"))
+    st.update(current_idea="20261016-1402-own", rotation_index=2)
+    Q.jdump(lab.state_path, st)
+    A = _arrays()
+    h = Harness(A, _intraday_trades(A))
+    chat = ScriptChat([("finish", {})])
+    args = argparse.Namespace(home=lab.home, plugin_repo=lab.plugin_repo, idea=None, source=None, think=False,
+                              no_beacon=True, max_steps=3, dry_run_validate=True, once=True, no_next_pick=True)
+    assert Q.run(args, chat=chat, session_kw=dict(poster=h.poster, sandbox=h.sandbox)) == 0
+    dup = json.load(open(os.path.join(d, "idea.json"), encoding="utf-8"))
+    st = json.load(open(lab.state_path, encoding="utf-8"))
+    assert dup["status"] == "closed" and dup["outcome"] == "CLOSED AS DUPLICATE of 20261016-1342-own (same plugin sha)"
+    assert dup["steps"] == 6 and dup["duplicate_of"]["sha"] == _REAL_TRENDN_SHA      # no model turn, no Stage A
+    assert [(x["id"], x["duplicate_of"]) for x in st["aborted_ideas"]] == [("20261016-1402-own", "20261016-1342-own")]
+    assert "20261016-1402-own" not in [x["id"] for x in st["done_ideas"]]
+    assert h.posts[0].startswith("QWEN LAB: QL_TRENDN (Qwen's own idea) - CLOSED AS DUPLICATE of 20261016-1342-own "
+                                 "(same plugin sha), plugin LF sha256 dbc02a2e11c364dc: NOT run")
+    # then a FRESH idea (rotation index 2: the shelf - none open - so the scalper ask); its first turn is a new prompt
+    assert len(chat.seen) == 1 and chat.seen[0][1]["content"].startswith("TODAY'S SOURCE - THE OWNER'S SCALPER ASK")
+    assert st["done_ideas"][-1]["source"] == "scalper" and st["current_idea"] is None
+    assert [(r["name"], r["runs"]) for r in Q.ran_ideas(Q.Lab(home=lab.home))] == [("QL_TRENDN", 1)]
+
+
+def test_the_same_rule_text_is_refused_at_propose_and_closes_a_resumed_idea(tmp_path):
+    short = "Buy the 10:30 bar; sell at 15:55."            # 5 content words: under the near-copy check's 6-word floor
+    lab = _ran_lab(tmp_path, [("r1", "own", "done", "QL_SHORTRULE", short, "PRE-WF DONE - not promoted (x)")])
+    s = Q.IdeaSession(lab, {"id": "t-rule", "source": "own"}, dead_rows_fn=lambda: [])
+    r = s.t_propose("QL_OTHERNAME", "A hypothesis about the late session that is long enough.",
+                    "BUY the 10:30 bar -  sell at 15:55!", 0.4, 120, "NQ", "5m", **C0)
+    assert r["accepted"] is False and r["matches"][0]["why"] == "rule" and "idea r1" in r["matches"][0]["detail"]
+    assert s.idea["proposals"] == []                                             # no slot used
+    for iid, name, mech, why in (("o1", "QL_OTHER2", short.upper(), "same rule"),
+                                 ("o2", "QL_SHORTRULE_V2", "A different rule entirely about gaps.", "same name")):
+        dup = Q.resume_duplicate(lab, {"id": iid, "source": "own", "proposal": {"name": name, "mechanism": mech}})
+        assert dup and (dup["why"], dup["of"]) == (why, "r1"), (iid, dup)
+    assert Q.resume_duplicate(lab, {"id": "o3", "proposal": {"name": "QL_NEW", "mechanism": "Something new here."}}) \
+        is None and Q.resume_duplicate(lab, {"id": "o4"}) is None
+    # a run that was no verdict (a BROKEN PLUGIN) leaves its rule open to a retry under a new name
+    lab2 = _ran_lab(tmp_path / "b", [("b1", "own", "done", "QL_SHORTRULE", short,
+                                      "BROKEN PLUGIN (3 trades; retries 2/2 still broken) - x")])
+    assert Q.resume_duplicate(lab2, {"id": "o5", "proposal": {"name": "QL_OTHER2", "mechanism": short}}) is None
+    # a duplicate whose run died before its row is recorded as aborted on recovery - never as a done idea
+    idea = {"id": "o1", "source": "own", "status": "closed", "proposal": {"name": "QL_OTHER2", "mechanism": short},
+            "outcome": "CLOSED AS DUPLICATE of r1 (same rule)", "duplicate_of": {"of": "r1"}}
+    Q.record_done(lab, idea, lambda t: 1)
+    assert [x["id"] for x in lab.state["aborted_ideas"]] == ["o1"] and [x["id"] for x in lab.state["done_ideas"]] == ["r1"]
+
+
+# ---- 3. a shelf paper closes only after a SANE Stage A (MANAGER #153b)
+def test_a_shelf_paper_stays_open_after_a_broken_plugin_and_an_old_closure_is_undone(tmp_path):
+    A = _arrays()
+    h = SeqHarness(A, _intraday_trades(A), [_few(2), _few(2), _few(1)])
+    lab, s = _session(tmp_path, h)
+    s.idea.update(source="shelf", shelf_n=31)
+    _propose_and_write(s)
+    s.t_run_stage_a("QL_TURNPT_NQ")
+    for k in (1, 2):
+        assert "31" not in lab.state["closed_shelf"]
+        assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# try %d\n" % k)["passed"]
+        s.t_run_stage_a("QL_TURNPT_NQ")
+    assert s.idea["outcome"].startswith("BROKEN PLUGIN (1 trade; retries 2/2 still broken)")
+    assert "31" not in lab.state["closed_shelf"]                                    # (a sane run closes it - above)
+    # the live shelf #34 (QL_TOM_CALENDAR_NQ, BROKEN PLUGIN 10-16) was closed by the older harness: undone on load
+    home = tmp_path / "live"
+    home.mkdir()
+    (home / "state.json").write_text(json.dumps({
+        "created": "2026-10-15 10:28:34", "current_idea": None,
+        "done_ideas": [{"id": "20261015-1438-shelf34", "shelf_n": 34,
+                        "outcome": "BROKEN PLUGIN (3 trades) - the model finished without a fix"},
+                       {"id": "20261016-1741-shelf34", "shelf_n": 34, "outcome": "FINISHED BY THE MODEL before Stage A"},
+                       {"id": "x-shelf35", "shelf_n": 35, "outcome": "REFUSED by the dead list at Stage A: x"},
+                       {"id": "x-shelf36", "shelf_n": 36, "outcome": "PRE-WF DONE - not promoted (x)"}],
+        "closed_shelf": {"8": {"at": "2026-10-15 10:28:34", "idea": None, "why": "seeded"},
+                         "34": {"at": "2026-10-15 14:52:43", "idea": "20261015-1438-shelf34",
+                                "why": "the lab ran a PRE-WF Stage A on it"}}}), encoding="utf-8")
+    (home / Q.SHELF_OPEN_FILE).write_text("2026-10-15 13:50:57 34\n", encoding="utf-8")
+    live = Q.Lab(home=str(home), plugin_repo=str(tmp_path / "repo"))
+    assert "34" not in live.state["closed_shelf"] and {"8", "30", "36"} <= set(live.state["closed_shelf"])
+    assert "35" not in live.state["closed_shelf"]               # the seed takes only runs that reached a sane Stage A
+    assert live.open_shelf_numbers() == [34]
+    u = live.state["shelf_closures_undone"][0]
+    assert u["n"] == 34 and u["idea"] == "20261015-1438-shelf34" and "MANAGER #153b" in u["undone_why"]
+
+
+# ---- 4. the sanity loop: visible and enforced (MANAGER #153a, TTM #155)
+def test_an_identical_plugin_is_never_a_fix_retry_and_every_real_retry_is_preregistered(tmp_path):
+    A = _arrays()
+    h = SeqHarness(A, _intraday_trades(A), [_few(3), _few(2), _pre_trades(True)])
+    lab, s = _session(tmp_path, h)
+    _propose_and_write(s)
+    assert s.t_run_stage_a("QL_TURNPT_NQ")["fix_retries_left"] == 2
+    n_calls, att = len(h.calls), s.idea["plugin"]["attempts"]
+    for _ in range(4):                                  # QL_TOM_CALENDAR_NQ re-sent its plugin 8 times (same sha)
+        r = s.dispatch("write_plugin", {"name": "QL_TURNPT_NQ", "code": Q.TEMPLATE_PLUGIN})
+        assert "byte-identical" in r["refused"] and "NO fix" in r["refused"] and "never counts as a retry" in r["refused"]
+        assert "unchanged" in s.dispatch("run_stage_a", {"name": "QL_TURNPT_NQ"})["refused"]
+    assert s.idea["plugin"]["attempts"] == att and len(h.calls) == n_calls          # no attempt, no gate, no Stage A
+    assert len(s.idea["sanity"]) == 1 and len(h.posts) == 1                          # no retry counted, no addendum
+    assert [e["event"] for e in s.idea["events"]].count("identical_sha_refused") == 8
+    assert open(lab.log_path, encoding="utf-8").read().count("REFUSED: ") >= 8      # visible in run.log
+    assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# fix 1\n")["passed"]
+    assert s.t_run_stage_a("QL_TURNPT_NQ")["fix_retries_left"] == 1                   # retry 1: still broken
+    assert h.posts[1].startswith("QWEN LAB: PREREG ADDENDUM 1")                      # posted BEFORE that re-run
+    with pytest.raises(Q.ToolRefused, match="byte-identical"):                       # back to the first file: refused
+        s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
+    assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# fix 2\n")["passed"]
+    r = s.t_run_stage_a("QL_TURNPT_NQ")
+    assert r["ran"] and h.posts[2].startswith("QWEN LAB: PREREG ADDENDUM 2")
+    assert h.posts[3].startswith("QWEN LAB: QL_TURNPT_NQ PRE-WF") and "broken-plugin fix retries 2/2" in h.posts[3]
+    assert Q.retries_text(s.idea) == "retries 2/2"
+
+
+class _RateHarness(Harness):
+    """The contract smoke counts `tpy` trades a year (the 10-15 QL_TOM_CALENDAR_NQ: 2.0 against a stated 36)."""
+    tpy = 25.0
+
+    def sandbox(self, mode, path, sha, req, workdir, timeout=None, label=None):
+        r = super().sandbox(mode, path, sha, req, workdir, timeout, label)
+        if mode == "contract":
+            r["smoke"] = {"trades": int(self.tpy * 1.49), "years": 1.49, "trades_per_year": self.tpy}
+        return r
+
+
+def test_the_contract_smoke_rate_is_held_within_3x_of_the_stated_prior(tmp_path):
+    idea = {"source": "shelf", "proposal": {"name": "QL_TOM_X", "hypothesis": "h", "mechanism": "m",
+                                            "trades_per_year": 36}}
+    r = Q.smoke_rate_check({"trades": 3, "trades_per_year": 2.0}, idea)
+    assert r["hard"].startswith("3 trades on the contract smoke 2015-01-02..2016-06-30 (2.0/yr): more than 3x below "
+                                "the stated 36/yr") and r["ratio"] == 0.06
+    assert Q.smoke_rate_check({"trades": 54, "trades_per_year": 36.2}, idea) == {
+        "stated_per_year": 36.0, "smoke_per_year": 36.2, "hard": None, "flag": None, "ratio": 1.01}
+    f = Q.smoke_rate_check({"trades": 300, "trades_per_year": 200.0}, idea)
+    assert f["hard"] is None and "more than 3x the stated 36/yr" in f["flag"]
+    scalp = dict(idea, source="scalper", proposal=dict(idea["proposal"], trades_per_year=90))
+    assert "under 100 a year for a scalp idea" in Q.smoke_rate_check({"trades": 120, "trades_per_year": 80.0}, scalp)[
+        "hard"]
+    # write_plugin: a hard failure before any look-ahead run or prereg; an honest re-proposal passes the SAME file
+    A = _arrays()
+    h = _RateHarness(A, _intraday_trades(A))
+    lab, s = _session(tmp_path, h)
+    _propose = functools.partial(s.t_propose, "QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark "
+                                 "turning points in NQ.", "Trade NQ open to close in the direction both trend speeds "
+                                 "agree on.", 0.6)
+    assert _propose(150, "NQ", "5m", **C0)["accepted"]
+    w = s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
+    assert not w["passed"] and w["gate"] == "contract (trade rate - TTM #155)" and "more than 3x below" in w["problems"][0]
+    assert ("sandbox", "lookahead") not in h.calls and not s.idea["plugin"].get("gates_ok")
+    with pytest.raises(Q.ToolRefused, match="IDENTICAL to attempt 1, which failed the contract \\(trade rate"):
+        s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
+    assert _propose(30, "NQ", "5m", **C0)["accepted"]                       # the rule really trades ~25 a year
+    w = s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
+    assert w["passed"] and s.idea["gates"]["rate_check"]["ratio"] == 0.83
+
+
+# ---- 5. one-episode NOT TESTABLE (MANAGER #160a)
+def test_one_episode_is_not_testable_on_one_episode_or_a_curve_without_a_new_high():
+    A = _arrays("2016-07-01", "2017-06-30")
+    did = A["day_id"]
+    first = {d: int(np.flatnonzero(did == d)[0]) for d in np.unique(did)}
+    last = {d: int(np.flatnonzero(did == d)[-1]) for d in np.unique(did)}
+
+    def tr(d, pnl):
+        return (first[d], last[d], float(pnl), 1, float(A["open"][first[d]]))
+    loser = [tr(d, -1.0) for d in sorted(first)[::3]]                   # the NOISE2M scalper shape: one long slide
+    nm = Q.four_numbers(loser, A, 20.0, cost_pts=0.783)
+    assert nm["one_episode"] == "NOT TESTABLE" and "never makes a new high" in nm["one_episode_why"]
+    assert "(n=1 one-episode NOT TESTABLE)" in Q.fmt_four(nm) and " 1 EPISODE" not in Q.fmt_four(nm)
+    assert "one-episode NOT TESTABLE" in Q.promotion_bar(nm)[1] and "one-episode NOT TESTABLE" in Q.validate_bar(nm)[1]
+    days = sorted(first)
+    dip = [tr(days[2], 5.0), tr(days[5], -3.0), tr(days[8], -3.0), tr(days[12], 10.0)]      # one dip, then a new high
+    nm = Q.four_numbers(dip, A, 20.0)
+    assert (nm["dd5_n"], nm["one_episode"], nm["one_episode_why"]) == (1, "NOT TESTABLE", "DD5 is built from 1 episode")
+    assert json.loads(json.dumps(nm))["one_episode"] == "NOT TESTABLE"                # the numbers JSON carries it
+    nm = Q.four_numbers(_intraday_trades(A), A, 20.0)                     # several episodes: the house flag
+    assert nm["one_episode"] in (True, False) and nm["dd5_n"] >= 2 and "one_episode_why" not in nm
+
+
+# ---- 6. the entry fill and the time-stop bar count (MANAGER #160b / #162)
+@pytest.mark.parametrize("value,expect", [
+    ({"at": "open", "bar": -1}, ("open", None)), ({"at": "Close"}, ("close", None)),
+    ('{"at": "stop", "bar": 13, "clock": "10:35"}', ("level", 13)), ("bar 13 (10:35 open), open", ("open", 13)),
+    ("close", ("close", None)), ({"price": "limit", "bar": None}, ("level", None)),
+])
+def test_parse_entry_fill(value, expect):
+    got = Q.parse_entry_fill(value, "5m")
+    assert (got["at"], got["bar"]) == expect
+    assert Q.entry_fill_label(got).startswith({"open": "the OPEN of", "close": "the CLOSE of",
+                                               "level": "a stop / limit LEVEL inside"}[expect[0]])
+
+
+@pytest.mark.parametrize("value,first,match", [
+    (None, None, "entry_fill is required"), ({"at": "mid"}, None, "must be 'open', 'close' or 'level'"),
+    ({"at": "open", "bar": 13, "clock": "10:30"}, None, "disagree: on 5m bars, bar 13 OPENS at 10:35"),
+    ({"at": "open", "bar": 5}, 7, "before first_signal_bar 7"), ({"at": "open", "bar": 78}, None, "outside the session"),
+])
+def test_parse_entry_fill_refuses(value, first, match):
+    with pytest.raises(Q.ToolRefused, match=match):
+        Q.parse_entry_fill(value, "5m", first)
+
+
+def test_parse_time_stop_has_one_convention():
+    assert Q.parse_time_stop(12, "5m") == 12 and Q.parse_time_stop("none", "5m") == 0 and Q.parse_time_stop(0, "1m") == 0
+    for bad, match in ((None, "time_stop_bars is required"), (2.5, "whole number"), (78, "outside 0..77")):
+        with pytest.raises(Q.ToolRefused, match=match):
+            Q.parse_time_stop(bad, "5m")
+    assert Q.time_stop_label(6) == "6 bars: exit at the CLOSE of entry bar + 6 (exit_bar - entry_bar = 6)"
+    spec = next(t for t in Q.TOOLS if t["name"] == "propose")["parameters"]
+    assert {"entry_fill", "time_stop_bars"} <= set(spec["required"])
+
+
+def test_entry_fill_and_time_stop_violations_read_the_realised_trades():
+    A = _eb_bars()                                                   # 40 synthetic sessions of 30 5m bars from 09:30
+    O, C = np.asarray(A["open"]), np.asarray(A["close"])
+    did = A["day_id"]
+    starts = np.flatnonzero(np.r_[True, did[1:] != did[:-1]])
+    a = int(starts[3])
+    t_open, t_close = (a + 4, a + 10, 1.0, 1, float(O[a + 4])), (a + 4, a + 10, 1.0, 1, float(C[a + 4]))
+    v = Q.entry_fill_violations([t_open, t_close], A, {"at": "open", "bar": None}, "5m")
+    assert v["n"] == 1 and v["examples"][0]["why"].endswith("- it is the bar's CLOSE")
+    v = Q.entry_fill_violations([t_open, t_close], A, {"at": "close", "bar": None}, "5m")
+    assert v["n"] == 1 and v["examples"][0]["why"].endswith("- it is the bar's OPEN")
+    v = Q.entry_fill_violations([t_open], A, {"at": "open", "bar": 5}, "5m")
+    assert v["n"] == 1 and "filled on session bar 4, not the stated bar 5" in v["examples"][0]["why"]
+    assert Q.entry_fill_violations([t_open], A, {"at": "open", "bar": 4}, "5m")["n"] == 0
+    assert Q.entry_fill_violations([t_close], A, {"at": "level", "bar": None}, "5m")["n"] == 0
+
+    def tr(e, x, at_close=True):                                     # long, entry at e's open, exit at x's close / open
+        return (int(e), int(x), float((C[x] if at_close else O[x]) - O[e]), 1, float(O[e]))
+    six = [tr(s + 4, s + 10) for s in starts[:8]]                     # 'exit at the close of entry bar + 6'
+    v = Q.time_stop_violations(six, A, 6)
+    assert (v["n"], v["at_time_stop"], v["held_past"]) == (0, 8, 0)
+    v = Q.time_stop_violations(six, A, 5)
+    assert v["held_past"] == 8 and "past the stated time stop of 5" in v["examples"][0]["why"]
+    v = Q.time_stop_violations(six, A, 7)                              # the entry bar counted as bar 1: one bar early
+    assert v["n"] == 1 and v["pattern"][0].startswith("8 of 8 trades exit at the CLOSE of entry bar + 6 and none at "
+                                                       "entry bar + 7")
+    v = Q.time_stop_violations([tr(s + 4, s + 10, False) for s in starts[:8]], A, 6)
+    assert v["n"] == 1 and "exit at the OPEN of entry bar + 6 and none at its close" in v["pattern"][0]
+    session_end = [tr(s + 4, s + 29) for s in starts[:4]]              # flat at the session's last bar: hold < N
+    assert Q.time_stop_violations(session_end, A, 40)["n"] == 0
+    assert Q.time_stop_violations(six, A, 0)["n"] == 0                  # no time stop: nothing to check
+
+
+class _FillHarness(Harness):
+    def sandbox(self, mode, path, sha, req, workdir, timeout=None, label=None):
+        if mode == "contract":
+            self.calls.append(("sandbox", mode))
+            return {"ok": False, "warnings": [], "problems": ["ENTRY-FILL CONTRACT (MANAGER #160b/#162): ..."],
+                    "entry_fill": {"at": "close", "bar": None, "checked": 9, "n": 9},
+                    "entry_fill_violations": [{"entry_bar": 5, "session_bar": 5, "time": "2015-01-02 09:55",
+                                               "price": 1.0, "bar_open": 1.0, "bar_close": 2.0,
+                                               "why": "filled at 1.0000, not the bar's CLOSE 2.0000 - it is the bar's "
+                                                      "OPEN"}],
+                    "time_stop_violations": [], "time_stop_patterns": ["8 of 8 trades exit at the CLOSE of ..."]}
+        return super().sandbox(mode, path, sha, req, workdir, timeout, label)
+
+
+def test_an_entry_fill_or_time_stop_violation_goes_back_to_qwen_with_the_trades(tmp_path):
+    A = _arrays()
+    h = _FillHarness(A, _intraday_trades(A))
+    lab, s = _session(tmp_path, h)
+    s.t_propose("QL_TURNPT_NQ", "Slow and fast trend signals that disagree mark turning points in NQ.",
+                "Decide on bar k's close, fill at that close; exit at the close of entry bar + 7.", 0.6, 150, "NQ", "5m",
+                first_signal_bar=FSB0, entry_fill={"at": "close", "bar": -1}, time_stop_bars=7)
+    pr = s.idea["proposal"]
+    assert pr["entry_fill"] == {"at": "close", "bar": None, "clock": None, "label": None} and pr["time_stop_bars"] == 7
+    w = s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
+    assert not w["passed"] and w["gate"] == "contract" and w["offending_entry_fills"][0]["bar_close"] == 2.0
+    assert "the CLOSE of the fill bar" in w["how_to_fix"][0] and "exit_bar - entry_bar == N" in w["how_to_fix"][1]
+    assert w["time_stop_patterns"] and ("sandbox", "lookahead") not in h.calls
+    req = json.load(open(os.path.join(s.dir, "sandbox_contract_v1_req.json"), encoding="utf-8")) \
+        if os.path.exists(os.path.join(s.dir, "sandbox_contract_v1_req.json")) else None
+    assert req is None                                               # (the stub never writes one; the real one does)
+
+
+# the template with a fixed time stop: exit at the CLOSE of entry bar + 6 (after the stop checks)
+_TS6 = ("                if side < 0 and h[j] >= stop:\n"
+        "                    x, px = j, (o[j] if o[j] > stop else stop)\n"
+        "                    break\n",
+        "                if side < 0 and h[j] >= stop:\n"
+        "                    x, px = j, (o[j] if o[j] > stop else stop)\n"
+        "                    break\n"
+        "                if j - e >= 6:\n"
+        "                    x, px = j, c[j]\n"
+        "                    break\n")
+
+
+@needs_shared
+def test_sandbox_contract_checks_the_entry_fill_and_the_time_stop_on_real_bars(tmp_path):
+    code = Q.TEMPLATE_PLUGIN.replace(*_TS6)
+    assert code != Q.TEMPLATE_PLUGIN and Q.safety_gate(code)[0]
+    base = dict(instrument="NQ", timeframe="5m", source="db_noadj_rth", session="rth",
+                master_filename="NOADJ_NQ_5m_RTH.csv", cost_pts=0.533, mult=20.0, smoke_to=Q.SMOKE_TO)
+    r = _sb(tmp_path, "contract", code, entry_fill={"at": "open", "bar": None}, time_stop_bars=6, **base)
+    assert r["ok"], r
+    assert r["entry_fill"]["n"] == 0 and r["entry_fill"]["checked"] == r["smoke"]["trades"] > 100
+    assert r["time_stop"]["n"] == 0 and r["time_stop"]["at_time_stop"] > 50 and r["time_stop"]["held_past"] == 0
+    r = _sb(tmp_path, "contract", code, entry_fill={"at": "close", "bar": None}, time_stop_bars=5, **base)
+    assert not r["ok"] and r["entry_fill"]["n"] >= 0.9 * r["entry_fill"]["checked"] and r["time_stop"]["held_past"] > 50
+    assert any(p.startswith("ENTRY-FILL CONTRACT (MANAGER #160b/#162)") for p in r["problems"])
+    assert any(p.startswith("TIME-STOP CONTRACT (MANAGER #160b/#162)") for p in r["problems"])
+    assert "it is the bar's OPEN" in r["entry_fill_violations"][0]["why"]
+    r = _sb(tmp_path, "contract", code, entry_fill={"at": "open", "bar": None}, time_stop_bars=7, **base)
+    assert not r["ok"] and "none at entry bar + 7" in r["time_stop_patterns"][0]
+
+
+# ---- 7. the look-ahead audit at every knob corner + exits booked at a later bar's open (TTM's MOMDRIVE note)
+def test_the_open_exit_phase_catches_a_chandelier_raised_with_a_later_bars_close():
+    A = _eb_bars()
+    amp = _eb_amp()[0]
+    for extreme, what in ((False, "close was moved to its"), (True, "was pulled in to")):
+        leaky = _chandelier_plugin(update_first=True, k=0.5, extreme=extreme)
+        full = Q._sb_direct(leaky, A, {}, None, 300)
+        later = [i for i in Q._sb_open_exit_cands(A, full) if full[i][1] > full[i][0]]
+        assert later                                                  # exits booked at a LATER bar's open
+        fails, n = Q._sb_open_exit_phase(leaky, A, {}, None, 300, full, amp, 6)
+        assert fails and "(filled at its OPEN" in fails[0] and what in fails[0] and n >= 1, (extreme, fails[:1])
+        assert Q.lookahead_hints(["LOOK-AHEAD (open exits): " + fails[0]])[0].startswith("the EXIT booked at bar")
+    for extreme in (False, True):                                       # the same stops raised AFTER the check pass
+        for k in (0.3, 0.5, 1.0, 2.0):
+            clean = _chandelier_plugin(update_first=False, k=k, extreme=extreme)
+            full = Q._sb_direct(clean, A, {}, None, 300)
+            cands = Q._sb_open_exit_cands(A, full)
+            assert cands and Q._sb_open_exit_phase(clean, A, {}, None, 300, full, amp, 1000) == ([], len(cands))
+    # a clean stop-first rule whose bar opened THROUGH its target: the adverse side is never widened, so no stop is hit
+    stop_first = _eb_plugin(stop=lambda o, h, l, c, v, e, s, x: x - s * 1.0 * _atr_before(h, l, e),
+                            target=lambda o, h, l, c, v, e, s, x: x + s * 0.4 * _atr_before(h, l, e))
+    full = Q._sb_direct(stop_first, A, {}, None, 300)
+    assert Q._sb_open_exit_cands(A, full) and not Q._sb_open_exit_phase(stop_first, A, {}, None, 300, full, amp, 6)[0]
+
+
+# the template with a third knob, a chandelier raised with bar j's close BEFORE its check (QL_MOMDRIVE's exit): at the
+# default trail_k 50 the stop is never reached (every exit is the session's last close - nothing to see), at the
+# searched min 0.25 it drags past bars' opens
+_CORNER_LEAK = [
+    ('    "stop_frac": {"default": 1.0, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Stop (x range)"},',
+     '    "stop_frac": {"default": 1.0, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Stop (x range)"},\n'
+     '    "trail_k": {"default": 50.0, "min": 0.25, "max": 50.0, "step": 0.25, "type": "float", "label": "Trail"},'),
+    ("                 range_bars=6, stop_frac=1.0,", "                 range_bars=6, stop_frac=1.0, trail_k=50.0,"),
+    ("            for j in range(e, b):\n                if side > 0 and l[j] <= stop:",
+     "            best = entry\n"
+     "            for j in range(e, b):\n"
+     "                best = max(best, c[j]) if side > 0 else min(best, c[j])\n"
+     "                stop = best - side * float(trail_k) * rng\n"
+     "                if side > 0 and l[j] <= stop:"),
+]
+
+
+@needs_shared
+def test_the_look_ahead_audit_runs_every_phase_at_the_knob_corners(tmp_path):
+    code = Q.TEMPLATE_PLUGIN
+    for old, new in _CORNER_LEAK:
+        assert old in code, old
+        code = code.replace(old, new)
+    assert Q.safety_gate(code)[0]
+    r = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ", corner_knobs=0)
+    assert r["ok"], r                                                   # the defaults alone hide it
+    r = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ")
+    assert not r["ok"]
+    rows = {(c["knob"], c["value"]): c for c in r["entry_bar_corners"]}
+    assert rows[("trail_k", 0.25)]["perturbed"] >= 1 and rows[("trail_k", 0.25)]["open_exits"] >= 1
+    assert any("at trail_k=0.25: " in p for p in r["problems"]), r["problems"]
+
+
+# ---- 8. the promotion rule, amended (MANAGER 10-16 15:45): gross / trade >= cost, net ROC > 0, one-episode False
+def test_gross_per_trade_against_the_cost_is_on_every_result_line(tmp_path):
+    A = _arrays()
+    tr = _intraday_trades(A)
+    nm = Q.four_numbers(tr, A, 20.0, cost_pts=0.533)
+    assert abs(nm["gross_pts_per_trade"] - (nm["net_pts_per_trade"] + 0.533)) < 1e-3 and nm["cost_pts"] == 0.533
+    assert nm["gross_cost_ratio"] == round(nm["gross_pts_per_trade"] / 0.533, 3)
+    assert ("| gross/trade %+.3f pt vs cost 0.533 pt (gross/cost %.2f)" % (nm["gross_pts_per_trade"],
+                                                                            nm["gross_cost_ratio"])) in Q.fmt_four(nm)
+    assert "gross/trade" not in Q.fmt_four(Q.four_numbers(tr, A, 20.0))             # no cost given: not invented
+    h = Harness(A, tr)
+    lab, s = _session(tmp_path, h)
+    _propose_and_write(s)
+    r = s.t_run_stage_a("QL_TURNPT_NQ")
+    st = s.idea["stage_pre_wf"]
+    js = json.load(open(st["numbers_json"], encoding="utf-8"))
+    assert js["numbers"]["cost_pts"] == 0.533 and js["numbers"]["gross_cost_ratio"] > 1.0
+    assert st["promotion"].startswith("PROMOTED: pre-WF gross/trade") and "net ROC@30k" in st["promotion"]
+    assert "vs cost 0.533 pt (gross/cost" in h.posts[1] and Q.PROMOTION_RULE in h.posts[1]
+    assert Q.PROMOTION_RULE in h.posts[0] and "ROC@30k >= 15 and not one episode" not in h.posts[0]
+    text = open(s.idea["prereg"]["path"], encoding="utf-8").read()
+    assert "- PROMOTION RULE: the WF Stage A runs only if pre-WF gross / trade >= the round-trip cost" in text
+    assert "gross / trade >= the round-trip cost" in Q.system_prompt()
+    assert "vs cost 0.533 pt" in Q.fmt_four(r["numbers"])                         # the WF stage too

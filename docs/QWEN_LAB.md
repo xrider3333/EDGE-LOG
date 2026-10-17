@@ -29,9 +29,14 @@ two lanes' closed work, so it must not loop on one source):
 2. **Qwen's own idea** - a new NQ / ES intraday mechanism, checked against `dead_list()` before `propose` (and by the
    harness at `propose` and again at Stage A).
 3. **a reading-shelf paper MANAGER opened** (`C:\EdgeLog\manager\papers\reading_shelf.html`). MANAGER #142: #30
-   was picked three times, so the shelf is now explicit. A paper the lab has run a PRE-WF Stage A on is CLOSED
+   was picked three times, so the shelf is now explicit. A paper the lab has run a SANE PRE-WF Stage A on is CLOSED
    (`closed_shelf` in `state.json`, seeded with 8, 30 and every shelf paper already run) and the picker never takes it
-   again. The shelf slot runs ONLY on papers MANAGER opens: `python tools/qwen_lab.py shelf-open 31 32` appends a dated
+   again. MANAGER #153b: the closure happens only AFTER the broken-plugin check passes - a `BROKEN PLUGIN` run (the
+   10-15 QL_TOM_CALENDAR_NQ on #34: 3 trades in six years) or a duplicate never closes the paper. A closure the older
+   harness made for a run that was not a verdict is UNDONE when the lab loads `state.json` (moved to
+   `shelf_closures_undone` with the reason; on the live state that re-opens #34, which MANAGER opened 10-15), and the
+   seed of "papers the lab already ran" takes only `done_ideas` rows that reached a sane PRE-WF Stage A (`PRE-WF DONE`
+   / `STAGE A DONE` - not a model that finished before Stage A, a dead-list refusal or a crash). The shelf slot runs ONLY on papers MANAGER opens: `python tools/qwen_lab.py shelf-open 31 32` appends a dated
    line to `C:\EdgeLog\qwen_lab\shelf_open.txt` (a line of bare numbers works too); the running lab reads it at its
    next pick, so there is no state.json race. An open overrides the skip list (2, 3, 6, 8, 10, 12-19, 21, 22, 26, 27,
    29), the shelf's live / dead marks and ledger citations; a paper re-opened after it was closed is open again. While
@@ -64,9 +69,9 @@ Qwen talks to the harness only through these tools:
 | `dead_list(query)` | the closed rows of `RESEARCH_LEDGER.md` section 2, compact |
 | `ideas()` | this session's source, its brief, the rotation, the open shelf papers, and every idea the lab already ran (name, families, one-line rule, verdict) with the mechanism-family map |
 | `shelf_ideas()` | the papers still open to the lab |
-| `propose(name, hypothesis, mechanism, prior_sharpe_yearly, trades_per_year, instrument, timeframe, first_signal_bar)` | recorded PRE-DATA; refuses an idea the lab already ran (MANAGER #148, no slot used) and runs the dead-list check; `first_signal_bar = {"index": k, "clock": "HH:MM"}` is REQUIRED (TTM #144); may be revised (3 proposals) until the map reads it inside `run_stage_a`, then frozen (the plugin freezes too once the prereg is posted) |
-| `write_plugin(name, code)` | safety gate, then written to `augur_strategies/qwen_lab/<name>.py` in the WORKTREE, then contract + look-ahead in the sandbox |
-| `run_stage_a(name)` | the dead-list gate, the power-first map (recorded, not a stop), the auto prereg naming both stages posted to MANAGER, the PRE-WF Stage A, and the WF Stage A only if promoted; returns the computed numbers. Refuses a proposal with no `first_signal_bar` (call `propose` again - a proposal the map or a prereg froze only records the bar, written into the prereg / its addendum) and a plugin gated by an older harness (`gates_version` < 2: `write_plugin` again) - an in-flight idea from before TTM #144/#145 never runs "not checked" |
+| `propose(name, hypothesis, mechanism, prior_sharpe_yearly, trades_per_year, instrument, timeframe, first_signal_bar, entry_fill, time_stop_bars)` | recorded PRE-DATA; refuses an idea the lab already ran (MANAGER #148/#158: same name, family, near-copy or the SAME normalised rule text - no slot used) and runs the dead-list check; the timing contract is REQUIRED: `first_signal_bar = {"index": k, "clock": "HH:MM"}` (TTM #144), `entry_fill = {"at": "open"/"close"/"level", "bar": k or -1, "clock": "HH:MM"}` and `time_stop_bars = N` (0 = none) (MANAGER #160b/#162); may be revised (3 proposals) until the map reads it inside `run_stage_a`, then frozen (the plugin freezes too once the prereg is posted) |
+| `write_plugin(name, code)` | safety gate, then the dedupe on the plugin's LF sha256 (a plugin byte-identical to one ANY run idea ran, or to the one THIS idea already ran, is refused without using an attempt - MANAGER #158/#162/#153a), then written to `augur_strategies/qwen_lab/<name>.py` in the WORKTREE, then contract (incl. the entry-fill, time-stop and trade-rate checks) + look-ahead in the sandbox |
+| `run_stage_a(name)` | the dead-list gate, the power-first map (recorded, not a stop), the auto prereg naming both stages posted to MANAGER, the PRE-WF Stage A, and the WF Stage A only if promoted; returns the computed numbers. Refuses a proposal missing any timing-contract field (call `propose` again - a proposal the map or a prereg froze only records the missing fields, written into the prereg / its addendum), a plugin gated by an older harness (`gates_version` < 3: `write_plugin` again) - an in-flight idea from before a gate never runs "not checked" - a plugin whose sha another run idea ran, and a broken-plugin "retry" whose sha this idea already ran |
 | `queue_validate(name)` | the 900-trial Auto-Validate, only past the bar |
 | `finish(note)` | ends the session (the note is stored, never posted) |
 
@@ -81,7 +86,10 @@ backtest): gates 1-5 are HARD; the power-first map (6) is recorded and posted bu
 that passes 1-5 gets the PRE-WF Stage A.
 
 1. **Safety gate** (AST, before the code is written, imported or run). Imports: `numpy`, `pandas`, `math`,
-   `from augur_engine.rolls import seam_days` only. Refused: `open`, `exec`, `eval`, `compile`, `__import__`,
+   `from augur_engine.rolls import seam_days` and `from augur_engine.session_calendar import <name>` (by name only:
+   `session_calendar`, `session_dates`, `session_index_in_month`, `days_to_month_end`, `is_last_n_sessions_of_month`,
+   `is_first_n_sessions_of_month`, `week_of_month`, `exchange_sessions`, `is_exchange_session` - see "Dates and the
+   session calendar" below) only. Refused: `open`, `exec`, `eval`, `compile`, `__import__`,
    `globals` / `locals` / `vars`, `getattr` / `setattr` / `hasattr`, `print`, `type`, classes, `global`, attribute
    assignment (no monkeypatching numpy), any dunder or leading-underscore attribute, `'__'` in any string, bytes,
    module-level code other than imports / constants / functions, and the I/O surface of numpy / pandas (`np.load`,
@@ -115,6 +123,23 @@ that passes 1-5 gets the PRE-WF Stage A.
    EVERY entry again before any verdict: a violation there is not a verdict - the plugin goes back to Qwen like a
    broken plugin (same 2 fix retries, an ADDENDUM posted before each re-run; still violating -> `BROKEN PLUGIN
    (first-signal-bar contract: n entries before bar k)`). The prereg and its MANAGER post name the first entry bar.
+   **Entry fill and time stop (MANAGER #160b / #162).** QL_TRENDN's text said 'time stop 12 bars' and the code held
+   11 (it counted the entry bar as bar 1). So the proposal also states `entry_fill` - the price point of every entry
+   (`{"at": "open", "bar": -1}` = the OPEN of the fill bar, bar -1 when the bar varies with the signal; `"close"`; or
+   `"level"` for a stop / limit price inside the bar; a fixed `bar` k with its `clock`, checked by `parse_entry_fill`)
+   - and `time_stop_bars` N with ONE convention: **exit at the CLOSE of entry bar + N, so exit_bar - entry_bar = N**
+   (0 = no time stop). The smoke checks every entry against it (`entry_fill_violations`: 'open' = the entry price is
+   its bar's open, 'close' = its close, a fixed bar = that in-session bar by the clock) and every exit against the time
+   stop (`time_stop_violations`: a trade held MORE than N bars; the two off-by-one shapes read from the realised exits -
+   no exit at entry bar + N's close while >= 3 and >= 20% exit at entry bar + N-1's close inside the session, or >= 3
+   exit at entry bar + N's OPEN; the exit price is rebuilt from the entry price and the gross points, the engine's P&L
+   plus the cost it charged). A violation is a HARD contract failure: Qwen gets the offending trades
+   (`offending_entry_fills` / `offending_time_stops` / `time_stop_patterns`) and a `how_to_fix`.
+   **Trade-rate check (TTM #155, MANAGER #153a).** QL_TOM_CALENDAR_NQ stated 36 trades a year and its plugin made 2.
+   The smoke's trade COUNT a year (`smoke_rate_check`) must be within 3x of the stated prior: more than 3x below it
+   (or under 100 a year for a scalp idea) is a HARD failure at `write_plugin` - gate `contract (trade rate - TTM
+   #155)`, before the look-ahead run and before any prereg; Qwen fixes the plugin or re-proposes an honest rate (the
+   same file then passes). More than 3x ABOVE is flagged in the result and the prereg.
 4. **Look-ahead** (sandbox): `tools/exec_feasibility_audit.py`'s file checks on the one file (hidden-knob sweep,
    fabricated metrics, gap-through stops, known leak knobs), then a **perturbation audit** on real PRE-walk-forward
    bars (2015-01-02..2016-06-30; 1m: 2015-07-01..2016-06-30): for 8 sampled trades, everything that did not exist at the
@@ -168,7 +193,23 @@ that passes 1-5 gets the PRE-WF Stage A.
    the update after the check passes. It passes QL_MTP_NQ, QL_SCALP2M, QL_GAMMA_MOM, QL_VWAPREVERT_NQ v2, QL_GAMMA_ORB,
    QL_TRENDN and QL_NOISE2M_TREND at the defaults and at every knob corner, and QL_TOM_CALENDAR_NQ v8 (no level on the
    entry bar: inconclusive, with the warning). The look-ahead sandbox timeout is 2400 s (QL_NOISE2M_TREND on 2m bars
-   took 508 s on a busy machine with the corner pass). Plus
+   took 508 s on a busy machine with the corner pass).
+   **Exits booked at a later bar's open (fix round 3, TTM's MOMDRIVE note).** An exit filled at bar j's OPEN (j after
+   the entry bar) may not depend on what bar j did after its open. For up to 6 such trades (spread through the
+   candidates; bar j not a doji) bar j is PULLED IN, never widened - its close moved to its adverse extreme (a long's
+   low), then its favourable extreme pulled in to max / min(open, close); open, adverse extreme, volume and later bars
+   unchanged - and the trade must still exit at bar j's open with the same P&L (`_sb_open_exit_phase`). A chandelier
+   raised with bar j's close or high BEFORE bar j is checked, then booked at the open as a 'gap-through', moves; a
+   stop-first rule whose bar opened through its target does not (a first, one-way re-draw that WIDENED the bar failed
+   the clean stop-first template, so the adverse side is never extended).
+   **Every phase at the knob corners (fix round 3).** Fill realism, the perturbation phases, the open-exit phase and
+   the entry-bar phase all run again at each ranged numeric knob's min and max (`_sb_corner_audit`: up to 4 knobs; 2
+   perturbed trades, 2 open exits, 2 entry-bar trades each) - a leak the default hides (a trail knob whose default
+   never reaches the stop) is a hard failure "LOOK-AHEAD at the knob values the Auto-Validate searches ... at
+   trail_k=0.25: ...". Re-checked 10-16 (fix round 3) on copies of the lab's 10 gated plugins on real pre-WF bars, the
+   request `write_plugin` builds: QL_MTP_NQ, QL_SCALP2M, QL_GAMMA_MOM, QL_VWAPREVERT_NQ v2, QL_GAMMA_ORB, QL_TRENDN and
+   QL_NOISE2M_TREND pass at the defaults and every corner (QL_NOISE2M_TREND 399 s), QL_TOM_CALENDAR_NQ v8 passes
+   inconclusive (warning), QL_ES_MOMBREAK v4 and QL_MOMDRIVE still fail. Plus
    **fill realism**: every entry and exit price must sit inside its bar's range (a stop on a bar that
    opened through it must book the open; P&L must be side x (exit - entry)). `tools/gate_lookahead_audit.py` audits the
    ML gate's feature matrix; a Qwen plugin has no ML gate, so it does not apply. The tests prove the audit catches four
@@ -200,6 +241,20 @@ that passes 1-5 gets the PRE-WF Stage A.
      words (0.27), which no word count can catch without refusing distinct ideas - the family map catches it. Review
      round 3: on the whole text, an inside-bar breakout that copied QL_MOMDRIVE's chandelier-stop sentence was refused
      at 69%; on the signal it is 0.25.
+   - the SAME normalised rule text (`norm_rule`: case, punctuation and spacing out) as a run idea's mechanism - a
+     short rule under the near-copy check's 6-word floor is still caught (MANAGER #158).
+
+   **The plugin sha and RESUME (MANAGER #158 / #162).** 10-16 14:02: 20261016-1402-own re-proposed QL_TRENDN and gated
+   the SAME plugin (LF sha256 `dbc02a2e...`) that 20261016-1342-own had run; the lab stopped at 14:09 with it open. Now
+   `ran_ideas` records every plugin sha a run idea ran (its prereg, its addenda, its broken-plugin retries -
+   `idea_ran_shas`), and `write_plugin` and `run_stage_a` refuse a plugin whose sha matches one before any Stage A
+   ("the lab never runs the same plugin twice"). On RESUME (`run` picking up an open idea, the live lab's first step)
+   `resume_duplicate` checks the open idea's plugin sha, then its normalised rule, then its name, against the run
+   ideas: a match closes it `CLOSED AS DUPLICATE of <id> (same plugin sha | same rule | same name)` WITHOUT a run or a
+   model turn (`close_duplicate`: event, a MANAGER post `QWEN LAB: <name> (<source>) - CLOSED AS DUPLICATE ...: NOT
+   run`), records it in `aborted_ideas` - never in `done_ideas` - and the lab picks a fresh idea. Replayed 10-16 on a
+   COPY of `C:\EdgeLog\qwen_lab`: 20261016-1402-own closes as a duplicate of 20261016-1342-own on the first step, the
+   #34 closure is undone, and the next pick is shelf #34.
 
    The NAME check covers every run idea. The family and overlap checks skip a run that was NOT a verdict on the idea -
    a `BROKEN PLUGIN` or an operator `ABORTED` run (MANAGER #139: a broken plugin is a bug) - and, for a session on a
@@ -245,12 +300,15 @@ that passes 1-5 gets the PRE-WF Stage A.
    are refused at `propose`.
 7. **Auto prereg** - `C:\EdgeLog\qwen_lab\preregs\<name>_<date>.md`, naming BOTH stages: the source, Qwen's
    hypothesis and mechanism verbatim, the bar-index convention, the timing contract (the first entry bar as
-   `bar k (HH:MM open)` and what Python checks it on), the prior, the map read (marked "recorded, not a stop"), the
+   `bar k (HH:MM open)`, the entry fill, the time stop with its convention, and what Python checked each on), the
+   smoke trade rate against the stated rate, the dates the plugin reads (the session-calendar module's path and LF
+   sha256), the prior, the map read (marked "recorded, not a stop"), the
    dead-list read, the dedupe read (the result `propose` STORED, plus a re-check at prereg time), the
    gates passed with their version - and every check that did not run is written "NOT checked" (review round 3: a
    resumed pre-change idea's prereg claimed "none matched" and the first-signal-bar / entry-bar checks it never had;
    the MANAGER post says "first entry not stated - not checked" the same way) - the pinned master by filename with
-   the PRE-WF slice's fingerprint, both windows, the promotion rule,
+   the PRE-WF slice's fingerprint, both windows, the promotion rule (`PROMOTION RULE: ...`), the broken-plugin rule
+   with its retries (`retries k/2`) and the shelf-closes-only-after-a-sane-run line,
    the cost, the reading rules, a line that no walk-forward bar was read before it (gates 3-4 ran on pre-walk-forward
    bars), and the LF sha256 of the plugin and of `tools/qwen_lab.py`. Posted to MANAGER (`chat_inbox.py post MANAGER
    --from QWEN-LAB`; MANAGER's inbox exists so no `--new`; the sender has no inbox, so posts say "Replies ->
@@ -271,6 +329,36 @@ whether it fills at a bar's OPEN or at its CLOSE ("decide on bar 11's close (10:
 open)"); the trade list records the FILL bar. `propose` returns a soft `bar_convention` note when the text names a bar
 without its clock or with a clock that is not that bar's open (`bar_convention_notes`; never a refusal), and the
 template plugin's comments use the same convention.
+
+## Dates and the session calendar (MANAGER #156)
+
+QL_TOM_CALENDAR_NQ (shelf #34, 10-15) had only `day_id`, a bare session NUMBER, so it counted 21-session blocks from
+the load start and traded 3 times in six years. The engine already hands a plugin the bar timestamps when its
+`run_backtest` DECLARES `index=None` (engine.py / auto.py / optimize.py / rolls.py: each bar's OPEN time, US/Eastern on
+the house masters) - REAL dates, causal (a bar's own date). New `augur_engine/session_calendar.py` (pure numpy /
+pandas) turns `index` (+ `day_id`) into calendar facts, one value per BAR, equal on every bar of a session:
+`session_dates`, `session_index_in_month` (0 = the month's first session), `days_to_month_end` (sessions LEFT after
+this one; 0 = the last), `is_last_n_sessions_of_month(index, n, day_id)`, `is_first_n_sessions_of_month`,
+`week_of_month` (1 + (day - 1) // 7: a third Friday is always week 3), and `session_calendar` (all of them plus year /
+month / day / weekday / sessions_in_month).
+
+**The future calendar.** "Is today one of the last 3 sessions of the month?" needs the sessions AFTER today. That is
+the exchange's published trading calendar, known in advance - not a price - so reading it is not look-ahead. Inside the
+loaded span the calendar is the data's OWN session dates (what the plugin can trade); past either end (a load that
+starts or ends mid-month) it is extended with the CME equity-index regular-hours calendar (`exchange_sessions`: every
+weekday except New Year's Day, Good Friday and Christmas - as observed - and the special full closures; MLK,
+Presidents, Memorial, Juneteenth, July 4, Labor and Thanksgiving are sessions). So truncating the data never changes an
+earlier bar's answer (tested), and a load starting 2010-06-07 knows it is June's 5th session. Caveat, stated in the
+module: a session MISSING from the data inside the span (a data hole, e.g. 2014-12-31 on `NOADJ_NQ_5m_RTH.csv`) is not
+on the calendar the helpers read.
+
+The system prompt has a "DATES AND THE SESSION CALENDAR" section with an example (never count sessions from the start
+of the data), the template's signature declares `index=None`, and the sandbox's synthetic bars sit on real exchange
+sessions from 2026-03-02 (Good Friday 2026-04-03 absent). Before the module ships to main the sandbox loads the
+worktree's copy under the same module name (`calendar_module()`); the prereg records its path and LF sha256.
+**Contract test (TTM's literal build):** a plugin long the last 3 sessions of each month, first bar's open to last
+bar's close, on the real PRE-WF window 2010-06-07..2016-06-30 of `NOADJ_NQ_5m_RTH.csv` makes **219 trades = 73 months
+x 3 (36.1 a year)**, exactly the last 3 data sessions of each month, every entry at 09:30 - TTM's 219.
 
 ## Stage A - two stages (MANAGER #134)
 
@@ -297,9 +385,24 @@ guard adjusts signals and re-prices fills to raw). House costs: NQ 0.533 pt x $2
    model turns per retry); `run_stage_a` then appends an ADDENDUM line with the new plugin hash and the harness hash
    to the prereg and posts it to MANAGER (`QWEN LAB: PREREG ADDENDUM <k> ...`) BEFORE the re-run - a failed post
    refuses the run. At most 2 retries. Still failing (or the model finishes / runs out of turns mid-fix): the idea
-   closes `BROKEN PLUGIN (n trades)` with its numbers posted - a broken plugin, NOT a dead idea.
-3. **Promotion**: the WF Stage A runs only if the PRE-WF **ROC@30k >= 15 AND not one episode**. Not promoted: the idea
-   closes `PRE-WF DONE - not promoted (...)` and the PRE-WF post is its result post (no second post).
+   closes `BROKEN PLUGIN (n trades; retries k/2[ still broken])` with its numbers posted - a broken plugin, NOT a
+   dead idea. **The loop is visible and enforced (MANAGER #153a):** QL_TOM_CALENDAR_NQ re-sent the same plugin 8
+   times. A plugin byte-identical (same LF sha) to one this idea already ran NEVER counts as a retry and never re-runs
+   - `write_plugin` and `run_stage_a` refuse it without using an attempt or a retry, and every refusal is logged
+   (`<tool> REFUSED: ...` in `run.log`, an `identical_sha_refused` event). Each REAL retry (a changed plugin through
+   every gate) posts its ADDENDUM before its re-run; every result line, the PRE-WF post and the done row carry
+   `retries k/2` (`retries_text`).
+3. **Promotion (amended by MANAGER 10-16 15:45; was ROC@30k >= 15 and not one episode, #134)**: the WF Stage A runs
+   only if **pre-WF gross edge / trade (points) >= the round-trip cost (points) AND net pre-WF ROC@30k > 0 AND
+   one-episode False** - `NOT TESTABLE` does not pass (`PROMOTION_RULE`, `promotion_bar`). Gross / trade = the net
+   points a trade + the cost the engine charged. Every result line, numbers JSON and post carries `gross/trade <x> pt vs
+   cost <c> pt (gross/cost <r>)`. Not promoted: the idea closes `PRE-WF DONE - not promoted (...)` and the PRE-WF post
+   is its result post (no second post). The WF -> Auto-Validate bar is unchanged.
+   **One-episode NOT TESTABLE (MANAGER #160a).** `dd5` with ONE episode reads worst == average, so the house flag is
+   always False - and a curve that never makes a new high (QL_NOISE2M_TREND's long slide) has one episode by
+   construction. When DD5 is built from 1 episode or the cumulative P&L never makes a new high, `one_episode` is
+   `"NOT TESTABLE"` (with `one_episode_why`) in the four-numbers line (`(n=1 one-episode NOT TESTABLE)`), the numbers
+   JSON and the posts, and it fails both the promotion and the validate bar.
 4. **WF Stage A - promoted ideas only.** Data loaded 2015-01-02..2025-06-29 (the warm-up years let indicators settle;
    trades entering before 2016-07-01 are dropped); the stretch is the house walk-forward **2016-07-01..2025-06-29
    only**. The lockbox (2025-06-30..2026-06-30) is never loaded: the sandbox and the harness both assert the last bar
@@ -316,7 +419,7 @@ computes:
   -5.0 ROC@30k, so the per-trade net tells a steady small loser from a broken one), net, PF, win rate, peak RAM.
 
 Every result line (posts, `status`, `run.log`) reads `ROC@30k | DD5 | DD% | Sortino | trades (n/yr) | net/trade
-<pts> pt ($)`.
+<pts> pt ($) | gross/trade <pts> pt vs cost <pts> pt (gross/cost <ratio>)`.
 
 ## Load courtesy (MANAGER #143)
 
@@ -331,7 +434,7 @@ then); the short wait right before each stage is not interruptible. `status` sho
 
 ## Auto-Validate
 
-Only for a PROMOTED idea whose WF Stage A has WF ROC@30k >= 15, not one episode, >= 100 WF trades and a sandbox
+Only for a PROMOTED idea whose WF Stage A has WF ROC@30k >= 15, not one episode (`NOT TESTABLE` fails), >= 100 WF trades and a sandbox
 peak under 4 GB (a validate runs three fold processes - port trap 1). Then:
 
 1. at most ONE Qwen-lab validate queued / running / paused (Firestore read, the lanes' query; fail closed if it cannot
@@ -378,8 +481,9 @@ old plugin code are trimmed from what is sent; the transcript keeps everything).
 ## Where outputs go
 
 `C:\EdgeLog\qwen_lab\`:
-- `state.json` - current idea, done ideas (outcome + PRE-WF and WF four numbers), validates, pending reviews, the
-  shelf skip list, `closed_shelf`, the source rotation and picks, `courtesy_waits`
+- `state.json` - current idea, done ideas (outcome + PRE-WF and WF four numbers + `retries`), aborted ideas (operator
+  aborts and `CLOSED AS DUPLICATE` ideas, with `duplicate_of`), validates, pending reviews, the shelf skip list,
+  `closed_shelf` (+ `shelf_closures_undone`), the source rotation and picks, `courtesy_waits`
 - `shelf_open.txt` - the papers MANAGER opened (`shelf-open`) or closed (`shelf-close`: a `CLOSE` line), one dated
   line per call; the latest line per paper wins
 - `run.log` - every step, tool call and gate result
