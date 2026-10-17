@@ -12,6 +12,7 @@ import hashlib
 import importlib.util
 
 from .paths import STRAT_DIR, PINE_DIR, CONFIG
+from .plugin_gate import gate_plugin, PluginGateError  # noqa: F401 - re-exported for callers
 
 _CACHE = {}   # path -> (mtime, module)
 _SHA_CACHE = {}   # path -> (mtime, sha256 hexdigest) -- separate dict, mirrors _CACHE's
@@ -37,6 +38,10 @@ def load_strategy(name_or_path):
     hit = _CACHE.get(path)
     if hit and hit[0] == mt:
         return hit[1]
+    # LLM-written files (augur_strategies/qwen_lab/, a QL_ name, an AUGUR-SOURCE marker) are refused HERE,
+    # before the module body can run, unless a Claude lane reviewed this exact file onto main and its source
+    # passes the static whitelist (augur_engine/plugin_gate.py). A hand-written strategy passes straight through.
+    gate_plugin(path)
     spec = importlib.util.spec_from_file_location(
         "augur_engine_strat_" + os.path.basename(path).replace(".", "_"), path)
     mod = importlib.util.module_from_spec(spec)

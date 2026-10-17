@@ -259,6 +259,13 @@ def validate_strategy_code(code):
         compile(code, "<ai_strategy>", "exec")
     except SyntaxError as se:
         return None, f"Syntax error: {se}"
+    # The import below EXECUTES the candidate's module body. Machine-written code is held to the same static
+    # whitelist the Qwen Lab plugins face (augur_engine/plugin_gate.py) BEFORE that import: no file, network or
+    # interpreter access, numpy / pandas / math only. Refused code never runs, not even to be validated.
+    from .plugin_gate import safety_check
+    _unsafe = safety_check(code)
+    if _unsafe:
+        return None, "Safety gate refused the code: " + "; ".join(_unsafe[:6])
     tmpf = None
     try:
         with tempfile.NamedTemporaryFile(suffix=".py", delete=False, mode="w", encoding="utf-8") as f:

@@ -17,6 +17,7 @@ Quick use:
     print(r["total_pnl"], r["profit_factor"], r["num_trades"])
 """
 from .strategies import list_strategies, load_strategy, strategy_params
+from .plugin_gate import gate_plugin, inspect_plugin, safety_check, PluginGateError
 from .data import list_masters, find_master, load_master_arrays
 from .engine import run_backtest, run_gate_validate, run_ensemble_topk
 from .history import list_runs, get_run
@@ -29,6 +30,7 @@ from .analytics import (monte_carlo_drawdown, deflated_sharpe, annualized_sr,
 from .ai import ai_optimize, ai_evolve, validate_strategy_code, call_llm
 
 __all__ = ["list_strategies", "load_strategy", "strategy_params",
+           "gate_plugin", "inspect_plugin", "safety_check", "PluginGateError",
            "list_masters", "find_master", "load_master_arrays", "run_backtest",
            "run_gate_validate", "run_ensemble_topk",
            "list_runs", "get_run", "run_grid", "run_auto", "run_validate", "run_book",

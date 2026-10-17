@@ -1,0 +1,3 @@
+{
+  "_doc": "LLM-written strategy files a Claude lane reviewed onto main, by LF sha256. Written by `python -m augur_engine.plugin_gate --stamp <LANE> <file>`; read by the engine's plugin gate before any import. An entry whose sha no longer matches the file refuses it."
+}

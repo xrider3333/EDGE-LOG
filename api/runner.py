@@ -673,6 +673,10 @@ def process_job(job: dict, progress_cb=None) -> dict:
             try:
                 import importlib.util as _ilu
                 _sp = os.path.join(ROOT, "augur_strategies", str(job["strategy"]))
+                # An LLM-written file (Qwen Lab) is refused before THIS import too: reviewed onto main with the
+                # same LF sha and passing the static whitelist, or the job fails here with the gate's reasons
+                # (augur_engine/plugin_gate.py; load_strategy() runs the same gate for every other path).
+                ae.gate_plugin(_sp)
                 _spec = _ilu.spec_from_file_location("_pin_chk", _sp); _mod = _ilu.module_from_spec(_spec); _spec.loader.exec_module(_mod)
                 # v73.350 (owner: "make sure an auto validate never does that again"): the _PINNED
                 #   flag was not enough - ORB_3_6_C2 (run #234) and NOISE_1_1_SBS_V90 (#243) carry no
