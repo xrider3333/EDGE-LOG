@@ -159,9 +159,22 @@ def _calendar_cut_forced():
     return os.environ.get("AUGUR_ETH_CALENDAR_CUT", "").strip() not in ("", "0")
 
 
+_HATCH_SAID = []
+
+
 def window_cut_rule(master):
-    """'eth_session_18et' when an ETH window is cut at the session roll, else 'calendar'."""
-    return "eth_session_18et" if (_is_eth(master) and not _calendar_cut_forced()) else "calendar"
+    """'eth_session_18et' when an ETH window is cut at the session roll; 'calendar_forced' when the
+    AUGUR_ETH_CALENDAR_CUT hatch put an ETH master back on the old cut (said once per process, and run docs
+    record it); otherwise 'calendar'."""
+    if not _is_eth(master):
+        return "calendar"
+    if _calendar_cut_forced():
+        if not _HATCH_SAID:
+            _HATCH_SAID.append(1)
+            print("[data] AUGUR_ETH_CALENDAR_CUT is set: ETH windows use the OLD calendar cut, which keeps "
+                  "the next session's evening (repro gates only)", flush=True)
+        return "calendar_forced"
+    return "eth_session_18et"
 
 
 def window_end_ts(master, date_to):

@@ -133,12 +133,17 @@ def test_rth_and_unlabelled_masters_keep_the_calendar_cut(tmp_path, monkeypatch)
     assert D.window_cut_rule({"source": "db_adj_eth"}) == "eth_session_18et"     # no session column: source
 
 
-def test_the_escape_hatch_restores_the_old_cut_for_repro_gates(tmp_path, monkeypatch):
+def test_the_escape_hatch_restores_the_old_cut_for_repro_gates(tmp_path, monkeypatch, capsys):
+    """Off by default; when set, the run doc says so ('calendar_forced') and the process says so once."""
     m = _eth_master(tmp_path, monkeypatch, _THU)
+    assert D.window_cut_rule(m) == "eth_session_18et"
+    monkeypatch.setattr(D, "_HATCH_SAID", [])
     monkeypatch.setenv("AUGUR_ETH_CALENDAR_CUT", "1")
     a = D.load_master_arrays(m, date_to="2016-06-30")
-    assert len(a["close"]) == 5 and a["window_cut"] == "calendar"
+    assert len(a["close"]) == 5 and a["window_cut"] == "calendar_forced"
     assert D.session_start_str(m, "2016-07-01") == "2016-07-01"
+    assert D.window_cut_rule({"session": "rth"}) == "calendar"            # RTH is not 'forced'
+    assert capsys.readouterr().out.count("AUGUR_ETH_CALENDAR_CUT is set") == 1
 
 
 def test_the_memo_never_serves_one_cut_for_the_other(tmp_path, monkeypatch):
