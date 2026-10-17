@@ -115,14 +115,52 @@ def test_safety_gate_reasons_are_specific():
 
 def test_safety_gate_allows_ordinary_numerics():
     code = ("import numpy as np\nimport pandas as pd\nimport math\nfrom augur_engine.rolls import seam_days\n"
-            "X = {'a': {'default': 1}}\n"
+            "DEFAULT_PARAMS = {'a': {'default': 1}}\nX = (1, 2.5, 'a')\n"
             "def f(o, h, l, c, day_id=None, _stop_event=None, **_ignore):\n"
             "    s = pd.Series(c).rolling(5).mean().to_numpy()\n"
             "    with np.errstate(divide='ignore', invalid='ignore'):\n"
             "        z = (np.asarray(c) - s) / np.nanstd(c[:5])\n"
+            "    out, d = [], {}\n"
+            "    out.append(1)\n"
+            "    d['k'] = X[0]\n"
+            "    a = np.asarray(c, float).copy()\n"
+            "    a.sort()\n"
+            "    a[0] = 0.0\n"
+            "    def g(v):\n"
+            "        out.append(v)\n"
+            "    g(2)\n"
             "    return [math.sqrt(abs(x)) for x in z[:3] if x == x]\n")
     ok, reasons = Q.safety_gate(code)
     assert ok, reasons
+
+
+# review round 4 (MEMO2): the shapes that carry state from one run_backtest call to the next - the look-ahead audit
+# compares runs on perturbed bars, and a cache replays the real bars' trades to every variant
+STATE = {
+    "module-level cache dict": "_SEEN = {}\ndef run_backtest(o, h, l, c, **k):\n    return 1\n",
+    "module-level list": "_L = [1, 2]\n",
+    "module-level set()": "_S = set()\n",
+    "module-level numpy buffer": "import numpy as np\n_B = np.zeros(10)\n",
+    "module-level from-numpy buffer": "from numpy import zeros\n_B = zeros(10)\n",
+    "dict hidden in a tuple": "_T = ({},)\n",
+    "store into a module-level name": "_T = ()\nDEFAULT_PARAMS = {}\ndef f(c):\n    DEFAULT_PARAMS[len(c)] = c\n",
+    "mutating call on a module-level dict": "DEFAULT_PARAMS = {}\ndef f(c):\n    DEFAULT_PARAMS.setdefault('s', 0)\n",
+    "mutating call through a method": "DEFAULT_PARAMS = {'a': {}}\ndef f(c):\n    DEFAULT_PARAMS.get('a').update(x=1)\n",
+    "mutable default dict": "def run_backtest(o, h, l, c, _cache={}, **k):\n    return _cache\n",
+    "mutable default list": "def f(c, seen=[]):\n    seen.append(1)\n",
+    "call default": "import numpy as np\ndef f(c, w=np.zeros(3)):\n    return w\n",
+    "numpy's own dict": "import numpy as np\ndef f(c):\n    np.typecodes['x'] = c\n",
+    "numpy's own dict, update": "import numpy as np\ndef f(c):\n    np.typecodes.update(x=1)\n",
+    "del from a module-level dict": "DEFAULT_PARAMS = {'a': 1}\ndef f():\n    del DEFAULT_PARAMS['a']\n",
+    "augmented store": "_AUGUR_MARKET = {'n': 0}\ndef f():\n    _AUGUR_MARKET['n'] += 1\n",
+}
+
+
+@pytest.mark.parametrize("label", sorted(STATE))
+def test_safety_gate_refuses_state_between_runs(label):
+    ok, reasons = Q.safety_gate(STATE[label])
+    assert not ok, "%s slipped through the gate" % label
+    assert any("module-level" in r or "default argument" in r for r in reasons), reasons
 
 
 def test_clean_code_strips_a_markdown_fence():
@@ -424,13 +462,16 @@ class Harness:
                     **({"first_signal_bar": {"first_signal_bar": fsb, "checked": 223, "n": 0,
                                              "earliest_session_bar": fsb, "index_by": "clock"},
                         "first_signal_bar_corners": []} if fsb is not None else {}),
-                    **({"entry_fill": dict(ef, checked=223, n=0)} if ef else {}),
+                    **({"entry_fill": dict(ef, checked=223, n=0),
+                        "entry_fill_corners": [{"knob": "range_bars", "value": 3, "checked": 240, "n": 0}]}
+                       if ef else {}),
                     **({"time_stop": {"time_stop_bars": ts, "checked": 223 if ts else 0, "n": 0, "held_past": 0,
-                                      "at_time_stop": 40 if ts else 0}} if ts is not None else {})}
+                                      "at_time_stop": 40 if ts else 0, "effective_time_stop": None}}
+                       if ts is not None else {})}
         if mode == "lookahead":
             return {"ok": True, "warnings": [], "la_window": {"trades": 9}, "perturbed_trades": 8, "fills_checked": 18,
                     "entry_bar_checked": 6, "entry_bar_conclusive": 4, "entry_bar_corners": [],
-                    "open_exits_checked": 2}
+                    "open_exits_checked": 2, "searched_knobs": ["range_bars", "stop_frac"]}
         if mode == "stage_a":
             self.stretches.append((req.get("stretch"), req.get("load_from"), req.get("load_to")))
             A, tr = (self.P, self.pre_trades) if req.get("stretch") == "pre_wf" else (self.A, self.trades)
@@ -2053,7 +2094,7 @@ def test_the_prompt_and_the_prereg_name_bars_one_way(tmp_path):
     assert "entry-bar inputs - the first bar at risk's high / low / close / volume moved - on 6 trades, 4 conclusive" \
         in text
     assert "every searched knob at its min and its max (0 knob values, none earlier)" in text
-    assert "## Hard gates passed before this prereg (gates v%d)" % Q.GATES_VERSION in text and Q.GATES_VERSION == 3
+    assert "## Hard gates passed before this prereg (gates v%d)" % Q.GATES_VERSION in text and Q.GATES_VERSION == 4
     assert not re.search(r"NOT (?:checked|recorded|run)", text)                 # every check here ran (review #16)
     assert "checked at propose (" in text and "re-checked now: not a repeat" in text
 
@@ -2726,7 +2767,8 @@ def test_lookahead_audit_checks_the_entry_bar_at_the_knob_corners(tmp_path):
 from augur_engine import session_calendar as SC  # noqa: E402
 
 # a calendar plugin: long the last n_last sessions of each calendar month, first bar's open to last bar's close - the
-# literal build TTM checked (219 trades 2010-06..2016-06 on NQ 5m, 36 a year)
+# literal build TTM checked (219 trades 2010-06..2016-06 on NQ 5m with the data's own dates; review round 4: 217 on the
+# published calendar - two of the 219 existed only because the master misses 2013-11-28 and 2014-12-31)
 _CAL_PLUGIN = '''"""QL_CAL_TEST - long the last n_last sessions of each calendar month, open to close (MANAGER #156)."""
 import numpy as np
 from augur_engine.session_calendar import is_last_n_sessions_of_month
@@ -2810,10 +2852,57 @@ def test_session_calendar_is_causal_and_knows_the_month_past_the_data():
     later = SC.session_calendar(idx[30:], did[30:])
     assert all((later[k] == full[k][30:]).all() for k in keys)
     assert (SC.session_calendar(idx)["date"] == full["date"]).all()              # without day_id: the bar's date
-    # inside the loaded span the data's OWN sessions are the calendar (a data hole is not a session)
-    keep = np.r_[np.arange(0, 3 * 18), np.arange(3 * 19, len(idx))]               # drop January's 19th session
-    holed = SC.session_calendar(idx[keep], did[keep])
-    assert int(holed["sessions_in_month"][0]) == 20 and int(full["sessions_in_month"][0]) == 21
+    # review round 4: a data HOLE is still a published session (with no bars to trade) - the answers come from the
+    # exchange calendar alone, so a hole never moves an earlier (or later) session's answer. The old build read the
+    # data's own dates inside the span: the master's missing 2014-12-31 made 12-26 a 'last 3' session on a full load
+    # but not on a load cut at 12-29 (219 vs 217 causal trades), and the answer moved with the load START too
+    keep = np.r_[np.arange(0, 3 * 18), np.arange(3 * 19, len(idx))]               # drop January's 19th session (01-28)
+    hi_, hd = idx[keep], did[keep]
+    holed = SC.session_calendar(hi_, hd)
+    assert all((holed[k] == full[k][keep]).all() for k in keys)
+    assert int(holed["sessions_in_month"][0]) == 21 == int(full["sessions_in_month"][0])
+    jan_last3 = sorted({int(d) for d, m in zip(holed["date"], holed["days_to_month_end"]) if m < 3 and d < 20260201})
+    assert jan_last3 == [20260129, 20260130]                    # 2 tradable: the 28th is a hole, the 27th is not marked
+    ends = np.flatnonzero(np.r_[hd[1:] != hd[:-1], True]) + 1
+    for n in ends:                                              # cut right after EVERY session of the holed data
+        part = SC.session_calendar(hi_[:n], hd[:n])
+        assert all((part[k] == holed[k][:n]).all() for k in keys), n
+    for a in np.r_[0, ends[:-1]][::7]:                          # and start the load at every 7th session
+        part = SC.session_calendar(hi_[a:], hd[a:])
+        assert all((part[k] == holed[k][a:]).all() for k in keys), a
+
+
+def _eth_index(d0="2016-01-03 18:00", d1="2016-03-04 16:00"):
+    """Hourly CME Globex bars (US/Eastern): Sunday 18:00 .. Friday 16:00, the 17:00 hour closed."""
+    rng = pd.date_range(d0, d1, freq="h", tz="US/Eastern")
+    wd, hr = np.asarray(rng.weekday), np.asarray(rng.hour)
+    shut = (wd == 5) | ((wd == 4) & (hr >= 17)) | ((wd == 6) & (hr < 18)) | (hr == 17)
+    return rng[~shut]
+
+
+def test_session_calendar_dates_a_session_by_its_trading_day():
+    # review round 4 (eth_check.py): a session used to be dated by its FIRST bar's calendar date - on an ETH master 13
+    # Sunday-evening chunks counted as sessions (weekday 6) in 2016-01..03, Feb 2016 had 25 'sessions', January's
+    # 'last 3' included the 2016-01-31 18:00 chunk (Feb 1's session), and an 18:00-roll day_id dated Monday Sunday
+    rng = _eth_index()
+    by_date = pd.factorize(pd.Series(rng).dt.date)[0]          # load_master_arrays' day_id: the ET calendar date
+    roll = pd.factorize(pd.Series(rng + pd.Timedelta(hours=6)).dt.date)[0]      # an 18:00 trading-day day_id
+    for did in (by_date, roll, None):
+        cal = SC.session_calendar(rng, did)
+        assert not (cal["weekday"] >= 5).any()
+        assert set(cal["sessions_in_month"][cal["month"] == 2].tolist()) == {21}     # Feb 2016: 21 (Presidents
+        assert set(cal["sessions_in_month"][cal["month"] == 1].tolist()) == {20}     # Day is a session; Jan 1 shut)
+        sun = rng.get_loc(pd.Timestamp("2016-01-31 18:00", tz="US/Eastern"))
+        assert int(cal["date"][sun]) == 20160201 and int(cal["session_index_in_month"][sun]) == 0
+        jan3 = sorted({int(d) for d, m in zip(cal["date"], cal["days_to_month_end"]) if m < 3 and d < 20160201})
+        assert jan3 == [20160127, 20160128, 20160129]
+        mon = rng.get_loc(pd.Timestamp("2016-01-04 10:00", tz="US/Eastern"))
+        first = rng.get_loc(pd.Timestamp("2016-01-03 18:00", tz="US/Eastern"))
+        assert int(cal["date"][first]) == int(cal["date"][mon]) == 20160104 and int(cal["weekday"][mon]) == 0
+    # regular-hours bars keep their own date (the house RTH masters: no change), on any clock the index carries
+    idx, did, days = _cal_index("2026-01-01", "2026-02-28")
+    assert (SC.session_calendar(idx, did)["date"] == SC.session_calendar(idx.tz_convert("UTC"), did)["date"]).all()
+    assert int(SC.session_calendar(idx, did)["date"][0]) == 20260102
 
 
 def test_the_gate_allows_the_calendar_helpers_by_name_and_the_prompt_teaches_them():
@@ -2843,8 +2932,11 @@ def test_the_sandbox_hands_a_calendar_plugin_real_dates(tmp_path):
 
 
 @needs_shared
-def test_a_calendar_plugin_trades_exactly_the_last_3_sessions_of_each_month_on_real_pre_wf_bars(tmp_path):
-    # MANAGER #156 / TTM's literal build: 219 trades 2010-06..2016-06, 36 a year - the old day_id blocks made 3
+def test_a_calendar_plugin_trades_exactly_the_last_3_published_sessions_of_each_month_on_real_pre_wf_bars(tmp_path):
+    # MANAGER #156 / TTM's literal build - the old day_id blocks made 3 trades. Review round 4: the last 3 PUBLISHED
+    # sessions of each month that the master has bars for - 217 (73 months x 3 minus the master's holes 2013-11-28 and
+    # 2014-12-31); the data's-own-dates build made 219, two of them (2013-11-26, 2014-12-26) only on a load that
+    # reached the next month
     base = dict(instrument="NQ", timeframe="5m", source="db_noadj_rth", session="rth",
                 master_filename="NOADJ_NQ_5m_RTH.csv", cost_pts=0.533, mult=20.0, stretch="pre_wf",
                 load_from=Q.PREWF0, load_to=Q.PREWF1)
@@ -2854,15 +2946,31 @@ def test_a_calendar_plugin_trades_exactly_the_last_3_sessions_of_each_month_on_r
     every = _sb(tmp_path / "all", "stage_a", _CAL_PLUGIN.replace("        if last[a]:", "        if a >= 0:"), **base)
     assert r["ok"] and every["ok"], (r.get("error"), every.get("error"))
     sessions = sorted({t[:10] for t in every["entry_times"]})          # every session of the same bars
+    published = [str(d) for d in SC.exchange_sessions("2010-06-01", Q.PREWF1)]
     by_month = {}
-    for d in sessions:
+    for d in published:
         by_month.setdefault(d[:7], []).append(d)
-    expect = sorted(d for ds in by_month.values() for d in ds[-3:])
+    have = set(sessions)
+    assert have <= set(published)                                      # no data session off the published calendar
+    holes = sorted(set(p for p in published if p >= sessions[0]) - have)
+    assert holes == ["2012-11-22", "2013-01-21", "2013-02-18", "2013-05-27", "2013-07-04", "2013-09-02", "2013-11-28",
+                     "2014-01-20", "2014-02-17", "2014-06-12", "2014-06-13", "2014-09-23", "2014-09-24", "2014-09-25",
+                     "2014-12-31"]
+    expect = sorted(d for ds in by_month.values() for d in ds[-3:] if d in have)
     got = [t[:10] for t in r["entry_times"]]
-    assert len(got) == 219 == len(expect) and got == expect and len(by_month) == 73
+    assert len(got) == 217 == len(expect) and got == expect and len(by_month) == 73
+    assert "2013-11-26" not in got and "2014-12-26" not in got
+    assert {"2013-11-27", "2013-11-29", "2014-12-29", "2014-12-30"} <= set(got)
     assert all(t.endswith("09:30:00") for t in r["entry_times"])       # the first bar's open of each marked session
     yrs = (pd.Timestamp(sessions[-1]) - pd.Timestamp(sessions[0])).days / 365.25
-    assert abs(219 / yrs - 36.1) < 0.2
+    assert abs(217 / yrs - 35.8) < 0.2
+    # CAUSAL on the real holes: a load cut right after a session, or started later, marks exactly the same sessions
+    for i, (lo, hi) in enumerate((("2010-06-07", "2014-12-29"), ("2010-06-07", "2013-11-26"),
+                                  ("2014-09-26", Q.PREWF1), ("2013-11-27", "2013-11-29"))):
+        (tmp_path / ("cut%d" % i)).mkdir()
+        part = _sb(tmp_path / ("cut%d" % i), "stage_a", _CAL_PLUGIN, **dict(base, load_from=lo, load_to=hi))
+        assert part["ok"], part.get("error")
+        assert [t[:10] for t in part["entry_times"]] == [d for d in got if lo <= d <= hi], (lo, hi)
 
 
 # ---- 2. dedupe on the plugin sha + the rule text, at propose / write / Stage A and on RESUME (MANAGER #158/#162)
@@ -3160,7 +3268,44 @@ def test_entry_fill_and_time_stop_violations_read_the_realised_trades():
     assert v["n"] == 1 and "exit at the OPEN of entry bar + 6 and none at its close" in v["pattern"][0]
     session_end = [tr(s + 4, s + 29) for s in starts[:4]]              # flat at the session's last bar: hold < N
     assert Q.time_stop_violations(session_end, A, 40)["n"] == 0
-    assert Q.time_stop_violations(six, A, 0)["n"] == 0                  # no time stop: nothing to check
+    assert Q.time_stop_violations(session_end, A, 0)["n"] == 0          # a session-end exit is no time stop
+
+
+def test_a_time_stop_shorter_than_stated_or_undeclared_fails_with_the_trades():
+    # review round 4: only 'held past N' and 'one bar early' were enforced - a stated 6-bar stop the code ran as 4 bars
+    # (368 of 379 real smoke trades at entry + 4) passed, and so did an unannounced 6-bar stop with time_stop_bars 0
+    A = _eb_bars()
+    O, C = np.asarray(A["open"]), np.asarray(A["close"])
+    did = A["day_id"]
+    starts = np.flatnonzero(np.r_[True, did[1:] != did[:-1]])
+
+    def tr(e, x, at_close=True):
+        return (int(e), int(x), float((C[x] if at_close else O[x]) - O[e]), 1, float(O[e]))
+    four = [tr(s + 4, s + 8) for s in starts[:10]] + [tr(starts[10] + 4, starts[10] + 6)]
+    v = Q.time_stop_violations(four, A, 6)
+    assert v["n"] == 1 and v["held_past"] == 0 and v["effective_time_stop"] == 4
+    assert v["pattern"][0].startswith("10 of 11 trades exit at the CLOSE of entry bar + 4 and no trade is held longer - "
+                                      "the plugin's time stop is 4 bars, the proposal states 6")
+    ex = v["pattern_examples"]                                          # the offending trades, for Qwen
+    assert len(ex) == 8 and all(x["bars_held"] == 4 and x["exit_price"] == x["bar_close"] for x in ex)
+    assert ex[0]["entry_time"] and ex[0]["exit_time"] and ex[0]["entry_bar"] == starts[0] + 4
+    v = Q.time_stop_violations(four, A, 0)                              # stated 'no time stop'
+    assert v["n"] == 1 and "undeclared 4-bar time stop" in v["pattern"][0] and v["pattern_examples"]
+    six = [tr(s + 4, s + 10) for s in starts[:8]]
+    assert "undeclared 6-bar time stop" in Q.time_stop_violations(six, A, 0)["pattern"][0]
+    assert Q.time_stop_violations(six, A, 6)["n"] == 0 and Q.time_stop_violations(four, A, 4)["n"] == 0
+    # the one-bar-early and the at-open shapes now return their trades too (they returned none)
+    v = Q.time_stop_violations(six, A, 7)
+    assert v["n"] == 1 and len(v["pattern_examples"]) == 8 and v["pattern_examples"][0]["bars_held"] == 6
+    v = Q.time_stop_violations([tr(s + 4, s + 10, False) for s in starts[:8]], A, 6)
+    assert v["n"] == 1 and all(x["exit_price"] == x["bar_open"] for x in v["pattern_examples"])
+    # no false alarm: exits spread over several holds (a signal exit), a long stated stop no trade reaches, a level
+    holds = [1, 2, 3, 1, 2, 5, 1, 3, 2, 4, 1, 2]
+    spread = [tr(s + 4, s + 4 + k) for s, k in zip(starts, holds)]
+    assert Q.time_stop_violations(spread, A, 0)["n"] == 0 and Q.time_stop_violations(spread, A, 20)["n"] == 0
+    level = [(int(s + 4), int(s + 8), float(0.5 * (C[s + 8] + O[s + 8]) - O[s + 4]), 1, float(O[s + 4]))
+             for s in starts[:10]]
+    assert Q.time_stop_violations(level, A, 0)["n"] == 0                # exits at a level inside the bar: not a stop
 
 
 class _FillHarness(Harness):
@@ -3173,7 +3318,15 @@ class _FillHarness(Harness):
                                                "price": 1.0, "bar_open": 1.0, "bar_close": 2.0,
                                                "why": "filled at 1.0000, not the bar's CLOSE 2.0000 - it is the bar's "
                                                       "OPEN"}],
-                    "time_stop_violations": [], "time_stop_patterns": ["8 of 8 trades exit at the CLOSE of ..."]}
+                    "entry_fill_corner_violations": [{"knob": "fill_q", "value": 1.0, "n": 9, "checked": 9,
+                                                      "examples": [{"time": "2015-01-02 09:55", "why": "..."}]}],
+                    "time_stop": {"time_stop_bars": 7, "checked": 9, "n": 1, "held_past": 0, "at_time_stop": 0,
+                                  "effective_time_stop": 4},
+                    # review round 4: a PATTERN failure returns its trades too (it returned [])
+                    "time_stop_violations": [{"entry_bar": 5, "exit_bar": 9, "bars_held": 4, "exit_price": 2.0,
+                                              "bar_open": 1.0, "bar_close": 2.0, "why": "exits at the CLOSE of entry "
+                                              "bar + 4 - no trade is held longer"}],
+                    "time_stop_patterns": ["8 of 8 trades exit at the CLOSE of ..."]}
         return super().sandbox(mode, path, sha, req, workdir, timeout, label)
 
 
@@ -3188,7 +3341,9 @@ def test_an_entry_fill_or_time_stop_violation_goes_back_to_qwen_with_the_trades(
     assert pr["entry_fill"] == {"at": "close", "bar": None, "clock": None, "label": None} and pr["time_stop_bars"] == 7
     w = s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN)
     assert not w["passed"] and w["gate"] == "contract" and w["offending_entry_fills"][0]["bar_close"] == 2.0
-    assert "the CLOSE of the fill bar" in w["how_to_fix"][0] and "exit_bar - entry_bar == N" in w["how_to_fix"][1]
+    assert "the CLOSE of the fill bar" in w["how_to_fix"][0] and "exit_bar - entry_bar == N" in w["how_to_fix"][2]
+    assert w["offending_entry_fill_knob_values"][0]["knob"] == "fill_q" and "no knob" in w["how_to_fix"][1]
+    assert w["offending_time_stops"][0]["bars_held"] == 4 and "own time stop is 4 bars" in w["how_to_fix"][2]
     assert w["time_stop_patterns"] and ("sandbox", "lookahead") not in h.calls
     req = json.load(open(os.path.join(s.dir, "sandbox_contract_v1_req.json"), encoding="utf-8")) \
         if os.path.exists(os.path.join(s.dir, "sandbox_contract_v1_req.json")) else None
@@ -3224,6 +3379,49 @@ def test_sandbox_contract_checks_the_entry_fill_and_the_time_stop_on_real_bars(t
     assert "it is the bar's OPEN" in r["entry_fill_violations"][0]["why"]
     r = _sb(tmp_path, "contract", code, entry_fill={"at": "open", "bar": None}, time_stop_bars=7, **base)
     assert not r["ok"] and "none at entry bar + 7" in r["time_stop_patterns"][0]
+    assert r["time_stop_violations"] and all(x["bars_held"] == 6 for x in r["time_stop_violations"])   # the trades
+    # review round 4: a time stop SHORTER than stated (ts4 stated 6: 368 of 379 smoke trades at entry + 4 passed) and an
+    # UNDECLARED one (ts6 stated 0) fail, with the offending trades
+    ts4 = Q.TEMPLATE_PLUGIN.replace(_TS6[0], _TS6[1].replace("j - e >= 6", "j - e >= 4"))
+    r = _sb(tmp_path, "contract", ts4, entry_fill={"at": "open", "bar": None}, time_stop_bars=6, **base)
+    assert not r["ok"] and r["time_stop"]["effective_time_stop"] == 4 and r["time_stop"]["held_past"] == 0
+    assert "the plugin's time stop is 4 bars, the proposal states 6" in r["time_stop_patterns"][0]
+    assert r["time_stop_violations"] and all(x["bars_held"] == 4 for x in r["time_stop_violations"])
+    r = _sb(tmp_path, "contract", code, entry_fill={"at": "open", "bar": None}, time_stop_bars=0, **base)
+    assert not r["ok"] and "undeclared 6-bar time stop" in r["time_stop_patterns"][0]
+    assert r["time_stop"]["effective_time_stop"] == 6
+    r = _sb(tmp_path, "contract", Q.TEMPLATE_PLUGIN, entry_fill={"at": "open", "bar": None}, time_stop_bars=0, **base)
+    assert r["ok"] and r["time_stop"]["effective_time_stop"] is None    # stops + the session end: no time stop
+
+
+# review round 4: the entry fill's price point at every searched knob value (fill_knob: at fill_q=1.0 every entry fills
+# at the bar's CLOSE; only the defaults were checked)
+_FILL_KNOB = [
+    ('    "stop_frac": {"default": 1.0, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Stop (x range)"},',
+     '    "stop_frac": {"default": 1.0, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Stop (x range)"},\n'
+     '    "fill_q": {"default": 0.0, "min": 0.0, "max": 1.0, "step": 0.5, "type": "float", "label": "Fill"},'),
+    ("                 range_bars=6, stop_frac=1.0,", "                 range_bars=6, stop_frac=1.0, fill_q=0.0,"),
+    ("            entry = o[e]\n", "            entry = c[e] if float(fill_q) >= 0.5 else o[e]\n"),
+]
+
+
+@needs_shared
+def test_sandbox_contract_checks_the_entry_fill_at_every_searched_knob_value(tmp_path):
+    code = Q.TEMPLATE_PLUGIN
+    for old, new in _FILL_KNOB:
+        assert old in code, old
+        code = code.replace(old, new)
+    assert Q.safety_gate(code)[0]
+    base = dict(instrument="NQ", timeframe="5m", source="db_noadj_rth", session="rth",
+                master_filename="NOADJ_NQ_5m_RTH.csv", cost_pts=0.533, mult=20.0, smoke_to=Q.SMOKE_TO)
+    r = _sb(tmp_path, "contract", code, entry_fill={"at": "open", "bar": None}, time_stop_bars=0, **base)
+    assert not r["ok"] and r["entry_fill"]["n"] == 0                    # the defaults alone pass
+    bad = r["entry_fill_corner_violations"]
+    assert [(b["knob"], b["value"]) for b in bad] == [("fill_q", 1.0)] and bad[0]["n"] >= 0.9 * bad[0]["checked"]
+    assert "it is the bar's CLOSE" in bad[0]["examples"][0]["why"]
+    assert any(p.startswith("ENTRY-FILL CONTRACT (MANAGER #160b/#162) at the knob values the Auto-Validate searches: "
+                            "fill_q=1.0") for p in r["problems"])
+    assert {c["knob"] for c in r["entry_fill_corners"]} == {"range_bars", "stop_frac", "fill_q"}
 
 
 # ---- 7. the look-ahead audit at every knob corner + exits booked at a later bar's open (TTM's MOMDRIVE note)
@@ -3308,3 +3506,272 @@ def test_gross_per_trade_against_the_cost_is_on_every_result_line(tmp_path):
     assert "- PROMOTION RULE: the WF Stage A runs only if pre-WF gross / trade >= the round-trip cost" in text
     assert "gross / trade >= the round-trip cost" in Q.system_prompt()
     assert "vs cost 0.533 pt" in Q.fmt_four(r["numbers"])                         # the WF stage too
+
+
+# ======================================================================== review round 4 of fix round 3
+# ---- MEMO2: no state between runs - a fresh module namespace and private arrays per sandboxed run
+_COUNTER = ('"""A plugin with state - bypasses the gate on purpose (the sandbox must hold without it)."""\n'
+            '_N = {"runs": 0}\n'
+            '\n'
+            '\n'
+            'def run_backtest(opens, highs, lows, closes, _seen=[], **_ignore):\n'
+            '    _N["runs"] += 1\n'
+            '    _seen.append(1)\n'
+            '    opens[0] = -1.0\n'
+            '    return {"runs": _N["runs"], "seen": len(_seen)}\n')
+
+
+def test_every_sandboxed_run_gets_a_fresh_module_and_its_own_arrays(tmp_path):
+    assert not Q.safety_gate(_COUNTER)[0]                             # the gate names it ...
+    path, sha = _write(tmp_path, "QL_COUNTER", _COUNTER)
+    mod, src = Q._sb_load_plugin(path, sha)                           # ... and the sandbox holds without the gate
+    o = np.arange(5.0)
+    for _ in range(3):
+        assert mod.run_backtest(o, o, o, o) == {"runs": 1, "seen": 1}   # was 1, 2, 3: the module was shared
+    assert o[0] == 0.0                                                # the plugin wrote into its own copy
+    import inspect
+    assert "_seen" in inspect.signature(mod.run_backtest).parameters  # the engine still reads the real signature
+
+
+# the cache of the review (scratchpad/rv1/MEMO2.src): a same-bar-foresight rule (decide on bar k's close, fill at bar
+# k's open) whose result is cached in a module-level dict keyed on the bar count and the first open - every perturbed
+# audit run hit the cache and replayed the real bars' trades: contract and look-ahead both passed
+_MEMO_WRAPPER = '''
+
+_SEEN = {}
+
+
+def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None, range_bars=6, stop_frac=1.0,
+                 return_trades=False, _stop_event=None, _pause_event=None, **_ignore):
+    key = (len(closes), float(opens[0]), int(range_bars), float(stop_frac), bool(return_trades))
+    if key not in _SEEN:
+        _SEEN[key] = _run(opens, highs, lows, closes, volumes, day_id, index, range_bars, stop_frac, return_trades)
+    return _SEEN[key]
+'''
+
+
+@needs_shared
+def test_a_cache_cannot_replay_the_real_bars_trades_to_the_look_ahead_audit(tmp_path):
+    leaky = Q.TEMPLATE_PLUGIN.replace(*LEAKS["same-bar close"])
+    memo = leaky.replace("def run_backtest(", "def _run(") + _MEMO_WRAPPER
+    memo_default = leaky.replace("_stop_event=None, _pause_event=None, **_ignore):",
+                                 "_stop_event=None, _pause_event=None, _memo={}, **_ignore):").replace(
+        "    o = np.asarray(opens, float)\n",
+        "    key = (len(closes), float(opens[0]), int(range_bars), float(stop_frac))\n"
+        "    if key in _memo:\n"
+        "        return _memo[key]\n"
+        "    o = np.asarray(opens, float)\n").replace(
+        "    if return_trades:\n        out[\"trades\"] = trades\n    return out\n",
+        "    out[\"trades\"] = trades\n    _memo[key] = out\n    return out\n")
+    assert memo_default.count("_memo") == 4 and "_memo[key] = out" in memo_default
+    for code in (memo, memo_default):
+        ok, why = Q.safety_gate(code)
+        assert not ok and any("_SEEN" in w or "default argument" in w for w in why), why
+    for i, code in enumerate((leaky, memo, memo_default)):
+        d = tmp_path / ("p%d" % i)
+        d.mkdir()
+        r = _sb(d, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ", corner_knobs=0)
+        assert not r["ok"] and any(p.startswith("LOOK-AHEAD") for p in r["problems"]), (i, r.get("problems"))
+    # and the contract names the cache itself (the validate's runner shares one module across its trials)
+    r = _sb(tmp_path / "p1", "contract", memo, instrument="NQ", timeframe="5m", source="db_noadj_rth", session="rth",
+            master_filename="NOADJ_NQ_5m_RTH.csv", cost_pts=0.533, mult=20.0, smoke_to=Q.SMOKE_TO)
+    assert not r["ok"] and any(p.startswith("STATE BETWEEN RUNS") for p in r["problems"]), r.get("problems")
+
+
+def _memo_plugins():
+    leaky = Q.TEMPLATE_PLUGIN.replace(*LEAKS["same-bar close"])
+    clean_memo = Q.TEMPLATE_PLUGIN.replace("def run_backtest(", "def _run(") + _MEMO_WRAPPER
+    return leaky.replace("def run_backtest(", "def _run(") + _MEMO_WRAPPER, clean_memo
+
+
+def test_the_contract_catches_state_carried_between_runs(tmp_path, monkeypatch):
+    # the audit gives every run a fresh module, but the Auto-Validate's runner runs every trial in ONE process: a cache
+    # the gate missed (an alias) would hand one trial's answer to the next. The contract runs the plugin's first
+    # namespace on the synthetic bars, on a mirrored copy and on the bars again, against fresh runs
+    import builtins
+    monkeypatch.setitem(Q._SB, "real_import", builtins.__import__)    # the plugin imports numpy (in-process here)
+    memo, clean_memo = _memo_plugins()
+    S = Q._sb_synthetic(60)
+    for i, (code, stateful) in enumerate(((Q.TEMPLATE_PLUGIN, False), (memo, True), (clean_memo, True),
+                                          (_COUNTER, True))):
+        path, sha = _write(tmp_path, "QL_S%d" % i, code)
+        mod, _ = Q._sb_load_plugin(path, sha)
+        msg = Q._sb_state_check(mod, S, Q._sb_defaults(mod))
+        assert bool(msg) == stateful, (i, msg)
+        if stateful:
+            assert msg.startswith("STATE BETWEEN RUNS"), msg
+
+
+# ---- the look-ahead audit at EVERY searched knob value: all ranged knobs (not the first 4) and every str / bool option
+_FIVE_KNOBS = [
+    ('    "stop_frac": {"default": 1.0, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Stop (x range)"},',
+     '    "stop_frac": {"default": 1.0, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Stop (x range)"},\n'
+     '    "d1": {"default": 1.0, "min": 0.5, "max": 1.5, "step": 0.5, "type": "float", "label": "D1"},\n'
+     '    "d2": {"default": 1.0, "min": 0.5, "max": 1.5, "step": 0.5, "type": "float", "label": "D2"},\n'
+     '    "confirm": {"default": 0, "min": 0, "max": 2, "step": 1, "type": "int", "label": "Confirm bars"},'),
+    ("                 range_bars=6, stop_frac=1.0,", "                 range_bars=6, stop_frac=1.0, d1=1.0, d2=1.0, confirm=0,"),
+    ("            side = 1 if c[k] > hi else (-1 if c[k] < lo else 0)",
+     "            side = 1 if c[k + int(confirm)] > hi else (-1 if c[k + int(confirm)] < lo else 0)"),
+    ("            stop = entry - side * float(stop_frac) * rng",
+     "            stop = entry - side * float(stop_frac) * float(d1) / float(d2) * rng"),
+]
+
+
+def _patched(edits, code=None):
+    code = code or Q.TEMPLATE_PLUGIN
+    for old, new in edits:
+        assert old in code, old
+        code = code.replace(old, new)
+    assert Q.safety_gate(code)[0], Q.safety_gate(code)[1]
+    return code
+
+
+def test_searched_values_cover_every_knob_the_validate_searches():
+    dp = {"a": {"default": 2, "min": 1, "max": 3, "step": 1, "type": "int"},
+          "pinned": {"default": 1.0, "min": 1.0, "max": 1.0, "step": 0.1, "type": "float"},
+          "on": {"default": False, "type": "bool"}, "mode": {"default": "x", "options": ["x", "y", "z"], "type": "str"},
+          "one": {"default": "x", "options": ["x"], "type": "str"}}
+    assert Q.searched_values(dp) == [("a", 1), ("a", 3), ("on", True), ("mode", "y"), ("mode", "z")]
+    assert Q.searched_values(dp, {"a": 1, "on": False, "mode": "x"}) == [("a", 3), ("on", True), ("mode", "y"),
+                                                                         ("mode", "z")]
+    assert Q.searched_knobs(dp) == ["a", "on", "mode"]
+
+
+@needs_shared
+def test_the_look_ahead_audit_covers_a_leak_at_the_fifth_knob(tmp_path):
+    # review round 4 (max_only_confirm): a look-ahead only at confirm=2 (the signal reads the bar after the fill bar)
+    # was caught as the 3rd knob and passed as the 5th - the corner pass covered the first 4 ranged knobs
+    code = _patched(_FIVE_KNOBS)
+    r = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ")
+    assert not r["ok"]
+    assert r["searched_knobs"] == ["range_bars", "stop_frac", "d1", "d2", "confirm"]
+    assert {c["knob"] for c in r["entry_bar_corners"]} == set(r["searched_knobs"])
+    assert any("at confirm=2: " in p for p in r["problems"]), r["problems"]
+    assert not any("at d1=" in p or "at d2=" in p for p in r["problems"]), r["problems"]   # the clean knobs pass
+
+
+@needs_shared
+def test_more_searched_knobs_than_the_audit_covers_fail_hard(tmp_path):
+    extra = "".join('    "k%d": {"default": 1.0, "min": 0.5, "max": 1.5, "step": 0.5, "type": "float", "label": "K"},\n'
+                    % i for i in range(Q.SEARCHED_KNOBS_MAX - 1))
+    code = _patched([(_FIVE_KNOBS[0][0], _FIVE_KNOBS[0][0] + "\n" + extra.rstrip("\n"))])
+    r = _sb(tmp_path, "contract", code, instrument="NQ", timeframe="5m", source="db_noadj_rth", session="rth",
+            master_filename="NOADJ_NQ_5m_RTH.csv", cost_pts=0.533, mult=20.0)
+    assert not r["ok"] and any(p.startswith("%d searched knobs" % (Q.SEARCHED_KNOBS_MAX + 1)) for p in r["problems"])
+    r = _sb(tmp_path, "lookahead", code, synthetic_days=40, la_k=4, instrument="NQ")
+    assert not r["ok"] and any("covers at most %d knobs" % Q.SEARCHED_KNOBS_MAX in p for p in r["problems"])
+
+
+# review round 4 (bool_trail): a same-bar trail switched on by a bool knob - every corner ran trail_on=False
+_BOOL_TRAIL = [
+    ('    "stop_frac": {"default": 1.0, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Stop (x range)"},',
+     '    "stop_frac": {"default": 1.0, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Stop (x range)"},\n'
+     '    "trail_on": {"default": False, "options": [False, True], "type": "bool", "label": "Trail"},\n'
+     '    "trail_k": {"default": 0.25, "min": 0.25, "max": 2.0, "step": 0.25, "type": "float", "label": "Trail k"},'),
+    ("                 range_bars=6, stop_frac=1.0,",
+     "                 range_bars=6, stop_frac=1.0, trail_on=False, trail_k=0.25,"),
+    ("            for j in range(e, b):\n                if side > 0 and l[j] <= stop:",
+     "            best = entry\n"
+     "            for j in range(e, b):\n"
+     "                if trail_on:\n"
+     "                    best = max(best, c[j]) if side > 0 else min(best, c[j])\n"
+     "                    stop = best - side * float(trail_k) * rng\n"
+     "                if side > 0 and l[j] <= stop:"),
+]
+
+
+@needs_shared
+def test_the_look_ahead_audit_runs_every_option_of_a_bool_knob(tmp_path):
+    code = _patched(_BOOL_TRAIL)
+    r = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ", corner_knobs=0)
+    assert r["ok"], r                                                  # the defaults (trail_on=False) hide it
+    r = _sb(tmp_path, "lookahead", code, synthetic_days=80, la_k=10, instrument="NQ")
+    assert not r["ok"] and ("trail_on", True) in {(c["knob"], c["value"]) for c in r["entry_bar_corners"]}
+    assert any("at trail_on=True: " in p for p in r["problems"]), r["problems"]
+
+
+# ---- the session calendar is pinned: re-checked before EACH stage, and the sandbox loads exactly the pinned file
+class _ReqHarness(Harness):
+    def __init__(self, *a, **k):
+        super().__init__(*a, **k)
+        self.reqs = []
+
+    def sandbox(self, mode, path, sha, req, workdir, timeout=None, label=None):
+        self.reqs.append((mode, dict(req)))
+        return super().sandbox(mode, path, sha, req, workdir, timeout, label)
+
+
+def test_the_session_calendar_is_pinned_and_rechecked_before_each_stage(tmp_path, monkeypatch):
+    cal = tmp_path / "cal" / "session_calendar.py"
+    cal.parent.mkdir()
+    with open(SC.__file__, "rb") as f:
+        cal.write_bytes(f.read())
+    monkeypatch.setattr(Q, "calendar_module_path", lambda: str(cal))
+    sha = Q.lf_sha256_file(str(cal))
+    A = _arrays()
+    h = _ReqHarness(A, _intraday_trades(A))
+    lab, s = _session(tmp_path / "one", h)
+    _propose_and_write(s)
+    s.t_run_stage_a("QL_TURNPT_NQ")
+    pre = s.idea["prereg"]
+    assert (pre["calendar_path"], pre["calendar_sha"]) == (str(cal), sha)
+    text = open(pre["path"], encoding="utf-8").read()
+    assert "- session calendar helpers %s: %s" % (cal, sha) in text and sha in h.posts[0]
+    stages = [r for m, r in h.reqs if m == "stage_a"]                  # both stages load exactly the pinned file
+    assert [(r["calendar_path"], r["calendar_sha"]) for r in stages] == [(str(cal), sha)] * 2
+    checks = [e for e in s.idea["events"] if e["event"] == "hash_recheck"]
+    assert [c["stage"] for c in checks] == ["pre_wf", "wf"] and all(c["calendar_sha"] == sha[:24] for c in checks)
+    # the review's repro (cal_sha_recheck.py): a line appended to the calendar after the prereg -> the stage refuses
+    h2 = Harness(A, _intraday_trades(A))
+
+    def tamper():
+        if len(h2.posts) == 1:                                         # right after the prereg post
+            cal.write_text(cal.read_text(encoding="utf-8") + "\n# changed after the prereg\n", encoding="utf-8")
+    h2.tamper = tamper
+    lab2, s2 = _session(tmp_path / "two", h2)
+    _propose_and_write(s2)
+    with pytest.raises(Q.ToolRefused, match="HASH MISMATCH before the pre_wf stage: the session calendar"):
+        s2.t_run_stage_a("QL_TURNPT_NQ")
+    assert ("sandbox", "stage_a") not in h2.calls
+    assert any(e["event"] == "hash_mismatch" and e.get("which") == "calendar" for e in s2.idea["events"])
+    # a prereg recorded before the dict kept the pin: the prereg FILE's line is read
+    old = {k: v for k, v in pre.items() if k not in ("calendar_path", "calendar_sha")}
+    assert Q.IdeaSession.prereg_calendar_pin(old) == (str(cal), sha)
+    with pytest.raises(Q.ToolRefused, match="the session calendar"):
+        s._hash_recheck(s.plugin_path("QL_TURNPT_NQ"), old, "wf")
+
+
+@needs_shared
+def test_the_sandbox_loads_exactly_the_pinned_calendar_and_checks_its_hash(tmp_path):
+    cal = tmp_path / "cal" / "session_calendar.py"
+    cal.parent.mkdir()
+    with open(SC.__file__, "rb") as f:
+        cal.write_bytes(f.read())
+    sha = Q.lf_sha256_file(str(cal))
+    path, psha = _write(tmp_path, "QL_T", _CAL_PLUGIN)
+    r = Q.run_sandbox("synthetic", path, psha, {"days": 60, "calendar_path": str(cal), "calendar_sha": sha},
+                      str(tmp_path / "w1"))
+    assert r["ok"], r
+    assert os.path.samefile(r["calendar_module"], str(cal)) and r["calendar_sha"] == sha and len(r["trades"]) == 6
+    r = Q.run_sandbox("synthetic", path, psha, {"days": 60, "calendar_path": str(cal), "calendar_sha": "0" * 64},
+                      str(tmp_path / "w2"))
+    assert not r["ok"] and "HASH MISMATCH: the session calendar" in r["error"]
+
+
+# ---- the result post of a promoted idea (and the PRE-WF fallback) carries 'retries k/2'
+def test_the_result_post_carries_the_retries_promoted_or_not(tmp_path):
+    A = _arrays()
+    h = SeqHarness(A, _intraday_trades(A), [_few(3), _pre_trades(True)])
+    lab, s = _session(tmp_path, h)
+    _propose_and_write(s)
+    assert s.t_run_stage_a("QL_TURNPT_NQ")["fix_retries_left"] == 2
+    assert s.t_write_plugin("QL_TURNPT_NQ", Q.TEMPLATE_PLUGIN + "\n# fixed the entry window\n")["passed"]
+    r = s.t_run_stage_a("QL_TURNPT_NQ")
+    assert r["promotion"].startswith("PROMOTED") and s.idea["stage_a"]["numbers"]
+    Q.record_done(lab, s.idea, h.poster)
+    post = h.posts[-1]
+    assert "-> promoted" in post and "(broken-plugin fix retries 1/2) -> promoted" in post
+    assert lab.state["done_ideas"][-1]["retries"] == "retries 1/2"
+    # the PRE-WF-only branch (not promoted with a failed PRE-WF post, or the WF stage errored) carries it too
+    s.idea["stage_a"] = {"error": "WF STAGE A FAILED: x", "numbers": None}
+    assert "file defaults (broken-plugin fix retries 1/2)" in Q.compose_result_post(s.idea)

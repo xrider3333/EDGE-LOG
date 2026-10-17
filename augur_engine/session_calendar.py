@@ -26,16 +26,27 @@ value per BAR (equal on every bar of a session), so a rule reads them at the bar
 
 THE CALENDAR THEY READ. The month-end helpers need the FUTURE session calendar (is today one of the last 3 sessions of
 the month?). That is the exchange's published trading calendar, known in advance - not a price - so reading it is not
-look-ahead. Inside the loaded span the calendar is the data's OWN session dates (what the strategy can trade; on
-NOADJ_NQ_5m_RTH.csv 2010-06-07..2016-06-30 this marks 219 last-3 sessions = 73 months x 3, TTM's literal build). Past
-either end of the loaded data (a load that starts or ends mid-month) it is extended with the CME equity-index
-regular-hours calendar (`exchange_sessions`: every weekday except New Year's Day, Good Friday, Christmas - each as
-observed - and the full closures in SPECIAL_CLOSURES; the US holidays on which the CME trades a shortened session -
-MLK, Presidents, Memorial, Juneteenth, Independence, Labor, Thanksgiving - ARE sessions, as on the house masters
-2014-2016). So a load that ends on 2025-06-27 still knows 2025-06-30 is June's last session, and truncating the data
-never changes an earlier bar's answer (when the data's sessions match the exchange's). One caveat, stated: a session
-MISSING from the data inside the span (a data hole, e.g. 2014-12-31 on NOADJ_NQ_5m_RTH.csv) is not on the calendar the
-helpers read - the data's own dates rule inside the span.
+look-ahead. The positions and counts are read from the CME equity-index regular-hours calendar ALONE, across the whole
+span (`exchange_sessions`: every weekday except New Year's Day, Good Friday, Christmas - each as observed - and the
+full closures in SPECIAL_CLOSURES; the US holidays on which the CME trades a shortened session - MLK, Presidents,
+Memorial, Juneteenth, Independence, Labor, Thanksgiving - ARE sessions, as on the house masters 2014-2016), never from
+the data's own dates. So the answer for a bar is a function of its date alone: truncating the data, starting the load
+later, or a hole in the data never changes it (tested, incl. the real holes of the RTH masters). A session MISSING
+from the data (a data hole: all 7 pinned RTH masters lack the same 15 published sessions 2012-11-22..2014-12-31, e.g.
+2014-12-31 and Thanksgiving 2013) still counts - it is a session with no bars to trade - so on NOADJ_NQ_5m_RTH.csv
+2010-06-07..2016-06-30 is_last_n_sessions_of_month(index, 3) marks 217 tradable sessions: 73 months x 3 minus
+2013-11-28 and 2014-12-31 (review round 4: the old 'data's own dates inside the span' build marked 219 - 2013-11-26 and
+2014-12-26 only on a load that reached the next month, i.e. not causal). A data session OFF the published calendar
+(none on the house masters 2010-2025) gets its position among the published sessions around it and shifts no other
+session's count.
+
+THE DATE OF A SESSION is its TRADING day (`_trading_ymd`): each bar's US/Eastern date, or the NEXT day for a bar at or
+after 18:00 ET (the CME's 18:00 roll - a Sunday 18:00 bar trades Monday's session). Regular-hours bars keep their own
+date. Sessions are the runs of day_id (or of the bar date without day_id) split where the trading day changes, so an
+ETH master whose day_id is the ET calendar date (load_master_arrays) or an 18:00 trading day both date every bar right
+(review round 4: dating a session by its first bar's calendar date counted 13 Sunday-evening chunks as sessions in
+2016-01..03 - Feb 2016 had 25 'sessions' - and dated Monday's 18:00-roll sessions Sunday). A tz-aware index is read on
+the US/Eastern clock; a naive one is taken as US/Eastern (the house masters).
 
 Pure numpy / pandas, no I/O; the QWEN LAB safety gate allows `from augur_engine.session_calendar import <name>`.
 """
@@ -111,21 +122,34 @@ def is_exchange_session(d):
     return d.weekday() < 5 and d not in closed_days(d.year)
 
 
+def _exchange_days(d0, d1):
+    """numpy datetime64[D] of the CME equity-index regular-hours sessions from d0 to d1 inclusive (vectorised)."""
+    a, b = pd.Timestamp(d0).date(), pd.Timestamp(d1).date()
+    if b < a:
+        return np.zeros(0, dtype="datetime64[D]")
+    days = np.arange(np.datetime64(a, "D"), np.datetime64(b, "D") + np.timedelta64(1, "D"))
+    days = days[(days.astype(np.int64) + 3) % 7 < 5]             # 1970-01-01 was a Thursday (weekday 3)
+    shut = [np.datetime64(d, "D") for y in range(a.year, b.year + 1) for d in closed_days(y)]
+    if shut:
+        days = days[~np.isin(days, np.asarray(shut, dtype="datetime64[D]"))]
+    return days
+
+
 def exchange_sessions(d0, d1):
     """[datetime.date] of the CME equity-index regular-hours sessions from d0 to d1 inclusive (the published
     calendar - knowable in advance)."""
-    a, b = pd.Timestamp(d0).date(), pd.Timestamp(d1).date()
-    out = []
-    d = a
-    while d <= b:
-        if is_exchange_session(d):
-            out.append(d)
-        d += _dt.timedelta(days=1)
-    return out
+    return [d.item() for d in _exchange_days(d0, d1)]
 
 
 def _ymd(d):
     return d.year * 10000 + d.month * 100 + d.day
+
+
+def _days_ymd(days):
+    """int64 YYYYMMDD of a datetime64[D] array."""
+    di = pd.DatetimeIndex(days)
+    return (np.asarray(di.year, dtype=np.int64) * 10000 + np.asarray(di.month, dtype=np.int64) * 100
+            + np.asarray(di.day, dtype=np.int64))
 
 
 def _month_bounds(ymd):
@@ -136,21 +160,30 @@ def _month_bounds(ymd):
     return first, nxt - _dt.timedelta(days=1)
 
 
-def _bar_ymd(index):
-    """int64 YYYYMMDD of every bar, in the index's own clock (US/Eastern on the house masters)."""
+ROLL_HOUR_ET = 18                                                # the CME equity-index trading day starts 18:00 ET
+
+
+def _trading_ymd(index):
+    """int64 YYYYMMDD of every bar's TRADING day: its US/Eastern date, the next day for a bar at or after 18:00 ET (a
+    Sunday 18:00 bar trades Monday's session). A tz-aware index is read on the US/Eastern clock, a naive one as
+    US/Eastern. Regular-hours bars keep their own date."""
     idx = pd.DatetimeIndex(index)
-    return (np.asarray(idx.year, dtype=np.int64) * 10000 + np.asarray(idx.month, dtype=np.int64) * 100
-            + np.asarray(idx.day, dtype=np.int64))
+    if idx.tz is not None:
+        idx = idx.tz_convert("US/Eastern").tz_localize(None)
+    day = idx.normalize() + pd.to_timedelta((np.asarray(idx.hour) >= ROLL_HOUR_ET).astype(np.int64), unit="D")
+    return (np.asarray(day.year, dtype=np.int64) * 10000 + np.asarray(day.month, dtype=np.int64) * 100
+            + np.asarray(day.day, dtype=np.int64))
 
 
 def session_calendar(index, day_id=None):
-    """Per-bar calendar facts (numpy int64 arrays): date (YYYYMMDD of the bar's session = the date of the
-    session's first bar), year, month, day, weekday (0 = Monday), session_index_in_month (0 = the month's first
-    trading session), sessions_in_month, days_to_month_end (sessions LEFT in the month after this one; 0 = the last),
-    week_of_month (1 + (day - 1) // 7). Sessions are day_id runs (or the bar date without day_id). The calendar is the
-    data's own session dates inside the loaded span, extended past its ends by exchange_sessions (see the module
-    docstring)."""
-    ymd = _bar_ymd(index)
+    """Per-bar calendar facts (numpy int64 arrays): date (YYYYMMDD of the bar's session = its TRADING day, see the
+    module docstring), year, month, day, weekday (0 = Monday, of that date), session_index_in_month (published sessions
+    of the month BEFORE this one: 0 = the month's first trading session), sessions_in_month (published sessions in
+    the month), days_to_month_end (published sessions LEFT in the month after this one; 0 = the last), week_of_month
+    (1 + (day - 1) // 7). Sessions are the runs of day_id (or of the bar date without day_id), split where the trading
+    day changes. Positions and counts come from the published exchange calendar alone (exchange_sessions), never from
+    the data's own dates - so a data hole, a truncation or a later load start never changes an answer."""
+    ymd = _trading_ymd(index)
     n = len(ymd)
     keys = ("date", "year", "month", "day", "weekday", "session_index_in_month", "sessions_in_month",
             "days_to_month_end", "week_of_month")
@@ -159,29 +192,21 @@ def session_calendar(index, day_id=None):
     key = np.asarray(day_id) if day_id is not None else ymd
     if len(key) != n:
         raise ValueError("session_calendar: day_id has %d rows, index %d" % (len(key), n))
-    starts = np.flatnonzero(np.r_[True, key[1:] != key[:-1]])
+    starts = np.flatnonzero(np.r_[True, (key[1:] != key[:-1]) | (ymd[1:] != ymd[:-1])])
     lens = np.diff(np.r_[starts, n])
-    sess = ymd[starts]                                           # one date per session (its first bar's)
-    have = np.unique(sess)
-    lo, hi = _month_bounds(have[0])[0], _month_bounds(have[-1])[1]
-    first = _dt.date(int(have[0]) // 10000, (int(have[0]) // 100) % 100, int(have[0]) % 100)
-    last = _dt.date(int(have[-1]) // 10000, (int(have[-1]) // 100) % 100, int(have[-1]) % 100)
-    ext = [_ymd(d) for d in exchange_sessions(lo, first - _dt.timedelta(days=1))] + \
-          [_ymd(d) for d in exchange_sessions(last + _dt.timedelta(days=1), hi)]
-    cal = np.unique(np.r_[have, np.asarray(ext, dtype=np.int64)])
-    month = cal // 100
-    mstart = np.flatnonzero(np.r_[True, month[1:] != month[:-1]])
-    msize = np.diff(np.r_[mstart, len(cal)])
-    gid = np.repeat(np.arange(len(mstart)), msize)
-    pos = np.arange(len(cal)) - mstart[gid]
-    size = msize[gid]
-    p = np.searchsorted(cal, sess)
-    s_pos, s_size = pos[p], size[p]
+    sess = ymd[starts]                                           # one trading day per session
+    lo, hi = _month_bounds(int(sess.min()))[0], _month_bounds(int(sess.max()))[1]
+    ex = _days_ymd(_exchange_days(lo, hi))                       # the published calendar, whole months, sorted
+    mo = (sess // 100) * 100
+    m0 = np.searchsorted(ex, mo, side="left")                    # the month's first published session
+    m1 = np.searchsorted(ex, mo + 99, side="right")              # one past its last
+    before = np.searchsorted(ex, sess, side="left")              # published sessions before this date
+    after = np.searchsorted(ex, sess, side="right")              # the first published session after it
+    s_pos, s_size, s_left = before - m0, m1 - m0, m1 - after
     y, m, d = sess // 10000, (sess // 100) % 100, sess % 100
-    wd = np.asarray(pd.DatetimeIndex(index)[starts].weekday, dtype=np.int64)
+    wd = np.asarray(pd.to_datetime(sess.astype(str), format="%Y%m%d").weekday, dtype=np.int64)
     per_session = {"date": sess, "year": y, "month": m, "day": d, "weekday": wd, "session_index_in_month": s_pos,
-                   "sessions_in_month": s_size, "days_to_month_end": s_size - 1 - s_pos,
-                   "week_of_month": 1 + (d - 1) // 7}
+                   "sessions_in_month": s_size, "days_to_month_end": s_left, "week_of_month": 1 + (d - 1) // 7}
     return {k: np.repeat(np.asarray(v, dtype=np.int64), lens) for k, v in per_session.items()}
 
 
