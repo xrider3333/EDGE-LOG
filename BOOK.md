@@ -1190,6 +1190,133 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10bf. Q48 NOISE UP-WEIGHT INSIDE #463 (x1.10 / x1.25; ORB LW44's paired-Sharpe candidate): CLOSED AT DRAFT - the owner's 10-05 forward line stays the decider (2026-10-16)
+
+**What it is.** MANAGER #177 / #178. ORB's shelf-44 paired Sharpe test (LW44) found that NOISE at x1.25 inside #463 survives Holm on
+the WF rows (+0.051, 95% interval +0.020 to +0.082). This draft reads it under the yardstick:
+- weights fixed at x1.10 and x1.25;
+- a cell = #463 + (w - 1) x NOISE #422's own daily marked P&L (RISK r1 records, rule U);
+- four numbers on the house convention (four_numbers);
+- pre-WF first, with the paired power bar (the spread of the DIFFERENCE, shelf 13); then WF and LB apart.
+Two adversarial verifiers reproduced every number to the cent and upheld the close (workflow wf_c17cbb89-00a). Scripts and record:
+`bookq\q48_noise_weight.py`, `q48b_wf_paired.py`, `q48_noise_weight.json`.
+
+| Stretch | NOISE x1.00 (#463) | NOISE x1.10 | NOISE x1.25 |
+|---|---|---|---|
+| PRE-WF 2010-06..2016-06 | 47.27 / $8,622 / 8.50% / 2.192 (1 EP) | 46.54 / $8,830 / 8.79% / 2.196 (1 EP) | 45.54 / $9,170 / 9.21% / 2.199 (1 EP) |
+| WF | 93.81 / $36,095 / 13.09% / 3.816 | 96.25 / $36,829 / 12.90% / 3.881 | 99.83 / $37,929 / 12.63% / 3.967 |
+| LB (report; spent) | 155.54 / $35,034 / 18.33% / 4.150 (1 EP) | 155.86 / $35,931 / 19.09% / 4.190 (1 EP) | 156.32 / $37,308 / 20.21% / 4.240 (1 EP) |
+
+Cells read ROC@30k / DD5 / DD% from peak / Sortino; "1 EP" = one episode.
+
+**Read.**
+- **No backtest can settle a NOISE weight.** The weight was picked on the WF rows (MDL r1, then LW44), so WF is in-sample for it.
+  - At x1.25 the WF paired gain is +6.03, against a 1.96 SD bar of 6.96. Only 42% of paired draws reach the +4.69 that 98.50 needs.
+  - The ROC-best weight moves by period: 0.9 pre-WF, 3.0 in WF (the top of the grid), 2.3 in LB.
+  - Book 56, Q45 and shelf 13 all found that re-weighting #463's legs has no forward skill.
+- **The book bar.**
+  - x1.10 misses on ROC: 96.25 < 98.50.
+  - x1.25 misses on DD5: +$1,834 raw, +$657 (+2.7%) at matched $30k risk.
+  - In its favour: WF DD% from peak improves (13.09 -> 12.63) and LW44's paired Sharpe stands. Both are WF in-sample.
+- **Pre-WF is reported, not gated** (the 10-16 house rule for intraday legs). Its -1.73 is one 2013 episode deepening, and the block
+  is underpowered: MDE80 5.27 against an expected effect of about 3. Read it as uninformative, not as a refutation.
+- **This cell was already decided:** owner decision (d), 10-05. NOISE stays x1.0, and x1.25 is judged on dollars at 36 months
+  through Q8's `book_shadow_noise125` (live since 10-06; the only forward line with real power). It stays the only path; no validate
+  and no new line.
+- **Capacity:** at x1.25 the worst drawdown grows by $1.0k in WF and $3.3k in LB, on a book already at about $96.8k of a $100k account.
+
+### 10be. BOOK-LIFT SCOUT r1 (owner standing order 10-16): a clean nothing-found; the EVENT SLEEVE's map re-run on Addendum 1's inputs (2026-10-16)
+
+**What it is.** MANAGER #172 passes on the owner's 10-16 order: keep searching for anything that lifts the book, and Auto-Validate
+anything that clears. Round 1 ran five read-only scouts, each with one lens:
+- new data already held;
+- legs that earn while #463 falls;
+- 1-5 minute NQ / ES legs;
+- lane survivors and parked items;
+- mechanism-first ideas.
+An adversarial verifier then tried to kill each candidate against the ledger, BOOK.md, memory and the data on disk, and a completeness
+critic looked for missed angles (8 agents). Nothing was backtested, so this was not a book look.
+
+**Result: zero survivors, so nothing goes to a validate.**
+- **Legs that earn while #463 falls** pay where the book already earns, and then they bleed. In the R anatomy (10al), 81% of
+  drawdown days fall in ES uptrends; LONGVOL, TREND and short-growth insurance all died this way.
+- **1-5 minute legs** cannot reach the map. An own ROC of 15 needs an after-cost Sharpe of about 0.85, which is about 0.054 a trade at
+  250 trades a year. No mechanism off the dead list carries that after 0.783 pt a round trip plus a tick.
+- **The only new mechanism** was vol-control funds rebalancing at the close. It was killed because the 15:30-16:00 flow window is dead
+  five ways: 2.14, round-16 MOC, 2.102, 2.141 and 2.41.
+- **The critic's own lens was existing-leg plumbing**, and each idea fails on numbers already recorded:
+  - shorting NQ while ENGU-Q is flat: the causal version loses on R days, so its rho is positive;
+  - holding trend-day exits to the close: about +1 ROC point against the +4.7 bar;
+  - crypto: not on disk, and every market transfer has failed.
+- **The live levers are forward ones:** the RESMOM line (L = 121.06; first real rank 10-30/31) and the EVENT SLEEVE shadow.
+
+**The one finding: the EVENT SLEEVE re-mapped** (MAPCHECK-F unchanged, run in FRONTIER's own folder; the 10-10 row reproduces at 56%).
+- The 10-10 map (ledger 2.138) used 55 trades a year and a pooled Sharpe of 0.64, which is sqrt(sum of the squares). That is the Sharpe
+  of the BEST weighting.
+- Addendum 1 measured 101.5 trades a year (AUCTION K5 69.3, MONTH-END 8.8, 08:30 FADE 23.3) and froze equal risk PER TRADE. That
+  gives K5 about 68% of the yearly risk.
+- Pooled that way, the Sharpe is (0.33 x 8.32 + 0.30 x 2.97 + 0.30 x 4.83) / 10.07 = 0.50.
+
+| Prior (n 101 a year, t3 tails) | Sharpe | rho_dd | Own WF ROC (median / P>=15) | P(lift #463) | P(lift S1 line) | Map |
+|---|---|---|---|---|---|---|
+| 10-10 row (n 55, reproduced) | 0.64 | -0.05 | 11.6 / 39% | 56% | 41% | clears |
+| 10-10 Sharpe at n 101 | 0.64 | -0.05 | 11.5 / 39% | 54% | 38% | clears |
+| Frozen weights | 0.50 | 0.00 | 8.0 / 27% | 41% | 26% | clears |
+| Fade carries no edge | 0.36 | 0.00 | 5.3 / 20% | 31% | 22% | clears (at the bar) |
+| Verifier's shrink, clustered vol | 0.39 | 0.00 | 4.4 / 14% | 28% | 10% | closes |
+| Every part halved again | 0.25 | 0.00 | 3.3 / 13% | 23% | 15% | closes |
+
+**Read.**
+- The trade rate alone changes nothing (54%). The weighting and the honest halving of each part do the damage.
+- The shadow still sits near the 30% bar on #463, but below it on the S1 line in every corrected row. Its expected lift is about half
+  of what the 10-10 map said.
+- **Addendum 3** (CUSTOM-ML, 8dcdda76; MANAGER #176 / #178) froze equal yearly risk per part while no forward trade was scored.
+  The re-map on it (`bookq\q47b_sleeve_remap_a3.py`) gives:
+  - main row: Sharpe (0.33 + 0.30 + 0.30) / sqrt(3) = 0.54, own WF ROC median 8.8, P(lift #463) 44%, P(lift S1 line) 29%;
+  - month-end at 10-10's 0.45: 51%;
+  - fade carries no edge: 31%;
+  - verifier's shrink with clustered vol: 28% (closes);
+  - every part halved again: 25% (closes).
+  Addendum 3 buys back about 3 points. The sleeve stays a forward shadow near the bar on #463 and under it on the S1 line in 4 of 5
+  rows. The 165-trade review decides.
+- Four numbers: '-' (synthetic priors, no curve).
+- Scripts and records: workflow wf_0d719471-831 (scouts and verifiers); `bookq\q47_sleeve_remap.py`;
+  `C:\EdgeLog\_anatomy_cache\rocfrontier\mapcheck_q47_sleeve\`.
+
+### 10bd. Q46 READING SHELF No. 43 - the triple penance rule as a sizing rule and as a time-under-water alarm: CLOSED AT DRAFT, both uses (2026-10-15)
+
+**What it is.** FRONTIER's pick from the restocked shelf (MANAGER #168; claim #1218): Bailey & Lopez de Prado 2015, "Stop-outs under
+serial correlation and 'the triple penance rule'" (Journal of Risk 18(2)). From a strategy's mean, volatility and day-to-day
+correlation, the paper predicts how deep (MaxDD) and how long (time under water, TuW) its drawdowns get. With independent returns,
+recovery takes about three times as long as the fall. The card names two uses. Both were screened apart, with the rule stated in the
+script before any number. No book look, no forward data. Script and record: `C:\EdgeLog\_anatomy_cache\bookq\q46_triple_penance.py` /
+`.json`.
+
+- **(a) Sizing each leg so its 95% drawdown is $30k** re-weights #463's legs, and ROC@30k does not change with scale. Q45 (10bc)
+  measured the MDE80 of any re-weighting at 49.6 ROC points against a +4.7 bar, so this use closed with no run.
+- **(b) A time-under-water alarm (A3) for the harm monitor**, built on Q33's own machinery (10aq): each leg's WF daily $, a stationary
+  block bootstrap (mean block 20), 2,000 paths of 36 months, weekly checks. Parity was exact: A1 + A2 power and #463's A2 line
+  ($62,640) match 10aq. A3 trips when the run since the last equity high passes the paper's TuW at 95%. It would be ADDED only if its
+  false alarms within 36 months are <= 2.5% (the A1 / A2 standard) AND it lifts "edge gone" detection by >= 10 points for some leg.
+
+| Line | Paper MaxDD 95% (99%) | WF worst drawdown | Paper vs WF | Paper TuW 95% | A3 false alarms (36 mo) | Edge gone by 36 mo: A1+A2 -> +A3 |
+|---|---|---|---|---|---|---|
+| ORB | $18,042 ($36,095) | $28,709 | -37% | 25.9 months | 2.6% | 64% -> 70% |
+| ENGU-Q | $20,289 ($40,557) | $48,599 | -58% | 23.1 months | 2.9% | 51% -> 62% |
+| TTM x3 | $17,117 ($34,234) | $17,730 | -3% | 55.9 months | 0.0% | 40% -> 40% |
+| NOISE | $7,059 ($14,089) | $17,015 | -59% | 6.8 months | 26.2% | 98% -> 99% |
+| #463 | $21,669 ($43,292) | $44,849 | -52% | 7.4 months | 12.8% | 98% -> 99% |
+
+**Read.**
+- **Closed at draft.** A3 fails its pre-stated test on every line. ENGU-Q comes closest: +11 points of detection, but 2.9% false alarms
+  against the 2.5% limit.
+- **The formula is not calibrated for our legs.** It assumes thin-tailed days, and these legs' days are fat-tailed. So its 95% worst
+  drop runs 37-59% short of the WF worst, except TTM's (-3%). The 99% figure lands nearer for ORB and #463. Q33's bootstrap lines
+  (A2) already carry the real tails, so they stay.
+- **Four numbers: '-'.** This is a monitor screen; it has no book curve.
+- Not proposed: a TuW line calibrated by the bootstrap instead of the formula. It would be a third alarm, raising the family-wide false
+  alarms, for a gain only on ENGU-Q.
+
 ### 10bc. Q45 READING SHELF No. 12 - Risk-Constrained Kelly weights for #463's legs: CLOSED AT DRAFT on the pre-WF rows (2026-10-15)
 
 **What it is.** The reading-shelf pick for FRONTIER (MANAGER #163; claim posted as #1139): Busseti, Ryu & Boyd 2016, "Risk-Constrained
