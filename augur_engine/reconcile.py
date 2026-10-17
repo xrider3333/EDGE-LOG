@@ -496,8 +496,13 @@ def run_reconcile(strategy, *, instrument, timeframe="5m", session="rth", params
     if not (date_from or date_to) and parsed:
         allt = [t for (b, _m) in parsed.values() for t in b if t.entry_dt is not None]
         if allt:
+            from .data import find_master, window_cut_rule
             date_from = min(t.entry_dt for t in allt).strftime("%Y-%m-%d")
-            date_to = max(t.entry_dt for t in allt).strftime("%Y-%m-%d")
+            last = max(t.entry_dt for t in allt)
+            _m = find_master(instrument, timeframe, session)
+            if _m is not None and window_cut_rule(_m) == "eth_session_18et":
+                last = last + pd.Timedelta(hours=6)     # an 18:00+ ET entry belongs to the next session
+            date_to = last.strftime("%Y-%m-%d")
     a, a_meta = edgelog_blotter(strategy, instrument, timeframe, session, params or {},
                                 date_from=date_from, date_to=date_to, cost_pts=cost_pts, mult=mult)
     out = {"edgelog": {"num_trades": len(a), "master": a_meta.get("master"),

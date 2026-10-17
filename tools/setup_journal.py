@@ -948,15 +948,15 @@ def build(a):
 
 def roll_inside(root, t_from, t_to):
     """True when the house roll table (augur_engine/rolls.py over tools/data/rolls_<root>.csv) holds a
-    real contract switch after t_from and no later than t_to, so the two ends sit on different
-    contracts. Replaces a 0.6% open-gap guess in roll months (MANAGER #98-3): the median switch offset
+    real contract switch after t_from and before t_to, so the two ends sit on different contracts.
+    t_to is an instant, e.g. the signal bar's CLOSE (a switch inside the signal bar counts). Replaces a 0.6% open-gap guess in roll months (MANAGER #98-3): the median switch offset
     is 0.21% (NQ) / 0.38% (ES), so a gap rule misses most rolls, and it flags news gaps."""
     if ROOT not in sys.path:
         sys.path.insert(0, ROOT)
     from augur_engine import rolls
     lo, hi = pd.Timestamp(t_from).timestamp(), pd.Timestamp(t_to).timestamp()
     # an in-bar row stamps the START of the bar the switch fell inside; the switch is just after it
-    return any(lo < r['switch_sec'] + (1 if r['kind'] == 'in_bar' else 0) <= hi
+    return any(lo < r['switch_sec'] + (1 if r['kind'] == 'in_bar' else 0) < hi
                for r in rolls.real_switches(root))
 
 
@@ -1075,7 +1075,7 @@ def trade_features(j):
     f['pday_dir'] = None
     pdate, pb1, prth = prior_trading_day(root, date, siv)
     if pdate and have_atr:
-        if roll_inside(root, prth.index[0], sig_ts):
+        if roll_inside(root, prth.index[0], sig_ts + pd.Timedelta(minutes=step_min)):   # to the signal close
             f['note'] = 'contract roll between the prior day and this one'
             print('CONTRACT ROLL: trade n=%s %s %s (prior day %s)' % (j.get('n'), date, j['sym'], pdate))
         else:

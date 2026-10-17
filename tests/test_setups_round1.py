@@ -427,3 +427,37 @@ def test_contract_switch_comes_from_the_table_not_the_biggest_gap():
     with rolls.roll_context('NQ', ts, 60):
         P = SK.prep(o, h, l, c, np.full(n, 300.0), ts)
     assert P['seam_sessions'] == {int(sess[k_sw])}
+
+
+def test_a_switch_during_rth_blanks_that_session_and_the_next():
+    """The 2026-09-14 11:30 in-bar switch (NQU6 -> NQZ6, inside RTH): 09-14 compares new-contract bars with
+    09-11's old range, and 09-15's prior day (09-14) mixes both contracts - both are blanked (bundle review)."""
+    from augur_engine import setup_kit as SK, rolls
+    rng = np.random.default_rng(11)
+    ts = pd.date_range('2026-09-10 18:00', '2026-09-16 16:59', freq='1min', tz='US/Eastern')
+    ts = ts[(ts.hour != 17) & (ts.dayofweek != 5) & ~((ts.dayofweek == 4) & (ts.hour >= 17))
+            & ~((ts.dayofweek == 6) & (ts.hour < 18))]
+    n = len(ts)
+    c = 29000.0 + np.cumsum(rng.normal(0, 1.0, n))
+    o = np.r_[c[0], c[:-1]]
+    h, l = np.maximum(o, c) + 0.5, np.minimum(o, c) - 0.5
+    with rolls.roll_context('NQ', ts, 60) as ctx:
+        P = SK.prep(o, h, l, c, np.full(n, 300.0), ts)
+        assert ctx.get('calls', 0) >= 1                   # raw_vs_adjusted credits the file's own roll-day skip
+    first = np.flatnonzero(P['is_first_rth'])
+    blank = sorted(str(ts[i].date()) for i in first[1:] if np.isnan(P['priorday_lo'][i]))
+    assert blank == ['2026-09-14', '2026-09-15']
+
+
+def test_prep_without_a_roll_context_blanks_nothing_and_says_so_once(capsys, monkeypatch):
+    from augur_engine import setup_kit as SK
+    monkeypatch.setattr(SK, '_NO_CTX_SAID', [])
+    rng = np.random.default_rng(12)
+    ts = pd.date_range('2024-06-12 18:00', '2024-06-14 16:59', freq='1min', tz='US/Eastern')
+    ts = ts[ts.hour != 17]
+    n = len(ts)
+    c = 19000.0 + np.cumsum(rng.normal(0, 1.0, n))
+    o = np.r_[c[0], c[:-1]]
+    for k in (0, 1):
+        SK.prep(o + k, np.maximum(o, c) + 0.5 + k, np.minimum(o, c) - 0.5 + k, c + k, np.full(n, 300.0), ts)
+    assert capsys.readouterr().out.count('prep() ran without a roll context') == 1

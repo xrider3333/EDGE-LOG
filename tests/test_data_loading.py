@@ -167,3 +167,28 @@ def test_reconcile_clips_platform_trades_with_the_engines_eth_cut():
     eth = R.clip_window(tr, "2026-10-14", "2026-10-15", session="eth")
     assert [str(t.entry_dt)[:16] for t in eth] == ["2026-10-15 16:30", "2026-10-14 20:00"]
     assert len(R.clip_window(tr, "2026-10-14", "2026-10-15")) == 3                # RTH/default: calendar day
+
+
+def test_reconcile_auto_window_reaches_the_session_of_the_last_eth_entry(monkeypatch):
+    """Blank FROM/TO: an export whose last entry is 19:30 ET belongs to the NEXT session, so the auto
+    date_to is that session's date and neither side drops the trade (bundle review, MANAGER #98)."""
+    from augur_engine import reconcile as R
+    import augur_engine.data as Dm
+    tr = [R.Trade(pd.Timestamp("2026-05-27 10:00"), pd.Timestamp("2026-05-27 11:00"), 1),
+          R.Trade(pd.Timestamp("2026-05-28 19:30"), pd.Timestamp("2026-05-28 20:00"), 1)]
+    seen = {}
+
+    def blotter(strategy, inst, tf, session, params, *, date_from=None, date_to=None, cost_pts=0.0, mult=None):
+        seen["to"] = date_to
+        return [], {"window_cut": "eth_session_18et", "master": "m", "window": (date_from, date_to)}
+
+    monkeypatch.setattr(R, "parse_tv_text", lambda text, mult=1: (list(tr), {}))
+    monkeypatch.setattr(R, "edgelog_blotter", blotter)
+    monkeypatch.setattr(R, "build_result", lambda a, am, b, bm, off, tol, daily=False: {"b": len(b)})
+    monkeypatch.setattr(R, "best_offset", lambda a, b, tol, daily=False: 0)
+    monkeypatch.setattr(Dm, "find_master", lambda *a, **k: {"session": "eth", "source": "db_noadj_eth"})
+    out = R.run_reconcile("X.py", instrument="NQ", timeframe="5m", session="eth", tv_text="x")
+    assert seen["to"] == "2026-05-29" and out["auto_window"]["to"] == "2026-05-29"
+    assert out["platforms"]["tradingview"] == {"b": 2}
+    monkeypatch.setattr(Dm, "find_master", lambda *a, **k: {"session": "rth", "source": "db_noadj_rth"})
+    assert R.run_reconcile("X.py", instrument="NQ", timeframe="5m", session="rth", tv_text="x")["auto_window"]["to"] == "2026-05-28"

@@ -133,21 +133,40 @@ def _third_weekday(year, month, weekday=2):
     return first + pd.Timedelta(weeks=2)
 
 
-def seam_sessions_for(index, sess, starts, barlen):
-    """Session ids whose prior-day level comes from the OLD contract, from the house roll calendar
-    (augur_engine.rolls.seam_days_for over tools/data/rolls_<ROOT>.csv) for the series the engine is
-    running. The engine sets the roll context only where prices are raw across switches (unadjusted
-    futures masters whose signals are not adjusted, and the live/paper path); an adjusted master or
-    adjusted signals carry no roll context, and their prior-day levels need no blanking.
+_NO_CTX_SAID = []
+
+
+def _count_seam_use():
+    """Tell the roll context that this file reads the roll calendar (rolls.raw_vs_adjusted reads
+    ctx['calls'] to credit a raw-vs-adjusted difference to the file's own roll-day skip)."""
+    ctx = _R.current_roll_context()
+    if ctx is not None:
+        ctx["calls"] = ctx.get("calls", 0) + 1
+
+
+def switch_instants():
+    """Epoch seconds of the real contract switches for the series the engine is running, from the
+    house roll table (augur_engine.rolls.real_switches over tools/data/rolls_<ROOT>.csv); an in-bar row
+    sits one second into its bar, as in rolls._switch_arrays. The engine sets a roll context with a root
+    only where prices are raw across switches (unadjusted futures masters whose signals are not adjusted,
+    and the live/paper path); an adjusted master or adjusted signals carry root None: nothing to blank.
+    NO context at all means a direct caller: it gets nothing blanked and one printed warning.
     MANAGER #98-3 (2026-10-16): contract_switch_sessions below picked the wrong session in 27 of 66
     NQ and 16 of 66 ES quarters on the no-adj 1m ETH masters (a weekend gap beat a small roll step),
     and picked arbitrary gaps on adjusted prices."""
     ctx = _R.current_roll_context()
-    if ctx is None or not ctx.get("root") or not len(starts):
-        return set()
-    t = _R.epoch_seconds(index)
-    ks = _R.seam_days_for(t[starts], ctx["root"], t, int(barlen) * 60, table_dir=ctx.get("table_dir"))
-    return {int(sess[starts[k]]) for k in ks}
+    if ctx is None:
+        if not _NO_CTX_SAID:
+            _NO_CTX_SAID.append(1)
+            print("[setup_kit] prep() ran without a roll context: prior-day levels are NOT blanked at "
+                  "contract switches. On a raw futures tape wrap the call in augur_engine.rolls."
+                  "roll_context(root, bar_times, bar_seconds), as the engine does.", flush=True)
+        return np.zeros(0, dtype=np.int64)
+    if not ctx.get("root"):
+        return np.zeros(0, dtype=np.int64)
+    rows = _R.real_switches(ctx["root"], ctx.get("table_dir"))
+    return np.array(sorted(int(r["switch_sec"]) + (1 if r["kind"] == "in_bar" else 0) for r in rows),
+                    dtype=np.int64)
 
 
 def _seam_key():
@@ -159,7 +178,7 @@ def _seam_key():
 
 
 def contract_switch_sessions(o, c, index, sess, pre_days=14, post_days=4):
-    """RETIRED from prep() (see seam_sessions_for); kept only for tools/rollaudit/ground_truth.py,
+    """RETIRED from prep() (see switch_instants); kept only for tools/rollaudit/ground_truth.py,
     which infers switches past the raw data. Set of session ids that hold a contract switch. Per quarterly window (third Wednesday
     of Mar/Jun/Sep/Dec, minus pre_days .. plus post_days), the bar stamped 00:00 UTC or
     opening a session with the largest |open - prior bar close| is the switch; its session's prior-day level comes from
@@ -223,6 +242,7 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
 
     # volumes presence is part of the key: a frame first seen without volumes must never
     # hand its all-NaN volume baseline to a later call that has them (silent no-trade)
+    _count_seam_use()
     fp = fingerprint(o, h, l, c, side) + (v is not None, _seam_key())
     hit = _prep_cache_get(fp)
     if hit is not None:
@@ -249,11 +269,18 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
     is_last_rth = np.zeros(n, dtype=bool)
     last_rth_idx = np.full(n_sess, -1, dtype=np.int64)
 
-    seam_sessions = seam_sessions_for(index, sess, starts, barlen)
+    # A session's prior-day level is the previous RTH session's range. It is blanked when a real switch
+    # falls after that session's first RTH bar and before this session's last RTH bar ends: the range
+    # and the bars it is compared with then sit on different contracts (or the range mixes both, as
+    # after the 2026-09-14 11:30 in-bar switch, which also blanks 09-15).
+    inst = switch_instants()
+    t_epoch = _R.epoch_seconds(index) if len(inst) else None
+    seam_sessions = set()
 
     first_rth_vol_hist = deque(maxlen=_VOL_FIRSTBAR_SESSIONS)
     have_prior = False
     prior_hi = prior_lo = np.nan
+    prior_t0 = None
 
     for s in range(n_sess):
         a, b = int(starts[s]), int(ends[s])
@@ -280,7 +307,13 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
         premarket_hi[ridx] = pm_hi
         premarket_lo[ridx] = pm_lo
 
-        if have_prior and s not in seam_sessions:
+        switched = False
+        if have_prior and t_epoch is not None:
+            j = int(np.searchsorted(inst, prior_t0, side="right"))
+            switched = j < len(inst) and int(inst[j]) < int(t_epoch[ridx[-1]]) + int(barlen) * 60
+        if switched:
+            seam_sessions.add(int(s))
+        elif have_prior:
             priorday_hi[ridx] = prior_hi
             priorday_lo[ridx] = prior_lo
         # else: stays NaN (no earlier RTH session yet, or a contract switch sits between)
@@ -294,6 +327,7 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
             first_rth_vol_hist.append(float(v[fidx]))
 
         prior_hi = float(cmax[-1]); prior_lo = float(cmin[-1]); have_prior = True
+        prior_t0 = int(t_epoch[ridx[0]]) if t_epoch is not None else None
 
     P = dict(fp=fp, n=n, barlen=barlen, sess=sess, minute=minute, starts=starts, ends=ends,
              rth_mask=rth_mask, atr14=atr14, vol_base=vol_base,

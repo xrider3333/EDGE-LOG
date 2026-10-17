@@ -232,7 +232,8 @@ def main(argv=None):
         if not os.path.exists(path):
             print(f"!! file not found: {path}"); continue
         b, b_meta = parser(path, mult)
-        b = clip_window(b, args.date_from, args.date_to)
+        b = clip_window(b, args.date_from, args.date_to,     # the engine's own cut (ETH: 18:00 ET of date_to)
+                    session="eth" if a_meta.get("window_cut") == "eth_session_18et" else None)
         b_meta["num_trades"] = len(b)
         off = best_offset(a, b, args.tol_min, daily=args.daily)
         report, _ = render(a, a_meta, b, b_meta, off, args.tol_min, daily=args.daily)
