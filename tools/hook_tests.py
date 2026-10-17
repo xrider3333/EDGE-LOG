@@ -87,6 +87,13 @@ STAMP_FORMAT = 1
 STAMP_MAX_AGE = 12 * 3600
 STAMP_KEEP = 8                       # trees kept per worktree; older ones are dropped
 
+# PATHS THAT CANNOT CHANGE A TEST OUTCOME (MANAGER #118, 2026-10-16). When another ship lands
+#   while this one is in its gates, plan() asks what the diff reaches; a doc or a data drop used to
+#   reach some module's importers, void every stamp and re-run the whole 5,797-test tier. These are
+#   dropped from that question - never from the tier trigger, which they never matched anyway.
+#   NOT under tests/: a .json fixture a test reads is the very case the reach analysis is for.
+INERT_DIRS = ('tools/ttm_verify/', 'tools/data/')
+INERT_EXTS = ('.md', '.json')
 CONTRACT = 'tests/test_strategy_contract.py'
 SURROGATE = 'tests/test_surrogate.py'
 ENGINE_RE = re.compile(r'^(augur_engine/|api/|augur_mp_worker\.py|tests/)')
@@ -352,6 +359,15 @@ def estimate_secs(stamps, files):
 
 
 # ======================================================================= what the tree must run
+def inert(path):
+    """True for a changed path that cannot change a test outcome - see INERT_DIRS / INERT_EXTS.
+    Anything under tests/ is never inert, however it is named."""
+    p = str(path).replace('\\', '/')
+    if p.startswith('tests/'):
+        return False
+    return p.startswith(INERT_DIRS) or p.endswith(INERT_EXTS)
+
+
 def plan(root, tree, need, stamps, env, now, smoke=SMOKE):
     """Decide, for every test file in `need`, whether it runs on `tree` or is covered by a stamp.
 
@@ -372,6 +388,9 @@ def plan(root, tree, need, stamps, env, now, smoke=SMOKE):
         diff = tree_diff(root, s['tree'], tree)
         if diff is None or any(p in SELF for p in diff):
             continue
+        # after the SELF check on purpose: the gate's own files must still void everything, even
+        #   one of them named .json
+        diff = [p for p in diff if not inert(p)]
         reach = (at.tests_for(diff, root, max_share=None, cache_path=parse_cache_path())
                  if diff else set())
         if reach is None:

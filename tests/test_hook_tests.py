@@ -401,6 +401,26 @@ def test_record_pass_never_records_nothing(tmp_path):
     assert not os.path.exists(p)
 
 
+def test_a_doc_or_a_data_drop_does_not_void_a_stamp_but_a_test_fixture_does(sb):
+    """MANAGER #118: another ship landing a doc or a data file must not re-run 5,797 tests. The
+    inert rule is checked at BOTH levels - the helper's own answers, and plan() really ignoring
+    such a diff - because a helper can be right while nothing calls it."""
+    assert ht.inert('tools/data/b11_lockbox_rejudge_results.txt')
+    assert ht.inert('tools/ttm_verify/ttm_crown_wf.py'), 'a verify script no test imports'
+    assert ht.inert('docs/BACKTESTING_STACK.md') and ht.inert('RESEARCH_LEDGER.md')
+    assert ht.inert('api/x.json') and ht.inert(r'tools\data\x.csv'.replace('\\', '/'))
+    # never under tests/, however it is named - a fixture a test reads is the case this is for
+    assert not ht.inert('tests/fixtures/run_report.json')
+    assert not ht.inert('tests/notes.md')
+    assert not ht.inert('augur_engine/data.py') and not ht.inert('tools/wt.py')
+
+    # and the wiring: a diff of nothing but inert paths leaves every stamp standing
+    sb.change({'docs/NOTES.md': 'x\n', 'tools/data/drop.txt': 'y\n'}, msg='docs + data')
+    covered = ht.plan(sb.root, _git(sb.env, sb.lane, 'rev-parse', 'HEAD^{tree}'),
+                      ENGINE_FILES, sb.stamps, 'E', sb.now)
+    assert set(covered) == ENGINE_FILES - set(ht.SMOKE), 'inert paths voided a stamp'
+
+
 # ============================================== plan(): what a stamp may cover, case by case
 @pytest.fixture
 def sb(tmp_path):

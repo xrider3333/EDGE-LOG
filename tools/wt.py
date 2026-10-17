@@ -1270,7 +1270,7 @@ def tree_moved(wt, tree):
 # minute-long probes. The gates under the push lock take NO slot: one lane holds it at a time
 # already, and waiting there on another lane's slot would stretch the very hold this exists to
 # shorten.
-GATE_SLOTS = {'slow': 1, 'fast': 2, 'tests': 1}
+GATE_SLOTS = {'slow': 1, 'fast': 2, 'tests': 2}
 
 # A waiter stops - nothing pushed, nothing held - rather than wait for ever behind a wedged
 # holder: twice the longest selftest seen (2 h) for a selftest slot, a generous multiple of the
@@ -1298,8 +1298,9 @@ def gate_slot_dir():
 # MODE holds NinjaTrader closed (tools/nt_night.py: <EDGELOG_HOME>/nt_night_mode.json, active.until
 # in the future). <gate_slot_dir>/limits.json {"tests": 2, ...} overrides both by hand (clamped
 # 1..GATE_SLOT_MAX). A waiter re-reads the cap on every poll, so a rise reaches ships already waiting.
-# tests: 2 at night, not 3, since 2026-10-16 - the engine tier now runs on FOUR cores
-#   (pytest-xdist, -n 4 --dist loadfile), so three concurrent tiers would ask for twelve.
+# tests: 2 by day and 2 at night since 2026-10-16 (MANAGER #118) - the engine tier now runs on
+#   FOUR cores (pytest-xdist, -n 4 --dist loadfile), so three concurrent tiers would ask for twelve,
+#   while two parallel tiers land more work per hour than one serial one ever did.
 NIGHT_GATE_SLOTS = {'slow': 1, 'fast': 3, 'tests': 2}
 GATE_SLOT_MAX = 4
 

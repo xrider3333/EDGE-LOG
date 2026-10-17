@@ -495,7 +495,7 @@ def test_gate_slots_cap_each_kind_and_a_waiter_gives_up_rather_than_wait_for_eve
     def tick(secs):
         clock[0] += secs
     now = lambda: clock[0]                                       # noqa: E731
-    assert wt.GATE_SLOTS == {'slow': 1, 'fast': 2, 'tests': 1}
+    assert wt.GATE_SLOTS == {'slow': 1, 'fast': 2, 'tests': 2}
     a = wt.hold_gate_slot('slow', 'lane-a')
     assert a is not None
     assert _other_process_sees(wt.gate_slot_paths('slow')[0]) == 'held'
@@ -519,14 +519,16 @@ def test_gate_slots_cap_each_kind_and_a_waiter_gives_up_rather_than_wait_for_eve
     def no_wait(_s):
         raise AssertionError('a free slot must not wait')
     b = wt.hold_gate_slot('slow', 'lane-b', sleep=no_wait, now=now)
-    # (2026-10-08) the heavy pre-push test runs have a pool of their own: ONE at a time, beside
-    # the selftest and the fast gates, never instead of them
+    # (2026-10-08) the heavy pre-push test runs have a pool of their own, beside the selftest and
+    # the fast gates, never instead of them - TWO at a time since 2026-10-16, because a tier now
+    # runs on four cores and two parallel tiers land more work per hour than one serial one
     t1 = wt.hold_gate_slot('tests', 'lane-t', sleep=no_wait, now=now)
-    assert t1 is not None
+    t2 = wt.hold_gate_slot('tests', 'lane-t2', sleep=no_wait, now=now)
+    assert t1 is not None and t2 is not None
     with pytest.raises(SystemExit) as e:
         wt.hold_gate_slot('tests', 'lane-u', sleep=tick, now=now)
     assert 'no test slot came free' in str(e.value) and 'lane-t' in str(e.value)
-    for fd in (b, f1, f2, t1):
+    for fd in (b, f1, f2, t1, t2):
         wt.release_gate_slot(fd)
     wt.release_gate_slot(None)                                   # harmless
 
@@ -1479,53 +1481,58 @@ def test_gate_slot_cap_rises_while_nt_night_mode_holds_ninjatrader_closed(tmp_pa
     limits.json overrides both, clamped to 1..GATE_SLOT_MAX."""
     home = tmp_path / 'home'
     monkeypatch.setenv('EDGELOG_HOME', str(home))
-    assert wt.GATE_SLOTS == {'slow': 1, 'fast': 2, 'tests': 1}
-    assert [wt.gate_slot_count(k) for k in ('slow', 'fast', 'tests')] == [1, 2, 1]
+    assert wt.GATE_SLOTS == {'slow': 1, 'fast': 2, 'tests': 2}
+    assert [wt.gate_slot_count(k) for k in ('slow', 'fast', 'tests')] == [1, 2, 2]
     _night_file(home, '2099-01-01T05:45:00-07:00')
     assert wt.nt_night_active()
     # tests is 2 at night from 2026-10-16: each engine tier now takes four cores (xdist)
     assert [wt.gate_slot_count(k) for k in ('slow', 'fast', 'tests')] == [1, 3, 2]
     assert len(wt.gate_slot_paths('tests')) == 2
     _night_file(home, '2020-01-01T05:45:00-07:00')
-    assert not wt.nt_night_active() and wt.gate_slot_count('tests') == 1
+    assert not wt.nt_night_active() and wt.gate_slot_count('tests') == 2
     with open(os.path.join(str(home), 'nt_night_mode.json'), 'w') as f:
         f.write('{not json')
-    assert not wt.nt_night_active() and wt.gate_slot_count('tests') == 1
+    assert not wt.nt_night_active() and wt.gate_slot_count('tests') == 2
     os.makedirs(wt.gate_slot_dir(), exist_ok=True)
     with open(os.path.join(wt.gate_slot_dir(), 'limits.json'), 'w') as f:
-        f.write('{"tests": 2, "fast": 99}')
-    assert wt.gate_slot_count('tests') == 2
+        f.write('{"tests": 3, "fast": 99}')
+    # 3 is not the default (2), so this really proves limits.json is read
+    assert wt.gate_slot_count('tests') == 3
     assert wt.gate_slot_count('fast') == wt.GATE_SLOT_MAX
     assert wt.gate_slot_count('slow') == 1
 
 
 def test_a_waiter_takes_a_slot_the_moment_the_cap_rises(tmp_path, monkeypatch, capsys):
-    """A ship already waiting for the one test slot must pick up the second slot as soon as the
-    cap rises (night mode starts) - without a restart - and hold nothing else."""
+    """A ship already waiting must pick up a slot the moment the cap rises (night mode starts) -
+    without a restart - and hold nothing else.
+
+    ON THE FAST POOL since 2026-10-16: this used to use the tests pool, which was 1 by day and
+    rose at night. Tests is now 2 both ways (a tier runs on four cores), so that kind has no rise
+    left to test and the case would have asserted nothing. Fast is 2 by day and 3 at night, so the
+    behaviour is exercised where it still exists."""
     home = tmp_path / 'home'
     monkeypatch.setenv('EDGELOG_HOME', str(home))
-    a = wt.hold_gate_slot('tests', 'lane-a')
-    assert a is not None
+    a = wt.hold_gate_slot('fast', 'lane-a')
+    a2 = wt.hold_gate_slot('fast', 'lane-a2')
+    assert a is not None and a2 is not None, 'both daytime fast slots'
     polls = [0]
 
     def tick(_s):
         polls[0] += 1
         if polls[0] == 2:
             _night_file(home, '2099-01-01T05:45:00-07:00')
-    b = wt.hold_gate_slot('tests', 'lane-b', sleep=tick, now=lambda: 0.0)
-    assert b is not None and polls[0] == 2
-    assert 'waiting for a test slot' in capsys.readouterr().out
-    paths = wt.gate_slot_paths('tests')
-    # the night tests pool is 2 (an engine tier now runs on four cores), so BOTH slots are held
-    #   and there is no third to check - what "holds nothing else" means here is that no slot of
-    #   another kind was taken on the way
-    assert len(paths) == 2 == wt.gate_slot_count('tests')
+    b = wt.hold_gate_slot('fast', 'lane-b', sleep=tick, now=lambda: 0.0)
+    assert b is not None and polls[0] == 2, 'it waited, then took the slot night mode opened'
+    assert 'waiting for a gate slot' in capsys.readouterr().out
+    paths = wt.gate_slot_paths('fast')
+    assert len(paths) == 3 == wt.gate_slot_count('fast')
     assert all(_other_process_sees(p) == 'held' for p in paths)
     # a slot of another kind must be untaken: its lock file is either absent (never held)
     #   or free - asking a non-existent path to report would fail for the wrong reason
     assert all((not os.path.exists(p)) or _other_process_sees(p) == 'free'
-               for k in ('fast', 'slow') for p in wt.gate_slot_paths(k))
+               for k in ('tests', 'slow') for p in wt.gate_slot_paths(k))
     wt.release_gate_slot(b)
+    wt.release_gate_slot(a2)
     wt.release_gate_slot(a)
     assert all(_other_process_sees(p) == 'free' for p in paths)
 
