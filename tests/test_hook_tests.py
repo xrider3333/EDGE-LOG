@@ -421,6 +421,60 @@ def test_a_doc_or_a_data_drop_does_not_void_a_stamp_but_a_test_fixture_does(sb):
     assert set(covered) == ENGINE_FILES - set(ht.SMOKE), 'inert paths voided a stamp'
 
 
+def test_a_version_realign_in_index_html_is_not_a_page_change(sb):
+    """MANAGER #123: every web ship rewrites index.html's VERSION line and prepends a CHANGELOG
+    entry at push time, and that used to make every landing reach the tests that read index.html.
+    Checked at both levels - the helper's verdict on each diff shape, and plan() really keeping a
+    stamp alive across a version-only landing - and a REAL page edit must still void it."""
+    # the sandbox is a toy repo with no page, so give it one shaped like the real file's head
+    page = ("const VERSION='73.1000';\n"
+            "const CHANGELOG=[{v:'73.1000',date:'2026-10-16',notes:['x']},\n"
+            "{v:'73.0999',date:'2026-10-15',notes:['w']},\n];\n"
+            "function render(){return 1;}\n")
+    sb.change({'index.html': page}, msg='seed the page')
+    t1 = _git(sb.env, sb.lane, 'rev-parse', 'HEAD^{tree}')
+
+    # 1. the realign a ship does: VERSION bumped, one CHANGELOG entry added
+    bumped = (page.replace("const VERSION='73.1000';", "const VERSION='73.1001';")
+                  .replace("const CHANGELOG=[", "const CHANGELOG=[{v:'73.1001',notes:['y']},"))
+    sb.change({'index.html': bumped}, msg='version realign')
+    t2 = _git(sb.env, sb.lane, 'rev-parse', 'HEAD^{tree}')
+    assert ht.index_version_only(sb.root, t1, t2), 'a realign is not a page change'
+
+    # 2. a real edit anywhere else in the page is NOT masked
+    edited = bumped + "\nwindow.somethingNew = 1;\n"
+    sb.change({'index.html': edited}, msg='real page change')
+    t3 = _git(sb.env, sb.lane, 'rev-parse', 'HEAD^{tree}')
+    assert not ht.index_version_only(sb.root, t2, t3), 'a page edit must still count'
+    # 3. no index.html change at all is not "version only" either
+    assert not ht.index_version_only(sb.root, t3, t3)
+    assert not ht.index_version_only(sb.root, 'deadbeef' * 5, t3), 'unreadable diff = cautious'
+
+    # 4. THE WIRING, because a helper can be right while nothing calls it. A test that names
+    #    index.html reads it (rules 5 and 6), so it is exactly what a landing used to void.
+    reader = 'tests/test_page.py'
+    sb.change({reader: 'def test_page():\n    assert open("index.html").read()\n'}, msg='a reader')
+    t4 = _git(sb.env, sb.lane, 'rev-parse', 'HEAD^{tree}')
+    stamps = [{'tree': t4, 'env': 'E', 'passed': {reader: sb.now}}]
+
+    # the realign builds on what the repo ACTUALLY holds now (the edited page). Building it from
+    #   the ORIGINAL page made the landing revert the earlier edit, so the diff carried a real
+    #   line change and the helper rightly said "not version only" - the fixture's fault, not the
+    #   code's.
+    realigned = (edited.replace("const VERSION='73.1001';", "const VERSION='73.1002';")
+                       .replace("const CHANGELOG=[", "const CHANGELOG=[{v:'73.1002',notes:['z']},"))
+    sb.change({'index.html': realigned}, msg='another ship lands its realign')
+    t5 = _git(sb.env, sb.lane, 'rev-parse', 'HEAD^{tree}')
+    assert ht.tree_diff(sb.root, t4, t5) == ['index.html'], 'the landing is the realign alone'
+    assert set(ht.plan(sb.root, t5, {reader}, stamps, 'E', sb.now)) == {reader}, \
+        'a version-only landing must leave the stamp of an index.html reader standing'
+
+    sb.change({'index.html': realigned + '\nwindow.newThing = 2;\n'}, msg='a real page change')
+    t6 = _git(sb.env, sb.lane, 'rev-parse', 'HEAD^{tree}')
+    assert ht.plan(sb.root, t6, {reader}, stamps, 'E', sb.now) == {}, \
+        'a real page change must still re-run the tests that read the page'
+
+
 # ============================================== plan(): what a stamp may cover, case by case
 @pytest.fixture
 def sb(tmp_path):

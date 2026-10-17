@@ -92,6 +92,12 @@ STAMP_KEEP = 8                       # trees kept per worktree; older ones are d
 #   reach some module's importers, void every stamp and re-run the whole 5,797-test tier. These are
 #   dropped from that question - never from the tier trigger, which they never matched anyway.
 #   NOT under tests/: a .json fixture a test reads is the very case the reach analysis is for.
+# THE VERSION REALIGN IS NOT A PAGE CHANGE (MANAGER #123, 2026-10-16). Every web ship rewrites
+#   index.html's VERSION line and prepends a CHANGELOG entry at push time, so every landing used
+#   to "reach" the tests that read index.html - measured on real landings: a version-only landing
+#   reached 39 and 53 test files where its own code reached 15 and 29.
+VERSION_LINE_RE = re.compile(r"^[+-]const VERSION='[\d.]+';\s*$")
+CHANGELOG_LINE_RE = re.compile(r"^[+-](const CHANGELOG=\[)?\{v:'[\d.]+',")
 INERT_DIRS = ('tools/ttm_verify/', 'tools/data/')
 INERT_EXTS = ('.md', '.json')
 CONTRACT = 'tests/test_strategy_contract.py'
@@ -359,6 +365,25 @@ def estimate_secs(stamps, files):
 
 
 # ======================================================================= what the tree must run
+def index_version_only(root, t1, t2):
+    """Is index.html's change between two trees confined to the VERSION line and the CHANGELOG?
+
+    True only when every changed line matches one of those two shapes - a single real edit
+    anywhere else in the page makes it False, so a page change is never masked. False on any
+    trouble reading the diff, which keeps the cautious answer (the file counts as changed).
+
+    `l and l[0] in '+-'` on purpose: `l[:1] in '+-'` is True for a BLANK line, because the empty
+    string is a substring of everything, and that counts every blank diff line as a change."""
+    rc, out = _git(root, 'diff', '--unified=0', t1, t2, '--', 'index.html')
+    if rc != 0:
+        return False
+    body = [l for l in out.split(chr(10))
+            if l and l[0] in '+-' and not l.startswith('+++') and not l.startswith('---')]
+    if not body:
+        return False                      # no change to index.html at all: nothing to mask
+    return all(VERSION_LINE_RE.match(l) or CHANGELOG_LINE_RE.match(l) for l in body)
+
+
 def inert(path):
     """True for a changed path that cannot change a test outcome - see INERT_DIRS / INERT_EXTS.
     Anything under tests/ is never inert, however it is named."""
@@ -391,6 +416,10 @@ def plan(root, tree, need, stamps, env, now, smoke=SMOKE):
         # after the SELF check on purpose: the gate's own files must still void everything, even
         #   one of them named .json
         diff = [p for p in diff if not inert(p)]
+        # ... and a landing whose only index.html change is the VERSION realign and its CHANGELOG
+        #   entry did not change the page, so it reaches nothing through it
+        if 'index.html' in diff and index_version_only(root, s['tree'], tree):
+            diff = [p for p in diff if p != 'index.html']
         reach = (at.tests_for(diff, root, max_share=None, cache_path=parse_cache_path())
                  if diff else set())
         if reach is None:
