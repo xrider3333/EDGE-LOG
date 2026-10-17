@@ -181,12 +181,17 @@ def parse_nt_text(text, mult=1):
 
 
 # ── Windowing, offset detection, matching ───────────────────────────────────────
-def clip_window(trades, date_from=None, date_to=None):
-    """Keep only trades whose ENTRY falls in [date_from, date_to] (date_to inclusive)."""
+def clip_window(trades, date_from=None, date_to=None, session=None):
+    """Keep only trades whose ENTRY falls in [date_from, date_to] (date_to inclusive). On an ETH session the
+    window ends at 18:00 ET of date_to, the same cut the engine side now loads (data.window_end_ts), so a
+    platform trade entered that evening is not reported as one EdgeLog missed."""
     if not (date_from or date_to):
         return trades
     lo = pd.Timestamp(date_from) if date_from else None
-    hi = (pd.Timestamp(date_to) + pd.Timedelta(days=1)) if date_to else None
+    if date_to and str(session or "").strip().lower() == "eth":
+        hi = pd.Timestamp(f"{str(date_to)[:10]} 18:00")
+    else:
+        hi = (pd.Timestamp(date_to) + pd.Timedelta(days=1)) if date_to else None
     out = []
     for t in trades:
         e = t.entry_dt
@@ -467,6 +472,7 @@ def edgelog_blotter(strategy, instrument, timeframe, session, params, *,
     meta = {"source": "EDGELOG", "strategy": str(strategy), "instrument": instrument,
             "timeframe": timeframe, "session": session, "mult": mult,
             "master": master["filename"], "bars": int(len(arr["close"])),
+            "window_cut": arr.get("window_cut", "calendar"),
             "num_trades": (res or {}).get("num_trades"), "cost_pts": cost_pts,
             "window": (str(idx[0]), str(idx[-1])) if len(idx) else (None, None)}
     return trades, meta
@@ -498,7 +504,8 @@ def run_reconcile(strategy, *, instrument, timeframe="5m", session="rth", params
                        "window": a_meta.get("window")},
            "auto_window": {"from": date_from, "to": date_to}, "platforms": {}}
     for key, (b, b_meta) in parsed.items():
-        b = clip_window(b, date_from, date_to)
+        b = clip_window(b, date_from, date_to,      # same cut as the engine side (MANAGER #98)
+                        session="eth" if a_meta.get("window_cut") == "eth_session_18et" else None)
         b_meta["num_trades"] = len(b)
         off = best_offset(a, b, tol_min, daily=daily)
         out["platforms"][key] = build_result(a, a_meta, b, b_meta, off, tol_min, daily=daily)

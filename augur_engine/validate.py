@@ -15,7 +15,7 @@ import datetime as _dt
 import json as _json
 import random as _random
 
-from .data import find_master, load_master_arrays
+from .data import find_master, load_master_arrays, window_cut_rule
 from .engine import run_backtest
 from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METRIC_KEYS,
                    make_slice_evaluator, score_candidates_on_folds, WARM_DAYS)
@@ -1455,6 +1455,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                     "avg_win": lb_aw, "avg_loss": lb_al,   # measured from lockbox trades (points)
                     "from": lb_from, "to": full_hi.isoformat()},
         "windows": {"optimize": [opt_from, opt_to], "lockbox": [lb_from, full_hi.isoformat()],
+                    "cut_rule": window_cut_rule(master),   # how date_to cut this master (data.py; MANAGER #98)
                     "lockbox_months": lockbox_months,
                     # RESEARCH.md item 7: how many prior trading sessions each SCORED
                     #   out-of-sample stretch (folds, the 25% split, the lockbox) was

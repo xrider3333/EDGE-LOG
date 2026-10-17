@@ -125,7 +125,62 @@ _MEMO = []   # [(key, value_dict), ...] — index 0 = least-recently-used
 
 def _memo_key(master, date_from, date_to, st_mtime, st_size):
     return (master.get("instrument"), master.get("timeframe"), master.get("source"),
-            master.get("filename"), date_from, date_to, st_mtime, st_size)
+            master.get("filename"), date_from, date_to, st_mtime, st_size, window_cut_rule(master))
+
+
+# ETH SESSION CUT (MANAGER #98, TBIS 2026-10-16). A CME ETH session dated D runs from 18:00 ET on D-1 to
+# 17:00 ET on D (17:15 before 2015-09; the 2010-15 masters carry real bars to 17:29). Cutting an ETH window
+# at MIDNIGHT after date_to therefore kept 18:00-23:59 of date_to, the first hours of the NEXT session:
+# 302 1m / 72 5m bars past a date_to=2016-06-30 pre-WF cut, and in every validate the first lockbox
+# evening inside the optimize window (ENGU-Q #335: +$2,660 of lockbox-session movement in its optimize
+# total). An ETH window now ends at 18:00 ET of date_to - the CME trade-date roll. date_from keeps its calendar
+# meaning (live/paper loads pass date_from with no date_to and must not move), so the evening between an
+# optimize window's end and a lockbox that starts at lb_from midnight sits in NEITHER: nothing leaks, and every
+# stored lockbox label and replay keeps its midnight boundary. A caller that wants two windows to meet with no
+# gap starts the second one at session_start_str(). RTH, stock (alpaca_*) and unlabelled masters keep the
+# calendar cut, byte for byte; validate records the rule in windows.cut_rule.
+# AUGUR_ETH_CALENDAR_CUT=1 restores the old cut, for to-the-cent repro gates of runs made before this.
+ETH_SESSION_ROLL = "18:00"
+
+
+def _is_eth(master):
+    """A CME futures ETH master (18:00 ET roll). Stock data the registry also labels 'eth' (alpaca_*_eth
+    extended hours run to 20:00 ET) is not one."""
+    m = master or {}
+    if str(m.get("source") or "").strip().lower().startswith("alpaca"):
+        return False
+    s = str(m.get("session") or "").strip().lower()
+    if s:
+        return s == "eth"
+    return str(m.get("source") or "").strip().lower().endswith("_eth")
+
+
+def _calendar_cut_forced():
+    return os.environ.get("AUGUR_ETH_CALENDAR_CUT", "").strip() not in ("", "0")
+
+
+def window_cut_rule(master):
+    """'eth_session_18et' when an ETH window is cut at the session roll, else 'calendar'."""
+    return "eth_session_18et" if (_is_eth(master) and not _calendar_cut_forced()) else "calendar"
+
+
+def window_end_ts(master, date_to):
+    """Exclusive end of a window that runs through `date_to`: 18:00 ET of date_to on an ETH master (built
+    from the wall clock, so DST days are right), otherwise the next midnight ET."""
+    d = str(date_to)[:10]
+    if window_cut_rule(master) == "eth_session_18et":
+        return pd.Timestamp(f"{d} {ETH_SESSION_ROLL}", tz="US/Eastern")
+    return pd.Timestamp(d, tz="US/Eastern") + pd.Timedelta(days=1)
+
+
+def session_start_str(master, date):
+    """The date_from string for the first instant of the session dated `date`: on an ETH master the
+    evening before at 18:00 ET ('YYYY-MM-DD 18:00'), otherwise `date` itself, unchanged. For a caller whose
+    second window must start exactly where a date_to window ended (pre-WF then WF, IS then OOS)."""
+    if window_cut_rule(master) != "eth_session_18et":
+        return date
+    prev = (pd.Timestamp(str(date)[:10]) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+    return f"{prev} {ETH_SESSION_ROLL}"
 
 
 def _memo_get(key):
@@ -183,8 +238,9 @@ def load_master_arrays(master, date_from=None, date_to=None):
     if date_from:
         df = df[df.index >= pd.Timestamp(date_from, tz="US/Eastern")]
     if date_to:
-        # inclusive of the whole `date_to` calendar day
-        df = df[df.index < pd.Timestamp(date_to, tz="US/Eastern") + pd.Timedelta(days=1)]
+        # inclusive of the whole `date_to` calendar day - or, on an ETH master, of the session dated
+        # date_to, which ends before the 18:00 ET roll (window_end_ts; MANAGER #98)
+        df = df[df.index < window_end_ts(master, date_to)]
     day_id = pd.factorize(pd.Series(df.index).dt.date)[0].astype("int64")
     # Data fingerprint (docs/INCREMENTAL_BACKTEST_REUSE.md): a sha1 of the SLICED
     # window's first/last bar timestamp + bar count. This is what makes a "silent
@@ -208,6 +264,7 @@ def load_master_arrays(master, date_from=None, date_to=None):
         "index": df.index,
         "meta": master,
         "fingerprint": fingerprint,
+        "window_cut": window_cut_rule(master),
     }
     if memo_key is not None:
         for _k in ("open", "high", "low", "close", "volume", "day_id"):
