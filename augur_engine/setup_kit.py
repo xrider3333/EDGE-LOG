@@ -27,6 +27,8 @@ from collections import deque
 import numpy as np
 import pandas as pd
 
+from . import rolls as _R
+
 RTH_START_MIN = 570          # 09:30 ET, in minutes-since-midnight
 RTH_END_MIN = 960            # 16:00 ET (exclusive) -- last RTH bar's own minute is 959
 PM_START_MIN = 240           # 04:00 ET -- premarket window is [240, 570)
@@ -131,8 +133,34 @@ def _third_weekday(year, month, weekday=2):
     return first + pd.Timedelta(weeks=2)
 
 
+def seam_sessions_for(index, sess, starts, barlen):
+    """Session ids whose prior-day level comes from the OLD contract, from the house roll calendar
+    (augur_engine.rolls.seam_days_for over tools/data/rolls_<ROOT>.csv) for the series the engine is
+    running. The engine sets the roll context only where prices are raw across switches (unadjusted
+    futures masters whose signals are not adjusted, and the live/paper path); an adjusted master or
+    adjusted signals carry no roll context, and their prior-day levels need no blanking.
+    MANAGER #98-3 (2026-10-16): contract_switch_sessions below picked the wrong session in 27 of 66
+    NQ and 16 of 66 ES quarters on the no-adj 1m ETH masters (a weekend gap beat a small roll step),
+    and picked arbitrary gaps on adjusted prices."""
+    ctx = _R.current_roll_context()
+    if ctx is None or not ctx.get("root") or not len(starts):
+        return set()
+    t = _R.epoch_seconds(index)
+    ks = _R.seam_days_for(t[starts], ctx["root"], t, int(barlen) * 60, table_dir=ctx.get("table_dir"))
+    return {int(sess[starts[k]]) for k in ks}
+
+
+def _seam_key():
+    """The prep() cache key part that the roll calendar decides: root + table version, or None."""
+    ctx = _R.current_roll_context()
+    if ctx is None or not ctx.get("root"):
+        return None
+    return (str(ctx["root"]), _R.table_sha(ctx["root"], ctx.get("table_dir")))
+
+
 def contract_switch_sessions(o, c, index, sess, pre_days=14, post_days=4):
-    """Set of session ids that hold a contract switch. Per quarterly window (third Wednesday
+    """RETIRED from prep() (see seam_sessions_for); kept only for tools/rollaudit/ground_truth.py,
+    which infers switches past the raw data. Set of session ids that hold a contract switch. Per quarterly window (third Wednesday
     of Mar/Jun/Sep/Dec, minus pre_days .. plus post_days), the bar stamped 00:00 UTC or
     opening a session with the largest |open - prior bar close| is the switch; its session's prior-day level comes from
     the OLD contract (100-300 NQ points off in 2022-25) and is blanked by prep().
@@ -195,7 +223,7 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
 
     # volumes presence is part of the key: a frame first seen without volumes must never
     # hand its all-NaN volume baseline to a later call that has them (silent no-trade)
-    fp = fingerprint(o, h, l, c, side) + (v is not None,)
+    fp = fingerprint(o, h, l, c, side) + (v is not None, _seam_key())
     hit = _prep_cache_get(fp)
     if hit is not None:
         return hit
@@ -221,7 +249,7 @@ def prep(opens, highs, lows, closes, volumes, index, side=1):
     is_last_rth = np.zeros(n, dtype=bool)
     last_rth_idx = np.full(n_sess, -1, dtype=np.int64)
 
-    seam_sessions = contract_switch_sessions(o, c, index, sess)
+    seam_sessions = seam_sessions_for(index, sess, starts, barlen)
 
     first_rth_vol_hist = deque(maxlen=_VOL_FIRSTBAR_SESSIONS)
     have_prior = False

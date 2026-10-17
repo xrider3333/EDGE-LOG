@@ -391,7 +391,39 @@ def test_contract_switch_blanks_only_the_switch_session():
     sess, minute, starts, ends, _ = SK.sessions(ts)
     sw = SK.contract_switch_sessions(o, c, ts, sess)
     assert sw == {int(sess[k_sw])}
-    P = SK.prep(o, h, l, c, v, ts)
+    # prep() reads the house roll table through the engine's roll context (MANAGER #98-3); the
+    # real NQ table holds this switch (NQM4 -> NQU4, 2024-06-16 20:00 ET)
+    from augur_engine import rolls
+    with rolls.roll_context('NQ', ts, 60):
+        P = SK.prep(o, h, l, c, v, ts)
     rth_first = np.flatnonzero(P['is_first_rth'])
     blank = [str(ts[i].date()) for i in rth_first[1:] if np.isnan(P['priorday_hi'][i])]
     assert blank == ['2024-06-17']
+    # no roll context = adjusted prices or no futures: nothing is blanked (and the prep cache,
+    # keyed on the roll root too, never hands the blanked frame to this call)
+    P0 = SK.prep(o, h, l, c, v, ts)
+    assert not any(np.isnan(P0['priorday_hi'][i]) for i in rth_first[1:])
+
+
+def test_contract_switch_comes_from_the_table_not_the_biggest_gap():
+    """A weekend gap bigger than the roll step fooled the old largest-jump pick (27 of 66 NQ
+    quarters); the table names the switch session whatever the gaps look like."""
+    from augur_engine import setup_kit as SK, rolls
+    rng = np.random.default_rng(7)
+    ts = pd.date_range('2024-06-09 18:00', '2024-06-21 16:59', freq='1min', tz='US/Eastern')
+    ts = ts[ts.hour != 17]
+    n = len(ts)
+    c = 19000.0 + np.cumsum(rng.normal(0, 1.0, n))
+    k_sw = int(np.flatnonzero(ts == pd.Timestamp('2024-06-16 20:00', tz='US/Eastern'))[0])
+    c[k_sw:] += 5.0                                    # a small roll step ...
+    k_gap = int(np.flatnonzero(ts == pd.Timestamp('2024-06-12 20:00', tz='US/Eastern'))[0])
+    c[k_gap:] += 60.0                                  # ... and a bigger news gap four days before
+    o = np.r_[c[0], c[:-1]]
+    o[k_sw], o[k_gap] = c[k_sw], c[k_gap]
+    h = np.maximum(o, c) + 0.5
+    l = np.minimum(o, c) - 0.5
+    sess, *_ = SK.sessions(ts)
+    assert SK.contract_switch_sessions(o, c, ts, sess) == {int(sess[k_gap])}   # the old pick
+    with rolls.roll_context('NQ', ts, 60):
+        P = SK.prep(o, h, l, c, np.full(n, 300.0), ts)
+    assert P['seam_sessions'] == {int(sess[k_sw])}

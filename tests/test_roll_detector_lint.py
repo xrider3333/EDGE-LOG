@@ -38,9 +38,9 @@ EXEMPT = {
     "augur_engine/data_quality.py::roll_seam_check":
         "audits a master against its adjusted twin (stack pill 2.6); no backtest or trade reads it",
     "augur_engine/setup_kit.py::contract_switch_sessions":
-        "SETUPS research harness (setups lane): picks the one session per quarter whose prior-day "
-        "level is blanked on 24h tapes - a heuristic found by the algorithm fingerprint 2026-10-08, "
-        "flagged to MANAGER to move onto rolls.seam_days_for by its owning lane; no engine run reads it",
+        "retired from setup_kit.prep() 2026-10-16 (MANAGER #98-3: prep reads rolls.seam_days_for); kept "
+        "only for tools/rollaudit/ground_truth.py, which infers switches past the raw data - no "
+        "strategy, engine run or trade reads it",
 }
 # tools/ files that defined a detector BEFORE 2026-10-08 live in tests/_roll_lint_baseline.txt -
 # historical research, written once; that list never grows.
