@@ -946,13 +946,18 @@ def build(a):
 
 # ------------------------------------------------------------------ features (signal-bar answer key)
 
-ROLL_MONTHS = (3, 6, 9, 12)
-
-
-def is_roll_window(date):
-    """March/June/September/December, the 5th-21st: the window a quarterly futures roll falls in."""
-    ts = pd.Timestamp(date)
-    return ts.month in ROLL_MONTHS and 5 <= ts.day <= 21
+def roll_inside(root, t_from, t_to):
+    """True when the house roll table (augur_engine/rolls.py over tools/data/rolls_<root>.csv) holds a
+    real contract switch after t_from and no later than t_to, so the two ends sit on different
+    contracts. Replaces a 0.6% open-gap guess in roll months (MANAGER #98-3): the median switch offset
+    is 0.21% (NQ) / 0.38% (ES), so a gap rule misses most rolls, and it flags news gaps."""
+    if ROOT not in sys.path:
+        sys.path.insert(0, ROOT)
+    from augur_engine import rolls
+    lo, hi = pd.Timestamp(t_from).timestamp(), pd.Timestamp(t_to).timestamp()
+    # an in-bar row stamps the START of the bar the switch fell inside; the switch is just after it
+    return any(lo < r['switch_sec'] + (1 if r['kind'] == 'in_bar' else 0) <= hi
+               for r in rolls.real_switches(root))
 
 
 def build_5m(b1):
@@ -1070,13 +1075,7 @@ def trade_features(j):
     f['pday_dir'] = None
     pdate, pb1, prth = prior_trading_day(root, date, siv)
     if pdate and have_atr:
-        roll = False
-        if pb1 is not None and len(pb1) and len(b1):
-            first_today, last_prior = b1.iloc[0], pb1.iloc[-1]
-            if last_prior.close is not None and last_prior.close != 0:
-                pct = abs(first_today.open - last_prior.close) / abs(last_prior.close) * 100
-                roll = pct > 0.6 and (is_roll_window(date) or is_roll_window(pdate))
-        if roll:
+        if roll_inside(root, prth.index[0], sig_ts):
             f['note'] = 'contract roll between the prior day and this one'
             print('CONTRACT ROLL: trade n=%s %s %s (prior day %s)' % (j.get('n'), date, j['sym'], pdate))
         else:
