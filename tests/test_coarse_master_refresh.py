@@ -104,16 +104,26 @@ def test_history_is_never_rewritten_only_the_last_row():
 
 
 def test_the_real_nq_15m_row_is_the_case_this_was_written_for():
-    """The numbers from the live master, so the fixture cannot drift away from the bug."""
+    """The numbers from the live master, so the fixture cannot drift away from the bug.
+
+    The full bucket is read from the 1m parent, not fixed: a parent repair moves it. On
+    2026-10-14 the 10:50 bar (a Yahoo zero-volume bar) was replaced from NinjaTrader, so
+    the full bucket went 16,244 -> 17,243 in the 1m, 5m and 15m alike."""
     up = os.path.join(ROOT, "augur_uploads", "NOADJ_NQ_15m_RTH.csv")
     if not os.path.exists(up):
         pytest.skip("no NQ 15m master in this checkout")
     m = pd.read_csv(up)
-    row = m[m["time"] == 1782830700]
+    t0 = 1782830700
+    row = m[m["time"] == t0]
     if not len(row):
         pytest.skip("the 2026-06-30 10:45 bucket is not this master's tail any more")
-    assert float(row["volume"].iloc[0]) in (5270.0, 16244.0), (
-        "either the unrepaired partial or the repaired full bucket - nothing else")
+    full = 16244.0
+    parent = os.path.join(ROOT, "augur_uploads", "NOADJ_NQ_1m_RTH.csv")
+    if os.path.exists(parent):
+        p = pd.read_csv(parent, usecols=["time", "volume"])
+        full = float(p.loc[(p["time"] >= t0) & (p["time"] < t0 + 900), "volume"].sum())
+    assert float(row["volume"].iloc[0]) in (5270.0, full), (
+        "either the unrepaired partial or the full bucket of the 1m parent - nothing else")
 
 
 # --------------------------------------------------------------- 2. when it runs
