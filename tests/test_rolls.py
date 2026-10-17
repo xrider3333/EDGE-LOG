@@ -569,3 +569,17 @@ def test_back_adjusting_an_old_series_still_rests_on_the_2026_estimates():
     assert fwd["levels_rest_on_estimate"] is False   # they cancel here
     assert back["shift_close"][0] != 0.0
     assert fwd["shift_close"][0] == 0.0
+
+
+def test_an_edited_table_is_read_again_in_the_same_process(tmp_path):
+    """A long-lived runner must see a switch roll_watch / build_roll_table adds: load_table re-reads the file
+    when its mtime or size moves, so the rows and table_sha (the cache key) can never disagree (bundle review 10-16)."""
+    one = [_row("ZZ", 1_700_000_000, 10.0)]
+    path = _write_roll_table(tmp_path, "ZZ", one)
+    assert [r["switch_sec"] for r in rolls.load_table("ZZ", table_dir=str(tmp_path))] == [1_700_000_000]
+    st = os.stat(path)
+    _write_roll_table(tmp_path, "ZZ", one + [_row("ZZ", 1_710_000_000, 12.5)])
+    os.utime(path, ns=(st.st_atime_ns, st.st_mtime_ns + 1_000_000_000))
+    assert [r["switch_sec"] for r in rolls.load_table("ZZ", table_dir=str(tmp_path))] == [1_700_000_000, 1_710_000_000]
+    first = rolls.load_table("ZZ", table_dir=str(tmp_path))
+    assert rolls.load_table("ZZ", table_dir=str(tmp_path)) is first              # unchanged file: cached

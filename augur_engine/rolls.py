@@ -69,14 +69,24 @@ _CACHE = {}
 def load_table(root, table_dir=None):
     """Every row of one root's roll table, earliest first, values already typed.
 
-    Cached by (root, directory) because a backtest asks for this once per slice.
+    Cached by (root, directory) because a backtest asks for this once per slice - and re-read when the
+    file changes (its mtime or size moves): a long-lived runner otherwise kept the table it first read
+    after tools/roll_watch.py or build_roll_table.py added a switch, while table_sha() (the trial-cache
+    and prep-cache key) already read the new file, so results built on the old table were stored under
+    the new table's key (bundle review 10-16).
     """
     d = table_dir or TABLE_DIR
     key = (str(root).upper(), d)
-    if key in _CACHE:
-        return _CACHE[key]
     path = os.path.join(d, "rolls_%s.csv" % str(root).upper())
-    if not os.path.exists(path):
+    try:
+        st = os.stat(path)
+        stamp = (st.st_mtime_ns, st.st_size)
+    except OSError:
+        stamp = None
+    hit = _CACHE.get(key)
+    if hit is not None and stamp is not None and hit[0] == stamp:
+        return hit[1]
+    if stamp is None:
         raise FileNotFoundError(
             "no roll table for %s at %s - run tools/build_roll_table.py" % (root, path))
     rows = []
@@ -90,7 +100,7 @@ def load_table(root, table_dir=None):
                 kind=r["kind"], source=r["source"], status=r["status"],
                 note=r.get("note", "")))
     rows.sort(key=lambda r: r["switch_sec"])
-    _CACHE[key] = rows
+    _CACHE[key] = (stamp, rows)
     return rows
 
 
