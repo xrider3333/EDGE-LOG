@@ -335,7 +335,14 @@ def junit_file_secs(path):
 def estimate_secs(stamps, files):
     """Seconds `files` took when they last ran (the newest stamp that timed each), a file never
     timed counted at the median of those that were. For deciding whether a re-run is worth
-    holding the push lock for - see plan --json - never for deciding what runs."""
+    holding the push lock for - see plan --json - never for deciding what runs.
+
+    UNDER A PARALLEL TIER THIS IS AN UPPER BOUND, which is the safe side. junit records each
+    test's OWN duration, and -n 4 barely changes that, so the sum still describes serial-shaped
+    work while the real wall clock is spread across workers. The total can therefore only
+    OVER-state a parallel re-run, never under-state it, so the heavy/light call errs toward
+    'heavy' and keeps a long re-run out of the push-lock phase. The stored seconds stay as
+    measured: they are honest per-test durations, and scaling them would make the stamp lie."""
     newest = {}
     for s in reversed(stamps):              # oldest first, so the newest time wins
         newest.update(s.get('secs') or {})
@@ -380,13 +387,61 @@ def _age(now, t):
     return '%d min' % m if m < 120 else '%.1f h' % (m / 60.0)
 
 
-def run_pytest(root, args, junit=None):
+ENGINE_WORKERS = 4          # measured 2026-10-16: 65 min serial -> 27 min at -n 4 on this box
+MIN_PAR_FILES = 25          # a tier this wide pays four interpreter boots on width alone
+MIN_PAR_SECS = 120.0        # ... a narrower run only if the stamps say it is this slow
+
+
+def xdist_workers(nfiles, find_spec=None):
+    """How many pytest-xdist workers this run may use, or None to run serially.
+
+    None when xdist is not importable (the fallback MANAGER asked for) and None for a run that
+    covers fewer than two test files: --dist loadfile hands out whole FILES, so a one-file run
+    cannot use a second worker and would only pay the extra interpreter boots."""
+    if nfiles < 2:
+        return None
+    if find_spec is None:
+        import importlib.util
+        find_spec = importlib.util.find_spec
+    try:
+        if find_spec('xdist') is None:
+            return None
+    except Exception:
+        return None
+    return min(ENGINE_WORKERS, nfiles)
+
+
+def par_for(files, stamps, find_spec=None):
+    """Workers for a run of `files`, or None to run it serially.
+
+    Wide runs parallelise on width (the engine tier is ~230 files and must split even on a fresh
+    worktree with no timings). A narrow run - the under-the-lock re-run of a handful of files -
+    splits only when the stamps say it is slow enough to be worth four interpreter boots: three
+    files holding test_ml_keel_state (693 s) are, three quick ones are not."""
+    n = len(files)
+    if n < MIN_PAR_FILES and estimate_secs(stamps, files) < MIN_PAR_SECS:
+        return None
+    return xdist_workers(n, find_spec)
+
+
+def run_pytest(root, args, junit=None, par=None):
     """The shell hook's own command: python -m pytest <args> -q, from the worktree root - plus,
     when `junit` is given, a junit report there (xunit1, which names each case's file) so the
-    stamp can keep each file's run time."""
+    stamp can keep each file's run time, and when `par` is given that many xdist workers
+    distributing whole files (xdist merges the junit, so the timing survives)."""
     extra = ['-o', 'junit_family=xunit1', '--junitxml=' + junit] if junit else []
-    return subprocess.run([sys.executable, '-m', 'pytest'] + list(args) + ['-q'] + extra,
+    fan = ['-n', str(par), '--dist', 'loadfile'] if par else []
+    return subprocess.run([sys.executable, '-m', 'pytest'] + list(args) + ['-q'] + fan + extra,
                           cwd=root).returncode
+
+
+def _takes_par(fn):
+    """Does an injected test runner accept the worker count? Older seams take (root, args) only."""
+    try:
+        import inspect
+        return len(inspect.signature(fn).parameters) >= 3
+    except Exception:
+        return False
 
 
 def run_tiers(root, phase, narrow, log=print, now=time.time, runner=None):
@@ -401,6 +456,7 @@ def run_tiers(root, phase, narrow, log=print, now=time.time, runner=None):
     spath = stamp_path(root)
     clean = worktree_clean(root) and tree is not None
     covered, why_full = {}, None
+    stamps = load_stamps(spath) if spath else []        # also sizes the parallel decision below
     if narrow is not True:
         why_full = narrow
     elif not clean:
@@ -410,7 +466,7 @@ def run_tiers(root, phase, narrow, log=print, now=time.time, runner=None):
             need = set()
             for t in tl:
                 need |= t.files
-            covered = plan(root, tree, need, load_stamps(spath) if spath else [], env, now())
+            covered = plan(root, tree, need, stamps, env, now())
         except Exception as e:                  # every doubt: run it all
             covered, why_full = {}, 'planning failed (%s: %s)' % (type(e).__name__, e)
     if why_full:
@@ -437,13 +493,21 @@ def run_tiers(root, phase, narrow, log=print, now=time.time, runner=None):
             args = t.full_args
         t0 = now()
         junit = None
+        # THE ENGINE TIER ONLY (MANAGER #116). It is 5,797 tests - 65 min serial alone, 2 h 46 min
+        #   with four tiers on the box, 27 min at -n 4 --dist loadfile. The contract, surrogate and
+        #   tools tiers are minutes or less, so giving each of them four cores while four tiers
+        #   share this PC would trade one queue for a stampede.
+        par = par_for(run, stamps) if t.key == 'engine' else None
+        how = ('parallel: %d workers (xdist --dist loadfile)' % par if par
+               else 'serial' if t.key != 'engine'
+               else 'serial (too small to split, or pytest-xdist not importable)')
         if runner is None:
             import tempfile
             junit = os.path.join(tempfile.gettempdir(), 'edgelog_hook_tests_%d_%s.xml'
                                  % (os.getpid(), t.key))
-            rc = run_pytest(root, args, junit)
+            rc = run_pytest(root, args, junit, par)
         else:
-            rc = runner(root, args)
+            rc = runner(root, args, par) if _takes_par(runner) else runner(root, args)
         secs = junit_file_secs(junit) if junit else {}
         if junit:
             try:
@@ -454,7 +518,8 @@ def run_tiers(root, phase, narrow, log=print, now=time.time, runner=None):
             log('%s: %s tier FAILED on tree %s (pytest exit %d) - nothing stamped'
                 % (phase, t.label, (tree or '?')[:8], rc))
             return 1
-        log('%s: %s tier passed (%d file(s), %ds)' % (phase, t.label, len(run), now() - t0))
+        log('%s: %s tier passed (%d file(s), %ds, %s)'
+            % (phase, t.label, len(run), now() - t0, how))
         if clean and spath and head_tree(root) == tree and worktree_clean(root):
             record_pass(spath, tree, env, run, now(), secs)
     return 0

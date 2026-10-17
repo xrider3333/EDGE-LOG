@@ -304,6 +304,49 @@ def test_the_engine_tier_triggers_and_command_are_the_shells(tier_root, path):
                          'tests/sub/test_deep.py'}
 
 
+def test_the_engine_tier_runs_in_parallel_when_xdist_is_there_and_serially_when_it_is_not():
+    """MANAGER #116: the engine tier must carry -n and --dist loadfile when pytest-xdist is
+    importable, and neither when it is not. find_spec is injected, so BOTH branches are checked
+    on any box - nothing is installed or removed to run this test."""
+    present = lambda name: object()                     # noqa: E731 - xdist importable
+    absent = lambda name: None                          # noqa: E731 - xdist missing
+    assert ht.xdist_workers(40, find_spec=present) == 4
+    assert ht.xdist_workers(40, find_spec=absent) is None
+    # --dist loadfile hands out whole files: one file cannot use a second worker
+    assert ht.xdist_workers(1, find_spec=present) is None
+    assert ht.xdist_workers(3, find_spec=present) == 3
+
+    # par_for: wide runs split on width, narrow ones only when the stamps say they are slow
+    wide = ['tests/test_%d.py' % i for i in range(ht.MIN_PAR_FILES)]
+    assert ht.par_for(wide, [], find_spec=present) == 4, 'a full tier splits with no timings yet'
+    few = ['tests/test_a.py', 'tests/test_b.py', 'tests/test_c.py']
+    assert ht.par_for(few, [], find_spec=present) is None, 'three untimed files are not worth it'
+    slow = [{'secs': {'tests/test_a.py': 700.0, 'tests/test_b.py': 500.0}}]
+    assert ht.par_for(few, slow, find_spec=present) == 3, 'three slow files are'
+    assert ht.par_for(wide, [], find_spec=absent) is None, 'no xdist, no -n'
+
+    seen = []
+
+    def fake_run(cmd, cwd=None):
+        seen.append(list(cmd))
+        class R:
+            returncode = 0
+        return R()
+
+    real = ht.subprocess.run
+    ht.subprocess.run = fake_run
+    try:
+        ht.run_pytest('.', ['tests'], None, 4)
+        ht.run_pytest('.', ['tests'], None, None)
+    finally:
+        ht.subprocess.run = real
+
+    par, ser = seen
+    assert par[par.index('-n') + 1] == '4' and par[par.index('--dist') + 1] == 'loadfile'
+    assert '-n' not in ser and '--dist' not in ser
+    assert par[:3] == ser[:3], 'the interpreter and -m pytest are unchanged'
+
+
 def test_surrogate_gets_its_own_tier(tier_root):
     assert [t.key for t in ht.tiers(tier_root, ['augur_engine/surrogate.py'])] == [
         'contract', 'engine', 'surrogate']

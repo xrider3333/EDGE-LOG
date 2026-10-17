@@ -1483,8 +1483,9 @@ def test_gate_slot_cap_rises_while_nt_night_mode_holds_ninjatrader_closed(tmp_pa
     assert [wt.gate_slot_count(k) for k in ('slow', 'fast', 'tests')] == [1, 2, 1]
     _night_file(home, '2099-01-01T05:45:00-07:00')
     assert wt.nt_night_active()
-    assert [wt.gate_slot_count(k) for k in ('slow', 'fast', 'tests')] == [1, 3, 3]
-    assert len(wt.gate_slot_paths('tests')) == 3
+    # tests is 2 at night from 2026-10-16: each engine tier now takes four cores (xdist)
+    assert [wt.gate_slot_count(k) for k in ('slow', 'fast', 'tests')] == [1, 3, 2]
+    assert len(wt.gate_slot_paths('tests')) == 2
     _night_file(home, '2020-01-01T05:45:00-07:00')
     assert not wt.nt_night_active() and wt.gate_slot_count('tests') == 1
     with open(os.path.join(str(home), 'nt_night_mode.json'), 'w') as f:
@@ -1515,8 +1516,15 @@ def test_a_waiter_takes_a_slot_the_moment_the_cap_rises(tmp_path, monkeypatch, c
     assert b is not None and polls[0] == 2
     assert 'waiting for a test slot' in capsys.readouterr().out
     paths = wt.gate_slot_paths('tests')
-    assert _other_process_sees(paths[0]) == 'held' and _other_process_sees(paths[1]) == 'held'
-    assert _other_process_sees(paths[2]) == 'free'
+    # the night tests pool is 2 (an engine tier now runs on four cores), so BOTH slots are held
+    #   and there is no third to check - what "holds nothing else" means here is that no slot of
+    #   another kind was taken on the way
+    assert len(paths) == 2 == wt.gate_slot_count('tests')
+    assert all(_other_process_sees(p) == 'held' for p in paths)
+    # a slot of another kind must be untaken: its lock file is either absent (never held)
+    #   or free - asking a non-existent path to report would fail for the wrong reason
+    assert all((not os.path.exists(p)) or _other_process_sees(p) == 'free'
+               for k in ('fast', 'slow') for p in wt.gate_slot_paths(k))
     wt.release_gate_slot(b)
     wt.release_gate_slot(a)
     assert all(_other_process_sees(p) == 'free' for p in paths)

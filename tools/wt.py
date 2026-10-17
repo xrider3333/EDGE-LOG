@@ -1298,7 +1298,9 @@ def gate_slot_dir():
 # MODE holds NinjaTrader closed (tools/nt_night.py: <EDGELOG_HOME>/nt_night_mode.json, active.until
 # in the future). <gate_slot_dir>/limits.json {"tests": 2, ...} overrides both by hand (clamped
 # 1..GATE_SLOT_MAX). A waiter re-reads the cap on every poll, so a rise reaches ships already waiting.
-NIGHT_GATE_SLOTS = {'slow': 1, 'fast': 3, 'tests': 3}
+# tests: 2 at night, not 3, since 2026-10-16 - the engine tier now runs on FOUR cores
+#   (pytest-xdist, -n 4 --dist loadfile), so three concurrent tiers would ask for twelve.
+NIGHT_GATE_SLOTS = {'slow': 1, 'fast': 3, 'tests': 2}
 GATE_SLOT_MAX = 4
 
 
