@@ -15,6 +15,9 @@
 > Proper setups the owner saw and did not take. Each is filed on its setup page as a labelled example. None is a trade: they are left out of every count and P&L figure, and they are never held-out (lockbox) data.
 
 - 2026-09-30 09:59 MNQ LONG CBU: point score 7/9. [CBU.md](CBU.md)
+- 2026-10-12 10:06 NQ SHORT CBD: point score 7/9. [CBD.md](CBD.md)
+- 2026-10-14 09:57 NQ SHORT ENGD: point score 9/9. [ENGD.md](ENGD.md)
+- 2026-10-16 10:51 NQ SHORT ENGD: point score 5/9. [ENGD.md](ENGD.md)
 
 ## Real trades with no setup label yet
 

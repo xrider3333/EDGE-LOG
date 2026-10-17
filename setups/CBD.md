@@ -269,6 +269,22 @@ Closed past today's high/low so far: 4 of 4 · past the premarket high/low: 3 of
 
 </details>
 
+## Should have traded (seen, not taken)
+
+> From the owner's SHOULD HAVE TRADED log: proper CBD setups he saw but did not take. Not trades: they are left out of every count, P&L figure and finding above, and they are a labelled set for the algo work, never held-out (lockbox) data.
+
+### 2026-10-12 NQ SHORT - signal candle 10:06
+
+- **Chart:** [UjhmNxNF](https://www.tradingview.com/x/UjhmNxNF/) · [png](https://s3.tradingview.com/snapshots/u/UjhmNxNF.png) - saved 2026-10-17 12:34 ET
+- **What the chart shows:** 1-minute NQ1! chart (inverted scale, as he reads shorts), 07:30-13:40 on 2026-10-12, with 5m / 30m / daily panes on the left. The open sold 110 points in five minutes (09:30-09:34), bounced to 31,035 at 09:39, then held a 22-bar base from 09:43 to 10:04 between 30,945 and 31,007 whose floor was tested five times. The 10:06 candle broke the floor on a volume spike; a short box is drawn from the break to about 10:40 with a dashed arrow from the entry to the box top.
+- **Signal candle 10:06:** open 30944.25, high 30952.25, low 30920.75, close 30921.00, volume 2,093.
+- **Base:** 09:43-10:04: 22 one-minute bars between 30,945.00 and 31,007.00 (lows 30,945-30,958 tested five times); volume in the prior 10 bars averaged about 1,200 contracts a minute, against 2,093 on the signal candle, whose body (23 points) was 2.3x the prior ten.
+- **Drawn box:** entry 30920.75, stop 30952.25, target 30860.00 (entry = the box edge on the 30,920 line (the 10:07 open, 30,920.75); stop = the box's lower edge on the 30,952 line = the signal candle's high; target = the box top, about 30,860 (1.9 R), read off the axis to about +/-2 points).
+- **What happened next (not counted anywhere):** Ran 52 points in four minutes (1.7 R at 10:10, worst excursion 2 points), 1 R at 10:09, the drawn target at 10:26, 2 R at 10:27, then the 10:15 pop to 30,924 (3 points through the entry) and the stop at 30,952.25 printed at 11:48. Day low 30,844 at 14:52 (2.4 R); close 30,896 (+0.8 R). Taken as drawn: +1.9 R. Held with the stop at the signal high: -1 R. Breakeven after +1 R: a scratch (stopped 10:15).
+- **Point score (ps1.2, signal bar 2026-10-12 10:06): 7/9.** Hit: Below 200 SMA (10s); Below 200 SMA (1m); Below 200 SMA (5m); Below 200 SMA (30m); Below yesterday's low; Below yesterday's close; Below yesterday's high. Missed: Largest body since today's high; Largest volume since today's high. Daily trend (not in the 9): no.
+- **Source:** owner's SHOULD HAVE TRADED log (via MANAGER 2026-10-17: '10/12/26 1m CBD'); day and candle read off the snapshot and matched to the 1-minute CME bars; the chart is NQ1!, he trades MNQ, so the R math is in points.
+- **Bars kept:** `tools/data/setup_bars/NQ_2026-10-12_m1_1m.csv`.
+
 ## How the columns are measured
 
 - **Signal** = the candle the setup keys on, measured on the 1-minute bar that holds it (the 5-minute candle on a trade he took off the 5-minute chart, or read off his own chart where a line says so); **stop** = beyond it (its low for a long, its high for a short).
