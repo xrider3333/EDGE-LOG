@@ -29,7 +29,7 @@ if ROOT not in sys.path:
 # (which do `import reconcile`) see the same objects the web runner uses.
 from augur_engine.reconcile import (  # noqa: E402
     Trade, MULT, CAND_OFFSETS_MIN, _num, _to_dt, _find_col, _find_pnl,
-    parse_tv_df, parse_nt_df, parse_tv_text, parse_nt_text, clip_window,
+    parse_tv_df, parse_nt_df, parse_tv_text, parse_nt_text, clip_window, align_and_clip,
     best_offset, match, diagnose, _rth_flag, build_result, edgelog_blotter,
     run_reconcile, is_false_wick,
 )
@@ -232,10 +232,11 @@ def main(argv=None):
         if not os.path.exists(path):
             print(f"!! file not found: {path}"); continue
         b, b_meta = parser(path, mult)
-        b = clip_window(b, args.date_from, args.date_to,     # the engine's own cut (ETH: 18:00 ET of date_to)
-                    session="eth" if a_meta.get("window_cut") == "eth_session_18et" else None)
+        # the engine's own cut (ETH: 18:00 ET of date_to), applied on the engine's clock once the
+        # export's offset is known
+        b, off = align_and_clip(a, b, args.date_from, args.date_to, tol_min=args.tol_min, daily=args.daily,
+                                session="eth" if a_meta.get("window_cut") == "eth_session_18et" else None)
         b_meta["num_trades"] = len(b)
-        off = best_offset(a, b, args.tol_min, daily=args.daily)
         report, _ = render(a, a_meta, b, b_meta, off, args.tol_min, daily=args.daily)
         print(report); print("\n" + "=" * 78 + "\n")
         reports.append(report)

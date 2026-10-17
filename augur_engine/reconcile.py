@@ -181,12 +181,15 @@ def parse_nt_text(text, mult=1):
 
 
 # ── Windowing, offset detection, matching ───────────────────────────────────────
-def clip_window(trades, date_from=None, date_to=None, session=None):
+def clip_window(trades, date_from=None, date_to=None, session=None, offset_min=0):
     """Keep only trades whose ENTRY falls in [date_from, date_to] (date_to inclusive). On an ETH session the
     window ends at 18:00 ET of date_to, the same cut the engine side now loads (data.window_end_ts), so a
-    platform trade entered that evening is not reported as one EdgeLog missed."""
+    platform trade entered that evening is not reported as one EdgeLog missed.
+    offset_min: the export's clock minus the engine's ET clock (best_offset's answer). The bounds are ET, so
+    each entry is moved onto ET before the test - an Arizona or UTC export is cut where the engine is."""
     if not (date_from or date_to):
         return trades
+    shift = pd.Timedelta(minutes=float(offset_min or 0))
     lo = pd.Timestamp(date_from) if date_from else None
     if date_to and str(session or "").strip().lower() == "eth":
         hi = pd.Timestamp(f"{str(date_to)[:10]} 18:00")
@@ -197,6 +200,7 @@ def clip_window(trades, date_from=None, date_to=None, session=None):
         e = t.entry_dt
         if e is None:
             continue
+        e = e - shift
         if lo is not None and e < lo:
             continue
         if hi is not None and e >= hi:
@@ -231,6 +235,14 @@ def _coverage(a, b, offset_min, tol_min, daily=False):
     lo = np.searchsorted(bns, an - tol, side="left")
     hi = np.searchsorted(bns, an + tol, side="right")
     return int(np.count_nonzero(hi > lo))
+
+
+def align_and_clip(a, b, date_from, date_to, session=None, tol_min=10.0, daily=False):
+    """The export's clock offset is found on the UNCLIPPED trades first, then the platform side is clipped
+    on the engine's clock (clip_window with that offset). Returns (clipped platform trades, offset)."""
+    off = best_offset(a, b, tol_min, daily=daily)
+    kept = clip_window(b, date_from, date_to, session=session, offset_min=off)
+    return kept, (best_offset(a, kept, tol_min, daily=daily) if kept else off)
 
 
 def best_offset(a, b, tol_min, daily=False):
@@ -493,25 +505,36 @@ def run_reconcile(strategy, *, instrument, timeframe="5m", session="rth", params
                               ("ninjatrader", nt_text, parse_nt_text)):
         if text and str(text).strip():
             parsed[key] = parser(text, mult)
+    auto = False
     if not (date_from or date_to) and parsed:
         allt = [t for (b, _m) in parsed.values() for t in b if t.entry_dt is not None]
         if allt:
-            from .data import find_master, window_cut_rule
-            date_from = min(t.entry_dt for t in allt).strftime("%Y-%m-%d")
-            last = max(t.entry_dt for t in allt)
-            _m = find_master(instrument, timeframe, session)
-            if _m is not None and window_cut_rule(_m) == "eth_session_18et":
-                last = last + pd.Timedelta(hours=6)     # an 18:00+ ET entry belongs to the next session
-            date_to = last.strftime("%Y-%m-%d")
+            # The export's clock may sit hours off the engine's ET (NinjaTrader here shows Arizona time, some
+            # exports are UTC) and that offset is only known once both sides exist. So the engine loads one
+            # day wider than the export's span, the offset is found, and BOTH sides are then cut to the
+            # export's own first..last entry on the engine's clock (MANAGER #98 bundle review).
+            auto = True
+            date_from = (min(t.entry_dt for t in allt) - pd.Timedelta(days=1)).strftime("%Y-%m-%d")
+            date_to = (max(t.entry_dt for t in allt) + pd.Timedelta(days=1)).strftime("%Y-%m-%d")
     a, a_meta = edgelog_blotter(strategy, instrument, timeframe, session, params or {},
                                 date_from=date_from, date_to=date_to, cost_pts=cost_pts, mult=mult)
     out = {"edgelog": {"num_trades": len(a), "master": a_meta.get("master"),
                        "window": a_meta.get("window")},
            "auto_window": {"from": date_from, "to": date_to}, "platforms": {}}
+    eth = "eth" if a_meta.get("window_cut") == "eth_session_18et" else None
     for key, (b, b_meta) in parsed.items():
-        b = clip_window(b, date_from, date_to,      # same cut as the engine side (MANAGER #98)
-                        session="eth" if a_meta.get("window_cut") == "eth_session_18et" else None)
+        if auto:
+            off = best_offset(a, b, tol_min, daily=daily)
+            ents = [t.entry_dt for t in b if t.entry_dt is not None]
+            pad = pd.Timedelta(minutes=float(tol_min))
+            lo = min(ents) - pd.Timedelta(minutes=off) - pad
+            hi = max(ents) - pd.Timedelta(minutes=off) + pad
+            a_k = [t for t in a if t.entry_dt is not None and lo <= t.entry_dt <= hi]
+            out["auto_window"] = {"from": lo.strftime("%Y-%m-%d"), "to": hi.strftime("%Y-%m-%d")}
+            out["edgelog"]["num_trades"] = len(a_k)
+        else:
+            a_k = a
+            b, off = align_and_clip(a, b, date_from, date_to, session=eth, tol_min=tol_min, daily=daily)
         b_meta["num_trades"] = len(b)
-        off = best_offset(a, b, tol_min, daily=daily)
-        out["platforms"][key] = build_result(a, a_meta, b, b_meta, off, tol_min, daily=daily)
+        out["platforms"][key] = build_result(a_k, a_meta, b, b_meta, off, tol_min, daily=daily)
     return out

@@ -169,26 +169,44 @@ def test_reconcile_clips_platform_trades_with_the_engines_eth_cut():
     assert len(R.clip_window(tr, "2026-10-14", "2026-10-15")) == 3                # RTH/default: calendar day
 
 
-def test_reconcile_auto_window_reaches_the_session_of_the_last_eth_entry(monkeypatch):
-    """Blank FROM/TO: an export whose last entry is 19:30 ET belongs to the NEXT session, so the auto
-    date_to is that session's date and neither side drops the trade (bundle review, MANAGER #98)."""
-    from augur_engine import reconcile as R
-    import augur_engine.data as Dm
-    tr = [R.Trade(pd.Timestamp("2026-05-27 10:00"), pd.Timestamp("2026-05-27 11:00"), 1),
-          R.Trade(pd.Timestamp("2026-05-28 19:30"), pd.Timestamp("2026-05-28 20:00"), 1)]
-    seen = {}
-
+def _engine_eth(trades_et):
+    """A stand-in edgelog_blotter: the engine's trades inside its 18:00 ET-cut window (data.window_end_ts)."""
     def blotter(strategy, inst, tf, session, params, *, date_from=None, date_to=None, cost_pts=0.0, mult=None):
-        seen["to"] = date_to
-        return [], {"window_cut": "eth_session_18et", "master": "m", "window": (date_from, date_to)}
+        lo = pd.Timestamp(date_from) if date_from else None
+        hi = pd.Timestamp(f"{date_to} 18:00") if date_to else None
+        a = [t for t in trades_et if (lo is None or t.entry_dt >= lo) and (hi is None or t.entry_dt < hi)]
+        return a, {"window_cut": "eth_session_18et", "master": "m", "window": (date_from, date_to)}
+    return blotter
 
-    monkeypatch.setattr(R, "parse_tv_text", lambda text, mult=1: (list(tr), {}))
-    monkeypatch.setattr(R, "edgelog_blotter", blotter)
-    monkeypatch.setattr(R, "build_result", lambda a, am, b, bm, off, tol, daily=False: {"b": len(b)})
-    monkeypatch.setattr(R, "best_offset", lambda a, b, tol, daily=False: 0)
-    monkeypatch.setattr(Dm, "find_master", lambda *a, **k: {"session": "eth", "source": "db_noadj_eth"})
-    out = R.run_reconcile("X.py", instrument="NQ", timeframe="5m", session="eth", tv_text="x")
-    assert seen["to"] == "2026-05-29" and out["auto_window"]["to"] == "2026-05-29"
-    assert out["platforms"]["tradingview"] == {"b": 2}
-    monkeypatch.setattr(Dm, "find_master", lambda *a, **k: {"session": "rth", "source": "db_noadj_rth"})
-    assert R.run_reconcile("X.py", instrument="NQ", timeframe="5m", session="rth", tv_text="x")["auto_window"]["to"] == "2026-05-28"
+
+@pytest.mark.parametrize("clock_h", [0, -3, 4])      # export clock: ET, Arizona (NinjaTrader here), UTC
+def test_reconcile_auto_window_keeps_the_exports_last_eth_evening_on_any_export_clock(monkeypatch, clock_h):
+    """Blank FROM/TO: the export's offset is found first and both sides are cut to the export's own span on
+    the engine's clock, so a last entry at 18:20 ET (next session) is compared, never dropped (bundle review)."""
+    from augur_engine import reconcile as R
+    et = ["2026-05-06 10:00", "2026-05-07 03:15", "2026-05-08 11:30", "2026-05-10 18:20"]
+    a_all = [R.Trade(pd.Timestamp(x), pd.Timestamp(x) + pd.Timedelta(minutes=30), 1) for x in et]
+    a_all.append(R.Trade(pd.Timestamp("2026-05-11 09:45"), pd.Timestamp("2026-05-11 10:15"), 1))   # after the export
+    b = [R.Trade(t.entry_dt + pd.Timedelta(hours=clock_h), t.exit_dt + pd.Timedelta(hours=clock_h), 1)
+         for t in a_all[:4]]
+    got = {}
+    monkeypatch.setattr(R, "parse_tv_text", lambda text, mult=1: (list(b), {}))
+    monkeypatch.setattr(R, "edgelog_blotter", _engine_eth(a_all))
+    monkeypatch.setattr(R, "build_result", lambda a, am, bb, bm, off, tol, daily=False:
+                        got.update(a=len(a), b=len(bb), off=off) or {})
+    R.run_reconcile("X.py", instrument="NQ", timeframe="5m", session="eth", tv_text="x")
+    assert got == {"a": 4, "b": 4, "off": clock_h * 60}
+
+
+@pytest.mark.parametrize("clock_h", [0, -3, 4])
+def test_explicit_dates_clip_the_platform_side_on_the_engines_clock(monkeypatch, clock_h):
+    """--to 2026-05-15 on ETH: the engine stops at 18:00 ET; a 15:55 ET platform trade stays whatever the
+    export's clock, and an 18:30 ET one (next session) goes (bundle review: a UTC export lost its afternoon)."""
+    from augur_engine import reconcile as R
+    et = ["2026-05-13 10:00", "2026-05-14 04:10", "2026-05-15 11:00", "2026-05-15 15:55", "2026-05-15 18:30"]
+    a_all = [R.Trade(pd.Timestamp(x), pd.Timestamp(x) + pd.Timedelta(minutes=20), 1) for x in et]
+    b = [R.Trade(t.entry_dt + pd.Timedelta(hours=clock_h), t.exit_dt + pd.Timedelta(hours=clock_h), 1) for t in a_all]
+    a, _m = _engine_eth(a_all)("X", "NQ", "5m", "eth", {}, date_from="2026-05-13", date_to="2026-05-15")
+    kept, off = R.align_and_clip(a, b, "2026-05-13", "2026-05-15", session="eth")
+    assert off == clock_h * 60 and len(a) == 4
+    assert [str(t.entry_dt - pd.Timedelta(hours=clock_h)) for t in kept] == [str(pd.Timestamp(x)) for x in et[:4]]
