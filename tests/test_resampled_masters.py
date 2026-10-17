@@ -126,6 +126,18 @@ def test_drop_incomplete_tail_is_a_no_op_when_the_last_bucket_is_actually_closed
     assert len(trimmed) == len(out)   # nothing trimmed -- the parent's last 5m bar closes the window
 
 
+def test_an_rth_sessions_last_60m_bucket_is_closed_at_the_1600_close():
+    """15:30-16:00 is the whole last 60m bucket of an RTH day. With the session close it is complete once the
+    15:55 bar is in; without it (an ETH-style grid) it would wait for 16:30 and be held back (TBIS 10-15)."""
+    day = _session_5m_bars("2026-01-05", (9, 30), 78)
+    out = R.resample_grid(day, 60)
+    last_t = int(day["time"].max())
+    assert len(R._drop_incomplete_tail(out, 60, last_t, 300, session_close=R.RTH_CLOSE)) == len(out) == 7
+    assert len(R._drop_incomplete_tail(out, 60, last_t, 300)) == 6
+    live = R.resample_grid(day[day["time"] < _epoch("2026-01-05", 15, 50)], 60)   # 15:50 bar still to come
+    assert len(R._drop_incomplete_tail(live, 60, _epoch("2026-01-05", 15, 45), 300, session_close=R.RTH_CLOSE)) == 6
+
+
 # ── ROW-COUNT method (2m) ─────────────────────────────────────────────────────────────
 def test_rowcount_2m_from_1m_aggregation():
     day = _session_1m_bars("2026-01-05", (9, 30), 40)

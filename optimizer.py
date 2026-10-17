@@ -1373,7 +1373,7 @@ def auto_refresh_masters(progress_cb=None) -> list:
         # bar). augur_engine/refresh_rules.py has the why.
         if refresh_rules.append_only(src):
             for _i in range(1, len(frames)):
-                frames[_i] = refresh_rules.past_last_bar(frames[_i], existing_df)
+                frames[_i] = refresh_rules.past_last_bar(frames[_i], existing_df, refresh_rules.bar_seconds(tf))
             _keep = [i for i, f in enumerate(frames) if i == 0 or (f is not None and not f.empty)]
             frames = [frames[i] for i in _keep]; labels = [labels[i] for i in _keep]
 

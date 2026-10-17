@@ -35,6 +35,7 @@ def _combine(frames, labels):
 
 def test_only_no_adjust_masters_are_append_only():
     assert RR.append_only("db_noadj_rth") and RR.append_only("db_noadj_eth")
+    assert RR.append_only("nt_noadj_eth")                       # MANAGER #74 C: an NT master never loses an overlap
     assert not any(RR.append_only(s) for s in ("tv", "merged", "yahoo", "db_adj_rth", "", None))
 
 
@@ -44,6 +45,22 @@ def test_a_pull_is_cut_to_the_bars_past_the_last_stored_one_naive_or_aware():
     assert RR.past_last_bar(pull, held).index.tolist() == pull.index[2:].tolist()
     assert len(RR.past_last_bar(pull, _frame([1000, 1300, 1600], naive=True))) == 2   # naive read as UTC
     assert RR.past_last_bar(pull, held.iloc[:0]) is pull                               # empty master: all of it
+
+
+def test_a_still_forming_bar_is_left_for_the_next_pass():
+    """MANAGER #74 B. A 5m pull at 22:13 holds the 22:10 bar three minutes in; it is final 15 min after its end."""
+    held = _frame([1000])
+    pull = _frame([1300, 1600, 1900], px=103.0)
+    cut = RR.past_last_bar(pull, held, bar_s=300, now=1900 + 300 + 899)
+    assert cut.index.tolist() == pull.index[:2].tolist()
+    assert RR.past_last_bar(pull, held, bar_s=300, now=1900 + 300 + 900) is pull
+    assert len(RR.past_last_bar(pull, held.iloc[:0], bar_s=300, now=1300 + 300 + 900)) == 1   # empty master too
+    assert RR.past_last_bar(pull, held, bar_s=None, now=0) is pull                           # unknown length: no cut
+
+
+def test_bar_lengths_from_timeframe_labels():
+    assert [RR.bar_seconds(t) for t in ("1m", "5m", "15m", "1h", " 5M ")] == [60, 300, 900, 3600, 300]
+    assert [RR.bar_seconds(t) for t in ("1d", "daily", "", None, "m")] == [None] * 5
 
 
 def test_an_append_only_merge_keeps_every_stored_bar_and_its_tag(tmp_path):
@@ -94,5 +111,6 @@ def test_the_runner_refresh_path_actually_applies_the_rules_before_it_saves():
     assert "from augur_engine import refresh_rules" in src
     assert body.index("refresh_rules.append_only(src)") < body.index("combine_ohlcv_frames(frames")
     assert body.index("refresh_rules.past_last_bar(") < body.index("combine_ohlcv_frames(frames")
+    assert "refresh_rules.past_last_bar(frames[_i], existing_df, refresh_rules.bar_seconds(tf))" in body
     assert body.index("refresh_rules.keep_source_tags(") < body.index("ok, _r = save_master_csv")
     assert "refresh_rules.carry_provenance(_build_provenance(" in body

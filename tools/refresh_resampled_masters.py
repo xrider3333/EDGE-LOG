@@ -123,6 +123,7 @@ TF_MINUTES = {"15m": 15, "30m": 30, "60m": 60, "2m": 2}
 PARENT_TF_MINUTES = {"5m": 5, "1m": 1}
 
 SESSION_OPEN_H, SESSION_OPEN_M = 9, 30   # RTH session open, ET
+RTH_CLOSE = (16, 0)                      # RTH session close, ET: no RTH bucket runs past it
 
 # The known Yahoo front-month-roll splice: booked inside the single parent bar that starts
 # at this ET timestamp. Any resampled bucket whose window contains this instant inherits it.
@@ -196,7 +197,8 @@ def resample_rowcount(parent, tf_minutes, parent_tf_minutes):
     return out
 
 
-def _drop_incomplete_tail(resampled, tf_minutes, parent_last_time, parent_tf_seconds, ratio=None):
+def _drop_incomplete_tail(resampled, tf_minutes, parent_last_time, parent_tf_seconds, ratio=None,
+                          session_close=None):
     """Drop the trailing bucket if it is not yet closed out by the parent's own last bar.
     GRID: complete once the window (_grid_key .. _grid_key + tf_minutes) closes at or before
     the parent's last bar's own close. ROW-COUNT: complete once it has its full `ratio` rows
@@ -205,7 +207,12 @@ def _drop_incomplete_tail(resampled, tf_minutes, parent_last_time, parent_tf_sec
     partial bucket (a genuine early-close day, or a halt day) already has every bar the
     parent will ever give it, so it is left alone. Same spirit as refresh_noadj_yahoo.py's
     _drop_unclosed: a skipped bucket is not lost, the next run appends it once the parent has
-    caught up."""
+    caught up.
+
+    session_close (ET hour, minute): a GRID window ends there at the latest. Without it an RTH
+    master's 15:30 60m bucket "ran to 16:30" and was held back every evening until the next
+    day's bars arrived - which made the tool shrink (and the write guard refuse) a 60m master
+    that tools/nt_daily_splice.py had already given its whole session (TBIS, 2026-10-15)."""
     if not len(resampled):
         return resampled
     if ratio is not None:
@@ -213,6 +220,10 @@ def _drop_incomplete_tail(resampled, tf_minutes, parent_last_time, parent_tf_sec
     else:
         tf_s = tf_minutes * 60
         window_end = int(resampled.iloc[-1]["_grid_key"]) + tf_s
+        if session_close:
+            start = pd.Timestamp(int(resampled.iloc[-1]["_grid_key"]), unit="s", tz="UTC").tz_convert("US/Eastern")
+            close = start.normalize() + pd.Timedelta(hours=session_close[0], minutes=session_close[1])
+            window_end = min(window_end, int(close.timestamp()))
         complete = (parent_last_time + parent_tf_seconds) >= window_end
     if not complete:
         return resampled.iloc[:-1].reset_index(drop=True)
@@ -406,7 +417,8 @@ def process_one(uploads_dir, master, parent_row, method):
     else:
         ratio = tf_minutes // parent_tf_minutes
         full = resample_rowcount(parent, tf_minutes, parent_tf_minutes)
-    full = _drop_incomplete_tail(full, tf_minutes, last_parent_t, parent_tf_seconds, ratio=ratio)
+    full = _drop_incomplete_tail(full, tf_minutes, last_parent_t, parent_tf_seconds, ratio=ratio,
+                                 session_close=RTH_CLOSE if str(master.get("session", "")).lower() == "rth" else None)
 
     # Bars the upstream feed may still restate are re-derived, not checked: see
     # split_settled. `existing` becomes the settled history, and everything from the cutoff

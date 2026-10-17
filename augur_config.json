@@ -12,14 +12,14 @@
    "ES|1m|tv": true,
    "NQ|1m|tv": true,
    "NQ|5m|tv": true,
-   "ES|1m|db_noadj_eth": true,
-   "ES|1m|db_noadj_rth": true,
-   "ES|5m|db_noadj_eth": true,
-   "ES|5m|db_noadj_rth": true,
-   "NQ|1m|db_noadj_eth": true,
-   "NQ|1m|db_noadj_rth": true,
-   "NQ|5m|db_noadj_eth": true,
-   "NQ|5m|db_noadj_rth": true
+   "ES|1m|db_noadj_eth": false,
+   "ES|1m|db_noadj_rth": false,
+   "ES|5m|db_noadj_eth": false,
+   "ES|5m|db_noadj_rth": false,
+   "NQ|1m|db_noadj_eth": false,
+   "NQ|1m|db_noadj_rth": false,
+   "NQ|5m|db_noadj_eth": false,
+   "NQ|5m|db_noadj_rth": false
   }
  },
  "strat_nums": {

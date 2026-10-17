@@ -65,3 +65,35 @@ split-adjusted library masters scan clean (price-only and with the volume test).
   a dated file in `C:\EdgeLog\_research_cache\split_qa\` and to the owning lane and MANAGER.
 - The master inventory and holes scan (this doc's section 1) should be re-run monthly or after any master rebuild; today's
   output is the baseline to diff against.
+
+## 5. NinjaTrader prices in the NQ masters, and who may change a bar (2026-10-12 .. 10-15)
+
+- **What changed.** NQ RTH no-adjust masters (1m, 2m, 5m, 15m, 30m, 60m) and NQ 1m ETH carry NinjaTrader's own bars for
+  2026-10-05 .. 10-15 (`tools/splice_nt_sessions.py --replace-from`; re-spliced 10-16 after Yahoo restates; rows tagged `nt_hist_splice`, provenance `splices`).
+  Yahoo's NQ=F opens/closes differed from NT's on ~70% of 5m bars there (prints on the other side of the bar boundary, up
+  to 2.25 points). NQ 5m vs the NT 10-second capture went from 20-31% to 87-97% exact. Book legs: same trades, fill prices
+  only (ORB #314 / #234 -$95, NOISE #382 -$85, #422 -$80; ENGU-Q #335 unchanged by the overnight replace).
+- **NQ and ES 5m ETH were NOT replaced.** The reference check refused them: Yahoo's 18:00 ET bar carries volume 0 and the
+  midnight bar label differs from the house resample, so no held session anchors the level. They stay Yahoo for 10-05 ..
+  10-14; a 5m ETH leg should know its last two weeks are Yahoo prints.
+- **Who may change a stored bar.**
+  - Runner auto-refresh (`optimizer.auto_refresh_masters`): on `db_noadj*` / `nt_noadj*` masters it only appends bars PAST
+    the last stored one and never a bar still forming (`augur_engine/refresh_rules.py`); row source tags and the
+    splice/repair provenance survive a pass.
+  - `tools/refresh_noadj_yahoo.py` (the 17:25 ET box push runs it first): restates the last 3 days from Yahoo but never a
+    row whose source starts `nt_`.
+  - `tools/nt_daily_splice.py` (scheduled weekdays, waits for PAPER-NT8's `NQ_daily_<date>.csv` after 16:15 ET): writes
+    today's NQ RTH session whole from NT into the `db_noadj_rth` masters before the push, then rebuilds the ADJ/FADJ twins.
+  - `tools/refresh_resampled_masters.py` (nightly): re-derives 15m/30m/60m/2m from their parents and STOPS for any master
+    whose settled bars no longer reproduce. After any splice or repair of a parent, dry-run it and expect PASS everywhere
+    (2026-10-15: the 06-30 stub repair had stopped all six 15m/30m/60m masters; fixed with
+    `_research_cache/split_qa/coarse_0630_fix.py`). An RTH session's last 60m bucket (15:30-16:00) now counts as closed
+    at 16:00.
+- **The runner's auto-refresh toggles for the 8 `db_noadj` masters are OFF** (`augur_config.json`, `autorefresh.masters`,
+  ES/NQ x 1m/5m x eth/rth). Committed with this change. Until it landed, the edit lived only in the shared checkout's
+  working tree of a tracked file, where a checkout or stash would have flipped them back on silently. After any git
+  operation in the shared checkout, re-check:
+  `python -c "import json; print({k: v for k, v in json.load(open('augur_config.json'))['autorefresh']['masters'].items() if 'noadj' in k})"`
+- **Standing check added:** `split_qa/holes_scan.py` ends with a STALE TAIL list - an auto-maintained master whose last
+  session is older than its siblings'. The per-session checks only look inside a master's own range, so a master that
+  stopped being topped up never showed before.
