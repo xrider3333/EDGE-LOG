@@ -1,0 +1,16 @@
+ADDENDUM 1 to PREDATA - FRONTIER Q49 FIXED vs KEEL (2026-10-18, dated before any FIXED or KEEL outcome of the affected legs was read)
+
+WHAT HAPPENED. The first run (prereg f6abadc2, script c08e126c) failed the section-2 PARITY GATE on three legs: ORB (count differs; daily
+max diff $3,294), ENGU-Q (same 2,053 trades, closed max diff $2,970, daily $4,095) and NOISE (count differs; daily $3,995). TTM passed
+exactly. The cause is the NQ master repairs of 10-14/15 (1m hole fills and 2020 splices), which postdate the RISK r1 records of 10-03.
+What the first run printed and FRONTIER has therefore seen: the parity lines (incl. each leg's WF mean size in FIXED and KEEL), the _C
+arms of every leg and the ALL FIXED_C / ALL KEEL_C books (both built on the RISK r1 reference legs), TTM's five arms, and the DIP re-read.
+No FIXED or KEEL outcome of ORB, ENGU-Q or NOISE, and no book containing one, was computed.
+
+THE CHANGE. Every leg and every arm is scored on TODAY'S REBUILD, like-for-like on the same rebuilt trade list:
+- RAW = the rebuilt plugin-size leg; FIXED / KEEL = the same trades re-sized; _C = rebuilt RAW x the arm's WF-mean size.
+- The book bar of section 3 is read against the REBUILT RAW book (#463 on today's masters), not the published 93.81:
+  ROC@30k >= 1.05 x rebuilt RAW, Sortino >= rebuilt RAW, DD5 <= rebuilt RAW's DD5, not one episode, gain > 1.96 x paired SD vs rebuilt
+  RAW, beats its own _C twin. The published #463 (RISK r1 records) is printed beside it, and the gap between the two is reported as a
+  finding (the master repairs moved #463).
+- Nothing else changes: arms, seeds, windows, folds, bootstrap, priors and outputs are as in the prereg.
