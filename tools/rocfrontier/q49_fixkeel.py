@@ -28,6 +28,10 @@ def lf_sha(path):
 PREREG_SHA = os.environ.get("Q49_PREREG_SHA", "")
 got = lf_sha(PREREG)
 assert PREREG_SHA and got == PREREG_SHA, f"prereg sha mismatch: file {got} vs expected {PREREG_SHA!r}"
+ADD1 = PREREG.replace(".txt", "_ADDENDUM1.txt")
+ADD1_SHA = os.environ.get("Q49_ADD1_SHA", "")
+assert ADD1_SHA and lf_sha(ADD1) == ADD1_SHA, f"addendum 1 sha mismatch: file {lf_sha(ADD1)} vs expected {ADD1_SHA!r}"
+print("addendum 1 LF sha256", ADD1_SHA, "ok", flush=True)
 print("prereg LF sha256", got, "ok; script LF sha256", lf_sha(os.path.abspath(__file__)), flush=True)
 
 import numpy as np
@@ -58,7 +62,14 @@ ref_closed = {NAMES[k]: z["closed"][z["leg"] == k] for k in range(4)}
 
 def daily(rec):
     s = R11.by_day(rec["inc_d"], rec["inc_v"])
-    return s.reindex(IDX).fillna(0.0) if s.index.isin(IDX).all() else None
+    return s.reindex(IDX.union(s.index)).fillna(0.0)
+
+
+def add(*ss):
+    ix = ss[0].index
+    for s in ss[1:]:
+        ix = ix.union(s.index)
+    return sum(s.reindex(ix).fillna(0.0) for s in ss)
 
 
 def arm_records(st, sizes):
@@ -103,15 +114,14 @@ for k, leg in enumerate(legs):
 
 
 def leg_series(nm, arm):
-    """Daily $ of one leg in one arm. CONST arms = RAW x the arm's WF-mean size (leverage without timing)."""
+    """Daily $ of one leg in one arm, ALL on today's rebuild (ADDENDUM 1: the parity gate failed on ORB / ENGU-Q / NOISE after the 10-14/15
+    master repairs, so every arm is scored like-for-like on the same rebuilt trade list). CONST arms = rebuilt RAW x the arm's WF-mean size."""
     L = LEG[nm]
     if arm in ("RAW", "FIXED", "KEEL"):
-        if not L["parity"]:
-            return None
         return daily(L["rec"][arm])
     base = arm[:-2]                                                    # 'FIXED_C' / 'KEEL_C'
     c = float(L["sizes"][base][L["wf_mask"]].mean())
-    return ref[nm] * c
+    return daily(L["rec"]["RAW"]) * c
 
 
 ARMS_LEG = ["RAW", "FIXED", "KEEL", "FIXED_C", "KEEL_C"]
@@ -173,21 +183,20 @@ for arm in ("FIXED", "KEEL", "FIXED_C", "KEEL_C"):
     book_arms[f"ALL {arm}"] = {n: arm for n in NAMES}
     for n in NAMES:
         book_arms[f"{n} {arm}"] = {m: (arm if m == n else "RAW") for m in NAMES}
-raw_book = sum(ref.values())
+pub = sum(ref.values())                                                # #463 as published (RISK r1 records)
+res["book"]["#463 published (RISK r1 records)"] = {"WF": four_numbers(cut(pub, WF0, WF1)), "LB": four_numbers(cut(pub, LB0, LB1)), "folds": folds(pub)}
+raw_book = add(*[leg_series(n, "RAW") for n in NAMES])                  # ADDENDUM 1: the bar is read against the REBUILT RAW book
+RB = four_numbers(cut(raw_book, WF0, WF1))
 for name, spec in book_arms.items():
-    parts = [leg_series(n, a) for n, a in spec.items()]
-    if any(p is None for p in parts):
-        res["book"][name] = "not mappable"
-        continue
-    s = sum(parts)
+    s = add(*[leg_series(n, a) for n, a in spec.items()])
     r = {"WF": four_numbers(cut(s, WF0, WF1)), "LB": four_numbers(cut(s, LB0, LB1)), "folds": folds(s)}
     if name != "RAW":
-        r["paired_sd_vs_raw"], r["p_reach_bar"] = paired_sd(cut(raw_book, WF0, WF1), cut(s, WF0, WF1), SEED)
+        r["paired_sd_vs_raw"], _ = paired_sd(cut(raw_book, WF0, WF1).reindex(cut(s, WF0, WF1).index).fillna(0.0), cut(s, WF0, WF1), SEED)
         twin = name.replace("FIXED", "FIXED_C").replace("KEEL", "KEEL_C") if not name.endswith("_C") else None
         r["twin"] = twin
         w = r["WF"]
-        r["bar"] = {"roc": w["roc30"] >= 98.50, "sortino": w["sortino"] >= 3.816, "dd5": w["dd5_usd"] <= 36095.0, "not_one_episode": not w["one_episode"],
-                    "beyond_paired_1.96sd": (w["roc30"] - 93.81) > 1.96 * r["paired_sd_vs_raw"]}
+        r["bar"] = {"roc": w["roc30"] >= 1.05 * RB["roc30"], "sortino": w["sortino"] >= RB["sortino"], "dd5": w["dd5_usd"] <= RB["dd5_usd"],
+                    "not_one_episode": not w["one_episode"], "beyond_paired_1.96sd": (w["roc30"] - RB["roc30"]) > 1.96 * r["paired_sd_vs_raw"]}
     r["fold_wins_vs_raw"] = sum(1 for a, b in zip(r["folds"], folds(raw_book)) if a["net"] > b["net"]) if name != "RAW" else None
     res["book"][name] = r
 for name, r in res["book"].items():
