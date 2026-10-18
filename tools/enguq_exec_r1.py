@@ -35,7 +35,9 @@ Q36_DAILY = r"C:\EdgeLog\_anatomy_cache\q36\q36_daily.csv"
 BOOK463_DAILY = r"C:\EdgeLog\_anatomy_cache\rocfrontier\r4\book463_daily.csv"
 
 PREREG = "docs/PREREG_enguq_executor_r1_2026-10-18.md"
-PREREG_SHA = "4a41bacae9f77071b12b0f1a6f536f621e3e959fca64944145c1a535cc29719d"
+# the prereg as frozen + addendum 1 (the addendum appends, so the file hash moves with it; the
+# pair posted to MANAGER is always (this prereg hash, the harness hash printed beside it))
+PREREG_SHA = "4d45dc9298f2234f7e5d44c2a76c6861ad64feca1ded1f92b5516f8eb131d6b9"
 Q34_SHA = "a69afb8e1d417bf749c312195a393fa4b6e9286627e9f93aba0fa797e79ed73c"
 Q36_SHA = "ba9bf07ef02b391fbe1dcb303ef3ca3f5fe7d08422498a7519959d476ce0fe09"
 
