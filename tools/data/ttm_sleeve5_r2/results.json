@@ -1,0 +1,1469 @@
+{
+ "hashes": {
+  "prereg": "a344f8dcdd27397335d3dac7204cf36f5ffaf26bfb378389b318a226e782a591",
+  "harness": "2e1085572bd28835e65d68c17129311561bdc6ef61018dae12b11398b474645f",
+  "git_head": "363f0b117b093b92fc6aa1c505743a533d910a87",
+  "deps": {
+   "augur_engine/drawdowns.py": "5fc70a0e4a954024a5e22b4f0db4a579e1071c4549568a74d2f8f4068875e35d",
+   "augur_engine/book.py": "9a60a852f84938da71433ef41091e84d169f1b8ef3f46e31e1c19c44ce2099b2",
+   "augur_strategies/TTMSQZ_3_0.py": "22d3b97fdb4dd1e0116a98023501cad3a4b11aae1b4870ec5cbbc5636cb10219",
+   "tools/rocfrontier/r12_mdl.py": "7675875aed479eb83d902fcf4b8385a5bbdce40cbe30b60fde9f2c0ee84562d9",
+   "tools/rocfrontier/r11_risk.py": "bf8f9ca5410e947f44e1628717fd4d415bdc0707998d14a6ab5ec3656166cd6b"
+  }
+ },
+ "ref": {
+  "wf": {
+   "roc30": 93.80566283443198,
+   "dd5_usd": 36094.98,
+   "dd_pct_peak": 13.0878,
+   "sortino": 3.8164954938818414,
+   "one_episode": false,
+   "net": 1261253.33,
+   "years": 8.993839835728952,
+   "net_per_year": 140235.24468264842,
+   "max_dd": 44848.65,
+   "n": 5,
+   "from": "2016-07-01",
+   "to": "2025-06-29",
+   "worst_episode": {
+    "peak": "2020-03-02",
+    "trough": "2020-03-27",
+    "recovered": "2020-06-11",
+    "depth": 44848.65
+   }
+  },
+  "lb": {
+   "roc30": 155.53503744034944,
+   "dd5_usd": 35034.01,
+   "dd_pct_peak": 18.3288,
+   "sortino": 4.150344485174598,
+   "one_episode": true,
+   "net": 258295.41,
+   "years": 0.999315537303217,
+   "net_per_year": 258472.32466438357,
+   "max_dd": 49854.81,
+   "n": 5,
+   "from": "2025-06-30",
+   "to": "2026-06-30",
+   "worst_episode": {
+    "peak": "2026-06-18",
+    "trough": "2026-06-26",
+    "recovered": null,
+    "depth": 49854.81
+   }
+  }
+ },
+ "cells_info": {
+  "ES 30m": {
+   "master": "ES 30m RTH - back-adjusted",
+   "roll_stamp": {
+    "master_type": "adjusted",
+    "source": "db_adj_rth",
+    "roll_source": "adjusted master built from rolls_ES.csv (table now 3294ea8fbbf4)",
+    "calendar": "adjusted master",
+    "switches_in_window": 65,
+    "switches_estimated": 1,
+    "trades_crossing": 0,
+    "usd_crossing_trades": 0.0,
+    "usd_roll_step": 0.0,
+    "roll_step_removed_by_strategy_per_contract_usd": 0.0,
+    "usd_switch_sessions": 1627.500000000009,
+    "signal_method": "difference",
+    "method_source": "master",
+    "method_tests": {
+     "shift": 1.0,
+     "scale": null,
+     "trades": 360
+    },
+    "no_fill_bars": null,
+    "warning": null,
+    "label_check": {
+     "eligible": 12,
+     "raw_like": 4,
+     "adjusted_like": 8,
+     "verdict": "agrees with the label"
+    },
+    "registry": "master id 61 (ADJ_ES_30m_RTH.csv)",
+    "guard": "refuse"
+   },
+   "trades_total": 360
+  },
+  "ES 15m": {
+   "master": "ES 15m RTH - back-adjusted",
+   "roll_stamp": {
+    "master_type": "adjusted",
+    "source": "db_adj_rth",
+    "roll_source": "adjusted master built from rolls_ES.csv (table now 3294ea8fbbf4)",
+    "calendar": "adjusted master",
+    "switches_in_window": 65,
+    "switches_estimated": 1,
+    "trades_crossing": 0,
+    "usd_crossing_trades": 0.0,
+    "usd_roll_step": 0.0,
+    "roll_step_removed_by_strategy_per_contract_usd": 0.0,
+    "usd_switch_sessions": 2537.5000000000114,
+    "signal_method": "difference",
+    "method_source": "master",
+    "method_tests": {
+     "shift": 1.0,
+     "scale": null,
+     "trades": 531
+    },
+    "no_fill_bars": null,
+    "warning": null,
+    "label_check": {
+     "eligible": 12,
+     "raw_like": 4,
+     "adjusted_like": 8,
+     "verdict": "agrees with the label"
+    },
+    "registry": "master id 57 (ADJ_ES_15m_RTH.csv)",
+    "guard": "refuse"
+   },
+   "trades_total": 531
+  },
+  "NQ 30m": {
+   "master": "NQ 30m RTH - back-adjusted",
+   "roll_stamp": {
+    "master_type": "adjusted",
+    "source": "db_adj_rth",
+    "roll_source": "adjusted master built from rolls_NQ.csv (table now 1cfe7b592e51)",
+    "calendar": "adjusted master",
+    "switches_in_window": 65,
+    "switches_estimated": 1,
+    "trades_crossing": 0,
+    "usd_crossing_trades": 0.0,
+    "usd_roll_step": 0.0,
+    "roll_step_removed_by_strategy_per_contract_usd": 0.0,
+    "usd_switch_sessions": 9314.625000000015,
+    "signal_method": "difference",
+    "method_source": "master",
+    "method_tests": {
+     "shift": 1.0,
+     "scale": null,
+     "trades": 381
+    },
+    "no_fill_bars": null,
+    "warning": null,
+    "label_check": {
+     "eligible": 14,
+     "raw_like": 4,
+     "adjusted_like": 10,
+     "verdict": "agrees with the label"
+    },
+    "registry": "master id 70 (ADJ_NQ_30m_RTH.csv)",
+    "guard": "refuse"
+   },
+   "trades_total": 381
+  },
+  "NQ 15m": {
+   "master": "NQ 15m RTH - back-adjusted",
+   "roll_stamp": {
+    "master_type": "adjusted",
+    "source": "db_adj_rth",
+    "roll_source": "adjusted master built from rolls_NQ.csv (table now 1cfe7b592e51)",
+    "calendar": "adjusted master",
+    "switches_in_window": 65,
+    "switches_estimated": 1,
+    "trades_crossing": 0,
+    "usd_crossing_trades": 0.0,
+    "usd_roll_step": 0.0,
+    "roll_step_removed_by_strategy_per_contract_usd": 0.0,
+    "usd_switch_sessions": 7130.374999999985,
+    "signal_method": "difference",
+    "method_source": "master",
+    "method_tests": {
+     "shift": 1.0,
+     "scale": null,
+     "trades": 483
+    },
+    "no_fill_bars": null,
+    "warning": null,
+    "label_check": {
+     "eligible": 14,
+     "raw_like": 4,
+     "adjusted_like": 10,
+     "verdict": "agrees with the label"
+    },
+    "registry": "master id 65 (ADJ_NQ_15m_RTH.csv)",
+    "guard": "refuse"
+   },
+   "trades_total": 483
+  }
+ },
+ "p2": {
+  "now": 151878.74249999988,
+  "round1": 151878.7424999997,
+  "diff": 1.7462298274040222e-10,
+  "rel": 1.1497526241396327e-15
+ },
+ "gross": {
+  "pre": {
+   "ES 30m": {
+    "trades": 127,
+    "trades_per_year": 20.9420993227991,
+    "gross_pt_per_trade": 2.2930118110236224,
+    "cost_pt_L1": 0.613
+   },
+   "ES 15m": {
+    "trades": 191,
+    "trades_per_year": 31.495598194130928,
+    "gross_pt_per_trade": -0.04178664921466112,
+    "cost_pt_L1": 0.613
+   },
+   "NQ 30m": {
+    "trades": 144,
+    "trades_per_year": 23.745372460496615,
+    "gross_pt_per_trade": 2.6239149305555616,
+    "cost_pt_L1": 0.7825
+   },
+   "NQ 15m": {
+    "trades": 215,
+    "trades_per_year": 35.45316027088036,
+    "gross_pt_per_trade": 0.5813372093023264,
+    "cost_pt_L1": 0.7825
+   },
+   "pooled": {
+    "trades": 677,
+    "trades_per_year": 111.636230248307,
+    "gross_usd_per_trade": 35.77280280649928,
+    "cost_usd_per_trade_L1": 22.695790251107827,
+    "gross_ge_cost": true
+   }
+  },
+  "wf": {
+   "ES 30m": {
+    "trades": 217,
+    "trades_per_year": 24.127625570776257,
+    "gross_pt_per_trade": 2.920305299539171,
+    "cost_pt_L1": 0.613
+   },
+   "ES 15m": {
+    "trades": 314,
+    "trades_per_year": 34.91278538812786,
+    "gross_pt_per_trade": 2.1284235668789835,
+    "cost_pt_L1": 0.613
+   },
+   "NQ 30m": {
+    "trades": 219,
+    "trades_per_year": 24.35,
+    "gross_pt_per_trade": 9.094863013698612,
+    "cost_pt_L1": 0.7825
+   },
+   "NQ 15m": {
+    "trades": 243,
+    "trades_per_year": 27.018493150684932,
+    "gross_pt_per_trade": 12.655195473251005,
+    "cost_pt_L1": 0.7825
+   },
+   "pooled": {
+    "trades": 993,
+    "trades_per_year": 110.40890410958905,
+    "gross_usd_per_trade": 167.61461480362524,
+    "cost_usd_per_trade_L1": 23.671148036253776,
+    "gross_ge_cost": true
+   }
+  },
+  "lb": {
+   "ES 30m": {
+    "trades": 16,
+    "trades_per_year": 16.01095890410959,
+    "gross_pt_per_trade": 6.603515625,
+    "cost_pt_L1": 0.613
+   },
+   "ES 15m": {
+    "trades": 26,
+    "trades_per_year": 26.017808219178082,
+    "gross_pt_per_trade": 2.9915865384615388,
+    "cost_pt_L1": 0.613
+   },
+   "NQ 30m": {
+    "trades": 18,
+    "trades_per_year": 18.012328767123286,
+    "gross_pt_per_trade": 9.740625000000161,
+    "cost_pt_L1": 0.7825
+   },
+   "NQ 15m": {
+    "trades": 25,
+    "trades_per_year": 25.017123287671232,
+    "gross_pt_per_trade": 14.358499999999912,
+    "cost_pt_L1": 0.7825
+   },
+   "pooled": {
+    "trades": 85,
+    "trades_per_year": 85.0582191780822,
+    "gross_usd_per_trade": 233.6205882352943,
+    "cost_usd_per_trade_L1": 23.061764705882354,
+    "gross_ge_cost": true
+   }
+  }
+ },
+ "percell_L1": {
+  "ES 30m": {
+   "pre": {
+    "roc30": 30.211431409560554,
+    "dd5_usd": 678.16,
+    "dd_pct_peak": 1.7035,
+    "sortino": 2.884250883145296,
+    "one_episode": true,
+    "net": 10668.075000000006,
+    "years": 6.064339493497604,
+    "net_per_year": 1759.1487104966152,
+    "max_dd": 1746.84,
+    "n": 5,
+    "from": "2010-06-07",
+    "to": "2016-06-30",
+    "worst_episode": {
+     "peak": "2012-01-09",
+     "trough": "2013-11-07",
+     "recovered": "2014-10-28",
+     "depth": 1746.84
+    }
+   },
+   "wf": {
+    "roc30": 15.494414777086046,
+    "dd5_usd": 3451.36,
+    "dd_pct_peak": 5.0782,
+    "sortino": 1.6797449672618405,
+    "one_episode": true,
+    "net": 25034.262500000008,
+    "years": 8.988364134154688,
+    "net_per_year": 2785.1856162427666,
+    "max_dd": 5392.62,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-27",
+    "worst_episode": {
+     "peak": "2018-06-13",
+     "trough": "2020-06-10",
+     "recovered": "2020-06-11",
+     "depth": 5392.62
+    }
+   },
+   "lb": {
+    "roc30": 44.59607782784938,
+    "dd5_usd": 2040.87,
+    "dd_pct_peak": 3.1171,
+    "sortino": 2.377891767092969,
+    "one_episode": true,
+    "net": 4792.412499999999,
+    "years": 0.999315537303217,
+    "net_per_year": 4795.694974315068,
+    "max_dd": 3226.09,
+    "n": 2,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2025-12-02",
+     "trough": "2026-03-03",
+     "recovered": "2026-03-26",
+     "depth": 3226.09
+    }
+   }
+  },
+  "ES 15m": {
+   "pre": {
+    "roc30": -4.73098983313781,
+    "dd5_usd": 2316.25,
+    "dd_pct_peak": 6.5201,
+    "sortino": -1.3069702587771055,
+    "one_episode": true,
+    "net": -6253.212500000013,
+    "years": 6.064339493497604,
+    "net_per_year": -1031.144860327316,
+    "max_dd": 6538.66,
+    "n": 3,
+    "from": "2010-06-07",
+    "to": "2016-06-30",
+    "worst_episode": {
+     "peak": "2010-08-23",
+     "trough": "2016-05-06",
+     "recovered": null,
+     "depth": 6538.66
+    }
+   },
+   "wf": {
+    "roc30": 13.219742017962647,
+    "dd5_usd": 3633.13,
+    "dd_pct_peak": 5.9625,
+    "sortino": 1.3874256472726718,
+    "one_episode": true,
+    "net": 23792.150000000038,
+    "years": 8.988364134154688,
+    "net_per_year": 2646.99445248249,
+    "max_dd": 6006.91,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-27",
+    "worst_episode": {
+     "peak": "2016-09-20",
+     "trough": "2019-08-29",
+     "recovered": "2020-04-06",
+     "depth": 6006.91
+    }
+   },
+   "lb": {
+    "roc30": 31.496352592010144,
+    "dd5_usd": 2140.99,
+    "dd_pct_peak": 2.9427,
+    "sortino": 1.296045922628771,
+    "one_episode": true,
+    "net": 3092.1625,
+    "years": 0.999315537303217,
+    "net_per_year": 3094.2804195205476,
+    "max_dd": 2947.27,
+    "n": 2,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2025-07-14",
+     "trough": "2025-12-10",
+     "recovered": "2026-03-26",
+     "depth": 2947.27
+    }
+   }
+  },
+  "NQ 30m": {
+   "pre": {
+    "roc30": 14.958974813671274,
+    "dd5_usd": 1192.65,
+    "dd_pct_peak": 1.7217,
+    "sortino": 1.2828664015101066,
+    "one_episode": true,
+    "net": 5303.275000000019,
+    "years": 6.064339493497604,
+    "net_per_year": 874.5016676072266,
+    "max_dd": 1753.8,
+    "n": 5,
+    "from": "2010-06-07",
+    "to": "2016-06-30",
+    "worst_episode": {
+     "peak": "2013-01-30",
+     "trough": "2013-11-05",
+     "recovered": "2014-03-26",
+     "depth": 1753.8
+    }
+   },
+   "wf": {
+    "roc30": 9.763096980304345,
+    "dd5_usd": 7397.47,
+    "dd_pct_peak": 8.3841,
+    "sortino": 1.049149885398123,
+    "one_episode": true,
+    "net": 36408.149999999914,
+    "years": 8.988364134154688,
+    "net_per_year": 4050.5868984160734,
+    "max_dd": 12446.63,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-27",
+    "worst_episode": {
+     "peak": "2024-11-11",
+     "trough": "2025-06-13",
+     "recovered": null,
+     "depth": 12446.63
+    }
+   },
+   "lb": {
+    "roc30": 17.095209104740537,
+    "dd5_usd": 3115.61,
+    "dd_pct_peak": 5.3289,
+    "sortino": 0.586356936734996,
+    "one_episode": true,
+    "net": 3224.925000000057,
+    "years": 0.999315537303217,
+    "net_per_year": 3227.133852739783,
+    "max_dd": 5663.22,
+    "n": 3,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2025-12-04",
+     "trough": "2026-06-04",
+     "recovered": null,
+     "depth": 5663.22
+    }
+   }
+  },
+  "NQ 15m": {
+   "pre": {
+    "roc30": -0.9389324005299696,
+    "dd5_usd": 4557.43,
+    "dd_pct_peak": 4.5359,
+    "sortino": -0.1837890124559663,
+    "one_episode": false,
+    "net": -864.9999999999962,
+    "years": 6.064339493497604,
+    "net_per_year": -142.63713318284363,
+    "max_dd": 4557.43,
+    "n": 1,
+    "from": "2010-06-07",
+    "to": "2016-06-30",
+    "worst_episode": {
+     "peak": "2010-07-27",
+     "trough": "2015-03-13",
+     "recovered": null,
+     "depth": 4557.43
+    }
+   },
+   "wf": {
+    "roc30": 38.61405960829233,
+    "dd5_usd": 4062.21,
+    "dd_pct_peak": 4.3983,
+    "sortino": 2.427501470656797,
+    "one_episode": false,
+    "net": 57701.29999999988,
+    "years": 8.988364134154688,
+    "net_per_year": 6419.55523149557,
+    "max_dd": 4987.47,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-27",
+    "worst_episode": {
+     "peak": "2021-04-28",
+     "trough": "2021-06-09",
+     "recovered": "2022-03-02",
+     "depth": 4987.47
+    }
+   },
+   "lb": {
+    "roc30": 27.080419463460256,
+    "dd5_usd": 5078.28,
+    "dd_pct_peak": 7.4701,
+    "sortino": 1.2397846501959562,
+    "one_episode": true,
+    "net": 6787.999999999955,
+    "years": 0.999315537303217,
+    "net_per_year": 6792.649315068448,
+    "max_dd": 7524.98,
+    "n": 3,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2025-10-16",
+     "trough": "2026-02-11",
+     "recovered": "2026-02-23",
+     "depth": 7524.98
+    }
+   }
+  }
+ },
+ "sleeve": {
+  "L0": {
+   "pre": {
+    "roc30": 10.08438139278544,
+    "dd5_usd": 3057.88,
+    "dd_pct_peak": 6.8337,
+    "sortino": 1.5269306291008191,
+    "one_episode": true,
+    "net": 14619.547500000013,
+    "years": 6.064339493497604,
+    "net_per_year": 2410.740281884878,
+    "max_dd": 7171.71,
+    "n": 5,
+    "from": "2010-06-07",
+    "to": "2016-06-30",
+    "worst_episode": {
+     "peak": "2011-12-16",
+     "trough": "2013-11-05",
+     "recovered": "2015-06-25",
+     "depth": 7171.71
+    },
+    "extra_days": 0,
+    "trades": 677
+   },
+   "wf": {
+    "roc30": 27.709078908228776,
+    "dd5_usd": 10471.1,
+    "dd_pct_peak": 7.5734,
+    "sortino": 2.489359788310091,
+    "one_episode": true,
+    "net": 151878.74249999985,
+    "years": 8.988364134154688,
+    "net_per_year": 16897.261863577503,
+    "max_dd": 18294.29,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-27",
+    "worst_episode": {
+     "peak": "2025-05-15",
+     "trough": "2025-06-13",
+     "recovered": null,
+     "depth": 18294.29
+    },
+    "extra_days": 0,
+    "trades": 993
+   },
+   "lb": {
+    "roc30": 55.52990748587505,
+    "dd5_usd": 5807.49,
+    "dd_pct_peak": 9.6565,
+    "sortino": 1.8755885899631144,
+    "one_episode": true,
+    "net": 18637.070000000014,
+    "years": 0.999315537303217,
+    "net_per_year": 18649.83511643837,
+    "max_dd": 10075.56,
+    "n": 5,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2025-12-04",
+     "trough": "2026-02-11",
+     "recovered": "2026-02-23",
+     "depth": 10075.56
+    },
+    "extra_days": 0,
+    "trades": 85
+   }
+  },
+  "L1": {
+   "pre": {
+    "roc30": 4.807166566085063,
+    "dd5_usd": 3528.28,
+    "dd_pct_peak": 8.796,
+    "sortino": 0.8759856099388197,
+    "one_episode": true,
+    "net": 8853.137500000015,
+    "years": 6.064339493497604,
+    "net_per_year": 1459.868384593682,
+    "max_dd": 9110.58,
+    "n": 5,
+    "from": "2010-06-07",
+    "to": "2016-06-30",
+    "worst_episode": {
+     "peak": "2011-12-16",
+     "trough": "2013-11-05",
+     "recovered": "2015-11-12",
+     "depth": 9110.58
+    },
+    "extra_days": 0,
+    "trades": 677
+   },
+   "wf": {
+    "roc30": 25.743524605373203,
+    "dd5_usd": 10814.42,
+    "dd_pct_peak": 8.2662,
+    "sortino": 2.317735149098637,
+    "one_episode": true,
+    "net": 142935.86249999984,
+    "years": 8.988364134154688,
+    "net_per_year": 15902.3221986369,
+    "max_dd": 18531.64,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-27",
+    "worst_episode": {
+     "peak": "2025-05-15",
+     "trough": "2025-06-13",
+     "recovered": null,
+     "depth": 18531.64
+    },
+    "extra_days": 0,
+    "trades": 993
+   },
+   "lb": {
+    "roc30": 52.673372099482364,
+    "dd5_usd": 5882.94,
+    "dd_pct_peak": 9.811,
+    "sortino": 1.788624212689539,
+    "one_episode": true,
+    "net": 17897.50000000001,
+    "years": 0.999315537303217,
+    "net_per_year": 17909.758561643845,
+    "max_dd": 10200.46,
+    "n": 5,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2025-12-04",
+     "trough": "2026-02-11",
+     "recovered": "2026-02-23",
+     "depth": 10200.46
+    },
+    "extra_days": 0,
+    "trades": 85
+   }
+  },
+  "L2": {
+   "pre": {
+    "roc30": -0.8626874512057208,
+    "dd5_usd": 4149.19,
+    "dd_pct_peak": 15.0702,
+    "sortino": -0.23878893197771608,
+    "one_episode": true,
+    "net": -2686.8624999999843,
+    "years": 6.064339493497604,
+    "net_per_year": -443.0593806433383,
+    "max_dd": 15407.41,
+    "n": 4,
+    "from": "2010-06-07",
+    "to": "2016-06-30",
+    "worst_episode": {
+     "peak": "2010-08-23",
+     "trough": "2014-09-30",
+     "recovered": null,
+     "depth": 15407.41
+    },
+    "extra_days": 0,
+    "trades": 677
+   },
+   "wf": {
+    "roc30": 21.95772114823582,
+    "dd5_usd": 12082.38,
+    "dd_pct_peak": 9.7948,
+    "sortino": 1.983990413448609,
+    "one_episode": true,
+    "net": 125040.86249999983,
+    "years": 8.988364134154688,
+    "net_per_year": 13911.414873020085,
+    "max_dd": 19006.64,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-27",
+    "worst_episode": {
+     "peak": "2025-05-15",
+     "trough": "2025-06-13",
+     "recovered": null,
+     "depth": 19006.64
+    },
+    "extra_days": 0,
+    "trades": 993
+   },
+   "lb": {
+    "roc30": 47.16177354738242,
+    "dd5_usd": 6033.94,
+    "dd_pct_peak": 10.1235,
+    "sortino": 1.6179438067137655,
+    "one_episode": true,
+    "net": 16417.50000000001,
+    "years": 0.999315537303217,
+    "net_per_year": 16428.744863013708,
+    "max_dd": 10450.46,
+    "n": 5,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2025-12-04",
+     "trough": "2026-02-11",
+     "recovered": "2026-02-23",
+     "depth": 10450.46
+    },
+    "extra_days": 0,
+    "trades": 85
+   }
+  },
+  "L3": {
+   "pre": {
+    "roc30": -2.913931899258498,
+    "dd5_usd": 8396.77,
+    "dd_pct_peak": 23.7182,
+    "sortino": -1.1387719642519671,
+    "one_episode": true,
+    "net": -14226.862499999985,
+    "years": 6.064339493497604,
+    "net_per_year": -2345.9871458803586,
+    "max_dd": 24152.8,
+    "n": 3,
+    "from": "2010-06-07",
+    "to": "2016-06-30",
+    "worst_episode": {
+     "peak": "2010-08-23",
+     "trough": "2015-03-02",
+     "recovered": null,
+     "depth": 24152.8
+    },
+    "extra_days": 0,
+    "trades": 677
+   },
+   "wf": {
+    "roc30": 18.356528111258484,
+    "dd5_usd": 13047.78,
+    "dd_pct_peak": 13.0915,
+    "sortino": 1.663096269539798,
+    "one_episode": true,
+    "net": 107145.86249999984,
+    "years": 8.988364134154688,
+    "net_per_year": 11920.507547403273,
+    "max_dd": 19481.64,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-27",
+    "worst_episode": {
+     "peak": "2025-05-15",
+     "trough": "2025-06-13",
+     "recovered": null,
+     "depth": 19481.64
+    },
+    "extra_days": 0,
+    "trades": 993
+   },
+   "lb": {
+    "roc30": 41.81471079540507,
+    "dd5_usd": 6189.7,
+    "dd_pct_peak": 10.4614,
+    "sortino": 1.4516619956946708,
+    "one_episode": true,
+    "net": 14937.500000000011,
+    "years": 0.999315537303217,
+    "net_per_year": 14947.731164383573,
+    "max_dd": 10724.26,
+    "n": 5,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2025-12-02",
+     "trough": "2026-02-11",
+     "recovered": "2026-02-23",
+     "depth": 10724.26
+    },
+    "extra_days": 0,
+    "trades": 85
+   }
+  }
+ },
+ "add": {
+  "L0": {
+   "wf": {
+    "roc30": 83.46111505225389,
+    "dd5_usd": 35926.64,
+    "dd_pct_peak": 11.7028,
+    "sortino": 4.07949149395662,
+    "one_episode": true,
+    "net": 1413132.0725,
+    "years": 8.993839835728952,
+    "net_per_year": 157122.21901997717,
+    "max_dd": 56477.4,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-29",
+    "worst_episode": {
+     "peak": "2025-05-19",
+     "trough": "2025-06-20",
+     "recovered": null,
+     "depth": 56477.4
+    },
+    "extra_days": 0
+   },
+   "lb": {
+    "roc30": 158.5700198058328,
+    "dd5_usd": 37752.28,
+    "dd_pct_peak": 18.2175,
+    "sortino": 4.36963965135664,
+    "one_episode": true,
+    "net": 276932.48000000004,
+    "years": 0.999315537303217,
+    "net_per_year": 277122.15978082194,
+    "max_dd": 52428.98,
+    "n": 5,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2026-06-18",
+     "trough": "2026-06-26",
+     "recovered": null,
+     "depth": 52428.98
+    },
+    "extra_days": 0
+   }
+  },
+  "L1": {
+   "wf": {
+    "roc30": 82.59313316698876,
+    "dd5_usd": 35995.59,
+    "dd_pct_peak": 12.2222,
+    "sortino": 4.048738499400282,
+    "one_episode": true,
+    "net": 1404189.1925,
+    "years": 8.993839835728952,
+    "net_per_year": 156127.88510216895,
+    "max_dd": 56709.76,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-29",
+    "worst_episode": {
+     "peak": "2025-05-19",
+     "trough": "2025-06-20",
+     "recovered": null,
+     "depth": 56709.76
+    },
+    "extra_days": 0
+   },
+   "lb": {
+    "roc30": 158.01848322020746,
+    "dd5_usd": 37798.75,
+    "dd_pct_peak": 18.2659,
+    "sortino": 4.356143977166497,
+    "one_episode": true,
+    "net": 276192.91000000003,
+    "years": 0.999315537303217,
+    "net_per_year": 276382.08322602743,
+    "max_dd": 52471.47,
+    "n": 5,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2026-06-18",
+     "trough": "2026-06-26",
+     "recovered": null,
+     "depth": 52471.47
+    },
+    "extra_days": 0
+   }
+  },
+  "L2": {
+   "wf": {
+    "roc30": 80.87739938207442,
+    "dd5_usd": 36133.59,
+    "dd_pct_peak": 13.2709,
+    "sortino": 3.987315327280919,
+    "one_episode": true,
+    "net": 1386294.1925,
+    "years": 8.993839835728952,
+    "net_per_year": 154138.1898966895,
+    "max_dd": 57174.76,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-29",
+    "worst_episode": {
+     "peak": "2025-05-19",
+     "trough": "2025-06-20",
+     "recovered": null,
+     "depth": 57174.76
+    },
+    "extra_days": 0
+   },
+   "lb": {
+    "roc30": 156.91753448296825,
+    "dd5_usd": 37891.75,
+    "dd_pct_peak": 18.3633,
+    "sortino": 4.329136370810848,
+    "one_episode": true,
+    "net": 274712.91000000003,
+    "years": 0.999315537303217,
+    "net_per_year": 274901.0695273973,
+    "max_dd": 52556.47,
+    "n": 5,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2026-06-18",
+     "trough": "2026-06-26",
+     "recovered": null,
+     "depth": 52556.47
+    },
+    "extra_days": 0
+   }
+  },
+  "L3": {
+   "wf": {
+    "roc30": 79.18934844124509,
+    "dd5_usd": 36271.59,
+    "dd_pct_peak": 14.3323,
+    "sortino": 3.926049256532764,
+    "one_episode": true,
+    "net": 1368399.1925,
+    "years": 8.993839835728952,
+    "net_per_year": 152148.49469121004,
+    "max_dd": 57639.76,
+    "n": 5,
+    "from": "2016-07-01",
+    "to": "2025-06-29",
+    "worst_episode": {
+     "peak": "2025-05-19",
+     "trough": "2025-06-20",
+     "recovered": null,
+     "depth": 57639.76
+    },
+    "extra_days": 0
+   },
+   "lb": {
+    "roc30": 155.82014114181587,
+    "dd5_usd": 37984.75,
+    "dd_pct_peak": 18.4612,
+    "sortino": 4.302129299347813,
+    "one_episode": true,
+    "net": 273232.91000000003,
+    "years": 0.999315537303217,
+    "net_per_year": 273420.05582876713,
+    "max_dd": 52641.47,
+    "n": 5,
+    "from": "2025-06-30",
+    "to": "2026-06-30",
+    "worst_episode": {
+     "peak": "2026-06-18",
+     "trough": "2026-06-26",
+     "recovered": null,
+     "depth": 52641.47
+    },
+    "extra_days": 0
+   }
+  }
+ },
+ "delta": {
+  "L0": {
+   "roc30": -10.344547782178097,
+   "dd5_usd": -168.34000000000378,
+   "dd_pct_peak": -1.3849999999999998,
+   "sortino": 0.2629960000747782,
+   "net_per_year": 16886.97433732875
+  },
+  "L1": {
+   "roc30": -11.21252966744322,
+   "dd5_usd": -99.3900000000067,
+   "dd_pct_peak": -0.8655999999999988,
+   "sortino": 0.2322430055184408,
+   "net_per_year": 15892.640419520525
+  },
+  "L2": {
+   "roc30": -12.92826345235757,
+   "dd5_usd": 38.609999999993306,
+   "dd_pct_peak": 0.1830999999999996,
+   "sortino": 0.17081983339907758,
+   "net_per_year": 13902.945214041072
+  },
+  "L3": {
+   "roc30": -14.616314393186897,
+   "dd5_usd": 176.6099999999933,
+   "dd_pct_peak": 1.2445000000000004,
+   "sortino": 0.10955376265092243,
+   "net_per_year": 11913.25000856162
+  }
+ },
+ "folds": {
+  "rows": [
+   {
+    "fold": 1,
+    "from": "2016-07-01",
+    "to": "2017-08-15",
+    "rows": 337,
+    "book": {
+     "roc30": 68.43220494105982,
+     "dd5_usd": 7099.08,
+     "dd_pct_peak": 9.0397,
+     "sortino": 2.1177525417381813,
+     "one_episode": true,
+     "net": 27533.7,
+     "years": 1.1225188227241616,
+     "net_per_year": 24528.49737804878,
+     "max_dd": 10753.05,
+     "n": 5,
+     "from": "2016-07-01",
+     "to": "2017-08-15",
+     "worst_episode": {
+      "peak": "2016-12-13",
+      "trough": "2017-04-19",
+      "recovered": "2017-06-09",
+      "depth": 10753.05
+     }
+    },
+    "add": {
+     "roc30": 44.78628003997683,
+     "dd5_usd": 8272.25,
+     "dd_pct_peak": 12.2222,
+     "sortino": 1.6463153947020053,
+     "one_episode": true,
+     "net": 24827.9375000001,
+     "years": 1.1225188227241616,
+     "net_per_year": 22118.05895579277,
+     "max_dd": 14815.74,
+     "n": 5,
+     "from": "2016-07-01",
+     "to": "2017-08-15",
+     "worst_episode": {
+      "peak": "2016-12-13",
+      "trough": "2017-04-19",
+      "recovered": "2017-07-12",
+      "depth": 14815.74
+     }
+    },
+    "sleeve_net": -2705.762499999899,
+    "roc_lift": false,
+    "tie": false,
+    "dd5_no_worse": false
+   },
+   {
+    "fold": 2,
+    "from": "2017-08-16",
+    "to": "2018-09-30",
+    "rows": 326,
+    "book": {
+     "roc30": 236.9356381396979,
+     "dd5_usd": 7852.2,
+     "dd_pct_peak": 7.9137,
+     "sortino": 5.194791133493902,
+     "one_episode": false,
+     "net": 89628.69,
+     "years": 1.1225188227241616,
+     "net_per_year": 79846.04639634147,
+     "max_dd": 10109.84,
+     "n": 5,
+     "from": "2017-08-16",
+     "to": "2018-09-30",
+     "worst_episode": {
+      "peak": "2018-02-15",
+      "trough": "2018-02-22",
+      "recovered": "2018-03-09",
+      "depth": 10109.84
+     }
+    },
+    "add": {
+     "roc30": 271.87528882482883,
+     "dd5_usd": 8467.35,
+     "dd_pct_peak": 7.9074,
+     "sortino": 5.437567855694091,
+     "one_episode": false,
+     "net": 97141.21500000001,
+     "years": 1.1225188227241616,
+     "net_per_year": 86538.60677743902,
+     "max_dd": 9549.08,
+     "n": 5,
+     "from": "2017-08-16",
+     "to": "2018-09-30",
+     "worst_episode": {
+      "peak": "2018-02-15",
+      "trough": "2018-02-22",
+      "recovered": "2018-02-23",
+      "depth": 9549.08
+     }
+    },
+    "sleeve_net": 7512.525000000003,
+    "roc_lift": true,
+    "tie": false,
+    "dd5_no_worse": false
+   },
+   {
+    "fold": 3,
+    "from": "2018-10-01",
+    "to": "2019-11-15",
+    "rows": 327,
+    "book": {
+     "roc30": 128.5292442616242,
+     "dd5_usd": 12484.96,
+     "dd_pct_peak": 12.4816,
+     "sortino": 4.004169319384196,
+     "one_episode": true,
+     "net": 91618.22,
+     "years": 1.1225188227241616,
+     "net_per_year": 81618.42647560975,
+     "max_dd": 19050.55,
+     "n": 5,
+     "from": "2018-10-01",
+     "to": "2019-11-15",
+     "worst_episode": {
+      "peak": "2019-08-13",
+      "trough": "2019-10-09",
+      "recovered": null,
+      "depth": 19050.55
+     }
+    },
+    "add": {
+     "roc30": 126.21198513352057,
+     "dd5_usd": 13604.03,
+     "dd_pct_peak": 13.283,
+     "sortino": 3.694882635008089,
+     "one_episode": true,
+     "net": 92916.82000000002,
+     "years": 1.1225188227241616,
+     "net_per_year": 82775.28903658538,
+     "max_dd": 19675.3,
+     "n": 5,
+     "from": "2018-10-01",
+     "to": "2019-11-15",
+     "worst_episode": {
+      "peak": "2019-08-13",
+      "trough": "2019-10-09",
+      "recovered": null,
+      "depth": 19675.3
+     }
+    },
+    "sleeve_net": 1298.6000000000222,
+    "roc_lift": false,
+    "tie": false,
+    "dd5_no_worse": false
+   },
+   {
+    "fold": 4,
+    "from": "2019-11-17",
+    "to": "2020-12-29",
+    "rows": 326,
+    "book": {
+     "roc30": 86.1541435833107,
+     "dd5_usd": 21097.82,
+     "dd_pct_peak": 33.4957,
+     "sortino": 3.4068485224422806,
+     "one_episode": true,
+     "net": 143871.32,
+     "years": 1.1170431211498972,
+     "net_per_year": 128796.56772058825,
+     "max_dd": 44848.65,
+     "n": 5,
+     "from": "2019-11-17",
+     "to": "2020-12-29",
+     "worst_episode": {
+      "peak": "2020-03-02",
+      "trough": "2020-03-27",
+      "recovered": "2020-06-11",
+      "depth": 44848.65
+     }
+    },
+    "add": {
+     "roc30": 173.91756901924262,
+     "dd5_usd": 18496.96,
+     "dd_pct_peak": 21.4811,
+     "sortino": 4.231892926129813,
+     "one_episode": true,
+     "net": 185183.5325,
+     "years": 1.1170431211498972,
+     "net_per_year": 165780.11089613973,
+     "max_dd": 28596.32,
+     "n": 5,
+     "from": "2019-11-17",
+     "to": "2020-12-29",
+     "worst_episode": {
+      "peak": "2020-03-02",
+      "trough": "2020-03-27",
+      "recovered": "2020-04-13",
+      "depth": 28596.32
+     }
+    },
+    "sleeve_net": 41312.2125,
+    "roc_lift": true,
+    "tie": false,
+    "dd5_no_worse": true
+   },
+   {
+    "fold": 5,
+    "from": "2020-12-30",
+    "to": "2022-02-11",
+    "rows": 331,
+    "book": {
+     "roc30": 310.58594674500847,
+     "dd5_usd": 16573.86,
+     "dd_pct_peak": 12.3873,
+     "sortino": 4.978842875116273,
+     "one_episode": false,
+     "net": 207381.78,
+     "years": 1.1170431211498972,
+     "net_per_year": 185652.43908088238,
+     "max_dd": 17932.47,
+     "n": 5,
+     "from": "2020-12-30",
+     "to": "2022-02-11",
+     "worst_episode": {
+      "peak": "2022-02-01",
+      "trough": "2022-02-10",
+      "recovered": null,
+      "depth": 17932.47
+     }
+    },
+    "add": {
+     "roc30": 283.1449655246837,
+     "dd5_usd": 17381.49,
+     "dd_pct_peak": 13.1677,
+     "sortino": 4.99805345841615,
+     "one_episode": false,
+     "net": 213002.5674999999,
+     "years": 1.1170431211498972,
+     "net_per_year": 190684.28377297785,
+     "max_dd": 20203.53,
+     "n": 5,
+     "from": "2020-12-30",
+     "to": "2022-02-11",
+     "worst_episode": {
+      "peak": "2022-02-01",
+      "trough": "2022-02-10",
+      "recovered": null,
+      "depth": 20203.53
+     }
+    },
+    "sleeve_net": 5620.787499999889,
+    "roc_lift": false,
+    "tie": false,
+    "dd5_no_worse": false
+   },
+   {
+    "fold": 6,
+    "from": "2022-02-14",
+    "to": "2023-03-31",
+    "rows": 324,
+    "book": {
+     "roc30": 195.84866725182118,
+     "dd5_usd": 27450.93,
+     "dd_pct_peak": 17.9357,
+     "sortino": 4.312405881481549,
+     "one_episode": false,
+     "net": 239524.82,
+     "years": 1.1225188227241616,
+     "net_per_year": 213381.56220731707,
+     "max_dd": 32685.68,
+     "n": 5,
+     "from": "2022-02-14",
+     "to": "2023-03-31",
+     "worst_episode": {
+      "peak": "2022-06-02",
+      "trough": "2022-06-22",
+      "recovered": "2022-07-19",
+      "depth": 32685.68
+     }
+    },
+    "add": {
+     "roc30": 230.81989854796464,
+     "dd5_usd": 26354.09,
+     "dd_pct_peak": 17.4603,
+     "sortino": 4.769810596792321,
+     "one_episode": false,
+     "net": 270797.945,
+     "years": 1.1225188227241616,
+     "net_per_year": 241241.34002743903,
+     "max_dd": 31354.49,
+     "n": 5,
+     "from": "2022-02-14",
+     "to": "2023-03-31",
+     "worst_episode": {
+      "peak": "2022-04-26",
+      "trough": "2022-05-03",
+      "recovered": "2022-05-26",
+      "depth": 31354.49
+     }
+    },
+    "sleeve_net": 31273.124999999978,
+    "roc_lift": true,
+    "tie": false,
+    "dd5_no_worse": true
+   },
+   {
+    "fold": 7,
+    "from": "2023-04-02",
+    "to": "2024-05-15",
+    "rows": 328,
+    "book": {
+     "roc30": 101.47645721513186,
+     "dd5_usd": 22474.8,
+     "dd_pct_peak": 13.1202,
+     "sortino": 2.4820312096773987,
+     "one_episode": false,
+     "net": 109883.88,
+     "years": 1.1197809719370295,
+     "net_per_year": 98129.7974816626,
+     "max_dd": 29010.61,
+     "n": 5,
+     "from": "2023-04-02",
+     "to": "2024-05-15",
+     "worst_episode": {
+      "peak": "2024-03-12",
+      "trough": "2024-04-03",
+      "recovered": null,
+      "depth": 29010.61
+     }
+    },
+    "add": {
+     "roc30": 111.12830268737238,
+     "dd5_usd": 24555.08,
+     "dd_pct_peak": 14.2585,
+     "sortino": 2.6732713925209146,
+     "one_episode": false,
+     "net": 124958.10499999997,
+     "years": 1.1197809719370295,
+     "net_per_year": 111591.55953850852,
+     "max_dd": 30125.06,
+     "n": 5,
+     "from": "2023-04-02",
+     "to": "2024-05-15",
+     "worst_episode": {
+      "peak": "2024-03-12",
+      "trough": "2024-04-03",
+      "recovered": "2024-04-19",
+      "depth": 30125.06
+     }
+    },
+    "sleeve_net": 15074.224999999959,
+    "roc_lift": true,
+    "tie": false,
+    "dd5_no_worse": false
+   },
+   {
+    "fold": 8,
+    "from": "2024-05-16",
+    "to": "2025-06-29",
+    "rows": 327,
+    "book": {
+     "roc30": 245.49165175562246,
+     "dd5_usd": 28228.92,
+     "dd_pct_peak": 15.2292,
+     "sortino": 5.532908384627937,
+     "one_episode": true,
+     "net": 351810.92000000004,
+     "years": 1.1197809719370295,
+     "net_per_year": 314178.3338141809,
+     "max_dd": 38393.77,
+     "n": 5,
+     "from": "2024-05-16",
+     "to": "2025-06-29",
+     "worst_episode": {
+      "peak": "2025-05-19",
+      "trough": "2025-06-20",
+      "recovered": null,
+      "depth": 38393.77
+     }
+    },
+    "add": {
+     "roc30": 186.7773823572307,
+     "dd5_usd": 31584.61,
+     "dd_pct_peak": 14.3053,
+     "sortino": 5.7923618021739065,
+     "one_episode": true,
+     "net": 395361.0699999999,
+     "years": 1.1197809719370295,
+     "net_per_year": 353070.0019987774,
+     "max_dd": 56709.76,
+     "n": 5,
+     "from": "2024-05-16",
+     "to": "2025-06-29",
+     "worst_episode": {
+      "peak": "2025-05-19",
+      "trough": "2025-06-20",
+      "recovered": null,
+      "depth": 56709.76
+     }
+    },
+    "sleeve_net": 43550.14999999987,
+    "roc_lift": false,
+    "tie": false,
+    "dd5_no_worse": false
+   }
+  ],
+  "roc_lift_count": 4,
+  "ties": 0,
+  "dd5_no_worse_count": 2,
+  "sign_test_p_two_sided": 1.0
+ },
+ "rho_dd": {
+  "rho": 0.5962268922351174,
+  "do": -0.0005589949142046625,
+  "dd_weeks": 92,
+  "dd_days": 460,
+  "qualifying_episodes": 28
+ },
+ "verdict": {
+  "verdict": "DEAD",
+  "book_lift": false,
+  "promising": false,
+  "mdl_band": 40,
+  "lb_veto": false,
+  "fails_only_on_drawdown": false,
+  "checks": {
+   "add_L1_roc": false,
+   "add_L1_dd5": true,
+   "add_L1_sortino": true,
+   "add_L1_not_one_ep": false,
+   "add_L2_lift": false,
+   "gross_ge_cost": true,
+   "sleeve_roc_pos": true,
+   "sleeve_not_one_ep": false,
+   "sleeve_roc_ge_band": false,
+   "sleeve_lb_net_neg": false,
+   "add_lb_below_ref": false
+  }
+ }
+}

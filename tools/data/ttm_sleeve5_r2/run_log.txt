@@ -1,0 +1,88 @@
+[detach] Sun 10/18/2026 13:49:59.49 start: python -u C:/EdgeLog/_anatomy_cache/bookq/run_shared.py tools/ttm_verify/ttm_sleeve5_r2.py --expect-prereg a344f8dcdd27397335d3dac7204cf36f5ffaf26bfb378389b318a226e782a591 --expect-harness 2e1085572bd28835e65d68c17129311561bdc6ef61018dae12b11398b474645f
+runner: augur_engine from C:\Users\xride\OneDrive\Desktop\EDGE-LOG\augur_engine\__init__.py; harness C:\Users\xride\AppData\Local\EdgeLog-worktrees\ttm-sleeve5-1018\tools\ttm_verify\ttm_sleeve5_r2.py
+P4 prereg  LF sha256 a344f8dcdd27397335d3dac7204cf36f5ffaf26bfb378389b318a226e782a591 (expected a344f8dcdd27397335d3dac7204cf36f5ffaf26bfb378389b318a226e782a591)
+P4 harness LF sha256 2e1085572bd28835e65d68c17129311561bdc6ef61018dae12b11398b474645f (expected 2e1085572bd28835e65d68c17129311561bdc6ef61018dae12b11398b474645f)
+P4 git HEAD 363f0b117b093b92fc6aa1c505743a533d910a87; deps {"augur_engine/drawdowns.py": "5fc70a0e4a95", "augur_engine/book.py": "9a60a852f849", "augur_strategies/TTMSQZ_3_0.py": "22d3b97fdb4d", "tools/rocfrontier/r12_mdl.py": "7675875aed47", "tools/rocfrontier/r11_risk.py": "bf8f9ca5410e"}
+R1 #463 WF: ROC@30k 93.81 | DD5 $36,095 | DD% 13.09 | Sortino 3.816 | $/yr 140,235 | worst $44,849 2020-03-02..2020-03-27 (rec 2020-06-11)
+R1 #463 LB: ROC@30k 155.54 | DD5 $35,034 ONE-EP | DD% 18.33 | Sortino 4.150 | $/yr 258,472 | worst $49,855 2026-06-18..2026-06-26 (rec None)
+P1 OK
+built G: ES 30m 360 tr $51,529, ES 15m 531 tr $36,906, NQ 30m 381 tr $50,899, NQ 15m 483 tr $71,183
+built L0: ES 30m 360 tr $44,995, ES 15m 531 tr $27,269, NQ 30m 381 tr $46,838, NQ 15m 483 tr $66,034
+built L1: ES 30m 360 tr $40,495, ES 15m 531 tr $20,631, NQ 30m 381 tr $44,936, NQ 15m 483 tr $63,624
+built L2: ES 30m 360 tr $31,495, ES 15m 531 tr $7,356, NQ 30m 381 tr $41,126, NQ 15m 483 tr $58,794
+built L3: ES 30m 360 tr $22,495, ES 15m 531 tr $-5,919, NQ 30m 381 tr $37,316, NQ 15m 483 tr $53,964
+P3 cell ES 30m: master ES 30m RTH - back-adjusted, roll stamp {"master_type": "adjusted", "source": "db_adj_rth", "roll_source": "adjusted master built from rolls_ES.csv (table now 3294ea8fbbf4)", "calendar": "adjusted mas
+P3 cell ES 15m: master ES 15m RTH - back-adjusted, roll stamp {"master_type": "adjusted", "source": "db_adj_rth", "roll_source": "adjusted master built from rolls_ES.csv (table now 3294ea8fbbf4)", "calendar": "adjusted mas
+P3 cell NQ 30m: master NQ 30m RTH - back-adjusted, roll stamp {"master_type": "adjusted", "source": "db_adj_rth", "roll_source": "adjusted master built from rolls_NQ.csv (table now 1cfe7b592e51)", "calendar": "adjusted mas
+P3 cell NQ 15m: master NQ 15m RTH - back-adjusted, roll stamp {"master_type": "adjusted", "source": "db_adj_rth", "roll_source": "adjusted master built from rolls_NQ.csv (table now 1cfe7b592e51)", "calendar": "adjusted mas
+P2 sleeve WF net at L0 $151,878.74 vs round 1 $151,878.74: +0.00 $ (+0.000%)
+R2 gross pre: ES 30m 127 tr (20.9/yr) gross 2.293 pt vs cost 0.613 | ES 15m 191 tr (31.5/yr) gross -0.042 pt vs cost 0.613 | NQ 30m 144 tr (23.7/yr) gross 2.624 pt vs cost 0.7825 | NQ 15m 215 tr (35.5/yr) gross 0.581 pt vs cost 0.7825 || pooled gross $35.77 vs cost $22.70 per trade -> gross >= cost
+R2 gross wf: ES 30m 217 tr (24.1/yr) gross 2.920 pt vs cost 0.613 | ES 15m 314 tr (34.9/yr) gross 2.128 pt vs cost 0.613 | NQ 30m 219 tr (24.4/yr) gross 9.095 pt vs cost 0.7825 | NQ 15m 243 tr (27.0/yr) gross 12.655 pt vs cost 0.7825 || pooled gross $167.61 vs cost $23.67 per trade -> gross >= cost
+R2 gross lb: ES 30m 16 tr (16.0/yr) gross 6.604 pt vs cost 0.613 | ES 15m 26 tr (26.0/yr) gross 2.992 pt vs cost 0.613 | NQ 30m 18 tr (18.0/yr) gross 9.741 pt vs cost 0.7825 | NQ 15m 25 tr (25.0/yr) gross 14.358 pt vs cost 0.7825 || pooled gross $233.62 vs cost $23.06 per trade -> gross >= cost
+R2 cell ES 30m pre L1: ROC@30k 30.21 | DD5 $678 ONE-EP | DD% 1.70 | Sortino 2.884 | $/yr 1,759 | worst $1,747 2012-01-09..2013-11-07 (rec 2014-10-28)
+R2 cell ES 30m wf L1: ROC@30k 15.49 | DD5 $3,451 ONE-EP | DD% 5.08 | Sortino 1.680 | $/yr 2,785 | worst $5,393 2018-06-13..2020-06-10 (rec 2020-06-11)
+R2 cell ES 30m lb L1: ROC@30k 44.60 | DD5 $2,041 ONE-EP | DD% 3.12 | Sortino 2.378 | $/yr 4,796 | worst $3,226 2025-12-02..2026-03-03 (rec 2026-03-26)
+R2 cell ES 15m pre L1: ROC@30k -4.73 | DD5 $2,316 ONE-EP | DD% 6.52 | Sortino -1.307 | $/yr -1,031 | worst $6,539 2010-08-23..2016-05-06 (rec None)
+R2 cell ES 15m wf L1: ROC@30k 13.22 | DD5 $3,633 ONE-EP | DD% 5.96 | Sortino 1.387 | $/yr 2,647 | worst $6,007 2016-09-20..2019-08-29 (rec 2020-04-06)
+R2 cell ES 15m lb L1: ROC@30k 31.50 | DD5 $2,141 ONE-EP | DD% 2.94 | Sortino 1.296 | $/yr 3,094 | worst $2,947 2025-07-14..2025-12-10 (rec 2026-03-26)
+R2 cell NQ 30m pre L1: ROC@30k 14.96 | DD5 $1,193 ONE-EP | DD% 1.72 | Sortino 1.283 | $/yr 875 | worst $1,754 2013-01-30..2013-11-05 (rec 2014-03-26)
+R2 cell NQ 30m wf L1: ROC@30k 9.76 | DD5 $7,397 ONE-EP | DD% 8.38 | Sortino 1.049 | $/yr 4,051 | worst $12,447 2024-11-11..2025-06-13 (rec None)
+R2 cell NQ 30m lb L1: ROC@30k 17.10 | DD5 $3,116 ONE-EP | DD% 5.33 | Sortino 0.586 | $/yr 3,227 | worst $5,663 2025-12-04..2026-06-04 (rec None)
+R2 cell NQ 15m pre L1: ROC@30k -0.94 | DD5 $4,557 | DD% 4.54 | Sortino -0.184 | $/yr -143 | worst $4,557 2010-07-27..2015-03-13 (rec None)
+R2 cell NQ 15m wf L1: ROC@30k 38.61 | DD5 $4,062 | DD% 4.40 | Sortino 2.428 | $/yr 6,420 | worst $4,987 2021-04-28..2021-06-09 (rec 2022-03-02)
+R2 cell NQ 15m lb L1: ROC@30k 27.08 | DD5 $5,078 ONE-EP | DD% 7.47 | Sortino 1.240 | $/yr 6,793 | worst $7,525 2025-10-16..2026-02-11 (rec 2026-02-23)
+L0 SLEEVE pre ROC@30k 10.08 | DD5 $3,058 ONE-EP | DD% 6.83 | Sortino 1.527 | $/yr 2,411 | worst $7,172 2011-12-16..2013-11-05 (rec 2015-06-25) | trades 677 | extra days 0
+L0 SLEEVE wf  ROC@30k 27.71 | DD5 $10,471 ONE-EP | DD% 7.57 | Sortino 2.489 | $/yr 16,897 | worst $18,294 2025-05-15..2025-06-13 (rec None) | trades 993 | extra days 0
+L0 SLEEVE lb  ROC@30k 55.53 | DD5 $5,807 ONE-EP | DD% 9.66 | Sortino 1.876 | $/yr 18,650 | worst $10,076 2025-12-04..2026-02-11 (rec 2026-02-23) | trades 85 | extra days 0
+L0 ADD    wf  ROC@30k 83.46 | DD5 $35,927 ONE-EP | DD% 11.70 | Sortino 4.079 | $/yr 157,122 | worst $56,477 2025-05-19..2025-06-20 (rec None) | extra days 0
+L0 ADD    lb  ROC@30k 158.57 | DD5 $37,752 ONE-EP | DD% 18.22 | Sortino 4.370 | $/yr 277,122 | worst $52,429 2026-06-18..2026-06-26 (rec None) | extra days 0
+L0 ADD - #463 on WF: ROC -10.34 | DD5 -168 | DD% -1.38 | Sortino +0.263 | $/yr +16,887
+L1 SLEEVE pre ROC@30k 4.81 | DD5 $3,528 ONE-EP | DD% 8.80 | Sortino 0.876 | $/yr 1,460 | worst $9,111 2011-12-16..2013-11-05 (rec 2015-11-12) | trades 677 | extra days 0
+L1 SLEEVE wf  ROC@30k 25.74 | DD5 $10,814 ONE-EP | DD% 8.27 | Sortino 2.318 | $/yr 15,902 | worst $18,532 2025-05-15..2025-06-13 (rec None) | trades 993 | extra days 0
+L1 SLEEVE lb  ROC@30k 52.67 | DD5 $5,883 ONE-EP | DD% 9.81 | Sortino 1.789 | $/yr 17,910 | worst $10,200 2025-12-04..2026-02-11 (rec 2026-02-23) | trades 85 | extra days 0
+L1 ADD    wf  ROC@30k 82.59 | DD5 $35,996 ONE-EP | DD% 12.22 | Sortino 4.049 | $/yr 156,128 | worst $56,710 2025-05-19..2025-06-20 (rec None) | extra days 0
+L1 ADD    lb  ROC@30k 158.02 | DD5 $37,799 ONE-EP | DD% 18.27 | Sortino 4.356 | $/yr 276,382 | worst $52,471 2026-06-18..2026-06-26 (rec None) | extra days 0
+L1 ADD - #463 on WF: ROC -11.21 | DD5 -99 | DD% -0.87 | Sortino +0.232 | $/yr +15,893
+L2 SLEEVE pre ROC@30k -0.86 | DD5 $4,149 ONE-EP | DD% 15.07 | Sortino -0.239 | $/yr -443 | worst $15,407 2010-08-23..2014-09-30 (rec None) | trades 677 | extra days 0
+L2 SLEEVE wf  ROC@30k 21.96 | DD5 $12,082 ONE-EP | DD% 9.79 | Sortino 1.984 | $/yr 13,911 | worst $19,007 2025-05-15..2025-06-13 (rec None) | trades 993 | extra days 0
+L2 SLEEVE lb  ROC@30k 47.16 | DD5 $6,034 ONE-EP | DD% 10.12 | Sortino 1.618 | $/yr 16,429 | worst $10,450 2025-12-04..2026-02-11 (rec 2026-02-23) | trades 85 | extra days 0
+L2 ADD    wf  ROC@30k 80.88 | DD5 $36,134 ONE-EP | DD% 13.27 | Sortino 3.987 | $/yr 154,138 | worst $57,175 2025-05-19..2025-06-20 (rec None) | extra days 0
+L2 ADD    lb  ROC@30k 156.92 | DD5 $37,892 ONE-EP | DD% 18.36 | Sortino 4.329 | $/yr 274,901 | worst $52,556 2026-06-18..2026-06-26 (rec None) | extra days 0
+L2 ADD - #463 on WF: ROC -12.93 | DD5 +39 | DD% +0.18 | Sortino +0.171 | $/yr +13,903
+L3 SLEEVE pre ROC@30k -2.91 | DD5 $8,397 ONE-EP | DD% 23.72 | Sortino -1.139 | $/yr -2,346 | worst $24,153 2010-08-23..2015-03-02 (rec None) | trades 677 | extra days 0
+L3 SLEEVE wf  ROC@30k 18.36 | DD5 $13,048 ONE-EP | DD% 13.09 | Sortino 1.663 | $/yr 11,921 | worst $19,482 2025-05-15..2025-06-13 (rec None) | trades 993 | extra days 0
+L3 SLEEVE lb  ROC@30k 41.81 | DD5 $6,190 ONE-EP | DD% 10.46 | Sortino 1.452 | $/yr 14,948 | worst $10,724 2025-12-02..2026-02-11 (rec 2026-02-23) | trades 85 | extra days 0
+L3 ADD    wf  ROC@30k 79.19 | DD5 $36,272 ONE-EP | DD% 14.33 | Sortino 3.926 | $/yr 152,148 | worst $57,640 2025-05-19..2025-06-20 (rec None) | extra days 0
+L3 ADD    lb  ROC@30k 155.82 | DD5 $37,985 ONE-EP | DD% 18.46 | Sortino 4.302 | $/yr 273,420 | worst $52,641 2026-06-18..2026-06-26 (rec None) | extra days 0
+L3 ADD - #463 on WF: ROC -14.62 | DD5 +177 | DD% +1.24 | Sortino +0.110 | $/yr +11,913
+fold 1 2016-07-01..2017-08-15 (337 rows) sleeve $-2,706
+   #463 ROC@30k 68.43 | DD5 $7,099 ONE-EP | DD% 9.04 | Sortino 2.118 | $/yr 24,528 | worst $10,753 2016-12-13..2017-04-19 (rec 2017-06-09)
+   ADD  ROC@30k 44.79 | DD5 $8,272 ONE-EP | DD% 12.22 | Sortino 1.646 | $/yr 22,118 | worst $14,816 2016-12-13..2017-04-19 (rec 2017-07-12)
+fold 2 2017-08-16..2018-09-30 (326 rows) sleeve $7,513  ROC LIFT
+   #463 ROC@30k 236.94 | DD5 $7,852 | DD% 7.91 | Sortino 5.195 | $/yr 79,846 | worst $10,110 2018-02-15..2018-02-22 (rec 2018-03-09)
+   ADD  ROC@30k 271.88 | DD5 $8,467 | DD% 7.91 | Sortino 5.438 | $/yr 86,539 | worst $9,549 2018-02-15..2018-02-22 (rec 2018-02-23)
+fold 3 2018-10-01..2019-11-15 (327 rows) sleeve $1,299
+   #463 ROC@30k 128.53 | DD5 $12,485 ONE-EP | DD% 12.48 | Sortino 4.004 | $/yr 81,618 | worst $19,051 2019-08-13..2019-10-09 (rec None)
+   ADD  ROC@30k 126.21 | DD5 $13,604 ONE-EP | DD% 13.28 | Sortino 3.695 | $/yr 82,775 | worst $19,675 2019-08-13..2019-10-09 (rec None)
+fold 4 2019-11-17..2020-12-29 (326 rows) sleeve $41,312  ROC LIFT
+   #463 ROC@30k 86.15 | DD5 $21,098 ONE-EP | DD% 33.50 | Sortino 3.407 | $/yr 128,797 | worst $44,849 2020-03-02..2020-03-27 (rec 2020-06-11)
+   ADD  ROC@30k 173.92 | DD5 $18,497 ONE-EP | DD% 21.48 | Sortino 4.232 | $/yr 165,780 | worst $28,596 2020-03-02..2020-03-27 (rec 2020-04-13)
+fold 5 2020-12-30..2022-02-11 (331 rows) sleeve $5,621
+   #463 ROC@30k 310.59 | DD5 $16,574 | DD% 12.39 | Sortino 4.979 | $/yr 185,652 | worst $17,932 2022-02-01..2022-02-10 (rec None)
+   ADD  ROC@30k 283.14 | DD5 $17,381 | DD% 13.17 | Sortino 4.998 | $/yr 190,684 | worst $20,204 2022-02-01..2022-02-10 (rec None)
+fold 6 2022-02-14..2023-03-31 (324 rows) sleeve $31,273  ROC LIFT
+   #463 ROC@30k 195.85 | DD5 $27,451 | DD% 17.94 | Sortino 4.312 | $/yr 213,382 | worst $32,686 2022-06-02..2022-06-22 (rec 2022-07-19)
+   ADD  ROC@30k 230.82 | DD5 $26,354 | DD% 17.46 | Sortino 4.770 | $/yr 241,241 | worst $31,354 2022-04-26..2022-05-03 (rec 2022-05-26)
+fold 7 2023-04-02..2024-05-15 (328 rows) sleeve $15,074  ROC LIFT
+   #463 ROC@30k 101.48 | DD5 $22,475 | DD% 13.12 | Sortino 2.482 | $/yr 98,130 | worst $29,011 2024-03-12..2024-04-03 (rec None)
+   ADD  ROC@30k 111.13 | DD5 $24,555 | DD% 14.26 | Sortino 2.673 | $/yr 111,592 | worst $30,125 2024-03-12..2024-04-03 (rec 2024-04-19)
+fold 8 2024-05-16..2025-06-29 (327 rows) sleeve $43,550
+   #463 ROC@30k 245.49 | DD5 $28,229 ONE-EP | DD% 15.23 | Sortino 5.533 | $/yr 314,178 | worst $38,394 2025-05-19..2025-06-20 (rec None)
+   ADD  ROC@30k 186.78 | DD5 $31,585 ONE-EP | DD% 14.31 | Sortino 5.792 | $/yr 353,070 | worst $56,710 2025-05-19..2025-06-20 (rec None)
+R4 ADD beats #463 ROC@30k in 4 of 8 folds (0 ties; sign test p 1.0); DD5 no worse in 2 of 8
+R5 sleeve L1 pre: ROC 4.81 | $/yr 1,460 | Sortino 0.876 | gross/trade $35.77 | 111.6 trades/yr
+R5 sleeve L1 wf: ROC 25.74 | $/yr 15,902 | Sortino 2.318 | gross/trade $167.61 | 110.4 trades/yr
+R7 rho_dd 0.596 (MDL r1: 28 qualifying episodes, 460 DD days, 92 DD weeks); DO -0.001
+VERDICT: {"verdict": "DEAD", "book_lift": false, "promising": false, "mdl_band": 40, "lb_veto": false, "fails_only_on_drawdown": false, "checks": {"add_L1_roc": false, "add_L1_dd5": true, "add_L1_sortino": true, "add_L1_not_one_ep": false, "add_L2_lift": false, "gross_ge_cost": true, "sleeve_roc_pos": true, "sleeve_not_one_ep": false, "sleeve_roc_ge_band": false, "sleeve_lb_net_neg": false, "add_lb_below_ref": false}}
+results.json sha256 0ab8c480c05d6447aaeecae544e21b30ec3bab4c0ff59fa4130a3994d33ac894
+records: 32 lines appended to C:/EdgeLog/run_records/TTM_202610.jsonl

@@ -1,0 +1,391 @@
+{
+ "A_plugin": {
+  "engine_total_pnl_pts": 80.25,
+  "entry_px_is_bar_open": 654,
+  "gross_pts_sum": 80.25,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    138.82051948051947,
+    139.08485549132948
+   ],
+   "dd5": 3948.67,
+   "dd_pct_peak": 6.6278,
+   "gross_over_cost": 0.23021842780177976,
+   "gross_per_trade_pts": 0.12270642201834862,
+   "max_dd": 6642.019999999989,
+   "net_per_trade_pts": -0.4102935779816514,
+   "net_per_trade_usd": -8.205871559633026,
+   "net_usd": -5366.640000000002,
+   "one_episode": true,
+   "per_yr_usd": -884.9504559819417,
+   "roc30": -3.9970541611525254,
+   "sortino": -0.5480376369518485,
+   "trades": 654,
+   "trades_per_yr": 107.84356659142213,
+   "win_rate": 0.4709480122324159,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_win_loss_usd": [
+    140.7151877133106,
+    138.11537396121886
+   ],
+   "dd5": 9605.8,
+   "dd_pct_peak": 9.6039,
+   "gross_over_cost": 0.15681331887328898,
+   "gross_per_trade_pts": 0.12270642201834862,
+   "max_dd": 9605.799999999927,
+   "net_per_trade_pts": -0.6597935779816514,
+   "net_per_trade_usd": -13.195871559633025,
+   "net_usd": -8630.099999999999,
+   "one_episode": false,
+   "per_yr_usd": -1423.0898532731376,
+   "roc30": -4.444470590496831,
+   "sortino": -0.8677983914163873,
+   "trades": 654,
+   "trades_per_yr": 107.84356659142213,
+   "win_rate": 0.44801223241590216,
+   "years": 6.064339493497604
+  },
+  "sides": {
+   "long": 363,
+   "short": 291
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    139.53298245614036,
+    140.03669376693765
+   ],
+   "dd5": 12847.02,
+   "dd_pct_peak": 12.8452,
+   "gross_over_cost": 0.11878646855600061,
+   "gross_per_trade_pts": 0.12270642201834862,
+   "max_dd": 12847.019999999931,
+   "net_per_trade_pts": -0.9102935779816513,
+   "net_per_trade_usd": -18.20587155963302,
+   "net_usd": -11906.639999999998,
+   "one_episode": false,
+   "per_yr_usd": -1963.3861218961622,
+   "roc30": -4.58484408500066,
+   "sortino": -1.1787705327937574,
+   "trades": 654,
+   "trades_per_yr": 107.84356659142213,
+   "win_rate": 0.43577981651376146,
+   "years": 6.064339493497604
+  },
+  "timing": {
+   "bars_held": {
+    "11": 654
+   },
+   "entry_clock": {
+    "15:00": 654
+   },
+   "exit_bar_open_clock": {
+    "15:55": 654
+   }
+  }
+ },
+ "A_vs_B": {
+  "A_trades": 654,
+  "B_trades": 1151,
+  "exact": 649,
+  "first_exit_diffs": [],
+  "first_only_A": [
+   [
+    "2011-03-08 15:00:00",
+    -1
+   ],
+   [
+    "2014-06-10 15:00:00",
+    -1
+   ],
+   [
+    "2014-06-20 15:00:00",
+    1
+   ],
+   [
+    "2015-02-19 15:00:00",
+    -1
+   ],
+   [
+    "2016-03-03 15:00:00",
+    1
+   ]
+  ],
+  "first_only_B": [
+   [
+    "2010-07-06 15:00:00",
+    1
+   ],
+   [
+    "2010-07-07 15:00:00",
+    1
+   ],
+   [
+    "2010-07-08 15:00:00",
+    1
+   ],
+   [
+    "2010-07-09 15:00:00",
+    1
+   ],
+   [
+    "2010-07-12 15:00:00",
+    -1
+   ]
+  ],
+  "only_A": 5,
+  "only_B": 502,
+  "same_entry_and_side": 649,
+  "same_entry_bar_opposite_side": 0,
+  "same_entry_px": 649,
+  "same_exit_bar": 649,
+  "same_gross_pts": 649
+ },
+ "B_own_rule": {
+  "gross_pts_sum": 219.0,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    136.66710280373832,
+    131.50415584415583
+   ],
+   "dd5": 4016.24,
+   "dd_pct_peak": 12.4646,
+   "gross_over_cost": 0.35697810697280935,
+   "gross_per_trade_pts": 0.1902693310165074,
+   "max_dd": 12975.699999999968,
+   "net_per_trade_pts": -0.34273066898349264,
+   "net_per_trade_usd": -6.854613379669853,
+   "net_usd": -7889.659999999999,
+   "one_episode": true,
+   "per_yr_usd": -1300.992467268623,
+   "roc30": -3.0079127922238325,
+   "sortino": -0.6542304616494806,
+   "trades": 1151,
+   "trades_per_yr": 189.79808126410836,
+   "win_rate": 0.46481320590790615,
+   "years": 6.064339493497604
+  },
+  "real_cost": {
+   "avg_win_loss_usd": [
+    137.35194931773876,
+    131.8098746081505
+   ],
+   "dd5": 4767.73,
+   "dd_pct_peak": 15.9384,
+   "gross_over_cost": 0.2431556945897858,
+   "gross_per_trade_pts": 0.1902693310165074,
+   "max_dd": 16194.24999999988,
+   "net_per_trade_pts": -0.5922306689834926,
+   "net_per_trade_usd": -11.844613379669847,
+   "net_usd": -13633.149999999992,
+   "one_episode": true,
+   "per_yr_usd": -2248.084892776523,
+   "roc30": -4.164598347147671,
+   "sortino": -1.1113012700550298,
+   "trades": 1151,
+   "trades_per_yr": 189.79808126410836,
+   "win_rate": 0.4456993918331885,
+   "years": 6.064339493497604
+  },
+  "sides": {
+   "long": 645,
+   "short": 506
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    137.1783838383838,
+    133.08378048780486
+   ],
+   "dd5": 10580.54,
+   "dd_pct_peak": 20.8945,
+   "gross_over_cost": 0.18419102712149799,
+   "gross_per_trade_pts": 0.1902693310165074,
+   "max_dd": 21044.759999999904,
+   "net_per_trade_pts": -0.8427306689834926,
+   "net_per_trade_usd": -16.85461337966985,
+   "net_usd": -19399.659999999993,
+   "one_episode": true,
+   "per_yr_usd": -3198.9732799097055,
+   "roc30": -4.560241998354536,
+   "sortino": -1.554318651752315,
+   "trades": 1151,
+   "trades_per_yr": 189.79808126410836,
+   "win_rate": 0.4300608166811468,
+   "years": 6.064339493497604
+  },
+  "timing": {
+   "bars_held": {
+    "11": 1151
+   },
+   "entry_clock": {
+    "15:00": 1151
+   },
+   "exit_bar_open_clock": {
+    "15:55": 1151
+   }
+  }
+ },
+ "armb_file": "C:/EdgeLog/_anatomy_cache/ttm_qlab/20261017-1408-own\\ttm_armb_own_rule.py",
+ "armb_lf_sha256": "9b228fc83afbb484308c7d01565b4805cb17481d26caf2ed82f4cca926477b6c",
+ "armb_reading": [
+  "R1 bar k = 0-based in-session index, opening at 09:30+5k ET (all 1550 pre-WF sessions start 09:30, no holes); the text's clock labels for bars 54-65 ('14:30-15:00') and 0-53 ('09:30-14:30') contradict the indices (bar 54 opens 14:00) - the INDICES are followed: block = 14:00-15:00 (12 bars), morning = 09:30-14:00",
+  "R2 block move = close[65]-open[54], SIGNED; morning range = max(high[0..53]) - min(low[0..53])",
+  "R3 med_block = median of the SIGNED block move (literal, no abs); med_morn = median morning range; same trailing sessions for both",
+  "R4 trailing = last 20 prior FULL sessions (bars 0..77 present); the 40 short sessions (24-46 bars) are skipped; today excluded; no trade until 20 such prior sessions exist in the loaded window (from 2010-06-07)",
+  "R5 LONG if move >= trend_k*med_block AND morn <= counter_k*med_morn; elif SHORT if -move >= trend_k*med_block AND morn <= counter_k*med_morn; LONG tested first; same plain morning range for both sides; equality passes",
+  "R6 entry = OPEN of bar 66 (15:00); exit = CLOSE of the session's last bar (bar 77, 16:00); no stop/target; one trade per session",
+  "R7 gross pts = side*(exit-entry); trend_k / counter_k from the plugin's DEFAULT_PARAMS (not in the prereg text); lookback 20 from the text"
+ ],
+ "bars": 119248,
+ "bars_match_prereg": true,
+ "checks": {
+  "A_equals_B_exactly": false,
+  "A_equals_text_plus_d1_d2_exactly": true,
+  "broken_plugin_check_A_ok (>= 120/3 and >= 20 per yr)": true,
+  "finding": "every A trade fills at 15:00 (bar 66 open) and exits at the 15:55 bar's close (11 bars held): timing contract holds, no look-ahead. A (654) is NOT the literal Mechanism text (B, 1151): 649 trades identical, 502 only in B, 5 only in A. The gap is fully explained by two plugin choices not in the text - d1 skip when the trailing SIGNED median block move <= 0, d2 trailing window = last 20 sessions by count with short sessions dropped; text + d1 + d2 rebuilds A trade for trade. Both arms lose after house cost (gross/trade A 0.12, B 0.19 pt < 0.533): no promotion under either reading.",
+  "promotion_rule_A (gross/trade >= 0.533 AND roc30 > 0 AND one_episode False)": false,
+  "promotion_rule_B (same)": false
+ },
+ "costs_pts_rt": {
+  "house": 0.533,
+  "real": 0.7825,
+  "stress": 1.033
+ },
+ "diag_variants_not_armB": {
+  "block_abs_and_trailing_any": {
+   "exact_vs_A": 518,
+   "gross_per_trade_pts": 0.18057142857142858,
+   "house_net_usd": -6167.500000000002,
+   "house_one_episode": true,
+   "house_roc30": -3.0948561770104934,
+   "house_trades_per_yr": 144.28611738148985,
+   "only_A": 136,
+   "only_B": 357,
+   "same_entry_and_side_vs_A": 518,
+   "trades": 875
+  },
+  "block_abs_median": {
+   "exact_vs_A": 521,
+   "gross_per_trade_pts": 0.17728297632468998,
+   "house_net_usd": -6310.420000000003,
+   "house_one_episode": true,
+   "house_roc30": -2.9623542753241647,
+   "house_trades_per_yr": 146.26489841986458,
+   "only_A": 133,
+   "only_B": 366,
+   "same_entry_and_side_vs_A": 521,
+   "trades": 887
+  },
+  "block_range_median": {
+   "exact_vs_A": 306,
+   "gross_per_trade_pts": -0.1589108910891089,
+   "house_net_usd": -6988.299999999999,
+   "house_one_episode": true,
+   "house_roc30": -3.8379578163090278,
+   "house_trades_per_yr": 83.27370203160271,
+   "only_A": 348,
+   "only_B": 199,
+   "same_entry_and_side_vs_A": 306,
+   "trades": 505
+  },
+  "trailing_any_20_sessions": {
+   "exact_vs_A": 651,
+   "gross_per_trade_pts": 0.20552147239263804,
+   "house_net_usd": -7473.0599999999995,
+   "house_one_episode": true,
+   "house_roc30": -3.0496332051896884,
+   "house_trades_per_yr": 188.14909706546277,
+   "only_A": 3,
+   "only_B": 490,
+   "same_entry_and_side_vs_A": 651,
+   "trades": 1141
+  }
+ },
+ "fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+ "fingerprint_matches_prereg": true,
+ "folder": "20261017-1408-own",
+ "idea": "QL_LATEMOM_NQ",
+ "master": "NOADJ_NQ_5m_RTH.csv",
+ "master_sha256": "310834572e4c9038fae218286b5b7d7283b2f035a468dc1e5554b87aa6611c3d",
+ "params_used_B": {
+  "counter_k": 1.5,
+  "lookback": 20,
+  "trend_k": 0.5
+ },
+ "plugin": "C:/EdgeLog/qwen_lab/ideas/20261017-1408-own/plugin_v1.py.txt",
+ "plugin_lf_sha256": "ee95b989089db7b6ba57b68c6c12c77da8eac46d8ea7b465b5232cbc9cab2efc",
+ "plugin_pin_ok": true,
+ "posthoc_after_plugin_read": {
+  "B_trades_skipped_by_d1": {
+   "gross_per_trade_pts": 0.42217484008528783,
+   "gross_pts_sum": 198.0,
+   "long": 266,
+   "short": 203,
+   "trades": 469
+  },
+  "full_sessions_with_ttm_signed_median_le_0": 617,
+  "note": "plugin departs from the Mechanism text in two ways: d1 'if med_block <= 0 or med_morn <= 0: continue' (not in the text; with a signed median <= 0 the text's LONG test fires on flat/down blocks); d2 trailing = the last 20 sessions BY COUNT with short sessions dropped (>= 10 full needed) vs TTM's last 20 FULL sessions. Both use bars 54-65 / 0-53 by index (the 14:00-15:00 block; the '14:30' clock label is wrong in both). No look-ahead: signal uses bars <= 65, fill at bar 66's open, exit at bar 77's close.",
+  "only_A_entries": [
+   [
+    "2011-03-08 15:00:00",
+    -1,
+    {
+     "mb_plugin_style": 1.25,
+     "mb_ttm": 1.0
+    }
+   ],
+   [
+    "2014-06-10 15:00:00",
+    -1,
+    {
+     "mb_plugin_style": 2.5,
+     "mb_ttm": 2.875
+    }
+   ],
+   [
+    "2014-06-20 15:00:00",
+    1,
+    {
+     "mb_plugin_style": 1.0,
+     "mb_ttm": 1.75
+    }
+   ],
+   [
+    "2015-02-19 15:00:00",
+    -1,
+    {
+     "mb_plugin_style": 1.5,
+     "mb_ttm": 2.875
+    }
+   ],
+   [
+    "2016-03-03 15:00:00",
+    1,
+    {
+     "mb_plugin_style": 0.5,
+     "mb_ttm": 1.125
+    }
+   ]
+  ],
+  "only_A_total": 5,
+  "only_B_total": 502,
+  "only_B_with_plugin_style_median_le_0": 495,
+  "only_B_with_ttm_signed_median_le_0": 469,
+  "rebuilt_text_plus_d1_d2_vs_A": {
+   "equals_A": true,
+   "exact_vs_A": 654,
+   "only_A": 0,
+   "only_B": 0,
+   "trades": 654
+  }
+ },
+ "registry_id": 37,
+ "sessions": 1550,
+ "tz": "US/Eastern",
+ "usd_per_pt": 20.0,
+ "window": [
+  "2010-06-07",
+  "2016-06-30"
+ ]
+}

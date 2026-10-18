@@ -1,0 +1,89 @@
+TTM SLEEVE5 r2 - the TTM 4-cell sleeve as a FIFTH book component, second round (owner 10-18 "more testing on things that are
+promising", MANAGER #138). Written 2026-10-18 BEFORE any number of this round (two pre-freeze reviews, correctness + prereg
+fidelity, folded in; neither ran a sleeve number). Frozen; any change after the first number is a dated addendum below the line.
+
+WHAT IS ALREADY KNOWN (round 1, ledger 2.34, 2026-09-29, PREREG_TTMSLEEVE): ADD = #463 + the sleeve at weight 1 (run #470) made
+more money on walk-forward (+$151,879 over 2016-07..2025-06) and a higher Sortino (4.08 vs 3.82), but its worst drawdown grew
+($56,477 vs $44,849 on that round's convention), so WF ROC @ $30k fell 92.70 -> 82.58: FAIL. Round 2 asks WHERE and HOW ROBUSTLY.
+
+1. OBJECTS (nothing re-tuned, nothing new searched)
+SLEEVE = TTMSQZ_3_0.py at round 1's frozen #299 settings (length 20, bb_mult 2.0, kc_mult 1.5, min_sq_bars 1, entry_fill open,
+  exit_mode fade, fade_bars 1, stop_atr 1.5, eod_cutoff 1, gate_tf_min 60, gate_mode sq_on, gate_len 20, gate_bars 2,
+  gate_ratio 1.0, gate_fired_k 3, direction both), four cells ES 30m / ES 15m / NQ 30m / NQ 15m RTH, source db_adj_rth,
+  multiplier 50 (ES) / 20 (NQ), one contract each (weight 1) - exactly round 1's SLEEVE list.
+SLEEVE DAILY = sum over the four cells of the engine's own valued-daily series (augur_engine.book._leg_trades info "_mtm_day",
+  rule U = the engine's day stamp), on today's masters, window 2010-06-07..2026-06-30.
+#463 DAILY = tests/fixtures/four_numbers/book463_wf_lb_daily.csv column "book" (RISK r1 records cache, rule U; WF + LB rows).
+ADD DAILY = #463 DAILY + SLEEVE DAILY.
+FOUR NUMBERS = augur_engine.drawdowns.four_numbers (MANAGER #170 / FRONTIER #134), one stretch at a time, every day present, zero
+  days included; years = that stretch's (last - first) / 365.25 as the function defaults.
+CALENDARS: #463 and ADD = the fixture's rows (every weekday plus #463's weekend booking days) plus any sleeve day missing from them
+  (count printed). SLEEVE ALONE, in every stretch = every weekday (pd.bdate_range) plus any sleeve day (count printed) - one calendar
+  for all its stretches, so its pre-WF and WF Sortinos compare like for like.
+#463 legs stay at their run costs; the SLEEVE costs follow the ladder in section 3.
+
+2. STRETCHES
+pre-WF = 2010-06-07..2016-06-30 (the sleeve alone only: #463 has no pre-WF rows in the fixture). The #299 settings were found on
+  these years, so this is in-sample for the sleeve.
+WF = 2016-07-01..2025-06-29 (the only stretch that decides).
+LB = 2025-06-30..2026-06-30, VETO ONLY: it can stop a verdict, never make one; spent for the book (BOOK LOOKS r1).
+FOLDS = WF cut into 8 consecutive calendar blocks: WF length = (2025-06-29 - 2016-07-01) + 1 day = 3,286 days, L = 410.75 days,
+  block k (k = 0..7) = the rows with floor((date - 2016-07-01) / L) = k. Folds use ADD's calendar.
+
+3. COST LADDER (round trip, applied to the SLEEVE cells only; #463 is the fixed reference)
+L0 house  = ES 0.363 / NQ 0.533 pt (round 1's sleeve_eval.py costs verbatim, for parity)
+L1 real   = ES 0.613 / NQ 0.7825 = $5.65 commission per round trip / multiplier + 1 tick (0.25 pt) each side  <- THE VERDICT COST
+L2 = real + 1 more tick each side = ES 1.113 / NQ 1.2825
+L3 = real + 2 more ticks each side = ES 1.613 / NQ 1.7825
+G  = 0 (only for gross points per trade; the engine applies cost after the strategy, so the trades are the same at every level)
+
+4. READS (all printed and stored in results.json)
+R1 #463 reference, WF and LB - must reproduce 93.81 / $36,095 / 13.09% / 3.816 and 155.54 / $35,034 / 18.33% / 4.150 one episode.
+R2 SLEEVE alone: four numbers pre-WF / WF / LB(veto) at L0-L3; per cell at L1 (four numbers, trades, trades per year); gross pt per
+   trade per cell and pooled (pooled = total gross $ vs total cost $ at L1, per trade) per stretch; trades per year.
+R3 ADD vs #463 on WF at L0-L3: four numbers each and the deltas ADD - #463 (ROC, DD5, DD%, Sortino, $/yr); ADD LB four numbers (veto).
+R4 FOLDS at L1: per fold, #463 and ADD four numbers and the sleeve's own net; count of folds where ADD ROC@30k > #463 ROC@30k (a fold
+   where ADD never draws down and #463 does counts as a lift; both never drawing down = a tie, not counted, reported), count where
+   ADD DD5 <= #463 DD5, and a two-sided sign test p on the ROC count (descriptive, no bar).
+R5 YEARS SPLIT: the sleeve alone pre-WF vs WF at L1 (ROC, $/yr, Sortino, gross/trade, trades/yr) - does the edge hold out of its
+   tuning years. Descriptive.
+R6 one-episode: four_numbers' one_episode flag and the worst episode's peak / trough / recovered dates for SLEEVE WF and ADD WF at
+   every cost.
+R7 rho_dd AS MDL r1 MEASURES IT (the bands below come from MDL r1): tools/rocfrontier/r12_mdl.Stretch on #463's WF fixture rows
+   (episodes from a peak starting at 0; DD days = rows of the episodes at least 1/3 as deep as the deepest; ISO DD weeks), then
+   r12_mdl.realised on the SLEEVE's L1 daily on the same rows. Undefined (fewer than 3 DD weeks, or no spread) -> STOP.
+
+5. VERDICT (at L1 real cost, WF only; frozen). The bar is the published rounded #463 figures, compared at the same rounding (ROC 2
+decimals, DD5 whole dollars, Sortino 3 decimals), so the printed number and the check never disagree.
+BOOK LIFT = ALL of: ADD WF ROC@30k > 93.81 AND ADD WF DD5 <= $36,095 AND ADD WF Sortino >= 3.816 AND ADD WF not one episode
+  AND the same three inequalities hold at L2 AND no LB veto. A BOOK LIFT goes to the owner through MANAGER; nothing is adopted here.
+PROMISING (worth a follow-up round, not a lift) = the house bar on the sleeve as a component, all of: pooled WF gross $ per trade >=
+  cost $ per trade at L1 AND SLEEVE WF net ROC@30k > 0 AND SLEEVE WF not one episode AND an MDL path: SLEEVE WF ROC@30k >= the MDL r1
+  band for its SIGNED rho_dd (MDL r1's own bins): rho < -0.45 -> 5; -0.45 <= rho < 0.15 -> 15; 0.15 <= rho < 0.45 -> 25;
+  rho >= 0.45 -> 40.
+DEAD = neither.
+LB VETO = the SLEEVE's own LB net at L1 < 0, or ADD LB ROC@30k (2 decimals) < 155.54 at L1. A veto turns BOOK LIFT or PROMISING into
+  "VETOED (LB)"; it never changes DEAD.
+FAILS ONLY ON DRAWDOWN (a printed flag, not a verdict) = ADD WF $/yr > #463 WF $/yr AND ADD WF Sortino >= 3.816 AND ADD WF not one
+  episode, but the ROC or the DD5 clause fails at L1. If set, the weight question (any sizing other than weight 1, e.g. a half-size
+  sleeve) goes to MANAGER as a SEPARATE prereg; no other weight is tested here (it would be a new search).
+
+6. PARITY / STOPS
+P1 R1 must reproduce both published #463 rows to the printed precision, else STOP.
+P2 the SLEEVE's WF net at L0 (on ADD's calendar) is compared with round 1's ($1,398,629.83 - $1,246,751.09 = $151,878.74, old
+   masters): printed in $ and %; STOP if it differs by more than 2% (the 10-12/10-15 master fills may move it a little).
+P3 every cell must have run on session rth / source db_adj_rth with no mark-to-market error, and must return trades in every stretch;
+   the harness prints each cell's master and roll stamp and stops otherwise.
+P4 the harness checks the LF sha256 of this file and of itself against the values given on its command line (posted to MANAGER
+   before the run), prints them with git HEAD and the LF sha256 of augur_engine/drawdowns.py, augur_engine/book.py, the strategy
+   file and tools/rocfrontier/r12_mdl.py + r11_risk.py, and stops on a hash mismatch (RUN-BEFORE-MAIN).
+
+7. COULD FOOL US
+The NQ cells overlap #463's NQ day legs and the ES 30m cell is a near relative of #463's own TTM leg (#459 x3): more of the same
+risk, so drawdown can grow faster than money (round 1). Pre-WF is in-sample for the #299 settings. Eight folds are few: the count
+is descriptive. The fixture's #463 rows predate the 10-15 master fills; the sleeve is built on today's masters (P2 bounds it).
+
+8. RECORDS (MANAGER #138 schema, C:\EdgeLog\run_records\TTM_202610.jsonl)
+One line per arm x stretch x cost level (SLEEVE pre-WF / WF / LB and ADD WF / LB at L0-L3) plus one line per cell at L1 per stretch
+(with gross_pt and cost_pt); sha = the harness's LF sha256 (12 characters), the results.json sha in the note. The ledger row rides
+the day's one TTM ship.

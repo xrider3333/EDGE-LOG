@@ -1,0 +1,265 @@
+{
+ "idea": "QL_RANGECOMP_NQ",
+ "stage": "2 - COMPARE + TRACE (lab numbers opened after the stage-1 sha was posted)",
+ "stage1_json_sha256": "82a9f3d1c8c41364764011c4abd8580a096881cd3f676ce8d9c2b18c6be948d5",
+ "lab_vs_arm_a_house": [
+  {
+   "field": "trades",
+   "lab": 1480,
+   "mine": 1480,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "field": "net_usd",
+   "lab": -2993.55,
+   "mine": -2993.550000000153,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "field": "roc_30k",
+   "lab": -2.318,
+   "mine": -2.317595718101432,
+   "tol": 0.005,
+   "match": true
+  },
+  {
+   "field": "dd5_usd",
+   "lab": 3761.79,
+   "mine": 3761.79,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "field": "max_dd_usd",
+   "lab": 6389.79,
+   "mine": 6389.79,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "field": "dd_pct_peak",
+   "lab": 6.3291,
+   "mine": 6.3291,
+   "tol": 0.01,
+   "match": true
+  },
+  {
+   "field": "sortino",
+   "lab": -0.3823,
+   "mine": -0.3823408914089629,
+   "tol": 0.001,
+   "match": true
+  },
+  {
+   "field": "one_episode",
+   "lab": true,
+   "mine": true,
+   "tol": null,
+   "match": true
+  },
+  {
+   "field": "win_rate (lab % -> frac)",
+   "lab": 0.1845,
+   "mine": 0.18445945945945946,
+   "tol": 0.0005,
+   "match": true
+  },
+  {
+   "field": "cost_pts",
+   "lab": 0.533,
+   "mine": 0.533,
+   "tol": 1e-09,
+   "match": true
+  },
+  {
+   "field": "gross_pts_per_trade",
+   "lab": 0.4319,
+   "mine": 0.4318665540540488,
+   "tol": 0.0001,
+   "match": true
+  },
+  {
+   "field": "net_pts_per_trade",
+   "lab": -0.1011,
+   "mine": -0.10113344594595125,
+   "tol": 0.0001,
+   "match": true
+  },
+  {
+   "field": "net_usd_per_trade",
+   "lab": -2.02,
+   "mine": -2.0226689189190252,
+   "tol": 0.01,
+   "match": true
+  },
+  {
+   "field": "gross_cost_ratio",
+   "lab": 0.81,
+   "mine": 0.8102561989757012,
+   "tol": 0.005,
+   "match": true
+  },
+  {
+   "field": "trades_per_year",
+   "lab": 244.0,
+   "mine": 244.04966139954854,
+   "tol": 0.1,
+   "match": true
+  },
+  {
+   "field": "years",
+   "lab": 6.064,
+   "mine": 6.064339493497604,
+   "tol": 0.001,
+   "match": true
+  },
+  {
+   "field": "sessions",
+   "lab": 1550,
+   "mine": 1550,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "field": "mult",
+   "lab": 20.0,
+   "mine": 20.0,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "field": "bars",
+   "lab": 119248,
+   "mine": 119248,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "field": "fingerprint",
+   "lab": "66f906272ba2dba5645708c9956ecf2360515b64",
+   "mine": "66f906272ba2dba5645708c9956ecf2360515b64",
+   "tol": null,
+   "match": true
+  }
+ ],
+ "all_core_fields_match": true,
+ "session_lengths": {
+  "24": 14,
+  "42": 13,
+  "45": 12,
+  "46": 1,
+  "78": 1510
+ },
+ "sessions_le_warmup_plus_2_bars": 0,
+ "lab_csv_times_match_bar_index": {
+  "entry": 1480,
+  "exit": 1480,
+  "rows": 1480
+ },
+ "trade_for_trade": [
+  {
+   "pair": "labcsv vs A_plugin",
+   "labcsv_trades": 1480,
+   "A_plugin_trades": 1480,
+   "same_entry_and_side": 1480,
+   "exact_same_exit_px_pts": 1480,
+   "only_labcsv": 0,
+   "only_A_plugin": 0,
+   "first_diffs": [],
+   "match_100pct": true
+  },
+  {
+   "pair": "A_plugin vs B_own",
+   "A_plugin_trades": 1480,
+   "B_own_trades": 1480,
+   "same_entry_and_side": 1480,
+   "exact_same_exit_px_pts": 1480,
+   "only_A_plugin": 0,
+   "only_B_own": 0,
+   "first_diffs": [],
+   "match_100pct": true
+  },
+  {
+   "pair": "A_plugin vs B_plugin_way",
+   "A_plugin_trades": 1480,
+   "B_plugin_way_trades": 1480,
+   "same_entry_and_side": 1480,
+   "exact_same_exit_px_pts": 1480,
+   "only_A_plugin": 0,
+   "only_B_plugin_way": 0,
+   "first_diffs": [],
+   "match_100pct": true
+  },
+  {
+   "pair": "B_own vs B_plugin_way",
+   "B_own_trades": 1480,
+   "B_plugin_way_trades": 1480,
+   "same_entry_and_side": 1480,
+   "exact_same_exit_px_pts": 1480,
+   "only_B_own": 0,
+   "only_B_plugin_way": 0,
+   "first_diffs": [],
+   "match_100pct": true
+  }
+ ],
+ "b_plugin_way_matches_100pct": true,
+ "lab_csv_matches_plugin_100pct": true,
+ "lab_csv_scored_by_ttm_house": {
+  "net_usd": -2993.5499999999943,
+  "per_yr_usd": -493.6316647855521,
+  "years": 6.064339493497604,
+  "max_dd": 6389.789999999967,
+  "roc30": -2.317595718101321,
+  "dd5": 3761.79,
+  "one_episode": true,
+  "dd_pct_peak": 6.3291,
+  "sortino": -0.38234089140894306,
+  "cost_pts": 0.0,
+  "trades": 1480,
+  "trades_per_yr": 244.04966139954854,
+  "win_rate": 0.18445945945945946,
+  "gross_pts_per_trade": -0.10113344594594607,
+  "net_usd_per_trade": -2.0226689189189178,
+  "avg_win_loss_usd": [
+   347.6367032967033,
+   81.10884009942005
+  ]
+ },
+ "stop_level_from_bars_le_signal_bar": {
+  "checked": 1480,
+  "bad": 0
+ },
+ "lookahead_scramble": {
+  "sessions_traded": 1480,
+  "trials": 4440,
+  "entry_moved": 0,
+  "what": "fill bar h/l/c + all later bars (o after the fill bar) scrambled; entry bar, side and entry price re-checked"
+ },
+ "trade_rate": {
+  "sessions": 1550,
+  "sessions_traded": 1480,
+  "share": 0.9548387096774194,
+  "stated_prior_per_yr": 120.0,
+  "counted_per_yr": 244.04966139954854
+ },
+ "four_numbers": {
+  "house": "ROC@30k -2.32 | DD5 $3,762 | DD% from peak 6.3% | Sortino -0.38 | trades 1,480 (244/yr) | $/yr -494 | one_episode True",
+  "real": "ROC@30k -4.34 | DD5 $11,828 | DD% from peak 11.8% | Sortino -1.26 | trades 1,480 (244/yr) | $/yr -1,711 | one_episode False",
+  "stress": "ROC@30k -4.72 | DD5 $18,643 | DD% from peak 18.6% | Sortino -2.07 | trades 1,480 (244/yr) | $/yr -2,934 | one_episode False"
+ },
+ "promotion": {
+  "gross_pts_per_trade": 0.4318665540540488,
+  "house_cost_pts": 0.533,
+  "real_cost_pts": 0.7825,
+  "gross_ge_house_cost": false,
+  "gross_ge_real_cost": false,
+  "roc_house_gt_0": false,
+  "not_one_episode": false,
+  "promotes_new_bar": false,
+  "old_bar_roc_ge_15_not_one_episode": false,
+  "lab_says": "NOT PROMOTED: pre-WF gross/trade +0.432 pt < cost 0.533 pt (gross/cost 0.81); pre-WF net ROC@30k -2.32 <= 0; one episode drives the pre-WF drawdown (worst > 1.3 x DD5)",
+  "lab_promoted": false
+ }
+}

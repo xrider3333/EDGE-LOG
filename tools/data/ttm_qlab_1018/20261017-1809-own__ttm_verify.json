@@ -1,0 +1,210 @@
+{
+ "A_plugin": {
+  "engine_total_pnl_pts": -289.5687500000013,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    208.8733333333333,
+    101.50234693877562
+   ],
+   "cost_pts": 0.533,
+   "dd5": 4723.13,
+   "dd_pct_peak": 9.2829,
+   "gross_over_cost": -1.6977529901501012,
+   "gross_pts_per_trade": -0.904902343750004,
+   "max_dd": 9291.14999999999,
+   "net_pts_per_trade": -1.437902343750004,
+   "net_usd": -9202.575000000026,
+   "one_episode": true,
+   "per_yr_usd": -1517.490076185106,
+   "roc30": -4.899791983290898,
+   "sortino": -2.092848779647471,
+   "trades": 320,
+   "trades_per_yr": 52.76749435665914,
+   "win_rate": 0.234375,
+   "years": 6.064339493497604
+  },
+  "max_trades_one_session": 1,
+  "min_entry_in_session_bar": 13,
+  "real_cost": {
+   "avg_win_loss_usd": [
+    203.88333333333333,
+    106.49234693877563
+   ],
+   "cost_pts": 0.7825,
+   "dd5": 5516.54,
+   "dd_pct_peak": 10.8561,
+   "gross_over_cost": -1.1564247204472895,
+   "gross_pts_per_trade": -0.904902343750004,
+   "max_dd": 10862.999999999949,
+   "net_pts_per_trade": -1.687402343750004,
+   "net_usd": -10799.375000000025,
+   "one_episode": true,
+   "per_yr_usd": -1780.799873024835,
+   "roc30": -4.917978108325997,
+   "sortino": -2.3623046267399803,
+   "trades": 320,
+   "trades_per_yr": 52.76749435665914,
+   "win_rate": 0.234375,
+   "years": 6.064339493497604
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    201.56972972972972,
+    111.05176829268304
+   ],
+   "cost_pts": 1.033,
+   "dd5": 6313.13,
+   "dd_pct_peak": 12.4364,
+   "gross_over_cost": -0.8759945244433728,
+   "gross_pts_per_trade": -0.904902343750004,
+   "max_dd": 12441.14999999999,
+   "net_pts_per_trade": -1.9379023437500038,
+   "net_usd": -12402.575000000026,
+   "one_episode": true,
+   "per_yr_usd": -2045.1650197516974,
+   "roc30": -4.93161408652343,
+   "sortino": -2.6120923787603054,
+   "trades": 320,
+   "trades_per_yr": 52.76749435665914,
+   "win_rate": 0.23125,
+   "years": 6.064339493497604
+  },
+  "sum_gross_pts": -289.5687500000013,
+  "trade_tuple_len": 5
+ },
+ "A_vs_B": {
+  "A_trades": 320,
+  "B_trades": 320,
+  "exact": 320,
+  "first_exit_diffs": [],
+  "first_only_A": [],
+  "first_only_B": [],
+  "only_A": 0,
+  "only_B": 0,
+  "same_entry_and_side": 320,
+  "same_exit_bar": 320,
+  "same_gross_pts": 320,
+  "sessions_both": 320,
+  "sessions_traded_A": 320,
+  "sessions_traded_B": 320,
+  "sum_abs_pts_diff_matched": 4.297362465877086e-11
+ },
+ "B_own_rule": {
+  "house_cost": {
+   "avg_win_loss_usd": [
+    208.8733333333333,
+    101.50234693877567
+   ],
+   "cost_pts": 0.533,
+   "dd5": 4723.13,
+   "dd_pct_peak": 9.2829,
+   "gross_over_cost": -1.6977529901501052,
+   "gross_pts_per_trade": -0.9049023437500061,
+   "max_dd": 9291.150000000005,
+   "net_pts_per_trade": -1.437902343750006,
+   "net_usd": -9202.57500000004,
+   "one_episode": true,
+   "per_yr_usd": -1517.4900761851084,
+   "roc30": -4.899791983290898,
+   "sortino": -2.0928487796474724,
+   "trades": 320,
+   "trades_per_yr": 52.76749435665914,
+   "win_rate": 0.234375,
+   "years": 6.064339493497604
+  },
+  "min_entry_in_session_bar": 13,
+  "real_cost": {
+   "avg_win_loss_usd": [
+    203.88333333333333,
+    106.49234693877568
+   ],
+   "cost_pts": 0.7825,
+   "dd5": 5516.54,
+   "dd_pct_peak": 10.8561,
+   "gross_over_cost": -1.1564247204472922,
+   "gross_pts_per_trade": -0.9049023437500061,
+   "max_dd": 10862.999999999962,
+   "net_pts_per_trade": -1.687402343750006,
+   "net_usd": -10799.375000000038,
+   "one_episode": true,
+   "per_yr_usd": -1780.799873024837,
+   "roc30": -4.917978108325997,
+   "sortino": -2.3623046267399817,
+   "trades": 320,
+   "trades_per_yr": 52.76749435665914,
+   "win_rate": 0.234375,
+   "years": 6.064339493497604
+  },
+  "stopped": 225,
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    201.56972972972972,
+    111.0517682926831
+   ],
+   "cost_pts": 1.033,
+   "dd5": 6313.13,
+   "dd_pct_peak": 12.4364,
+   "gross_over_cost": -0.8759945244433748,
+   "gross_pts_per_trade": -0.9049023437500061,
+   "max_dd": 12441.150000000005,
+   "net_pts_per_trade": -1.937902343750006,
+   "net_usd": -12402.575000000039,
+   "one_episode": true,
+   "per_yr_usd": -2045.1650197516994,
+   "roc30": -4.931614086523429,
+   "sortino": -2.612092378760306,
+   "trades": 320,
+   "trades_per_yr": 52.76749435665914,
+   "win_rate": 0.23125,
+   "years": 6.064339493497604
+  }
+ },
+ "B_variant_need_trail20": {
+  "house_cost": {
+   "avg_win_loss_usd": [
+    213.36777777777777,
+    101.4552674897121
+   ],
+   "cost_pts": 0.533,
+   "dd5": 9291.15,
+   "dd_pct_peak": 9.2912,
+   "gross_over_cost": -1.766952559635498,
+   "gross_pts_per_trade": -0.9417857142857204,
+   "max_dd": 9291.150000000003,
+   "net_pts_per_trade": -1.4747857142857206,
+   "net_usd": -9291.150000000041,
+   "one_episode": false,
+   "per_yr_usd": -1532.095953724612,
+   "roc30": -4.946952595936815,
+   "sortino": -2.1207859510352707,
+   "trades": 315,
+   "trades_per_yr": 51.943002257336346,
+   "win_rate": 0.22857142857142856,
+   "years": 6.064339493497604
+  },
+  "trades": 315
+ },
+ "armb_lf_sha256": "cd271a43eb0dec1887a0edebe4d0e84f3363fbafa2a820fee845bf597298eb5b",
+ "bars": 119248,
+ "costs_pts": {
+  "house": 0.533,
+  "real": 0.7825,
+  "stress": 1.033
+ },
+ "fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+ "fingerprint_matches_prereg": true,
+ "folder": "20261017-1809-own",
+ "idea": "QL_REVERSAL_NQ",
+ "master": "NOADJ_NQ_5m_RTH.csv",
+ "master_sha256": "310834572e4c9038fae218286b5b7d7283b2f035a468dc1e5554b87aa6611c3d",
+ "plugin_lf_sha256": "e6f1ce54841bbf114455fa1e85f600a8d6031a5576fb9e3865645ef232858cd2",
+ "plugin_pin_ok": true,
+ "registry_id": 37,
+ "sessions": 1550,
+ "stretch_k_used_in_B": 1.5,
+ "usd_per_pt": 20.0,
+ "window": [
+  "2010-06-07",
+  "2016-06-30"
+ ]
+}

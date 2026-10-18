@@ -1,0 +1,20 @@
+[detach] Sun 10/18/2026 13:48:41.76 start: python -u tools/ttm_verify/ttm_sleeve5_r2.py --expect-prereg a344f8dcdd27397335d3dac7204cf36f5ffaf26bfb378389b318a226e782a591 --expect-harness 2e1085572bd28835e65d68c17129311561bdc6ef61018dae12b11398b474645f
+P4 prereg  LF sha256 a344f8dcdd27397335d3dac7204cf36f5ffaf26bfb378389b318a226e782a591 (expected a344f8dcdd27397335d3dac7204cf36f5ffaf26bfb378389b318a226e782a591)
+P4 harness LF sha256 2e1085572bd28835e65d68c17129311561bdc6ef61018dae12b11398b474645f (expected 2e1085572bd28835e65d68c17129311561bdc6ef61018dae12b11398b474645f)
+P4 git HEAD 363f0b117b093b92fc6aa1c505743a533d910a87; deps {"augur_engine/drawdowns.py": "5fc70a0e4a95", "augur_engine/book.py": "9a60a852f849", "augur_strategies/TTMSQZ_3_0.py": "22d3b97fdb4d", "tools/rocfrontier/r12_mdl.py": "7675875aed47", "tools/rocfrontier/r11_risk.py": "bf8f9ca5410e"}
+R1 #463 WF: ROC@30k 93.81 | DD5 $36,095 | DD% 13.09 | Sortino 3.816 | $/yr 140,235 | worst $44,849 2020-03-02..2020-03-27 (rec 2020-06-11)
+R1 #463 LB: ROC@30k 155.54 | DD5 $35,034 ONE-EP | DD% 18.33 | Sortino 4.150 | $/yr 258,472 | worst $49,855 2026-06-18..2026-06-26 (rec None)
+P1 OK
+Traceback (most recent call last):
+  File "C:\Users\xride\AppData\Local\EdgeLog-worktrees\ttm-sleeve5-1018\tools\ttm_verify\ttm_sleeve5_r2.py", line 322, in <module>
+    main()
+    ~~~~^^
+  File "C:\Users\xride\AppData\Local\EdgeLog-worktrees\ttm-sleeve5-1018\tools\ttm_verify\ttm_sleeve5_r2.py", line 121, in main
+    tr, inf = book._leg_trades(leg, W0, W1)
+              ~~~~~~~~~~~~~~~~^^^^^^^^^^^^^
+  File "C:\Users\xride\AppData\Local\EdgeLog-worktrees\ttm-sleeve5-1018\augur_engine\book.py", line 102, in _leg_trades
+    raise ValueError(
+        f"no data for leg {leg.get('strategy')} ({inst} {tf}) — tried "
+        + ", ".join(f"session={a}/source={b or 'any'}" for a, b in tries))
+ValueError: no data for leg TTMSQZ_3_0.py (ES 30m) — tried session=rth/source=db_adj_rth, session=eth/source=any, session=rth/source=any
+[detach] Sun 10/18/2026 13:48:47.22 exit 

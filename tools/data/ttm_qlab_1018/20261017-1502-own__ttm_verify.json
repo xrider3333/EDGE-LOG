@@ -1,0 +1,234 @@
+{
+ "A_plugin": {
+  "earliest_entry_in_session_bar": 13,
+  "engine_total_pnl_pts": 639.1624999999922,
+  "entries_before_bar_13": 0,
+  "gross_pts_total": 639.1624999999922,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    347.6367032967033,
+    81.10884009942016
+   ],
+   "cost_pts": 0.533,
+   "dd5": 3761.79,
+   "dd_pct_peak": 6.3291,
+   "gross_pts_per_trade": 0.4318665540540488,
+   "max_dd": 6389.79,
+   "net_usd": -2993.550000000153,
+   "net_usd_per_trade": -2.0226689189190252,
+   "one_episode": true,
+   "per_yr_usd": -493.6316647855783,
+   "roc30": -2.317595718101432,
+   "sortino": -0.3823408914089629,
+   "trades": 1480,
+   "trades_per_yr": 244.04966139954854,
+   "win_rate": 0.18445945945945946,
+   "years": 6.064339493497604
+  },
+  "max_bars_held": 64,
+  "real_cost": {
+   "avg_win_loss_usd": [
+    349.0514925373134,
+    85.7463283828384
+   ],
+   "cost_pts": 0.7825,
+   "dd5": 11828.5,
+   "dd_pct_peak": 11.8285,
+   "gross_pts_per_trade": 0.4318665540540488,
+   "max_dd": 11828.499999999947,
+   "net_usd": -10378.750000000146,
+   "net_usd_per_trade": -7.01266891891902,
+   "one_episode": false,
+   "per_yr_usd": -1711.4394751693244,
+   "roc30": -4.340633576115311,
+   "sortino": -1.263299433456973,
+   "trades": 1480,
+   "trades_per_yr": 244.04966139954854,
+   "win_rate": 0.1810810810810811,
+   "years": 6.064339493497604
+  },
+  "sides": {
+   "long": 836,
+   "short": 644
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    345.33250936329586,
+    90.68205276174784
+   ],
+   "cost_pts": 1.033,
+   "dd5": 18642.67,
+   "dd_pct_peak": 18.6427,
+   "gross_pts_per_trade": 0.4318665540540488,
+   "max_dd": 18642.67000000005,
+   "net_usd": -17793.550000000145,
+   "net_usd_per_trade": -12.022668918919019,
+   "one_episode": false,
+   "per_yr_usd": -2934.1282787810624,
+   "roc30": -4.721633133206329,
+   "sortino": -2.0672293255487055,
+   "trades": 1480,
+   "trades_per_yr": 244.04966139954854,
+   "win_rate": 0.1804054054054054,
+   "years": 6.064339493497604
+  },
+  "trade_tuple_len": 5
+ },
+ "A_vs_B": {
+  "A_trades": 1480,
+  "B_trades": 1480,
+  "exact_same_exit_and_pts": 1480,
+  "first_exit_or_pts_diffs": [],
+  "first_only_A": [],
+  "first_only_B": [],
+  "gross_pts_total_A_minus_B": -3.410605131648481e-12,
+  "only_A": 0,
+  "only_B": 0,
+  "same_entry_and_side": 1480,
+  "same_entry_px": 1480,
+  "same_exit_bar": 1480,
+  "same_gross_pts": 1480,
+  "same_session_diff_entry": 0
+ },
+ "B_own_rule": {
+  "earliest_entry_in_session_bar": 13,
+  "entries_before_bar_13": 0,
+  "exit_how": {
+   "session_end": 288,
+   "stop": 1190,
+   "stop_gap_open": 2
+  },
+  "gross_pts_total": 639.1624999999956,
+  "house_cost": {
+   "avg_win_loss_usd": [
+    347.6367032967033,
+    81.10884009942012
+   ],
+   "cost_pts": 0.533,
+   "dd5": 3761.79,
+   "dd_pct_peak": 6.3291,
+   "gross_pts_per_trade": 0.43186655405405106,
+   "max_dd": 6389.789999999964,
+   "net_usd": -2993.5500000000848,
+   "net_usd_per_trade": -2.022668918918979,
+   "one_episode": true,
+   "per_yr_usd": -493.63166478556707,
+   "roc30": -2.3175957181013924,
+   "sortino": -0.38234089140895444,
+   "trades": 1480,
+   "trades_per_yr": 244.04966139954854,
+   "win_rate": 0.18445945945945946,
+   "years": 6.064339493497604
+  },
+  "max_bars_held": 64,
+  "real_cost": {
+   "avg_win_loss_usd": [
+    349.0514925373134,
+    85.74632838283834
+   ],
+   "cost_pts": 0.7825,
+   "dd5": 11828.5,
+   "dd_pct_peak": 11.8285,
+   "gross_pts_per_trade": 0.43186655405405106,
+   "max_dd": 11828.499999999669,
+   "net_usd": -10378.750000000078,
+   "net_usd_per_trade": -7.012668918918973,
+   "one_episode": false,
+   "per_yr_usd": -1711.4394751693133,
+   "roc30": -4.340633576115385,
+   "sortino": -1.2632994334569654,
+   "trades": 1480,
+   "trades_per_yr": 244.04966139954854,
+   "win_rate": 0.1810810810810811,
+   "years": 6.064339493497604
+  },
+  "sides": {
+   "long": 836,
+   "short": 644
+  },
+  "stress_cost": {
+   "avg_win_loss_usd": [
+    345.33250936329586,
+    90.6820527617478
+   ],
+   "cost_pts": 1.033,
+   "dd5": 18642.67,
+   "dd_pct_peak": 18.6427,
+   "gross_pts_per_trade": 0.43186655405405106,
+   "max_dd": 18642.669999999856,
+   "net_usd": -17793.550000000076,
+   "net_usd_per_trade": -12.022668918918972,
+   "one_episode": false,
+   "per_yr_usd": -2934.128278781051,
+   "roc30": -4.72163313320636,
+   "sortino": -2.067229325548699,
+   "trades": 1480,
+   "trades_per_yr": 244.04966139954854,
+   "win_rate": 0.1804054054054054,
+   "years": 6.064339493497604
+  }
+ },
+ "DEFAULT_PARAMS_literal": {
+  "entry_frac": {
+   "default": 0.1,
+   "label": "Entry zone (fraction of range from extreme)",
+   "max": 0.25,
+   "min": 0.05,
+   "step": 0.05,
+   "type": "float"
+  },
+  "stop_frac": {
+   "default": 0.15,
+   "label": "Stop distance (fraction of range)",
+   "max": 0.3,
+   "min": 0.05,
+   "step": 0.05,
+   "type": "float"
+  },
+  "warmup_bars": {
+   "default": 12,
+   "label": "Warm-up bars before first signal",
+   "max": 24,
+   "min": 12,
+   "step": 6,
+   "type": "int"
+  }
+ },
+ "bars": 119248,
+ "cost_note": "house 0.533 pt, real 0.7825 pt (owner: $5.65 + 1 tick each side), stress house+0.5 pt reported for completeness only - this idea holds to the session close, not a short-hold scalper",
+ "data_fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+ "idea": "QL_RANGECOMP_NQ",
+ "idea_folder": "C:/EdgeLog/qwen_lab/ideas/20261017-1502-own",
+ "intra_session_hole_bars": 0,
+ "knob_defaults_from_DEFAULT_PARAMS": {
+  "entry_frac": 0.1,
+  "stop_frac": 0.15,
+  "warmup_bars": 12
+ },
+ "master": "NOADJ_NQ_5m_RTH.csv",
+ "master_sha256": "310834572e4c9038fae218286b5b7d7283b2f035a468dc1e5554b87aa6611c3d",
+ "own_rule_reading": [
+  "knob values: the Mechanism text states warmup_bars default 12 but gives NO default for entry_frac / stop_frac; the prereg's Data section says params = the file's DEFAULT_PARAMS defaults, so those two VALUES were read from the DEFAULT_PARAMS literal by ast.literal_eval (entry_frac 0.1, stop_frac 0.15, warmup_bars 12 = the prereg's 12); the plugin's logic was not read",
+  "bar 0 = the session's first bar (09:30 open, every session in the window); in-session index = position in the day_id run, equal to the clock index (0 intra-session hole bars in this window)",
+  "running high / low = max(high[0..k]) / min(low[0..k]) with bar k INCLUDED; range_so_far from the same bars; <= 0 skips",
+  "signal bars k >= warmup_bars (12, the 10:30 bar) - so the earliest fill is bar 13 (10:35 open), matching the prereg's first_signal_bar 13",
+  "LONG: close[k] >= RH - entry_frac*range AND close[k] > open[0] (strict); SHORT: close[k] <= RL + entry_frac*range AND close[k] < open[0] (strict); open[0] = the session's first bar's open; the two are exclusive via the open[0] test",
+  "fill at open[k+1]; a signal on the session's last bar has no k+1 and is not taken; first signal with a fillable k+1 = the session's one trade; no re-entry after a stop",
+  "stop = entry_px -/+ stop_frac * range_so_far of the SIGNAL bar k (anchored at the fill price, not at the extreme); fixed for the trade",
+  "stop checked intrabar from the entry bar itself (low <= stop long / high >= stop short books the stop price); on bars after the entry bar an open already through the stop books that open (gap-through); a stop touch on the last bar beats the close",
+  "no target; exit at the session's last bar close (the session's last bar in the data: 78-bar days at 15:55, early-close / short days at their last bar); the contract's 77-bar time stop (close of entry bar + 77) is applied too but never binds (max hold 64 bars)",
+  "booking: gross pts = side*(exit_px - entry_px), cost subtracted per trade, $ on the exit bar's ET session date"
+ ],
+ "own_rule_source_sha256": "c8e0de9bd09cd22fe310cebdb64c1520a7838bb5e42de920a15baeb19c25145c",
+ "plugin_lf_sha256": "0ca9d8877295d816644c82b97b457f171496db65fc420c5b6800e33c1153fa21",
+ "plugin_pin_full_match_prereg": true,
+ "plugin_pin_ok": true,
+ "registry_id": 37,
+ "sessions": 1550,
+ "stage": "1 - BLIND BUILD (lab numbers not read)",
+ "warmup_matches_prereg_12": true,
+ "window": [
+  "2010-06-07",
+  "2016-06-30"
+ ]
+}

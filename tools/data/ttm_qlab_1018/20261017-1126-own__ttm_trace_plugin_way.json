@@ -1,0 +1,628 @@
+{
+ "data": {
+  "bars": 119248,
+  "fingerprint": "66f906272ba2dba5645708c9956ecf2360515b64",
+  "sessions": 1550,
+  "registry_id": 37,
+  "min_session_bars": 24,
+  "sessions_last_bar_not_1555": 40
+ },
+ "engine_roll_stamp": {
+  "calendar": "difference-adjusted signals",
+  "signal_method": "difference",
+  "method_source": "declared",
+  "warning": null
+ },
+ "engine_raw_vs_adjusted": {
+  "trades_raw": 347,
+  "trades_adjusted": 343,
+  "same": 343,
+  "only_raw": 4,
+  "only_adjusted": 0,
+  "file_skips_roll_days": false,
+  "moved_by_roll_day_skip": 0,
+  "moved_by_price": 4,
+  "price_moves_near_switch": 4,
+  "price_moves_elsewhere": 0,
+  "near_sessions": 20,
+  "usd_only_raw": -647.6785714285734,
+  "usd_only_adjusted": 0.0,
+  "verdict": "differs near switches (signals that read the roll step - removed by the plan)"
+ },
+ "armA_equals_stage1": true,
+ "lab_compare": [
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "trades",
+   "lab": 343,
+   "mine": 343.0,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "net_usd",
+   "lab": 1016.12,
+   "mine": 1016.12,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "roc_30k",
+   "lab": 0.321,
+   "mine": 0.320502,
+   "tol": 0.005,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "dd5_usd",
+   "lab": 4881.73,
+   "mine": 4881.73,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "max_dd_usd",
+   "lab": 15683.82,
+   "mine": 15683.818571,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "dd_pct_peak",
+   "lab": 13.8648,
+   "mine": 13.8648,
+   "tol": 0.01,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "sortino",
+   "lab": 0.1206,
+   "mine": 0.120642,
+   "tol": 0.001,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "win_rate",
+   "lab": 24.2,
+   "mine": 24.198251,
+   "tol": 0.05,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "years",
+   "lab": 6.064,
+   "mine": 6.064339,
+   "tol": 0.0005,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "trades_per_year",
+   "lab": 56.6,
+   "mine": 56.560158,
+   "tol": 0.05,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "sessions",
+   "lab": 1550,
+   "mine": 1550.0,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "dd5_n",
+   "lab": 5,
+   "mine": 5.0,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "net_pts_per_trade",
+   "lab": 0.1481,
+   "mine": 0.148122,
+   "tol": 5e-05,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "net_usd_per_trade",
+   "lab": 2.96,
+   "mine": 2.962449,
+   "tol": 0.005,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "gross_pts_per_trade",
+   "lab": 0.6811,
+   "mine": 0.681122,
+   "tol": 5e-05,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "gross_cost_ratio",
+   "lab": 1.278,
+   "mine": 1.277903,
+   "tol": 0.0005,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "profit_factor",
+   "lab": 1.0222,
+   "mine": 1.022228,
+   "tol": 5e-05,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "cost_pts",
+   "lab": 0.533,
+   "mine": 0.533,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "mult",
+   "lab": 20.0,
+   "mine": 20.0,
+   "tol": 0,
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "one_episode",
+   "lab": true,
+   "mine": true,
+   "tol": "equal",
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "bars",
+   "lab": 119248,
+   "mine": 119248,
+   "tol": "equal",
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "fingerprint",
+   "lab": "66f906272ba2dba5645708c9956ecf2360515b64",
+   "mine": "66f906272ba2dba5645708c9956ecf2360515b64",
+   "tol": "equal",
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "window",
+   "lab": "2010-06-07..2016-06-30",
+   "mine": "2010-06-07..2016-06-30",
+   "tol": "equal",
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "params",
+   "lab": {
+    "gap_min_pts": 20.0,
+    "stop_frac": 1.5,
+    "atr_bars": 14
+   },
+   "mine": {
+    "gap_min_pts": 20.0,
+    "stop_frac": 1.5,
+    "atr_bars": 14
+   },
+   "tol": "equal",
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "promoted",
+   "lab": false,
+   "mine": false,
+   "tol": "equal",
+   "match": true
+  },
+  {
+   "numbers_file": "numbers_pre_wf.json",
+   "field": "roll.signal_method",
+   "lab": "difference",
+   "mine": "difference",
+   "tol": "equal",
+   "match": true
+  },
+  {
+   "numbers_file": "pre_wf_trades.csv",
+   "field": "343 rows x (entry_bar, exit_bar, side, entry_price, pnl_points_net+0.533, entry_time, exit_time)",
+   "lab": "343 rows",
+   "mine": "343 trades",
+   "tol": "exact (pnl 1e-5)",
+   "match": true
+  },
+  {
+   "numbers_file": "pre_wf_trades.csv",
+   "field": "net_usd (sum pnl_points_net x $20)",
+   "lab": 1016.12,
+   "mine": 1016.12,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "numbers_file": "pre_wf_trades.csv (re-scored by TTM booking)",
+   "field": "roc30",
+   "lab": 0.320502,
+   "mine": 0.320502,
+   "tol": 0.005,
+   "match": true
+  },
+  {
+   "numbers_file": "pre_wf_trades.csv (re-scored by TTM booking)",
+   "field": "dd5",
+   "lab": 4881.73,
+   "mine": 4881.73,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "numbers_file": "pre_wf_trades.csv (re-scored by TTM booking)",
+   "field": "max_dd",
+   "lab": 15683.81858,
+   "mine": 15683.818571,
+   "tol": 1.0,
+   "match": true
+  },
+  {
+   "numbers_file": "pre_wf_trades.csv (re-scored by TTM booking)",
+   "field": "dd_pct_peak",
+   "lab": 13.8648,
+   "mine": 13.8648,
+   "tol": 0.01,
+   "match": true
+  },
+  {
+   "numbers_file": "pre_wf_trades.csv (re-scored by TTM booking)",
+   "field": "sortino",
+   "lab": 0.120642,
+   "mine": 0.120642,
+   "tol": 0.001,
+   "match": true
+  }
+ ],
+ "lab_csv_trade_match": {
+  "rows": 343,
+  "armA": 343,
+  "entry_bar": 343,
+  "exit_bar": 343,
+  "side": 343,
+  "entry_price_raw": 343,
+  "pnl_net_eq_gross_minus_0.533": 343,
+  "entry_time": 343,
+  "exit_time": 343,
+  "all_fields_all_rows": true,
+  "csv_net_sum_usd": 1016.1199799999974
+ },
+ "verdict_compare": "VERIFIED EXACT",
+ "plugin_way_plan": {
+  "kind": "difference-adjusted signals",
+  "method": "difference",
+  "method_source": "declared",
+  "no_fill_bars": 0,
+  "shift_test": 1.0,
+  "distinct_shifts_in_window": 26
+ },
+ "trace_plugin_way": {
+  "plugin_trades": 343,
+  "armB_plugin_way_trades": 343,
+  "same_entry_side": 343,
+  "exact_entry_exit_side_px_pts": 343,
+  "only_plugin": 0,
+  "only_armB": 0,
+  "max_abs_pts_diff": 0.0,
+  "matches_100pct": true,
+  "plugin_direct_on_adjusted_eq_engine": true
+ },
+ "slip_roll": {
+  "literal_trades": 347,
+  "only_literal": 4,
+  "only_literal_detail": [
+   {
+    "session": "2010-06-11",
+    "side": -1,
+    "raw_gap": -20.25,
+    "adjusted_gap": -18.75,
+    "roll": "NQM0->NQU0",
+    "switch_et": "2010-06-10 20:00",
+    "offset_pts": -1.5,
+    "offset_measured_et": "",
+    "gross_pts": -5.3571,
+    "switch_before_entry_bar": true
+   },
+   {
+    "session": "2011-09-09",
+    "side": -1,
+    "raw_gap": -20.25,
+    "adjusted_gap": -15.5,
+    "roll": "NQU1->NQZ1",
+    "switch_et": "2011-09-08 20:00",
+    "offset_pts": -4.75,
+    "offset_measured_et": "",
+    "gross_pts": -7.9018,
+    "switch_before_entry_bar": true
+   },
+   {
+    "session": "2012-12-14",
+    "side": -1,
+    "raw_gap": -22.25,
+    "adjusted_gap": -17.0,
+    "roll": "NQZ2->NQH3",
+    "switch_et": "2012-12-13 19:00",
+    "offset_pts": -5.25,
+    "offset_measured_et": "",
+    "gross_pts": -5.4911,
+    "switch_before_entry_bar": true
+   },
+   {
+    "session": "2015-09-11",
+    "side": -1,
+    "raw_gap": -28.25,
+    "adjusted_gap": -17.25,
+    "roll": "NQU5->NQZ5",
+    "switch_et": "2015-09-10 20:00",
+    "offset_pts": -11.0,
+    "offset_measured_et": "",
+    "gross_pts": -13.6339,
+    "switch_before_entry_bar": true
+   }
+  ],
+  "four_numbers": {
+   "house": "ROC@30k 0.10 | DD5 $4,972 | DD% from peak 14.2% | Sortino 0.04 | trades 347 (57.2/yr) | $/yr 54 | one_episode True",
+   "real": "ROC@30k -0.42 | DD5 $5,150 | DD% from peak 14.8% | Sortino -0.16 | trades 347 (57.2/yr) | $/yr -232 | one_episode True",
+   "stress": "ROC@30k -0.91 | DD5 $5,328 | DD% from peak 15.4% | Sortino -0.36 | trades 347 (57.2/yr) | $/yr -518 | one_episode True"
+  },
+  "gross_per_trade_pts": 0.57994545080279,
+  "promotes_new_bar": false,
+  "raw": {
+   "house": {
+    "net_usd": 325.8014285713589,
+    "roc30": 0.10093996122233946,
+    "dd5": 4972.14,
+    "one_episode": true,
+    "dd_pct_peak": 14.1663,
+    "sortino": 0.03845374841546207,
+    "trades": 347
+   },
+   "real": {
+    "net_usd": -1405.7285714286363,
+    "roc30": -0.42168621823692803,
+    "dd5": 5149.78,
+    "one_episode": true,
+    "dd_pct_peak": 14.7777,
+    "sortino": -0.1626744388679177,
+    "trades": 347
+   },
+   "stress": {
+    "net_usd": -3144.198571428641,
+    "roc30": -0.9140305372098225,
+    "dd5": 5328.14,
+    "one_episode": true,
+    "dd_pct_peak": 15.404,
+    "sortino": -0.35680029302954114,
+    "trades": 347
+   }
+  }
+ },
+ "undeclared_roll_signal": {
+  "calendar": "difference-adjusted signals",
+  "signal_method": "difference",
+  "method_source": "test",
+  "trades": 343,
+  "identical_to_armA": true
+ },
+ "alt_trailing_stop": {
+  "trades": 343,
+  "four_numbers": {
+   "house": "ROC@30k -3.12 | DD5 $2,491 | DD% from peak 11.4% | Sortino -1.30 | trades 343 (56.6/yr) | $/yr -1,206 | one_episode True",
+   "real": "ROC@30k -3.42 | DD5 $2,790 | DD% from peak 12.9% | Sortino -1.57 | trades 343 (56.6/yr) | $/yr -1,488 | one_episode True",
+   "stress": "ROC@30k -3.65 | DD5 $3,096 | DD% from peak 14.4% | Sortino -1.82 | trades 343 (56.6/yr) | $/yr -1,772 | one_episode True"
+  },
+  "gross_per_trade_pts": -0.5333454810495442,
+  "promotes_new_bar": false
+ },
+ "lookahead": {
+  "trades": 343,
+  "cut_after_exit_identical": 343,
+  "cut_after_entry_hlc_moved_same_entry_and_side": 343,
+  "stop_level_eq_prior_session_atr_stop": 343,
+  "entry_kept_with_hlc_flattened": 343,
+  "failures": [],
+  "signal_reads": "o[bar0] (the fill price itself) and c[prior session last bar]; ATR = prior session's last 14 bars + the close before them; stop fixed at entry; exits test bar j's own low/high only for a resting stop (fill at stop or j's open)"
+ },
+ "trade_rate": {
+  "sessions_with_prior": 1549,
+  "gap_gt_20": 343,
+  "share": 0.22143318269851517,
+  "by_year": {
+   "2010": [
+    23,
+    148,
+    1959.1,
+    1.021,
+    8.0
+   ],
+   "2011": [
+    63,
+    258,
+    2303.2,
+    0.868,
+    9.5
+   ],
+   "2012": [
+    33,
+    255,
+    2639.8,
+    0.758,
+    8.0
+   ],
+   "2013": [
+    36,
+    252,
+    3009.0,
+    0.665,
+    8.25
+   ],
+   "2014": [
+    48,
+    250,
+    3816.4,
+    0.524,
+    9.62
+   ],
+   "2015": [
+    88,
+    258,
+    4440.6,
+    0.45,
+    13.0
+   ],
+   "2016": [
+    52,
+    128,
+    4345.5,
+    0.46,
+    16.88
+   ]
+  },
+  "by_year_cols": [
+   "trades",
+   "sessions",
+   "median NQ open",
+   "20 pts as % of price",
+   "median |gap| pts"
+  ]
+ },
+ "trades_on_short_sessions": [
+  {
+   "session": "2011-01-17",
+   "last_bar": "11:25",
+   "bars": 24,
+   "exit_is_last_bar": false,
+   "gross_pts": -2.1696
+  },
+  {
+   "session": "2011-09-05",
+   "last_bar": "11:25",
+   "bars": 24,
+   "exit_is_last_bar": true,
+   "gross_pts": 5.5
+  },
+  {
+   "session": "2015-09-07",
+   "last_bar": "12:55",
+   "bars": 42,
+   "exit_is_last_bar": true,
+   "gross_pts": -3.25
+  },
+  {
+   "session": "2015-11-26",
+   "last_bar": "12:55",
+   "bars": 42,
+   "exit_is_last_bar": false,
+   "gross_pts": -3.5357
+  },
+  {
+   "session": "2016-02-15",
+   "last_bar": "12:55",
+   "bars": 42,
+   "exit_is_last_bar": true,
+   "gross_pts": 5.25
+  }
+ ],
+ "four_numbers_armA": {
+  "house": "ROC@30k 0.32 | DD5 $4,882 | DD% from peak 13.9% | Sortino 0.12 | trades 343 (56.6/yr) | $/yr 168 | one_episode True",
+  "real": "ROC@30k -0.21 | DD5 $5,057 | DD% from peak 14.5% | Sortino -0.08 | trades 343 (56.6/yr) | $/yr -115 | one_episode True",
+  "stress": "ROC@30k -0.71 | DD5 $5,234 | DD% from peak 15.1% | Sortino -0.28 | trades 343 (56.6/yr) | $/yr -398 | one_episode True"
+ },
+ "armA_detail": {
+  "house": {
+   "net_usd": 1016.1200000000499,
+   "per_yr_usd": 167.55658239278478,
+   "roc30": 0.3205021435877072,
+   "dd5": 4881.73,
+   "max_dd": 15683.818571428557,
+   "dd_pct_peak": 13.8648,
+   "sortino": 0.12064166166924341,
+   "one_episode": true,
+   "trades": 343,
+   "trades_per_yr": 56.56015801354402,
+   "win_rate": 0.24198250728862974,
+   "gross_per_trade_pts": 0.6811224489795998,
+   "net_per_trade_pts": 0.14812244897959892,
+   "gross_over_cost": 1.2779032813876168,
+   "cost_pts_rt": 0.533,
+   "profit_factor": 1.0222277153000945
+  },
+  "real": {
+   "net_usd": -695.4499999999452,
+   "per_yr_usd": -114.67860609479911,
+   "roc30": -0.21233137067679167,
+   "dd5": 5057.38,
+   "max_dd": 16202.778571428555,
+   "dd_pct_peak": 14.4646,
+   "sortino": -0.08096120804139205,
+   "one_episode": true,
+   "trades": 343,
+   "trades_per_yr": 56.56015801354402,
+   "win_rate": 0.24198250728862974,
+   "gross_per_trade_pts": 0.6811224489795998,
+   "net_per_trade_pts": -0.10137755102039965,
+   "gross_over_cost": 0.8704440242550797,
+   "cost_pts_rt": 0.7825,
+   "profit_factor": 0.9852068110994132
+  },
+  "stress": {
+   "net_usd": -2413.8799999999483,
+   "per_yr_usd": -398.04499774265514,
+   "roc30": -0.7140324969011917,
+   "dd5": 5233.73,
+   "max_dd": 16723.818571428557,
+   "dd_pct_peak": 15.0788,
+   "sortino": -0.27558120147059295,
+   "one_episode": true,
+   "trades": 343,
+   "trades_per_yr": 56.56015801354402,
+   "win_rate": 0.24198250728862974,
+   "gross_per_trade_pts": 0.6811224489795998,
+   "net_per_trade_pts": -0.3518775510204009,
+   "gross_over_cost": 0.6593634549657308,
+   "cost_pts_rt": 1.033,
+   "profit_factor": 0.9500377736519989
+  }
+ },
+ "promotion_new_bar": {
+  "gross_pt_per_trade": 0.6811224489795998,
+  "house_cost_pts": 0.533,
+  "real_cost_pts": 0.7825,
+  "gross_ge_house_cost": true,
+  "gross_ge_real_cost": false,
+  "roc30_house_gt_0": true,
+  "one_episode": true,
+  "promotes": false,
+  "old_bar_roc_ge_15_and_not_one_episode": false
+ }
+}
