@@ -402,9 +402,9 @@ def run():
         d = pd.Timestamp(bd[a])
         if d < idx[0] or d > idx[-1]:
             continue
-        usd = p * move * 20.0
+        gap_usd = p * move * 20.0          # NOT `usd` - that is the module-level formatter
         rows.append({"from_bar_date": str(pd.Timestamp(bd[a]).date()), "to_bar_date": str(pd.Timestamp(bd[b]).date()),
-                     "pos": p, "move_pts": move, "usd_1nq": usd, "usd_at_30k": usd * scale})
+                     "pos": p, "move_pts": move, "usd_1nq": gap_usd, "usd_at_30k": gap_usd * scale})
     rows.sort(key=lambda r: r["usd_1nq"])
     tot = sum(r["usd_1nq"] for r in rows)
     print("  %d session boundaries held through on the WF stretch; overnight total $%s of the arm's net $%s (%.1f%%)"

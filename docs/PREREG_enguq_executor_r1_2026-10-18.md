@@ -164,3 +164,17 @@ The T08 executor's whole point is that it holds through the close. On the WF str
   and a reason, never a replacement.
 - RUN-BEFORE-MAIN: the frozen commit is pushed to `origin` as `prereg/enguq-executor-r1` and its sha256s are
   posted to MANAGER before the harness is launched; the ship to main is the permanent record.
+
+---
+
+## Addendum 1 - 2026-10-18 13:52 MST, harness bug, NO number was produced
+
+The first launch of `tools/enguq_exec_r1.py` died on its sixth line of output, before any figure was
+computed: the C4 loop bound a local named `usd`, which shadowed the module-level `usd()` formatter for
+the whole of `run()`, so the very first result print raised `UnboundLocalError`. The local is renamed
+`gap_usd`; nothing else changed, and no clause, bar, window or prior in this document is touched.
+
+The run log of the failed launch (`C:\EdgeLog\enguq_exec_r1.log`, exit before any clause) is the
+evidence that nothing was seen before the fix. The harness's LF sha256 therefore changes from
+`99a13b6f50cf95df916ffa6672521ccea6a79de24d3fbf7c8d4bafdee836a98a` to the one re-posted to MANAGER
+with this addendum, and the prereg branch is re-pushed.
