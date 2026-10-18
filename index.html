@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1309';
+const VERSION='73.1310';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1413,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1269',date:'2026-10-14',notes:['ENGINE SPEED: every 1-minute backtest no longer spends about 2 seconds per year of bars re-reading bar times (same results, tested on every input shape). A 10-year 1-minute validate trial is about 20 seconds faster.']},
+const CHANGELOG=[{v:'73.1310',date:'2026-10-14',notes:['ENGINE SPEED: every 1-minute backtest no longer spends about 2 seconds per year of bars re-reading bar times (same results, tested on every input shape). A 10-year 1-minute validate trial is about 20 seconds faster.']},
 {v:'73.1296',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
 {v:'73.1281',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
 {v:'73.1269',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
