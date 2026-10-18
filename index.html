@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1315';
+const VERSION='73.1316';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1413,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1313',date:'2026-10-18',notes:['A MONTH SELECTOR ON COMPARE, EXPLORE (your ask 10-18: everything run in the past month visible on the scatter, wherever it ran). Chips for the last six calendar months, the rolling 30 days, and ALL TIME. Picking a month READS that month in one query and ADDS its rows to the board - it hides nothing, because no caps and no auto-hide is the rule on this screen. MONTH ONLY, beside it, narrows to the month on your click, and the line under the chart then counts what it is holding back.','WHY YOUR MONTH WAS NOT THERE. The page only ever holds the newest 75 run documents (LOAD MORE adds 75 at a time), so a month that is not among the newest 75 runs was never in the browser to plot. Measured on 10-18 against the real collection: September 2026 holds 173 runs, August 125, and 440 runs exist in all. A month now arrives in one projected query, with the same fields the run list already reads, and the runs join the shared pool - so they are on EXPLORE, RUNBOARD and PICK RUNS together, the same way a starred run outside the window already is.','AND THE RUNS THAT WERE NEVER RUN DOCUMENTS AT ALL: a Stage A sweep in a lane worktree, a Qwen Lab dry run, a forward line on the Oracle box. Those are not in Past Runs and never were. Each lane now writes one line per finished run (tools/run_record.py), it is uploaded once (tools/run_records_sync.py), and the month read picks them up. On the chart the COLOUR says where it ran - the PC runner, a lane worktree, the Qwen Lab, the box - and the SHAPE says which stretch: square in-sample, diamond pre-walk-forward, triangle walk-forward, circle lockbox, cross forward.','THE FOUR NUMBERS ON THOSE ROWS ARE THE LANE OWN MEASUREMENTS, not something this page derived: ROC at a $30,000 drawdown, DD5 in dollars, DD % from the high, and Sortino on DAILY returns with zero days counted, all from augur_engine.drawdowns.four_numbers, the one definition. DD % from peak is READ off the record rather than worked out here, because a lane record saves no equity curve and the standing rule holds: a stored dollar drawdown is never divided into a percent. A record that carries no percent says so in its hover instead of showing a made-up one.','THE MONTH LINE TELLS THE TRUTH ABOUT WHAT IT READ: how many run documents and how many lane records, a read still in flight, a read that failed and its reason, a read that hit its cap (so the month is NOT whole), and the one legacy run - #156, which saved an integer timestamp where every other run saved a string - that a month range can never match and which therefore reaches the board only through the ordinary newest-75 list. 439 of the 440 runs are unaffected, measured.','Probe: a new cmp2 case (w47_month) injects three lane records - one from a lane worktree, one from the Qwen Lab, one from the box - and checks they reach the chart on ROC at $30k against DD % from peak, that the page places them in the order of the figures each lane recorded, that the colours and shapes are the right ones, and that the month line says the counts, the hold-back and a failed read. It fails on the build before this one.']},
+const CHANGELOG=[{v:'73.1316',date:'2026-10-18',notes:['THE MONTH SELECTOR IS WHERE YOU CAN SEE IT (your ask 10-18, part two). It went in behind FILTERS, which on EXPLORE is a second panel you have to open - a headless screenshot of the real page showed no chip anywhere on screen. It now sits on the always-visible control row beside LEVEL, SHOW and PROFIT STAGE: MONTH - OCT SEP AUG JUL JUN MAY - 30 DAYS - ALL TIME, with MONTH ONLY OFF/ON next to it.','MONTH ONLY REALLY NARROWS NOW. Measured on the live build: October with MONTH ONLY on drew 72 run dots, runs #416 to #479 among them - September runs - under a line that correctly said eleven. Run rows are put on the board by a different path from the research rows (the level gate refuses a registry row there), so the narrowing never reached them. It does now, and the line under the chart counts what it is holding back. Re-measured after the fix: October shows ten dots of the eleven runs in the month, and the eleventh is named - it carries a FAIL verdict, and PLOT FAILURES is off by default on that screen.','A RUN THAT ARRIVED WITH THE MONTH NOW HAS A DATE RAN. The lookup that answers when a run ran read only the newest-75 list, so a run fetched by the month chip showed a dash in the DATE RAN column and had no date for any range or month test to read. It now reads the same shared pool every other part of the board reads.','THE LINE UNDER THE CHART SAYS WHICH STRETCH THE FIGURES ARE. The stage tick starts on all three, so every ROC on screen is the whole-run reading with the tuning years in it - correct, and silent about it until now. It says so, and says that WALK-FORWARD alone is the house yardstick.','A LANE RECORD IS NO LONGER DROPPED FROM EVERY PER-YEAR AXIS. The rule that protects a registry write-up - one window for the whole row but money for only part of it, so its years and its money do not match - was refusing a lane record too, and a record IS one stretch that states that stretch own years. The tools that write those records, and the probe case for them, are in the next ship.']},
+{v:'73.1313',date:'2026-10-18',notes:['A MONTH SELECTOR ON COMPARE, EXPLORE (your ask 10-18: everything run in the past month visible on the scatter, wherever it ran). Chips for the last six calendar months, the rolling 30 days, and ALL TIME. Picking a month READS that month in one query and ADDS its rows to the board - it hides nothing, because no caps and no auto-hide is the rule on this screen. MONTH ONLY, beside it, narrows to the month on your click, and the line under the chart then counts what it is holding back.','WHY YOUR MONTH WAS NOT THERE. The page only ever holds the newest 75 run documents (LOAD MORE adds 75 at a time), so a month that is not among the newest 75 runs was never in the browser to plot. Measured on 10-18 against the real collection: September 2026 holds 173 runs, August 125, and 440 runs exist in all. A month now arrives in one projected query, with the same fields the run list already reads, and the runs join the shared pool - so they are on EXPLORE, RUNBOARD and PICK RUNS together, the same way a starred run outside the window already is.','AND THE RUNS THAT WERE NEVER RUN DOCUMENTS AT ALL: a Stage A sweep in a lane worktree, a Qwen Lab dry run, a forward line on the Oracle box. Those are not in Past Runs and never were. Each lane now writes one line per finished run (tools/run_record.py), it is uploaded once (tools/run_records_sync.py), and the month read picks them up. On the chart the COLOUR says where it ran - the PC runner, a lane worktree, the Qwen Lab, the box - and the SHAPE says which stretch: square in-sample, diamond pre-walk-forward, triangle walk-forward, circle lockbox, cross forward.','THE FOUR NUMBERS ON THOSE ROWS ARE THE LANE OWN MEASUREMENTS, not something this page derived: ROC at a $30,000 drawdown, DD5 in dollars, DD % from the high, and Sortino on DAILY returns with zero days counted, all from augur_engine.drawdowns.four_numbers, the one definition. DD % from peak is READ off the record rather than worked out here, because a lane record saves no equity curve and the standing rule holds: a stored dollar drawdown is never divided into a percent. A record that carries no percent says so in its hover instead of showing a made-up one.','THE MONTH LINE TELLS THE TRUTH ABOUT WHAT IT READ: how many run documents and how many lane records, a read still in flight, a read that failed and its reason, a read that hit its cap (so the month is NOT whole), and the one legacy run - #156, which saved an integer timestamp where every other run saved a string - that a month range can never match and which therefore reaches the board only through the ordinary newest-75 list. 439 of the 440 runs are unaffected, measured.','Probe: a new cmp2 case (w47_month) injects three lane records - one from a lane worktree, one from the Qwen Lab, one from the box - and checks they reach the chart on ROC at $30k against DD % from peak, that the page places them in the order of the figures each lane recorded, that the colours and shapes are the right ones, and that the month line says the counts, the hold-back and a failed read. It fails on the build before this one.']},
 {v:'73.1310',date:'2026-10-14',notes:['ENGINE SPEED: every 1-minute backtest no longer spends about 2 seconds per year of bars re-reading bar times (same results, tested on every input shape). A 10-year 1-minute validate trial is about 20 seconds faster.']},
 {v:'73.1296',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
 {v:'73.1281',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
@@ -33883,6 +33884,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         if(_reMonWin&&_c2Exp){
           try{_monRunsWant(_reMonSel,_reMonWin.f,_reMonWin.x);
               _recMonWant(_reMonSel,_reMonWin.f,_reMonWin.x);}catch(e){}}
+        // the held-back counter belongs to THIS render: on a level that builds no run rows at
+        //   all (SWEEPS, or 1E CONFIGS) the block below never runs, and a count left over from
+        //   the last render would be a number the screen cannot account for.
+        window._reMonHeldN=null;
         const _reMonRunsSt=_reMonWin?(window._monRuns[_reMonSel]||null):null;
         const _reRecSt=_reMonWin?(window._recMon[_reMonSel]||null):null;
         const _reFT='#c084fc';
@@ -33990,7 +33995,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           both:'This is the standing champion of its family AND the configuration running in the paper forward test right now.',
           none:'Research result only. It is not the standing champion of its family and it is not running in the paper forward test.'};
         const _reEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
-        const _reRunRec=id=>(runHistory||[]).find(x=>x&&String(x.id)===String(id));
+        // W47: the SHARED POOL, not runHistory alone. A run that arrived through the month read
+        //   (or as a starred row) is in `rs` and not in runHistory, and reading only the latter
+        //   left those runs with no DATE RAN at all - a dash in the table and no date for any
+        //   scope test to read. _reRunDoc below already reads `rs`, so this matches it.
+        const _reRunRec=id=>(rs||[]).find(x=>x&&String(x.id)===String(id));
         const _reRunDate=id=>{const r=_reRunRec(id);
           return (r&&r.timestamp)?String(r.timestamp).slice(0,10):'';};
         // ── THE SCOPE TEST. Says whether the row is inside the selected stretch, and whether it
@@ -34232,6 +34241,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   divided 2,607 whole-run trades by a one-year lockbox: TRADES / YR 2,609 and R / YR 420R, against 161 and
         //   25.9R. Configuration and run rows never take either branch: their count is the ticked stretch's own.
         const _reYrs=(st,rw,segOv,wholeRow)=>{
+          // W47: A LANE RECORD STATES THE WINDOW OF ITS OWN STRETCH. The partial-write-up rule
+          //   further down is right for a registry write-up - one window for the whole row but
+          //   money for only part of it, so the years would not match the money - and wrong here:
+          //   a record IS one stretch, and four_numbers hands back that stretch's own years with
+          //   its own money. Without this the record was dropped from every per-year axis with
+          //   'records one window and one total ... but money only for its walk-forward', which is
+          //   how it read in the harness before this line (measured 10-18).
+          if(rw&&rw._rec)return (+rw._recYrs>0)?+rw._recYrs:null;
           if(rw&&(rw._cfg||rw._stRun)&&rw._sp){const S=rw._sp,seg=segOv||_reSegsEff;
             const b={is:[S.a,S.w],wf:[S.w,S.l],lb:[S.l,S.b]};
             const on=['is','wf','lb'].filter(k=>seg.indexOf(k)>=0&&b[k][0]&&b[k][1]);
@@ -36863,7 +36880,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   every registry row on this level - which would refuse these too. Only the facet
           //   filters apply here.
           const _runSt0={fam:'RUN',key:'runs',title:'AUTO-VALIDATE RUNS'};
-          const keep=RR.filter(_reFacetKeep(_runSt0,RR));
+          // W47: ... and the month, when MONTH ONLY is on. A run row carries runs:[id], so its
+          //   date is the run document's own timestamp; a row whose date cannot be read is HELD
+          //   BACK and counted, never shown as if it were inside the window.
+          const _reMonHeld={runs:0,recs:0,nodate:0};
+          const _reMonOk=function(r){
+            if(!_reMonOnly||!_reMonWin)return true;
+            const d=r._rec?String(r._ts||'').slice(0,10)
+              :((Array.isArray(r.runs)&&r.runs.length)?_reRunDate(r.runs[0]):'');
+            if(!d){_reMonHeld.nodate++;return false;}
+            return (d>=_reMonWin.f&&d<=_reMonWin.t);};
+          const keep=RR.filter(_reFacetKeep(_runSt0,RR)).filter(function(r){
+            const ok=_reMonOk(r);if(!ok)_reMonHeld.runs++;return ok;});
           const runSt={key:'runs',title:(_reLvl==='crown'?'CROWNED RUNS':'AUTO-VALIDATE RUNS'),fam:'RUN',isLbl:'IN-SAMPLE',
             sub:'One row per Auto-Validate run in Past Runs - not a registry write-up, the runs themselves. '
                +'A run records its own window and its own validate block - but in-sample Sharpe and Sortino are only known for books, so a run row can still sit off some axes.',
@@ -36874,6 +36902,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           keep.forEach(function(r){_reItems.push({st:runSt,r:r});});
           if(keep.length){_rePrep.push({st:runSt,all:RR,kept:keep,rows:keep,filtOut:RR.length-keep.length,outSc:[]});
             _reShown+=keep.length;}
+          window._reMonHeldN=_reMonHeld;
           // ── W47: THE LANE AND LAB RUNS OF THE MONTH. One record is ONE STRETCH, already
           //    measured by the lane through augur_engine.drawdowns.four_numbers, so these rows
           //    CARRY their figures instead of deriving them from a curve they never saved: the net
@@ -36888,8 +36917,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const stg=String(d.stage||'');
               const f=_recF[stg]||'wf';
               const nm=String(d.strategy||d.family||'a lane run').replace(/\.py$/,'').replace(/[<>&]/g,'');
-              const row={n:(d.run_id!=null&&isFinite(+d.run_id))?+d.run_id:(900000+i),
-                name:nm+' \u00b7 '+(stg||'stage not recorded'),
+              const row={n:i+1,
+                name:nm+' \u00b7 '+(stg||'stage not recorded')+((d.run_id!=null&&isFinite(+d.run_id))?(' \u00b7 run #'+(+d.run_id)):''),
                 fam:String(d.family||'UNTAGGED'),tone:'ref',
                 read:((String(d.where||'')+' '+stg).trim().toUpperCase())||'LANE RECORD',
                 what:String(d.note||'')||'A run recorded by its own lane, not an Auto-Validate run.',
@@ -36900,7 +36929,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 ddp:(d.ddpct!=null&&isFinite(+d.ddpct))?+d.ddpct:null,
                 tot:net,runs:[],
                 win:(d.win_start&&d.win_end)?{from:String(d.win_start),to:String(d.win_end)}:null,
-                _rec:1,_where:String(d.where||'lane'),_stage:stg,_lane:String(d.lane||''),
+                _rec:1,_recYrs:(d.years!=null&&isFinite(+d.years)&&+d.years>0)?+d.years:null,
+                _where:String(d.where||'lane'),_stage:stg,_lane:String(d.lane||''),
                 _host:String(d.host||''),_ts:String(d.timestamp||''),
                 _dd5:(d.dd5!=null&&isFinite(+d.dd5))?+d.dd5:null,
                 _roc30:(d.roc30k!=null&&isFinite(+d.roc30k))?+d.roc30k:null,
@@ -36916,8 +36946,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                    +'ROC at a $30k drawdown, DD5 in dollars, DD % from the high, and Sortino on daily returns with '
                    +'zero days counted. The colour says where it ran; the shape says which stretch.',
                 dashWhy:{},rows:_recRows};
-              const recKeep=_recRows.filter(_reFacetKeep({fam:'REC',key:'recs',title:recSt.title},_recRows));
+              const recKeep=_recRows.filter(_reFacetKeep({fam:'REC',key:'recs',title:recSt.title},_recRows))
+                .filter(function(r){const ok=_reMonOk(r);if(!ok)_reMonHeld.recs++;return ok;});
               recKeep.forEach(function(r){_reItems.push({st:recSt,r:r});});
+              window._reMonHeldN=_reMonHeld;
               if(recKeep.length){_rePrep.push({st:recSt,all:_recRows,kept:recKeep,rows:recKeep,
                 filtOut:_recRows.length-recKeep.length,outSc:[]});
                 _reShown+=recKeep.length;}}}
@@ -38093,7 +38125,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   the chart and the tables together, which is why they live with the other
             //   controls rather than with either panel.
             +'<div data-remore style="'+(_reMore?'':'display:none;')+'margin-top:9px;padding-top:9px;border-top:1px solid var(--border2)">'
-            +_reGrid(_reFailBtns+_reMinTrdBtns+_reMonBtns+_reMonOnlyBtns+_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
+            +_reGrid(_reFailBtns+_reMinTrdBtns+_reScopeBtns+_reSBasisBtns+_reFiltBtns+_reStudySel
               +(_reClear?('<div style="display:grid;grid-template-columns:54px minmax(0,1fr);gap:6px"><div></div><div style="display:flex;gap:4px">'+_reClear+'</div></div>'):''))
             +'</div></div>';
         // the drawing runs BEFORE anything reports on it - see _reSkipNote
@@ -38130,10 +38162,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(st(R)==='err')parts.push('the run read for '+_reMonWin.nm+' failed ('+String((R&&R.why)||'no reason given')+'), so runs outside the newest 75 are not on this chart');
           if(st(C)==='ok')parts.push(nc+' lane or lab record'+(nc===1?'':'s'));
           if(st(C)==='err')parts.push('the lane-record read failed ('+String((C&&C.why)||'no reason given')+')');
+          parts.push('the figures on screen are the '+_reSegsEff.map(function(g){return _reSegLong[g];}).join(' + ')
+            +' reading'+((_reSegsEff.length>1)?' added together - tick WALK-FORWARD alone for the house yardstick':''));
           if(st(C)==='ok'&&nc===0)parts.push('no lane or lab has recorded a run in this window yet - they write research_runs through tools/run_record.py, and tools/run_records_sync.py uploads it');
           if((R&&R.capped)||(C&&C.capped))parts.push('THE READ HIT ITS CAP of '+MON_CAP+' - rows were left unread, so this month is NOT whole');
-          if(_reMonOnly)parts.push('MONTH ONLY is on, so every row dated outside '+_reMonWin.f+' to '+_reMonWin.t+' is being held back');
-          if(!parts.length)return '';
+          if(_reMonOnly){const H=window._reMonHeldN||{runs:0,recs:0,nodate:0};
+            parts.push('MONTH ONLY is on, so every row dated outside '+_reMonWin.f+' to '+_reMonWin.t
+              +' is being held back'+((H.runs||H.recs)?(' - '+H.runs+' run row'+(H.runs===1?'':'s')
+              +(H.recs?(' and '+H.recs+' lane record'+(H.recs===1?'':'s')):'')+' so far'):'')
+              +(H.nodate?(', and '+H.nodate+' row'+(H.nodate===1?'':'s')+' carry no date this test can read, so they are held back rather than shown as if they were inside it'):''));}
+          if(!parts.length)parts.push('nothing has been read for this month on this page yet');
           return '<div style="font-size:8.5px;color:var(--text5);margin-top:7px">'
             +'<b style="color:var(--text4)">'+_reEsc(String(_reMonWin.nm).toUpperCase())+':</b> '
             +_reEsc(parts.join(' \u00b7 '))
@@ -38438,7 +38476,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   KEEL - only exist once you are on AUTO VAL with 1E CONFIGS showing. Hiding
           //   that made the board look as though it only ever had raw configurations.
           const _c2Keep='<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px;margin-bottom:10px">'
-            +_reGrid(_reLvlBtns+_reShowBtns+_reStageBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
+            +_reGrid(_reMonBtns+_reMonOnlyBtns+_reLvlBtns+_reShowBtns+_reStageBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
           // capped and scrollable when they are on, so a thousand rows cannot push the
           //   chart off the screen - the old sidebar layout capped them the same way.
           // SIDE puts the chart and the tables in two columns, STACK keeps them one above the
