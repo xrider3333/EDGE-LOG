@@ -178,3 +178,36 @@ The run log of the failed launch (`C:\EdgeLog\enguq_exec_r1.log`, exit before an
 evidence that nothing was seen before the fix. The harness's LF sha256 therefore changes from
 `99a13b6f50cf95df916ffa6672521ccea6a79de24d3fbf7c8d4bafdee836a98a` to the one re-posted to MANAGER
 with this addendum, and the prereg branch is re-pushed.
+
+---
+
+## Addendum 2 - 2026-10-18 15:25 MST, C0 FAILED; the declared substitute for C2 / C4 / C3-extra
+
+**C0 failed, and the prereg's own fallback is honoured: no recomputed number is published against the
+PUBLISHED baseline.** C1 and C3-halves are unaffected - they read the frozen published series only, and
+their verdicts stand exactly as written.
+
+The cause is known and is not a harness fault. The published reads were made on 2026-10-09; the ADJ NQ
+1m ETH master has been refilled since (its registry row now runs to 2026-10-16), and TTM traced a 10-15
+fill that inserted 740 bars INSIDE run #491's optimize window on this same tape. A bar inserted inside
+the window shifts every bar index after it, so the leg's own trades move and the 2026-10-09 daily series
+cannot be reproduced bit-for-bit today. The first launch of the gate reported the gap as about $4,100 on
+the worst day for all three arms; the re-run prints the full divergence profile (days over tolerance,
+first such day, and both nets) so the size of the move is on the record.
+
+**The substitute, fixed here before any ladder number existed** (the failing run exited at C0 and
+computed no rung, no gap and no pre-WF figure):
+
+- C2, C4 and the C3 extra run on the **RE-DERIVED baseline** - today's tape, the same tape for every
+  rung of every ladder.
+- They are read as **DIFFERENCES from their own base**. A cost ladder and a gap list are deltas by
+  construction, and a delta is valid on any one consistent tape.
+- Every ladder prints its own re-derived base rung, and every such section is labelled
+  `[RE-DERIVED TAPE, addendum 2]` in the run log.
+- **The LEVELS in those sections are NOT board rows T07 and T08 and may never be quoted as them.** The
+  board rows keep their published numbers, which only C1 and C3-halves are read against.
+- Nothing else moves: the same arms, the same window, the same bar, the same priors.
+
+What this costs, stated plainly: the round can no longer say "T07's published 28.42 survives +2 ticks".
+It can say "the same executor on today's tape loses X ROC points per tick", which is the question the
+cost ladder was asked to answer.

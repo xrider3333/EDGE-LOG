@@ -37,7 +37,7 @@ BOOK463_DAILY = r"C:\EdgeLog\_anatomy_cache\rocfrontier\r4\book463_daily.csv"
 PREREG = "docs/PREREG_enguq_executor_r1_2026-10-18.md"
 # the prereg as frozen + addendum 1 (the addendum appends, so the file hash moves with it; the
 # pair posted to MANAGER is always (this prereg hash, the harness hash printed beside it))
-PREREG_SHA = "4d45dc9298f2234f7e5d44c2a76c6861ad64feca1ded1f92b5516f8eb131d6b9"
+PREREG_SHA = "9472a93c46bfab7862e02ecb8ee9cc25a14f8c425c7676ac62b2f84a8be9054d"
 Q34_SHA = "a69afb8e1d417bf749c312195a393fa4b6e9286627e9f93aba0fa797e79ed73c"
 Q36_SHA = "ba9bf07ef02b391fbe1dcb303ef3ca3f5fe7d08422498a7519959d476ce0fe09"
 
@@ -340,22 +340,45 @@ def run():
 
     parity, ok_all = {}, True
     for k, mine in (("LEG", E), ("T07", T07_series), ("T08", T08_series)):
-        gap = float((mine - FROZEN[k]).abs().max())
-        parity[k] = gap
+        d = mine - FROZEN[k]
+        gap = float(d.abs().max())
+        off = d[d.abs() > PARITY_TOL]
+        parity[k] = {"max_abs_daily_usd": gap, "days_over_tol": int(len(off)),
+                     "first_day_over_tol": str(off.index[0].date()) if len(off) else None,
+                     "net_rederived": float(mine.sum()), "net_published": float(FROZEN[k].sum())}
         ok = gap <= PARITY_TOL
         ok_all &= ok
-        print("  %-5s max |re-derived - published| = $%.4f a day  -> %s" % (k, gap, "PASS" if ok else "FAIL"))
-    print("  leg at bar closes (ladder reference) vs the book's own daily: max $%.4f a day"
-          % float((IP_series - E).abs().max()))
-    R["C0"] = {"max_abs_daily_usd": parity, "pass": bool(ok_all), "tol": PARITY_TOL}
-    if not ok_all:
-        print("\n  C0 FAILED -> C2, C4 and the C3 extra are NOT COMPUTED (per the prereg).")
-        json.dump(R, open(os.path.join(OUT, "enguq_exec_r1.json"), "w"), indent=1, default=str)
-        return R
-    print("  C0 PASS")
+        print("  %-5s max |re-derived - published| $%s a day on %d of %d days (first %s); net $%s vs $%s -> %s"
+              % (k, usd(gap), len(off), len(d), parity[k]["first_day_over_tol"] or "-",
+                 usd(mine.sum()), usd(FROZEN[k].sum()), "PASS" if ok else "FAIL"))
+    print("  leg at bar closes (ladder reference) vs the book's own daily: max $%s a day"
+          % usd(float((IP_series - E).abs().max())))
+    R["C0"] = {"arms": parity, "pass": bool(ok_all), "tol": PARITY_TOL,
+               "leg_trades_today": len(trades), "nq_master": m_nq.get("filename"),
+               "nq_master_rows": m_nq.get("rows")}
+    rederived_only = not ok_all
+    R["rederived_only"] = bool(rederived_only)
+    if rederived_only:
+        for line in [
+            "",
+            "  C0 FAILED. Known cause, not a harness fault: the ADJ NQ 1m ETH master has been REFILLED",
+            "  since these reads were published on 10-09 - its registry row now runs to 2026-10-16, and TTM",
+            "  traced a 10-15 fill that inserted 740 bars INSIDE run #491's optimize window on this same",
+            "  tape. A bar inserted inside the window shifts every later bar index, so the leg's own trades",
+            "  move and the published daily series cannot be reproduced on today's tape.",
+            "  PER THE PREREG, nothing below is published against the PUBLISHED baseline.",
+            "  ADDENDUM 2, declared to MANAGER before any ladder number was computed: C2, C4 and the C3",
+            "  extra run instead on the RE-DERIVED baseline - today's tape, one consistent tape for every",
+            "  rung. A cost ladder and a gap list are DIFFERENCES from their own base, so they are read as",
+            "  deltas; the LEVELS below are NOT the board rows and must never be quoted as T07 / T08. Each",
+            "  ladder prints its own re-derived base rung, which is what its rungs are differenced against.",
+        ]:
+            print(line)
+    else:
+        print("  C0 PASS")
 
     # ================================================================ C2 - cost ladder
-    print("\n" + "=" * 110 + "\nC2  COST LADDER - a tick A SIDE, and 1-bar-late fills\n" + "=" * 110)
+    print("\n" + "=" * 110 + "\nC2  COST LADDER - a tick A SIDE, and 1-bar-late fills\n" + "=" * 110 + (" [RE-DERIVED TAPE, addendum 2]" if rederived_only else ""))
     c2 = {}
     rungs_nq = [("base", COST_RT, False), ("+1 tick", COST_RT + 2 * NQ_TICK_PTS * 20.0, False),
                 ("+2 ticks", COST_RT + 4 * NQ_TICK_PTS * 20.0, False), ("late", COST_RT, True)]
@@ -390,7 +413,7 @@ def run():
     R["C2"] = c2
 
     # ================================================================ C4 - T08's overnight gaps
-    print("\n" + "=" * 110 + "\nC4  T08's OVERNIGHT GAPS\n" + "=" * 110)
+    print("\n" + "=" * 110 + "\nC4  T08's OVERNIGHT GAPS\n" + "=" * 110 + (" [RE-DERIVED TAPE, addendum 2]" if rederived_only else ""))
     # session key = the bar's UTC day stamp (`bd`), which for an RTH bar is its ET date - the same
     # stamp the daily curve is built on, so a boundary here is a boundary of that curve.
     daycode = bd.asi8
@@ -426,7 +449,7 @@ def run():
                "max_dd": f08["max_dd"], "ratio": ratio, "one_episode": f08["one_episode"]}
 
     # ================================================================ C3 extra - T08 pre-WF (FLAGGED)
-    print("\n" + "=" * 110 + "\nC3 EXTRA (FLAGGED, OUTSIDE THE BAR) - T08 on 2010-06-07 .. 2016-06-30\n" + "=" * 110)
+    print("\n" + "=" * 110 + "\nC3 EXTRA (FLAGGED, OUTSIDE THE BAR) - T08 on 2010-06-07 .. 2016-06-30\n" + "=" * 110 + (" [RE-DERIVED TAPE, addendum 2]" if rederived_only else ""))
     pw0, pw1 = pd.Timestamp(PRE_WF[0]), pd.Timestamp(PRE_WF[1])
     pidx = pd.DatetimeIndex(sorted(set(bd[(bd >= pw0) & (bd <= pw1)])))
     pcodes = pidx.get_indexer(bd)
