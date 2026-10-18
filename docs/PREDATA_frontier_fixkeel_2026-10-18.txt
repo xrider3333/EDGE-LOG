@@ -1,0 +1,57 @@
+PREDATA - FRONTIER Q49: FIXED vs KEEL SIZING ON EVERY BOOK #463 LEG AND ON THE BOOK (2026-10-18)
+Ask: MANAGER #183 (owner 10-18 "i want more testing on everything on things that are promising"). Witness branch
+prereg/frontier-fixkeel-1018; script tools/rocfrontier/q49_fixkeel.py (it refuses to run unless this file's LF sha256 matches).
+Report-only. Nothing is adopted. A book arm that clears the bar below is posted to MANAGER as a BOOK LIFT candidate for a forward line.
+
+1. WHAT IS COMPARED
+- Legs: BOOK #463's four legs exactly as built (RISK r1 build.json / R11.book_legs: ORB #234 ORB_3_6_C2 NQ 5m, ENGU-Q book leg
+  ENGUQ_1M_ETH_R2_1_0 NQ 1m ETH, TTM #459 TTMSQZ_3_0_ES30SSOF2 ES 30m at weight 3, NOISE #422 NOISE_1_8_CT304H NQ 5m). DIP #424 is not
+  in #463; its T11 arms are re-read from the existing Q37 daily file (NQ, exit-day, common window 2017-08-07..2025-08-23), no new run.
+- Arms per leg (per-trade size multipliers on the leg's own trades; every trade is taken in every arm):
+  RAW      plugin size x1 (= #463 as adopted; NOISE's own 1.75x hourly tilt is inside the file in every arm).
+  FIXED    KEEL v12's a-priori tilts with no learned part: augur_engine.ml_keel.fixed_tilt_sizes_v12 (60m compression 1.5x, Friday
+           1.5x, cap 3, FOMC pre-statement 0.5x).
+  KEEL     the KEEL v12 causal walk, seed 42 (ml_keel.keel_walk version v12) - the Auto-Validate KEEL row's recipe.
+  FIXED_C  RAW x the FIXED arm's mean size over the leg's WF entries (same average leverage, no timing).
+  KEEL_C   RAW x the KEEL arm's mean size over the leg's WF entries.
+  The _C arms are leverage controls: an arm that only adds leverage cannot be told from its _C twin.
+- Book arms: RAW (= #463); ALL <arm> (every leg in that arm); and <leg> <arm> (one leg in that arm, the other three RAW), for
+  arm in FIXED / KEEL / FIXED_C / KEEL_C. 21 book series in all; each read on WF counts as a book look (BOOK LOOKS tally).
+
+2. HOW (no new strategy logic)
+- Each leg is re-run once through the house engine (augur_engine.book._leg_trades, keep_state) on its pinned master over
+  2010-06-07..2026-06-30. The sized trades are re-valued daily with RISK r1's trade_records (open trades marked daily, rule U = the
+  engine's UTC day stamp). KEEL and FIXED read the leg's own master arrays (the engine's).
+- PARITY GATE: a leg's RAW rebuild must match the RISK r1 records (same trade count; every trade's closed $ within $0.01; every daily
+  value within $0.01). A leg that fails parity is reported "not mappable" in its FIXED / KEEL arms - nothing substitutes for it.
+  The RAW book must reproduce #463 WF 93.81 / Sortino 3.816 (asserted).
+- Four numbers per arm per stretch with augur_engine.drawdowns.four_numbers (ROC@30k, DD5, DD% from peak at $100k, Sortino daily
+  with zero days, one-episode flag at 1.3x DD5): WF 2016-07-01..2025-06-29; LB 2025-06-30..2026-06-30 as a REPORT (the lockbox is
+  spent; veto-only).
+- Fold by fold: the nine July-June WF years (2016-17 .. 2024-25): net, worst drawdown and ROC@30k per fold; folds won vs RAW on net.
+- Power: paired 21-day block bootstrap (2,000 draws, seed 20261018, the same blocks for both curves each draw) of WF ROC@30k(arm) -
+  ROC@30k(RAW); its SD, and the share of draws reaching +4.69 (the 98.50 bar).
+
+3. THE BAR FOR A BOOK LIFT (all must hold, WF)
+- ROC@30k >= 98.50 (1.05 x 93.81) AND Sortino >= 3.816 AND DD5 <= $36,095 (the book DD clause: no worse than #463) AND not one
+  episode;
+- the gain over RAW exceeds 1.96 x its paired SD;
+- it beats its own _C twin on ROC@30k with Sortino no worse (the gain is timing, not leverage).
+- LB is printed beside it and can only veto (a large LB loss is reported).
+- Any cell that clears goes to MANAGER as a BOOK LIFT candidate for a pre-registered forward line; there is no adoption from this run.
+
+4. PRIORS, STATED BEFORE ANY NUMBER
+- NOISE: FIXED beats RAW inside #463 (ledger 2.56: the fixed package read 107.76 vs its size-matched twin 97.94, 9 of 9 years) and
+  KEEL does not beat FIXED (keel_422_parts: the fixed tilts beat the learned model).
+- ORB: KEEL and FIXED add nothing or hurt (KEEL design work: "no KEEL on ORB"; COIL compression-only on ORB 90.43 vs 93.81).
+- ENGU-Q: no gain (COIL ENGU-only 93.40; v12's event tilts were NOISE's, not ENGU-Q's).
+- TTM: inside its shuffle band (#458 KEEL sat at the 76th percentile); FIXED ~ flat 1.5x leverage (compression on ~95% of trades),
+  so FIXED ~ FIXED_C.
+- DIP (re-read): F beats KEEL at matched exposure (T11: 22.3 vs 17.7, DD5 $96k vs $106k).
+- Expected outcome: at most the NOISE FIXED arm comes near the bar; it was already judged forward (NOISE_422_FIXED shadow), so a pass
+  restates that line rather than opening a new one.
+
+5. OUTPUTS
+- C:\EdgeLog\_anatomy_cache\q49\q49_fixkeel.json (legs, book arms, folds, power, bar, DIP) and the stdout log beside it.
+- One run-record line per arm per stretch in C:\EdgeLog\run_records\FRONTIER_202610.jsonl (where = lane).
+- BOOK.md section and a ledger row after the run; MANAGER post with four numbers per arm, pass OR fail.
