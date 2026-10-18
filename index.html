@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1334';
+const VERSION='73.1335';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -42019,8 +42019,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div>'+(liveLeg.side==='long'?'Long':liveLeg.side==='short'?'Short':naS(liveLeg.side))+' '+qeInt(liveLeg.shares)
             +(liveLeg.lots!=null?(' &middot; '+liveLeg.lots+' lot'+(liveLeg.lots===1?'':'s')+' @ avg '):' @ ')+(liveLeg.entry_px!=null?qeMoney(liveLeg.entry_px):'—')
             +(QF.stale?liveLastSeen:(' · now '+(liveLeg.live_px!=null?qeMoney(liveLeg.live_px):'—')))+'</div>'
-            +'<div style="margin-top:2px"><b data-qbopenpnl="'+key+'" style="color:'+(QF.stale?'var(--text4)':(legOpenPnl!=null?pnlCol(legOpenPnl):'var(--text5)'))+'">Open '+(legOpenPnl!=null?qeMoney(legOpenPnl):'—')+'</b>'
-            +' · <b style="color:'+(QF.stale?'var(--text4)':pnlCol(legTotalPnl))+'">Total '+qeMoney(legTotalPnl)+'</b></div>'
+            // TWO FIGURES ONLY (owner 2026-10-18: "there should just be open position and cumulative position"): this line is
+            // the OPEN position's P&L (shares not sold yet); the row's big number is the cumulative P&L (closed + open). No third figure.
+            +'<div style="margin-top:2px"><b data-qbopenpnl="'+key+'" style="color:'+(QF.stale?'var(--text4)':(legOpenPnl!=null?pnlCol(legOpenPnl):'var(--text5)'))+'">Open '+(legOpenPnl!=null?qeMoney(legOpenPnl):'—')+'</b></div>'
             +heldLineHtml+'</div>'):(heldLineHtml?('<div class="qbx-leg-live">'+heldLineHtml+'</div>'):'');
           // NOTES UNDER AN EXPANDER (2026-09-25, owner: "make it simple. ... hid that
           // under an expander"). The ENGU-Q ETH-fit caveat and NOISE's since/was/KEEL
@@ -42057,6 +42058,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // QE_LEG_VERSIONS says is live), the side pill rides beside it, the live position line is the sub-line, the range's P&L of
             // record the value and its trade count and win rate the quieter line under it. No switch: every leg counts, as before.
             const fg=qbRangeFigs(qbRangeTrades.filter(t=>qbFamOf(t.leg)===key));
+            // CUMULATIVE (owner 2026-10-18): the big number is closed P&L in the range PLUS the open position's P&L now, so a leg that
+            // holds overnight (DIP) reads as one figure; a flat leg is unchanged (open = 0). The line under it shows the open part alone.
+            const fgTot=(Number(fg.net)||0)+(legOpenPnl!=null?legOpenPnl:0),fgHas=!!fg.n||legOpenPnl!=null;
             // DIP #424's rail paused its entries: one plain line under the row (never an alarm: nothing is sold)
             const railRowHtml=(key==='DIP'&&qbDipRail.blocking)?('<div class="qbx-leg-live"><div data-qbdiprowrail>rail hit'+(qbDipRail.trip?(' '+qbDayLabel(qbDipRail.trip)):'')+': no new entries through '+qbDayLabel(qbDipRail.until)+'</div></div>'):'';
             const pill='<span class="qbx-lg-pill" data-qblegpill="'+key+'"'+badgeTip+' style="color:'+badgeColor+'">'+badge+'</span>'
@@ -42064,7 +42068,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             qbLegModels.push({key:key,retired:qbRetiredNow,fg:fg,
               row:{key:key,name:label+' '+qeLegShortTag(key,runNo),color:color,tag:pill+infoToggleHtml,
                 sub:(liveLineHtml+railRowHtml).split('<div').join('<span').split('</div>').join('</span>'),
-                value:fg.n?ledgerSigned(fg.net):'&mdash;',cls:fg.n?ledgerCls(fg.net):'',value2:qbFigsLine(fg)},
+                value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)},
               extra:(noteOpen?subLineHtml:'')+qbKeelWarnHtml+qbCaveatHtml+qbDetailHtml});
           }
         });

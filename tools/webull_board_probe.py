@@ -433,9 +433,9 @@ DIP_RAIL_NOFIG = ('ok', 'DIP #424 has its own -$800.00 daily rail (not in this s
 DIP_WANT = {
     'book': ['ORB #314', 'NOISE #382', 'DIP #424'],                      # ONE row for the seven lots, after the live legs
     'live': 'Long 42 \u00b7 7 lots @ avg $746.90 \u00b7 now $751.73',     # the shares, the lots, the share-weighted average entry
-    'open': 'Open $202.92 \u00b7 Total $238.44',                          # the lots' open P&L summed; + the family's closed $35.52
+    'open': 'Open $202.92',                          # the lots' open P&L summed; + the family's closed $35.52
     'line': 'Held overnight \u00b7 gap -$67.62 (prior close to the open), outside the rails',
-    'value': ('+$35.52', '3 trades \u00b7 67% won'),
+    'value': ('+$238.44', '3 trades \u00b7 67% won'),   # CUMULATIVE = closed $35.52 + open $202.92 (owner 2026-10-18: open + cumulative only)
     'note': 'DIP #424 held overnight (7 lots) \u00b7 gap -$67.62, outside the rails',
     'acct': 'DIP #424 \u00b7 Long 42 \u00b7 7 lots \u00b7 held overnight, gap -$67.62', 'acct_pnl': '$202.92', 'acct_lines': 3,
     'acct_sum': '3 open (1 held overnight)', 'list_sum': ('3 live', '3 open'),
@@ -1384,8 +1384,8 @@ MUTANTS = [
      "@media(max-width:600px){.qbx-lg-key .qbx-lg-short{display:none}}",
      'the chart key is four lines on a phone and the trade list starts more than a screen down'),
     ('list-has-switch',
-     "value:fg.n?ledgerSigned(fg.net):'&mdash;',cls:fg.n?ledgerCls(fg.net):'',value2:qbFigsLine(fg)},",
-     "value:fg.n?ledgerSigned(fg.net):'&mdash;',cls:fg.n?ledgerCls(fg.net):'',value2:qbFigsLine(fg),sw:{on:true}},",
+     "value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)},",
+     "value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg),sw:{on:true}},",
      'the strategy list draws a switch on each row (this board has none: every leg counts)'),
     ('shadow-open-by-default',
      "let qbShadowOpen=!!window._qbShadowOpen;",
@@ -4862,10 +4862,39 @@ def _row_figs(vals):
     return {'value': signed(net) if n else '—', 'value2': v2, 'net': net, 'n': n}
 
 
-def expected_leg_figs(trades, cutoff=None):
-    """{row name: {'value', 'value2', 'net', 'n'}} -- each leg's range: its P&L of record (signed), its trades and win rate."""
+def _open_pnl_by_leg(doc):
+    """{leg key: open P&L} from the doc's POSITIONS - LIVE block (the figure the page's row reads: the first live leg of that key)."""
+    out = {}
+    for l in ((doc or {}).get('positions_live') or {}).get('legs') or []:
+        try:
+            k = l.get('leg')
+            if k and k not in out and l.get('open_pnl') is not None:
+                out[k] = float(l['open_pnl'])
+        except (TypeError, ValueError, AttributeError):
+            pass
+    return out
+
+
+def expected_open_total(doc):
+    """The open P&L the counted rows carry (owner 2026-10-18: a row's big number is CUMULATIVE = closed in the range + open now):
+    the three legs' live open P&L plus every DIP lot's, the same POSITIONS - LIVE figures the page sums."""
+    keys = set(k for k, _ in LEG_KEYS)
+    return round(sum(v for k, v in _open_pnl_by_leg(doc).items() if k in keys or str(k).startswith('DIP')), 2)
+
+
+def expected_leg_figs(trades, cutoff=None, doc=None):
+    """{row name: {'value', 'value2', 'net', 'n'}} -- each leg's range: its P&L of record PLUS its open position's P&L (signed; owner
+    2026-10-18, the row's big number is cumulative), its closed trades and win rate. With no doc the open part is zero."""
     rows = _range_rows(trades, cutoff)
-    return dict((nm, _row_figs([qe_pnl_of(t) for t in rows if t.get('leg') == key])) for key, nm in LEG_KEYS)
+    opn = _open_pnl_by_leg(doc) if doc else {}
+    out = {}
+    for key, nm in LEG_KEYS:
+        f = _row_figs([qe_pnl_of(t) for t in rows if t.get('leg') == key])
+        if key in opn:
+            f['net'] = round(f['net'] + opn[key], 2)
+            f['value'] = signed(f['net'])
+        out[nm] = f
+    return out
 
 
 def expected_other_figs(trades, cutoff=None):
@@ -5092,7 +5121,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                      % (tag, lg.get('title'), lg.get('count'), expected_list_count(trades, cutoff, range_key)))
     if lg.get('sw'):
         fails.append('%s: the list draws %d switches; this board has none (every leg counts)' % (tag, lg['sw']))
-    figs = expected_leg_figs(trades, cutoff)
+    figs = expected_leg_figs(trades, cutoff, doc)
     other = expected_other_figs(trades, cutoff)
     want_names = (BOOK_NAMES_RETIRED if ret else BOOK_NAMES) + ([OTHER_NAME] if other else [])
     if other:
@@ -5145,7 +5174,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                     tag, rt['rows'][0].get('value'), rt['rows'][0].get('value2'), figs[RETIRED_NAME]['value'], figs[RETIRED_NAME]['value2']))
         # the rows add up to the account's range figure: BOOK + Retired are the legs that count, Shadow is never in it
         counted = [0.0 if x.get('value') == '—' else _money_val(x.get('value')) for g in (bk, rt) if g for x in g.get('rows') or []]
-        want_tot = round(sum(qe_pnl_of(t) for t in _range_rows(trades, cutoff)), 2)
+        # closed in the range + the open positions the counted rows carry (cumulative rows, owner 2026-10-18)
+        want_tot = round(sum(qe_pnl_of(t) for t in _range_rows(trades, cutoff)) + expected_open_total(doc), 2)
         if None not in counted and abs(sum(counted) - want_tot) > 0.011:
             fails.append('%s: BOOK + Retired add up to %s, the P&L of record of the range is %s (a shadow leg, or a leg with no row, '
                          'moved the list off the account number)' % (tag, signed(round(sum(counted), 2)), signed(want_tot)))
