@@ -200,3 +200,86 @@ def test_dry_run_counts_without_writing():
     assert q.sweep_orphans(log=lines.append, dry_run=True) == 1
     assert snap.writes == []
     assert any("DEAD" in ln for ln in lines)
+
+
+# -- MANAGER #118 (2026-10-18): research beacons are never requeued ----------------------------------------
+
+def test_a_stale_research_beacon_is_marked_stalled_never_requeued():
+    snap = _FakeSnap("B_beacon", {"type": "research", "status": "running", "progress": 40,
+                                  "strategy": "QWEN LAB QL_X", "claimedBy": "research-4242",
+                                  "heartbeat_at": _ago(30)})
+    q, _ = _queue([snap])
+    assert q.sweep_orphans(log=lambda *a: None) == 0
+    assert snap.data["status"] == "running" and snap.data["progress"] == 40
+    assert "stalled_at" in snap.data and "never requeued" in snap.data["stalled_note"]
+    assert len(snap.writes) == 1
+    q.sweep_orphans(log=lambda *a: None)                 # marked once, not on every sweep
+    assert len(snap.writes) == 1
+
+
+def test_a_fresh_research_beacon_is_left_alone_and_dry_run_never_writes():
+    fresh = _FakeSnap("B_fresh", {"type": "research", "status": "running", "claimedBy": "research-1",
+                                  "heartbeat_at": _ago(1)})
+    stale = _FakeSnap("B_stale", {"status": "running", "claimedBy": "research-2", "heartbeat_at": _ago(60)})
+    q, _ = _queue([fresh, stale])
+    assert q.sweep_orphans(log=lambda *a: None, dry_run=True) == 0
+    assert fresh.writes == [] and stale.writes == []
+    q.sweep_orphans(log=lambda *a: None)
+    assert fresh.writes == [] and stale.data["status"] == "running" and "stalled_at" in stale.data
+
+
+def test_is_research_beacon_by_type_or_claim():
+    from api.runner import is_research_beacon
+    assert is_research_beacon({"type": "research"})
+    assert is_research_beacon({"claimedBy": "research-77"})
+    assert not is_research_beacon({"type": "validate", "claimedBy": "runner-1-ab"})
+    assert not is_research_beacon(None)
+
+
+class _QueuedOnly:
+    def __init__(self, snaps):
+        self.snaps = snaps
+
+    def where(self, filter=None):
+        return self
+
+    def limit(self, _n):
+        return self
+
+    def stream(self):
+        return iter([s for s in self.snaps if s.data.get("status") == "queued"])
+
+
+class _NamedDoc:
+    def __init__(self, cols):
+        self.cols = cols
+
+    def collection(self, name):
+        return self.cols.get(name, _QueuedOnly([]))
+
+
+class _NamedDb:
+    def __init__(self, cols):
+        self.doc = _NamedDoc(cols)
+
+    def collection(self, _name):
+        return self
+
+    def document(self, _uid):
+        return self.doc
+
+
+def test_a_beacon_already_on_the_queue_is_restored_never_claimed():
+    """Older sweep code left beacons on 'queued'; the poll puts them back on 'running' (STALLED) unclaimed."""
+    snap = _FakeSnap("B_queued", {"type": "research", "status": "queued", "progress": 0,
+                                  "strategy": "QWEN LAB QL_Y", "claimedBy": "research-9"})
+    snap.create_time = snap.update_time
+    q = FirestoreQueue.__new__(FirestoreQueue)
+    q.col = "backtests"
+    q.allow = {"uid1"}
+    q.db = _NamedDb({"backtests": _QueuedOnly([snap])})
+    lines = []
+    q.run_once(log=lines.append)
+    assert snap.data["status"] == "running" and "stalled_at" in snap.data
+    assert snap.data.get("claimedBy") == "research-9" and len(snap.writes) == 1
+    assert any("research beacon" in x for x in lines)

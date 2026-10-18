@@ -576,6 +576,15 @@ def _claimant_alive(claimed_by):
         return None
 
 
+def is_research_beacon(job):
+    """A tools/research_beacon.py record: a dial for a LOCAL research driver, never a runner job. It has no
+    strategy file to run, so no runner may claim, run or requeue it (MANAGER #118, 2026-10-18: the sweep requeued
+    beacons whose driver was busy > ORPHAN_HB_STALE_MIN, a runner failed them with 'strategy not found: QWEN LAB
+    <id>.py', and the driver's finish() then wrote 'done' over the error)."""
+    j = job or {}
+    return j.get("type") == "research" or str(j.get("claimedBy") or "").startswith("research-")
+
+
 def orphan_verdict(heartbeat_age_min, update_age_min, claimant_alive):
     """Pure decision for one status='running' doc. Returns (dead, reason)."""
     if heartbeat_age_min is not None:
@@ -1951,6 +1960,17 @@ class FirestoreQueue:
                 for snap in _queued:
                     ref = snap.reference
                     job = snap.to_dict() or {}
+                    # A research beacon queued by older sweep code (before MANAGER #118) has no strategy to
+                    # run: put it back on 'running' for its driver, marked STALLED, and never claim it.
+                    if is_research_beacon(job):
+                        try:
+                            ref.update({"status": "running", "stalled_at": _now_utc(),
+                                        "stalled_note": "a research beacon found on the queue; restored for its "
+                                                        "driver, never run by a runner (MANAGER #118)"})
+                            log(f"  skip {snap.id} - research beacon on the queue, restored to running (STALLED)")
+                        except Exception as e:
+                            log(f"  skip {snap.id} - research beacon; restore failed: {type(e).__name__}: {e}")
+                        continue
                     # web STOP before the job even started -> cancel without running.
                     if job.get("control") == "stop":
                         ref.update({"status": "cancelled", "finishedAt": time.time()})
@@ -2283,6 +2303,24 @@ class FirestoreQueue:
                     continue          # mine, and I am alive
                 hb = _age_min(j.get("heartbeat_at"))
                 upd = _age_min(getattr(snap, "update_time", None))
+                if is_research_beacon(j):
+                    # Never requeued: its driver owns it and finish() closes it. A stale heartbeat only
+                    # marks it STALLED, once (the top-bar dial already turns amber on the heartbeat age).
+                    if hb is not None and hb >= ORPHAN_HB_STALE_MIN and not j.get("stalled_at"):
+                        if dry_run:
+                            log(f"[orphan:{tag}] {snap.id} research beacon {j.get('strategy')!r} - "
+                                f"heartbeat {hb:.0f} min old: would mark STALLED (never requeued)")
+                            continue
+                        try:
+                            snap.reference.update({
+                                "stalled_at": now,
+                                "stalled_note": (f"research beacon heartbeat {hb:.0f} min old at the {tag} "
+                                                 f"sweep; left for its driver (beacons are never requeued)")})
+                            log(f"[orphan] {snap.id}: research beacon {j.get('strategy')!r} marked STALLED "
+                                f"(heartbeat {hb:.0f} min old) - not requeued")
+                        except Exception as e:
+                            log(f"[orphan] STALLED mark of {snap.id} failed: {type(e).__name__}: {e}")
+                    continue
                 dead, why = orphan_verdict(hb, upd, _claimant_alive(j.get("claimedBy")))
                 if dry_run:
                     log(f"[orphan:{tag}] {snap.id} {j.get('strategy')} {j.get('progress')}% "
