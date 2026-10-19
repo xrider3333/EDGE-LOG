@@ -14,11 +14,14 @@ Then a PASS / WEAK / FAIL verdict against professional thresholds.
 import datetime as _dt
 import json as _json
 import random as _random
+import time as _time
 
 from .data import find_master, load_master_arrays, window_cut_rule
 from .engine import run_backtest
 from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METRIC_KEYS,
-                   make_slice_evaluator, score_candidates_on_folds, WARM_DAYS)
+                   make_slice_evaluator, score_candidates_on_folds, WARM_DAYS,
+                   EngineOutOfMemory, oom_mark as _oom_mark,
+                   raise_if_oom_since as _raise_if_oom_since)
 from .optimize import run_grid
 from .analytics import probability_backtest_overfitting, equity_curve_from_pnls, power_stats
 from .analytics import strip_lb_tails
@@ -45,6 +48,111 @@ def _parse(d):
         return _dt.date.fromisoformat(str(d)[:10])
     except Exception:
         return None
+
+
+# ── STAGE CLOCK (W46, owner 2026-10-18: "why is it taking 11 hours"). A validate printed
+#    nothing between its progress ticks, so a multi-hour stall could not be placed in a
+#    stage. Every stage boundary now prints one line with the wall-clock time and the
+#    seconds elapsed (end lines also carry the cache-write failures and None backtests
+#    counted so far, so a run killed mid-way has already logged them), and the saved
+#    result carries `timings` (seconds per stage) and `code_stamps`. Metadata only -
+#    nothing it records feeds back into any number. ──
+def _engine_git_sha():
+    """`git rev-parse HEAD` of the repo this engine was loaded from; '' on any failure."""
+    try:
+        import os as _os
+        import subprocess as _sp
+        root = _os.path.dirname(_os.path.dirname(_os.path.abspath(__file__)))
+        r = _sp.run(["git", "-C", root, "rev-parse", "HEAD"], capture_output=True,
+                    text=True, timeout=10,
+                    creationflags=getattr(_sp, "CREATE_NO_WINDOW", 0))
+        return (r.stdout or "").strip() if r.returncode == 0 else ""
+    except Exception:
+        return ""
+
+
+# The commit this engine's code was LOADED from, read once at import (W46 review). The
+#   runner imports augur_engine once at boot (augur_engine/__init__ imports this module
+#   eagerly) and keeps running that code while `wt.py ship` fast-forwards the checkout
+#   under it, so asking git again at each stage would stamp a commit that never ran.
+#   Each stamp's `disk_git_sha` is the checkout's HEAD when that stage began: when it
+#   differs from `git_sha`, a ship landed after this process started (Stage B's pool
+#   workers, spawned fresh from disk, may then run the newer code).
+_LOADED_GIT_SHA = _engine_git_sha()
+
+
+def _engine_epoch():
+    try:
+        from . import ENGINE_CACHE_EPOCH     # deferred: package __init__ sets it last
+        return ENGINE_CACHE_EPOCH
+    except Exception:
+        return None
+
+
+class _StageClock:
+    """begin(stage) / split(stage, part) / end(stage) -> one printed marker line each,
+    `timings[...]` in seconds, and a code stamp per stage begun. `check` (optional) runs
+    first at every begin / end / total - run_validate passes the out-of-memory check, so
+    an EngineOutOfMemory some broad handler swallowed inside a stage still stops the job
+    at that stage's boundary."""
+
+    def __init__(self, check=None):
+        self.t0 = _time.time()
+        self.timings = {}
+        self.code_stamps = []
+        self._start = {}
+        self._last = {}
+        self._check = check
+
+    def _line(self, what, now, health=False):
+        try:     # a log line must never break a validate
+            hl = ""
+            if health:
+                from . import trial_cache as _TC
+                _h = _TC.health_stats()
+                hl = f" [cache put_failed {_h['put_failed']} none_trials {_h['none_trials']}]"
+            print(f"[validate] STAGE {what} at "
+                  f"{_dt.datetime.now().strftime('%Y-%m-%d %H:%M:%S')} "
+                  f"(elapsed {now - self.t0:.1f} s){hl}", flush=True)
+        except Exception:
+            pass
+
+    def begin(self, stage):
+        if self._check is not None:
+            self._check()
+        now = _time.time()
+        self._start[stage] = self._last[stage] = now
+        self.code_stamps.append({"stage": stage, "git_sha": _LOADED_GIT_SHA,
+                                 "disk_git_sha": _engine_git_sha(),
+                                 "engine_epoch": _engine_epoch()})
+        self._line(f"{stage} start", now)
+
+    def split(self, stage, part):
+        now = _time.time()
+        sec = now - self._last.get(stage, now)
+        self._last[stage] = now
+        self.timings[part] = round(sec, 3)
+        self._line(f"{stage} {part} done (+{sec:.1f} s)", now)
+
+    def end(self, stage, tail=None):
+        if self._check is not None:
+            self._check()
+        now = _time.time()
+        part = ""
+        if tail:
+            tsec = now - self._last.get(stage, now)
+            self.timings[tail] = round(tsec, 3)
+            part = f"{tail} +{tsec:.1f} s, "
+        sec = now - self._start.get(stage, now)
+        self.timings[stage] = round(sec, 3)
+        self._line(f"{stage} end ({part}stage +{sec:.1f} s)", now, health=True)
+
+    def total(self):
+        if self._check is not None:
+            self._check()
+        now = _time.time()
+        self.timings["total"] = round(now - self.t0, 3)
+        self._line("validate end", now, health=True)
 
 
 # These three were defined here and nowhere else, which is why only an Auto-Validate run
@@ -616,6 +724,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     # EDGELOG_VALIDATE_WORKERS in its launcher; a caller may pass workers= explicitly.
     # Only Stage B uses it - Stage A is an adaptive search and stays in-line.
     import os as _os
+    # W46 stage markers + result['timings'] / ['code_stamps']. Every boundary also re-raises
+    #   an EngineOutOfMemory raised since this call began, even one a broad handler inside
+    #   the stage swallowed: an out-of-memory backtest stops the job, it never becomes a
+    #   0-trade lockbox FAIL or an in-sample-max crown.
+    _oom0 = _oom_mark()
+    _clk = _StageClock(check=lambda: _raise_if_oom_since(_oom0))
     try:
         _wf_workers = int(workers) if workers else int(_os.environ.get("EDGELOG_VALIDATE_WORKERS", "1") or 1)
     except Exception:
@@ -656,6 +770,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     evolved_file = None
     discover_err = None
     if str(discover) == "evolve":
+        _clk.begin("stage_0_evolve")
         try:
             from .ai import ai_evolve
             ev = ai_evolve(strategy, instrument=instrument, timeframe=timeframe,
@@ -668,9 +783,24 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 strategy = evolved_file   # judge the evolved strategy from here on
         except Exception as e:
             discover_err = f"{type(e).__name__}: {e}"   # fall back to the original strategy
+        _clk.end("stage_0_evolve")
     aS, aE, bS, bE = (30, 55, 55, 90) if evolved_file else (0, 40, 40, 90)
 
     # ── Stage A — in-sample Auto-Optimize (single 75/25 split) ────────────────
+    #    The search's last progress tick (done == total) is the search/tail boundary:
+    #    after it come the out-of-sample re-test, auto-expand, surrogate, neighbourhood,
+    #    equity-top and DSR, none of which ticks. The wrapper only observes; it forwards
+    #    every tick unchanged.
+    _a_prog = _stage(aS, aE)
+    _a_search_done = [False]
+
+    def _a_cb(done, total):
+        if total and done >= total and not _a_search_done[0]:
+            _a_search_done[0] = True
+            _clk.split("stage_a", "stage_a_search")
+        _a_prog(done, total)
+
+    _clk.begin("stage_a")
     A = run_auto(strategy, instrument=instrument, timeframe=timeframe, session=session,
                  source=source, method="single", oos=True, n_trials=n_trials,
                  cost_pts=cost_pts, min_trades=min_trades, top_n=24, seed=seed,
@@ -685,7 +815,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  auto_steer=True,
                  auto_expand=auto_expand,   # see the note on the signature above
                  warm_days=_warm_days,
-                 date_from=opt_from, date_to=opt_to, progress_cb=_stage(aS, aE)) or {}
+                 date_from=opt_from, date_to=opt_to, progress_cb=_a_cb) or {}
+    _clk.end("stage_a", tail=("stage_a_tail" if _a_search_done[0] else None))
     # #88 (2026-07-20): `select_oos_topk` USED to follow the same "library default off,
     # production opts in at its one call site" pattern as auto_steer above. It no longer
     # does — the signature default is now 5/ON (owner 2026-07-23, option A), because every
@@ -734,8 +865,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 "fold_frac": ((hd / nf) if nf else 0.0)}
 
     _bmid = (bS + bE) // 2
+    _clk.begin("stage_b")
     wf_roll = _run_wf("rolling", bS, _bmid)
+    _clk.split("stage_b", "stage_b_rolling")
     wf_anch = _run_wf("anchored", _bmid, bE)
+    _clk.end("stage_b", tail="stage_b_anchored")
     # primary = the stronger scheme (fold consistency, then WFE); ties -> rolling
     _prim = (wf_anch if (wf_anch["ran"] and
                          (wf_anch["fold_frac"], wf_anch["wfe"]) > (wf_roll["fold_frac"], wf_roll["wfe"]))
@@ -780,6 +914,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     _sample_k = int(oos_sample_k or 0)
     _arr_sel = None          # optimize-window arrays, loaded at most once below
     _select_k = int(select_oos_topk or 0)
+    _clk.begin("selection")
     if _select_k >= 2 and champ:
         try:
             _arr_sel = load_master_arrays(master, date_from=opt_from, date_to=opt_to)
@@ -788,6 +923,11 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 save_fold_detail=_fold_detail, warm_days=_warm_days)
             is_trades = int(bestA.get("num_trades", 0) or 0)
             tpp = (is_trades / nparam) if nparam else 0.0
+        except EngineOutOfMemory:
+            # W46: #88's "a selection failure never breaks Auto-Validate" is for bugs. An
+            #   out-of-memory candidate stops the job: crowning the in-sample max instead
+            #   would then spend the one-shot lockbox on a config selection never chose.
+            raise
         except Exception as _sel_e:
             selection = {"mode": "wf_oos_topk", "k": _select_k, "candidates": [],
                         "is_max_crowned": True,
@@ -827,9 +967,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                                  "error": "champion selection off — oos_sample only"}
                 selection["oos_sample"] = _smp
                 selection["oos_sample_k"] = _sample_k
+        except EngineOutOfMemory:
+            raise                      # W46: stops the job, never an oos_sample_error
         except Exception as _smp_e:
             if isinstance(selection, dict):
                 selection["oos_sample_error"] = f"{type(_smp_e).__name__}: {_smp_e}"
+    _clk.end("selection")
 
     # ── Gate ──────────────────────────────────────────────────────────────────
     plateau_ran = bool(nb)
@@ -841,6 +984,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "luck": (not dsr) or float(dsr.get("dsr", 1) or 1) >= th["dsr"],
     }
     # ── Stage C — lockbox one-shot (champion on the reserved slice) ───────────
+    _clk.begin("lockbox")
     _lb_run = _make_lockbox_runner(strategy, master, instrument, timeframe, session,
                                    source, opt_from, lb_from, date_to, cost_pts,
                                    _warm_days)
@@ -848,8 +992,14 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     if champ:
         if progress_cb:
             progress_cb(92, 100)
+        # W46: the lockbox is ONE-SHOT - never open it after an out-of-memory backtest
+        #   anywhere earlier in this validate, and never record one AS the lockbox result
+        #   (a 0-trade FAIL that would spend it): both stop the job instead.
+        _raise_if_oom_since(_oom0)
         try:
             lb = _lb_run(champ)
+        except EngineOutOfMemory:
+            raise
         except Exception:
             lb = None
     # extend the equity curve through the (never-optimized) lockbox slice
@@ -938,6 +1088,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                                   "final": round(float(s), 1),
                                   "base": round(base, 1),
                                   "t": times}
+        except EngineOutOfMemory:
+            raise                      # W46: stops the job, never a silently missing row
         except Exception:
             pass
 
@@ -956,6 +1108,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                                   for kk in ("total_pnl", "num_trades", "profit_factor",
                                              "win_rate", "max_drawdown", "avg_pnl")}
                                  if isinstance(_sbt, dict) else None)
+            except EngineOutOfMemory:
+                raise                  # W46
             except Exception:
                 _s["lockbox"] = None
 
@@ -963,6 +1117,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     # robust + oos_sample), applied once, after every `folds` block above exists.
     if _fold_detail and isinstance(selection, dict):
         _apply_fold_budget(selection)
+    _clk.end("lockbox")
+    _clk.begin("whole_run")     # lockbox/IS distributions, power, whole-window KPIs, transfer
 
     # ── LOCKBOX-slice distributions for the 1D/1G report tiles (owner: those charts should
     #    be viewable on the OUT-OF-SAMPLE slice, not just the whole run). win_dist = per-trade
@@ -1191,6 +1347,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                              "pass": tpnl > 0 and tpf >= 1.0})
     if champ and tlist:
         checks["transfer"] = any(t["pass"] for t in transfer)
+    _clk.end("whole_run")
+    _clk.begin("surrogate")
 
     # ── v66.5: walk-forward the surrogate picks (2K). The models are FIT on in-sample results
     #    only, so their picks carried no out-of-sample evidence at all. Scoring them on the same
@@ -1240,6 +1398,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                         return {"total_pnl": round(sum(sel), 4), "num_trades": len(sel),
                                 "max_drawdown": round(dd, 4)}
                     return {"is": _sl(None, _wfB0s), "wf": _sl(_wfB0s, None), "pre": _sl(None, None)}
+                except EngineOutOfMemory:
+                    raise              # W46
                 except Exception:
                     return None
 
@@ -1272,12 +1432,18 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                         _m["lb"] = {k: _lbm.get(k) for k in
                                     ("total_pnl", "num_trades", "profit_factor",
                                      "win_rate", "max_drawdown", "avg_pnl")}
+                except EngineOutOfMemory:
+                    raise              # W46
                 except Exception:
                     _m["lb"] = None
             _sur["lb_scored"] = True
+    except EngineOutOfMemory:
+        raise                          # W46: stops the job, never "surrogate ... skipped"
     except Exception as _se:
         import traceback as _st2
         print("[validate] surrogate walk-forward/lockbox skipped:", repr(_se)); _st2.print_exc()
+    _clk.end("surrogate")
+    _clk.begin("gate")          # gate bake-off + PBO
 
     # ── Gate bake-off + PBO — both re-run the champion / candidates on already-resolved data. ──
     #    GATE BAKE-OFF: ungated (take every trade) + logistic / RF / XGB gates × cut-offs, ranked
@@ -1365,6 +1531,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             pbo = None
     if pbo is not None:
         checks["pbo"] = (float(pbo.get("pbo", 1.0)) <= 0.5)   # overfit-of-selection gate
+    _clk.end("gate")
 
     # ── Adversarial validation (board §4): is the reserved lockbox a DIFFERENT regime
     #    than the training history? Trains a classifier to tell lockbox bars from
@@ -1384,6 +1551,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     #   turned off separately since gate_feature_select was measured as the single most
     #   expensive pill (~28s of a ~64s bundle on a 16-year NQ 1m window).
     adversarial = conformal = causal = synthetic = leadlag = acf = vif = featsel = edgesig = tailfit = season = None
+    _clk.begin("pills")
     if compute_pills:
         try:
             from .analytics import run_pills
@@ -1410,6 +1578,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             leadlag = _pills.get("lead_lag")
         except Exception:
             pass
+    _clk.end("pills")
 
     # ── Advisory flags — shown in the checklist as context, but they do NOT hard-fail the
     #    verdict (regime drift / collinearity are caveats, not kill-switches; a gate not helping
@@ -1509,6 +1678,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "flags": flags,               # advisory: gate choice · adversarial regime drift · VIF
         "champion": champ, "thresholds": th,
     }
+    _clk.total()
     # Shape stays compatible with the Runs-history saver (best / top / dsr).
     return {
         "mode": "validate", "validate": report,
@@ -1562,4 +1732,9 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         # champion's own optimize-window claim) — None when the lockbox stage didn't
         # run at all; {"error": ...} if power_stats/the optimize-window backtest failed.
         "power": power,
+        # W46 (2026-10-18) metadata only: seconds per stage (see _StageClock) and, per stage,
+        #   the engine commit this process LOADED, the checkout's HEAD when the stage began
+        #   (they differ when a ship landed after the runner started) and the cache epoch.
+        "timings": _clk.timings,
+        "code_stamps": _clk.code_stamps,
     }

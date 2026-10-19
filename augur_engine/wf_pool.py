@@ -57,14 +57,21 @@ def init_worker(strategy, master, date_from, date_to, arrays, cost_pts, session,
 
 def fold_task(spec):
     """One fold. spec = (f, tr_start, tr_end, te_s, te_e, space, dp, pkeys, seed,
-    n_trials, min_trades[, warm_days]). Returns (f, row-or-None). The trailing
+    n_trials, min_trades[, warm_days]). Returns (f, row-or-None, health): `health`
+    (W46 review) is this fold's failed cache writes and None backtests by exception
+    class, counted in THIS worker process (trial_cache.health_delta); the parent adds
+    it to its own counters (trial_cache.merge_health), so the runner's
+    'put_failed / none_trials' line covers Stage B's folds too. The trailing
     warm_days is optional so a spec built by older code (the tests build them by hand)
     still runs, cold, exactly as it did."""
+    import os
     from .auto import _wf_fold_row
+    from . import trial_cache as TC
     (f, tr_start, tr_end, te_s, te_e, space, dp, pkeys, seed, n_trials,
      min_trades) = spec[:11]
     warm = bool(int(spec[11])) if len(spec) > 11 else bool(_W.get("warm"))
+    h0 = TC.health_stats()
     row = _wf_fold_row(_W["ev"], _W["H"], _W["L"], space, dp, pkeys, seed, n_trials,
                        min_trades, _W["cost_pts"], f, tr_start, tr_end, te_s, te_e,
                        index=_W.get("IDX"), warm=warm)
-    return f, row
+    return f, row, TC.health_delta(h0, TC.health_stats(), pid=os.getpid())

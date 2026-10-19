@@ -26,10 +26,26 @@ import augur_engine.auto  # noqa: F401  (bind the worktree's engine before the h
 import augur_engine.data  # noqa: F401
 import augur_engine.engine  # noqa: F401
 import augur_engine.strategies  # noqa: F401
+# ...and the worktree's `api` package: the harness puts the SHARED checkout first on sys.path,
+# so a later `from api import runner` in any test collected after this file (none of which had
+# imported `api` yet) would otherwise load the shared checkout's older runner.
+import api  # noqa: F401
 
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.abspath(__file__)), "..", "tools"))
 import balance_r1_stageA as BAL  # noqa: E402
 import power_line as PL  # noqa: E402
+
+# The harness put its ROOT (the SHARED checkout, unless EDGELOG_REPO_ROOT says otherwise) FIRST
+# on sys.path. Nothing here needs it there - the engine was bound above, the harness's own
+# modules come from tools/ - and left in place it made every test collected after this file
+# resolve top-level names from the shared checkout: `tools.keel_live_state` (a namespace
+# package, so even an earlier import of `tools` does not pin it) failed
+# test_keel_live_state.py's NQ roll test in any session that collected this file first.
+_THIS_REPO = os.path.normcase(os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+_HARNESS_ROOT = os.path.normcase(os.path.abspath(BAL.ROOT))
+if _HARNESS_ROOT != _THIS_REPO:
+    sys.path[:] = [p for p in sys.path
+                   if not p or os.path.normcase(os.path.abspath(p)) != _HARNESS_ROOT]
 
 TZ = "US/Eastern"
 HM = 570 + 5 * np.arange(78)

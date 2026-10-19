@@ -603,6 +603,15 @@ def orphan_verdict(heartbeat_age_min, update_age_min, claimant_alive):
     return False, "cannot tell yet"
 
 
+def _validate_workers() -> int:
+    """The walk-forward worker count run_validate will read (EDGELOG_VALIDATE_WORKERS);
+    1 when unset or unreadable. Only used to label the cache line honestly."""
+    try:
+        return max(1, int(os.environ.get("EDGELOG_VALIDATE_WORKERS", "1") or 1))
+    except Exception:
+        return 1
+
+
 def process_job(job: dict, progress_cb=None) -> dict:
 
 
@@ -627,6 +636,12 @@ def process_job(job: dict, progress_cb=None) -> dict:
             TC.reset_stats()
         except Exception:
             pass
+    try:
+        # W46: failed cache writes + backtests that came back None by exception class,
+        # scoped to this job the same way (counted with the cache on or off).
+        TC.reset_health()
+    except Exception:
+        pass
     try:
         if jtype == "grid":
             # workers>1 spawns a ProcessPoolExecutor (augur_mp_worker.eval_chunk runs
@@ -881,6 +896,13 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 ml_threshold=float(job.get("ml_threshold", 0.50) or 0.50),
                 ml_min_history=int(job.get("ml_min_history", 30) or 30))
     except Exception as e:
+        try:   # W46 review: a FAILED job (an out-of-memory stop included) says it too
+            _hl = TC.health_stats()
+            if _hl["put_failed"] or _hl["none_trials"]:
+                print(f"    -> engine (job failed): put_failed {_hl['put_failed']} "
+                      f"none_trials {_hl['none_trials']}")
+        except Exception:
+            pass
         return {"status": "error", "error": f"{type(e).__name__}: {e}",
                 "finishedAt": time.time()}
     if r is None:
@@ -895,9 +917,25 @@ def process_job(job: dict, progress_cb=None) -> dict:
                 # as if it were the complete picture -- label it explicitly instead.
                 summary["note"] = "parallel-grid counts not aggregated (workers>1 -- parent-process only)"
                 note = " [parent-process only; workers>1]"
+            elif jtype == "validate" and _validate_workers() > 1:
+                # Same caveat for a validate whose Stage B folds ran in wf_pool workers:
+                # their hits/misses stay in those processes. (put_failed / none_trials
+                # below DO include them - each fold hands its own counts back.)
+                summary["note"] = ("walk-forward fold counts not aggregated "
+                                   "(EDGELOG_VALIDATE_WORKERS>1 -- parent-process only)")
+                note = " [hits/total parent-process only; validate workers>1]"
             r["cache_reuse"] = summary
+            _hl = TC.health_stats()
             print(f"    -> cache: reused {summary['hits']}/{summary['total']} configs "
-                  f"({summary['pct_reused']}%){note}")
+                  f"({summary['pct_reused']}%){note} put_failed {_hl['put_failed']} "
+                  f"none_trials {_hl['none_trials']}")
+        except Exception:
+            pass
+    else:
+        try:   # cache off: still say when backtests silently came back None
+            _hl = TC.health_stats()
+            if _hl["none_trials"]:
+                print(f"    -> engine: none_trials {_hl['none_trials']}")
         except Exception:
             pass
     return {"status": "done", "result": json_safe(r), "finishedAt": time.time()}

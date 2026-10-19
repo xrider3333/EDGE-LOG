@@ -511,7 +511,7 @@ def run_backtest(strategy, *, instrument=None, timeframe="5m", session="rth",
                 TC.put(_cache_key, res, strategy_file_sha=_cache_ctx["strategy_file_sha"],
                       master_id=_cache_ctx["master_id"], engine_epoch=_cache_ctx["engine_epoch"])
             except Exception:
-                pass
+                TC.record_put_failed()   # W46: counted, still never fatal
         # PR4 (window_delta): persist this FULL window's gross trades — whether
         # they came from a from-scratch compute or were just built by a delta
         # extension — so a LATER, larger date_to can extend from THIS window.

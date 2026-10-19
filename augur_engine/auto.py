@@ -19,11 +19,14 @@ Two modes, same call:
 Determinism: seeded random sampler (seed=42), no optuna dependency, so results are
 reproducible across machines — matching the app's _HAS_OPTUNA=False fallback path.
 """
+import errno as _errno
+import gc
 import inspect
 import math
 import os
 import random as _random
 import threading
+import time as _time
 
 import numpy as _np
 
@@ -84,6 +87,102 @@ AUTO_EXPAND_WIDTH_CAP = 2.0   # ...but the final width (measured from the ORIGIN
 _METRIC_KEYS = ("total_pnl", "num_trades", "win_rate", "profit_factor",
                 "max_drawdown", "avg_pnl", "wins", "losses")
 
+# OUT-OF-MEMORY RETRY (W46, owner 2026-10-18). A backtest that hit MemoryError used to be
+# swallowed by `except Exception: return None` like any strategy bug, so a long validate
+# on a memory-starved PC quietly scored real configs as "no result". Now a memory failure
+# (MemoryError, or an OSError whose code says out of memory - on Windows a failed commit of
+# the paging file surfaces as one) frees what it can, waits for memory to come back, and
+# retries; if it still fails, the job STOPS with a clear error instead of saving a result
+# built on silent gaps. Any OTHER OSError (a missing or briefly locked file) is an ordinary
+# strategy failure: None for that config, counted by class, exactly as before W46.
+_OOM_RETRIES = 3                          # retries after the first failure (4 attempts in all)
+_OOM_MIN_AVAIL_BYTES = int(2.5 * 1024 ** 3)
+_OOM_BACKOFF_S = (15, 30, 60)             # sleep steps; the last repeats while memory is short
+_OOM_MAX_WAIT_S = 600                     # total waiting per evaluation, across its retries
+# Windows system error codes that mean "out of memory" when they reach Python as OSError:
+#   8 ERROR_NOT_ENOUGH_MEMORY, 14 ERROR_OUTOFMEMORY, 1455 ERROR_COMMITMENT_LIMIT
+#   ("the paging file is too small for this operation to complete").
+_OOM_WINERRORS = (8, 14, 1455)
+
+# Every EngineOutOfMemory raised in this process, COUNTED (W46 review). Older broad
+# `except Exception` handlers (validate's selection / lockbox extras, the surrogate
+# bake-off's ground-truth loop) would otherwise turn the raise back into the silent gap it
+# exists to prevent. run_auto and run_validate note the count when they start and re-raise
+# at every stage boundary when it moved. A count rather than a flag, so nothing ever has to
+# reset it and a nested call can never clear an outer caller's evidence.
+_OOM_EVENTS = {"count": 0, "last": None}
+
+
+class EngineOutOfMemory(RuntimeError):
+    """A backtest kept running out of memory after every retry."""
+
+
+def _is_oom(e):
+    """True for a memory failure: MemoryError, or an OSError carrying ENOMEM or one of
+    the Windows out-of-memory codes above. FileNotFoundError, PermissionError,
+    TimeoutError, ... are not."""
+    if isinstance(e, MemoryError):
+        return True
+    if isinstance(e, OSError):
+        return (getattr(e, "errno", None) == _errno.ENOMEM
+                or getattr(e, "winerror", None) in _OOM_WINERRORS)
+    return False
+
+
+def oom_mark():
+    """How many EngineOutOfMemory this process has raised so far (see _OOM_EVENTS)."""
+    return _OOM_EVENTS["count"]
+
+
+def raise_if_oom_since(mark):
+    """Re-raise EngineOutOfMemory when one was raised since `mark` (an oom_mark() value)
+    - even if some broad `except Exception` swallowed it on the way up."""
+    if _OOM_EVENTS["count"] != mark:
+        raise EngineOutOfMemory(_OOM_EVENTS["last"] or "out of memory after retries")
+
+
+def _available_memory():
+    """Bytes of RAM available now, or None when psutil is missing or cannot say."""
+    try:
+        import psutil
+    except Exception:
+        return None
+    try:
+        return int(psutil.virtual_memory().available)
+    except Exception:
+        return None
+
+
+def _wait_for_memory(attempt, why, waited_so_far=0.0):
+    """Free memory, sleep this attempt's backoff step, then keep waiting (backing off)
+    while psutil says less than _OOM_MIN_AVAIL_BYTES is available - all inside this
+    evaluation's _OOM_MAX_WAIT_S budget. The first step is slept even when psutil reports
+    plenty: its figure is PHYSICAL RAM, not the Windows commit limit a MemoryError usually
+    means, and a spike in another process needs time to pass; back-to-back retries could
+    only fail the same way. Returns (seconds slept, last available-bytes reading or None)."""
+    gc.collect()
+    print(f"[engine] {why} in a backtest - retry {attempt}/{_OOM_RETRIES} "
+          f"after freeing memory", flush=True)
+    budget = max(0.0, _OOM_MAX_WAIT_S - waited_so_far)
+    slept = 0.0
+    step = attempt - 1
+    s = min(_OOM_BACKOFF_S[min(step, len(_OOM_BACKOFF_S) - 1)], budget)
+    if s > 0:
+        _time.sleep(s)
+        slept += s
+    gc.collect()
+    avail = _available_memory()
+    while avail is not None and avail < _OOM_MIN_AVAIL_BYTES:
+        step += 1
+        s = min(_OOM_BACKOFF_S[min(step, len(_OOM_BACKOFF_S) - 1)], budget - slept)
+        if s <= 0:
+            break
+        _time.sleep(s)
+        slept += s
+        gc.collect()
+        avail = _available_memory()
+    return slept, avail
+
 
 def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_days=0):
     """Factored out of run_auto's per-trial `_ev` closure (#88, OOS-checked champion
@@ -96,7 +195,13 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
 
     `strategy` may be a path/filename (loaded via `load_strategy`) or an already-loaded
     module. Returns a callable `ev(a, b, params, keep_trades=False) -> metrics dict |
-    None` — None on any backtest exception (never raises).
+    None` — None on a backtest exception (counted by class in trial_cache.health_stats).
+    The one exception that is NOT swallowed: a memory failure (MemoryError, or an OSError
+    whose code says out of memory - see _is_oom) is retried after freeing and waiting for
+    memory, and raises EngineOutOfMemory (a RuntimeError) when every retry fails (W46) —
+    an out-of-memory config is a broken run, not "no result". Every such raise is also
+    counted (oom_mark / raise_if_oom_since), so a caller's broad `except Exception` cannot
+    make it disappear.
 
     `cache_ctx` (docs/INCREMENTAL_BACKTEST_REUSE.md, PR1) — optional, per-job constant
     key material from trial_cache.build_ctx. None (the default) means "don't cache" —
@@ -110,10 +215,12 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
     `warm_days` (RESEARCH.md item 7) — how many earlier TRADING SESSIONS a call that
     asks for it may run over before its own first bar. It changes nothing by itself:
     only a call that passes `warm=True` warms up, and with `warm_days=0` (the default)
-    even those calls behave exactly as they always did, byte for byte. A warm call is
-    never served from or written to the trial cache (it needs the trade list, and the
-    trades-bypass guard above covers that), so a warmed stretch and a cold slice with
-    the same bounds can never collide on a cache key."""
+    even those calls behave exactly as they always did, byte for byte. The warm-up
+    backtest itself needs the trade list and is never cached; since W46 (2026-10-18) the
+    FINAL trimmed, trades-free metrics of a warm call with keep_trades=False are cached
+    under their own tag (`warm:v1|wd=<warm_days>|w=<warm start bar>`), so a warmed
+    stretch and a cold slice with the same bounds still never share a key, and a strategy
+    that cannot be warmed (no trade list -> the cold fallback) is never cached under it."""
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
     fn = mod.run_backtest
     sp = inspect.signature(fn).parameters
@@ -161,15 +268,34 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
         w = warm_start_bar(a) if warm else int(a)
         if w >= int(a):
             return _ev_cold(a, b, params, keep_trades)
+        # W46 (2026-10-18): Stage A re-tests EVERY searched config on its warmed 25% leg,
+        #   and this branch never reached the cache, so each restart of a long validate
+        #   re-paid all of them. The final trimmed metrics are cached under their own tag.
+        wkey = None
+        if cache_ctx is not None and not keep_trades:
+            try:
+                if TC.is_enabled():
+                    wkey = TC.make_key(cache_ctx, params, a, b,
+                                       tag=f"warm:v1|wd={warm_days}|w={w}")
+                    cached = TC.get(wkey)
+                    if cached is not None:
+                        TC.record_hit()
+                        return cached
+                    TC.record_miss()
+            except Exception:
+                wkey = None   # cache machinery failed -- fall through to a normal compute
         m = _ev_cold(w, b, params, keep_trades=True)
         # A strategy that returns no trade list cannot be warmed — its numbers would
         # then include profit earned BEFORE the stretch, which is exactly the error
         # this path exists to avoid. Fall back to the plain cold evaluation instead.
+        # (Never written under the warm tag: that key means "the warmed numbers".)
         if not m or m.get("trades") is None:
             return _ev_cold(a, b, params, keep_trades)
         m = keep_trades_entering_at_or_after(m, int(a) - w)
         if not keep_trades:
             m.pop("trades", None)
+        if wkey is not None:
+            TC.put_safe(wkey, m, cache_ctx)
         return m
 
     def _ev_cold(a, b, params, keep_trades=False):
@@ -192,30 +318,53 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
             ex["day_id"] = did[a:b]
         if pass_idx:
             ex["index"] = IDX[a:b]
-        try:
-            with _R.roll_context(_rctx, _rtimes[a:b], _rtf, strategy=_sname):
-                if cost_pts > 0 or _rroot is not None or _rratio:
-                    m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **params)
-                else:
-                    m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
-            if m and _radj:
-                m = _R.reprice_result(m, _rplan, offset=a)
-            if m and _rroot is not None:
-                _R.check_crossings(_sname, _rmeta, _rtimes[a:b], m.get("trades"), roll_aware=False)
-            if m and cost_pts > 0:
-                m = _apply_costs(m, cost_pts)
-            if m and not keep_trades:
-                m.pop("trades", None)
-        except (_R.RollGuardError, _R.RollContextMissing):
-            raise
-        except Exception:
-            return None
-        if key is not None and m is not None:
+        attempt = 0
+        waited = 0.0
+        avail = None
+        while True:
+            oom = None
             try:
-                TC.put(key, m, strategy_file_sha=cache_ctx["strategy_file_sha"],
-                      master_id=cache_ctx["master_id"], engine_epoch=cache_ctx["engine_epoch"])
-            except Exception:
-                pass
+                with _R.roll_context(_rctx, _rtimes[a:b], _rtf, strategy=_sname):
+                    if cost_pts > 0 or _rroot is not None or _rratio:
+                        m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **params)
+                    else:
+                        m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=keep_trades, **ex, **params)
+                if m and _radj:
+                    m = _R.reprice_result(m, _rplan, offset=a)
+                if m and _rroot is not None:
+                    _R.check_crossings(_sname, _rmeta, _rtimes[a:b], m.get("trades"), roll_aware=False)
+                if m and cost_pts > 0:
+                    m = _apply_costs(m, cost_pts)
+                if m and not keep_trades:
+                    m.pop("trades", None)
+                break
+            except (_R.RollGuardError, _R.RollContextMissing):
+                raise
+            except Exception as _e:
+                if not _is_oom(_e):
+                    # a strategy bug, a missing / briefly locked file, ...: None for this
+                    # config, as always - but counted by class (trial_cache.health_stats)
+                    TC.record_none(type(_e).__name__)
+                    return None
+                attempt += 1
+                oom = f"{type(_e).__name__}: {_e}"
+                if attempt > _OOM_RETRIES:
+                    _seen = ("unknown (psutil unavailable)" if avail is None
+                             else f"{avail / 1024 ** 3:.1f} GiB")
+                    _msg = (f"out of memory after retries: a backtest raised {oom} on "
+                            f"{attempt} attempts after {waited:.0f} s of waiting (RAM "
+                            f"available before the last attempt: {_seen}; bars {a}..{b}, "
+                            f"params {params}); stopping the job rather than scoring this "
+                            f"config as 'no result'")
+                    _OOM_EVENTS["count"] += 1
+                    _OOM_EVENTS["last"] = _msg
+                    raise EngineOutOfMemory(_msg) from _e
+            # Outside the except block, so the failed attempt's frames (and the arrays
+            # they hold) are already released before gc runs and the next attempt starts.
+            _slept, avail = _wait_for_memory(attempt, oom, waited)
+            waited += _slept
+        if key is not None and m is not None:
+            TC.put_safe(key, m, cache_ctx)
         return m
     return ev
 
@@ -933,17 +1082,52 @@ def _run_folds_parallel(strategy, master, date_from, date_to, arrays_to_send, co
     with ex:
         try:
             for fut in as_completed(futs):
-                f, row = fut.result()
+                res = fut.result()
+                f, row = res[0], res[1]
+                if len(res) > 2:
+                    # W46: the worker's failed cache writes / None backtests for this fold
+                    # (its own process counters never reach this one otherwise)
+                    TC.merge_health(res[2])
                 rows[f] = row
                 done += n_trials
                 if progress_cb:
                     progress_cb(min(done, n_total), n_total)
         except BaseException:
-            # a web STOP arrives as an exception out of progress_cb: cancel what has
-            # not started instead of draining the whole pool on context exit
-            ex.shutdown(wait=False, cancel_futures=True)
+            # a web STOP arrives as an exception out of progress_cb, a worker's own
+            # failure (an out-of-memory fold included) out of fut.result(): cancel what
+            # has not started AND end the folds still running, instead of draining the
+            # pool on context exit or leaving them computing next to the caller's re-run
+            _stop_pool(ex)
             raise
     return [rows.get(f) for (f, *_r) in fold_specs]
+
+
+def _stop_pool(ex):
+    """Cancel the folds that have not started and TERMINATE the worker processes still
+    running one (W46 review). shutdown(wait=False, cancel_futures=True) alone only cancels
+    queued folds: the running ones kept computing - each holding its own copy of the
+    master - after the caller had already moved on to its in-line re-run, or to the next
+    job. The process list is read BEFORE shutdown, which clears it. Best effort: a pool
+    that is already gone is fine."""
+    try:
+        procs = list(dict(getattr(ex, "_processes", None) or {}).values())   # one C-level copy
+    except Exception:
+        procs = []
+    try:
+        ex.shutdown(wait=False, cancel_futures=True)
+    except Exception:
+        pass
+    for p in procs:
+        try:
+            if p.is_alive():
+                p.terminate()
+        except Exception:
+            pass
+    for p in procs:
+        try:
+            p.join(5)
+        except Exception:
+            pass
 
 
 def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
@@ -1058,6 +1242,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     When `auto_steer` is True, `out["steering"] = {"used": True, "seed_trials": int,
     "steered_trials": int, "fallback_random": int}` is attached; absent when False.
     """
+    # W46 review: any EngineOutOfMemory raised from here on - even one a broad handler
+    #   below swallowed - re-raises before this call returns (raise_if_oom_since).
+    _oom0 = oom_mark()
     path = _resolve(strategy) if isinstance(strategy, str) else None
     mod = load_strategy(strategy) if isinstance(strategy, str) else strategy
     dp = getattr(mod, "DEFAULT_PARAMS", {}) or {}
@@ -1152,8 +1339,17 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     space, dp, pkeys, seed, n_trials, min_trades, fold_specs,
                     int(workers), progress_cb, n_total, warm_days=_warm_days)
             except Exception as _pe:
-                print(f"[wf] parallel folds failed ({type(_pe).__name__}: {_pe}) - "
-                      f"running the folds in-line instead")
+                if isinstance(_pe, EngineOutOfMemory):
+                    # W46 review: a worker that ran out of memory after every retry. Its
+                    #   pool is already stopped (_stop_pool), so the in-line re-run below
+                    #   holds ONE copy of the data instead of one per worker; the folds the
+                    #   workers finished replay from the trial cache. If memory is still
+                    #   short there, that run raises EngineOutOfMemory and the job stops.
+                    print(f"[wf] a fold worker ran out of memory ({_pe}) - its pool was "
+                          f"stopped; re-running the folds in-line in this one process")
+                else:
+                    print(f"[wf] parallel folds failed ({type(_pe).__name__}: {_pe}) - "
+                          f"running the folds in-line instead")
                 _rows = None
         if _rows is not None:
             records.extend(r for r in _rows if r)
@@ -1267,6 +1463,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         is_wf = False
 
     if not records:
+        raise_if_oom_since(_oom0)
         _out0 = {"mode": method, "n_combos": n_trials * (1 if not is_wf else 1),
                 "n_valid": 0, "top": [], "best_params": None, "best": None,
                 "bars": int(n), "master": (arrays.get("meta") or {}).get("name"),
@@ -1386,7 +1583,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 #   curve (out["equity"]) is built — direct fn call on [0:ksplit], per-trade
                 #   net pts cumulated, downsampled to <=80 pts. Lets 2L overlay each model
                 #   pick as its own curve (the models were scored on this same window).
-                def _is_curve(params, cap=80):
+                def _is_curve_compute(params, cap):
+                    """(curve or None, clean) - `clean` is False only when the backtest
+                    raised, so a crash is never cached as "no trades"."""
                     ex = {}
                     if pass_vol:
                         ex["volumes"] = V[0:ksplit]
@@ -1398,9 +1597,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                         mm = fn(O[0:ksplit], H[0:ksplit], L[0:ksplit], C[0:ksplit],
                                 return_trades=True, **ex, **params)
                     except Exception:
-                        return None
+                        return None, False
                     if not mm or not mm.get("trades"):
-                        return None
+                        return None, True
                     _pn = [t[2] - cost_pts for t in mm["trades"]]
                     _cum, _s = [], 0.0
                     for _x in _pn:
@@ -1408,9 +1607,36 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     if len(_cum) > cap:   # endpoint-pinned: last sample = the true final
                         _stp = (len(_cum) - 1) / (cap - 1)
                         _cum = [_cum[round(_i * _stp)] for _i in range(cap)]
-                    return [round(float(_x), 1) for _x in _cum]
+                    return [round(float(_x), 1) for _x in _cum], True
+
+                def _is_curve(params, cap=80):
+                    # W46 review: one IS backtest per distinct model pick (+ the sampled
+                    #   best) re-paid on every restart. Its whole output is this rounded
+                    #   curve, so the curve itself is cached under its own tag (the window
+                    #   is the key's own a=0, b=ksplit), the same way etop entries are.
+                    key = None
+                    if _cache_ctx is not None:
+                        try:
+                            if TC.is_enabled():
+                                key = TC.make_key(_cache_ctx, params, 0, ksplit,
+                                                  tag=f"iscurve:v1|cap={cap}")
+                                cached = TC.get(key)
+                                if isinstance(cached, dict) and "curve" in cached:
+                                    TC.record_hit()
+                                    return cached["curve"]
+                                TC.record_miss()
+                        except Exception:
+                            key = None
+                    cv, clean = _is_curve_compute(params, cap)
+                    if key is not None and clean:
+                        TC.put_safe(key, {"curve": cv}, _cache_ctx)
+                    return cv
 
                 def _surrogate_ground_truth(params):
+                    # an out-of-memory pick is swallowed by the bake-off's own per-pick
+                    # `except Exception`; once one happened, do not pay the next picks'
+                    # retry waits too - fail them fast; the raise follows right after
+                    raise_if_oom_since(_oom0)
                     _m = _ev(0, ksplit, params)
                     if isinstance(_m, dict):
                         _c = _is_curve(params)
@@ -1420,6 +1646,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
 
                 _surr = surrogate_bakeoff(_pts_full, pkeys, dp,
                                          ground_truth_fn=_surrogate_ground_truth)
+                raise_if_oom_since(_oom0)      # one pick ran out of memory -> stop the job
                 if _surr is not None:
                     # search-best reference curve (the brute-force winner every model pick
                     #   is trying to beat), same window + builder as the model-pick curves.
@@ -1431,6 +1658,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     except Exception:
                         pass
                     out["surrogate"] = _surr
+            except EngineOutOfMemory:
+                raise                       # W46: never an {"error": ...} card
             except Exception as _surr_e:
                 out["surrogate"] = {"error": str(_surr_e)}
 
@@ -1455,6 +1684,32 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 return fn(O, H, L, C, return_trades=True, **ex, **pp)
             except Exception:
                 return None
+
+        def _eval_full_metrics(pp):
+            """`_eval_full` minus the trade list, read through the trial cache under its
+            own "full:v1" tag (W46): neighborhood() reads only each result's truthiness and
+            profit_factor, so the trades are dead weight there. A None (the backtest
+            raised) is never cached. The regime card needs the trades and stays on
+            `_eval_full` directly."""
+            key = None
+            if _cache_ctx is not None:
+                try:
+                    if TC.is_enabled():
+                        key = TC.make_key(_cache_ctx, pp, 0, n, tag="full:v1")
+                        cached = TC.get(key)
+                        if cached is not None:
+                            TC.record_hit()
+                            return cached
+                        TC.record_miss()
+                except Exception:
+                    key = None
+            m = _eval_full(pp)
+            if isinstance(m, dict):
+                m = dict(m)
+                m.pop("trades", None)
+            if key is not None and isinstance(m, dict):
+                TC.put_safe(key, m, _cache_ctx)
+            return m
 
         if compute_regime:
             wm = _eval_full(bp0)
@@ -1489,7 +1744,7 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 if len(cand) > 1:
                     vopts[k] = cand
             if vopts:
-                nb = neighborhood(lambda pp: _eval_full(pp), bp0, vopts)
+                nb = neighborhood(lambda pp: _eval_full_metrics(pp), bp0, vopts)
                 if nb:
                     out["neighborhood"] = nb
 
@@ -1527,7 +1782,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 years = 1.0
         bp = {k: best.get(k) for k in pkeys if k in best}
 
-        def _net_pnls(pp, a=0, b=n):
+        def _net_pnls_status(pp, a=0, b=n):
+            """(net per-trade pnls or None, clean) - `clean` is False only when the
+            backtest RAISED, so a cache never records a crash as "this config has no
+            trades"."""
             ex = {}
             if pass_vol:
                 ex["volumes"] = V[a:b]
@@ -1538,10 +1796,53 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             try:
                 m = fn(O[a:b], H[a:b], L[a:b], C[a:b], return_trades=True, **ex, **pp)
             except Exception:
-                return None
+                return None, False
             if not m or not m.get("trades"):
-                return None
-            return [t[2] - cost_pts for t in m["trades"]]
+                return None, True
+            return [t[2] - cost_pts for t in m["trades"]], True
+
+        def _net_pnls(pp, a=0, b=n):
+            return _net_pnls_status(pp, a, b)[0]
+
+        # ── TOP-CONFIG ENTRIES (W46, 2026-10-18). The equity overlay below and the DSR
+        #    loop after it read only two things from each config's full-window trade list:
+        #    its downsampled cumulative curve (cap 110, whole ints) and the annualised
+        #    Sharpe of its net pnls over `years` - plus whether it had any trades at all.
+        #    That entry is the smallest exact representation, so it is what gets cached
+        #    (tag "etop:v1|..."; the window is the key's own a=0, b=n) instead of up to 400
+        #    full-window backtests being re-paid on every restart of a long validate. ──
+        _etop_tag = f"etop:v1|years={years!r}|cap=110|ndp=None|a=0|b={n}"
+
+        def _etop_entry(pp):
+            """(entry, clean) for one config; `clean` is False only when its backtest
+            raised - such an entry is neither cached nor reused by the DSR loop, which
+            then re-runs it exactly as it always re-ran a config with no pnl list."""
+            key = None
+            if _cache_ctx is not None:
+                try:
+                    if TC.is_enabled():
+                        key = TC.make_key(_cache_ctx, pp, 0, n, tag=_etop_tag)
+                        cached = TC.get(key)
+                        if isinstance(cached, dict) and "empty" in cached:
+                            TC.record_hit()
+                            return cached, True
+                        TC.record_miss()
+                except Exception:
+                    key = None
+            pn, clean = _net_pnls_status(pp)
+            if not pn:
+                ent = {"empty": True, "cum": None, "sr": None}
+            else:
+                cc, ss = [], 0.0
+                for x in pn:
+                    ss += x; cc.append(ss)
+                _sr = annualized_sr(pn, years)
+                ent = {"empty": False,
+                       "cum": downsample_curve(cc, cap=110, ndp=None),   # map, not nested array
+                       "sr": (_sr["sr"] if _sr else None)}
+            if key is not None and clean:
+                TC.put_safe(key, ent, _cache_ctx)
+            return ent, clean
 
         win_pnls = _net_pnls(bp)
         if win_pnls:
@@ -1591,14 +1892,12 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 _ETOP_MAX = 400   # work cap — each curve costs one backtest; monster grids must not add hours
                 for r_ in _pop[:_ETOP_MAX]:   # top config equity curves for the TOP CONFIGS PNL overlay
                     pp = {k: r_.get(k) for k in pkeys if k in r_}
-                    pn = _net_pnls(pp)
-                    if not pn:
+                    ent, _clean = _etop_entry(pp)
+                    if _clean:                   # empty ones too: a re-run would be empty again
+                        _pn_cache[id(r_)] = ent
+                    if ent["empty"]:
                         continue
-                    _pn_cache[id(r_)] = pn
-                    cc, ss = [], 0.0
-                    for x in pn:
-                        ss += x; cc.append(ss)
-                    etop.append({"cum": downsample_curve(cc, cap=110, ndp=None)})   # map, not nested array
+                    etop.append({"cum": list(ent["cum"])})   # map, not nested array
                 import json as _j
                 _sz = len(_j.dumps(etop))
                 if _sz > 400_000:
@@ -1615,10 +1914,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 srs = []
                 for r in ranked[:40]:
                     pp = {k: r.get(k) for k in pkeys if k in r}
-                    pn = _pn_cache.get(id(r)) or _net_pnls(pp)
-                    sr = annualized_sr(pn, years) if pn else None
-                    if sr:
-                        srs.append(sr["sr"])
+                    ent = _pn_cache.get(id(r)) or _etop_entry(pp)[0]
+                    if not ent["empty"] and ent["sr"] is not None:
+                        srs.append(ent["sr"])
                 out["dsr"] = deflated_sharpe(annualized_sr(win_pnls, years), srs,
                                              len(records), years)
     # MAE/MFE always (cheap winner backtest) so AI-loop diagnostics get it too.
@@ -1684,4 +1982,5 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     out[_pk] = _pv
         except Exception:
             pass
+    raise_if_oom_since(_oom0)      # W46: an out-of-memory backtest some handler swallowed
     return out

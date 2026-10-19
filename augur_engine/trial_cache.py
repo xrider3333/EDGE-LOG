@@ -47,6 +47,19 @@ _COLUMNS = {
 # hit/miss bookkeeping now and give a same-process caller a cheap readout.
 _STATS = {"hits": 0, "misses": 0}
 
+# HEALTH counters (W46, 2026-10-18), kept OUT of _STATS on purpose so get_stats() /
+# job_reuse_summary() keep their exact shape (tests and saved `cache_reuse` blocks pin it).
+#   put_failed  -- a cache write that raised and was skipped (the result itself was fine,
+#                  it just will not be replayed next time). Was a silent `pass` before.
+#   none_trials -- backtests that came back None because the strategy raised, by exception
+#                  class. A run whose search silently degenerated used to look like "no
+#                  valid configs" with no hint why.
+# Same in-process scope as _STATS, with one exception: a validate's walk-forward folds run in
+# wf_pool workers, and each fold hands its own counts back (health_delta -> merge_health).
+# A parallel GRID's workers (augur_mp_worker) still never report theirs.
+_HEALTH = {"put_failed": 0}
+_NONE_COUNTS = {}
+
 
 def is_enabled() -> bool:
     """True iff env AUGUR_TRIAL_CACHE is truthy ("1"/"true"/"yes", case-insensitive).
@@ -121,7 +134,7 @@ def canonical_params(params) -> str:
     return json.dumps(_round(params), sort_keys=True, separators=(",", ":"), default=str)
 
 
-def make_key(ctx: dict, params: dict, a=None, b=None) -> str:
+def make_key(ctx: dict, params: dict, a=None, b=None, tag=None) -> str:
     """sha1 over every field that can change a backtest's numbers, in a FIXED field
     order shared by every call path (grid worker / grid single-thread / auto /
     validate selection / default backtest) so equal inputs -> an equal key
@@ -135,6 +148,16 @@ def make_key(ctx: dict, params: dict, a=None, b=None) -> str:
     character a naive join would use, which could otherwise let two logically
     different inputs collide onto the same hashed string. JSON's own array/string
     delimiting rules out that ambiguity.
+
+    `tag` (W46, 2026-10-18) names a DIFFERENT computation over the same (params, a, b) --
+    a warmed out-of-sample leg ("warm:v1|..."), a top-configs equity entry ("etop:v1|..."),
+    a full-window report evaluation ("full:v1"), a surrogate pick's in-sample curve
+    ("iscurve:v1|..."). It is appended LAST and ONLY when not None,
+    exactly like roll_guard, so every key that existed before is unchanged byte for byte
+    (tests/test_tail_cache.py pins golden digests). A tagged key cannot equal an untagged
+    one: the tagged list is one element longer than the same job's untagged list, and the
+    one same-length case (an untagged roll-guarded key) ends in "v4|...", which no tag
+    family ("warm:", "etop:", "full:", "iscurve:") starts with.
     """
     ctx = ctx or {}
     fields = [
@@ -150,6 +173,8 @@ def make_key(ctx: dict, params: dict, a=None, b=None) -> str:
     ]
     if ctx.get("roll_guard"):
         fields.append(ctx["roll_guard"])     # only unadjusted NQ / ES jobs; other keys unchanged
+    if tag is not None:
+        fields.append(tag)                   # only tagged (non-search) evaluations; other keys unchanged
     blob = json.dumps(fields, separators=(",", ":"), default=str)
     return hashlib.sha1(blob.encode("utf-8", "replace")).hexdigest()
 
@@ -240,6 +265,72 @@ def get_stats():
 def reset_stats():
     _STATS["hits"] = 0
     _STATS["misses"] = 0
+    reset_health()
+
+
+def record_put_failed():
+    _HEALTH["put_failed"] += 1
+
+
+def record_none(exc_class):
+    """Count one backtest that returned None because it raised `exc_class` (a class or
+    its name)."""
+    name = exc_class if isinstance(exc_class, str) else getattr(exc_class, "__name__",
+                                                                  str(exc_class))
+    _NONE_COUNTS[name] = _NONE_COUNTS.get(name, 0) + 1
+
+
+def health_stats() -> dict:
+    """{"put_failed": n, "none_trials": {exception class: n}} -- a pure readout."""
+    return {"put_failed": int(_HEALTH["put_failed"]),
+            "none_trials": {k: int(v) for k, v in sorted(_NONE_COUNTS.items())}}
+
+
+def reset_health():
+    _HEALTH["put_failed"] = 0
+    _NONE_COUNTS.clear()
+
+
+def health_delta(before, after, pid=None) -> dict:
+    """What happened between two health_stats() readouts, tagged with the process it
+    happened in (wf_pool.fold_task returns one per fold)."""
+    nb = (before or {}).get("none_trials") or {}
+    na = (after or {}).get("none_trials") or {}
+    none = {k: int(v) - int(nb.get(k, 0)) for k, v in na.items()
+            if int(v) - int(nb.get(k, 0)) > 0}
+    return {"pid": pid,
+            "put_failed": max(0, int((after or {}).get("put_failed", 0))
+                              - int((before or {}).get("put_failed", 0))),
+            "none_trials": none}
+
+
+def merge_health(delta) -> None:
+    """Add a WORKER process's health_delta into this process's counters (W46 review:
+    Stage B's walk-forward folds run in wf_pool workers, whose counts otherwise never
+    reach the runner's line). A delta produced in THIS process (a pool faked in-process)
+    is already counted and is skipped. Never raises."""
+    try:
+        if not isinstance(delta, dict) or delta.get("pid") == os.getpid():
+            return
+        _HEALTH["put_failed"] += int(delta.get("put_failed", 0) or 0)
+        for k, v in (delta.get("none_trials") or {}).items():
+            _NONE_COUNTS[str(k)] = _NONE_COUNTS.get(str(k), 0) + int(v)
+    except Exception:
+        pass
+
+
+def put_safe(key, value, ctx) -> bool:
+    """put() for a wiring site that must never fail its caller: any error (an
+    un-JSON-able value, a locked DB, a ctx missing a field) is swallowed exactly like
+    the old `except Exception: pass`, but COUNTED in health_stats()["put_failed"].
+    True when the row was written."""
+    try:
+        put(key, value, strategy_file_sha=ctx["strategy_file_sha"],
+            master_id=ctx["master_id"], engine_epoch=ctx["engine_epoch"])
+        return True
+    except Exception:
+        record_put_failed()
+        return False
 
 
 def job_reuse_summary() -> dict:

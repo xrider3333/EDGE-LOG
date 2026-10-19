@@ -242,7 +242,7 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                               master_id=cache_ctx["master_id"],
                               engine_epoch=cache_ctx["engine_epoch"])
                     except Exception:
-                        pass
+                        TC.record_put_failed()   # W46: counted, still never fatal
             if progress_cb and (i % 25 == 0 or i + 1 == len(combos)):
                 progress_cb(i + 1, len(combos))
 
