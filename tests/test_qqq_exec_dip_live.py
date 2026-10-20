@@ -96,17 +96,26 @@ class FakeAccount:
     """One Webull margin account, QQQ only -- tests/test_qqq_exec_enguq_live_netting.py's rules
     (copied): a SHORT on a long account, a SELL past the long, a BUY crossing a short straight to
     long and an opposite opening order next to a working one are refused; while `async_fills`
-    keeps orders working, a new order identical to a working one (same side, same quantity) is
-    refused with Webull's DUPLICATE_ORDER_CHECK. Fills at `fill_px`."""
+    keeps orders working, a new order identical to a working one (same side, quantity, order type
+    and session -- what Webull's rule compares) is refused with Webull's DUPLICATE_ORDER_CHECK.
+    Fills at `fill_px`. SAME-ORDER WAIT (2026-10-20): with `fill_after_lookups` N a working order
+    fills on its N-th get_order_detail (None, the default: lookups never fill it, as before) --
+    or dies REJECTED with 0 filled when its id is in `die`; `lookups` counts them per id;
+    `refuse_next` [(qty or None, code)] scripts refusals of the next matching orders."""
 
     def __init__(self):
         self.pos = 0
         self.pending = []
         self.status = {}
+        self.qty = {}
         self.async_fills = False
         self.fill_px = 700.0
         self.sent = []
         self.refused = []
+        self.fill_after_lookups = None
+        self.die = set()
+        self.lookups = {}
+        self.refuse_next = []
         self.account_v2 = MagicMock()
         self.account_v2.get_account_list.return_value.json.return_value = {
             "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_MARGIN"}]}
@@ -124,7 +133,10 @@ class FakeAccount:
     def _place(self, account_id, orders):
         o = orders[0]
         side, qty, coid = o["side"], int(o["quantity"]), o["client_order_id"]
-        if any(p["side"] == side and p["qty"] == qty for p in self.pending):
+        kind = (o.get("order_type"), o.get("support_trading_session"))
+        if self.refuse_next and self.refuse_next[0][0] in (None, qty):
+            self._refuse(side, qty, self.refuse_next.pop(0)[1])
+        if any(p["side"] == side and p["qty"] == qty and p["kind"] == kind for p in self.pending):
             self._refuse(side, qty, DUP)
         pend_buy_open = any(p["side"] == "BUY" and p["opening"] for p in self.pending)
         pend_sell_open = any(p["side"] in ("SELL", "SHORT") and p["opening"] for p in self.pending)
@@ -154,8 +166,10 @@ class FakeAccount:
         else:
             raise AssertionError(side)
         self.sent.append((side, qty, coid))
+        self.qty[coid] = qty
         if self.async_fills:
-            self.pending.append({"coid": coid, "side": side, "qty": qty, "opening": opening})
+            self.pending.append({"coid": coid, "side": side, "qty": qty, "opening": opening,
+                                 "kind": kind})
             self.status[coid] = "SUBMITTED"
         else:
             self.pos += qty if side == "BUY" else -qty
@@ -171,10 +185,28 @@ class FakeAccount:
             self.status[p["coid"]] = "FILLED"
         self.pending = []
 
+    def _settle_one(self, coid):
+        """A working order's turn: it fills, or dies with nothing filled when in `die`."""
+        p = next((p for p in self.pending if p["coid"] == coid), None)
+        if p is None:
+            return
+        self.pending.remove(p)
+        if coid in self.die:
+            self.status[coid] = "REJECTED"
+        else:
+            self.pos += p["qty"] if p["side"] == "BUY" else -p["qty"]
+            self.status[coid] = "FILLED"
+
     def _detail(self, account_id, coid):
-        return _Resp({"client_order_id": coid, "orders": [
-            {"client_order_id": coid, "status": self.status.get(coid) or "REJECTED",
-             "filled_quantity": "0"}]})
+        self.lookups[coid] = self.lookups.get(coid, 0) + 1
+        if self.fill_after_lookups is not None and self.lookups[coid] >= self.fill_after_lookups:
+            self._settle_one(coid)
+        st = self.status.get(coid) or "REJECTED"
+        item = {"client_order_id": coid, "status": st, "filled_quantity": "0"}
+        if st == "FILLED":
+            item.update(filled_quantity=str(self.qty.get(coid, 0)),
+                        filled_price=f"{self.fill_px:.2f}")
+        return _Resp({"client_order_id": coid, "orders": [item]})
 
 
 def _wo_cfg(tmp_path):

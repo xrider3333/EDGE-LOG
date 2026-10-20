@@ -486,29 +486,78 @@ def test_requeue_false_opts_out_of_the_resend_queue(tmp_path, monkeypatch):
 
 
 def test_resend_gives_up_after_max_tries(tmp_path, monkeypatch):
-    """A leg that keeps colliding forever must not be hammered at Webull indefinitely
+    """An OPEN that keeps colliding forever must not be hammered at Webull indefinitely
     -- BROKER_RESEND_MAX_TRIES caps it, and the tick that finally gives up must not
-    itself send yet another attempt."""
+    itself send yet another attempt (one "entry missed" note then)."""
     cfg, adapter, client, out, sent, clock = _setup(tmp_path, monkeypatch)
-    state = {"legs": {}, "events": []}
-    _seed_sent(adapter, "ORB", 10)
+    state = _noise_state()
     client.order_v3.place_order.side_effect = _dup_error()   # every call raises
 
-    qe._mirror_to_broker(state, leg="ORB", side="long", shares=10, shadow_px=480.0,
-                         intent="CLOSE", ts="x", seq=1, trade_id=ORB_TRADE_ID, log=NOOP)
+    qe._mirror_to_broker(state, leg="NOISE", side="long", shares=10, shadow_px=729.82,
+                         intent="OPEN", ts="2026-09-21 09:45:12", trade_id=NOISE_TRADE_ID,
+                         log=NOOP)
     assert client.order_v3.place_order.call_count == 1
 
     for _ in range(qe.BROKER_RESEND_MAX_TRIES):
         clock[0] += 5
         qe._maybe_resend_broker_orders(state, cfg, NOWDT, True, log=NOOP)
     assert client.order_v3.place_order.call_count == 1 + qe.BROKER_RESEND_MAX_TRIES == 4
-    assert "ORB:CLOSE" in state["_broker_resend"], "not popped yet -- the NEXT tick gives up"
+    assert "NOISE:OPEN" in state["_broker_resend"], "not popped yet -- the NEXT tick gives up"
 
     clock[0] += 5
     qe._maybe_resend_broker_orders(state, cfg, NOWDT, True, log=NOOP)
 
     assert client.order_v3.place_order.call_count == 4, "the give-up tick sends nothing more"
     assert state.get("_broker_resend") == {}
+    assert any("gave up" in t and "3 re-sends failed" in t for t in _events(state))
+    assert [t for t, _m in sent].count("QQQ book: entry missed") == 1
+
+
+def test_a_duplicate_close_out_of_resends_keeps_retrying_until_the_deadline(tmp_path, monkeypatch):
+    """CHANGED 2026-10-20 (SAME-ORDER WAIT, G1 -- owner-delegated decision 13b). This used to
+    be the CLOSE case of the test above: after BROKER_RESEND_MAX_TRIES duplicate re-sends the
+    close was given up mid-session with an urgent push while Webull still held the shares.
+    EXIT SAFETY: a close is never abandoned mid-session -- a duplicate CLOSE out of re-sends
+    becomes a close_retry (its trade key, its 5/10/20/30 s backoff, the believed-flat check)
+    and is given up only at the session flatten deadline (close - 10 s)."""
+    cfg, adapter, client, out, sent, clock = _setup(tmp_path, monkeypatch)
+    state = {"legs": {}, "events": []}
+    _seed_sent(adapter, "ORB", 10)
+    client.order_v3.place_order.side_effect = _dup_error()   # every call raises
+
+    qe._mirror_to_broker(state, leg="ORB", side="long", shares=10, shadow_px=480.0,
+                         intent="CLOSE", ts="x", seq=1, trade_id=ORB_TRADE_ID,
+                         nowdt=NOWDT, log=NOOP)
+    assert client.order_v3.place_order.call_count == 1
+
+    for _ in range(qe.BROKER_RESEND_MAX_TRIES):
+        clock[0] += 5
+        qe._maybe_resend_broker_orders(state, cfg, NOWDT, True, log=NOOP)
+    assert client.order_v3.place_order.call_count == 1 + qe.BROKER_RESEND_MAX_TRIES == 4
+    key = f"ORB:CLOSE:{ORB_TRADE_ID}"
+    assert list(state["_broker_resend"]) == [key], "a close_retry now, under its trade key"
+    item = state["_broker_resend"][key]
+    assert item["why"] == "close_retry" and item["tries"] == 3 and item["needs_verify"] is False
+
+    clock[0] += 5
+    qe._maybe_resend_broker_orders(state, cfg, NOWDT, True, log=NOOP)
+    assert client.order_v3.place_order.call_count == 4, "inside its 30 s backoff: no send"
+    assert key in state["_broker_resend"], "and not given up"
+
+    clock[0] += 30
+    qe._maybe_resend_broker_orders(state, cfg, NOWDT, True, log=NOOP)
+    assert client.order_v3.place_order.call_count == 5, "re-sent on the backoff"
+    assert state["_broker_resend"][key]["why"] == "close_retry"
+    assert state["_broker_resend"][key]["tries"] == 4
+    assert not any("gave up" in msg for _title, msg in sent)
+
+    clock[0] += 60
+    qe._maybe_resend_broker_orders(state, cfg, NOWDT.replace(hour=15, minute=59, second=50),
+                                   True, log=NOOP)
+    assert client.order_v3.place_order.call_count == 5, "the give-up tick sends nothing more"
+    assert state.get("_broker_resend") == {}
+    assert any("gave up" in t and "the session flatten deadline passed" in t
+               for t in _events(state))
     assert any("gave up" in msg for _title, msg in sent)
 
 

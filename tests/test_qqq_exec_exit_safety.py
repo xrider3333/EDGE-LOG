@@ -1135,7 +1135,8 @@ def test_close_retry_preserves_s0s_unresolved_verify_across_an_inflight_blocked_
 
     send_calls = []
 
-    def fake_send(adapter_arg, *, leg, signal_id, symbol, side, qty, intent, mode, log=print):
+    def fake_send(adapter_arg, *, leg, signal_id, symbol, side, qty, intent, mode, log=print,
+                  **_kw):
         send_calls.append(signal_id)
         if len(send_calls) == 1:
             return {"leg": leg, "symbol": symbol, "side": side, "qty": qty, "intent": intent,
@@ -1641,7 +1642,8 @@ def test_split_close_retry_resends_only_the_dead_parts_unfilled_shares(tmp_path,
     monkeypatch.setattr(adapter, "order_status", fake_order_status)
     sent = []
 
-    def fake_send(adapter_arg, *, leg, signal_id, symbol, side, qty, intent, mode, log=print):
+    def fake_send(adapter_arg, *, leg, signal_id, symbol, side, qty, intent, mode, log=print,
+                  **_kw):
         sent.append(qty)
         return {"leg": leg, "symbol": symbol, "side": side, "qty": qty, "intent": intent,
                "signal_id": signal_id, "client_order_id": signal_id, "mode": mode,
@@ -1706,7 +1708,8 @@ def test_split_close_retry_resends_a_4xx_refused_part_once_the_other_part_filled
         "orders": [{"status": "FILLED"}]}
     sent = []
 
-    def fake_send(adapter_arg, *, leg, signal_id, symbol, side, qty, intent, mode, log=print):
+    def fake_send(adapter_arg, *, leg, signal_id, symbol, side, qty, intent, mode, log=print,
+                  **_kw):
         sent.append(qty)
         return {"leg": leg, "symbol": symbol, "side": side, "qty": qty, "intent": intent,
                "signal_id": signal_id, "client_order_id": signal_id, "mode": mode,

@@ -425,6 +425,14 @@ BROKER_RECONCILE_HALTED_RECHECK_SEC = 30.0
 BROKER_OPEN_RESEND_WINDOW_MIN = 10.0    # an OPEN later than this after its first try is dropped
 BROKER_RESEND_MAX_TRIES = 3             # re-sends per order, each under a fresh client_order_id
 BROKER_RESEND_MIN_GAP_SEC = 4.0         # never in the tick right after the failure
+# SAME-ORDER WAIT (2026-10-20, G1 -- api/webull_orders.py's _await_identical_parts): a send
+# identical to another leg's order still working at Webull waits for it (at most the adapter's
+# gateway.dup_wait_sec, 3 s) instead of meeting the 417 DUPLICATE_ORDER_CHECK. On this side
+# every wait of one tick ends by the tick's start + DUP_WAIT_TICK_WINDOW_SEC and by the session
+# close - DUP_WAIT_CLOSE_MARGIN_SEC (15:59:45, 12:59:45 on a half day), and after one wait that
+# ran out nothing else in that tick waits (_dup_wait_until / _note_dup_wait).
+DUP_WAIT_TICK_WINDOW_SEC = 8.0
+DUP_WAIT_CLOSE_MARGIN_SEC = 15.0
 
 
 # -- small time helpers ------------------------------------------------------------
@@ -3025,6 +3033,72 @@ def _broker_row_outcome(rec):
         return "UNKNOWN"
 
 
+# SAME-ORDER WAIT (2026-10-20, see DUP_WAIT_TICK_WINDOW_SEC): this tick's wait budget -- its
+# key (the state dict and the tick's own clock), the wall clock when it started, and whether a
+# wait already ran out. Process memory only, never in state.json: tick() resets it.
+_DUP_WAIT_TICK = {"key": None, "wall0": None, "timed_out": False}
+
+
+def _dup_wait_until(state, nowdt):
+    """SAME-ORDER WAIT: the wall-clock time (time.time()-shaped) up to which a send of this
+    tick may wait for another leg's identical order -- the tick's start +
+    DUP_WAIT_TICK_WINDOW_SEC, and never past the session close - DUP_WAIT_CLOSE_MARGIN_SEC --
+    or None (no wait): no tick clock, a wait already ran out this tick, or that time has
+    passed. A caller with no tick() of its own (a direct call) starts its own budget at its
+    first send. Never raises (any doubt is None, today's path)."""
+    try:
+        if nowdt is None:
+            return None
+        key = (id(state), nowdt.isoformat())
+        if _DUP_WAIT_TICK.get("key") != key or _DUP_WAIT_TICK.get("wall0") is None:
+            _DUP_WAIT_TICK.update(key=key, wall0=time.time(), timed_out=False)
+        if _DUP_WAIT_TICK.get("timed_out"):
+            return None
+        wall0 = float(_DUP_WAIT_TICK["wall0"])
+        close_dt = (_session_flatten_deadline(nowdt)
+                    + timedelta(seconds=SESSION_FLATTEN_DEADLINE_MARGIN_SEC))
+        close_wall = wall0 + (close_dt - nowdt).total_seconds()
+        until = min(wall0 + DUP_WAIT_TICK_WINDOW_SEC, close_wall - DUP_WAIT_CLOSE_MARGIN_SEC)
+        return until if until > time.time() else None
+    except Exception:
+        return None
+
+
+def _note_dup_wait(state, rec, leg, intent, nowdt, log=print):
+    """SAME-ORDER WAIT: log the adapter's wait (rec["dup_wait"]) and count it in
+    state["dup_wait_today"] ({date, waits, settled, timed_out, max_sec}, reset on a new ET
+    day). A wait that ran out -- the identical order still working, this one sent anyway
+    (today's path: Webull's 417, then the re-send queue) -- ends waiting for the rest of
+    the tick and puts ONE line on the timeline; no push (WEBULL PUSH PLAN group E). Never
+    raises."""
+    try:
+        dw = (rec or {}).get("dup_wait")
+        if not isinstance(dw, dict) or rec.get("duplicate"):
+            return   # no wait, or the adapter's cached record of an earlier send (counted then)
+        sec = float(dw.get("waited_sec") or 0.0)
+        ids = ", ".join(str(c) for c in dw.get("for") or []) or "?"
+        settled = bool(dw.get("settled"))
+        log(f"[qqq-exec] {leg} {intent}: waited {sec:g}s for identical order(s) {ids} -- "
+            + ("Webull answered it (filled or dead), sent" if settled
+               else "still working, sent anyway"))
+        day = (nowdt or _now_et()).strftime("%Y-%m-%d")
+        c = state.get("dup_wait_today")
+        if not isinstance(c, dict) or c.get("date") != day:
+            c = {"date": day, "waits": 0, "settled": 0, "timed_out": 0, "max_sec": 0.0}
+        c["waits"] = int(c.get("waits") or 0) + 1
+        c["settled" if settled else "timed_out"] = int(c.get("settled" if settled
+                                                            else "timed_out") or 0) + 1
+        c["max_sec"] = max(float(c.get("max_sec") or 0.0), sec)
+        state["dup_wait_today"] = c
+        if not settled:
+            _DUP_WAIT_TICK["timed_out"] = True
+            _log_event(state, "broker",
+                       f"QQQ BROKER: {leg} {intent} waited {sec:g}s for an identical order still "
+                       f"working at Webull -- sent anyway; no more waits this tick", log=log)
+    except Exception as e:
+        log(f"[qqq-exec] same-order wait note failed (non-fatal): {type(e).__name__}: {e}")
+
+
 def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qty,
                                     intent, mode, log=print, remainder=False, order_kwargs=None):
     """adapter.place_stock_order(...) bounded to BROKER_SEND_HARD_TIMEOUT_SEC wall-clock
@@ -3033,9 +3107,11 @@ def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qt
     itself is left to propagate to _mirror_to_broker's own outer except, same as before
     this function existed).
 
-    `order_kwargs` (2026-10-14, AFTER-HOURS EOD FALLBACK only -- _ah_send): extra keyword
-    arguments for place_stock_order (order_type / limit_price / tif / extended_hours). None
-    (every other caller) passes nothing extra, so their call is exactly what it was.
+    `order_kwargs` (2026-10-14, AFTER-HOURS EOD FALLBACK -- _ah_send): extra keyword
+    arguments for place_stock_order (order_type / limit_price / tif / extended_hours). Since
+    2026-10-20 (SAME-ORDER WAIT) _mirror_to_broker also passes {"dup_wait_until": ...} here,
+    only when _dup_wait_until gave it a time. None passes nothing extra, so the call is
+    exactly what it was.
 
     MAJOR REVIEW FIX #2 (2026-09-26): refuses to submit at all while a previous send is
     still running on the shared single worker (_send_inflight_future) -- see the module
@@ -3225,10 +3301,18 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
                   "side": _broker_side(side, intent), "client_order_id": "",
                   "duplicate": False}
         else:
+            # SAME-ORDER WAIT (2026-10-20): a real send may wait (bounded) for another leg's
+            # identical order still working at Webull -- only an armed, real adapter; OFF
+            # mode, a test double and the after-hours sell (_ah_send) never wait
+            dup_until = (_dup_wait_until(state, nowdt)
+                         if armed and isinstance(adapter, webull_orders.OrderAdapter) else None)
             rec = _place_stock_order_with_timeout(
                 adapter, leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
                 side=_broker_side(side, intent), qty=int(round(shares)), intent=intent,
-                mode=mode, log=log, **({"remainder": True} if remainder else {}))
+                mode=mode, log=log, **({"remainder": True} if remainder else {}),
+                **({"order_kwargs": {"dup_wait_until": dup_until}}
+                   if dup_until is not None else {}))
+            _note_dup_wait(state, rec, leg, intent, nowdt, log=log)
     except _MarketClosed:
         reason = (f"market closed: after today's session close, no broker order is sent "
                   f"(tick {nowdt.strftime('%H:%M:%S')} ET)")
@@ -3432,7 +3516,13 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         # note of the day), a CLOSE group A (the close_retry re-sends the rest)
         msg = (f"QQQ BROKER: {leg} {intent} only PARTIALLY reached Webull: {row['reason']}")
         _log_event(state, "broker", msg, log=log)
-        if intent == "OPEN":
+        if (requeue and trade_id and "DUPLICATE_ORDER_CHECK" in row["reason"]
+                and not _is_unknown_outcome(rec)):
+            # SAME-ORDER WAIT (2026-10-20): the refused part met Webull's same-instant
+            # duplicate rule -- never placed, and _queue_broker_resend queues it below; no push
+            # now (the duplicate branch above says the same), its give-up still pages
+            pass
+        elif intent == "OPEN":
             _say_entry_missed(state, leg, f"Only part of the {_leg_word(leg)} "
                               f"{_open_word(row['side'])} reached Webull", side=row["side"], log=log)
         else:
@@ -3567,7 +3657,8 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
         id, so two legs sending the identical SELL/BUY 10 QQQ in one instant collide: the
         09:31 orphan repair, an end-of-day flatten with two legs open, two legs entering
         on the same bar. That order was never placed, so it goes again a tick later,
-        after the one it collided with has filled;
+        after the one it collided with has filled (2026-10-20: a CLOSE already retrying as
+        a close_retry stays one, and a duplicate CLOSE out of re-sends becomes one);
       * 2026-10-09 (MANAGER GO): an OPEN Webull refused because an opposite OPENING order
         was still working on the symbol (417 OPENAPI_OPEN_ORDER_HAS_BOX_ORDER -- a pending
         buy-opening and sell-opening order may not coexist) -- why="box_order". ENGU-Q's
@@ -3632,6 +3723,16 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
             # same tries; _maybe_resend_broker_orders holds it while the sell is queued)
             why = "after_close"
         elif intent == "CLOSE" and not rec.get("nothing_to_close"):
+            why = "close_retry"
+        if (why == "duplicate" and intent == "CLOSE"
+                and ((existing and existing.get("why") == "close_retry")
+                     or int(resend or 0) >= BROKER_RESEND_MAX_TRIES)):
+            # SAME-ORDER WAIT (2026-10-20, G1), EXIT SAFETY: a close is never abandoned
+            # mid-session over a same-instant duplicate. A close_retry re-send that meets one
+            # stays a close_retry (its trade key, its backoff, its believed-flat check, its
+            # give-up at the flatten deadline) instead of becoming a 3-try "duplicate" item;
+            # a duplicate CLOSE whose own re-sends ran out (BROKER_RESEND_MAX_TRIES) becomes
+            # one -- Webull still holds the shares, so the sell keeps going until the deadline.
             why = "close_retry"
         if not why or not trade_id:
             return
@@ -15425,6 +15526,8 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     cfg = cfg if cfg is not None else load_config(log=log)
     state = state if state is not None else load_state(log=log)
     nowdt = now or _now_et()
+    # SAME-ORDER WAIT (2026-10-20): this tick's wait budget starts now (_dup_wait_until)
+    _DUP_WAIT_TICK.update(key=(id(state), nowdt.isoformat()), wall0=time.time(), timed_out=False)
     today = nowdt.strftime("%Y-%m-%d")
     _roll_day(state, today)
     _dip_rail_expire(state, today, log=log)    # DIP RAIL: reset once past its blocks_until

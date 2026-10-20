@@ -51,13 +51,17 @@ class _Resp:
 
 
 class FakeWebullBook:
-    """One Webull margin account, QQQ only. See the module docstring for the rules."""
+    """One Webull margin account, QQQ only. See the module docstring for the rules. Also
+    Webull's DUPLICATE_ORDER_CHECK (SAME-ORDER WAIT, 2026-10-20), on by default (`dup_rule`):
+    a new order identical to a pending one -- same side, quantity, order type and session --
+    is refused with that 417."""
 
     def __init__(self):
         self.pos = 0                 # FILLED position
-        self.pending = []            # [{coid, side, qty, opening}]
+        self.pending = []            # [{coid, side, qty, opening, kind}]
         self.status = {}             # coid -> FILLED / SUBMITTED
         self.async_fills = False
+        self.dup_rule = True
         self.sent = []               # every ACCEPTED order, in order
         self.refused = []            # every refused order: (side, qty, reason)
         self.account_v2 = MagicMock()
@@ -77,6 +81,11 @@ class FakeWebullBook:
     def _place(self, account_id, orders):
         o = orders[0]
         side, qty, coid = o["side"], int(o["quantity"]), o["client_order_id"]
+        kind = (o.get("order_type"), o.get("support_trading_session"))
+        if self.dup_rule and any(p["side"] == side and p["qty"] == qty and p["kind"] == kind
+                                 for p in self.pending):
+            self._refuse(side, qty, "OPENAPI_ORDER_RISK_RULE_DUPLICATE_ORDER_CHECK",
+                         "You already have an existing order")
         pend_buy_open = any(p["side"] == "BUY" and p["opening"] for p in self.pending)
         pend_sell_open = any(p["side"] in ("SELL", "SHORT") and p["opening"] for p in self.pending)
         reserved_sell = sum(p["qty"] for p in self.pending if p["side"] == "SELL" and not p["opening"])
@@ -110,7 +119,8 @@ class FakeWebullBook:
             raise AssertionError(side)
         self.sent.append({"side": side, "qty": qty, "coid": coid, "opening": opening})
         if self.async_fills:
-            self.pending.append({"coid": coid, "side": side, "qty": qty, "opening": opening})
+            self.pending.append({"coid": coid, "side": side, "qty": qty, "opening": opening,
+                                 "kind": kind})
             self.status[coid] = "SUBMITTED"
         else:
             self._apply(side, qty)

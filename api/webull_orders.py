@@ -736,7 +736,21 @@ RECONCILE_UNDECIDED_MAX = 3
 HTTP_TOO_MANY_REQUESTS = 429
 OPEN_ORDERS_PAGE_SIZE = 50
 OPEN_ORDERS_MAX_PAGES = 5
-DEFAULT_GATEWAY = {"prev_terminal": False}
+DEFAULT_GATEWAY = {"prev_terminal": False, "dup_wait_sec": 3.0}
+# SAME-ORDER WAIT (2026-10-20, G1). Webull refuses an order identical to one still working on
+# the account -- same side, quantity, order type and session: 417
+# OPENAPI_ORDER_RISK_RULE_DUPLICATE_ORDER_CHECK (10-20 09:35:12: DIP_STREAK and DIP_GAPDN both
+# sent SELL 6 in one instant, the second was refused and re-sent 6 s later). A send given
+# `dup_wait_until` (api/qqq_exec.py's _mirror_to_broker, regular hours only) whose planned
+# part(s) match ANOTHER leg's acked, unsettled part first waits for Webull's terminal answer
+# on it (_await_identical_parts), books that answer exactly (the fill-capture rule), re-plans
+# from the account net and then sends under its own id. One wait: at most
+# cfg["gateway"]["dup_wait_sec"] (0 = off), never past DUP_WAIT_HARD_CAP_SEC from the send's
+# start or the caller's `dup_wait_until`. A wait that runs out sends anyway -- today's path
+# (the 417, and qqq_exec's re-send queue). No candidate = no lookup at all.
+DUP_WAIT_HARD_CAP_SEC = 4.0      # the longest any one send waits, whatever the config says
+DUP_WAIT_POLL_TRIES = 8          # lookups per candidate over the wait; the first is immediate
+DUP_WAIT_FRESH_SEC = 30.0        # = CROSS_FRESH_PART_SEC: an acked part this young may still work
 _NON_ALNUM_RE = re.compile(r"[^A-Za-z0-9]")
 # A resting order's id (resting_ids: qx<tid>P<n> / T<n> / K<n>). No other id this book sends
 # ends in P/T/K + digits: its OPEN / CLOSE ids end in O / C (+ a reduce number), a split
@@ -1061,6 +1075,8 @@ class OrderAdapter:
         self._sends_lock = threading.Lock()
         # prev_terminal switched on for this process by the caller (set_prev_terminal)
         self._prev_terminal_override = None
+        # SAME-ORDER WAIT cap set for this adapter by the caller (set_dup_wait), None = config
+        self._dup_wait_override = None
         # resting ids whose place_order is on the wire right now (the lock is let go for
         # it): "not found" on one of them is never read as "never placed"
         self._resting_sending = set()
@@ -1710,11 +1726,15 @@ class OrderAdapter:
                    part_coid, new_order, label, stop_at=None):
         """Send ONE broker part (PENDING on disk first). On an exception a 4xx is a
         refusal; else look it up: FILLED/live = sent, dead books its filled qty, unclear
-        stays PENDING with outcome "UNKNOWN". Caller holds the lock."""
+        stays PENDING with outcome "UNKNOWN". Caller holds the lock. `order_type` and
+        `session` (SAME-ORDER WAIT, 2026-10-20) are what Webull's duplicate rule compares
+        besides side and qty; a part recorded before them reads as MARKET / CORE."""
         self._parts()[part_coid] = {"leg": leg, "symbol": symbol, "side": side,
                                     "qty": int(qty), "intent": intent,
                                     "account_id": account_id, "ts": time.time(),
-                                    "booked": 0, "pending": True}
+                                    "booked": 0, "pending": True,
+                                    "order_type": new_order["order_type"],
+                                    "session": new_order["support_trading_session"]}
         self._save_state()
         rec = {"side": side, "qty": qty, "client_order_id": part_coid, "sent": True,
                "response": None}
@@ -1959,6 +1979,27 @@ class OrderAdapter:
         """Switch the previous-order-terminal gateway rule on (True) or off (False) for
         this adapter, whatever cfg["gateway"] says; None goes back to the config."""
         self._prev_terminal_override = None if on is None else bool(on)
+
+    def _dup_wait_cap(self):
+        """SAME-ORDER WAIT: the longest one send waits for an identical part, in seconds --
+        set_dup_wait's override, else cfg["gateway"]["dup_wait_sec"] (DEFAULT_GATEWAY's 3.0
+        when the key is missing). Unreadable, not finite or negative is 0.0 (off); anything
+        above DUP_WAIT_HARD_CAP_SEC is capped to it. Never raises."""
+        v = self._dup_wait_override
+        if v is None:
+            v = (self.cfg.get("gateway") or {}).get("dup_wait_sec", DEFAULT_GATEWAY["dup_wait_sec"])
+        try:
+            v = float(v)
+        except (TypeError, ValueError):
+            return 0.0
+        if not math.isfinite(v) or v < 0:
+            return 0.0
+        return min(v, DUP_WAIT_HARD_CAP_SEC)
+
+    def set_dup_wait(self, sec):
+        """Set the SAME-ORDER WAIT cap (seconds, 0 = off) for this adapter, whatever
+        cfg["gateway"] says; None goes back to the config."""
+        self._dup_wait_override = sec
 
     def _live_resting(self, symbol=None):
         want = str(symbol).upper() if symbol else None
@@ -2416,6 +2457,88 @@ class OrderAdapter:
                      "change": change})
                 self._save_state()
         return None
+
+    def _settle_part_answer(self, coid, ans):
+        """SAME-ORDER WAIT: book Webull's answer `ans` for part `coid` the way
+        _await_prev_terminal does -- a terminal answer (FILLED, or dead with a filled qty) is
+        recorded final and booked exactly (_book_part; a part event is queued for a change).
+        Returns the change (0 for a part no longer recorded), or None when `ans` is no
+        terminal answer (still working, or none). Caller holds the lock."""
+        part = self._parts().get(coid)
+        if part is None:
+            return 0
+        st = ans["status"] if ans else None
+        target = _terminal_qty(part["qty"], st, ans["filled"]) if ans else None
+        if target is None:
+            return None
+        self._mark_final(coid, st)
+        change = self._book_part(coid, target, pending=False)
+        if change:
+            self._state.setdefault("part_events", []).append(
+                {"client_order_id": coid, "leg": part["leg"], "intent": part.get("intent"),
+                 "status": st, "qty": part["qty"], "booked": part["booked"],
+                 "change": change})
+            self._save_state()
+        return change
+
+    def _await_identical_parts(self, client, leg, symbol, account_id, plan, order_type, until,
+                               send_started):
+        """SAME-ORDER WAIT (see the module comment above DUP_WAIT_HARD_CAP_SEC): before `leg`
+        sends `plan` ([(side, qty)], every part checked up front), wait for each OTHER leg's
+        acked, unsettled part on `symbol` that Webull's duplicate rule would match (same side,
+        qty, `order_type`, regular session, same account), oldest first, until Webull answers
+        it terminal -- booked exactly (_settle_part_answer). Ends at the first one still
+        working, or at min(`until`, now + _dup_wait_cap(), `send_started` +
+        DUP_WAIT_HARD_CAP_SEC). None when the wait is off or nothing matches (no lookup at
+        all, the common case); else {"for": [ids], "settled": every one answered terminal,
+        "changed": shares the books moved, "waited_sec"}. Never raises. Caller holds the
+        lock (_poll_order lets it go for each wait and lookup)."""
+        try:
+            cap = self._dup_wait_cap()
+            if cap <= 0:
+                return None
+            want = {(str(s).upper(), int(q)) for s, q in plan}
+            todo = sorted(
+                ((c, p) for c, p in self._unsettled_parts(symbol, fresh_sec=DUP_WAIT_FRESH_SEC,
+                                                          pending_max_age=DUP_WAIT_FRESH_SEC,
+                                                          acked_only=True)
+                 if (str(p.get("side", "")).upper(), int(p.get("qty") or 0)) in want
+                 and str(p.get("order_type", "MARKET")).upper() == order_type
+                 and str(p.get("session", TRADING_SESSION_CORE)).upper() == TRADING_SESSION_CORE
+                 and p.get("leg") != leg
+                 and p.get("account_id") in (None, account_id)),
+                key=lambda cp: float(cp[1].get("ts") or 0))
+        except Exception as e:
+            self.log(f"  [webull-orders] SAME-ORDER WAIT check failed (sent without it): "
+                     f"{type(e).__name__}: {e}")
+            return None
+        if not todo:
+            return None
+        t0 = time.time()
+        deadline = min(float(until), t0 + cap, send_started + DUP_WAIT_HARD_CAP_SEC)
+        out = {"for": [c for c, _p in todo], "settled": False, "changed": 0, "waited_sec": 0.0}
+        try:
+            for coid, p in todo:
+                left = deadline - time.time()
+                if left <= 0:
+                    break
+                ans = self._poll_order(client, p.get("account_id") or account_id, coid,
+                                       DUP_WAIT_POLL_TRIES, left,
+                                       lambda a: _terminal_qty(1, a["status"], a["filled"])
+                                       is not None, stop_at=deadline)
+                ch = self._settle_part_answer(coid, ans)
+                if ch is None:
+                    break
+                out["changed"] += abs(ch)
+            else:
+                out["settled"] = True
+        except Exception as e:
+            self.log(f"  [webull-orders] SAME-ORDER WAIT failed: {type(e).__name__}: {e}")
+        out["waited_sec"] = round(time.time() - t0, 3)
+        self.log(f"  [webull-orders] SAME-ORDER WAIT {symbol}: {', '.join(out['for'])} "
+                 f"{'settled' if out['settled'] else 'still working'} after "
+                 f"{out['waited_sec']:g}s")
+        return out
 
     def _stale_undecided(self, rec):
         """True for a live resting record placed on an EARLIER NY session whose fill the
@@ -3270,7 +3393,7 @@ class OrderAdapter:
     def place_stock_order(self, *, leg, signal_id, symbol, side, qty, intent="OPEN",
                           order_type="MARKET", limit_price=None, tif="DAY",
                           extended_hours=False, market="US", account_id=None,
-                          instrument_id=None, remainder=False):
+                          instrument_id=None, remainder=False, dup_wait_until=None):
         """Idempotent on signal_id. Returns a record dict always (never raises for a
         blocked/no-op/OFF path -- only an unexpected SDK exception in PAPER/LIVE is
         caught and reported via record["error"], never propagated).
@@ -3324,7 +3447,14 @@ class OrderAdapter:
         limit orders outside regular hours (the 2026-09-17/18 417 "Only limit orders are
         supported for extended-hours trading"). The limit then goes over as a 2-decimal string.
         The record carries extended_hours=True and support_trading_session="ALL". The default
-        (False) is unchanged byte for byte: "CORE", no new record keys."""
+        (False) is unchanged byte for byte: "CORE", no new record keys.
+
+        SAME-ORDER WAIT (2026-10-20, see the module comment above DUP_WAIT_HARD_CAP_SEC):
+        `dup_wait_until` (epoch seconds, regular-session orders only) lets the send wait, up to
+        then, for another leg's identical order still working at Webull -- the record then
+        carries "dup_wait" ({"for", "settled", "changed", "waited_sec"}). An OPEN whose wait
+        moved the books is put through the rails again. None (the default) is today's path
+        byte for byte."""
         with self._sends_lock:
             self._stock_sends += 1
         try:
@@ -3332,14 +3462,15 @@ class OrderAdapter:
                 leg=leg, signal_id=signal_id, symbol=symbol, side=side, qty=qty,
                 intent=intent, order_type=order_type, limit_price=limit_price, tif=tif,
                 extended_hours=extended_hours, market=market, account_id=account_id,
-                instrument_id=instrument_id, remainder=remainder)
+                instrument_id=instrument_id, remainder=remainder,
+                dup_wait_until=dup_wait_until)
         finally:
             with self._sends_lock:
                 self._stock_sends -= 1
 
     def _place_stock_order(self, *, leg, signal_id, symbol, side, qty, intent, order_type,
                            limit_price, tif, extended_hours, market, account_id,
-                           instrument_id, remainder):
+                           instrument_id, remainder, dup_wait_until=None):
         """place_stock_order's body (see its docstring)."""
         side = str(side).upper()
         intent = str(intent).upper()
@@ -3494,6 +3625,29 @@ class OrderAdapter:
                         self.log(f"  [webull-orders] NOT SENT {symbol} {side} {qty} (leg {leg}): "
                                  f"{refusal}")
                         return record
+                if dup_wait_until is not None and trading_session == TRADING_SESSION_CORE:
+                    # SAME-ORDER WAIT (2026-10-20): another leg's identical order still working
+                    # at Webull -- wait (bounded) for its answer, then plan from the account
+                    # net that answer leaves; nothing found = no lookup, today's plan
+                    waited = self._await_identical_parts(client, leg, symbol, account_id,
+                                                         parts_plan, order_type, dup_wait_until,
+                                                         send_started)
+                    if waited:
+                        record["dup_wait"] = waited
+                        net_before = self._account_net(symbol, account_id)
+                        parts_plan = (_plan_broker_parts(net_before, direction, qty)
+                                      or [(side, int(round(qty)))])
+                        if waited["changed"] and intent == "OPEN":
+                            # the books moved under this OPEN (a dead order rolled back):
+                            # its rails are judged again on what they count now
+                            ok, reason = self._check_rails(leg, qty, intent, remainder=remainder)
+                            if not ok:
+                                record.update(mode="BLOCKED", ok=False, sent=False, reason=reason)
+                                self._record_order(coid, record)
+                                self._last_error = reason
+                                self.log(f"  [webull-orders] BLOCKED {symbol} {side} {qty} "
+                                         f"(leg {leg}): {reason}")
+                                return record
 
                 # a crash from here on must never re-send this signal: cache UNKNOWN first
                 self._prune_parts()
