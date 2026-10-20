@@ -107,6 +107,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 from augur_engine import roll_guard
 from augur_engine.master_write import write_master_csv
+from augur_engine.session_calendar import holiday_close
 
 DEFAULT_UP = os.path.join(ROOT, "augur_uploads")
 DEFAULT_DB = os.path.join(ROOT, "optimizer_history.db")
@@ -212,7 +213,10 @@ def _drop_incomplete_tail(resampled, tf_minutes, parent_last_time, parent_tf_sec
     session_close (ET hour, minute): a GRID window ends there at the latest. Without it an RTH
     master's 15:30 60m bucket "ran to 16:30" and was held back every evening until the next
     day's bars arrived - which made the tool shrink (and the write guard refuse) a 60m master
-    that tools/nt_daily_splice.py had already given its whole session (TBIS, 2026-10-15)."""
+    that tools/nt_daily_splice.py had already given its whole session (TBIS, 2026-10-15). On a CME holiday
+    short session (session_calendar.holiday_close: 13:00 ET, 11:30 ET through 2012-09-03) the window ends at the
+    holiday close instead: since #108 the daily splice writes those sessions, and a 12:30 60m bucket that "ran to
+    13:30" was dropped by the 17:25 coarse pass from a 60m master that already held it - MasterShrank (review 10-19)."""
     if not len(resampled):
         return resampled
     if ratio is not None:
@@ -222,7 +226,8 @@ def _drop_incomplete_tail(resampled, tf_minutes, parent_last_time, parent_tf_sec
         window_end = int(resampled.iloc[-1]["_grid_key"]) + tf_s
         if session_close:
             start = pd.Timestamp(int(resampled.iloc[-1]["_grid_key"]), unit="s", tz="UTC").tz_convert("US/Eastern")
-            close = start.normalize() + pd.Timedelta(hours=session_close[0], minutes=session_close[1])
+            hh, mm = min(session_close, holiday_close(start.date()) or session_close)
+            close = start.normalize() + pd.Timedelta(hours=hh, minutes=mm)
             window_end = min(window_end, int(close.timestamp()))
         complete = (parent_last_time + parent_tf_seconds) >= window_end
     if not complete:

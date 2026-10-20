@@ -293,8 +293,9 @@ def test_run_window_records_the_acceptance_in_the_provenance(tmp_path):
 
 
 def test_a_short_session_is_skipped_not_written_and_a_pull_a_minute_short_is_still_refused():
-    """2026-07-03: NYSE closed, CME traded to 13:00 ET; the house masters hold no bars that day, so the fill skips
-    it. A missing day whose NT minutes stop one minute before the close is a bad pull and refuses the master."""
+    """A missing NORMAL day (not a CME holiday session) whose NT minutes end at 13:00 ET is a short session the
+    calendar does not list: skipped, never written (CME holiday sessions are written: see the #108 tests below). A
+    missing day whose NT minutes stop one minute before the close is a bad pull and refuses the master."""
     full, whole, holed = _window_master(1)
     d2a, d2b = (sp._epoch(x) for x in sp.session_window(WDAYS[2], "rth"))
     early = full[~((full["time"] >= d2a + 210 * 60) & (full["time"] < d2b))]      # the missing day ends 13:00
@@ -480,3 +481,285 @@ def test_run_window_replace_writes_with_no_new_rows_and_leaves_other_sources_alo
     e = json.loads(con.execute("select provenance from csv_files where id=1").fetchone()[0])["splices"][-1]
     assert e["replace_from"] == WDAYS[2] and e["sessions"]["replaced"] == 2 and e["sessions_written"] == WDAYS[2:]
     assert e["rows_added"] == 0
+
+
+# ----------------------------------------------------------------------------- CME holiday short sessions (#108, 10-19)
+def _span_minutes(spans, seed=17, px=21000.0):
+    """1m bars (start-stamped) over explicit ET [start, end) spans, e.g. ("2026-07-02 18:00", "2026-07-03 13:00")."""
+    rows, rng = [], np.random.default_rng(seed)
+    for s, e in spans:
+        t0, t1 = pd.Timestamp(s, tz="US/Eastern"), pd.Timestamp(e, tz="US/Eastern")
+        for t in range(int(t0.timestamp()), int(t1.timestamp()), 60):
+            o = px
+            px = round((px + rng.integers(-6, 7) * 0.25) * 4) / 4
+            rows.append(dict(time=t, open=o, high=max(o, px) + 0.5, low=min(o, px) - 0.5, close=px,
+                             volume=int(rng.integers(200, 2000))))
+    return pd.DataFrame(rows)
+
+
+def _hm(ts):
+    return ts.strftime("%Y-%m-%d %H:%M")
+
+
+def test_the_holiday_calendar_is_the_cme_rule():
+    assert [d.isoformat() for d in sp.holiday_sessions(2026)] == [
+        "2026-01-19", "2026-02-16", "2026-05-25", "2026-06-19", "2026-07-03", "2026-09-07", "2026-11-26"]
+    h21 = [d.isoformat() for d in sp.holiday_sessions(2021)]
+    assert "2021-07-05" in h21 and not any(d.startswith("2021-06") for d in h21)     # Juneteenth only from 2022
+    assert "2022-06-20" in [d.isoformat() for d in sp.holiday_sessions(2022)]        # a Sunday 19th -> Monday
+    for closed in ("2026-01-01", "2026-04-03", "2026-12-25", "2021-12-24", "2022-12-26", "2023-01-02"):
+        assert not sp.is_holiday_session(closed)                                   # CME closed: no session at all
+    for early in ("2026-11-27", "2026-12-24", "2025-07-03", "2024-12-24"):
+        assert not sp.is_holiday_session(early)                                    # NYSE open, early close
+    # every NYSE holiday is either a CME closure or a CME holiday short session, and every holiday session is an NYSE
+    # holiday (api/market_calendar.py and augur_engine/session_calendar.py, 2010-2030)
+    spec_mc = importlib.util.spec_from_file_location("_mc", os.path.join(ROOT, "api", "market_calendar.py"))
+    mc = importlib.util.module_from_spec(spec_mc)
+    spec_mc.loader.exec_module(mc)
+    from augur_engine.session_calendar import closed_days
+    for y in range(2010, 2031):
+        nyse = set(mc.holiday_dates(y))
+        hol = set(sp.holiday_sessions(y))
+        assert hol <= nyse, y
+        assert nyse - hol <= set(closed_days(y)), (y, sorted(nyse - hol - set(closed_days(y))))
+
+
+def test_a_holiday_session_ends_at_1300_et_in_rth_and_eth():
+    a, b = sp.session_window("2026-07-03", "rth")
+    assert (_hm(a), _hm(b)) == ("2026-07-03 09:30", "2026-07-03 13:00")
+    a, b = sp.session_window("2026-07-03", "eth")
+    assert (_hm(a), _hm(b)) == ("2026-07-02 18:00", "2026-07-03 13:00")
+    a, b = sp.session_window("2026-09-07", "eth")                                   # Labor Day: Sunday 18:00 open
+    assert (_hm(a), _hm(b)) == ("2026-09-06 18:00", "2026-09-07 13:00")
+    # the CME's old 10:30 CT holiday halt: the masters hold 2010-07-05..2012-09-03 to 11:30 ET (5m: 24 bars)
+    assert _hm(sp.session_window("2012-09-03", "rth")[1]) == "2012-09-03 11:30"
+    assert _hm(sp.session_window("2011-01-17", "eth")[1]) == "2011-01-17 11:30"
+    assert _hm(sp.session_window("2014-05-26", "rth")[1]) == "2014-05-26 13:00"
+    # everything else is unchanged: a normal day, an early close with the NYSE open
+    for d in ("2026-07-06", "2026-11-27", "2026-12-24"):
+        assert _hm(sp.session_window(d, "rth")[1]) == f"{d} 16:00"
+        assert _hm(sp.session_window(d, "eth")[1]) == f"{d} 17:00"
+
+
+@pytest.mark.parametrize("tf,n,last", [(1, 210, "12:59"), (2, 105, "12:58"), (5, 42, "12:55"), (15, 14, "12:45"),
+                                       (30, 7, "12:30"), (60, 4, "12:30")])
+def test_a_holiday_rth_session_derives_42_five_minute_bars(tf, n, last):
+    nt = _span_minutes([("2026-07-03 09:30", "2026-07-03 13:15")])                 # a stray quarter-hour after the halt
+    got = sp.derive(nt, tf, "rth", "2026-07-03")
+    assert len(got) == n and sp._hhmm(got["time"].iloc[0]) == "09:30" and sp._hhmm(got["time"].iloc[-1]) == last
+
+
+HDAYS = ["2026-07-01", "2026-07-02", "2026-07-03", "2026-07-06"]     # Wed, Thu, Fri = Independence Day (observed), Mon
+
+
+def _holiday_rth():
+    spans = [(f"{d} 09:30", f"{d} {'13:00' if d == '2026-07-03' else '16:00'}") for d in HDAYS]
+    return _span_minutes(spans)
+
+
+@pytest.mark.parametrize("tf", [1, 2, 5, 60])
+def test_a_missing_holiday_session_that_nt_holds_whole_is_written(tf):
+    full = _holiday_rth()
+    whole = pd.concat([sp.derive(full, tf, "rth", d) for d in HDAYS], ignore_index=True)
+    a, b = (sp._epoch(x) for x in sp.session_window("2026-07-03", "rth"))
+    holed = whole[(whole["time"] < a) | (whole["time"] >= b)].reset_index(drop=True)
+    new, rep = sp.fill_plan(holed, full, tf, "rth", HDAYS[0], HDAYS[-1], 0.0, accept="hlv")
+    assert rep["sessions"] == {"held": 3, "truncated": 0, "missing": 1, "replaced": 0}
+    assert rep["sessions_written"] == ["2026-07-03"] and rep["holiday_sessions_written"] == ["2026-07-03"]
+    assert rep["sessions_skipped"] == [] and rep["bars_added"] == {1: 210, 2: 105, 5: 42, 60: 4}[tf]
+    assert np.allclose(new[["time", "open", "high", "low", "close", "volume"]].values,
+                       whole[["time", "open", "high", "low", "close", "volume"]].values)
+
+
+@pytest.mark.parametrize("tf", [1, 5])
+def test_a_truncated_holiday_eth_session_is_completed(tf):
+    """2026-06-19 in the 1m ETH masters / 07-03 in the 5m ones: the master holds only the evening before (18:00-23:58)."""
+    spans = [("2026-07-01 18:00", "2026-07-02 17:00"), ("2026-07-02 18:00", "2026-07-03 13:00"),
+             ("2026-07-05 18:00", "2026-07-06 17:00")]
+    full = _span_minutes(spans)
+    days = ["2026-07-02", "2026-07-03", "2026-07-06"]
+    whole = pd.concat([sp.derive(full, tf, "eth", d) for d in days], ignore_index=True)
+    assert len(sp.derive(full, tf, "eth", "2026-07-03")) == {1: 1140, 5: 228}[tf]
+    cut = _et("2026-07-02", "23:59") if tf == 1 else _et("2026-07-03", "00:00")
+    b = sp._epoch(sp.session_window("2026-07-03", "eth")[1])
+    m = whole[(whole["time"] < cut) | (whole["time"] >= b)].reset_index(drop=True)
+    new, rep = sp.fill_plan(m, full, tf, "eth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions"] == {"held": 2, "truncated": 1, "missing": 0, "replaced": 0}
+    assert rep["sessions_written"] == ["2026-07-03"] and rep["holiday_sessions_written"] == ["2026-07-03"]
+    assert len(new) == len(whole) and rep["bars_added"] == {1: 1140 - 359, 5: 228 - 72}[tf]
+    assert np.allclose(new[["time", "open", "high", "low", "close", "volume"]].values,
+                       whole[["time", "open", "high", "low", "close", "volume"]].values)
+
+
+def test_a_non_holiday_early_ending_session_is_still_skipped_or_refused():
+    """Thanksgiving week: Thursday (a holiday session) is written; Friday's 13:15 early close (NYSE open, not a holiday
+    session) is skipped when missing; a truncated normal day whose NT minutes stop at 12:59 is still refused."""
+    days = ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27"]
+    ends = {"2026-11-26": "13:00", "2026-11-27": "13:15"}
+    full = _span_minutes([(f"{d} 09:30", f"{d} {ends.get(d, '16:00')}") for d in days])
+    m = pd.concat([sp.derive(full, 5, "rth", d) for d in days[:2]], ignore_index=True)
+    new, rep = sp.fill_plan(m, full, 5, "rth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions_written"] == ["2026-11-26"] and rep["sessions"]["missing"] == 1
+    assert len(rep["sessions_skipped"]) == 1 and rep["sessions_skipped"][0].startswith("2026-11-27 (short session")
+    a, b = (sp._epoch(x) for x in sp.session_window("2026-11-27", "rth"))
+    assert not ((new["time"] >= a) & (new["time"] < b)).any() and rep["bars_added"] == 42
+    # a normal day the master holds truncated at 10:58, NT stopping at 12:59: a bad pull, refused
+    short = full[~((full["time"] >= _et(days[1], "13:00")) & (full["time"] < _et(days[1], "16:00")))]
+    trunc = m[~((m["time"] >= _et(days[1], "10:55")) & (m["time"] < _et(days[1], "16:00")))]
+    with pytest.raises(sp.Refused, match="short of the session's last minute"):
+        sp.fill_plan(trunc, short, 5, "rth", days[0], days[-1], 0.0, accept="hlv")
+
+
+def test_eth_sessions_follow_the_cme_daily_close_eras():
+    """The masters' last ETH minute (review 10-19): through 2012-11-16 17:29 Mon-Thu and 16:14 Fri, 2012-11-19 ..
+    2015-09-18 17:14 (Fridays too), since 2015-09-21 16:59. RTH is 16:00 throughout."""
+    for d, end in (("2011-03-08", "17:30"), ("2012-11-15", "17:30"), ("2011-03-11", "16:15"), ("2012-11-16", "16:15"),
+                   ("2012-11-19", "17:15"), ("2012-11-30", "17:15"), ("2014-06-12", "17:15"), ("2015-09-18", "17:15"),
+                   ("2015-09-21", "17:00"), ("2026-07-10", "17:00")):
+        assert _hm(sp.session_window(d, "eth")[1]) == f"{d} {end}", d
+        assert _hm(sp.session_window(d, "rth")[1]) == f"{d} 16:00", d
+    assert _hm(sp.session_window("2011-01-17", "eth")[1]) == "2011-01-17 11:30"     # a holiday keeps its own halt
+    days = ["2014-06-11", "2014-06-12", "2014-06-13"]
+    full = _span_minutes([(f"{pd.Timestamp(d) - pd.Timedelta(days=1):%Y-%m-%d} 18:00", f"{d} 17:15") for d in days])
+    assert sp._hhmm(sp.derive(full, 5, "eth", days[1])["time"].iloc[-1]) == "17:10"
+    whole = pd.concat([sp.derive(full, 5, "eth", d) for d in days], ignore_index=True)
+    a, b = (sp._epoch(x) for x in sp.session_window(days[1], "eth"))
+    holed = whole[(whole["time"] < a) | (whole["time"] >= b)]
+    new, rep = sp.fill_plan(holed, full, 5, "eth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions_written"] == [days[1]] and len(new) == len(whole)
+    # the 2014 NT probe pulls stop at 16:59 (today's 17:00 template): a missing 2014 session from them is refused
+    no_tail = full[~((full["time"] >= _et(days[1], "17:00")) & (full["time"] < b))]
+    with pytest.raises(sp.Refused, match="not the whole session"):
+        sp.fill_plan(holed, no_tail, 5, "eth", days[0], days[-1], 0.0, accept="hlv")
+
+
+def _eth_spans(days, ends):
+    return [(f"{pd.Timestamp(d) - pd.Timedelta(days=1):%Y-%m-%d} 18:00", f"{d} {ends(d)}") for d in days]
+
+
+@pytest.mark.parametrize("tf", [1, 5])
+def test_a_2011_week_held_to_1729_and_friday_to_1614_is_held_not_truncated(tf):
+    """Review 10-19: the 17:15 window cut 2010-2012 Mon-Thu sessions mid-trading (the masters hold 17:15-17:29) and
+    put Fridays an hour past their 16:15 close, so a perfect pull refused ('the master stops at 17:10'). Under the
+    era windows every session is HELD, and a missing Wednesday is written whole to 17:29."""
+    days = ["2011-03-07", "2011-03-08", "2011-03-09", "2011-03-10", "2011-03-11"]
+    full = _span_minutes(_eth_spans(days, lambda d: "16:15" if pd.Timestamp(d).weekday() == 4 else "17:30"))
+    whole = pd.concat([sp.derive(full, tf, "eth", d) for d in days], ignore_index=True)
+    assert sp._hhmm(sp.derive(full, tf, "eth", days[1])["time"].iloc[-1]) == ("17:29" if tf == 1 else "17:25")
+    assert sp._hhmm(sp.derive(full, tf, "eth", days[4])["time"].iloc[-1]) == ("16:14" if tf == 1 else "16:10")
+    new, rep = sp.fill_plan(whole, full, tf, "eth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions"]["held"] == 5 and rep["sessions_written"] == [] and rep["bars_added"] == 0
+    a, b = (sp._epoch(x) for x in sp.session_window(days[2], "eth"))
+    holed = whole[(whole["time"] < a) | (whole["time"] >= b)]
+    new, rep = sp.fill_plan(holed, full, tf, "eth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions_written"] == [days[2]] and rep["sessions"]["held"] == 4
+    assert np.allclose(new[["time", "open", "high", "low", "close", "volume"]].values,
+                       whole[["time", "open", "high", "low", "close", "volume"]].values)
+
+
+@pytest.mark.parametrize("tf", [1, 5])
+def test_a_thin_tail_both_sources_lack_is_held_but_a_master_bar_cut_short_still_refuses(tf):
+    """Review 10-19: NQ 2010-07-08 has no print after 17:21 in the master or a pull. Both stop at the same bar short
+    of the 17:30 close: HELD, nothing written (it refused 're-pull'). A master whose last bar differs from NT's, a
+    master that stops a bar earlier than NT, a tail more than THIN_TAIL_MIN short, or an RTH session still refuses."""
+    days = ["2011-03-07", "2011-03-08", "2011-03-09"]
+    full = _span_minutes(_eth_spans(days, lambda d: "17:30"))
+    full = full[~((full["time"] >= _et(days[1], "17:24")) & (full["time"] < _et(days[1], "17:30")))]  # last 17:23
+    whole = pd.concat([sp.derive(full, tf, "eth", d) for d in days], ignore_index=True)
+    assert sp._hhmm(whole[whole["time"] < _et(days[1], "17:30")]["time"].max()) == ("17:23" if tf == 1 else "17:20")
+    new, rep = sp.fill_plan(whole, full, tf, "eth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions"]["held"] == 3 and rep["sessions_written"] == [] and rep["bars_added"] == 0
+    bad = whole.copy()                                           # the master's last bar is not NT's: cut short
+    bad.loc[bad["time"] == _et(days[1], "17:23" if tf == 1 else "17:20"), "volume"] //= 2
+    with pytest.raises(sp.Refused, match="short of the session's last minute"):
+        sp.fill_plan(bad, full, tf, "eth", days[0], days[-1], 0.0, accept="hlv")
+    early = whole[~((whole["time"] >= _et(days[1], "17:15")) & (whole["time"] < _et(days[1], "17:30")))]
+    with pytest.raises(sp.Refused, match="short of the session's last minute"):   # the master stops before NT does
+        sp.fill_plan(early, full, tf, "eth", days[0], days[-1], 0.0, accept="hlv")
+    gap = full[~((full["time"] >= _et(days[1], "17:15")) & (full["time"] < _et(days[1], "17:30")))]
+    m = pd.concat([sp.derive(gap, tf, "eth", d) for d in days], ignore_index=True)
+    with pytest.raises(sp.Refused, match="short of the session's last minute"):  # 17:14: more than 10 minutes short
+        sp.fill_plan(m, gap, tf, "eth", days[0], days[-1], 0.0, accept="hlv")
+    rth = _span_minutes([(f"{d} 09:30", f"{d} 16:00") for d in days])          # RTH: the 16:00 close always trades
+    rth = rth[~((rth["time"] >= _et(days[1], "15:54")) & (rth["time"] < _et(days[1], "16:00")))]  # last 15:53
+    m = pd.concat([sp.derive(rth, tf, "rth", d) for d in days], ignore_index=True)
+    with pytest.raises(sp.Refused, match="short of the session's last minute"):
+        sp.fill_plan(m, rth, tf, "rth", days[0], days[-1], 0.0, accept="hlv")
+
+
+@pytest.mark.parametrize("tf", [1, 5])
+def test_an_eth_special_closure_night_the_master_holds_is_neither_an_anchor_nor_a_refusal(tf):
+    """2025-01-09 (Carter funeral): the ETH masters hold the 18:00-09:29 night before the closure and NT stops there
+    too. Review 10-19: it read as TRUNCATED and refused the whole master ('re-pull'); now it is skipped whatever the
+    master holds, and the missing 01-08 around it is still written."""
+    days = ["2025-01-07", "2025-01-08", "2025-01-09", "2025-01-10"]
+    full = _span_minutes(_eth_spans(days, lambda d: "09:30" if d == "2025-01-09" else "17:00"))
+    whole = pd.concat([sp.derive(full, tf, "eth", d) for d in days], ignore_index=True)
+    a, b = (sp._epoch(x) for x in sp.session_window(days[1], "eth"))
+    holed = whole[(whole["time"] < a) | (whole["time"] >= b)]
+    new, rep = sp.fill_plan(holed, full, tf, "eth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions_written"] == [days[1]] and rep["sessions"] == {"held": 2, "truncated": 0, "missing": 1,
+                                                                         "replaced": 0}
+    assert rep["sessions_skipped"] == ["2025-01-09 (no regular CME session: a special closure / Good Friday overnight, "
+                                       "left as the master holds it)"]
+    assert np.allclose(new[["time", "open", "high", "low", "close", "volume"]].values,
+                       whole[["time", "open", "high", "low", "close", "volume"]].values)
+
+
+def test_a_thin_2m_holiday_whose_last_pair_starts_at_1257_is_held():
+    """Review 10-19: NQ 2020-01-20 (MLK) has no 12:25 minute, so the 2m rows pair onto odd minutes after it and the
+    master's last pair starts 12:57 (its trailing single 12:59 minute left out). That is HELD - an anchor, nothing
+    rewritten - not a truncation that appends a one-minute 12:59 '2m' bar."""
+    days = ["2020-01-16", "2020-01-17", "2020-01-20", "2020-01-21"]                # Thu, Fri, MLK, Tue
+    full = _span_minutes([(f"{d} 09:30", f"{d} {'13:00' if d == '2020-01-20' else '16:00'}") for d in days])
+    full = full[full["time"] != _et("2020-01-20", "12:25")].reset_index(drop=True)
+    der = sp.derive(full, 2, "rth", "2020-01-20")
+    assert [sp._hhmm(t) for t in der["time"].iloc[-2:]] == ["12:57", "12:59"]
+    m = pd.concat([sp.derive(full, 2, "rth", d) for d in days], ignore_index=True)
+    m = m[m["time"] != _et("2020-01-20", "12:59")].reset_index(drop=True)
+    new, rep = sp.fill_plan(m, full, 2, "rth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions"]["held"] == 4 and rep["sessions_written"] == [] and rep["bars_added"] == 0
+    assert (new["time"].values == m["time"].values).all()
+    # a 2m master that really stops early on the holiday is still TRUNCATED and completed
+    cut = m[~((m["time"] >= _et("2020-01-20", "11:59")) & (m["time"] < _et("2020-01-20", "13:00")))]
+    new, rep = sp.fill_plan(cut, full, 2, "rth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions"]["truncated"] == 1 and rep["sessions_written"] == ["2020-01-20"]
+    # NQ 2011-05-30 (Memorial Day, 11:30 halt, 95 of 120 minutes): pairs far off the grid, last pair 11:25-11:26 and a
+    # single 11:29 minute the master leaves out - HELD by NT's own pairing, nothing appended
+    days = ["2011-05-26", "2011-05-27", "2011-05-30", "2011-05-31"]
+    full = _span_minutes([(f"{d} 09:30", f"{d} {'11:30' if d == '2011-05-30' else '16:00'}") for d in days])
+    full = full[~full["time"].isin([_et("2011-05-30", hm) for hm in ("10:00", "11:27", "11:28")])].reset_index(drop=True)
+    der = sp.derive(full, 2, "rth", "2011-05-30")
+    assert [sp._hhmm(t) for t in der["time"].iloc[-2:]] == ["11:25", "11:29"]
+    m = pd.concat([sp.derive(full, 2, "rth", d) for d in days], ignore_index=True)
+    m = m[m["time"] != _et("2011-05-30", "11:29")].reset_index(drop=True)
+    new, rep = sp.fill_plan(m, full, 2, "rth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions"]["held"] == 4 and rep["sessions_written"] == [] and rep["bars_added"] == 0
+
+
+def test_no_full_reference_session_refuses_the_master_instead_of_exiting():
+    """Review 10-19: NQ's thin 2014 overnights (856-1317 minutes) have no 1300-minute reference session; that used to
+    raise SystemExit, which run_window does not catch, so the whole run aborted instead of refusing one master."""
+    thin = _span_minutes(_eth_spans(["2014-06-10", "2014-06-11"], lambda d: "08:00"))
+    with pytest.raises(sp.Refused, match="no full reference session"):
+        sp.reference_date(thin, "2014-06-12", "eth")
+
+
+def test_an_nyse_special_closure_is_never_an_rth_session():
+    """2025-01-09 (President Carter's funeral): NYSE closed, no CME equity-index RTH session - never written, even if
+    an NT file held whole-looking minutes that day. Same for the other special closures and for Good Friday. (ETH:
+    the CME traded the night before - see the ETH special-closure test.)"""
+    for d in ("2012-10-29", "2012-10-30", "2018-12-05", "2025-01-09"):
+        assert not sp.is_holiday_session(d)
+        assert _hm(sp.session_window(d, "rth")[1]) == f"{d} 16:00"
+    days = ["2025-01-07", "2025-01-08", "2025-01-09", "2025-01-10"]
+    full = _span_minutes([(f"{d} 09:30", f"{d} 16:00") for d in days])
+    m = pd.concat([sp.derive(full, 5, "rth", d) for d in days if d != "2025-01-09"], ignore_index=True)
+    new, rep = sp.fill_plan(m, full, 5, "rth", days[0], days[-1], 0.0, accept="hlv")
+    assert rep["sessions_written"] == [] and rep["bars_added"] == 0 and len(new) == len(m)
+    assert rep["sessions_skipped"] == ["2025-01-09 (no regular CME session: the equity-index tape is closed)"]
+    gf = ["2026-04-01", "2026-04-02", "2026-04-03"]                                 # Good Friday 2026-04-03
+    full = _span_minutes([(f"{d} 09:30", f"{d} 16:00") for d in gf])
+    m = pd.concat([sp.derive(full, 5, "rth", d) for d in gf[:2]], ignore_index=True)
+    new, rep = sp.fill_plan(m, full, 5, "rth", gf[0], gf[-1], 0.0, accept="hlv")
+    assert rep["sessions_written"] == [] and rep["sessions_skipped"][0].startswith("2026-04-03 (no regular CME session")

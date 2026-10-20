@@ -120,6 +120,62 @@ def test_the_file_wait_returns_once_the_file_is_still_and_gives_up_at_the_deadli
     assert D._wait_for_file(str(missing), "17:15", clock=lambda: t["now"], sleep=lambda s: t.__setitem__("now", t["now"] + s)) is False
 
 
+TG = ["2026-11-24", "2026-11-25", "2026-11-26", "2026-11-27"]     # Tue, Wed, Thanksgiving (to 13:00), Fri (to 13:15)
+
+
+def _tg_setup(tmp_path, today):
+    """NQ 1m + 5m RTH no-adjust masters through the day before `today` (plus Yahoo bars for the early close); the NT
+    daily file holds the session before `today` and `today` (#108: Thanksgiving is a CME holiday session, 09:30-13:00)."""
+    ends = {"2026-11-26": 210, "2026-11-27": 225}
+    rows, rng, px = [], np.random.default_rng(5), 25000.0
+    for d in TG:
+        t0 = pd.Timestamp(f"{d} 09:30", tz="US/Eastern")
+        for i in range(ends.get(d, 390)):
+            o = px
+            px = round((px + rng.integers(-6, 7) * 0.25) * 4) / 4
+            rows.append(dict(time=int((t0 + pd.Timedelta(minutes=i)).timestamp()), open=o, high=max(o, px) + 0.5,
+                             low=min(o, px) - 0.5, close=px, volume=int(rng.integers(200, 2000))))
+    full = pd.DataFrame(rows)
+    i = TG.index(today)
+    up = tmp_path / "up"; up.mkdir()
+    db = tmp_path / "reg.db"
+    con = sqlite3.connect(db)
+    con.execute(f"create table csv_files ({', '.join(COLS)})")
+    whole = {}
+    for mid, (fn, tf) in enumerate([("NOADJ_NQ_1m_RTH.csv", 1), ("NOADJ_NQ_5m_RTH.csv", 5)], start=1):
+        whole[fn] = pd.concat([S.derive(full, tf, "rth", d) for d in TG[:i + 1]], ignore_index=True)
+        if today == "2026-11-27":                                    # the master holds Yahoo bars for the early close
+            m = _yahooish(whole[fn], today)
+        else:                                                        # the master is missing the holiday
+            m = whole[fn][whole[fn]["time"] < S._epoch(S.session_window(today, "rth")[0])]
+        m.to_csv(up / fn, index=False)
+        con.execute(f"insert into csv_files values ({','.join('?' * len(COLS))})",
+                    (mid, fn, fn, "NQ", f"{tf}m", "db_noadj_rth", len(m), TG[0], today, 1, '{}'))
+    con.commit(); con.close()
+    nt = full[(full["time"] >= S._epoch(S.session_window(TG[i - 1], "rth")[0]))
+              & (full["time"] < S._epoch(S.session_window(today, "rth")[1]))].copy()
+    nt["time"] = nt["time"] + 60                                     # NinjaTrader stamps the bar END
+    ntp = tmp_path / ("NQ_daily_%s.csv" % today.replace("-", ""))
+    nt.to_csv(ntp, index=False)
+    return str(db), str(up), str(ntp), whole
+
+
+@pytest.mark.parametrize("today,bars", [("2026-11-26", {1: 210, 5: 42}), ("2026-11-27", {1: 225, 5: 45})])
+def test_a_holiday_session_is_written_and_then_anchors_the_next_day(tmp_path, today, bars):
+    """#108: Thanksgiving's 13:00 ET session is written like any day (it used to be skipped as a short session), and
+    the next day's run anchors on it as a HELD session (it used to read as truncated and refuse the master). The
+    13:15 ET early close the day after (Yahoo bars in the master) is replaced up to where the master ends."""
+    db, up, ntp, whole = _tg_setup(tmp_path, today)
+    written, refused = D.run(today, commit=True, path=ntp, db=db, uploads=up, log=lambda *_: None)
+    assert sorted(written) == [1, 2] and refused == []
+    for fn, tf in (("NOADJ_NQ_1m_RTH.csv", 1), ("NOADJ_NQ_5m_RTH.csv", 5)):
+        got = pd.read_csv(os.path.join(up, fn))
+        a, b = (S._epoch(x) for x in S.session_window(today, "rth"))
+        assert ((got["time"] >= a) & (got["time"] < b)).sum() == bars[tf]
+        assert np.allclose(got[["time", "open", "high", "low", "close", "volume"]].values,
+                           whole[fn][["time", "open", "high", "low", "close", "volume"]].values)
+
+
 def test_a_weekend_does_nothing(tmp_path, monkeypatch):
     monkeypatch.setattr(D, "LOG", str(tmp_path / "daily.log"))
     assert D.main(["--date", "2026-10-17"]) == 0

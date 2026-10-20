@@ -138,6 +138,57 @@ def test_an_rth_sessions_last_60m_bucket_is_closed_at_the_1600_close():
     assert len(R._drop_incomplete_tail(live, 60, _epoch("2026-01-05", 15, 45), 300, session_close=R.RTH_CLOSE)) == 6
 
 
+def test_a_cme_holiday_sessions_last_60m_bucket_is_closed_at_the_1300_halt():
+    """Thanksgiving 2026-11-26: the CME halts at 13:00 ET and the 5m parent ends 12:55. Its 12:30 60m bucket is
+    complete (it used to "run to 13:30" and be dropped); one bar earlier it is still forming. Before 2012-09-03 the
+    halt was 11:30 ET, on the 60m grid, so 2011-11-24's 10:30 bucket is complete once the 11:25 bar is in (review
+    10-19)."""
+    day = _session_5m_bars("2026-11-26", (9, 30), 42)
+    out = R.resample_grid(day, 60)
+    assert len(out) == 4
+    assert len(R._drop_incomplete_tail(out, 60, int(day["time"].max()), 300, session_close=R.RTH_CLOSE)) == 4
+    assert len(R._drop_incomplete_tail(out, 60, _epoch("2026-11-26", 12, 50), 300, session_close=R.RTH_CLOSE)) == 3
+    assert len(R._drop_incomplete_tail(R.resample_grid(day, 30), 30, int(day["time"].max()), 300,
+                                       session_close=R.RTH_CLOSE)) == 7
+    old = _session_5m_bars("2011-11-24", (9, 30), 24)                  # 09:30-11:25: 11:30 sits on the 09:30 grid
+    out = R.resample_grid(old, 60)
+    kept = R._drop_incomplete_tail(out, 60, int(old["time"].max()), 300, session_close=R.RTH_CLOSE)
+    assert len(kept) == len(out) == 2
+    # the day after (13:15 early close, NYSE open) is NOT a holiday session: its 12:30 bucket still runs to 13:30
+    fri = _session_5m_bars("2026-11-27", (9, 30), 45)
+    out = R.resample_grid(fri, 60)
+    assert len(R._drop_incomplete_tail(out, 60, int(fri["time"].max()), 300, session_close=R.RTH_CLOSE)) == len(out) - 1
+
+
+def test_the_coarse_pass_keeps_a_holiday_60m_bar_the_daily_splice_already_wrote(tmp_path):
+    """End to end (process_one + apply_one): the 16:15 ET daily NT splice writes Thanksgiving's four 60m bars (09:30 ..
+    12:30) into the RTH 60m master; the 17:25 ET coarse pass re-derives the unsettled days from the 5m parent ending
+    12:55 and must keep all four - it used to drop 12:30 and refuse with MasterShrank, every pass that evening."""
+    import sqlite3
+    days = list(pd.bdate_range("2026-11-12", "2026-11-26").strftime("%Y-%m-%d"))
+    p5 = pd.concat([_session_5m_bars(d, (9, 30), 42 if d == "2026-11-26" else 78, 100.0 + 10 * i)
+                    for i, d in enumerate(days)], ignore_index=True)
+    m60 = pd.concat([R.resample_grid(p5[_et_date(p5) == d], 60) for d in days], ignore_index=True)
+    m60 = m60[["time", "open", "high", "low", "close", "volume"]]
+    assert len(m60) == 10 * 7 + 4
+    p5.to_csv(tmp_path / "P5.csv", index=False)
+    m60.to_csv(tmp_path / "M60.csv", index=False)
+    con = sqlite3.connect(":memory:")
+    con.execute("create table csv_files (id, rows, date_to)")
+    con.execute("insert into csv_files values (1, ?, '2026-11-26')", (len(m60),))
+    mrow = dict(id=1, filename="M60.csv", instrument="NQ", timeframe="60m", session="rth", source="db_noadj_rth",
+                rows=len(m60), date_to="2026-11-26")
+    info, existing, new_rows = R.process_one(str(tmp_path), mrow, dict(filename="P5.csv", timeframe="5m"), "grid")
+    assert info["check_result"].startswith("PASS")
+    R.apply_one(con, str(tmp_path), info, existing, new_rows)                     # raised MasterShrank before
+    got = pd.read_csv(tmp_path / "M60.csv")
+    assert len(got) == len(m60) and (got["time"].values == m60["time"].values).all()
+
+
+def _et_date(df):
+    return pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert(ET).dt.strftime("%Y-%m-%d").values
+
+
 # ── ROW-COUNT method (2m) ─────────────────────────────────────────────────────────────
 def test_rowcount_2m_from_1m_aggregation():
     day = _session_1m_bars("2026-01-05", (9, 30), 40)

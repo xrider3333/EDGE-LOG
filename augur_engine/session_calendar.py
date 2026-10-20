@@ -59,7 +59,8 @@ import pandas as pd
 
 __all__ = ["session_calendar", "session_dates", "session_index_in_month", "days_to_month_end",
            "is_last_n_sessions_of_month", "is_first_n_sessions_of_month", "week_of_month", "exchange_sessions",
-           "is_exchange_session", "closed_days", "SPECIAL_CLOSURES"]
+           "is_exchange_session", "closed_days", "SPECIAL_CLOSURES", "holiday_sessions", "is_holiday_session",
+           "holiday_close"]
 
 # full regular-hours closures beyond the yearly rules (NYSE closed; the CME equity-index RTH tape has no session)
 SPECIAL_CLOSURES = frozenset(_dt.date.fromisoformat(d) for d in (
@@ -120,6 +121,57 @@ def is_exchange_session(d):
     """True when date `d` has a regular-hours session on the CME equity-index calendar."""
     d = pd.Timestamp(d).date()
     return d.weekday() < 5 and d not in closed_days(d.year)
+
+
+# CME equity-index HOLIDAY SHORT SESSIONS (MANAGER #98-1 / #108, 10-19): the US holidays on which the NYSE is closed
+# but the CME equity-index futures trade a session that halts at 12:00 CT = 13:00 ET (10:30 CT = 11:30 ET on the
+# house masters through 2012-09-03): MLK (3rd Monday of January), Presidents' (3rd Monday of February), Memorial (last
+# Monday of May), Juneteenth (June 19 as observed, from 2022), Independence (July 4 as observed), Labor (1st Monday of
+# September), Thanksgiving (4th Thursday of November). Verified 10-19 against the NQ/ES 5m RTH and ETH masters
+# 2010-06..2026-10 (tools/splice_nt_sessions.py has the detail). They ARE exchange sessions (is_exchange_session).
+# Shared by tools/splice_nt_sessions.py (the session window) and tools/refresh_resampled_masters.py (the RTH close a
+# coarse bucket runs to).
+HOLIDAY_CLOSE = (13, 0)                                          # ET hour, minute
+HOLIDAY_CLOSE_OLD = (11, 30)
+HOLIDAY_OLD_LAST = _dt.date(2012, 9, 3)                          # the last holiday session ending 11:30 ET
+_HOLIDAY_CACHE = {}
+
+
+def _nth_weekday(year, month, weekday, n):
+    d = _dt.date(year, month, 1)
+    return d + _dt.timedelta(days=(weekday - d.weekday()) % 7 + 7 * (n - 1))
+
+
+def _last_weekday(year, month, weekday):
+    d = _dt.date(year + (month == 12), month % 12 + 1, 1) - _dt.timedelta(days=1)
+    return d - _dt.timedelta(days=(d.weekday() - weekday) % 7)
+
+
+def holiday_sessions(year):
+    """{date: name} of the CME equity-index holiday short sessions of `year` (NYSE closed, CME to 13:00 ET)."""
+    if year not in _HOLIDAY_CACHE:
+        h = {_nth_weekday(year, 1, 0, 3): "Martin Luther King Jr. Day", _nth_weekday(year, 2, 0, 3): "Presidents' Day",
+             _last_weekday(year, 5, 0): "Memorial Day", _observed(_dt.date(year, 7, 4)): "Independence Day",
+             _nth_weekday(year, 9, 0, 1): "Labor Day", _nth_weekday(year, 11, 3, 4): "Thanksgiving"}
+        if year >= 2022:
+            h[_observed(_dt.date(year, 6, 19))] = "Juneteenth"
+        shut = closed_days(year)                         # New Year, Good Friday, Christmas + the special closures
+        _HOLIDAY_CACHE[year] = {d: n for d, n in sorted(h.items()) if d not in shut}
+    return _HOLIDAY_CACHE[year]
+
+
+def is_holiday_session(d):
+    """True when date `d` is a CME equity-index holiday short session (see holiday_sessions)."""
+    d = pd.Timestamp(d).date()
+    return d in holiday_sessions(d.year)
+
+
+def holiday_close(d):
+    """(hour, minute) ET at which the CME holiday short session on `d` halts, or None when `d` is not one."""
+    d = pd.Timestamp(d).date()
+    if d not in holiday_sessions(d.year):
+        return None
+    return HOLIDAY_CLOSE_OLD if d <= HOLIDAY_OLD_LAST else HOLIDAY_CLOSE
 
 
 def _exchange_days(d0, d1):

@@ -32,6 +32,16 @@
 # overlap those ET minutes and disagree with NT (high/low beyond a tick, volume beyond 5%), at most 3 per master, after
 # the session's other bars pass the hlv agreement at the master's own level. Before/after go in the provenance.
 #
+# HOLIDAY SHORT SESSIONS (10-19, MANAGER #98-1 / #108): on MLK, Presidents', Memorial, Juneteenth, Independence, Labor
+# Day and Thanksgiving the NYSE is closed but the CME equity-index futures trade to 13:00 ET, and the house masters hold
+# those sessions (5m RTH: 42 bars 09:30-12:55). session_window ends them at 13:00 ET (RTH and ETH; 11:30 ET through
+# 2012-09-03), so a holiday that NT holds whole is filled like any missing session and one the master holds truncated is
+# completed. ETH sessions follow the CME's daily close as the masters hold it: 17:30 ET Mon-Thu and 16:15 ET Fri through
+# 2012-11-16, 17:15 ET through 2015-09-18, 17:00 ET since. A weekday with no regular CME session (New Year, Good
+# Friday, Christmas, an NYSE special closure) is skipped whatever the master or NT holds - never written, never an
+# anchor (in ETH the masters keep the overnight before some of them: those nights are left alone); every other short
+# session is still skipped or refused.
+#
 # Run (dry run is the default; nothing is written without --commit):
 #   python tools/splice_nt_sessions.py --root ES --date 2020-02-28 --nt C:\EdgeLog\nt_hist\out\ES_0320_1m_20200228.csv
 #   python tools/splice_nt_sessions.py --root ES --from 2026-06-30 --to 2026-08-06 --accept hlv --nt <ESU6 file>
@@ -53,11 +63,48 @@ ROOT = os.path.dirname(HERE)
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 from augur_engine.master_write import write_master_csv  # noqa: E402
+from augur_engine.session_calendar import (holiday_close, holiday_sessions, is_exchange_session,  # noqa: E402,F401
+                                           is_holiday_session)
 
 ET = "US/Eastern"
 TICK = 0.25
 SPLICE_SOURCES = ("db_noadj_rth", "db_noadj_eth", "tv")
 TF_MIN = {"1m": 1, "2m": 2, "5m": 5, "15m": 15, "30m": 30, "60m": 60}
+
+
+# ----------------------------------------------------------------------------- the CME holiday calendar (#108)
+# CME equity-index HOLIDAY SHORT SESSIONS (MANAGER #98-1 / #108, 10-19). On these US holidays the NYSE is closed but
+# the CME equity-index futures trade a short session that halts at 12:00 CT = 13:00 ET:
+#   Martin Luther King Jr. Day (3rd Monday of January), Presidents' Day (3rd Monday of February), Memorial Day (last
+#   Monday of May), Juneteenth (June 19 as observed, from 2022, the NYSE's first), Independence Day (July 4 as observed:
+#   a Saturday one on Friday July 3, a Sunday one on Monday July 5), Labor Day (1st Monday of September), Thanksgiving
+#   (4th Thursday of November).
+# Verified 10-19 against the NQ and ES 5m RTH and 5m ETH no-adjust masters, 2010-06..2026-10: every RTH session they
+# hold that ends 13:00 ET (42 bars 09:30-12:55) or 11:30 ET is in this list, and no early close (45-46 bars to 13:15 ET:
+# the day after Thanksgiving, Dec 24, Jul 3) or special closure (0 bars) is; every listed date from 2014-05-26 on is
+# such a 13:00 session (bar a stray 13:00 print: NQ 2018-07-04, ES 2015-07-03 and 2018-09-03), and every listed date
+# 2010-07-05..2012-09-03 ends 11:30 ET (the CME's old 10:30 CT holiday halt; 5m RTH 24 bars 09:30-11:25, ETH too) -
+# session_calendar.HOLIDAY_CLOSE_OLD. 2012-11-22..2014-02-17 (nine holidays) are a source gap in every master; when the
+# halt moved is not known, so they take the 13:00 close: a pull that ends 11:30 is then a short session, skipped, never written.
+# Missing everywhere: 2026-06-19, 2026-07-03, 2026-09-07 (the t108 NT pull holds them).
+# NOT holiday sessions: New Year's Day, Good Friday and Christmas, when the CME equity-index tape is CLOSED
+# (augur_engine.session_calendar.closed_days); the NYSE special closures (session_calendar.SPECIAL_CLOSURES: Hurricane
+# Sandy 2012-10-29/30, the Bush 2018-12-05 and Carter 2025-01-09 funerals), never RTH sessions whatever
+# api/market_calendar.py says; and the early closes with the NYSE OPEN (the day after Thanksgiving, Christmas Eve,
+# July 3) - those keep the regular window and the skip/refuse rules below. In ETH the CME did trade the night before
+# a special closure and before an NFP Good Friday (the ETH masters hold 18:00-09:14 on 2012-04-06, 2012-10-29/30,
+# 2015-04-03, 2021-04-02, 2023-04-07, 2026-04-03 and 18:00-09:29 on 2018-12-05, 2025-01-09): fill_plan skips those
+# trade dates in both sessions, whatever the master holds - never written, never an anchor, never a refusal.
+# The calendar itself (holiday_sessions / is_holiday_session / holiday_close) lives in augur_engine.session_calendar,
+# shared with tools/refresh_resampled_masters.py, which must end a holiday's coarse RTH buckets at the same 13:00 ET.
+#
+# ETH DAILY CLOSE ERAS (review 10-19, verified on the NQ/ES 1m and 5m ETH masters 2010-06..2015-12; the last daytime
+# bar per trade date): through 2012-11-16 Mon-Thu sessions end 17:29 (NQ 1m 402 of 510, ES 479; 5m 17:25) and Fridays
+# 16:14 (NQ 120 of 126, ES 102 + 21 at 16:15; the CME's old 15:15 CT Friday close); from 2012-11-19 every session
+# ends 17:14 (NQ 555 + 139 of 572 + 145); from 2015-09-21 16:59. A stray print AT the close minute (ES 17:15 x17,
+# 17:00 x3, 16:15 x21) sits outside the window, as before.
+ETH_1730_LAST = "2012-11-16"                 # the last ETH session ending 17:30 ET Mon-Thu / 16:15 ET Fri
+OLD_ETH_LAST = "2015-09-18"                  # the last ETH session ending 17:15 ET (CME's old daily close)
 
 
 # ----------------------------------------------------------------------------- time helpers
@@ -66,11 +113,23 @@ def to_et(sec):
 
 
 def session_window(date, session):
-    """[start, end) of the session that trades on `date` (ET). ETH opens 18:00 ET the evening before."""
+    """[start, end) of the session that trades on `date` (ET). RTH runs 09:30-16:00. ETH opens 18:00 ET the evening
+    before and ends 17:00 ET (17:15 ET 2012-11-19..2015-09-18; through 2012-11-16 17:30 ET Mon-Thu and 16:15 ET Fri).
+    A CME holiday short session (is_holiday_session) ends 13:00 ET in both (11:30 ET through 2012-09-03)."""
     d = pd.Timestamp(date, tz=ET)
-    if session == "rth":
-        return d + pd.Timedelta(hours=9, minutes=30), d + pd.Timedelta(hours=16)
-    return d - pd.Timedelta(hours=6), d + pd.Timedelta(hours=17)
+    ymd = d.strftime("%Y-%m-%d")
+    hc = holiday_close(date)
+    if hc:
+        end = d + pd.Timedelta(hours=hc[0], minutes=hc[1])
+    elif session == "rth":
+        end = d + pd.Timedelta(hours=16)
+    elif ymd <= ETH_1730_LAST:
+        end = d + (pd.Timedelta(hours=16, minutes=15) if d.weekday() == 4 else pd.Timedelta(hours=17, minutes=30))
+    elif ymd <= OLD_ETH_LAST:
+        end = d + pd.Timedelta(hours=17, minutes=15)
+    else:
+        end = d + pd.Timedelta(hours=17)
+    return (d + pd.Timedelta(hours=9, minutes=30) if session == "rth" else d - pd.Timedelta(hours=6)), end
 
 
 def _epoch(ts):
@@ -222,10 +281,14 @@ ACCEPT_RULES = ("close", "hlv")
 HLV_MIN_HL = 0.98      # share of overlap bars whose high AND low sit within one tick of the level
 HLV_MIN_VOL = 0.95     # share whose volume is within VOL_TOL (not checked for a TradingView master)
 VOL_TOL = 0.05
-# A MISSING session that NT holds from the open but that ends this many minutes or more before the regular close is a
-# short session (an early close, or CME trading through an NYSE holiday) - skipped and reported, never written. The
-# house masters hold none for 2026-07-03 (NYSE closed, CME short session to 13:00). A pull that stops a minute or
-# two short of the close is a bad pull, not a short session, and is still refused.
+# A MISSING session that NT holds from the open but that ends this many minutes or more before its close is a short
+# session the calendar does not list (an early close, an abbreviated Good Friday) - skipped and reported, never
+# written. A CME HOLIDAY short session is listed (holiday_sessions, #108 10-19): its window already ends at 13:00 ET,
+# so NT whole to 12:59 is written like any missing session and a master holding part of it (the evening before) is
+# completed like any truncated one. A weekday with no regular CME session (New Year's, Good Friday, Christmas, an NYSE
+# special closure) is skipped whatever the master or NT holds: never written, never an anchor, never a refusal (the
+# ETH masters keep the overnight before some of them, to 09:14 / 09:29 ET). A pull that stops a minute or two short of
+# the close is a bad pull, not a short session, and is still refused.
 SHORT_SESSION_MIN = 30
 
 
@@ -279,6 +342,50 @@ def _last_bucket(a, b, tf):
     return a + ((b - 60 - a) // step) * step
 
 
+def _reaches_close(last_have, a, b, tf):
+    """True when the master's last bar in [a, b) is the session's last bar (the session is HELD, not truncated).
+
+    2m rows pair from the open by ROW COUNT, so one minute with no trade (a thin holiday: NQ 2020-01-20 has no 12:25)
+    shifts every later pair onto odd minutes and the last full pair starts at 12:57, one minute before the clock
+    grid's 12:58; the trailing single minute is the master's own convention to keep or drop (review 10-19: on 15 held
+    NQ 2m holidays reading the 12:57 label as truncated rewrote the pair and appended a one-minute 12:59 bar)."""
+    return last_have >= _last_bucket(a, b, tf) - (60 if tf == 2 else 0)
+
+
+def _pairs_held(last_have, nt_full, nt_rows, whole_end):
+    """2m only: HELD when NT reaches the close and the master already holds NT's last FULL pair - all NT has but a
+    trailing single minute, which the 2m master leaves out (37 of 38 odd-minute NQ sessions). A very thin holiday
+    pairs far off the clock grid: NQ 2011-05-30 (95 of 120 minutes) ends its last pair at 11:25-11:26 and NT's
+    single 11:29 minute; that read truncated and a fill appended a one-minute 11:29 '2m' bar (review 10-19)."""
+    if not whole_end or nt_full.empty:
+        return False
+    pairs = nt_full if nt_rows % 2 == 0 else nt_full.iloc[:-1]
+    return len(pairs) > 0 and last_have >= int(pairs["time"].iloc[-1])
+
+
+# THIN TAIL (review 10-19): the last minutes before an ETH close can trade nothing - NQ 2010-2012 often has no print in
+# 17:21-17:29 (NQ 1m: 63 sessions 2010-06..2012-11 stop short of 17:29 in the master, e.g. 2010-06-15 at 17:28,
+# 2010-07-08 at 17:21), and a pull has none either. Both stop at the same bar a few minutes short of the close: nothing
+# is missing, there is nothing to write, and refusing the master ('re-pull') for it refused every weekly window over
+# such a day. ETH only (the RTH and holiday closes always trade): HELD when NT stops within THIN_TAIL_MIN of the close
+# and the master's last bar IS NT's last bar - same start, high/low within a tick at the master's level, volume within
+# VOL_TOL (not for a TradingView master) - so a master that stops before NT does, or whose last bar differs, still
+# reads truncated and refuses.
+THIN_TAIL_MIN = 10
+
+
+def _thin_tail(have, nt_full, last, b, ref_offset, check_volume, session):
+    if session != "eth" or last < b - THIN_TAIL_MIN * 60 or nt_full.empty:
+        return False
+    m, n = have.loc[have["time"].idxmax()], nt_full.iloc[-1]
+    if int(m["time"]) != int(n["time"]):
+        return False
+    hl = (abs(m["high"] - n["high"] - ref_offset) <= TICK + 1e-9
+          and abs(m["low"] - n["low"] - ref_offset) <= TICK + 1e-9)
+    vol = (not check_volume) or abs(m["volume"] - n["volume"]) / max(m["volume"], 1) <= VOL_TOL
+    return bool(hl and vol)
+
+
 def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", check_volume=True, replace_from=None):
     """New master frame with every session in [d0, d1] that the master is MISSING or holds TRUNCATED rebuilt from NT.
 
@@ -301,9 +408,13 @@ def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", ch
         nt_in = nt_1m[(nt_1m["time"] >= a) & (nt_1m["time"] < b)]
         first, last = int(nt_in["time"].min()), int(nt_in["time"].max())
         whole_end = last >= b - 60
-        der = derive(nt_1m, tf, session, d)
+        der = nt_full = derive(nt_1m, tf, session, d)
         if not whole_end and tf > 1:
             der = der.iloc[:-1]                        # the bucket holding NT's last minute may be short
+        if not is_exchange_session(d):                 # before the master is looked at: never written, never an anchor
+            skipped.append(f"{d} (no regular CME session: " + ("the equity-index tape is closed)" if session == "rth"
+                           else "a special closure / Good Friday overnight, left as the master holds it)"))
+            continue
         have = master[(master["time"] >= a) & (master["time"] < b)]
         if have.empty:
             if first <= a and last < b - SHORT_SESSION_MIN * 60:
@@ -316,14 +427,17 @@ def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", ch
             continue
         last_have = int(have["time"].max())
         if replace_from and d >= replace_from:         # REPLACED: written whole from NT, never an anchor
-            need = b - 60 if last_have >= _last_bucket(a, b, tf) else last_have
+            need = b - 60 if _reaches_close(last_have, a, b, tf) else last_have
             if first > a or last < need:
                 raise Refused(f"{d}: replacing a session needs NT minutes from the open through {_hhmm(need)} ET; "
                               f"they run {_hhmm(first)}..{_hhmm(last)} ET - re-pull")
-            full = derive(nt_1m, tf, session, d)         # untrimmed: an early close ends where the master does
+            full = nt_full                               # untrimmed: an early close ends where the master does
             writes.append((d, a, b, full if whole_end else full[full["time"] <= last_have])); counts["replaced"] += 1
             continue
-        if last_have >= _last_bucket(a, b, tf):        # HELD: an anchor only
+        held = (_reaches_close(last_have, a, b, tf)
+                or (tf == 2 and _pairs_held(last_have, nt_full, len(nt_in), whole_end))
+                or _thin_tail(have, nt_full, last, b, ref_offset, check_volume, session))
+        if held:                                       # HELD: an anchor only
             pool.append(der.merge(have, on="time", suffixes=("_nt", "_m"))); counts["held"] += 1
             continue
         if not whole_end:
@@ -368,6 +482,7 @@ def fill_plan(master, nt_1m, tf, session, d0, d1, ref_offset, accept="close", ch
     if new["time"].duplicated().any():
         raise Refused(f"{d0}..{d1}: the fill would duplicate a timestamp")
     rep = dict(stats, level_offset=level, sessions=counts, sessions_written=added, sessions_skipped=skipped,
+               holiday_sessions_written=[d for d in added if is_holiday_session(d)],
                bars_added=len(new) - len(master), replace_from=replace_from)
     return new, rep
 
@@ -475,7 +590,8 @@ def parent_1m(db, root, session):
 
 
 def reference_date(parent, date, session):
-    """The last full session before `date` in the 1m parent."""
+    """The last full session before `date` in the 1m parent. Refused (not SystemExit, review 10-19) when there is none,
+    so a window run refuses that master and goes on to the next instead of aborting the whole run."""
     et = to_et(parent["time"].values)
     d = et.dt.strftime("%Y-%m-%d")
     days = sorted(set(d[(et < pd.Timestamp(date, tz=ET)).values]))
@@ -483,7 +599,8 @@ def reference_date(parent, date, session):
         n = len(_rows_in(parent, day, session))
         if (session == "rth" and n == 390) or (session == "eth" and n >= 1300):
             return day
-    raise SystemExit("no full reference session in the 10 days before the hole")
+    raise Refused(f"{date}: no full reference session in the 10 days before the hole (the 1m {session.upper()} parent "
+                  f"has no {'390' if session == 'rth' else '1300+'}-minute session)")
 
 
 def record_splice(con, mid, provenance, entry, rows, key="splices"):
@@ -576,6 +693,7 @@ def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, upl
         log(f"{'SPLICE ' if commit else 'DRY-RUN'}  #{mid} {name}: +{rep['bars_added']} bars; sessions written "
             f"{len(rep['sessions_written'])} ({s['missing']} missing, {s['truncated']} truncated, {s['replaced']} replaced), "
             f"{s['held']} held"
+            f"{'; CME holiday sessions ' + ', '.join(rep['holiday_sessions_written']) if rep['holiday_sessions_written'] else ''}"
             f"{'; skipped ' + ', '.join(rep['sessions_skipped']) if rep['sessions_skipped'] else ''}; "
             f"overlap {rep['overlap_bars']} bars, {rep['rule']} agree {rep['agree']:.1%}{extra}, level "
             f"{rep['level_offset']:+.2f} (ref {ref})")
@@ -583,6 +701,7 @@ def run_window(root, d0, d1, nt_path, commit=False, accept="close", db=None, upl
             write_master_csv(new, path, known_rows=nrows)
             entry = dict(window=[d0, d1], sessions_written=rep["sessions_written"],
                          sessions=rep["sessions"], replace_from=replace_from,
+                         holiday_sessions_written=rep["holiday_sessions_written"],
                          sessions_skipped=rep["sessions_skipped"], nt_file=os.path.basename(nt_path),
                          nt_sha256=nt_sha, rows_added=rep["bars_added"], level_offset=rep["level_offset"],
                          acceptance={k: rep[k] for k in ("rule", "overlap_bars", "agree", "max_diff",
