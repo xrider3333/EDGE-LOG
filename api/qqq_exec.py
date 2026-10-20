@@ -3313,6 +3313,12 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
                 **({"order_kwargs": {"dup_wait_until": dup_until}}
                    if dup_until is not None else {}))
             _note_dup_wait(state, rec, leg, intent, nowdt, log=log)
+            if ((rec or {}).get("dup_wait") or {}).get("changed") and not (rec or {}).get("duplicate"):
+                # the wait booked ANOTHER leg's terminal answer (say its acked sell died) as a
+                # part event -- fill capture no longer reports that change (the books already
+                # moved), so hand it on THIS tick: a dead close's unsold shares are re-queued
+                # now, not after the next reconcile (30 s after the last send)
+                _push_pending_changes(state, adapter, log=log, nowdt=nowdt)
     except _MarketClosed:
         reason = (f"market closed: after today's session close, no broker order is sent "
                   f"(tick {nowdt.strftime('%H:%M:%S')} ET)")
@@ -3471,8 +3477,11 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
             # duplicate rule -- the order was never placed, and _queue_broker_resend queues it
             # (why="duplicate") for ONE re-send per tick once the identical one has filled. No
             # push now (it would cry wolf every DIP morning): an accepted re-send is group E
-            # (timeline only); the give-up pushes the strategy's one "entry missed" (an OPEN)
-            # or the urgent "Webull may still hold" (a CLOSE).
+            # (timeline only); the give-up pushes the strategy's one "entry missed" (an OPEN).
+            # A CLOSE (SAME-ORDER WAIT, 2026-10-20) is never given up mid-session: once its
+            # BROKER_RESEND_MAX_TRIES duplicate re-sends ran out it becomes a close_retry and
+            # pushes its ONE "the sell is late" then (_queue_broker_resend); the flatten-deadline
+            # give-up pushes the urgent "Webull may still hold".
             _log_event(state, "broker",
                        f"QQQ BROKER {intent} NOT OK: {leg} {row['side']} {shares}sh -- Webull saw "
                        f"an identical order still working; re-sent in a few seconds", log=log)
@@ -3520,7 +3529,9 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
                 and not _is_unknown_outcome(rec)):
             # SAME-ORDER WAIT (2026-10-20): the refused part met Webull's same-instant
             # duplicate rule -- never placed, and _queue_broker_resend queues it below; no push
-            # now (the duplicate branch above says the same), its give-up still pages
+            # now (the duplicate branch above says the same). The queue still pages: an OPEN's
+            # give-up ("entry missed"); a CLOSE's "the sell is late" once its duplicate
+            # re-sends run out, and the urgent give-up at the flatten deadline
             pass
         elif intent == "OPEN":
             _say_entry_missed(state, leg, f"Only part of the {_leg_word(leg)} "
@@ -3724,16 +3735,28 @@ def _queue_broker_resend(state, rec, *, leg, side, shares, shadow_px, intent, ts
             why = "after_close"
         elif intent == "CLOSE" and not rec.get("nothing_to_close"):
             why = "close_retry"
-        if (why == "duplicate" and intent == "CLOSE"
-                and ((existing and existing.get("why") == "close_retry")
-                     or int(resend or 0) >= BROKER_RESEND_MAX_TRIES)):
+        if why == "duplicate" and intent == "CLOSE":
+            was_close_retry = bool(existing and existing.get("why") == "close_retry")
+            out_of_resends = int(resend or 0) >= BROKER_RESEND_MAX_TRIES
             # SAME-ORDER WAIT (2026-10-20, G1), EXIT SAFETY: a close is never abandoned
             # mid-session over a same-instant duplicate. A close_retry re-send that meets one
             # stays a close_retry (its trade key, its backoff, its believed-flat check, its
             # give-up at the flatten deadline) instead of becoming a 3-try "duplicate" item;
             # a duplicate CLOSE whose own re-sends ran out (BROKER_RESEND_MAX_TRIES) becomes
             # one -- Webull still holds the shares, so the sell keeps going until the deadline.
-            why = "close_retry"
+            if was_close_retry or out_of_resends:
+                why = "close_retry"
+            if out_of_resends and not was_close_retry:
+                # review of G1: a close refused only as a duplicate never pushes on its own,
+                # and its give-up now waits for the flatten deadline -- so the conversion is
+                # the episode's first failure: ONE "the sell is late" note (the exit:<leg>
+                # episode holds every later one; the deadline give-up still pages urgent)
+                _log_event(state, "broker",
+                           f"QQQ BROKER CLOSE NOT OK: {leg} -- Webull refused "
+                           f"{int(resend or 0) + 1} tries as a duplicate of an order still "
+                           f"working; it keeps re-sending until the flatten deadline", log=log)
+                _say_exit_late(state, leg, "Webull keeps refusing it as a duplicate of an "
+                               "order still working", side=side, log=log)
         if not why or not trade_id:
             return
         key = trade_key if (why == "close_retry" and trade_key) else plain_key

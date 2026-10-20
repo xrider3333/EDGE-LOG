@@ -21,6 +21,8 @@ path's waits advance the test clock (webull_orders._sleep), so every bound is ch
 not only in lookup counts. No SDK, network or credentials.
 """
 import json
+import threading
+import time
 from unittest.mock import MagicMock
 
 import pytest
@@ -109,13 +111,14 @@ class FakeWebull:
         return _Resp({"client_order_id": coid, "orders": [item]})
 
 
-def _rig(tmp_path, monkeypatch, cfg_extra=None):
+def _rig(tmp_path, monkeypatch, cfg_extra=None, real_time=False):
     """(adapter, fake, clock): a PAPER adapter on FakeWebull, the order path's clock at T0 and
-    its waits advancing it."""
+    its waits advancing it (`real_time`: the real clock, and the order path's waits instant)."""
     tmp_path.mkdir(parents=True, exist_ok=True)
     clock = [T0]
-    monkeypatch.setattr(WO.time, "time", lambda: clock[0])
-    monkeypatch.setattr(WO, "_sleep", lambda sec: clock.__setitem__(0, clock[0] + sec))
+    if not real_time:
+        monkeypatch.setattr(WO.time, "time", lambda: clock[0])
+        monkeypatch.setattr(WO, "_sleep", lambda sec: clock.__setitem__(0, clock[0] + sec))
     cfg = WO.load_config("__no_such_file__")
     cfg["mode"] = "PAPER"
     cfg["rails"].update(session_start="00:00", session_end="23:59",
@@ -338,6 +341,59 @@ def test_a4_no_wait_once_the_send_has_already_used_its_hard_cap(tmp_path, monkey
     assert fake.detail_calls == [] and rec["dup_wait"]["settled"] is False
     assert rec["dup_wait"]["waited_sec"] == 0.0
     assert fake.refused == [("SELL", 10, DUP)]
+
+
+def test_a4_a_hung_lookup_never_holds_the_send_past_its_wait(tmp_path, monkeypatch):
+    """Review of G1 (fix 3), on the REAL clock. The wait's bound used to stop a lookup only from
+    STARTING: one get_order_detail that hangs (a network stall) held the wait -- and the send
+    after it -- far past the cap. Now the send goes out when the wait's time is up (0.3 s here)
+    although the lookup still hangs (~2 s); its late answer (FILLED) is never booked; and a
+    second wait while it still hangs starts no new lookup and sends at once."""
+    adapter, fake, _clock = _rig(tmp_path, monkeypatch, real_time=True)
+    for leg in ("ORB", "NOISE", "ENGUQ"):
+        _seed(adapter, leg, 10)
+    fake.pos = 30
+    orb = _place(adapter, "ORB", "qxORBC", "SELL", 10, "CLOSE")
+    assert orb["ok"] is True
+    fake.fill_after_lookups = 1          # the late answer, when it comes, is FILLED
+    release = threading.Event()
+    started = []
+    answer = fake._detail
+
+    def hung_detail(account_id, coid):
+        started.append(coid)
+        release.wait(2.0)
+        return answer(account_id, coid)
+    fake.order_v3.get_order_detail.side_effect = hung_detail
+    adapter.set_dup_wait(0.3)
+    try:
+        t0 = time.perf_counter()
+        rec = _place(adapter, "NOISE", "qxNOISEC", "SELL", 10, "CLOSE",
+                     dup_wait_until=time.time() + 8)
+        took = time.perf_counter() - t0
+        assert 0.25 <= took < 1.0, f"the send waited {took:.2f}s, not ~0.3s"
+        assert started == ["qxORBC"] and rec["dup_wait"]["settled"] is False
+        assert fake.refused == [("SELL", 10, DUP)], "sent anyway: today's path"
+
+        slept = []
+        monkeypatch.setattr(WO, "_sleep", slept.append)
+        t1 = time.perf_counter()
+        rec2 = _place(adapter, "ENGUQ", "qxENGUQC", "SELL", 10, "CLOSE",
+                      dup_wait_until=time.time() + 8)
+        assert time.perf_counter() - t1 < 0.25, "no wait behind a lookup still hanging"
+        assert slept == [], "not even a poll interval spent"
+        assert started == ["qxORBC"], "and no new lookup started"
+        assert rec2["dup_wait"]["settled"] is False and rec2["dup_wait"]["waited_sec"] < 0.25
+    finally:
+        release.set()
+        fut = WO._DUP_WAIT_LOOKUP.get("future")
+        if fut is not None:
+            fut.result(timeout=5)
+    assert fake.status["qxORBC"] == "FILLED", "the late lookup did answer FILLED ..."
+    part = adapter._state["order_parts"]["qxORBC"]
+    assert "final_status" not in part and part["booked"] == 10, "... and nothing booked it"
+    assert adapter._state.get("part_events") is None
+    assert not adapter._dup_lookup_busy()
 
 
 # ── A5. the identical order dies: books roll back, NOISE is re-planned from the true net ───────

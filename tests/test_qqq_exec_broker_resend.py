@@ -519,25 +519,44 @@ def test_a_duplicate_close_out_of_resends_keeps_retrying_until_the_deadline(tmp_
     close was given up mid-session with an urgent push while Webull still held the shares.
     EXIT SAFETY: a close is never abandoned mid-session -- a duplicate CLOSE out of re-sends
     becomes a close_retry (its trade key, its 5/10/20/30 s backoff, the believed-flat check)
-    and is given up only at the session flatten deadline (close - 10 s)."""
+    and is given up only at the session flatten deadline (close - 10 s).
+
+    THE PHONE (review of G1): a close refused only as a duplicate never pushes on its own, so
+    the conversion is the episode's first failure -- exactly ONE "the sell is late" note then
+    (none before it, none on the later backoff re-sends), and the deadline give-up still
+    pushes the urgent "Webull may still hold"."""
     cfg, adapter, client, out, sent, clock = _setup(tmp_path, monkeypatch)
+    pushed = []
+    monkeypatch.setattr(qe, "_notify", lambda msg, title, log=print, priority=None:
+                        pushed.append((title, msg, priority)))
+    # the after-hours sell switched off: nobody sells it after the bell, so the give-up is URGENT
+    cfg["after_hours_flatten"] = {"enabled": False}
     state = {"legs": {}, "events": []}
     _seed_sent(adapter, "ORB", 10)
     client.order_v3.place_order.side_effect = _dup_error()   # every call raises
+
+    def late_notes():
+        return [p for p in pushed if "is late" in p[1]]
 
     qe._mirror_to_broker(state, leg="ORB", side="long", shares=10, shadow_px=480.0,
                          intent="CLOSE", ts="x", seq=1, trade_id=ORB_TRADE_ID,
                          nowdt=NOWDT, log=NOOP)
     assert client.order_v3.place_order.call_count == 1
 
-    for _ in range(qe.BROKER_RESEND_MAX_TRIES):
+    for i in range(qe.BROKER_RESEND_MAX_TRIES):
         clock[0] += 5
+        assert pushed == [], f"no push before the conversion (re-send {i + 1})"
         qe._maybe_resend_broker_orders(state, cfg, NOWDT, True, log=NOOP)
     assert client.order_v3.place_order.call_count == 1 + qe.BROKER_RESEND_MAX_TRIES == 4
     key = f"ORB:CLOSE:{ORB_TRADE_ID}"
     assert list(state["_broker_resend"]) == [key], "a close_retry now, under its trade key"
     item = state["_broker_resend"][key]
     assert item["why"] == "close_retry" and item["tries"] == 3 and item["needs_verify"] is False
+    (late,) = late_notes()
+    assert late[0] == "QQQ book: CHECK NOW" and late[2] == "high"
+    assert "the ORB sell is late" in late[1] and "duplicate" in late[1]
+    assert len(pushed) == 1
+    assert any("refused 4 tries as a duplicate" in t for t in _events(state))
 
     clock[0] += 5
     qe._maybe_resend_broker_orders(state, cfg, NOWDT, True, log=NOOP)
@@ -549,7 +568,8 @@ def test_a_duplicate_close_out_of_resends_keeps_retrying_until_the_deadline(tmp_
     assert client.order_v3.place_order.call_count == 5, "re-sent on the backoff"
     assert state["_broker_resend"][key]["why"] == "close_retry"
     assert state["_broker_resend"][key]["tries"] == 4
-    assert not any("gave up" in msg for _title, msg in sent)
+    assert len(pushed) == 1, "no second note on a later backoff re-send"
+    assert not any("gave up" in msg for _title, msg, _p in pushed)
 
     clock[0] += 60
     qe._maybe_resend_broker_orders(state, cfg, NOWDT.replace(hour=15, minute=59, second=50),
@@ -558,7 +578,9 @@ def test_a_duplicate_close_out_of_resends_keeps_retrying_until_the_deadline(tmp_
     assert state.get("_broker_resend") == {}
     assert any("gave up" in t and "the session flatten deadline passed" in t
                for t in _events(state))
-    assert any("gave up" in msg for _title, msg in sent)
+    assert len(pushed) == 2
+    assert "gave up" in pushed[1][1] and pushed[1][2] == "urgent"
+    assert sent == []
 
 
 def test_halted_recheck_cadence_vs_normal_periodic_cadence(monkeypatch):

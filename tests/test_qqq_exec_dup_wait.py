@@ -515,6 +515,53 @@ def test_q4_no_wait_at_15_59_46_today_s_refusal_and_the_re_send_before_the_bell(
     assert e.fake.pos == 0 and e.books() == {"ORB": 0, "NOISE": 0}
 
 
+def test_q4_a_dead_identical_close_is_re_queued_in_the_same_tick_and_sold_before_the_deadline(
+        env, monkeypatch):
+    """Review of G1 (fix 1). The flatten at 15:59:16: ORB's SELL 10 is acked, NOISE's identical
+    SELL 10 waits for it -- and Webull reports ORB's REJECTED. The wait books that (ORB back to
+    10) as a part event, which fill capture will never report again (the books already moved).
+    It is handed on in the SAME tick: ORB's unsold 10 go to close_retry at once and are re-sent
+    at 15:59:21 -- not after the next reconcile (30 s after the last send, 15:59:46), when only
+    a deadline give-up was left. Fill capture, which then reads ORB's dead order itself, queues
+    nothing twice. Driven with the REAL fill capture."""
+    e = env
+    monkeypatch.setattr(qe, "_maybe_capture_broker_fills", _REAL_CAPTURE)
+    _orb_and_noise_long(e)
+    orb_tid = e.state["legs"]["ORB"]["trade_id"]
+    orb_id = qe._broker_signal_id("ORB", None, "CLOSE", trade_id=orb_tid)
+    e.fake.async_fills = True
+    e.fake.fill_after_lookups = 1
+    e.fake.die = {orb_id}
+    start = len(e.fake.sent)
+
+    e.tick(at(DAY, 15, 59, 16))
+
+    assert e.ids(start)[0] == orb_id and e.sent(start) == [("SELL", 10), ("SELL", 10)]
+    assert e.fake.refused == [] and e.fake.status[orb_id] == "REJECTED"
+    assert e.books() == {"ORB": 10, "NOISE": 0}, "ORB's dead sell rolled back"
+    key = f"ORB:CLOSE:{orb_tid}"
+    q = e.state["_broker_resend"]
+    assert list(q) == [key], "queued in the SAME tick"
+    assert (q[key]["why"], q[key]["shares"]) == ("close_retry", 10)
+    assert any("re-sending the unsold 10" in t for t in e.texts())
+
+    # fill capture between the ticks reads ORB's dead order itself: nothing queued twice
+    for i in range(2):
+        e.wall[0] += qe.BROKER_FILL_CAPTURE_FIRST_DELAY_SEC + 0.5
+        _REAL_CAPTURE(e.state, e.cfg, at(DAY, 15, 59, 19 + i), True, log=e.log)
+    q = e.state["_broker_resend"]
+    assert list(q) == [key] and q[key]["shares"] == 10, "no double queue from fill capture"
+
+    e.tick(at(DAY, 15, 59, 21))
+    assert e.sent(start)[2:] == [("SELL", 10)] and e.ids()[-1] == orb_id + "R1", \
+        "re-sent at the next tick"
+    assert e.state.get("_broker_resend") == {}
+    e.tick(at(DAY, 15, 59, 26))         # fill capture reads the re-send: filled
+    assert e.fake.pos == 0, "Webull flat before 15:59:50"
+    assert e.books() == {"ORB": 0, "NOISE": 0}
+    assert not any("gave up re-sending" in t for t in e.texts())
+
+
 # ── Q5. gap (a): the queue's re-send meets this tick's fresh identical order ──────────────────
 
 def test_q5_a_queued_duplicate_re_send_waits_for_this_tick_s_fresh_identical_order(env):
@@ -761,6 +808,34 @@ def test_a_partial_close_refused_as_a_duplicate_pushes_nothing_the_queue_owns_it
     assert e.pushes == [], "no push: the queue owns it"
     assert any("only PARTIALLY reached Webull" in t for t in e.texts())
     assert [v["why"] for v in e.state["_broker_resend"].values()] == ["duplicate"]
+
+
+def test_a_partial_close_refused_for_another_reason_still_says_the_sell_is_late(env, monkeypatch):
+    """The phone fix silences only a duplicate the queue owns: the same split close whose
+    SHORT 6 is refused for any other reason still pushes "the ORB sell is late" from the
+    partial-push block (the generic not-ok alert is stubbed out here, so only that block can)."""
+    e = env
+    for leg, qty in (("ORB", 10), ("NOISE", -6)):
+        e.adapter._state.setdefault("broker_sent_positions", {})[leg] = {
+            "symbol": "QQQ", "qty": qty, "account_id": "ACCT1"}
+        e.adapter._state.setdefault("believed_positions", {})[leg] = {"symbol": "QQQ", "qty": qty}
+    e.fake.pos = 4
+    e.fake.refuse_next = [(6, "OPENAPI_ORDER_SOMETHING_ELSE")]
+    not_ok = []
+    monkeypatch.setattr(qe, "_alert_broker_not_ok", lambda state, **kw: not_ok.append(kw))
+    now = at(DAY, 11, 0, 0)
+    e.at_wall(now)
+
+    qe._mirror_to_broker(e.state, leg="ORB", side="long", shares=10, shadow_px=700.0,
+                         intent="CLOSE", trade_id="ORB_R6-20261013T140000Z-L", nowdt=now,
+                         log=e.log)
+
+    assert e.sent() == [("SELL", 4)]
+    assert e.fake.refused == [("SHORT", 6, "OPENAPI_ORDER_SOMETHING_ELSE")]
+    assert len(not_ok) == 1
+    (late,) = [p for p in e.pushes if "is late" in p["message"]]
+    assert "the ORB sell is late" in late["message"] and late["priority"] == "high"
+    assert [v["why"] for v in e.state["_broker_resend"].values()] == ["close_retry"]
 
 
 # ── the kill switch: gateway.dup_wait_sec 0 is today's behaviour ──────────────────────────────

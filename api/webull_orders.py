@@ -153,6 +153,7 @@ SECRETS: this module never reads, logs, or persists an app_key/app_secret/token 
 anywhere in the state file or its own log lines -- only booleans ("credentials
 present"), file paths, and order/rail metadata.
 """
+import concurrent.futures
 import contextlib
 import hashlib
 import json
@@ -751,6 +752,16 @@ DEFAULT_GATEWAY = {"prev_terminal": False, "dup_wait_sec": 3.0}
 DUP_WAIT_HARD_CAP_SEC = 4.0      # the longest any one send waits, whatever the config says
 DUP_WAIT_POLL_TRIES = 8          # lookups per candidate over the wait; the first is immediate
 DUP_WAIT_FRESH_SEC = 30.0        # = CROSS_FRESH_PART_SEC: an acked part this young may still work
+# ONE SLOW LOOKUP (2026-10-20 review of G1): the wait's bound used to stop a lookup only from
+# STARTING -- one get_order_detail that hangs ran the wait (and the send after it) far past the
+# 4 s cap, the tick's 8 s and close - 15 s. Each SAME-ORDER WAIT lookup now runs on this one
+# worker and is waited for only until the wait's deadline (OrderAdapter._lookup_by); a late
+# answer is dropped unread (a lookup only reads -- booking stays on the send thread, under the
+# lock), and while one is still running no wait starts another: the send goes, today's path.
+# Every other lookup (_poll_order's other callers) is unchanged.
+_DUP_WAIT_LOOKUP_POOL = concurrent.futures.ThreadPoolExecutor(
+    max_workers=1, thread_name_prefix="dup-wait-lookup")
+_DUP_WAIT_LOOKUP = {"future": None}
 _NON_ALNUM_RE = re.compile(r"[^A-Za-z0-9]")
 # A resting order's id (resting_ids: qx<tid>P<n> / T<n> / K<n>). No other id this book sends
 # ends in P/T/K + digits: its OPEN / CLOSE ids end in O / C (+ a reduce number), a split
@@ -1690,12 +1701,15 @@ class OrderAdapter:
             return None
 
     def _poll_order(self, client, account_id, coid, tries, window_sec, done, stop_at=None,
-                    detail=False):
+                    detail=False, lookup=None):
         """Up to `tries` lookups over about `window_sec`: the first answer `done` accepts,
         else the last one seen (or None). None started after `stop_at`. The adapter
         lock (held by the send) is let go for each wait + lookup, so a slow wait never
         blocks reconcile/status/fill capture; the part is on disk and the signal cached
-        UNKNOWN first, and every booking after it is exact (_book_part)."""
+        UNKNOWN first, and every booking after it is exact (_book_part). `lookup` (same
+        arguments as _lookup_order, which is the default) replaces the lookup itself --
+        the SAME-ORDER WAIT's time-bounded one (_lookup_by)."""
+        lookup = lookup or self._lookup_order
         deadline = time.time() + window_sec
         last = None
         for i in range(max(1, tries)):
@@ -1712,7 +1726,7 @@ class OrderAdapter:
             try:
                 if wait:
                     _sleep(wait)
-                ans = self._lookup_order(client, account_id, coid, detail=detail)
+                ans = lookup(client, account_id, coid, detail=detail)
             finally:
                 if released:
                     self._lock.acquire()
@@ -2481,6 +2495,32 @@ class OrderAdapter:
             self._save_state()
         return change
 
+    @staticmethod
+    def _dup_lookup_busy():
+        """True while a SAME-ORDER WAIT lookup started earlier is still running (hung)."""
+        fut = _DUP_WAIT_LOOKUP.get("future")
+        return fut is not None and not fut.done()
+
+    def _lookup_by(self, client, account_id, coid, stop_at, detail=False):
+        """_lookup_order on the SAME-ORDER WAIT's own worker, waited for only until `stop_at`
+        (see the module comment above _DUP_WAIT_LOOKUP_POOL): None when it has not answered
+        by then -- its late answer is never read -- or when an earlier one is still running
+        (no new one is started). Never raises. Called with the adapter lock let go
+        (_poll_order); _lookup_order only reads Webull, never this adapter's state."""
+        try:
+            if self._dup_lookup_busy():
+                return None
+            fut = _DUP_WAIT_LOOKUP_POOL.submit(self._lookup_order, client, account_id, coid,
+                                               detail=detail)
+            _DUP_WAIT_LOOKUP["future"] = fut
+            return fut.result(timeout=max(0.0, stop_at - time.time()))
+        except concurrent.futures.TimeoutError:
+            self.log(f"  [webull-orders] SAME-ORDER WAIT: the lookup of {coid} did not answer "
+                     f"in time -- not waited for")
+            return None
+        except Exception:
+            return None
+
     def _await_identical_parts(self, client, leg, symbol, account_id, plan, order_type, until,
                                send_started):
         """SAME-ORDER WAIT (see the module comment above DUP_WAIT_HARD_CAP_SEC): before `leg`
@@ -2491,8 +2531,10 @@ class OrderAdapter:
         working, or at min(`until`, now + _dup_wait_cap(), `send_started` +
         DUP_WAIT_HARD_CAP_SEC). None when the wait is off or nothing matches (no lookup at
         all, the common case); else {"for": [ids], "settled": every one answered terminal,
-        "changed": shares the books moved, "waited_sec"}. Never raises. Caller holds the
-        lock (_poll_order lets it go for each wait and lookup)."""
+        "changed": shares the books moved, "waited_sec"}. Every lookup is bounded in time
+        (_lookup_by): a hung one ends the wait at its deadline, and none starts while an
+        earlier one still hangs. Never raises. Caller holds the lock (_poll_order lets it
+        go for each wait and lookup)."""
         try:
             cap = self._dup_wait_cap()
             if cap <= 0:
@@ -2520,12 +2562,14 @@ class OrderAdapter:
         try:
             for coid, p in todo:
                 left = deadline - time.time()
-                if left <= 0:
-                    break
+                if left <= 0 or self._dup_lookup_busy():
+                    break   # out of time, or an earlier lookup still hangs: send anyway
                 ans = self._poll_order(client, p.get("account_id") or account_id, coid,
                                        DUP_WAIT_POLL_TRIES, left,
                                        lambda a: _terminal_qty(1, a["status"], a["filled"])
-                                       is not None, stop_at=deadline)
+                                       is not None, stop_at=deadline,
+                                       lookup=lambda c, a, o, detail=False:
+                                       self._lookup_by(c, a, o, deadline, detail=detail))
                 ch = self._settle_part_answer(coid, ans)
                 if ch is None:
                     break
