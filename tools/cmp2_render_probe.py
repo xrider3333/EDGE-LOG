@@ -7406,7 +7406,11 @@ var FIX = __FIX__;
                   rec({id:'a4',where:'runner',stage:'full',net_usd:90000,ddpct:6.75,sortino:2.0,roc30k:30}),
                   // THE LAB SHAPE: one_episode null is the lab's own NOT TESTABLE, not a no.
                   rec({id:'a5',where:'lab',stage:'preWF',net_usd:30000,ddpct:3.0,sortino:1.2,roc30k:10,
-                       one_episode:null,dd5:9000})];
+                       one_episode:null,dd5:9000,
+                       // WHEN IT REACHED THE BOARD. Nothing uploads a lane's line by itself, so a
+                       //   month can be read whole and still be behind what the lanes have written.
+                       //   Stamped in 2024 on purpose: the line has to call that out as stale.
+                       sync_at:'2024-01-02T03:04:05+00:00'})];
         var WIN=dfxWin([FIX],"window._recMon["+JSON.stringify(mk)+"]={state:'ok',rows:"+JSON.stringify(RECS)+",at:Date.now()};"
           +"window._monRuns["+JSON.stringify(mk)+"]={state:'ok',rows:[],at:Date.now()};");
         var ERRWIN=dfxWin([FIX],"window._recMon["+JSON.stringify(mk)+"]={state:'err',rows:[],at:Date.now(),why:'research_runs month REST 403'};"
@@ -7509,6 +7513,8 @@ var FIX = __FIX__;
             !!dAll&&/<rect[^>]*fill="none"/.test(dAll.html)&&dAll.html.indexOf('<polygon')<0,
           'and its money is never read as walk-forward money':
             k7.indexOf('recs:1')>=0&&k7.indexOf('recs:4')<0&&/whole-run stretch/.test(dAll?dAll.tip:''),
+          'the line says when the records last reached the board, and says so when that is old':
+            /last synced /.test(L1)&&/NOT on this board/.test(L1),
           'a lane that never tested the one-episode question says so, rather than reading as a clean run':
             /one episode not tested/.test(epTips)&&!/a1[^@]*one episode not tested/.test(epTips),
           'a level that builds no record rows says the records were read and not drawn':
