@@ -6977,6 +6977,100 @@
    ],
    "overall": 62,
    "summary": "You bought the afternoon pullback, but you paid the top of the 13:51 bar while the trend was already making lower highs under 7792.25. It never went your way, and you cut it right at the pullback low for about a 3.75-point loss before the market slid to 7768.5. Good discipline on the stop; a limit near 7787 would have improved the risk-to-reward."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-20",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "13:30",
+   "exit_time": "13:30",
+   "entry": 7765.25,
+   "exit": 7766.0,
+   "qty": 2,
+   "entry_ts": "13:30:33",
+   "exit_ts": "13:30:35",
+   "breakout_candle": "13:30",
+   "stop": 7766.0,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 6,
+     "note": "Short into a steady rally from the 7750.00 low at 13:01 to 7766.00 at 13:30, against the half-hour trend."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 12,
+     "note": "Sold 7765.25, within a point of the 7766.00 push high, a reasonable spot for a fade."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 8,
+     "note": "The 13:30 bar high at 7766.00 sat only 0.75 point above entry, a stop inside normal one-minute noise."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 6,
+     "note": "The 7760.75 lows of 13:28-13:29 offered about 4.5 points against 0.75 of risk."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 5,
+     "note": "No setup was tagged and the 13:30 bar showed no rejection or engulf before the fill."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 7,
+     "note": "The 13:30 bar traded 1,699 contracts with a 2.5-point range, normal midday liquidity."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 5,
+     "note": "13:30 is the midday lull, when pushes often stall but follow-through is thin."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 10,
+     "note": "Filled at 13:30:33 mid-bar while the bar was still printing new highs, before any turn showed."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 18,
+     "note": "Out two seconds later at 7766.00 for a 0.75-point loss, so heat stayed tiny."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 5,
+     "note": "Covered at the high, then price fell to 7760.75 by 13:34, 4.5 points in your favor within the next 15 minutes."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 12,
+     "note": "Two MES is a small, sensible size for a countertrend probe."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 4,
+     "note": "No setup, grade or notes were logged, so the plan behind the trade is unclear."
+    }
+   ],
+   "overall": 49,
+   "summary": "You faded the top of a 16-point rally near 7766, which was a decent location, but you entered before the bar showed any rejection. You were stopped at the exact high two seconds later, and price then dropped to 7760.75 within four minutes. Next time wait for the turn bar and put the stop a tick or two above the high so normal noise does not take you out."
   }
  ],
  "na": [
