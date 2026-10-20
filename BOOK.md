@@ -1190,6 +1190,58 @@ leg here is the roll-corrected paper leg, valued daily.
 - **#457's lockbox gain from the NOISE tilts is not a clean read.** The tilts were chosen reading #243/#304's
   lockbox. It stays flagged until Custom ML's re-score on the clean weeks lands.
 
+### 10bg. Q49 FIXED vs KEEL SIZING ON EVERY #463 LEG AND ON THE BOOK: no book lift - and #463 rebuilt on today's masters reads 80.43, not 93.81 (2026-10-18)
+
+**What it is.** MANAGER #183 relays the owner's 10-18 ask for "more testing on things that are promising".
+- Prereg `docs/PREDATA_frontier_fixkeel_2026-10-18.txt` (f6abadc2) + Addendum 1 (37bb4661); branch prereg/frontier-fixkeel-1018 @ 84f1f578.
+- Script `tools/rocfrontier/q49_fixkeel.py` (c6041f1c); record `C:\EdgeLog\_anatomy_cache\q49\q49_fixkeel.json`.
+- Arms per leg, every trade taken in every arm:
+  - RAW (plugin size);
+  - FIXED (KEEL v12's a-priori tilts, no learned part);
+  - KEEL (v12 walk, seed 42);
+  - two size-matched constant twins (leverage without timing).
+- Book arms: every leg in one arm, and one leg swapped at a time (21 series = 21 book looks).
+- Four numbers with four_numbers: WF, with LB as a report.
+- Run 1 failed the parity gate on ORB / ENGU-Q / NOISE. Addendum 1, written before those arms were read, scores every arm
+  like-for-like on today's rebuild and reads the bar against the rebuilt RAW book.
+
+**The yardstick finding** (an independent rebuild reproduced it to the cent):
+- #463 on today's masters reads WF **80.43 / $37,573 / 15.24% / 3.796, one episode**, against the published 93.81 / $36,095 /
+  13.09% / 3.816.
+- Net barely moved (-$1,713). The March 2020 drawdown is $7,389 deeper, from two trades:
+  - ORB loses a +$3,294 winner on 2020-03-26;
+  - ENGU-Q's 03-02 trade now enters at 09:07 instead of 15:14.
+- **Cause: the 2020-02-28 NQ session fill (10-14 / 10-15).** That session used to stop at 10:58 ET. The pre-repair backups reproduce
+  the RISK r1 records exactly.
+- Waterfall: the 06-30 splice +0.3, the 02-28 fill -13.6, NOISE's engine roll-guard signals -0.04.
+- One vendor session swings #463's ROC@30k by about 13 points; DD5 (+4%), net and Sortino barely change.
+
+| Leg (WF, rebuilt) | RAW | FIXED | KEEL | Read |
+|---|---|---|---|---|
+| ORB | 35.05 / $22,566 / 18.85% / 1.980 | 31.17 / $25,592 / 24.96% / 2.226 (1 EP) | 27.23 / $26,909 / 27.32% / 2.175 (1 EP) | both hurt (as the prior said) |
+| ENGU-Q | 25.98 / $31,325 / 14.60% / 1.664 (1 EP) | 33.55 / $37,318 / 14.35% / 1.810 (1 EP) | 33.58 / $37,318 / 14.15% / 1.804 (1 EP) | one episode; DD5 worse |
+| TTM x3 | 24.89 / $13,992 / 11.95% / 1.705 | 27.27 / $22,618 / 12.04% / 1.689 | 36.14 / $25,868 / 15.40% / 2.610 (1 EP) | KEEL one episode |
+| NOISE | 87.64 / $12,686 / 6.16% / 3.998 (1 EP) | 109.42 / $14,485 / 6.59% / 4.923 (1 EP) | 85.05 / $22,555 / 8.28% / 4.541 | FIXED +21.8 over its twin |
+| DIP #424 (Q37 window, not in #463) | 22.32 / $77,011 | F 22.32 / $96,289; FT 19.69 / $101,410 | 17.69 / $106,482 | fixed beats KEEL (T11) |
+
+Cells read ROC@30k / DD5 / DD% from peak / Sortino; "1 EP" = one episode.
+
+| Book (WF, vs rebuilt RAW 80.43) | Four numbers | Constant twin | Paired SD | Verdict |
+|---|---|---|---|---|
+| NOISE KEEL | 99.50 / $39,879 / 13.22% / 4.314 (1 EP) | 85.97 | 12.73 | fails DD5, one episode, 1.96 SD |
+| NOISE FIXED | 92.37 / $37,997 / 13.66% / 4.252 (1 EP) | 83.48 | 6.82 | fails DD5 (+$424), one episode, 1.96 SD (+11.9 vs 13.4) |
+| ALL FIXED | 86.85 / $44,627 / 14.75% / 4.332 (1 EP) | 78.98 | 12.31 | fails DD5 |
+| ALL KEEL | 76.89 / $48,534 / 17.03% / 4.699 (1 EP) | 79.94 | 20.60 | fails |
+
+**Read.**
+- **No book lift.** Every book arm, RAW included, is one episode on the rebuilt data, so no arm can pass that clause.
+- **NOISE's fixed tilts** are the one consistent gain: +21.8 ROC alone and +8.9 in the book over the constant twin. They are already
+  judged forward (the NOISE_422_FIXED shadow).
+- **KEEL's learned part** adds Sortino and LB on NOISE but costs ROC alone. On DIP it loses to a fixed size.
+- **Caveat:** these NOISE arms run the engine's ratio-adjusted roll signals (since 10-08). The deployed NOISE and book_shadow keep
+  RAW signals.
+- **Re-basing the yardstick** to 80.43 (bar 84.45) is MANAGER's / the owner's call (MANAGER #1501).
+
 ### 10bf. Q48 NOISE UP-WEIGHT INSIDE #463 (x1.10 / x1.25; ORB LW44's paired-Sharpe candidate): CLOSED AT DRAFT - the owner's 10-05 forward line stays the decider (2026-10-16)
 
 **What it is.** MANAGER #177 / #178. ORB's shelf-44 paired Sharpe test (LW44) found that NOISE at x1.25 inside #463 survives Holm on
