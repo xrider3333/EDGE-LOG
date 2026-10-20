@@ -19,7 +19,7 @@ inside the breakout frame.
 
 | Read | Value |
 |---|---|
-| Trades | 1,479 (244 a year); 31 sessions skipped (dojis, half days) |
+| Trades | 1,479 (244 a year); 31 doji sessions skipped; 40 short sessions (holidays, early closes, < 60 bars) dropped |
 | Gross a trade | 0.595 pt = 1.12 x cost (net +0.06 pt) |
 | Exits | 78% stop, 2.6% target, 19% at the close |
 | Four numbers at $30k (pre-WF) | ROC 0.62 / DD5 $12,902 / DD % 25.6 / Sortino 0.14, one episode |
@@ -39,5 +39,17 @@ inside the breakout frame.
 
 The 1.05 x bar needs +2.36. Every weight lowers the book's ROC, and the noise bar is out of reach. An outside replication
 (mql5 blog, five indices) also reports the gross edge reproduced and the net near zero after spread and slippage.
+
+**Blind check, 10-20** (ORB-lane workflow, `C:\EdgeLog\_anatomy_cache\wf_orb1020\`):
+- A blind re-build from the paper text alone matches every number above. So does an adversarial re-read of the script.
+- The paper's own sizing (1% risk a trade, 4x leverage cap) makes it WORSE: gross/cost 1.045, ROC@30k 0.26. Without the cap
+  (size 1/R) it reads 0.67 and -1.77. The small-R third of days loses gross, and risk sizing loads up on them.
+- At the real cost (0.7825 pt) the flat rule reads gross/cost 0.76, ROC@30k -1.72.
+- Only 2 bars touched both stop and target. 1-minute data turns one of them into a target (+11 pt in total, gross/cost 1.13).
+- No book role found clears the bar: added on top of a book with no ORB leg, swapped into the ORB slot, or as a first-bar-colour
+  day filter on #314 / #234. The filter's look is noise: t 0.38 / 0.70, 71st percentile of random same-size drops, close to the
+  dead ORB.md X8 row.
+- A frame warning for any pre-WF ORB read: on this stretch, cutting ORB exposure raises the book. Dropping #234 adds +17.81. So the
+  +2.36 bar cannot judge ORB-slot swaps or filters there.
 
 **Nothing is queued.** Run record: one preWF line in `C:\EdgeLog\run_records\orb_202610.jsonl`.
