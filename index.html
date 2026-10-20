@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1330';
+const VERSION='73.1331';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1413,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1327',date:'2026-10-20',notes:['THE MONTH LINE NOW SAYS WHEN THE LANE RECORDS LAST REACHED THE BOARD, and says it plainly when that is more than three hours ago: a run recorded since then is not here yet. Nothing uploads a lane\'s line by itself - a month can be read whole, drawn whole, and still be behind what the lanes have written, which is the one way this board could go quietly stale. It costs no extra read: every uploaded record already carries the pass that sent it.']},
+const CHANGELOG=[{v:'73.1331',date:'2026-10-20',notes:['ONE MONTH CONTROL, NOT TWO (your ask: if i click october it shows october, and all time shows all). MONTH ONLY is gone. A month chip now shows that month - the chart and the tables together - and ALL TIME shows everything the page holds. ALL TIME is the default, so nothing disappears until you pick a month, and the rows a month leaves off are still counted and named under the chart.','THE TEXT UNDER THE CHART IS TWO LINES (your ask: the scatter plot below the table is a novel. condense for only relevant info). Line one is what is drawn - how many rows of how many, which stretch they are read on, and what the month chip read. Line two is what is NOT drawn and the biggest reason, with its switch where there is one. Everything else - what the colours and shapes mean, the rest of the reasons, the read warnings, the configuration lists - is behind one DETAILS tap, and it remembers whether you left it open. Nothing was deleted, only folded.']},
+{v:'73.1327',date:'2026-10-20',notes:['THE MONTH LINE NOW SAYS WHEN THE LANE RECORDS LAST REACHED THE BOARD, and says it plainly when that is more than three hours ago: a run recorded since then is not here yet. Nothing uploads a lane\'s line by itself - a month can be read whole, drawn whole, and still be behind what the lanes have written, which is the one way this board could go quietly stale. It costs no extra read: every uploaded record already carries the pass that sent it.']},
 {v:'73.1326',date:'2026-10-19',notes:['DD5 IS BACK ON THE LANE RECORDS. One of the four numbers was being dashed on every record in the table - with the wrong reason, that the row saves no equity curve - while the dot two inches away printed the figure. The lane measured it off its own daily series and the page now reads it, says whose it is, and makes that lane own ONE EPISODE call. Ordering the table by DD5 had been sinking every lane record below every run.','ONE AXIS, ONE MEANING. A run row on ROC @ $30K DD is divided by the ACCT chip; a record carried its figure flat, which is the reading at a $100,000 account. On any other account setting a record and a run with the SAME return over drawdown sat at different heights. Records are now put on the account the axis is drawn on.','NOT TESTED IS NOT NO. A lab writes NOT TESTABLE for the one-episode question, and that read exactly like a run whose lane tested it and found no single episode. The hover and the DD5 note now say which of the three it is.','A record is a run a lane measured and nobody has judged, so its hover no longer says reference or superseded. The LANE AND LAB RUNS table used to label itself with the family of its first row, right for every other table here and wrong for this one: it holds twenty families and called itself BOOK. Hiding a record now follows the record, not its position in the month - hiding October record 4 used to hide September record 4 after a chip click. And on a level that builds no record rows at all, the line under the chart says the records were read and not drawn instead of counting rows that are not there.','The uploader refuses a flat 0 percent against whichever dollar drawdown a record carries, not only against DD5 - 273 of the lanes real lines carry one dollar figure and not the other, and a 0 on one of those drew no fall from the high for a run that fell.']},
 {v:'73.1324',date:'2026-10-19',notes:['EVERY CHAT\'S RUNS ARE ON THE SCATTER NOW (your ask 10-18, the second half). A Stage A sweep in a worktree, a Qwen Lab dry run and a forward line on the box were never run documents, so they could not be drawn. Each lane writes one line per finished run (tools/run_record.py), tools/run_records_sync.py uploads it once, and the MONTH chips read them beside the runner\'s own runs. 886 of the seven lanes\' 1,199 recorded lines went up today: 753 in October, 133 in September. COLOUR says where it ran - the PC runner, a lane worktree, the Qwen Lab, the Oracle box - and SHAPE says which stretch: square in-sample, diamond pre-walk-forward, triangle walk-forward, circle lockbox, cross forward, and a HOLLOW square or diamond for the two wider stretches (the whole run as one, everything before the lockbox). A hollow mark fills no stretch column, so a whole-run total is never added into a walk-forward figure.','THEIR FIGURES ARE READ, NOT RE-DERIVED. A record carries the four numbers its own lane measured through the one house definition (augur_engine.drawdowns.four_numbers): ROC at a $30,000 drawdown, DD5 in dollars, DD % from the high, and Sortino on DAILY returns with zero days counted. The page used to need the money, the drawdown and the years to work a ROC out for itself - measured against the real records, 886 of 1,199 lines carry a ROC and only 18 carry those three inputs, so it reads the lane\'s figure and says so in the hover.','A ROW WITH A GAP IS SHOWN, NOT HIDDEN. 399 of October\'s 753 records recorded a DD % from peak, so on the default axes about half of them can be placed and the rest are counted and named under the chart, exactly as a run with no saved curve already is. The hover on every record names the lane, the host, the stretch, its DD5 and one-episode flag, its ledger row and the code it ran.','The uploader refuses what would draw a lie rather than what is merely missing: a percent in the DD5 dollars field, dollars in the percent field, a provisional run id from a Firestore outage, a non-boolean one-episode flag, a DD5 deeper than the worst drawdown. A caption it cannot use costs itself and not the run - 50 lines put a 64-character content hash where the commit sha goes, and they upload without it rather than being dropped. 313 lines are still refused and every one is named with its line number: 273 recorded no figure any axis can place (most of them carry their money in the note text) and 40 never named a stretch. It is dry by default and idempotent by the content of each line.']},
 {v:'73.1316',date:'2026-10-18',notes:['THE MONTH SELECTOR IS WHERE YOU CAN SEE IT (your ask 10-18, part two). It went in behind FILTERS, which on EXPLORE is a second panel you have to open - a headless screenshot of the real page showed no chip anywhere on screen. It now sits on the always-visible control row beside LEVEL, SHOW and PROFIT STAGE: MONTH - OCT SEP AUG JUL JUN MAY - 30 DAYS - ALL TIME, with MONTH ONLY OFF/ON next to it.','MONTH ONLY REALLY NARROWS NOW. Measured on the live build: October with MONTH ONLY on drew 72 run dots, runs #416 to #479 among them - September runs - under a line that correctly said eleven. Run rows are put on the board by a different path from the research rows (the level gate refuses a registry row there), so the narrowing never reached them. It does now, and the line under the chart counts what it is holding back. Re-measured after the fix: October shows ten dots of the eleven runs in the month, and the eleventh is named - it carries a FAIL verdict, and PLOT FAILURES is off by default on that screen.','A RUN THAT ARRIVED WITH THE MONTH NOW HAS A DATE RAN. The lookup that answers when a run ran read only the newest-75 list, so a run fetched by the month chip showed a dash in the DATE RAN column and had no date for any range or month test to read. It now reads the same shared pool every other part of the board reads.','THE LINE UNDER THE CHART SAYS WHICH STRETCH THE FIGURES ARE. The stage tick starts on all three, so every ROC on screen is the whole-run reading with the tuning years in it - correct, and silent about it until now. It says so, and says that WALK-FORWARD alone is the house yardstick.','A LANE RECORD IS NO LONGER DROPPED FROM EVERY PER-YEAR AXIS. The rule that protects a registry write-up - one window for the whole row but money for only part of it, so its years and its money do not match - was refusing a lane record too, and a record IS one stretch that states that stretch own years. The tools that write those records, and the probe case for them, are in the next ship.']},
@@ -29393,7 +29394,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             _reMonNms[d.getMonth()]+' '+d.getFullYear()]);}
         return out;})();
       const _reMonKeys=_reMonDefs.map(o=>o[0]).concat(['30d','all']);
-      const _reMonSel=(_reMonKeys.indexOf(String(APREF.c2Month))>=0)?String(APREF.c2Month):_reMonDefs[0][0];
+      // THE DEFAULT IS ALL TIME, and it has to be, now that a month chip NARROWS (2026-10-20).
+      //   While MONTH ONLY existed, defaulting to this month was free - it only decided which
+      //   month to READ, and nothing came off the board. Keeping that default beside the new
+      //   meaning would open EXPLORE on 'October only' and silently drop every write-up and run
+      //   from every earlier month: the whole research registry, hidden by a default nobody set.
+      //   'all time shows all' is the owner's own second half of the same sentence.
+      const _reMonSel=(_reMonKeys.indexOf(String(APREF.c2Month))>=0)?String(APREF.c2Month):'all';
       // THE WINDOW the chip names: the first day, the last day, and the exclusive upper bound the
       //   read filters on - a timestamp is YYYY-MM-DD HH:MM, so the bound is the FIRST day after.
       const _reMonWin=(function(){
@@ -29405,9 +29412,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const nxt=new Date(y,m,1);
         return {f:_reMonSel+'-01',t:_reMonIso(new Date(nxt.getTime()-86400000)),x:_reMonIso(nxt),
           nm:(_reMonDefs.filter(o=>o[0]===_reMonSel)[0]||[0,0,_reMonSel])[2]};})();
-      // MONTH ONLY: narrow the whole board to that window. Off by default - nothing the owner
-      //   used to see disappears because a month is selected.
-      const _reMonOnly=(String(APREF.c2MonthOnly)==='1');
+      // MONTH ONLY WAS DROPPED on 2026-10-20 (owner: "just make it to where if i click october it
+      //   shows october, and all time shows all. youve made that redundant"). A month chip IS the
+      //   narrowing now; ALL TIME is everything. The c2MonthOnly pref is left unread rather than
+      //   migrated - a stale '1' in somebody's browser now means nothing, which is the safe way for
+      //   a dropped control to fail.
       window._reMonKey=_reMonWin?_reMonSel:'';
       const rs=runHistory.slice()
         .concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[])
@@ -34012,7 +34021,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           // W47: MONTH ONLY narrows on the row own date. A lane or lab record carries ONE date
           //   that is both when it ran and when it was found, so it reads on either basis - the
           //   record IS the run, and there is no separate run document to date it by.
-          if(_reMonOnly&&_reMonWin){
+          if(_reMonWin){
             const md=rw._rec?String(rw._ts||'').slice(0,10)
               :((Array.isArray(rw.runs)&&rw.runs.length)?_reRunDate(rw.runs[0]):String(rw.disc||st.disc||''));
             if(!md)return {ok:false,nod:true};
@@ -36946,7 +36955,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   BACK and counted, never shown as if it were inside the window.
           const _reMonHeld={runs:0,recs:0,nodate:0};
           const _reMonOk=function(r){
-            if(!_reMonOnly||!_reMonWin)return true;
+            if(!_reMonWin)return true;
             const d=r._rec?String(r._ts||'').slice(0,10)
               :((Array.isArray(r.runs)&&r.runs.length)?_reRunDate(r.runs[0]):'');
             if(!d){_reMonHeld.nodate++;return false;}
@@ -38019,16 +38028,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // ── MONTH (control 6b, W47, owner 2026-10-18: "make a month seletcor for it"). It does not
         //    filter by itself: it decides WHICH MONTH IS READ, and its runs and lane records join
         //    the board. MONTH ONLY, beside it, narrows to that window and says what it holds back.
-        const _reMonBtns=_reCtl(6,'MONTH','which month this board reads. The page itself only ever holds the newest 75 run documents, so a month that is not the newest 75 runs was never in the browser to plot - September 2026 alone holds 173 of them. Picking a month reads that month in one query and ADDS its rows: every run of that month wherever it ran, and every run a lane or the Qwen Lab recorded for itself (a Stage A sweep in a worktree, a Qwen Lab dry run, a box forward line), which are not run documents at all. Nothing is hidden by picking a month - MONTH ONLY beside this does that, on your click. ALL TIME reads nothing extra and draws the board exactly as it did before this release.',
+        const _reMonBtns=_reCtl(6,'MONTH','which month this board reads. The page itself only ever holds the newest 75 run documents, so a month that is not the newest 75 runs was never in the browser to plot - September 2026 alone holds 173 of them. Picking a month reads that month in one query and ADDS its rows: every run of that month wherever it ran, and every run a lane or the Qwen Lab recorded for itself (a Stage A sweep in a worktree, a Qwen Lab dry run, a box forward line), which are not run documents at all. Picking a month shows THAT MONTH: rows dated outside it come off the board and are counted under the chart. ALL TIME reads no extra month and shows everything the page holds.',
             _reMonDefs.map(o=>_reBtn('data-remonth="'+o[0]+'"',o[1],_reMonSel===o[0],
               'read '+o[2]+' - its runs and its lane records join the board',_TONE.samp)).join('')
            +_reBtn('data-remonth="30d"','30 DAYS',_reMonSel==='30d','read the last 30 days, rolling - not a calendar month',_TONE.samp)
            +_reBtn('data-remonth="all"','ALL TIME',_reMonSel==='all','read no extra month at all: the board draws from what the page already holds, exactly as it did before this release',_TONE.samp)
           ,_TONE.samp);
-        const _reMonOnlyBtns=_reCtl(6,'MONTH ONLY','narrow the whole board to the month above - the chart and the tables together. OFF is the default, because the owner rule for this screen is no caps and no auto-hide: picking a month adds its rows, it does not take anything away. ON, the line under the chart counts and names what is being held back.',
-            _reBtn('data-remononly="0"','OFF',!_reMonOnly,'keep every row the board holds, with the month rows added to them',_TONE.samp)
-           +_reBtn('data-remononly="1"','ON',_reMonOnly,'show only rows dated inside the month above. A row with no date of its own is counted and named rather than dropped without a word',_TONE.samp)
-          ,_TONE.samp);
+        // (MONTH ONLY was here until 2026-10-20. One question, one control: see the pref note above.)
         const _reSBasisBtns=_reCtl(7,'DATE','WHICH of the two dates a row carries the board means, asked once. It sets the date column in every table, what ORDER BY DATE sorts on, and what TIME SCOPE reads - one answer everywhere instead of the same question in two places',
             _reBtn('data-ressbasis="disc"','DISCOVERED',_reSOn!=='ran','the date the result was found in research. EVERY row on the board has one, so nothing is ever held back for want of it',_TONE.heat)
            +_reBtn('data-ressbasis="ran"','DATE RAN',_reSOn==='ran','the date the real validate run finished, read from run history. Only a row persisted as a run has one at all - the rest show a dash, and under a time scope they are counted and named by row number rather than dropped without a word',_TONE.heat),_TONE.heat);
@@ -38270,11 +38276,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +' reading'+((_reSegsEff.length>1)?' added together - tick WALK-FORWARD alone for the house yardstick':''));
           if(st(C)==='ok'&&nc===0)parts.push('no lane or lab has recorded a run in this window yet - they write research_runs through tools/run_record.py, and tools/run_records_sync.py uploads it');
           if((R&&R.capped)||(C&&C.capped))parts.push('THE READ HIT ITS CAP of '+MON_CAP+' - rows were left unread, so this month is NOT whole');
-          if(_reMonOnly){const H=window._reMonHeldN||{runs:0,recs:0,nodate:0};
-            parts.push('MONTH ONLY is on, so every row dated outside '+_reMonWin.f+' to '+_reMonWin.t
-              +' is being held back'+((H.runs||H.recs)?(' - '+H.runs+' run row'+(H.runs===1?'':'s')
-              +(H.recs?(' and '+H.recs+' lane record'+(H.recs===1?'':'s')):'')+' so far'):'')
-              +(H.nodate?(', and '+H.nodate+' row'+(H.nodate===1?'':'s')+' carry no date this test can read, so they are held back rather than shown as if they were inside it'):''));}
+          // A MONTH MEANS THAT MONTH NOW, so what is outside it is not a mode being on - it is the
+          //   ordinary state of a chip, and it is still counted and named. ALL TIME is the chip that
+          //   shows everything.
+          {const H=window._reMonHeldN||{runs:0,recs:0,nodate:0};
+            if(H.runs||H.recs||H.nodate)parts.push('showing '+_reMonWin.nm+' only: '
+              +[(H.runs?(H.runs+' run row'+(H.runs===1?'':'s')):''),
+                (H.recs?(H.recs+' lane record'+(H.recs===1?'':'s')):''),
+                (H.nodate?(H.nodate+' row'+(H.nodate===1?'':'s')+' carrying no date this test can read'):'')]
+                .filter(Boolean).join(' and ')
+              +' dated outside '+_reMonWin.f+' to '+_reMonWin.t+' are not on screen - ALL TIME shows everything');}
           if(!parts.length)parts.push('nothing has been read for this month on this page yet');
           return '<div style="font-size:8.5px;color:var(--text5);margin-top:7px">'
             +'<b style="color:var(--text4)">'+_reEsc(String(_reMonWin.nm).toUpperCase())+':</b> '
@@ -38431,6 +38442,63 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'\u25b2 above = more ROC per dollar of drawdown (efficiency); = on the line (within 10%) = the plain config traded bigger (leverage); \u25bc below = worse. Across: the worst drawdown in dollars, which grows exactly with size. '
           +(_reShowCfg?'Needs 1E CONFIGS.':'The lines appear on 1E CONFIGS.')
           +'</div>'):'';
+        // ── THE TWO LINES (owner 2026-10-20: "the scatter plot below the table is a novel.
+        //    condense for only relevant info"). Line one is what is drawn, line two is what is not
+        //    and the biggest reason why. Every other sentence this board used to print is a tap
+        //    below, in DETAILS - folded, never dropped: a row off the chart is still counted and
+        //    still named, which is the rule the whole screen runs on.
+        const _reDetOpen=(String(APREF.c2Det)==='1');
+        const _reSumNote=(function(){
+          if(_reParOn||_reRadOn||_reLatOn)return '';
+          const C=window._reCause||{};
+          const n=k=>+C[k]||0;
+          const plotted=n('plotted');
+          const missN=n('missBoth')+n('missX')+n('missY')+n('missGN');
+          const lackN=missN+n('older')+n('gone')+n('zero')+n('rel');
+          const offN=lackN+n('fail');
+          const tot=plotted+offN;
+          if(!tot)return '';
+          const stretch=(_reSegsEff.map(sg=>_reSegLong[sg]).join(' + ')||'ticked stretches');
+          const yName=_reYcapShort[_reMode()]?String(_reYcapShort[_reMode()]).split(' \u2014')[0]:(_reXNm[_reMode()]||'the vertical measure');
+          const xName=_reXNm[_reXAxis]||'the horizontal measure';
+          // what the month chip is showing, in the same line rather than a paragraph of its own
+          let mon='';
+          if(_reMonWin){const R=_reMonRunsSt,C2=_reRecSt,ok=s=>(s&&s.state==='ok');
+            const bits=[];
+            if(ok(R))bits.push(R.rows.length+' run document'+(R.rows.length===1?'':'s'));
+            if(ok(C2))bits.push(C2.rows.length+' chat record'+(C2.rows.length===1?'':'s'));
+            if((R&&R.state==='busy')||(C2&&C2.state==='busy'))bits.push('still reading');
+            if((R&&R.state==='err')||(C2&&C2.state==='err'))bits.push('A READ FAILED - see DETAILS');
+            if((R&&R.capped)||(C2&&C2.capped))bits.push('THE READ HIT ITS CAP - this month is NOT whole');
+            mon=' \u00b7 '+_reEsc(String(_reMonWin.nm).toUpperCase())+(bits.length?(' read '+bits.join(' + ')):'');}
+          const L1='<b style="color:var(--text4)">'+plotted.toLocaleString()+' of '+tot.toLocaleString()
+            +' row'+(tot===1?'':'s')+' on this chart</b> \u00b7 '+_reEsc(stretch)+' reading'+mon;
+          // THE BIGGEST REASON, in his words, with its own switch where there is one
+          let L2='';
+          if(offN){
+            const btn=(attr,txt,tip)=>'<span '+attr+' title="'+_reEsc(tip)+'" style="display:inline-flex;align-items:center;margin-left:6px;font-size:7.5px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border-radius:5px;cursor:pointer;color:var(--text2);border:1px solid var(--border);background:var(--bg1)">'+_reEsc(txt)+'</span>';
+            const causes=[
+              // the axis names are printed as the board writes them on the pickers - lower-casing
+              //   turned 'ROC @ $30K DD' into 'roc at a $30k worst drawdown', which is not a name
+              //   the reader can match to anything on screen.
+              {n:missN,t:'record nothing for '+String(yName)+' or '+String(xName),b:''},
+              {n:n('fail'),t:'failed and PLOT FAILURES is off',b:(n('fail')-n('lackFail')>0)?btn('data-resfail="1"','PLOT FAILURES ON \u00b7 '+(n('fail')-n('lackFail')),'draw the '+(n('fail')-n('lackFail'))+' failed row'+((n('fail')-n('lackFail'))===1?'':'s')+' that can be placed on these axes'):''},
+              {n:n('older'),t:'are older than the runs this page has loaded',b:''},
+              {n:n('zero'),t:'took no trades on this stretch',b:''},
+              {n:n('rel'),t:'have no champion to be measured against',b:''},
+              {n:n('gone'),t:'cite a run that is not on this account',b:''}
+            ].filter(c=>c.n>0).sort((a,b)=>b.n-a.n);
+            const top=causes[0];
+            const rest=causes.length-1;
+            L2='<b style="color:var(--text4)">'+offN.toLocaleString()+' not on it:</b> '
+              +top.n.toLocaleString()+' '+_reEsc(top.t)+top.b
+              +(rest>0?(' \u00b7 '+rest+' other reason'+(rest===1?'':'s')+' in DETAILS'):'');}
+          return '<div style="font-size:8.5px;color:var(--text5);margin-top:7px;line-height:1.7">'
+            +'<div>'+L1+'</div>'+(L2?('<div>'+L2+'</div>'):'')
+            +'<div style="margin-top:3px"><span data-redet="'+(_reDetOpen?'0':'1')+'" title="'
+            +_reEsc('Everything this line used to say: the month read in full, what the colours and the shapes mean, every reason a row is off the chart with its own switch, and the configuration lists. Nothing here is hidden from the board - it is folded, and your choice is remembered.')
+            +'" style="cursor:pointer;font-size:7.5px;font-weight:700;letter-spacing:.3px;color:var(--text4)">DETAILS '+(_reDetOpen?'\u25be':'\u25b8')+'</span></div>'
+            +'</div>';})();
         const _reChartTile=tile(
             '<div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:7px">'
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">'
@@ -38447,11 +38515,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                +'<div style="display:flex;gap:20px;flex-wrap:wrap;align-items:flex-start">'
                +_reAxisBtns+_reXAxisBtns+'</div>'
                +''+'</div>'))
+            +_reSumNote
+            +'<div data-redetbox style="'+(_reDetOpen?'':'display:none')+'">'
             +_reLevLegend
             // ── W47: WHAT THE MONTH HOLDS, said in plain numbers, and what the marks mean. This
             //    line is the honesty of the whole feature: a month read that failed, is still in
             //    flight, hit its cap or cannot reach one legacy run says so here rather than
-            //    leaving a thinner chart looking complete.
+            //    leaving a thinner chart looking complete. It is a tap down since 2026-10-20; the
+            //    two lines above carry its counts and its warnings.
             +_reMonNote
             +_reMissNote
             +((_reShowCfg&&(_reCfgEmpty.length||Object.keys(_reCfgBy).length))
@@ -38468,6 +38539,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 //   stopped being true once a burst waits for its LAST read before the one
                 //   shared redraw - see _runCfgSettled.
                 +') - <span data-recfgprog="1" data-recfgids="'+_reEsc(_reCfgWait.join(','))+'">0 of '+_reCfgWait.length+' runs in - the board draws once, when the last one lands.</span></div>'):'')
+            +'</div>'
             +_reLvlNote
             +'<div data-rechartbox="1" style="margin-top:10px">'+_reChartBody+'</div>',0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
@@ -38581,7 +38653,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   KEEL - only exist once you are on AUTO VAL with 1E CONFIGS showing. Hiding
           //   that made the board look as though it only ever had raw configurations.
           const _c2Keep='<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px;margin-bottom:10px">'
-            +_reGrid(_reMonBtns+_reMonOnlyBtns+_reLvlBtns+_reShowBtns+_reStageBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
+            +_reGrid(_reMonBtns+_reLvlBtns+_reShowBtns+_reStageBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
           // capped and scrollable when they are on, so a thousand rows cannot push the
           //   chart off the screen - the old sidebar layout capped them the same way.
           // SIDE puts the chart and the tables in two columns, STACK keeps them one above the
@@ -47286,12 +47358,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // W47: the month chips. Picking a month only writes the pref - the render asks for the read,
       //   and the read calls renderApp once when it lands (see _monFetch).
       content.querySelectorAll('[data-remonth]').forEach(b=>{b.onclick=()=>{savePref('c2Month',b.dataset.remonth);renderApp();};});
-      content.querySelectorAll('[data-remononly]').forEach(b=>{b.onclick=()=>{savePref('c2MonthOnly',b.dataset.remononly);renderApp();};});
       // SELECT: the two date fields of the range control. The browser draws the calendar.
       {const _f=content.querySelector('[data-reselfrom]'),_t=content.querySelector('[data-reselto]');
        if(_f)_f.onchange=()=>{savePref('resSelFrom',_f.value||'');renderApp();};
        if(_t)_t.onchange=()=>{savePref('resSelTo',_t.value||'');renderApp();};}
       content.querySelectorAll('[data-ressbasis]').forEach(b=>{b.onclick=()=>{savePref('resSBasis',b.dataset.ressbasis);renderApp();};});
+      content.querySelectorAll('[data-redet]').forEach(b=>{b.onclick=e=>{e.stopPropagation();
+        savePref('c2Det',b.dataset.redet);renderApp();};});
       content.querySelectorAll('[data-resfail]').forEach(b=>{b.onclick=()=>{savePref('resFail',b.dataset.resfail);renderApp();};});
       // STUDIES board: the fair-comparison basis and the value zoom, persisted like the rest.
       content.querySelectorAll('[data-resbasis]').forEach(b=>{b.onclick=()=>{savePref('resBasis',b.dataset.resbasis);renderApp();};});

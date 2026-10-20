@@ -3101,7 +3101,11 @@ var FIX = __FIX__;
           'the box bottom edge is inside the column':res.boxBottom!=null&&res.boxBottom<=res.clip+1,'the box keeps a usable height':(res.boxH||0)>=120},res);})();
 
       // D17 - 1E CONFIGS: one 'not on this chart' count, not a second one beside it
-      (function(){var CID=String(FIX.id),c=doRender({c2Screen:'explore',resLvl:'all',resShow:'configs',resCfgRun:[CID],resSegs:['is','lb'],resAxis:'ratio',resXAxis:'dd'},dfxWin([FIX],"window._runCfg['"+CID+"']=runHistory[0];"));
+      //   SINCE 2026-10-20 the breakdown lives in the DETAILS fold, closed by default (owner: "the
+      //   scatter plot below the table is a novel. condense"), so this case opens the fold - what it
+      //   has always been about is that there is ONE count and not a second one beside it, not
+      //   whether that count is on screen before a tap.
+      (function(){var CID=String(FIX.id),c=doRender({c2Screen:'explore',resLvl:'all',resShow:'configs',resCfgRun:[CID],resSegs:['is','lb'],resAxis:'ratio',resXAxis:'dd',c2Det:'1'},dfxWin([FIX],"window._runCfg['"+CID+"']=runHistory[0];"));
         var t=dfxN(d.body.innerText);
         dfxCase('dfx_d17',[c],{'the breakdown note is there':/[0-9]+ of [0-9]+ not on this chart/.test(t),'no second per-run count beside it':!/#[0-9]+×[0-9]+/.test(t)},
           {note:(t.match(/[0-9]+ of [0-9]+ not on this chart[^.]{0,60}/)||[''])[0],second:(t.match(/[0-9]+ not on this chart: #[0-9]+×[0-9]+/)||[''])[0]});})();
@@ -7424,6 +7428,15 @@ var FIX = __FIX__;
             html:g.innerHTML,cx:h?+h.getAttribute('cx'):null,cy:h?+h.getAttribute('cy'):null};});}
         function recDots(){return dots().filter(function(o){return o.k.indexOf('recs:')===0;});}
         function pageTxt(){return dfxN(d.body.textContent||'');}
+        // SINCE 2026-10-20 the text under the chart is TWO LINES plus a DETAILS fold, so the case
+        //   reads both: the summary the owner sees first, and the folded block that still has to
+        //   carry every word it used to print.
+        function sumLine(){var c=[].filter.call(d.querySelectorAll('div'),function(x){
+            return /on this chart/.test(x.textContent||'')&&/DETAILS/.test(x.textContent||'');});
+          c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});
+          return c[0]?dfxN(c[0].textContent):'';}
+        function detBox(){return d.querySelector('[data-redetbox]');}
+        function detText(){var b=detBox();return b?dfxN(b.textContent):'';}
         function monLine(){var c=[].filter.call(d.querySelectorAll('div'),function(x){
             // the month line ALWAYS carries the stretch sentence, even before either read
             //   lands - a month with no cache injected (the other-month and 30-day renders)
@@ -7434,7 +7447,7 @@ var FIX = __FIX__;
           return c[0]?dfxN(c[0].textContent):'';}
 
         calls.push(doRender(P(),WIN));chk('month on');
-        var D1=recDots(),T1=pageTxt(),L1=monLine();
+        var D1=recDots(),T1=pageTxt(),L1=detText(),S1=sumLine();
         var chips=[].map.call(d.querySelectorAll('[data-remonth]'),function(b){
           return {v:b.getAttribute('data-remonth'),on:/color-mix/.test(b.getAttribute('style')||''),t:dfxN(b.textContent)};});
         // BY ROW KEY, never by a word in the hover: the records are pushed in the order they were
@@ -7442,12 +7455,13 @@ var FIX = __FIX__;
         //   WALK-FWD column of every hover - matching on the text read the same dot twice.
         function dotKey(n){return D1.filter(function(o){return o.k==='recs:'+n;})[0]||null;}
         var dWF=dotKey(1),dLB=dotKey(2),dFW=dotKey(3),dAll=dotKey(4);
-        // MONTH ONLY, same records: the line must say what it is holding back
-        calls.push(doRender(P({c2MonthOnly:'1'}),WIN));chk('month only');
-        var L2=monLine(),D2=recDots();
+        // A MONTH CHIP NARROWS BY ITSELF since 2026-10-20 (MONTH ONLY was dropped), so the same
+        //   render has to both draw the month's records and say what it left off the board.
+        calls.push(doRender(P(),WIN));chk('month narrows');
+        var L2=detText(),D2=recDots();
         // a failed read must name itself rather than leave a thinner chart looking complete
         calls.push(doRender(P(),ERRWIN));chk('read failed');
-        var L3=monLine(),D3=recDots();
+        var L3=detText(),D3=recDots();
         // ALL TIME reads nothing extra: the records must be gone, and the board must still draw
         calls.push(doRender(P({c2Month:'all'}),WIN));chk('all time');
         var D4=recDots(),T4=pageTxt();
@@ -7463,19 +7477,19 @@ var FIX = __FIX__;
         var epTips=recDots().map(function(o){return o.tip;}).join(' @@ ');
         // A LEVEL THAT BUILDS NO RECORD ROWS must say so rather than count rows that are not drawn.
         calls.push(doRender(P({resLvl:'sweep'}),WIN));chk('sweeps');
-        var L8=monLine(),D8=recDots();
+        var L8=detText(),D8=recDots();
         // A DIFFERENT MONTH IS A DIFFERENT READ. The records are stamped THIS month, so asking for
         //   another one must come back without them - that is the range doing its job, and it is
         //   the check that a chip cannot quietly show the wrong month.
         var other=(now.getMonth()===0)?((now.getFullYear()-1)+'-12')
           :(now.getFullYear()+'-'+((now.getMonth()<10?'0':'')+now.getMonth()));
         calls.push(doRender(P({c2Month:other}),WIN));chk('another month');
-        var L5=monLine(),D5=recDots();
+        var L5=detText(),D5=recDots();
         calls.push(doRender(P({c2Month:'30d'}),WIN));chk('30 days');
-        var L6=monLine();
+        var L6=detText();
 
         var xs=D1.map(function(o){return o.cx;}),ys=D1.map(function(o){return o.cy;});
-        info={epT:(epTips.indexOf('one episode not tested')>=0),L8n:D8.length,L5:(L5||'(empty)').slice(0,110),L6:(L6||'(empty)').slice(0,90),other:other,chips:chips.length,allDots:dots().length,scopeChips:d.querySelectorAll('[data-resscope]').length,
+        info={S1:S1.slice(0,170),detHidden:/display:none/.test((detBox()&&detBox().getAttribute('style'))||''),epT:(epTips.indexOf('one episode not tested')>=0),L8n:D8.length,L5:(L5||'(empty)').slice(0,110),L6:(L6||'(empty)').slice(0,90),other:other,chips:chips.length,allDots:dots().length,scopeChips:d.querySelectorAll('[data-resscope]').length,
           miss:dfxNote().slice(0,200),shownN:w.eval('window._reShownN||0'),skipN:w.eval('window._reSkipN||0'),
           keys:dots().slice(0,8).map(function(o){return o.k;}),lit:chips.filter(function(c){return c.on;}).map(function(c){return c.v;}),
           n1:D1.length,n2:D2.length,n3:D3.length,n4:D4.length,
@@ -7504,9 +7518,17 @@ var FIX = __FIX__;
             !!dWF&&!!dLB&&!!dFW&&dWF.cy<dLB.cy&&dLB.cy<dFW.cy,
           'the hover names the lane, where it ran and which stretch':
             !!dWF&&dWF.tip.indexOf('LANE-UNDER-TEST')>=0&&/lane/i.test(dWF.tip)&&dWF.tip.indexOf('WF')>=0,
-          'the line under the chart counts the records it read':/5 lane or lab records/.test(L1),
+          // every row of this fixture IS plotted, so there is no second line to assert here - the
+          //   'N not on it' clause has its own cases (e2_causes, r4_failnote), which now read it
+          //   through the fold and still pass, and that is the proof it is still reachable.
+          'the first line says what is drawn and what the month read':
+            /5 of 5 rows on this chart/.test(S1)&&/5 chat records/.test(S1)&&/DETAILS/.test(S1),
+          'and everything that used to be printed is folded one tap below, not deleted':
+            /display:none/.test((detBox()&&detBox().getAttribute('style'))||'')&&/5 lane or lab records/.test(L1),
+          'the folded block counts the records it read':/5 lane or lab records/.test(L1),
           'and says what the colours and the shapes mean':/where it ran/.test(L1)&&/lockbox/.test(L1),
-          'MONTH ONLY says it is holding rows back':/MONTH ONLY is on/.test(L2)&&D2.length===5,
+          'a month chip shows that month and names what it left off':
+            /showing .* only:/.test(L2)&&/not on screen/.test(L2)&&/ALL TIME shows everything/.test(L2)&&D2.length===5,
           'a failed month read names itself and its reason':/read failed/.test(L3)&&/403/.test(L3)&&D3.length===0,
           'ALL TIME reads no month at all, and the board still draws':D4.length===0&&T4.length>400,
           'the whole-run stretch draws as its own hollow square, not as a walk-forward triangle':
