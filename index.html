@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1323';
+const VERSION='73.1324';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1413,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1316',date:'2026-10-18',notes:['THE MONTH SELECTOR IS WHERE YOU CAN SEE IT (your ask 10-18, part two). It went in behind FILTERS, which on EXPLORE is a second panel you have to open - a headless screenshot of the real page showed no chip anywhere on screen. It now sits on the always-visible control row beside LEVEL, SHOW and PROFIT STAGE: MONTH - OCT SEP AUG JUL JUN MAY - 30 DAYS - ALL TIME, with MONTH ONLY OFF/ON next to it.','MONTH ONLY REALLY NARROWS NOW. Measured on the live build: October with MONTH ONLY on drew 72 run dots, runs #416 to #479 among them - September runs - under a line that correctly said eleven. Run rows are put on the board by a different path from the research rows (the level gate refuses a registry row there), so the narrowing never reached them. It does now, and the line under the chart counts what it is holding back. Re-measured after the fix: October shows ten dots of the eleven runs in the month, and the eleventh is named - it carries a FAIL verdict, and PLOT FAILURES is off by default on that screen.','A RUN THAT ARRIVED WITH THE MONTH NOW HAS A DATE RAN. The lookup that answers when a run ran read only the newest-75 list, so a run fetched by the month chip showed a dash in the DATE RAN column and had no date for any range or month test to read. It now reads the same shared pool every other part of the board reads.','THE LINE UNDER THE CHART SAYS WHICH STRETCH THE FIGURES ARE. The stage tick starts on all three, so every ROC on screen is the whole-run reading with the tuning years in it - correct, and silent about it until now. It says so, and says that WALK-FORWARD alone is the house yardstick.','A LANE RECORD IS NO LONGER DROPPED FROM EVERY PER-YEAR AXIS. The rule that protects a registry write-up - one window for the whole row but money for only part of it, so its years and its money do not match - was refusing a lane record too, and a record IS one stretch that states that stretch own years. The tools that write those records, and the probe case for them, are in the next ship.']},
+const CHANGELOG=[{v:'73.1324',date:'2026-10-19',notes:['EVERY CHAT\'S RUNS ARE ON THE SCATTER NOW (your ask 10-18, the second half). A Stage A sweep in a worktree, a Qwen Lab dry run and a forward line on the box were never run documents, so they could not be drawn. Each lane writes one line per finished run (tools/run_record.py), tools/run_records_sync.py uploads it once, and the MONTH chips read them beside the runner\'s own runs. 886 of the seven lanes\' 1,199 recorded lines went up today: 753 in October, 133 in September. COLOUR says where it ran - the PC runner, a lane worktree, the Qwen Lab, the Oracle box - and SHAPE says which stretch: square in-sample, diamond pre-walk-forward, triangle walk-forward, circle lockbox, cross forward, and a HOLLOW square or diamond for the two wider stretches (the whole run as one, everything before the lockbox). A hollow mark fills no stretch column, so a whole-run total is never added into a walk-forward figure.','THEIR FIGURES ARE READ, NOT RE-DERIVED. A record carries the four numbers its own lane measured through the one house definition (augur_engine.drawdowns.four_numbers): ROC at a $30,000 drawdown, DD5 in dollars, DD % from the high, and Sortino on DAILY returns with zero days counted. The page used to need the money, the drawdown and the years to work a ROC out for itself - measured against the real records, 886 of 1,199 lines carry a ROC and only 18 carry those three inputs, so it reads the lane\'s figure and says so in the hover.','A ROW WITH A GAP IS SHOWN, NOT HIDDEN. 399 of October\'s 753 records recorded a DD % from peak, so on the default axes about half of them can be placed and the rest are counted and named under the chart, exactly as a run with no saved curve already is. The hover on every record names the lane, the host, the stretch, its DD5 and one-episode flag, its ledger row and the code it ran.','The uploader refuses what would draw a lie rather than what is merely missing: a percent in the DD5 dollars field, dollars in the percent field, a provisional run id from a Firestore outage, a non-boolean one-episode flag, a DD5 deeper than the worst drawdown. A caption it cannot use costs itself and not the run - 50 lines put a 64-character content hash where the commit sha goes, and they upload without it rather than being dropped. 313 lines are still refused and every one is named with its line number: 273 recorded no figure any axis can place (most of them carry their money in the note text) and 40 never named a stretch. It is dry by default and idempotent by the content of each line.']},
+{v:'73.1316',date:'2026-10-18',notes:['THE MONTH SELECTOR IS WHERE YOU CAN SEE IT (your ask 10-18, part two). It went in behind FILTERS, which on EXPLORE is a second panel you have to open - a headless screenshot of the real page showed no chip anywhere on screen. It now sits on the always-visible control row beside LEVEL, SHOW and PROFIT STAGE: MONTH - OCT SEP AUG JUL JUN MAY - 30 DAYS - ALL TIME, with MONTH ONLY OFF/ON next to it.','MONTH ONLY REALLY NARROWS NOW. Measured on the live build: October with MONTH ONLY on drew 72 run dots, runs #416 to #479 among them - September runs - under a line that correctly said eleven. Run rows are put on the board by a different path from the research rows (the level gate refuses a registry row there), so the narrowing never reached them. It does now, and the line under the chart counts what it is holding back. Re-measured after the fix: October shows ten dots of the eleven runs in the month, and the eleventh is named - it carries a FAIL verdict, and PLOT FAILURES is off by default on that screen.','A RUN THAT ARRIVED WITH THE MONTH NOW HAS A DATE RAN. The lookup that answers when a run ran read only the newest-75 list, so a run fetched by the month chip showed a dash in the DATE RAN column and had no date for any range or month test to read. It now reads the same shared pool every other part of the board reads.','THE LINE UNDER THE CHART SAYS WHICH STRETCH THE FIGURES ARE. The stage tick starts on all three, so every ROC on screen is the whole-run reading with the tuning years in it - correct, and silent about it until now. It says so, and says that WALK-FORWARD alone is the house yardstick.','A LANE RECORD IS NO LONGER DROPPED FROM EVERY PER-YEAR AXIS. The rule that protects a registry write-up - one window for the whole row but money for only part of it, so its years and its money do not match - was refusing a lane record too, and a record IS one stretch that states that stretch own years. The tools that write those records, and the probe case for them, are in the next ship.']},
 {v:'73.1313',date:'2026-10-18',notes:['A MONTH SELECTOR ON COMPARE, EXPLORE (your ask 10-18: everything run in the past month visible on the scatter, wherever it ran). Chips for the last six calendar months, the rolling 30 days, and ALL TIME. Picking a month READS that month in one query and ADDS its rows to the board - it hides nothing, because no caps and no auto-hide is the rule on this screen. MONTH ONLY, beside it, narrows to the month on your click, and the line under the chart then counts what it is holding back.','WHY YOUR MONTH WAS NOT THERE. The page only ever holds the newest 75 run documents (LOAD MORE adds 75 at a time), so a month that is not among the newest 75 runs was never in the browser to plot. Measured on 10-18 against the real collection: September 2026 holds 173 runs, August 125, and 440 runs exist in all. A month now arrives in one projected query, with the same fields the run list already reads, and the runs join the shared pool - so they are on EXPLORE, RUNBOARD and PICK RUNS together, the same way a starred run outside the window already is.','AND THE RUNS THAT WERE NEVER RUN DOCUMENTS AT ALL: a Stage A sweep in a lane worktree, a Qwen Lab dry run, a forward line on the Oracle box. Those are not in Past Runs and never were. Each lane now writes one line per finished run (tools/run_record.py), it is uploaded once (tools/run_records_sync.py), and the month read picks them up. On the chart the COLOUR says where it ran - the PC runner, a lane worktree, the Qwen Lab, the box - and the SHAPE says which stretch: square in-sample, diamond pre-walk-forward, triangle walk-forward, circle lockbox, cross forward.','THE FOUR NUMBERS ON THOSE ROWS ARE THE LANE OWN MEASUREMENTS, not something this page derived: ROC at a $30,000 drawdown, DD5 in dollars, DD % from the high, and Sortino on DAILY returns with zero days counted, all from augur_engine.drawdowns.four_numbers, the one definition. DD % from peak is READ off the record rather than worked out here, because a lane record saves no equity curve and the standing rule holds: a stored dollar drawdown is never divided into a percent. A record that carries no percent says so in its hover instead of showing a made-up one.','THE MONTH LINE TELLS THE TRUTH ABOUT WHAT IT READ: how many run documents and how many lane records, a read still in flight, a read that failed and its reason, a read that hit its cap (so the month is NOT whole), and the one legacy run - #156, which saved an integer timestamp where every other run saved a string - that a month range can never match and which therefore reaches the board only through the ordinary newest-75 list. 439 of the 440 runs are unaffected, measured.','Probe: a new cmp2 case (w47_month) injects three lane records - one from a lane worktree, one from the Qwen Lab, one from the box - and checks they reach the chart on ROC at $30k against DD % from peak, that the page places them in the order of the figures each lane recorded, that the colours and shapes are the right ones, and that the month line says the counts, the hold-back and a failed read. It fails on the build before this one.']},
 {v:'73.1310',date:'2026-10-14',notes:['ENGINE SPEED: every 1-minute backtest no longer spends about 2 seconds per year of bars re-reading bar times (same results, tested on every input shape). A 10-year 1-minute validate trial is about 20 seconds faster.']},
 {v:'73.1296',date:'2026-10-14',notes:['NEW STRATEGY FILE: MISC_SUPERSCALPER, our port of a public TradingView NQ scalper (not the published script - it reads three TradingView-only data feeds we do not hold). Six exit settings of ours (stop cap, stop and target distance, time-out, breakeven, daily VIX). Its 900-trial Auto-Validate is queued next; its report will say OUR PORT.']},
@@ -34494,6 +34495,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(!(y>0))return _reWfYrsWhy(rw)||(_reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis (MAR is net per YEAR over worst drawdown since v73.7x).');
           return null;};
         const _reRoc30=(st,rw,segOv)=>{
+          // W47: a lane record carries the ROC its own lane measured through four_numbers - the
+          //   house definition, on that stretch's daily series. Reading it is the point; deriving
+          //   it here would need net, drawdown and years, which the real records almost never
+          //   carry (886 of 1,199 lines hold roc30k, 18 hold the three inputs - measured 10-19).
+          if(rw&&rw._rec)return (rw._roc30!=null&&isFinite(+rw._roc30))?+rw._roc30:null;
           const p=_reSegVal(rw,segOv),d=_reNum(rw,'dd'),y=_reYrs(st,rw,segOv);
           const m=(p==null||d==null||!d||!(y>0))?null:_marAnn(p,y,d);
           return (m==null||!isFinite(m))?null:(m*30000/_rocAcct()*100);};
@@ -35149,7 +35155,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //    vocabulary: the PC runner, a lane worktree, the Qwen Lab, the Oracle box.
         const _reWhereCol={runner:'#60a5fa',lane:'#4ade80',lab:'#c084fc',box:'#f0b429'};
         const _reWhereNm={runner:'the PC runner',lane:'a lane worktree',lab:'the Qwen Lab',box:'the Oracle box'};
-        const _reRecStageNm={IS:'in-sample',preWF:'pre-walk-forward',WF:'walk-forward',LB:'lockbox',forward:'forward'};
+        // SEVEN STRETCHES a record can name. full and preLB were already in use by two lanes (58 and 15 of
+        //   the 1,199 lines on 2026-10-19) and each gets its OWN mark below: a FULL reading bucketed into
+        //   the walk-forward column would read as the house yardstick when it is not.
+        const _reRecStageNm={IS:'in-sample',preWF:'pre-walk-forward',WF:'walk-forward',LB:'lockbox',forward:'forward',
+          full:'whole-run',preLB:'pre-lockbox'};
         const _reRecMark=function(stage,cx,cy,s,col,fo){
           const x=+cx,y=+cy,o=' fill-opacity="'+fo+'" stroke-opacity="'+Math.min(1,fo+0.15)+'"';
           const pts=a=>a.map(p=>p[0].toFixed(1)+','+p[1].toFixed(1)).join(' ');
@@ -35159,6 +35169,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(stage==='preWF')return '<polygon points="'+pts([[x,y-s],[x+s,y],[x,y+s],[x-s,y]])+'" fill="'+col+'"'+o+'/>';
           if(stage==='forward')return '<path d="M'+(x-s).toFixed(1)+' '+y.toFixed(1)+'H'+(x+s).toFixed(1)
             +'M'+x.toFixed(1)+' '+(y-s).toFixed(1)+'V'+(y+s).toFixed(1)+'" stroke="'+col+'" stroke-width="2" fill="none"'+o+'/>';
+          // HOLLOW = A WIDER STRETCH than the filled shape it echoes: full is the whole run (the hollow twin
+          //   of the in-sample square), preLB is in-sample + walk-forward (the hollow twin of the pre-walk-forward
+          //   diamond). Neither fills a stretch column, so neither is ever added into a walk-forward figure.
+          if(stage==='full')return '<rect x="'+(x-s*0.85).toFixed(1)+'" y="'+(y-s*0.85).toFixed(1)+'" width="'+(s*1.7).toFixed(1)+'" height="'+(s*1.7).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="1.5"'+o+'/>';
+          if(stage==='preLB')return '<polygon points="'+pts([[x,y-s*1.05],[x+s*1.05,y],[x,y+s*1.05],[x-s*1.05,y]])+'" fill="none" stroke="'+col+'" stroke-width="1.5"'+o+'/>';
           // a stage the record did not name draws as a hollow dot: visible, and visibly odd
           return '<circle cx="'+x.toFixed(1)+'" cy="'+y.toFixed(1)+'" r="'+(s*0.8).toFixed(1)+'" fill="none" stroke="'+col+'" stroke-width="1.4"'+o+'/>';};
         // MARKS: plain dots by default. A verdict shape per point - circle, square,
@@ -36255,6 +36270,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                if(_ms.length)tp+=' | records no separate '+_ms.map(sg=>_reSegLong[sg]).join(' or ')+' figure, so this covers only the stages it does record';}
               tipF.forEach(f=>{const v=_reNum(r,f);
                 tp+=' | '+(_reFldNm[f]||f)+' '+((v==null)?'not measured':((f==='trd')?Math.round(v).toLocaleString():_reVal(v,_reAxFmt(f,null))));});
+              if(r._rec){
+                tp+=' | recorded by '+String(r._lane||'a lane')+' on '+String(r._host||'an unnamed host')
+                  +' ('+(_reWhereNm[r._where]||String(r._where||'where not recorded'))+')'
+                  +' | '+(_reRecStageNm[r._stage]||'stretch not recorded')+' stretch';
+                if(r._dd5!=null)tp+=' | DD5 '+_reVal(r._dd5,'money')+(r._oneEp?' - ONE EPISODE':'');
+                if(r._ledger)tp+=' | ledger row '+String(r._ledger);
+                if(r._sha)tp+=' | code '+String(r._sha).slice(0,10);
+                tp+=' | the four numbers on this row are the ones its own lane measured, not figures this page derived';}
               if(_reLiveV(r)!=='none')tp+=' | '+_reLiveNm[_reLiveV(r)];
               if(dim)tp+=' | never run as a validate run';
               if(_reFlags.length)tp+=' | '+_reFlags.map(function(fl){return fl.txt+': '+fl.tip;}).join(' | ');
@@ -36909,13 +36932,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //    goes in the field of its own stage, and DD % from peak, DD5 and Sortino are read as
           //    recorded. Nothing here is recomputed and nothing is scaled by an account chip.
           if(_reMonWin&&_reRecSt&&_reRecSt.state==='ok'&&_reRecSt.rows.length){
+            // WHICH COLUMN THE MONEY GOES IN, and the two stretches that have none. full is the whole run and
+            //   preLB is in-sample + walk-forward: neither IS one of this board's three columns, so their net
+            //   stays the row total and fills no stretch figure. The old `||'wf'` fallback put exactly these
+            //   rows in the WALK-FORWARD column, where a whole-run total read as the house yardstick.
             const _recF={IS:'is',preWF:'is',WF:'wf',LB:'lb',forward:'lb'};
             const _recRows=[];
             _reRecSt.rows.forEach(function(d,i){
               const net=(d.net_usd!=null&&isFinite(+d.net_usd))?+d.net_usd:null;
-              if(net==null)return;                     // no money, nothing to place on an axis
+              const roc=(d.roc30k!=null&&isFinite(+d.roc30k))?+d.roc30k:null;
+              // a record needs ONE figure worth plotting, not all of them: the page dashes what a
+              //   row does not record and names it under the chart, which is the honest way to
+              //   show a run that measured its ROC but never wrote its money.
+              if(net==null&&roc==null)return;
               const stg=String(d.stage||'');
-              const f=_recF[stg]||'wf';
+              const f=_recF[stg]||null;
               const nm=String(d.strategy||d.family||'a lane run').replace(/\.py$/,'').replace(/[<>&]/g,'');
               const row={n:i+1,
                 name:nm+' \u00b7 '+(stg||'stage not recorded')+((d.run_id!=null&&isFinite(+d.run_id))?(' \u00b7 run #'+(+d.run_id)):''),
@@ -36936,7 +36967,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 _roc30:(d.roc30k!=null&&isFinite(+d.roc30k))?+d.roc30k:null,
                 _oneEp:(d.one_episode===true),_ledger:String(d.ledger_row||''),
                 _sha:String(d.sha||''),_startUsd:(d.start_usd!=null&&isFinite(+d.start_usd))?+d.start_usd:null};
-              row[f]=net;
+              if(net!=null&&f)row[f]=net;
               _recRows.push(row);});
             if(_recRows.length){
               const recSt={key:'recs',title:'LANE AND LAB RUNS \u00b7 '+String(_reMonWin.nm).toUpperCase(),
@@ -38187,6 +38218,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                     +'<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:'+_reWhereCol[w]+';margin-right:3px"></span>'+w+'</span>';}).join('&nbsp;&nbsp;')
                 +'&nbsp;&nbsp;<span style="color:var(--text4)">stretch:</span> '
                 +'square in-sample&nbsp;&nbsp;diamond pre-walk-forward&nbsp;&nbsp;triangle walk-forward&nbsp;&nbsp;circle lockbox&nbsp;&nbsp;cross forward'
+                +'&nbsp;&nbsp;<span title="A hollow mark is a WIDER stretch than the filled shape it echoes: a hollow square is the whole run read as one, a hollow diamond is everything before the lockbox. Neither fills a stretch column on this board, so neither is ever added into a walk-forward figure, and a hollow dot is a record that named no stretch at all." style="cursor:help">hollow square the whole run&nbsp;&nbsp;hollow diamond before the lockbox ⓘ</span>'
                 +'</div>'):'')
             +'</div>';})();
         const _reMissNote=(function(){

@@ -109,7 +109,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 158
+N_CASES = 159
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -163,6 +163,11 @@ var FIX = __FIX__;
             +"window._rbWatch={state:'idle',runs:[],at:0};window._rbWatchRuns=[];window._rbWatchRunsState='idle';window._rbWatchRunsWant=[];"
             // n6 (RUN EXPOSURE TABLE): the exposure cache is reset for every render too - a case injects window._runExpo through winCode
             +"window._runExpo={state:'idle',runs:{},at:0};"
+            // W47: the month caches are reset for every render too - a case injects
+            //   window._monRuns / window._recMon through winCode, and without this reset the
+            //   w47_month case would leak its lane records into all 158 cases after it (which is
+            //   exactly what the z1 and n6 comments above exist to remember).
+            +"window._monRuns={};window._recMon={};window._reMonKey='';"
             +winCode
             +"activeTab='augur';augurSub='"+(sub||'cmp2')+"';renderApp();return 'OK';"
             +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
@@ -7376,6 +7381,126 @@ var FIX = __FIX__;
             netC:netC,netW:netW,netM:netM,totLbC:totLbC,errAcc:errAcc});
       })();
 
+      // ── w47_month (W47, owner 2026-10-18: "i want everything that has been ran in the past month
+      //    to be visable on the compare runboard scatterplot, irreguardless of where it was ran.
+      //    make a month seletcor for it"). Three records, one per place a run can happen, with the
+      //    four numbers their own lanes measured. The axes are the pair the owner will open.
+      (function(){
+        var calls=[],errAcc=[],info={};
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        var now=new Date(),mk=now.getFullYear()+'-'+(now.getMonth()<9?'0':'')+(now.getMonth()+1);
+        var day=mk+'-'+(now.getDate()<10?'0':'')+now.getDate();
+        // SAME window and SAME drawdown on all three, so only the RECORDED percent can separate
+        //   them on the horizontal axis, and only the recorded money on the vertical one.
+        function rec(o){return Object.assign({timestamp:day+' 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'w47probe',family:'NOISE',instrument:'NQ',timeframe:'2m',
+          trades:400,gross_pt:1.5,cost_pt:0.783,one_episode:false,ledger_row:'9.99',
+          sha:'deadbee',note:'a record written by the W47 probe case',start_usd:100000,
+          win_start:'2021-01-01',win_end:'2024-01-01',years:3.0,max_dd_usd:30000,dd5:12000},o);}
+        var RECS=[rec({id:'a1',where:'lane',stage:'WF',net_usd:120000,ddpct:9,sortino:2.5,roc30k:40}),
+                  rec({id:'a2',where:'lab',stage:'LB',net_usd:60000,ddpct:4.5,sortino:1.8,roc30k:20}),
+                  rec({id:'a3',where:'box',stage:'forward',net_usd:20000,ddpct:2.25,sortino:1.1,roc30k:6.7}),
+                  // THE WHOLE RUN AS ONE STRETCH: a name two lanes were already writing (58 FULL lines on
+                  //   2026-10-19) that this board has no column for. It must draw, and its money must NOT
+                  //   land in the walk-forward column, where a whole-run total reads as the house yardstick.
+                  rec({id:'a4',where:'runner',stage:'full',net_usd:90000,ddpct:6.75,sortino:2.0,roc30k:30})];
+        var WIN=dfxWin([FIX],"window._recMon["+JSON.stringify(mk)+"]={state:'ok',rows:"+JSON.stringify(RECS)+",at:Date.now()};"
+          +"window._monRuns["+JSON.stringify(mk)+"]={state:'ok',rows:[],at:Date.now()};");
+        var ERRWIN=dfxWin([FIX],"window._recMon["+JSON.stringify(mk)+"]={state:'err',rows:[],at:Date.now(),why:'research_runs month REST 403'};"
+          +"window._monRuns["+JSON.stringify(mk)+"]={state:'ok',rows:[],at:Date.now()};");
+        // ROC @ $30K DD against DD % FROM PEAK - the pair MANAGER asked for as the default read
+        function P(extra){return Object.assign({c2Screen:'explore',resLvl:'valid',resAxis:'roc30',
+          resXAxis:'ddp',resMore:true,c2Month:mk},extra||{});}
+        function dots(){return [].map.call(d.querySelectorAll('[data-repoint]'),function(g){
+          var t=g.querySelector('title'),h=g.querySelector('circle.rehl');
+          return {k:String(g.getAttribute('data-repoint')||''),tip:t?(t.textContent||''):'',
+            html:g.innerHTML,cx:h?+h.getAttribute('cx'):null,cy:h?+h.getAttribute('cy'):null};});}
+        function recDots(){return dots().filter(function(o){return o.k.indexOf('recs:')===0;});}
+        function pageTxt(){return dfxN(d.body.textContent||'');}
+        function monLine(){var c=[].filter.call(d.querySelectorAll('div'),function(x){
+            // the month line ALWAYS carries the stretch sentence, even before either read
+            //   lands - a month with no cache injected (the other-month and 30-day renders)
+            //   has no counts to print, and matching only the counts read back as silence.
+            return /the figures on screen are|lane or lab record|run document|MONTH ONLY is on|read failed|nothing has been read/.test(x.textContent||'')
+              &&!x.querySelector('[data-remonth]');});
+          c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});
+          return c[0]?dfxN(c[0].textContent):'';}
+
+        calls.push(doRender(P(),WIN));chk('month on');
+        var D1=recDots(),T1=pageTxt(),L1=monLine();
+        var chips=[].map.call(d.querySelectorAll('[data-remonth]'),function(b){
+          return {v:b.getAttribute('data-remonth'),on:/color-mix/.test(b.getAttribute('style')||''),t:dfxN(b.textContent)};});
+        // BY ROW KEY, never by a word in the hover: the records are pushed in the order they were
+        //   injected and numbered 1, 2, 3 within their own study, while 'WF' also appears in the
+        //   WALK-FWD column of every hover - matching on the text read the same dot twice.
+        function dotKey(n){return D1.filter(function(o){return o.k==='recs:'+n;})[0]||null;}
+        var dWF=dotKey(1),dLB=dotKey(2),dFW=dotKey(3),dAll=dotKey(4);
+        // MONTH ONLY, same records: the line must say what it is holding back
+        calls.push(doRender(P({c2MonthOnly:'1'}),WIN));chk('month only');
+        var L2=monLine(),D2=recDots();
+        // a failed read must name itself rather than leave a thinner chart looking complete
+        calls.push(doRender(P(),ERRWIN));chk('read failed');
+        var L3=monLine(),D3=recDots();
+        // ALL TIME reads nothing extra: the records must be gone, and the board must still draw
+        calls.push(doRender(P({c2Month:'all'}),WIN));chk('all time');
+        var D4=recDots(),T4=pageTxt();
+        // WHOSE MONEY IS WHOSE. PROFIT ($) up the side with only WALK-FORWARD ticked asks each row for its
+        //   walk-forward money: the walk-forward record has it, and the whole-run record must NOT - its total
+        //   covers the whole run, and the page used to drop exactly these rows into the walk-forward column.
+        calls.push(doRender(P({resAxis:'raw',resSegs:['wf']}),WIN));chk('wf money');
+        var D7=recDots(),k7=D7.map(function(o){return o.k;});
+        // A DIFFERENT MONTH IS A DIFFERENT READ. The records are stamped THIS month, so asking for
+        //   another one must come back without them - that is the range doing its job, and it is
+        //   the check that a chip cannot quietly show the wrong month.
+        var other=(now.getMonth()===0)?((now.getFullYear()-1)+'-12')
+          :(now.getFullYear()+'-'+((now.getMonth()<10?'0':'')+now.getMonth()));
+        calls.push(doRender(P({c2Month:other}),WIN));chk('another month');
+        var L5=monLine(),D5=recDots();
+        calls.push(doRender(P({c2Month:'30d'}),WIN));chk('30 days');
+        var L6=monLine();
+
+        var xs=D1.map(function(o){return o.cx;}),ys=D1.map(function(o){return o.cy;});
+        info={L5:(L5||'(empty)').slice(0,110),L6:(L6||'(empty)').slice(0,90),other:other,chips:chips.length,allDots:dots().length,scopeChips:d.querySelectorAll('[data-resscope]').length,
+          miss:dfxNote().slice(0,200),shownN:w.eval('window._reShownN||0'),skipN:w.eval('window._reSkipN||0'),
+          keys:dots().slice(0,8).map(function(o){return o.k;}),lit:chips.filter(function(c){return c.on;}).map(function(c){return c.v;}),
+          n1:D1.length,n2:D2.length,n3:D3.length,n4:D4.length,
+          xWF:dWF?dWF.cx:null,xLB:dLB?dLB.cx:null,xFW:dFW?dFW.cx:null,
+          yWF:dWF?dWF.cy:null,yLB:dLB?dLB.cy:null,yFW:dFW?dFW.cy:null,
+          L1:L1.slice(0,200),L2:L2.slice(0,120),L3:L3.slice(0,140),L5:(L5||'').slice(0,120),L6:(L6||'').slice(0,90),
+          other:other,n5:D5.length,k7:k7,
+          xAll:dAll?dAll.cx:null,yAll:dAll?dAll.cy:null,htmlAll:dAll?dAll.html.slice(0,120):null,
+          tipWF:dWF?dWF.tip.slice(0,160):null,errs:errAcc.slice(0,3)};
+        dfxCase('w47_month',calls,{
+          'the month rail is on the visible controls, with the last six months, 30 DAYS and ALL TIME':chips.length>=8
+            &&chips.some(function(c){return c.v==='30d';})&&chips.some(function(c){return c.v==='all';}),
+          'the month picked is the month lit':chips.filter(function(c){return c.on&&c.v===mk;}).length===1,
+          'the month the board reads is the month the pref names':/OCTOBER|NOVEMBER|DECEMBER|JANUARY|FEBRUARY|MARCH|APRIL|MAY|JUNE|JULY|AUGUST|SEPTEMBER/.test(L1)
+            &&L1.indexOf(String(now.getFullYear()))>=0,
+          'a different month reads that month and not this one':/2026|2027/.test(L5)&&L5.indexOf('lane or lab record')<0,
+          'the 30 DAYS chip reads a rolling window, not a calendar month':/last 30 days/i.test(L6),
+          'all four lane and lab records are on the chart, on ROC at $30k against DD % from peak':D1.length===4,
+          'the lane record is green, the lab record is purple and the box record is amber':
+            !!dWF&&dWF.html.indexOf('#4ade80')>=0&&!!dLB&&dLB.html.indexOf('#c084fc')>=0&&!!dFW&&dFW.html.indexOf('#f0b429')>=0,
+          'walk-forward draws as a triangle, a lockbox as a circle and a forward line as a cross':
+            !!dWF&&dWF.html.indexOf('<polygon')>=0&&!!dLB&&/<circle[^>]*fill="#c084fc"/.test(dLB.html)&&!!dFW&&dFW.html.indexOf('<path')>=0,
+          'the chart places them by the percent each lane recorded, in that order':
+            !!dWF&&!!dLB&&!!dFW&&dWF.cx>dLB.cx&&dLB.cx>dFW.cx,
+          'and by the money each lane recorded, in that order':
+            !!dWF&&!!dLB&&!!dFW&&dWF.cy<dLB.cy&&dLB.cy<dFW.cy,
+          'the hover names the lane, where it ran and which stretch':
+            !!dWF&&dWF.tip.indexOf('LANE-UNDER-TEST')>=0&&/lane/i.test(dWF.tip)&&dWF.tip.indexOf('WF')>=0,
+          'the line under the chart counts the records it read':/4 lane or lab records/.test(L1),
+          'and says what the colours and the shapes mean':/where it ran/.test(L1)&&/lockbox/.test(L1),
+          'MONTH ONLY says it is holding rows back':/MONTH ONLY is on/.test(L2)&&D2.length===4,
+          'a failed month read names itself and its reason':/read failed/.test(L3)&&/403/.test(L3)&&D3.length===0,
+          'ALL TIME reads no month at all, and the board still draws':D4.length===0&&T4.length>400,
+          'the whole-run stretch draws as its own hollow square, not as a walk-forward triangle':
+            !!dAll&&/<rect[^>]*fill="none"/.test(dAll.html)&&dAll.html.indexOf('<polygon')<0,
+          'and its money is never read as walk-forward money':
+            k7.indexOf('recs:1')>=0&&k7.indexOf('recs:4')<0&&/whole-run stretch/.test(dAll?dAll.tip:''),
+          'no console errors on any of the four renders':errAcc.length===0
+        },info);
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -9588,6 +9713,7 @@ def main(argv=None):
     DFX += ['n6_rb_exposure']
     DFX += ['n7_links_family']
     DFX += ['n8_rb_rollstamp']
+    DFX += ['w47_month']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
