@@ -347,8 +347,11 @@ def test_a4_a_hung_lookup_never_holds_the_send_past_its_wait(tmp_path, monkeypat
     """Review of G1 (fix 3), on the REAL clock. The wait's bound used to stop a lookup only from
     STARTING: one get_order_detail that hangs (a network stall) held the wait -- and the send
     after it -- far past the cap. Now the send goes out when the wait's time is up (0.3 s here)
-    although the lookup still hangs (~2 s); its late answer (FILLED) is never booked; and a
-    second wait while it still hangs starts no new lookup and sends at once."""
+    although the lookup still hangs (~6 s); its late answer (FILLED) is never booked; and a
+    second wait while it still hangs starts no new lookup and sends at once.
+    Real-clock bounds are kept wide (the full test tier runs on a loaded machine, where a 0.25 s
+    bound once read 1.05 s): 'at once' is proven structurally -- no new lookup, no poll interval
+    slept -- and every send must finish well inside the hang it must not wait behind."""
     adapter, fake, _clock = _rig(tmp_path, monkeypatch, real_time=True)
     for leg in ("ORB", "NOISE", "ENGUQ"):
         _seed(adapter, leg, 10)
@@ -360,9 +363,11 @@ def test_a4_a_hung_lookup_never_holds_the_send_past_its_wait(tmp_path, monkeypat
     started = []
     answer = fake._detail
 
+    HANG = 6.0
+
     def hung_detail(account_id, coid):
         started.append(coid)
-        release.wait(2.0)
+        release.wait(HANG)
         return answer(account_id, coid)
     fake.order_v3.get_order_detail.side_effect = hung_detail
     adapter.set_dup_wait(0.3)
@@ -371,7 +376,7 @@ def test_a4_a_hung_lookup_never_holds_the_send_past_its_wait(tmp_path, monkeypat
         rec = _place(adapter, "NOISE", "qxNOISEC", "SELL", 10, "CLOSE",
                      dup_wait_until=time.time() + 8)
         took = time.perf_counter() - t0
-        assert 0.25 <= took < 1.0, f"the send waited {took:.2f}s, not ~0.3s"
+        assert 0.25 <= took < HANG / 2, f"the send waited {took:.2f}s behind a {HANG:.0f}s hang"
         assert started == ["qxORBC"] and rec["dup_wait"]["settled"] is False
         assert fake.refused == [("SELL", 10, DUP)], "sent anyway: today's path"
 
@@ -380,10 +385,11 @@ def test_a4_a_hung_lookup_never_holds_the_send_past_its_wait(tmp_path, monkeypat
         t1 = time.perf_counter()
         rec2 = _place(adapter, "ENGUQ", "qxENGUQC", "SELL", 10, "CLOSE",
                       dup_wait_until=time.time() + 8)
-        assert time.perf_counter() - t1 < 0.25, "no wait behind a lookup still hanging"
+        assert time.perf_counter() - t1 < HANG / 2, "no wait behind a lookup still hanging"
         assert slept == [], "not even a poll interval spent"
         assert started == ["qxORBC"], "and no new lookup started"
-        assert rec2["dup_wait"]["settled"] is False and rec2["dup_wait"]["waited_sec"] < 0.25
+        assert adapter._dup_lookup_busy(), "the first lookup really was still hanging"
+        assert rec2["dup_wait"]["settled"] is False and rec2["dup_wait"]["waited_sec"] < HANG / 2
     finally:
         release.set()
         fut = WO._DUP_WAIT_LOOKUP.get("future")
