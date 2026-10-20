@@ -250,7 +250,10 @@ def test_the_nulls_the_lane_side_writer_really_writes_are_uploaded_not_refused(t
 
 
 @pytest.mark.parametrize("patch, fragment", [
-    ({"ddpct": 0.0}, "ddpct is 0 but the stretch drew down $18,450.00 on a $100,000.00 account"),
+    # the clause names the DEEPEST dollar drawdown the record carries - here max_dd_usd $21,100,
+    #   not dd5 $18,450 - because either figure proves the stretch fell and the deeper one is what
+    #   the rounding floor has to be measured against.
+    ({"ddpct": 0.0}, "ddpct is 0 but the stretch drew down $21,100.00 on a $100,000.00 account"),
     ({"dd5": 13.09}, "dd5 $13.09 is less than a fifth of max_dd_usd $21,100.00 ($4,220.00)"),
 ])
 def test_a_wrong_figure_beside_the_one_it_contradicts_is_refused(tmp_path, patch, fragment):
@@ -770,6 +773,27 @@ def test_a_sha_that_is_not_a_commit_costs_itself_and_not_the_run(tmp_path):
     assert "is not a commit sha" in p.text and "content hash" in p.text
     assert "2 with a caption dropped" in p.text        # said in the file's own head line, not only per line
     assert "REFUSED" not in p.text                     # nothing was refused over it
+
+
+def test_a_flat_percent_is_refused_against_whichever_dollar_drawdown_the_record_carries(tmp_path):
+    """ddpct 0 beside ANY real dollar drawdown is a wrong figure, and dd5 is not the only one on a record.
+
+    The clause used to read dd5 alone. 273 of the seven lanes' real lines carry one dollar figure and not the
+    other, so a record with max_dd_usd and no dd5 is the common shape - and a flat 0 on one of those drew
+    "no fall from the high" for a run that fell. A 0 is not an absence: it is a figure the lane WROTE.
+    """
+    write_records(tmp_path, "FLAT_202610.jsonl",
+                  [rec(dd5=None, max_dd_usd=9000.0, ddpct=0.0)])
+    p = go(tmp_path, "--write")
+    assert p.code == 2 and p.db.sets == []
+    assert "ddpct is 0 but the stretch drew down $9,000.00" in p.text
+    # ...and the absences on either side still cost nothing: no dollar drawdown at all, or no percent.
+    write_records(tmp_path, "FLAT_202610.jsonl",
+                  [rec(dd5=None, max_dd_usd=None, ddpct=0.0),
+                   rec(dd5=None, max_dd_usd=9000.0, ddpct=None, trades=319)])
+    q = go(tmp_path, "--write")
+    assert q.code == 0 and len(q.db.sets) == 2, q.text
+    assert [d["ddpct"] for _p, d, _m in q.db.sets] == [0.0, None]
 
 
 # ── the frozen schema itself ─────────────────────────────────────────────────────────────────

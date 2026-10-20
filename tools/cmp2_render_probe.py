@@ -7403,7 +7403,10 @@ var FIX = __FIX__;
                   // THE WHOLE RUN AS ONE STRETCH: a name two lanes were already writing (58 FULL lines on
                   //   2026-10-19) that this board has no column for. It must draw, and its money must NOT
                   //   land in the walk-forward column, where a whole-run total reads as the house yardstick.
-                  rec({id:'a4',where:'runner',stage:'full',net_usd:90000,ddpct:6.75,sortino:2.0,roc30k:30})];
+                  rec({id:'a4',where:'runner',stage:'full',net_usd:90000,ddpct:6.75,sortino:2.0,roc30k:30}),
+                  // THE LAB SHAPE: one_episode null is the lab's own NOT TESTABLE, not a no.
+                  rec({id:'a5',where:'lab',stage:'preWF',net_usd:30000,ddpct:3.0,sortino:1.2,roc30k:10,
+                       one_episode:null,dd5:9000})];
         var WIN=dfxWin([FIX],"window._recMon["+JSON.stringify(mk)+"]={state:'ok',rows:"+JSON.stringify(RECS)+",at:Date.now()};"
           +"window._monRuns["+JSON.stringify(mk)+"]={state:'ok',rows:[],at:Date.now()};");
         var ERRWIN=dfxWin([FIX],"window._recMon["+JSON.stringify(mk)+"]={state:'err',rows:[],at:Date.now(),why:'research_runs month REST 403'};"
@@ -7449,6 +7452,14 @@ var FIX = __FIX__;
         //   covers the whole run, and the page used to drop exactly these rows into the walk-forward column.
         calls.push(doRender(P({resAxis:'raw',resSegs:['wf']}),WIN));chk('wf money');
         var D7=recDots(),k7=D7.map(function(o){return o.k;});
+        // THE FOUR NUMBERS INCLUDE DD5, and a record carries its own. The cell renders from the
+        //   lane's figure (data-redd5-rec) instead of dashing with a curve reason it cannot have.
+        // ONE EPISODE IS A TRI-STATE: the lab writes null for NOT TESTABLE, and a05 is that shape.
+        calls.push(doRender(P(),WIN));chk('one episode');
+        var epTips=recDots().map(function(o){return o.tip;}).join(' @@ ');
+        // A LEVEL THAT BUILDS NO RECORD ROWS must say so rather than count rows that are not drawn.
+        calls.push(doRender(P({resLvl:'sweep'}),WIN));chk('sweeps');
+        var L8=monLine(),D8=recDots();
         // A DIFFERENT MONTH IS A DIFFERENT READ. The records are stamped THIS month, so asking for
         //   another one must come back without them - that is the range doing its job, and it is
         //   the check that a chip cannot quietly show the wrong month.
@@ -7460,14 +7471,14 @@ var FIX = __FIX__;
         var L6=monLine();
 
         var xs=D1.map(function(o){return o.cx;}),ys=D1.map(function(o){return o.cy;});
-        info={L5:(L5||'(empty)').slice(0,110),L6:(L6||'(empty)').slice(0,90),other:other,chips:chips.length,allDots:dots().length,scopeChips:d.querySelectorAll('[data-resscope]').length,
+        info={epT:(epTips.indexOf('one episode not tested')>=0),L8n:D8.length,L5:(L5||'(empty)').slice(0,110),L6:(L6||'(empty)').slice(0,90),other:other,chips:chips.length,allDots:dots().length,scopeChips:d.querySelectorAll('[data-resscope]').length,
           miss:dfxNote().slice(0,200),shownN:w.eval('window._reShownN||0'),skipN:w.eval('window._reSkipN||0'),
           keys:dots().slice(0,8).map(function(o){return o.k;}),lit:chips.filter(function(c){return c.on;}).map(function(c){return c.v;}),
           n1:D1.length,n2:D2.length,n3:D3.length,n4:D4.length,
           xWF:dWF?dWF.cx:null,xLB:dLB?dLB.cx:null,xFW:dFW?dFW.cx:null,
           yWF:dWF?dWF.cy:null,yLB:dLB?dLB.cy:null,yFW:dFW?dFW.cy:null,
           L1:L1.slice(0,200),L2:L2.slice(0,120),L3:L3.slice(0,140),L5:(L5||'').slice(0,120),L6:(L6||'').slice(0,90),
-          other:other,n5:D5.length,k7:k7,
+          other:other,n5:D5.length,k7:k7,L8:(L8||'').slice(0,210),n8:D8.length,
           xAll:dAll?dAll.cx:null,yAll:dAll?dAll.cy:null,htmlAll:dAll?dAll.html.slice(0,120):null,
           tipWF:dWF?dWF.tip.slice(0,160):null,errs:errAcc.slice(0,3)};
         dfxCase('w47_month',calls,{
@@ -7478,7 +7489,7 @@ var FIX = __FIX__;
             &&L1.indexOf(String(now.getFullYear()))>=0,
           'a different month reads that month and not this one':/2026|2027/.test(L5)&&L5.indexOf('lane or lab record')<0,
           'the 30 DAYS chip reads a rolling window, not a calendar month':/last 30 days/i.test(L6),
-          'all four lane and lab records are on the chart, on ROC at $30k against DD % from peak':D1.length===4,
+          'all five lane and lab records are on the chart, on ROC at $30k against DD % from peak':D1.length===5,
           'the lane record is green, the lab record is purple and the box record is amber':
             !!dWF&&dWF.html.indexOf('#4ade80')>=0&&!!dLB&&dLB.html.indexOf('#c084fc')>=0&&!!dFW&&dFW.html.indexOf('#f0b429')>=0,
           'walk-forward draws as a triangle, a lockbox as a circle and a forward line as a cross':
@@ -7489,16 +7500,20 @@ var FIX = __FIX__;
             !!dWF&&!!dLB&&!!dFW&&dWF.cy<dLB.cy&&dLB.cy<dFW.cy,
           'the hover names the lane, where it ran and which stretch':
             !!dWF&&dWF.tip.indexOf('LANE-UNDER-TEST')>=0&&/lane/i.test(dWF.tip)&&dWF.tip.indexOf('WF')>=0,
-          'the line under the chart counts the records it read':/4 lane or lab records/.test(L1),
+          'the line under the chart counts the records it read':/5 lane or lab records/.test(L1),
           'and says what the colours and the shapes mean':/where it ran/.test(L1)&&/lockbox/.test(L1),
-          'MONTH ONLY says it is holding rows back':/MONTH ONLY is on/.test(L2)&&D2.length===4,
+          'MONTH ONLY says it is holding rows back':/MONTH ONLY is on/.test(L2)&&D2.length===5,
           'a failed month read names itself and its reason':/read failed/.test(L3)&&/403/.test(L3)&&D3.length===0,
           'ALL TIME reads no month at all, and the board still draws':D4.length===0&&T4.length>400,
           'the whole-run stretch draws as its own hollow square, not as a walk-forward triangle':
             !!dAll&&/<rect[^>]*fill="none"/.test(dAll.html)&&dAll.html.indexOf('<polygon')<0,
           'and its money is never read as walk-forward money':
             k7.indexOf('recs:1')>=0&&k7.indexOf('recs:4')<0&&/whole-run stretch/.test(dAll?dAll.tip:''),
-          'no console errors on any of the four renders':errAcc.length===0
+          'a lane that never tested the one-episode question says so, rather than reading as a clean run':
+            /one episode not tested/.test(epTips)&&!/a1[^@]*one episode not tested/.test(epTips),
+          'a level that builds no record rows says the records were read and not drawn':
+            /READ BUT NOT DRAWN ON THIS LEVEL/.test(L8)&&D8.length===0,
+          'no console errors on any of the renders':errAcc.length===0
         },info);
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}

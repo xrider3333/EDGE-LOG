@@ -623,14 +623,20 @@ def validate(rec):
     #   the lane simply did not have arrives as null and is dashed with everything else. The dollars are not
     #   turned into a percent here (the house rule: a percentage is never derived from dollars) - they only say
     #   whether that 0 could be dd_pct_peak's 4-dp rounding of a sub-cent fall.
-    if out["dd5"] is not None and out["dd5"] > 0 and out["ddpct"] is not None and out["ddpct"] <= 0 \
-            and 100.0 * out["dd5"] / out["start_usd"] > DDPCT_ROUNDING_FLOOR:
+    # THE DOLLAR FIGURE IS WHICHEVER THE RECORD CARRIES. Keying this on dd5 alone let a 0 percent
+    #   through beside a real max_dd_usd whenever the lane recorded no dd5 - 273 of the real lines
+    #   carry one dollar figure and not the other, so that absence is the common shape, not the rare
+    #   one. Either figure proves the stretch fell; the deeper of the two is the one to measure the
+    #   rounding floor against.
+    _fell = max([v for v in (out["dd5"], out["max_dd_usd"]) if v is not None] or [0.0])
+    if _fell > 0 and out["ddpct"] is not None and out["ddpct"] <= 0 \
+            and 100.0 * _fell / out["start_usd"] > DDPCT_ROUNDING_FLOOR:
         raise Refusal("ddpct is 0 but the stretch drew down $%s on a $%s account - a curve with a dollar "
                       "drawdown that size has a percent drawdown too (only a fall under %.5f%%, which is "
                       "dd_pct_peak's 4-dp rounding, reads as a flat 0; a percent the lane never measured is "
                       "written as null, which is dashed, not refused). Take it from "
                       "augur_engine.drawdowns.dd_pct_peak, never from dollars / the starting account"
-                      % (f"{out['dd5']:,.2f}", f"{out['start_usd']:,.2f}", DDPCT_ROUNDING_FLOOR))
+                      % (f"{_fell:,.2f}", f"{out['start_usd']:,.2f}", DDPCT_ROUNDING_FLOOR))
     # one_episode IS the schema's own test - the worst episode is more than 1.3x DD5 - and when all three figures
     #   are in the record a flag that contradicts them means one of the three is wrong and the row would mislead
     #   the page. Skipped when the flag is null (not testable) or when either dollar figure is absent: there is
