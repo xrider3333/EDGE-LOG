@@ -4815,11 +4815,15 @@ function _monTok(){
     auth.currentUser.getIdToken().then(function(v){if(!done){done=true;clearTimeout(t);res(v);}},
       function(e){if(!done){done=true;clearTimeout(t);rej(e);}});});}
 function _monQuery(col,from,xto,fields){
+  // ALL TIME IS A REAL READ, NOT A RANGE (owner 2026-10-20: "all time shows all"). With no bounds
+  //   the whole collection is read, newest first, under the same cap - and the line under the chart
+  //   says so if that cap is ever reached, because a board quietly showing part of a collection is
+  //   the thing this release exists to end.
   const q={from:[{collectionId:col}],
-    where:{compositeFilter:{op:'AND',filters:[
-      {fieldFilter:{field:{fieldPath:'timestamp'},op:'GREATER_THAN_OR_EQUAL',value:{stringValue:from}}},
-      {fieldFilter:{field:{fieldPath:'timestamp'},op:'LESS_THAN',value:{stringValue:xto}}}]}},
     orderBy:[{field:{fieldPath:'timestamp'},direction:'DESCENDING'}],limit:MON_CAP};
+  if(from&&xto)q.where={compositeFilter:{op:'AND',filters:[
+      {fieldFilter:{field:{fieldPath:'timestamp'},op:'GREATER_THAN_OR_EQUAL',value:{stringValue:from}}},
+      {fieldFilter:{field:{fieldPath:'timestamp'},op:'LESS_THAN',value:{stringValue:xto}}}]}};
   if(fields)q.select={fields:fields.map(f=>({fieldPath:f}))};
   return {structuredQuery:q};}
 function _monFetch(col,store,key,from,xto,fields,norm){
@@ -33753,10 +33757,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +(on?(';box-shadow:inset 0 -2px 0 '+t):'')
             +'">'+txt+'</span>';};
 
-        // The owner's own names and his own order (2026-08-28): the pipeline reads
-        //   SWEEPS -> CONFIGS -> AUTO VAL -> CROWN, so the buttons read that way too,
-        //   with ALL last as the escape hatch rather than first as the default-looking
-        //   option. The stored values are unchanged, so nobody's saved pick moves.
+        // HISTORY, NOT THE RULE ANY MORE (2026-08-28 to 2026-10-20): the buttons used to read
+        //   SWEEPS -> CONFIGS -> AUTO VAL -> CROWN with ALL last, because that was the pipeline's
+        //   own order. One selector replaced them below and ALL now comes FIRST, which is where a
+        //   reader looks for everything. The two notes under it are kept for the same reason this
+        //   one is: they say why the old controls meant what they meant, and a board left on them
+        //   still does.
         // ── ONE FLOW, NOT TWO LEVELS (owner 2026-08-30: "auto validate and configs show
         //    the same thing but in more detail... my original intent was to choose auto
         //    validate, pick multiple auto validates of the same strategy, and populate the
@@ -33766,15 +33772,41 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //    already ticked now: pick NOISE, tick its runs, then choose whether the chart
         //    plots THE RUNS or every 1E CANDIDATE inside them. The strategy pick never
         //    changes meaning and never gets dropped.
-        const _reLvls=[['sweep','SWEEPS'],['valid','AUTO VAL'],['crown','CROWN'],['all','ALL']];
-        // ALL carries the same SHOW switch as AUTO VAL: its stage-2 half is the runs, or their configurations
-        const _reShowCfg=((_reLvlRaw()==='valid'||_reLvlRaw()==='all')&&(String(APREF.resShow||'runs')==='configs'||String(APREF.resLvl||'')==='cfg'));
-        // a legacy 'cfg' pick lands on AUTO VAL with the CONFIGS view already on, so an
-        //   owner who left the board on that level finds the same rows where he left them.
-        function _reLvlRaw(){const v=String(APREF.resLvl||'');
+        // ── ONE SELECTOR (owner 2026-10-20: "the level selector ... and show ... is confusing. I
+        //    just want one selector. the ones i was asking about that you ran locally in chats, what
+        //    was ran through on EL, and what was auto validated"). WHERE A ROW CAME FROM is the
+        //    question, so that is what the chips say, and the old LEVEL and SHOW are derived from
+        //    his one answer instead of being asked as two.
+        const _reSrcs=[['all','ALL'],['chat','CHAT SWEEPS'],['el','EDGE LOG RUNS'],['valid','AUTO-VALIDATED'],['cfg','ML CONFIGS']];
+        // A BOARD LEFT ON THE OLD CONTROLS KEEPS THE OLD MEANING until its reader touches the new
+        //   one. The two are not the same question - the old AUTO VAL drew every run row, and
+        //   AUTO-VALIDATED is narrower (a gate-validate job saves no validate block, so it is an
+        //   EDGELOG run and not an Auto-Validate one) - so translating a saved pref would silently
+        //   change what somebody was looking at yesterday. The chips write resSrc on the first
+        //   click and the new meaning takes over from there.
+        const _reSrcPick=String(APREF.resSrc||'');
+        const _reSrcSet=_reSrcs.some(function(x){return x[0]===_reSrcPick;});
+        const _reLegacyLvl=(!_reSrcSet&&(APREF.resLvl!=null||APREF.resShow!=null));
+        function _reSrcRaw(){
+          if(_reSrcSet)return _reSrcPick;
+          const l=String(APREF.resLvl||''),sh=String(APREF.resShow||'runs');
+          if(l==='cfg'||sh==='configs')return 'cfg';
+          if(l==='sweep')return 'chat';
+          if(l==='valid'||l==='crown')return 'valid';
+          return 'all';}
+        const _reSrc=_reSrcRaw();
+        // THE OLD INTERNALS, DERIVED. Forty-odd places read _reLvl and _reShowCfg - the row
+        //   builders, the study titles, the column picker, the notes - and they keep working off
+        //   one answer. The NEW distinctions (a run with a validate block or without, a record by
+        //   where it ran) are made where the rows are built, not here.
+        function _reLvlLegacy(){const v=String(APREF.resLvl||'');
           if(v==='cfg')return 'valid';
-          return _reLvls.some(function(x){return x[0]===v;})?v:'all';}
-        const _reLvl=_reLvlRaw();
+          return (['sweep','valid','crown','all'].indexOf(v)>=0)?v:'all';}
+        const _reShowCfg=_reLegacyLvl
+          ?((_reLvlLegacy()==='valid'||_reLvlLegacy()==='all')&&(String(APREF.resShow||'runs')==='configs'||String(APREF.resLvl||'')==='cfg'))
+          :(_reSrc==='cfg');
+        const _reLvl=_reLegacyLvl?_reLvlLegacy()
+          :((_reSrc==='chat')?'sweep':((_reSrc==='valid'||_reSrc==='el')?'valid':'all'));
         const _reStages=['is','wf','lb'];
         // the ticked set. A legacy single-value pref reads across; 'tot' becomes all three, which
         //   is the nearest honest reading of what it used to mean.
@@ -33896,12 +33928,19 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         if(_reMonWin&&_c2Exp){
           try{_monRunsWant(_reMonSel,_reMonWin.f,_reMonWin.x);
               _recMonWant(_reMonSel,_reMonWin.f,_reMonWin.x);}catch(e){}}
+        // ALL TIME READS THE CHAT RECORDS, with no date range at all. Without this, CHAT SWEEPS -
+        //   the chip the owner asked for - is empty until he picks a month, and "all time shows
+        //   all" is not true of the rows he most wanted to see. The RUNS are not read this way:
+        //   the page already holds the newest 75 and the registry cites the rest, so an unbounded
+        //   run read would cost thousands of documents for rows already on the board. Asked once
+        //   per page load, like every other month read.
+        else if(_c2Exp&&_reMonSel==='all'){try{_recMonWant('all',null,null);}catch(e){}}
         // the held-back counter belongs to THIS render: on a level that builds no run rows at
         //   all (SWEEPS, or 1E CONFIGS) the block below never runs, and a count left over from
         //   the last render would be a number the screen cannot account for.
         window._reMonHeldN=null;
         const _reMonRunsSt=_reMonWin?(window._monRuns[_reMonSel]||null):null;
-        const _reRecSt=_reMonWin?(window._recMon[_reMonSel]||null):null;
+        const _reRecSt=(window._recMon[_reMonSel]||null);   // 'all' is a key like any month
         const _reFT='#c084fc';
         // ── COLOUR TOGGLE (owner ask 2026-08-19: "add color toggle?"). The owner runs the app on
         //    the monochrome theme, which is why every verdict already carries its OWN SHAPE. This
@@ -36641,7 +36680,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(!(sel&&sel.length))return true;
             const here=rows.some(function(x){return sel.indexOf(f.val(st,x))>=0;});
             return here?(sel.indexOf(f.val(st,r))>=0):true;});};
-        if(((_reLvl==='valid'||_reLvl==='all')&&!_reShowCfg)||_reLvl==='crown'){
+        // CHAT SWEEPS builds no run rows (every one is filtered out below) but DOES build the
+        //   lane and lab records, so the gate opens for it as well.
+        if(((_reLvl==='valid'||_reLvl==='all')&&!_reShowCfg)||_reLvl==='crown'||(!_reLegacyLvl&&_reSrc==='chat')){
           const RR=[];
           // ONE BLOCK PER STRETCH for a run row, from what the run saved (see the v73.764 note).
           const _reRunStages=function(x){
@@ -36930,7 +36971,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   champion of its family. A family with neither is simply absent - naming the
           //   biggest number would be inventing a crown nobody awarded, which is the one
           //   thing this level must not do.
-          if(_reLvl==='crown'){
+          // CROWN IS A MARK, NOT A LEVEL (owner 2026-10-20). This block used to run only on the
+          //   CROWN level and REPLACE every run row with one champion per family. It now runs on
+          //   every chip and only TAGS the champion, so the ring this board already draws for a
+          //   champion appears wherever its run appears, and nothing is hidden to show it.
+          if(!_reLegacyLvl||_reLvl==='crown'){
             const crowned={};
             RESEARCH_STUDIES.forEach(function(st){(st.rows||[]).forEach(function(r){
               if(String(r.tone)==='champ')(r.runs||[]).forEach(function(id){crowned[String(id)]=1;});});});
@@ -36942,8 +36987,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const _byFam={};
             _eligible.forEach(function(x){const cur=_byFam[x.fam];
               if(!cur||(x._starred&&!cur._starred)||(x._starred===cur._starred&&x.n>cur.n))_byFam[x.fam]=x;});
-            RR.length=0;
-            Object.keys(_byFam).forEach(function(f){const x=_byFam[f];x.tone='champ';RR.push(x);});
+            // on an untouched old board CROWN still FILTERS, exactly as it did; everywhere else it
+            //   only marks, which is what the owner asked for.
+            if(_reLegacyLvl&&_reLvl==='crown'){RR.length=0;
+              Object.keys(_byFam).forEach(function(f){const x=_byFam[f];x.tone='champ';RR.push(x);});}
+            else Object.keys(_byFam).forEach(function(f){_byFam[f].tone='champ';});
           }
           // the STRATEGY rail and the filter chips narrow runs exactly as they narrow rows.
           //   NOT _rePass: that now asks the LEVEL gate first, and the level gate says no to
@@ -36960,9 +37008,22 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               :((Array.isArray(r.runs)&&r.runs.length)?_reRunDate(r.runs[0]):'');
             if(!d){_reMonHeld.nodate++;return false;}
             return (d>=_reMonWin.f&&d<=_reMonWin.t);};
-          const keep=RR.filter(_reFacetKeep(_runSt0,RR)).filter(function(r){
+          // WHICH RUNS THIS CHIP MEANS. A run document either carries a validate block or does
+          //   not, and that is the only thing on it that says Auto-Validate - there is no job-type
+          //   field (measured over the newest 120 runs on 2026-10-20: 114 carry one, 6 do not).
+          //   CHAT SWEEPS keeps no run rows at all; its rows are the registry write-ups that cite
+          //   no run, plus the lane and lab records below.
+          const _reRunSrcOk=function(r){
+            if(_reLegacyLvl)return true;          // an untouched old board keeps the old meaning
+            if(_reSrc==='chat')return false;
+            if(_reSrc!=='valid'&&_reSrc!=='el')return true;
+            const doc=_reRunDoc(r)||r._x||null;
+            const hasV=!!(doc&&doc.validate);
+            return (_reSrc==='valid')?hasV:!hasV;};
+          const keep=RR.filter(_reFacetKeep(_runSt0,RR)).filter(_reRunSrcOk).filter(function(r){
             const ok=_reMonOk(r);if(!ok)_reMonHeld.runs++;return ok;});
-          const runSt={key:'runs',title:(_reLvl==='crown'?'CROWNED RUNS':'AUTO-VALIDATE RUNS'),fam:'RUN',isLbl:'IN-SAMPLE',
+          const runSt={key:'runs',title:(_reLegacyLvl?(_reLvl==='crown'?'CROWNED RUNS':'AUTO-VALIDATE RUNS')
+              :((_reSrc==='el')?'EDGE LOG RUNS':((_reSrc==='valid')?'AUTO-VALIDATE RUNS':'RUNS'))),fam:'RUN',isLbl:'IN-SAMPLE',
             sub:'One row per Auto-Validate run in Past Runs - not a registry write-up, the runs themselves. '
                +'A run records its own window and its own validate block - but in-sample Sharpe and Sortino are only known for books, so a run row can still sit off some axes.',
             dashWhy:{},rows:keep};
@@ -36978,7 +37039,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //    CARRY their figures instead of deriving them from a curve they never saved: the net
           //    goes in the field of its own stage, and DD % from peak, DD5 and Sortino are read as
           //    recorded. Nothing here is recomputed and nothing is scaled by an account chip.
-          if(_reMonWin&&_reRecSt&&_reRecSt.state==='ok'&&_reRecSt.rows.length){
+          // A CHAT RECORD IS A CHAT SWEEP. It also belongs on ALL; a record a lane stamped
+          //   where=runner or where=box was run through EDGELOG rather than inside a chat, so it
+          //   sits with the EDGE LOG runs. It is never AUTO-VALIDATED.
+          const _reRecSrcOk=function(w){
+            if(_reLegacyLvl)return true;          // as above
+            const x=String(w||'lane');
+            if(_reSrc==='all')return true;
+            if(_reSrc==='chat')return (x==='lane'||x==='lab');
+            if(_reSrc==='el')return (x==='runner'||x==='box');
+            return false;};
+          if(_reRecSt&&_reRecSt.state==='ok'&&_reRecSt.rows.length){
             // WHICH COLUMN THE MONEY GOES IN, and the two stretches that have none. full is the whole run and
             //   preLB is in-sample + walk-forward: neither IS one of this board's three columns, so their net
             //   stays the row total and fills no stretch figure. The old `||'wf'` fallback put exactly these
@@ -36992,11 +37063,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   row does not record and names it under the chart, which is the honest way to
               //   show a run that measured its ROC but never wrote its money.
               if(net==null&&roc==null)return;
+              if(!_reRecSrcOk(d.where))return;
               const stg=String(d.stage||'');
               const f=_recF[stg]||null;
               const nm=String(d.strategy||d.family||'a lane run').replace(/\.py$/,'').replace(/[<>&]/g,'');
               const row={n:i+1,
-                name:nm+' \u00b7 '+(stg||'stage not recorded')+((d.run_id!=null&&isFinite(+d.run_id))?(' \u00b7 run #'+(+d.run_id)):''),
+                // A RUN ID IS A LABEL HERE, not always a number: 109 of the real records carry a lane's
+                //   own string id (e.g. "#427|IS|e-427-cbu-q-2-crown-pm-l"), and testing isFinite dropped
+                //   every one of them out of the row name.
+                name:nm+' \u00b7 '+(stg||'stage not recorded')
+                  +((d.run_id!=null&&String(d.run_id).trim())?(' \u00b7 run '+String(d.run_id).trim().replace(/^#?/,'#').slice(0,28)):''),
                 fam:String(d.family||'UNTAGGED'),tone:'ref',
                 read:((String(d.where||'')+' '+stg).trim().toUpperCase())||'LANE RECORD',
                 what:String(d.note||'')||'A run recorded by its own lane, not an Auto-Validate run.',
@@ -37019,7 +37095,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(net!=null&&f)row[f]=net;
               _recRows.push(row);});
             if(_recRows.length){
-              const recSt={key:'recs',title:'LANE AND LAB RUNS \u00b7 '+String(_reMonWin.nm).toUpperCase(),
+              // ALL TIME has no window to name, and the records are read for it since 2026-10-20,
+              //   so the title says what it is rather than reading a null window's name.
+              const recSt={key:'recs',title:'LANE AND LAB RUNS \u00b7 '+(_reMonWin?String(_reMonWin.nm).toUpperCase():'ALL TIME'),
                 fam:'REC',isLbl:'ONE STRETCH',
                 sub:'One row per run a lane or the Qwen Lab recorded for itself - not an Auto-Validate run. '
                    +'Each carries ONE stretch, with the four numbers its own lane measured off its daily series: '
@@ -37882,15 +37960,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-recfgfam="HYBRID \u2193DD"','HYBRID \u2193DD',_reCfgFam.indexOf('HYBRID \u2193DD')>=0,'the same hybrid, sized until its worst drawdown matches the no-gate book',_TONE.heat)
            +_reBtn('data-recfgfam="KEEL"','KEEL',_reCfgFam.indexOf('KEEL')>=0,'the keel row: every trade is taken and sized by a trust-scaled estimate of its expectancy. One per run, comparison only, never crowned.',_TONE.heat)
           ,_TONE.heat);
-        const _reShowBtns=(_reLvl!=='valid'&&_reLvl!=='all')?'':_reCtl('','SHOW','what the chart plots for the runs ticked below: one dot per RUN, or every candidate from their 1E matrix.',
-            _reBtn('data-reshow="runs"','RUNS',!_reShowCfg,'one dot per Auto-Validate run - its crowned configuration, the figures the run report headlines.',_TONE.rank)
-           +_reBtn('data-reshow="configs"','1E CONFIGS',_reShowCfg,'every candidate inside the ticked runs - RAW, GATE, TILT and the three hybrid sizings, the same six families the 1E matrix shows. Scored on the optimize window only, and the best of hundreds the search tried, so read them as candidates rather than survivors.',_TONE.rank)
-          ,_TONE.rank);
-        const _reLvlBtns=_reCtl(2,'LEVEL','which stage of the pipeline is on the board. A sweep, a validated run, the configs inside one run and a standing crown are four different grades of evidence, and putting them in one ranked list reads as if they were comparable. One level at a time keeps the axes measuring like with like.',
-           _reBtn('data-relvl="sweep"','SWEEPS',_reLvl==='sweep','stage 1. My local .py theory tests. They were never persisted as a run, never walk-forwarded and never shown a lockbox, so nothing here has survived anything - these are ideas with numbers on them.',_TONE.rank)
-           +_reBtn('data-relvl="valid"','AUTO VAL',_reLvl==='valid','stage 2. Real EDGELOG Auto-Validate runs, each split into in-sample, walk-forward and lockbox. This is the level where a figure has actually been tested on years the search never saw. WIN percent and SHARPE only exist at this level and above.',_TONE.rank)
-           +_reBtn('data-relvl="crown"','CROWN',_reLvl==='crown','stage 4. One row per family - its standing champion. This is the shortlist that decides what goes to paper, so it is the shortest list and the one worth reading last.',_TONE.rank)
-           +_reBtn('data-relvl="all"','ALL',_reLvl==='all','the SWEEPS and the AUTO-VALIDATE runs together - or, with SHOW on CONFIGS, the configurations inside the runs you tick. The chart marks them apart - a sweep draws dashed, a run or configuration solid - but they are still two grades of evidence, so read the line style before the ranking.',_TONE.rank)
+        // SHOW is gone (owner 2026-10-20): ML CONFIGS is a chip on the one selector below, and the
+        //   data-reshow handler stays alive so an old bookmark or pref still lands somewhere sane.
+        const _reShowBtns='';
+        const _reSrcBtns=_reCtl(2,'SOURCE','where the rows on this board came from. A chat sweep, an EDGELOG run and an Auto-Validate run are three different grades of evidence, and putting them in one ranked list reads as if they were comparable - so this asks one question and the chart marks the answer. A crowned run keeps its ring on every one of them.',
+           _reBtn('data-resrc="all"','ALL',_reSrc==='all','everything this board holds: what the chats ran for themselves, what was run through EDGELOG, and what was Auto-Validated. The marks keep them apart - a chat sweep draws dashed, a run solid - and a crowned run keeps its ring wherever it appears.',_TONE.rank)
+           +_reBtn('data-resrc="chat"','CHAT SWEEPS',_reSrc==='chat','what a chat ran for itself: the preliminary searches written up in the registry, and the runs each lane or the Qwen Lab recorded through run_record. None of it went through EDGELOG, so none of it has been walk-forwarded or shown a lockbox by this app - they are ideas with measured numbers on them.',_TONE.rank)
+           +_reBtn('data-resrc="el"','EDGE LOG RUNS',_reSrc==='el','runs made through EDGELOG that are NOT Auto-Validate runs - a grid or single job - plus any run a lane recorded as having run on the runner or the box. Real engine runs on real data, without the in-sample, walk-forward and lockbox split that Auto-Validate adds.',_TONE.rank)
+           +_reBtn('data-resrc="valid"','AUTO-VALIDATED',_reSrc==='valid','EDGELOG Auto-Validate runs, each split into in-sample, walk-forward and lockbox. This is where a figure has been tested on years the search never saw, and the only place WIN percent and SHARPE exist. A chat record is never here: a record is a run a chat measured for itself.',_TONE.rank)
+           +_reBtn('data-resrc="cfg"','ML CONFIGS',_reSrc==='cfg','every candidate configuration inside the Auto-Validate runs ticked below - the 1E matrix - rather than one dot per run.',_TONE.rank)
           ,_TONE.rank);
         // WHICH RUN the CONFIGS level reads. Only rendered on that level - on every other
         //   level there is no run to pick, and an inert control is worse than no control.
@@ -37911,7 +37989,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const bad=rest.filter(_reRunFailV).sort(function(a,b){return (+b.id||0)-(+a.id||0);});
           voids.sort(function(a,b){return (+b.id||0)-(+a.id||0);});
           return watch.concat(ok,bad,voids);};
-        const _reCfgSel=(_reLvl!=='valid'&&_reLvl!=='all')?'':_reCtl('','RUNS','which Auto-Validate runs the configurations are read out of. Tick as many as you like - their RAW, GATE, TILT and HYBRID candidates all land on the same axes, and each point says which run it came from. The full run document is fetched on demand, so a run shows LOADING the first time it is ticked.',
+        const _reCfgSel=(_reSrc!=='cfg')?'':_reCtl('','RUNS','which Auto-Validate runs the configurations are read out of. Tick as many as you like - their RAW, GATE, TILT and HYBRID candidates all land on the same axes, and each point says which run it came from. The full run document is fetched on demand, so a run shows LOADING the first time it is ticked.',
           // ONLY THE PICKED STRATEGY'S RUNS. Offering all seventy-five while the rail
           //   says NOISE was most of what made this confusing - the strategy pick looked
           //   ignored. Untick the rail and every run is offered again.
@@ -38171,14 +38249,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   Every level still explains itself in full - it has to, because the whole point
         //   of the control is that these four things are not comparable - but it explains
         //   itself on demand instead of taking six lines of the chart's height every time.
-        const _reLvlShort={all:'every stage at once - read the line style before the ranking',
-          sweep:'local .py theory tests - nothing here has survived anything',
-          valid:'the runs themselves, or every 1E candidate inside them',
-          crown:'the standing champion of each family'};
+        // the one-line gloss under the chip row, now keyed on the SOURCE the chips ask about
+        const _reLvlShort={all:'everything: chat sweeps, EDGELOG runs and Auto-Validate runs together',
+          chat:'what a chat ran for itself - nothing here went through EDGELOG',
+          el:'runs made through EDGELOG that are not Auto-Validate runs',
+          valid:'Auto-Validate runs, split into in-sample, walk-forward and lockbox',
+          cfg:'every 1E candidate inside the runs ticked below'};
         const _reLvlNote='<div style="font-size:8.5px;color:var(--text5);margin-top:8px;display:flex;align-items:center;gap:5px">'
-          +'<b style="color:var(--text4)">'+((_reLvls.filter(function(x){return x[0]===_reLvl;})[0]||['',''])[1])+'</b>'
-          +'<span>'+(_reLvlShort[_reLvl]||'')+'</span>'
-          +'<span title="'+_reEsc(String(_reLvlTx[_reLvl]||'').replace(/<[^>]*>/g,''))
+          +'<b style="color:var(--text4)">'+((_reSrcs.filter(function(x){return x[0]===_reSrc;})[0]||['',''])[1])+'</b>'
+          +'<span>'+(_reLvlShort[_reSrc]||'')+'</span>'
+          +'<span title="'+_reEsc(String(_reLvlTx[_reLvl]||_reLvlShort[_reSrc]||'').replace(/<[^>]*>/g,''))
           +'" style="cursor:help;color:var(--text4)">\u24d8</span></div>';
 
         // CONFIGS: what stands in for the chart while the run document is in flight, or
@@ -38203,7 +38283,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   the one before it.
             // CHART FIRST (owner 2026-08-28: "put the chart selector tab first, above level").
             //   It decides which drawing everything under it is describing.
-            +_reGrid(_reChartBtns+_reLvlBtns+_reShowBtns+_reFamRail+_reCfgSel+_reCfgFamBtns+_reStageBtns+_reReadBtns)
+            +_reGrid(_reChartBtns+_reSrcBtns+_reFamRail+_reCfgSel+_reCfgFamBtns+_reStageBtns+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow
             //   the chart and the tables together, which is why they live with the other
             //   controls rather than with either panel.
@@ -38653,7 +38733,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   KEEL - only exist once you are on AUTO VAL with 1E CONFIGS showing. Hiding
           //   that made the board look as though it only ever had raw configurations.
           const _c2Keep='<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px;margin-bottom:10px">'
-            +_reGrid(_reMonBtns+_reLvlBtns+_reShowBtns+_reStageBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
+            +_reGrid(_reMonBtns+_reSrcBtns+_reStageBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
           // capped and scrollable when they are on, so a thousand rows cannot push the
           //   chart off the screen - the old sidebar layout capped them the same way.
           // SIDE puts the chart and the tables in two columns, STACK keeps them one above the
@@ -47171,6 +47251,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-resxaxis]').forEach(b=>{b.onclick=()=>{savePref('resXAxis',b.getAttribute('data-resxaxis'));savePref('resLev',false);renderApp();};});
       content.querySelectorAll('[data-resaxis]').forEach(b=>{b.onclick=()=>{savePref('resAxis',b.dataset.resaxis);savePref('resLev',false);renderApp();};});
       content.querySelectorAll('[data-reschart]').forEach(b=>{b.onclick=()=>{savePref('resChart',b.dataset.reschart);renderApp();};});
+      content.querySelectorAll('[data-resrc]').forEach(b=>{b.onclick=()=>{savePref('resSrc',b.dataset.resrc);renderApp();};});
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
       content.querySelectorAll('[data-recfgfam]').forEach(b=>{b.onclick=()=>{
         const v=b.getAttribute('data-recfgfam');

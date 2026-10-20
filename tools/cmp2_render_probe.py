@@ -109,7 +109,7 @@ import threading
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 159
+N_CASES = 160
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7544,6 +7544,81 @@ var FIX = __FIX__;
           'no console errors on any of the renders':errAcc.length===0
         },info);
       })();
+      // ── w50_source (W50, owner 2026-10-20: "the level selector ... and show ... is confusing. I
+      //    just want one selector. the ones i was asking about that you ran locally in chats, what
+      //    was ran through on EL, and what was auto validated"). Five chips, each one driven here
+      //    on the NEW pref - the old cases all drive resLvl, which is the legacy path.
+      (function(){
+        var calls=[],errAcc=[],info={};
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        // TWO RUNS: one Auto-Validate (it carries a validate block) and one that is not (it does
+        //   not). That block is the only thing on a run document that says Auto-Validate - there is
+        //   no job-type field - so it is the whole basis of the two run chips.
+        var AV=JSON.parse(JSON.stringify(FIX));AV.id=910001;
+        //   The EDGE LOG run loses its validate block and keeps a gate_validate one: that is a real
+        //   gate bake-off - the shape that separates the two run chips, and the shape that was filed
+        //   as Auto-Validate before this ship. A run with NEITHER block has no readable total, so it
+        //   builds no row at all, which is why the fixture has to be a job that really ran.
+        var EL=JSON.parse(JSON.stringify(FIX));EL.id=910002;delete EL.validate;
+        EL.scope='Gate-Validate bake-off';EL.type='gate_validate';
+        if(!EL.gate_validate)EL.gate_validate={chosen:{model:'none',threshold:0.5}};
+        var now=new Date(),day=now.getFullYear()+'-'+(now.getMonth()<9?'0':'')+(now.getMonth()+1)
+          +'-'+(now.getDate()<10?'0':'')+now.getDate();
+        function rec(o){return Object.assign({timestamp:day+' 10:00',lane:'LANE-UNDER-TEST',host:'TESTBOX',
+          strategy:'w50probe',family:'NOISE',instrument:'NQ',timeframe:'2m',trades:200,
+          roc30k:25,ddpct:5,sortino:1.5,dd5:8000,one_episode:false,start_usd:100000,
+          win_start:'2021-01-01',win_end:'2024-01-01',years:3.0,max_dd_usd:20000},o);}
+        // one record per place a run can happen, read on ALL TIME (no month picked) - which is
+        //   where CHAT SWEEPS has to work, and where it was empty before this ship.
+        var RECS=[rec({id:'r1',where:'lane',stage:'WF'}),rec({id:'r2',where:'lab',stage:'preWF'}),
+                  rec({id:'r3',where:'runner',stage:'IS'}),rec({id:'r4',where:'box',stage:'forward'})];
+        var WIN=dfxWin([AV,EL],"window._recMon['all']={state:'ok',rows:"+JSON.stringify(RECS)+",at:Date.now()};"
+          +"window._reMonKey='all';");
+        function P(src){return {c2Screen:'explore',resAxis:'roc30',resXAxis:'ddp',c2Month:'all',resSrc:src};}
+        function dots(){return [].map.call(d.querySelectorAll('[data-repoint]'),function(g){
+          var t=g.querySelector('title');
+          return {k:String(g.getAttribute('data-repoint')||''),tip:t?(t.textContent||''):''};});}
+        function recN(){return dots().filter(function(o){return o.k.indexOf('recs:')===0;}).length;}
+        function runKeys(){return dots().filter(function(o){return o.k.indexOf('runs:')===0;})
+          .map(function(o){return o.k;});}
+        function chips(){return [].map.call(d.querySelectorAll('[data-resrc]'),function(b){
+          return {v:b.getAttribute('data-resrc'),on:/color-mix/.test(b.getAttribute('style')||'')};});}
+        function txt(){return dfxN(d.body.textContent||'');}
+
+        calls.push(doRender(P('all'),WIN));chk('all');
+        var cAll=chips(),rAll=recN(),kAll=runKeys(),tAll=txt();
+        calls.push(doRender(P('chat'),WIN));chk('chat');
+        var rChat=recN(),kChat=runKeys(),tChat=txt();
+        calls.push(doRender(P('el'),WIN));chk('el');
+        var rEl=recN(),kEl=runKeys();
+        calls.push(doRender(P('valid'),WIN));chk('valid');
+        var rVal=recN(),kVal=runKeys();
+        calls.push(doRender(P('cfg'),WIN));chk('cfg');
+        var cCfg=chips(),tCfg=txt();
+        // AND THE LEGACY PATH IS UNTOUCHED: an old board that never clicked the new chips keeps
+        //   the old meaning, which is why 159 cases still drive resLvl.
+        calls.push(doRender({c2Screen:'explore',resAxis:'roc30',resXAxis:'ddp',c2Month:'all',resLvl:'valid'},WIN));chk('legacy');
+        var kLeg=runKeys();
+
+        info={chips:cAll.length,lit:(cAll.filter(function(c){return c.on;})[0]||{}).v,
+          rAll:rAll,kAll:kAll,rChat:rChat,kChat:kChat.length,rEl:rEl,kEl:kEl,rVal:rVal,kVal:kVal,
+          kLeg:kLeg,cfgLit:(cCfg.filter(function(c){return c.on;})[0]||{}).v,errs:errAcc.slice(0,3)};
+        dfxCase('w50_source',calls,{
+          'one selector, five chips, and the one picked is the one lit':
+            cAll.length===5&&info.lit==='all'&&info.cfgLit==='cfg',
+          'ALL draws the chat records and the runs together':rAll===4&&kAll.length>=1,
+          'CHAT SWEEPS draws what a chat ran for itself and no run rows at all':
+            rChat===2&&kChat.length===0,
+          'EDGE LOG RUNS takes the run with no validate block, and the records stamped runner or box':
+            kEl.length===1&&kEl[0]==='runs:910002'&&rEl===2,
+          'AUTO-VALIDATED takes the run that carries one, and no chat record is ever here':
+            kVal.length===1&&kVal[0]==='runs:910001'&&rVal===0,
+          'a board left on the old controls keeps the old meaning - both runs, as AUTO VAL always drew':
+            kLeg.length===2,
+          'the chat records are read on ALL TIME, with no month picked':rAll===4&&rChat===2,
+          'no console errors on any of the six renders':errAcc.length===0
+        },info);
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -9757,6 +9832,7 @@ def main(argv=None):
     DFX += ['n7_links_family']
     DFX += ['n8_rb_rollstamp']
     DFX += ['w47_month']
+    DFX += ['w50_source']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
