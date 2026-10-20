@@ -106,6 +106,7 @@ import subprocess
 import sys
 import tempfile
 import threading
+import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
@@ -1224,8 +1225,12 @@ var FIX = __FIX__;
             points:pts.length,
             gatePts:pts.filter(function(g){var t=g.querySelector('title');return !!(t&&(t.textContent||'').indexOf('GATE')>=0);}).length,
             runBtns:d.querySelectorAll('[data-recfgrun]').length+d.querySelectorAll('[data-reshow]').length};}
-        r.cfg=read({resShow:'configs',resSegs:['wf']});
-        r.runs=read({resShow:'runs',resSegs:['lb'],resAxis:'evr',resXAxis:'pf'});
+        // THE OLD PAIR IS GONE (2026-10-20): LEVEL x SHOW was two questions, and ALL with SHOW
+        //   on CONFIGS - sweeps and configurations at once - is the one combination a single chip
+        //   cannot hold. Both halves of this case survive on the two chips they are about: the
+        //   configurations on ML CONFIGS, and the sweeps beside the run row on ALL.
+        r.cfg=read({resSrc:'cfg',resShow:'configs',resSegs:['wf']});
+        r.runs=read({resSrc:'all',resShow:'runs',resSegs:['lb'],resAxis:'evr',resXAxis:'pf'});
       })();
       // -- case rbhoriz: RUNBOARD sideways reads the same rows as the grid --------------------
       (function(){
@@ -2725,7 +2730,10 @@ var FIX = __FIX__;
             o[h]={t:(c.textContent||'').trim(),tip:sp?(sp.getAttribute('title')||''):''};});return o;}
         var calls=[],res={};
         [['is','wf'],['is'],['is','lb']].forEach(function(sg){
-          calls.push(doRender({c2Screen:'explore',resLvl:'all',resShow:'configs',resCfgRun:['995501'],resSegs:sg,c2Tbl:true,resCols:'all',resView:'one',resAxis:'dd',resXAxis:'so'},WC));
+          // A RAW CONFIGURATION ROW ONLY EXISTS ON THE CONFIGURATIONS VIEW, which is the ML
+          //   CONFIGS chip since ONE SELECTOR (2026-10-20) - the old LEVEL=ALL with SHOW=CONFIGS
+          //   pair no longer resolves there, because an explicit ALL now stays on ALL.
+          calls.push(doRender({c2Screen:'explore',resSrc:'cfg',resLvl:'all',resShow:'configs',resCfgRun:['995501'],resSegs:sg,c2Tbl:true,resCols:'all',resView:'one',resAxis:'dd',resXAxis:'so'},WC));
           var o=readCfg(),k=sg.join('+'),keep={found:o.found,pts:r4Pts()};
           ['DRAWDOWN','MAR','SHARPE','SORTINO','PF','TRADES'].forEach(function(h){if(o[h]){keep[h]=o[h].t;keep[h+'_tip']=o[h].tip.slice(0,160);}});
           res[k]=keep;});
@@ -2893,7 +2901,13 @@ var FIX = __FIX__;
           if(o)COLS.forEach(function(h){if(o[h]){k[h]=o[h].t;k[h+'_tip']=o[h].tip.slice(0,300);}});return k;}
         function hdr(){var th=[].filter.call(d.querySelectorAll('th'),function(x){return (x.textContent||'').replace(/[^A-Z]/g,'')==='YEARS';})[0];
           return th?(th.getAttribute('title')||''):'';}
-        function rowByText(rx){var tr=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return rx.test(t.textContent||'');})[0];
+        // A RUN ROW, not whichever row MENTIONS the run first (2026-10-20): since ALL stopped
+        //   dropping a write-up whose cited runs are all loaded, the write-up ttmsqz4:1026 sits
+        //   beside run #289 and its text names it too - so matching on text alone read the
+        //   write-up's own window (16.1y) where this case means the run's ticked stretch (1.0y).
+        //   A run row's key is always runs:<n>; a registry row's is <study>:<n>.
+        function rowByText(rx){var tr=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){
+            return /^runs:/.test(t.getAttribute('data-rerow')||'')&&rx.test(t.textContent||'');})[0];
           return tr?tr.getAttribute('data-rerow'):null;}
         var R289b={id:289,strategy:'TTM_SQZ_ES_1_0.py',starred:false,multiplier:50,instrument:'ES',timeframe:'30m',
           date_from:'2010-06-07',date_to:'2026-06-30',timestamp:'2026-08-20T00:00:00Z',
@@ -3174,9 +3188,12 @@ var FIX = __FIX__;
         },{chip:!!chip,sRow:sRow});
       })();
 
-      // -- g1_f7 (F7): EXPLORE's LEVEL CROWN keeps one row per family (a star always wins);
-      //    a book row uses the book's own name, and its hover never reads 'on .' when the
-      //    book has no single market.
+      // -- g1_f7 (F7, rewritten 2026-10-20): the CROWN LEVEL is gone - the owner ended it
+      //    ("Crown becomes a mark on the dot, not a filter") - so a starred book keeps its row
+      //    and carries the champion mark instead of replacing its family. A book row still uses
+      //    the book's own name, and its hover never reads 'on .' when the book has no single
+      //    market. What the old level did (one row per family, a star always winning) is now
+      //    only a MARK, which is what this case watches.
       (function(){
         function mkBook(idOff,name){
           var B=dfxClone(FIX);B.id=String(+FIX.id+idOff);B.strategy=name;B.starred=true;
@@ -3190,7 +3207,7 @@ var FIX = __FIX__;
         }
         var B1=mkBook(830001,'BOOK: PROBE ONE'),B2=mkBook(830002,'BOOK: PROBE TWO');
         var W=dfxWin([B1,B2]);
-        var c=doRender({c2Screen:'explore',resLvl:'crown',resCols:'all',c2Tbl:true},W);
+        var c=doRender({c2Screen:'explore',resSrc:'all',resCols:'all',c2Tbl:true},W);
         var rows=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(x){
           return (x.textContent||'').indexOf('#'+B1.id)>=0||(x.textContent||'').indexOf('#'+B2.id)>=0;});
         var hasB1=rows.some(function(x){return (x.textContent||'').indexOf('#'+B1.id)>=0;});
@@ -3202,7 +3219,10 @@ var FIX = __FIX__;
         var whatTxt=whatCell?dfxN(whatCell.textContent):'';
         dfxCase('g1_f7',[c],{
           'renders OK':c==='OK',
-          'exactly one row for the two starred books in the same family (the higher id wins the tie)':rows.length===1&&hasB2&&!hasB1,
+          'both starred books keep their row - a crown MARKS a run now, it does not replace its family':
+            rows.length===2&&hasB1&&hasB2,
+          'and each of them is marked as a champion, because the owner starred both':
+            rows.filter(function(x){return (x.getAttribute('data-retone')||'')==='champ'||/\u2605|champ/i.test(x.getAttribute('title')||'');}).length>=1,
           "the surviving row uses the book's own name, not a family-abbreviated tag":nameTxt.indexOf('BOOK: PROBE TWO')>=0,
           'its hover names the market or says it pools several, never reading blank ("on .")':whatTxt&&whatTxt.indexOf(' on .')<0,
           // repair round (F16/item 16): a book is a book run, never an Auto-Validate one - its
@@ -4075,7 +4095,7 @@ var FIX = __FIX__;
         res.isPfTxt=pfRow[0]?dfxN(pfRow[0].textContent):null;
         res.isTrTxt=trRow[0]?dfxN(trRow[0].textContent):null;
         // EXPLORE (LEVEL AUTO-VAL, run rows table - mirrors g2_f2's own layout)
-        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['is','wf','lb'],resAxis:'raw',resXAxis:'dd',resCols:'all',c2Tbl:true},W));
+        calls.push(doRender({c2Screen:'explore',resSrc:'el',resLvl:'valid',resShow:'runs',resSegs:['is','wf','lb'],resAxis:'raw',resXAxis:'dd',resCols:'all',c2Tbl:true},W));
         var exRow=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){return (t.textContent||'').indexOf('#'+G.id)>=0;})[0];
         var whatCell=exRow?[].filter.call(exRow.querySelectorAll('td'),function(td){var t=td.textContent||'';return t.indexOf('Auto-Validate run #')>=0||t.indexOf('Gate-Validate job #')>=0;})[0]:null;
         res.exWhat=whatCell?dfxN(whatCell.textContent):null;
@@ -4298,14 +4318,14 @@ var FIX = __FIX__;
         delete N.gate_validate.ungated_is;
         var W=dfxWin([G,N]);
         function numTxt(t){return t!=null&&/^-?[0-9]/.test(t);}
-        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['is'],resCols:'all',c2Tbl:true,resAxis:'ratio',resXAxis:'dd'},W));
+        calls.push(doRender({c2Screen:'explore',resSrc:'el',resLvl:'valid',resShow:'runs',resSegs:['is'],resCols:'all',c2Tbl:true,resAxis:'ratio',resXAxis:'dd'},W));
         var isRowG=r4Row('runs:'+G.id)||{},isRowN=r4Row('runs:'+N.id)||{};
         res.isMarG=isRowG['MAR']?isRowG['MAR'].t:null;
         res.isRpyG=isRowG['R / YR']?isRowG['R / YR'].t:null;
         res.isRocG=isRowG['ROC % / YR']?isRowG['ROC % / YR'].t:null;
         res.isMarN=isRowN['MAR']?isRowN['MAR'].t:null;
         res.isMarNTip=isRowN['MAR']?isRowN['MAR'].tip:null;
-        calls.push(doRender({c2Screen:'explore',resLvl:'valid',resShow:'runs',resSegs:['is','wf','lb'],resCols:'all',c2Tbl:true,resAxis:'ratio',resXAxis:'dd'},W));
+        calls.push(doRender({c2Screen:'explore',resSrc:'el',resLvl:'valid',resShow:'runs',resSegs:['is','wf','lb'],resCols:'all',c2Tbl:true,resAxis:'ratio',resXAxis:'dd'},W));
         var allRowG=r4Row('runs:'+G.id)||{};
         res.allMarG=allRowG['MAR']?allRowG['MAR'].t:null;
         res.allRpyG=allRowG['R / YR']?allRowG['R / YR'].t:null;
@@ -7420,7 +7440,11 @@ var FIX = __FIX__;
         var ERRWIN=dfxWin([FIX],"window._recMon["+JSON.stringify(mk)+"]={state:'err',rows:[],at:Date.now(),why:'research_runs month REST 403'};"
           +"window._monRuns["+JSON.stringify(mk)+"]={state:'ok',rows:[],at:Date.now()};");
         // ROC @ $30K DD against DD % FROM PEAK - the pair MANAGER asked for as the default read
-        function P(extra){return Object.assign({c2Screen:'explore',resLvl:'valid',resAxis:'roc30',
+        // ONE SELECTOR (2026-10-20): a lane record is never Auto-Validated - it is a stretch a
+        //   chat measured for itself - so these records draw on ALL, which is also the chip a
+        //   reader lands on. resLvl is left in place: it is the OLD pref, and the board translates
+        //   it, so this case keeps proving that an untouched board still reads.
+        function P(extra){return Object.assign({c2Screen:'explore',resSrc:'all',resLvl:'valid',resAxis:'roc30',
           resXAxis:'ddp',resMore:true,c2Month:mk},extra||{});}
         function dots(){return [].map.call(d.querySelectorAll('[data-repoint]'),function(g){
           var t=g.querySelector('title'),h=g.querySelector('circle.rehl');
@@ -7475,8 +7499,11 @@ var FIX = __FIX__;
         // ONE EPISODE IS A TRI-STATE: the lab writes null for NOT TESTABLE, and a05 is that shape.
         calls.push(doRender(P(),WIN));chk('one episode');
         var epTips=recDots().map(function(o){return o.tip;}).join(' @@ ');
-        // A LEVEL THAT BUILDS NO RECORD ROWS must say so rather than count rows that are not drawn.
-        calls.push(doRender(P({resLvl:'sweep'}),WIN));chk('sweeps');
+        // A CHIP THAT DRAWS NO RECORD must say so rather than count rows that are not on the
+        //   chart. This drove SWEEPS until 2026-10-20; CHAT SWEEPS is now the chip where a lane
+        //   record BELONGS, so the chip that reads them and draws none is AUTO-VALIDATED - a
+        //   record is a stretch a chat measured for itself, never an Auto-Validate job.
+        calls.push(doRender(P({resSrc:'valid'}),WIN));chk('auto-validated draws no record');
         var L8=detText(),D8=recDots();
         // A DIFFERENT MONTH IS A DIFFERENT READ. The records are stamped THIS month, so asking for
         //   another one must come back without them - that is the range doing its job, and it is
@@ -7540,7 +7567,7 @@ var FIX = __FIX__;
           'a lane that never tested the one-episode question says so, rather than reading as a clean run':
             /one episode not tested/.test(epTips)&&!/a1[^@]*one episode not tested/.test(epTips),
           'a level that builds no record rows says the records were read and not drawn':
-            /READ BUT NOT DRAWN ON THIS LEVEL/.test(L8)&&D8.length===0,
+            /READ BUT NOT DRAWN ON THIS SELECTION/.test(L8)&&D8.length===0,
           'no console errors on any of the renders':errAcc.length===0
         },info);
       })();
@@ -7595,14 +7622,23 @@ var FIX = __FIX__;
         var rVal=recN(),kVal=runKeys();
         calls.push(doRender(P('cfg'),WIN));chk('cfg');
         var cCfg=chips(),tCfg=txt();
-        // AND THE LEGACY PATH IS UNTOUCHED: an old board that never clicked the new chips keeps
-        //   the old meaning, which is why 159 cases still drive resLvl.
-        calls.push(doRender({c2Screen:'explore',resAxis:'roc30',resXAxis:'ddp',c2Month:'all',resLvl:'valid'},WIN));chk('legacy');
-        var kLeg=runKeys();
+        // AND AN OLD BOARD IS TRANSLATED, not rendered in a second meaning. The first draft of
+        //   this ship kept the old LEVEL meaning alive until its reader clicked a chip; a review
+        //   killed that, because the chip row lit CHAT SWEEPS over a board holding no chat record,
+        //   clicking the ALREADY-LIT chip changed what was drawn, and CROWN went on FILTERING to
+        //   one champion per family - the behaviour the owner ended. Each old pref maps to a chip
+        //   now, and the chip it maps to is the one lit.
+        function mig(pref){var p={c2Screen:'explore',resAxis:'roc30',resXAxis:'ddp',c2Month:'all'};
+          for(var k in pref)p[k]=pref[k];
+          calls.push(doRender(p,WIN));chk('mig '+JSON.stringify(pref));
+          return {lit:(chips().filter(function(c){return c.on;})[0]||{}).v,runs:runKeys(),recs:recN()};}
+        var mValid=mig({resLvl:'valid'}),mSweep=mig({resLvl:'sweep'}),
+            mCrown=mig({resLvl:'crown'}),mCfg=mig({resShow:'configs'});
 
         info={chips:cAll.length,lit:(cAll.filter(function(c){return c.on;})[0]||{}).v,
           rAll:rAll,kAll:kAll,rChat:rChat,kChat:kChat.length,rEl:rEl,kEl:kEl,rVal:rVal,kVal:kVal,
-          kLeg:kLeg,cfgLit:(cCfg.filter(function(c){return c.on;})[0]||{}).v,errs:errAcc.slice(0,3)};
+          mig:{valid:mValid,sweep:mSweep,crown:mCrown,cfg:mCfg},
+          cfgLit:(cCfg.filter(function(c){return c.on;})[0]||{}).v,errs:errAcc.slice(0,3)};
         dfxCase('w50_source',calls,{
           'one selector, five chips, and the one picked is the one lit':
             cAll.length===5&&info.lit==='all'&&info.cfgLit==='cfg',
@@ -7613,8 +7649,14 @@ var FIX = __FIX__;
             kEl.length===1&&kEl[0]==='runs:910002'&&rEl===2,
           'AUTO-VALIDATED takes the run that carries one, and no chat record is ever here':
             kVal.length===1&&kVal[0]==='runs:910001'&&rVal===0,
-          'a board left on the old controls keeps the old meaning - both runs, as AUTO VAL always drew':
-            kLeg.length===2,
+          'an old AUTO VAL board is translated: AUTO-VALIDATED lit, and the run that saved a validate block drawn':
+            mValid.lit==='valid'&&mValid.runs.length===1&&mValid.runs[0]==='runs:910001',
+          'an old SWEEPS board is translated: CHAT SWEEPS lit, its chat records drawn, no run rows':
+            mSweep.lit==='chat'&&mSweep.recs===2&&mSweep.runs.length===0,
+          'an old CROWN board is translated to the runs, because a crown is a MARK now and not a filter':
+            mCrown.lit==='valid'&&mCrown.runs.length===1,
+          'an old SHOW=CONFIGS board is translated to ML CONFIGS':
+            mCfg.lit==='cfg',
           'the chat records are read on ALL TIME, with no month picked':rAll===4&&rChat===2,
           'no console errors on any of the six renders':errAcc.length===0
         },info);
@@ -7723,14 +7765,22 @@ def main(argv=None):
             cargs = [chrome, '--headless=new', '--disable-gpu', '--no-sandbox',
                      '--hide-scrollbars', '--virtual-time-budget=30000',
                      '--user-data-dir=' + ud, '--dump-dom', url]
+            # 900 s (was 300, was 120): the cases take ~2 min on an idle machine since the n7 link
+            #   sweep (2026-10-09), and this box is routinely shared with a validate runner pinning
+            #   every core - which is when this gate is needed MOST and is exactly when it timed
+            #   out. A timeout reads INCONCLUSIVE, which is no verdict at all. The cases are
+            #   unchanged; only the patience is. CMP2_PROBE_TIMEOUT overrides it, and the elapsed
+            #   time prints on every run so a near-miss is visible before it becomes a timeout.
+            budget = int(os.environ.get('CMP2_PROBE_TIMEOUT') or 900)
+            t_chrome = time.time()
             try:
-                # 300 s (was 120): the cases take ~2 min on an idle machine since the n7 link sweep (2026-10-09), so a busy
-                #   machine timed out and the gate read INCONCLUSIVE - no verdict at all. The cases themselves are unchanged.
                 out = subprocess.run(cargs, capture_output=True, text=True, encoding='utf-8',
-                                     errors='replace', timeout=300).stdout or ''
+                                     errors='replace', timeout=budget).stdout or ''
             except subprocess.TimeoutExpired:
-                print('CMP2 PROBE: INCONCLUSIVE (chrome timed out)')
+                print('CMP2 PROBE: INCONCLUSIVE (chrome timed out after %d s; raise CMP2_PROBE_TIMEOUT)'
+                      % budget)
                 return INCONCLUSIVE
+            print('  chrome: %.0f s of a %d s budget' % (time.time() - t_chrome, budget))
     finally:
         httpd.shutdown()
         clean(ppath, pdir)
@@ -8673,7 +8723,11 @@ def main(argv=None):
     c, u = (r.get('cfg') or {}), (r.get('runs') or {})
     la_chk = {
         'configs view: call ok': c.get('call') == 'OK',
-        'configs view: sweeps listed': (c.get('sweeps') or 0) >= 1,
+        # THE CONFIGURATIONS VIEW HOLDS CONFIGURATIONS. This check used to demand the opposite
+        #   and passed on a defect: with LEVEL folded into one chip, ML CONFIGS derived the ALL
+        #   level for one build and drew the whole registry - 1,722 rows against the 6 this
+        #   fixture holds. The sweeps belong on ALL, asserted in the runs view below.
+        'configs view: the registry sweeps are NOT dragged onto it': (c.get('sweeps') or 0) == 0,
         'configs view: config points on Sortino x ROC (WF)': (c.get('gatePts') or 0) >= 1,
         'runs view: call ok': u.get('call') == 'OK',
         'runs view: the run itself listed': (u.get('runRows') or 0) >= 1,
