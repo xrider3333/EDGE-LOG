@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1337';
+const VERSION='73.1338';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1413,9 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1336',date:'2026-10-20',notes:['SCORES: 1 trade from 2026-10-20 scored, 0 marked NA (no price data).']},{v:'73.1333',date:'2026-10-20',notes:['ONE SELECTOR, NOT TWO (your ask: the level selector and show is confusing. I just want one selector - the ones i was asking about that you ran locally in chats, what was ran through on EL, and what was auto validated). LEVEL and SHOW are replaced by one row of chips: ALL, CHAT SWEEPS, EDGE LOG RUNS, AUTO-VALIDATED and ML CONFIGS. CHAT SWEEPS is what a chat or a lane ran and measured for itself - your preliminary searches - plus the write-ups that cite no run. EDGE LOG RUNS is what went through this site but is not an Auto-Validate job, the gate bake-offs included. AUTO-VALIDATED is only a run that saved a validate block, which is the one thing on a run document that actually says so. CROWNED is no longer a chip: a crown is a MARK on the row wherever that row appears, so you stop losing the rest of the board to see it.','EVERY WORD UNDER THE CHIPS WAS REWRITTEN TO MATCH THEM. The circle-i beside the chips used to serve the old LEVEL paragraphs, so EDGE LOG RUNS explained itself as an Auto-Validate run and two of the chips pointed at a SHOW control that is gone. Each chip now has its own paragraph, true of the rows under it, and so do the two tables: the run table says which runs are in it, and the record table is headed RUNNER AND BOX RUNS when that is what the chip kept.','WHAT EACH CHIP DRAWS IS COUNTED, NOT ASSUMED. The line under the chart counts the lane and lab records the chip keeps with the same test the chart filters by, so a month whose records are read but not drawn says exactly that, and a month where only some draw says how many. The STRATEGY rail does the same: it used to print identical per-family counts on EDGE LOG RUNS and AUTO-VALIDATED over completely different rows, and it never counted the lane records at all, so the families that exist only in those records had no button and could not be picked.','ALL TIME NOW SAYS WHAT IT READ. It reads every lane record this account holds, with no date range, so CHAT SWEEPS is not empty before you pick a month - and the line under the chart reports that read: how many records, when they last synced, whether a read failed, whether it hit its 1,500-row cap (it drops the OLDEST rows when it does), and what the colours and shapes on those dots mean. Until this release that whole line was hidden on ALL TIME, so a failed read looked exactly like having no records.','THE 1E CONFIGS OFFER WORKS AGAIN. When a run has no figure on the axes you picked, the line under the chart offers to show the configurations inside it instead - and for one release that button changed nothing at all, because it still wrote the old SHOW setting that nothing reads any more. The same bug had stopped the LEVERAGE LINE preset from reaching the view its own lines live on. Both move the chip now.','YOUR OLD VIEW IS TRANSLATED ONCE, NOT KEPT ALIVE BESIDE THE NEW ONE. A board left on the old LEVEL maps to the chip that means the same thing - SWEEPS to CHAT SWEEPS, AUTO VAL and CROWN to the runs, SHOW on CONFIGS to ML CONFIGS, and ALL stays ALL - so the lit chip and the board always agree. A first cut of this release kept both meanings running at once, and it showed: CHAT SWEEPS could sit lit over a board with none of your chat records on it, clicking the chip that was already lit changed what was drawn, and CROWN went on hiding the rest of each family.']},
+const CHANGELOG=[{v:'73.1338',date:'2026-10-20',notes:['WEBULL PAPER TRADE CHART (item 52, your ask: need the chart viewer for trades on the webull paper trades). The full chart a Webull trade opens - the candle glyph on its row, or OPEN CANDLES in its trade panel - now draws the entry and exit lines at the prices Webull filled at (the same fills the P&L of record and the panel use), named beside the entry and exit bars (Webull in, Webull out), with the book price as a second, fainter dotted line where it differs.','A SIDE WITH NO WEBULL FILL IS NEVER DRAWN AS ONE. The early September trades (no trade id, so no fill on record) and the orders Webull refused on 09-23 draw the book price, labelled book in - no Webull fill on record. The ENGU-Q 09-24 entry, whose Webull price failed the range check, says the fill looks wrong. Three exits with no book price draw the re-price the P&L of record used, and say so. A dimmed MISSED row is labelled signal in / signal out (not traded).','1-MINUTE BARS AND THE SIZE. Same-day trades open on 1-minute QQQ bars wherever the trade fits the screen (a long hold on a phone, and a hold across sessions, open on 5-minute - the 1M chip is one tap away). The trade box sits at the fill, the prices stay on the price scale while their bar is on screen, price tags and names never print over each other, the title reads leg, shares, entry (NOISE #382 - 20 sh - 09-28 10:15), and SAVE PNG now includes the lines, tags and names.','FIXED: on a Webull trade the price lines and the volume could sit off the candles until the window was resized - the note strip under the chart is now laid out before the chart is sized.']},
+{v:'73.1333',date:'2026-10-20',notes:['ONE SELECTOR, NOT TWO (your ask: the level selector and show is confusing. I just want one selector - the ones i was asking about that you ran locally in chats, what was ran through on EL, and what was auto validated). LEVEL and SHOW are replaced by one row of chips: ALL, CHAT SWEEPS, EDGE LOG RUNS, AUTO-VALIDATED and ML CONFIGS. CHAT SWEEPS is what a chat or a lane ran and measured for itself - your preliminary searches - plus the write-ups that cite no run. EDGE LOG RUNS is what went through this site but is not an Auto-Validate job, the gate bake-offs included. AUTO-VALIDATED is only a run that saved a validate block, which is the one thing on a run document that actually says so. CROWNED is no longer a chip: a crown is a MARK on the row wherever that row appears, so you stop losing the rest of the board to see it.','EVERY WORD UNDER THE CHIPS WAS REWRITTEN TO MATCH THEM. The circle-i beside the chips used to serve the old LEVEL paragraphs, so EDGE LOG RUNS explained itself as an Auto-Validate run and two of the chips pointed at a SHOW control that is gone. Each chip now has its own paragraph, true of the rows under it, and so do the two tables: the run table says which runs are in it, and the record table is headed RUNNER AND BOX RUNS when that is what the chip kept.','WHAT EACH CHIP DRAWS IS COUNTED, NOT ASSUMED. The line under the chart counts the lane and lab records the chip keeps with the same test the chart filters by, so a month whose records are read but not drawn says exactly that, and a month where only some draw says how many. The STRATEGY rail does the same: it used to print identical per-family counts on EDGE LOG RUNS and AUTO-VALIDATED over completely different rows, and it never counted the lane records at all, so the families that exist only in those records had no button and could not be picked.','ALL TIME NOW SAYS WHAT IT READ. It reads every lane record this account holds, with no date range, so CHAT SWEEPS is not empty before you pick a month - and the line under the chart reports that read: how many records, when they last synced, whether a read failed, whether it hit its 1,500-row cap (it drops the OLDEST rows when it does), and what the colours and shapes on those dots mean. Until this release that whole line was hidden on ALL TIME, so a failed read looked exactly like having no records.','THE 1E CONFIGS OFFER WORKS AGAIN. When a run has no figure on the axes you picked, the line under the chart offers to show the configurations inside it instead - and for one release that button changed nothing at all, because it still wrote the old SHOW setting that nothing reads any more. The same bug had stopped the LEVERAGE LINE preset from reaching the view its own lines live on. Both move the chip now.','YOUR OLD VIEW IS TRANSLATED ONCE, NOT KEPT ALIVE BESIDE THE NEW ONE. A board left on the old LEVEL maps to the chip that means the same thing - SWEEPS to CHAT SWEEPS, AUTO VAL and CROWN to the runs, SHOW on CONFIGS to ML CONFIGS, and ALL stays ALL - so the lit chip and the board always agree. A first cut of this release kept both meanings running at once, and it showed: CHAT SWEEPS could sit lit over a board with none of your chat records on it, clicking the chip that was already lit changed what was drawn, and CROWN went on hiding the rest of each family.']},
+{v:'73.1336',date:'2026-10-20',notes:['SCORES: 1 trade from 2026-10-20 scored, 0 marked NA (no price data).']},{v:'73.1333',date:'2026-10-20',notes:['ONE SELECTOR, NOT TWO (your ask: the level selector and show is confusing. I just want one selector - the ones i was asking about that you ran locally in chats, what was ran through on EL, and what was auto validated). LEVEL and SHOW are replaced by one row of chips: ALL, CHAT SWEEPS, EDGE LOG RUNS, AUTO-VALIDATED and ML CONFIGS. CHAT SWEEPS is what a chat or a lane ran and measured for itself - your preliminary searches - plus the write-ups that cite no run. EDGE LOG RUNS is what went through this site but is not an Auto-Validate job, the gate bake-offs included. AUTO-VALIDATED is only a run that saved a validate block, which is the one thing on a run document that actually says so. CROWNED is no longer a chip: a crown is a MARK on the row wherever that row appears, so you stop losing the rest of the board to see it.','EVERY WORD UNDER THE CHIPS WAS REWRITTEN TO MATCH THEM. The circle-i beside the chips used to serve the old LEVEL paragraphs, so EDGE LOG RUNS explained itself as an Auto-Validate run and two of the chips pointed at a SHOW control that is gone. Each chip now has its own paragraph, true of the rows under it, and so do the two tables: the run table says which runs are in it, and the record table is headed RUNNER AND BOX RUNS when that is what the chip kept.','WHAT EACH CHIP DRAWS IS COUNTED, NOT ASSUMED. The line under the chart counts the lane and lab records the chip keeps with the same test the chart filters by, so a month whose records are read but not drawn says exactly that, and a month where only some draw says how many. The STRATEGY rail does the same: it used to print identical per-family counts on EDGE LOG RUNS and AUTO-VALIDATED over completely different rows, and it never counted the lane records at all, so the families that exist only in those records had no button and could not be picked.','ALL TIME NOW SAYS WHAT IT READ. It reads every lane record this account holds, with no date range, so CHAT SWEEPS is not empty before you pick a month - and the line under the chart reports that read: how many records, when they last synced, whether a read failed, whether it hit its 1,500-row cap (it drops the OLDEST rows when it does), and what the colours and shapes on those dots mean. Until this release that whole line was hidden on ALL TIME, so a failed read looked exactly like having no records.','THE 1E CONFIGS OFFER WORKS AGAIN. When a run has no figure on the axes you picked, the line under the chart offers to show the configurations inside it instead - and for one release that button changed nothing at all, because it still wrote the old SHOW setting that nothing reads any more. The same bug had stopped the LEVERAGE LINE preset from reaching the view its own lines live on. Both move the chip now.','YOUR OLD VIEW IS TRANSLATED ONCE, NOT KEPT ALIVE BESIDE THE NEW ONE. A board left on the old LEVEL maps to the chip that means the same thing - SWEEPS to CHAT SWEEPS, AUTO VAL and CROWN to the runs, SHOW on CONFIGS to ML CONFIGS, and ALL stays ALL - so the lit chip and the board always agree. A first cut of this release kept both meanings running at once, and it showed: CHAT SWEEPS could sit lit over a board with none of your chat records on it, clicking the chip that was already lit changed what was drawn, and CROWN went on hiding the rest of each family.']},
 {v:'73.1331',date:'2026-10-20',notes:['ONE MONTH CONTROL, NOT TWO (your ask: if i click october it shows october, and all time shows all). MONTH ONLY is gone. A month chip now shows that month - the chart and the tables together - and ALL TIME shows everything the page holds. ALL TIME is the default, so nothing disappears until you pick a month, and the rows a month leaves off are still counted and named under the chart.','THE TEXT UNDER THE CHART IS TWO LINES (your ask: the scatter plot below the table is a novel. condense for only relevant info). Line one is what is drawn - how many rows of how many, which stretch they are read on, and what the month chip read. Line two is what is NOT drawn and the biggest reason, with its switch where there is one. Everything else - what the colours and shapes mean, the rest of the reasons, the read warnings, the configuration lists - is behind one DETAILS tap, and it remembers whether you left it open. Nothing was deleted, only folded.']},
 {v:'73.1327',date:'2026-10-20',notes:['THE MONTH LINE NOW SAYS WHEN THE LANE RECORDS LAST REACHED THE BOARD, and says it plainly when that is more than three hours ago: a run recorded since then is not here yet. Nothing uploads a lane\'s line by itself - a month can be read whole, drawn whole, and still be behind what the lanes have written, which is the one way this board could go quietly stale. It costs no extra read: every uploaded record already carries the pass that sent it.']},
 {v:'73.1326',date:'2026-10-19',notes:['DD5 IS BACK ON THE LANE RECORDS. One of the four numbers was being dashed on every record in the table - with the wrong reason, that the row saves no equity curve - while the dot two inches away printed the figure. The lane measured it off its own daily series and the page now reads it, says whose it is, and makes that lane own ONE EPISODE call. Ordering the table by DD5 had been sinking every lane record below every run.','ONE AXIS, ONE MEANING. A run row on ROC @ $30K DD is divided by the ACCT chip; a record carried its figure flat, which is the reading at a $100,000 account. On any other account setting a record and a run with the SAME return over drawdown sat at different heights. Records are now put on the account the axis is drawn on.','NOT TESTED IS NOT NO. A lab writes NOT TESTABLE for the one-episode question, and that read exactly like a run whose lane tested it and found no single episode. The hover and the DD5 note now say which of the three it is.','A record is a run a lane measured and nobody has judged, so its hover no longer says reference or superseded. The LANE AND LAB RUNS table used to label itself with the family of its first row, right for every other table here and wrong for this one: it holds twenty families and called itself BOOK. Hiding a record now follows the record, not its position in the month - hiding October record 4 used to hide September record 4 after a chip click. And on a level that builds no record rows at all, the line under the chart says the records were read and not drawn instead of counting rows that are not there.','The uploader refuses a flat 0 percent against whichever dollar drawdown a record carries, not only against DD5 - 273 of the lanes real lines carry one dollar figure and not the other, and a 0 on one of those drew no fall from the high for a run that fell.']},
@@ -8663,6 +8665,20 @@ window.candleSVG=function(bars,overlays,markers,opts){
       HELD:'the book held the next try back',ERROR:'the next order call failed',NETTED:'netted against another leg'+at}[o]||('next try: '+o.toLowerCase());
     return ' - then'+(tm?(' '+tm):'')+': '+w;};
   window._qbAttKind=attKind;
+  // item 52: a Webull row that says nothing about a side's fill (x._wbAsk, set by the board's qbCandleRow) takes Webull's
+  // first filled try on that side from the day's marks, so its line and trade box sit at the fill like every other row's
+  window._qbFillsFromMarks=(x,mk)=>{if(!x||!mk||!x._wbAsk)return;
+    const f=L=>{const a=(L||[]).find(q=>q&&attKind(q)==='fill'&&num(q.px)!=null);return a?num(a.px):null;};
+    if(x._wbAsk.in){const p=f(mk.wb_in);if(p!=null){x._wbIn=p;x._ep=p;if(x._wbSt)x._wbSt.in='ok';}}
+    if(x._wbAsk.out){const p=f(mk.wb_out);if(p!=null){x._wbOut=p;x._xp=p;if(x._wbSt)x._wbSt.out='ok';}}
+    x._wbAsk=null;};
+  // item 52: the bar size a Webull row's chart opens on - 1-minute when the trade and 20 bars each side fit at 2.5 px a bar
+  // in a chart w px wide, else 5-minute (a long hold on a phone; the 1M chip and a wider screen show the minutes). A row on
+  // the leg's own 5-minute bar (a hold across sessions, a missed signal) stays on it.
+  window._qbFitTf=(x,w)=>{if(!x||x._tf!=='1m')return (x&&x._tf)||'5m';
+    const a=String(x._et||''),b=String(x._xt2||'');if(a.length<16||b.length<16||a.slice(0,10)!==b.slice(0,10))return '5m';
+    const m=q=>(+q.slice(11,13))*60+(+q.slice(14,16)),hold=m(b)-m(a);
+    return (hold+41)*2.5<=Math.max(200,(+w||1024)-90)?'1m':'5m';};
   // a trade's marks -> candleSVG points (bar indices relative to the slice lo..hi)
   window._qbMarkPoints=(mk,bars,lo,hi,tf)=>{
     const pts=[],lines=[],off=[],after=[],coarse=[];if(!mk||!bars)return {points:pts,lines:lines,off:off,after:after,coarse:coarse};
@@ -8821,8 +8837,11 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const k=el.getAttribute('data-qbcandles'),rows=window._qeCandleRows||[];
     const x=xRow||rows.find(q=>String(q._no)===k),body=el.querySelector('[data-qbcandlesbody]');
     if(!x||!body)return;
-    let rb=null;try{rb=await window._qqqBarsForTrade(x);}catch(_e){}
+    const tf=window._qbFitTf(x,el.clientWidth||680);
+    let rb=null;try{rb=await window._qqqBarsForTrade(x,tf);}catch(_e){}
+    if(!rb&&tf==='1m'){try{rb=await window._qqqBarsForTrade(x,'5m');}catch(_e2){}}
     if(!document.body.contains(el))return;
+    if(rb)window._qbFillsFromMarks(x,rb.marks);
     if(!rb){body.innerHTML='<span>no candles from the box for this day yet'
       +(((window.innerWidth||1024)<600)?' &middot; a wider screen can ask your PC for them (slower)':' &middot; EXPAND asks your PC instead (slower)')+'</span>';return;}
     const n=rb.bars.length,e=(rb.entry_idx!=null)?rb.entry_idx:((rb.exit_idx!=null)?rb.exit_idx:0),xx=(rb.exit_idx!=null)?rb.exit_idx:e;
@@ -9723,18 +9742,24 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     const _mk=r.marks||x._marks||null;let _pp=null;
     if(_mk&&window._qbMarkPoints){_pp=window._qbMarkPoints(_mk,all,lo3,hi3,r.tf||_curTf());
       markers.points=_pp.points;markers.lines=_pp.lines;markers.hideSideGlyph=true;markers.hidePosLabels=true;}
+    if(x._qbars)markers.hidePosLabels=true;
 
     // 2026-10-11: drawn at the size of its box (the svg fills #chart-body; text a touch larger than 1:1 on a wide
     // screen), and when the bars carry volume the auto-fit price range leaves the bottom fifth free for the volume
     // pane (TradingView's scale margins). candleSVG itself is unchanged: same bytes for the same arguments.
-    const _sz=_cSize(),_vol=_hasVol(bars);
-    const _cop={yZoom:_cndl.yZoom||1,yRange:_cndl.yLock||(_vol?_cVolRange(bars,ovs,markers):null)};
-    if(_sz){_cop.width=_sz[0];_cop.height=_sz[1];if(_sz[0]<900)_cop.xTicks=Math.max(3,Math.floor(_sz[0]/90));}
-    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,_cop));
+    // the Webull legend strip first: it takes height from the chart box, so the chart is sized after it (drawn before it, the
+    // svg was letterboxed and the price lines sat off the candles until the next redraw)
     if(x._qbars&&window._qbMarkLegend){try{const _md=_cndl.api.modal;let _lg=_md.querySelector('#cndl-legend');
       if(!_lg){_lg=document.createElement('div');_lg.id='cndl-legend';_lg.style.cssText='width:100%;flex:0 0 auto;max-height:76px;overflow:auto';
         const _st=_md.querySelector('#cndl-status')||_md.querySelector('#chart-body');if(_st)_st.insertAdjacentElement('afterend',_lg);}
       _lg.innerHTML=window._qbMarkLegend(_mk,r,_pp||{off:[]},x);}catch(_lge){}}
+    const _sz=_cSize(),_vol=_hasVol(bars);
+    // a Webull row's entry / exit lines (its fill and book prices) are kept on the scale while the trade is on screen
+    const _xpr=x._qbars?[].concat(eIn?[x._ep,x._bkIn]:[],xIn?[x._xp,x._bkOut]:[]):null;
+    const _cop={yZoom:_cndl.yZoom||1,yRange:_cndl.yLock||(_vol?_cVolRange(bars,ovs,markers,_xpr):null)};
+    if(_sz){_cop.width=_sz[0];_cop.height=_sz[1];if(_sz[0]<900)_cop.xTicks=Math.max(3,Math.floor(_sz[0]/90));}
+    _cndl.api.setSvg(window.candleSVG(bars,ovs,markers,_cop));
+    _cndl.eIdx=(markers.entryIdx!=null)?markers.entryIdx:null;_cndl.xIdx=(markers.exitIdx!=null)?markers.exitIdx:null;
     // remember the price range on screen so a scale-drag can start from exactly there
     try{const _g4=window.CANDLE_GEO||{};if(isFinite(_g4.lo)&&isFinite(_g4.hi))_cndl.yView=[_g4.lo,_g4.hi];
       if(_g4.W)_cndl.geo=_g4;}catch(_e4){}
@@ -9813,8 +9838,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     const sc=(w<700)?1:1.12;return [Math.round(w/sc),Math.round(hh/sc)];};
   // candleSVG's own auto-fit (bars, overlays, marker prices, 6% pad, yZoom), stretched down so the candles keep the top
   // ~77% and the volume pane gets the bottom fifth to itself
-  const _cVolRange=(bars,ovs,mk)=>{let lo=Infinity,hi=-Infinity;
+  const _cVolRange=(bars,ovs,mk,extra)=>{let lo=Infinity,hi=-Infinity;
     bars.forEach(b=>{if(b.l<lo)lo=b.l;if(b.h>hi)hi=b.h;});
+    (extra||[]).forEach(v=>{if(v!=null&&v!==''&&isFinite(+v)){if(+v>hi)hi=+v;if(+v<lo)lo=+v;}});
     Object.keys(ovs||{}).forEach(k=>{(ovs[k]||[]).forEach(v=>{if(v!==null&&v!==undefined){if(v>hi)hi=v;if(v<lo)lo=v;}});});
     (Array.isArray(mk&&mk.points)?mk.points:[]).forEach(pt=>{const v=+pt.price;if(pt.price!=null&&isFinite(v)&&+pt.i>=0&&+pt.i<bars.length){if(v>hi)hi=v;if(v<lo)lo=v;}});
     if(!isFinite(lo)||!isFinite(hi))return null;
@@ -9862,16 +9888,58 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     if(!G.W||!isFinite(G.lo)||!isFinite(G.hi)||!(G.hi>G.lo)){L.innerHTML='';return;}
     const yOf=p=>(_CM.t+(G.hi-p)/(G.hi-G.lo)*ph)*k,x0=G.mL*k,x1=(G.mL+G.plotW)*k;
     let o='';
-    const line=(p,col,dash,key)=>{if(p==null||p===''||!isFinite(+p)||+p<G.lo||+p>G.hi)return;const y=yOf(+p);
-      o+='<div data-cndlline="'+key+'" style="position:absolute;left:'+x0.toFixed(1)+'px;width:'+(x1-x0).toFixed(1)+'px;top:'+y.toFixed(1)+'px;height:0;border-top:1px '+dash+' '+col+';opacity:.8"></div>'
-        +'<div data-cndltag="'+key+'" style="position:absolute;left:'+(x1+1).toFixed(1)+'px;top:'+(y-8).toFixed(1)+'px;height:16px;line-height:16px;padding:0 4px;border-radius:3px;font-size:10.5px;font-weight:700;white-space:nowrap;background:'+col+';color:var(--bg)">'+_fp(p)+'</div>';};
+    // o2 (Webull rows only): lbl = the line's name, in tc (else --text2, readable on every theme - MONO's exit grey is not),
+    // beside bar index at (the trade's entry or exit bar on screen, else the plot's right end), above the line or below it
+    // with low; noTag = no price tag on the axis (the name carries the price). Axis tags are pushed apart so two prices a few
+    // cents apart never cover each other, and a name that would print over another tries the other side of its line, the
+    // other side of its bar, the right end, then one row further out.
+    const nb=Math.max(1,(_cndl.bars||[]).length),xs=(G.plotW||(G.W-G.mL-(G.mR||0)))/nb;
+    const tags=[],boxes=[];
+    const tagY=y=>{let t=y-8;for(let n=0;n<8;n++){const hit=tags.find(q=>Math.abs(q-t)<17);if(hit===undefined)break;t=(t>=hit)?hit+17:hit-17;}tags.push(t);return t;};
+    const hitB=b=>boxes.some(q=>b.l<q.r&&b.r>q.l&&b.t<q.b&&b.b>q.t);
+    const lblBox=(y,at,txt,low)=>{const w=String(txt).length*6.1+6,bx=(at!=null&&isFinite(at))?(G.mL+(at+0.5)*xs)*k:null;
+      const xc=(bx!=null?[bx+7,bx-7-w]:[]).concat([x1-4-w]),yc=(low?[y+2,y-15]:[y-15,y+2]).concat(low?[y+16,y-29]:[y-29,y+16]);
+      for(const yy of yc)for(const xx of xc){const l=Math.max(x0+2,Math.min(xx,x1-2-w)),b={l:l,r:l+w,t:yy,b:yy+13};if(!hitB(b)){boxes.push(b);return b;}}
+      const l=Math.max(x0+2,x1-4-w),t=low?y+2:y-15,b={l:l,r:l+w,t:t,b:t+13};boxes.push(b);return b;};
+    const line=(p,col,dash,key,o2)=>{if(p==null||p===''||!isFinite(+p)||+p<G.lo||+p>G.hi)return;const y=yOf(+p);o2=o2||{};
+      o+='<div data-cndlline="'+key+'" style="position:absolute;left:'+x0.toFixed(1)+'px;width:'+(x1-x0).toFixed(1)+'px;top:'+y.toFixed(1)+'px;height:0;border-top:1px '+dash+' '+col+';opacity:.8"></div>';
+      if(!o2.noTag)o+='<div data-cndltag="'+key+'" style="position:absolute;left:'+(x1+1).toFixed(1)+'px;top:'+tagY(y).toFixed(1)+'px;height:16px;line-height:16px;padding:0 4px;border-radius:3px;font-size:10.5px;font-weight:700;white-space:nowrap;background:'+col+';color:var(--bg)">'+_fp(p)+'</div>';
+      if(o2.lbl){const b=lblBox(y,o2.at,o2.lbl,o2.low);
+        o+='<div data-cndllbl="'+key+'" style="position:absolute;left:'+b.l.toFixed(1)+'px;top:'+b.t.toFixed(1)+'px;height:13px;line-height:13px;font-size:10px;font-weight:600;white-space:nowrap;color:'+(o2.tc||'var(--text2)')+';text-shadow:0 0 3px var(--bg1),0 0 3px var(--bg1),0 0 2px var(--bg1)">'+o2.lbl+'</div>';}};
     const all=(_cndl.r&&_cndl.r.bars)||[],lb=all[all.length-1];
     if(lb)line(lb.c,(lb.c>=lb.o)?'var(--green)':'var(--red)','dotted','last');
-    // Webull paper rows draw their own fill lines (markers.lines); every other trade gets entry / exit lines
     if(!x._qbars){line(x._ep,'var(--text3)','dashed','entry');
       if(!x._missed)line(x._xp,((+x._usd||0)>=0)?'var(--green)':'var(--red)','dashed','exit');}
+    else{
+      // Webull paper rows (item 52, owner 10-20): entry / exit at Webull's own fill, named on the line; a side with no fill
+      // on record, a suspect fill or a repriced side is drawn where the P&L of record has it and says which; where book and
+      // fill differ, the book price is a second, fainter line (named with its price, no axis tag). A missed signal (never
+      // traded) draws the engine's prices as the signal's.
+      const sub=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)>=0.005,up=(+x._usd||0)>=0,St=x._wbSt||{},Su=x._wbSus||{};
+      const nm=(sd,io)=>{if(x._wbMissed)return 'signal '+io+' (not traded)';
+        if(St[sd]==='ok'&&(sd==='in'?x._wbIn:x._wbOut)!=null)return 'Webull '+io;
+        if((sd==='in'?x._rpIn:x._rpOut)!=null)return 're-price '+io+' - no Webull fill';
+        if(St[sd]==='suspect')return 'book '+io+' - Webull fill'+(Su[sd]!=null?(' '+_fp(Su[sd])):'')+' looks wrong';
+        return 'book '+io+' - no Webull fill on record';};
+      const bi=sub(x._bkIn,x._wbIn),bo=sub(x._bkOut,x._wbOut);
+      line(x._ep,'var(--text3)','dashed','entry',{lbl:nm('in','in'),at:_cndl.eIdx,low:bi&&x._bkIn>x._wbIn});
+      line(x._xp,up?'var(--green)':'var(--red)','dashed','exit',{lbl:nm('out','out'),at:_cndl.xIdx,low:bo&&x._bkOut>x._wbOut});
+      if(bi)line(x._bkIn,'var(--text4)','dotted','book-entry',{noTag:1,at:_cndl.eIdx,low:x._bkIn<x._wbIn,lbl:'book in '+_fp(x._bkIn),tc:'var(--text4)'});
+      if(bo)line(x._bkOut,'var(--text4)','dotted','book-exit',{noTag:1,at:_cndl.xIdx,low:x._bkOut<x._wbOut,lbl:'book out '+_fp(x._bkOut),tc:'var(--text4)'});}
     L.innerHTML=o;};
-  const _legend=i=>{const h=_cHost(),ro=h&&h.querySelector('#cndl-ro');if(!ro)return;
+  // SAVE PNG: the price lines, their axis tags and names live in an HTML layer over the svg, so they are painted onto the
+  // picture too, in the colours the page shows (computed, so every theme's own)
+  const _paintLinesPng=(cx,sv,cw)=>{const h=_cHost(),L=h&&h.querySelector('#cndl-lines');if(!L||!sv)return;
+    const sr=sv.getBoundingClientRect();if(!(sr.width>0))return;const sc=cw/sr.width;
+    cx.save();cx.scale(sc,sc);
+    L.querySelectorAll('[data-cndlline],[data-cndltag],[data-cndllbl]').forEach(e=>{const r=e.getBoundingClientRect(),cs=getComputedStyle(e),lx=r.left-sr.left,ty=r.top-sr.top;
+      if(e.hasAttribute('data-cndlline')){cx.globalAlpha=+cs.opacity||1;cx.strokeStyle=cs.borderTopColor;cx.lineWidth=1;
+        cx.setLineDash(cs.borderTopStyle==='dotted'?[1.5,2.5]:(cs.borderTopStyle==='dashed'?[5,4]:[]));
+        cx.beginPath();cx.moveTo(lx,ty+0.5);cx.lineTo(lx+r.width,ty+0.5);cx.stroke();cx.setLineDash([]);cx.globalAlpha=1;return;}
+      cx.font=cs.fontWeight+' '+cs.fontSize+' '+cs.fontFamily;cx.textBaseline='middle';
+      if(e.hasAttribute('data-cndltag')){cx.fillStyle=cs.backgroundColor;cx.fillRect(lx,ty,r.width,r.height);}
+      cx.fillStyle=cs.color;cx.fillText(e.textContent,lx+(parseFloat(cs.paddingLeft)||0),ty+r.height/2);});
+    cx.restore();};  const _legend=i=>{const h=_cHost(),ro=h&&h.querySelector('#cndl-ro');if(!ro)return;
     const bars=_cndl.bars||[],n=bars.length;if(!n){ro.innerHTML='';return;}
     if(i==null||!(i>=0&&i<n))i=n-1;
     const b=bars[i],x=_cndl.x||{},col=(b.c>=b.o)?'var(--green)':'var(--red)';
@@ -10256,6 +10324,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
       try{const _vc=_cndlAlive()?_cndl.api.modal.querySelector('#cndl-vol'):null;if(_vc&&_vc.width>1)cx2.drawImage(_vc,0,0,cv.width,cv.height);}catch(_v){}
 
       cx2.drawImage(img,0,0,cv.width,cv.height);
+      try{_paintLinesPng(cx2,svgEl2,cv.width);}catch(_pl){}
 
       const name=(_cndl.x&&_cndl.x._rbars)
         ?('trade_'+String(_cndl.x._label||_cndl.x._tid||'trade').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)+'_candles.png')
@@ -10301,9 +10370,12 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
         _cndl.api.setSub('<b style="color:var(--text3)">loading this day&#39;s candles from the box&hellip;</b>');
         try{const _lg0=_cndl.api.modal.querySelector('#cndl-legend');if(_lg0)_lg0.innerHTML='';}catch(_e0){}
       }
-      let rb=null;try{rb=await window._qqqBarsForTrade(x);}catch(_eb){}
+      if(window._qbFitTf){const _t0=window._qbFitTf(x,window.innerWidth||1024);if(_t0!==_curTf())_cndl.tf=_t0;}
+      let rb=null;try{rb=await window._qqqBarsForTrade(x,_curTf());}catch(_eb){}
+      if(!rb&&_curTf()==='1m'){try{rb=await window._qqqBarsForTrade(x,'5m');}catch(_eb2){}if(rb)_cndl.tf='5m';}
       if(!_cndlAlive()||_cndl.seq!==seq)return;
-      if(rb){_barsCache[x._no]=rb;x._marks=rb.marks||null;_cndl.r=rb;_cndlZoomTrade(rb);_renderCandle();_prefetchNeighbors(x);return;}
+      if(rb){_barsCache[x._no]=rb;x._marks=rb.marks||null;if(window._qbFillsFromMarks)window._qbFillsFromMarks(x,rb.marks);
+        _cndl.r=rb;_cndlZoomTrade(rb);_renderCandle();_prefetchNeighbors(x);return;}
     }
     // real trades read their own published doc (api/trade_bars.py); no doc yet -> ask the PC below.
     // It opens on the timeframe picked for the trade in the ledger (falls back to 1m if that size
@@ -42473,9 +42545,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // serves this with no backend change, exactly as the futures PAPER tab's CHART
             // pill does. Verified: api/bars.py returned 155 bars for the 2026-09-18 ORB trade.
             const _qeCandleRows=[];window._qeCandleRows=_qeCandleRows;
-            // ENGU-Q is a 1-minute crown, ORB and NOISE are 5-minute; the QQQ masters are
-            // regular-session only, so session is always rth (unlike the futures legs).
-            const _qeTf=leg=>String(leg||'').toUpperCase().indexOf('ENGUQ')===0?'1m':'5m';
+            // every leg's chart opens on 1-minute bars (item 52, owner 10-20: "QQQ 1-minute bars around the trade"); the QQQ
+            // bars are regular-session only, so session is always rth (unlike the futures legs).
             const _qeMin=ts=>{const m=String(ts||'').match(/^(\d{4}-\d{2}-\d{2} \d{2}:\d{2})/);return m?m[1]:'';};
             // CACHE KEY = the trade, not its row number (2026-09-28): the candle cache was
             // keyed 'QE'+position, so when a new trade closed and the list shifted, a cached
@@ -42539,13 +42610,39 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // the candle viewer and the trade sheet read this: the trades on the page, in the order they are drawn
               _qeCandleRows.length=0;
               // one chart row (the shape the candle viewer takes) for a trade: the list rows, the glyph and the trade panel all build it here
+              // Item 52 (owner 10-20): the chart's entry / exit lines and trade box sit at Webull's OWN fill on each side that has one,
+              // by the rule the P&L of record and the panel's ENTRY FILL / EXIT FILL use (api/qqq_exec.py _pnl_of_record): the packed
+              // fp side's Webull fill when it is marked ok. A suspect fill (fs 's') is never drawn as a fill - that side sits at the
+              // book price and its name says the fill looks wrong. A row with no fp side falls back to *_px_source 'webull_fill'
+              // (real_*_px); one with neither (an older ledger copy) asks the day's marks when the chart loads
+              // (window._qbFillsFromMarks). A side whose book price is missing (stored 'nan') draws the reprice the P&L of record
+              // used, and says so. The book price rides along as a second, fainter line. Same-day trades open on 1-minute bars
+              // where they fit (window._qbFitTf); a hold across sessions and a missed signal (its prices are the leg's own bar) open
+              // on the leg's bar. The share count follows the leg name in the title, which gives the date as MM-DD (a phone cuts
+              // the header short).
+              const qbNum=v=>(v!=null&&v!==''&&isFinite(Number(v)))?Number(v):null;
+              // -> {px: Webull's fill or null, st: ok | suspect | none | ask (the row says nothing), sus: the suspect price}
+              const qbWbPx=(t,sd)=>{if(t._missed)return {px:null,st:'none'};
+                const f=(qeFpOf(t)||{})[sd==='entry'?'en':'ex'];
+                if(f){const w=qbNum(f.wb);
+                  if(f.fs==='ok'&&w!=null)return {px:w,st:'ok'};
+                  return f.fs==='suspect'?{px:null,st:'suspect',sus:w}:{px:null,st:'none'};}
+                const src=String(t[sd+'_px_source']||''),rp=qbNum(t['real_'+sd+'_px']);
+                if(src==='webull_fill'&&rp!=null)return {px:rp,st:'ok'};
+                return src?{px:null,st:'none'}:{px:null,st:'ask'};};
+              const qbLegTf=leg=>String(leg||'').toUpperCase().indexOf('ENGUQ')===0?'1m':'5m';
               const qbCandleRow=(t,usd)=>{const et=_qeMin(t.entry_ts),xt=_qeMin(t.exit_ts);
-                return {_no:_qeKey(t),_tid:(t.trade_id?String(t.trade_id):null),_tf:_qeTf(t.leg),_qbars:1,
-                  _label:qeTradeLegName(t)+' · '+(et||'?'),_srcLbl:'Webull paper trade (QQQ shares)',_et:et,_xt2:xt,
-                  _ep:(t.entry_px!=null&&isFinite(Number(t.entry_px))?Number(t.entry_px):null),
-                  _xp:(t.exit_px!=null&&isFinite(Number(t.exit_px))?Number(t.exit_px):null),
+                const wI=qbWbPx(t,'entry'),wO=qbWbPx(t,'exit'),sh=qbNum(t.shares),bIn=qbNum(t.entry_px),bOut=qbNum(t.exit_px);
+                const rpIn=(bIn==null&&wI.px==null)?qbNum(t.real_entry_px):null,rpOut=(bOut==null&&wO.px==null)?qbNum(t.real_exit_px):null;
+                const tf=t._missed?qbLegTf(t.leg):((et&&xt&&et.slice(0,10)!==xt.slice(0,10))?'5m':'1m');
+                return {_no:_qeKey(t),_tid:(t.trade_id?String(t.trade_id):null),_tf:tf,_qbars:1,
+                  _label:qeTradeLegName(t)+(sh!=null?(' · '+sh+' sh'):'')+' · '+(et?et.slice(5):'?'),
+                  _srcLbl:(t._missed?'missed signal, not traded &middot; ':'')+'Webull paper trade (QQQ shares)',_et:et,_xt2:xt,
+                  _ep:(wI.px!=null?wI.px:(bIn!=null?bIn:rpIn)),_xp:(wO.px!=null?wO.px:(bOut!=null?bOut:rpOut)),
+                  _bkIn:bIn,_bkOut:bOut,_wbIn:wI.px,_wbOut:wO.px,_rpIn:rpIn,_rpOut:rpOut,_wbMissed:!!t._missed,
+                  _wbSt:{in:wI.st,out:wO.st},_wbSus:{in:wI.sus,out:wO.sus},_wbAsk:{in:wI.st==='ask',out:wO.st==='ask'},
                   _pts:0,_usd:usd,_side:(t.side?String(t.side).toLowerCase():'long'),
-                  _pb:{instrument:'QQQ',timeframe:_qeTf(t.leg),session:'rth',include_fresh:true,cost_pts:0}};};
+                  _pb:{instrument:'QQQ',timeframe:tf,session:'rth',include_fresh:true,cost_pts:0}};};
               qbShownVm.forEach(v=>{_qeCandleRows.push(qbCandleRow(v._t,v.pnl));});
               const qbGlyph=v=>_qeMin(v._t.entry_ts)
                 ?('<span class="qbx-candle" data-qbchartkey="'+qbEsc(v.id)+'" role="button" tabindex="0" title="open the QQQ candles around this trade"><svg width="14" height="13" viewBox="0 0 14 13" aria-hidden="true"><path d="M3.5 1v11M10.5 2.5v9" stroke="currentColor" stroke-width="1"/><rect x="1.8" y="3.5" width="3.4" height="5.5" fill="currentColor"/><rect x="8.8" y="4.5" width="3.4" height="4.5" fill="none" stroke="currentColor" stroke-width="1"/></svg></span>')
