@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1338';
+const VERSION='73.1339';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1413,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1338',date:'2026-10-20',notes:['WEBULL PAPER TRADE CHART (item 52, your ask: need the chart viewer for trades on the webull paper trades). The full chart a Webull trade opens - the candle glyph on its row, or OPEN CANDLES in its trade panel - now draws the entry and exit lines at the prices Webull filled at (the same fills the P&L of record and the panel use), named beside the entry and exit bars (Webull in, Webull out), with the book price as a second, fainter dotted line where it differs.','A SIDE WITH NO WEBULL FILL IS NEVER DRAWN AS ONE. The early September trades (no trade id, so no fill on record) and the orders Webull refused on 09-23 draw the book price, labelled book in - no Webull fill on record. The ENGU-Q 09-24 entry, whose Webull price failed the range check, says the fill looks wrong. Three exits with no book price draw the re-price the P&L of record used, and say so. A dimmed MISSED row is labelled signal in / signal out (not traded).','1-MINUTE BARS AND THE SIZE. Same-day trades open on 1-minute QQQ bars wherever the trade fits the screen (a long hold on a phone, and a hold across sessions, open on 5-minute - the 1M chip is one tap away). The trade box sits at the fill, the prices stay on the price scale while their bar is on screen, price tags and names never print over each other, the title reads leg, shares, entry (NOISE #382 - 20 sh - 09-28 10:15), and SAVE PNG now includes the lines, tags and names.','FIXED: on a Webull trade the price lines and the volume could sit off the candles until the window was resized - the note strip under the chart is now laid out before the chart is sized.']},
+const CHANGELOG=[{v:'73.1339',date:'2026-10-20',notes:['THE WEBULL TRADE CHART IS NOW TRADINGVIEW (item 52, your words: the chart sucks. i cant scroll or zoom out or toggle the different time frames ... this needs to be like tradingview. feature rich). Every Webull paper trade - the candle glyph on its row or OPEN CANDLES in its trade panel (phone included), or EXPAND on a laptop - opens on TradingView open-source Lightweight Charts: drag to scroll, wheel or pinch to zoom, drag the price scale to stretch it (AUTO puts it back, LOG for a log scale), FIT and TRADE to jump back, and timeframes 1m 2m 3m 5m 10m 15m 30m 1h 4h D built from the 1-minute QQQ bars (your pick is remembered).','SCROLL BACK FOR HISTORY. Dragging to the left edge reads earlier days from the box, the right edge later ones, until the box has none (QQQ minute bars start 09-03); D and 4h read history on their own. Crosshair with the bar OHLC, change and volume, a volume pane, the trade box from entry to exit (green win, red loss), the entry and exit lines at the Webull fill (solid) with the book price as a fainter dotted line, Webull buys and sells as arrows with shares and price, refused or unanswered tries as squares, the signal and backtest fills as dots, the trade, shares, side and P&L in the header; the arrow keys or the side buttons step through the trades; PNG saves the chart.','Not carried over from the old chart yet: the TOP 10 winners / losers menu. If the chart library cannot load (offline, CDN blocked), the chart says so and offers the old chart; ?oldchart=1 keeps the old one for now.']},
+{v:'73.1338',date:'2026-10-20',notes:['WEBULL PAPER TRADE CHART (item 52, your ask: need the chart viewer for trades on the webull paper trades). The full chart a Webull trade opens - the candle glyph on its row, or OPEN CANDLES in its trade panel - now draws the entry and exit lines at the prices Webull filled at (the same fills the P&L of record and the panel use), named beside the entry and exit bars (Webull in, Webull out), with the book price as a second, fainter dotted line where it differs.','A SIDE WITH NO WEBULL FILL IS NEVER DRAWN AS ONE. The early September trades (no trade id, so no fill on record) and the orders Webull refused on 09-23 draw the book price, labelled book in - no Webull fill on record. The ENGU-Q 09-24 entry, whose Webull price failed the range check, says the fill looks wrong. Three exits with no book price draw the re-price the P&L of record used, and say so. A dimmed MISSED row is labelled signal in / signal out (not traded).','1-MINUTE BARS AND THE SIZE. Same-day trades open on 1-minute QQQ bars wherever the trade fits the screen (a long hold on a phone, and a hold across sessions, open on 5-minute - the 1M chip is one tap away). The trade box sits at the fill, the prices stay on the price scale while their bar is on screen, price tags and names never print over each other, the title reads leg, shares, entry (NOISE #382 - 20 sh - 09-28 10:15), and SAVE PNG now includes the lines, tags and names.','FIXED: on a Webull trade the price lines and the volume could sit off the candles until the window was resized - the note strip under the chart is now laid out before the chart is sized.']},
 {v:'73.1333',date:'2026-10-20',notes:['ONE SELECTOR, NOT TWO (your ask: the level selector and show is confusing. I just want one selector - the ones i was asking about that you ran locally in chats, what was ran through on EL, and what was auto validated). LEVEL and SHOW are replaced by one row of chips: ALL, CHAT SWEEPS, EDGE LOG RUNS, AUTO-VALIDATED and ML CONFIGS. CHAT SWEEPS is what a chat or a lane ran and measured for itself - your preliminary searches - plus the write-ups that cite no run. EDGE LOG RUNS is what went through this site but is not an Auto-Validate job, the gate bake-offs included. AUTO-VALIDATED is only a run that saved a validate block, which is the one thing on a run document that actually says so. CROWNED is no longer a chip: a crown is a MARK on the row wherever that row appears, so you stop losing the rest of the board to see it.','EVERY WORD UNDER THE CHIPS WAS REWRITTEN TO MATCH THEM. The circle-i beside the chips used to serve the old LEVEL paragraphs, so EDGE LOG RUNS explained itself as an Auto-Validate run and two of the chips pointed at a SHOW control that is gone. Each chip now has its own paragraph, true of the rows under it, and so do the two tables: the run table says which runs are in it, and the record table is headed RUNNER AND BOX RUNS when that is what the chip kept.','WHAT EACH CHIP DRAWS IS COUNTED, NOT ASSUMED. The line under the chart counts the lane and lab records the chip keeps with the same test the chart filters by, so a month whose records are read but not drawn says exactly that, and a month where only some draw says how many. The STRATEGY rail does the same: it used to print identical per-family counts on EDGE LOG RUNS and AUTO-VALIDATED over completely different rows, and it never counted the lane records at all, so the families that exist only in those records had no button and could not be picked.','ALL TIME NOW SAYS WHAT IT READ. It reads every lane record this account holds, with no date range, so CHAT SWEEPS is not empty before you pick a month - and the line under the chart reports that read: how many records, when they last synced, whether a read failed, whether it hit its 1,500-row cap (it drops the OLDEST rows when it does), and what the colours and shapes on those dots mean. Until this release that whole line was hidden on ALL TIME, so a failed read looked exactly like having no records.','THE 1E CONFIGS OFFER WORKS AGAIN. When a run has no figure on the axes you picked, the line under the chart offers to show the configurations inside it instead - and for one release that button changed nothing at all, because it still wrote the old SHOW setting that nothing reads any more. The same bug had stopped the LEVERAGE LINE preset from reaching the view its own lines live on. Both move the chip now.','YOUR OLD VIEW IS TRANSLATED ONCE, NOT KEPT ALIVE BESIDE THE NEW ONE. A board left on the old LEVEL maps to the chip that means the same thing - SWEEPS to CHAT SWEEPS, AUTO VAL and CROWN to the runs, SHOW on CONFIGS to ML CONFIGS, and ALL stays ALL - so the lit chip and the board always agree. A first cut of this release kept both meanings running at once, and it showed: CHAT SWEEPS could sit lit over a board with none of your chat records on it, clicking the chip that was already lit changed what was drawn, and CROWN went on hiding the rest of each family.']},
 {v:'73.1336',date:'2026-10-20',notes:['SCORES: 1 trade from 2026-10-20 scored, 0 marked NA (no price data).']},{v:'73.1333',date:'2026-10-20',notes:['ONE SELECTOR, NOT TWO (your ask: the level selector and show is confusing. I just want one selector - the ones i was asking about that you ran locally in chats, what was ran through on EL, and what was auto validated). LEVEL and SHOW are replaced by one row of chips: ALL, CHAT SWEEPS, EDGE LOG RUNS, AUTO-VALIDATED and ML CONFIGS. CHAT SWEEPS is what a chat or a lane ran and measured for itself - your preliminary searches - plus the write-ups that cite no run. EDGE LOG RUNS is what went through this site but is not an Auto-Validate job, the gate bake-offs included. AUTO-VALIDATED is only a run that saved a validate block, which is the one thing on a run document that actually says so. CROWNED is no longer a chip: a crown is a MARK on the row wherever that row appears, so you stop losing the rest of the board to see it.','EVERY WORD UNDER THE CHIPS WAS REWRITTEN TO MATCH THEM. The circle-i beside the chips used to serve the old LEVEL paragraphs, so EDGE LOG RUNS explained itself as an Auto-Validate run and two of the chips pointed at a SHOW control that is gone. Each chip now has its own paragraph, true of the rows under it, and so do the two tables: the run table says which runs are in it, and the record table is headed RUNNER AND BOX RUNS when that is what the chip kept.','WHAT EACH CHIP DRAWS IS COUNTED, NOT ASSUMED. The line under the chart counts the lane and lab records the chip keeps with the same test the chart filters by, so a month whose records are read but not drawn says exactly that, and a month where only some draw says how many. The STRATEGY rail does the same: it used to print identical per-family counts on EDGE LOG RUNS and AUTO-VALIDATED over completely different rows, and it never counted the lane records at all, so the families that exist only in those records had no button and could not be picked.','ALL TIME NOW SAYS WHAT IT READ. It reads every lane record this account holds, with no date range, so CHAT SWEEPS is not empty before you pick a month - and the line under the chart reports that read: how many records, when they last synced, whether a read failed, whether it hit its 1,500-row cap (it drops the OLDEST rows when it does), and what the colours and shapes on those dots mean. Until this release that whole line was hidden on ALL TIME, so a failed read looked exactly like having no records.','THE 1E CONFIGS OFFER WORKS AGAIN. When a run has no figure on the axes you picked, the line under the chart offers to show the configurations inside it instead - and for one release that button changed nothing at all, because it still wrote the old SHOW setting that nothing reads any more. The same bug had stopped the LEVERAGE LINE preset from reaching the view its own lines live on. Both move the chip now.','YOUR OLD VIEW IS TRANSLATED ONCE, NOT KEPT ALIVE BESIDE THE NEW ONE. A board left on the old LEVEL maps to the chip that means the same thing - SWEEPS to CHAT SWEEPS, AUTO VAL and CROWN to the runs, SHOW on CONFIGS to ML CONFIGS, and ALL stays ALL - so the lit chip and the board always agree. A first cut of this release kept both meanings running at once, and it showed: CHAT SWEEPS could sit lit over a board with none of your chat records on it, clicking the chip that was already lit changed what was drawn, and CROWN went on hiding the rest of each family.']},
 {v:'73.1331',date:'2026-10-20',notes:['ONE MONTH CONTROL, NOT TWO (your ask: if i click october it shows october, and all time shows all). MONTH ONLY is gone. A month chip now shows that month - the chart and the tables together - and ALL TIME shows everything the page holds. ALL TIME is the default, so nothing disappears until you pick a month, and the rows a month leaves off are still counted and named under the chart.','THE TEXT UNDER THE CHART IS TWO LINES (your ask: the scatter plot below the table is a novel. condense for only relevant info). Line one is what is drawn - how many rows of how many, which stretch they are read on, and what the month chip read. Line two is what is NOT drawn and the biggest reason, with its switch where there is one. Everything else - what the colours and shapes mean, the rest of the reasons, the read warnings, the configuration lists - is behind one DETAILS tap, and it remembers whether you left it open. Nothing was deleted, only folded.']},
@@ -8861,6 +8862,407 @@ window.candleSVG=function(bars,overlays,markers,opts){
   };
 })();
 
+// ── THE TRADE CHART ON TRADINGVIEW'S LIGHTWEIGHT CHARTS (item 52 rebuild, owner 10-20: "the chart sucks. i cant scroll
+// or zoom out or toggle the different time frames ... this needs to be like tradingview. feature rich") ────────────────
+// A Webull paper trade opens here: window._openTradeCandles hands every _qbars row to window._lwOpenTrade (?oldchart=1
+// keeps the old viewer). The library is TradingView's open-source Lightweight Charts 4.2.3 (Apache-2.0; its licence asks
+// for attribution - the TradingView logo on the chart and the credit link under it), read from jsdelivr (unpkg as the
+// fallback) the first time a chart opens, so the page never waits on it.
+// BARS: the box's QQQ day docs (users/{uid}/qqq_bars, 1-minute, regular session, read through _qqqBarsDay with its
+// IndexedDB cache); every timeframe is built here from those minutes, anchored on the 09:30 open. Dragging to the left
+// edge reads earlier days (until the box has none: 7 weekdays in a row with no doc), the right edge later ones. Times are
+// New York wall clock, fed to the library as if UTC so its axis and crosshair read ET.
+// ON THE CHART: entry / exit price lines at Webull's fill (the P&L of record's), the book price as a second dotted line
+// (the same names as before: Webull in, book in - no Webull fill on record, ...), the day doc's marks as markers (Webull
+// fills as buy / sell arrows, refused / unanswered / held tries, backtest fills, the signal bar), the stop and target lines
+// when the box records them; under it the board's own marks legend (_qbMarkLegend).
+(function(){
+  const LW_VER='4.2.3',LW_SRC=['https://cdn.jsdelivr.net/npm/lightweight-charts@'+LW_VER+'/dist/lightweight-charts.standalone.production.js',
+    'https://unpkg.com/lightweight-charts@'+LW_VER+'/dist/lightweight-charts.standalone.production.js'];
+  let lwP=null;
+  const lwLoad=()=>{
+    if(window.LightweightCharts&&window.LightweightCharts.createChart)return Promise.resolve(window.LightweightCharts);
+    if(lwP)return lwP;
+    lwP=new Promise((res,rej)=>{let k=0;
+      const next=()=>{
+        if(window.LightweightCharts&&window.LightweightCharts.createChart){res(window.LightweightCharts);return;}
+        if(k>=LW_SRC.length){lwP=null;rej(new Error('the chart library did not load'));return;}
+        const s=document.createElement('script');s.src=LW_SRC[k++];s.async=true;s.crossOrigin='anonymous';let done=false;
+        const fin=ok=>{if(done)return;done=true;clearTimeout(to);if(!ok)s.remove();next();};
+        const to=setTimeout(()=>fin(false),15000);
+        s.onload=()=>fin(true);s.onerror=()=>fin(false);
+        document.head.appendChild(s);};
+      next();});
+    return lwP;};
+  window._lwLoad=lwLoad;
+
+  const TFS=[['1m',1],['2m',2],['3m',3],['5m',5],['10m',10],['15m',15],['30m',30],['1h',60],['4h',240],['D',1440]];
+  const TFMIN={};TFS.forEach(p=>{TFMIN[p[0]]=p[1];});
+  const ANCHOR=570;   // 09:30, the regular-session open every intraday bar counts from (1h bars start 09:30, 10:30, ...)
+  const pad2=v=>String(v).padStart(2,'0');
+  const ts=(d,m)=>Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10),Math.floor(m/60),m%60)/1000;
+  const minOf=t=>(+t.slice(11,13))*60+(+t.slice(14,16));
+  const bucket=(t,n)=>{t=String(t||'');if(t.length<16)return null;const d=t.slice(0,10),m=minOf(t);
+    return n>=1440?ts(d,0):ts(d,m-((((m-ANCHOR)%n)+n)%n));};
+  // minute bars {t:'YYYY-MM-DD HH:MM',o,h,l,c,v} -> the library's bars at n minutes (1440 = one bar a day)
+  const agg=(M,n)=>{const out=[];let cur=null;
+    for(const b of M){const time=bucket(b.t,n);if(time==null)continue;
+      if(!cur||cur.time!==time){cur={time:time,open:+b.o,high:+b.h,low:+b.l,close:+b.c,volume:+b.v||0};out.push(cur);}
+      else{if(+b.h>cur.high)cur.high=+b.h;if(+b.l<cur.low)cur.low=+b.l;cur.close=+b.c;cur.volume+=(+b.v||0);}}
+    return out;};
+  // the bar a time falls in, else the last bar before it (an exit at 16:00:05 marks the 15:59 bar); null before the first
+  const snap=(bars,time)=>{if(time==null||!bars.length||time<bars[0].time)return null;let lo=0,hi=bars.length-1;
+    while(lo<hi){const mid=(lo+hi+1)>>1;if(bars[mid].time<=time)lo=mid;else hi=mid-1;}return lo;};
+  const addDay=(d,k)=>{const x=new Date(d+'T12:00:00Z');x.setUTCDate(x.getUTCDate()+k);return x.toISOString().slice(0,10);};
+  const isWd=d=>{const w=new Date(d+'T12:00:00Z').getUTCDay();return w!==0&&w!==6;};
+  const etToday=()=>{try{return new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});}catch(_e){return '';}};
+  const num=v=>(v==null||v===''||!isFinite(+v))?null:+v;
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const money=v=>{v=+v||0;return (v<0?'-$':'$')+Math.abs(v).toLocaleString('en-US',{minimumFractionDigits:2,maximumFractionDigits:2});};
+  const fv=v=>{v=+v||0;const a=Math.abs(v);return a>=1e6?(v/1e6).toFixed(2)+'M':a>=1e4?(v/1e3).toFixed(1)+'K':Math.round(v).toLocaleString('en-US');};
+
+  // one day of minute bars from the box (its 1-minute set; a doc that dropped it for size gives its 5-minute bars)
+  const dayBars=async d=>{let doc=null;try{doc=await window._qqqBarsDay(d);}catch(_e){}
+    if(!doc||!doc.bars)return null;const s=doc.bars['1m']||doc.bars['5m'];if(!s)return null;
+    const bars=window._qqqBarsUnpack(s,d);return bars.length?{doc:doc,bars:bars,coarse:!doc.bars['1m']}:null;};
+  // session days with bars going back (k=-1) or forward (k=1) from d (not included), `want` of them; 7 weekdays in a row
+  // with no doc means the box has nothing further that way (end:true)
+  const walk=async(d,k,want)=>{const got=[],today=etToday();let miss=0,cur=d,stop=false;
+    while(got.length<want&&miss<7&&!stop){const batch=[];
+      while(batch.length<Math.min(12,want-got.length+1)){cur=addDay(cur,k);if(k>0&&cur>today){stop=true;break;}if(isWd(cur))batch.push(cur);}
+      if(!batch.length)break;
+      const rs=await Promise.all(batch.map(dayBars));
+      for(let i=0;i<batch.length;i++){if(rs[i]){if(got.length<want)got.push([batch[i],rs[i]]);miss=0;}else miss++;}}
+    return {got:got,end:stop||miss>=7};};
+
+  // the entry / exit / book lines - the same names as the old chart (item 52 Ship A)
+  const lineSpec=x=>{const out=[],up=(+x._usd||0)>=0,St=x._wbSt||{},Su=x._wbSus||{};
+    const sub=(a,b)=>a!=null&&b!=null&&Math.abs(a-b)>=0.005;
+    // -> [the short name on the price scale, the reason in words (the note under the chart), a Webull fill?]
+    const nm=(sd,io)=>{if(x._wbMissed)return ['signal '+io,'signal '+io+': the engine price - this signal was never traded',false];
+      if(St[sd]==='ok'&&(sd==='in'?x._wbIn:x._wbOut)!=null)return ['Webull '+io,'',true];
+      if((sd==='in'?x._rpIn:x._rpOut)!=null)return ['re-price '+io,'re-price '+io+': no Webull fill and no book price - the minute close the P&L of record used',false];
+      if(St[sd]==='suspect')return ['book '+io+' ?','book '+io+': Webull fill'+(Su[sd]!=null?(' '+(+Su[sd]).toFixed(2)):'')+' looks wrong (outside its minute), so the book price is drawn',false];
+      return ['book '+io,'book '+io+': no Webull fill on record for this side',false];};
+    const a=nm('in','in'),b=nm('out','out');
+    if(x._ep!=null)out.push({key:'entry',price:x._ep,title:a[0],note:a[1],col:a[2]?'blue':'text3',style:a[2]?0:2,width:a[2]?2:1});
+    if(x._xp!=null)out.push({key:'exit',price:x._xp,title:b[0],note:b[1],col:up?'green':'red',style:b[2]?0:2,width:b[2]?2:1});
+    if(sub(x._bkIn,x._wbIn))out.push({key:'book-entry',price:x._bkIn,title:'book in',note:'',col:'faint',style:1,width:1});
+    if(sub(x._bkOut,x._wbOut))out.push({key:'book-exit',price:x._bkOut,title:'book out',note:'',col:'faint',style:1,width:1});
+    return out;};
+  window._lwLineSpec=lineSpec;   // test hook
+
+  // the trade's markers on bars `bars` at n minutes, from its day-doc marks (or, with none, its own entry / exit)
+  const markerSpec=(x,mk,bars,n)=>{const out=[],long=String(x._side||'long')!=='short',sh=x._sh!=null?(x._sh+' '):'';
+    const put=(t,o)=>{const i=snap(bars,bucket(t,n));if(i==null)return;
+      if(new Date(bars[i].time*1000).toISOString().slice(0,10)!==String(t).slice(0,10))return;
+      out.push(Object.assign({time:bars[i].time},o));};
+    const f2=v=>num(v)!=null?(+v).toFixed(2):'';
+    if(mk){
+      if(mk.signal&&mk.signal.t)put(mk.signal.t,{position:long?'belowBar':'aboveBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'signal'});
+      if(mk.bt_in&&mk.bt_in.t)put(mk.bt_in.t,{position:long?'belowBar':'aboveBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'bt_in'});
+      if(mk.bt_out&&mk.bt_out.t)put(mk.bt_out.t,{position:long?'aboveBar':'belowBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'bt_out'});
+      const wbAtt=(a,isExit)=>{if(!a)return;const k=window._qbAttKind?window._qbAttKind(a):(a.ok?'fill':'refused');
+        const buy=isExit?!long:long,px=num(a.px);
+        if(k==='fill'&&px!=null)put(a.t,{position:buy?'belowBar':'aboveBar',shape:buy?'arrowUp':'arrowDown',color:'blue',text:(buy?'Buy ':'Sell ')+sh+'@ '+f2(px),kind:isExit?'wb_out':'wb_in'});
+        else put(a.t,{position:buy?'belowBar':'aboveBar',shape:'square',color:k==='refused'||k==='error'?'red':'muted',
+          text:{refused:'refused',error:'order failed',unknown:'no answer',held:'held back',netted:'netted'}[k]||k,size:0.7,kind:'wb_'+k});};
+      for(const a of (mk.wb_in||[]))wbAtt(a,false);for(const a of (mk.wb_out||[]))wbAtt(a,true);
+      const hasIn=(mk.wb_in||[]).some(a=>(window._qbAttKind?window._qbAttKind(a):'')==='fill'),hasOut=(mk.wb_out||[]).some(a=>(window._qbAttKind?window._qbAttKind(a):'')==='fill');
+      if(!hasIn&&mk.book_in&&mk.book_in.t)put(mk.book_in.t,{position:long?'belowBar':'aboveBar',shape:long?'arrowUp':'arrowDown',color:'muted',text:'book '+(long?'buy ':'sell ')+'@ '+f2(mk.book_in.px),kind:'book_in'});
+      if(!hasOut&&mk.book_out&&mk.book_out.t)put(mk.book_out.t,{position:long?'aboveBar':'belowBar',shape:long?'arrowDown':'arrowUp',color:'muted',text:'book '+(long?'sell ':'buy ')+'@ '+f2(mk.book_out.px),kind:'book_out'});
+    }else{
+      const w=x._wbMissed?'signal ':'';
+      if(x._et)put(x._et,{position:long?'belowBar':'aboveBar',shape:long?'arrowUp':'arrowDown',color:x._wbMissed?'muted':'blue',text:w+(long?'buy ':'sell ')+sh+'@ '+f2(x._ep),kind:'in'});
+      if(x._xt2)put(x._xt2,{position:long?'aboveBar':'belowBar',shape:long?'arrowDown':'arrowUp',color:x._wbMissed?'muted':'blue',text:w+(long?'sell ':'buy ')+sh+'@ '+f2(x._xp),kind:'out'});
+    }
+    out.sort((a,b)=>a.time-b.time);
+    return out;};
+  window._lwMarkerSpec=markerSpec;   // test hook
+
+  const S={};   // the open chart
+  let SEQ=0;    // bumped by every trade load and every close: a slower load from before checks it and stops
+  const alive=()=>!!(S.ov&&document.body.contains(S.ov));
+  const theme=()=>{const cs=getComputedStyle(document.documentElement),g=n=>cs.getPropertyValue(n).trim();
+    return {bg:g('--bg1')||'#15151a',bg0:g('--bg')||'#08080c',text:g('--text')||'#eee',text2:g('--text2')||'#ccc',text3:g('--text3')||'#999',
+      text4:g('--text4')||'#aaa',text5:g('--text5')||'#777',border:g('--border')||'#2a2a35',border2:g('--border2')||'#1f1f28',
+      green:g('--green')||'#34d399',red:g('--red')||'#f87171',blue:g('--blue')||'#60a5fa',font:getComputedStyle(document.body).fontFamily||'monospace'};};
+  const rgba=(c,a)=>{c=String(c||'').trim();let m=c.match(/^#([0-9a-f]{3})$/i);
+    if(m)c='#'+m[1].split('').map(h=>h+h).join('');
+    m=c.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);if(m)return 'rgba('+parseInt(m[1],16)+','+parseInt(m[2],16)+','+parseInt(m[3],16)+','+a+')';
+    m=c.match(/^rgba?\(([^)]+)\)$/i);if(m){const p=m[1].split(',').map(s=>s.trim());return 'rgba('+p[0]+','+p[1]+','+p[2]+','+a+')';}
+    return c;};
+  const col=k=>({text3:S.th.text3,text4:S.th.text4,muted:S.th.text4,green:S.th.green,red:S.th.red,blue:S.th.blue,faint:rgba(S.th.text4,0.6)})[k]||k;
+  const mono=()=>(document.documentElement.getAttribute('data-theme')||'')==='mono';
+  // a P&L or price change in its colour - on MONO in plain text (its loss grey is the dimmest thing on screen; the sign says it)
+  const pnlCol=v=>mono()?'var(--text)':(v>=0?'var(--green)':'var(--red)');
+  const autoY=()=>{try{S.chart.priceScale('right').applyOptions({autoScale:true});}catch(_e){}};
+
+  const close=()=>{if(!S.ov)return;SEQ++;try{if(S.chart)S.chart.remove();}catch(_e){}
+    try{S.ov.remove();}catch(_e){}document.removeEventListener('keydown',S.key,true);
+    if(S.up)['pointerup','pointercancel','touchend','touchcancel'].forEach(ev=>window.removeEventListener(ev,S.up,{capture:true}));
+    document.body.style.overflow=S.bodyOv||'';const fb=S.focusBack;Object.keys(S).forEach(k=>{delete S[k];});
+    try{if(fb&&document.body.contains(fb))fb.focus({preventScroll:true});}catch(_e){}};
+  window._lwClose=close;
+  // test hook: what the open chart holds
+  window._lwState=()=>alive()?{tf:S.tf,bars:(S.bars||[]).length,days:Object.keys(S.days||{}).sort(),endLo:!!S.endLo,endHi:!!S.endHi,busy:!!S.busy,
+    lines:(S.pl||[]).length,tid:S.x&&S.x._tid,label:S.x&&S.x._label,chart:!!S.chart,range:(S.chart?S.chart.timeScale().getVisibleLogicalRange():null)}:null;
+
+  const status=html=>{const e=S.ov&&S.ov.querySelector('[data-lwstatus]');if(e)e.innerHTML=html;};
+  const rowsOf=()=>{let r=[];try{r=(S.ctx&&S.ctx.all)?S.ctx.all():[];}catch(_e){}return (r||[]).filter(q=>q&&q._qbars&&q._et);};
+
+  // the header: trade, its numbers, prev / next; the controls row: timeframes, FIT, TRADE, PNG
+  const shell=()=>{const ph=(window.innerWidth||1024)<700;
+    const ov=document.createElement('div');ov.className='lwc-modal';ov.setAttribute('data-lwchart','1');
+    ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.92);z-index:9999;display:flex;align-items:stretch;justify-content:center;padding:'+(ph?'0':'10px')+';box-sizing:border-box;overflow:hidden';
+    const hb='background:transparent;border:1px solid var(--border);color:var(--text3);height:26px;min-width:30px;padding:0 9px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:.6px;line-height:1;border-radius:6px;flex:0 0 auto';
+    ov.innerHTML='<div class="lwc-box" style="position:relative;width:100%;max-width:1800px;height:100%;min-width:0;background:var(--bg1);border:'+(ph?'0':'1px solid var(--border)')+';border-radius:'+(ph?'0':'8px')+';display:flex;flex-direction:column;padding:'+(ph?'4px 6px 4px':'6px 10px 8px')+';box-sizing:border-box;gap:4px">'
+      +'<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:0 0 auto;flex-wrap:'+(ph?'wrap':'nowrap')+';row-gap:2px">'
+        +'<button type="button" data-lwstep="-1" title="previous trade (left arrow)" style="'+hb+'">&#8249;</button>'
+        +'<span data-lwpos style="font-size:10.5px;color:var(--text4);white-space:nowrap;flex:0 0 auto"></span>'
+        +'<button type="button" data-lwstep="1" title="next trade (right arrow)" style="'+hb+'">&#8250;</button>'
+        +'<div data-lwtitle style="font-size:12.5px;font-weight:700;letter-spacing:.4px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:'+(ph?'1 1 0':'0 1 auto')+';min-width:0"></div>'
+        +'<div data-lwsub style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;'+(ph?'order:9;flex:1 1 100%':'flex:1 1 0')+'"></div>'
+        +'<button type="button" data-lwpng title="save a picture of the chart" style="'+hb+'">PNG</button>'
+        +'<button type="button" data-lwclose title="close (Esc)" style="'+hb+'">&#10005;</button></div>'
+      +'<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:0 0 auto">'
+        +'<div data-lwtfs style="display:flex;gap:2px;overflow-x:auto;min-width:0;flex:'+(ph?'1 1 0':'0 1 auto')+';scrollbar-width:none;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:7px;padding:2px">'
+          +TFS.map(p=>'<button type="button" data-lwtf="'+p[0]+'" style="background:transparent;border:0;color:var(--text4);height:22px;min-width:'+(ph?'0':'34')+'px;padding:0 '+(ph?'2':'6')+'px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;flex:'+(ph?'1 1 0':'0 0 auto')+'">'+p[0]+'</button>').join('')+'</div>'
+        +'<button type="button" data-lwfit title="show every bar loaded" style="'+hb+'">FIT</button>'
+        +(ph?'':'<button type="button" data-lwauto title="price scale back to automatic (after dragging it)" style="'+hb+'">AUTO</button>'
+          +'<button type="button" data-lwlog title="logarithmic price scale on / off" style="'+hb+'">LOG</button>')
+        +'<button type="button" data-lwgo title="back to the trade" style="'+hb+'">TRADE</button>'
+        +(ph?'':'<span data-lwstatus style="font-size:10.5px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0"></span>')+'</div>'
+      +'<div data-lwhost style="position:relative;flex:1 1 0;min-height:0;min-width:0;border-radius:6px;overflow:hidden">'
+        +'<div data-lwchartel style="position:absolute;inset:0"></div>'
+        +'<div data-lwro style="position:absolute;left:8px;top:6px;z-index:5;pointer-events:none;font-size:11px;line-height:16px;color:var(--text4);max-width:calc(100% - 90px);text-shadow:0 0 3px var(--bg1),0 0 3px var(--bg1)"></div></div>'
+      +'<div data-lwlegend style="flex:0 0 auto;max-height:'+(ph?'18vh':'76px')+';overflow:auto;width:100%"></div>'
+      +'<div style="flex:0 0 auto;font-size:9.5px;color:var(--text5);display:flex;gap:8px;justify-content:space-between;min-width:0">'
+        +(ph?'<span data-lwstatus style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 0"></span>':'<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 0">drag to scroll &middot; wheel or pinch to zoom &middot; drag the price scale to stretch it &middot; double-click it to reset</span>')
+        +'<span style="white-space:nowrap;flex:0 0 auto">chart: <a href="https://www.tradingview.com/lightweight-charts/" target="_blank" rel="noopener" style="color:var(--text4)">TradingView Lightweight Charts</a></span></div>'
+      +'</div>';
+    ov.addEventListener('pointerdown',e=>{S.downOv=(e.target===ov);});
+    ov.addEventListener('click',e=>{if(e.target===ov&&S.downOv)close();S.downOv=false;});
+    ov.querySelector('[data-lwclose]').onclick=close;
+    ov.querySelectorAll('[data-lwstep]').forEach(b=>{b.onclick=()=>step(+b.getAttribute('data-lwstep'));});
+    ov.querySelectorAll('[data-lwtf]').forEach(b=>{b.onclick=()=>setTf(b.getAttribute('data-lwtf'));});
+    ov.querySelector('[data-lwfit]').onclick=()=>{S.rangeAt=0;if(S.chart){autoY();S.chart.timeScale().fitContent();}};
+    const ab=ov.querySelector('[data-lwauto]');if(ab)ab.onclick=()=>{if(S.chart)autoY();};
+    const lgb=ov.querySelector('[data-lwlog]');if(lgb)lgb.onclick=()=>{if(!S.chart||!window.LightweightCharts)return;S.log=!S.log;
+      try{localStorage.setItem('el_lw_log',S.log?'1':'0');}catch(_e){}
+      S.chart.priceScale('right').applyOptions({mode:S.log?window.LightweightCharts.PriceScaleMode.Logarithmic:window.LightweightCharts.PriceScaleMode.Normal});syncCtl();};
+    ov.querySelector('[data-lwgo]').onclick=()=>goTrade();
+    ov.querySelector('[data-lwpng]').onclick=()=>savePng();
+    S.focusBack=document.activeElement;
+    document.body.appendChild(ov);
+    S.bodyOv=document.body.style.overflow;document.body.style.overflow='hidden';
+    try{ov.querySelector('[data-lwclose]').focus({preventScroll:true});}catch(_e){}
+    S.key=e=>{if(!alive())return;
+      if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close();}
+      else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
+        e.preventDefault();e.stopImmediatePropagation();step(e.key==='ArrowLeft'?-1:1);}};
+    document.addEventListener('keydown',S.key,true);
+    return ov;};
+
+  const syncCtl=()=>{if(!alive())return;
+    S.ov.querySelectorAll('[data-lwtf]').forEach(b=>{const on=b.getAttribute('data-lwtf')===S.tf;
+      b.style.background=on?'var(--bg2)':'transparent';b.style.color=on?'var(--text)':'var(--text4)';b.style.fontWeight=on?'700':'400';b.setAttribute('aria-pressed',on?'true':'false');});
+    const lg=S.ov.querySelector('[data-lwlog]');if(lg){lg.style.color=S.log?'var(--text)':'var(--text3)';lg.style.borderColor=S.log?'var(--text4)':'var(--border)';}
+    const rows=rowsOf(),i=rowIdx(rows);const pe=S.ov.querySelector('[data-lwpos]');if(pe)pe.textContent=(i>=0?(i+1):'?')+' / '+rows.length;};
+  const rowIdx=rows=>{const k=String(S.x&&S.x._no);return rows.findIndex(q=>String(q._no)===k);};
+
+  const header=()=>{const x=S.x,long=String(x._side||'long')!=='short',u=+x._usd||0;
+    S.ov.querySelector('[data-lwtitle]').textContent=String(x._label||'trade');
+    S.ov.querySelector('[data-lwsub]').innerHTML=(long?'LONG':'SHORT')+' &middot; net <b style="color:'+pnlCol(u)+'">'+esc(money(u))+'</b>'
+      +' &middot; '+esc(String(x._et||'').slice(5))+' &rarr; '+esc(String(x._xt2||'').slice(5)||'open')+' ET &middot; '+(x._wbMissed?'missed signal, not traded':'Webull paper (QQQ shares)');};
+
+  // the OHLCV readout: the bar under the crosshair, else the last one on screen
+  const readout=bar=>{const ro=S.ov&&S.ov.querySelector('[data-lwro]');if(!ro)return;
+    if(!bar){const b=S.bars||[];if(!b.length){ro.innerHTML='';return;}
+      let i=b.length-1;try{const lr=S.chart.timeScale().getVisibleLogicalRange();if(lr)i=Math.max(0,Math.min(b.length-1,Math.floor(lr.to)));}catch(_e){}bar=b[i];}
+    const b=S.bars||[],j=b.indexOf(bar),pv=j>0?b[j-1].close:bar.open,ch=bar.close-pv,cp=pv?ch/pv*100:0,c=pnlCol(ch);
+    const d=new Date(bar.time*1000),dt=pad2(d.getUTCMonth()+1)+'/'+pad2(d.getUTCDate())+(TFMIN[S.tf]>=1440?'':(' '+pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes())));
+    const k=(l,v)=>'<span style="color:var(--text5)">'+l+'</span> <span style="color:'+c+'">'+v+'</span>';
+    ro.innerHTML='<b style="color:var(--text2)">QQQ</b> <span style="color:var(--text4)">'+S.tf+' '+dt+'</span> '
+      +[k('O',bar.open.toFixed(2)),k('H',bar.high.toFixed(2)),k('L',bar.low.toFixed(2)),k('C',bar.close.toFixed(2))].join(' ')
+      +' <span style="color:'+c+'">'+(ch>=0?'+':'')+ch.toFixed(2)+' ('+(ch>=0?'+':'')+cp.toFixed(2)+'%)</span><br>'
+      +'<span style="color:var(--text5)">Vol</span> <span style="color:var(--text3)">'+fv(bar.volume)+'</span>';};
+
+  const minuteBars=()=>{const ds=Object.keys(S.days).sort();let M=[];ds.forEach(d=>{M=M.concat(S.days[d].bars);});return M;};
+  const marksOf=()=>{if(!S.x._tid)return null;for(const d of Object.keys(S.days)){const doc=S.days[d].doc,m=doc&&(doc.marks||[]).find(q=>q&&q.trade_id===S.x._tid);if(m)return m;}return null;};
+
+  // (re)draw the series at the current timeframe; keep: 'view' holds the visible time span, 'shift' a left-side prepend
+  const draw=(keep)=>{if(!alive()||!S.chart)return;S.quiet=Date.now()+150;   // the library reports interim ranges while it takes new data: not a scroll
+    const n=TFMIN[S.tf]||1,ts0=S.chart.timeScale();
+    let vr=null,lr=null,first=S.bars&&S.bars.length?S.bars[0].time:null;
+    try{vr=ts0.getVisibleRange();lr=ts0.getVisibleLogicalRange();}catch(_e){}
+    S.M=minuteBars();S.bars=agg(S.M,n);
+    const up=S.th.green,dn=S.th.red,ua=rgba(up,0.45),da=rgba(dn,mono()?0.85:0.45);
+    try{S.chart.applyOptions({timeScale:{timeVisible:n<1440}});}catch(_e){}
+    S.cs.setData(S.bars.map(b=>({time:b.time,open:b.open,high:b.high,low:b.low,close:b.close})));
+    S.vs.setData(S.bars.map(b=>({time:b.time,value:b.volume,color:b.close>=b.open?ua:da})));
+    S.mk=marksOf();if(S.mk&&window._qbFillsFromMarks)window._qbFillsFromMarks(S.x,S.mk);
+    S.cs.setMarkers(markerSpec(S.x,S.mk,S.bars,n).map(m=>({time:m.time,position:m.position,shape:m.shape,color:col(m.color),text:m.text,size:m.size||1})));
+    (S.pl||[]).forEach(p=>{try{S.cs.removePriceLine(p);}catch(_e){}});S.pl=[];
+    const ls=lineSpec(S.x);S.linePx=ls.map(l=>l.price);
+    ls.forEach(l=>{S.pl.push(S.cs.createPriceLine({price:l.price,color:col(l.col),lineWidth:l.width||1,lineStyle:l.style,axisLabelVisible:true,title:l.title}));});
+    // the position box: from the entry bar to the exit bar, between the entry and exit prices, green for a win, red for a loss
+    S.eI=snap(S.bars,bucket(S.x._et,n));S.xI=S.x._xt2?snap(S.bars,bucket(S.x._xt2,n)):null;
+    if(S.eI!=null&&new Date(S.bars[S.eI].time*1000).toISOString().slice(0,10)!==String(S.x._et).slice(0,10))S.eI=null;
+    if(S.xI!=null&&new Date(S.bars[S.xI].time*1000).toISOString().slice(0,10)!==String(S.x._xt2).slice(0,10))S.xI=null;
+    if(S.bs){const bx=[];if(S.eI!=null&&S.xI!=null&&S.x._ep!=null&&S.x._xp!=null){
+        const c=rgba((+S.x._usd||0)>=0?S.th.green:S.th.red,0.16);
+        S.bs.applyOptions({baseValue:{type:'price',price:S.x._ep},topFillColor1:c,topFillColor2:c,bottomFillColor1:c,bottomFillColor2:c});
+        for(let i=S.eI;i<=S.xI;i++)bx.push({time:S.bars[i].time,value:S.x._xp});}
+      S.bs.setData(bx);}
+    ((S.mk&&S.mk.lines)||[]).forEach(l=>{const p=num(l&&l.price);if(p==null)return;S.pl.push(S.cs.createPriceLine({price:p,color:S.th.text5,lineWidth:1,lineStyle:l.dash===false?0:2,axisLabelVisible:true,title:String(l.label||'level')}));});
+    if(keep==='shift'&&lr&&first!=null){const k=S.bars.findIndex(b=>b.time>=first);if(k>0)setRange(lr.from+k,lr.to+k);}
+    else if(keep==='stay'&&lr)setRange(lr.from,lr.to);
+    else if(keep==='view'&&vr){const a=snap(S.bars,vr.from),b=snap(S.bars,vr.to);
+      if(a!=null&&b!=null&&b-a>=20)setRange(a,b+0.5);else goTrade();}
+    else if(keep!=='stay')goTrade();
+    legendStrip();readout(null);syncCtl();info();};
+  // the entry or exit bar on screen (the auto scale then keeps every trade line in view)
+  // (read from the last range the library reported - the auto scale calls this while the library is mid-update, where asking
+  // the chart for its range would disturb the update)
+  const tradeVis=()=>{const lr=S.lr;if(!lr)return false;return [S.eI,S.xI].some(i=>i!=null&&i>=lr.from&&i<=lr.to);};
+
+  // the trade's own bars in view: entry to exit with room either side (at least 60 bars wide)
+  // the visible bars: clamped to what is loaded (a span wider than all of it = FIT). The library settles new data a frame
+  // or more after setData returns (later still on a busy machine) and then keeps its own scroll position, so the range is
+  // checked again every 60 ms for about half a second and put back if it moved - stopping as soon as the chart is touched
+  const setRange=(from,to)=>{if(!S.chart)return;const n=(S.bars||[]).length;if(!n)return;const ts0=S.chart.timeScale(),seq=S.seq;
+    let f=from,t=to;if(t-f>=n+10){S.rangeAt=Date.now();ts0.fitContent();return;}
+    if(t>n+7){f-=t-(n+7);t=n+7;}if(f<-3){t+=-3-f;f=-3;}
+    const r={from:f,to:t},t0=Date.now();ts0.setVisibleLogicalRange(r);S.rangeAt=t0;
+    const again=k=>{if(!alive()||S.seq!==seq||!S.chart||S.rangeAt!==t0||S.down||(S.userAt||0)>=t0)return;
+      const cur=S.chart.timeScale().getVisibleLogicalRange();
+      if(!cur||Math.abs(cur.from-r.from)>0.5||Math.abs(cur.to-r.to)>0.5)S.chart.timeScale().setVisibleLogicalRange(r);
+      if(k>0)setTimeout(()=>again(k-1),60);};
+    requestAnimationFrame(()=>again(0));setTimeout(()=>again(9),30);};
+  const goTrade=()=>{if(!S.chart||!S.bars||!S.bars.length)return;const n=TFMIN[S.tf]||1;autoY();
+    let a=snap(S.bars,bucket(S.x._et,n)),b=snap(S.bars,bucket(S.x._xt2||S.x._et,n));if(a==null)a=0;if(b==null)b=a;
+    const span=Math.max(60,(b-a)+40),mid=(a+b)/2;
+    setRange(mid-span/2,mid+span/2);};
+
+  const info=()=>{const ds=Object.keys(S.days||{}).sort();if(!ds.length){status('no candles from the box for this day yet (it publishes at 16:10 ET)');return;}
+    const coarse=ds.some(d=>S.days[d].coarse),d0=String(S.x&&S.x._et||'').slice(0,10);
+    status((S.busy?'<b style="color:var(--text3)">loading more days&hellip;</b> &middot; ':'')
+      +((d0&&!S.days[d0])?'<span style="color:var(--text3)">no box bars for this trade&#39;s day yet (the box publishes at 16:10 ET)</span> &middot; ':'')
+      +(S.endLo?'<span style="color:var(--text4)">box bars start '+ds[0].slice(5)+'</span> &middot; ':'')
+      +'QQQ minute bars from the box &middot; '+ds[0].slice(5)+' &rarr; '+ds[ds.length-1].slice(5)+' ('+ds.length+' days)'
+      +(coarse?' &middot; some days have 5-minute bars only':''));};
+
+  const legendStrip=()=>{const lg=S.ov&&S.ov.querySelector('[data-lwlegend]');if(!lg)return;
+    if(!window._qbMarkLegend){lg.innerHTML='';return;}
+    try{const M=S.M||[],pp=(S.mk&&window._qbMarkPoints)?window._qbMarkPoints(S.mk,M,0,Math.max(0,M.length-1),'1m'):{off:[],after:[],coarse:[]};
+      const notes=lineSpec(S.x).map(l=>l.note).filter(Boolean);
+      lg.innerHTML=window._qbMarkLegend(S.mk,{bars:M,tf:'1m',src:'box',asof:null},pp,S.x)
+        +(notes.length?'<div style="font-size:10.5px;color:var(--text4);margin-top:2px">'+notes.map(esc).join(' &middot; ')+'</div>':'');}catch(_e){lg.innerHTML='';}};
+
+  // more days at the left (k=-1) or right (k=1) edge; D and 4h read more per step
+  const more=async k=>{if(!alive()||S.busy)return;if(k<0?S.endLo:S.endHi)return;
+    const ds=Object.keys(S.days).sort();if(!ds.length)return;const n=TFMIN[S.tf]||1,want=n>=1440?20:(n>=240?8:(n>=30?4:2));
+    S.busy=true;info();const seq=S.seq;
+    try{const r=await walk(k<0?ds[0]:ds[ds.length-1],k,want);
+      if(!alive()||S.seq!==seq)return;
+      r.got.forEach(p=>{S.days[p[0]]=p[1];});if(r.end){if(k<0)S.endLo=true;else S.endHi=true;}
+      S.busy=false;if(r.got.length)draw(k<0?'shift':'stay');else info();}
+    catch(_e){S.busy=false;info();}};
+
+  // a daily or 4-hour chart wants more than a few days: read back, then forward, until it holds some history (or the box runs
+  // out), waiting out a load already running, then frame the trade
+  const topUp=async()=>{const tf=S.tf,seq=S.seq,need=TFMIN[tf]>=1440?40:(TFMIN[tf]>=240?30:0);if(!need)return;let did=false;
+    const ok=()=>alive()&&S.seq===seq&&S.tf===tf&&(S.bars||[]).length<need;
+    for(const k of [-1,1])for(let g=0;g<40&&ok()&&!(k<0?S.endLo:S.endHi);g++){
+      if(S.busy){await new Promise(r=>setTimeout(r,150));continue;}did=true;await more(k);}
+    if(did&&alive()&&S.seq===seq&&S.tf===tf)goTrade();};
+  const setTf=async tf=>{if(!TFMIN[tf]||!S.chart)return;const prev=S.tf;S.tf=tf;
+    try{localStorage.setItem('el_lw_tf',tf);}catch(_e){}
+    autoY();draw(prev?'view':'trade');topUp();};
+
+  const savePng=()=>{if(!S.chart)return;try{
+    const cv=S.chart.takeScreenshot(),el=S.ov.querySelector('[data-lwchartel]'),dk=Math.max(1,cv.width/Math.max(1,(el&&el.clientWidth)||cv.width));
+    const hd=Math.round(30*dk),out=document.createElement('canvas');out.width=cv.width;out.height=cv.height+hd;
+    const cx=out.getContext('2d');cx.fillStyle=S.th.bg;cx.fillRect(0,0,out.width,out.height);
+    cx.font='600 '+Math.round(13*dk)+'px '+S.th.font;cx.fillStyle=S.th.text;cx.textBaseline='middle';
+    const u=+S.x._usd||0;cx.fillText(String(S.x._label||'')+'  ·  '+(String(S.x._side||'long')!=='short'?'LONG':'SHORT')+'  ·  net '+money(u)+'  ·  QQQ '+S.tf,Math.round(10*dk),hd/2);
+    cx.drawImage(cv,0,hd);
+    const name='webull_'+String(S.x._tid||S.x._label||'trade').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)+'_'+S.tf+'.png';
+    out.toBlob(bl=>{if(!bl)return;const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=name;
+      window._lastCandlePNG={name:name,bytes:bl.size};document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href);},1000);},'image/png');
+  }catch(e){alert('The picture could not be made ('+String(e&&e.message||e)+').');}};
+
+  // a trade: its own days (entry to exit, at most 6 sessions read up front) plus one session before, then centre on it
+  const loadTrade=async x=>{S.x=x;S.seq=++SEQ;const seq=S.seq;S.days={};S.endLo=false;S.endHi=false;S.busy=true;S.mk=null;S.bars=[];S.M=[];
+    header();syncCtl();status('<b style="color:var(--text3)">loading this trade&#39;s candles from the box&hellip;</b>');
+    if(S.cs){S.cs.setData([]);S.vs.setData([]);if(S.bs)S.bs.setData([]);S.cs.setMarkers([]);(S.pl||[]).forEach(p=>{try{S.cs.removePriceLine(p);}catch(_e){}});S.pl=[];autoY();}
+    const lg=S.ov.querySelector('[data-lwlegend]');if(lg)lg.innerHTML='';readout(null);
+    const d0=String(x._et||'').slice(0,10),d1=String(x._xt2||x._et||'').slice(0,10)||d0;
+    const want=[];let d=d0;for(let k=0;k<12&&d<=d1&&want.length<6;k++){if(isWd(d))want.push(d);d=addDay(d,1);}
+    const rs=await Promise.all(want.map(dayBars));
+    if(!alive()||S.seq!==seq)return;
+    want.forEach((dd,i)=>{if(rs[i])S.days[dd]=rs[i];});
+    const before=await walk(d0,-1,1);if(!alive()||S.seq!==seq)return;
+    before.got.forEach(p=>{S.days[p[0]]=p[1];});if(before.end)S.endLo=true;
+    S.busy=false;
+    if(!Object.keys(S.days).length){S.bars=[];S.M=[];info();return;}
+    draw('trade');topUp();};
+
+  const step=k=>{const rows=rowsOf();if(!rows.length)return;let i=rowIdx(rows);i=(i<0)?0:(i+k+rows.length)%rows.length;loadTrade(rows[i]);};
+
+  window._lwOpenTrade=async(x,glyphEl,ctx)=>{
+    if(ctx)S.ctx=ctx;
+    if(alive()&&S.chart){loadTrade(x);return;}
+    if(alive())close();
+    S.ctx=ctx||null;S.x=x;S.th=theme();try{S.log=localStorage.getItem('el_lw_log')==='1';}catch(_e){}
+    let tf='1m';try{const t=localStorage.getItem('el_lw_tf');if(t&&TFMIN[t])tf=t;}catch(_e){}
+    // a hold too long to read on 1-minute bars at this width opens on 5 (the 1M chip is one tap away)
+    if(tf==='1m'&&window._qbFitTf&&window._qbFitTf(x,window.innerWidth||1024)!=='1m')tf='5m';
+    S.tf=tf;
+    const ov=shell();S.ov=ov;header();syncCtl();status('<b style="color:var(--text3)">loading the chart&hellip;</b>');
+    let LW=null;
+    try{LW=await lwLoad();}catch(e){
+      if(!alive()||S.ov!==ov)return;
+      status('<span style="color:var(--red)">the chart library did not load ('+esc(String(e&&e.message||e))+')</span>');
+      const host=ov.querySelector('[data-lwchartel]');
+      host.innerHTML='<div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;gap:10px;color:var(--text4);font-size:12px">'
+        +'<div>The TradingView chart library could not be read (offline, or the CDN is blocked).</div>'
+        +'<button type="button" data-lwold style="background:transparent;border:1px solid var(--border);color:var(--text3);border-radius:6px;padding:5px 12px;cursor:pointer;font-family:inherit;font-size:11px">OPEN THE OLD CHART</button></div>';
+      host.querySelector('[data-lwold]').onclick=()=>{const c=S.ctx,xx=S.x;close();window._lwOldChart=true;try{window._openTradeCandles(xx,null,c);}finally{window._lwOldChart=false;}};
+      return;}
+    if(!alive()||S.ov!==ov)return;
+    const el=ov.querySelector('[data-lwchartel]'),th=S.th;
+    ['pointerdown','wheel','touchstart'].forEach(ev=>el.addEventListener(ev,()=>{S.userAt=Date.now();if(ev!=='wheel')S.down=true;},{passive:true,capture:true}));
+    S.up=()=>{S.down=false;};['pointerup','pointercancel','touchend','touchcancel'].forEach(ev=>window.addEventListener(ev,S.up,{passive:true,capture:true}));
+    const C=LW.createChart(el,{autoSize:true,
+      layout:{background:{type:'solid',color:th.bg},textColor:th.text3,fontFamily:th.font,fontSize:11,attributionLogo:true},
+      grid:{vertLines:{color:rgba(th.border,0.45)},horzLines:{color:rgba(th.border,0.45)}},
+      rightPriceScale:{borderColor:th.border,scaleMargins:{top:0.08,bottom:0.24},mode:S.log?LW.PriceScaleMode.Logarithmic:LW.PriceScaleMode.Normal},
+      timeScale:{borderColor:th.border,timeVisible:true,secondsVisible:false,rightOffset:8,barSpacing:7,minBarSpacing:0.3,shiftVisibleRangeOnNewBar:false},
+      crosshair:{mode:LW.CrosshairMode.Normal,vertLine:{color:th.text5,labelBackgroundColor:th.text4},horzLine:{color:th.text5,labelBackgroundColor:th.text4}},
+      localization:{priceFormatter:p=>(+p).toFixed(2)},
+      handleScroll:{mouseWheel:true,pressedMouseMove:true,horzTouchDrag:true,vertTouchDrag:false},
+      handleScale:{axisPressedMouseMove:{time:true,price:true},axisDoubleClickReset:true,mouseWheel:true,pinch:true}});
+    S.chart=C;
+    S.bs=C.addBaselineSeries({baseValue:{type:'price',price:0},lineWidth:1,topLineColor:'rgba(0,0,0,0)',bottomLineColor:'rgba(0,0,0,0)',
+      lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01}});
+    S.cs=C.addCandlestickSeries({upColor:'rgba(0,0,0,0)',downColor:th.red,borderUpColor:th.green,borderDownColor:th.red,wickUpColor:th.green,wickDownColor:th.red,
+      lastValueVisible:false,priceLineVisible:false,priceFormat:{type:'price',precision:2,minMove:0.01},
+      autoscaleInfoProvider:orig=>{const r=orig();try{if(r&&r.priceRange&&tradeVis()){let lo=r.priceRange.minValue,hi=r.priceRange.maxValue;
+        (S.linePx||[]).forEach(v=>{if(v!=null&&isFinite(v)){if(v<lo)lo=v;if(v>hi)hi=v;}});return {priceRange:{minValue:lo,maxValue:hi},margins:r.margins};}}catch(_e){}return r;}});
+    S.vs=C.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol',lastValueVisible:false,priceLineVisible:false});
+    C.priceScale('vol').applyOptions({scaleMargins:{top:0.8,bottom:0}});
+    C.subscribeCrosshairMove(p=>{if(!alive())return;const d=p&&p.seriesData?p.seriesData.get(S.cs):null;
+      if(!d||!p.time){S.xh=false;readout(null);return;}S.xh=true;const i=snap(S.bars||[],p.time);readout(i!=null?S.bars[i]:null);});
+    let t0=0;
+    C.timeScale().subscribeVisibleLogicalRangeChange(lr=>{S.lr=lr;if(!lr||!S.bars||!S.bars.length)return;if(!S.xh)readout(null);if(S.busy||(S.quiet||0)>Date.now())return;
+      const now=Date.now();if(now-t0<350)return;
+      if(lr.from<6&&!S.endLo){t0=now;more(-1);}else if(lr.to>S.bars.length-4&&!S.endHi){t0=now;more(1);}});
+    loadTrade(x);
+  };
+})();
+
 // ── EL's OWN CHART ON EVERY REAL TRADE (owner 2026-09-30 via MANAGER: "go with defaults") ──
 // One 1-minute chart with a 10-second close-up, on every real futures trade, with no owner
 // step. The PC publishes each trade's bars right after the trade syncs (api/trade_bars.py ->
@@ -10451,6 +10853,9 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   };
 
   window._openTradeCandles=async(x,glyphEl,ctx)=>{
+    // item 52 rebuild (owner 10-20): a Webull paper trade opens the TradingView Lightweight Charts chart instead
+    // (window._lwOpenTrade); ?oldchart=1, or that chart's OPEN THE OLD CHART when its library cannot load, keeps this one
+    if(x&&x._qbars&&window._lwOpenTrade&&!window._lwOldChart&&!/[?&]oldchart=1/.test(location.search))return window._lwOpenTrade(x,glyphEl,ctx);
     if(ctx){_cndl.ctx=ctx;_cndl.grp=null;}
 
     if(_cndlAlive()){_loadTrade(x);return;}   // already open — just switch trades
@@ -42639,7 +43044,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   _label:qeTradeLegName(t)+(sh!=null?(' · '+sh+' sh'):'')+' · '+(et?et.slice(5):'?'),
                   _srcLbl:(t._missed?'missed signal, not traded &middot; ':'')+'Webull paper trade (QQQ shares)',_et:et,_xt2:xt,
                   _ep:(wI.px!=null?wI.px:(bIn!=null?bIn:rpIn)),_xp:(wO.px!=null?wO.px:(bOut!=null?bOut:rpOut)),
-                  _bkIn:bIn,_bkOut:bOut,_wbIn:wI.px,_wbOut:wO.px,_rpIn:rpIn,_rpOut:rpOut,_wbMissed:!!t._missed,
+                  _bkIn:bIn,_bkOut:bOut,_wbIn:wI.px,_wbOut:wO.px,_rpIn:rpIn,_rpOut:rpOut,_wbMissed:!!t._missed,_sh:sh,
                   _wbSt:{in:wI.st,out:wO.st},_wbSus:{in:wI.sus,out:wO.sus},_wbAsk:{in:wI.st==='ask',out:wO.st==='ask'},
                   _pts:0,_usd:usd,_side:(t.side?String(t.side).toLowerCase():'long'),
                   _pb:{instrument:'QQQ',timeframe:tf,session:'rth',include_fresh:true,cost_pts:0}};};
