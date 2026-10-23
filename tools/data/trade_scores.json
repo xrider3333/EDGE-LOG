@@ -7071,6 +7071,100 @@
    ],
    "overall": 49,
    "summary": "You faded the top of a 16-point rally near 7766, which was a decent location, but you entered before the bar showed any rejection. You were stopped at the exact high two seconds later, and price then dropped to 7760.75 within four minutes. Next time wait for the turn bar and put the stop a tick or two above the high so normal noise does not take you out."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-23",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "10:17",
+   "exit_time": "10:18",
+   "entry": 7656.0,
+   "exit": 7651.0,
+   "qty": 2,
+   "entry_ts": "10:17:00",
+   "exit_ts": "10:18:35",
+   "breakout_candle": "10:16",
+   "stop": 7664.25,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 14,
+     "note": "Lower highs from the 7676.25 high at 10:00 and a 10:16 break of the 7662 range low favored shorts."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 11,
+     "note": "Short at 7656.0 came at the bottom of a 7.75-point flush bar, about 8 points from its 7664.25 high."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 11,
+     "note": "The 10:16 signal bar high at 7664.25 gives a clear stop 8.25 points above the fill."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 5,
+     "note": "No marked support below 7650 in view, so the 8.25-point risk had no clear 1R-plus target."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 11,
+     "note": "The 10:16 bar closed 7656.75 well below the 10:15 body but opened 0.75 under its 7664.5 open, a near-engulf."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 9,
+     "note": "Volume rose to 5816 and 5304 on the 10:16 and 10:17 bars with 4-8 point ranges."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 9,
+     "note": "10:17 sits in the active first hour after the open."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 18,
+     "note": "Filled at 10:17:00 right after the signal bar closed, at 7656.0 near its 7656.75 close."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 22,
+     "note": "Heat stayed near 1 point, with the 10:17 high at 7657.25 against the 7656.0 entry."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 21,
+     "note": "Exit 7651.0 was 0.75 off the 7650.25 hold low; the next 15 minutes bounced to 7661.5 before a 7648.5 low."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "Two MES with an 8.25-point stop risked about $83."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 8,
+     "note": "A quick ENGD short taken and closed in profit within 95 seconds, graded B."
+    }
+   ],
+   "overall": 76,
+   "summary": "You shorted the 10:16 range-break bar and banked 5 points almost at the low before price bounced back above your entry to 7661.5. The weak spot was location: you sold at the bottom of a big flush bar with an 8-point stop and no clear target below. Taking the quick profit was the right call on this tape."
   }
  ],
  "na": [
