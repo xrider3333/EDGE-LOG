@@ -38,6 +38,12 @@ if ROOT not in sys.path:
 
 import tools.qqq_reprice as R
 
+
+@pytest.fixture(autouse=True)
+def _pinned_clock(monkeypatch):
+    """The fixture trades sit on 2026-09-23/24; pin "now" so the 30-day 1m window never ages them out."""
+    monkeypatch.setattr(R, "_now_et", lambda: datetime(2026, 9, 26, 12, 0, tzinfo=R._NY))
+
 TRADE_COLS = ["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit_px", "pnl"]
 
 
