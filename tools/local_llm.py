@@ -91,11 +91,11 @@ import urllib.request
 HOST = (os.environ.get("AUGUR_LOCAL_LLM_HOST") or "http://127.0.0.1:11434").rstrip("/")
 # qwen3.8:27b (dense, 17 GB) replaced qwen3.6 on 2026-10-11 (owner pick after a 4-job race:
 # more accurate, 3-4x slower; ~61% on the 16 GB GPU at num_ctx 32768, 52% at 65536).
-MODEL = "qwen3.8:27b"
+MODEL = "qwen14-16k"   # 2026-10-25 owner: qwen3:14b with num_ctx 16384 baked in; 29 tok/s 100% GPU vs 3.2 for the 27B at 262K
 KEEP_ALIVE = "30m"          # hold the weights in RAM so the next call is warm
 # One context size for EVERY call (see the docstring): a 24k-token chunk + the prompt +
 # the answer fits with room to spare, and the model never reloads between calls.
-NUM_CTX = int(os.environ.get("AUGUR_LOCAL_LLM_CTX") or 32768)
+NUM_CTX = int(os.environ.get("AUGUR_LOCAL_LLM_CTX") or 16384)
 CHUNK_TOKENS = 24000        # per map call; chars = tokens * CHARS_PER_TOKEN
 CHARS_PER_TOKEN = 3.5       # conservative for logs (digits/punctuation tokenise worse than prose)
 MAX_CHUNKS = 12             # refuse beyond this: on CPU a 24k chunk is minutes, not seconds
