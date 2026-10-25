@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1342';
+const VERSION='73.1343';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -37071,7 +37071,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   130 points on a diagonal that say nothing - and, holding the most rows, it was offered first.
               const other=isX?_reMode():_reXAxis;
               const out=[];
-              ['pf','dd','ddp','evr'].filter(m=>m!==cur&&m!==other).forEach(m=>{
+              // THE MEASURES THE ROWS ON THIS BOARD ACTUALLY CARRY (owner 2026-10-20). The list was
+              //   ['pf','dd','ddp','evr'], all four built out of a run document's own blocks, and of those
+              //   a lane record saves only a drawdown - so on 858 October records the best this could
+              //   offer was DD % with 425 dots, while ROC at $30k against Sortino would have held 610.
+              //   ROC @ $30K DD and SORTINO are two of the four numbers every record is written with.
+              //   DD5 is not here because it is a column on this board, not an axis.
+              ['pf','dd','ddp','evr','roc30','so'].filter(m=>m!==cur&&m!==other).forEach(m=>{
                 const n=isX?_countAlt(m,null,null,null):_countAlt(null,null,m,null);
                 if(n>now)out.push({m:m,n:n,now:now});});
               out.sort((a,b)=>b.n-a.n);return out.slice(0,2);};
@@ -38139,7 +38145,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-resbasis="year"','PER YEAR',_reBasis==='year','add three columns to every table - PER YEAR, YEARS and MAR / YR - dividing each row own profit by the number of years its own window covers, so a longer window is not automatically flattered. It needs only a recorded data window, so it reaches every row the DATA WINDOW column can place',_reFT),_reFT);
         // VIEW: '' = decide from the strategy pick, 'one' / 'study' = the reader's own call.
         const _reViewPref=(APREF.resView==='one'||APREF.resView==='study')?APREF.resView:'';
-        const _reFamPicked=(()=>{try{const o=JSON.parse(APREF.resFilt||'{}')||{};return Array.isArray(o.fam)&&o.fam.length>0;}catch(e){return false;}})();
+        const _reFamPicked=(()=>{try{const _rf=APREF.resFilt;const o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?_rf:(JSON.parse(_rf||'{}')||{});return Array.isArray(o.fam)&&o.fam.length>0;}catch(e){return false;}})();
         const _reOneTbl=(_reViewPref==='one')||(_reViewPref===''&&_reFamPicked);
         const _reViewBtns=_reCtl(15,'VIEW','how the tables are laid out. ONE TABLE pools every surviving row from every study into a single ranked table - the consolidated read of a strategy - with a study tag on each row so nothing loses its provenance. BY STUDY is one table per study, each with its own notes. Left alone the board decides: one table while a strategy is picked, by study when everything is showing.',
             _reBtn('data-resview="one"','ONE TABLE',_reOneTbl,'pool the studies into one ranked table. This is the consolidated view of everything tested for the picked strategy, wherever it was researched - an ORB row that happens to sit in a NOISE-titled study is here with the rest of ORB',_TONE.heat)
@@ -38692,9 +38698,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // one family ticked names itself; several name themselves together; none reads as ALL.
         const _reFamPick=(_reFilt.fam||[]).slice();
         const _reFamSel=_reFamPick.length?_reFamPick.join(' + '):'';
+        const _reFamAll=Object.keys(_reFamCnt).reduce((a,k)=>a+(_reFamCnt[k]||0),0);
         const _reFamStudies=f=>RESEARCH_STUDIES.filter(st=>(st.rows||[]).some(r=>_reFamOf(st,r)===f)).length;
-        const _reFamRail=_reCtl(4,'STRATEGY','the one control this board is built around: pick a strategy and the chart and every table below narrow to it together. The buttons TICK, so two strategies can share the chart - click NOISE and ENGU-Q and you get both, and each mark, hover and table row then says which family it belongs to. Untick everything and the whole board is shown, which is why there is no ALL button: an empty rail already means nothing is being held back.',
-            (Object.keys(_reFamCnt).length?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
+        const _reFamRail=_reCtl(4,'STRATEGY','the one control this board is built around: pick a strategy and the chart and every table below narrow to it together. The buttons TICK, so two strategies can share the chart - click NOISE and ENGU-Q and you get both, and each mark, hover and table row then says which family it belongs to. Untick everything and the whole board is shown. ALL puts it back to every strategy without touching the other filters.',
+            // AN ALL BUTTON (owner 2026-10-20: "the oct chat sweeps strategy selector doesnt have an
+            //   all selection option"). The old argument - an empty rail already shows everything - is
+            //   about the code, not the screen: once a strategy was ticked there was nothing on this rail
+            //   to click to get back, and CLEAR, which does it, lives elsewhere and drops the month, the
+            //   study and the range with it. The click handler has always read an empty value as ALL.
+            _reBtn('data-refam=""','ALL \u00b7 '+_reFamAll,!_reFamPick.length,
+              'show every strategy: all '+_reFamAll+' rows on this chip, the same board you get with nothing ticked. Click it to drop a strategy pick on its own - the month, the study and the range stay exactly as they are',_TONE.samp)
+            +(Object.keys(_reFamCnt).length?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
               'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)
                 +((_reSrc==='valid')?' Auto-Validate runs in Past Runs.'
                  :(_reSrc==='el')?' rows on this chip: EDGELOG runs that are not Auto-Validate jobs, plus the runs a lane recorded on the runner or the box.'
@@ -39119,11 +39133,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           let L2='';
           if(offN){
             const btn=(attr,txt,tip)=>'<span '+attr+' title="'+_reEsc(tip)+'" style="display:inline-flex;align-items:center;margin-left:6px;font-size:7.5px;font-weight:700;letter-spacing:.3px;padding:2px 6px;border-radius:5px;cursor:pointer;color:var(--text2);border:1px solid var(--border);background:var(--bg1)">'+_reEsc(txt)+'</span>';
+            // THE BEST SWITCH, IN THE SHORT LINE (owner 2026-10-20: "nor does the scatter plot show
+            //   anything"). The offers are already computed with true counts - every row on the board
+            //   re-read through the alternative - but only the folded breakdown printed them, so an empty
+            //   chart gave him a sentence and nothing to click. One button, the one that holds the most
+            //   rows, with the count it would hold.
+            const _reBestAlt=(function(){
+              const a=(C.measAltY||[])[0],b2=(C.measAltX||[])[0];
+              const p=(b2&&(!a||b2.n>a.n))?{m:b2.m,n:b2.n,x:1}:(a?{m:a.m,n:a.n,x:0}:null);
+              if(!p)return '';
+              const nm=_reXNm[p.m]||p.m;
+              return btn('data-res'+(p.x?'xaxis':'axis')+'="'+p.m+'"',nm+(p.x?' across':' up')+' \u00b7 '+p.n+' plotted',
+                'plot '+nm+(p.x?(' across the bottom instead of '+xName):(' up the side instead of '+yName))
+                +' - '+p.n+' row'+((p.n===1)?'':'s')+' would be on this chart afterwards, against '+plotted+' now.');})();
+            // WHICH MEASURE IS MISSING, not "one of the two". The breakdown has always kept the split and
+            //   the condensed line summed it: on his board 610 rows carry a Sortino and lack only R / YR,
+            //   248 carry neither, and the line told a reader with 610 Sortinos in the table below that
+            //   the rows record no Sortino. Same three counts, named the way the breakdown names them.
             const causes=[
               // the axis names are printed as the board writes them on the pickers - lower-casing
               //   turned 'ROC @ $30K DD' into 'roc at a $30k worst drawdown', which is not a name
               //   the reader can match to anything on screen.
-              {n:missN,t:'record nothing for '+String(yName)+' or '+String(xName),b:''},
+              {n:n('missBoth'),t:'record neither '+String(yName)+' nor '+String(xName),b:_reBestAlt},
+              {n:n('missY'),t:'record no '+String(yName),b:_reBestAlt},
+              {n:n('missX'),t:'record no '+String(xName),b:_reBestAlt},
+              {n:n('missGN'),t:'cannot split their winning and losing money, so neither PF nor EV R can be built',b:_reBestAlt},
               {n:n('fail'),t:'failed and PLOT FAILURES is off',b:(n('fail')-n('lackFail')>0)?btn('data-resfail="1"','PLOT FAILURES ON \u00b7 '+(n('fail')-n('lackFail')),'draw the '+(n('fail')-n('lackFail'))+' failed row'+((n('fail')-n('lackFail'))===1?'':'s')+' that can be placed on these axes'):''},
               {n:n('older'),t:'are older than the runs this page has loaded',b:''},
               {n:n('zero'),t:'took no trades on this stretch',b:''},
@@ -47945,7 +47979,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const newest=pool.reduce((best,id)=>((+id||0)>(+best||0))?id:best);
         savePref('resCfgRun',[newest]);renderApp();};});
       content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
-        let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
+        let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
         const k=b.dataset.refilt,v=b.dataset.refiltv,cur=Array.isArray(o[k])?o[k].slice():[];
         const i=cur.indexOf(v);if(i>=0)cur.splice(i,1);else cur.push(v);
         if(cur.length)o[k]=cur;else delete o[k];
@@ -48021,11 +48055,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-resview]').forEach(b=>{b.onclick=()=>{savePref('resView',b.dataset.resview);renderApp();};});
       content.querySelectorAll('[data-rescols]').forEach(b=>{b.onclick=()=>{savePref('resCols',b.dataset.rescols);renderApp();};});
       content.querySelectorAll('[data-restudysel]').forEach(sl=>{sl.onchange=()=>{
-        let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
+        let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
         if(sl.value)o.study=[sl.value];else delete o.study;
         savePref('resFilt',JSON.stringify(o));renderApp();};});
       content.querySelectorAll('[data-refam]').forEach(b=>{b.onclick=()=>{
-        let o={};try{o=JSON.parse(APREF.resFilt||'{}')||{};}catch(e){o={};}
+        let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
         const v=b.dataset.refam;
         if(!v){delete o.fam;}                      // ALL clears the family filter
         else{const cur=Array.isArray(o.fam)?o.fam.slice():[];

@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 160
+N_CASES = 161
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7661,6 +7661,97 @@ var FIX = __FIX__;
           'no console errors on any of the six renders':errAcc.length===0
         },info);
       })();
+      // -- case i50_rail_offer (board 50, owner 2026-10-20: "the oct chat sweeps strategy selector
+      //    doesnt have an all selection option. nor does the scatter plot show anything (i have
+      //    sortino and r/yr selected)"). Measured on his own board with the real 886 October
+      //    records: 22 rail buttons and no ALL, and SORTINO x R / YR placed 0 dots of 858 while
+      //    610 of those rows printed a Sortino in the table below. Nothing tested either.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function rail(){var o={all:null,fams:0,sum:0,lit:null,btn:null};
+          [].forEach.call(d.querySelectorAll('[data-refam]'),function(b){
+            var v=b.getAttribute('data-refam')||'';
+            var m=(b.textContent||'').match(/([0-9][0-9,]*)\s*$/);
+            var k=m?+(m[1].split(',').join('')):null;
+            if(v===''){o.all=k;o.lit=/color-mix/.test(b.getAttribute('style')||'');o.btn=b;}
+            else{o.fams++;o.sum+=(k||0);}});
+          return o;}
+        // the CONDENSED line ("N not on it:"), which is what the board shows by default - r4Note()
+        //   reads the folded breakdown ("N of M not on this chart") and always had the split
+        function cnote(){var c=[].filter.call(d.querySelectorAll('div'),function(x){
+            return /not on it:/.test(x.textContent||'');});
+          c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});
+          return c[0]||null;}
+        // THE RAIL, on the board the rail is busiest on
+        var P={c2Screen:'explore',resLvl:'sweep',resAxis:'so',resXAxis:'rpy',c2Tbl:true};
+        calls.push(doRender(P,EMPTY_WIN));chk('rail');
+        var A=rail();
+        // A STRATEGY TICKED, plus a second filter that must survive the click
+        var P3=JSON.parse(JSON.stringify(P));P3.resFilt={fam:['NOISE'],tone:['champ']};
+        calls.push(doRender(P3,EMPTY_WIN));chk('ticked');
+        var B=rail();
+        var cleared=null;
+        if(B.btn&&B.btn.onclick){B.btn.onclick();
+          // READ THE STORE, NOT THE RENDER SCOPE: APREF is a const inside the render closure, so
+          //   w.eval('APREF...') throws and a test that swallowed that read would pass on nothing.
+          //   The app saves this pref as a JSON string; doRender hands it over as an object.
+          var f={};try{var _ap=JSON.parse(w.eval("localStorage.getItem('augurPrefs')||'{}'"))||{};
+            var _rf=_ap.resFilt;
+            f=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?_rf:(JSON.parse(_rf||'{}')||{});}catch(e){f={};}
+          cleared={fam:(f.fam||null),tone:((f.tone||[])[0]||null),lit:rail().lit,read:(Object.keys(f).length>0)};}
+        // THE OWNER'S OWN BOARD: lane records on CHAT SWEEPS, Sortino up, R / YR across. A record is
+        //   written with the four numbers and nothing a PF comes out of, so R / YR - expectancy in R
+        //   x trades / years - cannot be built for any of them, while the Sortino is right there.
+        //   Field shape measured over the real 886 October records: all 886 carry roc30k, 623 carry
+        //   a Sortino, 435 a DD %, and only 18 the drawdown dollars.
+        function i50rec(o){return Object.assign({timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'i50probe',family:'ZREC',instrument:'NQ',timeframe:'2m',
+          trades:200,roc30k:25,sortino:1.5,dd5:8000,one_episode:false,start_usd:100000,
+          win_start:'2021-01-01',win_end:'2024-01-01',years:3.0,where:'lane',stage:'WF'},o);}
+        var RECS=[i50rec({id:'q1',roc30k:25,sortino:1.5}),i50rec({id:'q2',roc30k:31,sortino:2.2}),
+                  i50rec({id:'q3',roc30k:12,sortino:0.9}),i50rec({id:'q4',roc30k:44,sortino:3.1})];
+        var RW=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify(RECS)+",at:Date.now()};"
+          +"window._reMonKey='all';");
+        var PR={c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',resXAxis:'rpy',
+                resFilt:{fam:['ZREC']},c2Tbl:true};
+        calls.push(doRender(PR,RW));chk('records');
+        var C=w.eval('window._reCause')||{},now=r4Pts();
+        var nd=cnote(),ndTx=nd?dfxN(nd.textContent):'';
+        var offs=(C.measAltX||[]).map(function(a){return {m:a.m,n:a.n,x:1};})
+          .concat((C.measAltY||[]).map(function(a){return {m:a.m,n:a.n,x:0};}));
+        var top=null;offs.forEach(function(o){if(!top||o.n>top.n)top=o;});
+        var sw=nd?nd.querySelector('[data-resxaxis],[data-resaxis]'):null;
+        var swTx=sw?dfxN(sw.textContent):'';
+        // FOLLOW THE SWITCH: an offer that names a count has to land that count
+        var after=null;
+        if(top){var P2=JSON.parse(JSON.stringify(PR));
+          if(top.x)P2.resXAxis=top.m;else P2.resAxis=top.m;
+          calls.push(doRender(P2,RW));chk('switched');after=r4Pts();}
+        dfxCase('i50_rail_offer',calls,{
+          'the STRATEGY rail carries an ALL button':A.all!=null&&A.fams>0,
+          'it is lit when no strategy is ticked':A.lit===true,
+          'its count is exactly what the strategy buttons beside it add up to':A.all===A.sum,
+          'a strategy ticked puts ALL out':B.lit===false,
+          'clicking ALL drops the strategy pick':!!cleared&&!cleared.fam&&cleared.read===true,
+          'and leaves every other filter alone':!!cleared&&cleared.tone==='champ',
+          'and the rail then reads as ALL again':!!cleared&&cleared.lit===true,
+          'a record carries a Sortino and no R / YR, so only one side is missing':
+            (+C.missX||0)===RECS.length&&(+C.missY||0)===0&&(+C.missBoth||0)===0,
+          'and the blank chart names the measure that is missing':/record no R *\/ *YR/.test(ndTx),
+          'and does NOT name the measure these rows do carry':
+            !/record (neither|nothing for)/.test(ndTx)&&!/record no SORTINO/i.test(ndTx),
+          'the switch list offers the four numbers, not only a run document own measures':
+            offs.some(function(o){return o.m==='roc30';}),
+          'the blank chart carries the best switch, with its count':
+            !!sw&&!!top&&swTx.indexOf(String(top.n)+' plotted')>=0,
+          'and following it lands exactly the rows it promised':top?(after===top.n):false,
+          'no console errors':errAcc.length===0
+        },{railAll:A.all,railSum:A.sum,railFams:A.fams,plotted:now,
+           missBoth:C.missBoth,missX:C.missX,missY:C.missY,
+           offs:offs.map(function(o){return (o.x?'x:':'y:')+o.m+'='+o.n;}),
+           sw:swTx,after:after,note:ndTx.slice(0,200),cleared:cleared});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -9887,6 +9978,7 @@ def main(argv=None):
     DFX += ['n8_rb_rollstamp']
     DFX += ['w47_month']
     DFX += ['w50_source']
+    DFX += ['i50_rail_offer']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
