@@ -156,8 +156,8 @@ def test_keys_never_reach_the_request_body(tmp_path, fake):
     assert b"PREFLIGHT: PASS" in sent and b"[REDACTED]" in sent
     assert res["redacted"] == len(SECRETS)
     out = local_llm.format_summary(res)
-    assert out.splitlines()[0] == ("LOCAL MODEL SUMMARY (qwen3.8, unverified - quote nothing "
-                                   "from it as fact)")
+    assert out.splitlines()[0] == ("LOCAL MODEL SUMMARY (%s, unverified - quote nothing "
+                                   "from it as fact)" % local_llm.MODEL.split(":")[0])
     assert "redacted: %d lines" % len(SECRETS) in out
     assert "reading 50 tok/s, writing 10.0 tok/s" in out
     # the audit log holds the question and the answer, never the file text
