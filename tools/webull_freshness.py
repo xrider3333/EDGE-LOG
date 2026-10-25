@@ -116,6 +116,22 @@ from api/market_calendar):
                      process that has hung or died stops refreshing it -- paged as usual.
     qqq_1d           from 09:40, QQQ_1d's newest bar is not the previous session (the
                      engine refreshes it once a day at ~09:35) -- #14, 2 runs in a row.
+    vol_window:<leg> VOL WINDOW GUARD (MANAGER GO 2026-10-25): a fresh engine heartbeat's
+                     "vol_window" entry for the leg says today's vol-skip window is SHORT --
+                     NOISE's vol skip ranks on fewer than its 252 sessions because the daily
+                     bridge passed nothing (QQQ_1d.csv missing or empty, thin overlap, a ratio
+                     out of band, an error) or does not reach back far enough. Signals still
+                     run, but today's trade-or-skip may differ from the backtest's ("Trading:
+                     AFFECTED", as the engine's note says): on full history a ~92-session
+                     window flips ~1 session in 28; under the skip's own floor (min_obs, 60)
+                     the skip is OFF and never skips. MEDIUM, opens
+                     on the first short run, QUIET -- the engine sends the one plain note per
+                     live leg per day itself (api/cloud_signal _note_vol_window) -- and clears
+                     the run a fresh entry says the window is full again (no "OK" push). An
+                     entry from another day, or a leg the heartbeat no longer names (a restart:
+                     the entry returns at its next new bar), is no change. A SHADOW leg's entry
+                     (the shadow heartbeat; NOISE_422_*) is the same finding worded "shadow leg,
+                     no orders". No heartbeat entry at all (an older engine): not checked.
     shadow_hb        shadow-legs heartbeat over 10 min old or ok=false -- #25 (MEDIUM).
   EOD (session days, from 16:10 ET)
     eod_summary / webull_flat   eod_summary_done_date and _webull_flat_after_eod (flat) are
@@ -504,6 +520,7 @@ KEEL_REBUILD_AT = (18, 30)           # deploy/cloud/edgelog-keel-state.timer, Ne
 KEEL_FALLBACK_SESSIONS = 1           # = api/cloud_signal.KEEL_MAX_STALE_SESSIONS (a test pins it)
 NQ_MARKER = "nq_stale_alert.json"    # tools/keel_live_state.STALE_MARKER, in the keel dir
 KEEL_LIVE_CHECK_FILE = "keel_live_check.json"  # tools/keel_live_state.LIVE_CHECK_FILE (keel dir)
+VOL_WINDOW_KEY = "vol_window"        # api/cloud_signal.VOL_WINDOW_KEY, a heartbeat key (a test pins it)
 PREOPEN_SLOTS = ((8, 30), (9, 15))
 PREOPEN_LEASE_FLOOR_SEC = 90.0
 PREOPEN_LEASE_MARGIN = 2.0
@@ -1590,6 +1607,110 @@ def check_session(snap, now_et, mstate, ev):
     return out
 
 
+def _vol_window_entries(snap, now_et):
+    """{leg: (entry, shadow)} from the engine heartbeats' "vol_window" blocks (api/cloud_signal
+    VOL WINDOW GUARD), each heartbeat trusted only while it is fresh (ENGINE_HB_STALE_SEC). An
+    entry is a shadow leg's when it came from the shadow heartbeat or says shadow; one that says
+    nothing either way is judged by api/cloud_signal.SHADOW_LEGS' keys (_shadow_leg_keys)."""
+    out = {}
+    shadow_keys = ()
+    for hb_key, from_shadow in (("cs_hb", False), ("shadow_hb", True)):
+        hb = snap.get(hb_key) if isinstance(snap.get(hb_key), dict) else {}
+        ts = parse_iso(hb.get("ts")) if hb else None
+        if ts is None or now_et.timestamp() - ts.timestamp() > ENGINE_HB_STALE_SEC:
+            continue
+        block = hb.get(VOL_WINDOW_KEY)
+        for leg, e in (block.items() if isinstance(block, dict) else ()):
+            if not isinstance(e, dict):
+                continue
+            shadow = from_shadow or e.get("shadow") is True
+            if not shadow and "shadow" not in e:
+                if shadow_keys == ():
+                    shadow_keys = _shadow_leg_keys()
+                shadow = bool(shadow_keys) and str(leg) in shadow_keys
+            out[str(leg)] = (e, shadow)
+    return out
+
+
+def _int_or_none(x):
+    try:
+        return int(x)
+    except (TypeError, ValueError):
+        return None
+
+
+def vol_window_affects(word, off=False):
+    """The Trading line of a short vol-skip window -- the same words as
+    api/cloud_signal.vol_window_affects (a test pins it; not imported: 1.5 s+ on the box)."""
+    if off:
+        return f"{word} may trade a day the backtest skips (signals still run)"
+    return f"{word} may trade, or skip, today unlike the backtest (signals still run)"
+
+
+def check_vol_window(snap, now_et, mstate):
+    """vol_window:<leg> (see the module docstring): None (not checked) outside the session or
+    while no fresh heartbeat names a leg and none is open. ok None (no change) for an entry
+    from another day, an unreadable one, and an open episode whose leg the heartbeats no
+    longer name -- so a restart or a stale heartbeat never reads as "cleared". A live leg's
+    wording says "Trading: AFFECTED" like the engine's note; an entry under the skip's own
+    floor (`off`: fewer than min_obs sessions) says the check is off, not what it ranks on."""
+    if not in_session(now_et):
+        return None
+    entries = _vol_window_entries(snap, now_et)
+    alerts = (mstate or {}).get("alerts") or {}
+    held = [k for k in alerts if str(k).startswith("vol_window:")
+            and str(k)[len("vol_window:"):] not in entries]
+    if not entries and not held:
+        return None
+    today = now_et.date().isoformat()
+    out = []
+    for leg, (e, shadow) in sorted(entries.items()):
+        need, have = _int_or_none(e.get("need")), _int_or_none(e.get("have"))
+        min_obs = _int_or_none(e.get("min_obs"))
+        short = e.get("short") if isinstance(e.get("short"), bool) else (
+            have < need if need is not None and have is not None else None)
+        off = e.get("off") if isinstance(e.get("off"), bool) else bool(
+            short and have is not None and min_obs is not None and have < min_obs)
+        ok = None if (str(e.get("day")) != today or short is None) else not short
+        reason = str(e.get("reason") or "the daily bars could not be used")
+        word = leg.split("_")[0] or "NOISE"
+        why = (f"({e.get('reason_key')}: {e.get('text') or reason}; 5m window "
+               f"{e.get('depth_5m')} + daily bridge {e.get('bridged')} sessions)")
+        if off:
+            detail = (f"the vol skip is OFF: it has {have} sessions, under its {min_obs}-session "
+                      f"floor, and ranks on {need} in the backtest {why} -- signals still run, "
+                      f"but {word} trades every session the backtest would skip. ")
+            problem = (f"{word}'s vol-skip check is off today: {reason} - it has {have} "
+                       f"sessions and needs {min_obs} to work.")
+        else:
+            detail = (f"the vol skip ranks on {have} sessions, not {need} {why} -- signals still "
+                      f"run, but today's trade-or-skip may differ from the backtest's; on full "
+                      f"history a ~92-session window flips ~1 session in 28 (38 false / 23 "
+                      f"missed skips since 2020). ")
+            problem = (f"{word}'s vol-skip check is short today: {reason} - the skip ranks on "
+                       f"{have} sessions, not {need}.")
+        detail += f"Engine push: {e.get('pushed') or 'none'}; computed {e.get('at') or '?'}."
+        title = f"{word} vol-skip window short ({leg})" + (", skip off" if off else "")
+        if shadow:
+            out.append(_verdict(
+                f"vol_window:{leg}", "vol_window", ok, MEDIUM, title + ", shadow leg, no orders",
+                detail + " Shadow leg, no orders: its would-be trades only.",
+                plain=_plain(problem[:-1] + " (shadow leg, no orders).", priority="low"),
+                quiet=True))
+        else:
+            out.append(_verdict(
+                f"vol_window:{leg}", "vol_window", ok, MEDIUM, title, detail,
+                plain=_plain(problem, affects=vol_window_affects(word, off=off),
+                             priority="default"), quiet=True))
+    for key in held:
+        rec = alerts.get(key) or {}
+        out.append(_verdict(key, "vol_window", None, rec.get("severity") or MEDIUM,
+                            rec.get("title") or f"vol-skip window short ({key})",
+                            "no fresh engine heartbeat names this leg -- no change",
+                            quiet=bool(rec.get("quiet", True))))
+    return out
+
+
 def _open_lot_words(snap):
     """', with an open NOISE trade' from the executor's state.json legs ('' when flat) -- the
     ONE signal-stall pusher names what rides unmanaged (WEBULL PUSH PLAN 10-07: the executor
@@ -2272,6 +2393,7 @@ def evaluate(snap, now_et, mstate):
         ("disk", lambda: check_disk(snap)),
         ("evening", lambda: check_evening(snap, now_et, mstate)),
         ("session", lambda: check_session(snap, now_et, mstate, ev)),
+        ("vol_window", lambda: check_vol_window(snap, now_et, mstate)),
         ("eod", lambda: check_eod(snap, now_et)),
         ("keel_live", lambda: check_keel_live(snap)),
     ]

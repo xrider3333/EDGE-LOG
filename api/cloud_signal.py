@@ -1625,7 +1625,7 @@ def _log_fail_safe_once(reason_key, msg, log=print):
     log(msg)
 
 
-def _calibrate_daily_ranges(daily_df, arrays, now=None, log=print):
+def _calibrate_daily_ranges(daily_df, arrays, now=None, log=print, why_out=None):
     """Median ratio of 5m-derived (H-L)/C to Yahoo-DAILY (H-L)/C over the sessions
     BOTH sources cover (the live intraday `arrays`' own sessions), plus that overlap
     count. Logged ONCE per ET calendar date (not per leg, not per tick).
@@ -1648,7 +1648,11 @@ def _calibrate_daily_ranges(daily_df, arrays, now=None, log=print):
     (a daily bar and an RTH-only 5m session's own (H-L)/C should be close -- QQQ barely
     trades outside RTH -- so a ratio far from 1.0 means the two series are not lining up
     the way this bridge assumes, e.g. a date-alignment bug or a corrupted cache, and
-    scaling by it would be trusting a broken calibration rather than fixing one)."""
+    scaling by it would be trusting a broken calibration rather than fixing one).
+
+    `why_out` (optional dict, VOL WINDOW GUARD -- see the block above _stash_vol_window): a
+    fail-safe return also names its reason there (key = the _log_fail_safe_once label, text,
+    overlap). Nothing returned changes."""
     import numpy as np
     five_min = _session_ranges_from_5m(arrays)
     if now is not None and five_min:
@@ -1674,23 +1678,32 @@ def _calibrate_daily_ranges(daily_df, arrays, now=None, log=print):
         _log_fail_safe_once(
             "no_valid_overlap",
             "[cloud-signal] vol_prior_ranges: no valid overlap ratios -- passing nothing", log)
+        if why_out is not None:
+            why_out.update(key="no_valid_overlap", text="no valid overlap ratios", overlap=n)
         return None, n
     if n < DAILY_MIN_OVERLAP_SESSIONS:
         _log_fail_safe_once(
             "thin_overlap",
             f"[cloud-signal] vol_prior_ranges: only {n} overlap session(s) "
             f"(< {DAILY_MIN_OVERLAP_SESSIONS} required) -- passing nothing", log)
+        if why_out is not None:
+            why_out.update(key="thin_overlap", overlap=n,
+                           text=f"only {n} overlap session(s) (< {DAILY_MIN_OVERLAP_SESSIONS})")
         return None, n
     if not (DAILY_CALIBRATION_RATIO_MIN <= ratio <= DAILY_CALIBRATION_RATIO_MAX):
         _log_fail_safe_once(
             "ratio_out_of_band",
             f"[cloud-signal] vol_prior_ranges: calibration ratio {ratio:.4f} outside "
             f"[{DAILY_CALIBRATION_RATIO_MIN}, {DAILY_CALIBRATION_RATIO_MAX}] -- passing nothing", log)
+        if why_out is not None:
+            why_out.update(key="ratio_out_of_band", overlap=n,
+                           text=f"calibration ratio {ratio:.4f} outside "
+                                f"[{DAILY_CALIBRATION_RATIO_MIN}, {DAILY_CALIBRATION_RATIO_MAX}]")
         return None, n
     return ratio, n
 
 
-def vol_prior_ranges_for_leg(cfg, arrays, now, paths=None, fetch=False, log=print):
+def vol_prior_ranges_for_leg(cfg, arrays, now, paths=None, fetch=False, log=print, why_out=None):
     """The list of calibrated prior-session (H-L)/C values (oldest first) to hand
     this leg's engine call as vol_prior_ranges -- see NOISE_1_0.py's own kwarg -- or
     None when the leg's strategy does not declare it, its strategy declares no
@@ -1701,13 +1714,21 @@ def vol_prior_ranges_for_leg(cfg, arrays, now, paths=None, fetch=False, log=prin
     passes/leaves this False and reads only whatever is already on disk, if anything.
 
     FAIL-SAFE: any exception anywhere in this function is caught, logged once, and
-    treated as "pass nothing" -- this never raises and never blocks step()."""
+    treated as "pass nothing" -- this never raises and never blocks step().
+
+    `why_out` (optional dict, VOL WINDOW GUARD -- see the block above _stash_vol_window): once
+    the leg is known to use the bridge it receives "required" (= need) and "key"/"text" -- "ok"
+    or the reason this call passed nothing (the _log_fail_safe_once labels, plus no_finished,
+    no_prior_daily and error) -- the outcome above, named, since its log lines are once a day.
+    Nothing returned changes."""
+    why = why_out if why_out is not None else {}
     try:
         if not _leg_accepts_vol_prior_ranges(cfg.get("strategy")):
             return None
         need = required_lookback_sessions(cfg.get("strategy"))
         if need is None:
             return None
+        why["required"] = need
         first_date = arrays["index"][0].date()
         paths = paths or DEFAULT_PATHS
         if fetch:
@@ -1718,6 +1739,7 @@ def vol_prior_ranges_for_leg(cfg, arrays, now, paths=None, fetch=False, log=prin
                 "missing_cache",
                 "[cloud-signal] vol_prior_ranges: QQQ_1d.csv is missing or empty -- "
                 "passing nothing until it exists", log)
+            why.update(key="missing_cache", text="QQQ_1d.csv is missing or empty")
             return None
         # Defense in depth (critical fix, go-live audit item 3.8): filter out any
         # unfinished-session row again at READ time, not only at fetch_and_merge_daily's
@@ -1729,8 +1751,10 @@ def vol_prior_ranges_for_leg(cfg, arrays, now, paths=None, fetch=False, log=prin
                 "missing_cache",
                 "[cloud-signal] vol_prior_ranges: QQQ_1d.csv has no finished session yet -- "
                 "passing nothing until it does", log)
+            why.update(key="no_finished", text="QQQ_1d.csv has no finished session yet")
             return None
-        ratio, _overlap_n = _calibrate_daily_ranges(daily_df, arrays, now=now, log=log)
+        ratio, overlap_n = _calibrate_daily_ranges(daily_df, arrays, now=now, log=log,
+                                                   why_out=why)
         if ratio is None:
             return None
         daily = _daily_ranges_by_date(daily_df)
@@ -1738,11 +1762,16 @@ def vol_prior_ranges_for_leg(cfg, arrays, now, paths=None, fetch=False, log=prin
         keep = need + DAILY_MARGIN_SESSIONS
         prior_dates = prior_dates[-keep:]
         if not prior_dates:
+            why.update(key="no_prior_daily", text="QQQ_1d.csv has no session before the 5m window")
             return None
+        why.update(key="ok", overlap=overlap_n,
+                   text=f"{len(prior_dates)} daily session(s) at ratio {ratio:.4f}")
         return [ratio * daily[d] for d in prior_dates]
     except Exception as e:
         log(f"[cloud-signal] vol_prior_ranges unavailable ({type(e).__name__}: {e}) -- "
             f"passing nothing this call")
+        if "required" in why:
+            why.update(key="error", text=f"{type(e).__name__}: {e}")
         return None
 
 
@@ -2094,7 +2123,8 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
     fetch=False read, but one an isolated test or tool calling this with `now` (to
     exercise session_in_progress, say) never asked for and had no way to avoid. Give
     such a call its own `paths` (an isolated dict, or DEFAULT_PATHS on purpose) to opt
-    into the daily-cache bridge too.
+    into the daily-cache bridge too. What the bridge decided is also stashed for the VOL
+    WINDOW GUARD (_stash_vol_window, keyed by `leg_key`) -- a memo only, never read here.
 
     RESTING LEVELS (2026-09-29, see the block comment above _leg_accepts_return_levels).
     Only for a cfg["resting_levels"] leg whose strategy names `return_levels`: the call
@@ -2122,9 +2152,16 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
             and _session_in_progress(arrays, now):
         extra["session_in_progress"] = True
     if now is not None and paths is not None:
-        prior_ranges = vol_prior_ranges_for_leg(cfg, arrays, now, paths=paths, fetch=fetch, log=log)
+        vol_why = {}
+        prior_ranges = vol_prior_ranges_for_leg(cfg, arrays, now, paths=paths, fetch=fetch, log=log,
+                                                why_out=vol_why)
         if prior_ranges:
             extra["vol_prior_ranges"] = prior_ranges
+        # VOL WINDOW GUARD: a memo of what the bridge just decided -- the engine call never sees
+        # it, and it gets only the COUNT, never the list the engine is handed (see the block
+        # above _stash_vol_window)
+        _stash_vol_window(leg_key, arrays, now, len(prior_ranges or ()), vol_why,
+                          strategy=cfg.get("strategy"), log=log)
     if extra:
         params = dict(params)
         params.update(extra)
@@ -4403,6 +4440,192 @@ def _note_live_leg_not_ready(leg_key, cfg, why, now, paths, fetch, warnings=None
         log(f"[cloud-signal] {leg_key}: not-ready note failed ({type(e).__name__}: {e})")
 
 
+# VOL WINDOW GUARD (MANAGER GO 2026-10-25). NOISE's vol skip (NOISE_1_0.py _vol_percentile;
+# vol_skip_pct 95 = no entries that whole session) ranks the judged session against the
+# REQUIRED_LOOKBACK_SESSIONS (252) sessions before it. The box's 5m cache holds ~94, so the
+# vol_prior_ranges daily bridge (vol_prior_ranges_for_leg) tops it up; when the bridge passes
+# nothing (QQQ_1d.csv missing or empty, thin overlap, a ratio out of band, an error) the skip
+# silently ranks on the short 5m window -- on full history a ~92-session window flips ~3.6% of
+# sessions (38 false and 23 missed skips since 2020) -- and the only trace was one log line a
+# day. Below the skip's own min_obs floor (VOL_SKIP_LOOKBACK_SESSIONS, 60 -- vol_skip_min_obs)
+# it does not rank at all: it is OFF (NaN, never skips). Now:
+#   * run_leg_trades stashes what the bridge already decided (_stash_vol_window: the judged
+#     session, the 5m window's depth before it, the COUNT of sessions bridged -- never the list
+#     the engine is handed --, the bridge's reason, the skip's floor) -- a memo write; the engine
+#     call never reads it. Stashed there, not in step(), so the decide_at_close probe and the
+#     stream's dry runs (whose committed bar step() never re-runs) are covered too.
+#   * step(), AFTER its rows are written (_note_vol_window), publishes {leg: entry} in its
+#     `warnings` ("vol_window" -- the live thread puts it on the heartbeat; run_shadow_step puts
+#     the shadow legs' on the shadow heartbeat) and, from VOL_WINDOW_PAGE_FROM until the session
+#     close (never on the EOD SETTLE step: no decision is left today), sends ONE default plain
+#     phone note per LIVE leg per ET session day while the window is short -- "Trading:
+#     AFFECTED" (today's trade-or-skip may differ from the backtest's; the signals still run) --
+#     only where every engine page may go (_push_allowed: a live fetching tick on the box, never
+#     a shadow leg). _VOL_WINDOW_NOTED holds it in-process and _engine_note's repeat rule
+#     (problem id = the ET date, phone_dedupe.json) across a restart.
+#   * tools/webull_freshness.py turns each fresh entry into a quiet vol_window:<leg> finding
+#     (the engine pages it) that clears itself on the first bar the window is full again.
+# Signals, orders and state.json never depend on any of it: every step is wrapped and only
+# logs on failure.
+VOL_WINDOW_KEY = "vol_window"       # tools/webull_freshness.VOL_WINDOW_KEY (a test pins it)
+VOL_WINDOW_PAGE_FROM = LIVE_NOT_READY_PAGE_FROM   # QQQ_1d.csv is refreshed at the 09:35 bar
+VOL_SKIP_MIN_OBS_DEFAULT = 60       # NOISE_1_0.VOL_SKIP_LOOKBACK_SESSIONS (a test pins it)
+_VOL_WINDOW_STASH = {}              # leg key -> what the bridge decided at its last engine call
+_VOL_WINDOW_NOTED = {}              # leg key -> {"day": ET date handed to _engine_note, "action"}
+_VOL_WINDOW_WORDS = {
+    "missing_cache": "daily bars missing",
+    "no_finished": "the daily bars hold no finished day yet",
+    "no_valid_overlap": "the daily bars do not line up with the 5-minute bars",
+    "thin_overlap": "the daily bars overlap the 5-minute bars too little",
+    "ratio_out_of_band": "the daily and 5-minute bars disagree on size",
+    "no_prior_daily": "the daily bars go back no further than the 5-minute bars",
+    "error": "the daily bars could not be read",
+    "short_depth": "the daily bars do not go back far enough",
+}
+
+
+def vol_skip_min_obs(strategy):
+    """The fewest reference sessions the leg's vol skip needs before it judges a day at all --
+    NOISE_1_0.py VOL_SKIP_LOOKBACK_SESSIONS, _vol_percentile's `min_obs` (below it the skip is
+    OFF: NaN, never skips) -- found down the strategy's `_base` chain the way
+    _leg_accepts_vol_prior_ranges walks it (the live wrappers re-export only
+    REQUIRED_LOOKBACK_SESSIONS); VOL_SKIP_MIN_OBS_DEFAULT when none declares it. Never raises."""
+    try:
+        mod = _strategy_module_for_sizing(strategy)
+        seen = set()
+        while mod is not None and id(mod) not in seen:
+            seen.add(id(mod))
+            n = getattr(mod, "VOL_SKIP_LOOKBACK_SESSIONS", None)
+            if n is not None:
+                return int(n) if int(n) > 0 else VOL_SKIP_MIN_OBS_DEFAULT
+            mod = getattr(mod, "_base", None)
+    except Exception:
+        pass
+    return VOL_SKIP_MIN_OBS_DEFAULT
+
+
+def vol_window_affects(word, off=False):
+    """The Trading line of a short vol-skip window (tools/webull_freshness.vol_window_affects
+    says the same -- a test pins it): AFFECTED, since today's trade-or-skip may differ from the
+    backtest's; an OFF skip (under its floor) can only trade a day the backtest skips."""
+    if off:
+        return f"{word} may trade a day the backtest skips (signals still run)"
+    return f"{word} may trade, or skip, today unlike the backtest (signals still run)"
+
+
+def _stash_vol_window(leg_key, arrays, now, bridged, why, strategy=None, log=print):
+    """Record what vol_prior_ranges_for_leg just decided for `leg_key` (see the block above):
+    nothing when the leg does not use the bridge (`why`, its why_out, is empty) or has no key.
+    `bridged` is the COUNT of sessions it passed (the engine's list never comes here).
+    `depth_5m` is what the judged (last) session ranks on without the bridge -- the sessions
+    before its PRIOR session, NOISE_1_0.py _vol_percentile's own count; `min_obs` the skip's
+    floor (vol_skip_min_obs of `strategy`). Never raises."""
+    try:
+        if leg_key is None or not why:
+            return
+        import numpy as np
+        did = np.asarray(arrays["day_id"])
+        n_sess = int(np.count_nonzero(did[1:] != did[:-1]) + 1) if len(did) else 0
+        _VOL_WINDOW_STASH[leg_key] = {
+            "day": arrays["index"][-1].date().isoformat(), "depth_5m": max(0, n_sess - 2),
+            "bridged": int(bridged or 0), "need": int(why.get("required") or 0),
+            "min_obs": vol_skip_min_obs(strategy),
+            "reason_key": str(why.get("key") or "unknown"), "text": str(why.get("text") or ""),
+            "at": now.isoformat()}
+    except Exception as e:
+        log(f"[cloud-signal] {leg_key}: vol window record failed ({type(e).__name__}: {e})")
+
+
+def _vol_window_entry(leg_key, rec, cfg):
+    """One leg's published entry from its stash record: `have` = the sessions the skip ranks on
+    (capped at `need`), `short`, `off` (short AND under the skip's `min_obs` floor: it does not
+    rank at all), the reason in plain words, and the day its note went out."""
+    need = int(rec["need"])
+    have = min(need, int(rec["depth_5m"]) + int(rec["bridged"]))
+    min_obs = int(rec.get("min_obs") or VOL_SKIP_MIN_OBS_DEFAULT)
+    short = have < need
+    key = rec["reason_key"]
+    if short and key == "ok":
+        key = "short_depth"            # bridged, but the daily file does not reach back far enough
+    noted = _VOL_WINDOW_NOTED.get(leg_key) or {}
+    pushed = noted.get("day") if noted.get("action") == "push" else None
+    return {"day": rec["day"], "at": rec["at"], "need": need, "have": have, "min_obs": min_obs,
+            "depth_5m": rec["depth_5m"], "bridged": rec["bridged"], "short": short,
+            "off": short and have < min_obs, "reason_key": key,
+            "reason": _VOL_WINDOW_WORDS.get(key, "the daily bars could not be used") if short else "ok",
+            "text": rec["text"], "pushed": pushed if pushed == rec["day"] else None,
+            "shadow": bool((cfg or {}).get("shadow"))}
+
+
+def vol_window_status(legs, log=print):
+    """{leg: entry} for every leg in `legs` whose last engine call ran the bridge -- what step()
+    puts in warnings["vol_window"] and run_shadow_step on the shadow heartbeat. {} (logged) on
+    any failure; never raises."""
+    try:
+        return {k: _vol_window_entry(k, _VOL_WINDOW_STASH[k], cfg)
+                for k, cfg in (legs or {}).items() if _VOL_WINDOW_STASH.get(k)}
+    except Exception as e:
+        log(f"[cloud-signal] vol window status failed ({type(e).__name__}: {e})")
+        return {}
+
+
+def _vol_window_note(leg_key, e):
+    """The plain phone note for a live leg's short vol-skip window: AFFECTED (today's
+    trade-or-skip may differ from the backtest's) at default priority -- the signals still run.
+    Under the skip's floor (`off`) it says the check is off, not what it ranks on."""
+    from api import ntfy_push
+    w = _keel_leg_word(leg_key)
+    if e.get("off"):
+        status = "vol-skip check off"
+        problem = (f"{w}'s vol-skip check is off today: {e['reason']} - it has {e['have']} "
+                   f"sessions and needs {e['min_obs']} to work")
+    else:
+        status = "vol-skip check short"
+        problem = (f"{w}'s vol-skip check is short today: {e['reason']} - the skip ranks on "
+                   f"{e['have']} sessions, not {e['need']}")
+    return ntfy_push.plain(
+        w, status, vol_window_affects(w, off=bool(e.get("off"))), problem,
+        "ask Claude (PAPER-WB chat) to check the daily QQQ bars today", priority="default")
+
+
+def _note_vol_window(legs, now, paths, fetch, warnings=None, post_close=False, log=print):
+    """step()'s VOL WINDOW GUARD (see the block above), called AFTER its rows are written: one
+    phone note per live leg per ET day while its window is short -- from VOL_WINDOW_PAGE_FROM
+    until the session close, never on the EOD SETTLE step (`post_close`) -- then {leg: entry}
+    in `warnings` either way. Reads only the stash -- the bridge is never re-run. Never raises."""
+    try:
+        et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+        day = et.date().isoformat()
+        if et.strftime("%H:%M") >= VOL_WINDOW_PAGE_FROM and not post_close \
+                and not _at_or_after_session_close(now):
+            for key, cfg in (legs or {}).items():
+                rec = _VOL_WINDOW_STASH.get(key)
+                if not rec or rec.get("day") != day or not _push_allowed(cfg, fetch):
+                    continue
+                if (_VOL_WINDOW_NOTED.get(key) or {}).get("day") == day:
+                    continue
+                e = _vol_window_entry(key, rec, cfg)
+                if not e["short"]:
+                    continue
+                _VOL_WINDOW_NOTED[key] = {"day": day, "action": None}
+                log(f"[cloud-signal] {key}: vol-skip window SHORT page -- ranks on {e['have']} of "
+                    f"{e['need']} sessions ({e['depth_5m']} in the 5m window + {e['bridged']} "
+                    f"bridged; {e['reason_key']}: {e['text'] or e['reason']})"
+                    + (f"; under the {e['min_obs']}-session floor, the skip is OFF"
+                       if e["off"] else ""))
+                _VOL_WINDOW_NOTED[key]["action"] = _engine_note(
+                    f"vol_window:{key}", day, _vol_window_note(key, e), paths, log=log,
+                    push=_engine_push_background)
+    except Exception as e:
+        log(f"[cloud-signal] vol window note failed ({type(e).__name__}: {e})")
+    try:
+        status = vol_window_status(legs, log=log) if warnings is not None else None
+        if status:
+            warnings[VOL_WINDOW_KEY] = status
+    except Exception as e:
+        log(f"[cloud-signal] vol window status failed ({type(e).__name__}: {e})")
+
+
 def _dip_daily_series(arrays, now, paths, params=None, log=print):
     """(series, None) or (None, (reason_key, text)) -- api/dip_live.py build_daily_series on
     the DIP legs' params (default DIP_424_PARAMS)."""
@@ -4445,6 +4668,8 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     bars a fetching caller has JUST refreshed on disk (run_shadow_step, 2026-09-28): it is
     recorded and stamped exactly as a fetch's own source would be. Ignored for a timeframe
     this call fetched itself; None (every other caller) changes nothing.
+    `warnings` also gets "vol_window" ({leg: entry}, the VOL WINDOW GUARD -- see the block
+    above _stash_vol_window) for every leg whose engine runs used the vol_prior_ranges bridge.
     `post_close` (2026-09-28): the EOD SETTLE step (see _eod_settle_tick) -- passed to
     _diff_leg, which then never emits an ENTRY. Also reports, via `warnings`
     ("eod_settled", "eod_bars"), whether every cfg["eod_flat"] leg's newest usable bar
@@ -4611,6 +4836,10 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     # on a daemon thread (as the stream commit's does): a "default" push is a single plain try
     # with a network timeout, and the engine thread / heartbeat must not wait it out.
     _note_keel_entries(all_events, legs, paths, fetch, push=_engine_push_background)
+    # VOL WINDOW GUARD (see the block above _stash_vol_window): also AFTER the rows, off what
+    # this call's engine runs already stashed -- never raises, never touches an event; the EOD
+    # SETTLE step publishes the status but never pages (no decision is left today)
+    _note_vol_window(legs, now, paths, fetch, warnings=warnings, post_close=post_close)
     return all_events
 
 
@@ -5632,8 +5861,11 @@ def run_shadow_step(now=None, fetch=True, live_legs=None, shadow_legs=None, live
             notes.append(f"NOISE forward log unavailable: {type(e).__name__}: {e}")
         if n_fwd:
             notes.append(f"{n_fwd} NOISE forward-log row(s)")
+    # VOL WINDOW GUARD: the shadow legs' vol-skip depth (the monitor's finding, never a push)
+    vol_window = vol_window_status(shadow_legs, log=log)
     _write_heartbeat(spaths, ok=True,
-                     note=f"{len(events)} shadow event(s)" + ("; " + "; ".join(notes) if notes else ""))
+                     note=f"{len(events)} shadow event(s)" + ("; " + "; ".join(notes) if notes else ""),
+                     health={VOL_WINDOW_KEY: vol_window} if vol_window else None)
     return events
 
 
@@ -6449,6 +6681,9 @@ def _engine_thread_run(stop=None, log=print):
                 # FEED HEALTH (2026-10-05): newest closed bar, its age, bars due/missing and
                 # the stalled verdict ride on the heartbeat; ok keeps its meaning
                 health = _feed_health(now_et, warnings, DEFAULT_PATHS, log=log)
+                # VOL WINDOW GUARD: each bridge leg's vol-skip depth, for tools/webull_freshness.py
+                if warnings.get(VOL_WINDOW_KEY):
+                    health[VOL_WINDOW_KEY] = warnings[VOL_WINDOW_KEY]
                 if health.get("stalled") or health.get("stalled_timeframes"):
                     s_tf = (health.get("stalled_timeframes") or [health.get("bar_timeframe")])[0]
                     s_age = ((health.get("feed_by_timeframe") or {}).get(str(s_tf)) or {}).get(
