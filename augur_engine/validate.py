@@ -35,6 +35,7 @@ from .analytics import wf_oos_block as _wf_oos_block
 #   (total_pnl/num_trades/win_rate/profit_factor/max_drawdown/avg_pnl/wins/losses) so the web
 #   layer's existing `_blk()`/`_P()` machinery works unmodified on RAW candidates too.
 from .ml_gate import _stats as _gate_stats
+from . import stretch_dd as _SDD     # owner item 51: validate.dd_pct (valued daily DD per stretch)
 import pandas as _pd
 
 
@@ -719,7 +720,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                  #    look-back used to spend unable to trade (a 250-day trend filter lost
                  #    86% of its fold trades: tools/wf_coldstart_audit.py). Pass 0 to get
                  #    the old cold behaviour back, bit for bit, for a reproduction run.
-                 warm_days=WARM_DAYS):
+                 warm_days=WARM_DAYS,
+                 # ── OWNER ITEM 51 (augur_engine/stretch_dd.py): the job's $-per-point multiplier
+                 #    for validate.dd_pct. None = the house table's for a futures root; an unsized
+                 #    instrument (QQQ, stocks, yahoo_adj, usd-unit files) stores no DD either way.
+                 #    Changes no other value. AUGUR_STRETCH_DD=0 turns the whole block off.
+                 dd_mult=None):
     # Walk-forward folds in parallel processes (augur_engine.wf_pool). The runner sets
     # EDGELOG_VALIDATE_WORKERS in its launcher; a caller may pass workers= explicitly.
     # Only Stage B uses it - Stage A is an adaptive search and stays in-line.
@@ -836,6 +842,10 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     nb = A.get("neighborhood") or {}          # plateau check (param robustness)
     mc = A.get("mc") or {}                     # Monte-Carlo drawdown (sizing)
     eq_opt = list((A.get("equity") or {}).get("cum") or [])   # champion equity, optimize window (pts)
+    # item 51: the walk-forward folds also carry each OOS trade's side / entry price / unrounded net
+    #   (transient, popped with the other _oos_* arrays below) so the chain can be valued daily
+    _dd_on = _SDD.enabled()
+    _dd_wf_kw = {"keep_oos_detail": True} if _dd_on else {}
 
     # ── Stage B — walk-forward in BOTH windowing schemes ──────────────────────
     #    ROLLING = fixed-length in-sample window (re-optimizes on a constant recent slice);
@@ -849,7 +859,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                       min_trades=min_trades, top_n=20, seed=seed,
                       date_from=opt_from, date_to=opt_to, progress_cb=_stage(c0, c1),
                       warm_days=_warm_days,
-                      workers=_wf_workers) or {}
+                      workers=_wf_workers, **_dd_wf_kw) or {}
         ran = bool(Bm.get("wf"))
         fl = Bm.get("top") or []
         so = st = si = strn = hd = 0.0
@@ -1237,10 +1247,19 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
               f"— omitting validate.wf_oos")
         wf_oos = None
 
+    # item 51: the PRIMARY chain's own trades, copied before the pop below strips them; valued at the
+    #   very end (validate.dd_pct), after every existing block is built. Never fails the validate.
+    _dd_chain = None
+    if _dd_on and wf_ran and folds:
+        try:
+            _dd_chain = [_SDD.chain_fold(_fr) for _fr in folds]
+        except Exception:
+            _dd_chain = None
+
     for _rowset in (folds, (_altw.get("folds") if isinstance(_altw, dict) else None)):
         for _fr in (_rowset or []):
             for _k in ("_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won",
-                       "_oos_ei", "_oos_xi"):
+                       "_oos_ei", "_oos_xi", "_oos_side", "_oos_px", "_oos_pnlf"):
                 _fr.pop(_k, None)
 
     # ── Per-trade Win% / Sharpe so the report's KPI matrix + Past-runs columns aren't blank.
@@ -1445,6 +1464,17 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     _clk.end("surrogate")
     _clk.begin("gate")          # gate bake-off + PBO
 
+    # item 51: ONE money rule (stretch_dd.money_ctx) and the roll plan the champion's fills were priced
+    #   under, read once for the gate's blocks and validate.dd_pct. Reads only; never fails the run.
+    _dd_money, _dd_unsized, _dd_roll, _dd_cache, _dd_gctx = None, None, None, {}, None
+    if _dd_on:
+        try:
+            _dd_money, _dd_unsized = _SDD.money_ctx(dd_mult, instrument or master.get("instrument"),
+                                                    strategy, source=master.get("source"))
+            _dd_roll = _SDD.roll_info(master, full if champ else None)
+        except Exception as _dde:
+            _dd_money, _dd_unsized = None, "ERROR: %s: %s" % (type(_dde).__name__, str(_dde)[:160])
+
     # ── Gate bake-off + PBO — both re-run the champion / candidates on already-resolved data. ──
     #    GATE BAKE-OFF: ungated (take every trade) + logistic / RF / XGB gates × cut-offs, ranked
     #    on the pre-lockbox slice by recovery factor; the winner gets ONE lockbox look (losers'
@@ -1494,9 +1524,20 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                             _wfA, _wfB = _fidx[_b0], _fidx[_b1]
                 except Exception:
                     _wfA = _wfB = None
+                # item 51: with a sized instrument the gate also values each stretch block daily
+                #   (stretch_dd.gate_pass, after all its blocks exist); None = the call as before
+                _dd_gctx = None
+                if _dd_on and _dd_money is not None:
+                    try:
+                        _dd_gctx = _SDD.gate_ctx(_dd_money, roll=_dd_roll,
+                                                 sizes=_SDD.aligned_sizes(full, full["trades"]))
+                        _dd_gctx["_frames"] = _dd_cache.setdefault("_frames", {})
+                    except Exception:
+                        _dd_gctx = None
                 gate_bakeoff = _gate_bakeoff_fn(_full_arr, full["trades"],
                                                 lockbox_months=lockbox_months, lb_from=lb_from,
-                                                wf_from=_wfA, wf_to=_wfB)
+                                                wf_from=_wfA, wf_to=_wfB,
+                                                **({"mtm": _dd_gctx} if _dd_gctx is not None else {}))
             except Exception as _ge:
                 import traceback as _gt
                 print("[validate] gate_validate FAILED:", repr(_ge)); _gt.print_exc()
@@ -1678,6 +1719,39 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "flags": flags,               # advisory: gate choice · adversarial regime drift · VIF
         "champion": champ, "thresholds": th,
     }
+    # ── OWNER ITEM 51: DD% from peak + the worst $ drawdown of each stretch on its VALUED daily curve
+    #    (closed P&L + open positions marked at every session close; augur_engine/stretch_dd.py). Runs
+    #    after everything above is built, from trades this run already holds - no backtest, no existing
+    #    value touched. validate.dd_pct = {is, wf, lb, wf_lb, full: {dd_pct_peak, dd_usd, marked} | None}
+    #    and validate.dd_pct_src = provenance + the reason for every null. Any failure is recorded there,
+    #    never raised. The gate's per-block keys stay on the top-level gate_validate copy only: the
+    #    validate.gate_bakeoff mirror is rebuilt without them (doc size, decision 2). ──
+    if _dd_on:
+        _dd_t0 = _time.time()
+        try:
+            _dd_pct, _dd_src = _SDD.validate_dd(
+                _dd_money, _full_arr, full=(full if champ else None), gate=gate_bakeoff,
+                wf_split=_wfA, chain=_dd_chain, lb=lb, lb_from=lb_from, roll=_dd_roll,
+                cache=_dd_cache, code_sha=_LOADED_GIT_SHA, cut_rule=window_cut_rule(master),
+                unsized=_dd_unsized)
+        except Exception as _dde:
+            _dd_pct = None
+            _dd_src = {"src": "validate", "v": _SDD.VERSION, "status": "ERROR",
+                       "error": "%s: %s" % (type(_dde).__name__, str(_dde)[:200])}
+            print("[validate] stretch_dd failed -", _dd_src["error"])
+        try:
+            _dd_grep = (_dd_gctx or {}).get("report") if isinstance(_dd_gctx, dict) else None
+            if _dd_grep is not None:
+                _dd_src["gate"] = _dd_grep
+            # whenever the gate was handed a ctx (even a pass that failed half way may have keyed
+            #   some blocks): the mirror is the same structure, minus the three keys
+            if _dd_gctx is not None and isinstance(report.get("gate_bakeoff"), dict):
+                report["gate_bakeoff"] = _SDD.strip_keys(report["gate_bakeoff"])
+        except Exception as _dde:
+            _dd_src["gate_error"] = "%s: %s" % (type(_dde).__name__, str(_dde)[:200])
+        report["dd_pct"] = _dd_pct
+        report["dd_pct_src"] = _dd_src
+        print("[validate] stretch_dd %s in %.1f s" % (_dd_src.get("status"), _time.time() - _dd_t0))
     _clk.total()
     # Shape stays compatible with the Runs-history saver (best / top / dsr).
     return {

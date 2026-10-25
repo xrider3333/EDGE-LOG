@@ -976,6 +976,21 @@ def _wf_fold_row(ev, H, L, space, dp, pkeys, seed, n_trials, min_trades, cost_pt
                 row["_oos_won"] = list(_mm.get("won") or [])
     except Exception:
         pass
+    # Owner item 51 (augur_engine/stretch_dd.py): the rest of each OOS trade - side, entry price and
+    # the UNROUNDED net (`_oos_pnls` is rounded to 4 dp, which misses a chain's net by up to a dollar
+    # on NQ) - so validate can value the chain's open positions at every session close. Transient like
+    # the arrays above: validate pops them before the doc is built, and run_auto copies them into `top`
+    # only for a caller that asks (keep_oos_detail). Own try: it can never cost the row anything above.
+    try:
+        _tr = (om or {}).get("trades") or []
+        if _tr:
+            if all(isinstance(t, (list, tuple)) and len(t) >= 5 for t in _tr):
+                row["_oos_side"] = [t[3] for t in _tr]
+                row["_oos_px"] = [t[4] for t in _tr]
+            row["_oos_pnlf"] = [float(t[2]) for t in _tr]
+    except Exception:
+        for _k in ("_oos_side", "_oos_px", "_oos_pnlf"):
+            row.pop(_k, None)
     row["oos_pf"] = float(om.get("profit_factor", 0)) if om else 0.0
     row["oos_wins"] = int(om.get("wins", 0) or 0) if om else 0
     row["oos_win_rate"] = float(om.get("win_rate", 0) or 0) if om else 0.0
@@ -1140,8 +1155,13 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
              auto_expand=True, auto_expand_max_rounds=2, auto_expand_max_global_rounds=6,
              compute_surrogate=False,
              auto_steer=False, steer_seed_frac=0.4, steer_batch_frac=0.15,
-             steer_method="gp", workers=1, warm_days=0):
+             steer_method="gp", workers=1, warm_days=0, keep_oos_detail=False):
     """Smart search. Returns the same shape as run_grid plus OOS columns.
+
+    keep_oos_detail (owner item 51): False (the default) leaves every result exactly as before.
+    True also carries each walk-forward fold's transient `_oos_side` / `_oos_px` / `_oos_pnlf`
+    into its `top` row - validate's valued daily drawdown (stretch_dd) reads them and pops them
+    before the doc is built, like the other `_oos_*` arrays.
 
     workers (2026-09-08): walk-forward folds run in this many processes (see
     augur_engine.wf_pool). 1 = the in-line loop. Results are identical either way;
@@ -1495,6 +1515,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                   "_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won", "_oos_ei", "_oos_xi"):
             if k in r:
                 row[k] = r[k]
+        if keep_oos_detail:                          # item 51: validate asks, and pops them again
+            for k in ("_oos_side", "_oos_px", "_oos_pnlf"):
+                if k in r:
+                    row[k] = r[k]
         top.append(row)
 
     out = {"mode": method, "n_combos": (n_trials if not is_wf else n_trials),

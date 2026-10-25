@@ -537,11 +537,16 @@ def run_gate_validate(strategy, *, instrument=None, timeframe="5m", session="rth
                       cost_pts=0.0, date_from=None, date_to=None,
                       gates=("logistic", "rf", "xgb"),
                       thresholds=(0.50, 0.55, 0.60), lockbox_months=12,
-                      progress_cb=None):
+                      progress_cb=None, dd_mult=None):
     """The honest gate bake-off (board 4.10, ROADMAP #25): run the strategy ONCE
     (fixed params), then rank every gate x cut-off candidate on the PRE-LOCKBOX
     slice only, and give the single winner ONE look at the lockbox. Losing
     candidates' lockbox numbers never leave ml_gate.gate_validate — no shopping.
+
+    Owner item 51 (augur_engine/stretch_dd.py): on a sized futures instrument every gate
+    stretch block also gets dd_pct_peak / dd_usd / dd_marked (its valued daily drawdown).
+    `dd_mult` = the job's $ per point (None: the house table). Nothing else changes;
+    AUGUR_STRETCH_DD=0 turns it off.
     """
     from .ml_gate import gate_validate as _gv
     mod = strategy if hasattr(strategy, "run_backtest") else load_strategy(strategy)
@@ -561,8 +566,21 @@ def run_gate_validate(strategy, *, instrument=None, timeframe="5m", session="rth
         return None
     if progress_cb:
         progress_cb(15, 100)
+    _mtm = None                                   # item 51: None = the gate exactly as before
+    try:
+        from . import stretch_dd as _SDD
+        if _SDD.enabled():
+            _am = arrays.get("meta") or master or {}
+            _money, _why = _SDD.money_ctx(dd_mult, instrument or _am.get("instrument"), mod,
+                                          source=_am.get("source") or source)
+            if _money is not None:
+                _mtm = _SDD.gate_ctx(_money, roll=_SDD.roll_info(_am, base),
+                                     sizes=_SDD.aligned_sizes(base, base["trades"]))
+    except Exception:
+        _mtm = None
     gv = _gv(arrays, base["trades"], gates=tuple(gates),
-             thresholds=tuple(thresholds), lockbox_months=int(lockbox_months))
+             thresholds=tuple(thresholds), lockbox_months=int(lockbox_months),
+             **({"mtm": _mtm} if _mtm is not None else {}))
     if progress_cb:
         progress_cb(95, 100)
     res = {k: v for k, v in base.items() if k != "trades"}

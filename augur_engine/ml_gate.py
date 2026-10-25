@@ -418,7 +418,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                   min_kept=50, min_keep_frac=0.10, windows=4, min_history=30,
                   refit_every=25, wf_from=None, wf_to=None,
                   seed=42, lb_from=None, keel=True, lb_tail_cap=LB_TAIL_CAP,
-                  keel_version=None):
+                  keel_version=None, mtm=None):
     """The honest way to pick a gate (board 4.10, ROADMAP #25).
 
     Discipline, by construction:
@@ -440,6 +440,12 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
       the chooser, and the saved 300-point curves are untouched.
     keel_version: pin the KEEL row's version (a backfill replaying an old run needs the
       version that run saved); None = ml_keel.VALIDATE_VERSION, as before.
+    mtm (owner item 51, augur_engine/stretch_dd.py): None (the default) changes nothing. A
+      stretch_dd.gate_ctx dict adds dd_pct_peak / dd_usd / dd_marked - DD% from peak and the
+      worst $ drawdown of the block's daily curve valued at each session close - to every
+      ungated / candidate / tilt / hybrid stretch block that passes its to-the-cent net check.
+      Computed after every block exists, from the same trades: nothing the chooser reads moves,
+      and a failure is written to mtm["report"], never raised. KEEL rows get none.
     """
     if not trades:
         return None
@@ -491,6 +497,43 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         if so is not None:
             s["sortino"] = round(so, 3)
         return s
+
+    # ── item 51 (stretch_dd): with `mtm` set, every row's stretch blocks are REGISTERED here as
+    #   they are built - (block, member mask over T, per-trade weight over T, t0, t1) - and valued
+    #   once, after the whole result exists (_dd_finish, right before each return). With mtm None
+    #   nothing is registered and _dd_finish returns at once. ──
+    _dd_reg = []
+
+    def _dd_add(row, mask, weights):
+        if mtm is None or not isinstance(row, dict):
+            return
+        for _k, (_a, _b) in (("pre", (None, lb_start)), ("lockbox", (lb_start, None)),
+                             ("full", (None, None)), ("is_rng", (None, wf0)),
+                             ("wf_rng", (wf0, wf1)), ("wf_lb", (wf0, None))):
+            if isinstance(row.get(_k), dict):
+                _dd_reg.append((row[_k], mask, weights, _a, _b))
+
+    def _dd_finish(out):
+        if mtm is None:
+            return
+        try:
+            from .stretch_dd import gate_pass, DD_KEYS
+            for _k, (_a, _b) in (("ungated_pre", (None, lb_start)), ("ungated_lockbox", (lb_start, None)),
+                                 ("ungated_full", (None, None)), ("ungated_is", (None, wf0)),
+                                 ("ungated_wf", (wf0, wf1)), ("ungated_wf_lb", (wf0, None))):
+                if isinstance(out.get(_k), dict):
+                    _dd_reg.append((out[_k], None, None, _a, _b))
+            gate_pass(mtm, arrays, trades, len(T), _dd_reg)
+            # _cand_out copied each candidate's blocks before this pass: carry the keys over
+            for _c, _co in zip(cands, out.get("candidates") or []):
+                for _k in ("lockbox", "full", "is_rng", "wf_rng", "wf_lb"):
+                    _b0, _b1 = _c.get(_k), (_co.get(_k) if isinstance(_co, dict) else None)
+                    if isinstance(_b0, dict) and isinstance(_b1, dict):
+                        for _kk in DD_KEYS:
+                            if _kk in _b0 and _kk not in _b1:
+                                _b1[_kk] = _b0[_kk]
+        except Exception as _dde:                         # a reporting extra never fails the gate
+            mtm["report"] = {"error": "%s: %s" % (type(_dde).__name__, str(_dde)[:200])}
 
     # v65.0 (owner): the pre-lockbox stretch also gets split at the WALK-FORWARD boundary the
     #   1C/2B folds use, so 2C can be read over the SAME DATE RANGES as the config matrix. This
@@ -635,6 +678,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                         cand["equity"]["lb_tail"] = _lt
             except Exception:
                 pass
+            _dd_add(cand, cand_keep, None)                  # item 51 (no-op unless mtm)
             cands.append(cand)
 
     # ── TILT VARIANTS (v67.2, ORB item 171 — owner: "run it as an auto-validate so I can see it") ──
@@ -707,6 +751,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                             t["equity"]["lb_tail"] = _lt
                 except Exception:
                     pass
+                _dd_add(t, None, w)                         # item 51 (no-op unless mtm)
                 tilts.append(t)
             except Exception:
                 continue                                    # never fail the gate over a tilt row
@@ -789,6 +834,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                             hrow["equity"]["lb_tail"] = _lt
                 except Exception:
                     pass
+                _dd_add(hrow, keep, w)                      # item 51 (no-op unless mtm)
                 hybrids.append(hrow)
             except Exception:
                 continue
@@ -866,6 +912,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         pass                                            # reporting only — never fail the gate
     if chosen is None:
         out["verdict"] = "NO ELIGIBLE GATE (all kept too few pre-lockbox trades)"
+        _dd_finish(out)
         return out
     key = f"{chosen['model']}@{chosen['threshold']:.2f}"
     ch_lb, ch_ts, ch_p, ch_keep = lb_secret[key]
@@ -891,6 +938,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
             pass
     if not gate_earns:
         out["verdict"] = "UNGATED WINS PRE-LOCKBOX — no gate earns its keep; lockbox not opened"
+        _dd_finish(out)
         return out
 
     # ── consistency: chosen vs ungated across chronological pre-lockbox slices ─
@@ -918,6 +966,7 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
     out["verdict"] = ("LOCKBOX HELD — gate beat ungated on the untouched slice"
                       if lb_helped else
                       "LOCKBOX FAILED — gate lost to ungated out-of-sample (pre-lockbox win was likely fit)")
+    _dd_finish(out)
     return out
 
 
