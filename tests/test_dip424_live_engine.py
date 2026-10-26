@@ -440,12 +440,15 @@ def test_the_shipped_live_leg_does_nothing_before_2026_10_13(tmp_path, offline):
 def test_a_live_dip_leg_that_is_not_ready_pages_once_a_day_and_a_shadow_leg_never(
         tmp_path, offline, monkeypatch):
     """FIXER 10-10: the live leg holds real shares overnight and its exits come only from its
-    runner -- a daily series that stays not ready (a hole, a calibration failure, a missing
-    QQQ_1d.csv) or a runner that raises used to leave one log line a day and nothing else. Now
+    runner -- a daily series that stays not ready (a hole, a calibration failure, a QQQ_1d.csv
+    too short) or a runner that raises used to leave one log line a day and nothing else. Now
     step()'s warnings name it every time, and from 09:40 one high phone note a day goes out (only
-    on a live fetch tick on the box, like every engine page); a shadow leg never pages."""
+    on a live fetch tick on the box, like every engine page); a shadow leg never pages. (A
+    MISSING or EMPTY QQQ_1d.csv is the box monitor's page and only recorded here -- QQQ_1d
+    MISSING: ONE PAGER, tests/test_cloud_signal_qqq_1d_one_pager.py.)"""
     from api import ntfy_push
-    paths = S.write_home(tmp_path, S.CRASH, 30, no_1d=True)          # too short without QQQ_1d
+    paths = S.write_home(tmp_path, S.CRASH, 30,                      # QQQ_1d present, 200 rows:
+                         keep_1d={t[0] for t in S.CRASH[-200:]})     # too short (needs 430)
     live, shadow = _legs(paths["home"])
     monkeypatch.setattr(cs, "_is_cloud_host", lambda: True)
     monkeypatch.setattr(cs, "_LIVE_NOT_READY_NOTED", {})
@@ -465,6 +468,9 @@ def test_a_live_dip_leg_that_is_not_ready_pages_once_a_day_and_a_shadow_leg_neve
     (p,) = pushes
     assert p["title"] == "DIP #424: not trading" and p["priority"] == "high"
     assert ntfy_push.lint(p) == [] and "AFFECTED" in p["message"]
+    assert p["message"].split("\n")[:2] == [
+        "Trading: AFFECTED - DIP #424 takes no new trades and sends no exit for its held shares.",
+        "Its daily QQQ price history is too short."]
     # a shadow leg in the same state never pages, even on a fetching step
     sp = cs.shadow_paths(paths)
     w = {}

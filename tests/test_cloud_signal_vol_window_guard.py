@@ -16,7 +16,10 @@ guard, pinned here:
      box), worded "Trading: AFFECTED" -- never for a shadow leg, never twice the same day (a
      restart included; one phone_dedupe.json write, the in-process memo holds the rest), again
      the next session day; under the skip's own floor (NOISE_1_0 VOL_SKIP_LOOKBACK_SESSIONS, 60
-     -- where _vol_percentile is NaN) the note says the check is OFF, not what it ranks on;
+     -- where _vol_percentile is NaN) the note says the check is OFF, not what it ranks on. The
+     paging cases use a daily file the bridge refuses (a ratio out of band): a MISSING or EMPTY
+     QQQ_1d.csv is the box monitor's page and only recorded here (QQQ_1d MISSING: ONE PAGER --
+     tests/test_cloud_signal_qqq_1d_one_pager.py);
   3. a broken guard logs and the step carries on; signals.csv, state.json and the
      vol_prior_ranges each engine call is handed are the same with and without the guard;
   4. the live thread puts the status on its heartbeat, run_shadow_step on the shadow heartbeat
@@ -59,6 +62,7 @@ def _fresh_memos(monkeypatch):
     """The guard's in-process memos and the bridge's once-a-day log latch, empty per test."""
     monkeypatch.setattr(cs, "_VOL_WINDOW_STASH", {})
     monkeypatch.setattr(cs, "_VOL_WINDOW_NOTED", {})
+    monkeypatch.setattr(cs, "_QQQ_1D_RECORDED", {})
     cs._DAILY_CALIBRATION_LOG.clear()
     yield
     cs._DAILY_CALIBRATION_LOG.clear()
@@ -95,10 +99,13 @@ def _df5():
 
 def _home(tmp_path, name="home", daily="ok", df5=None):
     """A store with 95 5m sessions through DAY2 and a QQQ_1d.csv per `daily`: "ok" (170 daily-only
-    sessions before the 5m window -> a full 252), None (no file), or a DataFrame."""
+    sessions before the 5m window -> a full 252), "ratio" (the same file 3x too wide: the bridge
+    refuses it, ratio_out_of_band -- a short window the ENGINE pages), None (no file: the box
+    monitor's page, recorded here only), or a DataFrame."""
     df5 = _df5() if df5 is None else df5
-    if isinstance(daily, str) and daily == "ok":
-        daily = P._daily_frame(df5, n_prior=170, exclude=DAY2)
+    if isinstance(daily, str) and daily in ("ok", "ratio"):
+        full = P._daily_frame(df5, n_prior=170, exclude=DAY2)
+        daily = full if daily == "ok" else _scaled(full)
     return P._home(tmp_path, df5, name, daily=daily)
 
 
@@ -216,8 +223,8 @@ def test_the_stream_dry_run_stashes_the_window_too(tmp_path, box):
 
 
 # -- 2. the phone note -----------------------------------------------------------------------
-def test_missing_daily_bars_page_once_a_day_for_the_live_leg_only(tmp_path, box, monkeypatch):
-    paths = _home(tmp_path, daily=None)
+def test_a_short_window_pages_once_a_day_for_the_live_leg_only(tmp_path, box, monkeypatch):
+    paths = _home(tmp_path, daily="ratio")
     legs = _legs(shadow=True)
     dedupe_io = []                                 # phone_dedupe.json read+writes (_engine_note)
     real_update = cs._phone_update
@@ -239,13 +246,14 @@ def test_missing_daily_bars_page_once_a_day_for_the_live_leg_only(tmp_path, box,
     assert note["message"] == (
         "Trading: AFFECTED - NOISE may trade, or skip, today unlike the backtest "
         "(signals still run).\n"
-        "NOISE's vol-skip check is short today: daily bars missing - the skip ranks on 92 "
-        "sessions, not 252.\n"
+        "NOISE's vol-skip check is short today: the daily and 5-minute bars disagree on size - "
+        "the skip ranks on 92 sessions, not 252.\n"
         "Do: ask Claude (PAPER-WB chat) to check the daily QQQ bars today.")
     assert p["paths"] == paths                                     # step()'s own store
     assert w[cs.VOL_WINDOW_KEY][LIVE]["pushed"] == DAY
     e = w[cs.VOL_WINDOW_KEY][LIVE]
     assert e["off"] is False and e["min_obs"] == 60                # 92 sessions: ranks, not off
+    assert e["record_only"] is False
     sh = w[cs.VOL_WINDOW_KEY][SHADOW]
     assert sh["short"] is True and sh["shadow"] is True and sh["pushed"] is None
 
@@ -266,7 +274,7 @@ def test_missing_daily_bars_page_once_a_day_for_the_live_leg_only(tmp_path, box,
 
 
 def test_no_page_off_the_box_or_on_an_offline_step(tmp_path, box, monkeypatch):
-    paths = _home(tmp_path, daily=None)
+    paths = _home(tmp_path, daily="ratio")
     legs = _legs()
     _step(paths, legs, "09:45", fetch=False)                       # a replay / stream dry run
     assert box == []
@@ -287,7 +295,7 @@ def test_a_shadow_leg_never_pages_even_on_a_fetching_step(tmp_path, box):
 
 def test_the_bridge_back_clears_the_status_without_a_second_page(tmp_path, box):
     df5 = _df5()
-    paths = _home(tmp_path, daily=None, df5=df5)
+    paths = _home(tmp_path, daily="ratio", df5=df5)
     legs = _legs()
     _step(paths, legs, "09:40")
     assert len(box) == 1
@@ -320,14 +328,14 @@ def test_no_page_after_the_close_but_the_status_still_publishes(tmp_path, box, m
         cs._VOL_WINDOW_NOTED.clear()
         monkeypatch.setattr(cs, "_at_or_after_session_close",
                             real_close if close_known else (lambda now: False))
-        paths = _home(tmp_path, name, daily=None)
+        paths = _home(tmp_path, name, daily="ratio")
         w = {}
         cs.step(now=after, legs=legs, paths=paths, fetch=True, warnings=w, post_close=post_close)
         assert w[cs.VOL_WINDOW_KEY][LIVE]["short"] is True, name
         assert w[cs.VOL_WINDOW_KEY][LIVE]["pushed"] is None and box == [], name
     monkeypatch.setattr(cs, "_at_or_after_session_close", real_close)
     cs._VOL_WINDOW_NOTED.clear()
-    paths = _home(tmp_path, "inside", daily=None)
+    paths = _home(tmp_path, "inside", daily="ratio")
     _step(paths, legs, "15:45")                                    # 15:50: still in the session
     assert len(box) == 1
 
@@ -372,19 +380,22 @@ def test_off_is_exactly_where_noise_1_0_returns_nan(n_sess):
     assert e["off"] is bool(np.isnan(pct[-1])), (n_sess, pct[-1])
 
 
-@pytest.mark.parametrize("case", ["missing", "thin"])
+@pytest.mark.parametrize("case", ["no_prior", "thin"])
 def test_under_the_floor_the_note_says_the_check_is_off(tmp_path, box, case):
-    """A 5m cache rebuilt short with no daily file, or a complete daily file whose overlap
-    with a ~20-session 5m window is under 20 (thin_overlap): under 60 sessions the skip is
-    OFF -- the note says so, never "ranks on 18 sessions"."""
-    n = {"missing": 50, "thin": 21}[case]
+    """A 5m cache rebuilt short beside a daily file with nothing older than it (no_prior_daily),
+    or a complete daily file whose overlap with a ~20-session 5m window is under 20
+    (thin_overlap): under 60 sessions the skip is OFF -- the note says so, never "ranks on 18
+    sessions". (The same short cache with NO daily file is the box monitor's page:
+    tests/test_cloud_signal_qqq_1d_one_pager.py.)"""
+    n = {"no_prior": 50, "thin": 21}[case]
     df5 = P._5m_frame(P._sessions(n, last=DAY2), bars_per_day=12)
-    daily = None if case == "missing" else P._daily_frame(df5, n_prior=300, exclude=DAY2)
+    full = P._daily_frame(df5, n_prior=300, exclude=DAY2)
+    daily = _drop_prior(full, df5) if case == "no_prior" else full
     paths = _home(tmp_path, case, daily=daily, df5=df5)
     _events, w = _step(paths, _legs(), "09:35")
     e = w[cs.VOL_WINDOW_KEY][LIVE]
     have = n - 1 - 2                                   # the sessions through DAY, minus two
-    assert e["reason_key"] == {"missing": "missing_cache", "thin": "thin_overlap"}[case], e
+    assert e["reason_key"] == {"no_prior": "no_prior_daily", "thin": "thin_overlap"}[case], e
     assert e["have"] == have and e["off"] is True and e["min_obs"] == 60
     (p,) = box
     assert p["title"] == "NOISE: vol-skip check off" and p["priority"] == "default"
@@ -424,15 +435,19 @@ def _ledger_without_emitted_at(paths):
     return [lines[0]] + ["," + ln.split(",", 1)[1] for ln in lines[1:]]
 
 
-@pytest.mark.parametrize("daily", ["ok", None])
+@pytest.mark.parametrize("daily", ["ok", None, "ratio"])
 def test_signals_and_state_are_identical_with_and_without_the_guard(tmp_path, box, monkeypatch,
                                                                     daily):
     decisions = {f"{DAY} 09:45": "long", f"{DAY} 10:05": "exit"}
+    # the box monitor runs (its heartbeat is fresh): a missing daily file is then recorded only
+    monkeypatch.setattr(cs, "_box_monitor_alive", lambda now_epoch, paths=None: True)
     on = _home(tmp_path, "on", daily=daily)
     stub_on, legs_on = _stub_legs(decisions)
     events_on = _walk(on, legs_on)
-    if daily is None:
-        assert len(box) == 1                                       # the guard really ran
+    if daily == "ratio":
+        assert len(box) == 1                                       # the guard really paged
+    if daily is None:                                              # ... or really recorded
+        assert box == [] and cs._QQQ_1D_RECORDED == {("vol_window", LIVE): DAY}
     _guard_off(monkeypatch)
     off = _home(tmp_path, "off", daily=daily)
     stub_off, legs_off = _stub_legs(decisions)

@@ -116,6 +116,25 @@ from api/market_calendar):
                      process that has hung or died stops refreshing it -- paged as usual.
     qqq_1d           from 09:40, QQQ_1d's newest bar is not the previous session (the
                      engine refreshes it once a day at ~09:35) -- #14, 2 runs in a row.
+                     QQQ_1d MISSING: ONE PAGER (MANAGER DECISION REC 2026-10-25): when the file
+                     itself is MISSING or EMPTY (no line past the header whose time parses --
+                     qqq_1d_file_state, the same read as api/cloud_signal
+                     qqq_1d_missing_or_empty) it is its own episode, qqq_1d_missing (the
+                     pre-open gate's id too; the stale qqq_1d is then no change, so a stale
+                     episode already open when the file goes still pages the new cause), and
+                     the ONE phone note for it: the engine records its DIP #424 "not trading"
+                     and NOISE vol-window notes instead of pushing them while that file is
+                     their cause and this monitor's heartbeat is fresh. The wording says
+                     what the two legs do without it, off the 5m cache's depth
+                     (qqq_1d_missing_affects): DIP #424's daily series is then the 5m sessions
+                     alone -- under 430 it takes no new trades and sends no exit for its held
+                     shares -- and NOISE's vol skip ranks on the 5m window (sessions - 1, off
+                     under 60) instead of 252. It pages ONCE for the cause: an episode that
+                     opens after the pre-open gate's note NAMED the same miss today (its lead
+                     problem, not a "+N more" -- po["pushed"], cleared by a passing slot or a
+                     run that finds the file back) opens without a push ("prepushed") but still
+                     sends the one low "OK" when the file is back. The stale cases ("a day
+                     short") are unchanged.
     vol_window:<leg> VOL WINDOW GUARD (MANAGER GO 2026-10-25): a fresh engine heartbeat's
                      "vol_window" entry for the leg says today's vol-skip window is SHORT --
                      NOISE's vol skip ranks on fewer than its 252 sessions because the daily
@@ -126,7 +145,9 @@ from api/market_calendar):
                      window flips ~1 session in 28; under the skip's own floor (min_obs, 60)
                      the skip is OFF and never skips. MEDIUM, opens
                      on the first short run, QUIET -- the engine sends the one plain note per
-                     live leg per day itself (api/cloud_signal _note_vol_window) -- and clears
+                     live leg per day itself (api/cloud_signal _note_vol_window; when
+                     QQQ_1d.csv is missing or empty it only records it, "record_only", and the
+                     qqq_1d_missing check above is the note) -- and clears
                      the run a fresh entry says the window is full again (no "OK" push). An
                      entry from another day, or a leg the heartbeat no longer names (a restart:
                      the entry returns at its next new bar), is no change. A SHADOW leg's entry
@@ -151,7 +172,8 @@ from api/market_calendar):
                      when present) and the executor only logs the board event.
   PRE-OPEN GATE (session days; the 08:30 and 09:15 ET slots, each once)
     KEEL current (the live legs' summaries only), QQQ_1d newest bar no older than the session
-    BEFORE the previous one (the most the cache can hold before the engine's ~09:35 refresh),
+    BEFORE the previous one (the most the cache can hold before the engine's ~09:35 refresh;
+    a MISSING or EMPTY file is its own miss, qqq_1d_missing, worded as the qqq_1d check above),
     lease fresh (last publish within
     max(90 s, 2x renew)), not halted (breaker/kill today, KILL files), engine heartbeat fresh,
     Webull token NORMAL with more than 5 days left (#12, #14, #18, #19). The first slot that
@@ -188,7 +210,10 @@ Before: "EDGELOG WB MONITOR: <developer title>" with "[SEVERITY] title: detail" 
 again" push for every episode, and "QQQ book ready"/"QQQ book NOT ready" (urgent) from the gate.
   Pre-open gate:  not ready -> "QQQ book: CHECK NOW" (high), "Trading: AFFECTED - the QQQ book may
                   not trade at the open." (or what the lead miss really does: an old KEEL model, a
-                  short price history), the lead miss in plain words "+N more", its fix (a miss only
+                  short price history, a missing daily price file: "DIP #424 takes no new trades
+                  and sends no exit for its held shares, and NOISE's vol skip ranks on 92
+                  sessions, not 252, until the file is back."), the lead miss in plain words "+N
+                  more", its fix (a miss only
                   the owner can clear -- approve the Webull login, a halt or kill switch -- leads). A
                   token that merely expires within 5 days is "QQQ book: needs a fix" (default,
                   trading not affected today). Repeats by ntfy_push.dedupe inside the day: the 09:15
@@ -307,6 +332,41 @@ def keel_fixed_tilts_affects(word="NOISE"):
     return f"{word} trades on the fixed size tilts only until its sizing model is rebuilt"
 MAY_HOLD = "the QQQ book may still hold shares after the close"
 SHORT_HISTORY = "NOISE trades on a price history that is a day short"
+# QQQ_1d MISSING: ONE PAGER (the qqq_1d check in the module docstring): what the two legs that
+# read QQQ_1d.csv do without it. DIP #424's daily series needs trend_len 400 + 30 sessions
+# (api/dip_live build_daily_series on api/cloud_signal DIP_424_PARAMS); NOISE's vol skip ranks
+# on VOL_SKIP_SESSIONS and is off under VOL_SKIP_FLOOR (augur_strategies/NOISE_1_0.py
+# VOL_SKIP_REF_SESSIONS / VOL_SKIP_LOOKBACK_SESSIONS) -- tests pin all three.
+QQQ_1D_MISSING_ID = "qqq_1d_missing"      # the pre-open gate's miss id for that cause
+DIP_MIN_SESSIONS = 430
+VOL_SKIP_SESSIONS = 252
+VOL_SKIP_FLOOR = 60
+QQQ_1D_GONE_WORDS = {"missing": "The QQQ daily price file is missing on the cloud box",
+                     "empty": "The QQQ daily price file on the cloud box is empty"}
+
+
+def qqq_1d_missing_affects(k5):
+    """The Trading line of a missing or empty QQQ_1d.csv, from `k5` -- the 5m cache's sessions
+    before today (five_min_session_days; None when it cannot be read). Without the daily file
+    DIP #424's series is those sessions plus today: under DIP_MIN_SESSIONS it is not ready -- no
+    new trade, no exit for a held lot (api/cloud_signal step() skips the leg). NOISE's vol skip
+    ranks yesterday against the sessions before it in the 5m window, k5 - 1 (api/cloud_signal
+    _stash_vol_window's depth_5m; a test pins the two): short of VOL_SKIP_SESSIONS it ranks on
+    those, under VOL_SKIP_FLOOR it is off (never skips). None when neither leg is affected."""
+    parts = []
+    if k5 is None or k5 + 1 < DIP_MIN_SESSIONS:
+        parts.append(f"{FAMILY_WORDS['DIP']} takes no new trades and sends no exit for its "
+                     f"held shares")
+    have = None if k5 is None else max(0, int(k5) - 1)
+    if have is None:
+        parts.append("NOISE's vol skip ranks on the 5-minute prices alone")
+    elif have < VOL_SKIP_FLOOR:
+        parts.append("NOISE's vol skip is off")
+    elif have < VOL_SKIP_SESSIONS:
+        parts.append(f"NOISE's vol skip ranks on {have} sessions, not {VOL_SKIP_SESSIONS}")
+    return (", and ".join(parts) + ", until the file is back") if parts else None
+
+
 OWNER_FIXES = ("token_status", "halted", "kill")   # pre-open misses only the owner can clear
 FLAT_DO = "check the Webull app is flat and sell by hand if needed"
 # HOLD OVERNIGHT (module docstring): the executor's legs (api/qqq_exec.LEGS) and the ones it
@@ -567,6 +627,8 @@ def default_paths(home=None):
         "keel_dir": os.path.join(cs_dir, "keel"),
         "keel_diffs": os.path.join(cs_dir, "keel_size_diffs.jsonl"),
         "qqq_5m": os.path.join(home, "ohlc", "QQQ_5m.csv"),
+        # older 5m history api/cloud_signal splices in front of QQQ_5m.csv (_prepend_backfill)
+        "qqq_5m_backfill": os.path.join(home, "ohlc", "QQQ_5m_backfill.csv"),
         "qqq_1d": os.path.join(home, "ohlc", "QQQ_1d.csv"),
         "nq_master": os.path.join(home, "nq", "NOADJ_NQ_5m_RTH.csv"),
         "token_files": [
@@ -662,8 +724,67 @@ def last_bar_epoch(path):
         return None
     try:
         return int(float(ln.split(",")[0]))
-    except ValueError:
+    except (ValueError, OverflowError):     # an "inf" field used to raise out of collect()
         return None
+
+
+def _csv_row_epochs(path):
+    """Yields the first field of each line past the header that reads as an int epoch (blank,
+    header and unparseable lines skipped); raises OSError when the file cannot be opened."""
+    with open(path, "rb") as f:
+        for raw in f:
+            ln = raw.decode("utf-8", "replace").strip()
+            if not ln or ln.lower().startswith("time"):
+                continue
+            try:
+                yield int(float(ln.split(",")[0]))
+            except (ValueError, OverflowError):
+                continue
+
+
+def qqq_1d_file_state(path):
+    """"missing" when QQQ_1d.csv does not exist, "empty" when no line past the header has a time
+    that parses (0 bytes, a header only, nothing readable), else None -- api/cloud_signal
+    qqq_1d_missing_or_empty's read exactly (a test pins the two): while it says missing or empty
+    the engine pushes neither its DIP not-ready nor its NOISE vol-window note, and this
+    monitor's qqq_1d_missing check (and the pre-open gate's miss) always fails then. A file
+    that cannot be read is None (the engine pages its own notes as before). Never raises."""
+    try:
+        for _epoch in _csv_row_epochs(path):
+            return None
+    except FileNotFoundError:
+        return "missing"
+    except Exception:
+        return None
+    return "empty"
+
+
+def five_min_session_days(paths):
+    """Sorted distinct New York dates of the RTH rows (09:30-16:00, Mon-Fri -- qqq_paper
+    build_arrays' filter) in QQQ_5m.csv, plus QQQ_5m_backfill.csv's rows older than its first
+    one (api/cloud_signal historical_bars: the history both DIP's daily series and NOISE's vol
+    window are cut from). None when QQQ_5m.csv cannot be read or holds no row. Read only while
+    QQQ_1d.csv is missing or empty (a full read). Never raises."""
+    try:
+        epochs = list(_csv_row_epochs(paths["qqq_5m"]))
+    except Exception:
+        return None
+    if not epochs:
+        return None
+    first = min(epochs)
+    try:
+        older = [e for e in _csv_row_epochs(paths["qqq_5m_backfill"]) if e < first]
+    except Exception:
+        older = []
+    days = set()
+    for e in older + epochs:
+        try:
+            t = _dt.datetime.fromtimestamp(e, tz=ET)
+        except (OverflowError, OSError, ValueError):     # a torn row's absurd epoch
+            continue
+        if t.weekday() < 5 and SESSION_OPEN <= (t.hour, t.minute) < (16, 0):
+            days.add(t.date())
+    return sorted(days)
 
 
 def epoch_to_et_date(epoch):
@@ -808,6 +929,53 @@ def qqq_1d_day(snap):
     return daily_bar_date(d1) if d1 else None
 
 
+def qqq_1d_gone(snap, today):
+    """QQQ_1d MISSING: ONE PAGER -- None while QQQ_1d.csv has rows, else {"state" ("missing" /
+    "empty"), "k5" (the 5m cache's sessions before `today`, None when unreadable), "affects"
+    (qqq_1d_missing_affects), "problem" (the plain line), "dev" (the developer words)}."""
+    state = snap.get("qqq_1d_state")
+    if state not in QQQ_1D_GONE_WORDS:
+        return None
+    days = snap.get("qqq_5m_days")
+    k5 = None if days is None else sum(1 for x in days if x < today)
+    # the developer words follow qqq_1d_missing_affects' own conditions (the phone's)
+    dip_short = k5 is None or k5 + 1 < DIP_MIN_SESSIONS
+    have = None if k5 is None else max(0, k5 - 1)
+    if k5 is None:
+        dip = (f"DIP #424's daily series is the 5m cache alone, which cannot be read (needs "
+               f"{DIP_MIN_SESSIONS} sessions: taken as not ready, no entry and no exit)")
+        noise = "NOISE's vol skip ranks on the 5m window alone"
+    else:
+        dip = (f"DIP #424's daily series has only the 5m cache's {k5} session(s) before today "
+               f"(needs {DIP_MIN_SESSIONS}: not ready, no entry and no exit)" if dip_short else
+               f"DIP #424's daily series has the 5m cache's {k5} sessions before today, enough "
+               f"for DIP on the 5m cache alone")
+        noise = (f"NOISE's vol skip is off ({have} sessions in the 5m window, under "
+                 f"{VOL_SKIP_FLOOR})" if have < VOL_SKIP_FLOOR else
+                 f"NOISE's vol skip ranks on {have} of {VOL_SKIP_SESSIONS} sessions"
+                 if have < VOL_SKIP_SESSIONS else
+                 f"NOISE's vol skip window is full ({VOL_SKIP_SESSIONS} sessions in the 5m window)")
+    noted = [n for n, short in (("DIP not-ready", dip_short),
+                                ("NOISE vol-window", have is None or have < VOL_SKIP_SESSIONS))
+             if short]
+    tail = (f"the engine records its {' and '.join(noted)} note{'s' if len(noted) > 1 else ''} "
+            f"instead of pushing {'them' if len(noted) > 1 else 'it'} (this is the page)"
+            if noted else "neither leg is short of history without it")
+    dev = f"QQQ_1d.csv is {state} -- {dip} and {noise}; {tail}"
+    return {"state": state, "k5": k5, "affects": qqq_1d_missing_affects(k5),
+            "problem": QQQ_1D_GONE_WORDS[state] + ".", "dev": dev}
+
+
+def _forget_gate_qqq_1d_missing(snap, mstate):
+    """QQQ_1d MISSING: ONE PAGER -- every run that finds QQQ_1d.csv with rows again, at any hour,
+    drops qqq_1d_missing from the pre-open gate's po["pushed"]: a loss later the same day is a
+    new episode and pages (check_session's qqq_1d_missing opens without "prepushed")."""
+    po = (mstate or {}).get("preopen")
+    if (isinstance(po, dict) and snap.get("qqq_1d_state") is None
+            and QQQ_1D_MISSING_ID in (po.get("pushed") or ())):
+        po["pushed"] = [i for i in po["pushed"] if i != QQQ_1D_MISSING_ID]
+
+
 def in_session(now_et):
     d = now_et.date()
     if not market_calendar.is_session(d):
@@ -881,6 +1049,10 @@ def collect(paths, run_cmd=None):
     snap["shadow_hb"], snap["shadow_hb_err"] = read_json(paths["shadow_heartbeat"])
     snap["qqq_5m_last"] = last_bar_epoch(paths["qqq_5m"])
     snap["qqq_1d_last"] = last_bar_epoch(paths["qqq_1d"])
+    # QQQ_1d MISSING: ONE PAGER -- "missing" / "empty" / None, and only then the 5m cache's
+    # sessions (the qqq_1d wording says what DIP and NOISE do without the daily file)
+    snap["qqq_1d_state"] = qqq_1d_file_state(paths["qqq_1d"])
+    snap["qqq_5m_days"] = five_min_session_days(paths) if snap["qqq_1d_state"] else None
     snap["nq_last"] = last_bar_epoch(paths["nq_master"])
     keel, keel_shadow = {}, []
     shadow_keys = ()            # api/cloud_signal.SHADOW_LEGS' keys, read on first need
@@ -999,12 +1171,14 @@ def exec_view(snap, now_et, mstate):
 
 
 def _verdict(key, group, ok, severity, title, detail="", min_runs=1, hold_sec=WINDOW_HOLD_SEC,
-             plain=None, quiet=False):
+             plain=None, quiet=False, prepushed=False):
     """ok: True pass, False fail, None unknown this run (no change either way). `title` and
     `detail` are the developer text (status.json, the log, the PC relay); `plain` (a _plain()
     dict) is the phone wording -- see PHONE TEXT. quiet: another sender already pages this
     exact problem -- the episode is tracked (status, board) but neither its start nor its end
-    is pushed (decided when the episode opens)."""
+    is pushed (decided when the episode opens). prepushed: this monitor's own pre-open gate
+    already pushed this problem today -- the episode opens without a push, and its end pushes
+    the one "OK" as any episode's would (decided when it opens; the qqq_1d_missing check)."""
     v = {"key": key, "group": group, "ok": None if ok is None else bool(ok),
          "severity": severity, "title": title,
          "detail": detail, "min_runs": min_runs, "hold_sec": hold_sec}
@@ -1012,6 +1186,8 @@ def _verdict(key, group, ok, severity, title, detail="", min_runs=1, hold_sec=WI
         v["plain"] = plain
     if quiet:
         v["quiet"] = True
+    if prepushed:
+        v["prepushed"] = True
     return v
 
 
@@ -1559,8 +1735,24 @@ def check_session(snap, now_et, mstate, ev):
     if hhmm(now_et) >= QQQ_1D_CHECK_FROM:
         want = prev_session(d)
         d1_day = qqq_1d_day(snap)
+        gone = qqq_1d_gone(snap, d)
+        po = (mstate or {}).get("preopen") or {}
+        gate_pushed = po.get("pushed") if po.get("date") == d.isoformat() else None
+        # QQQ_1d MISSING: ONE PAGER -- a missing / empty file is its own episode (the gate's
+        # id), the one note for it (the engine only records its DIP and NOISE notes); not a
+        # second one when the pre-open gate's note already named it. Its own key, so a stale
+        # episode already open when the file goes still pages the new cause.
         out.append(_verdict(
-            "qqq_1d", "session", d1_day is not None and want is not None and d1_day >= want,
+            QQQ_1D_MISSING_ID, "session", gone is None, HIGH,
+            f"QQQ daily cache {gone['state'].upper()}" if gone else "QQQ daily cache present",
+            gone["dev"] + "." if gone else "", min_runs=2,
+            plain=_plain(gone["problem"], affects=gone["affects"]) if gone else None,
+            prepushed=gone is not None and QQQ_1D_MISSING_ID in (gate_pushed or ())))
+        # the stale check cannot tell while the file is gone: no change either way (the file
+        # back with rows ends the episode above, and this judges it again)
+        out.append(_verdict(
+            "qqq_1d", "session",
+            None if gone else (d1_day is not None and want is not None and d1_day >= want),
             HIGH, "QQQ daily cache not refreshed",
             f"QQQ_1d newest bar {d1_day or 'missing'}, expected {want} after the engine's "
             f"~09:35 ET refresh -- NOISE's vol look-back is a session short (the refresh is "
@@ -1689,7 +1881,11 @@ def check_vol_window(snap, now_et, mstate):
                       f"missed skips since 2020). ")
             problem = (f"{word}'s vol-skip check is short today: {reason} - the skip ranks on "
                        f"{have} sessions, not {need}.")
-        detail += f"Engine push: {e.get('pushed') or 'none'}; computed {e.get('at') or '?'}."
+        # QQQ_1d MISSING: ONE PAGER -- the engine only recorded it; qqq_1d_missing pages it
+        engine = e.get("pushed") or ("none (recorded only: QQQ_1d.csv is missing or empty, the "
+                                     "qqq_1d_missing check pages it)" if e.get("record_only")
+                                     else "none")
+        detail += f"Engine push: {engine}; computed {e.get('at') or '?'}."
         title = f"{word} vol-skip window short ({leg})" + (", skip off" if off else "")
         if shadow:
             out.append(_verdict(
@@ -1939,7 +2135,12 @@ def preopen_checks(snap, now_et, ev):
     # then expects the previous session itself from 09:40 ET.
     d1_want = prev_session(prev) if prev else None
     d1_day = qqq_1d_day(snap)
-    if d1_want and (d1_day is None or d1_day < d1_want):
+    gone = qqq_1d_gone(snap, d)
+    if d1_want and gone is not None:
+        # QQQ_1d MISSING: ONE PAGER -- its own miss (and id), worded with what DIP and NOISE do
+        # without the file; check_session's qqq_1d does not page it again today (po["pushed"])
+        miss(QQQ_1D_MISSING_ID, gone["dev"], gone["problem"], affects=gone["affects"])
+    elif d1_want and (d1_day is None or d1_day < d1_want):
         miss("qqq_1d", f"QQQ_1d newest bar {d1_day or 'missing'}, expected {d1_want} or "
                        f"newer (NOISE look-back truncated)",
              "The QQQ daily price history is out of date.", affects=SHORT_HISTORY)
@@ -2020,7 +2221,10 @@ def _keel_miss_pushed(mid, alerts):
 def preopen_step(snap, now_et, mstate, alerts, ev):
     """Runs the gate once per slot. Returns [(title, message, priority)] to push (PHONE TEXT: a
     miss pushes once a day unless a NEW or WORSE miss shows up at the later slot; the first
-    passing slot of the day, or the first after a miss, pushes one low "QQQ book: OK")."""
+    passing slot of the day, or the first after a miss, pushes one low "QQQ book: OK").
+    mstate["preopen"]["pushed"]: the miss ids a push NAMED today (its lead problem, not a "+N
+    more"), until a slot passes or a run finds the daily file back -- read by check_session's
+    qqq_1d_missing (QQQ_1d MISSING: ONE PAGER)."""
     slot = preopen_slot(now_et)
     if slot is None:
         return []
@@ -2059,11 +2263,21 @@ def preopen_step(snap, now_et, mstate, alerts, ev):
             return []
         # among equally serious misses, the ones only the owner can fix lead the note
         lead = sorted(loud, key=lambda m: m["id"].split(":")[0] not in OWNER_FIXES)
-        note = compose_note([dict(m, area=BOOK, rank=ntfy_push.RANK[m["priority"]])
-                             for m in lead])
+        descs = [dict(m, area=BOOK, rank=ntfy_push.RANK[m["priority"]]) for m in lead]
+        note = compose_note(descs)
+        # what this gate has NAMED on the phone today (until a slot passes, or a run finds the
+        # daily file back): the miss(es) whose problem the note leads with -- compose_note's
+        # own order; a "+N more" names nothing -- so the qqq_1d_missing session check does not
+        # page a missing / empty daily file a second time, and still pages it when another
+        # miss led the note (QQQ_1d MISSING: ONE PAGER)
+        shown = next((d["problem"] for d in sorted(descs, key=lambda d: -int(d["rank"]))
+                      if d.get("problem")), None)
+        po["pushed"] = sorted(set(po.get("pushed") or ())
+                              | {m["id"] for m in loud if m.get("problem") == shown})
         return [(note["title"], note["message"], note["priority"])]
     fixed = alerts.pop("preopen", None)
     po["push"] = {}
+    po.pop("pushed", None)
     if fixed is None and po.get("ready_pushed"):
         return []
     po["ready_pushed"] = True
@@ -2107,6 +2321,8 @@ def apply_verdicts(alerts, verdicts, groups_ran, now_epoch, now_label):
             if not rec.get("open") and rec["bad_runs"] >= int(v.get("min_runs", 1)):
                 rec.update({"open": True, "opened_epoch": now_epoch, "opened_et": now_label,
                             "quiet": bool(v.get("quiet"))})
+                if v.get("prepushed"):
+                    rec["prepushed"] = True
                 opened.append(dict(rec))
         elif rec is not None:
             if rec.get("open"):
@@ -2174,9 +2390,10 @@ def compose_pushes(opened, recovered, expired):
     started, and one low "OK" for the episodes that ended -- only when one of them had pushed
     high or urgent. Episodes that EXPIRED (window ended, never seen fixed) are not pushed: the
     opening push already said what to do; the log, status.json and the PC relay keep them.
-    A QUIET episode (another sender pages it -- see _verdict) is left out of both.
+    A QUIET episode (another sender pages it -- see _verdict) is left out of both; a PREPUSHED
+    one (the pre-open gate already pushed it today) only out of the first.
     [(title, message, ntfy priority)]."""
-    opened = [r for r in opened if not r.get("quiet")]
+    opened = [r for r in opened if not r.get("quiet") and not r.get("prepushed")]
     recovered = [r for r in recovered if not r.get("quiet")]
     pushes = []
     if opened:
@@ -2384,8 +2601,9 @@ def _make_logger(path, echo=True):
 
 def evaluate(snap, now_et, mstate):
     """(verdicts, groups_ran, exec view). Pure over `snap`; updates mstate's small memories
-    (publish_seen, exec_log hits, tick_gap_seen)."""
+    (publish_seen, exec_log hits, tick_gap_seen, the pre-open gate's qqq_1d_missing)."""
     ev = exec_view(snap, now_et, mstate)
+    _forget_gate_qqq_1d_missing(snap, mstate)
     verdicts, groups = [], set()
     checks = [
         ("exec", lambda: check_exec(snap, now_et, mstate, ev)),

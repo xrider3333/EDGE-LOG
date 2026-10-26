@@ -4391,7 +4391,8 @@ def run_dip_leg_trades(cfg, arrays, leg_key=None, now=None, paths=None, log=prin
 # window and a REST tail still filling today's first bar are normal) sends ONE high plain phone
 # note per ET day per leg -- only where every engine page may go (_push_allowed: a live fetching
 # tick on the box, never a shadow leg). The repeat rule (_engine_note) also holds it across a
-# restart.
+# restart. A missing or empty QQQ_1d.csv is the box monitor's page, not this one (QQQ_1d MISSING:
+# ONE PAGER, below): recorded here, not pushed, while that monitor runs.
 LIVE_NOT_READY_PAGE_FROM = "09:40"
 _LIVE_NOT_READY_NOTED = {}          # leg key -> the ET date its note was handed to _engine_note
 _NOT_READY_WORDS = {
@@ -4408,9 +4409,111 @@ _NOT_READY_WORDS = {
 }
 
 
+# QQQ_1d MISSING: ONE PAGER (MANAGER DECISION REC 2026-10-25). A missing or empty
+# <home>/ohlc/QQQ_1d.csv used to buzz the phone three times for one cause: the box monitor's
+# qqq_1d check (tools/webull_freshness.py -- its pre-open gate, then the session check from
+# 09:40), DIP_424's NOT READY note (_note_live_leg_not_ready: its daily series needs 430
+# sessions, the 5m cache holds ~94) and NOISE's vol-window note (_note_vol_window: the skip
+# ranks on the 5m window alone). The monitor's is the one kept -- the only one that can come
+# before the open, worded with what both legs do without the file -- so those two notes are
+# RECORD-ONLY (their log line, once a day per leg; warnings / heartbeat entries as before; no
+# push and no phone_dedupe.json write, so a different cause later the same day still pages)
+# WHEN AND ONLY WHEN the file provably is the cause: qqq_1d_missing_or_empty() reads the file
+# itself as missing or with no row whose time parses (the monitor's own test, so it pages
+# whenever this says so) AND the leg's reason is what such a file gives (_qqq_1d_is_the_cause):
+# DIP "short" (no daily rows: the 5m cache alone), the bridge's "missing_cache" (no file, or a
+# header only), or either one's "error" raised by pandas finding nothing to parse in an existing
+# file (EmptyDataError -- QQQ_1d.csv is the only CSV either path reads) -- AND the monitor is
+# alive to page it (_box_monitor_alive: its <home>/freshness/freshness_heartbeat.json, written
+# at the end of every 2-minute run, at most QQQ_1D_MONITOR_ALIVE_SEC old; a dead timer or unit
+# would otherwise leave the file unpaged -- the engine then pages on its next tick, as before).
+# Every other reason -- and these same ones with a file that has rows -- pages exactly as
+# before. Signals, orders and state.json never depend on it: it only decides whether a note is
+# pushed or recorded.
+QQQ_1D_MISSING, QQQ_1D_EMPTY = "missing", "empty"
+_QQQ_1D_CAUSE_REASONS = {"short": "not_ready", "missing_cache": "vol_window"}
+_EMPTY_CSV_ERROR = "EmptyDataError"     # pandas.errors.EmptyDataError: a file with nothing to parse
+_QQQ_1D_RECORDED = {}               # (note, leg key) -> the ET date its record-only line was logged
+QQQ_1D_MONITOR_ALIVE_SEC = 600.0    # tools/webull_freshness_pc.py BOX_SILENT_SEC (a test pins it)
+
+
+def _box_monitor_alive(now_epoch, paths=None):
+    """True when the box monitor (tools/webull_freshness.py) ran within QQQ_1D_MONITOR_ALIVE_SEC
+    of `now_epoch`: the "epoch" of <home>/freshness/freshness_heartbeat.json, read at every call
+    like _monitor_owns_keel_stale reads its state.json. Missing, unreadable, too old (or that
+    far ahead): False -- the engine's own notes page. Never raises."""
+    try:
+        home = (paths or DEFAULT_PATHS).get("home") or edgelog_home()
+        with open(os.path.join(home, "freshness", "freshness_heartbeat.json"),
+                  encoding="utf-8") as f:
+            epoch = float((json.load(f) or {}).get("epoch"))
+        return abs(float(now_epoch) - epoch) <= QQQ_1D_MONITOR_ALIVE_SEC
+    except Exception:
+        return False
+
+
+def qqq_1d_missing_or_empty(paths=None):
+    """QQQ_1D_MISSING when <ohlc_dir>/QQQ_1d.csv does not exist, QQQ_1D_EMPTY when it exists but
+    no line past the header has a first field that reads as an epoch, else None (the file has
+    rows) -- read as tools/webull_freshness.qqq_1d_file_state reads it (a test pins the two), so
+    whenever this says missing or empty the monitor's qqq_1d_missing check fails too. A file
+    that cannot be read at all is None: the engine's own notes page as before. Never raises."""
+    try:
+        f = open(_cache_path("1d", paths), "rb")
+    except FileNotFoundError:
+        return QQQ_1D_MISSING
+    except Exception:
+        return None
+    try:
+        with f:
+            for raw in f:
+                ln = raw.decode("utf-8", "replace").strip()
+                if not ln or ln.lower().startswith("time"):
+                    continue
+                try:
+                    int(float(ln.split(",")[0]))
+                    return None
+                except (ValueError, OverflowError):
+                    continue
+    except Exception:
+        return None
+    return QQQ_1D_EMPTY
+
+
+def _qqq_1d_is_the_cause(note, reason, text, paths, now_epoch=None):
+    """QQQ_1D_MISSING / QQQ_1D_EMPTY when this `note`'s ("not_ready" -- a DIP runner's reason;
+    "vol_window" -- the bridge's) `reason` is provably a missing or empty QQQ_1d.csv and the box
+    monitor is alive at `now_epoch` (default: now) to page it (see the block above), else None:
+    the note pages. Never raises (None)."""
+    try:
+        empty_read = reason == "error" and f"{_EMPTY_CSV_ERROR}:" in str(text or "")
+        if _QQQ_1D_CAUSE_REASONS.get(reason) != note and not empty_read:
+            return None
+        state = qqq_1d_missing_or_empty(paths)
+        if empty_read and state != QQQ_1D_EMPTY:
+            return None
+        if state and not _box_monitor_alive(
+                _time.time() if now_epoch is None else now_epoch, paths):
+            return None
+        return state
+    except Exception:
+        return None
+
+
+def _log_qqq_1d_record_once(note, leg_key, day, state, text, log=print):
+    """The record-only note's one log line per ET day per leg (see the block above)."""
+    if _QQQ_1D_RECORDED.get((note, leg_key)) == day:
+        return
+    _QQQ_1D_RECORDED[(note, leg_key)] = day
+    log(f"[cloud-signal] {leg_key}: {text} -- QQQ_1d.csv is {state}; the box monitor's qqq_1d "
+        f"check pages that, recorded here (no push)")
+
+
 def _note_live_leg_not_ready(leg_key, cfg, why, now, paths, fetch, warnings=None, log=print):
     """A live leg's runner returned no trades (see the block above): name it in `warnings`, and
-    page once a day from LIVE_NOT_READY_PAGE_FROM. Never raises."""
+    page once a day from LIVE_NOT_READY_PAGE_FROM -- or, when a missing or empty QQQ_1d.csv is
+    provably the reason and the box monitor runs (QQQ_1d MISSING: ONE PAGER), only log it: the
+    monitor pages that. Never raises."""
     try:
         if (cfg or {}).get("shadow"):
             return
@@ -4423,6 +4526,13 @@ def _note_live_leg_not_ready(leg_key, cfg, why, now, paths, fetch, warnings=None
             return
         day = et.date().isoformat()
         if _LIVE_NOT_READY_NOTED.get(leg_key) == day:
+            return
+        missing = _qqq_1d_is_the_cause("not_ready", reason, text, paths, et.timestamp())
+        if missing:
+            # QQQ_1d MISSING: ONE PAGER -- the monitor's qqq_1d check is the page; the memo above
+            # stays unset, so a different reason later today still pages
+            _log_qqq_1d_record_once("not_ready", leg_key, day, missing, f"NOT READY -- {text}",
+                                    log=log)
             return
         _LIVE_NOT_READY_NOTED[leg_key] = day
         parts = str(leg_key).split("_")
@@ -4462,7 +4572,10 @@ def _note_live_leg_not_ready(leg_key, cfg, why, now, paths, fetch, warnings=None
 #     AFFECTED" (today's trade-or-skip may differ from the backtest's; the signals still run) --
 #     only where every engine page may go (_push_allowed: a live fetching tick on the box, never
 #     a shadow leg). _VOL_WINDOW_NOTED holds it in-process and _engine_note's repeat rule
-#     (problem id = the ET date, phone_dedupe.json) across a restart.
+#     (problem id = the ET date, phone_dedupe.json) across a restart. A window short because
+#     QQQ_1d.csv is missing or empty is RECORD-ONLY (QQQ_1d MISSING: ONE PAGER, above): one log
+#     line, the entry's "record_only", no push -- the box monitor's qqq_1d_missing check pages
+#     it (only while that monitor runs: _box_monitor_alive).
 #   * tools/webull_freshness.py turns each fresh entry into a quiet vol_window:<leg> finding
 #     (the engine pages it) that clears itself on the first bar the window is full again.
 # Signals, orders and state.json never depend on any of it: every step is wrapped and only
@@ -4539,7 +4652,9 @@ def _stash_vol_window(leg_key, arrays, now, bridged, why, strategy=None, log=pri
 def _vol_window_entry(leg_key, rec, cfg):
     """One leg's published entry from its stash record: `have` = the sessions the skip ranks on
     (capped at `need`), `short`, `off` (short AND under the skip's `min_obs` floor: it does not
-    rank at all), the reason in plain words, and the day its note went out."""
+    rank at all), the reason in plain words, the day its note went out, and `record_only` (True
+    while today's short window was only recorded: QQQ_1d.csv missing or empty -- the monitor's
+    qqq_1d_missing check pages it, QQQ_1d MISSING: ONE PAGER)."""
     need = int(rec["need"])
     have = min(need, int(rec["depth_5m"]) + int(rec["bridged"]))
     min_obs = int(rec.get("min_obs") or VOL_SKIP_MIN_OBS_DEFAULT)
@@ -4549,11 +4664,14 @@ def _vol_window_entry(leg_key, rec, cfg):
         key = "short_depth"            # bridged, but the daily file does not reach back far enough
     noted = _VOL_WINDOW_NOTED.get(leg_key) or {}
     pushed = noted.get("day") if noted.get("action") == "push" else None
+    pushed = pushed if pushed == rec["day"] else None
+    recorded = (_QQQ_1D_RECORDED.get(("vol_window", leg_key)) == rec["day"]
+                and noted.get("day") != rec["day"])     # no note handed over since
     return {"day": rec["day"], "at": rec["at"], "need": need, "have": have, "min_obs": min_obs,
             "depth_5m": rec["depth_5m"], "bridged": rec["bridged"], "short": short,
             "off": short and have < min_obs, "reason_key": key,
             "reason": _VOL_WINDOW_WORDS.get(key, "the daily bars could not be used") if short else "ok",
-            "text": rec["text"], "pushed": pushed if pushed == rec["day"] else None,
+            "text": rec["text"], "pushed": pushed, "record_only": bool(short and recorded),
             "shadow": bool((cfg or {}).get("shadow"))}
 
 
@@ -4592,7 +4710,10 @@ def _note_vol_window(legs, now, paths, fetch, warnings=None, post_close=False, l
     """step()'s VOL WINDOW GUARD (see the block above), called AFTER its rows are written: one
     phone note per live leg per ET day while its window is short -- from VOL_WINDOW_PAGE_FROM
     until the session close, never on the EOD SETTLE step (`post_close`) -- then {leg: entry}
-    in `warnings` either way. Reads only the stash -- the bridge is never re-run. Never raises."""
+    in `warnings` either way. A window short because QQQ_1d.csv is missing or empty is only
+    logged while the box monitor runs (QQQ_1d MISSING: ONE PAGER -- the monitor pages it;
+    _VOL_WINDOW_NOTED stays unset, so another cause, or the monitor going quiet, later today
+    still pages). Reads only the stash -- the bridge is never re-run. Never raises."""
     try:
         et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
         day = et.date().isoformat()
@@ -4606,6 +4727,16 @@ def _note_vol_window(legs, now, paths, fetch, warnings=None, post_close=False, l
                     continue
                 e = _vol_window_entry(key, rec, cfg)
                 if not e["short"]:
+                    continue
+                # QQQ_1d MISSING: ONE PAGER -- on the stash's raw reason (its "ok", the entry's
+                # short_depth, never qualifies)
+                missing = _qqq_1d_is_the_cause("vol_window", rec.get("reason_key"),
+                                               rec.get("text"), paths, et.timestamp())
+                if missing:
+                    _log_qqq_1d_record_once(
+                        "vol_window", key, day, missing,
+                        f"vol-skip window SHORT -- ranks on {e['have']} of {e['need']} sessions "
+                        f"({e['reason_key']}: {e['text'] or e['reason']})", log=log)
                     continue
                 _VOL_WINDOW_NOTED[key] = {"day": day, "action": None}
                 log(f"[cloud-signal] {key}: vol-skip window SHORT page -- ranks on {e['have']} of "
