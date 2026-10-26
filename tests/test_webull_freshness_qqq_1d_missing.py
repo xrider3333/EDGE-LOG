@@ -15,7 +15,8 @@ tests/test_cloud_signal_qqq_1d_one_pager.py). Pinned here:
      miss); a fix sends the one low "OK"; a new loss after that pages again; a stale episode
      already open when the file goes still pages the new cause;
   3. the file test is the engine's (the monitor pages whenever the engine records);
-  4. the stale ("a day short") cases keep their ids and words.
+  4. the stale cases keep their id (their words are their true impact now: QQQ_1d STALE: TRUE
+     IMPACT, tests/test_webull_freshness_qqq_1d_stale.py).
 Reuses tests/test_webull_freshness.py's fixture home. No push, no systemctl, no live file.
 """
 import datetime as dt
@@ -328,8 +329,9 @@ def test_back_at_any_run_before_the_open_then_gone_again_pages_again(tmp_path):
 
 
 def test_a_stale_episode_then_the_file_gone_pages_the_new_cause(tmp_path):
-    """The 09:35 refresh failed ("a day short" paged at 09:47), then the file is deleted: its
-    own episode pages the true impact once; the file back fresh ends both with ONE "OK"."""
+    """The 09:35 refresh failed (the stale qqq_1d note paged at 09:47, worded with its true
+    impact), then the file is deleted: its own episode pages the true impact once; the file
+    back fresh ends both with ONE "OK"."""
     t = et(2026, 10, 5, 9, 45, 30)
     h = T.Home(tmp_path, t)
     _write_5m(h.paths["qqq_5m"], _sessions_before(MON, 93))
@@ -366,14 +368,17 @@ def test_a_deep_enough_5m_cache_is_not_trading_affected(tmp_path):
                             "Do: ask Claude (PAPER-WB chat).")
 
 
-def test_the_stale_cases_keep_their_id_and_words(tmp_path):
+def test_the_stale_cases_keep_their_id(tmp_path):
+    """A file with rows that is behind keeps the qqq_1d id; its words are its true impact now
+    (QQQ_1d STALE: TRUE IMPACT -- tests/test_webull_freshness_qqq_1d_stale.py)."""
     t = et(2026, 10, 5, 8, 30, 20)
     h = T.Home(tmp_path, t)
     h.bars(t, d1_day=dt.date(2026, 9, 30))                     # two sessions behind: a miss
+    h.whole_5m()
     h.run()
     (p,) = h.pushes
     assert p["message"].split("\n")[:2] == [
-        "Trading: AFFECTED - NOISE trades on a price history that is a day short.",
+        "Trading: AFFECTED - NOISE's vol skip can change only on a day right at its limit.",
         "The QQQ daily price history is out of date."]
     assert h.status()["preopen"]["pushed"] == ["qqq_1d"]
     assert wf.QQQ_1D_MISSING_ID != "qqq_1d"

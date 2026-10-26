@@ -133,8 +133,29 @@ from api/market_calendar):
                      opens after the pre-open gate's note NAMED the same miss today (its lead
                      problem, not a "+N more" -- po["pushed"], cleared by a passing slot or a
                      run that finds the file back) opens without a push ("prepushed") but still
-                     sends the one low "OK" when the file is back. The stale cases ("a day
-                     short") are unchanged.
+                     sends the one low "OK" when the file is back. An EMPTY file repairs itself
+                     at the engine's next refresh (api/cloud_signal fetch_and_merge_daily keeps
+                     a QQQ_1d.csv.corrupt-<stamp> copy and downloads it again), and that "OK"
+                     is the note that says so -- when the session episode was open: a file the
+                     pre-open gate named and the 09:35 refresh repairs gets no "OK" (the
+                     episode never opens; the same for a missing file).
+                     QQQ_1d STALE: TRUE IMPACT (MANAGER GO 2026-10-25): a file that HAS rows but
+                     lacks the newest sessions (qqq_1d_stale, off the 5m cache's tail read in
+                     collect) is NOT "a day short" for NOISE: its vol skip reads the daily bars
+                     only for the sessions before the 5m window -- the same dates -- and loses
+                     the lacking sessions only from the scale it puts them on, so it "can
+                     change only on a day right at its limit" (the scale moved at most 1e-4 on
+                     the box's bars, the skip never flipped). DIP #424 is unchanged while the 5m
+                     cache holds each lacking session whole; it "decides on only part of
+                     <day>'s prices" when one is partial there, and "takes no new trades and
+                     sends no exit for its held shares" when one is missing there (or the two
+                     files share under 20 sessions; the engine pages those too). Any of these
+                     can change a trade, so the check stays HIGH; only a 5m cache deep enough
+                     for both (all lacking sessions whole, 253+ sessions COUNTED in the file --
+                     collect then reads its whole session list; a calendar count from its first
+                     row is never proof: a torn first row or a hole in the history would
+                     overcount it) is "not affected" (default). The pre-open gate's out-of-date
+                     miss is worded the same way.
     vol_window:<leg> VOL WINDOW GUARD (MANAGER GO 2026-10-25): a fresh engine heartbeat's
                      "vol_window" entry for the leg says today's vol-skip window is SHORT --
                      NOISE's vol skip ranks on fewer than its 252 sessions because the daily
@@ -173,7 +194,8 @@ from api/market_calendar):
   PRE-OPEN GATE (session days; the 08:30 and 09:15 ET slots, each once)
     KEEL current (the live legs' summaries only), QQQ_1d newest bar no older than the session
     BEFORE the previous one (the most the cache can hold before the engine's ~09:35 refresh;
-    a MISSING or EMPTY file is its own miss, qqq_1d_missing, worded as the qqq_1d check above),
+    a MISSING or EMPTY file is its own miss, qqq_1d_missing, worded as the qqq_1d check above;
+    an older one is worded with its true impact, QQQ_1d STALE: TRUE IMPACT above),
     lease fresh (last publish within
     max(90 s, 2x renew)), not halted (breaker/kill today, KILL files), engine heartbeat fresh,
     Webull token NORMAL with more than 5 days left (#12, #14, #18, #19). The first slot that
@@ -209,8 +231,9 @@ verdict's "title"/"detail" -- what status.json, the log and the PC relay show --
 Before: "EDGELOG WB MONITOR: <developer title>" with "[SEVERITY] title: detail" lines, an "OK
 again" push for every episode, and "QQQ book ready"/"QQQ book NOT ready" (urgent) from the gate.
   Pre-open gate:  not ready -> "QQQ book: CHECK NOW" (high), "Trading: AFFECTED - the QQQ book may
-                  not trade at the open." (or what the lead miss really does: an old KEEL model, a
-                  short price history, a missing daily price file: "DIP #424 takes no new trades
+                  not trade at the open." (or what the lead miss really does: an old KEEL model, an
+                  out-of-date daily price history ("NOISE's vol skip can change only on a day
+                  right at its limit."), a missing daily price file: "DIP #424 takes no new trades
                   and sends no exit for its held shares, and NOISE's vol skip ranks on 92
                   sessions, not 252, until the file is back."), the lead miss in plain words "+N
                   more", its fix (a miss only
@@ -331,7 +354,6 @@ def keel_fixed_tilts_affects(word="NOISE"):
     """The Trading line of a KEEL model too old to use: the leg trades on the fixed tilts only."""
     return f"{word} trades on the fixed size tilts only until its sizing model is rebuilt"
 MAY_HOLD = "the QQQ book may still hold shares after the close"
-SHORT_HISTORY = "NOISE trades on a price history that is a day short"
 # QQQ_1d MISSING: ONE PAGER (the qqq_1d check in the module docstring): what the two legs that
 # read QQQ_1d.csv do without it. DIP #424's daily series needs trend_len 400 + 30 sessions
 # (api/dip_live build_daily_series on api/cloud_signal DIP_424_PARAMS); NOISE's vol skip ranks
@@ -355,16 +377,144 @@ def qqq_1d_missing_affects(k5):
     those, under VOL_SKIP_FLOOR it is off (never skips). None when neither leg is affected."""
     parts = []
     if k5 is None or k5 + 1 < DIP_MIN_SESSIONS:
-        parts.append(f"{FAMILY_WORDS['DIP']} takes no new trades and sends no exit for its "
-                     f"held shares")
+        parts.append(_dip_not_trading_words())
+    noise = _noise_5m_window_words(k5)
+    if noise:
+        parts.append(noise)
+    return (", and ".join(parts) + ", until the file is back") if parts else None
+
+
+def _dip_not_trading_words():
+    """What DIP #424 does while its daily series is not ready (api/cloud_signal step() skips the
+    leg: no diff, no SEED)."""
+    return f"{FAMILY_WORDS['DIP']} takes no new trades and sends no exit for its held shares"
+
+
+def _noise_5m_window_words(k5):
+    """NOISE's clause when its vol skip gets no daily bars and ranks on the 5m window alone:
+    `k5` - 1 sessions (k5 = the 5m cache's sessions before today, None unknown), off under
+    VOL_SKIP_FLOOR; None when that window is full (VOL_SKIP_SESSIONS)."""
     have = None if k5 is None else max(0, int(k5) - 1)
     if have is None:
-        parts.append("NOISE's vol skip ranks on the 5-minute prices alone")
-    elif have < VOL_SKIP_FLOOR:
-        parts.append("NOISE's vol skip is off")
-    elif have < VOL_SKIP_SESSIONS:
-        parts.append(f"NOISE's vol skip ranks on {have} sessions, not {VOL_SKIP_SESSIONS}")
-    return (", and ".join(parts) + ", until the file is back") if parts else None
+        return "NOISE's vol skip ranks on the 5-minute prices alone"
+    if have < VOL_SKIP_FLOOR:
+        return "NOISE's vol skip is off"
+    if have < VOL_SKIP_SESSIONS:
+        return f"NOISE's vol skip ranks on {have} sessions, not {VOL_SKIP_SESSIONS}"
+    return None
+
+
+# QQQ_1d STALE: TRUE IMPACT (MANAGER GO 2026-10-25; the qqq_1d check in the module docstring).
+# What a QQQ_1d.csv that HAS rows but lacks the newest sessions does, read off the engine's code
+# (tests/test_cloud_signal_qqq_1d_stale.py proves each case on the box's real bars):
+#   DIP #424 (api/dip_live build_daily_series) takes each date from the 5m cache when that
+#     session is WHOLE there (first bar 09:30, last bar 5 minutes before the close), else from
+#     QQQ_1d.csv, else from the partial 5m session. A lacking session whole in the 5m cache: the
+#     same row, the same trades. PART of it: DIP decides on that partial session instead of the
+#     official daily bar (a trade can change). NONE of it: a hole or the previous session missing
+#     -- not ready, no entry and no exit (the engine pages that itself too). Fewer than
+#     DAILY_MIN_OVERLAP sessions shared by the two files: its calibration refuses (not ready).
+#   NOISE's vol skip (api/cloud_signal vol_prior_ranges_for_leg) tops the 5m window up with the
+#     daily sessions BEFORE that window -- the same dates either way -- scaled by the median
+#     5m/daily range ratio over the sessions both files hold, which loses the lacking ones. The
+#     scale moves by a hair (under 1e-4 on the box's bars, 72 sessions one and two short), so
+#     yesterday's rank can move by one place (once in those 144 runs: 09-09, 22.6 -> 22.2); the
+#     skip itself changes only when that rank sits right at the vol_skip_pct line. Under
+#     DAILY_MIN_OVERLAP shared sessions the daily bars are dropped (the engine's vol-window note
+#     pages that too) and the skip ranks on the 5m window.
+#     A 5m window that already holds VOL_SKIP_SESSIONS sessions before yesterday never reads the
+#     daily bars (NOISE_1_0 _vol_percentile: today's rank reads ext[j-252:j], j = yesterday).
+# Every case can change a trade except that last (deep-cache, all lacking sessions whole), so
+# the check stays HIGH ("AFFECTED") and only that one is "not affected" (default) -- and only on
+# the 5m cache's REAL session list (collect reads it when the calendar says the cache may be that
+# deep): the calendar count from its first row overcounts a torn first row (09-18's time=200960)
+# or a hole in the history, and either leaves yesterday's rank reaching into the daily bars.
+DAILY_MIN_OVERLAP = 20      # api/cloud_signal DAILY_MIN_OVERLAP_SESSIONS == DIP_CAL_MIN_OVERLAP
+QQQ_1D_STALE_UNKNOWN = "DIP #424 and NOISE may trade on an out-of-date price history"
+NOISE_AT_THE_LINE = "NOISE's vol skip can change only on a day right at its limit"
+_WEEKDAYS = ("Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday")
+
+
+def five_min_whole(span, day):
+    """True when a 5m session's (first bar, last bar) `span` -- (hour, minute) pairs, see
+    five_min_day_spans -- is WHOLE the way api/dip_live five_min_sessions counts a session
+    "complete": first bar 09:30, last bar 5 minutes before market_calendar's close for `day`."""
+    (fh, fm), (lh, lm) = span
+    ch, cm = close_hhmm(day)
+    return (fh, fm) == SESSION_OPEN and lh * 60 + lm + 5 == ch * 60 + cm
+
+
+def qqq_1d_stale(snap, today):
+    """QQQ_1d STALE: TRUE IMPACT -- None while QQQ_1d.csv is missing or empty (qqq_1d_gone) or
+    holds the session before `today`; else {"lacking" (the sessions after its newest bar through
+    the one before `today`, [] when its newest bar cannot be read), "affects" (the Trading line;
+    None = not affected), "dev" (the developer words)}, from the 5m cache's tail
+    (snap["qqq_5m_spans"]), its first session (snap["qqq_5m_first"]) and, when collect read it
+    (the two files share under DAILY_MIN_OVERLAP sessions by the calendar, or the calendar says
+    the 5m cache may hold VOL_SKIP_SESSIONS of them), its full session list
+    (snap["qqq_5m_days"]). "Not affected" is returned only off that list: without it the
+    sessions are counted on the calendar, which can only overcount, and NOISE stays "at the
+    line". See the block above."""
+    if qqq_1d_gone(snap, today) is not None:
+        return None
+    prev = prev_session(today)
+    d1 = qqq_1d_day(snap)
+    if prev is None or (d1 is not None and d1 >= prev):
+        return None
+    spans, first = snap.get("qqq_5m_spans"), snap.get("qqq_5m_first")
+    if d1 is None or spans is None or first is None:
+        return {"lacking": [], "affects": QQQ_1D_STALE_UNKNOWN,
+                "dev": "its newest bar or the 5m cache cannot be read -- impact unknown"}
+    lacking = market_calendar.sessions_between(d1 + _dt.timedelta(days=1), prev)
+    days = snap.get("qqq_5m_days")
+    if days is not None:
+        shared = sum(1 for x in days if x <= d1)
+        k5 = sum(1 for x in days if x < today)
+    else:
+        shared = len(market_calendar.sessions_between(first, d1)) if first <= d1 else 0
+        k5 = len(market_calendar.sessions_between(first, prev)) if first <= prev else 0
+    absent = [s for s in lacking if s not in spans]
+    inside = [s for s in lacking if s in spans]          # in the 5m window: the scale loses them
+    part = [s for s in inside if not five_min_whole(spans[s], s)]
+    far = shared < DAILY_MIN_OVERLAP
+    # yesterday's rank is all 5m only on a COUNTED 253+ sessions (never the calendar's count)
+    deep = days is not None and k5 - 1 >= VOL_SKIP_SESSIONS
+
+    def iso(ds):
+        return (", ".join(s.isoformat() for s in ds) if len(ds) <= 3 else
+                f"{ds[0].isoformat()}..{ds[-1].isoformat()} ({len(ds)} sessions)")
+    parts, dev = [], []
+    if absent or far:
+        parts.append(_dip_not_trading_words())
+        why = (f"{iso(absent)} in neither file" if absent else
+               f"{shared} session(s) in both files, its calibration needs {DAILY_MIN_OVERLAP}")
+        dev.append(f"DIP #424 NOT READY ({why}: no entry, no exit -- the engine pages that too)")
+    elif part:
+        when = (f"{_WEEKDAYS[part[0].weekday()]}'s" if len(part) == 1 else f"{len(part)} days'")
+        parts.append(f"{FAMILY_WORDS['DIP']} decides on only part of {when} prices")
+        dev.append(f"DIP #424 reads the PARTIAL 5m session for {iso(part)} instead of the "
+                   f"daily bar")
+    else:
+        dev.append("DIP #424 unchanged (the 5m cache holds those sessions whole)")
+    if far:
+        noise = _noise_5m_window_words(k5)
+        dev.append(f"NOISE's vol skip gets no daily bars ({shared} shared session(s), under "
+                   f"{DAILY_MIN_OVERLAP}; the engine's vol-window note pages that too)")
+    elif inside and not deep:
+        noise = NOISE_AT_THE_LINE
+        dev.append(f"NOISE's vol-skip scale is measured on {len(inside)} session(s) fewer "
+                   f"(the same daily dates; only a rank right at the skip line can change)"
+                   + ("" if days is not None or k5 - 1 < VOL_SKIP_SESSIONS else
+                      f" -- {k5} 5m sessions by the calendar, not counted in the file"))
+    else:
+        noise = None
+        dev.append("NOISE unchanged (" + (f"its {VOL_SKIP_SESSIONS}-session window is all 5m"
+                                          if inside else "no lacking session is in its scale")
+                   + ")")
+    if noise:
+        parts.append(noise)
+    return {"lacking": lacking, "affects": ", and ".join(parts) if parts else None,
+            "dev": f"lacks {iso(lacking)}: " + "; ".join(dev)}
 
 
 OWNER_FIXES = ("token_status", "halted", "kill")   # pre-open misses only the owner can clear
@@ -764,7 +914,10 @@ def five_min_session_days(paths):
     build_arrays' filter) in QQQ_5m.csv, plus QQQ_5m_backfill.csv's rows older than its first
     one (api/cloud_signal historical_bars: the history both DIP's daily series and NOISE's vol
     window are cut from). None when QQQ_5m.csv cannot be read or holds no row. Read only while
-    QQQ_1d.csv is missing or empty (a full read). Never raises."""
+    QQQ_1d.csv is missing or empty, so far behind that the two files share under
+    DAILY_MIN_OVERLAP sessions, or behind the 5m cache while the calendar says that cache may
+    hold VOL_SKIP_SESSIONS sessions (qqq_1d_stale's "not affected" is judged on this list only)
+    -- a full read. Never raises."""
     try:
         epochs = list(_csv_row_epochs(paths["qqq_5m"]))
     except Exception:
@@ -785,6 +938,101 @@ def five_min_session_days(paths):
         if t.weekday() < 5 and SESSION_OPEN <= (t.hour, t.minute) < (16, 0):
             days.add(t.date())
     return sorted(days)
+
+
+TAIL_READ_BYTES = 65536     # QQQ_5m.csv's last ~10 sessions: the first chunk five_min_day_spans reads
+
+
+def _tail_row_epochs(path, since_epoch):
+    """The first-field epochs (as _csv_row_epochs reads them) of the rows of `path` at or after
+    `since_epoch`, read from the END in growing chunks until a row before it -- or the file's
+    start -- is in the chunk (the cache is written sorted by time). Raises OSError when the file
+    cannot be opened."""
+    with open(path, "rb") as f:
+        f.seek(0, os.SEEK_END)
+        size = f.tell()
+        n = min(size, TAIL_READ_BYTES)
+        while True:
+            f.seek(size - n)
+            lines = f.read(n).split(b"\n")
+            if n < size:
+                lines = lines[1:]                        # the chunk's first line may be cut
+            epochs = []
+            for raw in lines:
+                ln = raw.decode("utf-8", "replace").strip()
+                if not ln or ln.lower().startswith("time"):
+                    continue
+                try:
+                    epochs.append(int(float(ln.split(",")[0])))
+                except (ValueError, OverflowError):
+                    continue
+            if n >= size or (epochs and min(epochs) < since_epoch):
+                return [e for e in epochs if e >= since_epoch]
+            n = min(size, n * 4)
+
+
+def five_min_day_spans(paths, after):
+    """QQQ_1d STALE: TRUE IMPACT -- {New York date: ((h, m) of its first bar, (h, m) of its last
+    bar)} for QQQ_5m.csv's RTH rows (five_min_session_days' filter) dated AFTER `after` (a date:
+    QQQ_1d.csv's newest bar), read from the file's end -- one TAIL_READ_BYTES read while the
+    daily file is current. A date with no row is not in it. None when QQQ_5m.csv cannot be read.
+    Never raises."""
+    since = int(at(after + _dt.timedelta(days=1), (0, 0)).timestamp())
+    try:
+        epochs = _tail_row_epochs(paths["qqq_5m"], since)
+    except Exception:
+        return None
+    spans = {}
+    for e in epochs:
+        try:
+            t = _dt.datetime.fromtimestamp(e, tz=ET)
+        except (OverflowError, OSError, ValueError):     # a torn row's absurd epoch
+            continue
+        hm = (t.hour, t.minute)
+        if t.weekday() < 5 and SESSION_OPEN <= hm < (16, 0):
+            lo, hi = spans.get(t.date(), (hm, hm))
+            spans[t.date()] = (min(lo, hm), max(hi, hm))
+    return spans
+
+
+def _first_rth_day(path):
+    """The New York date of `path`'s first RTH row (five_min_session_days' filter: Mon-Fri,
+    09:30-16:00), or None when it holds none; rows before it -- a torn row's absurd epoch, an
+    off-hours bar -- are skipped. Reads only up to that row. Raises OSError when the file
+    cannot be opened."""
+    rows = _csv_row_epochs(path)
+    try:
+        for e in rows:
+            try:
+                t = _dt.datetime.fromtimestamp(e, tz=ET)
+            except (OverflowError, OSError, ValueError):
+                continue
+            if t.weekday() < 5 and SESSION_OPEN <= (t.hour, t.minute) < (16, 0):
+                return t.date()
+        return None
+    finally:
+        rows.close()                                    # the file is closed here, not at GC
+
+
+def five_min_first_day(paths):
+    """The New York date of the 5m history's oldest RTH row: QQQ_5m_backfill.csv's first one
+    when it is older than QQQ_5m.csv's (api/cloud_signal historical_bars splices the backfill in
+    front), else QQQ_5m.csv's (_first_rth_day: a torn first row -- 09-18's time=200960 sorts to
+    the top -- never sets it). None when QQQ_5m.csv cannot be read or holds no RTH row. Reads
+    only each file's first rows. Only an estimate from the calendar's side (a hole in the
+    history is not seen): collect reads the whole list before qqq_1d_stale says "not affected".
+    Never raises."""
+    firsts = []
+    for key in ("qqq_5m", "qqq_5m_backfill"):
+        try:
+            first = _first_rth_day(paths[key])
+        except Exception:                               # missing, unreadable
+            first = None
+        if first is not None:
+            firsts.append(first)
+        elif key == "qqq_5m":
+            return None
+    return min(firsts)
 
 
 def epoch_to_et_date(epoch):
@@ -1052,7 +1300,24 @@ def collect(paths, run_cmd=None):
     # QQQ_1d MISSING: ONE PAGER -- "missing" / "empty" / None, and only then the 5m cache's
     # sessions (the qqq_1d wording says what DIP and NOISE do without the daily file)
     snap["qqq_1d_state"] = qqq_1d_file_state(paths["qqq_1d"])
-    snap["qqq_5m_days"] = five_min_session_days(paths) if snap["qqq_1d_state"] else None
+    # QQQ_1d STALE: TRUE IMPACT -- while the file has rows, the 5m cache's sessions after its
+    # newest bar (a tail read: what DIP and NOISE use for the sessions it lacks) and its first
+    # session; the full session list only when the two share under DAILY_MIN_OVERLAP sessions,
+    # or when the daily file lacks a 5m session before the 5m cache's newest one (it is behind)
+    # and the calendar says the 5m cache may hold VOL_SKIP_SESSIONS sessions before that newest
+    # one: qqq_1d_stale's one quiet verdict is judged on the sessions really in the file, never
+    # on the calendar's count (a torn first row or a hole overcounts it). A current daily file
+    # never pays the full read, however deep the cache.
+    d1_day = qqq_1d_day(snap)
+    full = False
+    if snap["qqq_1d_state"] is None and d1_day is not None:
+        snap["qqq_5m_spans"] = spans = five_min_day_spans(paths, d1_day)
+        snap["qqq_5m_first"] = first = five_min_first_day(paths)
+        full = first is None or first > d1_day or len(
+            market_calendar.sessions_between(first, d1_day)) < DAILY_MIN_OVERLAP
+        if not full and spans and len(spans) >= 2:
+            full = len(market_calendar.sessions_between(first, max(spans))) > VOL_SKIP_SESSIONS
+    snap["qqq_5m_days"] = five_min_session_days(paths) if snap["qqq_1d_state"] or full else None
     snap["nq_last"] = last_bar_epoch(paths["nq_master"])
     keel, keel_shadow = {}, []
     shadow_keys = ()            # api/cloud_signal.SHADOW_LEGS' keys, read on first need
@@ -1749,17 +2014,19 @@ def check_session(snap, now_et, mstate, ev):
             plain=_plain(gone["problem"], affects=gone["affects"]) if gone else None,
             prepushed=gone is not None and QQQ_1D_MISSING_ID in (gate_pushed or ())))
         # the stale check cannot tell while the file is gone: no change either way (the file
-        # back with rows ends the episode above, and this judges it again)
+        # back with rows ends the episode above, and this judges it again). QQQ_1d STALE: TRUE
+        # IMPACT -- worded with what the sessions it lacks do to DIP and NOISE (qqq_1d_stale)
+        stale = qqq_1d_stale(snap, d) if not gone else None
         out.append(_verdict(
             "qqq_1d", "session",
             None if gone else (d1_day is not None and want is not None and d1_day >= want),
             HIGH, "QQQ daily cache not refreshed",
             f"QQQ_1d newest bar {d1_day or 'missing'}, expected {want} after the engine's "
-            f"~09:35 ET refresh -- NOISE's vol look-back is a session short (the refresh is "
-            f"tried once a day: see cloud_signal.log 'QQQ daily cache refresh').",
+            f"~09:35 ET refresh -- {stale['dev'] if stale else 'n/a'} (the refresh is tried "
+            f"once a day: see cloud_signal.log 'QQQ daily cache refresh').",
             min_runs=2,
             plain=_plain("The QQQ daily price history was not updated this morning.",
-                         affects=SHORT_HISTORY)))
+                         affects=stale["affects"] if stale else None)))
     # tick gaps (#3)
     st = snap.get("exec_state") if isinstance(snap.get("exec_state"), dict) else {}
     seen = mstate.setdefault("tick_gap_seen", {})
@@ -2141,9 +2408,12 @@ def preopen_checks(snap, now_et, ev):
         # without the file; check_session's qqq_1d does not page it again today (po["pushed"])
         miss(QQQ_1D_MISSING_ID, gone["dev"], gone["problem"], affects=gone["affects"])
     elif d1_want and (d1_day is None or d1_day < d1_want):
+        # QQQ_1d STALE: TRUE IMPACT -- what the open decides on if the ~09:35 refresh fails
+        # again: the sessions after its newest bar through yesterday (qqq_1d_stale)
+        stale = qqq_1d_stale(snap, d) or {"dev": "n/a", "affects": QQQ_1D_STALE_UNKNOWN}
         miss("qqq_1d", f"QQQ_1d newest bar {d1_day or 'missing'}, expected {d1_want} or "
-                       f"newer (NOISE look-back truncated)",
-             "The QQQ daily price history is out of date.", affects=SHORT_HISTORY)
+                       f"newer -- {stale['dev']}",
+             "The QQQ daily price history is out of date.", affects=stale["affects"])
     limit = max(PREOPEN_LEASE_FLOOR_SEC, PREOPEN_LEASE_MARGIN * ev["renew"])
     if not ev["readable"]:
         miss("exec_state", "executor state.json unreadable",

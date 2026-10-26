@@ -148,6 +148,24 @@ class Home:
         d1_e = int(dt.datetime(d1_day.year, d1_day.month, d1_day.day, tzinfo=ET).timestamp())
         _w(self.paths["qqq_1d"], f"time,open,high,low,close,volume\n{d1_e},1,1,1,1,1\n")
 
+    def whole_5m(self, sessions=93):
+        """QQQ_5m.csv as the box holds it (QQQ_1d STALE: TRUE IMPACT reads its tail): `sessions`
+        WHOLE sessions before today -- every bar 09:30 .. 5 minutes before the close -- plus
+        today's bars through the newest closed one."""
+        days, d = [], self.now.date()
+        while len(days) < sessions:
+            d = wf.prev_session(d)
+            days.append(d)
+        rows = ["time,open,high,low,close,volume\n"]
+        newest = int(self.now.timestamp()) // 300 * 300 - 300
+        for day in days[::-1] + [self.now.date()]:
+            ch, cm = wf.close_hhmm(day) if wf.market_calendar.is_session(day) else (9, 30)
+            t, end = wf.at(day, (9, 30)), wf.at(day, (ch, cm))
+            while t < end and t.timestamp() <= newest:
+                rows.append(f"{int(t.timestamp())},1,1,1,1,1\n")
+                t += dt.timedelta(minutes=5)
+        _w(self.paths["qqq_5m"], "".join(rows))
+
     def keel(self, through=None):
         through = through or wf.keel_expected(wf.prev_session(self.now.date()))
         for leg in ("NOISE_382_v12", "NOISE_422_KEEL_v12"):
@@ -717,6 +735,7 @@ def test_qqq_1d_must_hold_the_previous_session_from_0940(tmp_path):
     t = et(2026, 10, 5, 9, 38)
     h = Home(tmp_path, t)
     h.bars(t, d1_day=dt.date(2026, 10, 1))                      # 09:35 refresh not landed
+    h.whole_5m()
     assert "qqq_1d" not in h.run()["status"]["verdicts"]        # not judged before 09:40
     h.advance(et(2026, 10, 5, 9, 45))
     out = h.run()
@@ -724,11 +743,15 @@ def test_qqq_1d_must_hold_the_previous_session_from_0940(tmp_path):
     h.advance(et(2026, 10, 5, 9, 47))
     h.run()
     assert len(h.pushes) == 1
+    # QQQ_1d STALE: TRUE IMPACT -- not "a day short": DIP reads Friday whole from the 5m cache,
+    # NOISE's skip can change only at its limit (tests/test_webull_freshness_qqq_1d_stale.py)
     assert h.pushes[0]["message"] == (
-        "Trading: AFFECTED - NOISE trades on a price history that is a day short.\n"
+        "Trading: AFFECTED - NOISE's vol skip can change only on a day right at its limit.\n"
         "The QQQ daily price history was not updated this morning.\n"
         "Do: ask Claude (PAPER-WB chat).")
-    assert "expected 2026-10-02" in h.status()["verdicts"]["qqq_1d"]["detail"]
+    assert h.pushes[0]["priority"] == "high"
+    detail = h.status()["verdicts"]["qqq_1d"]["detail"]
+    assert "expected 2026-10-02" in detail and "lacks 2026-10-02: DIP #424 unchanged" in detail
     h.advance(et(2026, 10, 5, 9, 49))
     h.bars(h.now, d1_day=dt.date(2026, 10, 2))                  # refreshed
     out = h.run()

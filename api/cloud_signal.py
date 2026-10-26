@@ -1474,27 +1474,131 @@ def fetch_and_merge_daily(paths=None, now=None, log=print):
     Any row dated `now`'s own date or later is dropped before the merge is written
     (see _drop_unfinished_session_rows) unless today's own session has already
     closed -- a mid-session yfinance pull can return today's own partial daily bar,
-    and "after the close" (the spec) means a FINISHED bar, never that one."""
+    and "after the close" (the spec) means a FINISHED bar, never that one.
+
+    EMPTY QQQ_1d.csv REPAIRS ITSELF (MANAGER GO 2026-10-25): a file with no row to keep is
+    treated like a missing one -- _daily_file_broken: qqq_1d_missing_or_empty() reads it EMPTY
+    (0 bytes, blank lines, a header only, rows whose time never parses) AND pandas agrees it
+    holds no row whose time is an epoch second (a file whose numbers are quoted reads EMPTY to
+    the text test but every row to pandas: it is merged as before, never set aside, and that
+    write unquotes it). It is first COPIED aside to QQQ_1d.csv.corrupt-<YYYYMMDD-HHMMSS>
+    (tools/qqq_cache_repair.py's convention; one copy per distinct broken file, however many
+    ticks retry), then the download alone is written through the same atomic replace. Before
+    this, pandas raised on it (EmptyDataError) or merged its junk, and the refresh only logged
+    "refresh failed" while the box monitor paged the file every day. A file with any row whose
+    time parses never takes this path (no good row is ever dropped), and only QQQ_1d.csv is
+    touched (never QQQ_5m/QQQ_1m.csv). Any other file is read BEFORE the download, as always: one
+    pandas cannot read (a row with too many fields, bytes that are not utf-8) raises there and
+    never costs a yfinance pull. A download with nothing in it leaves QQQ_1d.csv as it was
+    (still EMPTY: the monitor's note stays open, the engine's DIP / NOISE notes stay record-only)
+    and the copy in place. The log lines here are the repair's record -- "kept a copy as" and
+    "re-download got no rows" each once per copy per ET day (_log_fail_safe_once: the call is
+    retried every bar), "repaired" only when the replace landed, else "repair not written"; the
+    phone hears of it through the monitor's one "OK" when its session note for the file was open
+    (an episode the 08:30 gate named and this 09:35 refresh repairs never opens, so it gets no
+    "OK" -- as for a missing file)."""
     import pandas as pd
     paths = paths or DEFAULT_PATHS
     now = now or _dt.datetime.now(tz=_zi(TZ))
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
     path = _cache_path("1d", paths)
-    old = load_cached_bars("1d", paths)
-    if old is None:
-        old = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+    empty = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+    broken = _daily_file_broken(paths)
+    kept = None
+    if broken:
+        kept = os.path.basename(_keep_broken_daily_copy(path))
+        _log_fail_safe_once(
+            "qqq_1d_repair:" + kept,
+            f"[cloud-signal] QQQ_1d.csv has no row to keep -- kept a copy as {kept}, "
+            f"downloading the daily bars again", log)
+        old = empty
+    else:
+        old = load_cached_bars("1d", paths)
+        if old is None:
+            old = empty
     fresh_df = _fetch_yf_daily()
     fresh = qp._to_epoch_frame(fresh_df)
     fresh = _drop_unfinished_session_rows(fresh, now, log=log)
+    # re-check just before the merge: a broken file that gained a real row meanwhile is merged
+    # like any other (never overwritten)
+    if broken and not _daily_file_broken(paths):
+        broken = False
+        old = load_cached_bars("1d", paths)
+        if old is None:
+            old = empty
     if not len(fresh) and not len(old):
+        if broken:
+            _log_fail_safe_once(
+                "qqq_1d_repair_no_rows:" + kept,
+                "[cloud-signal] QQQ_1d.csv re-download got no rows -- the file is left as it "
+                "was; the next refresh tries again", log)
         return None
     merged = pd.concat([old, fresh], ignore_index=True)
     if len(merged):
         merged = merged.drop_duplicates("time", keep="last").sort_values("time")
     tmp = path + ".tmp"
     merged.to_csv(tmp, index=False)
-    qp._replace_with_retry(tmp, path, log=log, what="[cloud-signal] 1d bar cache")
+    wrote = qp._replace_with_retry(tmp, path, log=log, what="[cloud-signal] 1d bar cache")
+    if broken and not wrote:
+        log("[cloud-signal] QQQ_1d.csv repair not written -- the next refresh tries again")
+    elif broken:
+        log(f"[cloud-signal] QQQ_1d.csv repaired: {len(merged)} daily row(s) downloaded")
     return merged
+
+
+def _daily_file_broken(paths):
+    """EMPTY QQQ_1d.csv REPAIRS ITSELF (fetch_and_merge_daily): True only when QQQ_1d.csv
+    exists, qqq_1d_missing_or_empty() reads it EMPTY, AND pandas finds no row in it whose time
+    is an epoch second in [1e9, 2e9] (tools/qqq_cache_repair.py EPOCH_MIN/EPOCH_MAX; an "inf"
+    or "nan" time is no row; nor is any row of a file with no "time" column) -- a file pandas
+    cannot parse at all (EmptyDataError, ParserError, bytes that are not utf-8) holds none.
+    The two reads disagree on a file whose numbers are quoted: the text test fails on
+    '"1759411800"', pandas reads it; such a file has rows and is merged. Never raises (False --
+    any other error, e.g. the file locked or gone mid-read: nothing is set aside on a doubt)."""
+    try:
+        if qqq_1d_missing_or_empty(paths) != QQQ_1D_EMPTY:
+            return False
+        import pandas as pd
+        try:
+            df = load_cached_bars("1d", paths)
+        except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeDecodeError):
+            return True                             # nothing pandas can read: no row to keep
+        if df is None:                              # gone since the text read
+            return False
+        if "time" not in df.columns:
+            return True
+        t = pd.to_numeric(df["time"], errors="coerce")
+        return not bool(t.between(1_000_000_000, 2_000_000_000).any())
+    except Exception:
+        return False
+
+
+def _keep_broken_daily_copy(path):
+    """EMPTY QQQ_1d.csv REPAIRS ITSELF (fetch_and_merge_daily): copy `path` to
+    <path>.corrupt-<YYYYMMDD-HHMMSS> (shutil.copy2, never a move) and return the copy's path --
+    or the path of an earlier copy with the same bytes, so a refresh retried every tick keeps
+    ONE copy of one broken file. May raise (OSError): the caller's own fail-safe catches it."""
+    folder, name = os.path.split(path)
+    with open(path, "rb") as f:
+        data = f.read()
+    for other in sorted(os.listdir(folder or ".")):
+        if not other.startswith(name + ".corrupt-"):
+            continue
+        prior = os.path.join(folder, other)
+        try:
+            if os.path.getsize(prior) == len(data):
+                with open(prior, "rb") as f:
+                    if f.read() == data:
+                        return prior
+        except OSError:
+            continue
+    stamp = _dt.datetime.now().strftime("%Y%m%d-%H%M%S")
+    copy, n = f"{path}.corrupt-{stamp}", 1
+    while os.path.exists(copy):
+        n += 1
+        copy = f"{path}.corrupt-{stamp}-{n}"
+    shutil.copy2(path, copy)
+    return copy
 
 
 def _daily_cache_refreshed_today(paths, now):
@@ -1535,7 +1639,16 @@ def _daily_cache_refresh_due(now, paths):
     yet on `now`'s ET date (the mtime gate) AND the cache is missing or older than
     _last_completed_session_date(now). Split out (2026-09-27) so api/cloud_signal_stream.py
     can ask "may a fetching step() still change QQQ_1d.csv today?" with the SAME test,
-    without fetching. May raise on an unexpected error -- both callers wrap it."""
+    without fetching. May raise on an unexpected error -- both callers wrap it.
+
+    An EMPTY file (qqq_1d_missing_or_empty: no row whose time parses) is due like a MISSING
+    one, whatever its mtime (EMPTY QQQ_1d.csv REPAIRS ITSELF, fetch_and_merge_daily): a file
+    emptied today would otherwise wait for tomorrow's first tick, and a failed re-download is
+    retried on the next tick, as for a missing file. That includes a file only the text test
+    reads EMPTY (its numbers quoted: pandas reads every row): it is merged, never set aside, and
+    the merge's write -- even with no download -- unquotes it, so it is due once."""
+    if qqq_1d_missing_or_empty(paths) == QQQ_1D_EMPTY:
+        return True
     if _daily_cache_refreshed_today(paths, now):
         return False
     newest = _daily_cache_newest_date(paths)
@@ -1560,7 +1673,12 @@ def _maybe_refresh_daily_cache(now, paths, log=print):
     the cache is never stale relative to `_last_completed_session_date` past the
     first successful refresh that already covers it. Never raises -- any failure
     here just leaves the existing on-disk cache (or none) in place for
-    vol_prior_ranges_for_leg to read, which is already its own fail-safe path."""
+    vol_prior_ranges_for_leg to read, which is already its own fail-safe path.
+
+    A MISSING or EMPTY file has no mtime gate: it is fetched on every call (the NOISE leg's
+    engine run, once per new bar) until a download lands -- an EMPTY one that pandas agrees
+    holds no row is set aside first and replaced, never merged (EMPTY QQQ_1d.csv REPAIRS ITSELF,
+    fetch_and_merge_daily: its retry lines are logged once per ET day)."""
     try:
         if not _daily_cache_refresh_due(now, paths):
             return
@@ -4430,7 +4548,9 @@ _NOT_READY_WORDS = {
 # would otherwise leave the file unpaged -- the engine then pages on its next tick, as before).
 # Every other reason -- and these same ones with a file that has rows -- pages exactly as
 # before. Signals, orders and state.json never depend on it: it only decides whether a note is
-# pushed or recorded.
+# pushed or recorded. Both causes end at the next daily refresh that downloads rows: a missing
+# file is written, an EMPTY one is copied aside and replaced (EMPTY QQQ_1d.csv REPAIRS ITSELF,
+# fetch_and_merge_daily) -- and the monitor's "OK" says so when its session note was open.
 QQQ_1D_MISSING, QQQ_1D_EMPTY = "missing", "empty"
 _QQQ_1D_CAUSE_REASONS = {"short": "not_ready", "missing_cache": "vol_window"}
 _EMPTY_CSV_ERROR = "EmptyDataError"     # pandas.errors.EmptyDataError: a file with nothing to parse
