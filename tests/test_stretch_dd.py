@@ -23,6 +23,11 @@ What is pinned here, by the design's test ids:
   plus: the cent check refuses a $0.01 miss; a member-count mismatch refuses; C7 out-of-frame refuses;
   C3 a folded size scales the marks; and a synthetic run_validate whose existing keys are
   byte-identical with item 51 on and off, the new keys where the decisions put them and nowhere else.
+  Review fixes (10-25): a NaN close / non-finite amount is UNMARKED / NON_FINITE, never "within a cent";
+  an error in one stretch or gate block nulls only that one; the lockbox and every chain fold are
+  valued only on the tape they ran on (TAPE_MOVED); a sizing file's chain is SIZE_UNKNOWN whatever the
+  champion's sizes; a zero-trade lockbox is flat and wf_lb still reads; a Gate-Validate job saves its
+  dd_pct_src; the web reads the stored $100k figure only at the $100k ACCT chip.
 """
 import json
 import math
@@ -273,7 +278,7 @@ def test_marks_across_a_contract_switch_carry_no_roll_step(tmp_path):
     naive = S.Valuation(fr, [trade], 20.0)
     assert max(naive.row_usd) > 3000 and math.fsum(naive.row_usd) == pytest.approx(100.0)
     # a ratio plan is refused until its maths is designed; an unknown plan is refused too
-    for kind, code in ((S.RATIO_KIND, "RATIO_ROLL"), (None, "ROLL_SEAM"), ("raw (declared)", "ROLL_SEAM")):
+    for kind, code in ((S.RATIO_KIND, "RATIO_ROLL"), (None, "SWITCH_HELD"), ("raw (declared)", "SWITCH_HELD")):
         vv = S.Valuation(fr, [trade], 20.0, roll={"root": "NQ", "kind": kind, "table_dir": td})
         assert S.reading(vv, [True], 0, fr.n - 1, 100.0)[1][0] == code
     # a trade that does not span the switch is marked on raw prices as before
@@ -614,6 +619,10 @@ def test_validate_dd_pct_has_all_five_stretches_valued(validate_pair):
     assert src["start"] == 100000.0 and src["v"] == S.VERSION and src["src"] == "validate"
     assert src["net_ref"]["lb"] == "validate.lockbox.pnl"
     assert (src.get("gate") or {}).get("blocks", 0) > 0, src.get("gate")
+    # same tape, end to end: every fold's closes fingerprinted in Stage B and matched at the gate load;
+    #   this cold lockbox (warm_days=0) is checked by its own bar count
+    assert src["tape"] == {"full": "bars", "wf": "ends+closes", "lb": "bars"}, src.get("tape")
+    assert "error" not in src["gate"] and src["gate"]["day_rule"] == "et_date"
 
 
 def test_gate_keys_on_top_level_copy_only_not_on_the_mirror(validate_pair):
@@ -629,7 +638,7 @@ def test_no_transient_trade_arrays_reach_the_saved_result(validate_pair):
     """T10: _oos_side / _oos_px / _oos_pnlf are popped like every other _oos_* array."""
     off, on = validate_pair
     blob = json.dumps(on, default=str)
-    for k in ("_oos_side", "_oos_px", "_oos_pnlf", "_oos_pnls", "_oos_ei", "_oos_xi"):
+    for k in ("_oos_side", "_oos_px", "_oos_pnlf", "_oos_cfp", "_oos_pnls", "_oos_ei", "_oos_xi"):
         assert k not in blob, k
 
 
@@ -661,12 +670,22 @@ def test_gate_validate_job_gets_block_keys_and_nothing_else(monkeypatch):
     off = run_gate_validate(_holder_strategy(), **kw)
     monkeypatch.setenv("AUGUR_STRETCH_DD", "1")
     on = run_gate_validate(_holder_strategy(), **kw)
-    bad = golden_diff(off, on, lambda p: p[0] == "gate_validate" and p[-1] in S.DD_KEYS)
+    _src_path = ("gate_validate", "dd_pct_src")
+    bad = golden_diff(off, on, lambda p: (p[0] == "gate_validate" and p[-1] in S.DD_KEYS) or p == _src_path)
     assert bad == [], bad[:10]
     assert set(S.DD_KEYS) <= set(on["gate_validate"]["ungated_full"])
+    # decisions 6 / 7 / 9: the job says where its block keys came from (review finding: it said nothing)
+    src = on["gate_validate"]["dd_pct_src"]
+    assert src["src"] == "gate_validate" and src["v"] == S.VERSION and src["start"] == 100000.0
+    assert src["mult"] == 20.0 and src["mult_src"] == "table" and src["day_rule"] == "et_date"
+    assert "code_sha" in src and src["status"] in ("OK", "PARTIAL")
+    assert src["gate"]["blocks"] > 0 and isinstance(src["gate"]["refused"], dict)
     monkeypatch.delitem(B._MULT, "SYN_DD")
     unsized = run_gate_validate(_holder_strategy(), **kw)
-    assert golden_diff(off, unsized, lambda p: False) == []
+    assert golden_diff(off, unsized, lambda p: p == _src_path) == []
+    usrc = unsized["gate_validate"]["dd_pct_src"]
+    assert usrc["status"] == "UNSIZED" and usrc["reason"].startswith("UNSIZED") and "gate" not in usrc
+    assert "dd_pct_src" not in off["gate_validate"]                  # the kill switch adds nothing
 
 
 def test_run_auto_default_leaves_walk_forward_rows_unchanged():
@@ -677,9 +696,229 @@ def test_run_auto_default_leaves_walk_forward_rows_unchanged():
               top_n=5, seed=1)
     plain = run_auto(_holder_strategy(), **kw)
     asked = run_auto(_holder_strategy(), keep_oos_detail=True, **kw)
+    extra = ("_oos_side", "_oos_px", "_oos_pnlf", "_oos_cfp")
     assert plain.get("wf") and plain.get("top")
-    assert not any(k in r for r in plain["top"] for k in ("_oos_side", "_oos_px", "_oos_pnlf"))
+    assert not any(k in r for r in plain["top"] for k in extra)
     assert all("_oos_side" in r and "_oos_pnlf" in r for r in asked["top"])
-    strip = [{k: v for k, v in r.items() if k not in ("_oos_side", "_oos_px", "_oos_pnlf")}
-             for r in asked["top"]]
+    # each fold's test-slice closes, fingerprinted on the master's own bars (validate's same-tape check)
+    for r in asked["top"]:
+        assert r["_oos_cfp"] == S.close_fp(arrays["close"][r["test_start"]:r["test_end"]])
+    strip = [{k: v for k, v in r.items() if k not in extra} for r in asked["top"]]
     assert golden_diff(plain["top"], strip, lambda p: False) == []
+
+
+# ══ REVIEW FIXES (10-25) ═══════════════════════════════════════════════════════════════════════════════
+# ── a NaN never passes the cent check; one bad stretch / block never costs the others ──────────────
+def _nan_frame():
+    arr = _rth_frame([100, 110, 90, 80, 105, 106, 107, 108, 109, 110, 111, 112, 113, 114, 115, 116])
+    arr["close"] = arr["close"].copy()
+    arr["close"][1] = np.nan                       # the day-1 close is missing while the long is open
+    return arr
+
+
+def test_a_nan_close_under_an_open_trade_is_unmarked_not_a_raise():
+    fr = S.Frame(_nan_frame())
+    v = S.Valuation(fr, [(0, 4, 5.0, 1, 100.0)], 20.0)
+    assert v.status[0] == S.UNMARKED and not v.marked[0]
+    r, why = S.reading(v, [True], 0, fr.n - 1, 100.0)
+    assert r is None and why[:2] == ("UNMARKED", 1)
+
+
+def test_a_non_finite_valued_amount_is_refused_never_within_a_cent():
+    """abs(nan - x) >= CENT is False: a NaN series used to pass the cent check, then four_numbers raised."""
+    fr = S.Frame(_rth_frame([100, 110, 90, 80, 105, 106]))
+    v = S.Valuation(fr, [(0, 4, 5.0, 1, 100.0)], 20.0)
+    r, why = S.reading(v, [True], 0, fr.n - 1, 100.0, weights=[float("nan")])
+    assert r is None and why[:2] == ("NON_FINITE", 1)
+    v.row_usd = v.row_usd.copy()
+    v.row_usd[1] = np.inf                           # whatever produced it: refused, never raised
+    r, why = S.reading(v, [True], 0, fr.n - 1, 100.0)
+    assert r is None and why[0] == "NON_FINITE"
+    # the stored net is checked NaN-safe too
+    v2 = S.Valuation(fr, [(0, 4, 5.0, 1, 100.0)], 20.0)
+    assert S.reading(v2, [True], 0, fr.n - 1, float("nan"))[1][0] == "NO_NET"
+
+
+def test_one_bad_stretch_never_nulls_the_others_at_run_level():
+    """Decision 7: the NaN-held IS / FULL trade nulls is + full only; the clean chain and lockbox are
+    still valued (they used to be lost with them: the ValueError left validate_dd entirely)."""
+    arr = _nan_frame()
+    idx = arr["index"]
+    full = {"trades": [(0, 4, 5.0, 1, 100.0), (8, 9, 1.0, 1, 109.0)], "total_pnl": 6.0, "num_trades": 2}
+    chain = [_fold(arr, 1, 6, 10, [(0, 1, 1.0, 1, 107.0), (2, 3, 1.0, 1, 109.0)])]
+    lb = {"trades": [(0, 1, 2.0, 1, 111.0), (2, 3, 2.0, 1, 113.0)], "total_pnl": 4.0, "num_trades": 2}
+    money, _ = S.money_ctx(None, "NQ")
+    dd, src = S.validate_dd(money, arr, full=full, wf_split=idx[6], chain=chain, lb=lb,
+                            lb_from=str(idx[10].date()), log=None)
+    assert dd["full"] is None and dd["is"] is None
+    assert src["reasons"]["full"].startswith("UNMARKED") and src["unmarked"]["full"] == 1
+    assert dd["wf"] is not None and dd["lb"] is not None and dd["wf_lb"] is not None
+    assert src["status"] == "PARTIAL"
+
+
+def test_an_unexpected_error_in_one_stretch_is_that_stretchs_reason(monkeypatch):
+    """Any exception, not only Refused: the chain raising RuntimeError costs wf (and wf_lb, which needs
+    it) and nothing else; it used to escape validate_dd and null all five."""
+    arr = _eth_chain_frame()
+
+    def boom(fr, chain):
+        raise RuntimeError("roll table unreadable")
+
+    monkeypatch.setattr(S, "_chain_trades", boom)
+    dd, src, _ = _chain_run(arr)
+    assert dd["wf"] is None and src["reasons"]["wf"].startswith("ERROR: RuntimeError")
+    assert dd["lb"] is not None
+    assert src["reasons"]["wf_lb"].startswith("NEEDS_WF_AND_LB")
+
+
+def test_gate_pass_a_raising_block_keeps_every_other_blocks_keys():
+    arr = _rth_frame([100, 101, 102, 103, 104, 105, 106, 107])
+    trades = [(0, 1, 1.0, 1, 100.0), (2, 3, 1.0, 1, 102.0), (4, 5, 1.0, 1, 104.0), (6, 7, 1.0, 1, 106.0)]
+    money, _ = S.money_ctx(None, "NQ")
+    ctx = S.gate_ctx(money)
+    a = {"total_pnl": 4.0, "num_trades": 4}
+    b = {"total_pnl": 4.0, "num_trades": "four"}     # int("four") raises inside the reading
+    c = {"total_pnl": 2.0, "num_trades": 2}
+    rep = S.gate_pass(ctx, arr, trades, 4, [(a, None, None, None, None), (b, None, None, None, None),
+                                            (c, [True, True, False, False], None, None, None)])
+    assert set(S.DD_KEYS) <= set(a) and set(S.DD_KEYS) <= set(c) and not (set(S.DD_KEYS) & set(b))
+    assert rep["blocks"] == 2 and rep["refused"] == {"ERROR": 1} and rep["errors"][0].startswith("ValueError")
+    assert ctx["report"] is rep and rep["day_rule"] == "et_date"
+
+
+def test_gate_validate_keeps_the_pass_report_when_the_pass_raises(monkeypatch):
+    from augur_engine.ml_gate import gate_validate
+    arrays, trades = _gate_fixture()
+    money, _ = S.money_ctx(None, "NQ")
+    ctx = S.gate_ctx(money)
+
+    def boom(*a, **k):
+        raise MemoryError("no room")
+
+    monkeypatch.setattr(S, "Valuation", boom)
+    out = gate_validate(arrays, trades, mtm=ctx, **_GKW)
+    assert out is not None
+    rep = ctx["report"]
+    assert rep["error"].startswith("MemoryError") and rep["blocks"] == 0 and rep["refused"] == {}
+
+
+# ── same tape: the lockbox and the chain are valued only on the bars they were made on ─────────────
+def test_lockbox_on_a_moved_or_restated_tape_is_refused():
+    arr = _eth_chain_frame()
+    fr = S.Frame(arr)
+    lb_i = fr.bar_at(pd.Timestamp("2024-01-05", tz="US/Eastern"))
+    good = S.tape_of(arr, lb_i)
+    c = arr["close"]
+    lbt = [(0, 2, 4.0, -1, float(c[8]) + 1.0)]
+    money, _ = S.money_ctx(None, "NQ")
+    f1 = [(0, 2, 3.0, 1, float(c[0]) - 1.0)]
+    chain = [_fold(arr, 1, 0, 4, f1)]
+
+    def run(tape, lb_extra=None):
+        lb = dict({"trades": lbt, "total_pnl": 4.0, "num_trades": 1}, **(lb_extra or {}))
+        return S.validate_dd(money, arr, chain=chain, lb=lb, lb_from="2024-01-05", lb_tape=tape, log=None)
+
+    dd, src = run(good)
+    assert dd["lb"] is not None and src["tape"]["lb"] == "bars+ends+closes"
+    restated = dict(good, cfp=S.close_fp(np.r_[c[lb_i:-1], c[-1] + 0.25]))   # same stamps, new last close
+    dd, src = run(restated)
+    assert dd["lb"] is None and src["reasons"]["lb"].startswith("TAPE_MOVED")
+    assert dd["wf"] is not None and dd["wf_lb"] is None
+    dd, src = run(dict(good, bars=good["bars"] + 1))                          # a bar inserted later
+    assert dd["lb"] is None and src["reasons"]["lb"].startswith("TAPE_MOVED")
+    # the cold lockbox records no tape: its own _meta.bars count is the check
+    dd, src = run(None, {"_meta": {"bars": fr.n - lb_i}})
+    assert dd["lb"] is not None and src["tape"]["lb"] == "bars"
+    dd, src = run(None, {"_meta": {"bars": fr.n - lb_i - 1}})
+    assert dd["lb"] is None and src["reasons"]["lb"].startswith("TAPE_MOVED")
+
+
+def test_a_chain_fold_whose_closes_were_restated_is_refused():
+    """FOLD_TS sees only the fold's end stamps; a restatement keeps them and changes the closes."""
+    arr = _eth_chain_frame()
+    c = arr["close"]
+    f1 = [(0, 2, 3.0, 1, float(c[0]) - 1.0)]
+    money, _ = S.money_ctx(None, "NQ")
+    fd = dict(_fold(arr, 1, 0, 4, f1), cfp=S.close_fp(c[0:4]))
+    dd, src = S.validate_dd(money, arr, chain=[fd], log=None)
+    assert dd["wf"] is not None and src["tape"]["wf"] == "ends+closes"
+    fd_bad = dict(fd, cfp=S.close_fp(np.r_[c[0:3], c[3] + 0.25]))
+    dd, src = S.validate_dd(money, arr, chain=[fd_bad], log=None)
+    assert dd["wf"] is None and src["reasons"]["wf"].startswith("TAPE_MOVED")
+
+
+def test_the_warm_lockbox_runner_records_the_tape_it_ran_on(monkeypatch):
+    import augur_engine.validate as validate_mod
+    monkeypatch.setattr(validate_mod, "load_master_arrays", _fake_load_master_arrays)
+    monkeypatch.setenv("AUGUR_STRETCH_DD", "1")
+    run = validate_mod._make_lockbox_runner(_holder_strategy(), dict(_MASTER), "SYN_DD", "5m", "rth", None,
+                                            "2020-01-01", "2020-02-01", "2020-02-15", 0.0, 5)
+    arrs = _fake_load_master_arrays(_MASTER, "2020-01-01", "2020-02-15")
+    lb_i = int(arrs["index"].searchsorted(pd.Timestamp("2020-02-01", tz="US/Eastern")))
+    assert run.tape == S.tape_of(arrs, lb_i)
+    monkeypatch.setenv("AUGUR_STRETCH_DD", "0")
+    off = validate_mod._make_lockbox_runner(_holder_strategy(), dict(_MASTER), "SYN_DD", "5m", "rth", None,
+                                            "2020-01-01", "2020-02-01", "2020-02-15", 0.0, 5)
+    assert not hasattr(off, "tape")
+
+
+# ── C3: a file that sizes its trades leaves the chain's multi-day trades SIZE_UNKNOWN ──────────────
+def test_chain_of_a_sizing_file_is_size_unknown_even_with_a_size_1_champion():
+    """The whole-run champion's sizes are all 1, but the chain's folds crowned their own params (fold 3
+    at tilt 2.0 marks at half its size while t[2] carries both): the chain carries no sizes, so its
+    multi-day trade cannot be marked. The lockbox carries its own aligned sizes and is valued."""
+    arr = _eth_chain_frame()
+    c = arr["close"]
+    f1 = [(0, 2, 3.0, 1, float(c[0]) - 1.0)]                 # held over a session close
+    money, _ = S.money_ctx(None, "NQ")
+    full = {"trades": [(0, 1, 1.0, 1, float(c[0]))], "total_pnl": 1.0, "num_trades": 1, "trade_sizes": [1.0]}
+    lb = {"trades": [(0, 2, 4.0, -1, float(c[8]) + 1.0)], "total_pnl": 4.0, "num_trades": 1,
+          "trade_sizes": [1.0]}
+    dd, src = S.validate_dd(money, arr, full=full, chain=[_fold(arr, 1, 0, 4, f1)], lb=lb,
+                            lb_from="2024-01-05", log=None)
+    assert dd["wf"] is None and src["reasons"]["wf"].startswith("SIZE_UNKNOWN")
+    assert dd["lb"] is not None and dd["lb"]["marked"] == 1
+    # a file that never emits sizes is valued at one contract as before
+    full_plain = {k: v for k, v in full.items() if k != "trade_sizes"}
+    lb_plain = {k: v for k, v in lb.items() if k != "trade_sizes"}
+    dd, src = S.validate_dd(money, arr, full=full_plain, chain=[_fold(arr, 1, 0, 4, f1)], lb=lb_plain,
+                            lb_from="2024-01-05", log=None)
+    assert dd["wf"] is not None and dd["wf"]["marked"] == 1
+    assert S.emits_sizes(None, {"trade_sizes": [1.0]}) and not S.emits_sizes({"trades": []}, None)
+
+
+# ── a stretch with no trade is flat, and wf_lb still reads ──────────────────────────────────────────
+def test_a_lockbox_with_no_trades_is_flat_and_wf_lb_is_the_chain_through_its_end():
+    arr = _eth_chain_frame()
+    c = arr["close"]
+    f1 = [(0, 2, 3.0, 1, float(c[0]) - 1.0)]
+    f2 = [(3, 3, -2.0, -1, float(c[7]))]
+    chain = [_fold(arr, 1, 0, 4, f1), _fold(arr, 2, 4, 8, f2)]
+    money, _ = S.money_ctx(None, "NQ")
+    lb = {"trades": [], "total_pnl": 0.0, "num_trades": 0}
+    dd, src = S.validate_dd(money, arr, chain=chain, lb=lb, lb_from="2024-01-05", log=None)
+    assert dd["lb"] == {"dd_pct_peak": 0.0, "dd_usd": 0.0, "marked": 0}
+    assert dd["wf_lb"] is not None and dd["wf"] is not None
+    # flat days after the chain move no drawdown: wf_lb reads the chain's own
+    assert dd["wf_lb"] == dd["wf"]
+    # a member-less block whose stored net is not 0 is still refused by the cent check
+    fr = S.Frame(arr)
+    v = S.Valuation(fr, [(0, 1, 1.0, 1, 100.0)], 20.0)
+    assert S.reading(v, [False], 0, fr.n - 1, 0.0, expect_n=0)[0] == {"dd_pct_peak": 0.0, "dd_usd": 0.0,
+                                                                         "marked": 0}
+    assert S.reading(v, [False], 0, fr.n - 1, 20.0, expect_n=0)[1][0] == "NET_MISMATCH"
+
+
+# ── the web reads the stored figure only on the account it was measured on ─────────────────────────
+def test_web_uses_the_engine_dd_pct_only_on_its_own_100k_account():
+    """index.html: the engine's dd_pct_peak is on a $100k start; a percent from peak cannot be rescaled,
+    so on any other ACCT chip the DD % axis must read every row's curve at the chip (one account)."""
+    import pathlib
+    import re
+    html = (pathlib.Path(__file__).resolve().parents[1] / "index.html").read_text(encoding="utf-8")
+    body = html[html.index("function _ddPctOfCfg(c,mult){"):html.index("const DD_PCT_LABEL=")]
+    stored = [ln for ln in body.splitlines() if "return +c.dd_pct_peak" in ln]
+    assert len(stored) == 1 and "S===DD_PCT_START_USD" in stored[0], stored
+    assert body.index("let S=DD_PCT_START_USD") < body.index("return +c.dd_pct_peak")
+    sv = re.search(r"const sv=\(B&&B\.dd_pct_peak!=null.*?\?\+B\.dd_pct_peak:null;", html, re.S)
+    assert sv and "_rocAcct()===DD_PCT_START_USD" in sv.group(0)
