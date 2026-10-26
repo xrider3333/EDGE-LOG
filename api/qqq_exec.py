@@ -85,7 +85,7 @@ import traceback
 import urllib.error
 import urllib.request  # noqa: F401 -- api/ntfy_push posts through it; tests patch qe.urllib.request
 from datetime import datetime, timedelta, timezone
-from decimal import ROUND_CEILING, ROUND_FLOOR, Decimal
+from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 
 from . import market_calendar
 from . import nt_sync
@@ -8439,6 +8439,547 @@ def _broker_total_room(log=print):
         return None
 
 
+# NEXT TRADE (item 53, owner 2026-10-20): what each leg would send if it fired next -- the board's
+# line under each flat strategy and the TOTAL CAP row on Rails. DISPLAY ONLY: nothing here is read
+# by an order path. api/cloud_signal.py's _next_entry_tick works out NOISE_382's and ORB_R6's
+# next-bar size, levels and exit rule once a 5-min bar into a small LOCAL sidecar,
+# <state_dir>/next_entry.json (never state.json, never Firestore); _build_doc lays this book's own
+# sizing on top (_next_trade_shares, a mirror of _open_lot's fixed mode that a parity test pins),
+# the gross total cap, the shared daily stop, DIP's own rail and its slots, and publishes it as
+# doc["next_trade"]. Never in _publish_fingerprint: it rides the publishes that already go out
+# (0 extra Firestore writes). No sidecar, an unreadable one, another version or size_mode
+# nt_notional -> no block at all, and the board draws nothing. Blocks / send_blocks are lists of
+# {"code", "scope"} maps, never [code, scope] pairs: Firestore rejects an array inside an array
+# (the whole doc would fail to publish -- api/spy_daily.py lost two weeks to exactly that). ORB
+# and NOISE also carry their own send_block (v2, 2026-10-25): the one adapter rail of that leg
+# alone that would keep its next OPEN off Webull (book-only), else null.
+NEXT_TRADE_VERSION = 1
+NEXT_ENTRY_SIDECAR_VERSION = 1   # cloud_signal.NEXT_ENTRY_VERSION, the sidecar's own version
+NEXT_TRADE_TEXT_MAX = 160       # the exit rules and an engine error's text
+NEXT_TRADE_WORD_MAX = 24        # a status, branch, host, side reason or HH:MM: a short token
+NEXT_TRADE_KEEL_FB_MAX = 120    # the engine keeps its KEEL fallback reason to 120 chars
+NEXT_TRADE_ERROR_LOG_EVERY_SEC = 600.0
+_NEXT_ENTRY_READ = {"key": None, "doc": {}}   # memo keyed by the sidecar's (path, mtime_ns, size)
+_NEXT_TRADE_ERR = {"last": 0.0, "held": 0}
+DIP_NEXT_EXIT_TEXT = ("No price stop. Each lot is sold at the 09:30 open of a later session when its "
+                      "own mechanism exits. Its own daily rail pauses new lots and never sells.")
+
+
+def _next_trade_quiet(*_a, **_k):
+    """The no-op log _build_next_trade hands _broker_total_room: _build_doc runs every 5 s, and
+    that function logs every failed read (the order path's own call still logs it)."""
+
+
+def _next_entry_path():
+    """The engine's next-entry sidecar on its live store (cloud_signal.next_entry_path).
+    tests/conftest.py points this at a temp file that never exists."""
+    cs = _cs_module()
+    fn = getattr(cs, "next_entry_path", None)
+    if callable(fn):
+        return fn(cs.DEFAULT_PATHS)
+    return os.path.join(cs.DEFAULT_PATHS["state_dir"], "next_entry.json")
+
+
+def _read_next_entry_cached():
+    """The engine's sidecar as a dict: {} when it is missing, unreadable, not a dict or not
+    NEXT_ENTRY_SIDECAR_VERSION (cloud_signal.read_next_entry's own rule). One os.stat a call; the
+    file is parsed again only when its (mtime_ns, size) changes -- _build_doc runs every 5 s, the
+    engine rewrites the file once a bar. Never raises."""
+    try:
+        path = _next_entry_path()
+        st = os.stat(path)
+        key = (path, st.st_mtime_ns, st.st_size)
+    except Exception:
+        _NEXT_ENTRY_READ.update(key=None, doc={})
+        return {}
+    if key == _NEXT_ENTRY_READ.get("key"):
+        return _NEXT_ENTRY_READ.get("doc") or {}
+    doc = {}
+    try:
+        with open(path, encoding="utf-8") as f:
+            raw = json.load(f)
+        if isinstance(raw, dict) and raw.get("v") == NEXT_ENTRY_SIDECAR_VERSION:
+            doc = raw
+    except (OSError, ValueError):
+        doc = {}
+    _NEXT_ENTRY_READ.update(key=key, doc=doc)
+    return doc
+
+
+def _next_trade_num(v, nd=2):
+    """A finite number rounded to `nd`, else None (a bool is not a number here)."""
+    if isinstance(v, bool):
+        return None
+    return _round_or_none(v, nd)
+
+
+def _next_trade_text(v, n=NEXT_TRADE_TEXT_MAX):
+    """One line of at most `n` chars, or None -- a longer one ends in "...", cut at a word when
+    one ends near the cap."""
+    if v is None:
+        return None
+    t = " ".join(str(v).split())
+    if len(t) <= n:
+        return t
+    cut = t[:max(0, n - 3)]
+    sp = cut.rfind(" ")
+    return (cut[:sp] if sp > 0 and sp >= len(cut) - 24 else cut) + "..."
+
+
+def _next_trade_bool(v):
+    """A real bool, else None."""
+    return v if isinstance(v, bool) else None
+
+
+def _next_trade_loss_at_stop(sent, dist):
+    """The planned loss at the stop: `sent` shares x `dist` a share (the doc's own 4-dp figure),
+    rounded half up to the cent IN DECIMAL -- the float product 10 x 5.8435 = 58.434999... would
+    round to 58.43, while the board prints 10 sh x $5.8435 = $58.44 -- so the page's sum adds
+    up. None unless `sent` is a positive share count and `dist` a positive finite distance, or
+    when the product is not a finite number (the block passes allow_nan=False)."""
+    if not sent or dist is None or not dist > 0:
+        return None
+    try:
+        v = (Decimal(str(dist)) * int(sent)).quantize(Decimal("0.01"), rounding=ROUND_HALF_UP)
+    except (ArithmeticError, ValueError):
+        return None
+    return _next_trade_num(float(v))
+
+
+def _next_trade_wall(iso, fmt):
+    """The sidecar's ISO time (with its offset) as a New York wall-clock string, else None."""
+    try:
+        dt = datetime.fromisoformat(str(iso))
+        if dt.tzinfo is not None and _NY is not None:
+            dt = dt.astimezone(_NY)
+        return dt.strftime(fmt)
+    except Exception:
+        return None
+
+
+def _next_trade_shares(cfg, leg, size, total):
+    """What _open_lot (fixed mode, a non-DIP leg) would send for an ENTRY of `size` on `leg` with
+    `total` = _broker_total_room()'s (room, held, cap) or None -- a MIRROR, not a refactor: the
+    order path stays byte-for-byte as it is and tests/test_qqq_exec_next_trade.py pins the two
+    together. {"base", "size", "wanted", "sent", "refused", "clamped", "clamp_by"}; refused is
+    "off" (0 shares configured), "per_leg" (an unsized lot over max_shares_per_leg is refused
+    whole) or "cap_full" (no room under the total cap), and then sent is None."""
+    base = int((cfg.get("shares") or {}).get(leg, 0) or 0)
+    max_shares = int(cfg.get("max_shares_per_leg", 0) or 0)
+    sized = _resolve_entry_size(size)
+    wanted = _sized_shares(base, sized)
+    out = {"base": base, "size": round(sized, 4), "wanted": wanted, "sent": None, "refused": None,
+           "clamped": False, "clamp_by": None}
+    if wanted <= 0:
+        out["refused"] = "off"
+        return out
+    if sized == 1.0:
+        if wanted > max_shares:
+            out["refused"] = "per_leg"
+            return out
+        shares = wanted
+    else:
+        shares = min(wanted, max_shares) if max_shares else wanted
+        if shares < wanted:
+            out.update(clamped=True, clamp_by="per_leg")
+    if total is not None and shares > total[0]:
+        if total[0] < 1:
+            out["refused"] = "cap_full"
+            return out
+        shares = total[0]
+        out.update(clamped=True, clamp_by="cap")
+    out["sent"] = shares
+    return out
+
+
+def _next_trade_dip(cfg, state, total, today, feed_stale=False):
+    """DIP #424's next lots: the lot size, the mechanism slots free, and how many lots the DIP
+    cap (dip_max_total_shares, book side, _open_lot) and the Webull gross cap (the adapter refuses
+    a lot whole past it; the book lot still opens, book-only) each fit. {} when no DIP leg is
+    configured with shares. A DIP lot is never clamped, so nothing here is."""
+    shares = cfg.get("shares") or {}
+    live = [leg for leg in DIP_LEGS if int(shares.get(leg, 0) or 0) > 0]
+    if not live:
+        return {}
+    legs = state.get("legs") or {}
+    lot = max(int(shares[leg]) for leg in live)
+    held = [leg for leg in live if leg in legs]
+    # every open DIP lot counts against the DIP cap, as _open_lot counts it
+    held_sh = sum(int(round(float((lt or {}).get("shares_remaining") or 0)))
+                  for k, lt in legs.items() if is_dip_leg(k))
+    free = len(live) - len(held)
+    cap = _dip_cap(cfg)
+    book_fit = (min(free, max(0, cap - held_sh) // lot) if cap else free) if lot else 0
+    webull_fit = None if total is None else (min(book_fit, max(0, total[0]) // lot) if lot else 0)
+    refused = None
+    if state.get("kill_done") or os.path.exists(cfg.get("kill_file") or ""):
+        refused = "kill"
+    elif feed_stale or state.get("px_feed_stale"):
+        refused = "feed"
+    elif _dip_rail_blocking(state, today):
+        refused = "dip_rail"
+    elif free == 0:
+        refused = "all_held"
+    elif book_fit == 0:
+        refused = "dip_cap"
+    return {"lot": lot, "slots_total": len(live), "slots_free": free, "held_lots": len(held),
+            "held_sh": held_sh, "dip_cap": cap, "book_fit": book_fit, "webull_fit": webull_fit,
+            "refused": refused, "exit": DIP_NEXT_EXIT_TEXT}
+
+
+def _next_trade_loss(cfg, state, day):
+    """The SHARED daily stop as the breaker sees it (today.breaker_input -- every leg but DIP):
+    {limit, input, used, left, tripped, checked}. input None = the breaker has not checked
+    today, and then used / left are None too. On an up day left is more than the limit."""
+    limit = abs(float(cfg.get("daily_loss_limit_usd") or 0))
+    inp = _published_breaker_input(state, day)
+    tripped = bool(state.get("breaker_tripped"))
+    checked = inp is not None
+    used = round(max(0.0, -inp), 2) if checked else None
+    if tripped:
+        left = 0.0
+    elif checked and limit:
+        left = round(max(0.0, limit + inp), 2)
+    else:
+        left = None
+    return {"limit": limit, "input": inp, "used": used, "left": left, "tripped": tripped,
+            "checked": checked}
+
+
+def _next_trade_dip_rail(cfg, state, day):
+    """DIP's OWN daily rail (today.dip_rail_input's pnl -- never realized_pnl_dip, which carries
+    the overnight gap): {limit, input, used, left, blocked, tripped_on, until}; None when the
+    rail is off (dip_daily_loss_limit_usd 0). left is 0.0 on the day it tripped."""
+    limit = _dip_limit(cfg)
+    if not limit:
+        return None
+    inp = (_published_dip_rail_input(state, day) or {}).get("pnl")
+    dr = state.get("dip_rail") if isinstance(state.get("dip_rail"), dict) else {}
+    used = round(max(0.0, -inp), 2) if inp is not None else None
+    if dr.get("tripped_on") == day:
+        left = 0.0
+    else:
+        left = round(max(0.0, limit + inp), 2) if inp is not None else None
+    return {"limit": limit, "input": inp, "used": used, "left": left,
+            "blocked": bool(_dip_rail_blocking(state, day)),
+            "tripped_on": dr.get("tripped_on"), "until": dr.get("blocks_until")}
+
+
+def _next_trade_closed(now):
+    """True outside the tick's 09:25-16:05 window or on a weekday holiday: _in_market_window is
+    True on a Thanksgiving Thursday, and tick() itself stops on market_calendar.is_session."""
+    return not _in_market_window(now) or not market_calendar.is_session(now)
+
+
+def _next_trade_mode(broker, adapter):
+    """The adapter's effective mode, the one the order path checks (_mirror_to_broker): the
+    doc's broker block carries it from this tick's status(); when that read failed (the block
+    is {"error": ...}) or has no mode, `adapter`'s own effective_mode(); None when neither can
+    be read -- the block then claims nothing about it (no adapter_off)."""
+    b = broker if isinstance(broker, dict) else {}
+    if not b.get("error") and b.get("effective_mode"):
+        return b["effective_mode"]
+    try:
+        return adapter.effective_mode()[0] if adapter is not None else None
+    except Exception:
+        return None
+
+
+def _next_trade_blocks(cfg, state, feed_stale, broker, now, wrails=None, adapter=None):
+    """(blocks, send_blocks), each a list of {"code", "scope"}. blocks: nothing trades --
+    closed (outside 09:25-16:05, or a weekday holiday), kill, feed (all legs), breaker (ORB +
+    NOISE: "shared"), dip_rail (DIP). send_blocks: the book lot opens but nothing reaches Webull
+    -- adapter_off (the mode _next_trade_mode reads is known and not PAPER / LIVE), halted,
+    lease (all legs) and broker_daily (ORB + NOISE: "send_shared"), read off the doc's broker
+    block. broker_daily is the ADAPTER's own daily loss rail: its daily_pnl against `wrails`
+    (the adapter's rails, else webull_orders.DEFAULT_RAILS), never this book's
+    daily_loss_limit_usd -- the two limits can differ (webull_orders.OrderAdapter._check_rails)."""
+    day = state.get("trading_day") or now.strftime("%Y-%m-%d")
+    wrails = wrails if isinstance(wrails, dict) else webull_orders.DEFAULT_RAILS
+    blocks = []
+    if _next_trade_closed(now):
+        blocks.append(("closed", "all"))
+    if state.get("kill_done") or os.path.exists(cfg.get("kill_file") or ""):
+        blocks.append(("kill", "all"))
+    if feed_stale or state.get("px_feed_stale"):
+        blocks.append(("feed", "all"))
+    if state.get("breaker_tripped"):
+        blocks.append(("breaker", "shared"))
+    if _dip_rail_blocking(state, day):
+        blocks.append(("dip_rail", "dip"))
+    send = []
+    broker = broker or {}
+    mode = _next_trade_mode(broker, adapter)
+    if mode is not None and mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+        send.append(("adapter_off", "all"))
+    if broker.get("halted"):
+        send.append(("halted", "all"))
+    if broker.get("lease_ok_to_send") is False:
+        send.append(("lease", "all"))
+    limit = abs(float(wrails.get("daily_loss_limit_usd", 0) or 0))
+    daily = _next_trade_num(broker.get("daily_pnl"))
+    if limit and daily is not None and daily <= -limit:
+        send.append(("broker_daily", "send_shared"))
+    return ([{"code": c, "scope": s} for c, s in blocks],
+            [{"code": c, "scope": s} for c, s in send])
+
+
+def _next_trade_send_block(leg, sent, state, broker, wrails):
+    """The one adapter rail that would keep this leg's next OPEN off Webull while the book lot
+    still opens (book-only): "broker_open" -- Webull's book still holds the leg although this
+    book is flat (one_open_position_per_leg); "broker_per_leg" -- the shares sent are over the
+    adapter's own max_shares_per_leg. None when neither applies."""
+    if leg in ((broker or {}).get("open_legs") or []) and leg not in ((state or {}).get("legs") or {}):
+        return "broker_open"
+    mx = int((wrails or {}).get("max_shares_per_leg", 0) or 0)
+    if sent and mx and sent > mx:
+        return "broker_per_leg"
+    return None
+
+
+def _next_trade_refused(cfg, state, feed_stale, leg, ref_hhmm, close_hhmm, now, day):
+    """The first rail that would refuse an ORB / NOISE entry at the next close, in the ROUTER's
+    order (_route_engine_events, and tick()'s gate ahead of it): closed (outside 09:25-16:05 or
+    a weekday holiday), kill (the tick routes nothing), busy (a lot is open: entry_leg_busy),
+    late (_late_entry_reason on the row the engine would write -- its bar `ref_hhmm`, consumed
+    10 s after `close_hhmm`), feed, breaker. None when nothing does."""
+    if _next_trade_closed(now):
+        return "closed"
+    if state.get("kill_done") or os.path.exists(cfg.get("kill_file") or ""):
+        return "kill"
+    if leg in (state.get("legs") or {}):
+        return "busy"
+    if ref_hhmm and close_hhmm:
+        try:
+            ref_dt = datetime.strptime(f"{day} {ref_hhmm}", "%Y-%m-%d %H:%M")
+            seen = datetime.strptime(f"{day} {close_hhmm}", "%Y-%m-%d %H:%M") + timedelta(seconds=10)
+            if now.tzinfo is not None:
+                ref_dt, seen = ref_dt.replace(tzinfo=now.tzinfo), seen.replace(tzinfo=now.tzinfo)
+            if _late_entry_reason(seen, ref_dt, cfg.get("session") or {}) is not None:
+                return "late"
+        except ValueError:
+            pass
+    if feed_stale or state.get("px_feed_stale"):
+        return "feed"
+    if state.get("breaker_tripped"):
+        return "breaker"
+    return None
+
+
+def _next_trade_sized(cfg, state, feed_stale, leg, size, total, nxt, ref_key, now, day):
+    """The share fields of one ORB / NOISE leg: _next_trade_shares for `size`, then the first
+    rail refusal ahead of the sizing ones (that one wins and nulls sent)."""
+    sh = _next_trade_shares(cfg, leg, size, total)
+    nxt = nxt if isinstance(nxt, dict) else {}
+    why = _next_trade_refused(cfg, state, feed_stale, leg, nxt.get(ref_key), nxt.get("decide_close"),
+                              now, day)
+    if why:
+        sh.update(sent=None, refused=why)
+    return sh
+
+
+_NEXT_TRADE_SIZE_KEYS = ("size", "wanted", "sent", "refused", "clamped", "clamp_by")
+
+
+def _next_trade_head(L, base):
+    """(next, fields) every ORB / NOISE leg starts from: the engine's status and why (a short code
+    -- pace, vol_skip, ... -- or, for status "error", the failure's text), the next decision bar
+    (its start and its close clock), the configured shares, the share fields and send_block
+    empty."""
+    nxt = L.get("next") if isinstance(L.get("next"), dict) else {}
+    err = str(L.get("status") or "") == "error"
+    out = {"status": _next_trade_text(L.get("status"), NEXT_TRADE_WORD_MAX) or None,
+           "why": _next_trade_text(L.get("why"), NEXT_TRADE_TEXT_MAX if err else NEXT_TRADE_WORD_MAX),
+           "decide_bar": _next_trade_text(nxt.get("decide_bar"), NEXT_TRADE_WORD_MAX),
+           "decide_close": _next_trade_text(nxt.get("decide_close"), NEXT_TRADE_WORD_MAX),
+           "base": base}
+    out.update({k: None for k in _NEXT_TRADE_SIZE_KEYS})
+    out["send_block"] = None
+    return nxt, out
+
+
+def _next_trade_orb(cfg, state, feed_stale, L, total, now, day, broker=None, wrails=None):
+    """legs.ORB from the sidecar's ORB_R6 leg: a fixed size (1.0 x shares.ORB), sized while the
+    engine says ok / paused / range_pending; the adapter rail that would keep it book-only
+    (send_block); the level, stop, target and planned loss at the stop (sent x risk)."""
+    L = L if isinstance(L, dict) else {}
+    status = str(L.get("status") or "")
+    nxt, out = _next_trade_head(L, int((cfg.get("shares") or {}).get("ORB", 0) or 0))
+    if status in ("ok", "paused", "range_pending"):
+        out.update(_next_trade_sized(cfg, state, feed_stale, "ORB", 1.0, total, nxt, "decide_bar",
+                                     now, day))
+    else:
+        out["refused"] = _next_trade_refused(cfg, state, feed_stale, "ORB", None, None, now, day)
+    out["send_block"] = _next_trade_send_block("ORB", out.get("sent"), state, broker, wrails)
+    # the range and the risk a share at the sidecar's own 4 dp (2.5 x an odd-cent range is a
+    # half cent: 2.5 x 1.83 = 4.575), so sent x risk is the planned loss to the cent
+    risk = _next_trade_num(L.get("risk"), 4)
+    out.update({"dir": L.get("dir") if L.get("dir") in ("long", "short") else None,
+                "trigger": _next_trade_num(L.get("trigger")), "px": _next_trade_num(L.get("px")),
+                "rng": _next_trade_num(L.get("rng"), 4), "risk": risk,
+                "stop": _next_trade_num(L.get("stop_est")),
+                "target": _next_trade_num(L.get("target_est")),
+                "max_loss": _next_trade_loss_at_stop(out.get("sent"), risk),
+                "exit": _next_trade_text(L.get("exit_rule"))})
+    return out
+
+
+def _next_trade_noise(cfg, state, feed_stale, L, total, now, day, broker=None, wrails=None):
+    """legs.NOISE from the sidecar's NOISE_382 leg: sized (base x plugin tilt x KEEL, then the
+    per-leg and total caps) only while the engine says ok; the adapter rail that would keep it
+    book-only (send_block); the size parts, the share range for the rest of today and the next
+    session (per-leg capped, never room-capped), both sides' trigger / stop / planned loss at the
+    stop (sent x stop distance), the exit rule and the last preview-vs-real check."""
+    L = L if isinstance(L, dict) else {}
+    status = str(L.get("status") or "")
+    base = int((cfg.get("shares") or {}).get("NOISE", 0) or 0)
+    max_shares = int(cfg.get("max_shares_per_leg", 0) or 0)
+    nxt, out = _next_trade_head(L, base)
+    # unrounded: _open_lot sizes the ENTRY row's own value, and 10 x 2.25 = 22.5 rounds to 22
+    size = None if isinstance(nxt.get("size"), bool) else _finite_or_none(nxt.get("size"))
+    if status == "ok" and size is not None:
+        out.update(_next_trade_sized(cfg, state, feed_stale, "NOISE", size, total, nxt,
+                                     "decide_close", now, day))
+    else:
+        out["refused"] = _next_trade_refused(cfg, state, feed_stale, "NOISE", None, None, now, day)
+    out["send_block"] = _next_trade_send_block("NOISE", out.get("sent"), state, broker, wrails)
+    may = nxt.get("may_change")
+    out.update({"plugin": _next_trade_num(nxt.get("plugin"), 4),
+                "sq30": _next_trade_bool(nxt.get("sq30")),
+                "keel": _next_trade_num(nxt.get("keel"), 4), "fri": _next_trade_bool(nxt.get("fri")),
+                "sq60": _next_trade_bool(nxt.get("sq60")), "fomc": _next_trade_bool(nxt.get("fomc")),
+                "branch": _next_trade_text(nxt.get("branch"), NEXT_TRADE_WORD_MAX),
+                "model_on": _next_trade_bool(nxt.get("model_on")),
+                "trust": _next_trade_num(nxt.get("trust"), 4),
+                "t_fast": _next_trade_num(nxt.get("t_fast"), 4),
+                "z": _next_trade_num(nxt.get("z"), 4),
+                "keel_src": _next_trade_text(nxt.get("keel_src"), NEXT_TRADE_WORD_MAX),
+                "keel_fb": _next_trade_text(nxt.get("keel_fb"), NEXT_TRADE_KEEL_FB_MAX),
+                "may_change": ([str(m) for m in may if m in ("sq30", "sq60", "model")]
+                               if isinstance(may, list) else [])})
+
+    def _range_sh(mult):
+        # the per-leg clamp of a sized lot (never the room: that changes bar to bar)
+        m = _next_trade_num(mult, 4)
+        if m is None or m <= 0:
+            return None
+        n = _sized_shares(base, m)
+        return min(n, max_shares) if (m != 1.0 and max_shares) else n
+
+    rt = L.get("range_today") if isinstance(L.get("range_today"), dict) else {}
+    out["lo_sh"], out["hi_sh"] = _range_sh(rt.get("lo")), _range_sh(rt.get("hi"))
+    ns = L.get("next_session") if isinstance(L.get("next_session"), dict) else None
+    out["next_session"] = None if ns is None else {
+        "date": _next_trade_text(ns.get("date"), NEXT_TRADE_WORD_MAX),
+        "lo_sh": _range_sh(ns.get("lo")), "hi_sh": _range_sh(ns.get("hi")),
+        "fri": _next_trade_bool(ns.get("fri")), "fomc": _next_trade_bool(ns.get("fomc"))}
+    out["px"], out["vwap"] = _next_trade_num(L.get("px")), _next_trade_num(L.get("vwap"))
+    for side in ("long", "short"):
+        s = L.get(side) if isinstance(L.get(side), dict) else None
+        if s is None:
+            out[side] = None
+            continue
+        dist = _next_trade_num(s.get("stop_dist"), 4)
+        ok = bool(s.get("ok"))
+        out[side] = {"ok": ok, "why": _next_trade_text(s.get("why"), NEXT_TRADE_WORD_MAX),
+                     "trigger": _next_trade_num(s.get("trigger")), "stop_dist": dist,
+                     "stop": _next_trade_num(s.get("stop_est")),
+                     "max_loss": _next_trade_loss_at_stop(out.get("sent"), dist) if ok else None}
+    out["exit"] = _next_trade_text(L.get("exit_rule"))
+    ck = L.get("check") if isinstance(L.get("check"), dict) else None
+    out["check"] = None if ck is None else {
+        "bar": _next_trade_text(ck.get("bar"), NEXT_TRADE_WORD_MAX),
+        "preview": _next_trade_num(ck.get("preview"), 6),
+        "actual": _next_trade_num(ck.get("actual"), 6), "match": _next_trade_bool(ck.get("match")),
+        "board": _next_trade_num(ck.get("board"), 6)}
+    return out
+
+
+def _next_trade_skipped(e, log=print):
+    """At most one log line per NEXT_TRADE_ERROR_LOG_EVERY_SEC for a failed block build."""
+    now = time.time()
+    if now - _NEXT_TRADE_ERR["last"] < NEXT_TRADE_ERROR_LOG_EVERY_SEC:
+        _NEXT_TRADE_ERR["held"] += 1
+        return
+    held, _NEXT_TRADE_ERR["held"], _NEXT_TRADE_ERR["last"] = _NEXT_TRADE_ERR["held"], 0, now
+    log(f"[qqq-exec] next-trade block skipped ({type(e).__name__}: {e}) -- the board shows no "
+        f"next-trade line" + (f" [+{held} more since the last line]" if held else ""))
+
+
+def _build_next_trade(cfg, state, feed_stale, doc, day, log=print):
+    """doc["next_trade"] (NEXT TRADE above): {"v", "at", "src", "cap", "loss", "dip_rail",
+    "blocks", "send_blocks", "legs": {"ORB", "NOISE", "DIP"}} -- or {} (key left off the doc)
+    when the engine's sidecar is missing / unreadable / another version, size_mode is not
+    "fixed", or anything fails. Reads only the sidecar, this book's state and cfg, the doc's
+    broker block, the adapter's total cap room and the adapter's rails off its cfg (no I/O).
+    Never raises."""
+    try:
+        side = _read_next_entry_cached()
+        if not side:
+            return {}
+        cfg = cfg or {}
+        state = state or {}
+        if str(cfg.get("size_mode") or "fixed").strip().lower() != "fixed":
+            return {}
+        now = _now_et()
+        legs_in = side.get("legs") if isinstance(side.get("legs"), dict) else {}
+        # the order adapter is a process singleton: make sure it is built with the doc's real
+        # log, never with the no-op one handed to _broker_total_room below
+        try:
+            adapter = _get_broker_adapter(log=log)
+        except Exception:
+            adapter = None
+        total = _broker_total_room(log=_next_trade_quiet) if adapter is not None else None
+        # the adapter's own rails, as its _check_rails reads them -- never adapter.status(),
+        # which reads the key files
+        try:
+            wrails = (getattr(adapter, "cfg", None) or {}).get("rails") or webull_orders.DEFAULT_RAILS
+        except Exception:
+            wrails = webull_orders.DEFAULT_RAILS
+        broker = (doc or {}).get("broker")
+        src_leg = next((legs_in[k] for k in ("NOISE_382", "ORB_R6")
+                        if isinstance(legs_in.get(k), dict) and legs_in[k].get("bar")), {})
+        age_s = None
+        try:
+            ca = datetime.fromisoformat(str(side.get("computed_at")))
+            ref_now = now if now.tzinfo is not None or _NY is None else now.replace(tzinfo=_NY)
+            if ca.tzinfo is None and _NY is not None:
+                ca = ca.replace(tzinfo=_NY)
+            age_s = max(0, int((ref_now - ca).total_seconds()))
+        except Exception:
+            age_s = None
+        legs = {}
+        if "ORB_R6" in legs_in:
+            legs["ORB"] = _next_trade_orb(cfg, state, feed_stale, legs_in["ORB_R6"], total, now, day,
+                                          broker=broker, wrails=wrails)
+        if "NOISE_382" in legs_in:
+            legs["NOISE"] = _next_trade_noise(cfg, state, feed_stale, legs_in["NOISE_382"], total,
+                                              now, day, broker=broker, wrails=wrails)
+        dip = _next_trade_dip(cfg, state, total, day, feed_stale=feed_stale)
+        if dip:
+            legs["DIP"] = dip
+        blocks, send_blocks = _next_trade_blocks(cfg, state, feed_stale, broker, now, wrails,
+                                                 adapter=adapter)
+        return {
+            "v": NEXT_TRADE_VERSION,
+            "at": (doc or {}).get("updated_at") or now.strftime("%Y-%m-%d %H:%M:%S"),
+            "src": {"bar": _next_trade_wall(src_leg.get("bar"), "%Y-%m-%d %H:%M"),
+                    "bar_close": _next_trade_wall(src_leg.get("bar_close"), "%Y-%m-%d %H:%M:%S"),
+                    "computed_at": _next_trade_wall(side.get("computed_at"), "%Y-%m-%d %H:%M:%S"),
+                    "age_s": age_s, "host": _next_trade_text(side.get("host"), NEXT_TRADE_WORD_MAX),
+                    "next_session": _next_trade_text(side.get("next_session"), NEXT_TRADE_WORD_MAX)},
+            "cap": None if total is None else {"cap": total[2], "held": total[1], "room": total[0]},
+            "loss": _next_trade_loss(cfg, state, day),
+            "dip_rail": _next_trade_dip_rail(cfg, state, day),
+            "blocks": blocks,
+            "send_blocks": send_blocks,
+            "legs": legs,
+        }
+    except Exception as e:
+        _next_trade_skipped(e, log=log)
+        return {}
+
+
 def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, log=print,
               sig_dt=None, signal_source=None, trade_id=None, entry_ref_time=None, size=None,
               keel_size=None, nowdt=None, decided_at_ref=False):
@@ -14900,6 +15441,15 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     resting_status = _build_resting_status(cfg, state)
     if resting_status is not None:
         doc["orb_resting"] = resting_status
+    # NEXT TRADE (item 53): what each leg would send if it fired next -- display only, read from the
+    # engine's local sidecar and this book's own rails; never in _publish_fingerprint (0 extra writes)
+    try:
+        nt = _build_next_trade(cfg, state, feed_stale, doc, day, log=log)
+    except Exception as e:
+        nt = {}
+        _next_trade_skipped(e, log=log)
+    if nt:
+        doc["next_trade"] = nt
     # FIRESTORE CAPS (review 2026-09-28): every summary above has read the full rows --
     # now pack what rides on each published trade row, then make sure the doc fits.
     _compact_published_trades(doc["trades_all"])

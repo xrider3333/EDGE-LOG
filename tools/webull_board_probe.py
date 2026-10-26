@@ -317,6 +317,39 @@ box that does not send it; when hit: 'DIP #424 rail hit Fri 10-02 (-$812.40): no
 DIP #424 entries through Mon 10-05; nothing is sold', amber, the Orders header saying it is paused and the row a plain line, the $400 stop
 untouched); no raw exec leg name (DIP_RSI) anywhere on the board; the Shadow fold's DIP #424 KEEL / fixed 1.245 rows unchanged.
 
+NEXT TRADE (item 53): the box's status doc carries a next_trade block (api/qqq_exec.py _build_next_trade: what each leg would send if it
+fired next, from the engine's own next_entry.json sidecar and the book's own rails), and the board draws one plain line under each FLAT
+strategy's row (ORB, NOISE) and under DIP #424's whenever the block has it: NOISE 'If it fires at the 10:45 close: 20 sh = 10 x 2.00 x
+KEEL 1.00 . rest of today 10-30 sh', ORB '... 10 sh (fixed size) . long only today, above 724.86', DIP 'Next lots: 6 sh each at the 09:30
+open (seen 09:35) . 5 of 7 slots free . the 85-share cap fits 5'; a line that names a size ends '. book only - not sent to Webull (...)'
+when the block says Webull would not get the order (send_blocks, or the leg's own send_block). A tap opens the rows under it (the planned
+loss at the stop, with how a real loss can differ - NOISE's stop is a check on finished bars, ORB's too unless the box rests it at Webull
+(doc.orb_resting.mode stop / stop_target; its default log_only sends no resting order) - and for DIP #424, which
+has no price stop, its own -$800 daily rail and its worst past lot; the $400 daily stop left - DIP #424 reads 'Not counted'; the room under
+the 85-share cap, how the size is built, what it needs, the exit rule, the family's last 5 trades and its worst, said of how many closed
+trades, where the estimate came from), and the Rails fold gets a TOTAL CAP (ALL LEGS) row. tools/fixtures/qqq_exec_next_trade.json holds the
+block per case (_next_doc lays one over a base doc, its times moved to the variant's clock). Thirty-one variants (_next_problems, against
+NEXT_WANT, pinned by hand): the contract's own Tuesday 2026-10-20 example with every list open and Rails open (each family's Last 5 in
+order; NOISE's max loss at the stop distance's own precision, $6.0891; ORB's stop checked on finished bars, log_only); the kill switch on (a
+{code, scope} map in blocks, no per-leg refusal: every line says so); Webull halted (send_blocks: each line that names a size says book
+only); the 85-share cap trimming NOISE (45 wanted, 33 sent) on Friday's DIP #424 doc; the model on (MONO); Webull's room
+fitting fewer DIP lots than DIP's own cap; DIP's own rail hit; the $400 stop hit; every leg in a trade (no ORB or NOISE line: the board's own
+position check, the block says ok); a silent box, and an engine with no new bar for 16 minutes ('Estimate from 10:25, no newer bar from the
+engine: ...'), both grey (on the silent box with NOISE's list open: every row grey too, no green / red); the evening (the next session's range
+and fixed size, NOISE's exit rule without the last bar's VWAP); a tap that opens the NOISE list, keeps it through a redraw and shuts it, the
+row's own detail untouched, then Enter and Space on the header (a button in the tab order, the focus back on it after each redraw); a 375x812
+and a 390x844 phone in MONO (no sideways scroll, no hue in the block). Review 2026-10-25: ORB's stop resting at Webull (orb_resting.mode stop);
+a failed NOISE preview (grey) with ORB out on quiet days; ORB before its opening range is set; NOISE refused by the full cap while Webull is
+halted (no book-only on a refused line); NOISE past its last entry and ORB done for the day; ORB paused on thin volume and NOISE's day
+skipped; Webull over the cap (room -5) with NOISE at 0 shares, ORB over its per-strategy limit and the DIP #424 cap tight; in the session on
+Monday's last estimate with the feed stale (every line says so, grey), with the feed fine at 10:41 ('No estimate from the engine yet today',
+grey) and at 09:32 (today's range, not grey: the first bar is not due yet); the evening with the kill switch on (no next-session size); and
+Wednesday 11-25 (ORB takes no trade on Friday's 13:00 half day; NOISE does). Review 2 2026-10-25: ORB's stop and target resting as one OCO
+order (orb_resting.mode stop_target); a short ORB day on a half-cent opening range (the breakeven on a close 2.2938 DOWN; 10 x $4.5875 = $45.88,
+the range 1.835); each leg's own send block (Webull still holds NOISE; ORB over Webull's per-strategy limit); Webull's own daily loss rail (ORB
+and NOISE book only, DIP #424 not). Every other
+case and variant: no next-trade line and no TOTAL CAP row (the base doc has no block, and the page must then draw nothing).
+
 Exit codes as preflight_boot.py: 0 PASS, 1 FAIL, 2 INCONCLUSIVE (never blocks). A non-PASS
 attempt is rendered once more before it blocks; a retry that passes prints a FLAKE line.
 
@@ -328,7 +361,7 @@ Usage:
   python tools/webull_board_probe.py --selftest --only NAME[,NAME...]   # just those broken copies (no final run on the real file), each printed
                                                     # caught / NOT caught with the probe's first two problem lines; an unknown NAME is an error
   python tools/webull_board_probe.py --selftest --jobs 1   # the same, one broken copy at a time (the default is four at a time, or fewer on a
-                                                           # small machine: 285 copies run one by one would take several hours)
+                                                           # small machine: 391 copies run one by one would take several hours)
 
 Stdlib only, plus a subprocess call to local Chrome.
 """
@@ -354,6 +387,8 @@ FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_box1005.json')
 SHADOW_FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_shadow_trades.json')
 # DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): the box's seven one-lot DIP exec legs, laid over FIXTURE by the DIP variants
 DIP_FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_dip_live.json')
+# NEXT TRADE (item 53): the status doc's next_trade block, one per case, laid over FIXTURE (or the DIP #424 doc) by the next-trade variants
+NEXT_FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_next_trade.json')
 
 VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'phone390': [390, 844]}
 CASES = [['%s/%s' % (vp, th), {'vp': vp, 'theme': th}] for vp in ('laptop', 'phone') for th in ('dark', 'mono')]
@@ -447,6 +482,199 @@ DIP_WANT = {
     'detail': ['42 sh in 7 lots @ avg $746.90', 'gap -$67.62'],
 }
 
+# NEXT TRADE (item 53). What each next-trade line, the rows a tap opens and the Rails TOTAL CAP row must say, worked out by hand from
+# NEXT_FIXTURE (the contract's own example: Tuesday 2026-10-20 10:41, QQQ 722.12, NOISE 10 x 2.00 x KEEL 1.00 = 20 sh, the 85-share cap with 12
+# held by DIP #424's 2 lots). lines: key -> the exact line (None = no line under that row); starts / has: its start / words in it; grey: key ->
+# drawn --text4 (True) or --text3 (False); body: key -> {row label: words in its value}; body_not: key -> {row label: words that must NOT be in
+# it}; body_lacks: rows that must not be there; n5: how many trades the Last 5 row lists; l5: key -> those trades' texts, in order; allgrey:
+# keys whose every colour (the line and the rows it opened) is --text4, bar the labels' and the arrow's own --text5; cap: the TOTAL CAP
+# row's value; mono: no hue anywhere in a line; click: the tap / redraw / tap run, then Enter and Space on the focused header.
+_NT_NOISE = 'If it fires at the 10:45 close: 20 sh = 10 x 2.00 x KEEL 1.00 \u00b7 rest of today 10-30 sh'
+_NT_ORB = 'If it fires at the 10:45 close: 10 sh (fixed size) \u00b7 long only today, above 724.86'
+_NT_DIP = 'Next lots: 6 sh each at the 09:30 open (seen 09:35) \u00b7 5 of 7 slots free \u00b7 the 85-share cap fits 5'
+_NT_STOP = '$356.41 left before the $400.00 daily stop (today -$43.59, breaker figure)'
+_NT_CAP = '73 of 85 sh free (12 held by all legs, DIP #424 included)'
+_NT_SRC = 'From the 10:35 bar, worked out on the box 40 s ago'
+NEXT_WANT = {
+    'tue': {
+        'lines': {'NOISE': _NT_NOISE, 'ORB': _NT_ORB, 'DIP': _NT_DIP},
+        'grey': {'NOISE': False, 'ORB': False, 'DIP': False},
+        'expanded': {'NOISE': 'true', 'ORB': 'true', 'DIP': 'true'},
+        'cap': '85 sh \u00b7 12 held \u00b7 73 room',
+        'body': {
+            # 20 x 6.0891 = 121.78: the distance at the doc's own precision, so the sum adds up
+            'NOISE': {'Max loss, next trade': ['Long: 20 sh x $3.06 = $61.20 \u00b7 Short: 20 sh x $6.0891 = $121.78',
+                                               'Planned, at the stop. The stop is set from the fill and not checked on the bar it fills on'],
+                      'Daily stop left': [_NT_STOP], 'Cap room': [_NT_CAP],
+                      'Size build-up': ['10 sh x 2.00 (30-min squeeze on) x KEEL 1.00 (no tilt; model off) = 20 sh'],
+                      'Needs': ['A 5-min close above 724.10 (long) or below 715.22 (short); last 722.12, VWAP 721.40'],
+                      'Exit rule': ['Out at the next open after a 5-min close back across VWAP (now 721.40)'],
+                      'Last 5 trades': ['10-20 10:15 Long 20 sh -$43.59 own exit', '10-19 15:59 Short 20 sh +$38.60 end of day'],
+                      'Worst past trade': ['10-19 Long 20 sh -$56.80 (-$2.84 a share) \u00b7 worst of the last 44 closed'],
+                      'Estimate': [_NT_SRC + ' \u00b7 last check, 10:25 bar: the real size matched (2.00)']},
+            # the box's orb_resting.mode is log_only (its default): no resting order, so the stop is checked on finished bars
+            'ORB': {'Max loss, next trade': ['10 sh x $4.60 = $46.00 (stop 2.5x the opening range of 1.84)',
+                                             'Planned, at the stop. The stop (and its move to the entry) is checked on finished 5-min bars; a '
+                                             'touch sells at market after that bar, so a fast bar can lose more.'],
+                    'Daily stop left': [_NT_STOP], 'Cap room': [_NT_CAP], 'Size build-up': ['10 sh fixed (no KEEL, no tilt)'],
+                    'Needs': ['A 5-min close above 724.86 (long only today); last 722.12'],
+                    'Exit rule': ['Stop 4.60 a share from the entry close (2.5x the opening range), target 5x that; stop to the entry once a '
+                                  'close is 2.30 up. Out at the close. Nothing rests at Webull: once a 5-min bar reaches the stop or the target, '
+                                  'the box closes the trade at market after that bar.'],
+                    'Worst past trade': ['09-28 Short 10 sh -$39.90 (-$3.99 a share) \u00b7 worst of the last 4 closed'], 'Estimate': [_NT_SRC]},
+            # DIP #424 has no price stop: its Max loss row is its own rail and its worst lot; the $400 stop does not count it
+            'DIP': {'Max loss, next trade': ['No price stop. Its own -$800.00 daily rail has $809.12 left today (it pauses new lots, never '
+                                             'sells) \u00b7 worst past lot -$34.08'],
+                    'Daily stop left': ['Not counted - the $400.00 daily stop covers ORB and NOISE only'],
+                    'Cap room': [_NT_CAP + ' \u00b7 fits 5 more lots at Webull, the DIP #424 cap (42 sh) fits 5'],
+                    'Size build-up': ['6 sh a lot, fixed (the 1.245x is built in), one lot per mechanism, 2 of 7 held'],
+                    'Exit rule': ['No price stop. Each lot is sold at the 09:30 open of a later session'],
+                    'Last 5 trades': ['PB 10-16 09:30 Long 6 sh +$39.42 own exit', 'CAP 10-15 09:30 Long 6 sh -$34.08 own exit'],
+                    'Worst past trade': ['CAP 10-15 -$34.08 (includes overnight gaps) \u00b7 worst of the last 2 closed'],
+                    'Estimate': ['From the box book, 24 s ago']}},
+        'body_not': {'ORB': {'Max loss, next trade': ['rests at Webull'], 'Exit rule': ['Resting', 'The stop rests']}},
+        # DIP #424 opens its lots at the 09:30 open on its own mechanisms: no level to wait for
+        'body_lacks': {'DIP': ['Needs']},
+        'n5': {'NOISE': 5, 'ORB': 4, 'DIP': 2},
+        # each family's closed trades, newest close first (the P&L of record; EOD = end of day, a signal exit = own exit): NOISE's from the
+        # case's extra_trades, ORB's four since 09-03 from the base doc, DIP #424's two lots led by their mechanism
+        'l5': {'NOISE': ['10-20 10:15 Long 20 sh -$43.59 own exit', '10-19 15:59 Short 20 sh +$38.60 end of day', '10-19 11:40 Long 20 sh -$56.80 own exit',
+                         '10-16 10:05 Long 15 sh +$9.75 own exit', '10-15 15:59 Short 10 sh -$4.10 end of day'],
+               'ORB': ['10-02 15:59 Short 10 sh -$17.00 end of day', '09-28 15:59 Short 10 sh -$39.90 end of day', '09-18 16:00 Long 10 sh +$12.90 end of day',
+                       '09-03 15:58 Long 5 sh +$2.89 end of day'],
+               'DIP': ['PB 10-16 09:30 Long 6 sh +$39.42 own exit', 'CAP 10-15 09:30 Long 6 sh -$34.08 own exit']},
+        'titles': {
+            'NOISE': ('An estimate, not an order: the size NOISE would use if it decided to enter at the close of the 10:40-10:45 bar. '
+                      'Recomputed every 5 minutes; a later bar can give a different size. The real size is on the order when it fires.'),
+            'ORB': ('An estimate, not an order: ORB trades a fixed 10 shares, once a session, at the first 5-min close past its opening-range '
+                    'level. The 85-share cap across all legs can trim it.'),
+            'DIP': ('Each DIP #424 mechanism holds at most one 6-share lot. A lot that does not fit under the 85-share cap stays on the book '
+                    'only and is not sent to Webull.')}},
+    # Friday 11:04 on the DIP #424 doc, NOISE flat: 10 x 2.00 x KEEL 2.25 = 45 wanted, the cap's 33 room sends 33
+    'trim': {
+        'lines': {'NOISE': ('If it fires at the 11:05 close: 33 sh (10 x 2.00 x KEEL 2.25 = 45 wanted, capped by the 85-share cap) '
+                            '\u00b7 rest of today 15-45 sh'),
+                  'ORB': None, 'DIP': 'All 7 lots held (42 sh) - no new lot until one exits'},
+        'grey': {'NOISE': False}, 'expanded': {'NOISE': 'true', 'DIP': 'false'},
+        'body': {'NOISE': {'Max loss, next trade': ['Long: 33 sh x $3.06 = $100.98 \u00b7 Short: 33 sh x $6.12 = $201.96'],
+                           'Size build-up': ['10 sh x 2.00 (30-min squeeze on) x KEEL 2.25 (Friday 1.5x, 60-min squeeze 1.5x; model off) = 45 sh '
+                                             '\u2192 33 sent, capped by the 85-share cap'],
+                           'Cap room': ['33 of 85 sh free (52 held by all legs, DIP #424 included)']}}},
+    'model': {
+        'lines': {'NOISE': ('If it fires at the 10:45 close: 22 sh = 10 x 2.00 x KEEL 1.12 (model on - can change bar to bar) '
+                            '\u00b7 rest of today 5-45 sh')},
+        'body': {'NOISE': {'Size build-up': ['(no tilt; model on, trust 0.31, z -0.42) = 22 sh', 'may change at that close: the model reads that bar'],
+                           'Max loss, next trade': ['Long: 22 sh x $3.06 = $67.32 \u00b7 Short: 22 sh x $6.0891 = $133.96']}},
+        'mono': True},
+    'dip_tight': {
+        'lines': {'ORB': None, 'NOISE': None,
+                  'DIP': ('Next lots: 6 sh each \u00b7 3 of 7 slots free, but the 85-share cap fits 2 - a lot that does not fit stays on the '
+                          'book only, not sent to Webull')},
+        'body': {'DIP': {'Cap room': ['13 of 85 sh free (72 held by all legs, DIP #424 included) \u00b7 fits 2 more lots at Webull, '
+                                      'the DIP #424 cap (42 sh) fits 3']}}},
+    'dip_rail': {
+        'lines': {'NOISE': _NT_NOISE, 'ORB': _NT_ORB, 'DIP': 'No new DIP #424 lots through Wed 10-21 - its -$800.00 rail is hit (nothing is sold)'},
+        'body': {'DIP': {'Max loss, next trade': ['No price stop. Its own -$800.00 daily rail is hit - no new lots through Wed 10-21 (it never '
+                                                  'sells) \u00b7 worst past lot -$34.08']}}},
+    'breaker': {
+        'lines': {'NOISE': 'No new NOISE entries today - the $400.00 daily stop is hit', 'ORB': 'No new ORB entries today - the $400.00 daily stop is hit',
+                  'DIP': _NT_DIP},
+        'body': {'NOISE': {'Daily stop left': ['Hit - no new NOISE entries today']}}},
+    'intrade': {'lines': {'ORB': None, 'NOISE': None, 'DIP': 'All 7 lots held (42 sh) - no new lot until one exits'}},
+    'kill': {'lines': {'NOISE': 'No new entries - the kill switch is on', 'ORB': 'No new entries - the kill switch is on',
+                       'DIP': 'No new entries - the kill switch is on'}},
+    'send_halted': {'lines': dict((k, v + ' \u00b7 book only - not sent to Webull (Webull orders are halted)')
+                                  for k, v in (('NOISE', _NT_NOISE), ('ORB', _NT_ORB), ('DIP', _NT_DIP)))},
+    # NOISE's list open too: its rows and the Last 5 P&L are last-known figures, grey like the line (no green / red)
+    'silent': {'lines': {'NOISE': _NT_NOISE, 'ORB': _NT_ORB, 'DIP': _NT_DIP}, 'grey': {'NOISE': True, 'ORB': True, 'DIP': True},
+               'expanded': {'NOISE': 'true'}, 'allgrey': ['NOISE', 'ORB', 'DIP']},
+    # the engine wrote nothing since the 10:20 bar (closed 10:25): its last size, said from when, grey; DIP #424's line is the book's own
+    'old': {'starts': {'NOISE': 'Estimate from 10:25, no newer bar from the engine: If it fires at the 10:45 close: 20 sh = ',
+                       'ORB': 'Estimate from 10:25, no newer bar from the engine: If it fires at the 10:45 close: 10 sh (fixed size)'},
+            'lines': {'DIP': _NT_DIP}, 'grey': {'NOISE': True, 'ORB': True, 'DIP': False}},
+    # the session VWAP starts again at the open: the exit rule drops the last bar's 'now' figure
+    'offsession': {'lines': {'NOISE': 'Next session (Wed 10-21): 10-30 sh - set at the close of the bar it fires on',
+                             'ORB': 'Next session (Wed 10-21): 10 sh (fixed size) once the opening range sets at 09:40', 'DIP': _NT_DIP},
+                   'body': {'NOISE': {'Exit rule': ['Out at the next open after a 5-min close back across VWAP, after a bar touches the stop']}},
+                   'body_not': {'NOISE': {'Exit rule': ['(now']}}},
+    'click': {'lines': {'NOISE': _NT_NOISE}, 'expanded': {'NOISE': 'false'}, 'click': True},
+    # the box's orb_resting.mode is stop: ORB's stop rests at Webull - the engine's exit words (the same in every mode) and the page's note
+    'orb_rest': {'lines': {'ORB': _NT_ORB},
+                 'body': {'ORB': {'Max loss, next trade': ['Planned, at the stop. The stop rests at Webull, so only a gap through it fills worse; once '
+                                                           'it moves to the entry the planned loss is about $0.'],
+                                  'Exit rule': ['Stop 4.60 a share from the entry close (2.5x the opening range), target 5x that; stop to the '
+                                                'entry once a close is 2.30 up. Out at the close. The stop rests at Webull as an order; the target '
+                                                'closes the trade at market after the 5-min bar that reaches it.']}},
+                 'body_not': {'ORB': {'Max loss, next trade': ['checked on finished 5-min bars'], 'Exit rule': ['Nothing rests']}}},
+    # orb_resting.mode stop_target (once its OCO is verified): the stop AND the target rest at Webull as one order
+    'orb_rest_oco': {'lines': {'ORB': _NT_ORB},
+                     'body': {'ORB': {'Max loss, next trade': ['Planned, at the stop. The stop rests at Webull, so only a gap through it fills worse'],
+                                      'Exit rule': ['stop to the entry once a close is 2.30 up. Out at the close. The stop and the target rest at '
+                                                    'Webull as one order (OCO).']}},
+                     'body_not': {'ORB': {'Exit rule': ['Nothing rests', 'the target closes the trade at market']}}},
+    # a short ORB day on a half-cent opening range (Webull's bars carry sub-cent prices): the breakeven arms on a close that far DOWN, and the
+    # range, the risk a share and the exit rule's stop all at the doc's own precision, so 10 x 4.5875 = $45.88 and 2.5 x 1.835 = 4.5875
+    'orb_short': {'lines': {'ORB': 'If it fires at the 10:45 close: 10 sh (fixed size) \u00b7 short only today, below 720.11',
+                            'NOISE': _NT_NOISE, 'DIP': _NT_DIP},
+                  'body': {'ORB': {'Max loss, next trade': ['10 sh x $4.5875 = $45.88 (stop 2.5x the opening range of 1.835)'],
+                                   'Needs': ['A 5-min close below 720.11 (short only today); last 722.12'],
+                                   'Exit rule': ['Stop 4.5875 a share from the entry close (2.5x the opening range), target 5x that; stop to '
+                                                 'the entry once a close is 2.2938 down. Out at the close. Nothing rests at Webull']}},
+                  'body_not': {'ORB': {'Exit rule': [' up. ']}}},
+    # each leg's own Webull send rail (send_block): Webull still holds NOISE although the book is flat; ORB over the adapter's share limit
+    'send_leg': {'lines': {'NOISE': _NT_NOISE + ' \u00b7 book only - not sent to Webull (Webull still shows an open NOISE position)',
+                           'ORB': _NT_ORB + ' \u00b7 book only - not sent to Webull (over Webull\u2019s per-strategy share limit)',
+                           'DIP': _NT_DIP}},
+    # Webull's own daily loss rail (broker_daily, scope send_shared): ORB and NOISE open book-only; DIP #424 carries its own rail there
+    'broker_daily': {'lines': dict([(k, v + ' \u00b7 book only - not sent to Webull (Webull\u2019s own daily loss rail is hit)')
+                                    for k, v in (('NOISE', _NT_NOISE), ('ORB', _NT_ORB))], DIP=_NT_DIP)},
+    # the engine preview failed for NOISE (grey); ORB sits the day out on quiet recent days (its own fresh line)
+    'error': {'lines': {'NOISE': 'No estimate this bar - the engine preview failed', 'ORB': 'No ORB trade today - recent days were too quiet',
+                        'DIP': _NT_DIP},
+              'grey': {'NOISE': True, 'ORB': False, 'DIP': False}},
+    # ORB before its opening range is done (NOISE still warming up: no line); the engine's exit words for that state, and nothing rests (log_only)
+    'pending': {'lines': {'ORB': 'Opening range sets at 09:40; then 10 sh (fixed size) if it fires', 'NOISE': None},
+                'grey': {'ORB': False},
+                'body': {'ORB': {'Max loss, next trade': ['Set at 09:40, when the opening range is done (2.5x its size a share)'],
+                                 'Needs': ['The 09:30 and 09:35 bars set the level at 09:40'],
+                                 'Exit rule': ['Stop 2.5x the opening range from the entry close, target 5x that; stop to the entry once a close is '
+                                               '0.5x that in its favour. Out at the close. Nothing rests at Webull']}}},
+    # NOISE refused by the full cap while Webull is halted: a refused line never says book only; the lines that name a size do
+    'capfull_halted': {'lines': {'NOISE': 'If it fires at the 10:45 close: refused - the 85-share cap is full (85 held)',
+                                 'ORB': _NT_ORB + ' \u00b7 book only - not sent to Webull (Webull orders are halted)',
+                                 'DIP': _NT_DIP + ' \u00b7 book only - not sent to Webull (Webull orders are halted)'}},
+    # NOISE past its last entry time; ORB has had its one trade
+    'late': {'lines': {'NOISE': 'No new NOISE entries today (last entry 15:55)', 'ORB': 'Done for today - ORB trades once a session', 'DIP': _NT_DIP}},
+    # ORB's entry check paused on thin volume; NOISE's day skipped (yesterday's range in its top 5%)
+    'paused': {'lines': {'ORB': 'Not at the 10:45 close - volume is under 80% of normal so far; it can still fire later',
+                         'NOISE': 'No NOISE entries today - yesterday\u2019s range was in its top 5%', 'DIP': _NT_DIP}},
+    # Webull holds 90 under an 85 cap (room -5); NOISE set to 0 shares; ORB's 10 over a 5-share per-strategy limit; DIP #424's own cap tight
+    'overcap': {'lines': {'NOISE': 'NOISE is set to 0 shares - no orders',
+                          'ORB': 'If it fires at the 10:45 close: refused - 10 sh is over the per-strategy limit',
+                          'DIP': '3 of 7 slots free, the DIP #424 cap (42 sh) fits 2'},
+                'cap': '85 sh \u00b7 90 held \u00b7 0 room (over by 5)',
+                'body': {'NOISE': {'Cap room': ['0 of 85 sh free (90 held, over by 5)']}}},
+    # in the session, the engine's newest bar is Monday's last one (it has written nothing today) and the feed is stale: every line says so
+    'engine_down': {'lines': dict((k, 'No new entries while the price feed is stale') for k in ('NOISE', 'ORB', 'DIP')),
+                    'grey': {'NOISE': True, 'ORB': True, 'DIP': False}},
+    # the same at 10:41 with the feed fine: no estimate today, grey - never "Today from 09:40" an hour after today's first bar was due
+    'noday': {'lines': {'NOISE': 'No estimate from the engine yet today (its last bar closed Mon 10-19 16:00)',
+                        'ORB': 'No estimate from the engine yet today (its last bar closed Mon 10-19 16:00)', 'DIP': _NT_DIP},
+              'grey': {'NOISE': True, 'ORB': True, 'DIP': False},
+              'body_not': {'NOISE': {'Exit rule': ['(now']}}},
+    # 09:32 on Monday's estimate: today's first bar is not due yet, so today's range, in the plain colour
+    'early': {'lines': {'NOISE': 'Today from 09:40: 10-30 sh - set at the close of the bar it fires on',
+                        'ORB': 'Today from 09:40: 10 sh (fixed size) once the opening range sets at 09:40', 'DIP': _NT_DIP},
+              'grey': {'NOISE': False, 'ORB': False, 'DIP': False}},
+    # the evening with the kill switch on: it holds into the next session, so no next-session size
+    'kill_evening': {'lines': dict((k, 'No new entries - the kill switch is on') for k in ('NOISE', 'ORB', 'DIP')),
+                     'grey': {'NOISE': False, 'ORB': False, 'DIP': False}},
+    # Wednesday before Thanksgiving: the next session is Friday's 13:00 half day - ORB_R6 skips it, NOISE trades it
+    'orb_halfday': {'lines': {'ORB': 'Next session (Fri 11-27): no ORB trade (a 13:00 half day)',
+                              'NOISE': 'Next session (Fri 11-27): 10-30 sh - set at the close of the bar it fires on', 'DIP': _NT_DIP}},
+    'phone': {'lines': {'NOISE': _NT_NOISE}, 'expanded': {'NOISE': 'true'}, 'body': {'NOISE': {'Daily stop left': [_NT_STOP]}}, 'mono': True},
+}
+
 
 def _dip_doc(base, evening=False, rail=None, shadow=True, rail_input=True):
     """`base` with DIP #424 live (DIP_FIXTURE): leg_families, positions and positions_live replaced, rails and today merged one level, the
@@ -475,6 +703,54 @@ def _dip_doc(base, evening=False, rail=None, shadow=True, rail_input=True):
     if not rail_input:
         d['today'].pop('dip_rail_input', None)
     return _shtr_doc(d) if shadow else d
+
+
+def _et_str(ms, fmt='%Y-%m-%d %H:%M:%S'):
+    """Epoch ms -> New York wall clock text: et_ms's inverse, with its daylight saving rule."""
+    import datetime as _dt
+    s = int(ms) // 1000
+    for off in (-4, -5):
+        w = _dt.datetime.fromtimestamp(s, _dt.timezone(_dt.timedelta(hours=off))).replace(tzinfo=None)
+        if et_ms(w.strftime('%Y-%m-%d %H:%M:%S')) == s * 1000:
+            return w.strftime(fmt)
+    raise ValueError('no New York time for %r' % ms)
+
+
+def _next_doc(base, case, now, age=40, bar_close=None):
+    """`base` with NEXT_FIXTURE's `case` laid on (NEXT TRADE, item 53): its next_trade block; positions_drop taken out of positions and
+    positions_live, its positions / positions_live_legs added (the net share counts summed again, so the share check agrees); extra_trades
+    put into trades_all where they closed (newest close first); rails and today merged one level. The block's own times follow this variant's
+    clock: worked out `age` s before `now` (or 31 s after `bar_close`) on the 5-minute bar that had closed by then, and published with the
+    doc (at = its updated_at), so no case goes stale by date."""
+    d = json.loads(json.dumps(base))
+    c = json.load(io.open(NEXT_FIXTURE, encoding='utf-8'))['cases'][case]
+    nt = json.loads(json.dumps(c['next_trade']))
+    drop = set(c.get('positions_drop') or [])
+    pos = dict((k, v) for k, v in (d.get('positions') or {}).items() if k not in drop)
+    pos.update(c.get('positions') or {})
+    d['positions'] = pos
+    pl = dict(d.get('positions_live') or {})
+    legs = [x for x in pl.get('legs') or [] if x.get('leg') not in drop] + list(c.get('positions_live_legs') or [])
+    net = sum((1 if x.get('side') == 'long' else -1) * int(x.get('shares') or 0) for x in legs)
+    pl.update({'legs': legs, 'legs_net_qty': net, 'broker_net_qty': net, 'mismatch': False,
+               'total_open_pnl': round(sum(float(x.get('open_pnl') or 0) for x in legs), 2)})
+    d['positions_live'] = pl
+    rows = list(d.get('trades_all') or [])
+    for t in sorted(c.get('extra_trades') or [], key=lambda x: x['exit_ts'], reverse=True):
+        i = next((j for j, x in enumerate(rows) if str(x.get('exit_ts') or '') < t['exit_ts']), len(rows))
+        rows.insert(i, t)
+    d['trades_all'] = rows
+    for k in ('rails', 'today'):
+        if c.get(k):
+            d[k] = dict(d.get(k) or {}, **c[k])
+    done = et_ms(bar_close) + 31000 if bar_close else et_ms(now) - age * 1000
+    closed = done - 31000 if bar_close else done // 300000 * 300000
+    at = d.get('updated_at') or now
+    nt['at'] = at
+    nt['src'].update({'bar': _et_str(closed - 300000, '%Y-%m-%d %H:%M'), 'bar_close': _et_str(closed), 'computed_at': _et_str(done),
+                      'age_s': max(0, (et_ms(at) - done) // 1000)})
+    d['next_trade'] = nt
+    return d
 
 
 def _variant_docs(fixture):
@@ -936,6 +1212,145 @@ def _variant_docs(fixture):
                      dip=dict(DIP_WANT, rail=('paused', 'DIP #424 rail hit Fri 10-02 (-$812.40): no new DIP #424 entries through Mon 10-05; '
                                                          'nothing is sold'), rail_col='amber',
                               row_rail='rail hit Fri 10-02: no new entries through Mon 10-05'))))
+    # NEXT TRADE (item 53): the box's next_trade block (NEXT_FIXTURE, laid on by _next_doc) - each flat leg's next trade if it fires, under
+    # its row (DIP #424's whenever the block has it), the rows a tap opens and the Rails TOTAL CAP row. The contract's own example is Tuesday
+    # 2026-10-20 10:41: the base doc moved to that day (KEEL rebuilt on Monday's data), ORB and NOISE flat, DIP #424 holding 2 lots
+    def tue_doc(updated='2026-10-20 10:40:50', as_of='2026-10-20 10:40:20', last_ok='10:40:20'):
+        return move_to(base('2026-10-19'), updated, '2026-10-20', as_of, last_ok)
+
+    def nt_set(d, *sets):
+        # ('legs.NOISE.keel', 1.12), ... into the doc's next_trade block
+        for path, v in sets:
+            o, ks = d['next_trade'], path.split('.')
+            for k in ks[:-1]:
+                o = o[k]
+            o[ks[-1]] = v
+        return d
+    tue_now, nw = '2026-10-20 10:41:14', NEXT_WANT
+    nt_ex = dict(none, top=('open', 'WEBULL 1 OPEN'), strip_lacks=['BOX SILENT'])
+    out.append(('next-tue: Tuesday 10:41, ORB and NOISE flat, every next-trade list open (Rails open)', tue_now,
+                _next_doc(tue_doc(), 'tue', tue_now), dict(nt_ex, fold_open=['rails'], next_open=['NOISE', 'ORB', 'DIP'], next=nw['tue'])))
+    # Friday 11:04 on the DIP #424 doc with NOISE flat (ORB long 10 and the 7 lots: 52 held): the cap trims NOISE's 45 to 33
+    fri_dip = _dip_doc(move_to(base('2026-10-01'), '2026-10-02 11:04:26', '2026-10-02', '2026-10-02 11:03:00', '11:04:00'))
+    out.append(('next-trim: the 85-share cap trims NOISE to 33 of 45 (Friday, DIP #424 doc)', '2026-10-02 11:04:50',
+                _next_doc(fri_dip, 'trim', '2026-10-02 11:04:50'), dict(none, top=('open', 'WEBULL 2 OPEN'), next_open=['NOISE'], next=nw['trim'])))
+    mdl = nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('legs.NOISE.branch', 'shade'), ('legs.NOISE.model_on', True), ('legs.NOISE.trust', 0.31),
+                 ('legs.NOISE.z', -0.42), ('legs.NOISE.keel', 1.12), ('legs.NOISE.size', 2.24), ('legs.NOISE.wanted', 22), ('legs.NOISE.sent', 22),
+                 ('legs.NOISE.may_change', ['model']), ('legs.NOISE.lo_sh', 5), ('legs.NOISE.hi_sh', 45),
+                 ('legs.NOISE.long.max_loss', 67.32), ('legs.NOISE.short.max_loss', 133.96))
+    out.append(('next-model: the KEEL model on (MONO)', tue_now, mdl, dict(nt_ex, theme='mono', next_open=['NOISE'], next=nw['model'])))
+    out.append(("next-dip-tight: Webull's room fits 2 DIP #424 lots, its own cap 3", FRESH_NOW, _next_doc(_dip_doc(base()), 'dip_tight', FRESH_NOW),
+                dict(none, top=('open', 'WEBULL 3 OPEN'), next_open=['DIP'], next=nw['dip_tight'])))
+    drl = nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('dip_rail.input', -812.4), ('dip_rail.used', 812.4), ('dip_rail.left', 0.0),
+                 ('dip_rail.blocked', True), ('dip_rail.tripped_on', '2026-10-20'), ('dip_rail.until', '2026-10-21'),
+                 ('legs.DIP.refused', 'dip_rail'), ('blocks', [{'code': 'dip_rail', 'scope': 'dip'}]))
+    drl['rails']['dip_rail'] = {'tripped_on': '2026-10-20', 'blocks_until': '2026-10-21', 'loss_usd': -812.4}
+    drl['today']['dip_rail_input'] = {'pnl': -812.4, 'realized': -812.4, 'fill_adj': 0.0, 'unrealized': 0.0}
+    out.append(("next-dip-rail: DIP #424's own rail hit today, its lots paused through Wednesday", tue_now, drl,
+                dict(nt_ex, next_open=['DIP'], next=nw['dip_rail'])))
+    brk = nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('loss.input', -402.35), ('loss.used', 402.35), ('loss.left', 0.0), ('loss.tripped', True),
+                 ('blocks', [{'code': 'breaker', 'scope': 'shared'}]))
+    out.append(('next-breaker: the $400 daily stop hit (DIP #424 is not in it)', tue_now, brk, dict(nt_ex, next_open=['NOISE'], next=nw['breaker'])))
+    # the kill switch on as the box sends it - a {code, scope} map in blocks - and no leg refused on its own: every line must still say so
+    out.append(('next-kill: the kill switch on (map-form block, no per-leg refusal)', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('blocks', [{'code': 'kill', 'scope': 'all'}]), ('legs.NOISE.refused', None),
+                       ('legs.ORB.refused', None), ('legs.DIP.refused', None)), dict(nt_ex, next=nw['kill'])))
+    # Webull halted: the book lots still open, nothing reaches Webull, and each line that names a size says so
+    out.append(('next-send-halted: Webull halted, so the lots open book-only', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('send_blocks', [{'code': 'halted', 'scope': 'all'}])),
+                dict(nt_ex, next=nw['send_halted'])))
+    out.append(('next-intrade: ORB, NOISE and every DIP #424 lot held', FRESH_NOW, _next_doc(_dip_doc(base()), 'intrade', FRESH_NOW),
+                dict(none, top=('open', 'WEBULL 3 OPEN'), next=nw['intrade'])))
+    out.append(('next-silent: the box silent 5 min', '2026-10-20 10:46:02', _next_doc(tue_doc(), 'tue', tue_now),
+                dict(none, silent='BOX SILENT 5 min', top=('stale', 'WEBULL STALE 5 min'), next_open=['NOISE'], next=nw['silent'])))
+    out.append(('next-old: a fresh doc, no new bar from the engine since 10:25', '2026-10-20 10:41:00',
+                _next_doc(tue_doc('2026-10-20 10:40:36', '2026-10-20 10:40:06', '10:40:06'), 'tue', '2026-10-20 10:41:00', bar_close='2026-10-20 10:25:00'),
+                dict(nt_ex, next=nw['old'])))
+    out.append(('next-offsession: Tuesday 18:05, the next session', '2026-10-20 18:05:00',
+                _next_doc(tue_doc('2026-10-20 18:04:36', '2026-10-20 15:59:30', '18:04:00'), 'tue', '2026-10-20 18:05:00', bar_close='2026-10-20 15:55:00'),
+                dict(none, top=('held', 'WEBULL 1 HELD'), strip_lacks=['BOX SILENT'], next_open=['NOISE'], next=nw['offsession'])))
+    out.append(('next-click: a tap opens the NOISE list, a redraw keeps it, a tap shuts it; then Enter and Space', tue_now,
+                _next_doc(tue_doc(), 'tue', tue_now), dict(nt_ex, next_click=True, next=nw['click'])))
+    # the box's orb_resting.mode is stop (the tue doc's is the default log_only): ORB's stop rests at Webull
+    ors = _next_doc(tue_doc(), 'tue', tue_now)
+    ors['orb_resting']['mode'] = 'stop'
+    out.append(("next-orb-resting: ORB's stop rests at Webull (orb_resting.mode stop)", tue_now, ors, dict(nt_ex, next_open=['ORB'], next=nw['orb_rest'])))
+    # orb_resting.mode stop_target: the stop and the target rest at Webull as one OCO order
+    oco = _next_doc(tue_doc(), 'tue', tue_now)
+    oco['orb_resting']['mode'] = 'stop_target'
+    out.append(("next-orb-oco: ORB's stop and target rest at Webull (orb_resting.mode stop_target)", tue_now, oco,
+                dict(nt_ex, next_open=['ORB'], next=nw['orb_rest_oco'])))
+    # a short ORB day on a half-cent opening range: 1.835 x 2.5 = 4.5875 a share, the breakeven on a close 2.2938 down (the engine's words)
+    out.append(('next-orb-short: a short ORB day on a half-cent opening range', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('legs.ORB.dir', 'short'), ('legs.ORB.trigger', 720.11), ('legs.ORB.rng', 1.835),
+                       ('legs.ORB.risk', 4.5875), ('legs.ORB.stop', 724.7), ('legs.ORB.target', 697.16), ('legs.ORB.max_loss', 45.88),
+                       ('legs.ORB.exit', 'Stop 4.5875 a share from the entry close (2.5x the opening range), target 5x that; stop to the entry '
+                                         'once a close is 2.2938 down. Out at the close.')),
+                dict(nt_ex, next_open=['ORB'], next=nw['orb_short'])))
+    # each leg's own send block: the book lot opens, Webull gets nothing (one_open_position_per_leg, max_shares_per_leg); DIP #424 untouched
+    out.append(("next-send-leg: Webull still holds NOISE, ORB over Webull's per-strategy limit", tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('legs.NOISE.send_block', 'broker_open'), ('legs.ORB.send_block', 'broker_per_leg')),
+                dict(nt_ex, next=nw['send_leg'])))
+    # Webull's own daily loss rail: ORB and NOISE only (send_shared) - DIP #424 is exempt there
+    out.append(("next-broker-daily: Webull's own daily loss rail hit (ORB and NOISE book-only, DIP #424 not)", tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('send_blocks', [{'code': 'broker_daily', 'scope': 'send_shared'}])),
+                dict(nt_ex, next=nw['broker_daily'])))
+    out.append(('next-error: the engine preview failed for NOISE, ORB sits out a quiet day', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('legs.NOISE.status', 'error'), ('legs.NOISE.why', 'ValueError: no bars'),
+                       ('legs.ORB.status', 'day_blocked'), ('legs.ORB.why', 'low_range'), ('legs.ORB.sent', None)), dict(nt_ex, next=nw['error'])))
+    # ORB before its range is set: the engine's range_pending leg (no direction, level or stop yet) and its exit words for that state
+    out.append(('next-pending: the opening range not set yet', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('legs.NOISE.status', 'warming'), ('legs.NOISE.why', 'history'),
+                       ('legs.ORB.status', 'range_pending'), ('legs.ORB.decide_bar', '09:35'), ('legs.ORB.decide_close', '09:40'),
+                       ('legs.ORB.dir', None), ('legs.ORB.trigger', None), ('legs.ORB.rng', None), ('legs.ORB.risk', None), ('legs.ORB.stop', None),
+                       ('legs.ORB.target', None), ('legs.ORB.max_loss', None),
+                       ('legs.ORB.exit', 'Stop 2.5x the opening range from the entry close, target 5x that; stop to the entry once a close '
+                                         'is 0.5x that in its favour. Out at the close.')),
+                dict(nt_ex, next_open=['ORB'], next=nw['pending'])))
+    out.append(('next-capfull-halted: the cap full for NOISE, Webull halted', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('cap', {'cap': 85, 'held': 85, 'room': 0}), ('legs.NOISE.refused', 'cap_full'),
+                       ('legs.NOISE.sent', None), ('send_blocks', [{'code': 'halted', 'scope': 'all'}])), dict(nt_ex, next=nw['capfull_halted'])))
+    out.append(('next-late: NOISE past its last entry, ORB done for the day', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('legs.NOISE.refused', 'late'), ('legs.NOISE.sent', None),
+                       ('legs.ORB.status', 'traded_today'), ('legs.ORB.sent', None)), dict(nt_ex, next=nw['late'])))
+    out.append(('next-paused: ORB paused on thin volume, NOISE skips the day', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('legs.ORB.status', 'paused'), ('legs.ORB.why', 'pace'),
+                       ('legs.NOISE.status', 'day_blocked'), ('legs.NOISE.why', 'vol_skip')), dict(nt_ex, next=nw['paused'])))
+    out.append(('next-overcap: Webull over the cap, NOISE off, ORB over its per-strategy limit, the DIP #424 cap tight', tue_now,
+                nt_set(_next_doc(tue_doc(), 'tue', tue_now), ('cap', {'cap': 85, 'held': 90, 'room': -5}),
+                       ('legs.NOISE.base', 0), ('legs.NOISE.wanted', 0), ('legs.NOISE.sent', None), ('legs.NOISE.refused', 'off'),
+                       ('legs.ORB.sent', None), ('legs.ORB.refused', 'per_leg'),
+                       ('legs.DIP.slots_free', 3), ('legs.DIP.held_lots', 4), ('legs.DIP.held_sh', 24), ('legs.DIP.book_fit', 2), ('legs.DIP.webull_fit', 0)),
+                dict(nt_ex, fold_open=['rails'], next_open=['NOISE'], next=nw['overcap'])))
+
+    # in the session on Monday's last estimate (bar 15:55-16:00): the engine has written nothing today. The executor still publishes that
+    # sidecar's legs - NOISE past its last entry, ORB done - with today as their next session
+    def nt_yday(d):
+        return nt_set(d, ('src.next_session', '2026-10-20'), ('legs.NOISE.next_session.date', '2026-10-20'), ('legs.NOISE.status', 'no_more_today'),
+                      ('legs.NOISE.sent', None), ('legs.NOISE.refused', 'late'), ('legs.ORB.status', 'traded_today'), ('legs.ORB.sent', None))
+    out.append(('next-engine-down: 10:41, no bar from the engine today and the feed stale', tue_now,
+                nt_set(nt_yday(_next_doc(tue_doc(), 'tue', tue_now, bar_close='2026-10-19 16:00:00')),
+                       ('blocks', [{'code': 'feed', 'scope': 'all'}]), ('legs.DIP.refused', 'feed')), dict(nt_ex, next=nw['engine_down'])))
+    out.append(('next-noday: 10:41, no bar from the engine today (the feed fine)', tue_now,
+                nt_yday(_next_doc(tue_doc(), 'tue', tue_now, bar_close='2026-10-19 16:00:00')), dict(nt_ex, next_open=['NOISE'], next=nw['noday'])))
+    out.append(("next-early: 09:32, Monday's estimate, today's first bar not due yet", '2026-10-20 09:32:00',
+                nt_yday(_next_doc(tue_doc('2026-10-20 09:31:50', '2026-10-20 09:31:20', '09:31:20'), 'tue', '2026-10-20 09:32:00',
+                                  bar_close='2026-10-19 16:00:00')), dict(nt_ex, next=nw['early'])))
+    out.append(('next-kill-evening: Tuesday 18:05, the kill switch on', '2026-10-20 18:05:00',
+                nt_set(_next_doc(tue_doc('2026-10-20 18:04:36', '2026-10-20 15:59:30', '18:04:00'), 'tue', '2026-10-20 18:05:00',
+                                 bar_close='2026-10-20 15:55:00'),
+                       ('blocks', [{'code': 'closed', 'scope': 'all'}, {'code': 'kill', 'scope': 'all'}]), ('legs.NOISE.refused', 'closed'),
+                       ('legs.ORB.refused', 'closed'), ('legs.DIP.refused', 'kill')),
+                dict(none, top=('held', 'WEBULL 1 HELD'), strip_lacks=['BOX SILENT'], next=nw['kill_evening'])))
+    # Wednesday 11-25 18:05: Thursday is Thanksgiving, Friday 11-27 a 13:00 half day
+    out.append(('next-orb-halfday: Wednesday 11-25 18:05, the next session a half day', '2026-11-25 18:05:00',
+                nt_set(_next_doc(move_to(base('2026-11-24'), '2026-11-25 18:04:36', '2026-11-25', '2026-11-25 15:59:30', '18:04:00'), 'tue',
+                                 '2026-11-25 18:05:00', bar_close='2026-11-25 15:55:00'),
+                       ('src.next_session', '2026-11-27'), ('legs.NOISE.next_session.date', '2026-11-27')),
+                dict(none, top=('held', 'WEBULL 1 HELD'), strip_lacks=['BOX SILENT'], next=nw['orb_halfday'])))
+    for vp in ('phone', 'phone390'):
+        out.append(('next-%s-mono: %s, MONO, Strategies open' % (vp, '375x812' if vp == 'phone' else '390x844'), tue_now, _next_doc(tue_doc(), 'tue', tue_now),
+                    dict(nt_ex, vp=vp, theme='mono', fold_open=['list'], next_open=['NOISE'], next=nw['phone'])))
     # three key variants again in MONO at 390x844
     for nm, now, doc, ex in [o for o in out if o[0] in ("Saturday noon, Friday's doc",
                                                         "the page's own read failed, Friday's doc on Monday 08:50",
@@ -2401,6 +2816,177 @@ MUTANTS = [
      "blocking:!!(until&&until>=(QF.todayNY||ledgerTodayNY()))};})();",
      "blocking:!!until};})();",
      "a DIP #424 rail hit keeps pausing its entries after the next session (it never resets)"),
+    # NEXT TRADE (item 53): the next-trade lines, their lists and the Rails TOTAL CAP row
+    ('next-shows-wanted',
+     "const nSent=L.sent;",
+     "const nSent=L.wanted;",
+     "the next-trade line prints the shares a leg wants, not the shares the 85-share cap lets it send"),
+    ('next-prefix-dropped',
+     "const ifTxt='If it fires at the '+dc+' close: ';",
+     "const ifTxt=dc+' close: ';",
+     "the next-trade line no longer says 'If it fires at the HH:MM close'"),
+    ('next-throws-when-missing',
+     "const qbNT=(QE.next_trade&&typeof QE.next_trade==='object'&&QE.next_trade.legs&&typeof QE.next_trade.legs==='object')?QE.next_trade:null;",
+     "const qbNT=(QE.next_trade.legs&&typeof QE.next_trade.legs==='object')?QE.next_trade:null;",
+     "a doc with no next_trade block throws (the board must draw nothing then)"),
+    ('next-shown-in-trade',
+     "const qbNextHtml=qbNextLegHtml(key,key==='DIP'||(!p&&!liveLeg),legTradesArr,label);",
+     "const qbNextHtml=qbNextLegHtml(key,true,legTradesArr,label);",
+     "a leg in a trade still shows the size of its next trade"),
+    ('next-stale-not-grey',
+     "const nGrey=QF.stale||(key!=='DIP'&&(qbNTold||L.status==='error'));",
+     "const nGrey=false;",
+     "the next-trade line is not greyed on a silent box or when the engine sent no new bar"),
+    ('next-expander-forgets',
+     "const qbNextOpenMap=window._qbNextOpen||(window._qbNextOpen={});",
+     "const qbNextOpenMap=(window._qbNextOpen={});",
+     "an opened next-trade list shuts again on every redraw"),
+    ('cap-row-missing',
+     "+((qbNT&&qbNT.cap&&qeFinRec(qbNT.cap.cap)!==null)?(",
+     "+((false)?(",
+     "the Rails fold has no TOTAL CAP (ALL LEGS) row"),
+    ('dip-fits-ignores-cap',
+     "const dWf=fin(L.webull_fit);",
+     "const dWf=fin(L.book_fit);",
+     "DIP #424's line counts the lots its own cap fits, not the lots Webull's room under the 85-share cap fits"),
+    ('max-loss-uses-wanted',
+     "const mSh=L.sent;",
+     "const mSh=L.wanted;",
+     "the planned loss at the stop counts the shares wanted, not the shares sent"),
+    ('last5-raw-leg',
+     "const qbNextHtml=qbNextLegHtml(key,key==='DIP'||(!p&&!liveLeg),legTradesArr,label);",
+     "const qbNextHtml=qbNextLegHtml(key,key==='DIP'||(!p&&!liveLeg),trades.filter(t=>t.leg===key),label);",
+     "the Last 5 trades list matches the raw exec leg key (DIP #424's lots are DIP_RSI ..., so its list is empty)"),
+    ('stop-left-counts-dip',
+     "if(LS)rows.push(['Daily stop left',(key==='DIP')?(",
+     "if(LS)rows.push(['Daily stop left',(false)?(",
+     "DIP #424's next-trade list counts it in the $400 daily stop (the breaker's figure; DIP is not in it)"),
+    ('next-mono-hue',
+     "const nCol=nGrey?'var(--text4)':'var(--text3)';",
+     "const nCol=nGrey?'var(--text4)':'var(--attn-amber)';",
+     "the next-trade line is drawn in a hue (amber keeps its hue in MONO; --blue would not)"),
+    ('next-offsession-ignored',
+     "const qbNTlive=QF.inSession&&qbNTtoday;",
+     "const qbNTlive=true;",
+     "after the close the next-trade line still words the last bar's size, not the next session's"),
+    ('next-blocks-pairs-only',
+     "const c=Array.isArray(b)?b[0]:(b&&b.code),sc=Array.isArray(b)?b[1]:(b&&b.scope);",
+     "const c=Array.isArray(b)?b[0]:null,sc=Array.isArray(b)?b[1]:null;",
+     "a block the box sends as a {code, scope} map is not read (only a [code, scope] pair is), so the kill switch goes unsaid"),
+    ('next-send-ignored',
+     "if(sendBlk&&!L.refused&&(",
+     "if(false&&(",
+     "a line that names a size never says the lot is book only while Webull would not get the order"),
+    ('orb-note-says-bar-checked',
+     "const note=mx=>'<br>Planned, at the stop. '+(isN?",
+     "const note=mx=>'<br>Planned, at the stop. '+(true?",
+     "ORB's planned loss reads NOISE's note (a stop set from the fill, not checked on the bar it fills on)"),
+    ('dip-maxloss-no-rail',
+     "else if(key==='DIP')rows.push(['Max loss, next trade',(",
+     "else if(false)rows.push(['Max loss, next trade',(",
+     "DIP #424's next-trade list has no Max loss row (no price stop: its own daily rail and its worst lot)"),
+    # review 2026-10-25: the keyboard, the states no variant drew, the order of the Last 5, ORB's stop mode, an estimate from an earlier day
+    ('next-kbd-dead',
+     "el.onclick=flip;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')flip(e);};});",
+     "el.onclick=flip;});",
+     "Enter and Space on a next-trade header do nothing (the list opens to a mouse or a tap only)"),
+    ('next-no-tabindex',
+     "data-qbnextx=\"'+key+'\" role=\"button\" tabindex=\"0\" aria-expanded=",
+     "data-qbnextx=\"'+key+'\" aria-expanded=",
+     "a next-trade header is not a button in the tab order (no role, no tabindex)"),
+    ('next-kbd-focus-lost',
+     "if(kb){const h=document.querySelector('[data-qbnextx=\"'+nk+'\"]');",
+     "if(false){const h=document.querySelector('[data-qbnextx=\"'+nk+'\"]');",
+     "after Enter / Space the redraw drops the focus to the page, not back on the header"),
+    ('next-error-not-grey',
+     "const nGrey=QF.stale||(key!=='DIP'&&(qbNTold||L.status==='error'));",
+     "const nGrey=QF.stale||(key!=='DIP'&&(qbNTold));",
+     "the line of a failed engine preview is not greyed"),
+    ('next-send-on-refused',
+     "if(sendBlk&&!L.refused&&(",
+     "if(sendBlk&&(",
+     "a refused line (the cap full) still says the lot opens book only"),
+    ('next-pending-line-broken',
+     "sum='Opening range sets at 09:40'+(nSent!=null?",
+     "sum='Opening range sets at 09:45'+(nSent!=null?",
+     "ORB's line before its opening range is set names the wrong time"),
+    ('next-capfull-line-broken',
+     "sum=ifTxt+'refused - the '+capTxt+' is full ('",
+     "sum=ifTxt+capTxt+' is full ('",
+     "a leg refused by the full cap no longer says it is refused"),
+    ('next-last5-reversed',
+     "const l5=famTrades.slice(0,5).map(",
+     "const l5=famTrades.slice(0,5).reverse().map(",
+     "the Last 5 trades list runs oldest first"),
+    ('next-late-line-broken',
+     "sum='No new '+label+' entries today (last entry '+lastE+')';",
+     "sum='No new '+label+' entries today';",
+     "a leg past its last entry time no longer says when that was"),
+    ('orb-note-always-resting',
+     "const orbRest=!!(QE.orb_resting&&['stop','stop_target'].indexOf(QE.orb_resting.mode)>=0);",
+     "const orbRest=true;",
+     "ORB's planned loss and exit rule say its stop rests at Webull while the box's orb_resting.mode is log_only (no resting order is sent)"),
+    ('orb-exit-says-resting',
+     "if(exT&&!isN&&key!=='DIP')exT+=orbRest?",
+     "if(exT&&!isN&&key!=='DIP')exT+=true?",
+     "ORB's exit rule says its stop rests at Webull while nothing rests there (orb_resting.mode log_only)"),
+    ('next-yday-not-old',
+     "&&(qbNTtoday||(QF.nowMs-qbEtWallMs(QF.todayNY+' 09:35:00',QF.nowMs))>660000));",
+     "&&qbNTtoday);",
+     "in the session an estimate from an earlier day never greys and reads as today's range (an engine down since before the open)"),
+    ('next-early-old',
+     "(qbNTtoday||(QF.nowMs-qbEtWallMs(QF.todayNY+' 09:35:00',QF.nowMs))>660000)",
+     "(qbNTtoday||true)",
+     "an earlier day's estimate greys before today's first bar was even due"),
+    ('next-feed-yday-ignored',
+     "nFeed=QF.inSession&&(",
+     "nFeed=qbNTlive&&(",
+     "a stale feed goes unsaid on ORB / NOISE while the newest estimate is from an earlier day"),
+    ('next-kill-offsession-ignored',
+     "const nKill=qbNTblk('kill')||L.refused==='kill',",
+     "const nKill=qbNTlive&&(qbNTblk('kill')||L.refused==='kill'),",
+     "after the close ORB / NOISE give the next session's size while the kill switch is on"),
+    ('orb-halfday-ignored',
+     "&&qbCloseMins(ns)!==960)sum=",
+     "&&false)sum=",
+     "ORB's next-session line gives its fixed size for a 13:00 half day (ORB_R6 takes no trade then)"),
+    ('exit-vwap-offsession',
+     "if(isN&&!qbNTlive)exT=exT.replace(",
+     "if(false)exT=exT.replace(",
+     "outside the session NOISE's exit rule still quotes the last bar's VWAP as 'now'"),
+    ('max-loss-dist-rounded',
+     "' sh x '+dTxt(fin(o.stop_dist))+' = '",
+     "' sh x '+qeMoney(o.stop_dist)+' = '",
+     "NOISE's planned loss rounds the stop distance to cents, so shares x distance does not add up to the total shown"),
+    ('next-body-not-grey',
+     ".qbx-next-body{margin:4px 0 2px 18px;display:grid;gap:3px}",
+     ".qbx-next-body{margin:4px 0 2px 18px;display:grid;gap:3px;color:var(--text3)}",
+     "the rows a next-trade tap opens keep --text3 while the line greys (last-known figures on a silent box)"),
+    ('last5-hue-when-grey',
+     "(nGrey?'':ledgerCls(p))",
+     "ledgerCls(p)",
+     "the Last 5 trades keep their green / red while the next-trade block is grey"),
+    # review 2 (2026-10-25): the Webull send rails no variant drew, the OCO resting mode, ORB's range at the doc's own precision
+    ('next-send-leg-ignored',
+     ".concat(key!=='DIP'&&L.send_block?[L.send_block]:[])",
+     ".concat([])",
+     "a leg's own Webull send block (Webull still holds it, or over Webull's per-strategy limit) never says the lot is book only"),
+    ('next-broker-daily-on-dip',
+     ".filter(b=>b.scope==='all'||(b.scope==='send_shared'&&key!=='DIP'))",
+     ".filter(b=>b.scope==='all'||b.scope==='send_shared')",
+     "Webull's own daily loss rail (ORB and NOISE only) is said on DIP #424's line too"),
+    ('next-broker-daily-ignored',
+     ".filter(b=>b.scope==='all'||(b.scope==='send_shared'&&key!=='DIP'))",
+     ".filter(b=>b.scope==='all')",
+     "Webull's own daily loss rail hit goes unsaid: the ORB and NOISE lines never say book only"),
+    ('orb-oco-reads-stop',
+     "QE.orb_resting.mode==='stop_target'?",
+     "false?",
+     "with ORB's stop and target resting at Webull as one OCO order (orb_resting.mode stop_target), the exit rule says the target closes at market"),
+    ('orb-range-cents',
+     "' (stop 2.5x the opening range of '+rTxt(fin(L.rng))+')'",
+     "' (stop 2.5x the opening range of '+F2(L.rng)+')'",
+     "ORB's planned loss rounds a half-cent opening range to cents, so 2.5x it is not the risk a share beside it"),
 ]
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -2604,6 +3190,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     // the page's stand-in for its retired list (QE_LEGS_RETIRED, ['ENGUQ']): set only by a case that retires no leg ([])
     w.__qbRetiredLegs=cfg.retired?w.JSON.parse(JSON.stringify(cfg.retired)):null;
     w.__probeScrub=!!cfg.scrub;
+    w.__probeNextOpen=cfg.nextOpen||null;
     return w.eval("(function(){try{"
       +"if(!window.__probeLTN)window.__probeLTN=ledgerTodayNY;"
       +"ledgerTodayNY=window.__probeTodayNY?function(){return window.__probeTodayNY;}:window.__probeLTN;"
@@ -2630,6 +3217,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       // the trade list's own state: the view stored for this board, the search text, the chip, the search box's held focus
       +"try{localStorage.removeItem('el_lg_view_wb');}catch(e){}window._qeTradesQuery='';window._qeTradesChip='ALL';try{delete _lgTlFind.wb;}catch(e){}"
       +"window._qbLegNoteOpen={};if(window.__probeOpenLeg)window._qbLegNoteOpen[window.__probeOpenLeg]=true;"
+      // NEXT TRADE (item 53): every next-trade list shut, then the case's own opened (the page's window-level map)
+      +"window._qbNextOpen={};if(window.__probeNextOpen)window.__probeNextOpen.forEach(function(k){window._qbNextOpen[k]=true;});"
       +"try{var ap=JSON.parse(localStorage.getItem('augurPrefs')||'{}');ap.qqqSystemOpen=window.__probeSystemOpen;ap.qqqRailsOpen=0;ap.qqqEventsOpen=0;ap.qqqFeedSigOpen=0;ap.qqqModelOpen=0;localStorage.setItem('augurPrefs',JSON.stringify(ap));}catch(e){}"
       // LEDGER step 11: every own fold starts shut (nothing stored, nothing in memory), unless a case opens some
       +"try{['orders','account','todayorders','feedsig','system','rails','events','model','list'].forEach(function(k){localStorage.removeItem('el_qb_fold_'+k);});}catch(e){}window._qbFolds=null;"
@@ -2758,6 +3347,22 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       o.sym=[].filter.call(d.querySelectorAll('[data-lgtrade]'),function(e){var s=e.querySelector('.qb-trade-leg');return s&&/^DIP /.test((s.textContent||'').trim());})
         .map(function(e){var c=e.querySelector('.lg-c-sym');return c?[tx(c),c.scrollWidth>c.clientWidth+1]:[null,null];});
       return o;})();
+    // NEXT TRADE (item 53): each [data-qbnext] line - its words, its colour (is it --text4, is it --text3), open or not, the rows its tap
+    // opened ({label: value}, how many trades the Last 5 row lists and each of them in order), its tooltip, every colour drawn in it and the
+    // ones that are neither --text4 nor --text5 (the labels' and the arrow's own grey) - and the Rails TOTAL CAP value
+    r.next=(function(){var o={},g4=greyCol(),g3=cssCol('var(--text3)'),g5=cssCol('var(--text5)');
+      function tx(e){return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;}
+      [].forEach.call(d.querySelectorAll('[data-qbnext]'),function(e){
+        var k=e.getAttribute('data-qbnext'),h=e.querySelector('[data-qbnextx]'),b=e.querySelector('[data-qbnextbody]'),rows=null,n5=null,l5=null,cols=[],off=[];
+        if(b){rows={};[].forEach.call(b.querySelectorAll('.qbx-next-row'),function(rw){rows[tx(rw.querySelector('.qbx-next-k'))||'']=tx(rw.lastElementChild);
+          if(rw.getAttribute('data-qbnextk')==='last5'){n5=rw.querySelectorAll('[data-qbnextt]').length;l5=[].map.call(rw.querySelectorAll('[data-qbnextt]'),tx);}});}
+        [e].concat([].slice.call(e.querySelectorAll('*'))).forEach(function(x){var c=w.getComputedStyle(x).color;if(cols.indexOf(c)<0)cols.push(c);
+          if(c!==g4&&c!==g5&&off.indexOf(c)<0)off.push(c);});
+        var c0=w.getComputedStyle(e).color;
+        o[k]={line:tx(e.querySelector('[data-qbnextline]')),grey:c0===g4,t3:c0===g3,expanded:h?h.getAttribute('aria-expanded'):null,body:rows,n5:n5,l5:l5,
+          title:e.getAttribute('title'),cols:cols.slice(0,12),offGrey:off.slice(0,6)};});
+      return o;})();
+    var cpr=q('[data-qbcaprow]');r.caprow=cpr?((cpr.lastElementChild&&cpr.lastElementChild.textContent)||'').replace(/\\s+/g,' ').trim():null;
     var at=(d.getElementById('app')||{innerText:''}).innerText||'';r.badTok=(at.match(/NaN|undefined|\\[object Object\\]/g)||[]).slice(0,4);
     try{r.cantRead=w.eval('qbCantRead()');}catch(e){r.cantRead='ERR '+e;}
     r.visRead=w.__probeVisRead||null;w.__probeVisRead=null;
@@ -2897,6 +3502,20 @@ __S11JS__
     if(cfg.dipChip){try{var cb=q('[data-lglist-frame="wb"] [data-lgchip="DIP"]');r.dipChip={label:cb?(cb.textContent||'').trim():null,legs:null};
       if(cb){cb.click();await sleep(150);r.dipChip.legs=[].map.call(D().querySelectorAll('[data-lgtrade] .qb-trade-leg'),function(e){return (e.textContent||'').trim();});
         var ab=q('[data-lglist-frame="wb"] [data-lgchip="ALL"]');if(ab){ab.click();await sleep(150);}}}catch(e){r.dipChip={err:String(e&&e.stack?e.stack:e)};}}
+    // NEXT TRADE (item 53): a tap opens the NOISE next-trade list, a redraw keeps it open, a second tap shuts it; the row's own detail stays as it was
+    if(cfg.nextClick){try{var nc={},rd=function(){var h=q('[data-qbnextx="NOISE"]');return {exp:h?h.getAttribute('aria-expanded'):null,body:!!q('[data-qbnextbody="NOISE"]')};};
+      var rw0=function(){var e=q('.qbx-side [data-lgrow="NOISE"]');return e?e.getAttribute('aria-expanded'):null;};
+      nc.before=rd();nc.row0=rw0();var hx=q('[data-qbnextx="NOISE"]');
+      if(hx){hx.click();await sleep(150);nc.open=rd();W().eval('renderApp()');await sleep(150);nc.redraw=rd();
+        var h2=q('[data-qbnextx="NOISE"]');if(h2){h2.click();await sleep(150);}nc.shut=rd();nc.row1=rw0();}
+      // the keyboard: the header is a button in the tab order; Enter opens it, Space shuts it, and after each redraw the focus is on it again
+      var fk=function(){var a=D().activeElement;return a?((a.getAttribute&&a.getAttribute('data-qbnextx'))||a.tagName):null;};
+      var kpress=async function(k){var h=q('[data-qbnextx="NOISE"]');if(!h)return;h.focus();
+        h.dispatchEvent(new (W().KeyboardEvent)('keydown',{key:k,bubbles:true,cancelable:true}));await sleep(150);};
+      var h3=q('[data-qbnextx="NOISE"]');nc.role=h3?h3.getAttribute('role'):null;nc.tabindex=h3?h3.getAttribute('tabindex'):null;
+      await kpress('Enter');nc.kopen=rd();nc.kfocus1=fk();
+      await kpress(' ');nc.kshut=rd();nc.kfocus2=fk();
+      r.nextClick=nc;}catch(e){r.nextClick={err:String(e&&e.stack?e.stack:e)};}}
     Object.assign(r,drain());
     out.cases[nm]=r;
   }
@@ -3101,7 +3720,8 @@ __S11JS__
           var V=VARS[j];
           await runCase('__var'+j,{vp:V.vp||'laptop',theme:V.theme||'dark',fix:V.doc,nowMs:V.renderMs||V.nowMs,openLeg:V.openLeg||'NOISE',systemOpen:V.systemOpen,foldOpen:V.foldOpen||null,scrub:!!V.scrub,
             liveErr:V.liveErr,prev:V.prev,prevCache:V.prevCache,tab:V.tab,checkedMs:V.checkedMs,tick:V.tick,tickTo:V.nowMs,fetch:V.fetch,
-            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin,visread:V.visread,cachesnap:V.cachesnap,tl:false,folds:V.folds,dipChip:V.dipChip});
+            offline:V.offline,missing:V.missing,unloaded:V.unloaded,pin:V.pin,visread:V.visread,cachesnap:V.cachesnap,tl:false,folds:V.folds,dipChip:V.dipChip,
+            nextOpen:V.nextOpen,nextClick:V.nextClick});
           out.vars[V.name]=out.cases['__var'+j];delete out.cases['__var'+j];
         }
         try{W().eval('delete navigator.onLine');}catch(e){}
@@ -6783,7 +7403,8 @@ def _attempt(chrome, alt_index, fixture):
                  'tick': bool(exp.get('tick')), 'fetch': exp.get('fetch'), 'theme': exp.get('theme', 'dark'),
                  'visread': bool(exp.get('visread')), 'cachesnap': bool(exp.get('cachesnap')),
                  'openLeg': exp.get('open_leg'), 'foldOpen': exp.get('fold_open'), 'scrub': bool(exp.get('scrub')),
-                 'folds': bool(exp.get('folds')), 'dipChip': bool(exp.get('dip_chip'))}
+                 'folds': bool(exp.get('folds')), 'dipChip': bool(exp.get('dip_chip')),
+                 'nextOpen': exp.get('next_open'), 'nextClick': bool(exp.get('next_click'))}
                 for nm, now, doc, exp in _variant_docs(fixture)]
     stats = [{'name': c['name'], 'range': c['range'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'],
               'calMonth': c['cal'], 'today': c['today'], 'more': c['more'], 'calOpen': c['cal_open'], 'folds': c['folds'],
@@ -7283,6 +7904,7 @@ def _judge(data, fixture):
             fails.append('%s: the top bar WEBULL chip reads %r, want FLAT' % (nm, r.get('top')))
         _topbox(nm, r, fails)
         _hero_extras(nm, r, fixture, fails, colour=cfg['theme'] == 'dark')
+        _next_absent(nm, r, fails)
     _judge_variants(data, fixture, fails, unfinished, why)
     _judge_tl(data, fixture, fails, unfinished, why)
     got_st = data.get('stats') or {}
@@ -7299,6 +7921,7 @@ def _judge(data, fixture):
         _errs(tag, r, fails)
         if r.get('badTok'):
             fails.append('%s: the page shows %r' % (tag, r['badTok']))
+        _next_absent(tag, r, fails)
         tr = doc.get('trades_all') or []
         cut = _cutoff(rg, sc_['today'])
         want = expected_stats(tr, cut)
@@ -7643,6 +8266,119 @@ def _dip_problems(tag, r, ex, fails):
             fails.append('%s: the strategy list groups are %r, want BOOK, Retired (ENGU-Q), Shadow' % (tag, [gg.get('key') for gg in groups]))
 
 
+def _next_absent(tag, r, fails):
+    """NEXT TRADE (item 53): a doc with no next_trade block draws no next-trade line and no Rails TOTAL CAP row."""
+    if r.get('next'):
+        fails.append('%s: the board draws next-trade lines %r on a doc with no next_trade block (it must draw nothing then)'
+                     % (tag, dict((k, (v or {}).get('line')) for k, v in r['next'].items())))
+    if r.get('caprow') is not None:
+        fails.append('%s: the Rails fold draws a TOTAL CAP row %r on a doc with no next_trade block' % (tag, r['caprow']))
+
+
+def _next_problems(tag, r, ex, fails):
+    """NEXT TRADE (item 53), against the variant's NEXT_WANT entry (pinned by hand): a next-trade line under exactly the rows it names (ORB and
+    NOISE only while flat, DIP #424 whenever the block has it), its words exact or their start; grey (--text4) on a silent box, an engine with no
+    new bar or a failed preview, --text3 otherwise; open only where the variant opened it; the rows a tap opened, each holding its words, the
+    $400 daily stop never under DIP #424; the Last 5 count; the tooltips; the Rails TOTAL CAP row; in MONO no hue anywhere in a line; no raw DIP
+    exec leg name; and a tap that opens the NOISE list, keeps it through a redraw and shuts it, the row's own detail untouched."""
+    want = ex['next']
+    got = r.get('next') or {}
+    for k, w in sorted((want.get('lines') or {}).items()):
+        g = got.get(k)
+        if w is None:
+            if g is not None:
+                fails.append("%s: %s draws a next-trade line %r, want none under its row" % (tag, k, g.get('line')))
+        elif g is None:
+            fails.append('%s: %s has no next-trade line under its row, want %r' % (tag, k, w))
+        elif g.get('line') != w:
+            fails.append("%s: %s's next-trade line reads %r, want %r" % (tag, k, g.get('line'), w))
+    for k, w in sorted((want.get('starts') or {}).items()):
+        line = (got.get(k) or {}).get('line')
+        if not (line or '').startswith(w):
+            fails.append("%s: %s's next-trade line reads %r, want it to start %r" % (tag, k, line, w))
+    for k, w in sorted((want.get('grey') or {}).items()):
+        g = got.get(k)
+        if g is not None and (bool(g.get('grey')) if w else bool(g.get('t3'))) is not True:
+            fails.append("%s: %s's next-trade line is drawn %s, want %s" % (tag, k, (g.get('cols') or ['?'])[0],
+                         'grey (--text4: the box is silent or the engine sent no new bar)' if w else '--text3'))
+    for k, w in sorted((want.get('expanded') or {}).items()):
+        g = got.get(k)
+        if g is not None and (g.get('expanded'), g.get('body') is not None) != (w, w == 'true'):
+            fails.append("%s: %s's next-trade list is %s (aria-expanded %r), want it %s" % (tag, k, 'open' if g.get('body') is not None else 'shut',
+                         g.get('expanded'), 'open' if w == 'true' else 'shut'))
+    for k, rows in sorted((want.get('body') or {}).items()):
+        b = (got.get(k) or {}).get('body')
+        if b is None:
+            fails.append("%s: %s's next-trade list is not open, want its rows %r" % (tag, k, sorted(rows)))
+            continue
+        for lab, subs in sorted(rows.items()):
+            v = b.get(lab)
+            if v is None:
+                fails.append("%s: %s's next-trade list has no %r row (rows %r)" % (tag, k, lab, sorted(b)))
+                continue
+            for s in subs:
+                if s not in v:
+                    fails.append("%s: %s's %r row reads %r, want %r in it" % (tag, k, lab, v, s))
+    for k, rows in sorted((want.get('body_not') or {}).items()):
+        b = (got.get(k) or {}).get('body') or {}
+        for lab, subs in sorted(rows.items()):
+            for sub in subs:
+                if sub in (b.get(lab) or ''):
+                    fails.append("%s: %s's %r row reads %r, want no %r in it" % (tag, k, lab, b.get(lab), sub))
+    for k, labs in sorted((want.get('body_lacks') or {}).items()):
+        b = (got.get(k) or {}).get('body') or {}
+        for lab in labs:
+            if lab in b:
+                fails.append("%s: %s's next-trade list has a %r row (%r), want none there" % (tag, k, lab, b[lab]))
+    for k, n in sorted((want.get('n5') or {}).items()):
+        if (got.get(k) or {}).get('n5') != n:
+            fails.append("%s: %s's Last 5 trades row lists %r trades, want %d (its family's own closed trades)" % (tag, k, (got.get(k) or {}).get('n5'), n))
+    for k, l5 in sorted((want.get('l5') or {}).items()):
+        if (got.get(k) or {}).get('l5') != l5:
+            fails.append("%s: %s's Last 5 trades row lists %r, want %r (newest first)" % (tag, k, (got.get(k) or {}).get('l5'), l5))
+    for k in want.get('allgrey') or []:
+        g = got.get(k)
+        if g is not None and g.get('offGrey'):
+            fails.append("%s: %s's next-trade block draws %s, want every figure grey like its line (last-known: --text4, labels --text5)"
+                         % (tag, k, ', '.join(g['offGrey'][:3])))
+    for k, t in sorted((want.get('titles') or {}).items()):
+        if (got.get(k) or {}).get('title') != t:
+            fails.append("%s: %s's next-trade tooltip reads %r, want %r" % (tag, k, (got.get(k) or {}).get('title'), t))
+    if 'cap' in want and r.get('caprow') != want['cap']:
+        fails.append("%s: the Rails TOTAL CAP (ALL LEGS) row reads %r, want %r" % (tag, r.get('caprow'), want['cap']))
+    if want.get('mono'):
+        for k, g in sorted(got.items()):
+            hued = [c for c in g.get('cols') or [] if not _grey(c)]
+            if hued:
+                fails.append("%s: %s's next-trade line draws a hue in MONO (%s)" % (tag, k, ', '.join(hued[:3])))
+    raw = sorted(set(m for g in got.values() for s in [g.get('line') or ''] + list((g.get('body') or {}).values())
+                     for m in re.findall(r'DIP_[A-Z]+', s or '')))
+    if raw:
+        fails.append('%s: a next-trade line names raw DIP exec legs %r (DIP #424 is one strategy)' % (tag, raw))
+    if want.get('click'):
+        c = r.get('nextClick') or {}
+        if c.get('err'):
+            fails.append('%s: the next-trade tap run threw -- %s' % (tag, _first(c['err'])))
+        for st, (exp, body), what in (('before', ('false', False), 'starts shut'), ('open', ('true', True), 'opens on a tap'),
+                                      ('redraw', ('true', True), 'stays open through a redraw'), ('shut', ('false', False), 'shuts on a second tap')):
+            s = c.get(st) or {}
+            if (s.get('exp'), bool(s.get('body'))) != (exp, body):
+                fails.append("%s: NOISE's next-trade list does not %s: aria-expanded %r, its rows %s" % (tag, what, s.get('exp'), 'drawn' if s.get('body') else 'not drawn'))
+        if c.get('row0') != c.get('row1'):
+            fails.append("%s: tapping NOISE's next-trade line also flipped its row's own detail (%r -> %r)" % (tag, c.get('row0'), c.get('row1')))
+        # the keyboard: a button in the tab order, Enter opens and Space shuts it, and the focus comes back to it after each redraw
+        if (c.get('role'), c.get('tabindex')) != ('button', '0'):
+            fails.append("%s: NOISE's next-trade header is not a keyboard button (role %r, tabindex %r; want 'button', '0')"
+                         % (tag, c.get('role'), c.get('tabindex')))
+        for st, fs, (exp, body), what in (('kopen', 'kfocus1', ('true', True), 'open on Enter'), ('kshut', 'kfocus2', ('false', False), 'shut on Space')):
+            s = c.get(st) or {}
+            if (s.get('exp'), bool(s.get('body'))) != (exp, body):
+                fails.append("%s: NOISE's next-trade list does not %s: aria-expanded %r, its rows %s" % (tag, what, s.get('exp'), 'drawn' if s.get('body') else 'not drawn'))
+            if c.get(fs) != 'NOISE':
+                fails.append("%s: after %s the focus is on %r, want NOISE's next-trade header again (a keyboard user loses their place)"
+                             % (tag, 'Enter' if st == 'kopen' else 'Space', c.get(fs)))
+
+
 def _judge_variants(data, fixture, fails, unfinished, why):
     """The freshness variants: each chip, label and the top bar chip, against what the variant's
     clock and doc say they must be."""
@@ -7831,6 +8567,10 @@ def _judge_variants(data, fixture, fails, unfinished, why):
                      sys_open=bool(ex.get('system') or ex.get('ordmode')))
         if ex.get('dip'):
             _dip_problems(tag, r, ex, fails)
+        if ex.get('next'):
+            _next_problems(tag, r, ex, fails)
+        else:
+            _next_absent(tag, r, fails)
         if ex.get('held'):
             _held_problems(tag, r, ex, fails)
         elif ex.get('hero_today') and r.get('heroToday') != ex['hero_today']:
@@ -8036,6 +8776,9 @@ def main(argv=None):
         return INCONCLUSIVE
     if not os.path.isfile(SHADOW_FIXTURE):
         print('WEBULLPROBE: INCONCLUSIVE -- fixture missing: %s' % SHADOW_FIXTURE)
+        return INCONCLUSIVE
+    if not os.path.isfile(NEXT_FIXTURE):
+        print('WEBULLPROBE: INCONCLUSIVE -- fixture missing: %s' % NEXT_FIXTURE)
         return INCONCLUSIVE
     fixture = json.load(io.open(FIXTURE, encoding='utf-8'))
     chrome = find_chrome()

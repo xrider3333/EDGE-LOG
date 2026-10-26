@@ -62,6 +62,10 @@ tools/qqq_exec_smoke.py was isolated the same way in 550055c; this does it for e
    Firestore self-heal state lives at module level.
 8. _isolate_night_mode (autouse, 2026-10-07) points api.nt_night_mode's state / skip / log / answer
    files at a fresh temp dir, so the owner's live night-mode window never leaks into a test.
+9. _isolate_next_entry (autouse, 2026-10-20, item 53) points api.qqq_exec's read of the engine's
+   next-entry sidecar at a temp path that never exists (and empties its memo), so a test that
+   calls _build_doc on the PC never reads the live C:\\EdgeLog\\cloud_signal\\next_entry.json into
+   its doc. A test that wants a sidecar points qqq_exec._next_entry_path at its own file.
 """
 import errno
 import itertools
@@ -239,6 +243,21 @@ def _isolate_broker_adapter(live_system_guard, monkeypatch, _broker_isolation_ro
                live_token_dir=str(d / "live_token"))
     monkeypatch.setattr(qe, "_ORDER_ADAPTER", wo.OrderAdapter(config=cfg, log=lambda *a, **k: None))
     monkeypatch.setattr(qe, "BROKER_ORDERS_CSV", str(d / "broker_orders.csv"))
+    yield
+
+
+# ── 1c. the engine's next-entry sidecar (item 53) ────────────────────────────────────────
+@pytest.fixture(autouse=True)
+def _isolate_next_entry(monkeypatch, _broker_isolation_root):
+    """No test reads the PC's real C:\\EdgeLog\\cloud_signal\\next_entry.json through _build_doc."""
+    try:
+        from api import qqq_exec as qe
+    except ImportError:
+        yield
+        return
+    p = str(_broker_isolation_root / "next_entry_never_written.json")
+    monkeypatch.setattr(qe, "_next_entry_path", lambda: p)
+    monkeypatch.setattr(qe, "_NEXT_ENTRY_READ", {"key": None, "doc": {}})
     yield
 
 

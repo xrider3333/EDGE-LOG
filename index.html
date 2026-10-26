@@ -614,6 +614,13 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-lg-extra{padding:0 16px 10px;font-size:11px;color:var(--text4);line-height:1.5}
 .qbx-lg-extra .qb-leg-detail{margin-top:4px}
 .qbx-lg-extra .qb-leg-today-note{margin-top:0}
+/* NEXT TRADE (item 53): a leg's next-trade line under its row and the rows its tap opens (label | value; one column on a phone) */
+.qbx-next{font-size:11px;line-height:1.45;padding:0 0 6px;overflow-wrap:anywhere}
+.qbx-next-h{display:flex;align-items:flex-start;gap:6px;cursor:pointer}
+.qbx-next-body{margin:4px 0 2px 18px;display:grid;gap:3px}
+.qbx-next-row{display:grid;grid-template-columns:minmax(0,9.5em) minmax(0,1fr);gap:8px}
+.qbx-next-k{color:var(--text5)}
+@media(max-width:740px){.qbx-next-row{grid-template-columns:minmax(0,1fr);gap:0}}
 #qe-trades-section,[data-qbday]{scroll-margin-top:130px}
 @media(max-width:600px){.qbx-lgstats{padding-top:12px}.qbx-lgstats .lg-stat{padding:12px 14px}.qbx-lgstats .lg-more{margin-bottom:10px}.qbx-lgstats .lg-more-panel{margin-top:0}}
 @media(max-width:740px){.qbx-lg-extra{padding:0 12px 8px}}
@@ -1395,7 +1402,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1366';
+const VERSION='73.1367';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1413,7 +1420,9 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1355',date:'2026-10-27',notes:['SCORES: 2 trades from 2026-10-26 scored, 0 marked NA (no price data).']},{v:'73.1347',date:'2026-10-25',notes:['DD % FROM PEAK KEEPS ONE ACCOUNT. The engine now stores its own DD % for each gate stretch, measured on a $100k start. EXPLORE / COMPARE use it only while the ACCT chip is $100k; on any other account every dot reads its saved curve at the chip, so GATE and RAW rows on the DD % axis are on the same account.']},{v:'73.1340',date:'2026-10-23',notes:['SCORES: 1 trade from 2026-10-23 scored, 0 marked NA (no price data).']},{v:'73.1339',date:'2026-10-20',notes:['THE WEBULL TRADE CHART IS NOW TRADINGVIEW (item 52, your words: the chart sucks. i cant scroll or zoom out or toggle the different time frames ... this needs to be like tradingview. feature rich). Every Webull paper trade - the candle glyph on its row or OPEN CANDLES in its trade panel (phone included), or EXPAND on a laptop - opens on TradingView open-source Lightweight Charts: drag to scroll, wheel or pinch to zoom, drag the price scale to stretch it (AUTO puts it back, LOG for a log scale), FIT and TRADE to jump back, and timeframes 1m 2m 3m 5m 10m 15m 30m 1h 4h D built from the 1-minute QQQ bars (your pick is remembered).','SCROLL BACK FOR HISTORY. Dragging to the left edge reads earlier days from the box, the right edge later ones, until the box has none (QQQ minute bars start 09-03); D and 4h read history on their own. Crosshair with the bar OHLC, change and volume, a volume pane, the trade box from entry to exit (green win, red loss), the entry and exit lines at the Webull fill (solid) with the book price as a fainter dotted line, Webull buys and sells as arrows with shares and price, refused or unanswered tries as squares, the signal and backtest fills as dots, the trade, shares, side and P&L in the header; the arrow keys or the side buttons step through the trades; PNG saves the chart.','Not carried over from the old chart yet: the TOP 10 winners / losers menu. If the chart library cannot load (offline, CDN blocked), the chart says so and offers the old chart; ?oldchart=1 keeps the old one for now.']},
+const CHANGELOG=[{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
+{v:'73.1340',date:'2026-10-23',notes:['SCORES: 1 trade from 2026-10-23 scored, 0 marked NA (no price data).']},{v:'73.1339',date:'2026-10-20',notes:['THE WEBULL TRADE CHART IS NOW TRADINGVIEW (item 52, your words: the chart sucks. i cant scroll or zoom out or toggle the different time frames ... this needs to be like tradingview. feature rich). Every Webull paper trade - the candle glyph on its row or OPEN CANDLES in its trade panel (phone included), or EXPAND on a laptop - opens on TradingView open-source Lightweight Charts: drag to scroll, wheel or pinch to zoom, drag the price scale to stretch it (AUTO puts it back, LOG for a log scale), FIT and TRADE to jump back, and timeframes 1m 2m 3m 5m 10m 15m 30m 1h 4h D built from the 1-minute QQQ bars (your pick is remembered).','SCROLL BACK FOR HISTORY. Dragging to the left edge reads earlier days from the box, the right edge later ones, until the box has none (QQQ minute bars start 09-03); D and 4h read history on their own. Crosshair with the bar OHLC, change and volume, a volume pane, the trade box from entry to exit (green win, red loss), the entry and exit lines at the Webull fill (solid) with the book price as a fainter dotted line, Webull buys and sells as arrows with shares and price, refused or unanswered tries as squares, the signal and backtest fills as dots, the trade, shares, side and P&L in the header; the arrow keys or the side buttons step through the trades; PNG saves the chart.','Not carried over from the old chart yet: the TOP 10 winners / losers menu. If the chart library cannot load (offline, CDN blocked), the chart says so and offers the old chart; ?oldchart=1 keeps the old one for now.']},
+{v:'73.1355',date:'2026-10-27',notes:['SCORES: 2 trades from 2026-10-26 scored, 0 marked NA (no price data).']},{v:'73.1347',date:'2026-10-25',notes:['DD % FROM PEAK KEEPS ONE ACCOUNT. The engine now stores its own DD % for each gate stretch, measured on a $100k start. EXPLORE / COMPARE use it only while the ACCT chip is $100k; on any other account every dot reads its saved curve at the chip, so GATE and RAW rows on the DD % axis are on the same account.']},{v:'73.1340',date:'2026-10-23',notes:['SCORES: 1 trade from 2026-10-23 scored, 0 marked NA (no price data).']},{v:'73.1339',date:'2026-10-20',notes:['THE WEBULL TRADE CHART IS NOW TRADINGVIEW (item 52, your words: the chart sucks. i cant scroll or zoom out or toggle the different time frames ... this needs to be like tradingview. feature rich). Every Webull paper trade - the candle glyph on its row or OPEN CANDLES in its trade panel (phone included), or EXPAND on a laptop - opens on TradingView open-source Lightweight Charts: drag to scroll, wheel or pinch to zoom, drag the price scale to stretch it (AUTO puts it back, LOG for a log scale), FIT and TRADE to jump back, and timeframes 1m 2m 3m 5m 10m 15m 30m 1h 4h D built from the 1-minute QQQ bars (your pick is remembered).','SCROLL BACK FOR HISTORY. Dragging to the left edge reads earlier days from the box, the right edge later ones, until the box has none (QQQ minute bars start 09-03); D and 4h read history on their own. Crosshair with the bar OHLC, change and volume, a volume pane, the trade box from entry to exit (green win, red loss), the entry and exit lines at the Webull fill (solid) with the book price as a fainter dotted line, Webull buys and sells as arrows with shares and price, refused or unanswered tries as squares, the signal and backtest fills as dots, the trade, shares, side and P&L in the header; the arrow keys or the side buttons step through the trades; PNG saves the chart.','Not carried over from the old chart yet: the TOP 10 winners / losers menu. If the chart library cannot load (offline, CDN blocked), the chart says so and offers the old chart; ?oldchart=1 keeps the old one for now.']},
 {v:'73.1338',date:'2026-10-20',notes:['WEBULL PAPER TRADE CHART (item 52, your ask: need the chart viewer for trades on the webull paper trades). The full chart a Webull trade opens - the candle glyph on its row, or OPEN CANDLES in its trade panel - now draws the entry and exit lines at the prices Webull filled at (the same fills the P&L of record and the panel use), named beside the entry and exit bars (Webull in, Webull out), with the book price as a second, fainter dotted line where it differs.','A SIDE WITH NO WEBULL FILL IS NEVER DRAWN AS ONE. The early September trades (no trade id, so no fill on record) and the orders Webull refused on 09-23 draw the book price, labelled book in - no Webull fill on record. The ENGU-Q 09-24 entry, whose Webull price failed the range check, says the fill looks wrong. Three exits with no book price draw the re-price the P&L of record used, and say so. A dimmed MISSED row is labelled signal in / signal out (not traded).','1-MINUTE BARS AND THE SIZE. Same-day trades open on 1-minute QQQ bars wherever the trade fits the screen (a long hold on a phone, and a hold across sessions, open on 5-minute - the 1M chip is one tap away). The trade box sits at the fill, the prices stay on the price scale while their bar is on screen, price tags and names never print over each other, the title reads leg, shares, entry (NOISE #382 - 20 sh - 09-28 10:15), and SAVE PNG now includes the lines, tags and names.','FIXED: on a Webull trade the price lines and the volume could sit off the candles until the window was resized - the note strip under the chart is now laid out before the chart is sized.']},
 {v:'73.1333',date:'2026-10-20',notes:['ONE SELECTOR, NOT TWO (your ask: the level selector and show is confusing. I just want one selector - the ones i was asking about that you ran locally in chats, what was ran through on EL, and what was auto validated). LEVEL and SHOW are replaced by one row of chips: ALL, CHAT SWEEPS, EDGE LOG RUNS, AUTO-VALIDATED and ML CONFIGS. CHAT SWEEPS is what a chat or a lane ran and measured for itself - your preliminary searches - plus the write-ups that cite no run. EDGE LOG RUNS is what went through this site but is not an Auto-Validate job, the gate bake-offs included. AUTO-VALIDATED is only a run that saved a validate block, which is the one thing on a run document that actually says so. CROWNED is no longer a chip: a crown is a MARK on the row wherever that row appears, so you stop losing the rest of the board to see it.','EVERY WORD UNDER THE CHIPS WAS REWRITTEN TO MATCH THEM. The circle-i beside the chips used to serve the old LEVEL paragraphs, so EDGE LOG RUNS explained itself as an Auto-Validate run and two of the chips pointed at a SHOW control that is gone. Each chip now has its own paragraph, true of the rows under it, and so do the two tables: the run table says which runs are in it, and the record table is headed RUNNER AND BOX RUNS when that is what the chip kept.','WHAT EACH CHIP DRAWS IS COUNTED, NOT ASSUMED. The line under the chart counts the lane and lab records the chip keeps with the same test the chart filters by, so a month whose records are read but not drawn says exactly that, and a month where only some draw says how many. The STRATEGY rail does the same: it used to print identical per-family counts on EDGE LOG RUNS and AUTO-VALIDATED over completely different rows, and it never counted the lane records at all, so the families that exist only in those records had no button and could not be picked.','ALL TIME NOW SAYS WHAT IT READ. It reads every lane record this account holds, with no date range, so CHAT SWEEPS is not empty before you pick a month - and the line under the chart reports that read: how many records, when they last synced, whether a read failed, whether it hit its 1,500-row cap (it drops the OLDEST rows when it does), and what the colours and shapes on those dots mean. Until this release that whole line was hidden on ALL TIME, so a failed read looked exactly like having no records.','THE 1E CONFIGS OFFER WORKS AGAIN. When a run has no figure on the axes you picked, the line under the chart offers to show the configurations inside it instead - and for one release that button changed nothing at all, because it still wrote the old SHOW setting that nothing reads any more. The same bug had stopped the LEVERAGE LINE preset from reaching the view its own lines live on. Both move the chip now.','YOUR OLD VIEW IS TRANSLATED ONCE, NOT KEPT ALIVE BESIDE THE NEW ONE. A board left on the old LEVEL maps to the chip that means the same thing - SWEEPS to CHAT SWEEPS, AUTO VAL and CROWN to the runs, SHOW on CONFIGS to ML CONFIGS, and ALL stays ALL - so the lit chip and the board always agree. A first cut of this release kept both meanings running at once, and it showed: CHAT SWEEPS could sit lit over a board with none of your chat records on it, clicking the chip that was already lit changed what was drawn, and CROWN went on hiding the rest of each family.']},
 {v:'73.1336',date:'2026-10-20',notes:['SCORES: 1 trade from 2026-10-20 scored, 0 marked NA (no price data).']},{v:'73.1333',date:'2026-10-20',notes:['ONE SELECTOR, NOT TWO (your ask: the level selector and show is confusing. I just want one selector - the ones i was asking about that you ran locally in chats, what was ran through on EL, and what was auto validated). LEVEL and SHOW are replaced by one row of chips: ALL, CHAT SWEEPS, EDGE LOG RUNS, AUTO-VALIDATED and ML CONFIGS. CHAT SWEEPS is what a chat or a lane ran and measured for itself - your preliminary searches - plus the write-ups that cite no run. EDGE LOG RUNS is what went through this site but is not an Auto-Validate job, the gate bake-offs included. AUTO-VALIDATED is only a run that saved a validate block, which is the one thing on a run document that actually says so. CROWNED is no longer a chip: a crown is a MARK on the row wherever that row appears, so you stop losing the rest of the board to see it.','EVERY WORD UNDER THE CHIPS WAS REWRITTEN TO MATCH THEM. The circle-i beside the chips used to serve the old LEVEL paragraphs, so EDGE LOG RUNS explained itself as an Auto-Validate run and two of the chips pointed at a SHOW control that is gone. Each chip now has its own paragraph, true of the rows under it, and so do the two tables: the run table says which runs are in it, and the record table is headed RUNNER AND BOX RUNS when that is what the chip kept.','WHAT EACH CHIP DRAWS IS COUNTED, NOT ASSUMED. The line under the chart counts the lane and lab records the chip keeps with the same test the chart filters by, so a month whose records are read but not drawn says exactly that, and a month where only some draw says how many. The STRATEGY rail does the same: it used to print identical per-family counts on EDGE LOG RUNS and AUTO-VALIDATED over completely different rows, and it never counted the lane records at all, so the families that exist only in those records had no button and could not be picked.','ALL TIME NOW SAYS WHAT IT READ. It reads every lane record this account holds, with no date range, so CHAT SWEEPS is not empty before you pick a month - and the line under the chart reports that read: how many records, when they last synced, whether a read failed, whether it hit its 1,500-row cap (it drops the OLDEST rows when it does), and what the colours and shapes on those dots mean. Until this release that whole line was hidden on ALL TIME, so a failed read looked exactly like having no records.','THE 1E CONFIGS OFFER WORKS AGAIN. When a run has no figure on the axes you picked, the line under the chart offers to show the configurations inside it instead - and for one release that button changed nothing at all, because it still wrote the old SHOW setting that nothing reads any more. The same bug had stopped the LEVERAGE LINE preset from reaching the view its own lines live on. Both move the chip now.','YOUR OLD VIEW IS TRANSLATED ONCE, NOT KEPT ALIVE BESIDE THE NEW ONE. A board left on the old LEVEL maps to the chip that means the same thing - SWEEPS to CHAT SWEEPS, AUTO VAL and CROWN to the runs, SHOW on CONFIGS to ML CONFIGS, and ALL stays ALL - so the lit chip and the board always agree. A first cut of this release kept both meanings running at once, and it showed: CHAT SWEEPS could sit lit over a board with none of your chat records on it, clicking the chip that was already lit changed what was drawn, and CROWN went on hiding the rest of each family.']},
@@ -42898,6 +42907,203 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               :(qbDipName+' has its own '+ledgerMoney(-qbDipRail.limAbs)+' daily rail'))
               +' (not in this stop); a breach pauses its entries for the next session and never sells'))
           +'</div>');
+        // NEXT TRADE (item 53): what each leg would send if it fired next -- doc.next_trade, display only; absent -> nothing drawn
+        const qbNT=(QE.next_trade&&typeof QE.next_trade==='object'&&QE.next_trade.legs&&typeof QE.next_trade.legs==='object')?QE.next_trade:null;
+        const qbNTsrc=(qbNT&&qbNT.src&&typeof qbNT.src==='object')?qbNT.src:{};
+        const qbNTbarMs=qbNTsrc.bar_close?qbEtWallMs(qbNTsrc.bar_close,QF.nowMs):null;
+        const qbNTtoday=String(qbNTsrc.bar_close||'').slice(0,10)===QF.todayNY;
+        // old: in the session, no new bar for 2 bars + 60 s -- and a bar from an earlier session once today's first one is that late too
+        // (the 09:30 bar closes at 09:35, so 09:46; an engine down since before the open never reads as a fresh "Today from 09:40")
+        const qbNTold=!!(QF.inSession&&qbNTbarMs!=null&&(QF.nowMs-qbNTbarMs)>660000&&(qbNTtoday||(QF.nowMs-qbEtWallMs(QF.todayNY+' 09:35:00',QF.nowMs))>660000));
+        const qbNTlive=QF.inSession&&qbNTtoday;     // false -> the "Today from 09:40" / "Next session" wording
+        const qbNx=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+        // a block as the box sends it ({code, scope}: Firestore takes no array inside an array), or as an older [code, scope] pair
+        const qbNTblk=(code,scope)=>!!(qbNT&&Array.isArray(qbNT.blocks)&&qbNT.blocks.some(b=>{const c=Array.isArray(b)?b[0]:(b&&b.code),sc=Array.isArray(b)?b[1]:(b&&b.scope);
+          return c===code&&(!scope||sc===scope);}));
+        // each leg's expander: open / closed on a window-level map that a redraw never resets (closed until tapped)
+        const qbNextOpenMap=window._qbNextOpen||(window._qbNextOpen={});
+        // one leg's next-trade line under its row (ORB / NOISE while flat, DIP #424 whenever the box sends it): a one-line summary, and under
+        // it when tapped open the planned loss at the stop, the stops left, the cap room, how the size is built, what it needs, the exit rule,
+        // the family's last 5 and worst closed trades (famTrades, newest first) and where the estimate came from. '' when there is nothing to say.
+        const qbNextLegHtml=(key,flat,famTrades,label)=>{
+          const L=qbNT?qbNT.legs[key]:null;
+          if(!L||typeof L!=='object'||(key!=='DIP'&&!flat))return '';
+          const fin=qeFinRec,F2=v=>{const x=fin(v);return x===null?'\u2014':x.toFixed(2);},okD=s=>/^\d{4}-\d{2}-\d{2}$/.test(String(s||''));
+          const isN=key==='NOISE',cap=(qbNT.cap&&typeof qbNT.cap==='object'&&fin(qbNT.cap.cap)!==null)?qbNT.cap:null,capTxt=cap?(qeInt(cap.cap)+'-share cap'):'share cap';
+          const LS=(qbNT.loss&&typeof qbNT.loss==='object')?qbNT.loss:null,lim=qeMoney(LS&&fin(LS.limit));
+          const R=(qbNT.dip_rail&&typeof qbNT.dip_rail==='object')?qbNT.dip_rail:null,rLim=qeMoney(-((R&&fin(R.limit)!==null)?Math.abs(R.limit):qbDipRail.limAbs));
+          const dc=qbNx(L.decide_close),lastE=qbNx((rails.session&&rails.session.last_entry)||'15:55');
+          const nsLbl=(d,fomc)=>d===QF.todayNY?('Today from 09:40'+(fomc?' (FOMC)':'')):('Next session ('+qbDayLabel(d)+(fomc?', FOMC':'')+')');
+          const ifTxt='If it fires at the '+dc+' close: ';
+          const nSent=L.sent;
+          const dWf=fin(L.webull_fit);
+          let sum='';
+          if(key==='DIP'){
+            if(qbNTblk('kill')||L.refused==='kill')sum='No new entries - the kill switch is on';
+            else if(qbNTblk('feed')||L.refused==='feed')sum='No new entries while the price feed is stale';
+            // blocks_until is the last session the pause covers
+            else if(L.refused==='dip_rail'||(R&&R.blocked))sum='No new '+qbDipName+' lots'+((R&&okD(R.until))?(' through '+qbDayLabel(R.until)):'')+' - its '+rLim+' rail is hit (nothing is sold)';
+            else if(L.refused==='all_held')sum='All '+qeInt(L.slots_total)+' lots held ('+qeInt(L.held_sh)+' sh) - no new lot until one exits';
+            else if(fin(L.book_fit)!==null&&L.book_fit<L.slots_free)sum=qeInt(L.slots_free)+' of '+qeInt(L.slots_total)+' slots free, the '+qbDipName+' cap ('+qeInt(L.dip_cap)+' sh) fits '+qeInt(L.book_fit);
+            else if(dWf!==null&&dWf<L.book_fit)sum='Next lots: '+qeInt(L.lot)+' sh each &middot; '+qeInt(L.slots_free)+' of '+qeInt(L.slots_total)+' slots free, but the '+capTxt+' fits '+qeInt(dWf)
+              +' - a lot that does not fit stays on the book only, not sent to Webull';
+            else sum='Next lots: '+qeInt(L.lot)+' sh each at the 09:30 open (seen 09:35) &middot; '+qeInt(L.slots_free)+' of '+qeInt(L.slots_total)+' slots free'+(dWf!==null?(' &middot; the '+capTxt+' fits '+qeInt(dWf)):'');
+          }else{
+            // the box's day is over (or not begun): the coming session's range (NOISE) or fixed size (ORB), never a stale bar's figure
+            const ns=isN?((L.next_session&&typeof L.next_session==='object')?L.next_session:null):qbNTsrc.next_session;
+            // what stops every entry comes first: the kill switch at any hour; a stale feed and a hit $400 stop in the session, even while
+            // the newest estimate is from an earlier day (the engine down since before the open)
+            const nKill=qbNTblk('kill')||L.refused==='kill',nFeed=QF.inSession&&(qbNTblk('feed')||L.refused==='feed'),
+              nBrk=QF.inSession&&(qbNTblk('breaker')||(LS&&LS.tripped)||L.refused==='breaker');
+            if(nKill)sum='No new entries - the kill switch is on';
+            else if(nFeed)sum='No new entries while the price feed is stale';
+            else if(nBrk)sum='No new '+label+' entries today - the '+lim+' daily stop is hit';
+            else if(!qbNTlive){
+              // in the session on an earlier day's estimate, past the time today's first bar was due: say so, never a range for today
+              if(qbNTold)sum='No estimate from the engine yet today (its last bar closed '+qbDayLabel(String(qbNTsrc.bar_close).slice(0,10))+' '+qbNx(String(qbNTsrc.bar_close).slice(11,16))+')';
+              else if(isN&&ns&&okD(ns.date)&&ns.date>=QF.todayNY&&fin(ns.lo_sh)!==null&&fin(ns.hi_sh)!==null)
+                sum=nsLbl(ns.date,ns.fomc)+': '+qeInt(ns.lo_sh)+'-'+qeInt(ns.hi_sh)+' sh - '+(ns.fomc?'half size before 14:00':'set at the close of the bar it fires on');
+              // ORB_R6 skips a 13:00 half day (skip_holidays): no trade that session, whatever its size
+              else if(!isN&&okD(ns)&&ns>=QF.todayNY&&qbCloseMins(ns)!==960)sum=(ns===QF.todayNY?'Today':nsLbl(ns,false))+': no ORB trade (a 13:00 half day)';
+              else if(!isN&&okD(ns)&&ns>=QF.todayNY&&fin(L.base)!==null)sum=nsLbl(ns,false)+': '+qeInt(L.base)+' sh (fixed size) once the opening range sets at 09:40';
+            }
+            else if(L.status==='no_more_today'||L.refused==='late')sum='No new '+label+' entries today (last entry '+lastE+')';
+            else if(L.status==='error')sum='No estimate this bar - the engine preview failed';
+            else if(L.status==='day_blocked')sum=isN?'No NOISE entries today - yesterday\u2019s range was in its top 5%':(L.why==='half_day'?'No ORB trade on a half day':'No ORB trade today - recent days were too quiet');
+            else if(!isN&&L.status==='traded_today')sum='Done for today - ORB trades once a session';
+            else if(!isN&&L.status==='range_pending')sum='Opening range sets at 09:40'+(nSent!=null?('; then '+qeInt(nSent)+' sh (fixed size) if it fires'):'');
+            else if(!isN&&L.status==='paused')sum='Not at the '+dc+' close - '+(L.why==='pace'?'volume is under 80% of normal so far; it can still fire later':'its entry check is not met');
+            else if(L.status!=='ok')sum='';     // in a trade, or still warming up: nothing to size
+            else if(L.refused==='cap_full')sum=ifTxt+'refused - the '+capTxt+' is full ('+(cap?qeInt(cap.held):'\u2014')+' held)';
+            else if(L.refused==='off')sum=label+' is set to 0 shares - no orders';
+            else if(L.refused==='per_leg')sum=ifTxt+'refused - '+qeInt(L.wanted)+' sh is over the per-strategy limit';
+            else if(nSent==null)sum='';         // another refusal (market closed, a lot already open): nothing goes out
+            else if(isN)sum=ifTxt+(L.clamped?(qeInt(nSent)+' sh ('+qeInt(L.base)+' x '+F2(L.plugin)+' x KEEL '+F2(L.keel)+' = '+qeInt(L.wanted)+' wanted, capped by the '+(L.clamp_by==='cap'?capTxt:'per-strategy limit')+')')
+                :(qeInt(nSent)+' sh = '+qeInt(L.base)+' x '+F2(L.plugin)+' x KEEL '+F2(L.keel)))
+              +(L.model_on?' (model on - can change bar to bar)':'')+((fin(L.lo_sh)!==null&&fin(L.hi_sh)!==null)?(' &middot; rest of today '+qeInt(L.lo_sh)+'-'+qeInt(L.hi_sh)+' sh'):'');
+            else sum=ifTxt+qeInt(nSent)+' sh '+(L.clamped?('('+qeInt(L.wanted)+' wanted, capped by the '+capTxt+')'):'(fixed size)')
+              +(L.dir?(' &middot; '+qbNx(L.dir)+' only today, '+(L.dir==='long'?'above ':'below ')+F2(L.trigger)):'');
+          }
+          // the box would open the lot on its book but send nothing to Webull: say so on the line (only on a line that names a size)
+          const sendW={adapter_off:'Webull orders are off',halted:'Webull orders are halted',lease:'the send lease is not confirmed',
+            broker_daily:'Webull\u2019s own daily loss rail is hit',broker_open:'Webull still shows an open '+label+' position',
+            broker_per_leg:'over Webull\u2019s per-strategy share limit'};
+          const sendBlk=(qbNT&&Array.isArray(qbNT.send_blocks)?qbNT.send_blocks:[]).map(b=>Array.isArray(b)?{code:b[0],scope:b[1]}:(b||{}))
+            .filter(b=>b.scope==='all'||(b.scope==='send_shared'&&key!=='DIP')).map(b=>b.code).concat(key!=='DIP'&&L.send_block?[L.send_block]:[])
+            .find(c=>sendW[c]);
+          if(sendBlk&&!L.refused&&(sum.indexOf(ifTxt)===0||/^Opening range sets at 09:40; then /.test(sum)||/^Next lots: /.test(sum)))
+            sum+=' &middot; book only - not sent to Webull ('+sendW[sendBlk]+')';
+          // the engine wrote nothing for two bars: the size is the last one it worked out, and says from when
+          if(key!=='DIP'&&qbNTold&&sum.indexOf(ifTxt)===0)sum='Estimate from '+qbNx(String(qbNTsrc.bar_close).slice(11,16))+', no newer bar from the engine: '+sum;
+          if(!sum)return '';
+          // grey (never a hue) while the box is silent, the engine has written nothing for two bars, or its preview failed
+          const nGrey=QF.stale||(key!=='DIP'&&(qbNTold||L.status==='error'));
+          const nCol=nGrey?'var(--text4)':'var(--text3)';
+          const tip=key==='DIP'?('Each '+qbDipName+' mechanism holds at most one '+qeInt(L.lot)+'-share lot. A lot that does not fit under the '+capTxt+' stays on the book only and is not sent to Webull.')
+            :(isN?('An estimate, not an order: the size NOISE would use if it decided to enter at the close of the '+((L.decide_bar&&L.decide_close)?(qbNx(L.decide_bar)+'-'+dc+' bar'):'next 5-min bar')
+                +'. Recomputed every 5 minutes; a later bar can give a different size. The real size is on the order when it fires.')
+              :('An estimate, not an order: ORB trades a fixed '+qeInt(L.base)+' shares, once a session, at the first 5-min close past its opening-range level. The '+capTxt+' across all legs can trim it.'));
+          const open=!!qbNextOpenMap[key],rows=[];
+          if(open){
+            const mSh=L.sent;
+            const agoT=s=>{const m=s?qbEtWallMs(s,QF.nowMs):null;return m===null?'':qbAgoText((QF.nowMs-m)/1000);};
+            const side=t=>String((t&&t.side)||'').toLowerCase()==='short'?'Short':'Long';
+            const exW=t=>{const x=String((t&&t.exit_reason)||'');return /BREAKER/i.test(x)?' daily stop':(/KILL/i.test(x)?' kill switch':(/^EOD/i.test(x)?' end of day':(/signal/i.test(x)?' own exit':'')));};
+            const mech=t=>{const m=qbDipMech(t);return (key==='DIP'&&m)?(m+' '):'';};
+            // ORB's stop rests at Webull only in the box's resting modes (doc.orb_resting.mode stop / stop_target); its default log_only
+            // sends no resting order, so the engine checks the stop on finished bars and Webull gets a market close after the bar
+            const orbRest=!!(QE.orb_resting&&['stop','stop_target'].indexOf(QE.orb_resting.mode)>=0);
+            // how the real loss can differ from the planned one: NOISE's stop is a check on finished bars (a market sell after one), ORB's
+            // too unless it rests (16 years of tests: NOISE losers ran to 1.71x the stop distance, no ORB loser past 1.00x the risk)
+            const note=mx=>'<br>Planned, at the stop. '+(isN?'The stop is set from the fill and not checked on the bar it fills on; a touch sells at market after that 5-min bar, so a fast bar can lose more (worst 1.7x in 16 years of tests).'
+                :(orbRest?'The stop rests at Webull, so only a gap through it fills worse; once it moves to the entry the planned loss is about $0.'
+                  :'The stop (and its move to the entry) is checked on finished 5-min bars; a touch sells at market after that bar, so a fast bar can lose more.'))
+              +((LS&&LS.checked&&!LS.tripped&&fin(LS.left)!==null&&mx!==null&&mx>LS.left)?(' More than the '+qeMoney(LS.left)+' daily stop left: the daily stop would close it first.'):'');
+            // a stop distance a share at the doc's own precision when it is not a whole number of cents, so shares x distance adds up to the total
+            const dTxt=v=>Math.abs(v*100-Math.round(v*100))<1e-6?qeMoney(v):('$'+String(+v.toFixed(4)));
+            // ORB's opening range the same way (1.835, not 1.83), so 2.5x it is the risk a share beside it; the engine's exit rule uses this form too
+            const rTxt=v=>Math.abs(v*100-Math.round(v*100))<1e-6?v.toFixed(2):String(+v.toFixed(4));
+            // the family's worst closed trade (DIP #424's Max loss row quotes it too)
+            let wT=null,wP=null;famTrades.forEach(t=>{const p=qePnlOf(t);if(wP===null||p<wP){wP=p;wT=t;}});
+            // the planned loss at the stop: shares sent x the stop distance a share (DIP #424 has no price stop: its own rail instead)
+            if(!isN&&key!=='DIP'){
+              if(L.status==='range_pending')rows.push(['Max loss, next trade','Set at 09:40, when the opening range is done (2.5x its size a share)']);
+              else if(mSh!=null&&fin(L.risk)!==null&&fin(L.max_loss)!==null)rows.push(['Max loss, next trade',qeInt(mSh)+' sh x '+dTxt(fin(L.risk))+' = '+qeMoney(L.max_loss)
+                +(fin(L.rng)!==null?(' (stop 2.5x the opening range of '+rTxt(fin(L.rng))+')'):'')+note(fin(L.max_loss))]);
+            }else if(isN&&L.status==='ok'){
+              const sd=(o,nm)=>(!o||typeof o!=='object')?null:(o.ok===false?(nm+': none today'):((mSh!=null&&fin(o.stop_dist)!==null&&fin(o.max_loss)!==null)?(nm+': '+qeInt(mSh)+' sh x '+dTxt(fin(o.stop_dist))+' = '+qeMoney(o.max_loss)):null));
+              const ml=[sd(L.long,'Long'),sd(L.short,'Short')].filter(Boolean);
+              const mx=[L.long,L.short].map(o=>(o&&typeof o==='object'&&o.ok!==false)?fin(o.max_loss):null).filter(v=>v!==null);
+              if(ml.some(s=>!/none today$/.test(s)))rows.push(['Max loss, next trade',ml.join(' &middot; ')+note(mx.length?Math.max.apply(null,mx):null)]);
+            }
+            // DIP #424 has no price stop: what caps a day is its own rail (a hit pauses new lots, never sells), and its worst lot so far.
+            // A hit rail leads: on the next session left reads the limit again while the pause still holds.
+            else if(key==='DIP')rows.push(['Max loss, next trade',(!R?'No price stop, and no daily rail set'
+              :(R.blocked?('No price stop. Its own '+rLim+' daily rail is hit - no new lots'+(okD(R.until)?(' through '+qbDayLabel(R.until)):'')+' (it never sells)')
+              :(fin(R.left)===null?('No price stop. Its own '+rLim+' daily rail is not checked yet today')
+              :('No price stop. Its own '+rLim+' daily rail has '+qeMoney(R.left)+' left today (it pauses new lots, never sells)'))))
+              +(wT?(' &middot; worst past lot '+ledgerSigned(wP)):'')]);
+            // the shared $400 stop, the breaker's own figure (DIP #424 is never in it: qqq_exec keeps it out of the breaker)
+            if(LS)rows.push(['Daily stop left',(key==='DIP')?('Not counted - the '+lim+' daily stop covers ORB and NOISE only')
+              :(LS.tripped?('Hit - no new '+label+' entries today'):((!LS.checked||fin(LS.left)===null)?('Not checked yet today ('+lim+' limit)')
+              :(qeMoney(LS.left)+' left before the '+lim+' daily stop (today '+ledgerSigned(LS.input)+', breaker figure)')))]);
+            const capRoom=!cap?'No cap in force (Webull orders off)':((fin(cap.room)!==null&&cap.room<0)?('0 of '+qeInt(cap.cap)+' sh free ('+qeInt(cap.held)+' held, over by '+qeInt(-cap.room)+')')
+              :(qeInt(cap.room)+' of '+qeInt(cap.cap)+' sh free ('+qeInt(cap.held)+' held by all legs, '+qbDipName+' included)'));
+            // DIP #424: the lots Webull's room fits, and the lots its own share cap fits (0 = no cap of its own)
+            const dipFit=key!=='DIP'?'':(' &middot; '+(dWf!==null?('fits '+qeInt(dWf)+' more lot'+(dWf===1?'':'s')+' at Webull, '):'')
+              +(fin(L.dip_cap)?('the '+qbDipName+' cap ('+qeInt(L.dip_cap)+' sh) fits '+qeInt(L.book_fit)):(qbDipName+' has no share cap of its own')));
+            rows.push(['Cap room',capRoom+dipFit]);
+            if(key==='DIP')rows.push(['Size build-up',qeInt(L.lot)+' sh a lot, fixed (the 1.245x is built in), one lot per mechanism, '+qeInt(L.held_lots)+' of '+qeInt(L.slots_total)+' held']);
+            else if(!isN&&fin(L.base)!==null)rows.push(['Size build-up',qeInt(L.base)+' sh fixed (no KEEL, no tilt)'+((L.clamped&&mSh!=null)?(' &rarr; '+qeInt(mSh)+' sent, capped by the '+capTxt):'')]);
+            else if(isN&&L.status==='ok'&&fin(L.wanted)!==null){
+              const tl=[L.fri?'Friday 1.5x':'',L.sq60?'60-min squeeze 1.5x':'',L.fomc?'FOMC morning 0.5x':''].filter(Boolean);
+              const mcW={sq30:'the 30-min squeeze check closes then',sq60:'the 60-min squeeze check closes then',model:'the model reads that bar'};
+              const mc=Array.isArray(L.may_change)?L.may_change.map(x=>mcW[x]).filter(Boolean):[];
+              rows.push(['Size build-up',qeInt(L.base)+' sh x '+F2(L.plugin)+' (30-min squeeze '+(L.sq30?'on':'off')+') x KEEL '+F2(L.keel)+' ('+(tl.length?tl.join(', '):'no tilt')
+                +'; model '+(L.model_on?('on, trust '+F2(L.trust)+', z '+F2(L.z)):'off')+') = '+qeInt(L.wanted)+' sh'
+                +((L.clamped&&mSh!=null)?(' &rarr; '+qeInt(mSh)+' sent, capped by the '+(L.clamp_by==='cap'?capTxt:'per-strategy limit')):'')
+                +(L.keel_src==='fallback'?(' &middot; KEEL used the fixed tilts only'+(L.keel_fb?(': '+qbNx(L.keel_fb)):'')):'')
+                +(mc.length?(' &middot; may change at that close: '+mc.join(', ')):'')]);
+            }
+            if(!isN&&key!=='DIP'&&['ok','paused','range_pending'].indexOf(L.status)>=0){
+              if(L.status==='range_pending')rows.push(['Needs','The 09:30 and 09:35 bars set the level at 09:40']);
+              else if(L.dir&&fin(L.trigger)!==null)rows.push(['Needs','A 5-min close '+(L.dir==='long'?'above ':'below ')+F2(L.trigger)+' ('+qbNx(L.dir)+' only today)'+(fin(L.px)!==null?('; last '+F2(L.px)):'')]);
+            }else if(isN&&L.status==='ok'&&L.long&&fin(L.long.trigger)!==null){
+              const sOk=!!(L.short&&L.short.ok!==false&&fin(L.short.trigger)!==null);
+              rows.push(['Needs','A 5-min close above '+F2(L.long.trigger)+(sOk?(' (long) or below '+F2(L.short.trigger)+' (short)'):' (long; no shorts today)')+'; last '+F2(L.px)+', VWAP '+F2(L.vwap)]);
+            }
+            // the exit rule as the box words it, kept true: NOISE's VWAP 'now' is the last bar's, and the session VWAP starts again at the
+            // open. The engine words ORB's levels the same in every mode; where its stop lives is the box's orb_resting.mode, said here
+            let exT=L.exit?String(L.exit):'';
+            if(isN&&!qbNTlive)exT=exT.replace(/ \(now [\d.,]+\)/,'');
+            if(exT&&!isN&&key!=='DIP')exT+=orbRest?(QE.orb_resting.mode==='stop_target'?' The stop and the target rest at Webull as one order (OCO).'
+                :' The stop rests at Webull as an order; the target closes the trade at market after the 5-min bar that reaches it.')
+              :' Nothing rests at Webull: once a 5-min bar reaches the stop or the target, the box closes the trade at market after that bar.';
+            if(exT)rows.push(['Exit rule',qbNx(exT)]);
+            // the family's own closed trades (DIP #424's lots led by their mechanism), plain text: the trade list has the taps; no
+            // green / red while the block is grey (last-known figures)
+            const l5=famTrades.slice(0,5).map(t=>{const p=qePnlOf(t);return '<span data-qbnextt style="display:block">'+mech(t)+qbNx(String(t.exit_ts||'').slice(5,16))+' '+side(t)+' '+qeInt(t.shares)
+              +' sh <span class="'+(nGrey?'':ledgerCls(p))+'">'+ledgerSigned(p)+'</span>'+exW(t)+'</span>';});
+            rows.push(['Last 5 trades',l5.length?l5.join(''):'No closed trades yet','last5']);
+            // of the closed trades the doc carries (its newest 500 at most), so the count says what it is the worst of
+            const wSh=wT?fin(wT.shares):null;
+            rows.push(['Worst past trade',!wT?'No closed trades yet':((key==='DIP'?(mech(wT)+qbNx(String(wT.exit_ts||'').slice(5,10))+' '+ledgerSigned(wP)+' (includes overnight gaps)')
+              :(qbNx(String(wT.exit_ts||'').slice(5,10))+' '+side(wT)+' '+qeInt(wT.shares)+' sh '+ledgerSigned(wP)+(wSh?(' ('+qeMoney(wP/wSh)+' a share)'):'')))
+              +' &middot; worst of the last '+qeInt(famTrades.length)+' closed')]);
+            if(key==='DIP')rows.push(['Estimate','From the box book'+(agoT(qbNT.at)?(', '+agoT(qbNT.at)+' ago'):'')]);
+            else if(qbNTsrc.bar){
+              const ck=(isN&&L.check&&typeof L.check==='object'&&typeof L.check.match==='boolean')?L.check:null;
+              rows.push(['Estimate','From the '+qbNx(String(qbNTsrc.bar).slice(11,16))+' bar, worked out on the '+(qbNTsrc.host==='pc'?'PC':'box')+(agoT(qbNTsrc.computed_at)?(' '+agoT(qbNTsrc.computed_at)+' ago'):'')
+                +(qbNTsrc.host==='pc'?' (no KEEL state there: fixed tilts)':'')
+                +(ck?(' &middot; last check, '+qbNx(ck.bar)+' bar: '+(ck.match?('the real size matched ('+F2(ck.actual)+')'):('the real size was '+F2(ck.actual)+', the estimate '+F2(ck.preview)))):'')]);
+            }
+          }
+          return '<div class="qbx-next" data-qbnext="'+key+'" title="'+tip+'" style="color:'+nCol+'">'
+            +'<span class="qbx-next-h qb-tap" data-qbnextx="'+key+'" role="button" tabindex="0" aria-expanded="'+open+'"><span class="qb-disclosure-arrow">'+(open?'▾':'▸')+'</span>'
+            +'<span data-qbnextline="'+key+'">'+sum+'</span></span>'
+            +(open?('<div class="qbx-next-body" data-qbnextbody="'+key+'">'+rows.map(x=>'<div class="qbx-next-row"'+(x[2]?(' data-qbnextk="'+x[2]+'"'):'')+'><span class="qbx-next-k">'+x[0]+'</span><span>'+x[1]+'</span></div>').join('')+'</div>'):'')
+            +'</div>';
+        };
         // the open strategies (a family counts once: DIP #424's lots are one) and how many of them hold only lots carried overnight
         const qbPosKeys=Object.keys(positions),qbPosFams=qbPosKeys.map(qbFamOf).filter((f,i,a)=>a.indexOf(f)===i);
         const qbPosFamsHeld=qbPosFams.filter(f=>qbPosKeys.filter(k=>qbFamOf(k)===f).every(k=>qbHeld[k])).length;
@@ -42992,6 +43198,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // since-start figure, which its row no longer shows once a range other than ALL is chosen)
           const qbKeelWarnHtml=(QF.keel[key]&&QF.keel[key].warn)?('<div data-qbkeelwarn="'+key+'" style="padding:0 0 6px;font-size:11px;font-weight:700;color:var(--attn-amber)" title="KEEL is rebuilt after each close; it is '+QF.keel[key].done+' closed session'+(QF.keel[key].done===1?'':'s')+' behind">'+QF.keel[key].chip+'</div>'):'';
           const qbCaveatHtml=(noteOpen&&caveat)?('<div style="padding:0 0 8px;font-size:10px;color:var(--text4);line-height:1.4">'+caveat+'</div>'):'';
+          // NEXT TRADE (item 53): the size of this leg's next trade if it fires (ORB / NOISE only while flat; DIP #424 always), under its row
+          const qbNextHtml=qbNextLegHtml(key,key==='DIP'||(!p&&!liveLeg),legTradesArr,label);
           const qbDetailHtml=legOpenNow?('<div class="qb-leg-detail">'
             +'<div><div class="qb-row-sublabel">SINCE START</div><div style="font-size:14px;font-weight:600;color:'+pnlCol(legClosedSum)+'">'+ledgerSigned(legClosedSum)+'</div></div>'
             +'<div><div class="qb-row-sublabel">UNREALIZED</div><div data-qbunreal="'+key+'" style="font-size:14px;font-weight:600;color:'+(p?(QF.stale?'var(--text4)':pnlCol(legUnreal)):'var(--text5)')+'">'+(p?qeMoney(legUnreal):'—')+'</div></div>'
@@ -43017,7 +43225,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               row:{key:key,name:label+' '+qeLegShortTag(key,runNo),color:color,tag:pill+infoToggleHtml,
                 sub:(liveLineHtml+railRowHtml).split('<div').join('<span').split('</div>').join('</span>'),
                 value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)},
-              extra:(noteOpen?subLineHtml:'')+qbKeelWarnHtml+qbCaveatHtml+qbDetailHtml});
+              extra:(noteOpen?subLineHtml:'')+qbKeelWarnHtml+qbCaveatHtml+qbNextHtml+qbDetailHtml});
           }
         });
         // Retired strategies (owner decision 9): open / closed is remembered per viewer (closed until opened); storage can be blocked
@@ -43830,6 +44038,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +(qbDipLegs.length?('<div data-qbraildip><div style="color:var(--text5)">'+qbDipName+' (OWN RAIL)</div><div>'+qbDipLot.lots+' lots, one per mechanism'+(qbDipLot.cap!=null?(', up to '+qeInt(qbDipLot.cap)+' shares'):'')
             +' &middot; its own '+ledgerMoney(-qbDipRail.limAbs)+' daily rail, not the daily loss limit: a breach pauses its entries for the next session, never sells</div></div>'):'')
           +'<div><div style="color:var(--text5)">MAX SHARES / LEG</div><div>'+naS(rails.max_shares_per_leg)+'</div></div>'
+          // the box's cap across every leg (doc.next_trade.cap: Webull's own gross count, DIP #424 included), drawn only while the box sends it
+          +((qbNT&&qbNT.cap&&qeFinRec(qbNT.cap.cap)!==null)?('<div data-qbcaprow title="Counts every leg\u2019s shares, long or short, '+qbDipName+' included, as Webull holds them. ORB and NOISE are trimmed to the room left; a '+qbDipName+' lot that does not fit is not sent to Webull."><div style="color:var(--text5)">TOTAL CAP (ALL LEGS)</div><div>'
+            +qeInt(qbNT.cap.cap)+' sh &middot; '+qeInt(qbNT.cap.held)+' held &middot; '+(qbNT.cap.room<0?('0 room (over by '+qeInt(-qbNT.cap.room)+')'):(qeInt(qbNT.cap.room)+' room'))+'</div></div>'):'')
           +'<div><div style="color:var(--text5)">DAILY LOSS LIMIT</div><div>'+qeMoney(rails.daily_loss_limit_usd)+'</div></div>'
           +'<div><div style="color:var(--text5)">SESSION (ET)</div><div>open '+naS(sess.open)+' &middot; last entry '+naS(sess.last_entry)+' &middot; flat by '+naS(sess.flat_by)
             +(qbHeldRail.length?(' except '+qbHeldRail.map(k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?(k==='DIP'?qbDipName:f[1]):String(k);}).join(', ')+' (held overnight)'):'')+'</div></div>'
@@ -49299,6 +49510,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const m=window._qbLegNoteOpen||(window._qbLegNoteOpen={});
         m[k]=!m[k];
         renderApp();};});
+      // NEXT TRADE expander (item 53): open / closed per leg on a window-level map, so it survives every redraw
+      content.querySelectorAll('[data-qbnextx]').forEach(el=>{const flip=ev=>{ev.stopPropagation();ev.preventDefault();
+        const nk=el.getAttribute('data-qbnextx'),nx=window._qbNextOpen||(window._qbNextOpen={}),kb=ev.type==='keydown';nx[nk]=!nx[nk];renderApp();
+        // the redraw built a new header: Enter / Space keep the focus on it (to shut it again, or tab on to the next leg)
+        if(kb){const h=document.querySelector('[data-qbnextx="'+nk+'"]');if(h)try{h.focus({preventScroll:true});}catch(e){}}};
+        el.onclick=flip;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' ')flip(e);};});
       // Integrity rows -> open a sheet with that figure's existing detail panel (parity/feed-uptime/ratio/latency/reprice).
       content.querySelectorAll('[data-qbsheet]').forEach(el=>{el.onclick=()=>{
         window._qbSheet={kind:'integrity',key:el.getAttribute('data-qbsheet')};renderApp();};});

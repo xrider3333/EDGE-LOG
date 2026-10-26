@@ -19,7 +19,8 @@ PORTABLE PATHS. EDGELOG_HOME (default C:\\EdgeLog on Windows, ~/edgelog elsewher
 is the root. Bar cache lives under <home>/ohlc/ (QQQ_1m.csv / QQQ_5m.csv — on the
 owner's machine, with EDGELOG_HOME unset, this IS tools/qqq_paper.py's own
 C:\\EdgeLog\\ohlc cache, same files, no duplication). Engine state lives under
-<home>/cloud_signal/ (signals.csv, state.json, heartbeat.json).
+<home>/cloud_signal/ (signals.csv, state.json, heartbeat.json, and the board's display-only
+next_entry.json -- see NEXT ENTRY PREVIEW).
 
 DATA REUSE. The yfinance fetch/chunking (`_fetch_yf`) and the epoch-schema /
 RTH-array builder (`_to_epoch_frame`, `build_arrays`) are IMPORTED from
@@ -4831,6 +4832,9 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     # whether it is today's last session bar -- read before the "no new bar" short-circuit
     # below, so a repeat settle step still knows the day is complete.
     eod_bars = {}
+    # NEXT ENTRY PREVIEW (item 53): references to each preview leg's arrays and trades, kept
+    # in memory for cloud_signal_thread's _next_entry_tick -- no compute here, no file write
+    _next_inputs = {}
     for key, cfg in legs.items():
         tf = cfg["timeframe"]
         if cfg.get("eod_flat"):
@@ -4933,6 +4937,9 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
                            paths=paths)
         all_events.extend(events)
         leg_state["asof"] = arrays["index"][-1].isoformat()
+        if key in NEXT_ENTRY_LEGS and not cfg.get("shadow"):
+            _next_inputs[key] = {"cfg": cfg, "arrays": arrays, "trades": trades, "tf": tf,
+                                 "bar_epoch": latest_bar_epoch, "now": now}
 
     # FEED HEALTH (2026-10-05, sweep findings 6 + 15): how fresh each timeframe's closed bars
     # are, for the caller's heartbeat -- see bar_health / _feed_health.
@@ -4971,6 +4978,8 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     # this call's engine runs already stashed -- never raises, never touches an event; the EOD
     # SETTLE step publishes the status but never pages (no decision is left today)
     _note_vol_window(legs, now, paths, fetch, warnings=warnings, post_close=post_close)
+    # NEXT ENTRY PREVIEW (item 53): in memory only, never raises -- the thread's tick computes
+    _stash_next_entry_inputs(_next_inputs, paths)
     return all_events
 
 
@@ -5637,6 +5646,805 @@ def _write_heartbeat(paths, ok=True, note="", cache_write_failed=False, health=N
     if not qp._replace_with_retry(tmp, paths["heartbeat_path"], log=print,
                                   what="[cloud-signal] heartbeat.json"):
         raise OSError(f"cloud_signal: could not replace {paths['heartbeat_path']} after retries")
+
+
+# ── NEXT ENTRY PREVIEW (item 53, owner 2026-10-20) ──────────────────────────────────────
+# The Webull paper board shows, for each flat leg, the size of its NEXT trade if it fires.
+# Once per new closed 5-min bar the engine works out what NOISE_382 and ORB_R6 would do if
+# they fired at the close of the NEXT bar, and writes it to <state_dir>/next_entry.json
+# (atomic replace); api/qqq_exec.py copies it into its existing publish (doc["next_trade"]).
+#
+# DISPLAY ONLY, OFF THE ORDER PATH. step() only keeps references to each leg's arrays and
+# trades (_stash_next_entry_inputs); cloud_signal_thread computes AFTER the tick's rows,
+# state.json and heartbeat are on disk, and never on a tick that wrote an ENTRY / EXIT /
+# LEVELS row -- step()'s or a stream commit's (_next_entry_tick): the executor, another
+# process on the same 1-CPU box, picks that row up on its own 5-s tick (qqq_exec.TICK_SEC)
+# while this thread polls every 1 s in the hand-off window, so the preview holds off for
+# NEXT_ENTRY_ORDER_HOLD_SEC (two executor ticks) after any order row. It never writes
+# state.json, signals.csv, KEEL files or Firestore; every scorer / strategy call gets the
+# no-op log _ne_quiet, and every failure is caught (one rate-limited line) and costs that
+# bar's try: the next bar retries, never the next tick.
+#
+# THE 30-MIN TRAP. The plugin's squeeze tilt (NOISE_1_8_CT304.py) is read on stand-in arrays,
+# never on the closed ones: those read the in-progress 30-minute group as complete (wrong on
+# 71 of 771 bars, and on 4 of the first 27 live entries: 09-28 10:15, 10-08 12:55, 10-12 10:10,
+# 10-16 09:40).
+#
+# PARITY. The preview after a NOISE_382 entry also works out THAT bar's size exactly as
+# _diff_leg did (same stand-ins, same KEEL call) and records it beside the real size
+# ("check"), with what the board showed for that bar ("board"): one log line per entry,
+# "match" or "MISMATCH".
+#
+# The NOISE size is exact only for an entry decided at that same close, and only while
+# next.may_change is empty: a 30-min / 60-min squeeze group that closes with that bar, or the
+# KEEL model reading it, can still move it.
+NEXT_ENTRY_FILE = "next_entry.json"
+NEXT_ENTRY_VERSION = 1
+NEXT_ENTRY_LEGS = ("NOISE_382", "ORB_R6")      # never a shadow leg, never DIP, never ENGU-Q
+NEXT_ENTRY_ERROR_LOG_EVERY_SEC = 600.0
+NEXT_ENTRY_SLOW_MS = 3000                       # one log line a day above this
+NEXT_ENTRY_TEXT_MAX = 160                       # every string in the sidecar, one line
+NEXT_ENTRY_ORDER_HOLD_SEC = 10.0                # 2 x qqq_exec.TICK_SEC: no preview this soon after an order row
+NEXT_ENTRY_REPLACE_RETRIES = 4                  # 0.2 s: a display file never sits out the full 2.5 s
+_NEXT_ENTRY_ORDER_EVENTS = ("ENTRY", "EXIT", "LEVELS")
+_NEXT_ENTRY_MEMO_KEEP = 4                       # stores kept (the live one; a test run makes more)
+_NEXT_ENTRY_MEMO = {}   # {state_dir: {"inputs": {leg: {...}}, "done": {leg: bar_epoch},
+                        #              "pending": [entry rows], "err": {"last": 0.0, "held": 0},
+                        #              "slow_day": None, "loaded": {leg: bar_epoch},
+                        #              "sig_size": signals.csv's size at the last tick,
+                        #              "hold_until": epoch the last order tick's hold ends}}
+
+
+def next_entry_path(paths=None):
+    return os.path.join((paths or DEFAULT_PATHS)["state_dir"], NEXT_ENTRY_FILE)
+
+
+def read_next_entry(paths=None):
+    """The sidecar as a dict, or {} when it is missing, unparseable or another version
+    (NEXT_ENTRY_VERSION). Never raises."""
+    try:
+        with open(next_entry_path(paths), encoding="utf-8") as f:
+            doc = json.load(f)
+    except Exception:
+        return {}
+    return doc if isinstance(doc, dict) and doc.get("v") == NEXT_ENTRY_VERSION else {}
+
+
+def _ne_quiet(*_a, **_k):
+    """The no-op log every scorer / strategy call in the preview gets."""
+    return None
+
+
+def _ne_mem(paths):
+    """This store's preview memo, created on first use. Past _NEXT_ENTRY_MEMO_KEEP stores the
+    oldest is dropped, so a test run's many scratch stores never pile up arrays."""
+    sd = paths["state_dir"]
+    mem = _NEXT_ENTRY_MEMO.get(sd)
+    if mem is None:
+        while len(_NEXT_ENTRY_MEMO) >= _NEXT_ENTRY_MEMO_KEEP:
+            _NEXT_ENTRY_MEMO.pop(next(iter(_NEXT_ENTRY_MEMO)))
+        mem = _NEXT_ENTRY_MEMO[sd] = {"inputs": {}, "done": {}, "pending": [],
+                                      "err": {"last": 0.0, "held": 0}, "slow_day": None,
+                                      "loaded": {}, "sig_size": None, "hold_until": 0.0}
+    return mem
+
+
+def _stash_next_entry_inputs(kept, paths):
+    """step()'s hand-off: {leg: {cfg, arrays, trades, tf, bar_epoch, now}} for each preview leg
+    it just ran, kept BY REFERENCE in this store's memo -- no compute. Never raises."""
+    try:
+        if kept:
+            _ne_mem(paths)["inputs"].update(kept)
+    except Exception:
+        pass
+
+
+def _ne_num(v, nd):
+    """round(v, nd) for a finite number, else None (the sidecar never carries NaN)."""
+    try:
+        f = float(v)
+    except (TypeError, ValueError):
+        return None
+    return round(f, nd) if math.isfinite(f) else None
+
+
+def _ne_dist(v):
+    """A distance a share as the board prints it: 2 dp when it is whole cents (4.60), else up to
+    4 (4.575, 4.5875) -- index.html's dTxt -- so shares x it adds up to the dollars shown."""
+    s = f"{float(v):.4f}".rstrip("0")
+    return s if len(s.partition(".")[2]) >= 2 else f"{float(v):.2f}"
+
+
+def _ne_text(s):
+    """`s` as one line of at most NEXT_ENTRY_TEXT_MAX characters."""
+    return " ".join(str(s).split())[:NEXT_ENTRY_TEXT_MAX]
+
+
+def _ne_clean(x):
+    """`x` made JSON-safe: numpy scalars as plain values, every non-finite float None."""
+    if isinstance(x, dict):
+        return {str(k): _ne_clean(v) for k, v in x.items()}
+    if isinstance(x, (list, tuple)):
+        return [_ne_clean(v) for v in x]
+    if hasattr(x, "item") and not isinstance(x, (str, bytes)):
+        try:
+            x = x.item()                 # a numpy scalar
+        except Exception:
+            return None
+    if x is None or isinstance(x, (bool, int, str)):
+        return x
+    if isinstance(x, float):
+        return x if math.isfinite(x) else None
+    return str(x)
+
+
+def _ne_hm(ts):
+    return ts.strftime("%H:%M")
+
+
+def _ne_session_bars(day, tf):
+    """How many `tf` bars `day`'s session has: 78 five-minute bars, 42 on a 13:00 half day."""
+    hh, mm = (int(x) for x in market_calendar.session_close_et(day).split(":"))
+    minutes = hh * 60 + mm - (RTH_OPEN.hour * 60 + RTH_OPEN.minute)
+    return minutes * 60 // TIMEFRAME_SECONDS[tf]
+
+
+def _ne_clock(day, bars, tf):
+    """'HH:MM' of the bar starting `bars` bars after `day`'s open; a negative count runs back
+    from its close (-1 = the session's last bar: 15:55, 12:55 on a half day)."""
+    if bars < 0:
+        hh, mm = (int(x) for x in market_calendar.session_close_et(day).split(":"))
+        base = _dt.datetime.combine(day, _dt.time(hh, mm))
+    else:
+        base = _dt.datetime.combine(day, RTH_OPEN)
+    return (base + _dt.timedelta(seconds=bars * TIMEFRAME_SECONDS[tf])).strftime("%H:%M")
+
+
+def _ne_next_session(day):
+    """The first session date after `day` (None only on a broken calendar)."""
+    d = day
+    for _ in range(14):
+        d += _dt.timedelta(days=1)
+        if market_calendar.is_session(d):
+            return d
+    return None
+
+
+def _ne_param(mod, params, name, default=None):
+    """params[name], else the strategy's own run_backtest default (the engine passes params as
+    keywords and never merges DEFAULT_PARAMS), else `default`."""
+    if name in (params or {}):
+        return params[name]
+    try:
+        p = inspect.signature(mod.run_backtest).parameters.get(name)
+        if p is not None and p.default is not inspect.Parameter.empty:
+            return p.default
+    except (TypeError, ValueError, AttributeError):
+        pass
+    return default
+
+
+def _ne_sessions(day_id):
+    """[(a, b), ...]: each session's bar range (one run of a day_id), as the strategies split."""
+    import numpy as np
+    d = np.asarray(day_id)
+    if not len(d):
+        return []
+    starts = np.flatnonzero(np.r_[True, d[1:] != d[:-1]])
+    return list(zip(starts.tolist(), np.r_[starts[1:], len(d)].tolist()))
+
+
+def _noise_size_range(day, first_fill_hm, last_fill_hm, branch, rule_cfg, tilt_mult=None):
+    """(lo, hi): the smallest and largest NOISE_382 size (plugin tilt x KEEL) an entry FILLED
+    from `first_fill_hm` to `last_fill_hm` on `day` can get, in KEEL v12's own order
+    (ml_keel.keel_score_from_state): the model part (shade lo-hi, trust LO-HI, else 1.0), then
+    the weekday tilt (capped), the 60-min squeeze tilt (capped), half size before an FOMC
+    statement; times the plugin's 1.0 .. tilt_mult (NOISE_382_PARAMS). A Tuesday is 1.0-3.0, a
+    Friday 1.5-4.5, an FOMC morning 0.5-3.0, shade 0.5-4.5, trust 0.75-6.0."""
+    from augur_engine import ml_keel as _keel
+    rc = rule_cfg or _keel.CFG["v12"]
+    if branch == _keel.KEEL_BRANCH_SHADE:
+        shade = rc.get("shade") or _keel.CFG["v12"]["shade"]
+        m_lo, m_hi = float(shade["lo"]), float(shade["hi"])
+    elif branch == _keel.KEEL_BRANCH_TRUST:
+        m_lo, m_hi = float(rc.get("LO", _keel.LO)), float(rc.get("HI", _keel.HI))
+    else:                                       # fixed-only / fallback: the model part is 1.0
+        m_lo = m_hi = 1.0
+    dow = rc.get("dow") or {}
+    wd, cap = float(dow.get(str(day.weekday()), 1.0)), float(dow.get("cap", 3.0))
+    comp = rc.get("comp") or {}
+    k_lo = min(m_lo * wd, cap)                                                # squeeze off
+    k_hi = min(min(m_hi * wd, cap) * float(comp.get("mult", 1.0)), float(comp.get("cap", 3.0)))
+    ev = rc.get("event")
+    if ev and day in _keel.fomc_decision_days():
+        cut = f"{int(ev.get('cut_hour', 14)):02d}:00"
+        if first_fill_hm < cut:
+            k_lo *= float(ev.get("mult", 0.5))
+        if last_fill_hm < cut:
+            k_hi *= float(ev.get("mult", 0.5))
+    if tilt_mult is None:
+        tilt_mult = CROWN_LEGS["NOISE_382"]["params"].get("tilt_mult", 1.0)
+    return round(1.0 * k_lo, 4), round(float(tilt_mult) * k_hi, 4)
+
+
+def _noise_size_parts(cfg, probe, decide_bar, entry_bar):
+    """How NOISE_382 sizes an entry DECIDED at `decide_bar` and filled at `entry_bar` of `probe`
+    (stand-in arrays -- see THE 30-MIN TRAP above): the plugin's squeeze tilt read the way
+    NOISE_1_8_CT304.py reads it (the compression at the bar before the fill), times the KEEL
+    size scored exactly as _diff_leg scores a probe entry (read-only, quiet log), plus the
+    tilts behind it. "size" / "plugin" / "keel" are unrounded; "rule_cfg" is the KEEL rule's
+    cfg (the caller pops it)."""
+    import numpy as np
+    from augur_engine import ml_keel as _keel
+    mod = _strategy_module_for_sizing(cfg["strategy"])
+    params = cfg.get("params") or {}
+    comp = mod._sq._compression(np.asarray(probe["high"], float), np.asarray(probe["low"], float),
+                                np.asarray(probe["close"], float), probe["day_id"], probe["index"],
+                                _ne_param(mod, params, "gate_tf_min"),
+                                _ne_param(mod, params, "gate_len"),
+                                _ne_param(mod, params, "gate_ratio"))
+    sq30 = bool(comp[decide_bar])
+    plugin = float(_ne_param(mod, params, "tilt_mult", 1.0)) if sq30 else 1.0
+    keel_cfg = cfg.get("keel")
+    sc = {}
+    ks, diag = _keel_size_for_entry(keel_cfg, probe, entry_bar,
+                                    probe["index"][entry_bar].isoformat(), log=_ne_quiet,
+                                    scratch=sc)
+    rule_cfg = (sc.get("rule_cfg") or _keel.CFG.get((keel_cfg or {}).get("version") or "v12")
+                or _keel.CFG["v12"])
+    feats = sc.get("feats")                      # filled only when the model scored
+    if feats is None or len(feats[0]) != len(probe["close"]):
+        feats = _keel.keel_features(probe)
+    F, names = feats
+    names = list(names)
+    sq60 = "sq60_on" in names and bool(F[entry_bar, names.index("sq60_on")] > 0)
+    cut_hour = (rule_cfg.get("event") or {}).get("cut_hour", 14)
+    fomc = bool(_keel.pre_statement_mask(probe, [entry_bar], cut_hour)[0])
+    if isinstance(diag, dict):
+        branch = _keel.keel_branch(diag, rule_cfg)
+        keel_src, keel_fb = sc.get("state_source") or "fixed", None
+    elif isinstance(diag, str):                  # a fallback: the fixed tilts, or 1.0
+        branch, keel_src, keel_fb = "fallback", KEEL_SOURCE_FALLBACK, _ne_text(diag)[:120]
+    else:                                        # no KEEL block: 1.0
+        branch, keel_src, keel_fb = _keel.KEEL_BRANCH_FIXED_ONLY, "fixed", None
+    d = diag if isinstance(diag, dict) else {}
+    return {"size": plugin * float(ks), "plugin": plugin, "sq30": sq30, "keel": float(ks),
+            "fri": int(probe["index"][entry_bar].dayofweek) == 4, "sq60": sq60, "fomc": fomc,
+            "branch": branch,
+            "model_on": branch in (_keel.KEEL_BRANCH_SHADE, _keel.KEEL_BRANCH_TRUST),
+            "trust": _ne_num(d.get("trust"), 4), "t_fast": _ne_num(d.get("t_fast"), 4),
+            "z": _ne_num(d.get("z"), 4), "keel_src": keel_src, "keel_fb": keel_fb,
+            "rule_cfg": rule_cfg}
+
+
+def _noise_next_entry(cfg, arrays, trades, tf, now, paths, pending=(), prev_leg=None):
+    """The sidecar's NOISE_382 leg: what the leg would do if it fired at the close of the bar
+    AFTER `arrays`' newest closed bar D -- by its own rules (NOISE_1_0.py: the noise bands, the
+    day gates, the stop set at the fill, the VWAP exit), sized by _noise_size_parts on three
+    stand-ins (decision D+1, fill D+2) -- plus the parity record of a `pending` entry decided at
+    D (PARITY above). "_checks" (popped by next_entry_preview) lists this call's new records.
+    Read-only."""
+    import numpy as np
+    import pandas as pd
+    mod = _strategy_module_for_sizing(cfg["strategy"])
+    n10 = mod._base._base                          # NOISE_1_0.py (NOISE_1_1_NBHD.py loads it as _base)
+    F = mod._FROZEN
+    params = cfg.get("params") or {}
+    o, h, l, c, v = (np.asarray(arrays[k], float) for k in ("open", "high", "low", "close", "volume"))
+    idx = arrays["index"]
+    N = len(c)
+    step_td = pd.Timedelta(seconds=TIMEFRAME_SECONDS[tf])
+    d_start = idx[N - 1]
+    day = d_start.date()
+    sb = n10._session_bounds(np.asarray(arrays["day_id"]), N)
+    si = len(sb) - 1
+    a = sb[si][0]
+    kN, fill = N - a, N - a + 1                     # the next decision bar and its fill, in session
+    m = _ne_session_bars(day, tf)
+    tilt = float(_ne_param(mod, params, "tilt_mult", 1.0))
+    px = float(c[-1])
+    vol_sum = float(v[a:N].sum())
+    vwap = float(((h[a:N] + l[a:N] + c[a:N]) / 3.0 * v[a:N]).sum() / vol_sum) if vol_sum > 0 else None
+    out = {"status": "ok", "why": None,
+           "bar": d_start.isoformat(), "bar_close": (d_start + step_td).isoformat(),
+           "next": None, "range_today": None, "next_session": None,
+           "px": _ne_num(px, 2), "vwap": _ne_num(vwap, 2),
+           "vwap_dist": _ne_num(px - vwap, 2) if vwap is not None else None,
+           "ref_hi": None, "ref_lo": None, "vol_pct": None, "long": None, "short": None}
+    ref_hi = ref_lo = None
+    if si >= 1:
+        prev_close = float(c[sb[si - 1][1] - 1])
+        ref_hi, ref_lo = max(float(o[a]), prev_close), min(float(o[a]), prev_close)
+        out["ref_hi"], out["ref_lo"] = _ne_num(ref_hi, 2), _ne_num(ref_lo, 2)
+    branch, rule_cfg = None, None
+    if any(t.get("still_open") for t in (trades or [])):
+        out["status"] = "in_trade"                 # incl. an entry decided at D (it fired this bar)
+    elif si < int(F["lookback"]):
+        out["status"], out["why"] = "warming", "history"
+    elif not 1 <= kN <= m - 2:                     # STEP D: never on the session's last bar
+        out["status"] = "no_more_today"
+    else:
+        vol_pct = float("nan")
+        if float(F["vol_skip_pct"]) > 0:
+            prior = vol_prior_ranges_for_leg(cfg, arrays, now, paths=paths, fetch=False,
+                                             log=_ne_quiet)
+            vol_pct = float(n10._vol_percentile(h, l, c, sb, prior_ranges=prior)[si])
+            out["vol_pct"] = _ne_num(vol_pct, 1)
+        sig = n10._sigma_matrix(o, c, sb, int(F["lookback"]))
+        s_n = float(sig[si, kN]) if kN < sig.shape[1] else float("nan")
+        s_f = float(sig[si, fill]) if fill < sig.shape[1] else float("nan")
+        if math.isfinite(vol_pct) and vol_pct >= float(F["vol_skip_pct"]):
+            out["status"], out["why"] = "day_blocked", "vol_skip"
+        elif not (math.isfinite(s_n) and math.isfinite(s_f)):
+            out["status"], out["why"] = "warming", "history"
+        else:
+            bl, bs, stop_k = float(F["band_mult_long"]), float(F["band_mult_short"]), float(F["stop_k"])
+            ub, lb = ref_hi * (1.0 + bl * s_n), ref_lo * (1.0 - bs * s_n)
+            d_l, d_s = stop_k * ref_hi * bl * s_f, stop_k * ref_lo * bs * s_f   # set at the fill
+            # the frozen core's day-type gate (skip_bot_short): no shorts after a close in the
+            # bottom of the prior day's range
+            dp = float(n10._daytype_pos(h, l, c, sb)[si])
+            longs_only = (F.get("daytype_mode") == "skip_bot_short" and math.isfinite(dp)
+                          and dp <= float(F["daytype_lo"]))
+            # NOISE_1_0.py sets the stop from the fill bar's open and checks it only from the
+            # bar AFTER the fill
+            basis = (f"{stop_k:g}x the band width from the fill (the next bar open); not checked "
+                     f"on the fill bar")
+            out["long"] = {"ok": True, "why": None, "trigger": round(ub, 2),
+                           "stop_dist": round(d_l, 4), "stop_est": round(ub - d_l, 2),
+                           "basis": basis}
+            out["short"] = {"ok": not longs_only, "why": "longs_only" if longs_only else None,
+                            "trigger": round(lb, 2), "stop_dist": round(d_s, 4),
+                            "stop_est": round(lb + d_s, 2), "basis": basis}
+            parts = _noise_size_parts(cfg, _stand_in_arrays(arrays, tf, pads=3), N, N + 1)
+            rule_cfg = parts.pop("rule_cfg")
+            branch = parts["branch"]
+            # may it still change by that close? a squeeze group that closes WITH the decision
+            # bar (30-min: the plugin; 60-min: KEEL at the fill), or the model reading that bar
+            closes_at = int((d_start + 2 * step_td - idx[a]).total_seconds() // 60)
+            may = []
+            if closes_at % int(_ne_param(mod, params, "gate_tf_min", 30)) == 0:
+                may.append("sq30")
+            if closes_at % 60 == 0:                # ml_keel._squeeze60's hourly groups
+                may.append("sq60")
+            if parts["model_on"]:
+                may.append("model")
+            fill_hm = _ne_hm(d_start + 2 * step_td)
+            out["next"] = {"decide_bar": _ne_hm(d_start + step_td), "decide_close": fill_hm,
+                           "fill_bar": fill_hm,
+                           "size": parts["size"], "plugin": _ne_num(parts["plugin"], 4),
+                           "sq30": parts["sq30"], "keel": _ne_num(parts["keel"], 4),
+                           "fri": parts["fri"], "sq60": parts["sq60"], "fomc": parts["fomc"],
+                           "branch": branch, "model_on": parts["model_on"],
+                           "trust": parts["trust"], "t_fast": parts["t_fast"], "z": parts["z"],
+                           "keel_src": parts["keel_src"], "keel_fb": parts["keel_fb"],
+                           "may_change": may}
+            lo, hi = _noise_size_range(day, fill_hm, _ne_clock(day, -1, tf), branch, rule_cfg,
+                                       tilt_mult=tilt)
+            out["range_today"] = {"lo": lo, "hi": hi}
+    nxt = _ne_next_session(day)
+    if nxt is not None:
+        from augur_engine import ml_keel as _keel
+        lo, hi = _noise_size_range(nxt, _ne_clock(nxt, 2, tf), _ne_clock(nxt, -1, tf),
+                                   branch or _keel.KEEL_BRANCH_FIXED_ONLY, rule_cfg, tilt_mult=tilt)
+        out["next_session"] = {"date": nxt.isoformat(), "lo": lo, "hi": hi,
+                               "fri": nxt.weekday() == 4,
+                               "fomc": nxt in _keel.fomc_decision_days()}
+    # the VWAP exit is decided at a bar's close and fills at the next bar's open (NOISE_1_0.py)
+    vw = f" (now {vwap:.2f})" if vwap is not None else ""
+    out["exit_rule"] = _ne_text(
+        f"Out at the next open after a 5-min close back across VWAP{vw}, after a bar "
+        f"touches the stop ({float(F['stop_k']):g}x the band width), or at the close. No target.")
+    # PARITY: a NOISE entry the last order tick emitted, decided at D's close
+    checks, this_bar = [], None
+    probe2 = _stand_in_arrays(arrays, tf) if pending else None
+    pn = (prev_leg or {}).get("next") or {}
+    for e in pending or ():
+        try:
+            dec = pd.Timestamp(str(e.get("ref_time"))) - step_td
+        except (TypeError, ValueError):
+            continue                               # not a row this engine wrote
+        dec_hm = _ne_hm(dec)
+        board = actual = None
+        if pn.get("decide_bar") == dec_hm and str((prev_leg or {}).get("bar") or "")[:10] \
+                == dec.date().isoformat():
+            board = _ne_num(pn.get("size"), 12)     # what the board showed for that bar
+        actual = _ne_num(e.get("size"), 12)
+        rec = {"tid": e.get("trade_id"), "bar": dec_hm, "at": now.isoformat(), "preview": None,
+               "actual": None if actual is None else round(actual, 6), "match": None,
+               "board": None if board is None else round(board, 6),
+               "board_match": (None if board is None or actual is None
+                               else abs(board - actual) <= 1e-9)}
+        if str(e.get("ref_time")) == probe2["index"][N].isoformat():
+            if this_bar is None:                   # this bar's size, exactly as _diff_leg had it
+                this_bar = _noise_size_parts(cfg, probe2, N - 1, N)["size"]
+            rec["preview"] = round(this_bar, 6)
+            rec["match"] = actual is not None and abs(this_bar - actual) <= 1e-9
+        checks.append(rec)
+    out["check"] = checks[-1] if checks else (prev_leg or {}).get("check")
+    out["_checks"] = checks
+    return out
+
+
+def _orb_next_entry(cfg, arrays, trades, tf, now, paths):
+    """The sidecar's ORB_R6 leg: the opening-range level, stop, target and breakeven of a
+    trade that fired at the close of the bar AFTER `arrays`' newest closed bar D, and the day's
+    gates by ORB_3_6.py's own rules (once a session, the half-day skip, the quiet-days filter,
+    the volume pace). An open gate gets the exact can-it-fire test: the leg run with the next
+    bar standing in far past the level (no stop can fill there). Always a 1.0 size. Read-only."""
+    import numpy as np
+    import pandas as pd
+    mod = _strategy_module_for_sizing(cfg["strategy"])
+    params = cfg.get("params") or {}
+
+    def P(name, default=None):
+        return _ne_param(mod, params, name, default)
+    or_bars, stop_frac = int(P("or_bars", 2)), float(P("stop_frac", 2.0))
+    buf, target_r = float(P("breakout_buf", 0.25)), float(P("target_R", 0.0) or 0.0)
+    be_r, atr_f = float(P("be_after_R", 0.0) or 0.0), float(P("atr_filter", 0.0) or 0.0)
+    vpace, mode = float(P("vpace_filter", 0.0) or 0.0), str(P("trade_mode", "First-candle dir"))
+    o, h, l, c, v = (np.asarray(arrays[k], float) for k in ("open", "high", "low", "close", "volume"))
+    idx = arrays["index"]
+    N = len(c)
+    step_td = pd.Timedelta(seconds=TIMEFRAME_SECONDS[tf])
+    d_start = idx[N - 1]
+    day = d_start.date()
+    sb = _ne_sessions(arrays["day_id"])
+    si = len(sb) - 1
+    a = sb[si][0]
+    kD = N - 1 - a
+    m = _ne_session_bars(day, tf)
+    px = float(c[-1])
+    out = {"status": "ok", "why": None,
+           "bar": d_start.isoformat(), "bar_close": (d_start + step_td).isoformat(),
+           "next": None, "size": 1.0, "dir": None, "or_hi": None, "or_lo": None, "rng": None,
+           "trigger": None, "px": _ne_num(px, 2), "risk": None, "stop_est": None,
+           "target_est": None, "be_est": None, "target_r": target_r, "be_r": be_r, "pace": None,
+           "basis": f"{stop_frac:g}x the opening range from the entry close"}
+    sides, risk = [], None
+    if or_bars >= 1 and kD >= or_bars - 1:         # the opening range is set
+        or_hi, or_lo = float(h[a:a + or_bars].max()), float(l[a:a + or_bars].min())
+        rng = or_hi - or_lo
+        # the published range at 4 dp and the risk a share FROM it (2.5 x 1.835 = 4.5875, never
+        # the bar prices' float noise 4.5874), so the board's "2.5x the range of R" multiplies out;
+        # the levels below keep the unrounded risk, as the live engine's own
+        rng4 = _ne_num(rng, 4)
+        out.update(or_hi=_ne_num(or_hi, 2), or_lo=_ne_num(or_lo, 2), rng=rng4)
+        if rng > 0:
+            if mode == "First-candle dir":
+                sides = ["long" if c[a + or_bars - 1] >= o[a] else "short"]
+            elif mode in ("Long Only", "Short Only"):
+                sides = [mode.split()[0].lower()]
+            elif mode == "Both":
+                sides = ["long", "short"]
+        if len(sides) == 1:
+            long_ = sides[0] == "long"
+            trig = or_hi + buf * rng if long_ else or_lo - buf * rng
+            r_x = stop_frac * rng                  # fixed for the day, from the entry close (ORB_3_6.py)
+            risk = _ne_num(stop_frac * rng4, 4) if rng4 is not None else None
+            sign = 1.0 if long_ else -1.0
+            out.update(dir=sides[0], trigger=_ne_num(trig, 2), risk=risk,
+                       # the cent rounding the engine's levels use (_trade_levels)
+                       stop_est=_cent_level(trig - sign * r_x, up=not long_),
+                       target_est=(_cent_level(trig + sign * target_r * r_x, up=long_)
+                                   if target_r > 0 else None),
+                       be_est=_ne_num(trig + sign * be_r * r_x, 2) if be_r > 0 else None)
+    pace = None
+    if vpace > 0 and len(sb) > 21 and si >= 20:    # today so far vs the prior 20 sessions' same bars
+        k = kD + 1
+        refs = [float(v[s:s + k].mean()) for s, e in sb[si - 20:si] if e - s >= k]
+        ref = float(np.mean(refs)) if refs else float("nan")
+        if math.isfinite(ref) and ref > 0:
+            pace = float(v[a:N].mean()) / ref
+            out["pace"] = _ne_num(pace, 2)
+    low_range = False
+    if atr_f > 0 and len(sb) > 6 and si >= 6:     # the quiet-days filter, prior sessions only
+        srng = [float(h[s:e].max() - l[s:e].min()) for s, e in sb]
+        ref = float(np.median(srng[max(0, si - 60):si]))
+        low_range = ref > 0 and float(np.mean(srng[max(0, si - 5):si])) < atr_f * ref
+    todays = [t for t in (trades or []) if str(t.get("entry_time") or "")[:10] == day.isoformat()]
+    if any(t.get("still_open") for t in todays):
+        out["status"] = "in_trade"
+    elif todays:                                   # once a session: every exit ends the day
+        out["status"] = "traded_today"
+    elif P("skip_holidays", False) and market_calendar.session_close_et(day) != "16:00":
+        out["status"], out["why"] = "day_blocked", "half_day"
+    elif low_range:
+        out["status"], out["why"] = "day_blocked", "low_range"
+    elif not (or_bars >= 1 and kD >= or_bars - 1):
+        out["status"] = "range_pending"
+    elif kD + 1 >= m - 1:                          # the next bar is the last: read after the bell
+        out["status"] = "no_more_today"
+    else:
+        fires = False
+        for side in sides:
+            far = px * (2.0 if side == "long" else 0.5)
+            got = run_leg_trades(cfg, _stand_in_arrays(arrays, tf, pads=2, price=far),
+                                 leg_key="ORB_R6", log=_ne_quiet, now=now, paths=paths,
+                                 fetch=False)
+            fires = fires or any(int(t.get("entry_bar", -1)) == N and t.get("side") == side
+                                 for t in got)
+        if fires:
+            out["status"] = "ok"
+        elif pace is not None and pace < vpace:
+            out["status"], out["why"] = "paused", "pace"
+        else:
+            out["status"], out["why"] = "paused", "other"
+    if out["status"] in ("ok", "paused", "range_pending"):
+        out["next"] = {"decide_bar": _ne_hm(d_start + step_td),
+                       "decide_close": _ne_hm(d_start + 2 * step_td)}
+    # ORB enters at the signal bar's CLOSE (ORB_3_6.py); the stop / target are the engine's
+    # cent-rounded levels anchored to that close (_trade_levels). Where the stop lives (a
+    # resting Webull order, or an engine EXIT row at a bar close) is the executor's
+    # orb_resting mode, which this process cannot see, so the text never says; the page does.
+    # The breakeven arms on a close that far IN THE TRADE'S FAVOUR (ORB_3_6.py: up for a long,
+    # down for a short); before the range sets, the side is not known yet. The figures a share
+    # are the board's own form (_ne_dist), the same as its Max loss row.
+    tgt = f", target {target_r:g}x that" if target_r > 0 else ", no target"
+    if risk is not None:
+        way = {"long": "up", "short": "down"}.get(out["dir"], "in its favour")
+        be = (f"; stop to the entry once a close is {_ne_dist(be_r * risk)} {way}"
+              if be_r > 0 else "")
+        txt = (f"Stop {_ne_dist(risk)} a share from the entry close ({stop_frac:g}x the opening "
+               f"range){tgt}{be}. Out at the close.")
+    else:
+        be = f"; stop to the entry once a close is {be_r:g}x that in its favour" if be_r > 0 else ""
+        txt = f"Stop {stop_frac:g}x the opening range from the entry close{tgt}{be}. Out at the close."
+    out["exit_rule"] = _ne_text(txt)
+    return out
+
+
+def _ne_check_line(leg, rec):
+    """The log line for one parity record."""
+    if rec["preview"] is None:
+        return (f"[cloud-signal] next-entry check {leg} {rec['tid']}: no preview for the "
+                f"{rec['bar']} bar (the engine is on another bar) -- actual {rec['actual']}")
+    return (f"[cloud-signal] next-entry check {leg} {rec['tid']}: preview {rec['preview']:g} "
+            f"vs actual {rec['actual']} -- {'match' if rec['match'] else 'MISMATCH'}")
+
+
+def next_entry_preview(now, inputs, paths, pending=(), prev=None, checks=None):
+    """The sidecar dict (NEXT ENTRY PREVIEW above) for the legs in `inputs` ({leg: step()'s
+    stash}); a leg missing from `inputs` is copied unchanged from `prev` (the last sidecar),
+    so the file keeps both. Each leg is computed in its own try: a failing leg becomes
+    {"status": "error", ...} and the other is still built. Each new parity record goes into
+    `checks` (a list, as (leg, record)) for the caller to log once the file is written;
+    times itself into "cost_ms". Writes and logs nothing."""
+    t0 = _time.perf_counter()
+    now = now or _dt.datetime.now(tz=_zi(TZ))
+    if now.tzinfo is None:
+        now = now.replace(tzinfo=_zi(TZ))
+    now = now.astimezone(_zi(TZ))
+    prev = prev if isinstance(prev, dict) else {}
+    prev_legs = prev.get("legs") if isinstance(prev.get("legs"), dict) else {}
+    legs = {}
+    for leg in NEXT_ENTRY_LEGS:
+        inp = (inputs or {}).get(leg)
+        if inp is None:
+            if isinstance(prev_legs.get(leg), dict):
+                legs[leg] = prev_legs[leg]
+            continue
+        try:
+            if leg == "NOISE_382":
+                d = _noise_next_entry(inp["cfg"], inp["arrays"], inp["trades"], inp["tf"],
+                                      inp.get("now") or now, paths, pending=pending,
+                                      prev_leg=prev_legs.get(leg))
+            else:
+                d = _orb_next_entry(inp["cfg"], inp["arrays"], inp["trades"], inp["tf"],
+                                    inp.get("now") or now, paths)
+        except Exception as e:
+            d = {"status": "error", "why": _ne_text(f"{type(e).__name__}: {e}"),
+                 "bar": None, "bar_close": None}
+            try:
+                d_start = inp["arrays"]["index"][-1]
+                d["bar"] = d_start.isoformat()
+                d["bar_close"] = (d_start + _dt.timedelta(
+                    seconds=TIMEFRAME_SECONDS[inp["tf"]])).isoformat()
+            except Exception:
+                pass
+        for rec in d.pop("_checks", None) or []:
+            if checks is not None:
+                checks.append((leg, rec))
+        legs[leg] = d
+    wall = _dt.datetime.now(tz=_zi(TZ))
+    at = wall if 0 <= (wall - now).total_seconds() <= 300 else now     # a replay keeps its `now`
+    nxt = _ne_next_session(now.date())
+    doc = {"v": NEXT_ENTRY_VERSION, "computed_at": at.replace(microsecond=0).isoformat(),
+           "host": "cloud" if _is_cloud_host() else "pc",
+           "cost_ms": int(round((_time.perf_counter() - t0) * 1000)),
+           "next_session": nxt.isoformat() if nxt else None, "legs": legs}
+    return _ne_clean(doc)
+
+
+def _write_next_entry(doc, paths):
+    """`doc` to <state_dir>/next_entry.json: dump to a .tmp beside it, then the shared atomic
+    replace (qp._replace_with_retry -- a reader holding the file for a few ms on Windows is
+    retried NEXT_ENTRY_REPLACE_RETRIES times: a display file is not worth the shared 2.5 s
+    budget inside the engine's 1-s hand-off polling). True on success; False on any failure,
+    never raises (the tick logs it)."""
+    path = next_entry_path(paths)
+    tmp = path + ".tmp"
+    try:
+        os.makedirs(os.path.dirname(path), exist_ok=True)
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump(doc, f, separators=(",", ":"), allow_nan=False)
+        if qp._replace_with_retry(tmp, path, log=_ne_quiet, what="[cloud-signal] next_entry.json",
+                                  retries=NEXT_ENTRY_REPLACE_RETRIES):
+            return True
+    except Exception:
+        pass
+    try:
+        if os.path.exists(tmp):
+            os.remove(tmp)
+    except OSError:
+        pass
+    return False
+
+
+def _next_entry_self_load(leg, cfg, now, paths):
+    """step()'s stash for `leg`, rebuilt once for a bar step() skipped (STREAM GAP in
+    _next_entry_tick): the closed arrays and the decision trades, read-only and quiet, with
+    the arrays' own newest bar as its bar_epoch. None when nothing is usable."""
+    tf = cfg["timeframe"]
+    df = historical_bars(tf, paths)
+    if df is None or not len(df):
+        return None
+    arrays = closed_arrays(df, now, tf, leg_warmup_sessions(cfg))
+    if arrays is None:
+        return None
+    trades, _ = leg_decision_trades(cfg, arrays, leg, tf, now, paths, fetch=False, log=_ne_quiet)
+    if trades is None:
+        return None
+    return {"cfg": cfg, "arrays": arrays, "trades": trades, "tf": tf,
+            "bar_epoch": int(arrays["index"][-1].timestamp()), "now": now}
+
+
+def _ne_new_signal_rows(paths, mem):
+    """Rows appended to signals.csv since this store's last tick, from ANY writer: step(), or
+    a stream commit (api/cloud_signal_stream.py appends its rows before step() runs, and they
+    never reach step()'s events). [] on the first call, when the file did not grow, or when it
+    shrank or was rewritten; None when the growth could not be read (the tick then waits, as
+    for an order row). One os.path.getsize a tick; reads only the new bytes. Never raises."""
+    path = paths["signals_path"]
+    try:
+        size = os.path.getsize(path)
+    except OSError:
+        mem["sig_size"] = None
+        return []
+    last, mem["sig_size"] = mem.get("sig_size"), size
+    if last is None or size <= last:
+        return []
+    try:
+        import csv
+        import io
+        header = _read_signals_header(path) or SIGNAL_COLS
+        with open(path, "rb") as f:
+            whole_line = True
+            if last > 0:
+                f.seek(last - 1)
+                whole_line = f.read(1) == b"\n"
+            chunk = f.read(size - last).decode("utf-8")
+        lines = chunk.splitlines(True)
+        if not whole_line and lines:
+            lines = lines[1:]            # a header upgrade moved the rows: drop the partial line
+        return [r for r in csv.DictReader(io.StringIO("".join(lines)), fieldnames=header)
+                if r.get("leg") and r.get("event") and r.get("event") != "event"]   # not a header
+    except Exception:
+        return None
+
+
+def _next_entry_tick(now, events, warnings=None, paths=None, log=print):
+    """cloud_signal_thread's ONE call into the preview, after the tick's rows, state.json and
+    heartbeat are written. Returns the sidecar dict it wrote, else None. Never raises.
+
+      1. ORDER TICK: a tick that wrote an ENTRY / EXIT / LEVELS row computes NOTHING, and
+         neither does any tick for NEXT_ENTRY_ORDER_HOLD_SEC after it (by `now`) -- the
+         executor picks that row up on its own 5-s tick, on the same 1-CPU box, while this
+         thread polls every 1 s in the hand-off window. The rows are this tick's `events`
+         plus whatever signals.csv grew by (_ne_new_signal_rows: a stream commit's rows never
+         reach `events`); growth that cannot be read waits the same way. A NOISE_382 ENTRY is
+         kept for the parity record; the first tick after the hold computes (bar D is still
+         the same bar, so the record still matches).
+      2. STREAM GAP: when the stream committed a bar first (api/cloud_signal_stream.py sets
+         last_bar_epoch), step() skipped that leg and stashed nothing new for it. bar_health's
+         newest closed bar (`warnings`) shows it, and the leg is loaded here ONCE for that bar
+         -- never on the commit's own tick or inside its hold, which 1. has already returned
+         from.
+      3. A leg is due once per new closed bar of today's session (or while a NOISE parity
+         record waits); a leg not due keeps its last estimate in the file. Nothing due ->
+         nothing written.
+    A failure writes nothing (the board keeps the last estimate), marks the legs it tried as
+    done for that bar and drops the parity records (the next bar retries, never the next
+    tick), and logs at most one line per NEXT_ENTRY_ERROR_LOG_EVERY_SEC, with how many were
+    held back. Parity lines are logged only once the file is written."""
+    paths = paths or DEFAULT_PATHS
+    mem, tried = None, {}
+    try:
+        mem = _ne_mem(paths)
+        now = now or _dt.datetime.now(tz=_zi(TZ))
+        if now.tzinfo is None:
+            now = now.replace(tzinfo=_zi(TZ))
+        now_ts = now.timestamp()
+        # every tick, order tick or not, so the file size the next tick compares against moves on
+        grown = _ne_new_signal_rows(paths, mem)
+        hot = [e for e in list(events or []) + list(grown or [])
+               if str(e.get("event") or "").upper() in _NEXT_ENTRY_ORDER_EVENTS]
+        if hot or grown is None:
+            seen = {p.get("trade_id") for p in mem["pending"]}
+            for e in hot:                  # `events` first: the CSV copy holds size as text
+                if (e.get("leg") == "NOISE_382" and str(e.get("event")).upper() == "ENTRY"
+                        and e.get("trade_id") not in seen):
+                    seen.add(e.get("trade_id"))
+                    mem["pending"].append({k: e.get(k) for k in
+                                           ("trade_id", "ref_time", "size", "keel_size", "reason")})
+            mem["hold_until"] = now_ts + NEXT_ENTRY_ORDER_HOLD_SEC
+            return None
+        # inside the hold the executor may not have read (or sent) that row yet; a clock that
+        # stepped back past the hold ends it rather than stretching it
+        if 0 < (mem.get("hold_until") or 0.0) - now_ts <= NEXT_ENTRY_ORDER_HOLD_SEC:
+            return None
+        today = now.astimezone(_zi(TZ)).date()
+        mem["pending"] = [p for p in mem["pending"]
+                          if str(p.get("ref_time") or "")[:10] == today.isoformat()]
+        health = (warnings or {}).get("bar_health") or {}
+        due = {}
+        for leg in NEXT_ENTRY_LEGS:
+            inp = mem["inputs"].get(leg)
+            cfg = (inp or {}).get("cfg") or CROWN_LEGS.get(leg)
+            if cfg is None:
+                continue
+            newest = (health.get(cfg["timeframe"]) or {}).get("newest_closed_bar_epoch")
+            if (isinstance(newest, int) and not isinstance(newest, bool)
+                    and (inp is None or inp["bar_epoch"] < newest)
+                    and mem["loaded"].get(leg) != newest
+                    and _dt.datetime.fromtimestamp(newest, tz=_zi(TZ)).date() == today):
+                mem["loaded"][leg] = newest          # once per bar, whatever the load gives
+                got = _next_entry_self_load(leg, cfg, now, paths)
+                if got is not None:
+                    inp = mem["inputs"][leg] = got
+            if inp is None or inp["arrays"]["index"][-1].date() != today:
+                continue
+            if inp["bar_epoch"] != mem["done"].get(leg) or (leg == "NOISE_382" and mem["pending"]):
+                due[leg] = inp
+        if not due:
+            return None
+        tried, checks = due, []
+        doc = next_entry_preview(now, due, paths, pending=list(mem["pending"]),
+                                 prev=read_next_entry(paths), checks=checks)
+        if not _write_next_entry(doc, paths):
+            raise OSError(f"could not replace {next_entry_path(paths)}")
+        for leg, inp in due.items():
+            mem["done"][leg] = inp["bar_epoch"]
+        mem["pending"] = []
+        for leg, rec in checks:
+            log(_ne_check_line(leg, rec))
+        if (doc.get("cost_ms") or 0) > NEXT_ENTRY_SLOW_MS and mem["slow_day"] != today:
+            mem["slow_day"] = today
+            log(f"[cloud-signal] next-entry preview took {doc['cost_ms']} ms")
+        return doc
+    except Exception as e:
+        try:
+            if mem is not None:            # one try per leg per bar: the next bar retries
+                for leg, inp in tried.items():
+                    mem["done"][leg] = inp["bar_epoch"]
+                if tried:
+                    mem["pending"] = []
+        except Exception:
+            pass
+        try:
+            err = mem["err"] if mem is not None else {"last": 0.0, "held": 0}
+            now_wall = _time.time()
+            if now_wall - err["last"] >= NEXT_ENTRY_ERROR_LOG_EVERY_SEC:
+                held = err["held"]
+                err["last"], err["held"] = now_wall, 0
+                log(f"[cloud-signal] next-entry preview failed ({type(e).__name__}: {e}) -- the "
+                    f"board keeps the last estimate" + (f" [+{held} more since the last line]"
+                                                        if held else ""))
+            else:
+                err["held"] += 1
+        except Exception:
+            pass
+        return None
 
 
 # ── CLI ─────────────────────────────────────────────────────────────────────────────────
@@ -6825,6 +7633,9 @@ def _engine_thread_run(stop=None, log=print):
                 for e in events:
                     log(f"[cloud-signal] {e['event']} {e['leg']} {e.get('side','')} "
                         f"@ {e.get('ref_price','')} ({e.get('ref_time','')}) {e.get('reason','')}")
+                # NEXT ENTRY PREVIEW (item 53): after this tick's rows, state and heartbeat are on disk;
+                # never on a tick that emitted an order row (see _next_entry_tick); never raises
+                _next_entry_tick(now_et, events, warnings=warnings, paths=DEFAULT_PATHS, log=log)
                 # SHADOW LEGS (OWNER DECISION 2026-09-28): only AFTER the live step and its
                 # heartbeat, and only on a fetch tick -- the bars on disk only move when a
                 # fetch lands, so the ~1s hand-off-window fast ticks between (fetch=False)
