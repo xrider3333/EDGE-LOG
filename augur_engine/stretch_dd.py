@@ -29,13 +29,19 @@ THE RULES (tests/test_stretch_dd.py pins each one):
     it carries the step while the cent check still passes. A trade held across a switch is therefore
     marked on the difference-adjusted series (close + shift, entry + shift at its fill bar) - the series
     its P&L was computed on. Ratio plans: refused (RATIO_ROLL) until that maths is designed; any other
-    plan holding across a switch: refused (ROLL_SEAM). Never a mark with the step in it.
+    plan holding across a switch: refused (SWITCH_HELD). Never a mark with the step in it.
   * MONEY (critic C3). ONE money_ctx(job_mult, instrument, strategy): a futures root -> the job's
     multiplier when given, else the house table (book._MULT); QQQ, stocks, yahoo_adj, alpaca and a
     PNL_UNITS = "usd" file -> UNSIZED. Never a default 20.
-  * A multi-day trade that cannot be valued (no side or entry price, a size it folded in that we do not
-    know) makes its stretch null with the count recorded - never 0.
+  * A multi-day trade that cannot be valued (no side or entry price, a non-finite close, a size it
+    folded in that we do not know - and the WF chain never knows a sizing file's sizes) makes its
+    stretch null with the count recorded - never 0. A non-finite valued amount is NON_FINITE, never
+    "within a cent".
   * FRAME BOUNDS (critic C7). Every member satisfies 0 <= entry <= exit < bars, else OUT_OF_FRAME.
+  * SAME TAPE. Fold stamps + closes (FOLD_TS / TAPE_MOVED), the lockbox's recorded tape, the whole
+    run's bar count: a master rewritten mid-validate never yields a figure off moved bars.
+  * A stretch with no trade (a lockbox that took none) is a flat series: DD 0, marked 0.
+  * ISOLATION. An error in one stretch / gate block nulls that one, with its reason; the rest are written.
 
 Kill switch: AUGUR_STRETCH_DD=0 turns the whole thing off (no new key anywhere).
 """
@@ -53,17 +59,19 @@ VERSION = 1
 CENT = 0.005                     # the to-the-cent tolerance of the net check, in dollars
 
 # Per-trade status, worst first. A stretch with any member not OK reports the lowest code present.
-OK, BAD_TRADE, OUT_OF_FRAME, UNMARKED, SIZE_UNKNOWN, RATIO_ROLL, ROLL_SEAM = range(7)
+OK, BAD_TRADE, OUT_OF_FRAME, UNMARKED, SIZE_UNKNOWN, RATIO_ROLL, SWITCH_HELD, MARK_ERROR = range(8)
 CODES = {BAD_TRADE: "BAD_TRADE", OUT_OF_FRAME: "OUT_OF_FRAME", UNMARKED: "UNMARKED",
-         SIZE_UNKNOWN: "SIZE_UNKNOWN", RATIO_ROLL: "RATIO_ROLL", ROLL_SEAM: "ROLL_SEAM"}
+         SIZE_UNKNOWN: "SIZE_UNKNOWN", RATIO_ROLL: "RATIO_ROLL", SWITCH_HELD: "SWITCH_HELD",
+         MARK_ERROR: "MARK_ERROR"}
 _WHY = {BAD_TRADE: "could not be read (entry / exit / P&L)",
         OUT_OF_FRAME: "have bar indices outside the stretch's price arrays",
-        UNMARKED: "were open overnight with no side or entry price to value them by",
+        UNMARKED: "were open overnight with no side, entry price or finite close to value them by",
         SIZE_UNKNOWN: "were open overnight at a size the strategy folded into its P&L and this stretch "
                       "does not carry",
         RATIO_ROLL: "were held across a contract switch on a ratio-adjusted plan (not designed yet)",
-        ROLL_SEAM: "were held across a contract switch on a plan whose marks cannot be cleared of the "
-                   "roll step"}
+        SWITCH_HELD: "were held across a contract switch on a plan whose marks cannot be cleared of the "
+                   "roll step",
+        MARK_ERROR: "raised an error while being marked (roll table / price arrays)"}
 DIFF_KIND = "difference-adjusted signals"
 RATIO_KIND = "ratio-adjusted signals"
 
@@ -255,7 +263,7 @@ class _RollMarks:
             return OK, seg_close + sc, float(px) + float(sc[0])
         if self.kind == RATIO_KIND:
             return RATIO_ROLL, seg_close, px
-        return ROLL_SEAM, seg_close, px
+        return SWITCH_HELD, seg_close, px
 
 
 # ── VALUATION: book._mtm_increments, one trade at a time ────────────────────────────────────────────
@@ -274,6 +282,49 @@ def folds_size(sizes):
         return sizes is not None and any(abs(float(s) - 1.0) > 1e-12 for s in sizes)
     except Exception:
         return True
+
+
+def emits_sizes(*results):
+    """True when any of these run_backtest results carries `trade_sizes` (NOISE's tilt): the FILE folds a
+    per-trade size into t[2], whatever one champion's sizes happen to be. A stretch that does not carry
+    those sizes - the WF chain, whose folds each crowned their own params - cannot mark a multi-day trade
+    (critic C3): a whole-run champion at size 1 says nothing about fold 3's champion at size 2."""
+    return any(isinstance(r, dict) and r.get("trade_sizes") is not None for r in results)
+
+
+# ── SAME TAPE (the bars a stretch's trades were made on = the bars it is valued on) ─────────────────
+def close_fp(close):
+    """A short sha1 of a close array's float64 bytes: two loads of the same bars give the same value."""
+    import hashlib
+    a = np.ascontiguousarray(np.asarray(close, dtype=np.float64))
+    return hashlib.sha1(a.tobytes()).hexdigest()[:20]
+
+
+def tape_of(arrays, i0=0):
+    """What a stretch ran on, from bar `i0` to the end of `arrays`: bar count, first / last stamp and
+    the closes' fingerprint. validate's lockbox runner records it so the gate-stage load can be proved
+    to be the same tape (a master rewritten mid-validate moves bars under the trades' indices)."""
+    idx, c = arrays.get("index"), arrays.get("close")
+    n = len(c)
+    return {"bars": int(n - i0), "first": str(idx[i0]), "last": str(idx[n - 1]),
+            "cfp": close_fp(c[i0:])}
+
+
+def _tape_moved(fr, i0, tape, res=None):
+    """None when the frame's bars from `i0` on match what the stretch recorded running on, else why.
+    With no recorded tape only a run_backtest result's own _meta.bars count can be checked."""
+    if isinstance(tape, dict) and tape:
+        got = {"bars": fr.n - i0, "first": str(fr.index[i0]), "last": str(fr.index[fr.n - 1])}
+        for k, v in got.items():
+            if tape.get(k) is not None and str(tape[k]) != str(v):
+                return "it ran on %s %s, the gate-stage arrays hold %s" % (k, tape[k], v)
+        if tape.get("cfp") and tape["cfp"] != close_fp(fr.close[i0:]):
+            return "its closes changed between its run and the gate-stage load (same stamps, new prices)"
+        return None
+    bars = ((res or {}).get("_meta") or {}).get("bars") if isinstance(res, dict) else None
+    if bars is not None and int(bars) != fr.n - i0:
+        return "it ran on %d bars, the gate-stage arrays hold %d from its start" % (int(bars), fr.n - i0)
+    return None
 
 
 class Valuation:
@@ -345,16 +396,23 @@ class Valuation:
                 self.status[i] = UNMARKED
                 continue
             seg_close = close[e:x + 1]
-            if rm is not None:
-                st, seg_close, px = rm.adjust(e, x, seg_close, px)
-                if st != OK:
-                    self.status[i] = st
-                    continue
-            # size s folded into t[2] (critic C3): value (t[2]/s) at size s, so the marks scale with s and
-            # the increments still sum to t[2] x mult
-            inc, mk, um = _mtm_increments(days[pos[e:x + 1]], seg_close, [((0, x - e, p / s, side, px), s)],
-                                          self.mult, 1.0)
-            if um or mk != 1 or not inc:
+            # one trade's marking can never take the others down: an error here is this trade's status
+            try:
+                if rm is not None:
+                    st, seg_close, px = rm.adjust(e, x, seg_close, px)
+                    if st != OK:
+                        self.status[i] = st
+                        continue
+                # size s folded into t[2] (critic C3): value (t[2]/s) at size s, so the marks scale with s
+                # and the increments still sum to t[2] x mult
+                inc, mk, um = _mtm_increments(days[pos[e:x + 1]], seg_close,
+                                              [((0, x - e, p / s, side, px), s)], self.mult, 1.0)
+            except Exception:
+                self.status[i] = MARK_ERROR
+                continue
+            # a NaN / inf close at a day-end bar (or a NaN roll shift) makes every mark after it NaN, and
+            # a NaN sum slips past any "differs by a cent" test: such a position is not valued (decision 8)
+            if um or mk != 1 or not inc or not all(math.isfinite(float(q[1])) for q in inc):
                 self.status[i] = UNMARKED
                 continue
             dd = np.asarray([q[0] for q in inc], dtype="datetime64[D]")
@@ -376,7 +434,9 @@ def reading(val, members, lo_bar, hi_bar, expect_usd, weights=None, expect_n=Non
 
     `members` masks the valuation's trades (entry membership, decided by the caller); `weights` sizes
     each trade (a tilt / hybrid row); the day grid runs from the stretch's first bar `lo_bar` to
-    max(`hi_bar`, the last member exit), every distinct day present, zero days included."""
+    max(`hi_bar`, the last member exit), every distinct day present, zero days included. A stretch with
+    no member trade (a lockbox that took none) is a FLAT series over its own days: DD 0, marked 0, still
+    cent-checked against its stored net (which must then be 0)."""
     fr = val.frame
     m = np.asarray(members, dtype=bool)
     if len(m) != len(val):
@@ -385,15 +445,16 @@ def reading(val, members, lo_bar, hi_bar, expect_usd, weights=None, expect_n=Non
     if expect_n is not None and len(idx) != int(expect_n):
         return None, ("MEMBERSHIP", len(idx), "%d member trades where the block counts %d"
                       % (len(idx), int(expect_n)))
-    if not len(idx):
-        return None, ("NO_TRADES", 0, "the stretch has no trades")
     st = val.status[idx]
     if st.any():
         code = int(st[st > 0].min())
         k = int((st == code).sum())
         return None, (CODES[code], k, "%d trade(s) %s" % (k, _WHY[code]))
-    lo = max(0, int(min(int(lo_bar), int(val.entry[idx].min()))))
-    hi = min(fr.n - 1, int(max(int(hi_bar), int(val.exit[idx].max()))))
+    if len(idx):
+        lo = max(0, int(min(int(lo_bar), int(val.entry[idx].min()))))
+        hi = min(fr.n - 1, int(max(int(hi_bar), int(val.exit[idx].max()))))
+    else:
+        lo, hi = max(0, int(lo_bar)), min(fr.n - 1, int(hi_bar))
     if hi < lo:
         return None, ("FEW_DAYS", 0, "the stretch has no bars")
     sel = m[val.row_trade] if len(val.row_trade) else np.zeros(0, dtype=bool)
@@ -403,11 +464,16 @@ def reading(val, members, lo_bar, hi_bar, expect_usd, weights=None, expect_n=Non
         if len(w) != len(val):
             return None, ("FRAME", 0, "%d weights for %d trades" % (len(w), len(val)))
         usd = usd * w[val.row_trade[sel]]
+    bad = ~np.isfinite(usd)
+    if bad.any():                    # a NaN never compares >= a cent: refuse it before any check reads it
+        k = int(len(np.unique(val.row_trade[sel][bad])))
+        return None, ("NON_FINITE", k, "%d trade(s) valued to a non-finite amount (a NaN close, size or "
+                                       "weight)" % k)
     whole = np.bincount(val.row_pos[sel], weights=usd, minlength=len(fr.days)) if len(usd) \
         else np.zeros(len(fr.days))
     d0, d1 = int(fr.pos[lo]), int(fr.pos[hi])
     ser = whole[d0:d1 + 1]
-    if abs(math.fsum(whole) - math.fsum(ser)) > 1e-6:      # an increment outside the grid = a frame bug
+    if not (abs(math.fsum(whole) - math.fsum(ser)) <= 1e-6):  # an increment outside the grid = a frame bug
         return None, ("FRAME", 0, "valued increments fall outside the stretch's days")
     if len(ser) < 2:
         return None, ("FEW_DAYS", len(ser), "the stretch spans fewer than 2 days")
@@ -418,13 +484,29 @@ def reading(val, members, lo_bar, hi_bar, expect_usd, weights=None, expect_n=Non
         exp = float("nan")
     if not math.isfinite(exp):
         return None, ("NO_NET", 0, "no stored net to check the valued series against")
-    if abs(tot - exp) >= CENT:
+    if not (math.isfinite(tot) and abs(tot - exp) < CENT):    # NaN-safe: only a provable match passes
         return None, ("NET_MISMATCH", 0, "valued net %.2f != block net %.2f" % (tot, exp))
     from .drawdowns import four_numbers
     f = four_numbers([float(v) for v in ser], dates=[str(d) for d in fr.days[d0:d1 + 1]],
                      start=start_usd())
     return {"dd_pct_peak": f["dd_pct_peak"], "dd_usd": f["max_dd"],
             "marked": int(val.marked[idx].sum())}, None
+
+
+def _why_of(e):
+    """An exception -> a stretch's (code, count, text): a Refused keeps its code, anything else is ERROR."""
+    if isinstance(e, Refused):
+        return (e.code, 0, e.detail)
+    return ("ERROR", 0, "%s: %s" % (type(e).__name__, str(e)[:160]))
+
+
+def safe_reading(*args, **kw):
+    """reading() that never raises: an exception becomes that stretch's own reason, so one bad stretch
+    is null and every other stretch is still written (decision 7)."""
+    try:
+        return reading(*args, **kw)
+    except Exception as e:
+        return None, _why_of(e)
 
 
 def as_block_keys(r):
@@ -456,22 +538,27 @@ def _count(rep, code):
 
 
 # ── GATE BLOCKS (ml_gate.gate_validate, `mtm=`) ─────────────────────────────────────────────────────
-def gate_ctx(money, roll=None, sizes=None):
-    """The `mtm=` dict validate hands gate_validate. gate_pass fills "report" and caches the Frame."""
-    return {"money": money, "roll": roll, "sizes": sizes, "sized_file": folds_size(sizes),
+def gate_ctx(money, roll=None, sizes=None, sized_file=None):
+    """The `mtm=` dict validate hands gate_validate. gate_pass fills "report" and caches the Frame.
+    `sized_file`: does the strategy file fold a size into t[2] (emits_sizes of its result)? None = judge
+    by `sizes` alone (some size != 1)."""
+    return {"money": money, "roll": roll, "sizes": sizes,
+            "sized_file": folds_size(sizes) if sized_file is None else bool(sized_file),
             "report": None}
 
 
 def gate_pass(mtm, arrays, trades, n_T, regs):
     """Value every registered gate block. `regs` = [(block, mask over T | None, weights over T | None,
     t0, t1)] in gate_validate's own trade order T (entry-sorted, stable). Writes the three keys into
-    each block that passes its checks and leaves a report {"blocks", "refused": {code: n}} in mtm."""
+    each block that passes its checks and leaves a report {"blocks", "refused": {code: n}, "day_rule"}
+    in mtm. A block that raises is counted under ERROR (first messages in "errors"); the pass goes on."""
     rep = {"blocks": 0, "refused": {}}
     mtm["report"] = rep
     if not regs:
         return rep
     mult = float(mtm["money"]["mult"])
     fr = frame_for(mtm, arrays)
+    rep["day_rule"] = fr.rule
     sizes = mtm.get("sizes")
     if sizes is not None and len(sizes) != len(trades):
         sizes = None
@@ -489,22 +576,29 @@ def gate_pass(mtm, arrays, trades, n_T, regs):
         if not isinstance(block, dict) or id(block) in seen:
             continue
         seen.add(id(block))
-        m = np.ones(len(t5), dtype=bool) if mask is None else np.asarray(mask, dtype=bool).copy()
-        if len(m) != len(t5):
-            _count(rep["refused"], "FRAME")
-            continue
-        lo, hi = 0, fr.n - 1
-        if t0 is not None:
-            m &= ens >= _ts_ns(t0, fr.index)
-            lo = fr.bar_at(t0)
-        if t1 is not None:
-            m &= ens < _ts_ns(t1, fr.index)
-            hi = fr.bar_at(t1) - 1
         try:
-            exp = float(block.get("total_pnl")) * mult
-        except (TypeError, ValueError):
-            exp = None
-        r, why = reading(val, m, lo, hi, exp, weights=weights, expect_n=block.get("num_trades"))
+            m = np.ones(len(t5), dtype=bool) if mask is None else np.asarray(mask, dtype=bool).copy()
+            if len(m) != len(t5):
+                _count(rep["refused"], "FRAME")
+                continue
+            lo, hi = 0, fr.n - 1
+            if t0 is not None:
+                m &= ens >= _ts_ns(t0, fr.index)
+                lo = fr.bar_at(t0)
+            if t1 is not None:
+                m &= ens < _ts_ns(t1, fr.index)
+                hi = fr.bar_at(t1) - 1
+            try:
+                exp = float(block.get("total_pnl")) * mult
+            except (TypeError, ValueError):
+                exp = None
+            r, why = reading(val, m, lo, hi, exp, weights=weights, expect_n=block.get("num_trades"))
+        except Exception as e:                          # one block never costs the others their keys
+            _count(rep["refused"], "ERROR")
+            errs = rep.setdefault("errors", [])
+            if len(errs) < 3:
+                errs.append("%s: %s" % (type(e).__name__, str(e)[:160]))
+            continue
         if r is None:
             _count(rep["refused"], why[0])
             continue
@@ -526,7 +620,8 @@ def chain_fold(fr_row):
             "ei": list(g("_oos_ei") or []), "xi": list(g("_oos_xi") or []),
             "pnl": list(g("_oos_pnlf") if g("_oos_pnlf") is not None else (g("_oos_pnls") or [])),
             "side": (list(g("_oos_side")) if g("_oos_side") is not None else None),
-            "px": (list(g("_oos_px")) if g("_oos_px") is not None else None)}
+            "px": (list(g("_oos_px")) if g("_oos_px") is not None else None),
+            "cfp": g("_oos_cfp")}
 
 
 def _chain_trades(fr, chain):
@@ -549,6 +644,11 @@ def _chain_trades(fr, chain):
         if fd.get("b_ts") and str(fr.index[b - 1]) != str(fd.get("b_ts")):
             raise Refused("FOLD_TS", "fold %s ends at %s on the saved run, %s on these bars"
                           % (fd.get("fold"), fd.get("b_ts"), fr.index[b - 1]))
+        # same stamps are not the same tape: a restatement keeps them and changes the closes, and the
+        #   marks would then mix new closes with the fold's old fill prices (run_auto's _oos_cfp)
+        if fd.get("cfp") and close_fp(fr.close[a:b]) != fd.get("cfp"):
+            raise Refused("TAPE_MOVED", "fold %s's closes changed between the walk-forward and the "
+                                        "gate-stage load" % fd.get("fold"))
         ei, xi, pn = fd.get("ei") or [], fd.get("xi") or [], fd.get("pnl") or []
         side, px = fd.get("side"), fd.get("px")
         k = int(fd.get("oos_trades") or 0)
@@ -568,7 +668,7 @@ def _chain_trades(fr, chain):
 
 def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=None, lb=None,
                 lb_from=None, roll=None, cache=None, code_sha="", cut_rule=None, unsized=None,
-                log=print):
+                lb_tape=None, log=print):
     """The run-level block: (dd_pct, dd_pct_src).
 
     dd_pct = {"is", "wf", "lb", "wf_lb", "full": {"dd_pct_peak", "dd_usd", "marked"} | None}; a null
@@ -577,7 +677,15 @@ def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=Non
     the WF chain sits at each fold's test_start, the lockbox at the first bar of lb_from (the warm
     runner's own rebase). Each series is cent-checked against the stored net: gate_validate's
     ungated_is / ungated_full when the gate ran (else the trades' own sum), the folds' oos_pnl, and
-    validate.lockbox.pnl."""
+    validate.lockbox.pnl.
+
+    SAME TAPE. Each stretch's trades must sit on the bars they were made on: full by its _meta.bars
+    count, every chain fold by its start / end stamps and (run_auto's _oos_cfp) its closes, the lockbox
+    by `lb_tape` (the warm runner's bar count, end stamps and closes; tape_of) or else its own
+    _meta.bars. A mismatch is TAPE_MOVED / FOLD_TS for that stretch, never a valued figure.
+
+    ISOLATION. Any error inside one stretch nulls that stretch with its reason; the others are still
+    valued and written."""
     src = {"src": "validate", "v": VERSION, "start": start_usd(), "membership": "entry",
            "code_sha": code_sha or "", "repro": "EXACT", "masked_bars": 0, "cut_rule": cut_rule}
     if money is None:
@@ -594,15 +702,28 @@ def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=Non
         if code == "UNMARKED":
             unmarked[name] = int(k)
 
+    def _put(name, rw):
+        r, why = rw
+        out[name] = r
+        if r is None:
+            _no(name, why)
+
     if arrays is None:
         for k in STRETCHES:
             _no(k, ("NO_ARRAYS", 0, "the whole-window price arrays did not load"))
     else:
-        fr = frame_for(cache if isinstance(cache, dict) else {}, arrays)
+        try:
+            fr = frame_for(cache if isinstance(cache, dict) else {}, arrays)
+        except Exception as e:
+            fr = None
+            for k in STRETCHES:
+                _no(k, _why_of(e))
+    if arrays is not None and fr is not None:
         src["day_rule"] = fr.rule
         if roll:
             src["roll"] = {"root": roll.get("root"), "kind": roll.get("kind"), "corrected": 0}
         gate = gate if isinstance(gate, dict) else {}
+        tape = {}
 
         # ── is + full: the champion's cold whole-window trades ──
         ft = list((full or {}).get("trades") or []) if isinstance(full, dict) else []
@@ -615,8 +736,10 @@ def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=Non
                 if bars is not None and int(bars) != fr.n:
                     raise Refused("FRAME", "the whole-window backtest ran on %d bars, the arrays hold %d"
                                   % (int(bars), fr.n))
+                tape["full"] = "bars" if bars is not None else "unchecked"
                 fsz = aligned_sizes(full, ft)
-                vf = Valuation(fr, ft, mult, sizes=fsz, sized_file=folds_size(fsz), roll=roll)
+                vf = Valuation(fr, ft, mult, sizes=fsz, sized_file=emits_sizes(full) or folds_size(fsz),
+                               roll=roll)
                 if roll:
                     src["roll"]["corrected"] += int(vf.roll_corrected)
                 allm = np.ones(len(ft), dtype=bool)
@@ -625,32 +748,29 @@ def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=Non
                     exp, n_exp, net_ref["full"] = ug.get("total_pnl"), ug.get("num_trades"), "gate_validate.ungated_full"
                 else:
                     exp, n_exp, net_ref["full"] = full.get("total_pnl"), len(ft), "whole-window backtest"
-                r, why = reading(vf, allm, 0, fr.n - 1, (None if exp is None else float(exp) * mult),
-                                 expect_n=n_exp)
-                out["full"] = r
-                if r is None:
-                    _no("full", why)
+                _put("full", safe_reading(vf, allm, 0, fr.n - 1, (None if exp is None else float(exp) * mult),
+                                          expect_n=n_exp))
                 if wf_split is None:
                     _no("is", ("NO_WF_SPLIT", 0, "no walk-forward fold gave an IS | WF split"))
                 else:
-                    eb = np.minimum(np.asarray([int(t[0]) for t in ft], dtype=np.int64), fr.n - 1)
-                    ism = fr.ns[eb] < _ts_ns(wf_split, fr.index)
-                    cut = fr.bar_at(wf_split)
-                    ui = gate.get("ungated_is") if isinstance(gate.get("ungated_is"), dict) else None
-                    if ui is not None:
-                        exp, n_exp, net_ref["is"] = ui.get("total_pnl"), ui.get("num_trades"), "gate_validate.ungated_is"
-                    else:
-                        exp, n_exp, net_ref["is"] = (math.fsum(vf.pnl[ism]), int(ism.sum()),
-                                                     "whole-window backtest")
-                    r, why = reading(vf, ism, 0, cut - 1, (None if exp is None else float(exp) * mult),
-                                     expect_n=n_exp)
-                    out["is"] = r
-                    if r is None:
-                        _no("is", why)
-            except Refused as e:
+                    try:
+                        eb = np.minimum(np.asarray([int(t[0]) for t in ft], dtype=np.int64), fr.n - 1)
+                        ism = fr.ns[eb] < _ts_ns(wf_split, fr.index)
+                        cut = fr.bar_at(wf_split)
+                        ui = gate.get("ungated_is") if isinstance(gate.get("ungated_is"), dict) else None
+                        if ui is not None:
+                            exp, n_exp, net_ref["is"] = ui.get("total_pnl"), ui.get("num_trades"), "gate_validate.ungated_is"
+                        else:
+                            exp, n_exp, net_ref["is"] = (math.fsum(vf.pnl[ism]), int(ism.sum()),
+                                                         "whole-window backtest")
+                        _put("is", safe_reading(vf, ism, 0, cut - 1,
+                                                (None if exp is None else float(exp) * mult), expect_n=n_exp))
+                    except Exception as e:
+                        _no("is", _why_of(e))
+            except Exception as e:
                 for k in ("full", "is"):
                     if k not in reasons and out[k] is None:
-                        _no(k, (e.code, 0, e.detail))
+                        _no(k, _why_of(e))
 
         # ── wf (the chain), lb, wf_lb: one valuation on the same frame ──
         try:
@@ -661,8 +781,9 @@ def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=Non
             else:
                 try:
                     ctr, coffs, cnet, clo, chi = _chain_trades(fr, chain)
-                except Refused as e:
-                    chain_why = (e.code, 0, e.detail)
+                    tape["wf"] = "ends+closes" if all(fd.get("cfp") for fd in chain) else "ends"
+                except Exception as e:
+                    chain_why = _why_of(e)
                     ctr, coffs = [], []
             ltr = list((lb or {}).get("trades") or []) if isinstance(lb, dict) else []
             lb_why, lb_i = None, None
@@ -674,11 +795,24 @@ def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=Non
                 lb_i = fr.bar_at(pd.Timestamp(str(lb_from)[:10], tz="US/Eastern"))
                 if not (0 < lb_i < fr.n):
                     lb_why = ("FRAME", 0, "the lockbox start is bar %d of %d" % (lb_i, fr.n))
+                else:
+                    try:
+                        moved = _tape_moved(fr, lb_i, lb_tape, lb)
+                    except Exception as e:
+                        moved = "its tape could not be compared (%s)" % type(e).__name__
+                    if moved:
+                        lb_why = ("TAPE_MOVED", 0, "the lockbox: " + moved)
+                    else:
+                        tape["lb"] = ("bars+ends+closes" if isinstance(lb_tape, dict) and lb_tape else
+                                      ("bars" if ((lb.get("_meta") or {}).get("bars") is not None)
+                                       else "unchecked"))
             if lb_why is not None:
                 ltr = []
             lsz = aligned_sizes(lb, ltr) if ltr else None
-            fsz_all = aligned_sizes(full, list((full or {}).get("trades") or [])) if isinstance(full, dict) else None
-            sized_file = folds_size(fsz_all) or folds_size(lsz)
+            # critic C3: the chain's folds crowned their own params and carry no sizes, so a file that
+            #   sizes its trades at all leaves the chain's multi-day trades SIZE_UNKNOWN, whatever the
+            #   whole-run champion's own sizes are
+            sized_file = emits_sizes(full, lb) or folds_size(lsz)
             sizes = None
             if sized_file:
                 sizes = [None] * len(ctr) + (list(lsz) if lsz is not None else [None] * len(ltr))
@@ -691,10 +825,7 @@ def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=Non
                 wm = np.zeros(len(vc), dtype=bool)
                 wm[:nc] = True
                 net_ref["wf"] = "walk-forward folds oos_pnl"
-                r, why = reading(vc, wm, clo, chi, cnet * mult, expect_n=nc)
-                out["wf"] = r
-                if r is None:
-                    _no("wf", why)
+                _put("wf", safe_reading(vc, wm, clo, chi, cnet * mult, expect_n=nc))
             else:
                 _no("wf", chain_why)
             lnet = None
@@ -703,25 +834,21 @@ def validate_dd(money, arrays, *, full=None, gate=None, wf_split=None, chain=Non
                 lm = np.zeros(len(vc), dtype=bool)
                 lm[nc:] = True
                 net_ref["lb"] = "validate.lockbox.pnl"
-                r, why = reading(vc, lm, lb_i, fr.n - 1, lnet * mult, expect_n=lb.get("num_trades"))
-                out["lb"] = r
-                if r is None:
-                    _no("lb", why)
+                _put("lb", safe_reading(vc, lm, lb_i, fr.n - 1, lnet * mult, expect_n=lb.get("num_trades")))
             else:
                 _no("lb", lb_why)
             if out["wf"] is not None and out["lb"] is not None:
                 # ONE daily series: the chain, then the lockbox (a shared day sums)
-                r, why = reading(vc, np.ones(len(vc), dtype=bool), clo, fr.n - 1, (cnet + lnet) * mult,
-                                 expect_n=len(vc))
-                out["wf_lb"] = r
-                if r is None:
-                    _no("wf_lb", why)
+                _put("wf_lb", safe_reading(vc, np.ones(len(vc), dtype=bool), clo, fr.n - 1,
+                                           (cnet + lnet) * mult, expect_n=len(vc)))
             else:
                 _no("wf_lb", ("NEEDS_WF_AND_LB", 0, "the WF chain and the lockbox must both be valued"))
-        except Refused as e:
+        except Exception as e:
             for k in ("wf", "lb", "wf_lb"):
                 if out[k] is None and k not in reasons:
-                    _no(k, (e.code, 0, e.detail))
+                    _no(k, _why_of(e))
+        if tape:
+            src["tape"] = tape
 
     ok = sum(1 for k in STRETCHES if out[k] is not None)
     src["status"] = "OK" if ok == len(STRETCHES) else ("PARTIAL" if ok else "NONE")

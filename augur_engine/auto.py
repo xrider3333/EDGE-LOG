@@ -1283,6 +1283,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
     O, H, L, C = arrays["open"], arrays["high"], arrays["low"], arrays["close"]
     V, did = arrays.get("volume"), arrays.get("day_id")
     IDX = arrays.get("index")
+    # item 51 (keep_oos_detail only): the master's own closes, before any roll plan touches them, so
+    #   each fold row can carry a fingerprint of the bars its trades were made on (_oos_cfp)
+    _dd_raw_close = C if keep_oos_detail else None
 
     fn = mod.run_backtest
     sp = inspect.signature(fn).parameters
@@ -1519,6 +1522,15 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
             for k in ("_oos_side", "_oos_px", "_oos_pnlf"):
                 if k in r:
                     row[k] = r[k]
+            # the fingerprint of the fold's test-slice closes: validate refuses to value the chain on
+            #   a gate-stage load whose closes differ (a master restated mid-validate). Own try.
+            try:
+                _a, _b = int(r["test_start"]), int(r["test_end"])
+                if _dd_raw_close is not None and 0 <= _a < _b <= len(_dd_raw_close):
+                    from .stretch_dd import close_fp as _cfp
+                    row["_oos_cfp"] = _cfp(_dd_raw_close[_a:_b])
+            except Exception:
+                row.pop("_oos_cfp", None)
         top.append(row)
 
     out = {"mode": method, "n_combos": (n_trials if not is_wf else n_trials),

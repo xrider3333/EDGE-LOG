@@ -310,6 +310,14 @@ def _make_lockbox_runner(strategy, master, instrument, timeframe, session, sourc
                 def _warm_run(params):
                     return _ev(_lb_i, _n, params, keep_trades=True, warm=True)
 
+                # item 51: the tape the lockbox trades are made on (bars, end stamps, closes), so
+                #   validate.dd_pct can prove the gate-stage arrays it values them on are the same bars.
+                #   An attribute only: the runner's results are untouched; any failure = no record.
+                try:
+                    if _SDD.enabled():
+                        _warm_run.tape = _SDD.tape_of(_arrs, _lb_i)
+                except Exception:
+                    pass
                 return _warm_run
         except Exception:
             pass      # any setup problem -> the cold path below, never a failed run
@@ -1259,7 +1267,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
     for _rowset in (folds, (_altw.get("folds") if isinstance(_altw, dict) else None)):
         for _fr in (_rowset or []):
             for _k in ("_oos_pnls", "_oos_mae", "_oos_mfe", "_oos_won",
-                       "_oos_ei", "_oos_xi", "_oos_side", "_oos_px", "_oos_pnlf"):
+                       "_oos_ei", "_oos_xi", "_oos_side", "_oos_px", "_oos_pnlf", "_oos_cfp"):
                 _fr.pop(_k, None)
 
     # ── Per-trade Win% / Sharpe so the report's KPI matrix + Past-runs columns aren't blank.
@@ -1530,7 +1538,8 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 if _dd_on and _dd_money is not None:
                     try:
                         _dd_gctx = _SDD.gate_ctx(_dd_money, roll=_dd_roll,
-                                                 sizes=_SDD.aligned_sizes(full, full["trades"]))
+                                                 sizes=_SDD.aligned_sizes(full, full["trades"]),
+                                                 sized_file=_SDD.emits_sizes(full) or None)
                         _dd_gctx["_frames"] = _dd_cache.setdefault("_frames", {})
                     except Exception:
                         _dd_gctx = None
@@ -1733,7 +1742,7 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                 _dd_money, _full_arr, full=(full if champ else None), gate=gate_bakeoff,
                 wf_split=_wfA, chain=_dd_chain, lb=lb, lb_from=lb_from, roll=_dd_roll,
                 cache=_dd_cache, code_sha=_LOADED_GIT_SHA, cut_rule=window_cut_rule(master),
-                unsized=_dd_unsized)
+                unsized=_dd_unsized, lb_tape=getattr(_lb_run, "tape", None))
         except Exception as _dde:
             _dd_pct = None
             _dd_src = {"src": "validate", "v": _SDD.VERSION, "status": "ERROR",

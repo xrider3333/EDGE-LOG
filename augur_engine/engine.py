@@ -567,20 +567,55 @@ def run_gate_validate(strategy, *, instrument=None, timeframe="5m", session="rth
     if progress_cb:
         progress_cb(15, 100)
     _mtm = None                                   # item 51: None = the gate exactly as before
+    _dd_src = None                                # ...and its provenance, saved as gate_validate.dd_pct_src
     try:
         from . import stretch_dd as _SDD
         if _SDD.enabled():
             _am = arrays.get("meta") or master or {}
+            _dd_src = {"src": "gate_validate", "v": _SDD.VERSION, "start": _SDD.start_usd(),
+                       "membership": "entry", "day_rule": _SDD.day_rule(arrays.get("meta") or {})}
+            try:
+                from .validate import _LOADED_GIT_SHA as _sha
+                _dd_src["code_sha"] = _sha or ""
+            except Exception:
+                _dd_src["code_sha"] = ""
             _money, _why = _SDD.money_ctx(dd_mult, instrument or _am.get("instrument"), mod,
                                           source=_am.get("source") or source)
             if _money is not None:
-                _mtm = _SDD.gate_ctx(_money, roll=_SDD.roll_info(_am, base),
-                                     sizes=_SDD.aligned_sizes(base, base["trades"]))
-    except Exception:
+                _rinfo = _SDD.roll_info(_am, base)
+                _mtm = _SDD.gate_ctx(_money, roll=_rinfo,
+                                     sizes=_SDD.aligned_sizes(base, base["trades"]),
+                                     sized_file=_SDD.emits_sizes(base) or None)
+                _dd_src.update(mult=float(_money["mult"]), mult_src=_money.get("mult_src"))
+                if _rinfo:
+                    _dd_src["roll"] = {"root": _rinfo.get("root"), "kind": _rinfo.get("kind")}
+            else:
+                _dd_src.update(status="UNSIZED", reason=_why or "UNSIZED")
+    except Exception as _dde:
         _mtm = None
+        if isinstance(_dd_src, dict):
+            _dd_src.update(status="ERROR", error="%s: %s" % (type(_dde).__name__, str(_dde)[:200]))
     gv = _gv(arrays, base["trades"], gates=tuple(gates),
              thresholds=tuple(thresholds), lockbox_months=int(lockbox_months),
              **({"mtm": _mtm} if _mtm is not None else {}))
+    # item 51 (decisions 6 / 7 / 9): a Gate-Validate doc says where its per-block DD keys came from and
+    #   why any are missing - the gate pass's report (blocks keyed, refusals by code, an error) or
+    #   UNSIZED. A new key of gate_validate only; never fails the job.
+    if isinstance(gv, dict) and isinstance(_dd_src, dict):
+        try:
+            _rep = _mtm.get("report") if isinstance(_mtm, dict) else None
+            if isinstance(_rep, dict):
+                _dd_src["gate"] = _rep
+                if _rep.get("day_rule"):
+                    _dd_src["day_rule"] = _rep["day_rule"]
+                _dd_src["status"] = ("ERROR" if _rep.get("error") else
+                                     ("OK" if not _rep.get("refused") else
+                                      ("PARTIAL" if _rep.get("blocks") else "NONE")))
+            elif "status" not in _dd_src:
+                _dd_src["status"] = "NONE"
+            gv["dd_pct_src"] = _dd_src
+        except Exception:
+            pass
     if progress_cb:
         progress_cb(95, 100)
     res = {k: v for k, v in base.items() if k != "trades"}

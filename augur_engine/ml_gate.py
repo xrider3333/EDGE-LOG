@@ -517,14 +517,22 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
         if mtm is None:
             return
         try:
-            from .stretch_dd import gate_pass, DD_KEYS
+            from .stretch_dd import gate_pass
             for _k, (_a, _b) in (("ungated_pre", (None, lb_start)), ("ungated_lockbox", (lb_start, None)),
                                  ("ungated_full", (None, None)), ("ungated_is", (None, wf0)),
                                  ("ungated_wf", (wf0, wf1)), ("ungated_wf_lb", (wf0, None))):
                 if isinstance(out.get(_k), dict):
                     _dd_reg.append((out[_k], None, None, _a, _b))
             gate_pass(mtm, arrays, trades, len(T), _dd_reg)
-            # _cand_out copied each candidate's blocks before this pass: carry the keys over
+        except Exception as _dde:                         # a reporting extra never fails the gate
+            # keep what the pass already counted (blocks keyed so far, refusals): the error joins it
+            _rep = mtm.get("report") if isinstance(mtm.get("report"), dict) else {}
+            _rep["error"] = "%s: %s" % (type(_dde).__name__, str(_dde)[:200])
+            mtm["report"] = _rep
+        try:
+            from .stretch_dd import DD_KEYS
+            # _cand_out copied each candidate's blocks before this pass: carry the keys over (after a
+            #   pass that raised part way too, so a keyed candidate block never differs from its card)
             for _c, _co in zip(cands, out.get("candidates") or []):
                 for _k in ("lockbox", "full", "is_rng", "wf_rng", "wf_lb"):
                     _b0, _b1 = _c.get(_k), (_co.get(_k) if isinstance(_co, dict) else None)
@@ -532,8 +540,9 @@ def gate_validate(arrays, trades, gates=("logistic", "rf", "xgb", "tree", "et"),
                         for _kk in DD_KEYS:
                             if _kk in _b0 and _kk not in _b1:
                                 _b1[_kk] = _b0[_kk]
-        except Exception as _dde:                         # a reporting extra never fails the gate
-            mtm["report"] = {"error": "%s: %s" % (type(_dde).__name__, str(_dde)[:200])}
+        except Exception as _dde:
+            if isinstance(mtm.get("report"), dict):
+                mtm["report"]["copy_error"] = "%s: %s" % (type(_dde).__name__, str(_dde)[:200])
 
     # v65.0 (owner): the pre-lockbox stretch also gets split at the WALK-FORWARD boundary the
     #   1C/2B folds use, so 2C can be read over the SAME DATE RANGES as the config matrix. This
