@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1348';
+const VERSION='73.1349';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4533,7 +4533,7 @@ return true;}catch(e){console.error(e);return false;}}
 //    blocked request can never leave the list empty.
 //    NOT the fix: offline persistence. It was deliberately removed in v71.61 and must not
 //    come back - see the note in initFB above.
-const RUNS_LITE_FIELDS='acf,adversarial,archived,auto_expand,auto_expand_summary,bars,best_dd_usd,best_oos_pnl,best_params,best_pf,best_pnl_per_day,best_pnl_pts,best_pnl_usd,best_trades,best_win_rate,book,causal,champ_dist_scope,commission_usd,conformal,cost_pts,data_source,date_from,date_to,days_in_test,dsr,edge_sig,elapsed_s,ensemble,equity,equity_top_cap,evolved_file,famKey,famSeq,feature_select,id,instrument,lead_lag,mc,ml_gate,multiplier,n_combos,n_evaluated,n_valid,neighborhood,note,power,relationship,rounds,scope,seasonality,slippage_pts,source_name,source_web,starred,steering,strategy,stress,synthetic,tailfit,timeframe,timestamp,top10_results,trimmed_keys,vif,wf_alt_mode,wf_mode,validate.equity,validate.feature_select,validate.seasonality,validate.lead_lag,validate.vif,validate.acf,validate.adversarial,validate.flags,validate.lockbox,validate.champion,validate.tailfit,validate.edge_sig,validate.synthetic,validate.causal,validate.conformal,validate.pbo,validate.wf_anchored,validate.wf_rolling,validate.windows,validate.checks,validate.thresholds,validate.transfer,validate.plateau,validate.mc_p95,validate.total_dd,validate.total_sharpe,validate.is_pf,validate.total_sortino,validate.total_avg_loss,validate.total_win_rate,validate.is_dd,validate.total_avg_win,validate.is_sharpe,validate.dsr,validate.wf_best_mode,validate.verdict,validate.discover,validate.wfe,validate.trades_per_param,validate.wf_ran,validate.evolved_file,validate.discover_err,validate.total_trades,validate.is_trades,validate.lb_idx,validate.n_params,validate.n_pass,validate.n_folds,validate.folds_held,validate.n_gates,validate.wf_oos,validate.book,gate_validate.ungated_is,gate_validate.ungated_wf,gate_validate.ungated_lockbox,gate_validate.ungated_full,gate_validate.span,gate_validate.wf_range,gate_validate.lockbox_from,roll_stamp.master_type,roll_stamp.roll_source,roll_stamp.calendar,roll_stamp.warning,roll_stamp.guard,roll_stamp.registry,roll_stamp.error,roll_stamp.usd_roll_step,roll_stamp.trades_crossing,roll_stamp.legs_stamped'.split(',');
+const RUNS_LITE_FIELDS='acf,adversarial,archived,auto_expand,auto_expand_summary,bars,best_dd_usd,best_oos_pnl,best_params,best_pf,best_pnl_per_day,best_pnl_pts,best_pnl_usd,best_trades,best_win_rate,book,causal,champ_dist_scope,commission_usd,conformal,cost_pts,data_source,date_from,date_to,days_in_test,dsr,edge_sig,elapsed_s,ensemble,equity,equity_top_cap,evolved_file,famKey,famSeq,feature_select,id,instrument,lead_lag,mc,ml_gate,multiplier,n_combos,n_evaluated,n_valid,neighborhood,note,power,relationship,rounds,scope,seasonality,slippage_pts,source_name,source_web,starred,steering,strategy,stress,synthetic,tailfit,timeframe,timestamp,top10_results,trimmed_keys,vif,wf_alt_mode,wf_mode,validate.equity,validate.feature_select,validate.seasonality,validate.lead_lag,validate.vif,validate.acf,validate.adversarial,validate.flags,validate.lockbox,validate.champion,validate.tailfit,validate.edge_sig,validate.synthetic,validate.causal,validate.conformal,validate.pbo,validate.wf_anchored,validate.wf_rolling,validate.windows,validate.checks,validate.thresholds,validate.transfer,validate.plateau,validate.mc_p95,validate.total_dd,validate.total_sharpe,validate.is_pf,validate.total_sortino,validate.total_avg_loss,validate.total_win_rate,validate.is_dd,validate.total_avg_win,validate.is_sharpe,validate.dsr,validate.wf_best_mode,validate.verdict,validate.discover,validate.wfe,validate.trades_per_param,validate.wf_ran,validate.evolved_file,validate.discover_err,validate.total_trades,validate.is_trades,validate.lb_idx,validate.n_params,validate.n_pass,validate.n_folds,validate.folds_held,validate.n_gates,validate.wf_oos,validate.book,gate_validate.ungated_is,gate_validate.ungated_wf,gate_validate.ungated_lockbox,gate_validate.ungated_full,gate_validate.ungated_pre,gate_validate.ungated_wf_lb,validate.dd_pct,validate.dd_pct_src,gate_validate.span,gate_validate.wf_range,gate_validate.lockbox_from,roll_stamp.master_type,roll_stamp.roll_source,roll_stamp.calendar,roll_stamp.warning,roll_stamp.guard,roll_stamp.registry,roll_stamp.error,roll_stamp.usd_roll_step,roll_stamp.trades_crossing,roll_stamp.legs_stamped'.split(',');
 // roll_stamp.* (2026-10-09, MANAGER #31 part b): only the ten small subfields the ROLL CHECK tag reads, as dotted paths like validate.* above - never the whole stamp (method_tests and
 //   raw_vs_adjusted are report-only; the run report reads the full document). A document with no roll_stamp (a run saved before the roll guard) simply comes back without the field.
 function _fsVal(v){
@@ -35091,10 +35091,43 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             const ro=(rv!=null)?{v:rv,src:'the figure the lane recorded for this run, off its own daily series'}
               :{why:'This lane record carries no DD % from peak. four_numbers measures one from a daily series, so a record written without one was built from something else, and the record itself says what.'};
             _reDdpMemo.set(rw,{k:k,o:ro});return ro;}
+          // A STORED PERCENT NEEDS NO CURVE (item 51, 2026-10-20). The engine measures this figure on
+          //   a DAILY series through augur_engine.drawdowns.four_numbers; the saved curve is thinned and
+          //   is only the page's fallback. Reading the block FIRST means a stretch the engine measured
+          //   but saved no curve for - which is every stretch today, and the walk-forward+lockbox tick
+          //   the owner sits on - reads a true figure the day the engine writes one, instead of dashing
+          //   behind a curve test it never needed. Measured 2026-10-20: dd_pct_peak appears zero times
+          //   in all 184 saved run documents, so this changes nothing on today's data and everything on
+          //   tomorrow's. The row must not have been resized: a percentage does not scale with size.
+          const _ddpKey=({'is':'is','wf':'wf','lb':'lb','is,wf':'pre','lb,wf':'wf_lb','is,lb':'is_lb','is,lb,wf':'full'})[sk]||'';
+          const _ddpBlk=(rw._st&&_ddpKey)?rw._st[_ddpKey]:null;
+          //   TWO PLACES IT IS WRITTEN (TBIS, 2026-10-20): a new run carries dd_pct_peak inside each
+          //   per-stretch block, and the repro-gated backfill of every older run writes the same figures
+          //   under validate.dd_pct, keyed is / wf / lb / wf_lb / full, with NO ENTRY for a stretch it
+          //   could not measure - never a zero. A run row reads both. A configuration row reads only its
+          //   own block: validate.dd_pct is the RUN's drawdown, and a configuration inside that run is a
+          //   different population. Either way the row must not have been resized - a percentage does
+          //   not scale with size - and a block that says marked:false is refused, not read.
+          const _ddpStore=(function(){
+            if(!_ddpKey)return null;
+            if(_ddpBlk&&_ddpBlk.dd_pct_peak!=null&&isFinite(+_ddpBlk.dd_pct_peak)&&_ddpBlk.dd_marked!==false)
+              return {v:+_ddpBlk.dd_pct_peak,src:'the figure the engine measured for this stretch on its own daily series'};
+            if(rw._stRun&&rw._x&&rw._x.validate&&rw._x.validate.dd_pct&&typeof rw._x.validate.dd_pct==='object'){
+              const B2=rw._x.validate.dd_pct[_ddpKey];
+              if(B2&&B2.dd_pct_peak!=null&&isFinite(+B2.dd_pct_peak)&&B2.marked!==false)
+                return {v:+B2.dd_pct_peak,src:'the figure the engine re-measured for this stretch on this run own daily series'};}
+            return null;})();
+          //   AND IT KEEPS ONE ACCOUNT (v73.1347, 10-25). The engine measures on a $100k start and
+          //   does not rescale, so on any other ACCT chip every dot on this axis reads its own curve at
+          //   the chip instead - the same guard the curve branch below applies. Without this the stored
+          //   figure would sit on a $100k basis beside curve reads on another, which is the very fault
+          //   that ship had just fixed.
+          if(_ddpStore&&(+rw._sf||1)===1&&_rocAcct()===DD_PCT_START_USD){
+            _reDdpMemo.set(rw,{k:k,o:_ddpStore});return _ddpStore;}
           const d=_reDd5(st,rw);let o;
           if(d&&d.cv&&!d.why){
-            const key=({'is':'is','wf':'wf','lb':'lb','is,wf':'pre','lb,wf':'wf_lb','is,lb':'is_lb','is,lb,wf':'full'})[sk]||'';
-            const B=(rw._st&&key)?rw._st[key]:null;
+            const key=_ddpKey;
+            const B=_ddpBlk;
             // the engine's own figure for this stretch where its block carries one (it measures the daily series, the saved
             //   curve is thinned) - unless the page resized the row, since a percentage does not scale with size, or the
             //   ACCT chip is not the engine's $100k start, since it does not rescale to another account either (item 51):
@@ -36889,6 +36922,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(dim)tp+=' | never run as a validate run';
               if(_reFlags.length)tp+=' | '+_reFlags.map(function(fl){return fl.txt+': '+fl.tip;}).join(' | ');
               if(_reLv)tp+=' | '+_reLv.why;
+              // WHERE THIS DD % CAME FROM (item 51). The engine measures the percent on a valued daily
+              //   series; this page reads a thinned saved curve. They are two readings of one stretch,
+              //   and the EXPLORE table has no DD % column at all, so the dot is the only place a reader
+              //   can be told which one is on screen. Memoised per row and stretch: one lookup.
+              if(_reMode()==='ddp'||_reXAxis==='ddp'){const _dp=_reDdpOf(st,r);
+                if(_dp&&_dp.v!=null&&_dp.src)tp+=' | DD % from peak: '+_dp.src;}
               tp+=' | click to jump to its row in its own study table below';
               tp+=' | right-click to hide this dot for now - the chart refits, and SHOW ALL under the chart brings it back';
               // STATUS rings. The verdict already owns the SHAPE, so status rides as a ring
@@ -37385,6 +37424,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 profit_factor:(gf.profit_factor!=null&&isFinite(+gf.profit_factor)&&+gf.profit_factor>0)?+gf.profit_factor:null,
                 avg_loss:null,max_drawdown:(gf.max_drawdown!=null&&isFinite(+gf.max_drawdown))?Math.abs(+gf.max_drawdown)*mc:null,_ddApx:false,
                 sharpe:num(gf.sharpe),sortino:num(gf.sortino)}:null;}
+            // THE ENGINE'S OWN DD % PER STRETCH (item 51; augur_engine/stretch_dd.py, landed 10-25).
+            //   mk() above POOLS money across stretches, and a percentage cannot be pooled - so this
+            //   figure is never derived here. It is copied from the engine's block for EXACTLY this
+            //   stretch, gate_validate.ungated_<stretch> and nowhere else, which is why ungated_pre and
+            //   ungated_wf_lb are fetched now. A stretch the engine could not value to market says so
+            //   (dd_marked false) and is left off rather than copied. IN-SAMPLE + LOCKBOX gets nothing
+            //   on purpose: the engine only stitches touching pairs, so no block for it exists.
+            //   Nothing else on the row moves - these keys are additive and only the DD % reader looks
+            //   at them.
+            {const _ung={is:'ungated_is',wf:'ungated_wf',lb:'ungated_lockbox',pre:'ungated_pre',wf_lb:'ungated_wf_lb',full:'ungated_full'};
+             Object.keys(_ung).forEach(function(q){const u=_gvB(x,_ung[q]);
+               if(B[q]&&u&&u.dd_pct_peak!=null&&isFinite(+u.dd_pct_peak)&&u.dd_marked!==false){
+                 B[q].dd_pct_peak=+u.dd_pct_peak;B[q].dd_marked=true;}});}
             return {B:B,sp:sp,isBad:isBad,gWhy:gWhy,wfo:_wfoC.st};};
           // pooled profit factor, the same way the RUNBOARD does it: rebuild each stage's
           //   gross loss from its net and its PF, sum the grosses. A true pooled figure,
@@ -39035,7 +39087,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(mode==='wr')return 'no win rate for '+_reSegList;
             if(mode==='evr')return 'no average loss recorded for EV R';
             if(mode==='ppt')return 'no whole-run profit or trade count';
-            if(mode==='dd'||mode==='ddp'||mode==='ddr')return 'no drawdown recorded';
+            // DD % FROM PEAK IS NOT A MISSING DRAWDOWN (item 51, owner 2026-10-20: 'DD from peak
+            //   doesnt work on the compare scatter plot'). These rows DO record a drawdown - in dollars -
+            //   and this line said 'no drawdown recorded', which reads as the measure being broken. What is
+            //   missing is a PERCENT for the ticked stretch: a percent comes off that stretch's own saved
+            //   curve, or off a figure the engine measured for it. The stretches a row saves a curve for are
+            //   the whole run, the lockbox and the stretch before the lockbox (a run row saves its
+            //   walk-forward test as well) - the list the DD5 reader states at 34934 - so the way out is
+            //   named here instead of left in a hover nobody opens. NO COUNT IS CLAIMED: this measure's
+            //   reader cannot yet be pointed at another stretch, so what another tick would plot cannot be
+            //   counted, and this board does not print a number it cannot read.
+            if(mode==='ddp')return 'no DD % from peak for '+_reSegList+' - a percent is read off the curve a row saved for exactly that stretch, or off a figure the engine measured for it, and the stretches a row saves a curve for are the whole run, the lockbox and the stretch before the lockbox (a run row saves its walk-forward test as well)';
+            if(mode==='dd'||mode==='ddr')return 'no drawdown recorded';
             return 'not recorded';};
           let body='';
           if(C.fail)body+=' '+C.fail+' failed, PLOT FAILURES off.'+failBtn();

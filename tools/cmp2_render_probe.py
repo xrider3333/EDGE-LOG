@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 161
+N_CASES = 162
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7752,6 +7752,105 @@ var FIX = __FIX__;
            offs:offs.map(function(o){return (o.x?'x:':'y:')+o.m+'='+o.n;}),
            sw:swTx,after:after,note:ndTx.slice(0,200),cleared:cleared});
       })();
+      // -- case i51_ddp_stored (item 51, owner 2026-10-20: "DD from peak doesnt work on the compare
+      //    scatter plot" / "the WF / LB are just periods of time ... DD% should have the same").
+      //    The engine now measures the percent per stretch on a valued daily series and writes it
+      //    in two places (augur_engine/stretch_dd.py, landed 2026-10-25): inside each per-stretch
+      //    block, and under validate.dd_pct for the backfill of older runs. Without reading both,
+      //    440 backfilled runs would carry a figure this page never shows.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        // RUNS SHAPED LIKE THE REAL ONES: a validate block with its lockbox door index, a whole-run
+        //   curve and a walk-forward test curve - the only curves a run saves. No lockbox-only and
+        //   no walk-forward+lockbox curve, because no real run document has either.
+        var cum=[0];for(var i=1;i<=200;i++)cum.push(cum[i-1]+((i%9)?260:-900)+i);
+        function base(id){var A=dfxClone(FIX);A.id=id;A.strategy='DDPFAM_1_0.py';A.starred=false;
+          A.equity={cum:cum.slice(),final:cum[cum.length-1],n:cum.length};
+          A.validate=A.validate||{};
+          A.validate.equity=cum.slice();
+          A.validate.lb_idx=150;
+          A.validate.wf_oos={equity:{cum:cum.slice(60,150)},from:'2016-01-04',to:'2025-01-02',trades:400};
+          return A;}
+        function gv(extra){var o={span:['2010-01-04','2026-01-02'],wf_range:['2016-01-04','2025-01-02'],
+          lockbox_from:'2025-01-02',chosen:{},candidates:[],tilts:[],hybrids:[],gates:[],windows:{}};
+          Object.keys(extra||{}).forEach(function(k){o[k]=extra[k];});return o;}
+        function blk(x){var b={num_trades:400,total_pnl:40000,max_drawdown:-9000,profit_factor:1.4,
+          win_rate:44,sharpe:1.1,sortino:1.6,avg_pnl:100,avg_loss:-300};
+          Object.keys(x||{}).forEach(function(k){b[k]=x[k];});return b;}
+        // A: nothing stored - the curve path alone, which is where the matrix comes from
+        var A=base(951001);
+        // B: the per-stretch block carries the engine's own percent on the tick with no curve
+        var B=base(951002);B.gate_validate=gv({ungated_wf_lb:blk({dd_pct_peak:12.5,dd_usd:-9000,dd_marked:true}),
+          ungated_full:blk({total_pnl:52000,dd_pct_peak:31.25,dd_usd:-9000,dd_marked:true})});
+        // C: nothing in the block, the figure under validate.dd_pct - the BACKFILL path for the 440
+        //    older runs. Keyed is / wf / lb / wf_lb / full, and "marked" here, not "dd_marked".
+        var C=base(951003);C.gate_validate=gv({ungated_wf_lb:blk({})});
+        C.validate.dd_pct={is:null,wf:null,lb:null,
+          wf_lb:{dd_pct_peak:18.75,dd_usd:-9000,marked:true},
+          full:{dd_pct_peak:26.21,dd_usd:-11000,marked:true}};
+        C.validate.dd_pct_src={start_usd:100000,day_rule:'session close',repro:'exact'};
+        // D: the engine says this stretch could NOT be valued to market - a figure that must be refused
+        var D=base(951004);D.gate_validate=gv({ungated_wf_lb:blk({dd_pct_peak:99.9,dd_usd:-9000,dd_marked:false})});
+        D.validate.dd_pct={wf_lb:{dd_pct_peak:88.8,dd_usd:-9000,marked:false}};
+        var W=dfxWin([A,B,C,D]);
+        // RAW PROFIT ACROSS, because a dot needs BOTH axes and money is the one measure that POOLS:
+        //   the pooled walk-forward+lockbox block has a total_pnl, while its Sortino is read off a
+        //   curve cut at the walk-forward door - a door this app deliberately does not save (the
+        //   v73.771 withdrawal), so SORTINO is null on that tick for every run row and no dot could
+        //   appear whatever DD % said. Measured: with SORTINO across, all four runs dashed there. The
+        //   EXPLORE table has no DD % column at all - measured: its 26 headers run RANK ... DRAWDOWN,
+        //   DD5, TRADES, the one of the four numbers it never shows - so the dot's own hover is the
+        //   only place this figure can be read, which is what the DD % axis case at 355 reads too.
+        function P(segs){return {c2Screen:'explore',resSrc:'all',resAxis:'ddp',resXAxis:'raw',
+          resSegs:segs,resMarks:'dot',c2Tbl:true,resCols:'all',c2Month:'all'};}
+        function cellOfRun(id){
+          var g=[].filter.call(d.querySelectorAll('[data-repoint]'),function(x){
+            return String(x.getAttribute('data-repoint')||'')==='runs:'+id;})[0];
+          if(!g)return {row:false,v:null,tip:''};
+          var t=g.querySelector('title'),tip=dfxN(t?(t.textContent||''):'');
+          var m=tip.match(/dd % from peak ([0-9.]+)/i);
+          // THE WHOLE TIP: a dot's hover is long (family, run, flags, the four numbers), and the DD %
+          //   provenance clause is appended near its end - a 300-character slice cut it off and the
+          //   case read an absence that was not there.
+          return {row:true,v:(m?m[1]:null),tip:tip};}
+        function foldedNote(){var n=r4Note();return n?dfxN(n.textContent):'';}
+        var per={},noteWfLb='';
+        [['full',['is','wf','lb']],['lb',['lb']],['pre',['is','wf']],['wf',['wf']],
+         ['wf_lb',['wf','lb']],['is_lb',['is','lb']],['is',['is']]].forEach(function(p){
+          calls.push(doRender(P(p[1]),W));chk(p[0]);
+          per[p[0]]={a:cellOfRun(951001),b:cellOfRun(951002),c:cellOfRun(951003),dd:cellOfRun(951004)};
+          if(p[0]==='wf_lb')noteWfLb=foldedNote();});
+        var num=function(x){return !!(x&&x.v&&/[0-9]/.test(x.v)&&x.v.indexOf('\u2014')<0);};
+        var has=function(x,re){return !!(x&&x.tip&&re.test(x.tip));};
+        dfxCase('i51_ddp_stored',calls,{
+          'the whole-run tick draws all four runs, so the fixture itself is plottable':
+            per.full.a.row&&per.full.b.row&&per.full.c.row&&per.full.dd.row,
+          'THE BLOCK PATH: a per-stretch dd_pct_peak is read on walk-forward + lockbox, where no row has a curve':
+            num(per.wf_lb.b)&&/12\.5/.test(per.wf_lb.b.v),
+          'THE BACKFILL PATH: validate.dd_pct is read on that same tick':
+            num(per.wf_lb.c)&&/18\.7|18\.8/.test(per.wf_lb.c.v),
+          'and both say the engine measured it, not a curve on this page':
+            has(per.wf_lb.b,/engine measured/i)&&has(per.wf_lb.c,/engine/i),
+          'a stretch the engine could not value to market is refused, not drawn':!num(per.wf_lb.dd),
+          'the run with nothing stored still dashes there - this change invents no figure':!num(per.wf_lb.a),
+          'and the breakdown names DD % there instead of claiming no drawdown is recorded':
+            /no DD % from peak for/.test(noteWfLb)&&noteWfLb.indexOf('no drawdown recorded')<0,
+          'on a tick that HAS a curve the engine own figure is preferred to the page curve read':
+            num(per.full.a)&&num(per.full.b)&&/31\.2/.test(per.full.b.v)&&per.full.b.v!==per.full.a.v,
+          'and the unvalued run falls back to the curve rather than showing its refused figure':
+            num(per.full.dd)&&per.full.dd.v===per.full.a.v,
+          'no console errors on any of the seven ticks':errAcc.length===0
+        },{ticks:Object.keys(per).map(function(k){
+             return k+' A='+(num(per[k].a)?per[k].a.v:'dash')
+                     +' B='+(num(per[k].b)?per[k].b.v:'dash')
+                     +' C='+(num(per[k].c)?per[k].c.v:'dash')
+                     +' D='+(num(per[k].dd)?per[k].dd.v:'dash');}),
+           noteWfLb:noteWfLb.slice(0,320),
+           wfLbTipA:(per.wf_lb.a.tip||'').slice(0,200),
+           wfLbTipB:(per.wf_lb.b.tip||'').slice(-220),
+           errs:errAcc.slice(0,2)});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -9979,6 +10078,7 @@ def main(argv=None):
     DFX += ['w47_month']
     DFX += ['w50_source']
     DFX += ['i50_rail_offer']
+    DFX += ['i51_ddp_stored']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
