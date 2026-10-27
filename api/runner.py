@@ -1187,6 +1187,7 @@ class FirestoreQueue:
         self.db = fs_heal.FirestoreHandle(firestore.client(), factory=fs_heal.new_client)
         self.col = collection
         self.allow = set(allow_uids)
+        self.quiet = None    # tools/quiet.QuietMonitor, set by main() (claim gate)
         self.nt_fills = nt_fills
         self.webull_keys = webull_keys
         # Listener conversion (item #36): `wake` is a thread-safe signal the
@@ -2024,6 +2025,13 @@ class FirestoreQueue:
                     if job.get("control") == "pause":
                         log(f"  skip {snap.id} - paused before it started (resume it to run)")
                         continue
+                    # QUIET MODE (OWNER 10-27, tools/quiet.py): no NEW claim while quiet. After
+                    # the STOP/pause handling above on purpose - those are never gated. The job
+                    # stays queued and is listed in the status doc; claiming resumes when quiet
+                    # ends. Running jobs are not touched.
+                    _qm = getattr(self, "quiet", None)
+                    if _qm is not None and _qm.hold(snap.id):
+                        continue
                     # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
                     # Compare this job against ALREADY-COMPLETED jobs, not just
                     # in-flight ones. Checking only 'queued'/'running' is what let four
@@ -2084,6 +2092,8 @@ class FirestoreQueue:
                             fs_heal.HEALTH.note_fail(_ce)   # a lost precondition is not counted
                             log(f"  skip {snap.id} - claimed by another worker ({type(_ce).__name__})")
                             continue
+                        if _qm is not None:
+                            _qm.running.add(snap.id)
                         # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
                         # Compare this job against ALREADY-COMPLETED jobs, not just
                         # in-flight ones. Checking only 'queued'/'running' is what let four
@@ -2234,6 +2244,8 @@ class FirestoreQueue:
                                 log(f"  (persist-run failed: {_e})")
                         n += 1
                     finally:
+                        if _qm is not None:
+                            _qm.running.discard(snap.id)
                         fs_heal.JOB_SLOT.release()
         else:
             # No allowlist -> scan all users via collection_group (needs a one-time
@@ -2768,6 +2780,30 @@ def auto_pine(log=print, limit=25, provider=None):
     return made
 
 
+def _start_quiet(q, uids, log=print, start=True):
+    """QUIET MODE monitor (OWNER 10-27, tools/quiet.py). PRIMARY: reads each uid's button doc
+    users/{uid}/control/quiet once a minute (1,440 reads/day/uid), writes quiet_state.json and
+    the quiet_status doc. WORKER: no Firestore reads - it follows the primary's state file (and
+    computes the auto window itself when that is stale). Returns None if tools/quiet.py cannot
+    load: quiet mode then never gates anything (fail-open)."""
+    try:
+        from tools import quiet as _qmod
+    except Exception as e:
+        log(f"[quiet] not available ({type(e).__name__}: {e}) - nothing is gated")
+        return None
+    _uids = [u.strip() for u in (uids or []) if u and u.strip()]
+    mon = _qmod.QuietMonitor(db=None if _IS_WORKER else q.db, uids=_uids, log=log)
+    try:
+        mon.tick()
+    except Exception as e:
+        log(f"[quiet] first tick failed: {type(e).__name__}: {e}")
+    if start:
+        mon.run_thread()
+    log(f"quiet mode: {'button + ' if not _IS_WORKER else 'state file + '}auto 06:25-09:00 MST + "
+        f"local flag {_qmod.quiet_file()} - now {'QUIET (' + str(mon.state[1]) + ')' if mon.state[0] else 'off'}")
+    return mon
+
+
 def _start_cmd_thread_if_primary(a, q):
     """Start the CommandThread daemon (get_bars/get_blotter/similar_setups/
     config_trades) unless this process is a drain-only WORKER — split out of main()
@@ -2876,8 +2912,16 @@ def main(argv=None):
     # keeps two refreshes from ever overlapping, which matters more than it used to:
     # a refresh WRITES masters while five runner processes are reading them.
     _refresh_busy = threading.Event()
+    # QUIET MODE (OWNER 10-27, tools/quiet.py). Built below once the queue exists; until then
+    # (and on the LocalQueue path) nothing is gated.
+    _quiet = [None]
 
     def _refresh_async(tag="auto-refresh"):
+        # QUIET: the whole refresh chain (auto-refresh, coarse 2m-60m, build_adjusted_masters)
+        # is deferred while quiet and runs ONCE when quiet ends (QuietMonitor.tick).
+        if _quiet[0] is not None and _quiet[0].defer("master refresh",
+                                                     lambda: _refresh_async(tag)):
+            return
         if _refresh_busy.is_set():
             print(f"[{tag}] skipped: the previous refresh is still running")
             return
@@ -2894,6 +2938,8 @@ def main(argv=None):
         q = FirestoreQueue(a.cred, a.collection, a.allow_uid, nt_fills=a.nt_fills,
                            webull_keys=a.webull_keys)
         print(f"EDGELOG runner v{_web_version()}: Firestore '{a.collection}', allow {a.allow_uid or 'ALL (no uid filter!)'}")
+        if a.watch:
+            _quiet[0] = q.quiet = _start_quiet(q, a.allow_uid, log=print)
         print(f"role: {('WORKER ' + str(os.environ.get('EDGELOG_WORKER'))) if _IS_WORKER else 'PRIMARY'} "
               f"(pid {os.getpid()}) - side duties {'OFF' if _IS_WORKER else 'ON'}, orphan sweep every "
               f"{ORPHAN_SWEEP_SEC:g}s, heartbeat every {HEARTBEAT_SEC:g}s, "
@@ -2957,6 +3003,9 @@ def main(argv=None):
                     # come up.
                     print(f"[sync-runs] startup skipped: {type(e).__name__}: {e}")
                 if a.watch and a.refresh_min > 0:
+                    if _quiet[0] is not None and _quiet[0].defer(
+                            "master refresh", lambda: _refresh_async("startup")):
+                        return
                     # marked busy like the timer refresh, so the self-heal never restarts
                     # the primary while it is writing masters
                     _refresh_busy.set()
