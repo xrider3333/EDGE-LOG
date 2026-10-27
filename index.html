@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1350';
+const VERSION='73.1351';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -38722,7 +38722,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reFiltBtns=_reFacets.filter(f=>f.k!=='fam'&&f.k!=='study').map(f=>{const sel=_reFilt[f.k]||[];
           const ftip=f.tip+'. Click a value to narrow the chart and the tables together; click it again to widen back. Nothing ticked means everything is shown.';
           return _reCtl(++_reFiltN,f.cap,ftip,
-            _reOpts[f.k].map(v=>_reBtn('data-refilt="'+f.k+'" data-refiltv="'+_reEsc(v)+'"',
+            // ALL, FIRST AND ALWAYS (owner 2026-10-27: "add untag-all/none button"). The STRATEGY
+            //   rail got one on 10-25; these rails tick several values each and had none, so the
+            //   only way back was CLEAR FILTERS - which is not even on screen until some filter is
+            //   on, and which drops the month, the study and the strategy pick with it. This one
+            //   clears its own rail and nothing else, and it is lit when the rail holds nothing,
+            //   because that IS showing everything.
+            _reBtn('data-refiltall="'+f.k+'"','ALL',!sel.length,
+              'show every '+String(f.cap).toLowerCase()+': drop this rail’s pick and leave every other filter, the month and the range exactly as they are',_reFT)
+            +_reOpts[f.k].map(v=>_reBtn('data-refilt="'+f.k+'" data-refiltv="'+_reEsc(v)+'"',
               f.raw?f.lbl(v):_reEsc((f.k==='study')?_reShort(f.lbl(v)):f.lbl(v)),sel.indexOf(v)>=0,
               f.btip?f.btip(v)
                 :((f.k==='study')?(_reEsc(v)+' \u2014 show only the rows from this study. One strategy can have five studies behind it, and this is how you read them one at a time on the single chart')
@@ -39512,10 +39520,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _rbWChip=_rbWOk?('<span data-rbfam="__WATCH__" title="The MANAGER watch list - every run in the weekly report. MANAGER and the strategy chats keep it up to date without a code change; the LANE VERDICT row shows each chat’s verdict. Ask MANAGER to add or drop a run." style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:9px;white-space:nowrap;border:1px solid '+(_rbWatching?'var(--blue)':'var(--border)')+';color:'+(_rbWatching?'var(--blue)':'var(--text4)')+';background:'+(_rbWatching?'color-mix(in srgb,var(--blue) 12%,transparent)':'var(--bg1)')+'">WATCH · '+window._rbWatch.runs.length+'</span>'):'';
         const _rbFamBar=(_rbFams.length>1||_rbFam||_rbWOk)?('<div style="display:flex;gap:4px;align-items:center;flex-wrap:wrap;margin-bottom:7px">'
           +'<span title="click a strategy to load ITS top runs instead of one champion per strategy" style="font-size:7.5px;font-weight:700;letter-spacing:.6px;color:var(--text5);cursor:help">FAMILY</span>'
+          // ALL, FIRST AND ALWAYS (owner 2026-10-27: "add untag-all/none button"). This reset used
+          //   to be a 7px lowercase underlined "all" at the END of the rail that only existed once a
+          //   family was picked - a control hidden behind the state it undoes, in a weight that does
+          //   not read as a control beside the pills it resets. Same pill shape as its siblings now,
+          //   and lit when no family is picked, because that IS one champion per strategy.
+          +(function(){const on=!_rbFam;
+            return '<span data-rbfam="" title="'+(on?'showing one champion per strategy - which is every strategy':'show one champion per strategy again, which drops the strategy pick and changes nothing else')+'" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:9px;white-space:nowrap;border:1px solid '+(on?'var(--text4)':'var(--border)')+';color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,var(--text) 14%,transparent)':'var(--bg1)')+'">ALL</span>';})()
           +_rbWChip
           +_rbFams.map(f=>{const on=(_rbFam===f),col=((typeof stratColor==='function')&&stratColor(f))||'var(--text4)';
             return '<span data-rbfam="'+String(f).replace(/"/g,'')+'" title="'+(on?'click to go back to one run per strategy':'show the top runs of '+f)+'" style="cursor:pointer;font-size:8px;font-weight:700;letter-spacing:.4px;padding:2px 7px;border-radius:9px;white-space:nowrap;border:1px solid '+(on?col:'var(--border)')+';color:'+(on?'var(--text)':'var(--text4)')+';background:'+(on?'color-mix(in srgb,'+col+' 20%,transparent)':'var(--bg1)')+'">'+f+'</span>';}).join('')
-          +(_rbFam?'<span data-rbfam="" title="show one champion per strategy again" style="cursor:pointer;font-size:8px;color:var(--text5);text-decoration:underline;margin-left:2px">all</span>':'')
+          +''
           +'</div>'):'';
         // rbFam already points at the watch list but the doc has not answered yet - say so rather
         //   than silently falling back to one champion per family while it loads.
@@ -48053,6 +48068,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const i=cur.indexOf(v);if(i>=0)cur.splice(i,1);else cur.push(v);
         if(cur.length)o[k]=cur;else delete o[k];
         savePref('resFilt',JSON.stringify(o));renderApp();};});
+      // ALL on one rail clears THAT rail only - never the other filters (owner 2026-10-27)
+      content.querySelectorAll('[data-refiltall]').forEach(b=>{b.onclick=()=>{
+        let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
+        delete o[b.dataset.refiltall];
+        savePref('resFilt',JSON.stringify(o));renderApp();};});
       content.querySelectorAll('[data-reclear]').forEach(b=>{b.onclick=()=>{savePref('resFilt','{}');renderApp();};});
       // STUDIES board: MORE / LESS on the controls, and ? HOW TO READ on the reference text.
       //   Both only change how much is on screen - no figure is hidden by either, and every
@@ -49154,7 +49174,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div style="height:1px;background:var(--border);margin:4px 2px"></div>'
           +'<div style="font-size:8px;letter-spacing:1px;color:var(--text5);padding:2px 9px 4px">SHOW (click to toggle)</div>';
         _h+=_stratsAll.map(f=>{const on=_fSet.has(f);const ci=stratInfo(f);return '<div data-stratopt="'+String(f).replace(/"/g,'&quot;')+'" data-stratlabel="'+String(ci.label).replace(/"/g,'&quot;')+'" style="cursor:pointer;padding:5px 9px;border-radius:5px;font-size:var(--fsxs);white-space:nowrap;display:flex;align-items:center;gap:8px"><span style="width:12px;flex:0 0 auto;color:var(--green)">'+(on?'✓':'')+'</span><span style="width:8px;height:8px;border-radius:2px;flex:0 0 auto;background:'+ci.color+'"></span><span style="color:'+ci.color+';font-weight:600">'+ci.label+'</span></div>';}).join('');
-        if(_fSet.size)_h+='<div style="height:1px;background:var(--border);margin:4px 2px"></div><div data-stratclear style="cursor:pointer;padding:5px 9px;font-size:9px;color:var(--text5)">✕ clear filter (show all)</div>';
+        // UNTAG ALL, AT THE TOP, ALWAYS (owner 2026-10-27: "STRATEGY selector: add untag-all/none
+        //   button" - this is the control that is actually CALLED the strategy selector). It used to
+        //   be the last row of the menu and only existed once something was ticked: a reset hidden
+        //   behind the state it resets, two clicks deep. It is first now, carries his word, and when
+        //   nothing is picked it stays on screen greyed and inert so the menu never changes shape.
+        {const _on=_fSet.size>0;
+         _h='<div'+(_on?' data-stratclear':'')+' style="'+(_on?'cursor:pointer;color:var(--text3)':'cursor:default;color:var(--text5);opacity:.55')
+           +';padding:5px 9px;font-size:9px;font-weight:700;letter-spacing:.4px">✕ UNTAG ALL'
+           +(_on?' · show every strategy':' · every strategy is shown')+'</div>'
+           +'<div style="height:1px;background:var(--border);margin:4px 2px"></div>'+_h;}
         _dd.innerHTML=_h;document.body.appendChild(_dd);
         const _ddr=_dd.getBoundingClientRect();if(_ddr.right>window.innerWidth-8)_dd.style.left=Math.max(8,window.innerWidth-8-_ddr.width)+'px';
         const _applyStratSearch=q=>{const ql=String(q||'').trim().toLowerCase();_dd.querySelectorAll('[data-stratopt]').forEach(o=>{o.style.display=(!ql||String(o.dataset.stratlabel||'').toLowerCase().indexOf(ql)>=0)?'':'none';});};

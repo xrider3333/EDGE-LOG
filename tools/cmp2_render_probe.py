@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 162
+N_CASES = 163
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7851,6 +7851,55 @@ var FIX = __FIX__;
            wfLbTipB:(per.wf_lb.b.tip||'').slice(-220),
            errs:errAcc.slice(0,2)});
       })();
+      // -- case d1_rail_all (owner 2026-10-27: "STRATEGY selector: add untag-all/none button").
+      //    Every ticking rail on this board, not just the one he happened to name.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function rails(){var o={};
+          [].forEach.call(d.querySelectorAll('[data-refiltall]'),function(b){
+            o[b.getAttribute('data-refiltall')]={lit:/color-mix/.test(b.getAttribute('style')||''),
+              txt:dfxN(b.textContent),btn:b};});
+          return o;}
+        function pref(){try{var ap=JSON.parse(w.eval("localStorage.getItem('augurPrefs')||'{}'"))||{};
+            var rf=ap.resFilt;
+            return (rf&&typeof rf==='object'&&!Array.isArray(rf))?rf:(JSON.parse(rf||'{}')||{});}
+          catch(e){return {};}}
+        // THE FILTERS SHEET: on EXPLORE these rails live inside it (measured - the default board
+        //   renders no [data-refilt] at all), which is the other half of the owner's complaint: the
+        //   only way back from a tick was a control two panels deep.
+        var P={c2Screen:'explore',resLvl:'sweep',resAxis:'roc30',resXAxis:'ddp',c2Tbl:true,c2Sheet:'filters'};
+        // (i) nothing ticked anywhere: every rail carries ALL, and ALL is lit
+        calls.push(doRender(P,EMPTY_WIN));chk('open');
+        var A=rails();
+        var keys=Object.keys(A);
+        // (ii) a value ticked on one rail AND a strategy picked: ALL goes dark on that rail only
+        var P2=JSON.parse(JSON.stringify(P));
+        P2.resFilt={tone:['champ'],run:['rf'],fam:['NOISE']};
+        calls.push(doRender(P2,EMPTY_WIN));chk('ticked');
+        var B=rails();
+        // (iii) clicking ALL on the tone rail drops tone and NOTHING else
+        var cleared=null;
+        if(B.tone&&B.tone.btn&&B.tone.btn.onclick){B.tone.btn.onclick();
+          var f=pref();
+          cleared={tone:(f.tone||null),run:((f.run||[])[0]||null),fam:((f.fam||[])[0]||null),
+                   lit:((rails().tone||{}).lit)};}
+        dfxCase('d1_rail_all',calls,{
+          'every ticking rail on this board carries an ALL button':
+            keys.length>=2&&keys.indexOf('tone')>=0&&keys.indexOf('run')>=0,
+          'each one reads ALL':keys.every(function(k){return /ALL/.test(A[k].txt);}),
+          'and is lit while its own rail holds nothing':keys.every(function(k){return A[k].lit===true;}),
+          'a value ticked puts that rail ALL out':B.tone&&B.tone.lit===false,
+          'a value ticked on the other rail puts its ALL out too':!!B.run&&B.run.lit===false,
+          'clicking ALL empties its own rail':!!cleared&&!cleared.tone,
+          'and leaves the other rail and the strategy pick untouched':
+            !!cleared&&cleared.run==='rf'&&cleared.fam==='NOISE',
+          'and that rail then reads as ALL again':!!cleared&&cleared.lit===true,
+          'no console errors':errAcc.length===0
+        },{rails:keys,A:keys.map(function(k){return k+(A[k].lit?':lit':':dark');}),
+           B:Object.keys(B).map(function(k){return k+(B[k].lit?':lit':':dark');}),
+           cleared:cleared,errs:errAcc.slice(0,2)});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -10078,6 +10127,7 @@ def main(argv=None):
     DFX += ['w47_month']
     DFX += ['w50_source']
     DFX += ['i50_rail_offer']
+    DFX += ['d1_rail_all']
     DFX += ['i51_ddp_stored']
     for name in DFX:
         r = cases.get(name) or {}
