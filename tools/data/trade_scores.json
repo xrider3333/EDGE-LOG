@@ -7165,6 +7165,195 @@
    ],
    "overall": 76,
    "summary": "You shorted the 10:16 range-break bar and banked 5 points almost at the low before price bounced back above your entry to 7661.5. The weak spot was location: you sold at the bottom of a big flush bar with an 8-point stop and no clear target below. Taking the quick profit was the right call on this tape."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-26",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "09:43",
+   "exit_time": "09:43",
+   "entry": 7692.25,
+   "exit": 7691.75,
+   "qty": 2,
+   "entry_ts": "09:43:00",
+   "exit_ts": "09:43:02",
+   "breakout_candle": "09:42",
+   "stop": 7694.0,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 6,
+     "note": "Price was chopping 7685-7701 after the open with no clear down trend at 09:43."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 8,
+     "note": "Short at 7692.25 sat mid-range, below the 09:42 high of 7694.0 and above the 09:40 low of 7685.0."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 3,
+     "note": "No planned stop; the nearest structure was the 09:42 high at 7694.0."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "The 09:40 low at 7685.0 was 7.25 points away against 1.75 points to the 7694.0 high, but no target was planned."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 0,
+     "note": "No setup was tagged; the journal calls it a fat finger."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 8,
+     "note": "The 09:43 bar traded 4,661 contracts over a 7.25-point range."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 6,
+     "note": "09:43 is the first-15-minutes open whipsaw."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 5,
+     "note": "The order was accidental, filled at 7692.25 near the 09:43 bar open of 7692.5."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 22,
+     "note": "You flattened 2 seconds later at 7691.75, so heat was negligible."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 12,
+     "note": "The 09:43-09:44 bars fell to 7683.25 within two minutes, but exiting an unplanned trade at once was correct."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 8,
+     "note": "Two MES on an accidental order is more exposure than needed for a mistake."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 7,
+     "note": "There was no plan, but you corrected the error immediately for a $1.24 gain."
+    }
+   ],
+   "overall": 44,
+   "summary": "This was a fat-finger short at 7692.25 and you were out 2 seconds later at 7691.75 for a small gain. The setup scores low because there was no trend, no stop and no setup behind it. Closing the mistake immediately was the right call; double-check the order ticket before clicking during the open."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-26",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "10:10",
+   "exit_time": "10:10",
+   "entry": 7697.25,
+   "exit": 7702.25,
+   "qty": 2,
+   "entry_ts": "10:10:00",
+   "exit_ts": "10:10:37",
+   "breakout_candle": "10:09",
+   "hold_from": "10:10",
+   "stop": 7688.75,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 12,
+     "note": "Price had built higher lows from 7683.25 at 09:44 to 7688.75 at 10:09 inside a 7683-7704 range."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 13,
+     "note": "Long at 7697.25 was the 10:09 close, near the top of the bar and under the 7704.0 high from 09:55."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 12,
+     "note": "The 10:09 engulfing low at 7688.75 gives a clear 8.5-point stop."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 4,
+     "note": "The 09:55 high at 7704.0 was only 6.75 points away against 8.5 points of risk."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 13,
+     "note": "The 10:09 bar (7689.75 to 7697.25) fully engulfed the bearish 10:08 bar on 6,895 contracts, a clean ENGU."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 9,
+     "note": "The 10:09 and 10:10 bars traded 6,895 and 12,074 contracts with 8-9 point ranges."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 8,
+     "note": "10:10 is past the open whipsaw and still in the morning trend window."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 21,
+     "note": "You filled at 7697.25 right at the 10:09 signal close as the 10:10 bar opened."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 22,
+     "note": "The 10:10 bar dipped only to 7695.5, under 2 points of heat against the 8.5-point stop."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 9,
+     "note": "You exited at 7702.25 after 37 seconds, but the next 15 minutes ran to 7719.75 at 10:20, so 5 of 22.5 points were kept."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "Two MES on an 8.5-point stop risks about $85, a sensible size."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 8,
+     "note": "Your notes say you waited for confirmation and executed the ENGU as planned."
+    }
+   ],
+   "overall": 72,
+   "summary": "This was a clean ENGU long: the 10:09 bar engulfed the prior bar on strong volume and you filled right at its close for 7697.25. You took 5 points in 37 seconds, but the move ran to 7719.75 by 10:20, so a trailing stop under higher lows or a runner contract would have kept far more. The entry and risk were good; work on letting winners reach the next real level."
   }
  ],
  "na": [
