@@ -457,3 +457,63 @@ def test_wt_wait_if_quiet_honours_the_escape(monkeypatch):
     monkeypatch.setenv("EDGELOG_SHIP_IGNORE_QUIET", "1")
     monkeypatch.setattr(Q, "current_state", lambda **k: pytest.fail("not consulted"))
     assert wt.wait_if_quiet("x") == 0
+
+
+def test_stale_cached_button_is_dropped_after_a_long_outage():
+    m, clock, logs = _mon(mst(*TUE, 12, 0))
+    m.db.docs[BUTTON] = {"on": True}          # on, no until
+    m.tick()
+    assert m.quiet()
+    m.db.fail = True
+    clock.t += 3600
+    m.tick()
+    assert m.quiet(), "a short outage keeps the last value (fail-open)"
+    clock.t += m.BUTTON_STALE_SEC
+    m.tick()
+    assert not m.quiet(), "a button cached through a long outage must not hold the queue forever"
+    assert any("stale" in s for s in logs)
+    m.db.fail = False                          # Firestore back: the button counts again
+    clock.t += 61
+    m.tick()
+    assert m.quiet()
+
+
+def test_cli_off_force_overrides_the_cached_button(capsys):
+    m, clock, _ = _mon(mst(*TUE, 12, 0))
+    m.db.docs[BUTTON] = {"on": True, "set_at": "2026-10-27T10:00:00Z"}
+    m.tick()
+    assert m.quiet()
+    m.db.fail = True
+    try:
+        Q.main(["off", "--force"])
+        clock.t += 61
+        m.tick()
+        assert not m.quiet(), "`quiet.py off --force` releases a button the runner cannot re-read"
+        Q.main(["on"])                         # `on` clears the override (local flag on)
+        assert os.path.exists(Q.override_file()) is False
+    finally:
+        for f in (Q.override_file(), Q.quiet_file()):
+            if os.path.exists(f):
+                os.remove(f)
+
+
+def test_deferred_refresh_waits_for_a_busy_refresh_instead_of_dropping():
+    import threading
+    R = _runner()
+    busy = threading.Event()
+    busy.set()
+    started = []
+    done = threading.Event()
+
+    def start(tag):
+        started.append(tag)
+        done.set()
+
+    def fake_sleep(_):
+        busy.clear()
+    R._run_deferred_refresh(busy, start, "auto-refresh", sleep=fake_sleep, poll=0.01)
+    assert done.wait(5), "the deferred refresh was dropped while the previous one was busy"
+    assert started == ["auto-refresh"]
+    started.clear()
+    R._run_deferred_refresh(busy, start, "x")  # not busy: runs inline
+    assert started == ["x"]

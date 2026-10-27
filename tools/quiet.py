@@ -47,6 +47,21 @@ def quiet_file():
     return os.environ.get("EDGELOG_QUIET_FILE") or os.path.join(_HOME, "QUIET")
 
 
+def override_file():
+    """`quiet.py off --force` writes this: cached button values set at/before its `at` are
+    ignored (a button pressed AFTER it still counts)."""
+    return quiet_file() + "_OFF"
+
+
+def read_override(path=None):
+    p = path or override_file()
+    try:
+        with open(p, encoding="utf-8") as f:
+            return _parse_ts((json.load(f) or {}).get("at"))
+    except Exception:
+        return None
+
+
 def state_file():
     return os.environ.get("EDGELOG_QUIET_STATE") or os.path.join(_HOME, "quiet_state.json")
 
@@ -222,6 +237,9 @@ class QuietMonitor:
 
     POLL_SEC = 60.0
     STATUS_SEC = 60.0
+    # a cached button value older than this (every read since failed) is dropped: a button
+    # left on with no `until` must not strand the queue through a long Firestore outage
+    BUTTON_STALE_SEC = 2 * 3600.0
 
     def __init__(self, db=None, uids=(), log=print, clock=time.time, now_fn=None,
                  state_path=None, write_files=True):
@@ -233,6 +251,8 @@ class QuietMonitor:
         self.state_path = state_path
         self.write_files = write_files and db is not None
         self.buttons = {}
+        self._last_ok_read = None
+        self._stale_logged = False
         self._last_poll = None
         self._last_state_write = None
         self._last_status_write = None
@@ -249,6 +269,7 @@ class QuietMonitor:
 
     # -- reads ---------------------------------------------------------------------------------
     def _poll_buttons(self):
+        ok = bool(self.uids)
         for uid in self.uids:
             try:
                 snap = (self.db.collection("users").document(uid)
@@ -256,8 +277,31 @@ class QuietMonitor:
                 self.reads += 1
                 self.buttons[uid] = (snap.to_dict() or {}) if getattr(snap, "exists", True) else {}
             except Exception as e:           # FAIL OPEN: keep the last doc read
+                ok = False
                 self.log(f"[quiet] button read failed ({type(e).__name__}: {e}) - keeping the "
                          f"last value")
+        if ok:
+            self._last_ok_read = self.clock()
+            self._stale_logged = False
+
+    def _button_docs(self, now):
+        if (self._last_ok_read is None and self.buttons) or (
+                self._last_ok_read is not None
+                and self.clock() - self._last_ok_read > self.BUTTON_STALE_SEC):
+            if self.buttons and not self._stale_logged:
+                self._stale_logged = True
+                self.log("[quiet] button value is stale (Firestore unreachable) - ignoring it; "
+                         "the auto window and the local flag still apply")
+            return [None]
+        ov = read_override()
+        docs = []
+        for d in self.buttons.values():
+            if ov is not None and d:
+                sa = _parse_ts(d.get("set_at"))
+                if sa is None or sa <= ov:
+                    d = None                 # overridden locally by `quiet.py off --force`
+            docs.append(d)
+        return docs or [None]
 
     def _compute(self, now):
         if self.db is None:
@@ -265,8 +309,7 @@ class QuietMonitor:
             return st["quiet"], st["why"], st["until"]
         exists, lu = read_local_flag()
         best = (False, None, None)
-        docs = list(self.buttons.values()) or [None]
-        for d in docs:
+        for d in self._button_docs(now):
             r = is_quiet(now, d, exists, lu)
             if r[0] and (not best[0] or (best[1] != WHY_BUTTON and r[1] == WHY_BUTTON)):
                 best = r
@@ -430,7 +473,9 @@ def main(argv=None):
     sub.add_parser("status")
     p_on = sub.add_parser("on")
     p_on.add_argument("--until", help="HH:MM MST (next occurrence)")
-    sub.add_parser("off")
+    p_off = sub.add_parser("off")
+    p_off.add_argument("--force", action="store_true",
+                       help="also ignore the runner's cached dashboard button (pressed before now)")
     a = ap.parse_args(argv)
     cmd = a.cmd or "status"
     if cmd == "on":
@@ -439,12 +484,20 @@ def main(argv=None):
         os.makedirs(os.path.dirname(p) or ".", exist_ok=True)
         with open(p, "w", encoding="utf-8") as f:
             json.dump(body, f)
+        if os.path.exists(override_file()):
+            os.remove(override_file())
         print("local QUIET flag ON (%s)%s" % (p, " until " + body["until"] if body else ""))
     elif cmd == "off":
         p = quiet_file()
         if os.path.exists(p):
             os.remove(p)
         print("local QUIET flag OFF (%s)" % p)
+        if getattr(a, "force", False):
+            op = override_file()
+            os.makedirs(os.path.dirname(op) or ".", exist_ok=True)
+            with open(op, "w", encoding="utf-8") as f:
+                json.dump({"at": _iso(_dt.datetime.now(UTC))}, f)
+            print("dashboard button overridden locally (%s)" % op)
     st = current_state(use_cache=False)
     print("quiet: %s  why: %s  until: %s  (source: %s)"
           % ("YES" if st["quiet"] else "no", st["why"], st["until"], st["source"]))

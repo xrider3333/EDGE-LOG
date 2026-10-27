@@ -101,6 +101,23 @@ HEALTH_SEC = 3600.0
 BRIDGE_SEC = 300.0
 
 
+def _run_deferred_refresh(busy, start, tag, sleep=time.sleep, poll=15.0, max_wait=6 * 3600.0):
+    """QUIET: run a deferred refresh once quiet ends. If the previous refresh is still busy,
+    wait for it on a side thread instead of dropping the deferred run (the 'skipped' path)."""
+    if not busy.is_set():
+        start(tag)
+        return
+
+    def _wait():
+        waited = 0.0
+        while busy.is_set() and waited < max_wait:
+            sleep(poll)
+            waited += poll
+        print(f"[{tag}] deferred refresh starting after the previous one finished")
+        start(tag)
+    threading.Thread(target=_wait, daemon=True, name="deferred-refresh").start()
+
+
 def _bridge_watchdog_thread(db, uids, stop=None):
     """Publish meta/nt_bridge + its dead-man's-switch on a THREAD of their own.
 
@@ -2920,7 +2937,8 @@ def main(argv=None):
         # QUIET: the whole refresh chain (auto-refresh, coarse 2m-60m, build_adjusted_masters)
         # is deferred while quiet and runs ONCE when quiet ends (QuietMonitor.tick).
         if _quiet[0] is not None and _quiet[0].defer("master refresh",
-                                                     lambda: _refresh_async(tag)):
+                                                     lambda: _run_deferred_refresh(
+                                                         _refresh_busy, _refresh_async, tag)):
             return
         if _refresh_busy.is_set():
             print(f"[{tag}] skipped: the previous refresh is still running")
