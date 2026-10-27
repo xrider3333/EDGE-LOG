@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1352';
+const VERSION='73.1353';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -34368,7 +34368,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   walk-forward folds and the lockbox strip - need not land back on that same curve endpoint,
           //   the same reason the run report's own EXACT path says its sections need not add up to
           //   TOTAL either. The known total is always the better reading here.
-          if(rw&&rw._stRun&&segs.length===3&&rw.tot!=null&&isFinite(rw.tot))return +rw.tot;
+          //   AND A LANE RECORD WHOSE STRETCH IS THE WHOLE RUN (owner 2026-10-27, the '-' gaps). Its
+          //   net is filed in the row total only: the stretch map has no 'full' column on purpose (a
+          //   whole-run total must never be filed under WALK-FORWARD), and this shortcut - which gives
+          //   run rows exactly this reading - was written before records existed on this board. No
+          //   derivation is added and no partial stretch is priced.
+          if(rw&&(rw._stRun||rw._rec)&&segs.length===3&&rw.tot!=null&&isFinite(rw.tot))return +rw.tot;
           // A RUN whose in-sample cannot be separated at all: with IN-SAMPLE ticked alongside any OTHER
           //   stage, summing would print partial money as if it were the lot.
           if(rw&&rw._isBad&&segs.indexOf('is')>=0)return null;
@@ -35067,6 +35072,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(p==null||d==null||!d)return _reWhy(st,rw,(p==null)?miss[0]:'dd');
           if(!(y>0))return _reWfYrsWhy(rw)||(_reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis (MAR is net per YEAR over worst drawdown since v73.7x).');
           return null;};
+        // WHY A LANE RECORD HAS NO ROC % / YR, in its own terms (owner 2026-10-27: "many '-' gaps in
+        //   MAR/ROC cols - find why"). Measured on the 886 real October lines: every one carries
+        //   roc30k, 623 a Sortino, 435 a DD %, 482 a trade count - and only 18 carry the net dollars
+        //   and the window that ROC % / YR divides. The generic sentence named inputs for the ticked
+        //   stretch, which is not how a record is written at all, so it read like a fault in the page.
+        const _reRecRocWhy=rw=>{if(!rw||!rw._rec)return null;
+          return 'A lane record carries the four numbers its own lane measured off its daily series - ROC at a $30k drawdown, DD5 in dollars, DD % from the high and Sortino - and ROC % / YR is a different measure: money per year over the account on the ACCT chip. It needs net dollars and a window, and only 18 of this month’s 886 records state both. ROC @ $30K DD is the one every record does carry, and it is the board’s own yardstick.';};
         const _reRoc30=(st,rw,segOv)=>{
           // W47: a lane record carries the ROC its own lane measured through four_numbers - the
           //   house definition, on that stretch's daily series. Reading it is the point; deriving
@@ -35076,7 +35088,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   m*30000/_rocAcct()*100, which equals 30 x MAR only while the ACCT chip is at $100,000.
           //   A record stores 30 x MAR flat, so it is scaled the same way here - without this, a
           //   record and a run with the SAME MAR sat at different heights on one axis.
-          if(rw&&rw._rec)return (rw._roc30!=null&&isFinite(+rw._roc30))?((+rw._roc30)*100000/_rocAcct()):null;
+          //   READ, THEN DERIVE - not read or nothing. This branch returned null for a record that
+          //   carries no roc30k, so the derivation below (the same formula every run row uses) was
+          //   never reached: measured on the real October lines, 18 of the 886 carry a net, a
+          //   drawdown and a window and could be placed this way. Its own lane's figure still wins
+          //   where there is one, because that was measured on the daily series.
+          if(rw&&rw._rec&&rw._roc30!=null&&isFinite(+rw._roc30))return (+rw._roc30)*100000/_rocAcct();
           const p=_reSegVal(rw,segOv),d=_reNum(rw,'dd'),y=_reYrs(st,rw,segOv);
           const m=(p==null||d==null||!d||!(y>0))?null:_marAnn(p,y,d);
           return (m==null||!isFinite(m))?null:(m*30000/_rocAcct()*100);};
@@ -35279,7 +35296,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reMode()==='sh')return _reCfgDashWhy(rw,'This row records no Sharpe.','sh');
           if(_reMode()==='so')return _reCfgDashWhy(rw,'This row records no Sortino.','so');
           if(_reMode()==='rpy')return 'R / YR needs an expectancy in R, a trade count and a window. This row is missing at least one.';
-          if(_reMode()==='roc')return (_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.';
+          if(_reMode()==='roc')return _reRecRocWhy(rw)||((_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.');
           if(_reMode()==='roc30')return _reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.';
           if(_reMode()==='ddp')return _reDdpWhy(st,rw);
           if(_reMode()==='ddr'||_reMode()==='dd')return _reWhy(st,rw,'dd');
@@ -36086,7 +36103,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +td((function(){const v=_reRpy(st,rw);
               return (v==null||!isFinite(v))?_reDash(_reWfYrsWhy(rw)||_reGrossWhy(rw)||_reZeroOr(rw,((_reNum(rw,'pf')==null)&&_reWfTestWhy(rw,'pf'))||'R / YR needs an expectancy in R, a trade count and a window; this row is missing at least one.')):(v.toFixed(1)+'R');})())
             +td((function(){const v=_reRoc(st,rw);
-              return (v==null||!isFinite(v))?_reDash(_reWfYrsWhy(rw)||((_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):_reZeroOr(rw,'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.'))):('<span style="color:'+((v>=0)?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'%</span>');})())
+              return (v==null||!isFinite(v))?_reDash(_reRecRocWhy(rw)||_reWfYrsWhy(rw)||((_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):_reZeroOr(rw,'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.'))):('<span style="color:'+((v>=0)?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'%</span>');})())
             +td((function(){const v=_reRoc30(st,rw);
               return (v==null||!isFinite(v))?_reDash(_reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.'):('<span style="color:'+((v>=0)?'#1d9e75':'#e24b4a')+'">'+v.toFixed(1)+'%</span>');})())
             +td((()=>{const v=_rePpt(rw);return (v==null)?_reDash(_rePptWhy(st,rw)):('<span title="'+_reExact(v)+' per trade" style="cursor:help;color:'+((v>=0)?_reUp:_reDn)+'">'+(v>=0?'$':'-$')+_reAbbr(v)+'</span>');})())
@@ -36177,7 +36194,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reXAxis==='pf')return _reWhy(st,rw,'pf');
           if(_reXAxis==='wr')return 'This row records no win rate for the ticked stretch.';
           if(_reXAxis==='rpy')return 'R / YR needs an expectancy in R, a trade count and a window.';
-          if(_reXAxis==='roc')return (_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over.';
+          if(_reXAxis==='roc')return _reRecRocWhy(rw)||((_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over.');
           if(_reXAxis==='roc30')return _reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.';
           if(_reXAxis==='ddp')return _reDdpWhy(st,rw);
           if(_reXAxis==='ddr')return _reWhy(st,rw,'dd');
@@ -37730,6 +37747,27 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 _oneEp:(d.one_episode===true)?true:((d.one_episode===false)?false:null),
                 _ledger:String(d.ledger_row||''),
                 _sha:String(d.sha||''),_startUsd:(d.start_usd!=null&&isFinite(+d.start_usd))?+d.start_usd:null};
+              // WHY A CELL ON THIS ROW IS A DASH, in the record's own terms (owner 2026-10-27: "many
+              //   '-' gaps in MAR/ROC cols - find why"). The record study carried an EMPTY dashWhy, so
+              //   every one of these fell through to "This figure was never measured for this row" -
+              //   true, unhelpful, and it reads like the page failing rather than the record being
+              //   written with four numbers and not with these. Measured over the 886 real October
+              //   lines: 886 carry ROC at a $30k drawdown, 623 a Sortino, 638 a DD5, 435 a DD %, 482
+              //   a trade count - and 18 carry net dollars, 18 a dollar drawdown, 18 a window. A
+              //   per-row map, not a study-wide one, so a record can say which stretch it covers.
+              {const _fours='A lane record carries the four numbers its own lane measured off its daily series - ROC at a $30k drawdown, DD5 in dollars, DD % from the high and Sortino';
+               const _stgNm=(_reRecStageNm&&_reRecStageNm[stg])||stg||'the one stretch it recorded';
+               const _money=(net==null)
+                 ?(_fours+' - and no net dollars at all. Only 18 of this month’s 886 records state one, so a money column, and every figure built by dividing one (MAR, ROC % / YR, $ per trade), is empty unless its own lane wrote the net. ROC @ $30K DD is the measure every record does carry, and it is this board’s own yardstick.')
+                 :('This record covers ONE stretch, '+_stgNm+', and its money sits in that column alone - never copied into a stretch it did not run.');
+               row.why={is:_money,wf:_money,lb:_money,tot:_money,
+                 dd:(_fours+'. DD5 is the average of its five deepest drawdowns, not the single worst one in dollars, and only 18 of 886 records state that one figure - so MAR, DD (R) and anything else that divides by it has nothing to divide by here. DD5 and DD % from the high are both on this row.'),
+                 trd:(_fours+', and a trade count only where its lane wrote one; this record did not.'),
+                 pf:(_fours+', and no split of winning and losing money, so no profit factor can be built from it.'),
+                 wr:(_fours+', and no win rate.'),
+                 sh:(_fours+'. Sortino is on this row; Sharpe is not - a record states the measure its lane actually took.'),
+                 evr:(_fours+', and no average losing trade, so expectancy cannot be put in R.'),
+                 ppt:(_fours+', and dollars per trade needs the net and the trade count together.')};}
               if(net!=null&&f)row[f]=net;
               _recRows.push(row);});
             if(_recRows.length){

@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 164
+N_CASES = 165
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7982,6 +7982,74 @@ var FIX = __FIX__;
            five:{n:B.n,ticks:B.ticks.slice(0,8),farRing:(B.far?B.far.ring:null)},
            errs:errAcc.slice(0,2)});
       })();
+      // -- case c1_rec_gaps (owner 2026-10-27: "COMPARE/EXPLORE TABLE: many '-' gaps in MAR/ROC
+      //    cols - find why"). Mostly by construction, and three real faults underneath it.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function rec(o){var r={id:'c1'+(o.id||''),timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'c1probe',family:'ZGAP',instrument:'NQ',timeframe:'2m',
+          where:'lane',stage:'WF',start_usd:100000};
+          Object.keys(o).forEach(function(k){r[k]=o[k];});return r;}
+        // A: the common shape - the four numbers and nothing else
+        var A=rec({id:'a',roc30k:25,sortino:1.5,dd5:8000,ddpct:12,one_episode:false});
+        // B: the rare shape - net, a dollar drawdown and a window, and NO roc30k of its own
+        var B=rec({id:'b',sortino:1.4,dd5:9000,net_usd:60000,max_dd_usd:20000,
+                   win_start:'2021-01-01',win_end:'2024-01-01',years:3.0,trades:300});
+        // C: a whole-run record - its net belongs to no single stretch column
+        var C=rec({id:'c',stage:'full',roc30k:31,sortino:2.0,dd5:7000,net_usd:90000,
+                   max_dd_usd:30000,win_start:'2020-01-01',win_end:'2026-01-01',years:6.0,trades:400});
+        var W=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify([A,B,C])+",at:Date.now()};"
+          +"window._reMonKey='all';");
+        function P(segs){return {c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resSegs:segs,resFilt:{fam:['ZGAP']},resMarks:'dot',c2Tbl:true,resCols:'all'};}
+        function cells(idTail){
+          var tr=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){
+            return (t.textContent||'').indexOf('c1probe')>=0
+              &&(t.getAttribute('data-rerow')||'').indexOf('recs:')===0;});
+          // the three rows come out in the order they were given, so pick by index
+          tr=tr[idTail];
+          if(!tr)return null;
+          var tb=tr.closest('table');
+          var hd=[].map.call(tb.querySelectorAll('thead th'),function(x){return (x.textContent||'').trim();});
+          var out={};
+          ['MAR','ROC % / YR','ROC @ $30K DD','TOTAL','DRAWDOWN','DD5','SORTINO','TRADES'].forEach(function(nm){
+            var ix=-1;hd.forEach(function(h,n){if(h===nm&&ix<0)ix=n;});
+            if(ix<0){out[nm]='NO COLUMN';return;}
+            var c=tr.cells[ix],sp=c?c.querySelector('span[title]'):null;
+            out[nm]={v:c?dfxN(c.textContent):null,
+                     tip:(sp?dfxN(sp.getAttribute('title')||''):(c?dfxN(c.getAttribute('title')||''):'')).slice(0,900)};});
+          return out;}
+        var dash=function(o){return !!(o&&o.v&&o.v.indexOf('\u2014')>=0);};
+        var num=function(o){return !!(o&&o.v&&/[0-9]/.test(o.v)&&o.v.indexOf('\u2014')<0);};
+        calls.push(doRender(P(['wf']),W));chk('wf');
+        var cA=cells(0),cB=cells(1);
+        calls.push(doRender(P(['is','wf','lb']),W));chk('all three');
+        var cA3=cells(0),cC3=cells(2);
+        dfxCase('c1_rec_gaps',calls,{
+          'all three records build rows':!!cA&&!!cB&&!!cC3,
+          'THE COMMON RECORD: ROC @ $30K DD is there - it is the one figure every record carries':
+            num(cA['ROC @ $30K DD']),
+          'and MAR is a dash, which is correct: a record states no net, no worst drawdown and no window':
+            dash(cA['MAR']),
+          'and that dash now says so in the record own terms, not "never measured for this row"':
+            /lane record carries the four numbers/.test(cA['MAR'].tip)
+            &&cA['MAR'].tip.indexOf('never measured for this row')<0,
+          'ROC % / YR dashes with the record reason too, naming the measure a record does carry':
+            dash(cA['ROC % / YR'])&&/different measure/.test(cA['ROC % / YR'].tip)
+            &&/ROC at a \$30k drawdown/.test(cA['ROC % / YR'].tip),
+          'THE RARE RECORD with a net, a drawdown and a window is PLACED on ROC @ $30K DD, not dashed':
+            num(cB['ROC @ $30K DD']),
+          'and its MAR is placed too, from the same three figures':num(cB['MAR']),
+          'A WHOLE-RUN RECORD prints its net in TOTAL when all three stretches are ticked':
+            num(cC3['TOTAL']),
+          'and a one-stretch record still shows its own money there':num(cA3['TOTAL'])||dash(cA3['TOTAL']),
+          'no console errors':errAcc.length===0
+        },{A:{mar:cA['MAR'],roc:cA['ROC % / YR'],roc30:cA['ROC @ $30K DD'],tot:cA['TOTAL']},
+           B:{roc30:cB['ROC @ $30K DD'],mar:cB['MAR']},
+           C3:{tot:cC3['TOTAL'],roc30:cC3['ROC @ $30K DD']},
+           errs:errAcc.slice(0,2)});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -10209,6 +10277,7 @@ def main(argv=None):
     DFX += ['w47_month']
     DFX += ['w50_source']
     DFX += ['i50_rail_offer']
+    DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']
     DFX += ['d1_rail_all']
     DFX += ['i51_ddp_stored']
