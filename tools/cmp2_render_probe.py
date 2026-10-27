@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 165
+N_CASES = 166
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -8050,6 +8050,86 @@ var FIX = __FIX__;
            C3:{tot:cC3['TOTAL'],roc30:cC3['ROC @ $30K DD']},
            errs:errAcc.slice(0,2)});
       })();
+      // -- case i54_pnl_overlay (board 54: one P&L chart under the scatter with every dot's curve
+      //    overlaid). Drawn as cv[i]-cv[0] because the saved curves do NOT start at zero.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function box(){
+          var b=d.querySelector('[data-recurvebox]');
+          if(!b)return null;
+          var sv=b.querySelector('svg');
+          var ps=sv?[].slice.call(sv.querySelectorAll('path[data-recurve]')):[];
+          var zl=null;
+          if(sv)[].forEach.call(sv.querySelectorAll('line'),function(l){
+            if((l.getAttribute('stroke-width')||'')==='1.3')zl=+l.getAttribute('y1');});
+          return {box:b,svg:sv,paths:ps,zero:zl,txt:dfxN(b.textContent||''),
+            tip:dfxN(((b.querySelector('span[title]')||{}).getAttribute?b.querySelector('span[title]').getAttribute('title'):'')||'')};}
+        function firstY(p){var m=/^M\s*([-\d.]+)\s+([-\d.]+)/.exec(p.getAttribute('d')||'');return m?+m[2]:null;}
+        // RUNS SHAPED LIKE THE REAL ONES, and each curve STARTS AT A DIFFERENT HEIGHT (+0, +85900,
+        //   +800, -1500 - the real starting values measured on his board), which is what makes the
+        //   zero-start assertion below mean something: drawn raw, these four would sit miles apart.
+        var cum=[0];for(var i=1;i<=200;i++)cum.push(cum[i-1]+((i%9)?260:-900)+i);
+        function base(id,off,so){var A=dfxClone(FIX);A.id=id;A.strategy='PNLFAM_1_0.py';A.starred=false;
+          var c=cum.map(function(v){return v+off;});
+          A.equity={cum:c.slice(),final:c[c.length-1],n:c.length};
+          A.validate=A.validate||{};A.validate.equity=c.slice();A.validate.lb_idx=150;
+          A.validate.sortino=so;
+          return A;}
+        var W1=dfxWin([base(954001,0,1.6),base(954002,85900,1.9),
+                       base(954003,800,1.2),base(954004,-1500,0.9)]);
+        var P={c2Screen:'explore',resAxis:'so',resXAxis:'dd',resSegs:['is','wf','lb'],c2Tbl:true};
+        calls.push(doRender(P,W1));chk('open');
+        var A=box();
+        // the chart must sit BELOW the drag handle, which still belongs to the scatter it resizes
+        var order=null;
+        if(A&&A.box){var hh=d.querySelector('[data-rechh="board"]');
+          if(hh)order=(hh.compareDocumentPosition(A.box)&Node.DOCUMENT_POSITION_FOLLOWING)?'after':'before';}
+        var zeroStart=(A&&A.paths.length&&A.zero!=null)
+          ?A.paths.every(function(p){var y=firstY(p);return y!=null&&Math.abs(y-A.zero)<0.6;}):null;
+        // the highlight is an ATTRIBUTE change, so read the attribute back
+        var hl=null;
+        if(A&&A.paths.length){var k=A.paths[0].getAttribute('data-recurve');
+          var rest=A.paths[0].getAttribute('stroke-opacity');
+          w.eval("window._reSetHL("+JSON.stringify(k)+",true)");
+          var lit=d.querySelector('path[data-recurve="'+k.replace(/"/g,'\\"')+'"]');
+          var on={o:lit?lit.getAttribute('stroke-opacity'):null,w:lit?lit.getAttribute('stroke-width'):null};
+          w.eval("window._reSetHL("+JSON.stringify(k)+",false)");
+          lit=d.querySelector('path[data-recurve="'+k.replace(/"/g,'\\"')+'"]');
+          hl={rest:rest,on:on,back:lit?lit.getAttribute('stroke-opacity'):null};}
+        // a LANE-RECORD board: records save no curve at all, so the chart must say so by count
+        var W=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify([
+          {id:'p54a',timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',host:'TESTBOX',strategy:'p54',
+           family:'ZPNL',instrument:'NQ',timeframe:'2m',where:'lane',stage:'WF',start_usd:100000,
+           roc30k:25,sortino:1.5,dd5:8000,ddpct:12},
+          {id:'p54b',timestamp:'2026-10-02 11:00',lane:'LANE-UNDER-TEST',host:'TESTBOX',strategy:'p54',
+           family:'ZPNL',instrument:'NQ',timeframe:'2m',where:'lane',stage:'WF',start_usd:100000,
+           roc30k:19,sortino:1.1,dd5:9000,ddpct:15}])+",at:Date.now()};window._reMonKey='all';");
+        calls.push(doRender({c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',resXAxis:'roc30',
+          resSegs:['wf'],resFilt:{fam:['ZPNL']},resMarks:'dot',c2Tbl:true},W));chk('records');
+        var Rb=box();
+        dfxCase('i54_pnl_overlay',calls,{
+          'a P&L chart is drawn under the scatter':!!A&&!!A.svg,
+          'and it sits BELOW the chart-height drag handle, which still belongs to the scatter':order==='after',
+          'EVERY curve starts on the zero line - the saved curves do not start at zero, so each one is drawn minus its own first point':
+            zeroStart===true,
+          'more than one curve is overlaid':!!A&&A.paths.length>=2,
+          'each curve is tagged with its own row, so a hover can find it':
+            !!A&&A.paths.every(function(p){return /.+:.+/.test(p.getAttribute('data-recurve')||'');}),
+          'the header counts the dots it drew out of the dots on the chart':!!A&&/\d+ of \d+ dot/.test(A.txt),
+          'and names the account the dollars are read at, not a fixed $100k':
+            !!A&&/at \$\d+k?/.test(A.txt)&&A.txt.indexOf('fixed')<0,
+          'hovering a row raises ITS curve by attribute and putting it back restores the resting value':
+            !!hl&&hl.on.o==='1'&&+hl.on.w>+(hl.rest||0)&&hl.back===hl.rest,
+          'A RECORD-ONLY BOARD: records save no curve, and the chart says so with a count and a reason':
+            !!Rb&&/none of the 2 dots on the chart above saves a curve/.test(Rb.txt)
+            &&/The reason: 2: /.test(Rb.txt)&&!/of the 2 dots save no curve/.test(Rb.txt),
+          'and it draws no curves there rather than inventing any':!!Rb&&Rb.paths.length===0,
+          'no console errors':errAcc.length===0
+        },{paths:A?A.paths.length:null,zero:A?A.zero:null,
+           firstYs:A?A.paths.slice(0,4).map(firstY):null,order:order,hl:hl,
+           txt:A?A.txt.slice(0,260):null,rec:Rb?Rb.txt.slice(0,260):null,errs:errAcc.slice(0,2)});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -10277,6 +10357,7 @@ def main(argv=None):
     DFX += ['w47_month']
     DFX += ['w50_source']
     DFX += ['i50_rail_offer']
+    DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']
     DFX += ['d1_rail_all']

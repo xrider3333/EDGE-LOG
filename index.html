@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1353';
+const VERSION='73.1354';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -35531,6 +35531,98 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //    the one boundary they mark). The deepest dip is pinned to the DRAWDOWN figure when that is deeper, because
         //    the thinned curve can only read it shallow; under 60 saved points the figure carries a ~ and makes no
         //    1 EPISODE call. Anything else is a dash with its reason - never a figure from another stretch.
+        // ── THE P&L CHART UNDER THE SCATTER (owner: one P&L chart under the scatter with every
+        //    dot's curve overlaid). The scatter says where a row ENDED on two measures; this says
+        //    HOW IT GOT THERE, on the same rows, the same stretch and the same account.
+        //    Every curve is drawn as cv[i] - cv[0]: MEASURED, the saved curves do not start at zero
+        //    (three real runs start at 85.9, 0.8 and -1.5), so drawing them raw would have stacked
+        //    them at their own starting heights and the shapes could not be compared at all.
+        //    The gate is _reDd5 - the one reader every DD5 on this board comes from - so this chart
+        //    can never draw a curve the DD5 column itself refuses to read.
+        const _reCurveCap=300;
+        const _reCurveBody=(pts)=>{
+          if(!pts||!pts.length)return '';
+          const H=Math.max(132,Math.min(420,Math.round(_reChH()*0.52)));
+          const L=88,R=950,T=16,B=H-30;
+          const no={};
+          const keep=[];
+          pts.forEach(p=>{
+            const d=_reDd5(p.st,p.r);
+            if(!d||d.why||!Array.isArray(d.cv)||d.cv.length<2){
+              const w=(d&&d.why)?d.why:'This row has no curve covering the '+_reDd5Nm()+' as one stretch.';
+              (no[w]=no[w]||[]).push(p);return;}
+            keep.push({p:p,cv:d.cv});});
+          // THE CAP IS A DRAWING LIMIT, NOT A FILTER, so it is counted and named like any other
+          //   omission: the strongest rows on the Y axis are drawn and the rest are said out loud.
+          let over=[];
+          if(keep.length>_reCurveCap){
+            keep.sort((a,b)=>(b.p.y-a.p.y)*_reYSgn());
+            over=keep.slice(_reCurveCap);keep.length=_reCurveCap;}
+          const acct=_rocAcct();
+          const acctTx=(acct>=1000)?('$'+Math.round(acct/1000)+'k'):('$'+acct);
+          if(!keep.length){
+            return '<div data-recurvebox="1" style="background:var(--bg2);border-radius:8px;padding:9px 10px;margin-top:7px;font-size:9px;color:var(--text4)">'
+              +'<span style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5)">P&amp;L OF EVERY DOT</span> \u00b7 '
+              +'none of the '+pts.length+' dot'+(pts.length===1?'':'s')+' on the chart above saves a curve for the '
+              +_reEsc(_reDd5Nm())+', so there is no P&amp;L to draw. '+_reEsc(_reCurveWhyTx(no,pts.length,true))+'</div>';}
+          // ONE Y SCALE FOR EVERY CURVE. They are all in dollars at the same account, so a shared
+          //   scale is the whole point - a per-curve scale would make a $400 run look like a $40k one.
+          let lo=0,hi=0,maxN=2;
+          keep.forEach(k=>{const b=k.cv[0];
+            if(k.cv.length>maxN)maxN=k.cv.length;
+            for(let i=0;i<k.cv.length;i++){const v=k.cv[i]-b;if(v<lo)lo=v;if(v>hi)hi=v;}});
+          if(!(hi>lo)){hi=lo+1;}
+          const pd=(hi-lo)*0.06;lo-=pd;hi+=pd;
+          const py=v=>B-(v-lo)/(hi-lo)*(B-T);
+          let g='';
+          for(let i=0;i<4;i++){const yv=lo+(hi-lo)*i/3,yy=py(yv);
+            g+='<line x1="'+L+'" y1="'+yy.toFixed(1)+'" x2="'+R+'" y2="'+yy.toFixed(1)+'" stroke="var(--border)"/>'
+              +'<text x="'+(L-9)+'" y="'+(yy+4).toFixed(1)+'" fill="var(--text3)" font-size="11" text-anchor="end">'+_reTick(yv,'money')+'</text>';}
+          const zy=py(0);
+          g+='<line x1="'+L+'" y1="'+zy.toFixed(1)+'" x2="'+R+'" y2="'+zy.toFixed(1)+'" stroke="var(--text3)" stroke-width="1.3"/>';
+          // THINNED TO AT MOST 90 POINTS EACH, evenly, keeping the last point: 300 curves at their
+          //   full length is megabytes of path data and the browser stalls drawing it.
+          const STEPS=90;
+          keep.forEach(k=>{
+            const r=k.p.r,st=k.p.st,cv=k.cv,b=cv[0],n=cv.length;
+            const col=r._rec?(_reWhereCol[r._where]||'var(--text4)')
+              :(r._cfg?(_reByStrat?_reStratCol(r._strat):(_reCfgPal[r.fam]||_reTone[r.tone]||'var(--text4)')):(_reTone[r.tone]||'var(--text4)'));
+            const dim=(_reSplitRun&&!(Array.isArray(r.runs)?r.runs:[]).length)||_reFlagsOf(r).some(function(fl){return fl.grey;});
+            const step=Math.max(1,Math.ceil(n/STEPS));
+            let d='';
+            for(let i=0;i<n;i+=step)d+=(d?'L':'M')+(L+(R-L)*(n<2?0:i/(n-1))).toFixed(1)+' '+py(cv[i]-b).toFixed(1);
+            if((n-1)%step)d+='L'+R.toFixed(1)+' '+py(cv[n-1]-b).toFixed(1);
+            g+='<path data-recurve="'+st.key+':'+r.n+'" d="'+d+'" fill="none" stroke="'+col+'"'
+              +' stroke-width="1.1" stroke-opacity="'+(dim?'0.1':(keep.length>120?'0.3':'0.5'))+'"'
+              +' stroke-linejoin="round" style="pointer-events:none"/>';});
+          g+='<line x1="'+L+'" y1="'+T+'" x2="'+L+'" y2="'+B+'" stroke="var(--text3)" stroke-width="1.4"/>'
+            +'<line x1="'+L+'" y1="'+B+'" x2="'+R+'" y2="'+B+'" stroke="var(--text3)" stroke-width="1.4"/>'
+            +'<text x="'+L+'" y="'+(B+16)+'" fill="var(--text4)" font-size="10">start of the '+_reEsc(_reDd5Nm())+'</text>'
+            +'<text x="'+R+'" y="'+(B+16)+'" fill="var(--text4)" font-size="10" text-anchor="end">end of it</text>';
+          const hint='Every dot on the chart above that saves an equity curve, drawn as the money that stretch MADE from where it started - its own first point subtracted, because the saved curves do not start at zero and drawing them raw would stack them at their own starting heights. One dollar scale for all of them, at the '+acctTx+' account the ACCT chip is set to, so a tall curve really did make more than a flat one. Each curve is squeezed to the same width whatever its length, so the SHAPES line up and the lengths do not: a long run and a short one both run the full width. Hover a point above or a row below to raise that one curve out of the bundle.';
+          return '<div data-recurvebox="1" style="background:var(--bg2);border-radius:8px;padding:10px 10px 7px;margin-top:7px">'
+            +'<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:3px">'
+            +'<span style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5)">P&amp;L OF EVERY DOT \u00b7 '+_reEsc(_reDd5Nm().toUpperCase())+'</span>'
+            +'<span style="font-size:8px;color:var(--text4)">'+keep.length+' of '+pts.length+' dot'+(pts.length===1?'':'s')+' \u00b7 dollars from the start, at '+acctTx+'</span>'
+            +'<span title="'+_reEsc(hint)+'" style="font-size:9px;color:var(--text5);cursor:help">\u24d8</span></div>'
+            +'<svg viewBox="0 0 980 '+H+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'+g+'</svg>'
+            +((over.length||Object.keys(no).length)
+              ?('<div style="font-size:8px;color:var(--text4);margin-top:4px">'
+                 +_reEsc(_reCurveWhyTx(no,pts.length))
+                 +(over.length?(' '+over.length+' more do save a curve and are not drawn: this chart draws at most '+_reCurveCap+' of them, the strongest on the Y axis, because more than that is a wall of lines and a slow page.'):'')
+                 +'</div>')
+              :'')
+            +'</div>';};
+        // the omissions, grouped by the reason itself so each reason is said ONCE with its count
+        const _reCurveWhyTx=(no,total,bare)=>{
+          const ks=Object.keys(no);if(!ks.length)return '';
+          ks.sort((a,b)=>no[b].length-no[a].length);
+          const n=ks.reduce((a,k)=>a+no[k].length,0);
+          // BARE on the all-missing board: the sentence above has already said how many there
+          //   are, and saying it twice reads like two different counts.
+          return (bare?'The reason: ':(n+' of the '+total+' dot'+(total===1?'':'s')+' save no curve for this stretch and are not drawn \u2014 '))
+            +ks.slice(0,3).map(k=>no[k].length+': '+k).join(' ')
+            +(ks.length>3?(' and '+(ks.length-3)+' other reason'+(ks.length===4?'':'s')+'.'):'');};
         const _reDd5Memo=new WeakMap();
         const _reDd5Nm=()=>(_reSegsEff.map(sg=>_reSegLong[sg]).join(' + ')||'ticked stretches');
         const _reDd5=(st,rw)=>{if(!rw||typeof rw!=='object')return {why:'No row.'};
@@ -37225,6 +37317,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return '<div style="background:var(--bg2);border-radius:8px;padding:12px 10px 8px">'
             +'<svg viewBox="0 0 980 '+CH+'" xmlns="http://www.w3.org/2000/svg" style="width:100%;height:auto;display:block">'+g+'</svg>'
             +'<div data-rechh="board" title="'+_reEsc('Drag up or down to make the chart shorter or taller. The size is remembered and survives a reload. Double-click to put it back to the standard height.')+'" style="height:10px;margin:5px 0 1px;cursor:ns-resize;display:flex;align-items:center;justify-content:center;touch-action:none"><div style="width:52px;height:3px;border-radius:2px;background:var(--border)"></div></div>'
+            +_reCurveBody(pts)
             +'<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap;margin-top:5px">'
             +(_reShowCfg
                 ?((function(){
@@ -48589,6 +48682,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const HL='color-mix(in srgb,var(--text) 16%,transparent)';
           document.querySelectorAll('[data-repoint="'+CSS.escape(k)+'"]').forEach(function(p){
             const h=p.querySelector('.rehl');if(h)h.setAttribute('opacity',on?'1':'0');});
+          // ITS OWN CURVE, on the P&L chart under the scatter. These are ATTRIBUTES, not a class:
+          //   the path carries stroke-opacity and stroke-width as attributes, and an attribute beats
+          //   a stylesheet rule on the same element, so a class-based raise would have done nothing.
+          //   The resting value is read back off the path, so a redraw that changes the bundle's
+          //   opacity (it thins past 120 curves) still puts the right value back.
+          document.querySelectorAll('path[data-recurve="'+CSS.escape(k)+'"]').forEach(function(c){
+            if(on){if(c.dataset.reop==null){c.dataset.reop=c.getAttribute('stroke-opacity')||'0.5';
+                c.dataset.rewd=c.getAttribute('stroke-width')||'1.1';}
+              c.setAttribute('stroke-opacity','1');c.setAttribute('stroke-width','2.2');
+              if(c.parentNode&&c.parentNode.lastChild!==c)c.parentNode.appendChild(c);}
+            else{c.setAttribute('stroke-opacity',c.dataset.reop||'0.5');
+              c.setAttribute('stroke-width',c.dataset.rewd||'1.1');}});
           document.querySelectorAll('tr[data-rerow="'+CSS.escape(k)+'"]').forEach(function(t){
             if(on){if(t.dataset.rebg==null)t.dataset.rebg=t.style.background||'';t.style.background=HL;}
             else{t.style.background=t.dataset.rebg||'';}
