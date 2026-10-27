@@ -517,3 +517,11 @@ def test_deferred_refresh_waits_for_a_busy_refresh_instead_of_dropping():
     started.clear()
     R._run_deferred_refresh(busy, start, "x")  # not busy: runs inline
     assert started == ["x"]
+
+
+def test_runner_claims_resumed_orphans_through_quiet():
+    """A requeued orphan (progress > 0) counts as running; only brand-new jobs wait."""
+    import pathlib
+    src = (pathlib.Path(__file__).resolve().parents[1] / "api" / "runner.py").read_text(encoding="utf-8")
+    assert '_resumed = (job.get("progress") or 0) > 0' in src
+    assert "not _resumed and _qm.hold(snap.id)" in src

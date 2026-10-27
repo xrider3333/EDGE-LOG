@@ -2045,9 +2045,11 @@ class FirestoreQueue:
                     # QUIET MODE (OWNER 10-27, tools/quiet.py): no NEW claim while quiet. After
                     # the STOP/pause handling above on purpose - those are never gated. The job
                     # stays queued and is listed in the status doc; claiming resumes when quiet
-                    # ends. Running jobs are not touched.
+                    # ends. Running jobs are not touched. A job with progress > 0 is an orphan being
+                    # RESUMED (requeued after a restart) - it counts as running and is claimed.
                     _qm = getattr(self, "quiet", None)
-                    if _qm is not None and _qm.hold(snap.id):
+                    _resumed = (job.get("progress") or 0) > 0
+                    if _qm is not None and not _resumed and _qm.hold(snap.id):
                         continue
                     # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
                     # Compare this job against ALREADY-COMPLETED jobs, not just
