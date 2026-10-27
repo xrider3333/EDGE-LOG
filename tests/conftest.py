@@ -587,3 +587,14 @@ def _isolate_alpaca_rate(monkeypatch, tmp_path):
                         lambda: str(tmp_path / "alpaca_rate" / "state.json"))
     monkeypatch.setenv("ALPACA_RATE_PER_MIN", "1000000")
     yield
+
+
+@pytest.fixture(autouse=True)
+def _isolate_quiet_mode(monkeypatch, tmp_path):
+    """QUIET MODE (tools/quiet.py, OWNER 10-27): no test reads the real C:/EdgeLog/QUIET flag or
+    quiet_state.json, and a ship test never waits on the real 06:25-09:00 MST auto window.
+    tests/test_quiet.py sets its own values."""
+    monkeypatch.setenv("EDGELOG_QUIET_FILE", str(tmp_path / "quiet" / "QUIET"))
+    monkeypatch.setenv("EDGELOG_QUIET_STATE", str(tmp_path / "quiet" / "quiet_state.json"))
+    monkeypatch.setenv("EDGELOG_SHIP_IGNORE_QUIET", "1")
+    yield
