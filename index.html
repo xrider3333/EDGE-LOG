@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1351';
+const VERSION='73.1352';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -36743,16 +36743,46 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           let g='';
           if(pts.length){
             // the axes span ONLY the rows now shown, so the STRATEGY rail and the filters
-            //   rescale them by themselves. VALUE ZOOM trims the extremes off that fit so a
-            //   cluster can spread out instead of being flattened by one distant row.
+            //   rescale them by themselves.
+            // ONE DISTANT ROW USED TO SET THE WIDTH FOR ALL OF THEM (owner 2026-10-27: "SCATTER
+            //   broken: Sortino vs ROC%/yr all dots squashed in a corner, x axis to 10,104%"). The
+            //   fit was min-to-max plus 7%, and the one control that ever trimmed it - VALUE ZOOM -
+            //   was deleted on 2026-08-19 at his own ask, so nothing has trimmed it since. Measured:
+            //   one injected lane record earning 500k over three weeks reads 8,696% / yr, the ticks
+            //   run to 9,304%, and every other dot collapses into 8 px of a 862 px plot.
+            //   THE RULE, stated rather than tuned: with at least 8 points, if the full span is more
+            //   than three times the span of the middle 96% of them, fit that middle instead. Under
+            //   8 points the plain fit stands - with a handful of dots the reader can see the far
+            //   one for themselves, and a 98th percentile of six numbers IS the maximum.
+            //   NOTHING IS DROPPED AND NOTHING IS HIDDEN: the clamp below already pins an
+            //   out-of-range row to the edge, so it still draws; it now wears a dashed ring, its
+            //   hover says it is off the scale and gives its real figure, and the line under the
+            //   chart names and counts them. A row off the scale is a row the reader must know
+            //   about, not one the chart may quietly flatten everything else for.
+            const _axPin={x:[],y:[]};
             const ext=k=>{const vs=pts.map(p=>p[k]).slice().sort((a,b)=>a-b);
               let lo=vs[0],hi=vs[vs.length-1];
+              if(vs.length>=8){
+                // TRIMMED BY COUNT, not by interpolated quantile: with eleven points a 98th
+                //   percentile sits four fifths of the way INTO the outlier (measured: 7,557 of a
+                //   9,440 row), so it trimmed nothing at all. Dropping the top and bottom 2% of
+                //   the points, at least one each side, is the rule the deleted TRIM control used
+                //   and it is the one a reader can check by counting dots.
+                const t=Math.max(1,Math.ceil(vs.length*0.02));
+                const b0=vs[t],b1=vs[vs.length-1-t];
+                if(b1>b0&&(hi-lo)>6*(b1-b0)){lo=b0;hi=b1;}}
               // ABSOLUTE axes always reach zero (owner: "show the zero line for the x/y axis").
               //   CHAMPION re-centres on the champion, whose zero is the crosshair below.
               if(!_reRel){lo=Math.min(lo,0);hi=Math.max(hi,0);}
               if(!(hi>lo)){const pad=Math.abs(hi)*0.1||1;lo=hi-pad;hi=hi+pad;}
-              const pd=(hi-lo)*0.07;return [lo-pd,hi+pd];};
+              const pd=(hi-lo)*0.07,e=[lo-pd,hi+pd];
+              pts.forEach(p=>{if(p[k]<e[0]||p[k]>e[1]){p[(k==='x')?'_pinX':'_pinY']=1;_axPin[k].push(p);}});
+              return e;};
             const xe=ext('x'),ye=ext('y');
+            // the line under the chart reads these: name, which axis, and the row's REAL figure
+            try{window._rePin={x:_axPin.x.map(p=>({nm:String((p.r&&p.r.name)||(p.r&&p.r.n)||''),v:p.x})),
+                               y:_axPin.y.map(p=>({nm:String((p.r&&p.r.name)||(p.r&&p.r.n)||''),v:p.y})),
+                               n:pts.length};}catch(_ep){window._rePin=null;}
             const cl=(v,e)=>Math.max(e[0],Math.min(e[1],v));
             const px=v=>L+(cl(v,xe)-xe[0])/(xe[1]-xe[0])*(R-L);
             const py=v=>B-(cl(v,ye)-ye[0])/(ye[1]-ye[0])*(B-T);
@@ -36937,6 +36967,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   can be told which one is on screen. Memoised per row and stretch: one lookup.
               if(_reMode()==='ddp'||_reXAxis==='ddp'){const _dp=_reDdpOf(st,r);
                 if(_dp&&_dp.v!=null&&_dp.src)tp+=' | DD % from peak: '+_dp.src;}
+              // OFF THE SCALE (owner 2026-10-27). The axis is fitted to the middle 96% when one row
+              //   would otherwise flatten the rest, so this row is drawn pinned to the edge. Its real
+              //   figure is here, because a pinned dot's POSITION no longer states it.
+              if(p._pinX||p._pinY){tp+=' | OFF THE SCALE on the '+[(p._pinY?('vertical axis ('+String(_reYcapShort[_reMode()]?String(_reYcapShort[_reMode()]).split(' —')[0]:(_reXNm[_reMode()]||'vertical'))+' '+((p.y==null)?'not measured':_reVal(p.y,yf))+')'):''),(p._pinX?('horizontal axis ('+String(_reXNm[_reXAxis]||'horizontal')+' '+((p.x==null)?'not measured':_reVal(p.x,xf))+')'):'')].filter(Boolean).join(' and the ')
+                  +' - it is drawn at the edge, and the axis is fitted to the middle 96% of the rows so the rest are not flattened by it';}
               tp+=' | click to jump to its row in its own study table below';
               tp+=' | right-click to hide this dot for now - the chart refits, and SHOW ALL under the chart brings it back';
               // STATUS rings. The verdict already owns the SHAPE, so status rides as a ring
@@ -36946,6 +36981,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // status rings only at report size - on a dense dot chart they are noise
               const lv=(pts.length>250)?null:_reLiveV(r);
               let ring='';
+              // A DOT PINNED TO THE EDGE WEARS A DASHED RING (owner 2026-10-27). Its position is no
+              //   longer its figure - it only means "further out than the scale reaches" - so it must
+              //   not look like an ordinary dot that happens to sit at the maximum.
+              if(p._pinX||p._pinY)ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+3.9).toFixed(1)+'" fill="none" stroke="var(--yellow)" stroke-width="1.3" stroke-dasharray="2.4,2" opacity="0.95"/>';
               if(lv==='crown'||lv==='both')ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+3.2).toFixed(1)+'" fill="none" stroke="var(--text)" stroke-width="1.1" opacity="'+(dim?0.22:0.62)+'"/>';
               if(lv==='paper'||lv==='both')ring+='<circle cx="'+cx.toFixed(1)+'" cy="'+cy.toFixed(1)+'" r="'+(sz+5.6).toFixed(1)+'" fill="none" stroke="var(--green)" stroke-width="1.6" stroke-dasharray="3,3" opacity="'+(dim?0.25:0.9)+'"/>';
               g+='<g data-repoint="'+st.key+':'+r.n+'" data-rehide="'+_reEsc(_reHideKey(st,r))+'" style="cursor:pointer">'
@@ -38539,7 +38578,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   something to say: a family with exactly one declared crown needs no choice, and a
         //   family with two is a registry problem the owner should see rather than have averaged
         //   away. Nothing here changes a tag - it only picks which crown the CHART reads against.
-        const _reMoreBtn='<span data-remoretog title="'+_reEsc((_reMore?'hide':'show')+' the rest of the controls: the comparison basis, the value zoom, the time scope, the scope date, the colour setting and every filter chip. They keep working while hidden - the status chips below always say what is in force.')+'" style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;color:'+(_reMore?'var(--text2)':'var(--text4)')+';border:1px solid var(--border);background:'+(_reMore?'var(--bg2)':'var(--bg1)')+'">'+(_reMore?'\u25b4 LESS':'\u25be MORE')+(_reFiltOn?' \u00b7 filtered':'')+'</span>';
+        const _reMoreBtn='<span data-remoretog title="'+_reEsc((_reMore?'hide':'show')+' the rest of the controls: the comparison basis, the time scope, the scope date, the colour setting and every filter chip. They keep working while hidden - the status chips below always say what is in force.')+'" style="font-size:8px;font-weight:700;letter-spacing:.4px;padding:3px 8px;border-radius:6px;cursor:pointer;color:'+(_reMore?'var(--text2)':'var(--text4)')+';border:1px solid var(--border);background:'+(_reMore?'var(--bg2)':'var(--bg1)')+'">'+(_reMore?'\u25b4 LESS':'\u25be MORE')+(_reFiltOn?' \u00b7 filtered':'')+'</span>';
         const _reStageBtns=_reCtl(3,'PROFIT STAGE','which stretch of history every study is read on - the chart height, the highlighted column and the profit divided by drawdown column all follow it',
             _reStages.map(sg=>_reBtn(_reSegPin?'data-restagepin':('data-resstage="'+sg+'"'),_reStageNm[sg],_reSegsEff.indexOf(sg)>=0,
               (_reSegPin?'PINNED on the CONFIGS level: a configuration record is scored on the optimize window and holds no walk-forward or lockbox figure of its own, so there is no other stage to pick. Leave this level and the tick is yours again. ':'')+
@@ -39213,8 +39252,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if((R&&R.state==='err')||(C2&&C2.state==='err'))bits.push('A READ FAILED - see DETAILS');
             if((R&&R.capped)||(C2&&C2.capped))bits.push('THE READ HIT ITS CAP - this month is NOT whole');
             mon=' \u00b7 '+_reEsc(String(_reMonWin.nm).toUpperCase())+(bits.length?(' read '+bits.join(' + ')):'');}
+          // ROWS DRAWN AT THE EDGE BECAUSE THEY ARE OFF THE SCALE (owner 2026-10-27: "all dots
+          //   squashed in a corner, x axis to 10,104%"). The axis fits the middle 96% of the rows
+          //   when one far row would otherwise flatten the rest; those rows still draw, pinned, with
+          //   a dashed ring - so the line that says what IS on the chart has to name them and give
+          //   their real figures, or a dot drawn at the maximum reads as being AT the maximum.
+          //   IT STAYS SHORT. This note is rendered ABOVE the chart, and on the side-by-side split
+          //   the gap between the tables column and the chart is already 263 px of a 300 px budget -
+          //   measured: a two-line clause here pushes the chart out of its own row. So the line
+          //   carries the count and the furthest row, and the rest is one hover away.
+          let _pinTx='';
+          {const P=window._rePin||null,bits=[],full=[];
+           const say=(arr,where,fmt)=>{if(!arr||!arr.length)return;
+             const s=arr.slice().sort((a,b)=>Math.abs(b.v)-Math.abs(a.v));
+             bits.push(arr.length+' off the scale '+((where==='top or bottom')?'up the side':'across'));
+             full.push(arr.length+' row'+((arr.length===1)?'':'s')+' off the '+where+': '
+               +s.slice(0,6).map(o=>o.nm+' '+_reVal(o.v,fmt)).join(', ')
+               +((arr.length>6)?(' and '+(arr.length-6)+' more'):''));};
+           if(P){say(P.y,'top or bottom',_reYfmt());
+                 say(P.x,'left or right',(['dd','raw','ppt'].indexOf(_reXAxis)>=0)?'money':'num');}
+           if(bits.length)_pinTx=' \u00b7 <span title="'+_reEsc(full.join(' | ')
+             +' | Each is drawn at the edge of the chart with a dashed ring, and its hover gives its real figure. The axis is fitted to the middle 96% of the rows when one far row would otherwise flatten every other dot into a corner - which is what it used to do.')
+             +'" style="color:var(--yellow);font-weight:700;cursor:help">'+bits.join(', ')+'</span>';}
           const L1='<b style="color:var(--text4)">'+plotted.toLocaleString()+' of '+tot.toLocaleString()
-            +' row'+(tot===1?'':'s')+' on this chart</b> \u00b7 '+_reEsc(stretch)+' reading'+mon;
+            +' row'+(tot===1?'':'s')+' on this chart</b> \u00b7 '+_reEsc(stretch)+' reading'+mon+_pinTx;
           // THE BIGGEST REASON, in his words, with its own switch where there is one
           let L2='';
           if(offN){

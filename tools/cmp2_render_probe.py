@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 163
+N_CASES = 164
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7900,6 +7900,88 @@ var FIX = __FIX__;
            B:Object.keys(B).map(function(k){return k+(B[k].lit?':lit':':dark');}),
            cleared:cleared,errs:errAcc.slice(0,2)});
       })();
+      // -- case e1_axis_outlier (owner 2026-10-27: "SCATTER broken: Sortino vs ROC%/yr all dots
+      //    squashed in a corner, x axis to 10,104%"). The fit had no outlier handling at all, and
+      //    VALUE ZOOM - the one control that ever trimmed it - was deleted 2026-08-19.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        // LANE RECORDS, because they are the rows the owner's own board is mostly made of and the
+        //   two figures this case needs - a Sortino and a ROC - are the ones a record always saves.
+        //   ROC @ $30K DD is read straight off the record, so no derivation is in the way.
+        function rec(i,roc,so){return {id:'e1r'+i,timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'e1probe',family:'ZAXIS',instrument:'NQ',timeframe:'2m',
+          trades:200,roc30k:roc,sortino:so,dd5:8000,one_episode:false,start_usd:100000,
+          win_start:'2021-01-01',win_end:'2024-01-01',years:3.0,where:'lane',stage:'WF'};}
+        var BODY=[];for(var i=0;i<10;i++)BODY.push(rec(i,10+i*2,1+i*0.1));
+        var FAR=rec(99,9440,2.6);              // his own board's shape: one row three orders out
+        function win(rows){return dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify(rows)+",at:Date.now()};"
+          +"window._reMonKey='all';");}
+        function P(){return {c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZAXIS']},resMarks:'dot',c2Tbl:true,resCols:'all'};}
+        function read(){
+          var gs=[].filter.call(d.querySelectorAll('[data-repoint]'),function(g){return true;});
+          var xs=[],far=null;
+          gs.forEach(function(g){
+            var c=g.querySelector('circle[r]');
+            var cx=c?+(c.getAttribute('cx')||0):null;
+            var t=g.querySelector('title'),tip=dfxN(t?(t.textContent||''):'');
+            if(cx!=null)xs.push(cx);
+            if(/9,?440/.test(tip))far={cx:cx,tip:tip,
+              ring:!!g.querySelector('circle[stroke-dasharray="2.4,2"]')};});
+          // the x tick labels, left to right
+          var tk=[].map.call(d.querySelectorAll('text[text-anchor="middle"]'),function(x){
+            return (x.textContent||'').trim();}).filter(function(s){return /[0-9]/.test(s);});
+          var pinTip=(function(){var s=[].filter.call(d.querySelectorAll('span[title]'),function(x){
+              return /off the scale/.test(x.textContent||'');})[0];
+            return s?dfxN(s.getAttribute('title')||''):'';})();
+          var note=(function(){var c=[].filter.call(d.querySelectorAll('div'),function(x){
+              return /rows? on this chart/.test(x.textContent||'');});
+            c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});
+            return c.length?dfxN(c[0].textContent):'';})();
+          xs.sort(function(a,b){return a-b;});
+          return {n:gs.length,far:far,ticks:tk.slice(0,14),note:note.slice(0,420),pinTip:pinTip.slice(0,400),
+                  spread:(xs.length>1)?(xs[xs.length-1]-xs[0]):0,
+                  bodySpread:(xs.length>2)?(xs[xs.length-2]-xs[0]):0,
+                  pin:w.eval('JSON.stringify(window._rePin||null)')};}
+        // (i) ELEVEN ROWS: ten together and one far out
+        calls.push(doRender(P(),win(BODY.concat([FAR]))));chk('eleven');
+        var A=read();
+        // (ii) FIVE ROWS, one of them far: too thin to trim, so the plain fit stands
+        calls.push(doRender(P(),win(BODY.slice(0,4).concat([FAR]))));chk('five');
+        var B=read();
+        // (iii) AN ORDINARY BOARD, no far row at all: nothing may be trimmed, pinned or marked.
+        //   Re-scaling a board nobody complained about would be a worse fault than the one being
+        //   fixed, and at a three-times disparity this rule DID fire on an ordinary board.
+        calls.push(doRender(P(),win(BODY)));chk('plain');
+        var C=read();
+        var maxTick=function(t){var m=0;t.forEach(function(s){var v=parseFloat(String(s).replace(/[^0-9.\-]/g,''));
+          if(isFinite(v)&&Math.abs(v)>Math.abs(m))m=v;});return m;};
+        dfxCase('e1_axis_outlier',calls,{
+          'all eleven rows are drawn - the far one is never dropped':A.n===11&&!!A.far,
+          'the axis does NOT reach out to the far row':Math.abs(maxTick(A.ticks))<2000,
+          'and the ten rows that belong together spread across the plot instead of one corner':
+            A.bodySpread>300,
+          'the far row is drawn at the right-hand edge':!!A.far&&A.far.cx>=930,
+          'it wears the dashed ring that says its position is not its figure':!!A.far&&A.far.ring===true,
+          'its hover says it is off the scale and gives the real figure':
+            !!A.far&&/OFF THE SCALE/.test(A.far.tip)&&/9,?440/.test(A.far.tip),
+          'the line by the chart counts it, and its hover names it with the real figure':
+            /1 off the scale across/.test(A.note)
+            &&/middle 96/.test(A.pinTip||'')&&/9,?440/.test(A.pinTip||''),
+          'and the page records which rows were pinned':/9440|9,440/.test(String(A.pin||'')),
+          'FIVE ROWS: the plain fit stands, nothing is pinned, nothing is marked':
+            B.n===5&&!!B.far&&B.far.ring===false&&Math.abs(maxTick(B.ticks))>2000,
+          'AN ORDINARY BOARD IS LEFT ALONE: nothing trimmed, nothing pinned, nothing marked':
+            C.n===10&&String(C.pin||'').indexOf('"x":[]')>=0&&String(C.pin||'').indexOf('"y":[]')>=0
+            &&C.note.indexOf('off the scale')<0&&!C.pinTip,
+          'no console errors':errAcc.length===0
+        },{n:A.n,plain:{n:C.n,pin:String(C.pin||'').slice(0,80),ticks:C.ticks.slice(0,6)},ticks:A.ticks,bodySpread:Math.round(A.bodySpread),spread:Math.round(A.spread),
+           farCx:(A.far?Math.round(A.far.cx):null),farRing:(A.far?A.far.ring:null),
+           note:A.note.slice(0,240),pinTip:(A.pinTip||'').slice(0,200),pin:String(A.pin||'').slice(0,200),
+           five:{n:B.n,ticks:B.ticks.slice(0,8),farRing:(B.far?B.far.ring:null)},
+           errs:errAcc.slice(0,2)});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
   }
@@ -10127,6 +10209,7 @@ def main(argv=None):
     DFX += ['w47_month']
     DFX += ['w50_source']
     DFX += ['i50_rail_offer']
+    DFX += ['e1_axis_outlier']
     DFX += ['d1_rail_all']
     DFX += ['i51_ddp_stored']
     for name in DFX:
