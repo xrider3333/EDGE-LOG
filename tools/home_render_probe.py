@@ -2312,6 +2312,28 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       st.afterSnapshot={open:!!q(PN),sheetId:w.eval('homeSheetId'),g:geo()};
       shut();
     });
+    // 9. THE READER'S SCROLL SURVIVES A RE-RENDER (owner 2026-10-27: "site sometimes wont scroll /
+    //    mouse wheel dead"). renderApp re-pins the window one frame AFTER the render, so a wheel
+    //    turn that lands inside that frame used to be undone - one render stole a frame of
+    //    scrolling and a burst of them (a Firestore stream, a run finishing) stole the wheel for
+    //    as long as the burst lasted. Two readings, because the restore itself has to keep
+    //    working: the page stays where the reader put it when they moved, and returns to where it
+    //    was when they did not. renderApp and the reader's scroll go in ONE eval, so the second
+    //    lands in the same task the render did - which is exactly when the symptom happens.
+    await step(res,'scrollkeep',async function(st){
+      st.height=+w.eval('(document.scrollingElement||document.documentElement).scrollHeight');
+      w.eval('window.scrollTo(0,400)');
+      await sleep(25);
+      st.before=Math.round(+w.eval('window.scrollY||0'));
+      w.eval('renderApp();window.scrollTo(0,800);');
+      await sleep(90);
+      st.moved=Math.round(+w.eval('window.scrollY||0'));
+      w.eval('window.scrollTo(0,400)');
+      await sleep(25);
+      w.eval('renderApp();');
+      await sleep(90);
+      st.kept=Math.round(+w.eval('window.scrollY||0'));
+    });
     out.panels[nm]=res;
   }
   // ---- LEDGER unify step 8 follow-up: the PAGE never scrolls sideways at any width ----------------------------------------------
@@ -3213,7 +3235,8 @@ def _judge_panels(panels, data_obj):
         t1, t2 = T[cfg['tid']], T[cfg['tid2']]
         want = {cfg['tid']: (t1['symbol'], _signed(t1['pnl']), t1['type'], 'lg-up' if t1['pnl'] > 0 else 'lg-down'),
                 cfg['tid2']: (t2['symbol'], _signed(t2['pnl']), t2['type'], 'lg-up' if t2['pnl'] > 0 else 'lg-down')}
-        for step_name in ('open', 'rerender', 'esc', 'outside', 'button', 'switch', 'room', 'delete'):
+        for step_name in ('open', 'rerender', 'esc', 'outside', 'button', 'switch', 'room', 'delete',
+                          'scrollkeep'):
             s = st.get(step_name) or {}
             _errs('%s, %s' % (tag, step_name), s, fails)
             if s.get('threw'):
@@ -3414,6 +3437,16 @@ def _judge_panels(panels, data_obj):
         room('at the end', rm.get('g'))
         if rm.get('sheetId') is not None:
             fails.append('%s: the board still says trade %r is open after the panel was closed' % (tag, rm.get('sheetId')))
+        # -- the reader's own scroll position, across a re-render (owner 2026-10-27)
+        sk = st.get('scrollkeep') or {}
+        if (sk.get('height') or 0) > 1200 and (sk.get('before') or 0) > 350:
+            if abs((sk.get('moved') or 0) - 800) > 4:
+                fails.append('%s: a re-render pulled the page back from where the reader had just scrolled it '
+                             '(wanted 800, got %r) - this is the dead-wheel report'
+                             % (tag, sk.get('moved')))
+            if abs((sk.get('kept') or 0) - 400) > 4:
+                fails.append('%s: a re-render lost the reader position although nothing moved under it '
+                             '(wanted 400, got %r)' % (tag, sk.get('kept')))
         if phone:
             for key in ('open', 'esc', 'room'):
                 gg = (st.get(key) or {}).get('g') or {}

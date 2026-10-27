@@ -3393,7 +3393,16 @@ if(window._lastLogTab)window._lastLogTab=_liveLogTab(window._lastLogTab);
 try{
   let _scT=null;
   addEventListener('scroll',function(){if(_scT)clearTimeout(_scT);_scT=setTimeout(function(){try{localStorage.setItem('el_scrollY',String((document.scrollingElement||document.documentElement).scrollTop|0));}catch(e){}},200);},{passive:true,capture:true});
-  addEventListener('load',function(){try{const y=+(localStorage.getItem('el_scrollY')||0);if(y>0){let k=0;const iv=setInterval(function(){window.scrollTo(0,y);if(++k>=12)clearInterval(iv);},140);}}catch(e){}});
+  // THE RETRIES GIVE WAY THE MOMENT THE READER TOUCHES THE PAGE (owner 2026-10-27: "site
+  //   sometimes wont scroll / mouse wheel dead"). This loop re-pins the window every 140 ms, twelve
+  //   times - about 1.7 seconds, and longer in wall-clock while the boot render and the Firestore
+  //   streams hold the main thread - so a wheel turn inside that window was visibly undone and the
+  //   page read as dead. The retries exist because run data streams in and the page grows under the
+  //   restore, so they are kept: they just stop on the first scroll the reader asks for.
+  addEventListener('load',function(){try{const y=+(localStorage.getItem('el_scrollY')||0);if(y>0){let k=0;
+    const iv=setInterval(function(){window.scrollTo(0,y);if(++k>=12)clearInterval(iv);},140);
+    const stop=function(){clearInterval(iv);['wheel','touchstart','keydown','pointerdown'].forEach(function(t){removeEventListener(t,stop,true);});};
+    ['wheel','touchstart','keydown','pointerdown'].forEach(function(t){addEventListener(t,stop,{capture:true,passive:true});});}}catch(e){}});
 }catch(e){}
 let pendingMerges=[],pendingApprovalCb=null; // change approval queue
 
@@ -49800,7 +49809,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   overflow:auto so a wheel over one scrolled the TILE. Redirect vertical wheel to the page;
       //   the tile scrollbar still drags, and the double-click expanded view scrolls normally.
       (function(){const rd=document.getElementById('res-detail');if(!rd||rd._wheelRedir)return;rd._wheelRedir=1;
-        rd.addEventListener('wheel',e=>{if(!e.deltaY||e.ctrlKey)return;const t=e.target.closest('[style*="overflow:auto"]');if(!t||!rd.contains(t))return;e.preventDefault();window.scrollBy({top:e.deltaY,left:0});},{passive:false});})();
+        // TWO FIXES HERE (owner 2026-10-27, "mouse wheel dead"). It cancelled the native scroll
+        //   ALWAYS and substituted window.scrollBy with the raw deltaY: on a device that reports
+        //   deltaMode 1 (lines) or 2 (pages) that number is a handful of lines, so the page crawled
+        //   or did not visibly move at all, and at the top or bottom of the page it cancelled the
+        //   wheel and moved nothing - both read as a dead wheel, and both only on some machines and
+        //   some pointer positions, which is why it came and went. The delta is normalised now, and
+        //   the redirect only takes the wheel when the page actually has room to move that way.
+        rd.addEventListener('wheel',e=>{if(!e.deltaY||e.ctrlKey)return;
+          const t=e.target.closest('[style*="overflow:auto"]');if(!t||!rd.contains(t))return;
+          const d=(e.deltaMode===1)?e.deltaY*16:((e.deltaMode===2)?e.deltaY*window.innerHeight:e.deltaY);
+          const se=document.scrollingElement||document.documentElement;
+          const room=(d>0)?(se.scrollHeight-se.clientHeight-se.scrollTop):se.scrollTop;
+          if(room<=1)return;
+          e.preventDefault();window.scrollBy({top:d,left:0});},{passive:false});})();
       content.querySelectorAll('[data-distbinsel]').forEach(s=>{s.onchange=()=>{savePref('distBins',+s.value);renderApp();};});
       // scatter / heatmap param pickers — persist the chosen axes and re-render the detail
       const _tpc=content.querySelector('[data-tpc]');if(_tpc)_tpc.onchange=()=>{savePref('tpColor',_tpc.value);renderApp();};
@@ -50355,7 +50377,16 @@ function _setWire(pane){
   // A genuine tab / sub-tab change still lands at the top.
   if(_sy>0&&_tabB===activeTab&&_subB===(typeof augurSub!=='undefined'?augurSub:null)){
     try{window.scrollTo(0,_sy);}catch(_e1){}
-    try{requestAnimationFrame(function(){try{window.scrollTo(0,_sy);}catch(_e2){}});}catch(_e3){}
+    // AND THE SECOND ONE YIELDS TO A READER WHO HAS ALREADY MOVED (owner 2026-10-27, same report).
+    //   This retry lands a FRAME LATER, by which time a wheel turn has moved the page - so every
+    //   render stole a frame of scrolling, and a burst of them (a Firestore stream, a run finishing,
+    //   a queue tick) stole it for as long as the burst lasted. That is the one mechanism here that
+    //   explains a scroll going dead mid-session and coming back on its own. The retry is kept,
+    //   because the page can still be growing when the first call lands; it just checks first.
+    const _after=(window.scrollY||document.documentElement.scrollTop||0);
+    try{requestAnimationFrame(function(){try{
+      const _now=(window.scrollY||document.documentElement.scrollTop||0);
+      if(Math.abs(_now-_after)<2)window.scrollTo(0,_sy);}catch(_e2){}});}catch(_e3){}
   }
   try{if(!window._setBuilding&&document.getElementById('set-overlay'))openSettings();}catch(e){}
   return r;};window.renderApp=renderApp;})();
