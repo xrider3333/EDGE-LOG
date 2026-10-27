@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1355';
+const VERSION='73.1356';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3058,8 +3058,8 @@ const LOG_TABS_STRIP=['home','analytics'];
 //   inner toggles inside BUILDER and RESEARCH now, the same pattern PAPER TRADE already uses
 //   for NT8 FUTURES | WEBULL QQQ (see the _bt/_rt toggle rows near the PAPER TRADE one below).
 //   ASUBS_FULL keeps the pre-collapse list alive for the ?oldtabs=1 escape hatch.
-const ASUBS_FULL=[['lib','LIBRARY'],['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['ref','REFERENCE'],['research','RESEARCH']];
-const ASUBS=[['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['research','RESEARCH']];
+const ASUBS_FULL=[['lib','LIBRARY'],['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['ref','REFERENCE'],['research','PAPERS']];
+const ASUBS=[['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['research','PAPERS']];
 // ONE ROW OF TABS (owner ask via MANAGER 2026-09-27): the TRADING LOG / BACKTESTER master buttons
 //   are gone and every tab sits in one strip - HOME, ANALYTICS, then the backtester tabs. PAPER TRADE
 //   left the strip: both paper boards are HOME subtabs now, next to the real log (HOME_SUBS). They
@@ -17627,7 +17627,7 @@ function mlResearchHtml(){
   return '<section id="ml-research" data-mlresearch data-mlopen="1" style="margin:0 0 24px">'
     +'<div class="lbl" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:4px 12px;flex-wrap:wrap"><span>ML RESEARCH · '+ML_RESEARCH_ROWS.length+' studies</span>'
     +'<span style="display:inline-flex;gap:12px;flex-wrap:wrap;font-size:var(--fsxs);letter-spacing:1px">'+lnk('READING SHELF',ML_RESEARCH_SHELF)+lnk('RESEARCH LEDGER','RESEARCH_LEDGER.md')+'</span></div>'
-    +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 8px">Every machine-learning study we ran, newest first: what it tested, the verdict, and where the evidence lives. The short read so far: learned gates, sizers and stock models have not beaten a plain rule at matched risk out of sample; the gains that held are small or come from fixed sizing, and order flow is forward-only.</div>'
+    +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 8px">Every machine-learning study we ran, newest first: what it tested, the verdict, and where the evidence lives. Papers read outside machine learning are on the READING SHELF above rather than in this list. The short read so far: learned gates, sizers and stock models have not beaten a plain rule at matched risk out of sample; the gains that held are small or come from fixed sizing, and order flow is forward-only.</div>'
     +'<div style="font-size:var(--fsxs);color:var(--text4);line-height:1.6;margin:0 2px 10px;display:flex;flex-wrap:wrap;gap:2px 8px">'+tally+'<span style="color:var(--text5)">- DEAD = closed for good · FAIL = missed its bar · PASS-small = a real but small gain, not adopted as is · OPEN = still being read forward</span></div>'
     +rows+'</section>';
 }
@@ -17805,7 +17805,7 @@ function renderApp(){
     const _rt=document.createElement('div');
     _rt.style.cssText='display:flex;gap:2px;align-items:center;padding:6px 14px 2px;flex-wrap:wrap';
     const _rb=(id,lbl,tip)=>`<button class="btn-ghost" data-researchsub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${augurSub===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
-    _rt.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${_rb('research','RESEARCH','The backtesting stack')}${_rb('ref','REFERENCE','Cross-strategy parameter reference')}</span>`;
+    _rt.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${_rb('research','PAPERS','Every paper and study read, with its verdict - and the backtesting stack under them')}${_rb('ref','REFERENCE','Cross-strategy parameter reference')}</span>`;
     _rt.querySelectorAll('[data-researchsub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.researchsub;renderApp();};});
     wrap.appendChild(_rt);
   }
@@ -25652,7 +25652,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     const instColor=i=>INSTC[String(i||'').toUpperCase().trim()]||'hsl('+_hashHue(String(i||''))+',45%,62%)';
     const instTag=i=>'<span style="color:'+instColor(i)+';font-weight:600">'+(i||'')+'</span>';
     const AICON={runs:'▦',exec:'▸',lib:'◫',cmp:'◧',cmp2:'◨',rank:'▤',paper:'◷',qqqpaper:'◔',ref:'◈',research:'◎',set:'◆'};
-    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper','PAPER'],['qqqpaper','QQQ PAPER'],['ref','REFERENCE'],['research','RESEARCH']];
+    const asubs=[['lib','LIBRARY'],['exec','BUILDER'],['runs','RESULTS'],['cmp','COMPARE'],['paper','PAPER'],['qqqpaper','QQQ PAPER'],['ref','REFERENCE'],['research','PAPERS']];
     // 0–100 robustness score: blends OOS strength (DSR, walk-forward, lockbox), PF, sample.
     const scoreRun=(r)=>{
       // F22 fix: a validate block with no per-gate pass count (every book's - a book tunes
@@ -41751,8 +41751,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       body=mlResearchHtml()+'<div class="lbl" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center">EDGELOG BACKTESTING STACK<a href="method_stack.html" target="_blank" style="font-size:var(--fsxs);letter-spacing:1px;color:var(--blue);text-decoration:none">OPEN FULL PAGE ↗</a></div>'
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 10px">The 7-stage backtest pipeline and the roadmap of validation &amp; model-building methods — <span style="color:var(--green)">green = live in EDGELOG</span>, <span style="color:var(--yellow)">amber = planned</span>. Updated as each piece ships.</div>'
         +'<iframe id="stack-frame" src="method_stack.html#'+(_ap.stackView==='side'?'side':'stack')+'" title="Method Stack" style="width:100%;height:calc(100vh - 230px);min-height:1500px;border:1px solid var(--border);border-radius:10px;background:var(--bg)"></iframe>'
-        +'<div class="lbl" style="margin:22px 0 6px">WALK-FORWARD STUDIES</div>'
-        +'<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:var(--fsxs);color:var(--text3);line-height:1.7">Saved walk-forward studies will render here once the runner syncs the <code>augur_research/</code> folder. The validation-methodology reference now lives in the REFERENCE tab.</div>';
+        ;
     }else if(augurSub==='qqqpaper'){
       // ── QQQ SHADOW BOOK — modernized 2026-09-03 (owner ask: "modernize the qqq paper
       // tab"). Two Firestore feeds, one tab:

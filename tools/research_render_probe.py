@@ -144,6 +144,16 @@ PROBE_HTML = """<!DOCTYPE html>
         out.hasStack=!!sf;
         out.stackBelow=!!(sf&&(sec.compareDocumentPosition(sf)&4));
       }
+      // BOARD 55: the tab must not promise a render it cannot do, and the button must say what
+      //   is on it. The promise is searched for across the WHOLE rendered tab, so moving the same
+      //   sentence elsewhere on it would still fail.
+      var tabTx=(d.querySelector('#app')||d.body).textContent.replace(/\\s+/g,' ');
+      out.deadBox=/WALK-FORWARD STUDIES/.test(tabTx);
+      out.folderPromise=/augur_research/.test(tabTx);
+      out.topBtn=(function(){var b=d.querySelector('[data-asubtop="research"]');
+        return b?b.textContent.replace(/\\s+/g,' ').trim():null;})();
+      out.innerBtn=(function(){var b=d.querySelector('[data-researchsub="research"]');
+        return b?b.textContent.replace(/\\s+/g,' ').trim():null;})();
       var de=d.documentElement;
       out.scrollW=de.scrollWidth;out.clientW=de.clientWidth;
       out.loadErr=w.eval("(window._rsLoadErr||[]).join(' | ')+(window.loadError?' loadError='+String(window.loadError):'')");
@@ -269,6 +279,19 @@ def judge(nm, r):
         f.append('%s: the page scrolls sideways (%r > %r)' % (nm, r.get('scrollW'), r.get('clientW')))
     if not r.get('secFits'):
         f.append('%s: the ML RESEARCH section is wider than its box' % nm)
+    # BOARD 55: nothing on this tab may promise a render the page cannot do. The WALK-FORWARD
+    #   STUDIES box said saved studies would appear once the runner synced augur_research/;
+    #   that folder holds one file from 2026-06-08, nothing uploads it, and no code here reads it.
+    if r.get('deadBox'):
+        f.append('%s: the WALK-FORWARD STUDIES box is back - it promises a render this page cannot do' % nm)
+    if r.get('folderPromise'):
+        f.append('%s: the tab still promises the augur_research/ folder, which nothing uploads and nothing here reads' % nm)
+    # and the button says what is actually on the tab, while its KEY stays 'research'
+    for key, got in (('top strip', r.get('topBtn')), ('inner toggle', r.get('innerBtn'))):
+        if got is None:
+            f.append('%s: no %s button for the papers tab' % (nm, key))
+        elif 'PAPERS' not in got.upper():
+            f.append('%s: the %s button reads %r, not PAPERS' % (nm, key, got))
     return f
 
 
