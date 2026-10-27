@@ -143,6 +143,20 @@ try:
     import push_queue
 except Exception:          # same: an unfair ship beats no ship
     push_queue = None
+try:
+    import quiet as quiet_mode   # tools/quiet.py - the owner's trading-hours hold (OWNER 10-27)
+except Exception:          # an older shared checkout: never stop a ship over it
+    quiet_mode = None
+
+
+def wait_if_quiet(label):
+    """QUIET MODE (OWNER 10-27): before a HEAVY pre-lock run (a render probe, a heavy test tier)
+    wait while tools/quiet.py says quiet - one line per state change, a poll every 60 s. Only
+    ever called BEFORE the push lock and before a gate slot is taken, so a waiting ship holds
+    nothing another lane needs. EDGELOG_SHIP_IGNORE_QUIET=1 skips the wait (MANAGER)."""
+    if quiet_mode is None:
+        return 0
+    return quiet_mode.wait_while_quiet(label, log=safe_print)
 
 BRANCH_PREFIX = 'session/'
 # deliberately OFF OneDrive: a worktree churns thousands of files and the sync client
@@ -1443,6 +1457,8 @@ def run_plan(wt, root, plan, stamp, spath, tree, base, phase, explain=None):
         note = explain(g) if explain else None
         if note:
             safe_print(note)
+        if phase == 'pre-lock':
+            wait_if_quiet(g.label)       # never under the lock: the locked phase must not stall
         slot = (hold_gate_slot('slow' if g.slow else 'fast', os.path.basename(wt))
                 if phase == 'pre-lock' else None)
         t_gate = time.time()
@@ -1514,6 +1530,8 @@ def prelock_tests(wt):
         return
     heavy = pl is None or not pl.get('timed') or pl.get('est_secs', 0) > locked_tests_max()
     kind = 'tests' if heavy else 'fast'
+    if heavy:
+        wait_if_quiet('the heavy pre-lock test tier')
     try:
         slot = hold_gate_slot(kind, os.path.basename(wt))
     except SystemExit as e:
