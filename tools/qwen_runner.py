@@ -13,10 +13,13 @@ Model 3.qwen3.6:35b-32k, num_ctx 32768 (never more), keep_alive 5m in a task, 0 
 Tools are READ-ONLY (read_file, list_dir, grep) + finish. Reads only under C:\\EdgeLog, the main checkout and the
 memory folder; refuses NinjaTrader/Webull/TradingView/.ssh, key/token/secret/password/credential/.env/.pem names,
 binaries. Writes ONLY: the task file (line 1 + ## RESULT), its STATUS.md icon, the MANAGER inbox, one phone push,
-and its own home. No git, no subprocess (ram_guard may call nvidia-smi).
+and its own home. No git; the only subprocess is run_python's sandboxed child (ram_guard may call nvidia-smi).
+run_python + write_scratch (MANAGER #206): .py files directly in qwen_tasks\\scratch only, AST-gated, read-only,
+60 s. No network is guaranteed ONLY by the AST gate.
 The result is the local model's work: UNVERIFIED until Claude checks it.
 """
 import argparse
+import ast
 import datetime
 import fnmatch
 import glob
@@ -288,6 +291,272 @@ def tool_grep(pattern, path_glob, roots=None):
     return out[:READ_CAP]
 
 
+# ------------------------------------------------------------------------------------------------ scratch python (MANAGER #206)
+# run_python / write_scratch: Qwen may write and run small READ-ONLY data scripts, only .py files directly inside the
+# scratch folder. Layer 1 = a dedicated AST gate (qwen_lab.safety_gate is plugin-shaped - it bans print, json,
+# pathlib and top-level code - so it cannot be reused as is). Layer 2 = a child bootstrap that patches builtins.open
+# and adds an audit hook (the qwen_lab sandbox approach): write modes, paths outside the read roots, the deny-list and
+# subprocess/socket/os.remove-style events raise PermissionError. The child runs `python -I -B`, cwd = scratch, a
+# minimal environment, 60 s timeout, 256 MB output cap (12000 chars back to the model).
+# NO NETWORK is guaranteed ONLY by the AST gate (the audit hook's socket/urllib/http prefixes are a backstop, not a
+# firewall): there is no OS-level network sandbox.
+PY_TIMEOUT_S = 60
+PY_OUT_CAP_BYTES = 256 * 1024 * 1024
+PY_RESULT_CHARS = 12000
+SCRATCH_MAX_CHARS = 20000
+SCRATCH_NAME_RX = re.compile(r"^[A-Za-z0-9_-]+\.py$")
+PY_ALLOWED_IMPORTS = {"pandas", "numpy", "csv", "json", "math", "statistics", "datetime", "re", "pathlib",
+                      "collections", "itertools", "functools", "decimal", "fractions", "string", "textwrap",
+                      "operator", "typing", "dataclasses", "bisect", "heapq", "calendar", "zoneinfo"}
+PY_FORBIDDEN_NAMES = {
+    "exec", "eval", "compile", "__import__", "globals", "locals", "vars", "getattr", "setattr", "delattr", "input",
+    "breakpoint", "help", "memoryview", "__builtins__", "__loader__", "__spec__", "os", "sys", "subprocess", "socket",
+    "shutil", "ctypes", "importlib", "builtins", "io", "requests", "urllib", "http", "pickle", "marshal", "runpy",
+    "threading", "multiprocessing", "asyncio", "signal", "tempfile", "inspect", "gc", "types", "codecs", "mmap",
+    "winreg", "msvcrt", "_winapi", "webbrowser", "ftplib", "smtplib", "ssl", "sqlite3", "shelve", "dbm", "exit",
+    "quit", "classmethod", "staticmethod", "super", "object"}
+PY_FORBIDDEN_ATTRS = {
+    "system", "popen", "remove", "unlink", "rename", "rmdir", "removedirs", "mkdir", "makedirs", "chmod", "chdir",
+    "touch", "write_text", "write_bytes", "symlink_to", "hardlink_to", "link_to", "open", "tofile", "savetxt",
+    "save", "savez", "savez_compressed", "dump", "urlopen", "connect", "environ", "getenv", "putenv", "spawn",
+    "Popen", "check_output", "load", "read_pickle", "eval", "query", "exec", "import_module", "write",
+    "writelines", "writer", "DictWriter", "ExcelWriter", "HDFStore", "memmap", "f_globals", "f_locals",
+    "f_builtins", "f_back", "gi_frame", "cr_frame", "tb_frame", "co_code"}
+PY_TO_OK = {"to_numpy", "to_list", "to_dict", "to_frame", "to_period", "to_timestamp", "to_pydatetime",
+            "to_datetime", "to_numeric", "to_timedelta", "to_series", "to_string", "to_markdown", "to_records",
+            "to_offset", "to_flat_index", "to_datetime64"}
+
+
+def scratch_dir():
+    return os.environ.get("QWEN_SCRATCH_DIR") or os.path.join(tasks_dir(), "scratch")
+
+
+def scratch_path(name):
+    """The one path rule for both tools: a [A-Za-z0-9_-]+.py name (bare or full path) directly inside scratch."""
+    if not name or not isinstance(name, str):
+        raise Refused("name is empty")
+    if not SCRATCH_NAME_RX.match(os.path.basename(name)):
+        raise Refused("only [A-Za-z0-9_-]+.py files directly inside the scratch folder")
+    sd = _nc(scratch_dir())
+    full = _nc(name if os.path.isabs(name) else os.path.join(sd, name))
+    if os.path.dirname(full) != sd:
+        raise Refused("outside the scratch folder %s" % scratch_dir())
+    return full
+
+
+def _open_mode_problem(call):
+    if len(call.args) > 2:
+        return "open() with more than path and mode"
+    mode = call.args[1] if len(call.args) == 2 else None
+    for kw in call.keywords:
+        if kw.arg is None:
+            return "open(**kwargs)"
+        if kw.arg == "mode":
+            mode = kw.value
+        elif kw.arg not in ("encoding", "errors", "newline"):
+            return "open(%s=...)" % kw.arg
+    if mode is None:
+        return None
+    if not (isinstance(mode, ast.Constant) and isinstance(mode.value, str)):
+        return "open() mode must be a literal string"
+    if any(c in mode.value for c in "wax+"):
+        return "open() in write mode %r" % mode.value
+    return None
+
+
+def py_safety_gate(code):
+    """AST gate for scratch scripts: read-only data work. Returns a list of problems ([] = OK)."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError as e:
+        return ["syntax error: %s (line %s)" % (e.msg, e.lineno)]
+    probs, open_calls = [], set()
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Name) and node.func.id == "open":
+            open_calls.add(id(node.func))
+            p = _open_mode_problem(node)
+            if p:
+                probs.append("line %d: %s" % (node.lineno, p))
+    for node in ast.walk(tree):
+        ln = getattr(node, "lineno", 0)
+        if isinstance(node, ast.Import):
+            for a in node.names:
+                if a.name.split(".")[0] not in PY_ALLOWED_IMPORTS:
+                    probs.append("line %d: import %s is not allowed" % (ln, a.name))
+        elif isinstance(node, ast.ImportFrom):
+            if node.level or not node.module or node.module.split(".")[0] not in PY_ALLOWED_IMPORTS:
+                probs.append("line %d: from %s import is not allowed" % (ln, node.module))
+            for a in node.names:
+                if a.name == "*" or a.name.startswith("_") or a.name in PY_FORBIDDEN_NAMES \
+                        or a.name in PY_FORBIDDEN_ATTRS:
+                    probs.append("line %d: from %s import %s is not allowed" % (ln, node.module, a.name))
+        elif isinstance(node, ast.Name):
+            if node.id in PY_FORBIDDEN_NAMES or node.id.startswith("__"):
+                probs.append("line %d: name %s is not allowed" % (ln, node.id))
+            elif node.id == "open" and id(node) not in open_calls:
+                probs.append("line %d: open may only be called directly" % ln)
+        elif isinstance(node, ast.Attribute):
+            a = node.attr
+            if a.startswith("_") or a in PY_FORBIDDEN_ATTRS or (a.startswith("to_") and a not in PY_TO_OK) \
+                    or a.startswith("save"):
+                probs.append("line %d: .%s is not allowed" % (ln, a))
+        elif isinstance(node, (ast.Global, ast.Nonlocal, ast.AsyncFunctionDef, ast.Await)):
+            probs.append("line %d: %s is not allowed" % (ln, type(node).__name__))
+        elif isinstance(node, ast.Constant) and isinstance(node.value, str) and node.value.startswith("__") \
+                and node.value.endswith("__"):
+            probs.append("line %d: dunder string %r is not allowed" % (ln, node.value))
+    out = []
+    for p in probs:
+        if p not in out:
+            out.append(p)
+    return out
+
+
+# The child bootstrap (runs under python -I): argv = [script, json config]. Patches builtins.open and installs an
+# audit hook BEFORE the script runs; reads of the interpreter's own library folders are allowed so imports work.
+_PY_CHILD = r'''
+import builtins, json, os, re, sys
+cfg = json.loads(sys.argv[2])
+script = sys.argv[1]
+for _p in cfg["site"]:
+    if _p not in sys.path:
+        sys.path.append(_p)
+nc = lambda p: os.path.normcase(os.path.realpath(os.path.abspath(p)))
+roots = [nc(r) for r in cfg["roots"]]
+libs = [nc(p) for p in [sys.prefix, sys.base_prefix, sys.exec_prefix] + [p for p in sys.path if p]]
+ddir, dname = re.compile(cfg["deny_dir"], re.I), re.compile(cfg["deny_name"], re.I)
+BLOCK = ("subprocess.", "os.system", "os.exec", "os.spawn", "os.posix_spawn", "os.startfile", "os.kill", "os.remove",
+         "os.rename", "os.rmdir", "os.mkdir", "os.chmod", "os.link", "os.symlink", "os.truncate",
+         "os.chdir", "shutil.", "socket.", "ctypes.", "winreg.", "_winapi.", "msvcrt.", "urllib.", "http.",
+         "ftplib.", "smtplib.", "webbrowser.", "mmap.", "sqlite3.", "builtins.input", "sys.addaudithook")
+def under(p, r):
+    return p == r or p.startswith(r.rstrip("\\/") + os.sep)
+def writing(mode, flags):
+    if isinstance(mode, str):
+        return any(c in mode for c in "wax+")
+    try:
+        f = int(flags or 0)
+    except (TypeError, ValueError):
+        return True
+    return bool(f & (os.O_WRONLY | os.O_RDWR | os.O_APPEND | os.O_CREAT | os.O_TRUNC))
+def check_read(p):
+    full = nc(p)
+    root = next((r for r in roots if under(full, r)), None)
+    if root is None:
+        if any(under(full, l) for l in libs):
+            return
+        raise PermissionError("scratch sandbox: reading %s is outside the allowed read roots" % p)
+    parts = [x for x in re.split(r"[\\/]", full[len(root):]) if x]
+    if any(ddir.search(x) for x in parts) or (parts and dname.search(parts[-1])):
+        raise PermissionError("scratch sandbox: reading %s is on the deny-list" % p)
+state = {"armed": False, "in": False}
+def hook(event, args):
+    if not state["armed"] or state["in"]:
+        return
+    state["in"] = True
+    try:
+        if event == "open":
+            path, mode, flags = (list(args) + [None, None, None])[:3]
+            if writing(mode, flags):
+                raise PermissionError("scratch sandbox: writing is blocked")
+            if path is not None and not isinstance(path, int):
+                check_read(os.fsdecode(path) if isinstance(path, (bytes, bytearray)) else str(path))
+            return
+        for pre in BLOCK:
+            if event.startswith(pre):
+                raise PermissionError("scratch sandbox: %s is blocked" % event)
+    finally:
+        state["in"] = False
+real_open = builtins.open
+def guarded_open(file, mode="r", *a, **k):
+    if writing(mode, None) or k.get("opener") is not None:
+        raise PermissionError("scratch sandbox: open() in write mode %r is blocked" % (mode,))
+    if not isinstance(file, int):
+        check_read(os.fsdecode(file) if isinstance(file, (bytes, bytearray)) else str(file))
+    return real_open(file, mode, *a, **k)
+with real_open(script, encoding="utf-8") as fh:
+    src = fh.read()
+code = compile(src, script, "exec")
+for _m in ("numpy", "pandas"):          # load the allowed C libraries BEFORE arming (their import uses ctypes)
+    try:
+        __import__(_m)
+    except ImportError:
+        pass
+builtins.open = guarded_open
+sys.addaudithook(hook)
+state["armed"] = True
+exec(code, {"__name__": "__main__", "__file__": script})
+'''
+
+
+def _py_env():
+    keep = ("SYSTEMROOT", "SystemRoot", "WINDIR", "TEMP", "TMP", "NUMBER_OF_PROCESSORS", "PROCESSOR_ARCHITECTURE")
+    env = {k: os.environ[k] for k in keep if k in os.environ}
+    env.update(OMP_NUM_THREADS="1", MKL_NUM_THREADS="1", OPENBLAS_NUM_THREADS="1")
+    return env
+
+
+def tool_write_scratch(name, code):
+    p = scratch_path(name)
+    if not isinstance(code, str) or not code.strip():
+        raise Refused("code is empty")
+    if len(code) > SCRATCH_MAX_CHARS:
+        raise Refused("code is %d chars (max %d)" % (len(code), SCRATCH_MAX_CHARS))
+    probs = py_safety_gate(code)
+    if probs:
+        raise Refused("safety gate: " + "; ".join(probs[:8]))
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, "w", encoding="utf-8", newline="\n") as f:
+        f.write(code)
+    return "wrote %s (%d chars); run it with run_python" % (p, len(code))
+
+
+def tool_run_python(path, roots=None, timeout=None):
+    """Run one scratch .py in a child process: the AST gate first (it is the ONLY no-network guarantee - there is no
+    OS-level network sandbox), then `python -I -B` with the builtins.open + audit-hook wrapper (write modes, paths
+    outside the read roots + scratch, and the deny-list refused at runtime), cwd = scratch, minimal env, 60 s timeout,
+    256 MB output cap, 12000 chars back to the model."""
+    import subprocess
+    import tempfile
+    p = scratch_path(path)
+    if not os.path.isfile(p):
+        raise Refused("no such scratch file (write it first with write_scratch)")
+    with open(p, encoding="utf-8", errors="replace") as f:
+        code = f.read()
+    if len(code) > SCRATCH_MAX_CHARS:
+        raise Refused("script is %d chars (max %d)" % (len(code), SCRATCH_MAX_CHARS))
+    probs = py_safety_gate(code)
+    if probs:
+        raise Refused("safety gate: " + "; ".join(probs[:8]))
+    cfg = {"roots": list(roots or read_roots()) + [scratch_dir()], "deny_dir": DENY_DIR_RX.pattern,
+           "deny_name": DENY_NAME_RX.pattern,
+           "site": [x for x in sys.path if x and "site-packages" in x.lower()]}
+    limit = timeout or PY_TIMEOUT_S
+    flags = 0x08000000 if os.name == "nt" else 0                     # CREATE_NO_WINDOW
+    t0 = time.time()
+    why = None
+    with tempfile.TemporaryFile() as out:
+        proc = subprocess.Popen([sys.executable, "-I", "-B", "-X", "utf8", "-c", _PY_CHILD, p, json.dumps(cfg)],
+                                cwd=os.path.dirname(p), env=_py_env(), stdin=subprocess.DEVNULL, stdout=out,
+                                stderr=subprocess.STDOUT, creationflags=flags)
+        while proc.poll() is None:
+            if time.time() - t0 > limit:
+                why = "TIMEOUT: killed after %d s" % limit
+            elif os.fstat(out.fileno()).st_size > PY_OUT_CAP_BYTES:
+                why = "OUTPUT CAP: killed past %d MB of output" % (PY_OUT_CAP_BYTES // (1024 * 1024))
+            if why:
+                proc.kill()
+                proc.wait()
+                break
+            time.sleep(0.05)
+        out.seek(0)
+        text = out.read(PY_RESULT_CHARS * 4).decode("utf-8", errors="replace")
+    head = "[exit %s, %.1f s%s]" % (proc.returncode, time.time() - t0, "; " + why if why else "")
+    if len(text) > PY_RESULT_CHARS:
+        text = text[:PY_RESULT_CHARS] + "\n...[output cut at %d chars]" % PY_RESULT_CHARS
+    return head + "\n" + text
+
+
 TOOLS = [
     {"name": "read_file", "description": "Read a text file (numbered lines, at most 12000 chars per call). Read-only.",
      "parameters": {"type": "object", "properties": {
@@ -299,6 +568,13 @@ TOOLS = [
     {"name": "grep", "description": "Regex search over files matching an absolute glob (** allowed). Capped.",
      "parameters": {"type": "object", "properties": {
          "pattern": {"type": "string"}, "path_glob": {"type": "string"}}, "required": ["pattern", "path_glob"]}},
+    {"name": "write_scratch", "description": "Create/overwrite a [A-Za-z0-9_-]+.py file (max 20000 chars) in the "
+     "scratch folder. Read-only data work only: pandas, numpy, csv, json, math, statistics, datetime, re, pathlib, "
+     "open(...) in read mode. No writes, network, subprocess, eval/exec, os, getattr.",
+     "parameters": {"type": "object", "properties": {"name": {"type": "string"}, "code": {"type": "string"}},
+                    "required": ["name", "code"]}},
+    {"name": "run_python", "description": "Run a scratch .py (60 s limit, output cut at 12000 chars). print() results.",
+     "parameters": {"type": "object", "properties": {"path": {"type": "string"}}, "required": ["path"]}},
     {"name": "finish", "description": "End the task: your RESULT markdown, status done or blocked, and one line.",
      "parameters": {"type": "object", "properties": {
          "result_markdown": {"type": "string"},
@@ -317,7 +593,11 @@ def run_tool(name, args, roots=None):
             return tool_list_dir(args.get("path"), roots)
         if name == "grep":
             return tool_grep(args.get("pattern") or "", args.get("path_glob") or "", roots)
-        return "ERROR: unknown tool %r (tools: read_file, list_dir, grep, finish)" % name
+        if name == "write_scratch":
+            return tool_write_scratch(args.get("name"), args.get("code"))
+        if name == "run_python":
+            return tool_run_python(args.get("path"), roots)
+        return "ERROR: unknown tool %r (tools: read_file, list_dir, grep, write_scratch, run_python, finish)" % name
     except Refused as e:
         return "REFUSED: %s" % e
     except Exception as e:                                           # noqa: BLE001
@@ -503,7 +783,8 @@ class Runner:
         return ("You are Qwen, working ONE task file unattended for the EDGE-LOG project.\n"
                 "TASK-FILE RULES (the harness does the status edits, the inbox post and the push for you):\n%s\n\n"
                 "YOUR TOOLS: read_file, list_dir, grep (all READ-ONLY; absolute Windows paths under C:\\EdgeLog, "
-                "%s or the memory folder) and finish. You cannot run code, write files, git, or touch "
+                "%s or the memory folder), write_scratch + run_python (small READ-ONLY .py scripts in the scratch "
+                "folder; print your results) and finish. You cannot write other files, git, or touch "
                 "NinjaTrader/Webull/TradingView/credentials. If the task needs something you cannot do, call finish "
                 "with status 'blocked' and say why. Read in small pieces (offset/limit). When done, call finish with "
                 "result_markdown (what you found, files used, time zone of every time, how sure you are - never "
@@ -601,6 +882,9 @@ class Runner:
                     res = run_tool(name, args, self.roots)
                     self.log("Q%d: turn %d %s(%s) -> %d chars%s" % (n, turns, name, json.dumps(args)[:160], len(res),
                                                                    " " + res[:80] if res.startswith(("REFUSED", "ERROR")) else ""))
+                    if name in ("run_python", "write_scratch"):
+                        tr.setdefault("python_runs", []).append({"turn": turns, "at": now_s(), "tool": name,
+                                                                 "args": args, "result": res})
                     msgs.append({"role": "tool", "content": res, "tool_name": name})
                 dump()
         finally:

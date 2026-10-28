@@ -309,3 +309,127 @@ def test_status_icon_keeps_bom_and_crlf(env):
     assert R.set_status_icon(10, "🟡")
     raw = open(p, "rb").read()
     assert raw.startswith(b"\xef\xbb\xbf") and raw.decode("utf-8-sig") == STATUS.replace("| Q10 | ten | ⭕", "| Q10 | ten | 🟡")
+
+
+# ---------------------------------------------------------------- run_python / write_scratch (MANAGER #206)
+@pytest.fixture
+def scr(tmp_path, monkeypatch):
+    sd = tmp_path / "scratch"
+    sd.mkdir()
+    root = tmp_path / "root"
+    root.mkdir(exist_ok=True)
+    monkeypatch.setenv("QWEN_SCRATCH_DIR", str(sd))
+    _w(str(root / "data.csv"), "a,b\n1,2\n3,4\n")
+    (root / "webull").mkdir()
+    _w(str(root / "webull" / "acct.csv"), "x\n1\n")
+    _w(str(tmp_path / "outside.txt"), "secret\n")
+    return {"sd": sd, "root": root, "tmp": tmp_path}
+
+
+def _run(scr, code, name="t.py", **kw):
+    assert R.run_tool("write_scratch", {"name": name, "code": code}).startswith("wrote")
+    return R.tool_run_python(name, roots=[str(scr["root"])], **kw)
+
+
+def test_py_good_script_computes_and_prints(scr):
+    code = ("import csv, json, statistics\n"
+            "rows = list(csv.DictReader(open(r'%s', encoding='utf-8')))\n"
+            "print(json.dumps({'mean_b': statistics.mean(int(r['b']) for r in rows)}))\n" % (scr["root"] / "data.csv"))
+    out = _run(scr, code)
+    assert out.startswith("[exit 0") and '{"mean_b": 3}' in out
+
+
+def test_py_pandas_read_ok(scr):
+    out = _run(scr, "import pandas as pd\nprint(int(pd.read_csv(r'%s')['a'].sum()))\n" % (scr["root"] / "data.csv"))
+    assert out.startswith("[exit 0") and "\n4" in out
+
+
+@pytest.mark.parametrize("code", [
+    "f = open('x.txt', 'w')\n",
+    "open('x.txt', mode='a')\n",
+    "m = 'w'\nopen('x.txt', m)\n",
+    "import pathlib\npathlib.Path('x').write_text('hi')\n",
+    "import pandas as pd\npd.DataFrame().to_csv('x.csv')\n",
+    "o = open\no('x', 'w')\n",
+])
+def test_py_write_open_refused(scr, code):
+    res = R.run_tool("write_scratch", {"name": "w.py", "code": code})
+    assert res.startswith("REFUSED: safety gate")
+    assert not (scr["sd"] / "w.py").exists()
+
+
+@pytest.mark.parametrize("code", ["import socket\n", "import urllib.request\n", "import requests\n",
+                                  "from http import client\n", "__import__('socket')\n"])
+def test_py_network_import_refused(scr, code):
+    assert R.run_tool("write_scratch", {"name": "n.py", "code": code}).startswith("REFUSED: safety gate")
+
+
+@pytest.mark.parametrize("code", ["import subprocess\n", "import os\nos.system('dir')\n", "import shutil\n",
+                                  "import ctypes\n", "import importlib\n", "eval('1')\n", "exec('x=1')\n",
+                                  "getattr(1, '__class__')\n", "().__class__.__bases__\n",
+                                  "import pathlib\npathlib.Path('a').unlink()\n"])
+def test_py_subprocess_and_tricks_refused(scr, code):
+    assert R.run_tool("write_scratch", {"name": "s.py", "code": code}).startswith("REFUSED: safety gate")
+
+
+def test_py_gate_refuses_a_file_planted_after_write(scr):
+    _w(str(scr["sd"] / "p.py"), "import subprocess\nsubprocess.run(['cmd'])\n")
+    assert R.run_tool("run_python", {"path": "p.py"}, [str(scr["root"])]).startswith("REFUSED: safety gate")
+
+
+@pytest.mark.parametrize("name", ["../x.py", "sub/x.py", "x.txt", "x y.py", "", "C:\\Windows\\x.py"])
+def test_py_path_outside_scratch_refused(scr, name):
+    assert R.run_tool("write_scratch", {"name": name, "code": "print(1)\n"}).startswith("REFUSED")
+    assert R.run_tool("run_python", {"path": name}).startswith("REFUSED")
+
+
+def test_py_full_path_outside_scratch_refused(scr):
+    other = scr["tmp"] / "other.py"
+    _w(str(other), "print(1)\n")
+    assert R.run_tool("run_python", {"path": str(other)}).startswith("REFUSED: outside the scratch folder")
+    ok = R.run_tool("run_python", {"path": str(scr["sd"] / "missing.py")})
+    assert ok.startswith("REFUSED: no such scratch file")
+
+
+def test_py_size_cap(scr):
+    assert "max 20000" in R.run_tool("write_scratch", {"name": "big.py", "code": "#" * 20001})
+
+
+def test_py_timeout_kill(scr):
+    out = _run(scr, "while True:\n    pass\n", timeout=2)
+    assert "TIMEOUT: killed after 2 s" in out
+
+
+def test_py_denied_read_refused_at_runtime(scr):
+    code = ("for p in [r'%s', r'%s']:\n"
+            "    try:\n        open(p).read()\n        print('READ', p)\n"
+            "    except PermissionError as e:\n        print('DENIED', e)\n"
+            % (scr["root"] / "webull" / "acct.csv", scr["tmp"] / "outside.txt"))
+    out = _run(scr, code)
+    assert out.startswith("[exit 0") and "READ" not in out
+    assert "deny-list" in out and "outside the allowed read roots" in out
+
+
+def test_py_pandas_denied_read_refused_at_runtime(scr):
+    out = _run(scr, "import pandas as pd\npd.read_csv(r'%s')\n" % (scr["tmp"] / "outside.txt"))
+    assert "PermissionError" in out and "outside the allowed read roots" in out
+
+
+def test_py_output_truncated(scr):
+    out = _run(scr, "print('x' * 50000)\n")
+    assert "output cut at 12000 chars" in out and len(out) < 12200
+
+
+def test_py_runs_logged_to_transcript_and_log(env, scr, monkeypatch):
+    posts, pushes = [], []
+    ws = ({"content": "", "tool_calls": [{"function": {"name": "write_scratch", "arguments": {
+        "name": "a.py", "code": "print(6 * 7)"}}}]}, {"done_reason": "stop"})
+    r, _ = make(env, [ws, tc("run_python", path="a.py"),
+                      tc("finish", result_markdown="42", status="done", one_line="ok")], posts, pushes)
+    assert r.work(2, str(env["tasks"] / "Q2-b.md")) == "done"
+    log = _r(str(env["home"] / "runner.log"))
+    assert "run_python" in log and "write_scratch" in log
+    tp = next((env["home"] / "transcripts").glob("Q2-*.json"))
+    tr = json.loads(_r(str(tp)))
+    runs = tr["python_runs"]
+    assert [x["tool"] for x in runs] == ["write_scratch", "run_python"] and "42" in runs[1]["result"]
