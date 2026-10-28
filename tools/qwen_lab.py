@@ -5714,7 +5714,10 @@ def run_idea(lab, idea, chat, *, dry_run_validate=False, max_steps=MAX_STEPS, be
             mode["no_action"] += 1
             nudges += 1
             if nudges > 2:
-                _end("NO ACTION: the model stopped calling tools")
+                cut = stats.get("done_reason") == "length"
+                _end("NO ACTION: the model's reply was cut off at the context limit (prompt %s + reply %s tokens, "
+                     "num_ctx %s)" % (stats.get("prompt_tokens"), stats.get("eval_tokens"), getattr(chat, "num_ctx", "?"))
+                     if cut else "NO ACTION: the model stopped calling tools")
                 break
             msgs.append({"role": "user", "content": "Call one of the tools (or finish). If native tool calls do not "
                                                     "work, reply with only {\"tool\": ..., \"arguments\": {...}}."})
