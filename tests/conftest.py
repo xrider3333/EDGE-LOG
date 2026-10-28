@@ -198,6 +198,21 @@ def pytest_terminal_summary(terminalreporter):
             terminalreporter.line(f"{b['event']}: {b['target']}")
 
 
+# ── 0. the box monitor's disk reading ─────────────────────────────────────────────────────
+# tools/webull_freshness.collect() reads shutil.disk_usage(home). In a test home is a temp dir on
+# the PC, so it read the PC's own C: drive: at 96 % full (10-28) every freshness test that expects
+# no 'Cloud box: needs a fix' push failed. Pin a healthy 50 % for every test (only it and master_backup read disk usage; master_backup's own tests keep the real call); a test that
+# checks the disk alarm patches wf.shutil.disk_usage itself (that runs after this, so it wins).
+@pytest.fixture(autouse=True)
+def _isolate_freshness_disk(request, monkeypatch):
+    if request.module.__name__.rsplit(".", 1)[-1] == "test_master_backup":   # free-space checks of its own
+        yield
+        return
+    import shutil
+    monkeypatch.setattr(shutil, "disk_usage", lambda p: shutil._ntuple_diskusage(100, 50, 50))
+    yield
+
+
 # ── 1. the QQQ shadow's broker order adapter ─────────────────────────────────────────────
 @pytest.fixture(scope="session")
 def _broker_isolation_root(tmp_path_factory):
