@@ -17,6 +17,12 @@ and its own home. No git; the only subprocess is run_python's sandboxed child (r
 run_python + write_scratch (MANAGER #206): .py files directly in qwen_tasks\\scratch only, AST-gated, read-only,
 60 s. No network is guaranteed ONLY by the AST gate.
 The result is the local model's work: UNVERIFIED until Claude checks it.
+
+BACKENDS (MANAGER #211): --backend auto|strata|ollama (default auto). auto = Strata (OpenAI-compatible, 127.0.0.1:8080/v1)
+when /v1/models lists qwen3.8-flash-next-gyro-gyro-s as loaded, else Ollama; re-checked before each task. With Strata
+the RAM floor and the 1.*/2.* owner-model check are skipped (Strata holds RAM by design); the guard is "Strata answers
+/v1/models within 10 s" plus quiet mode and both STOP files. No keep_alive/unload is ever sent to Strata. Its
+compaction budget is sized from meta.n_ctx (capped at 200k tokens, ~4 chars/token, reply room kept).
 """
 import argparse
 import ast
@@ -48,6 +54,14 @@ IDLE_SLEEP_S = 300
 GUARD_SLEEP_S = 60
 ONE_LINE_MAX = 200
 CTX_LIMIT = 75000
+
+STRATA_URL = "http://127.0.0.1:8080/v1"
+STRATA_MODEL = "qwen3.8-flash-next-gyro-gyro-s"
+STRATA_ALIVE_S = 10
+STRATA_CTX_CAP_TOK = 200000
+STRATA_REPLY_TOK = 16384
+STRATA_TIMEOUT_S = 1800
+CHARS_PER_TOK = 4
 
 OPEN, WORKING, DONE, BLOCKED = "⭕", "🟡", "🟢", "🔴"
 STATUS_WORKING = "STATUS: 🟡 Qwen working"
@@ -627,28 +641,76 @@ def runner_stop_path():
     return os.path.join(home(), "STOP")
 
 
-def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None):
-    """('stop', why) | ('yield', why) | (None, '')."""
+def strata_http(path, payload=None, timeout=STRATA_ALIVE_S):
+    """GET (payload None) or POST JSON to the Strata /v1 endpoint; decoded JSON back."""
+    import urllib.request
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(STRATA_URL + path, data=data, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def strata_model_info(http=None):
+    """The /v1/models entry for STRATA_MODEL when it is listed as loaded, else None (any error = None)."""
+    try:
+        d = (http or strata_http)("/models", None, STRATA_ALIVE_S) or {}
+    except Exception:                                                # noqa: BLE001
+        return None
+    for m in d.get("data") or []:
+        if m.get("id") != STRATA_MODEL:
+            continue
+        st = m.get("status")
+        val = st.get("value") if isinstance(st, dict) else st
+        if str(val or "").lower() == "loaded":
+            return m
+    return None
+
+
+def select_backend(choice="auto", http=None):
+    """'strata' | 'ollama'. auto = Strata when its model is listed as loaded."""
+    if choice in ("strata", "ollama"):
+        return choice
+    return "strata" if strata_model_info(http) else "ollama"
+
+
+def strata_alive(http=None):
+    try:
+        (http or strata_http)("/models", None, STRATA_ALIVE_S)
+        return True, ""
+    except Exception as e:                                           # noqa: BLE001
+        return False, "Strata /v1/models did not answer in %d s (%s)" % (STRATA_ALIVE_S, type(e).__name__)
+
+
+def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None, backend="ollama", alive_fn=None):
+    """('stop', why) | ('yield', why) | (None, ''). Strata: no RAM floor / owner-model check; endpoint must answer."""
     if os.path.exists(runner_stop_path()):
         return "stop", "runner STOP file"
     import ram_guard
-    y, why = (yield_fn or ram_guard.should_yield)()
-    if y:
-        return "yield", why
+    if backend == "strata":
+        ok, why = (alive_fn or strata_alive)()
+        if not ok:
+            return "yield", why
+    else:
+        y, why = (yield_fn or ram_guard.should_yield)()
+        if y:
+            return "yield", why
     q, qwhy = (quiet_fn or ram_guard.quiet_on)()
     if q:
         return "yield", "quiet mode (%s)" % qwhy
     if (lab_stop_fn or (lambda: os.path.exists(ram_guard.stop_path())))():
         return "yield", "qwen_lab STOP file"
-    o, owhy = owner_model_loaded(ps_fn)
-    if o:
-        return "yield", owhy
+    if backend != "strata":
+        o, owhy = owner_model_loaded(ps_fn)
+        if o:
+            return "yield", owhy
     return None, ""
 
 
 # ------------------------------------------------------------------------------------------------ model
 class RunnerChat:
     """qwen_lab.OllamaChat with the runner's keep_alive (5m in a task) and a hard num_ctx of 32768."""
+    backend = "ollama"
+    ctx_limit = CTX_LIMIT
 
     def __init__(self):
         import qwen_lab
@@ -678,6 +740,83 @@ class RunnerChat:
             pass
 
 
+def to_openai_messages(messages):
+    """Runner messages (Ollama shape) -> OpenAI chat shape: tool_call ids, string arguments, tool_call_id links."""
+    out, pending = [], []
+    for i, m in enumerate(messages):
+        role = m.get("role")
+        if role == "assistant" and m.get("tool_calls"):
+            tcs = []
+            for j, tc in enumerate(m["tool_calls"]):
+                fn = tc.get("function") or {}
+                args = fn.get("arguments")
+                if not isinstance(args, str):
+                    args = json.dumps(args or {})
+                tid = tc.get("id") or "call_%d_%d" % (i, j)
+                tcs.append({"id": tid, "type": "function", "function": {"name": fn.get("name"), "arguments": args}})
+            pending = [t["id"] for t in tcs]
+            out.append({"role": "assistant", "content": m.get("content") or "", "tool_calls": tcs})
+        elif role == "tool":
+            tid = m.get("tool_call_id")
+            if tid and tid in pending:
+                pending.remove(tid)
+            elif not tid:
+                tid = pending.pop(0) if pending else "call_x"
+            out.append({"role": "tool", "tool_call_id": tid, "content": m.get("content") or ""})
+        else:
+            out.append({"role": role, "content": m.get("content") or ""})
+    return out
+
+
+def parse_openai_reply(d):
+    """(message, stats) from a /v1/chat/completions reply; done_reason mirrors finish_reason ('length' kept)."""
+    if d.get("error"):
+        raise RuntimeError("Strata error: %s" % str(d["error"])[:300])
+    ch = (d.get("choices") or [{}])[0]
+    m = ch.get("message") or {}
+    tcs = []
+    for tc in m.get("tool_calls") or []:
+        fn = tc.get("function") or {}
+        tcs.append({"id": tc.get("id"), "function": {"name": fn.get("name"), "arguments": fn.get("arguments") or "{}"}})
+    msg = {"role": "assistant", "content": m.get("content") or ""}
+    if tcs:
+        msg["tool_calls"] = tcs
+    u = d.get("usage") or {}
+    return msg, {"eval_tokens": u.get("completion_tokens"), "prompt_tokens": u.get("prompt_tokens"),
+                 "done_reason": ch.get("finish_reason")}
+
+
+def strata_ctx_limit(n_ctx):
+    """Compaction budget in chars: min(n_ctx - reply room, 200k) tokens x 4 (never below the Ollama budget)."""
+    try:
+        n = int(n_ctx)
+    except (TypeError, ValueError):
+        n = NUM_CTX
+    return max(CTX_LIMIT, min(n - STRATA_REPLY_TOK, STRATA_CTX_CAP_TOK) * CHARS_PER_TOK)
+
+
+class StrataChat:
+    """OpenAI /v1/chat/completions on the Strata server. Never sends keep_alive or an unload."""
+    backend = "strata"
+
+    def __init__(self, http=None, info=None):
+        self.http = http or strata_http
+        self.model = STRATA_MODEL
+        info = info if info is not None else (strata_model_info(self.http) or {})
+        self.num_ctx = int(((info.get("meta") or {}).get("n_ctx")) or NUM_CTX)
+        self.ctx_limit = strata_ctx_limit(self.num_ctx)
+
+    def chat(self, messages, tools):
+        payload = {"model": self.model, "messages": to_openai_messages(messages), "temperature": 0.2,
+                   "max_tokens": STRATA_REPLY_TOK, "stream": False,
+                   "tools": [{"type": "function", "function": t} for t in tools]}
+        t0 = time.time()
+        d = self.http("/chat/completions", payload, STRATA_TIMEOUT_S) or {}
+        msg, stats = parse_openai_reply(d)
+        stats["secs"] = round(time.time() - t0, 1)
+        return msg, stats
+
+
 def compact(messages, limit=CTX_LIMIT, keep_last=6):
     import qwen_lab
     return qwen_lab.compact_messages(messages, limit=limit, keep_last=keep_last)
@@ -703,9 +842,12 @@ def _push(n, ok, one, log=None):
 
 class Runner:
     def __init__(self, chat_factory=None, guards=None, sleep=None, clock=None, poster=None, pusher=None,
-                 roots=None, max_turns=MAX_TURNS, max_task_s=MAX_TASK_S):
-        self.chat_factory = chat_factory or RunnerChat
-        self.guards = guards or check_guards
+                 roots=None, max_turns=MAX_TURNS, max_task_s=MAX_TASK_S, backend="ollama", selector=None):
+        self.backend = backend
+        self.selector = selector or select_backend
+        self.cur = backend if backend in ("strata", "ollama") else "ollama"
+        self.chat_factory = chat_factory or (lambda: StrataChat() if self.cur == "strata" else RunnerChat())
+        self.guards = guards or (lambda: check_guards(backend=self.cur))
         self.sleep = sleep or time.sleep
         self.clock = clock or time.time
         self.poster = poster or _post_inbox
@@ -802,13 +944,21 @@ class Runner:
         self.log("Q%d: started (%s)" % (n, os.path.basename(path)))
         task_text, _ = _read_text(path)
         chat = self.chat_factory()
+        model = getattr(chat, "model", None)
+        model = model if isinstance(model, str) and model else MODEL
+        nctx = getattr(chat, "num_ctx", NUM_CTX)
+        nctx = nctx if isinstance(nctx, int) else NUM_CTX
+        self.task_meta = {"backend": self.cur, "model": model, "num_ctx": nctx}
+        self.log("Q%d: backend %s model %s (num_ctx %d)" % (n, self.cur, model, nctx))
         msgs = [{"role": "system", "content": self.system_prompt(task_text)},
                 {"role": "user", "content": "Start the task now. Use the tools; end with finish."}]
         ts = datetime.datetime.now().strftime("%Y%m%d-%H%M%S")
         tpath = os.path.join(home(), "transcripts", "Q%d-%s.json" % (n, ts))
-        tr = {"task": key, "file": path, "model": MODEL, "num_ctx": NUM_CTX, "started": now_s(), "calls": [],
+        tr = {"task": key, "file": path, "backend": self.cur, "model": model, "num_ctx": nctx, "started": now_s(), "calls": [],
               "messages": msgs}
-        t0, turns, empty, limit, keep = self.clock(), 0, 0, CTX_LIMIT, 6
+        base_limit = getattr(chat, "ctx_limit", CTX_LIMIT)
+        base_limit = base_limit if isinstance(base_limit, int) else CTX_LIMIT
+        t0, turns, empty, limit, keep = self.clock(), 0, 0, base_limit, 6
         outcome = None
 
         def dump():
@@ -885,7 +1035,10 @@ class Runner:
                     if name in ("run_python", "write_scratch"):
                         tr.setdefault("python_runs", []).append({"turn": turns, "at": now_s(), "tool": name,
                                                                  "args": args, "result": res})
-                    msgs.append({"role": "tool", "content": res, "tool_name": name})
+                    tmsg = {"role": "tool", "content": res, "tool_name": name}
+                    if tc.get("id"):
+                        tmsg["tool_call_id"] = tc["id"]
+                    msgs.append(tmsg)
                 dump()
         finally:
             try:
@@ -901,9 +1054,10 @@ class Runner:
 
     def _close(self, n, path, status, md, one, turns, secs, meta):
         one = re.sub(r"\s+", " ", str(one)).strip()[:ONE_LINE_MAX]
-        footer = ("\n\n---\n_model %s (num_ctx %d) · %d turns · wall %.1f min · generated by tools/qwen_runner.py "
+        tm = getattr(self, "task_meta", None) or {"backend": self.cur, "model": MODEL, "num_ctx": NUM_CTX}
+        footer = ("\n\n---\n_backend %s · model %s (num_ctx %d) · %d turns · wall %.1f min · generated by tools/qwen_runner.py "
                   "(B3) at %s · **UNVERIFIED** - Claude has not checked this yet_"
-                  % (MODEL, NUM_CTX, turns, secs / 60.0, now_s()))
+                  % (tm["backend"], tm["model"], tm["num_ctx"], turns, secs / 60.0, now_s()))
         body = (md.strip() or "(no result - %s)" % one)
         append_result(path, "## RESULT\n" + body + footer)
         if status == "done":
@@ -926,23 +1080,30 @@ class Runner:
         st = self.load_state()
         st["in_flight"] = None
         st.setdefault("history", []).append({"task": "Q%d" % n, "status": status, "line": one, "turns": turns,
+                                             "backend": tm["backend"], "model": tm["model"],
                                              "secs": round(secs, 1), "at": now_s()})
         st["history"] = st["history"][-50:]
         self.save_state(st)
-        self.log("Q%d: %s - %s" % (n, word, one))
+        self.log("Q%d: %s - %s [backend %s, model %s]" % (n, word, one, tm["backend"], tm["model"]))
 
     # ---- cycles
     def cycle(self):
         """'stop' | 'idle' | task outcome."""
+        if pick_task():                                              # re-check the backend before each task
+            new = self.selector(self.backend)
+            if new != self.cur:
+                self.log("backend: %s -> %s" % (self.cur, new))
+            self.cur = new
         if not self.wait_guards():
             return "stop"
         pick = pick_task()
         if not pick:
             return "idle"
+        self.task_meta = None
         return self.work(*pick)
 
     def run(self, once=False):
-        self.log("runner start (once=%s) tasks=%s" % (once, tasks_dir()))
+        self.log("runner start (once=%s, backend=%s) tasks=%s" % (once, self.backend, tasks_dir()))
         self.resume()
         while True:
             r = self.cycle()
@@ -956,8 +1117,9 @@ class Runner:
 def main(argv=None):
     ap = argparse.ArgumentParser(description="Qwen task runner (AUTOMATIONS.md B3)")
     ap.add_argument("cmd", choices=["run", "once"])
+    ap.add_argument("--backend", choices=["auto", "strata", "ollama"], default="auto")
     a = ap.parse_args(argv)
-    Runner().run(once=a.cmd == "once")
+    Runner(backend=a.backend).run(once=a.cmd == "once")
     return 0
 
 
