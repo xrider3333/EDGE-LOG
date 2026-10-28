@@ -74,7 +74,7 @@ CASES = [
     ('order-result', {'resOrd': 'res'}),
     ('split-by-run', {'resSplitRun': True}),
     ('date-ran',     {'resSBasis': 'ran'}),
-    ('scope-30',     {'resScope': '30'}),
+    ('scope-30',     {'resScope': '30'}),   # may hold nothing - see MAY_BE_EMPTY
     ('split-side',   {'resSplit': 'side'}),
     ('more-open',    {'resMore': True, 'resHelp': True}),
     ('vs-crown',     {'resRel': 'crown'}),
@@ -113,6 +113,11 @@ var CASES = __CASES__;
         r.charts=d.querySelectorAll('[data-rechh]').length;
         var ap=d.getElementById('app');
         r.appLen=ap?ap.innerHTML.length:-1;
+        // WHAT THE BOARD SAYS WHEN IT HAS NOTHING TO SHOW. A time scope can honestly hold
+        //   no rows, and then the only thing worth checking is that the page says so
+        //   rather than rendering a blank panel - see the row check below.
+        r.emptyTx=(function(){var e=d.querySelector('[data-reempty]');
+          return e?(e.textContent||'').replace(/\s+/g,' ').trim().slice(0,300):'';})();
         // EVERY STUDY TABLE ROW MUST HAVE AS MANY CELLS AS THE TABLE HAS HEADINGS.
         //   v73.190 shipped a <td> nested inside a <td>. The browser lifted the inner one
         //   out, every row gained a cell, and from TOTAL rightwards every figure sat under
@@ -140,6 +145,12 @@ var CASES = __CASES__;
 </body></html>
 """
 
+
+# THE CASES WHOSE WINDOW CAN HONESTLY BE EMPTY. Only time scopes belong here: the fixtures age,
+#   so THE LAST 30 DAYS stops covering them and the board is right to show nothing. Such a case
+#   must still say WHY it is empty (studies_render_probe checks the page's own wording), and no
+#   case that should always have rows may be added - that would blind the gate.
+MAY_BE_EMPTY = {'scope-30'}
 
 def find_chrome():
     cands = [r"C:\Program Files\Google\Chrome\Application\chrome.exe",
@@ -226,7 +237,17 @@ def main():
         if r.get('colBad'):
             bad.append('%s: study table column mismatch - %s' % (nm, '; '.join(r['colBad'][:3])))
         if r['rows'] < 1:
-            bad.append('%s: no table rows rendered' % nm)
+            # A TIME SCOPE CAN LEGITIMATELY HOLD NOTHING, and on 2026-10-28 scope-30 did:
+            #   every fixture run had aged past 30 days, the board was correctly empty, and
+            #   this check failed on unmodified main and blocked every ship. A case that may
+            #   be empty must instead prove the page SAYS it is empty; a blank panel with no
+            #   explanation is still the fault this gate exists to catch.
+            if nm in MAY_BE_EMPTY:
+                if len(str(r.get('emptyTx') or '')) < 40:
+                    bad.append('%s: no table rows AND the board does not say why it is empty'
+                               % nm)
+            else:
+                bad.append('%s: no table rows rendered' % nm)
     a, o = cs.get('all'), cs.get('fam-ORB')
     if a and o and o['call'] == 'OK' and a['call'] == 'OK':
         if not (o['rows'] < a['rows'] and o['points'] < a['points']):

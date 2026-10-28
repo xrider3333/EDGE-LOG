@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 166
+N_CASES = 167
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7917,8 +7917,9 @@ var FIX = __FIX__;
         var FAR=rec(99,9440,2.6);              // his own board's shape: one row three orders out
         function win(rows){return dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify(rows)+",at:Date.now()};"
           +"window._reMonKey='all';");}
-        function P(){return {c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
-          resXAxis:'roc30',resFilt:{fam:['ZAXIS']},resMarks:'dot',c2Tbl:true,resCols:'all'};}
+        function P(zoom){var o={c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZAXIS']},resMarks:'dot',c2Tbl:true,resCols:'all'};
+          if(zoom)o.resZoom=zoom;return o;}
         function read(){
           var gs=[].filter.call(d.querySelectorAll('[data-repoint]'),function(g){return true;});
           var xs=[],far=null;
@@ -7940,26 +7941,42 @@ var FIX = __FIX__;
             c.sort(function(a,b){return (a.textContent||'').length-(b.textContent||'').length;});
             return c.length?dfxN(c[0].textContent):'';})();
           xs.sort(function(a,b){return a-b;});
-          return {n:gs.length,far:far,ticks:tk.slice(0,14),note:note.slice(0,420),pinTip:pinTip.slice(0,400),
+          var chip=(function(){var b=d.querySelector('[data-rezoom]');
+            return b?{to:b.getAttribute('data-rezoom'),tx:dfxN(b.textContent||''),tip:dfxN(b.getAttribute('title')||'').slice(0,500)}:null;})();
+          return {n:gs.length,far:far,chip:chip,ticks:tk.slice(0,14),note:note.slice(0,420),pinTip:pinTip.slice(0,400),
                   spread:(xs.length>1)?(xs[xs.length-1]-xs[0]):0,
                   bodySpread:(xs.length>2)?(xs[xs.length-2]-xs[0]):0,
                   pin:w.eval('JSON.stringify(window._rePin||null)')};}
-        // (i) ELEVEN ROWS: ten together and one far out
-        calls.push(doRender(P(),win(BODY.concat([FAR]))));chk('eleven');
+        // (i) ELEVEN ROWS, DEFAULT: the axis covers every dot, so nothing is on an edge.
+        calls.push(doRender(P(),win(BODY.concat([FAR]))));chk('eleven default');
+        var D=read();
+        // (ii) THE SAME ELEVEN WITH THE TRIM ON: yesterday's behaviour, now opt-in.
+        calls.push(doRender(P('mid'),win(BODY.concat([FAR]))));chk('eleven zoomed');
         var A=read();
-        // (ii) FIVE ROWS, one of them far: too thin to trim, so the plain fit stands
-        calls.push(doRender(P(),win(BODY.slice(0,4).concat([FAR]))));chk('five');
+        // (iii) FIVE ROWS, one of them far, trim on: too thin to trim, so the plain fit stands
+        calls.push(doRender(P('mid'),win(BODY.slice(0,4).concat([FAR]))));chk('five');
         var B=read();
         // (iii) AN ORDINARY BOARD, no far row at all: nothing may be trimmed, pinned or marked.
         //   Re-scaling a board nobody complained about would be a worse fault than the one being
         //   fixed, and at a three-times disparity this rule DID fire on an ordinary board.
-        calls.push(doRender(P(),win(BODY)));chk('plain');
+        calls.push(doRender(P('mid'),win(BODY)));chk('plain');
         var C=read();
         var maxTick=function(t){var m=0;t.forEach(function(s){var v=parseFloat(String(s).replace(/[^0-9.\-]/g,''));
           if(isFinite(v)&&Math.abs(v)>Math.abs(m))m=v;});return m;};
         dfxCase('e1_axis_outlier',calls,{
-          'all eleven rows are drawn - the far one is never dropped':A.n===11&&!!A.far,
-          'the axis does NOT reach out to the far row':Math.abs(maxTick(A.ticks))<2000,
+          'BY DEFAULT: all eleven rows are drawn and the axis REACHES the far one, so no dot sits on an edge':
+            D.n===11&&!!D.far&&Math.abs(maxTick(D.ticks))>2000,
+          'by default nothing is ringed, nothing is counted off the scale':
+            !!D.far&&D.far.ring===false&&String(D.pin||'').indexOf('"x":[]')>=0
+            &&D.note.indexOf('off the scale')<0,
+          'and the chip offers the trim, saying how many dots it would push off first':
+            !!D.chip&&D.chip.to==='mid'&&/ZOOM TO MIDDLE/.test(D.chip.tx)&&/WOULD GO OFF/.test(D.chip.tx),
+          'the chip also says why there is no log scale, rather than leaving it a silent omission':
+            !!D.chip&&/negative/.test(D.chip.tip),
+          'WITH THE TRIM ON: all eleven rows are still drawn - the far one is never dropped':A.n===11&&!!A.far,
+          'and the axis then does NOT reach out to the far row':Math.abs(maxTick(A.ticks))<2000,
+          'and the chip offers the full range back':
+            !!A.chip&&A.chip.to==='all'&&/SHOW FULL RANGE/.test(A.chip.tx),
           'and the ten rows that belong together spread across the plot instead of one corner':
             A.bodySpread>300,
           'the far row is drawn at the right-hand edge':!!A.far&&A.far.cx>=930,
@@ -7972,11 +7989,11 @@ var FIX = __FIX__;
           'and the page records which rows were pinned':/9440|9,440/.test(String(A.pin||'')),
           'FIVE ROWS: the plain fit stands, nothing is pinned, nothing is marked':
             B.n===5&&!!B.far&&B.far.ring===false&&Math.abs(maxTick(B.ticks))>2000,
-          'AN ORDINARY BOARD IS LEFT ALONE: nothing trimmed, nothing pinned, nothing marked':
+          'AN ORDINARY BOARD IS LEFT ALONE EVEN WITH THE TRIM ON: nothing trimmed, nothing pinned, nothing marked':
             C.n===10&&String(C.pin||'').indexOf('"x":[]')>=0&&String(C.pin||'').indexOf('"y":[]')>=0
             &&C.note.indexOf('off the scale')<0&&!C.pinTip,
           'no console errors':errAcc.length===0
-        },{n:A.n,plain:{n:C.n,pin:String(C.pin||'').slice(0,80),ticks:C.ticks.slice(0,6)},ticks:A.ticks,bodySpread:Math.round(A.bodySpread),spread:Math.round(A.spread),
+        },{n:A.n,dflt:{n:D.n,ring:(D.far?D.far.ring:null),ticks:D.ticks.slice(0,6),chip:(D.chip?D.chip.tx:null),pin:String(D.pin||'').slice(0,60)},plain:{n:C.n,pin:String(C.pin||'').slice(0,80),ticks:C.ticks.slice(0,6)},ticks:A.ticks,bodySpread:Math.round(A.bodySpread),spread:Math.round(A.spread),
            farCx:(A.far?Math.round(A.far.cx):null),farRing:(A.far?A.far.ring:null),
            note:A.note.slice(0,240),pinTip:(A.pinTip||'').slice(0,200),pin:String(A.pin||'').slice(0,200),
            five:{n:B.n,ticks:B.ticks.slice(0,8),farRing:(B.far?B.far.ring:null)},
@@ -8129,6 +8146,88 @@ var FIX = __FIX__;
         },{paths:A?A.paths.length:null,zero:A?A.zero:null,
            firstYs:A?A.paths.slice(0,4).map(firstY):null,order:order,hl:hl,
            txt:A?A.txt.slice(0,260):null,rec:Rb?Rb.txt.slice(0,260):null,errs:errAcc.slice(0,2)});
+      })();
+      // -- case e2_dot_colour (owner 2026-10-28: "SCATTER: family names/colours no longer
+      //    delineated after the revamp - restore per-family colour + legend").
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function rec(i,fam,where){return {id:'e2r'+i,timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'e2probe'+fam,family:fam,instrument:'NQ',timeframe:'2m',
+          roc30k:20+i,sortino:1.2+i*0.1,dd5:8000,ddpct:12,where:where,stage:'WF',start_usd:100000};}
+        function read(){
+          // every dot's own fill, as a SET: a records board's dots carry no family in their hover,
+          //   so what is checked is that the colours really differ and really change on the chip.
+          var fills={};
+          [].forEach.call(d.querySelectorAll('[data-repoint]'),function(g){
+            // a record's mark is not always a circle - _reRecMark draws the stretch as its own
+            //   glyph - so take the first child of ANY kind that actually carries a colour.
+            var c=[].filter.call(g.querySelectorAll('[fill]'),function(e){
+              var v=e.getAttribute('fill');return v&&v!=='none'&&v!=='transparent';})[0];
+            var f=c?c.getAttribute('fill'):null;
+            if(f)fills[f]=(fills[f]||0)+1;});
+          var cols={};
+          [].forEach.call(d.querySelectorAll('[data-repoint]'),function(g){
+            var c=g.querySelector('circle[fill]:not([fill="transparent"]):not([fill="none"])');
+            var t=g.querySelector('title'),tip=dfxN(t?(t.textContent||''):'');
+            var f=/ZCOLA/.test(tip)?'ZCOLA':(/ZCOLB/.test(tip)?'ZCOLB':null);
+            if(f&&c)cols[f]=cols[f]||c.getAttribute('fill');});
+          // the legend, read off the WHOLE strip the COLOUR = line sits in
+          var leg='',legBox='';
+          (function(){var s=[].filter.call(d.querySelectorAll('span'),function(x){
+              return /^COLOUR = /.test((x.textContent||'').trim());})[0];
+            if(!s)return;leg=dfxN(s.textContent);
+            legBox=dfxN((s.parentNode||s).textContent||'');})();
+          var chip=[].map.call(d.querySelectorAll('[data-redotcol]'),function(b){
+            return b.getAttribute('data-redotcol')+':'+dfxN(b.textContent||'');});
+          // the family chips, with the count each one claims
+          var famChips=[].map.call(d.querySelectorAll('span[title]'),function(x){
+              return {tip:dfxN(x.getAttribute('title')||''),tx:dfxN(x.textContent||'')};})
+            .filter(function(o){return /dots? on this chart/.test(o.tip);})
+            .map(function(o){return {tip:o.tip,tx:o.tx,n:parseInt(o.tip,10)||0};});
+          return {cols:cols,fills:Object.keys(fills),leg:leg,legBox:legBox,chip:chip,famChips:famChips};}
+        // (i) RUN ROWS, two families: the colour is free to carry the family
+        var RA=dfxClone(FIX);RA.id=920001;RA.strategy='ZCOLA_1_0.py';
+        var RB=dfxClone(FIX);RB.id=920002;RB.strategy='ZCOLB_1_0.py';
+        calls.push(doRender({c2Screen:'explore',resAxis:'so',resXAxis:'dd',resSegs:['is','wf','lb'],
+          c2Tbl:true},dfxWin([RA,RB])));chk('runs');
+        var R=read();
+        // (ii) LANE RECORDS: WHERE IT RAN stays, and the legend finally says so
+        var W=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify([
+          rec(1,'ZCOLA','lane'),rec(2,'ZCOLB','lab')])+",at:Date.now()};window._reMonKey='all';");
+        function PR(dc){var o={c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZCOLA','ZCOLB']},resMarks:'dot',c2Tbl:true};
+          if(dc)o.resDotCol=dc;return o;}
+        calls.push(doRender(PR(),W));chk('records');
+        var M=read();
+        // (iii) and FAMILY on the chip really does recolour that same board
+        calls.push(doRender(PR('family'),W));chk('records family');
+        var F=read();
+        dfxCase('e2_dot_colour',calls,{
+          'RUN ROWS: the two families are drawn in DIFFERENT colours':
+            !!R.cols.ZCOLA&&!!R.cols.ZCOLB&&R.cols.ZCOLA!==R.cols.ZCOLB,
+          'and the legend says the colour IS the family':/COLOUR = FAMILY/.test(R.leg||R.legBox),
+          'and it names both families, so a dot can be read without guessing':
+            /ZCOLA/.test(R.legBox)&&/ZCOLB/.test(R.legBox),
+          'and it still says the verdict is the shape, so nothing is coded twice':
+            /SHAPE = VERDICT/.test(R.legBox),
+          'and every family it names carries its own dot count, so none is listed with nothing on the chart':
+            R.famChips.length>=2&&R.famChips.every(function(c){return /\d+ dots? on this chart/.test(c.tip);}),
+          'and the family with the most dots is named first':
+            R.famChips.length<2||R.famChips[0].n>=R.famChips[R.famChips.length-1].n,
+          'RECORDS: the colour stays WHERE IT RAN - the month design already approved':
+            /COLOUR = WHERE IT RAN/.test(M.leg||M.legBox),
+          'and the two records differ in colour because they ran in different places':
+            M.fills.length>=2,
+          'the chip offers FAMILY on that board rather than hiding it':
+            M.chip.join(' ').indexOf('family:FAMILY')>=0,
+          'and picking FAMILY recolours the records by family':
+            /COLOUR = FAMILY/.test(F.leg||F.legBox)&&F.fills.length>=2
+            &&F.fills.sort().join(',')!==M.fills.slice().sort().join(','),
+          'no console errors':errAcc.length===0
+        },{runs:R.cols,fams:R.famChips.map(function(c){return c.tx+'='+c.n;}).slice(0,6),
+           runLeg:(R.legBox||'').slice(0,200),recFills:M.fills,
+           recLeg:(M.legBox||'').slice(0,200),famFills:F.fills,chip:M.chip,errs:errAcc.slice(0,2)});
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -10357,6 +10456,7 @@ def main(argv=None):
     DFX += ['w47_month']
     DFX += ['w50_source']
     DFX += ['i50_rail_offer']
+    DFX += ['e2_dot_colour']
     DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']

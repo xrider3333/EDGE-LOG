@@ -1395,7 +1395,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1356';
+const VERSION='73.1359';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -34415,6 +34415,10 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   money and the drawdown it ADDED or GAVE UP against the thing actually being traded.
         //   That is the question every one of these studies was really asking.
         const _reRel=(APREF.resRel==='crown');
+        // ZOOM TO MIDDLE (owner 2026-10-28). OFF by default: the axes cover every dot drawn,
+        //   so nothing sits on an edge. ON trims the outer 2% of the points off each axis so a
+        //   cluster can spread out, and the rows that fall outside are ringed and counted.
+        const _reZoomMid=(APREF.resZoom==='mid');
         // PLOT FAILURES (control 5, owner ask 2026-08-23). Chart only, and OFF by
         //   default: ten failed rows carry $300k-$694k drawdowns and were setting the
         //   axis width for all 618, so everything else stacked into the left edge. The
@@ -35595,8 +35599,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const STEPS=90;
           keep.forEach(k=>{
             const r=k.p.r,st=k.p.st,cv=k.cv,b=cv[0],n=cv.length;
-            const col=r._rec?(_reWhereCol[r._where]||'var(--text4)')
-              :(r._cfg?(_reByStrat?_reStratCol(r._strat):(_reCfgPal[r.fam]||_reTone[r.tone]||'var(--text4)')):(_reTone[r.tone]||'var(--text4)'));
+            const col=_reDotColOf(st,r);
             const dim=(_reSplitRun&&!(Array.isArray(r.runs)?r.runs:[]).length)||_reFlagsOf(r).some(function(fl){return fl.grey;});
             const step=Math.max(1,Math.ceil(n/STEPS));
             let d='';
@@ -35913,6 +35916,33 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //    owner asked to see everything run in a month "irreguardless of where it was ran", so
         //    where it ran is the one thing a mark must say at a glance. These four are the whole
         //    vocabulary: the PC runner, a lane worktree, the Qwen Lab, the Oracle box.
+        // ── WHAT THE DOT COLOUR MEANS (owner 2026-10-28: "family names/colours no longer
+        //    delineated after the revamp - restore per-family colour + legend").
+        //    DEFAULT: with more than one family on the chart the colour is the FAMILY, because that
+        //    is the question a mixed board asks first. The verdict keeps the SHAPE it already owned,
+        //    so nothing is coded twice and nothing is lost. On one family there is nothing to tell
+        //    apart, so the colour falls back to the verdict, which is what it was before.
+        //    The 1E CONFIGS view is untouched: it has carried its own family colours and legend all
+        //    along, which is why the loss showed only here.
+        const _reDotMode=()=>{const p=APREF.resDotCol;
+          if(p==='verdict'||p==='where'||p==='family')return p;
+          // A RECORDS BOARD KEEPS WHERE IT RAN. That is the W47 month design the owner
+          //   approved - lane green, lab purple, box amber, the stretch in the shape - and
+          //   the render gate pins it by colour. Answering one ask by undoing another is
+          //   not a fix; the legend now names it, and FAMILY is one click on the chip.
+          if((_reItems||[]).some(it=>it.r&&it.r._rec))return 'where';
+          // On run rows the colour only repeated the verdict the shape already carries, so
+          //   with several families up it is free to carry the family instead.
+          return (_reFamsOn&&_reFamsOn.length>1)?'family':'verdict';};
+        // ONE READER FOR BOTH DRAWINGS. The dot loop and the P&L chart under it each held their own
+        //   copy of this expression, so a change to one disagreed silently with the other.
+        const _reDotColOf=(st,r)=>{
+          if(r&&r._cfg)return _reByStrat?_reStratCol(r._strat):(_reCfgPal[r.fam]||_reTone[r.tone]||'var(--text4)');
+          const m=_reDotMode();
+          if(m==='family')return _reStratCol(_reFamOf(st,r));
+          // WHERE IT RAN is a record's own fact; a run row has no 'where', so it keeps the verdict.
+          if(m==='where'&&r&&r._rec)return _reWhereCol[r._where]||'var(--text4)';
+          return _reTone[(r||{}).tone]||'var(--text4)';};
         const _reWhereCol={runner:'#60a5fa',lane:'#4ade80',lab:'#c084fc',box:'#f0b429'};
         const _reWhereNm={runner:'the PC runner',lane:'a lane worktree',lab:'the Qwen Lab',box:'the Oracle box'};
         // SEVEN STRETCHES a record can name. full and preLB were already in use by two lanes (58 and 15 of
@@ -35981,6 +36011,82 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   TABLE view and whenever SPLIT BY RUN is on. Click opens the run report, as the row does.
         const _reRunChip=rw=>{const runs=Array.isArray(rw&&rw.runs)?rw.runs:[];if(!runs.length)return '';
           return '<span title="'+_reEsc('This row is run #'+runs[0]+' in PAST RUNS'+(runs.length>1?(' (also '+runs.slice(1).map(x=>'#'+x).join(', ')+')'):'')+'. Click to open the run report.')+'" style="display:inline-block;font-size:7.5px;font-weight:700;letter-spacing:.4px;padding:1px 5px;border-radius:5px;margin-left:5px;color:var(--text3);background:color-mix(in srgb,var(--text) 8%,transparent);border:1px solid var(--border2);cursor:pointer;font-variant-numeric:tabular-nums">#'+runs[0]+'</span>';};
+        // ── ZOOM TO MIDDLE (owner 2026-10-28). The axes cover every dot by default, so this is
+        //    the control that trims them, and it says what pressing it costs BEFORE it is pressed:
+        //    it counts the dots the trim would push off the scale, by running the same count rule
+        //    the axis uses. While it is on it says how many are off and the dots themselves are
+        //    ringed, which is what the line under the chart already explains.
+        //    NO LOG SCALE, and the hover says why instead of leaving it a silent omission: these
+        //    axes carry negative numbers and a log scale cannot place one at all.
+        const _reZoomWould=(pts,k)=>{
+          const vs=pts.map(p=>p[k]).filter(v=>v!=null&&isFinite(v)).sort((a,b)=>a-b);
+          if(vs.length<8)return 0;
+          const t=Math.max(1,Math.ceil(vs.length*0.02));
+          const b0=vs[t],b1=vs[vs.length-1-t];
+          let lo=vs[0],hi=vs[vs.length-1];
+          if(!(b1>b0&&(hi-lo)>6*(b1-b0)))return 0;
+          lo=b0;hi=b1;
+          if(!_reRel){lo=Math.min(lo,0);hi=Math.max(hi,0);}
+          const pd=(hi-lo)*0.07,e0=lo-pd,e1=hi+pd;
+          return vs.filter(v=>v<e0||v>e1).length;};
+        const _reZoomChip=(pts)=>{
+          if(!pts||pts.length<8)return '';
+          const off=(window._rePin&&window._rePin.n)||0;
+          const would=_reZoomMid?0:Math.max(_reZoomWould(pts,'x'),_reZoomWould(pts,'y'));
+          if(!_reZoomMid&&!would)return '';
+          const why=_reZoomMid
+            ? ('The scale is trimmed to the middle of the board: the outer 2% of the dots on each axis, at least one each side, are outside it. '
+               +(off?(off+' dot'+(off===1?'':'s')+' sit off the scale right now, each ringed, and the line under the chart names them with their real figures. '):'')
+               +'Press this to put the scale back over every dot, where nothing is on an edge.')
+            : ('The scale covers every dot drawn, so no dot is on an edge and no figure is hidden. Press this to trim the outer 2% of the dots on each axis instead, so a tight cluster can spread out - about '
+               +would+' dot'+(would===1?'':'s')+' would then sit off the scale, ringed and named under the chart. '
+               +'There is no log scale here on purpose: these axes carry negative numbers - a losing config, a drawdown read as a fall - and a log scale cannot place a negative number at all, so it would drop exactly the rows worth looking at.');
+          return '<span data-rezoom="'+(_reZoomMid?'all':'mid')+'" title="'+_reEsc(why)+'" style="font-size:8px;cursor:pointer;text-decoration:underline;color:'
+            +(_reZoomMid?'var(--text2)':'var(--text4)')+'">'+(_reZoomMid?('ZOOMED TO MIDDLE'+(off?(' \u00b7 '+off+' OFF SCALE'):'')+' \u00b7 SHOW FULL RANGE'):('ZOOM TO MIDDLE \u00b7 '+would+' WOULD GO OFF'))+'</span>';};
+        // ── THE LEGEND UNDER THE MAIN SCATTER. It used to name the verdict shapes only, which
+        //    left a mixed board with no key to its own colours. It now names every family on the
+        //    chart in its own colour FIRST - that is what the colour means - then the verdict
+        //    shapes, then the chip that switches what the colour codes.
+        const _reFamLegend=(pts)=>{
+          const m=_reDotMode();
+          // THE FAMILIES OF THE DOTS ACTUALLY DRAWN, biggest first - not every family on the board.
+          //   Read off _reFamsOn it listed all ten of his, including families with nothing on the
+          //   chart, which is a wall of chips that explains nothing.
+          const cnt={};
+          (pts||[]).forEach(p=>{const f=_reFamOf(p.st,p.r);cnt[f]=(cnt[f]||0)+1;});
+          const fams=Object.keys(cnt).sort((a,b)=>cnt[b]-cnt[a]);
+          let head='';
+          if(m==='family'&&fams.length>1){
+            head='<span style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5)">COLOUR = FAMILY</span>'
+              +'<span style="display:inline-flex;gap:10px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
+              +fams.slice(0,12).map(f=>'<span title="'+_reEsc(cnt[f]+' dot'+(cnt[f]===1?'':'s')+' on this chart')+'" style="display:inline-flex;align-items:center;gap:4px;cursor:help">'
+                +'<span style="width:8px;height:8px;border-radius:50%;background:'+_reStratCol(f)+'"></span>'
+                +_reEsc(f)+'</span>').join('')
+              +(fams.length>12?('<span title="'+_reEsc(fams.slice(12).join(', '))+'" style="cursor:help">+'+(fams.length-12)+' more</span>'):'')
+              +'</span>'
+              +'<span style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5);margin-left:6px">SHAPE = VERDICT</span>';}
+          else if(m==='where'){
+            head='<span style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5)">COLOUR = WHERE IT RAN</span>'
+              +'<span style="display:inline-flex;gap:10px;flex-wrap:wrap;font-size:8px;color:var(--text4)">'
+              +Object.keys(_reWhereCol).map(k=>'<span style="display:inline-flex;align-items:center;gap:4px">'
+                +'<span style="width:8px;height:8px;border-radius:50%;background:'+_reWhereCol[k]+'"></span>'
+                +_reEsc(k.toUpperCase())+'</span>').join('')+'</span>'
+              +'<span style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5);margin-left:6px">SHAPE = VERDICT</span>';}
+          return head+_reLegend('')+_reDotColChip(m,fams);};
+        // the chip that says what the colour codes, and switches it. WHERE IT RAN is offered only
+        //   on a board that has records to colour by it; FAMILY only where there is more than one.
+        const _reDotColChip=(m,fams)=>{
+          const opts=[['family','FAMILY']].filter(()=>(fams||[]).length>1)
+            .concat([['verdict','VERDICT']])
+            .concat((_reItems||[]).some(it=>it.r&&it.r._rec)?[['where','WHERE IT RAN']]:[]);
+          if(opts.length<2)return '';
+          return '<span style="display:inline-flex;gap:5px;align-items:center;font-size:7px;color:var(--text5)">COLOUR'
+            +opts.map(o=>'<span data-redotcol="'+o[0]+'" title="'+_reEsc(
+                o[0]==='family'?'Colour every dot by the strategy family it belongs to. The verdict stays in the shape.'
+                :(o[0]==='verdict'?'Colour every dot by its verdict - the same thing its shape already says. Use it when one family is on the chart and the colour has nothing to tell apart.'
+                  :'Colour every lane record by where it ran: the runner, a lane session, the local model lab or the box. The verdict stays in the shape.'))
+              +'" style="cursor:pointer;font-size:8px;'+((m===o[0])?'color:var(--text2);font-weight:700':'color:var(--text4);text-decoration:underline')+'">'+o[1]+'</span>').join('')
+            +'</span>';};
         const _reLegend=extra=>'<span style="display:inline-flex;gap:12px;flex-wrap:wrap;font-size:8px;color:var(--text5);align-items:center">'
           +['champ','good','frag','fail','ref'].map(k=>'<span title="'+_reEsc('drawn as a '+_reToneMk[k]+', so the verdict reads with no colour at all')+'" style="cursor:help">'+_reMk(k)+_reToneNm[k]+'</span>').join('')
           +(extra?('<span style="color:var(--text5)">'+_reEsc(extra)+'</span>'):'')+'</span>';
@@ -36881,7 +36987,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const _axPin={x:[],y:[]};
             const ext=k=>{const vs=pts.map(p=>p[k]).slice().sort((a,b)=>a-b);
               let lo=vs[0],hi=vs[vs.length-1];
-              if(vs.length>=8){
+              // THE TRIM IS NOW OPT-IN. It used to run by itself whenever one row stretched the
+              //   scale more than six times, which left eleven dots on the edges of his board with
+              //   no way to see where they really were (owner 2026-10-28: "still many configs
+              //   pinned at the edges ... he doubts the 96% clip").
+              if(_reZoomMid&&vs.length>=8){
                 // TRIMMED BY COUNT, not by interpolated quantile: with eleven points a 98th
                 //   percentile sits four fifths of the way INTO the outlier (measured: 7,557 of a
                 //   9,440 row), so it trimmed nothing at all. Dropping the top and bottom 2% of
@@ -37000,8 +37110,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const r=p.r,st=p.st,champ=(r.tone==='champ');
               // W47: a lane record is coloured by WHERE IT RAN and shaped by WHICH STRETCH, because
               //   that is the question the month view answers. Every other row keeps its verdict colour.
-              const col=r._rec?(_reWhereCol[r._where]||'var(--text4)')
-                :(r._cfg?(_reByStrat?_reStratCol(r._strat):(_reCfgPal[r.fam]||_reTone[r.tone]||'var(--text4)')):(_reTone[r.tone]||'var(--text4)'));
+              const col=_reDotColOf(st,r);
 
               const runs=Array.isArray(r.runs)?r.runs:[];
               // ORDER BY is a sort, and sorting cannot move a point, so the chart never fakes a
@@ -37348,10 +37457,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                     }
                     return typeGrp+'<span title="the blue ring still marks the configuration this run CROWNED or CHOSE" style="cursor:help">\u24d8 colour = 1E family</span>';
                   })())
-                :_reLegend(''))
+                :_reFamLegend(pts))
             +'<span title="'+_reEsc(_hint)+'" style="font-size:9px;color:var(--text5);cursor:help">\u24d8</span>'
             +(mixed?('<span title="'+_reEsc(mixed)+'" style="font-size:8px;color:'+_reWarnC+';cursor:help">\u26a0 IN-SAMPLE is not one thing here</span>'):'')
             +(hidden.length?('<span data-reunhide="1" title="'+_reEsc(hidden.slice(0,10).map(function(h){return h.name;}).join(', ')+(hidden.length>10?(' and '+(hidden.length-10)+' more'):''))+'" style="font-size:8px;color:var(--text4);cursor:pointer;text-decoration:underline">'+hidden.length+' DOT'+(hidden.length===1?'':'S')+' HIDDEN \u00b7 SHOW ALL</span>'):'')
+            +_reZoomChip(pts)
             +'</div></div>';};
         let _reShown=0,_reHidden=0,_reFiltOut=0,_reScopeOut=0,_reNoDate=[],_reWinAll=[],_reWinNone=[];
         // how many rows the SELECTED comparison basis can actually place, counted honestly so the
@@ -39000,6 +39110,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +_reScopeOut+' of the '+_reTotal+' rows on the board fall outside it.'
               +(_reNoDate.length?(' '+_reNoDate.length+' of those, row'+((_reNoDate.length>1)?'s ':' ')+_reNoDate.join(', ')+', carry no '+_reSOnNm+' date at all, so a scope on that date cannot place them either way. They are named here rather than dropped without a word — set SCOPE DATE to DISCOVERED, which every row has, or the range to ALL, to read them again.'):''))
             :('RANGE is set to ALL, so every row on the board is eligible whatever date it carries. Narrow it to read only recent work; DATE beside it decides whether that means the date a result was discovered in research or the date it ran as a real validate run, and those are different questions.')));
+        // ── WHEN THE RANGE EMPTIES THE WHOLE BOARD (found by the STUDIES gate, 2026-10-28).
+        //    With RANGE on MO and every row older than 30 days, this board drew a chart with no
+        //    dots, no tables and not one word about why. The sentence that explains it sits behind
+        //    the FILTERS button, which is no use to someone looking at an empty page. Anything not
+        //    drawn is counted and named here; a board where NOTHING is drawn was the one case that
+        //    slipped through.
+        const _reEmptyNote=()=>{
+          if(_reShown>0)return '';
+          if(!_reTotal)return '';
+          const why=[];
+          if(_reScopeOut>0)why.push(_reScopeOut+' of the '+_reTotal+' rows fall outside RANGE \u00b7 '+_reScopeNm
+            +', which reads each row\u2019s '+_reSOnNm+' date');
+          if(_reFiltOut>0)why.push(_reFiltOut+' are held back by the filters');
+          if(!why.length)return '';
+          return '<div data-reempty="1" style="margin-top:10px;background:var(--bg2);border-radius:8px;padding:16px 14px;font-size:10px;color:var(--text3);line-height:1.6">'
+            +'<div style="font-size:7px;font-weight:700;letter-spacing:.4px;color:var(--text5);margin-bottom:4px">NO ROWS ON THIS BOARD</div>'
+            +'None of the '+_reTotal+' rows on this board is shown, so there is nothing to chart and no table to draw: '
+            +_reEsc(why.join(', and '))+'.'
+            +(_reNoDate.length?(' '+_reNoDate.length+' of them carry no '+_reEsc(_reSOnNm)+' date at all, so a range on that date cannot place them either way.'):'')
+            +' '+(_reScopeOut>0?'<span data-resscope="all" style="cursor:pointer;text-decoration:underline;color:var(--text2);font-weight:700">SHOW EVERY DATE</span>':'')
+            +(_reFiltOut>0?' <span data-reclear style="cursor:pointer;text-decoration:underline;color:var(--text2);font-weight:700">DROP THE FILTERS</span>':'')
+            +'</div>';};
         // THE COMMON WINDOW across everything on screen. Rows were computed over different date
         //   ranges and the underlying data has since been backfilled, so two totals can look
         //   comparable and not be. This says what stretch they all genuinely share, and warns
@@ -39505,7 +39637,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +') - <span data-recfgprog="1" data-recfgids="'+_reEsc(_reCfgWait.join(','))+'">0 of '+_reCfgWait.length+' runs in - the board draws once, when the last one lands.</span></div>'):'')
             +'</div>'
             +_reLvlNote
-            +'<div data-rechartbox="1" style="margin-top:10px">'+_reChartBody+'</div>',0);
+            +'<div data-rechartbox="1" style="margin-top:10px">'+_reChartBody+'</div>'
+            +_reEmptyNote(),0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
         //    height, sits flush against the left edge with a hairline dividing it from the
         //    panels, and carries NO tile background of its own - the panels are the cards,
@@ -48291,6 +48424,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // STUDIES chart: the vs-crown reading, and which crown a family with more
       //   than one tagged crown is read against. None of them changes a stored figure.
       content.querySelectorAll('[data-resrel]').forEach(b=>{b.onclick=()=>{savePref('resRel',b.dataset.resrel);renderApp();};});
+      // ZOOM TO MIDDLE (owner 2026-10-28): 'mid' trims the axes, 'all' puts them back over every dot.
+      content.querySelectorAll('[data-rezoom]').forEach(b=>{b.onclick=()=>{savePref('resZoom',b.dataset.rezoom);renderApp();};});
+      // what the dot colour codes (owner 2026-10-28): family, verdict or where it ran.
+      content.querySelectorAll('[data-redotcol]').forEach(b=>{b.onclick=()=>{savePref('resDotCol',b.dataset.redotcol);renderApp();};});
       // STUDIES split: drag the bar between the chart and the tables to set the chart width.
       //   Live while dragging, persisted on release, double-click restores half.
       content.querySelectorAll('[data-restackbar]').forEach(bar=>{
