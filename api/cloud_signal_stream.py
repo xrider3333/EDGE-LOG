@@ -567,7 +567,9 @@ def run_stream_aware_step(now=None, legs=None, paths=None, fetch=True, warnings=
                    if v.get("timeframe") == "5m" and v.get("runner") != cs.DIP_RUNNER}
 
     try:
-        if five_m_legs:
+        # 5m CACHE NEVER SHRINKS (api/cloud_signal.py): while the guard refuses QQQ_5m.csv no 5m
+        # leg decides -- nor does a stream decision off the stream bar alone
+        if five_m_legs and not cs.bar_cache_refusal("5m", paths):
             stream_cfg = load_stream_config(paths, log=log)
             if in_handoff_window(now):
                 _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log)

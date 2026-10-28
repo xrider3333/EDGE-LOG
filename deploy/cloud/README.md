@@ -425,6 +425,108 @@ one "parity OK" line in `~/edgelog/logs/live_parity.log`. Each run writes
 `~/edgelog/cloud_signal/parity/<day>.json`. Re-check any day by hand, without a push:
 `venv/bin/python tools/live_parity_check.py --home ~/edgelog --day 2026-10-13 --no-push`.
 
+### The QQQ 5-minute bar cache — never rebuild it from Yahoo (2026-10-25)
+
+`~/edgelog/ohlc/QQQ_5m.csv` is every 5-minute QQQ bar the engine has seen since the book
+started (about 95 sessions, from June 2026). It is history nothing else can give back:
+Yahoo (yfinance) serves only about 60 days of 5-minute bars, Webull's reply only the last 200
+bars. **Never delete it, move it away or rebuild it from a fresh download.** Measured
+2026-10-25: a copy rebuilt from Yahoo put every older day of DIP's daily prices back on
+`QQQ_1d.csv` — closed DIP trades moved by cents, and some trade ids changed (07-17 IBS became
+07-21 IBS; 08-04 GAPDN vanished). NOISE's window (vol-skip depth, the 40-session noise band)
+shrank with it. No live order was hit that time, but an id that changes under an *open*
+position never gets its exit.
+
+**What the engine does** (`api/cloud_signal.py`, "5m CACHE NEVER SHRINKS"): it only ever
+appends newer bars (Webull's, or the yfinance fallback's newer-only bars). It remembers how far
+back the file reaches: `~/edgelog/ohlc/QQQ_5m.reach.json` holds the first day the file has had
+(written at its first write, and again only when a restore reaches back further). It refuses to
+write the file when:
+
+- the file now **starts later** than that day — a shorter copy was put in its place (by `mv`,
+  `scp`, a restore of the wrong copy, a rebuild from Yahoo). The engine cannot see who wrote
+  it, only that it reaches less far back. A copy that starts on or before that day is fine,
+  even one that ends a few days early;
+- the file is **missing**, or has **no readable prices** in it (0 bytes, a header only, junk
+  rows, rows glued together, bytes that are not text), on a box that has traded off it before
+  (the reach file is there, or `cloud_signal/state.json` has recorded a 5m bar) — it never
+  rebuilds the file from the short download. A file with no readable prices is first copied
+  to `QQQ_5m.csv.corrupt-<YYYYMMDD-HHMMSS>` and itself left in place;
+- a write would drop a bar the file holds (a bug in the engine's own merge — the file is
+  kept as it was, and the phone says not to replace it).
+
+While it refuses, ORB, NOISE and DIP (live and shadow) **make no decision at all — no new
+trades, no exits** — instead of deciding on a short window. `~/edgelog/logs/cloud_signal.log`
+says `5m CACHE GUARD` (once a day per cause), the engine heartbeat's note says
+`5m CACHE GUARD: <cause> since <time>` (the heartbeat stays ok), and the phone gets one high
+note a day:
+
+> **QQQ price file: not trading** — Trading: AFFECTED - ORB, NOISE and DIP take no new trades
+> and send no exit for their held shares until the file is back. / Do: ask Claude (PAPER-WB
+> chat) to restore QQQ_5m.csv from the PC backup.
+
+**Prices still work.** Each refused fetch writes its newest bars to
+`~/edgelog/ohlc/QQQ_5m_guard_tail.csv` (removed by the first good write). No strategy reads it;
+`edgelog-qqq-exec` prices open lots from it when the cache has no newer bar, so the daily-loss
+breaker still sees open losses and the 15:59 flatten, KILL and BREAKER closes still have a price
+when the live stream is not fresh (such a close's price source ends in `_guard`). ORB and NOISE
+lots are therefore still flattened at the close. DIP holds overnight and its exits come from
+its own signal, so an open DIP position waits for the file to be restored.
+
+Only a brand-new box (no reach file, and `cloud_signal/state.json` has never recorded a 5m bar)
+starts the file from the download, as before. There is no switch that makes the engine rebuild
+it. **Never delete `QQQ_5m.reach.json`** — except on purpose, to accept a file that starts later
+than before (for example a deliberate trim): delete it by hand, and the next good write records
+the new first day. Deleting it does not let the engine rebuild a missing file (`state.json`
+still says it traded off it).
+
+**Restoring it (the only fix).** Put a trusted copy back by hand; it must start on or before
+the `first_session` day in `QQQ_5m.reach.json`, or the engine refuses it as too short. The
+engine picks it up on its next fetch — within 30 seconds during market hours (it fetches from
+09:30 to 16:00 ET plus the few minutes of the after-close settle; otherwise at the next open) —
+appends to it as usual, and the phone gets one low "OK". While the engine refuses it never
+writes the file, and it never writes over a file that changed while its own fetch was in flight,
+so a restore is safe mid-session. If the engine is **not** refusing (no `5m CACHE GUARD` in the
+log today), restore outside 09:25-16:05 ET anyway. Best copy first:
+
+1. A copy of the box's own file taken before the problem (for example one saved before a test).
+2. A `~/edgelog/ohlc/QQQ_5m.csv.corrupt-<stamp>` file. The engine makes one only when the file
+   held **no readable bar**, so its copy helps only when the bars are there but cannot be read
+   in place (a lost header line, shifted columns, two rows glued together): fix that in the
+   copy and run the check below before restoring it. A cut-short file is never copied — it is
+   refused and left where it is. A `.corrupt-<stamp>` made by `tools/qqq_cache_repair.py
+   --apply` is the full file from before that repair, torn rows included: put it in an empty
+   folder's `ohlc/QQQ_5m.csv` and run `python tools/qqq_cache_repair.py --home <that folder>
+   --apply` on it first.
+3. The PC's `C:\EdgeLog\ohlc\QQQ_5m.csv`. Not the box's bars: on the PC, `tools/qqq_paper.py
+   --sync` (the runner, every ~2 minutes in market hours) merges Yahoo's copy over its last ~60
+   days, so restoring it moves recent days by cents — and if that PC file was ever missing,
+   the same sync rebuilt it from Yahoo's 60 days alone. Run the check: it must start on or
+   before the reach day. The nightly `tools/pull_box_ledgers.py` backup does **not** copy
+   `ohlc/`.
+
+From the PC (Git Bash): check the copy, upload it beside the live file, then swap it in
+atomically (`mv` on the box, so the engine never reads a half-copied file):
+
+```bash
+# sessions it holds, first and last day -- pick the copy that starts earliest and ends latest
+python -c "import sys,pandas as pd; t=pd.to_numeric(pd.read_csv(sys.argv[1])['time'],errors='coerce'); t=t[t.between(1e9,2e9)]; d=pd.to_datetime(t,unit='s',utc=True).dt.tz_convert('US/Eastern').dt.date; print(d.nunique(),'sessions',d.min(),'..',d.max())" <the copy>
+# the first day the box's file reached (the copy must start on or before it)
+ssh -i ~/.ssh/edgelog_oracle ubuntu@<the-public-ip> 'cat ~/edgelog/ohlc/QQQ_5m.reach.json'
+scp -i ~/.ssh/edgelog_oracle <the copy> ubuntu@<the-public-ip>:~/edgelog/ohlc/QQQ_5m.csv.restore.tmp
+ssh -i ~/.ssh/edgelog_oracle ubuntu@<the-public-ip> 'mv ~/edgelog/ohlc/QQQ_5m.csv.restore.tmp ~/edgelog/ohlc/QQQ_5m.csv'
+# a minute later (market hours): the file kept the copy's rows (plus a few new ones), and the
+# log says "is good again"
+ssh -i ~/.ssh/edgelog_oracle ubuntu@<the-public-ip> 'wc -l ~/edgelog/ohlc/QQQ_5m.csv; grep "5m CACHE GUARD" ~/edgelog/logs/cloud_signal.log | tail -3'
+```
+
+Days between the copy's last bar and Webull's 200-bar reply stay missing (DIP fills them from
+`QQQ_1d.csv`); say so in the chat. The same rule covers `QQQ_5m_backfill.csv` (older history,
+`tools/backfill_qqq_5m_alpaca.py --apply`, parked): that upload now refuses a file that would
+drop a session the box's backfill holds older than the live `QQQ_5m.csv`; a box backfill that
+cannot be read is copied to `QQQ_5m_backfill.csv.corrupt-<stamp>` on the box before the upload
+replaces it. The engine does not watch the backfill file itself.
+
 ---
 
 ## ntfy alerts — moving to a private topic (WEBULL_GO_LIVE.md 1.10)

@@ -867,6 +867,341 @@ def _yf_only_newer_than_cache(fresh, old, timeframe, log=print):
     return fresh[keep].reset_index(drop=True)
 
 
+# 5m CACHE NEVER SHRINKS (MANAGER GO 2026-10-25). Measured 10-25: QQQ_5m.csv rebuilt from
+# yfinance (which serves only ~60 days of 5m bars) put every older session of DIP_424's daily
+# series back on QQQ_1d prices (api/dip_live.py build_daily_series prefers a COMPLETE 5m session
+# to the QQQ_1d row): closed DIP trades moved by cents and some trade ids changed (07-17 IBS
+# became 07-21 IBS; 08-04 GAPDN vanished), and NOISE's window (the vol-skip depth, the
+# 40-session noise band) shrank with it. No live order was hit that time (the old records had
+# exited, the new ids were skipped as stale) -- but an id that changes under an OPEN position
+# never gets its EXIT (_diff_leg emits one only for an id in the new trade list). So for each
+# cache in BAR_CACHE_GUARD_TIMEFRAMES (QQQ_5m.csv; QQQ_1m.csv feeds only the ENGU-Q tracker and
+# is left as it was) fetch_and_merge REFUSES to write:
+#   * SHORT -- the file has bars, but its first session is LATER than the cache's recorded REACH
+#     (QQQ_5m.reach.json beside it, _read_bar_cache_reach: the cache's first session as written,
+#     recorded at its first write and only ever moved EARLIER). That is the 10-25 hazard done
+#     outside the engine -- a shorter copy put in its place by hand (a mv or scp, a restore of
+#     the wrong copy, a yfinance rebuild written over it): the guard cannot see who wrote it,
+#     only that it reaches less far back than the cache did. A copy that reaches back as far
+#     clears it, a backup that ENDS a few days early included (the session count is not
+#     compared: the days after a restored copy's end stay missing, as the runbook says). A
+#     DELIBERATE later start is taken only once the reach file is deleted by hand (the runbook)
+#     -- nothing deletes it, and there is no switch for it;
+#   * SHRINK -- a merge that leaves out any bar the file holds now. _merge_bar_frames keeps every
+#     cached row, so this is only a backstop against a merge bug;
+#   * MISSING / EMPTY -- no file, or one with no bar in it (_bar_times: a numeric time with all
+#     four prices; so 0 bytes, blank lines, a header only, junk or torn rows -- and a file pandas
+#     cannot parse at all: a row with too many fields, bytes that are not utf-8) -- on a store
+#     that has decided off these bars before (_bar_cache_seen_before: the reach file, or
+#     state.json's bar_source[tf]): the fetch (Webull's 200-bar tail, or yfinance's 60 days)
+#     never becomes the new cache. An EMPTY file is first COPIED to
+#     QQQ_5m.csv.corrupt-<YYYYMMDD-HHMMSS> (_keep_broken_daily_copy: one copy per distinct broken
+#     file, however many ticks retry) and itself left where it is. A FIRST boot (neither: nothing
+#     was ever decided off this cache) cold-starts from the fetch as before -- an EMPTY file
+#     copied aside first.
+# While a refusal is open (bar_cache_refusal: this process's memo of it, dropped by the next
+# fetch that finds the file good) step() makes NO decision on that timeframe -- live or shadow,
+# fetching or not: no ENTRY, no EXIT, the legs' state untouched -- rather than decide on a short
+# window, and pages ONCE per ET day (_note_bar_cache_guard: "Trading: AFFECTED", naming the live
+# legs it stops; one low "OK" once the file is back); the live heartbeat names it too
+# (_engine_thread_run, BAR_CACHE_GUARD_KEY; ok stays True). The stream path
+# (api/cloud_signal_stream.run_stream_aware_step) skips its extras then, so it makes no decision
+# off the stream bar alone either. PRICES are kept all the same: each refused fetch writes its
+# newest bars to QQQ_5m_guard_tail.csv (_write_guard_tail; removed by the first good write),
+# which only mark_bars reads -- api/qqq_exec.py's engine marks, so the daily-loss breaker and the
+# end-of-day / KILL / BREAKER flatten still have a price when the live stream is not fresh. No
+# leg decides off it (load_cached_bars / historical_bars never read it).
+# A file REPLACED while a fetch is in flight (an operator's `mv` of a restored copy landing
+# between the read and the write) is never written over: the file's stat at the read
+# (_cache_file_stamp) is compared again just before the rename, and that tick writes nothing.
+# The fix is to put the file back by hand from a trusted copy (deploy/cloud/README.md "The QQQ
+# 5-minute bar cache"): the next fetch reads it and appends to it as usual. There is no switch
+# that lets the engine rebuild it itself. On a normal day nothing changes: Webull's rows, and the
+# yfinance fallback's newer-only rows (_yf_only_newer_than_cache), are appended exactly as
+# before, and the reach file is written only when it is first made or the reach moves earlier.
+BAR_CACHE_GUARD_TIMEFRAMES = ("5m",)
+BAR_CACHE_MISSING, BAR_CACHE_EMPTY, BAR_CACHE_SHRINK = "missing", "empty", "shrink"
+BAR_CACHE_SHORT = "short"
+BAR_CACHE_GUARD_KEY = "bar_cache_guard"     # step()'s `warnings` entry for an open refusal
+BAR_EPOCH_MIN, BAR_EPOCH_MAX = 1_000_000_000, 2_000_000_000    # tools/qqq_cache_repair.py's range
+_BAR_CACHE_REFUSED = {}     # abspath of a cache file -> its open refusal (bar_cache_refusal)
+_BAR_CACHE_NOTED = {}       # abspath of a cache file -> the ET date its page went to _engine_note
+
+
+def _bar_times(df):
+    """`df`'s BAR times, as int64: rows whose time is a finite number and whose open, high, low
+    and close are all there (tools/qqq_cache_repair.py's test, without its epoch range) -- a torn
+    row (09-18's time=200960 with its prices shifted or NaN), a blank or text time, is no bar.
+    Empty for None or a frame with no "time" column."""
+    import pandas as pd
+    if df is None or "time" not in getattr(df, "columns", ()):
+        return pd.Series([], dtype="int64")
+    t = pd.to_numeric(df["time"], errors="coerce")
+    ok = t.notna() & (t.abs() < float("inf"))
+    ok &= df.reindex(columns=["open", "high", "low", "close"]).apply(
+        pd.to_numeric, errors="coerce").notna().all(axis=1)
+    return t[ok].astype("int64")
+
+
+def _merge_bar_frames(old, fresh):
+    """fetch_and_merge's merge: `old` then `fresh`, one row per bar time (the later copy wins),
+    sorted -- every bar time `old` holds stays (5m CACHE NEVER SHRINKS). Concats only non-empty
+    frames: an all-dropped fetch is routine under the yfinance fallback, and concatenating an
+    empty frame raises pandas' FutureWarning."""
+    import pandas as pd
+    parts = [f for f in (old, fresh) if f is not None and len(f)]
+    merged = pd.concat(parts, ignore_index=True) if parts else old
+    if len(merged):
+        merged = merged.drop_duplicates("time", keep="last").sort_values("time")
+    return merged
+
+
+def _bars_dropped(old, merged):
+    """How many of `old`'s bars (_bar_times) have no row in `merged`: the SHRINK backstop of 5m
+    CACHE NEVER SHRINKS (0 for every merge _merge_bar_frames makes)."""
+    import pandas as pd
+    have = _bar_times(old)
+    if not len(have):
+        return 0
+    kept = pd.to_numeric(merged["time"], errors="coerce").dropna() \
+        if merged is not None and "time" in getattr(merged, "columns", ()) else pd.Series([])
+    return int((~have.isin(kept.astype("int64").values)).sum())
+
+
+def _epoch_bar_times(df):
+    """_bar_times limited to epoch seconds (BAR_EPOCH_MIN..MAX, tools/qqq_cache_repair.py's range):
+    a torn row that happens to carry all four prices is never a 1970 session."""
+    t = _bar_times(df)
+    return t[(t >= BAR_EPOCH_MIN) & (t <= BAR_EPOCH_MAX)]
+
+
+def _first_session(df):
+    """The ET date of `df`'s first bar (_epoch_bar_times), or None: what fetch_and_merge compares
+    with the recorded reach every fetch (SHORT) -- one timestamp converted, not the frame."""
+    import pandas as pd
+    t = _epoch_bar_times(df)
+    if not len(t):
+        return None
+    return pd.Timestamp(int(t.min()), unit="s", tz="UTC").tz_convert(TZ).date()
+
+
+def _session_reach(df):
+    """(sessions, first ET date or None) of `df`'s bars (_epoch_bar_times): the cache's REACH as
+    recorded (_record_bar_cache_reach) and the guard's log lines."""
+    import pandas as pd
+    t = _epoch_bar_times(df)
+    if not len(t):
+        return 0, None
+    days = pd.to_datetime(t, unit="s", utc=True).dt.tz_convert(TZ).dt.date
+    return int(days.nunique()), days.min()
+
+
+def _bar_cache_reach_path(timeframe, paths):
+    """QQQ_{tf}.reach.json beside the cache (5m CACHE NEVER SHRINKS, SHORT): in the ohlc dir, so
+    the live and the shadow store share it as they share the cache, and it outlives a state.json
+    reset."""
+    return os.path.join(paths["ohlc_dir"], f"QQQ_{timeframe}.reach.json")
+
+
+def _read_bar_cache_reach(timeframe, paths, log=print):
+    """The recorded REACH of `timeframe`'s cache -- the earliest first session (a date) it has
+    been written with since the reach file was made -- or None when there is no reach file. One
+    that cannot be read (or holds no date) is logged once a day and read as None: the next good
+    write records it afresh, and it still counts as seen-before (_bar_cache_seen_before). Never
+    raises."""
+    path = _bar_cache_reach_path(timeframe, paths)
+    if not os.path.exists(path):
+        return None
+    try:
+        with open(path, encoding="utf-8") as f:
+            return _dt.date.fromisoformat(str(json.load(f)["first_session"]))
+    except Exception as e:
+        _log_fail_safe_once(f"bar_cache_reach_unreadable:{path}",
+                            f"[cloud-signal] 5m CACHE GUARD: could not read "
+                            f"{os.path.basename(path)} ({type(e).__name__}: {e}) -- recorded "
+                            f"again from the next good write", log)
+        return None
+
+
+def _record_bar_cache_reach(timeframe, paths, merged, reach, log=print):
+    """After a good write of `timeframe`'s cache: (re)write the reach file when there is none yet
+    (or it could not be read: `reach` None) or `merged` reaches EARLIER than `reach` (a restore of
+    a longer copy) -- never later, so a normal day never touches it. Atomic (tmp +
+    qp._replace_with_retry). Never raises."""
+    try:
+        n, first = _session_reach(merged)
+        if first is None or (reach is not None and first >= reach):
+            return
+        path = _bar_cache_reach_path(timeframe, paths)
+        tmp = path + ".tmp"
+        with open(tmp, "w", encoding="utf-8") as f:
+            json.dump({"timeframe": timeframe, "first_session": first.isoformat(),
+                       "sessions_when_recorded": n,
+                       "recorded_at": _dt.datetime.now(tz=_zi(TZ)).isoformat(timespec="seconds")},
+                      f)
+        if qp._replace_with_retry(tmp, path, log=log, what=f"[cloud-signal] {timeframe} reach"):
+            log(f"[cloud-signal] 5m CACHE GUARD: QQQ_{timeframe}.csv reaches back to {first} ({n} "
+                f"session(s)) -- recorded in {os.path.basename(path)}"
+                + (f" (was {reach})" if reach is not None else ""))
+    except Exception as e:
+        log(f"[cloud-signal] 5m CACHE GUARD: reach record failed ({type(e).__name__}: {e})")
+
+
+def _guard_tail_path(timeframe, paths):
+    """QQQ_{tf}_guard_tail.csv: the newest bars of a REFUSED fetch, for mark_bars only."""
+    return os.path.join(paths["ohlc_dir"], f"QQQ_{timeframe}_guard_tail.csv")
+
+
+def _write_guard_tail(timeframe, paths, merged, log=print):
+    """While the guard refuses `timeframe`'s cache: the newest WEBULL_TAIL_BARS rows of the frame
+    it would have written, to QQQ_{tf}_guard_tail.csv (tmp + qp._replace_with_retry) -- PRICES
+    for api/qqq_exec.py (mark_bars), never a decision. Never raises."""
+    try:
+        if merged is None or not len(merged):
+            return
+        path = _guard_tail_path(timeframe, paths)
+        tmp = path + ".tmp"
+        merged.tail(WEBULL_TAIL_BARS).to_csv(tmp, index=False)
+        qp._replace_with_retry(tmp, path, log=log, what=f"[cloud-signal] {timeframe} guard tail")
+    except Exception as e:
+        _log_fail_safe_once(f"guard_tail_failed:{timeframe}",
+                            f"[cloud-signal] 5m CACHE GUARD: could not write the price tail "
+                            f"({type(e).__name__}: {e})", log)
+
+
+def _drop_guard_tail(timeframe, paths, log=print):
+    """The cache was written again: QQQ_{tf}_guard_tail.csv (if any) goes. Never raises."""
+    path = _guard_tail_path(timeframe, paths)
+    if not os.path.exists(path):
+        return
+    try:
+        os.remove(path)
+        log(f"[cloud-signal] 5m CACHE GUARD: {os.path.basename(path)} removed (the cache is "
+            f"written again)")
+    except OSError as e:
+        _log_fail_safe_once(f"guard_tail_remove_failed:{timeframe}",
+                            f"[cloud-signal] 5m CACHE GUARD: could not remove "
+                            f"{os.path.basename(path)} ({type(e).__name__}: {e}); mark_bars "
+                            f"reads the cache again once its newest bar is as new", log)
+
+
+def mark_bars(timeframe, paths=None):
+    """(frame, from_guard_tail) to PRICE an open lot -- api/qqq_exec.py _engine_mark_price only,
+    never a decision. With no QQQ_{tf}_guard_tail.csv (every normal day) exactly
+    (load_cached_bars(timeframe, paths), False), raising as that does. While 5m CACHE NEVER
+    SHRINKS refuses the cache (the tail is there): the tail when its newest bar is newer than the
+    cache's, or the cache is missing, empty or cannot be read -- so the daily-loss breaker and a
+    forced flatten keep a price; else the cache."""
+    import pandas as pd
+    paths = paths or DEFAULT_PATHS
+    tail_path = _guard_tail_path(timeframe, paths)
+    if not os.path.exists(tail_path):
+        return load_cached_bars(timeframe, paths), False
+    df, err = None, None
+    try:
+        df = load_cached_bars(timeframe, paths)
+    except Exception as e:
+        err = e
+    try:
+        tail = pd.read_csv(tail_path)
+    except Exception:
+        tail = None
+    t_tail, t_df = _bar_times(tail), _bar_times(df)
+    if len(t_tail) and (not len(t_df) or t_tail.max() > t_df.max()):
+        return tail, True
+    if err is not None:
+        raise err
+    return df, False
+
+
+def _cache_file_stamp(path):
+    """(st_mtime_ns, st_size, st_ino) of `path`, or None when it is not there: fetch_and_merge's
+    check that nothing replaced the file while its fetch was in flight (5m CACHE NEVER SHRINKS)."""
+    try:
+        st = os.stat(path)
+    except OSError:
+        return None
+    return st.st_mtime_ns, st.st_size, st.st_ino
+
+
+def _bar_cache_seen_before(timeframe, paths):
+    """True when this store has decided off `timeframe`'s cache before, so a MISSING or EMPTY file
+    now is a lost one, not a first boot (5m CACHE NEVER SHRINKS): its reach file is there
+    (_bar_cache_reach_path -- it outlives a state.json reset), or state.json carries
+    bar_source[timeframe] (stamped by every fetching step() that had a usable bar of it). A
+    state.json that cannot be read: True (never rebuild on a doubt)."""
+    if os.path.exists(_bar_cache_reach_path(timeframe, paths)):
+        return True
+    try:
+        return bool((_load_state(paths).get("bar_source") or {}).get(timeframe))
+    except Exception:
+        return True
+
+
+def bar_cache_refusal(timeframe, paths=None):
+    """The open 5m CACHE NEVER SHRINKS refusal for `timeframe`'s cache under `paths` -- {"why":
+    BAR_CACHE_MISSING / BAR_CACHE_EMPTY / BAR_CACHE_SHORT / BAR_CACHE_SHRINK, "text", "since",
+    "copy", "source"} -- or None. In-process: set by fetch_and_merge when it refuses a write,
+    dropped by its next call that finds the file good; read by step() before any decision (the
+    live and the shadow store read one bar cache, so both see it)."""
+    if not _BAR_CACHE_REFUSED:
+        return None
+    return _BAR_CACHE_REFUSED.get(os.path.abspath(_cache_path(timeframe, paths)))
+
+
+def _refuse_bar_cache_write(path, why, timeframe, fresh, old, merged, source, copy, log=print,
+                            reach=None):
+    """Open (or refresh) the refusal for `path` and log it loudly -- once per ET day per cause and
+    corrupt copy (_log_fail_safe_once: the fetch retries every tick). See 5m CACHE NEVER SHRINKS.
+    `reach`: the recorded first session the file no longer reaches (SHORT)."""
+    name = os.path.basename(path)
+    fix = "the file is put back from a trusted copy"
+    if why == BAR_CACHE_SHRINK:
+        s_old, f_old = _session_reach(old)
+        s_new, f_new = _session_reach(merged)
+        what = (f"a write would have left out {_bars_dropped(old, merged)} bar(s) {name} holds "
+                f"({s_old} session(s) from {f_old} -> {s_new} from {f_new}) -- REFUSED, the file "
+                f"is kept as it was")
+        fix = "the merge is fixed (the file itself is fine)"
+    elif why == BAR_CACHE_SHORT:
+        s_old, f_old = _session_reach(old)
+        what = (f"{name} now starts on {f_old} ({s_old} session(s)), later than the {reach} it "
+                f"reached before ({name[:-4]}.reach.json) -- a shorter copy was put in its place; "
+                f"REFUSED to write to it")
+        fix = (f"a copy reaching back to {reach} is put in its place (a deliberate later start: "
+               f"delete {name[:-4]}.reach.json by hand)")
+    else:
+        s_new, _f = _session_reach(fresh)
+        what = ((f"{name} is missing" if why == BAR_CACHE_MISSING else
+                 f"{name} holds no readable bar" + (f" (kept a copy as {copy})" if copy else
+                                                    " (no copy could be kept)"))
+                + f" and this store has decided off its bars before -- REFUSED to rebuild it from "
+                  f"the {source} fetch ({len(fresh) if fresh is not None else 0} bar(s), {s_new} "
+                  f"session(s)), which would rewrite every older session")
+    prior = _BAR_CACHE_REFUSED.get(os.path.abspath(path)) or {}
+    _BAR_CACHE_REFUSED[os.path.abspath(path)] = {
+        "why": why, "text": what, "copy": copy, "source": source,
+        "since": prior.get("since") if prior.get("why") == why else
+        _dt.datetime.now(tz=_zi(TZ)).isoformat(timespec="seconds")}
+    _log_fail_safe_once(
+        f"bar_cache_guard:{path}:{why}:{copy}",
+        f"[cloud-signal] 5m CACHE GUARD: {what}; every {timeframe} leg decides nothing (no entry, "
+        f"no exit) until {fix} (deploy/cloud/README.md \"The QQQ 5-minute bar cache\"); its "
+        f"newest bars go to {name[:-4]}_guard_tail.csv for prices only -- logged once a day", log)
+
+
+def _keep_empty_cache_copy(path, log=print):
+    """5m CACHE NEVER SHRINKS: an EMPTY cache's .corrupt-<stamp> copy (_keep_broken_daily_copy),
+    its file name -- or None when it could not be made (logged once a day). Never raises."""
+    try:
+        return os.path.basename(_keep_broken_daily_copy(path))
+    except Exception as e:
+        _log_fail_safe_once(f"bar_cache_copy_failed:{path}",
+                            f"[cloud-signal] 5m CACHE GUARD: could not keep a copy of "
+                            f"{os.path.basename(path)} ({type(e).__name__}: {e})", log)
+        return None
+
+
 def fetch_and_merge(timeframe, paths=None, log=print):
     """Pull fresh bars, merge into the cache under EDGELOG_HOME, and return
     (merged_epoch_frame, source, cache_ok) where source is "webull" or "yfinance" --
@@ -904,14 +1239,62 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     the next successful fetch.
 
     YAHOO FALLBACK NEVER REWRITES HISTORY (2026-10-14, see _yf_only_newer_than_cache): a
-    yfinance fallback fetch adds only bars newer than the cache's newest bar."""
+    yfinance fallback fetch adds only bars newer than the cache's newest bar.
+
+    5m CACHE NEVER SHRINKS (MANAGER GO 2026-10-25, see the block above): for a guarded cache
+    (BAR_CACHE_GUARD_TIMEFRAMES) a file that starts later than its recorded reach (SHORT), a
+    merge that would leave out a bar the file holds (SHRINK), or -- once this store has decided
+    off the cache (the reach file, or state.json's bar_source[tf]) -- a MISSING or EMPTY file
+    rebuilt from the fetch alone, is never written. The file stays as it is (an EMPTY one copied
+    to .corrupt-<stamp> first), the refusal is logged once a day and memoised for step()
+    (bar_cache_refusal), the frame's newest bars go to the guard tail for PRICES only
+    (_write_guard_tail, mark_bars), and this returns the frame it would have written (no
+    backfill spliced on) with cache_ok True -- no rename was tried. step() reads only its bar
+    freshness; no leg decides on it. A later call that finds the file good drops the refusal.
+    A file replaced while this call's fetch was in flight (_cache_file_stamp) is not written
+    over: this call writes nothing and returns its merge as usual (cache_ok True); the next one
+    merges onto the new file. A good write records the reach when it is new or earlier
+    (_record_bar_cache_reach) and removes the guard tail."""
     import pandas as pd
     paths = paths or DEFAULT_PATHS
     os.makedirs(paths["ohlc_dir"], exist_ok=True)
     path = _cache_path(timeframe, paths)
-    old = load_cached_bars(timeframe, paths)
+    empty = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+    guarded = timeframe in BAR_CACHE_GUARD_TIMEFRAMES
+    gap = None                  # 5m CACHE NEVER SHRINKS: BAR_CACHE_MISSING / BAR_CACHE_EMPTY
+    stamp = _cache_file_stamp(path) if guarded else None
+    try:
+        old = load_cached_bars(timeframe, paths)
+    except (pd.errors.EmptyDataError, pd.errors.ParserError, UnicodeDecodeError):
+        # 0 bytes or blank lines (nothing to parse), a row with too many fields, not utf-8
+        if not guarded:
+            raise
+        old, gap = None, BAR_CACHE_EMPTY
+    reach = _read_bar_cache_reach(timeframe, paths, log=log) if guarded else None
+    if guarded and gap is None:
+        if old is None:
+            gap = BAR_CACHE_MISSING
+        elif not len(_bar_times(old)):          # a header only, or junk / torn rows
+            gap = BAR_CACHE_EMPTY
+    refuse, copy = None, None
+    if not gap and reach is not None:
+        first = _first_session(old)
+        if first is None or first > reach:      # bars, but not from as far back as it reached
+            refuse = BAR_CACHE_SHORT
+    if gap:
+        copy = _keep_empty_cache_copy(path, log) if gap == BAR_CACHE_EMPTY else None
+        if _bar_cache_seen_before(timeframe, paths):
+            refuse = gap
+        else:
+            _log_fail_safe_once(
+                f"bar_cache_cold_start:{path}",
+                f"[cloud-signal] 5m CACHE GUARD: {os.path.basename(path)} is {gap}"
+                + (f" (kept a copy as {copy})" if copy else "")
+                + " and this store has never decided off it -- first boot, it starts from the "
+                  "fetch", log)
+        old = empty                             # a broken file's rows are never merged
     if old is None:
-        old = pd.DataFrame(columns=["time", "open", "high", "low", "close", "volume"])
+        old = empty
     # Settled-by cutoff per source (see UNSETTLED BARS above _wall_epoch). Webull: the
     # RESPONSE time -- it never serves a forming bar, so a bar that finished while the
     # request was in flight is final and is kept (the fetch phase drifts against the 5m
@@ -932,12 +1315,26 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     fresh = _drop_unsettled(fresh, timeframe, settled_by, source, log=log)
     if source == "yfinance":
         fresh = _yf_only_newer_than_cache(fresh, old, timeframe, log=log)
-    # concat only non-empty frames: an all-dropped fetch is routine under the yfinance
-    # fallback, and concatenating an empty frame raises pandas' FutureWarning
-    parts = [f for f in (old, fresh) if f is not None and len(f)]
-    merged = pd.concat(parts, ignore_index=True) if parts else old
-    if len(merged):
-        merged = merged.drop_duplicates("time", keep="last").sort_values("time")
+    merged = _merge_bar_frames(old, fresh)
+    if guarded and refuse is None and _bars_dropped(old, merged):
+        refuse = BAR_CACHE_SHRINK
+    if refuse:
+        # 5m CACHE NEVER SHRINKS: nothing written; the frame goes back for bar freshness only,
+        # and its newest bars to the guard tail for qqq_exec's prices
+        _refuse_bar_cache_write(path, refuse, timeframe, fresh, old, merged, source, copy,
+                                log=log, reach=reach)
+        _write_guard_tail(timeframe, paths, merged, log=log)
+        return merged, source, True
+    if guarded and _cache_file_stamp(path) != stamp:
+        # 5m CACHE NEVER SHRINKS: the file was replaced while the fetch was in flight (an
+        # operator's restore landing mid-tick) -- never written over; the next fetch reads it
+        log(f"[cloud-signal] 5m CACHE GUARD: {os.path.basename(path)} changed while this fetch "
+            f"was in flight -- not written this tick; the next fetch merges onto the new file")
+        return _prepend_backfill(merged, timeframe, paths), source, True
+    if _BAR_CACHE_REFUSED.pop(os.path.abspath(path), None) is not None:
+        n, first = _session_reach(merged)
+        log(f"[cloud-signal] 5m CACHE GUARD: {os.path.basename(path)} is good again ({n} "
+            f"session(s) from {first}) -- its legs decide again")
     # ATOMIC (2026-09-09): to_csv() TRUNCATES then writes, so a reader that opens the file
     # mid-write gets an empty or half-written cache. That is not hypothetical -- this thread
     # rewrites the cache every 30s and it caught the test suite red-handed, which is exactly
@@ -949,6 +1346,10 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     merged.to_csv(tmp, index=False)
     cache_ok = qp._replace_with_retry(tmp, path, log=log,
                                       what=f"[cloud-signal] {timeframe} bar cache")
+    if guarded and cache_ok:
+        # 5m CACHE NEVER SHRINKS: the reach only ever moves earlier; a guard tail is done with
+        _record_bar_cache_reach(timeframe, paths, merged, reach, log=log)
+        _drop_guard_tail(timeframe, paths, log=log)
     # Splice any older Alpaca-backfill history onto the RETURNED frame only -- `merged` was
     # already written to disk above with none of it, so the on-disk cache never gains
     # backfill rows (see historical_bars / tools/backfill_qqq_5m_alpaca.py "UPLOAD").
@@ -1577,7 +1978,8 @@ def _keep_broken_daily_copy(path):
     """EMPTY QQQ_1d.csv REPAIRS ITSELF (fetch_and_merge_daily): copy `path` to
     <path>.corrupt-<YYYYMMDD-HHMMSS> (shutil.copy2, never a move) and return the copy's path --
     or the path of an earlier copy with the same bytes, so a refresh retried every tick keeps
-    ONE copy of one broken file. May raise (OSError): the caller's own fail-safe catches it."""
+    ONE copy of one broken file. May raise (OSError): the caller's own fail-safe catches it.
+    Also 5m CACHE NEVER SHRINKS' copy of an EMPTY QQQ_5m.csv (_keep_empty_cache_copy)."""
     folder, name = os.path.split(path)
     with open(path, "rb") as f:
         data = f.read()
@@ -4878,6 +5280,84 @@ def _note_vol_window(legs, now, paths, fetch, warnings=None, post_close=False, l
         log(f"[cloud-signal] vol window status failed ({type(e).__name__}: {e})")
 
 
+_BAR_CACHE_PROBLEM = {
+    BAR_CACHE_MISSING: "The {name} price file is missing. The engine will not rebuild it from a "
+                       "few weeks of new bars, which would rewrite older days.",
+    BAR_CACHE_EMPTY: "The {name} price file has no readable prices in it ({copy}). The engine "
+                     "will not rebuild it from a few weeks of new bars, which would rewrite "
+                     "older days.",
+    BAR_CACHE_SHORT: "The {name} price file now starts later than it did, so its older days are "
+                     "gone. The engine will not trade off the shorter copy or add to it.",
+    BAR_CACHE_SHRINK: "A write would have dropped older days from the {name} price file, so the "
+                      "file was kept as it was.",
+}
+# EMPTY: what the note says about the .corrupt-<stamp> copy -- only what really happened
+_BAR_CACHE_COPY_WORDS = {True: "a copy was kept beside it", False: "no copy could be kept"}
+# SHRINK: the file is fine and the merge is at fault -- a restore would only replace good bars
+_BAR_CACHE_DO = {BAR_CACHE_SHRINK: "ask Claude (PAPER-WB chat) to check the engine's bar merge - "
+                                   "do not replace the file"}
+
+
+def _bar_cache_guard_note(timeframe, rec, live_legs):
+    """The plain phone note (api/ntfy_push.plain) for an open 5m CACHE NEVER SHRINKS refusal:
+    high -- `live_legs` (the live legs on that timeframe) decide nothing until the file is back.
+    The EMPTY line names the .corrupt-<stamp> copy only when one was made (rec["copy"]); SHRINK
+    (the merge's fault, the file kept) gets its own Do line, every other cause the restore."""
+    from api import ntfy_push
+    words = list(dict.fromkeys(_keel_leg_word(k) for k in live_legs)) or ["the QQQ book"]
+    who = words[0] if len(words) == 1 else ", ".join(words[:-1]) + " and " + words[-1]
+    one = len(words) == 1
+    name = f"QQQ_{timeframe}.csv"
+    why = rec.get("why") if rec.get("why") in _BAR_CACHE_PROBLEM else BAR_CACHE_MISSING
+    return ntfy_push.plain(
+        "QQQ price file", "not trading",
+        f"{who} {'takes' if one else 'take'} no new trades and {'sends' if one else 'send'} no "
+        f"exit for {'its' if one else 'their'} held shares until "
+        + ("this is fixed" if why == BAR_CACHE_SHRINK else "the file is back"),
+        _BAR_CACHE_PROBLEM[why].format(name=name,
+                                       copy=_BAR_CACHE_COPY_WORDS[bool(rec.get("copy"))]),
+        _BAR_CACHE_DO.get(why, f"ask Claude (PAPER-WB chat) to restore {name} from the PC backup"),
+        priority="high")
+
+
+def _note_bar_cache_guard(legs, now, paths, fetch, warnings=None, log=print):
+    """step()'s 5m CACHE NEVER SHRINKS page (see the block above fetch_and_merge), called AFTER
+    its rows are written: names each open refusal in `warnings` (BAR_CACHE_GUARD_KEY), and sends
+    ONE high plain note per guarded cache per ET day while one is open -- only where an engine
+    page may go (_push_allowed for a live leg on that timeframe past its live_since: a fetching
+    tick on the box, never for shadow legs alone) -- then one low "OK" (_engine_note_clear) on
+    the first such tick after the file is good again. _BAR_CACHE_NOTED holds the day in-process
+    and _engine_note's repeat rule (problem id = the ET date, phone_dedupe.json) across a
+    restart. Never raises."""
+    try:
+        et = now.astimezone(_zi(TZ)) if now.tzinfo is not None else now.replace(tzinfo=_zi(TZ))
+        day = et.date().isoformat()
+        for tf in BAR_CACHE_GUARD_TIMEFRAMES:
+            live = [k for k, c in (legs or {}).items()
+                    if (c or {}).get("timeframe") == tf and _push_allowed(c, fetch)
+                    and not _before_live_since(c, now)]
+            path = os.path.abspath(_cache_path(tf, paths))
+            rec = _BAR_CACHE_REFUSED.get(path)
+            if rec is None:
+                if live and _BAR_CACHE_NOTED.pop(path, None):
+                    _engine_note_clear(f"bar_cache_guard:{tf}", "QQQ price file",
+                                       f"QQQ_{tf}.csv could not be used", paths, log=log,
+                                       push=_engine_push_background)
+                continue
+            if warnings is not None:
+                warnings.setdefault(BAR_CACHE_GUARD_KEY, {})[tf] = {
+                    "why": rec.get("why"), "since": rec.get("since"), "copy": rec.get("copy")}
+            if not live or _BAR_CACHE_NOTED.get(path) == day:
+                continue
+            _BAR_CACHE_NOTED[path] = day
+            log(f"[cloud-signal] 5m CACHE GUARD page: {', '.join(live)} decide nothing -- "
+                f"{rec.get('text')}")
+            _engine_note(f"bar_cache_guard:{tf}", day, _bar_cache_guard_note(tf, rec, live),
+                         paths, log=log, push=_engine_push_background)
+    except Exception as e:
+        log(f"[cloud-signal] 5m cache guard note failed ({type(e).__name__}: {e})")
+
+
 def _dip_daily_series(arrays, now, paths, params=None, log=print):
     """(series, None) or (None, (reason_key, text)) -- api/dip_live.py build_daily_series on
     the DIP legs' params (default DIP_424_PARAMS)."""
@@ -4926,6 +5406,10 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     _diff_leg, which then never emits an ENTRY. Also reports, via `warnings`
     ("eod_settled", "eod_bars"), whether every cfg["eod_flat"] leg's newest usable bar
     is today's last session bar, and stamps state["eod_settled"][date] when it is.
+    5m CACHE NEVER SHRINKS (2026-10-25, see the block above fetch_and_merge): while the guard
+    refuses a timeframe's cache (bar_cache_refusal) no leg on it decides -- fetching or not, live
+    or shadow -- and `warnings` gets BAR_CACHE_GUARD_KEY ({tf: why/since/copy}: the live thread
+    puts it on the heartbeat); a fetching call pages once a day (_note_bar_cache_guard).
     """
     legs = legs if legs is not None else CROWN_LEGS
     if paths is None:
@@ -4964,7 +5448,9 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
             if not cache_ok and warnings is not None:
                 warnings["cache_write_failed"] = True
         elif tf not in tf_cache:
-            tf_cache[tf] = historical_bars(tf, paths)
+            # 5m CACHE NEVER SHRINKS: a cache the guard refused is not read off-fetch either (an
+            # EMPTY one would raise here on every ~1s tick)
+            tf_cache[tf] = None if bar_cache_refusal(tf, paths) else historical_bars(tf, paths)
             if bar_sources and bar_sources.get(tf):
                 tf_source[tf] = bar_sources[tf]
         epoch_df = tf_cache[tf]
@@ -5003,6 +5489,11 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
             state.setdefault("bar_source", {})[tf] = {
                 "source": tf_source[tf], "newest_epoch": latest_bar_epoch,
                 "checked_at": now.isoformat()}
+        if bar_cache_refusal(tf, paths):
+            # 5m CACHE NEVER SHRINKS: no decision off a cache the guard refused to write --
+            # the fetch above still stamped the feed's freshness; last_bar_epoch stays put, so
+            # the first bar after the file is back is decided
+            continue
         if leg_state.get("last_bar_epoch") == latest_bar_epoch:
             continue
         leg_state["last_bar_epoch"] = latest_bar_epoch
@@ -5100,6 +5591,9 @@ def step(now=None, legs=None, paths=None, fetch=True, warnings=None, bar_sources
     _note_vol_window(legs, now, paths, fetch, warnings=warnings, post_close=post_close)
     # NEXT ENTRY PREVIEW (item 53): in memory only, never raises -- the thread's tick computes
     _stash_next_entry_inputs(_next_inputs, paths)
+    # 5m CACHE NEVER SHRINKS (see the block above fetch_and_merge): the one page a day while a
+    # refused cache stops its legs -- AFTER the rows too, never raises
+    _note_bar_cache_guard(legs, now, paths, fetch, warnings=warnings)
     return all_events
 
 
@@ -7743,6 +8237,12 @@ def _engine_thread_run(stop=None, log=print):
                 # VOL WINDOW GUARD: each bridge leg's vol-skip depth, for tools/webull_freshness.py
                 if warnings.get(VOL_WINDOW_KEY):
                     health[VOL_WINDOW_KEY] = warnings[VOL_WINDOW_KEY]
+                # 5m CACHE NEVER SHRINKS: an open refusal rides on the heartbeat (ok stays True
+                # -- the engine runs; its legs on that timeframe decide nothing)
+                if warnings.get(BAR_CACHE_GUARD_KEY):
+                    health[BAR_CACHE_GUARD_KEY] = warnings[BAR_CACHE_GUARD_KEY]
+                    for g_tf, g in sorted(warnings[BAR_CACHE_GUARD_KEY].items()):
+                        note += f" -- {g_tf} CACHE GUARD: {g.get('why')} since {g.get('since')}"
                 if health.get("stalled") or health.get("stalled_timeframes"):
                     s_tf = (health.get("stalled_timeframes") or [health.get("bar_timeframe")])[0]
                     s_age = ((health.get("feed_by_timeframe") or {}).get(str(s_tf)) or {}).get(

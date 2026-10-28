@@ -40,6 +40,17 @@ prints a diff against the last snapshot. `box_deploy.py` already calls this
 automatically around every deploy; run it by hand around any OTHER config edit (e.g.
 editing `qqq_exec/config.json` directly to change a cap).
 
+## Bar cache files (2026-10-25)
+
+`~/edgelog/ohlc/QQQ_5m.csv` (and `QQQ_5m_backfill.csv`) are history, not config: never
+delete, move or rebuild them from a fresh Yahoo/Webull download — that rewrites DIP's past
+trades. Never delete `QQQ_5m.reach.json` either (the first day the 5m file reaches). The
+signal engine will not rebuild a missing or unreadable `QQQ_5m.csv` from a download, and
+will not use one that starts later than that day (a shorter copy put in its place); in both
+cases its 5m legs decide nothing until the file is put back from a trusted copy. It does not
+watch `QQQ_5m_backfill.csv`: only `tools/backfill_qqq_5m_alpaca.py --apply` checks that one.
+How to restore: `deploy/cloud/README.md`, "The QQQ 5-minute bar cache".
+
 ## Automatic Ubuntu upgrades
 
 Facts read off the box (read-only) on 2026-09-26:

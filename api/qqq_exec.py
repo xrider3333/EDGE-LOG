@@ -7616,7 +7616,12 @@ def _engine_mark_price(leg, log=print):
     the newest CLOSED bar close from api.cloud_signal's own on-disk cache (Webull bar if
     that is what produced it, else yfinance -- see cloud_signal.read_bar_source), never
     NQ. (None, None) if that leg's cache is empty -- callers then leave the lot
-    unmarked/unclosed, exactly like NinjaTrader mode's 'no quote/ratio available' case."""
+    unmarked/unclosed, exactly like NinjaTrader mode's 'no quote/ratio available' case.
+    5m CACHE NEVER SHRINKS (2026-10-25, api/cloud_signal.py): the bars come from
+    cs.mark_bars -- on a normal day exactly load_cached_bars; while the engine refuses to write
+    a missing, broken or shortened QQQ_5m.csv, its guard tail (the refused fetch's newest bars)
+    when that is newer, so the daily-loss breaker's marks and the EOD/KILL/BREAKER flatten keep
+    a price without the file. Such a price's source ends in '_guard' ('engine_webull_guard')."""
     try:
         cs = _cs_module()
         cs_key = _engine_key_for_leg(leg, cs)
@@ -7624,13 +7629,13 @@ def _engine_mark_price(leg, log=print):
         if not cfg_leg:
             return None, None
         tf = cfg_leg["timeframe"]
-        df = cs.load_cached_bars(tf, cs.DEFAULT_PATHS)
+        df, guard_tail = cs.mark_bars(tf, cs.DEFAULT_PATHS)
         if df is None or not len(df):
             return None, None
         last = df.sort_values("time").iloc[-1]
         px = float(last["close"])
         src_info = (cs.read_bar_source(cs.DEFAULT_PATHS) or {}).get(tf) or {}
-        src = "engine_" + (src_info.get("source") or "cache")
+        src = "engine_" + (src_info.get("source") or "cache") + ("_guard" if guard_tail else "")
         return px, src
     except Exception as e:
         log(f"[qqq-exec] engine mark price failed for {leg}: {type(e).__name__}: {e}")

@@ -56,7 +56,18 @@ refuses outright:
     including when there is no overlap at all, since that means nothing was verified;
   * if the fetch came up short of --sessions actual distinct sessions;
   * during the PROTECTED WINDOW (09:25-16:05 ET) on a trading day, so the upload's own
-    ssh/scp round trip can never land while the box's tick loop is running.
+    ssh/scp round trip can never land while the box's tick loop is running;
+  * NEVER SHRINKS (MANAGER GO 2026-10-25, api/cloud_signal.py "5m CACHE NEVER SHRINKS"): if
+    the box's CURRENT QQQ_5m_backfill.csv (read-only, read_box_backfill_5m) holds a session
+    this file does not, OLDER than the box's live QQQ_5m.csv's first session (the only rows
+    the engine splices on, _prepend_backfill) -- a later re-run's window starts later -- or
+    could not be fetched at all (ssh / cat failed). Those older days would fall back to QQQ_1d
+    prices in DIP's daily series and move its past trades; re-run with --sessions / --end
+    reaching back to the oldest one named. No box backfill yet (the file absent, or empty) has
+    nothing to protect. A box backfill that is THERE but unreadable as bars (pandas cannot
+    parse it, or it has no time column -- the engine already ignores it) is not a refusal: the
+    upload first copies it to QQQ_5m_backfill.csv.corrupt-<YYYYMMDD-HHMMSS> on the box
+    (apply_upload keep_aside), then replaces it.
 
 USAGE
     python tools/backfill_qqq_5m_alpaca.py --check          # verify the key works, exit
@@ -80,10 +91,10 @@ overlap, adjustment-mismatch note, per-column breakdown, --tolerance/--max-bad-f
 overrides), a 403's subscription/recency message vs a real auth failure, the end_iso
 free-plan recency clamp, the cloud_signal prepend (older-only, never overrides a
 live-cache row, fail-safe, no-op on a missing/empty cache) -- and run()'s own refusal
-wiring (short fetch, protected window, failed cross-check) via injected fakes. No test
-opens a socket or an ssh connection: every network boundary (http_get, box_cache_df,
-ssh_fn, scp_fn) is an injectable parameter of run(), defaulting to the real thing only in
-main().
+wiring (short fetch, protected window, failed cross-check, NEVER SHRINKS) via injected
+fakes. No test opens a socket or an ssh connection: every network boundary (http_get,
+box_cache_df, box_backfill_df, ssh_fn, scp_fn) is an injectable parameter of run(),
+defaulting to the real thing only in main().
 """
 import argparse
 import os
@@ -385,18 +396,82 @@ def read_box_cache_5m():
         return None
 
 
+NO_BACKFILL_MARK = "__NO_QQQ_5M_BACKFILL__"    # read_box_backfill_5m's "no file on the box"
+BACKFILL_UNREADABLE = "unreadable"   # read_box_backfill_5m: the box's file is there, but no bars
+
+
+def read_box_backfill_5m(ssh_fn=None):
+    """Read-only fetch of the box's CURRENT QQQ_5m_backfill.csv over ssh, for --apply's NEVER
+    SHRINKS check (module docstring "UPLOAD"): its rows as a DataFrame; an EMPTY frame when the
+    box has no backfill file, or an empty one (nothing to protect); BACKFILL_UNREADABLE when the
+    file is there but is no bar file (pandas cannot parse it, or it has no time column -- the
+    engine's _load_backfill_bars / _prepend_backfill ignore it too), so --apply sets it aside
+    and replaces it; None when it could not be fetched (an unreachable box, a failed cat) --
+    --apply then refuses. `ssh_fn` as for apply_upload. Never writes anything."""
+    ssh_fn = ssh_fn or _ssh
+    q = shlex.quote(REMOTE_BACKFILL_5M)
+    try:
+        r = ssh_fn(f"if [ -e {q} ]; then cat {q}; else echo {NO_BACKFILL_MARK}; fi")
+        if r is None or getattr(r, "returncode", 1) != 0:
+            return None
+        out = getattr(r, "stdout", "") or ""
+    except Exception:
+        return None
+    if not out.strip() or out.strip() == NO_BACKFILL_MARK:
+        return pd.DataFrame(columns=COLUMNS)
+    try:
+        import io
+        df = pd.read_csv(io.StringIO(out))
+    except Exception:
+        return BACKFILL_UNREADABLE
+    return df if "time" in df.columns else BACKFILL_UNREADABLE
+
+
+def _epoch_session_dates(df):
+    """distinct_session_dates over `df`'s rows whose time is an epoch second (a torn row is no
+    session) -- [] for None or a frame with no "time" column."""
+    if df is None or not len(df) or "time" not in df.columns:
+        return []
+    t = pd.to_numeric(df["time"], errors="coerce")
+    return distinct_session_dates(df[t.between(1_000_000_000, 2_000_000_000)])
+
+
+def backfill_sessions_dropped(new_df, box_backfill_df, live_cache_df=None):
+    """The sessions (sorted ET dates) the box's current backfill holds that `new_df` does not --
+    what an --apply upload of `new_df` would take away (NEVER SHRINKS, module docstring
+    "UPLOAD") -- counting, when `live_cache_df` (the box's live QQQ_5m.csv) has a session, only
+    those OLDER than its first one: the engine splices on only backfill rows strictly older
+    than the live cache's first bar (api/cloud_signal.py _prepend_backfill), so a backfill
+    session the live cache also covers is never read and losing it costs nothing. Pure."""
+    dropped = set(_epoch_session_dates(box_backfill_df)) - set(_epoch_session_dates(new_df))
+    live = _epoch_session_dates(live_cache_df)
+    return sorted(d for d in dropped if not live or d < live[0])
+
+
 def _scp_upload(local_path, remote_path, timeout=120):
     return subprocess.run(["scp", *SSH_OPTS, local_path, f"{HOST}:{remote_path}"],
                           capture_output=True, text=True, encoding="utf-8",
                           errors="replace", timeout=timeout)
 
 
-def apply_upload(local_path, ssh_fn=None, scp_fn=None):
+def apply_upload(local_path, ssh_fn=None, scp_fn=None, keep_aside=False, now_et=None):
     """scp `local_path` to REMOTE_BACKFILL_5M + '.tmp' then `mv` it into place on the box
     (atomic on POSIX -- a reader of REMOTE_BACKFILL_5M never sees a half-written file).
-    Never touches REMOTE_CACHE_5M. Returns (ok: bool, message: str)."""
+    Never touches REMOTE_CACHE_5M. Returns (ok: bool, message: str).
+    keep_aside (NEVER SHRINKS: the box's backfill is there but unreadable, BACKFILL_UNREADABLE):
+    first `cp -p` it to REMOTE_BACKFILL_5M + '.corrupt-<YYYYMMDD-HHMMSS>' (ET, `now_et`) on the
+    box -- nothing is uploaded when that copy fails."""
     ssh_fn = ssh_fn or _ssh
     scp_fn = scp_fn or _scp_upload
+    aside = ""
+    if keep_aside:
+        stamp = (now_et or datetime.now(_ET)).strftime("%Y%m%d-%H%M%S")
+        aside_path = f"{REMOTE_BACKFILL_5M}.corrupt-{stamp}"
+        r = ssh_fn(f"cp -p {shlex.quote(REMOTE_BACKFILL_5M)} {shlex.quote(aside_path)}")
+        if r.returncode != 0:
+            return False, (f"could not keep a copy of the box's unreadable backfill, nothing "
+                           f"uploaded: {(r.stderr or r.stdout or '').strip()[:400]}")
+        aside = f" (the unreadable file it replaced kept as {aside_path})"
     remote_tmp = REMOTE_BACKFILL_5M + ".tmp"
     r = scp_fn(local_path, remote_tmp)
     if r.returncode != 0:
@@ -404,7 +479,7 @@ def apply_upload(local_path, ssh_fn=None, scp_fn=None):
     r = ssh_fn(f"mv {shlex.quote(remote_tmp)} {shlex.quote(REMOTE_BACKFILL_5M)}")
     if r.returncode != 0:
         return False, f"remote mv failed: {(r.stderr or r.stdout or '').strip()[:400]}"
-    return True, f"uploaded to {HOST}:{REMOTE_BACKFILL_5M}"
+    return True, f"uploaded to {HOST}:{REMOTE_BACKFILL_5M}{aside}"
 
 
 # ── protected window ──────────────────────────────────────────────────────────────────────
@@ -421,8 +496,10 @@ def in_protected_window(now_et=None):
 
 # ── orchestration (testable: every I/O boundary is an injectable parameter) ───────────────
 def run(args, key_secret=None, http_get=None, box_cache_df=None, now_et=None,
-       ssh_fn=None, scp_fn=None, log=print):
-    """Core of the CLI, fully injectable for tests. Returns a process exit code."""
+       ssh_fn=None, scp_fn=None, log=print, box_backfill_df=None):
+    """Core of the CLI, fully injectable for tests. Returns a process exit code.
+    `box_backfill_df`: the box's current QQQ_5m_backfill.csv for --apply's NEVER SHRINKS check
+    (None: read_box_backfill_5m through `ssh_fn`, read only once every other check passed)."""
     key, secret = key_secret if key_secret is not None else load_keys()
     if not key or not secret:
         log("No Alpaca key found. See this file's module docstring \"KEY LOOKUP\" for "
@@ -483,8 +560,29 @@ def run(args, key_secret=None, http_get=None, box_cache_df=None, now_et=None,
         log(f"REFUSING --apply: inside the protected window "
             f"({PROTECTED_START}-{PROTECTED_END} ET on a trading day).")
         return 1
+    # NEVER SHRINKS (module docstring "UPLOAD"): the upload replaces the box's backfill whole
+    box_backfill = box_backfill_df if box_backfill_df is not None else read_box_backfill_5m(ssh_fn)
+    if box_backfill is None:
+        log("REFUSING --apply: could not read the box's current QQQ_5m_backfill.csv, so there is "
+            "no way to check this upload keeps every session it holds.")
+        return 1
+    keep_aside = isinstance(box_backfill, str)          # BACKFILL_UNREADABLE
+    if keep_aside:
+        log("  the box's QQQ_5m_backfill.csv is there but holds no readable bars (the engine "
+            "ignores it): it is copied to QQQ_5m_backfill.csv.corrupt-<stamp> on the box, then "
+            "replaced")
+    else:
+        dropped = backfill_sessions_dropped(df, box_backfill, live_cache_df=box_df)
+        if dropped:
+            log(f"REFUSING --apply: the box's QQQ_5m_backfill.csv holds {len(dropped)} session(s) "
+                f"this file does not ({dropped[0]}..{dropped[-1]}), older than its live QQQ_5m.csv "
+                f"-- the upload would drop that 5m history (those days fall back to QQQ_1d prices "
+                f"and DIP's past trades move). Re-run with --sessions / --end reaching back to "
+                f"{dropped[0]}.")
+            return 1
 
-    ok, message = apply_upload(args.out, ssh_fn=ssh_fn, scp_fn=scp_fn)
+    ok, message = apply_upload(args.out, ssh_fn=ssh_fn, scp_fn=scp_fn, keep_aside=keep_aside,
+                               now_et=now_et)
     log(f"  {'APPLIED' if ok else 'APPLY FAILED'}: {message}")
     return 0 if ok else 1
 

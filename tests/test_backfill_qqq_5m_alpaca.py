@@ -636,3 +636,142 @@ def test_in_protected_window_false_outside_hours():
 def test_in_protected_window_false_on_a_weekend_even_at_noon():
     now = datetime.datetime(2026, 9, 26, 12, 0, tzinfo=bf._ET)
     assert bf.in_protected_window(now) is False
+
+
+# ── NEVER SHRINKS (MANAGER GO 2026-10-25, module docstring "UPLOAD") ──────────────────────
+# The upload replaces the box's QQQ_5m_backfill.csv whole: a later re-run's window starts later,
+# so it would drop the oldest sessions the box holds and those days fall back to QQQ_1d prices in
+# DIP's daily series. --apply refuses that, and refuses when the box's file cannot be read.
+_DAYS3 = [datetime.date(2026, 9, 18), datetime.date(2026, 9, 21), datetime.date(2026, 9, 22)]
+
+
+class _Ok:
+    def __init__(self, stdout=""):
+        self.returncode, self.stdout, self.stderr = 0, stdout, ""
+
+
+def _apply_run(tmp_path, box_backfill_df=None, ssh_out=None):
+    """One --apply run that passes every OTHER check (perfect cross-check, 3 sessions, 03:00
+    ET): returns (rc, scp_calls, ssh_calls, log lines)."""
+    bars = [b for d in _DAYS3 for b in _rth_bar_dicts(d, 2)]
+    fake_get = _stub_alpaca(single_bars=bars)
+    box_df = bf.rth_filter(bf.fetch_5m_bars("k", "s", "x", "y", http_get=fake_get))
+    args = _Args(sessions=3, end="2026-09-22", out=str(tmp_path / "out.csv"), apply=True)
+    scp_calls, ssh_calls, lines = [], [], []
+
+    def fake_ssh(cmd, timeout=60):
+        ssh_calls.append(cmd)
+        if "mv " in cmd:
+            return _Ok()
+        return ssh_out(cmd) if callable(ssh_out) else _Ok(ssh_out or "")
+
+    rc = bf.run(args, key_secret=("k", "s"), http_get=fake_get, box_cache_df=box_df,
+                now_et=datetime.datetime(2026, 9, 23, 3, 0, tzinfo=bf._ET),
+                ssh_fn=fake_ssh,
+                scp_fn=lambda a, b, timeout=120: (scp_calls.append((a, b)), _Ok())[1],
+                log=lines.append, box_backfill_df=box_backfill_df)
+    return rc, scp_calls, ssh_calls, lines
+
+
+def _frame_of(days, n=2):
+    return bf.rth_filter(bf.fetch_5m_bars("k", "s", "x", "y", http_get=_stub_alpaca(
+        single_bars=[b for d in days for b in _rth_bar_dicts(d, n)])))
+
+
+def test_apply_refuses_an_upload_that_would_drop_a_session_the_box_backfill_holds(tmp_path):
+    # the box's file starts a day earlier than this upload
+    older = _frame_of([datetime.date(2026, 9, 17)] + _DAYS3)
+    rc, scp_calls, ssh_calls, lines = _apply_run(tmp_path, box_backfill_df=older)
+    assert rc == 1 and scp_calls == [] and not any("mv " in c for c in ssh_calls)
+    msg = next(m for m in lines if m.startswith("REFUSING --apply"))
+    assert "1 session(s) this file does not (2026-09-17..2026-09-17)" in msg
+    assert "reaching back to 2026-09-17" in msg
+
+
+def test_apply_goes_ahead_when_the_upload_keeps_every_box_backfill_session(tmp_path):
+    rc, scp_calls, _ssh, _lines = _apply_run(tmp_path, box_backfill_df=_frame_of(_DAYS3[1:]))
+    assert rc == 0 and len(scp_calls) == 1, "the same sessions or more: nothing is lost"
+    # a torn row in the box's file is no session (never blocks the upload)
+    torn = pd.concat([pd.DataFrame([{"time": 200960, "open": 1.0, "high": 1.0, "low": 1.0,
+                                     "close": 1.0, "volume": 0.0}]), _frame_of(_DAYS3)])
+    rc, scp_calls, _ssh, _lines = _apply_run(tmp_path, box_backfill_df=torn)
+    assert rc == 0 and len(scp_calls) == 1
+
+
+def test_apply_reads_the_box_backfill_over_ssh_and_refuses_when_it_cannot(tmp_path):
+    # no file on the box: the read says so, nothing to protect, the upload goes ahead
+    rc, scp_calls, ssh_calls, _ = _apply_run(tmp_path, ssh_out=bf.NO_BACKFILL_MARK + "\n")
+    assert rc == 0 and len(scp_calls) == 1
+    assert ssh_calls[0].startswith("if [ -e ") and bf.REMOTE_BACKFILL_5M in ssh_calls[0]
+    assert "mv " in ssh_calls[-1]
+    # the box's file read over ssh and holding an older session: refused
+    older = _frame_of([datetime.date(2026, 9, 17)] + _DAYS3).to_csv(index=False)
+    rc, scp_calls, _ssh, lines = _apply_run(tmp_path, ssh_out=older)
+    assert rc == 1 and scp_calls == []
+    # unreadable (ssh failed): refused, never uploaded
+    bad = type("R", (), {"returncode": 255, "stdout": "", "stderr": "timeout"})()
+    rc, scp_calls, _ssh, lines = _apply_run(tmp_path, ssh_out=lambda cmd: bad)
+    assert rc == 1 and scp_calls == []
+    assert any("could not read the box's current QQQ_5m_backfill.csv" in m for m in lines)
+
+
+def test_read_box_backfill_5m_shapes():
+    assert bf.read_box_backfill_5m(lambda cmd, timeout=60: _Ok(bf.NO_BACKFILL_MARK)).empty
+    assert bf.read_box_backfill_5m(lambda cmd, timeout=60: _Ok("")).empty
+    df = bf.read_box_backfill_5m(lambda cmd, timeout=60: _Ok("time,open,high,low,close,volume\n"
+                                                            "1758202200,1,1,1,1,0\n"))
+    assert df["time"].tolist() == [1758202200]
+    assert bf.read_box_backfill_5m(lambda cmd, timeout=60: None) is None
+    assert bf.read_box_backfill_5m(lambda cmd, timeout=60: (_ for _ in ()).throw(OSError())) is None
+    # there, but no bar file (the engine ignores it too): told apart from "could not fetch"
+    assert bf.read_box_backfill_5m(lambda cmd, timeout=60: _Ok(_GLUED)) == bf.BACKFILL_UNREADABLE
+    assert bf.read_box_backfill_5m(lambda cmd, timeout=60: _Ok("a,b\n1,2\n")) == \
+        bf.BACKFILL_UNREADABLE
+
+
+# a box backfill two rows of which were glued together (`cat a b`, no trailing newline)
+_GLUED = ("time,open,high,low,close,volume\n1758202200,1,1,1,1,0\n"
+          "1758202500,1,1,1,1,01758202800,1,1,1,1,0\n")
+
+
+class _Fail:
+    def __init__(self, stderr="Permission denied"):
+        self.returncode, self.stdout, self.stderr = 1, "", stderr
+
+
+def test_backfill_sessions_the_live_cache_also_covers_are_never_counted():
+    live = _frame_of(_DAYS3[1:])                       # the box's QQQ_5m.csv starts 09-21
+    box = _frame_of([datetime.date(2026, 9, 17)] + _DAYS3)
+    new = _frame_of([datetime.date(2026, 9, 21)])
+    assert bf.backfill_sessions_dropped(new, box) == [datetime.date(2026, 9, 17),
+                                                      datetime.date(2026, 9, 18),
+                                                      datetime.date(2026, 9, 22)]
+    assert bf.backfill_sessions_dropped(new, box, live_cache_df=live) == [
+        datetime.date(2026, 9, 17), datetime.date(2026, 9, 18)]
+    assert bf.backfill_sessions_dropped(new, box, live_cache_df=live.iloc[:0]) == \
+        bf.backfill_sessions_dropped(new, box), "no live session: every dropped one counts"
+
+
+def test_apply_goes_ahead_when_only_sessions_inside_the_live_cache_would_go(tmp_path):
+    # the box's backfill reaches a day PAST this upload's --end (09-23), a day the live cache
+    # (09-18..) also holds -- the engine never reads it, so nothing is lost
+    box_backfill = _frame_of(_DAYS3 + [datetime.date(2026, 9, 23)])
+    rc, scp_calls, _ssh, lines = _apply_run(tmp_path, box_backfill_df=box_backfill)
+    assert rc == 0 and len(scp_calls) == 1, lines
+
+
+def test_apply_sets_an_unreadable_box_backfill_aside_then_uploads(tmp_path):
+    def box(cmd):
+        return _Ok(_GLUED) if cmd.startswith("if [ -e ") else _Ok()
+    rc, scp_calls, ssh_calls, lines = _apply_run(tmp_path, ssh_out=box)
+    assert rc == 0 and len(scp_calls) == 1, lines
+    assert [c.split()[0] for c in ssh_calls] == ["if", "cp", "mv"], "set aside, then replaced"
+    want = f"{bf.REMOTE_BACKFILL_5M}.corrupt-20260923-030000"
+    assert ssh_calls[1] == f"cp -p {bf.REMOTE_BACKFILL_5M} {want}"
+    assert any("holds no readable bars" in m for m in lines)
+    assert any(f"kept as {want}" in m for m in lines)
+    # the copy fails: nothing is uploaded
+    rc, scp_calls, ssh_calls, lines = _apply_run(
+        tmp_path, ssh_out=lambda cmd: _Ok(_GLUED) if cmd.startswith("if [ -e ") else _Fail())
+    assert rc == 1 and scp_calls == [] and not any(c.startswith("mv ") for c in ssh_calls)
+    assert any("could not keep a copy of the box's unreadable backfill" in m for m in lines)
