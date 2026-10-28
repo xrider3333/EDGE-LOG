@@ -158,7 +158,17 @@ HANDLERS = {"local_summarize": tool_local_summarize, "local_status": tool_local_
 
 
 class Server:
-    """JSON-RPC 2.0 over newline-delimited stdio. `out` is a BINARY stream."""
+    """JSON-RPC 2.0 over newline-delimited stdio. `out` is a BINARY stream.
+
+    Another server (tools/edgelog_mcp.py) reuses this framing by subclassing and overriding
+    the class attributes below; the defaults are this server's own."""
+
+    server_name = SERVER_NAME
+    server_title = "Local qwen3.8 reader"
+    server_version = SERVER_VERSION
+    instructions = INSTRUCTIONS
+    tools = TOOLS
+    handlers = HANDLERS
 
     def __init__(self, out):
         self._out = out
@@ -225,14 +235,14 @@ class Server:
                 self._result(mid, {
                     "protocolVersion": pv if isinstance(pv, str) and pv else DEFAULT_PROTOCOL,
                     "capabilities": {"tools": {"listChanged": False}},
-                    "serverInfo": {"name": SERVER_NAME, "title": "Local qwen3.8 reader",
-                                   "version": SERVER_VERSION},
-                    "instructions": INSTRUCTIONS,
+                    "serverInfo": {"name": self.server_name, "title": self.server_title,
+                                   "version": self.server_version},
+                    "instructions": self.instructions,
                 })
             elif method == "ping":
                 self._result(mid, {})
             elif method == "tools/list":
-                self._result(mid, {"tools": TOOLS})
+                self._result(mid, {"tools": self.tools})
             elif method == "tools/call":
                 self._start_call(mid, params if isinstance(params, dict) else {})
             else:
@@ -244,7 +254,7 @@ class Server:
     def _start_call(self, mid, params):
         name = params.get("name")
         args = params.get("arguments") or {}
-        handler = HANDLERS.get(name)
+        handler = self.handlers.get(name)
         if handler is None:
             self._error(mid, -32602, "unknown tool: %s" % name)
             return

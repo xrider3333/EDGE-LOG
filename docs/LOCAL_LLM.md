@@ -78,3 +78,19 @@ The `WindowsApps\python3.13.exe` alias survives Store updates of Python; the ver
 works too but breaks on the next Python update. Check with `claude mcp list`. A long read
 can outlast a client's tool timeout - narrow the read, or warm the model first with
 `local_status`.
+
+## MCP: edgelog (inbox, board, Qwen tasks)
+
+`tools/edgelog_mcp.py` (server `edgelog`, same stdio wire as local_llm_mcp). Tools:
+`inbox_read {lane, all?}`, `inbox_post {to, text}` (sender always QWEN, existing inboxes only,
+1-4000 chars), `board_read {grep?, max_chars?}` (default cap 20000), `task_list {}`,
+`task_result {name}` (basename .md/.txt in `manager\qwen_tasks` only). Paths from
+`EDGELOG_HOME` (default `C:\EdgeLog`); inbox folder `EDGELOG_CHAT_INBOX` if set.
+
+Registration - MANAGER runs this once after review (not registered yet):
+
+```
+claude mcp add --scope user edgelog -- "C:\Users\xride\AppData\Local\Microsoft\WindowsApps\python3.13.exe" "C:\Users\xride\OneDrive\Desktop\EDGE-LOG\tools\edgelog_mcp.py"
+```
+
+For Cline / VS Code, the same command and args go under the `edgelog` server entry.
