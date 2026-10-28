@@ -598,3 +598,32 @@ def _isolate_quiet_mode(monkeypatch, tmp_path):
     monkeypatch.setenv("EDGELOG_QUIET_STATE", str(tmp_path / "quiet" / "quiet_state.json"))
     monkeypatch.setenv("EDGELOG_SHIP_IGNORE_QUIET", "1")
     yield
+
+
+# The box monitor (tools/webull_freshness.py) measures shutil.disk_usage of its home, which in these
+# tests is a tmp folder on THIS PC's C: drive - so a nearly full PC disk (96% on 10-28) raised the
+# "box disk filling up" alarm and failed ~76 tests in every lane's pre-lock. Give those modules a
+# half-full fake disk; a test that checks the disk alarm sets its own reading (monkeypatch wins).
+_BOX_MONITOR_TEST_MODULES = {
+    "test_keel_live_drift", "test_keel_stale_never_sizes", "test_webull_freshness",
+    "test_webull_freshness_keel_diffs", "test_webull_freshness_pc", "test_webull_push_plan_phone",
+}
+
+
+@pytest.fixture(autouse=True)
+def _box_monitor_fake_disk(request):
+    # Patched by hand, not with monkeypatch: some of these tests call monkeypatch.undo() midway,
+    # which would put the real (full) disk back.
+    if request.module.__name__.rsplit(".", 1)[-1] not in _BOX_MONITOR_TEST_MODULES:
+        yield
+        return
+    import collections
+    import shutil as _shutil
+    _du = collections.namedtuple("usage", "total used free")
+    real = _shutil.disk_usage
+    fake = lambda p: _du(100 * 2**30, 50 * 2**30, 50 * 2**30)  # noqa: E731
+    _shutil.disk_usage = fake
+    try:
+        yield
+    finally:
+        _shutil.disk_usage = real
