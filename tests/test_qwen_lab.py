@@ -39,6 +39,7 @@ needs_shared = pytest.mark.skipif(not HAVE_SHARED, reason="needs the shared chec
 def _no_real_push_lock(tmp_path, monkeypatch):
     """The load-courtesy probe reads a path that does not exist - no test ever waits on a real ship's push lock."""
     monkeypatch.setenv("QWEN_LAB_PUSH_LOCK", str(tmp_path / "push.lock.absent"))
+    monkeypatch.setenv("QWEN_LAB_RAM_GUARD", "0")  # B2: no test waits on the real free RAM
 
 
 # ------------------------------------------------------------------------------------------------ the safety gate

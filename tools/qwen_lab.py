@@ -3766,10 +3766,28 @@ def push_lock_state(path=None):
     return False, text
 
 
+def load_hold_state():
+    """push_lock_state, then the B2 RAM guard (tools/ram_guard.should_yield): held while free RAM < 6 GB.
+    QWEN_LAB_RAM_GUARD=0 turns the RAM half off; a guard error never holds."""
+    held, who = push_lock_state()
+    if held or os.environ.get("QWEN_LAB_RAM_GUARD") == "0":
+        return held, who
+    try:
+        here = os.path.dirname(os.path.abspath(__file__))
+        if here not in sys.path:
+            sys.path.insert(0, here)
+        import ram_guard
+        y, why = ram_guard.should_yield()
+        return (True, "ram_guard: " + why) if y else (False, "")
+    except Exception:
+        return False, ""
+
+
 def courtesy_wait(lab, what, idea_id=None, *, interruptible=True, check=None, sleep=time.sleep, clock=time.time):
-    """Wait while a ship holds the push lock before starting a NEW `what` (a Qwen generation or a Stage A). Re-checks
-    every 60 s and logs the wait; a STOP file ends an interruptible wait (returns False). Returns True to go ahead."""
-    check = check or push_lock_state
+    """Wait while a ship holds the push lock (or the B2 RAM guard says yield) before starting a NEW `what` (a Qwen
+    generation or a Stage A). Re-checks every 60 s and logs the wait; a STOP file ends an interruptible wait (returns
+    False). Returns True to go ahead."""
+    check = check or load_hold_state
     held, who = check()
     if not held:
         return True
