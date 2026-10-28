@@ -139,19 +139,45 @@ def check_tasks(now_local, tasks=None):
     return out
 
 
+TASKS_CACHE = os.path.join(EL, "nt8_sweep_tasks_cache.json")
+TASKS_CACHE_MAX_AGE_H = 6
+
+
 def read_tasks():
-    ps = ("Get-ScheduledTask | ? { $_.TaskName -like 'EdgeLog*' } | % { $i = $_ | Get-ScheduledTaskInfo; "
+    """Task Scheduler rows; a slow PowerShell (PC busy, 10-28 08:39 timed out at 180 s during an NT restart) falls
+    back to the last good reading (<= 6 h old) instead of crashing the check."""
+    try:
+        rows = _query_tasks()
+    except subprocess.TimeoutExpired as timeout:
+        try:
+            fresh = (time.time() - os.path.getmtime(TASKS_CACHE)) / 3600 <= TASKS_CACHE_MAX_AGE_H
+            rows = json.load(open(TASKS_CACHE, encoding="utf-8")) if fresh else None
+        except (OSError, ValueError):
+            rows = None
+        if rows is None:
+            raise timeout
+    else:
+        try:
+            with open(TASKS_CACHE, "w", encoding="utf-8") as f:
+                json.dump(rows, f)
+        except OSError:
+            pass
+    for x in rows:
+        x["last"] = dt.datetime.fromisoformat(x["last"]) if x.get("last") else None
+        x["result"] = int(x["result"]) if x.get("result") is not None else None
+    return rows
+
+
+def _query_tasks():
+    # -TaskName filters inside Task Scheduler instead of listing every task on the PC first
+    ps = ("Get-ScheduledTask -TaskName 'EdgeLog*' | % { $i = $_ | Get-ScheduledTaskInfo; "
           "[pscustomobject]@{name=$_.TaskName; enabled=($_.State -ne 'Disabled'); "
           "last=$(if($i.LastRunTime){$i.LastRunTime.ToString('s')}else{''}); result=$i.LastTaskResult} } "
           "| ConvertTo-Json -Compress")
     # 180 s: the first pass after the PC wakes can take over a minute (10-15 06:33 timed out at 60 s, inbox #187)
     r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, timeout=180)
     rows = json.loads(r.stdout or "[]")
-    rows = rows if isinstance(rows, list) else [rows]
-    for x in rows:
-        x["last"] = dt.datetime.fromisoformat(x["last"]) if x.get("last") else None
-        x["result"] = int(x["result"]) if x.get("result") is not None else None
-    return rows
+    return rows if isinstance(rows, list) else [rows]
 
 
 def check_box_push(now_local, log_path=None):

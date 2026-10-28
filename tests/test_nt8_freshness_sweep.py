@@ -408,3 +408,22 @@ def test_a_premarket_run_killed_midway_fails_by_itself(tmp_path):
     assert S.check_premarket_run(_dt.datetime(2026, 10, 29, 6, 5), log_path=str(p)) == []    # still running
     p.write_text(p.read_text() + "2026-10-29 06:01:00  === done ===" + nl, encoding="utf-8")
     assert S.check_premarket_run(now, log_path=str(p))[0]["status"] == "pass"
+
+
+def test_a_slow_task_query_reads_the_last_good_reading(monkeypatch, tmp_path):
+    cache = tmp_path / "c.json"
+    monkeypatch.setattr(S, "TASKS_CACHE", str(cache))
+    monkeypatch.setattr(S, "_query_tasks", lambda: [{"name": "EdgeLog X", "enabled": True,
+                                                     "last": "2026-10-28T08:00:00", "result": 0}])
+    assert S.read_tasks()[0]["result"] == 0
+
+    def slow():
+        raise S.subprocess.TimeoutExpired(cmd="powershell", timeout=180)
+    monkeypatch.setattr(S, "_query_tasks", slow)
+    rows = S.read_tasks()
+    assert rows[0]["name"] == "EdgeLog X" and rows[0]["last"].hour == 8
+    cache.unlink()
+    import pytest
+    with pytest.raises(S.subprocess.TimeoutExpired):
+        S.read_tasks()
+
