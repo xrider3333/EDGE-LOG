@@ -118,6 +118,15 @@ def facts(day, now, inboxes, board):
     return L
 
 
+def recovery_lines(now):
+    """B16: detached jobs that died or failed (tools/auto_recovery.py). Never breaks the digest."""
+    try:
+        import auto_recovery
+        return auto_recovery.digest_lines(auto_recovery.scan(now=now))
+    except Exception as e:
+        return [f"## Dead or failed jobs: scan failed ({type(e).__name__}: {_clean(str(e), 120)})", ""]
+
+
 def _strata_alive():
     try:
         with urllib.request.urlopen(STRATA_URL + "/models", timeout=10) as r:
@@ -164,6 +173,7 @@ def summarize(fact_text):
 
 def build(day, now, use_model=True, board_path=BOARD):
     L = facts(day, now, read_inboxes(now), read_board(board_path))
+    L += recovery_lines(now)
     if use_model:
         backend, txt = summarize("\n".join(L))
         if backend:
