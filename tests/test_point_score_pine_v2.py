@@ -28,7 +28,9 @@ def test_title_and_defaults():
 def test_plain_words_layout():
     s = _src(V2)
     t = _between(s, 'if layout == "Plain words"', 'else if layout == "Compact"')
-    for word in ('"Trend averages"', '"Yesterday"', '"This candle"'):
+    assert '"Trend averages (" + str.tostring(emaLen) + " " + maType + ")"' in t
+    assert '(sideIn == "Auto" ? "  (auto side)" : "  (forced side)")' in t
+    for word in ('"Yesterday"', '"This candle"'):
         assert word in t
     assert '"Low", "Close", "High", "Big body", "Big volume"' in s
     assert "Y-L" not in t and "Y-C" not in t and "Y-H" not in t

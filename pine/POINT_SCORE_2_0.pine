@@ -5,7 +5,8 @@
 //  byte-for-byte v1.4 (records stay ps1.2). New default layout "Plain words": one big badge (LONG 7/9:
 //  green 7+, yellow 5-6, grey under 5) and three plain-word groups - Trend averages (10s 1m 5m 30m),
 //  Yesterday (low / close / high) and This candle (big body / big volume) - with a hover tooltip on
-//  every check. Bar labels are OFF by default. Optional: a thin strip under candles where the score is
+//  every check; the badge says whether the side is auto or forced and the averages row names the MA
+//  (owner saw red 200 cells with price above them: Auto had picked SHORT). Bar labels are OFF by default. Optional: a thin strip under candles where the score is
 //  at or above the label threshold, and faint lines at yesterday's low / close / high.
 //  Pine port of docs/POINT_SCORE_SPEC.md (spec v1.3 for the Pine; records "ps1.2") and of tools/point_score.py
 //  v1.2 (2026-10-02): the four "200" lines are a plain moving average (SMA) by default; the
@@ -670,13 +671,14 @@ if barstate.islast
         float tot = array.get(sv, 10)
         float mx  = array.get(sv, 11)
         color bc  = na(tot) ? C_NA : (tot >= 7 ? C_GOOD : (tot >= 5 ? C_MID : C_NA))
-        table.cell(tb, 0, 0, f_sideTxt(snapLong) + " " + f_sc(tot, mx), text_color = C_WHITE, text_size = size.large, bgcolor = bc, tooltip = f_tip(sv, snapLong) + LEGEND)
+        table.cell(tb, 0, 0, f_sideTxt(snapLong) + " " + f_sc(tot, mx) + (sideIn == "Auto" ? "  (auto side)" : "  (forced side)"), text_color = C_WHITE, text_size = size.large, bgcolor = bc, tooltip = f_tip(sv, snapLong) + LEGEND + (sideIn == "Auto" ? "
+Auto side: LONG when the 1-minute bar closed up, SHORT when it closed down. Set Side = Long to always score longs." : ""))
         table.cell(tb, 1, 0, "", bgcolor = bc)
         table.cell(tb, 2, 0, "", bgcolor = bc)
         table.cell(tb, 3, 0, "", bgcolor = bc)
         table.cell(tb, 4, 0, "", bgcolor = bc)
         table.merge_cells(tb, 0, 0, 4, 0)
-        table.cell(tb, 0, 1, "Trend averages", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR, tooltip = "Is the price above (long) or below (short) the " + str.tostring(emaLen) + " " + maType + " on each chart speed?")
+        table.cell(tb, 0, 1, "Trend averages (" + str.tostring(emaLen) + " " + maType + ")", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR, tooltip = "Is the price above (long) or below (short) the " + str.tostring(emaLen) + " " + maType + " on each chart speed?")
         for k = 0 to 3
             table.cell(tb, 1 + k, 1, array.get(CMP, k) + f_arrow(array.get(tR, 13), array.get(tR, k)), text_color = C_WHITE, text_size = size.small, bgcolor = f_col(array.get(sv, k)), tooltip = array.get(PLAIN_TIP, k))
         table.cell(tb, 0, 2, "Yesterday", text_color = C_DIM, text_halign = text.align_left, text_size = size.small, bgcolor = C_HDR, tooltip = "Is the price above (long) or below (short) yesterday's regular-session low, close and high?")
