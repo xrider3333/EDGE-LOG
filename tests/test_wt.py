@@ -68,7 +68,9 @@ def _never(*a):
 def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
     """Never weaken a gate: the table is every gate cmd_ship ran inline before 2026-10-07, in the
     same order, with the same failure message - nothing was dropped in the move - plus the PAPER
-    selftest (2026-10-08, TRADING-LOG #67 / MANAGER #667), the one gate added since."""
+    selftest (2026-10-08, TRADING-LOG #67 / MANAGER #667), and two added 2026-10-29: the PC page
+    (board pc p12, a new view with its own Firestore documents) and PAPERS, whose probe had existed
+    since 2026-10-11 without ever being wired in here - a gate nobody runs is not a gate."""
     assert [(g.key, g.fail) for g in wt.GATES] == [
         ('boot', 'boot gate FAILED - not pushing'),
         ('studies', 'studies render gate FAILED - not pushing'),
@@ -80,6 +82,8 @@ def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
                             'known-bad build - not pushing'),
         ('axes', '1E axes / 1A funnel render gate FAILED - not pushing'),
         ('cmp2', 'COMPARE beta (cmp2) render gate FAILED - not pushing'),
+        ('pc', 'PC page render gate FAILED - not pushing'),
+        ('research', 'PAPERS page render gate FAILED - not pushing'),
         ('importtz', 'import time-zone gate FAILED - not pushing'),
         ('importtz-selftest', 'import time-zone gate SELF-TEST FAILED - the gate no longer '
                               'catches the pre-fix build - not pushing'),
@@ -96,8 +100,8 @@ def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
 def test_the_triggers_are_the_ones_ship_always_used():
     trig = dict((g.key, g.trigger) for g in wt.GATES)
     assert trig['boot'] == 'always'
-    for k in ('studies', 'paper', 'report', 'axes', 'cmp2', 'importtz', 'home', 'webull',
-              'registry'):
+    for k in ('studies', 'paper', 'report', 'axes', 'cmp2', 'pc', 'research', 'importtz',
+              'home', 'webull', 'registry'):
         assert trig[k] == 'index', k
     assert trig['report-selftest'] == ('tools/report_render_probe.py',
                                        'tools/fixtures/run_report.json')

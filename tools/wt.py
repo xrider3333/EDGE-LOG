@@ -663,6 +663,22 @@ GATES = [
          'COMPARE beta (cmp2) render gate FAILED - not pushing', '(cmp2 probe produced no output)',
          prefix='CMP2 PROBE:'),
 
+    # PC PAGE GATE (2026-10-29, board pc p12): a brand new view with its own two Firestore
+    # documents - it reads the runner's quiet_status and its one button writes control/quiet.
+    # It earned its keep immediately: it caught every button on the page being dead, because
+    # the handler sat inside the COMPARE branch of a per-screen if/else chain the PC tab never
+    # reaches. A green boot gate and a correct-looking page said nothing about it.
+    Gate('pc', 'PC page render gate', 'tools/pc_render_probe.py', 'index',
+         'PC page render gate FAILED - not pushing', '(PC probe produced no output)',
+         prefix='PCPROBE:'),
+
+    # PAPERS GATE: tools/research_render_probe.py has existed since 2026-10-11 and was never
+    # wired in here, so every assertion in it - including the two added for the PAPERS rename
+    # on 10-28 - only ever ran by hand. A gate nobody runs is not a gate.
+    Gate('research', 'PAPERS page render gate', 'tools/research_render_probe.py', 'index',
+         'PAPERS page render gate FAILED - not pushing',
+         '(PAPERS probe produced no output)', prefix='RSPROBE:'),
+
     # IMPORT TIME-ZONE GATE (2026-09-24): TRADING LOG > IMPORT must save every trade time in
     # US/Eastern. NinjaTrader's exports print times in the platform's display zone with no label
     # and its PDF statement prints GMT; until the fix journal rows sat hours off. import_tz_probe.py

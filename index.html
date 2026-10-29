@@ -1402,7 +1402,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1381';
+const VERSION='73.1382';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3067,8 +3067,8 @@ const LOG_TABS_STRIP=['home','analytics'];
 //   inner toggles inside BUILDER and RESEARCH now, the same pattern PAPER TRADE already uses
 //   for NT8 FUTURES | WEBULL QQQ (see the _bt/_rt toggle rows near the PAPER TRADE one below).
 //   ASUBS_FULL keeps the pre-collapse list alive for the ?oldtabs=1 escape hatch.
-const ASUBS_FULL=[['lib','LIBRARY'],['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['ref','REFERENCE'],['research','PAPERS']];
-const ASUBS=[['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['research','PAPERS']];
+const ASUBS_FULL=[['lib','LIBRARY'],['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['ref','REFERENCE'],['research','PAPERS'],['pc','PC']];
+const ASUBS=[['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['research','PAPERS'],['pc','PC']];
 // ONE ROW OF TABS (owner ask via MANAGER 2026-09-27): the TRADING LOG / BACKTESTER master buttons
 //   are gone and every tab sits in one strip - HOME, ANALYTICS, then the backtester tabs. PAPER TRADE
 //   left the strip: both paper boards are HOME subtabs now, next to the real log (HOME_SUBS). They
@@ -5851,6 +5851,106 @@ function _paperTradesLoad(base){
     return {trades:trades,info:{bundle:!!bd,n_total:bd?bd.n_total:null,parts:bd?bd.parts:0,written:bd?bd.written:null,
       loaded:trades.length,reads:(bd?bd.parts:0)+Math.max(1,ts.docs.length)}};
   }));
+}
+// ── THE PC PAGE's own two documents (pc p12, TBIS contract #147).
+//    READ users/{uid}/control/quiet_status - what the runner says it is doing. The runner writes it
+//      on every change and at most once a minute, so it is also the heartbeat: if runner_seen_at is
+//      old, this page is reading a stale picture and says so rather than pretending otherwise.
+//    WRITE users/{uid}/control/quiet - the button. Nothing else on this page writes anything.
+function loadQuiet(uidArg,force){
+  if(window._qtLoading)return;
+  if(!force&&window._qtLoaded&&Date.now()-(window._qtAt||0)<20000)return;
+  const u=uidArg||(auth&&auth.currentUser&&auth.currentUser.uid);
+  if(!db||!u)return;
+  window._qtLoading=true;window._qtErr=null;
+  const base=db.collection('users').doc(u).collection('control');
+  Promise.all([base.doc('quiet_status').get(),base.doc('quiet').get()])
+    .then(function(r){
+      window._qtStatus=r[0].exists?(r[0].data()||{}):null;
+      window._qtWant=r[1].exists?(r[1].data()||{}):null;
+      window._qtLoaded=true;window._qtAt=Date.now();})
+    .catch(function(e){window._qtErr=(e&&e.message)||String(e);})
+    .then(function(){window._qtLoading=false;
+      if(activeTab==='augur'&&augurSub==='pc')renderApp();});
+}
+// the button. `on` false switches quiet off; `skipAuto` is the owner saying "not during today's
+//   automatic window either". Both land in ONE document the runner already reads.
+function setQuiet(on,skipAuto,reason){
+  const u=auth&&auth.currentUser&&auth.currentUser.uid;
+  if(!db||!u){window._qtErr='not signed in';renderApp();return;}
+  window._qtSaving=true;renderApp();
+  const doc={on:!!on,until:null,auto:(skipAuto?false:true),reason:String(reason||'set from the web'),
+    set_by:'web',set_at:firebase.firestore.FieldValue.serverTimestamp()};
+  db.collection('users').doc(u).collection('control').doc('quiet').set(doc)
+    .then(function(){window._qtWant=doc;window._qtErr=null;})
+    .catch(function(e){window._qtErr=(e&&e.message)||String(e);})
+    .then(function(){window._qtSaving=false;loadQuiet(u,true);renderApp();});
+}
+function pcDashHtml(){
+  const S=window._qtStatus,W=window._qtWant;
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const lbl=t=>'<div class="lbl" style="margin:18px 0 6px">'+t+'</div>';
+  // A FIGURE NOTHING PUBLISHES IS A DASH WITH ITS REASON, never a zero and never a guess.
+  const dash=why=>'<span title="'+esc(why)+'" style="color:var(--text5);cursor:help">\u2014</span>';
+  const age=iso=>{if(!iso)return null;const t=Date.parse(String(iso).replace(' ','T'));
+    if(!isFinite(t))return null;return Math.max(0,Math.round((Date.now()-t)/1000));};
+  const agoTx=s=>(s==null)?'never':((s<90)?(s+' s ago'):((s<5400)?(Math.round(s/60)+' min ago'):(Math.round(s/3600)+' h ago')));
+  const seen=S?age(S.runner_seen_at):null;
+  const stale=(seen==null)||(seen>180);
+  const quiet=!!(S&&S.quiet);
+  const list=(a,none)=>{const x=Array.isArray(a)?a.filter(v=>v!=null&&v!==''):[];
+    return x.length?('<b style="color:var(--text)">'+x.length+'</b> \u00b7 '+esc(x.slice(0,12).join(', '))+(x.length>12?(' and '+(x.length-12)+' more'):''))
+      :('<span style="color:var(--text5)">'+esc(none)+'</span>');};
+  let h='<div style="max-width:980px">';
+  h+='<div class="lbl" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<span>THIS PC</span>'
+    +'<span style="font-size:var(--fsxs);color:var(--text4);letter-spacing:0">'
+    +(S?('the runner last spoke '+esc(agoTx(seen))):'no word from the runner yet')+'</span></div>';
+  if(window._qtErr)h+='<div style="background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--yellow);margin-bottom:8px">Could not read the PC state: '+esc(window._qtErr)+'</div>';
+  if(!S&&!window._qtErr)h+='<div style="background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--text4);margin-bottom:8px">'
+    +(window._qtLoading?'Reading the PC state\u2026':'The runner has not written a state document yet. It writes one when it starts and whenever the quiet state changes, so this page fills in from its next boot.')+'</div>';
+  // ── THE ONE CONTROL
+  h+='<div style="background:var(--bg2);border-radius:10px;padding:14px;display:flex;align-items:center;gap:14px;flex-wrap:wrap">'
+    +'<div style="flex:1;min-width:220px">'
+    +'<div style="font-size:20px;font-weight:700;color:'+(quiet?'var(--yellow)':'var(--text)')+'">'+(quiet?'QUIET':'RUNNING NORMALLY')+'</div>'
+    +'<div style="font-size:10px;color:var(--text3);line-height:1.6;margin-top:3px">'
+    +(S?(quiet
+          ?('Heavy work is held back'+(S.why?(' because of '+esc(S.why)):'')+(S.since?(', since '+esc(S.since)):'')+(S.until?('. It lifts at '+esc(S.until)):'. It stays until it is switched off.'))
+          :'The runner is claiming jobs and running refreshes as usual.')
+        :'Unknown until the runner writes its state.')
+    +'</div></div>'
+    +'<div style="display:flex;gap:8px;flex-wrap:wrap">'
+    +'<span data-pcquiet="'+(quiet?'off':'on')+'" title="'+esc(quiet
+        ?'Let the runner claim new jobs, ships and refreshes again.'
+        :'Hold new runner jobs, ships and master refreshes. Jobs already running finish. Trading, the paper books and the live gate are NEVER paused by this.')
+      +'" style="cursor:pointer;font-size:11px;font-weight:700;letter-spacing:.4px;padding:9px 16px;border-radius:8px;background:'
+      +(quiet?'color-mix(in srgb,var(--text) 10%,transparent)':'color-mix(in srgb,var(--yellow) 22%,transparent)')
+      +';color:var(--text)">'+(window._qtSaving?'SAVING\u2026':(quiet?'GO BACK TO NORMAL':'QUIET THIS PC'))+'</span>'
+    +(quiet?'':'<span data-pcquiet="skip" title="'+esc('Quiet now AND skip the automatic 06:25-09:00 window today, so the morning quiet does not switch itself back on.')
+      +'" style="cursor:pointer;font-size:10px;padding:9px 12px;border-radius:8px;color:var(--text3);text-decoration:underline">QUIET, AND SKIP TODAY\u2019S AUTOMATIC WINDOW</span>')
+    +'</div></div>';
+  h+='<div style="font-size:9px;color:var(--text4);line-height:1.6;margin-top:6px">'
+    +'Quiet holds NEW runner jobs, the heavy test tiers of a ship, and the automatic master refreshes. '
+    +'It never pauses trading, the paper books, the live gate, NinjaTrader or Webull. '
+    +'It also comes on by itself between 06:25 and 09:00 MST on a trading day'
+    +(W&&W.auto===false?' - which you have switched off for today':'')+'.</div>';
+  // ── WHAT THE MACHINE IS DOING, BY SOURCE
+  h+=lbl('WHAT THE RUNNER IS DOING');
+  h+='<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:10px;color:var(--text3);line-height:1.9">'
+    +'<div>Jobs running right now: '+(S?list(S.running_jobs,'none'):dash('The runner has not written its state yet.'))+'</div>'
+    +'<div>Jobs waiting because it is quiet: '+(S?list(S.held_jobs,'none'):dash('The runner has not written its state yet.'))+'</div>'
+    +'<div>Work put off until quiet ends: '+(S?list(S.deferred,'none'):dash('The runner has not written its state yet.'))+'</div>'
+    +'</div>';
+  if(stale&&S)h+='<div style="font-size:9px;color:var(--yellow);margin-top:5px">The runner last spoke '+esc(agoTx(seen))+', so these three lines may be out of date. It writes at least once a minute while it is up.</div>';
+  // ── THE FIGURES NOTHING PUBLISHES. Named, with the reason, rather than left out.
+  h+=lbl('LOAD BY SOURCE');
+  const noWriter='Nothing on this machine publishes this figure yet. The page reads what the runner writes, and its state document carries the jobs it is running, holding and deferring - not a processor, memory or graphics reading. One small writer on the PC (one document, the same shape as the state document) would fill this row in; it is asked for and not guessed at here.';
+  h+='<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:10px;color:var(--text3);line-height:1.9">'
+    +['Processor','Memory','Graphics card'].map(n=>'<div style="display:flex;gap:10px"><span style="min-width:120px;color:var(--text4)">'+n+'</span>'+dash(noWriter)+'</div>').join('')
+    +'<div style="margin-top:6px;font-size:9px;color:var(--text5);line-height:1.6">These three are the half of this page that cannot be built from the web alone: no processor, memory or graphics figure is written anywhere for it to read. What IS published is above - the jobs by source, and whether the machine is quiet.</div>'
+    +'</div>';
+  h+='</div>';
+  return h;
 }
 function loadPaper(uidArg,force){
   if(!force&&window._paperLoaded)return;
@@ -41894,6 +41994,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 10px">The 7-stage backtest pipeline and the roadmap of validation &amp; model-building methods — <span style="color:var(--green)">green = live in EDGELOG</span>, <span style="color:var(--yellow)">amber = planned</span>. Updated as each piece ships.</div>'
         +'<iframe id="stack-frame" src="method_stack.html#'+(_ap.stackView==='side'?'side':'stack')+'" title="Method Stack" style="width:100%;height:calc(100vh - 230px);min-height:1500px;border:1px solid var(--border);border-radius:10px;background:var(--bg)"></iframe>'
         ;
+    }else if(augurSub==='pc'){
+      // pc p12. The page reads two documents and writes one; see loadQuiet / setQuiet.
+      if(!window._qtLoaded&&!window._qtLoading)loadQuiet();
+      else if(!window._qtLoading&&Date.now()-(window._qtAt||0)>30000)loadQuiet(null,true);
+      body=pcDashHtml();
     }else if(augurSub==='qqqpaper'){
       // ── QQQ SHADOW BOOK — modernized 2026-09-03 (owner ask: "modernize the qqq paper
       // tab"). Two Firestore feeds, one tab:
@@ -48339,6 +48444,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     content.querySelectorAll('[data-rbopen]').forEach(b=>{if(b.closest&&b.closest('.cmpovl-key'))return;
       b.onclick=e=>{_rbOpenRun(b.getAttribute('data-rbopen'),e);};});
     content.querySelectorAll('[data-rbback]').forEach(b=>{b.onclick=e=>{_rbGoBack(e);};});
+    // pc p12: the QUIET button. 'skip' also stands today's automatic window down.
+    content.querySelectorAll('[data-pcquiet]').forEach(b=>{b.onclick=()=>{
+      const v=b.dataset.pcquiet;
+      setQuiet(v!=='off',v==='skip',(v==='off')?'switched off from the web':'switched on from the web');};});
     if(augurSub==='launch'){const rb=el('au-run');if(rb)rb.onclick=async()=>{const inst=el('au-inst').value,sess=el('au-sess').value;const job={strategy:el('au-strat').value,instrument:inst,timeframe:el('au-tf').value,session:sess,source:sess==='rth'?'tv':null,params:{vol_filter:parseFloat(el('au-vol').value)||0},cost_pts:5.66/(inst==='NQ'?20:50),mult:inst==='NQ'?20:50,mc_sims:1000,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};rb.textContent='QUEUED…';rb.disabled=true;try{await btRef.add(job);}catch(e){alert('Queue failed: '+e.message);}renderApp();};}
     else if(augurSub==='exec2'){_bbWire(content,_bbCtx());}
     else if(augurSub==='cmp'||_c2Old){
