@@ -7354,6 +7354,100 @@
    ],
    "overall": 72,
    "summary": "This was a clean ENGU long: the 10:09 bar engulfed the prior bar on strong volume and you filled right at its close for 7697.25. You took 5 points in 37 seconds, but the move ran to 7719.75 by 10:20, so a trailing stop under higher lows or a runner contract would have kept far more. The entry and risk were good; work on letting winners reach the next real level."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-29",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "15:45",
+   "exit_time": "15:46",
+   "entry": 7736.75,
+   "exit": 7740.75,
+   "qty": 2,
+   "entry_ts": "15:45:11",
+   "exit_ts": "15:46:58",
+   "breakout_candle": "15:44",
+   "stop": 7742.5,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 6,
+     "note": "Price had climbed from 7732.50 at 15:15 to 7747.50 at 15:31 with higher lows, so the short fought the late-day uptrend."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 6,
+     "note": "The short filled at 7736.75 near the 7735.50 low of a 4.75-point flush, selling the bottom of the move."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 9,
+     "note": "The 15:44 signal bar high at 7742.50 gave a clear stop 5.75 points above entry."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "The nearest support at the 15:15-15:16 lows near 7733.00 was only about 3.75 points away, under 1R."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 6,
+     "note": "No setup was tagged; the trade reads as a breakdown below the 15:44 low of 7739.75 that did not hold."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 8,
+     "note": "The 15:45 bar traded 7,913 contracts with a 4.75-point range, plenty of liquidity."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 4,
+     "note": "A 15:45 entry sits in the closing drive, when the tape pushed up to 7758.00 by 16:00."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 8,
+     "note": "The fill came during the flush and the 15:45 bar closed back at 7739.50, a reversal against you."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 18,
+     "note": "You exited at 7740.75 for a 4-point loss before the 7742.50 stop, which the 15:47 high of 7742.75 would have hit."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 15,
+     "note": "The trade offered only about 1.25 points to 7735.50, and the next 15 minutes rallied to 7754.00, so the exit avoided a bigger loss."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 11,
+     "note": "Two MES risking 5.75 points is about $58 of risk, a sensible size for a late-day probe."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 5,
+     "note": "No setup, grade or notes were logged, so the plan cannot be checked."
+    }
+   ],
+   "overall": 50,
+   "summary": "You shorted 2 MES at 7736.75 into the bottom of a quick flush while the afternoon trend was still pointing up. The bar closed back near its high and you cut it at 7740.75 for about $44, before your stop above 7742.50, which saved roughly 2 points as price ran to 7754 into the close. Wait for a pullback toward the signal bar instead of selling the flush low, and avoid fading the closing drive."
   }
  ],
  "na": [
