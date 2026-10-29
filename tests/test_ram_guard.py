@@ -14,6 +14,7 @@ def _paths(tmp_path, monkeypatch):
     monkeypatch.setenv("RAM_GUARD_STOP", str(tmp_path / "qwen_lab" / "STOP"))
     monkeypatch.setenv("RAM_GUARD_STATE", str(tmp_path / "state" / "ram_guard.json"))
     monkeypatch.setattr(G, "send_push", lambda *a, **k: pytest.fail("real push path called"))
+    monkeypatch.setattr(G, "strata_serving", lambda *a, **k: False)
     return tmp_path
 
 
@@ -100,3 +101,98 @@ def test_qwen_lab_waits_on_the_guard(monkeypatch):
     monkeypatch.setenv("QWEN_LAB_RAM_GUARD", "0")
     monkeypatch.setattr(G, "free_ram_gb", lambda: 2.0)
     assert Q.load_hold_state() == (False, "")
+
+
+# ---- Strata (MANAGER #213) ----
+
+def _strata_on():
+    return True
+
+
+def test_strata_serving_no_stop_and_removes_own_stop():
+    p = Pusher()
+    G.watch_once(now=1000, ram_fn=lambda: 3.0, pusher=p, log=lambda *_: None)  # no Strata -> STOP
+    assert os.path.exists(G.stop_path())
+    G.watch_once(now=1060, ram_fn=lambda: 3.0, pusher=p, log=lambda *_: None, strata_fn=_strata_on)
+    assert not os.path.exists(G.stop_path())
+    G.watch_once(now=1120, ram_fn=lambda: 0.8, pusher=p, log=lambda *_: None, strata_fn=_strata_on)
+    assert not os.path.exists(G.stop_path())
+
+
+def test_strata_serving_keeps_foreign_stop():
+    stop = G.stop_path()
+    os.makedirs(os.path.dirname(stop), exist_ok=True)
+    with open(stop, "w", encoding="utf-8") as f:
+        f.write("owner wrote this\n")
+    G.watch_once(now=1000, ram_fn=lambda: 2.0, pusher=Pusher(), log=lambda *_: None, strata_fn=_strata_on)
+    with open(stop, encoding="utf-8") as f:
+        assert f.read() == "owner wrote this\n"
+
+
+def test_strata_push_only_after_3_checks_below_1_gb_and_rate_limited():
+    p = Pusher()
+    kw = dict(pusher=p, log=lambda *_: None, strata_fn=_strata_on)
+    G.watch_once(now=0, ram_fn=lambda: 2.0, **kw)  # 0.5-4 GB is normal under Strata
+    G.watch_once(now=60, ram_fn=lambda: 0.9, **kw)
+    G.watch_once(now=120, ram_fn=lambda: 0.9, **kw)
+    assert p.calls == []
+    G.watch_once(now=180, ram_fn=lambda: 1.5, **kw)  # streak broken
+    for t in (240, 300):
+        G.watch_once(now=t, ram_fn=lambda: 0.7, **kw)
+    assert p.calls == []
+    G.watch_once(now=360, ram_fn=lambda: 0.7, **kw)
+    assert p.calls == [0.7]
+    G.watch_once(now=420, ram_fn=lambda: 0.6, **kw)
+    assert len(p.calls) == 1  # 30-min rate limit
+    G.watch_once(now=360 + 1800, ram_fn=lambda: 0.6, **kw)
+    assert len(p.calls) == 2
+
+
+def test_strata_push_message(monkeypatch):
+    seen = {}
+
+    def fake(ram_gb, log=print, strata=False):
+        seen["strata"] = strata
+        return True, "ok"
+    monkeypatch.setattr(G, "send_push", fake)
+    for t in (0, 60, 120):
+        G.watch_once(now=t, ram_fn=lambda: 0.5, log=lambda *_: None, strata_fn=_strata_on)
+    assert seen == {"strata": True}
+
+
+def test_should_yield_backend():
+    assert G.should_yield(ram_fn=lambda: 2.0)[0] is True  # default = ollama, unchanged
+    assert G.should_yield(ram_fn=lambda: 2.0, backend="ollama")[0] is True
+    assert G.should_yield(ram_fn=lambda: 0.3, backend="strata")[0] is False
+    with pytest.raises(ValueError):
+        G.should_yield(ram_fn=lambda: 9.0, backend="vllm")
+
+
+def test_strata_probe(monkeypatch):
+    import io as _io
+
+    class R(_io.BytesIO):
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *a):
+            return False
+
+    def mk(doc):
+        return lambda url, timeout=None: R(json.dumps(doc).encode())
+    monkeypatch.undo()
+    good = {"data": [{"id": G.STRATA_MODEL, "status": {"value": "loaded"}}]}
+    monkeypatch.setattr(G.urllib.request, "urlopen", mk(good))
+    assert G.strata_serving() is True
+    monkeypatch.setattr(G.urllib.request, "urlopen", mk({"data": [{"id": G.STRATA_MODEL, "status": "loaded"}]}))
+    assert G.strata_serving() is True
+    monkeypatch.setattr(G.urllib.request, "urlopen", mk({"data": [{"id": G.STRATA_MODEL, "status": "unloaded"}]}))
+    assert G.strata_serving() is False
+    monkeypatch.setattr(G.urllib.request, "urlopen", mk({"data": [{"id": "other", "status": "loaded"}]}))
+    assert G.strata_serving() is False
+
+    def boom(url, timeout=None):
+        assert timeout == 3
+        raise OSError("refused")
+    monkeypatch.setattr(G.urllib.request, "urlopen", boom)
+    assert G.strata_serving() is False

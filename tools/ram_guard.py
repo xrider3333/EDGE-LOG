@@ -4,8 +4,12 @@
   python tools/ram_guard.py watch [--interval 60] [--once]
       free RAM < 6 GB  -> ONE plain phone push (at most every 30 min) + write C:\\EdgeLog\\qwen_lab\\STOP
       free RAM > 8 GB for 10 min -> remove the STOP only if this guard wrote it (header line)
+  While Strata (local server, 127.0.0.1:8080, holds 20+ GB by design) is serving (MANAGER #213):
+      no STOP is written, a guard-written STOP is removed, and the push fires only when
+      free RAM < 1 GB for 3 checks in a row (still at most every 30 min).
 Never kills processes, never touches Ollama models. State: C:\\EdgeLog\\state\\ram_guard.json.
-Importable: should_yield(min_free_ram_gb=6.0, min_free_vram_gb=None) -> (bool, reason).
+Importable: should_yield(min_free_ram_gb=6.0, min_free_vram_gb=None, backend="ollama") -> (bool, reason).
+  backend="strata" never yields on RAM; "ollama" (default, the lab) still yields below 6 GB.
 """
 import argparse
 import json
@@ -14,6 +18,7 @@ import shutil
 import subprocess
 import sys
 import time
+import urllib.request
 
 HOME = os.environ.get("EDGELOG_HOME") or r"C:\EdgeLog"
 LOW_GB = 6.0
@@ -21,6 +26,11 @@ CLEAR_GB = 8.0
 CLEAR_HOLD_S = 600
 PUSH_EVERY_S = 1800
 STOP_HEADER = "# written by tools/ram_guard.py (B2)"
+STRATA_URL = os.environ.get("STRATA_URL") or "http://127.0.0.1:8080/v1"
+STRATA_MODEL = "qwen3.8-flash-next-gyro-gyro-s"
+STRATA_TIMEOUT_S = 3
+STRATA_CRIT_GB = 1.0
+STRATA_CRIT_CHECKS = 3
 _TOOLS = os.path.dirname(os.path.abspath(__file__))
 _REPO = os.path.dirname(_TOOLS)
 
@@ -69,6 +79,24 @@ def free_vram_gb():
         return None
 
 
+def strata_serving(timeout=STRATA_TIMEOUT_S):
+    """True when GET {STRATA_URL}/models answers within `timeout` s and lists STRATA_MODEL as loaded."""
+    try:
+        with urllib.request.urlopen(STRATA_URL.rstrip("/") + "/models", timeout=timeout) as r:
+            doc = json.loads(r.read().decode("utf-8", "replace"))
+    except Exception:
+        return False
+    for m in (doc.get("data") or []) if isinstance(doc, dict) else []:
+        if not isinstance(m, dict) or m.get("id") != STRATA_MODEL:
+            continue
+        st = m.get("status")
+        if isinstance(st, dict):
+            st = st.get("value") or st.get("status")
+        if str(st or "").lower() == "loaded":
+            return True
+    return False
+
+
 def quiet_on():
     """(on, why) from tools/quiet.py current_state; (False, 'unknown ...') on any error."""
     try:
@@ -81,10 +109,14 @@ def quiet_on():
         return False, "unknown (%s)" % type(e).__name__
 
 
-def should_yield(min_free_ram_gb=LOW_GB, min_free_vram_gb=None, ram_fn=None, vram_fn=None):
-    """(True, reason) when heavy work must wait. Unknown readings never force a yield."""
+def should_yield(min_free_ram_gb=LOW_GB, min_free_vram_gb=None, ram_fn=None, vram_fn=None,
+                 backend="ollama"):
+    """(True, reason) when heavy work must wait. Unknown readings never force a yield.
+    backend="strata": never yield on RAM (Strata holds its RAM by design); "ollama" unchanged."""
+    if backend not in ("ollama", "strata"):
+        raise ValueError("backend must be 'ollama' or 'strata'")
     ram = (ram_fn or free_ram_gb)()
-    if ram is not None and ram < min_free_ram_gb:
+    if backend == "ollama" and ram is not None and ram < min_free_ram_gb:
         return True, "free RAM %.1f GB < %.1f GB" % (ram, min_free_ram_gb)
     if min_free_vram_gb is not None:
         vram = (vram_fn or free_vram_gb)()
@@ -109,15 +141,20 @@ def _save(path, doc):
     os.replace(tmp, path)
 
 
-def send_push(ram_gb, log=print):
+def send_push(ram_gb, log=print, strata=False):
     """One plain phone note through api/ntfy_push (plain + push_result). Returns (ok, detail); never raises."""
     try:
         if _REPO not in sys.path:
             sys.path.insert(0, _REPO)
         from api import ntfy_push
-        note = ntfy_push.plain("PC memory", "heads up", None,
-                               "free RAM %.1f GB (below %.0f GB) - Qwen lab paused" % (ram_gb, LOW_GB),
-                               "close something heavy if you can", priority="default")
+        if strata:
+            note = ntfy_push.plain("PC memory", "heads up", None,
+                                   "PC about to run out of memory while Strata serves - free RAM %.1f GB"
+                                   % ram_gb, "close something heavy or stop Strata", priority="default")
+        else:
+            note = ntfy_push.plain("PC memory", "heads up", None,
+                                   "free RAM %.1f GB (below %.0f GB) - Qwen lab paused" % (ram_gb, LOW_GB),
+                                   "close something heavy if you can", priority="default")
         return ntfy_push.push_result(note["message"], title=note["title"], priority=note["priority"], log=log)
     except Exception as e:
         return False, "%s: %s" % (type(e).__name__, str(e)[:80])
@@ -131,7 +168,23 @@ def _guard_wrote_stop(path):
         return False
 
 
-def watch_once(now=None, ram_fn=None, pusher=None, log=print):
+def _watch_strata(st, ram, now, stp, pusher, log):
+    """Strata serving: never write the STOP, remove our own, push only on < 1 GB x3."""
+    st["clear_since"] = None
+    if _guard_wrote_stop(stp):
+        os.remove(stp)
+        log("ram_guard: Strata serving - removed its own STOP")
+    st["strata_low_count"] = (int(st.get("strata_low_count") or 0) + 1) if ram < STRATA_CRIT_GB else 0
+    if st["strata_low_count"] >= STRATA_CRIT_CHECKS:
+        last = st.get("last_push")
+        if last is None or now - float(last) >= PUSH_EVERY_S:
+            ok, detail = (pusher or (lambda r: send_push(r, strata=True)))(ram)
+            st["last_push"] = now
+            st["last_push_result"] = [ok, detail]
+            log("ram_guard: Strata push %s (%s)" % (ok, detail))
+
+
+def watch_once(now=None, ram_fn=None, pusher=None, log=print, strata_fn=None):
     now = time.time() if now is None else now
     ram = (ram_fn or free_ram_gb)()
     sp, stp = state_path(), stop_path()
@@ -139,7 +192,11 @@ def watch_once(now=None, ram_fn=None, pusher=None, log=print):
     if ram is None:
         log("ram_guard: free RAM unknown - nothing done")
         return st
-    if ram < LOW_GB:
+    strata = bool((strata_fn or strata_serving)())
+    st["strata_serving"] = strata
+    if strata:
+        _watch_strata(st, ram, now, stp, pusher, log)
+    elif ram < LOW_GB:
         st["clear_since"] = None
         if not os.path.exists(stp):
             os.makedirs(os.path.dirname(stp), exist_ok=True)
@@ -160,6 +217,8 @@ def watch_once(now=None, ram_fn=None, pusher=None, log=print):
             log("ram_guard: RAM above %.0f GB for 10 min - removed its own STOP" % CLEAR_GB)
     else:
         st["clear_since"] = None
+    if not strata:
+        st["strata_low_count"] = 0
     st["last_ram_gb"] = round(ram, 2)
     st["last_check"] = now
     _save(sp, st)
