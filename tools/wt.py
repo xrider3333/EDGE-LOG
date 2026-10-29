@@ -1866,6 +1866,143 @@ def cmd_ship(name, message):
     sync_shared(root)
 
 
+FAST_TEST_TIMEOUT = 600        # touched-file tests of a fast ship: minutes, never the full tier
+
+
+def touched_tests(wt, changed):
+    """SHIP = B: the tests for exactly the files this ship touches - a changed tests/test_*.py
+    itself, tests/test_<name>.py for any changed <dir>/<name>.py, the hook's tool companions, and
+    the strategy contract when any .py changed. Only files that exist."""
+    import hook_tests
+    out = set()
+    for p in changed:
+        if not p.endswith('.py'):
+            continue
+        base = os.path.basename(p)[:-3]
+        if p.startswith('tests/') and base.startswith('test_'):
+            out.add(p)
+            continue
+        out.add('tests/test_%s.py' % base)
+        out.update(hook_tests.TOOL_COMPANIONS.get(base, ()))
+    if any(p.endswith('.py') for p in changed):
+        out.add(hook_tests.CONTRACT)
+    return sorted(t for t in out if os.path.isfile(os.path.join(wt, t)))
+
+
+def site_version(wt):
+    try:
+        with io.open(os.path.join(wt, 'index.html'), encoding='utf-8') as fh:
+            return read_version(fh.read())
+    except Exception:
+        return None
+
+
+def cmd_ship_fast(name, message):
+    """SHIP = B (OWNER 10-29): rebase, realign VERSION, run ONLY the touched files' tests, push
+    (boot + feasibility gates still run in the hook; its test tiers are skipped), verify on main,
+    then launch the full tiers in the background on the landed sha (tools/post_push_tests.py -
+    a failure phones the owner and posts to MANAGER). Prints the PUSHED line to post."""
+    root = repo_root()
+    wt = os.getcwd() if name is None else os.path.join(wt_root(), name)
+    if not os.path.isdir(wt):
+        raise SystemExit('no such worktree: ' + wt)
+    if os.path.abspath(run(['git', '-C', wt, 'rev-parse', '--show-toplevel'])) == \
+            os.path.abspath(root):
+        raise SystemExit('refusing to ship from the SHARED checkout - run this from a worktree')
+    hold_worktree(wt)
+    if run(['git', '-C', wt, 'status', '--porcelain', '--untracked-files=no']):
+        if not message:
+            raise SystemExit('uncommitted changes here - commit them, or pass --msg to commit now')
+        run(['git', '-C', wt, 'commit', '-q', '-a', '-m', message])
+    who = os.path.basename(wt)
+    for attempt in (1, 2, 3):
+        run(['git', '-C', wt, 'fetch', '-q', 'origin'])
+        if run(['git', '-C', wt, 'rev-list', '--count', 'origin/main..HEAD']) == '0':
+            print('nothing to ship - HEAD has no commits beyond origin/main')
+            return
+        p = rebase_onto_main(wt, ['git', '-C', wt, 'rebase', 'origin/main'])
+        if p is not None:
+            raise SystemExit('rebase onto origin/main hit a conflict - resolve by hand in ' + wt +
+                             '\n' + (p.stdout or '') + (p.stderr or ''))
+        realign_version(wt)
+        renumber_ledger_rows(wt)
+        changed = [l for l in run(['git', '-C', wt, 'diff', '--name-only',
+                                   'origin/main...HEAD']).splitlines() if l]
+        tests = touched_tests(wt, changed)
+        if tests:
+            safe_print('FAST: %d touched test file(s): %s' % (len(tests), ' '.join(tests)))
+            t0 = time.time()
+            try:
+                r = subprocess.run([sys.executable, '-m', 'pytest', '-q', '-x', '-p',
+                                    'no:cacheprovider'] + tests, cwd=wt, capture_output=True,
+                                   text=True, encoding='utf-8', errors='replace',
+                                   timeout=FAST_TEST_TIMEOUT)
+            except subprocess.TimeoutExpired:
+                raise SystemExit('FAST: touched tests ran over %d s - nothing pushed; use the '
+                                 'full ship (no --fast)' % FAST_TEST_TIMEOUT)
+            if r.returncode != 0:
+                raise SystemExit('FAST: touched tests FAILED - nothing pushed\n' +
+                                 ((r.stdout or '') + (r.stderr or ''))[-3000:])
+            safe_print('FAST: touched tests passed in %s' % _mmss(time.time() - t0))
+        else:
+            safe_print('FAST: no test file covers what changed')
+        ticket = push_queue.hold_turn(who=who) if push_queue else (None, None)
+        lock = push_lock.hold(who=who) if push_lock else None
+        run(['git', '-C', wt, 'fetch', '-q', 'origin'])
+        if subprocess.run(['git', '-C', wt, 'merge-base', '--is-ancestor', 'origin/main',
+                           'HEAD'], capture_output=True).returncode != 0:
+            safe_print('FAST: main moved while the touched tests ran - rebasing (attempt %d)'
+                       % attempt)
+            _let_go(ticket, lock)
+            continue
+        env = dict(os.environ, EDGELOG_FAST_SHIP='1')
+        pushed = subprocess.run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'], env=env,
+                                capture_output=True, text=True, encoding='utf-8',
+                                errors='replace')
+        _let_go(ticket, lock)
+        if pushed.returncode == 0:
+            break
+        out = (pushed.stdout or '') + (pushed.stderr or '')
+        if 'rejected' not in out and 'fetch first' not in out:
+            raise SystemExit('push refused by the hook (boot/feasibility gate) - nothing pushed\n'
+                             + out.strip()[-2000:])
+        safe_print('FAST: push rejected (main moved) - again (attempt %d)' % attempt)
+    else:
+        raise SystemExit('FAST: overtaken 3 times - nothing pushed; run it again')
+    sha = run(['git', '-C', wt, 'rev-parse', 'HEAD'], check=False, quiet=True).strip()
+    run(['git', '-C', wt, 'fetch', '-q', 'origin'], check=False, quiet=True)
+    if subprocess.run(['git', '-C', wt, 'merge-base', '--is-ancestor', sha, 'origin/main'],
+                      capture_output=True).returncode != 0:
+        sync_shared(root)
+        raise SystemExit('the push reported success but %s is NOT on origin/main - do NOT '
+                         'report it as landed; run ship again' % sha[:8])
+    head = run(['git', '-C', wt, 'log', '--oneline', '-1'], check=False, quiet=True)
+    safe_print('pushed (verified on main): ' + head)
+    site = 'index.html' in changed
+    ver = site_version(wt) if site else None
+    subj = head.split(' ', 1)[1] if ' ' in head else ''
+    safe_print('POST TO MANAGER: PUSHED %s - %s' % (
+        ('v%s %s' % (ver, sha[:8])) if ver else ('%s (no site change)' % sha[:8]), subj))
+    try:
+        logdir = r'C:\EdgeLog\post_push'
+        os.makedirs(logdir, exist_ok=True)
+        lg = os.path.join(logdir, '%s_%s.log' % (who, sha[:8]))
+        detach = r'C:\EdgeLog\detach.py'
+        cmd = [sys.executable, '-u', os.path.join(wt, 'tools', 'post_push_tests.py'), wt, sha,
+               '--label', who]
+        if os.path.isfile(detach):
+            subprocess.run([sys.executable, detach, 'postpush_%s' % sha[:8], '--cwd', wt,
+                            '--log', lg, '--'] + cmd, capture_output=True, timeout=60)
+        else:
+            with open(lg, 'a') as fh:
+                subprocess.Popen(cmd, cwd=wt, stdout=fh, stderr=subprocess.STDOUT)
+        safe_print('FAST: full tiers launched in the background -> ' + lg)
+    except Exception as e:
+        safe_print('FAST: could not launch the post-push tests (%s) - run tools/post_push_tests.py '
+                   'by hand' % e)
+    sync_shared(root)
+
+
 def warn_pages_budget(wt):
     """Say something when we are about to out-run GitHub Pages' build limit.
 
@@ -2174,13 +2311,15 @@ def main():
     sub = ap.add_subparsers(dest='cmd', required=True)
     n = sub.add_parser('new'); n.add_argument('name')
     s = sub.add_parser('ship'); s.add_argument('name', nargs='?'); s.add_argument('--msg', default=None)
+    s.add_argument('--fast', action='store_true',
+                   help='SHIP = B: touched-file tests, push, full tiers in the background')
     sub.add_parser('list')
     d = sub.add_parser('drop'); d.add_argument('name')
     a = ap.parse_args()
     if a.cmd == 'new':
         cmd_new(a.name)
     elif a.cmd == 'ship':
-        cmd_ship(a.name, a.msg)
+        (cmd_ship_fast if a.fast else cmd_ship)(a.name, a.msg)
     elif a.cmd == 'list':
         cmd_list()
     elif a.cmd == 'drop':

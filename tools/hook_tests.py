@@ -595,7 +595,12 @@ def refs_match_tree(root, refs_text, tree):
 
 # ========================================================================================= CLI
 def cmd_hook(root, refs_text, log=print):
-    """Under the push lock, from tools/githooks/pre-push: the tiers on the tree being pushed."""
+    """Under the push lock, from tools/githooks/pre-push: the tiers on the tree being pushed.
+    SHIP = B (OWNER 10-29): `wt.py ship --fast` sets EDGELOG_FAST_SHIP=1 - it ran the touched
+    files' tests itself and runs every tier AFTER the push (tools/post_push_tests.py)."""
+    if os.environ.get('EDGELOG_FAST_SHIP') == '1':
+        log('PRE-PUSH TESTS: skipped - fast ship (SHIP = B); the full tiers run after the push')
+        return 0
     tree = head_tree(root)
     narrow = True
     if not refs_match_tree(root, refs_text, tree):

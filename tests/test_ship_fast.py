@@ -1,0 +1,57 @@
+"""SHIP = B (OWNER 10-29): wt.py ship --fast pieces - touched-file test pick, the hook bypass."""
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, os.path.join(ROOT, 'tools'))
+
+import hook_tests  # noqa: E402
+import wt  # noqa: E402
+
+
+def _mk(tmp_path, *rels):
+    for r in rels:
+        p = tmp_path / r
+        p.parent.mkdir(parents=True, exist_ok=True)
+        p.write_text('x')
+
+
+def test_touched_tests_picks_only_what_changed(tmp_path):
+    _mk(tmp_path, 'tests/test_quiet.py', 'tests/test_runner.py', 'tests/test_strategy_contract.py',
+        'tests/test_wt_ship_console.py', 'tests/test_push_lock.py', 'tests/test_other.py')
+    got = wt.touched_tests(str(tmp_path), ['tools/quiet.py', 'api/runner.py', 'tools/wt.py',
+                                           'index.html', 'tools/nothing.py'])
+    assert got == ['tests/test_push_lock.py', 'tests/test_quiet.py', 'tests/test_runner.py',
+                   'tests/test_strategy_contract.py', 'tests/test_wt_ship_console.py']
+
+
+def test_touched_tests_changed_test_file_runs_itself(tmp_path):
+    _mk(tmp_path, 'tests/test_other.py', 'tests/test_strategy_contract.py')
+    assert wt.touched_tests(str(tmp_path), ['tests/test_other.py']) == [
+        'tests/test_other.py', 'tests/test_strategy_contract.py']
+
+
+def test_touched_tests_no_python_no_tests(tmp_path):
+    _mk(tmp_path, 'tests/test_strategy_contract.py')
+    assert wt.touched_tests(str(tmp_path), ['index.html', 'CHANGELOG.md']) == []
+
+
+def test_hook_skips_tiers_on_a_fast_ship(monkeypatch):
+    monkeypatch.setenv('EDGELOG_FAST_SHIP', '1')
+    lines = []
+    monkeypatch.setattr(hook_tests, 'run_tiers', lambda *a, **k: 1 / 0)
+    assert hook_tests.cmd_hook(ROOT, '', log=lines.append) == 0
+    assert 'fast ship' in lines[0]
+
+
+def test_hook_runs_tiers_without_the_flag(monkeypatch):
+    monkeypatch.delenv('EDGELOG_FAST_SHIP', raising=False)
+    monkeypatch.setattr(hook_tests, 'run_tiers', lambda *a, **k: 7)
+    assert hook_tests.cmd_hook(ROOT, '', log=lambda s: None) == 7
+
+
+def test_site_version_reads_index(tmp_path):
+    (tmp_path / 'index.html').write_text(open(os.path.join(ROOT, 'index.html'), encoding='utf-8').read(),
+                                         encoding='utf-8')
+    assert wt.site_version(str(tmp_path)) == wt.site_version(ROOT) is not None
+    assert wt.site_version(str(tmp_path / 'nope')) is None
