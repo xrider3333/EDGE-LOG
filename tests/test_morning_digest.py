@@ -40,7 +40,7 @@ def test_facts_newest_first_done_hidden_ids_masked(tmp_path, monkeypatch):
     ])
     b = tmp_path / "board.md"
     b.write_text(BOARD, encoding="utf-8")
-    text = md.build("2026-10-29", NOW, use_model=False, board_path=str(b))
+    text = md.build("2026-10-29", NOW, use_model=False, board_path=str(b), news=False)
     assert "**PAPER-WB**: 3 open, 2 new in the last 24 h" in text
     assert text.index("#3 ") < text.index("#2 ")          # newest first
     assert "old standing order" not in text and "closed one" not in text
@@ -72,3 +72,37 @@ def test_main_writes_dated_and_latest(tmp_path, monkeypatch):
     assert md.main(["--no-model", "--date", "2026-10-29", "--out-dir", str(tmp_path / "out")]) == 0
     assert (tmp_path / "out" / "digest-2026-10-29.md").exists()
     assert (tmp_path / "out" / "digest-latest.md").exists()
+
+
+def test_at_logon_once_per_weekday(tmp_path, monkeypatch):
+    _inbox(tmp_path, monkeypatch, [])
+    out = tmp_path / "out"
+    out.mkdir()
+
+    class Wed(datetime.datetime):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 10, 28, 6, 30)
+
+    class Sat(Wed):
+        @classmethod
+        def now(cls, tz=None):
+            return cls(2026, 10, 31, 6, 30)
+
+    calls = []
+    monkeypatch.setattr(md, "build", lambda *a, **k: calls.append(k) or "x")
+    monkeypatch.setattr(md.datetime, "datetime", Sat)
+    md.main(["--at-logon", "--out-dir", str(out)])
+    assert calls == []
+    monkeypatch.setattr(md.datetime, "datetime", Wed)
+    md.main(["--at-logon", "--out-dir", str(out)])
+    md.main(["--at-logon", "--out-dir", str(out)])
+    assert len(calls) == 1 and calls[0]["news"] is True
+
+
+def test_news_block_failure_never_breaks_the_digest(tmp_path, monkeypatch):
+    import market_news
+    _inbox(tmp_path, monkeypatch, [])
+    monkeypatch.setattr(market_news, "news_blocks", lambda: (_ for _ in ()).throw(RuntimeError()))
+    text = md.build("2026-10-29", NOW, use_model=False, board_path=str(tmp_path / "missing.md"))
+    assert "news: not available (RuntimeError)" in text

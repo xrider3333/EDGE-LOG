@@ -11,7 +11,10 @@ Output:              C:/EdgeLog/manager/digest/digest-YYYY-MM-DD.md  (+ digest-l
 Model:               Strata (127.0.0.1:8080/v1) when it lists its model, else Ollama (local_llm.MODEL),
                      else none. --no-model skips it.
 
-    python tools/morning_digest.py [--date YYYY-MM-DD] [--no-model] [--out-dir DIR]
+    python tools/morning_digest.py [--date YYYY-MM-DD] [--no-model] [--no-news] [--out-dir DIR] [--at-logon]
+
+Runs from the Windows task "EdgeLog morning digest" at logon (--at-logon: Mon-Fri, once a day;
+owner GO 10-28, MANAGER #222). Pre-market / after-hours news blocks: tools/market_news.py.
 """
 import argparse
 import datetime
@@ -171,7 +174,7 @@ def summarize(fact_text):
         return None, strata_err + f"; Ollama failed ({type(e).__name__})"
 
 
-def build(day, now, use_model=True, board_path=BOARD):
+def build(day, now, use_model=True, board_path=BOARD, news=True):
     L = facts(day, now, read_inboxes(now), read_board(board_path))
     L += recovery_lines(now)
     if use_model:
@@ -181,6 +184,12 @@ def build(day, now, use_model=True, board_path=BOARD):
             L += [f"## Summary ({backend}, unverified - the facts above are the record)", "", txt, ""]
         else:
             L += [f"## Summary: none ({txt})", ""]
+    if news:                       # owner 10-28 (MANAGER #222): after the summary, kept out of it
+        try:
+            import market_news
+            L += market_news.news_blocks()
+        except Exception as e:
+            L += [f"## Pre-market / after-hours news: not available ({type(e).__name__})", ""]
     return "\n".join(L)
 
 
@@ -189,10 +198,16 @@ def main(argv=None):
     ap.add_argument("--date")
     ap.add_argument("--no-model", action="store_true")
     ap.add_argument("--out-dir", default=OUT_DIR)
+    ap.add_argument("--no-news", action="store_true")
+    ap.add_argument("--at-logon", action="store_true",
+                    help="the logon task's mode: Mon-Fri only, once a day (skips when today's digest exists)")
     a = ap.parse_args(argv)
     now = datetime.datetime.now()
     day = a.date or now.strftime("%Y-%m-%d")
-    text = build(day, now, use_model=not a.no_model)
+    if a.at_logon and (now.weekday() >= 5 or os.path.exists(os.path.join(a.out_dir, f"digest-{day}.md"))):
+        print(f"digest: skipped at logon ({'weekend' if now.weekday() >= 5 else 'already made today'})")
+        return 0
+    text = build(day, now, use_model=not a.no_model, news=not a.no_news)
     os.makedirs(a.out_dir, exist_ok=True)
     for name in (f"digest-{day}.md", "digest-latest.md"):
         tmp = os.path.join(a.out_dir, name + ".tmp")
