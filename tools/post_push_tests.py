@@ -51,6 +51,42 @@ def alert(label, sha, tail, root):
         log('inbox post failed: %s: %s' % (type(e).__name__, e))
 
 
+AFTER_HOUR = 13                 # MST, market days (MANAGER #138, owner 10-29)
+LOCK = os.path.join(os.environ.get('EDGELOG_HOME') or r'C:\EdgeLog', 'state', 'post_push.lock')
+
+
+def wait_for_window(now=time.localtime, sleep=time.sleep):
+    """Mon-Fri before 13:00 local: wait. Returns the seconds it waited (0 = none)."""
+    waited = 0
+    while True:
+        t = now()
+        if t.tm_wday >= 5 or t.tm_hour >= AFTER_HOUR:
+            return waited
+        if waited == 0:
+            log('market day before %02d:00 - full tiers wait' % AFTER_HOUR)
+        sleep(60)
+        waited += 60
+
+
+def hold_one_at_a_time(path=LOCK, sleep=time.sleep):
+    """One post-push run on this machine at a time: an OS lock on an open handle (dropped when the
+    process ends, by any route). Returns the handle to keep."""
+    import msvcrt
+    os.makedirs(os.path.dirname(path), exist_ok=True)
+    fh = open(path, 'a+')
+    said = False
+    while True:
+        try:
+            fh.seek(0)
+            msvcrt.locking(fh.fileno(), msvcrt.LK_NBLCK, 1)
+            return fh
+        except OSError:
+            if not said:
+                log('another post-push run holds the slot - waiting')
+                said = True
+            sleep(30)
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('worktree')
@@ -64,6 +100,8 @@ def main(argv=None):
         quiet_mode.wait_while_quiet('post-push tests', log=log)
     except Exception as e:
         log('quiet check skipped: %s' % e)
+    wait_for_window()
+    _slot = hold_one_at_a_time()  # noqa: F841 - held until exit
     tmp = os.path.join(os.environ.get('EDGELOG_WT_ROOT') or os.path.join(
         os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'), 'EdgeLog-worktrees'),
         '_postpush_%s' % a.sha[:8])

@@ -55,3 +55,28 @@ def test_site_version_reads_index(tmp_path):
                                          encoding='utf-8')
     assert wt.site_version(str(tmp_path)) == wt.site_version(ROOT) is not None
     assert wt.site_version(str(tmp_path / 'nope')) is None
+
+
+def test_post_push_waits_for_1300_on_market_days():
+    import time as _t
+    import post_push_tests as pp
+    clock = [_t.struct_time((2026, 10, 29, 12, 58, 0, 3, 302, 0))]   # Thu 12:58
+
+    def sleep(s):
+        clock[0] = _t.struct_time((2026, 10, 29, 13, 0, 0, 3, 302, 0))
+    assert pp.wait_for_window(now=lambda: clock[0], sleep=sleep) == 60
+    sat = _t.struct_time((2026, 10, 31, 9, 0, 0, 5, 304, 0))
+    assert pp.wait_for_window(now=lambda: sat, sleep=lambda s: 1 / 0) == 0
+
+
+def test_post_push_one_at_a_time(tmp_path):
+    import post_push_tests as pp
+    lk = str(tmp_path / 'pp.lock')
+    first = pp.hold_one_at_a_time(lk)
+    calls = []
+
+    def sleep(s):
+        calls.append(s)
+        first.close()
+    second = pp.hold_one_at_a_time(lk, sleep=sleep)
+    assert calls == [30] and second

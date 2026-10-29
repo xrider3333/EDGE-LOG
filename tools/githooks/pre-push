@@ -22,7 +22,8 @@ repo_root="$(git rev-parse --show-toplevel)"
 # being pushed is the tree its tests run on (2026-10-08).
 push_refs=""
 if [ ! -t 0 ]; then
-  push_refs="$(cat)"
+  # timeout: from a background shell stdin may never close (PAPER-WB #1756, 10-29 hang)
+  push_refs="$(timeout 10 cat 2>/dev/null)"
 fi
 
 python "$repo_root/tools/preflight_boot.py"

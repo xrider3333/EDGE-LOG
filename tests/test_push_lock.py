@@ -415,7 +415,7 @@ def test_ship_lets_go_of_the_lock_only_before_it_has_pushed_anything():
     the next lane goes meanwhile. Every other route still leaves the release to the process exit,
     and the overtaken retry after a push keeps the lock (test_affected_tests.py)."""
     src = _wt_source()
-    body = src[src.index("def cmd_ship"):src.index("def warn_pages_budget")]
+    body = src[src.index("def cmd_ship"):src.index("FAST_TEST_TIMEOUT =")]  # cmd_ship alone, not the --fast ship after it
     assert body.count("_let_go(") == 1, "one hand release, no more"
     i_let_go = body.index("_let_go(")
     i_branch = body.rindex("if (too_slow or tests_long) and rnd < PRELOCK_ROUNDS:", 0, i_let_go)
@@ -460,5 +460,5 @@ def test_ship_does_not_release_the_lock_early():
     through all of them is how a lock gets leaked on the one path nobody thought about. The
     process exit is the release."""
     src = _wt_source()
-    body = src[src.index("def cmd_ship"):src.index("def warn_pages_budget")]
+    body = src[src.index("def cmd_ship"):src.index("FAST_TEST_TIMEOUT =")]  # cmd_ship alone, not the --fast ship after it
     assert "_unlock_fd" not in body and "push_lock.release" not in body

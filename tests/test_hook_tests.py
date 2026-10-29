@@ -360,7 +360,7 @@ def test_the_hook_delegates_to_this_module_and_no_longer_trusts_the_env_claim():
     src = open(os.path.join(ROOT, 'tools', 'githooks', 'pre-push'), encoding='utf-8').read()
     assert 'hook_tests.py" hook' in src
     assert '"$EDGELOG_GATE_PASSED_TREE"' not in src and '$EDGELOG_GATE_PASSED_TREE' not in src
-    assert src.index('push_refs="$(cat)"') < src.index('preflight_boot.py"'), (
+    assert src.index('push_refs="$(timeout 10 cat') < src.index('preflight_boot.py"'), (
         'the refs must be read before any gate can consume stdin')
     i_missing = src.index('tools/hook_tests.py" ]')
     assert 'exit 1' in src[i_missing:i_missing + 400], 'a tree without the module fails closed'
