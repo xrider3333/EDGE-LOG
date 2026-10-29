@@ -1902,7 +1902,11 @@ def cmd_ship_fast(name, message):
     (boot + feasibility gates still run in the hook; its test tiers are skipped), verify on main,
     then launch the full tiers in the background on the landed sha (tools/post_push_tests.py -
     a failure phones the owner and posts to MANAGER). Prints the PUSHED line to post."""
-    root = repo_root()
+    # The SHARED checkout, from git's common dir - not repo_root(), which is wherever this file
+    # sits (a worktree's own wt.py would take the worktree for the shared checkout).
+    common = run(['git', '-C', repo_root(), 'rev-parse', '--path-format=absolute',
+                  '--git-common-dir'])
+    root = os.path.dirname(os.path.normpath(common))
     wt = os.getcwd() if name is None else os.path.join(wt_root(), name)
     if not os.path.isdir(wt):
         raise SystemExit('no such worktree: ' + wt)
