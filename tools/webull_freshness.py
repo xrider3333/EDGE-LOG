@@ -191,6 +191,10 @@ from api/market_calendar):
     eod_settled      cloud_signal eod_settled has today -- #30. The ONE pusher of "today's close
                      was not settled": the engine only records eod_gave_up[today] (named here
                      when present) and the executor only logs the board event.
+    fill_reconcile   (B1-A) the book's trades.csv vs Webull's fills in broker_orders.csv, paired
+                     by tools/reconcile_core -- ONE high "Webull vs book: missing $X" note a day
+                     when anything is unpaired; slippage only = no push, the day's line kept in
+                     state.json / status.json "fill_reconcile". See FILL RECONCILE.
   PRE-OPEN GATE (session days; the 08:30 and 09:15 ET slots, each once)
     KEEL current (the live legs' summaries only), QQQ_1d newest bar no older than the session
     BEFORE the previous one (the most the cache can hold before the engine's ~09:35 refresh;
@@ -315,10 +319,12 @@ Usage (on the box):  venv/bin/python tools/webull_freshness.py [--dry-run] [--ho
 """
 import argparse
 import ast
+import csv
 import datetime as _dt
 import glob
 import json
 import os
+import re
 import shutil
 import socket
 import subprocess
@@ -332,6 +338,8 @@ if ROOT not in sys.path:
 
 from api import market_calendar  # noqa: E402  (see sys.path insert above)
 from api import ntfy_push  # noqa: E402  (stdlib only; the one plain phone format)
+from tools import reconcile_core  # noqa: E402  (pure; the broker-agnostic fill reconcile)
+from api import trade_id as _trade_id  # noqa: E402  (stdlib only; the broker signal id rule)
 
 # api/cloud_signal.py is READ, never imported (see _shadow_leg_keys)
 CLOUD_SIGNAL_SRC = os.path.join(ROOT, "api", "cloud_signal.py")
@@ -765,6 +773,9 @@ def default_paths(home=None):
         "serving_lock": os.path.join(exec_dir, "SERVING.lock"),
         "serving_standby": os.path.join(exec_dir, "SERVING.lock.standby"),
         "exec_tick_crash": os.path.join(exec_dir, "tick_crash.json"),
+        # FILL RECONCILE (B1-A): the executor's own records, read only after the close
+        "exec_trades": os.path.join(exec_dir, "trades.csv"),
+        "broker_orders": os.path.join(exec_dir, "broker_orders.csv"),
         "exec_log": os.path.join(home, "logs", "qqq_exec.log"),
         "logs_dir": os.path.join(home, "logs"),
         "orders_config": env.get("EDGELOG_WEBULL_ORDERS_CONFIG")
@@ -1367,7 +1378,24 @@ def collect(paths, run_cmd=None):
     except OSError:
         pass
     snap["big_logs"] = big
+    # FILL RECONCILE (B1-A): the book's trades and the broker's order rows (None = no file)
+    snap["fill_trades"] = read_csv_rows(paths.get("exec_trades"))
+    snap["fill_orders"] = read_csv_rows(paths.get("broker_orders"))
     return snap
+
+
+def read_csv_rows(path, max_bytes=8 * 1024 * 1024):
+    """[row dict] of a CSV (csv.DictReader), None when the file is missing or unreadable, or
+    over `max_bytes` (the executor trims both files; a runaway one is not parsed every pass)."""
+    if not path:
+        return None
+    try:
+        if os.path.getsize(path) > max_bytes:
+            return None
+        with open(path, encoding="utf-8", newline="") as f:
+            return list(csv.DictReader(f))
+    except (OSError, csv.Error, UnicodeDecodeError):
+        return None
 
 
 # -- derived executor view --------------------------------------------------------------------
@@ -2869,6 +2897,220 @@ def _make_logger(path, echo=True):
     return log
 
 
+# -- FILL RECONCILE (B1-A, owner GO 2026-10-28 via MANAGER) ---------------------------------------
+# Once per session day after the close (eod_check_from: 16:10, 13:10 on a half day) the book's
+# closed trades (qqq_exec/trades.csv, the book's own prices) are paired with Webull's fills
+# (qqq_exec/broker_orders.csv) by tools/reconcile_core. NO Webull call. Anything unpaired = ONE
+# high "Webull vs book: missing $X" note that day (the fill_reconcile episode: it opens once,
+# stays open the rest of the day, and expires silently when the next day's pass does not run
+# the check). Matched with slippage only = no push. Every day's line (book $, Webull $, slippage
+# $) is kept in state.json "fill_reconcile" and copied to status.json. A broker row marked
+# duplicate, or whose mode is not PAPER/LIVE, is left out. A log trimmed past what the day
+# needs reads "can't check: order log trimmed", never a false missing.
+# Pairing is by the trade's own broker signal id first (re-sends, close retries, after-hours
+# sells are stamped minutes after the book), then by time; an ok sent row whose fill price was
+# never captured still pairs (Webull's $ unknown). An earlier day's episode still open on a new
+# day's first pass ends silently, so the new day gets its own note.
+FILL_REC_KEY = "fill_reconcile"
+FILL_REC_MODES = ("PAPER", "LIVE")
+FILL_REC_KEEP_DAYS = 30
+FILL_REC_DO = "ask Claude (PAPER-WB chat) to check the fills"
+FILL_REC_AFFECTS = "Webull may not match the book"
+_LONG_DIGITS = re.compile(r"\d{8,}")
+
+
+def mask_digits(text):
+    """Runs of 8+ digits (account numbers, order ids) -> '****'."""
+    return _LONG_DIGITS.sub("****", str(text or ""))
+
+
+def _ts(s):
+    try:
+        return _dt.datetime.strptime(str(s).strip()[:19], "%Y-%m-%d %H:%M:%S")
+    except (TypeError, ValueError):
+        return None
+
+
+def _truthy(x):
+    return str(x or "").strip().lower() in ("true", "1", "yes", "y")
+
+
+def _sid(tid, intent):
+    """The broker signal id of a trade's OPEN/CLOSE (api/trade_id.broker_signal_base), or None
+    for a missing / unparseable trade id (time pairing only)."""
+    try:
+        if tid and _trade_id.parse(tid) is not None:
+            return _trade_id.broker_signal_base(tid, intent)
+    except Exception:
+        pass
+    return None
+
+
+def webull_fill_inputs(snap):
+    """(trades, orders, open_lots, log_start) for reconcile_core.reconcile, from the snap's two
+    CSVs and state.json's open lots. log_start = the oldest broker row's stamp (every row, the
+    excluded ones too: it says how far back the file reaches)."""
+    num = reconcile_core._f
+    trades = []
+    for r in snap.get("fill_trades") or []:
+        t = {"leg": str(r.get("leg") or ""), "side": str(r.get("side") or "").lower(),
+             "shares": num(r.get("shares")), "entry_ts": _ts(r.get("entry_ts")),
+             "exit_ts": _ts(r.get("exit_ts")), "entry_px": num(r.get("entry_px")),
+             "exit_px": num(r.get("exit_px")), "pnl": num(r.get("pnl")),
+             "open_sid": _sid(r.get("trade_id"), "OPEN"),
+             "close_sid": _sid(r.get("trade_id"), "CLOSE")}
+        if t["leg"] and t["entry_ts"] and t["exit_ts"] and t["shares"]:
+            trades.append(t)
+    orders, stamps = [], []
+    for r in snap.get("fill_orders") or []:
+        ts = _ts(r.get("ts_et"))
+        if ts is None:
+            continue
+        stamps.append(ts)
+        if _truthy(r.get("duplicate")):
+            continue
+        if str(r.get("mode") or "").strip().upper() not in FILL_REC_MODES:
+            continue
+        orders.append({"ts": ts, "leg": str(r.get("leg") or ""),
+                       "intent": str(r.get("intent") or "").upper(),
+                       "side": str(r.get("side") or "").upper(), "shares": num(r.get("shares")),
+                       "ok": _truthy(r.get("ok")), "sent": _truthy(r.get("sent")),
+                       "signal_id": str(r.get("signal_id") or ""),
+                       "fill_px": num(r.get("broker_fill_px"))})
+    lots = []
+    st = snap.get("exec_state") if isinstance(snap.get("exec_state"), dict) else {}
+    legs = st.get("legs") if isinstance(st.get("legs"), dict) else {}
+    for leg, lot in legs.items():
+        if isinstance(lot, dict) and _ts(lot.get("entry_ts")):
+            lots.append({"leg": str(leg), "side": lot.get("side"),
+                         "shares": lot.get("shares_total", lot.get("shares_remaining")),
+                         "entry_ts": _ts(lot.get("entry_ts")),
+                         "open_sid": _sid(lot.get("trade_id"), "OPEN")})
+    return trades, orders, lots, (min(stamps) if stamps else None)
+
+
+def _fill_side_word(intent, side):
+    s = str(side or "").upper()
+    if intent == "OPEN":
+        return "buy" if s == "BUY" else "short sale"
+    return "buy-back" if s == "BUY" else "sell"
+
+
+def _book_side_word(intent, book_side):
+    long_ = str(book_side).lower() == "long"
+    if intent == "OPEN":
+        return "buy" if long_ else "short sale"
+    return "sell" if long_ else "buy-back"
+
+
+def _hm(iso):
+    return str(iso or "")[11:16] or "?"
+
+
+def fill_reconcile_words(rep):
+    """The phone problem line for a 'missing' report: the $ and the first thing unpaired, in
+    plain words (+N more)."""
+    items = []
+    for x in rep.get("no_fill") or []:
+        w = leg_word(x["leg"])
+        if x["which"] == "both":
+            items.append(f"the {w} trade closed at {_hm(x['ts'])} has no Webull fills")
+        else:
+            intent = "OPEN" if x["which"] == "open" else "CLOSE"
+            items.append(f"the {w} {_book_side_word(intent, x['side'])} at {_hm(x['ts'])} "
+                         f"has no Webull fill")
+    for x in rep.get("orphan_fills") or []:
+        items.append(f"Webull filled {ntfy_push.with_article(leg_word(x['leg']))} "
+                     f"{_fill_side_word(x['intent'], x['side'])} at {_hm(x['ts'])} the book "
+                     f"never logged")
+    lead = items[0] if items else "a trade does not pair up"
+    more = f" (+{len(items) - 1} more)" if len(items) > 1 else ""
+    return mask_digits(f"Webull vs book: missing ${rep.get('missing_usd', 0):,.0f} - "
+                       f"{lead}{more}.")
+
+
+def _fill_rec_line(rep, now_et):
+    return {"status": rep["status"], "book_usd": rep["book_usd"],
+            "webull_usd": rep["broker_usd"], "slippage_usd": rep["slippage_usd"],
+            "missing_usd": rep["missing_usd"], "matched": len(rep["matched"]),
+            "no_fill": rep["no_fill"], "orphan_fills": rep["orphan_fills"],
+            "bad_orders": len(rep["bad_orders"]), "reason": rep.get("reason") or "",
+            "at": now_et.isoformat()}
+
+
+def fill_rec_ah_working(snap, today):
+    """True while one of today's after-hours sells (state.json after_hours_flatten, see
+    api/qqq_exec._ah_active_today) is not finished: its fill may still come."""
+    st = snap.get("exec_state") if isinstance(snap.get("exec_state"), dict) else {}
+    legs = (st.get("after_hours_flatten") or {}).get(today)
+    if not isinstance(legs, dict):
+        return False
+    return any(isinstance(r, dict) and r.get("status") not in ("filled", "done", "gave_up")
+               for r in legs.values())
+
+
+def check_fill_reconcile(snap, now_et, mstate):
+    """fill_reconcile (see FILL RECONCILE above). None (not checked) off a session day, before
+    eod_check_from, while the order adapter is not PAPER/LIVE, with neither CSV readable, or
+    while one of today's after-hours sells is still working (its fill may still come)."""
+    d = now_et.date()
+    if not market_calendar.is_session(d) or hhmm(now_et) < eod_check_from(d):
+        return None
+    if str(snap.get("broker_mode") or "OFF").upper() not in FILL_REC_MODES:
+        return None
+    if snap.get("fill_trades") is None and snap.get("fill_orders") is None:
+        return None
+    today = d.isoformat()
+    if fill_rec_ah_working(snap, today):
+        return None                            # an after-hours sell is still working: later
+    trades, orders, lots, log_start = webull_fill_inputs(snap)
+    if snap.get("fill_orders") is None:
+        log_start = _dt.datetime.max          # no order log at all: cannot check
+    rep = reconcile_core.reconcile(d, trades, orders, lots, log_start=log_start)
+    mstate = mstate if isinstance(mstate, dict) else {}
+    fr = mstate.setdefault("fill_reconcile", {})
+    days = fr.setdefault("days", {})
+    days[today] = _fill_rec_line(rep, now_et)
+    for k in sorted(days)[:-FILL_REC_KEEP_DAYS]:
+        del days[k]
+    alerts = mstate.get("alerts") if isinstance(mstate.get("alerts"), dict) else {}
+    if alerts.get(FILL_REC_KEY, {}).get("open") and fr.get("pushed_day") != today:
+        # an earlier day's episode still open (the box was off through the passes that would
+        # have expired it): it ends here, silently, so today gets its own note
+        del alerts[FILL_REC_KEY]
+    is_open = bool(alerts.get(FILL_REC_KEY, {}).get("open"))
+    bad = rep["status"] in ("missing", "cant_check")
+    # ONE push per day: once today's note went, the rest of the day is "no change"; a late
+    # fill that clears it sends no second ("OK") note either
+    if is_open:
+        ok = False if bad else None
+    elif fr.get("pushed_day") == today:
+        ok = None
+    else:
+        ok = not bad
+    if ok is False:
+        fr["pushed_day"] = today
+    detail = (f"{today}: {rep['status']} -- book ${rep['book_usd']:.2f}, Webull "
+              f"${rep['broker_usd']:.2f}, slippage ${rep['slippage_usd']:.2f}, missing "
+              f"${rep['missing_usd']:.2f}; {len(rep['matched'])} matched, "
+              f"{len(rep['no_fill'])} trade(s) with no fill, {len(rep['orphan_fills'])} fill(s) "
+              f"with no trade, {len(rep['bad_orders'])} order(s) refused or unfilled, "
+              f"{rep.get('unpriced', 0)} matched with no Webull price yet"
+              + (f" ({rep['reason']})" if rep.get("reason") else ""))
+    if rep["status"] == "cant_check":
+        plain = _plain("Can't check today's Webull fills against the book: the order log "
+                       "was trimmed.", action=FILL_REC_DO, priority="default")
+        title = "fill reconcile: can't check, order log trimmed"
+    else:
+        plain = _plain(fill_reconcile_words(rep), action=FILL_REC_DO,
+                       affects=FILL_REC_AFFECTS, priority="high")
+        title = f"Webull vs book: missing ${rep['missing_usd']:.2f}"
+    v = _verdict(FILL_REC_KEY, "fill_reconcile", ok, HIGH, title, mask_digits(detail),
+                 plain=plain)
+    v["window_alert"] = True                   # ends with the day: expires, never "recovered"
+    return [v]
+
+
 def evaluate(snap, now_et, mstate):
     """(verdicts, groups_ran, exec view). Pure over `snap`; updates mstate's small memories
     (publish_seen, exec_log hits, tick_gap_seen, the pre-open gate's qqq_1d_missing)."""
@@ -2883,6 +3125,7 @@ def evaluate(snap, now_et, mstate):
         ("session", lambda: check_session(snap, now_et, mstate, ev)),
         ("vol_window", lambda: check_vol_window(snap, now_et, mstate)),
         ("eod", lambda: check_eod(snap, now_et)),
+        ("fill_reconcile", lambda: check_fill_reconcile(snap, now_et, mstate)),
         ("keel_live", lambda: check_keel_live(snap)),
     ]
     for group, fn in checks:
@@ -3033,6 +3276,9 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
         # KEEL size diffs on live NOISE entries (api/cloud_signal.py) -- the PC relays each
         # one once to the inboxes; see KEEL SIZE DIFFS in the docstring
         "keel_diffs": snap.get("keel_diffs") or [],
+        # FILL RECONCILE (B1-A): the last days' book-vs-Webull lines (newest last)
+        "fill_reconcile": dict(sorted(((mstate.get("fill_reconcile") or {}).get("days")
+                                       or {}).items())[-10:]),
     }
     summary = {"status": status, "pushes": pushes, "opened": opened, "recovered": recovered,
                "expired": expired, "decision": decision}
