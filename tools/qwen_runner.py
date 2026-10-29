@@ -45,6 +45,9 @@ NUM_CTX = 32768
 KEEP_ALIVE_TASK = "5m"
 MAX_TURNS = 40
 MAX_TASK_S = 45 * 60
+# Strata reads/writes slower per turn: Q3 + Q4 ran out of the 45-min wall on 10-28 (MANAGER #213).
+STRATA_MAX_TURNS = 80
+STRATA_MAX_TASK_S = 120 * 60
 MAX_EMPTY = 3
 READ_CAP = 12000
 GREP_MAX_FILES = 2000
@@ -959,6 +962,9 @@ class Runner:
         base_limit = getattr(chat, "ctx_limit", CTX_LIMIT)
         base_limit = base_limit if isinstance(base_limit, int) else CTX_LIMIT
         t0, turns, empty, limit, keep = self.clock(), 0, 0, base_limit, 6
+        max_turns, max_task_s = self.max_turns, self.max_task_s
+        if self.cur == "strata":
+            max_turns, max_task_s = max(max_turns, STRATA_MAX_TURNS), max(max_task_s, STRATA_MAX_TASK_S)
         outcome = None
 
         def dump():
@@ -969,11 +975,11 @@ class Runner:
                 pass
         try:
             while outcome is None:
-                if turns >= self.max_turns:
-                    outcome = ("blocked", "", "turn budget used (%d turns) without finish" % self.max_turns)
+                if turns >= max_turns:
+                    outcome = ("blocked", "", "turn budget used (%d turns) without finish" % max_turns)
                     break
-                if self.clock() - t0 > self.max_task_s:
-                    outcome = ("blocked", "", "45-min wall budget used without finish")
+                if self.clock() - t0 > max_task_s:
+                    outcome = ("blocked", "", "%d-min wall budget used without finish" % (max_task_s // 60))
                     break
                 if not self.wait_guards():
                     set_first_line(path, "STATUS: %s open" % OPEN)
