@@ -145,14 +145,22 @@ except Exception:                                  # tzdata missing -> the same 
     LOCAL_TZ = _dt.timezone(_dt.timedelta(hours=-7))
 
 
-def push(message, title=None, priority=None, timeout=8, log=None):
+def push(message, title=None, priority=None, timeout=8, log=None, extra=None):
     """POST one ntfy notification. See module docstring for the full contract."""
-    ok, _detail = push_result(message, title=title, priority=priority, timeout=timeout, log=log)
+    ok, _detail = push_result(message, title=title, priority=priority, timeout=timeout, log=log,
+                              extra=extra)
     return bool(ok)
 
 
-def push_result(message, title=None, priority=None, timeout=8, log=None):
-    """push() returning (ok, detail) -- ok None when NTFY_TOPIC is unset. Never raises."""
+def push_result(message, title=None, priority=None, timeout=8, log=None, extra=None):
+    """push() returning (ok, detail) -- ok None when NTFY_TOPIC is unset. Never raises.
+
+    extra  optional {header: value} for the few ntfy features a caller needs and this
+           module does not model - today only Actions (tools/alert.py's GO/HOLD
+           buttons). Title, Priority and Authorization are REFUSED: a caller able to
+           set those through here would be the drift this one-sender module exists to
+           stop, and the token must never come from a caller.
+    """
     def _log(text):
         if log is not None:
             log(text)
@@ -186,6 +194,12 @@ def push_result(message, title=None, priority=None, timeout=8, log=None):
     # an empty default.
     if token and "CHANGE-ME" not in token:
         headers["Authorization"] = f"Bearer {token}"
+    for k, v in (extra or {}).items():
+        if str(k).strip().lower() in ("title", "priority", "authorization", "x-title", "x-priority"):
+            _log(f"ntfy push: refusing caller header {k!r} -- it is this module's to set")
+            continue
+        if v:
+            headers[str(k)] = str(v)
 
     try:
         req = urllib.request.Request(
