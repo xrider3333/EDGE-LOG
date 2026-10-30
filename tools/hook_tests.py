@@ -169,9 +169,14 @@ def changed_files(root):
     """What this push changes, exactly as the shell hook computed it - the working tree against
     its merge-base with origin/main - except that renames list both names. None when git cannot
     say (then the heavy tiers run - see tiers)."""
-    rc, base = _git(root, 'merge-base', 'HEAD', 'origin/main')
-    if rc != 0 or not base:
-        base = 'origin/main'
+    # EDGELOG_DIFF_BASE: post_push_tests.py runs on a sha that is ALREADY on main, so against
+    # origin/main nothing changed (10-29: the first post-push run tested nothing). It passes main
+    # as it was before the push.
+    base = os.environ.get('EDGELOG_DIFF_BASE')
+    if not base:
+        rc, base = _git(root, 'merge-base', 'HEAD', 'origin/main')
+        if rc != 0 or not base:
+            base = 'origin/main'
     rc, out = _git(root, 'diff', '--no-renames', '--name-only', base, '--')
     if rc != 0:
         return None

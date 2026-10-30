@@ -80,3 +80,11 @@ def test_post_push_one_at_a_time(tmp_path):
         first.close()
     second = pp.hold_one_at_a_time(lk, sleep=sleep)
     assert calls == [30] and second
+
+
+def test_changed_files_honours_the_post_push_base(monkeypatch):
+    seen = []
+    monkeypatch.setattr(hook_tests, '_git', lambda root, *a: (seen.append(a), (0, 'x.py'))[1])
+    monkeypatch.setenv('EDGELOG_DIFF_BASE', 'abc123')
+    assert hook_tests.changed_files(ROOT) == ['x.py']
+    assert seen == [('diff', '--no-renames', '--name-only', 'abc123', '--')]

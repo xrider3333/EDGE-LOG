@@ -1975,6 +1975,7 @@ def cmd_ship_fast(name, message):
                        % attempt)
             _let_go(ticket, lock)
             continue
+        base_before = run(['git', '-C', wt, 'rev-parse', 'origin/main'])
         env = dict(os.environ, EDGELOG_FAST_SHIP='1')
         pushed = subprocess.run(['git', '-C', wt, 'push', '-q', 'origin', 'HEAD:main'], env=env,
                                 capture_output=True, text=True, encoding='utf-8',
@@ -2009,7 +2010,7 @@ def cmd_ship_fast(name, message):
         lg = os.path.join(logdir, '%s_%s.log' % (who, sha[:8]))
         detach = r'C:\EdgeLog\detach.py'
         cmd = [sys.executable, '-u', os.path.join(wt, 'tools', 'post_push_tests.py'), wt, sha,
-               '--label', who]
+               '--label', who, '--base', base_before]
         if os.path.isfile(detach):
             subprocess.run([sys.executable, detach, 'postpush_%s' % sha[:8], '--cwd', wt,
                             '--log', lg, '--'] + cmd, capture_output=True, timeout=60)

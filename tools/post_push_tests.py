@@ -92,6 +92,8 @@ def main(argv=None):
     ap.add_argument('worktree')
     ap.add_argument('sha')
     ap.add_argument('--label', default=None)
+    ap.add_argument('--base', default=None,
+                    help="main before the push (default <sha>~1); the tiers cover base..sha")
     a = ap.parse_args(argv)
     label = a.label or os.path.basename(os.path.abspath(a.worktree))
     root = _git('rev-parse', '--show-toplevel', cwd=a.worktree).stdout.strip() or a.worktree
@@ -115,9 +117,11 @@ def main(argv=None):
         return 2
     t0 = time.time()
     try:
+        env = dict(os.environ, EDGELOG_DIFF_BASE=a.base or (a.sha + '~1'))
+        log('tiers cover %s..%s' % (env['EDGELOG_DIFF_BASE'][:12], a.sha[:8]))
         p = subprocess.run([sys.executable, os.path.join(tmp, 'tools', 'hook_tests.py'),
                             'prelock', '--root', tmp], cwd=tmp, capture_output=True, text=True,
-                           encoding='utf-8', errors='replace')
+                           encoding='utf-8', errors='replace', env=env)
         out = (p.stdout or '') + (p.stderr or '')
         print(out[-6000:], flush=True)
         rc = p.returncode
