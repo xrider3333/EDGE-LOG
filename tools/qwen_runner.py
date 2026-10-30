@@ -8,8 +8,8 @@ State/log/transcripts: C:\\EdgeLog\\qwen_runner (override QWEN_RUNNER_HOME). STO
 
 Guards before every task AND every model turn (wait 60 s, re-check):
   ram_guard.should_yield() (free RAM < 6 GB), quiet mode, the qwen_lab STOP file,
-  Ollama /api/ps shows a model named 1.* or 2.* (the owner's Cline) - never start beside it.
-Model 3.qwen3.6:35b-32k, num_ctx 32768 (never more), keep_alive 5m in a task, 0 after.
+  Ollama /api/ps shows a model named 2.*, 3.* or 4.* (the owner's Cline) - never start beside it.
+Model 5.qwen3.6:35b-32k, num_ctx 32768 (never more), keep_alive 5m in a task, 0 after.
 Tools are READ-ONLY (read_file, list_dir, grep) + finish. Reads only under C:\\EdgeLog, the main checkout and the
 memory folder; refuses NinjaTrader/Webull/TradingView/.ssh, key/token/secret/password/credential/.env/.pem names,
 binaries. Writes ONLY: the task file (line 1 + ## RESULT), its STATUS.md icon, the MANAGER inbox, one phone push,
@@ -40,7 +40,7 @@ REPO = os.path.dirname(HERE)
 if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
-MODEL = "3.qwen3.6:35b-32k"
+MODEL = "5.qwen3.6:35b-32k"
 NUM_CTX = 32768
 KEEP_ALIVE_TASK = "5m"
 MAX_TURNS = 40
@@ -60,6 +60,8 @@ CTX_LIMIT = 75000
 
 STRATA_URL = "http://127.0.0.1:8080/v1"
 STRATA_MODEL = "qwen3.8-flash-next-gyro-gyro-s"
+STRATA_DISPLAY = "1.STRATA qwen3.8-flash:125b-256k"   # owner renumber 10-30 (MANAGER #220); wire id stays STRATA_MODEL
+OWNER_MODEL_PREFIXES = ("2.", "3.", "4.")              # the owner's Cline models; the runner's own 5.* is not one
 STRATA_ALIVE_S = 10
 STRATA_CTX_CAP_TOK = 200000
 STRATA_REPLY_TOK = 16384
@@ -628,14 +630,14 @@ def ollama_ps():
 
 
 def owner_model_loaded(ps_fn=None):
-    """(True, why) when a 1.* / 2.* model is loaded (the owner's Cline) or Ollama cannot be asked."""
+    """(True, why) when a 2.* / 3.* / 4.* model is loaded (the owner's Cline) or Ollama cannot be asked."""
     try:
         d = (ps_fn or ollama_ps)() or {}
     except Exception as e:                                           # noqa: BLE001
         return True, "Ollama /api/ps failed (%s)" % type(e).__name__
     for m in d.get("models") or []:
         name = str(m.get("name") or m.get("model") or "")
-        if name.startswith("1.") or name.startswith("2."):
+        if name.startswith(OWNER_MODEL_PREFIXES):
             return True, "owner model %s is loaded" % name
     return False, ""
 
@@ -949,6 +951,7 @@ class Runner:
         chat = self.chat_factory()
         model = getattr(chat, "model", None)
         model = model if isinstance(model, str) and model else MODEL
+        model = STRATA_DISPLAY if model == STRATA_MODEL else model
         nctx = getattr(chat, "num_ctx", NUM_CTX)
         nctx = nctx if isinstance(nctx, int) else NUM_CTX
         self.task_meta = {"backend": self.cur, "model": model, "num_ctx": nctx}

@@ -83,7 +83,7 @@ def test_pick_falls_back_to_status_row(env):
 # ---------------------------------------------------------------- guards
 def _g(**kw):
     base = dict(yield_fn=lambda: (False, ""), quiet_fn=lambda: (False, None), lab_stop_fn=lambda: False,
-                ps_fn=lambda: {"models": [{"name": "3.qwen3.6:35b-32k"}]})
+                ps_fn=lambda: {"models": [{"name": "5.qwen3.6:35b-32k"}]})
     base.update(kw)
     return R.check_guards(**base)
 
@@ -104,7 +104,7 @@ def test_guard_lab_stop(env):
     assert _g(lab_stop_fn=lambda: True) == ("yield", "qwen_lab STOP file")
 
 
-@pytest.mark.parametrize("name", ["1.qwen3.8-general:27b-48k", "2.coder:32b"])
+@pytest.mark.parametrize("name", ["2.qwen3.8:27b-48k", "3.qwen3.6:35b-128k", "4.qwen3.6:35b-64k"])
 def test_guard_owner_model(env, name):
     a, why = _g(ps_fn=lambda: {"models": [{"name": name}]})
     assert a == "yield" and name in why

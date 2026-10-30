@@ -146,7 +146,7 @@ def test_length_finish_reason_handled_like_ollama(env):
         R.compact = orig
     assert seen == [800000, 400000, 200000]          # starts at the Strata budget, halves on each length cut
     t = _r(str(env["tasks"] / "Q2-b.md"))
-    assert "cut at the context limit" in t and "backend strata · model %s (num_ctx 262144)" % R.STRATA_MODEL in t
+    assert "cut at the context limit" in t and "backend strata · model %s (num_ctx 262144)" % R.STRATA_DISPLAY in t
 
 
 def test_error_reply_raises():

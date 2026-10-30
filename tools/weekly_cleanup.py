@@ -124,7 +124,7 @@ def models():
     for r in rows:
         by_id.setdefault(r["id"], []).append(r["tag"])
     for r in rows:
-        if re.match(r"^[12][.-]", r["tag"]):
+        if re.match(r"^[1-4][.-]", r["tag"]):
             continue                  # the owner's own numbered models (Cline in VS Code): never listed
         twins = [t for t in by_id[r["id"]] if t != r["tag"]]
         if r["tag"] not in used and twins and any(t in used for t in twins):
@@ -163,7 +163,7 @@ def report(days, now, size=True):
         for r in md:
             L.append(f"- {r['tag']} ({r['id']}) - {gb(r['size'])}: {r['why']}. Remove with `ollama rm {r['tag']}`")
         L.append("Ollama shares weight files between tags, so the space freed can be less than listed. "
-                 "The owner's numbered 1.*/2.* models are never listed.")
+                 "The owner's numbered 1.*-4.* models (old 1.* aliases + 2-4 owner models) are never listed.")
     L.append("")
     return "\n".join(L)
 

@@ -1,6 +1,6 @@
 r"""MODEL REPORT CARD (Open Board B11, owner 10-29 via MANAGER #137) - the weekly score of the local models.
 
-Scores every Ollama model whose name starts with "1.", "2." or "3." (the owner's numbered models) and "4.STRATA" (the Strata
+Scores every Ollama model whose name starts with "2." to "5." (the owner's numbered models) and "1.STRATA qwen3.8-flash:125b-256k" (the Strata
 server on :8080, OpenAI API) on the 11 hard trading / statistics questions of C:\EdgeLog\strata_test\qhard.py (copied below,
 Python grades them: last number in the answer within 0.1% or 0.051 of the key), think OFF, temperature 0. Also measures
 write speed (tok/s over the 11 answers) and read speed (one ~20K-token read of index.html).
@@ -25,6 +25,7 @@ import urllib.request
 
 OLLAMA = os.environ.get("AUGUR_LOCAL_LLM_HOST", "http://127.0.0.1:11434").rstrip("/")
 STRATA = "http://127.0.0.1:8080"
+STRATA_NAME = "1.STRATA qwen3.8-flash:125b-256k"   # owner renumber 10-30 (MANAGER #220)
 OUT_MD = r"C:\EdgeLog\manager\model_report.md"
 OUT_JSONL = r"C:\EdgeLog\manager\model_report.jsonl"
 INDEX_HTML = os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "index.html")
@@ -64,7 +65,7 @@ def _post(url, body, timeout=3600):
 
 def ollama_models():
     tags = json.load(urllib.request.urlopen(OLLAMA + "/api/tags", timeout=10))
-    return sorted(m["name"] for m in tags.get("models", []) if re.match(r"^[123]\.", m["name"]))
+    return sorted(m["name"] for m in tags.get("models", []) if re.match(r"^[2-5]\.", m["name"]))
 
 
 def ollama_gen(model, prompt, n):
@@ -114,7 +115,7 @@ def render(rows, when):
         else:
             lines.append("| %s | %d/%d | %s | %s | %s |" % (r["model"], r["score"], r["of"], r["write_tps"], r["read_tps"] if r["read_tps"] else "-", r["minutes"]))
     lines += ["", "Think off, temperature 0, Python-graded (C:\\EdgeLog\\strata_test\\qhard.py questions). Read = one ~20K-token read of index.html. "
-              "4.STRATA write tok/s includes its read time (its API reports no split).", ""]
+              "1.STRATA write tok/s includes its read time (its API reports no split).", ""]
     return "\n".join(lines)
 
 
@@ -125,7 +126,7 @@ def main(argv=None):
     ap.add_argument("--out", default=OUT_MD)
     a = ap.parse_args(argv)
     now = datetime.datetime.now()
-    names = ollama_models() + ["4.STRATA"]
+    names = ollama_models() + [STRATA_NAME]
     if a.only:
         names = [n for n in names if n.startswith(a.only)]
     if a.dry:
@@ -133,7 +134,7 @@ def main(argv=None):
         return 0
     rows = []
     for n in names:
-        if n == "4.STRATA":
+        if n == STRATA_NAME:
             if now.hour < STRATA_FROM_HOUR:
                 rows.append({"model": n, "skipped": "before 13:00 MST (owner rule)"})
                 continue
@@ -142,7 +143,7 @@ def main(argv=None):
             except Exception as e:
                 rows.append({"model": n, "skipped": "server not up (%s)" % type(e).__name__})
                 continue
-            rows.append(score("4.STRATA (%s)" % sm, lambda p, k: strata_gen(p, k, sm)))
+            rows.append(score(STRATA_NAME + " (%s)" % sm, lambda p, k: strata_gen(p, k, sm)))
         else:
             try:
                 rows.append(score(n, lambda p, k, m=n: ollama_gen(m, p, k)))

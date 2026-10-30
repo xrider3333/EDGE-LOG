@@ -25,5 +25,5 @@ def test_score_and_render_with_fake_model():
         return next(keys), 100, 2.0, 50, 0.1
     r = mr.score("3.fake", gen)
     assert r["score"] == 11 and r["write_tps"] == 50.0 and r["read_tps"] == 500
-    md = mr.render([r, {"model": "4.STRATA", "skipped": "before 13:00 MST (owner rule)"}], datetime.datetime(2026, 10, 29, 9, 0))
+    md = mr.render([r, {"model": "1.STRATA qwen3.8-flash:125b-256k", "skipped": "before 13:00 MST (owner rule)"}], datetime.datetime(2026, 10, 29, 9, 0))
     assert "| 3.fake | 11/11 | 50.0 | 500" in md and "before 13:00" in md
