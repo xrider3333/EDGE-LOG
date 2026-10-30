@@ -123,9 +123,33 @@ def main():
     def sliced(lo, hi):
         return {k: (x[lo:hi] if hasattr(x, "__len__") and not isinstance(x, (str, dict)) and len(x) == len(idx) else x)
                 for k, x in A.items()}
+    # BOARD 38: prefer the stored bound timestamps; with indices only, refuse when the data changed.
+    from augur_engine.fold_anchor import fold_bounds_check, data_fp, BoundsDrift
+    _run_fp = d.get("data_fp") if isinstance(d.get("data_fp"), dict) else None
+    _today_fp = data_fp(A, m) if (_run_fp and _run_fp.get("date_from") == d["date_from"]
+                                  and _run_fp.get("date_to") == win["optimize"][1]) else None
+    _expect = (int(rows[-1]["train_bars"]) + int(rows[-1]["test_bars"])) if rows else None
+    _pos = {t: i for i, t in enumerate(idx)}
+
+    def _bounds(r):
+        try:
+            kind, (x0, x1) = fold_bounds_check(dict(r, test_start=int(r["train_bars"])),
+                                               {"bars": _expect, **(_run_fp or {})} if _today_fp else {"bars": _expect},
+                                               today_bars=len(idx), today_fp=_today_fp, run_label=a.run)
+        except BoundsDrift as e:
+            raise SystemExit(str(e))
+        if kind == "ts":
+            def at(x):
+                t = pd.Timestamp(x)
+                t = t.tz_convert("America/New_York").tz_localize(None) if t.tzinfo is not None else t
+                if t not in _pos:
+                    raise SystemExit("FOLD BOUNDS UNSAFE: run #%s fold bound %s is not in today's data; not re-reading" % (a.run, x))
+                return _pos[t]
+            return at(x0), at(x1) + 1
+        return int(r["train_bars"]), int(r["train_bars"]) + int(r["test_bars"])
+
     def fold_trades(r, c):
-        s0 = int(r["train_bars"])
-        s1 = s0 + int(r["test_bars"])
+        s0, s1 = _bounds(r)
         pp = {k: r[k] for k in pkeys}
         w = warm_start(s0)                                  # the validate scores each fold WARM, on the slice [w, s1)
         return s0, s1, pp, [(int(t[0]) + w,) + tuple(t[1:]) for t in trades(strat, sliced(w, s1), pp, c)

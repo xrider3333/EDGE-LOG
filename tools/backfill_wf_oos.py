@@ -295,8 +295,59 @@ def rebuild_plan(d):
     plan = {"strategy": d["strategy"], "instrument": d["instrument"], "timeframe": d["timeframe"],
             "session": sess, "source": src, "cost_pts": cost_pts, "mode": mode,
             "date_from": str(opt[0]), "date_to": str(opt[1]),
-            "expect_n": expect_n, "folds": bounds}
+            "expect_n": expect_n, "folds": bounds,
+            "run_id": d.get("id"), "data_fp": d.get("data_fp")}
     return plan, None
+
+
+def _ts_key(x):
+    import pandas as pd
+    t = pd.Timestamp(x)
+    if t.tzinfo is not None:
+        t = t.tz_convert("UTC").tz_localize(None)
+    return t
+
+
+def resolve_fold_bounds(plan, index, n):
+    """BOARD 38: map saved fold bounds onto today's window.
+
+    Fold rows carrying test_start_ts/test_end_ts (written since e11ee8b2) are re-located BY
+    TIMESTAMP - a fill ahead of a bound no longer shifts it. Rows with indices only are used
+    as-is only when the data is provably the same (stored data_fp hash matches today's, or no
+    fingerprint and the bar count matches); otherwise refuse with ONE line (ReplaySkip).
+    -> list of fold bound dicts (te_s/te_e possibly remapped)."""
+    folds = plan["folds"]
+    rows = [fb["row"] for fb in folds]
+    if rows and all(r.get("test_start_ts") is not None and r.get("test_end_ts") is not None for r in rows):
+        import pandas as pd
+        ix = pd.DatetimeIndex(index)
+        if ix.tz is not None:
+            ix = ix.tz_convert("UTC").tz_localize(None)
+        pos = {t: i for i, t in enumerate(ix)}
+        out = []
+        for fb in folds:
+            a = pos.get(_ts_key(fb["row"]["test_start_ts"]))
+            b = pos.get(_ts_key(fb["row"]["test_end_ts"]))
+            if a is None or b is None:
+                raise ReplaySkip(f"FOLD BOUNDS UNSAFE: run #{plan.get('run_id', '?')} fold {fb['fold']} "
+                                 "bound timestamp is not in today's data; not re-reading")
+            out.append(dict(fb, te_s=a, te_e=b + 1, test_bars=b + 1 - a))
+        if out[-1]["te_e"] != n:     # the chain must still end on the window's last bar (a dropped last fold)
+            raise ReplaySkip(bars_mismatch_reason(n, out[-1]["te_e"], out))
+        return out
+    fp = plan.get("data_fp") if isinstance(plan.get("data_fp"), dict) else None
+    same_window = bool(fp) and fp.get("date_from") == plan["date_from"] and fp.get("date_to") == plan["date_to"]
+    today_fp = plan.get("today_fp")
+    if same_window and today_fp:
+        if fp.get("hash") == today_fp.get("hash") and n == plan["expect_n"]:
+            return folds
+        raise ReplaySkip(f"FOLD BOUNDS UNSAFE: run #{plan.get('run_id', '?')} stored bar indices only and the "
+                         f"data changed since (bars {fp.get('bars')} -> {n}); not re-reading")
+    if n != plan["expect_n"]:
+        raise ReplaySkip(f"FOLD BOUNDS UNSAFE: run #{plan.get('run_id', '?')} stored bar indices only and the "
+                         f"data changed since (bars {plan['expect_n']} -> {n}); not re-reading | "
+                         + bars_mismatch_reason(n, plan["expect_n"], folds))
+    return folds
 
 
 # ── per-fold replay + match ──────────────────────────────────────────────────────────────
@@ -452,10 +503,17 @@ def rebuild_from_market_data(plan, log=print):
                          f"{plan['source']} (the master registry lives in the shared checkout)")
     arrays = load_master_arrays(master, date_from=plan["date_from"], date_to=plan["date_to"])
     n = len(arrays["close"])
-    if n != plan["expect_n"]:
-        raise ReplaySkip(bars_mismatch_reason(n, plan["expect_n"], plan["folds"]))
-    ev = make_slice_evaluator(mod, arrays, plan["cost_pts"])
     index = arrays.get("index")
+    try:
+        from augur_engine.fold_anchor import data_fp as _dfp
+        _tfp = _dfp(arrays, master)
+        if _tfp is not None:
+            _tfp.update(date_from=plan["date_from"], date_to=plan["date_to"])
+        plan = dict(plan, today_fp=_tfp)
+    except Exception:
+        pass
+    plan = dict(plan, folds=resolve_fold_bounds(plan, index, n))
+    ev = make_slice_evaluator(mod, arrays, plan["cost_pts"])
     log(f"  loaded {n} bars {plan['date_from']}..{plan['date_to']}, {len(plan['folds'])} fold(s)")
     return [build_fold_match(ev, index, fb, params)
             for fb, params in zip(plan["folds"], params_list)]
