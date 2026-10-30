@@ -274,3 +274,42 @@ def test_repo_ledger_exists_and_is_empty_or_valid():
     led = pg.read_ledger(lp)
     for name, e in led.items():
         assert name.endswith(".py") and len(e.get("sha256_lf", "")) == 64 and e.get("reviewed_by"), name
+
+
+# ------------------------------------------------------------------ C7 look-ahead linter
+@pytest.mark.parametrize("line,hit", [
+    ("y = df['close'].shift(-1)", "shift(-1)"),
+    ("y = df['close'].shift(periods=-2)", "shift(-2)"),
+    ("y = df['close'].pct_change(-1)", "pct_change(-1)"),
+    ("y = df['close'].rolling(5, center=True).mean()", "center=True"),
+    ("y = df['close'].iloc[i + 1]", "i + 1"),
+    ("y = df['close'].values[1 + i]", "1 + i"),
+    ("y = df['close'].iat[i + 2 - 1]", "i + 2 - 1"),
+])
+def test_lookahead_is_flagged(line, hit):
+    r = pg.lookahead_check("def f(df, i):\n    " + line + "\n    return y\n")
+    assert len(r) == 1 and hit in r[0]
+
+
+@pytest.mark.parametrize("line", [
+    "y = df['close'].shift(1)",
+    "y = df['close'].rolling(5).mean()",
+    "y = df['close'].iloc[i - 1]",
+    "y = df['close'].iloc[i + 1 - n]",
+    "y = df['close'].iloc[i]",
+    "y = df['close'].iloc[i:i + 2]",
+])
+def test_backward_reads_are_clean(line):
+    assert pg.lookahead_check("def f(df, i, n):\n    " + line + "\n    return y\n") == []
+
+
+def test_gate_refuses_lookahead_and_lint_cli(strat_dir):
+    p = os.path.join(strat_dir, "qwen_lab", "QL_PEEK.py")
+    os.makedirs(os.path.dirname(p), exist_ok=True)
+    with open(p, "w", encoding="utf-8") as f:
+        f.write('"""peek"""\n\ndef signal(df):\n    return df["close"].shift(-1) > df["close"]\n')
+    rep = inspect_plugin(p)
+    assert not rep["ok"] and any(r.startswith("look-ahead:") for r in rep["reasons"])
+    with pytest.raises(PluginGateError):
+        pg.stamp_reviewed(p, "NOISE")
+    assert pg.main(["--lint", p]) == 1

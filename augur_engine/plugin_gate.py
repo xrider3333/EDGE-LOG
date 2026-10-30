@@ -24,8 +24,13 @@ already hold in its cache, and before the runner's own pin check:
   2. REVIEW LEDGER. An LLM-written file must be listed in augur_strategies/qwen_lab/REVIEWED.json
      with the LF sha256 of its bytes (CRLF folded to LF, the lab's lf_sha256). The reviewing
      Claude lane writes that entry in the same ship that lands the plugin:
-         python -m augur_engine.plugin_gate --stamp <LANE> augur_strategies/qwen_lab/QL_X.py
+         python -m augur_engine.plugin_gate --lint <file.py> [...]     look-ahead hits only, any file, exit 1 on a hit
+    python -m augur_engine.plugin_gate --stamp <LANE> augur_strategies/qwen_lab/QL_X.py
      No entry, or an entry whose sha differs from the file on disk, = refused before import.
+  4. LOOK-AHEAD (board C7, 10-30). lookahead_check() flags code that reads future bars: .shift(-n),
+     .diff(-n), .pct_change(-n), x.iloc[i + 1] / x.iat[i + 1] / x.values[i + 1], .rolling(center=True).
+     Any hit refuses an LLM file like a safety reason. `--lint <file>` runs it on ANY file (hand-written
+     too) and prints the hits without gating.
   3. SAFETY. The source must pass safety_check(): a static whitelist (nothing is imported or
      executed to decide). Imports: numpy, pandas, math, and by name `from augur_engine.rolls
      import seam_days` / `from augur_engine.session_calendar import <helper>`. No os / sys /
@@ -45,6 +50,7 @@ word.
 
 CLI:
     python -m augur_engine.plugin_gate <file.py> [...]            PASS / NOT GATED / REFUSED per file, exit 1 on a refusal
+    python -m augur_engine.plugin_gate --lint <file.py> [...]     look-ahead hits only, any file, exit 1 on a hit
     python -m augur_engine.plugin_gate --stamp <LANE> <file.py>   safety-check, then write / replace its ledger entry
 """
 import ast
@@ -284,6 +290,77 @@ def safety_check(code):
     return out[:25]
 
 
+# ------------------------------------------------------------------------------------------- the look-ahead linter
+_POS_INDEX_ATTRS = {"iloc", "iat", "values"}
+
+
+def _const_int(node):
+    """The int value of a literal (also -n written as a unary minus), else None."""
+    if isinstance(node, ast.UnaryOp) and isinstance(node.op, ast.USub):
+        v = _const_int(node.operand)
+        return -v if v is not None else None
+    if isinstance(node, ast.Constant) and isinstance(node.value, int) and not isinstance(node.value, bool):
+        return node.value
+    return None
+
+
+def _terms(node, sign=1):
+    """Flatten + / - chains into [(sign, leaf)]."""
+    if isinstance(node, ast.BinOp) and isinstance(node.op, (ast.Add, ast.Sub)):
+        return _terms(node.left, sign) + _terms(node.right, sign if isinstance(node.op, ast.Add) else -sign)
+    return [(sign, node)]
+
+
+def _forward_offset(node):
+    """True when an index is <variable> plus a positive constant net (i + 1, 1 + i, i + 2 - 1), with nothing
+    subtracted that could pull it back (d + 1 - L is a trailing window start, not a later bar)."""
+    const, has_var = 0, False
+    for sg, leaf in _terms(node):
+        v = _const_int(leaf)
+        if v is not None:
+            const += sg * v
+        elif sg < 0:
+            return False
+        else:
+            has_var = True
+    return has_var and const > 0
+
+
+def lookahead_check(code):
+    """Reasons the source reads FUTURE bars (board C7; [] = none found). Static, like safety_check. Flags:
+    .shift(-n) / .shift(periods=-n) / .diff(-n) / .pct_change(-n), a positional index forward of a variable
+    (x.iloc[i + 1], x.iat[i + 1], x.values[i + 1]), and .rolling(..., center=True). A
+    linter, not a proof: a next-bar FILL written as .iloc[i + 1] is flagged too - review it by hand."""
+    try:
+        tree = ast.parse(code)
+    except SyntaxError:
+        return []                                                # safety_check reports the syntax error
+    out = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute):
+            name = node.func.attr
+            if name in ("shift", "diff", "pct_change"):
+                arg = node.args[0] if node.args else next((k.value for k in node.keywords if k.arg == "periods"), None)
+                v = _const_int(arg) if arg is not None else None
+                if v is not None and v < 0:
+                    out.append("line %s: .%s(%d) reads %d bar(s) ahead" % (node.lineno, name, v, -v))
+            if name == "rolling":
+                for k in node.keywords:
+                    if k.arg == "center" and isinstance(k.value, ast.Constant) and k.value.value is True:
+                        out.append("line %s: .rolling(center=True) averages future bars into today" % node.lineno)
+        elif isinstance(node, ast.Subscript) and isinstance(node.ctx, ast.Load):
+            idx = node.slice
+            if isinstance(idx, ast.Tuple) and idx.elts:
+                idx = idx.elts[0]
+            if isinstance(idx, ast.Slice):
+                continue                                         # x[i:i + 2] windows are read elsewhere; keep it simple
+            tgt = node.value
+            if isinstance(tgt, ast.Attribute) and tgt.attr in _POS_INDEX_ATTRS:
+                if _forward_offset(idx):
+                    out.append("line %s: index %s reads a later bar" % (node.lineno, ast.unparse(idx)))
+    return sorted(set(out), key=lambda r: int(r.split()[1].rstrip(":")))[:25]
+
+
 # ------------------------------------------------------------------------------------------- the gate
 def inspect_plugin(path, src=None):
     """The gate's findings for `path` without raising: {path, llm, sha, reviewed, reviewed_by, reasons, ok}.
@@ -319,6 +396,7 @@ def inspect_plugin(path, src=None):
             rep["reasons"].append("reviewed sha %s does not match the file on disk %s - the file changed after its "
                                   "review (re-review and re-stamp it)" % (want[:16] or "?", rep["sha"][:16]))
     rep["reasons"].extend("safety: " + r for r in safety_check(src))
+    rep["reasons"].extend("look-ahead: " + r for r in lookahead_check(src))
     rep["ok"] = not rep["reasons"]
     return rep
 
@@ -343,10 +421,9 @@ def stamp_reviewed(path, by, note=""):
     if who is None:
         raise ValueError("%s is not LLM-written (no qwen_lab/ dir, QL_ name or AUGUR-SOURCE marker) - no stamp needed"
                          % path)
-    bad = safety_check(src)
+    bad = ["safety: " + r for r in safety_check(src)] + ["look-ahead: " + r for r in lookahead_check(src)]
     if bad:
-        raise PluginGateError({"path": path, "llm": who, "sha": lf_sha256_bytes(raw),
-                               "reasons": ["safety: " + r for r in bad]})
+        raise PluginGateError({"path": path, "llm": who, "sha": lf_sha256_bytes(raw), "reasons": bad})
     if not str(by or "").strip():
         raise ValueError("--stamp needs the reviewing lane's name")
     lp = ledger_path(path)
@@ -374,6 +451,16 @@ def main(argv=None):
     if not argv or argv[0] in ("-h", "--help"):
         print(__doc__.split("CLI:", 1)[-1].strip())
         return 0
+    if argv[0] == "--lint":
+        rc = 0
+        for p in argv[1:]:
+            with open(p, "rb") as f:
+                hits = lookahead_check(lf_bytes(f.read()).decode("utf-8", "replace"))
+            print("%s %s" % ("LOOKAHEAD" if hits else "CLEAN    ", p))
+            for h in hits:
+                print("    - " + h)
+            rc = rc or (1 if hits else 0)
+        return rc
     if argv[0] == "--stamp":
         if len(argv) < 3:
             print("usage: python -m augur_engine.plugin_gate --stamp <LANE> <file.py> [note...]")
