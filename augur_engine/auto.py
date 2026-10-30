@@ -369,6 +369,24 @@ def make_slice_evaluator(strategy, arrays, cost_pts=0.0, cache_ctx=None, warm_da
     return ev
 
 
+def wf_fold_specs(n, wf_folds=0, rolling=False):
+    """Walk-forward layout over n bars: [(fold, tr_start, tr_end, te_s, te_e), ...].
+    The first 40% is the initial IS window; the rest is cut into 2-8 test slices that
+    tile it exactly (the last slice takes the remainder). Rolling keeps the IS window at
+    `init` bars; anchored starts it at bar 0. tests/test_engine_properties.py pins this."""
+    req = int(wf_folds or 0)
+    n_folds = (max(2, min(8, req)) if req >= 2 else min(8, max(2, n // 3000)))
+    init = int(n * 0.40)
+    tsize = max(1, (n - init) // n_folds)
+    out = []
+    for f in range(n_folds):
+        tr_end = init + f * tsize
+        tr_start = max(0, tr_end - init) if rolling else 0
+        te_e = n if f == n_folds - 1 else tr_end + tsize
+        out.append((f, tr_start, tr_end, tr_end, te_e))
+    return out
+
+
 def score_candidates_on_folds(strategy, arrays, candidates, fold_bounds, cost_pts=0.0,
                               warm_days=0):
     """#88 (OOS-checked champion selection) -- score each candidate's FIXED params on
@@ -1336,18 +1354,9 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         # ── Walk-forward: anchored (expanding IS from 0) or rolling (fixed-length
         #    IS window of `init` bars that slides forward — more regime-honest). ──
         rolling = str(wf_mode).lower() == "rolling"
-        req = int(wf_folds or 0)
-        n_folds = (max(2, min(8, req)) if req >= 2 else min(8, max(2, n // 3000)))
-        init = int(n * 0.40)
-        tsize = max(1, (n - init) // n_folds)
+        fold_specs = wf_fold_specs(n, wf_folds, rolling)
+        n_folds = len(fold_specs)
         n_total = n_trials * n_folds
-        fold_specs = []
-        for f in range(n_folds):
-            tr_end = init + f * tsize
-            tr_start = max(0, tr_end - init) if rolling else 0
-            te_s = tr_end
-            te_e = n if f == n_folds - 1 else te_s + tsize
-            fold_specs.append((f, tr_start, tr_end, te_s, te_e))
         # ── PARALLEL FOLDS (2026-09-08, augur_engine.wf_pool) ──────────────────────
         #   Each fold is its own process when workers > 1. Same _wf_fold_row as the
         #   loop below, so the rows are identical; only the wall-clock differs. Any
