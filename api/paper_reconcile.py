@@ -121,6 +121,18 @@ def _map_signal(sig, trade_date=None):
     return None, None
 
 
+# The legs NinjaTrader actually trades on the demo (2026-10-30, B1). The report carries ~60
+# shadow legs; every one of them used to be a "never took it" problem each day, so the two that
+# matter drowned (10-27: ENGUQ_335 SHADOW-ONLY sat in a list of 40). EdgeLogORB230 is not
+# loaded on NinjaTrader any more, so ORB is not here.
+NT_LEG_SIGNALS = ("NZ", "EQ")
+
+
+def nt_legs(trade_date=None):
+    """The leg keys NinjaTrader trades on `trade_date` (EQ moves with _ENGUQ_SWITCH_DATE)."""
+    return {_map_signal(s, trade_date)[1] for s in NT_LEG_SIGNALS}
+
+
 def leg_from_signal(sig, trade_date=None):
     """Exact leg for a fill's signal name, or None when it cannot be known."""
     return _map_signal(sig, trade_date)[1]
@@ -329,15 +341,19 @@ def match_day(shadow_by_leg, live_trades, *, tol_min=TOL_MIN):
     return {"legs": results, "unattributed": ambiguous, "tol_min": tol_min}
 
 
-def verdict(rec, *, live_expected=True):
+def verdict(rec, *, live_expected=True, only_legs=None):
     """One line per leg plus an overall call, in the terms the owner reads.
 
     live_expected=False means the NinjaScript strategies are not enabled on charts yet —
     in that state 'shadow trades with no live counterpart' is the DESIGNED state, not a
     divergence, and saying otherwise would train everyone to ignore this field."""
-    out = {"legs": {}, "problems": []}
+    out = {"legs": {}, "problems": [], "missing_usd": 0.0}
     for leg, r in (rec.get("legs") or {}).items():
         m, so, lo = len(r["matched"]), len(r["shadow_only"]), len(r["live_only"])
+        if only_legs is not None and leg not in only_legs:
+            if m or lo:
+                out["legs"][leg] = f"not a NinjaTrader leg; {m + lo} demo fill(s) landed on it"
+            continue
         if not live_expected:
             # Count matched too: a fill can still exist from manual testing, and reporting
             # only shadow_only would understate how many signals the engine produced.
@@ -353,6 +369,7 @@ def verdict(rec, *, live_expected=True):
         if so:
             line += f", {so} SHADOW-ONLY"
             out["problems"].append(f"{leg}: {so} expected trade(s) the demo never took")
+            out["missing_usd"] += sum(_num(x.get("pnl_usd")) or 0.0 for x in r["shadow_only"])
         if lo:
             line += f", {lo} LIVE-ONLY"
             out["problems"].append(
@@ -395,7 +412,7 @@ def run(target_date, report, *, fills_path=None, live_expected=True):
     shadow_by_leg = {leg: (blk.get("_trades") or [])
                      for leg, blk in (report.get("legs") or {}).items()}
     rec = match_day(shadow_by_leg, live)
-    rec["verdict"] = verdict(rec, live_expected=live_expected)
+    rec["verdict"] = verdict(rec, live_expected=live_expected, only_legs=nt_legs(target_date))
     rec["n_live_trades"] = len(live)
     # Says why every decision_agree is a dash on days paper.py's Layer-3 hand-off does not
     # carry the shadow multiplier. Better a stated gap than a column nobody trusts.
@@ -406,3 +423,16 @@ def run(target_date, report, *, fills_path=None, live_expected=True):
                             "gate multiplier it writes to Firestore (api/paper.py:1160) "
                             "never reaches this file")
     return rec
+
+
+def push_line(target_date, rec):
+    """The one phone line for a day with a NinjaTrader gap, or None when the day is clean.
+    missing_usd = what the book made (or lost) on the trades the demo never took."""
+    v = (rec or {}).get("verdict") or {}
+    if v.get("ok") is not False:
+        return None
+    usd = v.get("missing_usd") or 0.0
+    head = f"NinjaTrader demo {target_date:%m-%d}: "
+    if usd:
+        head += f"missing {'+' if usd > 0 else '-'}${abs(usd):,.0f} of book trades. "
+    return head + "; ".join(v.get("problems") or [])

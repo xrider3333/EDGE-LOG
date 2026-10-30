@@ -78,3 +78,29 @@ def test_match_day_attributes_pre_switch_eq_fill_to_enguq_er():
     rec = PR.match_day(shadow_by_leg, live_trades)
     assert len(rec["legs"]["ENGUQ_ER"]["matched"]) == 1
     assert rec["legs"]["ENGUQ_335"]["shadow_only"] == []
+
+
+def test_only_ninjatrader_legs_are_problems_and_the_gap_is_priced():
+    import datetime as _dt
+    from api import paper_reconcile as R
+    day = _dt.date(2026, 10, 29)
+    rec = {"legs": {
+        "ENGUQ_335": {"matched": [], "live_only": [],
+                      "shadow_only": [{"pnl_usd": -3181.32}]},
+        "NOISE_SBS_V90": {"matched": [], "live_only": [], "shadow_only": [{"pnl_usd": -2075.66}]},
+        "NOISE_H_RF": {"matched": [], "live_only": [], "shadow_only": []}}}
+    v = R.verdict(rec, only_legs=R.nt_legs(day))
+    assert v["problems"] == ["ENGUQ_335: 1 expected trade(s) the demo never took"]
+    assert round(v["missing_usd"], 2) == -3181.32 and v["ok"] is False
+    rec["verdict"] = v
+    line = R.push_line(day, rec)
+    assert line.startswith("NinjaTrader demo 10-29: missing -$3,181 of book trades.")
+    assert R.nt_legs(day) == {"NOISE_H_RF", "ENGUQ_335"}
+
+
+def test_a_clean_day_pushes_nothing():
+    import datetime as _dt
+    from api import paper_reconcile as R
+    rec = {"legs": {"NOISE_SBS_V90": {"matched": [], "live_only": [], "shadow_only": [{"pnl_usd": 5}]}}}
+    rec["verdict"] = R.verdict(rec, only_legs=R.nt_legs(_dt.date(2026, 10, 29)))
+    assert R.push_line(_dt.date(2026, 10, 29), rec) is None

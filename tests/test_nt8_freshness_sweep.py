@@ -224,7 +224,7 @@ def _stub_main(monkeypatch, tmp_path, items, tasks=None):
     monkeypatch.setattr(S, "run_backfill", lambda: None)
     monkeypatch.setattr(S, "read_tasks", lambda: tasks or [])
     for fn in ("check_box_push", "check_nt_backup", "check_roster", "check_capture", "check_capture_qa", "check_repair", "check_readiness",
-               "check_roll_watch"):
+               "check_roll_watch", "check_premarket_run"):
         monkeypatch.setattr(S, fn, lambda *a, **k: [])
     if items is not None:
         monkeypatch.setattr(S, "check_tasks", lambda now_local, tasks=None: list(items))
@@ -394,3 +394,17 @@ def test_a_non_ninjatrader_job_says_so_on_the_phone():
     note = S.build_note([it])
     assert ntfy_push.lint(note) == [] and note["title"].startswith("PC data jobs")
     assert S.build_note([it, {"id": "readiness", "status": "fail", "detail": ""}])["title"].startswith("Paper NT8")
+
+
+def test_a_premarket_run_killed_midway_fails_by_itself(tmp_path):
+    import datetime as _dt
+    nl = chr(10)
+    p = tmp_path / "premarket.log"
+    p.write_text("2026-10-29 06:00:01  === pre-market check ===" + nl + "2026-10-29 06:00:02  runner processes: 0" + nl,
+                 encoding="utf-8")
+    now = _dt.datetime(2026, 10, 29, 6, 30)
+    out = S.check_premarket_run(now, log_path=str(p))
+    assert out[0]["status"] == "fail" and "never finished" in out[0]["detail"]
+    assert S.check_premarket_run(_dt.datetime(2026, 10, 29, 6, 5), log_path=str(p)) == []    # still running
+    p.write_text(p.read_text() + "2026-10-29 06:01:00  === done ===" + nl, encoding="utf-8")
+    assert S.check_premarket_run(now, log_path=str(p))[0]["status"] == "pass"

@@ -3077,6 +3077,10 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
         _v = report["reconcile"].get("verdict") or {}
         for _p in (_v.get("problems") or []):
             _log(f"uid={uid} RECONCILE {target_date.isoformat()}: {_p}")
+        _line = paper_reconcile.push_line(target_date, report["reconcile"])
+        if _line:
+            from . import ntfy_push
+            ntfy_push.push(_line, title="NinjaTrader fills check", log=_log)
     except Exception as e:
         report["reconcile"] = {"ok": None, "error": f"{type(e).__name__}: {e}"}
 

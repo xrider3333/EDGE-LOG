@@ -383,6 +383,35 @@ def check_roll_watch(now_local, flag=None):
                   "legs with no contract refusal and no trade jump, then create " + flag)]
 
 
+PREMARKET_LOG = os.path.join(EL, "premarket.log")
+PREMARKET_START, PREMARKET_DONE = "=== pre-market check ===", "=== done ==="
+PREMARKET_MAX_RUN_MIN = 15
+
+
+def check_premarket_run(now_local, log_path=None):
+    """The wake job writes a start and a done line. A start with no done after it, 15 min on, is a run that was
+    killed (10-29 06:00: exit 0xC000013A, nothing in the log said so - only the task result did)."""
+    p = log_path or PREMARKET_LOG
+    try:
+        lines = [ln.rstrip() for ln in open(p, encoding="utf-8", errors="replace")][-400:]
+    except OSError:
+        return []
+    start = max((i for i, ln in enumerate(lines) if PREMARKET_START in ln), default=None)
+    if start is None:
+        return []
+    if any(PREMARKET_DONE in ln for ln in lines[start:]):
+        return [_item("premarket_run", "pass", "Premarket wake run", f"last run finished ({lines[start][:16]})")]
+    try:
+        began = dt.datetime.fromisoformat(lines[start][:19])
+    except ValueError:
+        return []
+    if (now_local - began).total_seconds() < PREMARKET_MAX_RUN_MIN * 60:
+        return []
+    last = lines[-1][:120] if len(lines) > start + 1 else "(nothing after the start line)"
+    return [_item("premarket_run", "fail", "Premarket wake run",
+                  f"started {began:%m-%d %H:%M} and never finished - killed mid-run; last line: {last}")]
+
+
 def check_readiness(now_ts, path=None):
     p = path or os.path.join(EL, "nt_readiness.json")
     now_et = dt.datetime.fromtimestamp(now_ts, ET)
@@ -633,7 +662,8 @@ def main(argv=None):
                                f"queue/merge crashed: {type(e).__name__}: {e}"))
     for fn in (lambda: check_tasks(now_local), lambda: check_box_push(now_local), lambda: check_nt_backup(now_local),
                lambda: check_roster(now_local), lambda: check_capture(now_ts), lambda: check_capture_qa(now_ts), lambda: check_repair(now_ts),
-               lambda: check_readiness(now_ts), lambda: check_roll_watch(now_local)):
+               lambda: check_readiness(now_ts), lambda: check_roll_watch(now_local),
+               lambda: check_premarket_run(now_local)):
         try:
             items += fn()
         except Exception as e:
