@@ -729,7 +729,7 @@ class RunnerChat:
         payload = {"model": q.model, "messages": messages, "stream": False, "think": q.think,
                    "keep_alive": KEEP_ALIVE_TASK, "tools": [{"type": "function", "function": t} for t in tools],
                    "options": {"temperature": 0.2, "seed": 20261028, "num_ctx": min(int(q.num_ctx), NUM_CTX),
-                               "num_predict": qwen_lab.NUM_PREDICT}}
+                               "num_predict": qwen_lab.NUM_PREDICT, **LL.cpu_options()}}
         t0 = time.time()
         d = LL._http_json("/api/chat", payload, timeout=q.timeout)
         if d.get("error"):

@@ -98,6 +98,15 @@ KEEP_ALIVE = "30m"          # hold the weights in RAM so the next call is warm
 # 32768 = the -32k model's own window (10-28: 16384 was left over from the qwen14-16k pick; the Qwen Lab's
 # transcript reached ~15.2k prompt tokens, so every reply was cut at ~1.1k tokens and came back empty).
 NUM_CTX = int(os.environ.get("AUGUR_LOCAL_LLM_CTX") or 32768)
+# C16: CPU threads for the part of a model that spills off the GPU. The i7-12800H has 14 cores
+# (6P+8E); 12 leaves 2 free for NinjaTrader / TradingView. Ollama has no server-wide env var for
+# this - num_thread is a per-request option - so every caller here sends it. 0 = Ollama decides.
+NUM_THREAD = int(os.environ.get("AUGUR_LOCAL_LLM_THREADS") or 12)
+
+
+def cpu_options():
+    """{"num_thread": N} for an Ollama options block, or {} when NUM_THREAD is 0."""
+    return {"num_thread": NUM_THREAD} if NUM_THREAD > 0 else {}
 CHUNK_TOKENS = 24000        # per map call; chars = tokens * CHARS_PER_TOKEN
 CHARS_PER_TOKEN = 3.5       # conservative for logs (digits/punctuation tokenise worse than prose)
 MAX_CHUNKS = 12             # refuse beyond this: on CPU a 24k chunk is minutes, not seconds
@@ -185,7 +194,7 @@ def generate(prompt, system=SYSTEM, num_predict=400, timeout=CALL_TIMEOUT, model
         "model": model, "prompt": prompt, "system": system, "stream": False,
         "think": think, "keep_alive": KEEP_ALIVE,
         "options": {"num_predict": int(num_predict), "temperature": 0,
-                    "num_ctx": int(num_ctx or NUM_CTX)},
+                    "num_ctx": int(num_ctx or NUM_CTX), **cpu_options()},
     }
     t0 = time.time()
     d = _http_json("/api/generate", payload, timeout=timeout)

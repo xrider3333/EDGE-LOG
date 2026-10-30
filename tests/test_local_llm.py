@@ -441,3 +441,20 @@ def test_mcp_server_process_speaks_clean_stdio(tmp_path):
     sent = b"".join(_FakeOllamaHTTP.bodies)
     assert sent and b"hunter0007" not in sent and b"edgelog-topic-0004" not in sent
     assert b"ready" in p.stderr                                   # logging went to stderr
+
+
+def test_generate_sends_cpu_thread_cap(monkeypatch):
+    """C16: every generate call caps Ollama's CPU threads (2 of 14 cores left for NT / TV)."""
+    import local_llm
+    sent = {}
+
+    def fake(path, payload=None, timeout=None):
+        sent.update(payload or {})
+        return {"response": "ok"}
+    monkeypatch.setattr(local_llm, "_http_json", fake)
+    monkeypatch.setattr(local_llm, "NUM_THREAD", 12)
+    local_llm.generate("hi")
+    assert sent["options"]["num_thread"] == 12
+    monkeypatch.setattr(local_llm, "NUM_THREAD", 0)
+    local_llm.generate("hi")
+    assert "num_thread" not in sent["options"]
