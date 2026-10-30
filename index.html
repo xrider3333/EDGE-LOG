@@ -1402,7 +1402,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1400';
+const VERSION='73.1401';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3072,8 +3072,8 @@ const LOG_TABS_STRIP=['home','analytics'];
 //   inner toggles inside BUILDER and RESEARCH now, the same pattern PAPER TRADE already uses
 //   for NT8 FUTURES | WEBULL QQQ (see the _bt/_rt toggle rows near the PAPER TRADE one below).
 //   ASUBS_FULL keeps the pre-collapse list alive for the ?oldtabs=1 escape hatch.
-const ASUBS_FULL=[['lib','LIBRARY'],['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['ref','REFERENCE'],['research','PAPERS'],['pc','PC']];
-const ASUBS=[['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['research','PAPERS'],['pc','PC']];
+const ASUBS_FULL=[['lib','LIBRARY'],['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['ref','REFERENCE'],['research','PAPERS'],['pc','PC'],['board','BOARD']];
+const ASUBS=[['exec2','BUILDER'],['runs','RESULTS'],['cmp2','COMPARE'],['paper2','PAPER TRADE'],['research','PAPERS'],['pc','PC'],['board','BOARD']];
 // ONE ROW OF TABS (owner ask via MANAGER 2026-09-27): the TRADING LOG / BACKTESTER master buttons
 //   are gone and every tab sits in one strip - HOME, ANALYTICS, then the backtester tabs. PAPER TRADE
 //   left the strip: both paper boards are HOME subtabs now, next to the real log (HOME_SUBS). They
@@ -5890,6 +5890,74 @@ function setQuiet(on,skipAuto,reason){
     .then(function(){window._qtWant=doc;window._qtErr=null;})
     .catch(function(e){window._qtErr=(e&&e.message)||String(e);})
     .then(function(){window._qtSaving=false;loadQuiet(u,true);renderApp();});
+}
+// ── THE OPEN BOARD, MIRRORED (owner 10-30). One document, written by tools/board_publish.py
+//    from C:/EdgeLog/manager/open_board/board.md - the page cannot read that file, so the board is
+//    published to Firestore the same way the RUNBOARD watch list is.
+function loadBoard(uidArg,force){
+  if(window._obLoading)return;
+  if(!force&&window._obLoaded&&Date.now()-(window._obAt||0)<60000)return;
+  const u=uidArg||(auth&&auth.currentUser&&auth.currentUser.uid);
+  if(!db||!u)return;
+  window._obLoading=true;window._obErr=null;
+  db.collection('users').doc(u).collection('meta').doc('open_board').get()
+    .then(function(d){window._obDoc=d.exists?(d.data()||{}):null;
+      window._obLoaded=true;window._obAt=Date.now();})
+    .catch(function(e){window._obErr=(e&&e.message)||String(e);})
+    .then(function(){window._obLoading=false;
+      if(activeTab==='augur'&&augurSub==='board')renderApp();});
+}
+function boardHtml(){
+  const D=window._obDoc;
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  // the owner's own status words, in his own colours
+  const COL={'needs-you':'var(--red)','needsyou':'var(--red)','block':'var(--red)',
+    'wip':'var(--yellow)','run':'var(--yellow)','running':'var(--yellow)','queued':'var(--yellow)',
+    'new':'var(--text2)','next':'var(--text2)','open':'var(--text2)','ask':'var(--text2)',
+    'draft':'var(--text4)','hold':'var(--text4)','park':'var(--text4)','parked':'var(--text4)','wait':'var(--text4)'};
+  const ageTx=at=>{if(!at)return 'never';const s=Math.max(0,Math.round(Date.now()/1000-(+at)));
+    return (s<90)?(s+' s ago'):((s<5400)?(Math.round(s/60)+' min ago'):((s<172800)?(Math.round(s/3600)+' h ago'):(Math.round(s/86400)+' days ago')));};
+  let h='<div style="max-width:1000px">';
+  h+='<div class="lbl" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
+    +'<span>OPEN BOARD'+(D&&D.open!=null?(' \u00b7 '+D.open+' OPEN'):'')+'</span>'
+    +'<span style="font-size:var(--fsxs);color:var(--text4);letter-spacing:0">'
+    +(D?('read from the board '+esc(ageTx(D.at))):'')+'</span></div>';
+  if(window._obErr)h+='<div style="background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--yellow);margin-bottom:8px">Could not read the board: '+esc(window._obErr)+'</div>';
+  if(!D){
+    h+='<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:10px;color:var(--text4);line-height:1.6">'
+      +(window._obLoading?'Reading the board\u2026'
+        :'No board has been published yet. The board lives on the PC as a file this page cannot read, so it is copied to one document first - run tools/board_publish.py on the machine and this fills in.')
+      +'</div></div>';
+    return h;}
+  // A MIRROR THAT LOOKS CURRENT AND IS NOT is worse than no mirror, so a stale copy says so.
+  const old=(Date.now()/1000-(+D.at||0))>86400;
+  if(old)h+='<div style="background:var(--bg2);border-radius:8px;padding:9px 12px;font-size:9px;color:'+'var(--yellow)'+';margin-bottom:8px">This copy was taken '+esc(ageTx(D.at))+'. The live board may have moved since; it is copied by tools/board_publish.py on the PC, not by this page.</div>';
+  const rows=Array.isArray(D.rows)?D.rows:[];
+  if(!rows.length){
+    h+='<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:10px;color:var(--text3)">Nothing is open on the board: all '+esc(D.total||0)+' rows are finished.</div></div>';
+    return h;}
+  // grouped by the board's own sections, in the board's own order
+  const secs=[];rows.forEach(function(r){const s=String(r.section||'');if(secs.indexOf(s)<0)secs.push(s);});
+  secs.forEach(function(s){
+    const mine=rows.filter(function(r){return String(r.section||'')===s;});
+    h+='<div class="lbl" style="margin:16px 0 5px">'+esc(s||'BOARD')+' \u00b7 '+mine.length+'</div>';
+    h+=mine.map(function(r){
+      const c=COL[String(r.status||'').toLowerCase()]||'var(--border)';
+      return '<div style="background:var(--bg2);border-radius:8px;border-left:3px solid '+c+';padding:9px 12px;margin-bottom:5px">'
+        +'<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px">'
+        +'<span style="font-size:var(--fsxs);font-weight:700;letter-spacing:.5px;color:'+c+'">'+esc(String(r.status||'').toUpperCase())+'</span>'
+        +'<span style="font-size:12px;font-weight:600;color:var(--text)">'+esc(r.n||'')+' \u00b7 '+esc(r.title||'')+'</span>'
+        +'<span style="margin-left:auto;font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+esc(r.who||'')+(r.date?(' \u00b7 '+esc(r.date)):'')+'</span></div>'
+        +(r.what?('<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.55;margin-top:3px">'+esc(r.what)+'</div>'):'')
+        +(r.statusText?('<div style="font-size:var(--fsxs);color:var(--text2);line-height:1.55;margin-top:2px">'+esc(r.statusText)+'</div>'):'')
+        +'</div>';}).join('');});
+  h+='<div style="font-size:9px;color:var(--text5);line-height:1.6;margin-top:10px">'
+    +esc(D.open+' open of '+D.total+' rows on the board')
+    +(D.cut?' - this page shows the first '+esc((D.rows||[]).length)+' of them':'')
+    +(Array.isArray(D.unknown)&&D.unknown.length?(' \u00b7 statuses the copier did not recognise, shown as open: '+esc(D.unknown.join(', '))):'')
+    +'. Read-only: nothing on this page changes the board.</div>';
+  h+='</div>';
+  return h;
 }
 function pcDashHtml(){
   const S=window._qtStatus,W=window._qtWant;
@@ -41999,6 +42067,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.6;margin:0 2px 10px">The 7-stage backtest pipeline and the roadmap of validation &amp; model-building methods — <span style="color:var(--green)">green = live in EDGELOG</span>, <span style="color:var(--yellow)">amber = planned</span>. Updated as each piece ships.</div>'
         +'<iframe id="stack-frame" src="method_stack.html#'+(_ap.stackView==='side'?'side':'stack')+'" title="Method Stack" style="width:100%;height:calc(100vh - 230px);min-height:1500px;border:1px solid var(--border);border-radius:10px;background:var(--bg)"></iframe>'
         ;
+    }else if(augurSub==='board'){
+      // the mirrored open board (owner 10-30). Read-only - see boardHtml.
+      if(!window._obLoaded&&!window._obLoading)loadBoard();
+      else if(!window._obLoading&&Date.now()-(window._obAt||0)>120000)loadBoard(null,true);
+      body=boardHtml();
     }else if(augurSub==='pc'){
       // pc p12. The page reads two documents and writes one; see loadQuiet / setQuiet.
       if(!window._qtLoaded&&!window._qtLoading)loadQuiet();

@@ -151,10 +151,34 @@ PROBE_HTML = r"""<!DOCTYPE html>
         window._qtStatus={quiet:false,why:null,since:null,until:null,held_jobs:[],deferred:[],
           running_jobs:['job-yyy'],runner_seen_at:new Date().toISOString()};
         renderApp();
-        var t=(document.getElementById('app')||document.body).textContent.replace(/\s+/g,' ');
+        var t=(document.getElementById('app')||document.body).textContent;
         return {tx:t.slice(0,600),btns:[].map.call(document.querySelectorAll('[data-pcquiet]'),
           function(b){return b.getAttribute('data-pcquiet');})};
       }catch(e){return {err:String(e&&e.stack?e.stack:e)};}})()`);
+      // ── THE BOARD TAB (owner 10-30): the same harness, one more page. Seeded with a document
+      //    that has a FINISHED row in it as well, so the page is held to showing only what it was
+      //    given and never re-deciding what is open - that judgement belongs to board_publish.
+      out.board=w.eval(`(function(){try{
+        window._obLoaded=true;window._obAt=Date.now();window._obLoading=false;
+        window.loadBoard=function(){};
+        window._obDoc={at:Math.floor(Date.now()/1000),total:9,open:2,cut:false,
+          unknown:['sideways'],
+          rows:[{n:'item 3',title:'RESMOM real data pull',status:'block',statusText:'NEEDS YOU 10-31',
+                 who:'You',date:'2026-10-11',what:'Leave the PC on',section:'WORK'},
+                {n:'test 7',title:'unclassified row',status:'sideways',statusText:'',
+                 who:'MANAGER',date:'2026-10-30',what:'a status nobody set',section:'TESTS'}]};
+        augurSub='board';renderApp();
+        var t=(document.getElementById('app')||document.body).textContent;
+        return {sub:augurSub,tx:t.slice(0,6000),
+          writes:[].map.call(document.querySelectorAll('[data-pcquiet],[data-obwrite]'),
+            function(b){return b.tagName;}).length};
+      }catch(e){return {err:String(e&&e.stack?e.stack:e)};}})()`);
+      // and a STALE copy has to say so rather than looking current
+      out.boardStale=w.eval(`(function(){try{
+        window._obDoc.at=Math.floor(Date.now()/1000)-3*86400;renderApp();
+        var t=(document.getElementById('app')||document.body).textContent;
+        return t.slice(0,6000);
+      }catch(e){return 'ERR '+e;}})()`);
       var de=d.documentElement;
       out.scrollW=de.scrollWidth;out.clientW=de.clientWidth;
       out.overlay=[].slice.call(d.body.children).filter(function(e){return /^\s*LOAD ERROR/.test(e.textContent||'');}).length;
@@ -226,7 +250,7 @@ def judge(nm, r):
         f.append('%s: a LOAD ERROR overlay is on the page' % nm)
     if r.get('errs'):
         f.append('%s: errors on the page: %s' % (nm, r['errs'][:3]))
-    tx = r.get('tx') or ''
+    tx = ' '.join((r.get('tx') or '').split())
     # IT REPEATS THE RUNNER'S OWN WORDS AND COUNTS, rather than deciding anything itself
     if 'QUIET' not in tx.upper():
         f.append('%s: a quiet machine does not say QUIET' % nm)
@@ -265,6 +289,34 @@ def judge(nm, r):
         f.append('%s: a machine that is not quiet does not say so (%r)' % (nm, otx[:120]))
     if 'on' not in (off.get('btns') or []):
         f.append('%s: no button to quiet a machine that is running normally' % nm)
+    # ── THE BOARD TAB
+    b = r.get('board') or {}
+    if b.get('err'):
+        f.append('%s: the BOARD tab threw: %s' % (nm, b['err']))
+    else:
+        # collapsed HERE: inside an eval template literal JS turns a backslash-s
+        #   into a plain s, so /\s+/g there deletes every letter s instead.
+        btx = ' '.join((b.get('tx') or '').split())
+        if b.get('sub') != 'board':
+            f.append('%s: the BOARD tab did not open (augurSub=%r)' % (nm, b.get('sub')))
+        for want in ('RESMOM real data pull', 'NEEDS YOU 10-31', 'unclassified row'):
+            if want not in btx:
+                f.append('%s: the board page does not show %r from the document' % (nm, want))
+        if 'WORK' not in btx or 'TESTS' not in btx:
+            f.append("%s: the board page drops the board's own sections" % nm)
+        if '2 open of 9' not in btx:
+            f.append('%s: the board page does not say how many of the board is open (%r)'
+                     % (nm, btx[-200:]))
+        if 'sideways' not in btx:
+            f.append('%s: a status the copier could not classify must be named on the page' % nm)
+        if 'Read-only' not in btx:
+            f.append('%s: the board page must say it is read-only' % nm)
+        if b.get('writes'):
+            f.append('%s: the board page carries %d control(s) that write - it is read-only'
+                     % (nm, b['writes']))
+        stale = ' '.join(str(r.get('boardStale') or '').split())
+        if 'days ago' not in stale:
+            f.append('%s: a three-day-old copy of the board does not say how old it is' % nm)
     if (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
         f.append('%s: the page scrolls sideways (%r > %r)' % (nm, r.get('scrollW'), r.get('clientW')))
     return f
@@ -297,10 +349,12 @@ def main():
         for x in fails:
             print('  - ' + x)
         return 1
-    print('PCPROBE: PASS (PC opens from another tab; a quiet machine repeats the runner own reason '
-          'and lists its running, held and deferred jobs; the three figures nothing publishes are '
-          'dashes with reasons, never zeros; the button writes only control/quiet; the page keeps '
-          'saying quiet never pauses trading; laptop 1400 + phone 375 + MONO 375)')
+    print('PCPROBE: PASS (PC opens from another tab and the BOARD tab mirrors the published '
+          'rows - board sections kept, an unclassified status named, the age of the copy said, '
+          'no control that writes; a quiet machine repeats the runner own reason and lists its '
+          'running, held and deferred jobs; the three figures nothing publishes are dashes with '
+          'reasons, never zeros; the button writes only control/quiet; laptop 1400 + phone 375 '
+          '+ MONO 375)')
     return 0
 
 
