@@ -242,7 +242,18 @@ def test_four_real_lanes_are_served_in_the_order_they_arrived():
     for i in range(4):
         procs.append(subprocess.Popen([sys.executable, script, home, "lane%d" % i, "0.5"],
                                       stdout=subprocess.PIPE, text=True))
-        time.sleep(0.35)                          # a clear arrival order
+        # A clear arrival order: the next lane starts only once this one holds its ticket. A fixed
+        # 0.35 s gap was load-fragile - under a busy machine interpreter start-up alone took longer,
+        # so lanes minted out of launch order and the test failed ship gates (ELWA #137).
+        counter, t_end = os.path.join(home, "state", "push_queue", "counter"), time.time() + 120
+        while time.time() < t_end:
+            try:
+                with open(counter, encoding="utf-8") as fh:
+                    if int(fh.read().strip() or "0") >= i + 1:
+                        break
+            except (OSError, ValueError):
+                pass
+            time.sleep(0.02)
     served = []
     for p in procs:
         out, _ = p.communicate(timeout=180)
