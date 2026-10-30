@@ -1637,6 +1637,24 @@ class FirestoreQueue:
         except Exception:
             return None
 
+    def _data_fp_of(self, job, mm):
+        """C5 (board 38): compact fingerprint of the job's data window - master file, bar count,
+        first/last bar, one hash. Metadata only: computed after the run from a fresh load, so it
+        never touches a number, a trade or a trial-cache key. AUGUR_DATA_FP=0 turns it off; any
+        failure returns None (a fingerprint never fails a save)."""
+        try:
+            from augur_engine import fold_anchor as _FA
+            if not _FA.data_fp_enabled() or not mm or job.get("type") == "book":
+                return None
+            from augur_engine.data import load_master_arrays
+            df, dt = job.get("date_from") or None, job.get("date_to") or None
+            fp = _FA.data_fp(load_master_arrays(mm, date_from=df, date_to=dt), mm)
+            if fp is not None:
+                fp.update(date_from=df, date_to=dt)
+            return fp
+        except Exception:
+            return None
+
     def _roll_stamp_of(self, job, result):
         """ENGINE ROLL GUARD (owner ask 2026-10-08, item 3): every NEW saved run carries a roll stamp -
         master type, roll source, switches in the window, trades crossing a true switch, $ of pure
@@ -1716,6 +1734,7 @@ class FirestoreQueue:
             "data_source": job.get("source", ""),
             "source_name": (mm.get("name") if mm else "") or job.get("source", "") or "",
             "roll_stamp": self._roll_stamp_of(job, result),   # engine roll guard (2026-10-08)
+            "data_fp": self._data_fp_of(job, mm),               # C5 / board 38 data fingerprint
             "rounds": result.get("rounds"), "best_oos_pnl": result.get("best_oos_pnl"),
             "evolved_file": result.get("evolved_file"),
             "n_combos": result.get("n_combos"), "n_valid": result.get("n_valid"),

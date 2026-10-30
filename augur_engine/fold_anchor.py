@@ -166,3 +166,54 @@ def resolve(arrays, st, run_fp=None, strict=True, allow=STRICT_OK, explain=None,
         raise BoundsDrift("%s [%d, %d) is %s: %s%s%s" % (label, st["a"], st["b"], status.upper(), note,
                                                        ("; " + extra) if extra else "", ("; " + more) if more else ""))
     return out
+
+
+# ---------------------------------------------------------------- C5: compact data fingerprint on every run
+def data_fp_enabled():
+    """Kill switch: AUGUR_DATA_FP=0 turns the per-run data fingerprint off."""
+    return os.environ.get("AUGUR_DATA_FP", "1").strip() not in ("0", "false", "no", "off")
+
+
+def data_fp(arrays, master=None):
+    """C5 (board 38): compact fingerprint of the window a run loaded, ~250 bytes.
+
+    {master, bars, first_ts, last_ts, hash}; hash = sha256 over first/last ts + bar count + a cheap content hash
+    (times + closes). Metadata only - never feeds a number, a trade or a trial-cache key. None when switched off."""
+    if not data_fp_enabled():
+        return None
+    t = _times(arrays)
+    n = int(len(t))
+    first = int(t[0]) if n else None
+    last = int(t[-1]) if n else None
+    content = _h(t, np.round(np.asarray(arrays["close"], dtype="float64"), _DEC))
+    h = hashlib.sha256(("%s|%s|%d|%s" % (first, last, n, content)).encode()).hexdigest()[:_HEX]
+    name = ""
+    if isinstance(master, dict):
+        name = master.get("filename") or master.get("name") or ""
+    elif master:
+        name = str(master)
+    return {"v": 1, "master": name, "bars": n, "first_ts": first, "last_ts": last, "hash": h}
+
+
+def fold_bounds_check(fold, run_fp=None, today_bars=None, today_fp=None, run_label="?"):
+    """Board 38 re-read guard for one saved fold row.
+
+    Returns ("ts", (start_ts, end_ts)) when the row carries timestamps (always preferred),
+    ("idx", (start, end)) when only indices exist and the data is provably unchanged,
+    and raises BoundsDrift with one line when only indices exist and the data changed
+    (fingerprint differs, or no fingerprint and the bar count differs) or cannot be checked."""
+    s_ts, e_ts = fold.get("test_start_ts"), fold.get("test_end_ts")
+    if s_ts is not None and e_ts is not None:
+        return "ts", (s_ts, e_ts)
+    a, b = fold.get("test_start"), fold.get("test_end")
+    old_n = (run_fp or {}).get("bars")
+    if run_fp and today_fp:
+        if run_fp.get("hash") == today_fp.get("hash"):
+            return "idx", (a, b)
+        why = "bars %s -> %s" % (old_n, today_fp.get("bars"))
+    elif today_bars is not None and old_n is not None and int(old_n) == int(today_bars):
+        return "idx", (a, b)
+    else:
+        why = "bars %s -> %s" % (old_n if old_n is not None else "unknown", today_bars if today_bars is not None else (today_fp or {}).get("bars", "unknown"))
+    raise BoundsDrift("FOLD BOUNDS UNSAFE: run #%s stored bar indices only and the data changed since (%s); "
+                      "not re-reading" % (run_label, why))
