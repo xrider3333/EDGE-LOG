@@ -11,6 +11,8 @@ you where to look, never a verdict to quote.
     python tools/qwen_vote.py -q "Does this log show a failed ship?" C:/EdgeLog/post_push/*.log
     python tools/qwen_vote.py -q "Is this paper tested on out-of-sample data?" --votes 5 paper1.txt paper2.txt
     some_cmd | python tools/qwen_vote.py -q "Is this line an error?" --lines -      (one label per stdin line)
+    ONE DOOR (MANAGER #222): with no `ask` given, vote() files the question as a Qwen task (tools/qwen_task.add_task)
+    for tools/qwen_runner.py and returns {"label": None, "queued": n}; the CLI does the same per item unless --direct.
     --tail N (last N lines of each file) | --json (one JSON object per item) | --model / --host to override
 """
 import argparse
@@ -62,11 +64,22 @@ def chat(question, text, seed, model=MODEL, host=HOST, timeout=1800):
     return re.sub(r"(?s)<think>.*?</think>", "", ans)          # the vote is in the answer, never the reasoning
 
 
-def vote(question, text, n=3, ask=None):
-    """Ask n times (seeds 1..n) and tally. `ask(question, text, seed)` is injectable for tests."""
-    ask = ask or chat
+def queue_vote(question, text, n=3, frm="C3", name=None):
+    import qwen_task
+    body = ("C3 vote task. Read the TEXT and answer the QUESTION %d times independently, each time with exactly one word "
+            "YES or NO; then give the majority and the count (e.g. YES 3/3). Copy, never guess.\n\nQUESTION: %s\n%s\nTEXT:\n%s"
+            % (n, question, ("ITEM: %s\n" % name) if name else "", text))
+    return qwen_task.add_task("C3 vote: " + " ".join(question.split())[:60], body, frm)
+
+
+def vote(question, text, n=3, ask=None, name=None):
+    """Ask n times (seeds 1..n) and tally. `ask(question, text, seed)` is injectable for tests; with no ask the
+    question is queued for the qwen runner (the one door) and nothing calls the model here."""
     clean, _ = redact_lines(text.splitlines())
     text = "\n".join(clean)[-MAX_CHARS:]
+    if ask is None:
+        q = queue_vote(question, text, n, name=name)
+        return dict(tally([]), votes=[], queued=q)
     votes = []
     for seed in range(1, n + 1):
         try:
@@ -107,10 +120,15 @@ def main(argv=None):
     ap.add_argument("--json", action="store_true")
     ap.add_argument("--model", default=MODEL)
     ap.add_argument("--host", default=HOST)
+    ap.add_argument("--direct", action="store_true", help="call the router now (the worker's own use) instead of queueing")
     a = ap.parse_args(argv)
-    ask = lambda q, t, s: chat(q, t, s, model=a.model, host=a.host)  # noqa: E731
+    ask = (lambda q, t, s: chat(q, t, s, model=a.model, host=a.host)) if a.direct else None  # noqa: E731
     for name, text in items(a.paths, a.lines, a.tail):
-        r = vote(a.question, text, a.votes, ask)
+        r = vote(a.question, text, a.votes, ask, name=name)
+        if r.get("queued"):
+            print(json.dumps({"item": name, "queued": r["queued"]}) if a.json else "QUEUED Q%d  %s" % (r["queued"], name),
+                  flush=True)
+            continue
         if a.json:
             print(json.dumps(dict(r, item=name)), flush=True)
         else:

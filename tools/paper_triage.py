@@ -4,10 +4,11 @@ Each new file gets a one-page summary in papers/summaries/<name>.md with a 'wort
 output - Claude verifies before anything it says is used. Moves nothing; a file is skipped once its summary exists.
   python tools/paper_triage.py            # all new files
   python tools/paper_triage.py --force    # redo every file
+ONE DOOR (MANAGER #222): no model call here. Each new file is filed as a Qwen task (tools/qwen_task.add_task) for
+tools/qwen_runner.py, and its summaries/<name>.md gets a 'queued as Q<n>' stub so it is filed once.
 """
 import datetime as dt, os, sys
 sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
-import local_llm as L
 
 BASE = r"C:\EdgeLog\manager\papers"
 INBOX, OUT = os.path.join(BASE, "inbox"), os.path.join(BASE, "summaries")
@@ -24,19 +25,19 @@ def main():
     todo = [f for f in files if force or not os.path.exists(os.path.join(OUT, f + ".md"))]
     if not todo:
         print("paper_triage: nothing new in", INBOX); return
-    L.ping()
+    import qwen_task
     for f in todo:
-        print("reading", f, flush=True)
+        src, out = os.path.join(INBOX, f), os.path.join(OUT, f + ".md")
         try:
-            r = L.summarize([os.path.join(INBOX, f)], Q, words=350)
-            body = L.format_summary(r) if hasattr(L, "format_summary") else str(r)
+            n = qwen_task.add_task("B9 paper first read: " + f[:60],
+                                   "B9 first read of %s (read-only; one page max).\n%s\n"
+                                   "Write the summary under ## RESULT, ending with the WORTH CLAUDE line." % (src, Q), "B9")
         except Exception as e:
-            print("  FAILED (retries next run):", type(e).__name__, str(e)[:160]); continue
-        flag = "YES" if "WORTH CLAUDE: YES" in body.upper() else ("NO" if "WORTH CLAUDE: NO" in body.upper() else "?")
-        with open(os.path.join(OUT, f + ".md"), "w", encoding="utf-8") as o:
-            o.write("# %s\n\nWorth Claude: **%s** - Qwen first read %s, UNVERIFIED.\n\n%s\n" %
-                    (f, flag, dt.datetime.now().strftime("%Y-%m-%d %H:%M"), body))
-        print("  ->", flag, flush=True)
+            print("  FAILED to queue (retries next run):", type(e).__name__, str(e)[:160]); continue
+        with open(out, "w", encoding="utf-8") as o:
+            o.write("# %s\n\nWorth Claude: **?** - queued as Qwen task Q%d %s; the result lands in that task file.\n" %
+                    (f, n, dt.datetime.now().strftime("%Y-%m-%d %H:%M")))
+        print("queued", f, "as Q%d" % n, flush=True)
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")

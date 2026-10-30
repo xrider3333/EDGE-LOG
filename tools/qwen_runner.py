@@ -23,6 +23,20 @@ when /v1/models lists qwen3.8-flash-next-gyro-gyro-s as loaded, else Ollama; re-
 the RAM floor and the 1.*/2.* owner-model check are skipped (Strata holds RAM by design); the guard is "Strata answers
 /v1/models within 10 s" plus quiet mode and both STOP files. No keep_alive/unload is ever sent to Strata. Its
 compaction budget is sized from meta.n_ctx (capped at 200k tokens, ~4 chars/token, reply room kept).
+
+ONE DOOR, ONE WORKER (MANAGER #222). Chats file tasks with tools/qwen_task.py; this runner is the only thing that talks
+to the model, and it uses WHATEVER IS LOADED:
+  - Strata :8080 answers (any HTTP reply, a 503 "loading" included) -> wait up to 15 min for it to list its model as
+    loaded, then use Strata. Still loading after 15 min -> yield (never load 5.* beside a loading Strata).
+  - Strata silent -> Ollama 5.qwen3.6:35b-32k, but ONLY when /api/ps shows no other model loaded (never two models).
+  - Calls go through the router 127.0.0.1:11435/v1 as model 5.qwen3.6:35b-32k when the router answers (it sends 5.*
+    to Strata while Strata is up); router down -> the direct paths (Strata /v1, Ollama /api/chat).
+CLINE BUSY = yield (checked before every task and every turn): any file under ~/.cline/data/sessions/*/ or VS Code's
+globalStorage/saoudrizwan.claude-dev/tasks/*/ modified in the last 60 s (Cline rewrites <id>.json + <id>.messages.json
+on every message/tool step), OR, on Strata, llama-server /slots shows a slot with is_processing true. Ollama /api/ps
+has no active-request field (checked 10-30: name/model/size/digest/details/expires_at/size_vram/context_length only),
+so on Ollama the session-file test is the busy signal. Override the Cline folders with QWEN_CLINE_DIRS (os.pathsep).
+STATUS.md (the owner's view): start = 🟡 + "YYYY-MM-DD started HH:MM"; finish = 🟢/🔴 + "YYYY-MM-DD <one line>".
 """
 import argparse
 import ast
@@ -62,6 +76,12 @@ STRATA_URL = "http://127.0.0.1:8080/v1"
 STRATA_MODEL = "qwen3.8-flash-next-gyro-gyro-s"
 STRATA_DISPLAY = "1.STRATA qwen3.8-flash:125b-256k"   # owner renumber 10-30 (MANAGER #220); wire id stays STRATA_MODEL
 OWNER_MODEL_PREFIXES = ("2.", "3.", "4.")              # the owner's Cline models; the runner's own 5.* is not one
+STRATA_ROOT = "http://127.0.0.1:8080"
+ROUTER_URL = "http://127.0.0.1:11435/v1"
+ROUTER_ALIVE_S = 5
+STRATA_LOAD_WAIT_S = 15 * 60
+STRATA_LOAD_POLL_S = 15
+CLINE_IDLE_S = 60
 STRATA_ALIVE_S = 10
 STRATA_CTX_CAP_TOK = 200000
 STRATA_REPLY_TOK = 16384
@@ -163,6 +183,26 @@ def set_status_icon(n, icon, tdir=None):
     if k:
         _write_text(p, new, bom)
     return bool(k)
+
+
+_FULLROW_RX = r"^(\|\s*Q%d\s*\|[^|\r\n]*\|)[^|\r\n]*\|[^\r\n]*"
+
+
+def set_status_row(n, icon, note, tdir=None, title=None):
+    """Status + Note cells of every Q<n> row (duplicates too); the note is dated YYYY-MM-DD. Missing row -> appended."""
+    p = os.path.join(tdir or tasks_dir(), "STATUS.md")
+    note = re.sub(r"\s+", " ", str(note).replace("|", "/")).strip()
+    note = "%s %s" % (datetime.date.today().isoformat(), note)
+    if not os.path.exists(p):
+        return False
+    text, bom = _read_text(p)
+    new, k = re.subn(_FULLROW_RX % n, lambda m: "%s %s | %s |" % (m.group(1), icon, note), text, flags=re.M)
+    if not k:
+        eol = _eol(text)
+        sep = "" if not text or text.endswith(("\n", "\r")) else eol
+        new = text + sep + "| Q%d | %s | %s | %s |" % (n, (title or "Q%d" % n).replace("|", "/"), icon, note) + eol
+    _write_text(p, new, bom)
+    return True
 
 
 # ------------------------------------------------------------------------------------------------ pick
@@ -642,6 +682,77 @@ def owner_model_loaded(ps_fn=None):
     return False, ""
 
 
+def other_model_loaded(ps_fn=None):
+    """(True, why) when Ollama has ANY model loaded other than the runner's 5.* (never two models), or /api/ps fails."""
+    try:
+        d = (ps_fn or ollama_ps)() or {}
+    except Exception as e:                                           # noqa: BLE001
+        return True, "Ollama /api/ps failed (%s)" % type(e).__name__
+    for m in d.get("models") or []:
+        name = str(m.get("name") or m.get("model") or "")
+        if not name.startswith("5."):
+            return True, "%s model %s is loaded - not loading a second model" % (
+                "owner" if name.startswith(OWNER_MODEL_PREFIXES) else "other", name)
+    return False, ""
+
+
+def cline_dirs():
+    env = os.environ.get("QWEN_CLINE_DIRS")
+    if env is not None:
+        return [d for d in env.split(os.pathsep) if d]
+    u = os.path.expanduser("~")
+    appdata = os.environ.get("APPDATA") or os.path.join(u, "AppData", "Roaming")
+    return [os.path.join(u, ".cline", "data", "sessions"),
+            os.path.join(appdata, "Code", "User", "globalStorage", "saoudrizwan.claude-dev", "tasks")]
+
+
+def cline_busy(dirs=None, now=None, window_s=CLINE_IDLE_S):
+    """(True, why) when a Cline session/task file was written in the last `window_s` seconds (Cline mid-task)."""
+    now = time.time() if now is None else now
+    for d in (cline_dirs() if dirs is None else dirs):
+        for p in glob.glob(os.path.join(d, "*", "*")):
+            try:
+                age = now - os.path.getmtime(p)
+            except OSError:
+                continue
+            if age < window_s:
+                return True, "Cline is mid-task (%s written %d s ago)" % (os.path.basename(p), max(0, int(age)))
+    return False, ""
+
+
+def strata_slots(get=None):
+    """llama-server /slots -> list, or None when it cannot be read (endpoint off / Strata down)."""
+    if get is None:
+        import urllib.request
+
+        def get(url):
+            with urllib.request.urlopen(url, timeout=STRATA_ALIVE_S) as r:
+                return json.loads(r.read().decode("utf-8"))
+    try:
+        d = get(STRATA_ROOT + "/slots")
+    except Exception:                                                # noqa: BLE001
+        return None
+    return d if isinstance(d, list) else None
+
+
+def strata_slot_busy(slots_fn=None):
+    slots = (slots_fn or strata_slots)()
+    if slots is None:
+        return False, ""
+    busy = [s.get("id") for s in slots if isinstance(s, dict) and s.get("is_processing")]
+    return (True, "Strata slot %s is processing (someone else's request)" % busy[0]) if busy else (False, "")
+
+
+def engine_busy(backend, cline_fn=None, slots_fn=None):
+    """Cline session files always; Strata /slots too when on Strata."""
+    b, why = (cline_fn or cline_busy)()
+    if b:
+        return b, why
+    if backend == "strata":
+        return strata_slot_busy(slots_fn)
+    return False, ""
+
+
 def runner_stop_path():
     return os.path.join(home(), "STOP")
 
@@ -671,11 +782,37 @@ def strata_model_info(http=None):
     return None
 
 
-def select_backend(choice="auto", http=None):
-    """'strata' | 'ollama'. auto = Strata when its model is listed as loaded."""
+def strata_answers(http=None):
+    """True when :8080 gives ANY HTTP reply (a 503 'loading' counts); False on refused / timeout."""
+    import urllib.error
+    try:
+        (http or strata_http)("/models", None, STRATA_ALIVE_S)
+        return True
+    except urllib.error.HTTPError:
+        return True
+    except Exception:                                                # noqa: BLE001
+        return False
+
+
+def select_backend(choice="auto", http=None, sleep=None, clock=None, wait_s=STRATA_LOAD_WAIT_S,
+                   poll_s=STRATA_LOAD_POLL_S, log=None):
+    """'strata' | 'ollama' | None. auto: Strata loaded -> strata; Strata answering but still loading -> poll up to
+    wait_s, then strata, or None (yield: never load 5.* beside it); Strata silent -> ollama."""
     if choice in ("strata", "ollama"):
         return choice
-    return "strata" if strata_model_info(http) else "ollama"
+    if strata_model_info(http):
+        return "strata"
+    if not strata_answers(http):
+        return "ollama"
+    sleep, clock = sleep or time.sleep, clock or time.time
+    t0 = clock()
+    if log:
+        log("backend: Strata answers but is not loaded yet - waiting up to %d min" % (wait_s // 60))
+    while clock() - t0 < wait_s:
+        sleep(poll_s)
+        if strata_model_info(http):
+            return "strata"
+    return None
 
 
 def strata_alive(http=None):
@@ -686,7 +823,8 @@ def strata_alive(http=None):
         return False, "Strata /v1/models did not answer in %d s (%s)" % (STRATA_ALIVE_S, type(e).__name__)
 
 
-def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None, backend="ollama", alive_fn=None):
+def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None, backend="ollama", alive_fn=None,
+                 cline_fn=None, slots_fn=None):
     """('stop', why) | ('yield', why) | (None, ''). Strata: no RAM floor / owner-model check; endpoint must answer."""
     if os.path.exists(runner_stop_path()):
         return "stop", "runner STOP file"
@@ -705,10 +843,30 @@ def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None, bac
     if (lab_stop_fn or (lambda: os.path.exists(ram_guard.stop_path())))():
         return "yield", "qwen_lab STOP file"
     if backend != "strata":
-        o, owhy = owner_model_loaded(ps_fn)
+        o, owhy = other_model_loaded(ps_fn)
         if o:
             return "yield", owhy
+    b, bwhy = engine_busy(backend, cline_fn, slots_fn)
+    if b:
+        return "yield", bwhy
     return None, ""
+
+
+# ------------------------------------------------------------------------------------------------ router
+def router_http(path, payload=None, timeout=ROUTER_ALIVE_S):
+    import urllib.request
+    data = None if payload is None else json.dumps(payload).encode("utf-8")
+    req = urllib.request.Request(ROUTER_URL + path, data=data, headers={"Content-Type": "application/json"})
+    with urllib.request.urlopen(req, timeout=timeout) as r:
+        return json.loads(r.read().decode("utf-8"))
+
+
+def router_alive(http=None):
+    try:
+        (http or router_http)("/models", None, ROUTER_ALIVE_S)
+        return True
+    except Exception:                                                # noqa: BLE001
+        return False
 
 
 # ------------------------------------------------------------------------------------------------ model
@@ -822,6 +980,50 @@ class StrataChat:
         return msg, stats
 
 
+class RouterChat:
+    """OpenAI /v1/chat/completions through the router (:11435) as model 5.qwen3.6:35b-32k; the router picks the
+    backend (Strata while it is up, else Ollama). On the Ollama backend the model is unloaded after the task."""
+
+    def __init__(self, backend="ollama", http=None, info=None):
+        self.backend = backend
+        self.http = http or router_http
+        self.model = MODEL
+        if backend == "strata":
+            info = info if info is not None else (strata_model_info() or {})
+            self.num_ctx = int(((info.get("meta") or {}).get("n_ctx")) or NUM_CTX)
+            self.ctx_limit = strata_ctx_limit(self.num_ctx)
+            self.max_tokens = STRATA_REPLY_TOK
+        else:
+            self.num_ctx, self.ctx_limit, self.max_tokens = NUM_CTX, CTX_LIMIT, None
+
+    def chat(self, messages, tools):
+        payload = {"model": self.model, "messages": to_openai_messages(messages), "temperature": 0.2, "seed": 20261028,
+                   "stream": False, "tools": [{"type": "function", "function": t} for t in tools]}
+        if self.max_tokens:
+            payload["max_tokens"] = self.max_tokens
+        t0 = time.time()
+        d = self.http("/chat/completions", payload, STRATA_TIMEOUT_S) or {}
+        msg, stats = parse_openai_reply(d)
+        stats["secs"] = round(time.time() - t0, 1)
+        return msg, stats
+
+    def unload(self):
+        if self.backend != "ollama":
+            return                                                   # never unload Strata
+        try:
+            import local_llm as LL
+            LL._http_json("/api/generate", {"model": MODEL, "keep_alive": 0}, timeout=30)
+        except Exception:                                            # noqa: BLE001
+            pass
+
+
+def default_chat(backend, router_ok=None):
+    """Router when it answers, else the direct path for this backend."""
+    if (router_ok or router_alive)():
+        return RouterChat(backend)
+    return StrataChat() if backend == "strata" else RunnerChat()
+
+
 def compact(messages, limit=CTX_LIMIT, keep_last=6):
     import qwen_lab
     return qwen_lab.compact_messages(messages, limit=limit, keep_last=keep_last)
@@ -849,9 +1051,9 @@ class Runner:
     def __init__(self, chat_factory=None, guards=None, sleep=None, clock=None, poster=None, pusher=None,
                  roots=None, max_turns=MAX_TURNS, max_task_s=MAX_TASK_S, backend="ollama", selector=None):
         self.backend = backend
-        self.selector = selector or select_backend
+        self.selector = selector or (lambda c: select_backend(c, sleep=self.sleep, clock=self.clock, log=self.log))
         self.cur = backend if backend in ("strata", "ollama") else "ollama"
-        self.chat_factory = chat_factory or (lambda: StrataChat() if self.cur == "strata" else RunnerChat())
+        self.chat_factory = chat_factory or (lambda: default_chat(self.cur))
         self.guards = guards or (lambda: check_guards(backend=self.cur))
         self.sleep = sleep or time.sleep
         self.clock = clock or time.time
@@ -916,7 +1118,7 @@ class Runner:
                 self.log("resume: Q%d left 🟡 twice by a dead runner - marked 🔴" % n)
             else:
                 set_first_line(p, "STATUS: %s open" % OPEN)
-                set_status_icon(n, OPEN)
+                set_status_row(n, OPEN, "runner died mid-task - back to open for one retry")
                 self.log("resume: Q%d left 🟡 by a dead runner - reset to ⭕ for one retry" % n)
         st["in_flight"] = None
         self.save_state(st)
@@ -945,13 +1147,15 @@ class Runner:
         st["in_flight"] = {"n": n, "path": path, "at": now_s()}
         self.save_state(st)
         set_first_line(path, STATUS_WORKING)
-        set_status_icon(n, WORKING)
+        set_status_row(n, WORKING, "started %s" % datetime.datetime.now().strftime("%H:%M"))
         self.log("Q%d: started (%s)" % (n, os.path.basename(path)))
         task_text, _ = _read_text(path)
         chat = self.chat_factory()
         model = getattr(chat, "model", None)
         model = model if isinstance(model, str) and model else MODEL
         model = STRATA_DISPLAY if model == STRATA_MODEL else model
+        if isinstance(chat, RouterChat):
+            model = "%s via router" % (STRATA_DISPLAY if self.cur == "strata" else MODEL)
         nctx = getattr(chat, "num_ctx", NUM_CTX)
         nctx = nctx if isinstance(nctx, int) else NUM_CTX
         self.task_meta = {"backend": self.cur, "model": model, "num_ctx": nctx}
@@ -986,7 +1190,7 @@ class Runner:
                     break
                 if not self.wait_guards():
                     set_first_line(path, "STATUS: %s open" % OPEN)
-                    set_status_icon(n, OPEN)
+                    set_status_row(n, OPEN, "runner stopped mid-task - back to open")
                     st = self.load_state()
                     st["in_flight"] = None
                     st["attempts"][key] = max(0, int(st["attempts"].get(key, 1)) - 1)
@@ -1071,11 +1275,11 @@ class Runner:
         append_result(path, "## RESULT\n" + body + footer)
         if status == "done":
             set_first_line(path, STATUS_DONE)
-            set_status_icon(n, DONE)
+            set_status_row(n, DONE, one)
             word = "🟢 DONE"
         else:
             set_first_line(path, "STATUS: 🔴 blocked - %s" % one)
-            set_status_icon(n, BLOCKED)
+            set_status_row(n, BLOCKED, one)
             word = "🔴 BLOCKED"
         try:
             pid = self.poster(n, word, one)
@@ -1100,6 +1304,9 @@ class Runner:
         """'stop' | 'idle' | task outcome."""
         if pick_task():                                              # re-check the backend before each task
             new = self.selector(self.backend)
+            if new is None:
+                self.log("yield: Strata still loading after %d min - not loading a second model" % (STRATA_LOAD_WAIT_S // 60))
+                return "idle"
             if new != self.cur:
                 self.log("backend: %s -> %s" % (self.cur, new))
             self.cur = new

@@ -11,7 +11,10 @@ answer), regex_check(pattern). Each failed try feeds the reason back to Qwen; af
 caller hands the task to Claude. Qwen output stays UNVERIFIED unless its check passed; numbers and verdicts that ship still
 need Claude (memory: local AI is a screener).
 
-CLI (one-shot): python tools/qwen_cascade.py "prompt" [--json-keys a,b] [--tries 3]   exit 0 = Qwen answer passed, 2 = escalate
+ONE DOOR (MANAGER #222): with no `chat` given, cascade() does NOT call the model - it files the prompt as a Qwen task
+(tools/qwen_task.add_task) for tools/qwen_runner.py, the one worker, and returns {"queued": n, "escalate": False, ...}.
+Pass chat= (e.g. _chat) only from code that IS the worker or from tests.
+CLI (one-shot): python tools/qwen_cascade.py "prompt" [--json-keys a,b] [--tries 3]   exit 0 = Qwen answer passed, 2 = escalate, 3 = queued
 """
 import argparse
 import json
@@ -75,7 +78,20 @@ def pytest_check(write_answer, cmd, timeout=300):
     return chk
 
 
-def cascade(prompt, check, tries=3, system=None, chat=_chat):
+def queue_task(prompt, check=None, tries=3, system=None, frm="C1"):
+    import qwen_task
+    body = ("C1 cascade task (Qwen-first; a check decides, not the model). Answer the prompt below; payload only.\n\n"
+            + (("SYSTEM:\n%s\n\n" % system) if system else "") + "PROMPT:\n" + prompt
+            + "\n\nCHECK the caller will run on the answer: %s (up to %d tries)."
+            % (getattr(check, "__name__", "custom"), tries))
+    return qwen_task.add_task("C1 cascade: " + " ".join(prompt.split())[:60], body, frm)
+
+
+def cascade(prompt, check, tries=3, system=None, chat=None, frm="C1"):
+    if chat is None:                                       # the one door: file it, never call the model from here
+        n = queue_task(prompt, check, tries, system, frm)
+        return {"ok": False, "answer": "", "tries": 0, "escalate": False, "queued": n,
+                "why": ["queued as Q%d for the qwen runner" % n], "model": MODEL}
     msgs = ([{"role": "system", "content": system}] if system else []) + [{"role": "user", "content": prompt}]
     why, ans = [], ""
     for i in range(1, tries + 1):
@@ -105,7 +121,7 @@ def main(argv=None):
            else regex_check(a.regex) if a.regex else (lambda s: (bool(s.strip()), "non-empty")))
     r = cascade(a.prompt, chk, tries=a.tries)
     print(json.dumps(r, ensure_ascii=False, indent=1))
-    return 0 if r["ok"] else 2
+    return 0 if r["ok"] else (3 if r.get("queued") else 2)
 
 
 if __name__ == "__main__":

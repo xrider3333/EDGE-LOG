@@ -32,14 +32,20 @@ def test_auto_picks_strata_when_loaded():
     assert R.select_backend("auto", http_of()) == "strata"
 
 
+def test_auto_falls_back_to_ollama_when_strata_silent():
+    assert R.select_backend("auto", http_of(OSError("refused"))) == "ollama"
+
+
 @pytest.mark.parametrize("models", [
     {"data": [{"id": R.STRATA_MODEL, "status": {"value": "loading"}}]},
     {"data": [{"id": "other-model", "status": {"value": "loaded"}}]},
     {"data": []},
-    OSError("refused"),
 ])
-def test_auto_falls_back_to_ollama(models):
-    assert R.select_backend("auto", http_of(models)) == "ollama"
+def test_auto_answering_but_not_loaded_yields_after_wait(models):
+    # MANAGER #222: Strata answering = never load 5.* beside it; after the wait -> None (yield)
+    t = [0.0]
+    assert R.select_backend("auto", http_of(models), sleep=lambda s: t.__setitem__(0, t[0] + s),
+                            clock=lambda: t[0], wait_s=60, poll_s=15) is None
 
 
 def test_forced_backends_skip_the_probe():

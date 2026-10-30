@@ -31,6 +31,8 @@ def env(tmp_path, monkeypatch):
     root.mkdir()
     monkeypatch.setenv("QWEN_TASKS_DIR", str(t))
     monkeypatch.setenv("QWEN_RUNNER_HOME", str(h))
+    monkeypatch.setenv("QWEN_CLINE_DIRS", "")            # never read the real Cline folders
+    monkeypatch.setattr(R, "strata_slots", lambda get=None: None)
     _w(str(t / "README.md"), "RULES: be careful\r\n")
     _w(str(t / "STATUS.md"), STATUS)
     _w(str(t / "Q1-a.md"), "STATUS: ✅ closed\r\n# one\r\n")
@@ -183,7 +185,7 @@ def test_done_edits_status_inbox_push(env):
     assert "## RESULT\r\nFound **data**." in q and "UNVERIFIED" in q and "qwen_runner" in q and "2 turns" in q
     assert "\n" not in q.replace("\r\n", "")                      # CRLF kept, no bare LF
     s = _r(str(env["tasks"] / "STATUS.md"))
-    assert "| Q2 | two | 🟢 | y |\r\n" in s and "| Q10 | ten | ⭕ | z |" in s and "| Q1 | one | ✅ |" in s
+    assert "| Q2 | two | 🟢 | %s all good z" % __import__("datetime").date.today().isoformat() in s and "| Q10 | ten | ⭕ | z |" in s and "| Q1 | one | ✅ |" in s
     assert posts == [(2, "🟢 DONE", ("all good " + "z" * 300)[:200])]
     assert pushes and pushes[0][1] is True
     assert fc.unloaded
