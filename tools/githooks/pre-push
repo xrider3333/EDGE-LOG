@@ -26,6 +26,15 @@ if [ ! -t 0 ]; then
   push_refs="$(timeout 10 cat 2>/dev/null)"
 fi
 
+
+# Secret scan (board C18, 2026-10-30): refuse a push whose new lines carry a credential.
+echo "$push_refs" | while read -r lref lsha rref rsha; do
+  [ -z "$lsha" ] && continue
+  case "$lsha" in 0000000000000000000000000000000000000000) continue;; esac
+  case "$rsha" in 0000000000000000000000000000000000000000) base="origin/main";; *) base="$rsha";; esac
+  python "$repo_root/tools/secret_scan.py" --range "$base..$lsha" || exit 1
+done || { echo "Secret scan FAILED -- push refused."; exit 1; }
+
 python "$repo_root/tools/preflight_boot.py"
 status=$?
 
