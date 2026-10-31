@@ -615,6 +615,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
 /* owner 10-31 15:30 (paper tabs): the run number is a link to that run's report; 'params: not recorded' is a quiet tag; the OPEN group tops the trade list */
 .qbx-runlink{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}.qbx-runlink:hover{color:var(--text)}
 .qbx-params{color:var(--text5);font-size:10px;margin-left:6px;white-space:nowrap}
+/* owner 10-31 (row 76): the model word (raw / keel / fixed / hybrid / tilt / comp) and 'set ?' are PART OF THE STRATEGY NAME - same colour as its chart line, never a grey tag */
+.qbx-vrt{white-space:nowrap}
 .qbx-opensec{margin-bottom:4px}.qbx-opensec .lg-tl-daylbl{white-space:nowrap}.qbx-opensec .lg-tl-daymeta{min-width:0}.qbx-openrow{cursor:default}.qbx-unr{font-size:9px;color:var(--text5)}
 /* owner 10-31: a WARNING on a paper tab (KEEL stale, NOT READY, HELD ...) is an outlined pill in its own token --warn, never the gold of a strategy line */
 .lg-warn-pill{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;line-height:14px;padding:0 7px;border-radius:999px;border:1px solid var(--warn);color:var(--warn);white-space:nowrap;vertical-align:1px}
@@ -1439,7 +1441,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1469';
+const VERSION='73.1470';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1459,7 +1461,8 @@ window._dataFeedWarn=function(){
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":null,"grid":150,"run":424,"variant":"raw"},"DIP_424F":{"cell":null,"grid":150,"run":424,"variant":"raw"},"DIP_424K":{"cell":null,"grid":150,"run":424,"variant":"keel"},"DIP_ES_452":{"cell":null,"grid":150,"run":452,"variant":"raw"},"DIP_NQ_433":{"cell":null,"grid":150,"run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"run":309,"variant":"keel"},"ENGUQ_335":{"cell":null,"grid":527,"run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":null,"grid":527,"run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":null,"grid":527,"run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"run":458,"variant":"keel"}};
-const CHANGELOG=[{v:'73.1469',date:'2026-10-31',notes:['NT8 PAPER strategy rows now show the parameter set and model word like WEBULL PAPER (ORB #234.1 raw, NOISE #422.2 raw, TTM #459.1 raw). They read set ? because the table they look up sat inside the Webull tab only. ENGU-Q #335 still reads set ? on purpose: its run grid has no row for the live settings.']},{v:'73.1467',date:'2026-10-31',notes:['WEBULL PAPER render gate reads the new row words (row 76): the probe takes a strategy row as NOISE #382.2 keel - family, run.set or set ?, then the model word - checks the set in the words is the one the run link carries, and keeps every older check reading the plain NOISE #382. Nothing on the page changes.']},
+const CHANGELOG=[{v:'73.1470',date:'2026-10-31',notes:['THE MODEL WORD IS PART OF THE NAME (row 76, your note). raw / keel / fixed / hybrid / tilt / comp and the set number are now inside the strategy name in the strategy&#39;s own line colour - ORB #314.22 raw all in ORB blue - not a grey tag, on WEBULL PAPER and NT8 PAPER alike: the strategy rows, the trade list rows, the chart legend, the filter chips and the open-position line under the headline. A past trade carries its own set and model word from this ship on; an older trade of the leg&#39;s current run reads the leg&#39;s; a trade of an earlier run (NOISE #304) keeps its plain number, its set was never written.']},
+{v:'73.1469',date:'2026-10-31',notes:['NT8 PAPER strategy rows now show the parameter set and model word like WEBULL PAPER (ORB #234.1 raw, NOISE #422.2 raw, TTM #459.1 raw). They read set ? because the table they look up sat inside the Webull tab only. ENGU-Q #335 still reads set ? on purpose: its run grid has no row for the live settings.']},{v:'73.1467',date:'2026-10-31',notes:['WEBULL PAPER render gate reads the new row words (row 76): the probe takes a strategy row as NOISE #382.2 keel - family, run.set or set ?, then the model word - checks the set in the words is the one the run link carries, and keeps every older check reading the plain NOISE #382. Nothing on the page changes.']},
 {v:'73.1464',date:'2026-10-31',notes:['WHICH PARAMETER SET, WHICH MODEL (row 76, your 15:50 escalation). Every paper strategy row on WEBULL PAPER and NT8 PAPER now reads run.set plus the model word: NOISE #382.2 keel, ORB #314.22 raw, NOISE #422.2 keel / fixed / raw for the three shadows. The set number is the row of that configuration in the run report&#39;s 1E table (one row per config, sorted by in-sample net) - set 2 means the second-best configuration of the run&#39;s search grid; every matched leg is also the run&#39;s crowned CHAMPION. The mapping lives in one file (api/paper_leg_params.py) and tools/check_paper_leg_params.py re-derives every number from the run documents and fails if a leg&#39;s values ever move off its set. Where the report&#39;s saved grid does not hold the leg&#39;s values the row says set ? and set not found in report, never not recorded: DIP #424 (and the NT8 DIP #452 / #433) keep only 150 of their trials and the champion is not among them; ENGU-Q #335 trades the R2 defaults, not the run&#39;s own cell, as its own caveat has said since September. The model word is read off each leg&#39;s own config: a learned KEEL state = keel, KEEL&#39;s fixed tilts = fixed, no model = raw; NT8 gate legs say hybrid / tilt / comp / keel. From this ship every Webull signal row (ENTRY, LEVELS, EXIT, seed) and every NT8 nightly leg report carries params_cell and model_variant, so future trades name their set themselves.']},
 {v:'73.1463',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, THE STACK YOU ASKED FOR (row 76, 10-31): under the headline block (the big number, the unrealized and realized lines, details, and the STATUS line with REFRESH) come the four KPI tiles, then the P&amp;L chart, then the calendar, open - nothing between them. The chart keeps ONE row under it: the range pills, the legend, and at the right end the short caption with the ? that holds every explanation (solid, dotted, hatched, book only). MORE STATS is the fold under the calendar. At 1690x1263 the calendar ends at 1091 px on WEBULL PAPER and 1062 px on NT8 PAPER, measured in the browser.']},
 {v:'73.1461',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, THE TIDY-UP FINISHED (row 76, after 73.1457). The calendar opens by default on a laptop and a desktop (above 600 px); a phone keeps it folded, so the trade list still starts within the first screen. The today figure beside the realized line no longer vanishes while you drag across the chart. The caption&#39;s ? hover names the key words the old key used (book only = order never reached Webull, book price = no Webull fill price). The two render probes (tools/webull_board_probe.py, tools/paper_render_probe.py) read the new order - chart, then the range pills on the legend&#39;s line, the tiles, the calendar, then More stats - and the ? hover instead of the old three-line key.']},
@@ -43001,9 +43004,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   re-derives every set from the run docs and fails when a leg's values move off it. A set the report's grid does not hold reads 'set ?'.
       const qbLegParams=(key,runNo)=>{const lk=({ORB:'ORB_R6',NOISE:'NOISE_382',DIP:'DIP_424',ENGUQ:'ENGUQ_335'})[key]||key;const P=(typeof PAPER_LEG_PARAMS!=='undefined'&&PAPER_LEG_PARAMS[lk])||null;
         const n=String(runNo||'').replace(/^#/,'');return {run:(P&&P.run!=null)?String(P.run):n,cell:P?P.cell:null,grid:P?P.grid:null,variant:P?P.variant:'',known:!!P};};
+      // the plain words of a leg's name everywhere else (trade rows, chart legend, filter chips, panel header): 'ORB #314.22 raw'.
+      //   A past trade carries its own params_cell / model_variant from this ship on; an older trade of the leg's CURRENT run takes the
+      //   leg's mapping; a trade of an earlier run (NOISE #304) keeps the plain run number - its set was never recorded.
+      const qbLegSetWords=(key,runNo,cell,variant)=>{const n=String(runNo||'').replace(/^#/,'');if(!n)return '';
+        return '#'+n+(cell!=null?('.'+cell):' set ?')+(variant?(' '+variant):'');};
+      const qbLegFullName=(key,runNo)=>{const L=qbLegParams(key,runNo);const lbl=(QE_LEGS.find(x=>x[0]===key)||[])[1]||key;return lbl+' '+qbLegSetWords(key,L.run,L.cell,L.variant);};
       const qbRunLinkHtml=(tag,key)=>{const n=String(tag||'').replace(/^#/,'');if(!n)return '';const L=qbLegParams(key,n);const _set=(L.cell!=null)?('.'+L.cell):'';
         return '<span class="qbx-runlink" data-qbrunlink="'+n+'"'+(L.cell!=null?(' data-qbcell="'+L.cell+'"'):'')+' role="link" tabindex="0" title="open run #'+n+'\u2019s report on the RUNBOARD / STUDIES page'+(L.cell!=null?(' (set '+L.cell+' = row '+L.cell+' of '+L.grid+' in its 1E config table by in-sample net)'):'')+'">#'+n+_set+'</span>'
-          +(L.cell==null?' <span class="qbx-params" data-qbset="none">set ?</span>':'')+(L.variant?(' <span class="qbx-params" data-qbvariant="'+L.variant+'" title="model variant: '+(L.variant==='raw'?'no model, the strategy\u2019s own size':L.variant==='keel'?'the KEEL overlay sizes each trade':L.variant==='fixed'?'KEEL\u2019s fixed tilts, no model':L.variant)+'">'+L.variant+'</span>'):'');};
+          +(L.cell==null?' <span class="qbx-vrt" data-qbset="none">set ?</span>':'')+(L.variant?(' <span class="qbx-vrt" data-qbvariant="'+L.variant+'" title="model variant: '+(L.variant==='raw'?'no model, the strategy\u2019s own size':L.variant==='keel'?'the KEEL overlay sizes each trade':L.variant==='fixed'?'KEEL\u2019s fixed tilts, no model':L.variant)+'">'+L.variant+'</span>'):'');};
       // WHICH PARAMETER SET a leg trades: the box's leg configs (api/cloud_signal.py CROWN_LEGS / SHADOW_LEGS) carry the run number and the
       // literal parameter VALUES, never the index of that cell in the run's own parameter list, and neither does api/paper.py's LEG_SOURCE, the
       // run records or the trade rows. So no leg can be labelled 'NOISE #382.3' honestly: every row says so instead of guessing (owner 10-31).
@@ -43065,7 +43074,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       };
       // DIP #424 LIVE: a DIP lot's trade names its mechanism after the family and run number ('DIP #424 · RSI')
       const qeTradeLegName=t=>{const k=qbFamOf(t&&t.leg);const f=QE_LEGS.find(x=>x[0]===k);const r=qeTradeRunNo(t);const mc=(f&&k==='DIP')?qbDipMech(t):'';
-        return (f?f[1]:String(naS(t&&t.leg)))+(r?' '+r:'')+(mc?' \u00b7 '+mc:'');};
+        // owner 10-31 (row 76): run.set + the model word in the name ('NOISE #382.2 keel'): the trade's own stamp (params_cell /
+        //   model_variant, written from this ship on), else the leg's mapping when the trade is of the leg's current run, else the plain run
+        let rw=r;if(r){const own=(t&&(t.params_cell!=null||t.model_variant))?{cell:(t.params_cell!=null?t.params_cell:null),variant:t.model_variant||''}:null;
+          const L=own||((typeof qbLegParams==='function')?(x=>(x.run&&('#'+x.run)===r)?x:null)(qbLegParams(k,r)):null);
+          if(L)rw=qbLegSetWords(k,r,L.cell,L.variant);}
+        return (f?f[1]:String(naS(t&&t.leg)))+(rw?' '+rw:'')+(mc?' \u00b7 '+mc:'');};
       // a DIP lot's mechanism rides in its own span: on one line on a wide list ('DIP #424 · RSI'), under the name where the list box is 800 px or
       // narrower (a phone row keeps the whole name, never 'DIP #424 · GA...')
       const qeTradeLegHtml=t=>{const nm=qeTradeLegName(t),mc=qbFamOf(t&&t.leg)==='DIP'?qbDipMech(t):'',cut=mc?nm.lastIndexOf(' \u00b7 '+mc):-1;
@@ -44220,7 +44234,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // RETIRED (owner decision 9): no position (book or live) and nothing closed on the box's day
           const qbHeldLive=(QPOSLIVE&&Array.isArray(QPOSLIVE.legs))?QPOSLIVE.legs.some(l=>l&&qbFamOf(l.leg)===key):false;
           const qbRetiredNow=QE_LEGS_RETIRED.indexOf(key)>=0&&!p&&!qbHeldLive&&!legTodayN;
-          if(qbRetiredNow)qbRetiredInfo.push({key:key,label:label+' '+qeLegShortTag(key,runNo),
+          if(qbRetiredNow)qbRetiredInfo.push({key:key,label:qbLegFullName(key,runNo),
             since:legTradesArr.map(qeTradeDate).filter(Boolean).sort().pop()||null});
           // the pieces under a leg's row, built once for both layouts: the KEEL warning (always shown while the model is behind), the
           // note's ENGU-Q caveat, and the detail a tap opens (unrealized, the box's day, position, notional; the shared list adds the
@@ -44458,7 +44472,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             let lgOff={};try{lgOff=JSON.parse(localStorage.getItem('el_lg_lines_webull')||'{}')||{};}catch(e){lgOff={};}
             const lineLegs=QE_LEGS.filter(l=>legRun[l[0]]!==undefined),nameKey={};
             const lines=lineLegs.length<2?[]:lineLegs.map(([key,label,color,runNo])=>{
-              const nm=label+' '+qeLegShortTag(key,runNo);nameKey[nm]=key;
+              const nm=qbLegFullName(key,runNo);nameKey[nm]=key;   // owner 10-31: the legend reads the full name, 'ORB #314.22 raw'
               // closed trades only, unless the leg holds something: then its open mark rides on it too (qbMarkAt), so the line ends at its row's number
               return {name:nm,color:color,on:!lgOff[key],dash:'2 3',dashMono:QB_LEG_DASH[key]||'2 3',
                 vals:pts.map((p,i)=>i===0?0:Math.round((((p.legs&&p.legs[key]!=null)?p.legs[key]:0)+qbMarkAt(i,key))*100)/100)};});
@@ -44572,7 +44586,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let qbFrameHtml='',qbMoreHtml='';
         const qbEsc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
         // this board's own chips after the shared five: one per strategy (family + run number) and BOOK ONLY
-        const qbOwnChips=QE_LEGS.filter(l=>l[0]!=='DIP'||qbDipLegs.length).map(l=>({k:l[0],label:l[1]+' '+qeLegShortTag(l[0],l[3])})).concat([{k:'BOOKONLY',label:'BOOK ONLY'}]);
+        const qbOwnChips=QE_LEGS.filter(l=>l[0]!=='DIP'||qbDipLegs.length).map(l=>({k:l[0],label:qbLegFullName(l[0],l[3])})).concat([{k:'BOOKONLY',label:'BOOK ONLY'}]);
         const qbTlClear=!!(qbQuery.trim()||qbChipSel!=='ALL');
         // the options every draw of the frame shares (an empty range draws it too); rows = the page being shown, matchedN = what the list matches
         // (the rows go in oldest first: the frame sorts them by close and reverses, so trades closed in the same second keep the order this board
@@ -45205,7 +45219,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // before the doc is trimmed, so the two could disagree (post-landing review L3); with no shadow rows and no trim they are the same figure.
         const qbBrokerInfo=(()=>{let n=0,net=0;trades.forEach(t=>{if(t.book_only)n++;else net+=qePnlOf(t);});return {book_only_count:n,broker_net:Math.round(net*100)/100};})();
         // who holds the open lots: 'DIP #424 · 4 lots' (family + live run number, from the same qbOpenByFam the strategy rows read)
-        const qbOpenWho=Object.keys(qbOpenByFam).map(f=>{const L=QE_LEGS.find(l=>l[0]===f),o=qbOpenByFam[f];return (L?(L[1]+' '+qeLegShortTag(f,L[3])):f)+' &middot; '+o.lots+' lot'+(o.lots===1?'':'s');}).join(', ');
+        const qbOpenWho=Object.keys(qbOpenByFam).map(f=>{const L=QE_LEGS.find(l=>l[0]===f),o=qbOpenByFam[f];return (L?qbLegFullName(f,L[3]):f)+' &middot; '+o.lots+' lot'+(o.lots===1?'':'s');}).join(', ');
         const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,qbBrokerInfo,heroTodayVal,
           {val:qbRangePnl,open:posCount>0,openVal:openMarkPnl,openWho:qbOpenWho,rangeWord:(qbRange&&qbRange!=='ALL')?qbRangeWord:'',
            sinceWord:(QE.live_from&&/^\d{4}-\d{2}-\d{2}/.test(String(QE.live_from)))?('since '+String(QE.live_from).slice(5,10)):''});
@@ -46113,7 +46127,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _crownIc=k=>(k in _legCrown)
         ? '<span title="'+_legCrown[k].replace(/"/g,'&quot;')+'" style="color:#e0c341;cursor:help;margin-right:4px;font-size:10px;line-height:1">\uD83D\uDC51</span>'
         : '';
-      const _legLabel=Object.fromEntries(PAPER_LEG_DEFS.map(d=>[d.k,d.label]));
+      // owner 10-31 (row 76): run.set + the model word inside every label ('ENGU-Q #335 set ? raw', 'NOISE #304.99 raw') - the words
+      //   are part of the name and take the leg's colour wherever the label is drawn (strategy rows, trade rows, chart legend, tables).
+      //   The nightly report's own params_cell / model_variant win; PAPER_LEG_PARAMS (top of this file) fills in; a label that already
+      //   names its model (… logistic HYBRID …) is not told twice.
+      const _legSetWords=(k,label)=>{const inl=(typeof PAPER_LEG_PARAMS!=='undefined'&&PAPER_LEG_PARAMS[k])||null;   // _legSrc is defined further down (TDZ) - the inline table only here
+        if(!inl)return label;const cell=inl.cell,vr=inl.variant||'';
+        let out=/#\d+/.test(label)?label.replace(/#(\d+)/,(m,n)=>'#'+n+(cell!=null?('.'+cell):' set ?')):label+(inl&&inl.run!=null?(' #'+inl.run+(cell!=null?('.'+cell):' set ?')):'');
+        if(vr&&!new RegExp('\\b'+vr+'\\b','i').test(out))out=out.replace(/( \u00b7 |$)/,' '+vr+'$1');return out;};
+      const _legLabel=Object.fromEntries(PAPER_LEG_DEFS.map(d=>[d.k,_legSetWords(d.k,d.label)]));
       // ── LEG FILTER (owner ask 2026-08-13) — same idea as the report's CLASSIC/NEO rail:
       // one control that narrows the WHOLE board to a single strategy. With three legs
       // sharing one trades table, one curve and one tile row, reading a single strategy's
@@ -46198,7 +46220,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // not-counted row only decides whether its trades are LISTED in the trades table.
       const _isUnc=k=>!_bookSet.has(k);
       const _bookDefs=_bookKeys.map(k=>PAPER_LEG_DEFS.find(d=>d.k===k)||{k:k,label:k.replace(/_/g,' '),color:'#8a8a8a'});
-      _bookDefs.forEach(d=>{if(!_legColor[d.k])_legColor[d.k]=d.color;if(!_legLabel[d.k])_legLabel[d.k]=d.label;});
+      _bookDefs.forEach(d=>{if(!_legColor[d.k])_legColor[d.k]=d.color;if(!_legLabel[d.k])_legLabel[d.k]=_legSetWords(d.k,d.label);});
       const _fwdDefs=PAPER_LEG_DEFS.filter(d=>!_bookSet.has(d.k)&&(_showArch||!d.archived));
       if(window._paperFwdOpen==null)window._paperFwdOpen=!!APREF.paperFwdOpen2;   // NT8 board fix 10-09: closed by default (was open)
       // one spelling for a strategy without a listed row, here and in the strategy list: the family, a hash sign and the run number (ORB #257), never ORB 257
@@ -48390,7 +48412,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _blk=(P2&&P2.blk)||null,_inl=(typeof PAPER_LEG_PARAMS!=='undefined'&&PAPER_LEG_PARAMS[name])||null;
           const _cell=(_blk&&_blk.params_cell!=null)?_blk.params_cell:(_inl?_inl.cell:null),_variant=(_blk&&_blk.model_variant)||(_inl&&_inl.variant)||'',_grid=_inl?_inl.grid:null;
           const _runLink=n=>'<span class="qbx-runlink" data-p2runlink="'+n+'"'+(_cell!=null?(' data-p2cell="'+_cell+'"'):'')+' role="link" tabindex="0" title="open run #'+n+'\u2019s report on the RUNBOARD / STUDIES page'+(_cell!=null?(' (set '+_cell+(_grid?(' of '+_grid):'')+' in its 1E config table by in-sample net)'):'')+'">#'+n+(_cell!=null?('.'+_cell):'')+'</span>'
-            +(_cell==null?' <span class="qbx-params" data-p2set="none">set ?</span>':'')+(_variant?(' <span class="qbx-params" data-p2variant="'+_variant+'" title="model variant">'+_variant+'</span>'):'');
+            +(_cell==null?' <span class="qbx-vrt" data-p2set="none">set ?</span>':'')+(_variant?(' <span class="qbx-vrt" data-p2variant="'+_variant+'" title="model variant">'+_variant+'</span>'):'');
           const _lblHtml=/#\d+/.test(label)?_pnX(label).replace(/#(\d+)/,(m,n)=>_runLink(n)):(_pnX(label)+(_srcRun?(' '+_runLink(_srcRun)):''));
           const _op0=legOpen(name)[0],_opSide=_op0?_pnDir(_op0.side):'';
           const _sidePill=_op0?('<span class="qbx-lg-pill" data-p2legpill="'+_pnX(name)+'" style="margin-left:6px;color:'+(_opSide==='SHORT'?'var(--red)':'var(--green)')+'">'+(_opSide||'OPEN')+'</span>'):'';
