@@ -1011,3 +1011,18 @@ def test_dry_run_and_intraday_never_pull(tmp_path):
     written = list(store.values())[0]
     assert written["ext_counts"] == {"1m": 4, "5m": 0} and written["bars_ext"]["1m"].startswith("-330,")
 
+
+
+def test_open_lots_become_entry_only_rows(tmp_path):
+    import json as _j
+    p = tmp_path / "state.json"
+    p.write_text(_j.dumps({"legs": {
+        "DIP_RSI": {"leg": "DIP_RSI", "side": "long", "shares_remaining": 6, "entry_px": 697.2,
+                    "entry_ts": "2026-10-30 09:35:09", "trade_id": "DIP_424-X-L-RSI"},
+        "NOISE": {"leg": "NOISE", "shares_remaining": 0, "trade_id": "N1", "entry_ts": "x"}}}))
+    rows = qb.open_trade_rows(str(p))
+    assert [r["trade_id"] for r in rows] == ["DIP_424-X-L-RSI"]
+    assert rows[0]["open"] and rows[0]["exit_ts"] == "" and qb.touches_day(rows[0], "2026-10-30")
+    assert qb.open_trade_rows(str(tmp_path / "missing.json")) == []
+    m = qb.build_mark(rows[0], {}, {}, {}, wb_from=False)
+    assert m["open"] is True and m["book_in"]["px"] == 697.2 and "book_out" not in m

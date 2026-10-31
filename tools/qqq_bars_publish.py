@@ -234,6 +234,9 @@ def default_paths(home=None, ohlc_dir=None, exec_dir=None, signals=None):
                  "5m": os.path.join(ohlc_dir, "QQQ_5m.csv")},
         "trades": os.path.join(exec_dir, "trades.csv"),
         "broker_orders": os.path.join(exec_dir, "broker_orders.csv"),
+        # the executor's open lots (MANAGER #247: a DIP lot held for days had no chart mark
+        # until it was sold) -- read only, never written here
+        "exec_state": os.path.join(exec_dir, "state.json"),
         "signals": signals or os.path.join(home, "cloud_signal", "signals.csv"),
         "state": os.path.join(home, "qqq_bars", "publish_state.json"),
         # the publisher's OWN extended-hours cache (row 74) -- never the engine's ohlc/ files
@@ -829,6 +832,9 @@ def build_mark(trade, sigs, brokers, bars_by_day, shadow=False, wb_from=False):
             mark["wb_gap"] = gap
         if part:
             mark["wb_part"] = part
+    if trade.get("open"):
+        mark["open"] = True        # held lot: entry only, no exit yet
+        mark.pop("book_out", None)  # the page draws any book_out it finds
     _set_book_only(mark)
     return mark
 
@@ -898,6 +904,29 @@ def merge_prior_marks(doc, prior):
     return filled
 
 
+def open_trade_rows(state_path):
+    """The executor's open lots (state.json legs with shares left) as trades.csv-shaped
+    rows with no exit and "open": True, so a held lot gets its entry mark the day it is
+    bought instead of the day it is sold. [] when the file is missing or unreadable."""
+    try:
+        with open(state_path, encoding="utf-8") as f:
+            legs = (json.load(f) or {}).get("legs") or {}
+    except (OSError, ValueError, TypeError):
+        return []
+    out = []
+    for key, lg in legs.items():
+        if not isinstance(lg, dict):
+            continue
+        tid = str(lg.get("trade_id") or "").strip()
+        left = _num(lg.get("shares_remaining"))
+        if not tid or not left or left <= 0 or not lg.get("entry_ts"):
+            continue
+        out.append({"leg": lg.get("leg") or key, "trade_id": tid, "side": lg.get("side") or "",
+                    "shares": left, "entry_ts": lg.get("entry_ts"), "entry_px": lg.get("entry_px"),
+                    "exit_ts": "", "exit_px": "", "exit_reason": "", "open": True})
+    return out
+
+
 def touches_day(trade, date):
     """True when the book's entry or exit falls on `date` (New York)."""
     e = to_et_str(trade.get("entry_ts")) or ""
@@ -915,6 +944,9 @@ def load_all(paths, shadow_paths=(), prev_counts=None, sleep=time.sleep):
     trade_rows = read_ledger(paths["trades"], prev_counts.get("trades"), sleep=sleep)
     broker_rows = read_ledger(paths["broker_orders"], prev_counts.get("broker_orders"), sleep=sleep)
     trades = [(r, False) for r in trade_rows]
+    closed_ids = {str(r.get("trade_id") or "").strip() for r in trade_rows}
+    trades += [(r, False) for r in open_trade_rows(paths.get("exec_state"))
+               if r["trade_id"] not in closed_ids]
     for sp in shadow_paths or ():
         trades += [(r, True) for r in _read_csv(sp)]
     return {
