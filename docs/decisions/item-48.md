@@ -10,3 +10,4 @@ One frozen round on every live thread (tests 5, 7, 8, 34, 42, 67-71): nothing li
 
 ## History
 - 2026-10-30: recorded from the board as [done] (row date 2026-10-20)
+- 2026-10-30: board changed to [done] ROUND DONE: NOTHING LIFTS; THE CHATS REPORT THEIR OWN SPACES MINED OUT

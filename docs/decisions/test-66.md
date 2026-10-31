@@ -10,3 +10,4 @@
 
 ## History
 - 2026-10-30: recorded from the board as [fail] (row date 2026-10-17)
+- 2026-10-30: board changed to [fail] DEAD AT PRE-WF (LOSES BEFORE COST)

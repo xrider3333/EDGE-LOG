@@ -10,3 +10,4 @@ NinjaTrader was fine (off since 1:18 pm, flat, keep-running set; 5:45 am start n
 
 ## History
 - 2026-10-30: recorded from the board as [done] (row date 2026-10-15)
+- 2026-10-30: board changed to [done] FALSE ALARM

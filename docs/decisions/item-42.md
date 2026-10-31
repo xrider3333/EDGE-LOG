@@ -10,3 +10,4 @@ Found 10-17: the Friday 11:41 pm sign-out ended every background job (six update
 
 ## History
 - 2026-10-30: recorded from the board as [done] (row date 2026-10-18)
+- 2026-10-30: board changed to [done] OWNER 10-18: PC OFF EVERY NIGHT. RESULTS SAVE AS THEY GO

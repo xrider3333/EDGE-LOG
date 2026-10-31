@@ -10,3 +10,4 @@ Owner 10-18. LIVE: COMPARE > EXPLORE, MONTH rail (OCT SEP AUG JUL JUN MAY, 30 DA
 
 ## History
 - 2026-10-30: recorded from the board as [done] (row date 2026-10-19)
+- 2026-10-30: board changed to [done] LIVE MON 18:29 (v73.1324): EVERY CHAT'S OCTOBER RUNS ON THE MONTH SCATTER

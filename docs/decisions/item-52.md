@@ -10,3 +10,4 @@ Live since Tue evening (v73.1339): every Webull paper trade opens on TradingView
 
 ## History
 - 2026-10-30: recorded from the board as [done] (row date 2026-10-20)
+- 2026-10-30: board changed to [done] LIVE v73.1339: WEBULL TRADES ON TRADINGVIEW'S CHART ENGINE; LEDGER REAL NEXT

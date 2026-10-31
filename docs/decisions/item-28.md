@@ -10,3 +10,4 @@ Cause: the evening data refresh crashed on a locked file and pushed a half-day N
 
 ## History
 - 2026-10-30: recorded from the board as [done] (row date 2026-10-14)
+- 2026-10-30: board changed to [done] FIXED

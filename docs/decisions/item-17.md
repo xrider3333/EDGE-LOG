@@ -10,3 +10,4 @@ Chart fills 90% of the window, volume underneath, OHLCV readout + crosshair, ent
 
 ## History
 - 2026-10-30: recorded from the board as [done] (row date 2026-10-13)
+- 2026-10-30: board changed to [done] LIVE v73.1215
