@@ -25,8 +25,11 @@ WHAT IT WRITES
                       qqq_exec/trades.csv       -> the book's fill and exit
                       qqq_exec/broker_orders.csv-> Webull's fill(s), refused tries, retries,
                                                    and tries the book held back itself
-      levels_note   stop and target are NOT recorded by any strategy output today, so no
-                    lines are drawn (phase 2 re-derives them) -- said here and on the chart.
+      levels_note   which legs carry stop / target lines (ORB only, row 59) -- said here and on
+                    the chart; a mark with none says so instead of drawing a guess.
+      marks[].lines [{price, label "stop"|"target", dash}] from the ENTRY signal row's
+                    stop_px / target_px (api/cloud_signal.py writes them for ORB); absent
+                    when the signal file has no level -- never re-derived here.
       published_at  when this copy was written -- the browser re-checks a cached final day
                     once per page load and swaps in a newer copy when this differs.
 
@@ -147,7 +150,7 @@ from api import trade_id as _trade_id  # noqa: E402  (stdlib-only, see above)
 
 ET = ZoneInfo("America/New_York") if ZoneInfo else None
 
-SCHEMA_VERSION = 1
+SCHEMA_VERSION = 2                  # 2 (10-31, row 59): marks carry stop / target lines
 COLLECTION = "qqq_bars"
 DOC_CAP_BYTES = 200_000
 TIMEFRAMES = ("1m", "5m")
@@ -159,6 +162,7 @@ INTRADAY_MIN_SEC = 300
 PUBLISH_TIMEOUT_SEC = 20.0
 FINAL_AFTER_DAYS = 3                # a day this old is final even if a bar is missing
 LEVELS_NOTE = "stop and target are not recorded yet"
+LEVELS_NOTE_SOME = "stop and target lines: ORB only (from its signal file); other legs not recorded yet"
 REASON_MAX = 140
 MAX_DAYS = 40                       # --backfill wider than this needs --yes-many
 PRICE_EXACT = 0.0001                # "fill bar close" = the bar's close to 4 decimals
@@ -540,6 +544,16 @@ def ledger_from(broker_rows):
     return min(ts) if ts else None
 
 
+def entry_lines(ent):
+    """The ENTRY signal row's stop / target as chart lines ([] when it logged none)."""
+    out = []
+    for key, label, dash in (("stop_px", "stop", False), ("target_px", "target", True)):
+        px = _num(ent.get(key))
+        if px is not None and px > 0:
+            out.append({"price": round(px, 4), "label": label, "dash": dash})
+    return out
+
+
 def build_mark(trade, sigs, brokers, bars_by_day, shadow=False, wb_from=False):
     """One trade's markers, or None when the row has no trade_id (never guessed).
     `wb_from` = ledger_from(broker_orders.csv): a side with no Webull row that happened
@@ -557,6 +571,9 @@ def build_mark(trade, sigs, brokers, bars_by_day, shadow=False, wb_from=False):
         t, rule = signal_bar(ent, tf, bars_by_day, leg=ent.get("leg") or leg)
         mark["signal"] = {"t": t, "rule": rule}
         mark["bt_in"] = _bt_fill(ent, rule, tf)
+        lines = entry_lines(ent)
+        if lines:
+            mark["lines"] = lines
     else:
         mark["signal"] = None
         mark["bt_in"] = None
@@ -736,7 +753,7 @@ def build_day_doc(date, data, now=None):
         "complete": complete,
         "final": final,
         "marks": marks,
-        "levels_note": LEVELS_NOTE,
+        "levels_note": LEVELS_NOTE_SOME if any(m.get("lines") for m in marks) else LEVELS_NOTE,
         "published_at": now.isoformat(timespec="seconds"),
     }
 

@@ -143,7 +143,7 @@ def _mark(doc, tid):
 # ── doc shape + packing ──────────────────────────────────────────────────────────────
 def test_doc_shape(tmp_path):
     doc, _ = _doc(tmp_path)
-    assert doc["v"] == 1 and doc["date"] == DAY and doc["session"] == "rth"
+    assert doc["v"] == qb.SCHEMA_VERSION == 2 and doc["date"] == DAY and doc["session"] == "rth"
     assert set(doc["bars"]) == {"1m", "5m"}
     assert doc["bar_counts"] == {"1m": 390, "5m": 78}   # 09:25 and 16:00 dropped
     assert doc["bars_through"] == {"1m": "15:59", "5m": "15:55"}
@@ -849,3 +849,12 @@ def test_size_cap_is_checked_again_after_the_merge(tmp_path):
                  db_factory=lambda c: _Store(store2, []), now=NOW, out=buf)
     assert rc == 1 and "after keeping the published Webull rows" in buf.getvalue()
     assert store2[key] is huge                     # nothing overwritten
+
+
+def test_entry_lines_from_orb_signal_row_row59():
+    import qqq_bars_publish as q
+    assert q.entry_lines({"stop_px": "512.3", "target_px": "520.5"}) == [
+        {"price": 512.3, "label": "stop", "dash": False},
+        {"price": 520.5, "label": "target", "dash": True}]
+    assert q.entry_lines({"stop_px": "", "target_px": None}) == []
+    assert q.entry_lines({}) == []
