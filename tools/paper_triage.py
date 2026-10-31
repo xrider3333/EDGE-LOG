@@ -20,6 +20,8 @@ Q = ("For a futures trader who backtests intraday strategies (ES/NQ, walk-forwar
 
 def main():
     os.makedirs(INBOX, exist_ok=True); os.makedirs(OUT, exist_ok=True)
+    if "--direct" not in sys.argv:  # owner rule 10-30: no direct Qwen calls; switch to a Q task when tools/qwen_task.py lands
+        print("paper_triage: direct Qwen path is OFF (owner rule 10-30); pass --direct to override"); return
     force = "--force" in sys.argv
     files = [f for f in sorted(os.listdir(INBOX)) if f.lower().endswith(EXT)]
     todo = [f for f in files if force or not os.path.exists(os.path.join(OUT, f + ".md"))]
