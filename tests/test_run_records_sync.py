@@ -403,7 +403,7 @@ def test_a_record_the_lane_side_writer_produced_goes_straight_through(tmp_path):
     p = go(tmp_path, "--write")
     assert p.code == 0 and len(p.db.sets) == 3
     assert [d["one_episode"] for _p, d, _m in p.db.sets] == [False, None, None]
-    assert set(rows[0]) == set(rs.KNOWN)                # the writer's field set IS the schema this tool knows
+    assert set(rows[0]) == set(rs.SCHEMA)               # the writer's field set IS the schema this tool knows
     # AND THE ONE WRITER SHAPE THIS TOOL STILL REFUSES, so the cost of the plotted-figure rule is on the record:
     #   a run with no ROC and no net has no coordinate on any axis the board draws. It would upload, cost a
     #   write, and appear nowhere - and the owner could not tell it from a run never recorded at all. 231 of the
@@ -806,7 +806,8 @@ def test_the_vocabularies_and_defaults_are_the_ones_manager_127_froze():
     assert rs.STAGES == ("IS", "WF", "LB", "preWF", "forward", "full", "preLB")
     assert rs.STAGE_CANON["full"] == "full" and rs.STAGE_CANON["prelb"] == "preLB"
     assert rs.SCHEMA_V == 1 and rs.DEFAULTS["start_usd"] == 100000.0 and rs.DEFAULTS["note"] == ""
-    assert set(rs.KNOWN) == set(rec()) == set(rs.SCHEMA) and len(rs.KNOWN) == 28   # rec() IS the whole schema
+    assert set(rec()) == set(rs.SCHEMA) and len(rs.SCHEMA) == 28   # rec() IS the whole schema
+    assert set(rs.KNOWN) == set(rs.SCHEMA) | {"verdict", "prereg"}   # board C8: the optional verdict pair
     # THE REQUIRED LIST IS THE FIVE FIELDS THAT PLACE A ROW, plus one figure the chart can put on an axis. The
     #   test a required field has to pass is "take it away and there is no row to draw" - and dd5, ddpct, trades,
     #   sha, host, strategy, instrument and timeframe all fail it, because the page dashes every one of them.
