@@ -117,8 +117,9 @@ def test_session_start_str_lets_a_second_window_meet_a_date_to_window_with_no_ga
 
 
 def test_a_dst_sunday_and_a_friday_cut_at_the_wall_clock_roll(tmp_path, monkeypatch):
-    m = _eth_master(tmp_path, monkeypatch, ["2026-03-08 17:59", "2026-03-08 18:00", "2026-03-06 16:59",
-                                             "2026-03-06 18:30"], name="dst.csv")
+    # in time order: an out-of-order master is refused by the board C6 bar checks
+    m = _eth_master(tmp_path, monkeypatch, ["2026-03-06 16:59", "2026-03-06 18:30", "2026-03-08 17:59",
+                                             "2026-03-08 18:00"], name="dst.csv")
     sun = D.load_master_arrays(m, date_from="2026-03-08", date_to="2026-03-08")
     assert [str(t)[11:16] for t in sun["index"]] == ["17:59"]                  # EDT began 02:00 that day
     assert D.window_end_ts(m, "2026-03-06") == pd.Timestamp("2026-03-06 18:00", tz="US/Eastern")
