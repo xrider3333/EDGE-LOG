@@ -892,13 +892,19 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     var ids=function(){return [].map.call(F().querySelectorAll('[data-lgtrade]'),function(r){return r.getAttribute('data-lgtrade');});};
     var axis=function(sv){var n=[];[].forEach.call(sv.querySelectorAll('text'),function(e){var t=e.textContent;if(/^[0-9]{1,3}(,[0-9]{3})+$/.test(t))n.push(+t.replace(/,/g,''));});return n;};
     var judge=function(sv,id){var a=axis(sv),L=lvById[id];return {axis:a.length?[Math.min.apply(null,a),Math.max.apply(null,a)]:null,want:L,ok:a.length>0&&a.every(function(v){return Math.abs(v-L)<=60;})};};
-    var shutAll=function(){var c=d.querySelector('#chart-close');if(c)c.click();var g=d.getElementById('gal-close');if(g)g.click();};
+    var shutAll=function(){var c=d.querySelector('#chart-close');if(c)c.click();var g=d.getElementById('gal-close');if(g)g.click();try{if(w._lwClose)w._lwClose();}catch(e){}};
     var viewPill=async function(n,id){
       var r=F().querySelector('[data-lgtrade="'+id+'"]'),b=r&&r.querySelector('[data-ptchart]'),res={kind:'pill',n:n,id:id,pill:!!b,svg:false,ok:false};
       if(!b)return res;
-      b.click();await pnSleep(150);
-      var sv=d.querySelector('#chart-body svg');res.svg=!!sv;
-      if(sv)Object.assign(res,judge(sv,id));
+      b.click();
+      // row 75 step 1: an NT8 paper trade opens the SHARED Lightweight Charts viewer ([data-lwchart]); the bars it fetched for the trade
+      // (the PC's answer, under the trade's own key) are read off window._lwState().range - set as soon as the bars land, with or
+      // without the chart library (a headless run may have no CDN). The old SVG viewer (#chart-body svg) is still judged when it opens.
+      var lw=null,k;for(k=0;k<30&&!(lw&&lw.range);k++){await pnSleep(50);lw=(w._lwState&&d.querySelector('[data-lwchart]'))?w._lwState():null;}
+      var sv=d.querySelector('#chart-body svg');
+      if(lw){res.svg=true;res.lw=true;var L=lvById[id],rg=lw.range;res.axis=rg?[rg.lo,rg.hi]:null;res.want=L;res.no=lw.no;
+        res.ok=!!(rg&&Math.abs(rg.lo-L)<=60&&Math.abs(rg.hi-L)<=60);}
+      else{res.svg=!!sv;if(sv)Object.assign(res,judge(sv,id));}
       shutAll();await pnSleep(30);
       return res;
     };
