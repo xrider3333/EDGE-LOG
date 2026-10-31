@@ -381,8 +381,7 @@ OWN_FOLDS = ['health', 'capture', 'nt', 'recon', 'gate', 'reports']   # the boar
 HEALTH_KIDS = ['capture', 'nt', 'recon', 'gate']                   # the folds inside the System health fold
 S11_KEYS = ['status', 'health', 'capture', 'nt', 'recon', 'gate', 'reports', 'list']   # every remembered fold: localStorage el_lg_<key>_nt8
 HOUSE_WIDTHS = [600, 601, 740, 800, 920, 1100]                     # the one set of breakpoints (contract 5b); 601 is the other side of 600
-S11_PHONE_LIST_TOP = 797 + 4                                       # px under the board top before the step (LEDGER mistake #12) - it must not grow
-                                                                   # ... + 4 (owner 10-31, live page): the open / flat line directly under the big number
+S11_PHONE_LIST_TOP = 797                                           # px under the board top before the step (LEDGER mistake #12) - it must not grow
 # what the removed previous board drew: none of it may be in the page, in any case (the page-side readout lists the ones it finds). #ptrades-wrap
 # is deliberately not in tools/ledger_removed.py, so a mutant can put it back and prove that THIS check sees it.
 OLD_MARKS = ['#ptrades-wrap', '#ptrades-body', '#pt-selbar', 'tr[data-ptrow]', 'tr[data-paperleg]', 'tr[data-paperother]', '.p2rhstat',
@@ -2821,7 +2820,7 @@ def run(alt_index=None, timeout=300):
         if dist > g.get('vh', 0):
             fails.append('phone375: the trade list starts %d px under the board top, more than one screen (%s px)' % (dist, g.get('vh')))
         if dist > S11_PHONE_LIST_TOP:
-            fails.append('phone375: the trade list starts %d px under the board top; it was 797 before the shared frame (+4 for the open line, owner 10-31) - it must not grow' % dist)
+            fails.append('phone375: the trade list starts %d px under the board top; it was 797 before the shared frame - it must not grow' % dist)
     for nm in ('phone375', 'phone375-table', 'w600', 'w760', 'w1099', 'w1100', 'paper2', 'laptop-list'):
         g = (cases.get(nm) or {}).get('tlGeo') or {}
         if not g or (g.get('scrollW') or 0) > (g.get('clientW') or 0) + 1:

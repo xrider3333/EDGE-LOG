@@ -3848,7 +3848,7 @@ __S11JS__
 
 TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared frame (ledgerTradeListHtml). tlRead = everything the judge needs from one
   // drawn frame; SCEN = what a viewer does to it (chips, search, sheet, paging, LIST | TABLE, CSV, a calendar tap, the glyph); runTl runs one. ──
-  function tx2(e){return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;}
+  function tx2(e){return e?(e.textContent||'').replace(/\s+/g,' ').trim():null;}
   function uniq(a){var s={},o=[];a.forEach(function(x){if(!s[x]){s[x]=1;o.push(x);}});return o;}
   function rowsN(){var d=D(),a=d.querySelectorAll('[data-lgtrade]');return a.length||d.querySelectorAll('[data-qbtraderow]').length;}
   function tlKeys(){return [].map.call(D().querySelectorAll('[data-lgtrade]'),function(e){return e.getAttribute('data-lgtrade');});}
@@ -3942,7 +3942,7 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
   var PNQ='.lg-panel[data-lgpanel="wb"]';
   // a headless page may never produce the frames a CSS animation needs: finish the slide-in so the panel is measured where it ends up
   function pFinish(){try{D().getAnimations().forEach(function(a){try{a.finish();}catch(e1){}});}catch(e){}}
-  function tx3(e){return e?(e.innerText||'').replace(/\\s+/g,' ').trim():null;}
+  function tx3(e){return e?(e.innerText||'').replace(/\s+/g,' ').trim():null;}
   function panelNow(){pFinish();var p=q(PNQ);if(!p)return null;
     return {trade:p.getAttribute('data-lgpanel-trade'),sym:tx2(p.querySelector('[data-lgpanel-sym]')),side:tx2(p.querySelector('[data-lgpanel-side]')),
       net:tx2(p.querySelector('[data-lgpanel-net]')),when:tx2(p.querySelector('[data-lgpanel-when]'))};}
@@ -4400,7 +4400,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
         btn:{t:Math.round(br.top+sy),b:Math.round(br.bottom+sy),l:Math.round(br.left),r:Math.round(br.right),h:Math.round(br.height),w:Math.round(br.width),
           shown:bcs.display!=='none'&&br.width>0&&br.height>0},
         sumH:smr?Math.round(smr.height):null,sumClip:sm?(sm.scrollWidth>sm.clientWidth+1):null,
-        panel:p?{hiddenAttr:p.hasAttribute('hidden'),shown:pcs.display!=='none'&&pr.height>0,h:Math.round(pr.height),len:(p.textContent||'').replace(/\\s+/g,' ').trim().length,
+        panel:p?{hiddenAttr:p.hasAttribute('hidden'),shown:pcs.display!=='none'&&pr.height>0,h:Math.round(pr.height),len:(p.textContent||'').replace(/\s+/g,' ').trim().length,
           inApp:!!p.closest('#app')}:null,
         hues:(function(){var bad=[];[b,t,sm,b.querySelector('.lg-chev')].concat(sm?[].slice.call(sm.querySelectorAll('*')):[]).forEach(function(e){
           if(e)s11Hue(e,['color','borderTopColor','backgroundColor']).forEach(function(x){if(bad.length<6)bad.push((e.className||e.tagName)+' '+x);});});
@@ -4496,7 +4496,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
   function foldState(k){
     var d=D(),w=W(),b=q('[data-qbfold="'+k+'"]'),p=d.getElementById('qbf-'+k);
     if(!b||!p)return null;
-    var pr=p.getBoundingClientRect(),cs=w.getComputedStyle(p),txt=(p.textContent||'').replace(/\\s+/g,' ').trim(),st=null;
+    var pr=p.getBoundingClientRect(),cs=w.getComputedStyle(p),txt=(p.textContent||'').replace(/\s+/g,' ').trim(),st=null;
     try{st=w.localStorage.getItem('el_qb_fold_'+k);}catch(e){}
     var sel={};(S11_MARKS[k]||[]).forEach(function(s){sel[s]=p.querySelectorAll(s).length;});
     return {exp:b.getAttribute('aria-expanded'),hiddenAttr:p.hasAttribute('hidden'),shown:cs.display!=='none'&&pr.height>0,h:Math.round(pr.height),len:txt.length,
@@ -4553,7 +4553,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
     try{
       var bb=q('[data-qbfold="rails"]');if(bb){bb.click();await sleep(130);}
       var b3=q('[data-qbfold="rails"]'),p3=d.getElementById('qbf-rails');
-      res.blocked={exp:b3?b3.getAttribute('aria-expanded'):null,len:p3?(p3.textContent||'').replace(/\\s+/g,' ').trim().length:null,errs:drain()};
+      res.blocked={exp:b3?b3.getAttribute('aria-expanded'):null,len:p3?(p3.textContent||'').replace(/\s+/g,' ').trim().length:null,errs:drain()};
     }finally{Sp.getItem=g0;Sp.setItem=s0;}
     // the page never scrolls sideways with EVERY fold open, at the widths a viewer has
     var S11W=[375,601,700,800,1000,1366];
