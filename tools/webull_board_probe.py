@@ -5532,6 +5532,17 @@ def _plain(name):
     return SETW_RE.sub(r'\1', name) if isinstance(name, str) else name
 
 
+RAW_KEYS = ('label', 'cell')   # the readout fields kept as shown (the row words LABEL_RE judges)
+
+
+def _plain_readout(x, key=None):
+    if isinstance(x, dict):
+        return dict((k, (v if k in RAW_KEYS else _plain_readout(v, k))) for k, v in x.items())
+    if isinstance(x, list):
+        return [_plain_readout(v, key) for v in x]
+    return _plain(x) if isinstance(x, str) else x
+
+
 def _after_params(tag):
     """A row's tag without its leading params note (the side pill and the rest follow it)."""
     m = PARAMS_NOTE_RE.match(tag or '')
@@ -7772,6 +7783,10 @@ def _attempt(chrome, alt_index, fixture):
     try:
         data = json.loads(m.group(1).replace('&quot;', '"').replace('&lt;', '<').replace('&gt;', '>')
                           .replace('&amp;', '&'))
+        # owner 10-31 (row 76): the page writes run.set + the model word into every strategy name ('NOISE #382.2 keel',
+        # 'DIP #424 set ? raw · RSI'). The readout is taken back to the plain family + run words here, ONCE, so every check
+        # pinned on 'NOISE #382' keeps reading; a row's own 'label' (and its 'cell') stay as shown for LABEL_RE to judge.
+        data = _plain_readout(data)
     except Exception as e:
         return INCONCLUSIVE, ['unreadable readout: %s' % e], [], None, True
     if os.environ.get('WEBULLPROBE_DUMP'):
