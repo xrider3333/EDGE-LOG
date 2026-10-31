@@ -1,0 +1,28 @@
+{
+  "_comment": "Keys MERGED into ~/.cline/data/globalState.json by tools/cline/apply_settings.py. Everything else in that file is left alone.",
+  "openAiBaseUrl": "http://127.0.0.1:11435/v1",
+  "planModeApiProvider": "openai",
+  "actModeApiProvider": "openai",
+  "planModeOpenAiModelId": "2.qwen3.8:27b-48k",
+  "actModeOpenAiModelId": "2.qwen3.8:27b-48k",
+  "planModeOpenAiModelInfo": {"name": "2.qwen3.8:27b-48k", "maxTokens": 8192, "contextWindow": 49152, "supportsImages": false, "supportsPromptCache": false, "inputPrice": 0, "outputPrice": 0, "temperature": 0},
+  "actModeOpenAiModelInfo":  {"name": "2.qwen3.8:27b-48k", "maxTokens": 8192, "contextWindow": 49152, "supportsImages": false, "supportsPromptCache": false, "inputPrice": 0, "outputPrice": 0, "temperature": 0},
+  "enableCheckpointsSetting": true,
+  "autoApprovalSettings": {
+    "version": 2,
+    "enabled": true,
+    "favorites": [],
+    "maxRequests": 200,
+    "actions": {
+      "readFiles": true,
+      "readFilesExternally": true,
+      "editFiles": false,
+      "editFilesExternally": false,
+      "executeSafeCommands": true,
+      "executeAllCommands": false,
+      "useBrowser": false,
+      "useMcp": true
+    },
+    "enableNotifications": false
+  }
+}

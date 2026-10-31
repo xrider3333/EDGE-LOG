@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "edgelog": {
+      "command": "C:\\Users\\xride\\AppData\\Local\\Microsoft\\WindowsApps\\python3.13.exe",
+      "args": [
+        "C:\\Users\\xride\\OneDrive\\Desktop\\EDGE-LOG\\tools\\edgelog_mcp.py"
+      ],
+      "env": { "EDGELOG_HOME": "C:\\EdgeLog" },
+      "disabled": false,
+      "autoApprove": ["inbox_read", "board_read", "task_list", "task_result"]
+    }
+  }
+}

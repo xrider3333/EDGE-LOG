@@ -1,0 +1,8 @@
+{
+  "_comment": "Only baseUrl is merged into providers.openai-compatible.settings; the API key is never read or written by apply_settings.py.",
+  "providers": {
+    "openai-compatible": {
+      "settings": {"provider": "openai-compatible", "baseUrl": "http://127.0.0.1:11435/v1", "model": "2.qwen3.8:27b-48k"}
+    }
+  }
+}

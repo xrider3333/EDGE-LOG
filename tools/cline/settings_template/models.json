@@ -1,0 +1,14 @@
+{
+  "version": 1,
+  "providers": {
+    "openai-compatible": {
+      "models": {
+        "1.STRATA qwen3.8-flash:125b-256k": {"name": "1.STRATA qwen3.8-flash:125b-256k", "maxTokens": 8192, "contextWindow": 262144},
+        "2.qwen3.8:27b-48k":                {"name": "2.qwen3.8:27b-48k",                "maxTokens": 8192, "contextWindow": 49152},
+        "3.qwen3.6:35b-128k":               {"name": "3.qwen3.6:35b-128k",               "maxTokens": 8192, "contextWindow": 131072},
+        "4.qwen3.6:35b-64k":                {"name": "4.qwen3.6:35b-64k",                "maxTokens": 8192, "contextWindow": 65536},
+        "5.qwen3.6:35b-32k":                {"name": "5.qwen3.6:35b-32k",                "maxTokens": 8192, "contextWindow": 32768}
+      }
+    }
+  }
+}
