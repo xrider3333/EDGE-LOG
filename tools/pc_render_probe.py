@@ -106,7 +106,10 @@ PROBE_HTML = r"""<!DOCTYPE html>
           collection:function(c){return _rec(path+'/'+c);},
           doc:function(x){return _rec(path+'/'+x);},
           set:function(o){window._pcWrites.push({doc:path.split('/').slice(3).join('/'),
-            on:!!o.on,auto:o.auto,reason:String(o.reason||''),by:o.set_by});
+            on:!!o.on,auto:o.auto,reason:String(o.reason||''),by:o.set_by,
+            // the board row fields too, so the owner's CONFIRM / SEND BACK / NEEDS ME can be
+            //   graded on WHAT it wrote and not merely on having written something
+            status:o.status,statusText:o.statusText,updated_by:o.updated_by});
             return Promise.resolve();},
           get:function(){return Promise.resolve({exists:false,data:function(){return {};}});}};};
         window._pcRecDb=_rec('');
@@ -160,14 +163,24 @@ PROBE_HTML = r"""<!DOCTYPE html>
       //    and holds the page to the one failure that matters: losing a row the owner waits on.
       //    The seed carries a finished row, a confirmed one and a status the page has never seen.
       out.board=w.eval(`(function(){try{
+        // a FRESH write log for this case: the quiet case still holds the old array, so a write
+        //   the owner's board buttons make here cannot show up in its count.
+        window._pcWrites=[];
         window._bdOn=true;window._bdLoaded=true;window._bdAt=Date.now();
         window.loadBoard=function(){};window._bdExp={};
         window._bdRows={
           w03:{_id:'w03',tab:'WORK',order:3,status:'block',title:'RESMOM real data pull',
                statusText:'NEEDS YOU 10-31',who:'You',date:'2026-10-11',
                why:'Sat 10-31 07:00 MST, about 3 h. Leave the PC on',updated_by:'MANAGER'},
-          w09:{_id:'w09',tab:'WORK',order:9,status:'run',title:'column filters',
+          w09:{_id:'w09',tab:'WORK',order:9,status:'run',title:'column filters',tag:'board',
                statusText:'in a worktree',who:'ELWA',date:'2026-10-30',updated_by:'ELWA'},
+          // assigned but nobody has started it: YELLOW HOLLOW, and it must not read as being
+          //   worked. This row and w09 are the pair the legend change exists for.
+          w11:{_id:'w11',tab:'WORK',order:11,status:'queued',title:'a row in a lane queue',
+               tag:'OHLC',who:'ELWA',date:'2026-10-31',updated_by:'MANAGER'},
+          // no tag set: it gets no chip rather than an empty box
+          w12:{_id:'w12',tab:'WORK',order:12,status:'open',title:'a row with no family',
+               who:'',date:'2026-10-31',updated_by:'MANAGER'},
           w01:{_id:'w01',tab:'WORK',order:1,status:'done',title:'KEEL matches its backtest',
                statusText:'LIVE 10-12',who:'Custom ML',date:'2026-10-12',updated_by:'MANAGER'},
           w02:{_id:'w02',tab:'WORK',order:2,status:'confirmed',title:'a row he already OKed',
@@ -189,6 +202,35 @@ PROBE_HTML = r"""<!DOCTYPE html>
         if(one)one.click();
         var opened=app();
         if(one)one.click();
+        // THE CIRCLES THEMSELVES (owner 10-31). A dot's FILL is what tells him 'in queue' from
+        //   'being worked', so read the computed fill, not the word next to it.
+        var dotOf=function(id){var row=document.querySelector('[data-bdrow="'+id+'"]');
+          if(!row)return null;var sp=row.querySelector('span');if(!sp)return null;
+          var cs=getComputedStyle(sp);var bg=String(cs.backgroundColor||'').replace(/ /g,'');
+          // NO BACKSLASH HERE ON PURPOSE: this string is an eval template literal, and a
+          //   backslash in one is eaten before the browser ever sees it.
+          var clear=(bg==='transparent')||(bg.indexOf('rgba(0,0,0,0)')>=0)||(bg==='');
+          return {bg:bg,bd:String(cs.borderColor||''),filled:!clear};};
+        var dots={needs:dotOf('w03'),run:dotOf('w09'),queued:dotOf('w11'),open:dotOf('w12')};
+        // the chip, and a row that has no family
+        var chipsOf=function(id){var row=document.querySelector('[data-bdrow="'+id+'"]');
+          return row?[].map.call(row.querySelectorAll('span'),function(s){
+            return String(s.textContent||'').trim();}).filter(function(t){return t==='OHLC'||t==='BOARD';}):[];};
+        var chips={w11:chipsOf('w11'),w09:chipsOf('w09'),w12:chipsOf('w12')};
+        // HIS THREE BUTTONS, by clicking one. No db is attached here, so a click that reaches the
+        //   writer comes back 'not signed in' - and a build with the handler gone comes back blank.
+        var oneAgain=document.querySelector('[data-bdrow="w03"]');
+        if(oneAgain)oneAgain.click();
+        var acts=[].map.call(document.querySelectorAll('[data-bdact]'),function(b){
+          return b.getAttribute('data-bdact');});
+        var cf=document.querySelector('[data-bdact="confirm"]');
+        var before=(window._pcWrites||[]).length;
+        if(cf)cf.click();
+        var wroteBoard=(window._pcWrites||[]).slice(before).filter(function(x){
+          return String(x&&x.doc||'').indexOf('board/')===0;});
+        var afterClick=app();
+        var stillOpen=!!document.querySelector('[data-bdact]');
+        if(oneAgain)oneAgain.click();
         // the finished rows are behind a fold, so they must appear only once it is opened
         var foldClosed=app();
         var fd=document.querySelector('[data-bdrow=\"~wdone\"]');
@@ -202,6 +244,8 @@ PROBE_HTML = r"""<!DOCTYPE html>
         if(tf)tf.click();
         var runs=app();
         return {sub:augurSub,tx:t.slice(0,9000),opened:opened.slice(0,9000),
+          dots:dots,chips:chips,acts:acts,afterClick:afterClick.slice(0,9000),stillOpen:stillOpen,
+          wroteBoard:wroteBoard,
           runsOpenOnly:runsOpenOnly.slice(0,9000),
           foldClosed:foldClosed.slice(0,9000),foldOpen:foldOpen.slice(0,9000),
           runs:runs.slice(0,9000),shaded:shaded,
@@ -384,6 +428,54 @@ def judge(nm, r):
         if b.get('writes'):
             f.append('%s: the board page carries %d control(s) that write - lanes write, not the '
                      'page' % (nm, b['writes']))
+        # ── THE SIX CIRCLES (owner 10-31, artifact v25). ONE yellow for both 'nobody on it' and
+        #    'being worked' is the thing he asked to end, so the FILL has to separate them.
+        dots = b.get('dots') or {}
+        for key, want, words in (('needs', True, 'needs you'), ('run', True, 'being worked'),
+                                 ('queued', False, 'in queue'), ('open', False, 'nobody on it')):
+            d = dots.get(key)
+            if not d:
+                f.append('%s: the %s row has no status circle at all' % (nm, words))
+            elif bool(d.get('filled')) is not want:
+                f.append('%s: the %r circle is %s - it must be %s, or he cannot tell an assigned '
+                         'row from one being worked'
+                         % (nm, words, 'filled' if d.get('filled') else 'hollow',
+                            'filled' if want else 'hollow'))
+        if dots.get('queued') and dots.get('open'):
+            if 'rgb' in str(dots['queued'].get('bd')) and \
+                    dots['queued'].get('bd') == dots['open'].get('bd'):
+                f.append('%s: a queued row and a row nobody has started are the same colour' % nm)
+        for want in ('in queue', 'being worked', 'nobody on it'):
+            if want not in btx:
+                f.append('%s: the legend under the table does not say %r' % (nm, want))
+        if 'NOBODY ON IT' not in btx:
+            f.append("%s: an open row no longer carries its state word" % nm)
+        # ── THE FAMILY CHIP
+        chips = b.get('chips') or {}
+        if 'OHLC' not in (chips.get('w11') or []):
+            f.append('%s: the family chip is not drawn before the title (%r)' % (nm, chips))
+        if chips.get('w12'):
+            f.append('%s: a row with no family still draws a chip (%r)' % (nm, chips.get('w12')))
+        # ── HIS THREE BUTTONS
+        acts = b.get('acts') or []
+        for want in ('confirm', 'back', 'mine'):
+            if want not in acts:
+                f.append('%s: the open note has no %s button (%r)' % (nm, want.upper(), acts))
+        wrote = b.get('wroteBoard') or []
+        if not wrote:
+            f.append('%s: CLICKING CONFIRM writes nothing - the button never reaches the writer, '
+                     'so his answer on a row would be silently dropped' % nm)
+        else:
+            w0 = wrote[0] or {}
+            if str(w0.get('doc') or '') != 'board/w03':
+                f.append('%s: CONFIRM wrote %r, not the row he clicked' % (nm, w0.get('doc')))
+            if str(w0.get('status') or '') != 'confirmed':
+                f.append('%s: CONFIRM wrote status %r - the row would not go green' % (nm, w0.get('status')))
+            if 'owner' not in str(w0.get('statusText') or '').lower():
+                f.append('%s: CONFIRM wrote no line saying he was the one who said so (%r)'
+                         % (nm, w0.get('statusText')))
+        if not b.get('stillOpen'):
+            f.append("%s: clicking a button closed the row's note instead of answering it" % nm)
         empty = ' '.join(str(r.get('boardEmpty') or '').split())
         if 'board.py seed' not in empty:
             f.append('%s: an empty board does not say how it gets filled (%r)' % (nm, empty[:200]))
@@ -422,7 +514,9 @@ def main():
     print('PCPROBE: PASS (PC opens from another tab and the BOARD tab reads the live board - '
           'NEEDS YOU called out and shaded, a status the page has never seen still shown and '
           'named, finished rows folded, a run number nobody reported a dash not a zero, a click '
-          'opens the note, an empty board says how it fills, no control that writes; '
+          'opens the note, an empty board says how it fills, the six circles separate in-queue '
+          'from being-worked and the family chip is drawn, CONFIRM writes the row he '
+          'clicked; '
           'a quiet machine repeats the runner own reason and lists its '
           'running, held and deferred jobs; the three figures nothing publishes are dashes with '
           'reasons, never zeros; the button writes only control/quiet; laptop 1400 + phone 375 '
