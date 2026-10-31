@@ -631,6 +631,10 @@ def _isolate_quiet_mode(monkeypatch, tmp_path):
     monkeypatch.setenv("EDGELOG_QUIET_FILE", str(tmp_path / "quiet" / "QUIET"))
     monkeypatch.setenv("EDGELOG_QUIET_STATE", str(tmp_path / "quiet" / "quiet_state.json"))
     monkeypatch.setenv("EDGELOG_SHIP_IGNORE_QUIET", "1")
+    # RESUME saves (augur_engine/resume_ckpt): off in tests and never the real folder, so one
+    # test's run_auto can never hand another a saved result. tests/test_resume_ckpt.py opts in.
+    monkeypatch.setenv("AUGUR_RESUME", "0")
+    monkeypatch.setenv("EDGELOG_RESUME_DIR", str(tmp_path / "resume_ckpt"))
     yield
 
 

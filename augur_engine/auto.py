@@ -1056,7 +1056,7 @@ def _boot_wf_pool(specs, nproc, strategy, master, date_from, date_to, arrays_to_
 
 def _run_folds_parallel(strategy, master, date_from, date_to, arrays_to_send, cost_pts,
                         session, space, dp, pkeys, seed, n_trials, min_trades, fold_specs,
-                        workers, progress_cb, n_total, warm_days=0):
+                        workers, progress_cb, n_total, warm_days=0, on_row=None):
     """Drive wf_pool: one process per fold up to `workers`. Progress is reported per
     finished fold (a fold is n_trials of the total). Rows come back in fold order.
 
@@ -1122,6 +1122,8 @@ def _run_folds_parallel(strategy, master, date_from, date_to, arrays_to_send, co
                     # (its own process counters never reach this one otherwise)
                     TC.merge_health(res[2])
                 rows[f] = row
+                if on_row:
+                    on_row(f, row)
                 done += n_trials
                 if progress_cb:
                     progress_cb(min(done, n_total), n_total)
@@ -1163,7 +1165,34 @@ def _stop_pool(ex):
             pass
 
 
-def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
+def run_auto(strategy, **kw):
+    """Smart search (the body is _run_auto_search below; its docstring has the contract).
+    RESUME (owner 10-31, augur_engine/resume_ckpt): a call whose exact arguments, strategy,
+    master file and engine code already finished once returns that saved result, and a
+    walk-forward call reuses each fold that finished before a shutdown. AUGUR_RESUME=0 = off."""
+    from . import resume_ckpt as RC
+    key = RC.call_key(strategy, kw)
+    if key:
+        hit = RC.load(key, "result")
+        if hit is not None:
+            print("[resume] %s %s: reusing the saved result (%s) - nothing re-run"
+                  % (kw.get("method", "single"), kw.get("wf_mode", ""), key[:8]))
+            cb = kw.get("progress_cb")
+            if cb:
+                cb(100, 100)
+            return hit
+    prev = RC.current()
+    RC.set_current(key)
+    try:
+        out = _run_auto_search(strategy, **kw)
+    finally:
+        RC.set_current(prev)
+    if key and out:
+        RC.save(key, "result", out)
+    return out
+
+
+def _run_auto_search(strategy, *, instrument=None, timeframe="5m", session="rth", source=None,
              master=None, arrays=None, cost_pts=0.0, min_trades=30, n_trials=200,
              top_n=10, method="single", oos=True, wf_folds=0, seed=42,
              compute_dsr=False, mc_sims=0, progress_cb=None, years=None,
@@ -1357,6 +1386,23 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         fold_specs = wf_fold_specs(n, wf_folds, rolling)
         n_folds = len(fold_specs)
         n_total = n_trials * n_folds
+        # RESUME: folds that finished before a shutdown come back from disk; only the rest run
+        from . import resume_ckpt as _RC
+        _rkey = _RC.current()
+        _saved = {}
+        for _spec in fold_specs:
+            _hit = _RC.load(_rkey, "fold%d" % _spec[0]) if _rkey else None
+            if _hit is not None:
+                _saved[_spec[0]] = _hit[0]
+        _all_specs = fold_specs
+        if _saved:
+            print("[resume] walk-forward %s: %d of %d folds reused from the last run (%s)"
+                  % (wf_mode, len(_saved), n_folds, _rkey[:8]))
+            fold_specs = [s for s in fold_specs if s[0] not in _saved]
+
+        def _keep_fold(f, row):
+            if _rkey:
+                _RC.save(_rkey, "fold%d" % f, (row,))
         # ── PARALLEL FOLDS (2026-09-08, augur_engine.wf_pool) ──────────────────────
         #   Each fold is its own process when workers > 1. Same _wf_fold_row as the
         #   loop below, so the rows are identical; only the wall-clock differs. Any
@@ -1369,7 +1415,8 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     strategy, master, date_from, date_to,
                     arrays if _arrays_supplied else None, cost_pts, session,
                     space, dp, pkeys, seed, n_trials, min_trades, fold_specs,
-                    int(workers), progress_cb, n_total, warm_days=_warm_days)
+                    int(workers), progress_cb, n_total, warm_days=_warm_days,
+                    on_row=_keep_fold)
             except Exception as _pe:
                 if isinstance(_pe, EngineOutOfMemory):
                     # W46 review: a worker that ran out of memory after every retry. Its
@@ -1396,8 +1443,17 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
                 row = _wf_fold_row(_ev, H, L, space, dp, pkeys, seed, n_trials, min_trades,
                                    cost_pts, f, tr_start, tr_end, te_s, te_e, tick=_tick,
                                    index=IDX, warm=_warm)
+                _keep_fold(f, row)
                 if row is not None:
                     records.append(row)
+        if _saved:
+            # fold order as before: saved + new rows re-sorted on the fold number
+            _new = {r.get("fold"): r for r in records}
+            records[:] = []
+            for (_f, *_r) in _all_specs:
+                r = _saved.get(_f) if _f in _saved else _new.get(_f + 1)
+                if r:
+                    records.append(r)
         if progress_cb:
             progress_cb(n_total, n_total)
         is_wf = True
