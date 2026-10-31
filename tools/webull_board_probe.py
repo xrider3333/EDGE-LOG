@@ -460,7 +460,7 @@ def leg_today_want(doc, leg):
 # shows the family as ONE strategy. The variants lay DIP_FIXTURE over the base doc: ORB long 10 and NOISE short 10 bought today, the seven DIP
 # lots each carried overnight (Friday's last price 750.95, today's open 749.34: a -$9.66 gap a lot), three closed DIP trades, ENGU-Q a retired
 # tracker. What the page must say is pinned here (worked out by hand from the fixture), so a drift in a helper cannot hide a wrong page.
-DIP_PHONE_TOP_MAX = 757 + 28       # phone 375x812: with seven DIP lots held the trade list still starts within step 12's 757 px  # owner 10-31 14:35: the DIP row and the headline line each grew by one small line (open lots)
+DIP_PHONE_TOP_MAX = 757 + 28 + 16  # owner 10-31 (live page): the open line is its own line under the big number (+16)  # phone 375x812: with seven DIP lots held the trade list still starts within step 12's 757 px  # owner 10-31 14:35: the DIP row and the headline line each grew by one small line (open lots)
 # its rail line beside the daily stop: its own figure today (today.dip_rail_input: +$100.38, so nothing used), or on a box that does not send
 # the figure, the limit alone
 DIP_RAIL_OK = ('ok', 'DIP #424 own rail: $0.00 of $800.00 used today (not in this stop); a breach pauses its entries for the next session and never sells')
@@ -1210,7 +1210,7 @@ def _variant_docs(fixture):
                 dict(dip_ex, ordsum_has=['$23.80 of $400.00 daily stop used', 'DIP #424 paused through Mon 10-05'],
                      ordsum_lacks=['stopped for the day'], flags_lacks=['BREAKER TRIPPED'],
                      dip=dict(DIP_WANT, rail=('paused', 'DIP #424 rail hit Fri 10-02 (-$812.40): no new DIP #424 entries through Mon 10-05; '
-                                                         'nothing is sold'), rail_col='amber',
+                                                         'nothing is sold'), rail_col='warn',   # owner 10-31: a warning is drawn in the --warn token
                               row_rail='rail hit Fri 10-02: no new entries through Mon 10-05'))))
     # NEXT TRADE (item 53): the box's next_trade block (NEXT_FIXTURE, laid on by _next_doc) - each flat leg's next trade if it fires, under
     # its row (DIP #424's whenever the block has it), the rows a tap opens and the Rails TOTAL CAP row. The contract's own example is Tuesday
@@ -1458,7 +1458,7 @@ MUTANTS = [
      "    r.stale=(nowMs-t)/1000>90;",
      "a healthy pre-open doc reads silent in the first 90 s after the open"),
     ('orders-summary-pill-not-silent',
-     "            if(QF.stale){pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--attn-amber)':'var(--attn-red)';filled=true;}",
+     "            if(QF.stale){pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--warn)':'var(--attn-red)';filled=true;}",
      "",
      "the sidebar Orders pill keeps PAPER while the box is silent (finding 8)"),
     ('orders-card-not-silent',
@@ -1602,11 +1602,11 @@ MUTANTS = [
      _CRLF + "}catch(e){}}",
      "on a phone the chip wraps the top bar after a read and the sticky sub-tab strip slides under it"),
     ('noread-pill-red',
-     "if(QF.stale){pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--attn-amber)':'var(--attn-red)';filled=true;}",
+     "if(QF.stale){pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--warn)':'var(--attn-red)';filled=true;}",
      "if(QF.stale){pillTxt=qbSilentWord;pillCol='var(--attn-red)';filled=true;}",
      "the Orders pill says NO STATUS in BOX SILENT's red when it is this page that cannot read"),
     ('noread-card-pill-red',
-     "That may no longer be true.';pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--attn-amber)':'var(--attn-red)';",
+     "That may no longer be true.';pillTxt=qbSilentWord;pillCol=qbNoRead?'var(--warn)':'var(--attn-red)';",
      "That may no longer be true.';pillTxt=qbSilentWord;pillCol='var(--attn-red)';",
      "the System Orders card says NO STATUS in BOX SILENT's red when it is this page that cannot read"),
     ('account-stale-blames-box',
@@ -1807,8 +1807,8 @@ MUTANTS = [
      "@media(max-width:600px){.qbx-lg-key .qbx-lg-short{display:none}}",
      'the chart key is four lines on a phone and the trade list starts more than a screen down'),
     ('list-has-switch',
-     "value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)+todayTxt,",
-     "value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)+todayTxt,sw:{on:true},",
+     "cls:fgHas?ledgerCls(fgTot):'',value2:'',",
+     "cls:fgHas?ledgerCls(fgTot):'',value2:'',sw:{on:true},",
      'the strategy list draws a switch on each row (this board has none: every leg counts)'),
     ('shadow-open-by-default',
      "let qbShadowOpen=!!window._qbShadowOpen;",
@@ -2492,8 +2492,8 @@ MUTANTS = [
      "broker made '+qeMoney(brokerInfo.book_net)+' of that ('",
      "the hero's broker line quotes the book's net instead of what the broker made"),
     ('broker-made-line-at-zero',
-     "brokerInfo.book_only_count>0)?('<div data-qbbroker style=\"color:var(--attn-amber)\"",
-     "brokerInfo.book_only_count>=0)?('<div data-qbbroker style=\"color:var(--attn-amber)\"",
+     "brokerInfo.book_only_count>0)?('<div data-qbbroker style=\"color:var(--warn)\"",
+     "brokerInfo.book_only_count>=0)?('<div data-qbbroker style=\"color:var(--warn)\"",
      "the hero's broker line is drawn although no trade is book-only"),
     ('broker-made-plural-wrong',
      "' book-only trade'+(brokerInfo.book_only_count===1?'':'s')+' excluded)",
@@ -2674,7 +2674,7 @@ MUTANTS = [
      "+(false?('<span class=\"qbx-lg-pill\" data-qbheldpill=\"'+key+'\"",
      "ENGU-Q's row has no HELD tag beside its side pill"),
     ('held-tag-red',
-     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--text4);margin-left:4px\">HELD</span>",
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--warn);margin-left:4px\">HELD</span>",
      "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--attn-red);margin-left:4px\">HELD</span>",
      'the HELD tag is drawn red, as an alarm'),
     ('held-line-missing',
@@ -2706,9 +2706,45 @@ MUTANTS = [
      "data-qbheroqual=\"net\">closed + open</span>')",
      "the big number says 'closed + open' again instead of 'net'"),
     ('hero-open-line-missing',
-     "+(ov!=null?('<span class=\"hm-suffix\"> &middot; open </span>",
-     "+(false?('<span class=\"hm-suffix\"> &middot; open </span>",
+     "?('<span class=\"hm-suffix\">open </span>'+(ov!=null?(",
+     "?('<span class=\"hm-suffix\">open </span>'+(false?(",
      "the line under the big number has no 'open' part while lots are held"),
+    ('hero-open-not-under-number',
+     "under:'<span data-qbheroopenline title=",
+     "note2:'<span data-qbheroopenline title=",
+     'the open / flat line is not directly under the big number (the hero has no under line)'),
+    ('hero-cash-line-no-closed-word',
+     "+'<span class=\"hm-suffix\"> &middot; closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||'all time')+'</span>');",
+     "+'<span class=\"hm-suffix\"> &middot; '+((rangeInfo&&rangeInfo.rangeWord)||'all time')+'</span>');",
+     "the cash line does not say 'closed trades'"),
+    ('row-figs-under-number-again',
+     "sub:qbFigsLine(fg)+todayTxt,",
+     "sub:'',value2:qbFigsLine(fg)+todayTxt,",
+     'the trades / win rate line is not under the strategy name'),
+    ('warn-token-same-as-yellow',
+     "  --attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;--warn:#ff8a3d;",
+     "  --attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;--warn:#f5c842;",
+     'the warning token is the same gold as --yellow (a warning looks like DIP\'s line)'),
+    ('warn-token-grey-on-mono',
+     "--warn:#ff8a3d/*mono*/",
+     "--warn:#999999/*mono*/",
+     'under MONO the warning token is the same grey as --yellow'),
+    ('keel-warn-not-a-pill',
+     "<span class=\"lg-warn-pill\" data-qbkeelwarn=\"",
+     "<span class=\"\" data-qbkeelwarn=\"",
+     'the KEEL warning is plain text, not an outlined pill in the warning token'),
+    ('held-tag-grey',
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--warn);margin-left:4px\">HELD</span>",
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--text4);margin-left:4px\">HELD</span>",
+     'the HELD tag is grey, not in the warning token'),
+    ('hatch-hover-not-plain',
+     "bands.push({i:i,title:String(p.date).slice(5)+': '+why.join('; ')",
+     "bands.push({i:i,title:'Data caveat - '+p.date+' - '+why.join('; ')",
+     "a hatched day's hover does not start with the day and the caveat in plain words"),
+    ('hatch-key-no-explainer',
+     "hatched = a day with a data caveat (a book-only trade, a tape-priced exit or a failed parity check) &middot; hover the column to see which &middot; its trades still count",
+     "hatched = a data caveat day; its trades still count",
+     "the key's 'hatched =' text does not explain the caveat kinds"),
     ('row-open-line-missing',
      "value3:legOpenPnl!=null?('<span data-qbrowopen=",
      "value3:false?('<span data-qbrowopen=",
@@ -2805,8 +2841,8 @@ MUTANTS = [
      "const lv=live.length?{side:side(live),shares:sum(live,l=>l.shares),lots:new Set(live.map(l=>l.entry_px)).size,",
      "DIP #424's lots are counted by entry price (3 lots), not one per exec leg (7)"),
     ('dip-held-tag-amber',
-     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--text4);margin-left:4px\">HELD</span>",
-     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:'+(key==='DIP'?'var(--attn-amber)':'var(--text4)')+';margin-left:4px\">HELD</span>",
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:var(--warn);margin-left:4px\">HELD</span>",
+     "data-qbheldpill=\"'+key+'\" title=\"'+heldTip+'\" style=\"color:'+(key==='DIP'?'var(--attn-amber)':'var(--warn)')+';margin-left:4px\">HELD</span>",
      "DIP #424's HELD tag is drawn amber, as an alarm"),
     ('dip-acct-held-red',
      "+(H?(' &middot; <span data-qbacctheld=\"DIP\">'",
@@ -3287,13 +3323,20 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.innerW=w.innerWidth;
     r.theme=d.documentElement.getAttribute('data-theme');
     r.appLen=(d.getElementById('app')||{innerHTML:''}).innerHTML.length;
-    r.heroMissing=['qb-hero-label','qb-hero-value','qb-hero-today','qb-hero-range','qb-hero-chips'].filter(function(i){return !d.getElementById(i);});
+    r.heroMissing=['qb-hero-label','qb-hero-value','qb-hero-under','qb-hero-today','qb-hero-range','qb-hero-chips'].filter(function(i){return !d.getElementById(i);});
     r.heroBig=txt('#qb-hero-value');
     // ONE HONEST NUMBER (owner 10-31): the qualifier beside the big number ('closed' / 'closed + open'), the hero's held line (must be gone:
     // it lives in the strategy row), the broker line's fold, the total line's stroke (the page's text colour)
     var hq=q('#qb-hero-value .qbx-hero-qual');r.heroQual=hq?(hq.textContent||'').replace(/\\s+/g,' ').trim():null;
     // the way a person reads it (owner 10-31 14:35): 'cash +$X · open -$Y (DIP #424 · 4 lots)' under the big number; the open part only while lots are held
-    var ho=q('#qb-hero-range [data-qbheroopen]');r.heroOpen=ho?(ho.textContent||'').trim():null;r.heroRange=txt('#qb-hero-range');
+    // owner 10-31 (live page): the open line sits DIRECTLY under the big number (#qb-hero-under: 'open -$X · DIP #424 · 4 lots', or 'flat'),
+    // the cash line under it ('cash +$X · closed trades · all time')
+    var ho=q('#qb-hero-under [data-qbheroopen]');r.heroOpen=ho?(ho.textContent||'').trim():null;r.heroRange=txt('#qb-hero-range');
+    var hu=q('#qb-hero-under');r.heroUnder=hu?(hu.textContent||'').replace(/\\s+/g,' ').trim():null;r.heroFlat=!!q('#qb-hero-under [data-qbheroflat]');
+    r.heroUnderPrev=(hu&&hu.previousElementSibling)?hu.previousElementSibling.id:null;r.heroUnderNext=(hu&&hu.nextElementSibling)?hu.nextElementSibling.id:null;
+    // the warning token (owner 10-31): its own colour, never the gold --yellow a strategy line is drawn in; the KEEL warning is an outlined pill in it
+    r.warnTok={warn:cssCol('var(--warn)'),yellow:cssCol('var(--yellow)'),amber:cssCol('var(--attn-amber)')};
+    r.keelPill=(function(){var e=q('[data-qbkeelwarn]');if(!e)return null;var cs=w.getComputedStyle(e);return {cls:e.className,col:cs.color,border:cs.borderTopStyle+' '+cs.borderTopColor,radius:cs.borderTopLeftRadius};})();
     // ACCOUNT EQUITY LINE (owner 10-31 15:00): the solid line's last point is the big number (the chart hands its points to the page: _qbLgChart.pts)
     var lgc=w._qbLgChart;r.lineEnd=(lgc&&lgc.pts&&lgc.pts.length)?lgc.pts[lgc.pts.length-1].v:null;
     r.heroHeldNote=!!q('#qb-hero-note [data-qbheldnote]');r.heroBrokerFolded=!!q('#qb-hero-note details [data-qbbroker]');
@@ -3315,6 +3358,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.chartDates=csv?csv.querySelectorAll('[data-lgdate]').length:0;
     r.chartTicks=csv?csv.querySelectorAll('[data-lgtick]').length:0;
     r.chartBands=csv?csv.querySelectorAll('[data-lgband]').length:0;
+    r.bandTitles=csv?[].map.call(csv.querySelectorAll('[data-lgband] title'),function(t){return t.textContent;}):[];
     r.chartMarks=csv?csv.querySelectorAll('[data-lgmark]').length:0;
     r.chartSig=csv?[].map.call(csv.querySelectorAll('path,polyline'),function(e){return e.getAttribute('d')||e.getAttribute('points')||'';}).join('|'):null;
     var mk=csv?csv.querySelector('[data-lgmark]'):null;
@@ -3376,8 +3420,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     var op=q('[data-qbopenpnl="NOISE"]');r.openPnl=op?(w.getComputedStyle(op).color===greyCol()?'grey':'colour'):null;
     var ur=q('[data-qbunreal="NOISE"]');r.unreal=ur?(w.getComputedStyle(ur).color===greyCol()?'grey':'colour'):null;
     // HOLD OVERNIGHT: ENGU-Q's held lot - the row's HELD tag, its line and detail, the hero note, the Account words, the list header, the stop's caption
-    r.held=(function(){var o={},red=[cssCol('var(--attn-red)'),cssCol('var(--red)')],amb=cssCol('var(--attn-amber)');
-      function cw(e){var c=w.getComputedStyle(e).color;return red.indexOf(c)>=0?'red':(c===amb?'amber':'ok');}
+    r.held=(function(){var o={},red=[cssCol('var(--attn-red)'),cssCol('var(--red)')],amb=cssCol('var(--attn-amber)'),wrn=cssCol('var(--warn)');
+      function cw(e){var c=w.getComputedStyle(e).color;return red.indexOf(c)>=0?'red':(c===amb?'amber':(c===wrn?'warn':'ok'));}
       function rd(sel){var e=q(sel);return e?[(e.textContent||'').replace(/\\s+/g,' ').trim(),cw(e)]:null;}
       o.pill=rd('[data-qbheldpill="ENGUQ"]');o.line=rd('[data-qbheld="ENGUQ"]');o.gap=rd('[data-qbheldgap="ENGUQ"]');o.note=rd('[data-qbheldnote]');
       o.acct=txt('[data-qbacctheld="ENGUQ"]');o.acctSum=txt('[data-qbfold="account"] [data-qbfoldsum]');o.listSum=txt('[data-qbfold="list"] [data-qbfoldsum]');
@@ -3386,8 +3430,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       return o;})();
     // DIP #424 LIVE: its row's held words and their colour, its live line, the hero note, the Account line(s), its rail beside (never inside)
     // the daily stop, the stop's own words, the trade list's chips, and any raw exec leg name (DIP_RSI ...) drawn anywhere on the board
-    r.dip=(function(){var o={},red=[cssCol('var(--attn-red)'),cssCol('var(--red)')],amb=cssCol('var(--attn-amber)');
-      function cw(e){var c=w.getComputedStyle(e).color;return red.indexOf(c)>=0?'red':(c===amb?'amber':'ok');}
+    r.dip=(function(){var o={},red=[cssCol('var(--attn-red)'),cssCol('var(--red)')],amb=cssCol('var(--attn-amber)'),wrn=cssCol('var(--warn)');
+      function cw(e){var c=w.getComputedStyle(e).color;return red.indexOf(c)>=0?'red':(c===amb?'amber':(c===wrn?'warn':'ok'));}
       function tx(e){return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;}
       function rd(sel){var e=q(sel);return e?[tx(e),cw(e)]:null;}
       o.pill=rd('[data-qbheldpill="DIP"]');o.side=rd('[data-qblegpill="DIP"]');o.line=rd('[data-qbheld="DIP"]');o.live=txt('[data-qblive="DIP"]');
@@ -3804,7 +3848,7 @@ __S11JS__
 
 TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared frame (ledgerTradeListHtml). tlRead = everything the judge needs from one
   // drawn frame; SCEN = what a viewer does to it (chips, search, sheet, paging, LIST | TABLE, CSV, a calendar tap, the glyph); runTl runs one. ──
-  function tx2(e){return e?(e.textContent||'').replace(/\s+/g,' ').trim():null;}
+  function tx2(e){return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;}
   function uniq(a){var s={},o=[];a.forEach(function(x){if(!s[x]){s[x]=1;o.push(x);}});return o;}
   function rowsN(){var d=D(),a=d.querySelectorAll('[data-lgtrade]');return a.length||d.querySelectorAll('[data-qbtraderow]').length;}
   function tlKeys(){return [].map.call(D().querySelectorAll('[data-lgtrade]'),function(e){return e.getAttribute('data-lgtrade');});}
@@ -3898,7 +3942,7 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
   var PNQ='.lg-panel[data-lgpanel="wb"]';
   // a headless page may never produce the frames a CSS animation needs: finish the slide-in so the panel is measured where it ends up
   function pFinish(){try{D().getAnimations().forEach(function(a){try{a.finish();}catch(e1){}});}catch(e){}}
-  function tx3(e){return e?(e.innerText||'').replace(/\s+/g,' ').trim():null;}
+  function tx3(e){return e?(e.innerText||'').replace(/\\s+/g,' ').trim():null;}
   function panelNow(){pFinish();var p=q(PNQ);if(!p)return null;
     return {trade:p.getAttribute('data-lgpanel-trade'),sym:tx2(p.querySelector('[data-lgpanel-sym]')),side:tx2(p.querySelector('[data-lgpanel-side]')),
       net:tx2(p.querySelector('[data-lgpanel-net]')),when:tx2(p.querySelector('[data-lgpanel-when]'))};}
@@ -4356,7 +4400,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
         btn:{t:Math.round(br.top+sy),b:Math.round(br.bottom+sy),l:Math.round(br.left),r:Math.round(br.right),h:Math.round(br.height),w:Math.round(br.width),
           shown:bcs.display!=='none'&&br.width>0&&br.height>0},
         sumH:smr?Math.round(smr.height):null,sumClip:sm?(sm.scrollWidth>sm.clientWidth+1):null,
-        panel:p?{hiddenAttr:p.hasAttribute('hidden'),shown:pcs.display!=='none'&&pr.height>0,h:Math.round(pr.height),len:(p.textContent||'').replace(/\s+/g,' ').trim().length,
+        panel:p?{hiddenAttr:p.hasAttribute('hidden'),shown:pcs.display!=='none'&&pr.height>0,h:Math.round(pr.height),len:(p.textContent||'').replace(/\\s+/g,' ').trim().length,
           inApp:!!p.closest('#app')}:null,
         hues:(function(){var bad=[];[b,t,sm,b.querySelector('.lg-chev')].concat(sm?[].slice.call(sm.querySelectorAll('*')):[]).forEach(function(e){
           if(e)s11Hue(e,['color','borderTopColor','backgroundColor']).forEach(function(x){if(bad.length<6)bad.push((e.className||e.tagName)+' '+x);});});
@@ -4452,7 +4496,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
   function foldState(k){
     var d=D(),w=W(),b=q('[data-qbfold="'+k+'"]'),p=d.getElementById('qbf-'+k);
     if(!b||!p)return null;
-    var pr=p.getBoundingClientRect(),cs=w.getComputedStyle(p),txt=(p.textContent||'').replace(/\s+/g,' ').trim(),st=null;
+    var pr=p.getBoundingClientRect(),cs=w.getComputedStyle(p),txt=(p.textContent||'').replace(/\\s+/g,' ').trim(),st=null;
     try{st=w.localStorage.getItem('el_qb_fold_'+k);}catch(e){}
     var sel={};(S11_MARKS[k]||[]).forEach(function(s){sel[s]=p.querySelectorAll(s).length;});
     return {exp:b.getAttribute('aria-expanded'),hiddenAttr:p.hasAttribute('hidden'),shown:cs.display!=='none'&&pr.height>0,h:Math.round(pr.height),len:txt.length,
@@ -4509,7 +4553,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
     try{
       var bb=q('[data-qbfold="rails"]');if(bb){bb.click();await sleep(130);}
       var b3=q('[data-qbfold="rails"]'),p3=d.getElementById('qbf-rails');
-      res.blocked={exp:b3?b3.getAttribute('aria-expanded'):null,len:p3?(p3.textContent||'').replace(/\s+/g,' ').trim().length:null,errs:drain()};
+      res.blocked={exp:b3?b3.getAttribute('aria-expanded'):null,len:p3?(p3.textContent||'').replace(/\\s+/g,' ').trim().length:null,errs:drain()};
     }finally{Sp.getItem=g0;Sp.setItem=s0;}
     // the page never scrolls sideways with EVERY fold open, at the widths a viewer has
     var S11W=[375,601,700,800,1000,1366];
@@ -4540,7 +4584,8 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
 # ── LEDGER step 11 (2026-10-06): one fixed page order; every own section a closed fold with a one-line summary; one set of breakpoints ──
 S11_OWN_ORDER = ['orders', 'account', 'todayorders', 'feedsig', 'system', 'rails', 'events', 'model']   # the own folds, top to bottom
 S11_OWN_REQUIRED = ['orders', 'account', 'system', 'rails', 'events', 'model']                          # always drawn; Today's orders / Feed & signals only when there is something
-S11_PHONE_TOP_MAX = 760      # phone 375x812: the trade list starts at most this far under the board top. It was 784 before step 11 and 12; step 12's
+S11_PHONE_TOP_MAX = 760 + 28 # phone 375x812: the trade list starts at most this far under the board top. It was 784 before step 11 and 12; step 12's
+                             # ... + 28 (owner 10-31, live page): the open / flat line directly under the big number is one small line more
                              # page puts it at 757 (the status line under the hero, the caption in the chart foot), and it must not grow (3 px slack)
 S11_FOLD_ONE_LINE = 40       # a fold header is one line: the button is shorter than this (two lines of text would be 44 and over)
 S11_HOUSE = (600, 740, 800, 920, 1100)   # the only widths this board's media / container queries may use (the shared parts' own: phone, compact, list cells, rail)
@@ -5806,8 +5851,18 @@ def _hero_qual_problems(tag, r, doc, fails):
     if r.get('heroQual') != 'net':
         fails.append("%s: the big number's qualifier reads %r, want 'net' (closed trades + open lots)" % (tag, r.get('heroQual')))
     rng = r.get('heroRange') or ''
-    if r.get('heroRange') is not None and not rng.startswith('cash '):
-        fails.append("%s: the line under the big number reads %r, want it to start with 'cash ' (the closed trades)" % (tag, rng))
+    if r.get('heroRange') is not None and (not rng.startswith('cash ') or 'closed trades' not in rng):
+        fails.append("%s: the cash line reads %r, want 'cash +$X · closed trades · <range>' (the closed trades)" % (tag, rng))
+    # owner 10-31 (live page): the open line sits DIRECTLY under the big number, the cash line under it
+    und = r.get('heroUnder')
+    if und is None:
+        fails.append('%s: no line directly under the big number (#qb-hero-under: the open position, or flat)' % tag)
+    else:
+        if r.get('heroUnderPrev') != 'qb-hero-value' or r.get('heroUnderNext') != 'qb-hero-range':
+            fails.append('%s: the open line is not directly under the big number with the cash line under it (before it: %r, after it: %r)'
+                         % (tag, r.get('heroUnderPrev'), r.get('heroUnderNext')))
+        if not (und.startswith('open ') or und == 'flat'):
+            fails.append("%s: the line under the big number reads %r, want 'open -$X · <who> · N lots' or 'flat'" % (tag, und))
     if r.get('lineEnd') is not None and r.get('heroBig') and r.get('heroBig') != money(float(r['lineEnd'])):
         fails.append("%s: the solid line ends at %s while the big number reads %r (account equity must end at the big number)"
                      % (tag, money(float(r['lineEnd'])), r.get('heroBig')))
@@ -5819,10 +5874,12 @@ def _hero_qual_problems(tag, r, doc, fails):
                 fails.append("%s: the hero's open figure reads %r, want %s (the live legs' open P&L summed)" % (tag, r.get('heroOpen'), want_open))
             for fam, (v, n) in opn.items():
                 who = '%s · %d lot%s' % (_fam_name(fam), n, '' if n == 1 else 's')
-                if who not in rng:
-                    fails.append("%s: the line under the big number %r does not name who holds the lots (%r)" % (tag, rng, who))
+                if who not in (r.get('heroUnder') or ''):
+                    fails.append("%s: the open line under the big number %r does not name who holds the lots (%r)" % (tag, r.get('heroUnder'), who))
         elif r.get('heroOpen') is not None:
             fails.append("%s: the hero shows an open figure %r while nothing is held" % (tag, r.get('heroOpen')))
+        elif r.get('heroUnder') is not None and not r.get('heroFlat'):
+            fails.append("%s: nothing is held, but the line under the big number reads %r, want 'flat'" % (tag, r.get('heroUnder')))
     if r.get('heroHeldNote'):
         fails.append('%s: the hero names a lot held overnight; that line belongs in the strategy row (owner 10-31)' % tag)
     if r.get('totalStroke') is not None and r.get('totalStroke') != 'var(--text)':
@@ -5911,16 +5968,17 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         if not is_other and not LEG_RE.match(x.get('name') or ''):
             fails.append('%s: list row %r has no family + run number' % (tag, x.get('name')))
         e = figs.get(x.get('name'))
-        if e and (x.get('value') != e['value'] or not _v2_ok(x.get('value2'), e['value2'], doc, [x.get('key')] if x.get('key') else [])):
-            fails.append('%s: list row %s reads %r / %r, the fixture says %r / %r (the range\'s P&L of record, trades, win rate, today)'
-                         % (tag, x.get('name'), x.get('value'), x.get('value2'), e['value'], e['value2']))
+        # owner 10-31 (live page): the trades / win rate (and today) line sits UNDER THE NAME (the row's sub), not under the number
+        sub_figs = (x.get('sub') or '').split(' · not in the strategy roster')[0] if is_other else x.get('sub')
+        if e and (x.get('value') != e['value'] or not _v2_ok(sub_figs, e['value2'], doc, [x.get('key')] if x.get('key') else [])):
+            fails.append('%s: list row %s reads %r / %r under its name, the fixture says %r / %r (the range\'s P&L of record, then trades, win rate, today under the name)'
+                         % (tag, x.get('name'), x.get('value'), x.get('sub'), e['value'], e['value2']))
+        if x.get('value2'):
+            fails.append('%s: list row %s still shows %r under its number; only the open line goes there (the figures sit under the name)' % (tag, x.get('name'), x.get('value2')))
         pz = pos.get(x.get('key'))
         want_side = ('LONG' if pz[0] == 'Long' else 'SHORT') if pz else 'FLAT'
         if not is_other and not (x.get('tag') or '').startswith(want_side):
             fails.append('%s: list row %s carries the side %r, want %s' % (tag, x.get('name'), x.get('tag'), want_side))
-        if x.get('sub') and not is_other:
-            fails.append("%s: list row %s shows %r under its name, want one line (the position, its held line and the rest sit behind 'more')"
-                         % (tag, x.get('name'), x.get('sub')))
         if not is_other and ('more' not in (x.get('tag') or '') and 'less' not in (x.get('tag') or '')):
             fails.append("%s: list row %s has no 'more' / 'less' word in its tag (%r)" % (tag, x.get('name'), x.get('tag')))
         # owner 10-31 14:35: the name in its chart line's colour, no dot before it; 'open -$X · N lots' under the number only while it holds lots
@@ -5955,9 +6013,9 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             rn = [x['name'] for x in rt.get('rows') or []]
             if rn != [RETIRED_NAME]:
                 fails.append('%s: the Retired rows are %r, want %r' % (tag, rn, [RETIRED_NAME]))
-            elif rt['rows'][0].get('value') != figs[RETIRED_NAME]['value'] or rt['rows'][0].get('value2') != figs[RETIRED_NAME]['value2']:
-                fails.append('%s: the Retired row reads %r / %r, the fixture says %r / %r' % (
-                    tag, rt['rows'][0].get('value'), rt['rows'][0].get('value2'), figs[RETIRED_NAME]['value'], figs[RETIRED_NAME]['value2']))
+            elif rt['rows'][0].get('value') != figs[RETIRED_NAME]['value'] or _v2_base(rt['rows'][0].get('sub')) != figs[RETIRED_NAME]['value2']:
+                fails.append('%s: the Retired row reads %r / %r under its name, the fixture says %r / %r' % (
+                    tag, rt['rows'][0].get('value'), rt['rows'][0].get('sub'), figs[RETIRED_NAME]['value'], figs[RETIRED_NAME]['value2']))
         # the rows add up to the account's range figure: BOOK + Retired are the legs that count, Shadow is never in it
         counted = [0.0 if x.get('value') == '—' else _money_val(x.get('value')) for g in (bk, rt) if g for x in g.get('rows') or []]
         # closed in the range + the open positions the counted rows carry (cumulative rows, owner 2026-10-18)
@@ -6005,8 +6063,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         if any(x.get('subShown') for x in rows):
             fails.append('%s: on a phone a list row still shows its sub-line (the position line sits behind more)' % tag)
     else:
-        if any(x.get('value2') and not x.get('value2Shown') for x in rows):
-            fails.append('%s: on a laptop the trades / win rate line under the money is hidden' % tag)
+        if any(x.get('sub') and not x.get('subShown') for x in rows):
+            fails.append('%s: on a laptop the trades / win rate line under the name is hidden' % tag)
     if theme == 'mono':
         bad = [x['valColor'] for x in rows if x.get('valColor') and not _grey(x['valColor'])]
         if bad:
@@ -8016,6 +8074,11 @@ def _judge(data, fixture):
                              % (nm, r.get('chartDates'), r.get('chartTicks')))
             if not r.get('chartBands'):
                 fails.append('%s: no hatched data-caveat day on the chart ([data-lgband])' % nm)
+            # owner 10-31: the hover names the day's caveat in plain words ('10-20: 2 book-only trades (order never reached Webull)')
+            for bt in r.get('bandTitles') or []:
+                if not re.match(r'^\d\d-\d\d: ', bt or '') or not any(k in bt for k in ('book-only trade', 'priced from the 1-minute tape', 'failed the parity check')):
+                    fails.append("%s: a hatched day's hover reads %r, want 'MM-DD: <the caveat in plain words>'" % (nm, bt))
+                    break
             if not r.get('chartMarks'):
                 fails.append('%s: no run-change marker on the chart ([data-lgmark])' % nm)
             elif 'NOISE' not in (r.get('markText') or '') or '#382' not in (r.get('markText') or ''):
@@ -8029,6 +8092,13 @@ def _judge(data, fixture):
             key = r.get('key') or ''
             if 'hatched' not in key or 'book only' not in key or 'book price' not in key or not all(k in key for k in KEY_WORDS):
                 fails.append('%s: the caveat / book-only key under the chart reads %r' % (nm, key))
+            # owner 10-31: the 'hatched =' text explains the caveat kinds in one line and says to hover the column
+            if 'hover' not in key or 'book-only trade' not in key:
+                fails.append("%s: the key's 'hatched =' text does not explain the caveat (book-only trade, tape-priced exit, failed parity check; hover): %r" % (nm, key))
+            # owner 10-31: the warning token is its own colour, never the gold --yellow a strategy line is drawn in; the KEEL warning is an outlined pill
+            wt = r.get('warnTok') or {}
+            if not wt.get('warn') or wt.get('warn') == wt.get('yellow'):
+                fails.append('%s: the warning token --warn resolves to %r, the same as --yellow %r (a warning must not look like a strategy line)' % (nm, wt.get('warn'), wt.get('yellow')))
         _judge_list(nm, r.get('lg'), cfg['vp'], cfg['theme'], fixture, None, 'ALL', False, False, fails)
         _judge_cal(nm, r.get('lgcal'), cfg['vp'], cfg['theme'], fixture, None, None, _cal_open_want(cfg['vp'], None), STAT_TODAY, fails)
         _judge_tl_frame(nm, r.get('tl'), fixture, None, fails, vp=cfg['vp'], theme=cfg['theme'], top_check=True)
@@ -8304,9 +8374,11 @@ def _held_problems(tag, r, ex, fails):
     if want['stop_tip'] not in (h.get('stopTip') or ''):
         fails.append("%s: the daily stop's caption reads %r, want %r in it" % (tag, h.get('stopTip'), want['stop_tip']))
     if ex.get('theme', 'dark') == 'dark':
-        loud = ['%s %r' % (k, h[k][0]) for k in ('pill', 'line', 'gap', 'note') if isinstance(h.get(k), list) and h[k][1] != 'ok']
+        loud = ['%s %r' % (k, h[k][0]) for k in ('line', 'gap', 'note') if isinstance(h.get(k), list) and h[k][1] != 'ok']
         if loud:
             fails.append('%s: the held lot is drawn as an alarm (red or amber): %s' % (tag, ', '.join(loud)))
+        if isinstance(h.get('pill'), list) and h['pill'][1] != 'warn':
+            fails.append("%s: the HELD tag is drawn %s, want the warning token --warn (owner 10-31: a warning has its own colour)" % (tag, h['pill'][1]))
     groups = (r.get('lg') or {}).get('groups') or []
     if any(g.get('key') == 'retired' for g in groups):
         fails.append('%s: a Retired fold is drawn while ENGU-Q holds its lot (a retired leg that holds a position is a BOOK row)' % tag)
@@ -8322,8 +8394,8 @@ def _held_problems(tag, r, ex, fails):
             hmax = PHONE_ROW_MAX_H + (PHONE_ROW_OPEN_H if row[0].get('open3') else 0)
             if row[0].get('h', 0) > hmax or not row[0].get('h'):
                 fails.append('%s: on a phone the ENGU-Q row is %s px tall, want one line (1 to %d px)' % (tag, row[0].get('h'), hmax))
-        elif row[0].get('sub'):
-            fails.append("%s: ENGU-Q's row shows %r under its name, want one line (its held line sits behind 'more')" % (tag, row[0].get('sub')))
+        elif row[0].get('value2'):
+            fails.append("%s: ENGU-Q's row shows %r under its number, want only the open line there (its figures sit under the name)" % (tag, row[0].get('value2')))
 
 
 def _dip_problems(tag, r, ex, fails):
@@ -8348,9 +8420,9 @@ def _dip_problems(tag, r, ex, fails):
         tg = row.get('tag') or ''
         if not tg.startswith('LONG') or 'HELD' not in tg:
             fails.append("%s: the DIP #424 row's tag reads %r, want its side LONG then HELD" % (tag, tg))
-        if (row.get('value'), _v2_base(row.get('value2'))) != want['value']:
-            fails.append("%s: the DIP #424 row reads %r / %r, want %r / %r (its family's closed trades in the range)"
-                         % (tag, row.get('value'), row.get('value2'), want['value'][0], want['value'][1]))
+        if (row.get('value'), _v2_base(row.get('sub'))) != want['value']:
+            fails.append("%s: the DIP #424 row reads %r / %r under its name, want %r / %r (its family's closed trades in the range)"
+                         % (tag, row.get('value'), row.get('sub'), want['value'][0], want['value'][1]))
         hmax = PHONE_ROW_MAX_H + (PHONE_ROW_OPEN_H if row.get('open3') else 0)
         if want.get('phone_row') and (not row.get('h') or row['h'] > hmax):
             fails.append('%s: on a phone the DIP #424 row is %s px tall, want one line (1 to %d px)' % (tag, row.get('h'), hmax))
@@ -8375,9 +8447,11 @@ def _dip_problems(tag, r, ex, fails):
     if not ls.startswith(want['list_sum'][0]) or not ls.endswith(want['list_sum'][1]):
         fails.append("%s: the Strategies fold's header reads %r, want %r ... %r" % (tag, ls, want['list_sum'][0], want['list_sum'][1]))
     if ex.get('theme', 'dark') == 'dark':
-        loud = ['%s %r' % (k, g[k][0]) for k in ('pill', 'line', 'gap', 'note', 'acctHeld') if isinstance(g.get(k), list) and g[k][1] != 'ok']
+        loud = ['%s %r' % (k, g[k][0]) for k in ('line', 'gap', 'note', 'acctHeld') if isinstance(g.get(k), list) and g[k][1] != 'ok']
         if loud:
             fails.append('%s: the held DIP #424 lots are drawn as an alarm (red or amber): %s' % (tag, ', '.join(loud)))
+        if isinstance(g.get('pill'), list) and g['pill'][1] != 'warn':
+            fails.append("%s: DIP #424's HELD tag is drawn %s, want the warning token --warn (owner 10-31)" % (tag, g['pill'][1]))
     # the daily stop: DIP never counted in it, its rail never inside its block or its words
     if want['stop'] not in (r.get('stopTxt') or ''):
         fails.append("%s: the daily stop reads %r, want %r (DIP #424 is not in the $400 stop)" % (tag, r.get('stopTxt'), want['stop']))
@@ -8661,6 +8735,14 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             fails.append('%s: the Account STALE flag says why as %r, want it to contain %r' % (tag, r.get('eqWhy'), ex['eq_why']))
         if ex.get('keelwarn') and r.get('keelwarn') != ex['keelwarn']:
             fails.append('%s: the NOISE row KEEL warning reads %r, want %r' % (tag, r.get('keelwarn'), ex['keelwarn']))
+        if ex.get('keelwarn'):
+            # owner 10-31: a warning is an outlined pill in its own token --warn (never the gold --yellow of a strategy line)
+            kp, wt = r.get('keelPill') or {}, r.get('warnTok') or {}
+            if 'lg-warn-pill' not in (kp.get('cls') or '') or not (kp.get('border') or '').startswith('solid') or kp.get('col') != wt.get('warn'):
+                fails.append('%s: the KEEL warning is not an outlined pill in the warning token --warn (class %r, border %r, colour %r, --warn %r)'
+                             % (tag, kp.get('cls'), kp.get('border'), kp.get('col'), wt.get('warn')))
+            if wt.get('warn') and wt.get('warn') == wt.get('yellow'):
+                fails.append('%s: the warning token --warn is the same colour as --yellow (%r)' % (tag, wt.get('warn')))
         if ex.get('silent') and ex.get('mini_silent') and r.get('miniSilent') != ex['mini_silent']:
             fails.append('%s: the Orders summary reads %r, want %r' % (tag, r.get('miniSilent'), ex['mini_silent']))
         # LEDGER step 11: the Orders fold's own one-line header (the mode, the daily stop used out of its limit, its state)
@@ -8680,7 +8762,7 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             if r.get('miniPill') != want_pill:
                 fails.append('%s: the sidebar Orders pill reads %r on a stale copy, want %s' % (tag, r.get('miniPill'), want_pill))
             # a page that cannot read is not the box's fault: amber, never BOX SILENT's red
-            want_col, bad_col = ('var(--attn-red)', 'var(--attn-amber)') if ex.get('silent') else ('var(--attn-amber)', 'var(--attn-red)')
+            want_col, bad_col = ('var(--attn-red)', 'var(--warn)') if ex.get('silent') else ('var(--warn)', 'var(--attn-red)')
             for what, h in (('sidebar Orders pill', r.get('miniPillHtml')), ('Orders card pill (System)', r.get('ordModeHtml'))):
                 if h is not None and (want_col not in h.split('</span>')[0] or bad_col in h.split('</span>')[0]):
                     fails.append('%s: the %s is not drawn in %s (%r)' % (tag, what, want_col, _first(h, 160)))

@@ -381,7 +381,8 @@ OWN_FOLDS = ['health', 'capture', 'nt', 'recon', 'gate', 'reports']   # the boar
 HEALTH_KIDS = ['capture', 'nt', 'recon', 'gate']                   # the folds inside the System health fold
 S11_KEYS = ['status', 'health', 'capture', 'nt', 'recon', 'gate', 'reports', 'list']   # every remembered fold: localStorage el_lg_<key>_nt8
 HOUSE_WIDTHS = [600, 601, 740, 800, 920, 1100]                     # the one set of breakpoints (contract 5b); 601 is the other side of 600
-S11_PHONE_LIST_TOP = 797                                           # px under the board top before the step (LEDGER mistake #12) - it must not grow
+S11_PHONE_LIST_TOP = 797 + 4                                       # px under the board top before the step (LEDGER mistake #12) - it must not grow
+                                                                   # ... + 4 (owner 10-31, live page): the open / flat line directly under the big number
 # what the removed previous board drew: none of it may be in the page, in any case (the page-side readout lists the ones it finds). #ptrades-wrap
 # is deliberately not in tools/ledger_removed.py, so a mutant can put it back and prove that THIS check sees it.
 OLD_MARKS = ['#ptrades-wrap', '#ptrades-body', '#pt-selbar', 'tr[data-ptrow]', 'tr[data-paperleg]', 'tr[data-paperother]', '.p2rhstat',
@@ -1411,6 +1412,11 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         var _hh=d.querySelector('.lg-hero');
         r.hero=_hh?{label:(_hh.querySelector('.lg-hero-label')||{}).innerText||'',today:(_hh.querySelector('.lg-hero-today')||{}).innerText||'',
           range:(_hh.querySelector('.lg-hero-range')||{}).innerText||'',
+          // owner 10-31 (live page): the open line DIRECTLY under the big number ('open -$X · N trades · not counted', or 'flat'), the range line under it
+          under:(function(){var e=d.getElementById('p2-hero-under');return e?e.innerText.replace(/\\s+/g,' ').trim():null;})(),
+          underPrev:(function(){var e=d.getElementById('p2-hero-under');return (e&&e.previousElementSibling)?e.previousElementSibling.id:null;})(),
+          underNext:(function(){var e=d.getElementById('p2-hero-under');return (e&&e.nextElementSibling)?e.nextElementSibling.id:null;})(),
+          openInRange:!!_hh.querySelector('.lg-hero-range [data-p2heroopen]'),
           parts:['.lg-hero-main','.lg-hero-label','.lg-hero-big','.lg-hero-today','.lg-hero-range','.lg-hero-chips'].map(function(q){return _hh.querySelector(q)?1:0;}).join(''),
           warnInChips:_hh.querySelectorAll('.lg-hero-chips .p2warn').length,chips:_hh.querySelectorAll('.lg-hero-chips .lg-chip').length,
           warnInStatus:d.querySelectorAll('[data-lgstatus="p2"] .p2warn').length}:null;
@@ -1458,6 +1464,9 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         function _hd(sel){var e=d.querySelector(sel);return e?{net:parseFloat(e.getAttribute('data-net')),n:+e.getAttribute('data-n'),legs:+e.getAttribute('data-legs'),txt:e.innerText.replace(/\\s+/g,' ')}:null;}
         r.bookHd=_hd('[data-p2bookhd],[data-p2grp="book"]');r.fwdHd=_hd('[data-p2fwdhd],[data-p2grp="fwd"]');r.retHd=_hd('[data-p2grp="retired"]');
         r.cap=(function(){var e=d.querySelector('.lg-hero-label');return e?e.innerText:'';})();
+        // owner 10-31: the chart caption's 'hatched =' text explains the caveat; each hatched day's hover names the day and its caveat in plain words
+        r.chartCap=(function(){var e=d.querySelector('[data-lgchartfoot="p2"] .p2rhkey')||d.querySelector('.p2rhkey');return e?e.textContent.replace(/\\s+/g,' ').trim():null;})();
+        r.bandTitles=[].map.call(d.querySelectorAll('#p2-chart [data-lgband] title'),function(t){return t.textContent;});
         r.bookW=w._paperBookW||null;
         var _ld=d.querySelector('[data-p2loaded]');
         r.loaded=_ld?{loaded:+_ld.getAttribute('data-loaded'),stored:_ld.getAttribute('data-stored'),other:+_ld.getAttribute('data-other'),txt:_ld.innerText}:null;
@@ -2016,6 +2025,43 @@ def run(alt_index=None, timeout=300):
             fails.append('%s: BOOK rows %s are not exactly the _BOOK legs %s' % (nm, keys, sorted(book_w)))
         if (r.get('bookW') or {}) != book_w:
             fails.append('%s: the board used book weights %s, api/paper.py _BOOK says %s' % (nm, r.get('bookW'), book_w))
+    # owner 10-31 (live page): the open line directly under the big number, the figures under the name, the hatch hover and caption
+    for nm in ('paper2', 'phone375'):
+        r = cases.get(nm) or {}
+        h = r.get('hero') or {}
+        if not h:
+            continue
+        und = h.get('under')
+        if und is None:
+            fails.append('%s: no line directly under the big number (#p2-hero-under: the open trades, or flat)' % nm)
+        else:
+            if h.get('underPrev') != 'p2-hero-value' or h.get('underNext') != 'p2-hero-range':
+                fails.append('%s: the open line is not directly under the big number with the range line under it (before: %r, after: %r)' % (nm, h.get('underPrev'), h.get('underNext')))
+            if not (und.startswith('open ') or und == 'flat'):
+                fails.append("%s: the line under the big number reads %r, want 'open -$X · N trades · not counted' or 'flat'" % (nm, und))
+            if und.startswith('open ') and 'not counted' not in und:
+                fails.append("%s: the open line %r does not say the open trades are not counted (NT8's big number is closed trades only)" % (nm, und))
+        if h.get('openInRange'):
+            fails.append('%s: the range line still names the open trades (they moved to the line under the big number)' % nm)
+        if nm == 'paper2':
+            for x in r.get('listRowInfo') or []:
+                if x.get('group') != 'book' or (x.get('val') or '') in ('', '—'):
+                    continue
+                sub0 = x.get('sub') or ''   # the row's sub-line, then its 'more' lines, joined
+                if not re.match(r'^\d+ tr', sub0):
+                    fails.append("%s: BOOK row %s shows %r under its name, want its trades / win rate there ('N tr . X%% won . today ...')" % (nm, x.get('name'), sub0))
+                if '\n' in (x.get('val') or '') or ' tr' in (x.get('val') or ''):
+                    fails.append('%s: BOOK row %s still shows its trade count under the number (%r)' % (nm, x.get('name'), x.get('val')))
+            cap = r.get('chartCap') or ''
+            if 'hatched = a day with a data caveat' not in cap or 'hover the column' not in cap:
+                fails.append("%s: the chart caption's 'hatched =' text does not explain the caveat in one line: %r" % (nm, cap))
+            bts = r.get('bandTitles') or []
+            if not bts:
+                fails.append('%s: no hatched caveat day on the chart ([data-lgband]) although the fixture has roll-splice / look-ahead ORB trades' % nm)
+            for bt in bts:
+                if not re.match(r'^\d\d-\d\d: ', bt or '') or not ('roll-splice trade' in bt or 'look-ahead ORB trade' in bt):
+                    fails.append("%s: a hatched day's hover reads %r, want 'MM-DD: <the caveat in plain words>'" % (nm, bt))
+                    break
     # the book rows come first and are the only switches that move the big number; the group rows are closed/open as set
     r = cases.get('paper2') or {}
     unl = [k for k in (r.get('otherRowKeys') or []) if k not in defs]
@@ -2774,8 +2820,8 @@ def run(alt_index=None, timeout=300):
         dist = g['frameTop'] - g['boardTop']
         if dist > g.get('vh', 0):
             fails.append('phone375: the trade list starts %d px under the board top, more than one screen (%s px)' % (dist, g.get('vh')))
-        if dist > 797:
-            fails.append('phone375: the trade list starts %d px under the board top; it was 797 before the shared frame - it must not grow' % dist)
+        if dist > S11_PHONE_LIST_TOP:
+            fails.append('phone375: the trade list starts %d px under the board top; it was 797 before the shared frame (+4 for the open line, owner 10-31) - it must not grow' % dist)
     for nm in ('phone375', 'phone375-table', 'w600', 'w760', 'w1099', 'w1100', 'paper2', 'laptop-list'):
         g = (cases.get(nm) or {}).get('tlGeo') or {}
         if not g or (g.get('scrollW') or 0) > (g.get('clientW') or 0) + 1:
@@ -4277,6 +4323,27 @@ def extra_cases(fixture):
 # for some other reason does not count: the check that should catch it is blind. Anchors are single lines, found exactly once. A mutant
 # that has to change two places names a tuple of anchors and a tuple of replacements (each anchor found exactly once, replaced in turn).
 MUTANTS = [
+    # owner 10-31 (live page): the open line directly under the big number, the figures under the name, the hatch hover and caption
+    ('nt8-open-not-under-number',
+     "under:'<span data-p2heroopenline>'+(_heroOpen.n",
+     "note2:'<span data-p2heroopenline>'+(_heroOpen.n",
+     'the open / flat line is not directly under the big number (the hero has no under line)',
+     'no line directly under the big number'),
+    ('nt8-figs-under-number',
+     "sub:a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')",
+     "sub:!a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')",
+     'a BOOK row does not carry its trades / win rate under its name',
+     'under its name'),
+    ('nt8-hatch-hover-no-day',
+     "{i:i,title:String(p.date).slice(5)+': '+_pnCav[p.date]}",
+     "{i:i,title:_pnCav[p.date]}",
+     "a hatched day's hover does not name the day",
+     "hatched day's hover"),
+    ('nt8-key-no-explainer',
+     "hatched = a day with a data caveat (a roll-splice trade or a look-ahead ORB trade; hover the column to see which)",
+     "hatch = caveat day",
+     "the chart caption's 'hatched =' text does not explain the caveat",
+     "'hatched =' text"),
     ('frame-missing',
      'return ledgerTradeListHtml({id:ID,view:m.view,rows:m.shown,total:m.closedAll.length,query:m.query,chip:m.chip,',
      'return (function(o){return \'<div class="p2tl-noframe">trades</div>\';})({id:ID,view:m.view,rows:m.shown,total:m.closedAll.length,query:m.query,chip:m.chip,',
