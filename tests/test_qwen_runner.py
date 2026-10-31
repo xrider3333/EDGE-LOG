@@ -423,6 +423,9 @@ def test_py_output_truncated(scr):
 
 
 def test_py_runs_logged_to_transcript_and_log(env, scr, monkeypatch):
+    # The child imports numpy/pandas before its sandbox starts; on a loaded box that alone passed 60 s
+    # (post-push red 10-30, TBIS #1811). This test checks the logging, not the time limit.
+    monkeypatch.setattr(R, "PY_TIMEOUT_S", 600)
     posts, pushes = [], []
     ws = ({"content": "", "tool_calls": [{"function": {"name": "write_scratch", "arguments": {
         "name": "a.py", "code": "print(6 * 7)"}}}]}, {"done_reason": "stop"})
