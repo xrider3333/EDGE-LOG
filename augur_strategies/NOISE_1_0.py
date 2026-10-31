@@ -476,6 +476,25 @@ def _daytype_pos(h, l, c, sess_bounds):
 # as without it, and the default (False) never builds any of it (tested:
 # tests/test_noise_decision_log.py). A live caller (api/cloud_signal.py) logs it so an
 # audit can see the bar Webull served at decision time even after the feed revises it.
+# STOP LEVELS (2026-10-31, stop-loss overlay row 2). `return_levels` is an opt-in RUNTIME
+# kwarg like return_decisions (never a DEFAULT_PARAMS knob). With return_trades=True it adds
+# out["levels"]: ONE row per out["trades"] entry, same order, in the shape ORB_3_6.py's
+# _levels_row uses so api/cloud_signal.py's _trade_levels reads both the same way:
+#     {"entry_bar", "side", "entry", "risk", "stop", "target": None, "be_trigger": None,
+#      "be_stop": None, "be_bar": None, "trail": False, "partial": False}
+# or None for a trade whose entry set no stop (stop_mode='off', or a NaN band). The stop is
+# the very float the loop compared against (STEP A2) -- not rebuilt, read from the local.
+# It decides nothing: every trade, pnl and metric is computed exactly as without it, and
+# the default (False) never builds any of it (tests/test_noise_resting_levels.py).
+def _levels_row(entry_bar, pos, entry_px, stop_level):
+    if stop_level is None or stop_level != stop_level:
+        return None
+    return {"entry_bar": int(entry_bar), "side": int(pos), "entry": float(entry_px),
+            "risk": float(abs(entry_px - stop_level)), "stop": float(stop_level),
+            "target": None, "be_trigger": None, "be_stop": None, "be_bar": None,
+            "trail": False, "partial": False}
+
+
 def _f_or_none(x):
     try:
         x = float(x)
@@ -498,6 +517,7 @@ def run_backtest(
     day_id=None,
     return_trades: bool = False, _stop_event=None, _pause_event=None,
     return_decisions: bool = False,
+    return_levels: bool = False,
 ):
     o = np.asarray(opens, float); h = np.asarray(highs, float)
     l = np.asarray(lows, float);  c = np.asarray(closes, float)
@@ -558,6 +578,10 @@ def run_backtest(
     # DECISION RECORD (see above run_backtest): None unless asked for -- then one
     # (session, rule, decided bar, level) per trade_log row, in the same order.
     _dl = [] if (return_trades and return_decisions) else None
+    # STOP LEVELS (2026-10-31, stop-loss overlay row 2): the protective stop this loop set at
+    # each entry, keyed by the entry bar (one fill per bar, so the key is unique), read back
+    # into out["levels"] in out["trades"] order at the end. Logging only -- never read here.
+    _lv = {} if (return_trades and return_levels) else None
     _sess_ctx = {}
     _pend_exit = None
     prev_close = None
@@ -639,6 +663,8 @@ def run_backtest(
                 elif stop_mode == "fixed":
                     P = stop_k * 100.0
                     stop_level = (entry_px - P) if pos > 0 else (entry_px + P)
+                if _lv is not None:
+                    _lv[a + k] = _levels_row(a + k, pos, entry_px, stop_level)
 
             # STEP A2 -- protective stop (stop_mode != 'off'), checked intrabar EVERY
             # bar AFTER the entry bar (never on k == entry_k). Stop-first pessimism:
@@ -791,6 +817,9 @@ def run_backtest(
     }
     if return_trades:
         out["trades"] = trade_log
+    if _lv is not None:
+        # one row per trade, same order; None where the entry set no stop (stop_mode='off')
+        out["levels"] = [_lv.get(int(t[0])) for t in trade_log]
     if _dl is not None and len(_dl) == len(trade_log):
         # Logging only: a fault building the record must never cost the caller its trades.
         try:

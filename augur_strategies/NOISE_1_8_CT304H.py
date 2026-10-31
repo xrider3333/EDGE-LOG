@@ -106,7 +106,7 @@ def _in_neighbourhood(kw):
 
 def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
                  gate_len=20, gate_ratio=1.0, tilt_mult=1.5,
-                 return_trades=False, **kw):
+                 return_trades=False, return_levels=False, **kw):
     gate_tf_min = _GATE_TF_MIN
     if not _in_neighbourhood(dict(gate_len=gate_len,
                                   gate_ratio=gate_ratio, tilt_mult=tilt_mult)):
@@ -139,6 +139,14 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         and ("return_decisions" in sp or hk)
     if want_decisions:
         call["return_decisions"] = True
+    # return_levels (2026-10-31, stop-loss overlay row 2): named HERE (not in **kw) because
+    # api/cloud_signal.py's _leg_accepts_return_levels looks for the name in this signature,
+    # the way it does for ORB_3_6.py. Forwarded the same way as return_decisions -- NOISE_1_0.py's
+    # STOP LEVELS (the protective stop set at each entry). Read-only: it changes no trade, size
+    # or metric below; absent or False (every backtest) it is never forwarded at all.
+    want_levels = bool(return_levels) and return_trades and ("return_levels" in sp or hk)
+    if want_levels:
+        call["return_levels"] = True
     r = _base.run_backtest(opens, highs, lows, closes, return_trades=True, **call)
     if not r or not r.get("trades"):
         return None
@@ -197,4 +205,9 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         dec = r.get("decisions") if want_decisions else None
         if isinstance(dec, list) and len(dec) == len(out_trades):
             out["decisions"] = dec
+        # STOP LEVELS, passed through untouched the same way (the tilt sizes, it never moves
+        # a stop): one per trade, same order as out_trades; dropped if it does not line up.
+        lv = r.get("levels") if want_levels else None
+        if isinstance(lv, list) and len(lv) == len(out_trades):
+            out["levels"] = lv
     return out

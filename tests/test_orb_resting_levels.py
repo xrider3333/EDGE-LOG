@@ -538,8 +538,10 @@ def test_misaligned_engine_levels_fail_to_no_levels(monkeypatch):
     assert any("misaligned" in m for m in logs)
 
 
-def test_only_orb_r6_is_flagged():
+def test_only_orb_r6_and_noise_382_are_flagged():
+    # NOISE_382 joined 2026-10-31 (stop-loss overlay row 2) -- LOG ONLY, see its cfg comment and
+    # tests/test_noise_resting_levels.py for the no-resting-order proof
     flagged = [k for k, v in {**cs.CROWN_LEGS, **cs.SHADOW_LEGS}.items() if v.get("resting_levels")]
-    assert flagged == ["ORB_R6"]
+    assert flagged == ["ORB_R6", "NOISE_382"]
     assert cs._leg_accepts_return_levels("ORB_3_6_R6.py")
-    assert not cs._leg_accepts_return_levels("NOISE_1_8_CT304.py")
+    assert cs._leg_accepts_return_levels("NOISE_1_8_CT304.py")

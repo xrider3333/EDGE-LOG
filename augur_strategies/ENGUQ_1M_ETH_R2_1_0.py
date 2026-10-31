@@ -159,6 +159,10 @@ PARAM_GRID_PRESETS = {
     'Limit depth sweep (research)': {'limit_atr': [0.0, 0.10, 0.20, 0.35, 0.50]},
 }
 
+# return_levels: the most stop steps one trade's row keeps (a trailing stop moves on many
+# bars of a long hold; a Firestore day doc near the 1 MiB cap cannot carry hundreds).
+_LEVELS_MAX_STEPS = 12
+
 
 def _ema(a, n):
     if _fl is not None:
@@ -176,9 +180,24 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
                  buf_atr=0.9, min_brk=1.3, ema_len=1380, atr_len=106, regime_len=0,
                  breakeven_R=1.5, phantom_safe=False,
                  return_trades=False, _stop_event=None, _pause_event=None,
-                 _signal_probe=None, _fill_probe=None, **_ignore):
+                 _signal_probe=None, _fill_probe=None, return_levels=False, **_ignore):
     """_signal_probe / _fill_probe: optional lists (research instrumentation only, not part
-    of the strategy contract). _signal_probe gets one entry appended per bar that clears
+    of the strategy contract).
+
+    return_levels (2026-10-31, stop-loss overlay row 6): opt-in RUNTIME kwarg, never a knob.
+    With return_trades=True the result gains out["levels"], ONE row per out["trades"] entry,
+    same order, in ORB_3_6.py's _levels_row shape plus the stop LADDER this walk actually
+    held: {"entry_bar", "side": 1, "entry", "risk", "stop" (the initial stop), "target": None,
+    "be_trigger", "be_stop", "be_bar" (the first bar whose high armed breakeven, or None),
+    "trail": True (the stop moves every bar once act_R is reached), "partial": False,
+    "steps": [{"bar", "px", "reason"}, ...]} -- the initial stop first, then every bar the
+    stop MOVED, reason "breakeven" or "trail", capped at _LEVELS_MAX_STEPS (the first and the
+    last kept). Every number is the loop's own local at the bar it was compared, never
+    rebuilt. Logging only: it decides nothing. It forces the interpreted walk below (the
+    compiled one does not expose the stop path), which tests/test_fastloop_parity.py holds
+    bit-identical to the compiled one; the default (False) changes no caller.
+
+    _signal_probe gets one entry appended per bar that clears
     every entry filter (a "signal"), regardless of whether limit_atr fills it -- lets a
     driver compute an exact fill-rate. _fill_probe gets (signal_close - fill_price)
     appended per ACTUAL fill when limit_atr > 0 -- lets a driver compute the average entry
@@ -232,13 +251,32 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
     pnl_list, trade_log = [], []
     pos = None
     i = tl_len + 1
+    _lv = {} if (return_trades and return_levels) else None     # entry bar -> levels row
+
+    def _lv_open(p):
+        if _lv is not None:
+            _lv[p["bar"]] = {"entry_bar": int(p["bar"]), "side": 1, "entry": float(p["ep"]),
+                             "risk": float(p["risk"]), "stop": float(p["sl"]), "target": None,
+                             "be_trigger": (float(p["ep"] + breakeven_R * p["risk"])
+                                            if breakeven_R > 0 else None),
+                             "be_stop": float(p["ep"]) if breakeven_R > 0 else None,
+                             "be_bar": None, "trail": True, "partial": False,
+                             "steps": [{"bar": int(p["bar"]), "px": float(p["sl"]), "reason": "initial"}]}
+
+    def _lv_move(p, bar, old_sl, reason):
+        if _lv is not None and p["sl"] != old_sl:
+            row = _lv.get(p["bar"])
+            if row is not None:
+                if reason == "breakeven" and row["be_bar"] is None:
+                    row["be_bar"] = int(bar)
+                row["steps"].append({"bar": int(bar), "px": float(p["sl"]), "reason": reason})
 
     # ── COMPILED WALK. Identical arithmetic, transcribed in augur_engine/fastloop.py and
     #    parity-tested against the loop below (tests/test_fastloop_parity.py). Skipped
     #    whenever instrumentation is attached, and skipped entirely when the compiler is
     #    unavailable, in which case the interpreted loop below runs exactly as it always has.
     if (_fl is not None and _signal_probe is None and _fill_probe is None
-            and _stop_event is None and _pause_event is None):
+            and _stop_event is None and _pause_event is None and _lv is None):
         _fast = _fl.engu_walk(
             o, h, l, c, ema, reg, atr, tr, er_ok,
             vv if have_vol else None, vavg if have_vol else None,
@@ -262,9 +300,13 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
             if h[i] - pos["ep"] >= act_R * pos["risk"]:
                 pos["act"] = True
             if pos["act"]:
+                _old = pos["sl"]
                 pos["sl"] = max(pos["sl"], h[i] - trail_frac * pos["risk"])
+                _lv_move(pos, i, _old, "trail")
             if breakeven_R > 0 and (h[i] - pos["ep"]) >= breakeven_R * pos["risk"]:
+                _old = pos["sl"]
                 pos["sl"] = max(pos["sl"], pos["ep"])
+                _lv_move(pos, i, _old, "breakeven")
             if l[i] <= pos["sl"]:
                 fill = o[i] if o[i] < pos["sl"] else pos["sl"]
                 pnl = fill - pos["ep"]
@@ -304,6 +346,7 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
                 i += 1; continue
             ep = c[i]
             pos = {"bar": i, "ep": ep, "risk": risk, "sl": ep - stop_mult * risk, "act": False}
+            _lv_open(pos)
             i += 1
             continue
 
@@ -334,6 +377,7 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
         if risk < max(0.25, 0.5):
             i = fill_j + 1; continue
         pos = {"bar": fill_j, "ep": fill_price, "risk": risk, "sl": fill_price - stop_mult * risk, "act": False}
+        _lv_open(pos)
         i = fill_j + 1  # management starts the bar AFTER the fill bar (parent convention)
         continue
 
@@ -357,4 +401,13 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
     }
     if return_trades:
         out["trades"] = trade_log
+    if _lv is not None:
+        rows = [_lv.get(int(t[0])) for t in trade_log]
+        for row in rows:
+            st = row["steps"] if row else None
+            if st and len(st) > _LEVELS_MAX_STEPS:       # keep the first and the last steps
+                keep = _LEVELS_MAX_STEPS - 1
+                row["steps_dropped"] = len(st) - _LEVELS_MAX_STEPS
+                row["steps"] = st[:keep] + st[-1:]
+        out["levels"] = rows
     return out

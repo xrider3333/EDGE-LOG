@@ -2339,9 +2339,79 @@ def _capture_tail_contract_check(arrays, bars, bars_et, instrument="NQ"):
     return True, f"no overlap ({session_desc}); first-bar gap {gap:.2f} pts, ok"
 
 
+# ── STOP LADDER (2026-10-31, stop-loss overlay row 6) ─────────────────────────────
+# A strategy file that names `return_levels` in its run_backtest signature (ENGUQ_1M_ETH_R2_1_0.py,
+# NOISE_1_0.py and its NBHD / CT304 / CT304H wrappers; ORB_3_6.py since 09-29) reports, per trade,
+# the stop it actually held: the initial stop and -- for ENGU-Q -- every bar the stop moved
+# (breakeven, trail). run_shadow asks for it on a PER-CALL copy of the params (the leg's own
+# params dict is never touched, the file's defaults never change), and _extract_trades hangs it on
+# the trade as stop_px / target_px / stops = [{t, px, reason}] so the NT8 paper chart can draw
+# where the stop was. LOGGING ONLY: no trade, size or money changes (the files hold the result
+# byte-identical with the flag on -- tests/test_noise_resting_levels.py, test_enguq_stop_ladder.py);
+# a trade whose file logs no stop simply carries none of the three keys ("stop not logged").
+_LEVELS_ACCEPTS = {}
+
+
+def _leg_accepts_return_levels(strategy):
+    """True iff the strategy file's run_backtest explicitly names `return_levels` (a bare
+    **kwargs does not count -- the api/cloud_signal.py reflection rule). Never raises."""
+    if strategy in _LEVELS_ACCEPTS:
+        return _LEVELS_ACCEPTS[strategy]
+    ok = False
+    try:
+        import inspect
+        from augur_engine.strategies import load_strategy
+        mod = load_strategy(strategy)
+        ok = "return_levels" in inspect.signature(mod.run_backtest).parameters
+    except Exception:
+        ok = False
+    _LEVELS_ACCEPTS[strategy] = ok
+    return ok
+
+
+def _levels_by_entry(res, raw):
+    """res["levels"] (one row per res["trades"] entry, same order) -> {entry bar: row}; {} when
+    the engine returned none or the rows do not line up (never guess which stop is whose)."""
+    lv = (res or {}).get("levels")
+    if not isinstance(lv, (list, tuple)) or len(lv) != len(raw):
+        return {}
+    out = {}
+    for t, row in zip(raw, lv):
+        if isinstance(row, dict) and row.get("stop") is not None:
+            out[int(t[0])] = row
+    return out
+
+
+def _stop_fields(lv, idx, n):
+    """One levels row -> the three trade-record keys. Bar numbers become the bar's own ET
+    time (ISO); a step past the arrays (never expected) is dropped rather than guessed."""
+    def _t(bar):
+        try:
+            bar = int(bar)
+            return pd.Timestamp(idx[bar]).isoformat() if 0 <= bar < n else None
+        except (TypeError, ValueError, IndexError):
+            return None
+    steps = lv.get("steps")
+    if not isinstance(steps, list) or not steps:
+        steps = [{"bar": lv.get("entry_bar"), "px": lv.get("stop"), "reason": "initial"}]
+    stops = []
+    for s in steps:
+        t = _t(s.get("bar"))
+        if t is None or s.get("px") is None:
+            continue
+        stops.append({"t": t, "px": float(s["px"]), "reason": str(s.get("reason") or "")})
+    out = {"stop_px": float(lv["stop"]), "target_px": lv.get("target"), "stops": stops}
+    if lv.get("steps_dropped"):
+        out["stops_dropped"] = int(lv["steps_dropped"])
+    return out
+
+
 # ── trade conversion (mirrors augur_engine/reconcile.py edgelog_blotter) ─────────
-def _extract_trades(leg, arrays, sized, key=None):
+def _extract_trades(leg, arrays, sized, key=None, levels=None):
     """(trade tuple, size multiplier) pairs -> plain dicts.
+
+    `levels` (optional): {entry bar: engine levels row} from _levels_by_entry; a trade with a
+    row gains stop_px / target_px / stops (STOP LADDER above), one without gains nothing.
 
     `sized` is a list of ((entry_bar, exit_bar, pnl_pts, side, entry_px), size). Size is
     1.0 for every raw leg and for a gate running in "cut" mode; only a HYBRID gate ever
@@ -2367,6 +2437,7 @@ def _extract_trades(leg, arrays, sized, key=None):
             raw_pts = side * (exit_px - entry_px)
         entry_dt = pd.Timestamp(idx[eb])
         exit_dt = pd.Timestamp(idx[xb])
+        lv = (levels or {}).get(eb)
         out.append({
             "leg": key or leg["key"], "strategy": leg["strategy"], "side": side,
             "entry_dt": entry_dt, "exit_dt": exit_dt,
@@ -2377,6 +2448,8 @@ def _extract_trades(leg, arrays, sized, key=None):
             # Still held when the data ends? The strategy files close such a position at the LAST bar,
             # so this is a mark, not a result, and it counts on no day (api/paper_exitday.py).
             "open": _xd.is_open(leg, idx, xb),
+            # STOP LADDER (see above): stop_px / target_px / stops, only when the engine logged one
+            **(_stop_fields(lv, idx, len(idx)) if lv else {}),
         })
     return out
 
@@ -2476,9 +2549,14 @@ def run_shadow(leg, today):
         if bars_appended == 0:
             warnings.append("zero fresh bars appended")
 
-        res = run_backtest(leg["strategy"], arrays=arrays, params=leg["params"],
+        # STOP LADDER: ask a file that names return_levels for its stops, on a per-call copy
+        params = leg["params"]
+        if _leg_accepts_return_levels(leg["strategy"]):
+            params = dict(params, return_levels=True)
+        res = run_backtest(leg["strategy"], arrays=arrays, params=params,
                            cost_pts=leg.get("cost_pts", 0.0), return_trades=True)
         raw = list((res or {}).get("trades") or [])
+        levels = _levels_by_entry(res, raw)
         paper_start = pd.Timestamp(PAPER_START).date()
 
         if leg.get("gate"):
@@ -2492,7 +2570,7 @@ def run_shadow(leg, today):
             # emitted when the leg asks for it (ORB_H's control is the standalone ORB leg).
             if leg.get("emit_ungated_as"):
                 ung = _extract_trades(leg, arrays, [(t, 1.0) for t in raw],
-                                      key=leg["emit_ungated_as"])
+                                      key=leg["emit_ungated_as"], levels=levels)
                 ungated_out = [t for t in ung if t["entry_dt"].date() >= paper_start]
         elif leg.get("size_contract") and (res or {}).get("trade_sizes") is not None:
             # A file that sizes its own trades (NOISE_1_8_CT304H.py) folds the size into the points
@@ -2506,7 +2584,7 @@ def run_shadow(leg, today):
         else:
             sized = [(t, 1.0) for t in raw]
 
-        trades = _extract_trades(leg, arrays, sized)
+        trades = _extract_trades(leg, arrays, sized, levels=levels)
         trades_out = [t for t in trades if t["entry_dt"].date() >= paper_start]
         ran_ok = True          # the backtest completed; its trade list is authoritative
     except Exception as e:
@@ -2800,6 +2878,10 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
                     "backfill": is_backfill, "live_from": _lf,
                     "layer": "shadow", "run_date": t_date.isoformat(),
                     "flags": leg.get("flags") or [],
+                    # STOP LADDER (2026-10-31): where the stop was, when the file logs it --
+                    # stop_px (initial), target_px (None for ENGU-Q / NOISE), stops [{t, px, reason}].
+                    # Absent on a trade whose strategy logs no stop: the board says "not logged".
+                    **{k: t[k] for k in ("stop_px", "target_px", "stops", "stops_dropped") if k in t},
                     # run_date above stays the ENTRY date. These three say where the money counts:
                     # open (still held, a mark), exit_date (ET calendar date of the exit) and close_day
                     # (the report day it counts on; a weekend exit rolls to Monday; None while open).

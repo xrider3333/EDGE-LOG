@@ -467,6 +467,12 @@ CROWN_LEGS = {
         "strategy": "NOISE_1_8_CT304.py",
         "timeframe": "5m",
         "params": dict(NOISE_382_PARAMS),
+        # LOG ONLY (2026-10-31, stop-loss overlay row 2): the engine's own bandwidth stop
+        # (NOISE_1_0.py's STOP LEVELS via NOISE_1_8_CT304.py's return_levels) lands as
+        # stop_px on the ENTRY row so the chart can draw where the stop was. No target, no
+        # breakeven, so never a LEVELS row. No resting order: api/qqq_exec.py rests stops
+        # for RESTING_LEG ("ORB") only (tests/test_noise_resting_levels.py).
+        "resting_levels": True,
         # same warm-up as every other crown leg -- the owner's spec calls for no change
         # here, only the strategy file + params under it.
         "warmup_sessions": DEFAULT_WARMUP_SESSIONS,

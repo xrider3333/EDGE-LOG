@@ -123,7 +123,7 @@ PARAM_GRID_PRESETS = {
 _BASE_ARGS = set(_inspect.signature(_base.run_backtest).parameters)
 
 
-def run_backtest(opens, highs, lows, closes, **kw):
+def run_backtest(opens, highs, lows, closes, return_levels=False, **kw):
     """Entry/exit math is NOISE_1_0's, unchanged -- this file only shapes the
     search space. The champion core is applied here too, so calling this file
     with NO params reproduces the crowned SBS_V90 configuration exactly (the
@@ -131,4 +131,8 @@ def run_backtest(opens, highs, lows, closes, **kw):
     NOISE_1_0's own signature defaults, which are a different config)."""
     p = dict(_CHAMP)
     p.update({k: v for k, v in kw.items() if k in _BASE_ARGS})
+    # return_levels (2026-10-31, stop-loss overlay): named here so a caller's reflection
+    # (api/paper.py, api/cloud_signal.py) sees it; NOISE_1_0.py's STOP LEVELS, logging only.
+    if return_levels:
+        p["return_levels"] = True
     return _base.run_backtest(opens, highs, lows, closes, **p)
