@@ -239,6 +239,11 @@ def default_paths(home=None, ohlc_dir=None, exec_dir=None, signals=None):
         # the publisher's OWN extended-hours cache (row 74) -- never the engine's ohlc/ files
         "ext": {"1m": os.path.join(home, "qqq_bars", "QQQ_ext_1m.csv"),
                 "5m": os.path.join(home, "qqq_bars", "QQQ_ext_5m.csv")},
+        # row 74 follow-up (MANAGER #237): Alpaca SIP pre/post bars, pulled on the PC (the key
+        # never leaves it) by tools/push_qqq_ext_alpaca.py and copied here; a day it covers
+        # wins over the yfinance cache above, which stays the fallback
+        "ext_alpaca": {"1m": os.path.join(home, "qqq_bars", "QQQ_ext_alpaca_1m.csv"),
+                       "5m": os.path.join(home, "qqq_bars", "QQQ_ext_alpaca_5m.csv")},
     }
 
 
@@ -418,8 +423,29 @@ def refresh_ext_cache(paths, days, now=None, fetch=fetch_yf_ext, log=print):
     return merged
 
 
+EXT_SRC_ALPACA = "Alpaca SIP 1m/5m (pulled on the PC, tools/push_qqq_ext_alpaca.py)"
+EXT_SRC_YF = "yfinance prepost (publisher's own cache, not the engine's)"
+
+
 def load_ext(paths):
-    return {tf: load_bars(paths["ext"][tf], session="ext") for tf in TIMEFRAMES}
+    """{tf: {date: rows}} of extended-hours bars plus "_src": {date: source words}. Per
+    day and timeframe, the Alpaca cache (paths["ext_alpaca"]) wins whenever it holds that
+    day; the yfinance cache fills the rest."""
+    out, src = {}, {}
+    alp_paths = paths.get("ext_alpaca") or {}
+    for tf in TIMEFRAMES:
+        yf_days = load_bars(paths["ext"][tf], session="ext")
+        al_days = load_bars(alp_paths.get(tf), session="ext") if alp_paths.get(tf) else {}
+        merged = dict(yf_days)
+        merged.update(al_days)
+        out[tf] = merged
+        for d in merged:
+            if d in al_days:
+                src[d] = EXT_SRC_ALPACA
+            else:
+                src.setdefault(d, EXT_SRC_YF)
+    out["_src"] = src
+    return out
 
 
 # ── ledgers ──────────────────────────────────────────────────────────────────────────
@@ -955,7 +981,7 @@ def build_day_doc(date, data, now=None):
         "ext_counts": ext_counts,
         "ext_through": ext_through,
         "ext_session": "pre-market 04:00-09:30 (off < 0) and after hours 16:00-20:00 (off >= 390) ET",
-        "ext_source": "yfinance prepost (publisher's own cache, not the engine's)",
+        "ext_source": ((data.get("bars_ext") or {}).get("_src") or {}).get(date, EXT_SRC_YF),
         "marks": marks,
         "levels_note": LEVELS_NOTE_SOME if any(m.get("lines") for m in marks) else LEVELS_NOTE,
         "published_at": now.isoformat(timespec="seconds"),
