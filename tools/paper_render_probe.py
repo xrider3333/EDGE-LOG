@@ -1715,7 +1715,40 @@ def read_leg_defs(index_path):
                    'archived': "archived:true" in rest,
                    'crown': "crown:true" in rest,
                    'nt': bool(re.search(r"\bnt:'", rest))}
+    # owner 10-31 (row 76): the page writes run.set + the model word INTO every label (index.html _legSetWords, fed by the inline
+    # PAPER_LEG_PARAMS that tools/check_paper_leg_params.py keeps in step with api/paper_leg_params.py): 'NOISE #422.2 raw · SIZE TILT',
+    # 'ENGU-Q #335 set ? · RAW'. The same words are expected here, built the same way from the same table.
+    plp = _paper_leg_params(src)
+    for k, d in defs.items():
+        d['label'] = _set_words(k, d['label'], plp)
     return defs
+
+
+def _paper_leg_params(src):
+    """index.html's inline PAPER_LEG_PARAMS table: {leg: {run, cell, grid, variant}} ({} when the line is missing)."""
+    m = re.search(r"const PAPER_LEG_PARAMS=(\{.*?\});", src)
+    if not m:
+        return {}
+    try:
+        return json.loads(m.group(1))
+    except ValueError:
+        return {}
+
+
+def _set_words(k, label, plp):
+    """The label with run.set and the model word inside it, exactly as index.html's _legSetWords writes it."""
+    inl = plp.get(k)
+    if not inl:
+        return label
+    cell, vr = inl.get('cell'), inl.get('variant') or ''
+    suffix = ('.%s' % cell) if cell is not None else ' set ?'
+    if re.search(r'#\d+', label):
+        out = re.sub(r'#(\d+)', lambda m_: '#' + m_.group(1) + suffix, label, count=1)
+    else:
+        out = label + ((' #%s' % inl['run']) + suffix if inl.get('run') is not None else '')
+    if vr and not re.search(r'\b' + re.escape(vr) + r'\b', out, re.I):
+        out = re.sub(r'( \u00b7 |$)', lambda m_: ' ' + vr + m_.group(1), out, count=1)
+    return out
 
 
 def build_fixture(root, fix_path):
