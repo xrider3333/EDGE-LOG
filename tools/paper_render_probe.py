@@ -2036,12 +2036,16 @@ def run(alt_index=None, timeout=300):
         else:
             if h.get('underPrev') != 'p2-hero-value' or h.get('underNext') != 'p2-hero-range':
                 fails.append('%s: the open line is not directly under the big number with the range line under it (before: %r, after: %r)' % (nm, h.get('underPrev'), h.get('underNext')))
-            if not (und.startswith('open ') or und == 'flat'):
-                fails.append("%s: the line under the big number reads %r, want 'open -$X · N trades · not counted' or 'flat'" % (nm, und))
-            if und.startswith('open ') and 'not counted' not in und:
+            # owner 10-31 15:30: 'unrealized -$X · N trades · not counted' only while a trade is open; nothing (no 'flat' word) otherwise
+            if not (und.startswith('unrealized ') or und == ''):
+                fails.append("%s: the line under the big number reads %r, want 'unrealized -$X · N trades · not counted' or nothing (no 'flat' word)" % (nm, und))
+            if und.startswith('unrealized ') and 'not counted' not in und:
                 fails.append("%s: the open line %r does not say the open trades are not counted (NT8's big number is closed trades only)" % (nm, und))
         if h.get('openInRange'):
             fails.append('%s: the range line still names the open trades (they moved to the line under the big number)' % nm)
+        rng = (h.get('range') or '').replace('\n', ' ')
+        if h and not rng.startswith('realized '):
+            fails.append("%s: the range line reads %r, want 'realized +$X · N closed trades · <range>' (owner 10-31 15:30)" % (nm, rng))
         if nm == 'paper2':
             for x in r.get('listRowInfo') or []:
                 if x.get('group') != 'book' or (x.get('val') or '') in ('', '—'):
@@ -2530,8 +2534,8 @@ def run(alt_index=None, timeout=300):
             if not g.get(key) or g[key] >= g['tradesTop']:
                 fails.append('phone375: the %s fold sits below the trade list on a phone (%s >= %s) - the fixed page order' % (key[:-3], g.get(key), g['tradesTop']))
     rh = [x.get('h') or 0 for x in ((cases.get('phone375-list-open') or {}).get('listRowInfo') or [])]
-    if not rh or max(rh) > 48:
-        fails.append('phone375: strategy rows are up to %s px tall - one line per row expected (48 or less)' % (max(rh) if rh else None))
+    if not rh or max(rh) > 72:   # owner 10-31 15:30: the name line plus the trades / win rate line, at every width
+        fails.append('phone375: strategy rows are up to %s px tall - the name line plus its figures line expected (72 or less)' % (max(rh) if rh else None))
     tt = [x.get('top') for x in (r.get('statTiles') or [])]
     if len(tt) != 4 or not (tt[0] == tt[1] and tt[2] == tt[3] and tt[2] > tt[0]):
         fails.append('phone375: the four stat tiles should sit two by two (tops %s)' % tt)
@@ -2744,8 +2748,8 @@ def run(alt_index=None, timeout=300):
                 fails.append('%s: the open trade %s sits under the day %s' % (nm, x['id'], x.get('day')))
         if exp_open:
             hd = (tl.get('openHd') or '').lower()
-            if 'open now' not in hd or 'not counted' not in hd:
-                fails.append('%s: the open trades block does not say OPEN NOW / not counted: %r' % (nm, tl.get('openHd')))
+            if not hd.startswith('open') or 'not counted' not in hd:   # owner 10-31 15:30: the group is labelled OPEN
+                fails.append('%s: the open trades block does not say OPEN / not counted: %r' % (nm, tl.get('openHd')))
             if not any('unrealised' in (x.get('pnl') or '') for x in open_dom):
                 fails.append('%s: the open trade money is not labelled unrealised' % nm)
         if '987' in ' '.join(x.get('net') or '' for x in days):
@@ -4328,6 +4332,16 @@ MUTANTS = [
      "note2:'<span data-p2heroopenline>'+(_heroOpen.n",
      'the open / flat line is not directly under the big number (the hero has no under line)',
      'no line directly under the big number'),
+    ('nt8-realized-word-missing',
+     "range:'<span class=\"hm-suffix\" data-p2realword>realized </span>",
+     "range:'<span class=\"hm-suffix\" data-p2realword></span>",
+     "the range line does not start with 'realized'",
+     "want 'realized"),
+    ('nt8-flat-word-back',
+     "              +'<span class=\"hm-suffix\"> &middot; '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' &middot; not counted</span>')\r\n            :'')+'</span>',",
+     "              +'<span class=\"hm-suffix\"> &middot; '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' &middot; not counted</span>')\r\n            :'flat')+'</span>',",
+     "the hero says 'flat' again when nothing is open",
+     "no 'flat' word"),
     ('nt8-figs-under-number',
      "sub:a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')",
      "sub:!a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')",

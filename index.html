@@ -608,10 +608,14 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-side .lg-list{margin-bottom:0}
 .qbx-side .lg-row{grid-template-columns:minmax(0,1fr) auto}
 .qbx-side .lg-row>:last-child:empty{display:none}
-.qbx-side .lg-row-sub{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}
+.qbx-side .lg-row-sub{display:block;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}   /* owner 10-31 15:30: the trades / win rate line under the name shows at EVERY width */
 .qbx-side .lg-row-sub .qbx-leg-live{display:block;padding:0;font-size:10px;line-height:1.4}
 .qbx-side .lg-row-sub .qbx-leg-live>span{display:block}
 .qbx-lg-pill{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;line-height:14px;padding:0 7px;border-radius:999px;border:1px solid currentColor;white-space:nowrap;vertical-align:1px}
+/* owner 10-31 15:30 (paper tabs): the run number is a link to that run's report; 'params: not recorded' is a quiet tag; the OPEN group tops the trade list */
+.qbx-runlink{cursor:pointer;text-decoration:underline dotted;text-underline-offset:2px}.qbx-runlink:hover{color:var(--text)}
+.qbx-params{color:var(--text5);font-size:10px;margin-left:6px;white-space:nowrap}
+.qbx-opensec{margin-bottom:4px}.qbx-opensec .lg-tl-daylbl{white-space:nowrap}.qbx-opensec .lg-tl-daymeta{min-width:0}.qbx-openrow{cursor:default}.qbx-unr{font-size:9px;color:var(--text5)}
 /* owner 10-31: a WARNING on a paper tab (KEEL stale, NOT READY, HELD ...) is an outlined pill in its own token --warn, never the gold of a strategy line */
 .lg-warn-pill{display:inline-block;font-size:9px;font-weight:700;letter-spacing:.04em;line-height:14px;padding:0 7px;border-radius:999px;border:1px solid var(--warn);color:var(--warn);white-space:nowrap;vertical-align:1px}
 .qbx-sh-seed{display:inline-block;font-size:9px;line-height:13px;padding:0 6px;border-radius:999px;border:1px dashed currentColor;white-space:nowrap;vertical-align:1px}
@@ -955,6 +959,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-status-btn{padding:0 9px}
 }
 @media (max-width:740px){.lg-filters-btn{padding-left:12px;padding-right:12px}}
+/* owner 10-31 15:30: 'unrealized ...' / 'realized ...' are longer words than 'open' / 'cash'; one size down on a phone so each stays one line */
+@media (max-width:740px){.lg-hero-under,.lg-hero-range{font-size:11px}}
 @media (max-width:740px){
   .lg-cal-panel{padding:12px 10px}
   .lg-cal-day{min-height:42px}
@@ -1433,7 +1439,9 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1448',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 3 OF 3 (row 75) - DONE. A trade in a run report&#39;s trade list (COMPARE / RUNBOARD run REPORT, STUDIES, validate, the TRADES window, the chart gallery&#39;s OPEN) now opens the same TradingView-library chart as the Webull, NT8 paper and REAL trades: drag, wheel or pinch, timeframes from the run&#39;s own bar size up to D, RTH / ETH, VWAP, OR, MFE / MAE, replay, PNG, PREV / NEXT through the list. The bars are the ones the old viewer asked your PC for: one request per trade (the run&#39;s instrument, bar size and session), kept for the session and shared with the chart gallery. The header names the run, its master and the bars; a saved blotter still says its exit price is the exit bar close. No stop or target is drawn - run trades carry none. Every trade chart on the site is now the one engine; the old hand-drawn viewer stays only behind ?oldchart=1 (and the OPEN THE OLD CHART button when the chart library cannot load). Still only in the old viewer: the engine&#39;s own indicator lines that came back with the bars (bands and the like) and the small trade-panel charts, which keep their compact drawing.']},{v:'73.1446',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 2 OF 3 (row 75). Your REAL trades - the chart icon on a LEDGER &gt; REAL / HOME row and EXPAND in the trade panel - now open the same TradingView-library chart the Webull and NT8 paper trades use: drag, wheel or pinch, timeframes 1m to D, RTH / ETH, VWAP, OR, MFE / MAE, replay, PNG, PREV / NEXT through your trades. The bars are the ones REAL read before: the trade&#39;s published chart doc from your PC (one read per trade, shared with the panel), and with no doc yet one request to your PC. The header says your trade, the symbol, the contracts and the fees; the entry and exit lines are at your fills. No stop or target is drawn - your trade records carry none. The 10-second close-up stays in the trade panel&#39;s compact chart; on a phone the panel&#39;s new OPEN CANDLES button opens the full chart. ?oldchart=1 keeps the old viewer. Run reports are step 3.','VWAP WITH ETH ON: the line now breaks across the overnight gap and starts fresh at each session&#39;s first bar (it used to draw a diagonal from one day&#39;s last value into the next 09:30).']},{v:'73.1439',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 1 OF 3 (row 75, your GO 10-31). An NT8 PAPER trade - the CHART pill on its row and EXPAND in its panel - now opens the same TradingView Lightweight Charts viewer the Webull paper trades use, in place of the old hand-drawn chart: timeframes 1m to D, drag and zoom, the position box (red zone entry to stop, green to target, $ and R), the stop ladder the nightly replay records (first stop, each move as a step line, stop moved to X), MFE / MAE, session VWAP, opening range, RTH / ETH, REPLAY, PNG and the TV button. The bars still come from your PC (one request per trade, kept for the session, the same answer the small panel chart draws), so with the PC off the chart waits on the runner as before. Webull trades are drawn exactly as before. REAL trades and the run reports keep the old chart until steps 2 and 3.']},
+const CHANGELOG=[{v:'73.1447',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, YOUR 15:30 NOTES ON THE LIVE PAGE (row 76, 10-31). 1. WHICH RUN: every strategy row&#39;s run number (ORB #314, NOISE #382, DIP #424, ENGU-Q #335; the NT8 legs the same) is now a link that opens that run&#39;s report on the RUNBOARD / STUDIES page, with BACK TO RUNBOARD bringing you back. WHICH PARAMETER SET: no leg records the index of its parameter cell - the box configs (api/cloud_signal.py) and the NT8 leg sources (api/paper.py) store the parameter VALUES and the run number only - so every row says &#39;params: not recorded&#39; beside the run number instead of guessing a &#39;#382.3&#39; style label. 2. THE HEADLINE WORDS: &#39;unrealized -$295.74 \u00b7 DIP #424 \u00b7 4 lots&#39; sits directly under the big net number, ONLY while something is open, then &#39;realized +$23.66 \u00b7 closed trades \u00b7 since 09-03&#39; (was &#39;open&#39; / &#39;cash&#39;; the &#39;flat&#39; word is gone). NT8: &#39;unrealized -$X \u00b7 N trades \u00b7 not counted&#39; then &#39;realized +$X \u00b7 N closed trades \u00b7 ALL&#39;. 3. NO FLAT PILL anywhere: a LONG / SHORT pill shows only while the leg holds a position (NT8 rows gained the same pill for an open trade). 4. The trade count, win % and today line sit under the strategy NAME at every width now, phones included (the shared list used to hide that line under 740 px). Checked on the live page at 1700 px: v73.1446 already had it under the name on a desktop; the phone was the gap. 5. THE TRADE LIST: open positions sit at the TOP in a small OPEN group (entry time, strategy and run, side, shares, the unrealized mark), then the closed trades newest first; the NT8 list&#39;s group is labelled OPEN too. Both render gates (tools/webull_board_probe.py, tools/paper_render_probe.py) check the new words, the link, the params note, the OPEN group and the no-FLAT rule, with broken copies that must fail.']},
+{v:'73.1446',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 2 OF 3 (row 75). Your REAL trades - the chart icon on a LEDGER &gt; REAL / HOME row and EXPAND in the trade panel - now open the same TradingView-library chart the Webull and NT8 paper trades use: drag, wheel or pinch, timeframes 1m to D, RTH / ETH, VWAP, OR, MFE / MAE, replay, PNG, PREV / NEXT through your trades. The bars are the ones REAL read before: the trade&#39;s published chart doc from your PC (one read per trade, shared with the panel), and with no doc yet one request to your PC. The header says your trade, the symbol, the contracts and the fees; the entry and exit lines are at your fills. No stop or target is drawn - your trade records carry none. The 10-second close-up stays in the trade panel&#39;s compact chart; on a phone the panel&#39;s new OPEN CANDLES button opens the full chart. ?oldchart=1 keeps the old viewer. Run reports are step 3.','VWAP WITH ETH ON: the line now breaks across the overnight gap and starts fresh at each session&#39;s first bar (it used to draw a diagonal from one day&#39;s last value into the next 09:30).']},{v:'73.1439',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 1 OF 3 (row 75, your GO 10-31). An NT8 PAPER trade - the CHART pill on its row and EXPAND in its panel - now opens the same TradingView Lightweight Charts viewer the Webull paper trades use, in place of the old hand-drawn chart: timeframes 1m to D, drag and zoom, the position box (red zone entry to stop, green to target, $ and R), the stop ladder the nightly replay records (first stop, each move as a step line, stop moved to X), MFE / MAE, session VWAP, opening range, RTH / ETH, REPLAY, PNG and the TV button. The bars still come from your PC (one request per trade, kept for the session, the same answer the small panel chart draws), so with the PC off the chart waits on the runner as before. Webull trades are drawn exactly as before. REAL trades and the run reports keep the old chart until steps 2 and 3.']},
+{v:'73.1448',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 3 OF 3 (row 75) - DONE. A trade in a run report&#39;s trade list (COMPARE / RUNBOARD run REPORT, STUDIES, validate, the TRADES window, the chart gallery&#39;s OPEN) now opens the same TradingView-library chart as the Webull, NT8 paper and REAL trades: drag, wheel or pinch, timeframes from the run&#39;s own bar size up to D, RTH / ETH, VWAP, OR, MFE / MAE, replay, PNG, PREV / NEXT through the list. The bars are the ones the old viewer asked your PC for: one request per trade (the run&#39;s instrument, bar size and session), kept for the session and shared with the chart gallery. The header names the run, its master and the bars; a saved blotter still says its exit price is the exit bar close. No stop or target is drawn - run trades carry none. Every trade chart on the site is now the one engine; the old hand-drawn viewer stays only behind ?oldchart=1 (and the OPEN THE OLD CHART button when the chart library cannot load). Still only in the old viewer: the engine&#39;s own indicator lines that came back with the bars (bands and the like) and the small trade-panel charts, which keep their compact drawing.']},{v:'73.1446',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 2 OF 3 (row 75). Your REAL trades - the chart icon on a LEDGER &gt; REAL / HOME row and EXPAND in the trade panel - now open the same TradingView-library chart the Webull and NT8 paper trades use: drag, wheel or pinch, timeframes 1m to D, RTH / ETH, VWAP, OR, MFE / MAE, replay, PNG, PREV / NEXT through your trades. The bars are the ones REAL read before: the trade&#39;s published chart doc from your PC (one read per trade, shared with the panel), and with no doc yet one request to your PC. The header says your trade, the symbol, the contracts and the fees; the entry and exit lines are at your fills. No stop or target is drawn - your trade records carry none. The 10-second close-up stays in the trade panel&#39;s compact chart; on a phone the panel&#39;s new OPEN CANDLES button opens the full chart. ?oldchart=1 keeps the old viewer. Run reports are step 3.','VWAP WITH ETH ON: the line now breaks across the overnight gap and starts fresh at each session&#39;s first bar (it used to draw a diagonal from one day&#39;s last value into the next 09:30).']},{v:'73.1439',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 1 OF 3 (row 75, your GO 10-31). An NT8 PAPER trade - the CHART pill on its row and EXPAND in its panel - now opens the same TradingView Lightweight Charts viewer the Webull paper trades use, in place of the old hand-drawn chart: timeframes 1m to D, drag and zoom, the position box (red zone entry to stop, green to target, $ and R), the stop ladder the nightly replay records (first stop, each move as a step line, stop moved to X), MFE / MAE, session VWAP, opening range, RTH / ETH, REPLAY, PNG and the TV button. The bars still come from your PC (one request per trade, kept for the session, the same answer the small panel chart draws), so with the PC off the chart waits on the runner as before. Webull trades are drawn exactly as before. REAL trades and the run reports keep the old chart until steps 2 and 3.']},
 {v:'73.1445',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, YOUR FOUR NOTES ON THE LIVE PAGE (row 76, 10-31). 1. THE HEADLINE: directly under the big net number is the open-position line - \'open -$295.74 \u00b7 DIP #424 \u00b7 4 lots\', or \'flat\' when nothing is held - and under that the cash line, \'cash +$23.66 \u00b7 closed trades \u00b7 all time\'. The small \'net\' word stays beside the big number; the today line comes after. NT8 PAPER follows the same shape: \'open -$X \u00b7 N trades \u00b7 not counted\' (its big number is closed trades only) or \'flat\'. 2. THE STRATEGY ROWS: the trade count and win % now sit UNDER THE STRATEGY NAME (small, left); under the number only the open line stays while the leg holds lots (\'open -$295.74 \u00b7 4 lots\'). The number\'s hover says it is closed + open, the headline\'s own figures. Same on NT8 PAPER (its number is closed only, and says so). 3. WARNINGS HAVE THEIR OWN COLOUR: KEEL stale, NOT READY, HELD, UPDATES FAILING, book-only tags and the other warnings on both paper tabs are drawn in a new warning token (orange, outlined pill; the KEEL warning is now a pill), apart from the gold the DIP line and name use. It keeps its colour under MONO like the other attention colours. 4. THE HATCHED DAYS: hovering a hatched column now names the caveat for that day in plain words, e.g. \'10-20: 2 book-only trades (order never reached Webull)\', and the \'hatched =\' text under the chart says in one line what a caveat day is and to hover the column. NT8 PAPER: \'10-20: a roll-splice trade closed ...\' / \'a look-ahead ORB trade closed ...\'. Both render gates (tools/webull_board_probe.py, tools/paper_render_probe.py) check the new lines and have new broken-copy mutants.']},
 {v:'73.1439',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 1 OF 3 (row 75, your GO 10-31). An NT8 PAPER trade - the CHART pill on its row and EXPAND in its panel - now opens the same TradingView Lightweight Charts viewer the Webull paper trades use, in place of the old hand-drawn chart: timeframes 1m to D, drag and zoom, the position box (red zone entry to stop, green to target, $ and R), the stop ladder the nightly replay records (first stop, each move as a step line, stop moved to X), MFE / MAE, session VWAP, opening range, RTH / ETH, REPLAY, PNG and the TV button. The bars still come from your PC (one request per trade, kept for the session, the same answer the small panel chart draws), so with the PC off the chart waits on the runner as before. Webull trades are drawn exactly as before. REAL trades and the run reports keep the old chart until steps 2 and 3.']},
 {v:'73.1437',date:'2026-10-31',notes:['WEBULL PAPER TRADING, THE WAY A PERSON READS IT (row 76, your 10-31 14:35 notes). The big number is the net equity change (closed trades + open lots) with a small \'net\' beside it; the line under it reads \'cash +$23.66 \u00b7 open -$295.74 (DIP #424 \u00b7 4 lots)\' - cash = closed trades, open = the lots not sold yet, left out when nothing is open. THE SOLID LINE IS ACCOUNT EQUITY (owner 15:00): closed P&L plus the open lots marked to market per day - the box day at the headline\'s own open figure, the session before it at the box\'s prior-close mark, earlier days carrying the last mark (the page has no history of day closes) - so the line and the big number agree by construction. A strategy\'s dotted line is its closed trades, plus its open lots where it holds some, so DIP #424\'s line ends at its row\'s number. Caption: solid = account equity (closed + open) \u00b7 dotted = each strategy (closed). NT8 PAPER follows the same rule - its line ends at its big number - and since that number is closed trades only (its open trades sit in OPEN NOW until they close), its line stays the closed curve.','STRATEGY ROWS: a leg that holds something shows \'open -$316.xx \u00b7 4 lots\' under its number, from the SAME figures as the headline\'s open line, so DIP #424\'s row and the headline agree; flat legs show nothing. The strategy names are in their chart line\'s colour (ORB blue, NOISE green, DIP gold, ENGU-Q purple) and the coloured dot before the name is gone.','THE P&L CHART (Webull and NT8 PAPER, the shared chart): every strategy line is the same dotted line in its own colour; the total is the one solid line in the page\'s text colour. Under MONO only, where every colour is grey, each strategy keeps its own pattern (dots, sparse dots, dashes, dash-dot) so they can still be told apart. On NT8 PAPER the strategy names are in their line colour too; its small dot stays - it says LIVE / OFF in NinjaTrader, not the colour.']},
@@ -15063,6 +15071,13 @@ function _rbOpenRun(id,e){
   const k=String(id==null?'':id);if(!k)return;
   window._rbBack={sub:augurSub,y:(window.scrollY||0),run:k};
   augurRunSel=k;augurSub='runs';renderApp();window.scrollTo(0,0);}
+// owner 10-31 15:30 (paper tabs): a strategy row's run number opens that run's report on the RUNBOARD / STUDIES page (Past Runs);
+// BACK TO RUNBOARD at the top of the report brings the reader back to the paper board (the same _rbBack the RUNBOARD uses).
+function _paperOpenRun(id,e){
+  if(e){if(e.__rbDone)return;e.__rbDone=1;if(e.stopPropagation)e.stopPropagation();if(e.preventDefault)e.preventDefault();}
+  const k=String(id==null?'':id).replace(/^#/,'');if(!k)return;
+  window._rbBack={sub:augurSub,y:(window.scrollY||0),run:k};
+  activeTab='augur';augurRunSel=k;augurSub='runs';renderApp();window.scrollTo(0,0);}
 function _rbGoBack(e){
   if(e){if(e.__rbDone)return;e.__rbDone=1;if(e.stopPropagation)e.stopPropagation();}
   const b=window._rbBack;if(!b||!b.sub)return;
@@ -42893,6 +42908,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // "since/was/KEEL" detail moves to qeLegSubLineHtml, its own full-width line under
       // the row (styled exactly like the ENGU-Q caveat line beneath it).
       const qeLegShortTag=(key,runNo)=>{const vs=QE_LEG_VERSIONS.filter(v=>v.leg===key);return vs.length?vs.sort((a,b)=>a.date<b.date?1:-1)[0].to:runNo;};
+      // owner 10-31 15:30: the run number on a strategy row is a link that opens that run's report (RUNBOARD / STUDIES page, Past Runs)
+      const qbRunLinkHtml=tag=>{const n=String(tag||'').replace(/^#/,'');return n?('<span class="qbx-runlink" data-qbrunlink="'+n+'" role="link" tabindex="0" title="open run #'+n+'\u2019s report on the RUNBOARD / STUDIES page">#'+n+'</span>'):'';};
+      // WHICH PARAMETER SET a leg trades: the box's leg configs (api/cloud_signal.py CROWN_LEGS / SHADOW_LEGS) carry the run number and the
+      // literal parameter VALUES, never the index of that cell in the run's own parameter list, and neither does api/paper.py's LEG_SOURCE, the
+      // run records or the trade rows. So no leg can be labelled 'NOISE #382.3' honestly: every row says so instead of guessing (owner 10-31).
+      const qbParamsTagHtml=()=>'<span class="qbx-params" data-qbparams="none" title="The parameter set this leg trades is stored as values (api/cloud_signal.py), not as a numbered cell of the run, so its index cannot be shown">&middot; params: not recorded</span>';
       const qeLegSubLineHtml=(key)=>{
         const vs=QE_LEG_VERSIONS.filter(v=>v.leg===key).sort((a,b)=>a.date<b.date?1:-1);
         const parts=[];
@@ -43116,12 +43137,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const ov=(rangeInfo&&rangeInfo.open&&isFinite(Number(rangeInfo.openVal)))?Number(rangeInfo.openVal):null;
         // owner 10-31 (live page): the OPEN line sits DIRECTLY under the big number - 'open -$295.74 · DIP #424 · 4 lots', or 'flat'
         // when nothing is held - and the CASH line under that: 'cash +$23.66 · closed trades · all time'. Both are in the net number.
+        // owner 10-31 15:30 (live page): 'unrealized -$295.74 · DIP #424 · 4 lots' ONLY while something is open (no 'flat' word any more),
+        // then 'realized +$23.66 · closed trades · since 09-03' (the range's own word when one is chosen)
         const openLine=(rangeInfo&&rangeInfo.open)
-          ?('<span class="hm-suffix">open </span>'+(ov!=null?('<span class="'+(ov>=0?'hm-up':'hm-down')+'" data-qbheroopen>'+ledgerSigned(ov)+'</span>'):'<span class="hm-suffix" data-qbheroopen-unpriced>not priced yet</span>')
+          ?('<span class="hm-suffix">unrealized </span>'+(ov!=null?('<span class="'+(ov>=0?'hm-up':'hm-down')+'" data-qbheroopen>'+ledgerSigned(ov)+'</span>'):'<span class="hm-suffix" data-qbheroopen-unpriced>not priced yet</span>')
             +(rangeInfo.openWho?'<span class="hm-suffix"> &middot; '+rangeInfo.openWho+'</span>':''))
-          :'<span class="hm-suffix" data-qbheroflat>flat</span>';
-        const rangeLine=rv==null?'':('<span class="hm-suffix" data-qbcashword>cash </span><span class="'+rc+'" data-qbcash>'+ledgerSigned(rv)+'</span>'
-          +'<span class="hm-suffix"> &middot; closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||'all time')+'</span>');
+          :'';
+        const rangeLine=rv==null?'':('<span class="hm-suffix" data-qbrealword>realized </span><span class="'+rc+'" data-qbcash>'+ledgerSigned(rv)+'</span>'
+          +'<span class="hm-suffix"> &middot; closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||(rangeInfo&&rangeInfo.sinceWord)||'all time')+'</span>');
         const heroMain=ledgerHeroHtml({
           ids:{label:'qb-hero-label',big:'qb-hero-value',under:'qb-hero-under',today:'qb-hero-today',range:'qb-hero-range',chips:'qb-hero-chips',note:'qb-hero-note'},
           label:'Webull paper trading &middot; P&amp;L of record',
@@ -43130,7 +43153,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // trades (the figure the chart's solid line ends at), open = the lots not sold yet (left out when flat).
           big:(netVal==null||!isFinite(Number(netVal)))?'—':(_hmMoney(Number(netVal))+'<span class="lg-suffix qbx-hero-qual" data-qbheroqual="net">net</span>'),
           today:(todayVal==null||!isFinite(Number(todayVal)))?'':(QF.isToday?ledgerTodayHtml(Number(todayVal)):qbNotTodayHtml(Number(todayVal))),
-          under:'<span data-qbheroopenline title="The lots not sold yet, at the last mark - part of the net number above (closed + open)">'+openLine+'</span>',
+          under:openLine?('<span data-qbheroopenline title="The lots not sold yet, at the last mark - part of the net number above (closed + open)">'+openLine+'</span>'):'',
           range:rangeLine,
           chips:chips.join(''),
           // the broker caveat sits behind a small 'details' fold; the DIP #424 held-overnight line now lives in DIP's own row (owner 10-31)
@@ -44022,7 +44045,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // DIP #424 LIVE: its row is drawn only while the doc knows a DIP exec leg; its lots are read as one position (qbDipAgg)
           if(key==='DIP'&&!qbDipLegs.length)return;
           const p=key==='DIP'?qbDipAgg.pos:positions[key];
-          const badge=p?(p.side==='long'?'LONG':'SHORT'):'FLAT';
+          // owner 10-31 15:30: a LONG / SHORT pill only while the leg holds a position - no FLAT pill
+          const badge=p?(p.side==='long'?'LONG':'SHORT'):'';
           // a silent box: the position is the last known one - grey, with its time (finding 8)
           const badgeColor=QF.stale?'var(--text4)':(p?(p.side==='long'?'var(--green)':'var(--red)'):'var(--text4)');
           const badgeTip=QF.stale?(' title="Last known, as of '+QF.sinceTxt+' New York time"'):'';
@@ -44129,7 +44153,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const fgTot=(Number(fg.net)||0)+(legOpenPnl!=null?legOpenPnl:0),fgHas=!!fg.n||legOpenPnl!=null;
             // DIP #424's rail paused its entries: one plain line under the row (never an alarm: nothing is sold)
             const railRowHtml=(key==='DIP'&&qbDipRail.blocking)?('<div class="qbx-leg-live"><div data-qbdiprowrail>rail hit'+(qbDipRail.trip?(' '+qbDayLabel(qbDipRail.trip)):'')+': no new entries through '+qbDayLabel(qbDipRail.until)+'</div></div>'):'';
-            const pill='<span class="qbx-lg-pill" data-qblegpill="'+key+'"'+badgeTip+' style="color:'+badgeColor+'">'+badge+'</span>'
+            const pill=(badge?('<span class="qbx-lg-pill" data-qblegpill="'+key+'"'+badgeTip+' style="color:'+badgeColor+'">'+badge+'</span>'):'')
               +(heldOne?('<span class="qbx-lg-pill" data-qbheldpill="'+key+'" title="'+heldTip+'" style="color:var(--warn);margin-left:4px">HELD</span>'):'');
             // ONE LINE PER STRATEGY (owner 10-31): name + side pill, then trades / win % / today under the number. The live position
             // line, the held-overnight line, the rail line, the next-trade line, the note and the detail all sit behind 'more' (a tap on
@@ -44139,7 +44163,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             qbLegModels.push({key:key,retired:qbRetiredNow,fg:fg,
               // the name in the SAME colour as its chart line, no dot (owner 10-31 14:35); an 'open -$316.xx · 4 lots' line under the number
               // while the leg holds something (the headline's own open figure, qbOpenByFam), none when flat
-              row:{key:key,name:label+' '+qeLegShortTag(key,runNo),nameColor:color,tag:pill+infoToggleHtml+moreTag,
+              // owner 10-31 15:30: the run number is a link to the run's report, 'params: not recorded' rides beside it (see qbParamsTagHtml);
+              // wrap: the trades / win rate line under the name shows at EVERY width (the shared list hides a plain sub-line on a phone)
+              row:{key:key,name:label+' '+qbRunLinkHtml(qeLegShortTag(key,runNo)),nameColor:color,tag:qbParamsTagHtml()+pill+infoToggleHtml+moreTag,wrap:true,
                 // owner 10-31 (live page): the trade count and win % sit UNDER THE NAME (small, left); under the number only the open line
                 sub:qbFigsLine(fg)+todayTxt,
                 value:fgHas?('<span title="closed trades in the range + the open lots at the last mark (closed + open), the same figures as the headline">'+ledgerSigned(fgTot)+'</span>'):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:'',
@@ -44452,6 +44478,31 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(qbTlClear?'<span class="qbx-tl-clear" data-qbclear role="button" tabindex="0" title="clear the search and the chip">&#10005; clear</span>':'')
             +'<button type="button" class="qb-hero-refresh qbx-csv" data-qeexportcsv title="Export the '+matchedN+' trade'+(matchedN===1?'':'s')+' in this list as a CSV file">&#11015; CSV</button>',
           labels:{time:'ENTRY (ET)',sym:'STRATEGY',size:'SHARES',pnl:'P&amp;L',pts:'PTS',strat:'EXIT / FLAGS'}});
+        // owner 10-31 15:30: the open positions sit at the TOP of the trade list as a small OPEN group (one row a leg or DIP lot: entry time,
+        // strategy and run, side, shares, the unrealized mark), then the closed trades newest first as before. Read from the same positions
+        // the headline and the strategy rows use (the live leg's mark when it has one, else the book's own); counted nowhere, no panel.
+        const qbOpenBlock=(()=>{
+          const keys=Object.keys(positions||{});if(!keys.length)return '';
+          const live=k=>(plLegs||[]).find(l=>l&&l.leg===k)||null;
+          const cc=k=>'lg-c lg-c-'+k+(LEDGER_TL_PHONE[k]?' lg-ph':' lg-nph')+(k==='chart'?' lg-skip':'');
+          let tot=0,priced=true;
+          const rows=keys.map(k=>{
+            const p=positions[k]||{},lv=live(k),side=String(p.side||(lv&&lv.side)||'').toLowerCase();
+            const pnl=(lv&&lv.open_pnl!=null&&isFinite(Number(lv.open_pnl)))?Number(lv.open_pnl):((p.unrealized!=null&&p.unrealized!==''&&isFinite(Number(p.unrealized)))?Number(p.unrealized):null);
+            if(pnl==null)priced=false;else tot+=pnl;
+            const en=String(p.entry_ts||''),sh=Number(p.shares!=null?p.shares:(lv&&lv.shares));
+            const px=(p.entry_px!=null&&p.entry_px!=='')?Number(p.entry_px):((lv&&lv.entry_px!=null)?Number(lv.entry_px):null);
+            return '<div class="lg-tl-row qbx-openrow" data-qbopenrow="'+qbEsc(k)+'" title="An open position: not sold yet, so in no day and no total here; its P&amp;L is the mark at the last price">'
+              +'<span class="'+cc('time')+'">'+qbEsc(en.slice(11,16)||'--')+'<small>&rarr; open</small></span>'
+              +'<span class="'+cc('sym')+'"><span style="color:'+legColorQE(k)+'">'+qeTradeLegHtml({leg:k,trade_id:''})+'</span>'+(px!=null?'<small>@ '+qeMoney(px)+'</small>':'')+'</span>'
+              +'<span class="'+cc('side')+'">'+(side?('<span class="lg-side '+(side==='long'?'long':'short')+'">'+side.toUpperCase()+'</span>'):'')+'</span>'
+              +'<span class="'+cc('size')+'">'+(isFinite(sh)?qeInt(sh):'--')+'</span>'
+              +'<span class="'+cc('pnl')+'">'+(pnl!=null?('<span class="'+ledgerPnlCls(pnl)+'" style="font-style:italic">'+ledgerSigned(pnl)+'</span>'):'<span class="hm-suffix">not priced</span>')+' <small class="qbx-unr">unrealized</small></span>'
+              +'<span class="'+cc('pts')+'">--</span><span class="'+cc('strat')+'">open</span><span class="'+cc('chart')+'"></span></div>';
+          });
+          return '<div class="qbx-opensec" data-qbopensec="'+keys.length+'"><div class="lg-tl-dayhd"><span class="lg-tl-daylbl">OPEN</span><span class="lg-tl-daymeta">'+keys.length+' position'+(keys.length===1?'':'s')
+            +' &middot; unrealized '+(priced?ledgerSigned(Math.round(tot*100)/100):'not priced yet')+' &middot; not sold yet, in no day or total</span></div>'+rows.join('')+'</div>';
+        })();
         {
           const shown=window._qeTradesShown||50;
           if(!qbRangeTrades.length){
@@ -44459,7 +44510,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             tradesHtml=!closedN?'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">no trades yet</div>'
               :('<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:14px">'+qbRangeNone+' &middot; '+closedN+' more outside this range'
                 +'<div><button type="button" class="qb-hero-refresh" data-qbrange="ALL" style="margin-top:10px">Show all</button></div></div>');
-            window._qeTradesForExport=[];window._qeExportScope=qbExportScope;qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts([],0),{empty:tradesHtml}));
+            window._qeTradesForExport=[];window._qeExportScope=qbExportScope;qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts([],0),{empty:tradesHtml,afterBar:qbOpenBlock}));
           }else{
             const tagFor=reason=>{
               const r=String(reason||'');
@@ -44695,7 +44746,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 tcol('slip','SLIP/SH',v=>{const sp=avgSlip(v._t);return '<span style="color:var(--text3)">'+(sp!=null?qeNum(sp,3):'—')+'</span>';})
               ]);
               qbFrameHtml=ledgerTradeListHtml(Object.assign(qbFrameOpts(qbShownVm,window._qeTradesForExport.length),{
-                dayHeaders:true,dayCol:true,ghost:v=>!!v._ghost,
+                afterBar:qbOpenBlock,dayHeaders:true,dayCol:true,ghost:v=>!!v._ghost,
                 empty:'<div class="lg-tl-empty">No trades match this search or chip. <span class="qbx-tl-clear" data-qbclear role="button" tabindex="0">clear</span></div>',
                 rowAttr:v=>'data-qbday="'+qbEsc(qeTradeDate(v._t)||'')+'"',
                 cells:{
@@ -45049,7 +45100,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // who holds the open lots: 'DIP #424 · 4 lots' (family + live run number, from the same qbOpenByFam the strategy rows read)
         const qbOpenWho=Object.keys(qbOpenByFam).map(f=>{const L=QE_LEGS.find(l=>l[0]===f),o=qbOpenByFam[f];return (L?(L[1]+' '+qeLegShortTag(f,L[3])):f)+' &middot; '+o.lots+' lot'+(o.lots===1?'':'s');}).join(', ');
         const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,qbBrokerInfo,heroTodayVal,
-          {val:qbRangePnl,open:posCount>0,openVal:openMarkPnl,openWho:qbOpenWho,rangeWord:(qbRange&&qbRange!=='ALL')?qbRangeWord:''});
+          {val:qbRangePnl,open:posCount>0,openVal:openMarkPnl,openWho:qbOpenWho,rangeWord:(qbRange&&qbRange!=='ALL')?qbRangeWord:'',
+           sinceWord:(QE.live_from&&/^\d{4}-\d{2}-\d{2}/.test(String(QE.live_from)))?('since '+String(QE.live_from).slice(5,10)):''});
         const qbHeroHtml=qbHero.main;
         const qbStatusStripHtml=qbHero.strip;
 
@@ -46799,7 +46851,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +['time','sym','side','size','pnl','pts','chart'].map(k=>'<span class="'+colCls(k)+'">'+(cells[k](r,'list')||'')+'</span>').join('')
             +'<span class="lg-c lg-c-slot lg-nph">'+eng(r)+'</span></div>';
           const openBlock=m.openRows.length
-            ?'<div class="p2tl-opensec"><div class="lg-tl-dayhd"><span class="lg-tl-daylbl">OPEN NOW</span><span class="lg-tl-daymeta">not counted on any day yet · '+m.openRows.length+' trade'+(m.openRows.length===1?'':'s')+' · unrealised marks</span></div>'
+            ?'<div class="p2tl-opensec"><div class="lg-tl-dayhd"><span class="lg-tl-daylbl">OPEN</span><span class="lg-tl-daymeta">not counted on any day yet · '+m.openRows.length+' trade'+(m.openRows.length===1?'':'s')+' · unrealised marks</span></div>'
               +m.openRows.map(openRow).join('')+'</div>'
             :'';
           const note='<div class="p2tl-note">EL / NT / TV chips: green = matched · red = missed · grey = not run / not checked · day = close day · entry date stays on the row</div>';
@@ -48088,14 +48140,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           today:ledgerTodayHtml(_H.today),
           // owner 10-31 (live page, same as Webull): the OPEN line sits DIRECTLY under the big number - 'open -$X · N trades · not counted'
           // (NT8's big number is closed trades only, so its open trades are named, never added) or 'flat' when nothing is open
+          // owner 10-31 15:30 (same words as Webull): 'unrealized -$X · N trades · not counted' ONLY while a trade is open - no 'flat' word
           under:'<span data-p2heroopenline>'+(_heroOpen.n
-            ?('<span class="hm-suffix">open </span><span class="'+(_heroOpen.v>=0?'hm-up':'hm-down')+'" data-p2heroopen title="Open trades of the counted legs, at their last mark. They count on no day until they close, so they are not in the big number.">'+ledgerSigned(_heroOpen.v)+'</span>'
+            ?('<span class="hm-suffix">unrealized </span><span class="'+(_heroOpen.v>=0?'hm-up':'hm-down')+'" data-p2heroopen title="Open trades of the counted legs, at their last mark. They count on no day until they close, so they are not in the big number.">'+ledgerSigned(_heroOpen.v)+'</span>'
               +'<span class="hm-suffix"> &middot; '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' &middot; not counted</span>')
-            :'<span class="hm-suffix" data-p2heroflat>flat</span>')+'</span>',
+            :'')+'</span>',
           // owner 10-31 (same ask as Webull): the big number is CLOSED trades only, and says so; an open position is a different
           // quantity, named apart from it and never added; every caveat sentence (other strategies, weights, the demo account) sits
           // in the small 'details' expander under the range line, not on it
-          range:'<span>'+_pcwLbl+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' closed trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span title="The big number adds only trades that have CLOSED, from the book legs switched on, in this range. An open trade is never in it.">closed trades only</span>'
+          // owner 10-31 15:30: 'realized +$X · N closed trades · <range>' - the big number IS the realized figure here (closed trades only)
+          range:'<span class="hm-suffix" data-p2realword>realized </span><span class="'+ledgerCls(_H.net)+'" data-p2realized title="The big number adds only trades that have CLOSED, from the book legs switched on, in this range. An open trade is never in it.">'+ledgerSigned(_H.net)+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' closed trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span>'+_pcwLbl+'</span>'
             // LEDGER improvement 13 (MANAGER #73) -> owner 10-31: the open trades are the line directly under the big number (o.under)
             +'<span class="lg-suffix">\u00b7</span><span class="p2more" data-p2herobtn role="button" tabindex="0" aria-expanded="'+(window._p2HeroDetOpen?'true':'false')+'" title="what the big number counts, the open trades, the strategies not counted, the demo account">details</span>',
           note:_p2HeroNote,
@@ -48213,11 +48267,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             .concat([isBook?(sel?'Switch is ON: counted in the chart, calendar, stats and trades.':'Switch is OFF: left out of everything on the left.')
               :(sel?'NOT COUNTED in the big number. Switch is ON: its trades are listed in the trades table, tagged NOT BOOK.':'NOT COUNTED in the big number. Switch it on to list its trades in the trades table.')])
             .filter(Boolean);
-          return {key:name,
-            name:'<span title="'+_pnX(hover)+'">'+_crownIc(name)+_pnX(label)+'</span>'
+          // owner 10-31 15:30: the run number in the name is a link to that run's report (the label's own '#NNN', else LEG_SOURCE's run);
+          // a LONG / SHORT pill only while the leg has an open trade (no FLAT pill); 'params: not recorded' beside it (api/paper.py's
+          // LEG_SOURCE records the run and the parameter values, never the index of that cell in the run's list)
+          const _srcRun=(P2&&P2.src&&P2.src.run!=null)?String(P2.src.run):'';
+          const _runLink=n=>'<span class="qbx-runlink" data-p2runlink="'+n+'" role="link" tabindex="0" title="open run #'+n+'\u2019s report on the RUNBOARD / STUDIES page">#'+n+'</span>';
+          const _lblHtml=/#\d+/.test(label)?_pnX(label).replace(/#(\d+)/,(m,n)=>_runLink(n)):(_pnX(label)+(_srcRun?(' '+_runLink(_srcRun)):''));
+          const _op0=legOpen(name)[0],_opSide=_op0?_pnDir(_op0.side):'';
+          const _sidePill=_op0?('<span class="qbx-lg-pill" data-p2legpill="'+_pnX(name)+'" style="margin-left:6px;color:'+(_opSide==='SHORT'?'var(--red)':'var(--green)')+'">'+(_opSide||'OPEN')+'</span>'):'';
+          const _paramsTag='<span class="qbx-params" data-p2params="none" title="The parameter set this leg trades is stored as values (api/paper.py LEG_SOURCE), not as a numbered cell of the run, so its index cannot be shown">&middot; params: not recorded</span>';
+          return {key:name,wrap:true,
+            name:'<span title="'+_pnX(hover)+'">'+_crownIc(name)+_lblHtml+'</span>'+_sidePill
               +((name==='ORB')?'<span title="'+_pnX(ORB_LA_TIP)+'" style="margin-left:5px;color:var(--warn);cursor:help">⚠</span>':'')
               +'<span class="p2more" data-p2more="'+_pnX(name)+'" role="button" tabindex="0" aria-expanded="'+(moreOpen?'true':'false')+'" title="more about this strategy">'+(moreOpen?'less':'more')+'</span>',
-            tag:(isBook&&bw&&bw!==1)?('x'+bw):'',
+            tag:((isBook&&bw&&bw!==1)?('x'+bw):'')+_paramsTag,
             color:lv.dc,
             nameColor:(typeof _legColor!=='undefined'&&_legColor[name])||null,   // owner 10-31: the name in its chart line's colour
             // owner 10-31 (live page): the trade count and win % sit UNDER THE NAME (small, left), not under the number
@@ -50411,6 +50474,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           onChip:c=>{window._qeTradesChip=c;renderApp();},
           onView:v=>{window._qeTradesView=(v==='table')?'table':'list';renderApp();},
           onRow:rk=>{window._qbPanelKey=rk;_qbSyncPanel();}});
+        // owner 10-31 15:30: the run number on a strategy row opens that run's report (a click never toggles the row's 'more')
+        content.querySelectorAll('[data-qbrunlink]').forEach(el=>{const go=ev=>_paperOpenRun(el.getAttribute('data-qbrunlink'),ev);
+          el.onclick=go;el.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' ')go(ev);};});
         content.querySelectorAll('[data-qbclear]').forEach(el=>{
           const clr=()=>{window._qeTradesQuery='';window._qeTradesChip='ALL';renderApp();};
           el.onclick=clr;el.onkeydown=e=>{if(e.key==='Enter'||e.key===' '){e.preventDefault();clr();}};});
@@ -50692,6 +50758,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         content.querySelectorAll('[data-lglist="p2"] [data-lgsw]').forEach(s=>{s.onclick=ev=>{ev.stopPropagation();_wFlip(s.getAttribute('data-lgsw'));};});
         // MORE on a strategy row (owner 10-31): opens that row's detail in place; the row button itself still flips the switch
         content.querySelectorAll('[data-lglist="p2"] .lg-row-detail').forEach(d=>{if(d.querySelector('.p2rowmore.p2open'))d.classList.add('p2open');});
+        content.querySelectorAll('[data-lglist="p2"] [data-p2runlink]').forEach(el=>{const go=ev=>_paperOpenRun(el.getAttribute('data-p2runlink'),ev);
+          el.onclick=go;el.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' ')go(ev);};});
         content.querySelectorAll('[data-lglist="p2"] [data-p2more]').forEach(m=>{const go=ev=>{ev.stopPropagation();ev.preventDefault();
           const k=m.getAttribute('data-p2more'),d=content.querySelector('[data-lglist="p2"] .lg-row-detail[data-lgrowdetail="'+k.replace(/"/g,'\\"')+'"]');
           const S=window._p2MoreOpen||(window._p2MoreOpen=new Set());const on=!S.has(k);if(on)S.add(k);else S.delete(k);

@@ -2706,12 +2706,46 @@ MUTANTS = [
      "data-qbheroqual=\"net\">closed + open</span>')",
      "the big number says 'closed + open' again instead of 'net'"),
     ('hero-open-line-missing',
+     "?('<span class=\"hm-suffix\">unrealized </span>'+(ov!=null?(",
+     "?('<span class=\"hm-suffix\">unrealized </span>'+(false?(",
+     "the line under the big number has no 'unrealized' figure while lots are held"),
+    # owner 10-31 15:30: the words are 'unrealized' / 'realized', no 'flat' word, no FLAT pill, the run number is a link, the params note, the
+    # OPEN group at the top of the trade list
+    ('hero-open-word-old',
+     "?('<span class=\"hm-suffix\">unrealized </span>'+(ov!=null?(",
      "?('<span class=\"hm-suffix\">open </span>'+(ov!=null?(",
-     "?('<span class=\"hm-suffix\">open </span>'+(false?(",
-     "the line under the big number has no 'open' part while lots are held"),
+     "the line under the big number says 'open' instead of 'unrealized'"),
+    ('hero-flat-word-back',
+     "            +(rangeInfo.openWho?'<span class=\"hm-suffix\"> &middot; '+rangeInfo.openWho+'</span>':''))\r\n          :'';",
+     "            +(rangeInfo.openWho?'<span class=\"hm-suffix\"> &middot; '+rangeInfo.openWho+'</span>':''))\r\n          :'<span class=\"hm-suffix\" data-qbheroflat>flat</span>';",
+     "the hero says 'flat' again when nothing is held"),
+    ('hero-cash-word-back',
+     "('<span class=\"hm-suffix\" data-qbrealword>realized </span>",
+     "('<span class=\"hm-suffix\" data-qbrealword>cash </span>",
+     "the closed-trades line says 'cash' instead of 'realized'"),
+    ('row-flat-pill-back',
+     "const badge=p?(p.side==='long'?'LONG':'SHORT'):'';",
+     "const badge=p?(p.side==='long'?'LONG':'SHORT'):'FLAT';",
+     'a flat strategy row carries a FLAT pill again'),
+    ('row-run-link-missing',
+     "row:{key:key,name:label+' '+qbRunLinkHtml(qeLegShortTag(key,runNo)),",
+     "row:{key:key,name:label+' '+qeLegShortTag(key,runNo),",
+     "a strategy row's run number is plain text, not a link to the run's report"),
+    ('row-params-note-missing',
+     "tag:qbParamsTagHtml()+pill+infoToggleHtml+moreTag,wrap:true,",
+     "tag:pill+infoToggleHtml+moreTag,wrap:true,",
+     "a strategy row does not say its parameter set is not recorded"),
+    ('row-sub-hidden-on-phone',
+     ".qbx-side .lg-row-sub{display:block;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}",
+     ".qbx-side .lg-row-sub{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}",
+     'the trades / win rate line under the name is hidden on a phone'),
+    ('open-rows-not-on-top',
+     "afterBar:qbOpenBlock,dayHeaders:true,dayCol:true,ghost:v=>!!v._ghost,",
+     "dayHeaders:true,dayCol:true,ghost:v=>!!v._ghost,",
+     'the open positions are not an OPEN group at the top of the trade list'),
     ('hero-open-not-under-number',
-     "under:'<span data-qbheroopenline title=",
-     "note2:'<span data-qbheroopenline title=",
+     "under:openLine?('<span data-qbheroopenline title=",
+     "note2:openLine?('<span data-qbheroopenline title=",
      'the open / flat line is not directly under the big number (the hero has no under line)'),
     ('hero-cash-line-no-closed-word',
      "+'<span class=\"hm-suffix\"> &middot; closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||'all time')+'</span>');",
@@ -3174,13 +3208,14 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       // owner 10-31 14:35: the 'open -$X · N lots' line under a row that holds lots (read, then taken out of the value)
       var v3=vc?vc.querySelector('.lg-row-v3'):null,open3=null;if(v3){open3=(v3.textContent||'').replace(/\\s+/g,' ').trim();v3.parentNode.removeChild(v3);}
       var nmc=b.querySelector('.lg-row-name .lg-row-nm'),dot=!!b.querySelector('.lg-row-name i');
+      var rl=b.querySelector('.lg-row-name [data-qbrunlink]');   // owner 10-31 15:30: the run number is a link to the run's report
       var sb=b.querySelector('.lg-row-sub'),rc=b.getBoundingClientRect(),ex=b.nextElementSibling;
       var shl=b.querySelector('[data-qbshleg]'),shs=b.querySelector('[data-qbshseed]'),sho=b.querySelector('[data-qbshopen]');
       return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,
         tip:shl?shl.getAttribute('title'):null,seed:shs?(shs.textContent||'').trim():null,open:sho?(sho.textContent||'').replace(/\\s+/g,' ').trim():null,
         sub:sb?(sb.textContent||'').replace(/\\s+/g,' ').trim():null,subShown:sb?w.getComputedStyle(sb).display!=='none':false,
         value:vc?(vc.textContent||'').replace(/\\s+/g,' ').trim():null,value2:v2,value2Shown:sm0?w.getComputedStyle(sm0).display!=='none':false,
-        open3:open3,nameColor:nmc?nmc.style.color:null,dot:dot,
+        open3:open3,nameColor:nmc?nmc.style.color:null,dot:dot,runLink:rl?rl.getAttribute('data-qbrunlink'):null,
         off:b.classList.contains('off'),h:Math.round(rc.height),sw:b.querySelectorAll('[data-lgsw]').length,
         valColor:v?w.getComputedStyle(v).color:null,expanded:b.getAttribute('aria-expanded'),
         extra:(ex&&ex.classList&&ex.classList.contains('qbx-lg-extra'))?ex.getAttribute('data-qbextra'):null};
@@ -3334,6 +3369,10 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     var ho=q('#qb-hero-under [data-qbheroopen]');r.heroOpen=ho?(ho.textContent||'').trim():null;r.heroRange=txt('#qb-hero-range');
     var hu=q('#qb-hero-under');r.heroUnder=hu?(hu.textContent||'').replace(/\\s+/g,' ').trim():null;r.heroFlat=!!q('#qb-hero-under [data-qbheroflat]');
     r.heroUnderPrev=(hu&&hu.previousElementSibling)?hu.previousElementSibling.id:null;r.heroUnderNext=(hu&&hu.nextElementSibling)?hu.nextElementSibling.id:null;
+    // owner 10-31 15:30: the OPEN group (the open positions) sits right under the trade list's toolbar, before any day
+    r.openSec=(function(){var s=q('[data-qbopensec]');if(!s)return null;var fr=q('[data-lglist-frame="wb"]'),bar=fr?fr.querySelector('.lg-tl-bar'):null;
+      return {n:+s.getAttribute('data-qbopensec'),rows:s.querySelectorAll('[data-qbopenrow]').length,afterBar:!!(bar&&bar.nextElementSibling===s),
+        lbl:((s.querySelector('.lg-tl-daylbl')||{}).textContent||'').trim(),legs:[].map.call(s.querySelectorAll('[data-qbopenrow]'),function(e){return e.getAttribute('data-qbopenrow');})};})();
     // the warning token (owner 10-31): its own colour, never the gold --yellow a strategy line is drawn in; the KEEL warning is an outlined pill in it
     r.warnTok={warn:cssCol('var(--warn)'),yellow:cssCol('var(--yellow)'),amber:cssCol('var(--attn-amber)')};
     r.keelPill=(function(){var e=q('[data-qbkeelwarn]');if(!e)return null;var cs=w.getComputedStyle(e);return {cls:e.className,col:cs.color,border:cs.borderTopStyle+' '+cs.borderTopColor,radius:cs.borderTopLeftRadius};})();
@@ -5466,7 +5505,13 @@ MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'Augus
 RANGE_WORD = {'TODAY': 'today', '1W': 'past week', '1M': 'past month', '3M': 'past 3 months', 'YTD': 'year to date',
               'ALL': 'all time'}
 LIST_VH_MAX = 1.0   # phone: the trade list (the History section) starts within this many viewport heights of the board top
-PHONE_ROW_MAX_H = 62  # phone: one strategy a row (padding 9 + 9, the name line, the trades / win rate / today figures under the number)
+PHONE_ROW_MAX_H = 62  # phone: one strategy a row (padding 9 + 9, the name line, the trades / win rate / today figures under the name)
+PARAMS_NOTE = '· params: not recorded'   # owner 10-31 15:30: no leg records the index of its parameter cell, so every row says so
+
+
+def _after_params(tag):
+    """A row's tag without its leading params note (the side pill and the rest follow it)."""
+    return tag[len(PARAMS_NOTE):].strip() if tag.startswith(PARAMS_NOTE) else tag
 PHONE_ROW_OPEN_H = 14  # owner 10-31 14:35: a row that holds lots carries one more small line ('open -$X · N lots') under its figures
 SHADOW_NOTE = 'None are in the box'
 NOTE_MARK = 'was #304'          # NOISE's note under its row: 'since Sep 24 · was #304 · KEEL v12 ...'
@@ -5851,8 +5896,11 @@ def _hero_qual_problems(tag, r, doc, fails):
     if r.get('heroQual') != 'net':
         fails.append("%s: the big number's qualifier reads %r, want 'net' (closed trades + open lots)" % (tag, r.get('heroQual')))
     rng = r.get('heroRange') or ''
-    if r.get('heroRange') is not None and (not rng.startswith('cash ') or 'closed trades' not in rng):
-        fails.append("%s: the cash line reads %r, want 'cash +$X · closed trades · <range>' (the closed trades)" % (tag, rng))
+    # owner 10-31 15:30: 'realized +$X · closed trades · since 09-03' (the range's word when one is chosen)
+    if r.get('heroRange') is not None and (not rng.startswith('realized ') or 'closed trades' not in rng):
+        fails.append("%s: the realized line reads %r, want 'realized +$X · closed trades · since MM-DD' (the closed trades)" % (tag, rng))
+    if r.get('heroRange') is not None and 'closed trades · since ' not in rng and 'closed trades · ' not in rng:
+        fails.append("%s: the realized line %r names no stretch (since MM-DD, or the range's word)" % (tag, rng))
     # owner 10-31 (live page): the open line sits DIRECTLY under the big number, the cash line under it
     und = r.get('heroUnder')
     if und is None:
@@ -5861,8 +5909,8 @@ def _hero_qual_problems(tag, r, doc, fails):
         if r.get('heroUnderPrev') != 'qb-hero-value' or r.get('heroUnderNext') != 'qb-hero-range':
             fails.append('%s: the open line is not directly under the big number with the cash line under it (before it: %r, after it: %r)'
                          % (tag, r.get('heroUnderPrev'), r.get('heroUnderNext')))
-        if not (und.startswith('open ') or und == 'flat'):
-            fails.append("%s: the line under the big number reads %r, want 'open -$X · <who> · N lots' or 'flat'" % (tag, und))
+        if not (und.startswith('unrealized ') or und == ''):
+            fails.append("%s: the line under the big number reads %r, want 'unrealized -$X · <who> · N lots' or nothing (no 'flat' word)" % (tag, und))
     if r.get('lineEnd') is not None and r.get('heroBig') and r.get('heroBig') != money(float(r['lineEnd'])):
         fails.append("%s: the solid line ends at %s while the big number reads %r (account equity must end at the big number)"
                      % (tag, money(float(r['lineEnd'])), r.get('heroBig')))
@@ -5878,8 +5926,23 @@ def _hero_qual_problems(tag, r, doc, fails):
                     fails.append("%s: the open line under the big number %r does not name who holds the lots (%r)" % (tag, r.get('heroUnder'), who))
         elif r.get('heroOpen') is not None:
             fails.append("%s: the hero shows an open figure %r while nothing is held" % (tag, r.get('heroOpen')))
-        elif r.get('heroUnder') is not None and not r.get('heroFlat'):
-            fails.append("%s: nothing is held, but the line under the big number reads %r, want 'flat'" % (tag, r.get('heroUnder')))
+        elif r.get('heroUnder'):
+            fails.append("%s: nothing is held, but the line under the big number reads %r, want nothing there (no 'flat' word; owner 10-31 15:30)" % (tag, r.get('heroUnder')))
+    # owner 10-31 15:30: the open positions are an OPEN group at the top of the trade list (one row a position), none when nothing is held
+    pos = _positions(doc) if doc else {}
+    osec = r.get('openSec')
+    if 'openSec' in r:
+        if pos and not osec:
+            fails.append('%s: %d position(s) are open but the trade list has no OPEN group at its top ([data-qbopensec])' % (tag, len(pos)))
+        elif pos:
+            if osec.get('n') != len(pos) or osec.get('rows') != len(pos) or sorted(osec.get('legs') or []) != sorted(pos.keys()):
+                fails.append('%s: the OPEN group lists %r (%s rows), the doc holds %r' % (tag, osec.get('legs'), osec.get('rows'), sorted(pos.keys())))
+            if not osec.get('afterBar'):
+                fails.append('%s: the OPEN group is not directly under the trade list toolbar (before the closed trades)' % tag)
+            if osec.get('lbl') != 'OPEN':
+                fails.append("%s: the open group's label reads %r, want 'OPEN'" % (tag, osec.get('lbl')))
+        elif osec:
+            fails.append('%s: nothing is held, but the trade list draws an OPEN group (%r)' % (tag, osec))
     if r.get('heroHeldNote'):
         fails.append('%s: the hero names a lot held overnight; that line belongs in the strategy row (owner 10-31)' % tag)
     if r.get('totalStroke') is not None and r.get('totalStroke') != 'var(--text)':
@@ -5976,9 +6039,19 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         if x.get('value2'):
             fails.append('%s: list row %s still shows %r under its number; only the open line goes there (the figures sit under the name)' % (tag, x.get('name'), x.get('value2')))
         pz = pos.get(x.get('key'))
-        want_side = ('LONG' if pz[0] == 'Long' else 'SHORT') if pz else 'FLAT'
-        if not is_other and not (x.get('tag') or '').startswith(want_side):
-            fails.append('%s: list row %s carries the side %r, want %s' % (tag, x.get('name'), x.get('tag'), want_side))
+        # owner 10-31 15:30: '· params: not recorded' first in the tag (no leg records its parameter cell's index), then a LONG / SHORT
+        # pill ONLY while the leg holds a position - never FLAT
+        tg = x.get('tag') or ''
+        if not is_other and not tg.startswith(PARAMS_NOTE):
+            fails.append('%s: list row %s does not say %r beside its run number (tag %r)' % (tag, x.get('name'), PARAMS_NOTE, tg))
+        rest = tg[len(PARAMS_NOTE):].strip() if tg.startswith(PARAMS_NOTE) else tg
+        want_side = ('LONG' if pz[0] == 'Long' else 'SHORT') if pz else None
+        if not is_other and want_side and not rest.startswith(want_side):
+            fails.append('%s: list row %s carries the side %r, want %s' % (tag, x.get('name'), rest, want_side))
+        if not is_other and not want_side and re.match(r'^(FLAT|LONG|SHORT)\b', rest):
+            fails.append('%s: list row %s holds nothing but carries a %r pill (no FLAT pill; a side pill only with a position)' % (tag, x.get('name'), rest.split()[0]))
+        if not is_other and not x.get('runLink'):
+            fails.append("%s: list row %s's run number is not a link to the run's report ([data-qbrunlink])" % (tag, x.get('name')))
         if not is_other and ('more' not in (x.get('tag') or '') and 'less' not in (x.get('tag') or '')):
             fails.append("%s: list row %s has no 'more' / 'less' word in its tag (%r)" % (tag, x.get('name'), x.get('tag')))
         # owner 10-31 14:35: the name in its chart line's colour, no dot before it; 'open -$X · N lots' under the number only while it holds lots
@@ -6056,15 +6129,14 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                     if (x.get('open') or None) != e['open']:
                         fails.append('%s: the Shadow row %s open line reads %r, the doc says %r' % (tag, nm, x.get('open'), e['open']))
     rows = [x for g in groups for x in g.get('rows') or []]
+    # owner 10-31 15:30: the trades / win rate line sits under the name at EVERY width (a phone row is the name line plus that line)
     if vp.startswith('phone'):
-        tall = [(x['name'], x['h']) for x in rows if x.get('h', 0) > PHONE_ROW_MAX_H]
+        # the BOOK and Retired rows: a Shadow row's sub-line is a sentence that wraps, and that fold is closed until opened
+        tall = [(x['name'], x['h']) for g in groups if g.get('key') != 'shadow' for x in g.get('rows') or [] if x.get('h', 0) > PHONE_ROW_MAX_H]
         if tall:
-            fails.append('%s: on a phone every list row is one line (<= %d px), but %s are taller' % (tag, PHONE_ROW_MAX_H, tall[:3]))
-        if any(x.get('subShown') for x in rows):
-            fails.append('%s: on a phone a list row still shows its sub-line (the position line sits behind more)' % tag)
-    else:
-        if any(x.get('sub') and not x.get('subShown') for x in rows):
-            fails.append('%s: on a laptop the trades / win rate line under the name is hidden' % tag)
+            fails.append('%s: on a phone every list row is the name line plus its figures line (<= %d px), but %s are taller' % (tag, PHONE_ROW_MAX_H, tall[:3]))
+    if any(x.get('sub') and not x.get('subShown') for x in rows):
+        fails.append('%s: the trades / win rate line under the name is hidden (it shows at every width, owner 10-31 15:30)' % tag)
     if theme == 'mono':
         bad = [x['valColor'] for x in rows if x.get('valColor') and not _grey(x['valColor'])]
         if bad:
@@ -8387,7 +8459,7 @@ def _held_problems(tag, r, ex, fails):
     if not row:
         fails.append('%s: no ENGU-Q row under BOOK while it holds its lot' % tag)
     else:
-        tg = row[0].get('tag') or ''
+        tg = _after_params(row[0].get('tag') or '')
         if not tg.startswith('LONG') or 'HELD' not in tg:
             fails.append("%s: ENGU-Q's row tag reads %r, want its side LONG then HELD" % (tag, tg))
         if ex.get('vp', 'laptop').startswith('phone'):
@@ -8417,7 +8489,7 @@ def _dip_problems(tag, r, ex, fails):
         fails.append('%s: no DIP #424 row under BOOK while the box trades its legs' % tag)
     else:
         row = row[0]
-        tg = row.get('tag') or ''
+        tg = _after_params(row.get('tag') or '')
         if not tg.startswith('LONG') or 'HELD' not in tg:
             fails.append("%s: the DIP #424 row's tag reads %r, want its side LONG then HELD" % (tag, tg))
         if (row.get('value'), _v2_base(row.get('sub'))) != want['value']:
