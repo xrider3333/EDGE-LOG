@@ -14176,6 +14176,42 @@ window.expandKPI=function(label,infoKey){
   function hidePreview(){
     if(previewEl)previewEl.style.opacity='0';
   }
+  // w69 (owner 10-31): the PNG behind a TradingView snapshot link (tradingview.com/x/<id>)
+  // or a plain image link. Null for anything else (a chart page, not a picture).
+  function _snapPng(url){
+    url=String(url||'');
+    if(/\.(png|jpg|jpeg|gif|webp|bmp)(\?|$)/i.test(url))return url;
+    const m=url.match(/tradingview\.com\/x\/([\w]+)/);
+    return m?('https://s3.tradingview.com/snapshots/'+m[1].toLowerCase().substring(0,1)+'/'+m[1]+'.png'):null;
+  }
+  // w69: clicking a snapshot opens it FULL SIZE here, in a lightbox - no trip to
+  // tradingview.com (that trip can steal the owner's one live TradingView session). Esc,
+  // the backdrop or the x closes it; the hover preview above stays as it was. The small
+  // link under the picture still goes to the snapshot page for anyone who wants it.
+  window._tvSnapLightbox=function(url){
+    const png=_snapPng(url);if(!png)return false;
+    hidePreview();
+    document.querySelectorAll('.tv-snap-lb').forEach(x=>x.remove());
+    const lb=document.createElement('div');lb.className='tv-snap-lb';
+    lb.style.cssText='position:fixed;inset:0;z-index:10050;background:rgba(0,0,0,0.86);display:flex;flex-direction:column;align-items:center;justify-content:center;padding:14px;cursor:zoom-out';
+    lb.innerHTML='<button type="button" class="tv-snap-lb-x" title="close (Esc)" style="position:absolute;top:10px;right:14px;background:none;border:1px solid var(--border);color:var(--text2);font-family:inherit;font-size:14px;line-height:1;padding:6px 10px;cursor:pointer">&times;</button>'
+      +'<img src="'+_hmEsc(png)+'" alt="TradingView snapshot" style="max-width:min(96vw,1600px);max-height:88vh;display:block;border:1px solid var(--border);background:var(--bg1);cursor:default" draggable="false"/>'
+      +'<div style="margin-top:8px;font-size:10px;letter-spacing:.6px;color:var(--text4)">Esc or click outside to close &middot; <a href="'+_hmEsc(url)+'" target="_blank" rel="noopener" style="color:var(--text3)">snapshot page on tradingview.com &#8599;</a></div>';
+    const close=()=>{lb.remove();document.removeEventListener('keydown',onKey);};
+    const onKey=e=>{if(e.key==='Escape'){e.preventDefault();close();}};
+    lb.addEventListener('click',e=>{if(e.target.tagName==='IMG'||e.target.tagName==='A')return;close();});
+    const img=lb.querySelector('img');
+    img.onerror=()=>{const d=document.createElement('div');d.style.cssText='padding:20px;color:var(--text5);font-size:11px';d.textContent='The snapshot picture did not load - use the link below to open it on TradingView.';img.replaceWith(d);};
+    document.addEventListener('keydown',onKey);
+    document.body.appendChild(lb);
+    return true;
+  };
+  document.addEventListener('click',(e)=>{
+    const link=e.target.closest('.chart-link');
+    if(!link||!link.dataset.url)return;
+    if(e.ctrlKey||e.metaKey||e.shiftKey||e.button!==0)return;   // a modified click keeps the plain link
+    if(window._tvSnapLightbox(link.dataset.url))e.preventDefault();
+  });
   // Delegate hover events
   document.addEventListener('mouseover',(e)=>{
     const link=e.target.closest('.chart-link');
@@ -16106,7 +16142,7 @@ function _hmWireSheetActions(root,tid){
   const chartBtn=root.querySelector('#hm-sheet-chart');
   if(chartBtn){
     const tt=trades.find(x=>String(x.id)===String(tid));
-    chartBtn.onclick=()=>{if(tt&&tt.chartUrl)window.open(tt.chartUrl,'_blank');};
+    chartBtn.onclick=()=>{if(tt&&tt.chartUrl&&!(window._tvSnapLightbox&&window._tvSnapLightbox(tt.chartUrl)))window.open(tt.chartUrl,'_blank');};
   }
   const tvBtn=root.querySelector('#hm-sheet-tv');
   if(tvBtn)tvBtn.onclick=()=>window.hmOpenInTv(tid,root.querySelector('#hm-sheet-tvhint'));
