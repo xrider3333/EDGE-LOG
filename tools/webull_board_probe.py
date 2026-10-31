@@ -398,6 +398,8 @@ WANT_LIVE = ['ORB', 'NOISE']   # the legs that trade on Webull: ENGU-Q is a no-o
 RETIRED_KEY = 'ENGUQ'          # the page's retired leg (QE_LEGS_RETIRED); a case that empties the list (window.__qbRetiredLegs = []) has none
 RETIRED_SINCE = '2026-09-28'   # the day the fixture's ENGU-Q went flat, which the Retired fold names
 LEG_RE = re.compile(r'^(ORB|ENGU-Q|NOISE) #\d+$')
+# owner 10-31 15:50: the row's words - family, run.set (or 'set ?'), the model word (api/paper_leg_params.py)
+LABEL_RE = re.compile(r'^(ORB|ENGU-Q|NOISE|DIP) #\d+(?:\.(\d+)| set \?) (raw|keel|fixed|hybrid|tilt|comp)$')
 MONEY_RE = re.compile(r'^-?\$[\d,]+\.\d\d$')
 # LEDGER step 6: the shared stat tiles, in this order on every board
 STAT_KEYS = ['winrate', 'pf', 'maxdd', 'trades']
@@ -3208,9 +3210,15 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       var v3=vc?vc.querySelector('.lg-row-v3'):null,open3=null;if(v3){open3=(v3.textContent||'').replace(/\\s+/g,' ').trim();v3.parentNode.removeChild(v3);}
       var nmc=b.querySelector('.lg-row-name .lg-row-nm'),dot=!!b.querySelector('.lg-row-name i');
       var rl=b.querySelector('.lg-row-name [data-qbrunlink]');   // owner 10-31 15:30: the run number is a link to the run's report
+      // owner 10-31 15:50: the name reads 'NOISE #382.2 keel' (run.set + model word). label = the words as shown; name = family + run
+      //   number only (the set suffix and the 'set ?' / variant spans taken out), so every older check keeps reading 'NOISE #382'.
+      var label=cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null;
+      if(cn){cn.querySelectorAll('[data-qbset],[data-qbvariant]').forEach(function(e){e.parentNode.removeChild(e);});
+        cn.querySelectorAll('[data-qbrunlink]').forEach(function(e){e.textContent=(e.textContent||'').replace(/\\.\\d+$/,'');});}
       var sb=b.querySelector('.lg-row-sub'),rc=b.getBoundingClientRect(),ex=b.nextElementSibling;
       var shl=b.querySelector('[data-qbshleg]'),shs=b.querySelector('[data-qbshseed]'),sho=b.querySelector('[data-qbshopen]');
-      return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,
+      return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,label:label,
+        cell:rl?rl.getAttribute('data-qbcell'):null,
         tip:shl?shl.getAttribute('title'):null,seed:shs?(shs.textContent||'').trim():null,open:sho?(sho.textContent||'').replace(/\\s+/g,' ').trim():null,
         sub:sb?(sb.textContent||'').replace(/\\s+/g,' ').trim():null,subShown:sb?w.getComputedStyle(sb).display!=='none':false,
         value:vc?(vc.textContent||'').replace(/\\s+/g,' ').trim():null,value2:v2,value2Shown:sm0?w.getComputedStyle(sm0).display!=='none':false,
@@ -6036,6 +6044,14 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         is_other = x.get('name') == OTHER_NAME
         if not is_other and not LEG_RE.match(x.get('name') or ''):
             fails.append('%s: list row %r has no family + run number' % (tag, x.get('name')))
+        # owner 10-31 15:50: the words as shown read run.set + the model word ('NOISE #382.2 keel'), or '#424 set ? raw' when the
+        # report's grid has no such row; the set in the link's data-qbcell is the one in the words
+        if not is_other and x.get('label') is not None:
+            lm = LABEL_RE.match(x.get('label') or '')
+            if not lm:
+                fails.append('%s: list row %r does not read run.set + model word (e.g. NOISE #382.2 keel / DIP #424 set ? raw)' % (tag, x.get('label')))
+            elif lm.group(2) and str(x.get('cell')) != lm.group(2):
+                fails.append('%s: list row %r shows set %s but its link carries %r' % (tag, x.get('label'), lm.group(2), x.get('cell')))
         e = figs.get(x.get('name'))
         # owner 10-31 (live page): the trades / win rate (and today) line sits UNDER THE NAME (the row's sub), not under the number
         sub_figs = (x.get('sub') or '').split(' · not in the strategy roster')[0] if is_other else x.get('sub')
