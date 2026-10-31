@@ -155,29 +155,65 @@ PROBE_HTML = r"""<!DOCTYPE html>
         return {tx:t.slice(0,600),btns:[].map.call(document.querySelectorAll('[data-pcquiet]'),
           function(b){return b.getAttribute('data-pcquiet');})};
       }catch(e){return {err:String(e&&e.stack?e.stack:e)};}})()`);
-      // ── THE BOARD TAB (owner 10-30): the same harness, one more page. Seeded with a document
-      //    that has a FINISHED row in it as well, so the page is held to showing only what it was
-      //    given and never re-deciding what is open - that judgement belongs to board_publish.
+      // ── THE BOARD TAB (owner 10-30, MANAGER #159): the same harness, one more page. The
+      //    board is LIVE now - the page listens to the board collection - so the case seeds rows
+      //    and holds the page to the one failure that matters: losing a row the owner waits on.
+      //    The seed carries a finished row, a confirmed one and a status the page has never seen.
       out.board=w.eval(`(function(){try{
-        window._obLoaded=true;window._obAt=Date.now();window._obLoading=false;
-        window.loadBoard=function(){};
-        window._obDoc={at:Math.floor(Date.now()/1000),total:9,open:2,cut:false,
-          unknown:['sideways'],
-          rows:[{n:'item 3',title:'RESMOM real data pull',status:'block',statusText:'NEEDS YOU 10-31',
-                 who:'You',date:'2026-10-11',what:'Leave the PC on',section:'WORK'},
-                {n:'test 7',title:'unclassified row',status:'sideways',statusText:'',
-                 who:'MANAGER',date:'2026-10-30',what:'a status nobody set',section:'TESTS'}]};
-        augurSub='board';renderApp();
-        var t=(document.getElementById('app')||document.body).textContent;
-        return {sub:augurSub,tx:t.slice(0,6000),
-          writes:[].map.call(document.querySelectorAll('[data-pcquiet],[data-obwrite]'),
+        window._bdOn=true;window._bdLoaded=true;window._bdAt=Date.now();
+        window.loadBoard=function(){};window._bdExp={};
+        window._bdRows={
+          w03:{_id:'w03',tab:'WORK',order:3,status:'block',title:'RESMOM real data pull',
+               statusText:'NEEDS YOU 10-31',who:'You',date:'2026-10-11',
+               why:'Sat 10-31 07:00 MST, about 3 h. Leave the PC on',updated_by:'MANAGER'},
+          w09:{_id:'w09',tab:'WORK',order:9,status:'run',title:'column filters',
+               statusText:'in a worktree',who:'ELWA',date:'2026-10-30',updated_by:'ELWA'},
+          w01:{_id:'w01',tab:'WORK',order:1,status:'done',title:'KEEL matches its backtest',
+               statusText:'LIVE 10-12',who:'Custom ML',date:'2026-10-12',updated_by:'MANAGER'},
+          w02:{_id:'w02',tab:'WORK',order:2,status:'confirmed',title:'a row he already OKed',
+               statusText:'CONFIRMED',who:'MANAGER',date:'2026-10-20',updated_by:'MANAGER'},
+          p05:{_id:'p05',tab:'PC',order:5,status:'sideways',title:'unclassified row',
+               statusText:'',who:'MANAGER',date:'2026-10-30',updated_by:'MANAGER'},
+          t47:{_id:'t47',tab:'RUNS',order:47,status:'fail',title:'Market-hours ENGU-Q search',
+               statusText:'RUN #489',roc:'10.1 (chain)',dd5:'- / $39.4k',sortino:'1.21 / 6.06',
+               result:'fails 3 of 6 clauses',date:'2026-10-14',updated_by:'ENGU-Q'},
+          t48:{_id:'t48',tab:'RUNS',order:48,status:'run',title:'a run still going',
+               statusText:'RUNNING',date:'2026-10-30',updated_by:'ENGU-Q'}};
+        augurSub='board';boardSub='board';renderApp();
+        var app=function(){return (document.getElementById('app')||document.body).textContent;};
+        var t=app();
+        var shaded=[].filter.call(document.querySelectorAll('[data-bdrow]'),function(e){
+          var bg=getComputedStyle(e).backgroundColor||'';return /^w03$/.test(e.getAttribute('data-bdrow'))&&bg!=='';}).length;
+        // a row opens its note on a click
+        var one=document.querySelector('[data-bdrow=\"w03\"]');
+        if(one)one.click();
+        var opened=app();
+        if(one)one.click();
+        // the finished rows are behind a fold, so they must appear only once it is opened
+        var foldClosed=app();
+        var fd=document.querySelector('[data-bdrow=\"~wdone\"]');
+        if(fd)fd.click();
+        var foldOpen=app();
+        // and the RUNS list. The FAILED run is finished, so it sits behind its own fold -
+        //   the probe opens that too, or it would assert on a list it never opened.
+        boardSub='runs';renderApp();
+        var runsOpenOnly=app();
+        var tf=document.querySelector('[data-bdrow=\"~tdone\"]');
+        if(tf)tf.click();
+        var runs=app();
+        return {sub:augurSub,tx:t.slice(0,9000),opened:opened.slice(0,9000),
+          runsOpenOnly:runsOpenOnly.slice(0,9000),
+          foldClosed:foldClosed.slice(0,9000),foldOpen:foldOpen.slice(0,9000),
+          runs:runs.slice(0,9000),shaded:shaded,
+          subs:[].map.call(document.querySelectorAll('[data-bdsub]'),
+            function(b){return b.getAttribute('data-bdsub');}),
+          writes:[].map.call(document.querySelectorAll('[data-pcquiet],[data-bdwrite]'),
             function(b){return b.tagName;}).length};
       }catch(e){return {err:String(e&&e.stack?e.stack:e)};}})()`);
-      // and a STALE copy has to say so rather than looking current
-      out.boardStale=w.eval(`(function(){try{
-        window._obDoc.at=Math.floor(Date.now()/1000)-3*86400;renderApp();
-        var t=(document.getElementById('app')||document.body).textContent;
-        return t.slice(0,6000);
+      // an EMPTY board has to say how it gets filled, not just sit blank
+      out.boardEmpty=w.eval(`(function(){try{
+        window._bdRows={};window._bdMeta={};boardSub='board';renderApp();
+        return (document.getElementById('app')||document.body).textContent.slice(0,4000);
       }catch(e){return 'ERR '+e;}})()`);
       var de=d.documentElement;
       out.scrollW=de.scrollWidth;out.clientW=de.clientWidth;
@@ -296,27 +332,61 @@ def judge(nm, r):
     else:
         # collapsed HERE: inside an eval template literal JS turns a backslash-s
         #   into a plain s, so /\s+/g there deletes every letter s instead.
-        btx = ' '.join((b.get('tx') or '').split())
+        flat = lambda k: ' '.join((b.get(k) or '').split())
+        btx, runs = flat('tx'), flat('runs')
         if b.get('sub') != 'board':
             f.append('%s: the BOARD tab did not open (augurSub=%r)' % (nm, b.get('sub')))
-        for want in ('RESMOM real data pull', 'NEEDS YOU 10-31', 'unclassified row'):
+        # the open rows, in the owner's own words
+        for want in ('RESMOM real data pull', 'NEEDS YOU 10-31', 'column filters', 'W03'):
             if want not in btx:
-                f.append('%s: the board page does not show %r from the document' % (nm, want))
-        if 'WORK' not in btx or 'TESTS' not in btx:
-            f.append("%s: the board page drops the board's own sections" % nm)
-        if '2 open of 9' not in btx:
-            f.append('%s: the board page does not say how many of the board is open (%r)'
-                     % (nm, btx[-200:]))
+                f.append('%s: the board page does not show %r from the board' % (nm, want))
+        if btx.count('NEEDS YOU') < 2:
+            f.append('%s: a row he has to act on is not called out above the list' % nm)
+        if not b.get('shaded'):
+            f.append('%s: the NEEDS YOU row is not shaded' % nm)
+        # A ROW WHOSE STATUS NOTHING RENDERS MUST STILL BE SHOWN, and named at the foot.
+        if 'unclassified row' not in btx:
+            f.append('%s: a row with a status the page has never seen was DROPPED' % nm)
         if 'sideways' not in btx:
-            f.append('%s: a status the copier could not classify must be named on the page' % nm)
-        if 'Read-only' not in btx:
-            f.append('%s: the board page must say it is read-only' % nm)
+            f.append('%s: a status the page does not know must be named on it' % nm)
+        # finished rows are folded away, not mixed into what is open
+        if 'KEEL matches its backtest' in flat('foldClosed'):
+            f.append('%s: a finished row sits in the open list instead of behind its fold' % nm)
+        if 'KEEL matches its backtest' not in flat('foldOpen'):
+            f.append('%s: opening DONE, WAITING FOR YOUR OK shows nothing' % nm)
+        if 'CONFIRMED' not in btx:
+            f.append('%s: the confirmed rows have no fold of their own' % nm)
+        # the note behind a row
+        if 'Leave the PC on' in btx:
+            f.append("%s: a row's note is printed before it is clicked" % nm)
+        if 'Leave the PC on' not in flat('opened'):
+            f.append('%s: clicking a row does not open its note' % nm)
+        # the four lists
+        for want in ('board', 'runs', 'qwen', 'auto'):
+            if want not in (b.get('subs') or []):
+                f.append('%s: the board page has no %s list' % (nm, want))
+        if 'a run still going' not in flat('runsOpenOnly'):
+            f.append('%s: the RUNS list does not show a run that is still going (%r)'
+                     % (nm, flat('runsOpenOnly')[:200]))
+        if 'Market-hours ENGU-Q search' in flat('runsOpenOnly'):
+            f.append('%s: a finished run sits in the list of runs still going' % nm)
+        if 'Market-hours ENGU-Q search' not in runs or 'RUN #489' not in runs:
+            f.append('%s: opening READ RUNS shows no run rows (%r)' % (nm, runs[:200]))
+        if '10.1 (chain)' not in runs:
+            f.append("%s: a run row drops the numbers the lane reported" % nm)
+        # A NUMBER NOBODY REPORTED IS A DASH, never a zero.
+        if '\u2013' not in runs:
+            f.append('%s: a run number the lane did not report is not shown as a dash' % nm)
+        if '0.0' in runs.replace('10.1', ''):
+            f.append('%s: a missing run number reads as a zero (%r)' % (nm, runs[:200]))
+        if 'tools/board.py' not in btx:
+            f.append('%s: the page does not say how a row gets set' % nm)
         if b.get('writes'):
-            f.append('%s: the board page carries %d control(s) that write - it is read-only'
-                     % (nm, b['writes']))
-        stale = ' '.join(str(r.get('boardStale') or '').split())
-        if 'days ago' not in stale:
-            f.append('%s: a three-day-old copy of the board does not say how old it is' % nm)
+            f.append('%s: the board page carries %d control(s) that write - lanes write, not the '
+                     'page' % (nm, b['writes']))
+        empty = ' '.join(str(r.get('boardEmpty') or '').split())
+        if 'board.py seed' not in empty:
+            f.append('%s: an empty board does not say how it gets filled (%r)' % (nm, empty[:200]))
     if (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
         f.append('%s: the page scrolls sideways (%r > %r)' % (nm, r.get('scrollW'), r.get('clientW')))
     return f
@@ -349,9 +419,11 @@ def main():
         for x in fails:
             print('  - ' + x)
         return 1
-    print('PCPROBE: PASS (PC opens from another tab and the BOARD tab mirrors the published '
-          'rows - board sections kept, an unclassified status named, the age of the copy said, '
-          'no control that writes; a quiet machine repeats the runner own reason and lists its '
+    print('PCPROBE: PASS (PC opens from another tab and the BOARD tab reads the live board - '
+          'NEEDS YOU called out and shaded, a status the page has never seen still shown and '
+          'named, finished rows folded, a run number nobody reported a dash not a zero, a click '
+          'opens the note, an empty board says how it fills, no control that writes; '
+          'a quiet machine repeats the runner own reason and lists its '
           'running, held and deferred jobs; the three figures nothing publishes are dashes with '
           'reasons, never zeros; the button writes only control/quiet; laptop 1400 + phone 375 '
           '+ MONO 375)')

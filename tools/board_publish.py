@@ -1,7 +1,14 @@
 #!/usr/bin/env python3
 # -*- coding: utf-8 -*-
 """
-tools/board_publish.py -- put the open board's OPEN rows where the website can read them.
+tools/board_publish.py -- SUPERSEDED 2026-10-30 by tools/board.py (MANAGER #159).
+
+The EL BOARD tab no longer reads the document this writes: the board is LIVE now, one row per
+document in users/{uid}/board, written by whichever lane owns the row with `board.py set`. This
+tool still parses board.md and still writes meta/open_board, so nothing that depended on that
+document breaks, but NOTHING ON THE WEBSITE READS IT - publishing here will not move the board.
+
+Put the open board's OPEN rows where the website can read them.
 
 OWNER 10-30 (MANAGER #156): "Open Board on EL: mirror the artifact board's open rows on an EL page
 (read-only) so the owner has it next to the trading tabs."

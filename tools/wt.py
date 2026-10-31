@@ -2002,8 +2002,10 @@ def cmd_ship_fast(name, message):
     site = 'index.html' in changed
     ver = site_version(wt) if site else None
     subj = head.split(' ', 1)[1] if ' ' in head else ''
-    safe_print('POST TO MANAGER: PUSHED %s - %s' % (
-        ('v%s %s' % (ver, sha[:8])) if ver else ('%s (no site change)' % sha[:8]), subj))
+    line = 'PUSHED %s - %s' % (
+        ('v%s %s' % (ver, sha[:8])) if ver else ('%s (no site change)' % sha[:8]), subj)
+    safe_print('POST TO MANAGER: ' + line)
+    _note_on_board(wt, who, subj, line)
     try:
         logdir = r'C:\EdgeLog\post_push'
         os.makedirs(logdir, exist_ok=True)
@@ -2323,6 +2325,28 @@ def cmd_drop(name):
     run(['git', '-C', root, 'worktree', 'remove', path])
     run(['git', '-C', root, 'branch', '-D', BRANCH_PREFIX + name], check=False, quiet=True)
     print('removed ' + path)
+
+
+def _note_on_board(wt, who, subj, line):
+    """Say on the board that this landed, when the ship message names a row (MANAGER #159).
+
+    The board is the owner's to-do list and it is LIVE now, so a lane no longer has to ask
+    MANAGER to move its row. Two deliberate limits: a message that names no row writes nothing
+    (guessing would stamp a push onto somebody else's row), and this never changes the row's
+    STATUS - a push is not a finished row. A board write that fails is reported and ignored: the
+    commit is already on main, so it must not make a landed push look failed.
+    """
+    try:
+        sys.path.insert(0, os.path.join(wt, 'tools'))
+        import board as bd
+        rid = bd.row_in_message(subj)
+        if not rid:
+            return
+        _, msg = bd.cmd_pushed(bd.real_client(), rid, line, who or 'ship', dry=False)
+        safe_print(msg)
+    except Exception as e:                                      # noqa: BLE001 - never fatal here
+        safe_print('board: could not note the push on the row (%s) - the push itself landed'
+                   % (str(e)[:160] or e.__class__.__name__))
 
 
 def main():

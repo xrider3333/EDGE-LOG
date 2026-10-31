@@ -1402,7 +1402,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1411';
+const VERSION='73.1412';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1420,7 +1420,7 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
+const CHANGELOG=[{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
 {v:'73.1340',date:'2026-10-23',notes:['SCORES: 1 trade from 2026-10-23 scored, 0 marked NA (no price data).']},{v:'73.1339',date:'2026-10-20',notes:['THE WEBULL TRADE CHART IS NOW TRADINGVIEW (item 52, your words: the chart sucks. i cant scroll or zoom out or toggle the different time frames ... this needs to be like tradingview. feature rich). Every Webull paper trade - the candle glyph on its row or OPEN CANDLES in its trade panel (phone included), or EXPAND on a laptop - opens on TradingView open-source Lightweight Charts: drag to scroll, wheel or pinch to zoom, drag the price scale to stretch it (AUTO puts it back, LOG for a log scale), FIT and TRADE to jump back, and timeframes 1m 2m 3m 5m 10m 15m 30m 1h 4h D built from the 1-minute QQQ bars (your pick is remembered).','SCROLL BACK FOR HISTORY. Dragging to the left edge reads earlier days from the box, the right edge later ones, until the box has none (QQQ minute bars start 09-03); D and 4h read history on their own. Crosshair with the bar OHLC, change and volume, a volume pane, the trade box from entry to exit (green win, red loss), the entry and exit lines at the Webull fill (solid) with the book price as a fainter dotted line, Webull buys and sells as arrows with shares and price, refused or unanswered tries as squares, the signal and backtest fills as dots, the trade, shares, side and P&L in the header; the arrow keys or the side buttons step through the trades; PNG saves the chart.','Not carried over from the old chart yet: the TOP 10 winners / losers menu. If the chart library cannot load (offline, CDN blocked), the chart says so and offers the old chart; ?oldchart=1 keeps the old one for now.']},
 {v:'73.1355',date:'2026-10-27',notes:['SCORES: 2 trades from 2026-10-26 scored, 0 marked NA (no price data).']},{v:'73.1347',date:'2026-10-25',notes:['DD % FROM PEAK KEEPS ONE ACCOUNT. The engine now stores its own DD % for each gate stretch, measured on a $100k start. EXPLORE / COMPARE use it only while the ACCT chip is $100k; on any other account every dot reads its saved curve at the chip, so GATE and RAW rows on the DD % axis are on the same account.']},{v:'73.1340',date:'2026-10-23',notes:['SCORES: 1 trade from 2026-10-23 scored, 0 marked NA (no price data).']},{v:'73.1339',date:'2026-10-20',notes:['THE WEBULL TRADE CHART IS NOW TRADINGVIEW (item 52, your words: the chart sucks. i cant scroll or zoom out or toggle the different time frames ... this needs to be like tradingview. feature rich). Every Webull paper trade - the candle glyph on its row or OPEN CANDLES in its trade panel (phone included), or EXPAND on a laptop - opens on TradingView open-source Lightweight Charts: drag to scroll, wheel or pinch to zoom, drag the price scale to stretch it (AUTO puts it back, LOG for a log scale), FIT and TRADE to jump back, and timeframes 1m 2m 3m 5m 10m 15m 30m 1h 4h D built from the 1-minute QQQ bars (your pick is remembered).','SCROLL BACK FOR HISTORY. Dragging to the left edge reads earlier days from the box, the right edge later ones, until the box has none (QQQ minute bars start 09-03); D and 4h read history on their own. Crosshair with the bar OHLC, change and volume, a volume pane, the trade box from entry to exit (green win, red loss), the entry and exit lines at the Webull fill (solid) with the book price as a fainter dotted line, Webull buys and sells as arrows with shares and price, refused or unanswered tries as squares, the signal and backtest fills as dots, the trade, shares, side and P&L in the header; the arrow keys or the side buttons step through the trades; PNG saves the chart.','Not carried over from the old chart yet: the TOP 10 winners / losers menu. If the chart library cannot load (offline, CDN blocked), the chart says so and offers the old chart; ?oldchart=1 keeps the old one for now.']},
 {v:'73.1338',date:'2026-10-20',notes:['WEBULL PAPER TRADE CHART (item 52, your ask: need the chart viewer for trades on the webull paper trades). The full chart a Webull trade opens - the candle glyph on its row, or OPEN CANDLES in its trade panel - now draws the entry and exit lines at the prices Webull filled at (the same fills the P&L of record and the panel use), named beside the entry and exit bars (Webull in, Webull out), with the book price as a second, fainter dotted line where it differs.','A SIDE WITH NO WEBULL FILL IS NEVER DRAWN AS ONE. The early September trades (no trade id, so no fill on record) and the orders Webull refused on 09-23 draw the book price, labelled book in - no Webull fill on record. The ENGU-Q 09-24 entry, whose Webull price failed the range check, says the fill looks wrong. Three exits with no book price draw the re-price the P&L of record used, and say so. A dimmed MISSED row is labelled signal in / signal out (not traded).','1-MINUTE BARS AND THE SIZE. Same-day trades open on 1-minute QQQ bars wherever the trade fits the screen (a long hold on a phone, and a hold across sessions, open on 5-minute - the 1M chip is one tap away). The trade box sits at the fill, the prices stay on the price scale while their bar is on screen, price tags and names never print over each other, the title reads leg, shares, entry (NOISE #382 - 20 sh - 09-28 10:15), and SAVE PNG now includes the lines, tags and names.','FIXED: on a Webull trade the price lines and the volume could sit off the candles until the window was resized - the note strip under the chart is now laid out before the chart is sized.']},
@@ -5891,73 +5891,181 @@ function setQuiet(on,skipAuto,reason){
     .catch(function(e){window._qtErr=(e&&e.message)||String(e);})
     .then(function(){window._qtSaving=false;loadQuiet(u,true);renderApp();});
 }
-// ── THE OPEN BOARD, MIRRORED (owner 10-30). One document, written by tools/board_publish.py
-//    from C:/EdgeLog/manager/open_board/board.md - the page cannot read that file, so the board is
-//    published to Firestore the same way the RUNBOARD watch list is.
-function loadBoard(uidArg,force){
-  if(window._obLoading)return;
-  if(!force&&window._obLoaded&&Date.now()-(window._obAt||0)<60000)return;
+// ── THE LIVE BOARD (owner 10-30, MANAGER #159). The owner asked why the board was not moving:
+//    it was a dated COPY of one published document, and only MANAGER could write the board it was
+//    copied from. Now every lane writes its own row with tools/board.py into the
+//    users/{uid}/board collection, and this page LISTENS to that collection - a row set on the PC
+//    shows here without a refresh. Row ids carry their list: w=WORK t=RUNS b/c=AUTOMATIONS
+//    p=THIS PC q=LOCAL AI. The three written pages are meta/board_{qwen,auto,review}.
+let boardSub='board';
+function loadBoard(uidArg){
+  if(window._bdOn)return;                     // onSnapshot stays attached for the whole session
   const u=uidArg||(auth&&auth.currentUser&&auth.currentUser.uid);
   if(!db||!u)return;
-  window._obLoading=true;window._obErr=null;
-  db.collection('users').doc(u).collection('meta').doc('open_board').get()
-    .then(function(d){window._obDoc=d.exists?(d.data()||{}):null;
-      window._obLoaded=true;window._obAt=Date.now();})
-    .catch(function(e){window._obErr=(e&&e.message)||String(e);})
-    .then(function(){window._obLoading=false;
-      if(activeTab==='augur'&&augurSub==='board')renderApp();});
+  window._bdOn=true;window._bdRows=window._bdRows||{};window._bdMeta=window._bdMeta||{};
+  const paint=function(){if(activeTab==='augur'&&augurSub==='board')renderApp();};
+  db.collection('users').doc(u).collection('board').onSnapshot(function(s){
+      const m={};s.forEach(function(d){const r=d.data()||{};r._id=d.id;m[d.id]=r;});
+      window._bdRows=m;window._bdAt=Date.now();window._bdLoaded=true;window._bdErr=null;paint();},
+    function(e){window._bdErr=(e&&e.message)||String(e);window._bdLoaded=true;paint();});
+  ['qwen','auto','review'].forEach(function(k){
+    db.collection('users').doc(u).collection('meta').doc('board_'+k).onSnapshot(function(d){
+      window._bdMeta[k]=(d&&d.exists)?(d.data()||{}):null;paint();},function(){});});
 }
+// the owner's own status words, in his own colours. NEEDS YOU is red and shaded; in flight is
+//   yellow; finished is green hollow until he confirms it, then filled.
+const BDDOT={'needs-you':['r',1],'needsyou':['r',1],block:['r',1],open:['r',0],run:['y',1],
+  wip:['y',1],running:['y',1],wait:['y',0],queued:['y',0],park:['y',0],parked:['y',0],
+  done:['g',0],pass:['g',0],fail:['g',0],confirmed:['g',1]};
+const BDWORD={pass:'PASS',fail:'FAIL',done:'DONE',confirmed:'CONFIRMED',run:'RUNNING',
+  wip:'RUNNING',running:'RUNNING',wait:'WAITING',queued:'QUEUED',park:'PARKED',parked:'PARKED',
+  open:'OPEN','needs-you':'NEEDS YOU',needsyou:'NEEDS YOU',block:'NEEDS YOU'};
+// owner 10-28: green (done, waiting for his OK) first, then yellow, then red at the bottom
+const BDRANK={done:0,pass:0,fail:0,run:1,wip:1,running:1,queued:2,wait:2,park:3,parked:3,
+  block:4,'needs-you':4,needsyou:4,open:5};
+const BDDONE=['done','pass','fail','confirmed'];
+// A STATUS THIS PAGE HAS NEVER SEEN COUNTS AS OPEN and is named at the foot of the table. Hiding
+//   a row the owner is waiting on is the only failure here that really matters.
+const _bdOpen=s=>BDDONE.indexOf(String(s||'').toLowerCase())<0;
+const _bdKnown=s=>!!BDDOT[String(s||'').toLowerCase()];
 function boardHtml(){
-  const D=window._obDoc;
+  const R=window._bdRows||{};
   const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
-  // the owner's own status words, in his own colours
-  const COL={'needs-you':'var(--red)','needsyou':'var(--red)','block':'var(--red)',
-    'wip':'var(--yellow)','run':'var(--yellow)','running':'var(--yellow)','queued':'var(--yellow)',
-    'new':'var(--text2)','next':'var(--text2)','open':'var(--text2)','ask':'var(--text2)',
-    'draft':'var(--text4)','hold':'var(--text4)','park':'var(--text4)','parked':'var(--text4)','wait':'var(--text4)'};
+  const C={r:'var(--red)',y:'var(--yellow)',g:'var(--green)'};
+  const all=Object.keys(R).map(function(k){return R[k];});
   const ageTx=at=>{if(!at)return 'never';const s=Math.max(0,Math.round(Date.now()/1000-(+at)));
     return (s<90)?(s+' s ago'):((s<5400)?(Math.round(s/60)+' min ago'):((s<172800)?(Math.round(s/3600)+' h ago'):(Math.round(s/86400)+' days ago')));};
-  let h='<div style="max-width:1000px">';
+  const upd=all.reduce(function(m,r){const t=Date.parse(String(r.updated_at||'').replace(' ','T'));
+    return isFinite(t)?Math.max(m,Math.round(t/1000)):m;},0);
+  const tabOf=r=>String(r.tab||'').toUpperCase();
+  const runs=all.filter(r=>tabOf(r)==='RUNS');
+  const work=all.filter(r=>tabOf(r)!=='RUNS');
+  const ord=r=>Number(r.order)||0;
+  const st=r=>String(r.status||'').toLowerCase();
+  const byRank=(a,b)=>((BDRANK[st(a)]==null?5:BDRANK[st(a)])-(BDRANK[st(b)]==null?5:BDRANK[st(b)]))||(ord(a)-ord(b));
+  const byOrd=(a,b)=>ord(a)-ord(b);
+  const lab=r=>String(r.label||r._id||'').toUpperCase();
+  const dot=r=>{const d=BDDOT[st(r)]||['y',0];
+    return '<span title="'+esc(BDWORD[st(r)]||r.status||'')+'" style="display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid '+C[d[0]]+';background:'+(d[1]?C[d[0]]:'transparent')+';flex:0 0 auto"></span>';};
+  const EXP=window._bdExp||(window._bdExp={});
+  let h='<div style="max-width:1060px">';
+  // ── header: what we are looking at, and when the board last moved
   h+='<div class="lbl" style="margin-bottom:6px;display:flex;justify-content:space-between;align-items:center;gap:8px;flex-wrap:wrap">'
-    +'<span>OPEN BOARD'+(D&&D.open!=null?(' \u00b7 '+D.open+' OPEN'):'')+'</span>'
+    +'<span>THE BOARD</span>'
     +'<span style="font-size:var(--fsxs);color:var(--text4);letter-spacing:0">'
-    +(D?('read from the board '+esc(ageTx(D.at))):'')+'</span></div>';
-  if(window._obErr)h+='<div style="background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--yellow);margin-bottom:8px">Could not read the board: '+esc(window._obErr)+'</div>';
-  if(!D){
+    +(all.length?('live \u00b7 last change '+esc(ageTx(upd))):'')+'</span></div>';
+  if(window._bdErr)h+='<div style="background:var(--bg2);border-radius:8px;padding:10px 12px;font-size:10px;color:var(--yellow);margin-bottom:8px">Could not read the board: '+esc(window._bdErr)+'</div>';
+  if(!all.length&&!Object.keys(window._bdMeta||{}).length){
     h+='<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:10px;color:var(--text4);line-height:1.6">'
-      +(window._obLoading?'Reading the board\u2026'
-        :'No board has been published yet. The board lives on the PC as a file this page cannot read, so it is copied to one document first - run tools/board_publish.py on the machine and this fills in.')
+      +(window._bdLoaded
+        ?'The board is empty. It is seeded once from the PC with <b>python tools/board.py seed</b>, and after that every lane writes its own row with <b>board.py set</b>.'
+        :'Reading the board\u2026')
       +'</div></div>';
     return h;}
-  // A MIRROR THAT LOOKS CURRENT AND IS NOT is worse than no mirror, so a stale copy says so.
-  const old=(Date.now()/1000-(+D.at||0))>86400;
-  if(old)h+='<div style="background:var(--bg2);border-radius:8px;padding:9px 12px;font-size:9px;color:'+'var(--yellow)'+';margin-bottom:8px">This copy was taken '+esc(ageTx(D.at))+'. The live board may have moved since; it is copied by tools/board_publish.py on the PC, not by this page.</div>';
-  const rows=Array.isArray(D.rows)?D.rows:[];
-  if(!rows.length){
-    h+='<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:10px;color:var(--text3)">Nothing is open on the board: all '+esc(D.total||0)+' rows are finished.</div></div>';
-    return h;}
-  // grouped by the board's own sections, in the board's own order
-  const secs=[];rows.forEach(function(r){const s=String(r.section||'');if(secs.indexOf(s)<0)secs.push(s);});
-  secs.forEach(function(s){
-    const mine=rows.filter(function(r){return String(r.section||'')===s;});
-    h+='<div class="lbl" style="margin:16px 0 5px">'+esc(s||'BOARD')+' \u00b7 '+mine.length+'</div>';
-    h+=mine.map(function(r){
-      const c=COL[String(r.status||'').toLowerCase()]||'var(--border)';
-      return '<div style="background:var(--bg2);border-radius:8px;border-left:3px solid '+c+';padding:9px 12px;margin-bottom:5px">'
-        +'<div style="display:flex;flex-wrap:wrap;align-items:baseline;gap:2px 10px">'
-        +'<span style="font-size:var(--fsxs);font-weight:700;letter-spacing:.5px;color:'+c+'">'+esc(String(r.status||'').toUpperCase())+'</span>'
-        +'<span style="font-size:12px;font-weight:600;color:var(--text)">'+esc(r.n||'')+' \u00b7 '+esc(r.title||'')+'</span>'
-        +'<span style="margin-left:auto;font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+esc(r.who||'')+(r.date?(' \u00b7 '+esc(r.date)):'')+'</span></div>'
-        +(r.what?('<div style="font-size:var(--fsxs);color:var(--text3);line-height:1.55;margin-top:3px">'+esc(r.what)+'</div>'):'')
-        +(r.statusText?('<div style="font-size:var(--fsxs);color:var(--text2);line-height:1.55;margin-top:2px">'+esc(r.statusText)+'</div>'):'')
-        +'</div>';}).join('');});
-  h+='<div style="font-size:9px;color:var(--text5);line-height:1.6;margin-top:10px">'
-    +esc(D.open+' open of '+D.total+' rows on the board')
-    +(D.cut?' - this page shows the first '+esc((D.rows||[]).length)+' of them':'')
-    +(Array.isArray(D.unknown)&&D.unknown.length?(' \u00b7 statuses the copier did not recognise, shown as open: '+esc(D.unknown.join(', '))):'')
-    +'. Read-only: nothing on this page changes the board.</div>';
+  // ── the counts the owner reads first
+  const need=work.filter(r=>(BDDOT[st(r)]||[])[0]==='r'&&(BDDOT[st(r)]||[])[1]===1)
+    .concat(runs.filter(r=>(BDDOT[st(r)]||[])[0]==='r'&&(BDDOT[st(r)]||[])[1]===1));
+  const wOpen=work.filter(r=>_bdOpen(st(r))).sort(byRank);
+  const wDone=work.filter(r=>!_bdOpen(st(r))&&st(r)!=='confirmed').sort(byOrd);
+  const wOk=work.filter(r=>st(r)==='confirmed').sort(byOrd);
+  const tOpen=runs.filter(r=>_bdOpen(st(r))).sort(byRank);
+  const tDone=runs.filter(r=>!_bdOpen(st(r))&&st(r)!=='confirmed').sort(byOrd);
+  const tOk=runs.filter(r=>st(r)==='confirmed').sort(byOrd);
+  const strip=[[need.length,'need you'],[wOpen.length,'open'],[tOpen.length,'runs waiting'],
+    [wDone.length+tDone.length,'waiting for your OK'],[wOk.length+tOk.length,'confirmed']];
+  h+='<div style="display:flex;flex-wrap:wrap;gap:4px 16px;margin:0 2px 10px;font-size:var(--fsxs);color:var(--text4)">'
+    +strip.map(x=>'<span><b style="color:var(--text);font-size:11px">'+x[0]+'</b> '+x[1]+'</span>').join('')+'</div>';
+  // ── the four lists
+  const TABS=[['board','BOARD',wOpen.length],['runs','RUNS',tOpen.length],['qwen','LOCAL AI',0],['auto','AUTOMATIONS',0]];
+  h+='<div style="display:flex;flex-wrap:wrap;gap:2px;border-bottom:1px solid var(--border);margin-bottom:10px">'
+    +TABS.map(function(t){const on=(boardSub===t[0]);
+      return '<span data-bdsub="'+t[0]+'" style="font-size:10px;font-weight:700;letter-spacing:1.4px;padding:7px 12px;cursor:pointer;color:'+(on?'var(--text)':'var(--text4)')+';border-bottom:2px solid '+(on?'var(--text)':'transparent')+'">'+t[1]+(t[2]?('<b style="color:var(--red);margin-left:5px">'+t[2]+'</b>'):'')+'</span>';}).join('')
+    +'</div>';
+  // the row, and the note behind it when it is open
+  const why=r=>{const w=String(r.why||'');const bits=[];
+    if(r.statusText)bits.push(esc(r.statusText));
+    if(r.who)bits.push(esc(r.who));
+    if(r.result)bits.push('<b>Result</b> '+esc(r.result));
+    if(r.updated_by)bits.push('set by '+esc(r.updated_by));
+    return '<div style="padding:2px 12px 9px 29px;font-size:var(--fsxs);color:var(--text3);line-height:1.6;background:var(--bg2);border-radius:0 0 8px 8px;margin:-5px 0 5px">'
+      +(w?esc(w):'<span style="color:var(--text5)">No note on this row.</span>')
+      +(bits.length?('<div style="color:var(--text4);margin-top:3px">'+bits.join(' \u00b7 ')+'</div>'):'')+'</div>';};
+  function row(r,dim,nums){
+    const k=String(r._id||'');const open=!!EXP[k];const d=BDDOT[st(r)]||['y',0];
+    const shade=(d[0]==='r'&&d[1]===1)?'background:color-mix(in srgb,var(--red) 9%,var(--bg2));':'background:var(--bg2);';
+    let x='<div data-bdrow="'+esc(k)+'" style="'+shade+'border-radius:8px'+(open?' 8px 0 0':'')+';border-left:3px solid '+C[d[0]]+';padding:8px 12px;margin-bottom:5px;cursor:pointer;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap'+(dim?';opacity:.55':'')+'">'
+      +dot(r)
+      +'<span style="font-size:var(--fsxs);font-weight:700;letter-spacing:.5px;color:var(--text4);min-width:34px">'+esc(lab(r))+'</span>'
+      +'<span style="font-size:12px;font-weight:600;color:var(--text);flex:1;min-width:180px">'+esc(r.title||'')+'</span>';
+    if(nums)x+='<span style="font-size:var(--fsxs);color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">'
+      +['roc','dd5','ddpct','sortino'].map(key=>(r[key]==null||r[key]==='')?'\u2013':esc(r[key])).join(' \u00b7 ')+'</span>';
+    x+='<span style="font-size:var(--fsxs);color:'+C[d[0]]+';white-space:nowrap">'+esc(r.statusText||BDWORD[st(r)]||r.status||'')+'</span>'
+      +'</div>';
+    return x+(open?why(r):'');}
+  const list=(rows,none,nums)=>rows.length?rows.map(r=>row(r,false,nums)).join('')
+    :('<div style="background:var(--bg2);border-radius:8px;padding:12px;font-size:10px;color:var(--text5)">'+esc(none)+'</div>');
+  const fold=(id,title,rows,nums)=>{const on=!!EXP['~'+id];
+    return '<div data-bdrow="~'+id+'" class="lbl" style="margin:16px 0 5px;cursor:pointer;color:var(--text4)">'+(on?'\u25be ':'\u25b8 ')+esc(title)+' \u00b7 '+rows.length+'</div>'
+      +(on?list(rows,'Nothing here.',nums):'');};
+  if(boardSub==='board'){
+    if(need.length){
+      h+='<div style="border:1px solid var(--red);border-radius:8px;padding:8px 11px;margin-bottom:10px">'
+        +'<div class="lbl" style="color:var(--red);margin-bottom:5px">NEEDS YOU \u00b7 '+need.length+'</div>'
+        +need.map(function(r){return '<div style="display:flex;gap:9px;align-items:baseline;font-size:11px;padding:2px 0;flex-wrap:wrap">'
+          +dot(r)+'<span style="font-weight:700;color:var(--text4);min-width:34px;font-size:var(--fsxs)">'+esc(lab(r))+'</span>'
+          +'<span style="flex:1;min-width:160px;color:var(--text)">'+esc(r.title||'')+'</span>'
+          +'<span style="font-size:var(--fsxs);color:var(--red)">'+esc(r.statusText||'NEEDS YOU')+'</span></div>';}).join('')
+        +'</div>';}
+    h+=list(wOpen,'Nothing open.',false);
+    h+=fold('wdone','DONE, WAITING FOR YOUR OK',wDone,false);
+    h+=fold('wok','CONFIRMED',wOk,false);
+  }else if(boardSub==='runs'){
+    h+='<div style="font-size:var(--fsxs);color:var(--text4);margin:0 2px 7px">Each run row carries its four numbers in this order: ROC at a $30k drawdown, DD5, DD % from peak, Sortino. A dash means the lane did not report that one.</div>';
+    h+=list(tOpen,'No run is running or waiting.',true);
+    h+=fold('tdone','READ RUNS, WAITING FOR YOUR OK',tDone,true);
+    h+=fold('tok','CONFIRMED RUNS',tOk,true);
+  }else{
+    const key=(boardSub==='qwen')?'qwen':'auto';
+    const M=(window._bdMeta||{})[key];
+    h+=M&&M.md?('<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:11px;color:var(--text2);line-height:1.65">'+_bdMd(M.md)
+        +(M.updated?('<div style="font-size:9px;color:var(--text5);margin-top:9px">this page was written '+esc(M.updated)+(M.updated_by?(' by '+esc(M.updated_by)):'')+'</div>'):'')+'</div>')
+      :('<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:10px;color:var(--text4);line-height:1.6">This page has not been written yet. It is set from the PC with <b>python tools/board.py meta '+esc(key)+' &lt;file.md&gt;</b>.</div>');}
+  // ── the foot: what is on the board, and anything this page could not classify
+  const unk=[];all.forEach(function(r){if(!_bdKnown(st(r))&&unk.indexOf(st(r))<0)unk.push(st(r));});
+  h+='<div style="font-size:9px;color:var(--text5);line-height:1.6;margin-top:12px">'
+    +esc(all.length+' rows on the board, '+all.filter(r=>_bdOpen(st(r))).length+' of them open')
+    +(unk.length?(' \u00b7 statuses this page does not know, shown as open: '+esc(unk.join(', '))):'')
+    +'. Lanes set rows with tools/board.py; this page reads them live and changes nothing.</div>';
   h+='</div>';
   return h;
+}
+// the board's written pages are markdown: headings, bullets, tables, bold, code and links
+function _bdMd(src){
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const inl=s=>esc(s).replace(/`([^`]+)`/g,'<code style="font-size:10px;color:var(--text3)">$1</code>')
+    .replace(/\*\*([^*]+)\*\*/g,'<b style="color:var(--text)">$1</b>')
+    .replace(/\[([^\]]+)\]\((https?:[^)\s]+)\)/g,'<a href="$2" target="_blank" rel="noopener" style="color:var(--blue)">$1</a>');
+  const L=String(src||'').replace(/\r/g,'').split('\n');
+  let out=[],i=0,inL=false;
+  const endL=function(){if(inL){out.push('</ul>');inL=false;}};
+  while(i<L.length){
+    const s=L[i];
+    if(/^\|/.test(s)){endL();const T=[];while(i<L.length&&/^\|/.test(L[i])){T.push(L[i]);i++;}
+      let t='<div style="overflow-x:auto"><table style="border-collapse:collapse;font-size:10px;margin:6px 0">',n=0;
+      T.forEach(function(l){if(/^[\s|:\-]+$/.test(l))return;
+        const cs=l.replace(/^\||\|$/g,'').split('|').map(c=>c.trim());
+        t+='<tr>'+cs.map(c=>'<'+(n?'td':'th')+' style="border:1px solid var(--border);padding:3px 7px;text-align:left;color:var(--text'+(n?'2':'4')+')">'+inl(c)+'</'+(n?'td':'th')+'>').join('')+'</tr>';n++;});
+      out.push(t+'</table></div>');continue;}
+    let m=s.match(/^(#{1,3})\s+(.*)/);
+    if(m){endL();out.push('<div class="lbl" style="margin:'+(out.length?'13px':'0')+' 0 5px;color:var(--text3)">'+inl(m[2])+'</div>');}
+    else if((m=s.match(/^\s*[-*]\s+(.*)/))||(m=s.match(/^\s*\d+\.\s+(.*)/))){
+      if(!inL){out.push('<ul style="margin:3px 0 3px 16px;padding:0">');inL=true;}
+      out.push('<li style="margin:2px 0">'+inl(m[1])+'</li>');}
+    else if(!s.trim()){endL();}
+    else{endL();out.push('<div style="margin:5px 0">'+inl(s)+'</div>');}
+    i++;}
+  endL();
+  return out.join('');
 }
 function pcDashHtml(){
   const S=window._qtStatus,W=window._qtWant;
@@ -42068,9 +42176,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<iframe id="stack-frame" src="method_stack.html#'+(_ap.stackView==='side'?'side':'stack')+'" title="Method Stack" style="width:100%;height:calc(100vh - 230px);min-height:1500px;border:1px solid var(--border);border-radius:10px;background:var(--bg)"></iframe>'
         ;
     }else if(augurSub==='board'){
-      // the mirrored open board (owner 10-30). Read-only - see boardHtml.
-      if(!window._obLoaded&&!window._obLoading)loadBoard();
-      else if(!window._obLoading&&Date.now()-(window._obAt||0)>120000)loadBoard(null,true);
+      // the LIVE board (owner 10-30). loadBoard attaches onSnapshot ONCE and every later change
+      //   repaints by itself, so there is no polling and no stale copy to warn about.
+      loadBoard();
       body=boardHtml();
     }else if(augurSub==='pc'){
       // pc p12. The page reads two documents and writes one; see loadQuiet / setQuiet.
@@ -48522,6 +48630,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     content.querySelectorAll('[data-rbopen]').forEach(b=>{if(b.closest&&b.closest('.cmpovl-key'))return;
       b.onclick=e=>{_rbOpenRun(b.getAttribute('data-rbopen'),e);};});
     content.querySelectorAll('[data-rbback]').forEach(b=>{b.onclick=e=>{_rbGoBack(e);};});
+    // the live board: the four lists, and a row that opens its note
+    content.querySelectorAll('[data-bdsub]').forEach(b=>{b.onclick=()=>{
+      boardSub=b.getAttribute('data-bdsub');renderApp();};});
+    content.querySelectorAll('[data-bdrow]').forEach(b=>{b.onclick=()=>{
+      const k=b.getAttribute('data-bdrow');const E=window._bdExp||(window._bdExp={});
+      if(E[k])delete E[k];else E[k]=1;renderApp();};});
     // pc p12: the QUIET button. 'skip' also stands today's automatic window down.
     content.querySelectorAll('[data-pcquiet]').forEach(b=>{b.onclick=()=>{
       const v=b.dataset.pcquiet;
