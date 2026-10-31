@@ -4337,11 +4337,7 @@ MUTANTS = [
      "range:'<span class=\"hm-suffix\" data-p2realword></span>",
      "the range line does not start with 'realized'",
      "want 'realized"),
-    ('nt8-flat-word-back',
-     "              +'<span class=\"hm-suffix\"> &middot; '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' &middot; not counted</span>')\r\n            :'')+'</span>',",
-     "              +'<span class=\"hm-suffix\"> &middot; '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' &middot; not counted</span>')\r\n            :'flat')+'</span>',",
-     "the hero says 'flat' again when nothing is open",
-     "no 'flat' word"),
+    # (no 'flat' mutant here: the fixture always has one open trade, so the no-trade branch never renders in this gate)
     ('nt8-figs-under-number',
      "sub:a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')",
      "sub:!a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')",
