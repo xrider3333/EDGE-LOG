@@ -17,7 +17,7 @@
   --bg:#05050a;--bg1:#0e0e1e;--bg2:#0a0a18;--bg3:#09090f;
   --border:#1e1e36;--border2:#181830;
   --text:#c8ccd8;--text2:#a0a4b8;--text3:#7070a0;--text4:#7a7a96;--text5:#5a5a78;
-  --green:#00e5a0;--red:#ff3d5a;--yellow:#f5c842;--blue:#4a9eff;--purple:#a78bfa;
+  --green:#00e5a0;--red:#ff3d5a;--yellow:#f5c842;--blue:#4a9eff;--purple:#a78bfa;--vwap:#ff9800;
   --pad:16px;--fs:13px;--fsm:11px;--fss:10px;--fsxs:9px;
   --card-pad:14px 16px;--mini-pad:11px 14px;
   /* ATTENTION signal colours — survive every theme incl. mono, re-asserted in each
@@ -27,7 +27,7 @@
   --attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;
 }
 
-[data-theme="frost"]{--bg:#0c0c14;--bg1:#1a1a24;--bg2:#14141e;--bg3:#10101a;--border:#2e2e3d;--border2:#1f1f2c;--text:#f5f5fa;--text2:#d0d0d8;--text3:#9c9cac;--text4:#a8a8b8;--text5:#7a7a8a;--green:#4ade80;--red:#fb7185;--yellow:#fcd34d;--blue:#7dd3fc;--purple:#c4b5fd;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;}
+[data-theme="frost"]{--bg:#0c0c14;--bg1:#1a1a24;--bg2:#14141e;--bg3:#10101a;--border:#2e2e3d;--border2:#1f1f2c;--text:#f5f5fa;--text2:#d0d0d8;--text3:#9c9cac;--text4:#a8a8b8;--text5:#7a7a8a;--green:#4ade80;--red:#fb7185;--yellow:#fcd34d;--blue:#7dd3fc;--purple:#c4b5fd;--vwap:#fb923c;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;}
 [data-theme="frost"] body,[data-theme="frost"] html{background:radial-gradient(ellipse at top left, #1a1a2e 0%, #0c0c14 50%, #08080f 100%);background-attachment:fixed}
 [data-theme="frost"] .section{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.08);border-radius:18px;box-shadow:0 1px 0 rgba(255,255,255,0.05) inset, 0 8px 32px rgba(0,0,0,0.2)}
 [data-theme="frost"] .hero-card{background:rgba(255,255,255,0.035);border:1px solid rgba(255,255,255,0.1);border-radius:16px;box-shadow:0 1px 0 rgba(255,255,255,0.06) inset, 0 8px 24px rgba(0,0,0,0.15);transition:background 0.25s cubic-bezier(0.4, 0, 0.2, 1),border-color 0.25s cubic-bezier(0.4, 0, 0.2, 1),box-shadow 0.25s cubic-bezier(0.4, 0, 0.2, 1),transform 0.25s cubic-bezier(0.4, 0, 0.2, 1)}
@@ -53,7 +53,7 @@
 [data-theme="frost"] .btn-ghost{color:rgba(255,255,255,0.55);transition:all 0.2s}
 [data-theme="frost"] .btn-ghost:hover{color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.04)}
 [data-theme="frost"] .btn-ghost.active{color:rgba(255,255,255,1);background:rgba(125,211,252,0.1);border-bottom:2px solid #7dd3fc}
-[data-theme="glass"]{--bg:#08080c;--bg1:#15151a;--bg2:#101015;--bg3:#0c0c12;--border:#2a2a35;--border2:#1f1f28;--text:#f0f0f5;--text2:#c8c8d0;--text3:#9090a0;--text4:#a0a0b0;--text5:#707080;--green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;}
+[data-theme="glass"]{--bg:#08080c;--bg1:#15151a;--bg2:#101015;--bg3:#0c0c12;--border:#2a2a35;--border2:#1f1f28;--text:#f0f0f5;--text2:#c8c8d0;--text3:#9090a0;--text4:#a0a0b0;--text5:#707080;--green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;--vwap:#fb923c;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;}
 [data-theme="glass"] .section{background:linear-gradient(180deg, rgba(255,255,255,0.04) 0%, rgba(255,255,255,0.015) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:16px}
 [data-theme="glass"] .hero-card{background:linear-gradient(180deg, rgba(255,255,255,0.05) 0%, rgba(255,255,255,0.02) 100%);border:1px solid rgba(255,255,255,0.06);border-radius:14px;transition:background 0.2s,border-color 0.2s,box-shadow 0.2s,transform 0.2s}
 [data-theme="glass"] .hero-card:hover{background:linear-gradient(180deg, rgba(255,255,255,0.07) 0%, rgba(255,255,255,0.03) 100%);transform:translateY(-1px)}
@@ -84,7 +84,7 @@
 [data-theme="glass"] .btn-ghost.active{color:rgba(255,255,255,0.95);background:rgba(255,255,255,0.06);border-bottom:2px solid #60a5fa}
 
 /* ──── MONO — pure grayscale, monochrome ──── */
-[data-theme="mono"]{--bg:#0a0a0a;--bg1:#141414;--bg2:#0f0f0f;--bg3:#080808;--border:#2a2a2a;--border2:#1c1c1c;--text:#f0f0f0;--text2:#c0c0c0;--text3:#909090;--text4:#a0a0a0;--text5:#707070;--green:#f0f0f0;--red:#4d4d4d;--yellow:#999999;--blue:#b0b0b0;--purple:#a0a0a0;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;}
+[data-theme="mono"]{--bg:#0a0a0a;--bg1:#141414;--bg2:#0f0f0f;--bg3:#080808;--border:#2a2a2a;--border2:#1c1c1c;--text:#f0f0f0;--text2:#c0c0c0;--text3:#909090;--text4:#a0a0a0;--text5:#707070;--green:#f0f0f0;--red:#4d4d4d;--yellow:#999999;--blue:#b0b0b0;--purple:#a0a0a0;--vwap:#c8c8c8;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;}
 [data-theme="mono"] .section{background:rgba(255,255,255,0.025);border:1px solid rgba(255,255,255,0.05);border-radius:14px}
 [data-theme="mono"] .hero-card{background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.06);border-radius:12px;transition:all 0.2s}
 [data-theme="mono"] .hero-card:hover{background:rgba(255,255,255,0.05);border-color:rgba(255,255,255,0.12)}
@@ -111,7 +111,7 @@
 [data-theme="aurora"] .btn-ghost.active{border-bottom:2px solid #c090ff;color:#f0e8ff;background:rgba(192,144,255,0.08)}
 
 /* ──── STEALTH — true black, minimal contrast, OLED-friendly ──── */
-[data-theme="stealth"]{--bg:#000000;--bg1:#080808;--bg2:#050505;--bg3:#030303;--border:#1a1a1a;--border2:#101010;--text:#e8e8e8;--text2:#b0b0b0;--text3:#808080;--text4:#909090;--text5:#606060;--green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;}
+[data-theme="stealth"]{--bg:#000000;--bg1:#080808;--bg2:#050505;--bg3:#030303;--border:#1a1a1a;--border2:#101010;--text:#e8e8e8;--text2:#b0b0b0;--text3:#808080;--text4:#909090;--text5:#606060;--green:#34d399;--red:#f87171;--yellow:#fbbf24;--blue:#60a5fa;--purple:#a78bfa;--vwap:#fb923c;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;}
 [data-theme="stealth"] .section{background:#0a0a0a;border:1px solid #1a1a1a;border-radius:14px}
 [data-theme="stealth"] .hero-card{background:#0c0c0c;border:1px solid #1a1a1a;border-radius:12px;transition:border-color 0.15s}
 [data-theme="stealth"] .hero-card:hover{border-color:#2a2a2a}
@@ -1410,7 +1410,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1435';
+const VERSION='73.1436';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1428,7 +1428,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1435',date:'2026-10-31',notes:['WEBULL PAPER TRADING: ONE HONEST NUMBER (row 76, your 10-31 screenshot). The three figures disagreed because they were three different things: the big number was closed trades PLUS the open DIP #424 lots\u2019 unrealized P&L (-$272.08), the line under it was the closed trades alone (+$23.66), and the chart\u2019s solid line also ends at the closed figure (+$23.66) - it only looked like $0 because the strategy lines stretched the price scale to -$319 / +$333. Nothing in the ledger or the box was wrong. Now the big number says what it is beside itself (closed + open, or closed when nothing is open), the line under it reads closed trades first, and the chart caption says the solid line ends at the closed figure and that open lots are in the big number only.','THE LINES UNDER THE BIG NUMBER: the broker-made line (book-only trades excluded) sits behind a small details fold; the DIP #424 held-overnight line left the headline and lives in the DIP #424 row, behind more.','STRATEGY ROWS: one line each - name, side, then trades, win rate and today under the number. The position, the held-overnight gap, the rail, the next-trade estimate, the note and the detail sit behind more (a tap on the row); the KEEL warning stays in the open. On a phone the figures line stays under the number.','THE P&L CHART: the total is the one solid line in the page\u2019s text colour (white on dark, black on light, white under MONO); each strategy is a broken line in its legend colour - ORB dots, ENGU-Q sparse dots, NOISE dashes, DIP dash-dot - so MONO, where every colour is grey, can still tell them apart. The hatched caveat days and the legend stay.']},
+const CHANGELOG=[{v:'73.1436',date:'2026-10-31',notes:['WEBULL TRADE CHART, MORE LIKE TRADINGVIEW (rows 69 70 79). The session toggle starts on ETH for a first-time user; when ETH is on but the box has no pre-market / after-hours bars for that day, a small note on the chart says so instead of quietly showing the regular session. The VWAP / OR / MFE chips are now an INDICATORS menu (+ adds a study, a check means it is on), and every study on the chart is a legend row under the symbol line - its name, its value on the bar under the crosshair (VWAP 690.80, OR 5m and 15m high / low, MFE / MAE points), an eye to hide or show it and an x to remove it - remembered on this device. VWAP is TradingView&#39;s orange (grey on MONO) with its tag on the price axis. The readout reads O H L C, the change, Vol, then each study. The grey dots that marked the signal bar floated like a price point: the signal bar and the exit signal bar are now small flags anchored to the bar (a stem and the word signal / exit signal, above a long&#39;s bar, below a short&#39;s); the backtest fill circles and the buy / sell arrows are unchanged. The chart header has a TV button and the Webull trade panel an OPEN IN TV button: both ask first (TradingView is one live session), copy the entry time for Alt+G and open QQQ on the chart&#39;s timeframe. The snapshot lightbox (69) works on every snapshot icon on the site; Webull paper trades carry no TradingView snapshot, so there is none to click on that tab.']},{v:'73.1432',date:'2026-10-31',notes:['WEBULL TRADE CHART (owner 10-31). Buy marker labels are now the theme&#39;s green and Sell labels its red (grey in MONO), and the OR5 / OR15 opening-range boxes and labels a muted grey, so a fill and a range level no longer share one blue. The SESS chip is a session toggle that reads RTH or ETH (TradingView style): ETH shows the pre-market and after-hours bars with the shaded bands and the 09:30 / 16:00 lines, RTH the regular session only; your earlier SESS on/off choice carries over (on = ETH). The TradingView badge in the chart corner no longer opens tradingview.com: the library&#39;s Apache-2.0 licence asks for a visible credit, not a link, so it is a plain badge (the footer credit line keeps its link and says where it goes). The trade sheet&#39;s stop/target footer now also reads the box&#39;s per-trade levels record, so it cannot say no stop/target lines while the chart draws them. Why ORB 10-23 shows no position box: the box has not re-published that day - its 10-23 doc is still the 10-27 copy (schema 1) with no stop or target, and today&#39;s 13:37 backfill rewrote only 10-26, 10-27, 10-29, 10-30 as schema 2 with no levels; the chart reads the day docs as they are.']},{v:'73.1427',date:'2026-10-31',notes:['WEBULL TRADE CHART: the opening-range chip now reads OR, not ORB (row 71). It draws the first 5 and 15 minute high-low boxes - a chart study - and was being mistaken for the ORB trading strategy; its tooltip says so. Your remembered on/off choice for it is kept. The no-stop footer now says which strategies log a stop (ORB does; NOISE after the next box deploy).']},
+{v:'73.1435',date:'2026-10-31',notes:['WEBULL PAPER TRADING: ONE HONEST NUMBER (row 76, your 10-31 screenshot). The three figures disagreed because they were three different things: the big number was closed trades PLUS the open DIP #424 lots\u2019 unrealized P&L (-$272.08), the line under it was the closed trades alone (+$23.66), and the chart\u2019s solid line also ends at the closed figure (+$23.66) - it only looked like $0 because the strategy lines stretched the price scale to -$319 / +$333. Nothing in the ledger or the box was wrong. Now the big number says what it is beside itself (closed + open, or closed when nothing is open), the line under it reads closed trades first, and the chart caption says the solid line ends at the closed figure and that open lots are in the big number only.','THE LINES UNDER THE BIG NUMBER: the broker-made line (book-only trades excluded) sits behind a small details fold; the DIP #424 held-overnight line left the headline and lives in the DIP #424 row, behind more.','STRATEGY ROWS: one line each - name, side, then trades, win rate and today under the number. The position, the held-overnight gap, the rail, the next-trade estimate, the note and the detail sit behind more (a tap on the row); the KEEL warning stays in the open. On a phone the figures line stays under the number.','THE P&L CHART: the total is the one solid line in the page\u2019s text colour (white on dark, black on light, white under MONO); each strategy is a broken line in its legend colour - ORB dots, ENGU-Q sparse dots, NOISE dashes, DIP dash-dot - so MONO, where every colour is grey, can still tell them apart. The hatched caveat days and the legend stay.']},
 {v:'73.1432',date:'2026-10-31',notes:['WEBULL TRADE CHART (owner 10-31). Buy marker labels are now the theme&#39;s green and Sell labels its red (grey in MONO), and the OR5 / OR15 opening-range boxes and labels a muted grey, so a fill and a range level no longer share one blue. The SESS chip is a session toggle that reads RTH or ETH (TradingView style): ETH shows the pre-market and after-hours bars with the shaded bands and the 09:30 / 16:00 lines, RTH the regular session only; your earlier SESS on/off choice carries over (on = ETH). The TradingView badge in the chart corner no longer opens tradingview.com: the library&#39;s Apache-2.0 licence asks for a visible credit, not a link, so it is a plain badge (the footer credit line keeps its link and says where it goes). The trade sheet&#39;s stop/target footer now also reads the box&#39;s per-trade levels record, so it cannot say no stop/target lines while the chart draws them. Why ORB 10-23 shows no position box: the box has not re-published that day - its 10-23 doc is still the 10-27 copy (schema 1) with no stop or target, and today&#39;s 13:37 backfill rewrote only 10-26, 10-27, 10-29, 10-30 as schema 2 with no levels; the chart reads the day docs as they are.']},{v:'73.1427',date:'2026-10-31',notes:['WEBULL TRADE CHART: the opening-range chip now reads OR, not ORB (row 71). It draws the first 5 and 15 minute high-low boxes - a chart study - and was being mistaken for the ORB trading strategy; its tooltip says so. Your remembered on/off choice for it is kept. The no-stop footer now says which strategies log a stop (ORB does; NOISE after the next box deploy).']},
 {v:'73.1431',date:'2026-10-31',notes:['NT8 PAPER TAB, THE SAME CLEAN-UP AS WEBULL (row 77). The big number says CLOSED TRADES ONLY, an open position is named apart from it (at last mark, NOT in the big number), and a small DETAILS line under it holds the sentences that used to crowd the headline: what is counted, the book weights, the open trades, the strategies not counted, and that the NinjaTrader demo account figure on the NINJATRADER card is the account\'s own fills - a different quantity, not a mismatch. The chart\'s last point is checked against the big number on every draw; if they ever differ the details line says so and names the cause. Each strategy is ONE line - name, trades, net $, win %, today - and MORE opens the rest under it (NinjaTrader state, market, PF, roll artifact, forward / backfill, where it came from, its caveats). The P&L chart: the total is a SOLID line in the page\'s own text colour (white on dark, dark on light and MONO), each strategy a DOTTED line in its legend colour, and the calendar\'s caveat days are hatched on the chart too.']},{v:'73.1424',date:'2026-10-31',notes:['WEBULL TRADE CHART, SIX MORE THINGS FROM TRADINGVIEW (rows 62 67 68 71 72 73). New chips in the toolbar, remembered: SESS shades pre-market and after-hours (when the box ever sends those bars) and draws dashed lines at the 09:30 open and the 16:00 close; VWAP draws the session VWAP from the minute bars (fresh each day and again at 09:30; the readout shows its value on the bar); ORB boxes the first 5 and the first 15 minutes of the regular session out to the close, high and low written on them; MFE shades the best and the worst price while in the trade from the entry, each with its points and $. The exit arrow now says what the trade made - net $ and points. When the box records a stop or target for the trade (ORB only today), the chart draws the TradingView position box: grey (red) zone entry to stop, white (green) zone entry to target, each labelled price, $ and R; a stop that moved draws as a step line, the FIRST stop is the risk, and the crosshair reads stop was X on each bar. REPLAY hides every bar after the entry: left / right (or the side buttons) step one bar, the exit and its lines stay hidden until the cursor reaches them, Esc leaves replay. PNG saves all of it.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
 {v:'73.1427',date:'2026-10-31',notes:['WEBULL TRADE CHART: the opening-range chip now reads OR, not ORB (row 71). It draws the first 5 and 15 minute high-low boxes - a chart study - and was being mistaken for the ORB trading strategy; its tooltip says so. Your remembered on/off choice for it is kept. The no-stop footer now says which strategies log a stop (ORB does; NOISE after the next box deploy).']},
@@ -9305,6 +9306,12 @@ window.candleSVG=function(bars,overlays,markers,opts){
 //   {trade_id, side, entry_px, entry_t, exit_px, exit_t, target_px, stops:[{t,px}, ...]} - stops is the ladder oldest
 //   first (stops[0] = the initial stop = the risk box), t is New York wall clock 'YYYY-MM-DD HH:MM:SS' (the seconds are
 //   ignored). With levels driving the ladder the flat lines' dashed 'stop moved HH:MM' entries are NOT drawn again.
+// ROW 79 (owner 10-31, "needs to be like a TradingView chart"): the session toggle defaults to ETH; the studies live in an
+//   INDICATORS menu and each one on the chart is a legend row under the symbol line (name, value on the bar, eye = hide, x =
+//   remove; remembered in el_lw_<k> / el_lw_hide_<k>); the crosshair readout is TV's O H L C change, Vol, then each study; VWAP
+//   is the --vwap token with its tag on the price axis; a note on the chart says when ETH is asked but the day has no bars_ext.
+//   The signal bar and the exit signal bar are FLAGS on the overlay (a stem + "signal" / "exit signal" label, above a long's
+//   bar, below a short's), not floating dots; the backtest fill circles and the Webull / book arrows are unchanged.
 // bars_ext (row 74): {"1m","5m"} packed like bars, off negative before 09:30 and >= 390 after 16:00; merged into the
 //   series only while the SESS chip is on (off = regular hours only). VWAP still starts at 09:30 and ignores pre-market.
 (function(){
@@ -9398,7 +9405,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const pts=(num(x._ep)!=null&&num(x._xp)!=null)?(+x._xp-+x._ep)*(long?1:-1):null;
     const pl=(pts!=null)?('  '+(num(x._usd)!=null?((+x._usd>=0?'+':'')+money(x._usd)+'  '):'')+(pts>=0?'+':'')+pts.toFixed(2)+' pts'):'';
     if(mk){
-      if(mk.signal&&mk.signal.t)put(mk.signal.t,{position:long?'belowBar':'aboveBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'signal'});
+      // the signal bar (decided at its close) and the exit signal bar: flags on the overlay, above a long's bar / below a short's
+      if(mk.signal&&mk.signal.t)put(mk.signal.t,{position:long?'aboveBar':'belowBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'signal',flag:'signal'});
+      if(mk.signal_out&&mk.signal_out.t)put(mk.signal_out.t,{position:long?'aboveBar':'belowBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'signal_out',flag:'exit signal'});
       if(mk.bt_in&&mk.bt_in.t)put(mk.bt_in.t,{position:long?'belowBar':'aboveBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'bt_in'});
       if(mk.bt_out&&mk.bt_out.t)put(mk.bt_out.t,{position:long?'aboveBar':'belowBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'bt_out'});
       const wbAtt=(a,isExit)=>{if(!a)return;const k=window._qbAttKind?window._qbAttKind(a):(a.ok?'fill':'refused');
@@ -9425,7 +9434,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const theme=()=>{const cs=getComputedStyle(document.documentElement),g=n=>cs.getPropertyValue(n).trim();
     return {bg:g('--bg1')||'#15151a',bg0:g('--bg')||'#08080c',text:g('--text')||'#eee',text2:g('--text2')||'#ccc',text3:g('--text3')||'#999',
       text4:g('--text4')||'#aaa',text5:g('--text5')||'#777',border:g('--border')||'#2a2a35',border2:g('--border2')||'#1f1f28',
-      green:g('--green')||'#34d399',red:g('--red')||'#f87171',blue:g('--blue')||'#60a5fa',yellow:g('--yellow')||'#fcd34d',font:getComputedStyle(document.body).fontFamily||'monospace'};};
+      green:g('--green')||'#34d399',red:g('--red')||'#f87171',blue:g('--blue')||'#60a5fa',yellow:g('--yellow')||'#fcd34d',vwap:g('--vwap')||'#ff9800',font:getComputedStyle(document.body).fontFamily||'monospace'};};
   const rgba=(c,a)=>{c=String(c||'').trim();let m=c.match(/^#([0-9a-f]{3})$/i);
     if(m)c='#'+m[1].split('').map(h=>h+h).join('');
     m=c.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);if(m)return 'rgba('+parseInt(m[1],16)+','+parseInt(m[2],16)+','+parseInt(m[3],16)+','+a+')';
@@ -9442,6 +9451,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const CHIPS=[['sess','ETH','Session: RTH = 09:30-16:00 ET only · ETH = pre-market 04:00 and after-hours to 20:00 (1m back ~7 days, 5m back 60 days until the Alpaca feed lands)',true],['vwap','VWAP','session VWAP from the minute bars (resets at 09:30)',true],
     ['orb','OR','Opening range: first 5 / 15 min high-low boxes (a chart study, not the ORB strategy)',false],['mfe','MFE','best and worst price while in the trade, from the entry',true]];
   const chipOn=k=>{try{const v=localStorage.getItem('el_lw_'+k);if(v==='0'||v==='1')return v==='1';}catch(_e){}const c=CHIPS.find(p=>p[0]===k);return !!(c&&c[3]);};
+  // row 79 (TradingView-style legend): a study can be HIDDEN (the eye) without being removed; remembered like the chip
+  const chipHid=k=>{try{return localStorage.getItem('el_lw_hide_'+k)==='1';}catch(_e){return false;}};
+  const vis=k=>!!(S.on&&S.on[k])&&!(S.hide&&S.hide[k]);
+  const INDS=[['vwap','VWAP','session VWAP from the minute bars, fresh at 09:30'],['orb','OR','opening range: the first 5 / 15 minute high-low boxes (a chart study, not the ORB strategy)'],['mfe','MFE / MAE','best and worst price while in the trade, from the entry']];
   const minuteOf=t=>{const d=new Date(t*1000);return d.getUTCHours()*60+d.getUTCMinutes();};
   const dayOf=t=>new Date(t*1000).toISOString().slice(0,10);
   const sessOf=m=>m<ANCHOR?'pre':(m<960?'rth':'post');
@@ -9483,7 +9496,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   // test hook: what the open chart holds
   window._lwState=()=>alive()?{tf:S.tf,bars:(S.bars||[]).length,days:Object.keys(S.days||{}).sort(),endLo:!!S.endLo,endHi:!!S.endHi,busy:!!S.busy,
     lines:(S.pl||[]).length,tid:S.x&&S.x._tid,label:S.x&&S.x._label,chart:!!S.chart,range:(S.chart?S.chart.timeScale().getVisibleLogicalRange():null),
-    on:Object.assign({},S.on||{}),replay:!!S.replay,cut:S.cut,all:(S.all||[]).length,levels:S.lv,exc:S.exc,runs:(S.runs||[]).length,orbs:(S.orbs||[]).length,vwap:Object.keys(S.vwAt||{}).length}:null;
+    on:Object.assign({},S.on||{}),hide:Object.assign({},S.hide||{}),flags:(S.flags||[]).length,replay:!!S.replay,cut:S.cut,all:(S.all||[]).length,levels:S.lv,exc:S.exc,runs:(S.runs||[]).length,orbs:(S.orbs||[]).length,vwap:Object.keys(S.vwAt||{}).length}:null;
 
   const status=html=>{const e=S.ov&&S.ov.querySelector('[data-lwstatus]');if(e)e.innerHTML=html;};
   const rowsOf=()=>{let r=[];try{r=(S.ctx&&S.ctx.all)?S.ctx.all():[];}catch(_e){}return (r||[]).filter(q=>q&&q._qbars&&q._et);};
@@ -9500,6 +9513,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
         +'<button type="button" data-lwstep="1" title="next trade (right arrow)" style="'+hb+'">&#8250;</button>'
         +'<div data-lwtitle style="font-size:12.5px;font-weight:700;letter-spacing:.4px;color:var(--text);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:'+(ph?'1 1 0':'0 1 auto')+';min-width:0"></div>'
         +'<div data-lwsub style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;'+(ph?'order:9;flex:1 1 100%':'flex:1 1 0')+'"></div>'
+        +'<button type="button" data-lwtv title="asks first, then opens QQQ in TradingView on this chart&#39;s timeframe and copies the entry time for Alt+G (TradingView is one live session)" style="'+hb+'">TV &#8599;</button>'
         +'<button type="button" data-lwpng title="save a picture of the chart" style="'+hb+'">PNG</button>'
         +'<button type="button" data-lwclose title="close (Esc)" style="'+hb+'">&#10005;</button></div>'
       +'<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:0 0 auto;flex-wrap:'+(ph?'wrap':'nowrap')+';row-gap:3px">'
@@ -9510,14 +9524,19 @@ window.candleSVG=function(bars,overlays,markers,opts){
           +'<button type="button" data-lwlog title="logarithmic price scale on / off" style="'+hb+'">LOG</button>')
         +'<button type="button" data-lwgo title="back to the trade" style="'+hb+'">TRADE</button>'
         +'<div data-lwchips style="display:flex;gap:2px;flex:0 0 auto;min-width:0;'+(ph?'order:9;flex:1 1 100%;':'')+'background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:7px;padding:2px">'
-          +CHIPS.map(p=>'<button type="button" data-lwchip="'+p[0]+'" title="'+p[2]+'" style="background:transparent;border:0;color:var(--text4);height:22px;padding:0 '+(ph?'4':'7')+'px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:.4px;flex:'+(ph?'1 1 0':'0 0 auto')+'">'+p[1]+'</button>').join('')
+          +CHIPS.filter(p=>p[0]==='sess').map(p=>'<button type="button" data-lwchip="'+p[0]+'" title="'+p[2]+'" style="background:transparent;border:0;color:var(--text4);height:22px;padding:0 '+(ph?'4':'7')+'px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:.4px;flex:'+(ph?'1 1 0':'0 0 auto')+'">'+p[1]+'</button>').join('')
+          // row 79: INDICATORS opens a small menu (TradingView style) - each study is added or removed there, and lives in the legend
+          +'<div style="position:relative;display:flex;flex:'+(ph?'1 1 0':'0 0 auto')+'"><button type="button" data-lwind title="add or remove a study: VWAP, opening range, MFE / MAE" aria-haspopup="true" aria-expanded="false" style="background:transparent;border:0;color:var(--text4);height:22px;padding:0 '+(ph?'4':'7')+'px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:.4px;flex:1 1 auto;white-space:nowrap">INDICATORS &#9662;</button>'
+            +'<div data-lwmenu style="display:none;position:absolute;top:26px;left:0;z-index:30;min-width:200px;background:var(--bg1);border:1px solid var(--border);border-radius:7px;padding:4px;box-shadow:0 8px 24px rgba(0,0,0,.45);flex-direction:column;gap:1px">'
+            +INDS.map(p=>'<button type="button" data-lwchip="'+p[0]+'" title="'+p[2]+'" style="background:transparent;border:0;color:var(--text3);text-align:left;height:26px;padding:0 8px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:.4px;white-space:nowrap"><span data-lwmark style="display:inline-block;width:14px;color:var(--text4)">+</span>'+p[1]+'</button>').join('')+'</div></div>'
           +'<button type="button" data-lwreplay title="replay: hide the bars after the entry; left / right step one bar, Esc leaves" style="background:transparent;border:0;color:var(--text4);height:22px;padding:0 '+(ph?'4':'7')+'px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:.4px;flex:'+(ph?'1 1 0':'0 0 auto')+'">REPLAY</button></div>'
         +(ph?'':'<span data-lwstatus style="font-size:10.5px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0"></span>')+'</div>'
       +'<div data-lwhost style="position:relative;flex:1 1 0;min-height:0;min-width:0;border-radius:6px;overflow:hidden">'
         +'<div data-lwchartel style="position:absolute;inset:0"></div>'
         +'<canvas data-lwoc style="position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none"></canvas>'
         +'<div data-lwlogo title="Built with TradingView Lightweight Charts" style="position:absolute;left:8px;bottom:32px;z-index:4;font-size:9.5px;line-height:14px;color:var(--text5);opacity:.85;cursor:default;user-select:none;text-shadow:0 0 3px var(--bg1)">TradingView</div>'
-        +'<div data-lwro style="position:absolute;left:8px;top:6px;z-index:5;pointer-events:none;font-size:11px;line-height:16px;color:var(--text4);max-width:calc(100% - 90px);text-shadow:0 0 3px var(--bg1),0 0 3px var(--bg1)"></div></div>'
+        +'<div data-lwro style="position:absolute;left:8px;top:6px;z-index:5;pointer-events:none;font-size:11px;line-height:16px;color:var(--text4);max-width:calc(100% - 90px);text-shadow:0 0 3px var(--bg1),0 0 3px var(--bg1)"></div>'
+        +'<div data-lwnote hidden style="position:absolute;left:8px;bottom:50px;z-index:5;pointer-events:none;font-size:10.5px;line-height:14px;color:var(--text4);background:color-mix(in srgb,var(--bg1) 85%,transparent);border:1px solid var(--border);border-radius:5px;padding:3px 7px;max-width:calc(100% - 90px)"></div></div>'
       +'<div data-lwlegend style="flex:0 0 auto;max-height:'+(ph?'18vh':'76px')+';overflow:auto;width:100%"></div>'
       +'<div style="flex:0 0 auto;font-size:9.5px;color:var(--text5);display:flex;gap:8px;justify-content:space-between;min-width:0">'
         +(ph?'<span data-lwstatus style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 0"></span>':'<span style="white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;flex:1 1 0">drag to scroll &middot; wheel or pinch to zoom &middot; drag the price scale to stretch it &middot; double-click it to reset</span>')
@@ -9535,15 +9554,28 @@ window.candleSVG=function(bars,overlays,markers,opts){
       S.chart.priceScale('right').applyOptions({mode:S.log?window.LightweightCharts.PriceScaleMode.Logarithmic:window.LightweightCharts.PriceScaleMode.Normal});syncCtl();};
     ov.querySelector('[data-lwgo]').onclick=()=>goTrade();
     ov.querySelector('[data-lwpng]').onclick=()=>savePng();
-    ov.querySelectorAll('[data-lwchip]').forEach(b=>{b.onclick=()=>{const k=b.getAttribute('data-lwchip');S.on[k]=!S.on[k];
-      try{localStorage.setItem('el_lw_'+k,S.on[k]?'1':'0');}catch(_e){}if(S.chart)draw(k==='sess'?'view':'stay');else syncCtl();};});   // SESS adds / drops bars: hold the time span
+    const setHide=(k,h)=>{S.hide=S.hide||{};S.hide[k]=!!h;try{localStorage.setItem('el_lw_hide_'+k,h?'1':'0');}catch(_e){}if(S.chart)draw('stay');else syncCtl();};
+    const setOn=(k,on)=>{S.on[k]=!!on;try{localStorage.setItem('el_lw_'+k,S.on[k]?'1':'0');}catch(_e){}
+      if(S.on[k]&&S.hide&&S.hide[k]){setHide(k,false);return;}   // adding a study back shows it (setHide redraws)
+      if(S.chart)draw(k==='sess'?'view':'stay');else syncCtl();};   // SESS adds / drops bars: hold the time span
+    S.setOn=setOn;S.setHide=setHide;
+    ov.querySelectorAll('[data-lwchip]').forEach(b=>{b.onclick=()=>{const k=b.getAttribute('data-lwchip');setOn(k,!S.on[k]);};});
+    const menu=ov.querySelector('[data-lwmenu]'),indB=ov.querySelector('[data-lwind]');
+    const menuOpen=()=>!!(menu&&menu.style.display!=='none');const menuShow=v=>{if(!menu)return;menu.style.display=v?'flex':'none';if(indB)indB.setAttribute('aria-expanded',v?'true':'false');};S.menuShow=menuShow;
+    if(indB)indB.onclick=e=>{e.stopPropagation();menuShow(!menuOpen());};
+    ov.addEventListener('pointerdown',e=>{if(menuOpen()&&!e.target.closest('[data-lwmenu]')&&!e.target.closest('[data-lwind]'))menuShow(false);},true);
+    // the legend rows (row 79): the eye hides / shows a study, the x removes it (INDICATORS adds it back); the session x = RTH
+    ov.querySelector('[data-lwro]').addEventListener('click',e=>{const b=e.target.closest('[data-lwact]');if(!b)return;e.preventDefault();e.stopPropagation();
+      const k=b.getAttribute('data-lwk'),a=b.getAttribute('data-lwact');if(a==='eye')setHide(k,!(S.hide&&S.hide[k]));else setOn(k,false);});
+    const tvB=ov.querySelector('[data-lwtv]');if(tvB)tvB.onclick=()=>{if(!window.tvOpenChart||!S.x)return;
+      window.tvOpenChart('QQQ',S.tf,String(S.x._et||'').slice(0,16),null);};
     ov.querySelector('[data-lwreplay]').onclick=()=>{if(S.replay)replayOff();else replayOn();};
     S.focusBack=document.activeElement;
     document.body.appendChild(ov);
     S.bodyOv=document.body.style.overflow;document.body.style.overflow='hidden';
     try{ov.querySelector('[data-lwclose]').focus({preventScroll:true});}catch(_e){}
     S.key=e=>{if(!alive())return;
-      if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();if(S.replay)replayOff();else close();}
+      if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();const mn=S.ov&&S.ov.querySelector('[data-lwmenu]');if(mn&&mn.style.display!=='none'){S.menuShow(false);return;}if(S.replay)replayOff();else close();}
       else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
         e.preventDefault();e.stopImmediatePropagation();step(e.key==='ArrowLeft'?-1:1);}};
     document.addEventListener('keydown',S.key,true);
@@ -9555,7 +9587,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const lg=S.ov.querySelector('[data-lwlog]');if(lg){lg.style.color=S.log?'var(--text)':'var(--text3)';lg.style.borderColor=S.log?'var(--text4)':'var(--border)';}
     S.ov.querySelectorAll('[data-lwchip]').forEach(b=>{const k=b.getAttribute('data-lwchip'),on=!!(S.on&&S.on[k]);
       if(k==='sess'){b.textContent=on?'ETH':'RTH';b.style.background='var(--bg2)';b.style.color='var(--text)';b.style.fontWeight='700';b.setAttribute('aria-pressed',on?'true':'false');return;}   // a toggle: always lit, the word is the state
-      b.style.background=on?'var(--bg2)':'transparent';b.style.color=on?'var(--text)':'var(--text4)';b.style.fontWeight=on?'700':'400';b.setAttribute('aria-pressed',on?'true':'false');});
+      const mk=b.querySelector('[data-lwmark]');if(mk)mk.textContent=on?'\u2713':'+';   // a menu item: check = on the chart, + = add it
+      b.style.color=on?'var(--text)':'var(--text3)';b.style.fontWeight=on?'700':'400';b.setAttribute('aria-pressed',on?'true':'false');});
+    const ib=S.ov.querySelector('[data-lwind]');if(ib){const any=INDS.some(p=>S.on&&S.on[p[0]]);ib.style.background=any?'var(--bg2)':'transparent';ib.style.color=any?'var(--text)':'var(--text4)';ib.style.fontWeight=any?'700':'400';}
     const rp=S.ov.querySelector('[data-lwreplay]');if(rp){rp.style.background=S.replay?'var(--bg2)':'transparent';rp.style.color=S.replay?'var(--text)':'var(--text4)';rp.style.fontWeight=S.replay?'700':'400';rp.setAttribute('aria-pressed',S.replay?'true':'false');}
     S.ov.querySelectorAll('[data-lwstep]').forEach(b=>{const k=+b.getAttribute('data-lwstep');b.title=S.replay?(k<0?'one bar back (left arrow)':'one bar on (right arrow)'):(k<0?'previous trade (left arrow)':'next trade (right arrow)');});
     const rows=rowsOf(),i=rowIdx(rows);const pe=S.ov.querySelector('[data-lwpos]');if(pe)pe.textContent=(i>=0?(i+1):'?')+' / '+rows.length;};
@@ -9573,13 +9607,30 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const b=S.bars||[],j=b.indexOf(bar),pv=j>0?b[j-1].close:bar.open,ch=bar.close-pv,cp=pv?ch/pv*100:0,c=pnlCol(ch);
     const d=new Date(bar.time*1000),dt=pad2(d.getUTCMonth()+1)+'/'+pad2(d.getUTCDate())+(TFMIN[S.tf]>=1440?'':(' '+pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes())));
     const k=(l,v)=>'<span style="color:var(--text5)">'+l+'</span> <span style="color:'+c+'">'+v+'</span>';
-    ro.innerHTML='<b style="color:var(--text2)">QQQ</b> <span style="color:var(--text4)">'+S.tf+' '+dt+'</span> '
+    const hid=S.hide||{},on=S.on||{},f2=v=>v==null?'&mdash;':(+v).toFixed(2);
+    // one legend row per study on the chart (TradingView style): name, its value on this bar, the eye (hide / show), the x (remove)
+    const eye=h=>'<svg viewBox="0 0 24 24" width="12" height="12" fill="none" stroke="currentColor" stroke-width="2" style="vertical-align:-2px"><path d="M1 12s4-7 11-7 11 7 11 7-4 7-11 7S1 12 1 12z"/><circle cx="12" cy="12" r="3"/>'+(h?'<path d="M3 3l18 18"/>':'')+'</svg>';
+    const row=(key,name,val,colr)=>{const h=!!hid[key];const bt='background:transparent;border:0;padding:0 3px;cursor:pointer;color:var(--text4);font-family:inherit;font-size:11px;line-height:16px;pointer-events:auto';
+      return '<div data-lwlg="'+key+'" style="display:flex;align-items:center;gap:4px;opacity:'+(h?'.45':'1')+'"><span style="color:'+(colr||'var(--text3)')+'">'+name+'</span>'
+        +(val?' <span style="color:var(--text3)">'+val+'</span>':'')
+        +'<button type="button" data-lwact="eye" data-lwk="'+key+'" title="'+(h?'show':'hide')+' '+name+'" style="'+bt+'">'+eye(h)+'</button>'
+        +'<button type="button" data-lwact="x" data-lwk="'+key+'" title="remove '+name+(key==='sess'?' (regular session only)':' (INDICATORS adds it back)')+'" style="'+bt+'">&#10005;</button></div>';};
+    const dd=dayOf(bar.time),ob=(S.orbs||[]).find(o=>o.d===dd),e=S.exc,sn=sessOf(minuteOf(bar.time));
+    let rows='';
+    if(on.sess)rows+=row('sess','Session',(TFMIN[S.tf]>=1440?'ETH':({pre:'pre-market',rth:'regular 09:30-16:00',post:'after-hours'}[sn]||sn))+' <span style="color:var(--text5)">ETH</span>');
+    if(on.vwap)rows+=row('vwap','VWAP',f2(S.vwAt&&S.vwAt[bar.time]),mono()?'var(--text3)':'var(--vwap)');
+    if(on.orb)rows+=row('orb','OR',ob?('5m '+f2(ob.h5)+' / '+f2(ob.l5)+' &middot; 15m '+f2(ob.h15)+' / '+f2(ob.l15)):'&mdash;');
+    if(on.mfe)rows+=row('mfe','MFE / MAE',e?('<span style="color:'+pnlCol(1)+'">'+(e.favPts>=0?'+':'')+e.favPts.toFixed(2)+'</span> / <span style="color:'+pnlCol(-1)+'">'+(e.advPts>=0?'+':'')+e.advPts.toFixed(2)+'</span> pts'):'&mdash;');
+    ro.innerHTML='<b style="color:var(--text2)">QQQ</b> <span style="color:var(--text4)">&middot; '+S.tf+' &middot; '+dt+'</span> '
       +[k('O',bar.open.toFixed(2)),k('H',bar.high.toFixed(2)),k('L',bar.low.toFixed(2)),k('C',bar.close.toFixed(2))].join(' ')
       +' <span style="color:'+c+'">'+(ch>=0?'+':'')+ch.toFixed(2)+' ('+(ch>=0?'+':'')+cp.toFixed(2)+'%)</span><br>'
       +'<span style="color:var(--text5)">Vol</span> <span style="color:var(--text3)">'+fv(bar.volume)+'</span>'
-      +((S.on&&S.on.vwap&&S.vwAt&&S.vwAt[bar.time]!=null)?' <span style="color:var(--text5)">VWAP</span> <span style="color:var(--text3)">'+S.vwAt[bar.time].toFixed(2)+'</span>':'')
       // row 62: a stop that moved - what it was on this bar (inside the trade)
-      +((S.lv&&S.lv.ladder&&S.eI!=null&&j>=S.eI&&(S.xI==null||j<=S.xI))?' <span style="color:var(--text5)">stop was</span> <span style="color:var(--text3)">'+(stopAt(S.lv,bar.time,TFMIN[S.tf]||1)||0).toFixed(2)+'</span>':'');};
+      +((S.lv&&S.lv.ladder&&S.eI!=null&&j>=S.eI&&(S.xI==null||j<=S.xI))?' <span style="color:var(--text5)">stop was</span> <span style="color:var(--text3)">'+(stopAt(S.lv,bar.time,TFMIN[S.tf]||1)||0).toFixed(2)+'</span>':'')
+      +rows;};
+  // row 79: ETH asked but the trade's day has no extended-hours bars yet - say so on the chart (the bars shown are the regular session)
+  const ethNote=()=>{const e=S.ov&&S.ov.querySelector('[data-lwnote]');if(!e)return;const d0=String(S.x&&S.x._et||'').slice(0,10),D=S.days&&S.days[d0];
+    const show=!!(S.on&&S.on.sess&&D&&!(D.ext&&D.ext.length));e.hidden=!show;if(show)e.textContent='no extended-hours bars for this day yet \u00b7 showing the regular session';};
 
   const minuteBars=()=>{const ds=Object.keys(S.days).sort(),ext=!!(S.on&&S.on.sess);let M=[];
     ds.forEach(d=>{const D=S.days[d];if(ext&&D.ext&&D.ext.length){const pre=D.ext.filter(b=>minOf(b.t)<ANCHOR),post=D.ext.filter(b=>minOf(b.t)>=960);M=M.concat(pre,D.bars,post);}else M=M.concat(D.bars);});return M;};
@@ -9601,7 +9652,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
     S.cs.setData(S.bars.map(b=>({time:b.time,open:b.open,high:b.high,low:b.low,close:b.close})));
     S.vs.setData(S.bars.map(b=>({time:b.time,value:b.volume,color:b.close>=b.open?ua:da})));
     S.mk=marksOf();if(S.mk&&window._qbFillsFromMarks)window._qbFillsFromMarks(S.x,S.mk);
-    S.cs.setMarkers(markerSpec(S.x,S.mk,S.bars,n,!!S.replay).map(m=>({time:m.time,position:m.position,shape:m.shape,color:col(m.color),text:m.text,size:m.size||1})));
+    // the signal bars (owner 10-31 14:20): not a floating dot - a small flag drawn on the overlay, anchored to the bar
+    const MK=markerSpec(S.x,S.mk,S.bars,n,!!S.replay);S.flags=MK.filter(m=>m.flag).map(m=>({i:snap(S.bars,m.time),above:m.position==='aboveBar',text:m.flag})).filter(f=>f.i!=null);
+    S.cs.setMarkers(MK.filter(m=>!m.flag).map(m=>({time:m.time,position:m.position,shape:m.shape,color:col(m.color),text:m.text,size:m.size||1})));
     (S.pl||[]).forEach(p=>{try{S.cs.removePriceLine(p);}catch(_e){}});S.pl=[];
     const ls=lineSpec(S.x).filter(l=>!(S.xHide&&(l.key==='exit'||l.key==='book-exit')));S.linePx=ls.map(l=>l.price);
     ls.forEach(l=>{S.pl.push(S.cs.createPriceLine({price:l.price,color:col(l.col),lineWidth:l.width||1,lineStyle:l.style,axisLabelVisible:true,title:l.title}));});
@@ -9622,7 +9675,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
       S.pl.push(S.cs.createPriceLine({price:p,color:S.th.text5,lineWidth:1,lineStyle:l.dash===false?0:2,axisLabelVisible:true,title:String(l.label||'level')}));});
     [S.lv.stop,S.lv.target].forEach(v=>{if(v!=null)S.linePx.push(v);});(S.lv.ladder||[]).forEach(p=>S.linePx.push(p.px));
     // VWAP (row 71): cumulative typical price x volume over the minute bars, fresh each day and again at the 09:30 open
-    S.vwAt={};if(S.vw){let vd=[];if(S.on.vwap&&n<1440){let d=null,sess=null,pv=0,vv=0,cur=null;
+    S.vwAt={};if(S.vw){let vd=[];if(vis('vwap')&&n<1440){let d=null,sess=null,pv=0,vv=0,cur=null;
         for(const b of S.M){const dd=String(b.t).slice(0,10),m=minOf(b.t),s=m<ANCHOR?0:1,bt=bucket(b.t,n);if(bt==null||s===0)continue;   // pre-market: no VWAP (anchored 09:30)
           if(dd!==d||s!==sess){d=dd;sess=s;pv=0;vv=0;}const v=+b.v||0;pv+=(+b.h+ +b.l+ +b.c)/3*v;vv+=v;if(!vv)continue;
           if(lastT!=null&&bt>lastT)break;const val=pv/vv;if(cur&&cur.time===bt)cur.value=val;else{cur={time:bt,value:val};vd.push(cur);}}}
@@ -9641,7 +9694,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     else if(keep==='view'&&vr){const a=snap(S.bars,vr.from),b=snap(S.bars,vr.to);
       if(a!=null&&b!=null&&b-a>=20)setRange(a,b+0.5);else goTrade();}
     else if(keep!=='stay')goTrade();
-    legendStrip();readout(null);syncCtl();info();};
+    legendStrip();readout(null);ethNote();syncCtl();info();};
   // the entry or exit bar on screen (the auto scale then keeps every trade line in view)
   // (read from the last range the library reported - the auto scale calls this while the library is mid-update, where asking
   // the chart for its range would disturb the update)
@@ -9663,13 +9716,13 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const hline=(xa,xb,y,colr,dash,wd)=>{g.strokeStyle=colr;g.lineWidth=wd||1;g.setLineDash(dash||[]);g.beginPath();g.moveTo(xa,y);g.lineTo(xb,y);g.stroke();g.setLineDash([]);};
     const sgn=v=>(v>=0?'+':'')+v.toFixed(2);
     // sessions (row 67): pre-market and after-hours dimmed; dashed lines at the 09:30 open and the 16:00 close
-    if(on.sess&&n<1440){(S.runs||[]).forEach(r=>{const a=xL(r.i0),b=xR(r.i1);if(b<0||a>pw)return;
+    if(vis('sess')&&n<1440){(S.runs||[]).forEach(r=>{const a=xL(r.i0),b=xR(r.i1);if(b<0||a>pw)return;
         if(r.s!=='rth'){g.fillStyle=rgba(th.text4,mo?0.08:0.07);g.fillRect(a,0,b-a,ph);}
         else{g.strokeStyle=rgba(th.text4,0.55);g.lineWidth=1;g.setLineDash([3,3]);
           if(minuteOf(B[r.i0].time)<ANCHOR+n){g.beginPath();g.moveTo(a,0);g.lineTo(a,ph);g.stroke();}
           if(minuteOf(B[r.i1].time)+n>=960){g.beginPath();g.moveTo(b,0);g.lineTo(b,ph);g.stroke();}g.setLineDash([]);}});}
     // the opening range (row 71): the first 5 and the first 15 minutes of the regular session, boxed to the close
-    if(on.orb&&n<1440){const oc=th.text4;/* muted grey: a study, not a trade level */(S.orbs||[]).forEach(o=>{const b=xR(o.iEnd);
+    if(vis('orb')&&n<1440){const oc=th.text4;/* muted grey: a study, not a trade level */(S.orbs||[]).forEach(o=>{const b=xR(o.iEnd);
         const box=(hi,lo,i0,alpha,name,right)=>{if(hi==null||lo==null)return;const y0=yOf(hi),y1=yOf(lo),xa=xL(i0);if(y0==null||y1==null||b<0||xa>pw)return;
           g.fillStyle=rgba(oc,alpha);g.fillRect(xa,y0,b-xa,y1-y0);g.strokeStyle=rgba(oc,0.5);g.lineWidth=1;g.setLineDash([2,3]);g.strokeRect(xa+0.5,y0+0.5,Math.max(0,b-xa-1),Math.max(0,y1-y0-1));g.setLineDash([]);
           label(name+' '+hi.toFixed(2),right?b-3:xa+3,y0-7,right?'right':'left',oc);label(name+' '+lo.toFixed(2),right?b-3:xa+3,y1+7,right?'right':'left',oc);};
@@ -9687,10 +9740,16 @@ window.candleSVG=function(bars,overlays,markers,opts){
         for(let i=eI;i<=jEnd;i++){const y=yOf(stopAt(lv,B[i].time,n));if(y==null)continue;if(!st){g.moveTo(xL(i),y);st=true;}else g.lineTo(xL(i),y);g.lineTo(xR(i),y);}
         g.stroke();const lp=lv.ladder[lv.ladder.length-1].px;if(lp!==lv.stop){const y=yOf(lp);if(y!=null)label('stop moved to '+lp.toFixed(2),b-3,y+(y<(yE||0)?-8:8),'right',mo?th.text:th.red);}}}
     // MFE / MAE (row 72): the best and the worst price while in the trade, shaded from the entry
-    if(on.mfe&&S.exc&&eI!=null&&ep!=null){const e=S.exc,a=xL(eI),b=xR(jEnd),yE=yOf(ep);
+    if(vis('mfe')&&S.exc&&eI!=null&&ep!=null){const e=S.exc,a=xL(eI),b=xR(jEnd),yE=yOf(ep);
       const ex=(px,pts,colr,name,alpha)=>{const y=yOf(px);if(y==null||yE==null)return;g.fillStyle=rgba(colr,alpha);g.fillRect(a,Math.min(y,yE),b-a,Math.abs(y-yE));hline(a,b,y,rgba(colr,0.9),[4,2],1);
         label(name+' '+px.toFixed(2)+'  '+sgn(pts)+' pts'+(sh?'  '+(pts*sh>=0?'+':'')+money(pts*sh):''),a+3,y+(y<yE?-8:8),'left',colr);};
       ex(e.fav,e.favPts,th.green,'MFE',mo?0.05:0.07);ex(e.adv,e.advPts,th.red,'MAE',mo?0.2:0.07);}
+    // the signal flags: a short stem from the bar's high (or low) and a muted grey label - TradingView style, nothing floats
+    (S.flags||[]).forEach(f=>{const b=B[f.i];if(!b)return;const x=xOf(f.i);if(x==null||x<-10||x>pw+10)return;const y=yOf(f.above?b.high:b.low);if(y==null)return;
+      const y1=f.above?y-10:y+10,y2=f.above?y1-9:y1+9;g.strokeStyle=rgba(th.text4,0.9);g.lineWidth=1;g.setLineDash([]);g.beginPath();g.moveTo(x,f.above?y-2:y+2);g.lineTo(x,y1);g.stroke();
+      g.font='9.5px '+th.font;const w=g.measureText(f.text).width+6,xx=Math.max(2,Math.min(pw-w-2,x-w/2));
+      g.fillStyle=rgba(th.text4,mo?0.22:0.18);g.fillRect(xx,y2-7,w,14);g.strokeStyle=rgba(th.text4,0.6);g.strokeRect(xx+0.5,y2-6.5,w-1,13);
+      g.fillStyle=th.text3;g.textAlign='left';g.fillText(f.text,xx+3,y2);g.font='10px '+th.font;});
     // replay: the cursor bar
     if(S.replay&&B.length){const xr=xR(B.length-1);g.strokeStyle=rgba(th.text3,0.8);g.lineWidth=1;g.setLineDash([2,2]);g.beginPath();g.moveTo(xr,0);g.lineTo(xr,ph);g.stroke();g.setLineDash([]);}
     g.restore();};
@@ -9785,7 +9844,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     S.replay=false;S.cut=null;S.lv=null;S.exc=null;S.runs=[];S.orbs=[];S.vwAt={};S.dirty=true;
     header();syncCtl();status('<b style="color:var(--text3)">loading this trade&#39;s candles from the box&hellip;</b>');
     if(S.cs){S.cs.setData([]);S.vs.setData([]);if(S.bs)S.bs.setData([]);if(S.vw)S.vw.setData([]);S.cs.setMarkers([]);(S.pl||[]).forEach(p=>{try{S.cs.removePriceLine(p);}catch(_e){}});S.pl=[];autoY();}
-    const lg=S.ov.querySelector('[data-lwlegend]');if(lg)lg.innerHTML='';readout(null);
+    S.flags=[];const lg=S.ov.querySelector('[data-lwlegend]');if(lg)lg.innerHTML='';readout(null);const nt=S.ov.querySelector('[data-lwnote]');if(nt)nt.hidden=true;
     const d0=String(x._et||'').slice(0,10),d1=String(x._xt2||x._et||'').slice(0,10)||d0;
     const want=[];let d=d0;for(let k=0;k<12&&d<=d1&&want.length<6;k++){if(isWd(d))want.push(d);d=addDay(d,1);}
     const rs=await Promise.all(want.map(dayBars));
@@ -9804,7 +9863,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     if(alive()&&S.chart){loadTrade(x);return;}
     if(alive())close();
     S.ctx=ctx||null;S.x=x;S.th=theme();try{S.log=localStorage.getItem('el_lw_log')==='1';}catch(_e){}
-    S.on={};CHIPS.forEach(p=>{S.on[p[0]]=chipOn(p[0]);});S.replay=false;S.cut=null;
+    S.on={};S.hide={};CHIPS.forEach(p=>{S.on[p[0]]=chipOn(p[0]);S.hide[p[0]]=chipHid(p[0]);});S.replay=false;S.cut=null;
     let tf='1m';try{const t=localStorage.getItem('el_lw_tf');if(t&&TFMIN[t])tf=t;}catch(_e){}
     // a hold too long to read on 1-minute bars at this width opens on 5 (the 1M chip is one tap away)
     if(tf==='1m'&&window._qbFitTf&&window._qbFitTf(x,window.innerWidth||1024)!=='1m')tf='5m';
@@ -9842,8 +9901,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
         (S.linePx||[]).forEach(v=>{if(v!=null&&isFinite(v)){if(v<lo)lo=v;if(v>hi)hi=v;}});return {priceRange:{minValue:lo,maxValue:hi},margins:r.margins};}}catch(_e){}return r;}});
     S.vs=C.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol',lastValueVisible:false,priceLineVisible:false});
     C.priceScale('vol').applyOptions({scaleMargins:{top:0.8,bottom:0}});
-    // VWAP (row 71): a thin line on the price scale, no axis tag (the readout shows its value)
-    S.vw=C.addLineSeries({color:mono()?rgba(th.text3,0.9):th.yellow,lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false,
+    // VWAP (row 71 + 79): a thin line in the theme's VWAP colour (TradingView's orange; grey on MONO) with its tag on the price axis
+    S.vw=C.addLineSeries({color:mono()?rgba(th.text3,0.9):th.vwap,lineWidth:1,lastValueVisible:true,priceLineVisible:false,crosshairMarkerVisible:false,title:'VWAP',
       priceFormat:{type:'price',precision:2,minMove:0.01},autoscaleInfoProvider:()=>null});
     S.oc=ov.querySelector('[data-lwoc]');S.dirty=true;S.raf=requestAnimationFrame(watch);
     C.subscribeCrosshairMove(p=>{if(!alive())return;const d=p&&p.seriesData?p.seriesData.get(S.cs):null;
@@ -16961,20 +17020,20 @@ function _hmWireToolbar(root){
 // box asks - TradingView is ONE live session and opening a chart here takes it over.
 const _HM_TV_FUT={MNQ:'CME_MINI:MNQ1!',NQ:'CME_MINI:NQ1!',MES:'CME_MINI:MES1!',ES:'CME_MINI:ES1!',M2K:'CME_MINI:M2K1!',RTY:'CME_MINI:RTY1!',
   MYM:'CBOT_MINI:MYM1!',YM:'CBOT_MINI:YM1!',MCL:'NYMEX:MCL1!',CL:'NYMEX:CL1!',MGC:'COMEX:MGC1!',GC:'COMEX:GC1!'};
-const _HM_TV_IV={'5s':'5S','10s':'10S','15s':'15S','30s':'30S','1m':'1','2m':'2','3m':'3','5m':'5','10m':'10','15m':'15','30m':'30','1h':'60','2h':'120','4h':'240','Daily':'D','Weekly':'W'};
+const _HM_TV_IV={'5s':'5S','10s':'10S','15s':'15S','30s':'30S','1m':'1','2m':'2','3m':'3','5m':'5','10m':'10','15m':'15','30m':'30','1h':'60','2h':'120','4h':'240','D':'D','Daily':'D','Weekly':'W'};
 function _hmTvTf(t){const l=(typeof tfList==='function')?tfList(t&&t.timeframe):[];const f=l.find(x=>_HM_TV_IV[x]);return f||'1m';}
-function _hmTvUrl(t){const s=String((t&&t.symbol)||'').toUpperCase().trim().split(/\s+/)[0];
-  return 'https://www.tradingview.com/chart/?symbol='+encodeURIComponent(_HM_TV_FUT[s]||s)+'&interval='+(_HM_TV_IV[_hmTvTf(t)]||'1');}
+function _hmTvUrl(t,tf){const s=String((t&&t.symbol)||'').toUpperCase().trim().split(/\s+/)[0];
+  return 'https://www.tradingview.com/chart/?symbol='+encodeURIComponent(_HM_TV_FUT[s]||s)+'&interval='+(_HM_TV_IV[tf||_hmTvTf(t)]||'1');}
 // w70: the one-session warning. A small in-page box, not the browser's own confirm; OPEN
 // resolves true, CANCEL / Esc / backdrop false. Nothing opens until the owner says so.
-function _hmTvAsk(t){return new Promise(res=>{
+function _hmTvAsk(t,tf){tf=tf||_hmTvTf(t);return new Promise(res=>{
   document.querySelectorAll('.hm-tv-ask').forEach(x=>x.remove());
   const box=document.createElement('div');box.className='hm-tv-ask';
   box.style.cssText='position:fixed;inset:0;z-index:10060;background:rgba(0,0,0,0.6);display:flex;align-items:center;justify-content:center;padding:16px';
   box.innerHTML='<div style="background:var(--bg1);border:1px solid var(--border);padding:18px 20px;max-width:380px;width:100%;font-size:12px;line-height:1.6;color:var(--text2)">'
     +'<div style="font-size:13px;color:var(--text);margin-bottom:6px;letter-spacing:.6px">OPEN IN TRADINGVIEW</div>'
     +'This takes over your one TradingView session - open?'
-    +'<div style="color:var(--text4);font-size:10px;margin-top:4px">'+_hmEsc(String(t.symbol||''))+' on the '+_hmEsc(_hmTvTf(t))+' chart. Close a live TradingView chart first if you have one open.</div>'
+    +'<div style="color:var(--text4);font-size:10px;margin-top:4px">'+_hmEsc(String(t.symbol||''))+' on the '+_hmEsc(tf)+' chart. Close a live TradingView chart first if you have one open.</div>'
     +'<div style="display:flex;gap:8px;justify-content:flex-end;margin-top:14px"><button type="button" class="hm-tv-no" style="background:none;border:1px solid var(--border);color:var(--text3);font-family:inherit;padding:5px 12px;cursor:pointer;letter-spacing:1px">CANCEL</button>'
     +'<button type="button" class="hm-tv-yes" style="background:var(--text);border:1px solid var(--text);color:var(--bg);font-family:inherit;padding:5px 12px;cursor:pointer;letter-spacing:1px">OPEN</button></div></div>';
   const done=v=>{box.remove();document.removeEventListener('keydown',onKey);res(v);};
@@ -16987,13 +17046,21 @@ function _hmTvAsk(t){return new Promise(res=>{
   box.querySelector('.hm-tv-yes').focus();
 });}
 function _hmTradeLbl(t){return String(t.symbol||'')+' '+String(t.type||'')+' '+String(t.date||'').slice(5).replace('-','/')+' '+String(t.entryTime||'').slice(0,5);}
+// w70 on every board: ANY trade (HOME ledger, Webull paper, the Lightweight chart's own TV button) goes through the same
+// ask -> copy the time -> open on the timeframe path. sym = the symbol as written (QQQ, NQ, ...), tf = a timeframe name
+// ('1m', '5m', 'D', ...; one the map does not know falls back to 1-minute), when = 'YYYY-MM-DD HH:MM'. Resolves true when it opened.
+window.tvOpenChart=async function(sym,tf,when,hintEl){
+  const t={symbol:String(sym||'')};tf=_HM_TV_IV[tf]?tf:'1m';
+  if(!(await _hmTvAsk(t,tf)))return false;
+  when=String(when||'');
+  try{if(when&&navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(when).catch(()=>{});}catch(e){}
+  window.open(_hmTvUrl(t,tf),'_blank','noopener');
+  if(hintEl){hintEl.style.display='block';hintEl.innerHTML='TradingView opens on the '+_hmEsc(tf)+' '+_hmEsc(t.symbol)+' chart. <b>'+_hmEsc(when)+'</b> is copied: press <b>Alt+G</b> there and paste it to jump to this trade (TradingView has no link that opens at a time).';}
+  return true;
+};
 window.hmOpenInTv=async function(id,hintEl){
   const t=trades.find(x=>String(x.id)===String(id));if(!t)return;
-  if(!(await _hmTvAsk(t)))return;
-  const when=t.date+' '+String(t.entryTime||'').slice(0,5);
-  try{if(navigator.clipboard&&navigator.clipboard.writeText)navigator.clipboard.writeText(when).catch(()=>{});}catch(e){}
-  window.open(_hmTvUrl(t),'_blank','noopener');
-  if(hintEl){hintEl.style.display='block';hintEl.innerHTML='TradingView opens on the '+_hmEsc(_hmTvTf(t))+' '+_hmEsc(String(t.symbol||''))+' chart. <b>'+_hmEsc(when)+'</b> is copied: press <b>Alt+G</b> there and paste it to jump to this trade (TradingView has no link that opens at a time).';}
+  return window.tvOpenChart(t.symbol,_hmTvTf(t),t.date+' '+String(t.entryTime||'').slice(0,5),hintEl);
 };
 // PASTE BOX: a pasted snapshot link goes on the newest trade that has no chart link yet (by trade
 // date and time, not by when you paste - a snapshot made days later still lands on the newest
@@ -44540,9 +44607,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                     {k:'numbers',html:t._missed?qbMissedNumbers(t):qbPanelNumbers(t,key)},
                     {k:'notes',html:qbPanelNotes(t)},
                     {k:'actions',sig:'actions|'+fig,
-                      html:(row._et?'<button type="button" data-qbpcandles title="open the full candle viewer for this trade: zoom, pan, step through the trades, save a picture">OPEN CANDLES &#8599;</button>':'')
-                        +'<div class="lg-panel-hint">'+(row._et?'':'This trade has no usable entry time, so there is nothing to centre a chart on. ')+'Nothing here changes the trade.</div>',
-                      render:el=>{el.querySelectorAll('[data-qbpcandles]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();qbOpenCandles(row,b);};});}}],
+                      html:(row._et?'<button type="button" data-qbpcandles title="open the full candle viewer for this trade: zoom, pan, step through the trades, save a picture">OPEN CANDLES &#8599;</button>'
+                          // w70: the same ask -> copy the time -> open path as HOME, on the chart's remembered timeframe
+                          +'<button type="button" data-qbptv title="asks first, then opens QQQ in TradingView on the chart&#39;s timeframe and copies the entry time for Alt+G (TradingView is one live session)">OPEN IN TV &#8599;</button>':'')
+                        +'<div class="lg-panel-hint">'+(row._et?'':'This trade has no usable entry time, so there is nothing to centre a chart on. ')+'Nothing here changes the trade.</div>'
+                        +'<div class="lg-panel-hint" data-qbptvhint style="display:none"></div>',
+                      render:el=>{el.querySelectorAll('[data-qbpcandles]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();qbOpenCandles(row,b);};});
+                        el.querySelectorAll('[data-qbptv]').forEach(b=>{b.onclick=ev=>{ev.stopPropagation();if(!window.tvOpenChart)return;let tf='1m';try{tf=localStorage.getItem('el_lw_tf')||'1m';}catch(_e){}
+                          window.tvOpenChart('QQQ',tf,String(row._et||'').slice(0,16),el.querySelector('[data-qbptvhint]'));};});}}],
                   onClose:()=>{if(String(window._qbPanelKey)===key)window._qbPanelKey=null;}};
               };
               window._qbPanelSpec=qbPanelSpec;
