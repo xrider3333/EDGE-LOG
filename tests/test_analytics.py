@@ -102,7 +102,7 @@ def test_deflated_sharpe_needs_eight_samples():
 def test_deflated_sharpe_normal_case():
     srs = [0.1, 0.2, -0.1, 0.15, 0.05, -0.05, 0.12, 0.3, 0.0, 0.22]
     ds = A.deflated_sharpe(_winner(), srs, 50, 1.0)
-    assert set(ds) == {"winner_sharpe", "luck_bar", "dsr", "n_cfg", "verdict"}
+    assert set(ds) >= {"winner_sharpe", "luck_bar", "dsr", "n_cfg", "verdict"}   # C9 adds inputs
     assert 0.0 <= ds["dsr"] <= 1.0
     assert ds["luck_bar"] > ds["winner_sharpe"] or ds["dsr"] < 1.0   # luck bar is meaningful
 
