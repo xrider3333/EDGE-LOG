@@ -8591,6 +8591,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
   // v73.x (Webull paper candles): a marker's price joins the auto-fit so a fill a few
   // cents outside the bars still shows. No points = nothing changes (run reports).
   (Array.isArray(markers.points)?markers.points:[]).forEach(pt=>{const v=+pt.price;if(pt.price!=null&&isFinite(v)&&+pt.i>=0&&+pt.i<n){if(v>hi)hi=v;if(v<lo)lo=v;}});
+  // w65 (owner 10-31): a stop, target or stop-ladder step joins the auto-fit too, so the
+  // risk zone is never drawn off the top or bottom of the plot. None given = nothing changes.
+  [markers.stopPrice,markers.targetPrice].concat((Array.isArray(markers.stops)?markers.stops:[]).map(x=>x&&x.px)).forEach(v=>{v=+v;if(isFinite(v)&&v>0){if(v>hi)hi=v;if(v<lo)lo=v;}});
   const pad=(hi-lo)*0.06||1;
   lo-=pad;hi+=pad;
   // v73.20: the price axis is normally auto-fitted to whatever bars are on screen. A
@@ -8764,6 +8767,74 @@ window.candleSVG=function(bars,overlays,markers,opts){
       out+='<circle cx="'+x+'" cy="'+y+'" r="4" fill="'+_pc+'" stroke="var(--bg)" stroke-width="1.2"/>';
       const right=(x+70)<=_plotR;
       if(!markers.hidePosLabels)out+=_plate(right?(x+8):(x-8),y+3,'exit '+markers.exitPrice.toLocaleString('en-US'),_pc,right?'start':'end',true);
+    }
+  }
+
+  // ── STOP / TARGET / STOP LADDER (w65, owner 10-31: "stops are dynamic") ────────────
+  // INPUT SHAPE (optional, all three independent; absent = not one byte of output changes):
+  //   markers.stopPrice   number   - the initial stop. Red dashed line + a red zone from the
+  //                                  entry price to the stop, across the trade's bars.
+  //   markers.targetPrice number   - the target. Green dashed line + a green zone from the
+  //                                  entry price to the target, across the trade's bars.
+  //   markers.stops       [{t,px}] - a stop ladder, oldest first: t = the bar time string
+  //                                  exactly as bars[].t carries it (or i = a bar index),
+  //                                  px = the stop from that bar on. Drawn as a STEP line:
+  //                                  flat at px from that bar until the next step, then a
+  //                                  vertical join; the last step runs to the exit bar (or
+  //                                  the right edge). The first step also sets the red zone
+  //                                  when stopPrice is absent.
+  //   The NT8 / real-data side sends exactly these fields on the same markers object it
+  //   already fills with entryIdx/entryPrice/exitIdx/exitPrice/side/pnlUsd.
+  // MONO theme: --green is white and --red grey, so each line also carries a text plate
+  // ("stop 1234.5", "target 1240") and the ladder is labelled "stop ->" at its first step.
+  const _mStops=(Array.isArray(markers.stops)?markers.stops:[]).map(st=>{
+    if(!st)return null;const px=+st.px;if(!isFinite(px))return null;
+    let i=(st.i!=null&&isFinite(+st.i))?Math.floor(+st.i):-1;
+    if(i<0&&st.t!=null){const tt=String(st.t);i=bars.findIndex(b=>b&&String(b.t)===tt);
+      if(i<0){for(let k=0;k<n;k++){if(bars[k]&&String(bars[k].t)>tt){i=Math.max(0,k-1);break;}}}}
+    return (i>=0&&i<n)?{i,px}:null;}).filter(Boolean).sort((a,b)=>a.i-b.i);
+  const _mStop=(markers.stopPrice!=null&&isFinite(+markers.stopPrice))?+markers.stopPrice:(_mStops.length?_mStops[0].px:null);
+  const _mTgt=(markers.targetPrice!=null&&isFinite(+markers.targetPrice))?+markers.targetPrice:null;
+  if(_mStop!=null||_mTgt!=null||_mStops.length){
+    const _yClamp=v=>Math.max(margin.t,Math.min(margin.t+plotH,v));
+    // the zone and the lines span the trade's own bars when they are known, else the plot
+    let zx0=margin.l,zx1=_plotR;
+    if(_mE&&_mX){zx0=margin.l+Math.min(markers.entryIdx,markers.exitIdx)*xStep;zx1=margin.l+(Math.max(markers.entryIdx,markers.exitIdx)+1)*xStep;}
+    else if(_mE){zx0=margin.l+markers.entryIdx*xStep;}
+    if(zx1-zx0<9){const c=(zx0+zx1)/2;zx0=c-4.5;zx1=c+4.5;}
+    const yEnt=_mE?yScale(markers.entryPrice):null;
+    const _zone=(pxA,pxB,col,kind)=>{
+      if(pxA==null||pxB==null)return;
+      const y0=_yClamp(Math.min(yScale(pxA),yScale(pxB))),y1=_yClamp(Math.max(yScale(pxA),yScale(pxB)));
+      if(y1-y0<1)return;
+      out+='<rect data-mk="'+kind+'-zone" x="'+zx0.toFixed(1)+'" y="'+y0.toFixed(1)+'" width="'+(zx1-zx0).toFixed(1)+'" height="'+(y1-y0).toFixed(1)+'" fill="'+col+'" opacity="0.12"/>';
+    };
+    const _lvl=(px,col,lbl,kind)=>{
+      if(px==null)return;const y=yScale(px);if(y<margin.t-6||y>margin.t+plotH+6)return;
+      const txt=lbl+' '+px.toLocaleString('en-US');
+      out+='<g data-mk="'+kind+'"><title>'+esc(txt)+'</title><line x1="'+zx0.toFixed(1)+'" x2="'+zx1.toFixed(1)+'" y1="'+y.toFixed(1)+'" y2="'+y.toFixed(1)+'" stroke="'+col+'" stroke-width="1.2" stroke-dasharray="5 3"/></g>';
+      const right=(zx1+txt.length*5.35+14)<=_plotR;
+      out+=_plate(right?(zx1+6):(zx0-6),Math.max(margin.t+9,Math.min(margin.t+plotH-3,y+3)),txt,col,right?'start':'end',true);
+    };
+    if(_mE){_zone(markers.entryPrice,_mStop,'var(--red)','stop');_zone(markers.entryPrice,_mTgt,'var(--green)','target');}
+    if(markers.stopPrice!=null&&isFinite(+markers.stopPrice))_lvl(+markers.stopPrice,'var(--red)','stop','stop');
+    _lvl(_mTgt,'var(--green)','target','target');
+    if(_mStops.length){
+      // step line: flat from each step's bar to the next step, vertical join between them
+      const endX=_mX?(margin.l+(markers.exitIdx+1)*xStep):_plotR;
+      let d='';
+      _mStops.forEach((st,k)=>{
+        const x0=Math.max(margin.l,margin.l+st.i*xStep),x1=(k+1<_mStops.length)?(margin.l+_mStops[k+1].i*xStep):Math.max(endX,x0+xStep);
+        const y=_yClamp(yScale(st.px));
+        d+=(k?' L'+x0.toFixed(1)+','+y.toFixed(1):'M'+x0.toFixed(1)+','+y.toFixed(1))+' L'+Math.min(_plotR,x1).toFixed(1)+','+y.toFixed(1);
+      });
+      const tl='stop ladder: '+_mStops.map(st=>st.px.toLocaleString('en-US')).join(' -> ');
+      out+='<g data-mk="stop-ladder"><title>'+esc(tl)+'</title><path d="'+d+'" fill="none" stroke="var(--red)" stroke-width="1.6" stroke-linejoin="round"/>';
+      _mStops.forEach(st=>{out+='<circle cx="'+Math.max(margin.l,margin.l+st.i*xStep).toFixed(1)+'" cy="'+_yClamp(yScale(st.px)).toFixed(1)+'" r="2.6" fill="var(--red)" stroke="var(--bg)" stroke-width="1"/>';});
+      out+='</g>';
+      const f=_mStops[0],fy=_yClamp(yScale(f.px));
+      if(!(markers.stopPrice!=null&&isFinite(+markers.stopPrice)&&Math.abs(yScale(+markers.stopPrice)-fy)<14))
+        out+=_plate(Math.max(margin.l+4,margin.l+f.i*xStep)+6,Math.max(margin.t+9,Math.min(margin.t+plotH-3,fy-5)),'stop '+f.px.toLocaleString('en-US')+' \u2192','var(--red)','start',true);
     }
   }
 
