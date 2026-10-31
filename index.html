@@ -944,7 +944,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 /* PAPER TABS (owner 10-31, 'clean this up - can't see the calendar without scrolling'): the WEBULL PAPER and NT8 PAPER frames carry .lg-paper. Tighter hero,
    status line, stat tiles and calendar; the range pills share one line with the chart legend under the chart (.lg-chart-row); the chart caption is one short
    line with a ? that holds the full words on hover (.lg-help); the today figure rides at the right end of the realized line (.lg-hero-today-in). Tokens only. */
-.lg-chart-row{display:flex;align-items:center;justify-content:space-between;gap:6px 16px;flex-wrap:wrap;margin:6px 2px 0}
+.lg-chart-row{display:flex;align-items:center;justify-content:flex-start;gap:6px 16px;flex-wrap:wrap;margin:6px 2px 0}
+.lg-chart-row .lg-chart-foot.lg-chart-rowcap{margin:0 0 0 auto;flex:0 1 auto;min-width:0}.lg-chart-rowcap .lg-chart-cap{display:inline-flex;align-items:center;white-space:nowrap}
+.lg-paper .qbx-lgstats,.lg-paper [data-p2sec="stats"]{padding-top:8px}.lg-paper .lg-stats{margin-bottom:0}.lg-paper .qbx-chart,.lg-paper [data-p2sec="chart"]{margin-top:6px}
 .lg-chart-row .lg-pills{gap:14px}.lg-chart-row .lg-pills button{padding-bottom:3px}
 .lg-legend-slot{min-width:0}.lg-legend-slot .lg-legend{margin:0}.lg-legend-slot:empty{display:none}
 .lg-legend-slot .lg-legend svg{display:inline-block;width:16px;height:4px;flex:none}
@@ -1437,7 +1439,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1462';
+const VERSION='73.1463';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1455,7 +1457,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1461',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, THE TIDY-UP FINISHED (row 76, after 73.1457). The calendar opens by default on a laptop and a desktop (above 600 px); a phone keeps it folded, so the trade list still starts within the first screen. The today figure beside the realized line no longer vanishes while you drag across the chart. The caption&#39;s ? hover names the key words the old key used (book only = order never reached Webull, book price = no Webull fill price). The two render probes (tools/webull_board_probe.py, tools/paper_render_probe.py) read the new order - chart, then the range pills on the legend&#39;s line, the tiles, the calendar, then More stats - and the ? hover instead of the old three-line key.']},
+const CHANGELOG=[{v:'73.1463',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, THE STACK YOU ASKED FOR (row 76, 10-31): under the headline block (the big number, the unrealized and realized lines, details, and the STATUS line with REFRESH) come the four KPI tiles, then the P&amp;L chart, then the calendar, open - nothing between them. The chart keeps ONE row under it: the range pills, the legend, and at the right end the short caption with the ? that holds every explanation (solid, dotted, hatched, book only). MORE STATS is the fold under the calendar. At 1690x1263 the calendar ends at 1091 px on WEBULL PAPER and 1062 px on NT8 PAPER, measured in the browser.']},
+{v:'73.1461',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, THE TIDY-UP FINISHED (row 76, after 73.1457). The calendar opens by default on a laptop and a desktop (above 600 px); a phone keeps it folded, so the trade list still starts within the first screen. The today figure beside the realized line no longer vanishes while you drag across the chart. The caption&#39;s ? hover names the key words the old key used (book only = order never reached Webull, book price = no Webull fill price). The two render probes (tools/webull_board_probe.py, tools/paper_render_probe.py) read the new order - chart, then the range pills on the legend&#39;s line, the tiles, the calendar, then More stats - and the ? hover instead of the old three-line key.']},
 {v:'73.1457',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, CLEANED UP SO THE CALENDAR IS IN VIEW WITHOUT SCROLLING (row 76, your 10-31 screenshot at 1690x1263). 1. THE HEADLINE: the big number, the unrealized line and the realized line stay; the duplicate &#39;since 2026-09-03 &middot; 91 closed trades&#39; line is gone (the realized line already says since when, the TRADES tile the count) and the &#39;+$0.00 today&#39; figure now sits at the right end of the realized line. &#39;details&#39; stays. 2. THE STATUS LINE and REFRESH keep half the padding they had. 3. THE CHART: the range pills (TODAY 1W 1M 3M YTD ALL) moved under the chart onto one line with the legend; the three caption lines are now one short line - &#39;Cumulative P&amp;L since 2026-09-03&#39; - with a small ? beside it that shows the full words on hover (solid, dotted, hatched, book only). 4. THE FOUR TILES (WIN RATE, PROFIT FACTOR, MAX DRAWDOWN, TRADES) are one compact row at half the height - label, number, one small line. 5. THE CALENDAR opens by default, right under the tiles; MORE STATS is the fold under the calendar. 6. STRATEGIES: the &#39;This list has no filters&#39; words only show once you open FILTERS. Measured in the browser at 1690x1263: on WEBULL PAPER the calendar now ends at 1093 px and MORE STATS at 1123 px from the top of the page (the calendar header used to start at 999 px with the month running to 1418); on NT8 PAPER the calendar ends at 1064 px (was 1293). Every number and link is still on the page; MONO unchanged.']},
 {v:'73.1455',date:'2026-10-31',notes:['THE BOARD TAB: YOUR SIX CIRCLES, A FAMILY CHIP AND YOUR OWN THREE BUTTONS (rows 165-167, 10-31). 1. ONE YELLOW ONLY. A row nobody has picked up and a row somebody is working on used to share the same yellow dot, so the board could not tell you which was which. Now the fill says it: RED FILLED = needs you, RED HOLLOW = nobody on it, YELLOW HOLLOW = assigned, sitting in that lane&#39;s queue, YELLOW FILLED = being worked right now, GREEN HOLLOW = done and waiting for your OK, GREEN FILLED = confirmed. The words beside each row changed to match: NOBODY ON IT, IN QUEUE, BEING WORKED. The six circles are spelled out in a legend under the table, so no colour needs explaining. 2. A FAMILY CHIP before each title (OHLC, AI, and so on) says which part of the system the row belongs to; a row with no family set gets no chip rather than an empty box. Lanes set it from the PC with board.py --tag. 3. YOUR THREE ANSWERS, in the note that opens when you click a row: CONFIRM closes the row green, SEND BACK puts it back in the lane&#39;s queue yellow, NEEDS ME turns it red and yours. Each one writes the status and a line saying when - &#39;owner sent back 10-31&#39; - and leaves the lane&#39;s own title and note alone. These buttons are the only thing this page writes; everything else on the board still comes from the PC.']},
 {v:'73.1452',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, YOUR 15:30 NOTES ON THE LIVE PAGE (row 76, 10-31). 1. WHICH RUN: every strategy row&#39;s run number (ORB #314, NOISE #382, DIP #424, ENGU-Q #335; the NT8 legs the same) is now a link that opens that run&#39;s report on the RUNBOARD / STUDIES page, with BACK TO RUNBOARD bringing you back. WHICH PARAMETER SET: no leg records the index of its parameter cell - the box configs (api/cloud_signal.py) and the NT8 leg sources (api/paper.py) store the parameter VALUES and the run number only - so every row says &#39;params: not recorded&#39; beside the run number instead of guessing a &#39;#382.3&#39; style label. 2. THE HEADLINE WORDS: &#39;unrealized -$295.74 \u00b7 DIP #424 \u00b7 4 lots&#39; sits directly under the big net number, ONLY while something is open, then &#39;realized +$23.66 \u00b7 closed trades \u00b7 since 09-03&#39; (was &#39;open&#39; / &#39;cash&#39;; the &#39;flat&#39; word is gone). NT8: &#39;unrealized -$X \u00b7 N trades \u00b7 not counted&#39; then &#39;realized +$X \u00b7 N closed trades \u00b7 ALL&#39;. 3. NO FLAT PILL anywhere: a LONG / SHORT pill shows only while the leg holds a position (NT8 rows gained the same pill for an open trade). 4. The trade count, win % and today line sit under the strategy NAME at every width now, phones included (the shared list used to hide that line under 740 px). Checked on the live page at 1700 px: v73.1446 already had it under the name on a desktop; the phone was the gap. 5. THE TRADE LIST: open positions sit at the TOP in a small OPEN group (entry time, strategy and run, side, shares, the unrealized mark), then the closed trades newest first; the NT8 list&#39;s group is labelled OPEN too. Both render gates (tools/webull_board_probe.py, tools/paper_render_probe.py) check the new words, the link, the params note, the OPEN group and the no-FLAT rule, with broken copies that must fail.']},
@@ -4023,6 +4026,8 @@ const LEDGER_FILTERS_OPEN=false;       // the panel's Filters row starts closed 
 const LEDGER_TOOLBAR_MORE='phone';     // a board's own trade-list tools: 'phone' = at the right of the ADD row, behind TOOLS on a phone; 'always' = behind TOOLS everywhere
 // the sections beside the list panel, top to bottom (the pills between the hero and the chart since step 11)
 const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','pills','chart','stats','more','cal']:['hero','pills','chart','status','stats','more','cal'];
+// the PAPER tabs (owner 10-31: 'the KPI metrics, P&L chart, calendar - nothing separating them'): headline (hero + status line), tiles, chart, calendar, More stats
+const LEDGER_PAPER_TOP_ORDER=['hero','status','stats','pills','chart','cal','more'];
 // o = {id, top (html, the sections in LEDGER_TOP_ORDER), side (html, the list section), rest (html, the trade list then the board's own
 // folds), cls / attr (on the frame), sideW (px), handle (html inside the panel, before its content: NT8's drag bar)}
 // Markers: [data-lgframe="<id>"] (.lg-frame-2 when the panel is on), [data-lgframe-top], [data-lgframe-side], [data-lgframe-rest].
@@ -44349,8 +44354,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // Only the account's own trades build o.pts (shadow lines never enter it, owner rule).
           // owner 10-31 ('clean this up'): the range pills sit UNDER the chart on one line with the legend (.lg-chart-row); the caption is one
           // short line, and the full words (solid / dotted / hatched / book only) sit behind a ? on hover
-          const qbChartRow=leg=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')+'</div>';
-          const periodTabsHtml=qbChartRow(false);
+          // owner 10-31 18:00: ONE row under the chart - the pills, the legend, and at its right end the short caption with the ? (no chart foot, no key line)
+          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
+            +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="qb"><span class="lg-chart-cap">'+(capHtml||'')+'</span></div></div>';
           const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord):('Cumulative P&amp;L since '+naS(QE.live_from));
           const qbRangeCapFull=((qbRange&&qbRange!=='ALL')?('Cumulative P&L, '+qbRangeWord+', counted from the start of the range'):('Cumulative P&L since '+naS(QE.live_from)))
             +' \u00b7 solid = account equity (closed + open) \u00b7 dotted = each strategy (closed'+(posCount>0?', plus its open lots where it holds some':'')+')';
@@ -44358,8 +44364,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(!qbRangeTrades.length){
             window._qbLgChart=null;
             equityHtml='<div class="qb-chart-wrap">'
-              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div>'+periodTabsHtml
-              +ledgerChartFootHtml({id:'qb',cap:'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp('')})+'</div>';
+              +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div>'
+              +qbChartRow(false,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(''))+'</div>';
           }else{
             const tsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
             const chrono=qbRangeTrades.slice().sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);
@@ -44495,8 +44501,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'</div>'):'';
             // LEDGER step 12: the caption and the key sit under the chart, in the shared chart foot (the same place on every board)
             equityHtml='<div class="qb-chart-wrap">'
-              +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'+qbChartRow(true)
-              +ledgerChartFootHtml({id:'qb',cap:'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(qbKeyWords),key:keyHtml})+'</div>';
+              +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'
+              +qbChartRow(true,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(qbKeyWords))+'</div>';
           }
         }
 
@@ -45797,7 +45803,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // list (the right-hand panel from 1100 px, under the calendar below it), then the trade list and this board's own folds
         const qbTop={hero:'<div class="qbx-hero">'+qbHeroHtml+'</div>',status:qbStatusSec,pills:'',chart:'<div class="qbx-chart">'+equityHtml+'</div>',
           stats:'<div class="qbx-stats qbx-lgstats">'+qbLgStatsHtml+'</div>',more:'',cal:'<div class="qbx-activity">'+qbCalHtml+'</div><div class="qbx-stats qbx-lgmore">'+qbLgMoreHtml+'</div>'};
-        body=ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper',top:LEDGER_TOP_ORDER.map(k=>qbTop[k]||'').join(''),side:qbSideNew,
+        body=ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper',top:LEDGER_PAPER_TOP_ORDER.map(k=>qbTop[k]||'').join(''),side:qbSideNew,
             rest:'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+'</div>'
               +'<div class="qbx-own">'+qbOwnSecs+'</div>'})
           +qbSheetHtml;
@@ -46563,11 +46569,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // owner 10-31 ('clean this up', same as Webull): one short caption with the full words behind a ? hover; the range pills share one
       // line with the legend UNDER the chart (.lg-chart-row), so _rhTabs is built here, before the chart html that holds it
       const _rhTabs='<div class="p2ctl" data-p2range data-p2sec="pills">'+ledgerRangePillsHtml(_pcw,'data-pcwin')+'</div>';
-      const _rhFoot=ledgerChartFootHtml({id:'p2',cap:'<span class="p2rhkey">Cumulative P&amp;L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw)+'</span>'
-        +'<span class="lg-help" data-p2caphelp title="solid line = all book legs \u00b7 dotted = each strategy \u00b7 hatched = a day with a data caveat (a roll-splice trade or a look-ahead ORB trade; hover the column to see which) \u00b7 hover the chart to scrub">?</span>'});
+      // owner 10-31 18:00: the caption + ? ride at the right end of the chart's own row (pills, legend, caption) - no separate chart foot
+      const _rhFoot='<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="p2"><span class="lg-chart-cap"><span class="p2rhkey">Cumulative P&amp;L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw)+'</span>'
+        +'<span class="lg-help" data-p2caphelp title="solid line = all book legs \u00b7 dotted = each strategy \u00b7 hatched = a day with a data caveat (a roll-splice trade or a look-ahead ORB trade; hover the column to see which) \u00b7 hover the chart to scrub">?</span></span></div>';
       const _rhChart=(()=>{
-        if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>'+_rhFoot+'</div>';
-        return '<div data-p2sec="chart"><div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div><div class="lg-chart-row">'+_rhTabs+'</div></div>';
+        if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+'<div class="lg-legend-slot" id="p2-lg-legend"></div>'+_rhFoot+'</div></div>';
+        return '<div data-p2sec="chart"><div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div><div class="lg-chart-row">'+_rhTabs+_rhFoot+'</div></div>';
       })();
       // the plotted days and the bold line's totals (plain numbers, no DOM): the render probe reads them
       window._p2Scrub={dates:_winDates,total:_rhTotal};
@@ -48571,7 +48578,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // longer moves them); the tiles, then the CALENDAR (open by default), then the More stats fold
         const _p2TopS={hero:_p2Sec('hero',_p2HeadNew),status:_p2NeedsYou+_p2StatFold,pills:'',chart:_rhChart,
           stats:_p2Sec('stats',_pnUi.strip),more:'',cal:_p2Sec('cal',_pnUi.cal)+_p2Sec('more',_pnUi.more)};
-        const _p2Top=LEDGER_TOP_ORDER.map(k=>_p2TopS[k]||'').join('');
+        const _p2Top=LEDGER_PAPER_TOP_ORDER.map(k=>_p2TopS[k]||'').join('');
         // the board own sections, after the trades: the 10s capture (with the data feed warning), then the four cards
         const _p2CapFold=(dataHtml||capHtml)?_p2Fold('capture','10s capture',_p2SumCap||'no capture report',dataHtml+capHtml):'';
         // NT8 board fix (owner 10-09): the four plumbing checks live in ONE closed 'System health' fold with one summary line; each keeps
