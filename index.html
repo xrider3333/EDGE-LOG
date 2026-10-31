@@ -1402,7 +1402,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1430';
+const VERSION='73.1431';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1420,7 +1420,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1427',date:'2026-10-31',notes:['WEBULL TRADE CHART: the opening-range chip now reads OR, not ORB (row 71). It draws the first 5 and 15 minute high-low boxes - a chart study - and was being mistaken for the ORB trading strategy; its tooltip says so. Your remembered on/off choice for it is kept. The no-stop footer now says which strategies log a stop (ORB does; NOISE after the next box deploy).']},
+const CHANGELOG=[{v:'73.1431',date:'2026-10-31',notes:['NT8 PAPER TAB, THE SAME CLEAN-UP AS WEBULL (row 77). The big number says CLOSED TRADES ONLY, an open position is named apart from it (at last mark, NOT in the big number), and a small DETAILS line under it holds the sentences that used to crowd the headline: what is counted, the book weights, the open trades, the strategies not counted, and that the NinjaTrader demo account figure on the NINJATRADER card is the account\'s own fills - a different quantity, not a mismatch. The chart\'s last point is checked against the big number on every draw; if they ever differ the details line says so and names the cause. Each strategy is ONE line - name, trades, net $, win %, today - and MORE opens the rest under it (NinjaTrader state, market, PF, roll artifact, forward / backfill, where it came from, its caveats). The P&L chart: the total is a SOLID line in the page\'s own text colour (white on dark, dark on light and MONO), each strategy a DOTTED line in its legend colour, and the calendar\'s caveat days are hatched on the chart too.']},{v:'73.1424',date:'2026-10-31',notes:['WEBULL TRADE CHART, SIX MORE THINGS FROM TRADINGVIEW (rows 62 67 68 71 72 73). New chips in the toolbar, remembered: SESS shades pre-market and after-hours (when the box ever sends those bars) and draws dashed lines at the 09:30 open and the 16:00 close; VWAP draws the session VWAP from the minute bars (fresh each day and again at 09:30; the readout shows its value on the bar); ORB boxes the first 5 and the first 15 minutes of the regular session out to the close, high and low written on them; MFE shades the best and the worst price while in the trade from the entry, each with its points and $. The exit arrow now says what the trade made - net $ and points. When the box records a stop or target for the trade (ORB only today), the chart draws the TradingView position box: grey (red) zone entry to stop, white (green) zone entry to target, each labelled price, $ and R; a stop that moved draws as a step line, the FIRST stop is the risk, and the crosshair reads stop was X on each bar. REPLAY hides every bar after the entry: left / right (or the side buttons) step one bar, the exit and its lines stay hidden until the cursor reaches them, Esc leaves replay. PNG saves all of it.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
+{v:'73.1427',date:'2026-10-31',notes:['WEBULL TRADE CHART: the opening-range chip now reads OR, not ORB (row 71). It draws the first 5 and 15 minute high-low boxes - a chart study - and was being mistaken for the ORB trading strategy; its tooltip says so. Your remembered on/off choice for it is kept. The no-stop footer now says which strategies log a stop (ORB does; NOISE after the next box deploy).']},
 {v:'73.1426',date:'2026-10-31',notes:['WEBULL TRADE CHART JOINED TO WHAT THE BOX NOW SENDS (rows 62 74). The position box and its stop step line now read the box&#39;s per-trade levels record (first stop = the risk, every later stop = a step, the target), and the dashed stop moved lines are no longer drawn a second time over it; the old flat-lines path stays as the fallback for older days. SESS on now shows the real pre-market and after-hours candles when the box carries them (shaded as before); SESS off is the regular session only, as today. VWAP still starts at the 09:30 open.']},
 {v:'73.1425',date:'2026-10-31',notes:['NOISE NOW SAYS WHERE ITS STOP WAS (row 60). The NOISE strategy always computed a protective stop on every trade and threw the number away; it now hands it out the same way ORB does, so the Webull signal file carries stop_px on each NOISE entry and the chart can draw it. Logging only: trades, sizes and money are byte-for-byte what they were (checked against the live code on the NQ master), and no stop order is ever rested for NOISE - that door is still ORB only.','NT8 PAPER KEEPS THE STOP LADDER (row 64). ENGU-Q moves its stop (initial, breakeven, trailing) and NOISE sets one at entry; the nightly paper replay now records every stop level with its time on each trade - stops [{t, px, reason}], stop_px, target_px - and writes it to the trade record the NT8 board reads. Old trades fill in on the next nightly pass, which re-replays every session since the paper start. A strategy that logs no stop (DIP) carries nothing, so the board can say not logged instead of guessing.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
 {v:'73.1424',date:'2026-10-31',notes:['WEBULL TRADE CHART, SIX MORE THINGS FROM TRADINGVIEW (rows 62 67 68 71 72 73). New chips in the toolbar, remembered: SESS shades pre-market and after-hours (when the box ever sends those bars) and draws dashed lines at the 09:30 open and the 16:00 close; VWAP draws the session VWAP from the minute bars (fresh each day and again at 09:30; the readout shows its value on the bar); ORB boxes the first 5 and the first 15 minutes of the regular session out to the close, high and low written on them; MFE shades the best and the worst price while in the trade from the entry, each with its points and $. The exit arrow now says what the trade made - net $ and points. When the box records a stop or target for the trade (ORB only today), the chart draws the TradingView position box: grey (red) zone entry to stop, white (green) zone entry to target, each labelled price, $ and R; a stop that moved draws as a step line, the FIRST stop is the risk, and the crosshair reads stop was X on each bar. REPLAY hides every bar after the entry: left / right (or the side buttons) step one bar, the exit and its lines stay hidden until the cursor reaches them, Esc leaves replay. PNG saves all of it.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
@@ -3780,6 +3781,8 @@ function ledgerRangePillsHtml(active,attr,ranges){
 //   o.lines = [{name, color, vals (one per point, null = gap), on}]  faint lines + legend toggles (onToggle(name, on))
 //   o.bands = [{i, title}]  a hatched amber column on point i (a caveat day; the hatch survives MONO)
 //   o.marks = [{i, label}]  a dotted vertical marker on point i with a small label at the top (a version change)
+//   o.totalColor (css colour) paints the total line, its dot and its wash instead of the up / down colour; o.lineDash (svg dash)
+//     dashes EVERY faint line the same (NT8: dotted) and o.lineOpacity sets their opacity (default 0.6) - the legend swatches follow
 //   o.refs = [{v, i, label, title}]  a dashed level at value v from point i (at least 40 px before the scale) to the right edge,
 //     labelled (REAL's monthly goal). The y range takes it in, unless that would squeeze the curve into under a quarter of the
 //     height: then it is pinned to the top or bottom edge and its label says above / below the chart. A label that would run into
@@ -4410,7 +4413,7 @@ function ledgerChartRender(wrap,o){
     const pv=(hi-lo)*0.12;lo-=pv;hi+=pv;
     const L=4,R=W<600?54:66,T=12,B=22,pw=W-L-R,ph=H-T-B;
     const X=i=>L+(n<=1?pw/2:(i/(n-1))*pw),Y=v=>T+(1-(v-lo)/(hi-lo))*ph;
-    const col=o.up===false?'var(--red)':'var(--green)',gid='lgGrad_'+(o.id||'c');
+    const col=o.totalColor||(o.up===false?'var(--red)':'var(--green)'),gid='lgGrad_'+(o.id||'c');
     let h='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="height:'+H+'px;touch-action:pan-y" role="img" aria-label="'+esc(o.aria||'equity chart')+'">'
       +'<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:'+col+'" stop-opacity="0.12"/><stop offset="100%" style="stop-color:'+col+'" stop-opacity="0"/></linearGradient></defs>';
     const hid='lgHatch_'+(o.id||'c'),half=n>1?pw/(n-1)/2:pw/2;
@@ -4430,7 +4433,7 @@ function ledgerChartRender(wrap,o){
         +(r.label?'<text data-lgreflbl="1" x="'+(lEnd?L+pw-3:x0+3).toFixed(1)+'" y="'+(r.pin==='top'?+yy+10:+yy-4)+'"'+(lEnd?' text-anchor="end"':'')+' font-size="9" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(r.label)+'</text>':'');});
     // each faint line also gets its own dash, so the lines stay apart under MONO where every colour turns grey
     lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
-      if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="0.6" stroke-width="1.2" stroke-dasharray="'+_lgDash(l,o.lines)+'"/>';});
+      if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="'+(o.lineOpacity!=null?o.lineOpacity:0.6)+'" stroke-width="1.2" stroke-dasharray="'+(o.lineDash||_lgDash(l,o.lines))+'"/>';});
     (o.marks||[]).forEach(m=>{if(m.i==null||m.i<0||m.i>=n)return;const xx=X(m.i).toFixed(1);
       h+='<line data-lgmark="1" x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text4)" stroke-width="1" stroke-dasharray="2 3"/>'
         +'<text x="'+(+xx+3)+'" y="'+(T+8)+'" font-size="8" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(m.label||'')+'</text>';});
@@ -4447,7 +4450,7 @@ function ledgerChartRender(wrap,o){
         h+='<text data-lgdate="1" x="'+xx.toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+anchor+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc(_lgDateLbl(pts[i].date,yrs))+'</text>';}}
     h+='<line data-lgx="1" x1="0" x2="0" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text5)" stroke-opacity="0.6" stroke-width="1" visibility="hidden"/>'
       +'<circle data-lgdot="1" cx="0" cy="0" r="4" style="fill:'+col+'" visibility="hidden"/></svg>';
-    if(o.lines&&o.lines.length)h+='<div class="lg-legend">'+o.lines.map((l,i)=>'<button type="button" data-lgline="'+i+'" class="'+(l.on===false?'off':'')+'" title="show or hide this line"><svg width="16" height="4" style="display:inline-block"><line x1="0" y1="2" x2="16" y2="2" style="stroke:'+(l.color||'var(--text4)')+'" stroke-width="2" stroke-dasharray="'+_lgDash(l,o.lines)+'"/></svg>'+esc(l.name)+'</button>').join('')+'</div>';
+    if(o.lines&&o.lines.length)h+='<div class="lg-legend">'+o.lines.map((l,i)=>'<button type="button" data-lgline="'+i+'" class="'+(l.on===false?'off':'')+'" title="show or hide this line"><svg width="16" height="4" style="display:inline-block"><line x1="0" y1="2" x2="16" y2="2" style="stroke:'+(l.color||'var(--text4)')+'" stroke-width="2" stroke-dasharray="'+(o.lineDash||_lgDash(l,o.lines))+'"/></svg>'+esc(l.name)+'</button>').join('')+'</div>';
     wrap.innerHTML=h;
     const sv=wrap.querySelector('svg'),xl=sv.querySelector('[data-lgx]'),dot=sv.querySelector('[data-lgdot]');
     let held=false;
@@ -46075,7 +46078,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _rhTotal=_winDates.map((_,i)=>_winSeries.reduce((a,sr)=>a+(+sr.vals[i]||0),0));
       const _rhN=_winDates.length;
       // LEDGER step 12: the chart and, under it, the shared chart foot with what the lines mean (it used to ride on the pills row)
-      const _rhFoot=ledgerChartFootHtml({id:'p2',cap:'<span class="p2rhkey">bold line = the book legs together \u00b7 faint lines = each leg \u00b7 hover the chart to scrub</span>'});
+      const _rhFoot=ledgerChartFootHtml({id:'p2',cap:'<span class="p2rhkey">solid line = all book legs \u00b7 dotted = each strategy \u00b7 hatch = caveat day \u00b7 hover to scrub</span>'});
       const _rhChart=(()=>{
         if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div>'+_rhFoot+'</div>';
         return '<div data-p2sec="chart"><div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div></div>';
@@ -46094,6 +46097,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         window._p2Chart={
           pts:[{v:0,date:null}].concat(_chIdx.map(i=>({v:_rhTotal[i],date:_winDates[i]}))),
           up:_H.net>=0,
+          // owner 10-31 (same as Webull): the total is a SOLID line in the page's own text colour (white on dark, dark on light and
+          // MONO); each strategy is a DOTTED line in its legend colour
+          totalColor:'var(--text)',lineDash:'2 3',lineOpacity:0.85,
           aria:'NT8 paper, BOOK #'+_bookRun+' cumulative P and L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw),
           lines:_winSeries.map(sr=>({name:sr.label,color:sr.color,vals:[0].concat(_chIdx.map(i=>sr.vals[i])),on:!_lgOff[sr.label]}))};
       }
@@ -47677,7 +47683,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'@media (prefers-reduced-motion:reduce){.p2sw,.p2sw::after{transition:none}}'
           +'</style>';
         const _rhCss='<style>'
-          +'.p2rhkey{margin-left:auto;font-size:10px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;padding-left:12px}'
+          +'.p2rhkey{display:inline-block;max-width:100%;box-sizing:border-box;vertical-align:bottom;font-size:10px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}'
           +'.p2rhempty{padding:60px 0;text-align:center;color:var(--text5);font-size:11px;letter-spacing:1px}'
           +'.p2rail{border:1px solid var(--border);border-radius:14px;background:var(--bg2);overflow:hidden}'
           +'.p2railct{font-size:11px;font-weight:500;color:var(--text4)}'
@@ -47692,6 +47698,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'.p2rail .p2sw{transform:scale(.8);transform-origin:right center}'
           +'.p2railfoot{font-size:9.5px;color:var(--text5);padding:8px 14px 10px;line-height:1.5;border-top:1px solid var(--border2)}'
           +'.lg-hero-chips .p2chip{height:24px;padding:0 9px;font-size:10px;gap:5px}'
+          +'.lg-hero-note:has(>.p2hdet[hidden]){display:none}.lg-hero-note .p2hdet{font-size:10px;color:var(--text4);line-height:1.55;max-width:760px}.p2hdet>div+div{margin-top:3px}.p2hdet b{color:var(--text3);font-weight:600}.lg-hero-range .p2more{margin-left:0}'
+          // the strategy row is ONE line (name, trades, net, win %, today); everything else opens under it behind MORE
+          +'.p2rail .lg-row-detail{display:none}.p2rail .lg-row-detail.p2open{display:block;font-size:10px;line-height:1.55;color:var(--text4)}.p2rail .lg-row-detail.p2open div+div{margin-top:3px}'
+          +'.p2more{display:inline-block;margin-left:7px;font-size:8px;letter-spacing:1px;text-transform:uppercase;color:var(--text5);border:1px solid var(--border);border-radius:4px;padding:0 4px;line-height:12px;cursor:pointer;vertical-align:middle}.p2more:hover,.p2more[aria-expanded="true"]{color:var(--text);border-color:var(--text4)}'
           +'.lg-hero-chips button[data-paperrefresh]{height:24px}'
           // the shared chart's rule .lg-chart svg (width 100%) would stretch the legend swatches; pin them here, scoped to this board
           +'#p2-chart .lg-legend svg{width:16px!important;height:4px!important}'
@@ -47699,14 +47709,39 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // THE SHARED HERO (TRADING-LOG ledgerHeroHtml): label, big number, today line, range line, status chips on the
         // right - the same structure REAL uses. Big = the BOOK total for the range; the warning chips ride in o.chips.
         const _nUncounted=_fwdDefs.length+_otherKeys.length;
+        // THE HEADLINE CHECK (owner 10-31): the chart's last point must be the big number. Both come from the same closed trades, so a
+        // gap has one known cause - a counted trade with no close day (it is in the total but on no day of the chart) - and the
+        // details line says so in plain words instead of leaving two numbers that disagree. data-p2chartend carries both for the probe.
+        const _chartEnd=(window._p2Chart&&window._p2Chart.pts&&window._p2Chart.pts.length)?+window._p2Chart.pts[window._p2Chart.pts.length-1].v:0;
+        const _chartTie=Math.abs(_chartEnd-_H.net)<0.5;
+        const _noDayN=_heroRows.filter(t=>!_closeDay(t)).length;
+        const _p2HeroNote=(()=>{
+          const X=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+          const L=[];
+          L.push('<b>Big number</b> = the money from book trades that CLOSED in this range ('+X(_pcwLbl)+'), '+_nShown+' of '+_bookDefs.length+' book legs switched on'
+            +(_bookWtxt?(', at book weights ('+X(_bookWtxt)+')'):'')+'. The runner sizes each leg at its weight, so a trade\'s $ already carries it.');
+          L.push('<span data-p2chartend data-chart="'+_chartEnd.toFixed(2)+'" data-hero="'+_H.net.toFixed(2)+'" data-tie="'+(_chartTie?'1':'0')+'">'
+            +(_rhN?(_chartTie?'<b>Chart</b>: its last point is this same number.'
+              :('<b style="color:var(--attn-red)">Chart ends at '+ledgerMoney(_chartEnd)+' but the big number is '+ledgerMoney(_H.net)+'.</b> '
+                +(_noDayN?(_noDayN+' counted trade'+(_noDayN===1?' has':'s have')+' no close day, so '+(_noDayN===1?'it is':'they are')+' in the total but on no day of the chart.'):'Cause not known from here - report it.')))
+              :'<b>Chart</b>: nothing closed in this range, so there is no line.')+'</span>');
+          if(_heroOpen.n)L.push('<b>Open</b>: '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' of the counted legs, '+ledgerSigned(_heroOpen.v)+' at the last mark. An open trade counts on no day until it closes, so it is not in the big number or the chart.');
+          if(_nUncounted)L.push('<b>Not counted</b>: '+_nUncounted+' other strateg'+(_nUncounted===1?'y':'ies')+' (controls, forward tests, shadows). They sit in the Strategies list under their own headings, each with its own caveats.');
+          if(typeof _liveTotalFills!=='undefined'&&_liveTotalFills)L.push('<b>NinjaTrader demo account</b>: the NINJATRADER card\'s cumulative net ('+ledgerSigned(_liveCumNet)+' since '+LIVE_START+') is the account\'s own fills, every strategy together - a different quantity from this book number, not a mismatch.');
+          return '<div class="p2hdet" data-p2herodet'+(window._p2HeroDetOpen?'':' hidden')+'>'+L.map(x=>'<div>'+x+'</div>').join('')+'</div>';
+        })();
         const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},
           label:'BOOK #'+_bookRun+' \u00b7 NT8 futures paper',
           big:ledgerMoney(_H.net),
           today:ledgerTodayHtml(_H.today),
-          range:'<span>'+_pcwLbl+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span>'+_nShown+' of '+_bookDefs.length+' book legs</span>'
-            +(_nUncounted?'<span class="lg-suffix">\u00b7</span><span title="Controls, forward tests and shadow strategies. Their trades are not in this number.">'+_nUncounted+' other strategies not counted</span>':'')
+          // owner 10-31 (same ask as Webull): the big number is CLOSED trades only, and says so; an open position is a different
+          // quantity, named apart from it and never added; every caveat sentence (other strategies, weights, the demo account) sits
+          // in the small 'details' expander under the range line, not on it
+          range:'<span>'+_pcwLbl+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' closed trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span title="The big number adds only trades that have CLOSED, from the book legs switched on, in this range. An open trade is never in it.">closed trades only</span>'
             // LEDGER improvement 13 (MANAGER #73): an open trade of a counted leg is named beside the number, never added to it
-            +(_heroOpen.n?'<span class="lg-suffix">\u00b7</span><span data-p2heroopen title="Open trades of the counted legs, at their last mark. They count on no day until they close, so they are not in the big number.">'+_heroOpen.n+' open '+ledgerSigned(_heroOpen.v)+' unrealised, not counted</span>':''),
+            +(_heroOpen.n?'<span class="lg-suffix">\u00b7</span><span data-p2heroopen title="Open trades of the counted legs, at their last mark. They count on no day until they close, so they are not in the big number.">'+_heroOpen.n+' open '+ledgerSigned(_heroOpen.v)+', not counted</span>':'')
+            +'<span class="lg-suffix">\u00b7</span><span class="p2more" data-p2herobtn role="button" tabindex="0" aria-expanded="'+(window._p2HeroDetOpen?'true':'false')+'" title="what the big number counts, the open trades, the strategies not counted, the demo account">details</span>',
+          note:_p2HeroNote,
           chips:''});
         // ══ LEDGER steps 6, 7 and 10 on the shared parts (NT8 PAPER) ══
         // The stats strip, the calendar and the strategy list all read the SAME counted trades the big number adds up: the shown BOOK
@@ -47773,6 +47808,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _pnCalOpen=(()=>{const v=_pnLs('el_lg_cal_nt8');if(v==='1'||v==='0')return v==='1';return (window.innerWidth||1200)>600;})();
         const _pnCalMonth=ledgerCalPick(_pnCalDays,window._paperCalMonth||_pnLs('el_lg_calmo_nt8')||'');
         window._paperCalMonth=_pnCalMonth;window._pnCalDays=_pnCalDays;
+        // the chart hatches the SAME caveat days the calendar marks (a roll-splice or ORB look-ahead trade closed that day)
+        if(window._p2Chart&&window._p2Chart.pts){const P=window._p2Chart.pts;window._p2Chart.bands=P.map((p,i)=>(p.date&&_pnCav[p.date])?{i:i,title:_pnCav[p.date]}:null).filter(Boolean);}
         const _pnCal=ledgerCalendarHtml({id:'p2',month:_pnCalMonth,days:_pnCalDays,caveats:_pnCav,open:_pnCalOpen,
           note:'Each day is the money from book trades that closed that day, in the chosen range. Tap a day to select its trades in the trades list (then OPEN N CHARTS). Amber hatch = a roll-splice trade or an ORB look-ahead engine trade closed that day.'});
         // STEP 10. One row per strategy on the shared list. Name = the family-name label (family + run number + variant), the dot is the
@@ -47802,16 +47839,35 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             (isBook?(sel?'Switch is ON: counted in the chart, calendar, stats and trades.':'Switch is OFF: left out of everything on the left.')
               :(sel?'NOT COUNTED in the big number. Switch is ON: its trades are listed in the trades table, tagged NOT BOOK.':'NOT COUNTED in the big number. Switch it on to list its trades in the trades table.'))
           ].filter(Boolean).join(' · ');
+          // owner 10-31 (same as Webull): ONE line per strategy - name, trades, net $, win %, today - and everything else (NinjaTrader
+          // state, market, PF, roll artifact, open trades, forward / backfill, where it came from, its caveats) behind MORE
+          const tdUsd=legRows(name).filter(t=>_closeDay(t)===_todayET).reduce((s2,t)=>s2+(+t.pnl_usd||0),0);
+          const P2=_legSrc(name),moreOpen=!!(window._p2MoreOpen&&window._p2MoreOpen.has(name));
+          const more=[bits.join(' &middot; ')]
+            .concat(S.ev!=null?['EV '+fmtUsd(S.ev)+' per trade'+(S.perDay!=null?(' &middot; '+fmtUsd(S.perDay)+' per calendar day'):'')+(a.days?(' &middot; '+a.days+' day'+(a.days===1?'':'s')):'')]:[])
+            .concat(sp.nBf?['forward '+sp.nFw+' tr '+ledgerSigned(sp.netFw)+' / backfilled '+sp.nBf+' tr '+ledgerSigned(sp.netBf)+' (all time)']:[])
+            .concat(a.lastT?['last trade '+_dOnly(a.lastT)]:[])
+            .concat(bw?['BOOK #'+_bookRun+' leg at weight x'+bw+(a.n&&bw!==1?(' - per contract '+fmtUsd(a.net/bw)):'')]:[])
+            .concat((P2&&P2.src&&P2.src.run_label)?['from '+_pnX(P2.src.run_label)+(P2.src.strategy_file?(' &middot; '+_pnX(P2.src.strategy_file)):'')]:[])
+            .concat((P2&&P2.src&&P2.src.note)?[_pnX(P2.src.note)]:[])
+            .concat((P2&&P2.src&&P2.src.caveat)?['<span style="color:var(--attn-amber)">\u26a0 caveat:</span> '+_pnX(P2.src.caveat)]:[])
+            .concat((name==='ORB')?['<span style="color:var(--attn-amber)">\u26a0</span> '+_pnX(ORB_LA_TIP)]:[])
+            .concat(lv.dt?[_pnX(lv.dt)]:[])
+            .concat([isBook?(sel?'Switch is ON: counted in the chart, calendar, stats and trades.':'Switch is OFF: left out of everything on the left.')
+              :(sel?'NOT COUNTED in the big number. Switch is ON: its trades are listed in the trades table, tagged NOT BOOK.':'NOT COUNTED in the big number. Switch it on to list its trades in the trades table.')])
+            .filter(Boolean);
           return {key:name,
             name:'<span title="'+_pnX(hover)+'">'+_crownIc(name)+_pnX(label)+'</span>'
-              +((name==='ORB')?'<span title="'+_pnX(ORB_LA_TIP)+'" style="margin-left:5px;color:var(--attn-amber);cursor:help">⚠</span>':''),
+              +((name==='ORB')?'<span title="'+_pnX(ORB_LA_TIP)+'" style="margin-left:5px;color:var(--attn-amber);cursor:help">⚠</span>':'')
+              +'<span class="p2more" data-p2more="'+_pnX(name)+'" role="button" tabindex="0" aria-expanded="'+(moreOpen?'true':'false')+'" title="more about this strategy">'+(moreOpen?'less':'more')+'</span>',
             tag:(isBook&&bw&&bw!==1)?('x'+bw):'',
             color:lv.dc,
-            sub:bits.join(' &middot; '),
+            sub:'',
             value:a.n?('<span aria-hidden="true">'+(a.net>=0?'▲':'▼')+'</span> '+ledgerSigned(a.net)):'&mdash;',
-            value2:a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')):'no trades yet',
+            value2:a.n?(a.n+' tr'+((w+l)?' &middot; '+Math.round(w/(w+l)*100)+'% won':'')+' &middot; today '+ledgerSigned(tdUsd)):('no trades in this range'+(tdUsd?(' &middot; today '+ledgerSigned(tdUsd)):'')),
             cls:a.n?ledgerCls(a.net):'',
             off:isBook&&!sel,
+            detail:'<div class="p2rowmore'+(moreOpen?' p2open':'')+'">'+more.map(x=>'<div>'+x+'</div>').join('')+'</div>',
             sw:{on:sel}};
         };
         const _pnAgg=keys=>{let net=0,n=0;keys.forEach(k=>{const a=legAgg(k,PSCOPE);net+=a.net;n+=a.n;});return {net:net,n:n};};
@@ -50275,6 +50331,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         };});
         content.querySelectorAll('[data-lglist="p2"] [data-lgrow]').forEach(b=>{b.onclick=()=>_wFlip(b.getAttribute('data-lgrow'));});
         content.querySelectorAll('[data-lglist="p2"] [data-lgsw]').forEach(s=>{s.onclick=ev=>{ev.stopPropagation();_wFlip(s.getAttribute('data-lgsw'));};});
+        // MORE on a strategy row (owner 10-31): opens that row's detail in place; the row button itself still flips the switch
+        content.querySelectorAll('[data-lglist="p2"] .lg-row-detail').forEach(d=>{if(d.querySelector('.p2rowmore.p2open'))d.classList.add('p2open');});
+        content.querySelectorAll('[data-lglist="p2"] [data-p2more]').forEach(m=>{const go=ev=>{ev.stopPropagation();ev.preventDefault();
+          const k=m.getAttribute('data-p2more'),d=content.querySelector('[data-lglist="p2"] .lg-row-detail[data-lgrowdetail="'+k.replace(/"/g,'\\"')+'"]');
+          const S=window._p2MoreOpen||(window._p2MoreOpen=new Set());const on=!S.has(k);if(on)S.add(k);else S.delete(k);
+          if(d)d.classList.toggle('p2open',on);m.setAttribute('aria-expanded',on?'true':'false');m.textContent=on?'less':'more';};
+          m.onclick=go;m.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' ')go(ev);};});
+        content.querySelectorAll('[data-p2herobtn]').forEach(m=>{const go=ev=>{ev.stopPropagation();ev.preventDefault();const d=content.querySelector('[data-p2herodet]');if(!d)return;
+          const on=d.hidden;d.hidden=!on;window._p2HeroDetOpen=on;m.setAttribute('aria-expanded',on?'true':'false');};m.onclick=go;m.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' ')go(ev);};});
         content.querySelectorAll('[data-lglist="p2"] [data-lggrp]').forEach(b=>{b.onclick=()=>{
           const g=b.getAttribute('data-lggrp');
           if(g==='fwd'){window._paperFwdOpen=!window._paperFwdOpen;savePref('paperFwdOpen2',!!window._paperFwdOpen);}
@@ -50310,7 +50375,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
        if(wrapEl&&C){
          const num=content.querySelector('#p2-hero-value'),rng=content.querySelector('#p2-hero-range');
          const num0=num?num.textContent:'',rng0=rng?rng.innerHTML:'';
-         ledgerChartRender(wrapEl,{id:'p2',pts:C.pts,up:C.up,aria:C.aria,lines:C.lines,
+         ledgerChartRender(wrapEl,{id:'p2',pts:C.pts,up:C.up,aria:C.aria,lines:C.lines,bands:C.bands,totalColor:C.totalColor,lineDash:C.lineDash,lineOpacity:C.lineOpacity,
            onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_nt8')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_nt8',JSON.stringify(off));}catch(e){}},
            onScrub:(i,p)=>{
              if(num)num.textContent=ledgerMoney(p.v);

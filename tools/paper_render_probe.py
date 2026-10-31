@@ -1492,7 +1492,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           return {key:g.getAttribute('data-lggroup'),rows:g.querySelectorAll('[data-lgrow]').length,fold:!!f,open:f?f.getAttribute('aria-expanded'):null,txt:_t(g.querySelector('.lg-grp-hd'))};}):[];
         r.listRowInfo=_ls0?[].map.call(_ls0.querySelectorAll('[data-lgrow]'),function(x){var sw=x.querySelector('[data-lgsw]'),gp=x.closest('.lg-grp');
           return {key:x.getAttribute('data-lgrow'),name:_t(x.querySelector('.lg-row-name')),group:gp?gp.getAttribute('data-lggroup'):null,sw:sw?sw.getAttribute('aria-checked'):null,off:x.classList.contains('off'),
-            val:(x.querySelector('.lg-row-val')||{innerText:''}).innerText.split(String.fromCharCode(10))[0].trim(),h:Math.round(x.getBoundingClientRect().height),dot:!!x.querySelector('.lg-row-name i'),sub:_t(x.querySelector('.lg-row-sub'))};}):[];
+            val:(x.querySelector('.lg-row-val')||{innerText:''}).innerText.split(String.fromCharCode(10))[0].trim(),h:Math.round(x.getBoundingClientRect().height),dot:!!x.querySelector('.lg-row-name i'),sub:[_t(x.querySelector('.lg-row-sub'))].concat((function(dd){return dd?[].map.call(dd.querySelectorAll('.p2rowmore>div'),_t):[];})(x.nextElementSibling&&x.nextElementSibling.matches&&x.nextElementSibling.matches('.lg-row-detail[data-lgrowdetail]')?x.nextElementSibling:null)).filter(Boolean).join(' · ')};}):[];
         var _tw=d.querySelector('#ptrades-wrap'),_tcard=(_tw&&_tw.closest)?_tw.closest('.p2sheet'):null;
         r.geo={vw:w.innerWidth,vh:w.innerHeight,scrollW:d.documentElement.scrollWidth,clientW:d.documentElement.clientWidth,boardTop:_top(d.querySelector('.p2rh')),
           tradesTop:_top(d.querySelector('[data-lglist-frame="nt8"]')||_tcard),listTop:_top(d.querySelector('[data-p2fold="list"]')||_ls0),moreTop:_top(d.querySelector('[data-lgmore="p2"]')),calTop:_top(d.querySelector('[data-lgcalfold="p2"]')),
@@ -3965,7 +3965,7 @@ def _judge_s12(cases, data, fails):
                 if not cf.get('inChart') or cf.get('chartBottom') is None or (cf.get('top') or 0) < cf['chartBottom'] - 1:
                     fails.append('%s: the chart foot is not under the chart at %d px (foot top %s, chart bottom %s, in the chart section %s)'
                                  % (nm, vw, cf.get('top'), cf.get('chartBottom'), cf.get('inChart')))
-                if vw > 600 and (not cf.get('keyVis') or 'bold line' not in (cf.get('keyTxt') or '')):
+                if vw > 600 and (not cf.get('keyVis') or not any(k in (cf.get('keyTxt') or '') for k in ('bold line', 'solid line'))):
                     fails.append('%s: the chart caption (.p2rhkey "bold line = ...") is not shown in the chart foot at %d px (%r)' % (nm, vw, cf))
                 if vw <= 600 and cf.get('keyVis'):
                     fails.append('%s: the chart caption shows on a phone (%d px) - it is hidden up to 600 px' % (nm, vw))
