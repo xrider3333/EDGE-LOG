@@ -5,7 +5,7 @@ candles on the Webull paper trades so I can judge the price action behind each o
 
 WHAT IT WRITES
     users/{uid}/qqq_bars/{YYYY-MM-DD}   -- ONE doc per trading day, about 20-25 KB:
-      v             schema version (1)
+      v             schema version (SCHEMA_VERSION)
       date          the session date (New York)
       bars          {"1m": packed, "5m": packed} -- the REGULAR session only, straight
                     from the box's own settled caches (~/edgelog/ohlc/QQQ_1m.csv and
@@ -16,6 +16,18 @@ WHAT IT WRITES
       bars_through  {"1m": "HH:MM", "5m": "HH:MM"} -- the START of the last bar held, so
                     the chart can say "bars as of ..." (the newest bar only lands once it
                     has settled).
+      bars_ext      {"1m": packed, "5m": packed} -- the EXTENDED sessions (row 74, 10-31):
+                    pre-market 04:00-09:30 and after hours 16:00-20:00 ET, same packing,
+                    off NEGATIVE for a pre-market bar (04:00 = -330) and >= 390 for an
+                    after-hours bar (16:00 = 390). NOT the engine's cache (which is regular
+                    hours only, api/qqq_exec.py prepost=False): pulled by this publisher
+                    from yfinance with prepost=True into its own small cache under
+                    EDGELOG_HOME/qqq_bars/QQQ_ext_{1m,5m}.csv (refresh_ext_cache; never
+                    under --dry-run, --intraday or --no-ext). yfinance serves 1-minute
+                    bars for the last EXT_1M_DAYS days and 5-minute bars for EXT_5M_DAYS,
+                    so an older day re-published carries 5m extended bars only. A day with
+                    nothing pulled yet has "" here; complete / final never depend on it.
+      ext_counts    {"1m": n, "5m": n}   ext_through {"1m": "HH:MM", "5m": "HH:MM"}
       complete      True once both timeframes reach the session's last bar.
       final         True when the day can never change again (complete, or old enough),
                     so the browser may keep it forever in IndexedDB.
@@ -27,9 +39,19 @@ WHAT IT WRITES
                                                    and tries the book held back itself
       levels_note   which legs carry stop / target lines (ORB only, row 59) -- said here and on
                     the chart; a mark with none says so instead of drawing a guess.
-      marks[].lines [{price, label "stop"|"target", dash}] from the ENTRY signal row's
-                    stop_px / target_px (api/cloud_signal.py writes them for ORB); absent
-                    when the signal file has no level -- never re-derived here.
+      marks[].lines [{price, label, dash}] -- "stop" (solid) and "target" (dashed) from the
+                    ENTRY signal row's stop_px / target_px (api/cloud_signal.py writes them
+                    for ORB), plus one dashed "stop moved HH:MM" per LEVELS row (breakeven
+                    moved the stop); absent when the signal file has no level -- never
+                    re-derived here.
+      marks[].levels the same per trade, as one record for the position box (row 59):
+                    {trade_id, side, entry_px, entry_t, exit_px, exit_t (the book's fills,
+                    = book_in / book_out), target_px (None when none), stops: [{t, px}, ...]}
+                    -- the stop LADDER oldest first: stops[0] is the initial stop, live from
+                    the book's entry fill; each later step is a LEVELS row's moved stop,
+                    live from the END of the bar whose close armed it (the signal row's own
+                    "stop X from the next bar"). Capped at MAX_STOP_STEPS steps. Absent when
+                    the signal file logged no stop and no target.
       published_at  when this copy was written -- the browser re-checks a cached final day
                     once per page load and swaps in a newer copy when this differs.
 
@@ -67,9 +89,10 @@ six trades on one day cost the browser one read, not six.
 SAFETY
     * Standalone: never imported by api/qqq_exec.py, never runs inside its tick loop or
       order path, so nothing here can stall or change trading.
-    * Reads the ledgers only; the one file it ever writes is its own small state
+    * Reads the ledgers only; the files it ever writes are its own: the small state
       (qqq_bars/publish_state.json under EDGELOG_HOME: the intraday throttle and the
-      ledgers' last row counts), and never under --dry-run. After its own work, every run
+      ledgers' last row counts) and its extended-hours bar cache (qqq_bars/QQQ_ext_*.csv,
+      row 74 -- never the engine's ohlc/ files), and neither under --dry-run. After its own work, every run
       but --dry-run also refreshes qqq_exec/eod_fill_gap.csv (MANAGER #152: each EOD exit
       beside the engine's 15:55-bar price, tools/eod_fill_gap.py) -- a separate measurement
       log that writes only that file and cannot change this run's docs or exit code
@@ -102,7 +125,10 @@ MODES
                                   write every day back to the cache's start).
     --intraday                    today only, and only when a trade closed (or a Webull
                                   order landed) since the last write, at most once every
-                                  INTRADAY_MIN_SEC
+                                  INTRADAY_MIN_SEC (no extended-hours pull: those bars
+                                  land on the post-close run)
+    --no-ext                      skip the extended-hours pull (the cache already on disk
+                                  is still published)
 
 SIGNAL-BAR RULE (per leg, never guessed): the chart marks a signal (decision) bar only
 when the ledgers say which bar it was --
@@ -150,7 +176,8 @@ from api import trade_id as _trade_id  # noqa: E402  (stdlib-only, see above)
 
 ET = ZoneInfo("America/New_York") if ZoneInfo else None
 
-SCHEMA_VERSION = 2                  # 2 (10-31, row 59): marks carry stop / target lines
+SCHEMA_VERSION = 3                  # 2 (10-31, row 59): marks carry stop / target lines
+                                    # 3 (10-31, rows 59+74): marks[].levels (stop ladder), bars_ext
 COLLECTION = "qqq_bars"
 DOC_CAP_BYTES = 200_000
 TIMEFRAMES = ("1m", "5m")
@@ -161,8 +188,14 @@ DEFAULT_START = "2026-09-03"        # the Webull paper book's first day
 INTRADAY_MIN_SEC = 300
 PUBLISH_TIMEOUT_SEC = 20.0
 FINAL_AFTER_DAYS = 3                # a day this old is final even if a bar is missing
+EXT_OPEN_MIN = 4 * 60               # 04:00 ET: the pre-market's first bar (row 74)
+EXT_CLOSE_MIN = 20 * 60             # 20:00 ET: after hours end (the last bar starts before this)
+EXT_1M_DAYS = 7                     # yfinance serves 1-minute bars for the last 7 days only ...
+EXT_5M_DAYS = 59                    # ... and 5-minute bars for the last 60
+MAX_STOP_STEPS = 12                 # a trade's stop ladder is capped here (doc size)
 LEVELS_NOTE = "stop and target are not recorded yet"
-LEVELS_NOTE_SOME = "stop and target lines: ORB only (from its signal file); other legs not recorded yet"
+LEVELS_NOTE_SOME = ("stop and target lines: ORB only (from its signal file, with the stop's "
+                    "breakeven moves); other legs not recorded yet")
 REASON_MAX = 140
 MAX_DAYS = 40                       # --backfill wider than this needs --yes-many
 PRICE_EXACT = 0.0001                # "fill bar close" = the bar's close to 4 decimals
@@ -203,6 +236,9 @@ def default_paths(home=None, ohlc_dir=None, exec_dir=None, signals=None):
         "broker_orders": os.path.join(exec_dir, "broker_orders.csv"),
         "signals": signals or os.path.join(home, "cloud_signal", "signals.csv"),
         "state": os.path.join(home, "qqq_bars", "publish_state.json"),
+        # the publisher's OWN extended-hours cache (row 74) -- never the engine's ohlc/ files
+        "ext": {"1m": os.path.join(home, "qqq_bars", "QQQ_ext_1m.csv"),
+                "5m": os.path.join(home, "qqq_bars", "QQQ_ext_5m.csv")},
     }
 
 
@@ -236,9 +272,18 @@ def _et_now():
 
 
 # ── bars ─────────────────────────────────────────────────────────────────────────────
-def load_bars(path):
-    """{date: [(start_min, o, h, l, c, v), ...]} for regular-session bars only, keyed
-    by the New York session date, oldest first, one row per bar start (last wins)."""
+def _in_session(m, session):
+    """Is minute-of-day `m` (ET) inside the regular session ("rth") or the extended ones
+    ("ext": pre-market 04:00-09:30 and after hours 16:00-20:00)?"""
+    if session == "ext":
+        return EXT_OPEN_MIN <= m < SESSION_OPEN_MIN or SESSION_CLOSE_MIN <= m < EXT_CLOSE_MIN
+    return SESSION_OPEN_MIN <= m < SESSION_CLOSE_MIN
+
+
+def load_bars(path, session="rth"):
+    """{date: [(start_min, o, h, l, c, v), ...]} for regular-session bars only (or, with
+    session="ext", the pre-market and after-hours bars only), keyed by the New York
+    session date, oldest first, one row per bar start (last wins)."""
     out = {}
     if not path or not os.path.isfile(path):
         return out
@@ -252,7 +297,7 @@ def load_bars(path):
                 continue
             d = dt.datetime.fromtimestamp(t, ET)
             m = d.hour * 60 + d.minute
-            if m < SESSION_OPEN_MIN or m >= SESSION_CLOSE_MIN:
+            if not _in_session(m, session):
                 continue
             day = out.setdefault(d.date().isoformat(), {})
             day[m] = (m, vals[0], vals[1], vals[2], vals[3], vol)
@@ -265,7 +310,8 @@ def _px(x):
 
 
 def pack_bars(rows):
-    """'off,o,h,l,c,v;...' with off = minutes after 09:30 ET (see the module docstring)."""
+    """'off,o,h,l,c,v;...' with off = minutes after 09:30 ET (see the module docstring);
+    an extended-hours bar's off is negative (pre-market) or >= 390 (after hours)."""
     return ";".join(f"{m - SESSION_OPEN_MIN},{_px(o)},{_px(h)},{_px(l)},{_px(c)},{int(round(v))}"
                     for (m, o, h, l, c, v) in rows)
 
@@ -289,6 +335,91 @@ def _bar_index(rows):
 
 def _hhmm(m):
     return f"{m // 60:02d}:{m % 60:02d}"
+
+
+# ── extended-hours bars (row 74) ─────────────────────────────────────────────────────
+def fetch_yf_ext(start_date, end_date, tf):
+    """QQQ bars WITH pre/post market from yfinance (the feed the box already pulls its
+    regular-hours fallback from, api/cloud_signal.py), start_date..end_date inclusive
+    (YYYY-MM-DD), interval `tf` -> [(epoch, o, h, l, c, v), ...], every bar the feed
+    returned (the caller keeps the extended-hours ones). Raises on any feed failure."""
+    import yfinance as yf  # the box has it (api/cloud_signal.py); the PC may not
+    end = dt.date.fromisoformat(end_date) + dt.timedelta(days=1)
+    df = yf.Ticker("QQQ").history(start=start_date, end=end.isoformat(), interval=tf,
+                                  prepost=True, auto_adjust=False)
+    out = []
+    if df is None or not len(df):
+        return out
+    for idx, row in df.iterrows():
+        try:
+            out.append((int(idx.timestamp()), float(row["Open"]), float(row["High"]),
+                        float(row["Low"]), float(row["Close"]), float(row.get("Volume") or 0.0)))
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def _is_ext_epoch(t):
+    d = dt.datetime.fromtimestamp(int(t), ET)
+    return _in_session(d.hour * 60 + d.minute, "ext")
+
+
+def merge_bar_csv(path, rows):
+    """Merge [(epoch, o, h, l, c, v), ...] into the epoch-schema CSV at `path` (same
+    columns as the engine's caches), one row per bar start, the new value winning,
+    oldest first; written whole via a temp file. Returns the row count on disk."""
+    have = {}
+    for r in _read_csv(path):
+        try:
+            have[int(float(r["time"]))] = (r["open"], r["high"], r["low"], r["close"], r.get("volume") or "0")
+        except (KeyError, TypeError, ValueError):
+            continue
+    for (t, o, h, l, c, v) in rows:
+        have[int(t)] = (_px(o), _px(h), _px(l), _px(c), str(int(round(v))))
+    os.makedirs(os.path.dirname(path) or ".", exist_ok=True)
+    tmp = path + ".tmp"
+    with open(tmp, "w", newline="", encoding="utf-8") as f:
+        w = csv.writer(f)
+        w.writerow(["time", "open", "high", "low", "close", "volume"])
+        for t in sorted(have):
+            w.writerow([t, *have[t]])
+    os.replace(tmp, path)
+    return len(have)
+
+
+def refresh_ext_cache(paths, days, now=None, fetch=fetch_yf_ext, log=print):
+    """Pull the extended-hours bars of `days` (YYYY-MM-DD) and merge them into the
+    publisher's own caches (paths["ext"]). The feed's reach is limited (EXT_1M_DAYS /
+    EXT_5M_DAYS back from today), so older picked days get what the cache already holds.
+    Best effort: a feed failure is logged and the publish goes on without new bars --
+    the chart then shows the regular session alone, never a guess. Returns {tf: rows
+    merged} (0 when nothing was pulled for that timeframe)."""
+    now = now or _et_now()
+    merged = {}
+    if not days:
+        return merged
+    hi = max(days)
+    for tf, span in (("1m", EXT_1M_DAYS), ("5m", EXT_5M_DAYS)):
+        lo = max(min(days), (now.date() - dt.timedelta(days=span)).isoformat())
+        if lo > hi:
+            log(f"[qqq-bars] ext {tf}: {hi} is older than the feed's {span}-day reach -- cache only")
+            merged[tf] = 0
+            continue
+        try:
+            rows = [r for r in fetch(lo, hi, tf) if _is_ext_epoch(r[0])]
+            merge_bar_csv(paths["ext"][tf], rows)
+            merged[tf] = len(rows)
+            log(f"[qqq-bars] ext {tf}: {len(rows)} extended-hours bars {lo}..{hi} merged into "
+                f"{paths['ext'][tf]}")
+        except Exception as e:  # noqa: BLE001 -- a display feed never fails the publish
+            merged[tf] = 0
+            log(f"[qqq-bars] ext {tf}: pull failed ({type(e).__name__}: {e}) -- the regular "
+                f"session publishes alone")
+    return merged
+
+
+def load_ext(paths):
+    return {tf: load_bars(paths["ext"][tf], session="ext") for tf in TIMEFRAMES}
 
 
 # ── ledgers ──────────────────────────────────────────────────────────────────────────
@@ -383,7 +514,8 @@ def broker_by_base(rows):
 
 
 def signals_by_trade(rows):
-    """{trade_id: {"ENTRY": row, "EXIT": row}} -- the LAST row of each event wins;
+    """{trade_id: {"ENTRY": row, "EXIT": row, "LEVELS": [row, ...]}} -- the LAST row of
+    ENTRY / EXIT wins; every LEVELS row (the stop moved, row 59) is kept in file order;
     VOID_ENTRY (a phantom the backtest never takes) and SEED rows are ignored."""
     out = {}
     for r in rows:
@@ -391,6 +523,8 @@ def signals_by_trade(rows):
         ev = str(r.get("event") or "").upper()
         if tid and ev in ("ENTRY", "EXIT"):
             out.setdefault(tid, {})[ev] = r
+        elif tid and ev == "LEVELS":
+            out.setdefault(tid, {}).setdefault("LEVELS", []).append(r)
     return out
 
 
@@ -554,6 +688,60 @@ def entry_lines(ent):
     return out
 
 
+def _level_px(row, key):
+    px = _num((row or {}).get(key))
+    return round(px, 4) if px is not None and px > 0 else None
+
+
+def _bar_end_et(ref_time, tf):
+    """A LEVELS row's moved stop is live 'from the next bar': the END of its ref_time bar."""
+    t = to_et_str(ref_time)
+    if not t:
+        return None
+    return _fmt_et(dt.datetime.strptime(t, "%Y-%m-%d %H:%M:%S") + dt.timedelta(minutes=TF_MIN[tf]))
+
+
+def stop_ladder(ent, levels_rows, entry_t, tf):
+    """[{t, px}, ...] oldest first (row 59): the ENTRY row's stop, live from the book's
+    entry fill `entry_t`, then each LEVELS row's moved stop, live from the end of the bar
+    whose close armed it. Rows without a stop are skipped; capped at MAX_STOP_STEPS."""
+    steps = []
+    px = _level_px(ent, "stop_px")
+    if px is not None:
+        steps.append({"t": entry_t, "px": px})
+    for r in levels_rows or []:
+        px = _level_px(r, "stop_px")
+        if px is not None:
+            steps.append({"t": _bar_end_et(r.get("ref_time"), tf), "px": px})
+    return steps[:MAX_STOP_STEPS]
+
+
+def moved_stop_lines(levels_rows, tf):
+    """One dashed chart line per LEVELS row: 'stop moved HH:MM' (the bar end it took)."""
+    out = []
+    for r in levels_rows or []:
+        px = _level_px(r, "stop_px")
+        t = _bar_end_et(r.get("ref_time"), tf)
+        if px is not None:
+            out.append({"price": px, "label": "stop moved" + (f" {t[11:16]}" if t else ""), "dash": True})
+    return out
+
+
+def trade_levels(mark, ent, levels_rows, tf):
+    """The per-trade levels record (see the module docstring, marks[].levels), or None
+    when the signal file logged neither a stop nor a target for this trade."""
+    entry_t = (mark.get("book_in") or {}).get("t")
+    stops = stop_ladder(ent, levels_rows, entry_t, tf)
+    target = _level_px(ent, "target_px")
+    if not stops and target is None:
+        return None
+    return {"trade_id": mark["trade_id"], "side": mark.get("side"),
+            "entry_px": (mark.get("book_in") or {}).get("px"), "entry_t": entry_t,
+            "exit_px": (mark.get("book_out") or {}).get("px"),
+            "exit_t": (mark.get("book_out") or {}).get("t"),
+            "target_px": target, "stops": stops}
+
+
 def build_mark(trade, sigs, brokers, bars_by_day, shadow=False, wb_from=False):
     """One trade's markers, or None when the row has no trade_id (never guessed).
     `wb_from` = ledger_from(broker_orders.csv): a side with no Webull row that happened
@@ -571,7 +759,7 @@ def build_mark(trade, sigs, brokers, bars_by_day, shadow=False, wb_from=False):
         t, rule = signal_bar(ent, tf, bars_by_day, leg=ent.get("leg") or leg)
         mark["signal"] = {"t": t, "rule": rule}
         mark["bt_in"] = _bt_fill(ent, rule, tf)
-        lines = entry_lines(ent)
+        lines = entry_lines(ent) + moved_stop_lines(sig.get("LEVELS"), tf)
         if lines:
             mark["lines"] = lines
     else:
@@ -589,6 +777,10 @@ def build_mark(trade, sigs, brokers, bars_by_day, shadow=False, wb_from=False):
     mark["book_in"] = {"t": to_et_str(trade.get("entry_ts")), "px": _num(trade.get("entry_px"))}
     mark["book_out"] = {"t": to_et_str(trade.get("exit_ts")), "px": _num(trade.get("exit_px")),
                         "why": str(trade.get("exit_reason") or "")[:REASON_MAX]}
+    if ent:
+        lv = trade_levels(mark, ent, sig.get("LEVELS"), tf)
+        if lv:
+            mark["levels"] = lv
     if shadow:
         mark["shadow"] = True
         mark["wb_in"], mark["wb_out"] = [], []
@@ -701,6 +893,7 @@ def load_all(paths, shadow_paths=(), prev_counts=None, sleep=time.sleep):
         trades += [(r, True) for r in _read_csv(sp)]
     return {
         "bars": bars,
+        "bars_ext": load_ext(paths),
         "trades": trades,
         "sigs": signals_by_trade(_read_csv(paths["signals"])),
         "brokers": broker_by_base(broker_rows),
@@ -731,6 +924,12 @@ def build_day_doc(date, data, now=None):
         through[tf] = _hhmm(rows[-1][0]) if rows else None
         if not rows or rows[-1][0] < _last_bar_min(tf):
             complete = False
+    ext, ext_counts, ext_through = {}, {}, {}
+    for tf in TIMEFRAMES:
+        rows = (data.get("bars_ext") or {}).get(tf, {}).get(date, [])
+        ext[tf] = pack_bars(rows)
+        ext_counts[tf] = len(rows)
+        ext_through[tf] = _hhmm(rows[-1][0]) if rows else None
     marks = []
     for t, shadow in data["trades"]:
         if touches_day(t, date):
@@ -752,6 +951,11 @@ def build_day_doc(date, data, now=None):
         "bars_through": through,
         "complete": complete,
         "final": final,
+        "bars_ext": ext,
+        "ext_counts": ext_counts,
+        "ext_through": ext_through,
+        "ext_session": "pre-market 04:00-09:30 (off < 0) and after hours 16:00-20:00 (off >= 390) ET",
+        "ext_source": "yfinance prepost (publisher's own cache, not the engine's)",
         "marks": marks,
         "levels_note": LEVELS_NOTE_SOME if any(m.get("lines") for m in marks) else LEVELS_NOTE,
         "published_at": now.isoformat(timespec="seconds"),
@@ -769,14 +973,24 @@ def doc_size(doc):
 
 
 def enforce_cap(doc, cap=DOC_CAP_BYTES):
-    """Drop the 1-minute string before failing (the 5-minute bars and the marks are the
-    small, essential part). Raises DocTooLarge when even that is not enough."""
+    """Drop, in order, the extended-hours 1-minute string, every extended-hours string,
+    then the regular 1-minute string before failing (the 5-minute bars and the marks are
+    the small, essential part). Raises DocTooLarge when even that is not enough."""
     if doc_size(doc) <= cap:
         return doc
     doc = dict(doc)
-    doc["bars"] = {k: v for k, v in doc["bars"].items() if k != "1m"}
-    doc["bars_dropped"] = ["1m"]
-    doc["final"] = False
+    doc["bars_dropped"] = []
+    ext = dict(doc.get("bars_ext") or {})
+    if ext.get("1m"):
+        doc["bars_ext"] = {k: v for k, v in ext.items() if k != "1m"}
+        doc["bars_dropped"].append("ext_1m")
+    if doc_size(doc) > cap and any((doc.get("bars_ext") or {}).values()):
+        doc["bars_ext"] = {}
+        doc["bars_dropped"].append("ext")
+    if doc_size(doc) > cap:
+        doc["bars"] = {k: v for k, v in doc["bars"].items() if k != "1m"}
+        doc["bars_dropped"].append("1m")
+        doc["final"] = False
     if doc_size(doc) > cap:
         raise DocTooLarge(f"{doc['date']}: {doc_size(doc)} bytes even without 1-minute bars "
                           f"(cap {cap})")
@@ -878,8 +1092,9 @@ def pick_days(args, data, now):
 def summarize(doc):
     return (f"{doc['date']}  {doc_size(doc):>7,} bytes  bars 1m={doc['bar_counts'].get('1m')} "
             f"5m={doc['bar_counts'].get('5m')} through {doc['bars_through']}  "
+            f"ext 1m={(doc.get('ext_counts') or {}).get('1m')} 5m={(doc.get('ext_counts') or {}).get('5m')}  "
             f"marks={len(doc['marks'])}  complete={doc['complete']} final={doc['final']}"
-            + ("  (1m DROPPED: over cap)" if doc.get("bars_dropped") else ""))
+            + (f"  ({'+'.join(doc['bars_dropped'])} DROPPED: over cap)" if doc.get("bars_dropped") else ""))
 
 
 def run_eod_fill_gap(paths, out, sleep=time.sleep):
@@ -899,9 +1114,10 @@ def run_eod_fill_gap(paths, out, sleep=time.sleep):
               f"the publish is unaffected", file=out)
 
 
-def main(argv=None, db_factory=init_firestore, now=None, out=None, sleep=time.sleep):
+def main(argv=None, db_factory=init_firestore, now=None, out=None, sleep=time.sleep,
+         ext_fetch=None):
     out = out or sys.stdout
-    hook = {}
+    hook = {"ext_fetch": ext_fetch}   # tests pass a fake feed; None = fetch_yf_ext
     try:
         return _main(argv, db_factory, now, out, sleep, hook)
     finally:
@@ -932,6 +1148,8 @@ def _main(argv, db_factory, now, out, sleep, hook):
     ap.add_argument("--cap", type=int, default=DOC_CAP_BYTES)
     ap.add_argument("--yes-many", action="store_true",
                     help=f"allow a run that would write more than {MAX_DAYS} days")
+    ap.add_argument("--no-ext", action="store_true",
+                    help="skip the extended-hours pull (the cache on disk still publishes)")
     a = ap.parse_args(argv)
     now = now or _et_now()
     paths = default_paths(a.home, a.ohlc_dir, a.exec_dir, a.signals)
@@ -963,6 +1181,13 @@ def _main(argv, db_factory, now, out, sleep, hook):
         db = db_factory(a.cred)
         state["_ledger_rows"] = data["counts"]
         _save_state(paths["state"], state)
+        if not a.no_ext and not a.intraday:
+            # row 74: the extended-hours bars of the picked days, into the publisher's own
+            # cache (never under --dry-run: it writes nothing anywhere), then re-read
+            refresh_ext_cache(paths, [d for d in days if d in have], now=now,
+                              fetch=hook.get("ext_fetch") or fetch_yf_ext,
+                              log=lambda s: print(s, file=out))
+            data["bars_ext"] = load_ext(paths)
     rc = 0
     for day in days:
         if day not in have:

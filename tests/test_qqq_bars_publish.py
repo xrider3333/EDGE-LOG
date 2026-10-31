@@ -53,7 +53,7 @@ def _bars_rows(day, step, last="15:59", special=None):
 
 BAR_HDR = ["time", "open", "high", "low", "close", "volume"]
 SIG_HDR = ["emitted_at", "leg", "event", "side", "ref_time", "ref_price", "shares", "reason",
-           "bar_source", "trade_id", "size", "keel_size"]
+           "bar_source", "trade_id", "size", "keel_size", "stop_px", "target_px"]
 TR_HDR = ["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit_px", "pnl",
           "exit_reason", "trade_id"]
 BO_HDR = ["ts_et", "leg", "intent", "side", "shares", "signal_id", "client_order_id", "mode",
@@ -78,16 +78,21 @@ def _make_home(tmp_path, last_5m="15:55", last_1m="15:59"):
     _write_csv(os.path.join(home, "cloud_signal", "signals.csv"), SIG_HDR, [
         ["x", "NOISE_382", "ENTRY", "short", "2026-09-28T10:15:00-04:00", "735.6599", "135",
          "decide_at_close: decided at the close of the 10:10 bar, priced at that close",
-         "webull", NOISE_ID, "2.0", "1.0"],
+         "webull", NOISE_ID, "2.0", "1.0", "", ""],
         ["x", "NOISE_382", "EXIT", "short", "2026-09-28T11:40:00-04:00", "735.695", "135",
          "strategy_exit; decide_at_close: decided at the close of the 11:35 bar, priced at that close",
-         "webull", NOISE_ID, "2.0", "1.0"],
+         "webull", NOISE_ID, "2.0", "1.0", "", ""],
+        # ORB's ENTRY carries the engine's cent-rounded stop / target (row 59) ...
         ["x", "ORB_R6", "ENTRY", "short", "2026-09-28T10:45:00-04:00", "732.33", "136", "",
-         "webull", ORB_ID, "1.0", ""],
+         "webull", ORB_ID, "1.0", "", "735.01", "718.9"],
+        # ... and ONE LEVELS row when breakeven moves the stop (live from the 13:05 bar's end)
+        ["x", "ORB_R6", "LEVELS", "short", "2026-09-28T13:05:00-04:00", "732.33", "136",
+         "breakeven armed at the close of 13:10 (the 13:05 bar); stop 732.33 from the next bar",
+         "webull", ORB_ID, "", "", "732.33", "718.9"],
         ["x", "ENGUQ_335", "VOID_ENTRY", "long", "2026-09-28T12:20:00-04:00", "737.5", "135",
-         "ghost", "webull", ENGU_ID, "", ""],
+         "ghost", "webull", ENGU_ID, "", "", "", ""],
         ["x", "ENGUQ_335", "ENTRY", "long", "2026-09-28T12:32:00-04:00", "738.0295", "135", "",
-         "webull", ENGU_ID, "1.0", ""],
+         "webull", ENGU_ID, "1.0", "", "", ""],
     ])
     _write_csv(os.path.join(home, "qqq_exec", "trades.csv"), TR_HDR, [
         ["NOISE", "2026-09-28 10:15:11", "2026-09-28 11:40:09", "short", "20", "735.6499",
@@ -143,12 +148,13 @@ def _mark(doc, tid):
 # ── doc shape + packing ──────────────────────────────────────────────────────────────
 def test_doc_shape(tmp_path):
     doc, _ = _doc(tmp_path)
-    assert doc["v"] == qb.SCHEMA_VERSION == 2 and doc["date"] == DAY and doc["session"] == "rth"
+    assert doc["v"] == qb.SCHEMA_VERSION == 3 and doc["date"] == DAY and doc["session"] == "rth"
     assert set(doc["bars"]) == {"1m", "5m"}
     assert doc["bar_counts"] == {"1m": 390, "5m": 78}   # 09:25 and 16:00 dropped
     assert doc["bars_through"] == {"1m": "15:59", "5m": "15:55"}
     assert doc["complete"] is True and doc["final"] is False   # today: not final yet
-    assert doc["levels_note"] == qb.LEVELS_NOTE
+    assert doc["levels_note"] == qb.LEVELS_NOTE_SOME     # the ORB trade has lines
+    assert doc["bars_ext"] == {"1m": "", "5m": ""} and doc["ext_counts"] == {"1m": 0, "5m": 0}
     # Firestore rejects arrays of arrays: nothing anywhere may be a list inside a list
     def walk(v, parent_list=False):
         if isinstance(v, list):
@@ -858,3 +864,150 @@ def test_entry_lines_from_orb_signal_row_row59():
         {"price": 520.5, "label": "target", "dash": True}]
     assert q.entry_lines({"stop_px": "", "target_px": None}) == []
     assert q.entry_lines({}) == []
+
+
+# ── row 59: stop ladder + target per trade ───────────────────────────────────────────
+def test_mark_levels_and_moved_stop_lines_row59(tmp_path):
+    doc, _ = _doc(tmp_path)
+    m = _mark(doc, ORB_ID)
+    assert m["lines"] == [{"price": 735.01, "label": "stop", "dash": False},
+                          {"price": 718.9, "label": "target", "dash": True},
+                          {"price": 732.33, "label": "stop moved 13:10", "dash": True}]
+    assert m["levels"] == {
+        "trade_id": ORB_ID, "side": "short",
+        "entry_px": 732.32, "entry_t": "2026-09-28 10:50:06",      # the book's fills
+        "exit_px": 736.76, "exit_t": "2026-09-28 15:59:01",
+        "target_px": 718.9,
+        # initial stop from the entry fill, then the moved stop from the END of the 13:05 bar
+        "stops": [{"t": "2026-09-28 10:50:06", "px": 735.01},
+                  {"t": "2026-09-28 13:10:00", "px": 732.33}]}
+    # legs whose signal file logs no level get neither key -- never a guess
+    for tid in (NOISE_ID, ENGU_ID, BOOKONLY_ID):
+        assert "levels" not in _mark(doc, tid) and "lines" not in _mark(doc, tid)
+
+
+def test_stop_ladder_rules():
+    ent = {"stop_px": "700.5", "target_px": ""}
+    lv = [{"ref_time": "2026-09-28T13:05:00-04:00", "stop_px": "701"},
+          {"ref_time": "2026-09-28T13:30:00-04:00", "stop_px": ""},        # no stop: skipped
+          {"ref_time": "", "stop_px": "702"}]                                # no time: kept, t None
+    assert qb.stop_ladder(ent, lv, "2026-09-28 10:50:06", "5m") == [
+        {"t": "2026-09-28 10:50:06", "px": 700.5}, {"t": "2026-09-28 13:10:00", "px": 701.0},
+        {"t": None, "px": 702.0}]
+    # a 1-minute leg's step is live one minute after the bar start
+    assert qb.stop_ladder({}, lv[:1], None, "1m") == [{"t": "2026-09-28 13:06:00", "px": 701.0}]
+    many = [{"ref_time": "2026-09-28T13:05:00-04:00", "stop_px": str(700 + i)} for i in range(30)]
+    assert len(qb.stop_ladder(ent, many, "t0", "5m")) == qb.MAX_STOP_STEPS
+    assert qb.trade_levels({"trade_id": "x", "side": "long", "book_in": {}, "book_out": {}},
+                           {"stop_px": "", "target_px": ""}, [], "5m") is None
+    assert qb.signals_by_trade([{"trade_id": "a", "event": "LEVELS", "stop_px": "1"},
+                                {"trade_id": "a", "event": "LEVELS", "stop_px": "2"},
+                                {"trade_id": "a", "event": "SEED"}]) == {
+        "a": {"LEVELS": [{"trade_id": "a", "event": "LEVELS", "stop_px": "1"},
+                         {"trade_id": "a", "event": "LEVELS", "stop_px": "2"}]}}
+
+
+# ── row 74: pre / post-market bars ───────────────────────────────────────────────────
+def _ext_rows(day):
+    return [[_epoch(day, "04:00"), 698, 698.5, 697.5, 698.2, 300],     # pre-market: off -330
+            [_epoch(day, "09:29"), 699, 699.5, 698.5, 699.2, 300],     # last pre-market bar
+            [_epoch(day, "09:30"), 1, 1, 1, 1, 5],                      # regular: NOT ext
+            [_epoch(day, "15:59"), 1, 1, 1, 1, 5],                      # regular: NOT ext
+            [_epoch(day, "16:00"), 700, 700.5, 699.5, 700.2, 300],     # after hours: off 390
+            [_epoch(day, "19:59"), 701, 701.5, 700.5, 701.2, 300],
+            [_epoch(day, "20:00"), 2, 2, 2, 2, 5]]                      # past 20:00: dropped
+
+
+def test_ext_bars_in_doc(tmp_path):
+    home = _make_home(tmp_path)
+    _write_csv(os.path.join(home, "qqq_bars", "QQQ_ext_1m.csv"), BAR_HDR, _ext_rows(DAY))
+    data = qb.load_all(qb.default_paths(home))
+    doc = qb.build_day_doc(DAY, data, now=NOW)
+    assert doc["ext_counts"] == {"1m": 4, "5m": 0} and doc["ext_through"] == {"1m": "19:59", "5m": None}
+    assert doc["bars_ext"]["1m"] == ("-330,698,698.5,697.5,698.2,300;-1,699,699.5,698.5,699.2,300;"
+                                     "390,700,700.5,699.5,700.2,300;629,701,701.5,700.5,701.2,300")
+    assert doc["bars_ext"]["5m"] == ""
+    # the regular session is untouched by the extended cache
+    assert doc["bar_counts"] == {"1m": 390, "5m": 78} and doc["complete"] is True
+    # unpack round-trips the negative / large offsets
+    ts = [b["t"] for b in qb.unpack_bars(doc["bars_ext"]["1m"], DAY)]
+    assert ts == [f"{DAY} 04:00", f"{DAY} 09:29", f"{DAY} 16:00", f"{DAY} 19:59"]
+
+
+def test_enforce_cap_drops_ext_first(tmp_path):
+    home = _make_home(tmp_path)
+    _write_csv(os.path.join(home, "qqq_bars", "QQQ_ext_1m.csv"), BAR_HDR, _ext_rows(DAY))
+    _write_csv(os.path.join(home, "qqq_bars", "QQQ_ext_5m.csv"), BAR_HDR, _ext_rows(DAY)[:2])
+    data = qb.load_all(qb.default_paths(home))
+    doc = qb.build_day_doc(DAY, data, now=NOW)
+    full = qb.doc_size(doc)
+    d1 = qb.enforce_cap(doc, cap=full - 1)
+    assert d1["bars_dropped"] == ["ext_1m"] and "1m" not in d1["bars_ext"] and d1["bars_ext"]["5m"]
+    assert d1["bars"]["1m"] and d1["final"] == doc["final"]     # regular bars untouched
+    d2 = qb.enforce_cap(doc, cap=qb.doc_size(d1) - 1)
+    assert d2["bars_dropped"] == ["ext_1m", "ext"] and d2["bars_ext"] == {} and d2["bars"]["1m"]
+    d3 = qb.enforce_cap(doc, cap=qb.doc_size(d2) - 1)
+    assert d3["bars_dropped"] == ["ext_1m", "ext", "1m"] and "1m" not in d3["bars"] and d3["final"] is False
+    assert "DROPPED" in qb.summarize(d3)
+
+
+def test_merge_bar_csv_idempotent(tmp_path):
+    p = str(tmp_path / "qqq_bars" / "QQQ_ext_1m.csv")
+    rows = [(r[0], *r[1:]) for r in _ext_rows(DAY)[:2]]
+    assert qb.merge_bar_csv(p, rows) == 2
+    assert qb.merge_bar_csv(p, rows) == 2                               # same bars: no growth
+    assert qb.merge_bar_csv(p, [(rows[0][0], 1, 2, 0.5, 1.5, 7)]) == 2  # a revision wins
+    got = qb.load_bars(p, session="ext")[DAY]
+    assert got[0][1:] == (1.0, 2.0, 0.5, 1.5, 7.0) and len(got) == 2
+    assert qb.load_bars(p) == {}                                        # nothing regular in it
+
+
+def test_refresh_ext_cache_reach_and_failure(tmp_path):
+    paths = qb.default_paths(str(tmp_path / "home"))
+    calls, logs = [], []
+
+    def fetch(lo, hi, tf):
+        calls.append((lo, hi, tf))
+        if tf == "5m":
+            raise RuntimeError("feed down")
+        return [tuple(r) for r in _ext_rows(DAY)]
+    now = dt.datetime(2026, 9, 30, 16, 10, tzinfo=ET)
+    got = qb.refresh_ext_cache(paths, ["2026-09-01", DAY], now=now, fetch=fetch, log=logs.append)
+    # 1m: the feed reaches 7 days back only, so the window starts there, not at 09-01
+    assert calls == [("2026-09-23", DAY, "1m"), ("2026-09-01", DAY, "5m")]   # 5m reaches 60 days
+    assert got == {"1m": 4, "5m": 0}                                    # regular bars filtered out
+    assert any("pull failed" in l for l in logs) and not os.path.exists(paths["ext"]["5m"])
+    assert len(qb.load_bars(paths["ext"]["1m"], session="ext")[DAY]) == 4
+    # a day older than the 1m reach with nothing newer: cache only, no call
+    calls.clear()
+    qb.refresh_ext_cache(paths, ["2026-09-01"], now=now, fetch=fetch, log=logs.append)
+    assert calls == [("2026-09-01", "2026-09-01", "5m")]
+
+
+def test_dry_run_and_intraday_never_pull(tmp_path):
+    home = _make_home(tmp_path)
+    hits = []
+
+    def fetch(lo, hi, tf):
+        hits.append(tf)
+        return []
+    buf = io.StringIO()
+    rc = qb.main(["--home", home, "--date", DAY, "--dry-run"], now=NOW, out=buf, ext_fetch=fetch)
+    assert rc == 0 and hits == [] and not os.path.exists(os.path.join(home, "qqq_bars", "QQQ_ext_1m.csv"))
+    rc = qb.main(["--home", home, "--date", DAY, "--uid", "U1", "--no-ext"],
+                 db_factory=lambda c: _Store({}, []), now=NOW, out=buf, ext_fetch=fetch)
+    assert rc == 0 and hits == []
+    rc = qb.main(["--home", home, "--intraday", "--uid", "U1"],
+                 db_factory=lambda c: _Store({}, []), now=NOW, out=buf, ext_fetch=fetch)
+    assert rc == 0 and hits == []
+    # a real publish pulls both timeframes and the doc written carries the bars
+    def fetch2(lo, hi, tf):
+        hits.append(tf)
+        return [tuple(r) for r in _ext_rows(DAY)] if tf == "1m" else []
+    store = {}
+    rc = qb.main(["--home", home, "--date", DAY, "--uid", "U1"],
+                 db_factory=lambda c: _Store(store, []), now=NOW, out=buf, ext_fetch=fetch2)
+    assert rc == 0 and hits == ["1m", "5m"]
+    written = list(store.values())[0]
+    assert written["ext_counts"] == {"1m": 4, "5m": 0} and written["bars_ext"]["1m"].startswith("-330,")
+
