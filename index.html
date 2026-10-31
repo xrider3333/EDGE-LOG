@@ -1402,7 +1402,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1423';
+const VERSION='73.1424';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1420,7 +1420,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1423',date:'2026-10-31',notes:['LOCAL AI (rows C21-C23): every Qwen task now ends with a fixed JSON answer block (number + unit, time + time zone, files read, confidence) and python tools/qwen_task.py check N grades it PASS/FAIL before Claude reads the prose; the check also stamps its own start/end minutes and writes Qwen-minutes vs Claude-minutes into qwen_vs_claude.md; the weekly model report card gains two trap columns (points vs dollars on MES, GMT vs MST) - no model was run, --dry lists the questions.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
+const CHANGELOG=[{v:'73.1424',date:'2026-10-31',notes:['WEBULL TRADE CHART, SIX MORE THINGS FROM TRADINGVIEW (rows 62 67 68 71 72 73). New chips in the toolbar, remembered: SESS shades pre-market and after-hours (when the box ever sends those bars) and draws dashed lines at the 09:30 open and the 16:00 close; VWAP draws the session VWAP from the minute bars (fresh each day and again at 09:30; the readout shows its value on the bar); ORB boxes the first 5 and the first 15 minutes of the regular session out to the close, high and low written on them; MFE shades the best and the worst price while in the trade from the entry, each with its points and $. The exit arrow now says what the trade made - net $ and points. When the box records a stop or target for the trade (ORB only today), the chart draws the TradingView position box: grey (red) zone entry to stop, white (green) zone entry to target, each labelled price, $ and R; a stop that moved draws as a step line, the FIRST stop is the risk, and the crosshair reads stop was X on each bar. REPLAY hides every bar after the entry: left / right (or the side buttons) step one bar, the exit and its lines stay hidden until the cursor reaches them, Esc leaves replay. PNG saves all of it.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
+{v:'73.1423',date:'2026-10-31',notes:['LOCAL AI (rows C21-C23): every Qwen task now ends with a fixed JSON answer block (number + unit, time + time zone, files read, confidence) and python tools/qwen_task.py check N grades it PASS/FAIL before Claude reads the prose; the check also stamps its own start/end minutes and writes Qwen-minutes vs Claude-minutes into qwen_vs_claude.md; the weekly model report card gains two trap columns (points vs dollars on MES, GMT vs MST) - no model was run, --dry lists the questions.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
 {v:'73.1422',date:'2026-10-31',notes:['WEBULL TRADE CHART DATA (rows 59, 74): each ORB trade in the day doc now carries its whole stop ladder - the first stop, then every move to breakeven with the time it took - and its target, as one record per trade, beside the stop and target lines. The day doc also carries the pre-market (04:00) and after-hours (to 20:00) bars, pulled by the box into its own small cache; the chart can show them once it is taught to read them. Old days get the same on the backfill.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
 {v:'73.1421',date:'2026-10-31',notes:['OLD CHART VIEWER: STOP, TARGET AND A STOP LADDER (65). The SVG candle chart behind real trades, NT8 paper and run reports can now draw the stop (red dashed line, red zone from entry to stop), the target (green dashed line, green zone from entry to target) and a stop ladder - a step line that moves across time as the stop moves. Nothing shows until a board sends them; charts without them draw exactly as before.','SNAPSHOT LIGHTBOX (69). Clicking a TradingView snapshot (the chart icon on HOME, or SNAPSHOT in the trade panel) opens the picture full size on the page; Esc, the x or a click outside closes it. The hover preview stays. No trip to tradingview.com, so your one live TradingView session is left alone.','OPEN IN TV ASKS FIRST AND MATCHES THE TIMEFRAME (70). The button now asks - This takes over your one TradingView session - open? - before anything opens, and opens the trade\'s own timeframe (10s, 1m, 5m, ...) instead of always 1-minute. The trade time is still copied for Alt+G, since TradingView has no link that opens at a time.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
 {v:'73.1420',date:'2026-10-31',notes:['CLAUDE USAGE (C24): usage.md now prices each chat by the model it really ran on (Fable, Opus 5.5, Opus 5, Sonnet, Haiku each at their own list price), adds a 7-day average and today-vs-average per chat, replies and output tokens per reply; the status line is one short line: 72% | this chat $0.40 | $4.10 today | 7d avg $3.6. List prices live in one PRICES table at the top of tools/claude_usage.py - verify when prices change. No chat changed model.']},{v:'73.1416',date:'2026-10-31',notes:['WEBULL TRADE CHART: ORB trades now carry their stop and target prices from the strategy signal file, so the chart can draw them (row 59). Other strategies still say not recorded.']},{v:'73.1412',date:'2026-10-30',notes:['THE BOARD IS LIVE (your words: why is the board not auto updating). BOARD used to be a dated copy of the board, taken by hand on the PC, and only MANAGER could change the board it was copied from. Now every lane writes its own row and this page listens: a row set on the PC changes here with no refresh. Four lists - BOARD, RUNS, LOCAL AI, AUTOMATIONS. NEEDS YOU rows sit in a red box at the top and are shaded in the list. Green is done and waiting for your OK, yellow is in flight, red needs you; what you have already confirmed is folded away. A row opens its note on a tap. Each run row prints the four numbers in one order - ROC at a $30k drawdown, DD5, DD % from peak, Sortino - and a dash where the lane reported nothing, never a zero. A status nobody has classified still shows as open and gets named at the foot, because losing a row you are waiting on is the only thing that really matters here. Every push that names a row now says so on the row by itself.']},{v:'73.1383',date:'2026-10-29',notes:['SCORES: 1 trade from 2026-10-29 scored, 0 marked NA (no price data).']},{v:'73.1367',date:'2026-10-25',notes:['WEBULL PAPER: each flat strategy now shows the size of its next trade if it fires - NOISE re-estimated every 5-minute bar, ORB a fixed 10 shares, DIP #424 lots that fit - with a tap-open list: the planned loss at the stop (DIP #424: its own -$800 rail), the $400 daily stop left, room under the 85-share cap, how the size is built, the exit rule, the last 5 trades and the worst one. Rails shows the 85-share TOTAL CAP with shares held and room left. A line says book only when Webull would not get the order.']},
@@ -9265,6 +9266,19 @@ window.candleSVG=function(bars,overlays,markers,opts){
 // (the same names as before: Webull in, book in - no Webull fill on record, ...), the day doc's marks as markers (Webull
 // fills as buy / sell arrows, refused / unanswered / held tries, backtest fills, the signal bar), the stop and target lines
 // when the box records them; under it the board's own marks legend (_qbMarkLegend).
+// OVERLAYS (rows 62 67 68 71 72 73, 10-31), each a chip in the toolbar, drawn on a canvas over the chart (paint): session
+// bands (pre-market / after-hours dimmed, dashed lines at 09:30 and 16:00 ET), the position box from the day doc's stop /
+// target (red zone entry -> stop, green zone entry -> target, each labelled price, $ and R; a stop that moved is a step
+// line and the FIRST stop is the risk), session VWAP (line series) + the opening range (first 5 / 15 minutes of the RTH
+// session as boxes), MFE / MAE (the best and worst price while in the trade, shaded from the entry), and REPLAY (the bars
+// after a cursor are hidden; left / right step the cursor one bar, Esc leaves replay). The exit marker carries the $ and
+// points.
+// EXPECTED SHAPE OF marks[].lines (what the data side - tools/qqq_bars_publish.py entry_lines - must write):
+//   [{price:<number>, label:'stop'|'target'|<any name>, dash:<bool, optional>}, ...]          a flat level, one per entry
+//   [{label:'stop', ladder:[{t:'YYYY-MM-DD HH:MM', px:<number>}, ...], price:<optional>}]   a stop that moved: the stop in
+//      force from each `t` (New York wall clock, like the bars) onward, oldest first; ladder[0].px is the INITIAL risk the
+//      box and R use; `price` (when present) is ignored for the drawing and may hold the final stop. The crosshair reads
+//      "stop was X" on a bar inside the trade. A `label` other than stop / target draws as a plain dashed level.
 (function(){
   const LW_VER='4.2.3',LW_SRC=['https://cdn.jsdelivr.net/npm/lightweight-charts@'+LW_VER+'/dist/lightweight-charts.standalone.production.js',
     'https://unpkg.com/lightweight-charts@'+LW_VER+'/dist/lightweight-charts.standalone.production.js'];
@@ -9342,11 +9356,16 @@ window.candleSVG=function(bars,overlays,markers,opts){
   window._lwLineSpec=lineSpec;   // test hook
 
   // the trade's markers on bars `bars` at n minutes, from its day-doc marks (or, with none, its own entry / exit)
-  const markerSpec=(x,mk,bars,n)=>{const out=[],long=String(x._side||'long')!=='short',sh=x._sh!=null?(x._sh+' '):'';
-    const put=(t,o)=>{const i=snap(bars,bucket(t,n));if(i==null)return;
+  // `strict` (replay): a time past the last bar is NOT snapped to it - the outcome stays hidden
+  const markerSpec=(x,mk,bars,n,strict)=>{const out=[],long=String(x._side||'long')!=='short',sh=x._sh!=null?(x._sh+' '):'';
+    const put=(t,o)=>{const bt=bucket(t,n);if(strict&&bars.length&&bt>bars[bars.length-1].time)return;const i=snap(bars,bt);if(i==null)return;
       if(new Date(bars[i].time*1000).toISOString().slice(0,10)!==String(t).slice(0,10))return;
+      if((o.kind==='wb_out'||o.kind==='book_out'||o.kind==='out')&&pl)o.text=(o.text||'')+pl;
       out.push(Object.assign({time:bars[i].time},o));};
     const f2=v=>num(v)!=null?(+v).toFixed(2):'';
+    // row 68: the exit marker says what the trade made - net $ and points (exit - entry, signed for the side)
+    const pts=(num(x._ep)!=null&&num(x._xp)!=null)?(+x._xp-+x._ep)*(long?1:-1):null;
+    const pl=(pts!=null)?('  '+(num(x._usd)!=null?((+x._usd>=0?'+':'')+money(x._usd)+'  '):'')+(pts>=0?'+':'')+pts.toFixed(2)+' pts'):'';
     if(mk){
       if(mk.signal&&mk.signal.t)put(mk.signal.t,{position:long?'belowBar':'aboveBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'signal'});
       if(mk.bt_in&&mk.bt_in.t)put(mk.bt_in.t,{position:long?'belowBar':'aboveBar',shape:'circle',color:'muted',text:'',size:0.5,kind:'bt_in'});
@@ -9375,7 +9394,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const theme=()=>{const cs=getComputedStyle(document.documentElement),g=n=>cs.getPropertyValue(n).trim();
     return {bg:g('--bg1')||'#15151a',bg0:g('--bg')||'#08080c',text:g('--text')||'#eee',text2:g('--text2')||'#ccc',text3:g('--text3')||'#999',
       text4:g('--text4')||'#aaa',text5:g('--text5')||'#777',border:g('--border')||'#2a2a35',border2:g('--border2')||'#1f1f28',
-      green:g('--green')||'#34d399',red:g('--red')||'#f87171',blue:g('--blue')||'#60a5fa',font:getComputedStyle(document.body).fontFamily||'monospace'};};
+      green:g('--green')||'#34d399',red:g('--red')||'#f87171',blue:g('--blue')||'#60a5fa',yellow:g('--yellow')||'#fcd34d',font:getComputedStyle(document.body).fontFamily||'monospace'};};
   const rgba=(c,a)=>{c=String(c||'').trim();let m=c.match(/^#([0-9a-f]{3})$/i);
     if(m)c='#'+m[1].split('').map(h=>h+h).join('');
     m=c.match(/^#([0-9a-f]{2})([0-9a-f]{2})([0-9a-f]{2})$/i);if(m)return 'rgba('+parseInt(m[1],16)+','+parseInt(m[2],16)+','+parseInt(m[3],16)+','+a+')';
@@ -9386,8 +9405,35 @@ window.candleSVG=function(bars,overlays,markers,opts){
   // a P&L or price change in its colour - on MONO in plain text (its loss grey is the dimmest thing on screen; the sign says it)
   const pnlCol=v=>mono()?'var(--text)':(v>=0?'var(--green)':'var(--red)');
   const autoY=()=>{try{S.chart.priceScale('right').applyOptions({autoScale:true});}catch(_e){}};
+  // the overlay chips (remembered): session bands, VWAP, opening range, MFE / MAE
+  const CHIPS=[['sess','SESS','pre-market and after-hours shaded, lines at 09:30 and 16:00 ET',true],['vwap','VWAP','session VWAP from the minute bars (resets at 09:30)',true],
+    ['orb','ORB','opening range: the first 5 and 15 minutes of the regular session',false],['mfe','MFE','best and worst price while in the trade, from the entry',true]];
+  const chipOn=k=>{try{const v=localStorage.getItem('el_lw_'+k);if(v==='0'||v==='1')return v==='1';}catch(_e){}const c=CHIPS.find(p=>p[0]===k);return !!(c&&c[3]);};
+  const minuteOf=t=>{const d=new Date(t*1000);return d.getUTCHours()*60+d.getUTCMinutes();};
+  const dayOf=t=>new Date(t*1000).toISOString().slice(0,10);
+  const sessOf=m=>m<ANCHOR?'pre':(m<960?'rth':'post');
+  // the day doc's stop / target (shape at the top of this block): the INITIAL stop, the target, the stop ladder, other levels
+  const levels=mk=>{const L=(mk&&mk.lines)||[],out={stop:null,target:null,ladder:null,other:[]};
+    L.forEach(l=>{if(!l)return;const lab=String(l.label||'').toLowerCase();
+      if(Array.isArray(l.ladder)&&l.ladder.length){const lad=l.ladder.map(p=>({time:p&&bucket(p.t,1),px:num(p&&p.px)})).filter(p=>p.time!=null&&p.px!=null).sort((a,b)=>a.time-b.time);
+        if(lad.length&&(lab==='stop'||out.stop==null)){out.stop=lad[0].px;out.ladder=lad;}return;}
+      const p=num(l.price);if(p==null)return;
+      if(lab==='stop'){if(out.stop==null)out.stop=p;}else if(lab==='target'){if(out.target==null)out.target=p;}else out.other.push({price:p,label:l.label,dash:l.dash});});
+    return out;};
+  window._lwLevels=levels;   // test hook
+  // the stop in force on the bar at time t (n-minute bars): the last rung at or before the bar's close, else the first
+  const stopAt=(lv,t,n)=>{if(!lv||lv.stop==null)return null;if(!lv.ladder)return lv.stop;let px=null;
+    for(const p of lv.ladder){if(p.time<=t+n*60-60)px=p.px;else break;}return px==null?lv.ladder[0].px:px;};
+  // MFE / MAE: the best and worst price between the entry and the exit (or the last bar shown), from the minute bars
+  const excursion=(x,M,lastT)=>{if(!x||num(x._ep)==null||!x._et)return null;const long=String(x._side||'long')!=='short';
+    const t0=bucket(x._et,1);if(t0==null)return null;let t1=x._xt2?bucket(x._xt2,1):Infinity;if(lastT!=null&&lastT<t1)t1=lastT;
+    let hi=null,lo=null,hiT=null,loT=null;
+    for(const b of (M||[])){const t=bucket(b.t,1);if(t==null||t<t0)continue;if(t>t1)break;const h=+b.h,l=+b.l;if(hi==null||h>hi){hi=h;hiT=t;}if(lo==null||l<lo){lo=l;loT=t;}}
+    if(hi==null)return null;const ep=+x._ep,fav=long?hi:lo,adv=long?lo:hi;
+    return {fav:fav,adv:adv,favT:long?hiT:loT,advT:long?loT:hiT,favPts:(fav-ep)*(long?1:-1),advPts:(adv-ep)*(long?1:-1)};};
+  window._lwExcursion=excursion;   // test hook
 
-  const close=()=>{if(!S.ov)return;SEQ++;try{if(S.chart)S.chart.remove();}catch(_e){}
+  const close=()=>{if(!S.ov)return;SEQ++;try{if(S.raf)cancelAnimationFrame(S.raf);}catch(_e){}try{if(S.chart)S.chart.remove();}catch(_e){}
     try{S.ov.remove();}catch(_e){}document.removeEventListener('keydown',S.key,true);
     if(S.up)['pointerup','pointercancel','touchend','touchcancel'].forEach(ev=>window.removeEventListener(ev,S.up,{capture:true}));
     document.body.style.overflow=S.bodyOv||'';const fb=S.focusBack;Object.keys(S).forEach(k=>{delete S[k];});
@@ -9395,7 +9441,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
   window._lwClose=close;
   // test hook: what the open chart holds
   window._lwState=()=>alive()?{tf:S.tf,bars:(S.bars||[]).length,days:Object.keys(S.days||{}).sort(),endLo:!!S.endLo,endHi:!!S.endHi,busy:!!S.busy,
-    lines:(S.pl||[]).length,tid:S.x&&S.x._tid,label:S.x&&S.x._label,chart:!!S.chart,range:(S.chart?S.chart.timeScale().getVisibleLogicalRange():null)}:null;
+    lines:(S.pl||[]).length,tid:S.x&&S.x._tid,label:S.x&&S.x._label,chart:!!S.chart,range:(S.chart?S.chart.timeScale().getVisibleLogicalRange():null),
+    on:Object.assign({},S.on||{}),replay:!!S.replay,cut:S.cut,all:(S.all||[]).length,levels:S.lv,exc:S.exc,runs:(S.runs||[]).length,orbs:(S.orbs||[]).length,vwap:Object.keys(S.vwAt||{}).length}:null;
 
   const status=html=>{const e=S.ov&&S.ov.querySelector('[data-lwstatus]');if(e)e.innerHTML=html;};
   const rowsOf=()=>{let r=[];try{r=(S.ctx&&S.ctx.all)?S.ctx.all():[];}catch(_e){}return (r||[]).filter(q=>q&&q._qbars&&q._et);};
@@ -9414,16 +9461,20 @@ window.candleSVG=function(bars,overlays,markers,opts){
         +'<div data-lwsub style="font-size:11px;color:var(--text3);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0;'+(ph?'order:9;flex:1 1 100%':'flex:1 1 0')+'"></div>'
         +'<button type="button" data-lwpng title="save a picture of the chart" style="'+hb+'">PNG</button>'
         +'<button type="button" data-lwclose title="close (Esc)" style="'+hb+'">&#10005;</button></div>'
-      +'<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:0 0 auto">'
+      +'<div style="display:flex;align-items:center;gap:6px;min-width:0;flex:0 0 auto;flex-wrap:'+(ph?'wrap':'nowrap')+';row-gap:3px">'
         +'<div data-lwtfs style="display:flex;gap:2px;overflow-x:auto;min-width:0;flex:'+(ph?'1 1 0':'0 1 auto')+';scrollbar-width:none;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:7px;padding:2px">'
           +TFS.map(p=>'<button type="button" data-lwtf="'+p[0]+'" style="background:transparent;border:0;color:var(--text4);height:22px;min-width:'+(ph?'0':'34')+'px;padding:0 '+(ph?'2':'6')+'px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;flex:'+(ph?'1 1 0':'0 0 auto')+'">'+p[0]+'</button>').join('')+'</div>'
         +'<button type="button" data-lwfit title="show every bar loaded" style="'+hb+'">FIT</button>'
         +(ph?'':'<button type="button" data-lwauto title="price scale back to automatic (after dragging it)" style="'+hb+'">AUTO</button>'
           +'<button type="button" data-lwlog title="logarithmic price scale on / off" style="'+hb+'">LOG</button>')
         +'<button type="button" data-lwgo title="back to the trade" style="'+hb+'">TRADE</button>'
+        +'<div data-lwchips style="display:flex;gap:2px;flex:0 0 auto;min-width:0;'+(ph?'order:9;flex:1 1 100%;':'')+'background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:7px;padding:2px">'
+          +CHIPS.map(p=>'<button type="button" data-lwchip="'+p[0]+'" title="'+p[2]+'" style="background:transparent;border:0;color:var(--text4);height:22px;padding:0 '+(ph?'4':'7')+'px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:.4px;flex:'+(ph?'1 1 0':'0 0 auto')+'">'+p[1]+'</button>').join('')
+          +'<button type="button" data-lwreplay title="replay: hide the bars after the entry; left / right step one bar, Esc leaves" style="background:transparent;border:0;color:var(--text4);height:22px;padding:0 '+(ph?'4':'7')+'px;border-radius:5px;cursor:pointer;font-family:inherit;font-size:11px;letter-spacing:.4px;flex:'+(ph?'1 1 0':'0 0 auto')+'">REPLAY</button></div>'
         +(ph?'':'<span data-lwstatus style="font-size:10.5px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis;flex:1 1 0;min-width:0"></span>')+'</div>'
       +'<div data-lwhost style="position:relative;flex:1 1 0;min-height:0;min-width:0;border-radius:6px;overflow:hidden">'
         +'<div data-lwchartel style="position:absolute;inset:0"></div>'
+        +'<canvas data-lwoc style="position:absolute;inset:0;width:100%;height:100%;z-index:3;pointer-events:none"></canvas>'
         +'<div data-lwro style="position:absolute;left:8px;top:6px;z-index:5;pointer-events:none;font-size:11px;line-height:16px;color:var(--text4);max-width:calc(100% - 90px);text-shadow:0 0 3px var(--bg1),0 0 3px var(--bg1)"></div></div>'
       +'<div data-lwlegend style="flex:0 0 auto;max-height:'+(ph?'18vh':'76px')+';overflow:auto;width:100%"></div>'
       +'<div style="flex:0 0 auto;font-size:9.5px;color:var(--text5);display:flex;gap:8px;justify-content:space-between;min-width:0">'
@@ -9442,12 +9493,15 @@ window.candleSVG=function(bars,overlays,markers,opts){
       S.chart.priceScale('right').applyOptions({mode:S.log?window.LightweightCharts.PriceScaleMode.Logarithmic:window.LightweightCharts.PriceScaleMode.Normal});syncCtl();};
     ov.querySelector('[data-lwgo]').onclick=()=>goTrade();
     ov.querySelector('[data-lwpng]').onclick=()=>savePng();
+    ov.querySelectorAll('[data-lwchip]').forEach(b=>{b.onclick=()=>{const k=b.getAttribute('data-lwchip');S.on[k]=!S.on[k];
+      try{localStorage.setItem('el_lw_'+k,S.on[k]?'1':'0');}catch(_e){}if(S.chart)draw('stay');else syncCtl();};});
+    ov.querySelector('[data-lwreplay]').onclick=()=>{if(S.replay)replayOff();else replayOn();};
     S.focusBack=document.activeElement;
     document.body.appendChild(ov);
     S.bodyOv=document.body.style.overflow;document.body.style.overflow='hidden';
     try{ov.querySelector('[data-lwclose]').focus({preventScroll:true});}catch(_e){}
     S.key=e=>{if(!alive())return;
-      if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();close();}
+      if(e.key==='Escape'){e.preventDefault();e.stopImmediatePropagation();if(S.replay)replayOff();else close();}
       else if(e.key==='ArrowLeft'||e.key==='ArrowRight'){const t=e.target;if(t&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))return;
         e.preventDefault();e.stopImmediatePropagation();step(e.key==='ArrowLeft'?-1:1);}};
     document.addEventListener('keydown',S.key,true);
@@ -9457,6 +9511,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
     S.ov.querySelectorAll('[data-lwtf]').forEach(b=>{const on=b.getAttribute('data-lwtf')===S.tf;
       b.style.background=on?'var(--bg2)':'transparent';b.style.color=on?'var(--text)':'var(--text4)';b.style.fontWeight=on?'700':'400';b.setAttribute('aria-pressed',on?'true':'false');});
     const lg=S.ov.querySelector('[data-lwlog]');if(lg){lg.style.color=S.log?'var(--text)':'var(--text3)';lg.style.borderColor=S.log?'var(--text4)':'var(--border)';}
+    S.ov.querySelectorAll('[data-lwchip]').forEach(b=>{const on=!!(S.on&&S.on[b.getAttribute('data-lwchip')]);
+      b.style.background=on?'var(--bg2)':'transparent';b.style.color=on?'var(--text)':'var(--text4)';b.style.fontWeight=on?'700':'400';b.setAttribute('aria-pressed',on?'true':'false');});
+    const rp=S.ov.querySelector('[data-lwreplay]');if(rp){rp.style.background=S.replay?'var(--bg2)':'transparent';rp.style.color=S.replay?'var(--text)':'var(--text4)';rp.style.fontWeight=S.replay?'700':'400';rp.setAttribute('aria-pressed',S.replay?'true':'false');}
+    S.ov.querySelectorAll('[data-lwstep]').forEach(b=>{const k=+b.getAttribute('data-lwstep');b.title=S.replay?(k<0?'one bar back (left arrow)':'one bar on (right arrow)'):(k<0?'previous trade (left arrow)':'next trade (right arrow)');});
     const rows=rowsOf(),i=rowIdx(rows);const pe=S.ov.querySelector('[data-lwpos]');if(pe)pe.textContent=(i>=0?(i+1):'?')+' / '+rows.length;};
   const rowIdx=rows=>{const k=String(S.x&&S.x._no);return rows.findIndex(q=>String(q._no)===k);};
 
@@ -9475,7 +9533,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
     ro.innerHTML='<b style="color:var(--text2)">QQQ</b> <span style="color:var(--text4)">'+S.tf+' '+dt+'</span> '
       +[k('O',bar.open.toFixed(2)),k('H',bar.high.toFixed(2)),k('L',bar.low.toFixed(2)),k('C',bar.close.toFixed(2))].join(' ')
       +' <span style="color:'+c+'">'+(ch>=0?'+':'')+ch.toFixed(2)+' ('+(ch>=0?'+':'')+cp.toFixed(2)+'%)</span><br>'
-      +'<span style="color:var(--text5)">Vol</span> <span style="color:var(--text3)">'+fv(bar.volume)+'</span>';};
+      +'<span style="color:var(--text5)">Vol</span> <span style="color:var(--text3)">'+fv(bar.volume)+'</span>'
+      +((S.on&&S.on.vwap&&S.vwAt&&S.vwAt[bar.time]!=null)?' <span style="color:var(--text5)">VWAP</span> <span style="color:var(--text3)">'+S.vwAt[bar.time].toFixed(2)+'</span>':'')
+      // row 62: a stop that moved - what it was on this bar (inside the trade)
+      +((S.lv&&S.lv.ladder&&S.eI!=null&&j>=S.eI&&(S.xI==null||j<=S.xI))?' <span style="color:var(--text5)">stop was</span> <span style="color:var(--text3)">'+(stopAt(S.lv,bar.time,TFMIN[S.tf]||1)||0).toFixed(2)+'</span>':'');};
 
   const minuteBars=()=>{const ds=Object.keys(S.days).sort();let M=[];ds.forEach(d=>{M=M.concat(S.days[d].bars);});return M;};
   const marksOf=()=>{if(!S.x._tid)return null;for(const d of Object.keys(S.days)){const doc=S.days[d].doc,m=doc&&(doc.marks||[]).find(q=>q&&q.trade_id===S.x._tid);if(m)return m;}return null;};
@@ -9485,26 +9546,51 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const n=TFMIN[S.tf]||1,ts0=S.chart.timeScale();
     let vr=null,lr=null,first=S.bars&&S.bars.length?S.bars[0].time:null;
     try{vr=ts0.getVisibleRange();lr=ts0.getVisibleLogicalRange();}catch(_e){}
-    S.M=minuteBars();S.bars=agg(S.M,n);
+    S.M=minuteBars();S.all=agg(S.M,n);S.bars=S.all;
+    if(S.replay&&keep==='shift'&&first!=null&&S.cut!=null){const k0=S.all.findIndex(b=>b.time>=first);if(k0>0)S.cut+=k0;}   // earlier days came in: the cursor keeps its bar
+    // replay (row 73): only the bars up to the cursor exist for the chart; anything after it stays unknown
+    if(S.replay){if(S.cut==null||S.cut>=S.all.length)S.cut=S.all.length-1;if(S.cut<0)S.cut=0;S.bars=S.all.slice(0,S.cut+1);}
+    const lastT=S.bars.length?S.bars[S.bars.length-1].time:null;
+    S.xHide=!!(S.replay&&S.x._xt2&&lastT!=null&&bucket(S.x._xt2,n)>lastT);
     const up=S.th.green,dn=S.th.red,ua=rgba(up,0.45),da=rgba(dn,mono()?0.85:0.45);
     try{S.chart.applyOptions({timeScale:{timeVisible:n<1440}});}catch(_e){}
     S.cs.setData(S.bars.map(b=>({time:b.time,open:b.open,high:b.high,low:b.low,close:b.close})));
     S.vs.setData(S.bars.map(b=>({time:b.time,value:b.volume,color:b.close>=b.open?ua:da})));
     S.mk=marksOf();if(S.mk&&window._qbFillsFromMarks)window._qbFillsFromMarks(S.x,S.mk);
-    S.cs.setMarkers(markerSpec(S.x,S.mk,S.bars,n).map(m=>({time:m.time,position:m.position,shape:m.shape,color:col(m.color),text:m.text,size:m.size||1})));
+    S.cs.setMarkers(markerSpec(S.x,S.mk,S.bars,n,!!S.replay).map(m=>({time:m.time,position:m.position,shape:m.shape,color:col(m.color),text:m.text,size:m.size||1})));
     (S.pl||[]).forEach(p=>{try{S.cs.removePriceLine(p);}catch(_e){}});S.pl=[];
-    const ls=lineSpec(S.x);S.linePx=ls.map(l=>l.price);
+    const ls=lineSpec(S.x).filter(l=>!(S.xHide&&(l.key==='exit'||l.key==='book-exit')));S.linePx=ls.map(l=>l.price);
     ls.forEach(l=>{S.pl.push(S.cs.createPriceLine({price:l.price,color:col(l.col),lineWidth:l.width||1,lineStyle:l.style,axisLabelVisible:true,title:l.title}));});
     // the position box: from the entry bar to the exit bar, between the entry and exit prices, green for a win, red for a loss
-    S.eI=snap(S.bars,bucket(S.x._et,n));S.xI=S.x._xt2?snap(S.bars,bucket(S.x._xt2,n)):null;
+    // (with a stop or target on record the overlay draws the risk box instead - row 62)
+    S.eI=snap(S.bars,bucket(S.x._et,n));S.xI=(S.x._xt2&&!S.xHide)?snap(S.bars,bucket(S.x._xt2,n)):null;
     if(S.eI!=null&&new Date(S.bars[S.eI].time*1000).toISOString().slice(0,10)!==String(S.x._et).slice(0,10))S.eI=null;
     if(S.xI!=null&&new Date(S.bars[S.xI].time*1000).toISOString().slice(0,10)!==String(S.x._xt2).slice(0,10))S.xI=null;
-    if(S.bs){const bx=[];if(S.eI!=null&&S.xI!=null&&S.x._ep!=null&&S.x._xp!=null){
+    S.lv=levels(S.mk);const riskBox=S.lv.stop!=null||S.lv.target!=null;
+    if(S.bs){const bx=[];if(!riskBox&&S.eI!=null&&S.xI!=null&&S.x._ep!=null&&S.x._xp!=null){
         const c=rgba((+S.x._usd||0)>=0?S.th.green:S.th.red,0.16);
         S.bs.applyOptions({baseValue:{type:'price',price:S.x._ep},topFillColor1:c,topFillColor2:c,bottomFillColor1:c,bottomFillColor2:c});
         for(let i=S.eI;i<=S.xI;i++)bx.push({time:S.bars[i].time,value:S.x._xp});}
       S.bs.setData(bx);}
-    ((S.mk&&S.mk.lines)||[]).forEach(l=>{const p=num(l&&l.price);if(p==null)return;S.pl.push(S.cs.createPriceLine({price:p,color:S.th.text5,lineWidth:1,lineStyle:l.dash===false?0:2,axisLabelVisible:true,title:String(l.label||'level')}));});
+    // the flat levels keep their axis tag (a stop that moved is the step line on the overlay instead)
+    ((S.mk&&S.mk.lines)||[]).forEach(l=>{const p=num(l&&l.price);if(p==null||(l&&Array.isArray(l.ladder)&&l.ladder.length))return;
+      S.pl.push(S.cs.createPriceLine({price:p,color:S.th.text5,lineWidth:1,lineStyle:l.dash===false?0:2,axisLabelVisible:true,title:String(l.label||'level')}));});
+    [S.lv.stop,S.lv.target].forEach(v=>{if(v!=null)S.linePx.push(v);});(S.lv.ladder||[]).forEach(p=>S.linePx.push(p.px));
+    // VWAP (row 71): cumulative typical price x volume over the minute bars, fresh each day and again at the 09:30 open
+    S.vwAt={};if(S.vw){let vd=[];if(S.on.vwap&&n<1440){let d=null,sess=null,pv=0,vv=0,cur=null;
+        for(const b of S.M){const dd=String(b.t).slice(0,10),m=minOf(b.t),s=m<ANCHOR?0:1,bt=bucket(b.t,n);if(bt==null)continue;
+          if(dd!==d||s!==sess){d=dd;sess=s;pv=0;vv=0;}const v=+b.v||0;pv+=(+b.h+ +b.l+ +b.c)/3*v;vv+=v;if(!vv)continue;
+          if(lastT!=null&&bt>lastT)break;const val=pv/vv;if(cur&&cur.time===bt)cur.value=val;else{cur={time:bt,value:val};vd.push(cur);}}}
+      vd.forEach(p=>{S.vwAt[p.time]=p.value;});S.vw.setData(vd);}
+    // the overlay's own facts: session runs, the opening range per day, MFE / MAE
+    S.runs=[];S.orbs=[];S.exc=null;
+    if(n<1440&&S.bars.length){let k=null;S.bars.forEach((b,i)=>{const s=sessOf(minuteOf(b.time)),d=dayOf(b.time);if(k&&k.s===s&&k.d===d)k.i1=i;else{k={s:s,d:d,i0:i,i1:i};S.runs.push(k);}});
+      const byDay={};for(const b of S.M){const m=minOf(b.t);if(m<ANCHOR||m>=ANCHOR+15)continue;const d=String(b.t).slice(0,10),o=byDay[d]||(byDay[d]={h5:null,l5:null,h15:null,l15:null});
+        const h=+b.h,l=+b.l;if(m<ANCHOR+5){if(o.h5==null||h>o.h5)o.h5=h;if(o.l5==null||l<o.l5)o.l5=l;}if(o.h15==null||h>o.h15)o.h15=h;if(o.l15==null||l<o.l15)o.l15=l;}
+      Object.keys(byDay).forEach(d=>{const o=byDay[d],a5=snap(S.bars,ts(d,ANCHOR+5)),a15=snap(S.bars,ts(d,ANCHOR+15)),e=snap(S.bars,ts(d,960)-1);
+        if(a5==null||e==null||dayOf(S.bars[a5].time)!==d)return;S.orbs.push({d:d,h5:o.h5,l5:o.l5,h15:o.h15,l15:o.l15,i5:a5,i15:(a15==null||dayOf(S.bars[a15].time)!==d)?a5:a15,iEnd:e});});}
+    if(S.eI!=null)S.exc=excursion(S.x,S.M,lastT!=null?lastT+n*60-60:null);
+    S.dirty=true;
     if(keep==='shift'&&lr&&first!=null){const k=S.bars.findIndex(b=>b.time>=first);if(k>0)setRange(lr.from+k,lr.to+k);}
     else if(keep==='stay'&&lr)setRange(lr.from,lr.to);
     else if(keep==='view'&&vr){const a=snap(S.bars,vr.from),b=snap(S.bars,vr.to);
@@ -9515,6 +9601,70 @@ window.candleSVG=function(bars,overlays,markers,opts){
   // (read from the last range the library reported - the auto scale calls this while the library is mid-update, where asking
   // the chart for its range would disturb the update)
   const tradeVis=()=>{const lr=S.lr;if(!lr)return false;return [S.eI,S.xI].some(i=>i!=null&&i>=lr.from&&i<=lr.to);};
+
+  // ── THE OVERLAY CANVAS (rows 62 67 71 72): drawn over the chart pane, never over the price or time axis ──
+  const paint=()=>{const cv=S.oc;if(!cv||!S.chart||!S.cs||!cv.parentNode)return;const el=cv.parentNode,W=el.clientWidth,H=el.clientHeight,dpr=window.devicePixelRatio||1;
+    if(!W||!H)return;if(cv.width!==Math.round(W*dpr)||cv.height!==Math.round(H*dpr)){cv.width=Math.round(W*dpr);cv.height=Math.round(H*dpr);}
+    const g=cv.getContext('2d');g.setTransform(dpr,0,0,dpr,0,0);g.clearRect(0,0,W,H);
+    const B=S.bars||[];if(!B.length)return;const n=TFMIN[S.tf]||1,ts0=S.chart.timeScale();
+    let pw=W,ph=H;try{pw=W-S.chart.priceScale('right').width();ph=H-ts0.height();}catch(_e){}
+    const xOf=i=>{const v=ts0.logicalToCoordinate(i);return v==null?null:+v;},yOf=p=>{if(p==null||!isFinite(p))return null;const v=S.cs.priceToCoordinate(p);return v==null?null:Math.max(-20,Math.min(ph+20,+v));};
+    const x0=xOf(0),x1=xOf(1);if(x0==null||x1==null)return;const bw=Math.max(0.5,x1-x0);
+    const cx=v=>Math.max(-10,Math.min(pw+10,v)),xL=i=>cx(xOf(i)-bw/2),xR=i=>cx(xOf(i)+bw/2);
+    const th=S.th,mo=mono(),on=S.on||{},long=String(S.x._side||'long')!=='short',sh=num(S.x._sh)||0,ep=num(S.x._ep);
+    g.save();g.beginPath();g.rect(0,0,pw,ph);g.clip();g.font='10px '+th.font;g.textBaseline='middle';
+    const label=(txt,x,y,align,colr)=>{y=Math.max(8,Math.min(ph-8,y));const w=g.measureText(txt).width+6,xx=align==='right'?Math.min(pw-w-2,x-w):Math.max(2,x);
+      g.fillStyle=rgba(th.bg,0.78);g.fillRect(xx,y-7,w,14);g.fillStyle=(mo&&colr===th.red)?th.text4:colr;g.textAlign='left';g.fillText(txt,xx+3,y);};
+    const hline=(xa,xb,y,colr,dash,wd)=>{g.strokeStyle=colr;g.lineWidth=wd||1;g.setLineDash(dash||[]);g.beginPath();g.moveTo(xa,y);g.lineTo(xb,y);g.stroke();g.setLineDash([]);};
+    const sgn=v=>(v>=0?'+':'')+v.toFixed(2);
+    // sessions (row 67): pre-market and after-hours dimmed; dashed lines at the 09:30 open and the 16:00 close
+    if(on.sess&&n<1440){(S.runs||[]).forEach(r=>{const a=xL(r.i0),b=xR(r.i1);if(b<0||a>pw)return;
+        if(r.s!=='rth'){g.fillStyle=rgba(th.text4,mo?0.08:0.07);g.fillRect(a,0,b-a,ph);}
+        else{g.strokeStyle=rgba(th.text4,0.55);g.lineWidth=1;g.setLineDash([3,3]);
+          if(minuteOf(B[r.i0].time)<ANCHOR+n){g.beginPath();g.moveTo(a,0);g.lineTo(a,ph);g.stroke();}
+          if(minuteOf(B[r.i1].time)+n>=960){g.beginPath();g.moveTo(b,0);g.lineTo(b,ph);g.stroke();}g.setLineDash([]);}});}
+    // the opening range (row 71): the first 5 and the first 15 minutes of the regular session, boxed to the close
+    if(on.orb&&n<1440){const oc=mo?th.text3:th.blue;(S.orbs||[]).forEach(o=>{const b=xR(o.iEnd);
+        const box=(hi,lo,i0,alpha,name,right)=>{if(hi==null||lo==null)return;const y0=yOf(hi),y1=yOf(lo),xa=xL(i0);if(y0==null||y1==null||b<0||xa>pw)return;
+          g.fillStyle=rgba(oc,alpha);g.fillRect(xa,y0,b-xa,y1-y0);g.strokeStyle=rgba(oc,0.6);g.lineWidth=1;g.setLineDash([2,3]);g.strokeRect(xa+0.5,y0+0.5,Math.max(0,b-xa-1),Math.max(0,y1-y0-1));g.setLineDash([]);
+          label(name+' '+hi.toFixed(2),right?b-3:xa+3,y0-7,right?'right':'left',oc);label(name+' '+lo.toFixed(2),right?b-3:xa+3,y1+7,right?'right':'left',oc);};
+        box(o.h15,o.l15,o.i15,mo?0.05:0.04,'OR15',true);box(o.h5,o.l5,o.i5,mo?0.09:0.07,'OR5',false);});}
+    const jEnd=S.xI!=null?S.xI:B.length-1,eI=S.eI;
+    // the position box (row 62): red zone entry -> stop, green zone entry -> target; a stop that moved is a step line
+    const lv=S.lv;if(lv&&ep!=null&&eI!=null&&(lv.stop!=null||lv.target!=null)){const a=xL(eI),b=cx(xR(jEnd)+(S.xI==null?bw*3:0)),yE=yOf(ep);
+      const zone=(px,colr,name,alpha)=>{const y=yOf(px);if(y==null||yE==null)return;g.fillStyle=rgba(colr,alpha);g.fillRect(a,Math.min(yE,y),b-a,Math.abs(y-yE));hline(a,b,y,rgba(colr,0.85),[],1);
+        const usd=(px-ep)*(long?1:-1)*sh,R=(lv.stop!=null&&Math.abs(lv.stop-ep)>1e-9)?Math.abs(px-ep)/Math.abs(lv.stop-ep):null;
+        label(name+' '+px.toFixed(2)+(sh?'  '+(usd>=0?'+':'')+money(usd):'')+(R!=null?'  '+(R>=10?R.toFixed(0):R.toFixed(1))+'R':''),b-3,y+(y<yE?-8:8),'right',colr);};
+      if(lv.stop!=null)zone(lv.stop,th.red,lv.ladder?'first stop':'stop',mo?0.22:0.11);
+      if(lv.target!=null)zone(lv.target,th.green,'target',mo?0.07:0.11);
+      if(yE!=null)hline(a,b,yE,rgba(th.text3,0.9),[],1);
+      if(lv.ladder){g.strokeStyle=mo?th.text:th.red;g.lineWidth=1.5;g.setLineDash([]);g.beginPath();let st=false;
+        for(let i=eI;i<=jEnd;i++){const y=yOf(stopAt(lv,B[i].time,n));if(y==null)continue;if(!st){g.moveTo(xL(i),y);st=true;}else g.lineTo(xL(i),y);g.lineTo(xR(i),y);}
+        g.stroke();const lp=lv.ladder[lv.ladder.length-1].px;if(lp!==lv.stop){const y=yOf(lp);if(y!=null)label('stop moved to '+lp.toFixed(2),b-3,y+(y<(yE||0)?-8:8),'right',mo?th.text:th.red);}}}
+    // MFE / MAE (row 72): the best and the worst price while in the trade, shaded from the entry
+    if(on.mfe&&S.exc&&eI!=null&&ep!=null){const e=S.exc,a=xL(eI),b=xR(jEnd),yE=yOf(ep);
+      const ex=(px,pts,colr,name,alpha)=>{const y=yOf(px);if(y==null||yE==null)return;g.fillStyle=rgba(colr,alpha);g.fillRect(a,Math.min(y,yE),b-a,Math.abs(y-yE));hline(a,b,y,rgba(colr,0.9),[4,2],1);
+        label(name+' '+px.toFixed(2)+'  '+sgn(pts)+' pts'+(sh?'  '+(pts*sh>=0?'+':'')+money(pts*sh):''),a+3,y+(y<yE?-8:8),'left',colr);};
+      ex(e.fav,e.favPts,th.green,'MFE',mo?0.05:0.07);ex(e.adv,e.advPts,th.red,'MAE',mo?0.2:0.07);}
+    // replay: the cursor bar
+    if(S.replay&&B.length){const xr=xR(B.length-1);g.strokeStyle=rgba(th.text3,0.8);g.lineWidth=1;g.setLineDash([2,2]);g.beginPath();g.moveTo(xr,0);g.lineTo(xr,ph);g.stroke();g.setLineDash([]);}
+    g.restore();};
+  // repaint whenever the chart moved (scroll, zoom, a price-scale drag, a resize) or the facts changed (S.dirty)
+  const watch=()=>{if(!alive()||!S.chart){return;}
+    try{const lr=S.chart.timeScale().getVisibleLogicalRange(),B=S.bars||[],el=S.oc&&S.oc.parentNode;
+      const sig=[lr?lr.from.toFixed(2):'',lr?lr.to.toFixed(2):'',B.length?S.cs.priceToCoordinate(B[0].high):'',B.length?S.cs.priceToCoordinate(B[B.length-1].low):'',
+        el?el.clientWidth:0,el?el.clientHeight:0,S.chart.priceScale('right').width()].join('|');
+      if(sig!==S.sig||S.dirty){S.sig=sig;S.dirty=false;paint();}}catch(_e){}
+    S.raf=requestAnimationFrame(watch);};
+  window._lwPaint=()=>{S.dirty=true;paint();};   // test hook
+
+  // ── REPLAY (row 73): the cursor starts on the entry bar; left / right move it one bar; Esc leaves ──
+  const replayOn=()=>{if(!S.chart||!S.all||!S.all.length)return;const n=TFMIN[S.tf]||1;let i=snap(S.all,bucket(S.x._et,n));if(i==null)i=S.all.length-1;
+    S.replay=true;S.cut=i;draw('stay');replayView();syncCtl();info();};
+  const replayOff=()=>{if(!S.replay)return;S.replay=false;S.cut=null;draw('stay');syncCtl();info();};
+  const replayStep=k=>{if(!S.replay||!S.all)return;S.cut=Math.max(0,Math.min(S.all.length-1,S.cut+k));draw('stay');replayView();info();};
+  // keep the cursor bar near the right edge of the screen
+  const replayView=()=>{const lr=S.lr;if(!lr||S.cut==null)return;const c=S.cut;if(c>lr.to-8||c<lr.from){const w=lr.to-lr.from;setRange(c+8-w,c+8);}};
 
   // the trade's own bars in view: entry to exit with room either side (at least 60 bars wide)
   // the visible bars: clamped to what is loaded (a span wider than all of it = FIT). The library settles new data a frame
@@ -9536,6 +9686,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
 
   const info=()=>{const ds=Object.keys(S.days||{}).sort();if(!ds.length){status('no candles from the box for this day yet (it publishes at 16:10 ET)');return;}
     const coarse=ds.some(d=>S.days[d].coarse),d0=String(S.x&&S.x._et||'').slice(0,10);
+    if(S.replay&&S.bars&&S.bars.length){const b=S.bars[S.bars.length-1],d=new Date(b.time*1000);
+      status('<b style="color:var(--text3)">REPLAY</b> &middot; at '+pad2(d.getUTCMonth()+1)+'/'+pad2(d.getUTCDate())+' '+pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes())+' ET &middot; '+(S.bars.length)+' / '+(S.all||[]).length+' bars &middot; left / right step one bar &middot; Esc leaves');return;}
     status((S.busy?'<b style="color:var(--text3)">loading more days&hellip;</b> &middot; ':'')
       +((d0&&!S.days[d0])?'<span style="color:var(--text3)">no box bars for this trade&#39;s day yet (the box publishes at 16:10 ET)</span> &middot; ':'')
       +(S.endLo?'<span style="color:var(--text4)">box bars start '+ds[0].slice(5)+'</span> &middot; ':'')
@@ -9550,7 +9702,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
         +(notes.length?'<div style="font-size:10.5px;color:var(--text4);margin-top:2px">'+notes.map(esc).join(' &middot; ')+'</div>':'');}catch(_e){lg.innerHTML='';}};
 
   // more days at the left (k=-1) or right (k=1) edge; D and 4h read more per step
-  const more=async k=>{if(!alive()||S.busy)return;if(k<0?S.endLo:S.endHi)return;
+  const more=async k=>{if(!alive()||S.busy)return;if(k<0?S.endLo:S.endHi)return;if(k>0&&S.replay)return;   // replay never reads ahead
     const ds=Object.keys(S.days).sort();if(!ds.length)return;const n=TFMIN[S.tf]||1,want=n>=1440?20:(n>=240?8:(n>=30?4:2));
     S.busy=true;info();const seq=S.seq;
     try{const r=await walk(k<0?ds[0]:ds[ds.length-1],k,want);
@@ -9577,15 +9729,17 @@ window.candleSVG=function(bars,overlays,markers,opts){
     cx.font='600 '+Math.round(13*dk)+'px '+S.th.font;cx.fillStyle=S.th.text;cx.textBaseline='middle';
     const u=+S.x._usd||0;cx.fillText(String(S.x._label||'')+'  ·  '+(String(S.x._side||'long')!=='short'?'LONG':'SHORT')+'  ·  net '+money(u)+'  ·  QQQ '+S.tf,Math.round(10*dk),hd/2);
     cx.drawImage(cv,0,hd);
+    try{if(S.oc&&S.oc.width&&S.oc.height)cx.drawImage(S.oc,0,0,S.oc.width,S.oc.height,0,hd,cv.width,cv.height);}catch(_e){}   // the overlay (sessions, box, VWAP range, MFE / MAE)
     const name='webull_'+String(S.x._tid||S.x._label||'trade').replace(/[^A-Za-z0-9._-]+/g,'_').replace(/^_+|_+$/g,'').slice(0,60)+'_'+S.tf+'.png';
     out.toBlob(bl=>{if(!bl)return;const a=document.createElement('a');a.href=URL.createObjectURL(bl);a.download=name;
       window._lastCandlePNG={name:name,bytes:bl.size};document.body.appendChild(a);a.click();setTimeout(()=>{a.remove();URL.revokeObjectURL(a.href);},1000);},'image/png');
   }catch(e){alert('The picture could not be made ('+String(e&&e.message||e)+').');}};
 
   // a trade: its own days (entry to exit, at most 6 sessions read up front) plus one session before, then centre on it
-  const loadTrade=async x=>{S.x=x;S.seq=++SEQ;const seq=S.seq;S.days={};S.endLo=false;S.endHi=false;S.busy=true;S.mk=null;S.bars=[];S.M=[];
+  const loadTrade=async x=>{S.x=x;S.seq=++SEQ;const seq=S.seq;S.days={};S.endLo=false;S.endHi=false;S.busy=true;S.mk=null;S.bars=[];S.M=[];S.all=[];
+    S.replay=false;S.cut=null;S.lv=null;S.exc=null;S.runs=[];S.orbs=[];S.vwAt={};S.dirty=true;
     header();syncCtl();status('<b style="color:var(--text3)">loading this trade&#39;s candles from the box&hellip;</b>');
-    if(S.cs){S.cs.setData([]);S.vs.setData([]);if(S.bs)S.bs.setData([]);S.cs.setMarkers([]);(S.pl||[]).forEach(p=>{try{S.cs.removePriceLine(p);}catch(_e){}});S.pl=[];autoY();}
+    if(S.cs){S.cs.setData([]);S.vs.setData([]);if(S.bs)S.bs.setData([]);if(S.vw)S.vw.setData([]);S.cs.setMarkers([]);(S.pl||[]).forEach(p=>{try{S.cs.removePriceLine(p);}catch(_e){}});S.pl=[];autoY();}
     const lg=S.ov.querySelector('[data-lwlegend]');if(lg)lg.innerHTML='';readout(null);
     const d0=String(x._et||'').slice(0,10),d1=String(x._xt2||x._et||'').slice(0,10)||d0;
     const want=[];let d=d0;for(let k=0;k<12&&d<=d1&&want.length<6;k++){if(isWd(d))want.push(d);d=addDay(d,1);}
@@ -9598,13 +9752,14 @@ window.candleSVG=function(bars,overlays,markers,opts){
     if(!Object.keys(S.days).length){S.bars=[];S.M=[];info();return;}
     draw('trade');topUp();};
 
-  const step=k=>{const rows=rowsOf();if(!rows.length)return;let i=rowIdx(rows);i=(i<0)?0:(i+k+rows.length)%rows.length;loadTrade(rows[i]);};
+  const step=k=>{if(S.replay){replayStep(k);return;}const rows=rowsOf();if(!rows.length)return;let i=rowIdx(rows);i=(i<0)?0:(i+k+rows.length)%rows.length;loadTrade(rows[i]);};
 
   window._lwOpenTrade=async(x,glyphEl,ctx)=>{
     if(ctx)S.ctx=ctx;
     if(alive()&&S.chart){loadTrade(x);return;}
     if(alive())close();
     S.ctx=ctx||null;S.x=x;S.th=theme();try{S.log=localStorage.getItem('el_lw_log')==='1';}catch(_e){}
+    S.on={};CHIPS.forEach(p=>{S.on[p[0]]=chipOn(p[0]);});S.replay=false;S.cut=null;
     let tf='1m';try{const t=localStorage.getItem('el_lw_tf');if(t&&TFMIN[t])tf=t;}catch(_e){}
     // a hold too long to read on 1-minute bars at this width opens on 5 (the 1M chip is one tap away)
     if(tf==='1m'&&window._qbFitTf&&window._qbFitTf(x,window.innerWidth||1024)!=='1m')tf='5m';
@@ -9642,6 +9797,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
         (S.linePx||[]).forEach(v=>{if(v!=null&&isFinite(v)){if(v<lo)lo=v;if(v>hi)hi=v;}});return {priceRange:{minValue:lo,maxValue:hi},margins:r.margins};}}catch(_e){}return r;}});
     S.vs=C.addHistogramSeries({priceFormat:{type:'volume'},priceScaleId:'vol',lastValueVisible:false,priceLineVisible:false});
     C.priceScale('vol').applyOptions({scaleMargins:{top:0.8,bottom:0}});
+    // VWAP (row 71): a thin line on the price scale, no axis tag (the readout shows its value)
+    S.vw=C.addLineSeries({color:mono()?rgba(th.text3,0.9):th.yellow,lineWidth:1,lastValueVisible:false,priceLineVisible:false,crosshairMarkerVisible:false,
+      priceFormat:{type:'price',precision:2,minMove:0.01},autoscaleInfoProvider:()=>null});
+    S.oc=ov.querySelector('[data-lwoc]');S.dirty=true;S.raf=requestAnimationFrame(watch);
     C.subscribeCrosshairMove(p=>{if(!alive())return;const d=p&&p.seriesData?p.seriesData.get(S.cs):null;
       if(!d||!p.time){S.xh=false;readout(null);return;}S.xh=true;const i=snap(S.bars||[],p.time);readout(i!=null?S.bars[i]:null);});
     let t0=0;
