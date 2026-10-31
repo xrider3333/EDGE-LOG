@@ -88,3 +88,14 @@ def test_changed_files_honours_the_post_push_base(monkeypatch):
     monkeypatch.setenv('EDGELOG_DIFF_BASE', 'abc123')
     assert hook_tests.changed_files(ROOT) == ['x.py']
     assert seen == [('diff', '--no-renames', '--name-only', 'abc123', '--')]
+
+
+def test_post_push_skips_a_sha_older_than_a_test_machinery_fix():
+    import subprocess as sp
+    import post_push_tests as pp
+    head = sp.run(['git', '-C', ROOT, 'rev-parse', 'origin/main'], capture_output=True,
+                  text=True).stdout.strip()
+    old = sp.run(['git', '-C', ROOT, 'log', '-1', '--format=%H', head, '--',
+                  'tools/githooks/pre-push'], capture_output=True, text=True).stdout.strip()
+    assert pp.superseded_by(head, ROOT) is None
+    assert pp.superseded_by(old + '~1', ROOT)

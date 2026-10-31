@@ -87,6 +87,20 @@ def hold_one_at_a_time(path=LOCK, sleep=time.sleep):
             sleep(30)
 
 
+# The test machinery itself. A queued run whose sha predates a fix to any of these on main tests
+# the OLD machinery and fails for nothing (MANAGER #145: eight 30-min red runs on 10-30, all the
+# same pre-fix hook test, all older than DISC's 03dc84e1).
+TEST_INFRA = ('tools/githooks/', 'tools/hook_tests.py', 'tools/post_push_tests.py',
+              'tests/conftest.py', 'tests/test_hook_tests.py')
+
+
+def superseded_by(sha, cwd):
+    """The newest main commit touching TEST_INFRA that <sha> does not contain, or None."""
+    _git('fetch', '-q', 'origin', cwd=cwd)
+    r = _git('log', '-1', '--format=%h %s', sha + '..origin/main', '--', *TEST_INFRA, cwd=cwd)
+    return (r.stdout or '').strip() or None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument('worktree')
@@ -104,6 +118,11 @@ def main(argv=None):
         log('quiet check skipped: %s' % e)
     wait_for_window()
     _slot = hold_one_at_a_time()  # noqa: F841 - held until exit
+    newer = superseded_by(a.sha, a.worktree)
+    if newer:
+        log('SKIP: %s predates a test-machinery fix on main (%s) - its tiers would test the old '
+            'machinery; the next push runs on the fixed one' % (a.sha[:8], newer))
+        return 0
     tmp = os.path.join(os.environ.get('EDGELOG_WT_ROOT') or os.path.join(
         os.environ.get('LOCALAPPDATA') or os.path.expanduser('~'), 'EdgeLog-worktrees'),
         '_postpush_%s' % a.sha[:8])
