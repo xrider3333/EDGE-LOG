@@ -214,7 +214,7 @@ def test_drop_incomplete_session_survives_extra_non_array_keys_from_load_master_
     arr, dropped = kls.load_nq_arrays(str(tmp_path / "unused.csv"))
     assert dropped is not None
     assert len(np.unique(arr["day_id"])) == 2
-    assert arr["meta"] == {"whatever": 1}
+    assert {k: v for k, v in arr["meta"].items() if k != "dropped_reason"} == {"whatever": 1}
     assert arr["fingerprint"] == "deadbeef"
 
 
@@ -684,3 +684,14 @@ def test_dip_424k_training_walk_is_run_424s_on_the_real_master():
     assert all(len(t) == 6 for t in trades)
     stamp = res["_meta"]["roll_stamp"]
     assert stamp["calendar"] == "raw (live/paper path)" and stamp["switches_in_window"] == 65
+
+
+def test_session_spike_flags_the_1030_bar_and_passes_a_normal_day():
+    # 10-30: 14:50 closed 28234.25, the 15:00 bar opened/high'd at 29562 (MANAGER #246)
+    o = [28308.75, 28270.75, 29562.0, 28307.75]
+    h = [28310.25, 28272.5, 29562.0, 28376.0]
+    l = [28265.0, 28232.75, 28283.25, 28304.75]
+    c = [28271.0, 28234.25, 28307.75, 28374.25]
+    assert "spike" in kls.session_spike(o, h, l, c) and "29562" in kls.session_spike(o, h, l, c)
+    o[2], h[2] = 28234.0, 28320.0
+    assert kls.session_spike(o, h, l, c) is None

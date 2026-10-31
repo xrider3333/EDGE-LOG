@@ -151,6 +151,12 @@ DATE_FROM = "2010-06-07"          # the #304 crown's own start date (runs #382 a
                                   # date_to floats, see above
 VERSION = "v12"                   # fallback only -- a CROWN_LEGS "keel" block names its own
 FULL_SESSION_BARS = 78            # NQ 5m RTH, 09:30-16:00 ET = 6.5h * 12 bars/h
+# BAR SANITY (owner 10-31, MANAGER #246): a final session with a spiked bar is dropped like an
+# incomplete one (10-30: the 15:00 ET bar opened at 29562 against a 28234 close). A bar is a
+# spike when its open, high or low sits more than SPIKE_MIN_PTS and SPIKE_RANGE_X times the
+# session's median bar range away from the previous close and its own close.
+SPIKE_MIN_PTS = 60.0
+SPIKE_RANGE_X = 12.0
 # ENGINE ROLL GUARD (main 17279c26, augur_engine/rolls.py). What the NQ master IS, said in the
 # arrays' meta. With no instrument there the engine runs a walk "not roll-checked" and
 # rolls.seam_days answers [] -- so NQDIP_1_1.py's NQ model (DIP_424K's walk) skips no roll
@@ -511,8 +517,16 @@ def load_nq_arrays(nq_file, date_from=DATE_FROM, date_to=None, drop_incomplete=T
     if not drop_incomplete or day_id is None or len(day_id) == 0:
         return arr, None
     last_day = day_id[-1]
-    last_day_bars = int((day_id == last_day).sum())
-    if last_day_bars >= FULL_SESSION_BARS:
+    sel = day_id == last_day
+    last_day_bars = int(sel.sum())
+    reason = None
+    if last_day_bars < FULL_SESSION_BARS:
+        reason = f"{last_day_bars} of {FULL_SESSION_BARS} bars"
+    spike = session_spike(arr["open"][sel], arr["high"][sel], arr["low"][sel], arr["close"][sel],
+                          pd.DatetimeIndex(arr["index"][sel]))
+    if spike:
+        reason = f"{reason}; {spike}" if reason else spike
+    if reason is None:
         return arr, None
     idx = pd.DatetimeIndex(arr["index"])
     dropped_date = str(idx[-1].date())
@@ -524,9 +538,30 @@ def load_nq_arrays(nq_file, date_from=DATE_FROM, date_to=None, drop_incomplete=T
     # future extra field degrades safely instead of crashing this drop-a-session step.
     PER_BAR_KEYS = {"open", "high", "low", "close", "volume", "day_id", "index"}
     arr = {k: (v[keep] if k in PER_BAR_KEYS else v) for k, v in arr.items()}
+    if isinstance(arr.get("meta"), dict):
+        arr["meta"] = dict(arr["meta"], dropped_reason=reason)
     log(f"[keel-live-state] dropped incomplete final session {dropped_date} "
-       f"({last_day_bars} of {FULL_SESSION_BARS} bars) -- {int(keep.sum())} bars remain")
+       f"({reason}) -- {int(keep.sum())} bars remain")
     return arr, dropped_date
+
+
+def session_spike(o, h, l, c, idx=None):
+    """'spike at HH:MM (open 29562.0 vs close 28234.25)' for the first spiked bar of one
+    session's arrays, else None (see SPIKE_MIN_PTS / SPIKE_RANGE_X)."""
+    import numpy as np
+    o, h, l, c = (np.asarray(x, dtype=float) for x in (o, h, l, c))
+    if len(c) < 3:
+        return None
+    rng = h - l
+    med = float(np.median(rng[rng > 0])) if (rng > 0).any() else 0.0
+    lim = max(SPIKE_MIN_PTS, SPIKE_RANGE_X * med)
+    for i in range(1, len(c)):
+        ref = (c[i - 1], c[i])
+        for name, v in (("open", o[i]), ("high", h[i]), ("low", l[i])):
+            if min(abs(v - ref[0]), abs(v - ref[1])) > lim:
+                at = idx[i].strftime("%H:%M") if idx is not None else f"bar {i}"
+                return f"spike at {at} ({name} {v} vs close {c[i - 1]})"
+    return None
 
 
 def run_nq_backtest(arr, leg=None, log=print):
@@ -652,6 +687,8 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
         **({} if units == "points" else {"pnl_units": units}),
         "data_through": data_through,
         "dropped_incomplete_session": dropped_session,
+        **({"dropped_session_reason": (arr.get("meta") or {}).get("dropped_reason")}
+           if dropped_session else {}),
         "nq_file": os.path.abspath(nq_file),
         "nq_file_sha256": file_hash,
         "nq_file_bars": n_bars,
