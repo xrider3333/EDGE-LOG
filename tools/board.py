@@ -213,30 +213,29 @@ def cmd_set(db, rid_text, status, statusText, opts, create):
                                              tab)
 
 
-# the board row a ship message names, so a push can say so on the board itself. The owner's own
-# row names are "item 51" and "test 32" (MANAGER #152: the board rows are item N / test N), and a
-# lane may also write the id straight out. NOTHING ELSE COUNTS: guessing would stamp a push onto
-# somebody else's row.
+# THE BOARD ROW A SHIP MESSAGE NAMES, so a push can say so on the board itself.
+#
+# It has to be written as [w51] or board:w51 - the ROW ID, in brackets or after board:. "item 51"
+# is NOT accepted even though the board calls its rows item N, because lanes number the rows of
+# their own reply tables the same way: the first ship under this feature was subjected "... (item
+# 29)" meaning its own row 29, while board row w29 is an NT8 alert from 10-15. One wrong stamp on
+# a row the owner is waiting on is worse than every push that says nothing, so a message with no
+# id in it writes nothing at all.
 ROW_IN_MSG = (
-    (re.compile(r'(?:^|[^a-z])item\s*#?(\d{1,3})\b', re.I), 'w'),
-    (re.compile(r'(?:^|[^a-z])test\s*#?(\d{1,3})\b', re.I), 't'),
-    (re.compile(r'(?:^|[\[\(\s])([wtbcpq])(\d{1,3})(?:[\]\)\s:,.]|$)'), None),
+    re.compile(r'[\[(]\s*([wtbcpq]\d{1,3})\s*[\])]', re.I),
+    re.compile(r'\bboard:\s*([wtbcpq]\d{1,3})\b', re.I),
 )
 
 
 def row_in_message(text):
-    """'item 51: DD% per stretch' -> 'w51'. None when the message names no row."""
+    """'the live board [w29]' -> 'w29'. None when the message names no row id."""
     t = str(text or '')
-    for rx, pre in ROW_IN_MSG:
+    for rx in ROW_IN_MSG:
         m = rx.search(t)
         if not m:
             continue
-        if pre:
-            rid = pre + m.group(1).zfill(2)
-        else:
-            rid = (m.group(1) + m.group(2)).lower()
         try:
-            return parse_id(rid)[0]
+            return parse_id(m.group(1))[0]
         except ToolError:
             continue
     return None

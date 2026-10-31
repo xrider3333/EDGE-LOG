@@ -319,26 +319,29 @@ def test_text_is_flattened_and_bounded_so_one_row_cannot_blow_the_document(db):
 
 # ── a push says so on the row it names (MANAGER #159: ship appends a board set) ─────────────────
 @pytest.mark.parametrize('msg,rid', [
-    ('item 51: DD% per stretch', 'w51'),
-    ('Item #9 column filters', 'w09'),
-    ('test 32 paper parity', 't32'),
-    ('[w09] the live board', 'w09'),
-    ('b7 nightly roll check', 'b7'),
-    ('the live board, c12 wired', 'c12'),
+    ('The board on EDGE-LOG is the live board now [w29]', 'w29'),
+    ('DD% per stretch (w51)', 'w51'),
+    ('paper parity, board:t32', 't32'),
+    ('nightly roll check [B7]', 'b7'),
+    ('the live board [c12] wired', 'c12'),
 ])
-def test_the_row_a_ship_message_names_is_found(msg, rid):
+def test_the_row_id_a_ship_message_names_is_found(msg, rid):
     assert B.row_in_message(msg) == rid
 
 
 @pytest.mark.parametrize('msg', [
-    'the open board, mirrored on EDGE-LOG beside the trading tabs',
+    # THE ONE THAT MATTERS: a lane numbers its OWN reply table the same way the board numbers
+    # rows, and the first ship under this feature was subjected "(item 29)" meaning its own row
+    # 29, while board row w29 is an NT8 alert from 10-15. One wrong stamp is worse than silence.
+    'The board is the live board now, written by every lane (item 29)',
+    'item 51: DD% per stretch',
+    'test 32 paper parity',
     'fix the 51 runs that lost their DD%',
     'bumped to v73.1402',
     '',
     None,
 ])
-def test_a_message_that_names_no_row_writes_nothing(msg):
-    """Guessing would stamp a push onto somebody else's row, so no match means no write."""
+def test_a_message_with_no_row_id_writes_nothing(msg):
     assert B.row_in_message(msg) is None
 
 
