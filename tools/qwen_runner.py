@@ -17,6 +17,10 @@ and its own home. No git; the only subprocess is run_python's sandboxed child (r
 run_python + write_scratch (MANAGER #206): .py files directly in qwen_tasks\\scratch only, AST-gated, read-only,
 60 s. No network is guaranteed ONLY by the AST gate.
 The result is the local model's work: UNVERIFIED until Claude checks it.
+ANSWER FORM (c21): the task body (written by qwen_task.py add) asks the model to end result_markdown with one fenced
+```json block {answer, numbers[name,value,unit], times[what,iso,tz], files_read, confidence}. This runner does not
+parse it - the block is plain markdown inside result_markdown, appended under ## RESULT as before, footer after it.
+Claude's check starts with `python tools/qwen_task.py check <n>` (PASS/FAIL lines + CHECK_START/CHECK_END stamps).
 
 BACKENDS (MANAGER #211): --backend auto|strata|ollama (default auto). auto = Strata (OpenAI-compatible, 127.0.0.1:8080/v1)
 when /v1/models lists qwen3.8-flash-next-gyro-gyro-s as loaded, else Ollama; re-checked before each task. With Strata

@@ -11,7 +11,13 @@ model_report.jsonl beside it.
 
     python tools/model_report.py              (all models)
     python tools/model_report.py --only 3.    (one model, by name prefix)
-    python tools/model_report.py --dry        (list what it would score; no model call)
+    python tools/model_report.py --dry        (list what it would score + the trap questions; no model call)
+
+TRAPS (c23, scope P3): besides the 11 questions, two known Qwen mistakes from qwen_vs_claude.md (Q2/Q4) are asked as
+one question each and scored per model as two extra columns, "Unit trap" (points vs dollars on MES $5/pt) and
+"TZ trap" (a GMT statement time asked in MST, where ET or MDT is the wrong answer). The unit trap is graded like the 11
+(last number); the TZ trap on the last HH:MM in the answer. Promptfoo is not installed and nothing new is installed:
+this script IS the saved test set. --dry never calls a model.
 """
 import argparse
 import datetime
@@ -48,6 +54,14 @@ Q = [
 ]
 SUFFIX = " Show brief working, then give the final answer as a number on the last line."
 
+# c23: the two traps Qwen fell into on Q2/Q4 (qwen_vs_claude.md). Keys: unit -> last number; tz -> last HH:MM.
+TRAP_UNIT = ("MES is $5 per point. You buy 2 contracts at 5800.00 and sell them at 5803.50. The account statement must show "
+             "the profit in DOLLARS, not points. What is the profit in dollars?" + SUFFIX, 35.0)
+TRAP_TZ = ("A broker statement shows a fill at 14:30 GMT on 2026-07-15. The owner lives in Arizona and keeps all his logs in "
+           "MST (Mountain Standard Time, UTC-7, no daylight saving). What is the fill time in MST? Answer as HH:MM 24-hour "
+           "on the last line.", "07:30")
+TRAPS = [("trap_unit", TRAP_UNIT[0], TRAP_UNIT[1], None), ("trap_tz", TRAP_TZ[0], TRAP_TZ[1], "time")]
+
 
 def grade(text, want):
     nums = re.findall(r"-?\d[\d,]*\.?\d*", (text or "").replace("$", ""))
@@ -56,6 +70,16 @@ def grade(text, want):
     except ValueError:
         got = None
     return got is not None and abs(got - want) <= max(0.051, abs(want) * 0.001)
+
+
+def grade_time(text, want):
+    """Last HH:MM in the answer equals the key ("07:30" also accepts "7:30")."""
+    hits = re.findall(r"\b(\d{1,2}):(\d{2})\b", text or "")
+    if not hits:
+        return False
+    h, m = hits[-1]
+    wh, wm = want.split(":")
+    return int(h) == int(wh) and m == wm
 
 
 def _post(url, body, timeout=3600):
@@ -95,10 +119,17 @@ def score(name, gen):
         ok += grade(text, want)
         toks += n
         secs += s
+    traps = {}
+    for key, prompt, want, kind in TRAPS:                           # c23: scored but not counted in the 11
+        text, n, s, _, _ = gen(prompt, 1200)
+        traps[key] = bool(grade_time(text, want) if kind == "time" else grade(text, want))
+        toks += n
+        secs += s
     html = open(INDEX_HTML, encoding="utf-8", errors="ignore").read()[:READ_CHARS]
     _, _, _, ptok, psec = gen("Here is part of the EDGE-LOG site source:\n\n" + html + "\n\nIn 3 bullets: what are the main tabs?", 120)
-    return {"model": name, "score": ok, "of": len(Q), "write_tps": round(toks / secs, 1) if secs else None,
-            "read_tps": round(ptok / psec, 0) if psec else None, "read_tokens": ptok, "minutes": round((time.time() - t0) / 60, 1)}
+    return dict({"model": name, "score": ok, "of": len(Q), "write_tps": round(toks / secs, 1) if secs else None,
+                 "read_tps": round(ptok / psec, 0) if psec else None, "read_tokens": ptok, "minutes": round((time.time() - t0) / 60, 1)},
+                **traps)
 
 
 def stop(model):
@@ -106,16 +137,23 @@ def stop(model):
     time.sleep(3)
 
 
+def _trap(r, key):
+    return "-" if key not in r else ("ok" if r[key] else "MISS")
+
+
 def render(rows, when):
     lines = ["## %s" % when.strftime("%Y-%m-%d %H:%M"), "",
-             "| Model | 11 hard Qs | Write tok/s | Read tok/s | Minutes |", "|---|---|---|---|---|"]
+             "| Model | 11 hard Qs | Unit trap | TZ trap | Write tok/s | Read tok/s | Minutes |", "|---|---|---|---|---|---|---|"]
     for r in rows:
         if r.get("skipped"):
-            lines.append("| %s | - | - | - | %s |" % (r["model"], r["skipped"]))
+            lines.append("| %s | - | - | - | - | - | %s |" % (r["model"], r["skipped"]))
         else:
-            lines.append("| %s | %d/%d | %s | %s | %s |" % (r["model"], r["score"], r["of"], r["write_tps"], r["read_tps"] if r["read_tps"] else "-", r["minutes"]))
+            lines.append("| %s | %d/%d | %s | %s | %s | %s | %s |" % (r["model"], r["score"], r["of"], _trap(r, "trap_unit"), _trap(r, "trap_tz"),
+                                                                  r["write_tps"], r["read_tps"] if r["read_tps"] else "-", r["minutes"]))
     lines += ["", "Think off, temperature 0, Python-graded (C:\\EdgeLog\\strata_test\\qhard.py questions). Read = one ~20K-token read of index.html. "
-              "1.STRATA write tok/s includes its read time (its API reports no split).", ""]
+              "1.STRATA write tok/s includes its read time (its API reports no split). "
+              "Unit trap = MES $5/pt profit asked in dollars (points = wrong); TZ trap = a GMT statement time asked in MST (ET or MDT = wrong); "
+              "ok / MISS per model.", ""]
     return "\n".join(lines)
 
 
@@ -126,11 +164,20 @@ def main(argv=None):
     ap.add_argument("--out", default=OUT_MD)
     a = ap.parse_args(argv)
     now = datetime.datetime.now()
-    names = ollama_models() + [STRATA_NAME]
+    try:
+        names = ollama_models() + [STRATA_NAME]
+    except Exception as e:                                           # noqa: BLE001  (--dry must work with Ollama down)
+        if not a.dry:
+            raise
+        print("ollama not answering (%s) - dry list without its models" % type(e).__name__)
+        names = [STRATA_NAME]
     if a.only:
         names = [n for n in names if n.startswith(a.only)]
     if a.dry:
         print("would score:", ", ".join(names))
+        print("questions: %d hard + %d traps (no model is called in --dry)" % (len(Q), len(TRAPS)))
+        for key, prompt, want, _ in TRAPS:
+            print("  %s -> %s: %s" % (key, want, prompt))
         return 0
     rows = []
     for n in names:
