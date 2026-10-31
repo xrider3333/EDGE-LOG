@@ -53,4 +53,4 @@ Same chain as test 74: 7 of 8 folds bit-exact against #314's stored folds; fold 
 (133 trades / -827.7 pts vs stored 135 / -1,132.5) by the two 2020 NT splices on today's NQ master. Chain total
 12,932.2 pts / 1,201 trades vs stored 12,627.4 / 1,203. Every cell and HOLD use the same rebuilt trades.
 
-Outputs: `C:\EdgeLog\_anatomy_cache	75_scaleout_orb\grid_wf.csv`.
+Outputs: `C:\EdgeLog\_anatomy_cache\t75_scaleout_orb\grid_wf.csv`.
