@@ -660,9 +660,79 @@ def deflated_sharpe(winner, sample_srs, n_cfg, years):
                         + ((winner["kurt"] - 1) / 4.0) * sr_t ** 2))
     dsr = float(_sst.norm.cdf(((sr_t - sr0_t) * math.sqrt(T - 1)) / den))
     return dict(winner_sharpe=float(sr), luck_bar=float(sr0), dsr=dsr, n_cfg=int(n_cfg),
+                # C9 (report-only additions): the inputs, so a reader can audit the haircut
+                sr_var=vsr, n_sr=len(srs), skew=float(winner["skew"]),
+                kurt=float(winner["kurt"]), n_obs=int(T),
                 verdict=("beats the luck bar" if dsr >= 0.95
                          else "uncertain — may not beat luck" if dsr >= 0.80
                          else "does NOT beat the luck bar"))
+
+
+OVERFIT_VERSION = 1
+
+
+def overfit_enabled():
+    """C9 kill switch: AUGUR_OVERFIT_REPORT=0 drops the report-only overfit block."""
+    import os
+    return str(os.environ.get("AUGUR_OVERFIT_REPORT", "1")).strip().lower() not in (
+        "0", "false", "no", "off")
+
+
+def overfit_summary(dsr=None, pbo=None, n_trials=None, dsr_scope=None, pbo_scope=None,
+                    pbo_reason=None):
+    """C9: one small, json-safe block with the two overfit numbers of a run.
+
+    Pure bookkeeping over ALREADY-COMPUTED dicts (deflated_sharpe / probability_backtest_
+    overfitting) - no backtest, no randomness, so it cannot move any other number.
+      dsr      Deflated Sharpe = P(true SR > 0 | best-of-N luck bar), 0..1, higher = better
+      dsr_p    1 - dsr: probability the champion's Sharpe is luck (a p-value)
+      n_trials configs the DSR luck bar was deflated by
+      sr_hat   champion annualised Sharpe; sr0 = expected max Sharpe of n_trials pure-noise
+               configs; sr_var = variance of the sampled trial Sharpes (annualised)
+      pbo      CSCV probability the in-sample-best config lands below the OOS median
+    Returns None when the kill switch is off."""
+    if not overfit_enabled():
+        return None
+    notes = []
+
+    def _r(x, k=4):
+        try:
+            x = float(x)
+            return round(x, k) if math.isfinite(x) else None
+        except (TypeError, ValueError):
+            return None
+
+    d = dsr if isinstance(dsr, dict) and dsr.get("dsr") is not None else None
+    out = {"v": OVERFIT_VERSION, "method": "DSR Bailey-LdP 2014; PBO CSCV Bailey et al. 2017",
+           "dsr": None, "dsr_p": None, "n_trials": None, "sr_hat": None, "sr0": None,
+           "sr_var": None, "skew": None, "kurt": None, "n_obs": None, "n_sr": None,
+           "pbo": None, "pbo_n_configs": None, "pbo_n_splits": None, "pbo_n_blocks": None}
+    if d is not None:
+        out.update(dsr=_r(d["dsr"]), dsr_p=_r(1.0 - float(d["dsr"])),
+                   n_trials=int(d.get("n_cfg") or n_trials or 0) or None,
+                   sr_hat=_r(d.get("winner_sharpe")), sr0=_r(d.get("luck_bar")),
+                   sr_var=_r(d.get("sr_var")), skew=_r(d.get("skew")),
+                   kurt=_r(d.get("kurt")), n_obs=d.get("n_obs"), n_sr=d.get("n_sr"))
+        if d.get("sr_var") is None and d.get("luck_bar") is not None and d.get("n_cfg"):
+            # older dict: back the trial-Sharpe variance out of the luck bar
+            n = float(d["n_cfg"])
+            c = ((1 - _GAMMA) * _sst.norm.ppf(1 - 1.0 / n)
+                 + _GAMMA * _sst.norm.ppf(1 - 1.0 / (n * math.e)))
+            if c > 0:
+                out["sr_var"] = _r((float(d["luck_bar"]) / c) ** 2)
+        if dsr_scope:
+            notes.append(dsr_scope)
+    else:
+        notes.append("dsr: not computed (needs >=8 trial Sharpes, >=2 configs, a champion)")
+    if isinstance(pbo, dict) and pbo.get("pbo") is not None:
+        out.update(pbo=_r(pbo["pbo"], 3), pbo_n_configs=pbo.get("n_configs"),
+                   pbo_n_splits=pbo.get("n_splits"), pbo_n_blocks=pbo.get("n_blocks"))
+        if pbo_scope:
+            notes.append(pbo_scope)
+    else:
+        notes.append("pbo: " + (pbo_reason or "not computed"))
+    out["notes"] = notes
+    return out
 
 
 def probability_backtest_overfitting(perf_matrix, s_blocks=10, metric="sharpe"):
