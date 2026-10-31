@@ -2028,4 +2028,10 @@ def run_auto(strategy, *, instrument=None, timeframe="5m", session="rth", source
         except Exception:
             pass
     raise_if_oom_since(_oom0)      # W46: an out-of-memory backtest some handler swallowed
+    if "overfit" not in out:       # C9 report-only: DSR (when compute_dsr) + why PBO is null
+        try:
+            from .analytics import overfit_summary as _ofs
+            out["overfit"] = _ofs(out.get("dsr"), None, pbo_reason="per-trial return matrix is not kept by a plain auto search; PBO runs in validate only")
+        except Exception:
+            pass
     return out

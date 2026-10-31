@@ -468,4 +468,9 @@ def run_grid(strategy, *, instrument=None, timeframe="5m", session="rth", source
                     out["mae_mfe"] = _mm
         except Exception:
             pass
+    try:                            # C9 report-only: DSR (when compute_dsr) + why PBO is null
+        from .analytics import overfit_summary as _ofs
+        out["overfit"] = _ofs(out.get("dsr"), None, pbo_reason="per-trial return matrix is not kept by a plain grid search; PBO runs in validate only")
+    except Exception:
+        pass
     return out

@@ -25,6 +25,7 @@ from .auto import (run_auto, _is_real as _sel_is_real, _METRIC_KEYS as _SEL_METR
 from .optimize import run_grid
 from .analytics import probability_backtest_overfitting, equity_curve_from_pnls, power_stats
 from .analytics import strip_lb_tails
+from .analytics import overfit_summary
 from .analytics import (sharpe_from_trades as _sharpe_shared,
                         sortino_from_trades as _sortino_shared,
                         avg_win_loss as _avg_wl_shared)
@@ -1713,6 +1714,14 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
         "tailfit": tailfit,           # §1: fat-tail fit of returns (Student-t df)
         "seasonality": season,        # §6: intraday / weekly seasonality
         "pbo": pbo,                   # CSCV Probability of Backtest Overfitting (selection risk)
+        # C9: DSR + PBO in one place for the run report (report-only; AUGUR_OVERFIT_REPORT=0 = null)
+        "overfit": overfit_summary(
+            dsr, pbo, n_trials=n_trials,
+            dsr_scope=("dsr: luck bar deflated by every IS trial tried; trial-Sharpe variance "
+                       "from the top-40 ranked trials (narrower than all trials -> DSR leans high)"),
+            pbo_scope=("pbo: CSCV over the top-24 IS configs' monthly net PnL on the pre-lockbox "
+                       "window (the full trial return matrix is not stored)"),
+            pbo_reason="fewer than 2 configs / 4 months of trades, or no champion"),
         # ungated + logistic/RF/XGB × cut-off bake-off (one lockbox look). A mirror of the
         #   top-level gate_validate below, minus the 1A funnel's lockbox tails (2026-09-13):
         #   the funnel reads gate_validate, and a second copy would only double the tails'
