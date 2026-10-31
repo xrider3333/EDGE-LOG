@@ -86,7 +86,7 @@ Per case:
     orders; its would-be trades are in the Shadow fold), its 09-17..09-28 Webull trades in its Retired row, still counted
   * every trade row names family + run number ('NOISE #382'), never a bare 'ENGUQ' / 'ORB', and the
     run is the one that took the trade (counts per name match the fixture: NOISE #304 / #382 ...)
-  * the three faint lines carry three different dashes (MONO turns every colour grey)
+  * the faint lines: ONE dotted pattern (2 3) in each line's colour on dark; under MONO (every colour grey) three different dashes
   * on a phone the page does not scroll sideways
   * no BOX SILENT chip on the fresh doc, and the top bar carries the WEBULL chip (FLAT)
 Interaction run: the Retired group opens (ENGU-Q's row appears, the choice is stored) and closes;
@@ -460,7 +460,7 @@ def leg_today_want(doc, leg):
 # shows the family as ONE strategy. The variants lay DIP_FIXTURE over the base doc: ORB long 10 and NOISE short 10 bought today, the seven DIP
 # lots each carried overnight (Friday's last price 750.95, today's open 749.34: a -$9.66 gap a lot), three closed DIP trades, ENGU-Q a retired
 # tracker. What the page must say is pinned here (worked out by hand from the fixture), so a drift in a helper cannot hide a wrong page.
-DIP_PHONE_TOP_MAX = 757       # phone 375x812: with seven DIP lots held the trade list still starts within step 12's 757 px
+DIP_PHONE_TOP_MAX = 757 + 28       # phone 375x812: with seven DIP lots held the trade list still starts within step 12's 757 px  # owner 10-31 14:35: the DIP row and the headline line each grew by one small line (open lots)
 # its rail line beside the daily stop: its own figure today (today.dip_rail_input: +$100.38, so nothing used), or on a box that does not send
 # the figure, the limit alone
 DIP_RAIL_OK = ('ok', 'DIP #424 own rail: $0.00 of $800.00 used today (not in this stop); a breach pauses its entries for the next session and never sells')
@@ -1400,7 +1400,7 @@ MUTANTS = [
      '',
      'the data-caveat days are no longer hatched on the chart'),
     ('scrub-leaves-hero',
-     "h.big.innerHTML=_hmMoney(qbBase+p.v+(atNow?openMarkPnl:0))+'<span class=\"lg-suffix qbx-hero-qual\">'+(atNow?'closed + open':'closed')+'</span>';",
+     "h.big.innerHTML=_hmMoney(qbBase+p.v)+'<span class=\"lg-suffix qbx-hero-qual\">'+(p.v!==pc.v||atNow?'net':'cash')+'</span>';",
      '',
      'a chart scrub no longer writes the big number'),
     ('phone-overflow',
@@ -1412,9 +1412,17 @@ MUTANTS = [
      "if(dg)return '#999';",
      'trade rows name a run that did not take the trade (the run lookup broke)'),
     ('lines-same-dash',
-     "const _LG_DASHES=['none','5 3','1.5 3','7 2 1.5 2'];",
-     "const _LG_DASHES=['none','none','none','none'];",
-     'the three faint lines share one dash, so MONO cannot tell them apart'),
+     "function _lgDashOf(l,o){return (_lgMono()&&l.dashMono)?l.dashMono:(o.lineDash||_lgDash(l,o.lines));}",
+     "function _lgDashOf(l,o){return (o.lineDash||_lgDash(l,o.lines));}",
+     'under MONO the three faint lines share one dash, so they cannot be told apart'),
+    ('lines-not-uniform-dark',
+     "return {name:nm,color:color,on:!lgOff[key],dash:'2 3',dashMono:QB_LEG_DASH[key]||'2 3',",
+     "return {name:nm,color:color,on:!lgOff[key],dash:QB_LEG_DASH[key]||'2 3',dashMono:QB_LEG_DASH[key]||'2 3',",
+     'on dark the strategy lines carry different patterns again (owner 10-31: the same dotted line in each colour)'),
+    ('equity-line-closed-only',
+     "window._qbLgChart={id:'qbwb',pts:cpts,",
+     "window._qbLgChart={id:'qbwb',pts:pts,",
+     'the solid line is the closed trades again, not account equity (closed + open), so it no longer ends at the big number'),
     # freshness (sweep 2026-10-05)
     ('silent-chip-never-shown',
      "        if(QF.stale&&!qbNoRead)out.push(qbFreshChip(",
@@ -2682,13 +2690,25 @@ MUTANTS = [
      "brokerLine",
      "the broker line sits in the open under the headline, not behind 'details'"),
     ('hero-qualifier-missing',
-     "+(rangeInfo&&rangeInfo.open?'closed + open':'closed')+'</span>')",
-     "+''+'</span>')",
-     "the big number carries no 'closed' / 'closed + open' word"),
+     "data-qbheroqual=\"net\">net</span>')",
+     "data-qbheroqual=\"net\"></span>')",
+     "the big number carries no small 'net' word"),
     ('hero-qualifier-wrong',
-     "+(rangeInfo&&rangeInfo.open?'closed + open':'closed')+'</span>')",
-     "+'closed'+'</span>')",
-     "the big number says 'closed' while it carries open lots too"),
+     "data-qbheroqual=\"net\">net</span>')",
+     "data-qbheroqual=\"net\">closed + open</span>')",
+     "the big number says 'closed + open' again instead of 'net'"),
+    ('hero-open-line-missing',
+     "+(ov!=null?('<span class=\"hm-suffix\"> &middot; open </span>",
+     "+(false?('<span class=\"hm-suffix\"> &middot; open </span>",
+     "the line under the big number has no 'open' part while lots are held"),
+    ('row-open-line-missing',
+     "value3:legOpenPnl!=null?('<span data-qbrowopen=",
+     "value3:false?('<span data-qbrowopen=",
+     "a strategy row that holds lots has no 'open ... lots' line under its number"),
+    ('row-open-not-headline-source',
+     "const legOpenPnl=(qbOpenByFam[key]&&qbOpenByFam[key].priced)?qbOpenByFam[key].pnl:null;",
+     "const legOpenPnl=(qbOpenByFam[key]&&qbOpenByFam[key].priced)?Math.round(qbOpenByFam[key].pnl*1.07*100)/100:null;",
+     "a strategy row's open figure is not the headline's own (the two disagree)"),
     ('total-line-not-text-colour',
      "totalColor:'var(--text)',lineOpacity:0.85,lineWidth:1.4,",
      "lineOpacity:0.85,lineWidth:1.4,",
@@ -3105,14 +3125,18 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     function rowRead(b){
       var nm=b.querySelector('.lg-row-name'),cn=nm?nm.cloneNode(true):null,tg=null,tag=cn?cn.querySelector('.lg-row-tag'):null;
       if(tag){tg=(tag.textContent||'').replace(/\\s+/g,' ').trim();tag.parentNode.removeChild(tag);}
-      var v=b.querySelector('.lg-row-val'),vc=v?v.cloneNode(true):null,sm=vc?vc.querySelector('small'):null,sm0=v?v.querySelector('small'):null,v2=null;
+      var v=b.querySelector('.lg-row-val'),vc=v?v.cloneNode(true):null,sm=vc?vc.querySelector('small:not(.lg-row-v3)'):null,sm0=v?v.querySelector('small'):null,v2=null;
       if(sm){v2=(sm.textContent||'').replace(/\\s+/g,' ').trim();sm.parentNode.removeChild(sm);}
+      // owner 10-31 14:35: the 'open -$X · N lots' line under a row that holds lots (read, then taken out of the value)
+      var v3=vc?vc.querySelector('.lg-row-v3'):null,open3=null;if(v3){open3=(v3.textContent||'').replace(/\\s+/g,' ').trim();v3.parentNode.removeChild(v3);}
+      var nmc=b.querySelector('.lg-row-name .lg-row-nm'),dot=!!b.querySelector('.lg-row-name i');
       var sb=b.querySelector('.lg-row-sub'),rc=b.getBoundingClientRect(),ex=b.nextElementSibling;
       var shl=b.querySelector('[data-qbshleg]'),shs=b.querySelector('[data-qbshseed]'),sho=b.querySelector('[data-qbshopen]');
       return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,
         tip:shl?shl.getAttribute('title'):null,seed:shs?(shs.textContent||'').trim():null,open:sho?(sho.textContent||'').replace(/\\s+/g,' ').trim():null,
         sub:sb?(sb.textContent||'').replace(/\\s+/g,' ').trim():null,subShown:sb?w.getComputedStyle(sb).display!=='none':false,
         value:vc?(vc.textContent||'').replace(/\\s+/g,' ').trim():null,value2:v2,value2Shown:sm0?w.getComputedStyle(sm0).display!=='none':false,
+        open3:open3,nameColor:nmc?nmc.style.color:null,dot:dot,
         off:b.classList.contains('off'),h:Math.round(rc.height),sw:b.querySelectorAll('[data-lgsw]').length,
         valColor:v?w.getComputedStyle(v).color:null,expanded:b.getAttribute('aria-expanded'),
         extra:(ex&&ex.classList&&ex.classList.contains('qbx-lg-extra'))?ex.getAttribute('data-qbextra'):null};
@@ -3260,6 +3284,10 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     // ONE HONEST NUMBER (owner 10-31): the qualifier beside the big number ('closed' / 'closed + open'), the hero's held line (must be gone:
     // it lives in the strategy row), the broker line's fold, the total line's stroke (the page's text colour)
     var hq=q('#qb-hero-value .qbx-hero-qual');r.heroQual=hq?(hq.textContent||'').replace(/\\s+/g,' ').trim():null;
+    // the way a person reads it (owner 10-31 14:35): 'cash +$X · open -$Y (DIP #424 · 4 lots)' under the big number; the open part only while lots are held
+    var ho=q('#qb-hero-range [data-qbheroopen]');r.heroOpen=ho?(ho.textContent||'').trim():null;r.heroRange=txt('#qb-hero-range');
+    // ACCOUNT EQUITY LINE (owner 10-31 15:00): the solid line's last point is the big number (the chart hands its points to the page: _qbLgChart.pts)
+    var lgc=w._qbLgChart;r.lineEnd=(lgc&&lgc.pts&&lgc.pts.length)?lgc.pts[lgc.pts.length-1].v:null;
     r.heroHeldNote=!!q('#qb-hero-note [data-qbheldnote]');r.heroBrokerFolded=!!q('#qb-hero-note details [data-qbbroker]');
     var tpl=q('#qb-lg-chart svg polyline');r.totalStroke=tpl?tpl.style.stroke:null;
     r.heroToday=txt('#qb-hero-today');
@@ -5386,6 +5414,7 @@ RANGE_WORD = {'TODAY': 'today', '1W': 'past week', '1M': 'past month', '3M': 'pa
               'ALL': 'all time'}
 LIST_VH_MAX = 1.0   # phone: the trade list (the History section) starts within this many viewport heights of the board top
 PHONE_ROW_MAX_H = 62  # phone: one strategy a row (padding 9 + 9, the name line, the trades / win rate / today figures under the number)
+PHONE_ROW_OPEN_H = 14  # owner 10-31 14:35: a row that holds lots carries one more small line ('open -$X · N lots') under its figures
 SHADOW_NOTE = 'None are in the box'
 NOTE_MARK = 'was #304'          # NOISE's note under its row: 'since Sep 24 · was #304 · KEEL v12 ...'
 OTHER_NAME = 'Other legs'       # the list's row for trades of a strategy the board has no row for
@@ -5514,6 +5543,30 @@ def _open_pnl_by_leg(doc):
                 out[k] = float(l['open_pnl'])
         except (TypeError, ValueError, AttributeError):
             pass
+    return out
+
+
+def _fam_name(fam):
+    """The row name of a family: ORB #314, ENGU-Q #335, NOISE #382, DIP #424."""
+    return dict(LEG_KEYS).get(fam) or ('DIP #424' if fam == 'DIP' else fam)
+
+
+def _open_by_family(doc):
+    """{family: (open P&L, lots)} from the doc's POSITIONS - LIVE legs when the page reads them as the open figure (every open position
+    is a priced live leg: index.html qbOpenLive), else None (the page falls back to the book's positions; not judged here)."""
+    legs = ((doc or {}).get('positions_live') or {}).get('legs') or []
+    if len(legs) != len((doc or {}).get('positions') or {}):
+        return None
+    out = {}
+    for l in legs:
+        try:
+            k = str(l.get('leg') or '')
+            v = float(l['open_pnl'])
+        except (TypeError, ValueError, KeyError):
+            return None
+        fam = 'DIP' if k.startswith('DIP') else k
+        o = out.get(fam, (0.0, 0))
+        out[fam] = (round(o[0] + v, 2), o[1] + 1)
     return out
 
 
@@ -5737,12 +5790,31 @@ def _judge_cal(tag, c, vp, theme, doc, cutoff, want_month, open_want, today, fai
 
 
 def _hero_qual_problems(tag, r, doc, fails):
-    """ONE HONEST NUMBER (owner 10-31): the big number says 'closed + open' while a position is open and 'closed' when flat; the hero
-    never names a held lot (that line is the strategy row's); the broker line sits behind a details fold; the chart's total line is
+    """ONE HONEST NUMBER (owner 10-31, reworded 14:35): the big number is the net equity change with a small 'net' beside it; the line
+    under it reads 'cash +$X · open -$Y (DIP #424 · 4 lots)' - the open part only while lots are held, its figure the live legs' open P&L
+    summed (the same figure the strategy rows carry); the solid chart line is ACCOUNT EQUITY and ends at the big number (owner 15:00); the
+    hero never names a held lot (that line is the strategy row's); the broker line sits behind a details fold; the chart's total line is
     drawn in the page's text colour (the one solid line; the strategies are the broken ones)."""
-    want = 'closed + open' if _positions(doc) else 'closed'
-    if r.get('heroQual') != want:
-        fails.append("%s: the big number's qualifier reads %r, want %r (closed trades + open lots, or closed alone when flat)" % (tag, r.get('heroQual'), want))
+    if r.get('heroQual') != 'net':
+        fails.append("%s: the big number's qualifier reads %r, want 'net' (closed trades + open lots)" % (tag, r.get('heroQual')))
+    rng = r.get('heroRange') or ''
+    if r.get('heroRange') is not None and not rng.startswith('cash '):
+        fails.append("%s: the line under the big number reads %r, want it to start with 'cash ' (the closed trades)" % (tag, rng))
+    if r.get('lineEnd') is not None and r.get('heroBig') and r.get('heroBig') != money(float(r['lineEnd'])):
+        fails.append("%s: the solid line ends at %s while the big number reads %r (account equity must end at the big number)"
+                     % (tag, money(float(r['lineEnd'])), r.get('heroBig')))
+    opn = _open_by_family(doc)
+    if opn is not None:
+        if opn:
+            want_open = signed(round(sum(v[0] for v in opn.values()), 2))
+            if r.get('heroOpen') != want_open:
+                fails.append("%s: the hero's open figure reads %r, want %s (the live legs' open P&L summed)" % (tag, r.get('heroOpen'), want_open))
+            for fam, (v, n) in opn.items():
+                who = '%s · %d lot%s' % (_fam_name(fam), n, '' if n == 1 else 's')
+                if who not in rng:
+                    fails.append("%s: the line under the big number %r does not name who holds the lots (%r)" % (tag, rng, who))
+        elif r.get('heroOpen') is not None:
+            fails.append("%s: the hero shows an open figure %r while nothing is held" % (tag, r.get('heroOpen')))
     if r.get('heroHeldNote'):
         fails.append('%s: the hero names a lot held overnight; that line belongs in the strategy row (owner 10-31)' % tag)
     if r.get('totalStroke') is not None and r.get('totalStroke') != 'var(--text)':
@@ -5825,6 +5897,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
     if names != want_names:
         fails.append('%s: the BOOK rows are %r, want %r (family + run number, from the leg definitions%s)'
                      % (tag, names, want_names, ', and an Other legs row for a strategy with no row' if other else ''))
+    opn_fam = _open_by_family(doc) if doc else None
     for x in bk.get('rows') or []:
         is_other = x.get('name') == OTHER_NAME
         if not is_other and not LEG_RE.match(x.get('name') or ''):
@@ -5842,6 +5915,17 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                          % (tag, x.get('name'), x.get('sub')))
         if not is_other and ('more' not in (x.get('tag') or '') and 'less' not in (x.get('tag') or '')):
             fails.append("%s: list row %s has no 'more' / 'less' word in its tag (%r)" % (tag, x.get('name'), x.get('tag')))
+        # owner 10-31 14:35: the name in its chart line's colour, no dot before it; 'open -$X · N lots' under the number only while it holds lots
+        if not is_other and x.get('dot'):
+            fails.append('%s: list row %s still has a coloured dot before its name (the name itself carries the colour now)' % (tag, x.get('name')))
+        if not is_other and not x.get('nameColor'):
+            fails.append('%s: list row %s is not named in its chart line colour' % (tag, x.get('name')))
+        if opn_fam is not None and not is_other:
+            oz = opn_fam.get(x.get('key'))
+            want3 = ('open %s · %d lot%s' % (signed(oz[0]), oz[1], '' if oz[1] == 1 else 's')) if oz else None
+            if x.get('open3') != want3:
+                fails.append("%s: list row %s reads %r under its figures, want %r (the headline's own open figure for this strategy)"
+                             % (tag, x.get('name'), x.get('open3'), want3))
     rt = by.get('retired')
     if rt and (not rt.get('fold') or ('Retired' not in (rt.get('head') or '')) or ('flat since ' + RETIRED_SINCE) not in (rt.get('head') or '')):
         fails.append('%s: the Retired group reads %r (fold %s), want a fold saying "flat since %s"'
@@ -7959,9 +8043,12 @@ def _judge(data, fixture):
                 fails.append('%s: trade rows name the wrong run: shown %s, want %s'
                              % (nm, dict(sorted(got.items())), dict(sorted(want.items()))))
         dashes = r.get('lineDashes') or []
-        if r.get('lines') == WANT_LINES and len(set(dashes)) != len(WANT_LINES):
-            fails.append('%s: the three faint lines do not carry three different dashes (%r); under MONO they '
-                         'cannot be told apart' % (nm, dashes))
+        if r.get('lines') == WANT_LINES:
+            # owner 10-31: the SAME dotted pattern (2 3) in each line's colour; under MONO only (every colour grey) each keeps its own pattern
+            if cfg['theme'] == 'mono' and len(set(dashes)) != len(WANT_LINES):
+                fails.append('%s: under MONO the three faint lines do not carry three different dashes (%r); they cannot be told apart' % (nm, dashes))
+            if cfg['theme'] != 'mono' and (len(dashes) != len(WANT_LINES) or set(dashes) != {'2 3'}):
+                fails.append("%s: the three faint lines are not all the same dotted line '2 3' (%r)" % (nm, dashes))
         if cfg['vp'] == 'phone' and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
             fails.append('%s: the page scrolls sideways on a phone (scrollWidth %s > clientWidth %s; sticking out: %s)'
                          % (nm, r.get('scrollW'), r.get('clientW'), ', '.join(r.get('wide') or []) or '?'))
@@ -8222,8 +8309,9 @@ def _held_problems(tag, r, ex, fails):
         if not tg.startswith('LONG') or 'HELD' not in tg:
             fails.append("%s: ENGU-Q's row tag reads %r, want its side LONG then HELD" % (tag, tg))
         if ex.get('vp', 'laptop').startswith('phone'):
-            if row[0].get('h', 0) > PHONE_ROW_MAX_H or not row[0].get('h'):
-                fails.append('%s: on a phone the ENGU-Q row is %s px tall, want one line (1 to %d px)' % (tag, row[0].get('h'), PHONE_ROW_MAX_H))
+            hmax = PHONE_ROW_MAX_H + (PHONE_ROW_OPEN_H if row[0].get('open3') else 0)
+            if row[0].get('h', 0) > hmax or not row[0].get('h'):
+                fails.append('%s: on a phone the ENGU-Q row is %s px tall, want one line (1 to %d px)' % (tag, row[0].get('h'), hmax))
         elif row[0].get('sub'):
             fails.append("%s: ENGU-Q's row shows %r under its name, want one line (its held line sits behind 'more')" % (tag, row[0].get('sub')))
 
@@ -8253,8 +8341,9 @@ def _dip_problems(tag, r, ex, fails):
         if (row.get('value'), _v2_base(row.get('value2'))) != want['value']:
             fails.append("%s: the DIP #424 row reads %r / %r, want %r / %r (its family's closed trades in the range)"
                          % (tag, row.get('value'), row.get('value2'), want['value'][0], want['value'][1]))
-        if want.get('phone_row') and (not row.get('h') or row['h'] > PHONE_ROW_MAX_H):
-            fails.append('%s: on a phone the DIP #424 row is %s px tall, want one line (1 to %d px)' % (tag, row.get('h'), PHONE_ROW_MAX_H))
+        hmax = PHONE_ROW_MAX_H + (PHONE_ROW_OPEN_H if row.get('open3') else 0)
+        if want.get('phone_row') and (not row.get('h') or row['h'] > hmax):
+            fails.append('%s: on a phone the DIP #424 row is %s px tall, want one line (1 to %d px)' % (tag, row.get('h'), hmax))
     live = g.get('live') or ''
     for s in (want['live'], want['open'], want['line']):
         if s not in live:
