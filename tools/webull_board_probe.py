@@ -168,7 +168,7 @@ node left, <body> holding the same elements); a tap inside does not close it; th
 from the fixture (shares, notional, entry / exit price, the Webull fill on each side, hold time through durStr on whole seconds, P&L of record with its
 source word, backtest and book P&L, the running total, real P&L, slip a share, fill coverage, and the NT POINTS / EXPECTED $ / TRACK ERR / NT ENTRY /
 NT EXIT rows only on a trade that carries NinjaTrader data); the notes slot says it is read-only, holds no box and spells out the exit reason, each
-flag in words, the parity note, the trade's own note and the KEEL size note; the actions slot is OPEN CANDLES alone; a tap on the chart glyph opens the
+flag in words, the parity note, the trade's own note and the KEEL size note; the actions slot is OPEN CANDLES then OPEN IN TV (w70, 73.1436), nothing else; a tap on the chart glyph opens the
 candles and not the panel; nine trades (each kind of caveat: BOOK ONLY, FILL GAP / CHECK FILL, EOD, a part-book price, NinjaTrader figures, a KEEL
 size, a note, a plain one) each open a panel with the right chips, rows and words, a book-only trade's panel carries BOOK ONLY; in MONO no colour in
 the panel (text, background, border, outline, svg fill and stroke, the chart and its legend included) carries a hue. The glass laptop and the glass
@@ -1807,8 +1807,8 @@ MUTANTS = [
      "@media(max-width:600px){.qbx-lg-key .qbx-lg-short{display:none}}",
      'the chart key is four lines on a phone and the trade list starts more than a screen down'),
     ('list-has-switch',
-     "value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)+todayTxt},",
-     "value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)+todayTxt,sw:{on:true}},",
+     "value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)+todayTxt,",
+     "value:fgHas?ledgerSigned(fgTot):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',value2:qbFigsLine(fg)+todayTxt,sw:{on:true},",
      'the strategy list draws a switch on each row (this board has none: every leg counts)'),
     ('shadow-open-by-default',
      "let qbShadowOpen=!!window._qbShadowOpen;",
@@ -2229,9 +2229,17 @@ MUTANTS = [
      "return '<textarea rows=\"2\"></textarea><div class=\"qbx-pn-hint\" data-qbpnotes>WEBULL PAPER keeps no notes.",
      'the notes slot holds a box that can be typed in, though the board keeps no notes'),
     ('wb-actions-destructive',
-     "OPEN CANDLES &#8599;</button>':'')",
-     "OPEN CANDLES &#8599;</button><button type=\"button\" class=\"del\">DELETE</button>':'')",
+     "OPEN IN TV &#8599;</button>':'')",
+     "OPEN IN TV &#8599;</button><button type=\"button\" class=\"del\">DELETE</button>':'')",
      'the actions slot has a DELETE button'),
+    ('wb-actions-tv-missing',
+     "+'<button type=\"button\" data-qbptv title=\"asks first, then opens QQQ in TradingView on the chart&#39;s timeframe and copies the entry time for Alt+G (TradingView is one live session)\">OPEN IN TV &#8599;</button>':'')",
+     ":'')",
+     'the actions slot lost the OPEN IN TV button (w70)'),
+    ('wb-actions-tv-first',
+     "save a picture\">OPEN CANDLES &#8599;</button>'",
+     "save a picture\">OPEN IN TV &#8599;</button>'",
+     'the actions slot reads OPEN IN TV twice: OPEN CANDLES is gone from the first seat'),
     ('wb-nt-rows-always',
      'if(t.nt_points!=null||t.expected_usd!=null||t.track_err_usd!=null)rows.push(',
      'if(true)rows.push(',
@@ -7015,8 +7023,10 @@ def panel_problems(tag, o, t, doc):
     if pn and (str(pn)[:25] not in n or 'PARITY' not in n):
         bad.append('the notes lack the parity note %r' % _first(pn, 40))
     b = o.get('buttons') or []
-    if len(b) != 1 or 'OPEN CANDLES' not in b[0] or o.get('delBtn') or PN_DESTRUCTIVE.search(o.get('actionsText') or ''):
-        bad.append('the actions slot holds %r (want OPEN CANDLES alone, nothing that changes the trade)' % (b,))
+    # w70 (73.1436): OPEN CANDLES first, OPEN IN TV second - exactly those two, nothing that changes the trade
+    if (len(b) != 2 or 'OPEN CANDLES' not in b[0] or 'OPEN IN TV' not in b[1] or o.get('delBtn')
+            or PN_DESTRUCTIVE.search(o.get('actionsText') or '')):
+        bad.append('the actions slot holds %r (want OPEN CANDLES then OPEN IN TV, nothing that changes the trade)' % (b,))
     if not o.get('chartDrawn'):
         bad.append('the chart slot never drew the candles (%r)' % _first(o.get('chartText'), 80))
     if o.get('oldSheet'):
