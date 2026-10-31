@@ -309,7 +309,7 @@ CASES = [
     # remembered per browser, a 375 px phone, and the ?oldboards=1 flag (it must draw the same board as the plain page)
     ('retired-open',    {'sub': 'paper2', 'prefs': {'paperOtherOn': ['ENGUQ']}, 'win': {'_paperShowArchived': True}}),
     ('stats-open',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_stats_nt8': '1'}}),
-    ('cal-closed',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_cal_nt8': '0'}}),
+    ('cal-closed',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_cal_nt8b': '0'}}),
     ('cal-aug',         {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_calmo_nt8': '2026-08'}}),
     ('phone375',        {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fp'}),
     ('flag-paper2',     {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fo'}),
@@ -374,8 +374,9 @@ CASES.append(CHARTKEY_CASE)
 # frame's top block (hero to calendar), its side panel (the strategy list: the right-hand panel from 1100 px) and the rest (the trades, the own folds).
 # NT8 board fix 2026-10-09: the four plumbing checks (10s capture, NinjaTrader detail, cross-engine, gate audit) sit INSIDE one closed fold, 'health'
 # (System health); 'reports' stays its own fold after it. A section inside a closed fold is in the markup order but has no box on the page.
-SECTION_ORDER = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal', 'list', 'trades', 'health', 'capture', 'nt', 'recon', 'gate', 'reports']
-TOP_SECTIONS = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal']   # LEDGER step 12: the frame top block, in this order
+# owner 10-31 ('clean this up'): the range pills ride INSIDE the chart section, under the chart on the legend's line; the calendar (open by default above 600 px) comes before More stats
+SECTION_ORDER = ['hero', 'status', 'chart', 'pills', 'stats', 'cal', 'more', 'list', 'trades', 'health', 'capture', 'nt', 'recon', 'gate', 'reports']
+TOP_SECTIONS = ['hero', 'status', 'chart', 'stats', 'cal', 'more']   # LEDGER step 12: the frame top block, in this order (the pills section sits inside the chart one since 10-31)
 FRAME_MAX_W = '1320px'                                             # LEDGER step 12: .lg-frame max-width (WEBULL's column), centred
 OWN_FOLDS = ['health', 'capture', 'nt', 'recon', 'gate', 'reports']   # the board own folds after the trades, parent before children (the status fold lives in the status line)
 HEALTH_KIDS = ['capture', 'nt', 'recon', 'gate']                   # the folds inside the System health fold
@@ -1072,7 +1073,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     var hc=d.querySelector('.p2rh .lg-hero-chips');o.heroChips=hc?{kids:hc.children.length,txt:tx(hc)}:null;
     var CF=d.querySelectorAll('[data-lgchartfoot="p2"]'),cw=d.getElementById('p2-chart');o.chartFootN=CF.length;o.chartDrawn=!!cw;
     if(CF.length){var c0=CF[0],ky=c0.querySelector('.p2rhkey'),kb=ky?ky.getBoundingClientRect():null;
-      o.chartFoot={inChart:!!c0.closest('[data-p2sec="chart"]'),top:bx(c0).top,chartBottom:cw?bx(cw).bottom:null,key:!!ky,keyVis:!!(kb&&kb.width>0&&kb.height>0),keyTxt:tx(ky)};}
+      o.chartFoot={inChart:!!c0.closest('[data-p2sec="chart"]'),top:bx(c0).top,chartBottom:cw?bx(cw).bottom:null,key:!!ky,keyVis:!!(kb&&kb.width>0&&kb.height>0),keyTxt:tx(ky),help:(function(){var h=c0.querySelector('[data-p2caphelp]');return h?(h.getAttribute('title')||''):'';})()};}
     o.keyOnPills=d.querySelectorAll('[data-p2sec="pills"] .p2rhkey').length;
     var FLT=d.querySelectorAll('[data-lgfilters="p2"]');o.filtN=FLT.length;
     if(FLT.length){var f0=FLT[0],fb=f0.querySelector('[data-lgfilt="p2"]'),fy=f0.querySelector('.lg-filters-body'),ll=f0.closest('[data-lglist="p2"]'),lh=ll?ll.querySelector('.lg-list-hd'):null;
@@ -1306,7 +1307,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           // LEDGER step 11: the remembered fold choices start empty in every case too
           +JSON.stringify(S11K)+".forEach(function(k){localStorage.removeItem('el_lg_'+k+'_nt8');});"
           // the per-browser LEDGER choices (More stats fold, calendar fold, calendar month) start empty in every case
-          +"localStorage.removeItem('el_lg_stats_nt8');localStorage.removeItem('el_lg_cal_nt8');localStorage.removeItem('el_lg_calmo_nt8');"
+          +"localStorage.removeItem('el_lg_stats_nt8');localStorage.removeItem('el_lg_cal_nt8b');localStorage.removeItem('el_lg_calmo_nt8');"
           // LEDGER step 12: the Filters row of the strategy list starts closed (no stored choice) in every case
           +"localStorage.removeItem('el_lg_filters_p2');"
           +"var LS="+JSON.stringify(cfg.ls||{})+";for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
@@ -1437,7 +1438,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           var n2=d.querySelector('[data-lgstat="maxdd"] .lg-stat-val');if(n2)o=n2.innerText;return o;})();
         var _cs=d.querySelector('#p2-chart svg'),_pc=w._p2Chart||null;
         r.chart=_cs?{h:+_cs.getAttribute('height'),dates:_cs.querySelectorAll('[data-lgdate]').length,ticks:_cs.querySelectorAll('[data-lgtick]').length,
-          legend:d.querySelectorAll('#p2-chart .lg-legend [data-lgline]').length,n:_pc?_pc.pts.length:0,last:(_pc&&_pc.pts.length)?_pc.pts[_pc.pts.length-1].v:null,
+          legend:d.querySelectorAll('.p2rh .lg-legend [data-lgline]').length,n:_pc?_pc.pts.length:0,last:(_pc&&_pc.pts.length)?_pc.pts[_pc.pts.length-1].v:null,
           faint:_cs.querySelectorAll('path[stroke-dasharray]').length}:null;
         r.scrub=null;
         if(_cs&&nm==='paper2'){
@@ -1464,7 +1465,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         r.bookHd=_hd('[data-p2bookhd],[data-p2grp="book"]');r.fwdHd=_hd('[data-p2fwdhd],[data-p2grp="fwd"]');r.retHd=_hd('[data-p2grp="retired"]');
         r.cap=(function(){var e=d.querySelector('.lg-hero-label');return e?e.innerText:'';})();
         // owner 10-31: the chart caption's 'hatched =' text explains the caveat; each hatched day's hover names the day and its caveat in plain words
-        r.chartCap=(function(){var e=d.querySelector('[data-lgchartfoot="p2"] .p2rhkey')||d.querySelector('.p2rhkey');return e?e.textContent.replace(/\\s+/g,' ').trim():null;})();
+        r.chartCap=(function(){var e=d.querySelector('[data-lgchartfoot="p2"] .p2rhkey')||d.querySelector('.p2rhkey'),h=d.querySelector('[data-lgchartfoot="p2"] [data-p2caphelp]');return e?(e.textContent.replace(/\\s+/g,' ').trim()+(h?' '+(h.getAttribute('title')||''):'')):null;})();
         r.bandTitles=[].map.call(d.querySelectorAll('#p2-chart [data-lgband] title'),function(t){return t.textContent;});
         r.bookW=w._paperBookW||null;
         var _ld=d.querySelector('[data-p2loaded]');
@@ -1634,7 +1635,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
             I.calBack=_calState();
             // the calendar fold: closed means the panel is hidden and the choice is stored; open again
             if(_click('[data-lgcalfold="p2"]')){
-              I.calFold={closed:d.querySelector('[data-lgcalfold="p2"]').getAttribute('aria-expanded'),hidden:(d.getElementById('p2-cal')||{}).hidden,stored:localStorage.getItem('el_lg_cal_nt8')};
+              I.calFold={closed:d.querySelector('[data-lgcalfold="p2"]').getAttribute('aria-expanded'),hidden:(d.getElementById('p2-cal')||{}).hidden,stored:localStorage.getItem('el_lg_cal_nt8b')};
               _click('[data-lgcalfold="p2"]');I.calFold.reopen=d.querySelector('[data-lgcalfold="p2"]').getAttribute('aria-expanded');
             }
             r.int=I;
@@ -3522,7 +3523,7 @@ def _judge_s11(cases, fixture, data, fails):
                 tp = [x['top'] for x in main]
                 if any(b <= a for a, b in zip(tp, tp[1:])):
                     fails.append('%s: the page sections are not stacked top to bottom in the fixed order at %d px (tops %r)' % (nm, vw, tp))
-                right = max(x['left'] + x['w'] for x in vsec if x['k'] in TOP_SECTIONS)
+                right = max(x['left'] + x['w'] for x in vsec if x['k'] in TOP_SECTIONS or x['k'] == 'pills')
                 if lst['left'] < right or abs(lst['top'] - byk['hero']['top']) > 24:
                     fails.append('%s: from 1100 px the strategy list must be the right-hand panel beside the top block, level with the hero (list left %s top %s, '
                                  'top block right edge %s, hero top %s)' % (nm, lst['left'], lst['top'], right, byk['hero']['top']))
@@ -3669,7 +3670,7 @@ def _judge_s11(cases, fixture, data, fails):
         elif bp.get('bad'):
             fails.append('%s: the board has media or container rules at widths outside the house set %s: %s' % (nm, HOUSE_WIDTHS, '; '.join(sorted(set(bp['bad']))[:4])))
         # the calendar default is the house number: closed up to 600 px, open above (a stored choice overrides it)
-        if not any(k == 'el_lg_cal_nt8' for k in ((CASE_CFG.get(nm) or {}).get('ls') or {})) and s.get('calOpen') is not None and nm not in ('stats-open',):
+        if not any(k == 'el_lg_cal_nt8b' for k in ((CASE_CFG.get(nm) or {}).get('ls') or {})) and s.get('calOpen') is not None and nm not in ('stats-open',):
             wantc = 'true' if vw > 600 else 'false'
             if s.get('calOpen') != wantc:
                 fails.append('%s: the calendar fold is %r at %d px, expected %r (open above 600 px, closed up to it - the house number)' % (nm, s.get('calOpen'), vw, wantc))
@@ -4004,7 +4005,7 @@ def _judge_s12(cases, data, fails):
                                  % (nm, nd_.get('prev'), nd_.get('next'), nd_.get('inTop'), nd_['box']['top'] - under_))
                 under_ = nd_['box']['bottom']
             gap = (s_['top'] - under_) if (under_ is not None and s_) else None
-            if (nd_.get('prev') if nd_ else st.get('prev')) != 'hero' or st.get('next') != 'pills' or not st.get('inTop') or st.get('inHero') or gap is None or gap < -1 or gap > 40 \
+            if (nd_.get('prev') if nd_ else st.get('prev')) != 'hero' or st.get('next') != 'chart' or not st.get('inTop') or st.get('inHero') or gap is None or gap < -1 or gap > 40 \
                     or not p_ or s_['top'] >= p_['top']:
                 fails.append('%s: the status line is not directly under the hero (above the pills) at %d px (after %r, before %r, in the top block %s, inside '
                              'the hero %s, %s px under the hero)' % (nm, vw, st.get('prev'), st.get('next'), st.get('inTop'), st.get('inHero'), gap))
@@ -4020,8 +4021,9 @@ def _judge_s12(cases, data, fails):
                 if not cf.get('inChart') or cf.get('chartBottom') is None or (cf.get('top') or 0) < cf['chartBottom'] - 1:
                     fails.append('%s: the chart foot is not under the chart at %d px (foot top %s, chart bottom %s, in the chart section %s)'
                                  % (nm, vw, cf.get('top'), cf.get('chartBottom'), cf.get('inChart')))
-                if vw > 600 and (not cf.get('keyVis') or not any(k in (cf.get('keyTxt') or '') for k in ('bold line', 'solid line'))):
-                    fails.append('%s: the chart caption (.p2rhkey "bold line = ...") is not shown in the chart foot at %d px (%r)' % (nm, vw, cf))
+                # owner 10-31: the caption is one short line ('Cumulative P&L, <range>'); the full words (solid line, dotted, hatched) sit in the ? hover beside it
+                if vw > 600 and (not cf.get('keyVis') or 'Cumulative P&L' not in (cf.get('keyTxt') or '') or not any(k in (cf.get('help') or '') for k in ('bold line', 'solid line'))):
+                    fails.append('%s: the chart caption (.p2rhkey "Cumulative P&L, ..." + the ? hover with "solid line = ...") is not shown in the chart foot at %d px (%r)' % (nm, vw, cf))
                 if vw <= 600 and cf.get('keyVis'):
                     fails.append('%s: the chart caption shows on a phone (%d px) - it is hidden up to 600 px' % (nm, vw))
         if s.get('keyOnPills'):
@@ -4524,8 +4526,8 @@ MUTANTS = [
      '?oldboards=1 draws the stacked narrow page on a laptop: the page behind the flag is not the plain page',
      'behind ?oldboards=1'),
     ('old-marker-back-in-page',
-     "body='<div class=\"p2rh\">'+_p2Head+ledgerFrameHtml({id:'p2',top:_p2Top,side:_p2ListFold,rest:_p2Main,sideW:_p2W})+'</div>';",
-     "body='<div class=\"p2rh\">'+_p2Head+ledgerFrameHtml({id:'p2',top:_p2Top,side:_p2ListFold,rest:_p2Main,sideW:_p2W})+'<div id=\"ptrades-wrap\"></div></div>';",
+     "body='<div class=\"p2rh\">'+_p2Head+ledgerFrameHtml({id:'p2',cls:'lg-paper',top:_p2Top,side:_p2ListFold,rest:_p2Main,sideW:_p2W})+'</div>';",
+     "body='<div class=\"p2rh\">'+_p2Head+ledgerFrameHtml({id:'p2',cls:'lg-paper',top:_p2Top,side:_p2ListFold,rest:_p2Main,sideW:_p2W})+'<div id=\"ptrades-wrap\"></div></div>';",
      'a piece of the removed previous trades table (#ptrades-wrap) is back in the page',
      'markers of the removed previous board'),
     ('removed-flag-name-back',
@@ -4731,18 +4733,18 @@ MUTANTS = [
      'OPEN N CHARTS gallery drew the bars of another trade'),
     # ---- LEDGER step 11: the fixed page order, the own folds, one set of breakpoints, the previous board unchanged ----
     ('section-order-wrong',
-     "stats:_p2Sec('stats',_pnUi.strip),more:_p2Sec('more',_pnUi.more),cal:_p2Sec('cal',_pnUi.cal)};",
-     "stats:_p2Sec('stats',_pnUi.strip),more:_p2Sec('cal',_pnUi.cal),cal:_p2Sec('more',_pnUi.more)};",
-     'the calendar fold comes before the More stats fold',
+     "stats:_p2Sec('stats',_pnUi.strip),more:'',cal:_p2Sec('cal',_pnUi.cal)+_p2Sec('more',_pnUi.more)};",
+     "stats:_p2Sec('stats',_pnUi.strip),more:'',cal:_p2Sec('more',_pnUi.more)+_p2Sec('cal',_pnUi.cal)};",
+     'the More stats fold comes before the calendar (owner 10-31: the calendar sits right under the tiles)',
      'the page sections run'),
-    ('pills-under-chart',
-     'const _P2_PILLS_FIRST=true;',
-     'const _P2_PILLS_FIRST=false;',
-     'the range pills sit under the chart instead of between the hero and the chart',
+    ('pills-above-chart',
+     "if(_rhN)return '<div data-p2sec=\"chart\"><div class=\"p2cw\" id=\"p2-chart\"></div><div class=\"lg-chart-row\">'+_rhTabs+",
+     "if(_rhN)return '<div data-p2sec=\"chart\">'+_rhTabs+'<div class=\"p2cw\" id=\"p2-chart\"></div><div class=\"lg-chart-row\">'+",
+     'the range pills sit above the chart again (owner 10-31: they share the legend line under it)',
      'the page sections run'),
     ('list-below-trades',
-     "body='<div class=\"p2rh\">'+_p2Head+ledgerFrameHtml({id:'p2',top:_p2Top,side:_p2ListFold,rest:_p2Main,sideW:_p2W})+'</div>';",
-     "body='<div class=\"p2rh\">'+_p2Head+ledgerFrameHtml({id:'p2',top:_p2Top,side:'',rest:_p2Main+_p2ListFold,sideW:_p2W})+'</div>';",
+     "body='<div class=\"p2rh\">'+_p2Head+ledgerFrameHtml({id:'p2',cls:'lg-paper',top:_p2Top,side:_p2ListFold,rest:_p2Main,sideW:_p2W})+'</div>';",
+     "body='<div class=\"p2rh\">'+_p2Head+ledgerFrameHtml({id:'p2',cls:'lg-paper',top:_p2Top,side:'',rest:_p2Main+_p2ListFold,sideW:_p2W})+'</div>';",
      'on a page narrower than two columns the strategy list comes after the trades and the own folds',
      'the page sections run'),
     ('own-folds-above-trades',
@@ -4924,13 +4926,13 @@ MUTANTS = [
      'the warning chips are drawn in the hero chip row again (as well as in the status line)',
      'the hero chip row must be empty'),
     ('chart-foot-missing',
-     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div>\'+_rhFoot+\'</div>\';',
-     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div></div>\';',
+     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>\'+_rhFoot+\'</div>\';',
+     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>\'+\'</div>\';',
      'the chart has no shared chart foot (and no caption) under it',
      'chart feet [data-lgchartfoot="p2"]'),
     ('chart-foot-above-chart',
-     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div>\'+_rhFoot+\'</div>\';',
-     'if(_rhN)return \'<div data-p2sec="chart">\'+_rhFoot+\'<div class="p2cw" id="p2-chart"></div></div>\';',
+     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>\'+_rhFoot+\'</div>\';',
+     'if(_rhN)return \'<div data-p2sec="chart">\'+_rhFoot+\'<div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>\'+\'</div>\';',
      'the chart foot is drawn above the chart',
      'the chart foot is not under the chart'),
     ('chart-caption-hidden',
@@ -4945,7 +4947,7 @@ MUTANTS = [
      'the chart caption shows on a phone'),
     ('caption-back-on-pills',
      "const _rhTabs='<div class=\"p2ctl\" data-p2range data-p2sec=\"pills\">'+ledgerRangePillsHtml(_pcw,'data-pcwin')+'</div>';",
-     "const _rhTabs='<div class=\"p2ctl\" data-p2range data-p2sec=\"pills\">'+ledgerRangePillsHtml(_pcw,'data-pcwin')+'<span class=\"p2rhkey\">bold line = the book legs together</span></div>';",
+     "const _rhTabs='<div class=\"p2ctl\" data-p2range data-p2sec=\"pills\">'+ledgerRangePillsHtml(_pcw,'data-pcwin')+'<span class=\"p2rhkey\">Cumulative P&amp;L, the book legs together</span></div>';",
      'the chart caption rides on the pills row again',
      'the chart caption still rides on the pills row'),
     ('filters-open-by-default',

@@ -1364,15 +1364,15 @@ def _variant_docs(fixture):
 # order (hero, status, pills, chart, stats, more, cal; this board's pills ride in its chart section, its More stats in its stats section)
 _CRLF = '\r\n'
 _QBTOP1 = "        const qbTop={hero:'<div class=\"qbx-hero\">'+qbHeroHtml+'</div>',status:qbStatusSec,pills:'',chart:'<div class=\"qbx-chart\">'+equityHtml+'</div>',"
-_QBTOP2 = "          stats:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>',more:'',cal:'<div class=\"qbx-activity\">'+qbCalHtml+'</div>'};"
-_FR_BODY = "body=ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6',"
+_QBTOP2 = "          stats:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>',more:'',cal:'<div class=\"qbx-activity\">'+qbCalHtml+'</div><div class=\"qbx-stats qbx-lgmore\">'+qbLgMoreHtml+'</div>'};"
+_FR_BODY = "body=ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper',"
 _FR_TOP = "top:LEDGER_TOP_ORDER.map(k=>qbTop[k]||'').join(''),side:qbSideNew,"
 _FR_HIST = "            rest:'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+'</div>'"
 _FR_OWN = "              +'<div class=\"qbx-own\">'+qbOwnSecs+'</div>'})"
 # the chart section: the pills, the chart box, then the shared chart foot (the caption and the key)
-_EQA = "            equityHtml='<div class=\"qb-chart-wrap\">'+periodTabsHtml"
-_EQB = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'"
-_EQC = ("              +ledgerChartFootHtml({id:'qb',cap:'<span class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</span>',"
+_EQA = "            equityHtml='<div class=\"qb-chart-wrap\">'"
+_EQB = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'+qbChartRow(true)"
+_EQC = ("              +ledgerChartFootHtml({id:'qb',cap:'<span class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</span>'+qbCapHelp(qbKeyWords),"
         "key:keyHtml})+'</div>';")
 # the strategy list's Filters row (passed to ledgerListHtml as o.filters)
 # MANAGER #87 d mutants: the box's shadow_trades block mapped into trades_all-shaped rows (the leg key as %s), the way a careless merge
@@ -1420,8 +1420,8 @@ MUTANTS = [
      "return {name:nm,color:color,on:!lgOff[key],dash:QB_LEG_DASH[key]||'2 3',dashMono:QB_LEG_DASH[key]||'2 3',",
      'on dark the strategy lines carry different patterns again (owner 10-31: the same dotted line in each colour)'),
     ('equity-line-closed-only',
-     "window._qbLgChart={id:'qbwb',pts:cpts,",
-     "window._qbLgChart={id:'qbwb',pts:pts,",
+     "window._qbLgChart={id:'qbwb',legendInto:'#qb-lg-legend',pts:cpts,",
+     "window._qbLgChart={id:'qbwb',legendInto:'#qb-lg-legend',pts:pts,",
      'the solid line is the closed trades again, not account equity (closed + open), so it no longer ends at the big number'),
     # freshness (sweep 2026-10-05)
     ('silent-chip-never-shown',
@@ -1698,8 +1698,8 @@ MUTANTS = [
      "More stats' best trade shows the worst one"),
     # LEDGER step 6 review fixes, round 2
     ('stats-strip-hidden',
-     ".qbx-lgstats{padding:16px 0 0}",
-     ".qbx-lgstats{padding:16px 0 0;display:none}",
+     ".qbx-lgstats{padding:8px 0 0}.qbx-lgmore{padding:0}",
+     ".qbx-lgstats{padding:8px 0 0;display:none}.qbx-lgmore{padding:0}",
      "the stat strip and the More stats fold are on the page but cannot be seen"),
     ('stats-below-history',
      _FR_TOP + _CRLF + _FR_HIST,
@@ -1718,8 +1718,8 @@ MUTANTS = [
      "Object.assign({},t,{durationMins:null})",
      "More stats' Average hold reads '--' with every trade's times in the doc"),
     ('mono-hue-in-fold',
-     ".qbx-lgstats{padding:16px 0 0}",
-     ".qbx-lgstats{padding:16px 0 0}\r\n[data-theme=mono] .qbx-lgstats .lg-ms-row .v.lg-up{color:#e33}",
+     ".qbx-lgstats{padding:8px 0 0}.qbx-lgmore{padding:0}",
+     ".qbx-lgstats{padding:8px 0 0}.qbx-lgmore{padding:0}\r\n[data-theme=mono] .qbx-lgmore .lg-ms-row .v.lg-up{color:#e33}",
      "a More stats value is drawn in a colour under MONO (MONO has no hue)"),
     ('empty-fold-no-gap',
      '.lg-ms-own-empty{margin-top:18px}',
@@ -1755,11 +1755,11 @@ MUTANTS = [
      "",
      'the month a viewer stepped to is forgotten on a reload'),
     ('cal-open-not-remembered',
-     "try{localStorage.setItem('el_qb_cal_open',o?'0':'1');}catch(e){}",
+     "try{localStorage.setItem('el_qb_cal_open2',o?'0':'1');}catch(e){}",
      "",
      'the calendar fold opens again after a reload whatever the viewer chose'),
     ('cal-open-on-a-phone',
-     "const qbCalOpen=(()=>{let o=window._qbCalOpen!=null?!!window._qbCalOpen:(window.innerWidth||1200)>=760;",
+     "const qbCalOpen=(()=>{let o=window._qbCalOpen!=null?!!window._qbCalOpen:(window.innerWidth||1200)>600;",
      "const qbCalOpen=(()=>{let o=window._qbCalOpen!=null?!!window._qbCalOpen:true;",
      'the calendar is open by default on a phone and pushes the rest of the page down'),
     ('cal-arrows-never-disabled',
@@ -1803,9 +1803,9 @@ MUTANTS = [
      "const qbStatusSec='';",
      'the status line (feed, box age, Refresh) is not on the page at all'),
     ('key-long-on-phone',
-     "@media(max-width:600px){.qbx-lg-key .qbx-lg-long{display:none}.qbx-lg-key .qbx-lg-short{display:inline}}",
-     "@media(max-width:600px){.qbx-lg-key .qbx-lg-short{display:none}}",
-     'the chart key is four lines on a phone and the trade list starts more than a screen down'),
+     "data-qbcaphelp title=\"'+String(qbRangeCapFull+(extra||''))",
+     "data-qbcaphelp title=\"'+String(qbRangeCapFull)",
+     "the caveat / book-only words fell out of the caption's ? hover"),
     ('list-has-switch',
      "cls:fgHas?ledgerCls(fgTot):'',value2:'',",
      "cls:fgHas?ledgerCls(fgTot):'',value2:'',sw:{on:true},",
@@ -2283,17 +2283,17 @@ MUTANTS = [
     # ── LEDGER step 11: the fixed page order, the own folds, one set of breakpoints ──
     ('section-order-wrong',
      _QBTOP2,
-     "          stats:'<div class=\"qbx-activity\">'+qbCalHtml+'</div>',more:'',cal:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'};",
+     "          stats:'<div class=\"qbx-activity\">'+qbCalHtml+'</div>',more:'',cal:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div><div class=\"qbx-stats qbx-lgmore\">'+qbLgMoreHtml+'</div>'};",
      'the calendar fold is drawn above the stats strip (the fixed page order is broken)'),
     # step 12: the laptop order is the shared frame's grid (the top block in row 1, the trade list and the own folds in row 2)
     ('laptop-grid-order-wrong',
      '.lg-frame-2>.lg-frame-top{grid-column:1;grid-row:1}',
      '.lg-frame-2>.lg-frame-top{grid-column:1;grid-row:3}',
      'on a laptop the top block (hero to the calendar) sits under the trade list'),
-    ('pills-below-chart',
+    ('pills-above-chart',
      _EQA + _CRLF + _EQB,
-     "            equityHtml='<div class=\"qb-chart-wrap\">'" + _CRLF + _EQB + '+periodTabsHtml',
-     'the range pills are drawn under the chart (they go between the hero and the chart)'),
+     _EQA + '+periodTabsHtml' + _CRLF + "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'+qbChartRow(false)",
+     'the range pills are drawn above the chart again (owner 10-31: they share the legend line under it)'),
     ('own-folds-order-wrong',
      "const qbOwnSecs=qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)" + _CRLF
      + "          +qbFoldHtml('account','Account',qbAcctSum,qbAccountHtml,true)",
@@ -2462,7 +2462,7 @@ MUTANTS = [
      'the status line is not held to one or two lines (it wraps on and on)'),
     ('caption-off-chart-foot',
      _EQA + _CRLF + _EQB + _CRLF + _EQC,
-     _EQA + "+'<div class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</div>'" + _CRLF + _EQB + _CRLF
+     _EQA + "+'<div class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</div>'+qbCapHelp(qbKeyWords)" + _CRLF + _EQB + _CRLF
      + "              +ledgerChartFootHtml({id:'qb',key:keyHtml})+'</div>';",
      'the chart caption is back above the chart, out of the shared chart foot (and off its style)'),
     ('filters-open-by-default',
@@ -2690,8 +2690,8 @@ MUTANTS = [
      "const heldLineHtml=(false&&heldOne)?(",
      "the strategy row's more body does not name the lot held overnight"),
     ('hero-held-note-back',
-     "+brokerLine+'</details>'):'')});",
-     "+brokerLine+'</details>'):'')+'<div data-qbheldnote=\"DIP\">DIP #424 held overnight</div>'});",
+     "+brokerLine+'</details>'):''))||undefined});",
+     "+brokerLine+'</details>'):''))+'<div data-qbheldnote=\"DIP\">DIP #424 held overnight</div>'});",
      'the hero names the held lot again (that line belongs in the strategy row)'),
     ('broker-line-not-folded',
      "(brokerLine?('<details class=\"qbx-hero-details\"><summary>details</summary>'+brokerLine+'</details>'):'')",
@@ -2776,7 +2776,7 @@ MUTANTS = [
      "bands.push({i:i,title:'Data caveat - '+p.date+' - '+why.join('; ')",
      "a hatched day's hover does not start with the day and the caveat in plain words"),
     ('hatch-key-no-explainer',
-     "hatched = a day with a data caveat (a book-only trade, a tape-priced exit or a failed parity check) &middot; hover the column to see which &middot; its trades still count",
+     "hatched = a day with a data caveat (a book-only trade, a tape-priced exit or a failed parity check); hover the column to see which; its trades still count",
      "hatched = a data caveat day; its trades still count",
      "the key's 'hatched =' text does not explain the caveat kinds"),
     ('row-open-line-missing',
@@ -3319,8 +3319,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       +"if(window.__probeOffline)Object.defineProperty(navigator,'onLine',{configurable:true,get:function(){return false;}});"
       +"try{localStorage.removeItem('el_qb_retired_open');localStorage.removeItem('el_lg_lines_webull');}catch(e){}"
       +"window._qbRetiredOpen=false;"
-      +"try{localStorage.removeItem('el_qb_cal_open');localStorage.removeItem('el_qb_cal_month');localStorage.removeItem('el_qb_shadow_open');}catch(e){}window._qbCalOpen=null;window._qbShadowOpen=false;"
-      +"try{if(window.__probeCalOpen)localStorage.setItem('el_qb_cal_open',window.__probeCalOpen);if(window.__probeFolds){localStorage.setItem('el_qb_retired_open','1');localStorage.setItem('el_qb_shadow_open','1');}}catch(e){}"
+      +"try{localStorage.removeItem('el_qb_cal_open2');localStorage.removeItem('el_qb_cal_month');localStorage.removeItem('el_qb_shadow_open');}catch(e){}window._qbCalOpen=null;window._qbShadowOpen=false;"
+      +"try{if(window.__probeCalOpen)localStorage.setItem('el_qb_cal_open2',window.__probeCalOpen);if(window.__probeFolds){localStorage.setItem('el_qb_retired_open','1');localStorage.setItem('el_qb_shadow_open','1');}}catch(e){}"
       +"prefs.theme="+JSON.stringify(cfg.theme)+";applyTheme();"
       +"window._qqqExec=JSON.parse(window.__probeFixJson);"
       +"window._qbPubFailSeen=null;if(typeof qbNotePubFails==='function'){if(window.__probePrevJson)qbNotePubFails(JSON.parse(window.__probePrevJson),window.__probePrevCache);qbNotePubFails(window._qqqExec);}"
@@ -3402,10 +3402,11 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.chartSig=csv?[].map.call(csv.querySelectorAll('path,polyline'),function(e){return e.getAttribute('d')||e.getAttribute('points')||'';}).join('|'):null;
     var mk=csv?csv.querySelector('[data-lgmark]'):null;
     r.markText=mk&&mk.nextElementSibling?(mk.nextElementSibling.textContent||'').trim():null;
-    r.lines=[].map.call(d.querySelectorAll('#qb-lg-chart .lg-legend [data-lgline]'),function(b){return (b.textContent||'').trim();});
-    r.lineDashes=[].map.call(d.querySelectorAll('#qb-lg-chart .lg-legend svg line'),function(l){return l.getAttribute('stroke-dasharray')||'none';});
-    r.lineIconW=Math.max.apply(null,[0].concat([].map.call(d.querySelectorAll('#qb-lg-chart .lg-legend svg'),function(s){return Math.round(s.getBoundingClientRect().width);})));
-    r.key=txt('.qbx-lg-key');
+    r.lines=[].map.call(d.querySelectorAll('.qbx-chart .lg-legend [data-lgline]'),function(b){return (b.textContent||'').trim();});
+    r.lineDashes=[].map.call(d.querySelectorAll('.qbx-chart .lg-legend svg line'),function(l){return l.getAttribute('stroke-dasharray')||'none';});
+    r.lineIconW=Math.max.apply(null,[0].concat([].map.call(d.querySelectorAll('.qbx-chart .lg-legend svg'),function(s){return Math.round(s.getBoundingClientRect().width);})));
+    // owner 10-31: the key's words sit in the caption's ? hover ([data-qbcaphelp] title); the old .qbx-lg-key block is the fallback
+    r.key=(function(){var e=q('[data-qbcaphelp]');return e?(e.getAttribute('title')||''):(txt('.qbx-lg-key')||'');})();
     r.liveRows=[].map.call(d.querySelectorAll('.qbx-side [data-qblegrow]'),function(e){return e.getAttribute('data-qblegrow');});
     var rb=d.querySelector('.qbx-side [data-qbretired]');
     r.retired=!!rb;
@@ -3733,9 +3734,9 @@ __S11JS__
       }
       res.scrub=sc;
       // 3. a legend switch is remembered for this viewer
-      var lb=q('#qb-lg-chart .lg-legend [data-lgline="0"]'),lg={};
+      var lb=q('.qbx-chart .lg-legend [data-lgline="0"]'),lg={};
       if(lb){lb.click();await sleep(60);
-        var lb2=q('#qb-lg-chart .lg-legend [data-lgline="0"]');lg.off=!!(lb2&&lb2.classList.contains('off'));
+        var lb2=q('.qbx-chart .lg-legend [data-lgline="0"]');lg.off=!!(lb2&&lb2.classList.contains('off'));
         try{lg.stored=w.localStorage.getItem('el_lg_lines_webull');}catch(e){}}
       res.legend=lg;
       // 4. the More stats fold (LEDGER step 6) opens with the shared groups + Account, closes, and is remembered
@@ -3775,14 +3776,14 @@ __S11JS__
         var fb=q('[data-lgcalfold="qb"]');
         if(fb){fb.click();await sleep(80);}
         ca.closed=calRead();
-        try{ca.storedOpen=w.localStorage.getItem('el_qb_cal_open');}catch(e){}
+        try{ca.storedOpen=w.localStorage.getItem('el_qb_cal_open2');}catch(e){}
         // a reload: nothing in memory, the stored choices kept
         w.eval("window._qqqCalMonth=null;window._qbCalOpen=null;renderApp();");await sleep(120);
         ca.reload=calRead();
         fb=q('[data-lgcalfold="qb"]');
         if(fb){fb.click();await sleep(80);}
         ca.reopen=calRead();
-        try{ca.storedOpen2=w.localStorage.getItem('el_qb_cal_open');}catch(e){}
+        try{ca.storedOpen2=w.localStorage.getItem('el_qb_cal_open2');}catch(e){}
         var lb=q('[data-lgcal="qb"][data-lgcalmo="1"]');
         if(lb){lb.click();await sleep(80);}
         ca.oct=calRead();
@@ -4418,7 +4419,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
     var d=D(),w=W(),sy=w.scrollY||0,o={};
     function bx(sel){
       // an empty range draws no chart svg: the chart's caption (in the chart foot, under the empty-range line) stands for it
-      var e=q(sel)||(sel==='#qb-lg-chart'?q('.qbx-chart .qbx-chart-cap'):null);if(!e)return null;
+      var e=q(sel)||(sel==='#qb-lg-chart'?((q('.qb-chart-wrap')&&q('.qb-chart-wrap').firstElementChild)||q('.qbx-chart .qbx-chart-cap')):null);if(!e)return null;
       var r=e.getBoundingClientRect(),cs=w.getComputedStyle(e);
       return {t:Math.round(r.top+sy),b:Math.round(r.bottom+sy),l:Math.round(r.left),r:Math.round(r.right),w:Math.round(r.width),h:Math.round(r.height),
         shown:cs.display!=='none'&&cs.visibility!=='hidden'&&r.width>0&&r.height>0};
@@ -4495,7 +4496,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
     // the chart foot: one, in the chart section, right after the chart box, the caption (the only one on the page) and the key in it
     var fts=d.querySelectorAll('[data-lgchartfoot="qb"]'),fo=fts[0]||null,ch=q('#qb-lg-chart'),prev=fo?fo.previousElementSibling:null;
     var cap=d.querySelector('.qbx-chart-cap'),lcap=fo?fo.querySelector('.lg-chart-cap'):null;
-    o.foot={n:fts.length,box:rectOf(fo),inChart:!!(fo&&fo.closest('.qbx-chart')),chart:rectOf(ch),prev:rectOf(prev),prevIsChart:!!(ch&&prev===ch),
+    o.foot={n:fts.length,box:rectOf(fo),inChart:!!(fo&&fo.closest('.qbx-chart')),chart:rectOf(ch),prev:rectOf(prev),prevIsChart:!!(ch&&(prev===ch||(prev&&prev.classList.contains('lg-chart-row')&&prev.previousElementSibling===ch))),
       caps:d.querySelectorAll('.qbx-chart-cap').length,capsInFoot:fo?fo.querySelectorAll('.qbx-chart-cap').length:0,
       keys:d.querySelectorAll('.qbx-lg-key').length,keysInFoot:fo?fo.querySelectorAll('.qbx-lg-key').length:0,
       capFs:cap?w.getComputedStyle(cap).fontSize:null,sharedFs:lcap?w.getComputedStyle(lcap).fontSize:null,ruleFs:cssRuleFs('.lg-chart-cap')};
@@ -4678,7 +4679,8 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
     list, then the own folds in their order. (The chart caption's style is judged with the frame, _frame_problems.)"""
     pos = s11.get('pos') or {}
     two_col = iw >= 1100
-    chain = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
+    # owner 10-31 ('clean this up'): the range pills ride UNDER the chart on the legend's line, and the calendar (open by default above 600 px) comes before More stats
+    chain = ['hero', 'status', 'chart', 'pills', 'stats', 'cal', 'more'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
     last, last_k = None, None
     for k in chain:
         p = pos.get(k)
