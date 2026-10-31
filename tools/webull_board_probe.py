@@ -5522,6 +5522,16 @@ PARAMS_NOTE_RE = re.compile(r'^· set (\d+|not found in report)\s*')
 PARAMS_NOTE = '· set'
 
 
+# owner 10-31 (row 76): the words of a strategy name on the page carry run.set and the model word - 'NOISE #382.2 keel',
+# 'DIP #424 set ? raw' - in the legend, the chips, the trade rows and the open line. _plain() takes them back to family + run
+# ('NOISE #382') so every check pinned on the plain words keeps reading; the words themselves are judged by LABEL_RE on the rows.
+SETW_RE = re.compile(r'(#\d+)(?:\.\d+| set \?)?(?: (?:raw|keel|fixed|hybrid|tilt|comp))?(?=$| \u00b7 |,|\))')
+
+
+def _plain(name):
+    return SETW_RE.sub(r'\1', name) if isinstance(name, str) else name
+
+
 def _after_params(tag):
     """A row's tag without its leading params note (the side pill and the rest follow it)."""
     m = PARAMS_NOTE_RE.match(tag or '')
@@ -6752,7 +6762,7 @@ def _tl_row_problems(r, t, ds, mode, run, has_nt):
     if r.get('qbday') != ds:
         bad.append('data-qbday %r, want %r' % (r.get('qbday'), ds))
     name = expected_leg_name(t).strip()
-    if c.get('sym') != name or r.get('legSpans') != 1:
+    if _plain(c.get('sym')) != name or r.get('legSpans') != 1:
         bad.append('strategy %r (%s name span), want %r' % (c.get('sym'), r.get('legSpans'), name))
     for k, want in (('side', tl_side_text(t)), ('size', tl_size_text(t)), ('pnl', signed(qe_pnl_of(t))), ('pts', tl_pts_text(t)),
                     ('time', tl_time_text(t, mode))):
@@ -6797,7 +6807,7 @@ def _judge_tl_frame(tag, tl, doc, cutoff, fails, mode='list', chip='ALL', query=
     if tl.get('count') != want_count:
         fails.append('%s: the count reads %r, want %r' % (tag, tl.get('count'), want_count))
     ch = tl.get('chips') or []
-    if [c.get('k') for c in ch] != TL_CHIP_KEYS or [c.get('t') for c in ch] != TL_CHIP_LABELS:
+    if [c.get('k') for c in ch] != TL_CHIP_KEYS or [_plain(c.get('t')) for c in ch] != TL_CHIP_LABELS:
         fails.append('%s: the chips read %r, want %r (the five shared ones, then ORB / ENGU-Q / NOISE with their run numbers and BOOK ONLY)'
                      % (tag, [c.get('t') for c in ch], TL_CHIP_LABELS))
     elif [c['k'] for c in ch if c.get('on')] != [chip] or any((c.get('p') == 'true') != bool(c.get('on')) for c in ch):
@@ -8181,7 +8191,7 @@ def _judge(data, fixture):
             elif 'NOISE' not in (r.get('markText') or '') or '#382' not in (r.get('markText') or ''):
                 fails.append('%s: the run-change marker reads %r (needs family + run, e.g. NOISE #304 -> #382)'
                              % (nm, r.get('markText')))
-            if r.get('lines') != WANT_LINES:
+            if [_plain(x) for x in (r.get('lines') or [])] != WANT_LINES:
                 fails.append('%s: the chart legend lines are %r, not %r' % (nm, r.get('lines'), WANT_LINES))
             elif (r.get('lineIconW') or 0) > 24:
                 fails.append('%s: the legend line icons are %spx wide (the legend wraps; want 16px)'
@@ -8210,7 +8220,7 @@ def _judge(data, fixture):
         legs = r.get('tradeLegs') or []
         if r.get('tradeRows') != n_rows:
             fails.append('%s: the trade list shows %s rows for %s trades' % (nm, r.get('tradeRows'), n_rows))
-        bad = [x for x in legs if not LEG_RE.match(x or '')]
+        bad = [x for x in legs if not LEG_RE.match(_plain(x) or '')]
         if bad:
             fails.append('%s: trade rows without family + run number: %s' % (nm, sorted(set(map(str, bad)))[:5]))
         elif len(fixture.get('trades_all') or []) <= 50:
@@ -8583,7 +8593,7 @@ def _dip_problems(tag, r, ex, fails):
         dc = r.get('dipChip') or {}
         if sorted(dc.get('legs') or []) != sorted(want['trades']):
             fails.append('%s: the DIP chip leaves %r in the list, want exactly %r' % (tag, dc.get('legs') if 'legs' in dc else dc, sorted(want['trades'])))
-    if not ex.get('vp', 'laptop').startswith('phone') and r.get('lines') != want['lines']:
+    if not ex.get('vp', 'laptop').startswith('phone') and [_plain(x) for x in (r.get('lines') or [])] != want['lines']:
         fails.append("%s: the chart legend lines are %r, want %r (DIP #424's lots on ONE line)" % (tag, r.get('lines'), want['lines']))
     if ex.get('open_leg') == 'DIP' and not ex.get('vp', 'laptop').startswith('phone'):
         for s in want['detail']:
