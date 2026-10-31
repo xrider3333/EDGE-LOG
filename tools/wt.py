@@ -255,9 +255,33 @@ def read_version(text):
     return m.group(1) if m else None
 
 
+def ver_parts(v):
+    """'87.67' -> (87, 67). A pre-10-31 number is CARRIED, not truncated: '73.1467' -> (87, 67),
+    because 1467 = 14 x 100 + 67. Carrying is what keeps the order: every version the owner has
+    already seen still sorts below every version he will see next, so the site-version watch never
+    reads the deploy as having gone backwards."""
+    a, b = str(v).split('.')[:2]
+    major, minor = int(a), int(b or 0)
+    if minor > 99:
+        major += minor // 100
+        minor = minor % 100
+    return major, minor
+
+
+def ver_text(major, minor):
+    """The only place a version is spelled. Two digits always, so .7 is 87.07 and sorts right."""
+    return '%d.%02d' % (major, minor)
+
+
 def bump(v):
-    a, b = v.split('.')
-    return '%s.%d' % (a, int(b) + 1)
+    """One ship = one hundredth. .99 rolls into the next major rather than becoming .100 - that
+    is the four-digit minor the owner asked us to stop printing, arriving by the back door."""
+    major, minor = ver_parts(v)
+    minor += 1
+    if minor > 99:
+        major += 1
+        minor = 0
+    return ver_text(major, minor)
 
 
 def studies_gate_verdict(out, returncode, known_dup_rows):
@@ -1166,8 +1190,9 @@ def realign_version(wt):
         return
 
     def num(v):
-        a, b = v.split('.')
-        return (int(a), int(b))
+        # ver_parts carries a pre-10-31 four-digit minor, so a lane still holding 73.1467 and a
+        #   main already on 87.67 compare as the SAME version rather than the lane looking ahead.
+        return ver_parts(v)
     entry_diff = run(['git', '-C', wt, 'diff', 'origin/main', '--', 'index.html'],
                      check=False, quiet=True)
     own_tag = own_changelog_tag(entry_diff)
@@ -1182,8 +1207,15 @@ def realign_version(wt):
         run(['git', '-C', wt, 'commit', '-q', '--amend', '--no-edit'])
         print('CHANGELOG entry %s relabelled %s (the version this ship carries)'
               % (own_tag, mine))
-    if num(mine) <= num(theirs):
+    # A LANE WHOSE VERSION IS NOT IN THE OWNER'S FORM IS REALIGNED EVEN IF IT LOOKS AHEAD
+    #   (owner 10-31). Every worktree open when the scheme changed still holds a four-digit minor
+    #   like 73.1500, which CARRIES to (88, 0) and so out-ranks a main on 87.67 - it would have
+    #   shipped '73.1500' as the version line, the exact number he asked us to stop printing.
+    stale_form = (mine != ver_text(*ver_parts(mine)))
+    if stale_form or num(mine) <= num(theirs):
         want = bump(theirs)
+        if stale_form and num(mine) > num(theirs):
+            print('VERSION %s is the old four-digit form; realigned to %s' % (mine, want))
         new_txt = mine_txt.replace("const VERSION='%s'" % mine,
                                    "const VERSION='%s'" % want, 1)
         # Only re-tag a CHANGELOG entry this ship actually wrote. Retagging the top

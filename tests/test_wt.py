@@ -690,7 +690,12 @@ for b in range(int(os.environ.get('FAKE_LAND_BUMPS', '1'))):
     p = os.path.join(other, 'index.html')
     txt = open(p, encoding='utf-8', newline='').read()
     m = re.search(r"const VERSION='(\d+)\.(\d+)'", txt)
-    txt = txt.replace(m.group(0), "const VERSION='%s.%d'" % (m.group(1), int(m.group(2)) + 1), 1)
+    # the owner's hundredth form, same as wt.bump: two digits, .99 rolls the major - a fake
+    #   lane that bumped to 1.2 would be writing a version real ship can no longer write
+    _maj, _min = int(m.group(1)), int(m.group(2)) + 1
+    if _min > 99:
+        _maj, _min = _maj + 1, 0
+    txt = txt.replace(m.group(0), "const VERSION='%d.%02d'" % (_maj, _min), 1)
     if os.environ.get('FAKE_LAND_DROP_ANCHOR') and b == 0:
         txt = txt.replace('FAKE-MUTANT-ANCHOR', 'FAKE-MUTANT-MOVED')
     open(p, 'w', encoding='utf-8', newline='').write(txt)
@@ -710,9 +715,9 @@ for b in range(int(os.environ.get('FAKE_LAND_BUMPS', '1'))):
 git('push', '-q', 'origin', 'HEAD:main')
 '''
 
-INDEX = ("<!doctype html>\n<script>\nconst VERSION='1.1';\n" + "// filler\n" * 6 +
+INDEX = ("<!doctype html>\n<script>\nconst VERSION='1.01';\n" + "// filler\n" * 6 +
          "// FAKE-MUTANT-ANCHOR\n" + "// filler\n" * 6 +
-         "const CHANGELOG=[{v:'1.1',date:'2026-10-07',notes:['seed']}];\n</script>\n")
+         "const CHANGELOG=[{v:'1.01',date:'2026-10-07',notes:['seed']}];\n</script>\n")
 
 LEDGER = ("# RESEARCH LEDGER\n\n## 2. Round two\n\n| # | what |\n|---|---|\n| 2.1 | seed |\n"
           "| 2.2 | seed |\n\n## 3. Round three\n\n| # | what |\n|---|---|\n| 3.1 | seed |\n")
@@ -790,8 +795,8 @@ def _sandbox(tmp_path, env, ledger=False, changelog=False):
     if changelog:
         ip = session / 'index.html'
         ip.write_text(ip.read_text(encoding='utf-8').replace(
-            "const CHANGELOG=[{v:'1.1',",
-            "const CHANGELOG=[{v:'9.9',date:'2026-10-08',notes:['lane']},\n{v:'1.1',", 1),
+            "const CHANGELOG=[{v:'1.01',",
+            "const CHANGELOG=[{v:'9.9',date:'2026-10-08',notes:['lane']},\n{v:'1.01',", 1),
             encoding='utf-8')
     _git(env, session, 'add', '-A')
     _git(env, session, 'commit', '-q', '-m', 'HOME probe: a new mutant')
@@ -936,7 +941,7 @@ def test_main_moved_elsewhere_the_selftest_is_reused_and_the_fast_gates_rerun_lo
     assert 'LOCKED: 2 gate(s) run under the lock, 1 reused from the pre-lock run' in out, out
     # the ship carries main's VERSION + 1, and both lanes' work is on main
     idx = _git(env, origin, 'show', 'main:index.html')
-    assert "const VERSION='1.4';" in idx, idx
+    assert "const VERSION='1.04';" in idx, idx
     assert 'another lane' in _git(env, origin, 'show', 'main:other.txt')
     assert '# probe v2 (lane)' in _git(env, origin, 'show', 'main:tools/home_render_probe.py')
     _assert_fast_gates_passed_on_what_landed(env, origin, tmp_path)
@@ -1062,12 +1067,16 @@ def test_the_realign_and_the_ledger_renumbering_happen_under_the_lock_after_the_
     assert '| 2.3 | other lane row |' in led and '| 2.4 | lane row |' in led, led
     assert '| 2.3 | lane row |' not in led, led
     idx = _git(env, origin, 'show', 'main:index.html')
-    assert "const VERSION='1.4';" in idx and "{v:'1.4',date:'2026-10-08',notes:['lane']}" in idx, idx
+    assert "const VERSION='1.04';" in idx and "{v:'1.04',date:'2026-10-08',notes:['lane']}" in idx, idx
     assert "{v:'9.9'," not in idx, idx
     # ... and all of it under the lock, after the final rebase, before the gates that saw it
     i_lock = out.index('push lock held by this lane')
     i_renumber = out.index('RESEARCH_LEDGER row 2.3 is now 2.4', i_lock)
-    i_realign = out.index('version realigned 1.3 -> 1.4', i_lock)
+    # the FROM value depends on how far the other lane had got when the pre-lock realign ran,
+    #   so pin what the invariant is actually about: a realign happened under the lock and it
+    #   landed on the version that shipped.
+    i_realign = out.index('version realigned ', i_lock)
+    assert '1.03 -> 1.04' in out[i_realign:], out[i_realign:i_realign+200]
     i_moved = out.index('LOCKED: origin/main moved 2 commit(s)', i_lock)
     assert max(i_renumber, i_realign) < i_moved < out.index('LOCKED: 2 gate(s) run under the lock')
     _assert_fast_gates_passed_on_what_landed(env, origin, tmp_path)
@@ -1097,7 +1106,7 @@ def test_a_push_refused_because_main_moved_regates_the_rebased_tree_before_pushi
     assert _landed(env, origin, session), out
     assert 'another lane' in _git(env, origin, 'show', 'main:cloud.txt')
     # the cloud lane took 1.2, the version this ship had realigned to before the lock
-    assert "const VERSION='1.3';" in _git(env, origin, 'show', 'main:index.html')
+    assert "const VERSION='1.03';" in _git(env, origin, 'show', 'main:index.html')
     assert 'LOCKED (retry): 2 gate(s) run under the lock, 1 reused' in out, out
     _assert_fast_gates_passed_on_what_landed(env, origin, tmp_path)
     assert 'home_render_probe selftest locked' not in _log(tmp_path), 'cover unchanged: reused'
@@ -1624,3 +1633,47 @@ def test_the_real_probes_parse_for_selection():
         with open(os.path.join(ROOT, *g.script.split('/')), encoding='utf-8') as f:
             parsed = wt._parse_mutants(f.read())
         assert parsed is not None and len(parsed[1]) > 5, key
+
+# ===================================================================== VERSION to the hundredth
+# Owner 10-31: "version numbers go to the hundredth only - e.g. 76.18, never 76.1118". 73.1467 is
+# not a number he can read. The one risk in renumbering is ORDER: the site-version watch compares
+# what the live page serves against origin/main, and a version that went backwards would read as a
+# stale deploy forever. So the conversion CARRIES - 1467 = 14 x 100 + 67 - instead of truncating.
+def test_a_version_is_major_and_two_digits():
+    assert wt.ver_text(87, 67) == '87.67'
+    assert wt.ver_text(87, 7) == '87.07', 'a single digit must pad, or 87.7 sorts above 87.07'
+    assert wt.ver_text(88, 0) == '88.00'
+
+
+def test_one_ship_is_one_hundredth():
+    assert wt.bump('87.67') == '87.68'
+    assert wt.bump('88.00') == '88.01'
+
+
+def test_ninety_nine_rolls_the_major_instead_of_becoming_a_hundred():
+    # .100 would be a three-digit minor arriving by the back door - the thing being removed.
+    assert wt.bump('87.99') == '88.00'
+
+
+def test_the_old_four_digit_minor_carries_so_the_order_never_reverses():
+    """73.1467 -> 87.67, and the two must compare EQUAL.
+
+    This is the whole reason for carrying rather than truncating. Truncation would have put
+    73.1467 at 73.67, below the 73.1400-odd versions the owner had already seen, and the site
+    version watch would have reported the live site as serving something newer than main - a
+    phone warning every few minutes with nothing actually wrong.
+    """
+    assert wt.ver_parts('73.1467') == (87, 67)
+    assert wt.ver_parts('73.1467') == wt.ver_parts('87.67')
+    assert wt.ver_parts('73.1400') < wt.ver_parts('73.1467') < wt.ver_parts('87.68')
+
+
+def test_a_lane_still_on_the_old_form_is_realigned_even_though_it_looks_ahead(tmp_path):
+    """Every worktree open when the scheme changed holds a four-digit minor.
+
+    73.1500 carries to (88, 0), which OUT-RANKS a main on 87.67, so the usual
+    'only realign when we are behind' rule would have let that lane push 73.1500 as the version
+    line - the exact number the owner asked us to stop printing.
+    """
+    assert wt.ver_parts('73.1500') > wt.ver_parts('87.67')
+    assert '73.1500' != wt.ver_text(*wt.ver_parts('73.1500'))
