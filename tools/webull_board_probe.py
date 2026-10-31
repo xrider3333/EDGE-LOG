@@ -1366,14 +1366,13 @@ _CRLF = '\r\n'
 _QBTOP1 = "        const qbTop={hero:'<div class=\"qbx-hero\">'+qbHeroHtml+'</div>',status:qbStatusSec,pills:'',chart:'<div class=\"qbx-chart\">'+equityHtml+'</div>',"
 _QBTOP2 = "          stats:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>',more:'',cal:'<div class=\"qbx-activity\">'+qbCalHtml+'</div><div class=\"qbx-stats qbx-lgmore\">'+qbLgMoreHtml+'</div>'};"
 _FR_BODY = "body=ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper',"
-_FR_TOP = "top:LEDGER_TOP_ORDER.map(k=>qbTop[k]||'').join(''),side:qbSideNew,"
+_FR_TOP = "top:LEDGER_PAPER_TOP_ORDER.map(k=>qbTop[k]||'').join(''),side:qbSideNew,"
 _FR_HIST = "            rest:'<div class=\"qbx-history qbx-section\"><div class=\"qb-section-hd\">History</div>'+qbTradesCard+'</div>'"
 _FR_OWN = "              +'<div class=\"qbx-own\">'+qbOwnSecs+'</div>'})"
 # the chart section: the pills, the chart box, then the shared chart foot (the caption and the key)
 _EQA = "            equityHtml='<div class=\"qb-chart-wrap\">'"
-_EQB = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'+qbChartRow(true)"
-_EQC = ("              +ledgerChartFootHtml({id:'qb',cap:'<span class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</span>'+qbCapHelp(qbKeyWords),"
-        "key:keyHtml})+'</div>';")
+_EQB = "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'"
+_EQC = "              +qbChartRow(true,'<span class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</span>'+qbCapHelp(qbKeyWords))+'</div>';"
 # the strategy list's Filters row (passed to ledgerListHtml as o.filters)
 # MANAGER #87 d mutants: the box's shadow_trades block mapped into trades_all-shaped rows (the leg key as %s), the way a careless merge
 # would do it, so a mutant can push the block's closed trades into something that counts
@@ -2292,7 +2291,7 @@ MUTANTS = [
      'on a laptop the top block (hero to the calendar) sits under the trade list'),
     ('pills-above-chart',
      _EQA + _CRLF + _EQB,
-     _EQA + '+periodTabsHtml' + _CRLF + "              +'<div class=\"qbx-lgchart\" id=\"qb-lg-chart\"></div>'+qbChartRow(false)",
+     _EQA + "+qbChartRow(false,'')" + _CRLF + _EQB,
      'the range pills are drawn above the chart again (owner 10-31: they share the legend line under it)'),
     ('own-folds-order-wrong',
      "const qbOwnSecs=qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)" + _CRLF
@@ -2426,7 +2425,7 @@ MUTANTS = [
     # ── LEDGER step 12 (2026-10-07): the one page frame, the status line under the hero, the chart foot, the Filters row ──
     ('list-not-in-side-panel',
      _FR_TOP,
-     "top:LEDGER_TOP_ORDER.map(k=>qbTop[k]||'').join('')+qbSideNew,side:'',",
+     "top:LEDGER_PAPER_TOP_ORDER.map(k=>qbTop[k]||'').join('')+qbSideNew,side:'',",
      "from 1100 px the strategy list is drawn in the top block under the calendar, not in the frame's right-hand panel"),
     ('list-panel-sticky',
      '.lg-frame-2>.lg-frame-side{grid-column:2;grid-row:1;align-self:stretch;position:relative;min-height:320px}',
@@ -2463,7 +2462,7 @@ MUTANTS = [
     ('caption-off-chart-foot',
      _EQA + _CRLF + _EQB + _CRLF + _EQC,
      _EQA + "+'<div class=\"qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'\">'+qbRangeCap+'</div>'+qbCapHelp(qbKeyWords)" + _CRLF + _EQB + _CRLF
-     + "              +ledgerChartFootHtml({id:'qb',key:keyHtml})+'</div>';",
+     + "              +qbChartRow(true,'')+'</div>';",
      'the chart caption is back above the chart, out of the shared chart foot (and off its style)'),
     ('filters-open-by-default',
      'const LEDGER_FILTERS_OPEN=false;',
@@ -4494,9 +4493,9 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
       afterHero:!!(swp&&swp.classList.contains('qbx-hero')),lineH:sl?Math.round(sl.getBoundingClientRect().height*10)/10:null,
       lh:sl?parseFloat(w.getComputedStyle(sl).lineHeight):null,text:sl?tx2(sl):null};
     // the chart foot: one, in the chart section, right after the chart box, the caption (the only one on the page) and the key in it
-    var fts=d.querySelectorAll('[data-lgchartfoot="qb"]'),fo=fts[0]||null,ch=q('#qb-lg-chart'),prev=fo?fo.previousElementSibling:null;
+    var fts=d.querySelectorAll('[data-lgchartfoot="qb"]'),fo=fts[0]||null,ch=q('#qb-lg-chart'),prev=fo?((fo.parentElement&&fo.parentElement.classList.contains('lg-chart-row'))?fo.parentElement.previousElementSibling:fo.previousElementSibling):null;   // the foot rides in the chart's own row since 10-31: what comes before is the row's predecessor
     var cap=d.querySelector('.qbx-chart-cap'),lcap=fo?fo.querySelector('.lg-chart-cap'):null;
-    o.foot={n:fts.length,box:rectOf(fo),inChart:!!(fo&&fo.closest('.qbx-chart')),chart:rectOf(ch),prev:rectOf(prev),prevIsChart:!!(ch&&(prev===ch||(prev&&prev.classList.contains('lg-chart-row')&&prev.previousElementSibling===ch))),
+    o.foot={n:fts.length,box:rectOf(fo),inChart:!!(fo&&fo.closest('.qbx-chart')),chart:rectOf(ch),prev:rectOf(prev),prevIsChart:!!(ch&&(prev===ch||(prev&&prev.classList.contains('lg-chart-row')&&prev.previousElementSibling===ch)||(fo.parentElement&&fo.parentElement.classList.contains('lg-chart-row')&&fo.parentElement.previousElementSibling===ch))),
       caps:d.querySelectorAll('.qbx-chart-cap').length,capsInFoot:fo?fo.querySelectorAll('.qbx-chart-cap').length:0,
       keys:d.querySelectorAll('.qbx-lg-key').length,keysInFoot:fo?fo.querySelectorAll('.qbx-lg-key').length:0,
       capFs:cap?w.getComputedStyle(cap).fontSize:null,sharedFs:lcap?w.getComputedStyle(lcap).fontSize:null,ruleFs:cssRuleFs('.lg-chart-cap')};
@@ -4680,7 +4679,8 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
     pos = s11.get('pos') or {}
     two_col = iw >= 1100
     # owner 10-31 ('clean this up'): the range pills ride UNDER the chart on the legend's line, and the calendar (open by default above 600 px) comes before More stats
-    chain = ['hero', 'status', 'chart', 'pills', 'stats', 'cal', 'more'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
+    # owner 10-31 18:00: headline (hero + status), the KPI tiles, the chart (pills + legend + caption on its one row), the calendar, then More stats
+    chain = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
     last, last_k = None, None
     for k in chain:
         p = pos.get(k)
@@ -4957,7 +4957,7 @@ def _frame_problems(tag, fr, iw, fails, wide=False, retired=True):
         if (ch and not fo.get('prevIsChart')) or fb.get('t') is None or not under or fb['t'] < under['b'] - 1:
             fails.append('%s: the chart foot (top %s) does not come right after the chart box (bottom %s, right after it %s)'
                          % (tag, fb.get('t'), (under or {}).get('b'), fo.get('prevIsChart')))
-        if stb and fb.get('b') is not None and fb['b'] > stb['t'] + 1:
+        if stb and ch and stb['t'] > ch['t'] and fb.get('b') is not None and fb['b'] > stb['t'] + 1:     # (the tiles sit ABOVE the chart since 10-31; the test only bites when they are under it)
             fails.append('%s: the chart foot (bottom %s) runs into the stats strip (top %s)' % (tag, fb['b'], stb['t']))
         if fo.get('caps') != 1 or fo.get('capsInFoot') != 1:
             fails.append('%s: the chart caption is not in the chart foot (%s captions on the page, %s in the foot)' % (tag, fo.get('caps'), fo.get('capsInFoot')))
@@ -7829,8 +7829,9 @@ def _judge_strip(tag, r, vp, fails):
                      % (tag, b.get('disp'), b.get('vis'), b.get('op'), b.get('w'), b.get('h'), b.get('tileH')))
         return
     top = b.get('top')
-    if b.get('chartBottom') is None or top < b['chartBottom'] - 1:
-        fails.append('%s: the stat strip does not start under the chart (strip top %s, chart bottom %s)'
+    # owner 10-31 18:00: the tiles sit directly under the headline block, ABOVE the chart (the chart's top must come after the strip)
+    if b.get('chartBottom') is None or top > b['chartBottom'] - 1:
+        fails.append('%s: the stat strip does not sit above the chart (strip top %s, chart bottom %s)'
                      % (tag, top, b.get('chartBottom')))
     for k, what in (('acctTop', 'Account'), ('histTop', 'History')):
         if b.get(k) is not None and top >= b[k]:

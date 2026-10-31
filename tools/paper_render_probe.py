@@ -375,8 +375,8 @@ CASES.append(CHARTKEY_CASE)
 # NT8 board fix 2026-10-09: the four plumbing checks (10s capture, NinjaTrader detail, cross-engine, gate audit) sit INSIDE one closed fold, 'health'
 # (System health); 'reports' stays its own fold after it. A section inside a closed fold is in the markup order but has no box on the page.
 # owner 10-31 ('clean this up'): the range pills ride INSIDE the chart section, under the chart on the legend's line; the calendar (open by default above 600 px) comes before More stats
-SECTION_ORDER = ['hero', 'status', 'chart', 'pills', 'stats', 'cal', 'more', 'list', 'trades', 'health', 'capture', 'nt', 'recon', 'gate', 'reports']
-TOP_SECTIONS = ['hero', 'status', 'chart', 'stats', 'cal', 'more']   # LEDGER step 12: the frame top block, in this order (the pills section sits inside the chart one since 10-31)
+SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more', 'list', 'trades', 'health', 'capture', 'nt', 'recon', 'gate', 'reports']   # owner 10-31 18:00: headline, tiles, chart, calendar
+TOP_SECTIONS = ['hero', 'status', 'stats', 'chart', 'cal', 'more']   # LEDGER step 12: the frame top block, in this order (the pills section sits inside the chart one since 10-31)
 FRAME_MAX_W = '1320px'                                             # LEDGER step 12: .lg-frame max-width (WEBULL's column), centred
 OWN_FOLDS = ['health', 'capture', 'nt', 'recon', 'gate', 'reports']   # the board own folds after the trades, parent before children (the status fold lives in the status line)
 HEALTH_KIDS = ['capture', 'nt', 'recon', 'gate']                   # the folds inside the System health fold
@@ -4005,7 +4005,7 @@ def _judge_s12(cases, data, fails):
                                  % (nm, nd_.get('prev'), nd_.get('next'), nd_.get('inTop'), nd_['box']['top'] - under_))
                 under_ = nd_['box']['bottom']
             gap = (s_['top'] - under_) if (under_ is not None and s_) else None
-            if (nd_.get('prev') if nd_ else st.get('prev')) != 'hero' or st.get('next') != 'chart' or not st.get('inTop') or st.get('inHero') or gap is None or gap < -1 or gap > 40 \
+            if (nd_.get('prev') if nd_ else st.get('prev')) != 'hero' or st.get('next') != 'stats' or not st.get('inTop') or st.get('inHero') or gap is None or gap < -1 or gap > 40 \
                     or not p_ or s_['top'] >= p_['top']:
                 fails.append('%s: the status line is not directly under the hero (above the pills) at %d px (after %r, before %r, in the top block %s, inside '
                              'the hero %s, %s px under the hero)' % (nm, vw, st.get('prev'), st.get('next'), st.get('inTop'), st.get('inHero'), gap))
@@ -4926,13 +4926,13 @@ MUTANTS = [
      'the warning chips are drawn in the hero chip row again (as well as in the status line)',
      'the hero chip row must be empty'),
     ('chart-foot-missing',
-     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>\'+_rhFoot+\'</div>\';',
-     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>\'+\'</div>\';',
+     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div>\'+_rhFoot+\'</div></div>\';',
+     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div>\'+\'</div></div>\';',
      'the chart has no shared chart foot (and no caption) under it',
      'chart feet [data-lgchartfoot="p2"]'),
     ('chart-foot-above-chart',
-     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>\'+_rhFoot+\'</div>\';',
-     'if(_rhN)return \'<div data-p2sec="chart">\'+_rhFoot+\'<div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div></div>\'+\'</div>\';',
+     'if(_rhN)return \'<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div>\'+_rhFoot+\'</div></div>\';',
+     'if(_rhN)return \'<div data-p2sec="chart">\'+_rhFoot+\'<div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">\'+_rhTabs+\'<div class="lg-legend-slot" id="p2-lg-legend"></div>\'+\'</div></div>\';',
      'the chart foot is drawn above the chart',
      'the chart foot is not under the chart'),
     ('chart-caption-hidden',
