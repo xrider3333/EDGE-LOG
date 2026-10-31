@@ -5,7 +5,8 @@ daily table per session to C:/EdgeLog/manager/usage.md.
 
   python tools/claude_usage.py                 # write usage.md (last 14 days)
   python tools/claude_usage.py --days 30
-  python tools/claude_usage.py --statusline    # read the status-line JSON on stdin, print one meter line
+  python tools/claude_usage.py --statusline    # read the status-line JSON on stdin, print one short line:
+                                               #   "Fable 72% | this chat $0.40 | $4.10 today | 7d avg $3.6"
 """
 import collections, datetime as dt, glob, json, os, sys
 
@@ -14,14 +15,35 @@ OUT = r"C:\EdgeLog\manager\usage.md"
 CACHE = r"C:\EdgeLog\manager\usage_cache.json"
 # Owner-set daily budget for the meter, in output-weighted tokens; edit here, never in settings.
 DAILY_BUDGET = int(os.environ.get("EL_USAGE_BUDGET", "40000000"))
-# $ per million tokens (input, output, cache write, cache read) - API list-price ESTIMATES, edit when prices change.
-# Subscription chats are not billed per token; the $ shows relative cost, not an invoice.
-PRICES = {"opus": (5, 25, 6.25, 0.5), "sonnet": (3, 15, 3.75, 0.3), "haiku": (1, 5, 1.25, 0.1), "fable": (5, 25, 6.25, 0.5)}
+# $ per million tokens (input, output, cache write, cache read) by model id, most specific first.
+# Source: claude-api skill price table (cached 2026-10-06) + the usual 1.25x write / 0.1x read cache rule;
+# Fable 5.x cache read $0.25, Opus 5.5 / Sonnet 5.x $0.20 per the skill notes. VERIFY against
+# platform.claude.com/pricing when prices change. Subscription chats are not billed per token;
+# the $ shows relative cost, not an invoice.
+PRICES = [
+    ("fable-5", (10, 50, 12.5, 0.25)),
+    ("mythos-5", (10, 50, 12.5, 0.25)),
+    ("opus-5-5", (4, 20, 5, 0.2)),
+    ("opus-5", (5, 25, 6.25, 0.5)),
+    ("opus-4", (5, 25, 6.25, 0.5)),
+    ("opus", (5, 25, 6.25, 0.5)),
+    ("sonnet-5", (2, 10, 2.5, 0.2)),
+    ("sonnet-4", (3, 15, 3.75, 0.3)),
+    ("sonnet", (3, 15, 3.75, 0.3)),
+    ("haiku-5-5", (0.1, 0.5, 0.125, 0.01)),
+    ("haiku-4", (1, 5, 1.25, 0.1)),
+    ("haiku", (1, 5, 1.25, 0.1)),
+]
+DEFAULT_PRICE = PRICES[2][1]  # unknown model id -> priced as Opus 5.5 (the default model)
+
+
+def price_for(model):
+    m = (model or "").lower()
+    return next((v for k, v in PRICES if k in m), DEFAULT_PRICE)
 
 
 def dollars(model, u):
-    m = (model or "").lower()
-    p = next((v for k, v in PRICES.items() if k in m), PRICES["opus"])
+    p = price_for(model)
     return ((u.get("input_tokens") or 0) * p[0] + (u.get("output_tokens") or 0) * p[1] +
             (u.get("cache_creation_input_tokens") or 0) * p[2] + (u.get("cache_read_input_tokens") or 0) * p[3]) / 1e6
 
@@ -94,6 +116,14 @@ def usd(c):
 SPARK = " .:-=+*#%@"
 
 
+def vs_avg(today, avg):
+    """'+37%' / '-12%' / 'n/a' - today's $ against the 7-day average."""
+    if avg <= 0:
+        return "n/a"
+    d = 100 * (today - avg) / avg
+    return "%+.0f%%" % d
+
+
 def trend(vals):
     hi = max(vals) or 1
     return "".join(SPARK[min(9, int(9 * v / hi + 0.999))] if v else "_" for v in vals)
@@ -107,18 +137,30 @@ def write_md(days):
     out = ["# Claude usage per chat", "",
            "Written by tools/claude_usage.py at %s. Tokens per session per day; cache read is cheap, output is dear." %
            dt.datetime.now().strftime("%Y-%m-%d %H:%M"),
-           "$ = API list-price estimate (PRICES in the script); subscription chats are not billed per token.", ""]
+           "$ = API list-price estimate (PRICES in the script, per model id - verify when prices change); subscription chats are not billed per token.", ""]
     week = [(dt.date.today() - dt.timedelta(days=i)).isoformat() for i in range(6, -1, -1)]
     per = collections.defaultdict(lambda: [0.0] * 7)
     for (day, sid), c in rows.items():
         if day in week:
             per[sid][week.index(day)] += usd(c)
+    reps = collections.Counter()
+    outs = collections.Counter()
+    for (day, sid), c in rows.items():
+        if day in week:
+            reps[sid] += c["msgs"]
+            outs[sid] += c["out"]
     out += ["## Last 7 days (%s .. %s)" % (week[0], week[-1]), "",
-            "| Chat | 7-day $ | Today $ | Trend (old -> today) |", "|---|---|---|---|"]
+            "7d avg = the 7 days' $ / 7. Today vs avg: + means dearer than usual. Out/reply = output tokens per reply.", "",
+            "| Chat | 7-day $ | 7d avg $ | Today $ | Today vs avg | Replies | Out/reply | Trend (old -> today) |",
+            "|---|---|---|---|---|---|---|---|"]
     for sid, v in sorted(per.items(), key=lambda x: -sum(x[1])):
-        out.append("| %s | $%.2f | $%.2f | `%s` |" % (titles.get(sid, sid[:8]).replace("|", "/"), sum(v), v[-1], trend(v)))
+        out.append("| %s | $%.2f | $%.2f | $%.2f | %s | %d | %s | `%s` |" % (
+            titles.get(sid, sid[:8]).replace("|", "/"), sum(v), sum(v) / 7, v[-1], vs_avg(v[-1], sum(v) / 7),
+            reps[sid], "%d" % (outs[sid] / max(1, reps[sid])), trend(v)))
     daytot = [sum(v[i] for v in per.values()) for i in range(7)]
-    out += ["| **ALL** | **$%.2f** | **$%.2f** | `%s` |" % (sum(daytot), daytot[-1], trend(daytot)), ""]
+    out += ["| **ALL** | **$%.2f** | **$%.2f** | **$%.2f** | %s | %d | %s | `%s` |" % (
+        sum(daytot), sum(daytot) / 7, daytot[-1], vs_avg(daytot[-1], sum(daytot) / 7), sum(reps.values()),
+        "%d" % (sum(outs.values()) / max(1, sum(reps.values()))), trend(daytot)), ""]
     totals = {}
     for day in sorted(by_day, reverse=True):
         lst = sorted(by_day[day], key=lambda x: -(x[1]["out"] + x[1]["cache_w"]))
@@ -170,11 +212,15 @@ def statusline():
             mine["cache_r"] += u.get("cache_read_input_tokens") or 0
             mine["usd_c"] += u["_usd"] * 100
     pct = 100 * weight(day) / DAILY_BUDGET if DAILY_BUDGET else 0
-    bar = "#" * min(10, int(pct / 10)) + "-" * (10 - min(10, int(pct / 10)))
     model = ((info.get("model") or {}).get("display_name")) or ""
-    avg = sum(week[:-1]) / 6 if len(week) == 7 else 0
-    print("%s [%s] %d%% of day | this chat $%.2f | all chats $%.2f today (7d avg $%.2f)" %
-          (model, bar, pct, usd(mine), usd(day), avg))
+    avg = sum(week) / 7 if len(week) == 7 else 0
+    print(statusline_text(model, pct, usd(mine), usd(day), avg))
+
+
+def statusline_text(model, pct, mine_usd, day_usd, avg_usd):
+    """One short line: '<model> 72% | this chat $0.40 | $4.10 today | 7d avg $3.6'. % = share of the daily budget."""
+    return "%s%d%% | this chat $%.2f | $%.2f today | 7d avg $%.1f" % (
+        (model + " ") if model else "", pct, mine_usd, day_usd, avg_usd)
 
 
 if __name__ == "__main__":
