@@ -350,11 +350,12 @@ var NOISE_ID='NOISE_382-20260928T141500Z-S', ENGU_ID='ENGUQ_335-20260928T163200Z
       +"res.push({k:k,same:a===b,sameEmpty:a===c2,len:a.length});});return res;"
       +"}catch(e){return {err:String(e&&e.stack||e)};}})()");
 
-    // 2. a run-report trade in the real viewer: same arguments + bytes as the old function
+    // 2. a run-report trade in the OLD viewer (row 75 step 3 sends run reports to the shared chart; _lwOldChart keeps the SVG one here):
+    //    same arguments + bytes as the old function
     out.runViewer=await (async function(){
       var calls=[];var orig=w.candleSVG;
       w.candleSVG=function(b,o,m,op){var s=orig(b,o,m,op);calls.push({b:b,o:o,m:m,op:op,s:s});return s;};
-      w.eval("window._openTradeCandles({_no:7,_et:'2026-09-25 10:00',_xt2:'2026-09-25 12:30',_ep:740.1,_xp:740.3,_pts:0.2,_usd:40,_side:'long'},null,{B:{run_id:123,instrument:'NQ',timeframe:'5m',session:'rth'},all:function(){return [];},order:function(){return [];}})");
+      w.eval("window._lwOldChart=true;try{window._openTradeCandles({_no:7,_et:'2026-09-25 10:00',_xt2:'2026-09-25 12:30',_ep:740.1,_xp:740.3,_pts:0.2,_usd:40,_side:'long'},null,{B:{run_id:123,instrument:'NQ',timeframe:'5m',session:'rth'},all:function(){return [];},order:function(){return [];}})}finally{window._lwOldChart=false;}");
       await waitFor(function(){return calls.length&&q('#chart-body svg line');},8000);
       await sleep(200);
       var last=calls[calls.length-1],r={calls:calls.length,legend:!!q('#cndl-legend')};
