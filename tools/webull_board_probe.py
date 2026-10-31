@@ -2732,9 +2732,9 @@ MUTANTS = [
      "row:{key:key,name:label+' '+qeLegShortTag(key,runNo),",
      "a strategy row's run number is plain text, not a link to the run's report"),
     ('row-params-note-missing',
-     "tag:qbParamsTagHtml()+pill+infoToggleHtml+moreTag,wrap:true,",
+     "tag:qbParamsTagHtml(key,runNo)+pill+infoToggleHtml+moreTag,wrap:true,",
      "tag:pill+infoToggleHtml+moreTag,wrap:true,",
-     "a strategy row does not say its parameter set is not recorded"),
+     "a strategy row does not name its parameter set beside the run number"),
     ('row-sub-hidden-on-phone',
      ".qbx-side .lg-row-sub{display:block;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}",
      ".qbx-side .lg-row-sub{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}",
@@ -5508,12 +5508,16 @@ RANGE_WORD = {'TODAY': 'today', '1W': 'past week', '1M': 'past month', '3M': 'pa
               'ALL': 'all time'}
 LIST_VH_MAX = 1.0   # phone: the trade list (the History section) starts within this many viewport heights of the board top
 PHONE_ROW_MAX_H = 62  # phone: one strategy a row (padding 9 + 9, the name line, the trades / win rate / today figures under the name)
-PARAMS_NOTE = '· params: not recorded'   # owner 10-31 15:30: no leg records the index of its parameter cell, so every row says so
+# owner 10-31 15:50: the quiet note beside the run number names the parameter SET ('· set 2') or says
+# '· set not found in report' (api/paper_leg_params.py); never 'not recorded'
+PARAMS_NOTE_RE = re.compile(r'^· set (\d+|not found in report)\s*')
+PARAMS_NOTE = '· set'
 
 
 def _after_params(tag):
     """A row's tag without its leading params note (the side pill and the rest follow it)."""
-    return tag[len(PARAMS_NOTE):].strip() if tag.startswith(PARAMS_NOTE) else tag
+    m = PARAMS_NOTE_RE.match(tag or '')
+    return tag[m.end():].strip() if m else tag
 PHONE_ROW_OPEN_H = 14  # owner 10-31 14:35: a row that holds lots carries one more small line ('open -$X · N lots') under its figures
 SHADOW_NOTE = 'None are in the box'
 NOTE_MARK = 'was #304'          # NOISE's note under its row: 'since Sep 24 · was #304 · KEEL v12 ...'
@@ -6044,9 +6048,11 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         # owner 10-31 15:30: '· params: not recorded' first in the tag (no leg records its parameter cell's index), then a LONG / SHORT
         # pill ONLY while the leg holds a position - never FLAT
         tg = x.get('tag') or ''
-        if not is_other and not tg.startswith(PARAMS_NOTE):
-            fails.append('%s: list row %s does not say %r beside its run number (tag %r)' % (tag, x.get('name'), PARAMS_NOTE, tg))
-        rest = tg[len(PARAMS_NOTE):].strip() if tg.startswith(PARAMS_NOTE) else tg
+        if not is_other and not PARAMS_NOTE_RE.match(tg):
+            fails.append('%s: list row %s does not name its parameter set beside its run number (tag %r)' % (tag, x.get('name'), tg))
+        if 'not recorded' in tg:
+            fails.append('%s: list row %s still says not recorded (tag %r)' % (tag, x.get('name'), tg))
+        rest = _after_params(tg)
         want_side = ('LONG' if pz[0] == 'Long' else 'SHORT') if pz else None
         if not is_other and want_side and not rest.startswith(want_side):
             fails.append('%s: list row %s carries the side %r, want %s' % (tag, x.get('name'), rest, want_side))

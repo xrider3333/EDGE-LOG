@@ -179,6 +179,7 @@ if ROOT not in sys.path:
 from augur_engine.engine import run_backtest as engine_run_backtest          # noqa: E402
 from api import market_calendar                                             # noqa: E402
 from api import trade_id as _trade_id                                       # noqa: E402
+from api import paper_leg_params as _plp                                    # noqa: E402
 from api.paper import ORB_314, ENGUQ_335                                    # noqa: E402
 import tools.qqq_paper as qp                                                # noqa: E402
 
@@ -5661,6 +5662,8 @@ def _seeded_entry_event(leg_key, key, t, rec, bar_source, why, cfg=None):
         "bar_source": bar_source or "",
         "trade_id": key if _trade_id.is_valid(key) else "",
         "size": size, "keel_size": keel_size,
+        # owner 10-31: the run's parameter SET this leg trades + its model variant (api/paper_leg_params.py)
+        "params_cell": _plp.params_cell_of(leg_key), "model_variant": _plp.variant_of(cfg),
     }
 
 
@@ -6016,6 +6019,8 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "trade_id": tid,
                 "size": final_size,
                 "keel_size": keel_size,
+                # owner 10-31: the run's parameter SET this leg trades + its model variant (api/paper_leg_params.py)
+                "params_cell": _plp.params_cell_of(leg_key), "model_variant": _plp.variant_of(cfg),
                 # DECISION BARS: the bar this entry was decided on (blank off NOISE)
                 **_decision_cols(t, "entry", bar_source),
                 # KEEL ENTRY EXTRAS: learned KEEL legs only (no keys at all elsewhere)
@@ -6046,6 +6051,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 "bar_source": bar_source or "",
                 "trade_id": tid,
                 "size": "", "keel_size": "",
+                "params_cell": _plp.params_cell_of(leg_key), "model_variant": _plp.variant_of(cfg),
                 "stop_px": lv["be_stop_px"],
                 "target_px": "" if target_px is None else target_px,
             })
@@ -6081,6 +6087,7 @@ def _diff_leg(leg_key, trades, leg_state, now, max_entry_age_sec=None, bar_sourc
                 # the same per-trade size as the ENTRY event -- see SIGNAL_COLS
                 "size": exit_size,
                 "keel_size": exit_keel_size,
+                "params_cell": _plp.params_cell_of(leg_key), "model_variant": _plp.variant_of(cfg),
                 # DECISION BARS: the bar this exit was decided on (blank off NOISE)
                 **_decision_cols(t, "exit", bar_source),
             })

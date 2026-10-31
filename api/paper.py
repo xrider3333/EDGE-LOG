@@ -33,6 +33,7 @@ from augur_engine.data import find_master, load_master_arrays
 from augur_engine.engine import run_backtest
 from .util import json_safe
 from . import paper_exitday as _xd
+from . import paper_leg_params as _plp
 
 # ── crowned legs ─────────────────────────────────────────────────────────────────
 # First trading day shadow trades are logged for. Anything with an entry before this
@@ -3008,6 +3009,9 @@ def _run_one_uid(q, uid, target_date, *, dry_run=False, only_legs=None):
             # file has moved on to a different one.
             "source": leg.get("source") or {},
             "params": dict(leg.get("params") or {}),
+            # owner 10-31: the run's parameter SET this leg trades (None = not in the report's grid) and
+            # its model variant word (raw / keel / hybrid / tilt / comp) -- api/paper_leg_params.py
+            "params_cell": _plp.params_cell_of(leg["key"]), "model_variant": _plp.variant_of(leg),
             "strategy_file": leg["strategy"], "timeframe": leg.get("timeframe"),
             # The gate's own summary (model, cut-off, how many it refused, average size
             # it traded) rides with the leg for the same reason the params do: so a row
