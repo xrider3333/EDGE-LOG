@@ -67,19 +67,31 @@ def run_doc(rid, cache):
     return firestore.client().collection("users").document(UID).collection("runs").document(str(rid)).get().to_dict()
 
 
-def derive(doc, params):
-    """(rank or None, grid size, matched_on) for a leg's params against one run doc."""
+def derive(doc, params, how="grid"):
+    """(set number or None, grid size, matched_on) for a leg's params against one run doc, the way `how` says
+    (api/paper_leg_params.py HOW_*): grid = the row's rank by in-sample net; champion = the champion's own in-sample net
+    (best_pnl_pts) sorted among the kept rows (1 + the rows that beat it, half a point of slack for the rows' rounding);
+    defaults = 0 when the values sit on no row of the grid (they are the file's defaults, not a searched cell)."""
     lp = {k: v for k, v in params.items() if k not in NOT_PARAMS}
     V = doc.get("validate") or {}
     on = []
-    if V.get("champion") and _on(lp, V.get("champion") or {}):
+    is_champ = bool(V.get("champion")) and _on(lp, V.get("champion") or {})
+    if is_champ:
         on.append("champion")
     pts = [x for x in (doc.get("points") or []) if isinstance(x, dict)]
     pts = sorted(pts, key=lambda x: -float(x.get("pnl") or 0))
     rank = [i + 1 for i, x in enumerate(pts) if _on(lp, _params_of(x))]
     if rank:
         on.append("grid_rank_by_is_net")
-    return (rank[0] if rank else None), len(pts), on
+        return rank[0], len(pts), on
+    if how == "champion" and is_champ and doc.get("best_pnl_pts") is not None:
+        bp = float(doc["best_pnl_pts"])
+        on.append("champion_rank_by_is_net")
+        return 1 + sum(1 for x in pts if float(x.get("pnl") or 0) > bp + 0.5), len(pts), on
+    if how == "defaults":
+        on.append("defaults")
+        return 0, len(pts), on
+    return None, len(pts), on
 
 
 def main(argv=None):
@@ -111,7 +123,7 @@ def main(argv=None):
             if not d:
                 fails.append("%s: run #%s doc not found" % (k, r))
                 continue
-            rank, grid, on = derive(d, cfgs[k]["params"])
+            rank, grid, on = derive(d, cfgs[k]["params"], c.get("how", "grid"))
             if rank != c["cell"] or grid != c["grid"]:
                 fails.append("%s: run #%s -> set %r of %s by the run doc, CELLS records %r of %s (%s)"
                              % (k, r, rank, grid, c["cell"], c["grid"], ", ".join(on) or "no match"))

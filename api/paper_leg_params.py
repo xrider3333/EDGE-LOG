@@ -30,9 +30,17 @@ _THIN = "the saved grid keeps 150 of the run's trials and the champion is not on
 _R2 = "trades the R2 defaults, not the run's own cell (LEG_SOURCE caveat)"
 _FULL = ["champion", "grid_rank_by_is_net"]
 
+# HOW a set number was found (owner 10-31 17:20: no 'set ?' on either tab):
+#   grid      - the leg's values sit on a row of the saved grid; set = that row's rank by in-sample net (1 = best)
+#   champion  - the leg IS the run's champion but the saved grid (150 kept trials) does not hold it; set = where the
+#               champion's own in-sample net (best_pnl_pts) sorts among the kept rows, 1 + the rows that beat it
+#   defaults  - the leg trades the strategy file's DEFAULTS, no searched cell: set 0 by definition
+HOW_GRID, HOW_CHAMPION, HOW_DEFAULTS = "grid", "champion", "defaults"
 
-def _c(run, cell, grid, why=None):
-    d = {"run": run, "cell": cell, "grid": grid, "matched_on": list(_FULL if cell is not None else (["champion"] if why == _THIN else []))}
+
+def _c(run, cell, grid, why=None, how=HOW_GRID):
+    d = {"run": run, "cell": cell, "grid": grid, "how": how,
+         "matched_on": list(_FULL if how == HOW_GRID else (["champion", "champion_rank_by_is_net"] if how == HOW_CHAMPION else ["defaults"]))}
     if why:
         d["why"] = why
     return d
@@ -43,10 +51,10 @@ CELLS = {
     # Webull (api/cloud_signal.py CROWN_LEGS + SHADOW_LEGS)
     "ORB_R6": _c(314, 22, 382),
     "NOISE_382": _c(382, 2, 24),
-    "DIP_424": _c(424, None, 150, _THIN),
-    "DIP_424K": _c(424, None, 150, _THIN),
-    "DIP_424F": _c(424, None, 150, _THIN),
-    "ENGUQ_335": _c(335, None, 527, _R2),
+    "DIP_424": _c(424, 1, 150, _THIN, HOW_CHAMPION),
+    "DIP_424K": _c(424, 1, 150, _THIN, HOW_CHAMPION),
+    "DIP_424F": _c(424, 1, 150, _THIN, HOW_CHAMPION),
+    "ENGUQ_335": _c(335, 0, 527, _R2, HOW_DEFAULTS),
     "NOISE_422_PLAIN": _c(422, 2, 27),
     "NOISE_422_FIXED": _c(422, 2, 27),
     "NOISE_422_KEEL": _c(422, 2, 27),
@@ -58,10 +66,10 @@ CELLS = {
     "ORB_R6_C15": _c(314, 22, 382),
     "ORB_R6_C15F": _c(314, 22, 382),
     "ORB_R6_C15FE": _c(314, 22, 382),
-    "DIP_ES_452": _c(452, None, 150, _THIN),
-    "DIP_NQ_433": _c(433, None, 150, _THIN),
-    "ENGUQ_335_S1": _c(335, None, 527, _R2 + " plus a session window"),
-    "ENGUQ_335_S2": _c(335, None, 527, _R2 + " plus a session window"),
+    "DIP_ES_452": _c(452, 1, 150, _THIN, HOW_CHAMPION),
+    "DIP_NQ_433": _c(433, 7, 150, _THIN, HOW_CHAMPION),
+    "ENGUQ_335_S1": _c(335, 0, 527, _R2 + " plus a session window", HOW_DEFAULTS),
+    "ENGUQ_335_S2": _c(335, 0, 527, _R2 + " plus a session window", HOW_DEFAULTS),
     "ENGUQ_335_VC": _c(335, 4, 527),
     "ENGUQ_309": _c(309, 48, 150),
     "ENGUQ_309_K": _c(309, 48, 150),
@@ -150,5 +158,5 @@ def inline_js(cfgs=None):
     variant is read from the cfg dicts handed in (the check script passes the live ones)."""
     out = {}
     for k, c in sorted(CELLS.items()):
-        out[k] = {"run": c["run"], "cell": c["cell"], "grid": c["grid"], "variant": variant_of((cfgs or {}).get(k))}
+        out[k] = {"run": c["run"], "cell": c["cell"], "grid": c["grid"], "how": c.get("how", HOW_GRID), "variant": variant_of((cfgs or {}).get(k))}
     return "const PAPER_LEG_PARAMS=" + json.dumps(out, separators=(",", ":"), sort_keys=True) + ";"

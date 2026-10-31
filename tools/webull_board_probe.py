@@ -5525,7 +5525,7 @@ PARAMS_NOTE = '· set'
 # owner 10-31 (row 76): the words of a strategy name on the page carry run.set and the model word - 'NOISE #382.2 keel',
 # 'DIP #424 set ? raw' - in the legend, the chips, the trade rows and the open line. _plain() takes them back to family + run
 # ('NOISE #382') so every check pinned on the plain words keeps reading; the words themselves are judged by LABEL_RE on the rows.
-SETW_RE = re.compile(r'(#\d+)(?:\.\d+| set \?)?(?: (?:raw|keel|fixed|hybrid|tilt|comp))?(?=$| \u00b7 |,|\))')
+SETW_RE = re.compile(r'(#\d+)(?:(?:\.\d+| set \?)(?: (?:raw|keel|fixed|hybrid|tilt|comp))?)(?=$| \u00b7 |,|\)|:)')
 
 
 def _plain(name):
