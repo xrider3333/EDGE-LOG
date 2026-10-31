@@ -5518,14 +5518,14 @@ LIST_VH_MAX = 1.0   # phone: the trade list (the History section) starts within 
 PHONE_ROW_MAX_H = 62  # phone: one strategy a row (padding 9 + 9, the name line, the trades / win rate / today figures under the name)
 # owner 10-31 15:50: the quiet note beside the run number names the parameter SET ('· set 2') or says
 # '· set not found in report' (api/paper_leg_params.py); never 'not recorded'
-PARAMS_NOTE_RE = re.compile(r'^· set (\d+|not found in report)\s*')
+PARAMS_NOTE_RE = re.compile(r'^· set (\d+|not found in report)(?: \(defaults\))?\s*')
 PARAMS_NOTE = '· set'
 
 
 # owner 10-31 (row 76): the words of a strategy name on the page carry run.set and the model word - 'NOISE #382.2 keel',
 # 'DIP #424 set ? raw' - in the legend, the chips, the trade rows and the open line. _plain() takes them back to family + run
 # ('NOISE #382') so every check pinned on the plain words keeps reading; the words themselves are judged by LABEL_RE on the rows.
-SETW_RE = re.compile(r'(#\d+)(?:(?:\.\d+| set \?)(?: (?:raw|keel|fixed|hybrid|tilt|comp))?)(?=$| \u00b7 |,|\)|:)')
+SETW_RE = re.compile(r'(#\d+)(?:(?:\.\d+| set \?)(?: (?:raw|keel|fixed|hybrid|tilt|comp))?)(?=$|[^\w.])')
 
 
 def _plain(name):
