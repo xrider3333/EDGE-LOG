@@ -13,6 +13,7 @@ import pandas as pd
 
 from .paths import UPLOADS, DB_PATH
 from . import trial_cache as _TC
+from . import bar_checks as _BC
 
 
 def list_masters():
@@ -246,6 +247,10 @@ def load_master_arrays(master, date_from=None, date_to=None):
                               # raise the SAME real error a memo-off caller would see
 
     df = pd.read_csv(path)
+    # Board C6: check the whole file's bars once per (path, size, mtime); HARD issues refuse the run,
+    # SOFT ones are attached to the result. Read-only: never changes any array.
+    bar_report = _BC.check_master(master.get("filename"), path, df["time"].values, df["open"].values,
+                                  df["high"].values, df["low"].values, df["close"].values)
     dt = pd.to_datetime(df["time"], unit="s", utc=True).dt.tz_convert("US/Eastern")
     df.index = dt
     if date_from:
@@ -278,6 +283,7 @@ def load_master_arrays(master, date_from=None, date_to=None):
         "meta": master,
         "fingerprint": fingerprint,
         "window_cut": window_cut_rule(master),
+        "bar_checks": bar_report,
     }
     if memo_key is not None:
         for _k in ("open", "high", "low", "close", "volume", "day_id"):
