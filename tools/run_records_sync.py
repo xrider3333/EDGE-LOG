@@ -248,7 +248,10 @@ PLOT_ALTERNATIVES = (("roc30k",), ("net_usd", "max_dd_usd"))
 NULLABLE = tuple(k for k in SCHEMA if k not in REQUIRED)
 DEFAULTS = {"start_usd": 100000.0,    # the $100k house account dd_pct_peak is computed on
             "note": "", "schema_v": SCHEMA_V}
-KNOWN = set(SCHEMA)
+# BOARD C8: a record that carries a VERDICT also names its prereg (tools/run_record.py gates both). They are
+#   OPTIONAL and copied only when present, so every record without a verdict hashes exactly as before.
+VERDICT_FIELDS = ("verdict", "prereg")
+KNOWN = set(SCHEMA) | set(VERDICT_FIELDS)
 # the fields the SYNC adds to the document. They are deliberately NOT in KNOWN: a line that carries one is
 #   refused as an unknown field, so a lane cannot forge its own provenance. `timestamp` is the normalised ts under
 #   the name the page's month query actually filters on - see payload().
@@ -557,6 +560,11 @@ def validate(rec):
         row = row.strip() or None         # a blank is an absence, as it is for every other label (_opt_text)
     out["ledger_row"] = row
     out["schema_v"] = SCHEMA_V
+    for k in VERDICT_FIELDS:
+        if rec.get(k) is not None:
+            out[k] = _opt_text(rec, k)
+    if (out.get("verdict") is None) != (out.get("prereg") is None):
+        raise Refusal("verdict and prereg go together (board C8): a verdict names its locked prereg")
 
     # == THE PAIR RULES: two readings of the SAME curve that cannot both be true ============================
     # Every one of them is an invariant of augur_engine.drawdowns.four_numbers, the one producer of these figures

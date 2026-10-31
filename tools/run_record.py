@@ -648,7 +648,8 @@ def numbers_given(numbers):
 def build_record(lane, where, stage, *, strategy, family, instrument, timeframe,
                  daily=None, dates=None, numbers=None, trades=None,
                  gross_pt=None, cost_pt=None, start_usd=None, years=None,
-                 run_id=None, ledger_row=None, sha=None, note="", ts=None, host=None):
+                 run_id=None, ledger_row=None, sha=None, note="", ts=None, host=None,
+                 verdict=None, prereg=None, run_start=None):
     """One validated record, or RunRecordError. Pure: nothing is written and nothing is read but the
     host name and the code sha.
 
@@ -720,7 +721,28 @@ def build_record(lane, where, stage, *, strategy, family, instrument, timeframe,
         "schema_v": SCHEMA_V,
     }
     _check_units(rec, start_given=start_given)
-    return {k: rec[k] for k in FIELDS}
+    out = {k: rec[k] for k in FIELDS}
+    # BOARD C8 - NO VERDICT WITHOUT A LOCKED PREREG. A record with no verdict is untouched (no new keys, so
+    # its sync content hash is what it always was). A verdict needs prereg= naming a lock made BEFORE
+    # run_start (else the record's own ts) whose file still matches; prereg="none - exploratory" stores
+    # the verdict as EXPLORATORY instead.
+    if verdict is not None and str(verdict).strip():
+        out["verdict"] = _verdict(verdict, prereg, run_start or stamp)
+        out["prereg"] = str(prereg).strip()
+    return out
+
+
+def _verdict(verdict, prereg, run_start):
+    try:
+        from tools import prereg_lock
+    except ImportError:                              # run as a script from tools/
+        import prereg_lock
+    try:
+        return prereg_lock.verdict_gate(verdict, prereg, run_start)
+    except prereg_lock.PreregError as e:
+        _refuse(str(e))
+    except ValueError as e:
+        _refuse("run_start %r is not a time (%s)" % (run_start, e))
 
 
 def _trades(v):
@@ -975,6 +997,9 @@ def build_parser():
     ap.add_argument("--ledger-row", help="e.g. 2.195")
     ap.add_argument("--sha", help="the CODE commit sha (default: this checkout's HEAD)")
     ap.add_argument("--note", default="")
+    ap.add_argument("--verdict", help="PASS / FAIL / HOLDS / DEAD / crown ... - needs --prereg (board C8)")
+    ap.add_argument("--prereg", help='a LOCKED prereg id (tools/prereg_lock.py lock <file>), or "none - exploratory"')
+    ap.add_argument("--run-start", help="when the run started, 'YYYY-MM-DD HH:MM' local or ISO (default: --ts)")
     ap.add_argument("--ts", help="'YYYY-MM-DD HH:MM' local (default: now)")
     ap.add_argument("--host", help="default: EDGELOG_HOST_ID else this hostname")
     ap.add_argument("--records-dir", help="default: EDGELOG_RUN_RECORDS else <EDGELOG_HOME>/run_records")
@@ -992,7 +1017,8 @@ def main(argv=None):
                   years=a.years, win_start=a.win_start, win_end=a.win_end)
     kw = dict(strategy=a.strategy, family=a.family, instrument=a.instrument, timeframe=a.timeframe,
               trades=a.trades, gross_pt=a.gross_pt, cost_pt=a.cost_pt, start_usd=a.start_usd,
-              run_id=a.run_id, ledger_row=a.ledger_row, sha=a.sha, note=a.note, ts=a.ts, host=a.host)
+              run_id=a.run_id, ledger_row=a.ledger_row, sha=a.sha, note=a.note, ts=a.ts, host=a.host,
+              verdict=a.verdict, prereg=a.prereg, run_start=a.run_start)
     try:
         if a.daily_csv:
             if any(v is not None for k, v in handed.items() if k in REQUIRED_NUMBERS):
