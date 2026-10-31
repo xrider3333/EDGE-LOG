@@ -1421,7 +1421,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='73.1454';
+const VERSION='73.1455';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1439,7 +1439,8 @@ window._dataFeedWarn=function(){
 };
 // ── CHANGELOG (Settings ▸ ABOUT). Newest FIRST. When you bump VERSION, prepend a
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
-const CHANGELOG=[{v:'73.1452',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, YOUR 15:30 NOTES ON THE LIVE PAGE (row 76, 10-31). 1. WHICH RUN: every strategy row&#39;s run number (ORB #314, NOISE #382, DIP #424, ENGU-Q #335; the NT8 legs the same) is now a link that opens that run&#39;s report on the RUNBOARD / STUDIES page, with BACK TO RUNBOARD bringing you back. WHICH PARAMETER SET: no leg records the index of its parameter cell - the box configs (api/cloud_signal.py) and the NT8 leg sources (api/paper.py) store the parameter VALUES and the run number only - so every row says &#39;params: not recorded&#39; beside the run number instead of guessing a &#39;#382.3&#39; style label. 2. THE HEADLINE WORDS: &#39;unrealized -$295.74 \u00b7 DIP #424 \u00b7 4 lots&#39; sits directly under the big net number, ONLY while something is open, then &#39;realized +$23.66 \u00b7 closed trades \u00b7 since 09-03&#39; (was &#39;open&#39; / &#39;cash&#39;; the &#39;flat&#39; word is gone). NT8: &#39;unrealized -$X \u00b7 N trades \u00b7 not counted&#39; then &#39;realized +$X \u00b7 N closed trades \u00b7 ALL&#39;. 3. NO FLAT PILL anywhere: a LONG / SHORT pill shows only while the leg holds a position (NT8 rows gained the same pill for an open trade). 4. The trade count, win % and today line sit under the strategy NAME at every width now, phones included (the shared list used to hide that line under 740 px). Checked on the live page at 1700 px: v73.1446 already had it under the name on a desktop; the phone was the gap. 5. THE TRADE LIST: open positions sit at the TOP in a small OPEN group (entry time, strategy and run, side, shares, the unrealized mark), then the closed trades newest first; the NT8 list&#39;s group is labelled OPEN too. Both render gates (tools/webull_board_probe.py, tools/paper_render_probe.py) check the new words, the link, the params note, the OPEN group and the no-FLAT rule, with broken copies that must fail.']},
+const CHANGELOG=[{v:'73.1455',date:'2026-10-31',notes:['THE BOARD TAB: YOUR SIX CIRCLES, A FAMILY CHIP AND YOUR OWN THREE BUTTONS (rows 165-167, 10-31). 1. ONE YELLOW ONLY. A row nobody has picked up and a row somebody is working on used to share the same yellow dot, so the board could not tell you which was which. Now the fill says it: RED FILLED = needs you, RED HOLLOW = nobody on it, YELLOW HOLLOW = assigned, sitting in that lane&#39;s queue, YELLOW FILLED = being worked right now, GREEN HOLLOW = done and waiting for your OK, GREEN FILLED = confirmed. The words beside each row changed to match: NOBODY ON IT, IN QUEUE, BEING WORKED. The six circles are spelled out in a legend under the table, so no colour needs explaining. 2. A FAMILY CHIP before each title (OHLC, AI, and so on) says which part of the system the row belongs to; a row with no family set gets no chip rather than an empty box. Lanes set it from the PC with board.py --tag. 3. YOUR THREE ANSWERS, in the note that opens when you click a row: CONFIRM closes the row green, SEND BACK puts it back in the lane&#39;s queue yellow, NEEDS ME turns it red and yours. Each one writes the status and a line saying when - &#39;owner sent back 10-31&#39; - and leaves the lane&#39;s own title and note alone. These buttons are the only thing this page writes; everything else on the board still comes from the PC.']},
+{v:'73.1452',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, YOUR 15:30 NOTES ON THE LIVE PAGE (row 76, 10-31). 1. WHICH RUN: every strategy row&#39;s run number (ORB #314, NOISE #382, DIP #424, ENGU-Q #335; the NT8 legs the same) is now a link that opens that run&#39;s report on the RUNBOARD / STUDIES page, with BACK TO RUNBOARD bringing you back. WHICH PARAMETER SET: no leg records the index of its parameter cell - the box configs (api/cloud_signal.py) and the NT8 leg sources (api/paper.py) store the parameter VALUES and the run number only - so every row says &#39;params: not recorded&#39; beside the run number instead of guessing a &#39;#382.3&#39; style label. 2. THE HEADLINE WORDS: &#39;unrealized -$295.74 \u00b7 DIP #424 \u00b7 4 lots&#39; sits directly under the big net number, ONLY while something is open, then &#39;realized +$23.66 \u00b7 closed trades \u00b7 since 09-03&#39; (was &#39;open&#39; / &#39;cash&#39;; the &#39;flat&#39; word is gone). NT8: &#39;unrealized -$X \u00b7 N trades \u00b7 not counted&#39; then &#39;realized +$X \u00b7 N closed trades \u00b7 ALL&#39;. 3. NO FLAT PILL anywhere: a LONG / SHORT pill shows only while the leg holds a position (NT8 rows gained the same pill for an open trade). 4. The trade count, win % and today line sit under the strategy NAME at every width now, phones included (the shared list used to hide that line under 740 px). Checked on the live page at 1700 px: v73.1446 already had it under the name on a desktop; the phone was the gap. 5. THE TRADE LIST: open positions sit at the TOP in a small OPEN group (entry time, strategy and run, side, shares, the unrealized mark), then the closed trades newest first; the NT8 list&#39;s group is labelled OPEN too. Both render gates (tools/webull_board_probe.py, tools/paper_render_probe.py) check the new words, the link, the params note, the OPEN group and the no-FLAT rule, with broken copies that must fail.']},
 {v:'73.1446',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 2 OF 3 (row 75). Your REAL trades - the chart icon on a LEDGER &gt; REAL / HOME row and EXPAND in the trade panel - now open the same TradingView-library chart the Webull and NT8 paper trades use: drag, wheel or pinch, timeframes 1m to D, RTH / ETH, VWAP, OR, MFE / MAE, replay, PNG, PREV / NEXT through your trades. The bars are the ones REAL read before: the trade&#39;s published chart doc from your PC (one read per trade, shared with the panel), and with no doc yet one request to your PC. The header says your trade, the symbol, the contracts and the fees; the entry and exit lines are at your fills. No stop or target is drawn - your trade records carry none. The 10-second close-up stays in the trade panel&#39;s compact chart; on a phone the panel&#39;s new OPEN CANDLES button opens the full chart. ?oldchart=1 keeps the old viewer. Run reports are step 3.','VWAP WITH ETH ON: the line now breaks across the overnight gap and starts fresh at each session&#39;s first bar (it used to draw a diagonal from one day&#39;s last value into the next 09:30).']},{v:'73.1439',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 1 OF 3 (row 75, your GO 10-31). An NT8 PAPER trade - the CHART pill on its row and EXPAND in its panel - now opens the same TradingView Lightweight Charts viewer the Webull paper trades use, in place of the old hand-drawn chart: timeframes 1m to D, drag and zoom, the position box (red zone entry to stop, green to target, $ and R), the stop ladder the nightly replay records (first stop, each move as a step line, stop moved to X), MFE / MAE, session VWAP, opening range, RTH / ETH, REPLAY, PNG and the TV button. The bars still come from your PC (one request per trade, kept for the session, the same answer the small panel chart draws), so with the PC off the chart waits on the runner as before. Webull trades are drawn exactly as before. REAL trades and the run reports keep the old chart until steps 2 and 3.']},
 {v:'73.1448',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 3 OF 3 (row 75) - DONE. A trade in a run report&#39;s trade list (COMPARE / RUNBOARD run REPORT, STUDIES, validate, the TRADES window, the chart gallery&#39;s OPEN) now opens the same TradingView-library chart as the Webull, NT8 paper and REAL trades: drag, wheel or pinch, timeframes from the run&#39;s own bar size up to D, RTH / ETH, VWAP, OR, MFE / MAE, replay, PNG, PREV / NEXT through the list. The bars are the ones the old viewer asked your PC for: one request per trade (the run&#39;s instrument, bar size and session), kept for the session and shared with the chart gallery. The header names the run, its master and the bars; a saved blotter still says its exit price is the exit bar close. No stop or target is drawn - run trades carry none. Every trade chart on the site is now the one engine; the old hand-drawn viewer stays only behind ?oldchart=1 (and the OPEN THE OLD CHART button when the chart library cannot load). Still only in the old viewer: the engine&#39;s own indicator lines that came back with the bars (bands and the like) and the small trade-panel charts, which keep their compact drawing.']},{v:'73.1446',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 2 OF 3 (row 75). Your REAL trades - the chart icon on a LEDGER &gt; REAL / HOME row and EXPAND in the trade panel - now open the same TradingView-library chart the Webull and NT8 paper trades use: drag, wheel or pinch, timeframes 1m to D, RTH / ETH, VWAP, OR, MFE / MAE, replay, PNG, PREV / NEXT through your trades. The bars are the ones REAL read before: the trade&#39;s published chart doc from your PC (one read per trade, shared with the panel), and with no doc yet one request to your PC. The header says your trade, the symbol, the contracts and the fees; the entry and exit lines are at your fills. No stop or target is drawn - your trade records carry none. The 10-second close-up stays in the trade panel&#39;s compact chart; on a phone the panel&#39;s new OPEN CANDLES button opens the full chart. ?oldchart=1 keeps the old viewer. Run reports are step 3.','VWAP WITH ETH ON: the line now breaks across the overnight gap and starts fresh at each session&#39;s first bar (it used to draw a diagonal from one day&#39;s last value into the next 09:30).']},{v:'73.1439',date:'2026-10-31',notes:['ONE CHART ENGINE, STEP 1 OF 3 (row 75, your GO 10-31). An NT8 PAPER trade - the CHART pill on its row and EXPAND in its panel - now opens the same TradingView Lightweight Charts viewer the Webull paper trades use, in place of the old hand-drawn chart: timeframes 1m to D, drag and zoom, the position box (red zone entry to stop, green to target, $ and R), the stop ladder the nightly replay records (first stop, each move as a step line, stop moved to X), MFE / MAE, session VWAP, opening range, RTH / ETH, REPLAY, PNG and the TV button. The bars still come from your PC (one request per trade, kept for the session, the same answer the small panel chart draws), so with the PC off the chart waits on the runner as before. Webull trades are drawn exactly as before. REAL trades and the run reports keep the old chart until steps 2 and 3.']},
 {v:'73.1445',date:'2026-10-31',notes:['WEBULL PAPER AND NT8 PAPER, YOUR FOUR NOTES ON THE LIVE PAGE (row 76, 10-31). 1. THE HEADLINE: directly under the big net number is the open-position line - \'open -$295.74 \u00b7 DIP #424 \u00b7 4 lots\', or \'flat\' when nothing is held - and under that the cash line, \'cash +$23.66 \u00b7 closed trades \u00b7 all time\'. The small \'net\' word stays beside the big number; the today line comes after. NT8 PAPER follows the same shape: \'open -$X \u00b7 N trades \u00b7 not counted\' (its big number is closed trades only) or \'flat\'. 2. THE STRATEGY ROWS: the trade count and win % now sit UNDER THE STRATEGY NAME (small, left); under the number only the open line stays while the leg holds lots (\'open -$295.74 \u00b7 4 lots\'). The number\'s hover says it is closed + open, the headline\'s own figures. Same on NT8 PAPER (its number is closed only, and says so). 3. WARNINGS HAVE THEIR OWN COLOUR: KEEL stale, NOT READY, HELD, UPDATES FAILING, book-only tags and the other warnings on both paper tabs are drawn in a new warning token (orange, outlined pill; the KEEL warning is now a pill), apart from the gold the DIP line and name use. It keeps its colour under MONO like the other attention colours. 4. THE HATCHED DAYS: hovering a hatched column now names the caveat for that day in plain words, e.g. \'10-20: 2 book-only trades (order never reached Webull)\', and the \'hatched =\' text under the chart says in one line what a caveat day is and to hover the column. NT8 PAPER: \'10-20: a roll-splice trade closed ...\' / \'a look-ahead ORB trade closed ...\'. Both render gates (tools/webull_board_probe.py, tools/paper_render_probe.py) check the new lines and have new broken-copy mutants.']},
@@ -5964,14 +5965,44 @@ function loadBoard(uidArg){
     db.collection('users').doc(u).collection('meta').doc('board_'+k).onSnapshot(function(d){
       window._bdMeta[k]=(d&&d.exists)?(d.data()||{}):null;paint();},function(){});});
 }
-// the owner's own status words, in his own colours. NEEDS YOU is red and shaded; in flight is
-//   yellow; finished is green hollow until he confirms it, then filled.
-const BDDOT={'needs-you':['r',1],'needsyou':['r',1],block:['r',1],open:['r',0],run:['y',1],
-  wip:['y',1],running:['y',1],wait:['y',0],queued:['y',0],park:['y',0],parked:['y',0],
+// THE ONE THING THE WEB WRITES TO THE BOARD (owner 10-31): his own answer on a row. CONFIRM
+//   closes it, SEND BACK puts it back in the lane's queue, NEEDS ME marks it his. It updates the
+//   row in place - the lane's own title and note stay - and stamps who said so and when, so a
+//   lane reading the row with board.py can see it came from the owner on the web.
+function bdAct(rid,act){
+  const u=auth&&auth.currentUser&&auth.currentUser.uid;
+  const R=(window._bdRows||{})[rid];
+  if(!db||!u||!R){window._bdActErr=[rid,'not signed in'];renderApp();return;}
+  const d=new Date();const md=('0'+(d.getMonth()+1)).slice(-2)+'-'+('0'+d.getDate()).slice(-2);
+  const A={confirm:['confirmed','owner OK '+md],
+           back:['queued','owner sent back '+md],
+           mine:['needs-you','owner needs to do this '+md]}[act];
+  if(!A)return;
+  window._bdSaving=rid;window._bdActErr=null;renderApp();
+  db.collection('users').doc(u).collection('board').doc(rid)
+    .set({status:A[0],statusText:A[1],updated_at:(new Date()).toISOString().slice(0,19).replace('T',' '),
+          updated_by:'owner (web)'},{merge:true})
+    .catch(function(e){window._bdActErr=[rid,(e&&e.message)||String(e)];})
+    .then(function(){window._bdSaving=null;renderApp();});
+}
+// THE OWNER'S LEGEND (artifact v25, owner 10-31). ONE yellow meant he could not tell a row
+//   nobody had picked up from a row somebody was working on, so the fill now carries that:
+//   red filled = needs you, red hollow = nobody on it, yellow HOLLOW = assigned and sitting in a
+//   lane queue, yellow filled = being worked now, green hollow = done waiting for his OK,
+//   green filled = confirmed.
+const BDDOT={'needs-you':['r',1],'needsyou':['r',1],block:['r',1],
+  open:['r',0],park:['r',0],parked:['r',0],
+  queued:['y',0],wait:['y',0],
+  run:['y',1],wip:['y',1],running:['y',1],
   done:['g',0],pass:['g',0],fail:['g',0],confirmed:['g',1]};
-const BDWORD={pass:'PASS',fail:'FAIL',done:'DONE',confirmed:'CONFIRMED',run:'RUNNING',
-  wip:'RUNNING',running:'RUNNING',wait:'WAITING',queued:'QUEUED',park:'PARKED',parked:'PARKED',
-  open:'OPEN','needs-you':'NEEDS YOU',needsyou:'NEEDS YOU',block:'NEEDS YOU'};
+const BDWORD={pass:'PASS',fail:'FAIL',done:'DONE',confirmed:'CONFIRMED',
+  run:'BEING WORKED',wip:'BEING WORKED',running:'BEING WORKED',
+  wait:'IN QUEUE',queued:'IN QUEUE',
+  park:'NOBODY ON IT',parked:'NOBODY ON IT',open:'NOBODY ON IT',
+  'needs-you':'NEEDS YOU',needsyou:'NEEDS YOU',block:'NEEDS YOU'};
+// what each of the six circles means, printed under the table so the colours never need explaining
+const BDLEGEND=[['r',1,'needs you'],['r',0,'nobody on it'],['y',0,'in queue'],
+  ['y',1,'being worked'],['g',0,'done, waiting for your OK'],['g',1,'confirmed']];
 // owner 10-28: green (done, waiting for his OK) first, then yellow, then red at the bottom
 const BDRANK={done:0,pass:0,fail:0,run:1,wip:1,running:1,queued:2,wait:2,park:3,parked:3,
   block:4,'needs-you':4,needsyou:4,open:5};
@@ -5999,6 +6030,10 @@ function boardHtml(){
   const lab=r=>String(r.label||r._id||'').toUpperCase();
   const dot=r=>{const d=BDDOT[st(r)]||['y',0];
     return '<span title="'+esc(BDWORD[st(r)]||r.status||'')+'" style="display:inline-block;width:9px;height:9px;border-radius:50%;border:1.5px solid '+C[d[0]]+';background:'+(d[1]?C[d[0]]:'transparent')+';flex:0 0 auto"></span>';};
+  // the family chip (owner 10-31): which part of the system the row belongs to, set by the lane
+  //   with board.py --tag. A row with no tag gets no chip rather than an empty box.
+  const chip=r=>{const t=String(r.tag||'').trim();if(!t)return '';
+    return '<span style="font-size:8px;font-weight:700;letter-spacing:1px;color:var(--text4);background:var(--bg3);border-radius:4px;padding:2px 5px;white-space:nowrap;flex:0 0 auto">'+esc(t.toUpperCase())+'</span>';};
   const EXP=window._bdExp||(window._bdExp={});
   let h='<div style="max-width:1060px">';
   // ── header: what we are looking at, and when the board last moved
@@ -6039,15 +6074,27 @@ function boardHtml(){
     if(r.who)bits.push(esc(r.who));
     if(r.result)bits.push('<b>Result</b> '+esc(r.result));
     if(r.updated_by)bits.push('set by '+esc(r.updated_by));
+    // HIS THREE ANSWERS (owner 10-31). Everything else on this page is written from the PC; these
+    //   are the one thing only he can say, so they are the only controls on the board: the row is
+    //   finished, or it goes back to the lane, or it is his to do.
+    const rk=String(r._id||'');const busy=(window._bdSaving===rk);
+    const btn=(act,txt,col)=>'<span data-bdact="'+act+'" data-bdid="'+esc(rk)+'" style="font-size:9px;font-weight:700;letter-spacing:.8px;border:1px solid '+col+';color:'+col+';border-radius:6px;padding:4px 9px;cursor:pointer;white-space:nowrap'+(busy?';opacity:.45':'')+'">'+txt+'</span>';
     return '<div style="padding:2px 12px 9px 29px;font-size:var(--fsxs);color:var(--text3);line-height:1.6;background:var(--bg2);border-radius:0 0 8px 8px;margin:-5px 0 5px">'
       +(w?esc(w):'<span style="color:var(--text5)">No note on this row.</span>')
-      +(bits.length?('<div style="color:var(--text4);margin-top:3px">'+bits.join(' \u00b7 ')+'</div>'):'')+'</div>';};
+      +(bits.length?('<div style="color:var(--text4);margin-top:3px">'+bits.join(' \u00b7 ')+'</div>'):'')
+      +'<div style="display:flex;gap:6px;flex-wrap:wrap;margin-top:8px">'
+      +btn('confirm','CONFIRM','var(--green)')+btn('back','SEND BACK','var(--yellow)')
+      +btn('mine','NEEDS ME','var(--red)')
+      +(busy?'<span style="font-size:9px;color:var(--text4);align-self:center">saving\u2026</span>':'')
+      +((window._bdActErr&&window._bdActErr[0]===rk)?('<span style="font-size:9px;color:var(--red);align-self:center">'+esc(window._bdActErr[1])+'</span>'):'')
+      +'</div></div>';};
   function row(r,dim,nums){
     const k=String(r._id||'');const open=!!EXP[k];const d=BDDOT[st(r)]||['y',0];
     const shade=(d[0]==='r'&&d[1]===1)?'background:color-mix(in srgb,var(--red) 9%,var(--bg2));':'background:var(--bg2);';
     let x='<div data-bdrow="'+esc(k)+'" style="'+shade+'border-radius:8px'+(open?' 8px 0 0':'')+';border-left:3px solid '+C[d[0]]+';padding:8px 12px;margin-bottom:5px;cursor:pointer;display:flex;align-items:baseline;gap:9px;flex-wrap:wrap'+(dim?';opacity:.55':'')+'">'
       +dot(r)
       +'<span style="font-size:var(--fsxs);font-weight:700;letter-spacing:.5px;color:var(--text4);min-width:34px">'+esc(lab(r))+'</span>'
+      +chip(r)
       +'<span style="font-size:12px;font-weight:600;color:var(--text);flex:1;min-width:180px">'+esc(r.title||'')+'</span>';
     if(nums)x+='<span style="font-size:var(--fsxs);color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">'
       +['roc','dd5','ddpct','sortino'].map(key=>(r[key]==null||r[key]==='')?'\u2013':esc(r[key])).join(' \u00b7 ')+'</span>';
@@ -6065,6 +6112,7 @@ function boardHtml(){
         +'<div class="lbl" style="color:var(--red);margin-bottom:5px">NEEDS YOU \u00b7 '+need.length+'</div>'
         +need.map(function(r){return '<div style="display:flex;gap:9px;align-items:baseline;font-size:11px;padding:2px 0;flex-wrap:wrap">'
           +dot(r)+'<span style="font-weight:700;color:var(--text4);min-width:34px;font-size:var(--fsxs)">'+esc(lab(r))+'</span>'
+          +chip(r)
           +'<span style="flex:1;min-width:160px;color:var(--text)">'+esc(r.title||'')+'</span>'
           +'<span style="font-size:var(--fsxs);color:var(--red)">'+esc(r.statusText||'NEEDS YOU')+'</span></div>';}).join('')
         +'</div>';}
@@ -6084,10 +6132,14 @@ function boardHtml(){
       :('<div style="background:var(--bg2);border-radius:8px;padding:14px;font-size:10px;color:var(--text4);line-height:1.6">This page has not been written yet. It is set from the PC with <b>python tools/board.py meta '+esc(key)+' &lt;file.md&gt;</b>.</div>');}
   // ── the foot: what is on the board, and anything this page could not classify
   const unk=[];all.forEach(function(r){if(!_bdKnown(st(r))&&unk.indexOf(st(r))<0)unk.push(st(r));});
-  h+='<div style="font-size:9px;color:var(--text5);line-height:1.6;margin-top:12px">'
+  h+='<div style="display:flex;flex-wrap:wrap;gap:4px 13px;margin-top:14px;font-size:9px;color:var(--text4)">'
+    +BDLEGEND.map(function(L){
+      return '<span style="display:inline-flex;align-items:center;gap:5px"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;border:1.5px solid '+C[L[0]]+';background:'+(L[1]?C[L[0]]:'transparent')+'"></span>'+esc(L[2])+'</span>';}).join('')
+    +'</div>';
+  h+='<div style="font-size:9px;color:var(--text5);line-height:1.6;margin-top:8px">'
     +esc(all.length+' rows on the board, '+all.filter(r=>_bdOpen(st(r))).length+' of them open')
     +(unk.length?(' \u00b7 statuses this page does not know, shown as open: '+esc(unk.join(', '))):'')
-    +'. Lanes set rows with tools/board.py; this page reads them live and changes nothing.</div>';
+    +'. Lanes set rows with tools/board.py; the only thing this page writes is your own CONFIRM / SEND BACK / NEEDS ME.</div>';
   h+='</div>';
   return h;
 }
@@ -49430,6 +49482,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     // the live board: the four lists, and a row that opens its note
     content.querySelectorAll('[data-bdsub]').forEach(b=>{b.onclick=()=>{
       boardSub=b.getAttribute('data-bdsub');renderApp();};});
+    content.querySelectorAll('[data-bdact]').forEach(b=>{b.onclick=ev=>{
+      ev.stopPropagation();bdAct(b.getAttribute('data-bdid'),b.getAttribute('data-bdact'));};});
     content.querySelectorAll('[data-bdrow]').forEach(b=>{b.onclick=()=>{
       const k=b.getAttribute('data-bdrow');const E=window._bdExp||(window._bdExp={});
       if(E[k])delete E[k];else E[k]=1;renderApp();};});

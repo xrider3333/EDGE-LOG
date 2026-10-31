@@ -149,7 +149,7 @@ def _today():
 
 
 def build_row(rid, tab, order, cur, status=None, statusText=None, why=None, title=None,
-              who=None, date=None, label=None, order_set=None, runs=None, frm=''):
+              who=None, date=None, label=None, order_set=None, runs=None, frm='', tag=None):
     """The row as it will be stored: what is already there, with only the given fields changed.
 
     An existing row is UPDATED IN PLACE, so `set w12 run "..."` from a lane never erases the
@@ -160,6 +160,10 @@ def build_row(rid, tab, order, cur, status=None, statusText=None, why=None, titl
     row['order'] = int(order_set if order_set is not None else row.get('order') or order)
     if label is not None:
         row['label'] = _one(label, 24)
+    if tag is not None:
+        # the family chip (owner 10-31): a couple of letters, upper case, so OHLC and ohlc are one
+        # family and not two. An empty --tag takes the chip off the row.
+        row['tag'] = _one(tag, 10).upper()
     if title is not None:
         row['title'] = _one(title, 180)
     if status is not None:
@@ -204,7 +208,7 @@ def cmd_set(db, rid_text, status, statusText, opts, create):
                     status=status, statusText=statusText, why=opts.get('why'),
                     title=opts.get('title'), who=opts.get('who'), date=opts.get('date'),
                     label=opts.get('label'), order_set=opts.get('order'), runs=runs,
-                    frm=opts.get('frm'))
+                    frm=opts.get('frm'), tag=opts.get('tag'))
     if opts.get('dry'):
         return row, 'DRY RUN - nothing written: ' + json.dumps(row, sort_keys=True)[:900]
     ref.set(row)
@@ -427,6 +431,8 @@ def main(argv=None):
         q.add_argument('--who', default=None)
         q.add_argument('--date', default=None)
         q.add_argument('--label', default=None)
+        q.add_argument('--tag', default=None,
+                       help='short family label shown as a chip before the title, e.g. OHLC or AI')
         q.add_argument('--order', type=int, default=None)
         for k in RUN_FIELDS:
             q.add_argument('--' + k, default=None)
