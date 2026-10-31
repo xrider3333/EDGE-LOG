@@ -661,3 +661,9 @@ def _box_monitor_fake_disk(request):
         yield
     finally:
         _shutil.disk_usage = real
+
+@pytest.fixture(autouse=True)
+def _isolate_qwen_router_last(tmp_path, monkeypatch):
+    """2026-10-30 MANAGER #225: qwen_runner.cline_busy reads the router's last_request.json - never the real one."""
+    monkeypatch.setenv("QWEN_ROUTER_LAST", str(tmp_path / "no_router_last.json"))
+    monkeypatch.setenv("QWEN_VSCODE_RUNNING", "0")

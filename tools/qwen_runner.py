@@ -31,6 +31,11 @@ to the model, and it uses WHATEVER IS LOADED:
   - Strata silent -> Ollama 5.qwen3.6:35b-32k, but ONLY when /api/ps shows no other model loaded (never two models).
   - Calls go through the router 127.0.0.1:11435/v1 as model 5.qwen3.6:35b-32k when the router answers (it sends 5.*
     to Strata while Strata is up); router down -> the direct paths (Strata /v1, Ollama /api/chat).
+MANAGER #225/#226 (10-30): CLINE IS THE PRIMARY WORKER - while VS Code runs and Cline was active in 30 min the runner
+claims nothing and never touches a foreign 🟡. Claim (🟡 + in_flight) only right before the first model call; a claimed
+task whose guards hold > 10 min is released to ⭕ ("released - owner busy", attempt not counted). Each cycle re-opens
+🟡 tasks with no task-file/transcript growth for 20 min. Cline busy = the router last_request.json (non-runner POST in
+60 s or in flight; runner calls send X-Qwen-Runner), falling back to the session files below.
 CLINE BUSY = yield (checked before every task and every turn): any file under ~/.cline/data/sessions/*/ or VS Code's
 globalStorage/saoudrizwan.claude-dev/tasks/*/ modified in the last 60 s (Cline rewrites <id>.json + <id>.messages.json
 on every message/tool step), OR, on Strata, llama-server /slots shows a slot with is_processing true. Ollama /api/ps
@@ -82,6 +87,10 @@ ROUTER_ALIVE_S = 5
 STRATA_LOAD_WAIT_S = 15 * 60
 STRATA_LOAD_POLL_S = 15
 CLINE_IDLE_S = 60
+ROUTER_ACTIVE_MAX_S = 30 * 60          # an in-flight count older than this is a dead count, not a live request
+CLAIM_HOLD_S = 10 * 60                 # MANAGER #225: a claimed task waits on guards this long, then is released
+STALE_WORKING_S = 20 * 60              # a 🟡 task with no file/transcript growth this long is re-opened
+RUNNER_HEADER = "X-Qwen-Runner"
 STRATA_ALIVE_S = 10
 STRATA_CTX_CAP_TOK = 200000
 STRATA_REPLY_TOK = 16384
@@ -171,6 +180,16 @@ def status_row_icon(n, tdir=None):
     text, _ = _read_text(p)
     m = re.search(_ROW_RX % n, text, re.M)
     return m.group(2).strip() if m else None
+
+
+def status_note(n, tdir=None):
+    """The Note cell of row Q<n> (None when the row or STATUS.md is missing)."""
+    p = os.path.join(tdir or tasks_dir(), "STATUS.md")
+    if not os.path.exists(p):
+        return None
+    text, _ = _read_text(p)
+    m = re.search(r"^\|\s*Q%d\s*\|[^|\r\n]*\|[^|\r\n]*\|([^|\r\n]*)" % n, text, re.M)
+    return m.group(1).strip() if m else None
 
 
 def set_status_icon(n, icon, tdir=None):
@@ -706,9 +725,34 @@ def cline_dirs():
             os.path.join(appdata, "Code", "User", "globalStorage", "saoudrizwan.claude-dev", "tasks")]
 
 
-def cline_busy(dirs=None, now=None, window_s=CLINE_IDLE_S):
-    """(True, why) when a Cline session/task file was written in the last `window_s` seconds (Cline mid-task)."""
+def router_last_path():
+    return os.environ.get("QWEN_ROUTER_LAST") or r"C:\EdgeLog\llm_router\last_request.json"
+
+
+def router_last_request(path=None):
+    """The router's last non-runner request {ts, model, client, active} or None (file missing / unreadable)."""
+    try:
+        with open(path or router_last_path(), encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) and isinstance(d.get("ts"), (int, float)) else None
+    except Exception:                                                # noqa: BLE001
+        return None
+
+
+def cline_busy(dirs=None, now=None, window_s=CLINE_IDLE_S, last_fn=None):
+    """(True, why) when Cline is mid-task (MANAGER #225): the router saw a non-runner request start/end in the last
+    `window_s` s, or one is still in flight (a request older than ROUTER_ACTIVE_MAX_S counts as a dead count).
+    The runner's own calls carry X-Qwen-Runner and the router never records them. Router file missing -> the old
+    test: a Cline session/task file written in the last `window_s` s."""
     now = time.time() if now is None else now
+    last = (last_fn or router_last_request)()
+    if last is not None:
+        age = now - float(last["ts"])
+        if age < window_s:
+            return True, "Cline request via router %d s ago (%s)" % (max(0, int(age)), last.get("model"))
+        if int(last.get("active") or 0) > 0 and age < ROUTER_ACTIVE_MAX_S:
+            return True, "Cline request in flight via router (%s, %d s)" % (last.get("model"), int(age))
+        return False, ""
     for d in (cline_dirs() if dirs is None else dirs):
         for p in glob.glob(os.path.join(d, "*", "*")):
             try:
@@ -718,6 +762,29 @@ def cline_busy(dirs=None, now=None, window_s=CLINE_IDLE_S):
             if age < window_s:
                 return True, "Cline is mid-task (%s written %d s ago)" % (os.path.basename(p), max(0, int(age)))
     return False, ""
+
+
+CLINE_RUNNING_S = 30 * 60               # MANAGER #226: Cline activity within this = Cline is running
+
+
+def vscode_running():
+    """True when a VS Code process (Cline's extension host lives in Code.exe) is up; True when the check fails."""
+    try:
+        import subprocess
+        out = subprocess.run(["tasklist", "/FI", "IMAGENAME eq Code.exe", "/NH"], capture_output=True, text=True,
+                             timeout=15).stdout
+        return "code.exe" in out.lower()
+    except Exception:                                                # noqa: BLE001
+        return True
+
+
+def cline_running(proc_fn=None, last_fn=None, dirs=None, now=None):
+    """MANAGER #226: CLINE IS THE PRIMARY QWEN WORKER. (True, why) when VS Code runs AND Cline was active (router
+    request or session-file write) in the last 30 min; then the runner claims nothing and touches no 🟡."""
+    if not (proc_fn or vscode_running)():
+        return False, ""
+    b, why = cline_busy(dirs, now=now, window_s=CLINE_RUNNING_S, last_fn=last_fn)
+    return (True, "Cline is running - primary Qwen worker (%s)" % why) if b else (False, "")
 
 
 def strata_slots(get=None):
@@ -824,7 +891,7 @@ def strata_alive(http=None):
 
 
 def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None, backend="ollama", alive_fn=None,
-                 cline_fn=None, slots_fn=None):
+                 cline_fn=None, slots_fn=None, running_fn=None):
     """('stop', why) | ('yield', why) | (None, ''). Strata: no RAM floor / owner-model check; endpoint must answer."""
     if os.path.exists(runner_stop_path()):
         return "stop", "runner STOP file"
@@ -849,6 +916,9 @@ def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None, bac
     b, bwhy = engine_busy(backend, cline_fn, slots_fn)
     if b:
         return "yield", bwhy
+    r, rwhy = (running_fn or cline_running)()
+    if r:
+        return "yield", rwhy
     return None, ""
 
 
@@ -856,7 +926,8 @@ def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None, bac
 def router_http(path, payload=None, timeout=ROUTER_ALIVE_S):
     import urllib.request
     data = None if payload is None else json.dumps(payload).encode("utf-8")
-    req = urllib.request.Request(ROUTER_URL + path, data=data, headers={"Content-Type": "application/json"})
+    req = urllib.request.Request(ROUTER_URL + path, data=data,
+                                 headers={"Content-Type": "application/json", RUNNER_HEADER: "1"})
     with urllib.request.urlopen(req, timeout=timeout) as r:
         return json.loads(r.read().decode("utf-8"))
 
@@ -1049,7 +1120,8 @@ def _push(n, ok, one, log=None):
 
 class Runner:
     def __init__(self, chat_factory=None, guards=None, sleep=None, clock=None, poster=None, pusher=None,
-                 roots=None, max_turns=MAX_TURNS, max_task_s=MAX_TASK_S, backend="ollama", selector=None):
+                 roots=None, max_turns=MAX_TURNS, max_task_s=MAX_TASK_S, backend="ollama", selector=None,
+                 running_fn=None):
         self.backend = backend
         self.selector = selector or (lambda c: select_backend(c, sleep=self.sleep, clock=self.clock, log=self.log))
         self.cur = backend if backend in ("strata", "ollama") else "ollama"
@@ -1062,6 +1134,7 @@ class Runner:
         self.roots = roots
         self.max_turns = max_turns
         self.max_task_s = max_task_s
+        self.running_fn = running_fn
         os.makedirs(os.path.join(home(), "transcripts"), exist_ok=True)
 
     # ---- state / log
@@ -1091,8 +1164,10 @@ class Runner:
         print(line, flush=True)
 
     # ---- guards
-    def wait_guards(self):
-        """True when clear to go; False when the runner STOP file says exit."""
+    def wait_guards(self, max_wait_s=None):
+        """True when clear to go; False when the runner STOP file says exit; None when `max_wait_s` of yielding
+        ran out (the caller releases its claim - MANAGER #225)."""
+        waited = 0
         while True:
             act, why = self.guards()
             if act == "stop":
@@ -1100,8 +1175,73 @@ class Runner:
                 return False
             if act is None:
                 return True
+            if max_wait_s is not None and waited >= max_wait_s:
+                return None
             self.log("yield: %s - waiting %d s" % (why, GUARD_SLEEP_S))
             self.sleep(GUARD_SLEEP_S)
+            waited += GUARD_SLEEP_S
+
+    # ---- claim / release / stale reopen (MANAGER #225 Q13 deadlock)
+    def claim(self, n, path):
+        st = self.load_state()
+        key = "Q%d" % n
+        st.setdefault("attempts", {})[key] = int(st.get("attempts", {}).get(key, 0)) + 1
+        st["in_flight"] = {"n": n, "path": path, "at": now_s()}
+        self.save_state(st)
+        set_first_line(path, STATUS_WORKING)
+        set_status_row(n, WORKING, "started %s" % datetime.datetime.now().strftime("%H:%M"))
+        self.log("Q%d: claimed 🟡 (%s)" % (n, os.path.basename(path)))
+
+    def release(self, n, path, note):
+        """Back to ⭕ with a dated note; in_flight cleared; the attempt does not count."""
+        set_first_line(path, "STATUS: %s open" % OPEN)
+        set_status_row(n, OPEN, note)
+        st = self.load_state()
+        key = "Q%d" % n
+        st["in_flight"] = None
+        att = st.setdefault("attempts", {})
+        att[key] = max(0, int(att.get(key, 1)) - 1)
+        self.save_state(st)
+
+    def reopen_stale(self, now=None):
+        """Re-open 🟡 tasks with no growth for STALE_WORKING_S: the task file and its newest transcript both older.
+        Only the runner's own claims or 🟡 rows that say 'started HH:MM'. Never a task the runner is actively on
+        (its own in_flight with a fresh transcript). Returns the re-opened Q numbers."""
+        now = self.clock() if now is None else now
+        st = self.load_state()
+        fl = st.get("in_flight") or {}
+        out = []
+        cl_on = (self.running_fn or cline_running)()[0]               # MANAGER #226: Cline on -> only our own 🟡
+        for n, p in list_tasks():
+            try:
+                line = first_line(p)
+            except OSError:
+                continue
+            if WORKING not in line:
+                continue
+            mine = int(fl.get("n", -1)) == n
+            row = status_note(n) or ""
+            if not (mine or line == STATUS_WORKING or re.search(r"started \d{1,2}:\d{2}", row)):
+                continue
+            if cl_on and not mine:
+                continue
+            ages = [now - os.path.getmtime(p)]
+            for t in glob.glob(os.path.join(home(), "transcripts", "Q%d-*.json" % n)):
+                try:
+                    ages.append(now - os.path.getmtime(t))
+                except OSError:
+                    pass
+            if min(ages) < STALE_WORKING_S:
+                continue                                             # still growing (incl. our own active task)
+            set_first_line(p, "STATUS: %s open" % OPEN)
+            set_status_row(n, OPEN, "re-opened - 🟡 with no progress for %d min" % (min(ages) // 60))
+            if mine:
+                st = self.load_state()
+                st["in_flight"] = None
+                self.save_state(st)
+            self.log("Q%d: stale 🟡 (no growth %d min) - re-opened ⭕" % (n, min(ages) // 60))
+            out.append(n)
+        return out
 
     # ---- crash resume
     def resume(self):
@@ -1141,14 +1281,9 @@ class Runner:
                 % (rules.strip(), MAIN_CHECKOUT, task_text))
 
     def work(self, n, path):
-        st = self.load_state()
         key = "Q%d" % n
-        st.setdefault("attempts", {})[key] = int(st.get("attempts", {}).get(key, 0)) + 1
-        st["in_flight"] = {"n": n, "path": path, "at": now_s()}
-        self.save_state(st)
-        set_first_line(path, STATUS_WORKING)
-        set_status_row(n, WORKING, "started %s" % datetime.datetime.now().strftime("%H:%M"))
-        self.log("Q%d: started (%s)" % (n, os.path.basename(path)))
+        claimed = False                                              # MANAGER #225: claim right before the 1st call
+        self.log("Q%d: picked (%s) - claims 🟡 at the first model call" % (n, os.path.basename(path)))
         task_text, _ = _read_text(path)
         chat = self.chat_factory()
         model = getattr(chat, "model", None)
@@ -1188,17 +1323,28 @@ class Runner:
                 if self.clock() - t0 > max_task_s:
                     outcome = ("blocked", "", "%d-min wall budget used without finish" % (max_task_s // 60))
                     break
-                if not self.wait_guards():
-                    set_first_line(path, "STATUS: %s open" % OPEN)
-                    set_status_row(n, OPEN, "runner stopped mid-task - back to open")
-                    st = self.load_state()
-                    st["in_flight"] = None
-                    st["attempts"][key] = max(0, int(st["attempts"].get(key, 1)) - 1)
-                    self.save_state(st)
-                    self.log("Q%d: runner STOP mid-task - reset to ⭕" % n)
-                    tr["ended"] = "stopped"
-                    dump()
+                g = self.wait_guards(CLAIM_HOLD_S if claimed else None)
+                if g is False:
+                    if claimed:
+                        self.release(n, path, "runner stopped mid-task - back to open")
+                        self.log("Q%d: runner STOP mid-task - reset to ⭕" % n)
+                        tr["ended"] = "stopped"
+                        dump()
                     return "stopped"
+                if g is None:                                        # claimed + guards held > CLAIM_HOLD_S
+                    self.release(n, path, "released - owner busy")
+                    self.log("Q%d: guards held > %d min - released ⭕ (owner busy), attempt not counted"
+                             % (n, CLAIM_HOLD_S // 60))
+                    tr["ended"] = "released"
+                    dump()
+                    return "released"
+                if not claimed:
+                    if not is_open(n, path):                         # someone (Cline) took it while we waited
+                        self.log("Q%d: no longer ⭕ - someone else took it" % n)
+                        return "idle"
+                    self.claim(n, path)
+                    claimed = True
+                    t0 = self.clock()
                 turns += 1
                 try:
                     msg, stats = chat.chat(compact(msgs, limit, keep), TOOLS)
@@ -1301,7 +1447,11 @@ class Runner:
 
     # ---- cycles
     def cycle(self):
-        """'stop' | 'idle' | task outcome."""
+        """'stop' | 'idle' | 'released' | task outcome."""
+        try:
+            self.reopen_stale()
+        except Exception as e:                                       # noqa: BLE001
+            self.log("stale check failed: %s" % e)
         if pick_task():                                              # re-check the backend before each task
             new = self.selector(self.backend)
             if new is None:
@@ -1326,7 +1476,7 @@ class Runner:
             if r in ("stop", "stopped") or once:
                 self.log("runner exit (%s)" % r)
                 return r
-            if r == "idle":
+            if r in ("idle", "released"):
                 self.sleep(IDLE_SLEEP_S)
 
 
