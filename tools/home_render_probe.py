@@ -360,7 +360,9 @@ JUMP_DAY = '2026-09-30'
 
 # LEDGER unify step 11
 # 'paste' left the page order on 2026-10-10: the PASTE box is a row at the top of the trade list ('list'), always on show, not a section of its own
-SECTION_ORDER = ['hero', 'status', 'pills', 'chart', 'stats', 'more', 'cal', 'acct', 'list', 'missed', 'deps', 'ai', 'journal']
+# C1 (2026-11-01): REAL is on LEDGER_PAPER_TOP_ORDER now, the same stack as the two paper tabs -
+# the KPI tiles ABOVE the chart and the long More stats fold LAST, so the calendar is not pushed down the page.
+SECTION_ORDER = ['hero', 'status', 'stats', 'pills', 'chart', 'cal', 'more', 'acct', 'list', 'missed', 'deps', 'ai', 'journal']
 # LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
 FRAME_MAX_W = '1320px'
 FRAME_SIDE_FROM = 1100
@@ -765,16 +767,16 @@ MUTANTS = [
      'the SIMPLE table brings its # and PTS columns back too early, so it scrolls inside its own box at 975 px'),
     # LEDGER step 11: one page order, the own sections as closed folds with a one-line summary, one set of breakpoints
     ('section-order-wrong',
-     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);",
-     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','ai','list','missed','deps','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_PAPER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_PAPER_TOP_ORDER.concat(['acct','ai','list','missed','deps','journal']);",
      'the AI ASSESSMENT fold sits above the trade list again, so the page sections are no longer in the fixed order'),
     ('pills-under-chart',
-     "const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','pills','chart','stats','more','cal']:",
-     "const LEDGER_TOP_ORDER=LEDGER_STATUS_UNDER_HERO?['hero','status','chart','pills','stats','more','cal']:",
-     'the range pills are under the chart again instead of between the hero and the chart'),
+     "const LEDGER_PAPER_TOP_ORDER=['hero','status','stats','pills','chart','cal','more'];",
+     "const LEDGER_PAPER_TOP_ORDER=['hero','status','stats','chart','pills','cal','more'];",
+     'the range pills are under the chart again instead of between the tiles and the chart'),
     ('own-section-removed',
-     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);",
-     "const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','missed','ai','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_PAPER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);",
+     "const _HM_PAGE_ORDER=LEDGER_PAPER_TOP_ORDER.concat(['acct','list','missed','ai','journal']);",
      'the DEPOSITS section is gone from the page - an own section was removed instead of folded'),
     ('fold-summary-empty',
      'data-hmsum="\'+k+\'">\'+sum+\'</span>',
@@ -1698,10 +1700,13 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
         var b=q('[data-lgchip="'+c+'"]');if(b){b.click();st.chips[c]=ids();}else st.chips[c]=null;});
       var inp=q('#hm-search');st.searchBox=!!inp;
       if(inp){inp.focus();inp.value='aapl';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+      st.searchInstant=ids();            // P1: the keystroke alone must not have rebuilt the board yet
+      await sleep(300);                  // ... the rebuild comes once the typing pauses (LEDGER_SEARCH_DEBOUNCE_MS)
       st.search=ids();
       st.searchFocus=(D().activeElement&&D().activeElement.id)||'';
       inp=q('#hm-search');
       if(inp){inp.value='';inp.dispatchEvent(new Event('input',{bubbles:true}));}
+      await sleep(300);
       st.searchCleared=(ids()||[]).length;
       var bd=q('[data-hmfeed="day"]');st.byDayBtn=!!bd;
       if(bd){bd.click();var f1=fr1();st.byDayDays=f1?f1.querySelectorAll('[data-lgday]').length:-1;st.byDayTrades=f1?f1.querySelectorAll('[data-lgtrade]').length:-1;}
@@ -2171,12 +2176,12 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       var inp=q('#hm-search');st.searchBox=!!inp;
       st.rowsBefore=rows();
       if(inp){inp.value='aapl';inp.dispatchEvent(new Event('input',{bubbles:true}));}
-      await sleep(140);
+      await sleep(300);   // P1: the search rebuild is coalesced now
       st.search={rows:rows()};look(st.search);
       var ta2=q(PN+' #hm-sheet-notes');st.search.note=ta2?ta2.value:null;
       inp=q('#hm-search');
       if(inp){inp.value='';inp.dispatchEvent(new Event('input',{bubbles:true}));}
-      await sleep(140);
+      await sleep(300);   // P1
       st.cleared={rows:rows()};look(st.cleared);
       var other=cfg.view==='table'?'list':'table',vb=q('[data-lgview="'+other+'"]');st.viewBtn=!!vb;
       if(vb)vb.click();

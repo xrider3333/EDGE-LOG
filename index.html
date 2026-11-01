@@ -791,6 +791,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-stat-sub{font-size:10px;color:var(--text5);margin-top:4px;font-variant-numeric:tabular-nums;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .lg-up{color:var(--green)}
 .lg-down{color:var(--red)}
+/* B5: a P&L that is not a number. Amber and italic, so it can never be read as a figure. */
+.lg-nofig{color:var(--attn-amber);font-style:italic}
 .lg-more{display:flex;align-items:center;gap:6px;width:100%;background:transparent;border:none;border-top:1px solid var(--border2);padding:12px 4px 0;margin-bottom:24px;font-family:'JetBrains Mono',monospace;text-align:left;cursor:pointer;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5)}
 .lg-more:hover{color:var(--text3)}
 .lg-more .lg-chev{font-size:10px;display:inline-block;transition:transform .18s ease}
@@ -804,6 +806,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-ms-row .v{font-size:12px;color:var(--text);font-variant-numeric:tabular-nums;text-align:right}
 .lg-ms-row .v.lg-up{color:var(--green)}
 .lg-ms-row .v.lg-down{color:var(--red)}
+.lg-ms-row .v.lg-nofig{color:var(--attn-amber);font-style:italic}
 .lg-ms-bar{display:flex;height:4px;border-radius:2px;overflow:hidden;margin:6px 0 2px;background:var(--bg2)}
 .lg-ms-bar .w{background:var(--green)}
 .lg-ms-bar .e{background:var(--text5)}
@@ -1443,7 +1446,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='87.81';
+const VERSION='87.82';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1463,7 +1466,8 @@ window._dataFeedWarn=function(){
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
-const CHANGELOG=[{v:'87.75',date:'2026-10-31',notes:['VERSION NUMBERS GO TO THE HUNDREDTH (your 10-31 note). The number in Settings and in every PUSHED line was four digits deep - 73.1475 - which is not a version anyone can read. From this build it is major.hundredth: 87.75, then the next ship is one hundredth on, and .99 rolls into the next whole number. The jump from 73 to 87 is a CARRY, not a reset: 1475 is 14 hundreds and 75, so 73 + 14 = 87 and the remainder is 75. Carrying matters because the website check compares what the live page serves against what was pushed - had the number been truncated to 73.75 instead, it would have fallen below versions you had already seen and that check would have warned about a stale deploy every few minutes with nothing actually wrong. Any lane still holding an old four-digit number is converted the same way when it ships.']},
+const CHANGELOG=[{v:'87.82',date:'2026-11-01',notes:['LEDGER > REAL IS LAID OUT LIKE THE PAPER TABS (your 10-31 stack). The order is now headline, KPI tiles, range pills, P&L chart, calendar, and the long More stats fold LAST. The calendar used to sit under More stats; at 1690x1263 it is now on screen without scrolling.','REAL\'s trade count says how many of the ACCOUNT AND RANGE you are looking at: 12 / 40, not 12 / 1,840. It read every trade ever logged as the denominator, which made it look as though rows were hidden.','SEARCH DOES NOT REBUILD THE BOARD ON EVERY KEY any more, on REAL and on WEBULL PAPER. Typing nine characters cost nine full page rebuilds; it now costs one, once you pause. NT8 PAPER already worked this way. The box keeps its text and its cursor.','NUMBERS THAT CANNOT BE MEASURED NO LONGER PRINT AS IF THEY WERE. A stretch with no losing trade read \'profit factor 99.00\'; it now says \'no losses\'. A stretch whose days are all identical read \'Sharpe (daily) 793.70\'; it now reads \'--\', and the label says Sharpe on daily DOLLARS, not returns, so it is not compared across position sizes.','A TRADE WHOSE P&L IS NOT A NUMBER SAYS SO. It used to print $0.00, count as an even trade and add nothing to net, with no warning. It now reads \'no figure\' in amber, it is kept out of every total, and More stats names how many there are.','NO FUTURES COMMISSION ON A SHARE TRADE. Typing a share symbol into the NEW TRADE form filled FEES with $4.50, a futures round turn. A symbol with no stored fee now leaves the box blank.','Faster: the close-order sort is computed once per trade instead of once per comparison (it is paid five or six times in one render). Same rows, same order.','WEBULL PAPER\'s drawdown and streak now walk the trades in the order they CLOSED, the shared rule, instead of the raw timestamp - a row with no exit time used to sort by its entry time among the others\' exit times.','A faint per-account chart line that was longer or shorter than the chart\'s own dates could draw past the plot; it is length-checked now, like the other chart marks.']},
+{v:'87.75',date:'2026-10-31',notes:['VERSION NUMBERS GO TO THE HUNDREDTH (your 10-31 note). The number in Settings and in every PUSHED line was four digits deep - 73.1475 - which is not a version anyone can read. From this build it is major.hundredth: 87.75, then the next ship is one hundredth on, and .99 rolls into the next whole number. The jump from 73 to 87 is a CARRY, not a reset: 1475 is 14 hundreds and 75, so 73 + 14 = 87 and the remainder is 75. Carrying matters because the website check compares what the live page serves against what was pushed - had the number been truncated to 73.75 instead, it would have fallen below versions you had already seen and that check would have warned about a stale deploy every few minutes with nothing actually wrong. Any lane still holding an old four-digit number is converted the same way when it ships.']},
 {v:'73.1475',date:'2026-10-31',notes:['TRADE LIST (row 76): the set and model words (.1 raw) sit on a small second line under the strategy name in its colour, so no name is cut at any width; the Webull render gate reads the (defaults) mark and the set words wherever they appear.']},
 {v:'73.1474',date:'2026-10-31',notes:['NO MORE set ? (row 76, your 17:20 note). DIP #424 reads DIP #424.1 raw: the leg is the run&#39;s champion, and where the saved grid of 150 kept configurations does not hold the champion itself, its set is where its own in-sample net sorts among them - 1 = above every kept row (NT8 DIP #452.1, DIP #433.7 the same way). ENGU-Q #335 reads #335.0 raw: set 0 = the strategy file&#39;s defaults, not a searched cell, and the hover says so. Every hover now says how its number was found. On a narrow trade list the set and model words drop under the strategy name in its colour instead of being cut off. tools/check_paper_leg_params.py re-derives all three kinds from the run documents (56/56).']},
 {v:'73.1473',date:'2026-10-31',notes:['WEBULL render gate (row 76): the whole readout is taken back to the plain family + run words once, so every older check (legend, chips, trade rows, the open line, the DIP chip) keeps reading while the page shows ORB #314.22 raw. Nothing on the page changes.']},
@@ -3633,7 +3637,11 @@ function durStr(t){
   if(m<60)return m+'m';
   return Math.floor(m/60)+'h'+(m%60>0?' '+m%60+'m':'');
 }
-function getFee(sym){return instrumentFees[sym]??instrumentFees[futRoot(sym)]??4.50;}
+// B12: DEFAULT_FEES holds futures roots only, and the old 4.50 fallback meant typing a share symbol into a
+// NEW TRADE form autofilled a futures round-turn commission ($4.50) on a stock trade, which the owner then had
+// to notice and overwrite. A symbol this app has no fee for returns null - NOT A GUESS. The new-trade forms
+// leave the FEES box blank and the importer treats it as 0 when the statement itself carries no fee.
+function getFee(sym){return instrumentFees[sym]??instrumentFees[futRoot(sym)]??null;}
 function setFavicon(dataUrl){const l=el('favicon')||document.createElement('link');l.id='favicon';l.rel='icon';l.href=dataUrl;document.head.appendChild(l);if(el('favicon')!==l)document.head.appendChild(l);}
 function updateFavicon(){
   if(!userLogo){setFavicon("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'><rect width='32' height='32' fill='%2300e5a0' rx='4'/><text x='4' y='24' font-size='22' font-family='monospace' fill='%23050a05' font-weight='bold'>E</text></svg>");return;}
@@ -3758,8 +3766,33 @@ function ledgerCloseDay(t){
   if(d&&e!=null&&isFinite(dur)&&dur>0){const add=Math.floor((e+dur*60)/86400);if(add>0)return ledgerShiftDay(d,add);}
   return d;
 }
-function ledgerCloseKey(t){const x=_ledgerHm(t&&(t.exitTime||t.entryTime));return ledgerCloseDay(t)+' '+String(x==null?0:x).padStart(5,'0');}
-function ledgerByClose(list){return (list||[]).slice().sort((a,b)=>{const x=ledgerCloseKey(a),y=ledgerCloseKey(b);return x<y?-1:(x>y?1:0);});}
+function _ledgerCloseKeyCalc(t){const x=_ledgerHm(t&&(t.exitTime||t.entryTime));return ledgerCloseDay(t)+' '+String(x==null?0:x).padStart(5,'0');}
+// The close key is a pure function of five stored fields (exitDate, date, entryTime, exitTime, durationMins) and the
+// close-order sort is paid 5-6 times in one render over the same trades, each comparison running a regex. The key is
+// cached on the trade itself in a NON-ENUMERABLE field, so nothing that walks or copies a trade (CSV, Firestore writes,
+// Object.keys, JSON) ever sees it, and the cache is thrown away the moment any of those five fields changes.
+function ledgerCloseKey(t){
+  if(!t||typeof t!=='object')return _ledgerCloseKeyCalc(t);
+  const sig=String(t.exitDate)+''+String(t.date)+''+String(t.entryTime)+''+String(t.exitTime)+''+String(t.durationMins);
+  const c=t._lgCk;
+  if(c&&c.sig===sig)return c.key;
+  const key=_ledgerCloseKeyCalc(t);
+  try{
+    if(!Object.prototype.hasOwnProperty.call(t,'_lgCk'))Object.defineProperty(t,'_lgCk',{value:null,writable:true,enumerable:false,configurable:true});
+    t._lgCk={sig:sig,key:key};
+  }catch(e){}
+  return key;
+}
+// Close order, newest-closing last. Decorate-sort: one key per trade instead of one per comparison, same comparator and
+// the same stable sort, so the row ORDER is byte-for-byte what it was before the memo.
+function ledgerByClose(list){
+  const a=list||[],n=a.length,d=new Array(n);
+  for(let i=0;i<n;i++)d[i]={t:a[i],k:ledgerCloseKey(a[i])};
+  d.sort((p,q)=>p.k<q.k?-1:(p.k>q.k?1:0));
+  const out=new Array(n);
+  for(let i=0;i<n;i++)out[i]=d[i].t;
+  return out;
+}
 function ledgerInRange(list,range){const c=ledgerCutoff(range);return c?(list||[]).filter(t=>ledgerCloseDay(t)>=c):(list||[]);}
 // ── LEDGER shared stats (unify step 6) ──
 // One stats engine for every board's four headline tiles and its More stats fold. list = the range's closed trades.
@@ -3775,46 +3808,64 @@ function ledgerStats(list,o){
   if(!all.length)return null;
   const tds=all.filter(inc);
   let net=0,peak=0,cur=0,maxDD=0;
-  all.forEach(t=>{const v=+N(t)||0;net+=v;cur+=v;if(cur>peak)peak=cur;if(peak-cur>maxDD)maxDD=peak-cur;});
-  let wins=0,losses=0,flat=0,gw=0,gl=0,sumP=0,largestLoss=0,longs=0,shorts=0,longNet=0,shortNet=0,holdSum=0,holdN=0;
+  // B5: a trade whose money is not a number is left out of every sum and COUNTED (badPnl), never read as a $0 trade
+  all.forEach(t=>{const v=ledgerNum(N(t));if(v==null)return;net+=v;cur+=v;if(cur>peak)peak=cur;if(peak-cur>maxDD)maxDD=peak-cur;});
+  let wins=0,losses=0,flat=0,gw=0,gl=0,sumP=0,nP=0,badPnl=0,largestLoss=0,longs=0,shorts=0,longNet=0,shortNet=0,holdSum=0,holdN=0;
   const byDay={};
   tds.forEach(t=>{
-    const v=+P(t)||0,m=+N(t)||0;sumP+=v;
-    if(v>0){wins++;gw+=v;}else if(v<0){losses++;gl-=v;if(-v>largestLoss)largestLoss=-v;}else flat++;
-    const k=D(t);if(k)byDay[k]=(byDay[k]||0)+m;
+    const v=ledgerNum(P(t)),m=ledgerNum(N(t));
+    if(v==null)badPnl++;else{
+      sumP+=v;nP++;
+      if(v>0){wins++;gw+=v;}else if(v<0){losses++;gl-=v;if(-v>largestLoss)largestLoss=-v;}else flat++;
+    }
+    if(m!=null){const k=D(t);if(k)byDay[k]=(byDay[k]||0)+m;}
     const dir=String(t.type||t.side||t.direction||'').toUpperCase();
-    if(dir==='LONG'||dir==='BUY'||dir==='L'){longs++;longNet+=m;}else if(dir==='SHORT'||dir==='SELL'||dir==='S'){shorts++;shortNet+=m;}
+    if(dir==='LONG'||dir==='BUY'||dir==='L'){longs++;if(m!=null)longNet+=m;}else if(dir==='SHORT'||dir==='SELL'||dir==='S'){shorts++;if(m!=null)shortNet+=m;}
     // minutes held: seconds when the trade has them (a 40 s scalp counts), else whole minutes; 0 = not known
     const hs=(t.durationSecs!=null&&t.durationSecs!=='')?+t.durationSecs/60:NaN,h=isFinite(hs)&&hs>0?hs:+t.durationMins;
     if(isFinite(h)&&h>0){holdSum+=h;holdN++;}
   });
   let sn=0,sd=0;
-  for(let i=tds.length-1;i>=0;i--){const v=+P(tds[i])||0;if(!v)continue;const d=v>0?1:-1;if(!sn){sn=1;sd=d;}else if(d===sd)sn++;else break;}
+  for(let i=tds.length-1;i>=0;i--){const v=ledgerNum(P(tds[i]));if(v==null||!v)continue;const d=v>0?1:-1;if(!sn){sn=1;sd=d;}else if(d===sd)sn++;else break;}
   const days=Object.keys(byDay).sort(),dv=days.map(k=>byDay[k]);
   let bestDay=null,worstDay=null;
   days.forEach(k=>{if(!bestDay||byDay[k]>bestDay.v)bestDay={date:k,v:byDay[k]};if(!worstDay||byDay[k]<worstDay.v)worstDay={date:k,v:byDay[k]};});
   const meanD=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:0;
-  return {trades:tds.length,excluded:all.length-tds.length,wins,losses,flat,
+  // B4: sqrt(252) on DOLLAR day totals, not returns - and when every day is identical the deviation is 0,
+  // where the old `||1` printed meanD*15.87 (two identical +$50 days read 'Sharpe (daily) 793.70'). A spread
+  // of zero cannot give a ratio, so there is no figure: null, which the board draws as '--'.
+  const sdD=dv.length>1?stdDev(dv):0;
+  return {trades:tds.length,excluded:all.length-tds.length,wins,losses,flat,badPnl,
     winRate:(wins+losses)?wins/(wins+losses):null,
     pf:!tds.length||(!gw&&!gl)?null:(gl>0?gw/gl:Infinity),
-    net,grossWin:gw,grossLoss:gl,avgTrade:tds.length?sumP/tds.length:null,
+    net,grossWin:gw,grossLoss:gl,avgTrade:nP?sumP/nP:null,
     avgWin:wins?gw/wins:null,avgLoss:losses?-gl/losses:null,payoff:(wins&&losses)?(gw/wins)/(gl/losses):null,
     maxDD,largestLoss,recovery:maxDD>0?net/maxDD:null,
-    sharpe:dv.length>1?(meanD/(stdDev(dv)||1))*Math.sqrt(252):null,
+    sharpe:(dv.length>1&&sdD>0)?(meanD/sdD)*Math.sqrt(252):null,
     bestDay,worstDay,greenDays:dv.filter(v=>v>0).length,days:days.length,
     longs,shorts,longNet,shortNet,avgHoldMins:holdN?holdSum/holdN:null,streak:{n:sn,dir:sd}};
 }
 function ledgerPfText(pf){return pf==null?'--':(isFinite(pf)?pf.toFixed(2):'no losses');}
-function ledgerSigned(v){v=+v||0;return (v>=0?'+':'-')+ledgerMoney(Math.abs(v));}
-function ledgerCls(v){return (+v||0)>=0?'lg-up':'lg-down';}
-function ledgerShortMoney(v){v=+v||0;const a=Math.abs(v),sg=v<0?'-':'+';
+// -- B5: a stored money value that is NOT a number ---------------------------------------------
+// `+v||0` turned NaN, undefined, null, '' and any non-numeric string into 0, so a broken trade printed
+// $0.00: it read as a real even trade, it counted as 'even', it broke no streak and it added nothing to
+// net, with no warning anywhere on the page. ledgerNum() is the one reader: a finite number comes back as
+// itself, anything else comes back null and the board SAYS SO - the words 'no figure' in amber italics
+// (LEDGER_NO_FIGURE / .lg-nofig), which no amount can be mistaken for. It is plain text, not markup, so it
+// is safe inside a title= attribute and in a CSV cell too.
+const LEDGER_NO_FIGURE='no figure';
+const LEDGER_NO_FIGURE_SHORT='n/a';
+function ledgerNum(v){if(v==null||v==='')return null;const n=+v;return isFinite(n)?n:null;}
+function ledgerSigned(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE;return (n>=0?'+':'-')+ledgerMoney(Math.abs(n));}
+function ledgerCls(v){const n=ledgerNum(v);return n==null?'lg-nofig':(n>=0?'lg-up':'lg-down');}
+function ledgerShortMoney(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE_SHORT;const a=Math.abs(n),sg=n<0?'-':'+';
   return sg+'$'+(a>=10000?Math.round(a/1000)+'k':a>=1000?(a/1000).toFixed(1).replace(/\.0$/,'')+'k':Math.round(a));}
 // ── LEDGER shared hero + range pills (unify step 4) ──
 // The range pills every board offers, counted back from today in New York (ledgerCutoff). 1Y is gone: a
 // browser that saved it opens on ALL.
 const LEDGER_RANGES=['TODAY','1W','1M','3M','YTD','ALL'];
 const LEDGER_RANGE_LABEL={TODAY:'today','1W':'past week','1M':'past month','3M':'past 3 months','YTD':'year to date','1Y':'past year','ALL':'all time'};
-function ledgerMoney(v){v=+v||0;return (v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
+function ledgerMoney(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE;return (n<0?'-':'')+'$'+Math.abs(n).toLocaleString(undefined,{minimumFractionDigits:2,maximumFractionDigits:2});}
 // o.ids = {label, big, today, range, chips, note} element ids; o.label / o.big / o.today / o.range / o.chips = html
 // o.note (optional, html) = extra lines under the range line; left out, the hero html is exactly as before
 function ledgerHeroHtml(o){
@@ -3929,12 +3980,17 @@ function ledgerMoreStatsHtml(s,ownGroups,o){
       ['Average loss',s.avgLoss==null?'--':ledgerMoney(-s.avgLoss),s.avgLoss==null?'':'lg-down'],['Win / loss size',s.payoff==null?'--':s.payoff.toFixed(2)+'x'],
       ['Best day',dayTxt(s.bestDay),s.bestDay?ledgerCls(s.bestDay.v):''],['Worst day',dayTxt(s.worstDay),s.worstDay?ledgerCls(s.worstDay.v):'']]},
     {title:'Risk',rows:[['Max drawdown',ledgerMoney(s.maxDD)],['Largest loss',ledgerMoney(s.largestLoss),s.largestLoss>0?'lg-down':''],
-      ['Net / drawdown',s.recovery==null?'--':s.recovery.toFixed(2)+'x'],['Sharpe (daily)',s.sharpe==null?'--':s.sharpe.toFixed(2)],
+      ['Net / drawdown',s.recovery==null?'--':s.recovery.toFixed(2)+'x'],
+      // B4: this is a Sharpe on DOLLAR day totals, not on returns, so it does not compare across position sizes. The
+      // label says so, and a range whose days are all identical (no spread to divide by) reads '--', not a number.
+      ['Sharpe (daily $, not returns)',s.sharpe==null?'--':s.sharpe.toFixed(2)],
       ['Current streak',streak,s.streak&&s.streak.n?(s.streak.dir>0?'lg-up':'lg-down'):''],['Green days',s.greenDays+' of '+s.days+(s.days?' &middot; '+Math.round(s.greenDays/s.days*100)+'%':'')]]},
     {title:'Mix',rows:[['Longs',s.longs+' &middot; '+M(s.longNet),C(s.longNet)],['Shorts',s.shorts+' &middot; '+M(s.shortNet),C(s.shortNet)],
       ['Wins / losses',s.wins+' W &middot; '+s.losses+' L'+(s.flat?' &middot; '+s.flat+' even':''),'',
         '<div class="lg-ms-bar"><div class="w" style="width:'+(s.wins/tot*100).toFixed(1)+'%"></div><div class="e" style="width:'+(s.flat/tot*100).toFixed(1)+'%"></div><div class="l" style="width:'+(s.losses/tot*100).toFixed(1)+'%"></div></div>'],
-      ['Average hold',hold],['Trades per day',s.days?(s.trades/s.days).toFixed(1):'--']]}
+      ['Average hold',hold],['Trades per day',s.days?(s.trades/s.days).toFixed(1):'--']]
+      // B5: a trade whose stored P&L is not a number is named here instead of passing as a $0 trade
+      .concat(s.badPnl?[['P&amp;L not a number',s.badPnl+' trade'+(s.badPnl===1?'':'s')+' - fix or re-import','lg-nofig']]:[])}
   ].concat(ownGroups||[]);
   const body=_lgMsGroupsHtml(groups)+(o.note?'<div class="lg-ms-note">'+o.note+'</div>':'');
   return btn+'<div class="lg-more-panel" id="'+id+'-more">'+body+'</div>';
@@ -4118,7 +4174,7 @@ function ledgerDayLabel(ds){
   const d=new Date(String(ds)+'T12:00:00');
   return ['SUN','MON','TUE','WED','THU','FRI','SAT'][d.getDay()]+' &middot; '+['JAN','FEB','MAR','APR','MAY','JUN','JUL','AUG','SEP','OCT','NOV','DEC'][d.getMonth()]+' '+d.getDate();
 }
-function ledgerPnlCls(v){v=+v||0;return v>0?'lg-up':(v<0?'lg-down':'lg-flat');}
+function ledgerPnlCls(v){const n=ledgerNum(v);return n==null?'lg-nofig':(n>0?'lg-up':(n<0?'lg-down':'lg-flat'));}
 function ledgerTradeSide(t){
   const s=String((t&&(t.type||t.side||t.direction))||'').toUpperCase();
   return (s==='LONG'||s==='BUY'||s==='L')?'LONG':((s==='SHORT'||s==='SELL'||s==='S')?'SHORT':'');
@@ -4179,7 +4235,8 @@ function ledgerTradeListHtml(o){
     sym:t=>esc(t.symbol||t.strategy||''),
     side:t=>{const s=ledgerTradeSide(t);return s?'<span class="lg-side '+(s==='LONG'?'long':'short')+'">'+s+'</span>':'';},
     size:t=>t.size!=null?esc(t.size):'--',
-    pnl:t=>{const v=+N(t)||0;return '<span class="'+ledgerPnlCls(v)+'">'+ledgerSigned(v)+'</span>';},
+    // B5: N(t) goes to the cell as it was stored - a broken value reads 'no figure', not $0.00
+    pnl:t=>{const v=N(t);return '<span class="'+ledgerPnlCls(v)+'">'+ledgerSigned(v)+'</span>';},
     pts:t=>t.points==null||t.points===''?'--':((+t.points>=0?'+':'-')+Math.abs(+t.points).toFixed(2)),
     strat:t=>esc(t.strategy||t.broker||t.account||''),
     chart:()=>''
@@ -4267,6 +4324,21 @@ function ledgerTradeListHtml(o){
     +(o.slot?'<div class="lg-tl-slot">'+o.slot+'</div>':'')+'</div>';
   return '<div class="lg-tl" data-lglist-frame="'+esc(id)+'" data-lgmode="'+view+'">'+bar+(o.afterBar||'')+(view==='table'?(o.tableBar||''):'')+body
     +(o.foot?'<div class="lg-tl-foot" data-lgtlfoot="'+esc(id)+'">'+o.foot+'</div>':'')+'</div>';
+}
+// ── LEDGER search debounce (P1) ──
+// NT8 PAPER repaints only its list box on every keystroke (its own draw()), so it can rebuild per character.
+// REAL and WEBULL PAPER go through renderApp(), which replaces the whole page - at 2,000 trades that is 160-240 ms
+// of list building per character. So they store the typed text AT ONCE (the box keeps showing it, and the stored
+// query is what the next rebuild renders) and coalesce the rebuild: it runs once the reader pauses. The focus and
+// cursor keeper in ledgerTradeListWire still puts the caret back after the rebuild that does happen.
+const LEDGER_SEARCH_DEBOUNCE_MS=180;
+const _lgQTimer={};
+// key = one timer per board; set() stores the text now; draw() rebuilds, once, after the pause.
+function ledgerQueryDebounced(key,set,draw){
+  const k=String(key||'lg');
+  if(set)set();
+  if(_lgQTimer[k])clearTimeout(_lgQTimer[k]);
+  _lgQTimer[k]=setTimeout(()=>{_lgQTimer[k]=0;if(draw)draw();},LEDGER_SEARCH_DEBOUNCE_MS);
 }
 // wires the frame inside root: o.onQuery(text), o.onChip(key), o.onView('list'|'table') (the choice is remembered here),
 // o.onRow(tradeId, event) (a click or Enter on a row, not on a control inside it). Returns the frame element.
@@ -4479,7 +4551,10 @@ function ledgerChartRender(wrap,o){
     const lines=(o.lines||[]).filter(l=>l.on!==false);
     let lo=Infinity,hi=-Infinity;
     pts.forEach(p=>{if(p.v<lo)lo=p.v;if(p.v>hi)hi=p.v;});
-    lines.forEach(l=>(l.vals||[]).forEach(v=>{if(v!=null){if(v<lo)lo=v;if(v>hi)hi=v;}}));
+    // B9: vals is walked by the pts index, so it is a PAIRED ARRAY - bands, marks and refs are already
+    // length-guarded (if(b.i>=n)return) and vals was not. A line longer than pts used to widen the y range
+    // with values that have no date and draw past the plot; a shorter one just stops. Both loops guard now.
+    lines.forEach(l=>(l.vals||[]).forEach((v,i)=>{if(i>=n)return;if(v!=null){if(v<lo)lo=v;if(v>hi)hi=v;}}));
     // a level joins the y range unless that would squeeze the curve into under a quarter of the height (a $50,000 goal on a $400
     // month): then it is pinned to the top or bottom edge and its label says the level is above or below the chart
     const refs=(o.refs||[]).filter(r=>r&&isFinite(+r.v)).map(r=>Object.assign({},r,{v:+r.v}));
@@ -4512,7 +4587,7 @@ function ledgerChartRender(wrap,o){
         +(r.title?'<title>'+esc(r.title)+'</title>':'')+'</line>'
         +(r.label?'<text data-lgreflbl="1" x="'+(lEnd?L+pw-3:x0+3).toFixed(1)+'" y="'+(r.pin==='top'?+yy+10:+yy-4)+'"'+(lEnd?' text-anchor="end"':'')+' font-size="9" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(r.label)+'</text>':'');});
     // each faint line also gets its own dash, so the lines stay apart under MONO where every colour turns grey
-    lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
+    lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(i>=n||v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
       if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="'+(o.lineOpacity!=null?o.lineOpacity:0.6)+'" stroke-width="'+(o.lineWidth!=null?o.lineWidth:1.2)+'" stroke-dasharray="'+_lgDashOf(l,o)+'"/>';});
     (o.marks||[]).forEach(m=>{if(m.i==null||m.i<0||m.i>=n)return;const xx=X(m.i).toFixed(1);
       h+='<line data-lgmark="1" x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text4)" stroke-width="1" stroke-dasharray="2 3"/>'
@@ -4567,7 +4642,9 @@ function calcStats(tds){
   const grossW=wins.reduce((s,t)=>s+pnlVal(t),0),grossL=Math.abs(losses.reduce((s,t)=>s+pnlVal(t),0));
   const net=allTds.reduce((s,t)=>s+t.pnl,0),grossNet=allTds.reduce((s,t)=>s+(t.grossPnl||t.pnl),0);
   const totalFees=allTds.reduce((s,t)=>s+(t.fees||0),0);
-  const pf=grossL>0?grossW/grossL:grossW>0?99:0,ev=wr*avgW-(1-wr)*(avgL||0);
+  // B2: no losing trade means the ratio is unbounded, not 99. Infinity, which every reader of this field now
+  // draws as 'no losses' / the infinity sign (ledgerPfText), instead of a 99.00 that looks measured.
+  const pf=grossL>0?grossW/grossL:(grossW>0?Infinity:0),ev=wr*avgW-(1-wr)*(avgL||0);
   const feeImpact=Math.abs(grossNet)>0?(totalFees/Math.abs(grossNet))*100:0;
   let peak=0,maxDD=0,cur=0;allTds.forEach(t=>{cur+=t.pnl;if(cur>peak)peak=cur;maxDD=Math.max(maxDD,peak-cur);});
   let maxWS=0,maxLS=0,cW=0,cL=0,streak=0,sdir=0;
@@ -4575,7 +4652,10 @@ function calcStats(tds){
   tds.forEach(t=>{const pv=pnlVal(t);if(pv>0){cW++;cL=0;maxWS=Math.max(maxWS,cW);}else if(pv<0){cL++;cW=0;maxLS=Math.max(maxLS,cL);}});
   const byDay={};tds.forEach(t=>{const k=ledgerCloseDay(t);byDay[k]=(byDay[k]||0)+t.pnl;});
   const dv=Object.values(byDay),meanD=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:0;
-  const sharpe=dv.length>1?(meanD/(stdDev(dv)||1))*Math.sqrt(252):0;
+  // B4: a zero spread between the day totals gives no ratio. 0 is this engine's existing 'not measurable'
+  // (one trading day already returns 0); the old `||1` printed meanD*15.87 as if it had been measured.
+  const _sdD=dv.length>1?stdDev(dv):0;
+  const sharpe=(dv.length>1&&_sdD>0)?(meanD/_sdD)*Math.sqrt(252):0;
   const recovery=maxDD>0?net/maxDD:0,rr=avgL>0?avgW/avgL:0;
   const longs=tds.filter(t=>t.type==='LONG'),shorts=tds.filter(t=>t.type==='SHORT');
   const syms={},setups={},monthly={},byGrade={},byTF={};
@@ -7876,7 +7956,7 @@ function importCSV(text,label,opts){
       // else fall back to the per-instrument default. Fee column = real fee from Cash History.
       const feeRaw=parseFloat((gc2(row,['fees','fee','commission','totalfees'])||'').replace(/[$,]/g,''));
       const csvHasFee=!isNaN(feeRaw);
-      const fees=csvHasFee?+feeRaw.toFixed(2):getFee(useSym);
+      const fees=csvHasFee?+feeRaw.toFixed(2):(getFee(useSym)??0);   // B12: unknown symbol = 0, never a futures fee
       const netPnl=+(grossPnl-fees).toFixed(2);
       const existing=trades.find(t=>t.date===date&&t.symbol===useSym&&(Math.abs(t.entry-entry)<0.5||Math.abs(t.exit-exit)<0.5));
       if(existing){
@@ -7998,7 +8078,7 @@ function importCSV(text,label,opts){
       // P/L: use the CSV's P/L column directly (it's already gross P/L)
       const grossPnl=isNaN(plR)?0:+plR.toFixed(2);
       // Fees come from Cash History — use per-instrument default for now
-      const fees=getFee(useSym);
+      const fees=getFee(useSym)??0;   // B12
       const netPnl=+(grossPnl-fees).toFixed(2);
       const eqPct=accountEquity>0?+((Math.abs(grossPnl)/accountEquity)*100).toFixed(2):null;
       // Dupe check
@@ -8076,7 +8156,7 @@ function importCSV(text,label,opts){
     ]));
     // Only fall back to default if column truly absent (NaN). Honor 0 fees.
     // If fee looks per-contract (very small), multiply by qty
-    let fees=isNaN(feeRaw)?getFee(sym):feeRaw;
+    let fees=isNaN(feeRaw)?(getFee(sym)??0):feeRaw;   // B12
     if(!isNaN(feeRaw)&&feeRaw>0&&feeRaw<1&&qty>1) fees=feeRaw*qty; // per-contract detection
     const orderId=gc2(row,['orderid','order id','id','ordernum'])||'';
     const calc=tradeCalc(sym,dir,entry,exit,qty,fees);
@@ -8091,7 +8171,7 @@ function importCSV(text,label,opts){
       // Fee override — if user manually set fee, require approval before changing
       if(!isNaN(feeRaw)&&feeRaw>0&&Math.abs((existing.fees||0)-feeRaw)>0.001){
         const newCalc=tradeCalc(sym,existing.type,existing.entry,existing.exit,existing.size,feeRaw);
-        if(existing.feeFromCash||existing.feeFromCsv||existing.fees===getFee(sym)){
+        if(existing.feeFromCash||existing.feeFromCsv||(getFee(sym)!=null&&existing.fees===getFee(sym))){
           // Auto-set fee — safe to override without approval
           upd.fees=feeRaw;upd.pnl=newCalc.pnl;upd.grossPnl=newCalc.grossPnl;upd.feeFromCsv=true;
         } else {
@@ -8615,7 +8695,7 @@ function generateHTMLReport(){
   <div class="grid">
     <div class="card"><div class="lbl">NET P&L</div><div class="val" style="color:${S.net>=0?'#00e5a0':'#ff3d5a'}">${S.net>=0?'+':''}$${S.net.toFixed(2)}</div></div>
     <div class="card"><div class="lbl">WIN RATE</div><div class="val" style="color:${S.wr>=.5?'#00e5a0':'#ff3d5a'}">${(S.wr*100).toFixed(1)}%</div></div>
-    <div class="card"><div class="lbl">PROFIT FACTOR</div><div class="val" style="color:${S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a'}">${S.pf>=99?'∞':S.pf.toFixed(2)}×</div></div>
+    <div class="card"><div class="lbl">PROFIT FACTOR</div><div class="val" style="color:${S.pf>=1.5?'#00e5a0':S.pf>=1?'#f5c842':'#ff3d5a'}">${isFinite(S.pf)?S.pf.toFixed(2):'∞'}×</div></div>
     <div class="card"><div class="lbl">EXP VALUE</div><div class="val" style="color:${S.ev>0?'#00e5a0':'#ff3d5a'}">$${S.ev.toFixed(2)}/tr</div></div>
     <div class="card"><div class="lbl">TOTAL TRADES</div><div class="val">${S.total}</div></div>
     <div class="card"><div class="lbl">WINS / LOSSES</div><div class="val">${S.wins}W / ${S.losses}L</div></div>
@@ -14640,9 +14720,9 @@ window.expandKPI=function(label,infoKey){
       </div>
       <div style="background:var(--bg3);padding:14px;border:1px solid var(--border2);margin-bottom:14px">
         <div style="font-size:var(--fsm);color:var(--text3);line-height:1.7">
-          <b>What it means:</b> For every $1 lost, you make $${S.pf.toFixed(2)} back.<br>
+          <b>What it means:</b> ${isFinite(S.pf)?('For every $1 lost, you make $'+S.pf.toFixed(2)+' back.'):'Nothing was lost in this period, so there is no ratio to state.'}<br>
           <b>Target:</b> ≥ 1.5 is healthy. < 1.0 means you're losing edge.<br>
-          <b>Calculation:</b> Gross Wins ÷ Gross Losses = ${S.grossWins.toFixed(0)} ÷ ${S.grossLosses.toFixed(0)} = <span style="color:${S.pf>=1.5?'var(--green)':S.pf>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:18px">${S.pf.toFixed(2)}</span>
+          <b>Calculation:</b> Gross Wins ÷ Gross Losses = ${S.grossWins.toFixed(0)} ÷ ${S.grossLosses.toFixed(0)} = <span style="color:${S.pf>=1.5?'var(--green)':S.pf>=1?'var(--yellow)':'var(--red)'};font-family:'Bebas Neue',monospace;font-size:18px">${isFinite(S.pf)?S.pf.toFixed(2):'no losses'}</span>
         </div>
       </div>`;
   } else if(label==='EXP VALUE'){
@@ -15607,15 +15687,15 @@ window.runOverviewAI=function(){
   const insights=[];
   // 1) Performance vs overall
   const wrDiff=(S.wr-all.wr)*100;
-  const pfDiff=S.pf-all.pf;
+  const pfDiff=(isFinite(S.pf)&&isFinite(all.pf))?(S.pf-all.pf):0;   // B2: no ratio either side = nothing to compare
   if(Math.abs(wrDiff)>3||Math.abs(pfDiff)>0.2){
     insights.push({
       type:wrDiff>=0&&pfDiff>=0?'positive':'warning',
       label:'TREND',
-      text:`Recent ${recent.length} trades show <b>${wrDiff>=0?'+':''}${wrDiff.toFixed(0)}% WR</b> and <b>${pfDiff>=0?'+':''}${pfDiff.toFixed(2)} PF</b> vs overall (${(all.wr*100).toFixed(0)}% WR, ${all.pf.toFixed(2)} PF).`
+      text:`Recent ${recent.length} trades show <b>${wrDiff>=0?'+':''}${wrDiff.toFixed(0)}% WR</b> and <b>${pfDiff>=0?'+':''}${pfDiff.toFixed(2)} PF</b> vs overall (${(all.wr*100).toFixed(0)}% WR, ${ledgerPfText(all.pf)} PF).`
     });
   } else {
-    insights.push({type:'neutral',label:'TREND',text:`Recent performance is consistent with your overall stats (${(S.wr*100).toFixed(0)}% WR, ${S.pf.toFixed(2)} PF).`});
+    insights.push({type:'neutral',label:'TREND',text:`Recent performance is consistent with your overall stats (${(S.wr*100).toFixed(0)}% WR, ${ledgerPfText(S.pf)} PF).`});
   }
   // 2) Win/loss size analysis
   if(S.avgW>0&&S.avgL>0){
@@ -15682,7 +15762,7 @@ function runAISummary(tds,period){
   // 2. Strengths
   const strengths=[];
   if(S2.wr>=0.55)strengths.push(`Strong win rate of <b>${pct(S2.wr)}</b> — trade selection is disciplined.`);
-  if(S2.pf>=1.8)strengths.push(`Excellent profit factor of <b>${S2.pf.toFixed(2)}×</b> — winners significantly outpace losers.`);
+  if(S2.pf>=1.8)strengths.push(`Excellent profit factor of <b>${isFinite(S2.pf)?(S2.pf.toFixed(2)+'×'):'no losses'}</b> — winners significantly outpace losers.`);
   if(S2.rr>=1.5)strengths.push(`Good risk:reward of <b>${S2.rr.toFixed(2)}R</b> — cutting losses appropriately vs wins.`);
   if(S2.sharpe>1)strengths.push(`Annualized Sharpe of <b>${S2.sharpe.toFixed(2)}</b> — consistent, low-variance returns.`);
   if(S2.maxWS>=4)strengths.push(`Win streak of <b>${S2.maxWS}</b> shows ability to execute when in rhythm.`);
@@ -15738,7 +15818,7 @@ async function runClaudeAPI(tds,period,out){
   const note=document.createElement('div');note.style.cssText='font-size:var(--fsxs);color:var(--text5);margin-top:8px;padding:8px;background:var(--bg2);border:1px solid var(--border)';
   note.textContent='Attempting Claude API call... (works inside Claude.ai, may be blocked on GitHub Pages due to browser CORS policy)';
   out.appendChild(note);
-  const summary={period,tradeCount:S2.total,winRate:pct(S2.wr),profitFactor:S2.pf>=99?'∞':S2.pf.toFixed(2),expectedValue:'$'+S2.ev.toFixed(2),netPnl:fmt(S2.net),grossPnl:fmt(S2.grossNet),totalFees:'$'+S2.totalFees.toFixed(2),feeDrag:S2.feeImpact.toFixed(1)+'%',avgWin:'+$'+S2.avgW.toFixed(2),avgLoss:'-$'+S2.avgL.toFixed(2),riskReward:S2.rr.toFixed(2)+'R',sharpe:S2.sharpe.toFixed(2),maxDrawdown:'-$'+S2.maxDD.toFixed(2),recovery:S2.recovery.toFixed(2)+'x',setupBreakdown:Object.entries(S2.setups).map(([k,v])=>`${k}:${v.count}tr,${(v.wins/v.count*100).toFixed(0)}%WR,${fmt(v.pnl)}`).join(';')};
+  const summary={period,tradeCount:S2.total,winRate:pct(S2.wr),profitFactor:isFinite(S2.pf)?S2.pf.toFixed(2):'∞',expectedValue:'$'+S2.ev.toFixed(2),netPnl:fmt(S2.net),grossPnl:fmt(S2.grossNet),totalFees:'$'+S2.totalFees.toFixed(2),feeDrag:S2.feeImpact.toFixed(1)+'%',avgWin:'+$'+S2.avgW.toFixed(2),avgLoss:'-$'+S2.avgL.toFixed(2),riskReward:S2.rr.toFixed(2)+'R',sharpe:S2.sharpe.toFixed(2),maxDrawdown:'-$'+S2.maxDD.toFixed(2),recovery:S2.recovery.toFixed(2)+'x',setupBreakdown:Object.entries(S2.setups).map(([k,v])=>`${k}:${v.count}tr,${(v.wins/v.count*100).toFixed(0)}%WR,${fmt(v.pnl)}`).join(';')};
   try{
     let claudeKey=localStorage.getItem('el_claude_key')||'';
     if(!claudeKey){claudeKey=prompt('Enter your Anthropic API key (stored locally, never sent anywhere except Anthropic):');if(!claudeKey)return;localStorage.setItem('el_claude_key',claudeKey);}
@@ -17100,7 +17180,7 @@ function _hmFrameHtml(list){
   // deposits sit in their day under BY TRADE while no chip or search narrows the list
   const evs=(!tbl&&homeFeedMode!=='day'&&!filt)?_hmTradesInRange(scopedLedger()||[],homeRange).map(ev=>({date:ev.date,html:_hmDepositRow(ev)})):[];
   return ledgerTradeListHtml({
-    id:'hm',view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:trades.length,query:homeQuery,chip:homeChip,
+    id:'hm',view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:bScope(_hmTradesInRange(trades,homeRange)).length,query:homeQuery,chip:homeChip,
     countExtra:_hmCountExtraHtml(),viewX:_hmViewSegHtml(),findX:_hmKindChipsHtml(),
     afterBar:_hmPasteRowHtml()+'<div id="hm-newtrade-form">'+(homeNewTradeOpen?_hmNewTradeFormHtml():'')+'</div>',
     empty:_hmEmptyStateHtml(),group:homeFeedMode==='day'?'day':'trade',events:evs,
@@ -17124,9 +17204,10 @@ function _hmFrameBlockHtml(list){
 // stats strip, More stats, calendar, accounts, the trade list (with its panel and, at its top, the PASTE row), then REAL's own folds. An own fold is closed until it is
 // opened, says in ONE line what is inside (a number or a state) and remembers open / closed per browser (localStorage, inside try/catch).
 // Folded, never removed: every control that was on the board is inside its fold.
-// LEDGER step 12: the top block (hero, status, pills, chart, stats, More stats, calendar) is the shared LEDGER_TOP_ORDER, then the accounts (the
+// LEDGER step 12 / C1 (2026-11-01): the top block is LEDGER_PAPER_TOP_ORDER - the same stack as the two PAPER tabs (hero, status, KPI tiles,
+// range pills, chart, calendar, then the long More stats fold LAST, so the calendar is reachable without scrolling) - then the accounts (the
 // right-hand panel from 1100 px), the trade list and REAL's own folds
-const _HM_PAGE_ORDER=LEDGER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);
+const _HM_PAGE_ORDER=LEDGER_PAPER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);
 const _HM_FOLD_LS={missed:'el_lg_missed_real',deps:'el_lg_deps_real',ai:'el_lg_ai_real',journal:'el_home_journal_open'};
 function _hmFoldIsOpen(k){return k==='ai'?!!homeAiOpen:(k==='journal'?!!homeJournalOpen:!!homeOwnOpen[k]);}
 function _hmFoldSet(k,on){
@@ -17202,7 +17283,7 @@ function _hmAiSummary(){
   const recent=[...trades].sort((a,b)=>a.date>b.date?-1:1).slice(0,20);
   const S=recent.length?calcStats(recent):null;
   if(!S)return 'needs a few trades to read';
-  return 'last '+recent.length+' trades &middot; '+(S.wr*100).toFixed(0)+'% won &middot; profit factor '+(S.pf>=99?'no losses':S.pf.toFixed(2));
+  return 'last '+recent.length+' trades &middot; '+(S.wr*100).toFixed(0)+'% won &middot; profit factor '+ledgerPfText(S.pf);
 }
 function _hmAiBodyHtml(){
   return `<div class="sec-hd" style="padding:0 0 8px"><span>🤖 AI ASSESSMENT</span><button class="btn-d" style="font-size:var(--fsxs);padding:3px 10px" onclick="runOverviewAI()">REFRESH</button></div>
@@ -17681,7 +17762,8 @@ function _hmWireNewTradeForm(){
     const en=parseFloat(el('hnfen')?.value),ex=parseFloat(el('hnfex')?.value),sz=parseInt(el('hnfsz')?.value)||1,fe=parseFloat(el('hnffe')?.value)||0;
     if(en&&ex){const r=tradeCalc(sym,dir,en,ex,sz,fe);if(el('hnfprev'))el('hnfprev').innerHTML=`<span style="color:var(--text3)">Gross ${fmt(r.grossPnl)}</span> &nbsp; <span style="color:${r.pnl>=0?'var(--green)':'var(--red)'}">Net ${fmt(r.pnl)}</span> &nbsp; <span style="color:var(--text5);font-size:var(--fsxs)">${isFut(sym)?'FUTURES':'STOCK'}</span>`;}
   };
-  if(symInp)symInp.oninput=()=>{const sym=(symInp.value||'').toUpperCase();if(el('hnffe'))el('hnffe').value=getFee(sym)||4.50;upd();};
+  // B12: a symbol with no known fee leaves the box BLANK (a futures commission on a share trade was the old guess)
+  if(symInp)symInp.oninput=()=>{const sym=(symInp.value||'').toUpperCase();const f=getFee(sym);if(el('hnffe'))el('hnffe').value=(f==null?'':f);upd();};
   ['hnfen','hnfex','hnfsz','hnffe'].forEach(id=>{const i=el(id);if(i){i.oninput=upd;i.onkeydown=e=>{if(e.key==='Enter'&&el('hnfadd'))el('hnfadd').click();};}});
   if(el('hnfdir'))el('hnfdir').onchange=upd;
   // Keep the draft current on every keystroke / pick (see _hmDraftCapture), and redraw the
@@ -17934,7 +18016,8 @@ function _hmRenderHome(content){
   content.querySelectorAll('[data-lgcal="hm"] [data-lgcalday]').forEach(b=>{b.onclick=()=>_hmJumpToDay(b.getAttribute('data-lgcalday'));});
   const searchEl=content.querySelector('#hm-search');
   if(searchEl){
-    searchEl.oninput=(e)=>{homeQuery=e.target.value;window._hmSearchTyping=true;renderApp();};
+    // P1: the query is stored on every keystroke, the full-page rebuild is coalesced (ledgerQueryDebounced)
+    searchEl.oninput=(e)=>{const v=e.target.value;ledgerQueryDebounced('hm',()=>{homeQuery=v;},()=>{window._hmSearchTyping=true;renderApp();});};
     // Only hand focus back when this redraw came from typing in the search box - otherwise a
     // note/grade edit redraw stole focus and scrolled the page up to the search bar.
     if(window._hmSearchTyping){
@@ -19033,7 +19116,7 @@ function renderApp(){
         <div class="rail-grp">RATIOS</div>
         <div class="rail-row rail-kpi" onclick="expandKPI('WIN RATE','WIN RATE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">WIN RATE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.wr>=0.5?'var(--green)':'var(--red)'}">${(tfS.wr*100).toFixed(0)}%</span></div>
         <div class="rail-bar"><div style="width:${Math.min(100,tfS.wr*100)}%;background:${tfS.wr>=0.5?'var(--green)':'var(--red)'}"></div></div>
-        <div class="rail-row rail-kpi" style="margin-top:9px" onclick="expandKPI('PROFIT FACTOR','PROFIT FACTOR')" title="Click for a detailed breakdown"><span style="color:var(--text4)">PROFIT FACTOR</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.pf>=1?'var(--green)':'var(--red)'}">${tfS.pf>=99?'∞':tfS.pf.toFixed(2)}</span></div>
+        <div class="rail-row rail-kpi" style="margin-top:9px" onclick="expandKPI('PROFIT FACTOR','PROFIT FACTOR')" title="Click for a detailed breakdown"><span style="color:var(--text4)">PROFIT FACTOR</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.pf>=1?'var(--green)':'var(--red)'}">${isFinite(tfS.pf)?tfS.pf.toFixed(2):'∞'}</span></div>
         <div class="rail-bar"><div style="width:${Math.min(100,tfS.pf/3*100)}%;background:${tfS.pf>=1?'var(--green)':'var(--red)'}"></div></div>
         <div class="rail-row rail-kpi" style="margin-top:9px" onclick="expandKPI('EXP VALUE','EXP VALUE')" title="Click for a detailed breakdown"><span style="color:var(--text4)">EXP VALUE</span><span style="font-family:'Bebas Neue',monospace;color:${tfS.ev>0?'var(--green)':'var(--red)'}">$${tfS.ev.toFixed(2)}</span></div>
         <div class="rail-bar"><div style="width:${tfS.ev>0?Math.min(100,tfS.ev/50*100):0}%;background:${tfS.ev>0?'var(--green)':'var(--red)'}"></div></div>
@@ -19245,7 +19328,7 @@ function renderApp(){
     <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:4px;margin-bottom:4px">
       ${heroKPI('NET P&L', fmt(tfS.net), accountEquity>0?((tfS.net/accountEquity)*100).toFixed(1)+'% of acct · '+tfTrades.length+' trades':tfTrades.length+' trades cumulative', tfS.net>=0?'#00e5a0':'#ff3d5a', _running.net, 'NET P&L', tfS.net>=0?Math.min(1,tfS.net/Math.max(100,Math.abs(tfS.net)*1.5)):0, 0.5, '$0')}
       ${heroKPI('WIN RATE', (tfS.wr*100).toFixed(0)+'%', tfS.wins+' wins · '+tfS.losses+' losses', tfS.wr>=0.5?'#00e5a0':tfS.wr>=0.4?'#f5c842':'#ff3d5a', _running.wr.map(w=>w*100), 'WIN RATE', tfS.wr, 0.5, '50%')}
-      ${heroKPI('PROFIT FACTOR', tfS.pf>=99?'∞':tfS.pf.toFixed(2), tfS.pf>=1.5?'Healthy':tfS.pf>=1?'Marginal':'Losing edge', tfS.pf>=1.5?'#00e5a0':tfS.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR', Math.min(1,tfS.pf/3), 0.333, '1.0')}
+      ${heroKPI('PROFIT FACTOR', isFinite(tfS.pf)?tfS.pf.toFixed(2):'∞', tfS.pf>=1.5?'Healthy':tfS.pf>=1?'Marginal':'Losing edge', tfS.pf>=1.5?'#00e5a0':tfS.pf>=1?'#f5c842':'#ff3d5a', _running.pf, 'PROFIT FACTOR', Math.min(1,tfS.pf/3), 0.333, '1.0')}
       ${heroKPI('EXP VALUE', '$'+tfS.ev.toFixed(2), 'Per trade · '+(tfS.ev*tfTrades.length).toFixed(0)+' projected', tfS.ev>0?'#00e5a0':'#ff3d5a', _running.ev, 'EXP VALUE', tfS.ev>0?Math.min(1,tfS.ev/50):0, 0, '$0')}
     </div>
 
@@ -19600,7 +19683,8 @@ function renderApp(){
       fd.appendChild(fb);
       setTimeout(()=>{
         const symInp=el('nfsym');
-        if(symInp)symInp.oninput=()=>{const sym=(symInp.value||'').toUpperCase();if(el('nffe'))el('nffe').value=getFee(sym)||4.50;upd();};
+        // B12: a symbol with no known fee leaves the box BLANK
+        if(symInp)symInp.oninput=()=>{const sym=(symInp.value||'').toUpperCase();const f=getFee(sym);if(el('nffe'))el('nffe').value=(f==null?'':f);upd();};
         const upd=()=>{const sym=(el('nfsym')?.value||'MES').toUpperCase(),dir=el('nfdir')?.value||'LONG';const en=parseFloat(el('nfen')?.value),ex=parseFloat(el('nfex')?.value),sz=parseInt(el('nfsz')?.value)||1,fe=parseFloat(el('nffe')?.value)||0;if(en&&ex){const r=tradeCalc(sym,dir,en,ex,sz,fe);if(el('nfprev'))el('nfprev').innerHTML=`<span style="color:var(--text3)">Gross ${fmt(r.grossPnl)}</span> &nbsp; <span style="color:${r.pnl>=0?'var(--green)':'var(--red)'}">Net ${fmt(r.pnl)}</span> &nbsp; <span style="color:var(--text5);font-size:var(--fsxs)">${isFut(sym)?'FUTURES':'STOCK'}</span>`;}};
         ['nfen','nfex','nfsz','nffe'].forEach(id=>{const i=el(id);if(i){i.oninput=upd;i.onkeydown=e=>{if(e.key==='Enter'&&el('nfadd'))el('nfadd').click();};}});
         if(el('nfdir'))el('nfdir').onchange=upd;
@@ -20016,7 +20100,7 @@ function renderApp(){
           <div style="padding:10px 14px;background:rgba(251,191,36,0.06);border:1px solid rgba(251,191,36,0.2);border-radius:12px">
             <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:4px">
               <span style="font-size:10px;letter-spacing:2px;color:#fbbf24;font-weight:bold">● PROFIT FACTOR</span>
-              <span style="font-family:'Bebas Neue',monospace;font-size:24px;color:#fbbf24">${S.pf>=99?'∞':S.pf.toFixed(2)}</span>
+              <span style="font-family:'Bebas Neue',monospace;font-size:24px;color:#fbbf24">${isFinite(S.pf)?S.pf.toFixed(2):'∞'}</span>
             </div>
             <div style="font-size:var(--fsxs);color:var(--text4)">$${S.grossW.toFixed(0)} won ÷ $${S.grossL.toFixed(0)} lost · target 1.5+</div>
           </div>
@@ -20231,7 +20315,7 @@ function renderApp(){
               ${[['KELLY %',(kelly*100).toFixed(1)+'%','Optimal bet size',kelly>0?'var(--green)':'var(--red)'],
                  ['HALF KELLY',(halfKelly*100).toFixed(1)+'%','Safer (industry std)',halfKelly>0?'var(--green)':'var(--red)'],
                  ['EXPECTANCY',er.toFixed(3),'$/$ risked',er>0.25?'var(--green)':er>0?'var(--yellow)':'var(--red)'],
-                 ['PF TARGET',S.pf>=99?'∞':S.pf.toFixed(2)+'×','Need >1.5 for funded',S.pf>=1.5?'var(--green)':S.pf>=1?'var(--yellow)':'var(--red)'],
+                 ['PF TARGET',isFinite(S.pf)?(S.pf.toFixed(2)+'×'):'∞','Need >1.5 for funded',S.pf>=1.5?'var(--green)':S.pf>=1?'var(--yellow)':'var(--red)'],
                  ['WR TARGET',pct(S.wr),'Need >45% for funded',S.wr>=0.45?'var(--green)':'var(--red)'],
                  ['MAX DD','-$'+S.maxDD.toFixed(0),'Keep <5-10% of acct',S.maxDD<1000?'var(--green)':S.maxDD<3000?'var(--yellow)':'var(--red)'],
               ].map(([l,v,d,c])=>`<div style="background:var(--bg3);border:1px solid var(--border2);padding:8px 10px">
@@ -20331,7 +20415,7 @@ function renderApp(){
       if(activeChart==='grade'){const entries=Object.entries(S.byGrade).sort(([a],[b])=>GRADES.indexOf(a)-GRADES.indexOf(b));cs.innerHTML=`<div class="sec-hd">BY GRADE</div><div style="padding:14px;display:flex;flex-direction:column;gap:6px">${entries.map(([g,s])=>`<div style="display:grid;grid-template-columns:70px 70px 70px 1fr 100px;gap:10px;align-items:center;padding:9px 14px;background:var(--bg3);border:1px solid var(--border2)"><span class="${gradeClass(g)}">${g}</span><span style="font-size:var(--fsxs);color:var(--text3)">${s.count} trades</span><span style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}% WR</span><div style="background:var(--bg2);height:8px"><div style="width:${Math.min(100,Math.round(Math.abs(s.pnl)/Math.max(...entries.map(([,x])=>Math.abs(x.pnl)),1)*100))}%;height:100%;background:${gch(s.pnl)}"></div></div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gch(s.pnl)};text-align:right">${fmt(s.pnl)}</div></div>`).join('')}</div>`;}
       if(activeChart==='tf'){const entries=Object.entries(S.byTF).sort(([,a],[,b])=>b.pnl-a.pnl);cs.innerHTML=`<div class="sec-hd">BY TIMEFRAME</div><div style="padding:14px;display:flex;flex-direction:column;gap:6px">${entries.map(([tf,s])=>`<div style="display:grid;grid-template-columns:70px 70px 70px 1fr 100px;gap:10px;align-items:center;padding:9px 14px;background:var(--bg3);border:1px solid var(--border2)"><span class="tag">${tf}</span><span style="font-size:var(--fsxs);color:var(--text3)">${s.count} trades</span><span style="color:${s.wins/s.count>=.5?'var(--green)':'var(--red)'}">${(s.wins/s.count*100).toFixed(0)}% WR</span><div style="background:var(--bg2);height:8px"><div style="width:${Math.min(100,Math.round(Math.abs(s.pnl)/Math.max(...entries.map(([,x])=>Math.abs(x.pnl)),1)*100))}%;height:100%;background:${gch(s.pnl)}"></div></div><div style="font-family:'Bebas Neue',monospace;font-size:16px;color:${gch(s.pnl)};text-align:right">${fmt(s.pnl)}</div></div>`).join('')}</div>`;}
       if(activeChart==='wr_ev'){const data=Array.from({length:21},(_,i)=>{const w=i/20;return{x:+(w*100).toFixed(0),y:+(w*S.avgW-(1-w)*(S.avgL||0)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">WIN RATE → EV</div><div style="padding:12px 4px 8px;overflow-x:auto">${svgXY(data,'#f5c842',v=>v+'%',940,240,+(S.wr*100).toFixed(0))}</div>`;}
-      if(activeChart==='pf_ev'){const data=Array.from({length:20},(_,i)=>{const pf=0.25+i*0.2;return{x:+pf.toFixed(2),y:+(S.wr*(pf*(S.avgL||1))-(1-S.wr)*(S.avgL||1)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">PROFIT FACTOR → EV</div><div style="padding:12px 4px 8px;overflow-x:auto">${svgXY(data,'#2196f3',v=>v+'×',940,240,S.pf<99?+S.pf.toFixed(2):null)}</div>`;}
+      if(activeChart==='pf_ev'){const data=Array.from({length:20},(_,i)=>{const pf=0.25+i*0.2;return{x:+pf.toFixed(2),y:+(S.wr*(pf*(S.avgL||1))-(1-S.wr)*(S.avgL||1)).toFixed(2)};});cs.innerHTML=`<div class="sec-hd">PROFIT FACTOR → EV</div><div style="padding:12px 4px 8px;overflow-x:auto">${svgXY(data,'#2196f3',v=>v+'×',940,240,isFinite(S.pf)?+S.pf.toFixed(2):null)}</div>`;}
       if(activeChart==='dist'){
         // Build dataset based on selected metric
         const DIST_METRICS={
@@ -43700,11 +43784,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const grossLoss=Math.abs(lossA.reduce((s,t)=>s+t.pnl,0));
           const net=nums.reduce((s,t)=>s+t.pnl,0);
           const wr=(winsA.length+lossA.length)?winsA.length/(winsA.length+lossA.length):0;   // a $0 trade is neither a win nor a loss
-          const pf=grossLoss>0?grossWin/grossLoss:(grossWin>0?99:0);
+          const pf=grossLoss>0?grossWin/grossLoss:(grossWin>0?Infinity:0);   // B2: unbounded, not the magic 99
           const ev=n?net/n:0;
           const avgW=winsA.length?grossWin/winsA.length:0;
           const avgL=lossA.length?grossLoss/lossA.length:0;
-          const payoff=avgL>0?avgW/avgL:(avgW>0?99:0);
+          const payoff=avgL>0?avgW/avgL:(avgW>0?Infinity:0);   // B2
           const best=n?Math.max(...nums.map(t=>t.pnl)):0;
           const worst=n?Math.min(...nums.map(t=>t.pnl)):0;
           const chrono=nums.slice().reverse(); // oldest-first
@@ -43716,7 +43800,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           }
           let run=0,peak=0,maxDD=0;
           chrono.forEach(t=>{run+=t.pnl;if(run>peak)peak=run;const dd=peak-run;if(dd>maxDD)maxDD=dd;});
-          const recovery=maxDD>0?net/maxDD:(net>0?99:0);
+          const recovery=maxDD>0?net/maxDD:(net>0?Infinity:0);   // B2
           return {n,wins:winsA.length,losses:lossA.length,wr,pf,ev,avgW,avgL,payoff,best,worst,streak,sdir,net,maxDD,recovery};
         };
         const QST=qqqStats(trades);
@@ -45647,9 +45731,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // Account group and its best and worst trade; open / closed remembered per viewer.
         const qbTsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
         const qbHoldMins=t=>{const a=Date.parse(String((t&&t.entry_ts)||'').replace(' ','T')+'Z'),b=Date.parse(String((t&&t.exit_ts)||'').replace(' ','T')+'Z');return (isFinite(a)&&isFinite(b)&&b>a)?(b-a)/60000:null;};
-        const qbStatRows=qbRangeTrades.map(t=>Object.assign({},t,{durationMins:qbHoldMins(t)}))
-          .sort((a,b)=>qbTsOf(a)<qbTsOf(b)?-1:(qbTsOf(a)>qbTsOf(b)?1:0));
-        const qbLs=ledgerStats(qbStatRows,{pnl:qePnlOf,day:qeTradeDate,sorted:true});
+        // B10: the shared LEDGER rule (3738) is 'close day, then exit time' - ledgerCloseKey. This board sorted on the raw
+        // exit_ts||entry_ts and then passed sorted:true, which SKIPPED that sort: a row with no exit_ts sorted by its ENTRY
+        // time among the other rows' EXIT times, so the drawdown and the streak walked the wrong sequence. The clone now
+        // carries the ledger-shape close fields (exitDate = the New York close day this board already computes, entryTime /
+        // exitTime = the clock part of the stamps) and ledgerStats does the ordering itself, like every other board.
+        const qbClock=v=>{const m=String(v||'').match(/[T ](\d{2}:\d{2}(?::\d{2})?)/);return m?m[1]:'';};
+        const qbStatRows=qbRangeTrades.map(t=>Object.assign({},t,{durationMins:qbHoldMins(t),
+          exitDate:qeTradeDate(t),date:(String((t&&t.entry_ts)||'').slice(0,10)||null),
+          entryTime:qbClock(t&&t.entry_ts),exitTime:qbClock(t&&t.exit_ts)}));
+        const qbLs=ledgerStats(qbStatRows,{pnl:qePnlOf,day:qeTradeDate});
         const qbMoreOpen=(()=>{let o=window._qbMoreStatsOpen!=null?!!window._qbMoreStatsOpen:!!(APREF.qqqMoreStatsOpen!=null&&+APREF.qqqMoreStatsOpen);try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();
         // the board's own rows: the account as of its last read (not the range), then what the range's trades
         // made at Webull's fills against the book, how many never reached Webull, fill coverage and slippage
@@ -50630,7 +50721,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // by its row number, so a search, a chip, LIST | TABLE or a redraw cannot point it at another trade.
       {
         ledgerTradeListWire(content,{id:'wb',
-          onQuery:v=>{window._qeTradesQuery=v;renderApp();},
+          // P1: the query is stored on every keystroke, the full-page rebuild is coalesced (ledgerQueryDebounced)
+          onQuery:v=>{ledgerQueryDebounced('wb',()=>{window._qeTradesQuery=v;},()=>renderApp());},
           onChip:c=>{window._qeTradesChip=c;renderApp();},
           onView:v=>{window._qeTradesView=(v==='table')?'table':'list';renderApp();},
           onRow:rk=>{window._qbPanelKey=rk;_qbSyncPanel();}});

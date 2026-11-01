@@ -3980,7 +3980,9 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
   async function typeIn(text){
     var w=W(),inp=q('#wb-search');
     inp.focus();inp.value=text;inp.setSelectionRange(text.length,text.length);
-    inp.dispatchEvent(new w.Event('input',{bubbles:true}));await sleep(110);
+    // P1 (2026-11-01): WEBULL's search box coalesces the full-page rebuild (ledgerQueryDebounced, 180 ms),
+    // so the pause has to run out before the board is read.
+    inp.dispatchEvent(new w.Event('input',{bubbles:true}));await sleep(300);
     var i2=q('#wb-search');
     return {focus:D().activeElement===i2,val:i2.value,sel:[i2.selectionStart,i2.selectionEnd]};
   }
