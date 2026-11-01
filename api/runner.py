@@ -1718,7 +1718,8 @@ class FirestoreQueue:
             "timeframe": job.get("timeframe", ""),
             "scope": ({"ai_optimize": "AI optimize", "ai_evolve": "AI evolve",
                        "auto": "Auto-Optimize", "walkforward": "Walk-Forward",
-                       "validate": "🧭 Auto-Validate", "gate_validate": "🚪🧭 Gate-Validate",
+                       "validate": ("🧭 Auto-Validate 2" if job.get("variant") == "validate2"
+                                    else "🧭 Auto-Validate"), "gate_validate": "🚪🧭 Gate-Validate",
                        "book": "📚 Book"}
                       .get(job.get("type"), job.get("preset", "web sweep"))),
             # carry the validate report card into run history so Results/Library can show it
