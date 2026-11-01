@@ -103,3 +103,14 @@ def test_key_ignores_progress_and_workers_but_not_trials(strat_path, tmp_path, m
     k2 = RC.call_key(strat_path, {"master": m, "n_trials": 900, "workers": 4})
     k3 = RC.call_key(strat_path, {"master": m, "n_trials": 901, "workers": 4})
     assert k1 and k1 == k2 and k3 != k1
+
+
+def test_key_for_a_bare_strategy_name_like_the_runner_passes(strat_path, tmp_path, monkeypatch):
+    monkeypatch.setenv("AUGUR_RESUME", "1")
+    from augur_engine import data as D, strategies as S
+    up = tmp_path / "up"
+    up.mkdir()
+    (up / "m.csv").write_text("x", encoding="utf-8")
+    monkeypatch.setattr(D, "UPLOADS", str(up))
+    monkeypatch.setattr(S, "_resolve", lambda n: strat_path if n == "RESUMETEST_1_0.py" else n)
+    assert RC.call_key("RESUMETEST_1_0.py", {"master": {"filename": "m.csv"}})

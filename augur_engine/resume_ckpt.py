@@ -54,9 +54,11 @@ def call_key(strategy, kw):
     if not enabled() or not isinstance(strategy, str) or kw.get("arrays") is not None:
         return None
     try:
-        from .strategies import strategy_closure_sha
+        from .strategies import strategy_closure_sha, _resolve
         from .data import find_master  # noqa: F401 (and UPLOADS below)
-        ssha = strategy_closure_sha(strategy)
+        # the runner passes a bare file name (job["strategy"]); load_strategy resolves it the
+        # same way - without this every runner job got no key and saved nothing (10-31)
+        ssha = strategy_closure_sha(_resolve(strategy))
         if not ssha:
             return None
         m = kw.get("master")
