@@ -91,7 +91,14 @@ import urllib.request
 HOST = (os.environ.get("AUGUR_LOCAL_LLM_HOST") or "http://127.0.0.1:11434").rstrip("/")
 # qwen3.8:27b (dense, 17 GB) replaced qwen3.6 on 2026-10-11 (owner pick after a 4-job race:
 # more accurate, 3-4x slower; ~61% on the 16 GB GPU at num_ctx 32768, 52% at 65536).
-MODEL = "5.qwen3.6:35b-32k"   # renumbered 1-5 by the owner 10-30 (MANAGER #220; 10-28 it was 3.qwen3.6:35b-32k, MANAGER #194; was 5-qwen3.6-coding:35b-32k, same weights); 2026-10-25 owner bench: 56 tok/s, code 18/21, reasoning 5/7 vs qwen3:14b 31 tok/s 13/21 2/7; MoE ~3B active so it stays fast 39% on CPU
+MODEL = "2.qwen3.8:27b-48k"   # owner 2026-11-01. Benchmarks 10-31/11-01 (manager/reports/ai_tests_2026-10-31.md,
+# ai_runoff_strata_vs_model2_2026-11-01.md): model 2 is the ONLY installed model that fits the 16 GB card WHOLE
+# (12.0 of 12.0 GB at 8k, 13.6 at 48k), so free RAM stays 7-10 GB and it runs BESIDE an engine validate. Models
+# 3/4/5 (qwen3.6 35B, 22 GB files) put 9-10 GB in system RAM at any num_ctx; with test 196 running free RAM fell
+# to 1.2 GB and the runner stalled - that is why 5 is no longer the default. Speed: 17.7-18.6 tok/s write either
+# way; think=False (already the default below) is the real win, 106 s -> 33 s cold and 11-17 s warm on the 5 Q
+# tasks, same answers 5/5. Beats Strata 5x warm and 6.3x on a 43.8k-token read at equal quality. Model 2 also
+# has vision. Use 3/4/5 or Strata only for reads over ~45k tokens on an otherwise IDLE PC.
 KEEP_ALIVE = "30m"          # hold the weights in RAM so the next call is warm
 # One context size for EVERY call (see the docstring): a 24k-token chunk + the prompt +
 # the answer fits with room to spare, and the model never reloads between calls.
