@@ -7448,6 +7448,100 @@
    ],
    "overall": 50,
    "summary": "You shorted 2 MES at 7736.75 into the bottom of a quick flush while the afternoon trend was still pointing up. The bar closed back near its high and you cut it at 7740.75 for about $44, before your stop above 7742.50, which saved roughly 2 points as price ran to 7754 into the close. Wait for a pullback toward the signal bar instead of selling the flush low, and avoid fading the closing drive."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-10-30",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "15:51",
+   "exit_time": "15:54",
+   "entry": 7613.0,
+   "exit": 7613.25,
+   "qty": 1,
+   "entry_ts": "15:51:28",
+   "exit_ts": "15:54:22",
+   "breakout_candle": "15:50",
+   "stop": 7598.25,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 14,
+     "note": "Price rallied from 7581 at 15:31 to 7612 at 15:50, a clear late-day uptrend with the 15:50 bar covering 7598.25 to 7612.75 on 12,559 contracts."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 6,
+     "note": "The 7613.0 fill at 15:51:28 sat above the 15:50 breakout bar high of 7612.75, chasing a 13-point vertical bar instead of buying a pullback."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 5,
+     "note": "No stop or setup was logged; the structural stop under the 15:50 signal bar at 7598.25 was 14.75 points away for a 1-contract scalp."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "No target was named and the nearest overhead level was the 15:51 high at 7617.25, about 4 points of room against 14.75 points of structural risk."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 3,
+     "note": "The trade carries no setup tag, notes or grade, so it matched no written rule."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 7,
+     "note": "Volume was heavy at 9,853 contracts on the 15:51 bar with 6.5-point ranges, liquid but spiky into the close."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 3,
+     "note": "Entry at 15:51 was nine minutes before the 16:00 cash close, inside the closing-imbalance chop where 15:56 printed a 10-point drop to 7601.0."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 10,
+     "note": "Bought 7613.0 at 15:51:28 after the 15:50 surge; the 15:51 bar closed at 7611.75 and 15:52 dipped to 7609.0, so a patient entry was 4 points better."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 15,
+     "note": "Heat reached 4 points at the 15:52 low of 7609.0 and the trade was held calmly, but no stop was ever defined."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 10,
+     "note": "The tape offered 7620.5 at 15:53 for 7.5 points, the exit at 7613.25 at 15:54:22 kept 0.25; in the next 15 minutes price fell to 7601.0 at 15:56 then rallied to 7623.0 at 16:01."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "One MES contract kept the dollar risk small for a late-day scalp."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 3,
+     "note": "No plan, setup or notes were logged, so there was nothing written to follow."
+    }
+   ],
+   "overall": 46,
+   "summary": "You chased a 13-point vertical bar nine minutes before the close, buying 7613.0 right above the 15:50 high with no stop or setup logged. The trade briefly showed 7.5 points at 7620.5 on the 15:53 bar, then you exited at 7613.25 for a scratch after the pullback. Into the close, wait for a pullback to the breakout bar or skip the last ten minutes, and write the stop and target before you click."
   }
  ],
  "na": [
