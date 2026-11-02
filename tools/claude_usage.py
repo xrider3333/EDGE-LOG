@@ -224,6 +224,8 @@ def statusline_text(model, pct, mine_usd, day_usd, avg_usd):
 
 
 if __name__ == "__main__":
+    if sys.stdout is None:  # pythonw.exe (Task Scheduler) has no console: write the file, skip the print
+        sys.stdout = open(os.devnull, "w", encoding="utf-8")
     sys.stdout.reconfigure(encoding="utf-8")
     if "--statusline" in sys.argv:
         statusline()
