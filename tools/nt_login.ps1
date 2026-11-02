@@ -75,7 +75,7 @@ function Get-StoredNtCredential {
         $bytes = New-Object byte[] $c.CredentialBlobSize
         [Runtime.InteropServices.Marshal]::Copy($c.CredentialBlob, $bytes, 0, $c.CredentialBlobSize)
         $pw = [Text.Encoding]::Unicode.GetString($bytes)
-        return @{ UserName = $c.UserName; Password = $pw }
+        return @{ UserName = $c.UserName; Password = $pw; LastWritten = [string]$c.LastWritten }
     }
     finally { [EdgeLogCredManRead]::CredFree($ptr) }
 }
@@ -168,6 +168,16 @@ try {
     Write-Host "Retrieving stored credential (value never printed)..."
     $stored = Get-StoredNtCredential
 
+    # BAD-PASSWORD GUARD (11-02): the watchdog runs every 3 min, so a wrong stored password
+    # would retry ~20 logins an hour and risk an account lockout. After NinjaTrader rejects a
+    # credential we remember its LastWritten stamp and refuse to try it again; re-running
+    # nt_login_setup.ps1 writes a new stamp, which clears the guard with no further step.
+    $badCredPath = 'C:\EdgeLog\nt_login_badcred.txt'
+    if ((Test-Path $badCredPath) -and ((Get-Content $badCredPath -Raw).Trim() -eq $stored.LastWritten)) {
+        Write-Host "LOGIN SKIPPED: the stored password was rejected before and has not been changed - run nt_login_setup.ps1." -ForegroundColor Red
+        exit 3
+    }
+
     if (-not (Get-Process NinjaTrader -ErrorAction SilentlyContinue)) {
         Write-Host "Launching NinjaTrader..."
         Start-Process $exePath
@@ -232,6 +242,7 @@ try {
             if ($errVisible) {
                 Write-Host "LOGIN FAILED: NinjaTrader reported incorrect username/password." -ForegroundColor Red
                 Write-Host "(Re-run nt_login_setup.ps1 to re-store the credential.)"
+                Set-Content -Path $badCredPath -Value $stored.LastWritten -Encoding ascii
                 return
             }
         }
