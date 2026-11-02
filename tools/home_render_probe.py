@@ -352,7 +352,13 @@ for _vp, _th, _view in (('laptop', 'glass', 'feed'), ('laptop', 'paper', 'feed')
 # just above where a list cell comes back (the tightest a list row ever is), 701 / 901 / 1011 just above where a SIMPLE column comes back,
 # and 860 / 975 sit in the two bands where the SIMPLE table used to scroll inside its own box.
 # 1559 (step 12) is the owner's laptop: the only width where the window is wider than the 1320 px frame, so the frame's centring shows.
-WIDTH_SET = [375, 480, 600, 601, 700, 701, 741, 800, 801, 860, 901, 921, 975, 1000, 1011, 1200, 1366, 1559]
+WIDTH_SET = [375, 480, 600, 601, 700, 701, 741, 800, 801, 860, 901, 921, 975, 1000, 1011, 1200, 1366, 1559, 1690]
+# THE OWNER'S OWN ACCEPTANCE TEST (2026-11-01, the ledger redesign): on his 1690x1263 window the calendar panel, OPEN, must end
+# fully above y=1000 from the top of the board. Nothing asserted it before, which is how REAL drifted away from the paper tabs
+# (its calendar ended at 1138 px while the two paper boards fitted at 1091 / 1062). CAL_FOLD_W is in WIDTH_SET so the sweep's own
+# section read ([data-hmsec] tops and heights) measures it; the two paper boards assert the same number in their own probes.
+CAL_FOLD_W = 1690
+CAL_FOLD_MAX = 1000
 WIDTH_RUNS = [[_nm, {'theme': 'glass', 'view': _view, 'ledger': _led}, WIDTH_SET]
               for _nm, _view, _led in (('list', 'feed', 'simple'), ('table-simple', 'table', 'simple'), ('table-full', 'table', 'full'))]
 LIST_HIDE_ORDER = ['pts', 'strat', 'slot']      # the optional cells of a LIST row, the first to go first
@@ -362,7 +368,10 @@ JUMP_DAY = '2026-09-30'
 # 'paste' left the page order on 2026-10-10: the PASTE box is a row at the top of the trade list ('list'), always on show, not a section of its own
 # C1 (2026-11-01): REAL is on LEDGER_PAPER_TOP_ORDER now, the same stack as the two paper tabs -
 # the KPI tiles ABOVE the chart and the long More stats fold LAST, so the calendar is not pushed down the page.
-SECTION_ORDER = ['hero', 'status', 'stats', 'pills', 'chart', 'cal', 'more', 'acct', 'list', 'missed', 'deps', 'ai', 'journal']
+# LEDGER redesign (2026-11-01): step 2 moved the range pills UNDER the chart, onto the chart's one control row, so [data-hmsec="pills"]
+# now sits INSIDE the chart section and reads after it - the same chain NT8 PAPER has. Step 5 moved REAL's four own folds ABOVE the trade
+# list, where both paper boards keep their extras.
+SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more', 'acct', 'missed', 'deps', 'ai', 'journal', 'list']
 # LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
 FRAME_MAX_W = '1320px'
 FRAME_SIDE_FROM = 1100
@@ -385,6 +394,13 @@ PHONE_LOSS_EXTRA = {'idle': 40, 'warn': 125, 'hit': 125}      # px, keyed by a l
 # with no daily limit, so the tilt chips sit under the big number (no loss bar). Measured on 2026-10-16 against 679 without: +82 px with the chips and
 # the goal line together. The same rule as above: the allowance is what they add, not a new floor.
 PHONE_GOAL_EXTRA = 92
+# LEDGER redesign step 11 (2026-11-01) gives the fold headers above the list 40 px of height on a phone, as the tap rule asks: that is height a
+# phone spends on purpose, so the one-screen limit is one screen PLUS this allowance. Measured 854 px against a 812 px screen on 2026-11-01.
+PHONE_TAP_TARGET_EXTRA = 48
+# LEDGER redesign step 5 (2026-11-01) moved REAL's four own folds (MISSED, DEPOSITS, AI, JOURNAL) ABOVE the trade list, which is where the two
+# PAPER boards have always kept their folds - NT8 PAPER's phone list starts 836 px down. Four closed fold headers at the 40 px tap size of step 11
+# is the height that buys: measured 854 px against 700 before, so the allowance is 160 px. It is what the folds add, not a new floor.
+PHONE_OWN_FOLDS_EXTRA = 160
 
 
 def _phone_extra(cfg):
@@ -1132,7 +1148,9 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       o.heroChipsRest=((hcl.textContent||'').replace(/\\s+/g,' ').trim())+(hcl.children.length?' <'+hcl.children.length+' other element(s)>':'');}
     else o.heroChipsRest=null;
     var ft=d.querySelector('[data-lgchartfoot="hm"]'),cw=d.getElementById('hm-chart-wrap');
-    o.foot=ft?{r:R(ft),eq:!!ft.querySelector('#hm-mode-toggle [data-hmmode="equity"]'),pnl:!!ft.querySelector('#hm-mode-toggle [data-hmmode="pnl"]'),
+    // LEDGER redesign step 2: the switch sits on the chart's control row beside the caption, not inside the caption's own box
+    var ftrow=ft?(ft.closest('.lg-chart-row')||ft):null;
+    o.foot=ft?{r:R(ft),eq:!!(ftrow&&ftrow.querySelector('#hm-mode-toggle [data-hmmode="equity"]')),pnl:!!(ftrow&&ftrow.querySelector('#hm-mode-toggle [data-hmmode="pnl"]')),
       cap:((ft.querySelector('.lg-chart-cap')||{}).textContent||'').trim(),gap:cw?Math.round(ft.getBoundingClientRect().top-cw.getBoundingClientRect().bottom):null,
       inChartSec:!!ft.closest('[data-hmsec="chart"]')}:null;
     o.toggles=d.querySelectorAll('#hm-mode-toggle').length;
@@ -1384,9 +1402,15 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     }
     // LEDGER shared hero + range pills (unify step 4): the big number, the today line, the six pills
     var hv=d.getElementById('hm-hero-value'),ht=d.getElementById('hm-hero-today');
-    r.heroBig=hv?(hv.textContent||'').trim():null;
+    // LEDGER redesign step 9: the big number carries a small 'net equity' word beside it, so the FIGURE is read without it and
+    // the word is read on its own (the same shape the WEBULL board's probe uses)
+    r.heroBig=hv?(function(){var c=hv.cloneNode(true);[].forEach.call(c.querySelectorAll('.qbx-hero-qual'),function(x){x.parentNode.removeChild(x);});return (c.textContent||'').trim();})():null;
+    r.heroQual=hv?(function(){var e=hv.querySelector('[data-hmheroqual]');return e?(e.textContent||'').trim()+'|'+(e.getAttribute('data-hmheroqual')||''):null;})():null;
+    r.heroOpenLine=(function(){var e=d.getElementById('hm-hero-under');return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;})();
+    r.heroTodayInline=!!(d.querySelector('#hm-hero-today.lg-hero-today-in')&&d.querySelector('#hm-hero-delta.lg-hero-range-in'));
     r.heroToday=ht?(ht.textContent||'').replace(/\\s+/g,' ').trim():null;
-    r.pills=Array.prototype.map.call(d.querySelectorAll('.hm-ctl [data-hmrange], .hm-range-row [data-hmrange]'),function(b){return b.getAttribute('data-hmrange');}).join(',');
+    // LEDGER redesign step 2: the range pills ride on the chart's one control row (.lg-chart-row) now, not a row of their own
+    r.pills=Array.prototype.map.call(d.querySelectorAll('.lg-chart-row [data-hmrange], .hm-ctl [data-hmrange], .hm-range-row [data-hmrange]'),function(b){return b.getAttribute('data-hmrange');}).join(',');
     // LEDGER shared equity chart (unify step 5): real height on every width, dates and a price scale
     var csv=d.querySelector('#hm-chart-wrap svg');
     // the DRAWN height: a viewBox scaled down to fit a narrow box draws a short band in a tall box (the old phone bug)
@@ -1406,6 +1430,10 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       r.moreRows={};Array.prototype.forEach.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){var gt=g.getAttribute('data-lgmsgroup');
         if(/^(Entry quality|What works|Discipline|Missed trades|Fees)/.test(gt))r.moreRows[gt]=Array.prototype.map.call(g.querySelectorAll('.lg-ms-row'),function(x){
           var l=x.querySelector('.l'),v=x.querySelector('.v');return [((l||{}).textContent||'').replace(/\\s+/g,' ').trim(),((v||{}).textContent||'').replace(/\\s+/g,' ').trim()];});});
+      // LEDGER redesign step 3: the time-of-day strip is a MORE STATS group now (slot, title, bar drawn) with its outside-the-session line
+      r.tod=Array.prototype.map.call(d.querySelectorAll('#hm-more [data-hmtod] [data-hmtodslot]'),function(x){return [x.getAttribute('data-hmtodslot'),x.getAttribute('title')||'',!!x.querySelector('i')];});
+      r.todOff=((d.querySelector('#hm-more [data-hmtodoff]')||{}).textContent||'').replace(/\\s+/g,' ').trim();
+      r.todInCal=d.querySelectorAll('#hm-cal [data-hmtod]').length;
       try{r.msBroker=d.defaultView.eval('typeof activeBroker!=="undefined"?activeBroker:null')||'';}catch(_e){r.msBroker='?';}
       r.goal=!!d.querySelector('[data-hmgoal]');
       var mb2=d.querySelector('[data-lgmore="hm"]');if(mb2)mb2.click();}
@@ -1416,9 +1444,6 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     if(cf){var wasOpen=cf.getAttribute('aria-expanded')==='true';
       if(!wasOpen){cf.click();}
       var cg=d.querySelector('[data-lgcal="hm"].lg-cal'),c={days:0,sumN:0,hdN:null};
-      // LEDGER improvement 4: the time of day strip inside the open calendar (slot, title, bar drawn) and its outside-the-session line
-      r.tod=Array.prototype.map.call(d.querySelectorAll('#hm-cal [data-hmtod] [data-hmtodslot]'),function(x){return [x.getAttribute('data-hmtodslot'),x.getAttribute('title')||'',!!x.querySelector('i')];});
-      r.todOff=((d.querySelector('#hm-cal [data-hmtodoff]')||{}).textContent||'').replace(/\\s+/g,' ').trim();
       if(cg){var ds=cg.querySelectorAll('[data-lgcalday]');c.days=ds.length;
         Array.prototype.forEach.call(ds,function(b){var n=b.querySelector('.n');c.sumN+=n?parseInt(n.textContent,10)||0:0;});
         var sm=(cg.querySelector('.lg-cal-sum')||{textContent:''}).textContent.match(/(\\d+) trades?/);c.hdN=sm?+sm[1]:0;
@@ -2981,7 +3006,8 @@ def _cents(text):
 
 
 # LEDGER improvements 3 + 6 (2026-10-12): REAL's More stats carries three own groups after Account, judged from the fixture trades
-MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,What works: setups,What works: grades,Discipline,Missed trades,Fees'
+# LEDGER redesign step 3 (2026-11-01): the time-of-day strip left the calendar panel and is the LAST group of More stats
+MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,What works: setups,What works: grades,Discipline,Missed trades,Fees,Time of day'
 RULES_DEFAULT = {'minPts': 5, 'setup': True, 'maxSize': None}     # LEDGER improvement 2: the rules a fresh browser checks
 
 
@@ -3505,6 +3531,20 @@ def _judge_widths(wd, data_obj):
                 fails.append('%s: the page scrolls sideways (scrollWidth %s > the %s px window; sticking out: %s)'
                              % (t, sw, min(cw, px) if cw else px, ', '.join(s.get('wide') or []) or '?'))
             ks = [e['k'] for e in (s.get('sec') or [])]
+            # the owner's acceptance test at 1690 px: the OPEN calendar panel ends above y=1000 from the top of the board
+            if px == CAL_FOLD_W:
+                _cal = ([e for e in (s.get('sec') or []) if e.get('k') == 'cal'] or [None])[0]
+                if not _cal:
+                    fails.append('%s: no calendar section to measure the fold test on' % t)
+                else:
+                    _bot = (_cal.get('top') or 0) + (_cal.get('h') or 0)
+                    print('    [cal fold] %s: the calendar section runs %s-%s px from the top of the board (limit %s)'
+                          % (t, _cal.get('top'), _bot, CAL_FOLD_MAX))
+                    if (_cal.get('h') or 0) < 120:
+                        fails.append('%s: the calendar is not open, so the fold test measures nothing (height %spx)' % (t, _cal.get('h')))
+                    elif _bot > CAL_FOLD_MAX:
+                        fails.append('%s: the open calendar ends %spx from the top of the board, past the %spx fold the owner reads at '
+                                     '1690x1263' % (t, _bot, CAL_FOLD_MAX))
             if ks != SECTION_ORDER:
                 fails.append('%s: the page sections run %r, expected %r at every width' % (t, ks, SECTION_ORDER))
             else:
@@ -3850,9 +3890,13 @@ def _judge_frame_parts(nm, cfg, fr, fc, fails):
         fails.append('%s: there is no chart foot ([data-lgchartfoot="hm"]) under the chart' % nm)
     else:
         if not (ft.get('eq') and ft.get('pnl')):
-            fails.append('%s: the EQUITY | P&L switch is not in the chart foot (equity %s, P&L %s)' % (nm, ft.get('eq'), ft.get('pnl')))
-        if not ft.get('inChartSec') or ft.get('gap') is None or ft.get('gap') < -1 or ft.get('gap') > 12:
-            fails.append('%s: the chart foot is not directly under the chart (gap %spx, inside the chart section: %s)' % (nm, ft.get('gap'), ft.get('inChartSec')))
+            fails.append("%s: the EQUITY | P&L switch is not on the chart's control row (equity %s, P&L %s)" % (nm, ft.get('eq'), ft.get('pnl')))
+        # redesign step 2 put the range pills, the EQUITY | P&L switch and the caption on ONE control row under the chart. On a phone that row
+        # wraps, so the foot sits a line lower than the pills - still inside the chart section, still the chart's own row (CHART_FOOT_GAP_MAX).
+        _gap_max = 24 if cfg['vp'] == 'phone' else 12
+        if not ft.get('inChartSec') or ft.get('gap') is None or ft.get('gap') < -1 or ft.get('gap') > _gap_max:
+            fails.append('%s: the chart foot is not directly under the chart (gap %spx, limit %spx, inside the chart section: %s)'
+                         % (nm, ft.get('gap'), _gap_max, ft.get('inChartSec')))
         if cfg['vp'] != 'phone' and not ft.get('cap'):
             fails.append('%s: the chart foot has no caption' % nm)
     if fr.get('toggles') != 1:
@@ -4410,13 +4454,18 @@ def _judge(data, data_obj):
                 if r.get('visCells') != 5:
                     fails.append('%s: a phone row shows %s cells, expected five (time, symbol, side, net, chart)'
                                  % (nm, r.get('visCells')))
-                if r.get('listTop') is None or r.get('listTop') > (r.get('viewH') or 0):
+                _top_max = PHONE_LIST_TOP_MAX + PHONE_TAP_TARGET_EXTRA + PHONE_OWN_FOLDS_EXTRA + _phone_extra(cfg)
+                _screen_max = (r.get('viewH') or 0) + PHONE_TAP_TARGET_EXTRA + PHONE_OWN_FOLDS_EXTRA
+                if r.get('listTop') is None or r.get('listTop') > _screen_max:
                     fails.append('%s: the trade list starts %spx below the top of the board on a phone, more than one '
-                                 'screen (%spx) - mistake #12' % (nm, r.get('listTop'), r.get('viewH')))
-                elif r.get('listTop') > PHONE_LIST_TOP_MAX + _phone_extra(cfg):
+                                 'screen plus the tap-target and own-fold allowances (%s + %d + %dpx) - mistake #12'
+                                 % (nm, r.get('listTop'), r.get('viewH'), PHONE_TAP_TARGET_EXTRA, PHONE_OWN_FOLDS_EXTRA))
+                elif r.get('listTop') > _top_max:
                     fails.append('%s: the trade list starts %spx below the top of the board on a 375 px phone; it may start at most %spx down since '
-                                 'step 12 (%d, plus %d for the loss bar / tilt chips / month goal line of this case) and must not grow'
-                                 % (nm, r.get('listTop'), PHONE_LIST_TOP_MAX + _phone_extra(cfg), PHONE_LIST_TOP_MAX, _phone_extra(cfg)))
+                                 'step 12 (%d, plus %d of 40 px tap targets, %d for the four own folds above the list and %d for the loss bar / '
+                                 'tilt chips / month goal line of this case) and must not grow'
+                                 % (nm, r.get('listTop'), _top_max, PHONE_LIST_TOP_MAX, PHONE_TAP_TARGET_EXTRA,
+                                    PHONE_OWN_FOLDS_EXTRA, _phone_extra(cfg)))
         if cfg['view'] == 'feed' and r.get('frame'):
             exp_order = [t['id'] for t in sorted(tcase, key=_close_key, reverse=True)]
             if r.get('order') != exp_order:
@@ -4470,6 +4519,14 @@ def _judge(data, data_obj):
             fails.append('%s: the hero big number reads %r, not a dollar amount' % (nm, r.get('heroBig')))
         if not (r.get('heroToday') or '').endswith('today'):
             fails.append('%s: the hero has no "today" line (got %r)' % (nm, r.get('heroToday')))
+        # LEDGER redesign steps 6 and 9: today rides at the right end of the realized line (no line of its own), and the big number
+        # carries the words that say which of the three quantities it is - NET EQUITY in EQUITY view.
+        if not r.get('heroTodayInline'):
+            fails.append("%s: today is a line of its own again - it rides at the right end of the realized line (redesign step 6)" % nm)
+        _qual_want = 'realized|realized' if (cfg.get('chartMode') or 'equity') == 'pnl' else 'net equity|net'
+        if (r.get('heroQual') or '') != _qual_want:
+            fails.append("%s: the big number's qualifier reads %r, want %r (the one big-number rule, redesign step 9)"
+                         % (nm, r.get('heroQual'), _qual_want))
         if r.get('pills') != ','.join(LEDGER_RANGES):
             fails.append('%s: the range pills read %r, not %s' % (nm, r.get('pills'), ' '.join(LEDGER_RANGES)))
         min_h = 150 if cfg['vp'] == 'phone' else 200
@@ -4490,7 +4547,7 @@ def _judge(data, data_obj):
             fails.append('%s: the equity chart has %s date labels and %s price labels (needs 2+ of each)'
                          % (nm, r.get('chartDates'), r.get('chartTicks')))
         st = r.get('stats') or []
-        if [x.split('=')[0] for x in st] != ['winrate', 'pf', 'maxdd', 'trades']:
+        if [x.split('=')[0] for x in st] != ['net', 'winrate', 'pf', 'maxdd']:
             fails.append('%s: the stats strip reads %r, not the four tiles win rate, profit factor, max drawdown, '
                          'trades' % (nm, st))
         else:

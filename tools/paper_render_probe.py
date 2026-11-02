@@ -328,7 +328,12 @@ CASES = [
 # LEDGER step 8 (coordinator addendum 2026-10-06): the PAGE must never scroll sideways, at any width, in either view. One resizable
 # frame is sized per case and the check is absolute (scrollWidth <= innerWidth, no tolerance): a phone, just past the phone cut, the
 # middle of the stacked page, the first laptop widths and a normal laptop.
-WIDTHS = (375, 601, 700, 800, 1000, 1366)
+WIDTHS = (375, 601, 700, 800, 1000, 1366, 1690)
+# THE OWNER'S OWN ACCEPTANCE TEST (2026-11-01, the ledger redesign): on his 1690x1263 window the OPEN calendar panel must end
+# fully above y=1000 from the top of the board. The same number is asserted on REAL (tools/home_render_probe.py) and on WEBULL
+# PAPER (tools/webull_board_probe.py), so no board can drift away from the other two again without a probe saying so.
+CAL_FOLD_W = 1690
+CAL_FOLD_MAX = 1000
 WIDTH_VIEWS = ('list', 'table')
 for _w in WIDTHS:
     for _v in WIDTH_VIEWS:
@@ -382,7 +387,11 @@ OWN_FOLDS = ['health', 'capture', 'nt', 'recon', 'gate', 'reports']   # the boar
 HEALTH_KIDS = ['capture', 'nt', 'recon', 'gate']                   # the folds inside the System health fold
 S11_KEYS = ['status', 'health', 'capture', 'nt', 'recon', 'gate', 'reports', 'list']   # every remembered fold: localStorage el_lg_<key>_nt8
 HOUSE_WIDTHS = [600, 601, 740, 800, 920, 1100]                     # the one set of breakpoints (contract 5b); 601 is the other side of 600
-S11_PHONE_LIST_TOP = 797                                           # px under the board top before the step (LEDGER mistake #12) - it must not grow
+# LEDGER redesign step 11 (2026-11-01): on a phone anything TAPPED is at least 40 px tall, which the fold headers (22 px of text in a
+# 12 px-top button) were not. That is height a phone board now spends above its trade list on purpose, so every phone list-top limit
+# below carries this allowance. It is an allowance, not a new floor: the limits still fail if anything ELSE grows.
+PHONE_TAP_TARGET_EXTRA = 48
+S11_PHONE_LIST_TOP = 797 + PHONE_TAP_TARGET_EXTRA                  # px under the board top before the step (LEDGER mistake #12) - it must not grow
 # what the removed previous board drew: none of it may be in the page, in any case (the page-side readout lists the ones it finds). #ptrades-wrap
 # is deliberately not in tools/ledger_removed.py, so a mutant can put it back and prove that THIS check sees it.
 OLD_MARKS = ['#ptrades-wrap', '#ptrades-body', '#pt-selbar', 'tr[data-ptrow]', 'tr[data-paperleg]', 'tr[data-paperother]', '.p2rhstat',
@@ -1097,7 +1106,8 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         var cl=(typeof e.className==='string'?e.className:'').trim().split(/\\s+/).filter(Boolean).sort().join('.');
         var at=[].map.call(e.attributes,function(a){return a.name;}).filter(function(n){return n!=='class';}).sort().join(',');
         return e.tagName.toLowerCase()+'.'+cl+'|'+at;}).join('\\n');
-      o.dig={css:s11digest(css),cssLen:css.length,tree:s11digest(tree),treeN:bd.querySelectorAll('*').length,
+      // the lines themselves, so a tree mismatch can SAY which element differs instead of printing two hashes
+      o.dig={css:s11digest(css),cssLen:css.length,tree:s11digest(tree),treeN:bd.querySelectorAll('*').length,lines:tree.split('\\n'),
         folds:bd.querySelectorAll('[data-p2fold],[data-p2sec],.p2own,.p2fold-hd').length};
     }
     return o;
@@ -1407,8 +1417,14 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         r.bookTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('BOOK $')>=0;}).length;
         // LEDGER step 3 readout (PAPER * layout)
         function _num(t){var m=String(t||'').replace(/,/g,'').match(/(-?)\\$([0-9.]+)/);return m?(m[1]?-1:1)*parseFloat(m[2]):null;}
-        var _hn=d.querySelector('#p2-hero-value');
+        // LEDGER redesign step 9 (2026-11-01): the big number is NET EQUITY (realised + the mark of what is open), so the figure the
+        // chart's solid line and the BOOK group total tie to is the REALISED one on the line under it. heroNum keeps reading that
+        // realised figure - every check below is about it - and netEqNum / openNum are the big number and its unrealised half.
+        var _hn=d.querySelector('[data-p2realized]')||d.querySelector('#p2-hero-value');
         r.heroNum=_hn?_num(_hn.textContent):null;
+        var _hb=d.querySelector('#p2-hero-value');r.netEqNum=_hb?_num(_hb.textContent):null;
+        var _ho=d.querySelector('[data-p2heroopen]');r.openNum=_ho?_num(_ho.textContent):0;
+        var _hq=d.querySelector('#p2-hero-value [data-p2heroqual]');r.heroQual=_hq?(_hq.textContent||'').replace(/\\s+/g,' ').trim():null;
         var _hh=d.querySelector('.lg-hero');
         r.hero=_hh?{label:(_hh.querySelector('.lg-hero-label')||{}).innerText||'',today:(_hh.querySelector('.lg-hero-today')||{}).innerText||'',
           range:(_hh.querySelector('.lg-hero-range')||{}).innerText||'',
@@ -1426,7 +1442,9 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         r.mscopeCtl=d.querySelectorAll('.p2rail [data-mscope]').length;
         r.rowDays=[].map.call(d.querySelectorAll('#ptrades-body tr[data-ptrow],[data-lglist-frame="nt8"] [data-lgtrade]'),function(x){return x.getAttribute('data-pcd');});
         r.calDays=[].map.call(d.querySelectorAll('[data-pcalday],[data-lgcalday]'),function(x){return x.getAttribute('data-pcalday')||x.getAttribute('data-lgcalday');});
-        var _sv=d.querySelector('.p2rhstat .p2rhsv')||d.querySelector('[data-lgstat="trades"] .lg-stat-val');r.statTrades=_sv?parseInt(_sv.textContent,10):null;
+        // redesign step 10: the TRADES tile is gone - the count rides on the Net P&L tile's sub-line ('11 trades . 5 days')
+        var _sv=d.querySelector('.p2rhstat .p2rhsv')||d.querySelector('[data-lgstat="net"] .lg-stat-sub');
+        var _svm=_sv?String(_sv.textContent||'').match(/(\\d+)/):null;r.statTrades=_sv?(_svm?+_svm[1]:0):null;
         r.moneyHex=[].filter.call(d.querySelectorAll('#ptrades-body span.p2num, #p2legs span.p2num, .p2rhstat .p2rhsv span, [data-pcalday] div, tr[data-p2bookhd] span, tr[data-p2fwdhd] span, tr[data-p2otherhd] span, [data-lglist="p2"] .lg-row-val, [data-lglist="p2"] .lg-row-val *, [data-lglist="p2"] [data-p2grp] *, .lg-stats .lg-stat-val, .lg-more-panel .v, .lg-more-panel .v *, .lg-cal-panel [data-lgcalday], .lg-cal-panel [data-lgcalday] *'),function(x){return /#1d9e75|#e24b4a/i.test(x.getAttribute('style')||'');}).length;
         r.moneyMarks=[].map.call(d.querySelectorAll('#ptrades-body span.p2num, #p2legs span.p2num'),function(x){return x.innerText.trim();})
           .concat([].map.call(d.querySelectorAll('[data-lglist="p2"] .lg-row-val'),function(x){return x.innerText.split(String.fromCharCode(10))[0].trim();}));
@@ -1444,13 +1462,16 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         if(_cs&&nm==='paper2'){
           try{
             var big=d.getElementById('p2-hero-value'),rng=d.getElementById('p2-hero-range');
-            var b0=big.textContent,g0=rng.innerHTML,rc=_cs.getBoundingClientRect();
+            // LEDGER redesign step 9: the headline is the figure PLUS the small 'net equity' words, so read the figure on its own
+            var fig=function(){var c=big.cloneNode(true),q=c.querySelector('.qbx-hero-qual');if(q)q.parentNode.removeChild(q);return (c.textContent||'').replace(/\\s+/g,' ').trim();};
+            var h0=big.innerHTML,b0=fig(),g0=rng.innerHTML,rc=_cs.getBoundingClientRect();
             var mk=function(t,x,pt){return new w.PointerEvent(t,{clientX:rc.left+x,clientY:rc.top+40,pointerType:pt,bubbles:true,pointerId:7});};
-            _cs.dispatchEvent(mk('pointermove',rc.width*0.5,'mouse'));var m1=big.textContent,m1r=rng.innerText;
-            _cs.dispatchEvent(mk('pointerleave',0,'mouse'));var mBack=(big.textContent===b0&&rng.innerHTML===g0);
-            _cs.dispatchEvent(mk('pointerdown',rc.width*0.02,'touch'));var t1=big.textContent;
-            _cs.dispatchEvent(mk('pointermove',rc.width*0.6,'touch'));var t2=big.textContent;
-            _cs.dispatchEvent(mk('pointerup',0,'touch'));var tBack=(big.textContent===b0&&rng.innerHTML===g0);
+            _cs.dispatchEvent(mk('pointermove',rc.width*0.5,'mouse'));var m1=fig(),m1r=rng.innerText;
+            // restored means the WHOLE headline is back, the words beside the figure included
+            _cs.dispatchEvent(mk('pointerleave',0,'mouse'));var mBack=(big.innerHTML===h0&&rng.innerHTML===g0);
+            _cs.dispatchEvent(mk('pointerdown',rc.width*0.02,'touch'));var t1=fig();
+            _cs.dispatchEvent(mk('pointermove',rc.width*0.6,'touch'));var t2=fig();
+            _cs.dispatchEvent(mk('pointerup',0,'touch'));var tBack=(big.innerHTML===h0&&rng.innerHTML===g0);
             r.scrub={b0:b0,m1:m1,m1r:m1r,mBack:mBack,t1:t1,t2:t2,tBack:tBack};
           }catch(e){r.scrub={err:String(e)};}
         }
@@ -1575,7 +1596,8 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
             var I={};
             w.__scrolled=[];w.Element.prototype.scrollIntoView=function(){(w.__scrolled=w.__scrolled||[]).push(this.getAttribute?this.getAttribute('data-lgday'):null);};
             var _click=function(sel){var e=d.querySelector(sel);if(!e)return false;e.click();return true;};
-            var _heroN=function(){var e=d.getElementById('p2-hero-value');return e?_num(e.textContent):null;};
+            // the realised figure (redesign step 9): what the chart end and the BOOK total tie to
+            var _heroN=function(){var e=d.querySelector('[data-p2realized]')||d.getElementById('p2-hero-value');return e?_num(e.textContent):null;};
             var _snap=function(){
               var pc=w._p2Chart||null,tl={},bk=d.querySelector('[data-p2grp="book"]');
               [].forEach.call(d.querySelectorAll('.lg-stats [data-lgstat]'),function(e){tl[e.getAttribute('data-lgstat')]=_t(e.querySelector('.lg-stat-val'));});
@@ -2037,6 +2059,18 @@ def run(alt_index=None, timeout=300):
                          % (nm, hn, be, li['net'], li.get('tie')))
         if 'book #463 \u00b7 nt8 futures paper' not in (r.get('cap') or '').lower():
             fails.append('%s: the hero label is not BOOK #463 - NT8 futures paper: %r' % (nm, r.get('cap')))
+        # LEDGER redesign step 9 (owner 2026-11-01): ONE big-number rule on all three boards - the headline is NET EQUITY, the realised
+        # money plus the mark of everything still open, and it carries the words 'net equity'. Both parts keep their own line under it.
+        ne, op = r.get('netEqNum'), r.get('openNum') or 0
+        if ne is None:
+            fails.append('%s: no big number to read (#p2-hero-value)' % nm)
+        elif abs(ne - (hn + op)) > 0.02:
+            fails.append('%s: the big number is %s, but net equity is the realised %s plus the open %s = %s (redesign step 9)'
+                         % (nm, ne, hn, op, round(hn + op, 2)))
+        if (r.get('heroQual') or '') != 'net equity':
+            fails.append("%s: the big number's qualifier reads %r, want 'net equity' (what the one big-number rule calls it)" % (nm, r.get('heroQual')))
+        if 'net equity' not in (r.get('cap') or '').lower():
+            fails.append('%s: the hero label does not name the big number as net equity: %r' % (nm, r.get('cap')))
     for nm in ('paper2', 'other-open', 'other-on', 'warn-stale-bridge', 'fwd-closed', 'fwd-open', 'book-fallback'):
         r = cases.get(nm) or {}
         if r.get('heroNum') is not None and abs(r['heroNum'] - exp_book) > 1.0:
@@ -2070,11 +2104,12 @@ def run(alt_index=None, timeout=300):
         else:
             if h.get('underPrev') != 'p2-hero-value' or h.get('underNext') != 'p2-hero-range':
                 fails.append('%s: the open line is not directly under the big number with the range line under it (before: %r, after: %r)' % (nm, h.get('underPrev'), h.get('underNext')))
-            # owner 10-31 15:30: 'unrealized -$X · N trades · not counted' only while a trade is open; nothing (no 'flat' word) otherwise
+            # owner 10-31 15:30 + redesign step 9: 'unrealized -$X · N trades · in the number above' only while a trade is open
             if not (und.startswith('unrealized ') or und == ''):
                 fails.append("%s: the line under the big number reads %r, want 'unrealized -$X · N trades · not counted' or nothing (no 'flat' word)" % (nm, und))
-            if und.startswith('unrealized ') and 'not counted' not in und:
-                fails.append("%s: the open line %r does not say the open trades are not counted (NT8's big number is closed trades only)" % (nm, und))
+            # redesign step 9: the open money IS in the big number now, so the line says so instead of 'not counted'
+            if und.startswith('unrealized ') and 'in the number above' not in und:
+                fails.append("%s: the open line %r does not say the open trades are IN the number above (the big number is net equity)" % (nm, und))
         if h.get('openInRange'):
             fails.append('%s: the range line still names the open trades (they moved to the line under the big number)' % nm)
         rng = (h.get('range') or '').replace('\n', ' ')
@@ -2297,11 +2332,13 @@ def run(alt_index=None, timeout=300):
                 'best': max(dv), 'worst': min(dv), 'green': sum(1 for v in dv if v > 0), 'days': len(dv)}
 
     def _tiles_of(e):
+        # LEDGER redesign step 10 (owner 2026-11-01): NET P&L first, the trade count folded into its sub-line, TRADES gone
         if e is None:
-            return {'winrate': '--', 'pf': '--', 'maxdd': '--', 'trades': '0'}
+            return {'net': '--', 'winrate': '--', 'pf': '--', 'maxdd': '--'}
         pf = '--' if e['pf'] is None else ('no losses' if e['pf'] == float('inf') else '%.2f' % e['pf'])
         wr = '--' if e['wr'] is None else '%d%%' % int(_math.floor(e['wr'] * 100 + 0.5))
-        return {'winrate': wr, 'pf': pf, 'maxdd': '${:,.2f}'.format(e['dd']), 'trades': str(e['n'])}
+        net = ('+' if e['net'] >= 0 else '-') + '${:,.2f}'.format(abs(e['net']))
+        return {'net': net, 'winrate': wr, 'pf': pf, 'maxdd': '${:,.2f}'.format(e['dd'])}
 
     def _money_in(txt):
         m = _re.search(r'(-?)\$([0-9,]+(?:\.[0-9]+)?)', (txt or '').replace('+', ''))
@@ -2321,12 +2358,12 @@ def run(alt_index=None, timeout=300):
         exp = _stats_of(_rows_for(rng, excl))
         want = _tiles_of(exp)
         tiles = r.get('statTiles') or []
-        if [x.get('k') for x in tiles] != ['winrate', 'pf', 'maxdd', 'trades']:
-            fails.append('%s: the stats strip reads %s, expected the four tiles win rate, profit factor, max drawdown, '
-                         'trades in that order' % (nm, [x.get('k') for x in tiles]))
+        if [x.get('k') for x in tiles] != ['net', 'winrate', 'pf', 'maxdd']:
+            fails.append('%s: the stats strip reads %s, expected the four tiles net P&L, win rate, profit factor, '
+                         'max drawdown in that order (redesign step 10)' % (nm, [x.get('k') for x in tiles]))
             continue
         got = dict((x['k'], x['v']) for x in tiles)
-        for k in ('winrate', 'pf', 'trades'):
+        for k in ('net', 'winrate', 'pf'):
             if got[k] != want[k]:
                 fails.append('%s: the %s tile reads %r, the fixture says %r' % (nm, k, got[k], want[k]))
         dd = got['maxdd'] or ''
@@ -2341,8 +2378,12 @@ def run(alt_index=None, timeout=300):
             sub = dict((x['k'], x.get('sub') or '') for x in tiles)
             if '%d W' % exp['wins'] not in sub['winrate'] or '%d L' % exp['losses'] not in sub['winrate']:
                 fails.append('%s: the win rate tile says %r, expected %d W and %d L' % (nm, sub['winrate'], exp['wins'], exp['losses']))
-            if sub['trades'] != 'over %d day%s' % (exp['days'], '' if exp['days'] == 1 else 's'):
-                fails.append('%s: the trades tile says %r, expected %d trading day(s)' % (nm, sub['trades'], exp['days']))
+            want_sub = '%d trade%s \u00b7 %d day%s' % (exp['n'], '' if exp['n'] == 1 else 's', exp['days'], '' if exp['days'] == 1 else 's')
+            if sub['net'] != want_sub:
+                fails.append('%s: the Net P&L tile sub-line says %r, expected %r (the trade count folded in, redesign step 10)'
+                             % (nm, sub['net'], want_sub))
+            if 'maxdd' in sub and sub['maxdd']:
+                fails.append('%s: the Max drawdown tile still carries the sub-line %r - the label says drawdown (redesign step 4)' % (nm, sub['maxdd']))
 
     I = (cases.get('paper2') or {}).get('int') or {}
     if I.get('err') or not I:
@@ -2557,9 +2598,11 @@ def run(alt_index=None, timeout=300):
         fails.append('phone375: could not locate the trade list or the board top (%s)' % g)
     else:
         dist = g['tradesTop'] - g['boardTop']
-        if dist > (g.get('vh') or 0):
-            fails.append('phone375: the trade list starts %d px below the board top, more than one screen (%s px) - LEDGER mistake #12'
-                         % (dist, g.get('vh')))
+        # the first screen of a phone board is the headline, the status line and the tiles - by design, the owner scrolls for the rest.
+        # The limit is one screen PLUS what redesign step 11's 40 px tap targets cost above the list (PHONE_TAP_TARGET_EXTRA).
+        if dist > (g.get('vh') or 0) + PHONE_TAP_TARGET_EXTRA:
+            fails.append('phone375: the trade list starts %d px below the board top, more than one screen plus the tap-target allowance '
+                         '(%s + %d px) - LEDGER mistake #12' % (dist, g.get('vh'), PHONE_TAP_TARGET_EXTRA))
         # LEDGER step 11 turned the phone order round: the More stats and calendar folds and the strategy list fold (one line) now come BEFORE the trade list,
         # in the fixed page order (the full order is judged for every case further down); the strategy rows are measured with the list fold open
         if not g.get('listTop') or g['listTop'] >= g['tradesTop']:
@@ -2855,8 +2898,9 @@ def run(alt_index=None, timeout=300):
         fails.append('phone375: could not locate the trade list frame or the board top (%s)' % g)
     else:
         dist = g['frameTop'] - g['boardTop']
-        if dist > g.get('vh', 0):
-            fails.append('phone375: the trade list starts %d px under the board top, more than one screen (%s px)' % (dist, g.get('vh')))
+        if dist > g.get('vh', 0) + PHONE_TAP_TARGET_EXTRA:
+            fails.append('phone375: the trade list starts %d px under the board top, more than one screen plus the tap-target allowance '
+                         '(%s + %d px)' % (dist, g.get('vh'), PHONE_TAP_TARGET_EXTRA))
         if dist > S11_PHONE_LIST_TOP:
             fails.append('phone375: the trade list starts %d px under the board top; it was 797 before the shared frame - it must not grow' % dist)
     for nm in ('phone375', 'phone375-table', 'w600', 'w760', 'w1099', 'w1100', 'paper2', 'laptop-list'):
@@ -3723,6 +3767,22 @@ def _judge_s11(cases, fixture, data, fails):
             r = cases.get('wid-%d-%s' % (w_px, view)) or {}
             if not (r.get('s11') or {}).get('sec'):
                 fails.append('wid-%d-%s: no page order readout' % (w_px, view))
+                continue
+            # the owner's acceptance test at 1690 px: the OPEN calendar panel ends above y=1000 from the top of the board
+            if w_px != CAL_FOLD_W:
+                continue
+            _cal = ([e for e in ((r.get('s11') or {}).get('sec') or []) if e.get('k') == 'cal'] or [None])[0]
+            if not _cal:
+                fails.append('wid-%d-%s: no calendar section to measure the fold test on' % (w_px, view))
+                continue
+            _bot = (_cal.get('top') or 0) + (_cal.get('h') or 0)
+            print('    [cal fold] NT8 PAPER wid-%d-%s: the calendar section runs %s-%s px from the top of the board (limit %s)'
+                  % (w_px, view, _cal.get('top'), _bot, CAL_FOLD_MAX))
+            if (_cal.get('h') or 0) < 120:
+                fails.append('wid-%d-%s: the calendar is not open, so the fold test measures nothing (height %spx)' % (w_px, view, _cal.get('h')))
+            elif _bot > CAL_FOLD_MAX:
+                fails.append('wid-%d-%s: the open calendar ends %spx from the top of the board, past the %spx fold the owner reads at '
+                             '1690x1263' % (w_px, view, _bot, CAL_FOLD_MAX))
     # -- the folds open on a click, show their content, close again and store the choice
     n_folds_run = 0
     for nm in ('s11-laptop', 's11-phone', 's11-tablet'):
@@ -3839,8 +3899,15 @@ def _judge_s11(cases, fixture, data, fails):
             fails.append('flag-paper2: the css behind ?oldboards=1 is not the plain page css (digest %s, %d chars; plain %s, %d chars)'
                          % (o.get('css'), o.get('cssLen'), pd_.get('css'), pd_.get('cssLen')))
         if o.get('tree') != pd_.get('tree'):
-            fails.append('flag-paper2: the markup tree behind ?oldboards=1 is not the plain page tree (digest %s, %d elements; plain %s, %d elements)'
-                         % (o.get('tree'), o.get('treeN'), pd_.get('tree'), pd_.get('treeN')))
+            a_, b_ = pd_.get('lines') or [], o.get('lines') or []
+            where = next((i for i in range(max(len(a_), len(b_)))
+                          if (a_[i] if i < len(a_) else None) != (b_[i] if i < len(b_) else None)), None)
+            fails.append('flag-paper2: the markup tree behind ?oldboards=1 is not the plain page tree (digest %s, %d elements; plain %s, %d elements)%s'
+                         % (o.get('tree'), o.get('treeN'), pd_.get('tree'), pd_.get('treeN'),
+                            '' if where is None else ('; first difference at element %d: plain %r, flag %r (the element before it: %r)'
+                                                      % (where, a_[where] if where < len(a_) else None,
+                                                         b_[where] if where < len(b_) else None,
+                                                         a_[where - 1] if 0 < where <= len(a_) else None))))
     return ('%d cases in the fixed page order (%d own folds + status + list), %d fold clicks run, remembered across a real reload (laptop + phone), house widths seen %s, '
             'phone list top %s px (was %d), ?oldboards=1 board = plain board (css %s, tree %s, %s elements)'
             % (n_orders, len(OWN_FOLDS), n_folds_run, '/'.join(str(int(x)) for x in sorted(set(

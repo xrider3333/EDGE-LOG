@@ -401,8 +401,15 @@ LEG_RE = re.compile(r'^(ORB|ENGU-Q|NOISE) #\d+$')
 # owner 10-31 15:50: the row's words - family, run.set (or 'set ?'), the model word (api/paper_leg_params.py)
 LABEL_RE = re.compile(r'^(ORB|ENGU-Q|NOISE|DIP) #\d+(?:\.(\d+)| set \?) (raw|keel|fixed|hybrid|tilt|comp)$')
 MONEY_RE = re.compile(r'^-?\$[\d,]+\.\d\d$')
-# LEDGER step 6: the shared stat tiles, in this order on every board
-STAT_KEYS = ['winrate', 'pf', 'maxdd', 'trades']
+# LEDGER step 6, redesign step 10 (owner 2026-11-01): the shared stat tiles, in this order on every board. NET P&L took the first slot
+# (it is the only tile that answers 'did this range make money' without arithmetic) and the TRADES tile it displaced is now the Net P&L
+# tile's own sub-line, '47 trades . 12 days'.
+STAT_KEYS = ['net', 'winrate', 'pf', 'maxdd']
+# LEDGER redesign step 11 (2026-11-01): on a phone anything TAPPED is at least 40 px tall, which the fold headers (22 px of text in a
+# 12 px-top button) were not. That is height a phone board now spends above its trade list on purpose, so every phone list-top limit
+# below carries this allowance. It is an allowance, not a new floor: the limits still fail if anything ELSE grows.
+PHONE_TAP_TARGET_EXTRA = 48
+
 STAT_TODAY = '2026-10-05'      # the stats cases pin ledgerTodayNY() to the fixture's own day
 ACCOUNT_ROWS = ['Account equity', 'Cash', 'Open exposure', 'Daily loss limit', 'Broker made',
                 'Book figure', 'Book-only trades', 'Fill coverage', 'Slippage vs backtest']
@@ -462,7 +469,7 @@ def leg_today_want(doc, leg):
 # shows the family as ONE strategy. The variants lay DIP_FIXTURE over the base doc: ORB long 10 and NOISE short 10 bought today, the seven DIP
 # lots each carried overnight (Friday's last price 750.95, today's open 749.34: a -$9.66 gap a lot), three closed DIP trades, ENGU-Q a retired
 # tracker. What the page must say is pinned here (worked out by hand from the fixture), so a drift in a helper cannot hide a wrong page.
-DIP_PHONE_TOP_MAX = 757 + 28 + 16  # owner 10-31 (live page): the open line is its own line under the big number (+16)  # phone 375x812: with seven DIP lots held the trade list still starts within step 12's 757 px  # owner 10-31 14:35: the DIP row and the headline line each grew by one small line (open lots)
+DIP_PHONE_TOP_MAX = 757 + 28 + 16 + PHONE_TAP_TARGET_EXTRA  # owner 10-31 (live page): the open line is its own line under the big number (+16)  # phone 375x812: with seven DIP lots held the trade list still starts within step 12's 757 px  # owner 10-31 14:35: the DIP row and the headline line each grew by one small line (open lots)
 # its rail line beside the daily stop: its own figure today (today.dip_rail_input: +$100.38, so nothing used), or on a box that does not send
 # the figure, the limit alone
 DIP_RAIL_OK = ('ok', 'DIP #424 own rail: $0.00 of $800.00 used today (not in this stop); a breach pauses its entries for the next session and never sells')
@@ -1401,7 +1408,7 @@ MUTANTS = [
      '',
      'the data-caveat days are no longer hatched on the chart'),
     ('scrub-leaves-hero',
-     "h.big.innerHTML=_hmMoney(qbBase+p.v)+'<span class=\"lg-suffix qbx-hero-qual\">'+(p.v!==pc.v||atNow?'net':'cash')+'</span>';",
+     "h.big.innerHTML=_hmMoney(qbBase+p.v)+'<span class=\"lg-suffix qbx-hero-qual\">'+(p.v!==pc.v||atNow?LEDGER_NET_EQUITY_WORD:'cash')+'</span>';",
      '',
      'a chart scrub no longer writes the big number'),
     ('phone-overflow',
@@ -2699,13 +2706,13 @@ MUTANTS = [
      "brokerLine",
      "the broker line sits in the open under the headline, not behind 'details'"),
     ('hero-qualifier-missing',
-     "data-qbheroqual=\"net\">net</span>')",
-     "data-qbheroqual=\"net\"></span>')",
-     "the big number carries no small 'net' word"),
+     "+LEDGER_NET_EQUITY_WORD+'</span>')",
+     "+''+'</span>')",
+     "the big number carries no small 'net equity' word"),
     ('hero-qualifier-wrong',
-     "data-qbheroqual=\"net\">net</span>')",
-     "data-qbheroqual=\"net\">closed + open</span>')",
-     "the big number says 'closed + open' again instead of 'net'"),
+     "+LEDGER_NET_EQUITY_WORD+'</span>')",
+     "+'closed + open'+'</span>')",
+     "the big number says 'closed + open' again instead of 'net equity'"),
     ('hero-open-line-missing',
      "?('<span class=\"hm-suffix\">unrealized </span>'+(ov!=null?(",
      "?('<span class=\"hm-suffix\">unrealized </span>'+(false?(",
@@ -4434,7 +4441,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
         shown:cs.display!=='none'&&cs.visibility!=='hidden'&&r.width>0&&r.height>0};
     }
     var M={shell:'.qb-shell',hero:'#qb-hero-label',pills:'.qbx-range-row',chart:'#qb-lg-chart',status:'.qbx-statusline',stats:'.qbx-lgstats .lg-stats',
-      more:'[data-lgmore="qb"]',cal:'[data-lgcalfold="qb"]',list:'[data-lglist="qb"]',listfold:'[data-qbfold="list"]',trades:'[data-lglist-frame="wb"]',own:'.qbx-own',
+      more:'[data-lgmore="qb"]',cal:'[data-lgcalfold="qb"]',calpanel:'#qb-cal',list:'[data-lglist="qb"]',listfold:'[data-qbfold="list"]',trades:'[data-lglist-frame="wb"]',own:'.qbx-own',
       ftop:'[data-lgframe-top="qb"]'};
     o.pos={};
     Object.keys(M).forEach(function(k){o.pos[k]=bx(M[k]);});
@@ -4618,13 +4625,14 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
       r2.errs=drain();
       res.widths[String(wd)]=r2;
     }
-    // LEDGER step 12: a window wider than the frame: the frame stays 1320 px wide and centred, the list still the right-hand panel
-    fr.style.width='1680px';fr.style.height='900px';
-    await waitFor(function(){return W().innerWidth===1680;},2000);await sleep(70);
+    // LEDGER step 12: a window wider than the frame: the frame stays 1320 px wide and centred, the list still the right-hand panel.
+    // 2026-11-01: this is also the owner's own window (1690x1263), so the same run measures the calendar-fold test (res.wide.s11).
+    fr.style.width='1690px';fr.style.height='1263px';
+    await waitFor(function(){return W().innerWidth===1690;},2000);await sleep(70);
     drain();
     try{res.wideSeed=seed({vp:'laptop',theme:'dark'});}catch(e){res.wideSeed='ERR '+e;}
     await sleep(230);
-    res.wide={iw:w.innerWidth,frame:frameRead(),errs:drain()};
+    res.wide={iw:w.innerWidth,frame:frameRead(),s11:s11Read(),errs:drain()};
     fr.style.width='1366px';fr.style.height='768px';
     return res;
   }
@@ -4633,7 +4641,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
 # ── LEDGER step 11 (2026-10-06): one fixed page order; every own section a closed fold with a one-line summary; one set of breakpoints ──
 S11_OWN_ORDER = ['orders', 'account', 'todayorders', 'feedsig', 'system', 'rails', 'events', 'model']   # the own folds, top to bottom
 S11_OWN_REQUIRED = ['orders', 'account', 'system', 'rails', 'events', 'model']                          # always drawn; Today's orders / Feed & signals only when there is something
-S11_PHONE_TOP_MAX = 760 + 28 # phone 375x812: the trade list starts at most this far under the board top. It was 784 before step 11 and 12; step 12's
+S11_PHONE_TOP_MAX = 760 + 28 + PHONE_TAP_TARGET_EXTRA # phone 375x812: the trade list starts at most this far under the board top. It was 784 before step 11 and 12; step 12's
                              # ... + 28 (owner 10-31, live page): the open / flat line directly under the big number is one small line more
                              # page puts it at 757 (the status line under the hero, the caption in the chart foot), and it must not grow (3 px slack)
 S11_FOLD_ONE_LINE = 40       # a fold header is one line: the button is shorter than this (two lines of text would be 44 and over)
@@ -4859,13 +4867,30 @@ def _judge_s11_run(res, fixture, fails):
         fails.append('%s: not measured (window %s)' % (t, wd.get('iw')))
     else:
         _frame_problems(t, wd.get('frame'), FRAME_WIDE, fails, wide=True)
+        # the owner's acceptance test: the OPEN calendar panel ends above y=1000 from the top of the board
+        _pos = (wd.get('s11') or {}).get('pos') or {}
+        _shell, _panel = _pos.get('shell'), _pos.get('calpanel')
+        if not _shell or not _panel or not _panel.get('shown'):
+            fails.append('%s: no open calendar panel to measure the fold test on (%r)' % (t, _panel))
+        else:
+            _bot = (_panel.get('b') or 0) - (_shell.get('t') or 0)
+            print('    [cal fold] WEBULL PAPER: the open calendar panel ends %s px from the top of the board (limit %s)' % (_bot, CAL_FOLD_MAX))
+            if (_panel.get('h') or 0) < 120:
+                fails.append('%s: the calendar is not open, so the fold test measures nothing (height %spx)' % (t, _panel.get('h')))
+            elif _bot > CAL_FOLD_MAX:
+                fails.append('%s: the open calendar ends %spx from the top of the board, past the %spx fold the owner reads at 1690x1263'
+                             % (t, _bot, CAL_FOLD_MAX))
         _errs(t, wd.get('errs') or {}, fails)
 
 
 # ── LEDGER step 12 (2026-10-07): the one page frame (ledgerFrameHtml), the status line under the hero, the chart foot, the Filters row ──
 FRAME_MAX_W = '1320px'      # the frame's computed max-width (the shared .lg-frame rule)
 FRAME_W = 1320
-FRAME_WIDE = 1680           # the window the step 11 run also draws the board in: wider than the frame, so the frame must be FRAME_W wide and centred
+FRAME_WIDE = 1690           # the window the step 11 run also draws the board in: the owner's own 1690x1263, wider than the frame, so the frame must be
+                            # FRAME_W wide and centred - and the run that measures that also measures the calendar-fold test below
+# THE OWNER'S OWN ACCEPTANCE TEST (2026-11-01, the ledger redesign): on his 1690x1263 window the OPEN calendar panel must end fully above
+# y=1000 from the top of the board. REAL (tools/home_render_probe.py) and NT8 PAPER (tools/paper_render_probe.py) assert the same number.
+CAL_FOLD_MAX = 1000
 FRAME_TWO_COL = 1100        # from this width the list is the right-hand panel
 STATUS_GAP_MAX = 24         # the status line starts at most this far under the hero box
 STATUS_LINES_MAX = 2
@@ -5292,14 +5317,16 @@ def expected_stats(trades, cutoff=None):
         peak = max(peak, run)
         dd = max(dd, peak - run)
     days = len(set(d for d in (_close_day(t) for t in rows) if d))
+    # LEDGER redesign step 10 (owner 2026-11-01): NET P&L is the first tile and carries the trade count on its sub-line; TRADES is gone
+    net = sum(vals)
     if not n:
-        return {'winrate': ('--', ''), 'pf': ('--', ''), 'maxdd': ('--', ''), 'trades': ('0', '')}
+        return {'net': ('--', ''), 'winrate': ('--', ''), 'pf': ('--', ''), 'maxdd': ('--', '')}
     wr = ('%d%%' % _js_round(w / (w + l) * 100)) if (w + l) else '--'
     pf = '--' if (not gw and not gl) else ('%.2f' % (gw / gl) if gl > 0 else 'no losses')
-    return {'winrate': (wr, '%d W · %d L' % (w, l) + (' · %d even' % f if f else '')),
+    return {'net': (signed(net), '%d trade%s · %d day%s' % (n, '' if n == 1 else 's', days, '' if days == 1 else 's')),
+            'winrate': (wr, '%d W · %d L' % (w, l) + (' · %d even' % f if f else '')),
             'pf': (pf, ('%s won · %s lost' % (short_money(gw), short_money(gl))) if (gw or gl) else ''),
-            'maxdd': (money(dd), 'worst drop from a high' if dd > 0 else ''),
-            'trades': (str(n), 'over %d day%s' % (days, '' if days == 1 else 's'))}
+            'maxdd': (money(dd), '')}
 
 
 def month_won(trades, month):
@@ -5930,8 +5957,9 @@ def _hero_qual_problems(tag, r, doc, fails):
     summed (the same figure the strategy rows carry); the solid chart line is ACCOUNT EQUITY and ends at the big number (owner 15:00); the
     hero never names a held lot (that line is the strategy row's); the broker line sits behind a details fold; the chart's total line is
     drawn in the page's text colour (the one solid line; the strategies are the broken ones)."""
-    if r.get('heroQual') != 'net':
-        fails.append("%s: the big number's qualifier reads %r, want 'net' (closed trades + open lots)" % (tag, r.get('heroQual')))
+    # LEDGER redesign step 9 (owner 2026-11-01): the one big-number rule names this quantity NET EQUITY on all three boards
+    if r.get('heroQual') != 'net equity':
+        fails.append("%s: the big number's qualifier reads %r, want 'net equity' (closed trades + the mark of the open lots)" % (tag, r.get('heroQual')))
     rng = r.get('heroRange') or ''
     # owner 10-31 15:30: 'realized +$X · closed trades · since 09-03' (the range's word when one is chosen)
     if r.get('heroRange') is not None and (not rng.startswith('realized ') or 'closed trades' not in rng):
@@ -6467,7 +6495,7 @@ TL_CHIP_LABELS = ['ALL', 'LONG', 'SHORT', 'WINS', 'LOSSES', 'ORB #314', 'ENGU-Q 
 TL_COMMON_CELLS = ['time', 'sym', 'side', 'size', 'pnl', 'pts', 'strat', 'chart']
 TL_PHONE_CELLS = ['time', 'sym', 'side', 'pnl', 'chart']
 TL_PAGE = 18                 # the SHOW MORE case: the list shows this many rows first, and on to the end of that trade's day (the 18th trade shares 09-25 with the 19th)
-TL_FRAME_TOP_MAX = 792       # phone: the frame starts at most this far under the board top (the History section started at 784 before the frame)
+TL_FRAME_TOP_MAX = 792 + PHONE_TAP_TARGET_EXTRA   # phone: the frame starts at most this far under the board top (the History section started at 784 before the frame)
 TL_TODAY = STAT_TODAY
 TL_WIDTHS = [375, 390, 600, 601, 640, 700, 800, 900, 1000, 1099, 1100, 1280, 1366]
 TL_CAV_BOX = 800             # the flagged-row mark under the time is drawn while the list's own box is this wide or narrower (a container query; the flags column is drawn above it)
@@ -7849,8 +7877,13 @@ def _judge_tiles(tag, r, want, fails):
         fails.append('%s: PROFIT FACTOR reads %r' % (tag, got['pf'][0]))
     if not re.match(r'^(\$[\d,]+\.\d\d|--)$', got['maxdd'][0]) or (got['maxdd'][0] == '--') != (want['maxdd'][0] == '--'):
         fails.append('%s: MAX DRAWDOWN reads %r, not a positive dollar amount' % (tag, got['maxdd'][0]))
-    if not re.match(r'^\d+$', got['trades'][0]):
-        fails.append('%s: TRADES reads %r, not a count' % (tag, got['trades'][0]))
+    # an empty range has no money and no count: both read as the house's no-figure dash / blank sub-line
+    if not re.match(r'^([+-]\$[\d,]+\.\d\d|--)$', got['net'][0]) or (got['net'][0] == '--') != (want['net'][0] == '--'):
+        fails.append('%s: NET P&L reads %r, not a signed dollar amount' % (tag, got['net'][0]))
+    if got['net'][1] != want['net'][1] and not re.match(r'^\d+ trades? \u00b7 \d+ days?$', got['net'][1]):
+        fails.append("%s: the Net P&L tile's sub-line reads %r, want the trade count and the day count ('47 trades . 12 days')" % (tag, got['net'][1]))
+    if got['maxdd'][1]:
+        fails.append('%s: the Max drawdown tile still carries the sub-line %r - the label says drawdown (redesign step 4)' % (tag, got['maxdd'][1]))
     for k in STAT_KEYS:
         wv, ws = want[k]
         if got[k][0] != wv:
@@ -8294,8 +8327,10 @@ def _judge(data, fixture):
         cut = _cutoff(rg, sc_['today'])
         want = expected_stats(tr, cut)
         n_plain = len([t for t in tr if not _is_shadow(t)])
-        if (want['trades'][0] == '0') != sc_['empty'] or (rg != 'ALL' and want['trades'][0] == str(n_plain)):
-            fails.append('%s: the probe\'s own case is wrong: %s of %s trades in the range' % (tag, want['trades'][0], len(tr)))
+        # redesign step 10: the count lives on the Net P&L tile's sub-line ('47 trades · 12 days'), the TRADES tile is gone
+        n_want = 0 if want['net'][0] == '--' else int(want['net'][1].split(' ')[0])
+        if (n_want == 0) != sc_['empty'] or (rg != 'ALL' and n_want == n_plain):
+            fails.append('%s: the probe\'s own case is wrong: %s of %s trades in the range' % (tag, n_want, len(tr)))
         if any(_is_shadow(t) for t in tr):
             # a shadow row must change nothing: the tiles equal the fixture's own
             if want != expected_stats(fixture.get('trades_all') or [], cut):

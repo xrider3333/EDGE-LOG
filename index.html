@@ -793,13 +793,16 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-down{color:var(--red)}
 /* B5: a P&L that is not a number. Amber and italic, so it can never be read as a figure. */
 .lg-nofig{color:var(--attn-amber);font-style:italic}
-.lg-more{display:flex;align-items:center;gap:6px;width:100%;background:transparent;border:none;border-top:1px solid var(--border2);padding:12px 4px 0;margin-bottom:24px;font-family:'JetBrains Mono',monospace;text-align:left;cursor:pointer;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5)}
+/* LEDGER redesign step 12 (2026-11-01): the fold header's own margin IS the gap. It used to be 24 px with the panel pulling itself back up by
+   -10 px - two rules cancelling - so a closed fold paid for a gap it did not have. 14 px here, 0 on the panel, 24 px under the panel. */
+.lg-more{display:flex;align-items:center;gap:6px;width:100%;background:transparent;border:none;border-top:1px solid var(--border2);padding:12px 4px 0;margin-bottom:14px;font-family:'JetBrains Mono',monospace;text-align:left;cursor:pointer;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5)}
 .lg-more:hover{color:var(--text3)}
 .lg-more .lg-chev{font-size:10px;display:inline-block;transition:transform .18s ease}
 .lg-more[aria-expanded="true"] .lg-chev{transform:rotate(180deg)}
-.lg-more-panel{background:var(--bg1);border-radius:12px;padding:20px;margin:-10px 0 30px}
+.lg-more-panel{background:var(--bg1);border-radius:12px;padding:20px;margin:0 0 24px}
 .lg-more-panel[hidden]{display:none}
 .lg-ms-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:20px 24px}
+.lg-ms-wide{grid-column:1/-1}
 .lg-ms-group h4{font-size:10px;text-transform:uppercase;letter-spacing:2px;color:var(--text5);font-weight:500;margin:0 0 10px;padding-bottom:8px;border-bottom:1px solid var(--border2)}
 .lg-ms-row{display:flex;justify-content:space-between;align-items:center;padding:7px 0;gap:10px}
 .lg-ms-row .l{font-size:11px;color:var(--text3)}
@@ -815,11 +818,11 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-more-panel>.lg-ms-note:first-child{margin-top:0}
 .lg-ms-own-empty{margin-top:18px}
 /* LEDGER shared calendar (unify step 7): one month, a week column, money in theme colours plus a sign, caveat days hatched */
-.lg-cal-panel{background:var(--bg1);border-radius:12px;padding:16px 18px;margin:-10px 0 30px}
+.lg-cal-panel{background:var(--bg1);border-radius:12px;padding:16px 18px;margin:0 0 24px}
 .lg-cal-panel[hidden]{display:none}
 .lg-cal-hd{display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:10px}
 .lg-cal-title{font-size:11px;letter-spacing:2px;text-transform:uppercase;color:var(--text3);min-width:118px}
-.lg-cal-nav{background:none;border:1px solid var(--border);border-radius:6px;color:var(--text3);font-size:10px;padding:2px 9px;cursor:pointer;font-family:inherit}
+.lg-cal-nav{background:none;border:1px solid var(--border);border-radius:999px;color:var(--text3);font-size:10px;padding:2px 9px;cursor:pointer;font-family:inherit}
 .lg-cal-nav[disabled]{opacity:.25;cursor:default}
 .lg-cal-sum{margin-left:auto;font-size:11px;font-variant-numeric:tabular-nums;white-space:nowrap}
 .lg-cal-grid{display:grid;grid-template-columns:repeat(7,minmax(0,1fr)) minmax(0,1.15fr);gap:3px}
@@ -955,6 +958,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-chart-row .lg-chart-foot.lg-chart-rowcap{margin:0 0 0 auto;flex:0 1 auto;min-width:0}.lg-chart-rowcap .lg-chart-cap{display:inline-flex;align-items:center;white-space:nowrap}
 .lg-paper .qbx-lgstats,.lg-paper [data-p2sec="stats"]{padding-top:8px}.lg-paper .lg-stats{margin-bottom:0}.lg-paper .qbx-chart,.lg-paper [data-p2sec="chart"]{margin-top:6px}
 .lg-chart-row .lg-pills{gap:14px}.lg-chart-row .lg-pills button{padding-bottom:3px}
+/* LEDGER redesign step 2: REAL's range pills and its EQUITY | P&L switch inside that row - not the full-width .hm-ctl of their own row */
+.lg-chart-rowpills{flex:none;min-width:0}
+.lg-chart-row .hm-mode{flex:none}
 .lg-legend-slot{min-width:0}.lg-legend-slot .lg-legend{margin:0}.lg-legend-slot:empty{display:none}
 .lg-legend-slot .lg-legend svg{display:inline-block;width:16px;height:4px;flex:none}
 .lg-help{display:inline-flex;align-items:center;justify-content:center;width:14px;height:14px;margin-left:6px;border-radius:50%;border:1px solid var(--text5);color:var(--text5);font-size:9px;line-height:1;cursor:help;vertical-align:middle;flex:none;font-family:'JetBrains Mono',monospace}
@@ -964,8 +970,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-paper .lg-status{margin:4px 0 0;padding:3px 0}.lg-paper .lg-status-row{min-height:22px}
 .lg-paper .lg-chart-foot{margin-top:4px}
 .lg-paper .lg-stats{margin-bottom:6px}.lg-paper .lg-stat{padding:8px 14px}.lg-paper .lg-stat-val{margin-top:2px;line-height:1.15}.lg-paper .lg-stat-sub{margin-top:1px}
-.lg-paper .lg-more{padding-top:8px;margin-bottom:10px}.lg-paper .lg-more-panel{margin-top:-4px}
-.lg-paper .lg-cal-panel{padding:10px 14px;margin:-4px 0 8px}.lg-paper .lg-cal-hd{margin-bottom:6px}.lg-paper .lg-cal-day{min-height:40px}.lg-paper .lg-cal-note{margin-top:5px}
+.lg-paper .lg-more{padding-top:8px;margin-bottom:6px}.lg-paper .lg-more-panel{margin-top:0}
+.lg-paper .lg-cal-panel{padding:10px 14px;margin:0 0 8px}.lg-paper .lg-cal-hd{margin-bottom:6px}.lg-paper .lg-cal-day{min-height:40px}.lg-paper .lg-cal-note{margin-top:5px}
 .lg-filters{border-top:1px solid var(--border2)}
 .lg-filters-btn{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;padding:9px 16px;font-family:'JetBrains Mono',monospace;font-size:10px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text5);cursor:pointer;text-align:left}
 .lg-filters-btn:hover{color:var(--text3)}
@@ -984,6 +990,17 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-status-btn{padding:0 9px}
 }
 @media (max-width:740px){.lg-filters-btn{padding-left:12px;padding-right:12px}}
+/* LEDGER redesign step 11 (2026-11-01): a phone board obeys two rules of the reference language.
+   1. THE STATUS LINE IS ONE LINE. It wrapped to two (60 px) on every board; the rest is behind its own title / ? hover.
+   2. ANYTHING TAPPED IS AT LEAST 40 px TALL. The calendar day already was; a fold header (.lg-more, 22 px) and the
+      three fold headers REAL / NT8 / WEBULL build on it were not, so they get vertical padding under 740 px. */
+@media (max-width:740px){
+  .lg-status-line{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;min-width:0}
+  .lg-more,.lg-filters-btn,.hm-fold,.qbx-fold-hd,.p2fold-hd{min-height:40px}
+  .lg-more{padding-top:12px;padding-bottom:6px}
+  .lg-paper .lg-more{padding-top:12px;padding-bottom:6px}
+  .lg-help{width:16px;height:16px}
+}
 /* owner 10-31 15:30: 'unrealized ...' / 'realized ...' are longer words than 'open' / 'cash'; one size down on a phone so each stays one line */
 @media (max-width:740px){.lg-hero-under,.lg-hero-range{font-size:11px}}
 @media (max-width:740px){
@@ -1005,8 +1022,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-stat{padding:11px 14px}
   .lg-stat-val{font-size:17px;margin-top:4px}
   .lg-stat-sub{margin-top:2px}
-  .lg-more{padding-top:9px;margin-bottom:6px}
-  .lg-more-panel,.lg-cal-panel{margin-top:-2px}
+  .lg-more{padding-top:9px;margin-bottom:4px}
+  .lg-more-panel,.lg-cal-panel{margin-top:0}
 }
 /* LEDGER shared trade list frame (unify step 8): a toolbar, day headers with the day net, the common columns first and then the
    board's own; on a phone a row keeps five cells (time, symbol, side, net, chart). Money colours come from the theme
@@ -1184,9 +1201,10 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-mode button{background:transparent;border:none;padding:7px 14px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
 .hm-mode button.active{background:var(--bg1);color:var(--text)}
 .hm-wrap.lg-flow .hm-chart-wrap{margin:8px 0 0}
-/* LEDGER tight (owner 10-12): smaller gaps above REAL's list; the phone block below keeps its own, tighter values */
-.hm-wrap.lg-flow .lg-stats{margin-bottom:10px}
-.hm-wrap.lg-flow .lg-more{padding-top:8px;margin-bottom:12px}
+/* LEDGER redesign step 5: the own folds come BEFORE the trade list now, so the gap belongs above the list */
+.hm-own+#hm-feed-container{margin-top:18px}
+/* LEDGER redesign step 1 (2026-11-01): the two .hm-wrap.lg-flow rules that used to set .lg-stats / .lg-more here are gone - REAL carries
+   .lg-paper now and those are its values. A board-only copy at a higher specificity would just hide the shared density again. */
 .hm-fold{gap:10px}
 .hm-fold .hm-fold-t{flex:none;white-space:nowrap}
 .hm-fold .hm-fold-sum{flex:0 1 auto;min-width:0;text-transform:none;letter-spacing:.3px;color:var(--text5);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
@@ -1205,7 +1223,6 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-fold-body .hm-ledger-strip{background:none;padding:0;margin:0}
 .hm-mis-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin:0 0 8px}
 .hm-sec-acct .hm-acct-fold{display:none}
-#hm-feed-container+.hm-own{margin-top:18px}
 @media (max-width:600px){
   .hm-ctl{margin-top:8px;gap:8px 10px}
   .hm-ctl .lg-pills{gap:11px}
@@ -1214,10 +1231,6 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .hm-sec-chart .lg-chart-foot{margin:2px 2px 4px}
   .hm-sec-chart .lg-chart-cap{display:none}
   .hm-sec-chart .hm-mode button{padding:4px 9px}
-  .hm-wrap.lg-flow .lg-stats{margin-bottom:8px}
-  .hm-wrap.lg-flow .lg-stat{padding:11px 14px}
-  .hm-wrap.lg-flow .lg-more{padding-top:9px;margin-bottom:6px}
-  .hm-wrap.lg-flow .lg-more-panel,.hm-wrap.lg-flow .lg-cal-panel{margin-top:-2px}
   .hm-sec-acct .hm-acct-fold{display:flex;margin-bottom:10px}
   .hm-sec-acct:not(.open) .lg-list{display:none}
   .hm-sec-acct .lg-list{margin-bottom:14px}
@@ -1446,7 +1459,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='87.87';
+const VERSION='87.88';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1466,7 +1479,8 @@ window._dataFeedWarn=function(){
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
-const CHANGELOG=[{v:'87.85',date:'2026-11-01',notes:['AUTO-VALIDATE 2 (row 57). BUILDER > Auto-Validate has a fifth window chip, AV2 - 4-yr lockbox: all data, 900 trials, and the LAST FOUR YEARS held back as the lockbox instead of 12-18 months. The run is named Auto-Validate 2 in PAST RUNS.']},{v:'87.82',date:'2026-11-01',notes:['LEDGER > REAL IS LAID OUT LIKE THE PAPER TABS (your 10-31 stack). The order is now headline, KPI tiles, range pills, P&L chart, calendar, and the long More stats fold LAST. The calendar used to sit under More stats; at 1690x1263 it is now on screen without scrolling.','REAL\'s trade count says how many of the ACCOUNT AND RANGE you are looking at: 12 / 40, not 12 / 1,840. It read every trade ever logged as the denominator, which made it look as though rows were hidden.','SEARCH DOES NOT REBUILD THE BOARD ON EVERY KEY any more, on REAL and on WEBULL PAPER. Typing nine characters cost nine full page rebuilds; it now costs one, once you pause. NT8 PAPER already worked this way. The box keeps its text and its cursor.','NUMBERS THAT CANNOT BE MEASURED NO LONGER PRINT AS IF THEY WERE. A stretch with no losing trade read \'profit factor 99.00\'; it now says \'no losses\'. A stretch whose days are all identical read \'Sharpe (daily) 793.70\'; it now reads \'--\', and the label says Sharpe on daily DOLLARS, not returns, so it is not compared across position sizes.','A TRADE WHOSE P&L IS NOT A NUMBER SAYS SO. It used to print $0.00, count as an even trade and add nothing to net, with no warning. It now reads \'no figure\' in amber, it is kept out of every total, and More stats names how many there are.','NO FUTURES COMMISSION ON A SHARE TRADE. Typing a share symbol into the NEW TRADE form filled FEES with $4.50, a futures round turn. A symbol with no stored fee now leaves the box blank.','Faster: the close-order sort is computed once per trade instead of once per comparison (it is paid five or six times in one render). Same rows, same order.','WEBULL PAPER\'s drawdown and streak now walk the trades in the order they CLOSED, the shared rule, instead of the raw timestamp - a row with no exit time used to sort by its entry time among the others\' exit times.','A faint per-account chart line that was longer or shorter than the chart\'s own dates could draw past the plot; it is length-checked now, like the other chart marks.']},
+const CHANGELOG=[{v:'87.88',date:'2026-11-01',notes:['THE THREE LEDGER TABS NOW WEAR ONE SHAPE (your 10-31 ask, the mock you approved). Top to bottom on REAL, NT8 PAPER and WEBULL PAPER: the headline block, one status line, four KPI tiles, the P&L chart with ONE control row under it, the calendar open, then the More stats fold - nothing between them.','REAL WAS THE ONE THAT NEVER GOT TIGHTENED, and this was why: every one of the 10-31 density rules is attached to a class the REAL frame did not set. It sets it now. On the probe\'s own board at 1690x1263 with the calendar open, REAL\'s calendar used to end 1110 px down the page; it ends at 864 px now - 246 px higher, and clear of the fold you read at. NT8 PAPER and WEBULL PAPER barely moved (915 to 919 px, and 919 px unchanged); for them this is agreement, not height.','THE BIG NUMBER MEANS THE SAME THING ON ALL THREE BOARDS NOW, and it is NET EQUITY, the way you asked: the money from closed trades PLUS the mark of everything still open. It is printed unsigned, the words \'net equity\' sit beside it, and the two halves keep their own lines under it - \'unrealized ...\' then \'realized ...\', with today\'s figure at the right end of the realized line. NT8 PAPER changed (its headline used to be closed trades only); WEBULL PAPER already added both and now says so in those words.','ON REAL THERE IS NO UNREALISED FIGURE TO SHOW, and the board says so rather than pretend. EDGE-LOG logs closed round-trips only and no feed on that board publishes a mark for a live position. So when NinjaTrader reports open positions the line reads \'unrealized -- - N positions at NinjaTrader - no mark on this board\', and the balance above carries that position at cost. A figure that cannot be measured prints \'--\', never a zero.','REAL\'S RANGE PILLS (TODAY 1W 1M 3M YTD ALL) left their own row and joined the chart\'s one control row with the EQUITY / P&L switch and a short caption. THE TIME-OF-DAY STRIP left the inside of the calendar - it is a statistic, not a date grid - and is the last group of More stats. SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT and JOURNAL moved ABOVE the trade list; they used to be reachable only after scrolling past every trade row.','THE FOUR TILES ARE NET P&L, WIN RATE, PROFIT FACTOR, MAX DRAWDOWN. Net P&L is the only one that answers \'did this range make money\' with no arithmetic, so it takes the first slot; the trade count it replaced now rides on its sub-line (\'11 trades - 5 days\'). Max drawdown kept its slot and lost its sub-line - the label already says drawdown.','SENTENCES CAME OFF THE PAGE AND WENT BEHIND A SMALL \'?\'. The chart\'s three caption lines are one short line; the calendar\'s note is one short line; the More stats caveat is a \'?\' on its header. On a phone the status line is held to ONE line, and every fold header is at least 40 px tall so it can be tapped. Two vertical margins that existed only to cancel each other are gone.','The three render gates now assert the test you actually use: at 1690x1263, with the calendar open, the calendar panel must end above 1000 px from the top of the board - on all three boards. Nothing checked that before, which is how REAL drifted away from the paper tabs.']},{v:'87.82',date:'2026-11-01',notes:['LEDGER > REAL IS LAID OUT LIKE THE PAPER TABS (your 10-31 stack). The order is now headline, KPI tiles, range pills, P&L chart, calendar, and the long More stats fold LAST. The calendar used to sit under More stats; at 1690x1263 it is now on screen without scrolling.','REAL\'s trade count says how many of the ACCOUNT AND RANGE you are looking at: 12 / 40, not 12 / 1,840. It read every trade ever logged as the denominator, which made it look as though rows were hidden.','SEARCH DOES NOT REBUILD THE BOARD ON EVERY KEY any more, on REAL and on WEBULL PAPER. Typing nine characters cost nine full page rebuilds; it now costs one, once you pause. NT8 PAPER already worked this way. The box keeps its text and its cursor.','NUMBERS THAT CANNOT BE MEASURED NO LONGER PRINT AS IF THEY WERE. A stretch with no losing trade read \'profit factor 99.00\'; it now says \'no losses\'. A stretch whose days are all identical read \'Sharpe (daily) 793.70\'; it now reads \'--\', and the label says Sharpe on daily DOLLARS, not returns, so it is not compared across position sizes.','A TRADE WHOSE P&L IS NOT A NUMBER SAYS SO. It used to print $0.00, count as an even trade and add nothing to net, with no warning. It now reads \'no figure\' in amber, it is kept out of every total, and More stats names how many there are.','NO FUTURES COMMISSION ON A SHARE TRADE. Typing a share symbol into the NEW TRADE form filled FEES with $4.50, a futures round turn. A symbol with no stored fee now leaves the box blank.','Faster: the close-order sort is computed once per trade instead of once per comparison (it is paid five or six times in one render). Same rows, same order.','WEBULL PAPER\'s drawdown and streak now walk the trades in the order they CLOSED, the shared rule, instead of the raw timestamp - a row with no exit time used to sort by its entry time among the others\' exit times.','A faint per-account chart line that was longer or shorter than the chart\'s own dates could draw past the plot; it is length-checked now, like the other chart marks.']},
+{v:'87.85',date:'2026-11-01',notes:['AUTO-VALIDATE 2 (row 57). BUILDER > Auto-Validate has a fifth window chip, AV2 - 4-yr lockbox: all data, 900 trials, and the LAST FOUR YEARS held back as the lockbox instead of 12-18 months. The run is named Auto-Validate 2 in PAST RUNS.']},{v:'87.82',date:'2026-11-01',notes:['LEDGER > REAL IS LAID OUT LIKE THE PAPER TABS (your 10-31 stack). The order is now headline, KPI tiles, range pills, P&L chart, calendar, and the long More stats fold LAST. The calendar used to sit under More stats; at 1690x1263 it is now on screen without scrolling.','REAL\'s trade count says how many of the ACCOUNT AND RANGE you are looking at: 12 / 40, not 12 / 1,840. It read every trade ever logged as the denominator, which made it look as though rows were hidden.','SEARCH DOES NOT REBUILD THE BOARD ON EVERY KEY any more, on REAL and on WEBULL PAPER. Typing nine characters cost nine full page rebuilds; it now costs one, once you pause. NT8 PAPER already worked this way. The box keeps its text and its cursor.','NUMBERS THAT CANNOT BE MEASURED NO LONGER PRINT AS IF THEY WERE. A stretch with no losing trade read \'profit factor 99.00\'; it now says \'no losses\'. A stretch whose days are all identical read \'Sharpe (daily) 793.70\'; it now reads \'--\', and the label says Sharpe on daily DOLLARS, not returns, so it is not compared across position sizes.','A TRADE WHOSE P&L IS NOT A NUMBER SAYS SO. It used to print $0.00, count as an even trade and add nothing to net, with no warning. It now reads \'no figure\' in amber, it is kept out of every total, and More stats names how many there are.','NO FUTURES COMMISSION ON A SHARE TRADE. Typing a share symbol into the NEW TRADE form filled FEES with $4.50, a futures round turn. A symbol with no stored fee now leaves the box blank.','Faster: the close-order sort is computed once per trade instead of once per comparison (it is paid five or six times in one render). Same rows, same order.','WEBULL PAPER\'s drawdown and streak now walk the trades in the order they CLOSED, the shared rule, instead of the raw timestamp - a row with no exit time used to sort by its entry time among the others\' exit times.','A faint per-account chart line that was longer or shorter than the chart\'s own dates could draw past the plot; it is length-checked now, like the other chart marks.']},
 {v:'87.75',date:'2026-10-31',notes:['VERSION NUMBERS GO TO THE HUNDREDTH (your 10-31 note). The number in Settings and in every PUSHED line was four digits deep - 73.1475 - which is not a version anyone can read. From this build it is major.hundredth: 87.75, then the next ship is one hundredth on, and .99 rolls into the next whole number. The jump from 73 to 87 is a CARRY, not a reset: 1475 is 14 hundreds and 75, so 73 + 14 = 87 and the remainder is 75. Carrying matters because the website check compares what the live page serves against what was pushed - had the number been truncated to 73.75 instead, it would have fallen below versions you had already seen and that check would have warned about a stale deploy every few minutes with nothing actually wrong. Any lane still holding an old four-digit number is converted the same way when it ships.']},
 {v:'73.1475',date:'2026-10-31',notes:['TRADE LIST (row 76): the set and model words (.1 raw) sit on a small second line under the strategy name in its colour, so no name is cut at any width; the Webull render gate reads the (defaults) mark and the set words wherever they appear.']},
 {v:'73.1474',date:'2026-10-31',notes:['NO MORE set ? (row 76, your 17:20 note). DIP #424 reads DIP #424.1 raw: the leg is the run&#39;s champion, and where the saved grid of 150 kept configurations does not hold the champion itself, its set is where its own in-sample net sorts among them - 1 = above every kept row (NT8 DIP #452.1, DIP #433.7 the same way). ENGU-Q #335 reads #335.0 raw: set 0 = the strategy file&#39;s defaults, not a searched cell, and the hover says so. Every hover now says how its number was found. On a narrow trade list the set and model words drop under the strategy name in its colour instead of being cut off. tools/check_paper_leg_params.py re-derives all three kinds from the run documents (56/56).']},
@@ -3853,6 +3867,16 @@ function ledgerPfText(pf){return pf==null?'--':(isFinite(pf)?pf.toFixed(2):'no l
 // itself, anything else comes back null and the board SAYS SO - the words 'no figure' in amber italics
 // (LEDGER_NO_FIGURE / .lg-nofig), which no amount can be mistaken for. It is plain text, not markup, so it
 // is safe inside a title= attribute and in a CSV cell too.
+// ══ LEDGER redesign step 9 (OWNER'S CALL 2026-11-01: 'go for all except 3; 3 should be net equity') ══
+// THE ONE BIG-NUMBER RULE, the same sentence on REAL, NT8 PAPER and WEBULL PAPER:
+//   NET EQUITY = the realised money (every CLOSED trade in scope) + the unrealised mark of everything still OPEN.
+// It is a LEVEL, so it is printed unsigned, and the two parts it is made of stay on their own lines underneath it: the
+// unrealized line directly under the number, then the realized line. The hero label says 'NET EQUITY' and the number
+// carries the words 'net equity' beside it, so no reader has to guess which of the three quantities it is.
+// Where a board holds no mark for an open position it says so (LEDGER_NO_FIGURE_SHORT, '--') and never falls back to
+// closed-only in silence - REAL is that board today (see _hmOpenLineHtml).
+const LEDGER_NET_EQUITY_WORD='net equity';
+const LEDGER_NET_EQUITY_TIP='Net equity: the money from closed trades plus the mark of everything still open. The two lines under it are those parts.';
 const LEDGER_NO_FIGURE='no figure';
 const LEDGER_NO_FIGURE_SHORT='n/a';
 function ledgerNum(v){if(v==null||v==='')return null;const n=+v;return isFinite(n)?n:null;}
@@ -3937,18 +3961,22 @@ function _lgDateLbl(ds,withYear){
   return M[+ds.slice(5,7)-1]+' '+(+ds.slice(8,10))+(withYear?" '"+ds.slice(2,4):'');
 }
 // ── LEDGER shared stats strip + More stats (unify step 6) ──
-// The same four tiles on every board: WIN RATE, PROFIT FACTOR, MAX DRAWDOWN (positive), TRADES. Today's money
-// lives in the hero, not here. o.winNote = extra html at the end of the WIN RATE sub-line; o.id = the strip's element id.
+// LEDGER redesign step 10 (owner 2026-11-01): the four tiles are NET P&L, WIN RATE, PROFIT FACTOR, MAX DRAWDOWN (positive).
+// Net P&L earns the first slot because it is the only tile that answers 'did this range make money' without arithmetic; the
+// trade count it displaced was a count with a sub-line of one more fact, so both now ride on Net P&L's own sub-line
+// ('142 trades . 61 days'). Today's money lives in the hero, not here. Max drawdown lost its sub-line: the label says drawdown
+// (redesign step 4). o.winNote = extra html at the end of the WIN RATE sub-line; o.id = the strip's element id.
 function ledgerStatStripHtml(s,o){
   o=o||{};
   const tile=(k,lbl,val,sub)=>'<div class="lg-stat" data-lgstat="'+k+'"><div class="lg-stat-lbl">'+lbl+'</div><div class="lg-stat-val">'+val+'</div><div class="lg-stat-sub">'+(sub||'&nbsp;')+'</div></div>';
   const wr=s&&s.winRate!=null?Math.round(s.winRate*100)+'%':'--';
   const wl=s?s.wins+' W &middot; '+s.losses+' L'+(s.flat?' &middot; '+s.flat+' even':''):'';
+  const cnt=s?(s.trades+' trade'+(s.trades===1?'':'s')+' &middot; '+s.days+' day'+(s.days===1?'':'s')):'';
   return '<div class="lg-stats"'+(o.id?' id="'+o.id+'"':'')+'>'
+    +tile('net','Net P&amp;L','<span class="'+ledgerCls(s?s.net:null)+'">'+(s?ledgerSigned(s.net):'--')+'</span>',cnt)
     +tile('winrate','Win rate',wr,wl+(o.winNote||''))
     +tile('pf','Profit factor',s?ledgerPfText(s.pf):'--',s&&s.pf!=null?ledgerShortMoney(s.grossWin).slice(1)+' won &middot; '+ledgerShortMoney(s.grossLoss).slice(1)+' lost':'')
-    +tile('maxdd','Max drawdown',s?ledgerMoney(s.maxDD):'--',s&&s.maxDD>0?'worst drop from a high':'')
-    +tile('trades','Trades',s?String(s.trades):'0',s?'over '+s.days+' day'+(s.days===1?'':'s'):'')
+    +tile('maxdd','Max drawdown',s?ledgerMoney(s.maxDD):'--','')
     +'</div>';
 }
 function ledgerMsRow(label,value,cls){return '<div class="lg-ms-row"><div class="l">'+label+'</div><div class="v'+(cls?' '+cls:'')+'">'+value+'</div></div>';}
@@ -3957,17 +3985,23 @@ function ledgerMsRow(label,value,cls){return '<div class="lg-ms-row"><div class=
 // The board wires [data-lgmore] clicks and remembers open / closed; the body is only built while open.
 // An EMPTY range (s = null) says so and still draws the board's own groups that have rows (NT8's Strategy vs control).
 function _lgMsGroupsHtml(groups){
-  return '<div class="lg-ms-grid">'+groups.map(g=>'<div class="lg-ms-group" data-lgmsgroup="'+String(g.title).replace(/"/g,'')+'"><h4>'+g.title+'</h4>'
-    +(g.rows||[]).map(r=>ledgerMsRow(r[0],r[1],r[2])+(r[3]||'')).join('')+'</div>').join('')+'</div>';
+  // a group is label / value rows; g.html lets one carry its own block instead (REAL's time-of-day strip, redesign step 3) and g.wide lets it
+  // take the whole grid width rather than one 190 px column
+  return '<div class="lg-ms-grid">'+groups.map(g=>'<div class="lg-ms-group'+(g.wide?' lg-ms-wide':'')+'" data-lgmsgroup="'+String(g.title).replace(/"/g,'')+'"><h4>'+g.title+'</h4>'
+    +(g.rows||[]).map(r=>ledgerMsRow(r[0],r[1],r[2])+(r[3]||'')).join('')+(g.html||'')+'</div>').join('')+'</div>';
 }
 function ledgerMoreStatsHtml(s,ownGroups,o){
   o=o||{};const id=o.id||'lg',open=!!o.open;
-  const btn='<button type="button" class="lg-more" data-lgmore="'+id+'" aria-expanded="'+open+'" aria-controls="'+id+'-more"><span>More stats</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>';
+  // LEDGER redesign step 4: o.note used to print as a sentence at the foot of the open panel on every render. It is a caveat, not a
+  // figure, so it rides in the header's ? hover now (.lg-help, the component the paper tabs already use for the chart caption).
+  const btn='<button type="button" class="lg-more" data-lgmore="'+id+'" aria-expanded="'+open+'" aria-controls="'+id+'-more"><span>More stats</span>'
+    +(o.note?'<span class="lg-help" data-lgmorehelp title="'+String(o.note).replace(/<[^>]*>/g,'').replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">?</span>':'')
+    +'<span class="lg-chev" aria-hidden="true">&#9662;</span></button>';
   if(!open)return btn+'<div class="lg-more-panel" id="'+id+'-more" hidden></div>';
   if(!s){
     const own=(ownGroups||[]).filter(g=>g&&g.rows&&g.rows.length);
     return btn+'<div class="lg-more-panel" id="'+id+'-more"><div class="lg-ms-note">No trades in this range.</div>'
-      +(own.length?'<div class="lg-ms-own-empty">'+_lgMsGroupsHtml(own)+'</div>'+(o.note?'<div class="lg-ms-note">'+o.note+'</div>':''):'')+'</div>';
+      +(own.length?'<div class="lg-ms-own-empty">'+_lgMsGroupsHtml(own)+'</div>':'')+'</div>';
   }
   const M=v=>v==null?'--':ledgerSigned(v),C=v=>v==null?'':ledgerCls(v);
   const dayTxt=d=>d?ledgerSigned(d.v)+' <span style="color:var(--text5)">'+_lgDateLbl(d.date)+'</span>':'--';
@@ -3992,7 +4026,7 @@ function ledgerMoreStatsHtml(s,ownGroups,o){
       // B5: a trade whose stored P&L is not a number is named here instead of passing as a $0 trade
       .concat(s.badPnl?[['P&amp;L not a number',s.badPnl+' trade'+(s.badPnl===1?'':'s')+' - fix or re-import','lg-nofig']]:[])}
   ].concat(ownGroups||[]);
-  const body=_lgMsGroupsHtml(groups)+(o.note?'<div class="lg-ms-note">'+o.note+'</div>':'');
+  const body=_lgMsGroupsHtml(groups);     // o.note is in the header's ? (redesign step 4)
   return btn+'<div class="lg-more-panel" id="'+id+'-more">'+body+'</div>';
 }
 // ── LEDGER shared calendar (unify step 7) ──
@@ -4047,7 +4081,10 @@ function ledgerCalendarHtml(o){
   return btn+'<div class="lg-cal-panel" id="'+id+'-cal"><div class="lg-cal" data-lgcal="'+id+'" data-lgcalmonth="'+mo+'">'
     +'<div class="lg-cal-hd"><span class="lg-cal-title">'+MN[m-1]+' '+y+'</span>'+nav(-1,'&#9664;',atFirst)+nav(1,'&#9654;',atLast)+'<span class="lg-cal-sum">'+sum+'</span></div>'
     +'<div class="lg-cal-grid">'+cells+'</div>'
-    +'<div class="lg-cal-note">'+(o.note||'Each day is the money from trades that closed that day, in the chosen range. Tap a day to jump the trade list there.')+'</div></div>'+(o.after||'')+'</div>';
+    // LEDGER redesign step 4: one short line, the full words behind the ?
+    +'<div class="lg-cal-note">'+(o.note||'Money from trades that closed that day. Tap a day to jump the list.'
+      +'<span class="lg-help" data-lgcalhelp title="Each cell is the money from the trades that CLOSED that day, inside the chosen range - an overnight trade counts on the day it closed, not the day it opened. The WEEK column at the right is that week\'s own total. A hatched day carries a data caveat; hover it to read which. Tapping a day with trades jumps the trade list to that day and flashes it.">?</span>')
+      +'</div></div>'+(o.after||'')+'</div>';
 }
 // month arithmetic for the arrows: 'YYYY-MM' moved by n months, clamped to the months that have trades
 function ledgerCalStep(days,mo,n){const ms=ledgerCalMonths(days);if(!ms.length)return mo;let i=ms.indexOf(mo);if(i<0)i=ms.length-1;return ms[Math.max(0,Math.min(ms.length-1,i+n))];}
@@ -16202,7 +16239,25 @@ function _hmFmtDateLong(dateStr){
 function _hmHeroLabel(){
   const acct=activeBroker?_hmEsc(activeBroker.toUpperCase()):'ALL ACCOUNTS';
   // the sync badges are in the hero's chip row (_hmHeroChips), not on the label line
-  return (homeChartMode==='equity'?'ACCOUNT EQUITY &middot; ':'CUMULATIVE P&amp;L &middot; ')+acct;
+  // LEDGER redesign step 9: the label NAMES the big number. In EQUITY view it is the account's NET EQUITY under the one rule
+  // (closed money + the mark of what is open); in P&L view the big number is the range's cumulative realised P&L and says so.
+  return (homeChartMode==='equity'?'ACCOUNT NET EQUITY &middot; ':'CUMULATIVE P&amp;L &middot; ')+acct;
+}
+// LEDGER redesign step 7 (C3, 2026-11-01): the open-position line, DIRECTLY under the big number, in NT8 PAPER's exact words.
+// WHAT COUNTS AS OPEN ON REAL, and the honest gap: REAL's journal holds CLOSED round-trips only - every trade carries an exit - and
+// no feed this board reads publishes a MARK for a live position. meta/nt_sync gives a COUNT of open positions and no money with it;
+// meta/webull_sync gives net_liq, which is why the Webull account's balance already carries its open lots. So the line names what is
+// open and prints '--' for the unrealised figure rather than inventing one, which is the house rule for a figure that cannot be
+// computed (never 0, never a magic number). With nothing open it is empty and the hero is three lines.
+function _hmOpenLineHtml(){
+  const n=+((ntSync&&ntSync.open_positions)||0);
+  if(!n||(activeBroker&&activeBroker!=='NinjaTrader'))return '';
+  const tip='NinjaTrader reports '+n+' open position'+(n===1?'':'s')+' in the rolling fills file. EDGE-LOG logs closed round-trips only and '
+    +'no feed here publishes a mark for a live position, so there is no unrealised figure to show - it is not zero, it is not known here. '
+    +'The account balance above therefore carries this position at cost, not at the market.';
+  return '<span data-hmheroopenline title="'+tip.replace(/"/g,'&quot;')+'"><span class="hm-suffix">unrealized </span>'
+    +'<span data-hmheroopen>--</span>'
+    +'<span class="hm-suffix"> &middot; '+n+' position'+(n===1?'':'s')+' at NinjaTrader &middot; no mark on this board</span></span>';
 }
 // REAL's top-right chips: none since LEDGER step 12 - the Webull and NinjaTrader sync checks are in the status line under the hero
 // (_hmStatusLine); the slot stays, empty, in the same spot as the other boards' chips
@@ -16425,6 +16480,15 @@ function _hmTodayNet(){
   const today=ledgerTodayNY();
   return +bScope(trades).filter(t=>ledgerCloseDay(t)===today).reduce((s,t)=>s+t.pnl,0).toFixed(2);
 }
+// LEDGER redesign step 9: the big number and the small words beside it, written together, so a chart scrub (which rewrites this node on
+// every mousemove) can never leave the figure standing without the words that say what it is.
+function _hmPaintBig(txt){
+  const el=document.getElementById('hm-hero-value');
+  if(!el)return;
+  el.innerHTML=_hmEsc(txt)+(homeChartMode==='equity'
+    ?'<span class="lg-suffix qbx-hero-qual" data-hmheroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>'
+    :'<span class="lg-suffix qbx-hero-qual" data-hmheroqual="realized" title="Cumulative money from CLOSED trades inside the chosen range. An open position is not in it.">realized</span>');
+}
 function _hmPaintDelta(delta,pct,suffix){
   const up=delta>=0;
   const tri=up?'&#9650;':'&#9660;';
@@ -16435,11 +16499,12 @@ function _hmPaintDelta(delta,pct,suffix){
 function _hmRenderHeroDefault(endVal,startVal){
   const lbl=document.getElementById('hm-hero-label');if(lbl)lbl.innerHTML=_hmHeroLabel();
   const tdy=document.getElementById('hm-hero-today');if(tdy)tdy.innerHTML=ledgerTodayHtml(_hmTodayNet());
+  const opn=document.getElementById('hm-hero-under');if(opn)opn.innerHTML=_hmOpenLineHtml();   // redesign step 7
   const chp=document.getElementById('hm-hero-chips');if(chp)chp.innerHTML=_hmHeroChips();
   const stl=document.getElementById('hm-status-line');if(stl)stl.innerHTML=_hmStatusLine();
   const lsb=document.getElementById('hm-lossbar');if(lsb)lsb.innerHTML=_hmLossBarHtml();
   const gl=document.getElementById('hm-goal');if(gl)gl.innerHTML=_hmGoalHtml();
-  const valEl=document.getElementById('hm-hero-value');if(valEl)valEl.textContent=_hmMoney(endVal);
+  _hmPaintBig(_hmMoney(endVal));
   const dep=homeChartMode==='equity'?_hmRangeDeposits(homeRange):0;
   const delta=endVal-startVal-dep;
   const pctBase=homeChartMode==='equity'?(Math.abs(startVal+dep)>0.005?Math.abs(startVal+dep):null):_hmPnlPctBase(homeRange);
@@ -16472,7 +16537,7 @@ function _hmRenderChartInto(root){
     lines:_hmBrokerLines(ser),refs:_hmGoalRefs(ser),
     onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_real')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_real',JSON.stringify(off));}catch(e){}},
     onScrub:(i,p)=>{
-      const valEl=document.getElementById('hm-hero-value');if(valEl)valEl.textContent=_hmMoney(p.v);
+      _hmPaintBig(_hmMoney(p.v));
       const ptDate=p.date;
       const dep=homeChartMode==='equity'?_hmRangeDeposits(homeRange,i===0?'':ptDate):0;
       const delta=p.v-startVal-dep;
@@ -16511,8 +16576,9 @@ function _hmCalDays(rangeTrades){return ledgerCalDays(bScope(rangeTrades),{pnl:p
 function _hmCalendarHtml(rangeTrades){
   const days=_hmCalDays(rangeTrades);
   window._hmCalMonth=ledgerCalPick(days,window._hmCalMonth);
-  // LEDGER improvement 4: the time of day strip sits inside the open calendar, so a closed calendar costs the phone no height
-  return ledgerCalendarHtml({id:'hm',month:window._hmCalMonth,days:days,open:homeCalOpen,after:_hmTodStripHtml(rangeTrades)});
+  // LEDGER redesign step 3 (2026-11-01): the time-of-day strip LEFT the calendar panel - it is a statistic, not a date grid, and inside the open
+  // calendar it pushed the whole month about 70 px further down the page. It is a MORE STATS group now (_hmOwnStatGroups).
+  return ledgerCalendarHtml({id:'hm',month:window._hmCalMonth,days:days,open:homeCalOpen});
 }
 // tap a calendar day: scroll the feed to that day's header and flash it; the table view (or a day the
 // search / chips hide) goes through the long-standing jump that widens the range and flashes the rows
@@ -16590,9 +16656,13 @@ function _hmDisciplineGroup(rangeTrades){
 function _hmOwnStatGroups(stats,rangeTrades){
   if(!stats)return [];
   const a=_hmVsSpyValue();
+  // LEDGER redesign step 3: the time-of-day strip is the LAST group of MORE STATS now, on its own full-width row (it left the calendar panel)
+  const tod=_hmTodStripHtml(rangeTrades);
   return [{title:'Account',rows:[['Account balance',_hmMoney(liveBalance())],['Balance at range start',_hmMoney(_hmWindowStartEquity(homeRange))],
     ['Gross P&amp;L (before fees)',_hmSigned(stats.grossNet),_hmCls(stats.grossNet).replace('hm-','lg-')],['Total fees',_hmMoney(stats.totalFees)],
-    ['Fees % of gross',stats.feeImpact.toFixed(1)+'%'],['vs SPY',a==null?'&mdash;':_hmPct(a),a==null?'':_hmCls(a).replace('hm-','lg-')]]}].concat(_hmEdgeGroups(rangeTrades),_hmDisciplineGroup(rangeTrades),_hmMissedGroup(),_hmFeesGroup(rangeTrades));
+    ['Fees % of gross',stats.feeImpact.toFixed(1)+'%'],['vs SPY',a==null?'&mdash;':_hmPct(a),a==null?'':_hmCls(a).replace('hm-','lg-')]]}]
+    .concat(_hmEdgeGroups(rangeTrades),_hmDisciplineGroup(rangeTrades),_hmMissedGroup(),_hmFeesGroup(rangeTrades),
+      tod?[{title:'Time of day',rows:[],wide:true,html:tod}]:[]);
 }
 // vs SPY (alpha) for the ACCOUNT group — reuses the OVERVIEW tab's own SPY fetcher/cache
 // (fetchSPYData/_spyCache/spyReturnReal/_spyAllRange, all defined near the SPY cache above)
@@ -17209,7 +17279,10 @@ function _hmFrameBlockHtml(list){
 // LEDGER step 12 / C1 (2026-11-01): the top block is LEDGER_PAPER_TOP_ORDER - the same stack as the two PAPER tabs (hero, status, KPI tiles,
 // range pills, chart, calendar, then the long More stats fold LAST, so the calendar is reachable without scrolling) - then the accounts (the
 // right-hand panel from 1100 px), the trade list and REAL's own folds
-const _HM_PAGE_ORDER=LEDGER_PAPER_TOP_ORDER.concat(['acct','list','missed','deps','ai','journal']);
+// LEDGER redesign step 5 (2026-11-01): REAL's four own folds (SHOULD HAVE TRADED, DEPOSITS, AI, JOURNAL) sit ABOVE the trade list, where both
+// PAPER boards keep their extras. Behind the list they were reachable only after scrolling past every trade row - 26,000+ nodes at 2,000 trades.
+// They are closed one-line headers, so nothing above the fold moves.
+const _HM_PAGE_ORDER=LEDGER_PAPER_TOP_ORDER.concat(['acct','missed','deps','ai','journal','list']);
 const _HM_FOLD_LS={missed:'el_lg_missed_real',deps:'el_lg_deps_real',ai:'el_lg_ai_real',journal:'el_home_journal_open'};
 function _hmFoldIsOpen(k){return k==='ai'?!!homeAiOpen:(k==='journal'?!!homeJournalOpen:!!homeOwnOpen[k]);}
 function _hmFoldSet(k,on){
@@ -17335,21 +17408,37 @@ function _hmStatusLine(){
 function _hmStatusHtml(){return ledgerStatusHtml({id:'hm',line:'<span id="hm-status-line">'+_hmStatusLine()+'</span>',attr:'data-hmsec="status"',
   after:'<div id="hm-lossbar">'+_hmLossBarHtml()+'</div>'});}
 // the chart foot: what the line shows, and the EQUITY | P&L switch (REAL's own chart control, in the shared chart's extras slot)
+// LEDGER redesign step 4: ONE short caption line and a ? that holds the full words (the scrub, the faint per-account lines, the
+// monthly-goal level). Three sentences used to print on every render of a 10 px line nobody reads twice.
 function _hmChartCap(){
-  return (homeChartMode==='equity'?'account equity at each day&rsquo;s close':'cumulative P&amp;L at each day&rsquo;s close'+(activeBroker?'':' &middot; faint lines = each account'))
-    +' &middot; hover the chart to scrub';
+  const g=_hmMonthGoal();
+  const full=(homeChartMode==='equity'?'One point per day: the account balance at that day\'s close, for the account in view.'
+      :'One point per day: the money from closed trades, added up from the start of the chosen range.')
+    +(activeBroker?'':' The faint lines are one per account; the legend switches each one.')
+    +' Hover or drag the chart to scrub - the big number and the line under it follow the point.'
+    +(g?' The dashed level is this month\'s goal, set in Settings, TRADING LOG.':'');
+  return (homeChartMode==='equity'?'account equity by day':'cumulative P&amp;L by day')
+    +'<span class="lg-help" data-hmcaphelp title="'+full.replace(/&/g,'&amp;').replace(/"/g,'&quot;')+'">?</span>';
 }
 // the whole page of the LEDGER > REAL board, built in _HM_PAGE_ORDER inside the shared page frame (LEDGER step 12)
 function _hmPageHtml(list,rangeStats,rangeTrades){
   const ls=_hmLedgerStats(rangeTrades);
   const ign=ls&&ls.excluded?`<span title="${ls.excluded} trade${ls.excluded>1?'s':''} marked IGNORE IN METRICS are left out of win rate, profit factor and the streak, but still count in P&amp;L and drawdown" style="color:var(--yellow)"> &middot; ${ls.excluded} ignored</span>`:'';
   const S={
-    hero:'<div data-hmsec="hero">'+ledgerHeroHtml({ids:{label:'hm-hero-label',big:'hm-hero-value',today:'hm-hero-today',range:'hm-hero-delta',chips:'hm-hero-chips'}})+'</div>',
+    // LEDGER redesign steps 6, 7 and 9: four lines, never five - LABEL, the big NET EQUITY number, the unrealized line, then the
+    // realized line with 'today' riding at its right end (todayInline, the shared slot NT8 and WEBULL already use).
+    hero:'<div data-hmsec="hero">'+ledgerHeroHtml({ids:{label:'hm-hero-label',big:'hm-hero-value',under:'hm-hero-under',today:'hm-hero-today',range:'hm-hero-delta',chips:'hm-hero-chips'},
+      todayInline:true,under:_hmOpenLineHtml()})+'</div>',
     status:_hmStatusHtml(),
-    pills:'<div class="hm-ctl" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')+'</div>',
+    // LEDGER redesign step 2 (2026-11-01): the range pills are no longer a row of their own above the chart - they ride UNDER the chart on ONE
+    // control row with the EQUITY | P&L switch and the short caption (.lg-chart-row, the row both PAPER boards already use). The
+    // [data-hmsec="pills"] marker moves with them, so the page order reads hero, status, stats, chart, pills, cal, more - NT8 PAPER's own chain.
+    pills:'',
     chart:'<div class="hm-sec-chart" data-hmsec="chart"><div class="hm-chart-wrap" id="hm-chart-wrap"></div>'
-      +ledgerChartFootHtml({id:'hm',cap:_hmChartCap(),key:'<div id="hm-goal">'+_hmGoalHtml()+'</div>',
-        x:'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div>'})+'</div>',
+      +'<div class="lg-chart-row"><div class="lg-chart-rowpills" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')+'</div>'
+      +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div>'
+      +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="hm"><span class="lg-chart-cap">'+_hmChartCap()+'</span></div></div>'
+      +'<div id="hm-goal">'+_hmGoalHtml()+'</div></div>',
     stats:'<div data-hmsec="stats">'+ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})+'</div>',
     more:'<div class="hm-sec hm-sec-more" data-hmsec="more">'+ledgerMoreStatsHtml(ls,_hmOwnStatGroups(rangeStats,rangeTrades),{open:homeStatsOpen,id:'hm',note:'Scoped to the chosen account and range'})+'</div>',
     cal:'<div class="hm-sec hm-sec-cal" data-hmsec="cal">'+_hmCalendarHtml(rangeTrades)+'</div>',
@@ -17358,7 +17447,9 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
     missed:_hmMissedFold(),deps:_hmDepsFold(),ai:_hmAiFold(),journal:_hmJournalFold()
   };
   const ai=_HM_PAGE_ORDER.indexOf('acct'),pick=ks=>ks.map(k=>S[k]||'').join('');
-  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow',top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
+  // LEDGER redesign step 1 (2026-11-01): REAL wears .lg-paper - the same density class the two PAPER frames set. REAL had C1's section ORDER
+  // since 10-31 but none of its tightening, because every one of those rules is scoped to .lg-paper, a class REAL's frame never set.
+  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper',top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
 // The five actions that used to live only on the Trades tab, now built for HOME's own
@@ -43355,11 +43446,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<span class="hm-suffix"> &middot; closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||(rangeInfo&&rangeInfo.sinceWord)||'all time')+'</span>');
         const heroMain=ledgerHeroHtml({
           ids:{label:'qb-hero-label',big:'qb-hero-value',under:'qb-hero-under',today:'qb-hero-today',range:'qb-hero-range',chips:'qb-hero-chips',note:'qb-hero-note'},
-          label:'Webull paper trading &middot; P&amp;L of record',
+          label:'Webull paper trading &middot; net equity',
           // ONE HONEST NUMBER (owner 10-31 14:35): the big number is the net equity change (closed trades + open lots) with a small 'net'
           // beside it; the line under it reads the way a person does: 'cash +$23.66 · open -$295.74 (DIP #424 · 4 lots)' - cash = closed
           // trades (the figure the chart's solid line ends at), open = the lots not sold yet (left out when flat).
-          big:(netVal==null||!isFinite(Number(netVal)))?'—':(_hmMoney(Number(netVal))+'<span class="lg-suffix qbx-hero-qual" data-qbheroqual="net">net</span>'),
+          // LEDGER redesign step 9 (owner 2026-11-01): this board already added closed + open, which IS net equity under the one rule;
+          // what changed is that the small word beside it says 'net equity' instead of 'net', the same words REAL and NT8 now print.
+          big:(netVal==null||!isFinite(Number(netVal)))?'—':(_hmMoney(Number(netVal))+'<span class="lg-suffix qbx-hero-qual" data-qbheroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>'),
           today:(todayVal==null||!isFinite(Number(todayVal)))?'':(QF.isToday?ledgerTodayHtml(Number(todayVal)):qbNotTodayHtml(Number(todayVal))),
           under:openLine?('<span data-qbheroopenline title="The lots not sold yet, at the last mark - part of the net number above (closed + open)">'+openLine+'</span>'):'',
           range:rangeLine,
@@ -44597,7 +44690,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const atNow=i===n-1&&posCount>0;
                 // p is the chart's point (closed + the day's open mark, cpts); pts[i] is the closed curve, the cash figure
                 const pc=pts[i]||p;
-                h.big.innerHTML=_hmMoney(qbBase+p.v)+'<span class="lg-suffix qbx-hero-qual">'+(p.v!==pc.v||atNow?'net':'cash')+'</span>';
+                h.big.innerHTML=_hmMoney(qbBase+p.v)+'<span class="lg-suffix qbx-hero-qual">'+(p.v!==pc.v||atNow?LEDGER_NET_EQUITY_WORD:'cash')+'</span>';
                 let j=i;while(j>0&&pts[j-1].date&&pts[j-1].date===p.date)j--;
                 const dayV=i?Math.round((pc.v-(j>0?pts[j-1].v:0)+(i===n-1&&p.date===qeBoxDay?((atNow?openMarkPnl:0)-qbHeldCarry):0))*100)/100:0;
                 const when=p.date?_lgDateLbl(p.date,true):'';
@@ -46697,6 +46790,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const today=_pt.filter(t=>_legShown(legOf(t))).filter(t=>(_closeDay(t))===_todayET).reduce((a,t)=>a+(+t.pnl_usd||0),0);
         return {n:rows.length,net:net,wr:rows.length?wins/rows.length:0,pf:gl>0?gw/gl:(gw>0?Infinity:null),days:days,today:today};})();
       const _heroOpen=(()=>{const o=_pt.filter(t=>_legShown(legOf(t))&&t.open===true);return {n:o.length,v:o.reduce((a,t)=>a+(+t.pnl_usd||0),0)};})();
+      // LEDGER redesign step 9 (OWNER'S CALL 2026-11-01, overruling his own 10-31 'closed only' here): the big number on all three
+      // boards is NET EQUITY - the realised money plus the mark of everything still open. _H.net is the realised part (closed book
+      // trades in range) and _heroOpen.v is the mark of the open ones, so the headline is their sum. Both parts keep their own line
+      // underneath. The chart's solid line still ends at the REALISED figure, which is why the headline check below ties the chart to
+      // _H.net and not to the big number any more.
+      const _netEq=+(_H.net+_heroOpen.v).toFixed(2);
       // LEDGER improvement 7: REAL shows the book's day beside the account (paper, never counted) - the same today figure this hero shows
       window._p2BookDay={run:_bookRun,day:_todayET,net:_H.today,openN:_heroOpen.n,openV:_heroOpen.v};
       // The LISTED strategies total: the sum of the switched-on listed rows' NET (the figure each row shows, so it
@@ -48362,34 +48461,34 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _p2HeroNote=(()=>{
           const X=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
           const L=[];
-          L.push('<b>Big number</b> = the money from book trades that CLOSED in this range ('+X(_pcwLbl)+'), '+_nShown+' of '+_bookDefs.length+' book legs switched on'
+          L.push('<b>Big number</b> = NET EQUITY: the money from book trades that CLOSED in this range ('+X(_pcwLbl)+') plus the mark of the open ones, '+_nShown+' of '+_bookDefs.length+' book legs switched on'
             +(_bookWtxt?(', at book weights ('+X(_bookWtxt)+')'):'')+'. The runner sizes each leg at its weight, so a trade\'s $ already carries it.');
-          L.push('<span data-p2chartend data-chart="'+_chartEnd.toFixed(2)+'" data-hero="'+_H.net.toFixed(2)+'" data-tie="'+(_chartTie?'1':'0')+'">'
-            +(_rhN?(_chartTie?'<b>Chart</b>: its last point is this same number.'
-              :('<b style="color:var(--attn-red)">Chart ends at '+ledgerMoney(_chartEnd)+' but the big number is '+ledgerMoney(_H.net)+'.</b> '
+          L.push('<span data-p2chartend data-chart="'+_chartEnd.toFixed(2)+'" data-hero="'+_H.net.toFixed(2)+'" data-neteq="'+_netEq.toFixed(2)+'" data-open="'+_heroOpen.v.toFixed(2)+'" data-tie="'+(_chartTie?'1':'0')+'">'
+            +(_rhN?(_chartTie?'<b>Chart</b>: its last point is the realized figure under the big number.'
+              :('<b style="color:var(--attn-red)">Chart ends at '+ledgerMoney(_chartEnd)+' but the realized figure is '+ledgerMoney(_H.net)+'.</b> '
                 +(_noDayN?(_noDayN+' counted trade'+(_noDayN===1?' has':'s have')+' no close day, so '+(_noDayN===1?'it is':'they are')+' in the total but on no day of the chart.'):'Cause not known from here - report it.')))
               :'<b>Chart</b>: nothing closed in this range, so there is no line.')+'</span>');
-          if(_heroOpen.n)L.push('<b>Open</b>: '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' of the counted legs, '+ledgerSigned(_heroOpen.v)+' at the last mark. An open trade counts on no day until it closes, so it is not in the big number or the chart.');
+          if(_heroOpen.n)L.push('<b>Open</b>: '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' of the counted legs, '+ledgerSigned(_heroOpen.v)+' at the last mark. It IS in the big number (net equity) and on its own line under it; it counts on no DAY until it closes, so it is not on the chart.');
           if(_nUncounted)L.push('<b>Not counted</b>: '+_nUncounted+' other strateg'+(_nUncounted===1?'y':'ies')+' (controls, forward tests, shadows). They sit in the Strategies list under their own headings, each with its own caveats.');
           if(typeof _liveTotalFills!=='undefined'&&_liveTotalFills)L.push('<b>NinjaTrader demo account</b>: the NINJATRADER card\'s cumulative net ('+ledgerSigned(_liveCumNet)+' since '+LIVE_START+') is the account\'s own fills, every strategy together - a different quantity from this book number, not a mismatch.');
           return '<div class="p2hdet" data-p2herodet'+(window._p2HeroDetOpen?'':' hidden')+'>'+L.map(x=>'<div>'+x+'</div>').join('')+'</div>';
         })();
         const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',under:'p2-hero-under',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},todayInline:true,
-          label:'BOOK #'+_bookRun+' \u00b7 NT8 futures paper',
-          big:ledgerMoney(_H.net),
+          label:'BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity',
+          big:ledgerMoney(_netEq)+'<span class="lg-suffix qbx-hero-qual" data-p2heroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>',
           today:ledgerTodayHtml(_H.today),
           // owner 10-31 (live page, same as Webull): the OPEN line sits DIRECTLY under the big number - 'open -$X · N trades · not counted'
           // (NT8's big number is closed trades only, so its open trades are named, never added) or 'flat' when nothing is open
           // owner 10-31 15:30 (same words as Webull): 'unrealized -$X · N trades · not counted' ONLY while a trade is open - no 'flat' word
           under:'<span data-p2heroopenline>'+(_heroOpen.n
-            ?('<span class="hm-suffix">unrealized </span><span class="'+(_heroOpen.v>=0?'hm-up':'hm-down')+'" data-p2heroopen title="Open trades of the counted legs, at their last mark. They count on no day until they close, so they are not in the big number.">'+ledgerSigned(_heroOpen.v)+'</span>'
-              +'<span class="hm-suffix"> &middot; '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' &middot; not counted</span>')
+            ?('<span class="hm-suffix">unrealized </span><span class="'+(_heroOpen.v>=0?'hm-up':'hm-down')+'" data-p2heroopen title="Open trades of the counted legs, at their last mark. This is the unrealised half of the net equity above; it counts on no day until it closes, so it is not on the chart.">'+ledgerSigned(_heroOpen.v)+'</span>'
+              +'<span class="hm-suffix"> &middot; '+_heroOpen.n+' trade'+(_heroOpen.n===1?'':'s')+' &middot; in the number above</span>')
             :'')+'</span>',
           // owner 10-31 (same ask as Webull): the big number is CLOSED trades only, and says so; an open position is a different
           // quantity, named apart from it and never added; every caveat sentence (other strategies, weights, the demo account) sits
           // in the small 'details' expander under the range line, not on it
           // owner 10-31 15:30: 'realized +$X · N closed trades · <range>' - the big number IS the realized figure here (closed trades only)
-          range:'<span class="hm-suffix" data-p2realword>realized </span><span class="'+ledgerCls(_H.net)+'" data-p2realized title="The big number adds only trades that have CLOSED, from the book legs switched on, in this range. An open trade is never in it.">'+ledgerSigned(_H.net)+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' closed trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span>'+_pcwLbl+'</span>'
+          range:'<span class="hm-suffix" data-p2realword>realized </span><span class="'+ledgerCls(_H.net)+'" data-p2realized title="The realised half of the net equity above: only trades that have CLOSED, from the book legs switched on, in this range. This is the figure the chart\'s solid line ends at.">'+ledgerSigned(_H.net)+'</span><span class="lg-suffix">\u00b7</span><span>'+_H.n+' closed trade'+(_H.n===1?'':'s')+'</span><span class="lg-suffix">\u00b7</span><span>'+_pcwLbl+'</span>'
             // LEDGER improvement 13 (MANAGER #73) -> owner 10-31: the open trades are the line directly under the big number (o.under)
             +'<span class="lg-suffix">\u00b7</span><span class="p2more" data-p2herobtn role="button" tabindex="0" aria-expanded="'+(window._p2HeroDetOpen?'true':'false')+'" title="what the big number counts, the open trades, the strategies not counted, the demo account">details</span>',
           note:_p2HeroNote,
@@ -48663,7 +48762,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'[data-theme="mono"] .p2rh .p2dot[style*="e0a33a"]{background:var(--text2)!important}'
           +'@media (min-width:601px){.p2own:not(.p2fold-status) .p2fold-t{min-width:230px}}'
           +'@media (max-width:600px){.p2ctl{margin-top:8px;gap:8px 10px}.p2cw{margin:4px 0 8px}.p2rh .lg-stats{margin-bottom:8px}.p2rh .lg-stat{padding:11px 14px}'
-            +'.p2rh .lg-more{padding-top:9px;margin-bottom:6px}.p2rh .lg-more-panel,.p2rh .lg-cal-panel{margin-top:-2px}'
+            +'.p2rh .lg-more{padding-top:9px;margin-bottom:4px}.p2rh .lg-more-panel,.p2rh .lg-cal-panel{margin-top:0}'
             +'.p2fold-status .p2fold-t,.p2rf .p2rf-tx{display:none}.p2fold-status .p2fold-sum{font-size:10px;column-gap:5px}.p2fold-status .p2fold-hd{gap:6px}.p2rf{padding:0 9px!important}'
             +'.p2own:not(.p2fold-status):not(.p2fold-list) .p2fold-hd{flex-wrap:wrap;row-gap:2px}.p2own:not(.p2fold-status):not(.p2fold-list) .p2fold-sum{flex:1 1 100%}}'
           // LEDGER step 8: the NT8 slots in the shared trade list frame (the frame CSS itself is not touched)
@@ -51055,17 +51154,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       {const wrapEl=content.querySelector('#p2-chart'),C=window._p2Chart;
        if(wrapEl&&C){
          const num=content.querySelector('#p2-hero-value'),rng=content.querySelector('#p2-hero-range');
-         const num0=num?num.textContent:'',rng0=rng?rng.innerHTML:'';
+         // LEDGER redesign step 9: the big number carries the small 'net equity' words beside it, so the scrub writes INNER HTML -
+         // the figure plus those words - not textContent, which left the figure standing with nothing to say what it was.
+         const numQ=num?((num.querySelector('.qbx-hero-qual')||{}).outerHTML||''):'';
+         const num0=num?num.innerHTML:'',rng0=rng?rng.innerHTML:'';
          ledgerChartRender(wrapEl,{id:'p2',legendInto:'#p2-lg-legend',pts:C.pts,up:C.up,aria:C.aria,lines:C.lines,bands:C.bands,totalColor:C.totalColor,lineDash:C.lineDash,lineOpacity:C.lineOpacity,
            onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_nt8')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_nt8',JSON.stringify(off));}catch(e){}},
            onScrub:(i,p)=>{
-             if(num)num.textContent=ledgerMoney(p.v);
+             if(num)num.innerHTML=_hmEsc(ledgerMoney(p.v))+numQ;
              if(!rng)return;
              if(!p.date||i===0){rng.innerHTML='<span>start of the range</span>';return;}
              const dd=p.v-C.pts[i-1].v;
              let dl=p.date;try{dl=new Date(p.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});}catch(_e){}
              rng.innerHTML='<span class="'+(dd>=0?'hm-up':'hm-down')+'">'+(dd>=0?'\u25b2 ':'\u25bc ')+ledgerSigned(dd)+'</span><span class="lg-suffix">that day</span><span class="lg-suffix">\u00b7</span><span>'+dl+'</span>';},
-           onLeave:()=>{if(num)num.textContent=num0;if(rng)rng.innerHTML=rng0;}});
+           onLeave:()=>{if(num)num.innerHTML=num0;if(rng)rng.innerHTML=rng0;}});
        }}
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};
       content.querySelectorAll('[data-paperrep]').forEach(tr=>{tr.onclick=()=>{const id=tr.dataset.paperrep;const s=window._paperReportOpen||(window._paperReportOpen=new Set());if(s.has(id))s.delete(id);else s.add(id);renderApp();};});
