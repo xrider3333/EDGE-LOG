@@ -629,6 +629,30 @@ def _validate_workers() -> int:
         return 1
 
 
+PIN_WINDOW_TYPES = ("validate", "auto", "walkforward")
+
+
+def pin_job_window(job: dict):
+    """RESUME (owner 10-31): a search job queued with a BLANK end date runs to the master's last bar,
+    so every daily top-up slid its window and a restart the next morning could reuse nothing
+    (test 196, 11-02: NOADJ_NQ_1m_ETH topped up 19:13, Stage A replayed in full). On its FIRST
+    claim the job's end date is fixed to the master's date_to as it is then; a restart reads the same
+    window, so its saved stages match. Returns the date written (the caller stores it on the doc),
+    or None when there is nothing to pin. Never raises."""
+    if job.get("type") not in PIN_WINDOW_TYPES or job.get("date_to"):
+        return None
+    try:
+        m = ae.find_master(job.get("instrument"), job.get("timeframe", "5m"),
+                           job.get("session", "rth"), job.get("source"))
+        d = str((m or {}).get("date_to") or "")[:10]
+    except Exception:
+        return None
+    if not d:
+        return None
+    job["date_to"] = d
+    return d
+
+
 def process_job(job: dict, progress_cb=None) -> dict:
 
 
@@ -2246,6 +2270,13 @@ class FirestoreQueue:
                                     fs_heal.HEALTH.note_fail(_he)
                         threading.Thread(target=_hb, daemon=True, name=f"hb-{snap.id[:8]}").start()
                         _t0 = time.time()
+                        _pin = pin_job_window(job)
+                        if _pin:
+                            try:
+                                ref.update({"date_to": _pin, "date_to_pinned": _pin})
+                                log(f"  window pinned: {snap.id} ends {_pin} (restarts reuse its saves)")
+                            except Exception as _pe:
+                                log(f"  window pin not saved for {snap.id}: {_pe}")
                         try:
                             patch = process_job(job, cb)
                         except _JobStopped:

@@ -97,6 +97,7 @@ def test_key_ignores_progress_and_workers_but_not_trials(strat_path, tmp_path, m
     up.mkdir()
     (up / "m.csv").write_text("x\n", encoding="utf-8")
     monkeypatch.setattr(D, "UPLOADS", str(up))
+    monkeypatch.setattr(RC, "_window_fp", lambda m, a, b: "fp|%s|%s" % (a, b))
     m = {"filename": "m.csv"}
     k1 = RC.call_key(strat_path, {"master": m, "n_trials": 900, "workers": 1,
                                   "progress_cb": print})
@@ -112,5 +113,34 @@ def test_key_for_a_bare_strategy_name_like_the_runner_passes(strat_path, tmp_pat
     up.mkdir()
     (up / "m.csv").write_text("x", encoding="utf-8")
     monkeypatch.setattr(D, "UPLOADS", str(up))
+    monkeypatch.setattr(RC, "_window_fp", lambda m, a, b: "fp|%s|%s" % (a, b))
     monkeypatch.setattr(S, "_resolve", lambda n: strat_path if n == "RESUMETEST_1_0.py" else n)
     assert RC.call_key("RESUMETEST_1_0.py", {"master": {"filename": "m.csv"}})
+
+
+def test_key_follows_the_window_not_the_file(strat_path, tmp_path, monkeypatch):
+    """11-02: a daily top-up rewrote the master; with a PINNED end date the key must hold."""
+    monkeypatch.setenv("AUGUR_RESUME", "1")
+    from augur_engine import data as D
+    up = tmp_path / "up"
+    up.mkdir()
+    f = up / "m.csv"
+    f.write_text("x", encoding="utf-8")
+    monkeypatch.setattr(D, "UPLOADS", str(up))
+    fps = {"fp": "A"}
+    monkeypatch.setattr(RC, "_window_fp", lambda m, a, b: fps["fp"])
+    kw = {"master": {"filename": "m.csv"}, "date_to": "2026-10-30"}
+    k1 = RC.call_key(strat_path, kw)
+    f.write_text("x plus a top-up", encoding="utf-8")          # file changed, window did not
+    assert RC.call_key(strat_path, kw) == k1
+    fps["fp"] = "B"                                              # the window's bars changed
+    assert RC.call_key(strat_path, kw) != k1
+
+
+def test_runner_pins_a_blank_end_date_on_first_claim(monkeypatch):
+    from api import runner
+    monkeypatch.setattr(runner.ae, "find_master", lambda *a: {"date_to": "2026-11-01"})
+    job = {"type": "validate", "date_to": ""}
+    assert runner.pin_job_window(job) == "2026-11-01" and job["date_to"] == "2026-11-01"
+    assert runner.pin_job_window(job) is None                    # already pinned: untouched
+    assert runner.pin_job_window({"type": "backtest"}) is None

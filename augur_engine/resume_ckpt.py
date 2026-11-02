@@ -71,11 +71,26 @@ def call_key(strategy, kw):
         path = os.path.join(UPLOADS, m["filename"])
         if not path or not os.path.isfile(path):
             return None
-        st = os.stat(path)
         args = sorted((k, repr(v)) for k, v in kw.items() if k not in _IGNORED)
-        blob = repr((ssha, os.path.abspath(path), st.st_size, int(st.st_mtime),
-                     _engine_sha(), args))
+        # the data the call actually reads: its window's fingerprint (first/last bar + bar count,
+        # the trial cache's own), so a top-up past a PINNED end date keeps the key (11-02). Without
+        # an end date the window grows with every top-up and the key changes, as it must.
+        fp = _window_fp(m, kw.get("date_from"), kw.get("date_to"))
+        if not fp:
+            return None
+        blob = repr((ssha, os.path.abspath(path), fp, _engine_sha(), args))
         return hashlib.sha256(blob.encode()).hexdigest()[:40]
+    except Exception:
+        return None
+
+
+def _window_fp(master, date_from, date_to):
+    """The windowed load's fingerprint (load_master_arrays is memoised when the trial cache is
+    on, so run_auto's own load right after is a hit). None when it cannot be read."""
+    try:
+        from .data import load_master_arrays
+        a = load_master_arrays(master, date_from=date_from, date_to=date_to)
+        return a.get("fingerprint")
     except Exception:
         return None
 
