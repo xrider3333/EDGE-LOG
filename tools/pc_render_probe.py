@@ -109,7 +109,9 @@ PROBE_HTML = r"""<!DOCTYPE html>
             on:!!o.on,auto:o.auto,reason:String(o.reason||''),by:o.set_by,
             // the board row fields too, so the owner's CONFIRM / SEND BACK / NEEDS ME can be
             //   graded on WHAT it wrote and not merely on having written something
-            status:o.status,statusText:o.statusText,updated_by:o.updated_by});
+            status:o.status,statusText:o.statusText,updated_by:o.updated_by,
+            keys:Object.keys(o||{}).join(','),
+            confirmedAt:o.confirmedAt,confirmedBy:o.confirmedBy});
             return Promise.resolve();},
           get:function(){return Promise.resolve({exists:false,data:function(){return {};}});}};};
         window._pcRecDb=_rec('');
@@ -253,6 +255,46 @@ PROBE_HTML = r"""<!DOCTYPE html>
             function(b){return b.getAttribute('data-bdsub');}),
           writes:[].map.call(document.querySelectorAll('[data-pcquiet],[data-bdwrite]'),
             function(b){return b.tagName;}).length};
+      }catch(e){return {err:String(e&&e.stack?e.stack:e)};}})()`);
+      // ── CONFIRM IS NOT A STATUS (11-01). The click used to write the word 'confirmed' over a
+      //    run's pass / fail verdict and the verdict was gone. This case takes a PASSED run,
+      //    clicks CONFIRM, and holds the page to three things: the write carries no status field
+      //    at all, it carries the stamp, and once the stamp lands the row is GREEN FILLED and
+      //    still reads PASS.
+      out.confirmSplit=w.eval(`(function(){try{
+        db=window._pcRecDb;auth={currentUser:{uid:'probe-uid'}};
+        window._pcWrites=[];window._bdExp={};
+        window._bdOn=true;window._bdLoaded=true;window.loadBoard=function(){};
+        window._bdRows={t49:{_id:'t49',tab:'RUNS',order:49,status:'pass',title:'a run that passed',
+          statusText:'PASSES every clause',roc:'12.4',dd5:'$30.1k',ddpct:'11%',sortino:'1.44',
+          result:'pass',date:'2026-11-01',updated_by:'ENGU-Q'}};
+        augurSub='board';boardSub='runs';renderApp();
+        var fd=document.querySelector('[data-bdrow="~tdone"]');if(fd)fd.click();
+        var row=document.querySelector('[data-bdrow="t49"]');if(!row)return {err:'no t49 row'};
+        row.click();
+        var cf=document.querySelector('[data-bdact="confirm"]');
+        if(!cf)return {err:'no CONFIRM button on t49'};
+        cf.click();
+        var wr=(window._pcWrites||[]).filter(function(x){
+          return String(x&&x.doc||'').indexOf('board/')===0;});
+        // the write landed: apply exactly what it sent, nothing more
+        var w0=wr[0]||{};
+        if(w0.status)window._bdRows.t49.status=w0.status;
+        if(w0.confirmedAt)window._bdRows.t49.confirmedAt=w0.confirmedAt;
+        if(w0.confirmedBy)window._bdRows.t49.confirmedBy=w0.confirmedBy;
+        renderApp();
+        // a confirmed run moves to the CONFIRMED RUNS fold, so open that one too
+        var fd2=document.querySelector('[data-bdrow="~tok"]');if(fd2)fd2.click();
+        var r2=document.querySelector('[data-bdrow="t49"]');
+        var fill=null,word=null;
+        if(r2){var sp=r2.querySelector('span');if(sp){var cs=getComputedStyle(sp);
+          var bg=String(cs.backgroundColor||'').replace(/ /g,'');
+          fill={bg:bg,bd:String(cs.borderColor||''),
+            filled:!((bg==='transparent')||(bg.indexOf('rgba(0,0,0,0)')>=0)||(bg==='')) };
+          word=String(sp.getAttribute('title')||'');}}
+        var tx=(document.getElementById('app')||document.body).textContent;
+        return {wr:wr,status:window._bdRows.t49.status,fill:fill,word:word,
+          tx:String(tx||'').slice(0,4000)};
       }catch(e){return {err:String(e&&e.stack?e.stack:e)};}})()`);
       // an EMPTY board has to say how it gets filled, not just sit blank
       out.boardEmpty=w.eval(`(function(){try{
@@ -469,13 +511,45 @@ def judge(nm, r):
             w0 = wrote[0] or {}
             if str(w0.get('doc') or '') != 'board/w03':
                 f.append('%s: CONFIRM wrote %r, not the row he clicked' % (nm, w0.get('doc')))
-            if str(w0.get('status') or '') != 'confirmed':
-                f.append('%s: CONFIRM wrote status %r - the row would not go green' % (nm, w0.get('status')))
+            # CONFIRM MAY NOT WRITE A STATUS WORD (11-01). It used to write 'confirmed' over the
+            #   row's pass / fail verdict, which destroyed it; the stamp is what turns the circle
+            #   green now.
+            if w0.get('status'):
+                f.append('%s: CONFIRM wrote status %r - a confirm must never touch the status '
+                         'word, it destroys the pass / fail verdict' % (nm, w0.get('status')))
+            if not w0.get('confirmedAt'):
+                f.append('%s: CONFIRM wrote no confirmedAt stamp (%r) - nothing would record '
+                         'that he saw the row' % (nm, w0.get('keys')))
             if 'owner' not in str(w0.get('statusText') or '').lower():
                 f.append('%s: CONFIRM wrote no line saying he was the one who said so (%r)'
                          % (nm, w0.get('statusText')))
         if not b.get('stillOpen'):
             f.append("%s: clicking a button closed the row's note instead of answering it" % nm)
+        # ── A PASSED RUN SURVIVES HIS CONFIRM (11-01)
+        cs = r.get('confirmSplit') or {}
+        if cs.get('err'):
+            f.append('%s: the confirm case could not run (%s)' % (nm, cs.get('err')))
+        else:
+            wr = cs.get('wr') or []
+            if not wr:
+                f.append('%s: CONFIRM on a passed run wrote nothing' % nm)
+            else:
+                w0 = wr[0] or {}
+                if w0.get('status'):
+                    f.append('%s: CONFIRM on a PASSED run wrote status %r - the verdict is '
+                             'destroyed' % (nm, w0.get('status')))
+                if not w0.get('confirmedAt') or not w0.get('confirmedBy'):
+                    f.append('%s: CONFIRM on a passed run left no stamp (%r)' % (nm, w0.get('keys')))
+            if str(cs.get('status') or '') != 'pass':
+                f.append('%s: the row reads %r after his confirm, not pass' % (nm, cs.get('status')))
+            if 'PASS' not in str(cs.get('tx') or ''):
+                f.append('%s: the confirmed row no longer shows its PASS verdict' % nm)
+            fill = cs.get('fill') or {}
+            if not fill.get('filled'):
+                f.append('%s: a confirmed row is not drawn as a filled circle (%r) - he would '
+                         'think his click was lost' % (nm, fill))
+            if 'CONFIRMED' not in str(cs.get('word') or ''):
+                f.append('%s: the confirmed circle does not say CONFIRMED (%r)' % (nm, cs.get('word')))
         empty = ' '.join(str(r.get('boardEmpty') or '').split())
         if 'board.py seed' not in empty:
             f.append('%s: an empty board does not say how it gets filled (%r)' % (nm, empty[:200]))
@@ -516,7 +590,7 @@ def main():
           'named, finished rows folded, a run number nobody reported a dash not a zero, a click '
           'opens the note, an empty board says how it fills, the six circles separate in-queue '
           'from being-worked and the family chip is drawn, CONFIRM writes the row he '
-          'clicked; '
+          'clicked and stamps it WITHOUT touching its pass / fail word; '
           'a quiet machine repeats the runner own reason and lists its '
           'running, held and deferred jobs; the three figures nothing publishes are dashes with '
           'reasons, never zeros; the button writes only control/quiet; laptop 1400 + phone 375 '

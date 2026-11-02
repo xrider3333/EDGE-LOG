@@ -268,6 +268,33 @@ def cmd_pushed(db, rid_text, line, frm, dry):
     return row, 'BOARD %s <- %s' % (rid, row['statusText'])
 
 
+def cmd_confirm(db, rid_text, frm, dry, note=None):
+    """The owner has seen the row - WITHOUT touching its status word.
+
+    'I have seen this' and 'the run passed / failed' are two different facts. They used to share
+    the status field, so a confirm wrote the word 'confirmed' over a row's `pass` / `fail` verdict
+    and the verdict was gone. This writes `confirmedAt` + `confirmedBy` and nothing else that
+    carries meaning; the page draws the filled green circle from the stamp.
+    """
+    rid, tab, _ = parse_id(rid_text)
+    ref = row_ref(db, rid)
+    cur = _read(ref)
+    if cur is None:
+        raise ToolError('%s is not on the board, so it cannot be confirmed' % rid)
+    row = dict(cur)
+    row['confirmedAt'] = _now_iso()
+    row['confirmedBy'] = _one(frm, 40) or 'owner'
+    if note is not None:
+        row['statusText'] = _one(note, 200)
+    row['updated_at'] = _now_iso()
+    row['updated_by'] = _one(frm, 40) or 'owner'
+    if dry:
+        return row, ('DRY RUN - %s would be confirmed, status stays %r'
+                     % (rid, row.get('status')))
+    ref.set(row)
+    return row, 'BOARD CONFIRMED %s (status stays %s)' % (rid, row.get('status'))
+
+
 def cmd_get(db, rid_text):
     rid, tab, _ = parse_id(rid_text)
     row = _read(row_ref(db, rid))
@@ -442,6 +469,10 @@ def main(argv=None):
     q.add_argument('id')
     q.add_argument('line', help='what landed, e.g. "PUSHED v73.1402 a1b2c3d4 - the live board"')
     common(q)
+    q = sub.add_parser('confirm', help='the owner has seen the row - stamps it, keeps the status')
+    q.add_argument('id')
+    q.add_argument('note', nargs='?', default=None, help='optional state line')
+    common(q)
     q = sub.add_parser('get')
     q.add_argument('id')
     q = sub.add_parser('list')
@@ -472,6 +503,8 @@ def main(argv=None):
             _, msg = cmd_set(db, a.id, a.status, a.state, opts, create=(a.cmd == 'add'))
         elif a.cmd == 'pushed':
             _, msg = cmd_pushed(db, a.id, a.line, a.frm, a.dry)
+        elif a.cmd == 'confirm':
+            _, msg = cmd_confirm(db, a.id, a.frm, a.dry, a.note)
         elif a.cmd == 'get':
             _, msg = cmd_get(db, a.id)
         elif a.cmd == 'list':

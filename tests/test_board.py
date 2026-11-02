@@ -376,3 +376,46 @@ def test_a_json_page_with_no_text_is_refused_rather_than_blanking_the_page(db, t
     f.write_text('{"updated": "2026-10-30"}', encoding='utf-8')
     with pytest.raises(B.ToolError):
         B.cmd_meta(db, 'auto', str(f), 'ELWA', dry=False)
+
+
+# ── A CONFIRM IS ITS OWN FACT, NEVER A STATUS WORD (11-01) ──────────────────────────────────────
+# "I have seen this" and "the run passed / failed" used to share the status field, so the owner's
+# confirm wrote the word 'confirmed' straight over a row's verdict and the verdict was gone. The
+# two facts live in two fields now, and this holds that line.
+def test_confirming_a_passed_run_keeps_its_verdict(db):
+    add(db, 't49', 'pass', 'PASSES every clause', title='a run that passed', roc='12.4')
+    row, msg = B.cmd_confirm(db, 't49', 'owner', False)
+    assert row['status'] == 'pass', 'the verdict must survive the confirm'
+    assert row['confirmedAt'], 'the confirm is recorded as its own fact'
+    assert row['confirmedBy'] == 'owner'
+    assert row['roc'] == '12.4', 'the numbers are untouched'
+    assert 'pass' in msg
+
+
+def test_confirming_a_failed_run_keeps_its_verdict(db):
+    add(db, 't50', 'fail', 'fails 3 of 6 clauses', title='a run that failed')
+    row, _ = B.cmd_confirm(db, 't50', 'MANAGER', False)
+    assert row['status'] == 'fail'
+    assert row['confirmedAt']
+
+
+def test_a_confirm_can_add_the_owners_own_line_without_changing_the_status(db):
+    add(db, 'w51', 'done', 'LIVE 10-31', title='DD% per stretch')
+    row, _ = B.cmd_confirm(db, 'w51', 'owner (web)', False, 'owner OK 11-01')
+    assert row['status'] == 'done'
+    assert row['statusText'] == 'owner OK 11-01'
+    assert row['confirmedBy'] == 'owner (web)'
+
+
+def test_a_dry_confirm_writes_nothing(db):
+    add(db, 't51', 'pass', '', title='a run that passed')
+    row, msg = B.cmd_confirm(db, 't51', 'owner', True)
+    assert 'DRY RUN' in msg
+    assert not (B._read(B.row_ref(db, 't51')) or {}).get('confirmedAt')
+    assert row['status'] == 'pass'
+
+
+def test_confirming_a_row_that_is_not_on_the_board_is_refused(db):
+    with pytest.raises(B.ToolError) as e:
+        B.cmd_confirm(db, 't99', 'owner', False)
+    assert 'cannot be confirmed' in str(e.value)
