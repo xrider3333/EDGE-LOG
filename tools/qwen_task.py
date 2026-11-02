@@ -47,10 +47,13 @@ ANSWER_RULE = (
     "{\"answer\": \"<the finding in plain words, one short paragraph>\",\n"
     " \"numbers\": [{\"name\": \"<what>\", \"value\": 0, \"unit\": \"USD|points|%|count|min|...\"}],\n"
     " \"times\": [{\"what\": \"<which time>\", \"iso\": \"2026-10-31T09:40\", \"tz\": \"UTC|ET|MST\"}],\n"
-    " \"files_read\": [\"C:\\\\...\"], \"confidence\": 0.0}\n"
+    " \"files_read\": [\"C:/EdgeLog/manager/x.md\"], \"confidence\": 0.0}\n"
     "```\n"
     "Every number carries a unit (dollars are not points); every time carries its time zone and an ISO date-time. "
-    "Empty lists are fine. No block, or a bad one, = the check FAILS.")
+     "PATHS USE FORWARD SLASHES: write C:/EdgeLog/..., never C:\\EdgeLog\\... - a single backslash inside "
+    "a json string is an invalid escape and the block will not parse. Do not write \\u escapes either.\n"
+       "Empty lists are fine. No block, or a bad one, = the check FAILS. "
+    "Run `python tools/qwen_task.py check <n>` on your own task and get PASS before you report it done.")
 CHECK_START = "CHECK_START:"
 CHECK_END = "CHECK_END:"
 CHECK_SECTION = "## Check minutes"

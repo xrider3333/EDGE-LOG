@@ -148,7 +148,10 @@ def vs(tmp_path, monkeypatch):
 
 def test_add_appends_answer_rule(tdir):
     txt = _r(T.find(T.add_task("t", "body")))
-    assert txt.rstrip().endswith("= the check FAILS.") and "```json" in txt and "unit" in txt and "tz" in txt
+    assert txt.rstrip().endswith("get PASS before you report it done.")
+    assert "```json" in txt and "unit" in txt and "tz" in txt
+    # c21 follow-up 11-01: the rule must teach forward slashes - a lone backslash broke Q15's block
+    assert "FORWARD SLASHES" in txt and "C:/EdgeLog/manager/x.md" in txt
 
 
 def test_check_passes_good_block_and_uses_last_block(tdir, vs, capsys):
