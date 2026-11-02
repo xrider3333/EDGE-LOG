@@ -695,3 +695,22 @@ def test_session_spike_flags_the_1030_bar_and_passes_a_normal_day():
     assert "spike" in kls.session_spike(o, h, l, c) and "29562" in kls.session_spike(o, h, l, c)
     o[2], h[2] = 28234.0, 28320.0
     assert kls.session_spike(o, h, l, c) is None
+
+
+def test_a_spiked_session_before_the_final_one_is_dropped():
+    # 11-02 build: 10-30 (spiked) is no longer the final session (MANAGER #250)
+    import pandas as pd
+    idx, o, h, l, c, day = [], [], [], [], [], []
+    for d, (day_n, spike) in enumerate([("2026-10-29", False), ("2026-10-30", True), ("2026-11-02", False)]):
+        for i in range(6):
+            t = pd.Timestamp(f"{day_n} 09:30", tz="America/New_York") + pd.Timedelta(minutes=5 * i)
+            px = 28000.0 + i
+            idx.append(t); c.append(px); l.append(px - 5); day.append(d)
+            o.append(29562.0 if (spike and i == 3) else px)
+            h.append(29562.0 if (spike and i == 3) else px + 5)
+    arr = {"index": pd.DatetimeIndex(idx).values, "open": np.array(o), "high": np.array(h),
+           "low": np.array(l), "close": np.array(c), "volume": np.ones(len(c)),
+           "day_id": np.array(day), "meta": {}}
+    out = kls._drop_recent_spiked(arr, log=lambda *a, **k: None)
+    assert sorted(set(out["day_id"].tolist())) == [0, 2]
+    assert out["meta"]["dropped_recent"][0]["date"] == "2026-10-30"

@@ -157,6 +157,10 @@ FULL_SESSION_BARS = 78            # NQ 5m RTH, 09:30-16:00 ET = 6.5h * 12 bars/h
 # session's median bar range away from the previous close and its own close.
 SPIKE_MIN_PTS = 60.0
 SPIKE_RANGE_X = 12.0
+# A spiked session that is no longer the final one (10-30 on 11-02's build) would otherwise
+# train in: the RECENT_CHECK_SESSIONS sessions before the final one are checked too, and a
+# spiked one is dropped whole (MANAGER #250).
+RECENT_CHECK_SESSIONS = 10
 # ENGINE ROLL GUARD (main 17279c26, augur_engine/rolls.py). What the NQ master IS, said in the
 # arrays' meta. With no instrument there the engine runs a walk "not roll-checked" and
 # rolls.seam_days answers [] -- so NQDIP_1_1.py's NQ model (DIP_424K's walk) skips no roll
@@ -516,6 +520,8 @@ def load_nq_arrays(nq_file, date_from=DATE_FROM, date_to=None, drop_incomplete=T
     day_id = arr.get("day_id")
     if not drop_incomplete or day_id is None or len(day_id) == 0:
         return arr, None
+    arr = _drop_recent_spiked(arr, log)
+    day_id = arr["day_id"]
     last_day = day_id[-1]
     sel = day_id == last_day
     last_day_bars = int(sel.sum())
@@ -543,6 +549,33 @@ def load_nq_arrays(nq_file, date_from=DATE_FROM, date_to=None, drop_incomplete=T
     log(f"[keel-live-state] dropped incomplete final session {dropped_date} "
        f"({reason}) -- {int(keep.sum())} bars remain")
     return arr, dropped_date
+
+
+def _drop_recent_spiked(arr, log=print):
+    """Drop any spiked session among the RECENT_CHECK_SESSIONS before the final one; the
+    dates and reasons go to arr["meta"]["dropped_recent"]."""
+    import numpy as np
+    import pandas as pd
+    day_id = arr["day_id"]
+    days = list(dict.fromkeys(day_id[::-1].tolist()))[1:RECENT_CHECK_SESSIONS + 1]
+    bad = {}
+    for d in days:
+        sel = day_id == d
+        why = session_spike(arr["open"][sel], arr["high"][sel], arr["low"][sel], arr["close"][sel],
+                            pd.DatetimeIndex(arr["index"][sel]))
+        if why:
+            bad[d] = (str(pd.DatetimeIndex(arr["index"][sel])[0].date()), why)
+    if not bad:
+        return arr
+    keep = ~np.isin(day_id, list(bad))
+    per_bar = {"open", "high", "low", "close", "volume", "day_id", "index"}
+    out = {k: (v[keep] if k in per_bar else v) for k, v in arr.items()}
+    dropped = [{"date": dt_, "reason": why} for dt_, why in sorted(bad.values())]
+    if isinstance(out.get("meta"), dict):
+        out["meta"] = dict(out["meta"], dropped_recent=dropped)
+    for r in dropped:
+        log(f"[keel-live-state] dropped spiked session {r['date']} ({r['reason']})")
+    return out
 
 
 def session_spike(o, h, l, c, idx=None):
@@ -689,6 +722,8 @@ def build(nq_file, out_dir, version=None, log=print, leg=None, master=None):
         "dropped_incomplete_session": dropped_session,
         **({"dropped_session_reason": (arr.get("meta") or {}).get("dropped_reason")}
            if dropped_session else {}),
+        **({"dropped_recent_sessions": (arr.get("meta") or {}).get("dropped_recent")}
+           if (arr.get("meta") or {}).get("dropped_recent") else {}),
         "nq_file": os.path.abspath(nq_file),
         "nq_file_sha256": file_hash,
         "nq_file_bars": n_bars,
