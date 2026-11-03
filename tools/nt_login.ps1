@@ -170,11 +170,14 @@ try {
 
     # BAD-PASSWORD GUARD (11-02): the watchdog runs every 3 min, so a wrong stored password
     # would retry ~20 logins an hour and risk an account lockout. After NinjaTrader rejects a
-    # credential we remember its LastWritten stamp and refuse to try it again; re-running
-    # nt_login_setup.ps1 writes a new stamp, which clears the guard with no further step.
+    # credential we remember its LastWritten stamp and wait 30 min before trying it again
+    # (11-03: a PERMANENT block kept NT down at the open - the 10-28 "rejection" was the
+    # form-fill race and the same password worked first try). Re-running nt_login_setup.ps1
+    # writes a new stamp, which clears the wait at once.
     $badCredPath = 'C:\EdgeLog\nt_login_badcred.txt'
-    if ((Test-Path $badCredPath) -and ((Get-Content $badCredPath -Raw).Trim() -eq $stored.LastWritten)) {
-        Write-Host "LOGIN SKIPPED: the stored password was rejected before and has not been changed - run nt_login_setup.ps1." -ForegroundColor Red
+    if ((Test-Path $badCredPath) -and ((Get-Content $badCredPath -Raw).Trim() -eq $stored.LastWritten) `
+        -and (((Get-Date) - (Get-Item $badCredPath).LastWriteTime).TotalMinutes -lt 30)) {
+        Write-Host "LOGIN SKIPPED: NinjaTrader rejected this stored password under 30 min ago - next try after the wait, or run nt_login_setup.ps1." -ForegroundColor Red
         exit 3
     }
 
