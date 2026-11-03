@@ -444,7 +444,7 @@ def broker_line_want(doc):
     if not n:
         return None
     net = _js_round(sum(qe_pnl_of(t) for t in rows if not t.get('book_only')) * 100) / 100
-    return 'broker made %s of that (%d book-only trade%s excluded)' % (qe_money(net), n, '' if n == 1 else 's')
+    return 'Webull fills %s · %d book-only' % (qe_money(net), n)   # LEDGER UI r2 step 1: the short form (the tooltip keeps the sentence)
 
 
 def leg_today_want(doc, leg):
@@ -479,7 +479,7 @@ DIP_WANT = {
     'live': 'Long 42 \u00b7 7 lots @ avg $746.90 \u00b7 now $751.73',     # the shares, the lots, the share-weighted average entry
     'open': 'Open $202.92',                          # the lots' open P&L summed; + the family's closed $35.52
     'line': 'Held overnight \u00b7 gap -$67.62 (prior close to the open), outside the rails',
-    'value': ('+$238.44', '3 trades \u00b7 67% won'),   # CUMULATIVE = closed $35.52 + open $202.92 (owner 2026-10-18: open + cumulative only)
+    'value': ('+$35.52', '3 trades \u00b7 67% won'),   # LEDGER UI r2 step 7: closed in the range; the open $202.92 reads under it (unrealized, then equity +$238.44)
     'note': 'DIP #424 held overnight (7 lots) \u00b7 gap -$67.62, outside the rails',
     'acct': 'DIP #424 \u00b7 Long 42 \u00b7 7 lots \u00b7 held overnight, gap -$67.62', 'acct_pnl': '$202.92', 'acct_lines': 3,
     'acct_sum': '3 open (1 held overnight)', 'list_sum': ('3 live', '3 open'),
@@ -793,17 +793,17 @@ def _variant_docs(fixture):
     out = []
     none = {'silent': None, 'keel': None, 'publish': None, 'pubgap': None, 'tickgap': None, 'noread': None}
     out.append(('fresh in the session', FRESH_NOW, base(), dict(none, today='today', top=('flat', 'WEBULL FLAT'),
-               strip_has=['box updated 24 s ago', 'feed OK'], strip_lacks=['BOX SILENT'], stop='today',
+               strip_has=['box 24 s', 'feed OK'], strip_lacks=['BOX SILENT'], stop='today',
                orders='today', legtoday='TODAY', asof_has='as of 10:01:35', eq_stale=False, calendar=True,
                # keeps checklist: the page's own figures on the fixture, with the System fold open for its host line and Orders sentence
-               system=True, broker_line='broker made -$3.98 of that (8 book-only trades excluded)', par_chip=None, fills_chip=False,
+               system=True, broker_line='Webull fills -$3.98 · 8 book-only', par_chip=None, fills_chip=False,
                hostline='Running on PROBE-PC \u00b7 one-computer check OK', host=('ok', ['Running on PROBE-PC', 'one-computer check OK'], True),
                recon=('ok', 'OK \u2014 Webull holds flat \u00b7 legs sum to flat'),
                legtodayval=leg_today_want(base(), 'NOISE'), ordmode_has=['OFF', 'Simulated only'], stop_has=['estimate'],
                flags_lacks=['BREAKER TRIPPED', 'KILL ACTIVE', 'FILLS BEHIND BACKTEST', 'PARITY MISMATCH'])))
     out.append(('5 minutes old in the session', '2026-10-05 10:08:06', base(), dict(none, silent='BOX SILENT 5 min',
                today='today', top=('stale', 'WEBULL STALE 5 min'),
-               strip_has=['BOX SILENT 5 min', 'last update from the box Mon 10:03'], strip_lacks=['feed OK'],
+               strip_has=['BOX SILENT 5 min', 'last Mon 10:03'], strip_lacks=['feed OK'],
                stop='today', orders='today', legtoday='TODAY', asof_has='as of 10:01:35', eq_stale=True,
                eq_why='the box has been silent', mini_silent='Last known: OFF, as of Mon 10:03.')))
     out.append(("Saturday noon, Friday's doc", '2026-10-03 12:00:00', fri(base()), dict(none,
@@ -818,12 +818,12 @@ def _variant_docs(fixture):
     # KEEL rebuilt that evening (a missed rebuild would raise its own chip): only the doc's age is under test
     out.append(('quiet evening, 6 minutes old', '2026-10-05 20:41:00',
                move_to(base('2026-10-05'), '2026-10-05 20:35:00', '2026-10-05', '2026-10-05 15:59:30', '20:25:00', fails=111),
-               dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 6 min ago', 'feed OK'],
+               dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box 6 min', 'feed OK'],
                     strip_lacks=['BOX SILENT'], stop='today', orders='today', legtoday='TODAY',
                     asof_has='as of 15:59:30', eq_stale=False, system=True, lasttick='ok')))
     out.append(('quiet Saturday, written after the close', '2026-10-03 12:00:00',
                move_to(base(), '2026-10-03 11:55:00', '2026-10-02', '2026-10-02 15:59:30', '11:45:00'),
-               dict(none, today='Fri 10-02', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 5 min ago'],
+               dict(none, today='Fri 10-02', top=('flat', 'WEBULL FLAT'), strip_has=['box 5 min'],
                     strip_lacks=['BOX SILENT'], stop='Fri 10-02', orders='Fri 10-02', legtoday='FRI 10-02',
                     asof_has='as of Fri 10-02 15:59:30', eq_stale=False)))
     wedge = move_to(base(), '2026-10-03 17:11:40', '2026-10-02', '2026-10-02 15:59:30', '17:01:40')
@@ -869,7 +869,7 @@ def _variant_docs(fixture):
                orders='Fri 10-02', legtoday='FRI 10-02', eq_stale=True)))
     out.append(('Monday 09:31 just after the open, a 09:25 doc', '2026-10-05 09:31:00',
                move_to(base(), '2026-10-05 09:25:00', '2026-10-05', '2026-10-05 09:24:30', '09:24:40'),
-               dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 6 min ago', 'feed OK'],
+               dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box 6 min', 'feed OK'],
                     strip_lacks=['BOX SILENT'], stop='today', orders='today', legtoday='TODAY')))
     armed = fri(base())
     armed['broker'].update({'effective_mode': 'PAPER', 'requested_mode': 'PAPER', 'lease_ok_to_send': True})
@@ -887,7 +887,7 @@ def _variant_docs(fixture):
     # the page's own read failed: the hero and strip blame the page, never the box (review 4th pass)
     out.append(("the page's own read failed, Friday's doc on Monday 08:50", '2026-10-05 08:50:00', fri(base()), dict(none,
                noread='THIS PAGE CANNOT READ (copy from Fri 15:58)', today='Fri 10-02', top=('noread', 'WEBULL NO STATUS'),
-               strip_has=['THIS PAGE CANNOT READ', 'its last copy is from Fri 15:58'], strip_lacks=['BOX SILENT', 'feed OK'],
+               strip_has=['THIS PAGE CANNOT READ', 'last Fri 15:58'], strip_lacks=['BOX SILENT', 'feed OK'],
                eq_stale=True, eq_why='this page cannot read', liveErr=True, system=True)))
     # review fixes (2026-10-05, third pass)
     # saves kept failing after the box's one publish_down event (it logs one per 10 min at most):
@@ -976,8 +976,8 @@ def _variant_docs(fixture):
     # a holiday is not a session: Thanksgiving noon with a doc written 5 min ago reads quiet, not silent
     out.append(('Thanksgiving noon, a fresh quiet doc', '2026-11-26 12:00:00',
                move_to(base('2026-11-25'), '2026-11-26 11:55:00', '2026-11-25', '2026-11-25 15:59:30', '11:45:00'),
-               dict(none, today='Wed 11-25', top=('flat', 'WEBULL FLAT'), strip_has=['market closed', 'box updated 5 min ago'],
-                    strip_lacks=['BOX SILENT', 'market open'], stop='Wed 11-25', orders='Wed 11-25', legtoday='WED 11-25',
+               dict(none, today='Wed 11-25', top=('flat', 'WEBULL FLAT'), strip_has=['closed', 'box 5 min'],
+                    strip_lacks=['BOX SILENT', 'open ·'], stop='Wed 11-25', orders='Wed 11-25', legtoday='WED 11-25',
                     asof_has='as of Wed 11-25 15:59:30', eq_stale=False,
                     keelline='the latest session is Wed Nov 25 - up to date')))
     # the 30 s timer: a page left open while the box goes quiet (finding 8). Rendered fresh, then the
@@ -999,7 +999,7 @@ def _variant_docs(fixture):
     # the clocks go back: a doc written at 01:30 in the repeated (winter time) hour, seen at 01:35 winter time
     dst = move_to(base('2026-10-30'), '2026-11-01 01:30:00', '2026-10-30', '2026-10-30 15:59:30', '01:20:00')
     out.append(('the repeated 01:00 hour when the clocks go back', et_ms('2026-11-01 01:35:00') + 3600000, dst, dict(none,
-               today='Fri 10-30', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 5 min ago'], strip_lacks=['BOX SILENT'],
+               today='Fri 10-30', top=('flat', 'WEBULL FLAT'), strip_has=['box 5 min'], strip_lacks=['BOX SILENT'],
                stop='Fri 10-30', orders='Fri 10-30', eq_stale=False)))
     # this device lost its own network: no listener error arrives, the copy just ages
     out.append(('this device offline, its copy 5 min old in the session', '2026-10-05 10:08:06', base(), dict(none,
@@ -1074,11 +1074,11 @@ def _variant_docs(fixture):
         else:
             t['book_only'] = False
     out.append(('one book-only trade', FRESH_NOW, onebo, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
-               broker_line='broker made -$23.58 of that (1 book-only trade excluded)')))
+               broker_line='Webull fills -$23.58 · 1 book-only')))
     bx = base()
     bx['book_only_summary'] = dict(bx['book_only_summary'], book_only_count=3, broker_net=12.34)    # as if the box summed a shadow row, or before a trim
     out.append(("the box's own broker figure disagrees", FRESH_NOW, bx, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
-               broker_line='broker made -$3.98 of that (8 book-only trades excluded)')))
+               broker_line='Webull fills -$3.98 · 8 book-only')))
     ntp = base()
     ntp['parity'] = dict(ntp['parity'], checked=5, ok=3, failed=2, worst_err_usd=4.2, note='the NinjaTrader mirror check: 2 of 5 trades are off')
     out.append(('NT parity: 2 of 5 mismatched', FRESH_NOW, ntp, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
@@ -1163,7 +1163,7 @@ def _variant_docs(fixture):
                 'acct': 'held overnight', 'acct_sum': '1 held overnight',
                 'stop_tip': 'A held overnight lot counts from today\u2019s open; its overnight gap is not counted.'}
     eve_doc = held(move_to(base('2026-10-05'), '2026-10-05 20:35:00', '2026-10-05', '2026-10-05 15:59:30', '20:25:00'))
-    eve_ex = dict(none, today='today', top=('held', 'WEBULL 1 HELD'), strip_has=['box updated 6 min ago'], strip_lacks=['BOX SILENT'],
+    eve_ex = dict(none, today='today', top=('held', 'WEBULL 1 HELD'), strip_has=['box 6 min'], strip_lacks=['BOX SILENT'],
                   eq_stale=False, recon=held_ok, held=held_eve, open_leg='ENGUQ', hero_today='\u25bc -$2.60 today')
     out.append(('ENGU-Q held overnight, evening doc', '2026-10-05 20:41:00', eve_doc, eve_ex))
     out.append(('ENGU-Q held overnight, evening doc (375x812, Strategies open)', '2026-10-05 20:41:00', eve_doc,
@@ -1180,7 +1180,7 @@ def _variant_docs(fixture):
                      open_leg='ENGUQ', hero_today='\u25bc -$6.80 today', held=dict(held_eve, line='Held overnight \u00b7 its gap is set at the next open \u00b7 sells at the 09:30 '
                                                                  'open (its exit signal came while the market was closed)'))))
     out.append(('ENGU-Q held overnight, in the session the next day (gap -$5.30)', FRESH_NOW, held(base(), gap=-5.3),
-                dict(none, today='today', top=('open', 'WEBULL 1 OPEN'), strip_has=['box updated 24 s ago'], eq_stale=False, recon=held_ok,
+                dict(none, today='today', top=('open', 'WEBULL 1 OPEN'), strip_has=['box 24 s'], eq_stale=False, recon=held_ok,
                      open_leg='ENGUQ', hero_today='\u25bc -$7.90 today', scrub=True, held={'line': 'Held overnight \u00b7 gap -$5.30 (prior close to the open), not in the daily stop',
                                              'note': 'ENGU-Q held overnight \u00b7 gap -$5.30, not in the daily stop', 'gap': 'gap -$5.30',
                                              'acct': 'held overnight, gap -$5.30', 'acct_sum': '1 held overnight',
@@ -1190,13 +1190,13 @@ def _variant_docs(fixture):
     closed_carry = base()
     closed_carry['today'] = dict(closed_carry['today'], held_carry_usd=5.3, overnight_gap_usd=-5.3)
     out.append(('ENGU-Q held overnight, its trade closed today', FRESH_NOW, closed_carry,
-                dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box updated 24 s ago'], eq_stale=False,
+                dict(none, today='today', top=('flat', 'WEBULL FLAT'), strip_has=['box 24 s'], eq_stale=False,
                      hero_today='\u25bc -$12.10 today', scrub=True)))
     # DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): ORB + NOISE bought today, seven DIP lots held overnight, ENGU-Q a retired tracker.
     # One BOOK row 'DIP #424' (Long 42 . 7 lots), held words grey (never an alarm), trade rows 'DIP #424 . RSI', a DIP chip, its rail beside the
     # daily stop (never inside it, never counted in it), the Shadow fold unchanged
     dip_ok = ('ok', 'OK \u2014 Webull holds long 42 \u00b7 legs sum to long 42')
-    dip_ex = dict(none, today='today', top=('open', 'WEBULL 3 OPEN'), strip_has=['box updated 24 s ago'], strip_lacks=['BOX SILENT'], eq_stale=False,
+    dip_ex = dict(none, today='today', top=('open', 'WEBULL 3 OPEN'), strip_has=['box 24 s'], strip_lacks=['BOX SILENT'], eq_stale=False,
                   recon=dip_ok, hero_today='\u25b2 +$8.96 today', open_leg='DIP', dip=dict(DIP_WANT))
     out.append(('DIP #424 live: ORB + NOISE open, 7 DIP lots held (System open, folds open)', FRESH_NOW, _dip_doc(base()),
                 dict(dip_ex, system=True, folds=True, fold_open=['rails'], scrub=True, dip_chip=True,
@@ -3224,15 +3224,28 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         cn.querySelectorAll('[data-qbrunlink]').forEach(function(e){e.textContent=(e.textContent||'').replace(/\\.\\d+$/,'');});}
       var sb=b.querySelector('.lg-row-sub'),rc=b.getBoundingClientRect(),ex=b.nextElementSibling;
       var shl=b.querySelector('[data-qbshleg]'),shs=b.querySelector('[data-qbshseed]'),sho=b.querySelector('[data-qbshopen]');
+      // LEDGER UI r2 step 7: a leg row's trades / win rate / today line moved into its expander (.lg-row-morebody > .qbx-lg-extra, rows
+      // 'Trades N', 'Win rate X%', 'Today ±$X'); the reader folds them back into the old 'N trades · X% won · today ±$X' line so every
+      // fixture keeps its wording. The expander body is read whether open or shut.
+      var exBody=(ex&&ex.matches&&ex.matches('.lg-row-detail[data-lgrowmorebody]'))?ex:null;
+      var exX=exBody?exBody.querySelector('.qbx-lg-extra'):((ex&&ex.classList&&ex.classList.contains('qbx-lg-extra'))?ex:null);
+      var subTxt=sb?(sb.textContent||'').replace(/\\s+/g,' ').trim():'',subFromMore=false;
+      if(!subTxt&&exX){var ff={};[].forEach.call(exX.querySelectorAll('.lg-ms-row'),function(r){var l=r.querySelector('.l'),v=r.querySelector('.v');
+          if(l&&v)ff[(l.textContent||'').replace(/\\s+/g,' ').trim()]=(v.textContent||'').replace(/\\s+/g,' ').trim();});
+        var parts=[];if(ff['Trades']!=null)parts.push(ff['Trades']+' trade'+(ff['Trades']==='1'?'':'s'));
+        if(ff['Win rate']&&ff['Win rate']!=='--')parts.push(ff['Win rate']+' won');
+        var tl=exX.querySelector('[data-qblegtoday]'),tv=exX.querySelector('[data-qblegtodayval]');
+        if(tl&&tv&&(tv.textContent||'').trim()!=='--'){var lab=(tl.textContent||'').trim();parts.push((lab==='Today'?'today':lab)+' '+(tv.textContent||'').trim());}
+        subTxt=parts.join(' \u00b7 ');subFromMore=!!parts.length;}
       return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,label:label,
         cell:rl?rl.getAttribute('data-qbcell'):null,
         tip:shl?shl.getAttribute('title'):null,seed:shs?(shs.textContent||'').trim():null,open:sho?(sho.textContent||'').replace(/\\s+/g,' ').trim():null,
-        sub:sb?(sb.textContent||'').replace(/\\s+/g,' ').trim():null,subShown:sb?w.getComputedStyle(sb).display!=='none':false,
+        sub:subTxt||null,subShown:sb?w.getComputedStyle(sb).display!=='none':subFromMore,more:!!b.querySelector('[data-lgrowmore]'),
         value:vc?(vc.textContent||'').replace(/\\s+/g,' ').trim():null,value2:v2,value2Shown:sm0?w.getComputedStyle(sm0).display!=='none':false,
         open3:open3,nameColor:nmc?nmc.style.color:null,dot:dot,runLink:rl?rl.getAttribute('data-qbrunlink'):null,
         off:b.classList.contains('off'),h:Math.round(rc.height),sw:b.querySelectorAll('[data-lgsw]').length,
         valColor:v?w.getComputedStyle(v).color:null,expanded:b.getAttribute('aria-expanded'),
-        extra:(ex&&ex.classList&&ex.classList.contains('qbx-lg-extra'))?ex.getAttribute('data-qbextra'):null};
+        extra:exX?exX.getAttribute('data-qbextra'):null};
     }
     var hd=lst.querySelector('.lg-list-hd'),hs=hd?hd.querySelectorAll('span'):[],box=lst.getBoundingClientRect();
     var side=q('.qbx-side'),hist=q('.qbx-history'),acct=q('.qbx-account'),sh=q('.qb-shell'),fr=q('[data-lgtrade]')||q('[data-qbtraderow]'),sy=w.scrollY||0;
@@ -3240,9 +3253,9 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     var top=function(e){return e?Math.round(e.getBoundingClientRect().top+sy):null;},bot=function(e){return e?Math.round(e.getBoundingClientRect().bottom+sy):null;};
     return {title:hs[0]?(hs[0].textContent||'').trim():null,count:hs[1]?(hs[1].textContent||'').replace(/\\s+/g,' ').trim():null,
       groups:[].map.call(lst.querySelectorAll('.lg-grp'),function(g){
-        var h=g.querySelector('.lg-grp-hd'),f=g.querySelector('[data-lggrp]'),n=g.querySelector('.lg-grp-note');
+        var h=g.querySelector('.lg-grp-hd'),f=g.querySelector('[data-lggrp]'),n=g.querySelector('.lg-grp-note'),hp=g.querySelector('.lg-grp-hd [data-lggrphelp]');
         return {key:g.getAttribute('data-lggroup'),head:h?(h.textContent||'').replace(/\\s+/g,' ').trim():null,fold:!!f,
-          expanded:f?f.getAttribute('aria-expanded'):null,note:n?(n.textContent||'').replace(/\\s+/g,' ').trim():null,
+          expanded:f?f.getAttribute('aria-expanded'):null,note:n?(n.textContent||'').replace(/\\s+/g,' ').trim():(hp?(hp.getAttribute('title')||''):null),
           rows:[].map.call(g.querySelectorAll('[data-lgrow]'),rowRead)};}),
       sw:lst.querySelectorAll('[data-lgsw]').length,
       geo:{listTop:top(lst),listBottom:bot(lst),listLeft:Math.round(box.left),listRight:Math.round(box.right),sideTop:top(side),
@@ -3263,7 +3276,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
   // the More stats panel: shown or hidden, its groups, and every row as 'Group|Label' -> value text
   function moreRead(){
     var mp=q('#qb-more'),m={panel:mp?(mp.hasAttribute('hidden')?'hidden':'shown'):null,groups:[],vals:{},
-      empty:!!mp&&(mp.textContent||'').indexOf('No trades in this range.')>=0,hued:[],gap:null};
+      empty:!!mp&&/\\bNo trades(?![a-z])/.test(mp.textContent||''),hued:[],gap:null};
     if(mp)[].forEach.call(mp.querySelectorAll('[data-lgmsgroup]'),function(g){
       var gt=g.getAttribute('data-lgmsgroup');m.groups.push(gt);
       [].forEach.call(g.querySelectorAll('.lg-ms-row'),function(row){
@@ -3277,7 +3290,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       [].forEach.call(mp.querySelectorAll('.lg-ms-row .v, .lg-ms-row .v *'),function(e){chk(e,'color');});
       [].forEach.call(mp.querySelectorAll('.lg-ms-bar > *'),function(e){chk(e,'backgroundColor');});
       // with no trade in the range: the room between 'No trades in this range.' and the Account heading
-      var nt=null;[].forEach.call(mp.querySelectorAll('.lg-ms-note'),function(e){if(!nt&&(e.textContent||'').indexOf('No trades in this range.')>=0)nt=e;});
+      var nt=null;[].forEach.call(mp.querySelectorAll('.lg-ms-note'),function(e){if(!nt&&/\\bNo trades(?![a-z])/.test(e.textContent||''))nt=e;});
       var gh=mp.querySelector('.lg-ms-group h4');
       if(nt&&gh)m.gap=Math.round(gh.getBoundingClientRect().top-nt.getBoundingClientRect().bottom);
     }
@@ -3706,15 +3719,15 @@ __S11JS__
         try{sd.stored2=w.localStorage.getItem('el_qb_shadow_open');}catch(e){}}
       res.shadow=sd;
       // 1c. a leg row opens its detail right under it and closes again
-      var lr=q('.qbx-side [data-lgrow="NOISE"]'),ld={};
+      var lr=q('.qbx-side [data-lgrowmore="NOISE"]'),ld={};
       if(lr){lr.click();await sleep(80);
-        var r2=q('.qbx-side [data-lgrow="NOISE"]'),ex=q('.qbx-side [data-qbextra="NOISE"]');
+        var r2=q('.qbx-side [data-lgrowmore="NOISE"]'),ex=q('.qbx-side [data-lgrowmorebody="NOISE"]');
         ld.expanded=r2?r2.getAttribute('aria-expanded'):null;
-        ld.detail=ex?(ex.textContent||'').replace(/\\s+/g,' ').trim():null;
-        lr=q('.qbx-side [data-lgrow="NOISE"]');if(lr){lr.click();await sleep(80);}
-        var r3=q('.qbx-side [data-lgrow="NOISE"]');
+        ld.detail=(ex&&!ex.hidden)?(ex.textContent||'').replace(/\\s+/g,' ').trim():null;
+        lr=q('.qbx-side [data-lgrowmore="NOISE"]');if(lr){lr.click();await sleep(80);}
+        var r3=q('.qbx-side [data-lgrowmore="NOISE"]'),ex3=q('.qbx-side [data-lgrowmorebody="NOISE"]');
         ld.expandedAfter=r3?r3.getAttribute('aria-expanded'):null;
-        ld.detailAfter=!!q('.qbx-side [data-qbextra="NOISE"] .qb-leg-detail');}
+        ld.detailAfter=!!(ex3&&!ex3.hidden&&ex3.querySelector('.qb-leg-detail'));}
       res.legrow=ld;
       // 1d. the note toggle beside a run number shows that leg's note under its row and leaves the row's detail shut; a second tap hides it
       var ib=q('.qbx-side [data-qbleginfo="NOISE"]'),inf={};
@@ -4713,7 +4726,7 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
         if not ls or not ls.get('shown') or not ft or ls['l'] < ft['r'] + 1:
             fails.append("%s: on a laptop the strategy list is not in the right-hand panel beside the top block (%s, top block %s)" % (tag, ls, ft))
     st = s11.get('strip') or {}
-    if (pos.get('status') or {}).get('shown') and (st.get('inFold') or not re.search(r'box updated|last update from the box|its last copy is from', st.get('text') or '') or not st.get('refresh')):
+    if (pos.get('status') or {}).get('shown') and (st.get('inFold') or not re.search(r'box \d+ (s|min|h)\b|· last \w', st.get('text') or '') or not st.get('refresh')):
         fails.append('%s: the status line under the hero lost its box-updated line or its Refresh button, or sits in a fold (%s)' % (tag, st))
     folds = [f for f in s11.get('folds') or [] if f.get('key') != 'list']
     keys = [f['key'] for f in folds]
@@ -5005,10 +5018,9 @@ def _frame_problems(tag, fr, iw, fails, wide=False, retired=True):
                      % (tag, fo.get('capFs'), fo.get('sharedFs'), fo.get('ruleFs')))
     # the Filters row, right after the list header, closed
     fl = fr.get('filt') or {}
-    if fl.get('n') != 1 or not fl.get('inList') or not fl.get('afterHd'):
-        fails.append("%s: the strategy list's Filters row [data-lgfilters=\"qb\"] is missing or not right after the list header (%s on the page, in the "
-                     "list %s, after the header %s)" % (tag, fl.get('n'), fl.get('inList'), fl.get('afterHd')))
-    else:
+    if fl.get('n'):   # LEDGER UI r2 step 7: nothing to filter on this board - the Filters row is gone and must stay gone
+        fails.append("%s: the strategy list draws a Filters row [data-lgfilters=\"qb\"] again (%s on the page) - r2 step 7 removed it" % (tag, fl.get('n')))
+    if False:
         if fl.get('exp') != 'false' or fl.get('hiddenAttr') is not True or fl.get('bodyShown'):
             fails.append('%s: the Filters row is not closed when first drawn (aria-expanded %s, body hidden %s, body shown %s)'
                          % (tag, fl.get('exp'), fl.get('hiddenAttr'), fl.get('bodyShown')))
@@ -5035,8 +5047,10 @@ def _judge_filters_run(tag, rec, fails):
         fails.append('%s: the probe threw -- %s' % (t, _first(rec['threw'])))
         return
     b, o, rl, c, cr = (rec.get(x) or {} for x in ('before', 'open', 'reload', 'closed', 'closedReload'))
-    if b.get('missing') or not o:
-        fails.append('%s is not on the page to tap (%s)' % (t, b))
+    if b.get('missing') and not o:   # LEDGER UI r2 step 7: the row is gone from this board - that is the pass
+        return
+    if not b.get('missing'):
+        fails.append('%s is back on the page (%s) - r2 step 7 removed it' % (t, b))
         return
     if b.get('exp') != 'false' or b.get('shown') or b.get('stored') is not None:
         fails.append('%s does not start closed with nothing stored (%s)' % (t, b))
@@ -5123,6 +5137,20 @@ def _static_wording(path):
     bad = ['the chart key no longer says %r' % k for k in KEY_WORDS if k not in src]
     if re.search(r'no paper API', src, re.I):
         bad.append("the page still says Webull has no paper API (the Rails fold): the Orders mode sends to the Webull paper account")
+    # LEDGER UI r2 (scope SCOPE_LEDGER_UI_R2_2026-11-03): one empty-state string, the REAL open line says n/a (never 0), the Webull row's
+    # Avg hold is a figure from the leg's own trades (never the old '--' placeholder), the strategies row anatomy on every board
+    if "const LEDGER_NO_TRADES='No trades';" not in src:
+        bad.append("the one empty-state string (const LEDGER_NO_TRADES='No trades') is gone from the source")
+    for old_s in ('No trades in this range.', 'no trades this month', 'no trades closed today', 'No trades in this range'):
+        if old_s in src:
+            bad.append('the source still carries the old empty-state wording %r (r2 item 17: one string, LEDGER_NO_TRADES)' % old_s)
+    if 'unrealized n/a' not in src or 'open at NinjaTrader' not in src:
+        bad.append("REAL's open line lost 'unrealized n/a . N open at NinjaTrader' (r2: the broker gives no mark, so n/a - never 0)")
+    if "ledgerMsRow('Avg hold',holdTxt)" not in src or 'legS.avgHoldMins' not in src:
+        bad.append("the Webull strategies row's Avg hold is no longer built from the leg's own trades (legS.avgHoldMins) - it must not read '--'")
+    for need in ('data-qbrowopen=', 'data-qbrowequity=', 'data-p2rowopen=', 'data-p2rowequity=', 'data-hmrowopen', 'class="lg-row-more"', 'data-lgrowmore='):
+        if need not in src:
+            bad.append('the strategies-row anatomy marker %r (closed / unrealized / equity + chevron) is gone from the source' % need)
     return bad
 
 
@@ -5378,7 +5406,7 @@ def _shadow_doc(fixture):
 
 
 # MANAGER #87 d (2026-10-09): the box's shadow_trades block -- a separate top-level key of the status doc, never rows in trades_all.
-SHADOW_SUB = 'shadow · no orders · not counted'     # every shadow row's sub-line
+SHADOW_SUB = 'shadow · no orders'     # every shadow row's sub-line (LEDGER UI r2 step 1: the group header already says not counted)
 SEED_TAG = 'carried from seed'                        # the tag on a leg whose trade was carried from its cold-start seed
 SHADOW_FIRST = 'ENGU-Q #335'                          # the fold's first row
 ENGUQ_EXIT = ('2026-10-08T13:01:00-04:00', 746.8612)  # ENGU-Q #335's seeded 09-28 long, closed (the shadow ledger, 10-08)
@@ -5654,7 +5682,7 @@ def cal_month_figs(days, month):
 def cal_sum_text(v, n, w, l):
     """The summary beside the month title: '-$53.65 · 3 trades · 0% won' (no win rate without a win or a loss)."""
     if not n:
-        return 'no trades this month'
+        return 'No trades'   # LEDGER UI r2 (item 17): one empty-state string everywhere
     s = '%s · %d trade%s' % (signed(round(v, 2)), n, '' if n == 1 else 's')
     if w + l:
         s += ' · %d%% won' % _js_round(w / (w + l) * 100)
@@ -5742,15 +5770,11 @@ def expected_open_total(doc):
 def expected_leg_figs(trades, cutoff=None, doc=None):
     """{row name: {'value', 'value2', 'net', 'n'}} -- each leg's range: its P&L of record PLUS its open position's P&L (signed; owner
     2026-10-18, the row's big number is cumulative), its closed trades and win rate. With no doc the open part is zero."""
+    # LEDGER UI r2 step 7: the row's number is the CLOSED P&L in the range again; the open part reads under it ('unrealized', then 'equity')
     rows = _range_rows(trades, cutoff)
-    opn = _open_pnl_by_leg(doc) if doc else {}
     out = {}
     for key, nm in LEG_KEYS:
-        f = _row_figs([qe_pnl_of(t) for t in rows if t.get('leg') == key])
-        if key in opn:
-            f['net'] = round(f['net'] + opn[key], 2)
-            f['value'] = signed(f['net'])
-        out[nm] = f
+        out[nm] = _row_figs([qe_pnl_of(t) for t in rows if t.get('leg') == key])
     return out
 
 
@@ -5764,10 +5788,10 @@ def expected_other_figs(trades, cutoff=None):
 def expected_list_count(trades, cutoff, range_key):
     """The list's header figure: the range's P&L of record and its word, or the board's 'no trades' line."""
     rows = _range_rows(trades, cutoff)
+    # LEDGER UI r2 (items 2, 17): the range word is gone (the pill is lit) and the empty state is the one 'No trades' string
     if not rows:
-        return {'TODAY': 'no trades closed today', 'YTD': 'no trades closed this year'}.get(range_key) \
-            or ('no trades closed in the ' + RANGE_WORD[range_key])
-    return '%s · %s' % (signed(round(sum(qe_pnl_of(t) for t in rows), 2)), RANGE_WORD[range_key])
+        return 'No trades'
+    return signed(round(sum(qe_pnl_of(t) for t in rows), 2))
 
 
 def expected_shadow_rows(doc, cutoff=None, retired=True):
@@ -5880,8 +5904,11 @@ def _judge_cal(tag, c, vp, theme, doc, cutoff, want_month, open_want, today, fai
         fails.append('%s: the calendar fold reads aria-expanded %r with its panel %s, want %s (open on a laptop, closed on a phone '
                      'until chosen)' % (tag, c.get('fold'), c.get('panel'), 'open' if open_want else 'closed'))
     ft = c.get('foldText') or ''
-    if '%s %d' % (MONTHS[m - 1], y) not in ft or (n and signed(round(tot, 2)) not in ft):
-        fails.append("%s: the calendar fold reads %r, want the month %s %d and its total %s"
+    if open_want:   # LEDGER UI r2 step 1 (item 16): open, the header is the one word - the panel's own title names the month
+        if ft.replace('▾', '').strip() != 'Calendar':
+            fails.append("%s: the open calendar fold reads %r, want just 'Calendar' (the panel names the month)" % (tag, ft))
+    elif '%s %d' % (MONTHS[m - 1], y) not in ft or (n and signed(round(tot, 2)) not in ft):
+        fails.append("%s: the closed calendar fold reads %r, want the month %s %d and its total %s"
                      % (tag, ft, MONTHS[m - 1], y, signed(round(tot, 2)) if n else '(no trades)'))
     if not open_want:
         return
@@ -5958,14 +5985,13 @@ def _hero_qual_problems(tag, r, doc, fails):
     hero never names a held lot (that line is the strategy row's); the broker line sits behind a details fold; the chart's total line is
     drawn in the page's text colour (the one solid line; the strategies are the broken ones)."""
     # LEDGER redesign step 9 (owner 2026-11-01): the one big-number rule names this quantity NET EQUITY on all three boards
-    if r.get('heroQual') != 'net equity':
-        fails.append("%s: the big number's qualifier reads %r, want 'net equity' (closed trades + the mark of the open lots)" % (tag, r.get('heroQual')))
+    # LEDGER UI r2 (item 1): the words beside the number are gone (the label names it); the qualifier node stays, empty
+    if r.get('heroQual') is None or r.get('heroQual') != '':
+        fails.append("%s: the big number's qualifier reads %r, want an empty qualifier node (LEDGER UI r2 item 1)" % (tag, r.get('heroQual')))
     rng = r.get('heroRange') or ''
-    # owner 10-31 15:30: 'realized +$X · closed trades · since 09-03' (the range's word when one is chosen)
-    if r.get('heroRange') is not None and (not rng.startswith('realized ') or 'closed trades' not in rng):
-        fails.append("%s: the realized line reads %r, want 'realized +$X · closed trades · since MM-DD' (the closed trades)" % (tag, rng))
-    if r.get('heroRange') is not None and 'closed trades · since ' not in rng and 'closed trades · ' not in rng:
-        fails.append("%s: the realized line %r names no stretch (since MM-DD, or the range's word)" % (tag, rng))
+    # owner 10-31 15:30 -> LEDGER UI r2 (item 5): 'realized +$X' alone; 'closed trades' and the stretch are the figure's title
+    if r.get('heroRange') is not None and not re.match(r'^realized [+-]\$[\d,]+\.\d\d$', rng):
+        fails.append("%s: the realized line reads %r, want 'realized +$X' alone (LEDGER UI r2 item 5)" % (tag, rng))
     # owner 10-31 (live page): the open line sits DIRECTLY under the big number, the cash line under it
     und = r.get('heroUnder')
     if und is None:
@@ -6109,8 +6135,12 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         if e and (x.get('value') != e['value'] or not _v2_ok(sub_figs, e['value2'], doc, [x.get('key')] if x.get('key') else [])):
             fails.append('%s: list row %s reads %r / %r under its name, the fixture says %r / %r (the range\'s P&L of record, then trades, win rate, today under the name)'
                          % (tag, x.get('name'), x.get('value'), x.get('sub'), e['value'], e['value2']))
-        if x.get('value2'):
-            fails.append('%s: list row %s still shows %r under its number; only the open line goes there (the figures sit under the name)' % (tag, x.get('name'), x.get('value2')))
+        # LEDGER UI r2 step 7: 'equity ±$X' (closed + unrealized) under the number only while the leg holds lots; a flat leg shows closed only
+        if opn_fam is not None and e and not is_other:
+            oz = opn_fam.get(x.get('key'))
+            want_eq = ('equity %s' % signed(round(e['net'] + oz[0], 2))) if oz else None
+            if (x.get('value2') or None) != want_eq:
+                fails.append('%s: list row %s reads %r under its number, want %r (closed + unrealized while it holds lots, nothing when flat)' % (tag, x.get('name'), x.get('value2'), want_eq))
         pz = pos.get(x.get('key'))
         # owner 10-31 15:30: '· params: not recorded' first in the tag (no leg records its parameter cell's index), then a LONG / SHORT
         # pill ONLY while the leg holds a position - never FLAT
@@ -6127,8 +6157,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             fails.append('%s: list row %s holds nothing but carries a %r pill (no FLAT pill; a side pill only with a position)' % (tag, x.get('name'), rest.split()[0]))
         if not is_other and not x.get('runLink'):
             fails.append("%s: list row %s's run number is not a link to the run's report ([data-qbrunlink])" % (tag, x.get('name')))
-        if not is_other and ('more' not in (x.get('tag') or '') and 'less' not in (x.get('tag') or '')):
-            fails.append("%s: list row %s has no 'more' / 'less' word in its tag (%r)" % (tag, x.get('name'), x.get('tag')))
+        if not is_other and not x.get('more'):   # LEDGER UI r2 step 7: the shared chevron ([data-lgrowmore]) is the way into the row's extras
+            fails.append("%s: list row %s has no chevron ([data-lgrowmore]) - its extras have no visible way in (tag %r)" % (tag, x.get('name'), x.get('tag')))
         # owner 10-31 14:35: the name in its chart line's colour, no dot before it; 'open -$X · N lots' under the number only while it holds lots
         if not is_other and x.get('dot'):
             fails.append('%s: list row %s still has a coloured dot before its name (the name itself carries the colour now)' % (tag, x.get('name')))
@@ -6136,8 +6166,9 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             fails.append('%s: list row %s is not named in its chart line colour' % (tag, x.get('name')))
         if opn_fam is not None and not is_other:
             oz = opn_fam.get(x.get('key'))
-            want3 = ('open %s · %d lot%s' % (signed(oz[0]), oz[1], '' if oz[1] == 1 else 's')) if oz else None
-            if x.get('open3') != want3:
+            want3 = ('unrealized %s · %d lot%s' % (signed(oz[0]), oz[1], '' if oz[1] == 1 else 's')) if oz else None
+            got3 = re.sub(r' · \d+ sh$', '', x.get('open3') or '') or None   # the shares from the positions feed may follow
+            if got3 != want3:
                 fails.append("%s: list row %s reads %r under its figures, want %r (the headline's own open figure for this strategy)"
                              % (tag, x.get('name'), x.get('open3'), want3))
     rt = by.get('retired')
@@ -6146,7 +6177,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                      % (tag, rt.get('head'), rt.get('fold'), RETIRED_SINCE))
     sh = by['shadow']
     shadow = expected_shadow_rows(doc, cutoff, retired=retired)
-    if not sh.get('fold') or (sh.get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · %d' % len(shadow):
+    if not sh.get('fold') or (sh.get('head') or '').replace('▾', '').replace('?', '').strip() != 'Shadow - not counted · %d' % len(shadow):
         fails.append('%s: the Shadow group reads %r (fold %s), want a fold reading "Shadow - not counted · %d"'
                      % (tag, sh.get('head'), sh.get('fold'), len(shadow)))
     for g, is_open in [z for z in ((rt, retired_open), (sh, shadow_open)) if z[0]]:
@@ -6166,8 +6197,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                     tag, rt['rows'][0].get('value'), rt['rows'][0].get('sub'), figs[RETIRED_NAME]['value'], figs[RETIRED_NAME]['value2']))
         # the rows add up to the account's range figure: BOOK + Retired are the legs that count, Shadow is never in it
         counted = [0.0 if x.get('value') == '—' else _money_val(x.get('value')) for g in (bk, rt) if g for x in g.get('rows') or []]
-        # closed in the range + the open positions the counted rows carry (cumulative rows, owner 2026-10-18)
-        want_tot = round(sum(qe_pnl_of(t) for t in _range_rows(trades, cutoff)) + expected_open_total(doc), 2)
+        # closed in the range (LEDGER UI r2 step 7: the number is closed-only again; the open part reads under it)
+        want_tot = round(sum(qe_pnl_of(t) for t in _range_rows(trades, cutoff)), 2)
         if None not in counted and abs(sum(counted) - want_tot) > 0.011:
             fails.append('%s: BOOK + Retired add up to %s, the P&L of record of the range is %s (a shadow leg, or a leg with no row, '
                          'moved the list off the account number)' % (tag, signed(round(sum(counted), 2)), signed(want_tot)))
@@ -6257,16 +6288,16 @@ def _judge_inter_ledger(tag, res, fixture, fails):
             fails.append('%s: the Shadow group did not close again (%s, stored %r)' % (tag, sc2.get('expanded'), sd.get('stored2')))
     lw = res.get('legrow') or {}
     fig = expected_leg_figs(trades)['NOISE #382']
-    if lw.get('expanded') != 'true' or any(s not in (lw.get('detail') or '') for s in ('SINCE START', 'UNREALIZED', 'POSITION', fig['value'])):
-        fails.append('%s: a tap on the NOISE row did not open its detail under it with since start %s (aria-expanded %r, text %r)'
-                     % (tag, fig['value'], lw.get('expanded'), _first(lw.get('detail'), 160)))
+    if lw.get('expanded') != 'true' or any(s not in (lw.get('detail') or '') for s in ('SINCE START', 'UNREALIZED', 'POSITION', 'Trades', 'Win rate')):
+        fails.append('%s: a tap on the NOISE row chevron did not open its expander under it (Trades / Win rate rows, SINCE START, UNREALIZED, POSITION) (aria-expanded %r, text %r)'
+                     % (tag, lw.get('expanded'), _first(lw.get('detail'), 160)))
     if lw.get('expandedAfter') != 'false' or lw.get('detailAfter'):
         fails.append('%s: a second tap on the NOISE row did not close its detail again (%r, detail still there: %s)'
                      % (tag, lw.get('expandedAfter'), lw.get('detailAfter')))
     inf = res.get('info') or {}
-    if not inf:
-        fails.append('%s: no note toggle on the NOISE row ([data-qbleginfo="NOISE"])' % tag)
-    else:
+    if inf:   # LEDGER UI r2 step 7: the note sits in the row's expander; the (i) toggle is gone and must stay gone
+        fails.append('%s: a note toggle ([data-qbleginfo="NOISE"]) is back on the NOISE row - r2 step 7 moved the note into the expander' % tag)
+    if False:
         if inf.get('titleBefore') != 'show note' or NOTE_MARK in (inf.get('noteBefore') or ''):
             fails.append('%s: the NOISE note is open before any tap (toggle title %r)' % (tag, inf.get('titleBefore')))
         if NOTE_MARK not in (inf.get('note') or '') or inf.get('title') != 'hide note':
@@ -6418,7 +6449,7 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
     note = (sh[0].get('note') or '') if sh else ''
     if b.get('error'):
         # the error form: the fold says there is nothing and why, in plain words, and draws no row
-        if rows or not sh or (sh[0].get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · 0' or sh[0].get('rows') \
+        if rows or not sh or (sh[0].get('head') or '').replace('▾', '').replace('?', '').strip() != 'Shadow - not counted · 0' or sh[0].get('rows') \
                 or SHADOW_NOTE not in note or ('(%s)' % b['error']) not in note:
             fails.append('%s: with the box\'s error form (%r) the Shadow fold reads %r, note %r (want no row, %r and the reason)'
                          % (tag, b['error'], sh[0].get('head') if sh else None, note, SHADOW_NOTE))
@@ -6439,7 +6470,7 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
     got_open = dict((x['name'], x['open']) for x in rows if x['name'] in SHADOW_DIP_OPEN)
     if got_open != SHADOW_DIP_OPEN:
         fails.append("%s: the probe's own case is wrong: the DIP #424 open lines work out to %r, want %r" % (tag, got_open, SHADOW_DIP_OPEN))
-    if sh and (sh[0].get('head') or '').replace('▾', '').strip() != 'Shadow - not counted · %d' % len(rows):
+    if sh and (sh[0].get('head') or '').replace('▾', '').replace('?', '').strip() != 'Shadow - not counted · %d' % len(rows):
         fails.append('%s: the Shadow fold reads %r, want "Shadow - not counted · %d" (one row per shadow leg the box lists)'
                      % (tag, sh[0].get('head'), len(rows)))
     if sc_.get('list_open'):
@@ -6863,7 +6894,7 @@ def _judge_tl_frame(tag, tl, doc, cutoff, fails, mode='list', chip='ALL', query=
         fails.append('%s: the search box is %r, want #wb-search holding %r' % (tag, sb, query))
     if not tl.get('csv'):
         fails.append('%s: no CSV button beside the count ([data-qeexportcsv])' % tag)
-    want_more = ('SHOW MORE (%d more)' % (len(exp_all) - len(page))) if len(exp_all) > len(page) else None
+    want_more = ('%d more' % (len(exp_all) - len(page))) if len(exp_all) > len(page) else None   # LEDGER UI r2 step 1
     if tl.get('more') != want_more:
         fails.append('%s: SHOW MORE reads %r, want %r' % (tag, tl.get('more'), want_more))
     days_want = tl_days(page)
@@ -7957,9 +7988,9 @@ def _judge_more(tag, r, sc_, trades, cutoff, fixture, fails):
     _hue_and_label(tag, r, sc_, fixture, fails)
     if sc_['empty']:
         if not m.get('empty'):
-            fails.append("%s: More stats does not say 'No trades in this range.' (groups %r)" % (tag, m.get('groups')))
+            fails.append("%s: More stats does not say 'No trades' (groups %r)" % (tag, m.get('groups')))
         elif m.get('gap') is None or m['gap'] < 8:
-            fails.append("%s: 'No trades in this range.' runs into the Account heading (%s px between them)"
+            fails.append("%s: 'No trades' runs into the Account heading (%s px between them)"
                          % (tag, m.get('gap')))
         miss = [a for a in ACCOUNT_ROWS_ANY_RANGE if not any(x.startswith(a) for x in acct)]
         if miss:
@@ -8064,7 +8095,7 @@ def _hero_extras(tag, r, doc, fails, stale_like=False, colour=True, ex=None, sys
     ex = ex or {}
     # -- the amber line: 'broker made $X of that (N book-only trades excluded)'
     notes, titles = r.get('heroNote') or [], r.get('heroNoteTitles') or []
-    idx = [i for i, x in enumerate(notes) if x.startswith('broker made')]
+    idx = [i for i, x in enumerate(notes) if x.startswith('Webull fills')]
     got_line = [notes[i] for i in idx]
     want = broker_line_want(doc)
     if 'broker_line' in ex and (ex['broker_line'] or None) != want:
@@ -8355,7 +8386,7 @@ def _judge(data, fixture):
         _frame_problems(tag, (r.get('s11') or {}).get('frame'), r.get('innerW') or 0, fails,
                         retired=bool(sc_['retired']) and RETIRED_KEY not in _positions(doc))
         _judge_tl_frame(tag, r.get('tl'), doc, cut, fails, vp=vp, theme=sc_['theme'], top_check=not (sc_['more'] or sc_.get('list_open')), today=sc_['today'],
-                        none_text=('no trades closed today \u00b7 %d more outside this range' % len(tl_range_rows(doc))) if sc_['empty'] else None)
+                        none_text=('No trades \u00b7 %d more outside this range' % len(tl_range_rows(doc))) if sc_['empty'] else None)
         if nm == '$0 trade':
             if '1 even' not in (want['winrate'][1] or ''):
                 fails.append('%s: the probe\'s $0 fixture trade did not land (%r)' % (tag, want['winrate'][1]))
@@ -8553,8 +8584,8 @@ def _held_problems(tag, r, ex, fails):
             hmax = PHONE_ROW_MAX_H + (PHONE_ROW_OPEN_H if row[0].get('open3') else 0)
             if row[0].get('h', 0) > hmax or not row[0].get('h'):
                 fails.append('%s: on a phone the ENGU-Q row is %s px tall, want one line (1 to %d px)' % (tag, row[0].get('h'), hmax))
-        elif row[0].get('value2'):
-            fails.append("%s: ENGU-Q's row shows %r under its number, want only the open line there (its figures sit under the name)" % (tag, row[0].get('value2')))
+        elif not (row[0].get('value2') or '').startswith('equity '):
+            fails.append("%s: ENGU-Q's row shows %r under its number, want 'equity ±$X' while it holds its lot (r2 step 7)" % (tag, row[0].get('value2')))
 
 
 def _dip_problems(tag, r, ex, fails):
@@ -8880,7 +8911,8 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             if s in strip:
                 fails.append('%s: the status strip says %r (reads %r)' % (tag, s, strip))
         for key, what in (('stop', 'daily-stop caption'), ('orders', "orders header"), ('legtoday', "NOISE leg's today label")):
-            if key in ex and r.get(key) != ex[key]:
+            got = (r.get(key) or '').upper() if key == 'legtoday' and r.get(key) else r.get(key)
+            if key in ex and got != ex[key]:
                 fails.append('%s: the %s is dated %r, want %r' % (tag, what, r.get(key), ex[key]))
         if ex.get('orders') and ex['orders'] != 'today' and ('Orders on ' + ex['orders']) not in (r.get('ordersTxt') or ''):
             fails.append('%s: the orders header reads %r' % (tag, r.get('ordersTxt')))
@@ -9017,7 +9049,7 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
               % (data.get('VERSION'), elapsed, ', both attempts' if first else '', len(msgs)))
         seen = set()
         for f in msgs:
-            if f not in seen and len(seen) < 25:
+            if f not in seen and len(seen) < (10 ** 6 if os.environ.get('PROBE_SHOW_ALL') else 25):
                 seen.add(f)
                 print('  - ' + f)
         for n in notes[:6]:

@@ -270,10 +270,11 @@ def _loss_trade(i, t_in, t_out, size, pnl, mins):
 LOSS_TODAY = [_loss_trade(1, '09:35:00', '09:40:00', 1, -180.0, 5), _loss_trade(2, '09:42:00', '09:50:00', 2, -150.0, 8),
               _loss_trade(3, '09:52:00', '09:58:00', 2, -90.0, 6)]
 LOSS_WANT = {
-    'warn': {'text': 'Today -$420.00 · 84% of the $500.00 daily limit', 'level': 'warn', 'fill': 84.0, 'words': 'near your daily limit'},
-    'hit': {'text': 'Today -$420.00 · 105% of the $400.00 daily limit', 'level': 'hit', 'fill': 100.0,      # the fill stops at 100%
-            'words': 'daily limit hit - stop for today'},
-    'idle': {'text': 'Today $0.00 · $500.00 daily limit', 'level': 'ok', 'fill': 0.0, 'words': ''},       # a limit, nothing traded today
+    # LEDGER UI r2 step 16 (item 26): 'Today -$420.00 . 84% of $500.00 limit', words 'near limit' / 'LIMIT HIT'
+    'warn': {'text': 'Today -$420.00 · 84% of $500.00 limit', 'level': 'warn', 'fill': 84.0, 'words': 'near limit'},
+    'hit': {'text': 'Today -$420.00 · 105% of $400.00 limit', 'level': 'hit', 'fill': 100.0,      # the fill stops at 100%
+            'words': 'LIMIT HIT'},
+    'idle': {'text': 'Today $0.00 · $500.00 limit', 'level': 'ok', 'fill': 0.0, 'words': ''},       # a limit, nothing traded today
 }
 LOSS_CHIPS = [['streak', '3 losses in a row'], ['sizeup', 'size up after a loss'], ['quick', 'back in 2 min after a loss']]
 AI_SUMMARY = {False: (9, 71), True: (9 + len(LOSS_TODAY), 50)}     # the AI ASSESSMENT fold's "last N trades - W% won" without / with LOSS_TODAY
@@ -941,10 +942,6 @@ MUTANTS = [
      "const LEDGER_FILTERS_OPEN=false;",
      "const LEDGER_FILTERS_OPEN=true;",
      'the Filters row at the top of the list panel starts open'),
-    ('filters-row-missing',
-     "    filters:ledgerFiltersHtml({id:'hm',none:",
-     "    nofilters:ledgerFiltersHtml({id:'hm',none:",
-     'the accounts panel has no Filters row, so its header does not match the other boards'),
     ('filters-not-remembered',
      "function ledgerFiltersSet(id,on){try{localStorage.setItem('el_lg_filters_'+id,on?'1':'0');}catch(e){}}",
      "function ledgerFiltersSet(id,on){try{}catch(e){}}",
@@ -1428,7 +1425,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       r.moreGroups=Array.prototype.map.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){return g.getAttribute('data-lgmsgroup');}).join(',');
       // LEDGER improvements 3 + 6: the rows of the entry quality and what works groups, and the account in view they are scoped to
       r.moreRows={};Array.prototype.forEach.call(d.querySelectorAll('#hm-more [data-lgmsgroup]'),function(g){var gt=g.getAttribute('data-lgmsgroup');
-        if(/^(Entry quality|What works|Discipline|Missed trades|Fees)/.test(gt))r.moreRows[gt]=Array.prototype.map.call(g.querySelectorAll('.lg-ms-row'),function(x){
+        if(/^(Entry quality|Setups|Grades|Discipline|Missed trades|Fees)/.test(gt))r.moreRows[gt]=Array.prototype.map.call(g.querySelectorAll('.lg-ms-row'),function(x){
           var l=x.querySelector('.l'),v=x.querySelector('.v');return [((l||{}).textContent||'').replace(/\\s+/g,' ').trim(),((v||{}).textContent||'').replace(/\\s+/g,' ').trim()];});});
       // LEDGER redesign step 3: the time-of-day strip is a MORE STATS group now (slot, title, bar drawn) with its outside-the-session line
       r.tod=Array.prototype.map.call(d.querySelectorAll('#hm-more [data-hmtod] [data-hmtodslot]'),function(x){return [x.getAttribute('data-hmtodslot'),x.getAttribute('title')||'',!!x.querySelector('i')];});
@@ -1844,7 +1841,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       await sleep(60);
       function mb(m){return q('#hm-mode-toggle [data-hmmode="'+m+'"]');}
       function on(m){var b=mb(m);return !!(b&&b.classList.contains('active'));}
-      function cap(){return txt('[data-lgchartfoot="hm"] .lg-chart-cap');}
+      function cap(){var e=q('[data-lgchartfoot="hm"] .lg-chart-cap [data-hmcaphelp]');return e?(e.getAttribute('title')||''):txt('[data-lgchartfoot="hm"] .lg-chart-cap');}
       st.eqBtn=!!mb('equity');st.pnlBtn=!!mb('pnl');
       st.eqOn0=on('equity');st.pnlOn0=on('pnl');st.cap0=cap();
       var pb=mb('pnl');if(pb){pb.click();await sleep(80);}
@@ -2468,7 +2465,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     }
     out.kit=res;
   }
-  var LSK=['el_lg_missed_real','el_lg_deps_real','el_lg_ai_real','el_home_journal_open','el_lg_filters_hm'];
+  var LSK=['el_lg_missed_real','el_lg_deps_real','el_lg_ai_real','el_home_journal_open'];
   function lsRead(){var o={};LSK.forEach(function(k){try{o[k]=W().localStorage.getItem(k);}catch(e){o[k]='ERR';}});return o;}
   // the own folds and (LEDGER step 12) the Filters row at the top of the accounts panel
   function foldStates(){var o={};Array.prototype.forEach.call(D().querySelectorAll('[data-hmfold]'),function(b){o[b.getAttribute('data-hmfold')]=b.getAttribute('aria-expanded');});
@@ -3007,7 +3004,7 @@ def _cents(text):
 
 # LEDGER improvements 3 + 6 (2026-10-12): REAL's More stats carries three own groups after Account, judged from the fixture trades
 # LEDGER redesign step 3 (2026-11-01): the time-of-day strip left the calendar panel and is the LAST group of More stats
-MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,What works: setups,What works: grades,Discipline,Missed trades,Fees,Time of day'
+MORE_GROUPS = 'Returns,Risk,Mix,Account,Entry quality,Setups,Grades,Discipline,Missed trades,Fees,Time of day'   # LEDGER UI r2 step 11: shorter group names
 RULES_DEFAULT = {'minPts': 5, 'setup': True, 'maxSize': None}     # LEDGER improvement 2: the rules a fresh browser checks
 
 
@@ -3028,10 +3025,10 @@ def _edge_expect(trades, broker):
         rows = []
         for lab, lo, hi in (('7-9', 7, 99), ('4-6', 4, 6), ('0-3', 0, 3)):
             n, net, avg, wr = agg([t for t in sc if lo <= t['pointScore']['total'] <= hi])
-            rows.append(['Score %s \u00b7 %s \u00b7 %d%% won' % (lab, tr(n), wr), ('avg', avg)] if n else ['Score ' + lab, 'no trades'])
-        rows.append(['Not scored', tr(len(L) - len(sc))])
+            rows.append(['Score %s \u00b7 %d tr \u00b7 %d%%' % (lab, n, wr), ('avg', avg)] if n else ['Score ' + lab, 'no trades'])
+        rows.append(['Not scored', '%d tr' % (len(L) - len(sc))])   # LEDGER UI r2 step 11: 'tr'
         out['Entry quality'] = rows
-    for key, title, mx in (('setup', 'What works: setups', 6), ('grade', 'What works: grades', 5)):
+    for key, title, mx in (('setup', 'Setups', 6), ('grade', 'Grades', 5)):
         m = {}
         for t in L:
             k = str(t.get(key) if t.get(key) is not None else '').strip()
@@ -3039,7 +3036,7 @@ def _edge_expect(trades, broker):
                 m.setdefault(k, []).append(t)
         ks = sorted(((k,) + agg(v) for k, v in m.items()), key=lambda x: -x[2])
         if ks:
-            rows = [['%s \u00b7 %s \u00b7 %d%% won' % (k, tr(n), wr), ('net', net)] for k, n, net, avg, wr in ks[:mx]]
+            rows = [['%s \u00b7 %d tr \u00b7 %d%%' % (k, n, wr), ('net', net)] for k, n, net, avg, wr in ks[:mx]]
             if len(ks) > mx:
                 rows.append(['and %d more' % (len(ks) - mx), ''])
             out[title] = rows
@@ -3116,7 +3113,7 @@ def _tod_expect(trades, broker):
     def tr(n):
         return '%d trade%s' % (n, '' if n == 1 else 's')
     slots = [(hm(s), '%s-%s ET: %s, %s' % (hm(s), hm(s + 1800), tr(n), _signed(v)), n > 0) for s, n, v in B]
-    off = ('Outside 09:30-16:00: %s, %s' % (tr(off_n), _signed(off_v))) if off_n else ''
+    off = ('off-hours %d tr %s' % (off_n, _signed(off_v))) if off_n else ''   # LEDGER UI r2 step 16 (item 24)
     return slots, off
 
 
@@ -3877,7 +3874,7 @@ def _judge_frame_parts(nm, cfg, fr, fc, fails):
         if (st.get('lineH') or 0) > 40:
             fails.append('%s: the status line is %spx tall - it is ONE line (two at most on a phone)' % (nm, st.get('lineH')))
         ln = st.get('line') or ''
-        if 'Webull synced' not in ln or 'reconciled w/ Webull' not in ln:
+        if not re.search(r'Webull (\d+[smh]|--|now)', ln) or 'reconciled w/ Webull' not in ln:   # LEDGER UI r2 step 1: 'NT 3m . Webull 2m', no 'synced' word
             fails.append('%s: the status line reads %r - it must carry the broker syncs and the Webull reconcile check' % (nm, ln))
     if cfg.get('today'):
         # LEDGER improvement 5: a case with trades closed today may carry tilt chips in the slot ([data-hmtilt]) and nothing else
@@ -3901,21 +3898,14 @@ def _judge_frame_parts(nm, cfg, fr, fc, fails):
             fails.append('%s: the chart foot has no caption' % nm)
     if fr.get('toggles') != 1:
         fails.append('%s: the page draws %s EQUITY | P&L switches, expected the one in the chart foot' % (nm, fr.get('toggles')))
+    # LEDGER UI r2 step 7: the accounts panel has NO Filters row (one account list, nothing to filter) - it must stay gone
     fl = fr.get('filters')
-    if not fl:
-        fails.append('%s: the accounts panel has no Filters row ([data-lgfilters="hm"])' % nm)
-    else:
-        if fl.get('exp') != 'false' or not fl.get('hidden'):
-            fails.append('%s: the Filters row is not closed to start with (aria-expanded=%r, body hidden: %s)' % (nm, fl.get('exp'), fl.get('hidden')))
-        if not fl.get('afterHd'):
-            fails.append('%s: the Filters row is not at the top of the panel, right under its header' % nm)
-        if not fl.get('sum'):
-            fails.append('%s: the Filters row has no summary' % nm)
-    if fc is None or (isinstance(fc, dict) and fc.get('err')):
-        fails.append('%s: the Filters row could not be clicked -- %s' % (nm, _first((fc or {}).get('err') or 'no Filters button')))
-    elif fc.get('open') != 'true' or fc.get('ls') != '1' or fc.get('back') != 'false' or fc.get('ls2') != '0' or not fc.get('bodyBack') \
-            or (cfg['vp'] != 'phone' and not fc.get('bodyShown')):
-        fails.append('%s: the Filters row should open on a click (stored 1) and close on a second one (stored 0): %r' % (nm, fc))
+    if fl:
+        fails.append('%s: the accounts panel draws a Filters row ([data-lgfilters="hm"]) again - LEDGER UI r2 step 7 removed it' % nm)
+    if isinstance(fc, dict) and fc.get('err'):
+        fails.append('%s: the Filters probe threw -- %s' % (nm, _first(fc.get('err'))))
+    elif fc is not None:
+        fails.append('%s: a Filters button ([data-lgfilt="hm"]) is back on the accounts panel (%r)' % (nm, fc))
 
 
 def _judge_step11(nm, cfg, r, fails, n_missed):
@@ -4050,7 +4040,7 @@ def _judge_loss(nm, cfg, r, fails):
     if want is not None:
         _judge_lossbar(nm + ' (NinjaTrader in view)', r.get('lossNinja'), want, chips, fails)
         # Webull in view: none of today's trades are Webull's, so nothing is used - the idle bar for the same limit, no chip
-        wb = dict(LOSS_WANT['idle'], text='Today $0.00 · %s daily limit' % _usd(cfg['stop']))
+        wb = dict(LOSS_WANT['idle'], text='Today $0.00 · %s limit' % _usd(cfg['stop']))
         _judge_lossbar(nm + ' (Webull in view)', r.get('lossWebull'), wb, [], fails)
 
 
@@ -4174,7 +4164,7 @@ def _goal_words_check(tag, g, day, goal, tcase, fails):
     mo = day[:7]
     net = round(sum(t['pnl'] for t in tcase if _close_day(t)[:7] == mo), 2)
     pct = int(math.floor(max(0.0, net / goal * 100) + 0.5))
-    want_w = '%s goal: %s of %s · %d%%' % (mon, _signed(net), amt, pct)
+    want_w = 'Goal %s · %d%%' % (amt, pct)   # LEDGER UI r2 step 16: the month and the net left the line (the title keeps them)
     if g.get('words') != want_w:
         fails.append('%s: the month goal line under the chart reads %r, expected %r' % (tag, g.get('words'), want_w))
 
@@ -4307,8 +4297,8 @@ def _judge_folds(fd):
         _errs(tag + ' (render)', r.get('seedErr') or {}, fails)
         _errs(tag + ' (after the first reload)', r.get('err1') or {}, fails)
         _errs(tag + ' (after the second reload)', r.get('err2') or {}, fails)
-        shut = {k: 'false' for k in OWN_FOLDS + ['filters']}
-        shown = {k: 'true' for k in OWN_FOLDS + ['filters']}
+        shut = {k: 'false' for k in OWN_FOLDS}; shut['filters'] = None    # LEDGER UI r2 step 7: no Filters row on REAL
+        shown = {k: 'true' for k in OWN_FOLDS}; shown['filters'] = None
         if r.get('init') != {k: False for k in OWN_FOLDS}:
             fails.append('%s: on a fresh browser the own folds start as %r - every one must start closed (the AI ASSESSMENT box filled the top '
                          'of the page when it started open)' % (tag, r.get('init')))
@@ -4523,7 +4513,8 @@ def _judge(data, data_obj):
         # carries the words that say which of the three quantities it is - NET EQUITY in EQUITY view.
         if not r.get('heroTodayInline'):
             fails.append("%s: today is a line of its own again - it rides at the right end of the realized line (redesign step 6)" % nm)
-        _qual_want = 'realized|realized' if (cfg.get('chartMode') or 'equity') == 'pnl' else 'net equity|net'
+        # LEDGER UI r2 (item 1): in EQUITY view the words beside the number are gone (the label names it); the node stays with its data attr
+        _qual_want = 'realized|realized' if (cfg.get('chartMode') or 'equity') == 'pnl' else '|net'
         if (r.get('heroQual') or '') != _qual_want:
             fails.append("%s: the big number's qualifier reads %r, want %r (the one big-number rule, redesign step 9)"
                          % (nm, r.get('heroQual'), _qual_want))
@@ -4909,13 +4900,13 @@ def _judge(data, data_obj):
         elif not cm.get('eqBtn') or not cm.get('pnlBtn'):
             fails.append('%s: the chart foot lost a half of the EQUITY | P&L switch (EQUITY=%s P&L=%s)' % (tag, cm.get('eqBtn'), cm.get('pnlBtn')))
         else:
-            if not cm.get('eqOn0') or cm.get('pnlOn0') or 'account equity' not in (cm.get('cap0') or ''):
+            if not cm.get('eqOn0') or cm.get('pnlOn0') or 'account balance' not in (cm.get('cap0') or ''):
                 fails.append('%s: the chart does not start on EQUITY (EQUITY pressed=%s, P&L pressed=%s, caption %r)'
                              % (tag, cm.get('eqOn0'), cm.get('pnlOn0'), cm.get('cap0')))
-            if cm.get('modeAfterPnl') != 'pnl' or not cm.get('pnlOn1') or cm.get('eqOn1') or 'cumulative P&L' not in (cm.get('cap1') or ''):
+            if cm.get('modeAfterPnl') != 'pnl' or not cm.get('pnlOn1') or cm.get('eqOn1') or 'closed trades' not in (cm.get('cap1') or ''):
                 fails.append('%s: a click on P&L did not switch the chart to P&L (mode=%r, P&L pressed=%s, EQUITY pressed=%s, caption %r)'
                              % (tag, cm.get('modeAfterPnl'), cm.get('pnlOn1'), cm.get('eqOn1'), cm.get('cap1')))
-            if cm.get('modeAfterEq') != 'equity' or not cm.get('eqOn2') or cm.get('pnlOn2') or 'account equity' not in (cm.get('cap2') or ''):
+            if cm.get('modeAfterEq') != 'equity' or not cm.get('eqOn2') or cm.get('pnlOn2') or 'account balance' not in (cm.get('cap2') or ''):
                 fails.append('%s: a click on EQUITY did not switch the chart back (mode=%r, EQUITY pressed=%s, P&L pressed=%s, caption %r)'
                              % (tag, cm.get('modeAfterEq'), cm.get('eqOn2'), cm.get('pnlOn2'), cm.get('cap2')))
         # 13. the FULL table's ACCT / ACCT% columns and the trade panel's ACCT BALANCE / ACCT % rows
@@ -5038,7 +5029,8 @@ def _judge(data, data_obj):
         if I.get('settings'):
             bk = st.get('bookDay') or {}
             _errs(tag + ' book day on REAL', bk, fails)
-            want_bk = 'Today: you %s · BOOK #463 +$420.00 (+ 1 open +$12.50) · paper, not counted' % (bk.get('you') or '?')
+            # LEDGER UI r2 (item 27): 'You +$X · BOOK #N +$Y · paper' - the open part and 'not counted' moved into the title
+            want_bk = 'You %s · BOOK #463 +$420.00 · paper' % (bk.get('you') or '?')
             if bk.get('threw'):
                 fails.append('%s book day on REAL: %s' % (tag, _first(bk['threw'])))
             elif bk.get('txt') != want_bk or not bk.get('inAcct'):
@@ -5138,7 +5130,7 @@ def _report(t0, attempt, may_retry, chrome, root, alt_index):
               % (data.get('VERSION'), elapsed, ', both attempts' if first else '', len(msgs)))
         seen = set()
         for f in msgs:
-            if f not in seen and len(seen) < 25:
+            if f not in seen and len(seen) < (10 ** 6 if os.environ.get('PROBE_SHOW_ALL') else 25):
                 seen.add(f)
                 print('  - ' + f)
         if len(set(msgs)) > 25:

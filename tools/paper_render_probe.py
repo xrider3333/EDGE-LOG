@@ -1480,9 +1480,9 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         var _ls=d.querySelector('[data-p2listed]');
         r.listed=_ls?{net:parseFloat(_ls.getAttribute('data-net')),n:+_ls.getAttribute('data-n'),tie:_ls.getAttribute('data-tie')}:null;
         var _oh=d.querySelector('[data-p2otherhd],[data-p2grp="other"]');
-        r.otherHd=_oh?{net:parseFloat(_oh.getAttribute('data-net')),n:+_oh.getAttribute('data-n'),legs:+_oh.getAttribute('data-legs'),txt:_oh.innerText.replace(/\\s+/g,' ')}:null;
+        r.otherHd=_oh?{net:parseFloat(_oh.getAttribute('data-net')),n:+_oh.getAttribute('data-n'),legs:+_oh.getAttribute('data-legs'),txt:(_oh.closest('.lg-grp-hd')||_oh).innerText.replace(/\\s+/g,' ')}:null;
         r.otherRows=d.querySelectorAll('tr[data-paperother]').length+_gk('fwd').length+_gk('other').length+_gk('retired').length;
-        function _hd(sel){var e=d.querySelector(sel);return e?{net:parseFloat(e.getAttribute('data-net')),n:+e.getAttribute('data-n'),legs:+e.getAttribute('data-legs'),txt:e.innerText.replace(/\\s+/g,' ')}:null;}
+        function _hd(sel){var e=d.querySelector(sel);return e?{net:parseFloat(e.getAttribute('data-net')),n:+e.getAttribute('data-n'),legs:+e.getAttribute('data-legs'),txt:(e.closest('.lg-grp-hd')||e).innerText.replace(/\\s+/g,' ')}:null;}
         r.bookHd=_hd('[data-p2bookhd],[data-p2grp="book"]');r.fwdHd=_hd('[data-p2fwdhd],[data-p2grp="fwd"]');r.retHd=_hd('[data-p2grp="retired"]');
         r.cap=(function(){var e=d.querySelector('.lg-hero-label');return e?e.innerText:'';})();
         // owner 10-31: the chart caption's 'hatched =' text explains the caveat; each hatched day's hover names the day and its caveat in plain words
@@ -1528,7 +1528,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           return {key:g.getAttribute('data-lggroup'),rows:g.querySelectorAll('[data-lgrow]').length,fold:!!f,open:f?f.getAttribute('aria-expanded'):null,txt:_t(g.querySelector('.lg-grp-hd'))};}):[];
         r.listRowInfo=_ls0?[].map.call(_ls0.querySelectorAll('[data-lgrow]'),function(x){var sw=x.querySelector('[data-lgsw]'),gp=x.closest('.lg-grp');
           return {key:x.getAttribute('data-lgrow'),name:_t(x.querySelector('.lg-row-name')),group:gp?gp.getAttribute('data-lggroup'):null,sw:sw?sw.getAttribute('aria-checked'):null,off:x.classList.contains('off'),
-            val:(x.querySelector('.lg-row-val')||{innerText:''}).innerText.split(String.fromCharCode(10))[0].trim(),h:Math.round(x.getBoundingClientRect().height),dot:!!x.querySelector('.lg-row-name i'),sub:[_t(x.querySelector('.lg-row-sub'))].concat((function(dd){return dd?[].map.call(dd.querySelectorAll('.p2rowmore>div'),_t):[];})(x.nextElementSibling&&x.nextElementSibling.matches&&x.nextElementSibling.matches('.lg-row-detail[data-lgrowdetail]')?x.nextElementSibling:null)).filter(Boolean).join(' · ')};}):[];
+            val:(x.querySelector('.lg-row-val')||{innerText:''}).innerText.split(String.fromCharCode(10))[0].trim(),h:Math.round(x.getBoundingClientRect().height),dot:!!x.querySelector('.lg-row-name i'),sub:[_t(x.querySelector('.lg-row-sub'))].concat((function(dd){return dd?[].map.call(dd.querySelectorAll('.p2rowmore>.lg-ms-row,.p2rowmore>div'),function(e){var l=e.querySelector('.l'),v=e.querySelector('.v');return l&&v?(_t(l)+' '+_t(v)):_t(e);}):[];})(x.nextElementSibling&&x.nextElementSibling.matches&&x.nextElementSibling.matches('.lg-row-detail[data-lgrowdetail],.lg-row-detail[data-lgrowmorebody]')?x.nextElementSibling:null)).filter(Boolean).join(' · ')};}):[];
         var _tw=d.querySelector('#ptrades-wrap'),_tcard=(_tw&&_tw.closest)?_tw.closest('.p2sheet'):null;
         r.geo={vw:w.innerWidth,vh:w.innerHeight,scrollW:d.documentElement.scrollWidth,clientW:d.documentElement.clientWidth,boardTop:_top(d.querySelector('.p2rh')),
           tradesTop:_top(d.querySelector('[data-lglist-frame="nt8"]')||_tcard),listTop:_top(d.querySelector('[data-p2fold="list"]')||_ls0),moreTop:_top(d.querySelector('[data-lgmore="p2"]')),calTop:_top(d.querySelector('[data-lgcalfold="p2"]')),
@@ -2067,8 +2067,9 @@ def run(alt_index=None, timeout=300):
         elif abs(ne - (hn + op)) > 0.02:
             fails.append('%s: the big number is %s, but net equity is the realised %s plus the open %s = %s (redesign step 9)'
                          % (nm, ne, hn, op, round(hn + op, 2)))
-        if (r.get('heroQual') or '') != 'net equity':
-            fails.append("%s: the big number's qualifier reads %r, want 'net equity' (what the one big-number rule calls it)" % (nm, r.get('heroQual')))
+        # LEDGER UI r2 (item 1): the words beside the number are gone (the label names it); the qualifier node stays, empty
+        if r.get('heroQual') is None or (r.get('heroQual') or '') != '':
+            fails.append("%s: the big number's qualifier reads %r, want an empty qualifier node (LEDGER UI r2 item 1: the label alone says net equity)" % (nm, r.get('heroQual')))
         if 'net equity' not in (r.get('cap') or '').lower():
             fails.append('%s: the hero label does not name the big number as net equity: %r' % (nm, r.get('cap')))
     for nm in ('paper2', 'other-open', 'other-on', 'warn-stale-bridge', 'fwd-closed', 'fwd-open', 'book-fallback'):
@@ -2104,12 +2105,12 @@ def run(alt_index=None, timeout=300):
         else:
             if h.get('underPrev') != 'p2-hero-value' or h.get('underNext') != 'p2-hero-range':
                 fails.append('%s: the open line is not directly under the big number with the range line under it (before: %r, after: %r)' % (nm, h.get('underPrev'), h.get('underNext')))
-            # owner 10-31 15:30 + redesign step 9: 'unrealized -$X · N trades · in the number above' only while a trade is open
+            # owner 10-31 15:30 + redesign step 9 + LEDGER UI r2 (item 6): 'unrealized -$X · N open' only while a trade is open; the
+            # net-equity rule ('in the number above') is the figure's title, not a printed clause
             if not (und.startswith('unrealized ') or und == ''):
-                fails.append("%s: the line under the big number reads %r, want 'unrealized -$X · N trades · not counted' or nothing (no 'flat' word)" % (nm, und))
-            # redesign step 9: the open money IS in the big number now, so the line says so instead of 'not counted'
-            if und.startswith('unrealized ') and 'in the number above' not in und:
-                fails.append("%s: the open line %r does not say the open trades are IN the number above (the big number is net equity)" % (nm, und))
+                fails.append("%s: the line under the big number reads %r, want 'unrealized -$X · N open' or nothing (no 'flat' word)" % (nm, und))
+            if und.startswith('unrealized ') and not re.search(r'· \d+ open$', und):
+                fails.append("%s: the open line %r does not end '· N open' (LEDGER UI r2 item 6)" % (nm, und))
         if h.get('openInRange'):
             fails.append('%s: the range line still names the open trades (they moved to the line under the big number)' % nm)
         rng = (h.get('range') or '').replace('\n', ' ')
@@ -2120,8 +2121,9 @@ def run(alt_index=None, timeout=300):
                 if x.get('group') != 'book' or (x.get('val') or '') in ('', '—'):
                     continue
                 sub0 = x.get('sub') or ''   # the row's sub-line, then its 'more' lines, joined
-                if not re.match(r'^\d+ tr', sub0):
-                    fails.append("%s: BOOK row %s shows %r under its name, want its trades / win rate there ('N tr . X%% won . today ...')" % (nm, x.get('name'), sub0))
+                # LEDGER UI r2 step 8: the trades / win rate moved into the row's expander (its first rows read 'Trades N', 'Win rate X%')
+                if not re.match(r'^Trades \d+', sub0):
+                    fails.append("%s: BOOK row %s shows %r in its expander, want its trades / win rate there ('Trades N', 'Win rate X%%', 'Today ...')" % (nm, x.get('name'), sub0))
                 if '\n' in (x.get('val') or '') or ' tr' in (x.get('val') or ''):
                     fails.append('%s: BOOK row %s still shows its trade count under the number (%r)' % (nm, x.get('name'), x.get('val')))
             cap = r.get('chartCap') or ''
@@ -2393,15 +2395,15 @@ def run(alt_index=None, timeout=300):
     mo = I.get('more') or {}
     if mo.get('start') != 'false' or mo.get('open') != 'true':
         fails.append('paper2: More stats should start closed and open on a tap (start %r, after the tap %r)' % (mo.get('start'), mo.get('open')))
-    if mo.get('groups') != ['Returns', 'Risk', 'Mix', 'Strategy vs control']:
-        fails.append('paper2: More stats opened with groups %r, not Returns, Risk, Mix, Strategy vs control' % mo.get('groups'))
+    if mo.get('groups') != ['Returns', 'Risk', 'Mix', 'Strategy vs control', 'Time of day']:   # LEDGER UI r2 step 15: the entry-time strip
+        fails.append('paper2: More stats opened with groups %r, not Returns, Risk, Mix, Strategy vs control, Time of day' % mo.get('groups'))
     if mo.get('stored') != '1' or mo.get('closed') != 'false' or mo.get('storedClosed') != '0':
         fails.append('paper2: the More stats choice is not remembered per browser (stored %r / %r, aria %r)'
                      % (mo.get('stored'), mo.get('storedClosed'), mo.get('closed')))
     rowsd = dict((a, b) for a, b in (mo.get('rows') or []))
     if exp_all:
         # every value the old ten-cell grid showed lives in the fold now
-        for label, want_v in (('Net P&L', exp_all['net']), ('Average trade', exp_all['avg']), ('Average win', exp_all['avgw']),
+        for label, want_v in (('Net P&L', exp_all['net']), ('Avg trade (EV)', exp_all['avg']), ('Average win', exp_all['avgw']),
                               ('Average loss', exp_all['avgl']), ('Best day', exp_all['best']), ('Worst day', exp_all['worst']),
                               ('Max drawdown', exp_all['dd'])):
             got_v = _money_in(rowsd.get(label))
@@ -3532,13 +3534,14 @@ def _nt_expect(cfg, fixture):
     n = len(exp) if exp else len(strats)
     run = len([x for x in exp if x in rt]) if exp else len(rt)
     pos = len(B.get('positions') or []) if up else 0
+    # LEDGER UI r2 (item 42): 'NT 3 of 4 running · 1 open · checks clear' - the sentence lives in the title now
     if B is None:
-        return 'No NinjaTrader snapshot yet', True, 0
+        return 'NT no snapshot', True, 0
     if B.get('up') is False:
-        return 'NinjaTrader is not answering', True, 0
+        return 'NT not answering', True, 0
     if not n:
-        return 'NinjaTrader is running no strategy', True, pos
-    return 'NinjaTrader is running %d of %d strateg%s' % (run, n, 'y' if n == 1 else 'ies'), run < n, pos
+        return 'NT running nothing', True, pos
+    return 'NT %d of %d running' % (run, n), run < n, pos
 
 
 def _health_expect(cards, has_cap):
@@ -3700,8 +3703,8 @@ def _judge_s11(cases, fixture, data, fails):
             nt_txt, nt_bad, n_pos = _nt_expect(CASE_CFG.get(nm) or {}, fixture)
             want_tok = [nt_txt]
             if n_pos:
-                want_tok.append('\u00b7 %d position%s open' % (n_pos, '' if n_pos == 1 else 's'))
-            want_tok.append(('\u00b7 \u26a0 %d check%s a look' % (len(wcs), ' needs' if len(wcs) == 1 else 's need')) if wcs else '\u00b7 all checks clear')
+                want_tok.append('\u00b7 %d open' % n_pos)
+            want_tok.append(('\u00b7 \u26a0 %d check%s a look' % (len(wcs), ' needs' if len(wcs) == 1 else 's need')) if wcs else '\u00b7 checks clear')
             got_tok = [t['t'] for t in tok]
             if got_tok != want_tok:
                 fails.append('%s: the status sentence reads %r, expected the tokens %r (%d warning chip(s))' % (nm, got_tok, want_tok, len(wcs)))
@@ -3963,11 +3966,11 @@ def _judge_nt8(cases, fixture, fails):
         st = [f for f in ((cases.get(nm) or {}).get('s11') or {}).get('folds') or [] if f['k'] == 'status']
         return (st[0].get('tok') or []) if st else []
     for nm, want_txt, want_bad, want_pos in (
-            ('nt-count-partial', 'NinjaTrader is running 1 of 2 strategies', True, '\u00b7 1 position open'),
-            ('nt-count-all', 'NinjaTrader is running 2 of 2 strategies', False, None),
-            ('nt-down', 'NinjaTrader is not answering', True, None),
-            ('nt-none', 'No NinjaTrader snapshot yet', True, None),
-            ('paper2', 'NinjaTrader is running no strategy', True, None)):
+            ('nt-count-partial', 'NT 1 of 2 running', True, '\u00b7 1 open'),
+            ('nt-count-all', 'NT 2 of 2 running', False, None),
+            ('nt-down', 'NT not answering', True, None),
+            ('nt-none', 'NT no snapshot', True, None),
+            ('paper2', 'NT running nothing', True, None)):
         tok = _tok(nm)
         if not tok or tok[0]['t'] != want_txt:
             fails.append('%s: the NinjaTrader count in the status sentence reads %r, expected %r' % (nm, tok[0]['t'] if tok else None, want_txt))
@@ -3975,7 +3978,7 @@ def _judge_nt8(cases, fixture, fails):
         red = 'p2st-bad' in (tok[0].get('c') or '').split()
         if red != want_bad:
             fails.append('%s: the NinjaTrader count %r %s (class %r)' % (nm, want_txt, 'must be red (p2st-bad) and is not' if want_bad else 'must not be red and is', tok[0].get('c')))
-        pos = [t['t'] for t in tok if 'position' in t['t']]
+        pos = [t['t'] for t in tok if re.search(r'\d+ open$', t['t'])]
         if pos != ([want_pos] if want_pos else []):
             fails.append('%s: the open positions in the status sentence read %r, expected %r' % (nm, pos, [want_pos] if want_pos else []))
 
@@ -4316,14 +4319,14 @@ def _judge_keeps(cases, fixture, index_path, fails):
     roll = [t for t in fixture['trades'] if t.get('roll_artifact')]
     roll_ids = sorted(t['id'] for t in roll)
     roll_leg = [t for t in roll if t.get('leg') == KEEPS_ROLL_LEG and t.get('open') is not True]
-    bit = 'incl. %s roll artifact' % _page_signed(sum(t['pnl_usd'] for t in roll_leg))
+    bit = 'Roll artifact incl. %s' % _page_signed(sum(t['pnl_usd'] for t in roll_leg))   # LEDGER UI r2 step 8: a label / value row in the expander
     if not roll or sorted(KEEPS_ROLL_IDS) != roll_ids:
         fails.append('keeps: the fixture roll trades are %r, expected %r' % (roll_ids, sorted(KEEPS_ROLL_IDS)))
     for nm in ('paper2', 'roll-marks'):
         r = cases.get(nm) or {}
         rows = r.get('listRowInfo') or []
         mine = next((x for x in rows if x.get('key') == KEEPS_ROLL_LEG), None)
-        holders = [x.get('key') for x in rows if 'roll artifact' in (x.get('sub') or '')]
+        holders = [x.get('key') for x in rows if 'Roll artifact' in (x.get('sub') or '')]
         if mine is None or (SEP + (mine.get('sub') or '') + SEP).find(SEP + bit + SEP) < 0:
             fails.append('%s: the roll artifact bit "%s" is missing from the %s strategy row (its sub line reads %r)'
                          % (nm, bit, KEEPS_ROLL_LEG, (mine or {}).get('sub')))
