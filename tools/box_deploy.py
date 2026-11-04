@@ -465,6 +465,21 @@ def _ssh(cmd, timeout=120):
                           timeout=timeout)
 
 
+NEEDRESTART_SCRIPT = f"{REMOTE_REPO}/deploy/cloud/install_needrestart_override.sh"
+
+
+def _install_needrestart_override(timeout=120):
+    """Run deploy/cloud/install_needrestart_override.sh ON THE BOX (CHANGE_CONTROL.md
+    "Automatic Ubuntu upgrades", option a): stops needrestart auto-restarting the two
+    book services after an unattended library upgrade and pins apt's Automatic-Reboot
+    off. Idempotent. Returns (rc, combined output); rc 0 = installed + verified,
+    1 = verify found a service still marked, 2 = could not install / ssh failed.
+    Only ever called AFTER a successful deploy (book flat, services came up clean)."""
+    r = _ssh(f"sudo -n bash {shlex.quote(NEEDRESTART_SCRIPT)}", timeout=timeout)
+    out = (r.stdout or "") + (r.stderr or "")
+    return r.returncode, out
+
+
 def _remote_show(sha, repo_relative_path, timeout=30):
     """Text of a file AT A SPECIFIC COMMIT (`git show <sha>:<path>`), or None if it
     doesn't exist there or the read fails. Never used on a secrets file -- callers
@@ -716,6 +731,11 @@ def main(argv=None):
                     help="actually deploy (without this, prints the plan and stops)")
     ap.add_argument("--dry-run", action="store_true",
                     help="do every check, print the plan, change nothing")
+    ap.add_argument("--install-needrestart-override", action="store_true",
+                    help="after a SUCCESSFUL deploy (book flat, services up clean) run "
+                         "deploy/cloud/install_needrestart_override.sh on the box: "
+                         "needrestart stops auto-restarting the two book services and "
+                         "apt auto-reboot is pinned off (idempotent; default off)")
     args = ap.parse_args(argv)
 
     if args.yes and args.dry_run:
@@ -724,6 +744,10 @@ def main(argv=None):
     if args.adopt_open and not args.owner_waiver:
         print("REFUSED: --adopt-open needs --owner-waiver '<why>' (it deploys with open lots)")
         return 2
+
+    if args.install_needrestart_override:
+        print("needrestart override: will run deploy/cloud/install_needrestart_override.sh "
+              "on the box after a successful deploy" + (" (dry run: not run)" if args.dry_run else ""))
 
     now_et = _dt.datetime.now(_NY) if _NY else _dt.datetime.now()
     try:
@@ -978,6 +1002,21 @@ def main(argv=None):
               "box_deploy.py --commit <previous sha> --yes to roll back.")
         return 2
     print("DEPLOY OK.")
+    if args.install_needrestart_override:
+        # Post-deploy only: the flat guard + boot verification above already passed, and
+        # the script touches /etc only (never the services), so a failure here never
+        # fails the deploy -- it is reported and logged for the next run.
+        print("installing the needrestart override on the box...")
+        try:
+            nr_rc, nr_out = _install_needrestart_override()
+        except (OSError, subprocess.TimeoutExpired) as e:
+            nr_rc, nr_out = 2, f"{type(e).__name__}: {e}"
+        for line in nr_out.rstrip().splitlines():
+            print("  " + line)
+        _log(f"NEEDRESTART-OVERRIDE rc={nr_rc} target={target}")
+        print("needrestart override: " + {0: "OK (installed + verified)",
+                                           1: "VERIFY FAILED (a book service is still marked for restart)"}
+              .get(nr_rc, f"FAILED rc={nr_rc} (could not install)"))
     return 0
 
 

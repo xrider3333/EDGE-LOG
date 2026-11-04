@@ -114,3 +114,19 @@ does not know or care about market hours.
 
 Neither option is applied by this change — the owner picks one and the lead applies it
 by hand on the box.
+
+**Applied (repo side) 2026-11-04 -- option (a), B6.** `deploy/cloud/needrestart-edgelog.conf`
+holds the override; `deploy/cloud/install_needrestart_override.sh` installs it to
+`/etc/needrestart/conf.d/edgelog.conf`, pins `Unattended-Upgrade::Automatic-Reboot "false"`
+(`/etc/apt/apt.conf.d/52edgelog-no-auto-reboot`), verifies with a list-only
+`needrestart -b -r l` and prints whether `/var/run/reboot-required` exists. Idempotent.
+It reaches the box only through `python tools/box_deploy.py --yes --install-needrestart-override`
+(opt-in; runs after the deploy passed the flat guard and boot verification; default off).
+
+### Pending reboot
+
+The override stops *service* restarts, not the kernel reboot that
+`/var/run/reboot-required` is waiting for. Take it on a weekend with both services
+stopped: `sudo systemctl stop edgelog-qqq-exec edgelog-cloud-signal; sudo reboot`;
+then `python tools/box_deploy.py --dry-run` (the verify pass: book state, commit,
+services) and, if the services did not come back `active`, `python tools/box_deploy.py --yes`.

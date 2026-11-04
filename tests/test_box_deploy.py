@@ -795,3 +795,57 @@ def test_book_pathspecs_cover_the_whole_engine():
     leg runs through, and the deploy's review diff showed only api/cloud_signal.py."""
     got = box_deploy._book_pathspecs(lambda relpath: None)
     assert "augur_engine" in got
+
+
+# -- --install-needrestart-override (B6: Ubuntu auto-upgrades restarting the book) ----
+_FLAT_QQQ = {"legs": {}, "pending_resend": {}, "pending_fill_capture": {}}
+_FLAT_WB = {"broker_sent_positions": {}}
+
+
+def test_needrestart_flag_is_off_by_default(monkeypatch, capsys):
+    try:
+        _run_main_to_the_git_step(monkeypatch, dict(_FLAT_QQQ), dict(_FLAT_WB), {"session": {}})
+    except _Stop:
+        pass
+    assert "needrestart override" not in capsys.readouterr().out
+
+
+def test_needrestart_flag_announces_itself_and_never_runs_on_dry_run(monkeypatch, capsys):
+    files = {f"{box_deploy.REMOTE_HOME}/qqq_exec/state.json": dict(_FLAT_QQQ),
+             f"{box_deploy.REMOTE_HOME}/webull_orders/state.json": dict(_FLAT_WB),
+             f"{box_deploy.REMOTE_HOME}/qqq_exec/config.json": {"session": {}}}
+    monkeypatch.setattr(box_deploy, "_read_remote_json", lambda path: files.get(path))
+    monkeypatch.setattr(box_deploy, "_in_protected_window", lambda now: False)
+    ran = []
+    monkeypatch.setattr(box_deploy, "_install_needrestart_override",
+                        lambda **kw: ran.append(1) or (0, ""))
+
+    def stop():
+        raise _Stop()
+    monkeypatch.setattr(box_deploy, "_remote_head_sha", stop)
+    try:
+        box_deploy.main(["--commit", "abc1234", "--dry-run", "--install-needrestart-override"])
+    except _Stop:
+        pass
+    out = capsys.readouterr().out
+    assert "needrestart override: will run deploy/cloud/install_needrestart_override.sh" in out
+    assert "(dry run: not run)" in out
+    assert ran == []
+
+
+def test_needrestart_helper_runs_the_repo_script_with_sudo(monkeypatch):
+    seen = {}
+
+    class R:
+        returncode = 0
+        stdout = "VERIFY OK"
+        stderr = ""
+
+    def fake_ssh(cmd, timeout=120):
+        seen["cmd"] = cmd
+        return R()
+    monkeypatch.setattr(box_deploy, "_ssh", fake_ssh)
+    rc, out = box_deploy._install_needrestart_override()
+    assert rc == 0 and "VERIFY OK" in out
+    assert seen["cmd"].startswith("sudo -n bash ")
+    assert seen["cmd"].endswith("/EDGE-LOG/deploy/cloud/install_needrestart_override.sh")
