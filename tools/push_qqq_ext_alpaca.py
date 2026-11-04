@@ -77,13 +77,16 @@ def pull(days, fetch=None, keys=None, now=None):
 
 def push_files(paths, run=subprocess.run):
     ssh = ["ssh", "-i", SSH_KEY, "-o", "BatchMode=yes", BOX]
+    # pythonw.exe has no console: without CREATE_NO_WINDOW each scp/ssh opens a visible window (11-04).
+    nowin = {"creationflags": getattr(subprocess, "CREATE_NO_WINDOW", 0)} if os.name == "nt" else {}
     for p in paths:
         name = os.path.basename(p)
         r = run(["scp", "-q", "-i", SSH_KEY, "-o", "BatchMode=yes", p, f"{BOX}:{BOX_DIR}/{name}.tmp"],
-                capture_output=True, text=True, timeout=300)
+                capture_output=True, text=True, timeout=300, **nowin)
         if r.returncode != 0:
             raise RuntimeError(f"scp {name}: {(r.stderr or '').strip()[:200]}")
-        r = run(ssh + [f"mv -f {BOX_DIR}/{name}.tmp {BOX_DIR}/{name}"], capture_output=True, text=True, timeout=60)
+        r = run(ssh + [f"mv -f {BOX_DIR}/{name}.tmp {BOX_DIR}/{name}"], capture_output=True, text=True, timeout=60,
+                **nowin)
         if r.returncode != 0:
             raise RuntimeError(f"mv {name}: {(r.stderr or '').strip()[:200]}")
 

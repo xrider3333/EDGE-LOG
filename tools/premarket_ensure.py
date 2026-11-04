@@ -53,7 +53,8 @@ def runner_pids():
           "$_.CommandLine -like '*api.runner*' } | ForEach-Object { $_.ProcessId }")
     try:
         out = subprocess.run(["powershell", "-NoProfile", "-Command", ps],
-                             capture_output=True, text=True, timeout=90).stdout
+                             capture_output=True, text=True, timeout=90,
+                             creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0)).stdout
         return [p for p in out.split() if p.strip().isdigit()]
     except Exception as e:
         log(f"could not list runner processes: {type(e).__name__}: {e}")

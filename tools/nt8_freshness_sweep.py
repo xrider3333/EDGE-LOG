@@ -175,7 +175,10 @@ def _query_tasks():
           "last=$(if($i.LastRunTime){$i.LastRunTime.ToString('s')}else{''}); result=$i.LastTaskResult} } "
           "| ConvertTo-Json -Compress")
     # 180 s: the first pass after the PC wakes can take over a minute (10-15 06:33 timed out at 60 s, inbox #187)
-    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, timeout=180)
+    # CREATE_NO_WINDOW: this runs under pythonw.exe (no console), so a console child would otherwise open a
+    # VISIBLE powershell window on the owner's screen every 30 min (11-04 "lots of command shell popups").
+    r = subprocess.run(["powershell", "-NoProfile", "-Command", ps], capture_output=True, text=True, timeout=180,
+                       creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0))
     rows = json.loads(r.stdout or "[]")
     return rows if isinstance(rows, list) else [rows]
 
