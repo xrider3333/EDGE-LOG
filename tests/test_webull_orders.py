@@ -674,3 +674,140 @@ def test_account_selection_live_fetch_fails_and_no_usable_cache_raises(tmp_path,
     monkeypatch.setattr(adapter, "_build_client", lambda mode: broken_client)
     with pytest.raises(RuntimeError):
         adapter._account_id("PAPER", broken_client)
+
+
+# ── LIVE RAILS (B3 live_legs allowlist, B9 account pin; 2026-11-04) ──────────────
+
+def _live_cfg(tmp_path, **extra):
+    cfg = _cfg(tmp_path, mode="LIVE", **extra)
+    _write_keys(cfg["live_keys_path"])
+    with open(cfg["arm_live_file"], "w", encoding="utf-8") as f:
+        f.write("armed")
+    return cfg
+
+
+def _live_client(last4="7788"):
+    client = _mock_client()
+    client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": [{"account_id": "LIVE1", "account_class": "INDIVIDUAL_MARGIN",
+                  "account_number": "12345" + last4},
+                 {"account_id": "LIVE2", "account_class": "INDIVIDUAL_MARGIN",
+                  "account_number": "999900001111"}]}
+    return client
+
+
+def test_live_open_blocked_when_leg_not_in_live_legs(tmp_path, monkeypatch):
+    cfg = _live_cfg(tmp_path)                       # default live_legs = []
+    cfg["account"]["stock_last4"] = "7788"
+    adapter = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    client = _live_client()
+    monkeypatch.setattr(adapter, "_build_client", lambda mode: client)
+    assert adapter.effective_mode()[0] == WO.MODE_LIVE
+    rec = adapter.place_stock_order(leg="NOISE_382", signal_id="live-1", symbol="QQQ",
+                                    side="BUY", qty=1)
+    assert rec["sent"] is False and rec["mode"] == "BLOCKED"
+    assert rec["reason"] == "leg not in live_legs"
+    client.order_v3.place_order.assert_not_called()
+    assert adapter.status()["live_legs"] == []
+
+
+def test_live_open_allowed_for_listed_leg_and_close_never_blocked(tmp_path, monkeypatch):
+    cfg = _live_cfg(tmp_path, rails={"live_legs": ["NOISE_382"]})
+    cfg["account"]["stock_last4"] = "7788"
+    adapter = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    client = _live_client()
+    monkeypatch.setattr(adapter, "_build_client", lambda mode: client)
+    ok, reason = adapter._check_rails("NOISE_382", 1, "OPEN")
+    assert ok, reason
+    ok, reason = adapter._check_rails("DIP_424", 1, "OPEN")
+    assert (ok, reason) == (False, "leg not in live_legs")
+    # a CLOSE of any leg is never trapped behind the allowlist
+    assert adapter._check_rails("DIP_424", 1, "CLOSE")[0] is True
+    assert adapter.status()["live_legs"] == ["NOISE_382"]
+
+
+def test_paper_ignores_live_legs(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path, mode="PAPER")             # live_legs default []
+    _write_keys(cfg["paper_keys_path"])
+    adapter, client = _adapter_with_mock_client(monkeypatch, cfg)
+    assert adapter._check_rails("ANY_LEG", 1, "OPEN")[0] is True
+    rec = adapter.place_stock_order(leg="ANY_LEG", signal_id="paper-1", symbol="AAPL",
+                                    side="BUY", qty=1)
+    assert rec["sent"] is True and rec["mode"] == "PAPER"
+
+
+def test_live_resting_refused_for_leg_not_in_live_legs(tmp_path, monkeypatch):
+    cfg = _live_cfg(tmp_path, rails={"live_legs": ["NOISE_382"]})
+    cfg["account"]["stock_last4"] = "7788"
+    adapter = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    monkeypatch.setattr(adapter, "_build_client", lambda mode: _live_client())
+    adapter._state["broker_sent_positions"] = {
+        "DIP_424": {"symbol": "QQQ", "qty": 1, "account_id": "LIVE1"},
+        "NOISE_382": {"symbol": "QQQ", "qty": 1, "account_id": "LIVE1"}}
+    assert adapter._resting_refusal("DIP_424", "QQQ", "SELL", 1) == ("NOT_SENT", "leg not in live_legs")
+    assert adapter._resting_refusal("NOISE_382", "QQQ", "SELL", 1) is None
+
+
+def test_live_send_refused_when_account_not_pinned(tmp_path, monkeypatch):
+    cfg = _live_cfg(tmp_path, rails={"live_legs": ["NOISE_382"]})
+    assert cfg["account"].get("stock_last4") is None   # DEFAULT_ACCOUNT_SELECT default
+    adapter = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    client = _live_client()
+    monkeypatch.setattr(adapter, "_build_client", lambda mode: client)
+    rec = adapter.place_stock_order(leg="NOISE_382", signal_id="live-2", symbol="QQQ",
+                                    side="BUY", qty=1)
+    assert rec["sent"] is False and rec["reason"] == "live account not pinned"
+    client.order_v3.place_order.assert_not_called()
+    adapter._state["broker_sent_positions"] = {"NOISE_382": {"symbol": "QQQ", "qty": 1}}
+    assert adapter._resting_refusal("NOISE_382", "QQQ", "SELL", 1) == ("NOT_SENT", "live account not pinned")
+    with pytest.raises(RuntimeError, match="live account not pinned"):
+        adapter._account_id("LIVE", client)
+    client.account_v2.get_account_list.assert_not_called()
+    assert adapter.status()["live_account_pinned"] is False
+
+
+def test_live_account_selected_by_last4_only(tmp_path, monkeypatch):
+    accts = _live_client().account_v2.get_account_list.return_value.json.return_value["data"]
+    cfg = _live_cfg(tmp_path)
+    with pytest.raises(RuntimeError, match="live account not pinned"):
+        WO._select_account(accts, "stock", cfg, mode="LIVE")
+    # PAPER keeps the class rule: two INDIVIDUAL_MARGIN rows is the old ambiguity error
+    with pytest.raises(RuntimeError, match="ambiguous"):
+        WO._select_account(accts, "stock", cfg, mode="PAPER")
+    cfg["account"]["stock_last4"] = "7788"
+    assert WO._select_account(accts, "stock", cfg, mode="LIVE")["account_id"] == "LIVE1"
+    adapter = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    client = _live_client()
+    assert adapter._account_id("LIVE", client) == "LIVE1"
+    assert adapter._state["account_ids"]["LIVE:stock"]["last4"] == "7788"
+    assert adapter.status()["live_account_pinned"] is True
+    # a pin that matches nothing never falls back to the class default
+    cfg2 = _live_cfg(tmp_path)
+    cfg2["account"]["stock_last4"] = "0000"
+    with pytest.raises(RuntimeError, match="no account matches"):
+        WO._select_account(accts, "stock", cfg2, mode="LIVE")
+
+
+def test_live_reconcile_ignores_other_holdings(tmp_path, monkeypatch):
+    cfg = _live_cfg(tmp_path, rails={"live_legs": ["NOISE_382"]})
+    cfg["account"]["stock_last4"] = "7788"
+    adapter = WO.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    monkeypatch.setattr(adapter, "_build_client", lambda mode: _live_client())
+    adapter._state["broker_sent_positions"] = {
+        "NOISE_382": {"symbol": "QQQ", "qty": 2, "account_id": None}}
+    # the owner's other holdings sit in the same real account
+    result = adapter.reconcile(broker_positions_fn=lambda: {"QQQ": 2.0, "AAPL": 50.0, "TSLA": 3.0})
+    assert result["ok"] is True and adapter._halted is False
+    # QQQ itself still has to agree
+    result = adapter.reconcile(broker_positions_fn=lambda: {"QQQ": 1.0, "AAPL": 50.0})
+    assert result["ok"] is False
+    assert [m["symbol"] for m in result["mismatches"]] == ["QQQ"]
+
+
+def test_paper_reconcile_still_compares_every_symbol(tmp_path, monkeypatch):
+    cfg = _cfg(tmp_path, mode="PAPER")
+    _write_keys(cfg["paper_keys_path"])
+    adapter, _ = _adapter_with_mock_client(monkeypatch, cfg)
+    result = adapter.reconcile(broker_positions_fn=lambda: {"AAPL": 50.0})
+    assert result["ok"] is False
+    assert [m["symbol"] for m in result["mismatches"]] == ["AAPL"]

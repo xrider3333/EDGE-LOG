@@ -242,7 +242,34 @@ DEFAULT_RAILS = {
     # blocks their OPEN. A code default, so it survives a config.json rails block that does
     # not name it (load_config merges rails one key at a time).
     "own_loss_rail_prefixes": ["DIP_"],
+    # LIVE LEG ALLOWLIST (B3, 2026-11-04, MANAGER audit): in effective mode LIVE an OPEN
+    # whose leg is not named here is BLOCKED ("leg not in live_legs"), and so is a resting
+    # exit for such a leg. Default [] = NOTHING trades live until the box's config.json
+    # rails block names the legs. PAPER and OFF never consult it. A CLOSE is never blocked.
+    "live_legs": [],
 }
+
+# LIVE POSITION CHECK (B9, 2026-11-04): in LIVE mode reconcile() compares ONLY this symbol
+# (api/qqq_exec.BROKER_SYMBOL -- a copy, qqq_exec imports this module) plus whatever
+# broker_sent_positions names, so other holdings in a real account never halt entries.
+RECONCILE_LIVE_SYMBOL = "QQQ"
+
+
+def live_legs(cfg):
+    """The LIVE leg allowlist from cfg['rails']['live_legs'] as a set of str ([] = none)."""
+    rails = (cfg or {}).get("rails") if isinstance((cfg or {}).get("rails"), dict) else {}
+    legs = rails.get("live_legs") if rails else None
+    if isinstance(legs, str):
+        legs = [legs]
+    return {str(x) for x in (legs or []) if x not in (None, "")}
+
+
+def live_stock_last4(cfg):
+    """cfg['account']['stock_last4'] as a 4-char string, or None when LIVE is not pinned."""
+    acct = (cfg or {}).get("account") if isinstance((cfg or {}).get("account"), dict) else {}
+    v = acct.get("stock_last4") if acct else None
+    v = str(v).strip() if v not in (None, "") else ""
+    return v[-4:] if len(v) >= 4 else None
 
 # ── account selection (2026-09-14, first LIVE paper smoke test) ────────────────────
 # _account_id() used to take accts[0] from get_account_list() -- "whichever account
@@ -274,6 +301,11 @@ DEFAULT_RAILS = {
 DEFAULT_ACCOUNT_SELECT = {
     "stock": "INDIVIDUAL_MARGIN",
     "futures": "FUTURES",
+    # ACCOUNT PIN (B9, 2026-11-04): in LIVE mode the stock account is selected by the last 4
+    # of its account NUMBER and nothing else -- cfg['account']['stock_last4'] on the box.
+    # None (the default) means a LIVE send is refused NOT_SENT "live account not pinned";
+    # PAPER keeps selecting by class as before. Never a full account number.
+    "stock_last4": None,
 }
 
 FUTURES_NOT_ENABLED = (
@@ -387,11 +419,17 @@ def _account_selector_key(purpose, cfg):
     return f"class:{want}"
 
 
-def _select_account(accts, purpose, cfg):
+def _select_account(accts, purpose, cfg, mode=None):
     """Pick the one account in `accts` (get_account_list() items) this adapter should
     use for `purpose` ("stock" or "futures"). Raises RuntimeError -- never guesses --
     when nothing matches or more than one account does; see DEFAULT_ACCOUNT_SELECT's
-    docstring comment for why accts[0] is never an acceptable fallback here."""
+    docstring comment for why accts[0] is never an acceptable fallback here.
+    mode LIVE (B9): the stock account MUST be pinned by cfg['account']['stock_last4'] and
+    is matched on that number ending only -- no pin, RuntimeError 'live account not
+    pinned' (the class default never selects a real-money account)."""
+    if mode == MODE_LIVE and purpose == "stock" and not live_stock_last4(cfg):
+        raise RuntimeError("live account not pinned -- set cfg['account']['stock_last4'] "
+                           "to the last 4 of the LIVE stock account number")
     kind, _, value = _account_selector_key(purpose, cfg).partition(":")
     if kind == "last4":
         matches = [a for a in accts if _account_last4(a) == value]
@@ -1238,6 +1276,10 @@ class OrderAdapter:
         accounts -- that is a real configuration problem, not a transient fetch failure.
         """
         cache_key = f"{mode}:{purpose}"
+        if mode == MODE_LIVE and purpose == "stock" and not live_stock_last4(self.cfg):
+            # ACCOUNT PIN (B9): before the cache and before any Webull call
+            raise RuntimeError("live account not pinned -- set cfg['account']['stock_last4'] "
+                               "to the last 4 of the LIVE stock account number")
         if cache_key in self._account_id_cache:
             return self._account_id_cache[cache_key]
 
@@ -1259,7 +1301,7 @@ class OrderAdapter:
         if not accts:
             raise RuntimeError("get_account_list returned no accounts")
 
-        chosen = _select_account(accts, purpose, self.cfg)
+        chosen = _select_account(accts, purpose, self.cfg, mode=mode)
         aid = _field(chosen, "account_id", "accountId", "id")
         if not aid:
             raise RuntimeError("could not read account_id from the matched account")
@@ -1345,6 +1387,13 @@ class OrderAdapter:
             self._halt_source = "kill_file"
         if self._halted:
             return False, f"halted: {self._halt_reason}"
+        if self.effective_mode()[0] == MODE_LIVE:
+            # LIVE LEG ALLOWLIST (B3): real money only for legs the owner named in config
+            if leg not in live_legs(self.cfg):
+                return False, "leg not in live_legs"
+            # ACCOUNT PIN (B9): no LIVE send without cfg['account']['stock_last4']
+            if not live_stock_last4(self.cfg):
+                return False, "live account not pinned"
         max_shares = int(rails.get("max_shares_per_leg", 0) or 0)
         if max_shares and qty > max_shares:
             return False, f"qty {qty} exceeds max_shares_per_leg {max_shares}"
@@ -2781,6 +2830,12 @@ class OrderAdapter:
         holds the lock."""
         if self._stock_sends:
             return "BUSY", "a stock order is being sent -- re-arm after it"
+        if self.effective_mode()[0] == MODE_LIVE:
+            # LIVE LEG ALLOWLIST (B3): a leg that may not trade live rests nothing live either
+            if leg not in live_legs(self.cfg):
+                return "NOT_SENT", "leg not in live_legs"
+            if not live_stock_last4(self.cfg):           # ACCOUNT PIN (B9)
+                return "NOT_SENT", "live account not pinned"
         if self._state.get("resting_blocked"):
             return "BLOCKED", f"re-arming blocked until a reconcile agrees ({self._state['resting_blocked']})"
         if self._halted and self._halt_source == "reconcile":
@@ -3981,7 +4036,12 @@ class OrderAdapter:
                     continue
                 sent[sym] = sent.get(sym, 0.0) + float(p.get("qty", 0) or 0)
 
-            syms = set(broker) | set(sent)
+            if mode == MODE_LIVE:
+                # LIVE POSITION CHECK (B9): the book's symbol plus what this adapter sent;
+                # the owner's other holdings in a real account are not a mismatch
+                syms = {RECONCILE_LIVE_SYMBOL} | set(sent)
+            else:
+                syms = set(broker) | set(sent)
             mismatches = [{"symbol": s, "broker": broker.get(s, 0.0), "shadow_sent": sent.get(s, 0.0)}
                          for s in sorted(syms) if abs(broker.get(s, 0.0) - sent.get(s, 0.0)) > 1e-6]
             ok = not mismatches
@@ -4173,6 +4233,9 @@ class OrderAdapter:
             "paper_credentials_present": bool(load_paper_keys(self._paper_keys_path())),
             "live_credentials_present": bool(load_live_keys(self._live_keys_path())),
             "live_armed": os.path.exists(self._arm_file()),
+            # B3 / B9 (2026-11-04): what may trade live, and whether the LIVE account is pinned
+            "live_legs": sorted(live_legs(self.cfg)),
+            "live_account_pinned": live_stock_last4(self.cfg) is not None,
             "kill_file_present": os.path.exists(self._kill_file()),
             "halted": self._halted,
             "halt_reason": self._halt_reason,

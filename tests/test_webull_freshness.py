@@ -2049,3 +2049,121 @@ def test_keel_leg_words():
     assert wf._keel_leg_word("NOISE_382_v12") == wf._keel_leg_word("NOISE_422_KEEL_v12") == "NOISE"
     assert wf._keel_leg_word("DIP_424K_v12") == wf._keel_leg_word("DIP_424F") == "DIP #424"
     assert wf._keel_leg_word("ENGUQ_335_v12") == "ENGU-Q" and wf._keel_leg_word("DIP") == "DIP"
+
+
+# -- LIVE TOKEN GATE (B7, 2026-11-04) ---------------------------------------------------------
+def _arm_live(h, live_legs=("NOISE_382",), last4="7788", arm=True):
+    """Flip the box's order config to LIVE with the arm file present (the adapter's own
+    effective-LIVE rule), the given live_legs and account pin."""
+    cfg = {"mode": "LIVE", "rails": {"live_legs": list(live_legs), "max_shares_per_leg": 3,
+                                     "max_total_position_shares": 3}, "account": {}}
+    if last4:
+        cfg["account"]["stock_last4"] = last4
+    _wj(h.paths["orders_config"], cfg)
+    if arm:
+        _w(h.paths["orders_arm"], "armed\n")
+
+
+def _token_expiring(h, when):
+    """The live token expiring at the ET datetime `when` (status NORMAL)."""
+    _w(h.paths["token_files"][0], f"{FAKE_TOKEN}\n{int(when.timestamp() * 1000)}\nNORMAL\n")
+
+
+def test_live_group_not_checked_unless_live_armed(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 8, 31))            # PAPER
+    out = h.run()
+    assert "live" not in out["status"]["groups_checked"]
+    assert out["status"]["live"]["armed"] is False and out["status"]["live"]["mode"] == "PAPER"
+    assert h.status()["preopen"]["slots"]["08:30"]["misses"] == []
+    # mode LIVE without the arm file is OFF for the adapter: not armed, no live group
+    _arm_live(h, arm=False)
+    h.advance(et(2026, 10, 5, 9, 16))
+    out = h.run()
+    assert "live" not in out["status"]["groups_checked"]
+    assert out["status"]["live"]["mode"] == "LIVE" and out["status"]["live"]["armed"] is False
+    assert h.status()["preopen"]["slots"]["09:15"]["misses"] == []
+
+
+def test_live_armed_with_a_good_token_passes_and_reports_the_facts(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 8, 31))
+    _arm_live(h)
+    out = h.run()
+    assert "live" in out["status"]["groups_checked"]
+    assert out["status"]["verdicts"]["live:token"]["ok"] is True
+    assert h.status()["preopen"]["slots"]["08:30"]["misses"] == []
+    live = out["status"]["live"]
+    assert live["armed"] is True and live["arm_present"] is True and live["mode"] == "LIVE"
+    assert live["live_legs"] == ["NOISE_382"] and live["account_pinned"] is True
+    assert live["caps"] == {"max_shares_per_leg": 3, "max_total_position_shares": 3}
+    assert "7788" not in json.dumps(live)                   # the pin's value never leaves the box
+    assert h.pushes[-1]["title"] == "QQQ book: OK"
+    facts = wf.live_summary(live)
+    for frag in ("mode=LIVE", "arm=present", "live_legs=['NOISE_382']", "per_leg=3", "total=3",
+                 "account=pinned"):
+        assert frag in facts, frag
+
+
+def test_live_token_expiring_before_1630_pages_urgent_preopen_and_in_session(tmp_path):
+    t = et(2026, 10, 5, 8, 31)
+    h = Home(tmp_path, t)
+    _arm_live(h)
+    _token_expiring(h, et(2026, 10, 5, 12, 0))
+    out = h.run()
+    misses = h.status()["preopen"]["slots"]["08:30"]["misses"]
+    assert any("LIVE token expires 10-05 12:00 ET, before 16:30 ET today" in m for m in misses)
+    assert any("mode=LIVE arm=present" in m for m in misses)
+    assert h.pushes[-1]["priority"] == "urgent"
+    assert "The Webull LIVE login expires before today's close." in h.pushes[-1]["message"]
+    assert "cannot send orders" in h.pushes[-1]["message"]
+    assert out["status"]["verdicts"]["live:token"]["ok"] is False
+    assert out["status"]["verdicts"]["live:token"]["severity"] == wf.URGENT
+    assert any(a["key"] == "live:token" and a["severity"] == wf.URGENT
+               for a in h.status()["open_alerts"])
+    # a token good past 16:30 today clears it, even if it expires tonight
+    _token_expiring(h, et(2026, 10, 5, 23, 0))
+    h.advance(et(2026, 10, 5, 10, 30))
+    out = h.run()
+    assert out["status"]["verdicts"]["live:token"]["ok"] is True
+    assert "live:token" in [r["key"] for r in out["recovered"]]
+
+
+def test_live_token_status_not_normal_pages_urgent(tmp_path):
+    h = Home(tmp_path, MON_1030)
+    _arm_live(h)
+    h.token(days_left=14, status="PENDING")
+    out = h.run()
+    v = out["status"]["verdicts"]["live:token"]
+    assert v["ok"] is False and "status is PENDING" in v["title"]
+    assert h.pushes[-1]["priority"] == "urgent"
+    assert "The Webull LIVE login needs approval." in h.pushes[-1]["message"]
+    # a missing live token file is the same URGENT fault
+    os.remove(h.paths["token_files"][0])
+    h2 = Home(tmp_path / "gone", et(2026, 10, 5, 9, 16))
+    _arm_live(h2)
+    os.remove(h2.paths["token_files"][0])
+    h2.run()
+    misses = h2.status()["preopen"]["slots"]["09:15"]["misses"]
+    assert any("LIVE armed but no live Webull token file" in m for m in misses)
+
+
+def test_live_armed_without_legs_or_pin_is_a_preopen_miss(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 8, 31))
+    _arm_live(h, live_legs=(), last4=None)
+    h.run()
+    misses = h.status()["preopen"]["slots"]["08:30"]["misses"]
+    assert any("rails.live_legs is empty" in m for m in misses)
+    assert any("live account not pinned" in m for m in misses)
+    assert h.pushes[-1]["priority"] == "urgent"
+    # the token itself is fine: the all-day group passes
+    assert h.status()["verdicts"]["live:token"]["ok"] is True
+
+
+def test_live_gate_never_reads_the_token_value(tmp_path):
+    h = Home(tmp_path, et(2026, 10, 5, 8, 31))
+    _arm_live(h)
+    _token_expiring(h, et(2026, 10, 5, 12, 0))
+    out = h.run()
+    blobs = [json.dumps(out, default=str), json.dumps(h.pushes)]
+    for p in (h.paths["status"], h.paths["monitor_state"], h.paths["outbox"]):
+        blobs.append(open(p, encoding="utf-8").read())
+    assert not any(FAKE_TOKEN in b for b in blobs)

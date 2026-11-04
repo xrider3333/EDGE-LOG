@@ -743,6 +743,10 @@ PREOPEN_SLOTS = ((8, 30), (9, 15))
 PREOPEN_LEASE_FLOOR_SEC = 90.0
 PREOPEN_LEASE_MARGIN = 2.0
 TOKEN_MIN_DAYS = 5.0
+# LIVE TOKEN GATE (B7, 2026-11-04, MANAGER audit): while the box is LIVE-armed (config mode
+# LIVE + the arm file present) the LIVE token must outlive today's session -- expiring
+# before this ET time, or any status other than NORMAL, pages URGENT (pre-open and all day)
+LIVE_TOKEN_MUST_LAST_UNTIL = (16, 30)
 RESTART_PUBLISH_DOWN_SEC = 600.0
 RESTART_TICK_GAP_SEC = 600.0
 RESTART_COOLDOWN_SEC = 3600.0
@@ -782,6 +786,10 @@ def default_paths(home=None):
         or os.path.join(home, "webull_orders", "config.json"),
         "orders_kill": env.get("EDGELOG_WEBULL_ORDERS_KILL")
         or os.path.join(home, "webull_orders", "KILL"),
+        # the owner's hand-made LIVE arm file (api/webull_orders.DEFAULT_ARM_LIVE_FILE); a
+        # config.json "arm_live_file" overrides it (read_live_config)
+        "orders_arm": env.get("EDGELOG_WEBULL_ARM_LIVE")
+        or os.path.join(home, "webull_orders", "ARM_LIVE"),
         "cs_state": os.path.join(cs_dir, "state.json"),
         "cs_heartbeat": os.path.join(cs_dir, "heartbeat.json"),
         "shadow_heartbeat": os.path.join(cs_dir, "shadow", "heartbeat.json"),
@@ -1101,6 +1109,74 @@ def read_mode(path):
     return "OFF"
 
 
+def read_live_config(path, arm_default, token_name="webull_token"):
+    """LIVE TOKEN GATE (B7): the order adapter's LIVE facts from its config.json, read as plain
+    JSON (never imported): mode, whether the arm file is present, live_legs (api/webull_orders
+    rails.live_legs, [] = nothing trades live), the share caps, and whether the LIVE stock
+    account is pinned (account.stock_last4 present -- its value is never copied out). `armed`
+    is mode LIVE AND the arm file present, the adapter's own effective-LIVE rule. No credential
+    or token value is read here."""
+    data, _err = read_json(path)
+    cfg = data if isinstance(data, dict) else {}
+    rails = cfg.get("rails") if isinstance(cfg.get("rails"), dict) else {}
+    acct = cfg.get("account") if isinstance(cfg.get("account"), dict) else {}
+    mode = str(cfg.get("mode") or "OFF").upper()
+    arm_file = cfg.get("arm_live_file") or arm_default
+    legs = rails.get("live_legs")
+    if isinstance(legs, str):
+        legs = [legs]
+    legs = sorted(str(x) for x in (legs if isinstance(legs, list) else []) if x not in (None, ""))
+    arm_present = bool(arm_file) and os.path.exists(arm_file)
+    return {
+        "mode": mode, "arm_file": arm_file, "arm_present": arm_present,
+        "armed": mode == "LIVE" and arm_present,
+        "live_legs": legs,
+        "caps": {"max_shares_per_leg": rails.get("max_shares_per_leg"),
+                 "max_total_position_shares": rails.get("max_total_position_shares")},
+        "account_pinned": bool(str(acct.get("stock_last4") or "").strip()),
+        "token_name": token_name,
+    }
+
+
+def live_summary(live):
+    """One developer line of the LIVE facts for a verdict/miss: mode, arm, legs, caps, pin."""
+    live = live if isinstance(live, dict) else {}
+    caps = live.get("caps") or {}
+    return (f"mode={live.get('mode')} arm={'present' if live.get('arm_present') else 'absent'} "
+            f"live_legs={live.get('live_legs') or []} caps(per_leg="
+            f"{caps.get('max_shares_per_leg')}, total={caps.get('max_total_position_shares')}) "
+            f"account={'pinned' if live.get('account_pinned') else 'NOT pinned'}")
+
+
+def live_token_problem(live, tokens, now_et):
+    """The LIVE token's fault while the box is LIVE-armed, else None: (id, developer text,
+    phone problem). Read from read_token_meta's (expires, status) only -- never the token."""
+    if not (isinstance(live, dict) and live.get("armed")):
+        return None
+    name = live.get("token_name") or "webull_token"
+    tok = (tokens or {}).get(name)
+    if tok is None:
+        return ("live_token", f"LIVE armed but no live Webull token file ({name}) on the box",
+                "The Webull LIVE login is missing on the cloud box.")
+    expires, status = tok
+    if status != "NORMAL":
+        return ("live_token_status",
+                f"LIVE armed but the live Webull token status is {status or 'unknown'} -- "
+                "approve it in the Webull app", "The Webull LIVE login needs approval.")
+    until = at(now_et.date(), LIVE_TOKEN_MUST_LAST_UNTIL)
+    if expires is None:
+        return ("live_token_expiry", "LIVE armed but the live Webull token expiry is unreadable",
+                "The Webull LIVE login's expiry date cannot be read.")
+    if expires < until.timestamp():
+        when = _dt.datetime.fromtimestamp(expires, ET)
+        return ("live_token_expires",
+                f"LIVE token expires {when.strftime('%m-%d %H:%M')} ET, before "
+                f"{until.strftime('%H:%M')} ET today -- refresh the token",
+                "The Webull LIVE login expires before today's close." if expires > now_et.timestamp()
+                else "The Webull LIVE login has expired.")
+    return None
+
+
 def failed_units(run_cmd=None):
     """(units, error). `systemctl --failed`; error is set when systemctl is unavailable."""
     run_cmd = run_cmd or subprocess.run
@@ -1303,6 +1379,10 @@ def collect(paths, run_cmd=None):
     snap["exec_kill_files"] = [p for p in (kill_file or paths["exec_kill"],)
                                if p and os.path.exists(p)]
     snap["broker_mode"] = read_mode(paths["orders_config"])
+    # LIVE TOKEN GATE (B7): mode / arm / live_legs / caps / account pin, as plain JSON
+    snap["live"] = read_live_config(
+        paths["orders_config"], paths.get("orders_arm"),
+        token_name=os.path.basename(os.path.dirname(paths["token_files"][0])))
     snap["cs_state"], snap["cs_state_err"] = read_json(paths["cs_state"])
     snap["cs_hb"], snap["cs_hb_err"] = read_json(paths["cs_heartbeat"])
     snap["shadow_hb"], snap["shadow_hb_err"] = read_json(paths["shadow_heartbeat"])
@@ -1794,6 +1874,24 @@ def _keel_live_problem(d):
         return ("KEEL stopped learning NOISE's NQ trades: its Yahoo bars end %s but the nightly has "
                 "%s." % (str(f.get("bars_through") or "nothing")[:10], f.get("nightly_through") or "?"))
     return "KEEL's live model no longer matches a rebuild from its own trade record."
+
+
+def check_live(snap, now_et):
+    """LIVE TOKEN GATE (B7): live:token, URGENT, judged every run while the box is LIVE-armed
+    (None = not checked otherwise): the live token's status must be NORMAL and its expiry
+    past LIVE_TOKEN_MUST_LAST_UNTIL ET today. The detail always carries the LIVE facts
+    (mode, arm, live_legs, caps, account pin). Read-only; no token value is ever read."""
+    live = snap.get("live")
+    if not (isinstance(live, dict) and live.get("armed")):
+        return None
+    facts = live_summary(live)
+    fault = live_token_problem(live, snap.get("tokens") or {}, now_et)
+    if fault:
+        return [_verdict("live:token", "live", False, URGENT,
+                         f"LIVE token not good for today: {fault[1]}", facts,
+                         plain=_plain(fault[2], action="refresh or approve the LIVE token, else "
+                                      + ASK, affects=NO_ORDERS))]
+    return [_verdict("live:token", "live", True, URGENT, "LIVE token good for today", facts)]
 
 
 def check_keel_live(snap):
@@ -2401,9 +2499,10 @@ def preopen_checks(snap, now_et, ev):
     prev = prev_session(d)
     misses = []
 
-    def miss(mid, text, problem, action=ASK, affects=MAY_NOT_TRADE):
+    def miss(mid, text, problem, action=ASK, affects=MAY_NOT_TRADE, priority=None):
         misses.append({"id": mid, "text": text, "problem": problem, "action": action,
-                       "affects": affects, "priority": "high" if affects else "default"})
+                       "affects": affects,
+                       "priority": priority or ("high" if affects else "default")})
     want = keel_expected(prev) if prev else None
     # a SHADOW leg's model never gates the open: it sends no order (MANAGER #108)
     keel, live_keel, _shadow = _keel_split(snap)
@@ -2488,6 +2587,26 @@ def preopen_checks(snap, now_et, ev):
                  (login + " expires in %.0f days." % days) if days >= 1.5 else
                  (login + " expires within a day." if days > 0 else login + " has expired."),
                  affects=None if days > 0 else MAY_NOT_TRADE)
+    # LIVE group (B7): only while LIVE-armed -- the live token must last past today's close,
+    # the legs allowed live must be named and the LIVE account pinned (api/webull_orders B3/B9)
+    live = snap.get("live") if isinstance(snap.get("live"), dict) else {}
+    if live.get("armed"):
+        facts = live_summary(live)
+        fault = live_token_problem(live, tokens, now_et)
+        if fault:
+            miss(fault[0], f"{fault[1]} [{facts}]", fault[2],
+                 action="refresh or approve the LIVE token (webull_sync), else " + ASK,
+                 affects=NO_ORDERS, priority="urgent")
+        if not live.get("live_legs"):
+            miss("live_legs", f"LIVE armed but rails.live_legs is empty: no leg may trade live "
+                              f"[{facts}]",
+                 "The box is armed for real money but no strategy leg is allowed to trade.",
+                 affects=NO_ORDERS, priority="urgent")
+        if not live.get("account_pinned"):
+            miss("live_account", f"LIVE armed but account.stock_last4 is not set: live sends are "
+                                 f"refused (live account not pinned) [{facts}]",
+                 "The box is armed for real money but the LIVE account is not pinned.",
+                 affects=NO_ORDERS, priority="urgent")
     return misses
 
 
@@ -3127,6 +3246,7 @@ def evaluate(snap, now_et, mstate):
         ("eod", lambda: check_eod(snap, now_et)),
         ("fill_reconcile", lambda: check_fill_reconcile(snap, now_et, mstate)),
         ("keel_live", lambda: check_keel_live(snap)),
+        ("live", lambda: check_live(snap, now_et)),
     ]
     for group, fn in checks:
         try:
@@ -3273,6 +3393,8 @@ def run_once(paths=None, now=None, cfg=None, push_fn=None, run_cmd=None, dry_run
         # HOLD OVERNIGHT: the open lots the executor holds past the close on purpose
         "held_overnight": ev.get("held") or [],
         "broker_mode": snap.get("broker_mode"),
+        # LIVE TOKEN GATE (B7): mode / arm / live_legs / caps / account pin (no values)
+        "live": snap.get("live"),
         # KEEL size diffs on live NOISE entries (api/cloud_signal.py) -- the PC relays each
         # one once to the inboxes; see KEEL SIZE DIFFS in the docstring
         "keel_diffs": snap.get("keel_diffs") or [],
