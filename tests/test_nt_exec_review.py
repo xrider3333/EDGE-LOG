@@ -64,10 +64,12 @@ def test_nq_qty2_on_demo_flagged_on_qty():
     assert reason == "qty 2 exceeds EdgeLogENGUQ1m's configured max 1"
 
 
-def test_mnq_qty4_on_demo_flagged_on_qty():
-    flagged, reason = E.evaluate(_fill("DEMO7240108", "MNQ 12-26", 4))
+def test_noise_limit_is_the_live_risk_rail_not_a_fixed_3():
+    # 11-04: NOISE sizes 9-15 MNQ by design, the fixed 3 flagged every fill (19 pushes)
+    assert E.evaluate(_fill("DEMO7240108", "MNQ 12-26", 12)) == (False, None)
+    flagged, reason = E.evaluate(_fill("DEMO7240108", "MNQ 12-26", 41))
     assert flagged is True
-    assert reason == "qty 4 exceeds EdgeLogNOISE's configured max 3"
+    assert reason == "qty 41 exceeds EdgeLogNOISE's configured max 40"
 
 
 def test_es_on_demo_flagged_naming_instrument_and_account():
@@ -164,7 +166,7 @@ def test_publish_flagged_fill_does_not_crash_or_log_respond_failed(tmp_path, mon
     assert len(notified) == 1
     assert notified[0].startswith("Trading: AFFECTED - a paper strategy traded something it should not.")
     assert "ES @ 20,000.00" in notified[0] and "DEMO7240108" not in notified[0] and "⚠" not in notified[0]
-    assert notified.titles == ["Paper fill: unexpected"] and notified.priorities == ["default"]
+    assert notified.titles == ["NT demo 7240108: Paper fill: unexpected"] and notified.priorities == ["default"]
 
     # the seen-state file landed under tmp_path, nowhere near the live runner state.
     assert os.path.exists(str(tmp_path / "seen_executions.json"))
@@ -180,9 +182,13 @@ def test_publish_ok_fill_is_notified_without_review_marker(tmp_path, monkeypatch
         E, "_get", lambda path: {"executions": [fill]} if path == "/executions" else None)
 
     E.publish()
-
-    assert notified == ["Trading: not affected.\nPrice 20,000.00 at 07:30.\nDo: nothing."]
-    assert notified.titles == ["Paper fill: NOISE bought 3 MNQ"] and notified.priorities == ["low"]
+    assert notified == []                                    # routine fill: held for the session digest
+    monkeypatch.setattr(N, "_now", lambda: _utc("2026-09-23 20:10:00"))      # 16:10 ET
+    E.publish()
+    assert notified.titles == ["NT demo 7240108: 1 fills today"] and notified.priorities == ["low"]
+    assert notified == ["NT demo 7240108: Paper fill: NOISE bought 3 MNQ"]
+    E.publish()
+    assert len(notified) == 1                                # one digest a day
 
 
 def test_publish_does_not_renotify_a_seen_exec_id(tmp_path, monkeypatch):
@@ -191,7 +197,7 @@ def test_publish_does_not_renotify_a_seen_exec_id(tmp_path, monkeypatch):
     notified = _Pushes()
     monkeypatch.setattr(E, "_notify", notified)
 
-    fill = _fill("DEMO7240108", "MNQ 12-26", 3, exec_id="dupe-1")
+    fill = _fill("DEMO7240108", "ES 12-26", 1, exec_id="dupe-1")
     monkeypatch.setattr(
         E, "_get", lambda path: {"executions": [fill]} if path == "/executions" else None)
 
@@ -215,6 +221,9 @@ def _utc(text):
 def _no_live_fills_csv(tmp_path, monkeypatch):
     """_signal_name() reads fills.csv beside the seen-state file; never the live C:\\EdgeLog one."""
     monkeypatch.setattr(E, "STATE_PATH", str(tmp_path / "seen_executions.json"))
+    monkeypatch.setattr(E, "ALERT_STATE", str(tmp_path / "exec_review_alerts.json"))
+    from api import gate_live
+    monkeypatch.setattr(gate_live, "_rails", lambda: (40, None))
     monkeypatch.delenv("EDGELOG_FILLS_CSV", raising=False)
     monkeypatch.setattr(N, "_now", lambda: _utc("2026-09-23 14:30:30"))   # the clock publish() sees
 
@@ -258,11 +267,11 @@ def test_real_account_fill_text():
 
 
 def test_paper_fill_over_its_size_limit_is_the_one_that_says_affected():
-    f = _fill("DEMO7240108", "MNQ 12-26", 12, exec_id="big", time_utc="2026-10-06 22:10:00", price=31610.75)
+    f = _fill("DEMO7240108", "MNQ 12-26", 41, exec_id="big", time_utc="2026-10-06 22:10:00", price=31610.75)
     flagged, reason = E.evaluate(f)
     n = E.build_note(f, reason, now=_utc("2026-10-06 22:10:10"))
     assert n["title"] == "Paper fill: NOISE too big"
-    assert n["message"].startswith("Trading: AFFECTED - NOISE traded more than its size limit of 3.")
+    assert n["message"].startswith("Trading: AFFECTED - NOISE traded more than its size limit of 40 MNQ.")
     assert n["priority"] == "default" and not N.lint(n)
 
 
@@ -289,7 +298,7 @@ def test_publish_pushes_real_account_fill_low_and_keeps_the_console_line(tmp_pat
     f = _fill("1810769", "MNQ 12-26", 1, exec_id="r2", time_utc="2026-10-07 13:40:26", side="Short", price=31172.25)
     monkeypatch.setattr(E, "_get", lambda path: {"executions": [f]} if path == "/executions" else None)
     E.publish()
-    assert notified.titles == ["Real account fill"] and notified.priorities == ["low"]
+    assert notified.titles == ["NT REAL 1810769: Real account fill"] and notified.priorities == ["low"]
     assert "REVIEW fill: 1810769" in capsys.readouterr().out          # the runner.log line is unchanged
 
 
@@ -302,3 +311,23 @@ def test_a_bug_in_the_plain_text_never_loses_the_alert(monkeypatch):
     E.publish()
     assert len(notified) == 1 and notified[0].startswith("⚠ REVIEW fill: 1810769")      # the old text, still sent
     assert notified.titles == [None] and notified.priorities == [None]
+
+
+def test_size_alert_fires_once_per_leg_per_day(monkeypatch):
+    notified = _Pushes()
+    monkeypatch.setattr(E, "_notify", notified)
+    fills = [_fill("DEMO7240108", "MNQ 12-26", 41, exec_id=f"b{i}", time_utc="2026-09-23T14:30:00Z") for i in range(5)]
+    monkeypatch.setattr(E, "_get", lambda path: {"executions": fills} if path == "/executions" else None)
+    E.publish()
+    assert notified.titles == ["NT demo 7240108: Paper fill: NOISE too big"]
+
+
+def test_stale_fills_become_one_digest_line(monkeypatch):
+    notified = _Pushes()
+    monkeypatch.setattr(E, "_notify", notified)
+    fills = [_fill("DEMO7240108", "MNQ 12-26", 41, exec_id=f"s{i}", time_utc="2026-09-23T12:00:00Z") for i in range(9)]
+    fills.append(_fill("1810769", "MNQ 12-26", 1, exec_id="sr", time_utc="2026-09-23T12:00:00Z"))
+    monkeypatch.setattr(E, "_get", lambda path: {"executions": fills} if path == "/executions" else None)
+    E.publish()
+    assert notified.titles == ["NT REAL 1810769 + NT demo 7240108: 10 late fills"]
+    assert notified.priorities == ["default"]

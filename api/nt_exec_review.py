@@ -106,7 +106,9 @@ REVIEW_WINDOW_MINUTES = 15
 # DEMO7240108. Update these numbers (and retest) if the owner changes either strategy's size
 # in the NT Strategies dialog.
 EXPECTED = {
-    "EdgeLogNOISE":   {"instrument_prefix": "MNQ", "account": "DEMO7240108", "max_qty": 3},
+    # NOISE max_qty None = the live risk rail (bridge.json, api/gate_live._rails), read per fill: the gate
+    # sizes NOISE 9-15 micros by design since 08-26, so the old fixed 3 flagged every fill (19 pushes 11-03/04).
+    "EdgeLogNOISE":   {"instrument_prefix": "MNQ", "account": "DEMO7240108", "max_qty": None},
     "EdgeLogENGUQ1m": {"instrument_prefix": "NQ",  "account": "DEMO7240108", "max_qty": 1},
 }
 
@@ -236,7 +238,7 @@ def build_note(fill, reason=None, now=None):
     if reason:
         if str(reason).startswith("qty") and strat:
             return N.plain(f"Paper fill: {strat} too big", None,
-                           f"{strat} traded more than its size limit of {exp['max_qty']}.",
+                           f"{strat} traded more than its size limit of {_max_qty(exp)} {inst}.",
                            f"{verb.capitalize()} {qty} {inst} @ {px} at {when}.",
                            "check the strategy's size in NinjaTrader", priority="default")
         return N.plain("Paper fill: unexpected", None,
@@ -255,7 +257,7 @@ def _safe_note(fill, reason=None):
     """build_note(), but a bug in the plain text must never lose the alert (the REVIEW push is the guard that no
     strategy touches the real account): fall back to the old one-line text."""
     try:
-        return build_note(fill, reason)
+        return _with_account(build_note(fill, reason), fill)
     except Exception as e:
         _safe_print(f"[exec-review] plain text failed ({type(e).__name__}: {e}); sending the old text")
         return {"title": None, "message": _format_message(fill, reason), "priority": None}
@@ -288,6 +290,65 @@ def _format_message(fill, reason=None):
     if reason:
         return f"\u26a0 REVIEW fill: {base} -- {reason}"
     return f"fill: {base}"
+
+
+def _max_qty(exp):
+    """The fingerprint's size limit; None = the live risk rail in bridge.json (40 when unreadable)."""
+    if exp.get("max_qty") is not None:
+        return exp["max_qty"]
+    try:
+        from api import gate_live
+        lim, _err = gate_live._rails()
+        return lim or 40
+    except Exception:
+        return 40
+
+
+ACCOUNT_TITLE = {"DEMO7240108": "NT demo 7240108", "1810769": "NT REAL 1810769"}
+STALE_MIN = 15.0                   # a fill older than this is history, not news: digest line, never its own push
+DIGEST_AFTER_ET = (16, 5)          # routine paper fills collect into ONE note after the session (16:05 ET)
+ALERT_STATE = os.environ.get("EDGELOG_EXEC_ALERT_STATE", r"C:\EdgeLog\exec_review_alerts.json")
+
+
+def account_title(acct):
+    return ACCOUNT_TITLE.get(str(acct or ""), f"NT {acct or 'unknown account'}")
+
+
+def _with_account(note, fill):
+    note = dict(note)
+    note["title"] = f"{account_title(fill.get('account'))}: {note.get('title') or 'fill'}"
+    return note
+
+
+def _age_min(fill, now=None):
+    """Minutes since the fill, or None when its time cannot be read (then it counts as fresh)."""
+    import datetime as dt
+    try:
+        t = dt.datetime.fromisoformat(str(fill.get("time_utc")).replace("Z", "+00:00"))
+        if t.tzinfo is None:
+            t = t.replace(tzinfo=dt.timezone.utc)
+        from api import ntfy_push as N
+        ref = now or dt.datetime.fromtimestamp(N._now(), dt.timezone.utc)      # N._now: the clock tests pin
+        return (ref - t).total_seconds() / 60.0
+    except Exception:
+        return None
+
+
+def _load_alerts():
+    try:
+        with open(ALERT_STATE, encoding="utf-8") as f:
+            d = json.load(f)
+        return d if isinstance(d, dict) else {}
+    except Exception:
+        return {}
+
+
+def _save_alerts(d):
+    try:
+        with open(ALERT_STATE, "w", encoding="utf-8") as f:
+            json.dump(d, f)
+    except Exception as e:
+        _safe_print(f"[exec-review] alert state save failed: {type(e).__name__}: {e}")
 
 
 def _match_strategy(fill):
@@ -328,8 +389,9 @@ def evaluate(fill):
         qty = abs(float(fill.get("qty") or 0))
     except Exception:
         qty = None
-    if qty is not None and qty > exp["max_qty"]:
-        return True, f"qty {qty:g} exceeds {name}'s configured max {exp['max_qty']}"
+    lim = _max_qty(exp)
+    if qty is not None and qty > lim:
+        return True, f"qty {qty:g} exceeds {name}'s configured max {lim}"
 
     # NOTE: deliberately no "price far from market" check -- the bridge has no live
     # quote/market-data endpoint today. See module docstring point 4.
@@ -351,6 +413,14 @@ def publish():
     rows = data.get("executions", []) or []
     seen = _load_seen()
     new_count = 0
+    import datetime as dt
+    from zoneinfo import ZoneInfo
+    from api import ntfy_push as N
+    now_et = dt.datetime.fromtimestamp(N._now(), ZoneInfo("America/New_York"))
+    today = now_et.date().isoformat()
+    alerts = _load_alerts()
+    pending = alerts.setdefault("pending", [])        # routine paper fills waiting for the session digest
+    stale = []
 
     for fill in rows:
         exec_id = fill.get("exec_id")
@@ -364,14 +434,42 @@ def publish():
             _safe_print(f"[exec-review] evaluate failed: {type(e).__name__}: {e}")
             flagged, reason = True, f"evaluate() raised {type(e).__name__}"
         try:
-            if flagged:
+            line = _format_message(fill, reason)
+            age = _age_min(fill)
+            if age is not None and age > STALE_MIN:
+                stale.append(fill)                        # a burst of old fills -> one digest line below
+                _safe_print(f"[exec-review] stale ({age:.0f} min): {line}")
+            elif flagged and str(reason).startswith("qty"):
+                name, _exp = _match_strategy(fill)
+                key = f"{today}|{fill.get('account')}|{name}"
+                if not alerts.get(key):                   # size alert: once per leg per day
+                    alerts[key] = 1
+                    _respond_to_flagged_fill(fill, reason)
+                _safe_print(f"[exec-review] REVIEW: {line}")
+            elif flagged:
                 _respond_to_flagged_fill(fill, reason)
-                _safe_print(f"[exec-review] REVIEW: {_format_message(fill, reason)}")
+                _safe_print(f"[exec-review] REVIEW: {line}")
             else:
-                _push_note(_safe_note(fill))
-                _safe_print(f"[exec-review] {_format_message(fill)}")
+                pending.append(_safe_note(fill)["title"] or line)
+                _safe_print(f"[exec-review] {line}")
         except Exception as e:
             _safe_print(f"[exec-review] respond failed: {type(e).__name__}: {e}")
+
+    try:
+        if stale:
+            accts = sorted({account_title(f.get("account")) for f in stale})
+            real = any(str(f.get("account")) == "1810769" for f in stale)
+            _notify(f"{len(stale)} fill(s) older than {STALE_MIN:g} min arrived late (bridge was down or catching up). "
+                    "Details are on the EDGE-LOG paper page.",
+                    f"{' + '.join(accts)}: {len(stale)} late fills", "default" if real else "low")
+        if pending and (now_et.hour, now_et.minute) >= DIGEST_AFTER_ET and alerts.get("digest_day") != today:
+            _notify("\n".join(pending[-20:]), f"NT demo 7240108: {len(pending)} fills today", "low")
+            alerts["pending"], alerts["digest_day"] = [], today
+        for k in [k for k in alerts if "|" in k and not k.startswith(today)]:
+            alerts.pop(k, None)
+        _save_alerts(alerts)
+    except Exception as e:
+        _safe_print(f"[exec-review] digest failed: {type(e).__name__}: {e}")
 
     if new_count:
         _save_seen(seen)
