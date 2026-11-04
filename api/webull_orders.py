@@ -1136,7 +1136,38 @@ class OrderAdapter:
 
     # -- config path accessors --
     def _state_path(self):
+        """B1 (live audit 11-04, owner GO A): LIVE keeps its OWN state file
+        (state.LIVE.json beside the paper one) -- rails, open_legs, daily_pnl and the
+        sent positions of the paper account never carry into live. The mode is read at
+        construction, so the path is fixed for this adapter's life."""
+        base = self._paper_state_path()
+        if self.requested_mode() == MODE_LIVE:
+            root, ext = os.path.splitext(base)
+            return f"{root}.LIVE{ext or '.json'}"
+        return base
+
+    def _paper_state_path(self):
         return self.cfg.get("state_path") or DEFAULT_STATE_PATH
+
+    @staticmethod
+    def _held_legs(state):
+        """{leg: qty} of every non-zero broker_sent_positions entry in `state`."""
+        out = {}
+        for leg, p in ((state or {}).get("broker_sent_positions") or {}).items():
+            try:
+                q = float((p or {}).get("qty") or 0)
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if abs(q) > 1e-9:
+                out[leg] = q
+        return out
+
+    def _paper_held(self):
+        """Paper shares still booked as sent (B1: refuse to arm LIVE over them)."""
+        try:
+            return self._held_legs(_load_state(self._paper_state_path()))
+        except Exception:
+            return {}
 
     def _kill_file(self):
         return self.cfg.get("kill_file") or DEFAULT_KILL_FILE
@@ -1189,6 +1220,15 @@ class OrderAdapter:
         requested = self.requested_mode()
         if requested == MODE_LIVE:
             arm = self._arm_file()
+            live_held = self._held_legs(self._state)
+            if not os.path.exists(arm) and live_held:
+                # B2 (live audit 11-04): a disarm with REAL shares held used to fall to OFF,
+                # book every close as done without sending it and stop reconciling --
+                # stranding the shares. Stay LIVE for CLOSES only; every OPEN is refused.
+                if load_live_keys(self._live_keys_path()):
+                    return MODE_LIVE, (f"CLOSE-ONLY: arm file removed while LIVE holds "
+                                       f"{live_held} -- exits still go to Webull, no new "
+                                       f"entries; disarm only once flat")
             if not os.path.exists(arm):
                 return MODE_OFF, (f"LIVE requested but arm file missing ({arm}) -- "
                                    "the owner must create that file by hand to arm live "
@@ -1196,6 +1236,12 @@ class OrderAdapter:
             if not load_live_keys(self._live_keys_path()):
                 return MODE_OFF, (f"LIVE requested and armed, but no live credentials at "
                                    f"{self._live_keys_path()}. Refusing; behaving as OFF.")
+            paper_held = self._paper_held()
+            if paper_held:
+                return MODE_OFF, (f"LIVE requested and armed, but the PAPER book still holds "
+                                  f"{paper_held} -- flatten paper and clear its state first "
+                                  f"(a paper lot's close must never reach the live account). "
+                                  f"Refusing; behaving as OFF.")
             return MODE_LIVE, f"LIVE armed via {arm}"
         if requested == MODE_PAPER:
             if not load_paper_keys(self._paper_keys_path()):
@@ -3633,6 +3679,13 @@ class OrderAdapter:
 
             mode, mode_reason = self.effective_mode()
             record["mode"] = mode
+
+            if mode == MODE_LIVE and intent != "CLOSE" and mode_reason.startswith("CLOSE-ONLY"):
+                record.update(ok=False, sent=False, blocked=True, reason=mode_reason)
+                self._record_order(coid, record)
+                self._last_error = mode_reason
+                self.log(f"  [webull-orders] BLOCKED {symbol} {side} {qty} (leg {leg}): {mode_reason}")
+                return record
 
             if mode == MODE_OFF:
                 record.update(ok=True, sent=False, reason=mode_reason)
