@@ -127,3 +127,50 @@ for the owner, and the live change itself needs his own word.
 - **Nothing in this round touches the live Webull account, its orders, its credentials or its
   settings.** It is a backtest of three execution shapes. The lane does not handle Webull login or
   PIN under any circumstances.
+
+---
+
+## ADDENDUM 1 - 2026-11-04 12:10 MST, ARM D added on owner GO (MANAGER #137)
+
+Appended, not substituted. The owner's GO (11-04 12:00, "find an ENGU-Q we can trade") was given on
+this document at LF sha256 `34a22998bb45d6da408ec1a74d9578bcb15e61f4c480dcf35d785ca1bdfce7d9`,
+verified byte-for-byte against the copy MANAGER quoted. Everything above is unchanged; this addendum
+adds the fourth arm #137 asks for and nothing else. **Written before any number of any arm is read.**
+
+### Arm D - the NinjaTrader demo's current ENGU-Q configuration, run on QQQ bars
+
+| arm | signal source | fills | hold | parameters |
+|---|---|---|---|---|
+| **D** | QQQ 1m (its own bars) | QQQ prints | overnight | **the NT8 demo leg's live configuration**, not #335's |
+
+- **Mechanically arm D is arm B's shape with a different parameter set** - same tape, same fills, same
+  hold - so it is cheap: one backtest, no tuning, no trial. That is why it fits inside today's GO.
+- **Its value is not that it might win. It is that it is the only arm the owner is ALREADY WATCHING
+  TRADE.** The NT8 demo leg is running that configuration now, so arm D is the one arm whose
+  backtest can be checked against a live record rather than only against other backtests.
+- **THE CONFIGURATION IS NOT YET KNOWN TO THIS LANE and is NOT guessed.** #137 says PAPER-NT8 names
+  it. I have asked PAPER-NT8 for (a) the exact strategy file and (b) its full live parameter dict as
+  the NT8 demo runs it today. **That dict is pinned in ADDENDUM 2, posted before arm D is run.** If
+  PAPER-NT8 cannot produce it, arm D is not run and the round reports A, B and C - a missing
+  configuration is not an excuse to substitute #335's and call it the demo's.
+- Note on what arm D can and cannot settle: the NT8 demo trades **NQ futures**, and this arm takes
+  only its parameters onto a **QQQ** tape. A difference between arm D and the demo's own live record
+  is therefore expected and is an instrument effect, not a discrepancy to be explained away.
+
+### Bar for arm D
+
+Arm D is judged on exactly the six clauses in section 3, with no clause added or relaxed. **Crown by
+folds** (#137, and scope change C5): where two arms both clear the bar, the recommended arm is the
+one that wins more of the 8 folds, not the one with the better whole-stretch headline - this lane has
+been burned twice by a whole-stretch lead that won 3 of 8 folds (executor r1 T07, and the ROC@30k
+one-episode rule).
+
+### Prior for arm D, written before the data
+
+**I expect arm D to score below arm A and to be roughly comparable to arm B**, because it shares arm
+B's two measured handicaps on this tape - the regime-length dial and the $0.50 floor behave
+differently on a $400 ETF than on a 20,000-point index, which is what cut arm B's walk-forward trade
+count from 1,194 to 308 and left only 130 of them on the same sessions as the NQ leg. A demo
+configuration tuned for NQ futures has no reason to escape that. **If arm D DOES beat arm A, the
+honest reading is that #335's parameters are the wrong ones for QQQ, not that the demo's are right -
+and the follow-up would be a 900-trial co-tuned validate on QQQ bars, which is arm B's own path.**
