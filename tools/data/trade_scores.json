@@ -7542,6 +7542,98 @@
    ],
    "overall": 46,
    "summary": "You chased a 13-point vertical bar nine minutes before the close, buying 7613.0 right above the 15:50 high with no stop or setup logged. The trade briefly showed 7.5 points at 7620.5 on the 15:53 bar, then you exited at 7613.25 for a scratch after the pullback. Into the close, wait for a pullback to the breakout bar or skip the last ten minutes, and write the stop and target before you click."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-11-04",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "09:35",
+   "exit_time": "09:35",
+   "entry": 28469.125,
+   "exit": 28470.0,
+   "qty": 2,
+   "breakout_candle": "09:35",
+   "stop": 28415.5,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 13,
+     "note": "The 09:30 bar drove 28430 to 28527 and 09:31 printed 28554.5, then three red bars pulled back to 28405 at 09:34 before the 09:35 bar reclaimed the open."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 9,
+     "note": "The 28469 fill was 54 points above the 09:35 low of 28415.5 and above the 09:34 high of 28458, mid-way through the bar's 73-point range."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 5,
+     "note": "No stop was logged; the structural stop at the 09:35 low of 28415.5 was 53.6 points away, about $215 on 2 MNQ."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 5,
+     "note": "The 09:31 high of 28554.5 sat 85 points above the 28469 entry against 54 points of risk, about 1.6R."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 3,
+     "note": "No setup was tagged and no notes were written, so there is no rule to check the entry against."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 8,
+     "note": "The 09:35 bar traded 15,709 contracts over a 28415.5 to 28488.5 range, liquid but very fast."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 7,
+     "note": "The entry came at 09:35, five minutes into the session inside the most volatile window of the day."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 10,
+     "note": "The reclaim of the 28430 open was the trigger, but the 28469 fill came after the bar had already run 54 points off its 28415.5 low."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 18,
+     "note": "You were flat within the same minute at 28470, so the trade took little heat, but no stop was ever recorded."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 1,
+     "note": "The exit at 28470 took 0.9 points while the next 15 minutes ran to 28864.25 at 09:48, about 395 points of open favorable move."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 11,
+     "note": "Two MNQ against a 54-point structural stop risked about $215, a small and sensible size for an open-drive scalp."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 3,
+     "note": "With no setup, timeframe, notes or grade logged there was no plan on record to follow."
+    }
+   ],
+   "overall": 46,
+   "summary": "You bought the 09:35 reclaim of the opening-drive pullback at 28469, but 54 points above the bar low, and you were out the same minute at 28470 for a scratch after fees. The idea was right: the tape ran another 395 points to 28864 by 09:48 and you held none of it. Next time log the setup and a stop before entry, buy closer to the reclaim level, and give a winner at least one bar to work."
   }
  ],
  "na": [
