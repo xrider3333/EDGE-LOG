@@ -183,7 +183,7 @@ def _mock_client():
     client.account_v2.get_account_list.return_value.json.return_value = {
         # account_class is what _account_id() selects on by default (purpose "stock"
         # wants INDIVIDUAL_MARGIN -- see api/webull_orders.py's DEFAULT_ACCOUNT_SELECT).
-        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_MARGIN"}]}
+        "data": [{"account_id": "ACCT1234", "account_number": "ACCT1234", "account_class": "INDIVIDUAL_MARGIN"}]}
     client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
     client.account_v2.get_account_position.return_value.json.return_value = {"data": []}
     return client
@@ -201,6 +201,8 @@ def _armed_adapter(tmp_path, monkeypatch, mode):
         with open(cfg["live_keys_path"], "w", encoding="utf-8") as f:
             json.dump({"app_key": "AK", "app_secret": "AS"}, f)
         open(cfg["arm_live_file"], "w", encoding="utf-8").close()
+        cfg.setdefault("rails", {})["live_legs"] = ["ORB"]
+        cfg.setdefault("account", {})["stock_last4"] = "1234"
     adapter = WO.OrderAdapter(config=cfg, log=NOOP)
     mock_client = _mock_client()
     monkeypatch.setattr(adapter, "_build_client", lambda m: mock_client)

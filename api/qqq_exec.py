@@ -990,7 +990,8 @@ FILL_DIGEST_AT_ET = (16, 5)
 
 def _is_digest_fill(note):
     try:
-        return (str(note.get("title") or "").startswith("QQQ fill")
+        return (not note.get("digest")
+                and str(note.get("title") or "").startswith("QQQ fill")
                 and note.get("priority") in (None, "low")
                 and "AFFECTED" not in str(note.get("message") or ""))
     except Exception:
@@ -1008,8 +1009,11 @@ def _maybe_send_fill_digest(state, nowdt, log=print):
         n = len(q)
         msg = (f"Trading: not affected.\n{n} fill{'s' if n != 1 else ''} today: "
                + "; ".join(lines) + "\nDo: nothing.")
-        sent = _notify(msg, f"QQQ fills: {n} today", log, priority="low")
-        if sent is not False:
+        # through _say like every other push; the id carries the count so fills that arrive
+        # after the first send of the day still go out, and a failed send keeps the queue
+        note = {"message": msg, "title": f"QQQ fills: {n} today", "priority": "low", "digest": True}
+        action, sent = _say(state, "fill_digest", f"{nowdt.date()}:{n}", note, log=log)
+        if action == "push" and sent is not False:
             state.pop("_fill_digest", None)
         return True
     except Exception as e:
