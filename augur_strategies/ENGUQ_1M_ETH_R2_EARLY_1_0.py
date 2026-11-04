@@ -16,9 +16,9 @@ CAVEATS, stated before any number:
   - The prereg reads the SIGNAL bar; with limit_atr > 0 the parent's trade starts at the FILL bar,
     up to 10 minutes later. The entry bar is used here (it is what the trade list carries); a
     signal at 09:58 that fills at 10:03 is counted as late.
-  - The engine charges its round-trip cost once per trade, not per unit of size, so a sized-up
-    trade is charged as one unit. With mean size 1 the total cost charged is unchanged; per trade
-    it slightly flatters the early trades (x1.5 trades pay 1 unit, not 1.5).
+  - Cost: the engine charges its round trip once per trade, so each trade is handed back as
+    s*raw - (s-1)*0.783 (NOISE_1_8_CT304's convention) and pays cost per unit of size. Queue it
+    at cost_pts 0.783 only.
 """
 import importlib.util as _ilu
 import os as _os
@@ -39,6 +39,7 @@ DIRECTION = "LONG"
 TIMEFRAME = "1m"
 
 W_EARLY = 1.5
+_COST_PTS = 0.783          # the house NQ 24-hour round trip (api/book_shadow BOOK463_LEGS)
 _RTH_OPEN_MIN = 9 * 60 + 30
 
 DEFAULT_PARAMS = dict(_P.DEFAULT_PARAMS)
@@ -70,7 +71,9 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
     early = (mins[eb] >= _RTH_OPEN_MIN) & (mins[eb] < int(t_end_min))
     size = np.where(early, W_EARLY, 1.0)
     size = size / size.mean()
-    p = np.array([float(t[2]) for t in tr]) * size
+    # NOISE_1_8_CT304's cost convention: the engine subtracts cost once per trade, so a size-s
+    # trade is handed back as s*raw - (s-1)*cost and lands on s*(raw-cost) after the engine
+    p = np.array([float(t[2]) for t in tr]) * size - (size - 1.0) * _COST_PTS
     new_tr = [(t[0], t[1], float(p[k]), t[3], t[4]) + tuple(t[5:]) for k, t in enumerate(tr)]
     wins = p[p > 0]; losses = p[p < 0]
     cum = np.cumsum(p)
