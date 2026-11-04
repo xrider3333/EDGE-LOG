@@ -83,7 +83,7 @@ HANDOFF_WINDOW_SECONDS = 60
 # cutting the worst-case detection latency from ~30s (the classic cadence) to ~1s -- the
 # stream bar itself only changes once every 5 minutes, so sub-second polling of the
 # hand-off file buys nothing a real consumer would notice.
-HANDOFF_POLL_SECONDS = 1.0
+HANDOFF_POLL_SECONDS = 0.25   # LATENCY FIX 1b (owner 11-04, MANAGER #266): was 1.0 s
 
 STREAM_CONFIG_FILENAME = "stream_config.json"
 SHADOW_FILENAME = "stream_shadow.json"

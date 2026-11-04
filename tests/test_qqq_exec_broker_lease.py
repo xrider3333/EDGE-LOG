@@ -357,12 +357,13 @@ def test_host_id_column_appended_never_inserted_migrates_old_file(tmp_path, monk
     padded with ""), never dropped or reordered."""
     out = _patch_qqq_paths(tmp_path, monkeypatch)
     os.makedirs(out, exist_ok=True)
-    old_cols = qe.BROKER_ORDER_COLS[:-2]   # every column except the two trailing ones
+    # every column before host_id/outcome (and the 11-04 latency columns after them)
+    old_cols = qe.BROKER_ORDER_COLS[:qe.BROKER_ORDER_COLS.index("host_id")]
     assert old_cols == ["ts_et", "leg", "intent", "side", "shares", "signal_id",
                         "client_order_id", "mode", "ok", "sent", "shadow_px",
                         "broker_fill_px", "slippage", "reason", "duplicate"], (
         "host_id and outcome must be APPENDED at the end, never inserted")
-    assert qe.BROKER_ORDER_COLS[-2:] == ["host_id", "outcome"]
+    assert qe.BROKER_ORDER_COLS[len(old_cols):len(old_cols) + 2] == ["host_id", "outcome"]
     old_row = {c: "" for c in old_cols}
     old_row["leg"] = "OLD"
     old_row["intent"] = "OPEN"

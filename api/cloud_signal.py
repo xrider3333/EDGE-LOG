@@ -188,7 +188,10 @@ RTH_OPEN = qp.RTH_OPEN
 RTH_CLOSE = qp.RTH_CLOSE
 
 # Bar must have fully closed at least this long before `now` before we act on it.
-CLOSE_GRACE_SECONDS = 5
+# LATENCY FIX 1 (owner 11-04 'fix now', MANAGER #266/#247): was 5 s -- 4 of the 10-15 s
+# from bar close to order sent. Webull/stream bars are final when they land; the yfinance
+# fallback keeps its own YF_SETTLE_SECONDS guard.
+CLOSE_GRACE_SECONDS = 1
 
 # Default rolling-window depth: "last N sessions" per the task spec. Actual depth used
 # is always min(this, sessions available in the cache) — the cache today only holds

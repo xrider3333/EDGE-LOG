@@ -876,6 +876,10 @@ def test_cloud_signal_thread_writes_ok_true_heartbeat_with_cache_write_failed_no
     monkeypatch.setattr(cs.market_calendar, "is_session", lambda d: True)
     monkeypatch.setattr(cs, "RTH_OPEN", cs._dt.time(0, 0))
     monkeypatch.setattr(cs, "RTH_CLOSE", cs._dt.time(23, 59))
+    # the hand-off fast poll is 0.25 s since 11-04 (MANAGER #266): keep this test's
+    # "end of loop" sleep >= 1 s whatever the wall clock reads
+    if getattr(cs, "_stream_mod", None) is not None:
+        monkeypatch.setattr(cs._stream_mod, "in_handoff_window", lambda *a, **k: False)
 
     real_replace = cs.os.replace
     stop = threading.Event()

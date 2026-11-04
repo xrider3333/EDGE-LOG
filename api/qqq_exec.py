@@ -1799,9 +1799,63 @@ BROKER_ORDER_COLS = ["ts_et", "leg", "intent", "side", "shares", "signal_id",
                      # (csv.DictReader), never by position, so an appended column is safe
                      # for every one of them; index.html has no broker_orders.csv reader
                      # at all (checked by grep).
-                     "outcome"]
+                     "outcome",
+                     # LATENCY (owner 11-04, MANAGER #266 / #247 fix 4): when the send
+                     # started, how long Webull took to answer, and when this book first
+                     # saw the fill (the deferred capture -- an upper bound on fill time).
+                     "send_start_et", "ack_ms", "fill_seen_et"]
 
 _ORDER_ADAPTER = None
+
+
+# LATENCY FIX 2 (owner 11-04 'fix now', MANAGER #266 / #247): the 5 s tick cost ~3 s on
+# average between the engine writing an order row and this loop reading it. For
+# FAST_POLL_WINDOW_SEC after every 5-minute bar close the wait is cut short the moment
+# signals.csv changes (checked every FAST_POLL_SEC -- one stat call, no tick, no publish),
+# so the order goes out within ~0.25 s of the engine's row. Outside the window: TICK_SEC.
+FAST_POLL_SEC = 0.25
+FAST_POLL_WINDOW_SEC = 25.0
+
+
+def _signals_mtime():
+    try:
+        from . import cloud_signal as cs
+        return os.stat(cs.DEFAULT_PATHS["signals_path"]).st_mtime_ns
+    except Exception:
+        return None
+
+
+def _wait_next_tick(stop=None, now=None):
+    """Wait up to TICK_SEC; in the fast window after a 5m close, return as soon as the
+    engine's signals.csv changes. Returns True when woken early by a new row. Never raises."""
+    def _sleep(sec):
+        if stop is not None:
+            return stop.wait(sec)
+        time.sleep(sec)
+        return False
+    try:
+        t_end = time.time() + TICK_SEC
+        base = _signals_mtime()
+        while True:
+            now_s = time.time() if now is None else now
+            left = t_end - time.time()
+            if left <= 0:
+                return False
+            in_window = (now_s % 300.0) < FAST_POLL_WINDOW_SEC + TICK_SEC
+            if not in_window or base is None:
+                _sleep(left)
+                return False
+            if _sleep(min(FAST_POLL_SEC, left)):
+                return False
+            if _signals_mtime() != base:
+                return True
+            now = None
+    except Exception:
+        try:
+            _sleep(TICK_SEC)
+        except Exception:
+            pass
+        return False
 
 
 def _get_broker_adapter(log=print):
@@ -3283,6 +3337,7 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     sleeping mid-tick while another host takes over. So a lease-managed process also re-checks
     its OWN latest landed stamp right before each send (_LeaseHolder.send_gate); a process that
     is not lease-managed (a direct call, a test) has no such state and is unaffected."""
+    _t_send0, _t_send0_et = time.time(), _now_et()
     if not shares or shares <= 0:
         return
     signal_id = _broker_signal_id(leg, ts, intent, seq=seq, trade_id=trade_id)
@@ -3450,6 +3505,9 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         "host_id": _lease_host_id(),
         # EXIT SAFETY item 5 (2026-09-26 minor review): see BROKER_ORDER_COLS.
         "outcome": _broker_row_outcome(rec),
+        "send_start_et": _t_send0_et.strftime("%Y-%m-%d %H:%M:%S.%f")[:-3],
+        "ack_ms": round((time.time() - _t_send0) * 1000),
+        "fill_seen_et": "",
     }
     _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, BROKER_ORDERS_KEEP)
     state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
@@ -4942,6 +5000,7 @@ def _finish_fill_capture(item, px, note, log=print):
                     slippage = None
             updates["broker_fill_px"] = px
             updates["slippage"] = slippage if slippage is not None else ""
+            updates["fill_seen_et"] = _now_et().strftime("%Y-%m-%d %H:%M:%S")
         elif note:
             # only ever fills an otherwise-blank reason cell -- a capture job exists
             # only for a row that was already ok+sent (see _queue_broker_fill_capture),
@@ -16941,7 +17000,7 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
             except Exception as e:
                 log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
                 _note_tick_result(state, False, exc=e, log=log)
-            (stop.wait(TICK_SEC) if stop is not None else time.sleep(TICK_SEC))
+            _wait_next_tick(stop)
     finally:
         # LIVE WEBULL STREAM (2026-09-23, item 3): unconditional and first -- covers a
         # normal loop exit, a mid-loop stand-down (_stand_down above returns through

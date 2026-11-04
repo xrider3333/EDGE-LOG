@@ -496,7 +496,8 @@ PREV_DAY = pd.Timestamp("2026-09-08 09:30:00", tz=cs.TZ)      # Tuesday
 NEXT_OPEN = pd.Timestamp("2026-09-09 09:30:00", tz=cs.TZ)     # Wednesday's first 5m bar
 NOT_TAKEN = "not taken: the market is closed"
 WANT_LINE = ("[cloud-signal] LEGA long signal at 15:55 ET on 2026-09-08 (LEGA) not taken: the "
-             "market is closed -- the strategy's entry was first seen at 09:35:05 ET on "
+             "market is closed -- the strategy's entry was first seen at "
+             f"09:35:{cs.CLOSE_GRACE_SECONDS:02d} ET on "
              "2026-09-09, after that session's 16:00 close. No order.")
 
 
@@ -528,7 +529,7 @@ def test_a_dry_run_never_logs_not_taken_and_step_logs_it_once(tmp_path, capsys):
     assert cs.step(now=later, legs=_legs(), paths=paths, fetch=False) == []
     out = capsys.readouterr().out
     assert out.count(NOT_TAKEN) == 1, out
-    assert WANT_LINE.replace("09:35:05", "09:35:35") in out
+    assert WANT_LINE.replace(f"09:35:{cs.CLOSE_GRACE_SECONDS:02d}", "09:35:35") in out
     cs.step(now=later + pd.Timedelta(minutes=1), legs=_legs(), paths=paths, fetch=False)
     assert NOT_TAKEN not in capsys.readouterr().out
 
