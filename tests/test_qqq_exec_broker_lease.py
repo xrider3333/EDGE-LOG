@@ -479,6 +479,9 @@ def test_tick_skips_lease_check_entirely_without_db_or_uid(tmp_path, monkeypatch
     (expects exactly 4, not 0) to isolate "did the LEASE-GATE block specifically add a
     call" from those four pre-existing/independent ones."""
     _tick_paths(tmp_path, monkeypatch)
+    # the first tick of a process also runs the after-hours boot scan: one more adapter call,
+    # so the count depended on which test ran first in the worker
+    monkeypatch.setitem(qe._PROCESS, "ah_boot_scan", True)
 
     calls = []
 
