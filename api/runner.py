@@ -2095,6 +2095,15 @@ class FirestoreQueue:
                     _resumed = (job.get("progress") or 0) > 0
                     if _qm is not None and not _resumed and _qm.hold(snap.id):
                         continue
+                    # DAY MODE (OWNER 11-04, tools/day_mode.py): 07:00-16:00 MST only runner
+                    # slots 1..day_runners claim new work; schedule file re-read live.
+                    if not _resumed:
+                        try:
+                            from tools import day_mode as _dm
+                            if _dm.hold():
+                                continue
+                        except Exception:
+                            pass
                     # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
                     # Compare this job against ALREADY-COMPLETED jobs, not just
                     # in-flight ones. Checking only 'queued'/'running' is what let four
