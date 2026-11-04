@@ -101,6 +101,7 @@ def test_the_id_prefix_decides_the_list():
     assert B.parse_id('c12')[1] == 'AUTOMATIONS', 'the board numbers automations B1.. and C1..'
     assert B.parse_id('p03')[1] == 'PC'
     assert B.parse_id('q2')[1] == 'QWEN'
+    assert B.parse_id('l1') == ('l1', 'LIVE', 1)
 
 
 @pytest.mark.parametrize('bad', ['12', 'x4', 'w', 'item 12', 'w1234', 'w-1', ''])
@@ -272,7 +273,7 @@ def test_the_real_dump_seeds_cleanly_if_it_is_on_this_machine():
         pytest.skip('the dump is only on the owner PC')
     rows = B.seed_rows(d)
     assert len(rows) >= 150
-    assert set(r['tab'] for r in rows) <= {'WORK', 'RUNS', 'AUTOMATIONS', 'PC', 'QWEN'}
+    assert set(r['tab'] for r in rows) <= {'WORK', 'RUNS', 'AUTOMATIONS', 'PC', 'QWEN', 'LIVE'}
     assert all(r.get('title') for r in rows), 'a row with no title reads as an empty line'
 
 

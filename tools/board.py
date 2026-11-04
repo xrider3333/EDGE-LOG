@@ -55,8 +55,10 @@ UID = 'IO0K35JpLIcH9YK4C0pMNYUzZOM2'
 # the row id's first letter decides which list it is in - nothing else does
 # b and c are both AUTOMATIONS: MANAGER's board numbers them B1.. and C1.., two series of the
 # same list, so the letter is kept in the id and both land in one table.
-TABS = {'w': 'WORK', 't': 'RUNS', 'b': 'AUTOMATIONS', 'c': 'AUTOMATIONS', 'p': 'PC', 'q': 'QWEN'}
-ID_RE = re.compile(r'^([wtbcpq])(\d{1,3})$')
+# l = LIVE: the WEBULL LIVE steps (l1, l2 ...), ordered by number, shown first on the page.
+TABS = {'w': 'WORK', 't': 'RUNS', 'b': 'AUTOMATIONS', 'c': 'AUTOMATIONS', 'p': 'PC', 'q': 'QWEN',
+        'l': 'LIVE'}
+ID_RE = re.compile(r'^([wtbcpql])(\d{1,3})$')
 
 # the owner's own status words. NEED = he has to act; OPEN = in flight; the rest are finished,
 # and 'confirmed' is the only one he sets himself.
@@ -92,7 +94,7 @@ def parse_id(text):
     m = ID_RE.match(k)
     if not m:
         raise ToolError('row id %r is not a board id: one letter then a number, '
-                        'w=WORK t=RUNS b=AUTOMATIONS p=PC q=QWEN (w12, t47, b7)' % text)
+                        'w=WORK t=RUNS b=AUTOMATIONS p=PC q=QWEN l=LIVE (w12, t47, b7, l1)' % text)
     return k, TABS[m.group(1)], int(m.group(2))
 
 
