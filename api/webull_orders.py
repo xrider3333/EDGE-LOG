@@ -1130,6 +1130,20 @@ class OrderAdapter:
         m = str(self.cfg.get("mode") or MODE_OFF).upper()
         return m if m in _VALID_MODES else MODE_OFF
 
+    def phone_account_label(self):
+        """"Webull paper 1234" / "Webull LIVE 1234" for the phone titles (owner 11-04,
+        MANAGER #265: every push names the account), None when orders are OFF. The last 4
+        come from the account resolution's disk cache ("????" until the first resolve
+        after this field existed). Never raises, never calls Webull."""
+        try:
+            mode, _ = self.effective_mode()
+            if mode not in (MODE_PAPER, MODE_LIVE):
+                return None
+            ent = (self._state.get("account_ids") or {}).get(f"{mode}:stock") or {}
+            return f"Webull {'LIVE' if mode == MODE_LIVE else 'paper'} {ent.get('last4') or '????'}"
+        except Exception:
+            return None
+
     def effective_mode(self):
         """(mode, reason). Only ever returns PAPER when paper creds are present, and
         LIVE when BOTH mode==LIVE in config AND the arm file exists -- every other
@@ -1253,6 +1267,9 @@ class OrderAdapter:
         self._account_id_cache[cache_key] = aid
         self._state.setdefault("account_ids", {})[cache_key] = {
             "account_id": aid, "selector": selector,
+            # last 4 of the account NUMBER only (never the id/number): the phone titles
+            # name the account -- see phone_account_label (owner 11-04, MANAGER #265)
+            "last4": _account_last4(chosen),
         }
         self._save_state()
         return aid

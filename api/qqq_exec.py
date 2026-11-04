@@ -935,6 +935,7 @@ def _notify(msg, title, log=print, priority=None):
     late or dropped. Returns "queued" (not False) when it was kept for retry: the outbox
     now owns delivery, so a caller must not retry it itself. Routine pushes (no priority,
     'default', 'low') stay one fire-and-forget try."""
+    title = _account_title(title)
     topic = (os.environ.get("NTFY_TOPIC") or "").strip()
     if not topic:
         log(f"[qqq-exec] NTFY_TOPIC unset, push skipped: {title}: {msg}")
@@ -953,6 +954,55 @@ def _notify(msg, title, log=print, priority=None):
         log(f"[qqq-exec] ntfy push failed: {detail}")
         return False
     return True
+
+
+def _account_title(title):
+    """ACCOUNT IN EVERY TITLE (owner 11-04, MANAGER #265): "Webull paper 1234: <title>"
+    (live later "Webull LIVE 1234: ..."), so a push never leaves the account to a guess.
+    The title is unchanged when no adapter exists yet or orders are OFF. Never raises."""
+    try:
+        lab = _ORDER_ADAPTER.phone_account_label() if _ORDER_ADAPTER is not None else None
+        t = str(title or "")
+        return f"{lab}: {t}" if lab and not t.startswith("Webull ") else t
+    except Exception:
+        return title
+
+
+# FILL DIGEST (owner 11-04, MANAGER #265: 21 "QQQ fill" pushes in 36 h, one per fill). A
+# routine fill note (title "QQQ fill...", priority low, trading not AFFECTED) is no longer
+# pushed: _say adds one line to state["_fill_digest"] and _maybe_send_fill_digest sends ONE
+# low note at FILL_DIGEST_AT_ET with every line of the day. Refused / stranded / parity /
+# needs-a-fix notes are other titles or higher priorities and still go at once.
+FILL_DIGEST_AT_ET = (16, 5)
+
+
+def _is_digest_fill(note):
+    try:
+        return (str(note.get("title") or "").startswith("QQQ fill")
+                and note.get("priority") in (None, "low")
+                and "AFFECTED" not in str(note.get("message") or ""))
+    except Exception:
+        return False
+
+
+def _maybe_send_fill_digest(state, nowdt, log=print):
+    """At/after 16:05 ET, send the day's queued fill lines as ONE low note. Lines from an
+    earlier day (box down at 16:05) go out with the next send. Never raises."""
+    try:
+        q = state.get("_fill_digest") or []
+        if not q or (nowdt.hour, nowdt.minute) < FILL_DIGEST_AT_ET:
+            return False
+        lines = [f"{i.get('t', '')} {i.get('line', '')}".strip() for i in q][-40:]
+        n = len(q)
+        msg = (f"Trading: not affected.\n{n} fill{'s' if n != 1 else ''} today: "
+               + "; ".join(lines) + "\nDo: nothing.")
+        sent = _notify(msg, f"QQQ fills: {n} today", log, priority="low")
+        if sent is not False:
+            state.pop("_fill_digest", None)
+        return True
+    except Exception as e:
+        log(f"[qqq-exec] fill digest failed (non-fatal): {type(e).__name__}: {e}")
+        return False
 
 
 def _ntfy_post(msg, title, priority=None):
@@ -1129,6 +1179,15 @@ def _say(state, key, problem_id, note, log=print):
         if action != "push":
             log(f"[qqq-exec] phone note held by the repeat rule: {note.get('title')}")
             return action, None
+        if isinstance(state, dict) and _is_digest_fill(note):
+            body = [ln for ln in str(note.get("message") or "").split("\n")
+                    if ln and not ln.startswith(("Trading:", "Do:"))]
+            state.setdefault("_fill_digest", []).append({
+                "t": ntfy_push.hhmm(_now_et()),
+                "title": note.get("title"), "priority": note.get("priority") or "low",
+                "line": f"{note.get('title', '')}: {' '.join(body)}".strip()})
+            log(f"[qqq-exec] fill note queued for the 16:05 digest: {note.get('title')}")
+            return action, "digest"
         sent = _notify(note["message"], note["title"], log, priority=note["priority"])
         if sent is False:
             if before is None:
@@ -16467,6 +16526,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         _maybe_note_eod_gave_up(state, nowdt, log=log)
 
     _flush_fill_notes(state, log=log)      # DIP: any family fill notes still queued
+    _maybe_send_fill_digest(state, nowdt, log=log)   # one 16:05 ET fill digest (#265)
     doc = _build_doc(cfg, state, feed_stale, unrealized, log=log)
     _maybe_send_eod_summary(state, doc, nowdt, log=log)
     _maybe_log_fs_usage(state, log=log)

@@ -52,6 +52,12 @@ _REAL_BUILD_DOC = qe._build_doc
 _REAL_CONSUME = qe._consume_engine_signals
 
 
+
+def _fills(state):
+    """Routine fill notes now queue for the 16:05 ET digest (owner 11-04, MANAGER #265)."""
+    return [{"title": d["title"], "message": d["line"], "priority": d["priority"]}
+            for d in state.get("_fill_digest") or []]
+
 def at(day, h, m, s=0):
     return datetime(day[0], day[1], day[2], h, m, s)
 
@@ -452,9 +458,9 @@ def test_seven_mechanisms_open_seven_lots_of_six_and_one_fill_note(env):
     assert e.sent() == [("BUY", 6)] * 7 and len({c for _s, _q, c in e.fake.sent}) == 7
     assert e.fake.pos == 42 and e.books() == {leg: 6 for leg in DIP}
     assert e.adapter.reconcile()["ok"] is True
-    (note,) = [p for p in e.pushes if p["title"].startswith("QQQ fill")]
+    (note,) = [p for p in _fills(e.state) if p["title"].startswith("QQQ fill")]
     assert note["title"] == "QQQ fill: DIP bought" and note["priority"] == "low"
-    assert "several DIP lots at 700.00" in note["message"] and ntfy_push.lint(note) == []
+    assert "several DIP lots at 700.00" in note["message"]
     (day_row,) = qe._build_signals_day(e.state)
     assert set(day_row["by_leg"]) == {"ORB", "ENGUQ", "NOISE", "DIP"}, "by family"
     assert day_row["by_leg"]["DIP"] == {"fired": 7, "taken": 7, "refused": 0, "oos": 0}
@@ -725,7 +731,7 @@ def test_kill_in_regular_hours_sells_every_dip_lot(env):
     assert e.state["legs"] == {} and e.fake.pos == 0
     assert e.sent(start) == [("SELL", 6)] * 3
     assert all(t["exit_reason"].startswith("KILL") for t in e.trades())
-    (sold,) = [p for p in e.pushes if p["title"] == "QQQ fill: DIP sold"]
+    (sold,) = [p for p in _fills(e.state) if p["title"] == "QQQ fill: DIP sold"]
     assert "several DIP lots" in sold["message"] and "(kill switch)" in sold["message"]
 
 
@@ -973,8 +979,8 @@ def test_several_dip_exits_at_one_open_meet_the_duplicate_check_with_no_false_al
     assert {leg: p["qty"] for leg, p in adapter._state["broker_sent_positions"].items()} == \
         {"DIP_RSI": 0, "DIP_DBL": 0, "DIP_PB": 0}
     assert not [p for p in pushes if p["title"] == "QQQ book: CHECK NOW"], "no false alarm"
-    (bought,) = [p for p in pushes if p["title"] == "QQQ fill: DIP bought"]
-    (sold,) = [p for p in pushes if p["title"] == "QQQ fill: DIP sold"]
+    (bought,) = [p for p in _fills(state) if p["title"] == "QQQ fill: DIP bought"]
+    (sold,) = [p for p in _fills(state) if p["title"] == "QQQ fill: DIP sold"]
     assert "several DIP lots at 701.00 (strategy exit)" in sold["message"]
 
 
