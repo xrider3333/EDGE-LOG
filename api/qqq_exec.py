@@ -279,6 +279,14 @@ DEFAULT_CONFIG = {
                    **{leg: DIP_SHARES_PER_LOT for leg in DIP_LEGS}),
     "max_shares_per_leg": 10,
     "daily_loss_limit_usd": 150,
+    # WEBULL LIVE S1 (2026-11-04, MANAGER #270): two more loss stops, both from REALISED
+    # Webull fills in broker_orders.csv (FIFO per leg), both OFF by default (None / 0).
+    # weekly_loss_limit_usd: realised loss since Monday 00:00 ET; max_loss_since_arm_usd:
+    # realised loss since the first fill after the arm file (ARM_LIVE) was created. Either
+    # one hit = every lot closed (the BREAKER path), LOSS_STOP_HALT written beside KILL
+    # (no new entries until the owner deletes it), URGENT push -- see _check_loss_stops.
+    "weekly_loss_limit_usd": None,
+    "max_loss_since_arm_usd": None,
     # DIP #424 (OWNER GO 2026-10-10): the family's own caps -- code defaults, see DIP_LEGS.
     # dip_max_total_shares: every open DIP lot's shares together (0 = no cap);
     # dip_daily_loss_limit_usd: DIP's own rail (0 = off), never the shared one above.
@@ -706,6 +714,10 @@ def _default_state():
         "flat_by_done_date": None,
         "kill_done": False,
         "kill_flatten_date": None,  # ET date a KILL flatten last fired -- EXIT SAFETY item 4
+        # WEBULL LIVE S1/S2 (2026-11-04): the loss stops' anchors + halt (persisted so a
+        # restart never resets a weekly / since-arm figure) and the kill-from-broker loop
+        "loss_stop": {},
+        "_kill_broker": {},
         "last_feed_alert": 0.0,
         "feed_stale": False,
         "calib": None,             # {"ratio","source","at"}
@@ -6230,6 +6242,8 @@ def _resting_arm_gate(state, cfg, adapter, lot, nowdt, active):
         return "the book KILL file is present"
     if state.get("breaker_tripped"):
         return "the daily-loss breaker has tripped"
+    if _loss_stop_halted(cfg):
+        return "a loss stop halt is on (LOSS_STOP_HALT present)"
     if not state.get("_broker_lease_ok", True):
         return f"the cross-host lease is not verified ({state.get('_broker_lease_reason')})"
     at_send = _LEASE.send_gate(_LEASE.uid)
@@ -7004,6 +7018,8 @@ def _resting_live_step(state, cfg, adapter, blk, nowdt, active, mode, log=print)
             doubt = "the book KILL file is present"
         elif state.get("breaker_tripped"):
             doubt = "the daily-loss breaker has tripped"
+        elif _loss_stop_halted(cfg):
+            doubt = "a loss stop halt is on (LOSS_STOP_HALT present)"
         elif _resting_reconcile_doubt(adapter):
             doubt = _resting_reconcile_doubt(adapter)
         elif int(stop_rec.get("qty") or 0) != want["qty"]:
@@ -12593,6 +12609,384 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
     return unrl
 
 
+# -- WEBULL LIVE SAFETY (2026-11-04, MANAGER #270 / #268 GO A) ---------------------------
+# S1 LOSS STOPS. Two stops beside the daily breaker, both from REALISED Webull fills only
+# (broker_orders.csv rows of the adapter's current mode, ok True, FIFO per leg -- the same
+# pairing _broker_realized_today uses, over a longer window; no open marks):
+#   weekly_loss_limit_usd     realised P&L since Monday 00:00 ET of the current week
+#   max_loss_since_arm_usd    realised P&L since the FIRST fill after the arm file (ARM_LIVE)
+#                             was created -- the anchor is stamped into state["loss_stop"]
+#                             so a restart never re-anchors it; a re-created arm file
+#                             (new mtime) starts a new since-arm window
+# Either hit: every lot closes through the BREAKER path (held lots deferred to the open,
+# DIP's left alone -- exactly the daily breaker's rules), breaker_tripped is set for the
+# day, LOSS_STOP_HALT is written beside KILL (persistent: no new entries, resting or
+# routed, on any host, until the OWNER deletes it) and ONE urgent push names the stop and
+# the figure. Deleting the file clears the halt; the stop that tripped then counts from
+# the moment of clearing (its "floor" in state), or it would trip again on the same rows.
+# S2 KILL FROM BROKER. The book KILL path above closes the BOOK's lots once; the adapter's
+# kill-file halt blocks OPENs only. Neither reads Webull. kill_from_broker (every tick the
+# KILL file is present, PAPER/LIVE only) reads adapter.positions()['broker'] (bounded, the
+# after-close flat check's read), sends a MARKET order for whatever QQQ Webull holds (SELL
+# a long, BUY back a short) straight through the SDK client -- never place_stock_order,
+# whose CLOSE refuses shares the book never sent and whose OPEN the kill halt blocks --
+# retries every KILL_BROKER_RETRY_SEC until Webull reads flat, inside regular hours only,
+# then pushes 'flat confirmed' ONCE. The first read waits one retry interval after the
+# book's own KILL flatten so its fills can reach Webull's position (no double sell). The
+# kill stays active (no entries) for as long as the file exists -- unchanged. Without the
+# KILL file nothing here runs, so PAPER behaves exactly as before.
+LOSS_STOP_HALT_FILE_NAME = "LOSS_STOP_HALT"
+KILL_BROKER_RETRY_SEC = 30.0
+LOSS_STOP_LABELS = {"weekly": "weekly", "since_arm": "since-arm"}
+
+
+def _loss_stop_halt_path(cfg):
+    """Resolved against the CURRENT OUT_DIR (never baked into DEFAULT_CONFIG -- see the
+    flatten_broker_file note there); config.json loss_stop_halt_file overrides."""
+    return (cfg or {}).get("loss_stop_halt_file") or os.path.join(OUT_DIR, LOSS_STOP_HALT_FILE_NAME)
+
+
+def _loss_stop_halted(cfg):
+    """True while the owner has not deleted LOSS_STOP_HALT. Never raises."""
+    try:
+        return os.path.exists(_loss_stop_halt_path(cfg))
+    except Exception:
+        return False
+
+
+def _week_anchor(nowdt):
+    """Monday of nowdt's ET week, 'YYYY-MM-DD'."""
+    d = nowdt.date() if hasattr(nowdt, "date") else nowdt
+    return (d - timedelta(days=d.weekday())).strftime("%Y-%m-%d")
+
+
+def _broker_realized_since(start_ts, modes, log=print):
+    """(realized, closes) -- realised P&L from broker_orders.csv rows with ts_et >= start_ts
+    (a 'YYYY-MM-DD HH:MM:SS' string; string order is time order), mode in `modes`, ok True,
+    FIFO-paired per leg exactly as _broker_realized_today pairs them (broker_fill_px, else
+    that row's shadow_px). An OPEN before start_ts is not seen, so its CLOSE adds nothing.
+    `closes` = CLOSE rows that paired. Never raises; an unreadable file is (0.0, 0)."""
+    realized, closes = 0.0, 0
+    open_by_leg = {}
+    try:
+        with open(BROKER_ORDERS_CSV, encoding="utf-8", newline="") as f:
+            rows = list(csv.DictReader(f))
+    except Exception:
+        return 0.0, 0
+    for row in rows:
+        ts = str(row.get("ts_et") or "")
+        if not ts or ts < start_ts:
+            continue
+        if row.get("mode") not in modes or str(row.get("ok")) != "True":
+            continue
+        try:
+            shares = float(row.get("shares") or 0)
+        except (TypeError, ValueError):
+            continue
+        if shares <= 0:
+            continue
+        px_raw = row.get("broker_fill_px")
+        if px_raw in (None, ""):
+            px_raw = row.get("shadow_px")
+        try:
+            px = float(px_raw)
+        except (TypeError, ValueError):
+            continue
+        leg, intent = row.get("leg"), row.get("intent")
+        if intent == "OPEN":
+            cur = open_by_leg.get(leg)
+            if cur and cur["side"] == row.get("side"):
+                tot = cur["shares"] + shares
+                cur["px"] = (cur["px"] * cur["shares"] + px * shares) / tot
+                cur["shares"] = tot
+            else:
+                open_by_leg[leg] = {"px": px, "side": row.get("side"), "shares": shares}
+        elif intent == "CLOSE" and leg in open_by_leg:
+            cur = open_by_leg[leg]
+            mult = 1 if cur["side"] == "BUY" else -1
+            n = min(shares, cur["shares"])
+            realized += (px - cur["px"]) * mult * n
+            closes += 1
+            cur["shares"] -= n
+            if cur["shares"] <= 1e-9:
+                open_by_leg.pop(leg, None)
+    return round(realized, 2), closes
+
+
+def _first_fill_ts_since(start_ts, modes):
+    """ts_et of the first ok broker_orders.csv row of `modes` at/after start_ts, else None."""
+    try:
+        with open(BROKER_ORDERS_CSV, encoding="utf-8", newline="") as f:
+            rows = list(csv.DictReader(f))
+    except Exception:
+        return None
+    best = None
+    for row in rows:
+        ts = str(row.get("ts_et") or "")
+        if ts and ts >= start_ts and row.get("mode") in modes and str(row.get("ok")) == "True":
+            if best is None or ts < best:
+                best = ts
+    return best
+
+
+def _arm_file_mtime(adapter):
+    """The arm file's mtime (epoch) or None when it is absent / the adapter has none."""
+    try:
+        path = adapter._arm_file()
+        return os.path.getmtime(path) if path and os.path.exists(path) else None
+    except Exception:
+        return None
+
+
+def _since_arm_anchor(state, adapter, modes):
+    """The since-arm window's start: the first fill after the arm file's creation, stamped
+    into state["loss_stop"] once (a restart keeps it); a new arm file (different mtime)
+    re-anchors. None while the arm file is missing or no fill followed it yet."""
+    ls = state.setdefault("loss_stop", {})
+    mtime = _arm_file_mtime(adapter)
+    if mtime is None:
+        return None
+    if ls.get("arm_mtime") != mtime:
+        ls["arm_mtime"] = mtime
+        ls["arm_anchor"] = None
+        ls["arm_floor"] = None
+        ls["arm_date"] = datetime.fromtimestamp(mtime, _NY).strftime("%Y-%m-%d %H:%M:%S") \
+            if _NY is not None else datetime.fromtimestamp(mtime).strftime("%Y-%m-%d %H:%M:%S")
+    if not ls.get("arm_anchor"):
+        ls["arm_anchor"] = _first_fill_ts_since(ls.get("arm_date") or "", modes)
+    return ls.get("arm_anchor")
+
+
+def _loss_stop_note(stop, pnl, limit, path, what):
+    label = LOSS_STOP_LABELS.get(stop, stop)
+    since = "Monday" if stop == "weekly" else "the LIVE arm"
+    return ntfy_push.plain(
+        PHONE_AREA, "CHECK NOW", f"the {label} loss stop closed every QQQ trade",
+        f"Realised loss since {since} reached {ntfy_push.usd(pnl)}, past the {label} limit "
+        f"{ntfy_push.usd(limit)}; {what}; no new QQQ trades until you clear it",
+        f"delete {path} to allow trades again, or leave it", priority="urgent")
+
+
+def _check_loss_stops(state, cfg, nowdt, quote_fn, ratio_fn, log=print):
+    """S1: weekly / since-arm realised loss stops -- see the section comment. Runs every
+    tick after the daily breaker. Never raises. Returns the stop that tripped this tick
+    (or None)."""
+    try:
+        ls = state.setdefault("loss_stop", {})
+        if not isinstance(ls, dict):
+            ls = state["loss_stop"] = {}
+        path = _loss_stop_halt_path(cfg)
+        halted = _loss_stop_halted(cfg)
+        if ls.get("halt") and not halted:
+            # the OWNER deleted LOSS_STOP_HALT: the stop that tripped counts from now on
+            stop = (ls.get("halt") or {}).get("stop")
+            floor = (nowdt or _now_et()).strftime("%Y-%m-%d %H:%M:%S")
+            if stop == "weekly":
+                ls["weekly_floor"] = floor
+            elif stop == "since_arm":
+                ls["arm_floor"] = floor
+            ls["halt"] = None
+            ls["cleared_at"] = floor
+            log(f"[qqq-exec] LOSS STOP cleared by the owner ({path} deleted) -- the "
+                f"{LOSS_STOP_LABELS.get(stop, stop)} figure counts from {floor}")
+            _log_event(state, "loss_stop_clear",
+                      f"Loss stop halt cleared ({LOSS_STOP_LABELS.get(stop, stop)}) -- new "
+                      f"entries allowed; that stop counts from {floor}", log=log)
+        weekly = cfg.get("weekly_loss_limit_usd")
+        since_arm = cfg.get("max_loss_since_arm_usd")
+        weekly = abs(float(weekly)) if weekly not in (None, "", 0, "0") else 0.0
+        since_arm = abs(float(since_arm)) if since_arm not in (None, "", 0, "0") else 0.0
+        if not weekly and not since_arm:
+            return None
+        adapter = _get_broker_adapter(log=log)
+        mode, _why = adapter.effective_mode()
+        if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            return None
+        modes = (mode,)
+        hits = []
+        wk = _week_anchor(nowdt or _now_et())
+        if ls.get("week_anchor") != wk:
+            ls["week_anchor"] = wk
+            ls["weekly_floor"] = None
+        if weekly:
+            start = max(wk + " 00:00:00", ls.get("weekly_floor") or "")
+            pnl, _n = _broker_realized_since(start, modes, log=log)
+            ls["weekly_pnl"] = pnl
+            if pnl <= -weekly:
+                hits.append(("weekly", pnl, weekly))
+        if since_arm:
+            anchor = _since_arm_anchor(state, adapter, modes)
+            if anchor:
+                start = max(anchor, ls.get("arm_floor") or "")
+                pnl, _n = _broker_realized_since(start, modes, log=log)
+                ls["since_arm_pnl"] = pnl
+                if pnl <= -since_arm:
+                    hits.append(("since_arm", pnl, since_arm))
+            else:
+                ls["since_arm_pnl"] = 0.0
+        if not hits or halted:
+            return None
+        stop, pnl, limit = hits[0]
+        label = LOSS_STOP_LABELS.get(stop, stop)
+        log(f"[qqq-exec] LOSS STOP ({label}) TRIPPED: realised {pnl:.2f} <= -{limit:.2f} -- "
+            f"closing every lot, writing {path}")
+        deferred = [leg for leg in _held_legs_to_defer(state, cfg, nowdt) if not is_dip_leg(leg)]
+        dip_open = [leg for leg in state.get("legs", {}) if is_dip_leg(leg)]
+        closing = [leg for leg in state.get("legs", {}) if leg not in deferred and not is_dip_leg(leg)]
+        if closing:
+            _close_all(state, cfg, "BREAKER", quote_fn, ratio_fn, log=log, nowdt=nowdt,
+                       legs=closing)
+        for leg in deferred:
+            _defer_held_close(state, cfg, leg, "BREAKER", nowdt, log=log)
+        state["breaker_tripped"] = True
+        at = (nowdt or _now_et()).strftime("%Y-%m-%d %H:%M:%S")
+        halt = {"stop": stop, "pnl": pnl, "limit": limit, "at": at, "mode": mode}
+        ls["halt"] = halt
+        try:
+            os.makedirs(os.path.dirname(path), exist_ok=True)
+            with open(path, "w", encoding="utf-8") as f:
+                json.dump(dict(halt, note="delete this file to allow new QQQ trades"), f, indent=2)
+        except Exception as e:
+            log(f"[qqq-exec] could not write {path}: {type(e).__name__}: {e}")
+        what = "open trades were closed" if (closing or not deferred) else "no trade was open"
+        if deferred:
+            what = (f"open trades were closed; {_legs_words(deferred)}'s held shares sell when "
+                    f"the market opens")
+        _say(state, "loss_stop", f"{stop}:{at[:10]}",
+             _loss_stop_note(stop, pnl, limit, path, what), log=log)
+        _log_event(state, "loss_stop",
+                  f"{label.capitalize()} loss stop tripped at ${pnl:.2f} (limit -${limit:.2f}, "
+                  f"{mode}) -- all lots closed, LOSS_STOP_HALT written, new entries blocked "
+                  f"until the owner deletes it"
+                  + (f" (held overnight, sold at the open: {', '.join(deferred)})" if deferred else "")
+                  + (f" except DIP's ({len(dip_open)})" if dip_open else ""), log=log)
+        return stop
+    except Exception as e:
+        log(f"[qqq-exec] loss-stop check failed (non-fatal): {type(e).__name__}: {e}")
+        return None
+
+
+def _kill_flat_note(sent):
+    return ntfy_push.plain(
+        PHONE_AREA, "flat confirmed", "not affected (flat)",
+        f"Webull holds no QQQ after the kill switch ({sent} kill order(s) sent); it stays "
+        f"blocked while the KILL file is there", "nothing, or delete the KILL file to resume",
+        priority="high")
+
+
+def _send_kill_market_order(adapter, mode, side, qty, nowdt, log=print):
+    """ONE market order straight through the adapter's SDK client (see the S2 section
+    comment for why not place_stock_order). Returns the broker_orders.csv-shaped record;
+    never raises."""
+    coid = f"qxKILL{(nowdt or _now_et()):%Y%m%d%H%M%S}"
+    rec = {"side": side, "qty": qty, "client_order_id": coid, "mode": mode, "ok": False,
+           "sent": False, "reason": ""}
+    try:
+        client = adapter._client(mode)
+        if client is None:
+            rec["reason"] = f"no {mode} client"
+            return rec
+        account_id = adapter._account_id(mode, client)
+        order = {"combo_type": "NORMAL", "client_order_id": coid, "symbol": BROKER_SYMBOL,
+                 "instrument_type": "EQUITY", "market": "US", "order_type": "MARKET",
+                 "quantity": str(int(qty)), "support_trading_session": "CORE",
+                 "side": side, "time_in_force": "DAY", "entrust_type": "QTY"}
+        rec["sent"] = True
+        resp = client.order_v3.place_order(account_id, [order])
+        try:
+            rec["response"] = resp.json() if hasattr(resp, "json") else resp
+        except Exception:
+            rec["response"] = str(resp)
+        rec["ok"] = True
+        rec["reason"] = "kill: flattening Webull's own QQQ position"
+    except Exception as e:
+        rec["reason"] = f"{type(e).__name__}: {e}"
+        log(f"[qqq-exec] KILL broker order {side} {qty} QQQ FAILED: {rec['reason']}")
+    return rec
+
+
+def kill_from_broker(state, cfg, nowdt, log=print):
+    """S2: with the KILL file present, flatten whatever QQQ Webull itself holds, retrying
+    every KILL_BROKER_RETRY_SEC inside regular hours until Webull reads flat, then push
+    'flat confirmed' once. See the section comment. Returns a short status word (tests)
+    or None when nothing applies. Never raises."""
+    kill_present = os.path.exists(cfg.get("kill_file") or "")
+    kb = state.get("_kill_broker")
+    if not isinstance(kb, dict):
+        kb = state["_kill_broker"] = {}
+    if not kill_present:
+        if kb:
+            state["_kill_broker"] = {}
+        return None
+    try:
+        adapter = _get_broker_adapter(log=log)
+        mode, _why = adapter.effective_mode()
+        if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
+            return None
+        if kb.get("confirmed"):
+            return "confirmed"
+        now_wall = time.time()
+        if not kb.get("last_try"):
+            # the book's own KILL flatten just went out: give its fills one interval to
+            # reach Webull's position before reading it (never a second sell)
+            kb["last_try"] = now_wall
+            kb["started"] = (nowdt or _now_et()).strftime("%Y-%m-%d %H:%M:%S")
+            return "armed"
+        if now_wall - float(kb["last_try"]) < KILL_BROKER_RETRY_SEC:
+            return "waiting"
+        kb["last_try"] = now_wall
+        info = _positions_with_timeout(adapter, log=log)
+        broker = info.get("broker")
+        if broker is None:
+            kb["unread"] = int(kb.get("unread") or 0) + 1
+            log(f"[qqq-exec] KILL: could not read Webull's position "
+                f"({info.get('error') or 'no client'}) -- looks again in "
+                f"{KILL_BROKER_RETRY_SEC:g} s")
+            return "unread"
+        qty = float(broker.get(BROKER_SYMBOL, 0.0) or 0.0)
+        if abs(qty) < 1e-9:
+            kb["confirmed"] = True
+            kb["confirmed_at"] = (nowdt or _now_et()).strftime("%Y-%m-%d %H:%M:%S")
+            sent = int(kb.get("sent") or 0)
+            log(f"[qqq-exec] KILL: Webull reads flat in QQQ -- flat confirmed ({sent} kill "
+                f"order(s) sent)")
+            _log_event(state, "kill_flat", f"Kill: Webull flat in QQQ confirmed ({sent} kill "
+                       f"order(s) sent); entries stay blocked while the KILL file is present",
+                       log=log)
+            _say(state, "kill_flat", kb.get("started") or _phone_day(nowdt),
+                 _kill_flat_note(sent), log=log)
+            return "flat"
+        if _outside_regular_hours(nowdt):
+            log(f"[qqq-exec] KILL: Webull still holds {qty:g} QQQ -- outside regular hours, "
+                f"the market order waits for the open")
+            return "closed"
+        side = "SELL" if qty > 0 else "BUY"
+        n = int(round(abs(qty)))
+        rec = _send_kill_market_order(adapter, mode, side, n, nowdt, log=log)
+        kb["sent"] = int(kb.get("sent") or 0) + (1 if rec.get("sent") else 0)
+        kb["last_order"] = {k: rec.get(k) for k in ("side", "qty", "client_order_id", "ok", "reason")}
+        row = {"ts_et": _now_et().strftime("%Y-%m-%d %H:%M:%S"), "leg": "KILL",
+               "intent": "CLOSE", "side": side, "shares": n, "signal_id": rec["client_order_id"],
+               "client_order_id": rec["client_order_id"], "mode": mode, "ok": rec.get("ok"),
+               "sent": rec.get("sent"), "shadow_px": "", "broker_fill_px": "", "slippage": "",
+               "reason": rec.get("reason") or "", "duplicate": False,
+               "host_id": _lease_host_id(), "outcome": "OK" if rec.get("ok") else "REFUSED"}
+        try:
+            _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, BROKER_ORDERS_KEEP)
+        except Exception as e:
+            log(f"[qqq-exec] KILL: broker_orders.csv row failed (non-fatal): {type(e).__name__}: {e}")
+        log(f"[qqq-exec] KILL: Webull holds {qty:g} QQQ -- sent {side} {n} MARKET "
+            f"({rec['client_order_id']}, ok={rec.get('ok')}); reads again in "
+            f"{KILL_BROKER_RETRY_SEC:g} s")
+        _log_event(state, "kill_broker",
+                  f"Kill: Webull held {qty:g} QQQ -- sent {side} {n} market "
+                  f"({'ok' if rec.get('ok') else 'FAILED: ' + str(rec.get('reason'))})", log=log)
+        return "sent"
+    except Exception as e:
+        log(f"[qqq-exec] kill-from-broker failed (non-fatal): {type(e).__name__}: {e}")
+        return "error"
+
+
 def _note_breaker_input(state, total):
     """DAILY-STOP BAR (Ledger unify 13, 2026-10-05): keeps the exact figure the daily
     loss breaker just compared with the limit -- today's realized + the fill shortfall
@@ -16402,6 +16796,9 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         log("[qqq-exec] kill file cleared")
         _log_event(state, "kill_clear", "Kill file cleared -- adapter resuming normal operation",
                   log=log)
+    # WEBULL LIVE S2 (2026-11-04): while the KILL file is present, read Webull's OWN QQQ
+    # position and flatten it regardless of what the book believes -- see kill_from_broker
+    kill_from_broker(state, cfg, nowdt, log=log)
 
     # HOLD OVERNIGHT: a held lot's KILL / BREAKER / strategy-exit close decided outside
     # regular hours goes out now if the market is open (a KILL whose file is gone is
@@ -16447,7 +16844,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
 
     if active and not kill_present:
         entries_blocked = (state.get("breaker_tripped") or feed_stale or px_feed_stale
-                          or kill_present)
+                          or kill_present or _loss_stop_halted(cfg))
         # DIP #424: the shared breaker never blocks DIP; DIP's own rail blocks only DIP
         dip_entries_blocked = bool(_dip_rail_blocking(state, today) or feed_stale
                                    or px_feed_stale or kill_present)
@@ -16532,6 +16929,8 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     tripped_before_check = bool(state.get("breaker_tripped"))
     if not kill_present:
         unrealized = _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=log, nowdt=nowdt)
+        # WEBULL LIVE S1 (2026-11-04): weekly / since-arm realised loss stops
+        _check_loss_stops(state, cfg, nowdt, quote_fn, ratio_fn, log=log)
     else:
         # the breaker makes no check on a kill day; keep the daily-stop figure it would
         # count current after the kill flatten (bookkeeping only, see the helper)
