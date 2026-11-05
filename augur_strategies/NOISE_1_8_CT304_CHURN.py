@@ -13,6 +13,8 @@ KNOBS
                    bar and exits the bar after: the one-bar churn.
   vwap_buf_k       0 = off; else the VWAP exit needs the close k x ATR past VWAP. ATR = mean true range of the 14 closed
                    5m bars up to and including the signal bar (causal).
+  entry_vwap       False = off; True = EVERY entry needs its signal close on the trade's side of session VWAP (r2, MANAGER #168).
+  exit_closes      1 = today's exit (first close across VWAP); N = N consecutive closes across VWAP before the exit queues.
 """
 import importlib.util as _ilu
 import os as _os
@@ -27,15 +29,16 @@ _sp.loader.exec_module(_ct)
 _PATCHES = [
     ("    return_levels: bool = False,\n):\n    o = np.asarray(opens, float)",
      "    return_levels: bool = False,\n    max_entries: int = 0, reentry_confirm: bool = False, vwap_buf_k: float = 0.0,\n"
+     "    entry_vwap: bool = False, exit_closes: int = 1,\n"
      "):\n    o = np.asarray(opens, float)"),
     ("    pnl_list, trade_log = [], []\n",
      "    pnl_list, trade_log = [], []\n"
      "    _tr = np.maximum(h - l, np.abs(h - np.r_[c[0], c[:-1]]), np.abs(l - np.r_[c[0], c[:-1]]))\n"
      "    _atr5 = np.convolve(_tr, np.ones(14) / 14.0)[:n] if vwap_buf_k else None\n"),
     ("        pos = 0; entry_px = 0.0; entry_k = -1\n",
-     "        pos = 0; entry_px = 0.0; entry_k = -1; n_entries = 0\n"),
+     "        pos = 0; entry_px = 0.0; entry_k = -1; n_entries = 0; _xs = 0\n"),
     ("                pos = entry_pending; entry_px = so[k]; entry_k = k; entry_pending = 0\n",
-     "                pos = entry_pending; entry_px = so[k]; entry_k = k; entry_pending = 0; n_entries += 1\n"),
+     "                pos = entry_pending; entry_px = so[k]; entry_k = k; entry_pending = 0; n_entries += 1; _xs = 0\n"),
     ("                    if pos > 0 and sc[k] < VWAP[k]:\n                        trig = True\n"
      "                    elif pos < 0 and sc[k] > VWAP[k]:\n",
      "                    _b = vwap_buf_k * _atr5[a + k] if vwap_buf_k else 0.0\n"
@@ -47,7 +50,15 @@ _PATCHES = [
      "                    if reentry_confirm and n_entries >= 1 and VWAP is not None:\n"
      "                        long_trig = long_trig and sc[k] > VWAP[k]\n"
      "                        short_trig = short_trig and sc[k] < VWAP[k]\n"
+     "                    if entry_vwap and VWAP is not None:\n"
+     "                        long_trig = long_trig and sc[k] > VWAP[k]\n"
+     "                        short_trig = short_trig and sc[k] < VWAP[k]\n"
      "                    if confirm_bars > 1:\n                        long_trig = long_trig and streak_long"),
+    ("                if trig:\n                    if _dl is not None:\n                        if exit_mode == \"vwap\":\n",
+     "                if exit_closes > 1 and exit_mode == \"vwap\":\n"
+     "                    _xs = _xs + 1 if trig else 0\n"
+     "                    trig = trig and _xs >= exit_closes\n"
+     "                if trig:\n                    if _dl is not None:\n                        if exit_mode == \"vwap\":\n"),
 ]
 
 
@@ -64,7 +75,7 @@ def _patched_core():
 
 
 _core = _patched_core()
-_CHURN_KEYS = ("max_entries", "reentry_confirm", "vwap_buf_k")
+_CHURN_KEYS = ("max_entries", "reentry_confirm", "vwap_buf_k", "entry_vwap", "exit_closes")
 
 STRATEGY_NAME = "NOISE 1.8 CT304 (#382) + churn knobs"
 DESCRIPTION = "Run #382 with an entries-per-session cap, a re-entry VWAP confirm and a VWAP exit buffer; all off = #382."
@@ -78,14 +89,17 @@ DEFAULT_PARAMS = {
     "max_entries": {"default": 0, "min": 0, "max": 3, "step": 1, "type": "int", "label": "Entries per session cap (0 = off)"},
     "reentry_confirm": {"default": False, "type": "bool", "label": "Re-entry needs close on the trade's side of VWAP"},
     "vwap_buf_k": {"default": 0.0, "min": 0.0, "max": 0.5, "step": 0.05, "type": "float", "label": "VWAP exit buffer, x 5m ATR"},
+    "entry_vwap": {"default": False, "type": "bool", "label": "Every entry needs close on the trade's side of VWAP"},
+    "exit_closes": {"default": 1, "min": 1, "max": 3, "step": 1, "type": "int", "label": "Consecutive closes across VWAP before exit"},
 }
 PARAM_GRID_PRESETS = {"Short  (#278 prereg cells)": {"max_entries": [0, 1, 2, 3], "reentry_confirm": [False, True],
                                                      "vwap_buf_k": [0.0, 0.1, 0.25, 0.5]}}
 
 
 def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
-                 max_entries=0, reentry_confirm=False, vwap_buf_k=0.0, return_trades=False, return_levels=False, **kw):
-    churn = dict(max_entries=int(max_entries), reentry_confirm=bool(reentry_confirm), vwap_buf_k=float(vwap_buf_k))
+                 max_entries=0, reentry_confirm=False, vwap_buf_k=0.0, entry_vwap=False, exit_closes=1, return_trades=False, return_levels=False, **kw):
+    churn = dict(max_entries=int(max_entries), reentry_confirm=bool(reentry_confirm), vwap_buf_k=float(vwap_buf_k),
+                 entry_vwap=bool(entry_vwap), exit_closes=int(exit_closes))
     inner = _ct._base.run_backtest                       # NBHD -> NOISE_1_0
     g = inner.__globals__
     held = g["_base"]
