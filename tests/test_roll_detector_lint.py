@@ -41,6 +41,19 @@ EXEMPT = {
         "retired from setup_kit.prep() 2026-10-16 (MANAGER #98-3: prep reads rolls.seam_days_for); kept "
         "only for tools/rollaudit/ground_truth.py, which infers switches past the raw data - no "
         "strategy, engine run or trade reads it",
+    # Source-patched strategy wrappers (gauntlet 11-06). Each reads its PARENT's own file (NOISE_1_0.py /
+    # ORB_3_6.py, both scanned by this lint), replaces literal anchors asserted to occur exactly once, and
+    # exec's that text: the only code that runs is the parent plus the patch strings visible in the file.
+    # No detector can enter that the parent's scan would not catch. Audited by TBIS; the exec is the knob
+    # hook, never an import. A new wrapper needs its own entry here, with the same reading.
+    "augur_strategies/NOISE_1_8_CT304_CHURN.py::calls exec":
+        "patches NOISE_1_0.py at asserted anchors (#382 churn knobs); parent scanned, patches literal",
+    "augur_strategies/NOISE_1_8_CT304_CHURN.py::calls compile":
+        "same exec as above",
+    "augur_strategies/ORB_3_6_R6_QS.py::calls exec":
+        "patches ORB_3_6.py at asserted anchors (quiet-OR stop); parent scanned, patches literal",
+    "augur_strategies/ORB_3_6_R6_QS.py::calls compile":
+        "same exec as above",
 }
 # tools/ files that defined a detector BEFORE 2026-10-08 live in tests/_roll_lint_baseline.txt -
 # historical research, written once; that list never grows.
