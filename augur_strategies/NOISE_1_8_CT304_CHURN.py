@@ -8,14 +8,16 @@ WHAT THIS IS
 
 KNOBS
   max_entries      0 = off; else no new entry after the Nth entry of the session.
-  reentry_confirm  False = off; True = an entry after the session's first needs its signal bar's close on the trade's
-                   side of session VWAP (long: close > VWAP). Without it a close past the band but through VWAP fills next
-                   bar and exits the bar after: the one-bar churn.
+  reentry_confirm  0 = off; N = an entry after the session's first needs its last N closes (the signal bar and the N-1
+                   before it) on the trade's side of session VWAP (long: close > VWAP). N = 1 is r1/r2's 'confirm' cell.
+                   Without it a close past the band but through VWAP fills next bar and exits the bar after: the one-bar
+                   churn. Ranged 0..3 for the gauntlet (PREREG_noise382_reentry_confirm_gauntlet_2026-11-06.md).
   vwap_buf_k       0 = off; else the VWAP exit needs the close k x ATR past VWAP. ATR = mean true range of the 14 closed
                    5m bars up to and including the signal bar (causal).
   entry_vwap       False = off; True = EVERY entry needs its signal close on the trade's side of session VWAP (r2, MANAGER #168).
   exit_closes      1 = today's exit (first close across VWAP); N = N consecutive closes across VWAP before the exit queues.
 """
+# AUGUR-SOURCE: claude-review
 import importlib.util as _ilu
 import os as _os
 import types as _types
@@ -28,7 +30,7 @@ _sp.loader.exec_module(_ct)
 
 _PATCHES = [
     ("    return_levels: bool = False,\n):\n    o = np.asarray(opens, float)",
-     "    return_levels: bool = False,\n    max_entries: int = 0, reentry_confirm: bool = False, vwap_buf_k: float = 0.0,\n"
+     "    return_levels: bool = False,\n    max_entries: int = 0, reentry_confirm: int = 0, vwap_buf_k: float = 0.0,\n"
      "    entry_vwap: bool = False, exit_closes: int = 1,\n"
      "):\n    o = np.asarray(opens, float)"),
     ("    pnl_list, trade_log = [], []\n",
@@ -48,8 +50,9 @@ _PATCHES = [
      "                    if max_entries and n_entries >= max_entries:\n"
      "                        long_trig = short_trig = False\n"
      "                    if reentry_confirm and n_entries >= 1 and VWAP is not None:\n"
-     "                        long_trig = long_trig and sc[k] > VWAP[k]\n"
-     "                        short_trig = short_trig and sc[k] < VWAP[k]\n"
+     "                        _rc = range(max(0, k - int(reentry_confirm) + 1), k + 1)\n"
+     "                        long_trig = long_trig and all(sc[_j] > VWAP[_j] for _j in _rc)\n"
+     "                        short_trig = short_trig and all(sc[_j] < VWAP[_j] for _j in _rc)\n"
      "                    if entry_vwap and VWAP is not None:\n"
      "                        long_trig = long_trig and sc[k] > VWAP[k]\n"
      "                        short_trig = short_trig and sc[k] < VWAP[k]\n"
@@ -85,20 +88,23 @@ REQUIRED_LOOKBACK_SESSIONS = _ct.REQUIRED_LOOKBACK_SESSIONS
 _COST_PTS = _ct._COST_PTS
 _CROWN = {"gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15, "tilt_mult": 2.0}   # run #382 champion
 
-DEFAULT_PARAMS = {
+# GAUNTLET (11-06): the parent's four crown knobs ride along with #382's own validate ranges so the 900-trial search
+# co-tunes the churn knob next to them (tools/gauntlet_queue.py, scope C3). Defaults = the #382 champion (_CROWN).
+DEFAULT_PARAMS = {k: dict(_ct.DEFAULT_PARAMS[k], default=v) for k, v in _CROWN.items()}
+DEFAULT_PARAMS.update({
     "max_entries": {"default": 0, "min": 0, "max": 3, "step": 1, "type": "int", "label": "Entries per session cap (0 = off)"},
-    "reentry_confirm": {"default": False, "type": "bool", "label": "Re-entry needs close on the trade's side of VWAP"},
+    "reentry_confirm": {"default": 0, "min": 0, "max": 3, "step": 1, "type": "int", "label": "Re-entry needs the last N closes on the trade's side of VWAP (0 = off)"},
     "vwap_buf_k": {"default": 0.0, "min": 0.0, "max": 0.5, "step": 0.05, "type": "float", "label": "VWAP exit buffer, x 5m ATR"},
     "entry_vwap": {"default": False, "type": "bool", "label": "Every entry needs close on the trade's side of VWAP"},
     "exit_closes": {"default": 1, "min": 1, "max": 3, "step": 1, "type": "int", "label": "Consecutive closes across VWAP before exit"},
-}
-PARAM_GRID_PRESETS = {"Short  (#278 prereg cells)": {"max_entries": [0, 1, 2, 3], "reentry_confirm": [False, True],
+})
+PARAM_GRID_PRESETS = {"Short  (#278 prereg cells)": {"max_entries": [0, 1, 2, 3], "reentry_confirm": [0, 1],
                                                      "vwap_buf_k": [0.0, 0.1, 0.25, 0.5]}}
 
 
 def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
-                 max_entries=0, reentry_confirm=False, vwap_buf_k=0.0, entry_vwap=False, exit_closes=1, return_trades=False, return_levels=False, **kw):
-    churn = dict(max_entries=int(max_entries), reentry_confirm=bool(reentry_confirm), vwap_buf_k=float(vwap_buf_k),
+                 max_entries=0, reentry_confirm=0, vwap_buf_k=0.0, entry_vwap=False, exit_closes=1, return_trades=False, return_levels=False, **kw):
+    churn = dict(max_entries=int(max_entries), reentry_confirm=int(reentry_confirm), vwap_buf_k=float(vwap_buf_k),
                  entry_vwap=bool(entry_vwap), exit_closes=int(exit_closes))
     inner = _ct._base.run_backtest                       # NBHD -> NOISE_1_0
     g = inner.__globals__
