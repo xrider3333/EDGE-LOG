@@ -362,3 +362,83 @@ Section 6 stands unchanged and is still mine: same-instrument overlap (#335's NQ
 resampled to 5m, against each r2 entry arm) reported separately from cross-instrument co-occurrence
 in time, with the words attached, and no single ES-versus-NQ overlap percentage produced. Not run -
 there is no GO yet, and my section 7 pins RUN-BEFORE-MAIN.
+
+---
+
+## ADDENDUM 2 - 2026-11-06 12:40 MST: MY r2 DEFINITION WAS BROKEN, AND THE FIRST G0 IS VOID
+
+Appended, not substituted. Sections 0-9 stand as written. **Nothing was scored and no fold was
+counted before this was found, so no selection has occurred and this correction is clean.**
+
+### What happened
+
+The first G0 run (harness `01e57cfb`, log `C:\EdgeLog\enguq_pb_r2.log`) returned "NONE" - every one
+of 22 cells greyed on the gross-vs-cost screen. **I am not reporting that as a result, because it is
+a verdict on my definition and not on the owner's shape.** The tell was the trade counts: my loosest
+cell fires **4,767 times a year** and my tightest **71**, against MANAGER's scan r1 measuring **20 a
+year** for the comparable strict cell. A definition that fires 240x more often than the one it is
+supposed to loosen is not a loosening, it is a different thing.
+
+### The defect, exactly
+
+Section 9.5 defined D1 as `close <= prior close + k ticks`. **That is "not meaningfully HIGHER",
+which is not the same as "drifting DOWN".** Measured on the tape:
+
+| k | share of all ES 5m bars that satisfy the per-bar test |
+|---|---|
+| 0 ticks | 56.6% |
+| 1 tick | 68.3% |
+| 2 ticks | 76.2% |
+| 4 ticks | 85.3% |
+| **8 ticks** | **93.0%** |
+
+At k=8 a six-bar run is close to certain, so the "drift" condition selects nothing at all - it passes
+almost every quiet or sideways stretch on the tape. **D1 as I wrote it measures CHOP, not a
+pullback.** That also explains the uniformly negative gross (-1.3 to -2.6 points a trade across every
+cell): those are effectively arbitrary entries paying for a stop at the breakout low.
+
+**D2 has the same defect in a different dress.** `slope < 0` admits any negative slope, which is
+roughly half of all bars, with no requirement that the decline be large enough to be a pullback.
+
+**MANAGER's #279 brief said "NET DRIFT with small up-ticks allowed". It said NET. I implemented the
+tolerance and omitted the net decline, which is the half that does the work.** The error is mine and
+it is in my own prereg text, not in the brief.
+
+### The corrected definition, pre-declared before any re-run
+
+D1 and D2 are replaced by D1' and D2'. Both now require the drift to BE a decline, sized in ATR so it
+travels across volatility regimes:
+
+| arm | definition |
+|---|---|
+| **D1' drift with tolerance AND net decline** | run = bars where `close <= prior close + k ticks`, k in {1, 2, 4} ticks; **AND** the net fall across the run, `close[i-1-run] - close[i-1]`, must be **>= `d` x ATR20**, with **d in {0.5, 1.0, 1.5} PRE-DECLARED**; N >= 6 |
+| **D2' slope below a threshold** | OLS slope over 10/15/20 bars **<= -`d` x ATR20 / win**, same d grid - i.e. the same total decline expressed as a slope, so D1' and D2' are two spellings of one requirement and a disagreement between them is informative |
+
+k=8 is **struck**: at 93% of bars the per-bar test carries no information whatever the net decline
+does, so the cell cannot be interpreted. The B0 no-body-test control and B1 body >= 2.0 are unchanged,
+as are the exits (X1 the owner's 1R-off-body, X4 the crown's multi-day exit), the cost ladder, the
+8 folds, the dual fixed-contract/risk-normalised accounting, the 50-a-year floor and the gross-vs-cost
+screen. **The bar in section 5 is unchanged and no clause is relaxed.**
+
+**ATR20 is computed on bars strictly before the signal bar**, like every other feature here.
+
+### What the void run does and does not tell us
+
+- **It does not close the round** and the first G0's "NONE" is withdrawn, not reported.
+- **It does tell us one real thing**, and it is worth keeping: a pullback-break entry whose drift
+  test is weak enough to admit chop loses **1.3 to 2.6 points a trade** under the owner's own
+  1R / stop-at-the-low / flat-at-close exit, across 22 cells and up to 71,822 trades. **The entry
+  definition is load-bearing.** If the corrected D1'/D2' cells land near zero instead of at -2, that
+  difference is attributable to the drift requirement, which is a cleaner read of whether the owner's
+  eye is picking up something than the original grid could have given.
+- The expected effect of the correction is a large fall in trade count. **If D1' at d >= 1.0 falls
+  below the 50-a-year floor, it is greyed on n and stays greyed** - no lowering of the floor, no
+  merging of cells to reach it. That is the same discipline that struck N >= 10 on MANAGER's count.
+
+### Prior for the corrected run, written now
+
+Unchanged from section 9.5 in substance: I expect D1' to be flat-to-negative after cost on the
+flat-at-close exits, and **the open question remains X4.** One addition: **I now expect the d grid to
+matter more than k**, because the measurement above shows the per-bar tolerance carries almost no
+information once d is doing the work - which, if it holds, is itself the answer to "what is the
+owner's eye actually keying on": the SIZE of the pullback, not the tidiness of it.

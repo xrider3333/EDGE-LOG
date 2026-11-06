@@ -28,7 +28,7 @@ import numpy as np
 import pandas as pd
 
 PREREG = r"C:\EdgeLog\manager\prereg\PREREG_enguq_pullback_break_2026-11-04.md"
-PREREG_SHA = "f4491d0a7905f7d4d0515bf91646297d609f11737e958dde963bba53563d6259"
+PREREG_SHA = "2786c829ff1a4f840217640b3aa5683634cb4b1bd00a97c2ddcf15c5efbc5ba6"
 
 ES_CSV = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG\augur_uploads\ADJ_ES_5m_ETH.csv"
 OUT_DIR = r"C:\EdgeLog\_anatomy_cache\enguq_pullback_break_r2"
@@ -41,7 +41,9 @@ LOCKBOX_FROM = "2025-07-01"
 PRE_LOCKBOX_TO = "2025-06-30"
 
 # Pre-declared, section 9.5.  k is NOT chosen to make the owner's 14:00 bar fire.
-K_TICKS = (1, 2, 4, 8)
+K_TICKS = (1, 2, 4)              # k=8 STRUCK by addendum 2: 93% of bars pass, no information
+D_ATR = (0.5, 1.0, 1.5)          # net decline across the run, in ATR20 - addendum 2
+ATR_LEN = 20
 N_DRIFT = (6, 8)                  # N>=10 struck by r1 (33 signals in 15 years); N=12 struck
 SLOPE_WINDOWS = (10, 15, 20)
 BODY_RATIOS = (0.0, 2.0)          # 0.0 = B0, the no-body-test CONTROL
@@ -114,14 +116,13 @@ def drift_slope(close, win):
     n = len(c)
     x = np.arange(win, dtype=float)
     x -= x.mean()
-    denom = (x * x).sum()
+    denom = float((x * x).sum())
     out = np.full(n, np.nan)
     if n <= win:
         return out
-    # rolling means via cumsum, then rolling sum of x*c
-    for i in range(win, n):
-        seg = c[i - win:i]
-        out[i] = float((x * (seg - seg.mean())).sum() / denom)
+    # sum(x_j * y_j) over each window; sum(x)=0 so the y-mean term drops out entirely
+    num = np.convolve(c, x[::-1], mode="valid")      # num[i] covers c[i:i+win]
+    out[win:] = num[: n - win] / denom               # the window ENDING at i-1
     return out
 
 
@@ -135,9 +136,34 @@ def body_ratio(open_, high, low, close, n_prior):
     if n <= n_prior:
         return out
     csum = np.concatenate([[0.0], np.cumsum(body)])
-    for i in range(n_prior, n):
-        m = (csum[i] - csum[i - n_prior]) / n_prior
-        out[i] = (c[i] - o[i]) / m if m > 0 else np.nan
+    mean_prior = (csum[n_prior:n] - csum[0:n - n_prior]) / n_prior   # bars before i, for i>=n_prior
+    with np.errstate(divide="ignore", invalid="ignore"):
+        out[n_prior:] = np.where(mean_prior > 0, (c[n_prior:] - o[n_prior:]) / mean_prior, np.nan)
+    return out
+
+
+def atr(high, low, close, length=ATR_LEN):
+    """Wilder-style true range, simple mean, shifted so bar i sees only bars BEFORE it."""
+    h = np.asarray(high, float); l = np.asarray(low, float); c = np.asarray(close, float)
+    pc = np.concatenate([[c[0]], c[:-1]])
+    tr = np.maximum(h - l, np.maximum(np.abs(h - pc), np.abs(l - pc)))
+    return pd.Series(tr).rolling(length).mean().shift(1).to_numpy()
+
+
+def net_decline(close, run):
+    """How far price actually FELL across the run ending at i-1.
+
+    close[i-1-run] - close[i-1].  Positive = it fell.  This is the half of "net drift with small
+    up-ticks allowed" that addendum 2 records me having omitted: without it the per-bar tolerance
+    admits chop (93% of bars at k=8) and the drift condition selects nothing.
+    """
+    c = np.asarray(close, float)
+    n = len(c)
+    out = np.full(n, np.nan)
+    i = np.arange(n)
+    start = i - 1 - run
+    ok = (run > 0) & (start >= 0)
+    out[ok] = c[start[ok]] - c[i[ok] - 1]
     return out
 
 
@@ -273,6 +299,24 @@ def selftest():
     rc2 = exit_crown(hi3, lo3, hi3 - 0.5, 100.0, 1, 95.0, 6)
     chk("once breakeven arms, the exit is not below entry", rc2[1] is None or rc2[1] >= 100.0)
 
+    # 8b. net_decline measures the FALL across the run, and is NaN when there is no run.
+    cnd = np.array([100.0, 98.0, 96.0, 94.0, 97.0])
+    rr = drift_run_tolerant(cnd, 0)
+    nd = net_decline(cnd, rr)
+    chk("net decline across a 3-bar fall from 100 to 94 is 6.0", abs(nd[4] - 6.0) < 1e-9)
+    chk("net decline is NaN where the run is 0", np.isnan(net_decline(cnd, np.zeros(5, int))[4]))
+    chk("a SIDEWAYS run inside tolerance has a net decline near 0, so d>0 rejects it",
+        abs(net_decline(np.array([100.0, 100.0, 100.0, 100.0, 101.0]),
+                        drift_run_tolerant(np.array([100.0, 100.0, 100.0, 100.0, 101.0]), 1))[4]) < 1e-9)
+
+    # 8c. ATR looks only backwards.
+    a = atr(np.arange(60.0) + 1, np.arange(60.0), np.arange(60.0) + 0.5, 20)
+    a2 = atr(np.concatenate([np.arange(60.0) + 1, [999.0]]),
+             np.concatenate([np.arange(60.0), [0.0]]),
+             np.concatenate([np.arange(60.0) + 0.5, [500.0]]), 20)
+    chk("ATR at bar 40 does not change when a wild future bar is appended",
+        abs(a[40] - a2[40]) < 1e-9)
+
     # 9. the power line refuses an infinite answer.
     chk("delta 0 gives None, not a huge n", power_n(1.0, 0.0) is None)
     chk("the power line is the house formula", power_n(10.0, 5.0) == int(round(15.7 * 100 / 25)))
@@ -347,31 +391,38 @@ def main():
           + "  " + format(years, ".2f") + " years\n")
 
     cells = []
+    atr20 = atr(h, lo, c, ATR_LEN)
     for k in K_TICKS:
-        for nd in N_DRIFT:
-            run = drift_run_tolerant(c, k)
-            for br_min in BODY_RATIOS:
-                br = body_ratio(o, h, lo, c, nd)
-                sig = (run >= nd) & higher_close & rth.to_numpy()
-                if br_min > 0:
-                    sig &= (br >= br_min)
-                sig &= ~np.isnan(sma200)
-                cells.append(("D1 k=" + str(k) + "t N>=" + str(nd)
-                              + (" body>=" + format(br_min, ".1f") if br_min else " B0 control"),
-                              np.flatnonzero(sig)))
+        run = drift_run_tolerant(c, k)
+        nd = net_decline(c, run)
+        for ndrift in N_DRIFT:
+            for d in D_ATR:
+                for br_min in BODY_RATIOS:
+                    br = body_ratio(o, h, lo, c, ndrift)
+                    sig = ((run >= ndrift) & higher_close & rth
+                           & ~np.isnan(sma200) & ~np.isnan(atr20) & ~np.isnan(nd)
+                           & (nd >= d * atr20))
+                    if br_min > 0:
+                        sig &= (br >= br_min)
+                    cells.append(("D1' k=" + str(k) + "t N>=" + str(ndrift)
+                                  + " d=" + format(d, ".1f")
+                                  + (" b2" if br_min else " B0"),
+                                  np.flatnonzero(sig)))
     for w in SLOPE_WINDOWS:
         sl = drift_slope(c, w)
-        for br_min in BODY_RATIOS:
-            br = body_ratio(o, h, lo, c, w)
-            sig = (sl < 0) & higher_close & rth.to_numpy() & ~np.isnan(sma200)
-            if br_min > 0:
-                sig &= (br >= br_min)
-            cells.append(("D2 slope<0 w=" + str(w)
-                          + (" body>=" + format(br_min, ".1f") if br_min else " B0 control"),
-                          np.flatnonzero(sig)))
+        for d in D_ATR:
+            for br_min in BODY_RATIOS:
+                br = body_ratio(o, h, lo, c, w)
+                sig = (higher_close & rth & ~np.isnan(sma200) & ~np.isnan(atr20) & ~np.isnan(sl)
+                       & (sl <= -(d * atr20) / w))
+                if br_min > 0:
+                    sig &= (br >= br_min)
+                cells.append(("D2' w=" + str(w) + " d=" + format(d, ".1f")
+                              + (" b2" if br_min else " B0"),
+                              np.flatnonzero(sig)))
 
     report = {}
-    print(format("cell", "<34") + format("n", ">7") + format("a yr", ">8")
+    print(format("cell", "<30") + format("n", ">7") + format("a yr", ">8")
           + format("gross pt", ">10") + format("G0", ">6"))
     for name, idx in cells:
         cnt = len(idx)
@@ -398,7 +449,7 @@ def main():
         report[name] = {"n": cnt, "a_year": round(a_yr, 1),
                         "gross_pts": None if gross != gross else round(gross, 3),
                         "g0": verdict}
-        print(format(name, "<34") + format(usd(cnt), ">7") + format(format(a_yr, ".1f"), ">8")
+        print(format(name, "<30") + format(usd(cnt), ">7") + format(format(a_yr, ".1f"), ">8")
               + format(("-" if gross != gross else format(gross, ".3f")), ">10")
               + format(verdict, ">6"))
 
