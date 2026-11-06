@@ -1423,6 +1423,29 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    every cell. Padding and the bottom border stay inline on the cell - themes set both on every td, and only
    an inline style is sure to win over them, exactly as before. */
 .retd{white-space:nowrap;overflow:hidden;text-overflow:ellipsis;font-variant-numeric:tabular-nums}
+.refun{position:absolute;right:4px;top:50%;transform:translateY(-50%);cursor:pointer;color:var(--text5);font-size:8px;line-height:1;opacity:0;padding:0 1px;background:var(--bg2);z-index:1}
+th:hover>.refun{opacity:.9}
+.refun::after{content:'\25BD'}
+.refun.on::after{content:'\25BC'}
+.refun:hover{opacity:1;color:var(--text)}
+.refun.on{opacity:1;color:var(--blue)}
+.refchip{display:inline-flex;align-items:center;gap:5px;font-size:8.5px;font-weight:700;letter-spacing:.4px;color:var(--text3);border:1px solid var(--border2);border-radius:999px;padding:2px 8px;background:var(--bg2)}
+.refchip b{color:var(--text)}
+.refchip span[data-refclr]{cursor:pointer;color:var(--text5);font-size:11px;line-height:1}
+.refchip span[data-refclr]:hover{color:var(--red)}
+#refunpop{position:fixed;z-index:9999;min-width:210px;max-width:290px;background:var(--bg1);border:1px solid var(--border2);border-radius:10px;box-shadow:0 8px 28px rgba(0,0,0,.45);padding:9px 10px;font-size:9.5px;color:var(--text2)}
+#refunpop .t{font-size:8px;letter-spacing:1.2px;font-weight:700;color:var(--text5);margin-bottom:7px}
+#refunpop label{display:flex;align-items:center;gap:6px;margin:3px 0;cursor:pointer}
+#refunpop input[type=text],#refunpop input[type=number],#refunpop input[type=date]{width:100%;box-sizing:border-box;font-size:9.5px;padding:3px 6px;border:1px solid var(--border2);border-radius:6px;background:var(--bg2);color:var(--text)}
+#refunpop .row{display:flex;gap:6px;align-items:center;margin:4px 0}
+#refunpop .row>span{flex:none;width:42px;font-size:8px;letter-spacing:.6px;color:var(--text5);font-weight:700}
+#refunpop .list{max-height:190px;overflow:auto;border:1px solid var(--border2);border-radius:6px;padding:4px 6px;margin-top:5px}
+#refunpop .act{display:flex;gap:6px;justify-content:flex-end;margin-top:8px}
+#refunpop .act span{font-size:8.5px;font-weight:700;letter-spacing:.5px;padding:3px 9px;border-radius:6px;border:1px solid var(--border2);cursor:pointer;color:var(--text3)}
+#refunpop .act span:hover{color:var(--text);border-color:var(--text5)}
+#refunpop .act span.go{color:var(--text);border-color:var(--text4)}
+#refunpop .lk{cursor:pointer;color:var(--text4);font-size:8px;font-weight:700;letter-spacing:.5px;margin-right:8px}
+#refunpop .lk:hover{color:var(--text)}
 /* EXPLORE / STUDIES TABLES - COLUMN GROUPS (owner 2026-10-09: colour the columns by kind so the eye can find a group).
    A 2px band under each heading and a very light tint down its column (a <col> of the same class), by kind: IDENTITY,
    PERFORMANCE, RISK, ACTIVITY. Theme tokens, so every theme carries them; under MONO, where every hue is a grey, the four
@@ -1476,7 +1499,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='88.34';
+const VERSION='88.35';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1496,7 +1519,7 @@ window._dataFeedWarn=function(){
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
-const CHANGELOG=[{v:'88.30',date:'2026-11-04',notes:['SCORES: 1 trade from 2026-11-04 scored, 0 marked NA (no price data).']},{v:'88.25',date:'2026-11-04',notes:['TAKING WEBULL LIVE IS A SECTION OF THE BOARD, NOT ITS OWN LIST (your words 11-04: its own section in the board tab, right after the normal board). The separate WEBULL LIVE list is gone; the lists read BOARD, RUNS, LOCAL AI, AUTOMATIONS again. On BOARD the normal rows come first, then a titled section TAKING WEBULL LIVE with the ordered steps (STEP 1, STEP 2 ... from the row id l1, l2 ...), same row style, same CONFIRM / SEND BACK / NEEDS ME answers, and its own DONE and CONFIRMED folds. RUNS is its own list, so the live section sits at the bottom of BOARD, under the normal rows. A live step that needs you still sits in the red NEEDS YOU box. A page that remembered the old WEBULL LIVE list opens on BOARD.']},
+const CHANGELOG=[{v:'88.35',date:'2026-11-06',notes:['COMPARE, EXPLORE - THE TABLES NO LONGER LAG (your ask 11-06). A study table used to be assembled whole on every click - every row of markup built and parsed, about 3.5 MB of the 4.2 MB the board emits on a 900-row ONE TABLE, each row with its own hover listeners. A new WINDOWED ROWS switch on the TABLES strip (OFF until you turn it on, then remembered) keeps only the rows around what is on screen in the page - rows are one line tall, so a spacer above and below stands in for the rest at the measured row height - and swaps them in as you scroll; a row is built once per render and cached. Measured 11-06: 180 rows cost 200 ms to build and parse, so the 1,716-row ONE TABLE cost about 3 s a click, and with the switch on it costs 0.2 s. A table under 180 rows is assembled whole either way. It is OFF by default because a page search, a print and the render gates expect every row in the page. Clicking a heading to sort now reads each row figure once instead of once per comparison, with the switch on or off.','FILTER ANY COLUMN LIKE A SHEET. A funnel on every table heading opens a filter built for that column type: numbers get MIN, MAX, TOP N (LOWEST N on the two drawdown columns) and BLANKS ONLY; words - FAMILY, READ, CONFIG, WHAT IT DOES - get a searchable checklist of the distinct values with ALL and NONE; the date column gets FROM and TO. A lit funnel means the column is filtered, a chip row above the chart names every active filter with its own x and a CLEAR ALL, and the picks are remembered in this browser like every other control on the board. The scatter obeys the same filters as the tables: a row a column filter holds back is off the chart too, and the counts under the controls include it.','Hovering a point or a row never rebuilt anything and still does not; hiding a dot rebuilds only the chart, as before.']},{v:'88.30',date:'2026-11-04',notes:['SCORES: 1 trade from 2026-11-04 scored, 0 marked NA (no price data).']},{v:'88.25',date:'2026-11-04',notes:['TAKING WEBULL LIVE IS A SECTION OF THE BOARD, NOT ITS OWN LIST (your words 11-04: its own section in the board tab, right after the normal board). The separate WEBULL LIVE list is gone; the lists read BOARD, RUNS, LOCAL AI, AUTOMATIONS again. On BOARD the normal rows come first, then a titled section TAKING WEBULL LIVE with the ordered steps (STEP 1, STEP 2 ... from the row id l1, l2 ...), same row style, same CONFIRM / SEND BACK / NEEDS ME answers, and its own DONE and CONFIRMED folds. RUNS is its own list, so the live section sits at the bottom of BOARD, under the normal rows. A live step that needs you still sits in the red NEEDS YOU box. A page that remembered the old WEBULL LIVE list opens on BOARD.']},
 {v:'88.17',date:'2026-11-04',notes:['WEBULL LIVE, A NEW FIRST LIST ON THE BOARD. WEBULL LIVE now leads the lists, ahead of BOARD, RUNS, LOCAL AI and AUTOMATIONS: the ordered steps to taking Webull live, each row numbered from its id (l1, l2 ... l12) and listed in that order, same row style and the same CONFIRM / SEND BACK / NEEDS ME answers. A LIVE row that needs you sits in the red NEEDS YOU box too. Lanes write them with python tools/board.py add l1 ... (tab LIVE).']},
 {v:'87.99',date:'2026-11-03',notes:['LEDGER UI ROUND 2 (row 84, your go for all 17 steps on 11-03). SHORTER WORDS on REAL, NT8 PAPER and WEBULL PAPER: the small net equity word beside the big number is gone (the label names it), the range word prints once (the lit pill), not counted once per group in its title, realized +$X and unrealized -$X . N open with the sentences behind the ? and the hovers, Sharpe (daily $), Payoff, Net / max DD, Avg trade (EV), one No trades string everywhere, a Filters row only where a list has filters, Calendar reads Calendar when open, NT 3 of 4 running . 1 open . checks clear, open . feed OK . ratio OK . box 24 s, NT 3m . Webull 2m under Synced.','THE STRATEGIES TILE, ONE SHAPE ON ALL THREE BOARDS: each row is three figures at most - closed +$X (the range), unrealized -$X . N open . size (red / green; REAL prints n/a, never 0, because no feed on that board publishes a mark) and equity = closed + unrealized while something is open - and a chevron opens the rest under the row (trades, win rate, today, PF, EV, payoff, max DD, hold, last trade, and the board&#39;s own facts: NinjaTrader state, market, weight, source, set; Webull&#39;s live line, held, rail, next trade, detail). The open rows are remembered.','THE KPIs THE RUN TABLES HAD AND THE LEDGER LACKED, in More stats: Sortino (daily $), EV R, P&amp;L / day, largest win, longest run of wins / losses, DD5 and ROC @ $30k DD on ALL / YTD with 60 days and 30 trades, Max DD % on REAL (the fall from the account&#39;s high), Slippage over the range and a time-of-day strip on the Webull board, a time-of-day strip on NT8. A ratio on a thin sample (under 20 trades, 5 losses or 10 days) prints dimmed with the reason on hover, never a dash. Webull&#39;s Average hold reads a figure (it read -- before).']},{v:'87.96',date:'2026-11-02',notes:['SCORES: 1 trade from 2026-10-30 scored, 0 marked NA (no price data).']},{v:'87.91',date:'2026-11-01',notes:['CONFIRM NO LONGER DESTROYS A PASS OR FAIL VERDICT (board data loss, found 11-01). Pressing CONFIRM on a board row wrote the word confirmed into the row status, straight over whatever was there - so every test row you confirmed lost its PASS or FAIL. 35 rows on the published board copy had already lost theirs this way. Confirming and judging are two different facts and they now live in two fields: the click stamps when you confirmed it and who, and leaves the status word alone. A row that read PASS still reads PASS after you confirm it.','A CONFIRMED ROW STILL LOOKS CONFIRMED. The filled green circle, the CONFIRMED list and the counts are all drawn from the stamp now, not from the status word, so nothing you have already confirmed changed appearance; a confirmed test row reads PASS and CONFIRMED together, and the open note carries the date you confirmed it.','The same split on the PC side: tools/board.py confirm <row> stamps the row and keeps its status. The board render gate now fails if a confirm click ever writes a status word again.']},{v:'87.88',date:'2026-11-01',notes:['THE THREE LEDGER TABS NOW WEAR ONE SHAPE (your 10-31 ask, the mock you approved). Top to bottom on REAL, NT8 PAPER and WEBULL PAPER: the headline block, one status line, four KPI tiles, the P&L chart with ONE control row under it, the calendar open, then the More stats fold - nothing between them.','REAL WAS THE ONE THAT NEVER GOT TIGHTENED, and this was why: every one of the 10-31 density rules is attached to a class the REAL frame did not set. It sets it now. On the probe\'s own board at 1690x1263 with the calendar open, REAL\'s calendar used to end 1110 px down the page; it ends at 864 px now - 246 px higher, and clear of the fold you read at. NT8 PAPER and WEBULL PAPER barely moved (915 to 919 px, and 919 px unchanged); for them this is agreement, not height.','THE BIG NUMBER MEANS THE SAME THING ON ALL THREE BOARDS NOW, and it is NET EQUITY, the way you asked: the money from closed trades PLUS the mark of everything still open. It is printed unsigned, the words \'net equity\' sit beside it, and the two halves keep their own lines under it - \'unrealized ...\' then \'realized ...\', with today\'s figure at the right end of the realized line. NT8 PAPER changed (its headline used to be closed trades only); WEBULL PAPER already added both and now says so in those words.','ON REAL THERE IS NO UNREALISED FIGURE TO SHOW, and the board says so rather than pretend. EDGE-LOG logs closed round-trips only and no feed on that board publishes a mark for a live position. So when NinjaTrader reports open positions the line reads \'unrealized -- - N positions at NinjaTrader - no mark on this board\', and the balance above carries that position at cost. A figure that cannot be measured prints \'--\', never a zero.','REAL\'S RANGE PILLS (TODAY 1W 1M 3M YTD ALL) left their own row and joined the chart\'s one control row with the EQUITY / P&L switch and a short caption. THE TIME-OF-DAY STRIP left the inside of the calendar - it is a statistic, not a date grid - and is the last group of More stats. SHOULD HAVE TRADED, DEPOSITS, AI ASSESSMENT and JOURNAL moved ABOVE the trade list; they used to be reachable only after scrolling past every trade row.','THE FOUR TILES ARE NET P&L, WIN RATE, PROFIT FACTOR, MAX DRAWDOWN. Net P&L is the only one that answers \'did this range make money\' with no arithmetic, so it takes the first slot; the trade count it replaced now rides on its sub-line (\'11 trades - 5 days\'). Max drawdown kept its slot and lost its sub-line - the label already says drawdown.','SENTENCES CAME OFF THE PAGE AND WENT BEHIND A SMALL \'?\'. The chart\'s three caption lines are one short line; the calendar\'s note is one short line; the More stats caveat is a \'?\' on its header. On a phone the status line is held to ONE line, and every fold header is at least 40 px tall so it can be tapped. Two vertical margins that existed only to cancel each other are gone.','The three render gates now assert the test you actually use: at 1690x1263, with the calendar open, the calendar panel must end above 1000 px from the top of the board - on all three boards. Nothing checked that before, which is how REAL drifted away from the paper tabs.']},{v:'87.82',date:'2026-11-01',notes:['LEDGER > REAL IS LAID OUT LIKE THE PAPER TABS (your 10-31 stack). The order is now headline, KPI tiles, range pills, P&L chart, calendar, and the long More stats fold LAST. The calendar used to sit under More stats; at 1690x1263 it is now on screen without scrolling.','REAL\'s trade count says how many of the ACCOUNT AND RANGE you are looking at: 12 / 40, not 12 / 1,840. It read every trade ever logged as the denominator, which made it look as though rows were hidden.','SEARCH DOES NOT REBUILD THE BOARD ON EVERY KEY any more, on REAL and on WEBULL PAPER. Typing nine characters cost nine full page rebuilds; it now costs one, once you pause. NT8 PAPER already worked this way. The box keeps its text and its cursor.','NUMBERS THAT CANNOT BE MEASURED NO LONGER PRINT AS IF THEY WERE. A stretch with no losing trade read \'profit factor 99.00\'; it now says \'no losses\'. A stretch whose days are all identical read \'Sharpe (daily) 793.70\'; it now reads \'--\', and the label says Sharpe on daily DOLLARS, not returns, so it is not compared across position sizes.','A TRADE WHOSE P&L IS NOT A NUMBER SAYS SO. It used to print $0.00, count as an even trade and add nothing to net, with no warning. It now reads \'no figure\' in amber, it is kept out of every total, and More stats names how many there are.','NO FUTURES COMMISSION ON A SHARE TRADE. Typing a share symbol into the NEW TRADE form filled FEES with $4.50, a futures round turn. A symbol with no stored fee now leaves the box blank.','Faster: the close-order sort is computed once per trade instead of once per comparison (it is paid five or six times in one render). Same rows, same order.','WEBULL PAPER\'s drawdown and streak now walk the trades in the order they CLOSED, the shared rule, instead of the raw timestamp - a row with no exit time used to sort by its entry time among the others\' exit times.','A faint per-account chart line that was longer or shorter than the chart\'s own dates could draw past the plot; it is length-checked now, like the other chart marks.']},
 {v:'87.85',date:'2026-11-01',notes:['AUTO-VALIDATE 2 (row 57). BUILDER > Auto-Validate has a fifth window chip, AV2 - 4-yr lockbox: all data, 900 trials, and the LAST FOUR YEARS held back as the lockbox instead of 12-18 months. The run is named Auto-Validate 2 in PAST RUNS.']},{v:'87.82',date:'2026-11-01',notes:['LEDGER > REAL IS LAID OUT LIKE THE PAPER TABS (your 10-31 stack). The order is now headline, KPI tiles, range pills, P&L chart, calendar, and the long More stats fold LAST. The calendar used to sit under More stats; at 1690x1263 it is now on screen without scrolling.','REAL\'s trade count says how many of the ACCOUNT AND RANGE you are looking at: 12 / 40, not 12 / 1,840. It read every trade ever logged as the denominator, which made it look as though rows were hidden.','SEARCH DOES NOT REBUILD THE BOARD ON EVERY KEY any more, on REAL and on WEBULL PAPER. Typing nine characters cost nine full page rebuilds; it now costs one, once you pause. NT8 PAPER already worked this way. The box keeps its text and its cursor.','NUMBERS THAT CANNOT BE MEASURED NO LONGER PRINT AS IF THEY WERE. A stretch with no losing trade read \'profit factor 99.00\'; it now says \'no losses\'. A stretch whose days are all identical read \'Sharpe (daily) 793.70\'; it now reads \'--\', and the label says Sharpe on daily DOLLARS, not returns, so it is not compared across position sizes.','A TRADE WHOSE P&L IS NOT A NUMBER SAYS SO. It used to print $0.00, count as an even trade and add nothing to net, with no warning. It now reads \'no figure\' in amber, it is kept out of every total, and More stats names how many there are.','NO FUTURES COMMISSION ON A SHARE TRADE. Typing a share symbol into the NEW TRADE form filled FEES with $4.50, a futures round turn. A symbol with no stored fee now leaves the box blank.','Faster: the close-order sort is computed once per trade instead of once per comparison (it is paid five or six times in one render). Same rows, same order.','WEBULL PAPER\'s drawdown and streak now walk the trades in the order they CLOSED, the shared rule, instead of the raw timestamp - a row with no exit time used to sort by its entry time among the others\' exit times.','A faint per-account chart line that was longer or shorter than the chart\'s own dates could draw past the plot; it is length-checked now, like the other chart marks.']},
@@ -38854,9 +38877,92 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //    because the common window - the stretch the visible rows genuinely share - is now a
         //    BOARD figure rather than a per-tile one, and the chart and every table have to be
         //    read on the same one. Nothing is rendered in this pass.
+        // ── PER-COLUMN FILTERS, SHEETS-STYLE (owner 11-06: "can't filter columns like Google Sheets
+        //    (value types etc)"). A funnel on every table heading opens a popover whose controls
+        //    match the column's TYPE - numbers get MIN / MAX / TOP N / blanks only, words get a
+        //    searchable checklist of the distinct values, the date column gets FROM / TO. The pick
+        //    is stored in APREF.resColF (localStorage, keyed by column) and applied HERE, in the pass
+        //    that decides which rows survive - so the chart and every table obey the same filters
+        //    and the counts under the controls say what was held back. A word filter stores what
+        //    is UNTICKED (ex), so a value that first appears tomorrow shows by default.
+        const _reColF=(function(){const o=APREF.resColF;return (o&&typeof o==='object'&&!Array.isArray(o))?o:{};})();
+        const _reColLow={dd:1,dd5:1};
+        const _reColDef={
+          fam:{t:'set',nm:'FAMILY',get:(st,r)=>((r&&r._cfg)?String(r._strat||'UNTAGGED'):_reFamOf(st,r))},
+          run:{t:'num',nm:'RUN',get:(st,r)=>_reRunNo(r)},
+          mar:{t:'num',nm:'MAR',get:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:_marAnn(p,_reYrs(st,r),d);}},
+          sh:{t:'num',nm:'SHARPE',get:(st,r)=>_reShOf(st,r)},
+          so:{t:'num',nm:'SORTINO',get:(st,r)=>_reSoOf(st,r)},
+          pf:{t:'num',nm:'PF',get:(st,r)=>_reNum(r,'pf')},
+          wr:{t:'num',nm:'WIN %',get:(st,r)=>{const v=_reWrOf(st,r);return (v==null||!isFinite(v))?null:((v>1)?v:(v*100));}},
+          evr:{t:'num',nm:'EV R',get:(st,r)=>_reEvR(st,r)},
+          rpy:{t:'num',nm:'R / YR',get:(st,r)=>_reRpy(st,r)},
+          roc:{t:'num',nm:'ROC % / YR',get:(st,r)=>_reRoc(st,r)},
+          roc30:{t:'num',nm:'ROC @ $30K DD',get:(st,r)=>_reRoc30(st,r)},
+          ppt:{t:'num',nm:'$/TRD',get:(st,r)=>_rePpt(r)},
+          is:{t:'num',nm:'IN-SAMPLE',get:(st,r)=>_reNum(r,'is')},
+          wf:{t:'num',nm:'WALK-FWD',get:(st,r)=>_reNum(r,'wf')},
+          lb:{t:'num',nm:'LOCKBOX',get:(st,r)=>_reNum(r,'lb')},
+          tot:{t:'num',nm:'TOTAL',get:(st,r)=>_reNum(r,'tot')},
+          dd:{t:'num',nm:'DRAWDOWN',get:(st,r)=>{const v=_reNum(r,'dd');return (v==null)?null:Math.abs(v);}},
+          dd5:{t:'num',nm:'DD5',get:(st,r)=>{const v=_reDd5V(st,r);return (v==null)?null:Math.abs(v);}},
+          trd:{t:'num',nm:'TRADES',get:(st,r)=>{const t=_reTrd(r);return t?t.v:null;}},
+          tpy:{t:'num',nm:'TRADES / YR',get:(st,r)=>_reTpy(st,r)},
+          what:{t:'set',nm:'WHAT IT DOES',get:(st,r)=>String((r&&r.what)||'')},
+          date:{t:'date',nm:_reSOnNm,get:(st,r)=>((_reSOn==='ran')?((Array.isArray(r.runs)&&r.runs.length)?String(_reRunDate(r.runs[0])||''):''):String((r&&r.disc)||st.disc||''))},
+          tone:{t:'set',nm:'READ',get:(st,r)=>String(_reToneNm[(r&&r.tone)||'ref']||(r&&r.tone)||'')},
+          cfg:{t:'set',nm:'CONFIG',get:(st,r)=>String((r&&r.name)||'')}};
+        // heading text -> column key (the first money heading reads PRE-LOCKBOX on some studies)
+        const _reFunKey={FAMILY:'fam',RUN:'run',MAR:'mar',SHARPE:'sh',SORTINO:'so',PF:'pf','WIN %':'wr','EV R':'evr','R / YR':'rpy','ROC % / YR':'roc','ROC @ $30K DD':'roc30','$/TRD':'ppt','IN-SAMPLE':'is','PRE-LOCKBOX':'is','WALK-FWD':'wf',LOCKBOX:'lb',TOTAL:'tot',DRAWDOWN:'dd',DD5:'dd5',TRADES:'trd','TRADES / YR':'tpy','WHAT IT DOES':'what',READ:'tone',CONFIG:'cfg','DATE RAN':'date',DISCOVERED:'date'};
+        const _reColV=(k,st,r)=>{const D=_reColDef[k];if(!D)return null;let v;try{v=D.get(st,r);}catch(e){v=null;}
+          if(D.t==='num')return (v==null||!isFinite(+v))?null:+v;
+          if(D.t==='date'){const s=(v==null)?'':String(v).slice(0,10);return /^\d{4}-\d{2}-\d{2}$/.test(s)?s:'';}
+          return (v==null||v==='')?'(blank)':String(v);};
+        const _reColFOn=k=>{const F=_reColF[k];if(!F||!_reColDef[k])return false;
+          if(_reColDef[k].t==='num')return !!(F.blank||(F.top>0)||(F.min!=null&&F.min!=='')||(F.max!=null&&F.max!==''));
+          if(_reColDef[k].t==='set')return Array.isArray(F.ex)&&F.ex.length>0;
+          return !!(F.from||F.to);};
+        const _reColFKeys=Object.keys(_reColF).filter(_reColFOn);
+        // one short phrase per active filter, for the chips above the chart and the funnel hover
+        const _reColFSay=k=>{const F=_reColF[k]||{},D=_reColDef[k];if(!D)return '';
+          if(D.t==='num'){const p=[];if(F.blank)p.push('blank only');if(F.min!=null&&F.min!=='')p.push('\u2265 '+F.min);if(F.max!=null&&F.max!=='')p.push('\u2264 '+F.max);if(F.top>0)p.push((_reColLow[k]?'lowest ':'top ')+F.top);return p.join(' \u00b7 ');}
+          if(D.t==='set')return F.ex.length+' hidden';
+          return (F.from?('from '+F.from):'')+(F.from&&F.to?' ':'')+(F.to?('to '+F.to):'');};
+        const _reColKeep=(function(){
+          if(!_reColFKeys.length)return null;
+          let cur=[];
+          RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{if(!_rePass(st,r))return;
+            for(let i=0;i<_reColFKeys.length;i++){const k=_reColFKeys[i],D=_reColDef[k],F=_reColF[k],v=_reColV(k,st,r);
+              if(D.t==='num'){if(F.blank){if(v!=null)return;}
+                else{if(F.min!=null&&F.min!==''&&(v==null||v<+F.min))return;
+                  if(F.max!=null&&F.max!==''&&(v==null||v>+F.max))return;
+                  if(F.top>0&&v==null)return;}}
+              else if(D.t==='set'){if(F.ex.indexOf(v)>=0)return;}
+              else{if(F.from&&(!v||v<F.from))return;if(F.to&&(!v||v>F.to))return;}}
+            cur.push({st:st,r:r});}));
+          // TOP N reads over whatever the other conditions left, largest first - smallest first on
+          //   the two drawdown columns, where small is the good end
+          _reColFKeys.forEach(k=>{const D=_reColDef[k],F=_reColF[k];if(D.t!=='num'||!(F.top>0)||F.blank)return;
+            const low=!!_reColLow[k];
+            cur=cur.map(o=>({o:o,v:_reColV(k,o.st,o.r)})).filter(x=>x.v!=null)
+              .sort((a,b)=>low?(a.v-b.v):(b.v-a.v)).slice(0,Math.round(+F.top)).map(x=>x.o);});
+          const s=new Set();cur.forEach(o=>s.add(o.st.key+':'+o.r.n));return s;})();
+        // what the popover needs from this render: the defs, the current pick, the distinct values
+        //   of a word column with their counts, and the span of a number column - all over the rows
+        //   the other controls let through
+        window._reFunCtx={def:_reColDef,low:_reColLow,cur:_reColF,say:_reColFSay,
+          opts:function(k){const c={};RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{if(!_rePass(st,r))return;const v=_reColV(k,st,r);c[v]=(c[v]||0)+1;}));
+            return Object.keys(c).sort().map(v=>({v:v,n:c[v]}));},
+          range:function(k){let mn=null,mx=null;RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{if(!_rePass(st,r))return;const v=_reColV(k,st,r);if(v==null)return;if(mn==null||v<mn)mn=v;if(mx==null||v>mx)mx=v;}));return [mn,mx];}};
+        const _reFun=nm=>{const k=_reFunKey[nm];if(!k)return '';const on=_reColFOn(k);
+          return '<span data-refun="'+k+'" class="refun'+(on?' on':'')+'" title="'+_reEsc('Filter this column'+(on?(' \u00b7 now: '+_reColFSay(k)):'')+'. Numbers: min, max, top N, blanks only. Words: tick the values to show. Dates: from and to. The chart obeys the same filter.')+'"></span>';};
+        const _reFChips=_reColFKeys.length?('<div data-refchips style="display:flex;gap:6px;flex-wrap:wrap;align-items:center;margin:6px 0 2px">'
+          +'<span style="font-size:8px;letter-spacing:1.2px;font-weight:700;color:var(--text5)">COLUMN FILTERS</span>'
+          +_reColFKeys.map(k=>'<span class="refchip" title="'+_reEsc('Click the funnel on the column heading to change it; \u00d7 clears it.')+'"><b>'+_reEsc(_reColDef[k].nm)+'</b> '+_reEsc(_reColFSay(k))+'<span data-refclr="'+k+'" title="clear this filter">\u00d7</span></span>').join('')
+          +'<span class="refchip" data-refclrall style="cursor:pointer" title="clear every column filter">CLEAR ALL</span></div>'):'';
         const _rePrep=RESEARCH_STUDIES.map(st=>{
           const all=(st.rows||[]).slice();
-          const kept=all.filter(r=>_rePass(st,r));
+          const kept=all.filter(r=>_rePass(st,r)&&(!_reColKeep||_reColKeep.has(st.key+':'+r.n)));
           const filtOut=all.length-kept.length;
           // THE TIME SCOPE is applied after the filter chips and counted on its own, so the board
           //   can say WHICH control is holding a row back instead of lumping the two together.
@@ -39948,7 +40054,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _w=+_reColW[_nm];
           return '<th data-recol="'+_reEsc(_nm)+'" class="recg recg-'+(grp||_reGrpOf(_nm))+'"'+_reColAttr(_nm)+(tip?(' title="'+_reEsc(tip)+'"'):'')
             +' style="position:relative;'+_reColWCssF(_nm)
-            +'text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+_reGrip+'</th>';};
+            +'text-align:'+(al||'right')+';font-size:7px;letter-spacing:.8px;color:var(--text5);font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;position:sticky;top:0;z-index:2;background:var(--bg2)'+(extra||'')+(tip?';cursor:help':'')+'">'+t+_reGrip+_reFun(_nm)+'</th>';};
         // the table header, per study - or for the merged table, with a synthetic st carrying
         //   the one in-sample label the pooled studies share (or the plain word when they don't).
         const _reHd=(st,merged)=>{_reXtraFill();
@@ -39957,7 +40063,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _sk=String(APREF.reSortK||'');
           //   every sortable heading says so in its own tooltip, because five of them used to
           //   be clickable and the rest were not with nothing on screen to tell them apart.
-          const _hs=(k,t,tip,extra)=>'<th data-resort="'+k+'" data-recol="'+_reEsc(String(t).replace(/<[^>]*>/g,'').trim())+'" class="recg recg-'+_reGrpOf(String(t).replace(/<[^>]*>/g,'').trim())+'"'+_reColAttr(String(t).replace(/<[^>]*>/g,'').trim())+' title="'+_reEsc(tip+' \u00b7 click to order every table on this column, click again to release it.')+'" style="position:relative;'+_reColWCssF(String(t).replace(/<[^>]*>/g,'').trim())+'position:sticky;top:0;z-index:2;background:var(--bg2);'+(extra||'')+';text-align:'+((k==='run')?'left':'right')+';font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+_reGrip+'</th>';
+          const _hs=(k,t,tip,extra)=>'<th data-resort="'+k+'" data-recol="'+_reEsc(String(t).replace(/<[^>]*>/g,'').trim())+'" class="recg recg-'+_reGrpOf(String(t).replace(/<[^>]*>/g,'').trim())+'"'+_reColAttr(String(t).replace(/<[^>]*>/g,'').trim())+' title="'+_reEsc(tip+' \u00b7 click to order every table on this column, click again to release it.')+'" style="position:relative;'+_reColWCssF(String(t).replace(/<[^>]*>/g,'').trim())+'position:sticky;top:0;z-index:2;background:var(--bg2);'+(extra||'')+';text-align:'+((k==='run')?'left':'right')+';font-size:7px;letter-spacing:.8px;font-weight:700;padding:3px 5px;border-bottom:1px solid var(--border);white-space:nowrap;cursor:pointer;color:'+((_sk===k)?'var(--text)':'var(--text5)')+'">'+t+((_sk===k)?' &#8595;':'')+_reGrip+_reFun(String(t).replace(/<[^>]*>/g,'').trim())+'</th>';
           // the columns KEY builds only when the table box has room for them (see _reXtra), marked for the fit pass
           const _hdx=(x,t,al,tip,extra)=>_reXtra[x]?_hd(t,al,tip,extra,({is:'perf',wf:'perf',lb:'perf',tot:'perf',dd:'risk'})[x]).replace('<th ','<th data-rextra="'+x+'" '):'';
           const _hsx=(x,k,t,tip,extra)=>_reXtra[x]?_hs(k,t,tip,extra).replace('<th ','<th data-rextra="'+x+'" '):'';
@@ -39995,6 +40101,35 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_hdx('win','DATA WINDOW','left','The stretch of history the figures on this row actually cover. A warning sign means it does not match the stretch the visible rows share.'))
             +_hd('READ','left','The one-line verdict. Hover it and it prints the whole row.')
             +_hd('CONFIG','left','The configuration. The mark beside it is the same mark the chart uses for its verdict; the small grey number is its permanent row handle.'+(merged?' The grey tag after a name is the study the row was researched in.':''))+'</tr>';};
+        // ── WINDOWED TABLE BODIES (owner 11-06: "the table is laggy"). A study table used to be
+        //    assembled whole on every click - every row's markup built and parsed, about 3.5 MB of
+        //    the 4.2 MB the board emits on a 900-row ONE TABLE - and every row carried its own
+        //    hover listeners. Now a body holds only a window of rows around what is on screen
+        //    (rows are one line tall by design, so a spacer row above and below stands in for the
+        //    rest at the measured row height), the scroll box swaps the window as you scroll
+        //    (window._reVWire), and a row's markup is built once per render and cached. A table of
+        //    up to three windows is assembled whole - nothing to gain. Sort and filter run on the
+        //    arrays, never on the DOM.
+        //    WINDOWED ROWS is a switch on the TABLES strip, OFF until you turn it on (remembered):
+        //    with it off every row is in the page, which is what a search of the page, a print and
+        //    the render gates expect; with it on a 1,700-row table opens and re-sorts about three
+        //    seconds sooner, measured 11-06 (180 rows build + parse in 200 ms, so the whole board
+        //    cost ~3 s a click).
+        const _reVN=60;window._reVN=_reVN;
+        const _reVirt=(APREF.resVirt===true);
+        window._reVTbl=window._reVTbl||{};
+        const _reVBody=(key,list,gen)=>{
+          const n=list.length,prev=window._reVTbl[key];
+          const T={key:key,n:n,keys:list.map(o=>o.st.key+':'+o.r.n),ncol:_reNColsF(),h:(prev&&prev.h>4)?prev.h:21,a:0,b:0,cache:new Array(n),full:(!_reVirt||n<=_reVN*3)};
+          T.html=function(first){
+            let a=0,b=n;
+            if(!T.full){a=Math.max(0,first-_reVN);b=Math.min(n,a+_reVN*3);a=Math.max(0,Math.min(a,b-_reVN*3));}
+            T.a=a;T.b=b;
+            const sp=(h,w)=>(h>0)?('<tr data-revsp="'+w+'"><td colspan="'+T.ncol+'" style="padding:0;border:0;height:'+Math.round(h)+'px"></td></tr>'):'';
+            let s='';for(let i=a;i<b;i++){if(T.cache[i]==null)T.cache[i]=gen(list[i],i);s+=T.cache[i];}
+            return sp(a*T.h,'top')+s+sp((n-b)*T.h,'bot');};
+          window._reVTbl[key]=T;
+          return T.html(0);};
         const _reTile=(p,com)=>{
           const st=p.st,all=p.all,rows=p.rows,filtOut=p.filtOut,outSc=p.outSc;
           const rank=_reRank(st,rows,com);
@@ -40019,7 +40154,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const _skLow={dd:1,ddr:1,dd5:1};
               const _skGet=_skG[_skK];
               const _skSgn=_skGet?(_skLow[_skK]?-1:1):_reYSgn();
-              sorted.sort((a,b)=>{const va=_skGet?_skGet(st,a):_reYv(st,a,com),vb=_skGet?_skGet(st,b):_reYv(st,b,com);
+              // each row's figure read ONCE, not once per comparison (a getter can walk an equity curve)
+              const _kv=new Map(),_kOf=r=>{if(!_kv.has(r))_kv.set(r,_skGet?_skGet(st,r):_reYv(st,r,com));return _kv.get(r);};
+              sorted.sort((a,b)=>{const va=_kOf(a),vb=_kOf(b);
                 if(va==null&&vb==null)return a.n-b.n;if(va==null)return 1;if(vb==null)return -1;return (vb-va)*_skSgn;});
             }else{
               // newest first on whichever date DATE names; a row with no such date keeps the
@@ -40029,7 +40166,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 if(da===db)return 0;if(!da)return 1;if(!db)return -1;return (db>da)?1:-1;});
             }
             if(!_reSplitRun){
-              bodyRows=sorted.map(r=>_reRow(st,r,rank[r.n],com)).join('');
+              bodyRows=_reVBody(st.key,sorted.map(r=>({st:st,r:r})),o=>_reRow(st,o.r,rank[o.r.n],com));
             }else{
               const withRun=sorted.filter(r=>Array.isArray(r.runs)&&r.runs.length);
               const noRun=sorted.filter(r=>!(Array.isArray(r.runs)&&r.runs.length));
@@ -40042,8 +40179,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // as a validate run first - but it no longer labels itself: the RAN and DATE
               // columns already carry that fact per row, and a full-width heading band sat
               // between the column headers and the first row for no reader benefit.
-              bodyRows=withRun.map(r=>_reRow(st,r,rank[r.n],com)).join('')
-                +noRun.map(r=>_reRow(st,r,rank[r.n],com)).join('');
+              bodyRows=_reVBody(st.key,withRun.concat(noRun).map(r=>({st:st,r:r})),o=>_reRow(st,o.r,rank[o.r.n],com));
             }
           }
           const _emH=_reEmH;
@@ -40132,7 +40268,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const _skLow2={dd:1,ddr:1,dd5:1};
             const _skGet2=_skG2[_skK2];
             const _skSgn2=_skGet2?(_skLow2[_skK2]?-1:1):_reYSgn();
-            sorted.sort((a,b)=>{const va=_skGet2?_skGet2(a.st,a.r):_reYv(a.st,a.r,com),vb=_skGet2?_skGet2(b.st,b.r):_reYv(b.st,b.r,com);
+            const _kv2=new Map(),_kOf2=it=>{if(!_kv2.has(it))_kv2.set(it,_skGet2?_skGet2(it.st,it.r):_reYv(it.st,it.r,com));return _kv2.get(it);};
+            sorted.sort((a,b)=>{const va=_kOf2(a),vb=_kOf2(b);
               if(va==null&&vb==null)return a.r.n-b.r.n;if(va==null)return 1;if(vb==null)return -1;return (vb-va)*_skSgn2;});
           }else{
             sorted.sort((a,b)=>{const da=_dOf(a),db=_dOf(b);
@@ -40149,14 +40286,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   repeated the identical text on every row - the heading above says it once.
             const _reManySt=(function(){const k={};sorted.forEach(it=>{k[it.st.key]=1;});
               return Object.keys(k).length>1;})();
-            bodyRows=sorted.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,_reManySt?1:0)).join('');
+            bodyRows=_reVBody('__merged__',sorted,it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,_reManySt?1:0));
           }else{
             const has=it=>Array.isArray(it.r.runs)&&it.r.runs.length;
             const sep=(t,tip)=>'<tr><td colspan="'+_reNColsF()+'" style="padding:9px 8px 5px;border-bottom:1px solid var(--border)"><span title="'+_reEsc(tip)+'" style="font-size:8px;letter-spacing:1.4px;font-weight:700;color:var(--text5);cursor:help">'+t+'</span></td></tr>';
             const a=sorted.filter(has),b=sorted.filter(it=>!has(it));
             // no section headings - see the note at the other split
-            bodyRows=a.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('')
-              +b.map(it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1)).join('');
+            bodyRows=_reVBody('__merged__',a.concat(b),it=>_reRow(it.st,it.r,rk[it.st.key+':'+it.r.n],com,1));
           }
           const lbls=_reIsLbls(items);
           const synth={isLbl:(lbls.length===1)?lbls[0]:''};
@@ -40172,6 +40308,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span style="font-size:8px;color:var(--text5)">'+(_reOneTbl?(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' pooled into one table'):(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'))
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
             +(_reOneTbl?'':(_reSolo?' \u00b7 the only study left is open':''))+'</span>'
+            +'<span data-revirt="'+(_reVirt?'0':'1')+'" title="'+_reEsc('WINDOWED ROWS: when ON a long table holds only the rows around what is on screen and swaps them in as you scroll, so a big board opens and re-sorts about three seconds sooner. When OFF every row is in the page, which a page search or a print needs. Remembered in this browser.')+'" style="font-size:8px;font-weight:700;letter-spacing:.6px;color:'+(_reVirt?'var(--text)':'var(--text4)')+';border:1px solid var(--border2);border-radius:4px;padding:1px 6px;cursor:pointer">WINDOWED ROWS \u00b7 '+(_reVirt?'ON':'OFF')+'</span>'
             // filled by the fit pass when KEY had to leave columns out for this width; a click opens ALL
             +(_reFull?'':'<span data-refitnote data-rescols="all" style="display:none;margin-left:auto;font-size:8px;font-weight:700;letter-spacing:.6px;color:var(--text3);border:1px solid var(--border2);border-radius:4px;padding:1px 6px;cursor:pointer"></span>')+'</div>'
             // The paragraph that used to sit here - what the grey tag means, how to read
@@ -41019,6 +41156,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +') - <span data-recfgprog="1" data-recfgids="'+_reEsc(_reCfgWait.join(','))+'">0 of '+_reCfgWait.length+' runs in - the board draws once, when the last one lands.</span></div>'):'')
             +'</div>'
             +_reLvlNote
+            +_reFChips
             +'<div data-rechartbox="1" style="margin-top:10px">'+_reChartBody+'</div>'
             +_reEmptyNote(),0);
         // ── A REAL SIDEBAR, not a card in a column (owner 2026-08-28). It runs the full
@@ -50107,6 +50245,61 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // a ratio heading click = RESULT order on that column; clicking it again releases it
       content.querySelectorAll('[data-resort]').forEach(b=>{b.onclick=e=>{e.stopPropagation();const k=b.dataset.resort;
         savePref('reSortK',(String(APREF.reSortK||'')===k)?'':k);savePref('resOrd','res');renderApp();};});
+      // SHEETS-STYLE COLUMN FILTER (owner 11-06). The funnel on a heading opens a popover built for the
+      //   column's type; APPLY writes APREF.resColF and re-renders, so the chart, the tables and the
+      //   counts move together. Click outside, or Escape, closes it; Enter in a box applies.
+      content.querySelectorAll('[data-refun]').forEach(b=>{b.onclick=e=>{e.stopPropagation();e.preventDefault();window._reFunOpen(b,b.getAttribute('data-refun'));};});
+      content.querySelectorAll('[data-refclr]').forEach(b=>{b.onclick=e=>{e.stopPropagation();const o=Object.assign({},(APREF.resColF&&typeof APREF.resColF==='object')?APREF.resColF:{});delete o[b.getAttribute('data-refclr')];savePref('resColF',o);renderApp();};});
+      content.querySelectorAll('[data-refclrall]').forEach(b=>{b.onclick=()=>{savePref('resColF',{});renderApp();};});
+      content.querySelectorAll('[data-revirt]').forEach(b=>{b.onclick=e=>{e.stopPropagation();savePref('resVirt',b.getAttribute('data-revirt')==='1');renderApp();};});
+      window._reFunClose=function(){const p=document.getElementById('refunpop');if(p)p.remove();document.removeEventListener('mousedown',window._reFunOut,true);document.removeEventListener('keydown',window._reFunEsc,true);};
+      window._reFunOut=function(e){const p=document.getElementById('refunpop');if(p&&!p.contains(e.target))window._reFunClose();};
+      window._reFunEsc=function(e){if(e.key==='Escape')window._reFunClose();};
+      window._reFunOpen=function(btn,k){
+        window._reFunClose();
+        const C=window._reFunCtx;if(!C||!C.def[k])return;
+        const D=C.def[k],F=Object.assign({},C.cur[k]||{});
+        const E=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+        const p=document.createElement('div');p.id='refunpop';
+        let h='<div class="t">FILTER \u00b7 '+E(D.nm)+'</div>';
+        if(D.t==='num'){const rg=C.range(k);
+          h+='<div class="row"><span>MIN</span><input type="number" step="any" data-fmin value="'+E(F.min==null?'':F.min)+'" placeholder="'+E(rg[0]==null?'':(+rg[0]).toFixed(2))+'"></div>'
+            +'<div class="row"><span>MAX</span><input type="number" step="any" data-fmax value="'+E(F.max==null?'':F.max)+'" placeholder="'+E(rg[1]==null?'':(+rg[1]).toFixed(2))+'"></div>'
+            +'<div class="row"><span>'+(C.low[k]?'LOWEST':'TOP N')+'</span><input type="number" min="1" step="1" data-ftop value="'+E(F.top>0?F.top:'')+'" placeholder="'+(C.low[k]?'keep the N smallest':'keep the N largest')+'"></div>'
+            +'<label><input type="checkbox" data-fblank'+(F.blank?' checked':'')+'> blanks only - rows with no figure here</label>';}
+        else if(D.t==='date'){
+          h+='<div class="row"><span>FROM</span><input type="date" data-ffrom value="'+E(F.from||'')+'"></div>'
+            +'<div class="row"><span>TO</span><input type="date" data-fto value="'+E(F.to||'')+'"></div>'
+            +'<div style="font-size:8px;color:var(--text5);margin-top:3px">a row with no date is held back while either bound is set</div>';}
+        else{const opts=C.opts(k),ex=Array.isArray(F.ex)?F.ex:[];
+          h+='<input type="text" data-fsearch placeholder="search values" autocomplete="off">'
+            +'<div style="margin-top:5px"><span class="lk" data-fall>ALL</span><span class="lk" data-fnone>NONE</span><span style="font-size:8px;color:var(--text5)">'+opts.length+' values</span></div>'
+            +'<div class="list">'+opts.map(o=>'<label data-fopt="'+E(o.v)+'"><input type="checkbox" value="'+E(o.v)+'"'+(ex.indexOf(o.v)>=0?'':' checked')+'><span style="overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1" title="'+E(o.v)+'">'+E(o.v)+'</span><span style="color:var(--text5);font-size:8px">'+o.n+'</span></label>').join('')+'</div>';}
+        h+='<div class="act"><span data-fclear>CLEAR</span><span class="go" data-fapply>APPLY</span></div>';
+        p.innerHTML=h;document.body.appendChild(p);
+        const r=btn.getBoundingClientRect();let x=Math.min(r.left,window.innerWidth-p.offsetWidth-8),y=r.bottom+4;
+        if(y+p.offsetHeight>window.innerHeight-8)y=Math.max(8,r.top-p.offsetHeight-4);
+        p.style.left=Math.max(8,x)+'px';p.style.top=y+'px';
+        const q=s=>p.querySelector(s);
+        const cur=()=>Object.assign({},(APREF.resColF&&typeof APREF.resColF==='object')?APREF.resColF:{});
+        const apply=()=>{const o=cur();
+          if(D.t==='num'){const mn=q('[data-fmin]').value,mx=q('[data-fmax]').value,tp=+q('[data-ftop]').value,bl=q('[data-fblank]').checked;
+            const nf={};if(mn!=='')nf.min=+mn;if(mx!=='')nf.max=+mx;if(tp>0)nf.top=Math.round(tp);if(bl)nf.blank=true;
+            if(Object.keys(nf).length)o[k]=nf;else delete o[k];}
+          else if(D.t==='date'){const f=q('[data-ffrom]').value,t=q('[data-fto]').value;const nf={};if(f)nf.from=f;if(t)nf.to=t;if(Object.keys(nf).length)o[k]=nf;else delete o[k];}
+          else{const ex=[...p.querySelectorAll('.list input[type=checkbox]')].filter(c=>!c.checked).map(c=>c.value);if(ex.length)o[k]={ex:ex};else delete o[k];}
+          savePref('resColF',o);window._reFunClose();renderApp();};
+        q('[data-fapply]').onclick=apply;
+        q('[data-fclear]').onclick=()=>{const o=cur();delete o[k];savePref('resColF',o);window._reFunClose();renderApp();};
+        p.addEventListener('keydown',e=>{if(e.key==='Enter'&&e.target&&e.target.tagName==='INPUT'&&e.target.type!=='checkbox'){e.preventDefault();apply();}});
+        const srch=q('[data-fsearch]');
+        if(srch){srch.oninput=()=>{const s=srch.value.toLowerCase();p.querySelectorAll('[data-fopt]').forEach(l=>{l.style.display=(!s||l.getAttribute('data-fopt').toLowerCase().indexOf(s)>=0)?'':'none';});};
+          const vis=()=>[...p.querySelectorAll('[data-fopt]')].filter(l=>l.style.display!=='none').map(l=>l.querySelector('input'));
+          q('[data-fall]').onclick=()=>vis().forEach(c=>{c.checked=true;});
+          q('[data-fnone]').onclick=()=>vis().forEach(c=>{c.checked=false;});
+          srch.focus();}
+        else{const f0=p.querySelector('input');if(f0)f0.focus();}
+        setTimeout(()=>{document.addEventListener('mousedown',window._reFunOut,true);document.addEventListener('keydown',window._reFunEsc,true);},0);};
       content.querySelectorAll('[data-ressplitrun]').forEach(b=>{b.onclick=()=>{savePref('resSplitRun',b.dataset.ressplitrun==='1');renderApp();};});
       // STUDIES board: profit stage, vertical axis and the data-driven filter chips
       // PROFIT STAGE is a set of ticks: click one to add or drop it. The board refuses to
@@ -50689,10 +50882,37 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _reScrollSig=JSON.stringify([String(APREF.resLvl||''),String(APREF.resShow||''),String(APREF.resFilt||'')]);
         if(window._reScrollSig!==_reScrollSig){window._reScrollPos={};window._reScrollSig=_reScrollSig;}
         if(!window._reScrollPos)window._reScrollPos={};
+        // THE ROW WINDOW FOLLOWS THE SCROLL (see _reVBody). One pass per animation frame: measure a
+        //   real row, work out which row is at the top of the box, and when the assembled window no
+        //   longer covers the screen plus a margin, swap the body for the window around it. The
+        //   spacer rows keep the scroll height steady, so the thumb never jumps.
+        window._reVWire=function(sc){
+          const key=sc.getAttribute('data-rescroll')||'';const T=window._reVTbl&&window._reVTbl[key];
+          if(!T||T.full)return;
+          const tb=sc.querySelector('table>tbody');if(!tb)return;
+          const VN=window._reVN||60;
+          const upd=()=>{const T2=window._reVTbl[key];if(!T2||T2.full||!tb.isConnected)return;
+            const tr=tb.querySelector('tr[data-rerow]');if(tr&&tr.offsetHeight>4)T2.h=tr.offsetHeight;
+            const first=Math.floor(sc.scrollTop/T2.h),vis=Math.ceil(sc.clientHeight/T2.h)+1;
+            const need=(first<T2.a+Math.floor(VN/3)&&T2.a>0)||(first+vis>T2.b-Math.floor(VN/3)&&T2.b<T2.n);
+            if(!need)return;
+            tb.innerHTML=T2.html(first);if(window._reWireRows)window._reWireRows(tb);};
+          // one pass per frame; a timer backs the frame up, because a hidden tab gets no frames
+          let pend=false;const go=()=>{if(!pend)return;pend=false;upd();};
+          sc.addEventListener('scroll',()=>{if(pend)return;pend=true;requestAnimationFrame(go);setTimeout(go,60);},{passive:true});
+          upd();};
+        // A POINT CLICK ON A ROW THAT IS NOT ASSEMBLED YET: scroll its box to where the row sits and
+        //   assemble the window there; the caller then finds it like any other row.
+        window._reVReveal=function(k){let hit=false;
+          Object.keys(window._reVTbl||{}).forEach(key=>{const T=window._reVTbl[key];if(hit||!T||T.full)return;const i=T.keys.indexOf(k);if(i<0)return;
+            const sc=document.querySelector('[data-rescroll="'+CSS.escape(key)+'"]');const tb=sc&&sc.querySelector('table>tbody');if(!tb)return;
+            sc.scrollTop=Math.max(0,i*T.h-sc.clientHeight/2);tb.innerHTML=T.html(i);if(window._reWireRows)window._reWireRows(tb);hit=true;});
+          return hit;};
         const _reKeep=(sc,key)=>{
           const pos=window._reScrollPos[key];
           if(pos){sc.scrollLeft=pos.l;sc.scrollTop=pos.t;}
-          sc.addEventListener('scroll',()=>{window._reLastScroll=performance.now();window._reScrollPos[key]={l:sc.scrollLeft,t:sc.scrollTop};},{passive:true});};
+          sc.addEventListener('scroll',()=>{window._reLastScroll=performance.now();window._reScrollPos[key]={l:sc.scrollLeft,t:sc.scrollTop};},{passive:true});
+          if(sc.hasAttribute('data-rescroll'))window._reVWire(sc);};
         if(!window._reScrollStamp){window._reScrollStamp=1;window.addEventListener('scroll',()=>{window._reLastScroll=performance.now();},{passive:true});}
         content.querySelectorAll('[data-restackl]').forEach(sc=>_reKeep(sc,'__stackl__'));
         content.querySelectorAll('[data-resplitl]').forEach(sc=>_reKeep(sc,'__splitl__'));
@@ -50791,6 +51011,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             p.addEventListener('mouseenter',()=>window._reSetHL(k,true));
             p.addEventListener('mouseleave',()=>{if(!window._reHLTimer)window._reSetHL(k,false);});
             p.addEventListener('click',()=>{
+              // the row may be outside the assembled window of its table - bring that window to it first
+              if(!document.querySelector('tr[data-rerow="'+CSS.escape(k)+'"]')&&window._reVReveal)window._reVReveal(k);
               document.querySelectorAll('tr[data-rerow="'+CSS.escape(k)+'"]').forEach(t=>{
                 // the row may live in a study table that is closed. Open it first, otherwise the
                 // click looks like it did nothing: the row is in the DOM but its section is not
@@ -50817,11 +51039,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // ROW HOVER STAYS HERE, OUTSIDE THE CHART BOX. A chart-only redraw never touches the
         //   table, so these rows and their listeners survive it untouched; window._reWireChart
         //   above covers everything that lives inside the chart box instead.
-        content.querySelectorAll('tr[data-rerow]').forEach(t=>{const k=t.getAttribute('data-rerow');
-          // A ROW SLIDING UNDER A STILL POINTER IS NOT A HOVER (owner 2026-10-09: scroll lag). While the board scrolls the
-          //   browser sends an enter for every row that passes under the pointer, and each one lit a row and its chart point.
-          t.addEventListener('mouseenter',e=>{if(e&&e.isTrusted&&(performance.now()-(window._reLastScroll||0))<200)return;window._reSetHL(k,true);});
-          t.addEventListener('mouseleave',()=>{if(!window._reHLTimer)window._reSetHL(k,false);});});
+        // ONE PLACE WIRES A ROW, because rows now arrive twice: with the page, and again each time a
+        //   scroll box swaps its window (_reVWire). A row already wired is left alone.
+        window._reWireRows=function(root){
+          root.querySelectorAll('tr[data-rerow]').forEach(t=>{const k=t.getAttribute('data-rerow');
+            if(t._reWired)return;t._reWired=1;
+            // A ROW SLIDING UNDER A STILL POINTER IS NOT A HOVER (owner 2026-10-09: scroll lag). While the board scrolls the
+            //   browser sends an enter for every row that passes under the pointer, and each one lit a row and its chart point.
+            t.addEventListener('mouseenter',e=>{if(e&&e.isTrusted&&(performance.now()-(window._reLastScroll||0))<200)return;window._reSetHL(k,true);});
+            t.addEventListener('mouseleave',()=>{if(!window._reHLTimer)window._reSetHL(k,false);});
+            // a row with a run number opens its report - the same handler the page-wide [data-rank-run] wiring gives it
+            if(t.hasAttribute('data-rank-run'))t.onclick=(e)=>{if(e&&e.stopPropagation)e.stopPropagation();augurRunSel=t.dataset.rankRun;augurSub='runs';renderApp();};});};
+        window._reWireRows(content);
         window._reWireChart(content);
       })();
       // SAMPLE writes the COMPARE tab's STAGE too - only inside that tab, so the old tab never moves it
