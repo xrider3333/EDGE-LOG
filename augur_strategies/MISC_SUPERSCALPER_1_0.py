@@ -1,6 +1,13 @@
 """
 MISC_SUPERSCALPER 1.0 - port of TradingView "NQ/MNQ Super Scalper [BACKTEST]" (Pine v6).
 
+*** LEAKS - DO NOT VALIDATE (TV, MANAGER #168, 2026-10-20; docs/SUPERSCALPER_LEAK_R1.md) ***
+  The 240-minute HTF gate reads ahead: the 13:00-17:00 CT bucket ends at a 16:00 CT cap while bars after
+  16:00 CT stay in it, so from ~15:59 CT the chart sees that bucket's final close / EMAs up to ~15 bars early.
+  On the 2010-16 pre-WF rows it changed 0 of 1,900 default trades (0 of 7,017 across 15 knob points), but a
+  file that can read ahead is not a valid validate object. Use MISC_SUPERSCALPER_1_1 (the fix) or its
+  memory-light copy MISC_SUPERSCALPER_LITE_1_1. This file is otherwise unchanged so its past runs reproduce.
+
 Source: https://www.tradingview.com/script/6ve1ax1D-NQ-MNQ-Super-Scalper-BACKTEST/
 Author Crispigino (open source). Ported from the cached text
 C:\\EdgeLog\\_research_cache\\tv_scalp\\superscalper\\NQ_MNQ_Super_Scalper_v1.pine
@@ -193,7 +200,7 @@ import warnings
 import numpy as np
 import pandas as pd
 
-STRATEGY_NAME = "MISC_SUPERSCALPER 1.0 · TV NQ/MNQ Super Scalper port (6 paths, brackets)"
+STRATEGY_NAME = "MISC_SUPERSCALPER 1.0 · LEAKS (4H look-ahead, use 1.1) · TV NQ/MNQ Super Scalper port"
 DESCRIPTION = ("Port of the TradingView 'NQ/MNQ Super Scalper [BACKTEST]' (Crispigino): six "
                "1-minute entry paths (MAIN/BOS/OB/RE/TRAP/OD) behind dozens of session- and "
                "regime-scaled vetoes, one stop+limit bracket per entry, pyramiding 20, next-"
