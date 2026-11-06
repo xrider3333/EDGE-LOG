@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 167
+N_CASES = 168
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -8147,6 +8147,53 @@ var FIX = __FIX__;
            firstYs:A?A.paths.slice(0,4).map(firstY):null,order:order,hl:hl,
            txt:A?A.txt.slice(0,260):null,rec:Rb?Rb.txt.slice(0,260):null,errs:errAcc.slice(0,2)});
       })();
+      // -- case e3_label_pile (owner 2026-11-06, from his own screenshot: ORB 121, 131 and 133
+      //    written over each other beside the dots). Twelve records are placed closer together
+      //    than a label is tall; no two names may share a pixel, and the DOTS must still sit
+      //    exactly where their figures put them - only a name is allowed to move.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        // roc30k barely moves and sortino barely moves, so every dot lands in one small cluster -
+        //   the shape of the owner's ORB pile, which the coincident-point stack never caught
+        //   because the dots are NEAR each other rather than ON each other.
+        function rec(i,fam){return {id:'e3r'+i,timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'e3probe'+fam,family:fam,instrument:'NQ',timeframe:'2m',
+          roc30k:30+i*0.12,sortino:2+i*0.012,dd5:8000,ddpct:12,where:'lane',stage:'WF',
+          start_usd:100000};}
+        var ROWS=[];for(var i=0;i<12;i++)ROWS.push(rec(i,(i%2)?'ZPILEA':'ZPILEB'));
+        var W=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify(ROWS)
+          +",at:Date.now()};window._reMonKey='all';");
+        calls.push(doRender({c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZPILEA','ZPILEB']},resMarks:'dot',c2Tbl:true},W));
+        chk('pile');
+        var R=(function(){
+          var pts=d.querySelectorAll('[data-repoint]');
+          var svg=pts.length?pts[0].ownerSVGElement:null;
+          var txt=svg?[].filter.call(svg.querySelectorAll('text'),function(t){
+            return /^ZPILE[AB] \d+$/.test((t.textContent||'').trim());}):[];
+          var box=txt.map(function(t){var b=t.getBBox();
+            return {x:b.x,y:b.y,w:b.width,h:b.height,t:(t.textContent||'').trim()};});
+          var ov=[];
+          for(var a=0;a<box.length;a++)for(var b=a+1;b<box.length;b++){var p=box[a],q=box[b];
+            if(!(p.x+p.w<q.x||q.x+q.w<p.x||p.y+p.h<q.y||q.y+q.h<p.y))ov.push(p.t+' over '+q.t);}
+          // the dots themselves, rounded - they must be spread over a real range, not stacked
+          var cys={};[].forEach.call(pts,function(g){
+            var c=g.querySelector('circle');if(c)cys[Math.round(+c.getAttribute('cy'))]=1;});
+          return {nPts:pts.length,nLbl:box.length,ov:ov,nDotRows:Object.keys(cys).length,
+                  ys:box.map(function(b){return Math.round(b.y);}).sort(function(a,b){return a-b;})};})();
+        dfxCase('e3_label_pile',calls,{
+          'every record is on the chart':R.nPts===12,
+          'and every one of them is named, so the nudge drops nothing':R.nLbl===12,
+          'NO TWO NAMES OVERLAP - the pile in the owner screenshot cannot come back':R.ov.length===0,
+          'and the names really were moved apart rather than all landing on one line':
+            R.ys.length>1&&R.ys[R.ys.length-1]-R.ys[0]>=12,
+          'the DOTS are still where their figures put them - only the names moved':
+            R.nDotRows>=6,
+          'no console errors':errAcc.length===0
+        },{pts:R.nPts,labels:R.nLbl,overlaps:R.ov.slice(0,4),dotRows:R.nDotRows,
+           ys:R.ys.slice(0,12),errs:errAcc.slice(0,2)});
+      })();
       // -- case e2_dot_colour (owner 2026-10-28: "SCATTER: family names/colours no longer
       //    delineated after the revamp - restore per-family colour + legend").
       (function(){
@@ -10472,6 +10519,7 @@ def main(argv=None):
     DFX += ['w50_source']
     DFX += ['i50_rail_offer']
     DFX += ['e2_dot_colour']
+    DFX += ['e3_label_pile']
     DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']
