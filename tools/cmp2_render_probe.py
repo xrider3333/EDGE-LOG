@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 168
+N_CASES = 169
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -151,6 +151,12 @@ var FIX = __FIX__;
       document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);return;}
 
       function doRender(prefs, winCode, sub){
+        // EVERY CASE READS A WHOLE TABLE. WINDOWED ROWS became the owner's default on 11-06, and
+        //   with it on a long table holds only the rows near the viewport - so a case counting
+        //   rows would be counting the window, not the board, and would start failing for a
+        //   reason that has nothing to do with what it tests. Each case therefore pins the
+        //   setting it means to test; the one case that tests the windowed path sets it true.
+        prefs=Object.assign({resVirt:false},prefs||{});
         sink.errors.length=0; sink.uncaught.length=0;
         var call;
         try{
@@ -8147,6 +8153,51 @@ var FIX = __FIX__;
            firstYs:A?A.paths.slice(0,4).map(firstY):null,order:order,hl:hl,
            txt:A?A.txt.slice(0,260):null,rec:Rb?Rb.txt.slice(0,260):null,errs:errAcc.slice(0,2)});
       })();
+      // -- case d1_windowed_default (owner 2026-11-06: "why still laggy"). WINDOWED ROWS is now
+      //    ON unless turned off. Every other case pins it off to read whole tables, so this is the
+      //    only place the owner's actual default is exercised.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function chip(){var s=[].filter.call(d.querySelectorAll('[data-revirt]'),function(x){
+            return /WINDOWED ROWS/.test(x.textContent||'');})[0];
+          return s?dfxN(s.textContent):null;}
+        function rows(){return d.querySelectorAll('tr[data-rerow]').length;}
+        // no resVirt in the prefs at all: this is what his browser does on a first visit
+        var P0={c2Screen:'explore',resLvl:'all',c2Tbl:true};
+        calls.push(doRender(Object.assign({resVirt:undefined},P0)));chk('default');
+        var onChip=chip(),onRows=rows();
+        // the same board with the switch off, for the row count the window is measured against
+        calls.push(doRender(Object.assign({},P0,{resVirt:false})));chk('off');
+        var offChip=chip(),offRows=rows();
+        // and a row the window left out comes back when asked for by key
+        var revealed=null,key=null;
+        if(offRows>onRows){
+          key=(function(){var ks=[].map.call(d.querySelectorAll('tr[data-rerow]'),function(t){
+              return t.getAttribute('data-rerow');});return ks[ks.length-1]||null;})();
+          calls.push(doRender(Object.assign({resVirt:undefined},P0)));chk('reveal');
+          revealed=w.eval("(function(){try{var k="+JSON.stringify(key)+";"
+            +"if(!window._reVReveal)return 'no helper';"
+            +"window._reVReveal(k);"
+            +"var sel='tr[data-rerow='+JSON.stringify(k)+']';"
+            +"return document.querySelector(sel)?'in':'missing';}"
+            +"catch(e){return 'ERR '+e;}})()");}
+        dfxCase('d1_windowed_default',calls,{
+          'with nothing saved, WINDOWED ROWS is ON - the owner stops paying for the whole table':
+            // NO BACKSLASH IN THIS FILE'S JS: the probe page is a Python string, so a regex
+            //   written here as backslash-b arrives in the browser as a backspace character
+            //   and matches nothing - which is what both of these did on their first run.
+            String(onChip||'').indexOf('ON')>=0,
+          'and turning it off is still offered and still works':
+            String(offChip||'').indexOf('OFF')>=0,
+          'the windowed table really does hold fewer rows than the board has':
+            offRows>0&&onRows>0&&onRows<offRows,
+          'and a row outside the window can still be brought back by its key, so a click on a dot finds it':
+            revealed===null||revealed==='in',
+          'no console errors':errAcc.length===0
+        },{onChip:onChip,offChip:offChip,onRows:onRows,offRows:offRows,key:key,
+           revealed:revealed,errs:errAcc.slice(0,2)});
+      })();
       // -- case e3_label_pile (owner 2026-11-06, from his own screenshot: ORB 121, 131 and 133
       //    written over each other beside the dots). Twelve records are placed closer together
       //    than a label is tall; no two names may share a pixel, and the DOTS must still sit
@@ -10520,6 +10571,7 @@ def main(argv=None):
     DFX += ['i50_rail_offer']
     DFX += ['e2_dot_colour']
     DFX += ['e3_label_pile']
+    DFX += ['d1_windowed_default']
     DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']
@@ -10530,7 +10582,7 @@ def main(argv=None):
         ck = r.get('ck') or {}
         ok = r.get('call') == 'OK' and not r.get('uncaught') and bool(ck) and all(ck.values())
         line(name, ok, 'failed=%s | call=%s | %s' % ([k for k, v in ck.items() if not v], str(r.get('call'))[:80],
-                                                     json.dumps(r.get('info'), ensure_ascii=False)[:500]))
+                                                     json.dumps(r.get('info'), ensure_ascii=False)[:2400]))
         if not ok:
             fail(name + ': see the ' + name + ' line')
 
