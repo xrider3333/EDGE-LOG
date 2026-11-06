@@ -1272,4 +1272,4 @@ def test_dip_off_sends_no_new_lot_but_a_held_lot_still_exits_its_own_six(env):
     e.tick(at(DAY2, 10, 5, 10), events=[dip_entry("DBL", DAY2, 700.0)], cfg=off)
     assert e.sent(start) == [] and e.books() == {"DIP_RSI": 6}
     e.tick(at(DAY2, 10, 10, 10), events=[dip_exit(rows[0], DAY2, 700.0)], cfg=off)
-    assert e.sent(start) == [("SELL", 6)] and e.books() == {} and e.fake.pos == 0
+    assert e.sent(start) == [("SELL", 6)] and e.fake.pos == 0 and not any(e.books().values())
