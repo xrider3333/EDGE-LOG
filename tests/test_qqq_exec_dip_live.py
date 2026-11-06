@@ -1245,3 +1245,31 @@ def test_an_unreadable_adapter_means_no_clamp_and_no_cap_set_nothing_to_clamp_to
     e.tick(at(DAY, 10, 35, 5), events=[noise_entry(DAY, 10, 30, "long", 700.0, 4.5)])
     lot = e.lot("NOISE")
     assert (lot["shares_total"], lot["shares_wanted"]) == (45, 45)
+
+
+def test_legs_off_family_zeroes_every_lot_keeps_others_and_warns_on_unknown(tmp_path):
+    p = tmp_path / "config.json"
+    p.write_text(json.dumps({"shares": {"ORB": 10, "ENGUQ": 10, "NOISE": 10},
+                             "legs_off": ["DIP", "NOPE"]}), encoding="utf-8")
+    logged = []
+    cfg = qe.load_config(str(p), log=logged.append)
+    assert all(cfg["shares"][leg] == 0 for leg in qe.DIP_LEGS)
+    assert (cfg["shares"]["ORB"], cfg["shares"]["ENGUQ"], cfg["shares"]["NOISE"]) == (10, 10, 10)
+    assert any("NOPE" in x for x in logged)
+    p.write_text(json.dumps({"legs_off": ["ORB"]}), encoding="utf-8")
+    cfg = qe.load_config(str(p), log=logged.append)
+    assert cfg["shares"]["ORB"] == 0 and cfg["shares"]["DIP_RSI"] > 0
+
+
+def test_dip_off_sends_no_new_lot_but_a_held_lot_still_exits_its_own_six(env):
+    e = env
+    rows = e.hold_dip(["RSI"])
+    e.marks.update(prior_close=700.0, today_open=700.0, today_last=700.0)
+    e.price = e.fake.fill_px = 700.0
+    off = json.loads(json.dumps(e.cfg))
+    off["shares"].update({leg: 0 for leg in qe.DIP_LEGS})
+    start = len(e.fake.sent)
+    e.tick(at(DAY2, 10, 5, 10), events=[dip_entry("DBL", DAY2, 700.0)], cfg=off)
+    assert e.sent(start) == [] and e.books() == {"DIP_RSI": 6}
+    e.tick(at(DAY2, 10, 10, 10), events=[dip_exit(rows[0], DAY2, 700.0)], cfg=off)
+    assert e.sent(start) == [("SELL", 6)] and e.books() == {} and e.fake.pos == 0

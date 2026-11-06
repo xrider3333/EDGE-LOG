@@ -680,6 +680,15 @@ def load_config(path=None, log=print):
             merged[k].update(v)
         else:
             merged[k] = v
+    # LEG TOGGLE (owner 11-06): "legs_off" in config.json turns a leg off without a code change:
+    # a leg name, or a family ("DIP" = all seven lots). Off = 0 shares = no new entries; a lot
+    # already held keeps its own size and still exits by its own rules. Remove the name to turn on.
+    for name in (merged.get("legs_off") or []):
+        off = [x for x in LEGS if x == name or leg_family(x) == name]
+        if not off:
+            log(f"[qqq-exec] legs_off: unknown leg {name!r} ignored")
+        for x in off:
+            merged["shares"][x] = 0
     mode = str(merged.get("mode") or "").strip().upper()
     if mode != "SHADOW":
         log(f"[qqq-exec] REFUSED mode={merged.get('mode')!r} -- this build only runs "
