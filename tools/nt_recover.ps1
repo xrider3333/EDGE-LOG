@@ -7,6 +7,11 @@
 # "something goes wrong and I am not around" case the whole bridge project exists for.
 #
 # WHAT IT DOES, in order, and only as far as it needs to:
+#   0. (2026-11-06, owner: 'if NinjaTrader disconnects, have a runner/poller automatically reconnect')
+#      If the bridge answers, re-dial any of the Live / Simulation connections that sits at
+#      ConnectionLost / Disconnected (NT holds the credentials; connect only re-dials a saved name).
+#      Opt out per name with the file C:\EdgeLog\NO_AUTO_RECONNECT_<NAME> (e.g. ..._LIVE).
+#      tools/nt_conn_poll.ps1 does the same every 20 s between watchdog passes.
 #   1. If the bridge already answers AND the expected strategies are Realtime -> exit 0,
 #      touch nothing. Safe to run on a timer.
 #   2. Launch + log in via nt_login.ps1 if NinjaTrader is down or stuck at the login window.
@@ -537,6 +542,49 @@ try { $gotMutex = $script:recoverMutex.WaitOne(0) } catch [System.Threading.Aban
 if (-not $gotMutex) { Log "another recover pass is already running - this one exits without touching anything"; exit 0 }
 
 Log "=== recover start (WhatIf=$WhatIf) ==="
+
+# ── 0. re-dial lost connections (2026-11-06) ───────────────────────────────────────
+# On 11-06 09:24:58 both Live and Simulation went ConnectionLost in a latency burst. The strategies kept
+# running (KeepRunning/30 s), so step 1 below said 'healthy' while nothing re-dialed Live; step 3 only ever
+# dials Simulation and only on the not-healthy path. This step runs BEFORE the healthy check: for each of
+# $reconnNames whose status is ConnectionLost or Disconnected, POST /connect (the same act as clicking the
+# saved name in NinjaTrader's Connections menu - no credentials pass through here) and wait up to 20 s.
+# The owner can leave a connection down on purpose: create C:\EdgeLog\NO_AUTO_RECONNECT_<NAME> (upper-case
+# name, e.g. NO_AUTO_RECONNECT_LIVE) and that name is skipped and logged. Read-only on everything else; a
+# bridge that cannot answer /connections (older dll, NinjaTrader down) is logged and the pass goes on as before.
+# tools/nt_conn_poll.ps1 runs the same check every 20 s between watchdog passes.
+$reconnNames = @('Live', 'Simulation')
+$reconnLost  = @('ConnectionLost', 'Disconnected')
+function ConnStatus($name) {
+  try {
+    $d = (Invoke-WebRequest -Uri "$bridge/connections" -TimeoutSec 6 -UseBasicParsing).Content | ConvertFrom-Json
+    $c = @($d.connections | Where-Object { $_.name -eq $name })
+    if ($c.Count -eq 0) { return $null }
+    return "$($c[0].status)"
+  } catch { return $null }
+}
+function ReconnectLost {
+  foreach ($n in $reconnNames) {
+    $st = ConnStatus $n
+    if ($null -eq $st) { Log "connection '$n': not reported by the bridge - skipped"; continue }
+    if ($reconnLost -notcontains $st) { continue }
+    $opt = "C:\EdgeLog\NO_AUTO_RECONNECT_$($n.ToUpper())"
+    if (Test-Path $opt) { Log "connection '$n' is $st but $opt exists - left alone on purpose"; continue }
+    if ($WhatIf) { Log "[WhatIf] connection '$n' is $st - would re-dial it"; continue }
+    Log "connection '$n' is $st - re-dialing..."
+    try { & $py $cli connect --name $n 2>&1 | ForEach-Object { Log "  [connect $n] $_" } } catch { Log "  [connect $n] failed: $($_.Exception.Message)" }
+    $t0 = Get-Date; $st2 = $st
+    while (((Get-Date) - $t0).TotalSeconds -lt 20) {
+      Start-Sleep -Seconds 2
+      $st2 = ConnStatus $n
+      if ($st2 -eq 'Connected') { break }
+    }
+    $took = [int]((Get-Date) - $t0).TotalSeconds
+    if ($st2 -eq 'Connected') { Log "connection '$n' is Connected again after ${took}s" }
+    else { Log "connection '$n' is still '$st2' after ${took}s - the next pass (or nt_conn_poll) tries again" }
+  }
+}
+if (BridgeUp) { ReconnectLost }
 
 # ── 1. already healthy? ────────────────────────────────────────────────────────────
 if (BridgeUp) {
