@@ -8200,9 +8200,16 @@ var FIX = __FIX__;
           if(dc)o.resDotCol=dc;return o;}
         calls.push(doRender(PR(),W));chk('records');
         var M=read();
-        // (iii) and FAMILY on the chip really does recolour that same board
-        calls.push(doRender(PR('family'),W));chk('records family');
+        // (iii) and WHERE IT RAN on the chip really does recolour that same board back
+        calls.push(doRender(PR('where'),W));chk('records where');
         var F=read();
+        // (iv) ONE family of records: the colour has no family to separate, so WHERE IT RAN stays
+        var W1=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify([
+          rec(1,'ZCOLA','lane'),rec(2,'ZCOLA','lab')])+",at:Date.now()};window._reMonKey='all';");
+        var P1={c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZCOLA']},resMarks:'dot',c2Tbl:true};
+        calls.push(doRender(P1,W1));chk('records one family');
+        var S=read();
         dfxCase('e2_dot_colour',calls,{
           'RUN ROWS: the two families are drawn in DIFFERENT colours':
             !!R.cols.ZCOLA&&!!R.cols.ZCOLB&&R.cols.ZCOLA!==R.cols.ZCOLB,
@@ -8215,19 +8222,27 @@ var FIX = __FIX__;
             R.famChips.length>=2&&R.famChips.every(function(c){return /\d+ dots? on this chart/.test(c.tip);}),
           'and the family with the most dots is named first':
             R.famChips.length<2||R.famChips[0].n>=R.famChips[R.famChips.length-1].n,
-          'RECORDS: the colour stays WHERE IT RAN - the month design already approved':
-            /COLOUR = WHERE IT RAN/.test(M.leg||M.legBox),
-          'and the two records differ in colour because they ran in different places':
+          // CHANGED 11-06 on the owner's own screenshot: a records board with TWO families used
+          //   to paint both of them lane-green, because WHERE IT RAN owned the colour there. The
+          //   family now wins wherever there is more than one, records or not, so this case pins
+          //   the new default - and the last line pins that WHERE IT RAN survives where it is the
+          //   only question left, a board holding one family.
+          'RECORDS, TWO FAMILIES: the colour is the FAMILY, not where it ran':
+            /COLOUR = FAMILY/.test(M.leg||M.legBox),
+          'and the two records differ in colour because they are different families':
             M.fills.length>=2,
-          'the chip offers FAMILY on that board rather than hiding it':
-            M.chip.join(' ').indexOf('family:FAMILY')>=0,
-          'and picking FAMILY recolours the records by family':
-            /COLOUR = FAMILY/.test(F.leg||F.legBox)&&F.fills.length>=2
+          'the chip still offers WHERE IT RAN rather than dropping it':
+            M.chip.join(' ').indexOf('where:WHERE IT RAN')>=0,
+          'and picking WHERE IT RAN recolours that same board by where it ran':
+            /COLOUR = WHERE IT RAN/.test(F.leg||F.legBox)&&F.fills.length>=2
             &&F.fills.sort().join(',')!==M.fills.slice().sort().join(','),
+          'ONE FAMILY of records: WHERE IT RAN keeps the board, nothing to tell apart':
+            /COLOUR = WHERE IT RAN/.test(S.leg||S.legBox),
           'no console errors':errAcc.length===0
         },{runs:R.cols,fams:R.famChips.map(function(c){return c.tx+'='+c.n;}).slice(0,6),
            runLeg:(R.legBox||'').slice(0,200),recFills:M.fills,
-           recLeg:(M.legBox||'').slice(0,200),famFills:F.fills,chip:M.chip,errs:errAcc.slice(0,2)});
+           recLeg:(M.legBox||'').slice(0,200),whereFills:F.fills,
+           oneFamLeg:(S.legBox||'').slice(0,120),chip:M.chip,errs:errAcc.slice(0,2)});
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
