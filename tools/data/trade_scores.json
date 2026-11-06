@@ -7634,6 +7634,100 @@
    ],
    "overall": 46,
    "summary": "You bought the 09:35 reclaim of the opening-drive pullback at 28469, but 54 points above the bar low, and you were out the same minute at 28470 for a scratch after fees. The idea was right: the tape ran another 395 points to 28864 by 09:48 and you held none of it. Next time log the setup and a stop before entry, buy closer to the reclaim level, and give a winner at least one bar to work."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-11-06",
+   "dir": "LONG",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "10:00",
+   "exit_time": "10:00",
+   "entry": 7455.75,
+   "exit": 7456.25,
+   "qty": 1,
+   "entry_ts": "10:00:10",
+   "exit_ts": "10:00:47",
+   "breakout_candle": "09:59",
+   "stop": 7446.25,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 15,
+     "note": "Strong open drive from the 09:35 low 7392.50 to the 09:53 high 7467.25, then a pullback to 7443.50 at 09:56 that was bouncing by 09:59."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 10,
+     "note": "Buying 7455.75 was 9.5 points above the 09:59 low and right under the 09:48-09:52 supply at 7456.00-7461.50, not at the 7443.50 pullback low."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 6,
+     "note": "No stop was logged; the structural stop is the 09:59 low 7446.25, 9.5 points of risk per contract."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 3,
+     "note": "To the 09:51 high 7461.50 the reward was 5.75 points against 9.5 of risk, about 0.6R, and 1.2R to the 09:53 high 7467.25."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 3,
+     "note": "No setup, timeframe, grade or notes were tagged, so the entry cannot be matched to a rule."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 9,
+     "note": "The 10:00 bar traded 8,265 contracts over an 11-point range from 7450.00 to 7461.00, plenty of liquidity and movement."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 6,
+     "note": "Entry at 10:00:10 sits on the 10:00 data minute, which whipsawed from 7461.00 down to 7441.75 within the next bar."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 13,
+     "note": "The fill at 7455.75 came 10 seconds into a bar that opened at 7452.50, so the entry chased a 3.25-point pop instead of buying the 09:59 close at 7451.75."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 20,
+     "note": "The 37-second hold from 10:00:10 to 10:00:47 never came near the 7446.25 stop; the 10:00 bar low of 7450.00 printed before the fill."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 15,
+     "note": "The exit at 7456.25 took 0.50 of the 5.25 points available to the 10:00 high 7461.00, but the next 15 minutes only reached 7462.00 at 10:16 after a flush to 7441.75 at 10:01, so leaving fast avoided 14 points of heat."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "One MES contract against a 9.5-point structural stop kept the risk at about $47.50."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 3,
+     "note": "No plan, target or stop was written, and a 37-second scratch for 0.50 points does not show a managed trade."
+    }
+   ],
+   "overall": 58,
+   "summary": "You bought the 10:00 pop at 7455.75, 3 points above the bar open and right under the 7456-7461 supply from 09:48-09:52, with no stop or setup logged. The quick 37-second exit at 7456.25 was the best part: the bar topped at 7461.00 and the next minute flushed to 7441.75, 14 points under your entry. Next time wait for the pullback low near 7443.50 to hold and buy there with the 09:59 low as your stop, so the 7461.50 and 7467.25 highs give you at least 1R."
   }
  ],
  "na": [
