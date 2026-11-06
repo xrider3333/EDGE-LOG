@@ -21,13 +21,16 @@ holds 92% of its net in a single fold.**
 
 | cost, ES pts RT | cells with positive net $ | cells reaching >= 7 of 8 folds |
 |---|---|---|
-| **0.08** (my commission-only estimate) | 27 of 106 | **0** |
-| **0.10** (my commission-only estimate) | 25 of 106 | **0** |
-| **0.25** | 14 of 106 | **0** |
+| **0.08** (BELOW ANY REAL COST - see 4a) | 27 of 106 | **0** |
+| **0.10** (BELOW ANY REAL COST - see 4a) | 25 of 106 | **0** |
+| **0.25** (still below the real figure) | 14 of 106 | **0** |
+| *0.45 - the REAL house commission+exchange RT, NOT MEASURED* | *between 1 and 14, by the rungs either side* | *0* |
 | **0.533 (house, headline)** | 1 of 106 | **0** |
+| *0.95 - the real figure WITH slippage, NOT MEASURED* | *at most 1* | *0* |
 
-**This closes the round without needing the cost argument at all.** Even if the owner's true
-commission-only figure is below my 0.08 estimate, no cell on this grid is robust across folds. The
+**This closes the round without needing the cost argument at all** - and that is just as well,
+because my cost estimate turned out to be the wrong way round (4a). At no rung on this ladder,
+real or unreal, does a single cell reach the fold bar. The
 best fold count anywhere is 5 of 8, which is not suggestive - the house bar for a discovery read is
 7 of 8 (p 0.035) and 6 of 8 is already only suggestive.
 
@@ -82,8 +85,29 @@ It is still not enough to clear a fold bar at any cost.
 My prereg wrote "this shape will NOT die of cost: on a 5-15 pt breakout body the headline is 4-10% of
 1R." **Measured mean risk is 1.5-5.3 ES points, so the 0.533 house round trip is 11-36% of 1R - three
 to four times what I assumed.** On a 5-minute tape the trade is simply too small to carry a futures
-round trip comfortably, which is why the commission-only rungs change the count of positive cells by
-27x (1 -> 27) while changing the fold verdict not at all.
+round trip comfortably.
+
+### 4a. CORRECTION, after MANAGER #144: my commission-only rungs were below any real cost
+
+**I was wrong about ES cost in the direction that flattered this round, and the correction is
+recorded here rather than left in a chat.** My prereg and section 1 carried 0.08 and 0.10 ES points
+as an estimated commission-only round trip, labelled as my estimate. MANAGER #144 settled it: there
+is no owner-specific ES figure, and the **house ES round trip is $5.66 both sides at the same broker
+as NQ = 0.45 ES points** at $12.50 a point, or **0.95 points with the $5 slippage a side**. So:
+
+- **My 0.08 and 0.10 rungs are not commission-only, they are below any cost that exists.** Every
+  figure quoted against them - including the 27-of-106 positive count - describes a tape nobody
+  trades, and is relabelled accordingly above.
+- **The real commission-only rung, 0.45, was never measured.** I will not interpolate a count onto
+  it. What the measured rungs either side do say, because positive-cell count falls monotonically in
+  cost, is that 0.45 sits **between 1 and 14 of 106** - and the fold column is **0 on both sides of
+  it**, which is the column the verdict rests on.
+- **The claim I previously made that a better cost assumption multiplies the positive count 27x is
+  WITHDRAWN.** It was true only of rungs below reality. The honest version is narrower: moving from
+  the house headline 0.533 to the real commission-only 0.45 cannot move the count past 14, and moves
+  the fold verdict not at all.
+- **The verdict is unchanged, and for the stronger reason.** It never rested on cost; cost is now
+  worse than I assumed, not better.
 
 **ROC@30k and DD% are NOT interpretable on the losing cells here** and are not quoted as if they
 were: `four_numbers` correctly returns `roc30 = None` when a stretch does not make money, and the
@@ -143,3 +167,24 @@ folds.
 **This is the thirteenth-plus round on the trendline/pullback entry family and the fifth independent
 confirmation that shortening this family's hold costs money.** Nothing here is queued, no strategy
 file is written, and the lockbox is untouched.
+
+## 8. Run records - every reported cell is now on the COMPARE chart (MANAGER #145)
+
+The owner could not see this round on the COMPARE scatter, because a lane harness writes nothing to
+`users/{uid}/runs` - only the web runner does. Fixed for this round under the W47 standing rule:
+
+- **209 run records written** to `C:\EdgeLog\run_records\enguq_202611.jsonl` and synced, one per
+  reported cell at **two cost rungs** - 0.533 (the house headline the verdict rests on) and 0.25 (my
+  ladder's lowest, now labelled below any real cost). Stage `preLB`, family `ENGU-Q`, ES 5m, ledger
+  row 2.218.
+- **The figures are stored as measured, never re-derived.** Each was produced by
+  `augur_engine.drawdowns.four_numbers` off that cell's own DAILY dollar series with zero days
+  included, and handed to `run_record.write_record` through `numbers=`, which stores a lane's dict
+  exactly as given. Nothing I did not measure was written.
+- **The 0.08 and 0.10 rungs were deliberately NOT written.** Per 4a they are below any real cost, and
+  a row on the owner's chart is a claim about a tradeable result.
+- **Three rows were refused and stay refused, correctly.** `D2' w=10/15/20 d=0.5 B0 X1` at house cost
+  lose over $1,000,000 on a $100,000 account, so their DD % from peak reads 1,068-1,138%, and the
+  writer refuses a percentage that large without the dollar drawdown beside it. I did not store a
+  max drawdown for those cells and will not derive one from the net, which is the house rule the
+  writer is enforcing. Their DD % was never interpretable anyway, for the reason in section 4.
