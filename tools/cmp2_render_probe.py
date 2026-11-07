@@ -6621,7 +6621,14 @@ var FIX = __FIX__;
           if(!landsOn(L,id))offend('TOP 10 click','row of run '+id+' opened sub '+L.sub+' selection '+L.sel+' heading '+L.head);});
         calls.push(doRender({c2Screen:'explore',resLvl:'all',c2Tbl:true,resCols:'all'},wc));chk('pointers');
         var ptrEls=[].slice.call(d.querySelectorAll('span[data-rank-run]')),ptrIds=ptrEls.map(function(e){return e.getAttribute('data-rank-run');});
-        var ptrHost=ptrEls.length?{body:(ptrEls[0].closest('[data-rebody]')||{getAttribute:function(){return null;}}).getAttribute('data-rebody'),inRow:ptrEls.some(function(e){return !!e.closest('tr');})}:null;
+        // WHERE THE NOTES SIT CHANGED ON 11-07, so this reads both homes. ONE FLAT TABLE became the
+        //   default for every strategy pick, and the study folds it replaces are where each study's
+        //   notes - and the paper pointers printed under them - used to live. They are now printed
+        //   under the pooled table, each named by its study, in [data-restnotes]; in BY STUDY they
+        //   are still inside [data-rebody]. Either is correct; being inside a ROW never is.
+        var ptrHost=ptrEls.length?{body:(function(){var h=ptrEls[0].closest('[data-rebody]')||ptrEls[0].closest('[data-restnotes]');
+            return h?(h.getAttribute('data-rebody')||h.getAttribute('data-restnotes')):null;})(),
+          inRow:ptrEls.some(function(e){return !!e.closest('tr');})}:null;
         var ptrDead=[].slice.call(d.querySelectorAll('[data-rank-run]')).filter(function(el){return !el.onclick;}).length,ptrNest=d.querySelectorAll('[data-rank-run] [data-rank-run]').length,ptrClicks=[];
         [0,ptrEls.length-1].forEach(function(k){
           calls.push(doRender({c2Screen:'explore',resLvl:'all',c2Tbl:true,resCols:'all'},wc));chk('pointers-restore');
@@ -6666,7 +6673,7 @@ var FIX = __FIX__;
           'PAST RUNS PIN, group view: the pinned run sits above the groups with OPENED, and the note is there':PG.pin&&PG.grp&&PG.above&&PG.opened&&PG.pinId==='326'&&has(PG.note,'filtered to DIP'),
           'PAST RUNS PIN at 390 px (flat, grouped and stacked): the note and the pinned row add no sideways page scroll (each layout is measured against the same screen with no pin), the note stays inside the screen and the show all control is reachable; the pinned row is the first one in the list box':M.flat.vw===390&&M.flat.pageSW<=M.base.pageSW&&M.group.pageSW<=M.base.pageSW&&M.stack.pageSW<=M.baseStack.pageSW&&[M.flat,M.group,M.stack].every(function(m){return m.noteL!=null&&m.noteL>=0&&m.noteR<=m.vw+1&&m.showR!=null&&m.showR<=m.vw+1;})&&M.flat.pinIn===true&&M.flat.pinTop<=60&&M.stack.pinIn===true,
           'TOP 10 rows (older RUNBOARD tab): none is a dead click, and a click on the first and on the last opens the run it names':t10n>=2&&t10dead===0&&t10Clicks.length===2&&allIn(t10Clicks,function(L){return L.found&&landsOn(L,L.id);}),
-          'EXPLORE paper pointers: they sit under the paperlegs study notes (not inside a row), none is a dead click, and a click on the first and on the last opens the run it names':ptrEls.length>=2&&!!ptrHost&&ptrHost.body==='paperlegs'&&!ptrHost.inRow&&ptrDead===0&&ptrClicks.length===2&&allIn(ptrClicks,function(L){return L.found&&L.sub==='runs'&&L.sel===L.id;}),
+          'EXPLORE paper pointers: they sit under the paperlegs study notes - under the pooled table on the flat default, inside the fold in BY STUDY - never inside a row, none is a dead click, and a click on the first and on the last opens the run it names':ptrEls.length>=2&&!!ptrHost&&ptrHost.body==='paperlegs'&&!ptrHost.inRow&&ptrDead===0&&ptrClicks.length===2&&allIn(ptrClicks,function(L){return L.found&&L.sub==='runs'&&L.sel===L.id;}),
           'no [data-rank-run] sits inside another (so the innermost-wins stopPropagation has no nested pair to decide here)':t10nest===0&&ptrNest===0,
           'SUMMARY: no link on any surface opens a run whose family differs from its row (offenders listed in the detail)':bad.length===0
         },{offenders:bad.slice(0,24),audited:seen,studyRows:stRows.length,deadTop10Rows:deadTop,pin:{stub:PS,hydrated:PH,showAll:PB,inList:PC,hiddenInList:PE,group:PG,m390:M},top10:{n:t10n,dead:t10dead,nest:t10nest,clicks:t10Clicks},pointers:{n:ptrEls.length,ids:ptrIds.slice(0,12),host:ptrHost,dead:ptrDead,nest:ptrNest,clicks:ptrClicks},deadPaperPointers:deadPtr,stClicks:stClicks,rows326:K1.length,rows424:K2.length,implied326:implied(E),implied424:implied(D),
