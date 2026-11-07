@@ -17,3 +17,4 @@ Both bad QQQ files retired (backup kept). No saved run used them
 - 2026-11-03: board changed to [done] RETIRED
 - 2026-11-04: board changed to [done] RETIRED
 - 2026-11-05: board changed to [done] RETIRED
+- 2026-11-06: board changed to [done] RETIRED
