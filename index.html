@@ -1499,7 +1499,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='88.58';
+const VERSION='88.59';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -49517,7 +49517,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _dtmini=s=>{if(!s)return '—';const m=String(s).match(/(\d{4})-(\d{2})-(\d{2})[ T]?(\d{2}:\d{2})?/);if(!m)return String(s).slice(0,10);return (+m[2])+'/'+(+m[3])+(m[4]?' '+m[4]:'');};
         const _wfoRowTip=O=>'Walk-forward test (each fold re-tuned): net '+fmtUsd(Math.round(O.poolNet))+', PF '+(O.pf!=null?O.pf.toFixed(2):'—')+', max drawdown '+(O.dd!=null?fmtUsd(-Math.round(O.dd)):'—')+', MAR '+(O.mar!=null?O.mar.toFixed(2):'—')+' per year, Sharpe '+(O.sharpe!=null?(+O.sharpe).toFixed(2):'—')+', '+(+O.tr||0).toLocaleString()+' trades'+((O.from&&O.to)?(', '+String(O.from).slice(0,10)+' to '+String(O.to).slice(0,10)):'')+'.';
         const _wfHeld=r=>{const t=r.top10_results;if(!Array.isArray(t))return '';const fr=t.filter(x=>x&&x.fold!=null);if(!fr.length)return '';const fl=[...new Set(fr.map(x=>x.fold))];const held=fl.filter(fd=>fr.filter(x=>x.fold===fd).some(x=>(+x.oos_pf||0)>1)).length;return held+'/'+fl.length;};
-        const _spk=cum=>{if(!cum||cum.length<2)return '';let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=52,H=15,n=cum.length;const pts=cum.map((v,i)=>(i/(n-1)*W).toFixed(1)+','+(H-((v-mn)/(mx-mn))*H).toFixed(1)).join(' ');return '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" preserveAspectRatio="none" style="vertical-align:middle"><polyline points="'+pts+'" fill="none" stroke="'+(cum[cum.length-1]>=0?'var(--green)':'var(--red)')+'" stroke-width="1.2"/></svg>';};
+        const _spk=cum=>{if(!cum||cum.length<2)return '';let mn=Math.min.apply(null,cum),mx=Math.max.apply(null,cum);if(mx<=mn)mx=mn+1;const W=52,H=15,n=cum.length;const pts=cum.map((v,i)=>(i/(n-1)*W).toFixed(1)+','+(H-((v-mn)/(mx-mn))*H).toFixed(1)).join(' ');return '<svg viewBox="0 0 '+W+' '+H+'" width="'+W+'" height="'+H+'" preserveAspectRatio="none" style="vertical-align:middle;content-visibility:auto;contain-intrinsic-size:'+W+'px '+H+'px"><polyline points="'+pts+'" fill="none" stroke="'+(cum[cum.length-1]>=0?'var(--green)':'var(--red)')+'" stroke-width="1.2"/></svg>';};
         const _instShort=i=>{const m=String(i||'').trim().match(/^[A-Za-z0-9]+/);return m?m[0].toUpperCase():'';};
         // OPENED-RUN PIN (owner #47, 2026-10-09). A link from another screen (an EXPLORE row, the LEADERBOARD, the RUNBOARD ...) opens Past Runs on a run
         //   that the saved list filters can hide: the owner kept a DIP family filter and run #326 was also older than the 75 runs loaded, so the page showed
