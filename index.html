@@ -1499,7 +1499,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='88.53';
+const VERSION='88.54';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1519,7 +1519,7 @@ window._dataFeedWarn=function(){
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
-const CHANGELOG=[{v:'88.53',date:'2026-11-07',notes:['WHY PAST RUNS WAS SHOWING YOU ONLY SEPTEMBER. Your list read PAST RUNS 0 / 79 with no runs match the filter: a GAPGO family filter had been left on from an earlier sitting, and none of the 79 loaded runs is a GAPGO run, so every row was turned away. The one thing left on screen was the open run pinned at the top - #399, dated 15 Sep. September, from a single pinned row. Nothing was lost and nothing was filtering by month.','SO AN EMPTY LIST NOW TELLS YOU WHAT EMPTIED IT. It says how many loaded runs were turned away, names each filter that is on in plain words, says how many runs that one filter refuses on its own, mentions any archived runs hidden as well, and carries SHOW EVERYTHING to clear exactly those settings in one click.','AND THE SCATTER OPENS ON ITS FULL RANGE AGAIN. The row that made it open clamped yesterday - the six-week ORB forward record - has been deleted at the source, so the trim is back to one click on the chip rather than the default. An axis that quietly stops short of a row is the very thing we are trying to end. SHORT WINDOW and the off-scale count stay.']},{v:'88.51',date:'2026-11-06',notes:['THAT CROSS IN THE UPPER RIGHT, NAMED: it is one real row, not a glitch - the ORB lane record for the #314 crown, stage forward, 14 Aug to 25 Sep 2026. Six weeks and SIX trades. Its ROC of 9,437 and Sortino of 105 are those six weeks annualised, which multiplies them by about nine. Nothing on the page was wrong; the arithmetic simply does not mean a year of trading.','SO THE CHART NOW OPENS ON THE MIDDLE OF ITS DATA. The scale keeps the bulk of the dots and anything outside it is PINNED at the edge with a dashed ring, counted on the chip and named with its real figure underneath - nothing is dropped, and SHOW FULL RANGE on the same chip puts the old scale back. A board with no outlier is drawn exactly as before. While fixing this I found the chip had been counting every dot on the chart as off the scale (11 instead of 1); it counts rows now.','AND A ROW TOO SHORT TO ANNUALISE SAYS SO. Any row covering under a quarter of a year wears SHORT WINDOW, is drawn faint, and its hover says how many days it really covers, by how much its per-year figures were multiplied, and to read its trade count and its dollars instead. It stays on the chart and in the table: a tested row is never hidden.']},
+const CHANGELOG=[{v:'88.54',date:'2026-11-07',notes:['EVERY STAGE A LANE RECORD CARRIES IS NOW SELECTABLE (your #179). PROFIT STAGE has three buttons - IS, WF, LB - but your records carry seven stamps: preWF 1,787, WF 823, preLB 288, LB 278, IS 147, FULL 53 and forward 30, plus 32 with no stamp at all. So four of the seven, the biggest of them included, had no button to pick.','NEW CONTROL 3b, RECORD STAGE, beside PROFIT STAGE: IS - PREWF - WF - PRELB - LB - FULL - FORWARD - NO STAGE, each with its count in the window, every one ON unless you turn it off, and ALL to put them back. It only lists the stamps the records on screen actually carry.','PROFIT STAGE IS UNTOUCHED, on purpose: it decides the three money COLUMNS a run or a configuration saved a figure for, and filing a whole-run total under WALK-FORWARD is the one thing this board must never do. Records get their own control instead of being squeezed through that one.','THREE RULES IT KEEPS. A stamp this page has never seen is never hidden - an unknown stage from a new lane draws and names itself. A record you do turn off is counted and named under the chart, never silently gone. And the stage is already the second thing in every record hover, so each dot says which stretch it is.']},{v:'88.53',date:'2026-11-07',notes:['WHY PAST RUNS WAS SHOWING YOU ONLY SEPTEMBER. Your list read PAST RUNS 0 / 79 with no runs match the filter: a GAPGO family filter had been left on from an earlier sitting, and none of the 79 loaded runs is a GAPGO run, so every row was turned away. The one thing left on screen was the open run pinned at the top - #399, dated 15 Sep. September, from a single pinned row. Nothing was lost and nothing was filtering by month.','SO AN EMPTY LIST NOW TELLS YOU WHAT EMPTIED IT. It says how many loaded runs were turned away, names each filter that is on in plain words, says how many runs that one filter refuses on its own, mentions any archived runs hidden as well, and carries SHOW EVERYTHING to clear exactly those settings in one click.','AND THE SCATTER OPENS ON ITS FULL RANGE AGAIN. The row that made it open clamped yesterday - the six-week ORB forward record - has been deleted at the source, so the trim is back to one click on the chip rather than the default. An axis that quietly stops short of a row is the very thing we are trying to end. SHORT WINDOW and the off-scale count stay.']},{v:'88.51',date:'2026-11-06',notes:['THAT CROSS IN THE UPPER RIGHT, NAMED: it is one real row, not a glitch - the ORB lane record for the #314 crown, stage forward, 14 Aug to 25 Sep 2026. Six weeks and SIX trades. Its ROC of 9,437 and Sortino of 105 are those six weeks annualised, which multiplies them by about nine. Nothing on the page was wrong; the arithmetic simply does not mean a year of trading.','SO THE CHART NOW OPENS ON THE MIDDLE OF ITS DATA. The scale keeps the bulk of the dots and anything outside it is PINNED at the edge with a dashed ring, counted on the chip and named with its real figure underneath - nothing is dropped, and SHOW FULL RANGE on the same chip puts the old scale back. A board with no outlier is drawn exactly as before. While fixing this I found the chip had been counting every dot on the chart as off the scale (11 instead of 1); it counts rows now.','AND A ROW TOO SHORT TO ANNUALISE SAYS SO. Any row covering under a quarter of a year wears SHORT WINDOW, is drawn faint, and its hover says how many days it really covers, by how much its per-year figures were multiplied, and to read its trade count and its dollars instead. It stays on the chart and in the table: a tested row is never hidden.']},
 {v:'88.49',date:'2026-11-06',notes:['THE CHART OPENS ON ROC @ $30K DD (your 11-06 note: why arent all of them populating). The scatter opened with SORTINO across the bottom, and the moment you moved it to ROC % / YR, 609 of your rows left the chart - not because they failed, but because a lane or lab record is written as the four numbers (ROC at a $30k drawdown, DD5, DD % from the high, Sortino) and almost never carries the net dollars and date window that ROC % / YR divides. ROC @ $30K DD is the one measure every record does carry and the yardstick this project ranks on, so that is what the chart now opens on. Your own pick still wins; this is only what it starts at.','A COLUMN THE CHART IS PLOTTING NOW HAS TO FIT. The plotted and sorted columns were kept at any width, which was invisible while the chart opened on SORTINO and became a sideways scroll on a phone the moment it opened on the wider ROC @ $30K DD. Rank, strategy and run are still kept always - a row without them cannot be read - and the plotted column still comes before every other one, it simply has to fit the box.','WINDOWED ROWS IS ON UNLESS YOU TURN IT OFF (your 11-06 note: why still laggy). It shipped off because a page search, a print and the render gates all want every row in the page; you are the one paying about three seconds a click for that, so the default is yours now and the gates pin their own setting. The switch is where it was, on the TABLES strip, and OFF is remembered.']},
 {v:'88.48',date:'2026-11-06',notes:['ROW NAMES BESIDE THE DOTS: the first cut of this still let four pairs touch, and the new chart gate caught it. A name now reserves a box a little larger than its own letters, tries the right of its dot and then the left at each step, and only then moves down a line - so in the twelve-dot pile the gate draws, twelve names fit with none overlapping and none ends up far from the dot it belongs to.']},
 {v:'88.46',date:'2026-11-06',notes:['COMPARE SCATTER - ONE COLOUR PER STRATEGY FAMILY (your 11-06 note: strategies are still the same colour). On your board every dot was painted by WHERE IT RAN - a lane, the lab, the box - which is the right question on a month of records but turns ORB, NOISE, ENGU-Q and DIP all the same green when every one of them ran from a lane. The family now wins the colour wherever more than one family is on the chart, so each one has its own hue, and the key under the chart names every family on screen in its own colour with its dot count. Nothing is coded twice: the verdict is still the shape, and the stage mark on a record is unchanged. WHERE IT RAN is not gone - it still owns a chart holding only one family, where there is no family to tell apart, and it is one click away on the COLOUR row under the chart either way.','ROW NAMES BESIDE THE DOTS NO LONGER PILE UP. Names were drawn at a fixed spot beside their dot, so neighbouring dots wrote over each other - ORB 121, 131 and 133 were one smear in your screenshot. Each name now claims the space it needs and steps down a line when that space is taken, up to thirteen deep. The DOT never moves: only its name does, so nothing is drawn anywhere other than where its figures put it.']},
@@ -35744,6 +35744,29 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reSrc==='chat')return (x==='lane'||x==='lab');
           if(_reSrc==='el')return (x==='runner'||x==='box');
           return false;};
+        // WHICH STAGE A RECORD IS, and whether the owner has asked to see it (owner #179 via
+        //   MANAGER, 11-06: default ALL STAGES, every stage selectable, never drop a row for its
+        //   stage). A lane record is ONE stretch and it stamps which: counted off the record files
+        //   this board holds preWF 1,787, WF 823, preLB 288, LB 278, IS 147, FULL 53, forward 30,
+        //   and 32 with no stamp at all. PROFIT STAGE has three buttons - IS, WF, LB - so four of
+        //   those seven, the largest included, had no button to pick. This is their control. It is
+        //   SEPARATE from PROFIT STAGE on purpose: that one drives the three money COLUMNS, and
+        //   filing a whole-run total under WALK-FORWARD is the exact mistake this board must not
+        //   make. Nothing saved means every stage, and a stamp this page has never seen is NEVER
+        //   hidden - an unknown stage from a new lane draws and names itself.
+        const _RE_REC_STG=['IS','preWF','WF','preLB','LB','FULL','forward'];
+        const _reRecStgKey=function(s){const x=String(s==null?'':s).trim();
+          if(!x)return 'none';
+          const hit=_RE_REC_STG.filter(function(g){return g.toLowerCase()===x.toLowerCase();})[0];
+          return hit||('');};   // '' = a stage this page does not know
+        const _reRecStgOn=(function(){const a=APREF.resRecStg;
+          if(!Array.isArray(a))return null;
+          const k=a.map(function(x){return _reRecStgKey(x);}).filter(function(x){return x&&(x==='none'||_RE_REC_STG.indexOf(x)>=0);});
+          return k.length?k:null;})();
+        const _reRecStgOk=function(s){if(!_reRecStgOn)return true;
+          const k=_reRecStgKey(s);
+          if(!k)return true;                       // never drop a row for a stage we cannot name
+          return _reRecStgOn.indexOf(k)>=0;};
         // THE OLD INTERNALS, DERIVED. Forty-odd places read _reLvl and _reShowCfg - the row
         //   builders, the study titles, the column picker, the notes - and they keep working off
         //   one answer. The NEW distinctions (a run with a validate block or without, a record by
@@ -39505,6 +39528,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   rows in the WALK-FORWARD column, where a whole-run total read as the house yardstick.
             const _recF={IS:'is',preWF:'is',WF:'wf',LB:'lb',forward:'lb'};
             const _recRows=[];
+            // what the RECORD STAGE control is holding back, so the line under the chart can name
+            //   it. A record is never dropped without being counted here.
+            window._reRecStgHeld={n:0,by:{}};
             _reRecSt.rows.forEach(function(d,i){
               const net=(d.net_usd!=null&&isFinite(+d.net_usd))?+d.net_usd:null;
               const roc=(d.roc30k!=null&&isFinite(+d.roc30k))?+d.roc30k:null;
@@ -39513,6 +39539,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   show a run that measured its ROC but never wrote its money.
               if(net==null&&roc==null)return;
               if(!_reRecSrcOk(d.where))return;
+              if(!_reRecStgOk(d.stage)){const _hk=_reRecStgKey(d.stage)||'none';
+                window._reRecStgHeld.n++;window._reRecStgHeld.by[_hk]=(window._reRecStgHeld.by[_hk]||0)+1;return;}
               const stg=String(d.stage||'');
               const f=_recF[stg]||null;
               const nm=String(d.strategy||d.family||'a lane run').replace(/\.py$/,'').replace(/[<>&]/g,'');
@@ -40459,6 +40487,33 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                (sg==='wf'?'data held back while tuning and then tested forward - a row that never ran this stage shows a dash and drops off the chart':
                (sg==='lb'?'the stretch never touched until the very end, the honest forward read':'the whole run end to end')))
               +'. A row with no figure for this stage shows a dash that says why and leaves the chart. No other stage is ever substituted for it.',_TONE.samp)).join(''),_TONE.samp);
+        // CONTROL 3b - RECORD STAGE (owner #179). Only drawn when lane or lab records are on the
+        //   board, and only lists the stages those records actually carry, each with its count in
+        //   this window. Every stage is ON unless the owner turns it off; ALL puts the lot back.
+        const _reRecStgBtns=(function(){
+          const C=_reRecSt;
+          if(!(C&&C.state==='ok'&&C.rows&&C.rows.length))return '';
+          const cnt={},seen=[];
+          C.rows.forEach(function(d){if(!_reRecSrcOk(d&&d.where))return;
+            const k=_reRecStgKey(d&&d.stage);if(!k)return;
+            if(!(k in cnt)){cnt[k]=0;seen.push(k);}cnt[k]++;});
+          if(!seen.length)return '';
+          const order=_RE_REC_STG.concat(['none']);
+          const list=order.filter(function(k){return seen.indexOf(k)>=0;});
+          if(list.length<2&&!_reRecStgOn)return '';
+          const words={IS:'the stretch the lane tuned on',
+            preWF:'everything before the walk-forward - the tuning years pooled, the commonest stamp on this board',
+            WF:'data held back while tuning and then tested forward - the house yardstick',
+            preLB:'everything before the lockbox: in-sample and walk-forward together',
+            LB:'the stretch never touched until the end',
+            FULL:'the whole run end to end, which is why its money sits in the row total and in no stretch column',
+            forward:'measured forward after the lockbox was opened',
+            none:'records that never stamped a stage - they are shown by default, because a missing stamp is not a reason to hide a tested row'};
+          const btns=list.map(function(k){
+            return _reBtn('data-resrecstg="'+k+'"',(k==='none'?'NO STAGE':k.toUpperCase()),(!_reRecStgOn||_reRecStgOn.indexOf(k)>=0),
+              (k==='none'?'NO STAGE':k)+' - '+words[k]+'. '+cnt[k]+' record'+(cnt[k]===1?'':'s')+' in this window carr'+(cnt[k]===1?'ies':'y')+' it. Turning it off removes those rows from the chart and the table, and the line under the chart says how many are being held back. A stage this page does not recognise is never hidden.',_TONE.samp);}).join('');
+          return _reCtl('3b','RECORD STAGE','which stretch each LANE OR LAB record covers. A record is one stretch and it stamps which; this picks the stamps you want to see. It is separate from PROFIT STAGE, which decides the money COLUMNS a run or configuration saved a figure for. Every stage is on unless you turn it off.',
+            btns+_reBtn('data-resrecstgall="1"','ALL',!_reRecStgOn,'show every stage again, including any stamp this page does not recognise.',_TONE.samp),_TONE.samp);})();
         // CHART TYPE (owner ask 2026-08-24). SCATTER answers drawdown-against-profit; PARALLEL
         //   lays every scale-free measure side by side so a row that wins on money can be checked
         //   against whether it also wins on efficiency, edge and sample. Same rows, same filters,
@@ -40855,7 +40910,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   the one before it.
             // CHART FIRST (owner 2026-08-28: "put the chart selector tab first, above level").
             //   It decides which drawing everything under it is describing.
-            +_reGrid(_reChartBtns+_reSrcBtns+_reFamRail+_reCfgSel+_reCfgFamBtns+_reStageBtns+_reReadBtns)
+            +_reGrid(_reChartBtns+_reSrcBtns+_reFamRail+_reCfgSel+_reCfgFamBtns+_reStageBtns+_reRecStgBtns+_reReadBtns)
             // BEHIND "MORE": the range, the date it reads, and the filters. These narrow
             //   the chart and the tables together, which is why they live with the other
             //   controls rather than with either panel.
@@ -40936,6 +40991,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               ?'none of them says when it was uploaded, so how far behind this board is cannot be told'
               :('last synced '+_reAgoWords(age)+' ('+new Date(sy).toLocaleString()+')'
                 +((age>3*3600000)?' - a run recorded since then is NOT on this board: tools/run_records_sync.py --write is what puts one here, and nothing runs it by itself':'')));}
+          // RECORD STAGE holding rows back is stated, with the stages it is holding (owner #179:
+          //   never drop a row for its stage without saying so).
+          const _RSH=window._reRecStgHeld;
+          if(_RSH&&_RSH.n)parts.push('RECORD STAGE is holding back '+_RSH.n+' lane record'+(_RSH.n===1?'':'s')
+            +' - '+Object.keys(_RSH.by).map(function(k){return _RSH.by[k]+' '+(k==='none'?'with no stage recorded':k);}).join(', ')
+            +'; tick the stage back on in control 3b and '+((_RSH.n===1)?'it returns':'they return'));
           if(st(C)==='err')parts.push('the lane-record read failed ('+String((C&&C.why)||'no reason given')+')');
           parts.push('the figures on screen are the '+_reSegsEff.map(function(g){return _reSegLong[g];}).join(' + ')
             +' reading'+((_reSegsEff.length>1)?' added together - tick WALK-FORWARD alone for the house yardstick':''));
@@ -41373,7 +41434,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   KEEL - only exist once you are on AUTO VAL with 1E CONFIGS showing. Hiding
           //   that made the board look as though it only ever had raw configurations.
           const _c2Keep='<div style="background:var(--bg2);border:1px solid var(--border2);border-radius:12px;padding:10px 14px;margin-bottom:10px">'
-            +_reGrid(_reMonBtns+_reSrcBtns+_reStageBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
+            +_reGrid(_reMonBtns+_reSrcBtns+_reStageBtns+_reRecStgBtns+_reFamRail+(_reShowCfg?_reCfgSel:''))+'</div>';
           // capped and scrollable when they are on, so a thousand rows cannot push the
           //   chart off the screen - the old sidebar layout capped them the same way.
           // SIDE puts the chart and the tables in two columns, STACK keeps them one above the
@@ -50446,6 +50507,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const v=b.dataset.resstage,i=cur.indexOf(v);
         if(i>=0){if(cur.length===1)return;cur.splice(i,1);}else cur.push(v);
         savePref('resSegs',all.filter(x=>cur.indexOf(x)>=0));renderApp();};});
+      // RECORD STAGE (control 3b, owner #179). Nothing saved means every stage, so the first
+      //   click has to start from the full list and remove one - otherwise turning one off would
+      //   read as turning only that one ON. Turning the last one off is refused the same way
+      //   PROFIT STAGE refuses it: an empty control would empty the board with no way to tell why.
+      const _RECSTG_ALL=['IS','preWF','WF','preLB','LB','FULL','forward','none'];
+      content.querySelectorAll('[data-resrecstg]').forEach(b=>{b.onclick=()=>{
+        let cur=Array.isArray(APREF.resRecStg)?APREF.resRecStg.filter(x=>_RECSTG_ALL.indexOf(x)>=0):_RECSTG_ALL.slice();
+        if(!cur.length)cur=_RECSTG_ALL.slice();
+        const v=b.dataset.resrecstg,i=cur.indexOf(v);
+        if(i>=0){if(cur.length===1)return;cur.splice(i,1);}else cur.push(v);
+        const keep=_RECSTG_ALL.filter(x=>cur.indexOf(x)>=0);
+        savePref('resRecStg',(keep.length===_RECSTG_ALL.length)?null:keep);renderApp();};});
+      content.querySelectorAll('[data-resrecstgall]').forEach(b=>{b.onclick=()=>{savePref('resRecStg',null);renderApp();};});
       // item 12: the not-on-chart note's "tick THIS stretch instead" offer sets the
       //   whole set at once (the note already counted what that exact set would
       //   place), rather than toggling one stretch the way control 3 does.

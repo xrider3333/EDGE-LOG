@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 170
+N_CASES = 171
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -8160,6 +8160,67 @@ var FIX = __FIX__;
            firstYs:A?A.paths.slice(0,4).map(firstY):null,order:order,hl:hl,
            txt:A?A.txt.slice(0,260):null,rec:Rb?Rb.txt.slice(0,260):null,errs:errAcc.slice(0,2)});
       })();
+      // -- case a5_record_stage (owner #179 via MANAGER, 2026-11-06: "PROFIT STAGE pill hides
+      //    preWF / preLB / FULL / forward lane records. Default ALL STAGES, every stage
+      //    selectable, never drop a row for stage"). PROFIT STAGE had three buttons for the seven
+      //    stamps on this board, so four of them - the biggest included - had no button at all.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function rec(id,stg){return {id:id,timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'a5probe'+id,family:'ZSTG',instrument:'NQ',timeframe:'5m',
+          roc30k:40,sortino:2.2,dd5:9000,ddpct:11,where:'lane',stage:stg,start_usd:100000,
+          years:3,trades:300,net_usd:90000};}
+        var ROWS=[rec('s1','IS'),rec('s2','preWF'),rec('s3','WF'),rec('s4','preLB'),
+                  rec('s5','LB'),rec('s6','FULL'),rec('s7','forward'),rec('s8','ZNEWSTAMP')];
+        var W=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify(ROWS)+",at:Date.now()};window._reMonKey='all';");
+        function look(){
+          var btns=[].map.call(d.querySelectorAll('[data-resrecstg]'),function(b){
+            // NO BACKSLASH IN THIS FILE'S JS: the probe page is a Python string, so a regex
+            //   written here as backslash-s arrives in the browser as something else entirely.
+            return {k:b.getAttribute('data-resrecstg'),tx:dfxN(b.textContent||'')};});
+          var names=[].map.call(d.querySelectorAll('[data-repoint]'),function(g){
+            var t=g.querySelector('title');return dfxN(t?(t.textContent||''):'');});
+          // THE NOTE HAS ITS OWN BOX. body.textContent on this page includes the inline script,
+          //   so a regex over it finds the SOURCE of the line rather than the line - which is what
+          //   this case reported on its first run. Every other case reads [data-redetbox].
+          var box=d.querySelector('[data-redetbox]'),note=box?dfxN(box.textContent||''):'';
+          var ctl=!!d.querySelector('[data-regrp="RECORD STAGE"]');
+          // a record's hover upper-cases its stage, so the search is upper-cased too
+          var up=names.map(function(n){return String(n).toUpperCase();});
+          return {keys:btns.map(function(b){return b.k;}),labels:btns.map(function(b){return b.tx;}),
+                  nDots:names.length,names:names,
+                  has:function(s){var S=String(s).toUpperCase();
+                    return up.filter(function(n){return n.indexOf(S)>=0;}).length;},
+                  held:(note.match(/RECORD STAGE is holding back [^.;]*/)||[''])[0],
+                  hasCtl:ctl};}
+        var base={c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',resXAxis:'roc30',
+                  resFilt:{fam:['ZSTG']},resMarks:'dot',c2Tbl:true};
+        calls.push(doRender(base,W));chk('default');
+        var A=look();
+        calls.push(doRender(Object.assign({},base,{resRecStg:['IS','preWF','WF','LB','FULL','forward','none']}),W));
+        chk('preLB off');
+        var B=look();
+        dfxCase('a5_record_stage',calls,{
+          'there IS a control for the stage a lane record carries - PROFIT STAGE never had buttons for four of them':
+            A.hasCtl&&A.keys.length>=6,
+          'and it offers EVERY stage these records carry, not just the three money columns':
+            ['IS','preWF','WF','preLB','LB','FULL','forward'].filter(function(k){return A.keys.indexOf(k)<0;}).length===0,
+          'BY DEFAULT every stage is shown - all eight records are on the chart':A.nDots===8,
+          'by default nothing is held back, so no line claims otherwise':A.held==='',
+          'preWF - the commonest stamp on this board - is drawn by default':A.has(' PREWF ')===1,
+          'and so are preLB, FULL and forward, the three that had no button before':
+            A.has(' PRELB ')===1&&A.has(' FULL ')===1&&A.has(' FORWARD ')===1,
+          'TURNING preLB OFF removes exactly that one row and keeps the others':
+            B.nDots===7&&B.has(' PRELB ')===0&&B.has(' PREWF ')===1&&B.has(' FULL ')===1,
+          'and the line under the chart COUNTS what is being held back and names its stage':
+            /holding back 1 lane record/.test(B.held)&&/preLB/.test(B.held),
+          'a stamp this page has never seen is NEVER hidden - it draws even when it is not ticked':
+            A.has('ZNEWSTAMP')===1&&B.has('ZNEWSTAMP')===1,
+          'no console errors':errAcc.length===0
+        },{keys:A.keys,labels:A.labels,nA:A.nDots,nB:B.nDots,held:B.held.slice(0,200),
+           aHeld:A.held.slice(0,120),errs:errAcc.slice(0,2)});
+      })();
       // -- case a4_short_window (owner 2026-11-06: "idk what that cross is in the upper right.
       //    must be a mistake or outlier"). It was an ORB forward record covering 42 days and six
       //    trades, whose per-year figures are those six weeks multiplied by about nine. The row
@@ -10631,6 +10692,7 @@ def main(argv=None):
     DFX += ['e3_label_pile']
     DFX += ['d1_windowed_default']
     DFX += ['a4_short_window']
+    DFX += ['a5_record_stage']
     DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']
