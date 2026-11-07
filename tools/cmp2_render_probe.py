@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 169
+N_CASES = 170
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7970,13 +7970,19 @@ var FIX = __FIX__;
         var maxTick=function(t){var m=0;t.forEach(function(s){var v=parseFloat(String(s).replace(/[^0-9.\-]/g,''));
           if(isFinite(v)&&Math.abs(v)>Math.abs(m))m=v;});return m;};
         dfxCase('e1_axis_outlier',calls,{
-          'BY DEFAULT: all eleven rows are drawn and the axis REACHES the far one, so no dot sits on an edge':
-            D.n===11&&!!D.far&&Math.abs(maxTick(D.ticks))>2000,
-          'by default nothing is ringed, nothing is counted off the scale':
-            !!D.far&&D.far.ring===false&&String(D.pin||'').indexOf('"x":[]')>=0
-            &&D.note.indexOf('off the scale')<0,
-          'and the chip offers the trim, saying how many dots it would push off first':
-            !!D.chip&&D.chip.to==='mid'&&/ZOOM TO MIDDLE/.test(D.chip.tx)&&/WOULD GO OFF/.test(D.chip.tx),
+          // CHANGED 11-06: the trim is now what the board opens on, because one six-week ORB
+          //   forward record annualised to a ROC of 9,437 and squashed sixty-nine dots into the
+          //   corner of the owner's chart. So the DEFAULT block below pins the trimmed state and
+          //   the explicit block pins that the full range is still one click away and still
+          //   reaches the far row. Neither state may drop it.
+          'BY DEFAULT: all eleven rows are drawn and the axis does NOT stretch out to the far one':
+            D.n===11&&!!D.far&&Math.abs(maxTick(D.ticks))<2000,
+          'by default the far row is pinned at the edge and ringed, so its place is visibly not its figure':
+            !!D.far&&D.far.ring===true&&D.far.cx>=930&&String(D.pin||'').indexOf('"x":[]')<0,
+          'and the chip counts the ROWS off the scale, not the dots on the chart':
+            !!D.chip&&/1 OFF SCALE/.test(D.chip.tx),
+          'and the chip offers the full range back':
+            !!D.chip&&D.chip.to==='all'&&/SHOW FULL RANGE/.test(D.chip.tx),
           'the chip also says why there is no log scale, rather than leaving it a silent omission':
             !!D.chip&&/negative/.test(D.chip.tip),
           'WITH THE TRIM ON: all eleven rows are still drawn - the far one is never dropped':A.n===11&&!!A.far,
@@ -8152,6 +8158,57 @@ var FIX = __FIX__;
         },{paths:A?A.paths.length:null,zero:A?A.zero:null,
            firstYs:A?A.paths.slice(0,4).map(firstY):null,order:order,hl:hl,
            txt:A?A.txt.slice(0,260):null,rec:Rb?Rb.txt.slice(0,260):null,errs:errAcc.slice(0,2)});
+      })();
+      // -- case a4_short_window (owner 2026-11-06: "idk what that cross is in the upper right.
+      //    must be a mistake or outlier"). It was an ORB forward record covering 42 days and six
+      //    trades, whose per-year figures are those six weeks multiplied by about nine. The row
+      //    stays on the chart and says so.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function rec(id,fam,yrs){return {id:id,timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'a4probe'+fam,family:fam,instrument:'NQ',timeframe:'5m',
+          roc30k:40,sortino:2.2,dd5:9000,ddpct:11,where:'lane',stage:'forward',start_usd:100000,
+          years:yrs,trades:6,win_start:'2026-08-14',win_end:'2026-09-25'};}
+        var W=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify([
+          rec('a4short','ZSHORT',0.115),rec('a4long','ZLONG',3.0)])+",at:Date.now()};window._reMonKey='all';");
+        calls.push(doRender({c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZSHORT','ZLONG']},resMarks:'dot',c2Tbl:true},W));
+        chk('short window');
+        var R=(function(){
+          var txt=dfxN(d.body.textContent||'');
+          var flags=[].map.call(d.querySelectorAll('[title]'),function(x){
+              return {tip:dfxN(x.getAttribute('title')||''),tx:dfxN(x.textContent||'')};})
+            .filter(function(o){return /SHORT WINDOW/.test(o.tx);});
+          var dots=[].map.call(d.querySelectorAll('[data-repoint]'),function(g){
+            // A RECORD'S MARK IS NOT A CIRCLE - _reRecMark draws the stretch as its own glyph, and
+            //   a forward record is a cross with no fill at all. Take the opacity off whichever
+            //   child carries one, fill or stroke.
+            var t=g.querySelector('title');
+            var c=[].filter.call(g.querySelectorAll('*'),function(e){
+              return e.hasAttribute('fill-opacity')||e.hasAttribute('stroke-opacity');})[0];
+            return {tip:dfxN(t?(t.textContent||''):''),
+                    op:c?String(c.getAttribute('fill-opacity')||c.getAttribute('stroke-opacity')||''):''};});
+          return {nFlags:flags.length,tip:flags.length?flags[0].tip:'',
+                  nDots:dots.length,
+                  // the opacity of each row's own dot. Records are drawn softer than runs to begin
+                  //   with, so the test is SHORTER than the other record, not 'under 1'.
+                  shortOp:(dots.filter(function(o){return /ZSHORT/.test(o.tip);})[0]||{}).op,
+                  longOp:(dots.filter(function(o){return /ZLONG/.test(o.tip);})[0]||{}).op,
+                  hasWord:txt.indexOf('SHORT WINDOW')>=0};})();
+        dfxCase('a4_short_window',calls,{
+          'BOTH rows are on the chart - a window too short to annualise is never a reason to drop a row':
+            R.nDots===2,
+          'the six-week row is flagged SHORT WINDOW and the three-year row is not':R.nFlags===1,
+          'the flag says how many days the row actually covers':/42 days/.test(R.tip),
+          'and by how much its per-year figures were multiplied, so the ROC reads as arithmetic':
+            /multiplied up by about /.test(R.tip),
+          'and it tells the reader what to read instead':/trade count/.test(R.tip),
+          'the short row is drawn fainter than the other record, so the eye discounts it too':
+            R.shortOp!=null&&R.longOp!=null&&+R.shortOp<+R.longOp,
+          'no console errors':errAcc.length===0
+        },{nFlags:R.nFlags,nDots:R.nDots,shortOp:R.shortOp,longOp:R.longOp,
+           tip:R.tip.slice(0,220),errs:errAcc.slice(0,2)});
       })();
       // -- case d1_windowed_default (owner 2026-11-06: "why still laggy"). WINDOWED ROWS is now
       //    ON unless turned off. Every other case pins it off to read whole tables, so this is the
@@ -10572,6 +10629,7 @@ def main(argv=None):
     DFX += ['e2_dot_colour']
     DFX += ['e3_label_pile']
     DFX += ['d1_windowed_default']
+    DFX += ['a4_short_window']
     DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']
