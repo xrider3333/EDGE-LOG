@@ -1273,3 +1273,17 @@ def test_dip_off_sends_no_new_lot_but_a_held_lot_still_exits_its_own_six(env):
     assert e.sent(start) == [] and e.books() == {"DIP_RSI": 6}
     e.tick(at(DAY2, 10, 10, 10), events=[dip_exit(rows[0], DAY2, 700.0)], cfg=off)
     assert e.sent(start) == [("SELL", 6)] and e.fake.pos == 0 and not any(e.books().values())
+
+
+def test_owner_close_at_open_sells_every_held_dip_lot_at_the_next_open_and_nothing_else(env):
+    e = env
+    e.hold_dip(["RSI", "DBL"])
+    cfg = json.loads(json.dumps(e.cfg))
+    cfg["close_legs_at_open"] = ["DIP"]
+    start = len(e.fake.sent)
+    e.tick(at(DAY, 20, 0), cfg=cfg)
+    assert all(e.lot(f"DIP_{s}")["close_pending"]["reason"] == "OWNER CLOSE" for s in ("RSI", "DBL"))
+    assert len(e.fake.sent) == start
+    e.tick(at(DAY2, 9, 30, 5), cfg=cfg)
+    assert e.state["legs"] == {} and e.fake.pos == 0
+    assert e.sent(start) == [("SELL", 6)] * 2

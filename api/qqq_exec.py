@@ -9688,7 +9688,8 @@ def _maybe_emit_keel_closes(state, log=print):
 # The flatten's internal cross never offsets a closing leg against a held lot (the held leg
 # is not in the flatten's legs at all), and next morning's netting sees the held lot through
 # the account net (webull_orders._account_net), like any open leg.
-_PENDING_RANK = {"KILL": 3, "BREAKER": 2, "signal exit": 1}
+OWNER_CLOSE = "OWNER CLOSE"
+_PENDING_RANK = {"KILL": 3, OWNER_CLOSE: 3, "BREAKER": 2, "signal exit": 1}
 HELD_EXIT_REASON = "signal exit (held overnight, sold at the open)"
 # A hold leg's strategy exit whose own price is not from now (consumed late, inside regular
 # hours, for a lot not carried in from an earlier day) -- sold at market at a price from now.
@@ -10085,6 +10086,27 @@ def _held_legs_to_defer(state, cfg, nowdt):
         return []
 
 
+def _owner_close_legs(state, cfg, nowdt, log=print):
+    """OWNER CLOSE (owner 11-07): config "close_legs_at_open" (leg or family names, e.g.
+    ["DIP"]) marks every HELD lot of those legs to be sold at market by the first tick from
+    the next open, through the same deferred-close path a KILL uses (_defer_held_close ->
+    _run_deferred_held_closes -> _close_all for that leg only). Marked once per lot; taking
+    the name out of the config later does not cancel a mark already made. Never raises."""
+    try:
+        names = cfg.get("close_legs_at_open") or []
+        if not names:
+            return
+        for leg, lot in list((state.get("legs") or {}).items()):
+            if not lot or not any(leg == n or leg_family(leg) == n for n in names):
+                continue
+            cp = lot.get("close_pending") if isinstance(lot.get("close_pending"), dict) else {}
+            if OWNER_CLOSE in (cp.get("reasons") or {}) or cp.get("reason") == OWNER_CLOSE:
+                continue
+            _defer_held_close(state, cfg, leg, OWNER_CLOSE, nowdt, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] owner close-at-open failed (non-fatal): {type(e).__name__}: {e}")
+
+
 def _defer_held_close(state, cfg, leg, reason, nowdt, log=print, px=None, trade_id=None,
                       late=False):
     """Keep a held lot open and mark it to be sold at market by the first tick from the next
@@ -10189,7 +10211,7 @@ def _run_deferred_held_closes(state, cfg, nowdt, quote_fn, ratio_fn, kill_presen
             late_now = bool(cp.get("late")) and not _carried_into(lot, nowdt.strftime("%Y-%m-%d"))
             saved = lot.pop("close_pending")
             saved.pop("_waiting_logged", None)
-            if top in ("KILL", "BREAKER"):
+            if top in ("KILL", "BREAKER", OWNER_CLOSE):
                 _close_all(state, cfg, top, quote_fn, ratio_fn, log=log, nowdt=nowdt, legs=[leg])
             else:
                 px, src = _exit_price_for_leg(leg, log=log)
@@ -16812,6 +16834,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # WEBULL LIVE S2 (2026-11-04): while the KILL file is present, read Webull's OWN QQQ
     # position and flatten it regardless of what the book believes -- see kill_from_broker
     kill_from_broker(state, cfg, nowdt, log=log)
+    _owner_close_legs(state, cfg, nowdt, log=log)
 
     # HOLD OVERNIGHT: a held lot's KILL / BREAKER / strategy-exit close decided outside
     # regular hours goes out now if the market is open (a KILL whose file is gone is
