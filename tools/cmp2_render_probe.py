@@ -7977,18 +7977,21 @@ var FIX = __FIX__;
         var maxTick=function(t){var m=0;t.forEach(function(s){var v=parseFloat(String(s).replace(/[^0-9.\-]/g,''));
           if(isFinite(v)&&Math.abs(v)>Math.abs(m))m=v;});return m;};
         dfxCase('e1_axis_outlier',calls,{
-          // THE TRIM IS OPT-IN (11-06 made it the default, 11-07 put it back). It was the default
-          //   for one ship, for one row: a six-week ORB forward record whose ROC annualised to
-          //   9,437. That record was deleted at the source, so the DEFAULT block pins the plain
-          //   fit again - every row drawn, the axis reaching the far one, nothing ringed - and the
-          //   explicit block below pins what one click on the chip still does. Neither drops a row.
-          'BY DEFAULT: all eleven rows are drawn and the axis REACHES the far one, so no dot sits on an edge':
-            D.n===11&&!!D.far&&Math.abs(maxTick(D.ticks))>2000,
-          'by default nothing is ringed, nothing is counted off the scale':
-            !!D.far&&D.far.ring===false&&String(D.pin||'').indexOf('"x":[]')>=0
-            &&D.note.indexOf('off the scale')<0,
-          'and the chip offers the trim, saying how many dots it would push off first':
-            !!D.chip&&D.chip.to==='mid'&&/ZOOM TO MIDDLE/.test(D.chip.tx)&&/WOULD GO OFF/.test(D.chip.tx),
+          // THE TRIM IS THE DEFAULT AGAIN (default 11-06, opt-in 11-07 morning, default 11-07
+          //   afternoon - and each move had a reason in the data). It came out when the one
+          //   extreme row was deleted; it goes back because the owner's whole-board view carries
+          //   362 records whose DD % from peak runs 100% to 690% - correct readings of strategies
+          //   that lost more than the account began with, unbounded by nature, and enough of them
+          //   to flatten every other dot. So the DEFAULT block pins the trimmed state, and what
+          //   neither state may ever do is drop a row.
+          'BY DEFAULT: all eleven rows are drawn and the axis does NOT stretch out to the far one':
+            D.n===11&&!!D.far&&Math.abs(maxTick(D.ticks))<2000,
+          'by default the far row is pinned at the edge and ringed, so its place is visibly not its figure':
+            !!D.far&&D.far.ring===true&&D.far.cx>=930&&String(D.pin||'').indexOf('"x":[]')<0,
+          'and the chip counts the ROWS off the scale, not the dots on the chart':
+            !!D.chip&&/1 OFF SCALE/.test(D.chip.tx),
+          'and the chip offers the full range back, so no row is ever only reachable by guessing':
+            !!D.chip&&D.chip.to==='all'&&/SHOW FULL RANGE/.test(D.chip.tx),
           'the chip also says why there is no log scale, rather than leaving it a silent omission':
             !!D.chip&&/negative/.test(D.chip.tip),
           'WITH THE TRIM ON: all eleven rows are still drawn - the far one is never dropped':A.n===11&&!!A.far,

@@ -1499,7 +1499,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='88.61';
+const VERSION='88.62';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -35879,7 +35879,22 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   of a row is exactly what the hidden-rows scope exists to end. The chip stays: it says
         //   how many dots the trim would push off, and one click still applies it the moment
         //   another extreme row shows up.
-        const _reZoomMid=(APREF.resZoom==='mid');
+        // THE CLAMP IS THE DEFAULT AGAIN (11-07, second ask of the day - and the reason is in the
+        //   data, so it is worth writing down rather than looking like a flip-flop). It went in on
+        //   11-06 for ONE six-week ORB record, came out this morning because that record was
+        //   deleted and it was then guarding nothing, and goes back in now because the owner's
+        //   STRATEGY = ALL board carries 362 records whose DD % from peak runs 100% to 690%. Those
+        //   are NOT corrupt: dd_pct_peak divides the fall by the running peak of start + profit, so
+        //   a strategy that loses more than the account began with falls by a multiple of it - one
+        //   row stores -$690,334 on a $100,000 start. They are real, they are unbounded by nature,
+        //   and a handful of them flattens every other dot into the corner.
+        //   THE ANSWER IS NOT A 0-100 CAP, which is what was asked for: that would push 362 correct
+        //   rows off the chart with nothing but an axis to say so. The percentile clamp keeps the
+        //   middle 96%, PINS anything outside at the edge with a dashed ring, counts it on the chip
+        //   and names it with its real figure underneath - nothing is dropped - and SHOW FULL RANGE
+        //   is one click. It only engages when the full range is more than six times the middle, so
+        //   a board with no outlier is drawn exactly as it was.
+        const _reZoomMid=(APREF.resZoom!=='all');
         // PLOT FAILURES (control 5, owner ask 2026-08-23). Chart only, and OFF by
         //   default: ten failed rows carry $300k-$694k drawdowns and were setting the
         //   axis width for all 618, so everything else stacked into the left edge. The
