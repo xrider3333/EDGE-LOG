@@ -44,8 +44,19 @@ same shape that disqualified Webull arm A two days ago at 35%.
 
 | exit | mean gross R | mean net R @ 0.533 | mean folds won |
 |---|---|---|---|
-| **X4 - the crown's own exit** (swing-low stop, trail from `act_R`, breakeven, MULTI-DAY HOLD) | **+0.0095** | **-0.2329** | **2.17 / 8** |
+| **X4 - an X4-style multi-day trailing exit** (swing-low stop, trail from `act_R`, breakeven, MULTI-DAY HOLD) | **+0.0095** | **-0.2329** | **2.17 / 8** |
 | X1 - the owner's sketch (1R off the body, stop at the breakout low, flat at the close) | -0.0280 | -0.4277 | 0.66 / 8 |
+
+> **CORRECTION, 2026-11-06, found while pinning #335 for the crown-overlap check: X4 IS NOT THE
+> CROWN'S OWN EXIT, and every description of it as such is WITHDRAWN.** The harness pins stop_mult
+> 1.0, act_R 2.5, trail_frac 2.5, breakeven_R 1.5. The file's defaults are 1.0 / 1.5 / 2.5 / 2.0 and
+> run #335's champion is 1.2 / 2.5 / 4.0 / 1.0 - so two of the four are the file's, one is the run's,
+> and breakeven_R 1.5 is from neither. That is the FILE DEFAULTS != RUN rule, broken by me. What X4
+> actually is: an X4-STYLE multi-day trailing exit, soundly measured, simply not the crown's.
+> **The verdict is untouched** - a 0-of-106 fold count moves for no exit parameter - and so is
+> **"a multi-day hold beats flat-at-close"**, because both arms were measured against each other on
+> the same bars. Full treatment in section 4 of
+> `docs/RESULTS_enguq_crown_overlap_r1_2026-11-06.md`.
 
 **X4 beats X1 on every statistic, across all 53 cells.** Gross R flips sign; net R halves its loss;
 the fold count more than triples. **This is the comparison MANAGER's scan r1 could not make, because
