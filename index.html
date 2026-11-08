@@ -162,6 +162,40 @@
 
 
 
+
+/* ──── PAPER DARK (owner 2026-11-08, MANAGER #194) ────
+   Paper's layout and flatness, dark tokens, and NOTHING the compositor has to blur.
+   Deliberately absent from the frost list below: no backdrop-filter. And unlike PAPER
+   itself, no blurred box-shadow and no hover transform either - a blur radius is paid
+   for on every scrolled frame, which is the whole reason this theme exists. Flat 1px
+   borders do the separating instead.
+   The tokens are paper's own scale inverted, not MONO's: same flat greys, same single
+   accent per state, no translucency anywhere. */
+[data-theme="paperdark"]{--bg:#0f1012;--bg1:#16181b;--bg2:#1b1e22;--bg3:#22262b;--border:#2e3338;--border2:#262b30;--text:#eceef0;--text2:#c6cace;--text3:#9aa0a6;--text4:#7c8288;--text5:#5f656b;--green:#2fd598;--red:#ff5f56;--yellow:#e3b341;--blue:#5b8def;--purple:#a78bfa;--attn-red:#ff5f56;--attn-amber:#e3b341;--attn-ok:#2fd598;}
+[data-theme="paperdark"] body,[data-theme="paperdark"] html{background:#0f1012}
+[data-theme="paperdark"] .section{background:#16181b;border:1px solid #2e3338;border-radius:14px;box-shadow:none}
+[data-theme="paperdark"] .hero-card{background:#16181b;border:1px solid #2e3338;border-radius:12px;box-shadow:none;transition:border-color .15s}
+[data-theme="paperdark"] .hero-card:hover{border-color:#3d444b;box-shadow:none;transform:none}
+[data-theme="paperdark"] .mini-card{background:transparent}
+[data-theme="paperdark"] .kpi-strip,[data-theme="paperdark"] .breakdown-strip{background:#16181b;border:1px solid #2e3338;border-radius:12px;box-shadow:none}
+[data-theme="paperdark"] .sec-hd{color:#9aa0a6;letter-spacing:2px;padding:14px 18px 6px}
+[data-theme="paperdark"] .stat-lbl{color:#7c8288}
+[data-theme="paperdark"] th{background:transparent;color:#9aa0a6;border-bottom:1px solid #2e3338}
+[data-theme="paperdark"] td{border-bottom:1px solid #22262b;color:#eceef0}
+[data-theme="paperdark"] .kpi-strip > .mini-card,[data-theme="paperdark"] .breakdown-strip > .section{border-right:1px solid #2e3338}
+[data-theme="paperdark"] .btn-d{background:#1b1e22;border:1px solid #2e3338;color:#c6cace}
+[data-theme="paperdark"] .btn-d:hover{background:#22262b}
+[data-theme="paperdark"] .btn-ghost{color:#9aa0a6}
+[data-theme="paperdark"] .btn-ghost:hover{color:#eceef0;background:#1b1e22}
+[data-theme="paperdark"] .btn-ghost.active{color:#eceef0;border-bottom:2px solid #5b8def;background:#1b1e22}
+[data-theme="paperdark"] input,[data-theme="paperdark"] select,[data-theme="paperdark"] textarea{background:#16181b;border:1px solid #2e3338;color:#eceef0}
+[data-theme="paperdark"] .qb-card{border:1px solid var(--border)}
+[data-theme="paperdark"] .qb-tile{border:1px solid var(--border)}
+[data-theme="paperdark"] .qb-bar{background:#22262b}
+/* AND A BLANKET REFUSAL OF BLUR, so a panel styled somewhere else in this file - or added
+   later by any lane - cannot quietly put the cost back on this theme. This is the one rule
+   that makes PAPER DARK a promise rather than a colour scheme. */
+[data-theme="paperdark"] *{backdrop-filter:none !important;-webkit-backdrop-filter:none !important;}
 /* ──── FROST-STYLE EFFECTS APPLIED TO ALL MODERN THEMES ──── */
 [data-theme="glass"] .section, [data-theme="glass"] .kpi-strip, [data-theme="glass"] .breakdown-strip,
 [data-theme="aurora"] .section, [data-theme="aurora"] .kpi-strip, [data-theme="aurora"] .breakdown-strip,
@@ -1499,7 +1533,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='88.70';
+const VERSION='88.71';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -52974,7 +53008,11 @@ function _setPaneAppear(){
     {id:'stealth',color:'#34d399',label:'Stealth'},
     {id:'slate',color:'#58a6ff',label:'Slate'},
     {id:'mono',color:'#e0e0e0',label:'Mono'},
-    {id:'paper',color:'#2563eb',label:'Paper'}
+    {id:'paper',color:'#2563eb',label:'Paper'},
+    // PAPER DARK (owner 2026-11-08): paper's flat layout in dark tokens, with no
+    //   backdrop-filter and no blurred shadow anywhere - the cheapest surface this app
+    //   can draw, for a device where the frosted themes cost frames on a long table.
+    {id:'paperdark',color:'#5b8def',label:'Paper Dark'}
   ];
   const on=id=>prefs.theme===id||(!prefs.theme&&id==='dark');
   return _setCard('THEME &amp; DENSITY',
