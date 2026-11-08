@@ -473,6 +473,35 @@ def _one_episode(v):
             "break the plot silently" % (LAB_NOT_TESTABLE, v, type(v).__name__))
 
 
+# OWNER ORDER 11-08 (MANAGER #185, board w103): NO ROC ON A WINDOW UNDER A QUARTER YEAR. ROC is an
+# annualised figure; a few weeks of data annualise into nonsense (ORDERFLOW LB 10-12..11-06 read 1043.98).
+# Such a record keeps its other numbers, roc30k = null, and the note carries SHORT WINDOW.
+SHORT_WINDOW_YEARS = 0.25
+SHORT_WINDOW_TAG = "SHORT WINDOW"
+
+
+def window_years(years, win_start, win_end):
+    """The stretch length in years: `years` when given, else from the data window dates; None if neither."""
+    if years is not None:
+        try:
+            return float(years)
+        except (TypeError, ValueError):
+            return None
+    if win_start and win_end:
+        try:
+            d0 = datetime.date.fromisoformat(str(win_start)[:10])
+            d1 = datetime.date.fromisoformat(str(win_end)[:10])
+            return (d1 - d0).days / 365.25
+        except ValueError:
+            return None
+    return None
+
+
+def is_short_window(years, win_start=None, win_end=None):
+    y = window_years(years, win_start, win_end)
+    return y is not None and y < SHORT_WINDOW_YEARS
+
+
 def _note(note, computed):
     """One short line, plus the provenance tag.
 
@@ -689,6 +718,9 @@ def build_record(lane, where, stage, *, strategy, family, instrument, timeframe,
     if cost_pt is None:
         cost_pt, _ = _pick(src, COUNT_KEYS["cost_pt"])
 
+    if is_short_window(nums.get("years"), nums.get("win_start"), nums.get("win_end")):
+        nums["roc30k"] = None
+        note = (SHORT_WINDOW_TAG + " - " + str(note)) if note else SHORT_WINDOW_TAG
     stamp = _ts(ts)
     rec = {
         "ts": stamp,
@@ -855,7 +887,8 @@ def _check_units(rec, start_given=True):
                 "dd_pct_peak's 4-dp rounding, reads as a flat 0). Take it from "
                 "augur_engine.drawdowns.dd_pct_peak, never from dollars / the starting account"
                 % (rec["dd5"], rec["start_usd"], DDPCT_ROUNDING_FLOOR))
-    if rec["dd5"] > 0 and rec["roc30k"] is None:
+    if rec["dd5"] > 0 and rec["roc30k"] is None and \
+            not is_short_window(rec["years"], rec["win_start"], rec["win_end"]):
         _refuse("roc30k is null but the stretch drew down $%.2f - null is for a curve that never draws "
                 "down and so has no ROC @ $30k. A run with a drawdown and no ROC cannot go on the "
                 "scatter at all" % rec["dd5"])
@@ -873,6 +906,9 @@ def _check_units(rec, start_given=True):
         _refuse("the data window ends on or before it starts (%s..%s)" % (rec["win_start"], rec["win_end"]))
     if (rec["win_start"] is None) != (rec["win_end"] is None):
         _refuse("the data window needs both ends or neither (got %s..%s)" % (rec["win_start"], rec["win_end"]))
+    if rec["roc30k"] is not None and is_short_window(rec["years"], rec["win_start"], rec["win_end"]):
+        _refuse("roc30k on a window under %.2f yr - ROC is not written on a short window (owner 11-08)"
+                % SHORT_WINDOW_YEARS)
     if None not in (rec["roc30k"], rec["net_usd"], rec["years"]) and (rec["max_dd_usd"] or 0) > 0:
         want = 30.0 * (rec["net_usd"] / rec["years"]) / rec["max_dd_usd"]
         if abs(want - rec["roc30k"]) > ROC_IDENTITY_TOL * max(1.0, abs(want)):

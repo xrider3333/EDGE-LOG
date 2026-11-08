@@ -471,6 +471,20 @@ def validate(rec):
     out["sha"] = _sha(rec) if rec.get("sha") is not None else None
     for k in NUMBER:
         out[k] = _number(rec, k) if rec.get(k) is not None else None
+    # OWNER ORDER 11-08 (MANAGER #185): no ROC on a window under a quarter year - nulled here too, so a
+    # line written without tools/run_record.py cannot put an annualised few-weeks ROC on the scatter.
+    _y = out.get("years")
+    if _y is None and rec.get("win_start") and rec.get("win_end"):
+        try:
+            _y = (datetime.date.fromisoformat(str(rec["win_end"])[:10])
+                  - datetime.date.fromisoformat(str(rec["win_start"])[:10])).days / 365.25
+        except ValueError:
+            _y = None
+    if out.get("roc30k") is not None and _y is not None and _y < 0.25:
+        out["roc30k"] = None
+        _n = out.get("note") or ""
+        if "SHORT WINDOW" not in _n:
+            out["note"] = ("SHORT WINDOW - " + _n) if _n else "SHORT WINDOW"
 
     # ONE FIGURE THE CHART CAN PLACE, and it is the only absence left that refuses a row. Everything above is
     #   where the row goes; this is whether there is anything to draw when it gets there. roc30k is the house's
