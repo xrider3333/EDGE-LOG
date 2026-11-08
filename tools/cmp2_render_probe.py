@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 171
+N_CASES = 172
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -8231,6 +8231,70 @@ var FIX = __FIX__;
         },{keys:A.keys,labels:A.labels,nA:A.nDots,nB:B.nDots,held:B.held.slice(0,200),
            aHeld:A.held.slice(0,120),errs:errAcc.slice(0,2)});
       })();
+      // -- case a6_record_details (owner #190.2 via MANAGER, 2026-11-07: lane/lab rows "have no
+      //    run number; clicking does nothing"). A run row opens its report; a record row was the
+      //    end of the road. Plus #190.3: the owner read ROC % / YR 113-136 beside a stored roc30k
+      //    of 70-78 and took one for the other, so the card must name both and the difference -
+      //    LABELLED, never equalised, because they answer different questions.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        var ROWS=[{id:'a6rec1',timestamp:'2026-11-03 14:22:07',lane:'CUSTOM-ML',host:'TESTBOX',
+          strategy:'runner_target_r1 NOISE382 RUNNER_H',family:'ZDET',instrument:'NQ',timeframe:'5m',
+          roc30k:43.4,sortino:1.874,dd5:12345,ddpct:17.5,where:'lane',stage:'preWF',
+          start_usd:100000,years:9.741,trades:1480,net_usd:1203020,max_dd_usd:88000,
+          win_start:'2016-01-04',win_end:'2025-10-31',one_episode:false,gross_pt:3.41,cost_pt:1.02,
+          ledger_row:'LEDGER 2026-11-03 custom-ml runner targets r1',sha:'abc123def4567890',
+          run_id:'',note:'A lab screen of runner targets on the NOISE 382 legs.'}];
+        var W=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify(ROWS)+",at:Date.now()};window._reMonKey='all';");
+        calls.push(doRender({c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZDET']},resMarks:'dot',c2Tbl:true},W));
+        chk('default');
+        var row=d.querySelector('[data-rerecopen]');
+        var card=d.querySelector('[data-rerecdet]');
+        var shut=card?(card.style.display==='none'):null;
+        var ptr=row?/pointer/.test(String(row.getAttribute('style')||'')):false;
+        if(row&&row.onclick)row.onclick({stopPropagation:function(){}});
+        chk('click');
+        var openNow=card?(card.style.display==='table-row'):null;
+        var tx=card?dfxN(card.textContent||''):'';
+        if(row&&row.onclick)row.onclick({stopPropagation:function(){}});
+        var shutAgain=card?(card.style.display==='none'):null;
+        var has=function(s){return tx.indexOf(s)>=0;};
+        dfxCase('a6_record_details',calls,{
+          'THE ROW IS CLICKABLE AT ALL - a lane record row had no handler, which was the whole report':
+            !!row&&!!row.onclick&&ptr,
+          'the card is CLOSED until it is asked for, so nothing on the board grows by itself':
+            shut===true,
+          'ONE CLICK OPENS IT and a second click shuts it again':
+            openNow===true&&shutAgain===true,
+          'it says in the owner own words that there is no run behind this row':
+            has('LAB SCREEN - never auto-validated, no past run'),
+          'it names WHAT RAN, and the lane and the machine that measured it':
+            has('runner_target_r1')&&has('CUSTOM-ML')&&has('TESTBOX'),
+          'it names the STRETCH in the record own word and in plain English':
+            has('preWF')&&has('pre-walk-forward'),
+          'it gives the window and its length, so a per-year figure can be judged':
+            has('2016-01-04')&&has('2025-10-31')&&has('9.74'),
+          'THE FOUR NUMBERS ARE PRINTED AS STORED, not re-derived':
+            has('43.40')&&has('1.874')&&has('17.50')&&has('12,345'),
+          'DD % FROM PEAK says it is not capped at 100, which is the premise this board had to correct':
+            new RegExp('NOT capped at 100').test(String((function(){
+              var e=[].filter.call(card.querySelectorAll('[title]'),function(x){
+                return /NOT capped at 100/.test(String(x.getAttribute('title')||''));});
+              return e.length?e[0].getAttribute('title'):'';})())),
+          'BOTH ROC MEASURES ARE SHOWN TOGETHER - the 190.3 ask is a label, not a change to either':
+            has('ROC % / YR')&&has('ROC @ $30K DD')&&has('DIFFERENT measures'),
+          'and neither figure is bent to match the other - the stored 43.4 is still 43.40':
+            has('43.40')&&!has('43.4%  ROC % / YR'),
+          'it offers the provenance a record really has - ledger row and commit':
+            has('LEDGER 2026-11-03')&&has('abc123def456'),
+          'and it PROMISES NO PATH IT DOES NOT HAVE, because no record stores one':
+            has('stores no prereg or results PATH'),
+          'no console errors':errAcc.length===0
+        },{ptr:ptr,shut:shut,openNow:openNow,shutAgain:shutAgain,len:tx.length,
+           head:tx.slice(0,110),errs:errAcc.slice(0,2)});
+      })();
       // -- case a4_short_window (owner 2026-11-06: "idk what that cross is in the upper right.
       //    must be a mistake or outlier"). It was an ORB forward record covering 42 days and six
       //    trades, whose per-year figures are those six weeks multiplied by about nine. The row
@@ -10702,7 +10766,7 @@ def main(argv=None):
     DFX += ['e3_label_pile']
     DFX += ['d1_windowed_default']
     DFX += ['a4_short_window']
-    DFX += ['a5_record_stage']
+    DFX += ['a5_record_stage', 'a6_record_details']
     DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']
