@@ -1367,8 +1367,21 @@ def main():
     if not at:
         bad.append('ml-all-lb: the pooled ALL table did not render')
     else:
-        if 'SORTINO' not in at['head']:
-            bad.append('ml-all-lb: the pooled ALL table has no SORTINO column (%s)' % at['head'])
+        # A HEADING MAY BE SHORTENED AND STILL BE THE SAME MEASURE. The pooled table's headings
+        #   were tightened to one line on 2026-11-08 (SORTINO -> SORT, SHARPE -> SHRP), which this
+        #   check read as the column being gone. It now accepts either spelling, because what it
+        #   exists to catch is two different NUMBERS under one measure, not a rename.
+        _ALIAS = {'SORTINO': ('SORTINO', 'SORT'), 'SHARPE': ('SHARPE', 'SHRP')}
+
+        def _col(row, m):
+            for n in _ALIAS.get(m, (m,)):
+                if n in row:
+                    return row.get(n)
+            return None
+
+        if not [n for n in _ALIAS['SORTINO'] if n in at['head']]:
+            bad.append('ml-all-lb: the pooled ALL table has no SORTINO column, under either '
+                       'spelling (%s)' % at['head'])
         joined = 0
         for row in at['rows']:
             k = (row.get('FAMILY', '').strip(), _plain(row.get('CONFIG', '')))
@@ -1376,7 +1389,7 @@ def main():
             if not fc:
                 continue
             for m in ('SHARPE', 'SORTINO'):
-                a, b = _num(_row(fc, m)), _num(row.get(m))
+                a, b = _num(_row(fc, m)), _num(_col(row, m))
                 if a is None or b is None:
                     continue
                 joined += 1
