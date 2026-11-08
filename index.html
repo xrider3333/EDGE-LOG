@@ -1533,7 +1533,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='88.72';
+const VERSION='88.73';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -35780,7 +35780,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //    was ran through on EL, and what was auto validated"). WHERE A ROW CAME FROM is the
         //    question, so that is what the chips say, and the old LEVEL and SHOW are derived from
         //    his one answer instead of being asked as two.
-        const _reSrcs=[['all','ALL'],['chat','CHAT SWEEPS'],['el','EDGE LOG RUNS'],['valid','AUTO-VALIDATED'],['cfg','ML CONFIGS']];
+        // THE CHIP SAYS WHAT IT HOLDS (owner 2026-11-08, #197). The combined board that landed
+        //   minutes before this wears the name AUTO-VALIDATED while drawing 504 rows - the crown,
+        //   the RAW top-10 and the gate / tilt / keel / hybrid variants of every ticked run. That
+        //   name promises validated RUNS and delivers their CANDIDATES, which is the same
+        //   mislabelling the owner reported, pointing the other way. 'valid' keeps its label for
+        //   the legacy pref translation and the places that still name the level.
+        const _reSrcs=[['all','ALL'],['chat','CHAT SWEEPS'],['el','EDGE LOG RUNS'],['valid','AUTO-VALIDATED'],['cfg','ALL CANDIDATES']];
         // A BOARD LEFT ON THE OLD CONTROLS KEEPS THE OLD MEANING until its reader touches the new
         //   one. A FIRST DRAFT OF THIS SHIP KEPT BOTH MEANINGS ALIVE - an old board went on
         //   reading resLvl until its reader clicked a chip - and an adversarial review of that
@@ -35812,7 +35818,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // ONE AUTO-VALIDATED CHIP (owner 2026-11-08, MANAGER #138): the old per-run AUTO-VALIDATED view and
         //   ML CONFIGS are merged - AUTO-VALIDATED now shows every config of the ticked runs (the 1E set:
         //   crown, raw top-10, gate / tilt / keel / hybrid), which is the old 'cfg' view. A saved 'valid' maps to it.
-        const _reSrc=(s=>s==='valid'?'cfg':s)(_reSrcRaw());
+        // 'valid' IS NOT 'cfg', and coercing it here took the whole RUN board off COMPARE. The
+        //   merge that landed on 82dbd885 forced every 'valid' board to 'cfg' at the source, so one
+        //   row per Auto-Validate run became unreachable from the rail, from a saved pref and from
+        //   a bookmark alike - 11 cases of the chart gate went red on that commit, w50_source
+        //   ('one selector, five chips') among them, and the owner's #197 asks for that very board
+        //   as the default. A run and its 504 candidates are two different questions; the two chips
+        //   answer one each.
+        const _reSrc=_reSrcRaw();
         // the old board is TRANSLATED, never rendered: nothing below may branch on the old pref.
         const _reMigrated=(!_reSrcSet&&(APREF.resLvl!=null||APREF.resShow!=null));
         // WHERE A RECORD WAS RUN decides which chip it belongs to, and this is the ONE test that
@@ -40760,7 +40773,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            _reBtn('data-resrc="all"','ALL',_reSrc==='all','everything this board holds: what the chats ran for themselves, what was run through EDGELOG, and what was Auto-Validated. The marks keep them apart - a chat sweep draws dashed, a run solid - and a crowned run keeps its ring wherever it appears.',_TONE.rank)
            +_reBtn('data-resrc="chat"','CHAT SWEEPS',_reSrc==='chat','what a chat ran for itself: the preliminary searches written up in the registry, and the runs each lane or the Qwen Lab recorded through run_record. None of it went through EDGELOG, so none of it has been walk-forwarded or shown a lockbox by this app - they are ideas with measured numbers on them.',_TONE.rank)
            +_reBtn('data-resrc="el"','EDGE LOG RUNS',_reSrc==='el','runs made through EDGELOG that are NOT Auto-Validate runs - a grid or single job - plus any run a lane recorded as having run on the runner or the box. Real engine runs on real data, without the in-sample, walk-forward and lockbox split that Auto-Validate adds.',_TONE.rank)
-           +_reBtn('data-resrc="cfg"','AUTO-VALIDATED',_reSrc==='cfg','every configuration inside the Auto-Validate runs ticked below - the crown, the raw top-10 and the gate, tilt, keel and hybrid variants, coloured by family. ',_TONE.rank)
+           +_reBtn('data-resrc="valid"','VALIDATED RUNS',_reSrc==='valid','ONE ROW PER Auto-Validate run, each split into in-sample, walk-forward and lockbox. This is where a figure has been tested on years the search never saw, and it is every validated run, crowned or not - a crown is a mark a row carries, never a filter. For the candidates INSIDE those runs, pick ALL CANDIDATES.',_TONE.rank)
+           +_reBtn('data-resrc="cfg"','ALL CANDIDATES',_reSrc==='cfg','every configuration inside the Auto-Validate runs ticked below - the crown, the raw top-10 and the gate, tilt, keel and hybrid variants, coloured by family. One row per CANDIDATE, so a run contributes many rows here; it was labelled AUTO-VALIDATED, which read as one row per run.',_TONE.rank)
           ,_TONE.rank);
         // WHICH RUN the CONFIGS level reads. Only rendered on that level - on every other
         //   level there is no run to pick, and an inert control is worse than no control.
@@ -40804,7 +40818,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const vd=String((r.validate&&r.validate.verdict)||'').toUpperCase();
               const tip='run #'+id+' · '+String(r.strategy||'').replace(/\.py$/,'')+' · '+String(r.instrument||'')+' '+String(r.timeframe||'')+' · verdict: '+(vd||'not recorded');
               if(_reShowCfg&&isBook)return '<span style="opacity:.55;display:inline-flex">'+_reBtn('data-recfgrun="'+id+'"','#'+id+' · book',_reCfgIds.indexOf(id)>=0,
-                tip+' — a BOOK run: its legs are pooled into one result and no per-configuration records exist, so it has nothing to draw on this view. Pick any SOURCE chip other than ML CONFIGS to compare it as one row.',_TONE.samp)+'</span>';
+                tip+' — a BOOK run: its legs are pooled into one result and no per-configuration records exist, so it has nothing to draw on this view. Pick any SOURCE chip other than ALL CANDIDATES to compare it as one row.',_TONE.samp)+'</span>';
               // FAIL runs sort last and stay pickable - never removed - but read as what they
               //   are: greyed, with their own mark (item 2, section 1.4a) - two of ORB's four
               //   offered chips used to be FAIL runs with nothing to tell them apart from PASS.
@@ -41089,7 +41103,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           chat:'CHAT SWEEPS - what a chat or a lane ran for itself: the '+_reLvlCnt.py+' registry write-ups that cite no run number (of '+_reLvlCnt.all+' rows), plus every run a lane or the Qwen Lab recorded through tools/run_record.py. <b style="color:var(--text4)">Nothing here went through EDGELOG</b>, so nothing here has been walk-forwarded or shown a lockbox by this app. They are the preliminary searches - ideas with numbers on them.',
           el:'EDGE LOG RUNS - runs made through EDGELOG that are <b style="color:var(--text4)">not</b> Auto-Validate jobs: a grid, a single run, or a gate bake-off, none of which saves a validate block. Plus any run a lane recorded as having run on the runner or the box. Real engine runs on real data, without the in-sample / walk-forward / lockbox split, so those columns dash rather than guess.',
           valid:'AUTO-VALIDATED - '+'<b style="color:var(--text4)">one row per Auto-Validate run in Past Runs</b>'+', each split into in-sample, walk-forward and lockbox because it saved a validate block. Pick a strategy on the rail and tick the runs you want. This is where a figure has been tested on years the search never saw. A lane record is never here: a record is a stretch a chat measured for itself.',
-          cfg:'ML CONFIGS - every candidate configuration inside the Auto-Validate runs ticked below (the 1E matrix) instead of one dot per run: the RAW pool plus GATE, TILT, HYBRID and KEEL. The configurations are fetched per run, so the chart draws once the last run lands.',
+          cfg:'ALL CANDIDATES - every candidate configuration inside the Auto-Validate runs ticked below (the 1E matrix) instead of one dot per run: the crown, the RAW top-10 of each run, and its GATE, TILT, HYBRID and KEEL rows. It was called ML CONFIGS until 2026-11-08, then briefly AUTO-VALIDATED, and both read as a subset: most of what it draws is not an ML configuration, and a run with no ML rows at all still has candidates here. One run contributes MANY rows. The configurations are fetched per run, so the chart draws once the last run lands.',
           _x:0};
         // ONE LINE, THE REST BEHIND THE ICON (owner 2026-08-28: "whats with the novels?").
         //   Every level still explains itself in full - it has to, because the whole point
