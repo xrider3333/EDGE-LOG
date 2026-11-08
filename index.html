@@ -25562,11 +25562,14 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         {k:'pf',nm:'PF',get:x=>_num(x.pf),fmt:v=>Math.min(v,99).toFixed(2)},
         {k:'wr',nm:'WIN %',get:x=>_num(x.wr),fmt:v=>Math.round(v)+'%'},
         {k:'ev',nm:'EV',get:x=>_num(x.ev),fmt:v=>_kfmt(v),col:v=>v>=0?'#1d9e75':'#e24b4a'},
+        // EV R SITS NEXT TO EV (owner 11-07 on report 482). They were five columns apart - EV in
+        //   dollars here, EV R past ROC % / YR and DD % - so the one comparison the pair exists for,
+        //   the same expectancy in money and in units of the average losing trade, needed a scroll.
+        {k:'evr',nm:'EV R',get:x=>_evInR(x.wr,x.pf,_num(x.tr)),fmt:v=>v.toFixed(2),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'roc',nm:'ROC % / YR',get:x=>_rocYr(+x.pnl,x.yrs),fmt:v=>v.toFixed(1)+'%',col:v=>v>=0?'#1d9e75':'#e24b4a'},
         // DD% is the fall from the equity HIGH (owner 2026-10-08), read from the run -
         //   see the note on _ddPctPeakOf for why no division of x.dd can produce it.
         {k:'ddp',nm:DD_PCT_LABEL,get:x=>((x.ddp!=null&&isFinite(x.ddp))?+x.ddp:null),fmt:v=>'-~'+Math.round(v)+'%',col:()=>'#e24b4a'},
-        {k:'evr',nm:'EV R',get:x=>_evInR(x.wr,x.pf,_num(x.tr)),fmt:v=>v.toFixed(2),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'rpy',nm:'R / YR',get:x=>_rPerYr(_evInR(x.wr,x.pf,_num(x.tr)),_num(x.tr),x.yrs),fmt:v=>v.toFixed(1),col:v=>v>=0?'#1d9e75':'#e24b4a'},
         {k:'ddr',nm:'DD (R)',get:x=>_ddInR(x.dd,_num(x.ev),_evInR(x.wr,x.pf,_num(x.tr))),fmt:v=>v.toFixed(1),col:()=>'#e24b4a'},
         {k:'tr',nm:'TRADES',get:x=>_num(x.tr),fmt:v=>Math.round(v).toLocaleString()},
@@ -25579,9 +25582,21 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         if(va==null&&vb==null)return 0;if(va==null)return 1;if(vb==null)return -1;return (va-vb)*sd;});
       // a column is as wide as its widest cell, and the heading was the widest cell of most of them:
       //   ROC % / YR set a column twice the width of its numbers. The unit now sits under the name.
+      // THE WIDEST CELL IN THIS TABLE WAS A HEADING (owner 11-07: the DD % header "eats a huge
+      //   width"). DD % from peak (start $100k) is 28 characters over a column of three-character
+      //   numbers. _unitOf below is the older two-line answer (name over unit); _shortOf further
+      //   down is TRADING-LOG's one-line answer and is the one the headings now use, so _unitOf
+      //   stays only for the columns still read through it.
       const _unitOf={'NET $':['NET','$'],'WIN %':['WIN','%'],'ROC % / YR':['ROC','% / YR'],'DD %':['DD','%'],'EV R':['EV','R'],'R / YR':['R','/ YR'],'DD (R)':['DD','(R)']};
+      // WHY EVERY DD % CELL IS EMPTY, said in the cell rather than left to look like a fault:
+      //   the engine only began writing a DD % per stretch on 2026-10-25, and the run documents
+      //   written before that have not been backfilled. That backfill is not this lane's; the
+      //   column reads the figure the moment it is there. (The short one-line headings beside
+      //   this are TRADING-LOG's half of the same ask - theirs is one line where mine was two,
+      //   so theirs is what stayed.)
+      const _mtxDdpWhy='This run was measured before the engine wrote a DD % per stretch (that landed 2026-10-25), and the older run documents have not been backfilled yet. The column reads the figure as soon as the run carries one - nothing here is being hidden or rounded away.';
       const _shortOf={'ROC % / YR':'ROC%/Y','R / YR':'R/Y','TRADES / YR':'TR/Y','SORTINO':'SORT','SHARPE':'SHRP','DD (R)':'DD R','WIN %':'WIN%'};_shortOf[DD_PCT_LABEL]='DD%';
-      const th=cols.map(c=>{const u=[_shortOf[c.nm]||c.nm,''];return '<th data-mtxallsort="'+c.k+'" title="'+c.nm+' - click to sort" style="text-align:right;vertical-align:bottom;padding:2px 4px;cursor:pointer;white-space:nowrap;line-height:1.1;color:'+(c===sc?'var(--text)':'var(--text5)')+'">'+u[0]+(c===sc?(sd<0?'&#8595;':'&#8593;'):'')+(u[1]?('<br><span style="opacity:.8">'+u[1]+'</span>'):'')+'</th>';}).join('');
+      const th=cols.map(c=>{const u=[_shortOf[c.nm]||c.nm,''];return '<th data-mtxallsort="'+c.k+'" title="'+c.nm+' - click to sort'+((c.k==='ddp')?('. '+_mtxDdpWhy):'')+'" style="text-align:right;vertical-align:bottom;padding:2px 4px;cursor:pointer;white-space:nowrap;line-height:1.1;color:'+(c===sc?'var(--text)':'var(--text5)')+'">'+u[0]+(c===sc?(sd<0?'&#8595;':'&#8593;'):'')+(u[1]?('<br><span style="opacity:.8">'+u[1]+'</span>'):'')+'</th>';}).join('');
       // CROSS-HIGHLIGHT KEY (owner, 2026-09-11: hovering a dot should show where that config
       //   is in the table and on the funnel). The scatter dots already carry data-mtxkey; the
       //   rows now carry the SAME key under data-hlkey, which is all the shared highlighter
@@ -25594,7 +25609,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +'<td style="padding:1px 4px;white-space:nowrap;color:var(--text2)">'+(x.crowned?'&#128081; ':'')+String(x.label||'').replace(/"/g,'')+'</td>'
           +cols.map(c=>{const v=c.get(x);const ok=(v!=null&&isFinite(v));
             const der=(ok&&c.der&&c.der(x))?('<span style="color:var(--text5)" title="'+_mtxMixT+'">&deg;</span>'):'';
-            return '<td style="text-align:right;padding:1px 4px;white-space:nowrap;color:'+((ok&&c.col)?c.col(v):'var(--text2)')+'">'+(ok?(c.fmt(v)+der):'<span style="color:var(--text5)">&mdash;</span>')+'</td>';}).join('')
+            // A SHORT DASH, NOT AN EM DASH (owner 11-07). An em dash is as wide as the number it
+            //   stands in for, so a whole column of them read as a wide column of nothing. The DD %
+            //   dash also says WHY it is empty when you hover it.
+            const _why=(c.k==='ddp')?_mtxDdpWhy:'';
+            return '<td style="text-align:right;padding:1px 4px;white-space:nowrap;color:'+((ok&&c.col)?c.col(v):'var(--text2)')+'">'+(ok?(c.fmt(v)+der):('<span style="color:var(--text5)'+(_why?';cursor:help':'')+'"'+(_why?(' title="'+_why.replace(/"/g,'')+'"'):'')+'>-</span>'))+'</td>';}).join('')
           +'</tr>';}).join('');
       const _drp=_mtxDrop(allPts,P.length,dropN);
       const _mixN=(cols.some(c=>c.k==='sh')&&_mtxMixed(P,'sh'))||(cols.some(c=>c.k==='so')&&_mtxMixed(P,'so'));
