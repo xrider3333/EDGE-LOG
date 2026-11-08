@@ -18,3 +18,4 @@ Cost fix (1.75x NOISE trades) + refuse %-logic files on adjusted data + DIP sizi
 - 2026-11-04: board changed to [done] LANDED 10-12
 - 2026-11-05: board changed to [done] LANDED 10-12
 - 2026-11-06: board changed to [done] LANDED 10-12
+- 2026-11-07: board changed to [done] LANDED 10-12
