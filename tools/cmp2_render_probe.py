@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 172
+N_CASES = 173
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -8295,6 +8295,60 @@ var FIX = __FIX__;
         },{ptr:ptr,shut:shut,openNow:openNow,shutAgain:shutAgain,len:tx.length,
            head:tx.slice(0,110),errs:errAcc.slice(0,2)});
       })();
+      // -- case b4_table_cut (owner #200 via MANAGER, 2026-11-08: the COMPARE table "gets
+      //    truncated arbitrarily vertically"; owner_compare_scatter_raw_missing_1108.webp stops at
+      //    row 11 of 24 with nothing under it). No row was ever dropped - the box scrolls - but a
+      //    cut edge and the end of the data looked the same, so the list read as complete. The box
+      //    now says what is below the edge, and keeps saying it as you scroll until you are there.
+      //    The third assertion is the one that keeps this honest: a table whose rows all FIT says
+      //    nothing at all, so the line appearing is itself the signal that there is more.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function rec(i){return {id:'b4cut'+i,timestamp:'2026-11-03 10:00',lane:'LANE-UNDER-TEST',
+          host:'TESTBOX',strategy:'b4probe_'+i,family:'ZCUT',instrument:'NQ',timeframe:'5m',
+          roc30k:20+i,sortino:1.5,dd5:9000,ddpct:11,where:'lane',stage:'full',start_usd:100000,
+          years:3.0,trades:200,win_start:'2023-01-03',win_end:'2026-01-03'};}
+        function draw(n){
+          var rows=[];for(var i=0;i<n;i++)rows.push(rec(i));
+          return dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify(rows)+",at:Date.now()};window._reMonKey='all';");}
+        function boxes(){
+          return [].filter.call(d.querySelectorAll('[data-rescroll]'),function(b){return b.offsetParent!==null;});}
+        function noteOf(b){
+          var k=b.getAttribute('data-rescroll')||'';
+          var el=b.parentNode?b.parentNode.querySelector('[data-recut=\"'+k+'\"]'):null;
+          return el?{shown:el.style.display!=='none',tx:dfxN(el.textContent||'')}:null;}
+        // MANY rows: the box must overflow, and the line must name the total and what is below.
+        calls.push(doRender({c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZCUT']},resMarks:'dot',c2Tbl:true},draw(140)));
+        chk('many');
+        var bs=boxes(),B=bs.length?bs[0]:null;
+        var over=B?(B.scrollHeight-B.clientHeight):0;
+        var nMany=B?noteOf(B):null;
+        // scroll it to the bottom and ask again: the line has to turn into 'at the end'.
+        var atEnd=null;
+        if(B&&over>2){B.scrollTop=B.scrollHeight;
+          if(typeof w._reCutNote==='function')w._reCutNote(B);
+          atEnd=noteOf(B);}
+        // FEW rows: nothing is cut, so the line must not be drawn at all.
+        calls.push(doRender({c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
+          resXAxis:'roc30',resFilt:{fam:['ZCUT']},resMarks:'dot',c2Tbl:true},draw(2)));
+        chk('few');
+        var bs2=boxes(),B2=bs2.length?bs2[0]:null;
+        var nFew=B2?noteOf(B2):null;
+        dfxCase('b4_table_cut',calls,{
+          'THE BOX ACTUALLY OVERFLOWS with 140 rows, so this case is testing the cut and not nothing':
+            over>2,
+          'and it SAYS SO under the table, naming the total and how many are below the edge':
+            !!nMany&&nMany.shown&&/^(\d+) rows /.test(nMany.tx)&&(+(/^(\d+) rows /.exec(nMany.tx)[1])>=140)&&/\d+ more below this edge/.test(nMany.tx),
+          'scrolled to the bottom it says you are AT THE END, so the line is never stale':
+            !!atEnd&&/at the end of the table/.test(atEnd.tx),
+          'A TABLE WHOSE ROWS ALL FIT SAYS NOTHING - the line appearing is itself the signal':
+            !!nFew&&nFew.shown===false,
+          'no console errors':errAcc.length===0
+        },{over:over,many:nMany?nMany.tx:'',end:atEnd?atEnd.tx:'',few:nFew?nFew.tx:'(none)',
+           nBoxes:bs.length,errs:errAcc.slice(0,2)});
+      })();
       // -- case a4_short_window (owner 2026-11-06: "idk what that cross is in the upper right.
       //    must be a mistake or outlier"). It was an ORB forward record covering 42 days and six
       //    trades, whose per-year figures are those six weeks multiplied by about nine. The row
@@ -10766,7 +10820,7 @@ def main(argv=None):
     DFX += ['e3_label_pile']
     DFX += ['d1_windowed_default']
     DFX += ['a4_short_window']
-    DFX += ['a5_record_stage', 'a6_record_details']
+    DFX += ['a5_record_stage', 'a6_record_details', 'b4_table_cut']
     DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']

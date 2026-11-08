@@ -2739,10 +2739,13 @@ MUTANTS = [
      "row:{key:key,name:label+' '+qbRunLinkHtml(qeLegShortTag(key,runNo)),",
      "row:{key:key,name:label+' '+qeLegShortTag(key,runNo),",
      "a strategy row's run number is plain text, not a link to the run's report"),
+    # re-anchored 2026-11-08: the row's tag line has no moreTag (r2 step 7 folded it away), and the
+    # mutant's point moved with the check above it - dropping the tag now loses the sentence that says
+    # a leg's values match NO row of its run's grid, which the name cannot say.
     ('row-params-note-missing',
-     "tag:qbParamsTagHtml(key,runNo)+pill+infoToggleHtml+moreTag,wrap:true,",
-     "tag:pill+infoToggleHtml+moreTag,wrap:true,",
-     "a strategy row does not name its parameter set beside the run number"),
+     "tag:qbParamsTagHtml(key,runNo)+pill+infoToggleHtml,wrap:true,",
+     "tag:pill+infoToggleHtml,wrap:true,",
+     "a strategy row stops saying its values match no row of the run's saved grid"),
     ('row-sub-hidden-on-phone',
      ".qbx-side .lg-row-sub{display:block;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}",
      ".qbx-side .lg-row-sub{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}",
@@ -5581,7 +5584,7 @@ LIST_VH_MAX = 1.0   # phone: the trade list (the History section) starts within 
 #   the ceiling rises to fit a wrapped name and tag - measured at 116 px for the longest label on the
 #   board ('DIP #424.1 raw' plus LONG / HELD), 100 px for ENGU-Q. 120 px keeps the check alive: it
 #   still fails a row that grows a third line or an unwanted block, which is what this guard is for.
-PHONE_ROW_MAX_H = 120  # phone: padding 9 + 9, the name (wrapping when the full label needs it), and the trades / win rate / today figures under it
+PHONE_ROW_MAX_H = 76  # ONE LINE (owner 11-08 second look): the name is sized to fit, never ellipsised.
 # owner 10-31 15:50: the quiet note beside the run number names the parameter SET ('· set 2') or says
 # '· set not found in report' (api/paper_leg_params.py); never 'not recorded'
 PARAMS_NOTE_RE = re.compile(r'^· set (\d+|not found in report)(?: \(defaults\))?\s*')
@@ -6154,8 +6157,20 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         # owner 10-31 15:30: '· params: not recorded' first in the tag (no leg records its parameter cell's index), then a LONG / SHORT
         # pill ONLY while the leg holds a position - never FLAT
         tg = x.get('tag') or ''
-        if not is_other and not PARAMS_NOTE_RE.match(tg):
-            fails.append('%s: list row %s does not name its parameter set beside its run number (tag %r)' % (tag, x.get('name'), tg))
+        # THE SET IS NAMED ONCE (owner 2026-11-08). It is in the NAME - 'DIP #424.1 raw', gated by
+        # LABEL_RE two blocks above - so the tag is no longer required to repeat it, and a row that
+        # repeated it was being pushed onto a second line. What the tag still has to carry is what
+        # the name cannot say:
+        #   * a leg whose traded values match no row of the run's saved config grid says so, in
+        #     those words. That is the 10-31 honesty guard and it is pinned here on its own.
+        #   * whatever else appears there must be the params note's own shape, so the duplicate
+        #     cannot creep back as free text.
+        if not is_other and x.get('cell') is None and 'set not found in report' not in tg:
+            fails.append('%s: list row %s trades values that match no row of its run\'s saved grid, '
+                         'and the row no longer says so (tag %r)' % (tag, x.get('name'), tg))
+        if not is_other and tg and not PARAMS_NOTE_RE.match(tg) and not re.match(r'^(FLAT|LONG|SHORT|HELD)\b', tg):
+            fails.append('%s: list row %s has something other than the parameter note in front of its '
+                         'pills (tag %r)' % (tag, x.get('name'), tg))
         if 'not recorded' in tg:
             fails.append('%s: list row %s still says not recorded (tag %r)' % (tag, x.get('name'), tg))
         rest = _after_params(tg)
