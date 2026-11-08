@@ -5572,7 +5572,16 @@ MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'Augus
 RANGE_WORD = {'TODAY': 'today', '1W': 'past week', '1M': 'past month', '3M': 'past 3 months', 'YTD': 'year to date',
               'ALL': 'all time'}
 LIST_VH_MAX = 1.0   # phone: the trade list (the History section) starts within this many viewport heights of the board top
-PHONE_ROW_MAX_H = 62  # phone: one strategy a row (padding 9 + 9, the name line, the trades / win rate / today figures under the name)
+# PHONE ROW HEIGHT: ONE LINE WAS TRADED FOR THE WHOLE NAME (owner 2026-11-08, and the two wants do
+#   not both fit). The old rule was one strategy per line on a phone, 62 px. It was held by clipping
+#   the name with an ellipsis, which is how the DIP row came to read 'DIP #...' on his phone - the
+#   run number, the parameter set and the model word, the only things on the row that say WHICH run
+#   is trading his money, were the characters being thrown away. He asked for the full label,
+#   wrapped, never an ellipsis, on phone and laptop. So the name may now take the lines it needs and
+#   the ceiling rises to fit a wrapped name and tag - measured at 116 px for the longest label on the
+#   board ('DIP #424.1 raw' plus LONG / HELD), 100 px for ENGU-Q. 120 px keeps the check alive: it
+#   still fails a row that grows a third line or an unwanted block, which is what this guard is for.
+PHONE_ROW_MAX_H = 120  # phone: padding 9 + 9, the name (wrapping when the full label needs it), and the trades / win rate / today figures under it
 # owner 10-31 15:50: the quiet note beside the run number names the parameter SET ('· set 2') or says
 # '· set not found in report' (api/paper_leg_params.py); never 'not recorded'
 PARAMS_NOTE_RE = re.compile(r'^· set (\d+|not found in report)(?: \(defaults\))?\s*')

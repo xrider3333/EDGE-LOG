@@ -922,6 +922,14 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-row-morebody .lg-ms-row .l{font-size:10px}.lg-row-morebody .lg-ms-row .v{font-size:11px}
 .lg-thin{color:var(--text5)!important;cursor:help}
 .lg-row.wrap .lg-row-sub{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}
+/* AND THE NAME ITSELF WRAPS ON A wrap ROW (owner 2026-11-08: the WEBULL PAPER row read 'DIP #...').
+   The full label was being built correctly all along - 'DIP #424.1 raw', run number, parameter set
+   and model word - and then clipped by .lg-row-name's own ellipsis, because the wrap flag the row
+   model sets reached only the sub-line under the name and never the name. So the one thing on the
+   row that identifies which run is live was the one thing cut off, on exactly the narrow widths
+   where it matters. Nothing is shortened or abbreviated here: it takes a second line when it needs
+   one, and the run link, the set and the model word stay unbroken on whichever line they land. */
+.lg-row.wrap .lg-row-name{white-space:normal;overflow:visible;text-overflow:clip;line-height:1.35;overflow-wrap:break-word}
 .lg-row-detail{padding:0 16px 10px;margin-top:-4px;font-size:10px;line-height:1.5;color:var(--text4);min-width:0;overflow-wrap:anywhere}
 .lg-row.sel+.lg-row-detail{box-shadow:inset 3px 0 0 var(--text);background:color-mix(in srgb,var(--text) 6%,transparent)}
 .lg-row-detail.off{opacity:.45}
@@ -1533,7 +1541,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='88.74';
+const VERSION='88.75';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
