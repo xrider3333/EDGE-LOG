@@ -618,6 +618,18 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
             #   still read by the ML-gate ground-truth reconciliation at index.html ~13687).
             c["is_rng"] = c["cal"]["is"]
             c["wf_rng"] = c["cal"]["wf"]
+            # MANAGER #188 / TRADING-LOG #140 (owner GO 11-08): RAW gets wf_lb + full like the ML
+            #   families. The lockbox loop below joins these optimize-window trades to each config's
+            #   lockbox trades. TRANSIENT: popped before the doc is saved.
+            try:
+                _ix = arrays.get("index")
+                import pandas as _pdx
+                _xf = (lambda i: str(_pdx.Timestamp(_ix[max(0, min(int(i), len(_ix) - 1))]).date())
+                       ) if (_ix is not None and len(_ix)) else (lambda i: None)
+                c["_xr"] = {"wf": [float(t[2]) for t in _tr if int(t[0]) >= _wfB0],
+                            "wf_from": _xf(_wfB0), "pre": list(pnls), "pre_from": _xf(0)}
+            except Exception as _xe:
+                c["_xr"] = None
         # exit timestamps ride along so the web can draw the candidate curves on the
         # SAME calendar axis as 1A (t[1] = exit time — the point the 1A line steps at).
         c["equity"] = equity_curve_from_pnls(pnls, cap=160, times=[t[1] for t in _tr])
@@ -658,7 +670,8 @@ def _select_oos_champion(strategy, arrays, champ, bestA, A, wf_anch, cost_pts=0.
                 #   forward-lockbox backtest runs (this function only has the optimize-window
                 #   trades). Both are None on configs where no walk-forward fold bound existed
                 #   (mirrors cal's own None case) so the client falls back cleanly.
-                "is_rng": c.get("is_rng"), "wf_rng": c.get("wf_rng")}
+                "is_rng": c.get("is_rng"), "wf_rng": c.get("wf_rng"),
+                "_xr": c.get("_xr")}       # transient, popped in run_validate before save
         # opt-in per-fold OOS breakdown (see `save_fold_detail` above) — absent
         # entirely when the flag is off, so the saved shape is unchanged.
         if save_fold_detail and c.get("_fold_rows") is not None:
@@ -1092,6 +1105,32 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
                     c["lockbox"] = _lbs
                 else:
                     c["lockbox"] = None
+                # MANAGER #188: wf_lb (walk-forward + lockbox) and full (whole optimize window +
+                #   lockbox) blocks, same shape as `lockbox`, from trades this run already holds.
+                _xr = c.get("_xr") or {}
+                for _bk, _src, _fk in (("wf_lb", "wf", "wf_from"), ("full", "pre", "pre_from")):
+                    try:
+                        _jp = list(_xr.get(_src) or []) + _ctr_pnls
+                        if not _jp or _src not in _xr:
+                            c[_bk] = None
+                            continue
+                        _jb = _gate_stats(_jp)
+                        _jb["total_pnl"] = round(_jb["total_pnl"], 4)
+                        _jb["max_drawdown"] = round(_jb["max_drawdown"], 4)
+                        try:
+                            _jyr = (_parse(date_to) - _parse(_xr[_fk])).days / 365.25
+                        except Exception:
+                            _jyr = 0           # no window ends (e.g. date_to=None): stats, no years
+                        if _jyr > 0:
+                            _jb["from"] = str(_xr[_fk])[:10]; _jb["to"] = str(date_to)[:10]
+                            _jb["years"] = round(float(_jyr), 4)
+                            _jsh = _sharpe_shared(sel_as_trades(_jp), _jyr)
+                            _jso = _sortino_shared(sel_as_trades(_jp), _jyr)
+                            if _jsh is not None: _jb["sharpe"] = round(float(_jsh), 3)
+                            if _jso is not None: _jb["sortino"] = round(float(_jso), 3)
+                        c[_bk] = _jb
+                    except Exception:
+                        c[_bk] = None
                 cum, s = [], base
                 for t in _ctr:
                     s += float(t[2])   # lockbox trades already net of cost
@@ -1111,6 +1150,12 @@ def run_validate(strategy, *, instrument=None, timeframe="5m", session="rth", so
             raise                      # W46: stops the job, never a silently missing row
         except Exception:
             pass
+
+    # the transient trade lists behind RAW's wf_lb / full never reach the saved doc
+    if isinstance(selection, dict):
+        for _c in (selection.get("candidates") or []) + (selection.get("robust") or []):
+            if isinstance(_c, dict):
+                _c.pop("_xr", None)
 
     # ── `oos_sample_k` lockbox leg — one short backtest per sampled config on the
     #    held-out slice, on exactly the footing the 2K surrogate-pick lockbox below

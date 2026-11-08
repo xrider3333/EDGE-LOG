@@ -517,3 +517,21 @@ def test_gate_block_carries_lockbox_tails_and_the_mirror_does_not(validate_runs)
     assert gv1 is not None and gv1["candidates"]
     assert "lb_tail" not in json.dumps(gv1, default=str)
     assert json.dumps(strip_lb_tails(gv), default=str) == json.dumps(gv1, default=str)
+
+
+# MANAGER #188 (owner GO 11-08): RAW candidates carry wf_lb + full blocks like the ML families,
+#   and the transient trade lists behind them never reach the saved doc.
+def test_raw_candidates_carry_wf_lb_and_full(validate_runs):
+    import json
+    sel = validate_runs["k3"]["selection"]
+    rows = (sel.get("candidates") or []) + (sel.get("robust") or [])
+    assert rows
+    assert "_xr" not in json.dumps(validate_runs["k3"], default=str)
+    for c in rows:
+        assert "wf_lb" in c and "full" in c
+        if c.get("lockbox") and c.get("wf_rng"):
+            assert c["wf_lb"] is not None, (sorted(c), c.get("full"), c.get("lockbox"))
+            assert c["wf_lb"]["num_trades"] == c["wf_rng"]["num_trades"] + c["lockbox"]["num_trades"]
+            assert abs(c["wf_lb"]["total_pnl"] - (c["wf_rng"]["total_pnl"] + c["lockbox"]["total_pnl"])) < 1e-3
+            assert c["full"]["num_trades"] >= c["wf_lb"]["num_trades"]
+
