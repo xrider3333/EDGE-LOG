@@ -1499,7 +1499,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='88.64';
+const VERSION='88.65';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -36576,6 +36576,89 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   stretch, which is not how a record is written at all, so it read like a fault in the page.
         const _reRecRocWhy=rw=>{if(!rw||!rw._rec)return null;
           return 'A lane record carries the four numbers its own lane measured off its daily series - ROC at a $30k drawdown, DD5 in dollars, DD % from the high and Sortino - and ROC % / YR is a different measure: money per year over the account on the ACCT chip. It needs net dollars and a window, and only 18 of this month’s 886 records state both. ROC @ $30K DD is the one every record does carry, and it is the board’s own yardstick.';};
+        // THE DETAILS CARD FOR A LANE / LAB ROW (#190.2, owner 11-07: rows with no run number,
+        //   "clicking does nothing"). A run row opens its report; a record row had nowhere to go,
+        //   and a row you cannot ask about is the same dead end as a row that is hidden.
+        //   WHAT IT WILL NOT DO: invent a path. The ask named a "prereg/results path from the
+        //   record" and no such field exists on any of the 3,440 lines - they carry ts, lane, host,
+        //   where, strategy, family, instrument, timeframe, stage, the four numbers, trades,
+        //   gross_pt, cost_pt, one_episode, ledger_row, run_id, sha, note and sometimes net /
+        //   max_dd / window / start / years. The card prints the LEDGER ROW and the COMMIT SHA -
+        //   the provenance a record really carries - and says there is no path to open. A made-up
+        //   path would be worse than none.
+        const _reRecDetKey=rw=>'rd'+String((rw&&rw._recId)||'')+'|'+String((rw&&rw.n)||'');
+        const _reRecDetRow=function(st,rw){
+          if(!rw||!rw._rec)return '';
+          const E=_reEsc,L=[];
+          const put=(k,v,tip)=>{if(v==null||v==='')return;
+            L.push('<div style="display:flex;gap:8px;padding:2px 0;align-items:baseline">'
+              +'<span style="min-width:112px;flex:0 0 112px;color:var(--text5);font-size:9px;letter-spacing:.4px"'
+              +(tip?(' title="'+E(tip)+'"'):'')+'>'+E(k)+'</span>'
+              +'<span style="color:var(--text2);font-size:10px;line-height:1.5">'+v+'</span></div>');};
+          const num=(v,d2,sfx)=>(v==null||!isFinite(+v))?null:('<b style="color:var(--text)">'+(+v).toFixed(d2)+(sfx||'')+'</b>');
+          const stgNm=(_reRecStageNm&&_reRecStageNm[rw._stage])||'';
+          const noRun=!(rw.runs&&rw.runs.length);
+          const head=noRun?'LAB SCREEN - never auto-validated, no past run'
+                          :'LANE RECORD - the run it cites is on this account';
+          put('WHAT RAN',E(rw._strategyRaw||rw.name)+(rw.fam?(' <span style="color:var(--text5)">'+E(rw.fam)+'</span>'):''));
+          put('MARKET',[rw._inst,rw._tf].filter(function(x){return !!x;}).map(E).join(' \u00b7 ')||null);
+          put('STRETCH',(rw._stage?('<b style="color:var(--text)">'+E(rw._stage)+'</b>'):'<i style="color:var(--text5)">not recorded</i>')
+            +(stgNm?(' <span style="color:var(--text5)">'+E(stgNm)+'</span>'):''),
+            'Which stretch of the data this one record covers. A record is ONE stretch, never a whole run.');
+          put('WINDOW',rw.win?(E(rw.win.from)+' to '+E(rw.win.to)
+            +(rw._recYrs?(' <span style="color:var(--text5)">'+(+rw._recYrs).toFixed(2)+' yr</span>'):'')):null);
+          put('WRITTEN BY',[rw._lane,rw._host].filter(function(x){return !!x;}).map(E).join(' on ')||null,
+            'The lane session that measured this row, and the machine it ran on.');
+          put('WRITTEN AT',rw._ts?E(String(rw._ts).slice(0,19).replace('T',' ')):null);
+          L.push('<div style="border-top:1px solid var(--border2);margin:7px 0 5px"></div>');
+          L.push('<div style="color:var(--text5);font-size:9px;letter-spacing:.5px;padding-bottom:3px" title="'
+            +E('The four numbers as this record stores them - not re-derived by this page. Every record carries ROC @ $30k DD; the rest are written when the lane measured them.')
+            +'">THE FOUR NUMBERS, AS STORED</div>');
+          put('ROC @ $30K DD',num(rw._roc30,2,'%'),'The return resized so the worst drawdown is $30,000. The one yardstick, and the figure every record carries.');
+          put('DD5',(rw._dd5!=null&&isFinite(+rw._dd5))?('<b style="color:var(--text)">$'+Math.round(Math.abs(+rw._dd5)).toLocaleString()+'</b>'):null,
+            'The worst five-day fall in dollars.');
+          put('DD % FROM PEAK',num(rw.ddp,2,'%'),
+            'The fall from the account own running high. It is NOT capped at 100%: a strategy that loses more than the account began with falls by a multiple of it, so a loser can read 200% or 600% and be perfectly correct.');
+          put('SORTINO',num(rw.so,3,null),'Daily, with zero days counted.');
+          put('TRADES',(rw.trd!=null)?('<b style="color:var(--text)">'+(+rw.trd).toLocaleString()+'</b>'):null);
+          put('ONE EPISODE',(rw._oneEp===true)?'<b style="color:var(--yellow)">yes</b> <span style="color:var(--text5)">one stretch of the window carries the lead</span>'
+            :((rw._oneEp===false)?'<span style="color:var(--text5)">no</span>':null),
+            'Whether the whole lead comes from a single episode - the house check against a one-off.');
+          put('NET',(rw.tot!=null)?('<b style="color:var(--text)">'+((rw.tot<0)?'-$':'$')+Math.round(Math.abs(rw.tot)).toLocaleString()+'</b>'
+            +(rw._startUsd?(' <span style="color:var(--text5)">on a $'+Math.round(rw._startUsd).toLocaleString()+' start</span>'):'')):null);
+          put('PER POINT',(rw._gpt!=null||rw._cpt!=null)
+            ?[(rw._gpt!=null?('gross '+(+rw._gpt).toFixed(2)):null),(rw._cpt!=null?('cost '+(+rw._cpt).toFixed(2)):null)]
+               .filter(function(x){return !!x;}).join(' \u00b7 '):null,
+            'Gross and cost in points per trade, as the lane measured them.');
+          // THE TWO ROC COLUMNS, NAMED (#190.3). Printed together so the difference is read once
+          //   rather than guessed at from two columns a screen apart.
+          {const rpy=_reRoc(st,rw);
+           if(rpy!=null&&isFinite(rpy)&&rw._roc30!=null&&isFinite(+rw._roc30)){
+             L.push('<div style="border-top:1px solid var(--border2);margin:7px 0 5px"></div>');
+             put('ROC % / YR',num(rpy,1,'%'),null);
+             L.push('<div style="color:var(--text4);font-size:9px;line-height:1.6;padding:1px 0 2px">'
+               +'These two are DIFFERENT measures and the table shows both. ROC % / YR is this record own money per year over the account on the ACCT chip. ROC @ $30K DD is '
+               +E((+rw._roc30).toFixed(2))+'% - the same trades resized so the worst drawdown is $30,000. A row can read '
+               +E(rpy.toFixed(1))+'% on one and '+E((+rw._roc30).toFixed(2))+'% on the other with nothing wrong: they answer different questions, and this board ranks on the $30k one.'
+               +'</div>');}}
+          if(rw.what&&String(rw.what).trim()){
+            L.push('<div style="border-top:1px solid var(--border2);margin:7px 0 5px"></div>');
+            L.push('<div style="color:var(--text2);font-size:10px;line-height:1.6">'+E(String(rw.what))+'</div>');}
+          L.push('<div style="border-top:1px solid var(--border2);margin:7px 0 5px"></div>');
+          put('LEDGER ROW',rw._ledger?('<code style="font-size:9px;color:var(--text2)">'+E(rw._ledger)+'</code>'):null,
+            'The ledger line this record was written against - where the lane wrote up what it found.');
+          put('COMMIT',rw._sha?('<code style="font-size:9px;color:var(--text2)">'+E(String(rw._sha).slice(0,12))+'</code>'):null,
+            'The commit of the code that produced it.');
+          put('RUN ID',rw._runId?('<code style="font-size:9px;color:var(--text2)">'+E(rw._runId.slice(0,40))+'</code>'):null);
+          put('RECORD ID',rw._recId?('<code style="font-size:9px;color:var(--text5)">'+E(rw._recId)+'</code>'):null);
+          L.push('<div style="color:var(--text4);font-size:9px;line-height:1.6;padding-top:5px">'
+            +'A record stores no prereg or results PATH - there is no such field on any of them - so the LEDGER ROW and the COMMIT above are its provenance. '
+            +(noRun?'And there is no run report to open: this row was measured by a lane script, not by an Auto-Validate run, so nothing was pinned and nothing was filed as a run.':'')
+            +'</div>');
+          return '<tr data-rerecdet="'+E(_reRecDetKey(rw))+'" style="display:none">'
+            +'<td colspan="40" style="padding:9px 12px 11px;background:var(--bg2);border-bottom:1px solid var(--border2)">'
+            +'<div style="color:var(--text5);font-size:9px;letter-spacing:.6px;padding-bottom:6px">'+E(head)+'</div>'
+            +L.join('')+'</td></tr>';};
         const _reRoc30=(st,rw,segOv)=>{
           // W47: a lane record carries the ROC its own lane measured through four_numbers - the
           //   house definition, on that stretch's daily series. Reading it is the point; deriving
@@ -37788,9 +37871,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
                 +td((py==null||d==null||!d)?_reDash((py==null)?((p==null)?_reWhy(st,rw,(_reSegMiss(rw)[0]||'tot')):noY):_reWhy(st,rw,'dd')):('<b>'+(py/Math.abs(d)).toFixed(2)+'</b>'),null,emB);}
             return '';})();
           const mk='<svg width="12" height="12" viewBox="0 0 15 15" style="vertical-align:-2px;margin-right:4px">'+_reShape(rw.tone,7.5,7.5,4.4,col,1,1)+'</svg>';
-          return '<tr data-rerow="'+st.key+':'+rw.n+'"'+(runs.length?(' data-rank-run="'+runs[0]+'"'):'')
+          // A LANE / LAB ROW IS CLICKABLE TOO (#190.2). A run row opens its report; a record row
+          //   opens the DETAILS card below it, because the alternative is a row that answers nothing.
+          const _recOpen=(!runs.length&&rw._rec)?(' data-rerecopen="'+_reEsc(_reRecDetKey(rw))+'"'):'';
+          return '<tr data-rerow="'+st.key+':'+rw.n+'"'+(runs.length?(' data-rank-run="'+runs[0]+'"'):'')+_recOpen
             +(bg?(' title="'+_reEsc(_reBgWhy[rw.tone]||'')+'"'):'')
-            +' style="'+(runs.length?'cursor:pointer;':'')+(_reFlGrey?'opacity:0.5;':'')+(bg?('background:'+bg):'')+'">'
+            +' style="'+((runs.length||_recOpen)?'cursor:pointer;':'')+(_reFlGrey?'opacity:0.5;':'')+(bg?('background:'+bg):'')+'">'
             +td('<span style="color:var(--text4)">'+(rank?rank:_reDash(_reZeroOr(rw,'This row has no figure for the stage now selected, so it cannot be ranked on it.')))+'</span>',null,_reStickyCss('RANK',1)+_reStickyBg(bg))
             +td((function(){const isCfg=!!rw._cfg,fam=String((isCfg&&rw.fam)||'RAW');
                 const stratCol=(isCfg&&_reByStrat&&rw._strat)?_reStratCol(rw._strat):null;
@@ -37846,7 +37932,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +td('<span title="'+_reEsc(_reReadTip(st,rw))+'" style="color:'+col+';display:inline-block;max-width:'+(_reSplit?90:130)+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(rw.read)+'</span>','left')
             // item 14 (owner: "move this junk to the end of the row, move the important stuff like the kpis up front"): CONFIG - the long name and its badges - is the least useful thing to see first when scanning a row for numbers, so it sits last now; RANK / FAMILY / RUN stay up front, pinned, as the identifying columns (see _reStickyCss).
             +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b><span title="permanent row handle" style="color:var(--text5);font-size:8px;margin-left:4px">'+rw.n+'</span>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)+_reLevChipOf(st,rw)+_reFlagChips(_reFlags)
-              +(showSt?('<span title="'+_reEsc('Researched in the study: '+st.title+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((String(st.title).length>24)?(String(st.title).slice(0,23)+'…'):st.title)+'</span>'):''),'left')+'</tr>';};
+              +(showSt?('<span title="'+_reEsc('Researched in the study: '+st.title+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((String(st.title).length>24)?(String(st.title).slice(0,23)+'…'):st.title)+'</span>'):''),'left')+'</tr>'
+            +(_recOpen?_reRecDetRow(st,rw):'');};
         // ═══ THE ONE SCATTER ═══
         //  Owner ask, 2026-08-19: "this was originally supposed to be one scatter plot and it
         //  just got blown up with every claude session and their respective strategies putting
@@ -39599,7 +39686,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 _roc30:(d.roc30k!=null&&isFinite(+d.roc30k))?+d.roc30k:null,
                 _oneEp:(d.one_episode===true)?true:((d.one_episode===false)?false:null),
                 _ledger:String(d.ledger_row||''),
-                _sha:String(d.sha||''),_startUsd:(d.start_usd!=null&&isFinite(+d.start_usd))?+d.start_usd:null};
+                _sha:String(d.sha||''),_startUsd:(d.start_usd!=null&&isFinite(+d.start_usd))?+d.start_usd:null,
+                // carried for the DETAILS card (#190.2) - the record states these and the table has
+                //   no column for them, which is exactly why a card is the right place for them.
+                _inst:String(d.instrument||''),_tf:String(d.timeframe||''),_strategyRaw:String(d.strategy||''),
+                _gpt:(d.gross_pt!=null&&isFinite(+d.gross_pt))?+d.gross_pt:null,
+                _cpt:(d.cost_pt!=null&&isFinite(+d.cost_pt))?+d.cost_pt:null,
+                _runId:String((d.run_id==null?'':d.run_id)).trim()};
               // WHY A CELL ON THIS ROW IS A DASH, in the record's own terms (owner 2026-10-27: "many
               //   '-' gaps in MAR/ROC cols - find why"). The record study carried an EMPTY dashWhy, so
               //   every one of these fell through to "This figure was never measured for this row" -
@@ -51445,6 +51538,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   tr[data-rank-run] only, so the TOP 10 rows (div) and the paper pointers (span) were drawn clickable and did nothing (found by the n7 link
       //   sweep, 2026-10-09). stopPropagation: a [data-rank-run] inside another opens ITS run, not the outer one's.
       content.querySelectorAll('[data-rank-run]').forEach(tr=>{tr.onclick=(e)=>{if(e&&e.stopPropagation)e.stopPropagation();augurRunSel=tr.dataset.rankRun;augurSub='runs';renderApp();};});
+      // A LANE / LAB ROW OPENS ITS DETAILS CARD (#190.2, owner 11-07 "clicking does nothing"). It
+      //   toggles the DOM instead of re-rendering: the card is already in the table, and redrawing
+      //   3,462 rows to show one panel would be the slowest possible way to answer a click.
+      content.querySelectorAll('[data-rerecopen]').forEach(tr=>{tr.onclick=(e)=>{
+        if(e&&e.stopPropagation)e.stopPropagation();
+        const k=tr.getAttribute('data-rerecopen');if(!k)return;
+        const card=tr.parentNode?tr.parentNode.querySelector('[data-rerecdet="'+CSS.escape(k)+'"]'):null;
+        if(!card)return;
+        const open=(card.style.display==='none'||!card.style.display);
+        card.style.display=open?'table-row':'none';
+        tr.setAttribute('data-rerecopened',open?'1':'0');};});
       const _cex=content.querySelector('[data-cmpexpand]');
       if(_cex)_cex.onclick=()=>{
         // open the explorer with what is actually on screen - a hidden or greyed strategy should
