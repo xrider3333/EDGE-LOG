@@ -591,6 +591,39 @@ def _emerge_suffix(emerged, cause, via=None, partner=None, slice_=None):
     return f" (emerged mid-run after widening {who}.)"
 
 
+def unbounded_widened(log, dp):
+    """HARD-BOUND LINT (owner GO 11-09, MANAGER #195). Every side of a param that
+    auto-expand widened past the file's declared range WITHOUT an explicit
+    hard_min/hard_max on that side. The zero floor still applies; this only names
+    the fences the file never wrote down. Pure; [] on any odd input."""
+    out = []
+    for e in log or []:
+        try:
+            p = e["param"]
+            (olo, ohi), (flo, fhi) = e["orig_range"], e["final_range"]
+            meta = (dp or {}).get(p)
+            meta = meta if isinstance(meta, dict) else {}
+            if flo < olo and meta.get("hard_min") is None:
+                out.append({"param": p, "side": "min", "declared": olo, "reached": flo})
+            if fhi > ohi and meta.get("hard_max") is None:
+                out.append({"param": p, "side": "max", "declared": ohi, "reached": fhi})
+        except (KeyError, TypeError, ValueError):
+            continue
+    return out
+
+
+def lint_hard_bounds(dp):
+    """Numeric params in a DEFAULT_PARAMS dict that declare neither hard_min nor
+    hard_max (auto-expand may then widen them up to the 2x-width cap). Pure."""
+    out = []
+    for p, meta in (dp or {}).items():
+        if not isinstance(meta, dict) or meta.get("type") not in ("int", "float"):
+            continue
+        if meta.get("hard_min") is None and meta.get("hard_max") is None:
+            out.append(p)
+    return out
+
+
 def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trades,
                         seed, n_trials, boundary_flags, max_rounds=2,
                         max_global_rounds=6):
@@ -912,7 +945,8 @@ def _auto_expand_search(records, seen, pkeys, space, dp, ev_fn, ksplit, min_trad
 
     summary = {"global_rounds_used": global_round, "n_params_expanded": len(log),
               "n_emerged": n_emerged, "n_interaction_unlocks": n_interaction_unlocks,
-              "converged": converged}
+              "converged": converged,
+              "unbounded_widened": unbounded_widened(log, dp)}
     return pp, log, recs, summary
 
 
