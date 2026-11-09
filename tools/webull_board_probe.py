@@ -2742,9 +2742,12 @@ MUTANTS = [
     # re-anchored 2026-11-08: the row's tag line has no moreTag (r2 step 7 folded it away), and the
     # mutant's point moved with the check above it - dropping the tag now loses the sentence that says
     # a leg's values match NO row of its run's grid, which the name cannot say.
+    # re-anchored 2026-11-08 (final spec): the parameter set left the collapsed row for the
+    # expander, so the mutant drops it from THERE - the sentence about a leg whose values match no
+    # row of its run's saved grid is the thing that must never go quiet, wherever it is said.
     ('row-params-note-missing',
-     "tag:qbParamsTagHtml(key,runNo)+pill+infoToggleHtml,wrap:true,",
-     "tag:pill+infoToggleHtml,wrap:true,",
+     "+ledgerMsRow('Parameter set',qbLegSetFactHtml(key,runNo));",
+     ";",
      "a strategy row stops saying its values match no row of the run's saved grid"),
     ('row-sub-hidden-on-phone',
      ".qbx-side .lg-row-sub{display:block;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}",
@@ -3240,7 +3243,15 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         var tl=exX.querySelector('[data-qblegtoday]'),tv=exX.querySelector('[data-qblegtodayval]');
         if(tl&&tv&&(tv.textContent||'').trim()!=='--'){var lab=(tl.textContent||'').trim();parts.push((lab==='Today'?'today':lab)+' '+(tv.textContent||'').trim());}
         subTxt=parts.join(' \u00b7 ');subFromMore=!!parts.length;}
-      return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,label:label,
+      // THE EXPANDER'S LABELLED FACTS, read whether it is open or shut. The collapsed row now
+      //   carries one number (owner 2026-11-08), so the split behind it - realized, unrealized,
+      //   the lots and shares, the parameter set - lives here, and the gate has to be able to see
+      //   it to prove it was moved rather than dropped.
+      var exFacts={};
+      if(exX)[].forEach.call(exX.querySelectorAll('.lg-ms-row'),function(r){
+        var l=r.querySelector('.l'),v=r.querySelector('.v');
+        if(l&&v)exFacts[(l.textContent||'').replace(/\\s+/g,' ').trim()]=(v.textContent||'').replace(/\\s+/g,' ').trim();});
+      return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,label:label,facts:exFacts,
         cell:rl?rl.getAttribute('data-qbcell'):null,
         tip:shl?shl.getAttribute('title'):null,seed:shs?(shs.textContent||'').trim():null,open:sho?(sho.textContent||'').replace(/\\s+/g,' ').trim():null,
         sub:subTxt||null,subShown:sb?w.getComputedStyle(sb).display!=='none':subFromMore,more:!!b.querySelector('[data-lgrowmore]'),
@@ -5584,7 +5595,11 @@ LIST_VH_MAX = 1.0   # phone: the trade list (the History section) starts within 
 #   the ceiling rises to fit a wrapped name and tag - measured at 116 px for the longest label on the
 #   board ('DIP #424.1 raw' plus LONG / HELD), 100 px for ENGU-Q. 120 px keeps the check alive: it
 #   still fails a row that grows a third line or an unwanted block, which is what this guard is for.
-PHONE_ROW_MAX_H = 76  # ONE LINE (owner 11-08 second look): the name is sized to fit, never ellipsised.
+# THE LABEL IS NEVER CUT (owner 2026-11-08, final spec, priority 1), so this cannot also demand one
+# line. With the value column down to one figure the name does fit on one line at 390px, but it is
+# ALLOWED to wrap rather than lose a character, and the ceiling only has to stop the row growing by
+# stealth: two lines of name plus its figures pass, a third does not.
+PHONE_ROW_MAX_H = 96
 # owner 10-31 15:50: the quiet note beside the run number names the parameter SET ('· set 2') or says
 # '· set not found in report' (api/paper_leg_params.py); never 'not recorded'
 PARAMS_NOTE_RE = re.compile(r'^· set (\d+|not found in report)(?: \(defaults\))?\s*')
@@ -6144,15 +6159,42 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         e = figs.get(x.get('name'))
         # owner 10-31 (live page): the trades / win rate (and today) line sits UNDER THE NAME (the row's sub), not under the number
         sub_figs = (x.get('sub') or '').split(' · not in the strategy roster')[0] if is_other else x.get('sub')
-        if e and (x.get('value') != e['value'] or not _v2_ok(sub_figs, e['value2'], doc, [x.get('key')] if x.get('key') else [])):
-            fails.append('%s: list row %s reads %r / %r under its name, the fixture says %r / %r (the range\'s P&L of record, then trades, win rate, today under the name)'
-                         % (tag, x.get('name'), x.get('value'), x.get('sub'), e['value'], e['value2']))
-        # LEDGER UI r2 step 7: 'equity ±$X' (closed + unrealized) under the number only while the leg holds lots; a flat leg shows closed only
+        # ONE NUMBER ON THE RIGHT, AND IT IS NET EQUITY (owner 2026-11-08, final spec). The
+        #   headline used to be CLOSED P&L in the range with 'equity ±$X' small underneath; it is
+        #   now realized + unrealized together, which is a real change of meaning and is written out
+        #   here rather than quietly relaxed. A flat leg has nothing open, so its equity IS its
+        #   closed figure and this reads the same for it as the old check did.
+        _oz_e = opn_fam.get(x.get('key')) if (opn_fam is not None and not is_other) else None
+        # a leg that closed nothing in the range and holds nothing shows a DASH, not '+$0.00' - the
+        #   fixture's own value for such a row, and the right thing to print: there is no figure.
+        want_val = (signed(round(e['net'] + (_oz_e[0] if _oz_e else 0), 2))
+                    if (e and (e.get('value') != '—' or _oz_e)) else (e['value'] if e else None))
+        if e and x.get('value') != want_val:
+            fails.append('%s: list row %s reads %r as its one big figure, want %r (realized in the range PLUS the open position now)'
+                         % (tag, x.get('name'), x.get('value'), want_val))
+        if e and not _v2_ok(sub_figs, e['value2'], doc, [x.get('key')] if x.get('key') else []):
+            fails.append('%s: list row %s reads %r under its name, the fixture says %r (trades, win rate, today)'
+                         % (tag, x.get('name'), x.get('sub'), e['value2']))
+        # and under that figure, small, the OPEN part alone - no lots and no share count, which were
+        #   the longest strings on the row and are now facts in the expander.
         if opn_fam is not None and e and not is_other:
-            oz = opn_fam.get(x.get('key'))
-            want_eq = ('equity %s' % signed(round(e['net'] + oz[0], 2))) if oz else None
+            want_eq = ('open %s' % signed(_oz_e[0])) if _oz_e else None
             if (x.get('value2') or None) != want_eq:
-                fails.append('%s: list row %s reads %r under its number, want %r (closed + unrealized while it holds lots, nothing when flat)' % (tag, x.get('name'), x.get('value2'), want_eq))
+                fails.append('%s: list row %s reads %r under its number, want %r (the open P&L alone while it holds lots, nothing when flat)' % (tag, x.get('name'), x.get('value2'), want_eq))
+            if _oz_e and re.search(r'lot|sh\b', x.get('value2') or ''):
+                fails.append('%s: list row %s still carries the lots or the share count on the collapsed row (%r) - they belong in the expander' % (tag, x.get('name'), x.get('value2')))
+            # WHAT LEFT THE ROW MUST BE IN THE EXPANDER. This is the assertion that keeps 'moved'
+            #   from turning into 'dropped': the split, the position and the parameter set.
+            F = x.get('facts') or {}
+            if F:
+                if F.get('Realized in range') is None or F.get('Unrealized now') is None:
+                    fails.append('%s: list row %s does not give the realized / unrealized split in its expander (facts %r)' % (tag, x.get('name'), sorted(F)))
+                if _oz_e and ('lot' not in (F.get('Open position') or '')):
+                    fails.append('%s: list row %s holds lots but its expander does not say how many (%r)' % (tag, x.get('name'), F.get('Open position')))
+                want_set = ('set not found in report' if x.get('cell') is None else 'set %s' % x.get('cell'))
+                if want_set not in (F.get('Parameter set') or ''):
+                    fails.append('%s: list row %s expander reads %r for its parameter set, want %r - a leg whose values match no row of its '
+                                 'run\'s saved grid must still say so somewhere' % (tag, x.get('name'), F.get('Parameter set'), want_set))
         pz = pos.get(x.get('key'))
         # owner 10-31 15:30: '· params: not recorded' first in the tag (no leg records its parameter cell's index), then a LONG / SHORT
         # pill ONLY while the leg holds a position - never FLAT
@@ -6165,12 +6207,12 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         #     those words. That is the 10-31 honesty guard and it is pinned here on its own.
         #   * whatever else appears there must be the params note's own shape, so the duplicate
         #     cannot creep back as free text.
-        if not is_other and x.get('cell') is None and 'set not found in report' not in tg:
-            fails.append('%s: list row %s trades values that match no row of its run\'s saved grid, '
-                         'and the row no longer says so (tag %r)' % (tag, x.get('name'), tg))
-        if not is_other and tg and not PARAMS_NOTE_RE.match(tg) and not re.match(r'^(FLAT|LONG|SHORT|HELD)\b', tg):
-            fails.append('%s: list row %s has something other than the parameter note in front of its '
-                         'pills (tag %r)' % (tag, x.get('name'), tg))
+        # THE TAG CARRIES PILLS ONLY (owner 2026-11-08, final spec: nothing else on the collapsed
+        #   row). The parameter set moved into the expander, where it is asserted above - here the
+        #   gate's job is to keep anything else from drifting back onto the row.
+        if not is_other and tg and not re.match(r'^(FLAT|LONG|SHORT|HELD)\b', tg):
+            fails.append('%s: list row %s carries %r beside its name - the collapsed row is the label, '
+                         'its side pills and nothing else' % (tag, x.get('name'), tg))
         if 'not recorded' in tg:
             fails.append('%s: list row %s still says not recorded (tag %r)' % (tag, x.get('name'), tg))
         rest = _after_params(tg)
@@ -6188,13 +6230,12 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             fails.append('%s: list row %s still has a coloured dot before its name (the name itself carries the colour now)' % (tag, x.get('name')))
         if not is_other and not x.get('nameColor'):
             fails.append('%s: list row %s is not named in its chart line colour' % (tag, x.get('name')))
-        if opn_fam is not None and not is_other:
-            oz = opn_fam.get(x.get('key'))
-            want3 = ('unrealized %s · %d lot%s' % (signed(oz[0]), oz[1], '' if oz[1] == 1 else 's')) if oz else None
-            got3 = re.sub(r' · \d+ sh$', '', x.get('open3') or '') or None   # the shares from the positions feed may follow
-            if got3 != want3:
-                fails.append("%s: list row %s reads %r under its figures, want %r (the headline's own open figure for this strategy)"
-                             % (tag, x.get('name'), x.get('open3'), want3))
+        # THE THIRD MONEY LINE IS GONE AND MUST STAY GONE (owner 2026-11-08). 'unrealized +$X ·
+        #   3 lots · 300 sh' was the widest string in the value column and therefore the reason the
+        #   name had no room on a phone. Its figures are in the expander now, asserted above.
+        if not is_other and x.get('open3'):
+            fails.append('%s: list row %s has a third money line under its figures again (%r) - the collapsed row carries one number and '
+                         'the open P&L under it, nothing else' % (tag, x.get('name'), x.get('open3')))
     rt = by.get('retired')
     if rt and (not rt.get('fold') or ('Retired' not in (rt.get('head') or '')) or ('flat since ' + RETIRED_SINCE) not in (rt.get('head') or '')):
         fails.append('%s: the Retired group reads %r (fold %s), want a fold saying "flat since %s"'
@@ -6220,8 +6261,20 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                 fails.append('%s: the Retired row reads %r / %r under its name, the fixture says %r / %r' % (
                     tag, rt['rows'][0].get('value'), rt['rows'][0].get('sub'), figs[RETIRED_NAME]['value'], figs[RETIRED_NAME]['value2']))
         # the rows add up to the account's range figure: BOOK + Retired are the legs that count, Shadow is never in it
-        counted = [0.0 if x.get('value') == '—' else _money_val(x.get('value')) for g in (bk, rt) if g for x in g.get('rows') or []]
-        # closed in the range (LEDGER UI r2 step 7: the number is closed-only again; the open part reads under it)
+        # THE ROWS STILL ADD UP TO THE ACCOUNT'S RANGE FIGURE - but off their REALIZED figure, not
+        #   their headline. The headline became realized + unrealized on 2026-11-08 (owner's final
+        #   row spec), and an open position is not part of the range's P&L of record, so summing the
+        #   headlines would be off by the unrealized part of every held leg. Realized now lives in
+        #   each row's expander, so that is what this reads - which makes the check stronger than it
+        #   was: it proves the realized figure is really there, on every row, in every case that
+        #   reconciles.
+        def _realized(x):
+            v = (x.get('facts') or {}).get('Realized in range')
+            if v is None:
+                v = x.get('value')       # a board drawn without the expander's facts
+            return 0.0 if v in ('—', '--', None) else _money_val(v)
+        counted = [_realized(x) for g in (bk, rt) if g for x in g.get('rows') or []]
+        # closed in the range (the open part reads under the headline, and in full in the expander)
         want_tot = round(sum(qe_pnl_of(t) for t in _range_rows(trades, cutoff)), 2)
         if None not in counted and abs(sum(counted) - want_tot) > 0.011:
             fails.append('%s: BOOK + Retired add up to %s, the P&L of record of the range is %s (a shadow leg, or a leg with no row, '
@@ -8608,8 +8661,9 @@ def _held_problems(tag, r, ex, fails):
             hmax = PHONE_ROW_MAX_H + (PHONE_ROW_OPEN_H if row[0].get('open3') else 0)
             if row[0].get('h', 0) > hmax or not row[0].get('h'):
                 fails.append('%s: on a phone the ENGU-Q row is %s px tall, want one line (1 to %d px)' % (tag, row[0].get('h'), hmax))
-        elif not (row[0].get('value2') or '').startswith('equity '):
-            fails.append("%s: ENGU-Q's row shows %r under its number, want 'equity ±$X' while it holds its lot (r2 step 7)" % (tag, row[0].get('value2')))
+        elif not (row[0].get('value2') or '').startswith('open '):
+            # owner 2026-11-08: the headline IS the equity now, so what sits under it is the open part
+            fails.append("%s: ENGU-Q's row shows %r under its number, want 'open ±$X' under the equity while it holds its lot" % (tag, row[0].get('value2')))
 
 
 def _dip_problems(tag, r, ex, fails):
@@ -8634,9 +8688,19 @@ def _dip_problems(tag, r, ex, fails):
         tg = _after_params(row.get('tag') or '')
         if not tg.startswith('LONG') or 'HELD' not in tg:
             fails.append("%s: the DIP #424 row's tag reads %r, want its side LONG then HELD" % (tag, tg))
-        if (row.get('value'), _v2_base(row.get('sub'))) != want['value']:
-            fails.append("%s: the DIP #424 row reads %r / %r under its name, want %r / %r (its family's closed trades in the range)"
-                         % (tag, row.get('value'), row.get('sub'), want['value'][0], want['value'][1]))
+        # owner 2026-11-08: the one big figure is realized in the range PLUS the open position, so
+        #   this expectation adds the lots the case is holding to the family's closed figure. The
+        #   realized figure itself is still checked - in the expander, where it now lives.
+        _wv = want['value'][0]
+        _op = (row.get('value2') or '')
+        if _op.startswith('open '):
+            _wv = signed(round(_money_val(want['value'][0]) + _money_val(_op[5:]), 2))
+        if (row.get('value'), _v2_base(row.get('sub'))) != (_wv, want['value'][1]):
+            fails.append("%s: the DIP #424 row reads %r / %r under its name, want %r / %r (its family's closed trades in the range PLUS its open lots)"
+                         % (tag, row.get('value'), row.get('sub'), _wv, want['value'][1]))
+        if (row.get('facts') or {}).get('Realized in range') not in (None, want['value'][0]):
+            fails.append("%s: the DIP #424 row's expander says its realized figure is %r, the fixture says %r"
+                         % (tag, row['facts'].get('Realized in range'), want['value'][0]))
         hmax = PHONE_ROW_MAX_H + (PHONE_ROW_OPEN_H if row.get('open3') else 0)
         if want.get('phone_row') and (not row.get('h') or row['h'] > hmax):
             fails.append('%s: on a phone the DIP #424 row is %s px tall, want one line (1 to %d px)' % (tag, row.get('h'), hmax))
