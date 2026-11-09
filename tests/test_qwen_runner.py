@@ -8,6 +8,12 @@ import pytest
 sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))), "tools"))
 import qwen_runner as R  # noqa: E402
 
+
+@pytest.fixture(autouse=True)
+def _legacy_35b_window(monkeypatch):
+    """These tests predate rule 3: pin the 35b window open (idle/night)."""
+    monkeypatch.setattr(R, "big_allowed", lambda *a, **k: True)
+
 STATUS = ("# Qwen task board\r\n| # | Task | Status | Note |\r\n|---|------|--------|------|\r\n"
           "| Q1 | one | ✅ | x |\r\n| Q2 | two | ⭕ | y |\r\n| Q10 | ten | ⭕ | z |\r\n")
 

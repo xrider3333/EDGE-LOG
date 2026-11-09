@@ -64,6 +64,13 @@ if HERE not in sys.path:
     sys.path.insert(0, HERE)
 
 MODEL = "5.qwen3.6:35b-32k"
+# RUNNER RULE 3 (owner GO 11-09, MANAGER #193): by day the runner uses model 2 (fits VRAM); the 35b (model 5)
+#   only when the PC has been idle IDLE_BIG_S or at night, and it is dropped the moment the owner is active.
+MODEL_DAY = "2.qwen3.8:27b-48k"
+IDLE_BIG_S = 15 * 60
+ACTIVE_S = 60                     # input within this many seconds = the owner is at the PC
+NIGHT_FROM, NIGHT_TO = 21, 6      # MST hours: 21:00-06:00 is night
+WATCH_POLL_S = 5
 NUM_CTX = 32768
 KEEP_ALIVE_TASK = "5m"
 MAX_TURNS = 40
@@ -705,15 +712,60 @@ def owner_model_loaded(ps_fn=None):
     return False, ""
 
 
-def other_model_loaded(ps_fn=None):
-    """(True, why) when Ollama has ANY model loaded other than the runner's 5.* (never two models), or /api/ps fails."""
+def idle_seconds():
+    """Seconds since the last keyboard/mouse input in this session (Windows GetLastInputInfo); None if unknown."""
+    try:
+        import ctypes
+
+        class _LII(ctypes.Structure):
+            _fields_ = [("cbSize", ctypes.c_uint), ("dwTime", ctypes.c_uint)]
+        lii = _LII(); lii.cbSize = ctypes.sizeof(_LII)
+        if not ctypes.windll.user32.GetLastInputInfo(ctypes.byref(lii)):
+            return None
+        return max(0.0, (ctypes.windll.kernel32.GetTickCount() - lii.dwTime) / 1000.0)
+    except Exception:                                                # noqa: BLE001
+        return None
+
+
+def is_night(now=None):
+    try:
+        from zoneinfo import ZoneInfo
+        h = (now or datetime.datetime.now(ZoneInfo("America/Phoenix"))).hour
+    except Exception:                                                # noqa: BLE001
+        h = (now or datetime.datetime.utcnow() - datetime.timedelta(hours=7)).hour
+    return h >= NIGHT_FROM or h < NIGHT_TO
+
+
+def big_allowed(idle_fn=None, night_fn=None):
+    """Rule 3: the 35b only when idle 15+ min, or at night with the owner not active. Unknown idle = day model."""
+    idle = (idle_fn or idle_seconds)()
+    if idle is None:
+        return False
+    if idle >= IDLE_BIG_S:
+        return True
+    return bool((night_fn or is_night)()) and idle >= ACTIVE_S
+
+
+def pick_model(idle_fn=None, night_fn=None):
+    return MODEL if big_allowed(idle_fn, night_fn) else MODEL_DAY
+
+
+def owner_active(idle_fn=None):
+    idle = (idle_fn or idle_seconds)()
+    return idle is not None and idle < ACTIVE_S
+
+
+def other_model_loaded(ps_fn=None, own=("5.",)):
+    """(True, why) when Ollama has ANY model loaded other than the runner's own (never two models), or /api/ps fails.
+    own = the prefixes the runner itself loads right now (rule 3: ("5.",) for the 35b, ("2.", "5.") by day - a
+    leftover 5.* is the runner's and is unloaded before the day model loads)."""
     try:
         d = (ps_fn or ollama_ps)() or {}
     except Exception as e:                                           # noqa: BLE001
         return True, "Ollama /api/ps failed (%s)" % type(e).__name__
     for m in d.get("models") or []:
         name = str(m.get("name") or m.get("model") or "")
-        if not name.startswith("5."):
+        if not name.startswith(tuple(own)):
             return True, "%s model %s is loaded - not loading a second model" % (
                 "owner" if name.startswith(OWNER_MODEL_PREFIXES) else "other", name)
     return False, ""
@@ -914,7 +966,7 @@ def check_guards(yield_fn=None, quiet_fn=None, lab_stop_fn=None, ps_fn=None, bac
     if (lab_stop_fn or (lambda: os.path.exists(ram_guard.stop_path())))():
         return "yield", "qwen_lab STOP file"
     if backend != "strata":
-        o, owhy = other_model_loaded(ps_fn)
+        o, owhy = other_model_loaded(ps_fn, own=("5.",) if big_allowed() else ("2.", "5."))
         if o:
             return "yield", owhy
     b, bwhy = engine_busy(backend, cline_fn, slots_fn)
@@ -945,7 +997,51 @@ def router_alive(http=None):
 
 
 # ------------------------------------------------------------------------------------------------ model
-class RunnerChat:
+class _Rule3:
+    """Per-turn model choice for the Ollama path (rule 3). Before each turn: pick the model; leaving the 35b
+    unloads it first (one model at a time). During a 35b turn a watcher unloads it the moment the owner is active;
+    the aborted turn is retried once on the day model."""
+    rule3 = True
+
+    def _pick(self):
+        want = pick_model()
+        if self.model.startswith("5.") and want != self.model:
+            self._unload_big()
+        self.model = want
+
+    def _unload_big(self):
+        try:
+            import local_llm as LL
+            LL._http_json("/api/generate", {"model": MODEL, "keep_alive": 0}, timeout=30)
+        except Exception:                                            # noqa: BLE001
+            pass
+
+    def _guarded(self, call):
+        import threading
+        self._pick()
+        if not self.model.startswith("5."):
+            return call(self.model)
+        hit, stop = [False], threading.Event()
+
+        def _watch():
+            while not stop.wait(WATCH_POLL_S):
+                if owner_active():
+                    hit[0] = True
+                    self._unload_big()
+                    return
+        threading.Thread(target=_watch, daemon=True, name="rule3-watch").start()
+        try:
+            return call(self.model)
+        except Exception:
+            if not hit[0]:
+                raise
+        finally:
+            stop.set()
+        self.model = MODEL_DAY                                       # owner came back: finish on model 2
+        return call(self.model)
+
+
+class RunnerChat(_Rule3):
     """qwen_lab.OllamaChat with the runner's keep_alive (5m in a task) and a hard num_ctx of 32768."""
     backend = "ollama"
     ctx_limit = CTX_LIMIT
@@ -957,7 +1053,11 @@ class RunnerChat:
         self.model = MODEL
 
     def chat(self, messages, tools):
+        return self._guarded(lambda m: self._chat_one(m, messages, tools))
+
+    def _chat_one(self, model, messages, tools):
         LL, q = self.inner.LL, self.inner
+        q.model = model
         import qwen_lab
         payload = {"model": q.model, "messages": messages, "stream": False, "think": q.think,
                    "keep_alive": KEEP_ALIVE_TASK, "tools": [{"type": "function", "function": t} for t in tools],
@@ -972,10 +1072,8 @@ class RunnerChat:
                                          "done_reason": d.get("done_reason")}
 
     def unload(self):
-        try:
-            self.inner.LL._http_json("/api/generate", {"model": MODEL, "keep_alive": 0}, timeout=30)
-        except Exception:                                            # noqa: BLE001
-            pass
+        if self.model.startswith("5."):                              # never unload model 2: it may be the owner's
+            self._unload_big()
 
 
 def to_openai_messages(messages):
@@ -1055,7 +1153,7 @@ class StrataChat:
         return msg, stats
 
 
-class RouterChat:
+class RouterChat(_Rule3):
     """OpenAI /v1/chat/completions through the router (:11435) as model 5.qwen3.6:35b-32k; the router picks the
     backend (Strata while it is up, else Ollama). On the Ollama backend the model is unloaded after the task."""
 
@@ -1072,7 +1170,12 @@ class RouterChat:
             self.num_ctx, self.ctx_limit, self.max_tokens = NUM_CTX, CTX_LIMIT, None
 
     def chat(self, messages, tools):
-        payload = {"model": self.model, "messages": to_openai_messages(messages), "temperature": 0.2, "seed": 20261028,
+        if self.backend == "ollama":
+            return self._guarded(lambda m: self._chat_one(m, messages, tools))
+        return self._chat_one(self.model, messages, tools)
+
+    def _chat_one(self, model, messages, tools):
+        payload = {"model": model, "messages": to_openai_messages(messages), "temperature": 0.2, "seed": 20261028,
                    "stream": False, "tools": [{"type": "function", "function": t} for t in tools]}
         if self.max_tokens:
             payload["max_tokens"] = self.max_tokens
@@ -1085,11 +1188,8 @@ class RouterChat:
     def unload(self):
         if self.backend != "ollama":
             return                                                   # never unload Strata
-        try:
-            import local_llm as LL
-            LL._http_json("/api/generate", {"model": MODEL, "keep_alive": 0}, timeout=30)
-        except Exception:                                            # noqa: BLE001
-            pass
+        if self.model.startswith("5."):                              # never unload model 2: it may be the owner's
+            self._unload_big()
 
 
 def default_chat(backend, router_ok=None):

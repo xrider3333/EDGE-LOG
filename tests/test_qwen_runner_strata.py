@@ -9,6 +9,12 @@ sys.path.insert(0, os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(
 import qwen_runner as R  # noqa: E402
 from test_qwen_runner import env, make, tc, _w, _r  # noqa: E402,F401
 
+
+@pytest.fixture(autouse=True)
+def _legacy_35b_window(monkeypatch):
+    """These tests predate rule 3: pin the 35b window open (idle/night)."""
+    monkeypatch.setattr(R, "big_allowed", lambda *a, **k: True)
+
 LOADED = {"object": "list", "data": [{"id": R.STRATA_MODEL, "status": {"value": "loaded"},
                                       "meta": {"n_ctx": 262144}}]}
 
