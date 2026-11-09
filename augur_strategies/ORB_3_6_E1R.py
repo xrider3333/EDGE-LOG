@@ -82,7 +82,7 @@ DEFAULT_PARAMS = {
     "close_confirm":  {"default": True,  "type": "bool", "options": [True],                                      "label": "Confirm at bar close - PINNED ON (this is what makes it live-legal)"},
     "partial_exit_R": {"default": 0.0,  "min": 0.0,  "max": 0.0,  "step": 0.5,  "type": "float", "label": "Partial exit - PINNED OFF (the simplification)"},
     "trail_bars":     {"default": 0,    "min": 0,    "max": 0,    "step": 1,    "type": "int",   "label": "Trailing stop - PINNED OFF (the simplification)"},
-    "be_after_R":     {"default": 1.0,  "min": 0.8,  "max": 1.2,  "step": 0.2,  "type": "float", "label": "Breakeven after (x risk) - NARROW RANGE 0.8-1.2"},
+    "be_after_R":     {"hard_min": 0.8, "default": 1.0,  "min": 0.8,  "max": 1.2,  "step": 0.2,  "type": "float", "label": "Breakeven after (x risk) - NARROW RANGE 0.8-1.2"},
     "target_R":       {"default": 5.5,  "min": 5.0,  "max": 6.0,  "step": 0.5,  "type": "float", "label": "Target (x risk) - NARROW RANGE 5.0-6.0"},
     "atr_filter":     {"default": 0.5,  "min": 0.4,  "max": 0.6,  "step": 0.1,  "type": "float", "label": "Vol-regime filter (trailing) - NARROW RANGE 0.4-0.6"},
     "vpace_filter":   {"default": 0.7,  "min": 0.6,  "max": 0.8,  "step": 0.1,  "type": "float", "label": "Volume-pace gate (pre-fill bars only) - NARROW RANGE 0.6-0.8"},

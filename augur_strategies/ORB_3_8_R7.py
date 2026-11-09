@@ -72,7 +72,7 @@ DEFAULT_PARAMS = {
     "stop_frac":       {"default": 3.0,  "min": 2.5,  "max": 3.0,  "step": 0.25, "type": "float", "label": "Stop (x range width) - NARROW RANGE 2.5-3.0 (2.5 = the crown)"},
     "breakout_buf":    {"default": 0.25, "min": 0.25, "max": 0.25, "step": 0.05, "type": "float", "label": "Breakout buffer - PINNED (re-checked round 7, unmoved)"},
     "close_confirm":   {"default": True,  "type": "bool", "options": [True],                                    "label": "Confirm at bar close - PINNED ON (this is what makes it live-legal)"},
-    "partial_exit_R":  {"default": 0.0,  "min": 0.0,  "max": 4.0,  "step": 2.0,  "type": "float", "label": "Partial exit - NARROW RANGE, 0 = the crown"},
+    "partial_exit_R":  {"hard_max": 4, "default": 0.0,  "min": 0.0,  "max": 4.0,  "step": 2.0,  "type": "float", "label": "Partial exit - NARROW RANGE, 0 = the crown"},
     "trail_bars":      {"default": 0,    "min": 0,    "max": 3,    "step": 3,    "type": "int",   "label": "Trailing stop - NARROW RANGE, 0 = the crown"},
     "be_after_R":      {"default": 0.5,  "min": 0.5,  "max": 0.5,  "step": 0.25, "type": "float", "label": "Breakeven after (x risk) - PINNED at the crown (do NOT search: it sets EV R's denominator)"},
     "target_R":        {"default": 5.0,  "min": 5.0,  "max": 5.0,  "step": 0.5,  "type": "float", "label": "Target (x risk) - PINNED (flat shoulder in round 6)"},
@@ -80,7 +80,7 @@ DEFAULT_PARAMS = {
     "vpace_filter":    {"default": 0.8,  "min": 0.8,  "max": 0.8,  "step": 0.05, "type": "float", "label": "Volume-pace gate - PINNED at the crown"},
     "daytype_mode":    {"default": "skip_band_long", "type": "str", "options": ["skip_band_long"],              "label": "Prior-day filter - PINNED to the LONG side (both-sides is a disaster, and that asymmetry is the evidence)"},
     "daytype_band_lo": {"default": 0.6,  "min": 0.55, "max": 0.65, "step": 0.05, "type": "float", "label": "Band low edge - NARROW RANGE 0.55-0.65"},
-    "daytype_band_hi": {"default": 0.85, "min": 0.80, "max": 0.90, "step": 0.05, "type": "float", "label": "Band high edge - NARROW RANGE 0.80-0.90"},
+    "daytype_band_hi": {"hard_min": 0.8, "default": 0.85, "min": 0.80, "max": 0.90, "step": 0.05, "type": "float", "label": "Band high edge - NARROW RANGE 0.80-0.90"},
     "flat_eod":        {"default": True,  "type": "bool", "options": [True],                                    "label": "Flat at the close - PINNED on"},
     "skip_holidays":   {"default": True,  "type": "bool", "options": [True],                                    "label": "Skip holidays - PINNED on"},
 }

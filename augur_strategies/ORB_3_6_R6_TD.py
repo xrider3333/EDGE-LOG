@@ -51,11 +51,11 @@ DEFAULT_PARAMS = {
     "vpace_filter":   {"default": 0.8,  "min": 0.8,  "max": 0.8,  "step": 0.05, "type": "float", "label": "Volume-pace gate - PINNED at #314"},
     "flat_eod":       {"default": True, "type": "bool", "options": [True], "label": "Flat at the close - PINNED on"},
     "skip_holidays":  {"default": True, "type": "bool", "options": [True], "label": "Skip holidays - PINNED on"},
-    "td_k_start":     {"default": 3.0,  "min": 2.0,  "max": 5.0,  "step": 0.5,  "type": "float", "label": "Trail width at the start (x ATR)"},
+    "td_k_start":     {"hard_max": 5, "default": 3.0,  "min": 2.0,  "max": 5.0,  "step": 0.5,  "type": "float", "label": "Trail width at the start (x ATR)"},
     "td_k_end":       {"default": 1.0,  "min": 0.5,  "max": 2.0,  "step": 0.25, "type": "float", "label": "Trail width at the close (x ATR)"},
-    "td_atr_len":     {"default": 14,   "min": 8,    "max": 30,   "step": 2,    "type": "int",   "label": "ATR length (bars)"},
+    "td_atr_len":     {"hard_max": 30, "default": 14,   "min": 8,    "max": 30,   "step": 2,    "type": "int",   "label": "ATR length (bars)"},
     "td_shape":       {"default": "linear", "type": "str", "options": ["linear", "sqrt", "square"], "label": "Decay shape"},
-    "td_start_min":   {"default": 0,    "min": 0,    "max": 300,  "step": 30,   "type": "int",   "label": "Decay starts (minutes after the open)"},
+    "td_start_min":   {"hard_max": 300, "default": 0,    "min": 0,    "max": 300,  "step": 30,   "type": "int",   "label": "Decay starts (minutes after the open)"},
 }
 
 PARAM_GRID_PRESETS = {

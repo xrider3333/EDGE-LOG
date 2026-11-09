@@ -32,9 +32,11 @@ _CHAMP = {"or_bars": 2, "trade_mode": "First-candle dir", "stop_frac": 2.5, "bre
 
 DEFAULT_PARAMS = {k: dict(_base.DEFAULT_PARAMS[k], default=v) for k, v in _CHAMP.items()}
 DEFAULT_PARAMS.update({
-    "ta_arm_R": {"default": 0.25, "min": 0.25, "max": 1.0,  "step": 0.25, "type": "float", "label": "Trail arms at a close of (x risk)"},
+    "ta_arm_R": {"hard_max": 1, "default": 0.25, "min": 0.25, "max": 1.0,  "step": 0.25, "type": "float", "label": "Trail arms at a close of (x risk)"},
     "ta_bars":  {"default": 3,    "min": 2,    "max": 5,    "step": 1,    "type": "int",   "label": "Trail distance (prior bars)"},
 })
+# hard ceiling (owner GO 11-09, #195): runs #499/#504 widened stop_frac past the file range to 2.75
+DEFAULT_PARAMS["stop_frac"] = dict(DEFAULT_PARAMS["stop_frac"], hard_max=2.5)
 
 PARAM_GRID_PRESETS = {"Short - the one cell (0.25R, 3 bars)": {"ta_arm_R": [0.25], "ta_bars": [3]}}
 

@@ -100,15 +100,15 @@ DEFAULT_PARAMS = {
                                   'close once a position has been open this many 1m bars. '
                                   '~1380 = 1 ETH day, ~6900 = 1 week, ~20000 = ~1 month. '
                                   'Attacks the months-long-hold EV R artifact directly.'},
-    'er_len': {'default': 100, 'min': 20, 'max': 120, 'step': 10, 'type': 'int',
+    'er_len': {"hard_min": 20, 'default': 100, 'min': 20, 'max': 120, 'step': 10, 'type': 'int',
                'label': 'Efficiency Lookback (min)',
                'tooltip': 'Bars in the efficiency-ratio window (net move / path length).'},
-    'er_th': {'default': 0.0, 'min': 0.0, 'max': 0.5, 'step': 0.05, 'type': 'float',
+    'er_th': {"hard_min": 0, 'default': 0.0, 'min': 0.0, 'max': 0.5, 'step': 0.05, 'type': 'float',
               'label': 'Efficiency Floor (0=off)',
               'tooltip': '0 = OFF / parity anchor. >0 = the signal bar must show at least '
                          'this efficiency ratio; 0.25 is the battery-W champion. Do not '
                          'push above 0.25 - the 0.30 cell collapses the lockbox.'},
-    'limit_atr': {'default': 0.85, 'min': 0.70, 'max': 1.0, 'step': 0.05, 'type': 'float',
+    'limit_atr': {"hard_max": 1, 'default': 0.85, 'min': 0.70, 'max': 1.0, 'step': 0.05, 'type': 'float',
                   'label': 'Shallow Limit Depth (x ATR)',
                   'tooltip': '0 = OFF / parity anchor (fill at signal-bar close, identical to '
                              'ENGUQ_1M_ETH_1_0). >0 = place a resting limit this many ATR below '
@@ -117,13 +117,13 @@ DEFAULT_PARAMS = {
     'tl_len': {'default': 206, 'min': 50, 'max': 300, 'step': 4, 'type': 'int',
               'label': 'Trendline Length (bars)',
               'tooltip': 'Bars of highs the descending trendline is fit to (must slope down).'},
-    'vol_mult': {'default': 1.1, 'min': 0.0, 'max': 5.0, 'step': 0.1, 'type': 'float',
+    'vol_mult': {"hard_min": 0, 'default': 1.1, 'min': 0.0, 'max': 5.0, 'step': 0.1, 'type': 'float',
                 'label': 'Volume Spike (x avg)',
                 'tooltip': 'Breakout candle volume must exceed its 20-bar average x this. 0=off.'},
     'stop_mult': {'default': 1.0, 'min': 0.3, 'max': 2.0, 'step': 0.1, 'type': 'float',
                  'label': 'Stop (x risk-to-swing-low)',
                  'tooltip': 'Initial stop distance as a fraction of entry-to-swing-low.'},
-    'act_R': {'default': 1.5, 'min': 0.0, 'max': 3.0, 'step': 0.5, 'type': 'float',
+    'act_R': {"hard_max": 3, 'default': 1.5, 'min': 0.0, 'max': 3.0, 'step': 0.5, 'type': 'float',
              'label': 'Trail Activation (R)',
              'tooltip': 'Start trailing once the trade is this many R in profit.'},
     'trail_frac': {'default': 2.5, 'min': 0.5, 'max': 4.0, 'step': 0.5, 'type': 'float',

@@ -33,6 +33,8 @@ DEFAULT_PARAMS.update({
     "m4_arm_R":   {"default": 1.0, "min": 1.0, "max": 1.0, "step": 0.25, "type": "float", "label": "Lock arms at (x risk) - FROZEN at test 244 best"},
     "m4_or_bars": {"default": 6,   "min": 6,   "max": 6,   "step": 2,    "type": "int",   "label": "Lock OR length (bars) - FROZEN at test 244 best"},
 })
+# hard ceiling (owner GO 11-09, #195): runs #499/#504 widened stop_frac past the file range to 2.75
+DEFAULT_PARAMS["stop_frac"] = dict(DEFAULT_PARAMS["stop_frac"], hard_max=2.5)
 
 PARAM_GRID_PRESETS = {
     "Short - test 244 best cell (1.0R, OR 6)": {"m4_arm_R": [1.0], "m4_or_bars": [6]},
