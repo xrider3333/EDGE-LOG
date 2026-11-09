@@ -170,3 +170,95 @@ gate (`REVIEWED.json` stamp plus whitelist) before the engine imports it, then
 - **No merging of cells** to reach the trades-a-year floor, and no re-cutting of the grid after seeing
   the gate — if a bound turns out wrong, it is recorded as an addendum with its own sha, the way the
   r2 drift definition was.
+
+---
+
+## ADDENDUM 1 — how the gate measures an entry's edge WITHOUT choosing a target
+
+**Written before the gate ran, and appended rather than edited into section 6, so the frozen body
+sha 6fe6f7525bfb84d66b9a7f7167ed8db68f79b5ab2182490c89d5b5e5d5ceeeea still stands for what was
+declared first.**
+
+Section 6 says the gate screens the entry and the R floor "on gross versus cost in R" and leaves `T`
+and `M` to the validate. Writing the harness exposed that **"gross R per trade" is not defined until
+something closes the trade**, so the gate needs a target-free statistic. It gets two, and they answer
+different questions:
+
+1. **The no-target baseline.** Hold to the **session-end reference exit** — out at the 15:55 bar's
+   close, or at the stop if it is touched first. No target, no `M`. This is the entry's intraday
+   expectancy in R with the floored stop and nothing else, and it is the honest headline.
+2. **The ceiling any target could capture.** The mean **maximum favourable excursion in R** reached
+   inside the session before the stop. No target can realise more than this.
+
+**Why both, and the reasoning I will not fudge.** A negative baseline does **not** by itself prove no
+`T` works: a target truncates the outcome distribution, and where the favourable excursion
+mean-reverts, truncating it can raise expectancy above the hold-to-close figure. So a negative
+baseline alone is not a close. **The MFE ceiling is what makes a close possible:** if the mean MFE in
+R is below cost in R, then no target can clear cost, because a target cannot capture more than the
+move that happened. That is the clause that can shut the round.
+
+**The gate's rules, pre-declared:**
+
+- **HARD CLOSE for a cell** when its mean MFE in R is at or below cost in R. No target saves it, and
+  it is not sent to a validate.
+- **Powered-but-dead** when the baseline is negative and the MFE ceiling clears cost but the gap
+  between them is below the cell's own MDE (`sd * sqrt(7.85 / n)`): the round would be asking a
+  target to harvest an edge too small for this many trades to show.
+- **OPEN** only when the MFE ceiling clears cost by more than the MDE. Those cells, and only those,
+  are what a 900-trial validate would search `T` and `M` over — after a GO.
+- **If every one of the 48 cells hard-closes, the round closes at draft** and that is reported as the
+  result, not as a non-event.
+
+Cost in R is computed per cell from its own measured mean risk, at **0.45 ES pt** (the real house
+round trip) and at **0.95 pt** (with slippage, which a market-order system on both legs really pays);
+the 0.533 house headline is carried beside them for comparability.
+
+---
+
+## ADDENDUM 2 — my CEILING clause was near-vacuous, and what replaces it
+
+**Written after reading the 48-cell gate and before measuring anything else.**
+
+**The clause failed as a discriminator, and that is a defect in my gate design, not a result.**
+Addendum 1 made the hard close depend on the mean maximum favourable excursion in R falling at or
+below cost in R. Measured, **the ceiling is 0.56 to 1.07 R in every one of the 48 cells** — including
+cells whose held-to-close expectancy is plainly negative. **A floored, therefore wide, stop almost
+guarantees a large favourable excursion somewhere in a session**, so the clause can never fire and
+the 36 "OPEN" verdicts it produced are **not evidence of anything**. I am saying so before quoting
+them anywhere as encouraging.
+
+**The informative column is the baseline against its OWN MDE**, and on that column the gate is
+decisive:
+
+- **0 of 48 cells have a held-to-close expectancy distinguishable from zero.** Every cell's
+  |baseline| is below its own MDE — the best positive is +0.0266 R against an MDE of 0.0768 R.
+- **0 of 48 beat cost.** The best baseline anywhere, +0.0266 R, sits below that cell's own 0.0541 R
+  real round trip.
+- **The R floor DID do its job**, which is the one claim of this design that is confirmed: cost fell
+  from r2's 0.11-0.36 R to **0.0275-0.0553 R**. The arithmetic problem is fixed and the edge still is
+  not there, which separates the two questions cleanly.
+- **More body is WORSE here:** the `b=3.0` cells are mostly negative while `b=2.0` is mostly
+  positive-but-indistinguishable. The body test's value in r2 and in the overlap round does not
+  extend to a third-multiple body, and I am not going to read it as if it did.
+
+**The one door the baseline does not shut**, stated because it is true and not because I expect it to
+open: a fixed target truncates the outcome distribution, so where the favourable excursion
+mean-reverts, a target can pay more than holding to the close. **STAGE 2 tests exactly that, and it
+does not need the trial budget** — the owner's `T` and `M` values are a small deterministic grid, not
+a search.
+
+**STAGE 2, pre-declared:**
+
+- **Entry cells chosen by a RESULT-BLIND rule:** every entry cell with **n ≥ 2,000** trades, at
+  `s = 1.5` only, across all three floors. That is 6 entry cells. The rule is trade count, which was
+  fixed by the grid and cannot peek at an outcome; picking the cells with the best baseline would be
+  selection on the thing being tested.
+- **The owner's exits in full:** `T` ∈ {1.0, 1.5, 2.0, 3.0} × `M` ∈ {12, 24, 48} bars, with the
+  15:55 flat overriding whichever comes first. 6 × 12 = **72 cells**.
+- **Reported per cell:** the four numbers from each cell's own daily dollar series, the 8-fold count,
+  the largest fold's share of net, `one_episode`, and net at **both** the 0.45 pt real round trip and
+  the 0.95 pt figure with slippage.
+- **The bar is section 5's, unchanged.** 7 of 8 folds, no fold over 40% of net, `one_episode` false,
+  ≥ 50 trades a year, positive net at both cost rows.
+- **A run record per reported cell**, written from its own daily series.
+- **Still no trial budget and no strategy file before MANAGER's GO.**
