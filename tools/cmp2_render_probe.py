@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 173
+N_CASES = 174
 
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>cmp2 probe</title></head>
@@ -7147,6 +7147,7 @@ var FIX = __FIX__;
         function yrsBetween(a,b){var t0=Date.parse(a),t1=Date.parse(b);return (t1>t0)?((t1-t0)/(365.25*86400000)):null;}
         function pillList(){return [].slice.call(d.querySelectorAll('[data-recfgrun]')).map(function(b){
           return {id:b.getAttribute('data-recfgrun'),title:b.getAttribute('title')||'',
+            txt:(b.textContent||'').replace(/\s+/g,' ').trim(),
             fail:!!b.closest('[data-refail]'),on:(b.getAttribute('style')||'').indexOf('color:var(--text);')>=0};});}
 
         // ---- PART A: run pills (1.4a) -------------------------------------------------------
@@ -7167,8 +7168,19 @@ var FIX = __FIX__;
         var pills=pillList();
         var pillIds=pills.map(function(p){return p.id;});
         var byId={};pills.forEach(function(p){byId[p.id]=p;});
-        var expectOrder=['991400','991602','991601','991500','991604','991603'];
-        var orderOk=expectOrder.length===pillIds.length&&expectOrder.every(function(id,i){return pillIds[i]===id;});
+        // ONE ORDER, NEWEST RUN FIRST (owner 2026-11-09: '#425 #424 #432 #433 #434 #452 #451 ...').
+        //   The rail used to sort watch-listed runs first, then the rest by number, then FAIL - three
+        //   orders in one row with nothing on screen saying so. The order is now strictly descending
+        //   run number, and what the groups used to carry is carried by MARKS instead, which is what
+        //   the next two checks are for: the watched run keeps a star and the FAIL run keeps its word
+        //   and its grey. Without those two, flattening the row would have been a loss of information.
+        var expectOrder=pillIds.slice().sort(function(a,b){return (+b)-(+a);});
+        var orderOk=expectOrder.length===pillIds.length&&expectOrder.every(function(id,i){return pillIds[i]===id;})
+                    &&pillIds.length===6;
+        var watchPill=byId['991400']||{};
+        var starKept=/☆/.test(watchPill.txt||'')&&/watch list/i.test(watchPill.title||'');
+        var failPill=pills.filter(function(p){return p.fail;})[0]||null;
+        var failKept=!!failPill&&/FAIL|VOID/.test(failPill.txt||'');
 
         var callA2=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resFilt:{fam:['ORB']},resCfgRun:['991400'],c2Tbl:true},wcA);acc();
         var bodyA2=(d.body&&(d.body.innerText||d.body.textContent))||'';
@@ -7233,7 +7245,9 @@ var FIX = __FIX__;
           'PILLS: all six runs are offered (in-window PASS/FAIL, starred, watch-only)': pillIds.length===6,
           'PILLS: a watch-list run outside runHistory and starRuns appears as a pill': pillIds.indexOf('991400')>=0,
           'PILLS: a starred run outside the loaded window appears as a pill': pillIds.indexOf('991500')>=0,
-          'PILLS: order is watch-listed first, then PASS/WEAK newest first, then FAIL last': orderOk,
+          'PILLS: ONE order, strictly newest run number first - no groups (owner 2026-11-09)': orderOk,
+          'and a WATCHED run keeps its star and says so, instead of being told apart by its position': starKept,
+          'and a FAIL run keeps its own word, instead of being told apart by sitting last': failKept,
           'PILLS: the two FAIL runs carry the FAIL mark and sort after every PASS/WEAK run': !!(byId['991603']&&byId['991603'].fail&&byId['991604']&&byId['991604'].fail),
           'PILLS: every pill hover names its own verdict': !!(byId['991602']&&byId['991602'].title.indexOf('verdict: PASS')>=0&&byId['991603']&&byId['991603'].title.indexOf('verdict: FAIL')>=0&&byId['991400']&&byId['991400'].title.indexOf('verdict: PASS')>=0),
           'PILLS: the default pick (nothing ticked) is the newest NON-FAIL run, skipping the newer FAIL runs': !!(byId['991602']&&byId['991602'].on)&&!(byId['991604']&&byId['991604'].on)&&!(byId['991603']&&byId['991603'].on),
@@ -7247,7 +7261,7 @@ var FIX = __FIX__;
           'ROC30: a row with no lockbox reading dashes both MAR and ROC30': !!(rowDash.mar&&rowDash.mar.t==='\u2014'&&rowDash.roc30&&rowDash.roc30.t==='\u2014'),
           'ROC30: the dash reason is exactly the same one MAR gives, and names the missing lockbox': !!(rowDash.mar&&rowDash.roc30&&rowDash.roc30.tip===rowDash.mar.tip&&/lockbox/i.test(rowDash.mar.tip)),
           'ROC30: the row with no lockbox reading is correctly left off the chart (both axes null for it)': !dashPtEl
-        }, {pillIds:pillIds,expectOrder:expectOrder,rowGood:rowGood,rowDash:rowDash,roc30Expected:roc30Expected,mar30:mar30,axisVal:axisVal,watchPickAlive:watchPickAlive,bodyA2Has991400:bodyA2.indexOf('991400')>=0});
+        }, {pillIds:pillIds,expectOrder:expectOrder,watchTxt:watchPill.txt,failTxt:(failPill||{}).txt,rowGood:rowGood,rowDash:rowDash,roc30Expected:roc30Expected,mar30:mar30,axisVal:axisVal,watchPickAlive:watchPickAlive,bodyA2Has991400:bodyA2.indexOf('991400')>=0});
       })();
 
       // -- case l1_explore_leverage (owner ask via MANAGER, 2026-09-28, inbox #12): the LEVERAGE
@@ -8378,6 +8392,63 @@ var FIX = __FIX__;
           'no console errors':errAcc.length===0
         },{over:over,many:nMany?nMany.tx:'',end:atEnd?atEnd.tx:'',few:nFew?nFew.tx:'(none)',
            nBoxes:bs.length,errs:errAcc.slice(0,2)});
+      })();
+      // -- case b5_paper_row (owner #206 via MANAGER, 2026-11-09: the CONFIG column "never shows
+      //    the config id the Webull row uses", so he has to guess which row is trading his money).
+      //    The join is printed only where it is real - see _rePaperLeg in index.html - and the
+      //    fourth and fifth assertions are the ones that matter: a run whose paper leg is a GRID
+      //    cell gets a sentence saying none of these rows is it, and NO fabricated '#314.n'.
+      (function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        var cum=[];for(var i=0;i<160;i++)cum.push(Math.round(i*9+30*Math.sin(i/3)));
+        function mk(id,strat){
+          var c1={params:{a:1},is_pnl:500,wf_oos_pnl:900,folds_held:6,crowned:true,equity:{cum:cum},
+            metrics:{total_pnl:1400,num_trades:300,profit_factor:1.4,win_rate:45,max_drawdown:-120,avg_pnl:4.67},
+            cal:{is:{total_pnl:500,num_trades:100,win_rate:44,profit_factor:1.3,max_drawdown:-80,wins:44,losses:56,sharpe:0.9,sortino:1.2},
+                 wf:{total_pnl:900,num_trades:200,win_rate:45.5,profit_factor:1.45,max_drawdown:-100,wins:91,losses:109,sharpe:1.1,sortino:1.5},
+                 pre:{total_pnl:1400,num_trades:300,win_rate:45,profit_factor:1.4,max_drawdown:-120,wins:135,losses:165,sharpe:1.05,sortino:1.45}}};
+          c1.is_rng=c1.cal.is;c1.wf_rng=c1.cal.wf;
+          var lite={id:String(id),strategy:strat,starred:0,multiplier:20,instrument:'NQ',timeframe:'5m',
+            date_from:'2010-06-07',date_to:'2026-06-29',timestamp:'2026-09-01T00:00:00Z',
+            validate:{verdict:'PASS',windows:{optimize:['2010-06-07','2025-06-29'],wf_split:'2016-10-12',lockbox:['2025-06-29','2026-06-29']}}};
+          var full=JSON.parse(JSON.stringify(lite));full.selection={candidates:[c1]};
+          full.gate_validate={span:['2010-06-07','2026-06-29'],wf_range:['2016-10-12','2025-06-29'],lockbox_from:'2025-06-29'};
+          return "runHistory=["+JSON.stringify(lite)+"];window._runFull={};window._runCfg={'"+id+"':"+JSON.stringify(full)
+            +"};window._runFullOrder=[];window._runHydrating={};window._c2Open=new Set();window._starRuns=[];";}
+        function readRow(id){
+          var tr=[].filter.call(d.querySelectorAll('tr[data-rerow]'),function(t){
+            return new RegExp('#'+id+' RAW crowned').test(t.textContent||'');})[0];
+          if(!tr)return {found:false};
+          var pid=tr.querySelector('[data-repaperid]'),live=tr.querySelector('[data-repaperlive]'),
+              none=tr.querySelector('[data-repapernone]');
+          return {found:true,txt:dfxN(tr.textContent||''),
+            pid:pid?dfxN(pid.textContent||''):'',pidTip:pid?(pid.getAttribute('title')||''):'',
+            live:live?dfxN(live.textContent||''):'',
+            none:none?dfxN(none.textContent||''):'',noneTip:none?(none.getAttribute('title')||''):''};}
+        function show(id,strat){
+          calls.push(doRender({c2Screen:'explore',resSrc:'cfg',resLvl:'all',resShow:'configs',
+            resCfgRun:[String(id)],resSegs:['is','wf'],c2Tbl:true,resCols:'all',resView:'one',
+            resAxis:'so',resXAxis:'roc30'},mk(id,strat)));
+          chk('#'+id);return readRow(id);}
+        var A=show(424,'NQDIP_1_0.py');
+        var B=show(314,'ORB_3_6_1_0.py');
+        dfxCase('b5_paper_row',calls,{
+          'the crowned row of run #424 was found at all, so this case is testing something':
+            A.found===true,
+          'it prints the WEBULL PAPER row text itself, character for character - "#424.1 raw"':
+            A.pid==='#424.1 raw',
+          'and wears a PAPER mark, so the row trading money is findable without reading a hover':
+            A.live==='PAPER',
+          'run #314 trades a GRID cell no candidate here is, and the row SAYS SO rather than going quiet':
+            B.found===true&&/PAPER SET NOT ON THIS BOARD/.test(B.none)&&/SET 22 of its 382-row/.test(B.noneTip),
+          'AND IT INVENTS NO NUMBER: nothing on that row reads "#314.<n>", which is the whole point':
+            B.found===true&&B.pid===''&&!/#314[.]\d/.test(B.txt),
+          'the hover on #424 says the join is the champion match, not a guess by name':
+            /champion/i.test(A.pidTip)&&/150/.test(A.pidTip),
+          'no console errors':errAcc.length===0
+        },{a:{pid:A.pid,live:A.live,tip:A.pidTip.slice(0,120)},
+           b:{none:B.none,tip:B.noneTip.slice(0,140),pid:B.pid},errs:errAcc.slice(0,2)});
       })();
       // -- case a4_short_window (owner 2026-11-06: "idk what that cross is in the upper right.
       //    must be a mistake or outlier"). It was an ORB forward record covering 42 days and six
@@ -10867,7 +10938,7 @@ def main(argv=None):
     DFX += ['e3_label_pile']
     DFX += ['d1_windowed_default']
     DFX += ['a4_short_window']
-    DFX += ['a5_record_stage', 'a6_record_details', 'b4_table_cut']
+    DFX += ['a5_record_stage', 'a6_record_details', 'b4_table_cut', 'b5_paper_row']
     DFX += ['i54_pnl_overlay']
     DFX += ['c1_rec_gaps']
     DFX += ['e1_axis_outlier']
