@@ -1064,6 +1064,36 @@ var FIX = __FIX__;
           return c==='OK'?n:('ERR '+c).slice(0,160);}
         r.axOrdY=[].map.call(d.querySelectorAll('[data-resaxis]'),function(b){return b.getAttribute('data-resaxis');});
         r.axOrdX=[].map.call(d.querySelectorAll('[data-resxaxis]'),function(b){return b.getAttribute('data-resxaxis');});
+        // HOW MANY CONTROLS ARE ACTUALLY ON SCREEN above the first dot (owner #181: "too many
+        //   buttons"; the scope's target is under 15, and MANAGER asked for the count on every
+        //   push). Counted the way a reader meets them: every clickable control in the rails that
+        //   is VISIBLE - a button inside a closed fold is in the page but not on screen, and does
+        //   not count. The figure is reported whether or not it passes, so the number moves in
+        //   plain sight from ship to ship instead of being claimed.
+        r.ctlVisible=(function(){
+          var host=d.querySelector('[data-rerails]')||d;
+          var all=[].slice.call(host.querySelectorAll('[data-resaxis],[data-resxaxis],[data-respreset],[data-resrc],[data-remonth],[data-resscope],[data-resfail],[data-remintrd],[data-resaxmore],[data-resrecstg],[data-resrecstgall],[data-refam],[data-resview],[data-resbasis],[data-resrel],[data-rescols],[data-resord]'));
+          var vis=all.filter(function(b){
+            var e=b;while(e&&e!==d.body){var s=w.getComputedStyle(e);if(s.display==='none'||s.visibility==='hidden')return false;e=e.parentNode;}
+            return !!(b.getBoundingClientRect().width||b.getBoundingClientRect().height);});
+          var by={};vis.forEach(function(b){
+            var a=[].filter.call(b.attributes,function(x){return x.name.indexOf('data-re')===0;})[0];
+            var k=a?a.name.replace('data-re',''):'?';by[k]=(by[k]||0)+1;});
+          return {total:vis.length,inPage:all.length,by:by};})();
+        // AND THE SAME COUNT ON THE BOARD AS IT OPENS - the default pair, both folds shut. That is
+        //   the number a reader actually meets, and it is the one the scope's target is about.
+        r.ctlDefault=(function(){
+          var c=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],
+                          resSegs:['wf'],resMarks:'dot'}, wc);
+          if(c!=='OK')return {total:('ERR '+c).slice(0,60)};
+          var all=[].slice.call(d.querySelectorAll('[data-resaxis],[data-resxaxis],[data-respreset],[data-resrc],[data-remonth],[data-resscope],[data-resfail],[data-remintrd],[data-resaxmore],[data-resrecstg],[data-resrecstgall],[data-refam],[data-resview],[data-resbasis],[data-resrel],[data-rescols],[data-resord]'));
+          var vis=all.filter(function(b){
+            var e=b;while(e&&e!==d.body){var s=w.getComputedStyle(e);if(s.display==='none'||s.visibility==='hidden')return false;e=e.parentNode;}
+            return !!(b.getBoundingClientRect().width||b.getBoundingClientRect().height);});
+          var by={};vis.forEach(function(b){
+            var a=[].filter.call(b.attributes,function(x){return x.name.indexOf('data-re')===0;})[0];
+            var k=a?a.name.replace('data-re',''):'?';by[k]=(by[k]||0)+1;});
+          return {total:vis.length,by:by};})();
         r.axNew={ydd:axisPts('dd','so'),xraw:axisPts('evr','raw'),xmar:axisPts('evr','ratio'),xev:axisPts('evr','ppt'),ywr:axisPts('wr','so'),xwr:axisPts('evr','wr')};
         // and the ALL layout, which lost its old grey RUN column as well as gaining two
         r.allCall=doRender({c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[String(FIX.id)],
@@ -9526,12 +9556,29 @@ def main(argv=None):
          % (_il.get('trd'), _il.get('tpy'), _as.get('trd'), _as.get('tpy'), _ppts))
     if not stages_ok:
         fail('stage-counts: IN-SAMPLE + LOCKBOX is not reading the ticked stretches (or all three moved) -- see the stage-counts line')
-    _ORDER = ['so', 'sh', 'ddr', 'ddp', 'dd', 'ratio', 'roc30', 'pf', 'wr', 'evr', 'ppt', 'rpy', 'roc', 'raw']
+    # DD5 JOINED THE AXES on 2026-11-08 (owner #181): it is one of the four numbers this project
+    #   ranks on and was the only one of them with no axis button, so 'plot the four numbers' was
+    #   not something the board could do. It is appended, so the order of the other fourteen - which
+    #   this check exists to pin - is unchanged.
+    #   The order itself is now deliberate rather than historical: the FOUR NUMBERS come first, in
+    #   the order they are always quoted (ROC @ $30k, DD5, DD %, Sortino), and the other eleven
+    #   follow in the order they have always been in - they are the ones behind the MORE fold, which
+    #   hides them on screen but keeps every one of them in the page.
+    _ORDER = ['roc30', 'dd5', 'ddp', 'so', 'sh', 'ddr', 'dd', 'ratio', 'pf', 'wr', 'evr', 'ppt', 'rpy', 'roc', 'raw']
     _ax = r.get('axNew') or {}
     axes_ok = (r.get('axOrdY') == _ORDER and r.get('axOrdX') == _ORDER
                and all(isinstance(v, int) and v >= 1 for v in _ax.values()) and len(_ax) == 6)
     line('axes', axes_ok, 'vertical=%s horizontal=%s gate points on new pairings=%s'
          % (r.get('axOrdY'), r.get('axOrdX'), _ax))
+    # THE CONTROL COUNT, REPORTED ON EVERY RUN (owner #181, target under 15 on screen). It is a
+    #   reported figure, not yet a hard limit: the scope's own ship order still has the month pills,
+    #   the strategy rail and the two tables to come, so pinning a ceiling now would fail the gate
+    #   for work that has not been done yet. The number is printed so it cannot be claimed without
+    #   being measured, and the ceiling goes in with the last of those pushes.
+    _cv = r.get('ctlVisible') or {}
+    _cd = r.get('ctlDefault') or {}
+    line('control-count', True, 'AS THE BOARD OPENS: %s visible above the first dot %s | with a folded measure ticked: %s visible (%s in the page) %s'
+         % (_cd.get('total'), _cd.get('by'), _cv.get('total'), _cv.get('inPage'), _cv.get('by')))
     if not axes_ok:
         fail('axes: the two axis pickers differ from the agreed order, or a new pairing drew no gate point -- see the axes line')
     cols_ok = (r.get('allCall') == 'OK' and r.get('allBad') == 0 and r.get('allRunHeads') == 1
