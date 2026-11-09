@@ -90,6 +90,12 @@ def _engine_epoch():
     except Exception:
         return None
 
+# RUN PROGRESS LINE (owner 11-08 via MANAGER): the stage the validate in THIS process is in, read by
+#   the runner's heartbeat and stamped on the job doc. One job per runner process, so a module-level
+#   dict is enough. stage_n is the stage's place in VALIDATE_STAGES (None for a stage not in it).
+VALIDATE_STAGES = ("stage_a", "stage_b", "selection", "lockbox", "whole_run", "surrogate", "gate", "pills")
+CURRENT_STAGE = {}
+
 
 class _StageClock:
     """begin(stage) / split(stage, part) / end(stage) -> one printed marker line each,
@@ -124,6 +130,16 @@ class _StageClock:
             self._check()
         now = _time.time()
         self._start[stage] = self._last[stage] = now
+        try:
+            CURRENT_STAGE.clear()
+            CURRENT_STAGE.update({
+                "stage": str(stage),
+                "stage_n": (VALIDATE_STAGES.index(stage) + 1) if stage in VALIDATE_STAGES else None,
+                "stage_m": len(VALIDATE_STAGES),
+                "stage_at": _dt.datetime.now(_dt.timezone.utc).isoformat(timespec="seconds"),
+                "run_at": _dt.datetime.fromtimestamp(self.t0, _dt.timezone.utc).isoformat(timespec="seconds")})
+        except Exception:
+            pass
         self.code_stamps.append({"stage": stage, "git_sha": _LOADED_GIT_SHA,
                                  "disk_git_sha": _engine_git_sha(),
                                  "engine_epoch": _engine_epoch()})

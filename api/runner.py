@@ -2269,11 +2269,25 @@ class FirestoreQueue:
                         # the engine reports progress. Stops the moment the job returns.
                         _hb_stop = threading.Event()
 
+                        # RUN PROGRESS LINE (owner 11-08): the validate's current stage rides the
+                        #   heartbeat write it already makes - no extra write, no invented percent.
+                        try:
+                            from augur_engine import validate as _vstage
+                            _vstage.CURRENT_STAGE.clear()
+                        except Exception:
+                            _vstage = None
+
                         def _hb(_ref=ref, _stop=_hb_stop):
                             while not _stop.wait(HEARTBEAT_SEC):
                                 try:
-                                    self._live_ref(_ref).update(
-                                        {"heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()})
+                                    _hbp = {"heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()}
+                                    try:
+                                        _cs = dict(_vstage.CURRENT_STAGE) if _vstage is not None else {}
+                                        if _cs.get("stage"):
+                                            _hbp["run_stage"] = _cs
+                                    except Exception:
+                                        pass
+                                    self._live_ref(_ref).update(_hbp)
                                     fs_heal.HEALTH.note_ok()
                                 except Exception as _he:
                                     fs_heal.HEALTH.note_fail(_he)
