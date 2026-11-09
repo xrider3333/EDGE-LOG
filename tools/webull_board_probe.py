@@ -3247,6 +3247,14 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       //   carries one number (owner 2026-11-08), so the split behind it - realized, unrealized,
       //   the lots and shares, the parameter set - lives here, and the gate has to be able to see
       //   it to prove it was moved rather than dropped.
+      // IS THE LABEL CUT? Measured as a reader sees it - the name's laid-out width against the box
+      //   it was given - not from a CSS flag. A clipped name still looks like a tidy one-line row,
+      //   which is exactly why 'DIP #42' got through every other check on this board.
+      //   Two ways it goes wrong, and his picture showed the second: the name's own box clips it
+      //   (scrollWidth past clientWidth), or the box is not clipping at all and the text simply runs
+      //   UNDER the figures column - which is what 'the unrealized line overlaps the name' was.
+      var nmr=nm?nm.getBoundingClientRect():null,vr=v?v.getBoundingClientRect():null;
+      var nameCut=nm?((nm.scrollWidth>nm.clientWidth+1)||(!!vr&&nmr.right>vr.left+1)):false;
       var exFacts={};
       if(exX)[].forEach.call(exX.querySelectorAll('.lg-ms-row'),function(r){
         var l=r.querySelector('.l'),v=r.querySelector('.v');
@@ -3257,6 +3265,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         sub:subTxt||null,subShown:sb?w.getComputedStyle(sb).display!=='none':subFromMore,more:!!b.querySelector('[data-lgrowmore]'),
         value:vc?(vc.textContent||'').replace(/\\s+/g,' ').trim():null,value2:v2,value2Shown:sm0?w.getComputedStyle(sm0).display!=='none':false,
         open3:open3,nameColor:nmc?nmc.style.color:null,dot:dot,runLink:rl?rl.getAttribute('data-qbrunlink'):null,
+        nameCut:nameCut,nameW:nm?Math.round(nm.clientWidth):null,
         off:b.classList.contains('off'),h:Math.round(rc.height),sw:b.querySelectorAll('[data-lgsw]').length,
         valColor:v?w.getComputedStyle(v).color:null,expanded:b.getAttribute('aria-expanded'),
         extra:exX?exX.getAttribute('data-qbextra'):null};
@@ -6312,6 +6321,14 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                     if (x.get('open') or None) != e['open']:
                         fails.append('%s: the Shadow row %s open line reads %r, the doc says %r' % (tag, nm, x.get('open'), e['open']))
     rows = [x for g in groups for x in g.get('rows') or []]
+    # THE LABEL IS NEVER CUT (owner 2026-11-08, priority 1). His phone showed 'DIP #42': the run
+    #   number, the parameter set and the model word - the characters that say which run is trading
+    #   his money - thrown away to fit a column that was carrying three money strings. Checked at
+    #   EVERY width the probe renders, because a narrow laptop column can do the same thing.
+    _cut = [(x.get('name'), x.get('nameW')) for x in rows if x.get('nameCut')]
+    if _cut:
+        fails.append('%s: the strategy label is CUT OFF on %s - it must never lose a character, and it may wrap instead'
+                     % (tag, _cut[:3]))
     # owner 10-31 15:30: the trades / win rate line sits under the name at EVERY width (a phone row is the name line plus that line)
     if vp.startswith('phone'):
         # the BOOK and Retired rows: a Shadow row's sub-line is a sentence that wraps, and that fold is closed until opened
