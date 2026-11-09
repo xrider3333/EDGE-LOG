@@ -124,3 +124,67 @@ Complete signal bar; **fill at the next bar's open**; relative volume against th
 over the **prior 20 sessions only**, shifted a session; daily trend from the **previous completed
 session**; ATR shifted one bar; one tape, no splice. The stop is checked **before** any favourable
 price on every bar, so a bar covering both books the stop.
+
+---
+
+## 7. ADDENDUM — MANAGER #153's control rule, answered under BOTH control definitions
+
+**#153 landed after this harness was built and after §1-§6 were written.** The rule (from TBIS's
+STRONGBAR): a random-entry control *"may only draw bars AFTER the information the real arm used
+exists (same day, at or after the signal bar time, same side). A control drawn from the whole day
+sees the signal bar before it happens and prints a false lead (STRONGBAR control ROC ~10 was
+this)."*
+
+**Control A as prereged does not have that defect**, and not by luck — by two properties written
+into §6 before any measurement:
+
+1. **it never draws from the signal's own session at all** (`if codes[j] == codes[i]: continue`), so
+   it cannot sit on, before, or anywhere near the signal bar; and
+2. **it matches the 15-minute time-of-day slot exactly** (the pool is keyed on the slot), so it
+   cannot gain the "entered earlier in the day and caught the expansion" advantage that is the
+   actual mechanism #153 describes.
+
+But asserting that is worth less than measuring it, and #153's scheme is a genuinely different
+matching choice rather than a wrong one. **So the gate now runs a second control and every cell is
+scored against both; the verdict takes whichever is harder** (`worst = min(delta, deltaB)`).
+
+| | **control A** (as prereged) | **control B** (#153's rule) |
+|---|---|---|
+| drawn from | a **different** trend-passing session, **same 15-min slot** | the **same session**, a bar **at or after** the signal bar |
+| same side, same floored stop, same hold-to-close exit | yes | yes |
+| draws per signal / seed | 20 / 20261109 | 20 / 20261109 |
+| cells where the signal LOSES to the control | 6 of 48 | 3 of 48 |
+| best delta | 0.0439 R vs MDE2 0.2204 | **0.0414 R vs MDE2 0.1417** |
+| **cells OPEN** | **0 of 48** | **0 of 48** |
+
+**THE VERDICT IS UNCHANGED: 48 of 48 BETA, NOT A SIGNAL under both controls.** Control B's best
+delta is still **3.4× smaller** than the edge its sample could have detected.
+
+**A side result that is for TBIS rather than for me:** on ES 15m the two control schemes return
+**similar** means, so the whole-day-draw inflation #153 warns about is **small here** — it does not
+move a single verdict. That is not a refutation of #153; NQ 5m has 3× the bars in a session and a
+tight bar-extreme stop, so the geometry that makes a pre-signal draw flattering is much stronger
+there. **It does mean #153's correction cannot be assumed to be the whole explanation of STRONGBAR's
+10.36, and §3 below should be read with that caveat.**
+
+## 8. CORRECTION to §3 — the two-round synthesis is now weaker than I wrote it
+
+§3 argued that the tight stop "was never the problem, only an aggravation", on the strength of
+STRONGBAR's signal arm scoring **0.49 against a random control's 10.36**. **If that 10.36 is partly
+a false lead from a pre-signal draw, as #153 says it is, then the size of that gap cannot carry that
+argument** — a contaminated control makes the signal arm look worse than it is, which is the
+direction that flatters my reading.
+
+**What survives, and it is the part that matters:** this round's own measurement is made against two
+controls, neither of which can draw pre-signal information, and it finds the signal arm
+**indistinguishable from random on ES 15m under both.** That stands on its own and needs nothing
+from STRONGBAR. The honest joint statement is therefore narrower than §3's:
+
+> **On ES 15m, with a wide floored stop and a clean control, the candle-strength + volume trigger is
+> worth nothing over a random entry in the same regime at the same hour. On NQ 5m with a tight stop
+> it was worth less than that, by a margin whose exact size is in question.** Across both: no cell,
+> on either instrument, at either timeframe, with either stop style, beats its control.
+
+The conclusion that **this mechanism needs no third test** is unaffected. The claim that the stop
+style is merely an aggravation is **withdrawn pending a clean STRONGBAR control**, and that is TBIS's
+to re-measure, not mine to assert.

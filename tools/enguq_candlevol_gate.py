@@ -235,6 +235,7 @@ def main():
     rvol = vol / base.to_numpy()
 
     rng_state = np.random.default_rng(SEED)
+    rng_b = np.random.default_rng(SEED)
     # eligible pool for the control, per trend filter: bar indices on trend-passing sessions,
     # keyed by slot, so a draw matches TIME OF DAY and REGIME and differs only in the candle
     pools = {}
@@ -250,7 +251,8 @@ def main():
     print("  A strategy with no edge scores DELTA 0.  MDE2 = sd*sqrt(15.7/n).\n")
     print(format("cell", "<30") + format("n", ">7") + format("a yr", ">7")
           + format("risk pt", ">9") + format("cost R", ">8") + format("sig R", ">9")
-          + format("rand R", ">9") + format("DELTA", ">9") + format("MDE2", ">8")
+          + format("rand R", ">9") + format("DELTA", ">9") + format("DELTA-B", ">9")
+          + format("MDE2", ">8")
           + format("verdict", ">19"))
 
     report = []
@@ -266,7 +268,7 @@ def main():
                     idx = np.flatnonzero(sig)
                     for fl in FLOOR_PT:
                         name = "N=%d bf=%.1f cl=%.1f rv=%.1f f=%d" % (N, bf, cl, rv, int(fl))
-                        sR, rR, risks, ex_d, pnl = [], [], [], [], []
+                        sR, rR, bR, risks, ex_d, pnl = [], [], [], [], [], []
                         for i in idx:
                             e = i + 1
                             if e >= n or codes[e] != codes[i] or last_bar[i] < e:
@@ -293,6 +295,18 @@ def main():
                                 ep2 = o[e2]
                                 _, xpx2 = hold_to_close(h, lo, c, ep2, e2, ep2 - r2, last_bar[j])
                                 rR.append((xpx2 - ep2) / r2)
+                            # control B, MANAGER #153: SAME SESSION, AT OR AFTER the signal bar, so
+                            # the control can never sit on information the real arm did not have
+                            if last_bar[i] - 1 > i:
+                                pb = rng_b.integers(i, last_bar[i] - 1, DRAWS)
+                                for j in pb:
+                                    if np.isnan(atr20[j]):
+                                        continue
+                                    e3 = j + 1
+                                    r3 = max(ATR_STOP * atr20[j], fl)
+                                    ep3 = o[e3]
+                                    _, xpx3 = hold_to_close(h, lo, c, ep3, e3, ep3 - r3, last_bar[i])
+                                    bR.append((xpx3 - ep3) / r3)
                         cnt = len(sR)
                         a_yr = cnt / years if years else 0.0
                         if cnt < 2 or len(rR) < 2:
@@ -303,11 +317,15 @@ def main():
                             continue
                         s_m = float(np.mean(sR)); s_sd = float(np.std(sR, ddof=1))
                         r_m = float(np.mean(rR))
+                        b_m = float(np.mean(bR)) if len(bR) > 1 else None
                         rk = float(np.mean(risks))
                         delta = s_m - r_m
+                        delta_b = None if b_m is None else s_m - b_m
                         m2 = mde_two(s_sd, cnt)
                         cr = COST_REAL / rk
-                        if m2 is None or delta <= m2:
+                        # BOTH controls must be beaten.  Whichever is the harder test is the test.
+                        worst = delta if delta_b is None else min(delta, delta_b)
+                        if m2 is None or worst <= m2:
                             v = "BETA, NOT A SIGNAL"
                         elif a_yr < TRADES_A_YEAR_FLOOR:
                             v = "THIN n/yr"
@@ -322,6 +340,9 @@ def main():
                             "cost_R_slip": round(COST_SLIP / rk, 4),
                             "signal_R": round(s_m, 4), "sd_R": round(s_sd, 4),
                             "random_R": round(r_m, 4), "delta_R": round(delta, 4),
+                            "randomB_R": None if b_m is None else round(b_m, 4),
+                            "deltaB_R": None if delta_b is None else round(delta_b, 4),
+                            "controlB_draws": len(bR),
                             "mde2_R": None if m2 is None else round(m2, 4),
                             "net_usd_real": round(float(np.sum(pnl)), 0), "verdict": v})
                         print(format(name, "<30") + format(format(cnt, ","), ">7")
@@ -329,6 +350,7 @@ def main():
                               + format(format(rk, ".2f"), ">9") + format(format(cr, ".4f"), ">8")
                               + format(format(s_m, ".4f"), ">9") + format(format(r_m, ".4f"), ">9")
                               + format(format(delta, ".4f"), ">9")
+                              + format("-" if delta_b is None else format(delta_b, ".4f"), ">9")
                               + format("-" if m2 is None else format(m2, ".4f"), ">8")
                               + format(v, ">19"))
 
@@ -338,6 +360,12 @@ def main():
     if R:
         worse = sum(1 for r in R if r["delta_R"] < 0)
         print("cells where the SIGNAL IS WORSE THAN RANDOM: %d of %d" % (worse, len(R)))
+        wb = [r for r in R if r.get("deltaB_R") is not None]
+        if wb:
+            print("control B (MANAGER #153, same session at/after the signal bar): "
+                  "%d of %d cells have deltaB <= 0" % (sum(1 for r in wb if r["deltaB_R"] <= 0), len(wb)))
+            bb = max(wb, key=lambda r: r["deltaB_R"])
+            print("best deltaB: %s  %.4f R vs MDE2 %.4f" % (bb["cell"], bb["deltaB_R"], bb["mde2_R"] or 0))
         best = max(R, key=lambda r: r["delta_R"])
         print("best delta: %s  delta %.4f R vs MDE2 %.4f  (signal %.4f, random %.4f)"
               % (best["cell"], best["delta_R"], best["mde2_R"] or 0,
