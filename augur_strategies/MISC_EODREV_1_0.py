@@ -202,3 +202,11 @@ def _score(trades, return_trades):
     if return_trades:
         out["trades"] = trades
     return out
+
+
+def mark_open_trades(trades, opens, highs, lows, closes, volumes=None, day_id=None, index=None,
+                     **params):
+    """Open-trade marks for the book (dip open-marks contract). Every basket enters at 15:30 and
+    leaves at that SAME session's closing print, so no trade is ever held through a session close:
+    one empty mark list per trade."""
+    return [[] for _ in (trades or [])]
