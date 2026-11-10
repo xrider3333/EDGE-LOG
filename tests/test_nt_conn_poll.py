@@ -54,3 +54,13 @@ def test_logon_launcher_runs_the_deployed_copy():
     s = _read(VBS)
     assert 'C:\\EdgeLog\\nt_conn_poll.ps1' in s
     assert ", 0, False" in s  # hidden, do not wait
+
+
+def test_recover_holds_a_strategy_nt_disabled_for_a_rejected_order():
+    # 11-09: margin rejection -> NT disables -> watchdog re-enabled every 5 min (popup loop)
+    s = _read(RECOVER)
+    assert "$rejectHoldMin = 60" in s
+    assert "error 'Order rejected'" in s
+    i = s.index("$rejHeld = @()")
+    assert s.index("$pending = @($pending | Where-Object { $loading -notcontains $_ })") < i
+    assert i < s.index("foreach ($s in $pending) {\n    if ($s -eq $enguqName".replace("\n", "\r\n") if "\r\n" in s else "foreach ($s in $pending) {\n    if ($s -eq $enguqName")

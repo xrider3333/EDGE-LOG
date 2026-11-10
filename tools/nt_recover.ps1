@@ -73,6 +73,38 @@ function Log($m){
 # a position was open - so every overnight hold came back orphaned (09-30, 10-01). Now the
 # gate lets exactly one case through: the only open position is ENGU-Q's own saved trade.
 $enguqName  = 'EdgeLogENGUQ1m'
+
+# REJECTED-ORDER HOLD (2026-11-09/10, owner GO #360). NinjaTrader disables a strategy whose order the broker
+# REJECTS (11-09: demo cash 790.83 < margin for 11 MNQ). Re-enabling it only repeats the rejection - every 5 min,
+# a popup each time, all morning. So a strategy NT disabled after 'Order rejected' in the last 60 min is held,
+# with one phone note a day; after 60 min it gets one more try.
+$rejectHoldMin = 60
+function RejectedRecently($name) {
+  try {
+    $dir = Join-Path $env:USERPROFILE 'Documents\NinjaTrader 8\log'
+    # every log of the day: NinjaTrader opens a new numbered file at each start
+    $f = @(Get-ChildItem $dir -Filter ("log.{0}.*.en.txt" -f (Get-Date -Format 'yyyyMMdd')) -ErrorAction Stop | Sort-Object Name)
+    if ($f.Count -eq 0) { return $null }
+    $hit = Select-String -Path ($f | ForEach-Object FullName) -SimpleMatch -Pattern ("Strategy '" + $name + "/") |
+           Where-Object { $_.Line -match "error 'Order rejected'" } | Select-Object -Last 1
+    if (-not $hit) { return $null }
+    $t = [datetime]::ParseExact($hit.Line.Substring(0, 19), 'yyyy-MM-dd HH:mm:ss', $null)
+    if (((Get-Date) - $t).TotalMinutes -lt $rejectHoldMin) { return $t }
+  } catch {}
+  return $null
+}
+function NotifyRejectHold($name, $t) {
+  $mark = "C:\EdgeLog\nt_reject_hold_$name.txt"
+  $today = Get-Date -Format 'yyyy-MM-dd'
+  if ((Test-Path $mark) -and ((Get-Content $mark -Raw).Trim() -eq $today)) { return }
+  Set-Content -Path $mark -Value $today -Encoding ascii
+  $msg = "NinjaTrader rejected $name's order at $($t.ToString('HH:mm')) and switched it off (usually not enough margin on the demo). The watchdog is NOT switching it back on for $rejectHoldMin min."
+  try {
+    $env:PYTHONIOENCODING = 'utf-8'
+    & python -c "import sys; sys.path.insert(0, r'C:\Users\xride\OneDrive\Desktop\EDGE-LOG'); from api import ntfy_push; ntfy_push.push(sys.argv[1], title='NT demo 7240108: order rejected - strategy held', priority='high')" $msg 2>&1 | Out-Null
+    & python 'C:\Users\xride\OneDrive\Desktop\EDGE-LOG\tools\chat_inbox.py' post --from NT-CONNPOLL PAPER-NT8 $msg 2>&1 | Out-Null
+  } catch {}
+}
 # Which contract ROOT each strategy trades (2026-10-09). A position on one root holds back only the strategy
 # that trades it; the others start. On 10-08 a NOISE MNQ short left open by a feed outage kept ENGU-Q (NQ) off
 # all night and the next morning. A position on a root not listed here still stops everything.
@@ -790,6 +822,10 @@ do {
   $starting = @($pending | Where-Object { $loading -contains $_ })
   if ($starting.Count -gt 0) { Log "still starting (leaving alone): $($starting -join ', ')" }
   $pending = @($pending | Where-Object { $loading -notcontains $_ })
+  $rejHeld = @()
+  foreach ($s in $pending) { $rt = RejectedRecently $s; if ($rt) { $rejHeld += $s; Log "HELD (order rejected at $($rt.ToString('HH:mm:ss')), retry after $rejectHoldMin min): $s"; NotifyRejectHold $s $rt } }
+  $pending = @($pending | Where-Object { $rejHeld -notcontains $_ })
+  if ($pending.Count -eq 0 -and $rejHeld.Count -gt 0) { break }
   if ($pending.Count -eq 0) { Start-Sleep -Seconds 10; continue }
   foreach ($s in $pending) {
     if ($s -eq $enguqName -and -not (EnsureEnguqAdopt)) {
