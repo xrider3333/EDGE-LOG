@@ -543,11 +543,59 @@ def night_items(night, now_ts):
     return out
 
 
+WATCHDOG_TASK = "EdgeLog NT recover watchdog"
+RECOVER_LOG = r"C:\EdgeLog\nt_recover.log"
+
+
+def _task_state(name):
+    """'Ready' / 'Running' / 'Disabled' / None (unreadable). Read only."""
+    import subprocess
+    try:
+        r = subprocess.run(["powershell", "-NoProfile", "-Command",
+                            "(Get-ScheduledTask -TaskName '%s' -ErrorAction Stop).State" % name],
+                           capture_output=True, text=True, timeout=60)
+        return (r.stdout or "").strip() or None
+    except Exception:
+        return None
+
+
+def check_watchdog(state=None, log_tail=None):
+    """The recover watchdog must be ENABLED (10-28 it sat disabled four days unflagged, #309), and its last
+    pass must not be 'HELD BACK for a person' (11-04: a stranded position nobody was told about)."""
+    st = _task_state(WATCHDOG_TASK) if state is None else state
+    if st == "Disabled":
+        return item("watchdog", "Recover watchdog", "fail", "DISABLED - NinjaTrader will not restart or log in by itself",
+                    "the NinjaTrader watchdog is SWITCHED OFF")
+    if log_tail is None:
+        try:
+            with open(RECOVER_LOG, "rb") as f:
+                f.seek(0, 2)
+                f.seek(max(0, f.tell() - 20000))
+                log_tail = f.read().decode("utf-8", "ignore").splitlines()
+        except OSError:
+            log_tail = []
+    passes = [i for i, ln in enumerate(log_tail) if "=== recover start" in ln]
+    last = log_tail[passes[-1]:] if passes else []
+    held = [ln for ln in last if "HELD BACK for a person" in ln or "STOP: the account is holding" in ln]
+    if held:
+        return item("watchdog", "Recover watchdog", "fail", held[0].split("  ", 1)[-1][:160],
+                    "a strategy is held back over a position nobody manages")
+    if st is None:
+        return item("watchdog", "Recover watchdog", "skip", "task state unreadable")
+    return item("watchdog", "Recover watchdog", "pass", "enabled (%s), last pass not held back" % st)
+
+
 def run_checks(now_ts):
     """Every check -> list of items. Never raises: a crash in one check is itself a FAIL item."""
     night = night_active(now_ts)
     if night:
         items = night_items(night, now_ts)
+        try:
+            wd = check_watchdog()
+            if wd["status"] == "fail" and "DISABLED" in wd["detail"]:
+                items.append(wd)                      # a switched-off watchdog matters at night too
+        except Exception:
+            pass
         try:
             items.append(check_gate())
         except Exception as e:
@@ -576,6 +624,11 @@ def run_checks(now_ts):
             items.append(item("bridge_data", "Bridge data", "fail", why, "NinjaTrader's bridge returned no strategy or position data", startup=True))
         items.append(item("roster", "Strategy roster", "skip", why))
         items.append(item("positions", "Positions", "skip", why))
+    try:
+        items.append(check_watchdog())
+    except Exception as e:
+        items.append(item("watchdog", "Recover watchdog", "fail", "check crashed: %s" % type(e).__name__,
+                          "the watchdog check crashed"))
     for inst in ("NQ", "ES"):
         try:
             items.extend(check_capture(inst, now_ts))

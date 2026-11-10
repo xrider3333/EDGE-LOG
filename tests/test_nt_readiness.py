@@ -509,3 +509,18 @@ def test_overnight_coverage_is_judged_from_the_window_end(world):
     assert world["run"]() == 0
     it = next(i for i in world["result"]()["items"] if i["id"] == "capture_overnight_NQ")
     assert it["status"] == "pass" and "since Wed 08:50" in it["detail"]
+
+
+def test_watchdog_disabled_is_a_red_line():
+
+    it = R.check_watchdog(state="Disabled", log_tail=[])
+    assert it["status"] == "fail" and "DISABLED" in it["detail"]
+
+
+def test_watchdog_held_back_last_pass_fails_and_an_older_one_does_not():
+
+    held = ["2026-11-05 06:20:02  === recover start (WhatIf=False) ===",
+            "2026-11-05 06:20:23  HELD BACK for a person: EdgeLogNOISE - the account holds an open position"]
+    assert R.check_watchdog(state="Ready", log_tail=held)["status"] == "fail"
+    ok = held + ["2026-11-05 06:23:02  === recover start (WhatIf=False) ===", "2026-11-05 06:23:20  healthy: ..."]
+    assert R.check_watchdog(state="Ready", log_tail=ok)["status"] == "pass"
