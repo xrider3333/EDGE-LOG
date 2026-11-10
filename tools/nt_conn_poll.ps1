@@ -130,6 +130,13 @@ while ($true) {
       }
     }
   }
+  # Stranded-position guard (owner GO 11-10): a demo position no running strategy owns -> phone within ~40 s,
+  # flatten on a 100-pt adverse move or at 13:55 MST. tools/nt_stranded_guard.py holds the rules + tests.
+  if ($null -ne $h) {
+    $ga = @("$repo\tools\nt_stranded_guard.py", '--once'); if ($WhatIf) { $ga += '--whatif' }
+    try { & $py @ga 2>&1 | Where-Object { $_ -match '^(PUSH|FLATTEN|  ->|push failed)' } | ForEach-Object { Log "  [stranded] $_" } }
+    catch { Log "  [stranded] guard failed: $($_.Exception.Message)" }
+  }
   if ($Once) { break }
   Start-Sleep -Seconds $PollSec
 }
