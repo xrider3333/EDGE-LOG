@@ -57,6 +57,9 @@ $expected = @('EdgeLogNOISE', 'EdgeLogENGUQ1m')   # 2026-09-10: ORBPAR REMOVED -
 #   Do not put a PAR row in this list. ORB230 is a normal row and is safe to add back if an
 #   ORB leg should survive restarts - that is an owner call, it changes which config trades.
 $connName = 'Simulation'
+# The paper account (2026-11-11 Sim101 switch): same file api/nt_account.py reads; Sim101 when absent. Never 1810769.
+$paperAcct = 'Sim101'
+try { $pa = (Get-Content 'C:\EdgeLog\nt_paper_account.txt' -TotalCount 1 -ErrorAction Stop).Trim(); if ($pa -and $pa -ne '1810769') { $paperAcct = $pa } } catch {}
 
 function Log($m){
   $line = "{0}  {1}" -f (Get-Date -Format 'yyyy-MM-dd HH:mm:ss'), $m
@@ -124,7 +127,7 @@ function EnguqAdoptRefusal($posJson) {
   try { $ps = @(($posJson | ConvertFrom-Json).positions) } catch { return "could not read the positions" }
   if ($ps.Count -ne 1) { return "$($ps.Count) open positions (adopt handles exactly one)" }
   $p = $ps[0]
-  if ("$($p.account)" -ne 'DEMO7240108') { return "the position is on $($p.account), not the demo account" }
+  if ("$($p.account)" -ne $paperAcct) { return "the position is on $($p.account), not the paper account $paperAcct" }
   if ("$($p.side)" -ne 'Long') { return "the position is $($p.side) and ENGU-Q only goes long" }
   if (-not (Test-Path $enguqState)) { return "ENGU-Q has no saved trade file" }
   try { $st = Get-Content $enguqState -Raw | ConvertFrom-Json } catch { return "ENGU-Q's saved trade file is unreadable" }
@@ -143,7 +146,7 @@ function EnguqAdoptRefusal($posJson) {
 # Same fields EdgeLogNOISE.RestoreState checks, so the watchdog never starts an adopt the strategy
 # would then refuse (and never offers it a position that is not its own).
 function NoiseAdoptRefusal($p) {
-  if ("$($p.account)" -ne 'DEMO7240108') { return "the position is on $($p.account), not the demo account" }
+  if ("$($p.account)" -ne $paperAcct) { return "the position is on $($p.account), not the paper account $paperAcct" }
   if (-not (Test-Path $noiseState)) { return "NOISE has no saved trade file" }
   try { $st = Get-Content $noiseState -Raw | ConvertFrom-Json } catch { return "NOISE's saved trade file is unreadable" }
   if (-not $st.inPos) { return "NOISE's saved trade says flat, so this position is not its own" }

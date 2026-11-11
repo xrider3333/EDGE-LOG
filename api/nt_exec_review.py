@@ -105,11 +105,13 @@ REVIEW_WINDOW_MINUTES = 15
 # by hand through the bridge at 10:10 ET, which is one of today's two NQ fills). Both on
 # DEMO7240108. Update these numbers (and retest) if the owner changes either strategy's size
 # in the NT Strategies dialog.
+from api import nt_account as _nt_account   # noqa: E402
+_PAPER = _nt_account.paper_account()        # the paper account (api/nt_account.py)
 EXPECTED = {
     # NOISE max_qty None = the live risk rail (bridge.json, api/gate_live._rails), read per fill: the gate
     # sizes NOISE 9-15 micros by design since 08-26, so the old fixed 3 flagged every fill (19 pushes 11-03/04).
-    "EdgeLogNOISE":   {"instrument_prefix": "MNQ", "account": "DEMO7240108", "max_qty": None},
-    "EdgeLogENGUQ1m": {"instrument_prefix": "NQ",  "account": "DEMO7240108", "max_qty": 1},
+    "EdgeLogNOISE":   {"instrument_prefix": "MNQ", "account": _PAPER, "max_qty": None},
+    "EdgeLogENGUQ1m": {"instrument_prefix": "NQ",  "account": _PAPER, "max_qty": 1},
 }
 
 
@@ -304,7 +306,7 @@ def _max_qty(exp):
         return 40
 
 
-ACCOUNT_TITLE = {"DEMO7240108": "NT demo 7240108", "1810769": "NT REAL 1810769"}
+ACCOUNT_TITLE = {"DEMO7240108": "NT demo 7240108", "Sim101": "NT sim Sim101", "1810769": "NT REAL 1810769"}
 STALE_MIN = 15.0                   # a fill older than this is history, not news: digest line, never its own push
 DIGEST_AFTER_ET = (16, 5)          # routine paper fills collect into ONE note after the session (16:05 ET)
 ALERT_STATE = os.environ.get("EDGELOG_EXEC_ALERT_STATE", r"C:\EdgeLog\exec_review_alerts.json")

@@ -34,7 +34,8 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 sys.path.insert(0, ROOT)
 
 BRIDGE = os.environ.get("EDGELOG_BRIDGE_URL", "http://127.0.0.1:8391")
-DEMO = "DEMO7240108"
+from api import nt_account                  # noqa: E402
+DEMO = nt_account.paper_account()             # the paper account (api/nt_account.py)
 LEG_OF_ROOT = {"MNQ": "EdgeLogNOISE", "NQ": "EdgeLogENGUQ1m"}
 STRANDED_SEC = 40
 PROTECT_PTS = 100.0               # disaster stop in NQ points (ENGU-Q's own stop ladder starts ~92 pts away)

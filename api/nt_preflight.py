@@ -35,7 +35,8 @@ from datetime import datetime, timezone
 BASE = os.environ.get("EDGELOG_BRIDGE_URL", "http://127.0.0.1:8391")
 TIMEOUT_SEC = 3
 
-DEMO_ACCOUNT = "DEMO7240108"
+from api import nt_account                # noqa: E402
+DEMO_ACCOUNT = nt_account.paper_account()   # the paper account (api/nt_account.py)
 LIVE_ACCOUNT = "1810769"
 
 # Fallback roster -- used only when the watchdog script can't be found, read, decoded, or

@@ -36,7 +36,8 @@ from api import paper_reconcile as pr                      # noqa: E402
 NY, UTC = ZoneInfo("America/New_York"), dt.timezone.utc
 FILLS_CSV = r"C:\EdgeLog\fills.csv"
 STATE = r"C:\EdgeLog\nt_fill_reconcile.json"
-DEMO = "DEMO7240108"
+from api import nt_account                  # noqa: E402
+DEMO = nt_account.paper_account()             # the paper account (api/nt_account.py)
 SHARED_KEY = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG\serviceAccount.json"     # a worktree has none
 TOL_SEC = 90.0                    # NT stamps a fill at the broker's time; the book at the bar - 0-30 s apart
 # leg family -> (instrument root, contracts per book unit, $ per point)

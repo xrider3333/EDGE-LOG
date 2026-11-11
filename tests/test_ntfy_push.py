@@ -363,7 +363,7 @@ def test_words_for_money_prices_strategies_and_accounts():
     assert ntfy_push.strategy_word("EdgeLogENGUQ1m") == "ENGU-Q" and ntfy_push.strategy_word("EdgeLogNOISE") == "NOISE"
     assert ntfy_push.strategy_word("EdgeLogFoo") == "Foo"
     assert ntfy_push.account_word("DEMO7240108") == "paper" and ntfy_push.account_word("1810769") == "your real account"
-    assert ntfy_push.account_word("Sim101") == "another account"
+    assert ntfy_push.account_word("Sim101") == "paper" and ntfy_push.account_word("Sim999") == "another account"
     assert ntfy_push.instrument_word("MNQ 12-26") == "MNQ"
 
 

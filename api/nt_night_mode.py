@@ -97,7 +97,8 @@ HISTORY_KEEP = 20                 # past windows remembered (the gap checks look
 # ======================================================================================
 
 LIVE_ACCOUNT = "1810769"          # the owner's REAL account: never touched, never closed under
-DEMO_ACCOUNT = "DEMO7240108"
+from api import nt_account                # noqa: E402
+DEMO_ACCOUNT = nt_account.paper_account()   # the paper account (api/nt_account.py)
 
 EL = os.environ.get("EDGELOG_HOME") or r"C:\EdgeLog"
 STATE_PATH = os.path.join(EL, "nt_night_mode.json")

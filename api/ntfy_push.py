@@ -221,7 +221,7 @@ DAY_S = 24 * 3600
 RANK = {"low": 0, "default": 1, "high": 2, "urgent": 3}
 
 STRATEGY_WORDS = {"EdgeLogNOISE": "NOISE", "EdgeLogENGUQ1m": "ENGU-Q"}
-ACCOUNT_WORDS = {"DEMO7240108": "paper", "1810769": "your real account"}
+ACCOUNT_WORDS = {"DEMO7240108": "paper", "Sim101": "paper", "1810769": "your real account"}
 
 # words that must never reach the lock screen (lint() flags them; the tests enforce it)
 BANNED = ("rt=3", "tick replay", "exit code", "pipeline", "sidecar", "no-tick", "ntfy",

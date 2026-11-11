@@ -1,3 +1,5 @@
+import os as _os_ntacct
+_os_ntacct.environ.setdefault("EDGELOG_NT_ACCOUNT", "DEMO7240108")   # NT fixtures predate the 11-11 Sim101 switch
 """Guard rails between the test suite and the owner's LIVE trading setup.
 
 THE LEAK (2026-09-14). Since ae9842d, api/qqq_exec.py's tick() calls

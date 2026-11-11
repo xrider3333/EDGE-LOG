@@ -107,7 +107,8 @@ ENGUQ_STATE_PATH = r"C:\EdgeLog\enguq_state.json"
 NTFY_ENV_PATH = r"C:\EdgeLog\secrets\ntfy.env"
 CAPTURE_PATHS = None          # tests: {"NQ": path, "ES": path}; None = freshest real copy
 
-DEMO_ACCOUNT = "DEMO7240108"
+from api import nt_account                  # noqa: E402
+DEMO_ACCOUNT = nt_account.paper_account()     # the paper account (api/nt_account.py)
 LIVE_ACCOUNT = "1810769"
 ENGUQ_NAME = "EdgeLogENGUQ1m"
 FRIENDLY = {"EdgeLogNOISE": "NOISE", "EdgeLogENGUQ1m": "ENGU-Q"}

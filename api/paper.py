@@ -2063,7 +2063,8 @@ PAPER_LEGS = [
 ]
 
 # ── Layer 1: the NT demo account whose fills we mirror into the daily report ────
-PAPER_LIVE_ACCOUNT = "DEMO7240108"
+from api import nt_account as _nt_account   # noqa: E402
+PAPER_LIVE_ACCOUNT = _nt_account.paper_account()   # api/nt_account.py
 
 # Are the NinjaScript strategies actually enabled on charts? While this is False the
 # Layer 3 reconcile does not treat "the engine signalled and the demo did not trade" as

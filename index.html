@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.06';
+const VERSION='89.07';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -48501,7 +48501,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const _fills=Array.isArray(liveB.fills)?liveB.fills:[];
             const _frows=_fills.map(f=>'<tr><td>'+_fmtFillTime(f&&f.time)+'</td><td>'+((f&&f.instrument)||'—')+'</td><td>'+((f&&f.action)||'—')+'</td><td style="text-align:right">'+((f&&f.qty!=null)?f.qty:'—')+'</td><td style="text-align:right">'+((f&&f.price!=null)?(+f.price).toFixed(2):'—')+'</td></tr>').join('');
             const _lwarn=(Array.isArray(liveB.warnings)&&liveB.warnings.length)?('<div style="color:var(--warn);font-size:10px;margin-top:6px">⚠ '+liveB.warnings.join(' · ').replace(/</g,'&lt;')+'</div>'):'';
-            liveDetail='<div style="margin-top:10px"><div class="lbl" style="margin-bottom:4px">LIVE · NT DEMO ('+((liveB.account||'DEMO7240108')+'').replace(/</g,'&lt;')+')</div>'
+            liveDetail='<div style="margin-top:10px"><div class="lbl" style="margin-bottom:4px">LIVE · NT SIM ('+((liveB.account||'Sim101')+'').replace(/</g,'&lt;')+')</div>'
               +'<div style="font-size:10px;color:var(--text3);margin-bottom:6px">'+(liveB.n_fills!=null?liveB.n_fills:_fills.length)+' fills · net '+(liveB.day_net_usd!=null?fmtUsd(+liveB.day_net_usd):'—')+' · flat at close '+(liveB.flat_eod===true?'yes':(liveB.flat_eod===false?'no':'—'))+'</div>'
               +(_fills.length?'<div style="overflow-x:auto"><table class="table"><thead><tr><th>TIME</th><th>INSTRUMENT</th><th>ACTION</th><th style="text-align:right">QTY</th><th style="text-align:right">PRICE</th></tr></thead><tbody>'+_frows+'</tbody></table></div>':'<div style="font-size:10px;color:var(--text5)">no fills logged</div>')
               +_lwarn+'</div>';
@@ -48559,7 +48559,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<td><span style="color:'+(String(r.state)==='Realtime'?'var(--green)':'var(--yellow)')+'">'+String(r.state||'?')+'</span></td>'
             +'<td>'+String(r.position||'—').replace(/</g,'&lt;')+'</td></tr>').join('');
           const conns=(B.connections||[]).filter(c=>c&&c.status==='Connected').map(c=>String(c.name).replace(/</g,'&lt;')).join(' · ');
-          const demo=(B.accounts||[]).find(a=>a&&a.name==='DEMO7240108');
+          const demo=((B.accounts||[]).find(a=>a&&a.name==='Sim101')||(B.accounts||[]).find(a=>a&&a.name==='DEMO7240108'));
           const preProbs=(P&&Array.isArray(P.problems))?P.problems:[];
           body='<div style="font-size:10px;color:var(--text3);margin-bottom:8px">connected: '+(conns||'<span style="color:var(--red)">nothing</span>')
             +(demo?' · demo cash '+fmtUsd(+demo.cash||0):'')+'</div>'
@@ -48621,7 +48621,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const rs=(B&&B.strategies)?B.strategies:[];
           const rt=rs.filter(s=>String(s.state)==='Realtime').length;
           const conns=(B&&B.connections?B.connections:[]).filter(c=>c&&c.status==='Connected').map(c=>String(c.name).replace(/</g,'&lt;')).join(' · ');
-          const demo=(B&&B.accounts?B.accounts:[]).find(a=>a&&a.name==='DEMO7240108');
+          const demo=((B&&B.accounts?B.accounts:[]).find(a=>a&&a.name==='Sim101')||(B&&B.accounts?B.accounts:[]).find(a=>a&&a.name==='DEMO7240108'));
           _ntOneLine=!B?'<div style="font-size:10px;color:var(--text5)">no bridge snapshot yet — the runner publishes one every 5 minutes when it is up</div>'
             :'<div style="font-size:10px;color:var(--text3)">'
               +'<b style="color:'+(rt?'#1d9e75':'#e0c341')+'">'+rt+'/'+rs.length+' Realtime</b>'
@@ -48706,7 +48706,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +(_wdOn===null?'':'<span class="p2sw'+(_wdOn?' on':'')+'" role="switch" aria-checked="'+(_wdOn?'true':'false')+'" aria-label="Auto-recover"></span>')+'</span>');
         bridgeHtml=tile('<div style="display:flex;align-items:baseline;gap:8px;margin-bottom:8px">'
           +'<span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:'+dotCol+'"></span>'
-          +'<div class="lbl">NINJATRADER · DEMO7240108</div>'
+          +'<div class="lbl">NINJATRADER · SIM101 (paper since 2026-11-11; DEMO7240108 before)</div>'
           +'<span style="font-size:9px;color:var(--text5)">'+statusTxt+(B&&B.version?' · v'+B.version:'')+'</span>'
           +_wdBtn
           +'<span data-ntdetail style="cursor:pointer;user-select:none;font-size:9px;color:var(--text5);border:1px solid var(--border);border-radius:999px;padding:1px 8px">'+(window._paperNtDetail?'hide detail':'detail')+'</span></div>'
