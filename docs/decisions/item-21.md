@@ -21,3 +21,4 @@ Your call 10-12: no new data for now. Options kept: CME futures ~$199 (trend, 40
 - 2026-11-07: board changed to [done] NOT NOW
 - 2026-11-08: board changed to [done] NOT NOW
 - 2026-11-09: board changed to [done] NOT NOW
+- 2026-11-10: board changed to [done] NOT NOW
