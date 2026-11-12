@@ -22,3 +22,4 @@ One clean aligned checklist in the trade panel and on the chart; every place rea
 - 2026-11-08: board changed to [done] LIVE v73.1220
 - 2026-11-09: board changed to [done] LIVE v73.1220
 - 2026-11-10: board changed to [done] LIVE v73.1220
+- 2026-11-11: board changed to [done] LIVE v73.1220
