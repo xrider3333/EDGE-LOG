@@ -951,9 +951,23 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-sw.on{background:color-mix(in srgb,var(--green) 60%,transparent)}
 .lg-sw.on::after{left:15px;background:var(--bg)}
 @media (max-width:740px){
+  /* THE MONEY COLUMN MAY NOT EAT THE NAME (board row 132, measured 2026-11-13).
+     On a 375 px phone the ENGU-Q row's value column - the figure plus its unrealized line and
+     open count - took 234 px of a 352 px row. The name track is minmax(0,1fr), so it collapsed
+     to SIX pixels, the name broke one character a line and the row stood 317 px tall; the rows
+     beside it, whose value is just a figure, were 49 px. The column is capped here and its
+     small lines are allowed to wrap inside the cap instead of setting the column's width.
+     Layout only: nothing is hidden, no figure changes, and the figure itself still never wraps. */
+  .lg-row-val{max-width:42vw}
+  .lg-row-val small{white-space:normal;overflow-wrap:anywhere;line-height:1.3}
   .lg-row{padding:9px 12px}
   .lg-row-sub,.lg-row-val small{display:none}
-  .lg-row.wrap .lg-row-sub,.lg-row.wrap .lg-row-val small{display:block}
+  .lg-row.wrap .lg-row-sub{display:block}
+  /* and the extra money lines stay down on a phone even on a row that wraps. They were the 234 px
+     (of 352) that left the name six pixels wide; every OTHER row on the phone already drops them,
+     and they are still one tap away in the row's own expander, where the three-figure column was
+     moved on 2026-11-08. The figure itself is untouched - this is which lines the phone shows. */
+  .lg-row.wrap .lg-row-val small{display:none}
   .lg-row-more{width:40px;height:40px;margin:-7px -6px}
   .lg-row-detail{padding:0 12px 9px}
   .lg-list-hd,.lg-grp-hd{padding-left:12px;padding-right:12px}
@@ -1566,7 +1580,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.65';
+const VERSION='89.66';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
