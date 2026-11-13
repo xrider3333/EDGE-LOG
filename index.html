@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.35';
+const VERSION='89.36';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -15559,7 +15559,7 @@ function _rdAsk(rid,pay){
 //   is rebuilt on every toggle, so it wires its own glyphs). Research rows are script-only verdicts: no engine run, no link.
 // (the hover says "run <id>", no '#': probe i2_f30_book_and_naming counts "#<id>" in the header markup to prove a run's id shows once)
 function _rbOpenGlyph(id){
-  const k=String(id==null?'':id).replace(/[&<>"]/g,'');
+  const k=String(id==null?'':id).replace(/[&<>"]/g,'').replace(/^#/,'');
   if(!k)return '';
   return '<span data-rbopen="'+k+'" title="Open run '+k+'’s report (Past Runs). A BACK TO RUNBOARD button at the top of the report brings you back here." style="cursor:pointer;color:var(--text4);font-size:10px;font-weight:700;margin-left:3px;padding:1px 4px;user-select:none;font-variant-emoji:text">↗</span>';}
 // w130 #72 / #115: a run row on EXPLORE or the LEADERBOARD opens its report with a BACK bar naming that board, and
@@ -15576,7 +15576,7 @@ function _rankOpenRun(id,e){
 function _rbOpenRun(id,e){
   // one click, one open: the same glyph can be reached by two listeners (page wiring and chart-key wiring)
   if(e){if(e.__rbDone)return;e.__rbDone=1;if(e.stopPropagation)e.stopPropagation();if(e.preventDefault)e.preventDefault();}
-  const k=String(id==null?'':id);if(!k)return;
+  const k=String(id==null?'':id).replace(/^#/,'');if(!k)return;   // a stored "#314" opens run 314, as _paperOpenRun
   window._rbBack={sub:augurSub,y:(window.scrollY||0),run:k};
   augurRunSel=k;augurSub='runs';renderApp();window.scrollTo(0,0);}
 // owner 10-31 15:30 (paper tabs): a strategy row's run number opens that run's report on the RUNBOARD / STUDIES page (Past Runs);
@@ -51092,7 +51092,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-c2fam]').forEach(h=>{h.onclick=()=>{const k=decodeURIComponent(h.dataset.c2fam);
         if(window._c2Open.has(k))window._c2Open.delete(k);else window._c2Open.add(k);renderApp();};});
       content.querySelectorAll('[data-c2run]').forEach(r=>{r.onclick=e=>{if(e.target&&e.target.closest&&e.target.closest('[data-c2add]'))return;
-        augurRunSel=r.dataset.c2run;augurSub='runs';renderApp();};});
+        _rbOpenRun(r.dataset.c2run,e);};});   // one opener: saves the BACK point, as the glyph does
       // + COMPARE shares the old tab's picked-run list, capped at its 8, so phase 3 and
       //   PICK RUNS read the same selection until the old tab is retired.
       content.querySelectorAll('[data-c2add]').forEach(b=>{b.onclick=e=>{e.stopPropagation();const id=String(b.dataset.c2add);
@@ -52835,7 +52835,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         document.addEventListener('pointermove',move);document.addEventListener('pointerup',up);};}
       // keep the list scroll position when selecting a run (don't jump to top)
       const _rls=el('res-listscroll');if(_rls){if(window._resScrollTop!=null)_rls.scrollTop=window._resScrollTop;_rls.addEventListener('scroll',()=>{window._resScrollTop=_rls.scrollTop;},{passive:true});}
-      content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=tr.dataset.run;renderApp();};});
+      content.querySelectorAll('[data-run]').forEach(tr=>{tr.onclick=()=>{augurRunSel=String(tr.dataset.run).replace(/^#/,'');augurSub='runs';renderApp();};});   // always lands on the report, from any host
       // The one-config pointer sits INSIDE a row that opens its own run, so it has to stop the
       // click travelling - a chip that says #304 and opens #243 is worse than no chip at all.
       content.querySelectorAll('[data-sibrun]').forEach(el=>{el.onclick=(ev)=>{
