@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.47';
+const VERSION='89.48';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5423,11 +5423,26 @@ function _subscribeRuns(uid,lim){
   }).catch(e=>{
     console.warn('[runs] projected read failed, falling back to the whole-document listener:',(e&&e.message)||e);
     window._runsLiteOk=false;
+    // a 429 is the daily quota: the whole-document fallback would be refused too (and costs ~0.3 MB a
+    //   run when it is not), so draw what is loaded and say why instead (w130 #76)
+    if(/429/.test(String((e&&e.message)||e))){_fsQuotaNote(e);if(activeTab==='augur')renderApp();return;}
     // the whole-document fallback downloads every run IN FULL (about a third of a megabyte each),
     //   so it never takes more than the default 75, whatever a LOAD MORE / LOAD ALL asked for.
     _subscribeRunsFull(uid,Math.min(runsLimit||75,75));
   });
 }
+// w130 #76: one plain line, outside #app so a redraw never wipes it, when Firestore refuses a read for
+//   the daily quota. Shown once per load.
+function _fsQuotaNote(e){
+  const m=String((e&&(e.code||e.message))||e||'');
+  if(!/429|resource-exhausted|quota/i.test(m))return;
+  window._fsQuota=true;
+  if(document.getElementById('fs-quota-note'))return;
+  const d=document.createElement('div');d.id='fs-quota-note';
+  d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:7px 14px;background:#3a2a00;color:#ffd166;font:600 12px/1.4 monospace;text-align:center';
+  d.textContent='Database daily read limit reached - showing what already loaded. It resets at 01:00 MST.';
+  const x=document.createElement('span');x.textContent='  ✕';x.style.cssText='cursor:pointer;margin-left:10px';x.onclick=function(){d.remove();};d.appendChild(x);
+  document.body.appendChild(d);}
 // The original whole-document listener, kept as the fallback path ONLY.
 function _subscribeRunsFull(uid,lim){
   if(!db||!uid)return;
@@ -6192,11 +6207,17 @@ function _bbWire(content,X){
   else if(U.refocus){const f=document.getElementById(U.refocus);U.refocus='';if(f&&root.contains(f)&&document.activeElement===document.body)f.focus({preventScroll:true});}
 }
 function subscribeAll(uid){
+  // w130 #76 - A REFUSED READ NEVER HOLDS THE SPLASH. The first draw used to wait on the trades
+  //   listener, which had no error callback: on a Firestore 429 (daily read quota) the page sat on the
+  //   splash ~30 s. Now a refusal is noted, a plain line says so, and the page draws with what it has;
+  //   a 4 s guard draws it anyway if no listener has answered yet.
+  setTimeout(function(){if(!(window._stages||[]).some(function(s){return /^RENDER/.test(s.name);})){try{renderApp();}catch(_){}}},4000);
   colRef=db.collection('users').doc(uid).collection('trades');
   lessonRef=db.collection('users').doc(uid).collection('lessons');
   if(unsub)unsub();if(unsubL)unsubL();
   unsub=colRef.orderBy('date','asc').onSnapshot(snap=>{
-      window._setStage('TRADES LOADED ('+snap.docs.length+')');trades=snap.docs.map(d=>({id:d.id,...d.data()}));renderApp();});
+      window._setStage('TRADES LOADED ('+snap.docs.length+')');trades=snap.docs.map(d=>({id:d.id,...d.data()}));renderApp();},
+    err=>{console.warn('trades listener',err);_fsQuotaNote(err);try{window._setStage('TRADES NOT READ');}catch(_){}renderApp();});
   // TABS-NAV COLLAPSE: JOURNAL now also lives on HOME (window.hmShowJournal), so a live lessons
   //   update has to redraw HOME too, not just the retired standalone JOURNAL tab.
   unsubL=lessonRef.orderBy('createdAt','desc').onSnapshot(snap=>{lessons=snap.docs.map(d=>({id:d.id,...d.data()}));if(activeTab==='journal'||activeTab==='home')renderApp();});
