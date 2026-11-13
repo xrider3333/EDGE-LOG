@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.57';
+const VERSION='89.58';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -43548,7 +43548,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _c2Rank=(['rpy','mar','pf','net'].indexOf(APREF.c2Rank)>=0)?APREF.c2Rank:'rpy';
       window._c2Open=window._c2Open||new Set();
       const _c2StageOf=r=>(_c2Stage==='is')?_c2is(r):(_c2Stage==='wf')?_c2wfO(r):(_c2Stage==='full')?_c2full(r):_c2lb(r);
-      const _c2StageNm={is:'IS',wf:'WF',lb:'LB',full:'FULL'}[_c2Stage];
+      const _c2StageNm={is:'IS (TUNING SCORE)',wf:'WF',lb:'LB',full:'FULL'}[_c2Stage];   // w130 #34: this IS is best_pnl_usd, the tuning score, not FULL minus WF minus LB
       // THIN-TEST FLOOR: true only on the walk-forward stage, for a run whose test
       //   traded but stayed under the floor - reused by every sort and best-mark/heat check.
       const _c2ThinR=r=>(_c2Stage==='wf')&&_c2ThinWf((_c2StageOf(r)||{}).tr);
@@ -43758,7 +43758,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   level, so it sits on the bar's right rather than floating under it.
           const _bkHdr=(_c2TopUsed=true)&&_c2TabBar(_c2TopInner,_c2Seg2('c2view',_C2VIEWS,_c2View,'sub'),
             '<span class="c2-lbl">STAGE</span>'
-            +_c2Seg('c2stage',[['is','IS','the tuning years before the sealed stretch'],['wf','WF','the walk-forward folds - a book never has any'],['lb','LB','the sealed lockbox'],['full','FULL','the whole window, end to end']],_c2Stage)
+            +_c2Seg('c2stage',[['is','IS','the tuning score - the search picks the config scored on the first 75% of the tuning years, overlapping the walk-forward years; EXPLORE IS is the years before walk-forward'],['wf','WF','the walk-forward folds - a book never has any'],['lb','LB','the sealed lockbox'],['full','FULL','the whole window, end to end']],_c2Stage)
             );
           const _bkStg='<div class="c2-top" style="margin-top:2px"><span class="c2-lbl">EVERY FIGURE ON A ROW COMES FROM ONE POOLED STRETCH</span></div>';
           // A book pools legs over ONE window with every parameter already frozen. There is
@@ -44280,7 +44280,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         _c2Body='<div class="c2-top" style="margin-bottom:8px">'
           +'<span class="c2-lbl">RANK ON</span>'+_c2Seg('c2rank',[['rpy','R / YR','expectancy in R times trades per year - the cross-strategy read'],['mar','MAR','net per year over the worst drawdown'],['pf','PF','gross wins over gross losses'],['net','NET','money']],_c2Rank)
           +'<span class="c2-lbl" style="margin-left:6px">STAGE</span>'+_c2Seg('c2stage',[['is','IS','the tuning score - the search picks the config scored on the first 75% of the tuning years, overlapping the walk-forward years; EXPLORE IS is the years before walk-forward'],['wf','WF','the walk-forward folds, each re-tuned on its own past, their unseen trades joined in fold order'],['lb','LB','the lockbox - the honest read'],['full','FULL','the whole run, end to end']],_c2Stage)
-          +'</div><div class="c2-card">'+(rows||'<div class="c2-hold">NO RUNS YET</div>')+'</div>'
+          +'</div><div class="c2-card">'+(rows||((typeof window._runsLoadedLimit!=='number')?'<div class="c2-hold">LOADING RUNS\u2026</div>':'<div class="c2-hold">NO RUNS YET</div>'))+'</div>'
           +_c2TopBar+_c2TopList+'<div class="c2-note">'+fams.length+' strategies \u00b7 '+rs.length+' runs \u00b7 champion = your crown (★ starred) where one exists, else the highest robustness score · books sit in their own row and rank on pre-lockbox net ÷ drawdown, never the lockbox · a run labelled KNOB TEST is never champion unless starred · an expanded family lists its runs by crown, then robustness score, then in-sample $ (books: by pre-lockbox net ÷ drawdown)'
           +(noFig?(' \u00b7 <b>'+noFig+' without a '+_c2StageNm+' figure</b> (hover the dash for why) - they sort last, never hidden'):'')
           +((_c2Stage==='is')?' \u00b7 IS is the tuning score: the search pick scored on the first 75% of the tuning years, which overlap the walk-forward years':'')
@@ -51334,7 +51334,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         return ids;};
       // picker rows: click toggles the run in / out of the comparison (cap 8)
       content.querySelectorAll('[data-cmpk]').forEach(x=>{x.onclick=()=>{const id=String(x.dataset.cmpk);let ids=_cur();
-        if(ids.indexOf(id)>=0)ids=ids.filter(i2=>i2!==id);else{if(ids.length>=8){alert('The comparison holds 8 runs. Remove one first.');return;}ids.push(id);}
+        if(ids.indexOf(id)>=0)ids=ids.filter(i2=>i2!==id);else{if(ids.length>=8){alert('PICK RUNS holds 8 runs. Remove one first.');return;}ids.push(id);}
         savePref('cmpCleared',!ids.length);savePref('cmpIds',ids);renderApp();};});
       const _cs=content.querySelector('[data-cmpstrat]');if(_cs)_cs.onchange=()=>{savePref('cmpStrat',_cs.value);renderApp();};
       const _cc=content.querySelector('[data-cmpclear]');if(_cc)_cc.onclick=()=>{savePref('cmpCleared',true);savePref('cmpIds',[]);renderApp();};
