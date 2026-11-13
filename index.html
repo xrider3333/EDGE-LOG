@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.32';
+const VERSION='89.33';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -25552,7 +25552,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _bkDays=(r&&r.book&&r.book.date_from&&r.book.lockbox_from)?(()=>{
         const a=Date.parse(String(r.book.date_from).slice(0,10)+'T00:00:00Z'),b=Date.parse(String(r.book.lockbox_from).slice(0,10)+'T00:00:00Z');
         return (isFinite(a)&&isFinite(b)&&b>a)?Math.round((b-a)/864e5):null;})():null;
-      return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(_bkDays!=null?_bkDays:(r&&r.days_in_test)||null),perDay:(r&&r.best_pnl_per_day)||null,dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,wf:null,wfWhy:'',scope:'best',validated:false};
+      return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(_bkDays!=null?_bkDays:(r&&r.days_in_test)||null),perDay:(_bkDays?(((r&&r.best_pnl_usd)||0)/_bkDays):((r&&r.best_pnl_per_day)||null)),dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,wf:null,wfWhy:'',scope:'best',validated:false};
     };
     // ── VALIDATION METHOD · read the run object and say plainly HOW it was validated, so every
     //    run reads as its own method (no mixing). Drives a banner on every report + which sections
@@ -50279,7 +50279,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<td style="font-size:var(--fsxs);color:var(--text4);max-width:130px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="mode '+_modeNum(r)+' · '+(_modeName[_modeNum(r)]||'')+' — '+String(r.scope||'').replace(/"/g,'')+'"><b style="color:var(--text2)">'+_modeNum(r)+'</b> · '+(r.scope||'')+((_modeNum(r)===7&&r.n_evaluated!=null&&+r.n_evaluated<=1)?' <span title="this Auto-Validate recorded ONE config (pinned file) - no surfaces. Re-run on the parent file." style="color:var(--yellow);cursor:help">&#9888; 1-config</span>':'')+'</td>'
             +'<td style="white-space:nowrap">'+(ik?instTag(ik):'—')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text4)">'+(r.timeframe||'')+'</td>'
-            +'<td style="text-align:center">'+_spk(r.equity&&r.equity.cum)+'</td>'
+            +'<td style="text-align:center">'+_spk((r.validate&&Array.isArray(r.validate.equity)&&r.validate.equity.length>1)?r.validate.equity:(r.equity&&r.equity.cum))+'</td>'
             +'<td title="'+(T.validated?'whole-run total = in-sample + walk-forward + lockbox (the deployable end result · out-of-sample portion '+fmtUsd(Math.round(T.oosNet||0))+')':'best single config')+'" style="text-align:right;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap;cursor:help">'+fmtUsd(pnl)+'</td>'
             +'<td style="text-align:right;color:var(--text4);white-space:nowrap" title="net $ per calendar day over the whole run">'+(T.perDay!=null?fmtUsd(Math.round(T.perDay))+'/d':'—')+'</td>'
             +'<td title="'+(T.validated?'whole-run max drawdown on the champion equity curve (downsampled curve, so a touch optimistic)':'realized max drawdown')+'" style="text-align:right;color:var(--red);white-space:nowrap;cursor:help">'+(dd?fmtUsd(-Math.abs(dd)):'—')+'</td>'
@@ -50288,7 +50288,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<td title="'+(T.validated?(shp!=null&&!isNaN(+shp)?'whole-run Sharpe — champion measured over the full window':'whole-run Sharpe needs a re-run that saves per-trade data (this older run did not).'+(T.sharpeOOS!=null?(' Walk-forward Sharpe (per trade) '+(+T.sharpeOOS).toFixed(2)+' — see the report 1C chart'):'')):'risk-adjusted return')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(shp!=null&&!isNaN(+shp)?(+shp).toFixed(2):'—')+'</td>'
             +'<td title="'+(T.validated?(T.wr!=null?'whole-run win% — champion over the full window':'whole-run win% needs a re-run that saves per-trade data (this older run did not)'+(T.isWr!=null?' (in-sample was '+Math.round(T.isWr)+'%)':'')):'win rate')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(T.wr!=null?Math.round(T.wr)+'%':'—')+'</td>'
             +'<td'+((T.wf||(wf&&T.wfWhy))?(' title="'+(T.wf?_wfoRowTip(T.wf):T.wfWhy)+'"'):'')+' style="text-align:center;font-size:var(--fsxs);color:'+(wf?'var(--text3)':'var(--text5)')+((T.wf||(wf&&T.wfWhy))?';cursor:help':'')+'">'+(wf||'—')+'</td>'
-            +'<td style="text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+_scTxt(sc)+'</td>'
+            +'<td style="text-align:right;font-weight:700;color:'+((sc==null||!isFinite(sc))?'var(--text5)':sc>=70?'var(--green)':sc>=45?'var(--yellow)':'var(--red)')+'">'+_scTxt(sc)+'</td>'
             +'<td style="text-align:right;font-size:var(--fsxs);color:var(--text4);white-space:nowrap">'+_dur(r.elapsed_s)+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);max-width:90px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap" title="'+src.replace(/"/g,'')+'">'+(src||'—')+'</td>'
             +'<td style="font-size:var(--fsxs);color:var(--text5);white-space:nowrap">'+(r.date_from?_dnice(r.date_from)+'→'+_dnice(r.date_to):'—')+'</td>'
@@ -50454,12 +50454,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span style="flex:0 0 66px;text-align:right;color:'+((T.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(T.net||0)+'</span>'
             +'<span style="width:44px;text-align:right;color:var(--text4)">'+(T.pf||0).toFixed(2)+'</span>'
             +'<span style="width:54px;text-align:right;color:var(--red)">'+(T.dd?fmtUsd(-Math.abs(T.dd)):'—')+'</span>'
-            +'<span style="width:38px;text-align:right;color:var(--text2);font-weight:600" title="MAR = net per YEAR ÷ max drawdown (annualised, v73.7x), measured on the OPTIMIZE (in-sample) window — the tuned stretch, so it reads big. The LB MAR in a run report uses ONLY the held-out lockbox slice; same formula, different window.">'+_marAnnTxt(T.net,(T.days?T.days/365.25:null),T.dd)+'</span>'
+            +'<span style="width:38px;text-align:right;color:var(--text2);font-weight:600" title="MAR = net per YEAR ÷ max drawdown (annualised, v73.7x), measured on the whole-run numbers in this row (same as the flat list). The LB MAR in a run report uses ONLY the held-out lockbox slice; same formula, smaller window.">'+_marAnnTxt(T.net,(T.days?T.days/365.25:null),T.dd)+'</span>'
             +(function(){const _l=_lbWarmOf(r)||(r.validate&&r.validate.lockbox)||null,_w=!!(_l&&_l._warm);
             const _t='lockbox (held-out) profit factor'+(_w?(' - read from the continuous replay, the same lockbox every screen shows; this run scored its own lockbox cold (before warm starts, v73.841)'+((_l._cold&&_l._cold.pf!=null)?(' at PF '+(+_l._cold.pf).toFixed(2)):'')):'');
             return '<span style="width:40px;text-align:right;color:var(--text4)'+(_w?';cursor:help':'')+'" title="'+_t+'">'+((_l&&_l.pf)?(+_l.pf).toFixed(2):'—')+'</span>';})()
             +'<span style="width:30px;text-align:center;color:var(--text4)">'+(_wfHeld(r)||'—')+'</span>'
-            +'<span style="margin-left:auto;width:40px;text-align:right;font-weight:700;color:'+(sc>=70?'var(--green)':(sc>=45?'var(--yellow)':'var(--red)'))+'">'+_scTxt(sc)+'</span>'
+            +'<span style="margin-left:auto;width:40px;text-align:right;font-weight:700;color:'+((sc==null||!isFinite(sc))?'var(--text5)':(sc>=70?'var(--green)':(sc>=45?'var(--yellow)':'var(--red)')))+'">'+_scTxt(sc)+'</span>'
             +'</div>';};
         // slim column-header line above a group's expanded run rows (the "family ledger")
         const _gHdr='<div style="display:flex;align-items:center;gap:10px;padding:1px 8px 2px;font-size:8px;letter-spacing:.5px;color:var(--text5);user-select:none">'
@@ -50492,7 +50492,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _pinGrpRow=!_pinOn?'':('<div style="'+_gcard+'">'+(_pinRec?_gRow(_pinRec,false,true)
           :('<div data-run="'+_c2TagEsc(_pinId)+'" data-rfpin="1" title="'+_pinTip+'" style="display:flex;align-items:center;gap:10px;padding:6px 8px;border-radius:7px;cursor:pointer;font-size:var(--fsxs);outline:1px solid var(--blue)">'
             +_pinMark.trim()+'<span style="color:var(--text3)">#'+_c2TagEsc(_pinId)+' &middot; loading</span></div>'))+'</div>');
-        const groupedTile=_grpCtl+_pinNote+_pinGrpRow+'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'+(_groups.length?_grpTilesHtml:'<div style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match — clear the keepers filter</div>')+'</div>';
+        const groupedTile=_grpCtl+_pinNote+_pinGrpRow+'<div id="res-listscroll" style="overflow:auto;max-height:'+(rv==='side'?'86vh':rVH+'px')+'">'+(_groups.length?_grpTilesHtml:(_emptyWhy?('<table style="width:100%"><tbody>'+_emptyWhy+'</tbody></table>'):('<div style="color:var(--text5);font-size:var(--fsxs);padding:18px;text-align:center">no runs match'+(_gKeeps?' — clear the keepers filter':'')+'</div>')))+'</div>';
         // Results-view header removed per request (redundant — the PAST RUNS tile title
         //   already carries the run count, and the empty-state copy explains selection).
         const viewHeader='';
