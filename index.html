@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.16';
+const VERSION='89.17';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -50154,7 +50154,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   then the two links that only appear when they have something to say.
         const _rfQv=_c2TagEsc(String(APREF.rfQ||''));
         const _rfSearch='<span style="'+_ctlUni+';cursor:text'+(APREF.rfQ?_ctlOn:'')+'">'
-          +'<span style="color:var(--text5)">&#9906;</span>'
+          +'<span style="color:var(--text5);font-size:11px">&#8981;</span>'
           +'<input data-rfq type="text" value="'+_rfQv+'" spellcheck="false" autocomplete="off" placeholder="run # or name" '
           +'title="Type a RUN NUMBER - 283 - and it is found even when it is not one of the runs loaded here; the page fetches that run. Or type any text: strategy, family, market, timeframe or mode. It narrows alongside the chips, and Esc clears it." '
           +'style="width:132px;background:transparent;border:none;outline:none;padding:0;color:var(--text);font:inherit;font-size:9px;letter-spacing:.5px">'
@@ -52548,10 +52548,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   by typing in the box, so an ordinary render never steals focus from somewhere else.
       const _rfqIn=content.querySelector('[data-rfq]');
       if(_rfqIn){
-        _rfqIn.oninput=()=>{window._rfQFocus=true;window._rfQCaret=_rfqIn.selectionStart;savePref('rfQ',_rfqIn.value);renderApp();};
-        _rfqIn.onkeydown=(e)=>{if(e.key==='Escape'||e.keyCode===27){e.preventDefault();window._rfQFocus=true;window._rfQCaret=0;savePref('rfQ','');renderApp();}};
-        _rfqIn.onblur=()=>{window._rfQFocus=false;};
-        if(window._rfQFocus){try{_rfqIn.focus();const _p=(window._rfQCaret==null)?_rfqIn.value.length:Math.min(window._rfQCaret,_rfqIn.value.length);_rfqIn.setSelectionRange(_p,_p);}catch(_e){}}}
+        // THE CARET IS PUT BACK BY THE KEYSTROKE ITSELF, not by a flag read on the next render.
+        //   A flag could not work: tearing the old box out of the page fires its own blur AFTER
+        //   the new one is focused, so the flag was cleared and the field lost focus after one
+        //   letter. Focusing here - once renderApp has returned and the old node is gone - is the
+        //   only point where nothing can take it back. The timeout is the belt for a render that
+        //   finishes a tick late; it is a no-op when the first focus already took.
+        const _rfRefocus=p=>{const n=document.querySelector('[data-rfq]');if(!n)return;
+          try{n.focus();const q=Math.min(p==null?n.value.length:p,n.value.length);n.setSelectionRange(q,q);}catch(_e){}};
+        _rfqIn.oninput=()=>{const _p=_rfqIn.selectionStart;savePref('rfQ',_rfqIn.value);renderApp();
+          _rfRefocus(_p);setTimeout(()=>_rfRefocus(_p),0);};
+        _rfqIn.onkeydown=(e)=>{if(e.key==='Escape'||e.keyCode===27){e.preventDefault();savePref('rfQ','');renderApp();
+          _rfRefocus(0);setTimeout(()=>_rfRefocus(0),0);}};}
       content.querySelectorAll('[data-rfqx]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();window._rfQFocus=false;savePref('rfQ','');renderApp();};});
       // SHOW ALL on the OPENED-RUN note: clears ONLY the filters that hide the pinned run (the keys ride on the control); archived is turned ON only when
       //   archived hid it. Every other filter the owner set stays.
