@@ -197,3 +197,43 @@ would make this round unreadable against every other row in the ledger.
   one round would confound the two.
 - **Nothing touches live, paper, the box or any account.**
 - **No bound re-cut after seeing a result.**
+
+---
+
+## ADDENDUM 1 — my own exit rule was two readings of one rule, and one of them could never fire
+
+**Appended 2026-11-13, BEFORE any cell was measured.** The frozen body above is unchanged and keeps
+its own sha `fd0820c6bde7c9b4a00fea9d3235b5ecf5298d146e42585ac25910ebd5979b1b` (commit `68a886c4`);
+this addendum has its own sha and is verified separately.
+
+**The defect.** Section 4 specified the exit as *"the first bar that closes below the then-current
+`L1` … or at the stop, whichever comes first"*, with the stop itself ratcheting up to `L1`. **Those
+are not two conditions. A bar that closes below a level has necessarily traded below it, so the
+intrabar stop at that same level always fires first and the "close below" clause can never fire.**
+It is satisfied-by-construction in the dead direction — the identical near-vacuity that made BBRF's
+MFE ceiling clause worthless and its 36 "OPEN" verdicts meaningless (ledger `2.220`). I wrote §7's
+"no clause can be satisfied by construction" into this very prereg and then broke it in §4.
+
+**The fix, declared before any measurement: the two readings become two arms and BOTH are run.**
+
+| arm | the rule | character |
+|---|---|---|
+| **`TRAIL_STOP`** | the literal reading — the stop **ratchets up** to each newly confirmed pivot low and is taken **intrabar** | **tight**: out the moment structure is touched |
+| **`CLOSE_ONLY`** | the swing-trading reading — the **original** pivot low stays as the disaster stop, taken intrabar, but the **trail is honoured only on a CLOSE** below it | **loose**: gives a multi-day hold room to breathe |
+
+**The grid therefore doubles from 36 cells to 72.** No other bound moves; no knob was added after a
+result, because no result exists yet.
+
+**Two ordering rules fixed with it, both look-ahead-relevant and both now covered by the selftest:**
+
+1. **`L1[i]` is the last pivot low confirmed STRICTLY BEFORE bar `i`, so it is already known at bar
+   `i`'s open and the ratchet must happen BEFORE that bar's stop check.** Deferring it one bar would
+   quietly hand the trade a free bar below its own structure.
+2. **The trail is only ever raised to a level below the last price actually known** (the previous
+   bar's close). Without that guard, a pivot low the market has already run past could arm a stop
+   *above* the market and book an instant loss at entry.
+
+**I predict `CLOSE_ONLY` beats `TRAIL_STOP`** — this lane has seven independent confirmations that
+shortening this family's hold taxes the edge, and `TRAIL_STOP` is the shorter-hold arm. Writing that
+down now so the prediction is testable rather than retrofitted. **If both arms fail, that prediction
+is untested rather than confirmed**, and I will report it that way.
