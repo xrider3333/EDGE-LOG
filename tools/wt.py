@@ -370,13 +370,19 @@ def resolve_version_changelog_conflict(path):
             out.extend(head)
         elif head and mine and head[0].startswith('const CHANGELOG=[{') \
                 and mine[0].startswith('const CHANGELOG=[{'):
-            seen = set(x.replace('const CHANGELOG=[', '', 1) for x in head)
-            new = [x.replace('const CHANGELOG=[', '', 1) for x in mine
-                   if x.replace('const CHANGELOG=[', '', 1) not in seen]
+            # Compare ENTRIES, not lines. A line can hold several {v:...} entries, so a line-level
+            #   'not in head' test kept a whole line whose entries main already had, and every
+            #   such rebase doubled them (11-13: 1,376 entries, 163 of them repeats). Each side is
+            #   split into its entries; only the entries main lacks go on top, one per line.
+            def _entries(side):
+                body = nl.join(side).replace('const CHANGELOG=[', '', 1)
+                return [e.strip().rstrip(',') for e in re.split(r"(?<=\}),\s*(?=\{v:')", body) if e.strip()]
+            seen = set(_entries(head))
+            new = [e for e in _entries(mine) if e not in seen]
             if not new:
                 return False
-            out.append('const CHANGELOG=[' + new[0])
-            out.extend(new[1:])
+            out.append('const CHANGELOG=[' + new[0] + ',')
+            out.extend(e + ',' for e in new[1:])
             out.append(head[0].replace('const CHANGELOG=[', '', 1))
             out.extend(head[1:])
         else:
