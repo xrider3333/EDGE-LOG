@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.60';
+const VERSION='89.61';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -41250,8 +41250,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +_reBtn('data-recfgfam="HYBRID"','HYBRID',_reCfgFam.indexOf('HYBRID')>=0,'gate first, then size the survivors - at one lot per trade',_TONE.heat)
            +_reBtn('data-recfgfam="HYBRID \u267b"','HYBRID \u267b',_reCfgFam.indexOf('HYBRID \u267b')>=0,'the same hybrid, sized up until it spends the contracts the no-gate book would have',_TONE.heat)
            +_reBtn('data-recfgfam="HYBRID \u2193DD"','HYBRID \u2193DD',_reCfgFam.indexOf('HYBRID \u2193DD')>=0,'the same hybrid, sized until its worst drawdown matches the no-gate book',_TONE.heat)
-           +_reBtn('data-recfgfamall="1"','ALL',!_reCfgFam.length,'every configuration stage on the board. Tick any of the others to narrow to those - several at once is fine.',_TONE.heat)
            +_reBtn('data-recfgfam="KEEL"','KEEL',_reCfgFam.indexOf('KEEL')>=0,'the keel row: every trade is taken and sized by a trust-scaled estimate of its expectancy. One per run, comparison only, never crowned.',_TONE.heat)
+           +_reBtn('data-recfgfamall="1"','ALL',!_reCfgFam.length,'every configuration stage on the board. Tick any of the others to narrow to those - several at once is fine.',_TONE.heat)
           ,_TONE.heat);
         // SHOW is gone (owner 2026-10-20): ML CONFIGS is a chip on the one selector below, and the
         //   data-reshow handler stays alive so an old bookmark or pref still lands somewhere sane.
@@ -41334,8 +41334,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             _reBtn('data-reschart="scatter"','SCATTER',(_reChartK==='scatter'),'the worst drawdown across the bottom against the profit stage up the side. One point per row. Best for the single question of what a variant cost in pain for what it paid.',_TONE.samp)
            +_reBtn('data-reschart="par"','PARALLEL',_reParOn,'parallel coordinates - one vertical axis per measure and one line per row crossing all of them. Every axis except the last is scale-free (profit factor, MAR, EV per trade, money per year, trades per year) so runs on different instruments and different window lengths can be read against each other; NET sits last as the outcome those ratios produced. Win rate and Sharpe are not recorded in the registry yet and are named under the chart rather than guessed.',_TONE.samp)
            +_reBtn('data-reschart="radar"','RADAR',_reRadOn,'the same eleven measures drawn as a closed loop instead of a line. Read it for SHAPE - whether two rows are the same KIND of thing - where the parallel chart is read for VALUES. Every spoke is scaled to the rows on screen, because eleven measures in eleven units cannot share one radius, so a position here is relative and the figures live on the hover. Easiest under about eight rows; hover one to isolate it.',_TONE.samp)
-           +_reBtn('data-reschart="all"','ALL',_reChartAllOn,'all four drawings, one under the other, on exactly the same rows and filters: the scatter with its axis pickers, then parallel coordinates, then the radar, then the lattice. Pick a single drawing to go back to one.',_TONE.samp)
-           +_reBtn('data-reschart="lattice"','LATTICE',_reLatOn,'every measure against every other in small panes. It answers what the other charts cannot: which of these measures are saying the same thing. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging on. Five scale-free measures, so every pane is a fair comparison.',_TONE.samp),
+           +_reBtn('data-reschart="lattice"','LATTICE',_reLatOn,'every measure against every other in small panes. It answers what the other charts cannot: which of these measures are saying the same thing. A pane whose cloud lies on a line is two measures that move together, so reading both is reading one twice; a shapeless cloud is two that genuinely disagree, and those are the pairs worth judging on. Five scale-free measures, so every pane is a fair comparison.',_TONE.samp)
+           +_reBtn('data-reschart="all"','ALL',_reChartAllOn,'all four drawings, one under the other, on exactly the same rows and filters: the scatter with its axis pickers, then parallel coordinates, then the radar, then the lattice. Pick a single drawing to go back to one.',_TONE.samp),
           _TONE.samp);
         // THE APPLES-TO-APPLES PAIR, said once where it is chosen: SORTINO across the
         //   bottom against EV IN R up the side. Everything else on this chart can be
