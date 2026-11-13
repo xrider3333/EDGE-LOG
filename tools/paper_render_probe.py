@@ -4243,7 +4243,11 @@ def _judge_keeps(cases, fixture, index_path, fails):
     # ---- G5: the NinjaTrader detail fold. The injected snapshot has 3 strategies (2 Realtime), a Connected and a Disconnected connection, two accounts
     strat = KEEPS_BRIDGE['strategies']
     rt = sum(1 for s in strat if s['state'] == 'Realtime')
-    cash = next(a['cash'] for a in KEEPS_BRIDGE['accounts'] if a['name'] == 'DEMO7240108')
+    # The page shows the CONFIGURED paper account's cash (Sim101 since 11-11; api/nt_account.py / nt_paper_account.txt), never a fixed number.
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from api import nt_account as _nta
+    _by = {a['name']: a['cash'] for a in KEEPS_BRIDGE['accounts']}
+    cash = _by.get(_nta.paper_account(), _by.get('Sim101', _by.get('DEMO7240108')))
     conns = SEP.join(c['name'] for c in KEEPS_BRIDGE['connections'] if c['status'] == 'Connected')
     cash_line = 'connected: %s%sdemo cash %s' % (conns, SEP, _page_usd(cash))
     roster_line = '%d/%d Realtime' % (rt, len(strat))
