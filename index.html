@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.17';
+const VERSION='89.18';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -52556,10 +52556,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   finishes a tick late; it is a no-op when the first focus already took.
         const _rfRefocus=p=>{const n=document.querySelector('[data-rfq]');if(!n)return;
           try{n.focus();const q=Math.min(p==null?n.value.length:p,n.value.length);n.setSelectionRange(q,q);}catch(_e){}};
-        _rfqIn.oninput=()=>{const _p=_rfqIn.selectionStart;savePref('rfQ',_rfqIn.value);renderApp();
-          _rfRefocus(_p);setTimeout(()=>_rfRefocus(_p),0);};
-        _rfqIn.onkeydown=(e)=>{if(e.key==='Escape'||e.keyCode===27){e.preventDefault();savePref('rfQ','');renderApp();
-          _rfRefocus(0);setTimeout(()=>_rfRefocus(0),0);}};}
+        // AND A RENDER THAT LANDS LATE STILL GETS THE CARET BACK. Measured in the owner's Chrome
+        //   on v89.17: the first two keystrokes drew after this handler had already run, so the
+        //   immediate re-focus had no new box to focus yet. The moment of the last keystroke is
+        //   recorded instead, and any render within a second of it puts the caret back - which
+        //   cannot steal focus later, because a second later the window has closed.
+        _rfqIn.oninput=()=>{const _p=_rfqIn.selectionStart;window._rfQAt=Date.now();window._rfQCaret=_p;
+          savePref('rfQ',_rfqIn.value);renderApp();_rfRefocus(_p);setTimeout(()=>_rfRefocus(_p),0);};
+        if(Date.now()-(window._rfQAt||0)<1000&&document.activeElement!==_rfqIn)_rfRefocus(window._rfQCaret);
+        _rfqIn.onkeydown=(e)=>{if(e.key==='Escape'||e.keyCode===27){e.preventDefault();window._rfQAt=Date.now();window._rfQCaret=0;
+          savePref('rfQ','');renderApp();_rfRefocus(0);setTimeout(()=>_rfRefocus(0),0);}};}
       content.querySelectorAll('[data-rfqx]').forEach(b=>{b.onclick=(e)=>{e.stopPropagation();window._rfQFocus=false;savePref('rfQ','');renderApp();};});
       // SHOW ALL on the OPENED-RUN note: clears ONLY the filters that hide the pinned run (the keys ride on the control); archived is turned ON only when
       //   archived hid it. Every other filter the owner set stays.
