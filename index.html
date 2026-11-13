@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.37';
+const VERSION='89.38';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -37426,6 +37426,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               if(_segK==='is,lb,wf')return a.length>=3?a[1][1]:null;
               if(_segK==='lb')return a[0][1];
               if(_segK==='is,wf')return a[a.length-1][1];
+            if(_segK==='lb,wf')return a.length>=3?a[1][1]:null;   // WF+LB: the lockbox starts at the middle anchor
               return null;});
             const wfs=keep.map(k=>{if(_segK==='wf')return k.ta[0][1];
               const x=k.p.r&&k.p.r._x,O=x&&x.validate&&x.validate.wf_oos;return O?_ms(O.from):null;});
@@ -37805,7 +37806,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if((_reItems||[]).some(it=>it.r&&it.r._rec))return _multiFam?'family':'where';
           // On run rows the colour only repeated the verdict the shape already carries, so
           //   with several families up it is free to carry the family instead.
-          return _multiFam?'family':'verdict';};
+          // plain dots carry no shape, so the colour must keep the verdict there
+          return (_multiFam&&!_reDots)?'family':'verdict';};
         // ONE READER FOR BOTH DRAWINGS. The dot loop and the P&L chart under it each held their own
         //   copy of this expression, so a change to one disagreed silently with the other.
         const _reDotColOf=(st,r)=>{
