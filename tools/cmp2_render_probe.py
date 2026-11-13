@@ -403,6 +403,8 @@ var FIX = __FIX__;
 
       // ── case 1: empty ──────────────────────────────────────────────────────────
       (function(){
+        // the run list has LOADED and is empty (c385a3f2: before the first load the card says LOADING RUNS)
+        try{(d.defaultView||window)._runsLoadedLimit=75;}catch(e){}
         var call=doRender({c2Screen:'lead'}, EMPTY_WIN);
         var r=snap('empty', call);
         var bodyTxt=(d.body&&(d.body.innerText||d.body.textContent))||'';
@@ -8460,7 +8462,7 @@ var FIX = __FIX__;
         function rec(id,fam,yrs){return {id:id,timestamp:'2026-10-02 10:00',lane:'LANE-UNDER-TEST',
           host:'TESTBOX',strategy:'a4probe'+fam,family:fam,instrument:'NQ',timeframe:'5m',
           roc30k:40,sortino:2.2,dd5:9000,ddpct:11,where:'lane',stage:'forward',start_usd:100000,
-          years:yrs,trades:6,win_start:'2026-08-14',win_end:'2026-09-25'};}
+          years:yrs,trades:(yrs>=1?120:6),win_start:'2026-08-14',win_end:'2026-09-25'};}   // long record >=30 trades: not caught by the thin-trade dimming (652461b0)
         var W=dfxWin([],"window._recMon['all']={state:'ok',rows:"+JSON.stringify([
           rec('a4short','ZSHORT',0.115),rec('a4long','ZLONG',3.0)])+",at:Date.now()};window._reMonKey='all';");
         calls.push(doRender({c2Screen:'explore',resSrc:'chat',c2Month:'all',resAxis:'so',
