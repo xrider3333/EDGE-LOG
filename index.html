@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.58';
+const VERSION='89.59';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -44272,7 +44272,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const eq=(ch.equity&&Array.isArray(ch.equity.cum)&&ch.equity.cum.length>2)?ch.equity.cum:null;
           return '<div class="c2-row" data-c2fam="'+encodeURIComponent(f.k)+'">'
             +'<span class="c2-chev">'+(open?'\u25be':'\u25b8')+'</span>'
-            +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':(((typeof _canonFam==='function')&&_canonFam(ch.strategy))?((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+_c2ShortPill(ch)+_c2ThinPill(ch,S)+_c2MarkTags(ch)+(eq?_c2Spark(eq,64,18):'')+'</div>'
+            +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':(((typeof _canonFam==='function')&&_canonFam(ch.strategy))?((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+_c2ShortPill(ch)+_c2ThinPill(ch,S)+_c2MarkTags(ch)+((_c2SinkTier(ch)>0)?('<span class="c2-pill" style="color:var(--text4);border-color:var(--border)" title="'+_reEscC2('This row sorts LAST whatever its figure: its champion is '+((_c2SinkTier(ch)===2)?'VOID':'a PRE-FIX TTM run (made before the TTM fix)')+', so its numbers are shown but never ranked.')+'">sorted last</span>'):'')+(eq?_c2Spark(eq,64,18):'')+'</div>'
             +'<div class="c2-who">'+(ch.starred?'<span title="you starred this run">\u2605 your crown #':'<span title="'+_reEscC2('No run in this family is starred, so this is only the top '+((f.k==='BOOKS')?'book on pre-lockbox net over drawdown':'robustness score')+'. Star the run you actually trade in Past Runs and it takes this place.')+'" style="cursor:help">top pick, no \u2605 crown #')+ch.id+'</span>'+((f.k==='BOOKS')?(' '+_reEscC2(String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'').slice(0,48))):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.zeroTr?' \u00b7 no '+_c2StageNm+' trades':(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString()+_c2LbWarmTag(ch,S):''))+'</div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(f.val.v)+'"'+(f.val.v==null?(' title="'+_reEscC2(f.val.why)+'"'):'')+'>'+(f.val.apx?'~':'')+_c2Fmt(f.val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">'+(open?'':'\u203a')+'</span></div>'
@@ -50293,7 +50293,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   net over drawdown - then money). The old score-plus-star sum read a book's NaN score as 0, so
         //   every unstarred book tied and whichever book the list met first was crowned. _c2FamSort is
         //   declared at renderApp scope above the augurSub chain, so this branch calls it directly.
-        const _champIds=(function(){const best={};allRuns.forEach(r=>{if(r.archived&&!fArch)return;const f=_canonFam(_fileOf(r));if(!f)return;if(!(f in best)||_c2FamSort(r,best[f])<0)best[f]=r;});return new Set(Object.keys(best).map(k=>best[k].id));})();
+        const _champIds=(function(){const best={};allRuns.forEach(r=>{if(r.archived&&!fArch)return;const f=_c2FamOf(r);if(!(f in best)||_c2FamSort(r,best[f])<0)best[f]=r;});return new Set(Object.keys(best).map(k=>best[k].id));})();
         // THE CHIP FILTERS, AS ONE TEST (unchanged in meaning - lifted out of the .filter() call so a
         //   run FETCHED BY NUMBER below can be put through exactly the same conditions, rather than
         //   through a second copy of them that could drift).
@@ -51273,7 +51273,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   PICK RUNS read the same selection until the old tab is retired.
       content.querySelectorAll('[data-c2add]').forEach(b=>{b.onclick=e=>{e.stopPropagation();const id=String(b.dataset.c2add);
         let cur=(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String);
-        if(cur.indexOf(id)>=0)cur=cur.filter(x=>x!==id);else{if(cur.length>=8){alert('The comparison holds 8 runs (skipped picks count too - DROP SKIPPED on the PICK RUNS card clears them). Remove one first.');return;}cur.push(id);}
+        if(cur.indexOf(id)>=0)cur=cur.filter(x=>x!==id);else{if(cur.length>=8){alert('PICK RUNS holds 8 runs (skipped picks count too - DROP SKIPPED on the PICK RUNS card clears them). Remove one first.');return;}cur.push(id);}
         savePref('cmpIds',cur);renderApp();};});
       content.querySelectorAll('[data-c2gonedrop]').forEach(b=>{b.onclick=e=>{e.stopPropagation();const drop=String(b.dataset.c2gonedrop||'').split(',').filter(Boolean);
         savePref('cmpIds',(Array.isArray(APREF.cmpIds)?APREF.cmpIds:[]).map(String).filter(x=>drop.indexOf(x)<0));renderApp();};});
