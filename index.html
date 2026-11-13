@@ -1160,6 +1160,18 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-tl-row .lg-c-pts{flex:0 0 92px;text-align:right;font-size:11px;color:var(--text4);font-variant-numeric:tabular-nums;white-space:nowrap}
 .lg-tl-row .lg-c-strat{flex:1 1 110px;font-size:11px;color:var(--text4);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .lg-tl-row .lg-c-chart{flex:0 0 46px;text-align:center;white-space:nowrap}
+/* W131: a chart under every row (CHARTS), and the one that pops up over the candle icon.
+   Both are drawn by the same renderer and read the same bars, so a row already drawn
+   costs nothing to pop up. */
+.lg-rowchart{margin:2px 0 8px;padding:6px 8px;border:1px solid var(--border2);border-radius:8px;background:var(--bg2);min-height:52px}
+.lg-rowchart.pend{display:flex;align-items:center;justify-content:center}
+.lg-mini-msg{font-size:11px;letter-spacing:.8px;color:var(--text2);text-align:center;padding:14px 4px}
+.lg-mini-svg svg{width:100%;height:auto;display:block}
+.lg-rowchart-tr>td{padding:0 8px 8px}
+.lg-chartpop{position:fixed;z-index:9000;width:360px;max-width:92vw;padding:8px;border:1px solid var(--border);border-radius:10px;
+  background:var(--bg1);box-shadow:0 10px 28px rgba(0,0,0,.45);pointer-events:none}
+.lg-chartpop .lg-chartpop-hd{font-size:11px;letter-spacing:1px;color:var(--text2);margin-bottom:5px}
+@media (max-width:600px){.lg-chartpop{width:94vw}}
 .lg-tl-row .lg-c-slot{flex:0 0 132px;display:flex;align-items:center;justify-content:flex-end;gap:6px;font-size:10px;color:var(--text4)}
 /* LIST rows between a phone and a wide laptop never make the page scroll sideways (LEDGER unify step 8 follow-up): the lowest-priority cells go
    as the window narrows - POINTS first, then STRATEGY, then the board's own end slot - and TIME, SYMBOL, SIDE, SIZE, NET and the chart icon always
@@ -1554,7 +1566,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.62';
+const VERSION='89.63';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4477,6 +4489,25 @@ function ledgerTradeViewGet(id,dflt){
   return dflt==='table'?'table':'list';
 }
 function ledgerTradeViewSet(id,v){try{localStorage.setItem('el_lg_view_'+id,v==='table'?'table':'list');}catch(e){}}
+// W131 (owner 2026-11-13): CHARTS - a small candle chart under every trade on the list.
+// Off by default on every board: on, each row that reaches the screen reads its own bars.
+function ledgerChartsGet(id){try{return localStorage.getItem('el_lg_charts_'+id)==='1';}catch(e){return false;}}
+function ledgerChartsSet(id,on){try{localStorage.setItem('el_lg_charts_'+id,on?'1':'0');}catch(e){}}
+// the trade row the candle icon stands for, in the shape the chart renderer takes. Every
+// board hangs its own key on its icon, so one place knows all three and no board has to
+// pass a resolver into the shared frame.
+window._lgGlyphRow=function(el){
+  if(!el||!el.getAttribute)return null;
+  const find=(rows,key,get)=>{for(const q of (rows||[]))if(String(get(q))===String(key))return q;return null;};
+  let k=el.getAttribute('data-ptchart');
+  if(k!=null)return find(window._paperCandleRows,k,q=>q._pid);
+  k=el.getAttribute('data-qbchartkey');
+  if(k!=null)return find(window._qeCandleRows,k,q=>q._no);
+  k=el.getAttribute('data-hmcandle')||el.getAttribute('data-hmmcandle');
+  if(k!=null)return find(window._hmCandleRows,k,q=>q._tid);
+  return null;
+};
+const LG_GLYPH_SEL='[data-ptchart],[data-qbchartkey],[data-hmcandle],[data-hmmcandle]';
 // o = {id, view 'list'|'table', rows [trade] (already filtered), total (the count after the slash), query, chip,
 //   chips [{k,label}] (a board's own chips after the five), placeholder, countExtra (html next to the count), slot (html,
 //   the board's toolbar row), afterBar (html under the toolbar), empty (html when no rows), pnl(t) / net(t) (default t.pnl),
@@ -4527,6 +4558,9 @@ function ledgerTradeListHtml(o){
       +(n?'<span class="lg-tl-daymeta">'+n+' trade'+(n===1?'':'s')+'</span><span class="lg-tl-daynet '+ledgerPnlCls(net)+'">'+ledgerSigned(net)+'</span>':'')+'</div>';
   };
   const empty=o.empty||'<div class="lg-tl-empty">'+LEDGER_NO_TRADES+'</div>';
+  // W131: the strip under each row. Empty in the page - it is filled when it is scrolled to.
+  const chartsOn=!!o.charts&&ledgerChartsGet(id);
+  const _strip=t=>chartsOn?'<div class="lg-rowchart pend" data-lgrowchart="'+esc(tid(t))+'"><span class="lg-mini-msg">chart</span></div>':'';
   // newest close first (a board can ask for the other way round)
   const closeOrder=()=>{const s=ledgerByClose(rows);if(!o.dayAsc)s.reverse();return s;};
   let body;
@@ -4547,7 +4581,9 @@ function ledgerTradeListHtml(o){
       +(o.numbered?'<td class="num lg-c lg-c-num lg-nph'+(colCls.num?' '+colCls.num:'')+'">'+String(rows.length-i).padStart(2,'0')+'</td>':'')
       +tcommon.map(c=>'<td class="'+cellCls(c[0],'table')+'"'+(attrs[c[0]]?' '+attrs[c[0]](t):'')+'>'+cell(c[0],t,'table')+'</td>'+(dayOn&&c[0]===dayAfter?dayTd(dc):'')).join('')
       +bcols.map(c=>'<td class="lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:'')+(c.tdCls?' '+c.tdCls:'')+'"'+(c.attr?' '+c.attr(t):'')+'>'+c.td(t,i)+'</td>').join('')
-      +'</tr>';
+      +'</tr>'
+      // the strip is its own row in the table, spanning every column (a div between two <tr> is not allowed)
+      +(chartsOn?'<tr class="lg-rowchart-tr"><td colspan="'+nCols+'"><div class="lg-rowchart pend" data-lgrowchart="'+esc(tid(t))+'"><span class="lg-mini-msg">chart</span></div></td></tr>':'');
     let trs='';
     if(o.dayHeaders){
       const g=byDay(closeOrder());let i=0;
@@ -4581,7 +4617,7 @@ function ledgerTradeListHtml(o){
           if(c[0]==='sym'&&o.sub){const s=o.sub(t);if(s)h+='<small>'+s+'</small>';}
           return '<span class="'+cellCls(c[0],'list')+'"'+(attrs[c[0]]&&c[0]==='time'?' '+attrs[c[0]](t):'')+'>'+h+'</span>';
         }).join('')
-        +(o.rowSlot?'<span class="lg-c lg-c-slot lg-nph">'+o.rowSlot(t)+'</span>':'')+'</div>';
+        +(o.rowSlot?'<span class="lg-c lg-c-slot lg-nph">'+o.rowSlot(t)+'</span>':'')+'</div>'+_strip(t);
       body=g.order.map(ds=>{
         const ts=g.m[ds];
         return '<div class="lg-tl-day" data-lgday="'+ds+'"'+dA(ds,ts)+'>'+dayHd(ds,ts)+evs.filter(e=>e.date===ds).map(e=>e.html).join('')+ts.map(lrow).join('')+'</div>';
@@ -4592,7 +4628,9 @@ function ledgerTradeListHtml(o){
   const total=o.total!=null?o.total:rows.length;
   const bar='<div class="lg-tl-bar">'
     +'<div class="lg-tl-top"><span class="lg-tl-count"><span data-lgcount>'+real(rows).length+' / '+total+' trades</span>'+(o.countExtra||'')+'</span>'
-    +'<span class="lg-tl-views" data-lgviews="'+esc(id)+'"><span class="lg-seg" role="group" aria-label="list or table">'+['list','table'].map(v=>'<button type="button" data-lgview="'+v+'" class="'+(view===v?'active':'')+'" aria-pressed="'+(view===v)+'">'+v.toUpperCase()+'</button>').join('')+'</span>'+(o.viewX||'')+'</span></div>'
+    +'<span class="lg-tl-views" data-lgviews="'+esc(id)+'"><span class="lg-seg" role="group" aria-label="list or table">'+['list','table'].map(v=>'<button type="button" data-lgview="'+v+'" class="'+(view===v?'active':'')+'" aria-pressed="'+(view===v)+'">'+v.toUpperCase()+'</button>').join('')+'</span>'+(o.viewX||'')
+    +(o.charts?'<button type="button" class="lg-fchip lg-tl-chartsbtn'+(chartsOn?' active':'')+'" data-lgcharts="'+esc(id)+'" aria-pressed="'+(chartsOn?'true':'false')+'" title="draw a small candle chart under every trade on this list, with the entry and the exit marked. A chart is drawn only once its row reaches the screen, and kept after that, so turning this on does not fetch twenty charts at once.">CHARTS</button>':'')
+    +'</span></div>'
     +'<div class="lg-tl-find"><input type="text" id="'+esc(id)+'-search" data-lgsearch class="lg-tl-search" autocomplete="off" spellcheck="false" placeholder="'+esc(o.placeholder||'Search symbol, setup, note...')+'" aria-label="Search trades" value="'+esc(o.query)+'">'
     +'<div class="lg-tl-chips" role="group" aria-label="filter trades">'+chips.map(c=>'<button type="button" class="lg-fchip'+(o.chip===c.k?' active':'')+'" data-lgchip="'+esc(c.k)+'" aria-pressed="'+(o.chip===c.k)+'">'+esc(c.label)+'</button>').join('')+'</div>'+(o.findX||'')+'</div>'
     +(o.slot?'<div class="lg-tl-slot">'+o.slot+'</div>':'')+'</div>';
@@ -4648,6 +4686,71 @@ function ledgerTradeListWire(root,o){
       if(r.getAttribute('role')==='button')r.addEventListener('keydown',e=>{if(e.target===r&&(e.key==='Enter'||e.key===' ')){e.preventDefault();o.onRow(r.getAttribute('data-lgtrade'),e);}});
     });
   }
+  // ── W131: THE CHARTS (owner 2026-11-13) ──────────────────────────────────────
+  // CHARTS turns the strip under every row on and off, and is remembered per board.
+  fr.querySelectorAll('[data-lgcharts]').forEach(b=>{b.onclick=()=>{
+    const on=!ledgerChartsGet(id);ledgerChartsSet(id,on);
+    if(o.onCharts)o.onCharts(on);
+    else if(o.onView)o.onView(fr.getAttribute('data-lgmode')==='table'?'table':'list');
+    else if(window.renderApp)window.renderApp();};});
+  // LAZY: a strip is empty until its row reaches the screen, and each one is filled once.
+  //   Turning CHARTS on over two hundred rows therefore reads the bars of the handful on
+  //   screen, not of all of them, and scrolling back up redraws nothing.
+  const _lgStrips=[].slice.call(fr.querySelectorAll('[data-lgrowchart]'));
+  if(_lgStrips.length){
+    const fill=el=>{
+      if(el._lgmDone)return;
+      el._lgmDone=1;
+      const host=el.closest('tr.lg-rowchart-tr')||el;
+      const prev=host.previousElementSibling;
+      const glyph=(prev&&prev.querySelector)?prev.querySelector(LG_GLYPH_SEL):null;
+      const x=glyph?window._lgGlyphRow(glyph):null;
+      if(!x){el.classList.add('pend');el.innerHTML='<span class="lg-mini-msg">no chart for this trade</span>';return;}
+      window._lgMiniChart(el,x,{height:Math.min(170,Math.max(110,Math.round((el.clientWidth||320)*0.4)))});
+    };
+    let io2=null;
+    try{io2=new IntersectionObserver(es=>{es.forEach(en=>{if(en.isIntersecting){io2.unobserve(en.target);fill(en.target);}});},{rootMargin:'200px 0px'});}catch(e){io2=null;}
+    if(io2)_lgStrips.forEach(el=>io2.observe(el));
+    else _lgStrips.forEach(fill);   // a browser without the observer just draws them all
+  }
+  // THE POP-UP: hover the candle icon (or hold it on a phone) and that trade's chart comes
+  //   up over the list, entry and exit marked. A click still opens the full viewer.
+  if(window._lgPop&&window._lgPop.parentNode)window._lgPop.parentNode.removeChild(window._lgPop);
+  window._lgPop=null;
+  (function(){
+    const gl=[].slice.call(fr.querySelectorAll(LG_GLYPH_SEL));
+    if(!gl.length)return;
+    let tmr=0;
+    const hide=()=>{if(tmr){clearTimeout(tmr);tmr=0;}
+      if(window._lgPop&&window._lgPop.parentNode)window._lgPop.parentNode.removeChild(window._lgPop);
+      window._lgPop=null;};
+    const show=el=>{
+      const x=window._lgGlyphRow(el);
+      if(!x)return;
+      hide();
+      const pop=document.createElement('div');
+      pop.className='lg-chartpop';
+      pop.innerHTML='<div class="lg-chartpop-hd"></div><div class="lg-chartpop-body"></div>';
+      document.body.appendChild(pop);
+      window._lgPop=pop;
+      pop.querySelector('.lg-chartpop-hd').textContent=String(x._label||('TRADE #'+(x._no==null?'':x._no)))+' \u00b7 entry and exit marked';
+      const rc=el.getBoundingClientRect(),W=pop.offsetWidth||360,H=210;
+      const left=Math.min(Math.max(8,rc.left+rc.width/2-W/2),Math.max(8,(window.innerWidth||800)-W-8));
+      const top=(rc.bottom+H+10<(window.innerHeight||600))?(rc.bottom+8):Math.max(8,rc.top-H-8);
+      pop.style.left=left+'px';pop.style.top=top+'px';
+      window._lgMiniChart(pop.querySelector('.lg-chartpop-body'),x,{width:W-18,height:170});
+    };
+    gl.forEach(el=>{
+      el.addEventListener('mouseenter',()=>{if(tmr)clearTimeout(tmr);tmr=setTimeout(()=>{tmr=0;show(el);},220);});
+      el.addEventListener('mouseleave',hide);
+      el.addEventListener('focus',()=>show(el));
+      el.addEventListener('blur',hide);
+      // a finger: hold it to see the chart, let go to put it away; a tap still opens the viewer
+      el.addEventListener('touchstart',()=>{if(tmr)clearTimeout(tmr);tmr=setTimeout(()=>{tmr=0;show(el);},380);},{passive:true});
+      ['touchend','touchmove','touchcancel'].forEach(ev=>el.addEventListener(ev,hide,{passive:true}));
+    });
+    window.addEventListener('scroll',hide,{passive:true});
+  })();
   return fr;
 }
 // ── LEDGER shared trade panel (unify step 9) ───────────────────────────────────────────────────────────────────────────────
@@ -10580,7 +10683,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const hit=mem[tid];
     if(hit&&((hit.doc&&hit.doc.complete)||Date.now()-hit.at<TTL_OPEN))return hit.doc;
     if(pend[tid])return pend[tid];
-    pend[tid]=(async()=>{let doc=null;try{doc=await fetchDoc(tid);}catch(_e){doc=hit?hit.doc:null;}
+    pend[tid]=(async()=>{let doc=null;
+      // W131: ONE document per trade, once per session (mem[] above). window._lgBarDocReads
+      //   is what that costs - read it in the console to see what a page actually fetched.
+      try{window._lgBarDocReads=(window._lgBarDocReads||0)+1;doc=await fetchDoc(tid);}catch(_e){doc=hit?hit.doc:null;}
       mem[tid]={doc:doc||null,at:Date.now()};return doc||null;})().finally(()=>{delete pend[tid];});
     return pend[tid];
   };
@@ -11205,6 +11311,59 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     return p;
   };
 
+  // ── W131 (owner 2026-11-13): SMALL CHARTS ON THE LEDGER ──────────────────────────
+  // Two faces, one renderer: the chart that pops up over the candle icon, and the strip
+  // CHARTS draws under every row. Both take a row in the candle viewer's own shape
+  // (window._lgGlyphRow finds it from the icon) and both go through the caches the full
+  // viewer already fills - _barsCache by trade, and the trade_bars document cache behind
+  // _docBars - so a chart already seen is free, and opening the full viewer afterwards
+  // fetches nothing.
+  window._lgTradeBars=function(x){
+    if(!x)return Promise.reject(new Error('no trade'));
+    if(_barsCache[x._no])return Promise.resolve(_barsCache[x._no]);
+    const d=_docBars(x);
+    if(d)return d.then(rb=>{if(rb)_barsCache[x._no]=rb;return rb;});
+    if(!x._et)return Promise.reject(new Error('no entry time on this trade'));
+    return _fetchBars(x._no,Object.assign({},(x._pb||_cB(x)),
+      {entry_time:x._et,exit_time:x._xt2,pad_sessions:1}),300000);
+  };
+  // host = the box to draw into. The same box drawn twice only keeps the last call (seq).
+  window._lgMiniChart=function(host,x,opts){
+    opts=opts||{};
+    if(!host)return;
+    const seq=(host._lgmSeq=(host._lgmSeq||0)+1),alive=()=>host.isConnected&&host._lgmSeq===seq;
+    const esc2=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;');
+    const msg=h=>{if(alive()){host.classList.add('pend');host.innerHTML='<span class="lg-mini-msg">'+h+'</span>';}};
+    if(!x){msg('no chart for this row');return;}
+    msg(opts.loading||'loading the bars&hellip;');
+    let p;try{p=window._lgTradeBars(x);}catch(e){p=Promise.reject(e);}
+    p.then(function(res){
+      if(!alive())return;
+      const all=(res&&res.bars)||[],N=all.length;
+      if(!N){msg('no bars came back for this trade');return;}
+      // the trade with about twenty bars either side of it, the same window the panel opens on
+      const e0=res.entry_idx,x0=(res.exit_idx!=null?res.exit_idx:e0);
+      const lo=(e0==null)?0:Math.max(0,e0-20),hi=(e0==null)?N-1:Math.min(N-1,x0+20);
+      const ov={};Object.keys(res.overlays||{}).forEach(k=>{ov[k]=(res.overlays[k]||[]).slice(lo,hi+1);});
+      const mk={entryPrice:x._ep,exitPrice:(x._open?null:x._xp),side:x._side||'',pnlUsd:x._usd};
+      if(e0!=null&&e0>=lo&&e0<=hi)mk.entryIdx=e0-lo;
+      if(res.exit_idx!=null&&res.exit_idx>=lo&&res.exit_idx<=hi)mk.exitIdx=res.exit_idx-lo;
+      if(mk.entryIdx!=null&&mk.exitIdx!=null){mk.shadeFrom=mk.entryIdx;mk.shadeTo=mk.exitIdx;}
+      const W=Math.max(220,Math.round(opts.width||host.clientWidth||320));
+      const H=Math.max(96,Math.round(opts.height||Math.min(190,W*0.45)));
+      // the full viewer's hover maths reads window.CANDLE_GEO: a small chart must not move it
+      const geo=window.CANDLE_GEO;
+      let svg='';
+      try{svg=window.candleSVG(all.slice(lo,hi+1),ov,mk,{width:W,height:H,xTicks:Math.max(2,Math.floor(W/110))});}
+      catch(err){window.CANDLE_GEO=geo;msg('could not draw this chart');return;}
+      window.CANDLE_GEO=geo;
+      if(!alive())return;
+      host.classList.remove('pend');
+      host.innerHTML='<div class="lg-mini-svg">'+svg+'</div>';
+      const sv=host.querySelector('svg');
+      if(sv){sv.style.width='100%';sv.style.height='auto';sv.style.display='block';sv.style.pointerEvents='none';}
+    }).catch(function(err){msg('could not load these bars - '+esc2(String((err&&err.message)||err)));});
+  };
   const _cndl={api:null,x:null,r:null,view:null,seq:0,ctx:null,grp:null};
   // rows whose bars live in a Firestore doc instead of on the PC: Webull paper (x._qbars, the
   // box day doc) and real trades (x._rbars, api/trade_bars.py). Null = ask the PC (get_bars).
@@ -17619,7 +17778,7 @@ function _hmFrameHtml(list){
   // deposits sit in their day under BY TRADE while no chip or search narrows the list
   const evs=(!tbl&&homeFeedMode!=='day'&&!filt)?_hmTradesInRange(scopedLedger()||[],homeRange).map(ev=>({date:ev.date,html:_hmDepositRow(ev)})):[];
   return ledgerTradeListHtml({
-    id:'hm',view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:bScope(_hmTradesInRange(trades,homeRange)).length,query:homeQuery,chip:homeChip,
+    id:'hm',charts:true,view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:bScope(_hmTradesInRange(trades,homeRange)).length,query:homeQuery,chip:homeChip,
     countExtra:_hmCountExtraHtml(),viewX:_hmViewSegHtml(),findX:_hmKindChipsHtml(),
     afterBar:_hmPasteRowHtml()+'<div id="hm-newtrade-form">'+(homeNewTradeOpen?_hmNewTradeFormHtml():'')+'</div>',
     empty:_hmEmptyStateHtml(),group:homeFeedMode==='day'?'day':'trade',events:evs,
@@ -18499,6 +18658,7 @@ function _hmRenderHome(content){
   const feedC=content.querySelector('#hm-feed-container');
   // the shared trade list frame (LEDGER unify step 8) is already drawn into #hm-feed-container
   ledgerTradeListWire(content,{id:'hm',
+    onCharts:()=>renderApp(),
     onChip:c=>{homeChip=c;renderApp();},
     onView:v=>{window._hmJumpPrevView=null;homeView=(v==='table')?'table':'feed';renderApp();},
     onRow:rid=>{homeSheetId=rid;_hmSyncPanel();}});
@@ -46185,7 +46345,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // the options every draw of the frame shares (an empty range draws it too); rows = the page being shown, matchedN = what the list matches
         // (the rows go in oldest first: the frame sorts them by close and reverses, so trades closed in the same second keep the order this board
         // gave them, which is the order the CSV export and the candle viewer walk)
-        const qbFrameOpts=(shownVm,matchedN)=>({id:'wb',view:qbTradesView,rows:shownVm.slice().reverse(),total:closedN,query:qbQuery,chip:qbChipSel,chips:qbOwnChips,
+        const qbFrameOpts=(shownVm,matchedN)=>({id:'wb',charts:true,view:qbTradesView,rows:shownVm.slice().reverse(),total:closedN,query:qbQuery,chip:qbChipSel,chips:qbOwnChips,
           placeholder:'Search strategy, side, date...',
           countExtra:((qbRange&&qbRange!=='ALL')?'<span class="qbx-tl-rg">'+qbRangeWord+'</span>':'')
             +(qbTlClear?'<span class="qbx-tl-clear" data-qbclear role="button" tabindex="0" title="clear the search and the chip">&#10005; clear</span>':'')
@@ -48613,7 +48773,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const empty=m.closedAll.length
             ?'<div class="lg-tl-empty">No closed trades match this filter. <button type="button" class="p2tl-link" data-ptreset>clear the filter</button></div>'
             :'<div class="lg-tl-empty">'+(_pt.length?'NO CLOSED TRADES IN THIS RANGE':'NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START)+'</div>';
-          return ledgerTradeListHtml({id:ID,view:m.view,rows:m.shown,total:m.closedAll.length,query:m.query,chip:m.chip,
+          return ledgerTradeListHtml({id:ID,charts:true,view:m.view,rows:m.shown,total:m.closedAll.length,query:m.query,chip:m.chip,
             chips:m.fams.map(f=>({k:'fam:'+f,label:f})),pnl:r=>r.pnl,net:r=>r._unc?0:r.pnl,
             placeholder:'Search strategy, day, side...',countExtra:cx.length?'<span class="p2tl-cx">'+cx.join(' · ')+'</span>':'',
             slot:slot,afterBar:openBlock+note,empty:empty,cells:cells,hide:['strat'],
@@ -48645,6 +48805,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         };
         const wire=root=>{
           const fr=ledgerTradeListWire(root,{id:ID,
+            onCharts:()=>draw(),
             onQuery:v=>{window._ptQuery=v;draw();},
             onChip:c=>{window._ptChip=c;draw();},
             onView:()=>{draw();},
@@ -52679,6 +52840,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // by its row number, so a search, a chip, LIST | TABLE or a redraw cannot point it at another trade.
       {
         ledgerTradeListWire(content,{id:'wb',
+          onCharts:()=>renderApp(),
           // P1: the query is stored on every keystroke, the full-page rebuild is coalesced (ledgerQueryDebounced)
           onQuery:v=>{ledgerQueryDebounced('wb',()=>{window._qeTradesQuery=v;},()=>renderApp());},
           onChip:c=>{window._qeTradesChip=c;renderApp();},
