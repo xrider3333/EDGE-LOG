@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.53';
+const VERSION='89.54';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -36977,7 +36977,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           //   that a stored DOLLAR drawdown is never divided into a percent, and this is not that.
           //   A record is one stretch, so the stage tick cannot change its figure.
           if(rw._rec){const rv=(rw.ddp!=null&&isFinite(+rw.ddp))?+rw.ddp:null;
-            const ro=(rv!=null)?{v:rv,src:'the figure the lane recorded for this run, off its own daily series'}
+            // w130 (DISC 10): the lane measured on the same $100k start as the engine, so the record obeys the same ACCT gate as a run row.
+            const ro=(rv!=null&&_rocAcct()!==DD_PCT_START_USD)?{why:'This lane record measured its DD % from peak on a $100k start, and a stored percent does not rescale to another account. Set the ACCT chip to 100k to read it.'}
+              :(rv!=null)?{v:rv,src:'the figure the lane recorded for this run, off its own daily series'}
               :{why:'This lane record carries no DD % from peak. four_numbers measures one from a daily series, so a record written without one was built from something else, and the record itself says what.'};
             _reDdpMemo.set(rw,{k:k,o:ro});return ro;}
           // A STORED PERCENT NEEDS NO CURVE (item 51, 2026-10-20). The engine measures this figure on
@@ -37165,6 +37167,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(_reMode()==='roc')return _reRecRocWhy(rw)||((_reSegVal(rw)!=null&&_reWrPartial(rw))?_reWrPartWhy(rw,'ROC % / YR'):'ROC needs a profit for the ticked stretch and a window to annualise it over. This row is missing one of them.');
           if(_reMode()==='roc30')return _reMarWhy(st,rw)||'ROC at a $30k drawdown needs a profit, a drawdown and a window for the ticked stretch - the same three inputs MAR reads.';
           if(_reMode()==='ddp')return _reDdpWhy(st,rw);
+          if(_reMode()==='dd5'){const d5=_reDd5(st,rw);return (d5&&d5.why)||'This row has no DD5 for the ticked stretch.';}
           if(_reMode()==='ddr'||_reMode()==='dd')return _reWhy(st,rw,'dd');
           if(_reMode()==='ratio'&&_reSegVal(rw)!=null&&_reNum(rw,'dd')&&!(_reYrs(st,rw)>0))return _reWrPartial(rw)?_reWrPartWhy(rw,'MAR'):'This row records no date window, so its MAR cannot be put on a per-year basis.';
           const miss=_reSegMiss(rw);
@@ -37204,7 +37207,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           rpy:'R per year — HIGHER is better',
           roc:'Return on the account, per year — HIGHER is better',
           roc30:'ROC at a $30k worst drawdown — HIGHER is better',
-          dd5:'DD5 — the fifth-worst drawdown in dollars, the same figure the DD5 column prints. LOWER is better. It is steadier than the single worst drawdown, which is one event with a confidence interval wider than itself',
+          dd5:'DD5 — the average of the five deepest separate drawdowns in dollars, the same figure the DD5 column prints. LOWER is better. It is steadier than the single worst drawdown, which is one event with a confidence interval wider than itself',
           ddp:'DD % from peak — LOWER is better',
           ddr:'Drawdown in losing trades — LOWER is better',
           dd:'Drawdown, in dollars — LOWER is better'};
@@ -38393,7 +38396,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   left the axis captioned 'worst drawdown' with its ticks formatted as money, so
         //   every tick read $0k. Only drawdown is money, and only drawdown is better LEFT.
         const _reXCapNow=()=>{
-          if(['ddp','ddr'].indexOf(_reXAxis)>=0)return (_reXNm[_reXAxis]||'')+' — further LEFT is better';
+          if(['ddp','ddr','dd5'].indexOf(_reXAxis)>=0)return (_reXNm[_reXAxis]||'')+' — further LEFT is better';
           // WIN % carries the same caveat up the side and across the bottom (item 11,
           //   owner audit round 2): 'further RIGHT is better' alone overstates a measure
           //   the vertical caption already qualifies.
@@ -41346,7 +41349,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
              ['rpy',_reBtn('data-resxaxis="rpy"','R / YR',_reXAxis==='rpy','R / YR is EV R multiplied by trades per year over the ticked stretch: the edge, in units of the average losing trade, that the strategy actually collects in a year. It is the cross-strategy rank read - leverage-blind like EV R, but it also rewards a strategy for trading often enough to compound that edge. The same figure the run report 1E matrix prints.',_TONE.samp)],
              ['roc',_reBtn('data-resxaxis="roc"','ROC % / YR',_reXAxis==='roc','return on the account per year - the ticked stretch profit annualised, as a percent of the account ROC is measured against (the chip on the run report sets it). Comparable across strategies only if they would be traded at the same size.',_TONE.samp)],
              ['raw',_reBtn('data-resxaxis="raw"','RAW PROFIT',_reXAxis==='raw','the profit of the ticked stretch, in dollars, further right is more. Dollars scale with size and with how long the row ran, so this compares rows within one strategy far better than across strategies.',_TONE.samp)],
-             ['dd5',_reBtn('data-resxaxis="dd5"','DD5',_reXAxis==='dd5','DD5 - the FIFTH-worst drawdown in dollars, the same figure the DD5 column prints. Steadier than the single worst drawdown, which is one event with a confidence interval wider than itself. LOWER is better, so the good rows sit toward the LEFT.',_TONE.rank)],
+             ['dd5',_reBtn('data-resxaxis="dd5"','DD5',_reXAxis==='dd5','DD5 - the AVERAGE of the five deepest separate drawdowns in dollars, the same figure the DD5 column prints. Steadier than the single worst drawdown, which is one event with a confidence interval wider than itself. LOWER is better, so the good rows sit toward the LEFT.',_TONE.rank)],
            ],_reXAxis,'x')
           ,_TONE.samp);
         const _reAxisBtns=_reCtl('','VERTICAL AXIS','what the height of the chart measures',
@@ -41365,7 +41368,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
              ['rpy',_reBtn('data-resaxis="rpy"','R / YR',_reAxis==='rpy','EV R multiplied by trades per year over the ticked stretch: the edge, in units of the average losing trade, that the strategy actually collects in a year. It is the cross-strategy rank read - leverage-blind like EV R, but it also rewards a strategy for trading often enough to compound that edge. The same figure the run report 1E matrix prints.',_TONE.samp)],
              ['roc',_reBtn('data-resaxis="roc"','ROC % / YR',_reAxis==='roc','plot return on the account per year - the ticked stretch profit annualised, as a percent of the account ROC is measured against (the chip on the run report sets it). Comparable across strategies only if they would be traded at the same size.',_TONE.samp)],
              ['raw',_reBtn('data-resaxis="raw"','RAW PROFIT',_reAxis==='raw','plot the money itself, with dollar tick labels. Dollars scale with size and with how long the row ran, so this compares rows within one strategy far better than across strategies - a book pools several strategies, some legs at up to 3 contracts, so use DD % or EV R to compare across them',_TONE.rank)],
-             ['dd5',_reBtn('data-resaxis="dd5"','DD5',_reAxis==='dd5','plot DD5 - the FIFTH-worst drawdown in dollars, the same figure the DD5 column prints and read through the same reader, so a dot and its row can never disagree. It is the steadier half of the drawdown question: a single worst drawdown is one event, and this project measured the confidence interval around it to be WIDER than the drawdown itself, so the fifth-worst says more about what a strategy does repeatedly. LOWER is better, so the good rows sit toward the BOTTOM.',_TONE.rank)],
+             ['dd5',_reBtn('data-resaxis="dd5"','DD5',_reAxis==='dd5','plot DD5 - the AVERAGE of the five deepest separate drawdowns in dollars, the same figure the DD5 column prints and read through the same reader, so a dot and its row can never disagree. It is the steadier half of the drawdown question: a single worst drawdown is one event, and this project measured the confidence interval around it to be WIDER than the drawdown itself, so the fifth-worst says more about what a strategy does repeatedly. LOWER is better, so the good rows sit toward the BOTTOM.',_TONE.rank)],
            ],_reAxis,'y')
           ,_TONE.samp);
         // MIN TRADES (control 8). Sits beside PLOT FAILURES because it does the same job:
