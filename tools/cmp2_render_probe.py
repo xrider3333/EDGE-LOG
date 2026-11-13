@@ -8937,16 +8937,15 @@ def main(argv=None):
     ex_ok = (r.get('call') == 'OK' and not r.get('errors') and not r.get('uncaught')
              and (r.get('points') or 0) >= 1
              and (r.get('rail') or 0) >= 1
-             and r.get('tblBtn') == 1           # the TABLES button is there
-             # F40 (audit3_report.md): the hover figure was re-measured and corrected
-             and 'three and a half' not in (r.get('tblBtnTitle') or '')
-             and 'dozen megabytes' in (r.get('tblBtnTitle') or '')
+             # w127 (owner 2026-11-13): the TABLES button is GONE and the tables are
+             #   ALWAYS ON, so a board that still offers the button is the failure now.
+             and r.get('tblBtn') == 0
              and r.get('menuHost') is True
              and (r.get('groups') or 0) >= 5
              and (r.get('menus') or 0) >= 3      # single-choice groups became menus
              and (r.get('hiddenBoxes') or 0) >= 3
              and r.get('menuDrives') is True     # and a menu really drives its buttons
-             and (r.get('rowsOff') or 0) == 0   # and the tables are off by default
+             and (r.get('rowsOff') or 0) >= 1   # w127: built with no button pressed
              and r.get('call2') == 'OK'
              and (r.get('rowsOn') or 0) >= 1    # switching them on builds them
              and (r.get('pointsOn') or 0) >= 1  # and the chart still draws either way
@@ -8989,15 +8988,11 @@ def main(argv=None):
         if r.get('menuDrives') is not True:
             fail('explore: choosing from a menu changed no setting - the menu is not driving '
                  'the button behind it')
-        if r.get('tblBtn') != 1:
-            fail('explore: the TABLES button is missing, so the study tables would be '
-                 'unreachable on this screen')
-        if 'three and a half' in (r.get('tblBtnTitle') or '') or 'dozen megabytes' not in (r.get('tblBtnTitle') or ''):
-            fail('explore: F40 -- the TABLES hover still claims the old, re-measured-as-wrong '
-                 'figure (title=%r)' % (r.get('tblBtnTitle') or ''))
-        if (r.get('rowsOff') or 0) != 0:
-            fail('explore: %s table rows built while the tables are off - the whole point is '
-                 'that they are not assembled' % r.get('rowsOff'))
+        if r.get('tblBtn') != 0:
+            fail('explore: the TABLES button is back - w127 made the study tables always on')
+        if (r.get('rowsOff') or 0) < 1:
+            fail('explore: no table rows built with nothing pressed - the tables must be on '
+                 'from the moment the board opens (w127)')
         if r.get('call2') != 'OK':
             fail('explore: turning the tables on threw -- %s' % str(r.get('call2'))[:300])
         if (r.get('rowsOn') or 0) < 1:
@@ -9012,15 +9007,16 @@ def main(argv=None):
                  'first')
         if r.get('splitSameRow') is not True:
             fail('explore: on SIDE the two are stacked, not beside each other')
-        if r.get('screenBtns') != 3:
-            fail('explore: %s screen-switcher buttons, expected 3 - COMPARE BETA lost its '
-                 'own strip on this screen' % r.get('screenBtns'))
+        if r.get('screenBtns') != 2:
+            fail('explore: %s screen-switcher buttons, expected 2 (LEADERBOARD and EXPLORE - '
+                 'COMPARE was retired, w125)' % r.get('screenBtns'))
         if not (r.get('presets') or 0) >= 4:
             fail('explore: the COMPARE FOR preset bar is missing (%s buttons)' % r.get('presets'))
         if not (r.get('help') or 0) >= 1:
             fail('explore: the HOW TO READ toggle is unreachable on this screen')
-        if r.get('sheets') != 3:
-            fail('explore: %s sheet buttons, expected 3' % r.get('sheets'))
+        if r.get('sheets') != 1:
+            fail('explore: %s sheet buttons, expected 1 - only FILTERS is left, VIEWS moved '
+                 'onto the chart tile and READ was removed (w127)' % r.get('sheets'))
         if r.get('sidebar'):
             fail('explore: the old control sidebar is still on this screen')
         if not (r.get('stage') or 0) >= 1:
@@ -9283,9 +9279,9 @@ def main(argv=None):
             if (p.get('len') or 0) <= 2000:
                 fail('hosted: the %s view rendered almost nothing (%s chars) - a feature that '
                      'is now only reachable here has gone missing' % (v, p.get('len')))
-            if p.get('screenBtns') != 3 or p.get('viewBtns') != 5:
-                fail('hosted: %s lost its navigation (screen=%s view=%s) - there would be no way '
-                     'back out of it' % (v, p.get('screenBtns'), p.get('viewBtns')))
+            if p.get('screenBtns') != 2 or p.get('viewBtns') != 6:
+                fail('hosted: %s lost its navigation (screen=%s view=%s, want 2 and 6) - there '
+                     'would be no way back out of it' % (v, p.get('screenBtns'), p.get('viewBtns')))
             if p.get('oldPills'):
                 fail('hosted: %s still shows the old VIEW pills, which jump to a tab that is no '
                      'longer on the rail' % v)
@@ -10153,20 +10149,8 @@ def main(argv=None):
          % ([k for k, v in c_mintrd_chk.items() if not v], plotted, skip_n, fail_out, thin_out, thin_no_ct, n_off, expect))
     if not c_mintrd_ok:
         fail('c_mintrd: MIN TRADES should not double-count a no-trade-count row in the "rows plotted" headline -- see the c_mintrd line')
-    # case c_champmsg: item 11(c), repair round - the chart's OWN CHAMPION-mode note names
-    # the two measures actually on the axes instead of always saying money / drawdown
-    r = cases.get('c_champmsg', {})
-    c_champmsg_chk = {
-        'renders OK': r.get('call') == 'OK',
-        'the note was found (CHAMPION mode is on)': bool(r.get('hint')),
-        'no longer says "the money it added and the drawdown it added"': not r.get('saysMoneyDrawdown'),
-        'says "the difference it added against it on the two measures now on the axes"': bool(r.get('saysDifference')),
-        'names the correct better corner for WIN % up / SORTINO across (up and to the right)': bool(r.get('saysUpRight')),
-    }
-    c_champmsg_ok = all(c_champmsg_chk.values())
-    line('c_champmsg', c_champmsg_ok, 'failed=%s | hint=%r' % ([k for k, v in c_champmsg_chk.items() if not v], r.get('hint')))
-    if not c_champmsg_ok:
-        fail('c_champmsg: the chart\'s own CHAMPION-mode note should name the two measures actually on the axes, not always money / drawdown -- see the c_champmsg line')
+    # case c_champmsg was RETIRED on 2026-11-13 (board w127): the AXIS control that put the
+    #   chart into CHAMPION mode came off the screen, so there is no such note to check.
     # == review-round regression cases (r_*) ==
     # case r_fullPfExact (R-A1): FULL PF of a run with no walk-forward and no lockbox is exact
     r = cases.get('r_fullPfExact', {})
@@ -10646,20 +10630,7 @@ def main(argv=None):
     if not r4f_ok:
         fail('r4_failnote: PLOT FAILURES ON and LOAD ALL must only claim rows they can place -- see the r4_failnote line')
 
-    # case r4_relnote
-    r = cases.get('r4_relnote', {})
-    _sh = r.get('shownN')
-    r4r_chk = {
-        'renders OK': r.get('call') == 'OK',
-        'rows with no champion figure are counted as their own cause': (r.get('rel') or 0) > 0,
-        'the tally adds up to every row the chart pass read': _sh is not None and r.get('sum') == _sh,
-        "the note's total is that same number": _sh is not None and str(r.get('head') or '').startswith('%s of %s' % (_sh, _sh)),
-    }
-    r4r_ok = all(r4r_chk.values())
-    line('r4_relnote', r4r_ok, 'failed=%s | rel=%s sum=%s shownN=%s head=%r'
-         % ([k for k, v in r4r_chk.items() if not v], r.get('rel'), r.get('sum'), _sh, r.get('head')))
-    if not r4r_ok:
-        fail('r4_relnote: CHAMPION-mode rows with nothing to read against must be counted in the note -- see the r4_relnote line')
+    # case r4_relnote was RETIRED on 2026-11-13 (board w127) with the AXIS / CHAMPION control.
 
     # case r4_offers
     r = cases.get('r4_offers', {})
