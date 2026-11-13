@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.56';
+const VERSION='89.57';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5014,7 +5014,7 @@ return true;}catch(e){console.error(e);return false;}}
 //    blocked request can never leave the list empty.
 //    NOT the fix: offline persistence. It was deliberately removed in v71.61 and must not
 //    come back - see the note in initFB above.
-const RUNS_LITE_FIELDS='acf,adversarial,archived,auto_expand,auto_expand_summary,bars,best_dd_usd,best_oos_pnl,best_params,best_pf,best_pnl_per_day,best_pnl_pts,best_pnl_usd,best_trades,best_win_rate,book,causal,champ_dist_scope,commission_usd,conformal,cost_pts,data_source,date_from,date_to,days_in_test,dsr,edge_sig,elapsed_s,ensemble,equity,equity_top_cap,evolved_file,famKey,famSeq,feature_select,id,instrument,lead_lag,mc,ml_gate,multiplier,n_combos,n_evaluated,n_valid,neighborhood,note,power,relationship,rounds,scope,seasonality,slippage_pts,source_name,source_web,starred,steering,strategy,stress,synthetic,tailfit,timeframe,timestamp,top10_results,trimmed_keys,vif,wf_alt_mode,wf_mode,validate.equity,validate.feature_select,validate.seasonality,validate.lead_lag,validate.vif,validate.acf,validate.adversarial,validate.flags,validate.lockbox,validate.champion,validate.tailfit,validate.edge_sig,validate.synthetic,validate.causal,validate.conformal,validate.pbo,validate.wf_anchored,validate.wf_rolling,validate.windows,validate.checks,validate.thresholds,validate.transfer,validate.plateau,validate.mc_p95,validate.total_dd,validate.total_sharpe,validate.is_pf,validate.total_sortino,validate.total_avg_loss,validate.total_win_rate,validate.is_dd,validate.total_avg_win,validate.is_sharpe,validate.dsr,validate.wf_best_mode,validate.verdict,validate.discover,validate.wfe,validate.trades_per_param,validate.wf_ran,validate.evolved_file,validate.discover_err,validate.total_trades,validate.is_trades,validate.lb_idx,validate.n_params,validate.n_pass,validate.n_folds,validate.folds_held,validate.n_gates,validate.wf_oos,validate.book,gate_validate.ungated_is,gate_validate.ungated_wf,gate_validate.ungated_lockbox,gate_validate.ungated_full,gate_validate.ungated_pre,gate_validate.ungated_wf_lb,validate.dd_pct,validate.dd_pct_src,gate_validate.span,gate_validate.wf_range,gate_validate.lockbox_from,roll_stamp.master_type,roll_stamp.roll_source,roll_stamp.calendar,roll_stamp.warning,roll_stamp.guard,roll_stamp.registry,roll_stamp.error,roll_stamp.usd_roll_step,roll_stamp.trades_crossing,roll_stamp.legs_stamped'.split(',');
+const RUNS_LITE_FIELDS='acf,adversarial,archived,auto_expand,auto_expand_summary,bars,best_dd_usd,best_oos_pnl,best_params,best_pf,best_pnl_per_day,best_pnl_pts,best_pnl_usd,best_trades,best_win_rate,book,causal,champ_dist_scope,commission_usd,conformal,cost_pts,data_source,date_from,date_to,days_in_test,dsr,edge_sig,elapsed_s,ensemble,equity,equity_top_cap,evolved_file,famKey,famSeq,feature_select,id,instrument,lead_lag,mc,ml_gate,multiplier,n_combos,n_evaluated,n_valid,neighborhood,note,power,relationship,rounds,scope,seasonality,session,slippage_pts,source_name,source_web,starred,steering,strategy,stress,synthetic,tailfit,timeframe,timestamp,top10_results,trimmed_keys,vif,wf_alt_mode,wf_mode,validate.equity,validate.feature_select,validate.seasonality,validate.lead_lag,validate.vif,validate.acf,validate.adversarial,validate.flags,validate.lockbox,validate.champion,validate.tailfit,validate.edge_sig,validate.synthetic,validate.causal,validate.conformal,validate.pbo,validate.wf_anchored,validate.wf_rolling,validate.windows,validate.checks,validate.thresholds,validate.transfer,validate.plateau,validate.mc_p95,validate.total_dd,validate.total_sharpe,validate.is_pf,validate.total_sortino,validate.total_avg_loss,validate.total_win_rate,validate.is_dd,validate.total_avg_win,validate.is_sharpe,validate.dsr,validate.wf_best_mode,validate.verdict,validate.discover,validate.wfe,validate.trades_per_param,validate.wf_ran,validate.evolved_file,validate.discover_err,validate.total_trades,validate.is_trades,validate.lb_idx,validate.n_params,validate.n_pass,validate.n_folds,validate.folds_held,validate.n_gates,validate.wf_oos,validate.book,gate_validate.ungated_is,gate_validate.ungated_wf,gate_validate.ungated_lockbox,gate_validate.ungated_full,gate_validate.ungated_pre,gate_validate.ungated_wf_lb,validate.dd_pct,validate.dd_pct_src,gate_validate.span,gate_validate.wf_range,gate_validate.lockbox_from,roll_stamp.master_type,roll_stamp.roll_source,roll_stamp.calendar,roll_stamp.warning,roll_stamp.guard,roll_stamp.registry,roll_stamp.error,roll_stamp.usd_roll_step,roll_stamp.trades_crossing,roll_stamp.legs_stamped'.split(',');
 // roll_stamp.* (2026-10-09, MANAGER #31 part b): only the ten small subfields the ROLL CHECK tag reads, as dotted paths like validate.* above - never the whole stamp (method_tests and
 //   raw_vs_adjusted are report-only; the run report reads the full document). A document with no roll_stamp (a run saved before the roll guard) simply comes back without the field.
 function _fsVal(v){
@@ -35456,16 +35456,16 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   dash rather than print the gated pick under an IN-SAMPLE header.
         const _gvIsOf=x=>_isGvJob(x)?_gvB(x,'ungated_is'):null;
         const M_all=[
-          {l:'Net P&L',s:'Net $',v:x=>{const g=_gvIsOf(x);return _isGvJob(x)?(g?(+g.total_pnl||0)*_mcOf(x):-1e15):(x.best_pnl_usd||0);},f:x=>{const g=_gvIsOf(x);return _isGvJob(x)?(g?_ab$((+g.total_pnl||0)*_mcOf(x)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>'):_ab$(x.best_pnl_usd);},b:'max',sec:'return'},
-          {l:'$/day',s:'$/day',v:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?g.net/(y*365.25):-1e15;}return x.best_pnl_per_day||0;},f:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?_ab$(g.net/(y*365.25)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>';}return _ab$(x.best_pnl_per_day||0);},b:'max',sec:'return'},
+          {l:'Net P&L',s:'Net $',v:x=>{const g=_gvIsOf(x);return _isGvJob(x)?(g?(+g.total_pnl||0)*_mcOf(x):-1e15):(x.best_pnl_usd!=null&&isFinite(+x.best_pnl_usd)?+x.best_pnl_usd:-1e15);},f:x=>{const g=_gvIsOf(x);return _isGvJob(x)?(g?_ab$((+g.total_pnl||0)*_mcOf(x)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>'):(x.best_pnl_usd!=null&&isFinite(+x.best_pnl_usd)?_ab$(x.best_pnl_usd):'—');},b:'max',sec:'return'},
+          {l:'$/day',s:'$/day',v:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?g.net/(y*365.25):-1e15;}return (x.best_pnl_per_day!=null&&isFinite(+x.best_pnl_per_day))?+x.best_pnl_per_day:-1e15;},f:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?_ab$(g.net/(y*365.25)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>';}return (x.best_pnl_per_day!=null&&isFinite(+x.best_pnl_per_day))?_ab$(x.best_pnl_per_day):'—';},b:'max',sec:'return'},
           {l:'Max DD',s:'Max DD',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*_mcOf(x):null;return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?_ab$(Math.abs(+g.max_drawdown)*_mcOf(x)):'—';return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?_ab$(Math.abs(+x.best_dd_usd)):'—';},b:'min',sec:'drawdown'},
           {l:'MAR',s:'MAR',v:x=>{var m=_runMarAnn(x);return m!=null?m:-1e15;},f:x=>{var m=_runMarAnn(x);return m!=null?m.toFixed(2):'\u2014';},b:'max',sec:'reward ÷ risk'},
           {l:'R/yr',s:'R/yr',v:x=>{var v=_runRPerYr(x);return v!=null?v:-1e15;},f:x=>{var v=_runRPerYr(x);return v!=null?v.toFixed(1):'\u2014';},b:'max',sec:'reward ÷ risk'},
-          {l:'PF',s:'PF',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.profit_factor!=null&&isFinite(+g.profit_factor)&&+g.profit_factor>0)?+g.profit_factor:0;return x.best_pf||0;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.profit_factor!=null&&isFinite(+g.profit_factor)&&+g.profit_factor>0)?(+g.profit_factor).toFixed(2):'—';return (x.best_pf||0).toFixed(2);},b:'max',sec:'edge'},
-          {l:'Win %',s:'Win%',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.win_rate!=null)?+g.win_rate:0;return x.best_win_rate||0;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.win_rate!=null)?(Math.round(+g.win_rate)+'%'):'—';return Math.round(x.best_win_rate||0)+'%';},b:'max',sec:'edge'},
+          {l:'PF',s:'PF',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.profit_factor!=null&&isFinite(+g.profit_factor)&&+g.profit_factor>0)?+g.profit_factor:0;return (x.best_pf!=null&&isFinite(+x.best_pf)&&+x.best_pf>0)?+x.best_pf:-1e15;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.profit_factor!=null&&isFinite(+g.profit_factor)&&+g.profit_factor>0)?(+g.profit_factor).toFixed(2):'—';return (x.best_pf!=null&&isFinite(+x.best_pf)&&+x.best_pf>0)?(+x.best_pf).toFixed(2):'—';},b:'max',sec:'edge'},
+          {l:'Win %',s:'Win%',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.win_rate!=null)?+g.win_rate:0;return (x.best_win_rate!=null&&isFinite(+x.best_win_rate))?+x.best_win_rate:-1e15;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.win_rate!=null)?(Math.round(+g.win_rate)+'%'):'—';return (x.best_win_rate!=null&&isFinite(+x.best_win_rate))?(Math.round(+x.best_win_rate)+'%'):'—';},b:'max',sec:'edge'},
           {l:'Robustness',s:'Rob',v:x=>scoreRun(x),f:x=>_robFmt(x),b:'max',sec:'edge'},
           {l:'DSR',s:'DSR',f:x=>(x.dsr&&x.dsr.dsr!=null?Math.round(x.dsr.dsr*100)+'%':'—'),sec:'edge'},
-          {l:'Trades',s:'Trades',f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.num_trades!=null)?+g.num_trades:'—';return (x.best_trades||0);},sec:'sample'},
+          {l:'Trades',s:'Trades',f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.num_trades!=null)?+g.num_trades:'—';return (x.best_trades!=null&&isFinite(+x.best_trades))?+x.best_trades:'—';},sec:'sample'},
           {l:'Verdict',s:'Verdict',f:x=>x.validate?'<b style="color:'+(x.validate.verdict==='PASS'?'var(--green)':x.validate.verdict==='WEAK'?'var(--yellow)':'var(--red)')+'">'+x.validate.verdict+'</b>':'—'}];
         // THIN-TEST FLOOR (item 8): mirrors _rbWfThin for the PICK RUNS / BY STRATEGY table,
         //   which ranks with sentinels rather than a sort-comparator flag - reused by every
@@ -42887,7 +42887,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(_rbR==='net')return net;if(_rbR==='pf')return pf;if(_rbR==='dd')return dd;
           return (dd>1e-9)?net/dd:null;};
         const _bookRuns=rs.filter(r=>r&&r.book&&Array.isArray(r.book.legs))
-          .sort((a,b)=>{const va=_bkVal(a),vb=_bkVal(b);
+          .sort((a,b)=>{const _ta=(typeof _c2SinkTier==='function')?_c2SinkTier(a):0,_tb=(typeof _c2SinkTier==='function')?_c2SinkTier(b):0;
+            if(_ta!==_tb)return _ta-_tb;   // #32: a VOID book never ranks above a clean one
+            const va=_bkVal(a),vb=_bkVal(b);
             if(va==null&&vb==null)return (+b.id||0)-(+a.id||0);
             if(va==null)return 1;if(vb==null)return -1;
             return (_rbR==='dd')?(va-vb):(vb-va);});
@@ -42909,7 +42911,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   names of any legs that were absent. Older book runs have no such block and simply
           //   show nothing extra.
           const _ws=bk.worst_stretch||null,_inert=(bk.inert_legs||[]).map(x=>String(x).replace(/\.py$/,''));
-          const _wsHtml=_ws?('<div style="font-size:8.5px;color:var(--text5)">worst stretch '+_ws.from+' \u2192 '+_ws.to+' \u00b7 '+_rbF(Math.abs(+_ws.depth||0))
+          const _wsHtml=(_ws&&_rbS==='full')?('<div style="font-size:8.5px;color:var(--text5)">worst stretch '+_ws.from+' \u2192 '+_ws.to+' \u00b7 '+_rbF(Math.abs(+_ws.depth||0))
             +(_inert.length?('<span title="these legs took no trades inside the book\u2019s worst stretch, so no weight of them can change the whole-run drawdown \u2014 judge them on the lockbox drawdown instead" style="color:var(--yellow);cursor:help"> \u00b7 absent there: '+_inert.join(', ')+'</span>'):'')
             +'</div>'):'';
           // ── THE DAY-STAMPING CHOICE, ON THE ROW ───────────────────────────────────────
@@ -42925,7 +42927,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   rule is the owner's to make in the open. Shown ONLY when the two actually differ,
           //   which is never for a day-session book.
           const _dr=bk.day_rule||null,_drS=(_dr&&_dr.session_day)||null;
-          const _drHtml=(_dr&&_dr.drawdown_differs&&_drS)
+          const _drHtml=(_dr&&_dr.drawdown_differs&&_drS&&_rbS==='full')   // #14: whole-run figures, FULL stage only
             ?('<div title="'+('A trade day has two defensible answers. This book is scored on the engine rule: the master carries a US/Eastern index and numpy truncates it in UTC, so a 24-hour leg exiting at or after 20:00 ET is booked on the NEXT day. The other answer is the ET session day. NET IS IDENTICAL under both - only the daily curve moves, and drawdown is measured on the daily curve. Nothing here has been changed: every number on this row is the engine rule. Which rule a book SHOULD use is an open decision, and switching it would move the recorded drawdown of every book at once.').replace(/"/g,'&quot;')
               +'" style="font-size:8.5px;color:var(--yellow);opacity:.85;cursor:help">day rule \u00b7 engine '+_rbF(Math.abs(+((_ws&&_ws.depth)||0)))
               +' vs ET-session '+_rbF(Math.abs(+_drS.max_drawdown||0))
@@ -43794,7 +43796,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   says the dates, the depth, and the names of any legs that were absent.
               //   Older book runs carry no such block and simply show nothing extra.
               const _ws=bk.worst_stretch||null,_inert=(bk.inert_legs||[]).map(x=>String(x).replace(/\.py$/,''));
-              const _wsHtml=_ws?('<div style="font-size:8.5px;color:var(--text5)">worst stretch '+_reEscC2(_ws.from)+' \u2192 '+_reEscC2(_ws.to)+' \u00b7 '+_bkF(Math.abs(+_ws.depth||0))
+              const _wsHtml=(_ws&&_bkK==='full')?('<div style="font-size:8.5px;color:var(--text5)">worst stretch '+_reEscC2(_ws.from)+' \u2192 '+_reEscC2(_ws.to)+' \u00b7 '+_bkF(Math.abs(+_ws.depth||0))
                 +(_inert.length?('<span title="these legs took no trades inside the book worst stretch, so no weight of them can change the whole-run drawdown \u2014 judge them on the lockbox drawdown instead" style="color:var(--yellow);cursor:help"> \u00b7 absent there: '+_reEscC2(_inert.join(', '))+'</span>'):'')
                 +'</div>'):'';
               // THE DAY-STAMPING CHOICE, ON THE ROW. A trade calendar day has two defensible
@@ -43802,7 +43804,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   is identical under both; only the daily curve moves, and the drawdown is
               //   measured on that curve. Shown ONLY when the two actually differ.
               const _dr=bk.day_rule||null,_drS=(_dr&&_dr.session_day)||null;
-              const _drHtml=(_dr&&_dr.drawdown_differs&&_drS)
+              const _drHtml=(_dr&&_dr.drawdown_differs&&_drS&&_bkK==='full')   // #14: whole-run figures, FULL stage only
                 ?('<div title="'+_reEscC2('A trade day has two defensible answers. This book is scored on the engine rule: the master carries a US/Eastern index and numpy truncates it in UTC, so a 24-hour leg exiting at or after 20:00 ET is booked on the NEXT day. The other answer is the ET session day. NET IS IDENTICAL under both - only the daily curve moves, and drawdown is measured on the daily curve. Nothing here has been changed: every number on this row is the engine rule. Which rule a book SHOULD use is an open decision, and switching it would move the recorded drawdown of every book at once.')
                   +'" style="font-size:8.5px;color:var(--yellow);opacity:.85;cursor:help">day rule \u00b7 engine '+_bkF(Math.abs(+((_ws&&_ws.depth)||0)))
                   +' vs ET-session '+_bkF(Math.abs(+_drS.max_drawdown||0))
@@ -51135,6 +51137,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const o=_overlap(ls);
           const df=(ov.querySelector('[data-bkfrom]').value||'').trim()||o[0]||'';
           const dt=(ov.querySelector('[data-bkto]').value||'').trim()||o[1]||'';
+          // #30: a leg with no saved cost would replay cost-free and inflate the book - refuse it
+          const _noCost=ls.filter(r=>r.cost_pts==null||!isFinite(+r.cost_pts));
+          if(_noCost.length){alert('These runs saved no cost per trade, so the book would replay them cost-free: '+_noCost.map(r=>'#'+r.id).join(', ')+'. Leave them out, or re-run them first.');return;}
           // w130 #65: never queue an empty or inverted window
           if(df&&dt&&String(df).slice(0,10)>=String(dt).slice(0,10)){alert('FROM ('+df+') must be before TO ('+dt+')'+((o[0]&&o[1]&&o[0].slice(0,10)>=o[1].slice(0,10))?' - these legs share no window.':'.'));return;}
           const nm=(ov.querySelector('[data-bkname]').value||'').trim()
@@ -51144,7 +51149,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _sessOf=r=>r.session||(/eth/i.test(String(r.data_source||''))?'eth':'rth');
           const legs=ls.map(r=>({strategy:r.strategy,params:r.best_params||{},instrument:r.instrument||'NQ',
             timeframe:r.timeframe||'5m',session:_sessOf(r),source:r.data_source||null,
-            cost_pts:(r.cost_pts!=null?r.cost_pts:0),mult:r.multiplier||instMult(r.instrument)||20,weight:1}));
+            cost_pts:+r.cost_pts,mult:r.multiplier||instMult(r.instrument)||20,weight:1}));
           const job={type:'book',strategy:'BOOK · '+nm,book_name:nm,legs:legs,
             instrument:legs[0].instrument,timeframe:legs[0].timeframe,session:legs[0].session,source:legs[0].source,
             date_from:df,date_to:dt,lockbox_months:parseInt(ov.querySelector('[data-bklb]').value)||12,
@@ -51340,11 +51345,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       _wireCmpSets(content);
       const _cgb=content.querySelector('[data-cmpgroupbtn]');if(_cgb)_cgb.onclick=()=>{savePref('cmpGroup',!APREF.cmpGroup);renderApp();};
       const _cbe=content.querySelector('[data-cmpbestofeach]');if(_cbe)_cbe.onclick=()=>{
-        const rs2=runHistory.slice().sort((a,b)=>b.id-a.id);
+        // #28: same pool as the champions - archived out (unless shown), VOID / PRE-FIX sink below clean runs
+        const rs2=runHistory.slice().filter(r=>r&&(!r.archived||!!APREF.rfArch)).sort((a,b)=>b.id-a.id);
+        const _tr2=r=>(typeof _c2SinkTier==='function')?_c2SinkTier(r):0;
         const _lab2=r=>(_canonFam(r.strategy)||((typeof stratInfo==='function'&&stratInfo(r.strategy))?String(stratInfo(r.strategy).label||r.strategy||''):String(r.strategy||'')).trim()||'(no strategy label)');
         const gm2={};rs2.forEach(r=>{const l=_lab2(r),cur=gm2[l];
-          if(!cur||scoreRun(r)>scoreRun(cur)||(scoreRun(r)===scoreRun(cur)&&(r.best_pnl_usd||0)>(cur.best_pnl_usd||0)))gm2[l]=r;});
-        const fams=Object.keys(gm2).map(k=>gm2[k]).sort((a,b)=>scoreRun(b)-scoreRun(a)||(b.id-a.id)).slice(0,8);
+          if(!cur||_tr2(r)<_tr2(cur)||(_tr2(r)===_tr2(cur)&&(scoreRun(r)>scoreRun(cur)||(scoreRun(r)===scoreRun(cur)&&(r.best_pnl_usd||0)>(cur.best_pnl_usd||0)))))gm2[l]=r;});
+        const fams=Object.keys(gm2).map(k=>gm2[k]).sort((a,b)=>_tr2(a)-_tr2(b)||scoreRun(b)-scoreRun(a)||(b.id-a.id)).slice(0,8);
         // item 19: confirm before clobbering the current picks — a small overlay lists each
         //   family best-run with a checkbox, then ADD (merge into the current selection) or
         //   REPLACE (swap it out) applies the choice. Cancel / backdrop-click just closes it.
