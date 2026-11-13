@@ -1387,6 +1387,11 @@ def main():
             k = (row.get('FAMILY', '').strip(), _plain(row.get('CONFIG', '')))
             fc = fam_cells.get(k)
             if not fc:
+                # since v88.70 the pooled table prefixes each config with its id (G01, T03, K01, H02,
+                #   crown mark) - the family tab does not, so strip it before joining
+                k = (k[0], re.sub(r'^\W*[GTKHR]\d{1,3}\s+', '', k[1]))
+                fc = fam_cells.get(k)
+            if not fc:
                 continue
             for m in ('SHARPE', 'SORTINO'):
                 a, b = _num(_row(fc, m)), _num(_col(row, m))
