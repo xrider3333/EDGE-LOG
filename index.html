@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.31';
+const VERSION='89.32';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -37964,7 +37964,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //    a different stage re-ranks it honestly. The permanent ROW number sits beside it and
         //    never moves. A row with no figure for the stage gets a dash, not a made-up place.
         const _reRank=(st,rows,com)=>{const m={};
-          rows.map(r=>({r:r,v:_reYv(st,r,com)})).filter(o=>o.v!=null).sort((a,b)=>(b.v-a.v)*_reYSgn())
+          rows.map(r=>({r:r,v:_reYv(st,r,com)})).filter(o=>!_reMiss(o.v)).sort((a,b)=>(b.v-a.v)*_reYSgn())
             .forEach((o,i)=>{m[o.r.n]=i+1;});return m;};
         // row accents follow the COLOUR setting as well, so SHAPES ONLY really is monochrome and
         //   COLOUR really does tint on a monochrome theme. The shapes are unaffected either way.
@@ -40985,7 +40985,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const _skG2={mar:(st,r)=>{const p=_reSegVal(r),d=_reNum(r,'dd');return (p==null||!d)?null:_marAnn(p,_reYrs(st,r),d);},sh:(st,r)=>_reShOf(st,r),so:(st,r)=>_reSoOf(st,r),pf:(st,r)=>_reNum(r,'pf'),wr:(st,r)=>_reWrOf(st,r),evr:(st,r)=>_reEvR(st,r),rpy:(st,r)=>_reRpy(st,r),roc:(st,r)=>_reRoc(st,r),ppt:(st,r)=>_rePpt(r),trd:(st,r)=>_reNum(r,'trd'),tpy:(st,r)=>_reTpy(st,r),run:(st,r)=>_reRunNo(r),tot:(st,r)=>_reSegVal(r),dd:(st,r)=>_reNum(r,'dd'),roc30:(st,r)=>_reRoc30(st,r),dd5:(st,r)=>_reDd5V(st,r)};
             const _skLow2={dd:1,ddr:1,dd5:1};
             const _skGet2=_skG2[_skK2];
-            const _skSgn2=_skGet2?(_skLow2[_skK2]?-1:1):_reYSgn();
+            const _skSgn2=(_skGet2?(_skLow2[_skK2]?-1:1):_reYSgn())*((_skGet2&&APREF.reSortRev)?-1:1);   // reverse toggle, as the per-study sort
             const _kv2=new Map(),_kOf2=it=>{if(!_kv2.has(it))_kv2.set(it,_skGet2?_skGet2(it.st,it.r):_reYv(it.st,it.r,com));return _kv2.get(it);};
             sorted.sort((a,b)=>{const va=_kOf2(a),vb=_kOf2(b);
               if(_reMiss(va)&&_reMiss(vb))return a.r.n-b.r.n;if(_reMiss(va))return 1;if(_reMiss(vb))return -1;return (vb-va)*_skSgn2;});
@@ -40994,8 +40994,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(da===db)return a.r.n-b.r.n;if(!da)return 1;if(!db)return -1;return (db>da)?1:-1;});
           }
           const rk={};
-          items.filter(it=>_reYv(it.st,it.r,com)!=null)
-            .sort((a,b)=>_reYv(b.st,b.r,com)-_reYv(a.st,a.r,com))
+          items.filter(it=>!_reMiss(_reYv(it.st,it.r,com)))   // rank #1 = best, lower-is-better axes flip (as _reRank)
+            .sort((a,b)=>(_reYv(b.st,b.r,com)-_reYv(a.st,a.r,com))*_reYSgn())
             .forEach((it,i)=>{rk[it.st.key+':'+it.r.n]=i+1;});
           let bodyRows;
           if(!_reSplitRun){
