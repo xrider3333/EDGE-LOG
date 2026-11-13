@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.61';
+const VERSION='89.62';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -40297,15 +40297,28 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             return src.slice().sort(function(x,y){return (+y.id||0)-(+x.id||0);})
                       .slice(0,cap).map(function(r2){return String(r2.id);});};
           const _kept=a.filter(_inFam);
-          // nothing of this strategy was ticked - take its newest NON-FAIL run, so switching
-          //   strategy shows THAT strategy instead of an empty board or the old one.
-          if(_kept.length)a=_kept;
+          // EVERY PICKED STRATEGY GETS ITS OWN RUNS (ENGU-Q's read of this block, 2026-11-13).
+          //   Taking the newest five of the POOL is wrong the moment two strategies are picked:
+          //   five DIP runs can be newer than every ENGU-Q run, so ENGU-Q lights nothing and its
+          //   chip looks broken. Each family is filled on its own, and a family that already has
+          //   a run ticked is left exactly as it is - that tick is the reader's.
+          if(_fam&&_fam.length){
+            const _famOfId=function(id){
+              const r2=_reCfgPick.filter(function(x){return String(x.id)===id;})[0];
+              return r2?(_canonFam(r2.strategy)||'UNTAGGED'):'';};
+            const out=_kept.slice();
+            _fam.forEach(function(f){
+              if(out.some(function(id){return _famOfId(id)===f;}))return;   // his pick stands
+              const cand=_reCfgPick.filter(function(r2){
+                return (_canonFam(r2.strategy)||'UNTAGGED')===f;});
+              _newestN(cand,5).forEach(function(id){if(out.indexOf(id)<0)out.push(id);});});
+            a=out;}
+          else if(_kept.length)a=_kept;
+          // with no strategy picked the board stays as it was - one run - because 'every
+          //   strategy' would otherwise fetch five documents on every cold load of a board
+          //   nobody has narrowed yet.
           else{const cand=_reCfgPick.filter(function(r){return _inFam(String(r.id));});
-            // with a strategy picked, take its newest five; with none picked the board stays as
-            //   it was - one run - because 'every strategy' would otherwise fetch five documents
-            //   on every cold load for a board nobody has narrowed yet.
-            if(_fam&&_fam.length)a=_newestN(cand,5);
-            else{const pick=_newestOk(cand);a=pick?[String(pick.id)]:[];}}
+            const pick=_newestOk(cand);a=pick?[String(pick.id)]:[];}
           // only fall back to the newest run of ANY family when no strategy is picked -
           //   with one picked, an empty pick must stay empty and say so, or the board draws
           //   another strategy's configurations with no lit chip to explain them.
