@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.40';
+const VERSION='89.41';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -40016,6 +40016,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // what the RECORD STAGE control is holding back, so the line under the chart can name
             //   it. A record is never dropped without being counted here.
             window._reRecStgHeld={n:0,by:{}};
+            // the same record uploaded twice (a re-sync under a new doc id) draws once, counted below (w130 #21)
+            const _recSeen=new Set();window._reRecDup=0;
             _reRecSt.rows.forEach(function(d,i){
               const net=(d.net_usd!=null&&isFinite(+d.net_usd))?+d.net_usd:null;
               const roc=(d.roc30k!=null&&isFinite(+d.roc30k))?+d.roc30k:null;
@@ -40024,6 +40026,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   show a run that measured its ROC but never wrote its money.
               if(net==null&&roc==null)return;
               if(!_reRecSrcOk(d.where))return;
+              const _rk=[d.run_id,d.stage,d.strategy,d.family,d.instrument,d.timeframe,d.trades,net,roc].join('|');
+              if(_recSeen.has(_rk)){window._reRecDup++;return;}_recSeen.add(_rk);
               if(!_reRecStgOk(d.stage)){const _hk=_reRecStgKey(d.stage)||'none';
                 window._reRecStgHeld.n++;window._reRecStgHeld.by[_hk]=(window._reRecStgHeld.by[_hk]||0)+1;return;}
               const stg=String(d.stage||'');
@@ -41609,14 +41613,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   cannot. Read but not drawn is still named; drawn in part says how many.
           //   Run documents are NOT qualified the same way: they join the shared pool whatever the
           //   chip, and the registry rows read their dates and their windows off it.
-          const _recOnN=((C&&C.state==='ok')?C.rows.filter(function(d){return _reRecSrcOk(d&&d.where);}).length:0);
+          // a record with neither money nor ROC is dropped by the builder, so it is not counted as on
+          //   the selection either - it is named on its own instead (w130 #22)
+          const _recFig=function(d){return !!d&&((d.net_usd!=null&&isFinite(+d.net_usd))||(d.roc30k!=null&&isFinite(+d.roc30k)));};
+          const _recOnN=((C&&C.state==='ok')?C.rows.filter(function(d){return _reRecSrcOk(d&&d.where)&&_recFig(d);}).length:0);
+          const _recNoFig=((C&&C.state==='ok')?C.rows.filter(function(d){return _reRecSrcOk(d&&d.where)&&!_recFig(d);}).length:0);
           const _recRowsOn=(_recOnN>0);
           if(st(C)==='ok')parts.push(nc+' lane or lab record'+(nc===1?'':'s')
             +(onAll?' read with no date range - every one this account holds':'')
             +((!nc||(_recRowsOn&&_recOnN===nc))?''
               :(_recRowsOn
                 ? (', of which '+_recOnN+' '+((_recOnN===1)?'is':'are')+' on this selection - a record stamped runner or box was run through EDGE LOG, the rest are chat sweeps')
-                : ', READ BUT NOT DRAWN ON THIS SELECTION - a lane or lab record is a stretch a chat measured for itself, never an Auto-Validate job, so it draws on ALL, on CHAT SWEEPS, or - stamped runner or box - on EDGE LOG RUNS')));
+                : ', READ BUT NOT DRAWN ON THIS SELECTION - a lane or lab record is a stretch a chat measured for itself, never an Auto-Validate job, so it draws on ALL, on CHAT SWEEPS, or - stamped runner or box - on EDGE LOG RUNS'))
+            +(_recNoFig?(' ('+_recNoFig+' more on this selection record neither net money nor ROC, so there is nothing to draw)'):''));
           if(st(C)==='ok'&&nc){const sy=_reRecSyncAt(C.rows),age=(sy!=null)?(Date.now()-sy):null;
             parts.push((sy==null)
               ?'none of them says when it was uploaded, so how far behind this board is cannot be told'
@@ -41628,6 +41637,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(_RSH&&_RSH.n)parts.push('RECORD STAGE is holding back '+_RSH.n+' lane record'+(_RSH.n===1?'':'s')
             +' - '+Object.keys(_RSH.by).map(function(k){return _RSH.by[k]+' '+(k==='none'?'with no stage recorded':k);}).join(', ')
             +'; tick the stage back on in control 3b and '+((_RSH.n===1)?'it returns':'they return'));
+          if(window._reRecDup)parts.push(window._reRecDup+' lane record'+(window._reRecDup===1?' is':'s are')+' an exact repeat of another (same run, stage, strategy, trades and figures - a re-upload) and '+(window._reRecDup===1?'is':'are')+' drawn once');
           if(st(C)==='err')parts.push('the lane-record read failed ('+String((C&&C.why)||'no reason given')+')');
           parts.push('the figures on screen are the '+_reSegsEff.map(function(g){return _reSegLong[g];}).join(' + ')
             +' reading'+((_reSegsEff.length>1)?' added together - tick WALK-FORWARD alone for the house yardstick':''));
