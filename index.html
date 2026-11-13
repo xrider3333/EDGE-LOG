@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.44';
+const VERSION='89.45';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5448,7 +5448,11 @@ function _subscribeRunsFull(uid,lim){
   unsubRuns=runsRef.orderBy('timestamp','desc').limit(runsLimit).onSnapshot(snap=>{runHistory=snap.docs.map(d=>{const x={id:d.id,...d.data()};
     return _bookUnitsOnRead(_isoTs(x));});window._runsLoadedLimit=_fetchLim;if(activeTab==='augur'&&(augurSub==='runs'||augurSub==='rank'))renderApp();});
 }
-window._loadMoreRuns=()=>{if(!_runsUid)return;_subscribeRuns(_runsUid,(runsLimit||75)+75);};
+window._loadMoreRuns=()=>{if(!_runsUid)return;
+  // w130: the projected read failed (e.g. a 429), so the fallback listener is capped at the same 75 whole
+  //   documents - a click would only re-download them. Say so instead of spending the reads.
+  if(window._runsLiteOk===false){if(activeTab==='augur')renderApp();return;}
+  _subscribeRuns(_runsUid,(runsLimit||75)+75);};
 // ── LIVE JOB SET vs RECENT JOB SET ───────────────────────────────
 // `backtests` is merged from two reads (see subscribeAll below): a LIVE listener that
 // carries every unfinished job whatever its age, and a one-shot RECENT fetch of the
@@ -50460,7 +50464,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _rmLoadedLim=(typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:runsLimit;
         const _rmFetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
         const _runsMoreRow=((typeof _rmLoadedLim!=='undefined'&&runHistory.length>=_rmLoadedLim)||_rmFetching)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
-        const listTile=tile('<div class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</div>'+_rfBar('')+_pinNote+tbl+_runsMoreRow);
+        const _runsMoreRowX=(window._runsLiteOk===false&&_runsMoreRow)?'<div data-runsmoreoff style="text-align:center;padding:9px 0 3px;font-size:9px;color:var(--text5)">older runs cannot load right now - the quick read failed (reads may be rate-limited); reload later</div>':_runsMoreRow;
+        const listTile=tile('<div class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</div>'+_rfBar('')+_pinNote+tbl+_runsMoreRowX);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
         // overflow ancestor). Inline beats the class so the pinned pills work on every theme.
