@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.39';
+const VERSION='89.40';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -42949,7 +42949,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'<div style="display:flex;gap:12px;flex-wrap:wrap;margin-top:9px;padding-top:8px;border-top:1px solid var(--border2)">'
             +_fbLegendItem(_fbSwatch('var(--green)'),' helps')
             +_fbLegendItem(_fbSwatch('var(--red)'),' hurts')
-            +_fbLegendItem(_fbSwatch(null,'var(--text4)'),' filled = the 95% range clears zero AND it survives the multiple-testing check (q)')
+            +_fbLegendItem(_fbSwatch('var(--text4)'),' filled = the 95% range clears zero AND it survives the multiple-testing check (q)')+_fbLegendItem(_fbSwatch(null,'var(--text4)'),' hollow = it does not')+_fbLegendItem('<span style="color:var(--text3);font-size:10px;font-weight:700">&rsaquo;</span>',' runs past the &plusmn;0.30 scale (hover for the real value)')
             +_fbLegendItem('<span style="color:var(--purple);font-size:10px">◆</span>',' repeats in the lockbox')
             +(_fbAnyLift?_fbLegendItem('<span style="color:var(--purple);font-size:10px">▲</span>',' lift reading that repeats in the lockbox'):'')
           +'</div>'
@@ -43021,8 +43021,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +(c.lift_p!=null?(', p '+(+c.lift_p).toFixed(3)):'')
                 +(c.lb_lift_r!=null?(', lockbox lift '+((+c.lb_lift_r)>=0?'+':'')+(+c.lb_lift_r).toFixed(2)+'R'):'');
             }
+            const _ovL=(+c.ci_lo<-0.3||+c.rho<-0.3),_ovR=(+c.ci_hi>0.3||+c.rho>0.3);   // w130: clamped at the +-0.30 scale edge - mark it
             return '<td data-fbcell title="'+tt.replace(/"/g,'&quot;')+'" style="padding:3px 4px;cursor:help">'
               +'<div style="position:relative;height:14px;width:58px;background:var(--bg1);border-radius:3px">'
+              +(_ovL?'<span data-fbover="l" style="position:absolute;left:-7px;top:0;font-size:10px;line-height:14px;font-weight:700;color:var(--text3)">&lsaquo;</span>':'')
+              +(_ovR?'<span data-fbover="r" style="position:absolute;right:-7px;top:0;font-size:10px;line-height:14px;font-weight:700;color:var(--text3)">&rsaquo;</span>':'')
               +'<div style="position:absolute;left:'+zeroP.toFixed(1)+'%;top:0;bottom:0;width:1px;background:var(--border2)"></div>'
               +'<div style="position:absolute;left:'+loP.toFixed(1)+'%;width:'+w.toFixed(1)+'%;top:3px;bottom:3px;border-radius:2px;'+fillCss+'"></div>'
               +'<div style="position:absolute;left:calc('+rhoP.toFixed(1)+'% - 1px);top:0;bottom:0;width:2px;background:var(--text)"></div>'
@@ -43039,7 +43042,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +fbLegs.map(l=>_fbCell(f,l)).join('')+'</tr>').join('');
             return grpRow+trs;}).join('');
           const rowsToggle='<span style="display:inline-flex;gap:3px">'
-            +_tabBtn('data-fbrows="surv"','ONLY SURVIVORS',effMode==='surv','show only features where at least one strategy clears the significance bar - on the rank test, or on the lift reading alone, and a row kept by its lift alone carries a small triangle','var(--green)')
+            +(anySurv?_tabBtn('data-fbrows="surv"','ONLY SURVIVORS',effMode==='surv','show only features where at least one strategy clears the significance bar - on the rank test, or on the lift reading alone, and a row kept by its lift alone carries a small triangle','var(--green)'):'<span title="no feature clears the significance bar on any strategy, so every tested feature is shown" style="font-size:9px;color:var(--text5);padding:0 6px;cursor:help">NO SURVIVORS</span>')
             +_tabBtn('data-fbrows="all"','SHOW ALL',effMode==='all','show every feature that was tested, survivors and dead ends alike','var(--green)')
           +'</span>';
           matrixTile2=tile('<div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:9px">'
@@ -50523,7 +50526,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const viewHeader='';
         const listContent=_grp?tile(groupedTile):listTile;
         if(rv==='side'){
-          body=viewHeader+'<div id="res-wrap" style="display:flex;align-items:stretch">'
+          body=viewHeader+'<style>@media (max-width:700px){#res-wrap{flex-direction:column}#res-wrap>#res-left{flex:none!important;width:100%;min-width:0!important;max-height:45vh}#res-wrap>#res-gutter{display:none!important}}</style>'   // w130: a phone stacks the list over the report
+            +'<div id="res-wrap" style="display:flex;align-items:stretch">'
             +'<div id="res-left" style="flex:0 0 '+(rH*100)+'%;min-width:280px;overflow:auto">'+listContent+'</div>'
             +'<div id="res-gutter" title="drag to resize" style="flex:0 0 12px;cursor:col-resize;display:flex;align-items:center;justify-content:center"><div style="width:3px;height:46px;background:var(--border);border-radius:2px"></div></div>'
             +'<div id="res-right" style="flex:1 1 0;min-width:0;overflow:visible">'+detailTile+'</div></div>';
