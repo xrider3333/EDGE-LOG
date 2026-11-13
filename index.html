@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.20';
+const VERSION='89.21';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -43363,8 +43363,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           });
         return '<svg viewBox="0 0 '+W+' '+H+'" style="display:block;width:100%;height:auto">'+g+'</svg>';};
       // ── the screen strip ─────────────────────────────────────────────────────────────
-      const _c2Top='<div class="c2-top">'+_c2Seg('c2screen',[['lead','LEADERBOARD','the champion of every strategy, ranked'],['cmp','COMPARE','the runs you picked, overlaid and compared'],['explore','EXPLORE','every configuration ever tested, on one scatter']],_c2Screen)
-        +_c2RunWin+'</div>';
+      // THE PRIMARY TABS, AS CONTENT RATHER THAN A STRIP (owner 2026-11-13). The screens that
+      //   draw a second-level bar put these INSIDE it, so the two rows share one bottom edge
+      //   instead of the sub-tabs floating twelve pixels under a separate strip. A screen with
+      //   no sub-tabs - the LEADERBOARD - still gets the strip on its own, below.
+      const _c2TopInner=_c2Seg('c2screen',[['lead','LEADERBOARD','the champion of every strategy, ranked'],['cmp','COMPARE','the runs you picked, overlaid and compared'],['explore','EXPLORE','every configuration ever tested, on one scatter']],_c2Screen)
+        +_c2RunWin;
+      let _c2TopUsed=false;
+      const _c2Top=()=>_c2TopUsed?'':('<div class="c2-top">'+_c2TopInner+'</div>');
       let _c2Body='';
       // RUN EXPOSURE TABLE: the LEADERBOARD is the page a visit usually opens on, and its rows wear the exposure tag - the same idle-guarded one read per page load.
       if(window._runExpo.state==='idle')_loadRunExpo();
@@ -43466,7 +43472,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(_c2View==='books'){
           // BOOKS: the sub-tabs and the STAGE picker are the same bar - stage belongs to this
           //   level, so it sits on the bar's right rather than floating under it.
-          const _bkHdr=_c2TabBar('',_c2Seg2('c2view',_C2VIEWS,_c2View,'sub'),
+          const _bkHdr=(_c2TopUsed=true)&&_c2TabBar(_c2TopInner,_c2Seg2('c2view',_C2VIEWS,_c2View,'sub'),
             '<span class="c2-lbl">STAGE</span>'
             +_c2Seg('c2stage',[['is','IS','the tuning years before the sealed stretch'],['wf','WF','the walk-forward folds - a book never has any'],['lb','LB','the sealed lockbox'],['full','FULL','the whole window, end to end']],_c2Stage)
             );
@@ -43592,7 +43598,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +_bkStat+'</tbody></table></div>'+_bkNote+_bkGo+'</div>';
           }
         }else if(!picked.length&&_c2Src!=='champ'){
-          _c2Body=_c2TabBar('',_c2Seg2('c2view',_C2VIEWS,_c2View,'sub'))
+          _c2TopUsed=true;_c2Body=_c2TabBar(_c2TopInner,_c2Seg2('c2view',_C2VIEWS,_c2View,'sub'))
             // the tabs and the saved sets stay reachable with nothing picked, because that is
             //   exactly when you want to switch to a tab that HAS runs in it, or load a set.
             +'<div class="c2-top" style="margin-top:2px">'+_c2SetsBtn+'</div>'+_c2SetsWrap
@@ -43835,7 +43841,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   note says so when it does, and stays quiet when it does not.
           const apx=items.some(x=>x.S&&((x.S.ddApx&&x.S.dd!=null)||(x.S.pfApx&&x.S.pf!=null)));
           const noCurve=items2.filter(x=>!x.c).length;
-          _c2Body=_c2TabBar('',_c2Seg2('c2view',_C2VIEWS,_c2View,'sub'))
+          _c2TopUsed=true;_c2Body=_c2TabBar(_c2TopInner,_c2Seg2('c2view',_C2VIEWS,_c2View,'sub'))
             +'<div class="c2-top" style="margin-top:2px">'
             +'<span class="c2-lbl">SHOW</span>'+_c2Seg('c2src',[['pick','PICKED','the runs you added, up to eight'],['champ','CHAMPIONS','the best run of every strategy, chosen for you - what BY STRATEGY used to be']],_c2Src)
             +'<span class="c2-lbl">STAGE</span>'+_c2Seg('c2stage',[['is','IS','the tuning score - the search picks the config scored on the first 75% of the tuning years, overlapping the walk-forward years; EXPLORE IS is the years before walk-forward'],['wf','WF','the walk-forward folds, each re-tuned on its own past, their unseen trades joined in fold order'],['lb','LB','the sealed lockbox'],['full','FULL','the whole run, end to end']],_c2Stage)
@@ -44005,7 +44011,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 :' \u00b7 MAR needs a walk-forward drawdown that none of these runs saved yet')
               :''))+'</div>';
       }
-      body=_c2Css+'<div class="c2">'+_c2Top+_c2Body+'</div>';
+      body=_c2Css+'<div class="c2">'+_c2Top()+_c2Body+'</div>';
     }else if(augurSub==='rank'){
       // THE SAME VIEW RAIL AS COMPARE (owner 2026-08-28: rankings is one of the views).
       //   Rankings renders here rather than inside the compare renderer, so the rail is
