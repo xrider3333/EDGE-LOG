@@ -1,0 +1,13 @@
+NQ 5m RTH 2010-06-07 .. 2026-09-16  sessions 4051  years 16.28
+PBTREND central: drive days 909 (55.8/yr), trades 549 (33.7/yr), win 29.5%, gross/cost 3.73, EV R 0.001, net $/yr 981, median R 15.8 pts
+RANDOM after-10:00 control (20 seeds): gross/cost median 3.33 [-2.05..7.99], EV R median 0.079, net $/yr median 1390
+folds (years) net>0: 8 of 17
+BOOK #463 (2016-07..2025-06): book ROC 93.87 -> combo 88.32, lift -5.55, folds won 3/8, P(lift) 0.108, corr 0.125, no-edge band 97.5th 3.37
+
+GRID (spread only): k_drive level -> trades/yr gross/cost EV R net$/yr | ctrl g/c (seed 0)
+0.2 vwap  ->  60.6   4.40  -0.003     2195 |   4.08
+0.2 sma20 ->  68.3   4.25   0.048     2362 |   3.56
+0.3 vwap  ->  33.7   3.73   0.001      981 |   1.51
+0.3 sma20 ->  38.2   6.50   0.090     2237 |   1.44
+0.5 vwap  ->   8.5  12.47   0.126     1036 |   2.41
+0.5 sma20 ->  10.9  -2.74   0.177     -433 |   0.05
