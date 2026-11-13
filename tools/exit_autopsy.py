@@ -66,9 +66,9 @@ LEGS = [
          file="NOISE_1_1_SBS_V90.py", run=243, doc_id="9cr6rtZPZng2HIiLxH3K"),
     dict(key="NOISE_316", family="NOISE", label="NOISE #316",
          file="NOISE_1_1_LB51.py", run=316, doc_id="8ktC5qWGwXgVfeN5d92w"),
-    dict(key="ENGUQ_309", family="ENGUQ", label="ENGU-Q #309 (crown)",
+    dict(key="ENGUQ_309", family="ENGU-Q", label="ENGU-Q #309 (crown)",
          file="ENGUQ_1M_ETH_ER_1_0.py", run=309, doc_id="KPbrQdTZBP32CFjwF1Ns", slow=True),
-    dict(key="NQDIP_307", family="NQDIP", label="NQDIP #307",
+    dict(key="NQDIP_307", family="DIP", label="DIP #307",
          file="NQDIP_1_0.py", run=307, doc_id="8zkU44lPUNRtKR5IMWR2"),
 ]
 

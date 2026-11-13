@@ -279,9 +279,9 @@ LEGS = [
         file="NOISE_1_1_SBS_V90.py", run=243, doc="9cr6rtZPZng2HIiLxH3K"),
     dict(key="NOISE_316", family="NOISE", label="NOISE #316", file="NOISE_1_1_LB51.py",
         run=316, doc="8ktC5qWGwXgVfeN5d92w"),
-    dict(key="ENGUQ_309", family="ENGUQ", label="ENGU-Q #309 (crown, NQ 1m ETH)",
+    dict(key="ENGUQ_309", family="ENGU-Q", label="ENGU-Q #309 (crown, NQ 1m ETH)",
         file="ENGUQ_1M_ETH_ER_1_0.py", run=309, doc="KPbrQdTZBP32CFjwF1Ns"),
-    dict(key="NQDIP_307", family="NQDIP", label="NQDIP #307", file="NQDIP_1_0.py",
+    dict(key="NQDIP_307", family="DIP", label="DIP #307", file="NQDIP_1_0.py",
         run=307, doc="8zkU44lPUNRtKR5IMWR2"),
 ]
 
@@ -1214,7 +1214,7 @@ def write_md(out):
     lines.append("")
     lines.append("- The lockbox sign check is a light peek, not a second statistical test — treat "
                 "`lb_agrees` as directional support, not proof.")
-    lines.append("- NQDIP and ENGU-Q have the fewest lockbox trades of the four families, so their "
+    lines.append("- DIP and ENGU-Q have the fewest lockbox trades of the four families, so their "
                 "`lb_agrees` flags are the least reliable and most likely to be null (below 30 trades).")
     lines.append("- Shadow-probe and block-bootstrap constants are shared with "
                 "`augur_engine/context.py` (MIN_FEATURE_TRADES, FDR_Q, block-days sizing) so this "
