@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.59';
+const VERSION='89.60';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -43537,7 +43537,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             dd:(gi.max_drawdown!=null?Math.abs(+gi.max_drawdown)*mc:null),
             yrs:(d&&d.a&&d.w)?_yrsBetween(d.a,d.w):null};
         }
-        return {net:((x.best_pnl_usd!=null&&isFinite(+x.best_pnl_usd))?+x.best_pnl_usd:null),
+        // w130 (DISC 6): IS net is FULL minus WF minus LB, the same remainder the FULL builder and the RUNBOARD use -
+        //   best_pnl_usd is the tuning score over a stretch that overlaps the walk-forward folds. No remainder -> dash.
+        const _fN=(_c2full(x)||{}).net,_wN=(_c2wf(x)||{}).net,_lN=(_c2lbCold(x)||{}).net;
+        const _isRem=(_fN!=null&&isFinite(_fN)&&(_wN!=null||_lN!=null))?(_fN-(+_wN||0)-(+_lN||0)):null;
+        return {net:_isRem,
         pf:(x.best_pf!=null?+x.best_pf:null),tr:(+x.best_trades||0),
         wr:(x.best_win_rate!=null?+x.best_win_rate:null),
         dd:((x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null),
@@ -43942,8 +43946,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             let _c2Ts=null;
             if(x.c.li!=null){const _pdC2=s=>{const m=/^([0-9]{4})-([0-9]{2})-([0-9]{2})/.exec(String(s||''));return m?+new Date(+m[1],+m[2]-1,+m[3]):Date.parse(s||'');};
               const _V0=r.validate||{},_W0=_V0.windows||{};
-              const t0=_pdC2(r.date_from||''),t1=_pdC2(r.date_to||''),
-                tLb=_pdC2((_W0.lockbox&&_W0.lockbox[0])||(_V0.lockbox&&_V0.lockbox.from)||''),
+              const _bk0=r.book||{};
+              const t0=_pdC2(r.date_from||_bk0.date_from||''),t1=_pdC2(r.date_to||_bk0.date_to||''),
+                tLb=_pdC2((_W0.lockbox&&_W0.lockbox[0])||(_V0.lockbox&&_V0.lockbox.from)||_bk0.lockbox_from||''),
                 n=x.c.v.length,li2=x.c.li;
               if(!isNaN(t0)&&!isNaN(t1)&&t1>t0&&!isNaN(tLb)&&tLb>t0&&tLb<t1&&li2>0&&li2<n-1){
                 _c2Ts=new Array(n);
@@ -43961,11 +43966,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               blot:{run_id:r.id,instrument:r.instrument||'',timeframe:r.timeframe||'5m',session:r.session||'rth',
                 strategy:r.strategy||'',params:r.best_params||null,
                 cost_pts:(r.cost_pts!=null?r.cost_pts:5.66/mc),mult:mc,
-                date_from:r.date_from||null,date_to:r.date_to||null,source:r.data_source||null,
+                date_from:r.date_from||(r.book&&r.book.date_from)||null,date_to:r.date_to||(r.book&&r.book.date_to)||null,source:r.data_source||null,
                 code:((typeof r.code_snapshot==='string'&&r.code_snapshot.length>100)?r.code_snapshot:null)}};});
           if(_c2wfCv){const _cvBy={};items2.forEach(x=>{if(x.wfo)_cvBy[String(x.r.id)]=x.wfo;});
             window._cmpEqxSeries.forEach(s=>{const O=_cvBy[String(s.id)];
               if(O){s.wfoCurve=1;s.wfi=0;s.li=null;s.wfFolds=null;s.wfInfo=null;s.blot=null;s.span=[O.from,O.to];}});}
+          // w130 (DISC 1): on IS / LB the table prints that stage, but the curve, end pill and key are the WHOLE run - label it.
+          if(_c2Stage==='is'||_c2Stage==='lb')window._cmpEqxSeries.forEach(s=>{s.label=String(s.label||'')+' · whole run'});
           // TASK 2 (F30, audit3_report.md, 2026-09-24): this label builder never checked
           //   x.r.book, so a book with no drawn curve on OVERLAY read like a strategy file name
           //   ("17 · BOOK 304" for a book whose name happened to mention run 304) - the sibling
