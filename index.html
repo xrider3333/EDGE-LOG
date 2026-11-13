@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.28';
+const VERSION='89.29';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -50128,7 +50128,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(_rfQnum&&!sorted.some(r=>String(r.id)===_rfQnum)){
           const _got=((window._runFull||{})[_rfQnum])||allRuns.filter(r=>String(r.id)===_rfQnum)[0]||null;
           if(_got&&_rfPass(_got))sorted=[_got].concat(sorted);
-          else if(_got)_rfNote='run #'+_rfQnum+' is on this account, but a filter above is hiding it - clear the filters to see it';
+          else if(_got)_rfNote=(_got.archived&&!fArch)?('run #'+_rfQnum+' is archived - click the show-archived link to see it'):('run #'+_rfQnum+' is on this account, but a filter above is hiding it - clear the filters to see it');
           else if(typeof runsRef!=='undefined'&&runsRef){
             window._rfAsked=window._rfAsked||{};
             if(!window._rfAsked[_rfQnum]){window._rfAsked[_rfQnum]=1;_hydrateRun(_rfQnum);
@@ -50182,7 +50182,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let _runLoading=false;
         if(d&&d._lite){const _full=(window._runFull||{})[String(d.id)];
           if(_full)d=_full;else{_hydrateRun(d.id);_runLoading=true;}}
-        const _anyF=fStratSet.size||fInst||fTf||fScope||fStar||fFam;
+        const _anyF=fStratSet.size||fInst||fTf||fScope||fStar||fFam||fChamp;
         // sortable header — click the label to sort (▾ marks the active column).
         const sh=(k,lbl,al)=>'<th data-rsort="'+k+'" title="sort by '+lbl+'" style="cursor:pointer;white-space:nowrap;user-select:none;vertical-align:bottom;'+(al?'text-align:'+al+';':'')+(fSort===k?'color:var(--text)':'')+'">'+lbl+(fSort===k?' ▾':'')+'</th>';
         // pivot-style header: a clickable sort label stacked over a compact filter <select>,
@@ -50374,7 +50374,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   click bumps synchronously before its bigger list is back.
         const _rmLoadedLim=(typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:runsLimit;
         const _rmFetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
-        const _runsMoreRow=((typeof _rmLoadedLim!=='undefined'&&allRuns.length>=_rmLoadedLim)||_rmFetching)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
+        const _runsMoreRow=((typeof _rmLoadedLim!=='undefined'&&runHistory.length>=_rmLoadedLim)||_rmFetching)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
         const listTile=tile('<div class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</div>'+_rfBar('')+_pinNote+tbl+_runsMoreRow);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
         // would trap the sticky checklist-pills row (sticky breaks under any non-visible
@@ -52866,7 +52866,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-rsort]').forEach(h=>{h.onclick=()=>{savePref('rfSort',h.dataset.rsort);renderApp();};});
       const _star=content.querySelector('[data-rfstar]');if(_star)_star.onclick=()=>{savePref('rfStar',!APREF.rfStar);renderApp();};
       const _rfa=content.querySelector('[data-rfarch]');if(_rfa)_rfa.onclick=()=>{savePref('rfArch',!APREF.rfArch);renderApp();};
-      const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope','rfFam','rfQ'].forEach(k=>savePref(k,''));savePref('rfStar',false);renderApp();};
+      const _rfc=content.querySelector('[data-rfclear]');if(_rfc)_rfc.onclick=()=>{['rfStrat','rfInst','rfTf','rfScope','rfFam','rfQ'].forEach(k=>savePref(k,''));savePref('rfStar',false);savePref('rfChamp',false);renderApp();};
       // ── PAST RUNS SEARCH (owner 2026-11-13) ───────────────────────────────────────────────
       //   The box is redrawn on every keystroke, because the list it filters is redrawn with it.
       //   So the CARET IS CARRIED ACROSS the redraw: without this the field would lose focus
