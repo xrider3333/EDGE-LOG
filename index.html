@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.26';
+const VERSION='89.27';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -38908,14 +38908,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             let _vw=(window._reVw&&window._reVw.k===_vwK)?window._reVw:null;
             let _vwOut=0;
             if(_vw){
+              //   AN EMPTY VIEW IS STILL THE VIEW HE ASKED FOR. Zooming into a gap used to snap
+              //   the chart back to the full fit, which reads as the zoom having failed; a price
+              //   chart lets you look at empty space. The chip says 0 dots in view, and FIT ALL
+              //   is right there.
               const keep=pts.filter(p=>p.x>=_vw.x0&&p.x<=_vw.x1&&p.y>=_vw.y0&&p.y<=_vw.y1);
-              if(keep.length){
-                xe=[_vw.x0,_vw.x1];ye=[_vw.y0,_vw.y1];
-                _vwOut=pts.length-keep.length;
-                pts.forEach(p=>{delete p._pinX;delete p._pinY;});
-                _axPin.x.length=0;_axPin.y.length=0;
-                pts.length=0;keep.forEach(p=>pts.push(p));
-              } else {_vw=null;window._reVw=null;}}
+              xe=[_vw.x0,_vw.x1];ye=[_vw.y0,_vw.y1];
+              _vwOut=pts.length-keep.length;
+              pts.forEach(p=>{delete p._pinX;delete p._pinY;});
+              _axPin.x.length=0;_axPin.y.length=0;
+              pts.length=0;keep.forEach(p=>pts.push(p));}
             try{window._reVwGeom={k:_vwK,L:L,R:R,T:T,B:B,CH:CH,
               x0:xe[0],x1:xe[1],y0:ye[0],y1:ye[1],
               fx0:_vwFit.x[0],fx1:_vwFit.x[1],fy0:_vwFit.y[0],fy1:_vwFit.y[1],
