@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.29';
+const VERSION='89.30';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -37597,6 +37597,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const d=_reRunDoc(r);if(!d)return null;const V=d.validate||null;
           if(_reOneSeg==='is')return (d.best_win_rate!=null)?+d.best_win_rate:null;
           if(_reOneSeg==='lb'){const lb=V&&V.lockbox;return (lb&&lb.win_rate!=null)?+lb.win_rate:null;}
+          if(_reOneSeg)return null;   // one stage ticked with no figure of its own: a dash, never the whole run's
           return (V&&V.total_win_rate!=null)?+V.total_win_rate:null;};
         // SORTINO, asked for by the owner 2026-08-27 to sit beside MAR. The reason is
         //   recorded in this project already: a max drawdown is ONE worst event and its
@@ -37610,6 +37611,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(r&&r.so!=null&&isFinite(r.so))return +r.so;
           if(r&&r._so!=null&&isFinite(r._so))return +r._so;
           const d=_reRunDoc(r);if(!d)return null;const V=d.validate||null;if(!V)return null;
+          if(_reOneSeg==='lb'){const lb=V.lockbox;return (lb&&lb.sortino!=null)?+lb.sortino:null;}
+          if(_reOneSeg)return null;   // one stage ticked with no figure of its own: a dash, never the whole run's
           return (V.total_sortino!=null)?+V.total_sortino:null;};
         // EV IN R (owner 2026-08-27: EV in dollars scales with size, which is exactly what
         //   fooled him). R here is the AVERAGE LOSING TRADE - the only risk unit this
@@ -37648,7 +37651,9 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           if(r&&r.avl!=null&&isFinite(r.avl))R=Math.abs(+r.avl);
           else if(r&&r._avl!=null&&isFinite(r._avl))R=Math.abs(+r._avl);
           else{const d=_reRunDoc(r);const V=d&&d.validate;
-            if(V&&V.total_avg_loss!=null)R=Math.abs(+V.total_avg_loss)*(+d.multiplier||20);}
+            // whole-run average loss only when the whole run is read, and at the run's own point
+            //   value - no NQ default (an ES or stock run priced at $20 a point read wrong)
+            if(!_reOneSeg&&V&&V.total_avg_loss!=null&&+d.multiplier>0)R=Math.abs(+V.total_avg_loss)*(+d.multiplier);}
           return (R&&R>1e-9)?((p2/n)/R):_cf;};
         const _reShOf=(st,r)=>{
           const _b=_reBlkNum(r,'sharpe');if(_b!=null)return _b;
@@ -37659,6 +37664,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const d=_reRunDoc(r);if(!d)return null;const V=d.validate||null;if(!V)return null;
           if(_reOneSeg==='is')return (V.is_sharpe!=null)?+V.is_sharpe:null;
           if(_reOneSeg==='lb'){const lb=V.lockbox;return (lb&&lb.sharpe!=null)?+lb.sharpe:null;}
+          if(_reOneSeg)return null;   // one stage ticked with no figure of its own: a dash, never the whole run's
           return (V.total_sharpe!=null)?+V.total_sharpe:null;};
         const _reFacets=[
           {k:'fam',cap:'STRATEGY TYPE',tip:'which strategy family the row belongs to - this comes off the row tag in the registry, so a new family appears here on its own',
@@ -40249,7 +40255,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   the same reader the STRATEGY rail already uses a few lines above
               //   (_canonFam(r.strategy)).
               const _stratNm=_canonFam(full.strategy)||'UNTAGGED';
-              const mult=(+full.multiplier||20);
+              // a run doc without a saved point value is priced by its instrument (ES = $50, not NQ's $20)
+              const mult=(+full.multiplier>0)?+full.multiplier:(({ES:50,MES:5,NQ:20,MNQ:2,RTY:50,M2K:5,YM:5,MYM:0.5})[String(full.instrument||'').toUpperCase().trim()]||20);
               const V=full.validate||null;
               const optW=(V&&V.windows&&V.windows.optimize)||null;
               // the run's own stretch boundaries, so a config row can measure the ticked
