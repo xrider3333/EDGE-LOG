@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.43';
+const VERSION='89.44';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -13655,6 +13655,8 @@ window.expandCompareEq=function(series,opts){
     //   count also stops those specific hidden lines stretching the y-axis for lines you cannot see.
     if(fitY){
       PS.forEach(s=>{if(s.vis==='off'||_othSliderHidden.has(s.id))return;s.pts.forEach(p=>{if(p.x>=va&&p.x<=vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}});});
+      // w130 (DISC 3): with HWM on, the running peak at the right edge (its highest visible value) stays inside the fit.
+      if(mx!==null&&window._cmpOvl1A&&window._rbHwm)PS.forEach(s=>{if(s.vis==='off'||s.isOther||_othSliderHidden.has(s.id))return;s.pts.forEach(p=>{if(p.x<=vb&&p.v>mx)mx=p.v;});});
       if(mn===null){   // zoomed tighter than every point spacing on every curve — fall back to the interpolated view edges
         PS.forEach(s=>{if(s.vis==='off'||_othSliderHidden.has(s.id))return;[interpAt(s,va),interpAt(s,vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});}
     }else{
@@ -13782,6 +13784,9 @@ window.expandCompareEq=function(series,opts){
       if(wfi!=null){const wfEnd=(li!=null?li:n3-1),dash=_clipN(pts.slice(solidEnd,wfEnd+1));
         if(dash.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(dash,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="'+swWF+'" stroke-dasharray="7,4" opacity="'+strokeOp+'"/>';}
       if(li!=null){const dot=_clipN(pts.slice(li));if(dot.length>1)s+='<path data-sr="'+sr.id+'" d="'+seg(dot,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="'+swLB+'" stroke-dasharray="0.1,5" stroke-linecap="round" opacity="'+(strokeOp*0.9)+'"/>';}
+      // w130 (DISC 2): the RUNBOARD HWM toggle also draws in the fullscreen explorer, same faint dashed running peak as inline.
+      if(window._cmpOvl1A&&window._rbHwm&&!sr.isOther){let pk=-Infinity;const hv=_clipN(pts.map(p=>{if(p.v>pk)pk=p.v;return {x:p.x,v:pk};}));
+        if(hv.length>1)s+='<path d="'+seg(hv,Y)+'" fill="none" stroke="'+strokeCol+'" stroke-width="0.9" stroke-dasharray="2,3" opacity="'+(strokeOp*0.5)+'"/>';}
     });
     s+='</g>';
     // DRAWDOWN pane — its own pane below the equity one: subtle bg (item 18b, drawn first so
@@ -14578,6 +14583,8 @@ window.cmpOvlMount=function(hostId){
     let mn=null,mx=null;
     S.forEach(sr=>sr.pts.forEach(p=>{if(p.x>=VS.va&&p.x<=VS.vb){if(mn===null||p.v<mn)mn=p.v;if(mx===null||p.v>mx)mx=p.v;}}));
     if(mn===null)S.forEach(sr=>{[_interpAt(sr,VS.va),_interpAt(sr,VS.vb)].forEach(v=>{if(mn===null||v<mn)mn=v;if(mx===null||v>mx)mx=v;});});
+    // w130 (DISC 3): HWM on - the running peak is monotonic, so its highest visible value is the peak up to the right edge; keep it in range.
+    if(mx!==null&&ONE_A&&window._rbHwm)S.forEach(sr=>sr.pts.forEach(p=>{if(p.x<=VS.vb&&p.v>mx)mx=p.v;}));
     if(mn===null){mn=0;mx=1;}if(mx<=mn)mx=mn+1;const pad=(mx-mn)*0.06;mn-=pad;mx+=pad;
     const Y=v=>g.eqT+(mx-v)/((mx-mn)||1)*(g.eqB-g.eqT);
     // per-series drawdown-from-peak, fit across the same [va,vb] window.
@@ -14629,7 +14636,8 @@ window.cmpOvlMount=function(hostId){
     // v71.77: the DEEPEST drawdown on show, called out with a dashed reference line and a filled
     //   tag on the axis — the same treatment 1A gives its realised max drawdown. Without it the
     //   drawdown pane had no scale you could read a number off.
-    if(ONE_A){let _worst=0;S.forEach(sr=>{const dd=_ddOf(sr.pts.map(p=>p.v));dd.forEach(v=>{if(v<_worst)_worst=v;});});
+    // w130 (DISC 8): deepest drawdown read from the zoomed window only, the same points the DD pane scales to.
+    if(ONE_A){let _worst=0;S.forEach(sr=>{const dd=ddMap[sr.id];sr.pts.forEach((p,i)=>{if(p.x>=VS.va&&p.x<=VS.vb&&dd[i]<_worst)_worst=dd[i];});});
       if(_worst<-1e-9){const _wy=Yd(_worst);
         s+='<line x1="'+g.pL+'" y1="'+_wy.toFixed(1)+'" x2="'+(g.pL+g.pw)+'" y2="'+_wy.toFixed(1)+'" stroke="#d6557a" stroke-width="1" stroke-dasharray="5,3" opacity="0.85"><title>deepest drawdown read off the drawn curves - thinned for storage on every stage, so this can only match or read shallower than the DRAWDOWN row</title></line>'
           +'<text x="'+(g.pL+g.pw+5)+'" y="'+(_wy+3).toFixed(1)+'" font-size="7.5" font-weight="700" fill="#d6557a">~'+_ab$(_worst)+'</text>';}}
@@ -14656,7 +14664,7 @@ window.cmpOvlMount=function(hostId){
     if(ONE_A&&window._rbHwm)S.forEach(sr=>{
       let pk=-Infinity;const hp=sr.pts.map(p=>{if(p.v>pk)pk=p.v;return {x:p.x,v:pk};});
       const vis=_clipN(hp);
-      if(vis.length>1)s+='<path d="'+seg(g,vis,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="0.9" stroke-dasharray="2,3" opacity="'+((_spot==null||_spot===String(sr.id))?'0.5':'0.08')+'"/>';});
+      if(vis.length>1)s+='<path d="'+seg(g,vis,Y)+'" fill="none" stroke="'+sr.color+'" stroke-width="0.9" stroke-dasharray="2,3" opacity="'+(GRY.has(String(sr.id))?'0.08':((_spot==null||_spot===String(sr.id))?'0.5':'0.08'))+'"/>';});
     s+='</g><g clip-path="url(#'+hostId+'-clip)">';
     S.forEach(sr=>{const dd=ddMap[sr.id],ddPts=sr.pts.map((p,i)=>({x:p.x,v:dd[i]})),dvis=_clipN(ddPts);
       if(dvis.length<2)return;
@@ -14737,7 +14745,8 @@ window.cmpOvlMount=function(hostId){
     const cx=VS.va+(VS.vb-VS.va)*((gx-st.g.pL)/st.g.pw);
     const dstr=_xDateStr?_xDateStr(cx):null,pct=Math.round(Math.max(0,Math.min(1,cx))*100);
     xchip.style.display='block';xchip.style.left=(gx*sx)+'px';xchip.style.top=((st.g.H-st.g.pB+3)*sy)+'px';xchip.textContent=dstr?dstr:(pct+'%');
-    ychip.style.display='block';ychip.style.left=((st.g.pL+st.g.pw)*sx)+'px';ychip.style.top=(gy*sy)+'px';
+    // w130 (DISC 9): no y chip in the gap between the equity and drawdown panes (it read a positive dd there).
+    ychip.style.display=(gy>st.g.eqB&&gy<st.g.ddT)?'none':'block';ychip.style.left=((st.g.pL+st.g.pw)*sx)+'px';ychip.style.top=(gy*sy)+'px';
     ychip.textContent=(gy<=st.g.eqB)?_ab$(st.mx-(st.mx-st.mn)*((gy-st.g.eqT)/((st.g.eqB-st.g.eqT)||1))):('dd '+_ab$(0-(0-st.ddFloor)*((gy-st.g.ddT)/((st.g.ddB-st.g.ddT)||1))));
     // per-series readout — an em dash when the cursor sits outside that series own date span.
     // v73.2 (owner: "the current pnl populates in the upper right covering everything like a
@@ -43815,6 +43824,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           window._cmpOvlH=_c2OvlH;
           window._cmpOvl1A=true;
           window._rbHwm=_c2Hwm;
+          // w130 (DISC 5): a new pick set starts unzoomed.
+          {const _vk=items2.map(x=>String(x.r&&x.r.id)).join(',');if(window._c2OvlKey!==_vk){window._c2OvlKey=_vk;window._cmpOvlView={va:0,vb:1};}}
           window._cmpEqxSeries=items2.map((x,i)=>({x:x,i:i})).filter(o=>o.x.c).map(o=>{const x=o.x,i=o.i,r=x.r,mc=_c2mc(r);
             const fl=(Array.isArray(r.top10_results)?r.top10_results.filter(f=>f&&f.fold!=null):[]).slice().sort((a,b)=>a.fold-b.fold);
             // F15 fix: OVERLAY's curve is trade-indexed but drawn on a shared calendar axis, so an
