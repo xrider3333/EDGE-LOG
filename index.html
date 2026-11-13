@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.54';
+const VERSION='89.55';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -43006,7 +43006,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +_rbCol(1,'1.35 1 500px',320,matrixTile)+_rbSp(1)
             +_rbCol(2,'0 1 290px',240,boardTile+(_rbSide?('<div style="height:10px"></div>'+_sideTile):''))
             +'</div>'):(_rbWatching&&_rbWLoading?'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">loading the watch list…</div>':'<div style="border:1px dashed var(--border);padding:40px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:3px;margin-bottom:14px">NO SAVED RUNS YET — THE BOARD POPULATES ITSELF FROM RUN HISTORY</div>'))
-          +(_rbWF?_rbBooksWFHold:booksTile));
+          +((_rbWF||_rbS==='wf')?_rbBooksWFHold:booksTile));   // w130 #69: the COMPARE-host WF fallback reads WF too
         }else if(_cmpMode==='featboard'){
         // ── FEATURE BOARD (owner ask 2026-09-07): "what helps every strategy, not just one".
         //    Reads two static JSON files the offline tools/feature_board.py and
@@ -43861,7 +43861,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div class="c2-top" style="margin-top:2px">'+_c2SetsBtn+'</div>'+_c2SetsWrap
             +'<div class="c2-card"><div class="c2-hold">NOTHING PICKED YET'
             +'<div style="margin-top:8px;letter-spacing:0;font-size:10px;color:var(--text4)">Open a strategy on the LEADERBOARD and press + PICK on any run, up to eight of them. They stack up here, on whichever stage you pick.</div>'
-            +'<div style="margin-top:12px"><span class="c2-act" data-c2screen="lead">\u2190 GO TO THE LEADERBOARD</span></div></div></div>';
+            +'<div style="margin-top:12px"><span class="c2-act" data-c2screen="lead">\u2190 GO TO THE LEADERBOARD</span></div>'+((Array.isArray(APREF.cmpIds)&&APREF.cmpIds.length)?('<div data-c2gone style="margin-top:10px;letter-spacing:0;font-size:10px;color:var(--yellow)">'+APREF.cmpIds.length+' saved pick'+(APREF.cmpIds.length===1?' is':'s are')+' not shown - archived or older than the loaded runs - but still take'+(APREF.cmpIds.length===1?'s a seat':' seats')+'. <span class="c2-act" data-cmpclear>CLEAR PICKS</span></div>'):'')+'</div></div>';   // w130 #67
         }else{
           // one colour per curve. Two runs of the same strategy would draw the same colour,
           //   so the second and third are shaded down - the legend chip always carries the
@@ -51056,12 +51056,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //    (the only stretch where every leg has data) — pinning it, per the rerun rule.
       const _bkBtn=content.querySelector('[data-booknew]');
       if(_bkBtn)_bkBtn.onclick=()=>{
-        const pool=[];const seen={};
-        (runHistory||[]).forEach(r=>{if(!r.best_params||/Book/i.test(r.scope||''))return;
-          const k=(typeof _canonFam==='function'&&_canonFam(r.strategy))||r.strategy;
-          const cur=seen[k];if(!cur||scoreRun(r)>scoreRun(cur)){seen[k]=r;}});
-        Object.keys(seen).forEach(k=>pool.push(seen[k]));
-        pool.sort((a,b)=>scoreRun(b)-scoreRun(a));
+        // w130 #66: EVERY loaded run with saved settings can be a leg (not just one top run per family),
+        //   archived and VOID runs left out, grouped by family with the best-scored run first.
+        const _bkFam=r=>(typeof _canonFam==='function'&&_canonFam(r.strategy))||r.strategy||'';
+        const _bkSc=r=>{const v=scoreRun(r);return (v!=null&&isFinite(v))?v:-1;};
+        const pool=(runHistory||[]).filter(r=>r&&r.best_params&&!/Book/i.test(r.scope||'')&&!r.archived
+          &&!((typeof _c2IsVoid==='function')&&_c2IsVoid(r)));
+        const _famBest={};pool.forEach(r=>{const k=_bkFam(r);_famBest[k]=Math.max(_famBest[k]==null?-1e9:_famBest[k],_bkSc(r));});
+        pool.sort((a,b)=>(_famBest[_bkFam(b)]-_famBest[_bkFam(a)])||String(_bkFam(a)).localeCompare(String(_bkFam(b)))||(_bkSc(b)-_bkSc(a))||(b.id-a.id));
         if(!pool.length){alert('No runs with saved settings yet — run a strategy first, then build a book from it.');return;}
         const ov=document.createElement('div');
         ov.style.cssText='position:fixed;inset:0;background:rgba(0,0,0,.62);z-index:9500;display:flex;align-items:center;justify-content:center;padding:20px';
@@ -51075,7 +51077,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         ov.innerHTML='<div style="background:var(--bg2);border:1px solid var(--border);border-radius:12px;padding:16px 18px;max-width:600px;width:100%;max-height:86vh;overflow:auto">'
           +'<div style="font-size:12px;letter-spacing:2px;color:var(--text2);font-weight:700;margin-bottom:3px">RUN A BOOK</div>'
           +'<div style="font-size:9px;color:var(--text5);line-height:1.7;margin-bottom:10px">Pick the strategies you would trade side by side. Your PC replays each one over the same window with the exact settings that run found, pools every trade into one pile, and scores that pile as a single strategy — so the profit factor and drawdown are true book numbers, not a leg is.</div>'
-          +'<div style="max-height:38vh;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:4px;margin-bottom:10px">'+pool.map(row).join('')+'</div>'
+          +'<div style="max-height:38vh;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:4px;margin-bottom:4px">'+pool.map((r,i)=>((i===0||_bkFam(pool[i-1])!==_bkFam(r))?'<div style="font-size:8px;letter-spacing:1px;color:var(--text5);font-weight:700;padding:6px 8px 2px">'+String(_bkFam(r)||'(no family)').replace(/</g,'&lt;')+'</div>':'')+row(r)).join('')+'</div>'
+          +'<div style="font-size:8px;color:var(--text5);margin-bottom:10px">'+pool.length+' runs from the '+(runHistory||[]).length+' loaded (archived and VOID left out) - an older run needs LOAD MORE on PAST RUNS first.</div>'
           +'<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:12px">'
           +'<label style="font-size:8px;letter-spacing:1px;color:var(--text5)">FROM<br><input data-bkfrom placeholder="auto" style="width:110px;padding:3px 6px;font-size:10px"></label>'
           +'<label style="font-size:8px;letter-spacing:1px;color:var(--text5)">TO<br><input data-bkto placeholder="auto" style="width:110px;padding:3px 6px;font-size:10px"></label>'
@@ -51098,6 +51101,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _sync=()=>{const ls=picked(),w=ov.querySelector('[data-bkwin]');
           if(!ls.length){w.innerHTML='Leave the dates blank and the book uses the stretch every picked strategy has data for.';return;}
           const o=_overlap(ls);
+          if(o[0]&&o[1]&&o[0].slice(0,10)>=o[1].slice(0,10)){w.innerHTML='<span style="color:var(--red)">These legs share NO window ('+o[0]+' → '+o[1]+') - pick legs whose dates overlap.</span>';return;}
           w.innerHTML=ls.length+' leg'+(ls.length===1?'':'s')+' picked · shared window <b style="color:var(--text3)">'+(o[0]||'?')+' → '+(o[1]||'?')+'</b>'
             +(ls.length<2?' <span style="color:var(--yellow)">· a book of one leg is just that strategy</span>':'');};
         ov.querySelectorAll('[data-bkleg]').forEach(cb=>cb.addEventListener('change',_sync));
@@ -51106,6 +51110,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const o=_overlap(ls);
           const df=(ov.querySelector('[data-bkfrom]').value||'').trim()||o[0]||'';
           const dt=(ov.querySelector('[data-bkto]').value||'').trim()||o[1]||'';
+          // w130 #65: never queue an empty or inverted window
+          if(df&&dt&&String(df).slice(0,10)>=String(dt).slice(0,10)){alert('FROM ('+df+') must be before TO ('+dt+')'+((o[0]&&o[1]&&o[0].slice(0,10)>=o[1].slice(0,10))?' - these legs share no window.':'.'));return;}
           const nm=(ov.querySelector('[data-bkname]').value||'').trim()
             ||ls.map(r=>((runTag(r)||'').replace(/<[^>]*>/g,'').trim()||r.strategy)).join(' + ');
           // a saved run does not always record its SESSION — infer it from the data source name
