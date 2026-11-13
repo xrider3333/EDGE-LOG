@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.48';
+const VERSION='89.49';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -50978,13 +50978,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(nm==null)return;const t=String(nm).trim();if(!t)return;
         arr[si]=Object.assign({},st,{name:t.slice(0,28)});savePref('cmpSets',arr);renderApp();};
       content.querySelectorAll('[data-cmpset]').forEach(ch=>{ch.onclick=(e)=>{if(e.target&&e.target.getAttribute&&(e.target.getAttribute('data-cmpsetdel')!=null||e.target.getAttribute('data-cmpsetren')!=null))return;
-        const st=(APREF.cmpSets||[])[+ch.dataset.cmpset];if(st&&st.ids&&st.ids.length){savePref('cmpIds',st.ids.map(String).slice(0,8));renderApp();}};
-        ch.ondblclick=(e)=>{e.stopPropagation();e.preventDefault();_cmpRen(+ch.dataset.cmpset);};});
+        // w130 #68: wait out a possible double-click before LOADING, so a rename never swaps the picks first
+        clearTimeout(ch._ldT);ch._ldT=setTimeout(()=>{const st=(APREF.cmpSets||[])[+ch.dataset.cmpset];if(st&&st.ids&&st.ids.length){savePref('cmpIds',st.ids.map(String).slice(0,8));renderApp();}},260);};
+        ch.ondblclick=(e)=>{e.stopPropagation();e.preventDefault();clearTimeout(ch._ldT);_cmpRen(+ch.dataset.cmpset);};});
       content.querySelectorAll('[data-cmpsetren]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();_cmpRen(+x.dataset.cmpsetren);};});
       content.querySelectorAll('[data-cmpsetdel]').forEach(x=>{x.onclick=(e)=>{e.stopPropagation();
         const arr=(APREF.cmpSets||[]).slice();arr.splice(+x.dataset.cmpsetdel,1);savePref('cmpSets',arr);renderApp();};});
       const _csave=content.querySelector('[data-cmpsetsave]');if(_csave)_csave.onclick=()=>{
-        const cur=(APREF.cmpIds||[]).map(String);if(!cur.length){alert('nothing selected to save — pick some runs first');return;}
+        let cur=(APREF.cmpIds||[]).map(String);
+        // w130 #64: with no saved picks the screen shows the latest 3 by default - save what is on screen
+        if(!cur.length&&!cmpTabEmpty()){const rs=runHistory.slice().concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]).sort((a,b)=>b.id-a.id);cur=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));}
+        if(!cur.length){alert('nothing selected to save — pick some runs first');return;}
         const nm=window.prompt('Name this comparison set:','');if(!nm)return;
         const arr=(APREF.cmpSets||[]).slice();arr.push({name:String(nm).slice(0,28),ids:cur});savePref('cmpSets',arr);renderApp();};
     };
@@ -51278,9 +51282,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         ov.querySelector('[data-bocancel]').onclick=()=>ov.remove();
         const _checkedIds=()=>Array.from(ov.querySelectorAll('[data-bocheck]:checked')).map(cb=>cb.value);
         ov.querySelector('[data-boadd]').onclick=()=>{
-          const picked=_checkedIds();let ids=_cur().slice();
-          picked.forEach(id=>{if(ids.indexOf(id)<0)ids.push(id);});
-          savePref('cmpIds',ids.slice(0,8));renderApp();ov.remove();
+          // w130 #62 #63: merge into the SAVED picks only (not the latest-3 fallback), and say what did not fit
+          const picked=_checkedIds();let ids=(APREF.cmpIds||[]).map(String);
+          picked.forEach(id=>{if(ids.indexOf(String(id))<0)ids.push(String(id));});
+          const _drop=Math.max(0,ids.length-8);
+          if(_drop){alert(_drop+' of the ticked run'+(_drop===1?'':'s')+' did not fit - Compare holds 8. Untick some, or remove picks first.');return;}
+          savePref('cmpIds',ids);renderApp();ov.remove();
         };
         ov.querySelector('[data-boreplace]').onclick=()=>{
           savePref('cmpIds',_checkedIds().slice(0,8));renderApp();ov.remove();
