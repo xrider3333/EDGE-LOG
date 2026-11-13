@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.33';
+const VERSION='89.34';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -37115,6 +37115,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   suffix through _reYSuf rather than reading as an unlabelled number beside the
         //   run report's own '381%'.
         const _reYSuf=()=>((['roc','roc30','ddp','wr'].indexOf(_reMode())>=0)?'%':((_reMode()==='ddr')?'R':''));
+        const _reXSuf=()=>((['roc','roc30','ddp','wr'].indexOf(_reXAxis)>=0)?'%':((_reXAxis==='ddr')?'R':''));   // the unit the X ticks print, for the hover
         const _reYfmt=()=>(['ratio','pf','wr','evr','sh','so','rpy','roc','roc30','ddp','ddr'].indexOf(_reMode())>=0)?'num':'money';
         const _rePfCap='Profit factor \u2014 gross winnings over gross losses, HIGHER is better. It ignores PROFIT STAGE and COMPARE ON: a profit factor is recorded once per row, and it is already free of window length because it counts trades rather than calendar';
         const _rePptCap='Whole-run profit per trade \u2014 HIGHER is better. It ignores PROFIT STAGE and COMPARE ON, because a trade count is recorded once per row and a per-trade average is already free of window length';
@@ -38862,7 +38863,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   the hover says which of the two it is quoting so they can never be confused.
           const grank={};
           pts.slice().sort((a,b)=>(b.y-a.y)*_reYSgn()).forEach((p,i)=>{grank[p.st.key+':'+p.r.n]=i+1;});
-          const yf=_reYfmt(),xf=(['dd','raw','ppt'].indexOf(_reXAxis)>=0)?'money':'num';
+          const yf=_reYfmt(),xf=(['dd','dd5','raw','ppt'].indexOf(_reXAxis)>=0)?'money':'num';
           const CH=_reChH(),L=88,R=950,T=22,B=CH-56,XT=CH-36,XC=CH-10;
           const showN=(pts.length<=_reLblMax);
           let g='';
@@ -39096,12 +39097,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 //   still resolves, but 'reference or superseded' is not what a lane run IS.
                 +' | '+(r._rec?'recorded by its lane, not judged on this board':_reToneNm[r.tone])
                 +' | '+_reYNm(items)+' '
-                +(_reRel?((p.y>=0?'+':'')+_reVal(p.y,yf)+' against the champion (its own figure is '+_reVal(p.y0,yf)+')'):_reVal(p.y,yf));
+                +(_reRel?((p.y>=0?'+':'')+_reVal(p.y,yf)+_reYSuf()+' against the champion (its own figure is '+_reVal(p.y0,yf)+_reYSuf()+')'):_reVal(p.y,yf)+_reYSuf());
               // name the measure actually across the bottom - this said drawdown whatever it was
-              if(_reRel)tp+=' | '+String(_reXNm[_reXAxis]||'horizontal measure').toLowerCase()+' '+((p.x>=0?'+':'')+_reVal(p.x,xf))+' against the champion (its own figure is '+_reVal(p.x0,xf)+')';
+              if(_reRel)tp+=' | '+String(_reXNm[_reXAxis]||'horizontal measure').toLowerCase()+' '+((p.x>=0?'+':'')+_reVal(p.x,xf)+_reXSuf())+' against the champion (its own figure is '+_reVal(p.x0,xf)+_reXSuf()+')';
               // ABSOLUTE mode named only the vertical measure before this (item 8): the
               //   horizontal axis is picked independently and just as often is not drawdown.
-              else tp+=' | '+String(_reXNm[_reXAxis]||'horizontal measure').toLowerCase()+' '+((p.x==null)?'not measured':_reVal(p.x,xf));
+              else tp+=' | '+String(_reXNm[_reXAxis]||'horizontal measure').toLowerCase()+' '+((p.x==null)?'not measured':_reVal(p.x,xf)+_reXSuf());
               {const _ms=_reSegMiss(r);
                if(_ms.length)tp+=' | records no separate '+_ms.map(sg=>_reSegLong[sg]).join(' or ')+' figure, so this covers only the stages it does record';}
               tipF.forEach(f=>{const v=_reNum(r,f);
@@ -39130,7 +39131,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // OFF THE SCALE (owner 2026-10-27). The axis is fitted to the middle 96% when one row
               //   would otherwise flatten the rest, so this row is drawn pinned to the edge. Its real
               //   figure is here, because a pinned dot's POSITION no longer states it.
-              if(p._pinX||p._pinY){tp+=' | OFF THE SCALE on the '+[(p._pinY?('vertical axis ('+String(_reYcapShort[_reMode()]?String(_reYcapShort[_reMode()]).split(' —')[0]:(_reXNm[_reMode()]||'vertical'))+' '+((p.y==null)?'not measured':_reVal(p.y,yf))+')'):''),(p._pinX?('horizontal axis ('+String(_reXNm[_reXAxis]||'horizontal')+' '+((p.x==null)?'not measured':_reVal(p.x,xf))+')'):'')].filter(Boolean).join(' and the ')
+              if(p._pinX||p._pinY){tp+=' | OFF THE SCALE on the '+[(p._pinY?('vertical axis ('+String(_reYcapShort[_reMode()]?String(_reYcapShort[_reMode()]).split(' —')[0]:(_reXNm[_reMode()]||'vertical'))+' '+((p.y==null)?'not measured':_reVal(p.y,yf)+_reYSuf())+')'):''),(p._pinX?('horizontal axis ('+String(_reXNm[_reXAxis]||'horizontal')+' '+((p.x==null)?'not measured':_reVal(p.x,xf)+_reXSuf())+')'):'')].filter(Boolean).join(' and the ')
                   +' - it is drawn at the edge, and the axis is fitted to the middle 96% of the rows so the rest are not flattened by it';}
               tp+=' | click to jump to its row in its own study table below';
               tp+=' | right-click to hide this dot for now - the chart refits, and SHOW ALL under the chart brings it back';
@@ -41849,7 +41850,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                +s.slice(0,6).map(o=>o.nm+' '+_reVal(o.v,fmt)).join(', ')
                +((arr.length>6)?(' and '+(arr.length-6)+' more'):''));};
            if(P){say(P.y,'top or bottom',_reYfmt());
-                 say(P.x,'left or right',(['dd','raw','ppt'].indexOf(_reXAxis)>=0)?'money':'num');}
+                 say(P.x,'left or right',(['dd','dd5','raw','ppt'].indexOf(_reXAxis)>=0)?'money':'num');}
            if(bits.length)_pinTx=' \u00b7 <span title="'+_reEsc(full.join(' | ')
              +' | Each is drawn at the edge of the chart with a dashed ring, and its hover gives its real figure. The axis is fitted to the middle 96% of the rows when one far row would otherwise flatten every other dot into a corner - which is what it used to do.')
              +'" style="color:var(--yellow);font-weight:700;cursor:help">'+bits.join(', ')+'</span>';}
