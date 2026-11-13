@@ -1690,7 +1690,15 @@ def _let_go(ticket, lock_fd):
 
 
 def cmd_ship(name, message):
-    root = repo_root()
+    # THE SHARED CHECKOUT, from git's common dir - not repo_root(), which is wherever THIS FILE
+    # sits. A worktree's own wt.py therefore took the worktree for the shared checkout and refused
+    # to ship from inside it, so a full (non --fast) ship could only be run from the shared
+    # checkout with the worktree named (board row 131, 2026-11-13). cmd_ship_fast has always read
+    # it this way; root also decides which checkout sync_shared() fast-forwards at the end, which
+    # was the worktree itself whenever the shipping lane ran its own copy of this file.
+    common = run(['git', '-C', repo_root(), 'rev-parse', '--path-format=absolute',
+                  '--git-common-dir'])
+    root = os.path.dirname(os.path.normpath(common))
     wt = os.getcwd() if name is None else os.path.join(wt_root(), name)
     if not os.path.isdir(wt):
         raise SystemExit('no such worktree: ' + wt)

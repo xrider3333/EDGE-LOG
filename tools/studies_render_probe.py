@@ -102,6 +102,12 @@ var CASES = __CASES__;
       for(var i=0;i<CASES.length;i++){
         var nm=CASES[i][0], pref=CASES[i][1];
         pref.cmpMode='research';
+        // WINDOWED ROWS keeps about 180 rows in the page when it is on, and it has been ON by
+        //   default since v88.43 (owner 11-06, 'why still laggy'). Every row count here then
+        //   saturates at the window, so ALL and a one-strategy pick both read 180 and the
+        //   narrowing check could never pass. The code that made it the default says the gates
+        //   pin their own setting explicitly - cmp2_render_probe does, this one did not.
+        pref.resVirt=false;
         var r={};
         r.call=w.eval("(function(){try{"
           +"localStorage.setItem('augurPrefs',"+JSON.stringify(JSON.stringify(pref))+");"
