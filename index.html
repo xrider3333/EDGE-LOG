@@ -1554,7 +1554,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.25';
+const VERSION='89.26';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -52005,13 +52005,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //      pinch        the same zoom with two fingers; one finger drags
           root.querySelectorAll('[data-rezoomsvg]').forEach(function(svg){
             const G=window._reVwGeom;if(!G)return;
+            // WIRE EACH CHART ONCE. _reWireChart is called with the whole page after a full
+            //   render and again with the chart box after a chart-only redraw, so without this
+            //   mark every handler lands twice: two pointerdowns on one finger read as a PINCH,
+            //   and two double-clicks zoom in and straight back out. Measured on the live page.
+            if(svg.__reZoomWired)return;svg.__reZoomWired=1;
             const vb=String(svg.getAttribute('viewBox')||'').split(/\s+/);
             const VW=(+vb[2])||980,VH=(+vb[3])||(G.CH||440);
             const toVb=function(cx,cy){const rc=svg.getBoundingClientRect();
               return {x:(cx-rc.left)/(rc.width||1)*VW,y:(cy-rc.top)/(rc.height||1)*VH};};
-            const dataAt=function(p){return {
-              x:G.x0+((p.x-G.L)/((G.R-G.L)||1))*(G.x1-G.x0),
-              y:G.y0+((G.B-p.y)/((G.B-G.T)||1))*(G.y1-G.y0)};};
+            // THE VIEW NOW, not the view this drawing was built from: two wheel notches inside
+            //   one frame must compound, and they cannot if both read the geometry of the last
+            //   redraw. _reVw wins whenever it is for these same two measures.
+            const cur=function(){const v=window._reVw;
+              return (v&&v.k===G.k)?{x0:v.x0,x1:v.x1,y0:v.y0,y1:v.y1}
+                                   :{x0:G.x0,x1:G.x1,y0:G.y0,y1:G.y1};};
+            const dataAt=function(p){const c=cur();return {
+              x:c.x0+((p.x-G.L)/((G.R-G.L)||1))*(c.x1-c.x0),
+              y:c.y0+((G.B-p.y)/((G.B-G.T)||1))*(c.y1-c.y0)};};
             let raf=0;
             const redraw=function(){if(raf)return;
               raf=1;(window.requestAnimationFrame||window.setTimeout)(function(){raf=0;
@@ -52026,8 +52037,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if((x1-x0)>=fw&&(y1-y0)>=fh){window._reVw=null;redraw();return;}
               if((x1-x0)<fw*1e-4||(y1-y0)<fh*1e-4)return;   // a floor: it cannot zoom into nothing
               window._reVw={k:G.k,x0:x0,x1:x1,y0:y0,y1:y1};redraw();};
-            const zoomAt=function(c,f){put(c.x-(c.x-G.x0)*f,c.x+(G.x1-c.x)*f,
-                                           c.y-(c.y-G.y0)*f,c.y+(G.y1-c.y)*f);};
+            const zoomAt=function(c,f){const v=cur();
+              put(c.x-(c.x-v.x0)*f,c.x+(v.x1-c.x)*f,
+                  c.y-(c.y-v.y0)*f,c.y+(v.y1-c.y)*f);};
             svg.addEventListener('wheel',function(e){e.preventDefault();
               zoomAt(dataAt(toVb(e.clientX,e.clientY)),(e.deltaY>0)?1.18:(1/1.18));},{passive:false});
             svg.addEventListener('dblclick',function(e){
@@ -52053,10 +52065,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const k=Object.keys(act),a0=act[k[0]],b0=act[k[1]];
                 pinch={d:Math.hypot(a0.x-b0.x,a0.y-b0.y)||1,
                        c:dataAt(toVb((a0.x+b0.x)/2,(a0.y+b0.y)/2))};return;}
-              if(nAct===1){moved=0;
+              if(nAct===1){moved=0;const v=cur();
                 pan={sx:e.clientX,sy:e.clientY,shift:!!e.shiftKey,
                      v0:toVb(e.clientX,e.clientY),
-                     x0:G.x0,x1:G.x1,y0:G.y0,y1:G.y1};}});
+                     x0:v.x0,x1:v.x1,y0:v.y0,y1:v.y1};}});
             svg.addEventListener('pointermove',function(e){
               if(act[e.pointerId])act[e.pointerId]={x:e.clientX,y:e.clientY};
               if(pinch&&nAct>=2){const k=Object.keys(act);if(k.length<2)return;
