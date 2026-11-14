@@ -1,0 +1,11 @@
+[Unit]
+Description=Strategy 23 basket executor, 15:27 ET Mon-Fri
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 15:27:00 America/New_York
+AccuracySec=5s
+Persistent=false
+Unit=edgelog-eodrev.service
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,14 @@
+[Unit]
+# STRATEGY 23 BASKET (MISC_EODREV_1_2, run #511) on Webull PAPER -- api/eodrev_exec.py.
+# OWNER GO 11-14 via MANAGER. One run a weekday: reads the 15:24 signal file, enters at 15:30,
+# MOC exits at 15:44, MARKET fallback 15:58, settles 16:05, then exits. PAPER only (refuses
+# any other adapter mode). Its own order state: __EDGELOG_HOME__/eodrev/orders_state.json.
+Description=Strategy 23 basket executor (Webull PAPER)
+
+[Service]
+Type=oneshot
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+ExecStart=__EDGELOG_VENV__/bin/python -u -m api.eodrev_exec run
+TimeoutStartSec=3600

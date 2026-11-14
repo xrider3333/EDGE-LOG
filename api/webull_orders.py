@@ -972,6 +972,34 @@ def _now_ny():
     return datetime.now(_NY) if _NY else datetime.utcnow()
 
 
+# OTHER BOOKS IN THE SAME PAPER ACCOUNT (2026-11-14, strategy 23 basket, api/eodrev_exec.py):
+# a PAPER reconcile compares EVERY symbol Webull holds, so the basket's AAPL etc. would read as a
+# mismatch and halt the QQQ book. Each book's adapter skips the symbols another book's own
+# order state says it sent. cfg["other_book_states"] lists those state files; unset = the
+# basket's default path below (the QQQ adapter needs no config change).
+EODREV_ORDERS_STATE = os.environ.get("EDGELOG_EODREV_ORDERS_STATE",
+                                     os.path.join(EDGELOG_HOME, "eodrev", "orders_state.json"))
+
+
+def other_book_symbols(cfg, own_path):
+    paths = (cfg or {}).get("other_book_states")
+    if paths is None:
+        paths = [EODREV_ORDERS_STATE]
+    out = set()
+    own = os.path.abspath(own_path) if own_path else None
+    for pth in paths or []:
+        if not pth or os.path.abspath(pth) == own or not os.path.exists(pth):
+            continue
+        for p in ((_load_state(pth).get("broker_sent_positions")) or {}).values():
+            try:
+                q = float((p or {}).get("qty") or 0)
+            except (TypeError, ValueError, AttributeError):
+                continue
+            if q and (p or {}).get("symbol"):
+                out.add(str(p["symbol"]).upper())
+    return out
+
+
 def _load_state(path):
     try:
         if os.path.exists(path):
@@ -4095,6 +4123,10 @@ class OrderAdapter:
                 syms = {RECONCILE_LIVE_SYMBOL} | set(sent)
             else:
                 syms = set(broker) | set(sent)
+                try:
+                    syms -= (other_book_symbols(self.cfg, self._state_path()) - set(sent))
+                except Exception:
+                    pass
             mismatches = [{"symbol": s, "broker": broker.get(s, 0.0), "shadow_sent": sent.get(s, 0.0)}
                          for s in sorted(syms) if abs(broker.get(s, 0.0) - sent.get(s, 0.0)) > 1e-6]
             ok = not mismatches
