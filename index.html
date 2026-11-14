@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.88';
+const VERSION='89.89';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -35851,12 +35851,12 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   a VOID run marked VOID. Off the WATCH view the note keeps its wording (it lists the families below the cutoff).
         const _famMoreNote=(famMore.length?(_rbWatching
           ?('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more watched run'+(famMore.length===1?'':'s')+' past the '+_famCap+'-column limit: '+famMore.map(r=>'#'+_c2TagEsc(r.id)+((r.famKey&&r.famSeq!=null)?(' '+_c2TagEsc(r.famKey)+'-'+_c2TagEsc(r.famSeq)):'')+(_c2IsVoid(r)?' VOID':(_ttmPreFixOf(r)?' PRE-FIX TTM':''))+(_rollOf(r)?' ROLL':'')+(_stacksOf(r)?' STACKS LOTS':'')+(_expoWords(r)?(' '+_expoWords(r)):'')+(_stampOn(r)?' ROLL CHECK':'')).join(', ')+'</div>')
-          :('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the '+_famCutBy+' cutoff ('+_famCap+' column'+(_famCap===1?'':'s')+' max): '+famMore.map(_labOf).join(', ')+'</div>')):'')+_rbHideNote+_wMissNote;
+          :('<div style="margin-top:6px;padding:6px 8px;font-size:8px;color:var(--text5);border-top:1px solid var(--border)">'+(_rbFam&&_rbFam!=='__WATCH__'?('+'+famMore.length+' more run'+(famMore.length===1?'':'s')+' past the '+_famCap+'-column limit: '+famMore.map(r=>'#'+r.id).join(' ')):('+'+famMore.length+' more famil'+(famMore.length===1?'y':'ies')+' below the '+_famCutBy+' cutoff ('+_famCap+' column'+(_famCap===1?'':'s')+' max): '+famMore.map(_labOf).join(', ')))+'</div>')):'')+_rbHideNote+_wMissNote;
         const famTile=tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">BY STRATEGY</span><span style="font-size:8px;color:var(--text5)">top config per family · auto-updates as new runs land</span></div>'
           +'<div style="overflow:auto;max-height:74vh">'+runs.map(_famRowOf).join('')+'</div>'
           +_famMoreNote);
         const pickerTile=(_cmpMode==='fam')?famTile:tile('<div style="display:flex;align-items:center;gap:8px;margin-bottom:8px;flex-wrap:wrap"><span class="lbl" style="font-size:12px;letter-spacing:2px;color:var(--text4)">PICK RUNS</span><span style="font-size:8px;color:var(--text5)">click a row to add / remove · max 8</span><span style="margin-left:auto;display:flex;gap:8px;align-items:center">'
-          +_grpBtn+_bestBtn+'<select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="reset to the latest 3 runs" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">reset</span></span></div>'
+          +_grpBtn+_bestBtn+'<select data-cmpstrat style="width:auto;padding:2px 6px;font-size:var(--fsxs)">'+stratOpts+'</select><span data-cmpclear title="remove every pick from this comparison" style="cursor:pointer;font-size:9px;color:var(--text5);text-decoration:underline">clear</span></span></div>'
           +_tabsRow+_setsRow
           +'<div style="overflow:auto;max-height:74vh">'+(pickBody||'<div style="color:var(--text5);font-size:var(--fsxs);padding:14px;text-align:center">no runs match this strategy filter</div>')+'</div>');
         // Tests-run chips: which of the three checks each run actually has (lit = ran; WF/LB colour = held?)
@@ -51907,7 +51907,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           savePref('cmpIds',ids);renderApp();ov.remove();
         };
         ov.querySelector('[data-boreplace]').onclick=()=>{
-          savePref('cmpIds',_checkedIds().slice(0,8));renderApp();ov.remove();
+          const _p=_checkedIds().slice(0,8);savePref('cmpCleared',!_p.length);savePref('cmpIds',_p);renderApp();ov.remove();
         };
       };
       content.querySelectorAll('[data-cmpscope]').forEach(b=>{b.onclick=()=>{const v=b.dataset.cmpscope;savePref('cmpScope',v);
@@ -52979,11 +52979,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +'</div></div>';
          document.body.appendChild(ov);
          // w130 #53: the dialog said ten maximum but let any number be ticked, and the board silently dropped the extras - stop the 11th tick here.
-         ov.querySelectorAll('[data-addr]').forEach(cb=>cb.addEventListener('change',()=>{if(cb.checked&&ov.querySelectorAll('[data-addr]:checked').length>10){cb.checked=false;alert('The board holds ten added runs. Untick one first.');}}));
+         ov.querySelectorAll('[data-addr]').forEach(cb=>cb.addEventListener('change',()=>{if(cb.checked&&ov.querySelectorAll('[data-addr]:checked').length+cur.filter(id=>!pool.some(r=>String(r.id)===id)).length>10){cb.checked=false;alert('The board holds ten added runs. Untick one first.');}}));
          ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
          ov.querySelector('[data-addcancel]').onclick=()=>ov.remove();
          ov.querySelector('[data-addok]').onclick=()=>{
-           savePref('rbAdd',Array.from(ov.querySelectorAll('[data-addr]:checked')).map(cb=>cb.dataset.addr));
+           const _shown=new Set(pool.map(r=>String(r.id)));savePref('rbAdd',cur.filter(id=>!_shown.has(id)).concat(Array.from(ov.querySelectorAll('[data-addr]:checked')).map(cb=>cb.dataset.addr)));// w131: pins the dialog cannot list are kept
            ov.remove();renderApp();};};
        const _ac=content.querySelector('[data-rbaddclr]');
        if(_ac)_ac.onclick=()=>{savePref('rbAdd',[]);renderApp();};}
