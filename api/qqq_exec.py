@@ -16621,10 +16621,41 @@ def _lease_verify_cached(db, uid, state, cfg, log=print):
         log(f"[qqq-exec] broker lease check crashed ({type(e).__name__}: {e}) -- "
             "failing CLOSED for broker sends this tick")
     _track_fs_read(state)
+    ok, reason = _lease_read_fail_grace(ok, reason, uid, state, now, log=log)
     state["_lease_verify_at"] = now
     state["_lease_verify_ok"] = ok
     state["_lease_verify_reason"] = reason
+    if ok and not str(reason or "").startswith("lease ok (read failed"):
+        state["_lease_read_ok_at"] = now
     return ok, reason
+
+
+# READ-FAIL GRACE (2026-11-14, MANAGER 11-14 item c): on 11-13 a Firestore read quota 429
+# blocked 8 of 18 NOISE opens although this host's own lease stamps were still landing.
+# A failed READ (not a foreign claim) is let through only when ALL hold: this process
+# manages the lease for this uid and still holds it, its own newest stamp LANDED under
+# LEASE_SEND_MAX_AGE_SEC ago (send_gate ok -- another host may claim only once that stamp
+# is LEASE_STALE_SEC old), and the last real read (under LEASE_READ_GRACE_SEC ago) said
+# the lease was ours or free. Anything else stays fail-CLOSED, exactly as before.
+LEASE_READ_GRACE_SEC = 900.0
+
+
+def _lease_read_fail_grace(ok, reason, uid, state, now, log=print):
+    text = str(reason or "")
+    if ok or not text.startswith("lease unverifiable: Firestore read failed"):
+        return ok, reason
+    try:
+        if _LEASE.uid is None or uid != _LEASE.uid:
+            return ok, reason
+        gate = _LEASE.send_gate(uid)
+        last_ok = float(state.get("_lease_read_ok_at", 0) or 0)
+    except Exception:
+        return ok, reason
+    if not gate or not gate[0] or not last_ok or now - last_ok > LEASE_READ_GRACE_SEC:
+        return ok, reason
+    log(f"[qqq-exec] broker lease READ failed but this host's own stamp landed recently and "
+        f"the last read ({now - last_ok:.0f}s ago) was ours -- sends allowed ({text[:120]})")
+    return True, f"lease ok (read failed, own stamp fresh, last good read {now - last_ok:.0f}s ago)"
 
 
 def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
