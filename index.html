@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.78';
+const VERSION='89.79';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5362,7 +5362,11 @@ window._ensureRunsHeavy=function(lim){
   if(!_runsUid||!window._runsSlim)return false;
   if(window._runsHeavyAsked&&(Date.now()-window._runsHeavyAsked)<60000)return false;
   window._runsHeavyAsked=Date.now();
-  _runsLiteFetch(_runsUid,lim||Math.max(75,(Array.isArray(runHistory)?runHistory.length:0)))
+  // THE SAME 75 THE BOARD USED TO LOAD, not the length of the index list: the index now
+  //   holds all 460 runs, and asking the heavy query for 460 would make EXPLORE six times
+  //   dearer than before this change instead of leaving it as it was. LOAD ALL still asks
+  //   for everything, by name, when the reader wants it.
+  _runsLiteFetch(_runsUid,lim||75)
     .then(list=>{
       if(!Array.isArray(list)||!list.length)return;
       window._runsSlim=false;_wfoDropStale(list);runHistory=list;
