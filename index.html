@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.82';
+const VERSION='89.83';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -25124,9 +25124,19 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     // CONFIG ID (owner 2026-11-08, MANAGER #137): every row gets a short stable id from its pool and its
     //   index in that pool's saved list (key 'gate:11' -> G12), so ML rows can be referenced like RAW's R3.
     //   RAW labels already start with their own R-number and are left alone.
+    // THE THREE HYBRID POOLS NEEDED THREE LETTERS (owner 2026-11-14, the ROC question): hyb,
+    //   hyb2 (HYBRID RECYCLE, sized to spend the same contracts as the no-filter book) and hyb3
+    //   (HYBRID EQUAL-DD, sized until its drawdown matches it) all read 'hyb' here, so the same
+    //   model printed the SAME id in all three - H04 was the plain tree, the recycled tree and
+    //   the equal-DD tree at once. Those are different configurations with different net dollars
+    //   and different drawdowns (only the scale-free columns - PF, Sortino, win rate - match), so
+    //   one id across them is how a 46.3% row and a 60.0% row get read as one row disagreeing
+    //   with itself. H, HR, HD now, and the longer keys are tested before the short one.
     const _mtxCfgId=p=>{const m=/^([^:]+):(\d+)$/.exec(String(p&&p.key||''));if(!m)return '';
       const k=m[1].toLowerCase();if(k==='raw')return '';
-      const L=k.indexOf('keel')===0?'K':k.indexOf('gate')===0?'G':k.indexOf('tilt')===0?'T':k.indexOf('hyb')===0?'H':k.charAt(0).toUpperCase();
+      const L=k.indexOf('keel')===0?'K':k.indexOf('gate')===0?'G':k.indexOf('tilt')===0?'T'
+             :k.indexOf('hyb3')===0?'HD':k.indexOf('hyb2')===0?'HR':k.indexOf('hyb')===0?'H'
+             :k.charAt(0).toUpperCase();
       const n=(+m[2])+1;return L+(n<10?'0':'')+n;};
     const _mtxVisible=(pts)=>{const off=_mtxHidden();
       (pts||[]).forEach(p=>{if(p&&!p._cid){const id=_mtxCfgId(p);p._cid=id||'-';if(id&&String(p.label||'').indexOf(id+' ')!==0)p.label=id+' '+String(p.label||'');}});
