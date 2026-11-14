@@ -716,7 +716,7 @@ var FIX = __FIX__;
             goRunboard:d.querySelectorAll('[data-c2view=board]').length,
             booksBtn:d.querySelectorAll('[data-c2view=books]').length,
             hold:!!d.querySelector('.c2-hold'),
-            noWf:txt.indexOf('NO WALK-FORWARD STAGE')>=0,
+            noWf:txt.indexOf('NO WALK-FORWARD STAGE')>=0||txt.indexOf('NO BOOK RUN HERE STORED A WALK-FORWARD STRETCH')>=0,
             note:txt.indexOf('trades counted on exit date')>=0,
             launcher:txt.indexOf('RUN A BOOK')>=0,
             errors:sink.errors.slice(0,5),uncaught:sink.uncaught.slice(0,5)};
