@@ -1580,7 +1580,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.71';
+const VERSION='89.72';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -44132,9 +44132,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   no tuning fold to step forward out of, so there is no walk-forward reading that
           //   would be honest to print - and ten empty cells would read as a broken table
           //   rather than as an answer. Say it, and offer the three stages a book does have.
-          if(_c2Stage==='wf'){
+          // W129 #13: a book run that DID store a walk-forward stretch (book_sizing.stretches) shows it;
+          //   only when none did does the hold below speak, and it no longer says no walk-forward exists.
+          const _bkWfSt=(_c2Stage==='wf')?rs2.filter(r=>r&&r.book&&Array.isArray(r.book.legs)).sort((a,b)=>(+b.id||0)-(+a.id||0))
+            .map(r=>{const st=(((r.book.book_sizing||{}).stretches)||[]).find(x=>/wf|walk/i.test(String((x&&x.name)||'')));return st?{r,st}:null;}).filter(Boolean):[];
+          if(_c2Stage==='wf'&&_bkWfSt.length){
+            const _w$=n=>((+n<0)?'-$':'$')+Math.round(Math.abs(+n||0)).toLocaleString();
+            _c2Body=_bkHdr+_bkStg+'<div class="c2-card" style="overflow-x:auto"><table style="width:100%;border-collapse:collapse;font-size:11px"><tr>'
+              +['RUN','STRETCH','NET','MAX DD','ROC@$30K','DD%','SORTINO'].map(h=>'<th style="text-align:left;font-size:8px;letter-spacing:1.2px;color:var(--text5);padding:7px 9px;border-bottom:1px solid var(--border)">'+h+'</th>').join('')+'</tr>'
+              +_bkWfSt.map(({r,st})=>'<tr data-c2run="'+r.id+'" style="cursor:pointer">'+['BOOK #'+r.id,_reEscC2(String(st.name||''))+' '+_reEscC2(String(st.from||''))+' → '+_reEscC2(String(st.to||'')),_w$(st.net),_w$(st.max_drawdown),(st.roc_30k!=null?(+st.roc_30k).toFixed(2):'—'),(st.dd_pct_peak!=null?(+st.dd_pct_peak).toFixed(2)+'%':'—'),(st.sortino!=null?(+st.sortino).toFixed(3):'—')]
+                .map(c=>'<td style="padding:8px 9px;border-bottom:1px solid var(--border2);white-space:nowrap">'+c+'</td>').join('')+'</tr>').join('')
+              +'</table></div>';
+          }else if(_c2Stage==='wf'){
             _c2Body=_bkHdr+_bkStg
-              +'<div class="c2-card"><div class="c2-hold">A BOOK HAS NO WALK-FORWARD STAGE'
+              +'<div class="c2-card"><div class="c2-hold">NO BOOK RUN HERE STORED A WALK-FORWARD STRETCH'
+              +'<div style="margin-top:8px;letter-spacing:0;font-size:10px;color:var(--text4);line-height:1.7">A walk-forward reading of a book (for example #463 WF) comes from the frontier harness and is kept in the run records (EXPLORE scatter), not in the book run document. None of these book runs saved one, so this stage has nothing to show here.</div>'
               +'<div style="margin-top:8px;letter-spacing:0;font-size:10px;color:var(--text4);line-height:1.7">A book pools its legs over one window with every parameter already frozen, and tunes nothing. There is no tuning window to step forward out of, so there is no walk-forward figure here that would be honest to show. The SLICES column on the rows is the house 8-stretch count, which is a different thing and is shown on IS, LB and FULL.</div>'
               +'<div style="margin-top:14px;display:flex;gap:8px;justify-content:center;flex-wrap:wrap"><span class="c2-act" data-c2stage="lb">THE SEALED LOCKBOX</span><span class="c2-act" data-c2stage="is">THE TUNING YEARS</span><span class="c2-act" data-c2stage="full">THE WHOLE WINDOW</span></div></div></div>';
           }else{
@@ -44151,6 +44163,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // a book run is identified by the BOOK BLOCK it carries, never by its scope text -
             //   the scope string for a sealed run contains the letters book and once matched
             //   every lockbox run in the history.
+            // W129 #13: THE FOUR NUMBERS on a live book row. ROC@$30k = 30 x (net / years) / worst drawdown
+            //   of the row's stage (house four_numbers), years from the stage's own dates. DD5, DD% from peak
+            //   and Sortino need the daily P&L, which a book run does not save (a 400-point curve only) - say so.
+            const _bk4n=(bk,s)=>{const y=(a,b2)=>{const t0=Date.parse(a),t1=Date.parse(b2);return (t0&&t1&&t1>t0)?(t1-t0)/864e5/365.25:0;};
+              const yr=(_bkK==='lb')?y(bk.lockbox_from,bk.date_to):((_bkK==='is')?y(bk.date_from,bk.lockbox_from):y(bk.date_from,bk.date_to));
+              const roc=(s.dd>0&&yr>0)?(30*(s.net/yr)/s.dd):null;
+              return '<div title="ROC@$30k = 30 x (net / years) / worst drawdown of this stage, years from the stage dates. DD5, DD% from peak and Sortino need the daily P&amp;L series; a book run saves only a 400-point equity curve, so they are not stored for this run." style="font-size:8.5px;color:var(--text4);cursor:help">ROC@$30k '+(roc!=null?roc.toFixed(2):'—')+' · DD5, DD%, Sortino not stored for this run</div>';};
             const _bkRuns=rs2.filter(r=>r&&r.book&&Array.isArray(r.book.legs)).sort((a,b)=>(+b.id||0)-(+a.id||0));
             const _bkLive=_bkRuns.map(r=>{const bk=r.book||{},vv=r.validate?r.validate.verdict:'';
               const _st=(_bkK==='lb')?bk.lockbox:((_bkK==='is')?bk.pre_lockbox:bk.whole);
@@ -44198,7 +44217,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               //   It is deliberately NOT the annualised MAR the rest of this tab uses.
               return '<tr data-c2run="'+r.id+'" title="open this book run report" style="cursor:pointer">'
                 +_bkTd('<span style="color:var(--green)">\u25b8</span>','left')
-                +_bkTd('<b style="color:var(--text)">'+(bk.name?_reEscC2(bk.name):('BOOK #'+r.id))+'</b>'+_lrB+_ttmPreFixTag(r)+_preRollEnguqTag(r)+_c2VoidTag(r)+'<div style="font-size:8.5px;color:var(--text5)">'+(_reEscC2(legs)||'\u2014')+'</div>'+_wsHtml+_drHtml+_mtHtml,'left')
+                +_bkTd('<b style="color:var(--text)">'+(bk.name?_reEscC2(bk.name):('BOOK #'+r.id))+'</b>'+_lrB+_ttmPreFixTag(r)+_preRollEnguqTag(r)+_c2VoidTag(r)+'<div style="font-size:8.5px;color:var(--text5)">'+(_reEscC2(legs)||'\u2014')+'</div>'+_wsHtml+_drHtml+_mtHtml+_bk4n(bk,s),'left')
                 +_bkTd('<span style="color:var(--green);font-size:10px">\u25cf LIVE RUN #'+r.id+'</span>','left')
                 +_bkTd('<span style="color:'+((s.net>=0)?'var(--green)':'var(--red)')+'">'+_bkF(s.net)+'</span>')
                 +_bkTd(s.pf?s.pf.toFixed(2):'\u2014')
