@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.76';
+const VERSION='89.77';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5316,6 +5316,61 @@ function _wfoDropStale(list){
     if(window._runCfg)delete window._runCfg[id];
     if(Array.isArray(window._runFullOrder))window._runFullOrder=window._runFullOrder.filter(k=>String(k)!==id);});
   return n;}
+// ── THE RUN INDEX (owner GO 2026-11-14: cut the Firestore reads) ──────────────────
+// A page load used to read the runs list ONE DOCUMENT PER RUN - 75 by default, every one
+// of the 460 after a LOAD ALL - and that, measured in the owner's browser on 11-13, was
+// most of the 250 to 1,500 document reads a load cost against a 50,000-a-day ceiling he
+// hit the same week.
+// tools/runs_index_build.py writes the SMALL fields of every run - what the list, the
+// crowns and the leaderboard rows print - into meta/runs_index_<n>, with meta/runs_index
+// as the header. Measured: all 460 runs fit in TWO shards, so the whole history costs
+// THREE reads instead of 460.
+//   Why not the whole projected field set: measured the same day, RUNS_LITE_FIELDS weighs
+//   100-400 KB a RUN (top10_results, best_params, the equity curve, the validate blocks),
+//   which needs a shard every two runs and saves nothing. So the index is deliberately
+//   slim, every row is marked _slim, and a screen that needs the heavy fields asks for
+//   them with _ensureRunsHeavy() - the same projected query as before, once, on demand.
+// IT IS A CACHE, NEVER THE LAST WORD: the newest runs are read live on top of it, the
+//   starred query stays live so a crown is never read out of a stale index, and anything
+//   that fails falls straight through to the projected query. A stale index can make the
+//   board slower, never wrong.
+const RUNS_INDEX_DELTA=10;   // the newest runs, read live, in case the index predates them
+function _runsIndexFetch(uid){
+  const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
+  const base='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+uid+'/meta/';
+  const get=(doc,tok)=>fetch(base+doc,{headers:{'Authorization':'Bearer '+tok}})
+    .then(r=>{if(!r.ok)throw new Error('index '+doc+' '+r.status);return r.json();})
+    .then(j=>_fsFields((j||{}).fields||{}));
+  return auth.currentUser.getIdToken().then(tok=>get('runs_index',tok).then(head=>{
+    const k=+head.shards||0;
+    if(!k||!(+head.n))throw new Error('index header empty');
+    const want=[];for(let i=0;i<k;i++)want.push(get('runs_index_'+i,tok));
+    return Promise.all(want).then(parts=>{
+      const out=[];
+      parts.forEach(p=>(p.runs||[]).forEach(x=>{
+        if(!x||x.id==null)return;
+        const o=Object.assign({},x);o.id=String(o.id);o._lite=true;o._slim=true;
+        out.push(_bookUnitsOnRead(_isoTs(o)));}));
+      if(!out.length)throw new Error('index shards empty');
+      return {head:head,rows:out};});}));
+}
+// THE HEAVY LIST, ONCE, ON DEMAND. Every screen that reads a field the slim index does not
+//   carry calls this; it runs the same projected query the board used to run at boot, so
+//   nothing about those screens changes except WHEN the reads are spent.
+window._runsHeavyAsked=0;
+window._ensureRunsHeavy=function(lim){
+  if(!_runsUid||!window._runsSlim)return false;
+  if(window._runsHeavyAsked&&(Date.now()-window._runsHeavyAsked)<60000)return false;
+  window._runsHeavyAsked=Date.now();
+  _runsLiteFetch(_runsUid,lim||Math.max(75,(Array.isArray(runHistory)?runHistory.length:0)))
+    .then(list=>{
+      if(!Array.isArray(list)||!list.length)return;
+      window._runsSlim=false;_wfoDropStale(list);runHistory=list;
+      window._runsLoadedLimit=list.length;
+      if(activeTab==='augur')renderApp();})
+    .catch(e=>{console.warn('[runs] heavy list read failed:',(e&&e.message)||e);window._runsHeavyAsked=0;});
+  return true;
+};
 // One projected REST read of the runs list. Resolves to the same shape the listener built,
 // with _lite true on every row so the report knows to pull the whole document first.
 function _runsLiteFetch(uid,lim){
@@ -5680,6 +5735,37 @@ function _subscribeRuns(uid,lim){
   // STARRED RUNS (item 4) - independent of the main list and of whether it succeeds, so a
   //   crowned run's own read never depends on this one's, or the other way round.
   {const g=++window._starRunsGen;_starRunsFetch(uid).then(sr=>{if(_starRunsApply(sr,g)&&activeTab==='augur')renderApp();});}
+  // THE INDEX FIRST (3 reads for every run), the projected query only when it is missing.
+  //   A LOAD ALL / LOAD MORE click asks for the heavy list by name (lim>75 below), so it
+  //   never comes back from the index and the reader gets the fields he clicked for.
+  if((lim||75)<=75&&!window._runsIndexOff){
+    _runsIndexFetch(uid).then(ix=>{
+      if(unsubRuns){try{unsubRuns();}catch(_){}unsubRuns=null;}
+      window._runsLiteOk=true;window._runsSlim=true;window._runsIndexHead=ix.head;
+      _wfoDropStale(ix.rows);
+      runHistory=ix.rows;
+      window._runsLoadedLimit=ix.rows.length;
+      try{window._setStage('RUNS LOADED ('+ix.rows.length+' from the index)');}catch(_){}
+      if(activeTab==='augur')renderApp();
+      // THE NEWEST FEW, LIVE. The index is rebuilt by a tool, so a run saved since then is
+      //   not in it; ten projected reads put the newest runs on the board whatever the
+      //   index's age, and they are the heavy rows, so the newest run is complete.
+      _runsLiteFetch(uid,RUNS_INDEX_DELTA).then(fresh=>{
+        if(!Array.isArray(fresh)||!fresh.length)return;
+        const by={};(runHistory||[]).forEach(x=>{by[String(x.id)]=x;});
+        let added=0;fresh.forEach(x=>{const k=String(x.id);if(!by[k])added++;by[k]=x;});
+        const merged=Object.keys(by).map(k=>by[k])
+          .sort((a,b)=>String(b.timestamp||'').localeCompare(String(a.timestamp||'')));
+        _wfoDropStale(merged);runHistory=merged;window._runsLoadedLimit=merged.length;
+        if(added&&activeTab==='augur')renderApp();
+      }).catch(e=>{console.warn('[runs] newest-runs top-up failed:',(e&&e.message)||e);});
+    }).catch(e=>{
+      console.warn('[runs] index read failed, using the projected query:',(e&&e.message)||e);
+      window._runsIndexOff=true;window._runsSlim=false;
+      _subscribeRuns(uid,lim);});
+    return;
+  }
+  window._runsSlim=false;
   // Fast path: one projected REST read. Only when it fails do we attach the old listener.
   _runsLiteFetch(uid,runsLimit).then(list=>{
     if(unsubRuns){try{unsubRuns();}catch(_){}unsubRuns=null;}
@@ -36494,6 +36580,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         // stored as a JSON STRING by every writer on this board, but an object handed
         //   straight in used to vanish (JSON.parse of an object throws -> {}), so a
         //   caller could set a filter and watch the board ignore it. Both shapes read.
+        // THE HEAVY LIST IS THIS SCREEN'S TO ASK FOR (2026-11-14). Boot now loads the slim
+        //   index, which carries what the list and the crowns print but not the validate
+        //   blocks, the top-ten tables or the equity curves EXPLORE draws. Asking here costs
+        //   exactly what boot used to cost, once, and only for a reader who opened EXPLORE.
+        if(window._runsSlim&&typeof window._ensureRunsHeavy==='function')window._ensureRunsHeavy();
         const _reFilt=(()=>{try{const raw=APREF.resFilt;
           if(raw&&typeof raw==='object'&&!Array.isArray(raw))return raw;
           const o=JSON.parse(raw||'{}');return (o&&typeof o==='object')?o:{};}catch(e){return {};}})();
