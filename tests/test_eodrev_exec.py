@@ -36,6 +36,9 @@ class FakeAd:
 
 def _run(tmp_path, ad, monkeypatch, fills=None, notes=None):
     p = ex.paths(str(tmp_path))
+    if not os.path.exists(os.path.join(str(tmp_path), "probe.jsonl")):
+        with open(os.path.join(str(tmp_path), "probe.jsonl"), "w") as f:
+            f.write(json.dumps({"results": [{"open_ok": 1, "moc_ok": 1}] * 2}) + "\n")
     fills = fills or {}
     monkeypatch.setattr(ex, "lookup", lambda a, rec: fills.get(rec["_sid"], {
         "status": "FILLED", "filled": rec.get("_qty", 0), "price": None}))
@@ -137,3 +140,16 @@ def test_other_book_symbols_skip_in_paper_reconcile(tmp_path):
     assert wo.other_book_symbols(cfg, str(tmp_path / "mine.json")) == {"AAPL"}
     assert wo.other_book_symbols(cfg, str(other)) == set()
     assert wo.other_book_symbols({"other_book_states": [str(tmp_path / "nope.json")]}, None) == set()
+
+
+def test_no_basket_until_probe_passed(tmp_path):
+    _sig(str(tmp_path))
+    with open(os.path.join(str(tmp_path), "probe.jsonl"), "w") as f:
+        f.write(json.dumps({"results": [{"open_ok": True, "moc_ok": False}, {"open_ok": True, "moc_ok": True}]}) + "\n")
+    ad, notes = FakeAd(), []
+    rec = ex.run_day(ex.paths(str(tmp_path)), now_fn=lambda: dt.datetime(2026, 11, 16, 15, 27, tzinfo=ET),
+                     adapter=ad, log=lambda *a: None, notify=lambda m, **k: notes.append(m), sleep=False)
+    assert rec["why"] == "probe not passed" and not ad.sent and notes
+    with open(os.path.join(str(tmp_path), "probe.jsonl"), "a") as f:
+        f.write(json.dumps({"results": [{"open_ok": True, "moc_ok": True}] * 2}) + "\n")
+    assert ex.probe_ok(ex.paths(str(tmp_path)))

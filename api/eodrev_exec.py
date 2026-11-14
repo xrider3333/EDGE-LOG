@@ -50,6 +50,7 @@ DEFAULTS = {
     "settle_at": "16:05",
     "max_px_drift": 0.05,          # skip a name whose file px is >5% off the ledger sanity band
     "min_price": 60.0,
+    "require_probe_ok": True,      # no basket until a probe has passed (MOC + short accepted)
 }
 
 
@@ -197,6 +198,19 @@ def day_pnl(entries):
     return tot
 
 
+def probe_ok(p):
+    """True once any probe run recorded both sides accepted: the entry AND its MOC."""
+    try:
+        with open(os.path.join(p["dir"], "probe.jsonl"), encoding="utf-8") as f:
+            for line in f:
+                r = json.loads(line).get("results") or []
+                if len(r) == 2 and all(x.get("open_ok") and x.get("moc_ok") for x in r):
+                    return True
+    except (FileNotFoundError, ValueError):
+        pass
+    return False
+
+
 # -- broker ----------------------------------------------------------------------------------
 def make_adapter(p, log=print):
     from api import webull_orders as wo
@@ -299,6 +313,9 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
 
     if rail_blocks(state, day):
         return finish("blocked by daily loss rail", rail=state.get("rail_reason"))
+    if cfg.get("require_probe_ok", True) and not probe_ok(p):
+        notify("Strategy 23: no trade today - the MOC/short probe has not passed", log=log)
+        return finish("no trade", why="probe not passed")
     wait(_at(day, cfg["gate_at"]))
     sig, why = read_signal(day, cfg, p["dir"])
     if sig is None:
@@ -399,6 +416,10 @@ def run_probe(sym="AAPL", p=None, adapter=None, log=print):
         out.append(r)
         log(f"[eodrev-probe] {json.dumps(r, default=str)}")
     _append(os.path.join(p["dir"], "probe.jsonl"), {"day": str(day), "results": out})
+    good = len(out) == 2 and all(x.get("open_ok") and x.get("moc_ok") for x in out)
+    _notify(("Strategy 23 probe PASSED: " if good else "Strategy 23 probe FAILED: ") + "; ".join(
+        f"{x['side']} open {'ok' if x.get('open_ok') else x.get('open_reason')}, "
+        f"MOC {'ok' if x.get('moc_ok') else x.get('moc_reason')}" for x in out)[:400], log=log)
     return out
 
 
