@@ -47,6 +47,7 @@ def resolve(strategy):
     if s0.startswith("VWAP"): return "VWAP"
     if s0.startswith("OVERNIGHT"): return "OVERNIGHT"
     if s0.startswith("RSIDIV"): return "RSIDIV"
+    if s0.startswith("PICK6") or "EODREV" in s0: return "PICK6"
     base = re.sub(r"\.PY$", "", s0)
     m = re.match(r"[A-Z][A-Z0-9]*", base)
     return m.group(0) if m else "MISC"

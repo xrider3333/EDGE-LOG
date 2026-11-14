@@ -1581,6 +1581,7 @@ class FirestoreQueue:
         if s0.startswith("VWAP"): return "VWAP"
         if s0.startswith("OVERNIGHT"): return "OVERNIGHT"
         if s0.startswith("RSIDIV"): return "RSIDIV"
+        if s0.startswith("PICK6") or "EODREV" in s0: return "PICK6"   # strategy 23, MISC_EODREV_* files (owner 2026-11-14)
         # new/unknown strategy -> derive a key from the leading name token (strip version/ext)
         base = re.sub(r"\.PY$", "", s0)
         m = re.match(r"[A-Z][A-Z0-9]*", base)

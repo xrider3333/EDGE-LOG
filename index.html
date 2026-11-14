@@ -21570,12 +21570,13 @@ function renderApp(){
       {re:/^cbdq/i,abbr:'CBD-Q',full:'Close Breakdown - Quant',desc:'Automated version of the owner discretionary CBD setup: the short mirror of CBU-Q, a close breaks down to a new regular-session low below a premarket or prior-day low'},
       {re:/^cbuq/i,abbr:'CBU-Q',full:'Close Breakout - Quant',desc:'Automated version of the owner discretionary CBU setup: a close breaks out to a new regular-session high above a premarket or prior-day level'},
       {re:/^ebuq/i,abbr:'EBU-Q',full:'Local Breakout - Quant',desc:'Automated version of the owner discretionary EBU setup: a local breakout that stays inside the current session high so far'},
+      {re:/^(misc_)?eodrev|^pick6/i,abbr:'PICK6',full:'Pick 6 · end-of-day reversal',desc:'Strategy 23 (MISC_EODREV files): at 15:20 ET buys the 3 and shorts the 3 top-100 stocks with the best reversal + close-habit score, exits at the official close. Engine run #511 PASS.'},
       {re:/^rf/i,abbr:'RFML',full:'Random-Forest ML',desc:'Random-forest indicator-based signals'}];
     const stratFam=base=>{const b=String(base||'').replace(/\.py$/,'');for(const f of STRAT_FAM)if(f.re.test(b))return f;return null;};
     const _abbrVer=base=>{const toks=String(base||'').replace(/\.py$/,'').split(/[_\s]+/).filter(Boolean);const isNum=t=>/^\d+(\.\d+)*$/.test(t);let k=toks.length;while(k>0&&isNum(toks[k-1]))k--;const nameT=toks.slice(0,k).filter(t=>!isNum(t));const verT=toks.slice(k);let abbr=(nameT[0]||base||'').toUpperCase();if(abbr.length<3&&nameT[1])abbr=(nameT[0]+nameT[1]).toUpperCase();return {abbr:abbr.slice(0,5),ver:verT.join('.')};};
     // Family keyword, searched ANYWHERE in the string (legacy run names often led with
     // the version, e.g. "1.3.1 ENGU 3 (CLAUDE)"); underscores/punctuation → spaces.
-    const _FAMRE=[[/cbuq|cbdq|ebuq|cbu q/,'CBU-Q'],[/opening|orb/,'ORB'],[/overnight/,'OVERNIGHT'],[/engu/,'ENGU'],[/etfdip/,'DIP'],[/supertrend/,'SUPERTREND'],[/revert/,'REVERT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE'],[/ttmsqz|ttm squeeze/,'TTM'],[/nqdip/,'DIP'],[/emapb/,'EMAPB'],[/gapgo/,'GAPGO']];
+    const _FAMRE=[[/eodrev|pick6/,'PICK6'],[/cbuq|cbdq|ebuq|cbu q/,'CBU-Q'],[/opening|orb/,'ORB'],[/overnight/,'OVERNIGHT'],[/engu/,'ENGU'],[/etfdip/,'DIP'],[/supertrend/,'SUPERTREND'],[/revert/,'REVERT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE'],[/ttmsqz|ttm squeeze/,'TTM'],[/nqdip/,'DIP'],[/emapb/,'EMAPB'],[/gapgo/,'GAPGO']];
     const _famKey=s=>{const raw=String(s||'');
       // repair round (independent check, item 3): the book-name test must run on the
       //   RAW string, BEFORE normalisation. Normalising first turns every underscore
@@ -21625,6 +21626,7 @@ function renderApp(){
       //   of falling through to UNTAGGED or being swept into whichever real strategy
       //   its name happened to mention (ENGU-Q, most often - see _canonFam below).
       BOOK:{abbr:'BOOK',n:17,hue:200,full:'Book',desc:'Several strategies traded side by side over one window, their trades pooled and scored as one'},
+      PICK6:{abbr:'PICK6',n:19,hue:225,full:'Pick 6',desc:'End-of-day reversal on the top-100 stocks: 3 long, 3 short from 15:30 to the official close (strategy 23, run #511)'},
       NOISE:{abbr:'NOISE',n:12,hue:300,full:'Noise-Band Momentum',desc:'Session band scaled by recent realized noise: a close outside it is the entry, a VWAP cross the exit'}};
     const _canonFam=s=>{const raw=String(s||'');
       // a BOOK pools several strategies into one pile and is not a strategy family

@@ -5,7 +5,7 @@ import pytest
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 VOCAB = {"ORB", "NOISE", "ENGU-Q", "ENGU", "CBU-Q", "TTM", "DIP", "GAPGO", "TTIBS", "VWAP", "REVERT",
-         "SUPERTREND", "RSIDIV", "OVERNIGHT", "EMAPB", "REPLAY", "RFML", "BOOK", "MISC"}
+         "SUPERTREND", "RSIDIV", "OVERNIGHT", "EMAPB", "REPLAY", "RFML", "BOOK", "MISC", "PICK6"}
 
 
 def _load(path, name):
@@ -33,7 +33,8 @@ CASES = {"TTMSQZ_3_0_ES30SSOF2.py": "TTM", "NQDIP_1_1.py": "DIP", "ETFDIP_RSI2_1
          "ENGUDQ_1M_1_0.py": "ENGU-Q", "NOISE_1_8_CT304.py": "NOISE", "VWAP_FADE_1_0.py": "VWAP",
          "BOOK: ORB 234 + NOISE": "BOOK", "COMBINED (REAL): ORB234": "BOOK", "GAPGO_TRAVEL_1_0.py": "GAPGO",
          "CBUQ_1M_1_0.py": "CBU-Q", "CBDQ_1M_1_0.py": "CBU-Q", "EBUQ_1M_1_0.py": "CBU-Q",
-         "ENGU_2_0.py": "ENGU", "ENGU_2_0_D.py": "ENGU"}
+         "ENGU_2_0.py": "ENGU", "ENGU_2_0_D.py": "ENGU",
+         "MISC_EODREV_1_2.py": "PICK6", "MISC_EODREV_1_0.py": "PICK6", "PICK6 #511": "PICK6"}
 
 
 @pytest.mark.parametrize("name,fam", sorted(CASES.items()))
