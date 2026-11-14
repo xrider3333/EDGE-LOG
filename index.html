@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.92';
+const VERSION='89.93';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -40899,9 +40899,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   row here, the same row in the run report's 1E matrix and the paper leg in the
           //   LEDGER are named identically. The crown mark and the pool's own short label (ET
           //   45%, tree (SL), v12) stay as the variant word.
+          //   EXPLORE PRINTS THE RUN IN ITS OWN COLUMN, so the CONFIG cell carries only the
+          //   variant word and the pool letter - repeating the run number put it on screen
+          //   twice ("#483 483 tree") and the wider column pushed DD5 off a 1400 px board.
+          //   The whole id is in the cell's hover, and on the two screens with no run column
+          //   of their own - the report's 1E matrix and the LEDGER - it is printed in full.
           const _reCidFull=function(RID,kind,rec,crown){
             const v=_reCidOf(kind,rec,crown);
-            return window.cfgIdText({run:RID,cell:window.cfgCellOfRun(RID),pool:kind,variant:v,hash:false});};
+            return window.cfgIdText({run:'',cell:null,pool:kind,variant:v,hash:false});};
           const _reCidOf=function(kind,rec,crown){const o=rec||{};
             if(kind==='GATE')return (crown?'\ud83d\udc51 ':'')+(_GATE_MODEL_AB[o.model]||String(o.model||'').toUpperCase())+' '+Math.round((+o.threshold||0)*100)+'%';
             if(kind==='TILT')return String(o.model||'')+' ('+(_TILT_SCHEME_AB[o.scheme]||String(o.scheme||'?').slice(0,2).toUpperCase())+')';
@@ -41016,7 +41021,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       //   every row, because the two look alike and mean different things: this is
                       //   rank N of ten candidates by walk-forward, the Webull '.N' is row N of the
                       //   run's whole in-sample-sorted grid.
-                      _cid:window.cfgIdText({run:RID,cell:window.cfgCellOfRun(RID),pool:'RAW',variant:(c.crowned?'\ud83d\udc51':'')+'R'+(i+1),hash:false}),_cidTip:_reCidTip('RAW',c,'R'+(i+1),'its walk-forward rank in this run, '+(i+1)+' of '+raws.length)+' This is a WALK-FORWARD RANK among the candidates, NOT the run.set number the paper boards print - that one counts rows of the run\u2019s whole saved grid sorted by in-sample net.',
+                      _cid:window.cfgIdText({run:'',cell:null,pool:'RAW',variant:(c.crowned?'\ud83d\udc51':'')+'R'+(i+1),hash:false}),_cidTip:_reCidTip('RAW',c,'R'+(i+1),'its walk-forward rank in this run, '+(i+1)+' of '+raws.length)+' This is a WALK-FORWARD RANK among the candidates, NOT the run.set number the paper boards print - that one counts rows of the run\u2019s whole saved grid sorted by in-sample net.',
                       what:'A raw configuration from run #'+RID+'. Scored on the optimize window; the lockbox never judged it.',
                       tone:(c.crowned?'champ':'ref'),read:(c.crowned?'Crowned in this run':'Candidate'),
                       is:isV,wf:wfV,lb:lbSlice,tot:((lbEnd!=null)?lbEnd:((isV||0)+(wfV||0))),
@@ -51113,7 +51118,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +sn.join(' ')
             +(ks.length?(' <span data-rfshowall="'+ks.join(',')+'" title="Clear the filters listed here and show every loaded run. Nothing else changes." style="display:inline-block;margin-left:4px;padding:1px 9px;border-radius:999px;border:1px solid var(--text4);color:var(--text2);font-weight:700;letter-spacing:.5px;cursor:pointer;white-space:nowrap">SHOW EVERYTHING</span>'):'')
             +'</td></tr>';})();
-        const trows=_pinRowHtml+(sorted.length?sorted.map(r=>_flatRow(r,false)).join(''):_emptyWhy);
+        // PAST RUNS DRAWS THE NEWEST 75, AS IT DID BEFORE THE RUN INDEX (bug, ENGU-Q 2026-11-14).
+        //   The index was a READ cut: it fetches the whole history in 3 documents instead of one
+        //   per run. It was never meant to put more ROWS on screen, but this list drew every run
+        //   the board held, so a page that used to mount 75 rows mounted 460 - measured headless
+        //   on v89.86: 117 table rows against 502 - and ENGU-Q saw over 45 s to first paint, with
+        //   any view switch stuck behind it. The rows are already in memory, so LOAD 75 MORE just
+        //   raises this number and costs nothing; the filters, the sort and the counts above still
+        //   run over the WHOLE list, so nothing is hidden from a search.
+        const _prShow=(function(){const n=+(window._runsShowN||0);return (n>0)?n:75;})();
+        const _prCut=sorted.length>_prShow;
+        const _prRows=_prCut?sorted.slice(0,_prShow):sorted;
+        const trows=_pinRowHtml+(_prRows.length?_prRows.map(r=>_flatRow(r,false)).join(''):_emptyWhy);
         const rv=APREF.resView==='stack'?'stack':'side';const _grp=!!APREF.resGroup;
         // PAST RUNS toolbar controls (view / group-by / keepers) share ONE uniform style (owner:
         //   unify the buttons in that row). View is now a SINGLE ▦ GROUP on/off toggle, not a pair.
@@ -51173,7 +51189,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   click bumps synchronously before its bigger list is back.
         const _rmLoadedLim=(typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:runsLimit;
         const _rmFetching=(typeof window._runsLoadedLimit==='number')&&(typeof runsLimit!=='undefined')&&runsLimit!==window._runsLoadedLimit;
-        const _runsMoreRow=((typeof _rmLoadedLim!=='undefined'&&runHistory.length>=_rmLoadedLim)||_rmFetching)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
+        const _runsMoreRow=(_prCut||(typeof _rmLoadedLim!=='undefined'&&runHistory.length>=_rmLoadedLim)||_rmFetching)?('<div style="text-align:center;padding:9px 0 3px"><span data-runsmore style="cursor:pointer;user-select:none;font-size:9px;font-weight:700;letter-spacing:1px;padding:6px 16px;border-radius:7px;border:1px solid var(--border);color:var(--text3)">LOAD 75 MORE</span></div>'):'';
         const _runsMoreRowX=(window._runsLiteOk===false&&_runsMoreRow)?'<div data-runsmoreoff style="text-align:center;padding:9px 0 3px;font-size:9px;color:var(--text5)">older runs cannot load right now - the quick read failed (reads may be rate-limited); reload later</div>':_runsMoreRow;
         const listTile=tile('<div class="lbl" style="font-size:14px;letter-spacing:2px;color:var(--text4)">PAST RUNS · '+sorted.length+(sorted.length!==allRuns.length?' / '+allRuns.length:'')+'</div>'+_rfBar('')+_pinNote+tbl+_runsMoreRowX);
         // overflow:visible is REQUIRED — the themed .hero-card sets overflow:hidden, which
@@ -53742,7 +53758,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           else if(k==='rfArch')savePref(k,true);
           else if(k==='rfFam'||k==='rfStrat'||k==='rfInst'||k==='rfTf'||k==='rfScope'||k==='rfQ')savePref(k,'');});
         renderApp();};});
-      const _rmore=content.querySelector('[data-runsmore]');if(_rmore)_rmore.onclick=()=>{_rmore.textContent='LOADING…';window._loadMoreRuns();};
+      // LOAD 75 MORE: if the rows are already in memory (the run index loads the whole history
+      //   in three reads), this only raises how many PAST RUNS draws - no Firestore read at all.
+      //   Only when the drawn count has caught up with what the board holds does it go and fetch.
+      const _rmore=content.querySelector('[data-runsmore]');if(_rmore)_rmore.onclick=()=>{
+        const shown=+(window._runsShowN||75),held=(runHistory||[]).length;
+        if(shown<held){window._runsShowN=shown+75;renderApp();return;}
+        _rmore.textContent='LOADING…';window._runsShowN=shown+75;window._loadMoreRuns();};
       // family quick-toggle chips (flat + grouped): click = filter to that family, click again = all
       content.querySelectorAll('[data-rffam]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const f=ch.dataset.rffam;savePref('rfFam',(APREF.rfFam===f)?'':f);renderApp();};});
       content.querySelectorAll('[data-rfchamp]').forEach(ch=>{ch.onclick=(e)=>{e.stopPropagation();const on=!APREF.rfChamp;savePref('rfChamp',on);if(on)savePref('rfFam','');renderApp();};});
