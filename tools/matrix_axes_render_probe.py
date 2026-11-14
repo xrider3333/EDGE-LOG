@@ -1387,9 +1387,13 @@ def main():
             k = (row.get('FAMILY', '').strip(), _plain(row.get('CONFIG', '')))
             fc = fam_cells.get(k)
             if not fc:
-                # since v88.70 the pooled table prefixes each config with its id (G01, T03, K01, H02,
-                #   crown mark) - the family tab does not, so strip it before joining
-                k = (k[0], re.sub(r'^\W*[GTKHR]\d{1,3}\s+', '', k[1]))
+                # since v88.70 the pooled table prefixes each config with its id - the family tab
+                #   does not, so strip it before joining. Two shapes have existed: the old pool
+                #   letter + index (G01, T03, K01, H02) and, since 2026-11-14, the shared id
+                #   <run>[.<set>] <POOL> (483.4 HD, 483 G) that the LEDGER, the report and EXPLORE
+                #   all name a config with. Both are stripped, so this join survives either.
+                k = (k[0], re.sub(r'^\W*(?:[GTK]|H[RD]?)\d{1,3}\s+|^\W*\d+(?:\.\d+)?\s+(?:[GTK]|H[RD]?)\s+',
+                                  '', k[1]))
                 fc = fam_cells.get(k)
             if not fc:
                 continue

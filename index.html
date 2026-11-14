@@ -4656,6 +4656,72 @@ function ledgerTradeViewGet(id,dflt){
 function ledgerTradeViewSet(id,v){try{localStorage.setItem('el_lg_view_'+id,v==='table'?'table':'list');}catch(e){}}
 // W131 (owner 2026-11-13): CHARTS - a small candle chart under every trade on the list.
 // Off by default on every board: on, each row that reaches the screen reads its own bars.
+// ── ONE CONFIG ID, ON EVERY SCREEN (owner 2026-11-14, Option 1) ────────────────────────────
+// A configuration is named the same way in the LEDGER, in a run report's 1E matrix and in
+// EXPLORE: <run>.<set> <variant> <POOL>, e.g. "483.4 tree HD".
+//   .<set> KEEPS THE MEANING THE PAPER BOARDS ALREADY GAVE IT - the Nth best configuration of
+//     the run's saved grid BY IN-SAMPLE NET, 1 = the best (api/paper_leg_params.py writes it as
+//     params_cell; the WEBULL board prints "DIP #424.1 raw"). It is NOT re-derived here, and no
+//     live paper leg is renumbered: where the run does not record a set number, the id simply
+//     has none. An invented .N would read exactly like a real one and be wrong.
+//   <variant> is the model or version word (tree, et, xgb, rf, logistic, v12), as the paper
+//     boards already print it, and
+//   <POOL> is the matrix letter. The three hybrid pools get three letters because they are
+//     three different configurations sharing one model: H (as tuned), HR (recycle - sized to
+//     spend the same contracts as the no-filter book) and HD (equal drawdown). They differ in
+//     net dollars and in drawdown; only the scale-free columns (PF, Sortino, win rate) match,
+//     which is how a 46.3 % row and a 60.0 % row were read as one row disagreeing with itself.
+window.CFG_POOL_LETTER={'RAW':'','GATE':'G','TILT':'T','HYBRID':'H','HYBRID ♻':'HR',
+                        'HYBRID ↓DD':'HD','KEEL':'K'};
+window.cfgPoolLetter=function(pool){
+  const raw=String(pool==null?'':pool).trim();
+  if(!raw)return '';
+  if(window.CFG_POOL_LETTER[raw]!==undefined)return window.CFG_POOL_LETTER[raw];
+  const k=raw.toLowerCase();
+  // the SHORT keys the report's own pools carry ('hyb2:3'), longest first so hyb2 / hyb3 are
+  //   never swallowed by the hyb test - the bug this id scheme exists to kill.
+  if(k.indexOf('keel')===0)return 'K';
+  if(k.indexOf('gate')===0)return 'G';
+  if(k.indexOf('tilt')===0)return 'T';
+  if(k.indexOf('hyb3')===0||k.indexOf('equaldd')===0)return 'HD';
+  if(k.indexOf('hyb2')===0||k.indexOf('redeploy')===0)return 'HR';
+  if(k.indexOf('hyb')===0)return 'H';
+  if(k.indexOf('raw')===0)return '';
+  return raw.charAt(0).toUpperCase();
+};
+window.cfgIdText=function(o){
+  o=o||{};
+  const run=(o.run==null||o.run==='')?'':String(o.run);
+  const cell=(o.cell==null||o.cell==='')?null:String(o.cell);
+  const L=window.cfgPoolLetter(o.pool);
+  const v=String(o.variant==null?'':o.variant).trim();
+  return ((o.hash===false?'':'#')+run+(cell!=null?('.'+cell):'')+(v?(' '+v):'')+(L?(' '+L):'')).trim();
+};
+// THE RUN'S SET NUMBER, where the run records one. Only api/paper_leg_params.py knows it (it
+//   is a rank over the whole saved grid by in-sample net, and the page never loads that grid),
+//   so this reads the same constant the LEDGER reads - PAPER_LEG_PARAMS - and returns null for
+//   every run with no paper leg. A run with a leg matched to its CHAMPION gives the number that
+//   names the configuration every pool of that run is built on.
+window.cfgCellOfRun=function(run){
+  if(run==null||run==='')return null;
+  const P=(typeof PAPER_LEG_PARAMS!=='undefined')?PAPER_LEG_PARAMS:null;if(!P)return null;
+  let champ=null,any=null;
+  Object.keys(P).forEach(function(k){const o=P[k]||{};
+    if(String(o.run)!==String(run)||o.cell==null)return;
+    if(String(o.how||'')==='champion'&&champ==null)champ=o.cell;
+    if(any==null)any=o.cell;});
+  return (champ!=null)?champ:any;
+};
+// the sentence under that id, in the same words on every screen.
+window.cfgIdWhy=function(o){
+  o=o||{};
+  const L=window.cfgPoolLetter(o.pool),nm=String(o.pool||'').trim();
+  return 'Configuration '+window.cfgIdText(o)+'.'
+    +((o.cell==null||o.cell==='')
+      ?' This run records no set number, so the id has none - the paper boards’ ".N" counts rows of a run’s saved grid sorted by in-sample net, and inventing one here would read like a real one.'
+      :(' Set '+o.cell+' is the '+o.cell+(String(o.cell)==='1'?'st':'th')+' best configuration of run #'+o.run+'’s saved grid by in-sample net - the same number the paper boards print.'))
+    +(L?(' '+L+' = '+nm+(L==='HR'?' - the hybrid sized up to spend the same contracts as the no-filter book.':(L==='HD'?' - the hybrid sized until its drawdown matches that book.':'.'))):'');
+};
 function ledgerChartsGet(id){try{return localStorage.getItem('el_lg_charts_'+id)==='1';}catch(e){return false;}}
 function ledgerChartsSet(id,on){try{localStorage.setItem('el_lg_charts_'+id,on?'1':'0');}catch(e){}}
 // the trade row the candle icon stands for, in the shape the chart renderer takes. Every
@@ -25137,12 +25203,16 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   and different drawdowns (only the scale-free columns - PF, Sortino, win rate - match), so
     //   one id across them is how a 46.3% row and a 60.0% row get read as one row disagreeing
     //   with itself. H, HR, HD now, and the longer keys are tested before the short one.
+    // THE ID IS NOW THE WHOLE NAME: <run>.<set> <POOL>, with the column's own label carrying the
+    //   variant word straight after it ("483.4 HD tree"). The set number keeps the meaning the
+    //   paper boards gave it and is omitted where the run records none - see window.cfgIdText.
+    //   The pool index that used to make the id (H04) is gone: it numbered a position in a saved
+    //   list, which told a reader nothing and, worse, read the same for the plain, the recycled
+    //   and the equal-DD hybrid of one model.
     const _mtxCfgId=p=>{const m=/^([^:]+):(\d+)$/.exec(String(p&&p.key||''));if(!m)return '';
       const k=m[1].toLowerCase();if(k==='raw')return '';
-      const L=k.indexOf('keel')===0?'K':k.indexOf('gate')===0?'G':k.indexOf('tilt')===0?'T'
-             :k.indexOf('hyb3')===0?'HD':k.indexOf('hyb2')===0?'HR':k.indexOf('hyb')===0?'H'
-             :k.charAt(0).toUpperCase();
-      const n=(+m[2])+1;return L+(n<10?'0':'')+n;};
+      const run=(typeof augurRunSel!=='undefined'&&augurRunSel!=null)?String(augurRunSel):'';
+      return window.cfgIdText({run:run,cell:window.cfgCellOfRun(run),pool:k,hash:false});};
     const _mtxVisible=(pts)=>{const off=_mtxHidden();
       (pts||[]).forEach(p=>{if(p&&!p._cid){const id=_mtxCfgId(p);p._cid=id||'-';if(id&&String(p.label||'').indexOf(id+' ')!==0)p.label=id+' '+String(p.label||'');}});
       const keep=(pts||[]).filter(p=>off.indexOf(p.pool)<0);
@@ -40824,6 +40894,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // the FAMILY label the paper board prints, so the two read the same by eye
             const fam=({ORB:'ORB',NOISE:'NOISE',DIP:'DIP',ENGUQ:'ENGU-Q'})[String(hit[0].key).split('_')[0]]||String(hit[0].key).split('_')[0];
             return {fam:fam,legs:hit};};
+          // ONE ID, THE SAME ON ALL THREE SCREENS (owner 2026-11-14): EXPLORE's CONFIG column
+          //   now prints <run>.<set> <variant> <POOL> out of the shared window.cfgIdText, so a
+          //   row here, the same row in the run report's 1E matrix and the paper leg in the
+          //   LEDGER are named identically. The crown mark and the pool's own short label (ET
+          //   45%, tree (SL), v12) stay as the variant word.
+          const _reCidFull=function(RID,kind,rec,crown){
+            const v=_reCidOf(kind,rec,crown);
+            return window.cfgIdText({run:RID,cell:window.cfgCellOfRun(RID),pool:kind,variant:v,hash:false});};
           const _reCidOf=function(kind,rec,crown){const o=rec||{};
             if(kind==='GATE')return (crown?'\ud83d\udc51 ':'')+(_GATE_MODEL_AB[o.model]||String(o.model||'').toUpperCase())+' '+Math.round((+o.threshold||0)*100)+'%';
             if(kind==='TILT')return String(o.model||'')+' ('+(_TILT_SCHEME_AB[o.scheme]||String(o.scheme||'?').slice(0,2).toUpperCase())+')';
@@ -40938,7 +41016,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       //   every row, because the two look alike and mean different things: this is
                       //   rank N of ten candidates by walk-forward, the Webull '.N' is row N of the
                       //   run's whole in-sample-sorted grid.
-                      _cid:(c.crowned?'\ud83d\udc51':'')+'R'+(i+1),_cidTip:_reCidTip('RAW',c,'R'+(i+1),'its walk-forward rank in this run, '+(i+1)+' of '+raws.length)+' This is a WALK-FORWARD RANK among the candidates, NOT the run.set number the paper boards print - that one counts rows of the run\u2019s whole saved grid sorted by in-sample net.',
+                      _cid:window.cfgIdText({run:RID,cell:window.cfgCellOfRun(RID),pool:'RAW',variant:(c.crowned?'\ud83d\udc51':'')+'R'+(i+1),hash:false}),_cidTip:_reCidTip('RAW',c,'R'+(i+1),'its walk-forward rank in this run, '+(i+1)+' of '+raws.length)+' This is a WALK-FORWARD RANK among the candidates, NOT the run.set number the paper boards print - that one counts rows of the run\u2019s whole saved grid sorted by in-sample net.',
                       what:'A raw configuration from run #'+RID+'. Scored on the optimize window; the lockbox never judged it.',
                       tone:(c.crowned?'champ':'ref'),read:(c.crowned?'Crowned in this run':'Candidate'),
                       is:isV,wf:wfV,lb:lbSlice,tot:((lbEnd!=null)?lbEnd:((isV||0)+(wfV||0))),
@@ -40973,7 +41051,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   const isCh=!!(gch&&gch.model===c.model&&Math.abs((gch.threshold||0)-(c.threshold||0))<1e-6);
                   _cn++;_reCfgCounts.gate++;
                   CROWS.push({n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',_strat:_stratNm,
-                        _cid:_reCidOf('GATE',c,isCh),_cidTip:_reCidTip('GATE',c,_reCidOf('GATE',c,isCh),isCh?'the gate this run chose':''),
+                        _cid:_reCidFull(RID,'GATE',c,isCh),_cidTip:_reCidTip('GATE',c,_reCidOf('GATE',c,isCh),isCh?'the gate this run chose':''),
                         what:'A skip-gate variant from run #'+RID+', measured before the lockbox.',
                         tone:(isCh?'champ':'ref'),read:(isCh?'Chosen gate':'Gate variant'),
                         // pre_pnl is the PRE-LOCKBOX pool (tuning years); the gate also
@@ -41069,7 +41147,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hyb')]++;
                 CROWS.push({n:_cn,name:'#'+RID+' '+label,fam:tabNm,_strat:_stratNm,
-                      _cid:_reCidOf(tabNm,x,false),_cidTip:_reCidTip(tabNm,x,_reCidOf(tabNm,x,false),''),
+                      _cid:_reCidFull(RID,tabNm,x,false),_cidTip:_reCidTip(tabNm,x,_reCidOf(tabNm,x,false),''),
                       what:'A '+tabNm.toLowerCase()+' variant from run #'+RID+'.',
                       tone:'ref',read:tabNm+' variant',
                       // every stretch at the ONE size of the ticked sample, so they add up
@@ -50533,7 +50611,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _blk=(P2&&P2.blk)||null,_inl=(typeof PAPER_LEG_PARAMS!=='undefined'&&PAPER_LEG_PARAMS[name])||null;
           const _cell=(_blk&&_blk.params_cell!=null)?_blk.params_cell:(_inl?_inl.cell:null),_variant=(_blk&&_blk.model_variant)||(_inl&&_inl.variant)||'',_grid=_inl?_inl.grid:null,_how=_inl?(_inl.how||'grid'):'grid';
           const _howWords=(typeof qbSetHow==='function')?qbSetHow({how:_how,cell:_cell,grid:_grid,run:_srcRun}):'';
-          const _runLink=n=>'<span class="qbx-runlink" data-p2runlink="'+n+'"'+(_cell!=null?(' data-p2cell="'+_cell+'"'):'')+' role="link" tabindex="0" title="open run #'+n+'\u2019s report on the RUNBOARD / STUDIES page'+(_cell!=null?(' (set '+_cell+(_grid?(' of '+_grid):'')+' in its 1E config table by in-sample net)'):'')+'">#'+n+(_cell!=null?('.'+_cell):'')+'</span>'
+          const _runLink=n=>'<span class="qbx-runlink" data-p2runlink="'+n+'"'+(_cell!=null?(' data-p2cell="'+_cell+'"'):'')+' role="link" tabindex="0" title="open run #'+n+'\u2019s report on the RUNBOARD / STUDIES page'+(_cell!=null?(' (set '+_cell+(_grid?(' of '+_grid):'')+' in its 1E config table by in-sample net)'):'')+'">'
+            // THE SAME HELPER THE REPORT AND EXPLORE NAME A CONFIG WITH (owner 2026-11-14), so
+            //   the three screens cannot drift apart. The text a live paper leg prints is
+            //   unchanged - the variant word still rides outside the link, below - because .N
+            //   keeps exactly the meaning api/paper_leg_params.py gives it.
+            +window.cfgIdText({run:n,cell:_cell})+'</span>'
             +(_cell==null?' <span class="qbx-vrt" data-p2set="none">set ?</span>':'')+(_variant?(' <span class="qbx-vrt" data-p2variant="'+_variant+'" title="model variant">'+_variant+'</span>'):'');
           const _lblHtml=/#\d+/.test(label)?_pnX(label).replace(/#(\d+)/,(m,n)=>_runLink(n)):(_pnX(label)+(_srcRun?(' '+_runLink(_srcRun)):''));
           const _op0=open[0],_opSide=_op0?_pnDir(_op0.side):'';
