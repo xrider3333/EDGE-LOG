@@ -1580,7 +1580,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.68';
+const VERSION='89.69';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1600,7 +1600,7 @@ window._dataFeedWarn=function(){
 //    {v,date,notes:[...]} entry here — short bullets, user-facing. Full history is in git.
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
-const CHANGELOG=[{v:'89.67',date:'2026-11-13',notes:['EXPLORE: a row measured on fewer than thirty trades now carries a warning that says how many, because every ratio on this board - MAR, profit factor, Sortino, EV R, ROC at $30k - is measured over that row own trades, and a three-trade row was sitting at the top of all of them above an 833-trade row. The row is still drawn and still ranked, as a short window is.','EXPLORE: a month that holds none of the strategy you picked now names the MONTH as the reason instead of the strategy. It used to say no run of that strategy has records to read, which was untrue, and then tell you to untick a chip the month had already taken off the rail.','EXPLORE: a strategy you have picked keeps its chip on the rail even when the month holds none of its runs, so you can always untick it.']},
+const CHANGELOG=[{v:'89.69',date:'2026-11-14',notes:['EXPLORE: the STRATEGY rail used to count rows the board was about to filter out - it read 1,716 beside a chart line of 1,556, and ENGU-Q 77 beside 52. It now counts through the same month and the same filters the board applies, so the first number on the screen matches the ones under it.','FEATURE BOARD: a verdict card is headed by the readable feature name instead of the raw key - Volatility level rather than atr_norm. The key is still on hover.','EXIT AUTOPSY: the hold curve says it is pre-lockbox only, and the one-line read is labelled PRE-LOCKBOX. Both are written off that stretch alone and sat under a table whose other column can say the opposite.','LEADERBOARD and the run report: the regime-drift pill now carries its own number on hover, so two rows that both read drift mild can be told apart.']},{v:'89.67',date:'2026-11-13',notes:['EXPLORE: a row measured on fewer than thirty trades now carries a warning that says how many, because every ratio on this board - MAR, profit factor, Sortino, EV R, ROC at $30k - is measured over that row own trades, and a three-trade row was sitting at the top of all of them above an 833-trade row. The row is still drawn and still ranked, as a short window is.','EXPLORE: a month that holds none of the strategy you picked now names the MONTH as the reason instead of the strategy. It used to say no run of that strategy has records to read, which was untrue, and then tell you to untick a chip the month had already taken off the rail.','EXPLORE: a strategy you have picked keeps its chip on the rail even when the month holds none of its runs, so you can always untick it.']},
 {v:'89.53',date:'2026-11-13',notes:['EXPLORE FIXES FROM THE w129 AUDIT (ORB), FOUR MORE. TOP 10 WORST now puts VOID, PRE-FIX TTM and under-2-year runs last, the same as BEST, so a 19-day run with a tiny drawdown no longer heads the worst list. The RUNBOARD family chips follow the show-archived switch the board itself follows, so a family of archived runs gets a chip when archived runs are on. A month pick with a gap (SEP + NOV) no longer lets October runs onto the RUNBOARD, PICK RUNS or + ADD. PICK RUNS: picks that were skipped (archived, older, deleted) still count toward the 8 - the card now has DROP SKIPPED to clear them, and the 8-run message says so.']},
 {v:'89.52',date:'2026-11-13',notes:['FEATURE BOARD no longer prints retired family names. The matrix column, the verdict cards and the exit autopsy read DIP and ENGU-Q where they used to read NQDIP and ENGUQ - in the headings, in the family pills and inside the written reasons. The two offline reports that write those files are fixed as well, so a regenerate keeps the right names.']},
 {v:'89.51',date:'2026-11-13',notes:['PICK RUNS: closing another tab no longer throws away the picks on the tab you are on, and the last run in a comparison can now be removed with its x.']},
@@ -40485,7 +40485,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 dashWhy:{},rows:_recRows};
               // the rail counts these with the SAME function the facet filter narrows them by,
               //   so a button and the filter behind it can never mean different things.
-              _recRows.forEach(function(r){const f=_reFamOf(recSt,r);_reRecFam[f]=(_reRecFam[f]||0)+1;});
+              // ISSUE 118: it counted EVERY record and the board drew only the kept ones, so the rail
+              //   read 1,716 beside a chart line of 1,556 and ENGU-Q 77 beside 52. Count what the board
+              //   will hold: the same facet test and the same month test it is about to apply. The
+              //   FAMILY pick itself is lifted for the count, or picking one family would zero the
+              //   others and there would be no way back to them.
+              (function(){const _famSave=_reFilt.fam;if(_famSave)delete _reFilt.fam;
+                const _keepC=_reFacetKeep({fam:'REC',key:'recs',title:recSt.title},_recRows);
+                _recRows.forEach(function(r){if(!_keepC(r))return;if(!_reMonOk(r))return;
+                  const f=_reFamOf(recSt,r);_reRecFam[f]=(_reRecFam[f]||0)+1;});
+                if(_famSave)_reFilt.fam=_famSave;})();
               const recKeep=_recRows.filter(_reFacetKeep({fam:'REC',key:'recs',title:recSt.title},_recRows))
                 .filter(function(r){const ok=_reMonOk(r);if(!ok)_reMonHeld.recs++;return ok;});
               recKeep.forEach(function(r){_reItems.push({st:recSt,r:r});});
@@ -41797,9 +41806,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(_reLvl==='valid'||_reLvl==='crown'||_reLvl==='all'){
           rs.forEach(function(x){const f=_canonFam(x.strategy)||'UNTAGGED';
             if(_reCfgPick.indexOf(x)>=0||_reRunFam[f])_reFamCnt[f]=(_reFamCnt[f]||0)+1;});}
-        if(_reLvl!=='valid'&&_reLvl!=='crown')RESEARCH_STUDIES.forEach(st=>(st.rows||[]).forEach(r=>{
-          if(_reLvl==='all'&&_reIsEL(r))return;   // on ALL the runs are counted above, not their write-ups
-          const f=_reFamOf(st,r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;}));
+        // ISSUE 118, the registry half: same rule - count the rows this board will actually hold,
+        //   through the same facet test and the same month test, with the FAMILY pick lifted.
+        if(_reLvl!=='valid'&&_reLvl!=='crown'){const _famSave=_reFilt.fam;if(_famSave)delete _reFilt.fam;
+          RESEARCH_STUDIES.forEach(function(st){const _rws=st.rows||[];const _keepC=_reFacetKeep(st,_rws);
+            _rws.forEach(function(r){
+              if(_reLvl==='all'&&_reIsEL(r))return;   // on ALL the runs are counted above, not their write-ups
+              if(!_keepC(r))return;
+              if(!_reMonOk(r))return;
+              const f=_reFamOf(st,r);_reFamCnt[f]=(_reFamCnt[f]||0)+1;});});
+          if(_famSave)_reFilt.fam=_famSave;}
         // AND THE LANE RECORDS, which were counted nowhere: 425 of them draw on CHAT SWEEPS and
         //   the rail offered buttons for the registry families only, so the families that exist
         //   only in the records could not be picked and were never admitted to.
@@ -43434,6 +43450,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(fbReady){
           const _vTier={PROMOTED:{col:'var(--green)',lbl:'PROMOTED'},WATCH:{col:'var(--yellow)',lbl:'WATCH'}};
           const verdicts=(fb.verdicts||[]).filter(v=>v&&v.tier&&v.tier!=='NONE');
+          // ISSUE 119: a card used to be headed by the RAW FEATURE KEY - atr_norm, dist_pdh_atr,
+          //   prev_ret - while the matrix under it drew the readable label all along, and the
+          //   house rule is no code identifiers on screen. The key stays in the hover, because
+          //   it is what the generators and the JSON call it.
+          const _fbLbl=(function(){const m={};(fb.features||[]).forEach(function(f){if(f&&f.name)m[f.name]=f.label||f.name;});
+            return function(k){return m[k]||k;};})();
           verdicts.sort((a,b)=>(a.tier==='PROMOTED'?0:1)-(b.tier==='PROMOTED'?0:1));
           const _famPill=nm=>'<span style="font-size:8px;padding:2px 7px;border-radius:5px;background:var(--bg1);color:var(--text3);border:1px solid var(--border)">'+_fbEsc(nm)+'</span>';
           const _basisLbl={rank:'on rank',lift:'on lift',both:'on both',conflict:'tests disagree'};
@@ -43445,7 +43467,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'<div style="display:flex;align-items:center;gap:9px;flex-wrap:wrap">'
                 +'<span style="font-size:9px;font-weight:800;letter-spacing:1.2px;color:'+tr.col+'">'+tr.lbl+'</span>'
                 +(basisTxt?('<span data-fbbasis style="font-size:8px;padding:2px 7px;border-radius:5px;background:var(--bg1);color:var(--text4);border:1px solid var(--border)">'+basisTxt+'</span>'):'')
-                +'<span style="font-size:12px;font-weight:700;color:var(--text)">'+_fbEsc(v.feature)+'</span>'
+                +'<span title="'+_fbEsc(v.feature)+'" style="font-size:12px;font-weight:700;color:var(--text)">'+_fbEsc(_fbLbl(v.feature))+'</span>'
                 +'<span style="font-size:9px;font-weight:700;color:'+signCol+'">'+signWord+'</span>'
                 +'<span style="margin-left:auto;font-size:8px;color:var(--text5)" title="how many of its legs the lockbox year agreed with">'+(v.lb_agree_count||0)+' leg'+((v.lb_agree_count||0)===1?'':'s')+' repeat in the lockbox</span>'
               +'</div>'
@@ -43547,7 +43569,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +'</div>'
                 +'<div style="font-size:6.5px;color:var(--text5);white-space:nowrap;margin-top:2px">'+_fbEsc(lbl)+'</div>'
               +'</div>';}).join('');
-            return '<div style="font-size:7.5px;color:var(--text5);margin-top:8px">HOLD CURVE — median best move (blue) vs median final (green/red), by bars held</div>'
+            // ISSUE 121: this curve is drawn from pre.hold_curve ALONE, directly under a table whose
+            //   two columns are PRE-LOCKBOX and LOCKBOX, and its caption named no stretch - so it read
+            //   as both. Say which one it is.
+            return '<div style="font-size:7.5px;color:var(--text5);margin-top:8px">HOLD CURVE, PRE-LOCKBOX ONLY — median best move (blue) vs median final (green/red), by bars held</div>'
               +'<div style="display:flex;align-items:flex-end;gap:3px;margin-top:4px;padding-top:2px">'+bars+'</div>';};
           const _exCard=leg=>{const pre=leg.pre||{},lb=leg.lb||{};
             const preW=pre.winners||{},preL=pre.losers||{},lbW=lb.winners||{},lbL=lb.losers||{};
@@ -43566,7 +43591,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +'</tbody></table>';
             return '<div data-fbexitcard style="background:var(--bg2);border:1px solid var(--border);border-radius:10px;padding:11px 13px;margin-bottom:10px">'
               +'<div style="font-size:11px;font-weight:700;color:var(--text2)">'+_fbEsc(leg.label)+'</div>'
-              +(leg.read?('<div style="font-size:9px;color:var(--text3);line-height:1.65;margin-top:4px">'+_fbEsc(leg.read)+'</div>'):'')
+              // ISSUE 121, the same confusion in words: this sentence is written off the PRE-LOCKBOX
+              //   figures and the lockbox column beside it can say the opposite - ORB #314 reads
+              //   'winners keep 71% ... 24% of losers were ever up 1R' with 59.9% and 64.7% in the
+              //   lockbox column of the same card. Label which stretch is talking.
+              +(leg.read?('<div style="font-size:9px;color:var(--text3);line-height:1.65;margin-top:4px"><b style="color:var(--text4)">PRE-LOCKBOX:</b> '+_fbEsc(leg.read)+'</div>'):'')
               +miniTbl
               +'<div style="font-size:7.5px;color:var(--text5);margin-top:4px">give-back is an upper bound, not reachable — it assumes exiting at exactly the best price the trade ever saw.</div>'
               +_holdChart(pre.hold_curve)
@@ -43633,7 +43662,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _c2Drift=r=>{const AV=(r.validate&&r.validate.adversarial)||r.adversarial;if(!AV||AV.auc==null)return '';
         const a=AV.auc,c=a<0.55?'var(--green)':a<0.70?'var(--yellow)':a<0.85?'#f0997b':'var(--red)',
           lbl=a<0.55?'clean':a<0.70?'mild':a<0.85?'moderate':'severe';
-        return '<span class="c2-pill" style="color:'+c+';border-color:color-mix(in srgb,'+c+' 45%,transparent)" title="regime drift vs training (adversarial-validation AUC) — is the lockbox a different market regime than what this was trained on">drift '+lbl+'</span>';};
+        // ISSUE 122: the pill printed the bucket word and nothing else, and every hover was the
+        //   same sentence - thirteen rows all reading 'drift mild' with no way to tell a 0.56 from
+        //   a 0.69, or a real reading from a stuck one. The number it buckets goes in the hover.
+        return '<span class="c2-pill" style="color:'+c+';border-color:color-mix(in srgb,'+c+' 45%,transparent)" title="regime drift vs training: adversarial-validation AUC '+(+a).toFixed(3)+' — is the lockbox a different market regime than what this was trained on? 0.50 is indistinguishable; the words change at 0.55, 0.70 and 0.85">drift '+lbl+'</span>';};
       // F18: the same short-window mark the LEADERBOARD sink above needs a badge for -
       //   shown wherever a run this short is displayed, so nobody mistakes it for the real best.
       const _c2ShortPill=r=>_c2ShortWin(r)?('<span class="c2-pill" style="color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)" title="'+_reEscC2(_c2ShortWinWhy(r))+'">short window</span>'):'';
