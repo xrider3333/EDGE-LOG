@@ -1580,7 +1580,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.73';
+const VERSION='89.74';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -44175,8 +44175,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   and Sortino need the daily P&L, which a book run does not save (a 400-point curve only) - say so.
             const _bk4n=(bk,s)=>{const y=(a,b2)=>{const t0=Date.parse(a),t1=Date.parse(b2);return (t0&&t1&&t1>t0)?(t1-t0)/864e5/365.25:0;};
               const yr=(_bkK==='lb')?y(bk.lockbox_from,bk.date_to):((_bkK==='is')?y(bk.date_from,bk.lockbox_from):y(bk.date_from,bk.date_to));
-              const roc=(s.dd>0&&yr>0)?(30*(s.net/yr)/s.dd):null;
-              return '<div title="ROC@$30k = 30 x (net / years) / worst drawdown of this stage, years from the stage dates. DD5, DD% from peak and Sortino need the daily P&amp;L series; a book run saves only a 400-point equity curve, so they are not stored for this run." style="font-size:8.5px;color:var(--text4);cursor:help">ROC@$30k '+(roc!=null?roc.toFixed(2):'—')+' · DD5, DD%, Sortino not stored for this run</div>';};
+              const _m=bk.mtm?((_bkK==='lb')?bk.mtm.lockbox:((_bkK==='is')?bk.mtm.pre_lockbox:bk.mtm.whole)):null,dd=(_m&&+_m.max_drawdown>0)?Math.abs(+_m.max_drawdown):s.dd,nt=(_m&&_m.total_pnl!=null)?+_m.total_pnl:s.net;
+              const roc=(dd>0&&yr>0)?(30*(nt/yr)/dd):null;
+              return '<div title="ROC@$30k = 30 x (net / years) / worst drawdown of this stage on the valued-daily curve (open trades marked at each close, the house yardstick; at-close when no valued-daily block is stored), years from the stage dates. DD5, DD% from peak and Sortino need the daily P&amp;L series; a book run saves only a 400-point equity curve, so they are not stored for this run." style="font-size:8.5px;color:var(--text4);cursor:help">ROC@$30k '+(roc!=null?roc.toFixed(2):'—')+' · DD5, DD%, Sortino not stored for this run</div>';};
             const _bkRuns=rs2.filter(r=>r&&r.book&&Array.isArray(r.book.legs)).sort((a,b)=>(+b.id||0)-(+a.id||0));
             const _bkLive=_bkRuns.map(r=>{const bk=r.book||{},vv=r.validate?r.validate.verdict:'';
               const _st=(_bkK==='lb')?bk.lockbox:((_bkK==='is')?bk.pre_lockbox:bk.whole);
