@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.83';
+const VERSION='89.84';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -37350,6 +37350,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             'The ledger line this record was written against - where the lane wrote up what it found.');
           put('COMMIT',rw._sha?('<code style="font-size:9px;color:var(--text2)">'+E(String(rw._sha).slice(0,12))+'</code>'):null,
             'The commit of the code that produced it.');
+          put('SAME RUN AS',rw._avTwin?('Auto-Validate run #'+E(rw._avTwin)+' - plotted separately; this row is its lane\u2019s own read'):null);
           put('RUN ID',rw._runId?('<code style="font-size:9px;color:var(--text2)">'+E(rw._runId.slice(0,40))+'</code>'):null);
           put('RECORD ID',rw._recId?('<code style="font-size:9px;color:var(--text5)">'+E(rw._recId)+'</code>'):null);
           L.push('<div style="color:var(--text4);font-size:9px;line-height:1.6;padding-top:5px">'
@@ -40582,6 +40583,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                  evr:(_fours+', and no average losing trade, so expectancy cannot be put in R.'),
                  ppt:(_fours+', and dollars per trade needs the net and the trade count together.')};}
               if(net!=null&&f)row[f]=net;
+              // w130 #21: a record whose run id starts with an Auto-Validate run number that is also loaded
+              //   is the SAME run seen twice (its own lane's read beside the run doc) - name the pair.
+              {const _m=row._runId.match(/^#?(\d+)\b/);
+               if(_m&&Array.isArray(runHistory)&&runHistory.some(function(h){return h&&String(h.id)===_m[1];})){
+                 row._avTwin=_m[1];row.name+=' \u00b7 also Auto-Validate run #'+_m[1];}}
               _recRows.push(row);});
             if(_recRows.length){
               // ALL TIME has no window to name, and the records are read for it since 2026-10-20,
