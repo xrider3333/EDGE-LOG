@@ -1,5 +1,5 @@
 [Unit]
-Description=Strategy 23 basket executor, 15:27 ET Mon-Fri
+Description=PICK6 #511 basket executor, 15:27 ET Mon-Fri
 
 [Timer]
 OnCalendar=Mon..Fri *-*-* 15:27:00 America/New_York

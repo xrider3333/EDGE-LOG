@@ -271,12 +271,12 @@ def lookup(ad, rec):
     return {"status": st, "filled": filled, "price": (notional / filled) if filled else None}
 
 
-def _notify(msg, title="EODREV", log=print):
+def _notify(msg, title="PICK6 #511", log=print):
     try:
         from api import ntfy_push
         ntfy_push.push_result(msg, title=title, priority="high", timeout=4)
     except Exception as e:
-        log(f"[eodrev] phone push failed: {type(e).__name__}: {e}")
+        log(f"[PICK6 #511] phone push failed: {type(e).__name__}: {e}")
 
 
 # -- the day ---------------------------------------------------------------------------------
@@ -308,20 +308,20 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         _save_json(p["state"], state)
         rec = {"day": day.isoformat(), "strategy": STRATEGY, "run": RUN, "result": result, **extra}
         _append(p["ledger"], rec)
-        log(f"[eodrev] {day} {result}")
+        log(f"[PICK6 #511] {day} {result}")
         return rec
 
     if rail_blocks(state, day):
         return finish("blocked by daily loss rail", rail=state.get("rail_reason"))
     if cfg.get("require_probe_ok", True) and not probe_ok(p):
-        notify("Strategy 23: no trade today - the MOC/short probe has not passed", log=log)
+        notify("PICK6 #511: no trade today - the MOC/short probe has not passed", log=log)
         return finish("no trade", why="probe not passed")
     wait(_at(day, cfg["gate_at"]))
     sig, why = read_signal(day, cfg, p["dir"])
     if sig is None:
         kind, text = why
         if kind == "alert":
-            notify(f"Strategy 23: no trade today - {text}", log=log)
+            notify(f"PICK6 #511: no trade today - {text}", log=log)
         return finish("no trade", why=text)
     if os.path.exists(p["kill"]):
         return finish("no trade", why="kill file present")
@@ -335,11 +335,11 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         e = dict(e, open_ok=bool(rec.get("ok")), open_sid=rec["_sid"],
                  open_reason=rec.get("reason"), open_rec=rec)
         entries.append(e)
-        log(f"[eodrev] OPEN {e['leg']} {e['side']} {e['qty']} {e['sym']}: "
+        log(f"[PICK6 #511] OPEN {e['leg']} {e['side']} {e['qty']} {e['sym']}: "
             f"{'ok' if e['open_ok'] else 'REFUSED ' + str(e['open_reason'])}")
     refused = [e for e in entries if not e["open_ok"]]
     if refused:
-        notify("Strategy 23: entries refused - " + "; ".join(
+        notify("PICK6 #511: entries refused - " + "; ".join(
             f"{e['sym']} {e['side']}: {str(e['open_reason'])[:80]}" for e in refused), log=log)
 
     wait(_at(day, cfg["moc_at"]))
@@ -348,7 +348,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
             continue
         rec = send(ad, e, "CLOSE", day, order_type="MARKET_ON_CLOSE", what="MOC")
         e.update(moc_ok=bool(rec.get("ok")), moc_reason=rec.get("reason"), moc_rec=rec)
-        log(f"[eodrev] MOC {e['leg']} {e['sym']}: "
+        log(f"[PICK6 #511] MOC {e['leg']} {e['sym']}: "
             f"{'ok' if e['moc_ok'] else 'REFUSED ' + str(e['moc_reason'])}")
 
     wait(_at(day, cfg["fallback_at"]))
@@ -363,10 +363,10 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         if need:
             rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="FB")
             e.update(fb_ok=bool(rec.get("ok")), fb_reason=rec.get("reason"), fb_rec=rec)
-            log(f"[eodrev] FALLBACK MARKET {e['leg']} {e['sym']}: "
+            log(f"[PICK6 #511] FALLBACK MARKET {e['leg']} {e['sym']}: "
                 f"{'ok' if e['fb_ok'] else 'REFUSED ' + str(e['fb_reason'])}")
             if not e["fb_ok"]:
-                notify(f"Strategy 23: {e['sym']} {e['side']} {e['qty']} NOT CLOSED - MOC and "
+                notify(f"PICK6 #511: {e['sym']} {e['side']} {e['qty']} NOT CLOSED - MOC and "
                        f"15:58 market both failed; position held overnight", log=log)
 
     wait(_at(day, cfg["settle_at"]))
@@ -379,7 +379,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
                  exit_fill=x.get("price"), exit_status=x.get("status"),
                  exit_filled=x.get("filled"))
         if o.get("filled") and x.get("filled") is not None and x.get("filled") < o["filled"]:
-            notify(f"Strategy 23: {e['sym']} exit filled {x.get('filled')} of {o['filled']} "
+            notify(f"PICK6 #511: {e['sym']} exit filled {x.get('filled')} of {o['filled']} "
                    f"({x.get('status')}) - check the account", log=log)
     pnl = day_pnl(entries)
     limit = float(cfg.get("daily_loss_limit_usd") or 0)
@@ -387,7 +387,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         nxt = next_session(day)
         state["rail_blocks_through"] = nxt.isoformat()
         state["rail_reason"] = f"{day} lost {pnl:.2f} (limit {limit:.0f})"
-        notify(f"Strategy 23: day loss {pnl:.2f} hit the {limit:.0f} rail - no trade {nxt}", log=log)
+        notify(f"PICK6 #511: day loss {pnl:.2f} hit the {limit:.0f} rail - no trade {nxt}", log=log)
     slim = [{k: v for k, v in e.items() if not k.endswith("_rec")} for e in entries]
     return finish("traded", pnl=pnl, entries=slim, signal_asof=sig.get("asof_et"),
                   panel_date=sig.get("panel_date"))
@@ -414,10 +414,10 @@ def run_probe(sym="AAPL", p=None, adapter=None, log=print):
             f = send(ad, e, "CLOSE", day, order_type="MARKET", what="PF")
             r.update(fb_ok=f.get("ok"), fb_reason=f.get("reason"))
         out.append(r)
-        log(f"[eodrev-probe] {json.dumps(r, default=str)}")
+        log(f"[PICK6 #511 probe] {json.dumps(r, default=str)}")
     _append(os.path.join(p["dir"], "probe.jsonl"), {"day": str(day), "results": out})
     good = len(out) == 2 and all(x.get("open_ok") and x.get("moc_ok") for x in out)
-    _notify(("Strategy 23 probe PASSED: " if good else "Strategy 23 probe FAILED: ") + "; ".join(
+    _notify(("PICK6 #511 probe PASSED: " if good else "PICK6 #511 probe FAILED: ") + "; ".join(
         f"{x['side']} open {'ok' if x.get('open_ok') else x.get('open_reason')}, "
         f"MOC {'ok' if x.get('moc_ok') else x.get('moc_reason')}" for x in out)[:400], log=log)
     return out
