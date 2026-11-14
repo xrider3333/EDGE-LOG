@@ -79,7 +79,7 @@ ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 # ONE FAMILY VOCABULARY (owner 2026-09-24) - must match CLAUDE.md "Strategy FAMILY names" and
 # tests/test_family_vocabulary.py's VOCAB; tests/test_runboard_watch.py cross-checks the two.
 FAMILIES = {"ORB", "NOISE", "ENGU-Q", "ENGU", "CBU-Q", "TTM", "DIP", "GAPGO", "TTIBS", "VWAP",
-            "REVERT", "SUPERTREND", "RSIDIV", "OVERNIGHT", "EMAPB", "REPLAY", "RFML", "BOOK", "MISC"}
+            "REVERT", "SUPERTREND", "RSIDIV", "OVERNIGHT", "EMAPB", "REPLAY", "RFML", "BOOK", "MISC", "PICK6"}
 MAX_VERDICT = 80
 PEAK_HELP = ("{} DD %% from peak (start $100k): the largest drop from the most recent equity high, from "
              "augur_engine.drawdowns.dd_pct_peak / the yardstick's stretch reading - never dd / $100k. A percent of "
