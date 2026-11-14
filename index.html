@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.89';
+const VERSION='89.90';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3633,7 +3633,9 @@ function setBroker(b){activeBroker=b||'';try{activeBroker?localStorage.setItem('
 function _navToTrades(){if(typeof window.hmShowTrades==='function')window.hmShowTrades();else{activeTab='home';renderApp();}}
 function _navToJournal(){if(typeof window.hmShowJournal==='function')window.hmShowJournal();else{activeTab='home';renderApp();}}
 function _navToImportExport(sub){if(typeof window.openImportExport==='function')window.openImportExport(sub);else{activeTab='home';renderApp();}}
-let accountEquity=0,calMonth=new Date().toISOString().slice(0,7);
+// w131 DISC: the owner's LOCAL date - toISOString is UTC, so after 17:00 MST 'today' was tomorrow (calendar, lesson date).
+function _localYmd(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+let accountEquity=0,calMonth=_localYmd().slice(0,7);
 const _storedEquity=parseFloat(localStorage.getItem('el_equity')||'0');
 if(_storedEquity>0)accountEquity=_storedEquity;
 let uploadHistory=JSON.parse(localStorage.getItem('el_uploads')||'[]');
@@ -15439,14 +15441,14 @@ window.expandSurface3D=function(host){
 };
 
 window.changeCalMonth=function(delta){
-  const cm=calMonth||new Date().toISOString().slice(0,7);
+  const cm=calMonth||_localYmd().slice(0,7);
   const [y,m]=cm.split('-').map(Number);
   const d=new Date(y,m-1+delta,1);
-  calMonth=d.toISOString().slice(0,7);
+  calMonth=d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0');
   renderApp();
 };
 window.resetCalMonth=function(){
-  calMonth=new Date().toISOString().slice(0,7);
+  calMonth=_localYmd().slice(0,7);
   renderApp();
 };
 
@@ -18720,7 +18722,7 @@ function _hmWireJournalSection(root){
   if(addBtn)addBtn.onclick=async()=>{
     const body=el('hlb')?.value.trim();if(!body)return;
     addBtn.innerHTML='<span class="spinner"></span>';
-    await addLesson({title:el('hlt')?.value.trim()||'Untitled',body,date:el('hld')?.value||new Date().toISOString().slice(0,10),tags:(el('hltags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean)});
+    await addLesson({title:el('hlt')?.value.trim()||'Untitled',body,date:el('hld')?.value||_localYmd(),tags:(el('hltags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean)});
     addBtn.textContent='SAVE ENTRY';
     ['hlt','hlb','hld','hltags'].forEach(id=>{if(el(id))el(id).value='';});
     window._hmJournalDraft=null; // saved - clear the draft so the entry does not come back
@@ -19950,7 +19952,7 @@ function renderApp(){
 
     // === Calendar HTML ===
     const calHTML=(()=>{
-      const cm=calMonth||new Date().toISOString().slice(0,7);
+      const cm=calMonth||_localYmd().slice(0,7);
       const [cyr,cmo]=cm.split('-').map(Number);
       const yr=cyr,mo=cmo;
       const firstDay=new Date(yr,mo-1,1),daysInMonth=new Date(yr,mo,0).getDate(),startDow=firstDay.getDay();
@@ -19965,7 +19967,7 @@ function renderApp(){
       for(let day=1;day<=daysInMonth;day++){
         const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
         const dt=tbd[ds]||[];const dp=dt.reduce((s,t)=>s+t.pnl,0);
-        const isToday=ds===new Date().toISOString().slice(0,10);
+        const isToday=ds===_localYmd();
         const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
         const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a050':'#ff3d5a50'}`:'1px solid transparent';
         cells+=`<div class="cal-day-cell" data-date="${ds}" style="text-align:center;font-size:11px;padding:5px 3px;background:${bg};border:${border};min-height:52px;display:flex;flex-direction:column;justify-content:center;position:relative;cursor:${dt.length?'pointer':'default'}" onmouseenter="window.showCalHover('${ds}')" onmouseleave="window.hideCalHover()" onclick="${dt.length?`window.gotoTradesByDate('${ds}')`:''}">
@@ -20910,7 +20912,7 @@ function renderApp(){
         <button class="btn-b" id="ladd" style="align-self:flex-end;padding:8px 20px">SAVE ENTRY</button>
       </div>`;
     content.appendChild(hd);
-    setTimeout(()=>{if(el('ladd'))el('ladd').onclick=async()=>{const body=el('lb')?.value.trim();if(!body)return;el('ladd').innerHTML='<span class="spinner"></span>';await addLesson({title:el('lt')?.value.trim()||'Untitled',body,date:el('ld')?.value||new Date().toISOString().slice(0,10),tags:(el('ltags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean)});el('ladd').textContent='SAVE ENTRY';['lt','lb','ld','ltags'].forEach(id=>{if(el(id))el(id).value='';});};},50);
+    setTimeout(()=>{if(el('ladd'))el('ladd').onclick=async()=>{const body=el('lb')?.value.trim();if(!body)return;el('ladd').innerHTML='<span class="spinner"></span>';await addLesson({title:el('lt')?.value.trim()||'Untitled',body,date:el('ld')?.value||_localYmd(),tags:(el('ltags')?.value||'').split(',').map(t=>t.trim()).filter(Boolean)});el('ladd').textContent='SAVE ENTRY';['lt','lb','ld','ltags'].forEach(id=>{if(el(id))el(id).value='';});};},50);
     if(!lessons.length){const e=document.createElement('div');e.style.cssText='border:1px dashed var(--border);padding:48px;text-align:center;color:var(--text5);font-size:11px;letter-spacing:2px';e.textContent='NO ENTRIES YET';content.appendChild(e);}
     else{const list=document.createElement('div');lessons.forEach(l=>{const c=document.createElement('div');c.className='lesson-card';c.innerHTML=`<div style="display:flex;justify-content:space-between;margin-bottom:8px"><div><div style="font-size:var(--fs);color:var(--text);margin-bottom:3px">${l.title||'Untitled'}</div><div style="font-size:var(--fsxs);color:var(--text4)">${l.date||''} ${l.tags?.length?'· '+l.tags.map(t=>`<span class="tag" style="margin-right:3px">${t}</span>`).join(''):''}</div></div><button class="del-btn" data-lid="${l.id}">✕</button></div><div style="font-size:var(--fsm);color:var(--text3);line-height:1.8;white-space:pre-wrap">${l.body}</div>`;list.appendChild(c);});content.appendChild(list);list.querySelectorAll('[data-lid]').forEach(b=>{b.onclick=()=>deleteLesson(b.dataset.lid);});}
   }
@@ -21014,7 +21016,7 @@ function renderApp(){
         content.appendChild(_anLabel);
 
         const _anCalHTML=(()=>{
-          const cm=calMonth||new Date().toISOString().slice(0,7);
+          const cm=calMonth||_localYmd().slice(0,7);
           const [cyr,cmo]=cm.split('-').map(Number);
           const yr=cyr,mo=cmo;
           const firstDay=new Date(yr,mo-1,1),daysInMonth=new Date(yr,mo,0).getDate(),startDow=firstDay.getDay();
@@ -21029,7 +21031,7 @@ function renderApp(){
           for(let day=1;day<=daysInMonth;day++){
             const ds=yr+'-'+String(mo).padStart(2,'0')+'-'+String(day).padStart(2,'0');
             const dt=tbd[ds]||[];const dp=dt.reduce((s,t)=>s+t.pnl,0);
-            const isToday=ds===new Date().toISOString().slice(0,10);
+            const isToday=ds===_localYmd();
             const bg=dt.length?(dp>=0?'#00e5a020':'#ff3d5a20'):'transparent';
             const border=isToday?'1px solid var(--yellow)':dt.length?`1px solid ${dp>=0?'#00e5a050':'#ff3d5a50'}`:'1px solid transparent';
             cells+=`<div class="cal-day-cell" data-date="${ds}" style="text-align:center;font-size:11px;padding:5px 3px;background:${bg};border:${border};min-height:52px;display:flex;flex-direction:column;justify-content:center;position:relative;cursor:${dt.length?'pointer':'default'}" onmouseenter="window.showCalHover('${ds}')" onmouseleave="window.hideCalHover()" onclick="${dt.length?`window.gotoTradesByDate('${ds}')`:''}">
