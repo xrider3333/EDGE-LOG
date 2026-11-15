@@ -211,6 +211,15 @@ PROBE_HTML = """<!DOCTYPE html>
               + "return who+'|ok|'+String(window.loadError||'');"
               + "}catch(e){return 'threw|'+String((e&&e.message)||e);}})()");
           } catch (e3) { return 'eval|' + String((e3 && e3.message) || e3); }
+        })(),
+        // A DENIED RUN READ SAYS SIGN IN AGAIN (2026-11-15). Nobody is signed in here, so a
+        //   stubbed permission-denied is exactly the owner's case: PAST RUNS drew 432 rows from
+        //   the index and #512 said "could not be read (permission-denied)". The reason the
+        //   page prints must name the sign-in, not blame the run.
+        deniedRunRead: (function(){
+          try {
+            return w.eval("String((window._runFail&&window._runFail['512'])||window.__deniedKick||'(not run)')");
+          } catch (e4) { return 'eval|' + String((e4 && e4.message) || e4); }
         })()
       };
       o.textContent = 'BOOTPROBE: ' + JSON.stringify(obj);
@@ -220,6 +229,21 @@ PROBE_HTML = """<!DOCTYPE html>
   }
   document.getElementById('f').addEventListener('load', function(){
     iframeLoaded = true;
+    // A DENIED RUN READ SAYS SIGN IN AGAIN (2026-11-15). Nobody is signed in here, so a stubbed
+    //   permission-denied is exactly the owner's case: PAST RUNS drew 432 rows from the index and
+    //   #512 answered "could not be read (permission-denied)". Kicked HERE, read in the sample
+    //   below, so no promise has to cross the boundary.
+    try {
+      var w0 = document.getElementById('f').contentWindow;
+      w0.eval("(function(){try{"
+        + "window._runFull={};window._runHydrating={};window._runHydrateQ=[];"
+        + "window._runFail={};window._runRetried={};"
+        + "runsRef={doc:function(){return {get:function(){"
+        + "  var e=new Error('Missing or insufficient permissions.');e.code='permission-denied';"
+        + "  return Promise.reject(e);}};}};"
+        + "_hydrateRun('512');window.__deniedKick='';"
+        + "}catch(e){window.__deniedKick='threw|'+String((e&&e.message)||e);}})()");
+    } catch (eK) { /* the sample reports '(not run)' */ }
     setTimeout(function(){ report('load'); }, 2500);
   });
   // Backstop. index.html is ~2 MB, and this gate often runs while the machine is
@@ -417,6 +441,12 @@ def main(argv=None):
             return FAIL
         if load_error:
             print('PREFLIGHT: FAIL -- loadError set: %r' % load_error)
+            print('  parsed: %s' % obj)
+            return FAIL
+        drr = obj.get('deniedRunRead')
+        if drr is not None and 'sign in again' not in str(drr).lower():
+            # a denied single-run read must name the sign-in, not blame the run
+            print('PREFLIGHT: FAIL -- denied run read said %r' % drr)
             print('  parsed: %s' % obj)
             return FAIL
         soa = obj.get('signedOutAugur')

@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.14';
+const VERSION='90.15';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5787,6 +5787,7 @@ function _monRunsExtra(cur){
 //   fields, so a mask would cost code and save nothing.
 function _recMonWant(key,from,xto){_monFetch('research_runs','_recMon',key,from,xto,null,null);}
 window._runHydrateQ=window._runHydrateQ||[];
+window._runRetried=window._runRetried||{};   // one forced-token retry per run, no loops
 function _runHydrateNext(){const n=window._runHydrateQ.shift();if(n)_hydrateRun(n);}
 // w130 #73: a run that cannot be read (deleted, stale saved id, quota error) is remembered here so the
 //   report says so instead of LOADING for ever; RETRY clears it
@@ -5814,7 +5815,26 @@ function _hydrateRun(id){
     while(window._runFullOrder.length>_cap){const old=window._runFullOrder.shift();if(old!==id)delete window._runFull[old];}
     renderApp();
   }).catch(e=>{delete window._runHydrating[id];_runHydrateNext();console.warn('[run] full document fetch failed for',id,(e&&e.message)||e);
-    window._runFail[id]='the run could not be read ('+String((e&&(e.code||e.message))||'error').slice(0,60)+')';renderApp();});
+    // A DENIED READ IS A SIGN-IN PROBLEM, NOT A BROKEN RUN (owner 2026-11-15: PAST RUNS listed
+    //   432 runs and #512 said "could not be read (permission-denied)"). The list is drawn from
+    //   the run-index shards, read once when the page WAS authorised; the rules refuse the
+    //   single-run read later, when that sign-in has lapsed. Two different answers:
+    //     nobody signed in  -> say SIGN IN AGAIN, and say it once at the top of the page too,
+    //                          rather than leaving a long list that opens nothing
+    //     a user, stale token -> force a fresh token and read it ONE more time before any error
+    const _code=String((e&&(e.code||e.message))||'error');
+    const _denied=/permission|denied|unauthenticated|401|403/i.test(_code);
+    const _signedIn=!!(typeof auth!=='undefined'&&auth&&auth.currentUser);
+    if(_denied&&_signedIn&&!window._runRetried[id]){
+      window._runRetried[id]=1;
+      auth.currentUser.getIdToken(true)
+        .then(()=>{delete window._runFail[id];_hydrateRun(id);})
+        .catch(()=>{window._runFail[id]='sign in again - this page is no longer signed in';_fsSignedOutNote();renderApp();});
+      return;
+    }
+    if(_denied&&!_signedIn){
+      window._runFail[id]='sign in again - this page is no longer signed in';_fsSignedOutNote();renderApp();return;}
+    window._runFail[id]='the run could not be read ('+_code.slice(0,60)+')';renderApp();});
 }
 // Re-read the projected list after the runner finishes a job (a new run doc appears). The
 // listen channel used to do this for free; a debounce keeps it to one read burst per job.
@@ -5904,6 +5924,18 @@ function _fsQuotaNote(e){
   d.textContent='Database daily read limit reached - showing what already loaded. It resets at 01:00 MST.';
   const x=document.createElement('span');x.textContent='  ✕';x.style.cssText='cursor:pointer;margin-left:10px';x.onclick=function(){d.remove();};d.appendChild(x);
   document.body.appendChild(d);}
+// ONE LINE WHEN THE PAGE IS SIGNED OUT (owner 2026-11-15). The run list keeps drawing from the
+//   index it read while it was authorised, so without this the page looks healthy and opens
+//   nothing. Shown once per load, same shape as the quota line above.
+function _fsSignedOutNote(){
+  if(window._fsSignedOut)return;window._fsSignedOut=true;
+  if(document.getElementById('fs-signedout-note'))return;
+  const d=document.createElement('div');d.id='fs-signedout-note';
+  d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:7px 14px;background:#2a1a00;color:#ffd166;font:600 12px/1.4 monospace;text-align:center';
+  d.textContent='This page is no longer signed in - the list you see was loaded earlier. Sign in again to open a run.';
+  const x=document.createElement('span');x.textContent='  ✕';x.style.cssText='cursor:pointer;margin-left:10px';x.onclick=function(){d.remove();};d.appendChild(x);
+  document.body.appendChild(d);}
+window._fsSignedOutNote=_fsSignedOutNote;
 // The original whole-document listener, kept as the fallback path ONLY.
 function _subscribeRunsFull(uid,lim){
   if(!db||!uid)return;
