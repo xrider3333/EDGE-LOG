@@ -115,7 +115,7 @@ _AUGUR_MARKET = {"instrument": "GLD", "timeframe": "5m", "session": "rth",
                  "source": "alpaca_split_rth"}
 
 PANEL_PATH = r"C:/EdgeLog/alpaca_cache/gldmacro_panel/gldmacro_panel_v1.npz"
-PANEL_SHA256 = "PIN-AFTER-BUILD"            # set to the sha256 tools/misc_gldmacro_panel.py prints
+PANEL_SHA256 = "97c1cd00fc5a0bb1d29875c9f205c0e88036f70440cffe8c7c0daf6fef8f5dae"   # built 2026-11-14, 2,637 sessions
 
 # ---- the frozen release calendar, 2016-01 .. 2026-06-30 (sources in the docstring) ---------------------------------
 _FOMC_DAYS = (

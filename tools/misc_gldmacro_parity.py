@@ -19,7 +19,10 @@ Checks, all on sessions <= 2025-06-30 only:
   master's float64 prices, so a gap of cents a trade (or one share at the floor now and then) is that rounding.
 THE SEAL: the panel's arrays are cut at 2025-06-30 before the plugin derives anything, and the master is loaded only to
 2025-06-30. No return / PnL after 2025-06-30 is computed or printed.
-    python tools/misc_gldmacro_parity.py      (one process, ~250 MB peak: never while the PC is in QUIET)
+    python tools/misc_gldmacro_parity.py      (one process, 183 MB peak, 3 s: never while the PC is in QUIET)
+Result 2026-11-14 (panel sha 97c1cd00...): 97a 292 / 292 trades, net diff under 1e-12 a trade, EVAL series exact
+(corr 1.0, $84,083.48 both); 97c the same ($75,449.42 both); 97b 212 / 212, same shares, net within $0.03 a trade
+(float32), EVAL -$3,221.99 vs -$3,221.89.
 """
 import hashlib
 import importlib.util
