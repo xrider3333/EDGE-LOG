@@ -2900,7 +2900,18 @@ const CHANGELOG=[{v:'89.88',date:'2026-11-14',notes:['SETTINGS > BACKTEST: the T
         // backgrounded tab reload within 5 min, which read as "stuck on loading" / "not
         // saving"). Skip the reload and fall through to the pill instead.
         var _busyUI=((window._pendingCmds|0)>0)||document.querySelector('#chart-body,#eqx-main,#ceqx-chart');
-        if(document.hidden&&done!==_remote&&!_busyUI){hardReload();return;}
+        // FIRESTORE READS, 2026-11-14: a hidden tab used to hard-reload itself on EVERY version
+        //   bump. On a deploy day that is a read storm - 25 pushes landed between 12:00 and 14:00
+        //   and the account burned 36.5k document reads in those two hours, because each reload is
+        //   a FULL app boot (runs list, board, ledger, meta docs) in every open lane tab. The free
+        //   tier is 50k/day, so queue_truth, the runner's claims and the owner's own page all got
+        //   429s until the 01:00 reset.
+        //   A hidden tab now does nothing at all. The visibilitychange handler below re-runs this
+        //   check 1.2 s after anyone looks at the tab, so it takes the ordinary route then: the
+        //   pill, which the owner clicks. Nobody ever reads a stale page, a backgrounded tab costs
+        //   nothing while nobody is reading it, and no tab reloads
+        //   itself while nobody is looking at it, and no behaviour changes for the tab in front.
+        if(document.hidden&&done!==_remote&&!_busyUI)return;
         showPill(_remote,notesFor(t,_remote));})
       .catch(function(){_busy=false;});
   }
