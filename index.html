@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='89.96';
+const VERSION='89.97';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -51056,7 +51056,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +sn.join(' ')
             +(_pinKeys.length?(' <span data-rfshowall="'+_pinKeys.join(',')+'" title="'+(_pinRec?'Clear only the filters that hide this run. Your other filters stay.':'Clear the filters on this list.')+'" style="display:inline-block;margin-left:4px;padding:1px 8px;border-radius:999px;border:1px solid var(--text4);color:var(--text2);font-weight:700;letter-spacing:.5px;cursor:pointer;white-space:nowrap">show all</span>'):'')
             +'</div>';})();
-        const _flatRow=(r,_pinned)=>{const on=String(r.id)===String(d.id);const T=_T(r);const pnl=T.net||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';const dd=T.dd||0;const shp=T.sharpe;const wf=_wfHeld(r);const src=r.source_name||r.data_source||'';const ik=_instShort(r.instrument);
+        // w131 VOCABULARY (display only, stored ids untouched): retired family names never reach the screen - the same map
+        //   FEATURE BOARD got in v89.52. Text between tags only, so a data-/title attribute keeps the stored id.
+        const _prFam=t=>t.replace(/COMBINED/g,'BOOK').replace(/ETFDIP/g,'DIP').replace(/NQDIP/g,'DIP').replace(/ENGUQ/g,'ENGU-Q').replace(/TTMSQZ/g,'TTM');
+        const _prName=h=>String(h).replace(/>([^<]+)</g,(m,t)=>'>'+_prFam(t)+'<');
+        const _flatRow=(r,_pinned)=>_prName(_flatRow0(r,_pinned));
+        const _flatRow0=(r,_pinned)=>{const on=String(r.id)===String(d.id);const T=_T(r);const pnl=T.net||0;const sc=scoreRun(r);const vd=r.validate?r.validate.verdict:'';const dd=T.dd||0;const shp=T.sharpe;const wf=_wfHeld(r);const src=r.source_name||r.data_source||'';const ik=_instShort(r.instrument);
           return '<tr class="arow" data-run="'+r.id+'"'+(_pinned?(' data-rfpin="1" title="'+_pinTip+'"'):'')+' style="cursor:pointer;'+(on?'background:var(--bg1)':'')+(_pinned?';box-shadow:inset 0 -2px 0 var(--border)':'')+'">'
             +'<td class="prstar"><span data-star="'+r.id+'" title="star" style="cursor:pointer;color:'+(r.starred?'var(--yellow)':'var(--text5)')+'">'+(r.starred?'★':'☆')+'</span></td>'
             +'<td style="text-align:right;color:var(--text3);font-variant-numeric:tabular-nums;white-space:nowrap">'+r.id+((r.famKey&&r.famSeq!=null)?'<div title="family run id — chronological within '+r.famKey+', stable (never renumbers)" style="margin-top:1px;font-size:7.5px;color:var(--text4);font-weight:700;letter-spacing:.2px">'+r.famKey+'-'+r.famSeq+'</div>':'')+'</td>'
