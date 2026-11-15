@@ -463,7 +463,11 @@ def judge(nm, r):
         # A NUMBER NOBODY REPORTED IS A DASH, never a zero.
         if '\u2013' not in runs:
             f.append('%s: a run number the lane did not report is not shown as a dash' % nm)
-        if '0.0' in runs.replace('10.1', ''):
+        # ...but the APP HEADER rides at the top of this text, and the version chip there is a
+        #   number too: at v90.00 the plain '0.0' test matched 'v90.00' and failed every lane's
+        #   ship on a gate that had nothing to do with their change (2026-11-14). Drop the
+        #   version chip before looking for a zero.
+        if '0.0' in re.sub(r'v\d+\.\d+', '', runs).replace('10.1', ''):
             f.append('%s: a missing run number reads as a zero (%r)' % (nm, runs[:200]))
         if 'tools/board.py' not in btx:
             f.append('%s: the page does not say how a row gets set' % nm)
