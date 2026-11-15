@@ -1,10 +1,13 @@
 """MISC_NIGHTPERSIST_1_0 (opus hunt strategy 83, NIGHTPERSIST-120, cell 83d): defaults = the hunt cell, the plugin gate
 lets it through, the contract's synthetic (non-RTH) arrays never touch the panel, no panel -> no trades, a gap in the
-clock never makes a two-night hold, and - when the pinned panel and the hunt files are on this machine - a contract
-smoke on an RTH clock (15:55 of t -> 09:30 of t+1, one mark at the entry close), the 2019 nights equal the harness's
-trades_83d.csv, and no pick moves when every print known only after the entry is scrambled or blanked (and the same
-check DOES catch a variant that peeks at the holding night).
+clock never makes a two-night hold, a corporate-action factor step voids exactly its night (synthetic), and - when the
+pinned panel and the hunt files are on this machine - the guard flags HON's 2026-06-29 factor step (reads only HON's
+raw / split close RATIO, no return), a contract smoke on an RTH clock (15:55 of t -> 09:30 of t+1, one mark at the entry
+close), the 2019 nights equal the harness's trades_83d.csv once the voided name-nights are put back, and no pick moves
+when every print known only after the entry is scrambled or blanked (and the same check DOES catch a variant that peeks
+at the holding night).
 Everything that reads prices runs on the panel CUT AT 2025-06-30 (tools/misc_nightpersist_parity.load_plugin_sealed)."""
+import hashlib
 import itertools
 import os
 import sys
@@ -155,11 +158,97 @@ def test_a_gap_in_the_clock_never_makes_a_two_night_hold():
     assert len(entries) == len(held) - 2 + (0 if nxt in held else 1)
 
 
+def _step_panel(n_days=60, n_names=45, step_row=40, step_name=3, seed=83):
+    """A small synthetic panel: every name a member, every session FULL, SPY a mild random walk. Name `step_name` has
+    a +1 pct overnight drift (so it is the top long) and HON 2026-06-29's corporate-action step: its split-adjusted
+    open and close are 2x raw before session `step_row` and equal to raw from it on, so the split night INTO
+    `step_row` reads about -50 pct while raw moved about +1 pct."""
+    rng = np.random.default_rng(seed)
+    night = rng.normal(0.0, 0.004, (n_days, n_names))
+    night[:, step_name] += 0.01
+    day = rng.normal(0.0, 0.006, (n_days, n_names))
+    ro, rc = np.empty((n_days, n_names)), np.empty((n_days, n_names))
+    prev = np.full(n_names, 100.0)
+    for t in range(n_days):
+        ro[t] = prev * (1.0 + night[t])
+        rc[t] = ro[t] * (1.0 + day[t])
+        prev = rc[t]
+    so, sc = ro.copy(), rc.copy()
+    so[:step_row, step_name] *= 2.0
+    sc[:step_row, step_name] *= 2.0
+    spy = 400.0 * np.cumprod(1.0 + rng.normal(0.0, 0.005, n_days))
+    dates = pd.bdate_range("2019-01-02", periods=n_days).strftime("%Y%m%d").astype("int64").to_numpy()
+    return {"dates": dates, "names": np.array(["S%02d" % j for j in range(n_names)]), "o": so, "c": sc, "r": rc,
+            "member": np.ones((n_days, n_names), bool), "full": np.ones(n_days, bool), "half": np.zeros(n_days, bool),
+            "spy_open": spy * 0.999, "spy_close": spy}
+
+
+def test_a_corporate_action_step_voids_exactly_that_night(monkeypatch):
+    """The raw / split close ratio steps between sessions 39 and 40 for S03 (the top long): the guard flags exactly
+    (39, S03); that night books neither S03's fake -50 pct night nor its cost, its long side keeps k - 1 names (the
+    slot is NOT refilled), and every other night - and every pick - is what the book is without the guard."""
+    mod = P.fresh_plugin()
+    z = _step_panel()
+    kn = mod._knobs({"lookback": 20})
+    args = [kn[x] for x in KNOBS]
+    p = mod._frames(z)
+    assert [tuple(x) for x in np.argwhere(p["ca_break"].to_numpy())] == [(39, 3)]
+    d39 = int(z["dates"][39])
+    L, S, _ = mod._picks(p, *args)
+    assert bool(L.loc[d39, "S03"]) and int(L.loc[d39].sum()) == kn["k"]
+    hold, raw = float(p["hold"].loc[d39, "S03"]), float(p["R"].loc[d39, "S03"])
+    assert hold < -0.45                                            # the fake split night the guard keeps out
+    got = mod._book(p, **kn)
+    monkeypatch.setattr(mod, "_CA_MOVE", np.inf)                   # the same book with the guard off
+    p0 = mod._frames(z)
+    assert not p0["ca_break"].to_numpy().any()
+    L0, S0, _ = mod._picks(p0, *args)
+    assert L0.equals(L) and S0.equals(S)                           # the guard never moves a pick
+    base = mod._book(p0, **kn)
+    assert list(got.index) == list(base.index) and d39 in got.index and len(got) > 30
+    pd.testing.assert_frame_equal(got.drop(index=d39), base.drop(index=d39))
+    nn = kn["notional"] / kn["k"]
+    g, b = got.loc[d39], base.loc[d39]
+    assert (int(g["void"]), int(b["void"])) == (1, 0) and int(got["void"].sum()) == 1
+    assert int(g["nl"]) == int(b["nl"]) - 1 == kn["k"] - 1 and int(g["ns"]) == int(b["ns"]) == kn["k"]
+    assert abs(g["gl"] - (b["gl"] - nn * hold)) < 1e-9
+    assert abs(g["cl"] - (b["cl"] - nn * (0.02 / raw + 6e-05))) < 1e-9
+    assert abs(g["gs"] - b["gs"]) < 1e-12 and abs(g["cs"] - b["cs"]) < 1e-12
+    assert abs(g["net"] - (b["net"] - nn * hold + nn * (0.02 / raw + 6e-05))) < 1e-9
+    monkeypatch.undo()
+    z2 = dict(z, r=z["r"].copy())                                  # a missing raw close is no break
+    z2["r"][45, 7] = np.nan
+    assert [tuple(x) for x in np.argwhere(mod._frames(z2)["ca_break"].to_numpy())] == [(39, 3)]
+
+
+def test_the_guard_catches_hon_2026_06_29():
+    """MANAGER's case: HON's split-adjusted series is 2x raw before 2026-06-29 (06-26 close -> 06-29 open reads a fake
+    -48 pct night). Reads ONLY HON's raw and split CLOSES on 2026-06-22 .. 06-30 from the pinned panel and checks the
+    guard's flag on their RATIO (the adjustment factor) - no price return, no pick, no PnL is computed."""
+    mod = P.fresh_plugin()
+    if not os.path.exists(mod.PANEL_PATH):
+        pytest.skip("pinned panel not on this machine")
+    with open(mod.PANEL_PATH, "rb") as fh:
+        assert hashlib.sha256(fh.read()).hexdigest() == mod.PANEL_SHA256
+    z = np.load(mod.PANEL_PATH, allow_pickle=False)
+    days = np.asarray(z["dates"]).astype("int64")
+    j = [str(x) for x in z["names"]].index("HON")
+    k = np.flatnonzero((days >= 20260622) & (days <= 20260630))
+
+    def col(key):
+        return pd.DataFrame(np.asarray(z[key])[k, j:j + 1].astype(np.float64), index=days[k], columns=["HON"])
+
+    flag = mod._ca_breaks(col("r"), col("c"))["HON"]
+    assert list(flag.index) == [20260622, 20260623, 20260624, 20260625, 20260626, 20260629, 20260630]
+    assert list(flag.index[flag.to_numpy()]) == [20260626]       # the held night 06-26 -> 06-29 is voided
+
+
 def test_2019_nights_match_harness_83d():
     mod, p = P.load_plugin_sealed()
     if p is None or not os.path.exists(HUNT_TRADES):
         pytest.skip("pinned panel or hunt trades file not on this machine")
     got = P.plugin_nights(mod, p)
+    got = P.with_voids_added_back(got, P.voided_name_nights(mod, p, P.defaults(mod)))   # the guard's voids put back
     got = got[(got.index >= 20190101) & (got.index <= 20191231)]
     H = P.hunt_trades("83d")
     H = H[(H.index >= 20190101) & (H.index <= 20191231)]

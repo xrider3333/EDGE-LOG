@@ -17,7 +17,9 @@ EPISODE (seen DISC total $39.7k -> $18.6k with Feb-Apr 2020 zeroed). It passes t
 (owner_screen_1114: 250 trades a year, $7.1k a year, leg max DD $31.7k) with warnings t 1.7 / 0.6, loses at 2x cost,
 one episode, leg DD > 3 years' net; the walk-forward basket S127 kept strategy 83 among its persistent picks (127c,
 picked in >= 5 of 7 folds). The engine's 2025-07..2026-06 lockbox was never read by the hunt. This file exists so
-the engine's Auto-Validate can judge it.
+the engine's Auto-Validate can judge it. WITH THE CORPORATE-ACTION GUARD (below) the same 2,020 nights book $56,671.83
+($28.06 a night), not the hunt's $63,806.16: the hunt's total held a fake +$7,023 RTX night (2020-04-02, inside the
+Feb-Apr 2020 episode).
 
 -- The rule -----------------------------------------------------------------------------
 Sessions = the panel's NYSE sessions (dates on which >= 50 universe names print). Session t is TRADED only when it is
@@ -45,6 +47,21 @@ A picked name whose exit open is missing books 0 and still pays its cost (the hu
 close print on t (raw or split) is dropped from that night's side and its slot is NOT refilled. (The hunt required
 the close prints before ranking; on member days the open print and the close prints are present on exactly the same
 name-days 2016-2026 (panel QA), so the picks are the hunt's.)
+CORPORATE-ACTION NIGHT GUARD (not in the prereg; MANAGER 11-14, MISC_PAIRZ_1_0's break rule): a picked name-night
+t -> t+1 is VOIDED - no PnL, no cost, slot NOT refilled - when the name's raw close / split close ratio moves by more
+than 0.5 pct from t to t+1 (a split, a spin-off or a vendor re-adjustment lands on that night; a missing ratio is no
+break - the missing-exit rule above covers a name with no prints on t+1). Applied after the pick like the hygiene
+above: it reads the closes of t and t+1, so it can void a name but never choose one. Why: the split-adjusted night
+across such a step can be fake - HON 2026-06-29 (lockbox): the split-adjusted series is 2x raw before that day, so its
+06-26 close (464.42) -> 06-29 open (240.65) reads a -48 pct night while raw moved -1.9 pct (MANAGER's figures). In
+the hunt window (83d, exits 2017-05-22 .. 2025-06-30) the guard voids 9 name-nights the hunt booked at +$7,134.33
+net: RTX 2020-04-02 short +$7,023.00 (the UTX -> RTX merger and Carrier / Otis spin-off step, x0.5: the split-adjusted
+night reads -70 pct) and 8 ordinary forward-split nights (TSLA 2020-08-28 and 2022-08-24, NVDA 2021-07-19 and
+2024-06-07, SHOP 2022-06-28, AVGO 2024-07-12, SMCI 2024-09-30, LRCX 2024-10-02; +$111.33 together - real nights the
+rule voids too). Every other night equals the hunt to 1e-6 (tools/misc_nightpersist_parity.py lists the voids and
+checks the rest). The SIGNAL history is NOT changed: taking the same nights out of it would move the picks on 49 of
+2,020 WF sessions (83d; 39 of 2,115 for 83a) - beyond the voided nights - so the signal keeps the hunt's history; the
+25 pct cap already drops the large fake nights (HON's -48 pct, RTX's -70 pct) from it.
 
 TRADE-TO-SESSION MAPPING (the position is HELD OVERNIGHT): ONE trade per ENTRY session t = the whole basket. Entry
 bar = the clock's last bar of t (the 15:55 5-minute bar; its close is the 16:00 close = the MOC print); exit bar = the
@@ -63,8 +80,9 @@ INFORMATION TIMES (all known by 09:30 ET of t, before the MOC order):
     ends t-1; SPY's night return reads its 09:30 open;
   * "printed an open on t" reads the 09:30 open; the day's count (>= `min_names`) and both ranks read only the above.
 The official close of t (split and raw: the fill, the share count, the cent cost), SPY's close of t and every print
-of t+1 or later (the exit open) are read only for the PnL and the post-pick drop; tests/test_misc_nightpersist.py
-scrambles them and checks that no pick moves, and shows the check catches a variant that peeks at the holding night.
+of t+1 or later (the exit open; the closes of t+1 for the corporate-action guard) are read only for the PnL and the
+post-pick drops; tests/test_misc_nightpersist.py scrambles them and checks that no pick moves, and shows the check
+catches a variant that peeks at the holding night.
 
 -- Data ---------------------------------------------------------------------------------
 THE MASTER IS ONLY THE CLOCK (SPY 5m RTH, alpaca_split_rth: 2,637 sessions 2016-01-04 .. 2026-06-30, as many as
@@ -77,10 +95,21 @@ identical to the hunt's loader on 2016-01-04 .. 2025-06-30 (the 13 names first l
 alphabetical columns and are never members before 2026). Members start 2017-01-03 (the universe's first year), so the
 demeaned 83d signal has its first full window in May 2017 (first entry 2017-05-19); 2016 rows feed beta and the
 beta-residual signal. No panel on the machine (CI, the box) -> the file returns None (no trades), never a guess.
-Known limits, all the hunt's own: no corporate-action guard - a spin-off or vendor adjustment left in the split
-series reads as a move (hunt window: RTX 2020-04-03 factor x0.5, DD 2019-04-02 / 06-03, DHR 2016-07-05, MET
-2017-08-07, HON 2018-10, DELL 2021-11-02; lockbox: HON 2026-06-29, whose split-adjusted series halves while the raw
-does not); dividends are not credited (ex-dividend nights read as losses on longs, gains on shorts).
+Known limits: the signal history keeps every corporate-action night under the 25 pct cap, as the hunt did (split /
+raw factor steps in the hunt window: RTX 2020-04-03 x0.5, DD 2019-04-02 / 06-03, DHR 2016-07-05, MET 2017-08-07, HON
+2018-10, DELL 2021-11-02 and the ordinary splits; in the lockbox HON 2026-06-29 and DD 2026-06-24 (not a member) plus
+the splits NFLX, NOW, BKNG, CVNA, KLAC) - only the HELD nights are guarded (above); dividends are not credited
+(ex-dividend nights read as losses on longs, gains on shorts).
+
+-- Deviations from the prereg (cell 83d) ------------------------------------------------
+  * the corporate-action night guard (above; the HON 2026-06-29 case);
+  * t's close prints are checked AFTER the pick (the hunt required them before ranking) - the same picks, since the
+    open print and the close prints exist on the same member name-days;
+  * k is a knob at a FIXED notional a side (notional / k a name: $10k at k 10, the hunt's size);
+  * min_price is also the demeaning set's floor (the prereg fixes $40 for both - the default);
+  * the frozen half-day list runs on through 2026-06 (2025-07-03, 2025-11-28, 2025-12-24) and the universe key 2026
+    is read (the hunt stopped at 2025-06-30);
+  * tug exists only with beta_resid on (the prereg's 83c); legs 1 / 2 and the ranges are engine search knobs.
 
 -- Sizing and costs (INSIDE the plugin - job cost_pts 0, mult 1) --------------------------
 `notional` dollars a side, notional / k a name ($10k at k 10). Name cost a night = 2 x `spread_cents` / raw close of t
@@ -165,10 +194,23 @@ PARAM_GRID_PRESETS = {
 PNL_UNITS = "usd"
 
 _MAX_ABS = 0.25            # a night / day / close-to-close return beyond this is invalid (the prereg)
+_CA_MOVE = 0.005           # corporate-action break: raw / split close ratio moves more than this from t to t+1
 _BETA_LEN = 60             # beta: 60 sessions ending t-1, >= 40 valid, clipped 0.3 .. 2.5, 1.0 while undefined
 _BETA_MIN = 40
 _DAILY_MAX = 2048          # cap on cached per-config nightly nets (each ~32 KB)
 _CACHE = {}                # per-process: the panel (its frames and per-config nights live in the panel's own cache)
+
+
+def _ca_breaks(R, C):
+    """True where the held night t -> t+1 crosses a corporate-action step: the raw / split close ratio moves by more
+    than _CA_MOVE from t to t+1 (MISC_PAIRZ_1_0's break rule). A missing ratio is no break (the missing-exit rule
+    covers a name with no prints on t+1). Reads the closes of t and t+1: used only AFTER the pick."""
+    f = (R / C).to_numpy()
+    f_next = np.full_like(f, np.nan)
+    f_next[:-1] = f[1:]
+    with np.errstate(divide="ignore", invalid="ignore"):
+        brk = np.abs(f_next / f - 1.0) > _CA_MOVE
+    return pd.DataFrame(brk, index=R.index, columns=R.columns)
 
 
 def _frames(z):
@@ -197,8 +239,10 @@ def _frames(z):
          "rp": R.shift(1),                            # raw close of t-1 (floor, demeaning set)
          "opened": O.notna(),                         # the name printed an open on t (known 09:30)
          "dayok": full & (nxt > 0),                   # FULL session t with a next session
-         # read only after the pick: the close prints of t exist (fill, shares, cost) and the night's return
+         # read only after the pick: the close prints of t exist (fill, shares, cost), the night crosses no
+         # corporate-action step, and the night's return
          "closed": C.notna() & R.notna(),
+         "ca_break": _ca_breaks(R, C),
          "hold": hold}
     return p
 
@@ -309,6 +353,9 @@ def _book(p, notional, spread_cents, fee_bps, min_names, lookback, k, min_price,
     Lg, Sh, n = _picks(p, lookback, k, min_price, beta_resid, tug, min_names)
     Lg = Lg & p["closed"]                             # hygiene drop after the pick, never refilled
     Sh = Sh & p["closed"]
+    void = (Lg | Sh) & p["ca_break"]                  # corporate-action night: no PnL, no cost, never refilled
+    Lg = Lg & ~p["ca_break"]
+    Sh = Sh & ~p["ca_break"]
     H = p["hold"]
     Hz = H.fillna(0.0)                                # a missing exit open books 0 (cost still paid)
     cents = 2.0 * float(spread_cents) / 100.0
@@ -318,7 +365,7 @@ def _book(p, notional, spread_cents, fee_bps, min_names, lookback, k, min_price,
     nn = float(notional) / int(k)
     res = pd.DataFrame({"gl": nn * Hz.where(Lg).sum(axis=1), "gs": -nn * Hz.where(Sh).sum(axis=1),
                         "cl": nn * cst.where(Lg).sum(axis=1), "cs": nn * cst.where(Sh).sum(axis=1),
-                        "nl": Lg.sum(axis=1), "ns": Sh.sum(axis=1),
+                        "nl": Lg.sum(axis=1), "ns": Sh.sum(axis=1), "void": void.sum(axis=1),
                         "miss": (H.isna() & (Lg | Sh)).sum(axis=1), "n": n})
     res["exit"] = p["nxt"]
     if int(legs) == 1:
