@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.13';
+const VERSION='90.14';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -19816,7 +19816,7 @@ function renderApp(){
   let _splitTog='';
   if(activeTab==='augur'&&augurSub==='runs'){const rv=_ap.resView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:2px;align-items:center;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px" title="split layout">${_spv('res-side','◧',rv==='side','Side-by-side split')}${_spv('res-stack','▤',rv==='stack','Stacked layout')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='lib'){const lv=_ap.libView==='stack'?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('lib-side','◧',lv==='side','Side-by-side split')}${_spv('lib-stack','▤',lv==='stack','Stacked layout')}</span>`;}
-  else if(activeTab==='augur'&&((augurSub==='cmp'&&_ap.cmpMode==='research')||(augurSub==='cmp2'&&_ap.c2Screen==='explore'&&_ap.c2Tbl===true))){const cv=_ap.resSplit==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res2-side','\u25e7',cv==='side','Chart beside the study tables')}${_spv('res2-stack','\u25a4',cv==='stack','Chart above the study tables')}</span>`;}
+  else if(activeTab==='augur'&&((augurSub==='cmp'&&_ap.cmpMode==='research')||(augurSub==='cmp2'&&_ap.c2Screen==='explore'))){const cv=(_ap.resSplit==='stack')?'stack':'side';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('res2-side','\u25e7',cv==='side','Chart beside the study tables')}${_spv('res2-stack','\u25a4',cv==='stack','Chart above the study tables')}</span>`;}
   else if(activeTab==='augur'&&augurSub==='research'){const sv=_ap.stackView==='side'?'side':'stack';_splitTog=`<span style="margin-left:auto;display:flex;gap:4px;align-items:center" title="split layout">${_spv('stack-side','◧',sv==='side','Side-by-side split')}${_spv('stack-stack','▤',sv==='stack','Stacked layout')}</span>`;}
   // ── ACCOUNT scope pills (ALL / <broker> …) — trading-log side only, and only once at
   // least one broker is tagged on trades. Right-aligned; clicking sets the global scope.
@@ -36654,7 +36654,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   has (RESULTS, LIBRARY, RESEARCH), so it is where the owner already looks for it. The
         //   tables also give their prose columns less room under SIDE, because the column is
         //   narrower there and a clamped sentence is still fully readable on hover.
-        const _reSplit=(APREF.resSplit==='side');
+        // SIDE IS THE DEFAULT AGAIN (owner 2026-11-15: "why is the chart blown up in my face,
+        //   what happened to my side by side split view option in the header"). w127 (ed2f15df)
+        //   took the TABLES toggle off the bar and left the header's split control behind a
+        //   saved c2Tbl===true - a pref nothing writes any more - so EXPLORE lost the control
+        //   AND fell back to STACK, which is the full-window chart he photographed. The control
+        //   is back in the header, and an unsaved view opens SIDE, the way it used to.
+        const _reSplit=(APREF.resSplit? (APREF.resSplit==='side') : true);
         // how much of the width the chart takes in the split layout, as a percentage. Dragged on
         //   the bar between the two columns, double-click puts it back.
         const _reSplitW=(()=>{const v=+APREF.resSplitW;return (isFinite(v)&&v>=22&&v<=78)?v:48;})();
@@ -52896,6 +52902,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   chart box after _reRedrawChart swaps its innerHTML, so the drag handle, the legend
         //   chips and each point's click / hide still work the second time without a page-wide
         //   render.
+        // ── A CHART IS ASLEEP UNTIL IT IS CLICKED (owner 2026-11-15) ──────────────────
+        //   One active chart at a time, remembered on the element itself so a chart-only
+        //   redraw cannot leave a stale flag behind. The cue is drawn by the chart's own
+        //   outline, so it needs no extra markup and no second render pass.
+        window._reChartLive=function(svg){return !!(svg&&svg.__reLive);};
+        window._reChartArm=function(svg){
+          if(!svg||svg.__reLive)return;
+          if(window._reChartCur&&window._reChartCur!==svg)window._reChartDisarm(window._reChartCur);
+          svg.__reLive=1;window._reChartCur=svg;
+          try{svg.style.outline='2px solid var(--blue)';svg.style.outlineOffset='-2px';
+              svg.setAttribute('aria-label','chart active - wheel zooms, Esc hands the wheel back to the page');
+              svg.style.cursor='grab';}catch(_){}
+          if(!window._reChartWired){window._reChartWired=1;
+            document.addEventListener('pointerdown',function(ev){
+              const c=window._reChartCur;
+              if(c&&!(ev.target===c||(c.contains&&c.contains(ev.target))))window._reChartDisarm(c);},true);
+            document.addEventListener('keydown',function(ev){
+              if(ev.key==='Escape'&&window._reChartCur)window._reChartDisarm(window._reChartCur);});}
+        };
+        window._reChartDisarm=function(svg){
+          if(!svg)return;svg.__reLive=0;if(window._reChartCur===svg)window._reChartCur=null;
+          try{svg.style.outline='';svg.style.outlineOffset='';svg.style.cursor='';
+              svg.setAttribute('aria-label','chart asleep - click inside it to zoom and pan');}catch(_){}
+        };
         window._reWireChart=function(root){
           // -- W128: THE SCATTER MOVES (owner 2026-11-13: the dots bunch up, he wants to zoom
           //    into a region and move around). No library: the chart is already redrawn from
@@ -52945,8 +52975,15 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const zoomAt=function(c,f){const v=cur();
               put(c.x-(c.x-v.x0)*f,c.x+(v.x1-c.x)*f,
                   c.y-(c.y-v.y0)*f,c.y+(v.y1-c.y)*f);};
-            svg.addEventListener('wheel',function(e){e.preventDefault();
+            // CLICK INTO THE CHART FIRST (owner 2026-11-15). An un-clicked chart does not touch
+            //   the wheel: the page scrolls past it as it would past a picture, and hovering alone
+            //   never zooms, pans or grabs. One click inside makes it active and the cue says so;
+            //   a click anywhere else, or Esc, hands the wheel back to the page.
+            svg.addEventListener('wheel',function(e){
+              if(!_reChartLive(svg))return;        // not active: no preventDefault, the page scrolls
+              e.preventDefault();
               zoomAt(dataAt(toVb(e.clientX,e.clientY)),(e.deltaY>0)?1.18:(1/1.18));},{passive:false});
+            svg.addEventListener('pointerdown',function(){_reChartArm(svg);});
             svg.addEventListener('dblclick',function(e){
               if(window._reVw){window._reVw=null;redraw();return;}
               zoomAt(dataAt(toVb(e.clientX,e.clientY)),1/2.5);});
