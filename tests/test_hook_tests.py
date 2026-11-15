@@ -1022,3 +1022,37 @@ def test_ship_calls_the_pre_lock_tests_in_its_pre_lock_phase():
     ship = src[src.index('def cmd_ship'):src.index('def warn_pages_budget')]
     assert ship.index('gate_before_lock(') < ship.index('push_queue.hold_turn(') < ship.index(
         'push_lock.hold(') < ship.index('tests_plan(wt)') < ship.index('_let_go(')
+
+
+# ── FLAKE MODE (MANAGER w131): a tier that fails only under load re-runs its failures alone ──
+_JUNIT = '''<?xml version="1.0"?><testsuites><testsuite>
+<testcase classname="tests.test_push_lock" file="tests/test_push_lock.py" name="test_it_is_taken_and_released" time="1"><failure message="x"/></testcase>
+<testcase classname="tests.test_overfit_report.TestGolden" file="tests/test_overfit_report.py" name="test_switch[on]" time="1"><error message="y"/></testcase>
+<testcase classname="tests.test_ok" file="tests/test_ok.py" name="test_fine" time="1"/>
+</testsuite></testsuites>'''
+
+
+def test_junit_failed_nodeids_names_each_failure(tmp_path):
+    p = tmp_path / 'j.xml'
+    p.write_text(_JUNIT, encoding='utf-8')
+    assert ht.junit_failed_nodeids(str(p)) == [
+        'tests/test_push_lock.py::test_it_is_taken_and_released',
+        'tests/test_overfit_report.py::TestGolden::test_switch[on]']
+    assert ht.junit_failed_nodeids(str(tmp_path / 'missing.xml')) is None
+
+
+def test_flake_verdict_passes_only_when_every_failure_passes_alone():
+    seen = []
+    assert ht.flake_verdict(['a::t'], lambda ids: seen.append(ids) or 0) == ('flake', ['a::t'])
+    assert seen == [['a::t']]
+    assert ht.flake_verdict(['a::t', 'b::t'], lambda ids: 1) == ('real', ['a::t', 'b::t'])
+
+
+def test_flake_verdict_never_reruns_nothing_or_too_many():
+    called = []
+    run = lambda ids: called.append(ids) or 0
+    assert ht.flake_verdict(None, run) == ('real', [])
+    assert ht.flake_verdict([], run) == ('real', [])
+    many = ['t%d' % i for i in range(ht.FLAKE_MAX + 1)]
+    assert ht.flake_verdict(many, run) == ('real', many)
+    assert called == []

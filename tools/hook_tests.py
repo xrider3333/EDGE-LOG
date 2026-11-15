@@ -350,6 +350,63 @@ def junit_file_secs(path):
         return {}
 
 
+FLAKE_MAX = 20            # more failures than this is a real break, not a timing flake (MANAGER w131)
+FLAKE_LEDGER = r'C:\EdgeLog\flaky_tests.jsonl'
+
+
+def junit_failed_nodeids(path):
+    """pytest node ids of every failed or errored case in an xunit1 junit report, in order.
+    None when the report cannot be read (then nothing can be re-run, and the tier fails as before)."""
+    try:
+        import xml.etree.ElementTree as ET
+        out = []
+        for tc in ET.parse(path).getroot().iter('testcase'):
+            if tc.find('failure') is None and tc.find('error') is None:
+                continue
+            f = (tc.get('file') or '').replace('\\', '/')
+            name = tc.get('name') or ''
+            if not f or not name:
+                return None
+            mod = f[:-3].replace('/', '.') if f.endswith('.py') else f.replace('/', '.')
+            cls = tc.get('classname') or ''
+            rest = cls[len(mod) + 1:] if cls.startswith(mod + '.') else ''
+            nid = f + ('::' + rest.replace('.', '::') if rest else '') + '::' + name
+            if nid not in out:
+                out.append(nid)
+        return out
+    except Exception:
+        return None
+
+
+def flake_verdict(failed, rerun):
+    """FLAKE MODE (MANAGER w131: timing tests fail only when two ship tiers and a post-push tier share the
+    box at -n 4). `failed` = node ids the tier failed (None if unreadable); `rerun(ids)` re-runs them ALONE,
+    serially, and returns the pytest exit code. Returns ('flake', ids) when every one passes alone, else
+    ('real', ids or []). Never re-runs nothing, an unreadable report, or more than FLAKE_MAX ids."""
+    if not failed or len(failed) > FLAKE_MAX:
+        return 'real', failed or []
+    return ('flake' if rerun(failed) == 0 else 'real'), failed
+
+
+def note_flakes(root, phase, label, ids, tree, log=print):
+    """A flake is a pass, but never a silent one: one ledger line per tier and one MANAGER inbox line."""
+    import json as _json
+    try:
+        with open(FLAKE_LEDGER, 'a', encoding='utf-8') as fh:
+            fh.write(_json.dumps({'at': time.strftime('%Y-%m-%d %H:%M:%S'), 'phase': phase, 'tier': label,
+                                  'tree': (tree or '')[:8], 'tests': ids}) + '\n')
+    except Exception as e:
+        log('  (flaky ledger not written: %s)' % e)
+    try:
+        subprocess.run([sys.executable, os.path.join(root, 'tools', 'chat_inbox.py'), 'post', 'MANAGER',
+                        '--from', 'TBIS', 'FLAKE (no action): %s %s tier on tree %s - %d test(s) failed under load '
+                        'and passed alone: %s. Logged in %s.' % (phase, label, (tree or '?')[:8], len(ids),
+                                                                  ', '.join(ids)[:600], FLAKE_LEDGER)],
+                       cwd=root, capture_output=True, timeout=60)
+    except Exception as e:
+        log('  (inbox note not posted: %s)' % e)
+
+
 def estimate_secs(stamps, files):
     """Seconds `files` took when they last ran (the newest stamp that timed each), a file never
     timed counted at the median of those that were. For deciding whether a re-run is worth
@@ -562,11 +619,23 @@ def run_tiers(root, phase, narrow, log=print, now=time.time, runner=None):
         else:
             rc = runner(root, args, par) if _takes_par(runner) else runner(root, args)
         secs = junit_file_secs(junit) if junit else {}
+        failed = junit_failed_nodeids(junit) if (junit and rc != 0) else None
         if junit:
             try:
                 os.remove(junit)
             except Exception:
                 pass
+        if rc != 0 and runner is None:
+            verdict, ids = flake_verdict(failed, lambda ids: run_pytest(root, ids))
+            if verdict == 'flake':
+                log('%s: %s tier FLAKE on tree %s - %d test(s) failed under load and passed when re-run '
+                    'alone, serially: %s' % (phase, t.label, (tree or '?')[:8], len(ids), ' '.join(ids)))
+                note_flakes(root, phase, t.label, ids, tree, log)
+                rc = 0
+            elif ids:
+                log('%s: %s tier - %d failure(s) %s when re-run alone, so it is a real failure'
+                    % (phase, t.label, len(ids), 'not re-run (over %d)' % FLAKE_MAX if len(ids) > FLAKE_MAX
+                       else 'still fail'))
         if rc != 0:
             log('%s: %s tier FAILED on tree %s (pytest exit %d) - nothing stamped'
                 % (phase, t.label, (tree or '?')[:8], rc))
