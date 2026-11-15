@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.12';
+const VERSION='90.13';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5417,14 +5417,29 @@ function _wfoDropStale(list){
 //   starred query stays live so a crown is never read out of a stale index, and anything
 //   that fails falls straight through to the projected query. A stale index can make the
 //   board slower, never wrong.
-const RUNS_INDEX_DELTA=10;   // the newest runs, read live, in case the index predates them
+const RUNS_INDEX_DELTA=10;
+// SIGNED OUT IS NOT AN ERROR (2026-11-15). The four REST readers below used to call
+//   auth.currentUser.getIdToken() straight out, so a render that ran before Firebase had
+//   restored the session - or with nobody signed in at all - threw a TypeError out of the
+//   render and the page showed the LOAD ERROR overlay instead of the sign-in screen
+//   ("RENDER: augur, Cannot read properties of null (reading getIdToken)"). They all go
+//   through this now: no user, no read, a plain rejection the caller already handles, and
+//   onAuthStateChanged starts the reads for real the moment a user arrives.
+function _idToken(){
+  try{
+    if(typeof auth==='undefined'||!auth||!auth.currentUser)
+      return Promise.reject(new Error('signed out - no read'));
+    return _idToken();
+  }catch(e){return Promise.reject(e);}
+}
+window._idToken=_idToken;   // the newest runs, read live, in case the index predates them
 function _runsIndexFetch(uid){
   const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
   const base='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+uid+'/meta/';
   const get=(doc,tok)=>fetch(base+doc,{headers:{'Authorization':'Bearer '+tok}})
     .then(r=>{if(!r.ok)throw new Error('index '+doc+' '+r.status);return r.json();})
     .then(j=>_fsFields((j||{}).fields||{}));
-  return auth.currentUser.getIdToken().then(tok=>get('runs_index',tok).then(head=>{
+  return _idToken().then(tok=>get('runs_index',tok).then(head=>{
     const k=+head.shards||0;
     if(!k||!(+head.n))throw new Error('index header empty');
     const want=[];for(let i=0;i<k;i++)want.push(get('runs_index_'+i,tok));
@@ -5464,7 +5479,7 @@ function _runsLiteFetch(uid,lim){
   const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
   const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+uid+':runQuery';
   const body={structuredQuery:{from:[{collectionId:'runs'}],orderBy:[{field:{fieldPath:'timestamp'},direction:'DESCENDING'}],limit:lim,select:{fields:RUNS_LITE_FIELDS.map(f=>({fieldPath:f}))}}};
-  return auth.currentUser.getIdToken()
+  return _idToken()
     .then(tok=>fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)}))
     .then(r=>{if(!r.ok)throw new Error('runs REST '+r.status);return r.json();})
     .then(rows=>(rows||[]).filter(x=>x&&x.document).map(x=>{
@@ -5497,7 +5512,7 @@ function _starRunsFetch(uid){
   const body={structuredQuery:{from:[{collectionId:'runs'}],
     where:{fieldFilter:{field:{fieldPath:'starred'},op:'EQUAL',value:{integerValue:1}}},
     select:{fields:RUNS_LITE_FIELDS.map(f=>({fieldPath:f}))}}};
-  return auth.currentUser.getIdToken()
+  return _idToken()
     .then(tok=>fetch(url,{method:'POST',headers:{'Authorization':'Bearer '+tok,'Content-Type':'application/json'},body:JSON.stringify(body)}))
     .then(r=>{if(!r.ok)throw new Error('starred REST '+r.status);return r.json();})
     .then(rows=>(rows||[]).filter(x=>x&&x.document).map(x=>{
@@ -5519,7 +5534,7 @@ function _rbWatchRunsFetch(uid,ids){
   const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+uid+':runQuery';
   const base='projects/'+pid+'/databases/(default)/documents/users/'+uid+'/runs/';
   const chunks=[];for(let i=0;i<ids.length;i+=30)chunks.push(ids.slice(i,i+30));
-  return auth.currentUser.getIdToken().then(tok=>Promise.all(chunks.map(ch=>{
+  return _idToken().then(tok=>Promise.all(chunks.map(ch=>{
     const body={structuredQuery:{from:[{collectionId:'runs'}],
       where:{fieldFilter:{field:{fieldPath:'__name__'},op:'IN',value:{arrayValue:{values:ch.map(id=>({referenceValue:base+id}))}}}},
       select:{fields:RUNS_LITE_FIELDS.map(f=>({fieldPath:f}))}}};
@@ -5586,7 +5601,7 @@ function _hydrateCfg(id){
   //   and with the one-redraw-per-burst rule that would hold back the redraw for every run.
   new Promise(function(res,rej){let _done=false;
     const _tt=setTimeout(function(){if(!_done){_done=true;rej(new Error('cfg token timeout'));}},30000);
-    auth.currentUser.getIdToken().then(function(v){if(!_done){_done=true;clearTimeout(_tt);res(v);}},
+    _idToken().then(function(v){if(!_done){_done=true;clearTimeout(_tt);res(v);}},
       function(e){if(!_done){_done=true;clearTimeout(_tt);rej(e);}});})
     .then(tok=>fetch(url,Object.assign({headers:{'Authorization':'Bearer '+tok}},_cfgAbortOk?{signal:_cfgAc.signal}:{})))
     .then(r=>{if(!r.ok)throw new Error('cfg REST '+r.status);return r.json();})
@@ -5666,7 +5681,7 @@ function _hydrateRbMonthly(id){
   const _rmTo=_rmAbortOk?setTimeout(function(){_rmAc.abort();},30000):null;
   new Promise(function(res,rej){let _done=false;
     const _tt=setTimeout(function(){if(!_done){_done=true;rej(new Error('rbmonthly token timeout'));}},30000);
-    auth.currentUser.getIdToken().then(function(v){if(!_done){_done=true;clearTimeout(_tt);res(v);}},
+    _idToken().then(function(v){if(!_done){_done=true;clearTimeout(_tt);res(v);}},
       function(e){if(!_done){_done=true;clearTimeout(_tt);rej(e);}});})
     .then(tok=>fetch(url,Object.assign({headers:{'Authorization':'Bearer '+tok}},_rmAbortOk?{signal:_rmAc.signal}:{})))
     .then(r=>{if(!r.ok)throw new Error('rbmonthly REST '+r.status);return r.json();})
@@ -5712,7 +5727,7 @@ const MON_CAP=1500;   // no month has ever held more than 173 runs; this only bo
 function _monTok(){
   return new Promise(function(res,rej){let done=false;
     const t=setTimeout(function(){if(!done){done=true;rej(new Error('month token timeout'));}},30000);
-    auth.currentUser.getIdToken().then(function(v){if(!done){done=true;clearTimeout(t);res(v);}},
+    _idToken().then(function(v){if(!done){done=true;clearTimeout(t);res(v);}},
       function(e){if(!done){done=true;clearTimeout(t);rej(e);}});});}
 function _monQuery(col,from,xto,fields){
   // ALL TIME IS A REAL READ, NOT A RANGE (owner 2026-10-20: "all time shows all"). With no bounds
@@ -5811,6 +5826,9 @@ function _refreshRunsLite(){
 }
 function _subscribeRuns(uid,lim){
   if(!db||!uid)return;
+  // nobody signed in yet: every read below needs a token, so start nothing. auth.onAuthStateChanged
+  //   calls subscribeAll - and so this - again the moment a user arrives (2026-11-15).
+  if(typeof auth==='undefined'||!auth||!auth.currentUser)return;
   runsRef=db.collection('users').doc(uid).collection('runs');
   runsLimit=lim||75;
   // (item 2, deferred round 2) the limit THIS fetch was asked for, captured now - not read back off
@@ -5821,7 +5839,8 @@ function _subscribeRuns(uid,lim){
   const _fetchLim=runsLimit;
   // STARRED RUNS (item 4) - independent of the main list and of whether it succeeds, so a
   //   crowned run's own read never depends on this one's, or the other way round.
-  {const g=++window._starRunsGen;_starRunsFetch(uid).then(sr=>{if(_starRunsApply(sr,g)&&activeTab==='augur')renderApp();});}
+  {const g=++window._starRunsGen;_starRunsFetch(uid).then(sr=>{if(_starRunsApply(sr,g)&&activeTab==='augur')renderApp();})
+    .catch(e=>{console.warn('[runs] starred read skipped:',(e&&e.message)||e);_starRunsApply(null,g);});}
   // THE INDEX FIRST (3 reads for every run), the projected query only when it is missing.
   //   A LOAD ALL / LOAD MORE click asks for the heavy list by name (lim>75 below), so it
   //   never comes back from the index and the reader gets the fields he clicked for.

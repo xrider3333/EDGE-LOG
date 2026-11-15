@@ -194,7 +194,24 @@ PROBE_HTML = """<!DOCTYPE html>
         // event fired and we sampled 2.5s later (a real reading). 'backstop' = the
         // deadline expired first, so this may just be a slow/loaded machine.
         why: why,
-        iframeLoaded: iframeLoaded
+        iframeLoaded: iframeLoaded,
+        // SIGNED-OUT AUGUR (2026-11-15). The owner's page showed "LOAD ERROR - RENDER:
+        //   augur, Cannot read properties of null (reading getIdToken)": the run-index
+        //   readers called auth.currentUser.getIdToken() with nobody signed in. Nothing
+        //   is signed in HERE either, so this is exactly the broken case: open the
+        //   RESULTS tab and ask the run list to load. It must not throw and must not
+        //   raise a LOAD ERROR - a signed-out page shows the sign-in screen.
+        signedOutAugur: (function(){
+          try {
+            return w.eval("(function(){try{"
+              + "var who=(typeof auth!=='undefined'&&auth&&auth.currentUser)?'user':'none';"
+              + "activeTab='augur';augurSub='runs';"
+              + "if(typeof _subscribeRuns==='function')_subscribeRuns('IO0K35JpLIcH9YK4C0pMNYUzZOM2',75);"
+              + "if(typeof renderApp==='function')renderApp();"
+              + "return who+'|ok|'+String(window.loadError||'');"
+              + "}catch(e){return 'threw|'+String((e&&e.message)||e);}})()");
+          } catch (e3) { return 'eval|' + String((e3 && e3.message) || e3); }
+        })()
       };
       o.textContent = 'BOOTPROBE: ' + JSON.stringify(obj);
     } catch (e) {
@@ -400,6 +417,12 @@ def main(argv=None):
             return FAIL
         if load_error:
             print('PREFLIGHT: FAIL -- loadError set: %r' % load_error)
+            print('  parsed: %s' % obj)
+            return FAIL
+        soa = obj.get('signedOutAugur')
+        if soa and not str(soa).startswith('none|ok|'):
+            # a signed-out page must open RESULTS without a throw and without a LOAD ERROR
+            print('PREFLIGHT: FAIL -- signed-out RESULTS tab: %r' % soa)
             print('  parsed: %s' % obj)
             return FAIL
         if not (isinstance(body_len, (int, float)) and body_len > 50000):
