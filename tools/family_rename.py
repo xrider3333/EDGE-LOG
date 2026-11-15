@@ -57,6 +57,8 @@ def target(r):
     """The family a stored run belongs on: BOOK for any book-shaped run, else the rename map / resolver."""
     if r.get("book"):
         return "BOOK"
+    if r["key"] == "MISC" and resolve(r["strat"]) == "PICK6":
+        return "PICK6"      # strategy 23 (MISC_EODREV files) ran as MISC before PICK6 existed (owner 2026-11-14)
     return RENAME.get(r["key"], r["key"]) if r["key"] else resolve(r["strat"])
 
 
