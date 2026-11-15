@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.04';
+const VERSION='90.05';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -21693,7 +21693,15 @@ function renderApp(){
     // VWAP/REVERT runs match today — their stored names still equal the current ones).
     // Tier 2 reconciles OLDER runs whose files were since renamed/re-titled, by their
     // durable identity (family + version signature) instead of the stale display name.
-    const _stratMatch=str=>{const nk=_norm(str);if(!nk)return null;const lib=metaStrats||[];
+    // SPEED (w131, MANAGER: run #511 froze the page for minutes on boot). This matcher scans the whole strategy
+    //   library and re-parses every file version on each call, and PAST RUNS calls it (via _fileOf / stratInfo)
+    //   about 105,000 times a render on 460 runs - 10-13 s a render measured in the owner's Chrome, and a boot fires
+    //   several renders. The answer depends only on the string and the library, so it is cached per string and
+    //   dropped whenever the library array changes. Same matches, same screens.
+    const _stratMatch=str=>{const _lb=metaStrats||null;let _C=window._stratMatchC;
+      if(!_C||_C.lib!==_lb||_C.n!==(_lb?_lb.length:0)){_C=window._stratMatchC={lib:_lb,n:(_lb?_lb.length:0),m:new Map()};}
+      const _k=String(str);if(_C.m.has(_k))return _C.m.get(_k);const _v=_stratMatch0(str);_C.m.set(_k,_v);return _v;};
+    const _stratMatch0=str=>{const nk=_norm(str);if(!nk)return null;const lib=metaStrats||[];
       for(const s of lib){if(_norm(s.file)===nk||_norm(s.name)===nk)return s;}
       const fam=_famKey(str),vOf=s=>_abbrVer(s.file).ver,maj=v=>v?v.split('.')[0]:'',lst=v=>v?v.split('.').slice(-1)[0]:'';
       const dot=String(str).match(/\d+\.\d+(?:\.\d+)?/);        // dotted version e.g. 1.3.1 / 2.0
