@@ -126,12 +126,22 @@ def live_rows():
 
 
 def kill_pid(pid):
-    try:
+    """Kill the process AND ITS CHILDREN (taskkill /T).
+
+    os.kill(pid, 9) is TerminateProcess on Windows: it ends that one process and
+    orphans its multiprocessing children. On 2026-11-15 a restart left three
+    children of the old primary alive, still holding runner.log open, so the new
+    primary could not start until they were killed by hand. /T walks the tree.
+    """
+    r = subprocess.run(["taskkill", "/T", "/F", "/PID", str(pid)],
+                       capture_output=True, text=True)
+    if r.returncode == 0:
+        return True
+    try:                      # no taskkill (non-Windows test box): best effort
         os.kill(pid, 9)
         return True
     except OSError:
-        r = subprocess.run(["taskkill", "/PID", str(pid), "/F"], capture_output=True, text=True)
-        return r.returncode == 0
+        return False
 
 
 def launch_worker(n):
