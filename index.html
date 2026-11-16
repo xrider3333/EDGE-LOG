@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.26';
+const VERSION='90.27';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -21728,9 +21728,7 @@ function renderApp(){
       if(/^book[:\s]/i.test(raw)||/^book$/i.test(raw)||/^combined\b/i.test(raw))return 'BOOK';
       const x=raw.toLowerCase().replace(/[^a-z0-9]+/g,' ');
       if(/enguq|engu q/.test(x))return 'ENGU-Q'; if(/replay/.test(x))return 'REPLAY'; const _k=_famKey(s);if(_k)return _k;
-      // W131 FRONTIER (owner OK 11-16): unnamed strategy FILES share one row per name - strip the version tokens
-      //   (ONDRIFT_1_0 -> ONDRIFT, MISC_X_2_0 -> X). Display only; stored names untouched. Free-text titles stay ''.
-      const _vm=/^(?:misc_)?([a-z][a-z0-9]*(?:_[a-z][a-z0-9]*)*?)(?:_\d+)+(?:\.py)?$/i.exec(raw.trim());return _vm?_vm[1].toUpperCase():'';};
+      return '';};
     // display ver+branch overrides for files whose token names read wrong (ORB 2-lot / BE / forks).
     const VARIANT={ORB_3_1:{ver:'3.0',br:'2L'}, ORB_3_1_125:{ver:'3.0',br:'2L·125'}, ORB_3_0_BE:{ver:'3.0',br:'BE'},
       ORB_3_2:{ver:'3.0',br:'TR'}, ORB_3_3:{ver:'3.0',br:'TS'},
