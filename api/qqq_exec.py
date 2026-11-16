@@ -651,6 +651,10 @@ def _read_config_for_gate(path=None, log=print):
             "still serve), same as a missing file; fix the file to restore the gate")
         return {}
 
+
+# Families retired by the owner: {family: date retired}. Never re-enabled by config.
+RETIRED_LEGS = {"DIP": "2026-11-16"}
+
 
 def load_config(path=None, log=print):
     """Reloaded every tick so the owner can edit rails live. Creates the file with
@@ -683,7 +687,9 @@ def load_config(path=None, log=print):
     # LEG TOGGLE (owner 11-06): "legs_off" in config.json turns a leg off without a code change:
     # a leg name, or a family ("DIP" = all seven lots). Off = 0 shares = no new entries; a lot
     # already held keeps its own size and still exits by its own rules. Remove the name to turn on.
-    for name in (merged.get("legs_off") or []):
+    # RETIRED (owner 11-16, "retire dip on webull"): a family in RETIRED_LEGS is off in CODE,
+    # whatever config.json says -- exits only, history kept in trades.csv.
+    for name in list(merged.get("legs_off") or []) + list(RETIRED_LEGS):
         off = [x for x in LEGS if x == name or leg_family(x) == name]
         if not off:
             log(f"[qqq-exec] legs_off: unknown leg {name!r} ignored")

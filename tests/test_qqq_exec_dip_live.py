@@ -377,7 +377,8 @@ def env(tmp_path, monkeypatch):
 
 # ── the shape: seven exec legs, one engine key, code defaults ──────────────────────────────────
 
-def test_seven_exec_legs_one_engine_key_and_the_code_defaults(tmp_path):
+def test_seven_exec_legs_one_engine_key_and_the_code_defaults(tmp_path, monkeypatch):
+    monkeypatch.setattr(qe, "RETIRED_LEGS", {})   # pre-retire behaviour
     assert qe.DIP_LEGS == DIP and qe.DIP_SLOTS == SLOTS == tuple(m for m, _f in cs.DIP_MECHS)
     assert qe.LEGS == ("ORB", "ENGUQ", "NOISE") + DIP
     assert qe.HOLD_OVERNIGHT_LEGS == ("ENGUQ",) + DIP
@@ -1247,7 +1248,8 @@ def test_an_unreadable_adapter_means_no_clamp_and_no_cap_set_nothing_to_clamp_to
     assert (lot["shares_total"], lot["shares_wanted"]) == (45, 45)
 
 
-def test_legs_off_family_zeroes_every_lot_keeps_others_and_warns_on_unknown(tmp_path):
+def test_legs_off_family_zeroes_every_lot_keeps_others_and_warns_on_unknown(tmp_path, monkeypatch):
+    monkeypatch.setattr(qe, "RETIRED_LEGS", {})   # pre-retire behaviour
     p = tmp_path / "config.json"
     p.write_text(json.dumps({"shares": {"ORB": 10, "ENGUQ": 10, "NOISE": 10},
                              "legs_off": ["DIP", "NOPE"]}), encoding="utf-8")
