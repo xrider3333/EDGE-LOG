@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.25';
+const VERSION='90.26';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3532,9 +3532,13 @@ const KPI_INFO={
 };
 
 // Preferences
-let prefs=JSON.parse(localStorage.getItem('el_prefs')||'{}');
-let instrumentFees=JSON.parse(localStorage.getItem('el_fees')||JSON.stringify(DEFAULT_FEES));
-let customSetups=JSON.parse(localStorage.getItem('el_setups')||JSON.stringify(DEFAULT_SETUPS));
+// Boot-time localStorage reads: a corrupt value falls back to its default instead of blanking the app.
+function _lsJSON(key,def,arr){const raw=localStorage.getItem(key);if(raw==null||raw==='')return def;let v;try{v=JSON.parse(raw);}catch(e){v=undefined;}const ok=v!=null&&typeof v==='object'&&(arr?Array.isArray(v):!Array.isArray(v));if(ok)return v;if(key==='el_ledger'){try{localStorage.setItem('el_ledger_corrupt_backup',raw);}catch(e){}window._elLedgerSetAside=true;}console.warn('[boot] corrupt localStorage value for '+key+' - using default');return def;}
+function _lsLedgerNotice(){if(!window._elLedgerSetAside)return;const d=document.createElement('div');d.id='el-ledger-aside';d.style.cssText='position:fixed;left:0;right:0;top:0;z-index:99999;background:#222;color:#fff;font:13px sans-serif;padding:6px 12px;text-align:center';d.textContent='Your saved ledger could not be read, so it was set aside (backup key el_ledger_corrupt_backup). The app started with an empty ledger.';d.onclick=()=>d.remove();document.body.appendChild(d);}
+if(document.readyState==='loading')document.addEventListener('DOMContentLoaded',_lsLedgerNotice);else setTimeout(_lsLedgerNotice,0);
+let prefs=_lsJSON('el_prefs',{});
+let instrumentFees=_lsJSON('el_fees',JSON.parse(JSON.stringify(DEFAULT_FEES)));
+let customSetups=_lsJSON('el_setups',JSON.parse(JSON.stringify(DEFAULT_SETUPS)),Array.isArray(DEFAULT_SETUPS));
 let userLogo=localStorage.getItem('el_logo')||null;
 
 function savePref(k,v){prefs[k]=v;localStorage.setItem('el_prefs',JSON.stringify(prefs));}
@@ -3662,9 +3666,9 @@ function _localYmd(){const d=new Date();return d.getFullYear()+'-'+String(d.getM
 let accountEquity=0,calMonth=_localYmd().slice(0,7);
 const _storedEquity=parseFloat(localStorage.getItem('el_equity')||'0');
 if(_storedEquity>0)accountEquity=_storedEquity;
-let uploadHistory=JSON.parse(localStorage.getItem('el_uploads')||'[]');
-let ledgerEvents=JSON.parse(localStorage.getItem('el_ledger')||'[]');
-let customTags=JSON.parse(localStorage.getItem('el_tags')||'[]');
+let uploadHistory=_lsJSON('el_uploads',[],true);
+let ledgerEvents=_lsJSON('el_ledger',[],true);
+let customTags=_lsJSON('el_tags',[],true);
 
 // ── Duplicate trade scanner ──────────────────────────────────────
 window.findDuplicateTrades=function(){
