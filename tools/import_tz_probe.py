@@ -171,6 +171,28 @@ def position_history(rows, disp, product=True):
     return '\r\n'.join(out) + '\r\n'
 
 
+def ph_qty(rows, disp, q):
+    """Position History at q contracts a row (Bought, Sold, Paired Qty and P/L scaled)."""
+    lines = position_history(rows, disp).split(CRLF)
+    out = [lines[0]]
+    for ln in lines[1:]:
+        if not ln:
+            continue
+        c = ln.split(',')
+        c[5] = c[7] = c[19] = str(q)
+        c[22] = '%.2f' % (float(c[22]) * q)
+        out.append(','.join(c))
+    return CRLF.join(out) + CRLF
+
+
+CRLF = chr(13) + chr(10)
+
+
+# w131 #1: two MES scalps on one day a quarter point apart - the old match (entry OR exit within 0.5 pt) took the
+#   second for the first; one-to-one on size + both prices keeps it
+SCALPS = [TRADES[0], ('MES', 'LONG', '2026-04-07 14:40:05.100', '2026-04-07 14:45:30.200', 6605.00, 6605.25, '9900021', '9900022')]
+
+
 def performance(rows, disp):
     out = ['symbol,_priceFormat,_priceFormatType,_tickSize,buyFillId,sellFillId,qty,buyPrice,sellPrice,'
            'pnl,boughtTimestamp,soldTimestamp,duration']
@@ -364,6 +386,11 @@ def build_cases():
         {'name': 'pdf-merges-journal-day', 'kind': 'pdf', 'lines': pdf_lines(TRADES), 'opts': {'tz': 'auto'},
          'trades': [dict(late, id='probe-journal', entryTime=e0.strftime('%H:%M'), exitTime=x0.strftime('%H:%M'))],
          'expect': 'pdfmerge', 'skip_date': e0.strftime('%Y-%m-%d'), 'n': len(TRADES) - 1},
+        {'name': 'dedupe-one-to-one', 'kind': 'csv', 'text': position_history(SCALPS, et), 'opts': {'tz': 'America/New_York'},
+         'trades': [dict(late, id='probe-scalp-1', entryTime=e0.strftime('%H:%M'), exitTime=x0.strftime('%H:%M'))],
+         'expect': 'dedupe', 'new_entry': 6605.00},
+        {'name': 'fee-times-size', 'kind': 'csv', 'text': ph_qty(TRADES[:2], et, 3), 'opts': {'tz': 'America/New_York'},
+         'expect': 'feesize', 'q': 3, 'n': 2},
         {'name': 'root-table', 'kind': 'roots', 'inputs': list(ROOTS), 'expect': 'roots'},
         # --- PDF statement vs the journal: match one-to-one, never rewrite (3.80 over 2 contracts) ---
         {'name': 'pdf-scaleout-legs', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
@@ -612,7 +639,7 @@ var CASES=__CASES__;
         if(c.kind==='pdf'){fakePdf(w,c.lines);
           res=await w.importPDF(new w.File([new Uint8Array([37,80,68,70])],'probe.pdf',{type:'application/pdf'}),c.opts);}
         else res=w.importCSV(c.text,c.name+'.csv',c.opts);
-        r.type=res.type;
+        r.type=res.type;r.feeUnit=w.getFee('MES');
         r.rows=(res.batch||[]).map(function(t){return {date:t.date,sym:t.symbol,dir:t.type,entry:t.entry,exit:t.exit,e:t.entryTime,x:t.exitTime,fees:t.fees,gross:t.grossPnl,acct:t.account||null};});
         r.ask=res.tzAsk?{why:res.tzAsk.why}:null;
         r.note=res.tzNote?{how:res.tzNote.how,tz:res.tzNote.tz}:null;
@@ -775,6 +802,25 @@ def judge(cases, data):
             got_d = sorted(d.get('id') for d in (r.get('drift') or []))
             if got_d != want_d:
                 fails.append('%s: drift flagged on %s, expected %s' % (nm, got_d or 'nothing', want_d or 'nothing'))
+            continue
+        if exp == 'dedupe':
+            rows = r.get('rows') or []
+            if len(rows) != 1 or abs(float(rows[0]['entry']) - c['new_entry']) > 1e-6:
+                fails.append('%s: expected exactly the second scalp (entry %s) created, got %s' % (
+                    nm, c['new_entry'], [(x['date'], x['entry'], x['exit']) for x in rows] or 'nothing'))
+            bad = [m for m in (r.get('merges') or []) if 'entry' in m or 'exit' in m or 'type' in m]
+            if bad:
+                fails.append('%s: the import rewrote a saved trade %s' % (nm, bad))
+            continue
+        if exp == 'feesize':
+            rows = r.get('rows') or []
+            unit = r.get('feeUnit')
+            if len(rows) != c['n'] or unit is None:
+                fails.append('%s: %d rows (want %d), MES fee %s' % (nm, len(rows), c['n'], unit))
+            for x in rows:
+                if round(float(x.get('fees') or 0), 2) != round(unit * c['q'], 2):
+                    fails.append('%s: %s %s saved fee %s, expected %.2f (fee per contract x %d)' % (
+                        nm, x['date'], x['sym'], x.get('fees'), unit * c['q'], c['q']))
             continue
         if exp == 'fills':
             if r.get('fills') != c['n']:
