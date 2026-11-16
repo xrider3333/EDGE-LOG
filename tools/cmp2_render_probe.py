@@ -210,7 +210,7 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
         var CID=String(FIX.id),BAND_MAX=60,calls=[],errAcc=[],res={};
         var W={'RANK':30,'FAMILY':86,'RUN':58,'MAR':34,'SHARPE':44,'SORTINO':48,'PF':34,'WIN %':38,'EV R':38,'R / YR':44,'ROC % / YR':62,'$/TRD':38,'TRADES':44,'TRADES / YR':36,'READ':112,'CONFIG':230};
         var wc=dfxWin([FIX],"window._runCfg['"+CID+"']=runHistory[0];");
-        function P(cols,segs){var o={c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[CID],c2Tbl:true,resCols:cols,resColW:W,reSortK:'run',resOrd:'res'};
+        function P(cols,segs){var o={c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:[CID],c2Tbl:true,resCols:cols,resColW:W,reSortK:'run',resOrd:'res',resSplit:'stack'};
           if(segs)o.resSegs=segs;return o;}
         function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
         // the app fits the columns in the frame after a render (before it is painted); this case reads the table straight
@@ -309,7 +309,7 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
         var IDS=docs.map(function(x){return String(x.id);});
         var wc=dfxWin(docs,IDS.map(function(id){return "window._runCfg['"+id+"']=window._runFull['"+id+"'];";}).join(''));
         var W={'RANK':30,'FAMILY':86,'RUN':58,'CONFIG':230};
-        function P(extra){var o={c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:IDS,c2Tbl:true,resCols:'key',resColW:W,reSortK:'run',resOrd:'res'};
+        function P(extra){var o={c2Screen:'explore',resLvl:'valid',resShow:'configs',resCfgRun:IDS,c2Tbl:true,resCols:'key',resColW:W,reSortK:'run',resOrd:'res',resSplit:'stack'};
           for(var k in (extra||{}))o[k]=extra[k];return o;}
         function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
         function RF(p,win){var c=doRender(p,win||wc);try{w.eval('if(window._reFitCols)window._reFitCols();');}catch(e){c='ERR fit: '+e;}return c;}
@@ -3145,9 +3145,11 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
           'hovered: all three carry the highlight layer':!!res.on&&res.on.every(function(s){return s.indexOf('gradient')>=0;}),
           'and stay opaque':/^rgb[(]/.test(res.col||''),'left: all three are back as they were':!!res.after&&JSON.stringify(res.after)===JSON.stringify(res.before)},res);})();
 
+      // D16 - STACK layout at 1366x768. resSplit:'stack' is now SET here: SIDE became the default
+      //   again at v90.14 (the owner's split view), so a case about the stacked column has to ask for it.
       // D16 - STACK layout at 1366x768: the table's sideways scrollbar sits inside the capped column
       __B(90)&&(function(){var fr=document.getElementById('f');fr.style.width='1366px';fr.style.height='768px';void fr.offsetHeight;
-        var c=doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true,resCols:'all',resView:'one'},dfxWin([FIX])),res={};
+        var c=doRender({c2Screen:'explore',resLvl:'sweep',c2Tbl:true,resCols:'all',resView:'one',resSplit:'stack'},dfxWin([FIX])),res={};
         var col=d.querySelector('[data-restackl]'),bx=col?[].filter.call(col.querySelectorAll('[data-rescroll]'),function(b){return b.offsetParent!==null;})[0]:null;
         if(col&&bx){var cr=col.getBoundingClientRect(),br=bx.getBoundingClientRect();res.clip=Math.round(cr.top+col.clientTop+col.clientHeight);res.boxBottom=Math.round(br.bottom);
           res.boxMax=bx.style.maxHeight;res.colMax=col.style.maxHeight;res.sideways=bx.scrollWidth>bx.clientWidth;res.boxH=Math.round(br.height);}
