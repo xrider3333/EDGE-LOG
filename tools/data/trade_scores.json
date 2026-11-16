@@ -7728,6 +7728,194 @@
    ],
    "overall": 58,
    "summary": "You bought the 10:00 pop at 7455.75, 3 points above the bar open and right under the 7456-7461 supply from 09:48-09:52, with no stop or setup logged. The quick 37-second exit at 7456.25 was the best part: the bar topped at 7461.00 and the next minute flushed to 7441.75, 14 points under your entry. Next time wait for the pullback low near 7443.50 to hold and buy there with the 09:59 low as your stop, so the 7461.50 and 7467.25 highs give you at least 1R."
+  },
+  {
+   "sym": "MNQ",
+   "date": "2026-11-13",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "10:10",
+   "exit_time": "10:10",
+   "entry": 27917.25,
+   "exit": 27897.0,
+   "qty": 1,
+   "entry_ts": "10:10:10",
+   "exit_ts": "10:10:32",
+   "breakout_candle": "10:09",
+   "stop": 27974.5,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 18,
+     "note": "Price fell steadily from the 28305.75 high at 09:40 to 27945.75 at 10:09 with lower highs the whole way."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 9,
+     "note": "You sold 27917.25, already 48 points under the 10:10 open of 27965.0 and 28 points under the 10:09 low of 27945.75."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 6,
+     "note": "The structural stop above the 10:09 high of 27974.5 sat 57 points from your fill."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 5,
+     "note": "Price was at a new session low under 27945.75, so there was no prior level below to aim for."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 6,
+     "note": "The trade is tagged CBU but it was a short into a breakdown bar that had not closed."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 9,
+     "note": "The 10:10 bar traded 21,973 contracts across a 96-point range."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 9,
+     "note": "10:10 is 40 minutes into the session with a fresh 10:00 push already under way."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 13,
+     "note": "The fill came 10 seconds into the 10:10 bar after it had already dropped 48 points from 27965.0."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 20,
+     "note": "The 10:10 bar never traded above 27965.75 and closed on its low at 27869.5."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 8,
+     "note": "You covered 27897.0 after 22 seconds for 20 points while the next 15 minutes reached 27730.25 at 10:21."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "One micro contract kept the 57-point structural risk small in dollars."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 6,
+     "note": "A 22-second hold on a setup tag that does not describe a short breakdown reads as a reaction trade."
+    }
+   ],
+   "overall": 61,
+   "summary": "You shorted with a clean downtrend, but you sold 48 points into the flush bar, so the real stop at 27974.5 was 57 points away. You covered after 22 seconds for 20 points while the same move ran to 27730.25 within 11 minutes. The direction was right; the entry was late and the exit was very early."
+  },
+  {
+   "sym": "MES",
+   "date": "2026-11-16",
+   "dir": "SHORT",
+   "key_time": true,
+   "interval": "1m",
+   "entry_time": "09:40",
+   "exit_time": "09:40",
+   "entry": 7521.0,
+   "exit": 7515.5,
+   "qty": 2,
+   "entry_ts": "09:40:09",
+   "exit_ts": "09:40:26",
+   "breakout_candle": "09:39",
+   "stop": 7538.0,
+   "setup": [
+    {
+     "label": "Trend / context",
+     "weight": 20,
+     "score": 16,
+     "note": "The 09:38 and 09:39 bars stalled at 7537.75 and 7538.0, just under the 09:30 opening high of 7538.75."
+    },
+    {
+     "label": "Entry location",
+     "weight": 20,
+     "score": 12,
+     "note": "You sold 7521.0, 11 points under the 09:40 open of 7532.25 and in the middle of the 7508.5 to 7538.75 opening range."
+    },
+    {
+     "label": "Risk definition",
+     "weight": 15,
+     "score": 8,
+     "note": "The structural stop above the 09:39 high of 7538.0 sat 17 points from your fill."
+    },
+    {
+     "label": "R:R to a real level",
+     "weight": 10,
+     "score": 5,
+     "note": "The 09:35 low of 7508.5 was 12.5 points away against 17 points of risk."
+    },
+    {
+     "label": "Setup match",
+     "weight": 15,
+     "score": 11,
+     "note": "The 09:40 bar fell from 7532.25 to 7513.75 and engulfed the two bars before it, but you sold before it closed."
+    },
+    {
+     "label": "Liquidity / volatility",
+     "weight": 10,
+     "score": 9,
+     "note": "The 09:40 bar traded 10,295 contracts across a 19-point range."
+    },
+    {
+     "label": "Time of day",
+     "weight": 10,
+     "score": 8,
+     "note": "09:40 is ten minutes after the open, when the range was still swinging 20 points both ways."
+    }
+   ],
+   "exec": [
+    {
+     "label": "Entry timing",
+     "weight": 25,
+     "score": 16,
+     "note": "The fill came 9 seconds into the 09:40 bar after it had already dropped 11 points from 7532.25."
+    },
+    {
+     "label": "Risk control / MAE",
+     "weight": 25,
+     "score": 21,
+     "note": "The 09:40 bar never traded above 7532.75 and closed near its low at 7513.75."
+    },
+    {
+     "label": "Exit vs MFE",
+     "weight": 25,
+     "score": 15,
+     "note": "You covered 7515.5 for 5.5 points while the next 15 minutes reached 7506.75 at 09:41 and then bounced to 7537.5 by 09:45."
+    },
+    {
+     "label": "Sizing",
+     "weight": 15,
+     "score": 13,
+     "note": "Two micro contracts against a 17-point structural stop kept the dollar risk modest."
+    },
+    {
+     "label": "Plan adherence",
+     "weight": 10,
+     "score": 8,
+     "note": "You took the tagged engulfing short at the range high and banked it in 17 seconds."
+    }
+   ],
+   "overall": 71,
+   "summary": "You shorted a rejection of the opening-range high, which was a good read, but you sold 11 points into the bar so the stop at 7538.0 was 17 points away. You took 5.5 points in 17 seconds and left about 9 more down to 7506.75. The quick cover was reasonable because price bounced back to 7537.5 within five minutes."
   }
  ],
  "na": [
