@@ -1588,7 +1588,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.23';
+const VERSION='90.24';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -51784,7 +51784,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _csave=content.querySelector('[data-cmpsetsave]');if(_csave)_csave.onclick=()=>{
         let cur=(APREF.cmpIds||[]).map(String);
         // w130 #64: with no saved picks the screen shows the latest 3 by default - save what is on screen
-        if(!cur.length&&!cmpTabEmpty()){const rs=runHistory.slice().concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]).sort((a,b)=>b.id-a.id);cur=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));}
+        if(!cur.length&&!cmpTabEmpty()){const rs=runHistory.slice().concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]).filter(r=>r&&(!r.archived||!!APREF.rfArch)).sort((a,b)=>b.id-a.id);cur=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));}
         if(!cur.length){alert('nothing selected to save — pick some runs first');return;}
         const nm=window.prompt('Name this comparison set:','');if(!nm)return;
         const arr=(APREF.cmpSets||[]).slice();arr.push({name:String(nm).slice(0,28),ids:cur});savePref('cmpSets',arr);renderApp();};
@@ -52044,7 +52044,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   loaded window (or a starred crown outside it) must survive a click on another
       //   row, not be silently stripped out on the next savePref.
       const _cur=()=>{let ids=(APREF.cmpIds||[]).map(String);
-        if(!ids.length&&!cmpTabEmpty()){const rs=runHistory.slice().concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]).sort((a,b)=>b.id-a.id);ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));}
+        if(!ids.length&&!cmpTabEmpty()){const rs=runHistory.slice().concat((typeof _c2StarExtra==='function')?_c2StarExtra(runHistory):[]).filter(r=>r&&(!r.archived||!!APREF.rfArch)).sort((a,b)=>b.id-a.id);ids=rs.slice(0,Math.min(3,rs.length)).map(r=>String(r.id));}
         return ids;};
       // picker rows: click toggles the run in / out of the comparison (cap 8)
       content.querySelectorAll('[data-cmpk]').forEach(x=>{x.onclick=()=>{const id=String(x.dataset.cmpk);let ids=_cur();
@@ -52091,6 +52091,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
         ov.querySelector('[data-bocancel]').onclick=()=>ov.remove();
         const _checkedIds=()=>Array.from(ov.querySelectorAll('[data-bocheck]:checked')).map(cb=>cb.value);
+        {const _rb=ov.querySelector('[data-boreplace]'),_upd=()=>{const off=!_checkedIds().length;_rb.disabled=off;_rb.style.opacity=off?'.4':'';_rb.style.cursor=off?'not-allowed':'pointer';};_upd();ov.querySelectorAll('[data-bocheck]').forEach(cb=>cb.addEventListener('change',_upd));const _esc=e=>{if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',_esc);}};document.addEventListener('keydown',_esc);}// owner GO 11-16: REPLACE greys out with nothing ticked + Esc closes
         ov.querySelector('[data-boadd]').onclick=()=>{
           // w130 #62 #63: merge into the SAVED picks only (not the latest-3 fallback), and say what did not fit
           const picked=_checkedIds();let ids=(APREF.cmpIds||[]).map(String);
@@ -53198,12 +53199,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            +'<div style="font-size:9px;color:var(--text5);line-height:1.7;margin-bottom:10px">The board shows one run per strategy automatically - its best. Tick any others here and they join the chart and the matrix as their own line and column. Ten columns maximum.</div>'
            +'<div style="max-height:52vh;overflow:auto;border:1px solid var(--border);border-radius:8px;padding:4px;margin-bottom:12px">'+pool.map(row).join('')+'</div>'
            +'<div style="display:flex;gap:8px;justify-content:flex-end">'
-           +'<button data-addcancel style="background:none;border:1px solid var(--border);color:var(--text4);padding:6px 14px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:7px">CANCEL</button>'
+           +'<span data-addn style="margin-right:auto;align-self:center;font-size:9px;color:var(--text4)"></span>'+'<button data-addcancel style="background:none;border:1px solid var(--border);color:var(--text4);padding:6px 14px;cursor:pointer;font-family:inherit;font-size:10px;border-radius:7px">CANCEL</button>'
            +'<button data-addok style="background:var(--green);border:1px solid var(--green);color:#04130c;padding:6px 16px;cursor:pointer;font-family:inherit;font-size:10px;letter-spacing:1px;font-weight:700;border-radius:7px">ADD</button>'
            +'</div></div>';
          document.body.appendChild(ov);
          // w130 #53: the dialog said ten maximum but let any number be ticked, and the board silently dropped the extras - stop the 11th tick here.
          ov.querySelectorAll('[data-addr]').forEach(cb=>cb.addEventListener('change',()=>{if(cb.checked&&ov.querySelectorAll('[data-addr]:checked').length+cur.filter(id=>!pool.some(r=>String(r.id)===id)).length>10){cb.checked=false;alert('The board holds ten added runs. Untick one first.');}}));
+         {const _kept=cur.filter(id=>!pool.some(r=>String(r.id)===id)).length;const _n=()=>{const el=ov.querySelector('[data-addn]');if(el)el.textContent=(ov.querySelectorAll('[data-addr]:checked').length+_kept)+' of 10 picked'+(_kept?(' ('+_kept+' not listed, kept)'):'');};_n();ov.querySelectorAll('[data-addr]').forEach(cb=>cb.addEventListener('change',_n));const _esc=e=>{if(e.key==='Escape'){ov.remove();document.removeEventListener('keydown',_esc);}};document.addEventListener('keydown',_esc);}// owner GO 11-16: live pick count + Esc closes
          ov.addEventListener('click',e=>{if(e.target===ov)ov.remove();});
          ov.querySelector('[data-addcancel]').onclick=()=>ov.remove();
          ov.querySelector('[data-addok]').onclick=()=>{
