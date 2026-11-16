@@ -21658,7 +21658,7 @@ function renderApp(){
     const _abbrVer=base=>{const toks=String(base||'').replace(/\.py$/,'').split(/[_\s]+/).filter(Boolean);const isNum=t=>/^\d+(\.\d+)*$/.test(t);let k=toks.length;while(k>0&&isNum(toks[k-1]))k--;const nameT=toks.slice(0,k).filter(t=>!isNum(t));const verT=toks.slice(k);let abbr=(nameT[0]||base||'').toUpperCase();if(abbr.length<3&&nameT[1])abbr=(nameT[0]+nameT[1]).toUpperCase();return {abbr:abbr.slice(0,5),ver:verT.join('.')};};
     // Family keyword, searched ANYWHERE in the string (legacy run names often led with
     // the version, e.g. "1.3.1 ENGU 3 (CLAUDE)"); underscores/punctuation → spaces.
-    const _FAMRE=[[/eodrev|pick6/,'PICK6'],[/cbuq|cbdq|ebuq|cbu q/,'CBU-Q'],[/opening|orb/,'ORB'],[/overnight/,'OVERNIGHT'],[/engu/,'ENGU'],[/etfdip/,'DIP'],[/supertrend/,'SUPERTREND'],[/revert/,'REVERT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE'],[/ttmsqz|ttm squeeze/,'TTM'],[/nqdip/,'DIP'],[/emapb/,'EMAPB'],[/gapgo/,'GAPGO']];
+    const _FAMRE=[[/eodrev|pick6/,'PICK6'],[/cbuq|cbdq|ebuq|cbu q/,'CBU-Q'],[/opening|orb/,'ORB'],[/overnight/,'OVERNIGHT'],[/engu/,'ENGU'],[/etfdip/,'DIP'],[/supertrend/,'SUPERTREND'],[/revert/,'REVERT'],[/vwap/,'VWAP'],[/randomforest|rfml|\brf\b/,'RFML'],[/rsidiv/,'RSIDIV'],[/ttibs/,'TTIBS'],[/noise/,'NOISE'],[/ttmsqz|ttm squeeze/,'TTM'],[/nqdip/,'DIP'],[/emapb/,'EMAPB'],[/gapgo/,'GAPGO'],[/gapfade/,'GAPFADE'],[/superscalper/,'SUPERSCALPER'],[/late30/,'LATE30'],[/pcb/,'PCB']];
     const _famKey=s=>{const raw=String(s||'');
       // repair round (independent check, item 3): the book-name test must run on the
       //   RAW string, BEFORE normalisation. Normalising first turns every underscore
@@ -21709,6 +21709,10 @@ function renderApp(){
       //   its name happened to mention (ENGU-Q, most often - see _canonFam below).
       BOOK:{abbr:'BOOK',n:17,hue:200,full:'Book',desc:'Several strategies traded side by side over one window, their trades pooled and scored as one'},
       PICK6:{abbr:'PICK6',n:19,hue:225,full:'Pick 6',desc:'End-of-day reversal on the top-100 stocks: 3 long, 3 short from 15:30 to the official close (strategy 23, run #511)'},
+      GAPFADE:{abbr:'GAPFADE',n:20,hue:75,full:'Gap Fade',desc:'Fades the opening gap (GAPFADE files)'},
+      SUPERSCALPER:{abbr:'SUPERSCALPER',n:21,hue:170,full:'Superscalper',desc:'Short-hold scalper (MISC_SUPERSCALPER files; validate #496 dead)'},
+      LATE30:{abbr:'LATE30',n:22,hue:350,full:'Late 30',desc:'Last-30-minutes leg (MISC_LATE30 files)'},
+      PCB:{abbr:'PCB',n:23,hue:135,full:'PCB',desc:'PCB strategy files'},
       NOISE:{abbr:'NOISE',n:12,hue:300,full:'Noise-Band Momentum',desc:'Session band scaled by recent realized noise: a close outside it is the entry, a VWAP cross the exit'}};
     const _canonFam=s=>{const raw=String(s||'');
       // a BOOK pools several strategies into one pile and is not a strategy family
@@ -21723,7 +21727,10 @@ function renderApp(){
       //   'BOOK ...' title with no colon after it.
       if(/^book[:\s]/i.test(raw)||/^book$/i.test(raw)||/^combined\b/i.test(raw))return 'BOOK';
       const x=raw.toLowerCase().replace(/[^a-z0-9]+/g,' ');
-      if(/enguq|engu q/.test(x))return 'ENGU-Q'; if(/replay/.test(x))return 'REPLAY'; return _famKey(s)||'';};
+      if(/enguq|engu q/.test(x))return 'ENGU-Q'; if(/replay/.test(x))return 'REPLAY'; const _k=_famKey(s);if(_k)return _k;
+      // W131 FRONTIER (owner OK 11-16): unnamed strategy FILES share one row per name - strip the version tokens
+      //   (ONDRIFT_1_0 -> ONDRIFT, MISC_X_2_0 -> X). Display only; stored names untouched. Free-text titles stay ''.
+      const _vm=/^(?:misc_)?([a-z][a-z0-9]*(?:_[a-z][a-z0-9]*)*?)(?:_\d+)+(?:\.py)?$/i.exec(raw.trim());return _vm?_vm[1].toUpperCase():'';};
     // display ver+branch overrides for files whose token names read wrong (ORB 2-lot / BE / forks).
     const VARIANT={ORB_3_1:{ver:'3.0',br:'2L'}, ORB_3_1_125:{ver:'3.0',br:'2L·125'}, ORB_3_0_BE:{ver:'3.0',br:'BE'},
       ORB_3_2:{ver:'3.0',br:'TR'}, ORB_3_3:{ver:'3.0',br:'TS'},
@@ -44441,7 +44448,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   level, so it sits on the bar's right rather than floating under it.
           const _bkHdr=(_c2TopUsed=true)&&_c2TabBar(_c2TopInner,_c2Seg2('c2view',_C2VIEWS,_c2View,'sub'),
             '<span class="c2-lbl">STAGE</span>'
-            +_c2Seg('c2stage',[['is','IS','the tuning score - the search picks the config scored on the first 75% of the tuning years, overlapping the walk-forward years; EXPLORE IS is the years before walk-forward'],['wf','WF','the walk-forward folds - a book never has any'],['lb','LB','the sealed lockbox'],['full','FULL','the whole window, end to end']],_c2Stage)
+            +_c2Seg('c2stage',[['is','IS','the years before the sealed lockbox (a book tunes nothing)'],['wf','WF','the walk-forward folds - a book never has any'],['lb','LB','the sealed lockbox'],['full','FULL','the whole window, end to end']],_c2Stage)
             );
           const _bkStg='<div class="c2-top" style="margin-top:2px"><span class="c2-lbl">EVERY FIGURE ON A ROW COMES FROM ONE POOLED STRETCH</span></div>';
           // A book pools legs over ONE window with every parameter already frozen. There is
@@ -44979,7 +44986,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return '<div class="c2-row" data-c2fam="'+encodeURIComponent(f.k)+'">'
             +'<span class="c2-chev">'+(open?'\u25be':'\u25b8')+'</span>'
             +'<div><div class="c2-nm"><span style="color:var(--text5);font-weight:500;width:16px">'+(i+1)+'</span>'+((f.k==='BOOKS')?'<span style="font-weight:600;letter-spacing:.04em">BOOKS</span>':(((typeof _canonFam==='function')&&_canonFam(ch.strategy))?((typeof stratTag==='function')?stratTag(ch.strategy):_reEscC2(f.k)):_reEscC2(f.k)))+_c2Pill(vv)+_c2Drift(ch)+_c2ShortPill(ch)+_c2ThinPill(ch,S)+_c2MarkTags(ch)+((_c2SinkTier(ch)>0)?('<span class="c2-pill" style="color:var(--text4);border-color:var(--border)" title="'+_reEscC2('This row sorts LAST whatever its figure: its champion is '+((_c2SinkTier(ch)===2)?'VOID':'a PRE-FIX TTM run (made before the TTM fix)')+', so its numbers are shown but never ranked.')+'">sorted last</span>'):'')+(eq?_c2Spark(eq,64,18):'')+'</div>'
-            +'<div class="c2-who">'+(ch.starred?'<span title="you starred this run">\u2605 your crown #':'<span title="'+_reEscC2('No run in this family is starred, so this is only the top '+((f.k==='BOOKS')?'book on pre-lockbox net over drawdown':'robustness score')+'. Star the run you actually trade in Past Runs and it takes this place.')+'" style="cursor:help">top pick, no \u2605 crown #')+ch.id+'</span>'+((f.k==='BOOKS')?(' '+_reEscC2(String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'').slice(0,48))):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.zeroTr?' \u00b7 no '+_c2StageNm+' trades':(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString()+_c2LbWarmTag(ch,S):''))+'</div></div>'
+            +'<div class="c2-who">'+(ch.starred?'<span title="you starred this run">\u2605 your crown #':'<span title="'+_reEscC2('No run in this family is starred, so this is only the top '+((f.k==='BOOKS')?'book on pre-lockbox net over drawdown':'robustness score')+'. Star the run you actually trade in Past Runs and it takes this place.')+'" style="cursor:help">top pick, no \u2605 crown #')+ch.id+'</span>'+((f.k==='BOOKS')?((function(){const _bn=String((ch.book&&ch.book.name)||ch.strategy||'').replace(/^BOOK:\s*/i,'');return ' <span title="'+_reEscC2(_bn)+'">'+_reEscC2(_bn.length>48?_bn.slice(0,47).trimEnd()+'…':_bn)+'</span> ·';})()):'')+' of '+f.runs.length+' run'+(f.runs.length===1?'':'s')+(S&&S.zeroTr?' \u00b7 no '+_c2StageNm+' trades':(S&&S.net!=null?' \u00b7 '+_c2StageNm+' '+(S.net<0?'-$':'$')+Math.round(Math.abs(S.net)).toLocaleString()+_c2LbWarmTag(ch,S):''))+'</div></div>'
             +'<div><div class="c2-big" style="color:'+_c2Col(f.val.v)+'"'+(f.val.v==null?(' title="'+_reEscC2(f.val.why)+'"'):'')+'>'+(f.val.apx?'~':'')+_c2Fmt(f.val.v)+'</div><div class="c2-sm">'+_c2Unit+'</div></div>'
             +'<span class="c2-chev">'+(open?'':'\u203a')+'</span></div>'
             +(open?f.runs.map((r,j)=>_c2RunRow(r,!!r.starred)).join(''):'');}).join('');
