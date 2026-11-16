@@ -42,6 +42,7 @@ import datetime
 import glob
 import argparse
 import random
+import socket
 import uuid
 import threading
 import collections
@@ -473,6 +474,18 @@ class _JobStopped(BaseException):
 # identifies THIS runner process in claimedBy, so a shared queue stays auditable
 _WORKER_ID = f"runner-{os.getpid()}-{uuid.uuid4().hex[:6]}"
 
+# THE BOX THIS RUNNER IS ON (2026-11-16). A pid only means something on the machine that
+#   owns it. The fleet now spans two machines (the Razer + the desktop workers 6-8), and the
+#   orphan sweep was reading a DESKTOP claim's pid, failing to find it in the RAZER's process
+#   table, and requeuing a healthy job every sweep - twice on GecC04RGdW while its heartbeat
+#   was 0 minutes old, after which a second desktop worker claimed the same job. It cuts both
+#   ways: an idle desktop sweep would have requeued the Razer's live work. Every claim now
+#   stamps the host, and a claim from ANOTHER host is judged on heartbeat age alone.
+try:
+    _HOST = (socket.gethostname() or "").strip().lower() or None
+except Exception:
+    _HOST = None
+
 # A WORKER (EDGELOG_WORKER set in its environment) drains jobs ONLY. Shared-state side
 #   duties - paper EOD, QQQ paper publish - stay on the primary so two processes never
 #   rewrite the same file at once. See the guards in the watch loop below.
@@ -576,9 +589,20 @@ def _claimant_pid(claimed_by):
     return None
 
 
-def _claimant_alive(claimed_by):
+def _claimant_alive(claimed_by, claim_host=None):
     """True/False when psutil can say whether the claiming runner is still an api.runner
-    process on THIS machine; None when it cannot tell (no psutil, foreign claim format)."""
+    process on THIS machine; None when it cannot tell (no psutil, foreign claim format, or
+    a claim made on ANOTHER BOX).
+
+    A pid is only meaningful on the machine that issued it, so a claim carrying a claimHost
+    that is not this host is NOT judged here at all - None sends orphan_verdict to the
+    heartbeat, which is the only liveness signal that crosses machines. A claim with NO
+    claimHost is judged exactly as before: those are the Razer's own pre-2026-11-16 claims,
+    and a Razer-only fleet must behave identically to today. That does mean a DESKTOP worker
+    still running pre-fix code writes no host and can still be misjudged - the desktop boxes
+    pull this commit before they are restarted."""
+    if claim_host and _HOST and str(claim_host).strip().lower() != _HOST:
+        return None
     pid = _claimant_pid(claimed_by)
     if pid is None or _psutil is None:
         return None
@@ -2159,6 +2183,7 @@ class FirestoreQueue:
                             _opt = self.db.write_option(last_update_time=snap.update_time)
                             ref.update({"status": "running", "progress": 0,
                                         "startedAt": _now_utc(), "claimedBy": _WORKER_ID,
+                                        "claimHost": _HOST,
                                         "heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()},
                                        option=_opt)
                         except Exception as _ce:
@@ -2465,7 +2490,7 @@ class FirestoreQueue:
                         except Exception as e:
                             log(f"[orphan] STALLED mark of {snap.id} failed: {type(e).__name__}: {e}")
                     continue
-                dead, why = orphan_verdict(hb, upd, _claimant_alive(j.get("claimedBy")))
+                dead, why = orphan_verdict(hb, upd, _claimant_alive(j.get("claimedBy"), j.get("claimHost")))
                 if dry_run:
                     log(f"[orphan:{tag}] {snap.id} {j.get('strategy')} {j.get('progress')}% "
                         f"was={j.get('status')} claimedBy={j.get('claimedBy')} "

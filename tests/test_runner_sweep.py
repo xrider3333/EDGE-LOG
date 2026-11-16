@@ -155,7 +155,7 @@ def test_a_live_paused_job_is_left_alone(monkeypatch):
     # doc stays fresh and its pid is still an api.runner process. Pause must mean
     # "hold this job", never "hand it to somebody else".
     import api.runner as R
-    monkeypatch.setattr(R, "_claimant_alive", lambda _cb: True)
+    monkeypatch.setattr(R, "_claimant_alive", lambda *_a: True)
     snap = _FakeSnap("job_live_pause",
                      {"status": "paused", "progress": 40, "control": "pause",
                       "strategy": "NOISE_1_1.py", "claimedBy": "runner-4242-abcdef",
@@ -170,7 +170,7 @@ def test_a_paused_job_whose_runner_was_killed_is_requeued_at_once(monkeypatch):
     # The overnight case: the doc looks fresh because the process died seconds after
     # its last write, but the pid is gone, so there is nothing to wait for.
     import api.runner as R
-    monkeypatch.setattr(R, "_claimant_alive", lambda _cb: False)
+    monkeypatch.setattr(R, "_claimant_alive", lambda *_a: False)
     snap = _FakeSnap("job_killed_pause",
                      {"status": "paused", "progress": 85, "control": "run",
                       "strategy": "NOISE_1_3_WIDE.py", "claimedBy": "runner-4242-abcdef",

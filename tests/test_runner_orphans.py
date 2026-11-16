@@ -57,3 +57,44 @@ def test_claimant_pid_parses_the_runner_stamp_only():
     assert _claimant_pid("cmdthread") is None
     assert _claimant_pid(None) is None
     assert _claimant_pid("runner-notanumber-x") is None
+
+
+# ── CROSS-MACHINE CLAIMS (2026-11-16, desktop workers 6-8) ─────────────────────────────────
+# The Razer requeued GecC04RGdW twice while desktop worker 6 held it with a 0-minute-old
+# heartbeat, because a desktop pid is not in the Razer's process table. A pid only means
+# something on the box that issued it.
+def test_foreign_host_claim_with_a_fresh_heartbeat_is_alive():
+    from api.runner import _claimant_alive, _HOST
+    assert _claimant_alive("runner-24540-abc", "some-other-box") is None, \
+        "a foreign claim cannot be judged by pid here"
+    assert orphan_verdict(0.0, 0.0, None) == (False, "heartbeat fresh")
+
+
+def test_foreign_host_claim_with_a_stale_heartbeat_is_dead():
+    from api.runner import _claimant_alive
+    assert _claimant_alive("runner-24540-abc", "some-other-box") is None
+    dead, why = orphan_verdict(ORPHAN_HB_STALE_MIN + 1, 0.1, None)
+    assert dead and "heartbeat stopped" in why
+
+
+def test_same_host_dead_pid_is_still_dead():
+    from api.runner import _claimant_alive, _HOST
+    assert _claimant_alive("runner-999999-abc", _HOST) is False
+    assert orphan_verdict(0.2, 0.2, False)[0] is True
+
+
+def test_claim_without_a_host_keeps_todays_behaviour():
+    """A Razer-only fleet must be bit-for-bit unchanged: no claimHost = judge by pid."""
+    from api.runner import _claimant_alive
+    assert _claimant_alive("runner-999999-abc") is False
+    assert _claimant_alive("runner-999999-abc", None) is False
+
+
+def test_the_claim_stamps_the_host():
+    import inspect, re
+    from api import runner as R
+    src = inspect.getsource(R)
+    assert re.search(r'"claimedBy": _WORKER_ID,\s*\n\s*"claimHost": _HOST,', src), \
+        "every claim must carry the host that made it"
+    assert '_claimant_alive(j.get("claimedBy"), j.get("claimHost"))' in src, \
+        "the sweep must pass the claim's host"
