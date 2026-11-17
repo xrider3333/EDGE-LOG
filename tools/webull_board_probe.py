@@ -3286,7 +3286,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         histRight:hist?Math.round(hist.getBoundingClientRect().right):null,acctTop:top(acct),shellTop:top(sh),rowTop:top(fr),
         vh:w.innerHeight,sticky:side?w.getComputedStyle(side).position:null,
         inSide:!!lst.closest('[data-lgframe-side="qb"]'),topRight:ftp?Math.round(ftp.getBoundingClientRect().right):null,
-        panelTop:top(fpn),panelBottom:bot(fpn),panelPos:fpn?w.getComputedStyle(fpn).position:null}};
+        panelTop:top(fpn),panelBottom:bot(fpn),panelRight:fpn?Math.round(fpn.getBoundingClientRect().right):null,
+        topLeft:ftp?Math.round(ftp.getBoundingClientRect().left):null,topBottom:bot(ftp),panelPos:fpn?w.getComputedStyle(fpn).position:null}};
   }
   // markers of the removed previous board (none may be in the page, with or without ?oldboards=1), the name of the removed flag, and what the new page shows
   function oldReads(){
@@ -4478,7 +4479,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
     }
     var M={shell:'.qb-shell',hero:'#qb-hero-label',pills:'.qbx-range-row',chart:'#qb-lg-chart',status:'.qbx-statusline',stats:'.qbx-lgstats .lg-stats',
       more:'[data-lgmore="qb"]',cal:'[data-lgcalfold="qb"]',calpanel:'#qb-cal',list:'[data-lglist="qb"]',listfold:'[data-qbfold="list"]',trades:'[data-lglist-frame="wb"]',own:'.qbx-own',
-      ftop:'[data-lgframe-top="qb"]'};
+      ftop:'[data-lgframe-top="qb"]',fside:'[data-lgframe-side="qb"]',frest:'[data-lgframe-rest="qb"]',chartbox:'.qbx-chart',act:'.qbx-activity'};
     o.pos={};
     Object.keys(M).forEach(function(k){o.pos[k]=bx(M[k]);});
     o.strip={text:tx2(q('.qbx-statusline')),refresh:!!q('.qbx-statusline [data-qqqrefresh]'),inFold:!!q('[data-qbfoldbox] .qbx-statusline')};
@@ -4538,11 +4539,14 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
     var where=function(e){if(!e)return null;return e.closest('[data-lgframe-top="qb"]')?'top':(e.closest('[data-lgframe-side="qb"]')?'side':(e.closest('[data-lgframe-rest="qb"]')?'rest':'none'));};
     var lst=q('[data-lglist="qb"]'),tl=q('[data-lglist-frame="wb"]'),own=q('.qbx-own'),cal=q('[data-lgcalfold="qb"]'),hero=q('.qbx-hero');
     o.list=rectOf(lst);o.listIn=where(lst);o.trades=rectOf(tl);o.tradesIn=where(tl);o.ownIn=where(own);o.cal=rectOf(cal);o.calIn=where(cal);
-    o.hero=rectOf(hero);o.heroIn=where(hero);o.pills=rectOf(q('.qbx-range-row'));o.stats=rectOf(q('.qbx-lgstats .lg-stats'));
+    o.hero=rectOf(hero);o.heroIn=where(hero);
+    var sbx=q('.qbx-lgstats'),mbx=q('.qbx-lgmore'),chb=q('.qbx-chart'),acb=q('.qbx-activity');
+    o.statsIn=where(sbx);o.moreIn=where(mbx);o.moreBox=rectOf(mbx);o.chartIn=where(chb);o.chartBox=rectOf(chb);o.actIn=where(acb);o.actBox=rectOf(acb);
+    o.sideInPos=fi?w.getComputedStyle(fi).position:null;o.pills=rectOf(q('.qbx-range-row'));o.stats=rectOf(q('.qbx-lgstats .lg-stats'));
     // the status line: one, in the top block right after the hero, one or two lines, the Refresh button in it
     var sts=d.querySelectorAll('[data-lgstatus="qb"]'),st=sts[0]||null,sl=st?st.querySelector('.lg-status-line'):null,sw=st?st.closest('.qbx-statusline'):null;
     var swp=sw?sw.previousElementSibling:null;
-    o.status={n:sts.length,box:rectOf(st),inTop:where(st)==='top',refresh:!!(st&&st.querySelector('[data-qqqrefresh]')),
+    o.status={n:sts.length,box:rectOf(st),inTop:where(st)==='top',where:where(st),refresh:!!(st&&st.querySelector('[data-qqqrefresh]')),
       afterHero:!!(swp&&swp.classList.contains('qbx-hero')),lineH:sl?Math.round(sl.getBoundingClientRect().height*10)/10:null,
       lh:sl?parseFloat(w.getComputedStyle(sl).lineHeight):null,text:sl?tx2(sl):null};
     // the chart foot: one, in the chart section, right after the chart box, the caption (the only one on the page) and the key in it
@@ -4734,7 +4738,10 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
     two_col = iw >= 1100
     # owner 10-31 ('clean this up'): the range pills ride UNDER the chart on the legend's line, and the calendar (open by default above 600 px) comes before More stats
     # owner 10-31 18:00: headline (hero + status), the KPI tiles, the chart (pills + legend + caption on its one row), the calendar, then More stats
-    chain = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more'] + ([] if two_col else ['listfold' if iw <= 600 else 'list']) + ['trades']
+    # from 1100 px (the left-sidebar page): the SIDE column reads hero, status, stats, list, More stats, then the own folds; the MAIN column reads the
+    # chart and the calendar at one top, the range pills under the chart, then the trade list
+    chain = (['hero', 'status', 'stats', 'list', 'more'] if two_col
+             else ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more', 'listfold' if iw <= 600 else 'list', 'trades'])
     last, last_k = None, None
     for k in chain:
         p = pos.get(k)
@@ -4745,9 +4752,24 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
             fails.append('%s: the page order is wrong: %s (top %s) must come below %s (top %s)' % (tag, k, p['t'], last_k, last['t']))
         last, last_k = p, k
     if two_col:
-        ls, ft = pos.get('list'), pos.get('ftop')
-        if not ls or not ls.get('shown') or not ft or ls['l'] < ft['r'] + 1:
-            fails.append("%s: on a laptop the strategy list is not in the right-hand panel beside the top block (%s, top block %s)" % (tag, ls, ft))
+        ls, ft, sd = pos.get('list'), pos.get('ftop'), pos.get('fside')
+        if (not ls or not ls.get('shown') or not ft or not sd or ls['r'] > ft['l'] + 1 or ls['l'] < sd['l'] - 1 or ls['r'] > sd['r'] + 1):
+            fails.append("%s: from 1100 px the strategy list is not inside the left side panel and left of the top block (%s, side %s, top block %s)" % (tag, ls, sd, ft))
+        # the main column: the chart and the calendar start at the same top, the pills under the chart, the trade list under both
+        ch, ac, pl, tr0 = pos.get('chartbox'), pos.get('act'), pos.get('pills'), pos.get('trades')
+        if not ch or not ch.get('shown') or not ac or not ac.get('shown'):
+            fails.append('%s: the main column has no drawn chart (%s) and calendar (%s) side by side' % (tag, ch, ac))
+        else:
+            if abs(ch['t'] - ac['t']) > 2:
+                fails.append('%s: the chart (top %s) and the calendar (top %s) do not start at the same top' % (tag, ch['t'], ac['t']))
+            if ac['l'] < ch['r'] - 1:
+                fails.append('%s: the calendar (left %s) is not to the right of the chart (right %s)' % (tag, ac['l'], ch['r']))
+            if ft and (ch['l'] < ft['l'] - 1 or ac['r'] > ft['r'] + 1):
+                fails.append('%s: the chart and the calendar are not inside the main column top block (chart %s, calendar %s, top block %s)' % (tag, ch, ac, ft))
+            if pl and pl.get('shown') and pl['t'] < ch['t'] + 1:
+                fails.append('%s: the range pills (top %s) must come below the top of the chart (top %s)' % (tag, pl['t'], ch['t']))
+            if tr0 and tr0.get('shown') and tr0['t'] < max(ch['b'], ac['b']) - 1:
+                fails.append('%s: the trade list (top %s) does not start under the chart (bottom %s) and the calendar (bottom %s)' % (tag, tr0['t'], ch['b'], ac['b']))
     st = s11.get('strip') or {}
     if (pos.get('status') or {}).get('shown') and (st.get('inFold') or not re.search(r'box \d+ (s|min|h)\b|· last \w', st.get('text') or '') or not st.get('refresh')):
         fails.append('%s: the status line under the hero lost its box-updated line or its Refresh button, or sits in a fold (%s)' % (tag, st))
@@ -4760,8 +4782,15 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
     if keys != want:
         fails.append('%s: the own folds run %s, want %s' % (tag, keys, want))
     tr = pos.get('trades')
+    sd0, mo0 = pos.get('fside'), pos.get('more')
     for f in folds:
-        if tr and f['btn']['t'] < tr['b'] - 1:
+        if two_col:
+            # the own folds sit in the side panel, under the More stats fold, left of the main column
+            if not sd0 or f['btn']['l'] < sd0['l'] - 1 or f['btn']['r'] > sd0['r'] + 1:
+                fails.append('%s: the %s fold (%s to %s) is not inside the side panel (%s)' % (tag, f['key'], f['btn']['l'], f['btn']['r'], sd0))
+            if mo0 and f['btn']['t'] < mo0['b'] - 1:
+                fails.append('%s: the %s fold (top %s) is above the end of More stats (bottom %s): the own folds come last in the side panel' % (tag, f['key'], f['btn']['t'], mo0['b']))
+        elif tr and f['btn']['t'] < tr['b'] - 1:
             fails.append('%s: the %s fold (top %s) is above the end of the trade list (bottom %s): own sections come last' % (tag, f['key'], f['btn']['t'], tr['b']))
     tops = [f['btn']['t'] for f in folds]
     if tops != sorted(tops):
@@ -4948,53 +4977,61 @@ def _frame_problems(tag, fr, iw, fails, wide=False, retired=True):
     parts = fr.get('parts') or {}
     if parts != {'top': 1, 'side': 1, 'rest': 1}:
         fails.append('%s: the frame holds %s, want one top block, one side panel and one rest as its children' % (tag, parts))
-    if fr.get('maxW') != FRAME_MAX_W:
-        fails.append("%s: the page frame's max-width is %r, want %s (the shared frame width)" % (tag, fr.get('maxW'), FRAME_MAX_W))
+    lside = iw >= FRAME_TWO_COL     # from 1100 px the left-sidebar frame (lg-lside) fills its parent: max-width none
+    if fr.get('maxW') != ('none' if lside else FRAME_MAX_W):
+        fails.append("%s: the page frame's max-width is %r, want %s" % (tag, fr.get('maxW'), 'none (the left-sidebar frame)' if lside else FRAME_MAX_W + ' (the shared frame width)'))
     gl, gr = fr.get('gapL'), fr.get('gapR')
     if gl is None or gr is None or abs(gl - gr) > 2 or min(gl, gr) < -1:
         fails.append('%s: the page frame is not centred in its parent (left gap %s px, right gap %s px, frame %s of %s px)'
                      % (tag, gl, gr, fr.get('w'), fr.get('parentW')))
-    if wide and (fr.get('w') is None or abs(fr['w'] - FRAME_W) > 1):
+    if wide and lside:
+        if fr.get('w') is None or fr.get('parentW') is None or abs(fr['w'] - fr['parentW']) > 2:
+            fails.append('%s: in a %d px window the left-sidebar frame is %s px wide, want the full width of its parent (%s px)' % (tag, iw, fr.get('w'), fr.get('parentW')))
+    elif wide and (fr.get('w') is None or abs(fr['w'] - FRAME_W) > 1):
         fails.append('%s: in a %d px window the page frame is %s px wide, want %d' % (tag, iw, fr.get('w'), FRAME_W))
     st = fr.get('status') or {}
-    if fr.get('heroIn') != 'top' or fr.get('calIn') != 'top' or not st.get('inTop'):
-        fails.append('%s: the hero (%s), the status line (in the top block %s) and the calendar (%s) must be in the top block'
-                     % (tag, fr.get('heroIn'), st.get('inTop'), fr.get('calIn')))
-    if fr.get('tradesIn') != 'rest' or fr.get('ownIn') != 'rest':
-        fails.append('%s: the trade list (%s) and the own folds (%s) must be in the rest of the frame' % (tag, fr.get('tradesIn'), fr.get('ownIn')))
+    if lside:
+        if fr.get('heroIn') != 'side' or st.get('where') != 'side' or fr.get('statsIn') != 'side' or fr.get('moreIn') != 'side':
+            fails.append('%s: the hero (%s), the status line (%s), the stats (%s) and More stats (%s) must be in the side panel'
+                         % (tag, fr.get('heroIn'), st.get('where'), fr.get('statsIn'), fr.get('moreIn')))
+        if fr.get('chartIn') != 'top' or fr.get('actIn') != 'top' or fr.get('calIn') != 'top':
+            fails.append('%s: the chart (%s) and the calendar (%s, fold %s) must be in the top block' % (tag, fr.get('chartIn'), fr.get('actIn'), fr.get('calIn')))
+        if fr.get('tradesIn') != 'rest' or fr.get('ownIn') != 'side':
+            fails.append('%s: the trade list (%s) must be in the rest of the frame and the own folds (%s) in the side panel' % (tag, fr.get('tradesIn'), fr.get('ownIn')))
+    else:
+        if fr.get('heroIn') != 'top' or fr.get('calIn') != 'top' or not st.get('inTop'):
+            fails.append('%s: the hero (%s), the status line (in the top block %s) and the calendar (%s) must be in the top block'
+                         % (tag, fr.get('heroIn'), st.get('inTop'), fr.get('calIn')))
+        if fr.get('tradesIn') != 'rest' or fr.get('ownIn') != 'rest':
+            fails.append('%s: the trade list (%s) and the own folds (%s) must be in the rest of the frame' % (tag, fr.get('tradesIn'), fr.get('ownIn')))
     top, side, rest, trd = fr.get('top') or {}, fr.get('side') or {}, fr.get('rest') or {}, fr.get('trades') or {}
     if iw >= FRAME_TWO_COL:
         if fr.get('disp') != 'grid':
             fails.append('%s: from %d px the page frame is a two-column grid, it is display %r' % (tag, FRAME_TWO_COL, fr.get('disp')))
         if fr.get('listIn') != 'side':
-            fails.append("%s: from %d px the strategy list must be in the frame's right-hand panel [data-lgframe-side], it is in %r"
+            fails.append("%s: from %d px the strategy list must be in the frame's left side panel [data-lgframe-side], it is in %r"
                          % (tag, FRAME_TWO_COL, fr.get('listIn')))
         if not (top.get('shown') and side.get('shown') and rest.get('shown')):
             fails.append('%s: a part of the frame is not drawn (top %s, side %s, rest %s)' % (tag, top, side, rest))
         else:
-            if side['l'] < top['r'] + 1:
-                fails.append('%s: the list panel (left %s) is not to the right of the top block (right %s)' % (tag, side['l'], top['r']))
+            if side['r'] > top['l'] + 1:
+                fails.append('%s: the side panel (right %s) is not left of the main column top block (left %s)' % (tag, side['r'], top['l']))
             if abs(side['t'] - top['t']) > 2:
-                fails.append('%s: the list panel (top %s) is not level with the top block (top %s)' % (tag, side['t'], top['t']))
+                fails.append('%s: the side panel (top %s) is not level with the top block (top %s)' % (tag, side['t'], top['t']))
             ls = fr.get('list') or {}
-            if fr.get('listIn') == 'side' and (ls.get('t') is None or ls['t'] < side['t'] - 1 or ls['t'] > side['t'] + 24):
-                fails.append('%s: the strategy list (top %s) does not start at the top of its panel (top %s)' % (tag, ls.get('t'), side['t']))
-            if side['b'] > top['b'] + 2:
-                fails.append('%s: the list panel (bottom %s) is taller than the top block (bottom %s): it must never make the page taller'
-                             % (tag, side['b'], top['b']))
-            if rest['t'] < max(top['b'], side['b']) - 1:
-                fails.append('%s: the trade list part (top %s) does not start under both the top block (bottom %s) and the list panel (bottom %s)'
-                             % (tag, rest['t'], top['b'], side['b']))
-            if (abs(rest['l'] - top['l']) > 2 or abs(rest['r'] - side['r']) > 2 or not trd.get('shown')
-                    or trd['l'] > top['l'] + 2 or trd['r'] < side['r'] - 2):
-                fails.append('%s: the trade list does not span the full frame width under both (trade list %s to %s, rest %s to %s, top block from %s, '
-                             'panel to %s)' % (tag, trd.get('l'), trd.get('r'), rest['l'], rest['r'], top['l'], side['r']))
-            si = fr.get('sideIn') or {}
-            if fr.get('sideInOverflow') not in ('auto', 'scroll') or si.get('b') is None or si['b'] > side['b'] + 1:
-                fails.append('%s: the list does not scroll inside its panel (overflow %r, content bottom %s, panel bottom %s)'
-                             % (tag, fr.get('sideInOverflow'), si.get('b'), side['b']))
+            if fr.get('listIn') == 'side' and (ls.get('l') is None or ls['l'] < side['l'] - 1 or ls['r'] > side['r'] + 1 or ls['r'] > top['l'] + 1):
+                fails.append('%s: the strategy list (%s to %s) is not inside the side panel (%s to %s) and left of the top block (left %s)'
+                             % (tag, ls.get('l'), ls.get('r'), side['l'], side['r'], top['l']))
+            if rest['t'] < top['b'] - 1:
+                fails.append('%s: the trade list part (top %s) does not start under the top block (bottom %s)' % (tag, rest['t'], top['b']))
+            if (abs(rest['l'] - top['l']) > 2 or abs(rest['r'] - top['r']) > 2 or not trd.get('shown')
+                    or trd['l'] < top['l'] - 2 or trd['r'] > top['r'] + 2):
+                fails.append('%s: the trade list does not sit in the main column under the top block (trade list %s to %s, rest %s to %s, top block %s to %s)'
+                             % (tag, trd.get('l'), trd.get('r'), rest['l'], rest['r'], top['l'], top['r']))
+            if fr.get('sideInPos') != 'sticky':
+                fails.append('%s: the side panel inner box is not sticky (position %r)' % (tag, fr.get('sideInPos')))
         if fr.get('sidePos') == 'sticky' or fr.get('qbxSidePos') == 'sticky':
-            fails.append('%s: the list panel is sticky (panel %r, list section %r): step 12 draws it beside the top block, never sticky'
+            fails.append('%s: the list panel is sticky (panel %r, list section %r): only the panel inner box sticks'
                          % (tag, fr.get('sidePos'), fr.get('qbxSidePos')))
     else:
         if fr.get('disp') == 'grid':
@@ -5011,7 +5048,7 @@ def _frame_problems(tag, fr, iw, fails, wide=False, retired=True):
         if not st.get('refresh'):
             fails.append('%s: the status line has no Refresh button [data-qqqrefresh] in it' % tag)
         if (not st.get('afterHero') or not sb.get('shown') or not hero or sb['t'] < hero['b'] - 1 or sb['t'] - hero['b'] > STATUS_GAP_MAX
-                or (pills and sb['b'] > pills['t'] + 1)):
+                or (pills and not lside and sb['b'] > pills['t'] + 1) or (lside and fr.get('stats') and sb['b'] > fr['stats']['t'] + 1)):
             fails.append('%s: the status line (top %s, bottom %s, right after the hero %s) is not directly under the hero (bottom %s) and above the '
                          'range pills (top %s)' % (tag, sb.get('t'), sb.get('b'), st.get('afterHero'), hero.get('b'), pills.get('t')))
         lh, h = st.get('lh'), st.get('lineH')
@@ -5028,7 +5065,7 @@ def _frame_problems(tag, fr, iw, fails, wide=False, retired=True):
         if (ch and not fo.get('prevIsChart')) or fb.get('t') is None or not under or fb['t'] < under['b'] - 1:
             fails.append('%s: the chart foot (top %s) does not come right after the chart box (bottom %s, right after it %s)'
                          % (tag, fb.get('t'), (under or {}).get('b'), fo.get('prevIsChart')))
-        if stb and ch and stb['t'] > ch['t'] and fb.get('b') is not None and fb['b'] > stb['t'] + 1:     # (the tiles sit ABOVE the chart since 10-31; the test only bites when they are under it)
+        if stb and ch and not lside and stb['t'] > ch['t'] and fb.get('b') is not None and fb['b'] > stb['t'] + 1:     # (the tiles sit ABOVE the chart since 10-31; the test only bites when they are under it)
             fails.append('%s: the chart foot (bottom %s) runs into the stats strip (top %s)' % (tag, fb['b'], stb['t']))
         if fo.get('caps') != 1 or fo.get('capsInFoot') != 1:
             fails.append('%s: the chart caption is not in the chart foot (%s captions on the page, %s in the foot)' % (tag, fo.get('caps'), fo.get('capsInFoot')))
@@ -6349,15 +6386,15 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                          'start within %.1f (mistake #12)' % (tag, (g.get('histTop') or 0) - (g.get('shellTop') or 0),
                          ((g.get('histTop') or 0) - (g.get('shellTop') or 0)) / (g.get('vh') or 1), g.get('vh'), LIST_VH_MAX))
     else:
-        # LEDGER step 12: the list is the frame's right-hand panel beside the top block (not sticky); the trade list runs the full width under both
+        # LEDGER left sidebar: the list is inside the frame's left side panel, left of the top block; the trade list sits in the main column under the top block
         if not g.get('inSide'):
-            fails.append("%s: on a laptop the strategy list is not inside the frame's right-hand panel [data-lgframe-side]" % tag)
-        if g.get('listLeft') is None or g.get('topRight') is None or g['listLeft'] < g['topRight'] + 1:
-            fails.append('%s: on a laptop the strategy list (left %s) is not to the right of the top block (right edge %s)'
-                         % (tag, g.get('listLeft'), g.get('topRight')))
-        if g.get('histTop') is None or g.get('panelBottom') is None or g['histTop'] < g['panelBottom'] - 1:
-            fails.append('%s: on a laptop the trade list (top %s) does not start under the list panel (bottom %s)'
-                         % (tag, g.get('histTop'), g.get('panelBottom')))
+            fails.append("%s: on a laptop the strategy list is not inside the frame's left side panel [data-lgframe-side]" % tag)
+        if g.get('listRight') is None or g.get('topLeft') is None or g['listRight'] > g['topLeft'] + 1:
+            fails.append('%s: on a laptop the strategy list (right %s) is not left of the top block (left edge %s)'
+                         % (tag, g.get('listRight'), g.get('topLeft')))
+        if g.get('histTop') is None or g.get('topBottom') is None or g['histTop'] < g['topBottom'] - 1:
+            fails.append('%s: on a laptop the trade list (top %s) does not start under the top block of the main column (bottom %s)'
+                         % (tag, g.get('histTop'), g.get('topBottom')))
         if g.get('sticky') == 'sticky' or g.get('panelPos') == 'sticky':
             fails.append('%s: on a laptop the strategy list is sticky (list %r, panel %r): step 12 draws it beside the top block, never sticky'
                          % (tag, g.get('sticky'), g.get('panelPos')))

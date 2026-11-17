@@ -381,6 +381,9 @@ CASES.append(CHARTKEY_CASE)
 # (System health); 'reports' stays its own fold after it. A section inside a closed fold is in the markup order but has no box on the page.
 # owner 10-31 ('clean this up'): the range pills ride INSIDE the chart section, under the chart on the legend's line; the calendar (open by default above 600 px) comes before More stats
 SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more', 'list', 'trades', 'health', 'capture', 'nt', 'recon', 'gate', 'reports']   # owner 10-31 18:00: headline, tiles, chart, calendar
+SECTION_ORDER_WIDE = ['chart', 'pills', 'cal', 'hero', 'status', 'stats', 'list', 'more', 'health', 'capture', 'nt', 'recon', 'gate', 'reports', 'trades']   # from 1100 px (LEFT sidebar): the main column's chart, pills, calendar, then the sidebar (hero .. reports), then the trades
+SIDE_SECTIONS_WIDE = ['hero', 'status', 'stats', 'list', 'more', 'health', 'capture', 'nt', 'recon', 'gate', 'reports']   # the left sidebar [data-lgframe-side], top to bottom
+TOP_SECTIONS_WIDE = ['chart', None]                                  # the wide top block: the chart (pills inside it) and the calendar's wrapper (no marker of its own), side by side
 TOP_SECTIONS = ['hero', 'status', 'stats', 'chart', 'cal', 'more']   # LEDGER step 12: the frame top block, in this order (the pills section sits inside the chart one since 10-31)
 FRAME_MAX_W = '1320px'                                             # LEDGER step 12: .lg-frame max-width (WEBULL's column), centred
 OWN_FOLDS = ['health', 'capture', 'nt', 'recon', 'gate', 'reports']   # the board own folds after the trades, parent before children (the status fold lives in the status line)
@@ -1029,7 +1032,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
       var k=f.getAttribute('data-p2fold'),b=f.querySelector('.p2fold-hd'),s=f.querySelector('[data-p2sum]'),bb=f.querySelector('.p2fold-body');
       var hr=b?b.getBoundingClientRect():null,sr=s?s.getBoundingClientRect():null;
       var x={k:k,exp:b?b.getAttribute('aria-expanded'):null,hidden:bb?bb.hidden:null,sum:tx(s),sumH:sr?Math.round(sr.height):null,hdH:hr?Math.round(hr.height):null,
-        clip:s?(s.scrollWidth>s.clientWidth+1):null,bodyLen:bb?tx(bb).length:0,inSec:!!f.closest('.p2rh'),
+        clip:s?(s.scrollWidth>s.clientWidth+1):null,bodyLen:bb?tx(bb).length:0,inSec:!!f.closest('.p2rh'),inSide:!!f.closest('[data-lgframe-side]'),
         ls:(function(){try{return w.localStorage.getItem('el_lg_'+k+'_nt8');}catch(e){return 'ERR';}})(),tip:b?b.getAttribute('title'):null,
         par:(function(){var p=f.parentElement?f.parentElement.closest('[data-p2fold]'):null;return p?p.getAttribute('data-p2fold'):null;})()};
       // NT8 board fix 10-09: the status summary is ONE sentence of whole tokens that may wrap to a second line (line pitch 16 px + 2 px gap); a token is never
@@ -1057,7 +1060,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     if(NE.length){var n0=NE[0],np0=n0.previousElementSibling,nn0=n0.nextElementSibling;
       o.needs={role:n0.getAttribute('role'),key:tx(n0.querySelector('.p2needs-k')),
         lines:[].map.call(n0.querySelectorAll('.p2needs-line'),function(l){return {held:l.getAttribute('data-p2held'),txt:tx(l)};}),
-        prev:np0?np0.getAttribute('data-p2sec'):null,next:nn0?nn0.getAttribute('data-p2sec'):null,inTop:!!(n0.parentElement&&n0.parentElement.hasAttribute('data-lgframe-top')),box:rbx(n0)};}
+        prev:np0?np0.getAttribute('data-p2sec'):null,next:nn0?nn0.getAttribute('data-p2sec'):null,inTop:!!(n0.parentElement&&n0.parentElement.hasAttribute('data-lgframe-top')),inSide:!!(n0.parentElement&&n0.parentElement.closest('[data-lgframe-side]')),box:rbx(n0)};}
     o.bp=s11bp(d);
     var cf=d.querySelector('[data-lgcalfold="p2"]'),mf=d.querySelector('[data-lgmore="p2"]');
     o.calOpen=cf?cf.getAttribute('aria-expanded'):null;o.moreOpen=mf?mf.getAttribute('aria-expanded'):null;
@@ -1077,7 +1080,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         handle:S?S.querySelectorAll('[data-p2side]').length:0,handleAll:d.querySelectorAll('[data-p2side]').length,handleBox:bx(d.querySelector('[data-p2side]'))};}
     var SL=d.querySelectorAll('[data-lgstatus="p2"]');o.statusN=SL.length;
     if(SL.length){var s0=SL[0],pv=s0.previousElementSibling,nx=s0.nextElementSibling;
-      o.status={prev:pv?pv.getAttribute('data-p2sec'):null,next:nx?nx.getAttribute('data-p2sec'):null,inTop:!!(s0.parentElement&&s0.parentElement.hasAttribute('data-lgframe-top')),
+      o.status={prev:pv?pv.getAttribute('data-p2sec'):null,next:nx?nx.getAttribute('data-p2sec'):null,inTop:!!(s0.parentElement&&s0.parentElement.hasAttribute('data-lgframe-top')),inSide:!!(s0.parentElement&&s0.parentElement.closest('[data-lgframe-side]')),
         inHero:!!s0.closest('.lg-hero'),fold:!!s0.querySelector('[data-p2fold="status"]'),refresh:!!s0.querySelector('.p2fold-act [data-paperrefresh]'),warn:s0.querySelectorAll('.p2warn').length};}
     var hc=d.querySelector('.p2rh .lg-hero-chips');o.heroChips=hc?{kids:hc.children.length,txt:tx(hc)}:null;
     var CF=d.querySelectorAll('[data-lgchartfoot="p2"]'),cw=d.getElementById('p2-chart');o.chartFootN=CF.length;o.chartDrawn=!!cw;
@@ -1354,6 +1357,13 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
             var _side=d.querySelector('[data-p2col="side"]')||(_sb&&_sb.parentElement?_sb.parentElement.firstElementChild:null);
             if(_lr&&_sb&&_side)
               r.legsInSide=_side.contains(_lr)?1:0;}catch(_e){}
+        // from 1100 px the frame is a LEFT sidebar (.lg-lside): the strategy list sits inside [data-lgframe-side] and left of the top block; no drag bar [data-p2side]
+        r.lside=0;r.listInSide=0;r.listLeft=0;r.sideGeo=null;
+        try{var _fz=d.querySelector('.lg-frame.lg-lside'),_fsd=d.querySelector('[data-lgframe-side="p2"]'),_ftp=d.querySelector('[data-lgframe-top="p2"]'),_fl=d.querySelector('[data-p2col="side"][data-p2sec="list"]');
+            if(_fz&&_fsd&&_ftp){r.lside=1;var _sr=_fsd.getBoundingClientRect(),_tr=_ftp.getBoundingClientRect();
+              r.listInSide=(_fl&&_fsd.contains(_fl)&&_fsd.contains(d.querySelector('tr[data-paperleg],[data-lglist="p2"] [data-lgrow]')||_fl))?1:0;
+              r.listLeft=(_fl&&_fl.getBoundingClientRect().right<=_tr.left+1&&_sr.right<=_tr.left+1)?1:0;
+              r.sideGeo={sideRight:Math.round(_sr.right),topLeft:Math.round(_tr.left)};}}catch(_e3){}
         // GEOMETRY, not just existence: the owner rejected two sidebars whose controls
         // wrapped into multi-line blobs, and every structural gate passed on both. A
         // segmented tray is one line of chips - if any tray in the sidebar renders
@@ -1972,7 +1982,13 @@ def run(alt_index=None, timeout=300):
         # COLUMNS control removed by design in v73.396 - the sidebar table is locked
         # to KEY because thirteen columns cannot fit a sidebar. No assertion on it.
         if nm.startswith('paper2'):
-            if not r.get('sideBar'):
+            if r.get('lside'):
+                # from 1100 px the sidebar is the LEFT column [data-lgframe-side]; the drag bar is gone by design
+                if not r.get('listInSide'):
+                    fails.append('%s: PAPER plus lost its strategy sidebar - the strategy list is not inside [data-lgframe-side="p2"]' % nm)
+                elif not r.get('listLeft'):
+                    fails.append('%s: PAPER plus: the strategy list sidebar is not to the LEFT of the top block (%r)' % (nm, r.get('sideGeo')))
+            elif not r.get('sideBar'):
                 fails.append('%s: PAPER plus lost its strategy sidebar' % nm)
             elif not r.get('legsInSide'):
                 fails.append('%s: the LEGS panel is no longer inside the sidebar '
@@ -3589,7 +3605,7 @@ def _judge_s11(cases, fixture, data, fails):
         sec = s.get('sec') or []
         ks = [x['k'] for x in sec]
         two = vw >= 1100
-        order = [k for k in SECTION_ORDER if not (nm == 'empty' and k == 'capture')]     # no report, no capture health block, no capture fold
+        order = [k for k in (SECTION_ORDER_WIDE if two else SECTION_ORDER) if not (nm == 'empty' and k == 'capture')]     # no report, no capture health block, no capture fold
         # LEDGER step 12: ONE markup order at every width (the frame's top block, its side panel, the rest); from 1100 px the list is the right-hand panel
         if ks != order:
             fails.append('%s: the page sections run %r, expected the fixed order %r at %d px' % (nm, ks, order, vw))
@@ -3598,19 +3614,26 @@ def _judge_s11(cases, fixture, data, fails):
             byk = dict((x['k'], x) for x in vsec)
             lst = byk['list']
             if two:
-                # every section but the list panel is stacked in the fixed order: the top block, then the trades and the own folds under it
-                main = [x for x in vsec if x['k'] != 'list']
-                tp = [x['top'] for x in main]
+                # from 1100 px (LEFT sidebar): the sidebar sections (hero .. reports) are stacked top to bottom in the left column; the chart and the
+                # calendar sit side by side at the top of the main column, to the right of the sidebar; the trades run under both
+                side_v = [x for x in vsec if x['k'] in SIDE_SECTIONS_WIDE]
+                tp = [x['top'] for x in side_v]
                 if any(b <= a for a, b in zip(tp, tp[1:])):
-                    fails.append('%s: the page sections are not stacked top to bottom in the fixed order at %d px (tops %r)' % (nm, vw, tp))
-                right = max(x['left'] + x['w'] for x in vsec if x['k'] in TOP_SECTIONS or x['k'] == 'pills')
-                if lst['left'] < right or abs(lst['top'] - byk['hero']['top']) > 24:
-                    fails.append('%s: from 1100 px the strategy list must be the right-hand panel beside the top block, level with the hero (list left %s top %s, '
-                                 'top block right edge %s, hero top %s)' % (nm, lst['left'], lst['top'], right, byk['hero']['top']))
+                    fails.append('%s: the sidebar sections are not stacked top to bottom in the fixed order at %d px (tops %r)' % (nm, vw, tp))
+                side_r = max(x['left'] + x['w'] for x in side_v)
+                main_l = min(byk[k]['left'] for k in ('chart', 'cal') if k in byk)
+                if side_r > main_l + 1:
+                    fails.append('%s: from 1100 px the sidebar must be the LEFT column, to the left of the chart and calendar (sidebar right edge %s, main column left %s)'
+                                 % (nm, side_r, main_l))
+                ch_, ca_ = byk.get('chart'), byk.get('cal')
+                if not (ch_ and ca_) or ca_['left'] < ch_['left'] + ch_['w'] - 1 or abs(ca_['top'] - ch_['top']) > 10:
+                    fails.append('%s: from 1100 px the chart and the calendar must sit side by side at the same top (chart %r, calendar %r)' % (nm, ch_, ca_))
+                tr_ = byk.get('trades')   # 8 px slack: the chart section carries a ~6 px top offset inside the top block (the trades list itself is judged against the top block box, 1 px, below)
+                if not tr_ or not ch_ or not ca_ or tr_['top'] < max(ch_['top'] + ch_['h'], ca_['top'] + ca_['h']) - 8 or tr_['left'] < main_l - 1:
+                    fails.append('%s: from 1100 px the trades must sit under the chart and the calendar, in the main column (trades %r)' % (nm, tr_))
                 rl = s.get('rail') or {}
-                if not rl or 'sticky' in (rl.get('pos'), rl.get('sidePos')) or 'fixed' in (rl.get('pos'), rl.get('sidePos')):
-                    fails.append('%s: the strategy list panel is sticky (or missing) at %d px (%r) - since LEDGER step 12 it sits level with the top block and '
-                                 'scrolls inside it' % (nm, vw, rl))
+                if not rl or 'fixed' in (rl.get('pos'), rl.get('sidePos')):
+                    fails.append('%s: the strategy list is missing or fixed at %d px (%r) - the sidebar box is sticky, never fixed' % (nm, vw, rl))
             else:
                 at = [x['top'] for x in vsec]
                 if any(b <= a for a, b in zip(at, at[1:])):
@@ -3636,7 +3659,8 @@ def _judge_s11(cases, fixture, data, fails):
             else:
                 if _re.search(r'undefined|NaN|\[object|[<>]|&[a-z#0-9]+;', sm):
                     fails.append('%s summary has stray markup or a bad value: %r' % (tag, sm))
-                if f.get('clip') and k != 'status':
+                # the left sidebar is 264 px wide, so a summary that ellipsizes in it is expected (from 1100 px, folds inside [data-lgframe-side])
+                if f.get('clip') and k != 'status' and not (two and f.get('inSide')):
                     fails.append('%s summary is cut off at %d px: %r' % (tag, vw, sm))
             if k == 'status':
                 if (f.get('sumH') or 0) > 34:
@@ -4043,21 +4067,34 @@ def _judge_s12(cases, data, fails):
             continue
         fm = s.get('frame') or {}
         n_frames += 1
-        if fm.get('maxW') != FRAME_MAX_W:
+        if two:
+            # from 1100 px the LEFT-sidebar frame (.lg-lside) runs the full width of its parent (max-width none) - it is not the 1320 px centred column
+            if fm.get('maxW') != 'none' or abs((fm.get('parW') or 0) - (fm.get('w') or 0)) > 4:
+                fails.append('%s: from 1100 px the sidebar frame must run the full width of its parent (max-width %r, frame %s of %s px at %d px)'
+                             % (nm, fm.get('maxW'), fm.get('w'), fm.get('parW'), vw))
+        elif fm.get('maxW') != FRAME_MAX_W:
             fails.append('%s: the page frame is not at most %s wide (max-width %r) - the board runs the full width again' % (nm, FRAME_MAX_W, fm.get('maxW')))
-        if (fm.get('parW') or 0) - (fm.get('w') or 0) > 4:
+        if not two and (fm.get('parW') or 0) - (fm.get('w') or 0) > 4:
             n_centred += 1
             if abs((fm.get('gapL') or 0) - (fm.get('gapR') or 0)) > 2:
                 fails.append('%s: the page frame is not centred in its parent at %d px (left gap %s px, right gap %s px, the frame %s of %s px)'
                              % (nm, vw, fm.get('gapL'), fm.get('gapR'), fm.get('w'), fm.get('parW')))
         if not fm.get('inBoard'):
             fails.append('%s: the page frame sits outside the board (.p2rh)' % nm)
-        kids_ = [k_ for k_ in (fm.get('topKids') or []) if not (k_ is None and s.get('needsN'))]      # the NEEDS YOU banner is no section
-        if kids_ != TOP_SECTIONS:
-            fails.append('%s: the frame top block holds the sections %r, expected %r in that order' % (nm, kids_, TOP_SECTIONS))
-        if fm.get('inSide') != ['list']:
+        if two:
+            # wide: the NEEDS YOU banner lives in the sidebar, so nothing is filtered out of the top block (the chart, then the calendar's wrapper)
+            kids_, want_top = list(fm.get('topKids') or []), TOP_SECTIONS_WIDE
+        else:
+            kids_, want_top = [k_ for k_ in (fm.get('topKids') or []) if not (k_ is None and s.get('needsN'))], TOP_SECTIONS      # the NEEDS YOU banner is no section
+        if kids_ != want_top:
+            fails.append('%s: the frame top block holds the sections %r, expected %r in that order' % (nm, kids_, want_top))
+        if two:
+            want_side = [k for k in SIDE_SECTIONS_WIDE if not (nm == 'empty' and k == 'capture')]
+            if fm.get('inSide') != want_side:
+                fails.append('%s: the frame side panel [data-lgframe-side] holds %r, expected %r' % (nm, fm.get('inSide'), want_side))
+        elif fm.get('inSide') != ['list']:
             fails.append('%s: the strategy list is not in the frame side panel [data-lgframe-side] (the panel holds %r)' % (nm, fm.get('inSide')))
-        want_rest = ['trades'] + [k for k in OWN_FOLDS if not (nm == 'empty' and k == 'capture')]
+        want_rest = ['trades'] + ([] if two else [k for k in OWN_FOLDS if not (nm == 'empty' and k == 'capture')])
         if fm.get('inRest') != want_rest:
             fails.append('%s: the frame rest holds %r, expected the trades then the own folds %r' % (nm, fm.get('inRest'), want_rest))
         top, side, rest, sin = fm.get('top') or {}, fm.get('side') or {}, fm.get('rest') or {}, fm.get('sideIn') or {}
@@ -4065,26 +4102,19 @@ def _judge_s12(cases, data, fails):
             n_wide += 1
             if fm.get('disp') != 'grid':
                 fails.append('%s: from 1100 px the page frame is not two columns (display %r at %d px)' % (nm, fm.get('disp'), vw))
-            # the list panel: right of the top block and level with it, never taller than it, its list scrolling inside it
-            if (side.get('left') or 0) < (top.get('right') or 0) or abs((side.get('top') or 0) - (top.get('top') or 0)) > 2:
-                fails.append('%s: the strategy list panel is not beside the top block at %d px (panel left %s top %s, top block right %s top %s)'
-                             % (nm, vw, side.get('left'), side.get('top'), top.get('right'), top.get('top')))
-            if (side.get('h') or 0) > (top.get('h') or 0) + 2:
-                fails.append('%s: the strategy list panel is taller than the top block at %d px (panel %s px, top block %s px) - the list must scroll inside it'
-                             % (nm, vw, side.get('h'), top.get('h')))
-            if sin.get('pos') != 'absolute' or sin.get('ov') not in ('auto', 'scroll') or (sin.get('bottom') or 0) > (top.get('bottom') or 0) + 2:
-                fails.append('%s: the strategy list does not scroll inside its panel at %d px (position %r, overflow %r, its bottom %s, top block bottom %s)'
-                             % (nm, vw, sin.get('pos'), sin.get('ov'), sin.get('bottom'), top.get('bottom')))
-            # the trades and the own folds run the full width under both columns
-            if abs((rest.get('left') or 0) - (top.get('left') or 0)) > 2 or abs((rest.get('right') or 0) - (side.get('right') or 0)) > 2 \
-                    or (rest.get('top') or 0) < max(top.get('bottom') or 0, side.get('bottom') or 0) - 1:
-                fails.append('%s: the trades list is not full width under both columns at %d px (rest %s..%s from %s; top block from %s, panel right %s, '
-                             'bottoms %s / %s)' % (nm, vw, rest.get('left'), rest.get('right'), rest.get('top'), top.get('left'), side.get('right'),
-                                                   top.get('bottom'), side.get('bottom')))
-            # the drag bar is still there, on the panel
-            if fm.get('handle') != 1 or fm.get('handleAll') != 1 or not (fm.get('handleBox') or {}).get('h'):
-                fails.append('%s: the drag bar [data-p2side] is not on the strategy list panel at %d px (%s on the panel, %s on the page, %r)'
-                             % (nm, vw, fm.get('handle'), fm.get('handleAll'), fm.get('handleBox')))
+            # the sidebar: LEFT of the top block and level with it, shaded, its inner box sticky; no drag bar any more
+            if (side.get('right') or 0) > (top.get('left') or 0) + 1 or abs((side.get('top') or 0) - (top.get('top') or 0)) > 2:
+                fails.append('%s: the sidebar is not the left column beside the top block at %d px (sidebar right %s top %s, top block left %s top %s)'
+                             % (nm, vw, side.get('right'), side.get('top'), top.get('left'), top.get('top')))
+            if sin.get('pos') != 'sticky':
+                fails.append('%s: the sidebar inner box is not sticky at %d px (position %r)' % (nm, vw, sin.get('pos')))
+            # the trades run under the top block, in the main column (the sidebar runs down its left)
+            if abs((rest.get('left') or 0) - (top.get('left') or 0)) > 2 or abs((rest.get('right') or 0) - (top.get('right') or 0)) > 2                     or (rest.get('top') or 0) < (top.get('bottom') or 0) - 1:
+                fails.append('%s: the trades list is not under the top block, in the main column, at %d px (rest %s..%s from %s; top block %s..%s, bottom %s)'
+                             % (nm, vw, rest.get('left'), rest.get('right'), rest.get('top'), top.get('left'), top.get('right'), top.get('bottom')))
+            # the drag bar is gone in the wide layout
+            if fm.get('handleAll'):
+                fails.append('%s: the drag bar [data-p2side] is still on the page at %d px (%s) - the wide sidebar has a fixed width' % (nm, vw, fm.get('handleAll')))
         else:
             n_narrow += 1
             if fm.get('disp') == 'grid':
@@ -4103,13 +4133,13 @@ def _judge_s12(cases, data, fails):
             nd_ = s.get('needs') or {}
             under_ = (h_['top'] + h_['h']) if h_ else None
             if nd_ and under_ is not None:           # the NEEDS YOU banner sits between the hero and the status line: the gaps are measured round it
-                if nd_.get('prev') != 'hero' or nd_.get('next') != 'status' or not nd_.get('inTop') or not -1 <= nd_['box']['top'] - under_ <= 40:
+                if nd_.get('prev') != 'hero' or nd_.get('next') != 'status' or not (nd_.get('inSide') if two else nd_.get('inTop')) or not -1 <= nd_['box']['top'] - under_ <= 40:
                     fails.append('%s: the NEEDS YOU banner is not directly between the hero and the status line (after %r, before %r, in the top block %s, %s px under the hero)'
                                  % (nm, nd_.get('prev'), nd_.get('next'), nd_.get('inTop'), nd_['box']['top'] - under_))
                 under_ = nd_['box']['bottom']
             gap = (s_['top'] - under_) if (under_ is not None and s_) else None
-            if (nd_.get('prev') if nd_ else st.get('prev')) != 'hero' or st.get('next') != 'stats' or not st.get('inTop') or st.get('inHero') or gap is None or gap < -1 or gap > 40 \
-                    or not p_ or s_['top'] >= p_['top']:
+            if (nd_.get('prev') if nd_ else st.get('prev')) != 'hero' or st.get('next') != 'stats' or not (st.get('inSide') if two else st.get('inTop')) or st.get('inHero') or gap is None or gap < -1 or gap > 40 \
+                    or not p_ or (not two and s_['top'] >= p_['top']):   # wide: pills sit in the main column, the status line in the sidebar - no vertical order between them
                 fails.append('%s: the status line is not directly under the hero (above the pills) at %d px (after %r, before %r, in the top block %s, inside '
                              'the hero %s, %s px under the hero)' % (nm, vw, st.get('prev'), st.get('next'), st.get('inTop'), st.get('inHero'), gap))
         hc = s.get('heroChips')
@@ -4154,8 +4184,8 @@ def _judge_s12(cases, data, fails):
         bad_on = [k for k, v in want_on.items() if v is not None and fo.get(k) != v]
         if bad_on:
             fails.append('%s: the filter controls do not show the case choices (%s: shown %r, set %r)' % (nm, ', '.join(bad_on), fo, want_on))
-    if not n_centred:
-        fails.append('step 12: no case drew the page frame narrower than its parent, so its centring could not be judged')
+    # (centring is judged only under 1100 px; from 1100 px the frame fills its parent, judged above. Under 1100 px the 1320 px cap never bites, so a
+    # case narrower than its parent may not exist - not a failure any more.)
     if not n_wide or not n_narrow:
         fails.append('step 12: the page frame was not judged both from 1100 px (%d cases) and under it (%d cases)' % (n_wide, n_narrow))
     # -- the Filters row opens on a click and shows every control, a control works from the open row, a second click closes it; each state stored
