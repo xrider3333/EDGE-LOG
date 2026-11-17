@@ -1132,6 +1132,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-tl-views{display:flex;align-items:center;gap:8px;flex:none;margin-left:auto}
 .lg-tl-find{display:flex;align-items:center;gap:10px 16px;flex-wrap:wrap;min-width:0}
 .lg-tl-search{background:transparent;border:none;border-bottom:1px solid var(--border);color:var(--text);font-size:12px;padding:6px 2px;min-width:200px;flex:1;max-width:320px;font-family:'JetBrains Mono',monospace}
+/* REAL's one-row list bar (owner 11-16): search, chips, market chips, the quiet count, then the views at the right; wraps on a phone */
+.lg-tl-onerow .lg-tl-top{justify-content:flex-start;gap:8px 14px}.lg-tl-onerow .lg-tl-find{flex:0 1 auto;gap:8px 10px}@media (min-width:800px){.lg-tl-onerow .lg-tl-find{flex-wrap:nowrap}.lg-tl-onerow .lg-tl-chips{flex-wrap:nowrap}}.lg-tl-onerow .lg-tl-search{min-width:110px;max-width:200px;flex:0 1 200px}.lg-tl-onerow .lg-tl-count{color:var(--text5);font-size:10px;margin-right:auto}.hm-pastebar .hm-paste-row .hm-paste{max-width:none}
 .lg-tl-search::placeholder{color:var(--text5)}
 .lg-tl-search:focus{border-bottom-color:var(--text4);outline:none}
 .lg-tl-chips{display:flex;gap:6px;flex-wrap:wrap;min-width:0}
@@ -1336,7 +1338,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .hm-wrap.lg-flow .hm-chart-wrap{margin:4px 0 0}
   .hm-sec-chart .lg-chart-foot{margin:2px 2px 4px}
   .hm-sec-chart .lg-chart-cap{display:none}
-  .hm-sec-chart .hm-mode button{padding:4px 9px}
+  .hm-sec-chart .hm-mode button{padding:4px 6px;letter-spacing:0}
+  .hm-sec-chart .lg-chart-row .lg-pills{gap:7px}
   .hm-sec-acct .hm-acct-fold{display:flex;margin-bottom:10px}
   .hm-sec-acct:not(.open) .lg-list{display:none}
   .hm-sec-acct .lg-list{margin-bottom:14px}
@@ -1403,6 +1406,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    out in that order as the window narrows. A column comes back only once the box has room for it (a scrollbar can take 15 px): hm-s3 above
    1010 px, hm-s2 above 900 px, hm-s1 above 700 px - the breakpoints used to sit 30 to 45 px too low and the box scrolled inside itself there. */
 .hm-dtable.hm-simple{min-width:0}
+/* FULL view fits the page width on a laptop or wider (owner 11-16: no sideways scroll, smaller font is fine) */
+@media (min-width:1100px){.hm-dtable:not(.hm-simple){min-width:0;font-size:10px}.hm-dtable:not(.hm-simple) th{padding:7px 4px;font-size:9px;letter-spacing:.5px}.hm-dtable:not(.hm-simple) td{padding:6px 4px}.hm-dtable:not(.hm-simple) td.hm-notes-cell{max-width:110px;overflow:hidden;text-overflow:ellipsis}.hm-dtable:not(.hm-simple) td.hm-notes-cell input{width:100px}.hm-dtable:not(.hm-simple) input[data-field="chartUrl"]{width:36px;max-width:36px}.hm-dtable:not(.hm-simple) th{letter-spacing:0}.hm-dtable:not(.hm-simple) th,.hm-dtable:not(.hm-simple) td{padding-left:3px !important;padding-right:3px !important}.hm-dtable:not(.hm-simple) .lg-d-full{display:none}.hm-dtable:not(.hm-simple) .lg-d-short{display:inline}.hm-dtable:not(.hm-simple) td.hm-notes-cell input{width:84px !important;max-width:84px}.hm-dtable:not(.hm-simple) td.lg-c-chart input{width:30px !important;max-width:30px}.hm-dtable:not(.hm-simple) td.lg-c-strat{max-width:52px;overflow:hidden;text-overflow:ellipsis}.hm-dtable:not(.hm-simple) .inline-sel,.hm-dtable:not(.hm-simple) .inline-txt{font-size:10px;max-width:120px}}
 /* SIMPLE's SETUP . TF . CHART group (owner 2026-10-10: "time frame, setup selector, and chart selector in one spot"): the setup select, the TF
    picker and the chart link box (a paste saves at once) side by side on one line in one cell; the other optional columns drop first. From 740 px
    down each row is two lines - DATE, SYM, DIR, NET, then the group (wrapping inside its line if it must) - so nothing scrolls sideways. */
@@ -1588,7 +1593,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.28';
+const VERSION='90.29';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1609,6 +1614,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.29',date:'2026-11-17',notes:['LEDGER REAL trade list controls in two rows: search, filters, market and the count with the views at the right; then + NEW TRADE, the chart link box (its hint inside) and one MORE menu. The sort shows on the column arrow, SHOW MORE sits under the table','LEDGER REAL chart: new DAILY toggle beside EQUITY and P&L - a green or red bar per day plus the running total line, same range pills. EQUITY stays the default','LEDGER REAL FULL view fits the page width on a laptop or wider: tighter columns and a slightly smaller font, no sideways scroll']},{v:'90.10',date:'2026-11-14',notes:['EXPLORE: 51 lane records stamped FULL (capitals) now draw as the hollow whole-run square and read WHOLE-RUN on hover, the same as the 16 stamped full. They used to draw as the unknown-stage dot with no stretch name.']},
 {v:'90.28',date:'2026-11-16',notes:['IMPORT: a CSV row now matches a saved trade only on the same day, symbol, size and both prices, one to one - two scalps a tick apart are no longer read as one, and a saved trade is never rewritten by a different row.','IMPORT and + NEW TRADE: the default fee is per contract, so it is now multiplied by the size (a 3-lot MES pays 3 x 0.95). The NEW TRADE fee box re-fills when you change the size, until you type your own fee. Trades already saved are unchanged.']},
 {v:'90.25',date:'2026-11-16',notes:['SCORES: 2 trades from 2026-11-13, 2026-11-16 scored, 0 marked NA (no price data).']},
 {v:'90.23',date:'2026-11-16',notes:['LEDGER REAL ACCT and ACCT% fixed: the balance starts from the account start balance (the one behind the headline balance), not a few deposit rows, so a $5 trade no longer reads +61%']},
@@ -4899,7 +4905,9 @@ function ledgerTradeListHtml(o){
     +'<div class="lg-tl-find"><input type="text" id="'+esc(id)+'-search" data-lgsearch class="lg-tl-search" autocomplete="off" spellcheck="false" placeholder="'+esc(o.placeholder||'Search symbol, setup, note...')+'" aria-label="Search trades" value="'+esc(o.query)+'">'
     +'<div class="lg-tl-chips" role="group" aria-label="filter trades">'+chips.map(c=>'<button type="button" class="lg-fchip'+(o.chip===c.k?' active':'')+'" data-lgchip="'+esc(c.k)+'" aria-pressed="'+(o.chip===c.k)+'">'+esc(c.label)+'</button>').join('')+'</div>'+(o.findX||'')+'</div>'
     +(o.slot?'<div class="lg-tl-slot">'+o.slot+'</div>':'')+'</div>';
-  return '<div class="lg-tl" data-lglist-frame="'+esc(id)+'" data-lgmode="'+view+'">'+bar+(o.afterBar||'')+(view==='table'?(o.tableBar||''):'')+body
+  // o.oneRow (REAL, owner 11-16): ONE row - search, chips, market chips, the count, then the views at the right
+  const bar1=o.oneRow?bar.replace(/^<div class="lg-tl-bar"><div class="lg-tl-top">([\s\S]*?)<\/div>(<div class="lg-tl-find">[\s\S]*?)(<div class="lg-tl-slot">[\s\S]*)?<\/div>$/,(m,top,find,slot)=>'<div class="lg-tl-bar lg-tl-onerow"><div class="lg-tl-top">'+find+top+'</div>'+(slot||'')+'</div>'):bar;
+  return '<div class="lg-tl" data-lglist-frame="'+esc(id)+'" data-lgmode="'+view+'">'+bar1+(o.afterBar||'')+(view==='table'?(o.tableBar||''):'')+body
     +(o.foot?'<div class="lg-tl-foot" data-lgtlfoot="'+esc(id)+'">'+o.foot+'</div>':'')+'</div>';
 }
 // ── LEDGER search debounce (P1) ──
@@ -17461,9 +17469,33 @@ function _hmBrokerLines(ser){
 }
 // draws the chart; the scrub handler below writes straight to the hero nodes and NEVER calls renderApp() (a repaint on every mousemove
 // would be unusable)
+// DAILY chart (owner GO 11-16, a toggle beside EQUITY / P&L): one green / red bar per close day plus the running total line,
+// same range pills; the headline shows the range total
+function _hmRenderDailyInto(wrapEl){
+  const by={};
+  _hmTradesInRange(bScope(trades),homeRange).forEach(t=>{const d=ledgerCloseDay(t);if(d)by[d]=+((by[d]||0)+(+t.pnl||0)).toFixed(2);});
+  const days=Object.keys(by).sort();
+  let c=0;const cum=days.map(d=>(c=+(c+by[d]).toFixed(2)));
+  _hmRenderHeroDefault(c,0);
+  if(!days.length){wrapEl.innerHTML='<div class="hm-empty-state">No closed trades in this range</div>';return;}
+  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=260,pt=14,pb=22,pl=8,pr=8;
+  const vals=days.map(d=>by[d]).concat(cum,[0]),mx=Math.max(...vals),mn=Math.min(...vals),span=(mx-mn)||1;
+  const y=v=>pt+(mx-v)/span*(H-pt-pb),slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7));
+  const G='#1d9e75',R='#e24b4a',y0=y(0);
+  let bars='',line='';
+  days.forEach((d,i)=>{const v=by[d],x=pl+slot*i+(slot-bw)/2,yy=Math.min(y(v),y0),h=Math.max(1,Math.abs(y(v)-y0));
+    bars+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+(v>=0?G:R)+'" opacity="0.85"><title>'+_hmFmtDateLong(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></rect>';
+    line+=(i?'L':'M')+(pl+slot*i+slot/2).toFixed(1)+' '+y(cum[i]).toFixed(1);});
+  const lab=(i)=>'<text x="'+(pl+slot*i+slot/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="10" fill="var(--text5)">'+days[i].slice(5)+'</text>';
+  const ticks=days.length<=1?lab(0):lab(0)+lab(days.length-1);
+  wrapEl.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="REAL daily P&L bars and running total, '+(_HM_RANGE_LABEL[homeRange]||'')+'" data-hmdaily="1">'
+    +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--border2)" stroke-width="1"/>'
+    +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6"/>'+ticks+'</svg>';
+}
 function _hmRenderChartInto(root){
   const wrapEl=root.querySelector('#hm-chart-wrap');
   if(!wrapEl)return;
+  if(homeChartMode==='daily'){_hmRenderDailyInto(wrapEl);return;}
   const ser=ledgerDailyPoints(_hmRangeSeries(homeRange,homeChartMode));
   // P&L mode: the range's own P&L (the curve restarts at $0 at the range start); EQUITY: the account balance
   const endVal=homeChartMode==='equity'?liveBalance():(ser.length?ser[ser.length-1].v:0);
@@ -18162,8 +18194,9 @@ function _hmFrameTh(k,label,cls){
 // the line above the table: the note after a jump, how it is sorted, clear filters, and SHOW MORE on FULL
 function _hmTableBarHtml(full){
   const clearBtn=_hmColFiltOn()?`<span onclick="event.stopPropagation();clearFilters()" title="clear all filters" style="cursor:pointer;color:var(--text5);text-decoration:underline;font-size:10px">&#10005; clear filters</span>`:'';
-  const left=`<span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-right:auto">${_hmNoteHtml()}<span id="hm-sort-label" style="color:var(--text5);font-size:10px;letter-spacing:1px">${_hmSortLabel()}</span>${clearBtn}</span>`;
-  return `<div class="hm-table-toolbar">${left}${full?`<button class="hm-ghostbtn" id="hm-table-extras">${homeExtras?'HIDE EXTRAS':'SHOW MORE'}</button>`:''}</div>`;
+  const left=`<span style="display:flex;align-items:center;gap:12px;flex-wrap:wrap;margin-right:auto">${_hmNoteHtml()}${clearBtn}</span>`;
+  // owner 11-16: the sort shows on the column arrow and SHOW MORE sits under the table, so this line only appears when it has something to say
+  return (_hmNoteHtml()||clearBtn)?`<div class="hm-table-toolbar">${left}</div>`:'';
 }
 // next to the count: clear filters, and how many matches the range pill hides
 function _hmCountExtraHtml(){
@@ -18191,7 +18224,7 @@ function _hmKindChipsHtml(){
 function _hmToolsHtml(){
   const open=!!window._hmToolsOpen;
   return `<div class="hm-tools-wrap">
-      <button type="button" class="hm-ghostbtn hm-tools-toggle" id="hm-tools-toggle" aria-expanded="${open}" aria-controls="hm-tools" title="ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL">TOOLS &#9662;</button>
+      <button type="button" class="hm-ghostbtn hm-tools-toggle" id="hm-tools-toggle" aria-expanded="${open}" aria-controls="hm-tools" title="ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL, EXPORT CSV, IMAGE">MORE &#9662;</button>
       <span class="hm-toolbar-actions${open?' open':''}" id="hm-tools" role="group" aria-label="tools">
         <button class="hm-ghostbtn" id="hm-add-deposit">＋ ADD DEPOSIT</button>
         <button class="hm-ghostbtn" id="hm-scan-dupes">&#128269; SCAN DUPLICATES</button>
@@ -18216,6 +18249,7 @@ function _hmFrameHtml(list){
     rowSlot:t=>[t.setup,t.grade].filter(x=>x&&x!=='—').map(x=>'<span class="lg-tl-tag">'+_hmEsc(x)+'</span>').join(''),
     labels:{time:'DATE',sym:'SYM',side:'DIR',size:'CTRS',pnl:'NET',pts:'PTS',strat:'BROKER'},
     tableHide:full?[]:['strat','chart'],colCls:full?{num:'hm-pin',time:'hm-pin',sym:'hm-pin'}:{num:'hm-s3',size:'hm-s2',pts:'hm-s3'},
+    oneRow:true,foot:(tbl&&full)?`<button class="hm-ghostbtn" id="hm-table-extras">${homeExtras?'HIDE EXTRAS':'SHOW MORE'}</button>`:'',
     numbered:true,dayHeaders:_hmFrameDayOn(),dayCol:true,dayAsc:sortDir===1,tableBar:_hmTableBarHtml(full),topScroll:full,
     wrapCls:'hm-table-wrap',tableCls:'hm-dtable'+(full?'':' hm-simple'),topCls:'hm-table-topscroll',
     th:_hmFrameTh,cols:_hmFrameCols(full),actions:_hmFrameActions(full)
@@ -18271,11 +18305,10 @@ function _hmPasteRowHtml(){
   const msg=window._hmPasteNote?`<div id="hm-paste-msg" style="${msgStyle}">${window._hmPasteNote}</div>`
     :(_hmHoldGet()?`<div id="hm-paste-msg" style="${msgStyle}"><span>A snapshot link is held for your next stock trade to reach the journal.</span><span id="hm-hold-drop" style="cursor:pointer;color:var(--text5);text-decoration:underline">drop it</span></div>`:'');
   const nxt=msg?'':_hmPasteNextHtml();
-  return `<div class="hm-addrow hm-pastebar${LEDGER_TOOLBAR_MORE==='always'?' hm-more-always':''}" id="hm-pastebar">
+  return `<div class="hm-addrow hm-pastebar hm-more-always" id="hm-pastebar">
     <button class="hm-ghostbtn hm-primary" id="hm-newtrade-toggle" aria-expanded="${!!homeNewTradeOpen}" aria-controls="hm-newtrade-form">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>
     <div class="hm-paste-row">
-      <label class="hm-paste-lbl" for="hm-paste-chart">CHART LINK</label>
-      <input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste" autocomplete="off" spellcheck="false" placeholder="paste a TradingView snapshot link" title="Paste a TradingView snapshot link here - it goes on your newest trade that has no chart link yet">${nxt?'<span class="hm-paste-next" id="hm-paste-next">'+nxt+'</span>':''}
+      <input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste" autocomplete="off" spellcheck="false" aria-label="chart link" placeholder="${_hmEsc(nxt?'Chart link - '+String(nxt).replace(/<[^>]*>/g,'').replace(/&[a-z#0-9]+;/g,' ').replace(/\s+/g,' ').trim():'Chart link - paste a TradingView snapshot')}" title="Paste a TradingView snapshot link here - it goes on your newest trade that has no chart link yet">
     </div>${_hmToolsHtml()}${msg?'<div class="hm-paste-msgrow">'+msg+'</div>':''}</div>`;
 }
 // SHOULD HAVE TRADED: how many setups are filed and the newest one
@@ -18395,7 +18428,7 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
     pills:'',
     chart:'<div class="hm-sec-chart" data-hmsec="chart"><div class="hm-chart-wrap" id="hm-chart-wrap"></div>'
       +'<div class="lg-chart-row"><div class="lg-chart-rowpills" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')+'</div>'
-      +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div>'
+      +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button><button data-hmmode="daily" title="one bar per day plus the running total" class="'+(homeChartMode==='daily'?'active':'')+'">DAILY</button></div>'
       +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="hm"><span class="lg-chart-cap">'+_hmChartCap()+'</span></div></div>'
       +'<div id="hm-goal">'+_hmGoalHtml()+'</div></div>',
     stats:'<div data-hmsec="stats">'+ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})+'</div>',

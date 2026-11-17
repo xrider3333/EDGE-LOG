@@ -1253,8 +1253,8 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     o.aboveRow=row1?Math.round(row1.getBoundingClientRect().top-b.bottom):null;
     o.aboveDay=day1?Math.round(day1.getBoundingClientRect().top-b.bottom):null;
     var rw=pb.closest('.hm-paste-row');o.rowH=rw?Math.round(rw.getBoundingClientRect().height):null;
-    var nx=d.getElementById('hm-paste-next');
-    o.next=(nx&&nx.getBoundingClientRect().width>0)?(nx.textContent||'').replace(/\\s+/g,' ').trim():null;
+    // owner 11-16: the hint lives INSIDE the box (its placeholder), not as loose text beside it
+    o.next=(pb.getAttribute('placeholder')||'').replace(/\\s+/g,' ').trim()||null;
     var sx=w.scrollX,sy=w.scrollY;
     try{pb.scrollIntoView({block:'center',inline:'nearest'});var b2=pb.getBoundingClientRect();
       var hit=d.elementFromPoint(b2.left+Math.min(b2.width/2,40),b2.top+b2.height/2);o.hit=!!(hit&&(hit===pb||pb.contains(hit)));}
@@ -1490,6 +1490,10 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     W().eval("homeChartMode='pnl';renderApp();");
     var lgb=d.querySelectorAll('#hm-chart-wrap .lg-legend button');r.legendN=lgb.length;
     r.legendH=Math.max.apply(null,[0].concat(Array.prototype.map.call(lgb,function(b){return Math.round(b.getBoundingClientRect().height);})));
+    // DAILY toggle (owner GO 11-16): clicking it draws one bar per close day and the running total line, then back
+    var dbt=d.querySelector('#hm-mode-toggle [data-hmmode="daily"]');r.daily={btn:!!dbt};
+    if(dbt){dbt.click();var dsv=d.querySelector('#hm-chart-wrap svg[data-hmdaily]');r.daily.bars=dsv?dsv.querySelectorAll('rect').length:0;
+      r.daily.line=!!(dsv&&dsv.querySelector('path'));r.daily.days=Object.keys(W().eval('(function(){var b={};_hmTradesInRange(bScope(trades),homeRange).forEach(function(t){b[ledgerCloseDay(t)]=1;});return b;})()')).length;}
     W().eval('homeChartMode='+JSON.stringify(cfg.chartMode||'equity')+';renderApp();');
     // LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer); that is also what keeps a closed
     // panel from taking room or widening the page (LEDGER mistake #13)
@@ -1802,7 +1806,8 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       var asc=menu?Array.prototype.filter.call(menu.querySelectorAll('div'),function(e){return /Sort ascending/.test(e.textContent||'');})[0]:null;
       st.ascItem=!!asc;
       if(asc){asc.click();await sleep(120);}
-      st.label=txt('#hm-sort-label');
+      // owner 11-16: no SORTED BY line - the sorted column header carries the arrow
+      st.label=txt('th[data-thcol="pnl"] .thh');
       st.nets=Array.prototype.map.call(D().querySelectorAll('table.lg-tl-table tbody tr[data-lgtrade] .lg-c-pnl'),function(c){return (c.textContent||'').trim();});
       st.dayRows=D().querySelectorAll('table.lg-tl-table tr[data-lgday]').length;
       w.eval('sortCol="date";sortDir=-1;window._thMenu=null;renderApp();');
@@ -2337,7 +2342,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     //    was when they did not. renderApp and the reader's scroll go in ONE eval, so the second
     //    lands in the same task the render did - which is exactly when the symptom happens.
     await step(res,'scrollkeep',async function(st){
-      st.height=+w.eval('(document.scrollingElement||document.documentElement).scrollHeight');
+      st.height=+w.eval('(document.scrollingElement||document.documentElement).scrollHeight');st.maxY=st.height-(+w.eval('window.innerHeight||0'));
       w.eval('window.scrollTo(0,400)');
       await sleep(25);
       st.before=Math.round(+w.eval('window.scrollY||0'));
@@ -3460,7 +3465,8 @@ def _judge_panels(panels, data_obj):
             fails.append('%s: the board still says trade %r is open after the panel was closed' % (tag, rm.get('sheetId')))
         # -- the reader's own scroll position, across a re-render (owner 2026-10-27)
         sk = st.get('scrollkeep') or {}
-        if (sk.get('height') or 0) > 1200 and (sk.get('before') or 0) > 350:
+        # the page must be able to reach 800 at all (a shorter toolbar, 11-16, left it 17 px short)
+        if (sk.get('height') or 0) > 1200 and (sk.get('before') or 0) > 350 and (sk.get('maxY') is None or sk['maxY'] >= 804):
             if abs((sk.get('moved') or 0) - 800) > 4:
                 fails.append('%s: a re-render pulled the page back from where the reader had just scrolled it '
                              '(wanted 800, got %r) - this is the dead-wheel report'
@@ -3623,8 +3629,8 @@ def _judge_paste_row(tag, p, fails, phone):
         fails.append('%s: the PASTE box sticks out of the window (left %s, right %s, window %s px)' % (tag, p.get('left'), p.get('right'), p.get('cw')))
     if not p.get('rowH') or p['rowH'] > 40:
         fails.append('%s: the PASTE row is %s px tall - it must be one slim line' % (tag, p.get('rowH')))
-    if not phone and not re.match(r'^next link goes on \S+', p.get('next') or ''):
-        fails.append('%s: the line beside the PASTE box reads %r, expected where the next link goes' % (tag, p.get('next')))
+    if not phone and not re.search(r'next link goes on \S+', p.get('next') or ''):
+        fails.append('%s: the PASTE box hint reads %r, expected where the next link goes' % (tag, p.get('next')))
 
 
 def _judge_kit(wd):
@@ -3855,8 +3861,8 @@ def _judge_controls(tag, c, px, fails):
     if not c.get('ntShown'):
         fails.append('%s: NEW TRADE is not on show without a click' % tag)
     tops, bots = c.get('tops') or [], c.get('bots') or []
-    if len(tops) != 3 or len(bots) != 3 or None in tops or None in bots or not (bots[0] <= tops[1] + 1 and bots[1] <= tops[2] + 1):
-        fails.append('%s: the three rows of controls are not stacked top to bottom (view %s-%s, filters %s-%s, add %s-%s px)'
+    if len(tops) != 3 or len(bots) != 3 or None in tops or None in bots or not (abs(tops[0] - tops[1]) <= CTL_LINE_TOL * 4 and max(bots[0], bots[1]) <= tops[2] + 1):
+        fails.append('%s: the two rows of controls (owner 11-16: views + filters in row 1, the add row under it) are not in place (view %s-%s, filters %s-%s, add %s-%s px)'
                      % (tag, (tops + [None] * 3)[0], (bots + [None] * 3)[0], (tops + [None] * 3)[1], (bots + [None] * 3)[1],
                         (tops + [None] * 3)[2], (bots + [None] * 3)[2]))
 
@@ -4488,10 +4494,15 @@ def _judge(data, data_obj):
         elif cfg['vp'] != 'phone' and (af.get('btn') != 'none' or af.get('list') == 'none'):
             fails.append('%s: on a laptop the account list is always drawn (button display=%r, list display=%r)'
                          % (nm, af.get('btn'), af.get('list')))
+        dly = r.get('daily') or {}
+        if not dly.get('btn'):
+            fails.append('%s: the chart has no DAILY toggle beside EQUITY and P&L' % nm)
+        elif dly.get('bars') != dly.get('days') or (dly.get('days') and not dly.get('line')):
+            fails.append('%s: DAILY drew %s bars (line %s) for %s close days in the range' % (nm, dly.get('bars'), dly.get('line'), dly.get('days')))
         tbx = r.get('tblBox')
-        if cfg['view'] == 'table' and cfg['ledger'] == 'simple' and tbx and tbx['sw'] > tbx['cw'] + 1:
-            fails.append('%s: the SIMPLE table scrolls sideways inside its box (scrollWidth %s > clientWidth %s)'
-                         % (nm, tbx['sw'], tbx['cw']))
+        if cfg['view'] == 'table' and (cfg['ledger'] == 'simple' or cfg['vp'] != 'phone') and tbx and tbx['sw'] > tbx['cw'] + 1:
+            fails.append('%s: the %s table scrolls sideways inside its box (owner 11-16: FULL fits on a laptop too; scrollWidth %s > clientWidth %s)'
+                         % (nm, cfg['ledger'].upper(), tbx['sw'], tbx['cw']))
         _judge_paste_row(nm, r.get('pasteRow'), fails, cfg['vp'] == 'phone')
         if (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1 and cfg['vp'] != 'phone':
             fails.append('%s: the page scrolls sideways on a laptop (scrollWidth %s > clientWidth %s; sticking out: %s)'
@@ -4796,8 +4807,8 @@ def _judge(data, data_obj):
             if I['vp'] == 'phone':
                 if tl.get('toggle') == 'none' or tl.get('box') != 'none' or tl.get('boxOpen') != 'flex' or tl.get('boxShut') != 'none':
                     fails.append('%s: the TOOLS button on a phone should open and close ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL (%r)' % (tag, tl))
-            elif tl.get('toggle') != 'none' or tl.get('box') == 'none':
-                fails.append('%s: on a laptop ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL are always shown and the TOOLS button is not (%r)' % (tag, tl))
+            elif tl.get('toggle') == 'none' or tl.get('box') != 'none' or tl.get('boxOpen') != 'flex' or tl.get('boxShut') != 'none':
+                fails.append('%s: on a laptop the MORE button should open and close ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL, EXPORT CSV, IMAGE (owner 11-16) (%r)' % (tag, tl))
         sm = st.get('sortmenu') or {}
         _errs(tag + ' header sort menu', sm, fails)
         if sm.get('threw'):
