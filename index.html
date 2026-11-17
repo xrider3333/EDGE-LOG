@@ -1363,6 +1363,30 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .hm-lside .lg-frame-side [data-hmsec="stats"]{margin-bottom:12px}
 }
 /* from 1500 px the sidebar runs down the whole page beside the trade list and stays in view (narrower: the trade list keeps the full width) */
+/* owner 11-17 (5th pass): ONE control look on the ledger (.lg-uni) - every button, segment, chip and the search box share height, radius,
+   border, type size and active state; chart and calendar wear the same quiet card; the type steps down a notch */
+.lg-uni{--uc-h:26px;--uc-r:7px;--uc-fs:9.5px;--uc-card:color-mix(in srgb,var(--bg1) 45%,transparent)}
+.lg-uni .lg-pills,.lg-uni .hm-mode,.lg-uni .lg-seg{display:inline-flex;gap:0;flex-wrap:nowrap;border:1px solid var(--border);border-radius:var(--uc-r);overflow:hidden;flex:none;height:var(--uc-h);box-sizing:border-box}
+.lg-uni .lg-pills button,.lg-uni .hm-mode button,.lg-uni .lg-seg button{height:100%;padding:0 11px;border:none;border-bottom:none;border-radius:0;background:transparent;
+  font-size:var(--uc-fs);letter-spacing:.9px;color:var(--text5);font-family:'JetBrains Mono',monospace;line-height:1;margin:0}
+.lg-uni .lg-pills button+button,.lg-uni .hm-mode button+button,.lg-uni .lg-seg button+button{border-left:1px solid var(--border2)}
+.lg-uni .lg-pills button.active,.lg-uni .hm-mode button.active,.lg-uni .lg-seg button.active{background:var(--bg1);color:var(--text)}
+.lg-uni .lg-fchip:not(td *),.lg-uni .hm-ghostbtn:not(td *),.lg-uni .p2tl-btn:not(td *){height:var(--uc-h);box-sizing:border-box;padding:0 11px;border:1px solid var(--border);border-radius:var(--uc-r);
+  font-size:var(--uc-fs);letter-spacing:.9px;line-height:1;display:inline-flex;align-items:center;background:transparent;color:var(--text5)}
+.lg-uni .lg-fchip:not(td *).active,.lg-uni .hm-ghostbtn:not(td *).active,.lg-uni .hm-ghostbtn:not(td *)[aria-expanded="true"]{background:var(--bg1);color:var(--text)}
+.lg-uni .hm-ghostbtn:not(td *).hm-primary{color:var(--text);border-color:var(--text4)}
+.lg-uni .lg-tl-search{height:var(--uc-h);box-sizing:border-box;border:1px solid var(--border);border-radius:var(--uc-r);padding:0 10px;font-size:10.5px;background:transparent}
+.lg-uni .lg-tl-search:focus{border-color:var(--text4)}
+.lg-uni .lg-chart-row .lg-pills{gap:0}.lg-uni .lg-chart-row .lg-pills button{padding-bottom:0}
+.lg-uni [data-hmsec="chart"],.lg-uni .lg-cal-panel{background:var(--uc-card);border-radius:12px;padding:12px 14px;box-sizing:border-box}
+.lg-uni .lg-tl-table td{padding-top:6px;padding-bottom:6px}
+.lg-uni .lg-cal-day{min-height:46px}.lg-uni .lg-cal-day .d{font-size:9px}.lg-uni .lg-cal-day .m{font-size:10px}.lg-uni .lg-cal-day .n{font-size:8.5px}
+@media (min-width:1100px){
+  .lg-uni.hm-lside>.lg-frame-top{align-items:stretch}
+  .lg-uni.hm-lside>.lg-frame-top>[data-hmsec="chart"]{grid-row:1}
+  .lg-uni.hm-lside>.lg-frame-top>[data-hmsec="cal"]{grid-row:1;display:flex;flex-direction:column}
+  .lg-uni.hm-lside>.lg-frame-top>[data-hmsec="cal"]>.lg-cal-panel{flex:1;margin:0}
+}
 @media (min-width:1500px){
   .hm-lside>.lg-frame-side{grid-row:1/3}
   .hm-lside>.lg-frame-rest{grid-column:2}
@@ -1664,7 +1688,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.38';
+const VERSION='90.39';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1685,6 +1709,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.39',date:'2026-11-17',notes:['LEDGER REAL: one control style - range, view, filter chips, LIST / TABLE, SIMPLE / FULL, CHARTS, NEW TRADE, MORE and search share height, corners, border and type','LEDGER REAL: taller P&L chart, same height as the calendar beside it; both sit on the same quiet card; smaller type on controls and calendar']},
 {v:'90.38',date:'2026-11-17',notes:['LEDGER REAL: More stats, should have traded, deposits, AI and journal folds moved into the left sidebar, which now has its own shaded panel','LEDGER REAL: DAILY chart has two dollar axes - DAY on the left for the bars, TOTAL on the right for the running line; the calendar is always open with no fold row on a laptop','Trade tables: BROKER shows NT / WB, full name on hover']},
 {v:'90.37',date:'2026-11-17',notes:['ONE HEADER LINE (owner: "push all the tabs circled into one horizontal line. trying to reclaim space"). The EDGE LOG logo and version, every main tab (LEDGER ANALYTICS BUILDER RESULTS EXPLORE PAPERS PC BOARD) and then, pushed to the far right, the status indicators - NT GATE, the WEBULL chip, the DATA warning, AUTO and one small gauge per running backtest - all sit on a single line, with NET / GROSS, the gear and OUT at the end. That is one row of height reclaimed on every screen.','THE TRADE COUNT AND THE NET ARE OUT OF THE HEADER (owner: "remove the 134 net and trade count, that info is below on the page"). Both numbers are on the LEDGER page itself; the header no longer repeats them.','SUB-TABS ARE THE SECOND ROW, AND THEY STAY PUT WHEN YOU SCROLL (owner: "subtabs disappear when scrolling down"). The sub-tab row (REAL / NT8 PAPER / WEBULL PAPER, BUILDER / LIBRARY, PAPERS / REFERENCE) was a plain row appended under a pinned strip, so it scrolled away while the tabs above it stayed. It is pinned with the top row now, on every tab that has sub-tabs, and a tab with none is one row tall.','ON A PHONE THE TAB ROW SLIDES SIDEWAYS instead of wrapping onto a second and third line. At that width the logo, the tabs, the chips and NET / GROSS cannot all fit on one line, so the status chips and the NET / GROSS switch ride on the right of the second row instead, stuck to its edge so the sub-tabs scroll under them - the WEBULL and NT GATE chips stay a glance away, which is the whole point of them.']},
 {v:'90.36',date:'2026-11-17',notes:['LEDGER REAL: a narrow locked sidebar on the LEFT holds the headline number, the synced line, the four tiles and ACCOUNTS in small type; chart and calendar start at the top side by side','LEDGER REAL chart: range and view switches sit above the chart; DAILY has dollar labels on both sides, a firmer zero line and a hover readout with date, day P&L and running total']},
@@ -17569,7 +17594,7 @@ function _hmRenderDailyInto(wrapEl){
   _hmRenderHeroDefault(c,0);
   if(!days.length){wrapEl.innerHTML='<div class="hm-empty-state">No closed trades in this range</div>';return;}
   // owner 11-17: a dollar axis on the left, dates along the bottom, and the running total filled down to $0 - green above, red below
-  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=260,pt=14,pb=24,pl=58,pr=58;
+  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=W<600?220:330,pt=14,pb=24,pl=58,pr=58;
   // owner 11-17: TWO dollar axes - left for the day bars, right for the running total, each scaled to its own series, both $0 on one line
   const bv=days.map(d=>by[d]),bmx=Math.max(0,...bv),bmn=Math.min(0,...bv),cmx=Math.max(0,...cum),cmn=Math.min(0,...cum);
   const fr=(a,b)=>(a-b)>0?a/(a-b):0.5;
@@ -17633,7 +17658,7 @@ function _hmRenderChartInto(root){
   const startVal=ser.length?ser[0].v:0;
   const up=(endVal-startVal-(homeChartMode==='equity'?_hmRangeDeposits(homeRange):0))>=0;
   _hmRenderHeroDefault(endVal,startVal);
-  ledgerChartRender(wrapEl,{id:'hm',pts:ser,up:up,aria:'REAL '+(homeChartMode==='equity'?'account equity':'P&L')+', '+(_HM_RANGE_LABEL[homeRange]||''),
+  ledgerChartRender(wrapEl,{id:'hm',height:(wrapEl.clientWidth||900)<600?200:330,pts:ser,up:up,aria:'REAL '+(homeChartMode==='equity'?'account equity':'P&L')+', '+(_HM_RANGE_LABEL[homeRange]||''),
     lines:_hmBrokerLines(ser),refs:_hmGoalRefs(ser),
     onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_real')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_real',JSON.stringify(off));}catch(e){}},
     onScrub:(i,p)=>{
@@ -18580,7 +18605,7 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
   // column starts with the chart and the calendar side by side. On a phone the CSS order puts every section back in _HM_PAGE_ORDER.
   // owner 11-17 (4th pass): the fold rows (More stats, should have traded, deposits, AI, journal) live in the sidebar too, under ACCOUNTS
   const SIDE=['hero','status','stats','acct','more','missed','deps','ai','journal'];
-  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper hm-top-2col hm-lside',top:pick(_HM_PAGE_ORDER.filter(k=>SIDE.indexOf(k)<0&&k!=='list')),
+  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper hm-top-2col hm-lside lg-uni',top:pick(_HM_PAGE_ORDER.filter(k=>SIDE.indexOf(k)<0&&k!=='list')),
     side:pick(SIDE),rest:pick(['list'])});
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
