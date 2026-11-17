@@ -142,10 +142,15 @@ PROBE_HTML = r"""<!DOCTYPE html>
         var stat=tb.querySelector('.tbstat');
         var rb=function(e){if(!e)return null;var r=e.getBoundingClientRect();return {t:r.top,b:r.bottom,l:r.left,r:r.right,w:r.width,h:r.height};};
         o.logo=rb(logo);o.out=rb(outb);o.stat=rb(stat);
+        stat=stat||document.querySelector('#app .tbstat');
         o.statInTopbar=!!(stat&&tb.contains(stat));
+        o.statInSubRow=!!(stat&&document.querySelector('#app .nav-subrow')&&document.querySelector('#app .nav-subrow').contains(stat));
         o.hasGate=!!(stat&&stat.querySelector('#tb-gate'));
-        o.gateTxt=(function(){var g=tb.querySelector('#tb-gate');return g?g.textContent.replace(/\s+/g,' ').trim():null;})();
+        o.nStat=document.querySelectorAll('#app .tbstat').length;
+        o.nGate=document.querySelectorAll('#app #tb-gate').length;
+        o.gateTxt=(function(){var g=document.querySelector('#app #tb-gate');return g?g.textContent.replace(/\s+/g,' ').trim():null;})();
         o.queueInStat=(function(){var q=document.getElementById('tb-queue');return !!(q&&stat&&stat.contains(q));})();
+        o.subStatText=(function(){var r=document.querySelector('#app .nav-subrow');return r?r.textContent.replace(/\s+/g,' ').trim():null;})();
         o.webullInStat=(function(){var c=document.getElementById('qb-top-chip');return c?!!(stat&&stat.contains(c)):'none';})();
         o.topText=tb.textContent.replace(/\s+/g,' ').trim();
         var subs=[].slice.call(document.querySelectorAll('#app .nav-subrow'));
@@ -162,6 +167,7 @@ PROBE_HTML = r"""<!DOCTYPE html>
         o.scrollW=de.scrollWidth;o.clientW=de.clientWidth;
         var strip=tb.querySelector('.tbscroll');
         o.stripOverflows=!!(strip&&strip.scrollWidth>strip.clientWidth+1);
+        o.strip=rb(strip);
         return o;
       }catch(e){return {err:String(e&&e.stack?e.stack:e)};}})()`);
 
@@ -287,23 +293,45 @@ def judge(nm, r, want_sub):
             if not _overlap(first, b):
                 f.append('%s: tab %d sits on a different line from the first tab' % (nm, i))
                 break
-        for who, box in (('the logo', m.get('logo')), ('the OUT button', m.get('out')),
-                         ('the status cluster', m.get('stat'))):
+        same_line = [('the logo', m.get('logo')), ('the OUT button', m.get('out'))]
+        if m.get('statInTopbar'):
+            same_line.append(('the status cluster', m.get('stat')))
+        for who, box in same_line:
             if box and not _overlap(first, box):
                 f.append('%s: %s is not on the same line as the tabs' % (nm, who))
 
     # --- STATUS CLUSTER, FAR RIGHT ---
-    if not m.get('statInTopbar'):
-        f.append('%s: the status cluster (.tbstat) is not in the top bar' % nm)
+    # THE STATUS CLUSTER lives in the top bar on a laptop and on the second row on a phone (see
+    #   .tbstat): below 700 px the logo, the tabs, the chips and NET / GROSS + gear + OUT do not fit
+    #   on one line, and a chip scrolled off the side is a status nobody reads. Either way there is
+    #   exactly ONE of it - the gate chip and the queue dials refresh in place by id.
+    if not (m.get('statInTopbar') or m.get('statInSubRow')):
+        f.append('%s: the status cluster (.tbstat) is in neither header row' % nm)
+    if (m.get('innerW') or 0) > 700 and not m.get('statInTopbar'):
+        f.append('%s: on a %r px window the status cluster is not in the top bar' % (nm, m.get('innerW')))
+    if (m.get('nStat') or 0) != 1 or (m.get('nGate') or 0) != 1:
+        f.append('%s: %r status clusters and %r gate chips in the page - there must be exactly one of each'
+                 % (nm, m.get('nStat'), m.get('nGate')))
     if not m.get('hasGate'):
         f.append('%s: the NT GATE chip is not in the status cluster' % nm)
     elif 'NT GATE' not in (m.get('gateTxt') or ''):
         f.append('%s: the NT GATE chip reads %r' % (nm, m.get('gateTxt')))
     if m.get('webullInStat') is False:
         f.append('%s: the WEBULL chip is drawn outside the status cluster' % nm)
-    if m.get('stat') and boxes and m['stat']['l'] < boxes[-1]['r'] - 1:
-        f.append('%s: the status cluster starts left of the last tab (%r < %r) - it belongs far right'
-                 % (nm, m['stat']['l'], boxes[-1]['r']))
+    # FAR RIGHT, AND ALWAYS ON SCREEN. The cluster is stuck to the right edge of the scrolling
+    #   strip, so the test is its right edge against the strip's, not its left against the tabs:
+    #   on a phone the tabs slide UNDER it and it is deliberately over them. Where the strip does
+    #   not overflow at all, nothing can be under it, so there it must also start past the last tab.
+    if m.get('stat'):
+        if m.get('statInTopbar') and m.get('strip') and abs(m['stat']['r'] - m['strip']['r']) > 2:
+            f.append('%s: the status cluster is not at the right edge of the tab strip (%r vs %r)'
+                     % (nm, m['stat']['r'], m['strip']['r']))
+        if m['stat']['l'] < -1 or m['stat']['r'] > (m.get('innerW') or 0) + 1:
+            f.append('%s: the status cluster is off screen (%r to %r, viewport %r) - a status the '
+                     'owner cannot see is no status' % (nm, m['stat']['l'], m['stat']['r'], m.get('innerW')))
+        if m.get('statInTopbar') and not m.get('stripOverflows') and boxes and m['stat']['l'] < boxes[-1]['r'] - 1:
+            f.append('%s: the status cluster starts left of the last tab (%r < %r) - it belongs far right'
+                     % (nm, m['stat']['l'], boxes[-1]['r']))
 
     # --- NO TRADE COUNT, NO NET (owner: "remove the 134 net and trade count") ---
     txt = m.get('topText') or ''

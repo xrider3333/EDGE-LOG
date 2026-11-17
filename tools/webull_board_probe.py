@@ -8969,9 +8969,15 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             if not p.get('tbH1'):
                 fails.append('%s: the probe could not measure the top bar and sub-tab strip (%r)' % (tag, p))
             else:
-                if (p.get('tbH0') or 0) >= p['tbH1']:
-                    fails.append('%s: the stale chip did not make the phone top bar taller (%r to %r px), so this check '
-                                 'proves nothing -- give it a longer chip text' % (tag, p.get('tbH0'), p['tbH1']))
+                # v90.32, the owner's ONE HEADER LINE: a long chip must NOT grow the bar any more.
+                #   This used to assert the opposite - that the long stale text wrapped the phone top
+                #   bar onto a second line - because that was how the bar behaved, and the pin check
+                #   below needed a height change to be worth making. The chips now sit on the pinned
+                #   second row and the bar's height is fixed, so the premise is inverted: the bar
+                #   stays the height it was, and the pin check below is still measured against it.
+                if (p.get('tbH0') or 0) != p['tbH1']:
+                    fails.append('%s: a longer WEBULL chip changed the phone top bar height (%r to %r px) - the header is '
+                                 'one line and must not grow with the text in it' % (tag, p.get('tbH0'), p['tbH1']))
                 if p.get('subStyleTop') != '%dpx' % p['tbH1'] or p.get('subTop', 0) < p.get('tbBottom', 0) - 1:
                     fails.append('%s: after the read the sticky sub-tab strip is pinned at %s (top %s) under a %s px top bar '
                                  '(bottom %s, scrolled %s) -- it slides under the bar' % (tag, p.get('subStyleTop'), p.get('subTop'),

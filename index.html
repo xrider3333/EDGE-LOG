@@ -352,8 +352,25 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
 .tbscroll{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none}
 .tbscroll::-webkit-scrollbar{height:0;display:none}
 /* the status indicators (NT GATE, WEBULL, DATA, AUTO, one gauge per running backtest) ride at the far right of
-   that strip, on the same line as the tabs */
-.tbstat{margin-left:auto;display:flex;align-items:center;gap:6px;padding-left:14px;font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;white-space:nowrap;flex-shrink:0}
+   that strip, on the same line as the tabs - and they are STUCK to its right edge, so when the strip scrolls
+   sideways on a phone the tabs slide under them and the status is still on screen. A status the owner cannot
+   see is the whole point of these chips lost: the WEBULL chip says whether the paper box is still running, and
+   the gate chip whether NinjaTrader is taking signals ungated. It carries the bar's own background for the
+   tabs to pass behind. */
+.tbstat{margin-left:auto;display:flex;align-items:center;gap:6px;padding:0 0 0 14px;font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;white-space:nowrap;flex-shrink:0}
+/* PHONE. Below 700 px the logo, the tabs, the status chips and NET / GROSS + gear + OUT cannot all fit on one
+   line, and the owner asked for the tab row to SCROLL rather than wrap the bar onto a third row. So on a phone
+   the status chips ride on the right of the SECOND row instead, which is pinned too: the tabs still scroll
+   sideways on the top line, the header is still two rows, and the WEBULL and NT GATE chips - the two things
+   that say whether the paper box and the live gate are alive - stay on screen where a check is a glance. */
+@media (max-width:700px){
+  /* on the second row the chips are STUCK to its right edge, so the sub-tabs scroll under them and
+     the status is still a glance away; they carry that row's background for the pills to pass behind */
+  .nav-subrow .tbstat{padding-left:8px;position:sticky;right:0;background:linear-gradient(to right,transparent,var(--bg1) 12px)}
+  /* the logo swap is a once-a-year thing and it is in SETTINGS > APPEARANCE as well: on a phone its
+     icon is only taking width away from the tabs */
+  .tblogoup{display:none!important}
+}
 /* ONE ROW OF TABS: on a phone the tab icons go and the tabs tighten so all six fit on one line. */
 @media (max-width:520px){.nav-ic{display:none}.nav-btn{padding:2px 5px!important;letter-spacing:1px!important}}
 /* LEDGER (2026-10-03) is two letters longer than HOME was: on the narrow phones (375 px and under) trim the tab letter
@@ -1664,7 +1681,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
-{v:'90.37',date:'2026-11-17',notes:['ONE HEADER LINE (owner: "push all the tabs circled into one horizontal line. trying to reclaim space"). The EDGE LOG logo and version, every main tab (LEDGER ANALYTICS BUILDER RESULTS EXPLORE PAPERS PC BOARD) and then, pushed to the far right, the status indicators - NT GATE, the WEBULL chip, the DATA warning, AUTO and one small gauge per running backtest - all sit on a single line, with NET / GROSS, the gear and OUT at the end. That is one row of height reclaimed on every screen.','THE TRADE COUNT AND THE NET ARE OUT OF THE HEADER (owner: "remove the 134 net and trade count, that info is below on the page"). Both numbers are on the LEDGER page itself; the header no longer repeats them.','SUB-TABS ARE THE SECOND ROW, AND THEY STAY PUT WHEN YOU SCROLL (owner: "subtabs disappear when scrolling down"). The sub-tab row (REAL / NT8 PAPER / WEBULL PAPER, BUILDER / LIBRARY, PAPERS / REFERENCE) was a plain row appended under a pinned strip, so it scrolled away while the tabs above it stayed. It is pinned with the top row now, on every tab that has sub-tabs, and a tab with none is one row tall.','ON A PHONE THE TAB ROW SLIDES SIDEWAYS instead of wrapping onto a second and third line - the tabs and the status indicators share one horizontally scrolling strip between the logo and the gear.']},
+{v:'90.37',date:'2026-11-17',notes:['ONE HEADER LINE (owner: "push all the tabs circled into one horizontal line. trying to reclaim space"). The EDGE LOG logo and version, every main tab (LEDGER ANALYTICS BUILDER RESULTS EXPLORE PAPERS PC BOARD) and then, pushed to the far right, the status indicators - NT GATE, the WEBULL chip, the DATA warning, AUTO and one small gauge per running backtest - all sit on a single line, with NET / GROSS, the gear and OUT at the end. That is one row of height reclaimed on every screen.','THE TRADE COUNT AND THE NET ARE OUT OF THE HEADER (owner: "remove the 134 net and trade count, that info is below on the page"). Both numbers are on the LEDGER page itself; the header no longer repeats them.','SUB-TABS ARE THE SECOND ROW, AND THEY STAY PUT WHEN YOU SCROLL (owner: "subtabs disappear when scrolling down"). The sub-tab row (REAL / NT8 PAPER / WEBULL PAPER, BUILDER / LIBRARY, PAPERS / REFERENCE) was a plain row appended under a pinned strip, so it scrolled away while the tabs above it stayed. It is pinned with the top row now, on every tab that has sub-tabs, and a tab with none is one row tall.','ON A PHONE THE TAB ROW SLIDES SIDEWAYS instead of wrapping onto a second and third line. At that width the logo, the tabs, the chips and NET / GROSS cannot all fit on one line, so the status chips and the NET / GROSS switch ride on the right of the second row instead, stuck to its edge so the sub-tabs scroll under them - the WEBULL and NT GATE chips stay a glance away, which is the whole point of them.']},
 {v:'90.36',date:'2026-11-17',notes:['LEDGER REAL: a narrow locked sidebar on the LEFT holds the headline number, the synced line, the four tiles and ACCOUNTS in small type; chart and calendar start at the top side by side','LEDGER REAL chart: range and view switches sit above the chart; DAILY has dollar labels on both sides, a firmer zero line and a hover readout with date, day P&L and running total']},
 {v:'90.33',date:'2026-11-17',notes:['LEDGER REAL uses the full page width: the calendar sits right of the chart with room for its day cells, no scroll box anywhere at the top','ACCOUNTS (All / NinjaTrader / Webull) is a locked sidebar on the right that stays in place while the page scrolls; on a phone it is the stacked card as before']},
 {v:'90.32',date:'2026-11-16',notes:['IMPORT: a Cash or Balance History file no longer replaces your starting balance, its fees are spread only over that account futures trades, and its deposits and withdrawals now reach the ledger.','IMPORT saves the day each trade closed, so an overnight trade lands on its close day. + NEW TRADE saves MESZ6 as MES.','LEDGER: 1W and 1M are now exactly 7 and 30 days counting today, and a day of only breakeven trades shows win rate --. Trades already saved are unchanged.']},
@@ -19993,12 +20010,12 @@ function renderApp(){
     </div>
     <div style="display:flex;align-items:center;gap:8px;padding:0 4px;flex-shrink:0">
       <!-- Gross/Net toggle -->
-      <div class="toggle-pill" title="Switch KPIs between Gross (before fees) and Net (after fees) P&L">
+      <div class="toggle-pill tbnet" title="Switch KPIs between Gross (before fees) and Net (after fees) P&L">
         <button id="tog-net" class="${!useGross?'on':''}">NET</button>
         <button id="tog-grs" class="${useGross?'on':''}">GROSS</button>
       </div>
       <span class="pulse"></span>
-      <label style="cursor:pointer;color:var(--text4);font-size:14px" title="Upload logo"><input type="file" accept="image/*" id="logo-upload" style="display:none"/>🖼</label>
+      <label class="tblogoup" style="cursor:pointer;color:var(--text4);font-size:14px" title="Upload logo"><input type="file" accept="image/*" id="logo-upload" style="display:none"/>🖼</label>
       <button class="btn-ghost" id="set-gear" title="Settings — appearance, trading log, backtester (all in one)" style="font-size:16px;line-height:1;padding:4px 9px;color:var(--text4);font-variant-emoji:text">&#9881;</button>
       <button class="btn-d" style="font-size:var(--fsxs);padding:5px 10px" id="so-btn">OUT</button>
     </div>`;
@@ -20075,21 +20092,39 @@ function renderApp(){
     _subPills=_pillGrp(_pill('researchsub','research',augurSub,'PAPERS','Every paper and study read, with its verdict - and the backtesting stack under them')+_pill('researchsub','ref',augurSub,'REFERENCE','Cross-strategy parameter reference'));
   }
   sub.innerHTML=_subPills+_acctTog+_splitTog;
+  // PHONE (see .tbstat): the status chips move to the second row, so that row is drawn on a phone
+  //   even when the open tab has no sub-tabs of its own - it is the status line there.
+  const _phone=(+window.innerWidth||1366)<=700;
   const _hasSub=!!sub.innerHTML.trim();
-  if(_hasSub)wrap.appendChild(sub);
+  if(_hasSub||_phone)wrap.appendChild(sub);
   sub.querySelectorAll('[data-homesub]').forEach(b=>{b.onclick=()=>{const v=b.dataset.homesub;if(v==='real'){activeTab='home';window._lastLogTab='home';}else{activeTab='augur';augurSub=v;}renderApp();};});
   sub.querySelectorAll('[data-papersub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.papersub;renderApp();};});
   sub.querySelectorAll('[data-buildersub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.buildersub;renderApp();};});
   sub.querySelectorAll('[data-researchsub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.researchsub;renderApp();};});
+  // the one status cluster is BUILT in the top bar and MOVED to the second row on a phone, rather
+  //   than being drawn twice: _tbGateHtml / qbTopChipRefresh / the queue dials all refresh in place
+  //   by id, and two copies of #tb-gate would leave one of them frozen.
+  window._placeStat=function(){try{
+    const w=document.getElementById('app');if(!w)return;
+    const bar=w.querySelector('.topbar'),st=w.querySelector('.tbstat');if(!bar||!st)return;
+    const strip=bar.querySelector('.tbscroll'),row=w.querySelector('.nav-subrow');
+    const phone=(+window.innerWidth||1366)<=700;
+    const net=w.querySelector('.tbnet'),ctl=bar.lastElementChild;
+    // NET / GROSS rides down with the chips: on the top line it left the tab strip about 30 px wide
+    if(net){const h=(phone&&row)?row:ctl;if(h&&net.parentElement!==h)h.insertBefore(net,h.firstChild);}
+    const want=(phone&&row)?row:strip;
+    if(want&&st.parentElement!==want)want.appendChild(st);
+  }catch(e){}};
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
+  window._placeStat();   // only now is the new tree the one #app holds
   // pin the sub-tab strip directly under the topbar, whatever height the topbar renders
   // PIN THE SECOND ROW to the real height of the first (owner 11-17 bug: the sub-tabs vanished
   //   on scroll). Both rows are sticky, so the sub-tab row has to be told where the top row ends.
   {const _pinSub=()=>{const tb=wrap.querySelector('.topbar');if(tb&&_hasSub)sub.style.top=tb.offsetHeight+'px';};
    requestAnimationFrame(_pinSub);setTimeout(_pinSub,400);
    try{if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>setTimeout(_pinSub,0));}catch(_e){}
-   if(!window._subPinWired){window._subPinWired=1;window.addEventListener('resize',()=>{const w=document.getElementById('app');const tb=w&&w.querySelector('.topbar'),sb=w&&w.querySelector('.nav-subrow');if(tb&&sb)sb.style.top=tb.offsetHeight+'px';});}}
+   if(!window._subPinWired){window._subPinWired=1;window.addEventListener('resize',()=>{const w=document.getElementById('app');const tb=w&&w.querySelector('.topbar'),sb=w&&w.querySelector('.nav-subrow');if(typeof _placeStat==='function')_placeStat();if(tb&&sb)sb.style.top=tb.offsetHeight+'px';});}}
 
   // TABS-NAV COLLAPSE: 'lib'/'ref' dropped out of the ASUBS membership test when they left the
   // top-level strip, so they are named here explicitly - a session already parked on either one
