@@ -1336,7 +1336,7 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-wrap.lg-frame.hm-top-2col{max-width:none}
 .hm-lside{display:flex;flex-direction:column}
 .hm-lside>.lg-frame-top,.hm-lside>.lg-frame-side,.hm-lside>.lg-frame-side>.lg-frame-side-in{display:contents}
-.hm-lside [data-hmsec="chart"]{order:4}.hm-lside [data-hmsec="cal"]{order:5}.hm-lside [data-hmsec="more"]{order:6}
+.hm-lside [data-hmsec="chart"]{order:4}.hm-lside [data-hmsec="cal"]{order:5}.hm-lside>.lg-frame-side>.lg-frame-side-in>[data-hmsec="more"]{order:6}
 .hm-lside>.lg-frame-side>.lg-frame-side-in>*{order:7}.hm-lside>.lg-frame-side>.lg-frame-side-in>[data-hmsec="hero"]{order:1}
 .hm-lside>.lg-frame-side>.lg-frame-side-in>[data-hmsec="status"]{order:2}.hm-lside>.lg-frame-side>.lg-frame-side-in>[data-hmsec="stats"]{order:3}
 .hm-lside>.lg-frame-rest{order:8}
@@ -1345,7 +1345,11 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .hm-wrap.lg-frame.hm-top-2col{display:grid;--lgf-side:264px;grid-template-columns:var(--lgf-side) minmax(0,1fr);column-gap:28px}
   .hm-lside>.lg-frame-top,.hm-lside>.lg-frame-side,.hm-lside>.lg-frame-rest{order:0}
   .hm-lside>.lg-frame-side{display:block;grid-column:1;grid-row:1;min-height:0;align-self:stretch}
-  .hm-lside>.lg-frame-side>.lg-frame-side-in{display:block;position:sticky;top:96px;bottom:auto;overflow:visible;font-size:11px}
+  .hm-lside>.lg-frame-side>.lg-frame-side-in{display:block;position:sticky;top:96px;bottom:auto;overflow:visible;font-size:11px;
+    background:var(--bg1);border:1px solid var(--border);border-radius:12px;padding:14px 14px 8px;box-sizing:border-box}
+  .hm-lside .lg-frame-side .lg-more,.hm-lside .lg-frame-side .hm-fold{font-size:9.5px;padding-top:8px;padding-bottom:8px}
+  .hm-lside .lg-frame-side .lg-more-panel{padding:10px 8px;margin:0 0 8px;font-size:10.5px}
+  .hm-lside .lg-frame-side [data-hmsec="more"] .lg-ms-grid,.hm-lside .lg-frame-side [data-hmsec="more"] [class*="grid"]{grid-template-columns:1fr!important}
   .hm-lside>.lg-frame-rest{display:block;grid-column:1/-1;grid-row:2}
   .hm-lside>.lg-frame-top{grid-column:2;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,40%);column-gap:28px;align-items:start}
   .hm-lside>.lg-frame-top>*{grid-column:1;order:0}
@@ -1660,7 +1664,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.37';
+const VERSION='90.38';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1681,6 +1685,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.38',date:'2026-11-17',notes:['LEDGER REAL: More stats, should have traded, deposits, AI and journal folds moved into the left sidebar, which now has its own shaded panel','LEDGER REAL: DAILY chart has two dollar axes - DAY on the left for the bars, TOTAL on the right for the running line; the calendar is always open with no fold row on a laptop','Trade tables: BROKER shows NT / WB, full name on hover']},
 {v:'90.37',date:'2026-11-17',notes:['ONE HEADER LINE (owner: "push all the tabs circled into one horizontal line. trying to reclaim space"). The EDGE LOG logo and version, every main tab (LEDGER ANALYTICS BUILDER RESULTS EXPLORE PAPERS PC BOARD) and then, pushed to the far right, the status indicators - NT GATE, the WEBULL chip, the DATA warning, AUTO and one small gauge per running backtest - all sit on a single line, with NET / GROSS, the gear and OUT at the end. That is one row of height reclaimed on every screen.','THE TRADE COUNT AND THE NET ARE OUT OF THE HEADER (owner: "remove the 134 net and trade count, that info is below on the page"). Both numbers are on the LEDGER page itself; the header no longer repeats them.','SUB-TABS ARE THE SECOND ROW, AND THEY STAY PUT WHEN YOU SCROLL (owner: "subtabs disappear when scrolling down"). The sub-tab row (REAL / NT8 PAPER / WEBULL PAPER, BUILDER / LIBRARY, PAPERS / REFERENCE) was a plain row appended under a pinned strip, so it scrolled away while the tabs above it stayed. It is pinned with the top row now, on every tab that has sub-tabs, and a tab with none is one row tall.','ON A PHONE THE TAB ROW SLIDES SIDEWAYS instead of wrapping onto a second and third line. At that width the logo, the tabs, the chips and NET / GROSS cannot all fit on one line, so the status chips and the NET / GROSS switch ride on the right of the second row instead, stuck to its edge so the sub-tabs scroll under them - the WEBULL and NT GATE chips stay a glance away, which is the whole point of them.']},
 {v:'90.36',date:'2026-11-17',notes:['LEDGER REAL: a narrow locked sidebar on the LEFT holds the headline number, the synced line, the four tiles and ACCOUNTS in small type; chart and calendar start at the top side by side','LEDGER REAL chart: range and view switches sit above the chart; DAILY has dollar labels on both sides, a firmer zero line and a hover readout with date, day P&L and running total']},
 {v:'90.33',date:'2026-11-17',notes:['LEDGER REAL uses the full page width: the calendar sits right of the chart with room for its day cells, no scroll box anywhere at the top','ACCOUNTS (All / NinjaTrader / Webull) is a locked sidebar on the right that stays in place while the page scrolls; on a phone it is the stacked card as before']},
@@ -4115,6 +4120,10 @@ function totalNetPnl(){return (typeof trades!=='undefined'&&trades.length)?+trad
 // (meta/webull_sync): start = net_liq − realized Webull P&L, so the curve ends at the
 // real balance. All bScope-aware: pick an ACCOUNT pill → balance/equity/ledger scope too.
 const _LEGACY_BROKER='NinjaTrader';
+// owner 11-17: the trade table BROKER cell is short (NT, WB); the full name rides in the hover
+function ledgerBrokerAbbr(b){b=String(b||'');const k=b.toLowerCase().replace(/[^a-z]/g,'');const M={ninjatrader:'NT',webull:'WB',interactivebrokers:'IB',ibkr:'IB',topstepx:'TSX',tradovate:'TDV',tradestation:'TS',schwab:'SCH',paper:'PAPER'};
+  return M[k]||(b.length>5?b.slice(0,4).toUpperCase():b);}
+function ledgerBrokerCell(b,esc){if(!b)return '';const a=ledgerBrokerAbbr(b);return a===b?esc(b):'<span title="'+esc(b)+'">'+esc(a)+'</span>';}
 function _evBroker(ev){return (ev&&ev.broker)||_LEGACY_BROKER;}
 function scopedLedger(){return activeBroker?ledgerEvents.filter(e=>_evBroker(e)===activeBroker):ledgerEvents;}
 function scopedNetPnl(){const ts=bScope(trades);return ts.length?+ts.reduce((s,t)=>s+(t.pnl||0),0).toFixed(2):0;}
@@ -4530,17 +4539,18 @@ function ledgerCalMonths(days){const m={};Object.keys(days||{}).forEach(d=>{m[d.
 function ledgerCalPick(days,want){const ms=ledgerCalMonths(days);if(want&&ms.indexOf(want)>=0)return want;return ms.length?ms[ms.length-1]:ledgerTodayNY().slice(0,7);}
 // o = {id, month 'YYYY-MM', days (ledgerCalDays), caveats {date: reason}, open, note, after (html under the calendar, inside the open panel)}
 function ledgerCalendarHtml(o){
-  o=o||{};const id=o.id||'lg',days=o.days||{},cav=o.caveats||{},open=!!o.open;
+  o=o||{};const id=o.id||'lg',days=o.days||{},cav=o.caveats||{},open=!!(o.open||o.bare);
   const ms=ledgerCalMonths(days),mo=o.month||ledgerCalPick(days),y=+mo.slice(0,4),m=+mo.slice(5,7);
   const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
   let mv=0,mn=0,mw=0,ml=0;Object.keys(days).forEach(d=>{if(d.slice(0,7)===mo){const c=days[d];mv+=c.v;mn+=c.n;mw+=c.w;ml+=c.l;}});
   const sum=mn?'<span class="'+ledgerCls(mv)+'">'+ledgerSigned(mv)+'</span><span style="color:var(--text5)"> &middot; '+mn+' trade'+(mn===1?'':'s')
     +((mw+ml)?' &middot; '+Math.round(mw/(mw+ml)*100)+'% won':'')+'</span>':'<span style="color:var(--text5)">'+LEDGER_NO_TRADES+'</span>';
   // r2 step 1 (item 16): the fold header names the month only while CLOSED - open, the panel's own title already says it
-  const btn='<button type="button" class="lg-more" data-lgcalfold="'+id+'" aria-expanded="'+open+'" aria-controls="'+id+'-cal">'
+  let btn='<button type="button" class="lg-more" data-lgcalfold="'+id+'" aria-expanded="'+open+'" aria-controls="'+id+'-cal">'
     +'<span>Calendar</span>'+(open?'':'<span style="letter-spacing:.5px;text-transform:none;color:var(--text5)">'+MN[m-1]+' '+y+(mn?' &middot; '+ledgerSigned(mv):'')+'</span>')
     +'<span class="lg-chev" aria-hidden="true">&#9662;</span></button>';
   if(!open)return btn+'<div class="lg-cal-panel" id="'+id+'-cal" hidden></div>';
+  if(o.bare)btn='';   // owner 11-17: REAL draws the calendar always open, with no fold row and no rule above it
   const today=ledgerTodayNY(),first=new Date(Date.UTC(y,m-1,1)).getUTCDay(),nDays=new Date(Date.UTC(y,m,0)).getUTCDate();
   const slots=[];for(let i=0;i<first;i++)slots.push(null);for(let d=1;d<=nDays;d++)slots.push(d);while(slots.length%7)slots.push(null);
   let cells=['S','M','T','W','T','F','S'].map(d=>'<div class="lg-cal-dow">'+d+'</div>').join('')+'<div class="lg-cal-dow wk">WEEK</div>';
@@ -4886,7 +4896,7 @@ function ledgerTradeListHtml(o){
     // B5: N(t) goes to the cell as it was stored - a broken value reads 'no figure', not $0.00
     pnl:t=>{const v=N(t);return '<span class="'+ledgerPnlCls(v)+'">'+ledgerSigned(v)+'</span>';},
     pts:t=>t.points==null||t.points===''?'--':((+t.points>=0?'+':'-')+Math.abs(+t.points).toFixed(2)),
-    strat:t=>esc(t.strategy||t.broker||t.account||''),
+    strat:t=>t.strategy?esc(t.strategy):ledgerBrokerCell(t.broker||t.account||'',esc),
     chart:()=>''
   };
   // a board's cell function may return null to keep the default for that row / view
@@ -17560,14 +17570,22 @@ function _hmRenderDailyInto(wrapEl){
   if(!days.length){wrapEl.innerHTML='<div class="hm-empty-state">No closed trades in this range</div>';return;}
   // owner 11-17: a dollar axis on the left, dates along the bottom, and the running total filled down to $0 - green above, red below
   const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=260,pt=14,pb=24,pl=58,pr=58;
-  const vals=days.map(d=>by[d]).concat(cum,[0]),mx=Math.max(...vals),mn=Math.min(...vals),span=(mx-mn)||1;
-  const y=v=>pt+(mx-v)/span*(H-pt-pb),slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7));
+  // owner 11-17: TWO dollar axes - left for the day bars, right for the running total, each scaled to its own series, both $0 on one line
+  const bv=days.map(d=>by[d]),bmx=Math.max(0,...bv),bmn=Math.min(0,...bv),cmx=Math.max(0,...cum),cmn=Math.min(0,...cum);
+  const fr=(a,b)=>(a-b)>0?a/(a-b):0.5;
+  let az=Math.min(0.92,Math.max(0.08,(fr(bmx,bmn)+fr(cmx,cmn))/2));
+  if(bmn===0&&cmn===0)az=1;else if(bmx===0&&cmx===0)az=0;
+  const top=(mx_,mn_)=>{const k=Math.max(az>0?mx_/az:0,az<1?-mn_/(1-az):0)||1;return [az*k,-(1-az)*k];};
+  const [bT,bB]=top(bmx,bmn),[cT,cB]=top(cmx,cmn);
+  const mk=(T,B)=>v=>pt+(T-v)/((T-B)||1)*(H-pt-pb);
+  const y=mk(bT,bB),yc=mk(cT,cB),slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7));
+  const mx=bT,mn=bB;
   const G='#1d9e75',R='#e24b4a',y0=y(0),cx=i=>pl+slot*i+slot/2;
   const money=v=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:Math.abs(v)<100?2:0});
   let bars='',line='';
   days.forEach((d,i)=>{const v=by[d],x=pl+slot*i+(slot-bw)/2,yy=Math.min(y(v),y0),h=Math.max(1,Math.abs(y(v)-y0));
     bars+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+(v>=0?G:R)+'" opacity="0.85"><title>'+_hmFmtDateLong(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></rect>';
-    line+=(i?'L':'M')+cx(i).toFixed(1)+' '+y(cum[i]).toFixed(1);});
+    line+=(i?'L':'M')+cx(i).toFixed(1)+' '+yc(cum[i]).toFixed(1);});
   const area=line+'L'+cx(days.length-1).toFixed(1)+' '+y0.toFixed(1)+'L'+cx(0).toFixed(1)+' '+y0.toFixed(1)+'Z';
   // the gradient switches colour exactly at the $0 line (userSpaceOnUse = page units), and fades toward $0 from both sides
   const off=Math.min(1,Math.max(0,(y0-pt)/((H-pb)-pt))).toFixed(4);
@@ -17575,10 +17593,14 @@ function _hmRenderDailyInto(wrapEl){
     +'<stop offset="0" stop-color="'+G+'" stop-opacity="0.35"/><stop offset="'+off+'" stop-color="'+G+'" stop-opacity="0.04"/>'
     +'<stop offset="'+off+'" stop-color="'+R+'" stop-opacity="0.04"/><stop offset="1" stop-color="'+R+'" stop-opacity="0.35"/></linearGradient></defs>';
   // dollar axis: top, $0 and bottom (only the ones far enough apart to read)
-  const ticks=[mx,0,mn].filter((v,k,a)=>a.findIndex(u=>Math.abs(y(u)-y(v))<14)===k);
-  const yAx=ticks.map(v=>'<text x="'+(pl-8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text5)" data-hmdaily-y="1">'+money(v)+'</text>'
-    +'<text x="'+(W-pr+8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="start" font-size="10" fill="var(--text5)" data-hmdaily-yr="1">'+money(v)+'</text>'
-    +(v!==0?'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 4"/>':'')).join('');
+  const tk=(T,B)=>[T,T/2,0,B/2,B].filter(v=>Math.abs(v)>0.004||v===0).filter((v,k,a)=>a.findIndex(u=>Math.abs(u-v)<1e-9)===k);
+  const lt=tk(bT,bB).filter((v,k,a)=>a.findIndex(u=>Math.abs(y(u)-y(v))<14)===k);
+  const rt=tk(cT,cB).filter((v,k,a)=>a.findIndex(u=>Math.abs(yc(u)-yc(v))<14)===k);
+  const yAx=lt.map(v=>'<text x="'+(pl-8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text5)" data-hmdaily-y="1">'+money(v)+'</text>'
+      +(v!==0?'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 4" opacity="0.6"/>':'')).join('')
+    +rt.map(v=>'<text x="'+(W-pr+8)+'" y="'+(yc(v)+3.5).toFixed(1)+'" text-anchor="start" font-size="10" fill="var(--text3)" data-hmdaily-yr="1">'+money(v)+'</text>').join('')
+    +'<text x="'+(pl-8)+'" y="9" text-anchor="end" font-size="8.5" letter-spacing="1" fill="var(--text5)" data-hmdaily-ylab="day">DAY</text>'
+    +'<text x="'+(W-pr+8)+'" y="9" text-anchor="start" font-size="8.5" letter-spacing="1" fill="var(--text3)" data-hmdaily-ylab="total">TOTAL</text>';
   // dates: first, middle, last close day
   const di=[...new Set([0,Math.floor((days.length-1)/2),days.length-1])];
   const xAx=di.map(i=>'<text x="'+cx(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+(i===0&&days.length>1?'start':(i===days.length-1&&days.length>1?'end':'middle'))+'" font-size="10" fill="var(--text5)" data-hmdaily-x="1">'+_hmEsc(days[i].slice(5).replace('-','/'))+'</text>').join('');
@@ -17667,7 +17689,10 @@ function _hmCalendarHtml(rangeTrades){
   window._hmCalMonth=ledgerCalPick(days,window._hmCalMonth);
   // LEDGER redesign step 3 (2026-11-01): the time-of-day strip LEFT the calendar panel - it is a statistic, not a date grid, and inside the open
   // calendar it pushed the whole month about 70 px further down the page. It is a MORE STATS group now (_hmOwnStatGroups).
-  return ledgerCalendarHtml({id:'hm',month:window._hmCalMonth,days:days,open:homeCalOpen});
+  return ledgerCalendarHtml({id:'hm',month:window._hmCalMonth,days:days,open:homeCalOpen||_hmCalBare(),bare:_hmCalBare()});
+}
+// owner 11-17: from 1100 px the calendar is simply there (no fold row); a phone keeps the fold so the trade list stays near the top
+function _hmCalBare(){try{return (window.innerWidth||0)>=1100;}catch(e){return false;}
 }
 // tap a calendar day: scroll the feed to that day's header and flash it; the table view (or a day the
 // search / chips hide) goes through the long-standing jump that widens the range and flashes the rows
@@ -18182,7 +18207,7 @@ function _hmFrameCells(full){
     sym:t=>_hmEsc(t.symbol)+(isFut(t.symbol)?'':'<span class="hm-badge-s">S</span>')+(t.statsExcluded?'<span class="hm-excl-dot" title="Ignored in metrics">&#8856;</span>':''),
     size:t=>t.size!=null?_hmEsc(t.size):'--',
     pts:t=>_hmPtsText(t),
-    strat:t=>_hmEsc(t.broker||t.account||'--'),
+    strat:t=>(t.broker||t.account)?ledgerBrokerCell(t.broker||t.account,_hmEsc):'--',
     chart:(t,v)=>_hmCandleGlyph(t)+lnk(t)+((v==='table'&&full)?`<input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${_hmEsc(t.chartUrl||'')}" placeholder="chart url" title="${t.chartUrl?_hmEsc(t.chartUrl):'Paste a chart URL'}" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:9px;width:${t.chartUrl?'34px':'62px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='170px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'34px':'62px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`:'')
   };
 }
@@ -18553,9 +18578,10 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
   // since 10-31 but none of its tightening, because every one of those rules is scoped to .lg-paper, a class REAL's frame never set.
   // owner 11-17 (3rd pass): a narrow locked sidebar on the LEFT holds the headline (hero, synced line, the four tiles) and ACCOUNTS; the main
   // column starts with the chart and the calendar side by side. On a phone the CSS order puts every section back in _HM_PAGE_ORDER.
-  const SIDE=['hero','status','stats'];
-  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper hm-top-2col hm-lside',top:pick(_HM_PAGE_ORDER.slice(0,ai).filter(k=>SIDE.indexOf(k)<0)),
-    side:pick(SIDE)+S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
+  // owner 11-17 (4th pass): the fold rows (More stats, should have traded, deposits, AI, journal) live in the sidebar too, under ACCOUNTS
+  const SIDE=['hero','status','stats','acct','more','missed','deps','ai','journal'];
+  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper hm-top-2col hm-lside',top:pick(_HM_PAGE_ORDER.filter(k=>SIDE.indexOf(k)<0&&k!=='list')),
+    side:pick(SIDE),rest:pick(['list'])});
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
 // The five actions that used to live only on the Trades tab, now built for HOME's own

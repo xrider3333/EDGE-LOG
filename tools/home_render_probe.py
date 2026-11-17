@@ -378,8 +378,8 @@ JUMP_DAY = '2026-09-30'
 SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more', 'acct', 'missed', 'deps', 'ai', 'journal', 'list']
 # owner 11-17 (3rd pass): the markup puts the main column (chart, pills, calendar, More stats) first, then the LEFT sidebar (hero, status,
 # the tiles, accounts), then the rest; on a phone CSS order shows SECTION_ORDER top to bottom (judged on the tops by _stacked)
-SECTION_ORDER_DOM = ['chart', 'pills', 'cal', 'more', 'hero', 'status', 'stats', 'acct', 'missed', 'deps', 'ai', 'journal', 'list']
-SIDE_KEYS = ('hero', 'status', 'stats', 'acct')
+SECTION_ORDER_DOM = ['chart', 'pills', 'cal', 'hero', 'status', 'stats', 'acct', 'more', 'missed', 'deps', 'ai', 'journal', 'list']
+SIDE_KEYS = ('hero', 'status', 'stats', 'acct', 'more', 'missed', 'deps', 'ai', 'journal')   # owner 11-17 4th pass: the folds sit in the sidebar
 # LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
 FRAME_MAX_W = 'none'   # owner 11-17: REAL uses the whole width
 FRAME_SIDE_FROM = 1100
@@ -1433,7 +1433,8 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     // tapping a day in the feed flashes that day's group
     var cf=d.querySelector('[data-lgcalfold="hm"]');
     r.cal=null;
-    if(cf){var wasOpen=cf.getAttribute('aria-expanded')==='true';
+    // owner 11-17: from 1100 px the calendar is always open with no fold row; on a phone it keeps its fold
+    if(cf||d.querySelector('[data-lgcal="hm"].lg-cal')){var wasOpen=!cf||cf.getAttribute('aria-expanded')==='true';
       if(!wasOpen){cf.click();}
       var cg=d.querySelector('[data-lgcal="hm"].lg-cal'),c={days:0,sumN:0,hdN:null};
       if(cg){var ds=cg.querySelectorAll('[data-lgcalday]');c.days=ds.length;
