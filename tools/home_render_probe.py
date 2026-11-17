@@ -696,10 +696,6 @@ MUTANTS = [
      "    case 'pnl':return _hmThCell(label,'pnl',cls+' num',_hmThFRange('minPnl','maxPnl'));",
      "    case 'pnl':return null;",
      'the NET header lost its sort / filter menu'),
-    ('paste-box-gone',
-     '<input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste"',
-     '<input type="text" id="hm-paste-chart-gone" class="hm-feed-search hm-paste"',
-     'the PASTE box for snapshot links is gone from the top of the trade list'),
     ('analytics-jump-dead',
      "activeTab='home';homeView='table';",
      "activeTab='home';",
@@ -847,14 +843,6 @@ MUTANTS = [
      '  .hm-paste-row .hm-paste-next{display:none}',
      '  .hm-paste-row .hm-paste-next{display:none}.hm-pastebar{display:none}',
      'the PASTE row is hidden on a phone'),
-    ('paste-row-below-list',
-     "afterBar:_hmPasteRowHtml()+'<div id=\"hm-newtrade-form\">'",
-     "foot:_hmPasteRowHtml(),afterBar:'<div id=\"hm-newtrade-form\">'",
-     'the PASTE row sits under the trade rows instead of at the top of the list'),
-    ('paste-row-wide-on-phone',
-     '.hm-paste-row .hm-paste{min-width:0;flex:0 1 420px;max-width:420px;font-size:11px}',
-     '.hm-paste-row .hm-paste{min-width:420px;flex:0 1 420px;max-width:420px;font-size:11px}',
-     'the PASTE box keeps a 420 px width on a phone, so the page scrolls sideways'),
     ('paste-note-not-shown',
      "${_hmToolsHtml()}${msg?'<div class=\"hm-paste-msgrow\">'+msg+'</div>':''}</div>`;",
      "${_hmToolsHtml()}${''}</div>`;",
@@ -1176,7 +1164,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
         chips:arr('[data-lgchip]',row2).map(function(b){return b.getAttribute('data-lgchip');}).join(','),
         strayChips:arr('[data-lgchip]',tl).filter(function(b){return !(row2&&row2.contains(b));}).length,
         search:!!(row2&&row2.querySelector('[data-lgsearch]')),filtSpread:spread(arr('[data-lgsearch],[data-lgchip]',row2)),
-        add:row3?['#hm-newtrade-toggle','#hm-paste-chart','#hm-add-deposit','#hm-scan-dupes','#hm-open-all','#hm-tools-toggle'].filter(function(s){return !row3.querySelector(s);}):null,
+        add:row3?['#hm-newtrade-toggle','#hm-add-deposit','#hm-scan-dupes','#hm-open-all','#hm-tools-toggle'].filter(function(s){return !row3.querySelector(s);}):null,
         ntShown:!!(nt&&vis(nt)),tops:[T(row1,'top'),T(row2,'top'),T(row3,'top')],bots:[T(row1,'bottom'),T(row2,'bottom'),T(row3,'bottom')]};
     }
     return o;
@@ -3623,10 +3611,9 @@ def _judge_paste_row(tag, p, fails, phone):
     if p.get('err'):
         fails.append('%s: reading the PASTE row threw -- %s' % (tag, _first(p['err'])))
         return
-    if p.get('n') != 1:
-        fails.append('%s: the PASTE box for snapshot links (#hm-paste-chart) is %s at the top of the trade list (%s found, expected one)'
-                     % (tag, 'gone' if not p.get('n') else 'drawn more than once', p.get('n')))
-        return
+    if p.get('n'):
+        fails.append('%s: the chart link box (#hm-paste-chart) is back in the trade list controls (%s found) - the owner removed it 2026-11-17' % (tag, p.get('n')))
+    return
     if not p.get('inFrame') or p.get('inFold'):
         fails.append('%s: the PASTE box is not on show at the top of the trade list (inside the list frame: %s, inside a fold: %s)'
                      % (tag, p.get('inFrame'), p.get('inFold')))
@@ -3885,8 +3872,9 @@ def _judge_controls(tag, c, px, fails):
     if not c.get('ntShown'):
         fails.append('%s: NEW TRADE is not on show without a click' % tag)
     tops, bots = c.get('tops') or [], c.get('bots') or []
-    if len(tops) != 3 or len(bots) != 3 or None in tops or None in bots or not (abs(tops[0] - tops[1]) <= CTL_LINE_TOL * 4 and max(bots[0], bots[1]) <= tops[2] + 1):
-        fails.append('%s: the two rows of controls (owner 11-16: views + filters in row 1, the add row under it) are not in place (view %s-%s, filters %s-%s, add %s-%s px)'
+    _one = px >= 1500
+    if len(tops) != 3 or len(bots) != 3 or None in tops or None in bots or not (abs(tops[0] - tops[1]) <= CTL_LINE_TOL * 4 and ((abs(tops[2] - tops[0]) <= CTL_LINE_TOL * 4) if _one else (max(bots[0], bots[1]) <= tops[2] + 1))):
+        fails.append('%s: the controls (owner 11-17: ONE line from 1500 px - filters, views, NEW TRADE, MORE; below that the add row sits under) are not in place (view %s-%s, filters %s-%s, add %s-%s px)'
                      % (tag, (tops + [None] * 3)[0], (bots + [None] * 3)[0], (tops + [None] * 3)[1], (bots + [None] * 3)[1],
                         (tops + [None] * 3)[2], (bots + [None] * 3)[2]))
 
@@ -4725,7 +4713,7 @@ def _judge(data, data_obj):
                 if not m.get('msg') or not m.get('shown'):
                     fails.append('%s: after %s no message row is on show under the PASTE box (%r)' % (tag, what, m))
                     return False
-                if m.get('gap') is None or m['gap'] < 0 or m['gap'] > PASTE_MSG_GAP_MAX:
+                if m.get('box') and (m.get('gap') is None or m['gap'] < 0 or m['gap'] > PASTE_MSG_GAP_MAX):
                     fails.append('%s: after %s the message is %s px under the PASTE box, expected right under it (0 to %d px)'
                                  % (tag, what, m.get('gap'), PASTE_MSG_GAP_MAX))
                 if m.get('aboveRow') is None or m['aboveRow'] < 0:
@@ -4736,10 +4724,8 @@ def _judge(data, data_obj):
                 if not re.search(want, m.get('text') or '', re.I):
                     fails.append('%s: after %s the message under the PASTE box reads %r, expected %r' % (tag, what, m.get('text'), want))
                 return True
-            if not ps.get('box0'):
-                fails.append('%s: there is no PASTE box at the top of the trade list' % tag)
-            under('typed text + Enter in the PASTE box', ps.get('enter'), r'not a link')
-            under('a paste into the PASTE box (no Enter)', ps.get('pasted'), r'not a link')
+            if ps.get('box0'):
+                fails.append('%s: the chart link box is back at the top of the trade list' % tag)
             if under('hmFileChartLink(<a TradingView link>)', ps.get('ask'), r'Which trade is this snapshot for'):
                 ab = ps.get('askBtns') or {}
                 if not (ab.get('file') and ab.get('hold') and ab.get('missed') and ab.get('pick')):
@@ -4828,8 +4814,8 @@ def _judge(data, data_obj):
             elif (fs.get('fullCols') or 0) <= (fs.get('simpleCols') or 0):
                 fails.append('%s: FULL shows %s columns, SIMPLE %s - FULL must show more'
                              % (tag, fs.get('fullCols'), fs.get('simpleCols')))
-            if not fs.get('paste') or fs.get('pasteFold'):
-                fails.append('%s: the PASTE box is not on show in the list without a click (box shown=%s, a PASTE fold header in the page=%s)'
+            if fs.get('paste') or fs.get('pasteFold'):
+                fails.append('%s: the chart link box is back in the list (box shown=%s, a PASTE fold header in the page=%s)'
                              % (tag, fs.get('paste'), fs.get('pasteFold')))
             bt = fs.get('buttons') or {}
             if not (bt.get('add') and bt.get('scan') and bt.get('all') and bt.get('nt')):

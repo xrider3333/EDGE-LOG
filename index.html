@@ -1290,7 +1290,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    the CHART LINK box and the tools at the right; the paste message row right under the box. From 601 to 1100 px the tools drop to a line of
    their own at the right; on a phone the box comes first and NEW TRADE sits beside TOOLS, a small menu holding the three tools. */
 .hm-kind{display:flex;gap:6px;flex-wrap:wrap;flex:none}
-.hm-addrow{display:grid;grid-template-columns:auto minmax(0,1fr) auto;grid-template-areas:"new paste tools" ". msg msg";align-items:center;gap:8px 12px}
+.hm-addrow{display:grid;grid-template-columns:auto auto;grid-template-areas:"new tools" "msg msg";justify-content:space-between;align-items:center;gap:8px 12px}
+/* owner 2026-11-17: the chart link box is gone and the controls are ONE line from 1500 px - the add row sits at the right end of the filter + view line */
+@media (min-width:1500px){.lg-tl[data-lglist-frame="hm"]{display:flex;flex-wrap:wrap;align-items:flex-start;column-gap:12px}.lg-tl[data-lglist-frame="hm"]>*{flex:0 0 100%;min-width:0;max-width:100%}.lg-tl[data-lglist-frame="hm"]>.lg-tl-bar{flex:1 1 0}.lg-tl[data-lglist-frame="hm"]>#hm-pastebar{flex:0 0 auto;margin:2px 2px 8px}}
 .hm-addrow #hm-newtrade-toggle{grid-area:new;justify-self:start}
 .hm-addrow .hm-paste-row{grid-area:paste}
 .hm-addrow .hm-tools-wrap{grid-area:tools;justify-self:end;position:relative;display:flex;align-items:center;gap:6px;min-width:0}
@@ -1385,7 +1387,7 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-tl-wrap{max-height:none}
   [data-lglist-frame="hm"] .lg-tl-views{gap:6px}
   [data-lglist-frame="hm"] .lg-tl-views button{padding:7px 8px}
-  .hm-addrow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"paste paste" "msg msg" "new tools";gap:6px 10px}
+  .hm-addrow{grid-template-columns:minmax(0,1fr) auto;grid-template-areas:"msg msg" "new tools";gap:6px 10px}
   .hm-addrow .hm-tools-toggle{display:inline-block}
   .hm-addrow .hm-toolbar-actions{display:none}
   .hm-addrow .hm-toolbar-actions.open{display:flex;position:absolute;right:0;top:calc(100% + 6px);z-index:60;flex-direction:column;align-items:stretch;gap:6px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
@@ -1614,7 +1616,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.34';
+const VERSION='90.35';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -18356,9 +18358,7 @@ function _hmPasteRowHtml(){
   const nxt=msg?'':_hmPasteNextHtml();
   return `<div class="hm-addrow hm-pastebar hm-more-always" id="hm-pastebar">
     <button class="hm-ghostbtn hm-primary" id="hm-newtrade-toggle" aria-expanded="${!!homeNewTradeOpen}" aria-controls="hm-newtrade-form">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>
-    <div class="hm-paste-row">
-      <input type="text" id="hm-paste-chart" class="hm-feed-search hm-paste" autocomplete="off" spellcheck="false" aria-label="chart link" placeholder="${_hmEsc(nxt?'Chart link - '+String(nxt).replace(/<[^>]*>/g,'').replace(/&[a-z#0-9]+;/g,' ').replace(/\s+/g,' ').trim():'Chart link - paste a TradingView snapshot')}" title="Paste a TradingView snapshot link here - it goes on your newest trade that has no chart link yet">
-    </div>${_hmToolsHtml()}${msg?'<div class="hm-paste-msgrow">'+msg+'</div>':''}</div>`;
+    ${_hmToolsHtml()}${msg?'<div class="hm-paste-msgrow">'+msg+'</div>':''}</div>`;
 }
 // SHOULD HAVE TRADED: how many setups are filed and the newest one
 function _hmMissedSummary(){
