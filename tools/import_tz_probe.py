@@ -656,6 +656,10 @@ var CASES=__CASES__;
   }
   // a statement import that never settles is that case failing, not the whole run stalling (11-17: old builds hung ~1 in 5)
   function settle(p){return Promise.race([p,new Promise(function(_,no){setTimeout(function(){no(new Error('importPDF did not settle in 8 s'));},8000);})]);}
+  // the statement is a stand-in file whose bytes come back at once: a real File read is disk I/O, and while it waits the headless
+  // clock jumps ahead to the next timer (11-17: about 1 run in 5 hit the backstop). A stuck import is tried once more, then fails its case
+  async function pdfOnce(w,c){var mk=function(){var f={name:'probe.pdf',type:'application/pdf',size:4,arrayBuffer:function(){return Promise.resolve(new Uint8Array([37,80,68,70]).buffer);}};return w.importPDF(f,c.opts);};
+    try{return await settle(mk());}catch(e){if(!/did not settle/.test(String(e)))throw e;fakePdf(w,c.lines);return await settle(mk());}}
   async function run(){
     var w=document.getElementById('f').contentWindow;
     out.VERSION=w.eval('typeof VERSION!=="undefined"?VERSION:null');
@@ -669,7 +673,7 @@ var CASES=__CASES__;
         if(c.kind==='roots'){r.roots=c.inputs.map(function(s){try{return w.futRoot(s);}catch(e){return 'ERR '+e;}});out.cases[c.name]=r;continue;}
         var res;
         if(c.kind==='pdf'){fakePdf(w,c.lines);
-          res=await settle(w.importPDF(new w.File([new Uint8Array([37,80,68,70])],'probe.pdf',{type:'application/pdf'}),c.opts));}
+          res=await pdfOnce(w,c);}
         else res=w.importCSV(c.text,c.name+'.csv',c.opts);
         r.type=res.type;r.feeUnit=w.getFee('MES');
         r.rows=(res.batch||[]).map(function(t){return {date:t.date,sym:t.symbol,dir:t.type,entry:t.entry,exit:t.exit,e:t.entryTime,x:t.exitTime,fees:t.fees,gross:t.grossPnl,acct:t.account||null};});
@@ -688,7 +692,7 @@ var CASES=__CASES__;
           // then import the same statement again
           var saved=(res.batch||[]).map(function(t,k){var s=Object.assign({id:'reimport-'+k},t);if(!s.account)s.account=c.reimport.settings_acct;return s;});
           w.eval('trades='+JSON.stringify(saved)+';');fakePdf(w,c.lines);
-          var res2=await settle(w.importPDF(new w.File([new Uint8Array([37,80,68,70])],'probe.pdf',{type:'application/pdf'}),c.opts));
+          var res2=await pdfOnce(w,c);
           r.re={rows:(res2.batch||[]).length,flags:(res2.pdfFlags||[]).length,open:(res2.pdfOpen||[]).length};
         }
       }catch(e){r.err=String(e&&e.stack?e.stack:e);}
