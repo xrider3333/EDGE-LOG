@@ -344,7 +344,16 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
 .lbl{display:block;font-size:var(--fsxs);letter-spacing:2px;color:var(--text3);margin-bottom:4px}
 .tag{font-size:var(--fsxs);letter-spacing:1px;padding:1px 7px;background:var(--bg2);color:var(--text3);border:1px solid var(--border2)}
 .tr-row:hover{background:var(--bg2)}
-.topbar{background:color-mix(in srgb,var(--bg) 85%,var(--bg1));border-bottom:1px solid var(--border);display:flex;align-items:stretch;padding:0 16px;position:sticky;top:0;z-index:100;flex-wrap:wrap}
+.topbar{background:color-mix(in srgb,var(--bg) 85%,var(--bg1));border-bottom:1px solid var(--border);display:flex;align-items:center;padding:0 16px;position:sticky;top:0;z-index:100;flex-wrap:nowrap}
+/* ONE TOP LINE (owner 11-17: "push all the tabs circled into one horizontal line ... trying to reclaim space").
+   The logo sits left and NET/GROSS + gear + OUT sit right, both fixed. Everything between them - the main tabs,
+   then the status indicators pushed to the far right of that band - lives in ONE horizontally scrolling strip,
+   so a narrow window slides the row sideways instead of wrapping the bar onto a second and third line. */
+.tbscroll{flex:1 1 auto;min-width:0;display:flex;align-items:center;gap:2px;overflow-x:auto;overflow-y:hidden;scrollbar-width:none;-ms-overflow-style:none}
+.tbscroll::-webkit-scrollbar{height:0;display:none}
+/* the status indicators (NT GATE, WEBULL, DATA, AUTO, one gauge per running backtest) ride at the far right of
+   that strip, on the same line as the tabs */
+.tbstat{margin-left:auto;display:flex;align-items:center;gap:6px;padding-left:14px;font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;white-space:nowrap;flex-shrink:0}
 /* ONE ROW OF TABS: on a phone the tab icons go and the tabs tighten so all six fit on one line. */
 @media (max-width:520px){.nav-ic{display:none}.nav-btn{padding:2px 5px!important;letter-spacing:1px!important}}
 /* LEDGER (2026-10-03) is two letters longer than HOME was: on the narrow phones (375 px and under) trim the tab letter
@@ -990,7 +999,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    the list panel (.lg-filters, closed until opened). Tokens only. */
 /* owner 11-17: a sub-tab row (REAL / NT8 PAPER / WEBULL PAPER, BUILDER / LIBRARY, ...) is ATTACHED to its parent tab row: same band,
    no gap, no line between them - site wide, every tab that has sub-tabs uses this one rule */
-.nav-subrow{display:flex;gap:2px;align-items:center;flex-wrap:wrap;padding:3px 14px 6px;margin-top:-1px;background:var(--bg1);border-bottom:1px solid var(--border);position:relative;z-index:98}
+.nav-subrow{display:flex;gap:2px;align-items:center;flex-wrap:nowrap;padding:3px 14px 6px;margin-top:-1px;background:var(--bg1);border-bottom:1px solid var(--border);position:sticky;top:46px;z-index:98;overflow-x:auto;overflow-y:hidden;scrollbar-width:none}
+.nav-subrow::-webkit-scrollbar{height:0;display:none}
 .lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}
 .lg-frame-top,.lg-frame-side,.lg-frame-side-in,.lg-frame-rest{min-width:0}
 @media (min-width:1100px){
@@ -1654,6 +1664,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.37',date:'2026-11-17',notes:['ONE HEADER LINE (owner: "push all the tabs circled into one horizontal line. trying to reclaim space"). The EDGE LOG logo and version, every main tab (LEDGER ANALYTICS BUILDER RESULTS EXPLORE PAPERS PC BOARD) and then, pushed to the far right, the status indicators - NT GATE, the WEBULL chip, the DATA warning, AUTO and one small gauge per running backtest - all sit on a single line, with NET / GROSS, the gear and OUT at the end. That is one row of height reclaimed on every screen.','THE TRADE COUNT AND THE NET ARE OUT OF THE HEADER (owner: "remove the 134 net and trade count, that info is below on the page"). Both numbers are on the LEDGER page itself; the header no longer repeats them.','SUB-TABS ARE THE SECOND ROW, AND THEY STAY PUT WHEN YOU SCROLL (owner: "subtabs disappear when scrolling down"). The sub-tab row (REAL / NT8 PAPER / WEBULL PAPER, BUILDER / LIBRARY, PAPERS / REFERENCE) was a plain row appended under a pinned strip, so it scrolled away while the tabs above it stayed. It is pinned with the top row now, on every tab that has sub-tabs, and a tab with none is one row tall.','ON A PHONE THE TAB ROW SLIDES SIDEWAYS instead of wrapping onto a second and third line - the tabs and the status indicators share one horizontally scrolling strip between the logo and the gear.']},
 {v:'90.36',date:'2026-11-17',notes:['LEDGER REAL: a narrow locked sidebar on the LEFT holds the headline number, the synced line, the four tiles and ACCOUNTS in small type; chart and calendar start at the top side by side','LEDGER REAL chart: range and view switches sit above the chart; DAILY has dollar labels on both sides, a firmer zero line and a hover readout with date, day P&L and running total']},
 {v:'90.33',date:'2026-11-17',notes:['LEDGER REAL uses the full page width: the calendar sits right of the chart with room for its day cells, no scroll box anywhere at the top','ACCOUNTS (All / NinjaTrader / Webull) is a locked sidebar on the right that stays in place while the page scrolls; on a phone it is the stacked card as before']},
 {v:'90.32',date:'2026-11-16',notes:['IMPORT: a Cash or Balance History file no longer replaces your starting balance, its fees are spread only over that account futures trades, and its deposits and withdrawals now reach the ledger.','IMPORT saves the day each trade closed, so an overnight trade lands on its close day. + NEW TRADE saves MESZ6 as MES.','LEDGER: 1W and 1M are now exactly 7 and 30 days counting today, and a day of only breakeven trades shows win rate --. Trades already saved are unchanged.']},
@@ -7834,7 +7845,7 @@ function qbTopChipGo(){try{activeTab='augur';augurSub='qqqpaper';renderApp();}ca
 function qbTopChipRefresh(){try{const el=document.getElementById('qb-top-chip');if(!el)return;el.outerHTML=qbTopChipHtml();
   // the chip can wrap the top bar onto another row (a phone): keep the sticky sub-tab strip pinned
   // right under it, the same way renderApp pins it, or the strip slides under the bar when scrolled
-  const tb=document.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling;if(tb&&sb&&sb.style.position==='sticky')sb.style.top=tb.offsetHeight+'px';
+  const tb=document.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling;if(tb&&sb&&sb.classList&&sb.classList.contains('nav-subrow'))sb.style.top=tb.offsetHeight+'px';
 }catch(e){}}
 // A silent box sends no snapshot, so nothing would redraw: every 30 s re-judge the doc already in
 // memory (no Firestore read), refresh the top chip, and redraw the board only when its verdict moved.
@@ -19728,8 +19739,10 @@ function _tbGateHtml(){
                  +(G.latency_ms!=null?', answers in '+G.latency_ms+'ms':'')
                  +(G.stale_days!=null?', taught '+(G.stale_days===0?'today':G.stale_days+'d ago'):'')
                  +'. Click for the full status page.'; }
-            return '<span style="color:var(--text5)">·</span>'
-              +'<a href="'+href+'" target="_blank" rel="noopener" title="'+tip.replace(/"/g,'&quot;')
+            // ONE HEADER LINE (11-17): the chip is its own item in the status cluster now, which
+            //   spaces its items itself - the leading separator dot it used to need, when it sat
+            //   on the end of the logo's meta line, would hang there with nothing before it.
+            return '<a href="'+href+'" target="_blank" rel="noopener" title="'+tip.replace(/"/g,'&quot;')
               +'" style="cursor:pointer;text-decoration:none;color:'+col+'">&#9679; '+txt+'</a>';
 }
 function _tbQueueHtml(){
@@ -19828,7 +19841,7 @@ function _tbQueueHtml(){
 function _tbSwap(id,html){try{const el=document.getElementById(id);if(!el)return false;
   el.innerHTML=html;
   el.querySelectorAll('[data-queuechip]').forEach(_qc=>{_qc.onclick=()=>{activeTab='augur';augurSub='exec2';savePref('augurSub','exec2');renderApp();};});
-  const tb=document.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling;if(tb&&sb&&sb.style.position==='sticky')sb.style.top=tb.offsetHeight+'px';
+  const tb=document.querySelector('#app .topbar'),sb=tb&&tb.nextElementSibling;if(tb&&sb&&sb.classList&&sb.classList.contains('nav-subrow'))sb.style.top=tb.offsetHeight+'px';
   return true;}catch(e){return false;}}
 // THE RESEARCH TABLES ARE ON SCREEN (COMPARE > EXPLORE / STUDIES). A 2,000-row board takes 6 to 9 seconds to build, and a
 //   background tick that changes nothing on those tables used to rebuild them all (owner 2026-10-09: "scrolling the TABLES
@@ -19960,22 +19973,25 @@ function renderApp(){
       <div>
         <div style="font-family:'Bebas Neue',monospace;font-size:${userLogo?'13':'18'}px;letter-spacing:3px;color:var(--green);line-height:1">EDGE LOG</div>
         <div style="font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;margin-top:1px;display:flex;align-items:center;gap:6px">
-          <span class="vbadge">v${VERSION}</span><span style="color:var(--text5)">·</span>
-          <span>${bScope(trades).length}${activeBroker?' '+activeBroker:''} trades</span><span style="color:var(--text5)">·</span>
-          <span class="${S?ledgerCls(S.net):''}" style="${S?'':'color:var(--text5)'}" title="Net P&amp;L of every trade in this account, all time">${S?ledgerSigned(S.net):'—'}</span>
-          ${autoHandle?'<span style="color:var(--text5)">·</span><span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
-          ${(()=>{const w=window._dataFeedWarn?window._dataFeedWarn():[];return w.length?'<span style="color:var(--text5)">·</span><span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';})()}
-          <span id="tb-gate" style="display:contents">${_tbGateHtml()}</span>
+          <span class="vbadge">v${VERSION}</span>
         </div>
       </div>
     </div>
-    ${typeof qbTopChipHtml==='function'?qbTopChipHtml():''}
-    ${window.LOG_OLDTABS_ESCAPE_HATCH?[['log','TRADING LOG','◫'],['backtester','BACKTESTER','⊞']].map(m=>{
-      const on=(m[0]==='backtester')===(activeTab==='augur');
-      return `<button class="btn-ghost master-tab${on?' active':''}" data-master="${m[0]}" style="font-size:13px;letter-spacing:1px"><span style="margin-right:7px;font-size:14px;opacity:.8">${m[2]}</span>${m[1]}</button>`;
-    }).join(''):''}
-    <span id="tb-queue" style="display:contents">${_tbQueueHtml()}</span>
-    <div style="margin-left:auto;display:flex;align-items:center;gap:8px;padding:0 4px">
+    <div class="tbscroll" id="tb-navrow">
+      ${window.LOG_OLDTABS_ESCAPE_HATCH?[['log','TRADING LOG','◫'],['backtester','BACKTESTER','⊞']].map(m=>{
+        const on=(m[0]==='backtester')===(activeTab==='augur');
+        return `<button class="btn-ghost master-tab${on?' active':''}" data-master="${m[0]}" style="font-size:13px;letter-spacing:1px"><span style="margin-right:7px;font-size:14px;opacity:.8">${m[2]}</span>${m[1]}</button>`;
+      }).join(''):''}
+      <span id="tb-tabs" style="display:contents"></span>
+      <div class="tbstat">
+        ${autoHandle?'<span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
+        ${(()=>{const w=window._dataFeedWarn?window._dataFeedWarn():[];return w.length?'<span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';})()}
+        <span id="tb-gate" style="display:contents">${_tbGateHtml()}</span>
+        ${typeof qbTopChipHtml==='function'?qbTopChipHtml():''}
+        <span id="tb-queue" style="display:contents">${_tbQueueHtml()}</span>
+      </div>
+    </div>
+    <div style="display:flex;align-items:center;gap:8px;padding:0 4px;flex-shrink:0">
       <!-- Gross/Net toggle -->
       <div class="toggle-pill" title="Switch KPIs between Gross (before fees) and Net (after fees) P&L">
         <button id="tog-net" class="${!useGross?'on':''}">NET</button>
@@ -19993,8 +20009,15 @@ function renderApp(){
   });
   // ── second-level subtab bar (subtabs for the active master section) ──
   const _master=(activeTab==='augur')?'backtester':'log';
+  // ONE TOP LINE (owner 11-17). The main tabs now live IN the topbar; this element is the
+  // SECOND row and carries only the sub-tabs of the open tab, plus the account / split
+  // toggles that belong to that level. It is .nav-subrow, so it is sticky and stays pinned
+  // under the top row while the page scrolls - the owner's "subtabs disappear when scrolling
+  // down" bug, which happened because these pills used to be a plain non-sticky div appended
+  // after the sticky strip. It is only appended when it actually has something in it, so a
+  // tab with no sub-tabs is one row tall.
   const sub=document.createElement('div');
-  sub.style.cssText='display:flex;gap:2px;flex-wrap:wrap;padding:1px 14px;border-bottom:1px solid var(--border);background:var(--bg1);align-items:center;position:sticky;top:46px;z-index:99';
+  sub.className='nav-subrow';
   const _logIc={home:'⌂',overview:'◎',trades:'≡',analytics:'⌬',import_export:'⇅',journal:'✎',settings:'⚙'};
   const _logLbl=t=>t==='import_export'?'IMPORT / EXPORT':(LOG_TAB_LABELS[t]||t.toUpperCase());
   // Split-screen layout toggle lives in the tab bar (right-aligned), shown for the
@@ -20031,57 +20054,42 @@ function renderApp(){
     const attr=id==='home'?'data-hometab="1"':(k==='tab'?`data-tab="${id}"`:`data-asubtop="${id}"`);
     return `<button class="btn-ghost nav-btn${on?' active':''}" ${attr} style="font-size:var(--fsxs);padding:2px 8px;line-height:1.15"><span class="nav-ic" style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${(k==='tab'?_logIc[id]:ASUB_ICON[id])||''}</span>${lbl}</button>`;
   };
-  sub.innerHTML=(!_oldStrip)?(NAV_ROW.map(_navBtn).join('')+_acctTog+_splitTog):((_master==='log')
+  // the tab buttons are written into the TOP row now, not into this one
+  {const _navHtml=(!_oldStrip)?NAV_ROW.map(_navBtn).join(''):((_master==='log')
     ? (_oldStrip?LOG_TABS:LOG_TABS_STRIP).map(t=>`<button class="btn-ghost${activeTab===t?' active':''}" data-tab="${t}" style="font-size:var(--fsxs);padding:2px 8px;line-height:1.15"><span style="margin-right:6px;font-size:12px;opacity:.7">${_logIc[t]||''}</span>${_logLbl(t)}</button>`).join('')
-    : (_oldStrip?ASUBS_FULL:ASUBS).map(s=>`<button class="btn-ghost${(augurSub===s[0]||(s[0]==='paper2'&&augurSub==='qqqpaper')||(s[0]==='exec2'&&_libLit)||(s[0]==='research'&&_refLit))?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs);padding:2px 8px;line-height:1.15"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''))+_acctTog+_splitTog;
-  wrap.appendChild(sub);
-  // HOME subtabs: REAL | NT8 PAPER | WEBULL PAPER, same pill toggle as BUILDER / LIBRARY below. It
-  // replaces the PAPER TRADE toggle just below, which is now only drawn under ?oldtabs=1.
+    : (_oldStrip?ASUBS_FULL:ASUBS).map(s=>`<button class="btn-ghost${(augurSub===s[0]||(s[0]==='paper2'&&augurSub==='qqqpaper')||(s[0]==='exec2'&&_libLit)||(s[0]==='research'&&_refLit))?' active':''}" data-asubtop="${s[0]}" style="font-size:var(--fsxs);padding:2px 8px;line-height:1.15"><span style="margin-right:6px;font-size:12px;opacity:.7;font-variant-emoji:text">${ASUB_ICON[s[0]]||''}</span>${s[1]}</button>`).join(''));
+   const _tbt=tb.querySelector('#tb-tabs');if(_tbt)_tbt.innerHTML=_navHtml;}
+  // SECOND ROW: the sub-tabs of whichever tab is open, built as one strip of pills so every
+  //   tab that has them draws the same bar (HOME_SUBS, BUILDER / LIBRARY, PAPERS / REFERENCE).
+  const _pillGrp=h=>`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${h}</span>`;
+  const _pill=(attr,id,cur,lbl,tip)=>`<button class="btn-ghost" data-${attr}="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;white-space:nowrap;${cur===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
+  let _subPills='';
   if(!_oldStrip&&_homeLit){
-    const _ht=document.createElement('div');
-    _ht.className='nav-subrow';
     const _cur=activeTab==='home'?'real':augurSub;
-    const _hb=([id,lbl,tip])=>`<button class="btn-ghost" data-homesub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${_cur===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
-    _ht.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${HOME_SUBS.map(_hb).join('')}</span>`;
-    _ht.querySelectorAll('[data-homesub]').forEach(b=>{b.onclick=()=>{const v=b.dataset.homesub;if(v==='real'){activeTab='home';window._lastLogTab='home';}else{activeTab='augur';augurSub=v;}renderApp();};});
-    sub.style.borderBottomColor='transparent';wrap.appendChild(_ht);
+    _subPills=_pillGrp(HOME_SUBS.map(h=>_pill('homesub',h[0],_cur,h[1],h[2])).join(''));
+  } else if(_oldStrip&&activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper')){
+    _subPills=_pillGrp(_pill('papersub','paper2',augurSub,'NT8 FUTURES','NinjaTrader paper legs')+_pill('papersub','qqqpaper',augurSub,'WEBULL QQQ','Webull paper trading (QQQ shares)'));
+  } else if(!_oldStrip&&activeTab==='augur'&&(augurSub==='exec2'||augurSub==='lib')){
+    _subPills=_pillGrp(_pill('buildersub','exec2',augurSub,'BUILDER','Build and queue a run')+_pill('buildersub','lib',augurSub,'LIBRARY','Saved strategy files'));
+  } else if(!_oldStrip&&activeTab==='augur'&&(augurSub==='research'||augurSub==='ref')){
+    _subPills=_pillGrp(_pill('researchsub','research',augurSub,'PAPERS','Every paper and study read, with its verdict - and the backtesting stack under them')+_pill('researchsub','ref',augurSub,'REFERENCE','Cross-strategy parameter reference'));
   }
-  if(_oldStrip&&activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper')){
-    const _pt=document.createElement('div');
-    _pt.className='nav-subrow';
-    const _pb=(id,lbl,tip)=>`<button class="btn-ghost" data-papersub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${augurSub===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
-    _pt.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${_pb('paper2','NT8 FUTURES','NinjaTrader paper legs')}${_pb('qqqpaper','WEBULL QQQ','Webull paper trading (QQQ shares)')}</span>`;
-    _pt.querySelectorAll('[data-papersub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.papersub;renderApp();};});
-    sub.style.borderBottomColor='transparent';wrap.appendChild(_pt);
-  }
-  // TABS-NAV COLLAPSE: LIBRARY folded into BUILDER as an inner toggle, same pattern as PAPER
-  // TRADE just above. Not shown under ?oldtabs=1 - LIBRARY already has its own top-level button
-  // there, so this row would just duplicate it.
-  if(!_oldStrip&&activeTab==='augur'&&(augurSub==='exec2'||augurSub==='lib')){
-    const _bt=document.createElement('div');
-    _bt.className='nav-subrow';
-    const _bb=(id,lbl,tip)=>`<button class="btn-ghost" data-buildersub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${augurSub===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
-    _bt.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${_bb('exec2','BUILDER','Build and queue a run')}${_bb('lib','LIBRARY','Saved strategy files')}</span>`;
-    _bt.querySelectorAll('[data-buildersub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.buildersub;renderApp();};});
-    sub.style.borderBottomColor='transparent';wrap.appendChild(_bt);
-  }
-  // TABS-NAV COLLAPSE: REFERENCE folded into RESEARCH as an inner toggle, same pattern. Also
-  // skipped under ?oldtabs=1 for the same reason as the BUILDER row above.
-  if(!_oldStrip&&activeTab==='augur'&&(augurSub==='research'||augurSub==='ref')){
-    const _rt=document.createElement('div');
-    _rt.className='nav-subrow';
-    const _rb=(id,lbl,tip)=>`<button class="btn-ghost" data-researchsub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${augurSub===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
-    _rt.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${_rb('research','PAPERS','Every paper and study read, with its verdict - and the backtesting stack under them')}${_rb('ref','REFERENCE','Cross-strategy parameter reference')}</span>`;
-    _rt.querySelectorAll('[data-researchsub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.researchsub;renderApp();};});
-    sub.style.borderBottomColor='transparent';wrap.appendChild(_rt);
-  }
+  sub.innerHTML=_subPills+_acctTog+_splitTog;
+  const _hasSub=!!sub.innerHTML.trim();
+  if(_hasSub)wrap.appendChild(sub);
+  sub.querySelectorAll('[data-homesub]').forEach(b=>{b.onclick=()=>{const v=b.dataset.homesub;if(v==='real'){activeTab='home';window._lastLogTab='home';}else{activeTab='augur';augurSub=v;}renderApp();};});
+  sub.querySelectorAll('[data-papersub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.papersub;renderApp();};});
+  sub.querySelectorAll('[data-buildersub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.buildersub;renderApp();};});
+  sub.querySelectorAll('[data-researchsub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.researchsub;renderApp();};});
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
   // pin the sub-tab strip directly under the topbar, whatever height the topbar renders
-  {const _pinSub=()=>{const tb=wrap.querySelector('.topbar');if(tb&&sub)sub.style.top=tb.offsetHeight+'px';};
+  // PIN THE SECOND ROW to the real height of the first (owner 11-17 bug: the sub-tabs vanished
+  //   on scroll). Both rows are sticky, so the sub-tab row has to be told where the top row ends.
+  {const _pinSub=()=>{const tb=wrap.querySelector('.topbar');if(tb&&_hasSub)sub.style.top=tb.offsetHeight+'px';};
    requestAnimationFrame(_pinSub);setTimeout(_pinSub,400);
    try{if(document.fonts&&document.fonts.ready)document.fonts.ready.then(()=>setTimeout(_pinSub,0));}catch(_e){}
-   if(!window._subPinWired){window._subPinWired=1;window.addEventListener('resize',()=>{const w=document.getElementById('app');const tb=w&&w.querySelector('.topbar'),sb=w&&w.querySelector('[data-asubtop],[data-tab]');if(tb&&sb&&sb.parentElement)sb.parentElement.style.top=tb.offsetHeight+'px';});}}
+   if(!window._subPinWired){window._subPinWired=1;window.addEventListener('resize',()=>{const w=document.getElementById('app');const tb=w&&w.querySelector('.topbar'),sb=w&&w.querySelector('.nav-subrow');if(tb&&sb)sb.style.top=tb.offsetHeight+'px';});}}
 
   // TABS-NAV COLLAPSE: 'lib'/'ref' dropped out of the ASUBS membership test when they left the
   // top-level strip, so they are named here explicitly - a session already parked on either one

@@ -725,6 +725,15 @@ GATES = [
          prefix='SELFTEST:', args=('--selftest',), slow=True,
          cover=('tools/import_tz_probe.py', 'tools/kill_on_exit.py')),
 
+    # HEADER GATE (2026-11-17): the top bar and the sub-tab row - the one piece of the app that is
+    # on EVERY screen, and until now the one piece nothing measured. The owner asked for the tabs,
+    # the status indicators and the gauges on ONE line and reported that the sub-tabs vanished on
+    # scroll; a header that quietly wrapped onto three rows, or a second row that scrolled away,
+    # would pass every other render gate, because they each open one tab and look inside it.
+    Gate('header', 'header render gate', 'tools/header_render_probe.py', 'index',
+         'header render gate FAILED - not pushing', '(header probe produced no output)',
+         prefix='HDPROBE:'),
+
     # HOME GATE (2026-10-02): HOME > REAL, the view the owner lands on, on a laptop and a phone.
     # home_render_probe.py seeds synthetic trades, SHOULD HAVE TRADED entries and packed trade bars
     # (no network), renders laptop / phone x glass / paper x SIMPLE / FULL / FEED and drives the
