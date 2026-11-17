@@ -376,6 +376,10 @@ JUMP_DAY = '2026-09-30'
 # list, where both paper boards keep their extras.
 # owner 11-17 (2nd pass): the calendar sits beside the chart inside the main column from 1100 px; ACCOUNTS is the locked sidebar
 SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more', 'acct', 'missed', 'deps', 'ai', 'journal', 'list']
+# owner 11-17 (3rd pass): the markup puts the main column (chart, pills, calendar, More stats) first, then the LEFT sidebar (hero, status,
+# the tiles, accounts), then the rest; on a phone CSS order shows SECTION_ORDER top to bottom (judged on the tops by _stacked)
+SECTION_ORDER_DOM = ['chart', 'pills', 'cal', 'more', 'hero', 'status', 'stats', 'acct', 'missed', 'deps', 'ai', 'journal', 'list']
+SIDE_KEYS = ('hero', 'status', 'stats', 'acct')
 # LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
 FRAME_MAX_W = 'none'   # owner 11-17: REAL uses the whole width
 FRAME_SIDE_FROM = 1100
@@ -1123,7 +1127,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     var R=function(e){if(!e)return null;var b=e.getBoundingClientRect();return {l:Math.round(b.left-fb.left),r:Math.round(b.right-fb.left),t:Math.round(b.top-fb.top),b:Math.round(b.bottom-fb.top),w:Math.round(b.width),h:Math.round(b.height)};};
     o.top=R(top);o.side=R(side);o.rest=R(rest);
     var acct=d.querySelector('[data-hmsec="acct"]'),lst=d.querySelector('[data-hmsec="list"]'),hero=d.querySelector('[data-hmsec="hero"]');
-    o.acctInSide=!!(acct&&side&&side.contains(acct));o.listInRest=!!(lst&&rest&&rest.contains(lst));o.heroInTop=!!(hero&&top&&top.contains(hero));
+    o.acctInSide=!!(acct&&side&&side.contains(acct));o.listInRest=!!(lst&&rest&&rest.contains(lst));o.heroInTop=!!(hero&&top&&top.contains(hero));o.heroInSide=!!(hero&&side&&side.contains(hero));
     o.acct=R(acct);o.list=R(lst);o.hero=R(hero);
     var lhd=d.querySelector('[data-lglist="hm"] .lg-list-hd');o.listHd=R(lhd);
     var hl=d.getElementById('hm-hero-label');o.heroLabel=R(hl);
@@ -1139,7 +1143,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     // LEDGER redesign step 2: the switch sits on the chart's control row beside the caption, not inside the caption's own box
     var ftrow=ft?(ft.closest('.lg-chart-row')||ft):null;
     o.foot=ft?{r:R(ft),eq:!!(ftrow&&ftrow.querySelector('#hm-mode-toggle [data-hmmode="equity"]')),pnl:!!(ftrow&&ftrow.querySelector('#hm-mode-toggle [data-hmmode="pnl"]')),
-      cap:((ft.querySelector('.lg-chart-cap')||{}).textContent||'').trim(),gap:cw?Math.round(ft.getBoundingClientRect().top-cw.getBoundingClientRect().bottom):null,
+      cap:((ft.querySelector('.lg-chart-cap')||{}).textContent||'').trim(),gap:cw?Math.round(cw.getBoundingClientRect().top-ft.getBoundingClientRect().bottom):null,
       inChartSec:!!ft.closest('[data-hmsec="chart"]')}:null;
     o.toggles=d.querySelectorAll('#hm-mode-toggle').length;
     var fl=d.querySelector('[data-lglist="hm"] [data-lgfilters="hm"]'),fbt=fl?fl.querySelector('[data-lgfilt="hm"]'):null,fbd=fl?fl.querySelector('.lg-filters-body'):null;
@@ -3554,8 +3558,8 @@ def _judge_widths(wd, data_obj):
                     elif _bot > CAL_FOLD_MAX:
                         fails.append('%s: the open calendar ends %spx from the top of the board, past the %spx fold the owner reads at '
                                      '1690x1263' % (t, _bot, CAL_FOLD_MAX))
-            if ks != SECTION_ORDER:
-                fails.append('%s: the page sections run %r, expected %r at every width' % (t, ks, SECTION_ORDER))
+            if ks != SECTION_ORDER_DOM:
+                fails.append('%s: the page sections run %r, expected %r at every width' % (t, ks, SECTION_ORDER_DOM))
             else:
                 ok, tp = _stacked(s['sec'], px)
                 if not ok:
@@ -3744,8 +3748,8 @@ def _judge_flag(flag, main, data_obj):
         if r.get('oldMarks'):
             fails.append('%s: markers of the removed previous board are in the page: %s' % (tag, ', '.join(r['oldMarks'])))
         keys = [s.get('k') for s in (r.get('sec') or [])]
-        if keys != SECTION_ORDER:
-            fails.append('%s: the page sections are %s, expected %s' % (tag, ','.join(map(str, keys)), ','.join(SECTION_ORDER)))
+        if keys != SECTION_ORDER_DOM:
+            fails.append('%s: the page sections are %s, expected %s' % (tag, ','.join(map(str, keys)), ','.join(SECTION_ORDER_DOM)))
         want_mode = 'table' if cfg['view'] == 'table' else 'list'
         if r.get('mode') != want_mode or r.get('frameRows') != n_trades:
             fails.append('%s: the frame is in %r mode with %s rows, expected %s with %d'
@@ -3781,12 +3785,20 @@ def _errs(tag, r, fails):
 
 
 def _stacked(sec, px):
-    """The section tops in the fixed order: strictly top to bottom - except, from FRAME_SIDE_FROM px, the accounts list, which is the right-hand
-    panel beside the top block (the frame judge places it)."""
-    # owner 11-17: the calendar shares that right-hand panel (under the accounts)
-    main = [s for s in sec if not (px >= FRAME_SIDE_FROM and s['k'] in ('acct', 'cal'))]
-    tp = [s['top'] for s in main]
-    return all(b > a for a, b in zip(tp, tp[1:])), tp
+    """The section tops. Under FRAME_SIDE_FROM px: shown top to bottom in SECTION_ORDER (CSS order; the range pills ride inside the chart).
+    From FRAME_SIDE_FROM px: the LEFT sidebar (hero, status, tiles, accounts) stacks top to bottom, and so does the main column apart from the
+    calendar, which sits beside the chart (owner 11-17)."""
+    by = {s['k']: s['top'] for s in sec}
+    if px < FRAME_SIDE_FROM:
+        groups = [[k for k in SECTION_ORDER if k != 'pills']]
+    else:
+        groups = [list(SIDE_KEYS), [k for k in SECTION_ORDER if k not in SIDE_KEYS and k not in ('pills', 'cal')]]
+    ok, tp = True, []
+    for g in groups:
+        tops = [by[k] for k in g if k in by]
+        tp.append(tops)
+        ok = ok and all(y > x for x, y in zip(tops, tops[1:]))
+    return ok, tp
 
 
 def _judge_frame(tag, fr, px, fails):
@@ -3805,7 +3817,7 @@ def _judge_frame(tag, fr, px, fails):
         if not fr.get(k):
             fails.append('%s: the page frame has no %s part ([data-lgframe-%s])' % (tag, k, k))
             return
-    if not fr.get('heroInTop') or not fr.get('listInRest'):
+    if not (fr.get('heroInTop') or fr.get('heroInSide')) or not fr.get('listInRest'):
         fails.append('%s: the hero is not in the top block (%s) or the trade list not under it (%s)' % (tag, fr.get('heroInTop'), fr.get('listInRest')))
     _judge_controls(tag, fr.get('ctl'), px, fails)
     if not fr.get('acctInSide'):
@@ -3816,16 +3828,13 @@ def _judge_frame(tag, fr, px, fails):
         if not fr.get('grid'):
             fails.append('%s: at %d px the frame is one column - from %d px the accounts list is a right-hand panel' % (tag, px, FRAME_SIDE_FROM))
         elif acct:
-            if acct.get('l', 0) < top['r'] + 16:
-                fails.append('%s: the accounts panel starts at %spx, not to the right of the top block (which ends at %spx)' % (tag, acct.get('l'), top['r']))
+            if acct.get('r', 0) > top['l'] - 16:
+                fails.append('%s: the accounts panel ends at %spx, not to the LEFT of the main column (which starts at %spx)' % (tag, acct.get('r'), top['l']))
             if abs((side.get('t') or 0) - (top.get('t') or 0)) > 2:
                 fails.append('%s: the accounts panel starts %spx down, the top block %spx - they must start level' % (tag, side.get('t'), top.get('t')))
-            if px < SIDE_LOCK_FROM and (side.get('h') or 0) > (top.get('h') or 0) + 2:
-                fails.append('%s: the accounts panel (%spx) is taller than the top block beside it (%spx), so it pushes the trade list down'
-                             % (tag, side.get('h'), top.get('h')))
-            if px < SIDE_LOCK_FROM and lst and lst.get('w', 0) < (side.get('r') or 0) - (top.get('l') or 0) - 2:
-                fails.append('%s: the trade list is %spx wide - it must run the full width under the top block and the panel (%spx)'
-                             % (tag, lst.get('w'), (side.get('r') or 0) - (top.get('l') or 0)))
+            if px < SIDE_LOCK_FROM and lst and lst.get('w', 0) < (top.get('r') or 0) - (side.get('l') or 0) - 2:
+                fails.append('%s: the trade list is %spx wide - it must run the full width under the sidebar and the main column (%spx)'
+                             % (tag, lst.get('w'), (top.get('r') or 0) - (side.get('l') or 0)))
     else:
         if fr.get('grid'):
             fails.append('%s: at %d px the frame still has two columns - under %d px the accounts list sits under the calendar' % (tag, px, FRAME_SIDE_FROM))
@@ -3934,8 +3943,8 @@ def _judge_step11(nm, cfg, r, fails, n_missed):
     px = r.get('innerW') or VIEWPORTS[cfg['vp']][0]
     _judge_frame(nm, r.get('fr'), px, fails)
     _judge_frame_parts(nm, cfg, r.get('fr'), r.get('filtClick'), fails)
-    if ks != SECTION_ORDER:
-        fails.append('%s: the page sections run %r, expected the fixed order %r' % (nm, ks, SECTION_ORDER))
+    if ks != SECTION_ORDER_DOM:
+        fails.append('%s: the page sections run %r, expected the fixed order %r' % (nm, ks, SECTION_ORDER_DOM))
     else:
         ok, tp = _stacked(sec, px)
         if not ok:

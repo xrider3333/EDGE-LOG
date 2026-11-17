@@ -1304,25 +1304,42 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-addrow.hm-more-always .hm-toolbar-actions{display:none}
 .hm-addrow.hm-more-always .hm-toolbar-actions.open{display:flex;position:absolute;right:0;top:calc(100% + 6px);z-index:60;flex-direction:column;align-items:stretch;gap:6px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .hm-wrap.lg-frame{max-width:1320px}
-/* owner 11-17: REAL uses the whole width. From 1100 px: the accounts list is a LOCKED sidebar on the right (sticky, never its own scroll box),
-   and inside the main column the calendar sits to the right of the hero / chart stack with room for its day cells */
+/* owner 11-17 (3rd pass): LEFT locked sidebar = headline + tiles + ACCOUNTS (small type); main = chart | calendar from the top.
+   Below 1100 px the frame boxes dissolve (display:contents) and order puts the sections back in the page order. */
 .hm-wrap.lg-frame.hm-top-2col{max-width:none}
+.hm-lside{display:flex;flex-direction:column}
+.hm-lside>.lg-frame-top,.hm-lside>.lg-frame-side,.hm-lside>.lg-frame-side>.lg-frame-side-in{display:contents}
+.hm-lside [data-hmsec="chart"]{order:4}.hm-lside [data-hmsec="cal"]{order:5}.hm-lside [data-hmsec="more"]{order:6}
+.hm-lside>.lg-frame-side>.lg-frame-side-in>*{order:7}.hm-lside>.lg-frame-side>.lg-frame-side-in>[data-hmsec="hero"]{order:1}
+.hm-lside>.lg-frame-side>.lg-frame-side-in>[data-hmsec="status"]{order:2}.hm-lside>.lg-frame-side>.lg-frame-side-in>[data-hmsec="stats"]{order:3}
+.hm-lside>.lg-frame-rest{order:8}
+.hm-lside .hm-chart-top{margin:0 0 4px}.hm-wrap.lg-flow.hm-lside .hm-chart-wrap{margin:4px 0 0}
 @media (min-width:1100px){
-  .hm-wrap.lg-frame.hm-top-2col{--lgf-side:280px}
-  .hm-top-2col>.lg-frame-side{min-height:0}
-  .hm-top-2col>.lg-frame-side>.lg-frame-side-in{position:static;overflow:visible}
-  .hm-top-2col>.lg-frame-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(400px,38%);column-gap:32px;align-items:start}
-  .hm-top-2col>.lg-frame-top>*{grid-column:1}
-  .hm-top-2col>.lg-frame-top>[data-hmsec="cal"]{grid-column:2;grid-row:1/span 8;align-self:start}
+  .hm-wrap.lg-frame.hm-top-2col{display:grid;--lgf-side:264px;grid-template-columns:var(--lgf-side) minmax(0,1fr);column-gap:28px}
+  .hm-lside>.lg-frame-top,.hm-lside>.lg-frame-side,.hm-lside>.lg-frame-rest{order:0}
+  .hm-lside>.lg-frame-side{display:block;grid-column:1;grid-row:1;min-height:0;align-self:stretch}
+  .hm-lside>.lg-frame-side>.lg-frame-side-in{display:block;position:sticky;top:96px;bottom:auto;overflow:visible;font-size:11px}
+  .hm-lside>.lg-frame-rest{display:block;grid-column:1/-1;grid-row:2}
+  .hm-lside>.lg-frame-top{grid-column:2;grid-row:1;display:grid;grid-template-columns:minmax(0,1fr) minmax(380px,40%);column-gap:28px;align-items:start}
+  .hm-lside>.lg-frame-top>*{grid-column:1;order:0}
+  .hm-lside>.lg-frame-top>[data-hmsec="cal"]{grid-column:2;grid-row:1/span 8;align-self:start;margin-top:0}
+  .hm-lside>.lg-frame-side>.lg-frame-side-in>*{order:0}
+  .hm-lside .lg-frame-side #hm-hero-value{font-size:30px!important}
+  .hm-lside .lg-frame-side #hm-hero-label,.hm-lside .lg-frame-side #hm-hero-under,.hm-lside .lg-frame-side #hm-hero-delta,.hm-lside .lg-frame-side #hm-hero-today{font-size:11px!important}
+  .hm-lside .lg-frame-side [data-hmsec="status"]{font-size:10.5px;margin:6px 0}
+  .hm-lside .lg-frame-side [data-hmsec="stats"]>*{display:grid!important;grid-template-columns:1fr 1fr;gap:6px}
+  .hm-lside .lg-frame-side [data-hmsec="stats"]>*>*{min-width:0;padding:6px 8px!important;font-size:10.5px}
+  .hm-lside .lg-frame-side [data-hmsec="stats"]{margin-bottom:12px}
 }
-/* from 1500 px the accounts list is LOCKED: it runs down the whole page beside the trade list and stays in view while you scroll
-   (narrower windows keep the trade list full width, so the FULL table still fits) */
+/* from 1500 px the sidebar runs down the whole page beside the trade list and stays in view (narrower: the trade list keeps the full width) */
 @media (min-width:1500px){
-  .hm-top-2col>.lg-frame-side{grid-row:1/3}
-  .hm-top-2col>.lg-frame-side>.lg-frame-side-in{position:sticky;top:96px}
-  .hm-top-2col>.lg-frame-rest{grid-column:1}
+  .hm-lside>.lg-frame-side{grid-row:1/3}
+  .hm-lside>.lg-frame-rest{grid-column:2}
 }
 .hm-sec-chart .lg-chart-foot{margin-bottom:10px}
+.hm-chart-wrap{position:relative}
+.hm-daily-tip{position:absolute;top:0;display:flex;gap:10px;align-items:baseline;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);font-size:10.5px;white-space:nowrap;pointer-events:none;z-index:5}
+.hm-daily-tip b{font-weight:600;color:var(--text2)}
 /* LEDGER unify step 11: REAL's page is built in ONE fixed order at every width (the markup is in that order - no order: rules): hero, range pills
    with the EQUITY | P&L switch, equity chart, the four tiles, More stats, calendar, accounts, the trade list, then REAL's own sections, each a closed
    fold with a one-line summary. Breakpoints: only the house numbers - 600 phone, 740 / 800 / 920 list cells, 1100 rail (contract section 5b). */
@@ -1616,7 +1633,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.35';
+const VERSION='90.36';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1637,6 +1654,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.36',date:'2026-11-17',notes:['LEDGER REAL: a narrow locked sidebar on the LEFT holds the headline number, the synced line, the four tiles and ACCOUNTS in small type; chart and calendar start at the top side by side','LEDGER REAL chart: range and view switches sit above the chart; DAILY has dollar labels on both sides, a firmer zero line and a hover readout with date, day P&L and running total']},
 {v:'90.33',date:'2026-11-17',notes:['LEDGER REAL uses the full page width: the calendar sits right of the chart with room for its day cells, no scroll box anywhere at the top','ACCOUNTS (All / NinjaTrader / Webull) is a locked sidebar on the right that stays in place while the page scrolls; on a phone it is the stacked card as before']},
 {v:'90.32',date:'2026-11-16',notes:['IMPORT: a Cash or Balance History file no longer replaces your starting balance, its fees are spread only over that account futures trades, and its deposits and withdrawals now reach the ledger.','IMPORT saves the day each trade closed, so an overnight trade lands on its close day. + NEW TRADE saves MESZ6 as MES.','LEDGER: 1W and 1M are now exactly 7 and 30 days counting today, and a day of only breakeven trades shows win rate --. Trades already saved are unchanged.']},
 {v:'90.31',date:'2026-11-17',notes:['LEDGER REAL: DAILY is the first chart option and opens by default; it now has a dollar axis, dates along the bottom and a fill under the running total - green above $0, red below','LEDGER REAL: the calendar sits to the right of the chart, under the accounts (under the chart on a phone)','Every tab with sub-tabs (LEDGER, PAPERS, BUILDER, ...) now draws its sub-tab row attached to the tab row - same band, no gap']},
@@ -17513,7 +17531,7 @@ function _hmRenderDailyInto(wrapEl){
   _hmRenderHeroDefault(c,0);
   if(!days.length){wrapEl.innerHTML='<div class="hm-empty-state">No closed trades in this range</div>';return;}
   // owner 11-17: a dollar axis on the left, dates along the bottom, and the running total filled down to $0 - green above, red below
-  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=260,pt=14,pb=24,pl=58,pr=10;
+  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=260,pt=14,pb=24,pl=58,pr=58;
   const vals=days.map(d=>by[d]).concat(cum,[0]),mx=Math.max(...vals),mn=Math.min(...vals),span=(mx-mn)||1;
   const y=v=>pt+(mx-v)/span*(H-pt-pb),slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7));
   const G='#1d9e75',R='#e24b4a',y0=y(0),cx=i=>pl+slot*i+slot/2;
@@ -17531,15 +17549,29 @@ function _hmRenderDailyInto(wrapEl){
   // dollar axis: top, $0 and bottom (only the ones far enough apart to read)
   const ticks=[mx,0,mn].filter((v,k,a)=>a.findIndex(u=>Math.abs(y(u)-y(v))<14)===k);
   const yAx=ticks.map(v=>'<text x="'+(pl-8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text5)" data-hmdaily-y="1">'+money(v)+'</text>'
+    +'<text x="'+(W-pr+8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="start" font-size="10" fill="var(--text5)" data-hmdaily-yr="1">'+money(v)+'</text>'
     +(v!==0?'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 4"/>':'')).join('');
   // dates: first, middle, last close day
   const di=[...new Set([0,Math.floor((days.length-1)/2),days.length-1])];
   const xAx=di.map(i=>'<text x="'+cx(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+(i===0&&days.length>1?'start':(i===days.length-1&&days.length>1?'end':'middle'))+'" font-size="10" fill="var(--text5)" data-hmdaily-x="1">'+_hmEsc(days[i].slice(5).replace('-','/'))+'</text>').join('');
   wrapEl.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="REAL daily P&L bars and running total, '+(_HM_RANGE_LABEL[homeRange]||'')+'" data-hmdaily="1">'
     +grad+yAx
-    +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>'
+    +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--text5)" stroke-width="1.2" opacity="0.7" data-hmdaily-zero="1"/>'
     +'<path d="'+area+'" fill="url(#hm-daily-fill)" stroke="none" data-hmdaily-area="1"/>'
-    +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6"/>'+xAx+'</svg>';
+    +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6"/>'+xAx
+    +'<line data-hmdaily-cross="1" x1="0" x2="0" y1="'+pt+'" y2="'+(H-pb)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"/></svg>'
+    +'<div class="hm-daily-tip" data-hmdaily-tip="1" hidden></div>';
+  // hover readout: the day under the pointer - date, the day P&L and the running total; the big number follows it
+  const svg=wrapEl.querySelector('svg'),cross=svg.querySelector('[data-hmdaily-cross]'),tip=wrapEl.querySelector('[data-hmdaily-tip]');
+  const show=ev=>{const r=svg.getBoundingClientRect();if(!r.width)return;const sx=(ev.clientX-r.left)*W/r.width;
+    const i=Math.max(0,Math.min(days.length-1,Math.floor((sx-pl)/slot)));const X=cx(i);
+    cross.setAttribute('x1',X.toFixed(1));cross.setAttribute('x2',X.toFixed(1));cross.setAttribute('visibility','visible');
+    tip.innerHTML='<b>'+_hmFmtDateLong(days[i])+'</b><span class="'+ledgerCls(by[days[i]])+'">day '+ledgerSigned(by[days[i]])+'</span><span class="'+ledgerCls(cum[i])+'">total '+ledgerSigned(cum[i])+'</span>';
+    tip.hidden=false;const px=X*r.width/W;tip.style.left=Math.max(0,Math.min(r.width-tip.offsetWidth,px-tip.offsetWidth/2))+'px';
+    try{_hmPaintBig(_hmMoney(cum[i]));}catch(e){}};
+  const hide=()=>{cross.setAttribute('visibility','hidden');tip.hidden=true;try{_hmRenderHeroDefault(c,0);}catch(e){}};
+  svg.addEventListener('mousemove',show);svg.addEventListener('mouseleave',hide);
+  svg.addEventListener('touchmove',e=>{if(e.touches[0])show(e.touches[0]);},{passive:true});svg.addEventListener('touchend',hide);
 }
 function _hmRenderChartInto(root){
   const wrapEl=root.querySelector('#hm-chart-wrap');
@@ -18475,10 +18507,10 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
     // control row with the EQUITY | P&L switch and the short caption (.lg-chart-row, the row both PAPER boards already use). The
     // [data-hmsec="pills"] marker moves with them, so the page order reads hero, status, stats, chart, pills, cal, more - NT8 PAPER's own chain.
     pills:'',
-    chart:'<div class="hm-sec-chart" data-hmsec="chart"><div class="hm-chart-wrap" id="hm-chart-wrap"></div>'
-      +'<div class="lg-chart-row"><div class="lg-chart-rowpills" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')+'</div>'
+    chart:'<div class="hm-sec-chart" data-hmsec="chart">'
+      +'<div class="lg-chart-row hm-chart-top"><div class="lg-chart-rowpills" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')+'</div>'
       +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="daily" title="one bar per day plus the running total" class="'+(homeChartMode==='daily'?'active':'')+'">DAILY</button><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div>'
-      +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="hm"><span class="lg-chart-cap">'+_hmChartCap()+'</span></div></div>'
+      +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="hm"><span class="lg-chart-cap">'+_hmChartCap()+'</span></div></div><div class="hm-chart-wrap" id="hm-chart-wrap"></div>'
       +'<div id="hm-goal">'+_hmGoalHtml()+'</div></div>',
     stats:'<div data-hmsec="stats">'+ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})+'</div>',
     // r2 step 16 (item 28): no ? note (everything on the board is scoped to the account and range); the range goes in so DD5 / ROC know ALL / YTD
@@ -18491,8 +18523,11 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
   const ai=_HM_PAGE_ORDER.indexOf('acct'),pick=ks=>ks.map(k=>S[k]||'').join('');
   // LEDGER redesign step 1 (2026-11-01): REAL wears .lg-paper - the same density class the two PAPER frames set. REAL had C1's section ORDER
   // since 10-31 but none of its tightening, because every one of those rules is scoped to .lg-paper, a class REAL's frame never set.
-  // owner 11-17 (2nd pass): ACCOUNTS is a locked sidebar on the right; the CALENDAR sits beside the chart inside the main column (.hm-top-2col)
-  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper hm-top-2col',top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
+  // owner 11-17 (3rd pass): a narrow locked sidebar on the LEFT holds the headline (hero, synced line, the four tiles) and ACCOUNTS; the main
+  // column starts with the chart and the calendar side by side. On a phone the CSS order puts every section back in _HM_PAGE_ORDER.
+  const SIDE=['hero','status','stats'];
+  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper hm-top-2col hm-lside',top:pick(_HM_PAGE_ORDER.slice(0,ai).filter(k=>SIDE.indexOf(k)<0)),
+    side:pick(SIDE)+S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
 // The five actions that used to live only on the Trades tab, now built for HOME's own
