@@ -2189,7 +2189,7 @@ def run(alt_index=None, timeout=300):
         if rng == 'YTD':
             return '%d-01-01' % today_ny.year
         n = {'1W': 7, '1M': 30, '3M': 90}.get(rng)
-        return (today_ny - _dt.timedelta(days=n)).isoformat() if n else ''
+        return (today_ny - _dt.timedelta(days=n - 1)).isoformat() if n else ''  # 1W = 7 days counting today (W131 8, 11-16)
 
     def _exp_range(rng):
         c = _cut(rng)

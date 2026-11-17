@@ -5410,7 +5410,7 @@ def _cutoff(range_key, today=STAT_TODAY):
         return None
     y, m, d = map(int, today.split('-'))
     import datetime
-    return (datetime.date(y, m, d) - datetime.timedelta(days=days)).isoformat()
+    return (datetime.date(y, m, d) - datetime.timedelta(days=days - 1)).isoformat()  # 1W = 7 days counting today (W131 8, 11-16)
 
 
 SHADOW_PNL = 5000.0
