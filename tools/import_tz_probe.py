@@ -346,6 +346,34 @@ def fill_utc(rows):
     return fu
 
 
+
+# ---- w131 3-9 (owner go 11-16): cash file, exit day, typed symbol, ranges - evaluated straight on the page ----
+_NL = chr(13) + chr(10)
+W131_CASH = ('Account,Transaction ID,Timestamp,Date,Delta,Amount,Cash Change Type,Currency,Contract' + _NL
+             + '1810769,1,04/07/2026 08:00:00,04/07/2026,5000.00,5000.00,Fund Transaction,USD,' + _NL
+             + '1810769,2,04/07/2026 16:00:00,04/07/2026,-1.90,4998.10,Commission,USD,MESM6' + _NL)
+W131_OVERNIGHT = [('MES', 'LONG', '2026-04-07 19:30:00.000', '2026-04-08 14:00:00.000', 6604.75, 6610.00, '9900031', '9900032')]
+
+
+def w131_case():
+    import json
+    js = ('(function(){var out={};accountEquity=25000;'
+          'trades=[{id:"nt",date:"2026-04-07",symbol:"MES",type:"LONG",entry:1,exit:2,size:1,assetType:"futures",account:"1810769"},'
+          '{id:"wb",date:"2026-04-07",symbol:"QQQ",type:"LONG",entry:1,exit:2,size:1,assetType:"stock"},'
+          '{id:"other",date:"2026-04-07",symbol:"MES",type:"LONG",entry:1,exit:2,size:1,assetType:"futures",account:"999"}];'
+          'var r=importCSV(' + json.dumps(W131_CASH) + ',"cash.csv",{tz:"America/New_York"});'
+          'out.equityKept=accountEquity;out.ledgerEvents=(r.ledgerEvents||[]).length;'
+          'out.feeIds=(r.feeUpdates||[]).map(function(f){return f.id;}).sort();'
+          'trades=[];var ph=importCSV(' + json.dumps(position_history(W131_OVERNIGHT, et)) + ',"ph.csv",{tz:"America/New_York"});'
+          'out.exitDate=((ph.batch||[])[0]||{}).exitDate||null;'
+          'out.root=futRoot("MESZ6");out.stock=futRoot("AAPL");'
+          'var t=ledgerTodayNY();out.w=ledgerCutoff("1W")===ledgerShiftDay(t,-6);out.m=ledgerCutoff("1M")===ledgerShiftDay(t,-29);'
+          'trades=[];return out;})()')
+    return {'name': 'w131-batch2', 'kind': 'expr', 'expect': 'expr', 'js': js,
+            'want': {'equityKept': 25000, 'ledgerEvents': 1, 'feeIds': ['nt'], 'exitDate': '2026-04-08',
+                     'root': 'MES', 'stock': 'AAPL', 'w': True, 'm': True}}
+
+
 def build_cases():
     all_rows = TRADES + SMALL
     small_t = truth(SMALL)
@@ -391,6 +419,7 @@ def build_cases():
          'expect': 'dedupe', 'new_entry': 6605.00},
         {'name': 'fee-times-size', 'kind': 'csv', 'text': ph_qty(TRADES[:2], et, 3), 'opts': {'tz': 'America/New_York'},
          'expect': 'feesize', 'q': 3, 'n': 2},
+        w131_case(),
         {'name': 'root-table', 'kind': 'roots', 'inputs': list(ROOTS), 'expect': 'roots'},
         # --- PDF statement vs the journal: match one-to-one, never rewrite (3.80 over 2 contracts) ---
         {'name': 'pdf-scaleout-legs', 'kind': 'pdf', 'opts': {'tz': 'auto'}, 'expect': 'recon',
@@ -634,6 +663,7 @@ var CASES=__CASES__;
       var c=CASES[i],r={};
       try{
         w.eval('trades='+JSON.stringify(c.trades||[])+';');
+        if(c.kind==='expr'){r.val=w.eval(c.js);out.cases[c.name]=r;continue;}
         if(c.kind==='roots'){r.roots=c.inputs.map(function(s){try{return w.futRoot(s);}catch(e){return 'ERR '+e;}});out.cases[c.name]=r;continue;}
         var res;
         if(c.kind==='pdf'){fakePdf(w,c.lines);
@@ -821,6 +851,12 @@ def judge(cases, data):
                 if round(float(x.get('fees') or 0), 2) != round(unit * c['q'], 2):
                     fails.append('%s: %s %s saved fee %s, expected %.2f (fee per contract x %d)' % (
                         nm, x['date'], x['sym'], x.get('fees'), unit * c['q'], c['q']))
+            continue
+        if exp == 'expr':
+            val = r.get('val') or {}
+            for k, v in c['want'].items():
+                if val.get(k) != v:
+                    fails.append('%s: %s = %r, expected %r' % (nm, k, val.get(k), v))
             continue
         if exp == 'fills':
             if r.get('fills') != c['n']:
