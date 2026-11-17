@@ -3360,6 +3360,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     // the page's stand-in for its retired list (QE_LEGS_RETIRED, ['ENGUQ']): set only by a case that retires no leg ([])
     w.__qbRetiredLegs=cfg.retired?w.JSON.parse(JSON.stringify(cfg.retired)):null;
     w.__probeScrub=!!cfg.scrub;
+    w.__probeDaily=!!cfg.daily;   // DAILY | CURVE switch: every case judges the CURVE ('0') unless it asks for the default DAILY ('1')
     w.__probeNextOpen=cfg.nextOpen||null;
     return w.eval("(function(){try{"
       +"if(!window.__probeLTN)window.__probeLTN=ledgerTodayNY;"
@@ -3394,6 +3395,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       +"try{['orders','account','todayorders','feedsig','system','rails','events','model','list'].forEach(function(k){localStorage.removeItem('el_qb_fold_'+k);});}catch(e){}window._qbFolds=null;"
       // LEDGER step 12: the list's Filters row starts with nothing stored (so it is drawn closed unless the build opens it)
       +"try{localStorage.removeItem('el_lg_filters_qb');}catch(e){}"
+      +"try{localStorage.setItem('el_lg_daily_qb',window.__probeDaily?'1':'0');}catch(e){}"
       +"try{var fo=window.__probeFoldOpen;if(fo==='all')fo=['orders','account','todayorders','feedsig','system','rails','events','model','list'];if(fo)fo.forEach(function(k){localStorage.setItem('el_qb_fold_'+k,'1');});}catch(e){}"
       +"window._qqqExecLive=false;window._qqqExecLiveErrorAt=window.__probeLiveErr?Date.now():null;window._qqqExecFetchedAt=window.__probeLiveErr?0:Date.now();"
       +"window._qbChartHoverActive=false;"
@@ -3445,6 +3447,12 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     r.chartH=0;
     if(csv){var cr=csv.getBoundingClientRect(),vb=(csv.getAttribute('viewBox')||'').split(/[ ,]+/).map(Number);
       r.chartH=Math.round(vb.length===4&&vb[2]>0&&vb[3]>0?vb[3]*Math.min(cr.width/vb[2],cr.height/vb[3]):cr.height);}
+    r.daily=(function(){var sv=d.querySelector('#qb-lg-chart [data-lgdaily="qb"]');if(!sv)return {svg:false};var pts=(w._qbLgChart&&w._qbLgChart.pts)||[],ds={};
+      pts.forEach(function(p){if(p&&p.date)ds[String(p.date).slice(0,10)]=1;});
+      var sw=d.querySelector('[data-lgdaymode="qb"]'),on=sw?sw.querySelector('.active,[aria-pressed="true"]'):null;
+      return {svg:true,bars:sv.querySelectorAll('[data-lgdaily-bar]').length,line:sv.querySelectorAll('[data-lgdaily-line]').length,
+        y:sv.querySelectorAll('[data-lgdaily-y]').length,yr:sv.querySelectorAll('[data-lgdaily-yr]').length,x:sv.querySelectorAll('[data-lgdaily-x]').length,
+        days:Object.keys(ds).length,sw:!!sw,swOn:on?(on.getAttribute('data-v')||(on.textContent||'').trim()):null,curve:!!d.querySelector('#qb-lg-chart [data-lgdate]')};})();
     r.chartDates=csv?csv.querySelectorAll('[data-lgdate]').length:0;
     r.chartTicks=csv?csv.querySelectorAll('[data-lgtick]').length:0;
     r.chartBands=csv?csv.querySelectorAll('[data-lgband]').length:0;
@@ -3908,6 +3916,8 @@ __S11JS__
           out.stats[S.name]=out.cases['__st'+k];delete out.cases['__st'+k];
         }
         try{W().eval("ledgerTodayNY=window.__probeLTN||ledgerTodayNY;");}catch(e){}
+        // DAILY | CURVE (owner 11-17): ONE render at the default (DAILY on), every other case judges the CURVE
+        try{await runCase('__daily',{vp:'laptop',theme:'dark',daily:true});out.daily=out.cases.__daily;delete out.cases.__daily;}catch(e){out.daily={threw:String(e&&e.stack?e.stack:e)};}
         out.vars={};
         for(var j=0;j<VARS.length;j++){
           var V=VARS[j];
@@ -4766,8 +4776,10 @@ def _s11_order_problems(tag, s11, iw, doc, fails):
                 fails.append('%s: the calendar (left %s) is not to the right of the chart (right %s)' % (tag, ac['l'], ch['r']))
             if ft and (ch['l'] < ft['l'] - 1 or ac['r'] > ft['r'] + 1):
                 fails.append('%s: the chart and the calendar are not inside the main column top block (chart %s, calendar %s, top block %s)' % (tag, ch, ac, ft))
-            if pl and pl.get('shown') and pl['t'] < ch['t'] + 1:
-                fails.append('%s: the range pills (top %s) must come below the top of the chart (top %s)' % (tag, pl['t'], ch['t']))
+            # from 1100 px the chart row (pills, switch, legend slot, foot) sits ABOVE the chart box (css order -1): the pills start at the section top
+            cbx = pos.get('chart')
+            if pl and pl.get('shown') and cbx and cbx.get('shown') and pl['b'] > cbx['t'] + 1:
+                fails.append('%s: the range pills (bottom %s) must sit above the chart box (top %s)' % (tag, pl['b'], cbx['t']))
             if tr0 and tr0.get('shown') and tr0['t'] < max(ch['b'], ac['b']) - 1:
                 fails.append('%s: the trade list (top %s) does not start under the chart (bottom %s) and the calendar (bottom %s)' % (tag, tr0['t'], ch['b'], ac['b']))
     st = s11.get('strip') or {}
@@ -4957,6 +4969,7 @@ FRAME_WIDE = 1690           # the window the step 11 run also draws the board in
 # y=1000 from the top of the board. REAL (tools/home_render_probe.py) and NT8 PAPER (tools/paper_render_probe.py) assert the same number.
 CAL_FOLD_MAX = 1000
 FRAME_TWO_COL = 1100        # from this width the list is the right-hand panel
+CHART_ROW_GAP_MAX = 24     # from 1100 px the chart box starts at most this far under the chart row
 STATUS_GAP_MAX = 24         # the status line starts at most this far under the hero box
 STATUS_LINES_MAX = 2
 
@@ -5062,7 +5075,13 @@ def _frame_problems(tag, fr, iw, fails, wide=False, retired=True):
                      % (tag, fo.get('n'), fo.get('inChart')))
     else:
         under = ch if ch else fo.get('prev')
-        if (ch and not fo.get('prevIsChart')) or fb.get('t') is None or not under or fb['t'] < under['b'] - 1:
+        if lside:
+            # from 1100 px the chart row (pills + switch + legend slot + foot) is ABOVE the chart box, which starts right under it
+            # (an empty range draws no chart svg: the box under the row is then the empty-range line, fo['prev'])
+            if (ch and not fo.get('prevIsChart')) or fb.get('t') is None or not under or fb.get('b') is None or fb['b'] > under['t'] + 1 or under['t'] - fb['b'] > CHART_ROW_GAP_MAX:
+                fails.append('%s: the chart foot (bottom %s) must sit above the chart box and the box start right under it (chart top %s, within %d px)'
+                             % (tag, fb.get('b'), (under or {}).get('t'), CHART_ROW_GAP_MAX))
+        elif (ch and not fo.get('prevIsChart')) or fb.get('t') is None or not under or fb['t'] < under['b'] - 1:
             fails.append('%s: the chart foot (top %s) does not come right after the chart box (bottom %s, right after it %s)'
                          % (tag, fb.get('t'), (under or {}).get('b'), fo.get('prevIsChart')))
         if stb and ch and not lside and stb['t'] > ch['t'] and fb.get('b') is not None and fb['b'] > stb['t'] + 1:     # (the tiles sit ABOVE the chart since 10-31; the test only bites when they are under it)
@@ -6927,7 +6946,7 @@ def tl_has_nt(trades):
 
 def tl_heads(has_nt):
     """The table's header row: the common columns (this board's labels), then its own."""
-    return (['ENTRY (ET)', 'STRATEGY', 'SIDE', 'SHARES', 'P&L', 'DAY', 'PTS', 'EXIT / FLAGS', 'CHART', 'EXIT (ET)', 'ENTRY $', 'EXIT $', 'RUNNING']
+    return (['ENTRY (ET)', 'EXIT / FLAGS', 'STRATEGY', 'SIDE', 'SHARES', 'PTS', 'P&L', 'DAY', 'CHART', 'EXIT (ET)', 'ENTRY $', 'EXIT $', 'RUNNING']
             + (['NT POINTS', 'EXPECTED $', 'TRACK ERR'] if has_nt else []) + ['REAL P&L', 'SLIP/SH'])
 
 
@@ -8361,6 +8380,27 @@ def _judge(data, fixture):
     closed = round(sum(qe_pnl_of(t) for t in fixture.get('trades_all') or []), 2)
     n_rows = min(len(fixture.get('trades_all') or []), 50)
     cases = data.get('cases') or {}
+    # DAILY | CURVE: the one render at the default (DAILY on): the bar chart, one bar a close day drawn, the running-total line, both axes, the dates
+    dd = data.get('daily') or {}
+    if dd.get('threw') or not dd:
+        fails.append('DAILY default: the render threw or never ran -- %s' % _first(dd.get('threw') or 'no readout'))
+    else:
+        dr = dd.get('daily') or {}
+        want_days = len(set(d for d in (_close_day(t) for t in fixture.get('trades_all') or [] if not _is_shadow(t)) if d))
+        if not dr.get('sw'):
+            fails.append('DAILY default: the DAILY | CURVE switch [data-lgdaymode="qb"] is not on the page')
+        if not dr.get('svg'):
+            fails.append('DAILY default: with nothing stored the chart is not the daily chart ([data-lgdaily="qb"] svg missing; curve drawn %s)' % dr.get('curve'))
+        else:
+            if not dr.get('bars') or dr.get('bars') != dr.get('days') or dr.get('days') != want_days:
+                fails.append('DAILY default: %s bars, the chart holds %s close days, the fixture has %s close days (all three must agree)'
+                             % (dr.get('bars'), dr.get('days'), want_days))
+            if dr.get('line') != 1:
+                fails.append('DAILY default: want one running-total line [data-lgdaily-line], found %s' % dr.get('line'))
+            if (dr.get('y') or 0) < 1 or (dr.get('yr') or 0) < 1 or (dr.get('x') or 0) < 2:
+                fails.append('DAILY default: labels left %s, right %s, dates %s (want 1+, 1+, 2+)' % (dr.get('y'), dr.get('yr'), dr.get('x')))
+            if dr.get('curve'):
+                fails.append('DAILY default: the curve chart is drawn as well as the daily chart')
     for nm, cfg in CASES:
         r = cases.get(nm)
         if r is None:

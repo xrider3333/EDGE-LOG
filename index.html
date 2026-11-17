@@ -1390,6 +1390,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-lside .lg-frame-side .qbx-sh-seed{display:block;width:fit-content;max-width:100%;box-sizing:border-box;margin-top:2px}
   .lg-lside .lg-frame-side .lg-status-row{flex-wrap:wrap}.lg-lside .lg-frame-side .lg-status-line{flex:1 1 100%;min-width:0;white-space:normal}
 }
+.lg-uni .qb-chart-wrap,.lg-uni [data-p2sec="chart"]{display:flex;flex-direction:column}
+.lg-uni .qb-chart-wrap>.lg-chart-row,.lg-uni [data-p2sec="chart"]>.lg-chart-row{order:-1;margin:0 0 6px}
 .lg-uni{--uc-h:26px;--uc-r:7px;--uc-fs:9.5px;--uc-card:color-mix(in srgb,var(--bg1) 45%,transparent)}
 .lg-uni .lg-pills,.lg-uni .hm-mode,.lg-uni .lg-seg{display:inline-flex;gap:0;flex-wrap:nowrap;border:1px solid var(--border);border-radius:var(--uc-r);overflow:hidden;flex:none;height:var(--uc-h);box-sizing:border-box}
 .lg-uni .lg-pills button,.lg-uni .hm-mode button,.lg-uni .lg-seg button{height:100%;padding:0 11px;border:none;border-bottom:none;border-radius:0;background:transparent;
@@ -1713,7 +1715,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.40';
+const VERSION='90.41';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1734,6 +1736,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.41',date:'2026-11-17',notes:['NT8 PAPER and WEBULL PAPER: DAILY view first and default - one bar per day (DAY axis, left) plus the running total (TOTAL axis, right), green / red fill, hover readout; CURVE switches back','Both paper boards: range and view switches sit above the chart; WEBULL PAPER trade columns grouped (entry, exit, strategy, side, shares, pts, P&L)']},
 {v:'90.40',date:'2026-11-17',notes:['NT8 PAPER and WEBULL PAPER wear the REAL layout from 1100 px: shaded left sidebar with the headline, status, tiles, strategies and folds; chart and calendar side by side on top; trades under them; same control style','NT8 PAPER trade table columns grouped: time, what, prices, money, engine checks']},
 {v:'90.39',date:'2026-11-17',notes:['LEDGER REAL: one control style - range, view, filter chips, LIST / TABLE, SIMPLE / FULL, CHARTS, NEW TRADE, MORE and search share height, corners, border and type','LEDGER REAL: taller P&L chart, same height as the calendar beside it; both sit on the same quiet card; smaller type on controls and calendar']},
 {v:'90.38',date:'2026-11-17',notes:['LEDGER REAL: More stats, should have traded, deposits, AI and journal folds moved into the left sidebar, which now has its own shaded panel','LEDGER REAL: DAILY chart has two dollar axes - DAY on the left for the bars, TOTAL on the right for the running line; the calendar is always open with no fold row on a laptop','Trade tables: BROKER shows NT / WB, full name on hover']},
@@ -5328,6 +5331,74 @@ function ledgerTradePanelClose(id,why){
   const op=P.opener;
   if(why!=='replace'&&op&&op!==document.body&&op.isConnected){try{op.focus({preventScroll:true});}catch(e){}}
   return true;
+}
+// owner 11-17: the DAILY view on the PAPER boards - one bar per close day (left axis, DAY) and the running total (right axis, TOTAL),
+// built from the board's own daily curve points {v,date}; green / red fill split at $0 and a hover readout, the same drawing REAL uses
+function _lgDailyOn(id){try{const v=localStorage.getItem('el_lg_daily_'+id);return v==null?true:v==='1';}catch(e){return true;}}
+function ledgerDailyModeHtml(id){const on=_lgDailyOn(id);
+  return '<div class="hm-mode lg-daymode" data-lgdaymodebox="'+id+'"><button type="button" data-lgdaymode="'+id+'" data-v="1" class="'+(on?'active':'')+'" title="one bar per day plus the running total">DAILY</button>'
+    +'<button type="button" data-lgdaymode="'+id+'" data-v="0" class="'+(on?'':'active')+'" title="the curve">CURVE</button></div>';}
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-lgdaymode]');if(!b)return;
+  try{localStorage.setItem('el_lg_daily_'+b.getAttribute('data-lgdaymode'),b.getAttribute('data-v'));}catch(x){}
+  if(typeof renderApp==='function')renderApp();});
+function ledgerDailyChart(wrapEl,pts,o){
+  o=o||{};if(!wrapEl)return;
+  const last={},ord=[];(pts||[]).forEach(p=>{const d=p&&p.date?String(p.date).slice(0,10):null;if(!d)return;if(!(d in last))ord.push(d);last[d]=+p.v||0;});
+  const days=ord.sort();
+  if(!days.length){wrapEl.innerHTML='<div class="hm-empty-state">No closed trades in this range</div>';return;}
+  const base=(pts&&pts.length)?(+pts[0].v||0):0,by={};let prev=base;
+  days.forEach(d=>{by[d]=+(last[d]-prev).toFixed(2);prev=last[d];});
+  let c=0;const cum=days.map(d=>(c=+(c+by[d]).toFixed(2)));
+  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=W<600?220:o.height||300,pt=14,pb=24,pl=58,pr=58;
+  const bv=days.map(d=>by[d]),bmx=Math.max(0,...bv),bmn=Math.min(0,...bv),cmx=Math.max(0,...cum),cmn=Math.min(0,...cum);
+  const fr=(a,b)=>(a-b)>0?a/(a-b):0.5;
+  let az=Math.min(0.92,Math.max(0.08,(fr(bmx,bmn)+fr(cmx,cmn))/2));
+  if(bmn===0&&cmn===0)az=1;else if(bmx===0&&cmx===0)az=0;
+  const top=(mx_,mn_)=>{const k=Math.max(az>0?mx_/az:0,az<1?-mn_/(1-az):0)||1;return [az*k,-(1-az)*k];};
+  const [bT,bB]=top(bmx,bmn),[cT,cB]=top(cmx,cmn);
+  const mk=(T,B)=>v=>pt+(T-v)/((T-B)||1)*(H-pt-pb);
+  const y=mk(bT,bB),yc=mk(cT,cB),slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7));
+  const G='#1d9e75',R='#e24b4a',y0=y(0),cx=i=>pl+slot*i+slot/2;
+  const money=v=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:Math.abs(v)<100?2:0});
+  const dl=d=>{try{return _hmFmtDateLong(d);}catch(e){return d;}};
+  let bars='',line='';
+  days.forEach((d,i)=>{const v=by[d],x=pl+slot*i+(slot-bw)/2,yy=Math.min(y(v),y0),h=Math.max(1,Math.abs(y(v)-y0));
+    bars+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+(v>=0?G:R)+'" opacity="0.85" data-lgdaily-bar="1"><title>'+dl(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></rect>';
+    line+=(i?'L':'M')+cx(i).toFixed(1)+' '+yc(cum[i]).toFixed(1);});
+  const area=line+'L'+cx(days.length-1).toFixed(1)+' '+y0.toFixed(1)+'L'+cx(0).toFixed(1)+' '+y0.toFixed(1)+'Z';
+  const gid='lg-daily-fill-'+(o.id||'x');
+  const off=Math.min(1,Math.max(0,(y0-pt)/((H-pb)-pt))).toFixed(4);
+  const grad='<defs><linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse" x1="0" y1="'+pt+'" x2="0" y2="'+(H-pb)+'">'
+    +'<stop offset="0" stop-color="'+G+'" stop-opacity="0.35"/><stop offset="'+off+'" stop-color="'+G+'" stop-opacity="0.04"/>'
+    +'<stop offset="'+off+'" stop-color="'+R+'" stop-opacity="0.04"/><stop offset="1" stop-color="'+R+'" stop-opacity="0.35"/></linearGradient></defs>';
+  const tk=(T,B)=>[T,T/2,0,B/2,B].filter(v=>Math.abs(v)>0.004||v===0).filter((v,k,a)=>a.findIndex(u=>Math.abs(u-v)<1e-9)===k);
+  const lt=tk(bT,bB).filter((v,k,a)=>a.findIndex(u=>Math.abs(y(u)-y(v))<14)===k);
+  const rt=tk(cT,cB).filter((v,k,a)=>a.findIndex(u=>Math.abs(yc(u)-yc(v))<14)===k);
+  const yAx=lt.map(v=>'<text x="'+(pl-8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text5)" data-lgdaily-y="1">'+money(v)+'</text>'
+      +(v!==0?'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 4" opacity="0.6"/>':'')).join('')
+    +rt.map(v=>'<text x="'+(W-pr+8)+'" y="'+(yc(v)+3.5).toFixed(1)+'" text-anchor="start" font-size="10" fill="var(--text3)" data-lgdaily-yr="1">'+money(v)+'</text>').join('')
+    +'<text x="'+(pl-8)+'" y="9" text-anchor="end" font-size="8.5" letter-spacing="1" fill="var(--text5)">DAY</text>'
+    +'<text x="'+(W-pr+8)+'" y="9" text-anchor="start" font-size="8.5" letter-spacing="1" fill="var(--text3)">TOTAL</text>';
+  const di=[...new Set([0,Math.floor((days.length-1)/2),days.length-1])];
+  const xAx=di.map(i=>'<text x="'+cx(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+(i===0&&days.length>1?'start':(i===days.length-1&&days.length>1?'end':'middle'))+'" font-size="10" fill="var(--text5)" data-lgdaily-x="1">'+days[i].slice(5).replace('-','/')+'</text>').join('');
+  wrapEl.style.position='relative';
+  wrapEl.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="daily P&L bars and running total" data-lgdaily="'+(o.id||'')+'" style="width:100%;height:auto;display:block">'
+    +grad+yAx
+    +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--text5)" stroke-width="1.2" opacity="0.7"/>'
+    +'<path d="'+area+'" fill="url(#'+gid+')" stroke="none"/>'
+    +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6" data-lgdaily-line="1"/>'+xAx
+    +'<line data-lgdaily-cross="1" x1="0" x2="0" y1="'+pt+'" y2="'+(H-pb)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"/></svg>'
+    +'<div class="hm-daily-tip" hidden></div>';
+  const svg=wrapEl.querySelector('svg'),cross=svg.querySelector('[data-lgdaily-cross]'),tip=wrapEl.querySelector('.hm-daily-tip');
+  const show=ev=>{const r=svg.getBoundingClientRect();if(!r.width)return;const sx=(ev.clientX-r.left)*W/r.width;
+    const i=Math.max(0,Math.min(days.length-1,Math.floor((sx-pl)/slot)));const X=cx(i);
+    cross.setAttribute('x1',X.toFixed(1));cross.setAttribute('x2',X.toFixed(1));cross.setAttribute('visibility','visible');
+    tip.innerHTML='<b>'+dl(days[i])+'</b><span class="'+ledgerCls(by[days[i]])+'">day '+ledgerSigned(by[days[i]])+'</span><span class="'+ledgerCls(cum[i])+'">total '+ledgerSigned(cum[i])+'</span>';
+    tip.hidden=false;const px=X*r.width/W;tip.style.left=Math.max(0,Math.min(r.width-tip.offsetWidth,px-tip.offsetWidth/2))+'px';
+    if(o.onHover)try{o.onHover(cum[i],days[i]);}catch(e){}};
+  const hide=()=>{cross.setAttribute('visibility','hidden');tip.hidden=true;if(o.onLeave)try{o.onLeave();}catch(e){}};
+  svg.addEventListener('mousemove',show);svg.addEventListener('mouseleave',hide);
+  svg.addEventListener('touchmove',e=>{if(e.touches[0])show(e.touches[0]);},{passive:true});svg.addEventListener('touchend',hide);
 }
 function ledgerChartRender(wrap,o){
   if(!wrap)return;
@@ -46928,7 +46999,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // owner 10-31 ('clean this up'): the range pills sit UNDER the chart on one line with the legend (.lg-chart-row); the caption is one
           // short line, and the full words (solid / dotted / hatched / book only) sit behind a ? on hover
           // owner 10-31 18:00: ONE row under the chart - the pills, the legend, and at its right end the short caption with the ? (no chart foot, no key line)
-          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
+          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerDailyModeHtml('qb')+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
             +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="qb"><span class="lg-chart-cap">'+(capHtml||'')+'</span></div></div>';
           const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord):('Cumulative P&amp;L since '+naS(QE.live_from));
           const qbRangeCapFull=((qbRange&&qbRange!=='ALL')?('Cumulative P&L, '+qbRangeWord+', counted from the start of the range'):('Cumulative P&L since '+naS(QE.live_from)))
@@ -47139,7 +47210,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           countExtra:((qbRange&&qbRange!=='ALL')?'<span class="qbx-tl-rg">'+qbRangeWord+'</span>':'')
             +(qbTlClear?'<span class="qbx-tl-clear" data-qbclear role="button" tabindex="0" title="clear the search and the chip">&#10005; clear</span>':'')
             +'<button type="button" class="qb-hero-refresh qbx-csv" data-qeexportcsv title="Export the '+matchedN+' trade'+(matchedN===1?'':'s')+' in this list as a CSV file">&#11015; CSV</button>',
-          labels:{time:'ENTRY (ET)',sym:'STRATEGY',size:'SHARES',pnl:'P&amp;L',pts:'PTS',strat:'EXIT / FLAGS'}});
+          labels:{time:'ENTRY (ET)',sym:'STRATEGY',size:'SHARES',pnl:'P&amp;L',pts:'PTS',strat:'EXIT / FLAGS'},
+          order:['time','strat','sym','side','size','pts','pnl','chart']});
         // owner 10-31 15:30: the open positions sit at the TOP of the trade list as a small OPEN group (one row a leg or DIP lot: entry time,
         // strategy and run, side, shares, the unrealized mark), then the closed trades newest first as before. Read from the same positions
         // the headline and the strategy rows use (the live leg's mark when it has one, else the book's own); counted nowhere, no panel.
@@ -49182,7 +49254,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _rhFoot='<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="p2"><span class="lg-chart-cap"><span class="p2rhkey">Cumulative P&amp;L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw)+'</span>'
         +'<span class="lg-help" data-p2caphelp title="solid line = all book legs \u00b7 dotted = each strategy \u00b7 hatched = a day with a data caveat (a roll-splice trade or a look-ahead ORB trade; hover the column to see which) \u00b7 hover the chart to scrub">?</span></span></div>';
       const _rhChart=(()=>{
-        if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+'<div class="lg-legend-slot" id="p2-lg-legend"></div>'+_rhFoot+'</div></div>';
+        if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+ledgerDailyModeHtml('p2')+'<div class="lg-legend-slot" id="p2-lg-legend"></div>'+_rhFoot+'</div></div>';
         return '<div data-p2sec="chart"><div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div><div class="lg-chart-row">'+_rhTabs+_rhFoot+'</div></div>';
       })();
       // the plotted days and the bold line's totals (plain numbers, no DOM): the render probe reads them
@@ -53766,7 +53838,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-qbrange]').forEach(el=>{el.onclick=()=>{
         homeRange=el.getAttribute('data-qbrange');renderApp();};});
       // LEDGER shared equity chart (unify step 5): drawn into its box now that the page is in place
-      if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw)ledgerChartRender(lgw,window._qbLgChart);}
+      if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw){if(_lgDailyOn('qb'))ledgerDailyChart(lgw,window._qbLgChart.pts,{id:'qb'});else ledgerChartRender(lgw,window._qbLgChart);}}
       // LEDGER shared strategy list (unify step 10): a tap on a leg opens its detail under the row (since start, unrealized, the
       // box's day, position, notional); the Retired and Shadow folds open and close, each remembered per viewer (closed until opened)
       content.querySelectorAll('[data-lglist="qb"] [data-lgrow]').forEach(el=>{el.onclick=()=>{
@@ -54044,6 +54116,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
          // the figure plus those words - not textContent, which left the figure standing with nothing to say what it was.
          const numQ=num?((num.querySelector('.qbx-hero-qual')||{}).outerHTML||''):'';
          const num0=num?num.innerHTML:'',rng0=rng?rng.innerHTML:'';
+         if(_lgDailyOn('p2'))ledgerDailyChart(wrapEl,C.pts,{id:'p2'});else
          ledgerChartRender(wrapEl,{id:'p2',legendInto:'#p2-lg-legend',pts:C.pts,up:C.up,aria:C.aria,lines:C.lines,bands:C.bands,totalColor:C.totalColor,lineDash:C.lineDash,lineOpacity:C.lineOpacity,
            onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_nt8')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_nt8',JSON.stringify(off));}catch(e){}},
            onScrub:(i,p)=>{

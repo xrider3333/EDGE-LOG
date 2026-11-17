@@ -309,6 +309,8 @@ CASES = [
     # remembered per browser, a 375 px phone, and the ?oldboards=1 flag (it must draw the same board as the plain page)
     ('retired-open',    {'sub': 'paper2', 'prefs': {'paperOtherOn': ['ENGUQ']}, 'win': {'_paperShowArchived': True}}),
     ('stats-open',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_stats_nt8': '1'}}),
+    # the DAILY | CURVE switch: every other case is seeded CURVE (el_lg_daily_p2 = 0, see the seeding line in the page script); this one runs the DEFAULT, DAILY
+    ('daily-on',        {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fl', 'ls': {'el_lg_daily_p2': '1'}}),
     ('cal-closed',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_cal_nt8b': '0'}}),
     ('cal-aug',         {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_calmo_nt8': '2026-08'}}),
     ('phone375',        {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fp'}),
@@ -1085,7 +1087,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     var hc=d.querySelector('.p2rh .lg-hero-chips');o.heroChips=hc?{kids:hc.children.length,txt:tx(hc)}:null;
     var CF=d.querySelectorAll('[data-lgchartfoot="p2"]'),cw=d.getElementById('p2-chart');o.chartFootN=CF.length;o.chartDrawn=!!cw;
     if(CF.length){var c0=CF[0],ky=c0.querySelector('.p2rhkey'),kb=ky?ky.getBoundingClientRect():null;
-      o.chartFoot={inChart:!!c0.closest('[data-p2sec="chart"]'),top:bx(c0).top,chartBottom:cw?bx(cw).bottom:null,key:!!ky,keyVis:!!(kb&&kb.width>0&&kb.height>0),keyTxt:tx(ky),help:(function(){var h=c0.querySelector('[data-p2caphelp]');return h?(h.getAttribute('title')||''):'';})()};}
+      o.chartFoot={inChart:!!c0.closest('[data-p2sec="chart"]'),top:bx(c0).top,chartBottom:cw?bx(cw).bottom:null,chartTop:cw?bx(cw).top:null,key:!!ky,keyVis:!!(kb&&kb.width>0&&kb.height>0),keyTxt:tx(ky),help:(function(){var h=c0.querySelector('[data-p2caphelp]');return h?(h.getAttribute('title')||''):'';})()};}
     o.keyOnPills=d.querySelectorAll('[data-p2sec="pills"] .p2rhkey').length;
     var FLT=d.querySelectorAll('[data-lgfilters="p2"]');o.filtN=FLT.length;
     if(FLT.length){var f0=FLT[0],fb=f0.querySelector('[data-lgfilt="p2"]'),fy=f0.querySelector('.lg-filters-body'),ll=f0.closest('[data-lglist="p2"]'),lh=ll?ll.querySelector('.lg-list-hd'):null;
@@ -1218,7 +1220,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     var seed=async function(){
       for(var t=0;t<4;t++){
         var w=fr.contentWindow;try{w.renderAuth=function(){};}catch(e){}
-        var ok=w.eval("(function(){try{localStorage.setItem('augurPrefs','{}');var F="+JSON.stringify(FIX)+";"
+        var ok=w.eval("(function(){try{localStorage.setItem('augurPrefs','{}');localStorage.setItem('el_lg_daily_p2','0');var F="+JSON.stringify(FIX)+";"
           +"window._paperTrades=F.trades;window._paperReports=F.reports;window._ntBtMatch=F.ntBt;window._ntBridge=F.ntBridge;window._paperLoaded=true;window._paperLoading=false;"
           +"window._paperTradeInfo=F.tradeInfo;window._p2Open={};window._paperOtherOn=null;window._paperLegOff=null;window._paperCurveWin=null;"
           +"activeTab='augur';augurSub='paper2';renderApp();return !!document.querySelector('.p2rh');}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
@@ -1323,7 +1325,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           +"localStorage.removeItem('el_lg_stats_nt8');localStorage.removeItem('el_lg_cal_nt8b');localStorage.removeItem('el_lg_calmo_nt8');"
           // LEDGER step 12: the Filters row of the strategy list starts closed (no stored choice) in every case
           +"localStorage.removeItem('el_lg_filters_p2');"
-          +"var LS="+JSON.stringify(cfg.ls||{})+";for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
+          +"var LS=Object.assign({'el_lg_daily_p2':'0'},"+JSON.stringify(cfg.ls||{})+");for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
           +"var W="+JSON.stringify(win)+";for(var k in W)window[k]=W[k];"
           +(cfg.theme?("prefs.theme="+JSON.stringify(cfg.theme)+";applyTheme();"):"")
           +"activeTab='augur';augurSub="+JSON.stringify(cfg.sub)+";renderApp();return 'OK';"
@@ -1468,6 +1470,13 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         r.chart=_cs?{h:+_cs.getAttribute('height'),dates:_cs.querySelectorAll('[data-lgdate]').length,ticks:_cs.querySelectorAll('[data-lgtick]').length,
           legend:d.querySelectorAll('.p2rh .lg-legend [data-lgline]').length,n:_pc?_pc.pts.length:0,last:(_pc&&_pc.pts.length)?_pc.pts[_pc.pts.length-1].v:null,
           faint:_cs.querySelectorAll('path[stroke-dasharray]').length}:null;
+        var _dz=d.querySelector('#p2-chart [data-lgdaily="p2"]'),_dm=d.querySelectorAll('[data-lgdaymode="p2"]');
+        r.daily=_dz?{h:Math.round(_dz.getBoundingClientRect().height),attrH:+_dz.getAttribute('height'),bars:_dz.querySelectorAll('[data-lgdaily-bar]').length,line:_dz.querySelectorAll('[data-lgdaily-line]').length,
+          yl:_dz.querySelectorAll('[data-lgdaily-y]').length,yr:_dz.querySelectorAll('[data-lgdaily-yr]').length,xl:_dz.querySelectorAll('[data-lgdaily-x]').length,
+          sw:_dm.length,swOn:[].map.call(d.querySelectorAll('[data-lgdaymode="p2"].active'),function(x){return x.getAttribute('data-v');}),
+          pts:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.length:null,dated:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.filter(function(q){return q&&q.date;}).length:null,
+          empty:((d.getElementById('p2-chart')||{}).innerText||'').trim().slice(0,80)}:{none:1,sw:_dm.length,empty:((d.getElementById('p2-chart')||{}).innerText||'').trim().slice(0,80),
+          pts:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.length:null,dated:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.filter(function(q){return q&&q.date;}).length:null};
         r.scrub=null;
         if(_cs&&nm==='paper2'){
           try{
@@ -2282,6 +2291,20 @@ def run(alt_index=None, timeout=300):
     # LEDGER step 5 -- the shared chart: drawn, the last point is the big number, scrub writes the hero and restores it
     for nm in ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'range-3m', 'range-ytd', 'range-1m', 'range-saved'):
         r = cases.get(nm) or {}
+        if nm == 'daily-on':
+            dl = r.get('daily') or {}
+            if dl.get('none') or not dl:
+                fails.append('daily-on: DAILY is the default but no daily chart [data-lgdaily="p2"] is in #p2-chart (%r) - %s of the chart points carry a date'
+                             % (dl, dl.get('dated')))
+            else:
+                for key, lo, what in (('bars', 1, 'bars'), ('line', 1, 'running-total line'), ('yl', 1, 'left labels'), ('yr', 1, 'right labels'), ('xl', 2, 'date labels')):
+                    if (dl.get(key) or 0) < lo:
+                        fails.append('daily-on: the daily chart has %s %s, expected at least %d (chart points %s, dated %s)' % (dl.get(key), what, lo, dl.get('pts'), dl.get('dated')))
+                if (dl.get('h') or 0) < 200:
+                    fails.append('daily-on: the daily chart is %spx tall, expected at least 200 on a laptop (chart points %s, dated %s)' % (dl.get('h'), dl.get('pts'), dl.get('dated')))
+                if dl.get('sw') != 2 or dl.get('swOn') != ['1']:
+                    fails.append('daily-on: the DAILY | CURVE switch reads %s buttons, active %r, expected 2 with DAILY (1) active' % (dl.get('sw'), dl.get('swOn')))
+            continue
         c, hn = r.get('chart'), r.get('heroNum')
         if not c:
             if nm in ('range-1m', 'range-saved') and not (r.get('statTrades') or 0):
@@ -4151,7 +4174,12 @@ def _judge_s12(cases, data, fails):
                 fails.append('%s: %s chart feet [data-lgchartfoot="p2"] on the board, expected exactly one under the chart' % (nm, s.get('chartFootN')))
             else:
                 cf = s.get('chartFoot') or {}
-                if not cf.get('inChart') or cf.get('chartBottom') is None or (cf.get('top') or 0) < cf['chartBottom'] - 1:
+                if vw >= 1100:
+                    # from 1100 px the chart row (pills, legend, caption) sits ABOVE the chart box (CSS order:-1): the foot's top is above the chart's top
+                    if not cf.get('inChart') or cf.get('chartTop') is None or (cf.get('top') or 0) >= cf['chartTop'] - 1:
+                        fails.append('%s: from 1100 px the chart row must sit above the chart at %d px (row top %s, chart top %s, in the chart section %s)'
+                                     % (nm, vw, cf.get('top'), cf.get('chartTop'), cf.get('inChart')))
+                elif not cf.get('inChart') or cf.get('chartBottom') is None or (cf.get('top') or 0) < cf['chartBottom'] - 1:
                     fails.append('%s: the chart foot is not under the chart at %d px (foot top %s, chart bottom %s, in the chart section %s)'
                                  % (nm, vw, cf.get('top'), cf.get('chartBottom'), cf.get('inChart')))
                 # owner 10-31: the caption is one short line ('Cumulative P&L, <range>'); the full words (solid line, dotted, hatched) sit in the ? hover beside it
