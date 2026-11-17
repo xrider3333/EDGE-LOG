@@ -1302,6 +1302,24 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-addrow.hm-more-always .hm-toolbar-actions{display:none}
 .hm-addrow.hm-more-always .hm-toolbar-actions.open{display:flex;position:absolute;right:0;top:calc(100% + 6px);z-index:60;flex-direction:column;align-items:stretch;gap:6px;padding:8px;background:var(--bg2);border:1px solid var(--border);border-radius:8px;box-shadow:0 8px 24px rgba(0,0,0,.45)}
 .hm-wrap.lg-frame{max-width:1320px}
+/* owner 11-17: REAL uses the whole width. From 1100 px: the accounts list is a LOCKED sidebar on the right (sticky, never its own scroll box),
+   and inside the main column the calendar sits to the right of the hero / chart stack with room for its day cells */
+.hm-wrap.lg-frame.hm-top-2col{max-width:none}
+@media (min-width:1100px){
+  .hm-wrap.lg-frame.hm-top-2col{--lgf-side:280px}
+  .hm-top-2col>.lg-frame-side{min-height:0}
+  .hm-top-2col>.lg-frame-side>.lg-frame-side-in{position:static;overflow:visible}
+  .hm-top-2col>.lg-frame-top{display:grid;grid-template-columns:minmax(0,1fr) minmax(400px,38%);column-gap:32px;align-items:start}
+  .hm-top-2col>.lg-frame-top>*{grid-column:1}
+  .hm-top-2col>.lg-frame-top>[data-hmsec="cal"]{grid-column:2;grid-row:1/span 8;align-self:start}
+}
+/* from 1500 px the accounts list is LOCKED: it runs down the whole page beside the trade list and stays in view while you scroll
+   (narrower windows keep the trade list full width, so the FULL table still fits) */
+@media (min-width:1500px){
+  .hm-top-2col>.lg-frame-side{grid-row:1/3}
+  .hm-top-2col>.lg-frame-side>.lg-frame-side-in{position:sticky;top:96px}
+  .hm-top-2col>.lg-frame-rest{grid-column:1}
+}
 .hm-sec-chart .lg-chart-foot{margin-bottom:10px}
 /* LEDGER unify step 11: REAL's page is built in ONE fixed order at every width (the markup is in that order - no order: rules): hero, range pills
    with the EQUITY | P&L switch, equity chart, the four tiles, More stats, calendar, accounts, the trade list, then REAL's own sections, each a closed
@@ -1596,7 +1614,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.32';
+const VERSION='90.33';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1617,6 +1635,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.33',date:'2026-11-17',notes:['LEDGER REAL uses the full page width: the calendar sits right of the chart with room for its day cells, no scroll box anywhere at the top','ACCOUNTS (All / NinjaTrader / Webull) is a locked sidebar on the right that stays in place while the page scrolls; on a phone it is the stacked card as before']},
 {v:'90.32',date:'2026-11-16',notes:['IMPORT: a Cash or Balance History file no longer replaces your starting balance, its fees are spread only over that account futures trades, and its deposits and withdrawals now reach the ledger.','IMPORT saves the day each trade closed, so an overnight trade lands on its close day. + NEW TRADE saves MESZ6 as MES.','LEDGER: 1W and 1M are now exactly 7 and 30 days counting today, and a day of only breakeven trades shows win rate --. Trades already saved are unchanged.']},
 {v:'90.31',date:'2026-11-17',notes:['LEDGER REAL: DAILY is the first chart option and opens by default; it now has a dollar axis, dates along the bottom and a fill under the running total - green above $0, red below','LEDGER REAL: the calendar sits to the right of the chart, under the accounts (under the chart on a phone)','Every tab with sub-tabs (LEDGER, PAPERS, BUILDER, ...) now draws its sub-tab row attached to the tab row - same band, no gap']},
 {v:'90.29',date:'2026-11-17',notes:['LEDGER REAL trade list controls in two rows: search, filters, market and the count with the views at the right; then + NEW TRADE, the chart link box (its hint inside) and one MORE menu. The sort shows on the column arrow, SHOW MORE sits under the table','LEDGER REAL chart: new DAILY toggle beside EQUITY and P&L - a green or red bar per day plus the running total line, same range pills. EQUITY stays the default','LEDGER REAL FULL view fits the page width on a laptop or wider: tighter columns and a slightly smaller font, no sideways scroll']},{v:'90.10',date:'2026-11-14',notes:['EXPLORE: 51 lane records stamped FULL (capitals) now draw as the hollow whole-run square and read WHOLE-RUN on hover, the same as the 16 stamped full. They used to draw as the unknown-stage dot with no stretch name.']},
@@ -18464,8 +18483,8 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
   const ai=_HM_PAGE_ORDER.indexOf('acct'),pick=ks=>ks.map(k=>S[k]||'').join('');
   // LEDGER redesign step 1 (2026-11-01): REAL wears .lg-paper - the same density class the two PAPER frames set. REAL had C1's section ORDER
   // since 10-31 but none of its tightening, because every one of those rules is scoped to .lg-paper, a class REAL's frame never set.
-  // owner 11-17: the CALENDAR sits in the right-hand column under the accounts, beside the chart (one column on a phone)
-  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper',top:pick(_HM_PAGE_ORDER.slice(0,ai).filter(k=>k!=='cal')),side:S.acct+S.cal,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
+  // owner 11-17 (2nd pass): ACCOUNTS is a locked sidebar on the right; the CALENDAR sits beside the chart inside the main column (.hm-top-2col)
+  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper hm-top-2col',top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
 // The five actions that used to live only on the Trades tab, now built for HOME's own

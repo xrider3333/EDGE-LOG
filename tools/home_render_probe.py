@@ -353,7 +353,9 @@ for _vp, _th, _view in (('laptop', 'glass', 'feed'), ('laptop', 'paper', 'feed')
 # just above where a list cell comes back (the tightest a list row ever is), 701 / 901 / 1011 just above where a SIMPLE column comes back,
 # and 860 / 975 sit in the two bands where the SIMPLE table used to scroll inside its own box.
 # 1559 (step 12) is the owner's laptop: the only width where the window is wider than the 1320 px frame, so the frame's centring shows.
-WIDTH_SET = [375, 480, 600, 601, 700, 701, 741, 800, 801, 860, 901, 921, 975, 1000, 1011, 1200, 1366, 1559, 1690]
+WIDTH_SET = [375, 480, 600, 601, 700, 701, 741, 800, 801, 860, 901, 921, 975, 1000, 1011, 1200, 1366, 1400, 1559, 1690, 1900]
+# owner 11-17: from this width the accounts list is LOCKED (sticky, runs down the whole page beside the trade list)
+SIDE_LOCK_FROM = 1500
 # THE OWNER'S OWN ACCEPTANCE TEST (2026-11-01, the ledger redesign): on his 1690x1263 window the calendar panel, OPEN, must end
 # fully above y=1000 from the top of the board. Nothing asserted it before, which is how REAL drifted away from the paper tabs
 # (its calendar ended at 1138 px while the two paper boards fitted at 1091 / 1062). CAL_FOLD_W is in WIDTH_SET so the sweep's own
@@ -372,10 +374,10 @@ JUMP_DAY = '2026-09-30'
 # LEDGER redesign (2026-11-01): step 2 moved the range pills UNDER the chart, onto the chart's one control row, so [data-hmsec="pills"]
 # now sits INSIDE the chart section and reads after it - the same chain NT8 PAPER has. Step 5 moved REAL's four own folds ABOVE the trade
 # list, where both paper boards keep their extras.
-# owner 11-17: the calendar moved into the right-hand column, under the accounts (beside the chart from 1100 px)
-SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'more', 'acct', 'cal', 'missed', 'deps', 'ai', 'journal', 'list']
+# owner 11-17 (2nd pass): the calendar sits beside the chart inside the main column from 1100 px; ACCOUNTS is the locked sidebar
+SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more', 'acct', 'missed', 'deps', 'ai', 'journal', 'list']
 # LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
-FRAME_MAX_W = '1320px'
+FRAME_MAX_W = 'none'   # owner 11-17: REAL uses the whole width
 FRAME_SIDE_FROM = 1100
 # REAL's trade list controls (owner 2026-10-11): the filter row's chips in order, the px two controls' centres may differ and still be one line,
 # and the window width from which every filter shares one line (under it the row wraps; a phone wraps it on purpose)
@@ -383,7 +385,7 @@ FILTER_CHIPS = 'ALL,LONG,SHORT,WINS,LOSSES,FUTURES,STOCKS'
 CTL_LINE_TOL = 4
 CTL_ONE_LINE_FROM = 800
 OWN_FOLDS = ['missed', 'deps', 'ai', 'journal']      # no 'paste' since 2026-10-10: the PASTE box is never folded
-HOUSE_WIDTHS = [600, 740, 800, 920, 1100]     # the one set of breakpoints (contract section 5b)
+HOUSE_WIDTHS = [600, 740, 800, 920, 1100, 1500]     # the one set of breakpoints (contract section 5b); 1500 added 11-17 for REAL's locked accounts sidebar
 PHONE_LIST_TOP_MAX = 700                      # px from the top of the board to the trade list on a 375 px phone: 652 before step 12, which
                                               # added the status line under the hero (two lines with the Webull reconcile) and the chart
                                               # foot with the EQUITY | P&L switch (693 px measured on 2026-10-07); still inside one 812 px screen
@@ -908,8 +910,8 @@ MUTANTS = [
      'a tap on the phone account line does not open the account list'),
     # LEDGER step 12: ONE PAGE FRAME
     ('list-not-in-side-panel',
-     "top:pick(_HM_PAGE_ORDER.slice(0,ai).filter(k=>k!=='cal')),side:S.acct+S.cal,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
-     "top:pick(_HM_PAGE_ORDER.slice(0,ai).filter(k=>k!=='cal'))+S.acct+S.cal,side:'',rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
+     "top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
+     "top:pick(_HM_PAGE_ORDER.slice(0,ai))+S.acct,side:'',rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
      'the accounts list is back inside the main column: no right-hand panel on a laptop'),
     ('frame-two-columns-everywhere',
      ".lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}",
@@ -1494,7 +1496,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     // DAILY toggle (owner GO 11-16): clicking it draws one bar per close day and the running total line, then back
     var dbt=d.querySelector('#hm-mode-toggle [data-hmmode="daily"]');r.daily={btn:!!dbt};
     r.daily.first=((d.querySelector('#hm-mode-toggle button')||{}).getAttribute||function(){return null;}).call(d.querySelector('#hm-mode-toggle button'),'data-hmmode');
-    var cside=d.querySelector('[data-lgframe-side="hm"] [data-hmsec="cal"]');r.daily.calSide=!!cside;
+    var cside=d.querySelector('[data-lgframe-top="hm"] [data-hmsec="cal"]');r.daily.calSide=!!cside;
     if(cside&&W().innerWidth>=1100){var cb=cside.getBoundingClientRect(),cw=d.querySelector('#hm-chart-wrap').getBoundingClientRect();r.daily.calRight=cb.left>=cw.right-1;}
     if(dbt){dbt.click();var dsv=d.querySelector('#hm-chart-wrap svg[data-hmdaily]');r.daily.bars=dsv?dsv.querySelectorAll('rect').length:0;
       r.daily.line=!!(dsv&&dsv.querySelector('path'));r.daily.yLab=dsv?dsv.querySelectorAll('[data-hmdaily-y]').length:0;r.daily.xLab=dsv?dsv.querySelectorAll('[data-hmdaily-x]').length:0;var ar=dsv&&dsv.querySelector('[data-hmdaily-area]'),gs=dsv?[].map.call(dsv.querySelectorAll('#hm-daily-fill stop'),function(x){return x.getAttribute('stop-color');}):[];r.daily.area=!!ar&&(ar.getAttribute('fill')||'').indexOf('url(#hm-daily-fill)')===0;r.daily.stops=gs.join(',');r.daily.days=Object.keys(W().eval('(function(){var b={};_hmTradesInRange(bScope(trades),homeRange).forEach(function(t){b[ledgerCloseDay(t)]=1;});return b;})()')).length;}
@@ -2388,6 +2390,11 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
         st.sec=Array.prototype.map.call(d.querySelectorAll('[data-hmsec]'),function(e){var b=e.getBoundingClientRect();return {k:e.getAttribute('data-hmsec'),top:Math.round(b.top-wt0),h:Math.round(b.height)};});
         try{st.fr=frameRead();}catch(e1){st.fr={err:String(e1&&e1.stack?e1.stack:e1)};}
         try{st.paste=pasteRead();}catch(e3){st.paste={err:String(e3&&e3.stack?e3.stack:e3)};}
+        try{var sb=[];['[data-lgframe-top="hm"]','[data-lgframe-side="hm"]'].forEach(function(sel){var root=d.querySelector(sel);if(!root)return;[root].concat([].slice.call(root.querySelectorAll('*'))).forEach(function(e){var oy=w.getComputedStyle(e).overflowY;if((oy==='auto'||oy==='scroll')&&e.scrollHeight>e.clientHeight+1)sb.push((e.className||e.tagName).toString().slice(0,40));});});st.scrollBoxes=sb;
+          var cells=[].slice.call(d.querySelectorAll('[data-hmsec="cal"] .lg-cal-day')).map(function(c){return c.getBoundingClientRect();}).filter(function(b){return b.width>0;}),ov=0;
+          for(var a=0;a<cells.length;a++)for(var b2=a+1;b2<cells.length;b2++){var A=cells[a],B=cells[b2];if(A.left<B.right-1&&B.left<A.right-1&&A.top<B.bottom-1&&B.top<A.bottom-1)ov++;}st.calOverlap=ov;st.calCells=cells.length;
+          var sx0=w.scrollY;w.scrollTo(0,2000);await sleep(60);var al=d.querySelector('[data-lgframe-side="hm"] [data-lglist]');var ab=al?al.getBoundingClientRect():null;st.acctAfter=ab?{t:Math.round(ab.top),b:Math.round(ab.bottom),vh:w.innerHeight,y:Math.round(w.scrollY)}:null;w.scrollTo(0,sx0);await sleep(30);
+        }catch(e4){st.lockErr=String(e4);}
         if(i===0){try{res.bp=bpScan();}catch(e0){res.bp={err:String(e0)};}}
         var de=d.documentElement;
         st.innerW=w.innerWidth;st.scrollW=de.scrollWidth;st.clientW=de.clientWidth;
@@ -3526,6 +3533,13 @@ def _judge_widths(wd, data_obj):
                 unfinished.append('%s: never ran' % t)
                 continue
             _errs(t, s, fails)
+            if px in (1400, 1900) and s.get('scrollBoxes'):
+                fails.append('%s: a scroll box with its own scrollbar sits in the ledger top block / accounts (%s) - owner 11-17: none' % (t, ', '.join(s['scrollBoxes'][:3])))
+            if px >= FRAME_SIDE_FROM and s.get('calOverlap'):
+                fails.append('%s: %s calendar day cells overlap (of %s) - the month is too compressed' % (t, s['calOverlap'], s.get('calCells')))
+            aa = s.get('acctAfter')
+            if px >= SIDE_LOCK_FROM and aa and aa.get('y', 0) >= 1500 and not (aa['t'] >= 0 and aa['t'] < aa['vh']):
+                fails.append('%s: after scrolling %s px the accounts sidebar is out of view (top %s, window %s) - it must stay locked in place' % (t, aa.get('y'), aa.get('t'), aa.get('vh')))
             if s.get('threw'):
                 fails.append('%s: %s' % (t, _first(s['threw'])))
                 continue
@@ -3819,10 +3833,10 @@ def _judge_frame(tag, fr, px, fails):
                 fails.append('%s: the accounts panel starts at %spx, not to the right of the top block (which ends at %spx)' % (tag, acct.get('l'), top['r']))
             if abs((side.get('t') or 0) - (top.get('t') or 0)) > 2:
                 fails.append('%s: the accounts panel starts %spx down, the top block %spx - they must start level' % (tag, side.get('t'), top.get('t')))
-            if (side.get('h') or 0) > (top.get('h') or 0) + 2:
+            if px < SIDE_LOCK_FROM and (side.get('h') or 0) > (top.get('h') or 0) + 2:
                 fails.append('%s: the accounts panel (%spx) is taller than the top block beside it (%spx), so it pushes the trade list down'
                              % (tag, side.get('h'), top.get('h')))
-            if lst and lst.get('w', 0) < (side.get('r') or 0) - (top.get('l') or 0) - 2:
+            if px < SIDE_LOCK_FROM and lst and lst.get('w', 0) < (side.get('r') or 0) - (top.get('l') or 0) - 2:
                 fails.append('%s: the trade list is %spx wide - it must run the full width under the top block and the panel (%spx)'
                              % (tag, lst.get('w'), (side.get('r') or 0) - (top.get('l') or 0)))
     else:
@@ -4508,7 +4522,7 @@ def _judge(data, data_obj):
         if dly.get('btn') and dly.get('first') != 'daily':
             fails.append('%s: DAILY is not the first chart option (first is %r)' % (nm, dly.get('first')))
         if not dly.get('calSide'):
-            fails.append('%s: the calendar is not in the right-hand column (owner 11-17: beside the chart)' % nm)
+            fails.append('%s: the calendar is not in the main column beside the chart (owner 11-17)' % nm)
         if dly.get('calRight') is False:
             fails.append('%s: on a laptop the calendar is not to the right of the chart' % nm)
         if dly.get('days') and (not dly.get('yLab') or not dly.get('xLab')):
