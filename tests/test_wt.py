@@ -70,7 +70,10 @@ def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
     same order, with the same failure message - nothing was dropped in the move - plus the PAPER
     selftest (2026-10-08, TRADING-LOG #67 / MANAGER #667), and two added 2026-10-29: the PC page
     (board pc p12, a new view with its own Firestore documents) and PAPERS, whose probe had existed
-    since 2026-10-11 without ever being wired in here - a gate nobody runs is not a gate."""
+    since 2026-10-11 without ever being wired in here - a gate nobody runs is not a gate. The header
+    gate joined on 2026-11-17: the top bar and the sub-tab row are on every screen and nothing
+    measured them, so a header that wrapped onto three rows, or a second row that scrolled away,
+    passed every other render gate."""
     assert [(g.key, g.fail) for g in wt.GATES] == [
         ('boot', 'boot gate FAILED - not pushing'),
         ('studies', 'studies render gate FAILED - not pushing'),
@@ -87,6 +90,7 @@ def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
         ('importtz', 'import time-zone gate FAILED - not pushing'),
         ('importtz-selftest', 'import time-zone gate SELF-TEST FAILED - the gate no longer '
                               'catches the pre-fix build - not pushing'),
+        ('header', 'header render gate FAILED - not pushing'),
         ('home', 'HOME render gate FAILED - not pushing'),
         ('home-selftest', 'HOME gate SELF-TEST FAILED - the gate no longer catches a '
                           'deliberately broken build - not pushing'),
