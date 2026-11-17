@@ -372,7 +372,8 @@ JUMP_DAY = '2026-09-30'
 # LEDGER redesign (2026-11-01): step 2 moved the range pills UNDER the chart, onto the chart's one control row, so [data-hmsec="pills"]
 # now sits INSIDE the chart section and reads after it - the same chain NT8 PAPER has. Step 5 moved REAL's four own folds ABOVE the trade
 # list, where both paper boards keep their extras.
-SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'cal', 'more', 'acct', 'missed', 'deps', 'ai', 'journal', 'list']
+# owner 11-17: the calendar moved into the right-hand column, under the accounts (beside the chart from 1100 px)
+SECTION_ORDER = ['hero', 'status', 'stats', 'chart', 'pills', 'more', 'acct', 'cal', 'missed', 'deps', 'ai', 'journal', 'list']
 # LEDGER step 12: the shared page frame - the panel width, the frame's max width, the window width from which the list is a right-hand panel
 FRAME_MAX_W = '1320px'
 FRAME_SIDE_FROM = 1100
@@ -907,8 +908,8 @@ MUTANTS = [
      'a tap on the phone account line does not open the account list'),
     # LEDGER step 12: ONE PAGE FRAME
     ('list-not-in-side-panel',
-     "top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
-     "top:pick(_HM_PAGE_ORDER.slice(0,ai))+S.acct,side:'',rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
+     "top:pick(_HM_PAGE_ORDER.slice(0,ai).filter(k=>k!=='cal')),side:S.acct+S.cal,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
+     "top:pick(_HM_PAGE_ORDER.slice(0,ai).filter(k=>k!=='cal'))+S.acct+S.cal,side:'',rest:pick(_HM_PAGE_ORDER.slice(ai+1))});",
      'the accounts list is back inside the main column: no right-hand panel on a laptop'),
     ('frame-two-columns-everywhere',
      ".lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}",
@@ -1492,8 +1493,11 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     r.legendH=Math.max.apply(null,[0].concat(Array.prototype.map.call(lgb,function(b){return Math.round(b.getBoundingClientRect().height);})));
     // DAILY toggle (owner GO 11-16): clicking it draws one bar per close day and the running total line, then back
     var dbt=d.querySelector('#hm-mode-toggle [data-hmmode="daily"]');r.daily={btn:!!dbt};
+    r.daily.first=((d.querySelector('#hm-mode-toggle button')||{}).getAttribute||function(){return null;}).call(d.querySelector('#hm-mode-toggle button'),'data-hmmode');
+    var cside=d.querySelector('[data-lgframe-side="hm"] [data-hmsec="cal"]');r.daily.calSide=!!cside;
+    if(cside&&W().innerWidth>=1100){var cb=cside.getBoundingClientRect(),cw=d.querySelector('#hm-chart-wrap').getBoundingClientRect();r.daily.calRight=cb.left>=cw.right-1;}
     if(dbt){dbt.click();var dsv=d.querySelector('#hm-chart-wrap svg[data-hmdaily]');r.daily.bars=dsv?dsv.querySelectorAll('rect').length:0;
-      r.daily.line=!!(dsv&&dsv.querySelector('path'));r.daily.days=Object.keys(W().eval('(function(){var b={};_hmTradesInRange(bScope(trades),homeRange).forEach(function(t){b[ledgerCloseDay(t)]=1;});return b;})()')).length;}
+      r.daily.line=!!(dsv&&dsv.querySelector('path'));r.daily.yLab=dsv?dsv.querySelectorAll('[data-hmdaily-y]').length:0;r.daily.xLab=dsv?dsv.querySelectorAll('[data-hmdaily-x]').length:0;var ar=dsv&&dsv.querySelector('[data-hmdaily-area]'),gs=dsv?[].map.call(dsv.querySelectorAll('#hm-daily-fill stop'),function(x){return x.getAttribute('stop-color');}):[];r.daily.area=!!ar&&(ar.getAttribute('fill')||'').indexOf('url(#hm-daily-fill)')===0;r.daily.stops=gs.join(',');r.daily.days=Object.keys(W().eval('(function(){var b={};_hmTradesInRange(bScope(trades),homeRange).forEach(function(t){b[ledgerCloseDay(t)]=1;});return b;})()')).length;}
     W().eval('homeChartMode='+JSON.stringify(cfg.chartMode||'equity')+';renderApp();');
     // LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer); that is also what keeps a closed
     // panel from taking room or widening the page (LEDGER mistake #13)
@@ -3704,7 +3708,12 @@ def _removed_lint(root, alt_index):
         import ledger_removed
     finally:
         sys.path.pop(0)
-    return ledger_removed.lint_file(alt_index or os.path.join(root, 'index.html'), ['shared', 'real'])
+    probs = ledger_removed.lint_file(alt_index or os.path.join(root, 'index.html'), ['shared', 'real'])
+    # owner 11-17: DAILY is the chart a fresh visit opens on
+    src = io.open(alt_index or os.path.join(root, 'index.html'), encoding='utf-8').read()
+    if not re.search(r"let homeRange='[^']*',homeChartMode='daily'", src):
+        probs = list(probs) + ["the REAL chart does not open on DAILY by default (homeChartMode is not 'daily')"]
+    return probs
 
 
 def _judge_flag(flag, main, data_obj):
@@ -3773,7 +3782,8 @@ def _errs(tag, r, fails):
 def _stacked(sec, px):
     """The section tops in the fixed order: strictly top to bottom - except, from FRAME_SIDE_FROM px, the accounts list, which is the right-hand
     panel beside the top block (the frame judge places it)."""
-    main = [s for s in sec if not (px >= FRAME_SIDE_FROM and s['k'] == 'acct')]
+    # owner 11-17: the calendar shares that right-hand panel (under the accounts)
+    main = [s for s in sec if not (px >= FRAME_SIDE_FROM and s['k'] in ('acct', 'cal'))]
     tp = [s['top'] for s in main]
     return all(b > a for a, b in zip(tp, tp[1:])), tp
 
@@ -4495,6 +4505,16 @@ def _judge(data, data_obj):
             fails.append('%s: on a laptop the account list is always drawn (button display=%r, list display=%r)'
                          % (nm, af.get('btn'), af.get('list')))
         dly = r.get('daily') or {}
+        if dly.get('btn') and dly.get('first') != 'daily':
+            fails.append('%s: DAILY is not the first chart option (first is %r)' % (nm, dly.get('first')))
+        if not dly.get('calSide'):
+            fails.append('%s: the calendar is not in the right-hand column (owner 11-17: beside the chart)' % nm)
+        if dly.get('calRight') is False:
+            fails.append('%s: on a laptop the calendar is not to the right of the chart' % nm)
+        if dly.get('days') and (not dly.get('yLab') or not dly.get('xLab')):
+            fails.append('%s: DAILY has no axis labels (dollar labels %s, date labels %s)' % (nm, dly.get('yLab'), dly.get('xLab')))
+        if dly.get('days') and (not dly.get('area') or '#1d9e75' not in (dly.get('stops') or '') or '#e24b4a' not in (dly.get('stops') or '')):
+            fails.append('%s: DAILY has no green-above / red-below fill under the line (area %s, stops %s)' % (nm, dly.get('area'), dly.get('stops')))
         if not dly.get('btn'):
             fails.append('%s: the chart has no DAILY toggle beside EQUITY and P&L' % nm)
         elif dly.get('bars') != dly.get('days') or (dly.get('days') and not dly.get('line')):

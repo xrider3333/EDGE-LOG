@@ -988,6 +988,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    The panel never makes the page taller: its content scrolls inside the height of the top block. Plus ONE status slot under the hero numbers
    (.lg-status), ONE chart foot under the chart (.lg-chart-foot: caption, the board's chart controls, its key) and ONE Filters row at the top of
    the list panel (.lg-filters, closed until opened). Tokens only. */
+/* owner 11-17: a sub-tab row (REAL / NT8 PAPER / WEBULL PAPER, BUILDER / LIBRARY, ...) is ATTACHED to its parent tab row: same band,
+   no gap, no line between them - site wide, every tab that has sub-tabs uses this one rule */
+.nav-subrow{display:flex;gap:2px;align-items:center;flex-wrap:wrap;padding:3px 14px 6px;margin-top:-1px;background:var(--bg1);border-bottom:1px solid var(--border);position:relative;z-index:98}
 .lg-frame{max-width:1320px;margin:0 auto;box-sizing:border-box}
 .lg-frame-top,.lg-frame-side,.lg-frame-side-in,.lg-frame-rest{min-width:0}
 @media (min-width:1100px){
@@ -1593,7 +1596,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.30';
+const VERSION='90.31';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1614,6 +1617,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.31',date:'2026-11-17',notes:['LEDGER REAL: DAILY is the first chart option and opens by default; it now has a dollar axis, dates along the bottom and a fill under the running total - green above $0, red below','LEDGER REAL: the calendar sits to the right of the chart, under the accounts (under the chart on a phone)','Every tab with sub-tabs (LEDGER, PAPERS, BUILDER, ...) now draws its sub-tab row attached to the tab row - same band, no gap']},
 {v:'90.29',date:'2026-11-17',notes:['LEDGER REAL trade list controls in two rows: search, filters, market and the count with the views at the right; then + NEW TRADE, the chart link box (its hint inside) and one MORE menu. The sort shows on the column arrow, SHOW MORE sits under the table','LEDGER REAL chart: new DAILY toggle beside EQUITY and P&L - a green or red bar per day plus the running total line, same range pills. EQUITY stays the default','LEDGER REAL FULL view fits the page width on a laptop or wider: tighter columns and a slightly smaller font, no sideways scroll']},{v:'90.10',date:'2026-11-14',notes:['EXPLORE: 51 lane records stamped FULL (capitals) now draw as the hollow whole-run square and read WHOLE-RUN on hover, the same as the 16 stamped full. They used to draw as the unknown-stage dot with no stretch name.']},
 {v:'90.28',date:'2026-11-16',notes:['IMPORT: a CSV row now matches a saved trade only on the same day, symbol, size and both prices, one to one - two scalps a tick apart are no longer read as one, and a saved trade is never rewritten by a different row.','IMPORT and + NEW TRADE: the default fee is per contract, so it is now multiplied by the size (a 3-lot MES pays 3 x 0.95). The NEW TRADE fee box re-fills when you change the size, until you type your own fee. Trades already saved are unchanged.']},
 {v:'90.25',date:'2026-11-16',notes:['SCORES: 2 trades from 2026-11-13, 2026-11-16 scored, 0 marked NA (no price data).']},
@@ -3624,7 +3628,7 @@ let activeTab='home',activeChart='equity',chartTF='all',chartMode='pnl',spyOverl
 // homeFeedMode/homeView/homeChip are persisted below the same way chartTF/chartMode are;
 // homeQuery/homeStatsOpen/homeExtras/homeSheetId stay session-only (showAllCols on the
 // Trades tab is never persisted either, so this matches precedent).
-let homeRange='1M',homeChartMode='equity',homeFeedMode='trade',homeView='feed',homeStatsOpen=false,homeChip='ALL',homeQuery='',homeExtras=false,homeSheetId=null;
+let homeRange='1M',homeChartMode='daily',homeFeedMode='trade',homeView='feed',homeStatsOpen=false,homeChip='ALL',homeQuery='',homeExtras=false,homeSheetId=null;
 // SHOULD HAVE TRADED (owner via MANAGER 2026-10-01): setups the owner saw and did not take, in their own
 // collection users/{uid}/missed_trades - never in `trades`, so never in P&L, stats or the equity curve.
 let missedTrades=[];
@@ -17478,19 +17482,34 @@ function _hmRenderDailyInto(wrapEl){
   let c=0;const cum=days.map(d=>(c=+(c+by[d]).toFixed(2)));
   _hmRenderHeroDefault(c,0);
   if(!days.length){wrapEl.innerHTML='<div class="hm-empty-state">No closed trades in this range</div>';return;}
-  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=260,pt=14,pb=22,pl=8,pr=8;
+  // owner 11-17: a dollar axis on the left, dates along the bottom, and the running total filled down to $0 - green above, red below
+  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=260,pt=14,pb=24,pl=58,pr=10;
   const vals=days.map(d=>by[d]).concat(cum,[0]),mx=Math.max(...vals),mn=Math.min(...vals),span=(mx-mn)||1;
   const y=v=>pt+(mx-v)/span*(H-pt-pb),slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7));
-  const G='#1d9e75',R='#e24b4a',y0=y(0);
+  const G='#1d9e75',R='#e24b4a',y0=y(0),cx=i=>pl+slot*i+slot/2;
+  const money=v=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:Math.abs(v)<100?2:0});
   let bars='',line='';
   days.forEach((d,i)=>{const v=by[d],x=pl+slot*i+(slot-bw)/2,yy=Math.min(y(v),y0),h=Math.max(1,Math.abs(y(v)-y0));
     bars+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+(v>=0?G:R)+'" opacity="0.85"><title>'+_hmFmtDateLong(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></rect>';
-    line+=(i?'L':'M')+(pl+slot*i+slot/2).toFixed(1)+' '+y(cum[i]).toFixed(1);});
-  const lab=(i)=>'<text x="'+(pl+slot*i+slot/2).toFixed(1)+'" y="'+(H-6)+'" text-anchor="middle" font-size="10" fill="var(--text5)">'+days[i].slice(5)+'</text>';
-  const ticks=days.length<=1?lab(0):lab(0)+lab(days.length-1);
+    line+=(i?'L':'M')+cx(i).toFixed(1)+' '+y(cum[i]).toFixed(1);});
+  const area=line+'L'+cx(days.length-1).toFixed(1)+' '+y0.toFixed(1)+'L'+cx(0).toFixed(1)+' '+y0.toFixed(1)+'Z';
+  // the gradient switches colour exactly at the $0 line (userSpaceOnUse = page units), and fades toward $0 from both sides
+  const off=Math.min(1,Math.max(0,(y0-pt)/((H-pb)-pt))).toFixed(4);
+  const grad='<defs><linearGradient id="hm-daily-fill" gradientUnits="userSpaceOnUse" x1="0" y1="'+pt+'" x2="0" y2="'+(H-pb)+'">'
+    +'<stop offset="0" stop-color="'+G+'" stop-opacity="0.35"/><stop offset="'+off+'" stop-color="'+G+'" stop-opacity="0.04"/>'
+    +'<stop offset="'+off+'" stop-color="'+R+'" stop-opacity="0.04"/><stop offset="1" stop-color="'+R+'" stop-opacity="0.35"/></linearGradient></defs>';
+  // dollar axis: top, $0 and bottom (only the ones far enough apart to read)
+  const ticks=[mx,0,mn].filter((v,k,a)=>a.findIndex(u=>Math.abs(y(u)-y(v))<14)===k);
+  const yAx=ticks.map(v=>'<text x="'+(pl-8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text5)" data-hmdaily-y="1">'+money(v)+'</text>'
+    +(v!==0?'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 4"/>':'')).join('');
+  // dates: first, middle, last close day
+  const di=[...new Set([0,Math.floor((days.length-1)/2),days.length-1])];
+  const xAx=di.map(i=>'<text x="'+cx(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+(i===0&&days.length>1?'start':(i===days.length-1&&days.length>1?'end':'middle'))+'" font-size="10" fill="var(--text5)" data-hmdaily-x="1">'+_hmEsc(days[i].slice(5).replace('-','/'))+'</text>').join('');
   wrapEl.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="REAL daily P&L bars and running total, '+(_HM_RANGE_LABEL[homeRange]||'')+'" data-hmdaily="1">'
-    +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--border2)" stroke-width="1"/>'
-    +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6"/>'+ticks+'</svg>';
+    +grad+yAx
+    +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--border)" stroke-width="1"/>'
+    +'<path d="'+area+'" fill="url(#hm-daily-fill)" stroke="none" data-hmdaily-area="1"/>'
+    +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6"/>'+xAx+'</svg>';
 }
 function _hmRenderChartInto(root){
   const wrapEl=root.querySelector('#hm-chart-wrap');
@@ -18428,7 +18447,7 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
     pills:'',
     chart:'<div class="hm-sec-chart" data-hmsec="chart"><div class="hm-chart-wrap" id="hm-chart-wrap"></div>'
       +'<div class="lg-chart-row"><div class="lg-chart-rowpills" data-hmsec="pills">'+ledgerRangePillsHtml(homeRange,'data-hmrange')+'</div>'
-      +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button><button data-hmmode="daily" title="one bar per day plus the running total" class="'+(homeChartMode==='daily'?'active':'')+'">DAILY</button></div>'
+      +'<div class="hm-mode" id="hm-mode-toggle"><button data-hmmode="daily" title="one bar per day plus the running total" class="'+(homeChartMode==='daily'?'active':'')+'">DAILY</button><button data-hmmode="equity" class="'+(homeChartMode==='equity'?'active':'')+'">EQUITY</button><button data-hmmode="pnl" class="'+(homeChartMode==='pnl'?'active':'')+'">P&amp;L</button></div>'
       +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="hm"><span class="lg-chart-cap">'+_hmChartCap()+'</span></div></div>'
       +'<div id="hm-goal">'+_hmGoalHtml()+'</div></div>',
     stats:'<div data-hmsec="stats">'+ledgerStatStripHtml(ls,{id:'hm-stat-strip',winNote:ign})+'</div>',
@@ -18442,7 +18461,8 @@ function _hmPageHtml(list,rangeStats,rangeTrades){
   const ai=_HM_PAGE_ORDER.indexOf('acct'),pick=ks=>ks.map(k=>S[k]||'').join('');
   // LEDGER redesign step 1 (2026-11-01): REAL wears .lg-paper - the same density class the two PAPER frames set. REAL had C1's section ORDER
   // since 10-31 but none of its tightening, because every one of those rules is scoped to .lg-paper, a class REAL's frame never set.
-  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper',top:pick(_HM_PAGE_ORDER.slice(0,ai)),side:S.acct,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
+  // owner 11-17: the CALENDAR sits in the right-hand column under the accounts, beside the chart (one column on a phone)
+  return ledgerFrameHtml({id:'hm',cls:'hm-wrap lg-flow lg-paper',top:pick(_HM_PAGE_ORDER.slice(0,ai).filter(k=>k!=='cal')),side:S.acct+S.cal,rest:pick(_HM_PAGE_ORDER.slice(ai+1))});
 }
 // ── HOME absorbs TRADES + JOURNAL (v73.9xx) ─────────────────────────────────────────
 // The five actions that used to live only on the Trades tab, now built for HOME's own
@@ -19954,41 +19974,41 @@ function renderApp(){
   // replaces the PAPER TRADE toggle just below, which is now only drawn under ?oldtabs=1.
   if(!_oldStrip&&_homeLit){
     const _ht=document.createElement('div');
-    _ht.style.cssText='display:flex;gap:2px;align-items:center;padding:6px 14px 2px;flex-wrap:wrap';
+    _ht.className='nav-subrow';
     const _cur=activeTab==='home'?'real':augurSub;
     const _hb=([id,lbl,tip])=>`<button class="btn-ghost" data-homesub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${_cur===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
     _ht.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${HOME_SUBS.map(_hb).join('')}</span>`;
     _ht.querySelectorAll('[data-homesub]').forEach(b=>{b.onclick=()=>{const v=b.dataset.homesub;if(v==='real'){activeTab='home';window._lastLogTab='home';}else{activeTab='augur';augurSub=v;}renderApp();};});
-    wrap.appendChild(_ht);
+    sub.style.borderBottomColor='transparent';wrap.appendChild(_ht);
   }
   if(_oldStrip&&activeTab==='augur'&&(augurSub==='paper2'||augurSub==='qqqpaper')){
     const _pt=document.createElement('div');
-    _pt.style.cssText='display:flex;gap:2px;align-items:center;padding:6px 14px 2px;flex-wrap:wrap';
+    _pt.className='nav-subrow';
     const _pb=(id,lbl,tip)=>`<button class="btn-ghost" data-papersub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${augurSub===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
     _pt.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${_pb('paper2','NT8 FUTURES','NinjaTrader paper legs')}${_pb('qqqpaper','WEBULL QQQ','Webull paper trading (QQQ shares)')}</span>`;
     _pt.querySelectorAll('[data-papersub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.papersub;renderApp();};});
-    wrap.appendChild(_pt);
+    sub.style.borderBottomColor='transparent';wrap.appendChild(_pt);
   }
   // TABS-NAV COLLAPSE: LIBRARY folded into BUILDER as an inner toggle, same pattern as PAPER
   // TRADE just above. Not shown under ?oldtabs=1 - LIBRARY already has its own top-level button
   // there, so this row would just duplicate it.
   if(!_oldStrip&&activeTab==='augur'&&(augurSub==='exec2'||augurSub==='lib')){
     const _bt=document.createElement('div');
-    _bt.style.cssText='display:flex;gap:2px;align-items:center;padding:6px 14px 2px;flex-wrap:wrap';
+    _bt.className='nav-subrow';
     const _bb=(id,lbl,tip)=>`<button class="btn-ghost" data-buildersub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${augurSub===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
     _bt.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${_bb('exec2','BUILDER','Build and queue a run')}${_bb('lib','LIBRARY','Saved strategy files')}</span>`;
     _bt.querySelectorAll('[data-buildersub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.buildersub;renderApp();};});
-    wrap.appendChild(_bt);
+    sub.style.borderBottomColor='transparent';wrap.appendChild(_bt);
   }
   // TABS-NAV COLLAPSE: REFERENCE folded into RESEARCH as an inner toggle, same pattern. Also
   // skipped under ?oldtabs=1 for the same reason as the BUILDER row above.
   if(!_oldStrip&&activeTab==='augur'&&(augurSub==='research'||augurSub==='ref')){
     const _rt=document.createElement('div');
-    _rt.style.cssText='display:flex;gap:2px;align-items:center;padding:6px 14px 2px;flex-wrap:wrap';
+    _rt.className='nav-subrow';
     const _rb=(id,lbl,tip)=>`<button class="btn-ghost" data-researchsub="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;${augurSub===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
     _rt.innerHTML=`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${_rb('research','PAPERS','Every paper and study read, with its verdict - and the backtesting stack under them')}${_rb('ref','REFERENCE','Cross-strategy parameter reference')}</span>`;
     _rt.querySelectorAll('[data-researchsub]').forEach(b=>{b.onclick=()=>{augurSub=b.dataset.researchsub;renderApp();};});
-    wrap.appendChild(_rt);
+    sub.style.borderBottomColor='transparent';wrap.appendChild(_rt);
   }
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);
