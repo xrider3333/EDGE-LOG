@@ -1614,7 +1614,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.33';
+const VERSION='90.34';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4867,15 +4867,21 @@ function ledgerTradeListHtml(o){
     const dayAfter=tcommon.some(c=>c[0]==='pnl')?'pnl':(tcommon.length?tcommon[tcommon.length-1][0]:null);
     const dayTd=dc=>'<td class="lg-c lg-c-daycol lg-nph">'+(dc||'')+'</td>';
     const th=(k,label,cls)=>{const x=o.th?o.th(k,label,cls):null;return (typeof x==='string')?x:'<th class="'+cls+'">'+label+'</th>';};
+    // every column as one list so a board can ask for its own order (o.order = column keys; unlisted ones keep their place after the listed)
+    let ucols=tcommon.map(c=>({k:c[0],
+        h:th(c[0],labels[c[0]]||c[1],cellCls(c[0],'table'))+(dayOn&&c[0]===dayAfter?'<th class="lg-c lg-c-daycol lg-nph" title="the day total, on the first trade of each day">DAY</th>':''),
+        d:(t,i,dc)=>'<td class="'+cellCls(c[0],'table')+'"'+(attrs[c[0]]?' '+attrs[c[0]](t):'')+'>'+cell(c[0],t,'table')+'</td>'+(dayOn&&c[0]===dayAfter?dayTd(dc):'')}))
+      .concat(bcols.map(c=>({k:c.k,
+        h:th(c.k,c.label||'','lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:'')),
+        d:(t,i)=>'<td class="lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:'')+(c.tdCls?' '+c.tdCls:'')+'"'+(c.attr?' '+c.attr(t):'')+'>'+c.td(t,i)+'</td>'})));
+    if(o.order&&o.order.length){const ix=k=>{const j=o.order.indexOf(k);return j<0?1e6:j;};ucols=ucols.map((c,i)=>[c,i]).sort((x,y)=>(ix(x[0].k)-ix(y[0].k))||(x[1]-y[1])).map(x=>x[0]);}
     const head='<tr>'
       +(o.numbered?th('num',o.numLabel||'#','num lg-c lg-c-num lg-nph'+(colCls.num?' '+colCls.num:'')):'')
-      +tcommon.map(c=>th(c[0],labels[c[0]]||c[1],cellCls(c[0],'table'))+(dayOn&&c[0]===dayAfter?'<th class="lg-c lg-c-daycol lg-nph" title="the day total, on the first trade of each day">DAY</th>':'')).join('')
-      +bcols.map(c=>th(c.k,c.label||'','lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:''))).join('')
+      +ucols.map(c=>c.h).join('')
       +'</tr>';
     const trow=(t,i,dc)=>'<tr data-lgtrade="'+tid(t)+'"'+(G(t)?' class="lg-tl-ghost"':'')+(o.rowAttr?' '+o.rowAttr(t):'')+'>'
       +(o.numbered?'<td class="num lg-c lg-c-num lg-nph'+(colCls.num?' '+colCls.num:'')+'">'+String(rows.length-i).padStart(2,'0')+'</td>':'')
-      +tcommon.map(c=>'<td class="'+cellCls(c[0],'table')+'"'+(attrs[c[0]]?' '+attrs[c[0]](t):'')+'>'+cell(c[0],t,'table')+'</td>'+(dayOn&&c[0]===dayAfter?dayTd(dc):'')).join('')
-      +bcols.map(c=>'<td class="lg-c lg-c-'+c.k+(c.phone?' lg-ph':' lg-nph')+(c.cls?' '+c.cls:'')+(c.tdCls?' '+c.tdCls:'')+'"'+(c.attr?' '+c.attr(t):'')+'>'+c.td(t,i)+'</td>').join('')
+      +ucols.map(c=>c.d(t,i,dc)).join('')
       +'</tr>'
       // the strip is its own row in the table, spanning every column (a div between two <tr> is not allowed)
       +(chartsOn?'<tr class="lg-rowchart-tr"><td colspan="'+nCols+'"><div class="lg-rowchart pend" data-lgrowchart="'+esc(tid(t))+'"><span class="lg-mini-msg">chart</span></div></td></tr>':'');
@@ -18289,7 +18295,9 @@ function _hmFrameHtml(list){
     attr:{time:t=>'title="'+_hmEsc((t.entryTime||'--')+' → '+(t.exitTime||'--'))+'"',pnl:t=>(tbl&&full)?'title="'+_hmEsc(_hmGrossTitle(t))+'"':''},
     rowSlot:t=>[t.setup,t.grade].filter(x=>x&&x!=='—').map(x=>'<span class="lg-tl-tag">'+_hmEsc(x)+'</span>').join(''),
     labels:{time:'DATE',sym:'SYM',side:'DIR',size:'CTRS',pnl:'NET',pts:'PTS',strat:'BROKER'},
-    tableHide:full?[]:['strat','chart'],colCls:full?{num:'hm-pin',time:'hm-pin',sym:'hm-pin'}:{num:'hm-s3',size:'hm-s2',pts:'hm-s3'},
+    // FULL column order (owner 2026-11-17): when (date, out, duration), what, prices, money, then everything he types, side by side
+    order:full?['time','out','dur','sym','side','size','strat','entry','exit','pts','fees','pnl','acct','acctp','chart','grade','score','ptsc','setup','tf','tags','notes']:null,
+    tableHide:full?[]:['strat','chart'],colCls:full?{num:'hm-pin',time:'hm-pin'}:{num:'hm-s3',size:'hm-s2',pts:'hm-s3'},
     oneRow:true,foot:(tbl&&full)?`<button class="hm-ghostbtn" id="hm-table-extras">${homeExtras?'HIDE EXTRAS':'SHOW MORE'}</button>`:'',
     numbered:true,dayHeaders:_hmFrameDayOn(),dayCol:true,dayAsc:sortDir===1,tableBar:_hmTableBarHtml(full),topScroll:full,
     wrapCls:'hm-table-wrap',tableCls:'hm-dtable'+(full?'':' hm-simple'),topCls:'hm-table-topscroll',
