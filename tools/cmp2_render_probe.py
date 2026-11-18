@@ -159,7 +159,7 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
         //   rows would be counting the window, not the board, and would start failing for a
         //   reason that has nothing to do with what it tests. Each case therefore pins the
         //   setting it means to test; the one case that tests the windowed path sets it true.
-        prefs=Object.assign({resVirt:false},prefs||{});
+        prefs=Object.assign({resVirt:false,resCfgFam:[]},prefs||{});   // v90.83: an unset CONFIG now starts on RAW; these cases read every config tab, so they pick ALL ([]) the way the CONFIG ALL chip saves it
         sink.errors.length=0; sink.uncaught.length=0;
         var call;
         try{
