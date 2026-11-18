@@ -32,3 +32,32 @@ def _trial_cache_default():
 
 
 TRIAL_CACHE_DB = os.environ.get("AUGUR_TRIAL_CACHE_DB") or _trial_cache_default()
+
+
+# Per-trade blotter CSVs, one per saved run (api/runner.py writes them after a run
+# lands in Runs history). Same reason as the trial cache above: the repo root sits
+# under OneDrive/Desktop, and every Auto-Validate / grid run dropping a fresh CSV
+# into a watched Desktop folder is exactly the write pattern that froze Explorer and
+# the taskbar on 2026-11-15. Blotters are regenerable scratch, never committed, so
+# the default lives in EDGELOG_HOME (C:/EdgeLog/blotters) whenever that directory
+# exists, and falls back to the repo root only when it does not (CI, a fresh clone).
+# AUGUR_BLOTTER_DIR wins over both. Read through blotter_dir(), never cached at
+# import time, so a test's monkeypatch.setenv takes effect immediately.
+def _blotter_default():
+    home = os.environ.get("EDGELOG_HOME") or r"C:\EdgeLog"
+    try:
+        if os.path.isdir(home):
+            return os.path.join(home, "blotters")
+    except OSError:
+        pass
+    return os.path.join(ROOT, "blotters")
+
+
+def blotter_dir():
+    """Directory the per-run trade blotters are written to (created on demand)."""
+    d = os.environ.get("AUGUR_BLOTTER_DIR") or _blotter_default()
+    try:
+        os.makedirs(d, exist_ok=True)
+    except OSError:
+        pass
+    return d

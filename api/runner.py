@@ -1891,7 +1891,11 @@ class FirestoreQueue:
                                               date_from=job.get("date_from") or None,
                                               date_to=job.get("date_to") or None,
                                               source=job.get("source") or None)
-                _out = os.path.join(ROOT, "blotters",
+                # NOT under ROOT any more (2026-11-18): the repo root sits in
+                # OneDrive/Desktop and a CSV per run is the same watched-folder write
+                # storm that froze Explorer. blotter_dir() = C:/EdgeLog/blotters.
+                from augur_engine.paths import blotter_dir
+                _out = os.path.join(blotter_dir(),
                                     f"run{rid}_{job.get('instrument')}_{job.get('timeframe','5m')}.csv")
                 if write_csv(_rows, _out, meta=_bm):
                     log(f"    -> saved trade blotter ({len(_rows)} trades, "
@@ -2960,6 +2964,158 @@ def _start_cmd_thread_if_primary(a, q):
     return cmd_thread
 
 
+class LoopWatchdog:
+    """Says out loud when the runner's main watch loop has stopped going round, and
+    (unless told not to) takes the process down so the launcher brings a fresh one up.
+
+    WHY. The runner can be alive as a process and dead as a service: the watch loop is
+    one long `while True` that calls into Firestore, the paper hooks, the orphan sweep
+    and the queue. Any one of those can block forever on a socket that never times out,
+    and when it does nothing in the log says so - the last line is just whatever printed
+    before the hang, and the owner finds out hours later because a queued job never ran.
+    Nothing was watching the watcher.
+
+    HOW. The loop calls beat() once per completed pass. A daemon thread wakes every
+    CHECK_SEC and compares the stamp against now:
+      * A pass that is legitimately slow is NOT a hang. A validate runs 30-90 minutes
+        inside run_once(), so the loop wraps that call in busy(): while the runner is
+        working a job the watchdog is silent, however long it takes. The alarm is for an
+        IDLE loop that has stopped ticking - that can only be a block.
+      * First stale check SHOUTS (one line per check, with the age and the last pass's
+        reason) and keeps shouting. It never exits on the first one: a one-off slow
+        Firestore call should not cost the owner a restart.
+      * After GRACE consecutive stale checks it calls os._exit(3). os._exit, not
+        sys.exit: the point is that a thread somewhere is wedged, so an orderly shutdown
+        that joins threads is exactly what will not finish. Exit code 3 reads as
+        "watchdog killed it" in the launcher log.
+
+    A restart is safe HERE and nowhere else: the watchdog only fires when no job is in
+    flight, so it cannot kill a mid-flight backtest and leave its doc stuck on
+    status='running' (the standing hard rule about runner restarts). Jobs that were
+    already orphaned by something else are picked up by the boot orphan sweep.
+
+    KNOBS. EDGELOG_LOOP_WATCHDOG_SEC sets the stale threshold in seconds (default 600;
+    0 or a negative number turns the watchdog off entirely). EDGELOG_LOOP_WATCHDOG_EXIT=0
+    keeps the shouting and never exits.
+    """
+    CHECK_SEC = 30.0
+    GRACE = 3
+
+    def __init__(self, stale_sec=None, allow_exit=None, log=print, exiter=None):
+        if stale_sec is None:
+            try:
+                stale_sec = float(os.environ.get("EDGELOG_LOOP_WATCHDOG_SEC") or 600)
+            except (TypeError, ValueError):
+                stale_sec = 600.0
+        if allow_exit is None:
+            allow_exit = (os.environ.get("EDGELOG_LOOP_WATCHDOG_EXIT") or "1").strip() not in ("0", "false", "off")
+        self.stale_sec = float(stale_sec)
+        self.allow_exit = bool(allow_exit)
+        self.log = log
+        self._exit = exiter or (lambda code: os._exit(code))
+        self._lock = threading.Lock()
+        self._stamp = time.time()
+        self._busy = False
+        self._busy_what = ""
+        self._note = "boot"
+        self._strikes = 0
+        self._thread = None
+
+    # ── called from the loop ────────────────────────────────────────────────
+    def beat(self, note=""):
+        """One completed pass of the watch loop."""
+        with self._lock:
+            self._stamp = time.time()
+            if note:
+                self._note = str(note)
+            self._strikes = 0
+
+    def busy(self, what=""):
+        """Context manager: the loop is doing real work, not hung. Also beats on exit,
+        so a 90-minute validate is one long pass and not 180 stale checks."""
+        return _Busy(self, what)
+
+    def _set_busy(self, flag, what=""):
+        with self._lock:
+            self._busy = bool(flag)
+            self._busy_what = str(what or "")
+            if not flag:
+                self._stamp = time.time()
+                self._strikes = 0
+
+    # ── the thread ──────────────────────────────────────────────────────────
+    def start(self):
+        if self.stale_sec <= 0:
+            self.log("[watchdog] OFF (EDGELOG_LOOP_WATCHDOG_SEC=%g)" % self.stale_sec)
+            return None
+        self._thread = threading.Thread(target=self._run, daemon=True, name="loop-watchdog")
+        self._thread.start()
+        self.log("[watchdog] on: shouts when the idle watch loop stops ticking for "
+                 "%.0fs%s" % (self.stale_sec,
+                              ", restarts after 3 strikes" if self.allow_exit else " (shout only)"))
+        return self._thread
+
+    def check(self, now=None):
+        """One watchdog check. Returns 'ok', 'busy', 'stale' or 'exit'. Separated from
+        the sleep loop so a test can drive it without waiting on wall-clock time."""
+        now = time.time() if now is None else now
+        with self._lock:
+            if self._busy:
+                return "busy"
+            age = now - self._stamp
+            if age <= self.stale_sec:
+                return "ok"
+            self._strikes += 1
+            strikes, note = self._strikes, self._note
+        self.log("[watchdog] THE WATCH LOOP HAS STOPPED TICKING - no completed pass for "
+                 "%.0fs (limit %.0fs), no job in flight, strike %d of %d. Last pass: %s"
+                 % (age, self.stale_sec, strikes, self.GRACE, note))
+        if strikes >= self.GRACE:
+            if not self.allow_exit:
+                self.log("[watchdog] NOT restarting (EDGELOG_LOOP_WATCHDOG_EXIT=0) - the "
+                         "runner is wedged and needs a hand")
+                return "stale"
+            self.log("[watchdog] restarting the runner now (exit 3) - nothing was running, "
+                     "so no job is being killed; the launcher brings a fresh one up")
+            try:
+                sys.stdout.flush()
+            except Exception:
+                pass
+            self._exit(3)
+            return "exit"
+        return "stale"
+
+    def _run(self):
+        while True:
+            time.sleep(self.CHECK_SEC)
+            try:
+                self.check()
+            except Exception as e:                       # never let the watcher die
+                try:
+                    self.log("[watchdog] check skipped: %s: %s" % (type(e).__name__, e))
+                except Exception:
+                    pass
+
+
+class _Busy:
+    """`with WD.busy("run_once"):` - the loop is working, not wedged."""
+    def __init__(self, wd, what=""):
+        self.wd, self.what = wd, what
+
+    def __enter__(self):
+        self.wd._set_busy(True, self.what)
+        return self.wd
+
+    def __exit__(self, *exc):
+        self.wd._set_busy(False)
+        return False
+
+
+# One per process, wired up in main() right before the watch loop. Module level so the
+# hooks and the queue can beat it too if they ever need to.
+WD = None
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description="EDGELOG local job runner")
     ap.add_argument("--firestore", action="store_true", help="use Firestore queue")
@@ -3311,6 +3467,12 @@ def main(argv=None):
         # (2026-09-07 — see _Backoff). A dead quota must make this loop SLOWER, never
         # spin at the normal cadence retrying a call that cannot succeed.
         _poll_backoff = _Backoff()
+        # Nothing was watching the watcher until 2026-11-18: see LoopWatchdog. It shouts
+        # when an IDLE loop stops going round and restarts the runner after 3 strikes; a
+        # job in flight silences it, so it can never kill a running backtest.
+        global WD
+        WD = LoopWatchdog(log=print)
+        WD.start()
         while True:
             # Decide WHY (if at all) we should hit the queued-docs query this tick:
             # a listener wake, the backstop timer, or — no listener (LocalQueue, or
@@ -3329,7 +3491,8 @@ def main(argv=None):
             _backoff_wait = 0.0
             if poll_reason:
                 try:
-                    done = q.run_once()
+                    with WD.busy("run_once (%s)" % poll_reason):
+                        done = q.run_once()
                     _poll_backoff.ok()
                 except Exception as _e:
                     done = 0
@@ -3342,7 +3505,8 @@ def main(argv=None):
                         print(f"[queue] skipped: {type(_e).__name__}: {_e}")
                 if a.firestore:
                     try:
-                        done += q.run_commands()
+                        with WD.busy("run_commands"):
+                            done += q.run_commands()
                         _poll_backoff.ok()
                     except Exception as _e:
                         fs_heal.HEALTH.note_fail(_e)
@@ -3489,6 +3653,9 @@ def main(argv=None):
                     backup_done_date = now_local.date()
             except Exception as e:
                 print(f"[nt-backup] skipped: {type(e).__name__}: {e}")
+            # One completed pass. Everything above this line ran, so the loop is alive;
+            # the wait below is the only place it is allowed to sit still.
+            WD.beat(poll_reason or "idle tick")
             if not done:
                 # A 429 backoff overrides the normal wait so a dead quota is retried
                 # at 30s/60s/120s, never at the tight a.interval cadence.

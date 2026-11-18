@@ -5,6 +5,7 @@ runner save never fails a run (best-effort — wrap calls in try/except)."""
 import os
 import augur_engine as ae
 from augur_engine.data import find_master, load_master_arrays
+from augur_engine.paths import blotter_dir
 
 FIELDS = ["trade_no", "entry_time", "exit_time", "hold_bars",
           "entry_px", "exit_px", "pnl_pts", "pnl_usd", "cum_usd", "side"]
@@ -143,7 +144,7 @@ def _module_from_code(root, rid, code, log=print):
         return None
     try:
         import importlib.util
-        snap = os.path.join(root, "blotters", f"_snapshot_run{rid}.py")
+        snap = os.path.join(blotter_dir(), f"_snapshot_run{rid}.py")
         os.makedirs(os.path.dirname(snap), exist_ok=True)
         with open(snap, "w", encoding="utf-8") as f:
             f.write(code)
@@ -341,7 +342,11 @@ def load_blotter_rows(root, payload, log=print):
     inst = payload.get("instrument") or ""
     tf = payload.get("timeframe") or "5m"
     name = f"run{rid}_{inst}_{tf}.csv"
-    cands = [os.path.join(root, "blotters", name),
+    # blotter_dir() first (C:/EdgeLog/blotters since 2026-11-18), then the repo's own
+    # blotters/ - every run saved before that date wrote there and those CSVs stay put -
+    # then the ENGU research dir.
+    cands = [os.path.join(blotter_dir(), name),
+             os.path.join(root, "blotters", name),
              os.path.join(os.path.dirname(root), "Trading", "ENGUQ_DB", "blotters", name)]
 
     def _cap(rows, extra):
@@ -394,7 +399,7 @@ def load_blotter_rows(root, payload, log=print):
     if not rows:
         return {"ok": False, "error": "champion re-run produced no trades"}
     try:
-        write_csv(rows, os.path.join(root, "blotters", name), meta=bmeta)   # cache for next time
+        write_csv(rows, os.path.join(blotter_dir(), name), meta=bmeta)   # cache for next time
     except Exception:
         pass
     log(f"    -> blotter regenerated ({len(rows)} trades) for run {rid} "
