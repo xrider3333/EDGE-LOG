@@ -29,6 +29,16 @@ def _resolve(name_or_path: str) -> str:
     return os.path.join(STRAT_DIR, os.path.basename(p))
 
 
+def strategy_path(name_or_path: str) -> str:
+    """Where this strategy WOULD live on this box, without loading it or running its body.
+
+    The runner needs this before it claims a job: a box that has not pulled yet does not have
+    the file a lane just pushed, and claiming that job only to raise "strategy not found" takes
+    the job away from a box that could have run it. Resolution is exactly load_strategy's, so
+    the answer cannot drift from where the loader will actually look."""
+    return _resolve(name_or_path)
+
+
 def load_strategy(name_or_path):
     """Load (or return cached) strategy module from a filename/path."""
     path = _resolve(name_or_path)

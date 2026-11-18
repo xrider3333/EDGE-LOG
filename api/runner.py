@@ -2179,6 +2179,49 @@ class FirestoreQueue:
                     # a job nobody can run must be visible, not silent. New claims only; a
                     # resumed orphan (progress > 0) was already claimed somewhere and is
                     # not re-judged here.
+                    # THE SAME GUARD FOR THE CODE, NOT JUST THE DATA (MANAGER 11-18, 09:22).
+                    # The desktop workers hit the other half of this within the hour: a box that
+                    # has not pulled yet does not have the strategy file a lane just pushed, so it
+                    # claimed the auto-queued job and failed "strategy not found: <name>.py". It
+                    # bites every time a lane pushes a new file and queues a run against it,
+                    # because a box will not pull while a job is running. Claiming a job you
+                    # cannot run is worse than leaving it: it takes the work away from a box that
+                    # could have run it, and spends a run slot on an error.
+                    #
+                    # Content, not just presence: when the job carries the sha of the file it was
+                    # queued against, a box holding a DIFFERENT version of that file is as unable
+                    # to run it as a box holding none - it would quietly run the wrong code. No sha
+                    # on the job means presence is all we can check, and that is not a reason to
+                    # refuse the work.
+                    if not _resumed and job.get("type") != "book" and job.get("strategy")                             and not is_research_beacon(job):
+                        _lack = None
+                        try:
+                            from augur_engine.strategies import strategy_path, strategy_file_sha
+                            _sp = strategy_path(job.get("strategy"))
+                            if not os.path.exists(_sp):
+                                _lack = "%s (not on disk)" % os.path.basename(_sp)
+                            else:
+                                _want = (job.get("strategy_sha") or job.get("code_sha") or "")
+                                if _want:
+                                    _have = strategy_file_sha(_sp)
+                                    if _have and not str(_have).startswith(str(_want)[:12]):
+                                        _lack = "%s (this box has %s, the job was queued against %s)" % (
+                                            os.path.basename(_sp), str(_have)[:12], str(_want)[:12])
+                        except Exception as _se:
+                            # Cannot READ the file or hash it: not evidence the code is absent.
+                            log(f"  [code] strategy check skipped for {snap.id}: "
+                                f"{type(_se).__name__}: {_se}")
+                            _lack = None
+                        if _lack:
+                            _cseen = getattr(self, "_code_logged", None)
+                            if _cseen is None:
+                                _cseen = self._code_logged = {}
+                            _ct = time.time()
+                            if _ct - _cseen.get(snap.id, 0.0) >= 600:
+                                _cseen[snap.id] = _ct
+                                log(f"[code] {_HOST} lacks {_lack} - leaving {snap.id} queued "
+                                    f"for a box that has pulled it")
+                            continue
                     if not _resumed and job.get("type") != "book" and job.get("instrument"):
                         _miss = None
                         try:
