@@ -16008,6 +16008,8 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
         _next_trade_skipped(e, log=log)
     if nt:
         doc["next_trade"] = nt
+    # RETIRED LEGS (owner 11-18): the page never shows these as live; history stays, marked RETIRED.
+    doc["retired_legs"] = {k: {"since": v, "reason": "owner retired"} for k, v in RETIRED_LEGS.items()}
     # FIRESTORE CAPS (review 2026-09-28): every summary above has read the full rows --
     # now pack what rides on each published trade row, then make sure the doc fits.
     _compact_published_trades(doc["trades_all"])
