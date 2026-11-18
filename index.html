@@ -375,6 +375,16 @@ button{cursor:pointer;font-family:'JetBrains Mono',monospace;border:none;transit
   /* the logo swap is a once-a-year thing and it is in SETTINGS > APPEARANCE as well: on a phone its
      icon is only taking width away from the tabs */
   .tblogoup{display:none!important}
+  /* THE WORDMARK WAS EATING THE TABS (Trading Log audit 11-18): at 375 px the logo block held
+     107 of the 375, which left the tab strip 146 px - BUILDER was cut in half and the five tabs
+     after it were off the side. The name of the app is the one thing on this bar nobody needs to
+     read, so on a phone it goes and the tabs take the room. A logo the owner uploaded stays. */
+  .tblogo{padding-right:6px!important;border-right:none!important;margin-right:0!important}
+  .tblogo .tbword{display:none}
+  /* the two-line wordmark WAS what gave the bar its height, so hold the 44 px explicitly -
+     without this the bar shrinks to the height of a tab and the pinned second row, which is
+     placed at the measured height of the first, ends up floating 19 px below it. */
+  .topbar{min-height:44px}
 }
 /* ONE ROW OF TABS: on a phone the tab icons go and the tabs tighten so all six fit on one line. */
 @media (max-width:520px){.nav-ic{display:none}.nav-btn{padding:2px 5px!important;letter-spacing:1px!important}}
@@ -1723,7 +1733,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.49';
+const VERSION='90.50';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -18910,9 +18920,9 @@ function renderApp(){
   // TOPBAR
   const tb=document.createElement('div');tb.className='topbar';
   tb.innerHTML=`
-    <div style="display:flex;align-items:center;gap:10px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:2px;cursor:pointer;flex-shrink:0" id="logo-area">
+    <div class="tblogo" style="display:flex;align-items:center;gap:10px;padding:6px 14px 6px 0;border-right:1px solid var(--border);margin-right:2px;cursor:pointer;flex-shrink:0" id="logo-area">
       ${userLogo?`<img src="${userLogo}" style="height:28px;max-width:70px;object-fit:contain" title="Click to change logo"/>`:``}
-      <div>
+      <div class="tbword">
         <div style="font-family:'Bebas Neue',monospace;font-size:${userLogo?'13':'18'}px;letter-spacing:3px;color:var(--green);line-height:1">EDGE LOG</div>
         <div style="font-size:var(--fsxs);color:var(--text5);letter-spacing:1px;margin-top:1px;display:flex;align-items:center;gap:6px">
           <span class="vbadge">v${VERSION}</span>
@@ -19004,7 +19014,9 @@ function renderApp(){
   // SECOND ROW: the sub-tabs of whichever tab is open, built as one strip of pills so every
   //   tab that has them draws the same bar (HOME_SUBS, BUILDER / LIBRARY, PAPERS / REFERENCE).
   const _pillGrp=h=>`<span style="display:inline-flex;gap:2px;background:color-mix(in srgb,var(--border) 22%,transparent);border-radius:8px;padding:2px">${h}</span>`;
-  const _pill=(attr,id,cur,lbl,tip)=>`<button class="btn-ghost" data-${attr}="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;white-space:nowrap;${cur===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
+  // the active pill carries a CLASS as well as its colours (11-18): the inline style was the only
+  //   mark it had, so nothing - not the scroll-into-view below, not a probe - could find it.
+  const _pill=(attr,id,cur,lbl,tip)=>`<button class="btn-ghost${cur===id?' on':''}" data-${attr}="${id}" title="${tip}" style="font-size:var(--fsxs);padding:3px 12px;border-radius:6px;line-height:1.15;white-space:nowrap;${cur===id?'background:var(--bg2);color:var(--text);font-weight:600':'color:var(--text4)'}">${lbl}</button>`;
   let _subPills='';
   if(!_oldStrip&&_homeLit){
     const _cur=activeTab==='home'?'real':augurSub;
@@ -19039,6 +19051,30 @@ function renderApp(){
     if(net){const h=(phone&&row)?row:ctl;if(h&&net.parentElement!==h)h.insertBefore(net,h.firstChild);}
     const want=(phone&&row)?row:strip;
     if(want&&st.parentElement!==want)want.appendChild(st);
+    // THE CHIPS MUST NOT SIT ON A SUB-TAB (Trading Log audit 11-18). On the second row the chip
+    //   cluster is stuck to the right edge, so the sub-tabs scroll UNDER it - and WEBULL PAPER,
+    //   the last and widest of them, ended up behind the NT GATE chip. The cluster's width is not
+    //   fixed either: it grows with the gate text, the WEBULL chip and one gauge per running
+    //   backtest, so no hard-coded padding can be right. Instead a spacer the exact width of the
+    //   cluster sits in front of it, which gives the scroller that much more to scroll - the last
+    //   sub-tab can always be brought out from under the chips.
+    if(phone&&row&&st.parentElement===row){
+      let gap=row.querySelector('.tbstat-gap');
+      if(!gap){gap=document.createElement('span');gap.className='tbstat-gap';
+        gap.style.cssText='flex:0 0 auto;pointer-events:none';row.insertBefore(gap,st);}
+      else if(gap.nextElementSibling!==st)row.insertBefore(gap,st);
+      gap.style.width=Math.ceil(st.getBoundingClientRect().width)+'px';
+    }else{const g=w.querySelector('.tbstat-gap');if(g)g.remove();}
+    // AND WHATEVER TAB YOU ARE ON IS THE ONE YOU CAN SEE. The strip is a sideways scroller by
+    //   design, so on a phone the tabs past the third are off the side; landing on BUILDER and
+    //   seeing LEDGER is what reads as a clipped tab. Bring the active one into view, in both rows.
+    try{
+      [strip,row].forEach(sc=>{if(!sc)return;
+        const a=sc.querySelector('.nav-btn.active,.active[data-tab],[data-hometab].active,.btn-ghost.on,[aria-current="page"]');
+        if(a&&sc.scrollWidth>sc.clientWidth+1){
+          const ar=a.getBoundingClientRect(),sr=sc.getBoundingClientRect();
+          if(ar.left<sr.left||ar.right>sr.right)sc.scrollLeft+=(ar.left-sr.left)-12;}});
+    }catch(e){}
   }catch(e){}};
   const content=document.createElement('div');content.className='content';wrap.appendChild(content);
   app.innerHTML='';app.appendChild(wrap);

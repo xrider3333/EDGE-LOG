@@ -162,12 +162,65 @@ PROBE_HTML = r"""<!DOCTYPE html>
           o.subPos=getComputedStyle(s0).position;
           o.subIsNext=(tb.nextElementSibling===s0);
         }
+        o.subTabs=(function(){var r0=document.querySelector('#app .nav-subrow');if(!r0)return [];
+          return [].slice.call(r0.querySelectorAll('button,[data-hometab],[data-asubtop]'))
+            .filter(function(b){return b.offsetWidth&&b.offsetHeight;})
+            .map(function(b){var r=b.getBoundingClientRect();
+              return {n:b.textContent.replace(/\s+/g,' ').trim().slice(0,24),l:r.left,r:r.right,t:r.top,b:r.bottom};});})();
+        o.subRowBox=(function(){var r0=document.querySelector('#app .nav-subrow');if(!r0)return null;
+          var r=r0.getBoundingClientRect();return {l:r.left,r:r.right,t:r.top,b:r.bottom};})();
+        // CAN THE LAST SUB-TAB BE READ AT ALL? The chip cluster is stuck to the right edge of
+        //   the second row and carries a background, so whatever is under it is unreadable.
+        //   With a scroller the honest question is not 'is it clear right now' but 'can it be
+        //   brought clear': scroll the row hard right and measure the last sub-tab against the
+        //   WHOLE cluster box (not the chips inside it - the cluster's own background is what
+        //   hides the label).
+        // THE ACTIVE SUB-TAB, AT REST (2026-11-18). This is the one the audit caught: the chip
+        //   cluster is stuck to the right edge of the second row and carries a background, so a
+        //   pill underneath it cannot be read - and the pill you are ON is the one that has to
+        //   be readable without touching anything. Measured where the row actually sits.
+        o.activeSub=(function(){var r0=document.querySelector('#app .nav-subrow');if(!r0)return null;
+          var a=r0.querySelector('.btn-ghost.on'),st=r0.querySelector('.tbstat');
+          if(!a)return {none:true};
+          var r=a.getBoundingClientRect(),sr=st?st.getBoundingClientRect():null;
+          return {n:a.textContent.replace(/\s+/g,' ').trim().slice(0,24),l:r.left,r:r.right,
+                  statL:sr?sr.left:null,statR:sr?sr.right:null,
+                  under:sr?Math.round(Math.min(r.right,sr.right)-Math.max(r.left,sr.left)):0,
+                  offRight:Math.round(r.right-r0.getBoundingClientRect().right)};})();
+        o.subClear=(function(){var r0=document.querySelector('#app .nav-subrow'),
+            st=document.querySelector('#app .nav-subrow .tbstat');
+          if(!r0||!st)return null;
+          var was=r0.scrollLeft;r0.scrollLeft=r0.scrollWidth;
+          var tabs=[].slice.call(r0.querySelectorAll('button,[data-hometab],[data-asubtop]'))
+            .filter(function(b){return b.offsetWidth&&b.offsetHeight;});
+          var sr=st.getBoundingClientRect(),worst=null;
+          tabs.forEach(function(b){var r=b.getBoundingClientRect();
+            var ov=Math.min(r.right,sr.right)-Math.max(r.left,sr.left);
+            if(ov>1&&(!worst||ov>worst.ov))worst={n:b.textContent.replace(/\s+/g,' ').trim().slice(0,24),
+              ov:Math.round(ov),l:r.left,r:r.right};});
+          var out={scrolledTo:r0.scrollLeft,statL:sr.left,statR:sr.right,worst:worst,
+                   gap:(function(){var g=r0.querySelector('.tbstat-gap');return g?Math.round(g.getBoundingClientRect().width):null;})()};
+          r0.scrollLeft=was;return out;})();
         o.headerH=tr.height+(subs.length?subs[0].getBoundingClientRect().height:0);
         var de=document.documentElement;
         o.scrollW=de.scrollWidth;o.clientW=de.clientWidth;
         var strip=tb.querySelector('.tbscroll');
         o.stripOverflows=!!(strip&&strip.scrollWidth>strip.clientWidth+1);
         o.strip=rb(strip);
+        // PHONE CLIPPING / COLLISION (Trading Log audit, 2026-11-18): every tab with its
+        //   label, and every chip of the status cluster, so the judge names WHICH tab is cut
+        //   off and WHICH chip is sitting on top of it instead of just 'it looks wrong'.
+        o.tabNamed=vis.map(function(b){var r=b.getBoundingClientRect();
+          return {n:b.textContent.replace(/\s+/g,' ').trim(),l:r.left,r:r.right,t:r.top,b:r.bottom};});
+        // the cluster wraps the gate and the gauges in display:contents spans, which have NO
+        //   box of their own - so walk descendants and keep the ones that actually draw.
+        o.chips=(function(){var st=document.querySelector('#app .tbstat');if(!st)return [];
+          return [].slice.call(st.querySelectorAll('*')).filter(function(c){
+            if(!(c.offsetWidth&&c.offsetHeight))return false;
+            for(var p=c.parentElement;p&&p!==st;p=p.parentElement){if(p.offsetWidth&&p.offsetHeight)return false;}
+            return true;})
+            .map(function(c){var r=c.getBoundingClientRect();
+              return {n:c.textContent.replace(/\s+/g,' ').trim().slice(0,24),l:r.left,r:r.right,t:r.top,b:r.bottom};});})();
         return o;
       }catch(e){return {err:String(e&&e.stack?e.stack:e)};}})()`);
 
@@ -300,6 +353,40 @@ def judge(nm, r, want_sub):
             if box and not _overlap(first, box):
                 f.append('%s: %s is not on the same line as the tabs' % (nm, who))
 
+    # --- A PHONE SHOWS THE TAB YOU ARE ON, AND NO CHIP SITS ON A SUB-TAB (2026-11-18) ---
+    # Trading Log's audit found both halves of this at 375 px: the BUILDER tab cut in half, and
+    #   the WEBULL PAPER sub-tab under the NT GATE chip. The strip is a sideways scroller on
+    #   purpose, so a tab off to the right is NOT the bug - the bugs are (a) the tab you are
+    #   actually on being off screen, and (b) a chip drawn on top of a sub-tab, which no amount of
+    #   scrolling can fix. Measured, not eyeballed: the geometry is in tabNamed / subTabs / chips.
+    strip = m.get('strip') or {}
+    if (m.get('innerW') or 0) <= 700 and strip:
+        vis = [t for t in (m.get('tabNamed') or [])
+               if t['l'] >= strip.get('l', 0) - 1 and t['r'] <= strip.get('r', 0) + 1]
+        if len(vis) < 3:
+            cut = [t['n'] for t in (m.get('tabNamed') or []) if t not in vis][:3]
+            f.append('%s: only %d of %d main tabs fit the %.0f px tab strip - %s cut off. The '
+                     'strip scrolls, but three tabs is the floor: fewer means the bar is being '
+                     'eaten by something that is not a tab'
+                     % (nm, len(vis), len(m.get('tabNamed') or []), strip.get('w') or 0,
+                        ', '.join(cut) or 'nothing named'))
+        # THE SUB-TAB YOU ARE ON MUST BE READABLE WITHOUT SCROLLING. The cluster is sticky over
+        #   this row, so a pill left under it is a label nobody can read - and the active pill is
+        #   the one that matters. The fix scrolls it clear; this is what proves it happened.
+        a = m.get('activeSub') or {}
+        if a.get('none'):
+            f.append('%s: the second row has sub-tabs but none of them is marked active - nothing '
+                     'can scroll the open one into view' % nm)
+        elif a.get('under', 0) > 1:
+            f.append('%s: the open %r sub-tab is %r px under the status cluster (sub-tab %.0f-%.0f, '
+                     'cluster %.0f-%.0f) - the chips are stuck to the right edge and carry a '
+                     'background, so the open pill has to be scrolled clear of them'
+                     % (nm, a.get('n'), a.get('under'), a.get('l'), a.get('r'),
+                        a.get('statL') or 0, a.get('statR') or 0))
+        elif (a.get('offRight') or 0) > 1:
+            f.append('%s: the open %r sub-tab is %r px past the right edge of its row'
+                     % (nm, a.get('n'), a.get('offRight')))
+
     # --- STATUS CLUSTER, FAR RIGHT ---
     # THE STATUS CLUSTER lives in the top bar on a laptop and on the second row on a phone (see
     #   .tbstat): below 700 px the logo, the tabs, the chips and NET / GROSS + gear + OUT do not fit
@@ -411,10 +498,14 @@ def main():
         os.makedirs(out_dir)
     HOME = "activeTab='home';window._lastLogTab='home';"
     ANAL = "activeTab='analytics';window._lastLogTab='analytics';"
+    # WEBULL PAPER on a phone is the audit's own case (Trading Log, 11-18): the LAST and widest
+    #   sub-tab, active, on the narrowest screen - the pill most likely to end up under the chips.
+    WBSUB = "activeTab='augur';augurSub='qqqpaper';window._lastLogTab='augur';"
     cases = (('home_1400', 1400, 900, '', HOME, True),
              ('anal_1400', 1400, 900, '', ANAL, False),
              ('home_375', 375, 812, '', HOME, True),
-             ('mono_375', 375, 812, 'mono', HOME, True))
+             ('mono_375', 375, 812, 'mono', HOME, True),
+             ('wbsub_375', 375, 812, '', WBSUB, True))
     fails = []
     for nm, w, h, theme, tab_js, want_sub in cases:
         shot = os.path.join(out_dir, 'header_%s.png' % nm)
@@ -424,6 +515,10 @@ def main():
                                        'subTop', 'topTop', 'subH', 'scrollW', 'clientW', 'stripOverflows')}
         brief['scrolledSubTop'] = (r.get('scrolled') or {}).get('subTop')
         brief['errs'] = r.get('errs')
+        if os.environ.get('HDPROBE_GEOM'):
+            brief['strip'] = m.get('strip'); brief['statInSubRow'] = m.get('statInSubRow')
+            brief['tabNamed'] = m.get('tabNamed'); brief['chips'] = m.get('chips')
+            brief['subTabs'] = m.get('subTabs')
         print('%s: %s  shot -> %s' % (nm, json.dumps(brief), shot))
         fails += judge(nm, r, want_sub)
     if fails:
