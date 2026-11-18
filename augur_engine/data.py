@@ -79,6 +79,32 @@ def is_adjusted_source(source):
     return str(source or "").startswith(ADJUSTED_SOURCE_PREFIXES)
 
 
+def master_file(row):
+    """Where a master ROW's CSV would be on this box, or None if the row names no file."""
+    fn = str((row or {}).get("filename") or "").strip()
+    return os.path.join(UPLOADS, os.path.basename(fn)) if fn else None
+
+
+def master_on_disk(row):
+    """Is this master row's CSV actually HERE, and not empty?
+
+    find_master answers from the master REGISTRY (optimizer_history.db), which is a local
+    untracked file that can list masters whose CSV is not on this machine - a copied or
+    synced registry, a worktree, a second box. On 2026-11-18 that cost two gate_validate
+    jobs: a desktop worker held the GLD and TLT registry rows but neither CSV, so the
+    pre-claim data guard said yes, the engine loaded nothing, and both runs ended "no result
+    (0 trades or invalid window)" - a strategy that did not trade and a box with no data read
+    exactly alike. A caller deciding whether THIS box can run a job has to ask the disk.
+    """
+    p = master_file(row)
+    if not p:
+        return False
+    try:
+        return os.path.isfile(p) and os.path.getsize(p) > 0
+    except OSError:
+        return False
+
+
 def find_master(instrument, timeframe, session=None, source=None):
     """Best-matching master row for instrument+timeframe (+ optional session/source).
 

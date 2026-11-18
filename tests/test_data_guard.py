@@ -54,8 +54,14 @@ def test_a_job_whose_master_is_missing_is_left_queued_and_said_out_loud(R, monke
     assert "queued" in line[0]
 
 
-def test_a_job_whose_master_is_there_is_claimed_as_before(R, monkeypatch):
-    _no_master(R, monkeypatch, found={"instrument": "NQ", "date_to": "2026-11-17"})
+def test_a_job_whose_master_is_there_is_claimed_as_before(R, monkeypatch, tmp_path):
+    # "there" means ON DISK since 2026-11-18, not merely listed in the registry: a row whose
+    # CSV is absent is exactly what let desktop worker 7 claim two jobs it could not run.
+    import augur_engine.data as _D
+    monkeypatch.setattr(_D, "UPLOADS", str(tmp_path))
+    (tmp_path / "m.csv").write_text("t,o,h,l,c" + chr(10), encoding="utf-8")
+    _no_master(R, monkeypatch, found={"instrument": "NQ", "date_to": "2026-11-17",
+                                      "id": 1, "filename": "m.csv"})
     snap = _Snap({"status": "queued", "type": "backtest", "instrument": "NQ",
                   "timeframe": "5m", "session": "rth"})
     q = _queue(R, [snap], None)

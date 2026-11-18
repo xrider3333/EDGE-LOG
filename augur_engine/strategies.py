@@ -5,6 +5,7 @@ mtime-keyed cache (so an edited strategy is picked up, and distinct files stay
 distinct). Listing reads STRATEGY_NAME without importing every module (cheap regex)
 and the Library #s from augur_config.json's strat_nums.
 """
+import io
 import os
 import re
 import json
@@ -37,6 +38,42 @@ def strategy_path(name_or_path: str) -> str:
     the job away from a box that could have run it. Resolution is exactly load_strategy's, so
     the answer cannot drift from where the loader will actually look."""
     return _resolve(name_or_path)
+
+
+_PANEL_RE = None
+
+
+def strategy_panels(name_or_path):
+    """The pinned side-panel files a strategy file names, read WITHOUT importing it.
+
+    Several MISC files take what a master cannot carry - another fund's prices, prior raw
+    closes, an event calendar - from a pinned .npz panel on disk, declared as a module-level
+    PANEL_PATH. By their own design a missing panel returns None rather than guessing, which
+    reads downstream as "0 trades" - indistinguishable from a strategy that simply did not
+    trade. That is how two gate_validate jobs died on a box with no panels on 2026-11-18.
+
+    Read statically, by regex, on purpose: this is called BEFORE a job is claimed, and
+    importing a strategy module to ask one question runs its whole body (and the plugin gate)
+    on a box that may not be able to run it at all. Returns a list of absolute paths as the
+    file declares them, or [] for a file with no panel, an unreadable file, or no file.
+    """
+    global _PANEL_RE
+    if _PANEL_RE is None:
+        import re
+        # PANEL_PATH = r"C:/..."  /  PANEL_PATHS = [r"...", r"..."] - quoted strings either way
+        _PANEL_RE = re.compile(r"^PANEL_PATHS?\s*=\s*(.+)$", re.M)
+    try:
+        path = _resolve(name_or_path)
+        src = io.open(path, encoding="utf-8", errors="replace").read()
+    except Exception:
+        return []
+    import re as _re
+    out = []
+    for m in _PANEL_RE.finditer(src):
+        for q in _re.findall(r"""['"]([^'"]{4,})['"]""", m.group(1)):
+            if q not in out:
+                out.append(q)
+    return out
 
 
 def stamp_strategy_sha(job, log=None):

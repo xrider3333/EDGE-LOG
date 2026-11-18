@@ -24,6 +24,11 @@ def R(monkeypatch):
     monkeypatch.setattr(r, "_psutil", None)
     # the DATA guard is not what is under test here - give every job its master
     monkeypatch.setattr(r.ae, "find_master", lambda *a, **k: {"instrument": "NQ", "date_to": "2026-11-17"})
+    # the DATA guard is not under test in this file: give every job a master that is
+    # really there, so what fails here can only be the code guard (2026-11-18: the data
+    # guard now stats the master file, not just its registry row).
+    import augur_engine.data as _D
+    monkeypatch.setattr(_D, "master_on_disk", lambda row: True)
     return r
 
 

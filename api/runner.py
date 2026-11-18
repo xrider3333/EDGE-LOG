@@ -2196,10 +2196,24 @@ class FirestoreQueue:
                     if not _resumed and job.get("type") != "book" and job.get("strategy")                             and not is_research_beacon(job):
                         _lack = None
                         try:
-                            from augur_engine.strategies import strategy_path, strategy_file_sha
+                            from augur_engine.strategies import (strategy_path, strategy_file_sha,
+                                                                 strategy_panels)
                             _sp = strategy_path(job.get("strategy"))
                             if not os.path.exists(_sp):
                                 _lack = "%s (not on disk)" % os.path.basename(_sp)
+                            elif [q for q in strategy_panels(_sp) if not os.path.exists(q)]:
+                                # AND ITS PINNED SIDE PANEL (MANAGER 11-18). Several MISC files take
+                                # what a master cannot carry - another fund's prices, prior raw
+                                # closes, an event calendar - from a pinned .npz panel, and by their
+                                # own design a missing panel returns None rather than guessing.
+                                # Downstream that is "0 trades": the same silent non-answer the two
+                                # gate_validate jobs gave on a box with no panels. Read statically,
+                                # never by importing the module - this runs before the claim, on a
+                                # box that may not be able to run that file at all.
+                                _lack = "%s's pinned side panel %s" % (
+                                    os.path.basename(_sp),
+                                    ", ".join(q for q in strategy_panels(_sp)
+                                              if not os.path.exists(q))[:160])
                             else:
                                 _want = (job.get("strategy_sha") or job.get("code_sha") or "")
                                 if _want:
@@ -2249,14 +2263,28 @@ class FirestoreQueue:
                     if not _resumed and job.get("type") != "book" and job.get("instrument"):
                         _miss = None
                         try:
-                            if not ae.find_master(job.get("instrument"),
-                                                  job.get("timeframe", "5m"),
-                                                  job.get("session", "rth"),
-                                                  job.get("source")):
-                                _miss = "%s %s %s%s" % (job.get("instrument"),
-                                                        job.get("timeframe", "5m"),
-                                                        job.get("session", "rth"),
-                                                        " " + str(job.get("source")) if job.get("source") else "")
+                            from augur_engine.data import master_on_disk
+                            _m = ae.find_master(job.get("instrument"),
+                                                job.get("timeframe", "5m"),
+                                                job.get("session", "rth"),
+                                                job.get("source"))
+                            _what = "%s %s %s%s" % (job.get("instrument"),
+                                                    job.get("timeframe", "5m"),
+                                                    job.get("session", "rth"),
+                                                    " " + str(job.get("source")) if job.get("source") else "")
+                            if not _m:
+                                _miss = _what
+                            elif not master_on_disk(_m):
+                                # THE REGISTRY ROW IS NOT THE FILE (2026-11-18). find_master
+                                # answers from optimizer_history.db, an untracked local file that
+                                # can list masters whose CSV is not on this machine - a copied
+                                # registry, a worktree, a second box. Desktop worker 7 held the GLD
+                                # and TLT rows and neither CSV: this guard said yes, the engine
+                                # loaded nothing, and both gate_validate runs ended "no result
+                                # (0 trades or invalid window)" - which reads exactly like a
+                                # strategy that did not trade. So ask the disk, not the registry.
+                                _miss = "%s (registry row %s names %s, not on this disk)" % (
+                                    _what, _m.get("id"), _m.get("filename"))
                         except Exception as _me:
                             # A broken registry read is not a reason to refuse work: fall
                             # through and let the job run (and fail loudly) as before.
