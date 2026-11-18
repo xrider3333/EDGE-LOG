@@ -723,6 +723,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     w.openChartGallery=function(B,rows,v,lbl,o){calls.push(['gallery',rows.map(function(x){return x._pid;}),lbl,o&&o.title]);};
     function step(nm,fn){var st={};R.steps[nm]=st;try{var v=fn(st);if(v&&v.then)return v.then(null,function(e){st.err=String(e&&e.stack?e.stack:e);});}catch(e){st.err=String(e&&e.stack?e.stack:e);}return null;}
     try{
+      try{if(d.fonts&&d.fonts.ready)await Promise.race([d.fonts.ready,pnSleep(3000)]);}catch(_e){}   // CALM-DOWN item 2: Inter swaps in late; measure after the web fonts settle
       w.renderApp();   // the first draw of a case is a few px taller than every later one: measure the settled page
       R.base=pnGeo(d,w);
       // 0. a click on a tick box, the label round it, the CHART pill or a button is that control own click: it never opens the panel
@@ -2128,7 +2129,7 @@ def run(alt_index=None, timeout=300):
         if und is None:
             fails.append('%s: no line directly under the big number (#p2-hero-under: the open trades, or flat)' % nm)
         else:
-            if h.get('underPrev') != 'p2-hero-value' or h.get('underNext') != 'p2-hero-range':
+            if h.get('underNext') != 'p2-hero-range' or h.get('underPrev') not in ('p2-hero-value', None):   # CALM-DOWN item 1 (owner 11-18): open line = first tile under the big number
                 fails.append('%s: the open line is not directly under the big number with the range line under it (before: %r, after: %r)' % (nm, h.get('underPrev'), h.get('underNext')))
             # owner 10-31 15:30 + redesign step 9 + LEDGER UI r2 (item 6): 'unrealized -$X · N open' only while a trade is open; the
             # net-equity rule ('in the number above') is the figure's title, not a printed clause

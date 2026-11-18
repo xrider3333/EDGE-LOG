@@ -23,7 +23,7 @@ window._loadPdfJs=function(){if(window.pdfjsLib)return Promise.resolve(window.pd
 window._pfTxt=function(v){var n=+v;if(v==null||!isFinite(n))return String(v==null?"":v);return n>99?"99+":n.toFixed(2);};
 window._pfHtml=function(v){var n=+v;if(v==null||!isFinite(n))return String(v==null?"":v);if(n<=99)return n.toFixed(2);return '<span title="capped at 99 - the true profit factor is higher. A profit factor this large means the stretch has almost no losing dollars, so the ratio stops carrying information." style="cursor:help">99+</span>';};
 </script>
-<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&display=swap" rel="stylesheet"/>
+<link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@300;400;500;700&family=Bebas+Neue&family=Inter:wght@400;500;600;700&display=swap" rel="stylesheet"/>
 <style>
 /* ── THEMES ── */
 :root{
@@ -311,6 +311,7 @@ window._pfHtml=function(v){var n=+v;if(v==null||!isFinite(n))return String(v==nu
 [data-density="large"]{--pad:22px;--card-pad:18px 22px;--mini-pad:14px 18px;--fs:14px;--fsm:12px;--fss:11px;--fsxs:10px;}
 
 *{box-sizing:border-box;margin:0;padding:0}
+:root{--lg-sans:'Inter',system-ui,-apple-system,'Segoe UI',Roboto,'Helvetica Neue',Arial,sans-serif;--lg-num:'JetBrains Mono',ui-monospace,'Cascadia Mono',Consolas,monospace}
 html,body{height:100%;background:var(--bg);color:var(--text);font-family:'JetBrains Mono',monospace;font-size:var(--fs)}
 ::-webkit-scrollbar{width:3px;height:3px}::-webkit-scrollbar-track{background:var(--bg1)}::-webkit-scrollbar-thumb{background:var(--text5)}
 /* v64.16 (owner): inside report tiles the scrollbar was a bright full-height grey line — make
@@ -857,6 +858,17 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-hero .hm-suffix,.lg-hero .lg-suffix{color:var(--text5)}
 .lg-hero-chips{display:flex;gap:6px;flex-wrap:wrap;justify-content:flex-end;align-items:center;max-width:100%}
 .lg-hero-chips:empty{display:none}
+/* CALM-DOWN item 1 (owner pick 11-18): one headline number, today's change small and coloured under it, the other hero lines as tiles.
+   Placed late in the sheet's hero block so it wins over the older per-board hero sizes (same specificity, later rule). */
+.lg-hero-one .lg-hero-today{font-size:13px;margin-top:6px;display:block}
+.lg-hero-one .lg-hero-tiles{display:flex;flex-wrap:wrap;gap:8px;margin-top:12px}
+.lg-hero-one .lg-hero-tile{background:var(--bg1);border:1px solid var(--border2);border-radius:10px;padding:8px 12px;margin:0;font-size:12px;line-height:1.45;min-width:0;max-width:100%;display:block}
+.lg-hero-one .lg-hero-tile:empty{display:none}
+.lg-hero-one .lg-hero-excl{display:block;font-size:11px;color:var(--text5);margin-top:4px}
+@media (max-width:600px){.lg-hero-one .lg-hero-today{margin:2px 8px 0 0;font-size:12px;display:inline-block;vertical-align:middle}.lg-hero-one .lg-hero-tiles{margin-top:2px;gap:6px;display:inline-flex;vertical-align:middle;max-width:100%}.lg-hero-one .lg-hero-tile{padding:2px 8px;font-size:11px;line-height:1.35;border-radius:8px}}
+/* CALM-DOWN item 2 (owner pick 11-18): Inter for words and labels on the three LEDGER boards; mono (tabular figures) only for prices and P&L. */
+.lg-frame,.p2rh,.lg-frame button:not(.hm-fold):not(.lg-more),.p2rh button:not(.hm-fold):not(.lg-more),.lg-frame input,.p2rh input,.lg-frame select,.p2rh select{font-family:var(--lg-sans)}
+.lg-frame td,.p2rh td,.lg-stat-val,.lg-stat-sub,.lg-hero-today,.lg-hero-tile,.lg-up,.lg-down,.lg-nofig,.hm-up,.hm-down{font-family:var(--lg-num);font-variant-numeric:tabular-nums}
 .lg-chip{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.4px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:var(--bg1);white-space:nowrap}
 .lg-pills{display:flex;gap:18px;flex-wrap:wrap}
 .lg-pills button{background:none;border:none;padding:0 0 5px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
@@ -1768,7 +1780,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.66';
+const VERSION='90.67';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3243,17 +3255,16 @@ function ledgerMoney(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE;
 // o.note (optional, html) = extra lines under the range line; left out, the hero html is exactly as before
 function ledgerHeroHtml(o){
   const id=k=>(o.ids&&o.ids[k])?' id="'+o.ids[k]+'"':'';
-  return '<div class="lg-hero"><div class="lg-hero-main">'
+  // CALM-DOWN item 1 (owner pick 11-18, 'one headline number'): the hero is ONE big number with today's change as a small coloured
+  // line under it. The other hero lines (the open position o.under, the realized / range line o.range) move into a row of small tiles
+  // directly under it - same ids, same html, nothing removed. o.todayInline is kept for callers but no longer changes the layout.
+  const tiles=(o.under!=null?'<div class="lg-hero-tile lg-hero-under"'+id('under')+'>'+o.under+'</div>':'')
+    +'<div class="lg-hero-tile lg-hero-range"'+id('range')+'>'+(o.range||'')+'</div>';
+  return '<div class="lg-hero lg-hero-one"><div class="lg-hero-main">'
     +'<div class="lg-hero-label"'+id('label')+'>'+(o.label||'')+'</div>'
     +'<div class="lg-hero-big"'+id('big')+'>'+(o.big||'')+'</div>'
-    // owner 10-31 (paper tabs): o.under = the line DIRECTLY under the big number (the open position, or 'flat'); the range line
-    // (cash) follows it and the today line comes last. Without o.under the order stays today, range (REAL).
-    +(o.under!=null?('<div class="lg-hero-under"'+id('under')+'>'+o.under+'</div>'
-      +'<div class="lg-hero-range'+(o.todayInline?' lg-hero-range-in':'')+'"'+id('range')+'>'+(o.range||'')+'</div>'+(o.todayInline?('<span class="lg-hero-today lg-hero-today-in"'+id('today')+'>'+(o.today||'')+'</span>'):'')
-      // owner 10-31 (paper tabs, 'clean this up'): o.todayInline puts the today figure at the right end of the range line instead of a line of its own
-      +(o.todayInline?'':('<div class="lg-hero-today"'+id('today')+'>'+(o.today||'')+'</div>')))
-    :('<div class="lg-hero-today"'+id('today')+'>'+(o.today||'')+'</div>'
-      +'<div class="lg-hero-range"'+id('range')+'>'+(o.range||'')+'</div>'))
+    +'<div class="lg-hero-today"'+id('today')+'>'+(o.today||'')+'</div>'
+    +'<div class="lg-hero-tiles">'+tiles+'</div>'
     +(o.note!=null?'<div class="lg-hero-note"'+id('note')+'>'+o.note+'</div>':'')
     +'</div><div class="lg-hero-chips"'+id('chips')+'>'+(o.chips||'')+'</div></div>';
 }

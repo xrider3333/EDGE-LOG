@@ -1399,7 +1399,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     r.heroBig=hv?(function(){var c=hv.cloneNode(true);[].forEach.call(c.querySelectorAll('.qbx-hero-qual'),function(x){x.parentNode.removeChild(x);});return (c.textContent||'').trim();})():null;
     r.heroQual=hv?(function(){var e=hv.querySelector('[data-hmheroqual]');return e?(e.textContent||'').trim()+'|'+(e.getAttribute('data-hmheroqual')||''):null;})():null;
     r.heroOpenLine=(function(){var e=d.getElementById('hm-hero-under');return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;})();
-    r.heroTodayInline=!!(d.querySelector('#hm-hero-today.lg-hero-today-in')&&d.querySelector('#hm-hero-delta.lg-hero-range-in'));
+    r.heroTodayInline=!!(d.querySelector('.lg-hero-one #hm-hero-today')&&d.querySelector('.lg-hero-tiles #hm-hero-delta'));
     r.heroToday=ht?(ht.textContent||'').replace(/\\s+/g,' ').trim():null;
     // LEDGER redesign step 2: the range pills ride on the chart's one control row (.lg-chart-row) now, not a row of their own
     r.pills=Array.prototype.map.call(d.querySelectorAll('.lg-chart-row [data-hmrange], .hm-ctl [data-hmrange], .hm-range-row [data-hmrange]'),function(b){return b.getAttribute('data-hmrange');}).join(',');
@@ -4555,7 +4555,7 @@ def _judge(data, data_obj):
         # LEDGER redesign steps 6 and 9: today rides at the right end of the realized line (no line of its own), and the big number
         # carries the words that say which of the three quantities it is - NET EQUITY in EQUITY view.
         if not r.get('heroTodayInline'):
-            fails.append("%s: today is a line of its own again - it rides at the right end of the realized line (redesign step 6)" % nm)
+            fails.append("%s: the one-headline hero is broken - today must sit under the big number and the realized line in the tiles (calm-down item 1)" % nm)
         # LEDGER UI r2 (item 1): in EQUITY view the words beside the number are gone (the label names it); the node stays with its data attr
         _qual_want = 'realized|realized' if (cfg.get('chartMode') or 'equity') == 'pnl' else '|net'
         if (r.get('heroQual') or '') != _qual_want:
