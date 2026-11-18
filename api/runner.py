@@ -2163,6 +2163,49 @@ class FirestoreQueue:
                     # STUDIES board can say "repeat of run N" without anyone eyeballing it.
                     # The owner-facing WARNING-BEFORE-SPENDING-20-MINUTES lives in the web
                     # Builder, where there IS someone to ask.
+                    # ── DATA GUARD: DO NOT CLAIM WORK THIS HOST CANNOT DO (2026-11-18) ──
+                    # The claim used to happen before anything looked for the data, so a
+                    # worker on a box without a job's master claimed it and then failed
+                    # "no master" - exactly what the cloud box did on 2026-09-21 with two
+                    # re-validate jobs off this queue (see the refusal note at the top).
+                    # It matters again now that the owner's DESKTOP runs workers 6-8: the
+                    # desktop has the NQ and ES masters but not the QQQ / Alpaca side
+                    # files, so a QQQ job reaching it would die instead of waiting for a
+                    # host that can run it.
+                    #
+                    # So: look first, and when the master is missing leave the doc QUEUED
+                    # and untouched for a host that has it. One log line per job per 10
+                    # minutes names the instrument, timeframe and source that is missing -
+                    # a job nobody can run must be visible, not silent. New claims only; a
+                    # resumed orphan (progress > 0) was already claimed somewhere and is
+                    # not re-judged here.
+                    if not _resumed and job.get("type") != "book" and job.get("instrument"):
+                        _miss = None
+                        try:
+                            if not ae.find_master(job.get("instrument"),
+                                                  job.get("timeframe", "5m"),
+                                                  job.get("session", "rth"),
+                                                  job.get("source")):
+                                _miss = "%s %s %s%s" % (job.get("instrument"),
+                                                        job.get("timeframe", "5m"),
+                                                        job.get("session", "rth"),
+                                                        " " + str(job.get("source")) if job.get("source") else "")
+                        except Exception as _me:
+                            # A broken registry read is not a reason to refuse work: fall
+                            # through and let the job run (and fail loudly) as before.
+                            log(f"  [data] master check skipped for {snap.id}: "
+                                f"{type(_me).__name__}: {_me}")
+                            _miss = None
+                        if _miss:
+                            _seen = getattr(self, "_data_logged", None)
+                            if _seen is None:
+                                _seen = self._data_logged = {}
+                            _t = time.time()
+                            if _t - _seen.get(snap.id, 0.0) >= 600:
+                                _seen[snap.id] = _t
+                                log(f"[data] {_HOST} has no master for {_miss} - leaving "
+                                    f"{snap.id} queued for a host that does")
+                            continue
                     # ── FREE-MEMORY GUARD (2026-09-07) ─────────────────────────────
                     # Several runners now drain this queue side by side (primary + the
                     # _run_worker.vbs workers). A 1-minute validate holds ~1.2 GB, and the
