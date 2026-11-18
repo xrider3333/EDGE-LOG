@@ -439,9 +439,13 @@ def test_redact_leaves_file_paths_readable(tmp_path):
     lines = []
     WS.cmd_check(cfg=cfg, out=lines.append)
     joined = "\n".join(lines)
-    assert str(tmp_path) in joined
+    # pytest's own temp folder (pytest-10079 ...) is a 12+ char run with digits, so the
+    # redactor masks THAT segment once pytest's counter passes 9999 - compare against the
+    # redacted temp path, and require that the file's own name and folder survive intact.
+    assert WS._redact(str(tmp_path)) in joined
     assert "paper_keys.json" in joined
-    assert "redacted" not in joined.lower()
+    tail = joined.split("paper_keys.json")[0].rsplit(tmp_path.name, 1)[-1]
+    assert "redacted" not in tail.lower()
 
 
 def test_no_credential_strings_leak_from_sdk_errors(tmp_path, monkeypatch):
