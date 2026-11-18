@@ -4508,7 +4508,8 @@ function _fsuFlush(){try{if(!_fsu.on||!db||typeof currentUser==='undefined'||!cu
   const day=new Date().toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'});const key='page_'+((window.matchMedia&&window.matchMedia('(max-width: 760px)').matches)?'phone':'pc');const inc=firebase.firestore.FieldValue.increment;
   const ref=db.collection('users').doc(currentUser.uid).collection('meta').doc('fs_usage_'+day);['reads','writes','listen_reads'].forEach(k=>{_fsu.sent[k]+=d[k];});
   _fsu.raw.call(ref,{[key]:{reads:inc(d.reads),writes:inc(d.writes+1),listen_reads:inc(d.listen_reads),last:new Date().toISOString()}},{merge:true}).catch(()=>{});}catch(e){}}
-function initFB(){if(firebase.apps.length)return true;try{firebase.initializeApp({apiKey:"AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",authDomain:"edge-tracker-b55af.firebaseapp.com",projectId:"edge-tracker-b55af",storageBucket:"edge-tracker-b55af.firebasestorage.app",messagingSenderId:"351905859153",appId:"1:351905859153:web:9657ca100cf3463ca89a70"});auth=firebase.auth();db=firebase.firestore();_fsuInstall();
+(function _fsuWait(n){try{if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length&&db){_fsuInstall();return;}}catch(e){}if(n<600)setTimeout(()=>_fsuWait(n+1),1000);})(0);
+function initFB(){if(firebase.apps.length)return true;try{firebase.initializeApp({apiKey:"AIzaSyD0Q3ms5xZJ5SFl7aHh3oYIkGJJAUiRRBI",authDomain:"edge-tracker-b55af.firebaseapp.com",projectId:"edge-tracker-b55af",storageBucket:"edge-tracker-b55af.firebasestorage.app",messagingSenderId:"351905859153",appId:"1:351905859153:web:9657ca100cf3463ca89a70"});auth=firebase.auth();db=firebase.firestore();
 // NO offline persistence, deliberately (v71.61). The old synchronizeTabs persistence routed
 // every tab through one elected lead tab — a wedged lead starved snapshots in ALL tabs — and
 // the v71.60 single-tab attempt could deadlock its lease negotiation against an old
