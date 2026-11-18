@@ -941,6 +941,40 @@ SIGNAL_METHODS = ("difference", "ratio", "raw")
 ADJUSTED_KINDS = ("difference-adjusted signals", "ratio-adjusted signals")
 _CLASS_CACHE = {}
 SAMPLE_SESSIONS = None      # sessions the method test runs over, ending at the window's end; None = all
+# PRICE TICK per root, for the invariance probe only (TBIS 11-18, MANAGER GO). A tick that is not a
+# dyadic fraction (RTY/M2K 0.1) is stored inexactly, so price + C changes the ROUNDING of every
+# difference and threshold ties flip - RTY scored 0.9935 on a file that is exactly shift-invariant
+# on an exact grid. For those roots only, the probe runs on a binary-exact surrogate: prices in
+# whole ticks times the next power-of-two tick (0.1 -> 0.125). Dyadic ticks (NQ/ES 0.25, YM 1,
+# ZN 1/64) are already exact and take the unchanged path, so their classifications cannot move.
+PRICE_TICK = {"NQ": 0.25, "MNQ": 0.25, "ES": 0.25, "MES": 0.25, "RTY": 0.1, "M2K": 0.1,
+              "YM": 1.0, "MYM": 1.0, "ZN": 1.0 / 64}
+
+
+def _is_dyadic(tick):
+    """True when the DECIMAL tick is k / 2**n (exact in binary): 0.25, 1, 1/64 yes; 0.1 no."""
+    from fractions import Fraction
+    d = Fraction(repr(float(tick))).denominator
+    return d & (d - 1) == 0
+
+
+def exact_grid(root, *series):
+    """(series on a binary-exact grid, factor) for a non-dyadic-tick root; (series, None) otherwise."""
+    tick = PRICE_TICK.get(str(root or "").upper())
+    if not tick or _is_dyadic(tick):
+        return series, None
+    t2 = 2.0 ** np.ceil(np.log2(tick))
+    # Anchored at the median price so LEVELS stay where they were (a file keyed to a fixed price
+    # must still see it - a bare x1.25 would move RTY 2,000 to 2,500 and hide a level file).
+    # Every value is a whole number of t2 steps, so all differences stay exact.
+    ticks = [np.round(np.asarray(x, dtype="float64") / tick) for x in series]
+    last = ticks[-1][np.isfinite(ticks[-1])]
+    n0 = float(np.median(last)) if len(last) else 0.0
+    n0 = float(np.round(n0))
+    anchor = float(np.round(n0 * tick / t2) * t2)
+    return tuple((k - n0) * t2 + anchor for k in ticks), t2 / tick
+
+
 SCALE_K = 1.5               # the scale test multiplies prices by at least this
 DECLARED_MATCH_MIN = 0.99   # a declared method may move at most 1% of trades under its own test
 NEAR_SESSIONS = 20          # TTM's L: sessions after a switch a lookback can still carry the step
@@ -1306,6 +1340,12 @@ def invariance(mod, arrays, root, times, tf, params=None, strategy_name=None, wa
         p = dict(params or {})
         p.pop("roll_treatment", None)
         O, H, L, Cl = (np.asarray(sl[kk], dtype="float64") for kk in ("open", "high", "low", "close"))
+        (O, H, L, Cl), _f = exact_grid(root, O, H, L, Cl)
+        if _f is not None:
+            # C in surrogate units, a whole number of surrogate ticks so the shift stays exact
+            _t2 = 2.0 ** np.ceil(np.log2(PRICE_TICK[str(root).upper()]))
+            C = float(np.ceil(C * _f / _t2) * _t2)
+            out["grid"] = _f
         usd = str(getattr(mod, "PNL_UNITS", "") or "").lower() == "usd"
         with roll_context(root, times[a:], tf, strategy=strategy_name):
             r0 = fn(O, H, L, Cl, return_trades=True, **ex, **p)
@@ -1319,8 +1359,16 @@ def invariance(mod, arrays, root, times, tf, params=None, strategy_name=None, wa
             else:
                 out["scale"] = None
         out["trades"] = len(k0)
-    except Exception:
-        out = dict(shift=0.0, scale=0.0, trades=0)
+    except Exception as _e:
+        # Still scored 0.0 (toward the guard), but never silently: ENGUQ's RTY '0 pct' (11-18)
+        # was indistinguishable from a real level-dependent reading.
+        import logging
+        import traceback
+        logging.getLogger(__name__).error("roll invariance probe FAILED for %s on %s: %s: %s",
+                                          strategy_name, root, type(_e).__name__, _e)
+        out = dict(shift=0.0, scale=0.0, trades=0,
+                   error="%s: %s" % (type(_e).__name__, str(_e)[:300]),
+                   traceback=traceback.format_exc()[-2000:])
     _CLASS_CACHE[key] = out
     return out
 
@@ -1446,6 +1494,9 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
                        "method (ratio for %% logic) and prices fills raw."
                        % (_pct(inv["shift"]), meta.get("filename") or meta.get("name") or src,
                           noadj_twin(meta, root)))
+                if inv.get("error"):
+                    msg += (" [PROBE ERROR - this is NOT a measured reading, the probe crashed: %s]"
+                            % inv["error"])
                 if not waived:
                     raise RollGuardError(msg)
                 plan["warn"] = msg
@@ -1503,6 +1554,9 @@ def plan_for(mod, arrays, strategy_name=None, params=None):
                          "(%s), so it runs on raw prices; its indicators still read the roll step near "
                          "switches - declare ROLL_SIGNAL, or a roll-aware version of the file is the "
                          "exact fix" % (_pct(inv["shift"]), _pct(inv["scale"])))
+        if inv.get("error"):
+            plan["warn"] += (" [PROBE ERROR - NOT a measured reading, the probe crashed: %s]" % inv["error"])
+            plan["probe_error"] = inv["error"]
         return plan
     if method == "ratio" and usd:
         plan.update(kind="raw: ratio file reports dollars", method="raw", method_source=msrc,
