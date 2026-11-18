@@ -1812,7 +1812,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.83';
+const VERSION='90.84';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3278,7 +3278,7 @@ const LEDGER_NO_FIGURE_SHORT='n/a';
 const LEDGER_NO_TRADES='No trades';
 function ledgerNum(v){if(v==null||v==='')return null;const n=+v;return isFinite(n)?n:null;}
 // COMPARE 'only raw shown' (owner 11-18): CONFIG starts on RAW - one row per run - until the owner picks another or ALL.
-function _resCfgFamPref(){return Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):['RAW'];}
+function _resCfgFamPref(P){return Array.isArray(P&&P.resCfgFam)?P.resCfgFam.map(String):['RAW'];}
 function ledgerSigned(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE;return (n>=0?'+':'-')+ledgerMoney(Math.abs(n));}
 // ══ ONE MONEY FORMAT (ledger calm-down item 6, 2026-11-18) ══ shared by every board; tools/money_fmt_probe.py pins it.
 //   under $1,000      -> cents kept        $987.65 / -$0.42
@@ -40152,7 +40152,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   its own buttons hundreds of lines below, and a const is hoisted but not
         //   initialised - so the first read threw 'cannot access before initialization' and
         //   took the whole tab down. Same trap as the blank COMPARE tab in v71.77.
-        const _reCfgFam=_resCfgFamPref();
+        const _reCfgFam=_resCfgFamPref(APREF);
         // MANAGER WATCH LIST ids, in the order MANAGER listed them (owner audit 2026-09-27,
         //   section 1.4a). Read once here so the run pool below and the pill order built
         //   further down agree on who is watched.
@@ -51709,7 +51709,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
       content.querySelectorAll('[data-recfgfam]').forEach(b=>{b.onclick=()=>{
         const v=b.getAttribute('data-recfgfam');
-        const cur=_resCfgFamPref();
+        const cur=_resCfgFamPref(APREF);
         const i2=cur.indexOf(v); if(i2>=0)cur.splice(i2,1); else cur.push(v);
         savePref('resCfgFam',cur);renderApp();};});
       // W130 (owner 2026-11-13): CONFIG is a chip row in plain sight now, multi-select, with ALL
@@ -52513,7 +52513,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           root.querySelectorAll('[data-recfgleg]').forEach(b=>{b.onclick=()=>{
         const ALL=['RAW','GATE','TILT','HYBRID','HYBRID ♻','HYBRID ↓DD','KEEL'];
         const v=b.getAttribute('data-recfgleg');
-        const cur=_resCfgFamPref();
+        const cur=_resCfgFamPref(APREF);
         let shown=cur.length?ALL.filter(t=>cur.indexOf(t)>=0):ALL.slice();
         const i3=shown.indexOf(v);
         if(i3>=0){if(shown.length===1)return;shown.splice(i3,1);}else shown.push(v);
