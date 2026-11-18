@@ -869,6 +869,12 @@ select option:checked{background:var(--bg3);color:var(--text)}
 /* CALM-DOWN item 2 (owner pick 11-18): Inter for words and labels on the three LEDGER boards; mono (tabular figures) only for prices and P&L. */
 .lg-frame,.p2rh,.lg-frame button:not(.hm-fold):not(.lg-more),.p2rh button:not(.hm-fold):not(.lg-more),.lg-frame input,.p2rh input,.lg-frame select,.p2rh select{font-family:var(--lg-sans)}
 .lg-frame td,.p2rh td,.lg-stat-val,.lg-stat-sub,.lg-hero-today,.lg-hero-tile,.lg-up,.lg-down,.lg-nofig,.hm-up,.hm-down{font-family:var(--lg-num);font-variant-numeric:tabular-nums}
+/* CALM-DOWN item 3 (owner 11-18 13:16): no letter-spaced ALL-CAPS labels on the ledger boards - sentence case as written, normal spacing. Switches and strategy names keep theirs. */
+.lg-frame *:not(.lg-sw):not(.lg-row-name):not(th),.p2rh *:not(.lg-sw):not(.lg-row-name):not(th){text-transform:none!important;letter-spacing:normal!important}
+/* CALM-DOWN item 4: borders out - cards and chips separated by spacing and a faint background (border colour transparent, so nothing moves); hairlines stay only between list rows (.lg-row). Switches (.lg-sw) and the warning pill keep their outline. */
+.lg-frame .lg-stat,.lg-frame .lg-hero-tile,.lg-frame .lg-rowchart,.lg-frame .lg-more,.lg-frame .lg-status,.lg-frame .lg-chip,.lg-frame .lg-fchip,.lg-frame .lg-seg,.lg-frame .lg-status-btn,.lg-frame .lg-cal-day,.lg-frame .lg-cal-nav,.lg-frame .lg-help,.lg-frame .lg-panel-tag,.lg-frame .lg-tl-search,.lg-frame .hm-bookday,.lg-frame .hm-daily-tip,.lg-frame .hm-ghostbtn,.lg-frame .hm-ledger-chip,.lg-frame .hm-mode,.lg-frame .hm-notes-edit,.lg-frame .hm-seg,.lg-frame .hm-tilt,.lg-frame .hm-week,.lg-frame .hm-fold,.p2rh .lg-stat,.p2rh .lg-hero-tile,.p2rh .lg-rowchart,.p2rh .lg-more,.p2rh .lg-status,.p2rh .lg-chip,.p2rh .lg-fchip,.p2rh .lg-seg,.p2rh .lg-status-btn,.p2rh .lg-cal-day,.p2rh .lg-cal-nav,.p2rh .lg-help,.p2rh .lg-panel-tag,.p2rh .lg-tl-search,.p2rh .hm-bookday,.p2rh .hm-daily-tip,.p2rh .hm-ghostbtn,.p2rh .hm-ledger-chip,.p2rh .hm-mode,.p2rh .hm-notes-edit,.p2rh .hm-seg,.p2rh .hm-tilt,.p2rh .hm-week,.p2rh .hm-fold{border-color:transparent!important}
+.lg-frame .lg-stat,.p2rh .lg-stat{background:var(--bg2);border-radius:10px}
+.lg-frame .lg-stats,.p2rh .lg-stats{gap:4px 6px;background:transparent}
 .lg-chip{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.4px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:var(--bg1);white-space:nowrap}
 .lg-pills{display:flex;gap:18px;flex-wrap:wrap}
 .lg-pills button{background:none;border:none;padding:0 0 5px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
@@ -1782,7 +1788,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.71';
+const VERSION='90.72';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on

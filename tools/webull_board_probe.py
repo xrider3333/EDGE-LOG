@@ -6112,7 +6112,7 @@ def _hero_qual_problems(tag, r, doc, fails):
     if und is None:
         fails.append('%s: no line directly under the big number (#qb-hero-under: the open position, or flat)' % tag)
     else:
-        if r.get('heroUnderPrev') != 'qb-hero-value' or r.get('heroUnderNext') != 'qb-hero-range':
+        if r.get('heroUnderNext') != 'qb-hero-range' or r.get('heroUnderPrev') not in ('qb-hero-value', None):   # CALM-DOWN item 1 (owner 11-18): open line = first tile under the big number
             fails.append('%s: the open line is not directly under the big number with the cash line under it (before it: %r, after it: %r)'
                          % (tag, r.get('heroUnderPrev'), r.get('heroUnderNext')))
         if not (und.startswith('unrealized ') or und == ''):
