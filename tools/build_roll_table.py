@@ -156,17 +156,20 @@ def rows_for(root, src_dir=DATA):
     path = os.path.join(src_dir, "contract_switches_%s.csv" % root)
     with open(path, encoding="utf-8") as fh:
         for r in csv.DictReader(fh):
-            if r["source"] != "databento_raw":
+            hole = r["source"] == "databento_raw_hole"   # ZN/RTY/YM: switch or offset minute on a hole day
+            if r["source"] not in ("databento_raw", "databento_raw_hole"):
                 # the two inferred_after_raw_end rows are weekend gaps, not rolls - see
                 # NOT_ROLLS, which records them explicitly instead
                 continue
             out.append(dict(
                 root=root, old=r["old"], new=r["new"],
                 switch_sec=int(r["switch_sec"]), switch_et=r["switch_et"],
-                offset_pts="%.2f" % float(r["contract_offset"]),
+                offset_pts=("%.6f" if root == "ZN" else "%.2f") % float(r["contract_offset"]),  # ZN ticks 1/64
                 offset_ci_pts="", offset_sec=r["prev_bar_et"],
                 kind=classify_kind(r["switch_et"]), source="databento_raw",
-                status="exact", note=""))
+                status="estimated" if hole else "exact",
+                note="hole day (2014-10-03 / 2020-02-27 / 2020-02-28 / 2020-06-30) or no shared minute: "
+                     "offset not measured cleanly" if hole else ""))
 
     for entry in TAIL_ROLLS:
         rt, stamp, old, new, off, ci, source, note = entry[:8]
@@ -221,10 +224,12 @@ def main():
     ap.add_argument("--check", action="store_true",
                     help="rebuild in memory and compare against the committed tables")
     ap.add_argument("--out", default=DATA)
+    ap.add_argument("roots", nargs="*", default=["NQ", "ES"],
+                    help="roots to build (default NQ ES); RTY / YM / ZN need tools/build_contract_switches.py first")
     a = ap.parse_args()
 
     bad = 0
-    for root in ("NQ", "ES"):
+    for root in a.roots:
         rows = rows_for(root)
         print(summarise(root, rows))
         if a.check:

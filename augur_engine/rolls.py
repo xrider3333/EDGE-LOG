@@ -382,8 +382,10 @@ import threading
 
 _CTX = threading.local()
 
-ROLL_ROOTS = {"NQ": "NQ", "MNQ": "NQ", "ES": "ES", "MES": "ES"}
-POINT_VALUE = {"NQ": 20.0, "MNQ": 2.0, "ES": 50.0, "MES": 5.0}   # $ per point, for the stamp
+ROLL_ROOTS = {"NQ": "NQ", "MNQ": "NQ", "ES": "ES", "MES": "ES",
+              "RTY": "RTY", "M2K": "RTY", "YM": "YM", "MYM": "YM", "ZN": "ZN"}   # RTY/YM/ZN tables 11-18 (Databento)
+POINT_VALUE = {"NQ": 20.0, "MNQ": 2.0, "ES": 50.0, "MES": 5.0,
+               "RTY": 50.0, "M2K": 5.0, "YM": 5.0, "MYM": 0.5, "ZN": 1000.0}   # $ per point, for the stamp
 
 
 def normalize_instrument(instrument):
@@ -928,8 +930,8 @@ def roll_stamp(meta, times, trades, mult, strategy_name=None, table_dir=None, da
 #   "live bar builder: ..."        arrays from api/cloud_signal.closed_arrays (roll_mode = "live"):
 #                                  live / paper / shadow legs, reported only (MANAGER D2)
 #   "undeclared"                   no instrument, live / paper path only (research paths refuse)
-NO_TABLE_FUTURES = frozenset({"CL", "MCL", "GC", "MGC", "SI", "HG", "NG", "ZN", "ZB", "ZF", "ZT",
-                              "6E", "6J", "6B", "RTY", "M2K", "YM", "MYM"})
+NO_TABLE_FUTURES = frozenset({"CL", "MCL", "GC", "MGC", "SI", "HG", "NG", "ZB", "ZF", "ZT",
+                              "6E", "6J", "6B"})   # ZN / RTY / M2K / YM / MYM got tables 11-18 (ROLL_ROOTS)
 ROLL_AWARE_SHA = {          # basename -> sha256 of the file's LF content (re-pin only with the parity test)
     "NQDIP_1_2.py": "c3a2e34249a77ce8ad423b71fc11da8687695f2dcfd37ddfdf64c7ed63df242b",
     "NQDIP_1_3.py": "c6ba58a423cdc56127cbbb3fdbb7ea01579518767f8518db8f11d7c7dec8aba3",

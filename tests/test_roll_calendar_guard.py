@@ -523,7 +523,7 @@ def test_ttm4_instrument_aliases_are_the_root(strat, alias):
     assert r["_meta"]["roll_stamp"]["calendar"] == "difference-adjusted signals"
 
 
-@pytest.mark.parametrize("alias", ["CL1!", "/GC", "CLZ6", "GC=F", "RTY1!"])
+@pytest.mark.parametrize("alias", ["CL1!", "/GC", "CLZ6", "GC=F", "ZB1!"])
 def test_ttm4_futures_aliases_without_a_table_are_refused(strat, alias):
     import augur_engine as ae
     with pytest.raises(R.RollGuardError):
