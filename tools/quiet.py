@@ -124,9 +124,25 @@ def _iso(t):
     return t.astimezone(UTC).strftime("%Y-%m-%dT%H:%M:%SZ") if t else None
 
 
+def auto_enabled():
+    """False when EDGELOG_QUIET_AUTO is 0/false/no/off: this box never quiets itself on the
+    clock. For a DESKTOP WORKER BOX (owner 11-16, via MANAGER: "its a separate computer so it
+    shouldnt need any quiet mode") - quiet and day mode exist to protect the Razer's RAM and
+    NinjaTrader, and a worker reads quiet from LOCAL files only (QuietMonitor runs with db=None),
+    so on a box with no QUIET file and no state file the auto window was the ONLY thing still
+    holding its claims, silently, every morning. Read per call, never cached: default (unset)
+    is unchanged, so the Razer behaves exactly as before. The owner's button and the local
+    QUIET flag are NOT affected - this switches off the clock rule alone."""
+    v = os.environ.get("EDGELOG_QUIET_AUTO")
+    return True if v is None else str(v).strip().lower() not in ("0", "false", "no", "off")
+
+
 def auto_window(now):
     """(start, end) of today's auto window as aware datetimes, or None when today (MST) is not
-    a trading day. The ET date of 06:25-09:00 MST is the same calendar date."""
+    a trading day, or None everywhere when auto_enabled() is False. The ET date of 06:25-09:00
+    MST is the same calendar date."""
+    if not auto_enabled():
+        return None
     m = _aware(now).astimezone(MST)
     if not is_trading_day(m.date()):
         return None
@@ -261,6 +277,7 @@ class QuietMonitor:
         self.since = None
         self.held = []
         self._held_logged = False
+        self._held_at = 0.0
         self.deferred = {}                   # name -> fn
         self.running = set()                 # job ids this process runs
         self.reads = 0
@@ -392,12 +409,18 @@ class QuietMonitor:
         with self._lock:
             if job_id not in self.held:
                 self.held.append(job_id)
-                if not self._held_logged:
-                    self._held_logged = True
-                    self.log(f"[quiet] holding queued job(s) ({self.state[1]}, until "
-                             f"{self.state[2] or 'turned off'}): {job_id} - not claimed")
-                    if self.db is not None:
-                        self._write_status(self.now_fn())
+            # RE-SAY IT EVERY 10 MINUTES (MANAGER 11-16). The line used to fire once per
+            # quiet episode AND only on a job id never seen before, so a runner holding the
+            # same queue for hours looked idle for no stated reason. The clock re-arms it;
+            # 10 minutes keeps a long queue from flooding the log.
+            _now = self.clock()
+            if not self._held_logged or _now - self._held_at >= 600:
+                self._held_logged = True
+                self._held_at = _now
+                self.log(f"[quiet] holding {len(self.held)} queued job(s) ({self.state[1]}, "
+                         f"until {self.state[2] or 'turned off'}): {job_id} - not claimed")
+                if self.db is not None:
+                    self._write_status(self.now_fn())
         return True
 
     def defer(self, name, fn):

@@ -2126,6 +2126,20 @@ class FirestoreQueue:
                         try:
                             from tools import day_mode as _dm
                             if _dm.hold():
+                                # SAY SO (MANAGER 11-16). This hold used to be completely
+                                # silent: a desktop worker box with no runner_schedule.json
+                                # falls back to the DEFAULTS (enabled, 07:00-16:00,
+                                # day_runners 2), so slots 7-9 sat there claiming nothing
+                                # all day and the log gave no clue why. Throttled to one
+                                # line per 10 minutes so a full queue cannot flood it.
+                                _t = time.time()
+                                if _t - getattr(self, "_dm_logged_at", 0.0) >= 600:
+                                    self._dm_logged_at = _t
+                                    _cfg = _dm.load()
+                                    log(f"[day] slot {_dm.slot()} does not claim new work "
+                                        f"{_cfg['day_start']}-{_cfg['day_end']} MST "
+                                        f"(day_runners {_cfg['day_runners']}) - leaving "
+                                        f"{snap.id} queued")
                                 continue
                         except Exception:
                             pass

@@ -525,3 +525,43 @@ def test_runner_claims_resumed_orphans_through_quiet():
     src = (pathlib.Path(__file__).resolve().parents[1] / "api" / "runner.py").read_text(encoding="utf-8")
     assert '_resumed = (job.get("progress") or 0) > 0' in src
     assert "not _resumed and _qm.hold(snap.id)" in src
+
+
+# ── EDGELOG_QUIET_AUTO=0 on a worker box (OWNER 11-16 via MANAGER) ──────────────────────────
+def test_auto_window_off_by_env_but_button_and_local_flag_still_quiet(monkeypatch):
+    """A desktop worker box opts out of the CLOCK rule only."""
+    monkeypatch.setenv("EDGELOG_QUIET_AUTO", "0")
+    assert Q.auto_enabled() is False
+    assert Q.auto_window(mst(*TUE, 7, 0)) is None
+    assert Q.is_quiet(mst(*TUE, 7, 0), None, False)[0] is False
+    # the owner's button still quiets the box
+    assert Q.is_quiet(mst(*TUE, 7, 0), {"on": True}, False)[:2] == (True, Q.WHY_BUTTON)
+    # so does a local QUIET file
+    assert Q.is_quiet(mst(*TUE, 7, 0), None, True)[:2] == (True, Q.WHY_LOCAL)
+
+
+def test_auto_window_unchanged_when_env_unset_or_truthy(monkeypatch):
+    monkeypatch.delenv("EDGELOG_QUIET_AUTO", raising=False)
+    assert Q.auto_enabled() is True
+    assert Q.auto_window(mst(*TUE, 7, 0)) is not None
+    monkeypatch.setenv("EDGELOG_QUIET_AUTO", "1")
+    assert Q.auto_window(mst(*TUE, 7, 0)) is not None
+
+
+def test_worker_with_auto_off_claims_in_the_morning_window(monkeypatch):
+    monkeypatch.setenv("EDGELOG_QUIET_AUTO", "0")
+    m = Q.QuietMonitor(db=None, uids=["uid1"], log=lambda *_: None,
+                       clock=_Clock(mst(*TUE, 7, 0).timestamp()))
+    assert m.quiet() is False and m.hold("A") is False
+
+
+def test_hold_line_repeats_every_ten_minutes(monkeypatch):
+    m, clock, logs = _mon(mst(*TUE, 7, 0))
+    assert m.hold("A") and m.hold("A")
+    assert sum("holding" in s for s in logs) == 1
+    clock.t += 599
+    assert m.hold("A")
+    assert sum("holding" in s for s in logs) == 1, "too soon to say it again"
+    clock.t += 2
+    assert m.hold("A")
+    assert sum("holding" in s for s in logs) == 2
