@@ -3123,7 +3123,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o" style="display:none"></pre>
 <script>
-var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__, TLS=__TLS__, OLDMARKS=__OLDMARKS__;
+var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__, TLS=__TLS__, OLDMARKS=__OLDMARKS__, SHB=__SHB__;
 (function(){
   var out={cases:{},notes:[]}, reported=false, t0=Date.now(), sink=null, phase=0, PS0=null;
   function finish(why){
@@ -3360,7 +3360,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     // the page's stand-in for its retired list (QE_LEGS_RETIRED, ['ENGUQ']): set only by a case that retires no leg ([])
     w.__qbRetiredLegs=cfg.retired?w.JSON.parse(JSON.stringify(cfg.retired)):null;
     // STRATEGY SWITCHES (owner 11-18): every case counts every leg ([]) unless it asks for the page's own default (DIP off)
-    w.__qbLegsOffDefault=cfg.legsDefault?null:[];w._qbLegsOff=null;try{w.localStorage.removeItem('el_qb_legs_off');}catch(e){}
+    w.__qbLegsOffDefault=cfg.legsDefault?null:[];w._qbLegsOff=null;try{w.localStorage.removeItem('el_qb_legs_off');}catch(e){}w._qbShOn=null;try{w.localStorage.removeItem('el_qb_sh_on');}catch(e){}
     w.__probeScrub=!!cfg.scrub;
     w.__probeDaily=!!cfg.daily;   // DAILY | CURVE switch: every case judges the CURVE ('0') unless it asks for the default DAILY ('1')
     w.__probeNextOpen=cfg.nextOpen||null;
@@ -3916,13 +3916,21 @@ __S11JS__
               lg=d.querySelector('#qb-lg-chart svg')||d.querySelector('.qbx-chart svg');
               return {net:h?h.textContent.trim():null,excl:ex?ex.textContent.trim():null,curve:lg?lg.innerHTML.length+'|'+(lg.innerHTML.match(/ d="[^"]{0,80}/)||[''])[0]:null,
                 sw:[].slice.call(d.querySelectorAll('[data-lglist="qb"] [data-lgsw]')).filter(function(x){return x.offsetWidth>0&&x.offsetHeight>0;}).map(function(x){return x.getAttribute('data-lgsw')+':'+(x.classList.contains('on')?1:0);})};};
-            await runCase('__tog',{vp:'laptop',theme:'dark',fix:TV.doc,nowMs:TV.renderMs||TV.nowMs,legsDefault:true});delete out.cases.__tog;
+            await runCase('__tog',{vp:'laptop',theme:'dark',fix:Object.assign({},TV.doc,{shadow_trades:SHB}),nowMs:TV.renderMs||TV.nowMs,legsDefault:true});delete out.cases.__tog;
             out.tog.def=rd();
             var dsw=D().querySelector('[data-lglist="qb"] [data-lgsw="DIP"]');if(dsw){dsw.click();await new Promise(function(r){setTimeout(r,300);});}
             out.tog.dipOn=rd();
             var osw=D().querySelector('[data-lglist="qb"] [data-lgsw="ORB"]');if(osw){osw.click();await new Promise(function(r){setTimeout(r,300);});}
             out.tog.orbOff=rd();
             try{out.tog.stored=W().localStorage.getItem('el_qb_legs_off');}catch(e){}
+            // SHADOW SWITCHES (owner 11-18): off by default; on draws a dashed '(shadow)' line and a what-if figure, never the headline
+            var shg=D().querySelector('[data-lglist="qb"] [data-lggrp="shadow"]');if(shg&&shg.getAttribute('aria-expanded')!=='true'){shg.click();await new Promise(function(r){setTimeout(r,300);});}
+            var shs=[].slice.call(D().querySelectorAll('[data-lglist="qb"] [data-lgsw^="sh:"]'));out.tog.shN=shs.length;out.tog.shOnDef=shs.filter(function(x){return x.classList.contains('on');}).length;
+            var shl=function(){return [].map.call(D().querySelectorAll('#qb-lg-legend [data-lgline], .qbx-chart [data-lgline]'),function(b){return b.textContent;}).filter(function(t){return /[(]shadow[)]/.test(t);});};
+            out.tog.shLinesDef=shl().length;
+            if(shs.length){var pick=null;for(var si=0;si<shs.length;si++){shs[si].click();await new Promise(function(r){setTimeout(r,300);});if(shl().length){pick=1;break;}}
+              var r2=rd();out.tog.shNet=r2.net;out.tog.shLines=shl().length;var wi=D().querySelector('[data-qbshwhatif]');out.tog.shWhatIf=wi?wi.textContent.trim():null;
+              try{out.tog.shStored=W().localStorage.getItem('el_qb_sh_on');}catch(e){}}
           }}catch(e){out.tog={threw:String(e&&e.stack?e.stack:e)};}
         try{await interact();}catch(e){out.inter={threw:String(e&&e.stack?e.stack:e)};}
         // LEDGER step 11: the own folds, the list's phone fold, storage that throws, every fold open at six widths
@@ -7992,7 +8000,7 @@ def _attempt(chrome, alt_index, fixture):
                  'widths': c.get('widths'), 'page': TL_PAGE}, **(c.get('pn') or {})) for c in _tl_cases(fixture)]
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__STATS__', json.dumps(stats)).replace('__TLS__', json.dumps(tls)).replace('__TLJS__', TL_JS).replace('__S11JS__', S11_JS)
-            .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants))
+            .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants)).replace('__SHB__', json.dumps(_shadow_block()))
             .replace('__FIX__', json.dumps(fixture)).replace('__OLDMARKS__', json.dumps(OLD_MARKS)))
     io.open(os.path.join(pdir, 'probe.html'), 'w', encoding='utf-8').write(html)
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), make_handler(ROOT, alt_index))
@@ -8609,6 +8617,19 @@ def _judge(data, fixture):
             fails.append("strategy switch run: with every leg on the headline still says %r" % d1.get('excl'))
         if d1.get('net') == d2.get('net') or d1.get('curve') == d2.get('curve'):
             fails.append('strategy switch run: switching ORB off left the headline or the chart unchanged (net %r -> %r)' % (d1.get('net'), d2.get('net')))
+        if tg.get('shN'):
+            if tg.get('shOnDef') or tg.get('shLinesDef'):
+                fails.append('shadow switch run: a shadow leg is on by default (%s switches on, %s shadow lines)' % (tg.get('shOnDef'), tg.get('shLinesDef')))
+            if not tg.get('shLines'):
+                fails.append('shadow switch run: switching shadow legs on drew no dashed (shadow) line on the chart')
+            if tg.get('shNet') != d2.get('net'):
+                fails.append('shadow switch run: a shadow leg changed the headline (%r -> %r) - shadows are never in the account number' % (d2.get('net'), tg.get('shNet')))
+            if not tg.get('shWhatIf') or 'what-if' not in tg.get('shWhatIf'):
+                fails.append('shadow switch run: no what-if figure under the headline (%r)' % tg.get('shWhatIf'))
+            if not tg.get('shStored') or tg.get('shStored') == '[]':
+                fails.append('shadow switch run: the shadow choice is not remembered (el_qb_sh_on = %r)' % tg.get('shStored'))
+        else:
+            fails.append('shadow switch run: the variant draws no shadow switch at all')
         if tg.get('stored') != '["ORB"]':
             fails.append('strategy switch run: the choice is not remembered for this viewer (el_qb_legs_off = %r, want ["ORB"])' % tg.get('stored'))
     isc = data.get('iscroll')
