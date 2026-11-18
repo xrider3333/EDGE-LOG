@@ -1812,7 +1812,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.82';
+const VERSION='90.83';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3277,6 +3277,8 @@ const LEDGER_NO_FIGURE_SHORT='n/a';
 // r2 step 1 (item 17): ONE empty-state string on every board, every slot (calendar month, More stats, trade list, a strategy row, a list header)
 const LEDGER_NO_TRADES='No trades';
 function ledgerNum(v){if(v==null||v==='')return null;const n=+v;return isFinite(n)?n:null;}
+// COMPARE 'only raw shown' (owner 11-18): CONFIG starts on RAW - one row per run - until the owner picks another or ALL.
+function _resCfgFamPref(){return Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):['RAW'];}
 function ledgerSigned(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE;return (n>=0?'+':'-')+ledgerMoney(Math.abs(n));}
 // ══ ONE MONEY FORMAT (ledger calm-down item 6, 2026-11-18) ══ shared by every board; tools/money_fmt_probe.py pins it.
 //   under $1,000      -> cents kept        $987.65 / -$0.42
@@ -39610,7 +39612,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             return here?(sel.indexOf(f.val(st,r))>=0):true;});};
         // CHAT SWEEPS builds no run rows (every one is filtered out below) but DOES build the
         //   lane and lab records, so the gate opens for it as well.
-        if(((_reLvl==='valid'||_reLvl==='all')&&!_reShowCfg)||_reSrc==='chat'){
+        if(((_reLvl==='valid'||_reLvl==='all')||_reShowCfg)||_reSrc==='chat'){
           const RR=[];
           // ONE BLOCK PER STRETCH for a run row, from what the run saved (see the v73.764 note).
           const _reRunStages=function(x){
@@ -39982,7 +39984,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   and AUTO-VALIDATED printed the same per-family numbers over disjoint rows. The facet
           //   and month filters are NOT applied: the rail sets the family, so counting after it
           //   would leave exactly one button on screen.
-          RR.filter(_reRunSrcOk).forEach(function(r){_reRunFam[r.fam]=(_reRunFam[r.fam]||0)+1;});
+          if(!_reShowCfg)RR.filter(_reRunSrcOk).forEach(function(r){_reRunFam[r.fam]=(_reRunFam[r.fam]||0)+1;});
           keep.forEach(function(r){_reItems.push({st:runSt,r:r});});
           if(keep.length){_rePrep.push({st:runSt,all:RR,kept:keep,rows:keep,filtOut:RR.length-keep.length,outSc:[]});
             _reShown+=keep.length;}
@@ -40150,7 +40152,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //   its own buttons hundreds of lines below, and a const is hoisted but not
         //   initialised - so the first read threw 'cannot access before initialization' and
         //   took the whole tab down. Same trap as the blank COMPARE tab in v71.77.
-        const _reCfgFam=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
+        const _reCfgFam=_resCfgFamPref();
         // MANAGER WATCH LIST ids, in the order MANAGER listed them (owner audit 2026-09-27,
         //   section 1.4a). Read once here so the run pool below and the pill order built
         //   further down agree on who is watched.
@@ -40660,6 +40662,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   run and said under the chart, so an empty contribution is never silent.
           CROWS.forEach(function(r){_reCfgBy[r._run]=(_reCfgBy[r._run]||0)+1;});
           _reCfgIds.forEach(function(id){if(!_reCfgBy[id]&&_reCfgWait.indexOf(id)<0)_reCfgEmpty.push(id);});
+          // COMPARE 'only raw shown' (owner 11-18): a picked run that saved no configuration records used to vanish
+          //   (40 ticked, 4 listed). Its own run row stays instead, tagged RAW - the run as it ran is its plain config.
+          //   Only those runs: the run rows built above are cut to them; the others are already here as configs.
+          (function(){
+            const keepIds={};_reCfgEmpty.forEach(function(id){keepIds[String(id)]=1;});
+            const okR=function(r){return !!keepIds[String(r.n)];};
+            const retag=function(r){if(r._cfgRun)return r;const c=Object.assign({},r,{fam:'RAW',_strat:r.fam,_tab:'RAW',_cfgRun:1,_run:String(r.n)});
+              if(r._x)Object.defineProperty(c,'_x',{value:r._x,enumerable:false,configurable:true});return c;};
+            const famOk=function(r){return !_reCfgFam.length||_reCfgFam.indexOf('RAW')>=0;};
+            for(let i=_rePrep.length-1;i>=0;i--){const P=_rePrep[i];if(!P||!P.st||P.st.key!=='runs')continue;
+              _reShown-=P.rows.length;
+              const rows=P.rows.filter(okR).filter(famOk).map(retag);
+              P.st.title='PICKED RUNS WITHOUT CONFIGURATION RECORDS';P.st.rows=rows;P.rows=rows;P.kept=rows;P.all=rows;P.filtOut=0;
+              _reShown+=rows.length;if(!rows.length)_rePrep.splice(i,1);}
+            for(let i=_reItems.length-1;i>=0;i--){const it=_reItems[i];if(!it||!it.st||it.st.key!=='runs')continue;
+              if(okR(it.r)&&famOk(it.r))it.r=retag(it.r);else _reItems.splice(i,1);}
+          })();
           if(_reCfgIds.length&&!_reCfgWait.length&&!CROWS.length)_reCfgMsg='None of the picked runs saved configuration records - a run made before the engine stored them, or a pinned single-config run whose one configuration IS the run.';
           if(CROWS.length){
                 const cfgSt={key:'cfg-'+_reCfgIds.join('-'),title:'CONFIGS OF RUN #'+_reCfgIds.join(' + #'),fam:'CONFIG',
@@ -41129,6 +41148,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span class="lbl" style="font-size:12px;letter-spacing:1.6px;color:var(--text2)">TABLES</span>'
             +'<span style="font-size:8px;color:var(--text5)">'+(_reOneTbl?(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' pooled into one table'):(_reWithRows.length+' stud'+(_reWithRows.length===1?'y':'ies')+' \u00b7 click one to open it'))
             +((_rePrep.length-_reWithRows.length)?(' \u00b7 '+(_rePrep.length-_reWithRows.length)+' more are empty under the current controls and are not listed'):'')
+            +((_reShowCfg&&_reCfgEmpty.length)?(' \u00b7 '+_reCfgEmpty.length+' of '+_reCfgIds.length+' picked runs saved no configuration records (#'+_reCfgEmpty.join(', #')+') - each is listed once, as the run itself (RAW)'):'')
             +(_reOneTbl?'':(_reSolo?' \u00b7 the only study left is open':''))+'</span>'
             +'<span data-revirt="'+(_reVirt?'0':'1')+'" title="'+_reEsc('WINDOWED ROWS: when ON a long table holds only the rows around what is on screen and swaps them in as you scroll, so a big board opens and re-sorts about three seconds sooner. When OFF every row is in the page, which a page search or a print needs. Remembered in this browser.')+'" style="font-size:8px;font-weight:700;letter-spacing:.6px;color:'+(_reVirt?'var(--text)':'var(--text4)')+';border:1px solid var(--border2);border-radius:4px;padding:1px 6px;cursor:pointer">WINDOWED ROWS \u00b7 '+(_reVirt?'ON':'OFF')+'</span>'
             // filled by the fit pass when KEY had to leave columns out for this width; a click opens ALL
@@ -51689,7 +51709,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
       content.querySelectorAll('[data-recfgfam]').forEach(b=>{b.onclick=()=>{
         const v=b.getAttribute('data-recfgfam');
-        const cur=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
+        const cur=_resCfgFamPref();
         const i2=cur.indexOf(v); if(i2>=0)cur.splice(i2,1); else cur.push(v);
         savePref('resCfgFam',cur);renderApp();};});
       // W130 (owner 2026-11-13): CONFIG is a chip row in plain sight now, multi-select, with ALL
@@ -52493,7 +52513,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           root.querySelectorAll('[data-recfgleg]').forEach(b=>{b.onclick=()=>{
         const ALL=['RAW','GATE','TILT','HYBRID','HYBRID ♻','HYBRID ↓DD','KEEL'];
         const v=b.getAttribute('data-recfgleg');
-        const cur=(Array.isArray(APREF.resCfgFam)?APREF.resCfgFam.map(String):[]);
+        const cur=_resCfgFamPref();
         let shown=cur.length?ALL.filter(t=>cur.indexOf(t)>=0):ALL.slice();
         const i3=shown.indexOf(v);
         if(i3>=0){if(shown.length===1)return;shown.splice(i3,1);}else shown.push(v);
