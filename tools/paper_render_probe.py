@@ -214,6 +214,22 @@ import tempfile
 import threading
 import time
 
+def _el_money(v, signed=False):
+    """Python twin of index.html elMoney (calm-down item 6; pinned by tools/money_fmt_probe.py)."""
+    n = float(v); a = abs(n)
+    if a >= 999950: body = '$%.2fM' % (a / 1e6)
+    elif a >= 1e5: body = '$%.1fk' % (a / 1e3)
+    elif round(a, 2) >= 1000: body = '${:,}'.format(int(a + 0.5))
+    else: body = '$%.2f' % a
+    if body == '$0.00': return body
+    return ('-' if n < 0 else ('+' if signed and n > 0 else '')) + body
+
+
+def _el_money_tol(v):
+    a = abs(v)
+    return 5000.0 if a >= 999950 else 50.0 if a >= 1e5 else 0.5 if a >= 1000 else 0.02
+
+
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 CASE_CFG = {}
 
@@ -1429,7 +1445,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         r.closeDayTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('CLOSE DAY')>=0;}).length;
         r.bookTh=[].filter.call(d.querySelectorAll('th'),function(x){return x.textContent.indexOf('BOOK $')>=0;}).length;
         // LEDGER step 3 readout (PAPER * layout)
-        function _num(t){var m=String(t||'').replace(/,/g,'').match(/(-?)\\$([0-9.]+)/);return m?(m[1]?-1:1)*parseFloat(m[2]):null;}
+        function _num(t){var m=String(t||'').replace(/,/g,'').match(/(-?)\\$([0-9.]+)([kM]?)/);return m?(m[1]?-1:1)*parseFloat(m[2])*(m[3]==='k'?1e3:m[3]==='M'?1e6:1):null;}
         // LEDGER redesign step 9 (2026-11-01): the big number is NET EQUITY (realised + the mark of what is open), so the figure the
         // chart's solid line and the BOOK group total tie to is the REALISED one on the line under it. heroNum keeps reading that
         // realised figure - every check below is about it - and netEqNum / openNum are the big number and its unrealised half.
@@ -2090,7 +2106,7 @@ def run(alt_index=None, timeout=300):
         ne, op = r.get('netEqNum'), r.get('openNum') or 0
         if ne is None:
             fails.append('%s: no big number to read (#p2-hero-value)' % nm)
-        elif abs(ne - (hn + op)) > 0.02:
+        elif abs(ne - (hn + op)) > _el_money_tol(hn + op):   # calm-down item 6: the headline is compact from $100k, no cents from $1,000
             fails.append('%s: the big number is %s, but net equity is the realised %s plus the open %s = %s (redesign step 9)'
                          % (nm, ne, hn, op, round(hn + op, 2)))
         # LEDGER UI r2 (item 1): the words beside the number are gone (the label names it); the qualifier node stays, empty
@@ -2379,8 +2395,7 @@ def run(alt_index=None, timeout=300):
             return {'net': '--', 'winrate': '--', 'pf': '--', 'maxdd': '--'}
         pf = '--' if e['pf'] is None else ('no losses' if e['pf'] == float('inf') else '%.2f' % e['pf'])
         wr = '--' if e['wr'] is None else '%d%%' % int(_math.floor(e['wr'] * 100 + 0.5))
-        net = ('+' if e['net'] >= 0 else '-') + '${:,.2f}'.format(abs(e['net']))
-        return {'net': net, 'winrate': wr, 'pf': pf, 'maxdd': '${:,.2f}'.format(e['dd'])}
+        return {'net': _el_money(e['net'], signed=True), 'winrate': wr, 'pf': pf, 'maxdd': _el_money(e['dd'])}
 
     def _money_in(txt):
         m = _re.search(r'(-?)\$([0-9,]+(?:\.[0-9]+)?)', (txt or '').replace('+', ''))
@@ -4717,8 +4732,8 @@ MUTANTS = [
      'the big number no longer equals net equity (realised + open)',
      'but net equity is the realised'),
     ('drawdown-negative',
-     "tile('maxdd','Max drawdown',s?ledgerMoney(s.maxDD):'--'",
-     "tile('maxdd','Max drawdown',s?ledgerMoney(-s.maxDD):'--'",
+     "tile('maxdd','Max drawdown',s?elMoney(s.maxDD):'--'",
+     "tile('maxdd','Max drawdown',s?elMoney(-s.maxDD):'--'",
      'the shared stats strip prints max drawdown as a negative number',
      'max drawdown reads'),
     ('profit-factor-off',

@@ -1788,7 +1788,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.72';
+const VERSION='90.73';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3309,7 +3309,7 @@ function ledgerHeroHtml(o){
 // "+$12.50 today": signed and arrowed, so it reads the same under the MONO theme (no colour needed)
 function ledgerTodayHtml(v){
   v=+v||0;const up=v>=0;
-  return '<span class="'+(up?'hm-up':'hm-down')+'">'+(up?'&#9650; +':'&#9660; -')+ledgerMoney(Math.abs(v))+'</span> <span class="lg-suffix">today</span>';
+  return '<span class="'+(up?'hm-up':'hm-down')+'">'+(up?'&#9650; +':'&#9660; -')+elMoney(Math.abs(v))+'</span> <span class="lg-suffix">today</span>';
 }
 function ledgerRangePillsHtml(active,attr,ranges){
   return '<div class="lg-pills">'+(ranges||LEDGER_RANGES).map(r=>'<button type="button" '+attr+'="'+r+'" class="'+(active===r?'active':'')
@@ -3371,10 +3371,10 @@ function ledgerStatStripHtml(s,o){
   const wl=s?s.wins+' W &middot; '+s.losses+' L'+(s.flat?' &middot; '+s.flat+' even':''):'';
   const cnt=s?(s.trades+' trade'+(s.trades===1?'':'s')+' &middot; '+s.days+' day'+(s.days===1?'':'s')):'';
   return '<div class="lg-stats"'+(o.id?' id="'+o.id+'"':'')+'>'
-    +tile('net','Net P&amp;L','<span class="'+ledgerCls(s?s.net:null)+'">'+(s?ledgerSigned(s.net):'--')+'</span>',cnt)
+    +tile('net','Net P&amp;L','<span class="'+ledgerCls(s?s.net:null)+'">'+(s?elMoney(s.net,{signed:true}):'--')+'</span>',cnt)
     +tile('winrate','Win rate',wr,wl+(o.winNote||''))
     +tile('pf','Profit factor',s?ledgerPfText(s.pf):'--',s&&s.pf!=null?ledgerShortMoney(s.grossWin).slice(1)+' won &middot; '+ledgerShortMoney(s.grossLoss).slice(1)+' lost':'')
-    +tile('maxdd','Max drawdown',s?ledgerMoney(s.maxDD):'--','')
+    +tile('maxdd','Max drawdown',s?elMoney(s.maxDD):'--','')
     +'</div>';
 }
 function ledgerMsRow(label,value,cls){return '<div class="lg-ms-row"><div class="l">'+label+'</div><div class="v'+(cls?' '+cls:'')+'">'+value+'</div></div>';}
@@ -16525,7 +16525,7 @@ function _hmPaintDelta(delta,pct,suffix){
   const tri=up?'&#9650;':'&#9660;';
   const elD=document.getElementById('hm-hero-delta');
   if(!elD)return;
-  elD.innerHTML=`<span class="${up?'hm-up':'hm-down'}">${tri}</span><span class="${up?'hm-up':'hm-down'}">${_hmMoney(Math.abs(delta))}${pct==null||!isFinite(pct)?'':' ('+_hmPct(pct)+')'}</span><span class="hm-suffix">${_hmEsc(suffix)}</span>`;
+  elD.innerHTML=`<span class="${up?'hm-up':'hm-down'}">${tri}</span><span class="${up?'hm-up':'hm-down'}">${elMoney(Math.abs(delta))}${pct==null||!isFinite(pct)?'':' ('+_hmPct(pct)+')'}</span><span class="hm-suffix">${_hmEsc(suffix)}</span>`;
 }
 function _hmRenderHeroDefault(endVal,startVal){
   const lbl=document.getElementById('hm-hero-label');if(lbl)lbl.innerHTML=_hmHeroLabel();
@@ -16535,7 +16535,7 @@ function _hmRenderHeroDefault(endVal,startVal){
   const stl=document.getElementById('hm-status-line');if(stl)stl.innerHTML=_hmStatusLine();
   const lsb=document.getElementById('hm-lossbar');if(lsb)lsb.innerHTML=_hmLossBarHtml();
   const gl=document.getElementById('hm-goal');if(gl)gl.innerHTML=_hmGoalHtml();
-  _hmPaintBig(_hmMoney(endVal));
+  _hmPaintBig(elMoney(endVal));
   const dep=homeChartMode==='equity'?_hmRangeDeposits(homeRange):0;
   const delta=endVal-startVal-dep;
   const pctBase=homeChartMode==='equity'?(Math.abs(startVal+dep)>0.005?Math.abs(startVal+dep):null):_hmPnlPctBase(homeRange);
@@ -16614,7 +16614,7 @@ function _hmRenderDailyInto(wrapEl){
     cross.setAttribute('x1',X.toFixed(1));cross.setAttribute('x2',X.toFixed(1));cross.setAttribute('visibility','visible');
     tip.innerHTML='<b>'+_hmFmtDateLong(days[i])+'</b><span class="'+ledgerCls(by[days[i]])+'">day '+ledgerSigned(by[days[i]])+'</span><span class="'+ledgerCls(cum[i])+'">total '+ledgerSigned(cum[i])+'</span>';
     tip.hidden=false;const px=X*r.width/W;tip.style.left=Math.max(0,Math.min(r.width-tip.offsetWidth,px-tip.offsetWidth/2))+'px';
-    try{_hmPaintBig(_hmMoney(cum[i]));}catch(e){}};
+    try{_hmPaintBig(elMoney(cum[i]));}catch(e){}};
   const hide=()=>{cross.setAttribute('visibility','hidden');tip.hidden=true;try{_hmRenderHeroDefault(c,0);}catch(e){}};
   svg.addEventListener('mousemove',show);svg.addEventListener('mouseleave',hide);
   svg.addEventListener('touchmove',e=>{if(e.touches[0])show(e.touches[0]);},{passive:true});svg.addEventListener('touchend',hide);
@@ -16633,7 +16633,7 @@ function _hmRenderChartInto(root){
     lines:_hmBrokerLines(ser),refs:_hmGoalRefs(ser),
     onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_real')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_real',JSON.stringify(off));}catch(e){}},
     onScrub:(i,p)=>{
-      _hmPaintBig(_hmMoney(p.v));
+      _hmPaintBig(elMoney(p.v));
       const ptDate=p.date;
       const dep=homeChartMode==='equity'?_hmRangeDeposits(homeRange,i===0?'':ptDate):0;
       const delta=p.v-startVal-dep;
@@ -44741,7 +44741,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // trades (the figure the chart's solid line ends at), open = the lots not sold yet (left out when flat).
           // LEDGER redesign step 9 (owner 2026-11-01): this board already added closed + open, which IS net equity under the one rule;
           // what changed is that the small word beside it says 'net equity' instead of 'net', the same words REAL and NT8 now print.
-          big:(netVal==null||!isFinite(Number(netVal)))?'—':(_hmMoney(Number(netVal))+'<span class="lg-suffix qbx-hero-qual" data-qbheroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>'),
+          big:(netVal==null||!isFinite(Number(netVal)))?'—':(elMoney(Number(netVal))+'<span class="lg-suffix qbx-hero-qual" data-qbheroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>'),
           today:(todayVal==null||!isFinite(Number(todayVal)))?'':(QF.isToday?ledgerTodayHtml(Number(todayVal)):qbNotTodayHtml(Number(todayVal))),
           under:openLine?('<span data-qbheroopenline title="The lots not sold yet, at the last mark - part of the net number above (closed + open)">'+openLine+'</span>'):'',
           range:rangeLine,
@@ -49856,7 +49856,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',under:'p2-hero-under',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},todayInline:true,
           // r2 step 2 (item 41): the definition is the label's tooltip
           label:'<span title="'+_p2LabelTip.replace(/"/g,'&quot;')+'">BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity</span>',
-          big:ledgerMoney(_netEq)+'<span class="lg-suffix qbx-hero-qual" data-p2heroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>',
+          big:elMoney(_netEq)+'<span class="lg-suffix qbx-hero-qual" data-p2heroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>',
           today:ledgerTodayHtml(_H.today),
           // owner 10-31 (live page, same as Webull): the OPEN line sits DIRECTLY under the big number - 'open -$X · N trades · not counted'
           // (NT8's big number is closed trades only, so its open trades are named, never added) or 'flat' when nothing is open
