@@ -22,7 +22,7 @@ import pandas as pd
 
 # Point multipliers ($ per point per contract) — mirror optimizer.INSTRUMENTS.
 MULT = {"ES": 50, "MES": 5, "NQ": 20, "MNQ": 2, "RTY": 50, "M2K": 5,
-        "YM": 5, "MYM": 0.5, "CL": 1000, "MCL": 100, "GC": 100, "MGC": 10}
+        "YM": 5, "MYM": 0.5, "CL": 1000, "MCL": 100, "GC": 100, "MGC": 10, "ZN": 1000}
 
 # Candidate whole-hour offsets (minutes) to try when aligning the two blotters. Covers
 # ET<->UTC (±240 EDT / ±300 EST), a 1-hour DST slip (±60), and exchange/CT shifts (±120).

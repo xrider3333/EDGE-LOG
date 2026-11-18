@@ -80,6 +80,7 @@ INSTRUMENTS = {
     "M2K":  {"ticker": "RTY=F", "multiplier": 5},
     "YM":   {"ticker": "YM=F",  "multiplier": 5},
     "MYM":  {"ticker": "YM=F",  "multiplier": 0.5},
+    "ZN":   {"ticker": "ZN=F",  "multiplier": 1000},
     "CL":   {"ticker": "CL=F",  "multiplier": 1000},
     "MCL":  {"ticker": "CL=F",  "multiplier": 100},
     "GC":   {"ticker": "GC=F",  "multiplier": 100},

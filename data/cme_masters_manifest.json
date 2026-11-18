@@ -1,0 +1,62 @@
+{
+ "what": "Databento no-adjust ETH masters for ZN / RTY / YM",
+ "known_hole_days": [
+  "2014-10-03",
+  "2020-02-27",
+  "2020-02-28",
+  "2020-06-30"
+ ],
+ "series_start": {
+  "RTY": "2017-07-10"
+ },
+ "files": [
+  {
+   "sha256": "b09d6eea82323069419772c7e14954e6e6b85a9ae3298de37119ebd43c5b8894",
+   "bytes": 297409754,
+   "date_from": "2010-06-06 18:30",
+   "date_to": "2026-11-16 18:59",
+   "total_rows": 5309833,
+   "filename": "NOADJ_ZN_1m_ETH.csv"
+  },
+  {
+   "sha256": "609c15cd919d7b4fefedf63a489bd6a10490d6cfb097579d7a054430c2711f97",
+   "bytes": 65628506,
+   "date_from": "2010-06-06 18:30",
+   "date_to": "2026-11-16 18:55",
+   "total_rows": 1154180,
+   "filename": "NOADJ_ZN_5m_ETH.csv"
+  },
+  {
+   "sha256": "a49d4d3050c8e8c998e75c1a1761bfdfde7a96f0dd361f4ff056a9be8364d5cf",
+   "bytes": 133513674,
+   "date_from": "2017-07-09 18:01",
+   "date_to": "2026-11-16 18:59",
+   "total_rows": 3103422,
+   "filename": "NOADJ_RTY_1m_ETH.csv"
+  },
+  {
+   "sha256": "b03729e24d7bc7194b29a5d44ea1db07498ce63ec7aa8e9e329a64a1f8d3d011",
+   "bytes": 28537880,
+   "date_from": "2017-07-09 18:00",
+   "date_to": "2026-11-16 18:55",
+   "total_rows": 653185,
+   "filename": "NOADJ_RTY_5m_ETH.csv"
+  },
+  {
+   "sha256": "1482dbd371bb10979f86fb3e79a93371b5b5e7f12225953fd21cb88abb1668cf",
+   "bytes": 261101162,
+   "date_from": "2010-06-06 18:00",
+   "date_to": "2026-11-16 18:59",
+   "total_rows": 5544875,
+   "filename": "NOADJ_YM_1m_ETH.csv"
+  },
+  {
+   "sha256": "59e6f6f4d9f1c711d8ec58d47f2656584b00741df11c7636b6cca3f395c19fb6",
+   "bytes": 55201019,
+   "date_from": "2010-06-06 18:00",
+   "date_to": "2026-11-16 18:55",
+   "total_rows": 1155307,
+   "filename": "NOADJ_YM_5m_ETH.csv"
+  }
+ ]
+}
