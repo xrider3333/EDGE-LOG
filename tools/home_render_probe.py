@@ -1159,7 +1159,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       var spread=function(els){var ys=els.filter(vis).map(function(e){var b=e.getBoundingClientRect();return b.top+b.height/2;});
         return ys.length?Math.round(Math.max.apply(null,ys)-Math.min.apply(null,ys)):null;};
       var T=function(e,k){return e?Math.round(e.getBoundingClientRect()[k]):null;};
-      var row1=tl.querySelector('.lg-tl-top'),row2=tl.querySelector('.lg-tl-find'),row3=tl.querySelector('#hm-pastebar');
+      var row1=tl.querySelector('.lg-tl-top'),row2=tl.querySelector('.lg-tl-find'),row3=tl.querySelector('.hm-addrow-inl');
       var grp=row1?row1.querySelector('[data-lgviews="hm"]'):null;
       var vb=arr('[data-lgview],[data-hmledger],[data-hmfeed]',tl),nt=d.getElementById('hm-newtrade-toggle');
       o.ctl={mode:tl.getAttribute('data-lgmode'),count:!!(row1&&row1.querySelector('[data-lgcount]')),
@@ -3876,14 +3876,14 @@ def _judge_controls(tag, c, px, fails):
         fails.append('%s: at %d px the filters (search, chips, FUTURES STOCKS) do not share one line (their centres are %s px apart, %d at most)'
                      % (tag, px, c.get('filtSpread'), CTL_LINE_TOL))
     if c.get('add') is None:
-        fails.append('%s: there is no row 3 (#hm-pastebar: NEW TRADE, the CHART LINK box, the tools) in the trade list' % tag)
+        fails.append('%s: there is no action group (NEW TRADE and the tools, owner 11-18: on the views line) in the trade list' % tag)
     elif c['add']:
-        fails.append('%s: row 3 of the controls (#hm-pastebar) lost %s' % (tag, ', '.join(c['add'])))
+        fails.append('%s: the action group on the views line lost %s' % (tag, ', '.join(c['add'])))
     if not c.get('ntShown'):
         fails.append('%s: NEW TRADE is not on show without a click' % tag)
     tops, bots = c.get('tops') or [], c.get('bots') or []
     _one = px >= 1500
-    if len(tops) != 3 or len(bots) != 3 or None in tops or None in bots or not (abs(tops[0] - tops[1]) <= CTL_LINE_TOL * 4 and ((abs(tops[2] - tops[0]) <= CTL_LINE_TOL * 4) if _one else (max(bots[0], bots[1]) <= tops[2] + 1))):
+    if len(tops) != 3 or len(bots) != 3 or None in tops or None in bots or not (abs(tops[0] - tops[1]) <= CTL_LINE_TOL * 4 and ((abs(tops[2] - tops[0]) <= CTL_LINE_TOL * 4) if _one else (tops[2] >= tops[0] - CTL_LINE_TOL * 4))):
         fails.append('%s: the controls (owner 11-17: ONE line from 1500 px - filters, views, NEW TRADE, MORE; below that the add row sits under) are not in place (view %s-%s, filters %s-%s, add %s-%s px)'
                      % (tag, (tops + [None] * 3)[0], (bots + [None] * 3)[0], (tops + [None] * 3)[1], (bots + [None] * 3)[1],
                         (tops + [None] * 3)[2], (bots + [None] * 3)[2]))
