@@ -2207,6 +2207,30 @@ class FirestoreQueue:
                                     if _have and not str(_have).startswith(str(_want)[:12]):
                                         _lack = "%s (this box has %s, the job was queued against %s)" % (
                                             os.path.basename(_sp), str(_have)[:12], str(_want)[:12])
+                                elif not _IS_WORKER:
+                                    # STAMP IT ON FIRST SIGHT (MANAGER GO, 11-18). The sha can only
+                                    # be taken by something holding the file, and the Builder is a
+                                    # browser - no access to the PC's disk - while the lanes' queue
+                                    # scripts write the doc 93 different ways with no shared
+                                    # chokepoint to edit. The PRIMARY runner is the one place every
+                                    # job passes through before anyone runs it, and it sits on the
+                                    # box the lanes push to, so the build it holds is the build the
+                                    # job was queued against. Workers never stamp: a worker that has
+                                    # not pulled would brand its own stale build as the intended one.
+                                    # One small write, once per job, and from then on every box can
+                                    # tell "I am missing the file" from "I have the wrong build".
+                                    _have = strategy_file_sha(_sp)
+                                    if _have:
+                                        try:
+                                            ref.update({"strategy_sha": _have})
+                                            job["strategy_sha"] = _have
+                                            log(f"  [code] stamped {snap.id} with "
+                                                f"{os.path.basename(_sp)} {str(_have)[:12]}")
+                                        except Exception as _ue:
+                                            # a lost race or a write failure is harmless: the job is
+                                            # claimed on presence, exactly as it was before today
+                                            log(f"  [code] could not stamp {snap.id}: "
+                                                f"{type(_ue).__name__}: {_ue}")
                         except Exception as _se:
                             # Cannot READ the file or hash it: not evidence the code is absent.
                             log(f"  [code] strategy check skipped for {snap.id}: "

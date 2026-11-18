@@ -39,6 +39,42 @@ def strategy_path(name_or_path: str) -> str:
     return _resolve(name_or_path)
 
 
+def stamp_strategy_sha(job, log=None):
+    """Put the sha of the strategy file THIS box holds onto a job dict, in place.
+
+    Call it in the breath before queueing a job. The point is the worse of the two failures
+    the pre-claim guard in api/runner.py catches: a box missing the file fails loudly, but a
+    box holding a DIFFERENT build of it runs quietly and hands back a number, and nothing in
+    the result says it was not the code the run was meant to test. The sha is what lets every
+    other box tell those apart.
+
+    Returns the sha it wrote, or None when there is nothing to stamp - a book (whose strategy
+    is a NAME and whose params are a leg list), a research beacon, a job with no strategy, a
+    file this box does not have, or a sha already on the job (never overwritten: whoever
+    queued the job knew which build they meant). Never raises: an unstamped job is claimed on
+    presence alone, exactly as before, so this can be added to a queue script without giving
+    it a new way to fail.
+    """
+    try:
+        j = job or {}
+        if not isinstance(j, dict) or j.get("strategy_sha") or j.get("code_sha"):
+            return None
+        if j.get("type") in ("book", "research") or not j.get("strategy"):
+            return None
+        path = _resolve(j["strategy"])
+        if not os.path.exists(path):
+            return None
+        sha = strategy_file_sha(path)
+        if not sha:
+            return None
+        job["strategy_sha"] = sha
+        if log:
+            log("[code] stamped %s %s" % (os.path.basename(path), str(sha)[:12]))
+        return sha
+    except Exception:
+        return None
+
+
 def load_strategy(name_or_path):
     """Load (or return cached) strategy module from a filename/path."""
     path = _resolve(name_or_path)
