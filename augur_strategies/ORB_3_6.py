@@ -293,7 +293,7 @@ def run_backtest(
             i = j; continue
         if _allow_start.get(i, True) is False:   # vol-regime filter skipped this session
             i = j; continue
-        if m > or_bars + 1 and or_bars >= 1:
+        if m > or_bars and or_bars >= 1:
             so, sh, sl, sc = o[i:j], h[i:j], l[i:j], c[i:j]
             sv = v[i:j] if v is not None else None
             or_hi = sh[:or_bars].max()

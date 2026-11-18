@@ -1728,6 +1728,34 @@ def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, l
     if not quiet:
         log(f"[qqq-exec] {action} {leg} {side} {shares}sh @ {qqq_px} "
             f"({px_source}) -- {reason}")
+    _late_order_alert(leg, action, side, after_close_s, log=log)
+
+
+# LATE ORDER ALERT (2026-11-18, docs/ORB_LATE_FIX_1118.md). An engine order that goes out more
+# than LATE_ORDER_ALERT_S after its signal bar CLOSED (after_close_s, above) means the box saw the
+# signal late -- a bar-count guard (ORB's 09:40 entries, 11-03..11-09), a stalled loop or a slow
+# feed. Median today is ~8.5 s. One phone push per leg + action per ET day; never blocks an order.
+LATE_ORDER_ALERT_S = 60.0
+_late_alerted = set()
+
+
+def _late_order_alert(leg, action, side, after_close_s, log=print):
+    try:
+        if after_close_s is None or after_close_s == "" or float(after_close_s) <= LATE_ORDER_ALERT_S:
+            return False
+        key = (_now_et().strftime("%Y-%m-%d"), str(leg), str(action))
+        if key in _late_alerted:
+            return False
+        _late_alerted.add(key)
+        note = ntfy_push.plain(f"Late order: {leg} {action}", "needs a fix",
+                               trading="not affected (the order went out)",
+                               problem=f"{leg} {action} {side} sent {float(after_close_s):.0f} s after its bar closed",
+                               action="nothing now - PAPER-WB reads the log", priority="default")
+        _notify(note["message"], note["title"], log, priority=note["priority"])
+        return True
+    except Exception as e:
+        log(f"[qqq-exec] late-order alert failed ({type(e).__name__}: {e})")
+        return False
 
 
 def _record_trade(lot, exit_px, exit_reason, log=print):
