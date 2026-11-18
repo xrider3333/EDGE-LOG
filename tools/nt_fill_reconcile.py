@@ -149,10 +149,39 @@ def read_book(day, db=None):
     return rows
 
 
+def _size_to_nt(trades, orders):
+    """Match on direction + time, not size (MANAGER 11-18): NT sizes from the LIVE gate, the book from
+    its rebuilt pass, so 10 vs 11 contracts is a data difference, not a miss. Each book trade with an NT
+    open of the same leg and direction within TOL_SEC is restated at NT's shares (book P&L scaled the
+    same way); the difference stays visible as size_diff (NT minus book shares)."""
+    diffs = {}
+    for t in trades:
+        want = rc.book_direction("OPEN", t["side"])
+        near = [o for o in orders if o["leg"] == t["leg"] and o["intent"] == "OPEN"
+                and rc.direction("OPEN", o["side"]) == want
+                and abs((o["ts"] - t["entry_ts"]).total_seconds()) <= TOL_SEC]
+        if not near:
+            continue
+        o = min(near, key=lambda o: abs((o["ts"] - t["entry_ts"]).total_seconds()))
+        # split pieces of one entry (separate orders seconds apart) are summed, never taken alone
+        nt_sh = sum(x["shares"] for x in near if abs((x["ts"] - o["ts"]).total_seconds()) <= 60)
+        diff = nt_sh - t["shares"]
+        if abs(diff) > 1e-9 and t["shares"]:
+            if t.get("pnl") is not None:
+                t["pnl"] = t["pnl"] / t["shares"] * nt_sh
+            t["shares"] = nt_sh
+        diffs[(t["leg"], t["entry_ts"])] = round(diff, 2)
+    return diffs
+
+
 def run(day, rows, fills_path=FILLS_CSV):
     trades = book_trades(rows, day)
     orders, log_start = nt_orders(day, fills_path)
-    return rc.reconcile(day, trades, orders, (), log_start=log_start, tol_sec=TOL_SEC)
+    diffs = _size_to_nt(trades, orders)
+    rep = rc.reconcile(day, trades, orders, (), log_start=log_start, tol_sec=TOL_SEC)
+    for m in rep.get("matched") or []:
+        m["size_diff"] = diffs.get((m["leg"], dt.datetime.fromisoformat(m["entry_ts"])), 0.0)
+    return rep
 
 
 def words(day, rep):

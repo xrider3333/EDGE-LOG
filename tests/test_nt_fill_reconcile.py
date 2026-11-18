@@ -68,3 +68,18 @@ def test_one_bar_off_split_fill_matches_with_drift_reported(tmp_path):
     assert not rep["no_fill"] and not rep["orphan_fills"]
     m = rep["matched"][0]
     assert m["entry_off_sec"] == 301.0 and m["entry_pieces"] == 2 and m["exit_pieces"] == 1
+
+
+def test_size_diff_is_a_column_not_a_miss(tmp_path):
+    """NT 10 MNQ vs book 11: matched on direction + time, size_diff -2 shares ($/pt units)."""
+    f = _fills(tmp_path, [
+        "b1,2026-11-13 19:55:01,DEMO7240108,MNQ 12-26,SELL,10,27969,0,oa,NZ",
+        "b2,2026-11-13 20:00:00,DEMO7240108,MNQ 12-26,BUY,10,28030,0,ob,NZexit"])
+    day = dt.date(2026, 11, 13)
+    leg = {l for l in N.nt_legs(day) if N._family(l) == "NOISE"}.pop()
+    rows = [{"leg": leg, "side": "-1", "size": 3.504, "entryIso": "2026-11-13T14:55:00-05:00",
+             "exitIso": "2026-11-13T15:00:00-05:00", "entry_px": 27968.5, "exit_px": 28032.283,
+             "pnl_usd": -4470.0}]
+    rep = N.run(day, rows, f)
+    assert not rep["no_fill"] and not rep["orphan_fills"]
+    assert rep["matched"][0]["size_diff"] == -2.0 and rep["matched"][0]["shares"] == 20.0

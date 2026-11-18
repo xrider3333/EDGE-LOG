@@ -63,6 +63,7 @@ def rollup(reports):
                                                  abs(x.get("exit_off_sec") or 0)) > 90),
             "max_off_sec": max([abs(x.get(k) or 0) for x in m for k in ("entry_off_sec", "exit_off_sec")]
                                or [None], key=lambda v: -1 if v is None else v),
+            "size_diff_n": sum(1 for x in m if abs(x.get("size_diff") or 0) > 1e-9),
             "split_n": sum(1 for x in m if (x.get("entry_pieces") or 0) > 1 or (x.get("exit_pieces") or 0) > 1),
             "clock": {"trades": f"{len(m)}/{CLOCK_TRADES}", "days": f"{span}/{CLOCK_DAYS}",
                       "due": len(m) >= CLOCK_TRADES or span >= CLOCK_DAYS},
@@ -93,7 +94,7 @@ def main(argv=None):
         print(f"{fam}: book {r['book_n']}, NT matched {r['nt_n']} (missed {r['missed']}, strays {r['strays']}); "
               f"hit book {r['hit_book']} vs NT {r['hit_nt']}; $/trade book {r['avg_book']} vs NT {r['avg_nt']}; "
               f"slip {r['slip_usd_per_trade']}/trade; "
-              f"off-bar {r['off_bar_n']} (max {r['max_off_sec']} s), split {r['split_n']}; clock {r['clock']['trades']} trades, {r['clock']['days']} days")
+              f"off-bar {r['off_bar_n']} (max {r['max_off_sec']} s), split {r['split_n']}, size diff {r['size_diff_n']}; clock {r['clock']['trades']} trades, {r['clock']['days']} days")
     print(OUT)
     return 0
 
