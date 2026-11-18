@@ -1410,6 +1410,16 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 }
 .lg-uni .qb-chart-wrap,.lg-uni [data-p2sec="chart"]{display:flex;flex-direction:column}
 .lg-uni .qb-chart-wrap>.lg-chart-row,.lg-uni [data-p2sec="chart"]>.lg-chart-row{order:-1;margin:0 0 6px}
+.hm-addrow.hm-addrow-inl{display:inline-flex;align-items:center;gap:8px;position:relative;grid-template-columns:none;grid-template-areas:none}
+.hm-addrow.hm-addrow-msg:empty{display:none}
+/* owner 11-18: the trade list's controls on ONE line at 1366 on every ledger tab - tighter search, chips and gaps */
+@media (min-width:1100px){
+  .lg-uni .lg-tl-onerow .lg-tl-top{gap:6px 10px;flex-wrap:nowrap}
+  .lg-uni .lg-tl-onerow .lg-tl-search{min-width:96px;max-width:170px;flex:0 1 170px}
+  .lg-uni .lg-tl-onerow .lg-fchip:not(td *){padding:0 8px}
+  .lg-uni .lg-tl-onerow .lg-tl-chips{gap:4px}
+  .lg-uni .lg-tl-onerow .lg-tl-views{gap:6px;flex:0 0 auto}
+}
 .lg-uni{--uc-h:26px;--uc-r:7px;--uc-fs:9.5px;--uc-card:color-mix(in srgb,var(--bg1) 45%,transparent)}
 .lg-uni .lg-pills,.lg-uni .hm-mode,.lg-uni .lg-seg{display:inline-flex;gap:0;flex-wrap:nowrap;border:1px solid var(--border);border-radius:var(--uc-r);overflow:hidden;flex:none;height:var(--uc-h);box-sizing:border-box}
 .lg-uni .lg-pills button,.lg-uni .hm-mode button,.lg-uni .lg-seg button{height:100%;padding:0 11px;border:none;border-bottom:none;border-radius:0;background:transparent;
@@ -1754,6 +1764,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.46',date:'2026-11-18',notes:['LEDGER (all three tabs): the trade list controls sit on one line on a laptop - REAL moves NEW TRADE and MORE onto that line','NT8 PAPER: the calendar is always open with no fold row from 1100 px','Charts: the run-change label sits above the plot, not on its top edge']},
 {v:'90.46',date:'2026-11-16',notes:['PAST RUNS SAYS THE NAMES YOU USE. The filter list on the MODE column still offered COMBINED, and the STRATEGY menu still listed NQDIP - the two spots the row-level map put in on 11-14 could not reach. Both read the current names now: COMBINED is BOOK, NQDIP and ETFDIP are DIP, ENGUQ is ENGU-Q, TTMSQZ is TTM. Display only: every stored run keeps its own identifier, the filters still match on it, and nothing was renamed on disk.']},
 {v:'90.45',date:'2026-11-18',notes:['PAPER sidebars: a strategy row with a long unrealized line no longer crushes its name into one letter per line - the name takes the full row, figures under it','Ledger sidebars: tile figures step down so a large NET P&L no longer runs into WIN RATE']},
 {v:'90.44',date:'2026-11-18',notes:['LEDGER fix: on a phone the TABLE day header no longer sits on top of the first trade of the day','LEDGER fix: the P&L / DAILY chart keeps its full height on a laptop (it dropped to phone height when its column was under 600 px)']},
@@ -4236,7 +4247,7 @@ function ledgerChartRender(wrap,o){
       if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="'+(o.lineOpacity!=null?o.lineOpacity:0.6)+'" stroke-width="'+(o.lineWidth!=null?o.lineWidth:1.2)+'" stroke-dasharray="'+_lgDashOf(l,o)+'"/>';});
     (o.marks||[]).forEach(m=>{if(m.i==null||m.i<0||m.i>=n)return;const xx=X(m.i).toFixed(1);
       h+='<line data-lgmark="1" x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text4)" stroke-width="1" stroke-dasharray="2 3"/>'
-        +'<text x="'+(+xx+3)+'" y="'+(T+8)+'" font-size="8" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(m.label||'')+'</text>';});
+        +'<text x="'+(+xx+3)+'" y="'+(T-3)+'" font-size="8" style="fill:var(--text4);paint-order:stroke;stroke:var(--bg);stroke-width:3px" font-family="JetBrains Mono, monospace" data-lgmarklbl="1">'+esc(m.label||'')+'</text>';});
     const line=pts.map((p,i)=>X(i).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ');
     h+='<polygon points="'+X(0).toFixed(1)+','+(T+ph)+' '+line+' '+X(n-1).toFixed(1)+','+(T+ph)+'" fill="url(#'+gid+')"/>'
       +'<polyline points="'+line+'" fill="none" style="stroke:'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
@@ -17252,6 +17263,9 @@ function _hmCountExtraHtml(){
 // Row 2 (the frame's filter row): search, ALL LONG SHORT WINS LOSSES, then FUTURES STOCKS (_hmKindChipsHtml, the frame's findX).
 // Row 3 (_hmPasteRowHtml, right under the toolbar): + NEW TRADE, the CHART LINK box with its hint, and the tools at the right
 // (_hmToolsHtml: ADD DEPOSIT, SCAN DUPLICATES, OPEN ALL - behind TOOLS on a phone). The paste message row sits right under the box.
+function _hmBarActsHtml(){
+  return `<span class="hm-addrow hm-more-always hm-addrow-inl"><button class="hm-ghostbtn hm-primary" id="hm-newtrade-toggle" aria-expanded="${!!homeNewTradeOpen}" aria-controls="hm-newtrade-form">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>${_hmToolsHtml()}</span>`;
+}
 function _hmViewSegHtml(){
   return homeView==='table'
     ?`<div class="hm-seg" id="hm-ledger-seg" role="group" aria-label="simple or full table" title="SIMPLE fits the row on screen - FULL shows every column and scrolls sideways"><button data-hmledger="simple" class="${homeLedger!=='full'?'active':''}">SIMPLE</button><button data-hmledger="full" class="${homeLedger==='full'?'active':''}">FULL</button></div>`
@@ -17283,7 +17297,7 @@ function _hmFrameHtml(list){
   const evs=(!tbl&&homeFeedMode!=='day'&&!filt)?_hmTradesInRange(scopedLedger()||[],homeRange).map(ev=>({date:ev.date,html:_hmDepositRow(ev)})):[];
   return ledgerTradeListHtml({
     id:'hm',charts:true,view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:bScope(_hmTradesInRange(trades,homeRange)).length,query:homeQuery,chip:homeChip,
-    countExtra:_hmCountExtraHtml(),viewX:_hmViewSegHtml(),findX:_hmKindChipsHtml(),
+    countExtra:_hmCountExtraHtml(),viewX:_hmViewSegHtml()+_hmBarActsHtml(),findX:_hmKindChipsHtml(),
     afterBar:_hmPasteRowHtml()+'<div id="hm-newtrade-form">'+(homeNewTradeOpen?_hmNewTradeFormHtml():'')+'</div>',
     empty:_hmEmptyStateHtml(),group:homeFeedMode==='day'?'day':'trade',events:evs,
     cells:_hmFrameCells(full),rowAttr:t=>'data-hmid="'+_hmEsc(t.id)+'"',
@@ -17349,9 +17363,8 @@ function _hmPasteRowHtml(){
   const msg=window._hmPasteNote?`<div id="hm-paste-msg" style="${msgStyle}">${window._hmPasteNote}</div>`
     :(_hmHoldGet()?`<div id="hm-paste-msg" style="${msgStyle}"><span>A snapshot link is held for your next stock trade to reach the journal.</span><span id="hm-hold-drop" style="cursor:pointer;color:var(--text5);text-decoration:underline">drop it</span></div>`:'');
   const nxt=msg?'':_hmPasteNextHtml();
-  return `<div class="hm-addrow hm-pastebar hm-more-always" id="hm-pastebar">
-    <button class="hm-ghostbtn hm-primary" id="hm-newtrade-toggle" aria-expanded="${!!homeNewTradeOpen}" aria-controls="hm-newtrade-form">${homeNewTradeOpen?'&#9650; NEW TRADE':'＋ NEW TRADE'}</button>
-    ${_hmToolsHtml()}${msg?'<div class="hm-paste-msgrow">'+msg+'</div>':''}</div>`;
+  // owner 11-18: NEW TRADE and MORE ride on the list's one control row (_hmBarActsHtml, in the views group); this row keeps the paste note only
+  return `<div class="hm-addrow hm-pastebar hm-more-always hm-addrow-msg" id="hm-pastebar">${msg?'<div class="hm-paste-msgrow">'+msg+'</div>':''}</div>`;
 }
 // SHOULD HAVE TRADED: how many setups are filed and the newest one
 function _hmMissedSummary(){
@@ -46037,7 +46050,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // the options every draw of the frame shares (an empty range draws it too); rows = the page being shown, matchedN = what the list matches
         // (the rows go in oldest first: the frame sorts them by close and reverses, so trades closed in the same second keep the order this board
         // gave them, which is the order the CSV export and the candle viewer walk)
-        const qbFrameOpts=(shownVm,matchedN)=>({id:'wb',charts:true,view:qbTradesView,rows:shownVm.slice().reverse(),total:closedN,query:qbQuery,chip:qbChipSel,chips:qbOwnChips,
+        const qbFrameOpts=(shownVm,matchedN)=>({id:'wb',charts:true,oneRow:true,view:qbTradesView,rows:shownVm.slice().reverse(),total:closedN,query:qbQuery,chip:qbChipSel,chips:qbOwnChips,
           placeholder:'Search strategy, side, date...',
           countExtra:((qbRange&&qbRange!=='ALL')?'<span class="qbx-tl-rg">'+qbRangeWord+'</span>':'')
             +(qbTlClear?'<span class="qbx-tl-clear" data-qbclear role="button" tabindex="0" title="clear the search and the chip">&#10005; clear</span>':'')
@@ -48471,7 +48484,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const empty=m.closedAll.length
             ?'<div class="lg-tl-empty">No closed trades match this filter. <button type="button" class="p2tl-link" data-ptreset>clear the filter</button></div>'
             :'<div class="lg-tl-empty">'+(_pt.length?'NO CLOSED TRADES IN THIS RANGE':'NO PAPER TRADES YET — SHADOW TRADING STARTS '+PAPER_START)+'</div>';
-          return ledgerTradeListHtml({id:ID,charts:true,view:m.view,rows:m.shown,total:m.closedAll.length,query:m.query,chip:m.chip,
+          return ledgerTradeListHtml({id:ID,charts:true,oneRow:true,view:m.view,rows:m.shown,total:m.closedAll.length,query:m.query,chip:m.chip,
             chips:m.fams.map(f=>({k:'fam:'+f,label:f})),pnl:r=>r.pnl,net:r=>r._unc?0:r.pnl,
             placeholder:'Search strategy, day, side...',countExtra:cx.length?'<span class="p2tl-cx">'+cx.join(' · ')+'</span>':'',
             slot:slot,afterBar:openBlock+note,empty:empty,cells:cells,hide:['strat'],
@@ -49842,7 +49855,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         window._paperCalMonth=_pnCalMonth;window._pnCalDays=_pnCalDays;
         // the chart hatches the SAME caveat days the calendar marks (a roll-splice or ORB look-ahead trade closed that day)
         if(window._p2Chart&&window._p2Chart.pts){const P=window._p2Chart.pts;window._p2Chart.bands=P.map((p,i)=>(p.date&&_pnCav[p.date])?{i:i,title:String(p.date).slice(5)+': '+_pnCav[p.date]}:null).filter(Boolean);}
-        const _pnCal=ledgerCalendarHtml({id:'p2',month:_pnCalMonth,days:_pnCalDays,caveats:_pnCav,open:_pnCalOpen,
+        const _pnCal=ledgerCalendarHtml({id:'p2',month:_pnCalMonth,days:_pnCalDays,caveats:_pnCav,open:_pnCalOpen||_hmCalBare(),bare:_hmCalBare(),
           note:'Each day is the money from book trades that closed that day, in the chosen range. Tap a day to select its trades in the trades list (then OPEN N CHARTS). Amber hatch = a roll-splice trade or an ORB look-ahead engine trade closed that day.'});
         // STEP 10. One row per strategy on the shared list. Name = the family-name label (family + run number + variant), the dot is the
         // live NinjaTrader state (the sub-line says it in words), value = the range P&L, value2 = trades and win rate. A BOOK row's switch

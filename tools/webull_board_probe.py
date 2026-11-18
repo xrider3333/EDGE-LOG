@@ -3254,7 +3254,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       //   (scrollWidth past clientWidth), or the box is not clipping at all and the text simply runs
       //   UNDER the figures column - which is what 'the unrealized line overlaps the name' was.
       var nmr=nm?nm.getBoundingClientRect():null,vr=v?v.getBoundingClientRect():null;
-      var nameCut=nm?((nm.scrollWidth>nm.clientWidth+1)||(!!vr&&nmr.right>vr.left+1)):false;
+      var nameCut=nm?((nm.scrollWidth>nm.clientWidth+1)||(!!vr&&nmr.right>vr.left+1&&nmr.bottom>vr.top+1&&vr.bottom>nmr.top+1)):false;
       var exFacts={};
       if(exX)[].forEach.call(exX.querySelectorAll('.lg-ms-row'),function(r){
         var l=r.querySelector('.l'),v=r.querySelector('.v');

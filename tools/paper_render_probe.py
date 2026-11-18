@@ -2516,11 +2516,13 @@ def run(alt_index=None, timeout=300):
             fails.append('paper2: the calendar month is not remembered per browser (stored %r, expected %s)' % (I.get('calStored'), months[-2]))
         _cal_ok('cal-aug (a remembered month)', (cases.get('cal-aug') or {}).get('cal'), months[-2])
     cf = I.get('calFold') or {}
-    if (cases.get('paper2') or {}).get('calFold') != 'true' or cf.get('closed') != 'false' or not cf.get('hidden') \
-            or cf.get('stored') != '0' or cf.get('reopen') != 'true':
+    # owner 11-18: from 1100 px the calendar is always open with no fold row - the fold checks apply only where the fold is drawn
+    _bare = (cases.get('paper2') or {}).get('calFold') is None
+    if not _bare and ((cases.get('paper2') or {}).get('calFold') != 'true' or cf.get('closed') != 'false' or not cf.get('hidden') \
+            or cf.get('stored') != '0' or cf.get('reopen') != 'true'):
         fails.append('paper2: the calendar fold should start open on a laptop, close (panel hidden, choice stored) and reopen: %r' % cf)
     r = cases.get('cal-closed') or {}
-    if r.get('calFold') != 'false' or r.get('calPanelHidden') is not True:
+    if r.get('calFold') is not None and (r.get('calFold') != 'false' or r.get('calPanelHidden') is not True):
         fails.append('cal-closed: a stored closed calendar fold opened anyway (aria %r, panel hidden %r)' % (r.get('calFold'), r.get('calPanelHidden')))
     # the caveat hatch exists on a day with an ORB look-ahead trade (the same mark the trade rows carry)
     if not (I.get('calPrev') or {}).get('cav'):
@@ -3877,6 +3879,8 @@ def _judge_s11(cases, fixture, data, fails):
             fails.append('%s: a warning chip did not open the System health fold round the card it explains - the card stays hidden inside a closed fold (%r)' % (nm, wo))
         for k in ('more', 'cal'):
             o = f.get(k) or {}
+            if k == 'cal' and not o.get('btn'):
+                continue   # owner 11-18: no calendar fold row from 1100 px (always open)
             if not o.get('btn') or o.get('exp') != 'true' or o.get('hidden') or not o.get('len') or not o.get('vis') or o.get('back') != 'false':
                 fails.append('%s: the %s fold does not open on a click and show its content (%r)' % (nm, k, o))
     # -- remembered across a real reload, on a laptop and on a phone
