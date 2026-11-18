@@ -20,6 +20,14 @@ os.environ["EDGELOG_REPO_ROOT"] = ROOT
 sys.path.insert(0, ROOT)
 os.chdir(ROOT)
 import firebase_admin                                                 # noqa: E402
+try:  # per-caller Firestore read counters (api/fs_usage.py, MANAGER 11-18)
+    import os as _fsu_os, sys as _fsu_sys
+    _fsu_root = _fsu_os.path.dirname(_fsu_os.path.dirname(_fsu_os.path.abspath(__file__)))
+    if _fsu_root not in _fsu_sys.path:
+        _fsu_sys.path.append(_fsu_root)
+    import api as _fsu_api  # noqa: F401
+except Exception:
+    pass
 from firebase_admin import credentials, firestore                     # noqa: E402
 from google.cloud.firestore_v1.base_query import FieldFilter         # noqa: E402
 

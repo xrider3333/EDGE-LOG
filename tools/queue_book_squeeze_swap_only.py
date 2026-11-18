@@ -11,6 +11,14 @@ import os, sys, datetime, time
 os.chdir(r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG")
 import importlib.util as ilu
 import firebase_admin
+try:  # per-caller Firestore read counters (api/fs_usage.py, MANAGER 11-18)
+    import os as _fsu_os, sys as _fsu_sys
+    _fsu_root = _fsu_os.path.dirname(_fsu_os.path.dirname(_fsu_os.path.abspath(__file__)))
+    if _fsu_root not in _fsu_sys.path:
+        _fsu_sys.path.append(_fsu_root)
+    import api as _fsu_api  # noqa: F401
+except Exception:
+    pass
 from firebase_admin import credentials, firestore
 from google.api_core import exceptions as _gx
 if not firebase_admin._apps:

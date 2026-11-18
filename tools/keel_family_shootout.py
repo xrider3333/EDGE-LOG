@@ -13,6 +13,14 @@ ROOT = r"C:/Users/xride/OneDrive/Desktop/EDGE-LOG"
 HERE = os.path.dirname(os.path.abspath(__file__))
 os.chdir(ROOT); sys.path.insert(0, ROOT); sys.path.insert(0, os.path.join(ROOT, "tools"))
 import firebase_admin
+try:  # per-caller Firestore read counters (api/fs_usage.py, MANAGER 11-18)
+    import os as _fsu_os, sys as _fsu_sys
+    _fsu_root = _fsu_os.path.dirname(_fsu_os.path.dirname(_fsu_os.path.abspath(__file__)))
+    if _fsu_root not in _fsu_sys.path:
+        _fsu_sys.path.append(_fsu_root)
+    import api as _fsu_api  # noqa: F401
+except Exception:
+    pass
 from firebase_admin import credentials, firestore
 if not firebase_admin._apps:
     firebase_admin.initialize_app(credentials.Certificate(os.path.join(ROOT, "serviceAccount.json")))
