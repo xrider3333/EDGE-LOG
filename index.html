@@ -1744,7 +1744,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.60';
+const VERSION='90.61';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -44339,7 +44339,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // leg 2026-09-28..10-09 as well): its would-be trades are in the Shadow fold, its 09-17..09-28 Webull
       // trades in its Retired row (still counted). window.__qbRetiredLegs (an array) stands in for the list
       // in tools/webull_board_probe.py only, so the list with no leg retired stays tested too.
-      const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:['ENGUQ'];
+      // DIP #424 RETIRED 2026-11-16 (owner 11-18, PAPER-WB): the box writes retired_legs {LEG:{since,reason}} into qqq_exec; until it does, DIP is listed here
+      const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:(function(){var r=['ENGUQ','DIP'];try{var b=window._qqqExec&&window._qqqExec.retired_legs;if(b&&typeof b==='object')Object.keys(b).forEach(function(k){if(r.indexOf(k)<0)r.push(k);});}catch(e){}return r;})();
       // ── DIP #424 LIVE (owner GO 2026-10-10, MANAGER #115): the box's seven one-lot exec legs (DIP_RSI, DIP_DBL, DIP_PB, DIP_CAP, DIP_IBS,
       // DIP_STREAK, DIP_GAPDN: one per mechanism, 6 shares a lot, up to 7 lots = 42 shares) are ONE strategy on this board: one BOOK row
       // 'DIP #424' ('Long 42 · 7 lots'), one chart line, one trade-list chip, one Account line, one count in the top chip; a trade row names its
@@ -45779,6 +45780,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const shOld=qbShadowRange.filter(t=>!qbShIds.has(String((t&&t.trade_id)||'')));
           shOld.map(qeTradeLegName).filter((nm,i,a)=>a.indexOf(nm)===i).sort().forEach(nm=>shGet(nm,null));
           shOld.forEach(t=>shGet(qeTradeLegName(t),null).closed.push(t));
+          // owner 11-18: a leg the box RETIRED (DIP #424 since 11-16; box retired_legs) is not shown as live here either - its shadow variants leave the fold
+          {const _rl=(QE&&QE.retired_legs&&typeof QE.retired_legs==='object')?Object.keys(QE.retired_legs):['DIP'];if(_rl.indexOf('DIP')<0&&!(QE&&QE.retired_legs))_rl.push('DIP');
+           const _gone=nm=>_rl.some(f=>{if(f==='ENGUQ')return false;const lab=(QE_LEGS.find(x=>x[0]===f)||[f,f])[1];return String(nm).indexOf(lab+' #')===0;});
+           for(let i=shOrd.length-1;i>=0;i--)if(_gone(shOrd[i])){delete shBy[shOrd[i]];shOrd.splice(i,1);}}
           // the live order a shadow trade shares its signal with (ENGU-Q's 09-28 long: Webull flattened it that day, the shadow leg holds on)
           const shLiveById={};trades.forEach(t=>{const id=String((t&&t.trade_id)||'');if(id)shLiveById[id]=t;});
           const shLiveGroup=k=>{const m=qbLegModels.find(x=>x.key===qbFamOf(k));return m?(m.retired?'Retired':'BOOK'):'Other legs';};
@@ -54260,10 +54265,18 @@ function _setWire(pane){
 
 // A settings control that calls renderApp() (theme, add a setup, save a balance…) must also
 // refresh the modal, otherwise the pane behind the overlay shows the pre-edit state.
+try{document.addEventListener('scroll',function(ev){const t=ev.target;if(!t||t===document||!t.nodeType||t===document.documentElement)return;const L=window._elScrolled=(window._elScrolled||[]).filter(function(x){return x.isConnected;});if(L.indexOf(t)<0)L.push(t);},true);}catch(_se){}
 (function(){const _raw=renderApp;renderApp=function(){
   const _tabB=activeTab, _subB=(typeof augurSub!=='undefined'?augurSub:null);
   const _sy=window.scrollY||document.documentElement.scrollTop||0;
+  // owner 11-18: inner scroll boxes (the paper boards' trade table scrolls on its own) keep their place across a refresh too. Only boxes the
+  // reader actually scrolled are tracked (a capture listener below), found again after the redraw by tag + classes + order
+  const _isv=[];try{(window._elScrolled||[]).forEach(function(e){if(e.isConnected&&(e.scrollTop>0||e.scrollLeft>0)&&e.className){
+    const sel=e.tagName.toLowerCase()+'.'+String(e.className).trim().split(/\s+/).map(function(c){return CSS.escape(c);}).join('.');
+    _isv.push([sel,Array.prototype.indexOf.call(document.querySelectorAll(sel),e),e.scrollTop,e.scrollLeft]);}});}catch(_i0){}
   const r=_raw.apply(this,arguments);
+  try{if(_isv.length&&_tabB===activeTab&&_subB===(typeof augurSub!=='undefined'?augurSub:null)){window._elScrolled=[];_isv.forEach(function(v){
+    const e=document.querySelectorAll(v[0])[v[1]];if(e){e.scrollTop=v[2];e.scrollLeft=v[3];window._elScrolled.push(e);}});}}catch(_i1){}
   // Same view as before => an in-place update, so keep the reader where they were.
   // A genuine tab / sub-tab change still lands at the top.
   if(_sy>0&&_tabB===activeTab&&_subB===(typeof augurSub!=='undefined'?augurSub:null)){

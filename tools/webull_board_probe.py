@@ -3901,6 +3901,12 @@ __S11JS__
         phase=1;
         if(!(await boot()))return;
         for(var i=0;i<CASES.length;i++)await runCase(CASES[i][0],CASES[i][1]);
+        // owner 11-18: the trade table scrolls on its own; a box refresh (renderApp) must keep the reader's place in it, not shoot it to the top
+        try{var isw=W(),isd=D(),ist=isd.createElement('style');ist.textContent='.lg-tl-wrap{max-height:160px!important;overflow:auto!important}';isd.head.appendChild(ist);var isv0=isw._qeTradesView;isw._qeTradesView='table';isw.renderApp();
+          await new Promise(function(r){setTimeout(r,200);});var tw=isd.querySelector('.lg-tl-wrap');out.iscroll={has:!!tw};
+          if(tw){tw.scrollTop=60;tw.dispatchEvent(new isw.Event('scroll'));out.iscroll.before=tw.scrollTop;isw.renderApp();await new Promise(function(r){setTimeout(r,300);});
+            var tw2=isd.querySelector('.lg-tl-wrap');out.iscroll.after=tw2?tw2.scrollTop:null;out.iscroll.fresh=tw2!==tw;}
+          ist.remove();isw._qeTradesView=isv0;isw.renderApp();}catch(e){out.iscroll={threw:String(e&&e.stack?e.stack:e)};}
         try{await interact();}catch(e){out.inter={threw:String(e&&e.stack?e.stack:e)};}
         // LEDGER step 11: the own folds, the list's phone fold, storage that throws, every fold open at six widths
         try{out.s11=await s11Run();}catch(e){out.s11={threw:String(e&&e.stack?e.stack:e)};}
@@ -5499,13 +5505,12 @@ SHADOW_DIP_NOTE = ('Seven long-only dip mechanisms, each decided on a daily clos
 SHADOW_LEG_NOTES = {'DIP_424K': SHADOW_DIP_NOTE + ' Each trade is sized by KEEL v12.',
                     'DIP_424F': SHADOW_DIP_NOTE + ' Every trade is 1.245\u00d7 (KEEL\u2019s average size over #424\u2019s walk-forward trades).'}
 # the fixture block's rows, in the fold's order (by family: ENGU-Q, NOISE, DIP; the box's order inside one), and the DIP legs' open lines
-SHADOW_ROW_ORDER = ['ENGU-Q #335', 'NOISE #422 plain', 'NOISE #422 fixed', 'NOISE #422 KEEL', 'DIP #424 KEEL', 'DIP #424 fixed 1.245']
+SHADOW_ROW_ORDER = ['ENGU-Q #335', 'NOISE #422 plain', 'NOISE #422 fixed', 'NOISE #422 KEEL']   # DIP #424 retired 11-16: its rows left the fold
 SHADOW_DIP_OPEN = {'DIP #424 KEEL': '3 open, long since 10-01 · +$196.53 at 751.73',
                    'DIP #424 fixed 1.245': '3 open, long since 10-01 · +$259.34 at 751.73'}
 # a block whose box lists DIP first and NOISE out of its usual order: the fold still reads ENGU-Q, NOISE, DIP (the box's order inside each)
 SHADOW_LEGS_DIP_FIRST = ['DIP_424F', 'DIP_424K', 'NOISE_422_KEEL', 'NOISE_422_PLAIN', 'NOISE_422_FIXED', 'ENGUQ_335']
-SHADOW_ROW_ORDER_DIP_FIRST = ['ENGU-Q #335', 'NOISE #422 KEEL', 'NOISE #422 plain', 'NOISE #422 fixed', 'DIP #424 fixed 1.245',
-                              'DIP #424 KEEL']
+SHADOW_ROW_ORDER_DIP_FIRST = ['ENGU-Q #335', 'NOISE #422 KEEL', 'NOISE #422 plain', 'NOISE #422 fixed']
 _SHADOW_BLOCK = {}
 
 
@@ -5956,7 +5961,8 @@ def expected_shadow_rows(doc, cutoff=None, retired=True):
                        grp, expected_leg_name(lv)))
         out.append({'name': nm, 'value': f['value'], 'value2': f['value2'], 'open': _shadow_open_line(g['open']) if g['open'] else None,
                     'seed': g['seed'], 'live': live, 'block': g['lk'] is not None, 'note': SHADOW_LEG_NOTES.get(g['lk'] or '')})
-    return out
+    # owner 11-18: DIP #424 is RETIRED (since 11-16) - the page never shows its shadow variants as live, so they leave the fold
+    return [x for x in out if not str(x['name']).startswith('DIP #')]
 
 
 def _positions(doc):
@@ -6618,8 +6624,8 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
         fails.append("%s: the probe's own case is wrong: the doc's Shadow rows work out to %r, want %r (by family: ENGU-Q #335, the NOISE "
                      "#422 lines, then DIP #424)" % (tag, [x['name'] for x in rows], want_order))
     got_open = dict((x['name'], x['open']) for x in rows if x['name'] in SHADOW_DIP_OPEN)
-    if got_open != SHADOW_DIP_OPEN:
-        fails.append("%s: the probe's own case is wrong: the DIP #424 open lines work out to %r, want %r" % (tag, got_open, SHADOW_DIP_OPEN))
+    if got_open:   # DIP #424 retired 11-16: no DIP row is drawn, so it has no open line
+        fails.append("%s: the probe's own case is wrong: retired DIP #424 still has open lines %r" % (tag, got_open))
     if sh and (sh[0].get('head') or '').replace('▾', '').replace('?', '').strip() != 'Shadow - not counted · %d' % len(rows):
         fails.append('%s: the Shadow fold reads %r, want "Shadow - not counted · %d" (one row per shadow leg the box lists)'
                      % (tag, sh[0].get('head'), len(rows)))
@@ -8567,6 +8573,16 @@ def _judge(data, fixture):
                              % (tag, cm, r.get('calWon'), cw))
         if vp.startswith('phone') and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
             fails.append('%s: the page scrolls sideways on a phone (sticking out: %s)' % (tag, ', '.join(r.get('wide') or []) or '?'))
+    isc = data.get('iscroll')
+    if isc is None:
+        unfinished.append('trade table scroll run: never ran (why=%s)' % why)
+    elif isc.get('threw'):
+        fails.append('trade table scroll run: the probe itself threw -- %s' % _first(isc['threw']))
+    elif not isc.get('has') or not isc.get('before'):
+        fails.append('trade table scroll run: the trade table could not be scrolled (%r)' % isc)
+    elif abs((isc.get('after') or 0) - isc['before']) > 2:
+        fails.append('trade table scroll run: a refresh moved the trade table from %s px to %s px - the reader is shot back to the top (owner 11-18)'
+                     % (isc['before'], isc.get('after')))
     res = data.get('inter')
     if res is None:
         unfinished.append('interaction run: never ran (why=%s)' % why)
