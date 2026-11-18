@@ -16693,7 +16693,49 @@ def _lease_verify_cached(db, uid, state, cfg, log=print):
     state["_lease_verify_reason"] = reason
     if ok and not str(reason or "").startswith("lease ok (read failed"):
         state["_lease_read_ok_at"] = now
+    _lease_alert_transition(state, ok, reason, log=log)
     return ok, reason
+
+
+# LEASE / QUOTA PHONE ALERT (MANAGER 11-18, after the 11-13 quota 429 that blinded the box for the
+# last 1.5 h with no push): one ntfy push the minute the broker lease check turns bad, naming a
+# Firestore quota 429 when that is the cause, and one when it is good again. De-duplicated: a push
+# only on a CHANGE of state (ok -> quota / blocked -> ok), never per tick. Alerts only -- the
+# fail-closed send gate above is untouched.
+def _lease_alert_kind(ok, reason):
+    if ok:
+        return "ok"
+    text = str(reason or "")
+    if any(t in text for t in ("429", "Quota exceeded", "RESOURCE_EXHAUSTED", "ResourceExhausted")):
+        return "quota"
+    return "blocked"
+
+
+def _lease_alert_transition(state, ok, reason, log=print):
+    try:
+        kind = _lease_alert_kind(ok, reason)
+        prev = state.get("_lease_alert_kind") or "ok"
+        if kind == prev:
+            return None
+        state["_lease_alert_kind"] = kind
+        at = _now_et().strftime("%H:%M:%S ET")
+        if kind == "quota":
+            msg = (f"{at}: Firestore read QUOTA hit (429) -- the box cannot verify its lease, so it records "
+                   f"trades in the book only and sends NO Webull orders until reads work again. "
+                   f"({str(reason)[:160]})")
+            title, prio = "QQQ book: Firestore quota 429 - orders paused", "high"
+        elif kind == "blocked":
+            msg = (f"{at}: the broker lease check failed -- Webull orders are paused (book only) until it "
+                   f"passes again. ({str(reason)[:160]})")
+            title, prio = "QQQ book: lease unverified - orders paused", "high"
+        else:
+            msg = f"{at}: the broker lease is verified again -- Webull orders resume (was: {prev})."
+            title, prio = "QQQ book: lease OK again - orders resume", "default"
+        _notify(msg, title, log=log, priority=prio)
+        return kind
+    except Exception as e:
+        log(f"[qqq-exec] lease alert failed (non-fatal): {type(e).__name__}: {e}")
+        return None
 
 
 # READ-FAIL GRACE (2026-11-14, MANAGER 11-14 item c): on 11-13 a Firestore read quota 429
