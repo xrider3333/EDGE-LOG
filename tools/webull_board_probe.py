@@ -1878,12 +1878,12 @@ MUTANTS = [
      "an empty Retired group is drawn when no leg is retired"),
     # ENGU-Q a no-order tracker again (owner decision 2026-10-09 ~20:20 MST, MANAGER #113)
     ('enguq-back-in-book',
-     "const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:['ENGUQ'];",
-     "const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:[];",
+     "var r=['ENGUQ','DIP'];try{var b=window._qqqExec&&window._qqqExec.retired_legs;",
+     "var r=['DIP'];try{var b=window._qqqExec&&window._qqqExec.retired_legs;",
      "ENGU-Q is a BOOK row again, though it is a no-order tracker since 2026-10-09"),
     ('retired-stand-in-ignored',
-     "const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:['ENGUQ'];",
-     "const QE_LEGS_RETIRED=['ENGUQ'];",
+     "const QE_LEGS_RETIRED=Array.isArray(window.__qbRetiredLegs)?window.__qbRetiredLegs:(function(){",
+     "const QE_LEGS_RETIRED=(function(){",
      "the page drops its stand-in for the retired list, so no case can draw the list with no leg retired (its checks must notice, not pass on nothing)"),
     ('filters-line-names-retired',
      "(gRet?'Retired and Shadow are the folds':'Shadow is the fold')",
@@ -3359,6 +3359,8 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
     w.__probeCalOpen=cfg.calOpen||null;w.__probeFolds=!!cfg.folds;w.__probeFoldOpen=cfg.foldOpen||null;
     // the page's stand-in for its retired list (QE_LEGS_RETIRED, ['ENGUQ']): set only by a case that retires no leg ([])
     w.__qbRetiredLegs=cfg.retired?w.JSON.parse(JSON.stringify(cfg.retired)):null;
+    // STRATEGY SWITCHES (owner 11-18): every case counts every leg ([]) unless it asks for the page's own default (DIP off)
+    w.__qbLegsOffDefault=cfg.legsDefault?null:[];w._qbLegsOff=null;try{w.localStorage.removeItem('el_qb_legs_off');}catch(e){}
     w.__probeScrub=!!cfg.scrub;
     w.__probeDaily=!!cfg.daily;   // DAILY | CURVE switch: every case judges the CURVE ('0') unless it asks for the default DAILY ('1')
     w.__probeNextOpen=cfg.nextOpen||null;
@@ -3907,6 +3909,21 @@ __S11JS__
           if(tw){tw.scrollTop=60;tw.dispatchEvent(new isw.Event('scroll'));out.iscroll.before=tw.scrollTop;isw.renderApp();await new Promise(function(r){setTimeout(r,300);});
             var tw2=isd.querySelector('.lg-tl-wrap');out.iscroll.after=tw2?tw2.scrollTop:null;out.iscroll.fresh=tw2!==tw;}
           ist.remove();isw._qeTradesView=isv0;isw.renderApp();}catch(e){out.iscroll={threw:String(e&&e.stack?e.stack:e)};}
+        // STRATEGY SWITCHES (owner 11-18): DIP off by default changes the totals vs DIP on; a switch changes the net and the curve
+        try{var TV=null;for(var tj=0;tj<VARS.length;tj++)if(/^DIP #424 live: ORB [+] NOISE open/.test(VARS[tj].name)){TV=VARS[tj];break;}
+          out.tog={has:!!TV};
+          if(TV){var rd=function(){var d=D(),h=d.querySelector('.qbx-hero .lg-hero-big')||d.querySelector('.qbx-hero [class*="big"]'),ex=d.querySelector('.lg-hero-excl'),
+              lg=d.querySelector('#qb-lg-chart svg')||d.querySelector('.qbx-chart svg');
+              return {net:h?h.textContent.trim():null,excl:ex?ex.textContent.trim():null,curve:lg?lg.innerHTML.length+'|'+(lg.innerHTML.match(/ d="[^"]{0,80}/)||[''])[0]:null,
+                sw:[].slice.call(d.querySelectorAll('[data-lglist="qb"] [data-lgsw]')).filter(function(x){return x.offsetWidth>0&&x.offsetHeight>0;}).map(function(x){return x.getAttribute('data-lgsw')+':'+(x.classList.contains('on')?1:0);})};};
+            await runCase('__tog',{vp:'laptop',theme:'dark',fix:TV.doc,nowMs:TV.renderMs||TV.nowMs,legsDefault:true});delete out.cases.__tog;
+            out.tog.def=rd();
+            var dsw=D().querySelector('[data-lglist="qb"] [data-lgsw="DIP"]');if(dsw){dsw.click();await new Promise(function(r){setTimeout(r,300);});}
+            out.tog.dipOn=rd();
+            var osw=D().querySelector('[data-lglist="qb"] [data-lgsw="ORB"]');if(osw){osw.click();await new Promise(function(r){setTimeout(r,300);});}
+            out.tog.orbOff=rd();
+            try{out.tog.stored=W().localStorage.getItem('el_qb_legs_off');}catch(e){}
+          }}catch(e){out.tog={threw:String(e&&e.stack?e.stack:e)};}
         try{await interact();}catch(e){out.inter={threw:String(e&&e.stack?e.stack:e)};}
         // LEDGER step 11: the own folds, the list's phone fold, storage that throws, every fold open at six widths
         try{out.s11=await s11Run();}catch(e){out.s11={threw:String(e&&e.stack?e.stack:e)};}
@@ -6200,8 +6217,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
     if lg.get('title') != 'Strategies' or lg.get('count') != expected_list_count(trades, cutoff, range_key):
         fails.append('%s: the list header reads %r / %r, want Strategies / %r'
                      % (tag, lg.get('title'), lg.get('count'), expected_list_count(trades, cutoff, range_key)))
-    if lg.get('sw'):
-        fails.append('%s: the list draws %d switches; this board has none (every leg counts)' % (tag, lg['sw']))
+    if not lg.get('sw'):
+        fails.append('%s: the list draws no strategy switches (owner 11-18: every strategy has an on / off switch)' % tag)
     figs = expected_leg_figs(trades, cutoff, doc)
     other = expected_other_figs(trades, cutoff)
     want_names = (BOOK_NAMES_RETIRED if ret else BOOK_NAMES) + ([OTHER_NAME] if other else [])
@@ -8573,6 +8590,27 @@ def _judge(data, fixture):
                              % (tag, cm, r.get('calWon'), cw))
         if vp.startswith('phone') and (r.get('scrollW') or 0) > (r.get('clientW') or 0) + 1:
             fails.append('%s: the page scrolls sideways on a phone (sticking out: %s)' % (tag, ', '.join(r.get('wide') or []) or '?'))
+    tg = data.get('tog')
+    if tg is None:
+        unfinished.append('strategy switch run: never ran (why=%s)' % why)
+    elif tg.get('threw'):
+        fails.append('strategy switch run: the probe itself threw -- %s' % _first(tg['threw']))
+    elif not tg.get('has'):
+        fails.append("strategy switch run: the probe's DIP #424 live variant is missing")
+    else:
+        d0, d1, d2 = tg.get('def') or {}, tg.get('dipOn') or {}, tg.get('orbOff') or {}
+        if 'DIP:0' not in (d0.get('sw') or []) or 'ORB:1' not in (d0.get('sw') or []):
+            fails.append('strategy switch run: by default DIP should be off and the live legs on, the switches read %r' % d0.get('sw'))
+        if 'DIP' not in (d0.get('excl') or ''):
+            fails.append("strategy switch run: with DIP off the headline does not say 'excluding DIP' (%r)" % d0.get('excl'))
+        if d0.get('net') == d1.get('net'):
+            fails.append('strategy switch run: switching DIP on did not change the headline (%r both ways)' % d0.get('net'))
+        if d1.get('excl'):
+            fails.append("strategy switch run: with every leg on the headline still says %r" % d1.get('excl'))
+        if d1.get('net') == d2.get('net') or d1.get('curve') == d2.get('curve'):
+            fails.append('strategy switch run: switching ORB off left the headline or the chart unchanged (net %r -> %r)' % (d1.get('net'), d2.get('net')))
+        if tg.get('stored') != '["ORB"]':
+            fails.append('strategy switch run: the choice is not remembered for this viewer (el_qb_legs_off = %r, want ["ORB"])' % tg.get('stored'))
     isc = data.get('iscroll')
     if isc is None:
         unfinished.append('trade table scroll run: never ran (why=%s)' % why)

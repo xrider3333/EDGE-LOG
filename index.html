@@ -693,6 +693,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-side .lg-list{margin-bottom:0}
 .qbx-side .lg-row{grid-template-columns:minmax(0,1fr) auto}
 .qbx-side .lg-row>:last-child:empty{display:none}
+.qbx-side .lg-row>span.lg-sw:last-child:empty{display:block}
 .qbx-side .lg-row-sub{display:block;white-space:normal;overflow:visible;text-overflow:clip;line-height:1.4}   /* owner 10-31 15:30: the trades / win rate line under the name shows at EVERY width */
 /* AND NO STRATEGY LABEL ON THIS BOARD IS EVER CUT (owner 2026-11-08, priority 1). The leg rows carry
    wrap:true and are handled further down, but the SHADOW rows do not, so they were still losing
@@ -1767,7 +1768,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.65';
+const VERSION='90.66';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1788,6 +1789,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.66',date:'2026-11-18',notes:['WEBULL PAPER: every strategy in the Strategies list has an on / off switch - the headline, chart, tiles, calendar and trade list count only the ones switched on','WEBULL PAPER: DIP is switched off by default; the headline says excluding DIP while any strategy is off']},
 {v:'90.63',date:'2026-11-18',notes:['NT8 PAPER: each strategy name sits on one line in the sidebar, whole']},
 {v:'90.62',date:'2026-11-18',notes:['NT8 PAPER and WEBULL PAPER: the sidebar reads one line a row - smaller headline, tighter labels, a wider sidebar on big screens','REAL: more room between the calendar and the trade list','WEBULL PAPER and NT8 PAPER: the trade table keeps its scroll on refresh; DIP retired on WEBULL PAPER (v90.61)']},
 {v:'90.52',date:'2026-11-18',notes:['LEDGER (all three tabs): the trade list controls sit on one line on a laptop - REAL moves NEW TRADE and MORE onto that line','NT8 PAPER: the calendar is always open with no fold row from 1100 px','Charts: the run-change label sits above the plot, not on its top edge']},
@@ -45002,7 +45004,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // shadow that ever slips in is dropped once, here, so the hero, the chart, the stats, the calendar, the
         // trade list and the export all count the same trades.
         const qbIsShadowRow=t=>!!t&&(t.shadow===true||String(t.shadow||'').toLowerCase()==='true'||String(t.layer||'').toLowerCase()==='shadow');
-        const trades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t));  // newest-first, per api/qqq_exec.py _build_doc
+        // STRATEGY SWITCHES (owner 11-18): each strategy in the list has an on / off switch; the board's figures (hero, chart, stats tiles,
+        // calendar, trade list) count only the strategies switched on, so flipping one shows its effect. DIP is OFF by default (retired
+        // 11-16); every other leg is on. Remembered per viewer (el_qb_legs_off, a JSON list of families). Nothing is deleted: an off leg keeps
+        // its own row and figures, dimmed. window.__qbLegsOffDefault stands in for the default in the probes.
+        const qbLegsOff=(()=>{if(Array.isArray(window._qbLegsOff))return window._qbLegsOff;let a=null;try{const v=localStorage.getItem('el_qb_legs_off');if(v!=null)a=JSON.parse(v);}catch(e){}
+          return window._qbLegsOff=Array.isArray(a)?a:(Array.isArray(window.__qbLegsOffDefault)?window.__qbLegsOffDefault.slice():['DIP']);})();
+        const qbAllTrades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t));   // every counted-kind trade, the switches aside (the leg rows read these)
+        const trades=qbAllTrades.filter(t=>qbLegsOff.indexOf(qbFamOf(t.leg))<0);  // newest-first, per api/qqq_exec.py _build_doc
         // The no-order shadow legs are held apart: the strategy list draws them in its own "Shadow - not counted" group and they
         // are never added to the account number, the chart, the stats, the calendar or any leg above it (LEDGER unify step 10).
         const qbShadowRows=(QE.trades_all||[]).filter(qbIsShadowRow);
@@ -45142,6 +45151,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // stats and the trade list follow it, as on REAL; the big number, the today line, the
         // strategies, the calendar and the account do not. ALL = every trade.
         const qbRangeTrades=qbRange?ledgerInRange(trades.map(t=>({exitDate:qeTradeDate(t),_t:t})),qbRange).map(r=>r._t):trades;
+        const qbRangeAll=qbRange?ledgerInRange(qbAllTrades.map(t=>({exitDate:qeTradeDate(t),_t:t})),qbRange).map(r=>r._t):qbAllTrades;  // the leg rows: switched off or not
         const qbRangePnl=Math.round(qbRangeTrades.reduce((s,t)=>s+qePnlOf(t),0)*100)/100;
         const qbRangeWord=qbRange?(LEDGER_RANGE_LABEL[qbRange]||qbRange):'';
         const qbRangeNone=LEDGER_NO_TRADES;   // r2 step 3 (item 17): one string, no per-range sentence builder
@@ -45614,7 +45624,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // a silent box: the position is the last known one - grey, with its time (finding 8)
           const badgeColor=QF.stale?'var(--text4)':(p?(p.side==='long'?'var(--green)':'var(--red)'):'var(--text4)');
           const badgeTip=QF.stale?(' title="Last known, as of '+QF.sinceTxt+' New York time"'):'';
-          const legTradesArr=trades.filter(t=>qbFamOf(t.leg)===key);
+          const legTradesArr=qbAllTrades.filter(t=>qbFamOf(t.leg)===key);
           const legClosedSum=legTradesArr.reduce((s,t)=>s+qePnlOf(t),0);
           const legRec=key!=='DIP'?(qeLegsRecord[key]||{}):qbDipLegs.reduce((o,k)=>{const r=qeLegsRecord[k];if(r){o.pnl=(o.pnl||0)+(qeFin(r.pnl)||0);o.n=(o.n||0)+(Number(r.n)||0);o.book=(o.book||0)+(Number(r.book)||0);}return o;},{});
           const legTodayRealized=qeFin(legRec.pnl)!==null?Number(legRec.pnl):0;
@@ -45713,7 +45723,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // THIS LEG'S ROW ON THE SHARED STRATEGY LIST (LEDGER unify step 10): the name is family + run number (QE_LEGS, with the run
             // QE_LEG_VERSIONS says is live), the side pill rides beside it, the live position line is the sub-line, the range's P&L of
             // record the value and its trade count and win rate the quieter line under it. No switch: every leg counts, as before.
-            const fg=qbRangeFigs(qbRangeTrades.filter(t=>qbFamOf(t.leg)===key));
+            const fg=qbRangeFigs(qbRangeAll.filter(t=>qbFamOf(t.leg)===key));
             // CUMULATIVE (owner 2026-10-18): the big number is closed P&L in the range PLUS the open position's P&L now, so a leg that
             // holds overnight (DIP) reads as one figure; a flat leg is unchanged (open = 0). The line under it shows the open part alone.
             const fgTot=(Number(fg.net)||0)+(legOpenPnl!=null?legOpenPnl:0),fgHas=!!fg.n||legOpenPnl!=null;
@@ -45730,7 +45740,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // closed only. Trades / win % / today, the live line, held, rail, next trade, the detail block and the notes sit behind the
             // shared chevron (r.more; window._qbLegOpen remembers). The old 'more ▾' tag and the html splice under the list are gone.
             const todayTxt=(legTodayN||legTodayRealized)?ledgerSigned(legTodayRealized):'--';
-            const legRangeRows=qbRangeTrades.filter(t=>qbFamOf(t.leg)===key);
+            const legRangeRows=qbRangeAll.filter(t=>qbFamOf(t.leg)===key);
             const legHold=t=>{const a=Date.parse(String((t&&t.entry_ts)||'').replace(' ','T')+'Z'),b=Date.parse(String((t&&t.exit_ts)||'').replace(' ','T')+'Z');return (isFinite(a)&&isFinite(b)&&b>a)?(b-a)/60000:null;};
             const legS=legRangeRows.length?ledgerStats(legRangeRows.map(t=>Object.assign({},t,{durationMins:legHold(t),exitDate:qeTradeDate(t)})),{pnl:qePnlOf,day:qeTradeDate}):null;
             const legLast=legTradesArr.map(qeTradeDate).filter(Boolean).sort().pop()||null;
@@ -45764,7 +45774,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 //   10-18 note always intended ("a leg that holds overnight reads as one figure").
                 //   Under it, small, the open part alone - no lots, no share count. Everything else
                 //   is in the expander, one tap away: the split, the lots, the shares, the set.
-              row:{key:key,name:label+' '+qbRunLinkHtml(qeLegShortTag(key,runNo),key),nameColor:color,tag:pill+infoToggleHtml,wrap:true,
+              row:{key:key,name:label+' '+qbRunLinkHtml(qeLegShortTag(key,runNo),key),nameColor:color,tag:pill+infoToggleHtml,wrap:true,sw:{on:qbLegsOff.indexOf(key)<0},off:qbLegsOff.indexOf(key)>=0,
                 sub:'',
                 value:fgHas?('<span data-qbrowequity="'+key+'" title="'+(legOpenPnl!=null?'closed trades in the range PLUS the open position now':'closed trades in the range - nothing open')+'">'+ledgerSigned(fgTot)+'</span>'):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',
                 value3:'',
@@ -47339,7 +47349,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +modelSection;
         // LEDGER step 12: the shared page frame - the top block in LEDGER_TOP_ORDER (hero, status, pills + chart, stats, calendar), the strategy
         // list (the right-hand panel from 1100 px, under the calendar below it), then the trade list and this board's own folds
-        const qbTop={hero:'<div class="qbx-hero">'+qbHeroHtml+'</div>',status:qbStatusSec,pills:'',chart:'<div class="qbx-chart">'+equityHtml+'</div>',
+        const qbExclNames=qbLegsOff.map(k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;});
+        const qbTop={hero:'<div class="qbx-hero">'+qbHeroHtml+(qbExclNames.length?'<span class="lg-hero-excl" data-qbexcl="'+String(qbLegsOff.join(',')).replace(/[<>"&']/g,'')+'" title="switched off in the Strategies list: not in any figure on this page">excluding '+String(qbExclNames.join(', ')).replace(/[<>"&']/g,'')+'</span>':'')+'</div>',status:qbStatusSec,pills:'',chart:'<div class="qbx-chart">'+equityHtml+'</div>',
           stats:'<div class="qbx-stats qbx-lgstats">'+qbLgStatsHtml+'</div>',more:'',cal:'<div class="qbx-activity">'+qbCalHtml+'</div><div class="qbx-stats qbx-lgmore">'+qbLgMoreHtml+'</div>'};
         const qbWide=(window.innerWidth||0)>=1100;
         body=qbWide?ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper lg-lside lg-uni',sideW:264,
@@ -52725,6 +52736,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const s=window._qbLegOpen||(window._qbLegOpen=new Set());
         if(s.has(k))s.delete(k);else s.add(k);
         renderApp();};});
+      // STRATEGY SWITCHES (owner 11-18): a switch takes its strategy in or out of every figure on the board; remembered per viewer
+      content.querySelectorAll('[data-lglist="qb"] [data-lgsw]').forEach(sw=>{sw.onclick=ev=>{ev.stopPropagation();
+        const k=sw.getAttribute('data-lgsw'),L=(window._qbLegsOff||[]).slice(),i=L.indexOf(k);if(i>=0)L.splice(i,1);else L.push(k);
+        window._qbLegsOff=L;try{localStorage.setItem('el_qb_legs_off',JSON.stringify(L));}catch(e){}renderApp();};});
       content.querySelectorAll('[data-lglist="qb"] [data-lggrp]').forEach(el=>{el.onclick=()=>{
         const g=el.getAttribute('data-lggrp')==='shadow'?['_qbShadowOpen','el_qb_shadow_open']:['_qbRetiredOpen','el_qb_retired_open'];
         let o=!!window[g[0]];
