@@ -1812,7 +1812,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.91';
+const VERSION='90.92';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1833,6 +1833,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.92',date:'2026-11-18',notes:['PC LOAD ON THE TOP BAR (board item 12). A small grey reading - CPU and RAM - sits at the left of the status chips, beside NT GATE, on every tab and at every width. It is there because the fleet runs on the same machine you work on: when a validate tier, several ships and the builders all go at once the box crawls, and until now the only way to know was to open Task Manager. Hover it for the free memory, the total, and how many runners are up.','IT ONLY RAISES ITS VOICE WHEN IT MATTERS. Grey while the box is fine, amber when memory passes 75 per cent or the processor sits above 90, red when memory passes 90 or under 2 GB is free. With no reading yet it draws nothing at all, so it never shifts the header.','The number is refreshed once a minute by the machine itself, and the chip says so with a question mark if that stops arriving - a stale load figure shown as live would be worse than none.']},
 {v:'90.81',date:'2026-11-18',notes:['Behind the scenes: the app now counts its own database reads and writes, so a day that runs out the free read quota can be traced to who used it']},
 {v:'90.80',date:'2026-11-18',notes:['WEBULL PAPER: every shadow strategy has an on / off switch - on draws its P&L as a dashed line on the chart plus a small what-if figure; never in the account number','Calendars: a hatched day explains itself - one line under the calendar, tap it for each day and its reason']},
 {v:'90.74',date:'2026-11-18',notes:['LEDGER charts: no hatched caveat days by default (a small show caveats button brings them back, remembered), thinner lines','NT8 PAPER and WEBULL PAPER: warnings fold into one dot and one line (tap for detail); red alarms still show plainly','NT8 PAPER and WEBULL PAPER: the sidebar folds sit under one Details fold']},
@@ -6587,6 +6588,12 @@ function _qqqExecEnsureLive(){
       // (qbFreshTick, below) calls this again so the board re-attaches without a tab change.
       if(window._qqqExecLiveErrorAt&&Date.now()-window._qqqExecLiveErrorAt<60000)return;
       const u=auth.currentUser.uid;
+      // PC LOAD (api/pc_load.py). One doc, refreshed every 60 s; redraws the chip ALONE via _tbSwap, so a
+      //   load tick can never rebuild a 2,000-row research table (the lesson of _onResTables above).
+      try{ if(window._pcLoadUnsub) window._pcLoadUnsub(); }catch(e){}
+      window._pcLoadUnsub=db.collection('users').doc(u).collection('meta').doc('pc_load').onSnapshot(function(d){
+        try{ window._pcLoad=d.exists?d.data():null; _tbSwap('tb-load',_tbLoadHtml()); }catch(e){}
+      },function(e){ try{ console.warn('pc_load listener:',e&&e.message); }catch(_){} });
       window._qqqExecUnsub=db.collection('users').doc(u).collection('meta').doc('qqq_exec').onSnapshot(function(d){
         const fc=!!(d&&d.metadata&&d.metadata.fromCache);
         window._qqqExec=d.exists?d.data():null;window._qqqExecMissing=!d.exists;
@@ -18812,6 +18819,25 @@ namespace NinjaTrader.NinjaScript.Strategies {
     }
 }
 
+// PC LOAD CHIP (board item 12, owner approved 2026-11-18 via MANAGER; ALWAYS shown, not trading hours only).
+//   The owner works on the machine the fleet runs on, so "is the box buried right now" used to mean opening Task
+//   Manager. Reads ONE document, users/{uid}/meta/pc_load, written by the primary runner every 60 s (api/pc_load.py).
+//   QUIET BY DESIGN: grey until it matters, amber when the box is loaded, red when it is nearly out of memory, and
+//   NOTHING AT ALL when there is no reading yet - an absent chip changes no layout, which is also what makes this
+//   whole feature a one-commit revert. No colour here that the header does not already use.
+function _tbLoadHtml(){try{
+  const L=window._pcLoad; if(!L||!L.ok) return '';
+  const cpu=Math.round(L.cpu_pct), mem=Math.round(L.mem_pct), free=L.free_gb;
+  // A reading older than 10 minutes means the primary stopped publishing; say so rather than showing a stale number as live.
+  let age=null; try{ age=Math.floor((Date.now()-Date.parse(String(L.checked_at).replace(' ','T')+'Z'))/60000); }catch(e){}
+  const old=(age!=null&&isFinite(age)&&age>10);
+  let col='var(--text5)';
+  if(!old){ if(mem>=90||free<=2) col='#e24b4a'; else if(mem>=75||cpu>=90) col='#e0c341'; }
+  const tip=('PC load - CPU '+cpu+'%, memory '+mem+'% ('+free+' of '+L.total_gb+' GB free)'
+    +(L.runners!=null?', '+L.runners+' runner'+(L.runners===1?'':'s')+' up':'')
+    +(old?' - last reading '+age+' min ago, the runner may have stopped publishing':'')).replace(/"/g,'&quot;');
+  return '<span title="'+tip+'" style="color:'+col+';cursor:help">CPU '+cpu+' &middot; RAM '+mem+(old?' ?':'')+'</span>';
+}catch(e){return '';}}
 // THE TOP BAR'S NT GATE CHIP AND QUEUE DIALS, built by name so a background tick can redraw just them (see _onResTables).
 function _tbGateHtml(){
             // ML GATE chip -- owner 2026-08-16: "just put this at the top with the demo
@@ -19093,6 +19119,7 @@ function renderApp(){
       }).join(''):''}
       <span id="tb-tabs" style="display:contents"></span>
       <div class="tbstat">
+        <span id="tb-load" style="display:contents">${_tbLoadHtml()}</span>
         ${autoHandle?'<span style="color:var(--yellow)"><span class="pulse-y"></span> AUTO</span>':''}
         ${(()=>{const w=window._dataFeedWarn?window._dataFeedWarn():[];return w.length?'<span title="'+w.join(' | ').replace(/"/g,'&quot;')+' - shared 10s tick capture, affects every leg equally" style="cursor:help;color:#e0c341">&#9888; DATA</span>':'';})()}
         <span id="tb-gate" style="display:contents">${_tbGateHtml()}</span>

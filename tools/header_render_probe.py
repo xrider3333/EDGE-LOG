@@ -501,11 +501,19 @@ def main():
     # WEBULL PAPER on a phone is the audit's own case (Trading Log, 11-18): the LAST and widest
     #   sub-tab, active, on the narrowest screen - the pill most likely to end up under the chips.
     WBSUB = "activeTab='augur';augurSub='qqqpaper';window._lastLogTab='augur';"
+    # THE PC LOAD CHIP WITH A READING IN IT (board item 12, 11-18). Absent data draws nothing, so
+    #   the other cases only ever test the empty chip. These two put a loaded box in the doc - the
+    #   widest the chip ever gets, in its red state - and check the header still fits: one top line
+    #   on a laptop, no sideways page scroll on a phone.
+    PCL = ("window._pcLoad={ok:true,cpu_pct:98.9,mem_pct:92.4,free_gb:2.4,total_gb:31.7,runners:5,"
+           "checked_at:new Date().toISOString().slice(0,19).replace('T',' ')};")
     cases = (('home_1400', 1400, 900, '', HOME, True),
              ('anal_1400', 1400, 900, '', ANAL, False),
              ('home_375', 375, 812, '', HOME, True),
              ('mono_375', 375, 812, 'mono', HOME, True),
-             ('wbsub_375', 375, 812, '', WBSUB, True))
+             ('wbsub_375', 375, 812, '', WBSUB, True),
+             ('pcload_1366', 1366, 900, '', PCL + HOME, True),
+             ('pcload_375', 375, 812, '', PCL + HOME, True))
     fails = []
     for nm, w, h, theme, tab_js, want_sub in cases:
         shot = os.path.join(out_dir, 'header_%s.png' % nm)

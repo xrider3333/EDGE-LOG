@@ -98,6 +98,8 @@ JOBS_DIR = os.path.join(ROOT, "augur_jobs")
 LISTENER_BACKSTOP_SEC = 600.0
 # How often the data-freshness watchdog republishes meta/data_health (api/data_health.py).
 HEALTH_SEC = 3600.0
+# How often the PC-load chip's doc is refreshed (api/pc_load.py). A glance, not a monitor.
+_PC_LOAD_SEC = 60.0
 # How often the NinjaTrader bridge watchdog republishes meta/nt_bridge (api/nt_bridge_pub.py).
 BRIDGE_SEC = 300.0
 
@@ -3507,6 +3509,7 @@ def main(argv=None):
         next_backstop = time.time() + LISTENER_BACKSTOP_SEC
         next_sweep = time.time() + ORPHAN_SWEEP_SEC   # periodic orphan sweep (see sweep_orphans)
         next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
+        next_pc_load = 0.0  # board item 12: see api/pc_load.py
         # The NT bridge watchdog runs on its OWN thread now -- see
         # _bridge_watchdog_thread for why. Nothing in the main loop republishes it.
         if a.firestore and not _IS_WORKER:
@@ -3734,6 +3737,20 @@ def main(argv=None):
                 except Exception as e:
                     print(f"[data-health] skipped: {type(e).__name__}: {e}")
                 next_health = time.time() + HEALTH_SEC
+            # PC LOAD on the top bar (board item 12, owner approved 2026-11-18 via MANAGER,
+            # ALWAYS on rather than trading hours only). One tiny doc on a throttle, primary
+            # only - a worker publishing too would just overwrite the same box's numbers.
+            # Exception-proof by construction, but wrapped anyway: a load meter must never
+            # be the reason the watch loop stops.
+            if a.firestore and not _IS_WORKER and time.time() >= next_pc_load:
+                try:
+                    from api import pc_load as _pcl
+                    for _uid in (a.allow_uid or []):
+                        if _uid.strip():
+                            _pcl.publish(q.db, _uid.strip(), log=print)
+                except Exception as e:
+                    print(f"[pc-load] skipped: {type(e).__name__}: {e}")
+                next_pc_load = time.time() + _PC_LOAD_SEC
             # Tier-1 execution reviewer. Notifies on every new fill (push, not Firestore --
             # no uid/db needed), separately flags fills that don't match the small static
             # per-strategy fingerprint (instrument/account/max qty). Notify-only by design;
