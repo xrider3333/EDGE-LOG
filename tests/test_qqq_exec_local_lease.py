@@ -42,3 +42,12 @@ def test_local_mode_never_reads_firestore(monkeypatch):
     assert "lease_ok, lease_reason = _local_lease_ok(cfg)" in src
     assert qe._local_lease_ok({"lease_mode": "local", "serving_hosts": ["edgelog"]}) == (
         True, "lease ok (local: serving host + host slot)")
+
+
+def test_default_is_firestore_lease_unchanged():
+    # the shipped default must keep today's Firestore lease until the owner sets lease_mode=local
+    assert "lease_mode" not in qe.DEFAULT_CONFIG
+    assert qe._lease_mode(dict(qe.DEFAULT_CONFIG)) == "firestore"
+    assert qe._lease_mode(qe._read_config_for_gate(path="no-such-file.json")) == "firestore"
+    for v in (None, "", "firestore", "Firestore", "loc", 1):
+        assert qe._lease_mode({"lease_mode": v}) == "firestore"
