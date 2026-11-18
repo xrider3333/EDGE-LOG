@@ -1797,7 +1797,7 @@ def _late_order_alert(leg, action, side, after_close_s, log=print):
                                trading="not affected (the order went out)",
                                problem=f"{leg} {action} {side} sent {float(after_close_s):.0f} s after its bar closed",
                                action="nothing now - PAPER-WB reads the log", priority="default")
-        _notify(note["message"], note["title"], log, priority=note["priority"])
+        _say(None, f"late:{leg}:{action}", key[0], note, log=log)
         return True
     except Exception as e:
         log(f"[qqq-exec] late-order alert failed ({type(e).__name__}: {e})")
@@ -16747,7 +16747,8 @@ def _lease_alert_transition(state, ok, reason, log=print):
         else:
             msg = f"{at}: the broker lease is verified again -- Webull orders resume (was: {prev})."
             title, prio = "QQQ book: lease OK again - orders resume", "default"
-        _notify(msg, title, log=log, priority=prio)
+        note = {"title": title, "message": msg, "priority": prio}
+        _say(state, "lease_alert", f"{_now_et():%Y-%m-%d %H:%M:%S} {kind}", note, log=log)
         return kind
     except Exception as e:
         log(f"[qqq-exec] lease alert failed (non-fatal): {type(e).__name__}: {e}")
@@ -17512,9 +17513,10 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
         if not ok_l and "host slot" not in str(why_l):
             log(f"[qqq-exec] REFUSING to run the shadow book: {why_l}")
             if not _is_cloud_box():
-                _notify(f"qqq_exec refused to serve in LOCAL lease mode on a non-box machine "
-                        f"({_lease_host_id()!r}): {why_l}", "qqq_exec REFUSED", log,
-                        priority="high")
+                _say(None, "refuse_local", f"{_now_et():%Y-%m-%d}",
+                     {"title": "qqq_exec REFUSED",
+                      "message": f"qqq_exec refused to serve in LOCAL lease mode on a non-box machine "
+                                 f"({_lease_host_id()!r}): {why_l}", "priority": "high"}, log=log)
             return
     # FIRESTORE WEDGE RECOVERY (2026-10-05): one handle for every Firestore holder below
     # (tick's lease reads, the claim, the publisher), so a rebuild reaches all of them

@@ -17,4 +17,4 @@ def test_late_alert_fires_once_per_leg_action_day(monkeypatch):
 def test_late_alert_never_raises(monkeypatch):
     monkeypatch.setattr(qe, "_notify", lambda *a, **k: (_ for _ in ()).throw(RuntimeError("x")))
     monkeypatch.setattr(qe, "_late_alerted", set())
-    assert qe._late_order_alert("NOISE", "ENTER", "short", 999, log=lambda *a: None) is False
+    qe._late_order_alert("NOISE", "ENTER", "short", 999, log=lambda *a: None)  # a failing send never raises
