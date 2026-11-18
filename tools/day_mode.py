@@ -4,6 +4,14 @@ Between day_start and day_end (MST, America/Phoenix, no DST) only runner slots
 1..day_runners claim NEW jobs; the others finish what they hold and then wait. Slot 1 = the
 PRIMARY runner, slot N+1 = worker EDGELOG_WORKER=N. Outside the window every runner claims.
 
+day_runners IS A SLOT CEILING, NOT A HEADCOUNT (2026-11-18). The Razer fleet is primary +
+workers 2, 3, 4, 5 - there is no worker 1 - so its live slots are 1, 3, 4, 5, 6 and slot 2 is
+empty. day_runners 2 therefore admitted the PRIMARY ALONE, and two light gate_validates sat
+queued for an hour while the primary was busy on a long job. day_runners 3 admits slot 3 =
+worker 2, which is what the owner's "two claimers in the day" rule actually means on this box.
+Count the slots that EXIST (tools/fleet_restart.py --list) before setting this number, on any
+box - a gap in the worker numbering silently costs you a claimer.
+
 The schedule is a JSON file read on every claim attempt (mtime-cached), so flipping it needs no
 restart:  C:\\EdgeLog\\runner_schedule.json  (env EDGELOG_RUNNER_SCHEDULE overrides)
     {"enabled": true, "day_start": "07:00", "day_end": "16:00", "day_runners": 2}
