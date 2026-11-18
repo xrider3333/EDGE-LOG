@@ -671,9 +671,25 @@ def _lease_mode(cfg):
     return "local" if str((cfg or {}).get("lease_mode") or "").lower() == "local" else "firestore"
 
 
+# The Oracle box marker (MANAGER 11-18, guard gap a): local mode trusts the HOST, so a PC that
+# carries the box's hostname or EDGELOG_HOST_ID must still never pass. Checked from the OS and
+# the filesystem, never from EDGELOG_HOST_ID.
+CLOUD_BOX_DIR = "/home/ubuntu/edgelog"
+
+
+def _is_cloud_box():
+    try:
+        return not sys.platform.startswith("win") and os.path.isdir(CLOUD_BOX_DIR)
+    except Exception:
+        return False
+
+
 def _local_lease_ok(cfg):
     """(ok, reason) for a real broker send in local lease mode. No network, never raises."""
     try:
+        if not _is_cloud_box():
+            return False, ("local lease: this machine is not the Oracle box (Windows, or no "
+                           f"{CLOUD_BOX_DIR}) -- whatever EDGELOG_HOST_ID says; refusing")
         hosts = (cfg or {}).get("serving_hosts")
         if not isinstance(hosts, list) or not hosts:
             return False, "local lease: serving_hosts is not set -- broker sends blocked"
@@ -17495,6 +17511,10 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
         ok_l, why_l = _local_lease_ok(dict(_read_config_for_gate(log=log)))
         if not ok_l and "host slot" not in str(why_l):
             log(f"[qqq-exec] REFUSING to run the shadow book: {why_l}")
+            if not _is_cloud_box():
+                _notify(f"qqq_exec refused to serve in LOCAL lease mode on a non-box machine "
+                        f"({_lease_host_id()!r}): {why_l}", "qqq_exec REFUSED", log,
+                        priority="high")
             return
     # FIRESTORE WEDGE RECOVERY (2026-10-05): one handle for every Firestore holder below
     # (tick's lease reads, the claim, the publisher), so a rebuild reaches all of them
@@ -17599,6 +17619,8 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
         if began:
             _LEASE.end("the adapter loop exited")
             _publisher.drop(lease_uid)
+        if local_lease:
+            _LOCAL_LEASE.update(held=False, pid=None)   # before the slot goes (verifier 11-18)
         _leave_host_slot(slot)
 
 
@@ -18949,6 +18971,11 @@ def main():
             print("[qqq-exec] --serve needs --uid and a reachable Firestore; refusing to "
                   "serve blind (the published doc IS the record)")
             return
+        if _lease_mode(_read_config_for_gate()) == "local" and not _is_cloud_box():
+            print("[qqq-exec] REFUSING --serve: LOCAL lease mode on a machine that is not the "
+                  "Oracle box (Windows, or no " + CLOUD_BOX_DIR + ") -- whatever "
+                  "EDGELOG_HOST_ID says")
+            sys.exit(2)
         if db is None:
             print("[qqq-exec] Firestore unreachable -- LOCAL lease mode, serving with "
                   "publish OFF (trading continues; the page goes stale)")

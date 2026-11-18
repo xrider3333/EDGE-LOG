@@ -1,6 +1,6 @@
 # Box trades without Firebase (owner 11-18: "we shouldn't need firebase to trade")
 
-Status: BUILT on branch session/boxlocallease, NOT shipped, NOT deployed. Deploy needs MANAGER's word, after a close, with the book flat.
+Status: SHIPPED to main (v90.85 603b3e83 + verifier follow-up), NOT deployed. Default unchanged (Firestore lease) until config sets lease_mode=local, which is the owner's word. Deploy needs MANAGER's word, after a close, with the book flat.
 
 ## (a) Why the box touches Firebase today
 1. Lease READ before every send (cached 30 s): "may this host send?" Fail-closed, so a Firestore outage or quota 429 blocks orders. This is the 11-13 cause.
@@ -22,12 +22,18 @@ Status: BUILT on branch session/boxlocallease, NOT shipped, NOT deployed. Deploy
 - serve() / main(): local mode skips the Firestore lease check, and --serve runs even when Firestore is unreachable (publish off, trading on).
 - Tests: tests/test_qqq_exec_local_lease.py (3 new, covering fail-closed with no list, PC host, another pid and slot not held). All 1,562 qqq_exec tests pass.
 
+## Verifier follow-up (TTM 11-18)
+- The local flag is cleared in qqq_exec_thread's finally, BEFORE the host slot is released, so it never outlives the slot.
+- Not-the-box guard (MANAGER, gap a): local mode refuses on Windows, or on any machine without /home/ubuntu/edgelog, whatever EDGELOG_HOST_ID says. The thread logs it and sends a high-priority push; --serve exits with code 2.
+- A lease_mode flip MID-SESSION fails CLOSED until a restart: the running process chose Firestore or local at start, and tick() then reads the new mode, so sends block (no local flag held, or no Firestore claim) until the unit is restarted. Always restart after changing lease_mode.
+- Tests added: a stale lock from a dead holder, then a new process gets the slot with the flag set; a second process holds the slot, so the thread returns with the flag False; the flag is cleared on exit; the not-the-box refusal; an end-to-end tick() in local mode with Firestore raising and an armed PAPER adapter that DOES send.
+
 ## Rollout (on MANAGER's word)
 1. wt.py ship boxlocallease; then box_deploy --dry-run and --yes after a close, book flat. The code is inert until config changes.
 2. Box config.json: add "serving_hosts": ["edgelog"] and "lease_mode": "local" (a box config change: owner word, snapshot first).
-3. Restart the unit and check the log line "LOCAL lease held by host 'edgelog'" plus reconcile ok.
-4. Rollback: remove "lease_mode" and restart.
+3. Rehearsal: a paper --once CANNOT send in local mode (run_once never holds the host slot, so the gate correctly blocks). The box rehearsal must be a --serve run in PAPER mode (the systemd unit) during a paper session, then switch back.
+4. Restart the unit and check the log line "LOCAL lease held by host 'edgelog'" plus reconcile ok.
+5. Rollback: remove "lease_mode" and restart.
 
 ## Open
-- Not covered by tests: an end-to-end tick() in local mode with a fake broker (the unit tests cover the gate only). Run a paper --once on the box before flipping the config.
 - The page may read the lease host from the doc. With no lease stamps it should show "serving" from updated_at; Trading Log to check.
