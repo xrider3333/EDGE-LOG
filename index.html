@@ -3251,6 +3251,35 @@ const LEDGER_NO_FIGURE_SHORT='n/a';
 const LEDGER_NO_TRADES='No trades';
 function ledgerNum(v){if(v==null||v==='')return null;const n=+v;return isFinite(n)?n:null;}
 function ledgerSigned(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE;return (n>=0?'+':'-')+ledgerMoney(Math.abs(n));}
+// ══ ONE MONEY FORMAT (ledger calm-down item 6, 2026-11-18) ══ shared by every board; tools/money_fmt_probe.py pins it.
+//   under $1,000      -> cents kept        $987.65 / -$0.42
+//   $1,000 and up     -> no cents, commas   $12,346
+//   compact (default from $100,000)         $987.7k / $1.23M  (999,950 rounds UP to $1.00M, never '$1000.0k')
+//   signed:true       -> '+' on a gain, '-' on a loss, no sign on zero; -0 and tiny negatives that round to zero print $0.00
+//   null / '' / NaN   -> '—'
+// opts: {signed:false, compactFrom:100000}; compactFrom:Infinity turns compact off.
+const EL_MONEY_START='EL_MONEY_START';
+function elMoney(v,opts){
+  opts=opts||{};
+  if(v==null||v==='')return '—';
+  let n=+v;if(!isFinite(n))return '—';
+  const from=opts.compactFrom==null?100000:+opts.compactFrom;
+  let a=Math.abs(n),body;
+  if(a>=from){
+    if(a>=999950)body='$'+(Math.round(a/1e4)/100).toFixed(2)+'M';
+    else body='$'+(Math.round(a/100)/10).toFixed(1)+'k';
+  }else if(a>=1000){
+    body='$'+Math.round(a).toLocaleString('en-US');
+  }else{
+    const c=Math.round(a*100)/100;
+    if(c>=1000)body='$'+Math.round(a).toLocaleString('en-US');
+    else body='$'+c.toFixed(2);
+    if(c===0)n=0;
+  }
+  const sign=n<0?'-':(opts.signed&&n>0?'+':'');
+  return sign+body;
+}
+const EL_MONEY_END='EL_MONEY_END';
 function ledgerCls(v){const n=ledgerNum(v);return n==null?'lg-nofig':(n>=0?'lg-up':'lg-down');}
 function ledgerShortMoney(v){const n=ledgerNum(v);if(n==null)return LEDGER_NO_FIGURE_SHORT;const a=Math.abs(n),sg=n<0?'-':'+';
   return sg+'$'+(a>=10000?Math.round(a/1000)+'k':a>=1000?(a/1000).toFixed(1).replace(/\.0$/,'')+'k':Math.round(a));}
