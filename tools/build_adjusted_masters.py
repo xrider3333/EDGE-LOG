@@ -106,13 +106,13 @@ FADJ_ONLY = {"NOADJ_NQ_5m_RTH.csv", "NOADJ_NQ_5m_ETH.csv",
              "NOADJ_NQ_1m_ETH.csv", "NOADJ_ES_1m_ETH.csv"}
 
 
-def noadj_masters(conn):
-    """Every registered no-adjust NQ/ES master, as registry rows."""
+def noadj_masters(conn, roots=("NQ", "ES")):
+    """Every registered no-adjust master for these roots (default NQ/ES), as registry rows."""
     q = ("SELECT id,name,filename,instrument,timeframe,session,source,rows "
          "FROM csv_files WHERE is_master=1 AND source LIKE 'db_noadj%' "
-         "AND instrument IN ('NQ','ES') ORDER BY filename")
+         "AND instrument IN (" + ",".join("?" * len(roots)) + ") ORDER BY filename")
     return [dict(zip(("id", "name", "filename", "instrument", "timeframe",
-                      "session", "source", "rows"), r)) for r in conn.execute(q)]
+                      "session", "source", "rows"), r)) for r in conn.execute(q, tuple(roots))]
 
 
 def out_name(src_filename, method):
@@ -238,6 +238,7 @@ def main():
     ap.add_argument("--no-refresh", action="store_true",
                     help="do NOT top up the no-adjust parents first - re-derive from the files "
                          "exactly as they sit on disk (hand runs, and anything offline)")
+    ap.add_argument("--roots", default="NQ,ES", help="comma list of roots (default NQ,ES); RTY/ZN/YM have no Yahoo top-up, pass --no-refresh")
     ap.add_argument("--db", default=DEFAULT_DB)
     ap.add_argument("--uploads", default=DEFAULT_UP)
     a = ap.parse_args()
@@ -291,7 +292,7 @@ def main():
                   "the newest bar of each twin may be provisional"
                   % (type(_re).__name__, str(_re)[:120]))
     want = {x.strip() for x in a.only.split(",") if x.strip()}
-    srcs = [m for m in noadj_masters(conn) if not want or m["filename"] in want]
+    srcs = [m for m in noadj_masters(conn, [x.strip().upper() for x in a.roots.split(",") if x.strip()]) if not want or m["filename"] in want]
     if not srcs:
         print("no no-adjust NQ/ES masters found (registry %s)" % a.db)
         return 1
