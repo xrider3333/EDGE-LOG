@@ -656,6 +656,36 @@ def _read_config_for_gate(path=None, log=print):
 RETIRED_LEGS = {"DIP": "2026-11-16"}
 
 
+# LOCAL LEASE (owner 11-18, "we shouldn't need firebase to trade"; docs/BOX_NO_FIREBASE_1118.md).
+# config.json "lease_mode": "local" moves the right-to-send OFF Firestore: the box is the one
+# machine in serving_hosts, the host slot (SERVING.lock, _enter_host_slot) already stops a
+# second process on the same host, and serving_hosts already stops every other host (the PC
+# carries serving_hosts=["edgelog"] too). In local mode both become MANDATORY (fail-CLOSED:
+# no serving_hosts list, or this host not in it, = no ticking and no sends), the Firestore
+# lease is never read or claimed, and Firestore is publish-only, best effort -- an outage
+# costs the page its picture, never a trade. Absent / "firestore" = today's behaviour.
+_LOCAL_LEASE = {"held": False, "pid": None}
+
+
+def _lease_mode(cfg):
+    return "local" if str((cfg or {}).get("lease_mode") or "").lower() == "local" else "firestore"
+
+
+def _local_lease_ok(cfg):
+    """(ok, reason) for a real broker send in local lease mode. No network, never raises."""
+    try:
+        hosts = (cfg or {}).get("serving_hosts")
+        if not isinstance(hosts, list) or not hosts:
+            return False, "local lease: serving_hosts is not set -- broker sends blocked"
+        if _lease_host_id() not in hosts:
+            return False, f"local lease: host {_lease_host_id()!r} is not in serving_hosts"
+        if not _LOCAL_LEASE["held"] or _LOCAL_LEASE["pid"] != os.getpid():
+            return False, "local lease: this process does not hold the host slot"
+        return True, "lease ok (local: serving host + host slot)"
+    except Exception as e:
+        return False, f"local lease: check crashed ({type(e).__name__}: {e})"
+
+
 def load_config(path=None, log=print):
     """Reloaded every tick so the owner can edit rails live. Creates the file with
     defaults if missing. A `mode` other than "SHADOW" is refused (logged) and the
@@ -16741,7 +16771,8 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
     # reads as "proceed" -- the exact pre-2026-09-14 behaviour. Skipping this for a bare
     # manual `--once` run with no --uid is an accepted, narrow gap (a deliberate,
     # supervised one-off, not the unattended multi-hour double-run this fix targets).
-    if db is not None and uid:
+    local_lease = _lease_mode(cfg) == "local"
+    if local_lease or (db is not None and uid):
         try:
             broker_mode, _broker_mode_reason = _get_broker_adapter(log=log).effective_mode()
         except Exception as e:
@@ -16752,7 +16783,10 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
             # LEASE VERIFY CACHE (2026-09-14, FIX 1): re-reads Firestore at most every
             # lease_verify_interval_sec instead of every 5s tick -- see
             # _lease_verify_cached's own docstring.
-            lease_ok, lease_reason = _lease_verify_cached(db, uid, state, cfg, log=log)
+            if local_lease:
+                lease_ok, lease_reason = _local_lease_ok(cfg)
+            else:
+                lease_ok, lease_reason = _lease_verify_cached(db, uid, state, cfg, log=log)
             # LEASE PROTOCOL step 5 (2026-09-14, aaca82b): the doc not naming another
             # host is not enough for a lease-managed loop -- its OWN last committed
             # stamp must be fresh too, or a host whose claim never landed could send.
@@ -16760,7 +16794,7 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
             # check above as the whole gate. Always checked FRESH (cheap, local, no
             # Firestore read) regardless of the cache above, so caching the doc-level
             # check can never widen this tighter, always-current guard.
-            local_gate = _LEASE.send_gate(uid)
+            local_gate = None if local_lease else _LEASE.send_gate(uid)
             if lease_ok and local_gate is not None and not local_gate[0]:
                 lease_ok, lease_reason = local_gate
         else:
@@ -17414,15 +17448,25 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
             "claiming the lease, never ticking, never sending")
         return
     lease_uid = uids[0] if uids else None
+    local_lease = _lease_mode(_read_config_for_gate(log=log)) == "local"
+    if local_lease:
+        ok_l, why_l = _local_lease_ok(dict(_read_config_for_gate(log=log)))
+        if not ok_l and "host slot" not in str(why_l):
+            log(f"[qqq-exec] REFUSING to run the shadow book: {why_l}")
+            return
     # FIRESTORE WEDGE RECOVERY (2026-10-05): one handle for every Firestore holder below
     # (tick's lease reads, the claim, the publisher), so a rebuild reaches all of them
     db = _as_firestore_handle(db)
-    managed = db is not None and bool(lease_uid)
+    managed = db is not None and bool(lease_uid) and not local_lease
     slot, why = _enter_host_slot(log=log)
     if slot is None:
         log(f"[qqq-exec] REFUSING to run the shadow book: {why} -- one copy per host")
         return
     began = False
+    if local_lease:
+        _LOCAL_LEASE.update(held=True, pid=os.getpid())
+        log(f"[qqq-exec] LOCAL lease held by host {_lease_host_id()!r} pid {os.getpid()} -- "
+            "Firestore is publish-only for this process")
     try:
         if managed:
             ok, reason, stamp = _claim_lease(db, lease_uid, log=log)
@@ -18816,7 +18860,8 @@ def serve(db, uids, log=print):
     if alive and pid != os.getpid():
         log(f"[qqq-exec] another standalone is already serving (pid {pid}) -- exiting")
         return
-    for uid in uids:
+    local_lease = _lease_mode(_read_config_for_gate(log=log)) == "local"
+    for uid in ([] if local_lease else uids):
         ok, reason = _check_lease(db, uid, log=log)
         if not ok:
             log(f"[qqq-exec] REFUSING to serve for {uid}: {reason} -- the owner's PC and "
@@ -18858,10 +18903,13 @@ def main():
             print(f"[qqq-exec] Firestore unavailable ({type(e).__name__}: {e}) -- "
                  f"running --once without publish")
     if a.serve:
-        if db is None or not a.uid:
+        if not a.uid or (db is None and _lease_mode(_read_config_for_gate()) != "local"):
             print("[qqq-exec] --serve needs --uid and a reachable Firestore; refusing to "
                   "serve blind (the published doc IS the record)")
             return
+        if db is None:
+            print("[qqq-exec] Firestore unreachable -- LOCAL lease mode, serving with "
+                  "publish OFF (trading continues; the page goes stale)")
         serve(db, [a.uid])
         return
     run_once(uid=a.uid, fills_path=a.fills, db=db)
