@@ -39,7 +39,11 @@ STATE = r"C:\EdgeLog\nt_fill_reconcile.json"
 from api import nt_account                  # noqa: E402
 DEMO = nt_account.paper_account()             # the paper account (api/nt_account.py)
 SHARED_KEY = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG\serviceAccount.json"     # a worktree has none
-TOL_SEC = 90.0                    # NT stamps a fill at the broker's time; the book at the bar - 0-30 s apart
+# NT stamps a fill at the broker's time; the book at the bar - 0-30 s apart. NT's own bars can land
+# ONE 5-minute bar off the book's master (11-13: 15:05 vs 15:10), so a match may sit one bar + 90 s
+# away; matched rows carry entry/exit_off_sec + pieces so that drift is reported, never hidden.
+BAR_SEC = 300.0
+TOL_SEC = BAR_SEC + 90.0
 # leg family -> (instrument root, contracts per book unit, $ per point)
 SPEC = {"NOISE": ("MNQ", 3, 2.0), "ENGUQ": ("NQ", 1, 20.0)}
 BOOK_USD_PER_PT = 20.0            # paper_trades pnl_usd = points x $20 x size, NOISE included

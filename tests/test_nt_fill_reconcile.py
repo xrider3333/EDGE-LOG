@@ -52,3 +52,19 @@ def test_noise_sizes_are_mnq_contracts_and_a_session_close_exit_belongs_to_noise
     rep = N.run(dt.date(2026, 10, 27), [book], fills_path=f)
     assert rep["status"] == "clean", rep
     assert round(rep["broker_usd"], 2) == 9 * 2 * 11 == round(rep["book_usd"], 2)
+
+
+def test_one_bar_off_split_fill_matches_with_drift_reported(tmp_path):
+    """NT enters one 5m bar after the book, in two pieces: ONE matched trade, drift kept as columns."""
+    f = _fills(tmp_path, [
+        "a1,2026-11-13 20:10:00,DEMO7240108,MNQ 12-26,SELL,4,28000,0,oa,NZ",
+        "a2,2026-11-13 20:10:01,DEMO7240108,MNQ 12-26,SELL,7,28000,0,ob,NZ",
+        "a3,2026-11-13 20:20:00,DEMO7240108,MNQ 12-26,BUY,11,27990,0,oc,NZexit"])
+    day = dt.date(2026, 11, 13)
+    leg = {l for l in N.nt_legs(day) if N._family(l) == "NOISE"}.pop()
+    rows = [{"leg": leg, "side": "-1", "size": 11 / 3, "entryIso": "2026-11-13T15:05:00-05:00",
+             "exitIso": "2026-11-13T15:20:00-05:00", "entry_px": 28000, "exit_px": 27990, "pnl_usd": 2933.3}]
+    rep = N.run(day, rows, f)
+    assert not rep["no_fill"] and not rep["orphan_fills"]
+    m = rep["matched"][0]
+    assert m["entry_off_sec"] == 301.0 and m["entry_pieces"] == 2 and m["exit_pieces"] == 1

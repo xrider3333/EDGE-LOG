@@ -58,6 +58,12 @@ def rollup(reports):
             "avg_nt": mean([x["broker_pnl"] for x in priced]),
             "slip_usd_per_trade": mean([x["broker_pnl"] - x["book_pnl"] for x in priced]),
             "first_day": days[0] if days else None,
+            # drift the one-bar tolerance absorbs - reported, never hidden
+            "off_bar_n": sum(1 for x in m if max(abs(x.get("entry_off_sec") or 0),
+                                                 abs(x.get("exit_off_sec") or 0)) > 90),
+            "max_off_sec": max([abs(x.get(k) or 0) for x in m for k in ("entry_off_sec", "exit_off_sec")]
+                               or [None], key=lambda v: -1 if v is None else v),
+            "split_n": sum(1 for x in m if (x.get("entry_pieces") or 0) > 1 or (x.get("exit_pieces") or 0) > 1),
             "clock": {"trades": f"{len(m)}/{CLOCK_TRADES}", "days": f"{span}/{CLOCK_DAYS}",
                       "due": len(m) >= CLOCK_TRADES or span >= CLOCK_DAYS},
         }
@@ -79,14 +85,15 @@ def main(argv=None):
                 print(f"{d}: skipped ({type(e).__name__}: {e})")
         d += dt.timedelta(days=1)
     res = {"built": dt.datetime.now().isoformat(timespec="seconds"), "since": a.since, "until": end.isoformat(),
-           "source": "fills.csv DEMO7240108 vs Firestore paper_trades", "legs": rollup(reports)}
+           "source": f"fills.csv {nfr.DEMO} vs Firestore paper_trades", "legs": rollup(reports)}
     os.makedirs(os.path.dirname(OUT), exist_ok=True)
     with open(OUT, "w", encoding="utf-8") as f:
         json.dump(res, f, indent=1, default=str)
     for fam, r in res["legs"].items():
         print(f"{fam}: book {r['book_n']}, NT matched {r['nt_n']} (missed {r['missed']}, strays {r['strays']}); "
               f"hit book {r['hit_book']} vs NT {r['hit_nt']}; $/trade book {r['avg_book']} vs NT {r['avg_nt']}; "
-              f"slip {r['slip_usd_per_trade']}/trade; clock {r['clock']['trades']} trades, {r['clock']['days']} days")
+              f"slip {r['slip_usd_per_trade']}/trade; "
+              f"off-bar {r['off_bar_n']} (max {r['max_off_sec']} s), split {r['split_n']}; clock {r['clock']['trades']} trades, {r['clock']['days']} days")
     print(OUT)
     return 0
 

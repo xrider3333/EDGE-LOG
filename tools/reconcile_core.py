@@ -158,6 +158,14 @@ def _take(orders, used, leg, intent, dirn, ts, shares, tol, sid=None, late_sec=0
             "px": (cost / got if got > 0 and priced else None)}
 
 
+def _drift(orders, idx, ts):
+    """(seconds from the book stamp to the latest counted broker row, rows counted)."""
+    if not idx:
+        return (None, 0)
+    last = max((orders[i]["ts"] for i in idx), default=ts)
+    return (round((last - ts).total_seconds(), 1), len(idx))
+
+
 def is_fill(o):
     """A row Webull took: ok, and either a fill price or sent (the price is captured later
     and may never arrive -- the shares still traded)."""
@@ -207,7 +215,7 @@ def reconcile(day, trades, orders, open_lots=(), log_start=None, tol_sec=DEFAULT
         r = _take(orders, used, leg, "OPEN", book_direction("OPEN", side), ets, need_sh,
                   tol_sec, sid=ts[0].get("open_sid"), late_sec=open_late_sec)
         used.update(r["idx"])
-        opens[key] = [r["px"], r["got"]]
+        opens[key] = [r["px"], r["got"], _drift(orders, r["idx"], ets)]
         if r["excess"] > 1e-9:
             # Webull bought / sold short MORE than the book holds
             o = orders[r["idx"][-1]]
@@ -235,7 +243,7 @@ def reconcile(day, trades, orders, open_lots=(), log_start=None, tol_sec=DEFAULT
                                         "usd": round(r["excess"] * px, 2), "extra": True})
         cpx, got_c = r["px"], r["got"]
         key = (t["leg"], t["entry_ts"], t["side"])
-        opx, got_o = opens[key]
+        opx, got_o, o_drift = opens[key]
         share_o = min(sh, got_o)               # the open's shares shared out over the group
         opens[key][1] = max(0.0, got_o - sh)
         book = _f(t.get("pnl"))
@@ -252,7 +260,11 @@ def reconcile(day, trades, orders, open_lots=(), log_start=None, tol_sec=DEFAULT
                                    "entry_ts": _iso(t["entry_ts"]), "exit_ts": _iso(t["exit_ts"]),
                                    "book_pnl": bk, "broker_pnl": bp,
                                    "slippage": (round(bp - bk, 2)
-                                                if bp is not None and bk is not None else None)})
+                                                if bp is not None and bk is not None else None),
+                                   # drift stays visible: broker minus book seconds, fill rows summed
+                                   "entry_off_sec": o_drift[0], "entry_pieces": o_drift[1],
+                                   "exit_off_sec": _drift(orders, r["idx"], t["exit_ts"])[0],
+                                   "exit_pieces": len(r["idx"])})
             continue
         which = "both" if miss_o > 1e-9 and miss_c > 1e-9 else ("open" if miss_o > 1e-9 else "close")
         miss = max(miss_o, miss_c)
