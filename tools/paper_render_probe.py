@@ -1401,8 +1401,9 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         r.bookRowKeys=[].map.call(d.querySelectorAll('tr[data-paperleg]'),function(x){return x.getAttribute('data-paperleg');}).concat(_gk('book'));
         r.otherRowKeys=[].map.call(d.querySelectorAll('tr[data-paperother]'),function(x){return x.getAttribute('data-paperother');}).concat(_gk('fwd'),_gk('other'),_gk('retired'));
         var _hid=[].slice.call(d.querySelectorAll('.p2fold-body[hidden]'));_hid.forEach(function(e){e.hidden=false;});
+        var _det=[].slice.call(d.querySelectorAll('details[data-lgdetails]:not([open])'));_det.forEach(function(e){e.open=true;});
         var _bt=d.body?d.body.innerText:'';
-        _hid.forEach(function(e){e.hidden=true;});
+        _hid.forEach(function(e){e.hidden=true;});_det.forEach(function(e){e.open=false;});
         r.capNQ=(_bt.match(/10s capture NQ: [^\\n]*/)||[''])[0];
         r.capES=(_bt.match(/10s capture ES: [^\\n]*/)||[''])[0];
         var _gc=d.querySelector('a[href="http://127.0.0.1:8392"]');
@@ -3769,7 +3770,7 @@ def _judge_s11(cases, fixture, data, fails):
             want_tok = [nt_txt]
             if n_pos:
                 want_tok.append('\u00b7 %d open' % n_pos)
-            want_tok.append(('\u00b7 \u26a0 %d check%s a look' % (len(wcs), ' needs' if len(wcs) == 1 else 's need')) if wcs else '\u00b7 checks clear')
+            want_tok.append(('\u00b7 %d check%s a look' % (len(wcs), ' needs' if len(wcs) == 1 else 's need')) if wcs else '\u00b7 checks clear')
             got_tok = [t['t'] for t in tok]
             if got_tok != want_tok:
                 fails.append('%s: the status sentence reads %r, expected the tokens %r (%d warning chip(s))' % (nm, got_tok, want_tok, len(wcs)))

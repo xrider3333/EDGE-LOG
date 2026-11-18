@@ -1465,6 +1465,22 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 }
 @media (min-width:1100px){.lg-frame.lg-lside{--lgf-side:284px!important}}
 @media (min-width:1500px){.lg-frame.lg-lside{--lgf-side:304px!important}}
+.lg-chart{position:relative}
+.lg-details{display:block;margin-top:6px;border-top:1px solid var(--border2)}
+.lg-details>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;padding:10px 4px;font-size:10px;color:var(--text3);letter-spacing:.06em}
+.lg-details>summary::-webkit-details-marker{display:none}
+.lg-details>summary::after{content:'▾';font-size:9px;color:var(--text5)}
+.lg-details[open]>summary::after{content:'▴'}
+.lg-chk{display:inline-block;margin:0;vertical-align:middle}
+.lg-chk>summary{list-style:none;cursor:pointer;display:inline-flex;align-items:center;gap:6px;font-size:10.5px;color:var(--text3);white-space:nowrap}
+.lg-chk>summary::-webkit-details-marker{display:none}
+.lg-chk>summary::after{content:'▾';font-size:9px;color:var(--text5)}
+.lg-chk[open]>summary::after{content:'▴'}
+.lg-chk-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none;vertical-align:1px;margin-right:4px}
+[data-theme="mono"] .lg-chk-dot{background:var(--text2)}
+.lg-chk-body{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;padding-top:4px}
+.lg-cav-tgl{position:absolute;left:6px;bottom:24px;font-size:9px;letter-spacing:.04em;padding:1px 7px;border-radius:9px;border:1px solid var(--border);background:var(--bg1);color:var(--text4);cursor:pointer;opacity:.8}
+.lg-cav-tgl.on{color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)}
 .lg-uni{--uc-h:26px;--uc-r:7px;--uc-fs:9.5px;--uc-card:color-mix(in srgb,var(--bg1) 45%,transparent)}
 .lg-uni .lg-pills,.lg-uni .hm-mode,.lg-uni .lg-seg{display:inline-flex;gap:0;flex-wrap:nowrap;border:1px solid var(--border);border-radius:var(--uc-r);overflow:hidden;flex:none;height:var(--uc-h);box-sizing:border-box}
 .lg-uni .lg-pills button,.lg-uni .hm-mode button,.lg-uni .lg-seg button{height:100%;padding:0 11px;border:none;border-bottom:none;border-radius:0;background:transparent;
@@ -1788,7 +1804,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.73';
+const VERSION='90.74';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1809,6 +1825,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.74',date:'2026-11-18',notes:['LEDGER charts: no hatched caveat days by default (a small show caveats button brings them back, remembered), thinner lines','NT8 PAPER and WEBULL PAPER: warnings fold into one dot and one line (tap for detail); red alarms still show plainly','NT8 PAPER and WEBULL PAPER: the sidebar folds sit under one Details fold']},
 {v:'90.70',date:'2026-11-18',notes:['NT8 PAPER and WEBULL PAPER: the trade list starts right under the chart and calendar - no empty band when the sidebar is long']},
 {v:'90.66',date:'2026-11-18',notes:['WEBULL PAPER: every strategy in the Strategies list has an on / off switch - the headline, chart, tiles, calendar and trade list count only the ones switched on','WEBULL PAPER: DIP is switched off by default; the headline says excluding DIP while any strategy is off']},
 {v:'90.63',date:'2026-11-18',notes:['NT8 PAPER: each strategy name sits on one line in the sidebar, whole']},
@@ -3622,6 +3639,15 @@ function ledgerStatusHtml(o){
 }
 // ONE chart foot under the shared chart (the legend of its faint lines is drawn inside the chart box, just above it).
 // o = {id, cap (html, what the chart shows), x (html, the board's own chart controls: REAL's EQUITY | P&L), key (html, the board's key line)}
+// calm-down 10 (owner 11-18): the paper sidebars' folds (More stats, Orders, Feed, System...) sit under ONE 'Details' fold, closed by
+// default, open / closed remembered per board (el_lg_details_<id>, try/catch). Nothing inside is removed.
+function ledgerDetailsOpen(id){try{return localStorage.getItem('el_lg_details_'+id)==='1';}catch(e){return false;}}
+function ledgerDetailsHtml(id,inner){
+  // a fold inside that the viewer left open opens Details with it, so an open fold is never buried
+  return '<details class="lg-details" data-lgdetails="'+id+'"'+((ledgerDetailsOpen(id)||/aria-expanded="true"/.test(inner||''))?' open':'')+'><summary class="lg-details-sum">Details</summary><div class="lg-details-in">'+(inner||'')+'</div></details>';
+}
+document.addEventListener('toggle',function(e){const d=e.target;if(!d||!d.getAttribute||!d.hasAttribute('data-lgdetails'))return;
+  try{localStorage.setItem('el_lg_details_'+d.getAttribute('data-lgdetails'),d.open?'1':'0');}catch(_e){}},true);
 function ledgerChartFootHtml(o){
   o=o||{};const id=String(o.id||'lg').replace(/[^\w-]/g,'');
   return '<div class="lg-chart-foot" data-lgchartfoot="'+id+'"><div class="lg-chart-foot-row"><span class="lg-chart-cap">'+(o.cap||'')+'</span>'
@@ -4273,6 +4299,9 @@ function ledgerDailyChart(wrapEl,pts,o){
   svg.addEventListener('mousemove',show);svg.addEventListener('mouseleave',hide);
   svg.addEventListener('touchmove',e=>{if(e.touches[0])show(e.touches[0]);},{passive:true});svg.addEventListener('touchend',hide);
 }
+// calm-down 9 (owner 11-18): caveat hatch hidden by default; a small CAVEATS toggle on the chart shows it, remembered per viewer
+function ledgerCavOn(){try{return localStorage.getItem('el_lg_cav')==='1';}catch(e){return false;}}
+function ledgerCavSet(on){try{localStorage.setItem('el_lg_cav',on?'1':'0');}catch(e){}}
 function ledgerChartRender(wrap,o){
   if(!wrap)return;
   wrap.classList.add('lg-chart');
@@ -4307,7 +4336,7 @@ function ledgerChartRender(wrap,o){
     const hid='lgHatch_'+(o.id||'c'),half=n>1?pw/(n-1)/2:pw/2;
     if(o.bands&&o.bands.length){h+='<defs><pattern id="'+hid+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--yellow)" stroke-width="2" stroke-opacity="0.45"/></pattern></defs>';
       o.bands.forEach(b=>{if(b.i==null||b.i<0||b.i>=n)return;const x0=Math.max(L,X(b.i)-half),x1=Math.min(L+pw,X(b.i)+half);
-        h+='<rect data-lgband="1" x="'+x0.toFixed(1)+'" y="'+T+'" width="'+Math.max(1,x1-x0).toFixed(1)+'" height="'+ph+'" fill="url(#'+hid+')"><title>'+esc(b.title||'')+'</title></rect>';});}
+        h+='<rect data-lgband="1"'+(ledgerCavOn()?'':' visibility="hidden"')+' x=""'+x0.toFixed(1)+'" y="'+T+'" width="'+Math.max(1,x1-x0).toFixed(1)+'" height="'+ph+'" fill="url(#'+hid+')"><title>'+esc(b.title||'')+'</title></rect>';});}
     _lgNiceTicks(lo,hi,W<600?3:4).forEach(tv=>{const yy=Y(tv).toFixed(1);
       h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+yy+'" y2="'+yy+'" style="stroke:var(--border2)" stroke-width="1"/>'
         +'<text data-lgtick="1" x="'+(L+pw+6)+'" y="'+(+yy+3)+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc((o.fmtAxis||_lgAxisMoney)(tv))+'</text>';});
@@ -4321,13 +4350,13 @@ function ledgerChartRender(wrap,o){
         +(r.label?'<text data-lgreflbl="1" x="'+(lEnd?L+pw-3:x0+3).toFixed(1)+'" y="'+(r.pin==='top'?+yy+10:+yy-4)+'"'+(lEnd?' text-anchor="end"':'')+' font-size="9" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(r.label)+'</text>':'');});
     // each faint line also gets its own dash, so the lines stay apart under MONO where every colour turns grey
     lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(i>=n||v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
-      if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="'+(o.lineOpacity!=null?o.lineOpacity:0.6)+'" stroke-width="'+(o.lineWidth!=null?o.lineWidth:1.2)+'" stroke-dasharray="'+_lgDashOf(l,o)+'"/>';});
+      if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="'+(o.lineOpacity!=null?o.lineOpacity:0.6)+'" stroke-width="'+(o.lineWidth!=null?Math.min(o.lineWidth,1):0.9)+'" stroke-dasharray="'+_lgDashOf(l,o)+'"/>';});
     (o.marks||[]).forEach(m=>{if(m.i==null||m.i<0||m.i>=n)return;const xx=X(m.i).toFixed(1);
       h+='<line data-lgmark="1" x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text4)" stroke-width="1" stroke-dasharray="2 3"/>'
         +'<text x="'+(+xx+3)+'" y="'+(T-3)+'" font-size="8" style="fill:var(--text4);paint-order:stroke;stroke:var(--bg);stroke-width:3px" font-family="JetBrains Mono, monospace" data-lgmarklbl="1">'+esc(m.label||'')+'</text>';});
     const line=pts.map((p,i)=>X(i).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ');
     h+='<polygon points="'+X(0).toFixed(1)+','+(T+ph)+' '+line+' '+X(n-1).toFixed(1)+','+(T+ph)+'" fill="url(#'+gid+')"/>'
-      +'<polyline points="'+line+'" fill="none" style="stroke:'+col+'" stroke-width="2" stroke-linejoin="round" stroke-linecap="round"/>'
+      +'<polyline points="'+line+'" fill="none" style="stroke:'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>'
       +'<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(pts[n-1].v).toFixed(1)+'" r="3.5" style="fill:'+col+'"/>';
     // dates along the bottom: evenly spread, about 110 px apart; the year shows when the range crosses one
     const dated=pts.map((p,i)=>p.date?i:-1).filter(i=>i>=0);
@@ -4342,7 +4371,9 @@ function ledgerChartRender(wrap,o){
     // paper tabs (owner 10-31): the legend sits on the range pills' line under the chart, in a slot the board names (o.legendInto)
     const le=o.legendInto?(typeof o.legendInto==='string'?(wrap.closest('[data-lgframe]')||document).querySelector(o.legendInto):o.legendInto):null;
     if(le)le.innerHTML=lg;else h+=lg;
+    if(o.bands&&o.bands.length){const on=ledgerCavOn();h+='<button type="button" class="lg-cav-tgl'+(on?' on':'')+'" data-lgcav="1" aria-pressed="'+on+'" title="show or hide the hatched data-caveat days ('+o.bands.length+')">'+(on?'hide':'show')+' caveats</button>';}
     wrap.innerHTML=h;
+    const cv=wrap.querySelector('[data-lgcav]');if(cv)cv.onclick=ev=>{ev.stopPropagation();ledgerCavSet(!ledgerCavOn());draw();};
     const sv=wrap.querySelector('svg'),xl=sv.querySelector('[data-lgx]'),dot=sv.querySelector('[data-lgdot]');
     let held=false;
     const at=ev=>{const r=sv.getBoundingClientRect();const fx=(ev.clientX-r.left)*(W/(r.width||W));
@@ -44745,7 +44776,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           today:(todayVal==null||!isFinite(Number(todayVal)))?'':(QF.isToday?ledgerTodayHtml(Number(todayVal)):qbNotTodayHtml(Number(todayVal))),
           under:openLine?('<span data-qbheroopenline title="The lots not sold yet, at the last mark - part of the net number above (closed + open)">'+openLine+'</span>'):'',
           range:rangeLine,
-          chips:chips.join(''),
+          // calm-down 8 (owner 11-18): red / blocking chips stay out in plain sight; the amber ones fold into ONE dot + line, detail on tap
+          chips:(()=>{const red=chips.filter(c=>/attn-red/.test(c)),amb=chips.filter(c=>!/attn-red/.test(c));
+            return red.join('')+(amb.length?'<details class="lg-chk" data-lgchk="qb"><summary><span class="lg-chk-dot" aria-hidden="true"></span>'+amb.length+' check'+(amb.length===1?' needs':'s need')+' a look</summary><div class="lg-chk-body">'+amb.join('')+'</div></details>':'');})(),
           // the broker caveat sits behind a small 'details' fold; the DIP #424 held-overnight line now lives in DIP's own row (owner 10-31)
           todayInline:true,
           note:((sinceLabel?('<div>'+sinceLabel+'</div>'):'')+(brokerLine?('<details class="qbx-hero-details"><summary>details</summary>'+brokerLine+'</details>'):''))||undefined});
@@ -47404,7 +47437,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbWide=(window.innerWidth||0)>=1100;
         body=qbWide?ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper lg-lside lg-uni',sideW:264,
             top:qbTop.chart+'<div class="qbx-activity">'+qbCalHtml+'</div>',
-            side:qbTop.hero+qbStatusSec+qbTop.stats+qbSideNew+'<div class="qbx-stats qbx-lgmore">'+qbLgMoreHtml+'</div>'+'<div class="qbx-own">'+qbOwnSecs+'</div>',
+            side:qbTop.hero+qbStatusSec+qbTop.stats+qbSideNew+ledgerDetailsHtml('qb','<div class="qbx-stats qbx-lgmore">'+qbLgMoreHtml+'</div>'+'<div class="qbx-own">'+qbOwnSecs+'</div>'),
             rest:'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+'</div>'})+qbSheetHtml
           :ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper',top:LEDGER_PAPER_TOP_ORDER.map(k=>qbTop[k]||'').join(''),side:qbSideNew,
             rest:'<div class="qbx-history qbx-section"><div class="qb-section-hd">History</div>'+qbTradesCard+'</div>'
@@ -49774,7 +49807,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const ntBad=!B||B.up===false||!F.nExp||F.run<F.nExp;
           const sum=tk(_p2Xs(ntTxt),'p2st-nt'+(ntBad?' p2st-bad':''))
             +(F.pos?(' '+tk('\u00b7 '+F.pos+' open')):'')
-            +' '+tk('\u00b7 '+(W.length?('\u26a0 '+W.length+' check'+(W.length===1?' needs':'s need')+' a look'):'checks clear'),W.length?'p2st-warn':'');
+            +' '+tk('\u00b7 '+(W.length?('<span class="lg-chk-dot" aria-hidden="true"></span>'+W.length+' check'+(W.length===1?' needs':'s need')+' a look'):'checks clear'),W.length?'p2st-warn':'');
           const tip=(W.length?(W.length+' warning'+(W.length===1?'':'s')+': '+W.map(w=>w.txt).join(' | ')+' | '):'no warnings | ')+T.join(' | ');
           // REFRESH stays on the line; on a phone only its icon shows (the word is back at 601 px)
           const rf='<button data-paperrefresh class="p2rf" aria-label="Refresh" title="Reload the paper trades and reports" style="height:24px;padding:0 12px;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer">'
@@ -50257,7 +50290,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // owner 11-17: REAL's layout - shaded left sidebar (headline, status, tiles, strategies, the board's folds), chart | calendar on top, trades under
           body='<div class="p2rh">'+_p2Head+ledgerFrameHtml({id:'p2',cls:'lg-paper lg-lside lg-uni',sideW:264,
               top:_p2TopS.chart+'<div>'+_p2Sec('cal',_pnUi.cal)+'</div>',
-              side:_p2TopS.hero+_p2TopS.status+_p2TopS.stats+'<div data-p2col="side" data-p2sec="list" style="min-width:0">'+_p2Rail+'</div>'+_p2Sec('more',_pnUi.more)+_p2Cards,
+              side:_p2TopS.hero+_p2TopS.status+_p2TopS.stats+'<div data-p2col="side" data-p2sec="list" style="min-width:0">'+_p2Rail+'</div>'+ledgerDetailsHtml('p2',_p2Sec('more',_pnUi.more)+_p2Cards),
               rest:_p2Sec('trades',tradesHtml)})+'</div>';
         }else{
           // LEDGER step 12: the shared page frame - the rail is its right-hand panel beside the top block; the drag bar sits on the panel's left edge

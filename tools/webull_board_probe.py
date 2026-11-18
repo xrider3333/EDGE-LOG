@@ -4494,7 +4494,7 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
     var root=q('.qb-shell');if(!root)return null;
     var s=[];
     (function walk(e){
-      s.push(e.tagName+'.'+(typeof e.className==='string'?e.className:'')+'['+[].map.call(e.attributes,function(a){return a.name;}).sort().join(',')+']');
+      s.push(e.tagName+'.'+(typeof e.className==='string'?e.className:'')+'['+[].filter.call(e.attributes,function(a){return a.name!=='open';}).map(function(a){return a.name;}).sort().join(',')+']');
       [].forEach.call(e.children,walk);
     })(root);
     var str=s.join('|'),h=0x811c9dc5;
