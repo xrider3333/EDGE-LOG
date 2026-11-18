@@ -9,6 +9,13 @@ SENT, never what is counted), no realistic reading for an instrument without pub
 no guessed cost, and that a failure inside the engine can never take the blotter down.
 
 No network, no live paths: every test builds its own temp root.
+
+THE REGENERATE CACHE MOVED OUT OF THE REPO (2026-11-18, v90.48). load_blotter_rows caches a
+regenerated blotter under blotter_dir() - C:/EdgeLog/blotters on this box - not under the
+`root` it is handed. That is right in production and wrong in a test: this file wrote a CSV
+into the owner's live blotter folder and then failed looking for it under its temp root. The
+autouse fixture below points blotter_dir() at a temp folder for every test here, so the cache
+lands somewhere disposable and the test can still find it.
 """
 import json
 import os
@@ -27,6 +34,14 @@ MULT = 20.0     # NQ: dollars per point
 # GROSS points 3.0 / -1.0 / 2.5 -> NET (what the blotter holds) 2.5 / -1.5 / 2.0
 GROSS3 = [3.0, -1.0, 2.5]
 NET3 = [g - COST for g in GROSS3]
+
+
+@pytest.fixture(autouse=True)
+def cache_dir(tmp_path_factory, monkeypatch):
+    """Every blotter_dir() write in this file goes somewhere disposable."""
+    d = tmp_path_factory.mktemp("blotter_cache")
+    monkeypatch.setattr(B, "blotter_dir", lambda: str(d))
+    return str(d)
 
 
 def make_rows(nets, mult=MULT, start_day=1, month="2024-03"):
@@ -242,7 +257,7 @@ def test_readings_ride_the_regenerated_path_too(tmp_path, monkeypatch):
     assert out["readings"]["ok"] is True
     assert out["readings"]["cost"]["net_flat_pts"] == pytest.approx(3.0)   # numeric rows, not CSV text
     # and without the flag the regenerated response has no readings either
-    os.remove(os.path.join(root, "blotters", "run7_NQ_5m.csv"))
+    os.remove(os.path.join(B.blotter_dir(), "run7_NQ_5m.csv"))   # the cache, not the repo
     out2 = B.load_blotter_rows(root, payload(strategy="FAKE", params={"a": 1}), log=lambda *_: None)
     assert out2["regenerated"] is True and "readings" not in out2
 
