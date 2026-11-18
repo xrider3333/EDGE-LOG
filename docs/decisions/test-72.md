@@ -27,3 +27,4 @@
 - 2026-11-13: board changed to [fail] CLOSED AT DRAFT (GROSS ONLY 1.12x COST)
 - 2026-11-14: board changed to [fail] CLOSED AT DRAFT (GROSS ONLY 1.12x COST)
 - 2026-11-15: board changed to [fail] CLOSED AT DRAFT (GROSS ONLY 1.12x COST)
+- 2026-11-17: board changed to [fail] CLOSED AT DRAFT (GROSS ONLY 1.12x COST)

@@ -27,3 +27,4 @@ Every NQ/ES gap filled from NinjaTrader (2020, July 2026, NQ overnight). See the
 - 2026-11-13: board changed to [done] DONE 10-15
 - 2026-11-14: board changed to [done] DONE 10-15
 - 2026-11-15: board changed to [done] DONE 10-15
+- 2026-11-17: board changed to [done] DONE 10-15
