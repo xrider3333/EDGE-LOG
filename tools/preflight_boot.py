@@ -212,6 +212,18 @@ PROBE_HTML = """<!DOCTYPE html>
               + "}catch(e){return 'threw|'+String((e&&e.message)||e);}})()");
           } catch (e3) { return 'eval|' + String((e3 && e3.message) || e3); }
         })(),
+        // SIGNED IN, THE READERS ACTUALLY RUN (2026-11-15). The signed-out case above was the
+        //   only coverage the token helper had, and that is how v90.16 shipped an _idToken()
+        //   whose own body returned _idToken(): signed out it returns early, signed in it
+        //   recursed until "Maximum call stack size exceeded", and because the helper catches
+        //   its own throw the page saw only a rejected read - every run fell through to the
+        //   whole-document listener and the owner's page hung. So the check is not "did it
+        //   throw" but "did the token COME BACK": kicked at load with a stub user, read here.
+        signedInReaders: (function(){
+          try {
+            return w.eval("String(window.__sirState||'(not run)')");
+          } catch (e4) { return 'eval|' + String((e4 && e4.message) || e4); }
+        })(),
         // A DENIED RUN READ SAYS SIGN IN AGAIN (2026-11-15). Nobody is signed in here, so a
         //   stubbed permission-denied is exactly the owner's case: PAST RUNS drew 432 rows from
         //   the index and #512 said "could not be read (permission-denied)". The reason the
@@ -235,6 +247,21 @@ PROBE_HTML = """<!DOCTYPE html>
     //   below, so no promise has to cross the boundary.
     try {
       var w0 = document.getElementById('f').contentWindow;
+      // SIGNED IN (2026-11-15): a stub user whose getIdToken resolves, so the real readers run
+      //   the way they do for the owner. __sirState is read in the sample above.
+      w0.eval("(function(){window.__sirState='pending';try{"
+        + "if(typeof auth==='undefined'||!auth){window.__sirState='noauth';return;}"
+        + "var U={uid:'IO0K35JpLIcH9YK4C0pMNYUzZOM2',"
+        + "  getIdToken:function(){return Promise.resolve('stub-token');}};"
+        + "try{Object.defineProperty(auth,'currentUser',{configurable:true,get:function(){return U;}});}"
+        + "catch(eSet){try{auth.currentUser=U;}catch(e2){}}"
+        + "if(!auth.currentUser){window.__sirState='nostub';return;}"
+        + "if(typeof _idToken!=='function'){window.__sirState='no-helper';return;}"
+        + "var P=_idToken();"
+        + "try{delete auth.currentUser;}catch(eDel){}"   // the stub lives only for that one call
+        + "P.then(function(v){window.__sirState='token|'+String(v);},"
+        + "  function(e){window.__sirState='rejected|'+String((e&&e.message)||e);});"
+        + "}catch(e){window.__sirState='threw|'+String((e&&e.message)||e);}})()");
       w0.eval("(function(){try{"
         + "window._runFull={};window._runHydrating={};window._runHydrateQ=[];"
         + "window._runFail={};window._runRetried={};"
@@ -447,6 +474,15 @@ def main(argv=None):
         if drr is not None and 'sign in again' not in str(drr).lower():
             # a denied single-run read must name the sign-in, not blame the run
             print('PREFLIGHT: FAIL -- denied run read said %r' % drr)
+            print('  parsed: %s' % obj)
+            return FAIL
+        sir = obj.get('signedInReaders')
+        # A MISSING READOUT IS A FAILURE, NOT A PASS: an empty sample means the probe never
+        #   ran the signed-in case, and a gate that cannot see is the blind gate this one
+        #   exists to replace.
+        if not str(sir or '').startswith('token|'):
+            # signed in, the token helper and the run-index readers must run without throwing
+            print('PREFLIGHT: FAIL -- signed-in readers: %r' % sir)
             print('  parsed: %s' % obj)
             return FAIL
         soa = obj.get('signedOutAugur')
