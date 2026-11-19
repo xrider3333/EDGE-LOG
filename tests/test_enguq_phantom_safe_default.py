@@ -25,6 +25,7 @@ Coverage:
      harness that could not set the flag reported "0 differ" out of seven TypeErrors.
 """
 import inspect
+import io
 import os
 import sys
 
@@ -227,3 +228,25 @@ def test_a_complete_tape_is_identical_both_ways(fastloop_off):
     n = len(FULL_ARRAYS["close"])
     assert (_trades_on(FULL_ARRAYS, n, phantom_safe=False, fastloop_off=fastloop_off)
             == _trades_on(FULL_ARRAYS, n, phantom_safe=True, fastloop_off=fastloop_off))
+
+
+def test_the_prereg_carries_the_dated_amendment_for_the_forced_arms():
+    """MANAGER 2026-11-18: S1/S2 stay forced WITH the control, recorded as a dated amendment.
+
+    The three arms sharing one setting is what keeps the windows comparable, so the prereg must
+    say so in its own file -- not only in a code comment, which is what 'not a silent comment
+    edit' means. This pins the amendment's presence and the three arm names in it.
+    """
+    root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    txt = io.open(os.path.join(root, "ENGUQ_R62_FORWARD_PREREG.md"),
+                  encoding="utf-8").read()
+    head = [l for l in txt.splitlines() if l.startswith("## AMENDMENT 1")]
+    assert head, "no AMENDMENT 1 section in ENGUQ_R62_FORWARD_PREREG.md"
+    assert "2026-11-18" in head[0], head[0]
+    body = txt.split("## AMENDMENT 1", 1)[1]
+    for arm in ("ENGUQ_335_S1", "ENGUQ_335_S2", "phantom_safe"):
+        assert arm in body, arm
+    assert "defaults stay False" in body, "amendment must say backtest defaults are unchanged"
+    # and the code comment points AT the amendment rather than re-stating the ruling
+    paper = io.open(os.path.join(root, "api", "paper.py"), encoding="utf-8").read()
+    assert "AMENDMENT 1 (2026-11-18)" in paper

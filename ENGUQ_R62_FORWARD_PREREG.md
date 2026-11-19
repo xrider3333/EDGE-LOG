@@ -81,3 +81,33 @@ is a per-trade rate with far more power, and it is the exact quantity the idea r
 - **The control shares its history.** `ENGUQ_335` has been live-shadowed since 2026-09-08, so its
   own forward record starts earlier. Only the overlapping window from 2026-09-30 is comparable,
   and only that window will be quoted.
+
+## AMENDMENT 1 - 2026-11-18: phantom_safe forced True on all three arms
+
+**What changed.** From 2026-11-18 the live shadow path forces the strategy kwarg
+`phantom_safe=True` on every ENGU-Q-family leg it runs, `ENGUQ_335` (the control),
+`ENGUQ_335_S1` and `ENGUQ_335_S2` alike. It is applied in `api/paper.py` `run_shadow` through
+`api/live_safety.py` `force_phantom_safe`, at the same point for all three, and the module logs
+one loud line per leg whenever a leg's own params declared anything other than True.
+
+**Why.** `run_shadow` appends a fresh capture tail to the master, so it reads a GROWING window.
+With the flag False, the resting-limit fill scan cannot tell "the scan found nothing" from "the
+data ran out", and books entries a complete backtest never takes - the 2026-09-17 and 2026-09-23
+ENGU-Q ghost rows on the live box. The flag closes that, and it bites only in the last `_N_SCAN`
+(10) bars of the window, which on a growing read is exactly where the phantom appears.
+
+**Why it does not break the comparison.** Clause "the control shares its history" above requires
+the arms and their control to differ only in the session window. They still do: all three share
+one setting, now True where they previously shared False, and it is applied at a single call site
+so none can drift from the others. Backtest and engine defaults stay False, so nothing already
+recorded moves and no stored run is restated.
+
+**What it may do to the numbers.** Forward entries refused as phantoms disappear from all three
+arms at once. Both the survival gap (PRIMARY) and the money clause are therefore computed on
+slightly fewer entries than they would have been, and the 150-entry checkpoint may arrive later.
+The checkpoint counts and the 15-point failure threshold are NOT changed by this amendment.
+
+**Authority and scope.** MANAGER, 2026-11-18, on the ENGU-Q hardening ticket: live safety wins
+over leaving a known phantom-entry path open, and the three arms stay forced together. Recorded
+here as a dated amendment rather than an edit to the clauses above; nothing earlier in this file
+is withdrawn.

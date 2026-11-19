@@ -2563,8 +2563,9 @@ def run_shadow(leg, today):
         # tail to the master, so this reads a GROWING window exactly like the live leg and
         # carries the same phantom-entry exposure. Every ENGU-Q-family arm here is forced
         # safe TOGETHER, which is what keeps the S1/S2 windows byte-comparable with their
-        # ENGUQ_335 control (see the ENGUQ_335_S1/S2 note above: the arms must share the
-        # flag, and they now share True instead of sharing False).
+        # ENGUQ_335 control. Recorded as AMENDMENT 1 (2026-11-18) in
+        # ENGUQ_R62_FORWARD_PREREG.md -- the arms must share the flag, and they now share
+        # True instead of sharing False; see that amendment for what it does to the counts.
         params = _ls.force_phantom_safe(leg["strategy"], params, caller="paper.run_shadow",
                                         leg_key=leg.get("key"), log=_log)
         res = run_backtest(leg["strategy"], arrays=arrays, params=params,
