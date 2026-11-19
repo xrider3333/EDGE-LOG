@@ -372,7 +372,7 @@ def test_the_live_fetch_frame_and_the_cache_it_wrote_give_one_memo_key(tmp_path,
 def test_the_stream_path_never_decides_a_dip_leg_but_step_still_does(tmp_path, monkeypatch):
     seen = {}
     monkeypatch.setattr(css, "_handle_handoff_window",
-                        lambda now, five, paths, cfg, log: seen.setdefault("window", set(five)))
+                        lambda now, five, paths, cfg, log, state=None: seen.setdefault("window", set(five)))
     monkeypatch.setattr(css, "_resolve_pending_against_rest",
                         lambda now, five, paths, log: seen.setdefault("pending", set(five)))
     monkeypatch.setattr(cs, "step", lambda **k: seen.setdefault("step", set(k.get("legs"))) and [])

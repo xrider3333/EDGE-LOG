@@ -523,7 +523,7 @@ def test_the_stream_path_makes_no_decision_while_the_guard_refuses(tmp_path, mon
     monkeypatch.setattr(cs, "step", lambda **k: seen.append("step") or [])
     now = at(D_ENTRY, 9, 35, 1)
     css.run_stream_aware_step(now=now, paths=paths, fetch=False, log=QUIET)
-    assert seen == ["window", "rest", "step"]
+    assert seen == ["step", "window", "rest"]   # ORDERS FIRST (v90.93): switch off -> step() first
     cs._BAR_CACHE_REFUSED[os.path.abspath(cs._cache_path("5m", paths))] = {"why": "missing"}
     seen.clear()
     css.run_stream_aware_step(now=now, paths=paths, fetch=False, log=QUIET)
