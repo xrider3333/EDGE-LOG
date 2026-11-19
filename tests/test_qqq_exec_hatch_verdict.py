@@ -99,3 +99,13 @@ def test_real_0928_rows_carry_and_publish_the_verdict(monkeypatch):
     qe._apply_book_only(rows, by_base, log=NOOP)
     kinds = {x.get("book_only_kind") for x in rows if x.get("book_only")}
     assert kinds <= {"broker", "infra", ""}
+
+
+def test_parity_ok_uses_the_design_adjusted_gap(monkeypatch):
+    monkeypatch.setattr(qe, "_broker_order_for", lambda t, i, b: None)
+    row = {"leg": "ENGUQ", "trade_id": "x"}
+    # a 0.90 edge that is all limit design: slippage 0 -> in band
+    s = {"bt": 700.0, "wb": 699.1, "edge": 0.9, "dsg": 0.9, "slp": 0.0, "unx": 0.0}
+    assert qe._fill_verdict(row, "OPEN", s, None, {}, _ctx({}))["parity_ok"] is True
+    s = dict(s, dsg=0.0, slp=-0.9)
+    assert qe._fill_verdict(row, "OPEN", s, None, {}, _ctx({}))["parity_ok"] is False

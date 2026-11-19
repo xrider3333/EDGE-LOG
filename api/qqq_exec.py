@@ -14559,15 +14559,21 @@ def _fill_verdict(row, intent, s, eng, by_base, ctx):
         fill, bt = s.get("wb"), s.get("bt")
         if fill is not None and minute is not None:
             out["outside_minute_range"] = bool(fill < minute[2] - 1e-9 or fill > minute[1] + 1e-9)
-        ref = bt
+        # DESIGN-ADJUSTED (MANAGER 11-19): the gap left once _side_parity's known design
+        # part (ENGU-Q limit, level exits, ...) is taken out -- slippage + unexplained
+        gap = None
+        if s.get("slp") is not None:
+            gap = float(s.get("slp") or 0.0) + float(s.get("unx") or 0.0)
+        elif fill is not None and bt is not None:
+            gap = fill - bt
         if (leg == "ORB" and intent == "OPEN" and bt is not None and prev is not None
                 and abs(bt - prev[3]) >= 0.01):
             # the backtest bought the breakout LEVEL, not the signal bar's close (the
             # close of the minute before the send) -- measure against the send minute's open
             out["orb_breakout_gap_design"] = True
-            ref = minute[0] if minute is not None else None
-        if fill is not None and ref is not None:
-            out["parity_ok"] = bool(abs(fill - ref) <= band + 1e-9)
+            gap = (fill - minute[0]) if (minute is not None and fill is not None) else None
+        if gap is not None:
+            out["parity_ok"] = bool(abs(gap) <= band + 1e-9)
     except Exception:
         pass
     return out
