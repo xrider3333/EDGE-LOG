@@ -332,6 +332,42 @@ def _field(o, *names, default=None):
     return default
 
 
+# LIVE SIZE (2026-11-19): see get_stock_account_balance
+BUYING_POWER_KEYS = ("day_buying_power", "dayBuyingPower", "buying_power", "buyingPower",
+                     "overnight_buying_power", "overnightBuyingPower", "cash_power",
+                     "cashPower", "total_buying_power")
+_BALANCE_KEYS_LOGGED = False
+
+
+def _balance_keys(b):
+    """Sorted top-level keys of a balance reply (+ nested first-row keys as parent.key)."""
+    if not isinstance(b, dict):
+        return type(b).__name__
+    keys = []
+    for k, v in b.items():
+        keys.append(str(k))
+        if isinstance(v, list) and v and isinstance(v[0], dict):
+            keys.extend(f"{k}[0].{kk}" for kk in v[0])
+        elif isinstance(v, dict):
+            keys.extend(f"{k}.{kk}" for kk in v)
+    return sorted(keys)
+
+
+def _balance_buying_power(b):
+    """First buying-power-like field (top level, then first nested row) as float, else None."""
+    if not isinstance(b, dict):
+        return None
+    cands = [b] + [v[0] for v in b.values() if isinstance(v, list) and v and isinstance(v[0], dict)]         + [v for v in b.values() if isinstance(v, dict)]
+    for c in cands:
+        v = _field(c, *BUYING_POWER_KEYS, default=None)
+        if v is not None:
+            try:
+                return float(v)
+            except (TypeError, ValueError):
+                continue
+    return None
+
+
 def _safe_response(resp):
     """SDK Response -> plain JSON. Never raises; a response we can't parse is
     returned as-is so the caller still gets SOMETHING back for logging."""
@@ -4287,9 +4323,19 @@ class OrderAdapter:
             net_liq = _field(b, "total_net_liquidation_value", "net_liquidation",
                              "netLiquidation", default=None)
             cash = _field(b, "total_cash_balance", "cash_balance", "cashBalance", default=None)
+            # LIVE SIZE (2026-11-19): buying power guards every LIVE open (intraday margin
+            # standard replaced PDT). The reply's shape is not pinned yet, so the RAW KEYS are
+            # logged once per process (keys only, never values) and the BP read tries the
+            # top level, then the first account_currency_assets row.
+            global _BALANCE_KEYS_LOGGED
+            if not _BALANCE_KEYS_LOGGED:
+                _BALANCE_KEYS_LOGGED = True
+                self.log(f"  [webull-orders] balance reply keys: {_balance_keys(b)}")
+            bp = _balance_buying_power(b)
             return {"account_id": account_id,
                    "net_liq": float(net_liq) if net_liq is not None else None,
-                   "cash": float(cash) if cash is not None else None}
+                   "cash": float(cash) if cash is not None else None,
+                   "buying_power": bp}
         except Exception as e:
             self.log(f"  [webull-orders] account balance read failed: {type(e).__name__}: {e}")
             return None

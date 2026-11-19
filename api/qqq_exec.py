@@ -287,6 +287,25 @@ DEFAULT_CONFIG = {
     # (no new entries until the owner deletes it), URGENT push -- see _check_loss_stops.
     "weekly_loss_limit_usd": None,
     "max_loss_since_arm_usd": None,
+    # LIVE SIZE (2026-11-19, $3-8k Webull MARGIN account). LIVE mode only -- PAPER never reads
+    # these. Every number is an owner default; config may override any of them.
+    # live.tiers: equity floor -> {leg: [base_shares, max_shares]}; the tier is picked from the
+    #   session-start equity (state.equity.first_net_liq_today). live.base_shares /
+    #   live.max_shares ({leg: n}) override the tier's figures leg by leg.
+    # live.max_open_notional_pct_equity: every open non-DIP lot's notional + this order may not
+    #   pass this MULTIPLE of equity (1.5 = 150 pct, intraday margin); buying power also caps it.
+    # live.daily_loss_pct / live.weekly_loss_pct: the daily breaker and the weekly stop as pct
+    #   of session-start equity in LIVE (PAPER keeps the $ rails above).
+    "live": {
+        "tiers": {"3000": {"NOISE": [1, 3], "ORB": [2, 6]},
+                  "5000": {"NOISE": [2, 6], "ORB": [3, 9]},
+                  "8000": {"NOISE": [3, 9], "ORB": [5, 15]}},
+        "base_shares": {},
+        "max_shares": {},
+        "max_open_notional_pct_equity": 1.5,
+        "daily_loss_pct": 2.0,
+        "weekly_loss_pct": 5.0,
+    },
     # DIP #424 (OWNER GO 2026-10-10): the family's own caps -- code defaults, see DIP_LEGS.
     # dip_max_total_shares: every open DIP lot's shares together (0 = no cap);
     # dip_daily_loss_limit_usd: DIP's own rail (0 = off), never the shared one above.
@@ -2323,6 +2342,7 @@ def _maybe_read_account_equity(state, cfg, nowdt, log=print):
             eq["day"] = today
         eq["net_liq"] = bal["net_liq"]
         eq["cash"] = bal.get("cash")
+        eq["buying_power"] = bal.get("buying_power")   # LIVE SIZE guard (2026-11-19)
         eq["account_id"] = bal.get("account_id")
         eq["as_of_et"] = nowdt.strftime("%Y-%m-%d %H:%M:%S")
     except Exception as e:
@@ -8705,6 +8725,145 @@ def _resolve_keel_size(raw):
     return v if math.isfinite(v) else None
 
 
+# LIVE SIZE (2026-11-19) -- see DEFAULT_CONFIG["live"]. ROUNDING RULE: live shares =
+# round HALF UP (live base x the same size the PAPER path uses: plugin tilt x KEEL), at least 1
+# share for any open the book takes, then clipped to the leg's live max. 1 x 1.5 = 2, 1 x 1.4
+# = 1, 2 x 0.25 = 1 (floor), 3 x 4 = 9 at a max of 9.
+def _round_half_up(x):
+    return int(math.floor(float(x) + 0.5))
+
+
+def _broker_is_live(log=print):
+    """True when the Webull adapter's effective mode is LIVE. Never raises (False)."""
+    try:
+        mode, _why = _get_broker_adapter(log=log).effective_mode()
+        return mode == webull_orders.MODE_LIVE
+    except Exception:
+        return False
+
+
+def _live_cfg(cfg):
+    merged = dict(DEFAULT_CONFIG["live"])
+    merged.update(cfg.get("live") or {})
+    return merged
+
+
+def _live_equity(state):
+    """Session-start equity (first net_liq read today), else the last read; None unknown."""
+    eq = state.get("equity") or {}
+    for k in ("first_net_liq_today", "net_liq"):
+        try:
+            v = float(eq.get(k))
+            if v > 0:
+                return v
+        except (TypeError, ValueError):
+            continue
+    return None
+
+
+def _live_tier(cfg, equity):
+    """(tier_key, {leg: [base, max]}) -- the highest tier floor <= equity (the lowest tier
+    when equity is unknown or under every floor)."""
+    tiers = _live_cfg(cfg).get("tiers") or {}
+    keys = sorted(tiers, key=float)
+    if not keys:
+        return None, {}
+    pick = keys[0]
+    for k in keys:
+        if equity is not None and equity >= float(k):
+            pick = k
+    return pick, tiers[pick]
+
+
+def _live_leg_key(leg, table):
+    if leg in table:
+        return leg
+    for k in sorted(table, key=len, reverse=True):
+        if str(leg).startswith(k):
+            return k
+    return None
+
+
+def _live_leg_limits(cfg, state, leg):
+    """(base, max) LIVE shares for `leg`: tier figures, then live.base_shares/max_shares.
+    A leg in no tier (e.g. ENGUQ) gets base 1, max 3."""
+    lc = _live_cfg(cfg)
+    _k, tier = _live_tier(cfg, _live_equity(state))
+    tk = _live_leg_key(leg, tier)
+    base, mx = (tier.get(tk) or [1, 3]) if tk else (1, 3)
+    bk = _live_leg_key(leg, lc.get("base_shares") or {})
+    mk = _live_leg_key(leg, lc.get("max_shares") or {})
+    if bk:
+        base = lc["base_shares"][bk]
+    if mk:
+        mx = lc["max_shares"][mk]
+    return int(base), int(mx)
+
+
+def _live_sized_shares(cfg, state, leg, size):
+    """The ROUNDING RULE above: round half up, min 1, clip to the leg's live max."""
+    base, mx = _live_leg_limits(cfg, state, leg)
+    if base <= 0 or mx <= 0:
+        return 0
+    return min(mx, max(1, _round_half_up(base * float(size))))
+
+
+def _live_open_refusal(cfg, state, leg, shares, px):
+    """None when a LIVE open of `shares` at `px` fits; else the REFUSED reason. Checks open
+    notional (every other open non-DIP lot + this) against max_open_notional_pct_equity x
+    equity, and this order against the last-read buying power."""
+    try:
+        px = float(px)
+    except (TypeError, ValueError):
+        return "REFUSED live: no price to size the notional"
+    order = shares * px
+    held = 0.0
+    for k, lt in (state.get("legs") or {}).items():
+        if k == leg or is_dip_leg(k) or not isinstance(lt, dict):
+            continue
+        try:
+            held += float(lt.get("shares_remaining") or 0) * float(lt.get("entry_px") or 0)
+        except (TypeError, ValueError):
+            continue
+    equity = _live_equity(state)
+    mult = float(_live_cfg(cfg).get("max_open_notional_pct_equity") or 0)
+    if equity is None:
+        return "REFUSED live: account equity not read"
+    if mult and held + order > mult * equity:
+        return f"REFUSED live notional {held + order:.0f} > {mult:g} x equity {equity:.0f}"
+    bp = (state.get("equity") or {}).get("buying_power")
+    try:
+        bp = float(bp) if bp is not None else None
+    except (TypeError, ValueError):
+        bp = None
+    if bp is not None and order > bp:
+        return f"REFUSED live order {order:.0f} > buying power {bp:.0f}"
+    return None
+
+
+def _live_pct_limit(cfg, state, key):
+    """pct-of-equity $ limit for live.<key> (daily_loss_pct / weekly_loss_pct), or None."""
+    pct = _live_cfg(cfg).get(key)
+    equity = _live_equity(state)
+    try:
+        pct = float(pct)
+    except (TypeError, ValueError):
+        return None
+    if not pct or equity is None:
+        return None
+    return round(equity * pct / 100.0, 2)
+
+
+def _daily_loss_limit(cfg, state, log=print):
+    """The shared daily breaker's $ limit: PAPER = daily_loss_limit_usd (unchanged); LIVE =
+    live.daily_loss_pct of session-start equity (the $ figure while equity is unread)."""
+    usd = float(cfg.get("daily_loss_limit_usd", 0) or 0)
+    pct = _live_pct_limit(cfg, state, "daily_loss_pct")   # no equity read -> no adapter call
+    if pct and _broker_is_live(log=log):
+        return pct
+    return usd
+
+
 def _sized_shares(base_shares, size):
     """The WANTED order quantity: `base_shares` (the leg's configured share count,
     cfg["shares"][leg]) scaled by `size` (see _resolve_entry_size), rounded to the
@@ -9389,6 +9548,14 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     if shares <= 0:
         return False
 
+    live = (not is_dip_leg(leg)) and _broker_is_live(log=log)
+    if live:
+        # LIVE SIZE (2026-11-19): the PAPER figure above is replaced by the live base x size
+        # (round half up, min 1, clip to the live max) -- see _live_sized_shares
+        shares = _live_sized_shares(cfg, state, leg, sized)
+        if shares <= 0:
+            return False
+
     if not is_dip_leg(leg):
         # TOTAL CAP CLAMP (2026-10-11) -- see the block above _broker_total_room. Never a DIP lot.
         total = _broker_total_room(log=log)
@@ -9412,6 +9579,19 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
                        f"{room} sent (the Webull book holds {held} of its {cap}-share total cap)",
                        log=log)
             shares = room
+
+    if live:
+        why = _live_open_refusal(cfg, state, leg, shares, qqq_px_raw)
+        if why:
+            _record_order(leg, "ENTER", side, shares, nq_px, None, None, why, log,
+                          fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source,
+                          decided_at_ref=decided_at_ref)
+            _log_event(state, "live_cap", f"{leg} LIVE entry not taken: {why}", log=log)
+            _say(state, "live_cap", f"{leg}:{_now_et().strftime('%Y-%m-%d')}", ntfy_push.plain(
+                PHONE_AREA, "needs a fix", f"{leg} entry skipped",
+                f"{leg} LIVE {shares} shares refused: {why[8:]}",
+                "nothing - check live sizing or buying power"), log=log)
+            return False
 
     if is_dip_leg(leg):
         # DIP TOTAL CAP (OWNER GO 2026-10-10): every open DIP lot's shares together stay within
@@ -12768,7 +12948,7 @@ def _mark_and_check_breaker(state, cfg, quote_fn, ratio_fn, log=print, nowdt=Non
     # carried into today from today's open mark; identical to the record for every other lot)
     total = _rail_realized_today(state, RAIL_SHARED) + adj + rail_raw
     _note_breaker_input(state, total)
-    limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
+    limit = _daily_loss_limit(cfg, state, log=log)
     if limit and total <= -abs(limit) and not state.get("breaker_tripped"):
         log(f"[qqq-exec] BREAKER TRIPPED: today's shadow P&L {total:.2f} <= "
             f"-{limit:.2f} -- closing all lots"
@@ -12990,13 +13170,19 @@ def _check_loss_stops(state, cfg, nowdt, quote_fn, ratio_fn, log=print):
         since_arm = cfg.get("max_loss_since_arm_usd")
         weekly = abs(float(weekly)) if weekly not in (None, "", 0, "0") else 0.0
         since_arm = abs(float(since_arm)) if since_arm not in (None, "", 0, "0") else 0.0
-        if not weekly and not since_arm:
+        live_weekly = _live_pct_limit(cfg, state, "weekly_loss_pct")
+        if not weekly and not since_arm and not live_weekly:
             return None
         adapter = _get_broker_adapter(log=log)
         mode, _why = adapter.effective_mode()
+        if mode == webull_orders.MODE_LIVE:
+            # LIVE SIZE (2026-11-19): weekly stop = live.weekly_loss_pct of equity, LIVE rows only
+            weekly = live_weekly or weekly
+        if not weekly and not since_arm:
+            return None
         if mode not in (webull_orders.MODE_PAPER, webull_orders.MODE_LIVE):
             return None
-        modes = (mode,)
+        modes = (webull_orders.MODE_LIVE,) if mode == webull_orders.MODE_LIVE else (mode,)
         hits = []
         wk = _week_anchor(nowdt or _now_et())
         if ls.get("week_anchor") != wk:
@@ -13254,7 +13440,7 @@ def _check_breaker_while_flat(state, cfg, log=print, nowdt=None):
     would otherwise push "tripped while flat" after the bell); the trip, log line and
     event happen either way. Never raises."""
     try:
-        limit = float(cfg.get("daily_loss_limit_usd", 0) or 0)
+        limit = _daily_loss_limit(cfg, state, log=log)
         if not limit or state.get("breaker_tripped"):
             # no check to make, but keep the published figure current (review 2026-10-05:
             # after a trip the close-out and any later close by a resting stop book more
