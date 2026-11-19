@@ -1812,7 +1812,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.04';
+const VERSION='91.05';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1833,6 +1833,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.05',date:'2026-11-19',notes:['OPENING THE BOARD NOW COSTS THREE READS INSTEAD OF 324. The board page used to be fed one database read per row, every time a tab opened it and again every time a window came back from being hidden - the single biggest charge any tab made, and a large part of why the free daily allowance ran out twice this month. The same 324 rows now travel in three documents.','A row changed on the PC costs nothing at all to see: it arrives with the summary the page is already watching, so the board still moves on its own with no refresh.','The board itself is unchanged - every row, every colour, DONE rows still sitting where they were. If anything about the new summary is missing or unreadable the page quietly goes back to reading the rows one by one, so a bad summary can only make the board slower, never wrong.']},
 {v:'91.04',date:'2026-11-19',notes:['THE DATABASE ALLOWANCE CAN NO LONGER EMPTY ITSELF. Twice this month the free daily database quota ran out in the evening. The reason the outage lasted all night rather than a minute: when the database refuses a page for being over the limit, the browser treats that as a passing glitch and asks again every sixty seconds, and some of those retries are charged for the whole list all over again. The refusals were not the aftermath of running dry - they were what kept it dry.','Now the page gives up gracefully. One listener refused is set aside and tried again in five minutes, then ten, then twenty - not every minute. Three refusals and the page stops listening altogether and says so in one line along the bottom: the allowance for today is used up, live updates paused, and the time it comes back in your own clock.','Press Try again now, or leave it: it reconnects by itself at the daily reset. Nothing reloads, nothing you had typed is lost, and the PC load reading says LIVE OFF instead of showing a number that stopped being true.']},
 {v:'90.99',date:'2026-11-19',notes:['Behind the scenes: the app now keeps a private tally of how its live feed behaves - how often it reconnects, how much it is sent, and any refusals from the database - and files it with the record it already writes. It reads nothing extra. When the daily allowance runs short again, this says in one look whether it was many windows left open or a few windows being re-sent everything over and over.']},
 {v:'90.98',date:'2026-11-19',notes:['A WINDOW NOBODY IS LOOKING AT STOPS COSTING MONEY. An EDGE-LOG tab left open in the background was still being sent every change the PC and the box made, and every one of those counted against the daily database allowance - which is what ran it dry twice this month. A tab that has been out of sight for ten minutes now stops listening, and picks straight back up the moment you look at it.','Nothing reloads and nothing is lost: the page you left is the page you come back to, typed text and all. While it is paused the PC load reading says LIVE PAUSED rather than showing a number that is no longer being refreshed.','A tab waiting on something from the PC - a blotter or a candle fetch - never pauses, because that answer arrives on the same live feed.']},
@@ -6246,16 +6247,106 @@ function setQuiet(on,skipAuto,reason){
 //    shows here without a refresh. Row ids carry their list: w=WORK t=RUNS b/c=AUTOMATIONS
 //    p=THIS PC q=LOCAL AI l=TAKING WEBULL LIVE (ordered steps l1..l12, a section at the foot of BOARD). The three written pages are meta/board_{qwen,auto,review}.
 let boardSub='board';
+// ── THE BOARD IS READ THROUGH AN INDEX (MANAGER 2026-11-19, after the second quota night).
+//    Listening to the board collection cost 324 reads - one per row - every time a tab opened it,
+//    and again every time a listener re-attached after being hidden or refused. It is the biggest
+//    single line in a tab's bill and the cheapest to fix, because the rows are small enough to fit
+//    in three documents. tools/board.py keeps meta/board_index (a head: a revision counter, which
+//    shard holds which row, and the last two dozen writes carried inline) and meta/board_index_<i>
+//    (the rows themselves). This page LISTENS TO THE HEAD ONLY - one document - and reads the
+//    shards once, over REST.
+//      a tab opening the board:  3 reads, where it was 324;
+//      a row written on the PC:  it arrives inline on the head snapshot - NO extra read at all;
+//      a tab that missed more than two dozen writes: those 3 reads again, never 324.
+//    IT IS A CACHE, NEVER THE LAST WORD. No head, a shard that will not read, revisions that do
+//    not line up, or anything thrown: the page falls back to listening to the collection exactly
+//    as it did before. A stale index may make the board slower. It must never make it wrong.
+function _bdIndexFetch(uid,n){
+  const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
+  const base='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'+uid+'/meta/';
+  return _idToken().then(function(tok){
+    const want=[];for(let i=0;i<n;i++)want.push(
+      fetch(base+'board_index_'+i,{headers:{'Authorization':'Bearer '+tok}})
+        .then(function(r){if(!r.ok)throw new Error('board index shard '+i+' '+r.status);return r.json();})
+        .then(function(j){return _fsFields((j||{}).fields||{});}));
+    return Promise.all(want);});
+}
+// Apply one row carried on the head. A row the OWNER changed from this page is stamped web and
+//   carries no revision of its own (it is written with an increment, which needs no read of the
+//   head), so those are always applied and never counted - the row they carry is current either way.
+function _bdTake(e){try{
+  const r=(e||{}).row;if(!r||r._id==null)return;
+  const o=Object.assign({},r);o._id=String(o._id);
+  if(e.deleted)delete window._bdRows[o._id];else window._bdRows[o._id]=o;
+}catch(_e){}}
+// ONE HEAD SNAPSHOT. Named, and separate from the attach, so the render probe can drive it with a
+//   fixture instead of a live database. Returns what it decided, for the probe and for the log:
+//   'inline' (no reads), 'shards' (three reads), 'same' (nothing moved) or 'fallback'.
+function _bdOnHead(u,head,paint,fallback){
+  try{
+    if(!head||!(+head.shards)){fallback('no index');return 'fallback';}
+    const rev=+head.rev||0, have=window._bdRev|0;
+    if(rev===have&&have>0){window._bdAt=Date.now();return 'same';}
+    const all=(head.recent||[]).filter(function(e){return !!e;});
+    const num=all.filter(function(e){return (+e.rev)>0&&!e.web;});
+    const web=all.filter(function(e){return !!e.web;});
+    const miss=num.filter(function(e){return (+e.rev)>have;});
+    const oldest=num.reduce(function(a,e){const v=+e.rev;return (a===null||v<a)?v:a;},null);
+    const newest=num.reduce(function(a,e){const v=+e.rev;return v>a?v:a;},0);
+    // COVERED = every revision this tab has not seen is carried on this very snapshot.
+    //   All three parts matter. The inline list has to reach back far enough to meet what we
+    //   already have (oldest <= have+1), and it has to reach FORWARD to the head's own
+    //   revision - allowing for the owner's own clicks, which move the revision by one each
+    //   without a numbered entry. An empty list with a revision that has jumped is NOT
+    //   covered: that is a tab which has been away a long time, and it must re-read.
+    const covered=have>0&&num.length>0&&oldest!==null&&oldest<=have+1&&newest>=(rev-web.length);
+    if(covered){
+      miss.concat(web).sort(function(a,b){return (+(a.rev||0))-(+(b.rev||0));}).forEach(_bdTake);
+      window._bdRev=rev;window._bdAt=Date.now();window._bdLoaded=true;window._bdErr=null;paint();
+      return 'inline';
+    }
+    if(window._bdFetching)return 'same';
+    window._bdFetching=true;
+    _bdIndexFetch(u,+head.shards).then(function(parts){
+      let rows=[];parts.forEach(function(q){rows=rows.concat((q||{}).rows||[]);});
+      if(!rows.length)throw new Error('board index shards empty');
+      const m={};rows.forEach(function(r){if(!r||r._id==null)return;
+        const o=Object.assign({},r);o._id=String(o._id);m[o._id]=o;});
+      window._bdRows=m;
+      // the head may have moved on since the shards were built - its inline rows win
+      all.slice().sort(function(a,b){return (+(a.rev||0))-(+(b.rev||0));}).forEach(_bdTake);
+      window._bdRev=rev;window._bdAt=Date.now();window._bdLoaded=true;window._bdErr=null;
+      window._bdFetching=false;paint();
+    }).catch(function(e){
+      window._bdFetching=false;
+      console.warn('[board] index read failed, listening to the collection instead:',(e&&e.message)||e);
+      fallback('shard read failed');});
+    return 'shards';
+  }catch(e){fallback('index threw: '+((e&&e.message)||e));return 'fallback';}
+}
+window._bdOnHead=_bdOnHead;
 function loadBoard(uidArg){
   if(window._bdOn)return;                     // onSnapshot stays attached for the whole session
   const u=uidArg||(auth&&auth.currentUser&&auth.currentUser.uid);
   if(!db||!u)return;
   window._bdOn=true;window._bdRows=window._bdRows||{};window._bdMeta=window._bdMeta||{};
+  window._bdRev=window._bdRev||0;
   const paint=function(){if(activeTab==='augur'&&augurSub==='board')renderApp();};
-  db.collection('users').doc(u).collection('board').onSnapshot(function(s){
-      const m={};s.forEach(function(d){const r=d.data()||{};r._id=d.id;m[d.id]=r;});
-      window._bdRows=m;window._bdAt=Date.now();window._bdLoaded=true;window._bdErr=null;paint();},
-    function(e){window._bdErr=(e&&e.message)||String(e);window._bdLoaded=true;paint();});
+  // THE FALLBACK: the old listener, on the whole collection. Attached only if the index fails,
+  //   and guarded so it can never attach twice - twice would double the bill it exists to save.
+  const fallback=function(why){
+    if(window._bdFellBack)return;window._bdFellBack=why||true;
+    console.warn('[board] reading the collection directly:',why);
+    db.collection('users').doc(u).collection('board').onSnapshot(function(s){
+        const m={};s.forEach(function(d){const r=d.data()||{};r._id=d.id;m[d.id]=r;});
+        window._bdRows=m;window._bdAt=Date.now();window._bdLoaded=true;window._bdErr=null;paint();},
+      function(e){window._bdErr=(e&&e.message)||String(e);window._bdLoaded=true;paint();});
+  };
+  window._bdFallback=fallback;
+  db.collection('users').doc(u).collection('meta').doc('board_index').onSnapshot(
+    function(d){_bdOnHead(u,(d&&d.exists)?(d.data()||{}):null,paint,fallback);},
+    function(e){console.warn('[board] index head listener failed:',(e&&e.message)||e);
+      fallback('head listener failed');});
   ['qwen','auto','review'].forEach(function(k){
     db.collection('users').doc(u).collection('meta').doc('board_'+k).onSnapshot(function(d){
       window._bdMeta[k]=(d&&d.exists)?(d.data()||{}):null;paint();},function(){});});
@@ -6269,6 +6360,16 @@ function loadBoard(uidArg){
 //   straight over the row's pass / fail word, so the verdict was gone for good. Now the click
 //   stamps confirmedAt + confirmedBy and LEAVES THE STATUS WORD ALONE - a row that read PASS
 //   still reads PASS after he confirms it, and the green filled circle is drawn from the stamp.
+// ONE WRITE, NO READS: put the row the owner just changed on the index head, so the index and
+//   the collection say the same thing. The revision moves with an increment, which needs no read
+//   of the head, and the row joins the inline list every tab is already listening to.
+function _bdIndexPoke(u,rid,row){try{
+  const o=Object.assign({},row||{});o._id=String(rid);
+  const H=db.collection('users').doc(u).collection('meta').doc('board_index');
+  return H.set({rev:firebase.firestore.FieldValue.increment(1),
+    recent:firebase.firestore.FieldValue.arrayUnion({rev:0,id:String(rid),row:o,web:true})},
+    {merge:true}).catch(function(){});
+}catch(e){return Promise.resolve();}}
 function bdAct(rid,act){
   const u=auth&&auth.currentUser&&auth.currentUser.uid;
   const R=(window._bdRows||{})[rid];
@@ -6285,6 +6386,11 @@ function bdAct(rid,act){
   else {wr.confirmedAt=(new Date()).toISOString();wr.confirmedBy='owner (web)';}
   db.collection('users').doc(u).collection('board').doc(rid)
     .set(wr,{merge:true})
+    // THE INDEX HAS TO HEAR ABOUT THIS TOO (11-19). The page reads the board out of
+    //   meta/board_index now, and that index is written by tools/board.py on the PC, which knows
+    //   nothing about a click made here. Without this the owner's CONFIRM would show and then
+    //   vanish on the next head snapshot, because the index still held the row as it was.
+    .then(function(){return _bdIndexPoke(u,rid,Object.assign({},(window._bdRows||{})[rid]||{},wr));})
     .catch(function(e){window._bdActErr=[rid,(e&&e.message)||String(e)];})
     .then(function(){window._bdSaving=null;renderApp();});
 }

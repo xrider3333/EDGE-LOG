@@ -73,7 +73,9 @@ def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
     since 2026-10-11 without ever being wired in here - a gate nobody runs is not a gate. The header
     gate joined on 2026-11-17: the top bar and the sub-tab row are on every screen and nothing
     measured them, so a header that wrapped onto three rows, or a second row that scrolled away,
-    passed every other render gate."""
+    passed every other render gate. The board index gate joined on 2026-11-19, when the open
+    board stopped being read one document per row: the owner reads that board to decide what to
+    work on, and a row quietly missing from it is the worst thing this change could do."""
     assert [(g.key, g.fail) for g in wt.GATES] == [
         ('boot', 'boot gate FAILED - not pushing'),
         ('studies', 'studies render gate FAILED - not pushing'),
@@ -86,6 +88,7 @@ def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
         ('axes', '1E axes / 1A funnel render gate FAILED - not pushing'),
         ('cmp2', 'COMPARE beta (cmp2) render gate FAILED - not pushing'),
         ('pc', 'PC page render gate FAILED - not pushing'),
+        ('boardidx', 'BOARD INDEX gate FAILED - not pushing'),
         ('research', 'PAPERS page render gate FAILED - not pushing'),
         ('importtz', 'import time-zone gate FAILED - not pushing'),
         ('importtz-selftest', 'import time-zone gate SELF-TEST FAILED - the gate no longer '

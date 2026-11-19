@@ -137,6 +137,148 @@ def meta_ref(db, key):
     return _user(db).collection('meta').document('board_' + key)
 
 
+# ───────────────────────────────────────────────────────────────────────────────────────────
+# THE BOARD INDEX (MANAGER 2026-11-19, owner go: "why database limit dry. fix it")
+#
+# WHY. The website listened to the whole users/{uid}/board collection. Firestore charges one read
+# per document DELIVERED, so every tab that opened - or re-opened a listener after being hidden,
+# or after a quota refusal - paid 324 reads for the board alone, out of a 50,000-a-day free
+# allowance the owner ran dry twice this month. The board is also the cheapest thing to fix,
+# because the rows are small: all 324 of them fit in a couple of documents.
+#
+# WHAT IT LOOKS LIKE, deliberately the same shape as meta/runs_index:
+#
+#   meta/board_index          the HEAD, and the only thing the page listens to (ONE document):
+#                               rev      a counter, bumped on every row write
+#                               shards   how many shard documents there are
+#                               map      {row id: which shard holds it}
+#                               recent   the last RECENT_KEEP writes, each {rev, id, row}
+#                               built_at when the shards were last rebuilt
+#   meta/board_index_<i>      {rows: [the full row, _id included]} - read once, over REST
+#
+# WHAT IT COSTS. A tab opening the board reads the head plus the shards: 3 documents instead of
+# 324. After that, a row written on the PC bumps `rev` and rides inside `recent` on the head the
+# page is already listening to, so the usual change costs the page NOTHING EXTRA - the new row
+# arrives in the same snapshot. Only a page that has missed more than RECENT_KEEP writes (a tab
+# asleep for a long time) re-reads the shards, and that is still 3 reads, not 324.
+#
+# WHAT IT COSTS THE WRITER: one read of the one shard the row lives in, and two writes. The
+# shards are never rebuilt by a row write - a rebuild streams the whole collection, which is the
+# expensive thing we are trying to avoid, so it is an explicit command.
+#
+# IT IS A CACHE, NEVER THE LAST WORD. If the head is missing, or a shard will not read, or the
+# revisions do not line up, the page falls straight back to listening to the collection the way
+# it always did. A stale index can make the board slower; it must never make it wrong.
+# ───────────────────────────────────────────────────────────────────────────────────────────
+RECENT_KEEP = 24          # writes carried inline on the head, so a page rarely re-reads shards
+SHARD_ROWS = 120          # rows per shard document - 324 rows fit in three, well under 1 MiB
+
+
+def index_head_ref(db):
+    return _user(db).collection('meta').document('board_index')
+
+
+def index_shard_ref(db, i):
+    return _user(db).collection('meta').document('board_index_%d' % int(i))
+
+
+def _blank_head():
+    return {'rev': 0, 'shards': 0, 'map': {}, 'recent': [], 'built_at': None}
+
+
+def index_write_row(db, rid, row):
+    """Put one row into the index: into its shard, and inline on the head.
+
+    Costs one read and two writes. Returns the new revision, or None when the index does not
+    exist yet (nothing is created implicitly - run `index --rebuild` once for that).
+    """
+    head_ref = index_head_ref(db)
+    head = _read(head_ref)
+    if head is None:
+        return None
+    head = dict(head)
+    m = dict(head.get('map') or {})
+    shards = int(head.get('shards') or 0)
+    body = dict(row)
+    body['_id'] = rid
+    i = m.get(rid)
+    if i is None:
+        # a new row joins the last shard, or starts one when that is full
+        i = max(0, shards - 1)
+        if shards == 0:
+            i, shards = 0, 1
+        else:
+            cur = _read(index_shard_ref(db, i)) or {}
+            if len(cur.get('rows') or []) >= SHARD_ROWS:
+                i, shards = shards, shards + 1
+    i = int(i)
+    sref = index_shard_ref(db, i)
+    cur = _read(sref) or {}
+    rows = [r for r in (cur.get('rows') or []) if str(r.get('_id')) != rid]
+    rows.append(body)
+    sref.set({'rows': rows})
+    rev = int(head.get('rev') or 0) + 1
+    m[rid] = i
+    recent = list(head.get('recent') or [])
+    recent = [e for e in recent if str((e or {}).get('id')) != rid]
+    recent.append({'rev': rev, 'id': rid, 'row': body})
+    recent = recent[-RECENT_KEEP:]
+    head_ref.set({'rev': rev, 'shards': shards, 'map': m, 'recent': recent,
+                  'built_at': head.get('built_at'), 'updated_at': _now_iso()})
+    return rev
+
+
+def write_row(db, rid, row):
+    """THE ONE PLACE A BOARD ROW IS WRITTEN. Every command goes through here, so no path can
+    change a row and leave the index behind - which would show the owner a stale board."""
+    row_ref(db, rid).set(row)
+    try:
+        index_write_row(db, rid, row)
+    except Exception as e:
+        # The row is written and the page's fallback still reads the collection, so a broken
+        # index must never fail the command - but it must be said out loud.
+        sys.stderr.write('board index not updated for %s: %s: %s\n' % (rid, type(e).__name__, e))
+    return row
+
+
+def cmd_index(db, rebuild, backup, dry):
+    """Show the index, or rebuild it from the collection.
+
+    A rebuild streams every row (324 reads today), which is exactly the cost the index exists to
+    avoid, so it is deliberate and rare: once to create it, and again only if it is ever doubted.
+    It writes a JSON backup of the live rows first.
+    """
+    head = _read(index_head_ref(db))
+    if not rebuild:
+        if head is None:
+            return None, 'no board index yet - run `board.py index --rebuild` once to build it'
+        return head, ('BOARD INDEX rev %s, %s shard(s), %s row(s) mapped, %s carried inline'
+                      % (head.get('rev'), head.get('shards'), len(head.get('map') or {}),
+                         len(head.get('recent') or [])))
+    rows = read_rows(db)
+    if not rows:
+        raise ToolError('the board has no rows - refusing to write an empty index over it')
+    if backup:
+        with io.open(backup, 'w', encoding='utf-8') as f:
+            json.dump(rows, f, indent=1, sort_keys=True, default=str)
+    parts, m = [], {}
+    for r in rows:
+        if not parts or len(parts[-1]) >= SHARD_ROWS:
+            parts.append([])
+        m[str(r['_id'])] = len(parts) - 1
+        parts[-1].append(dict(r))
+    if dry:
+        return head, ('DRY RUN - %d row(s) would go into %d shard(s)%s'
+                      % (len(rows), len(parts), (', backup -> ' + backup) if backup else ''))
+    for i, part in enumerate(parts):
+        index_shard_ref(db, i).set({'rows': part})
+    rev = int((head or {}).get('rev') or 0) + 1
+    index_head_ref(db).set({'rev': rev, 'shards': len(parts), 'map': m, 'recent': [],
+                            'built_at': _now_iso(), 'updated_at': _now_iso()})
+    return head, ('BOARD INDEX REBUILT: %d row(s) in %d shard(s), rev %d%s'
+                  % (len(rows), len(parts), rev, (' - backup ' + backup) if backup else ''))
+
+
 def _read(ref):
     snap = ref.get()
     return snap.to_dict() if getattr(snap, 'exists', False) else None
@@ -213,7 +355,7 @@ def cmd_set(db, rid_text, status, statusText, opts, create):
                     frm=opts.get('frm'), tag=opts.get('tag'))
     if opts.get('dry'):
         return row, 'DRY RUN - nothing written: ' + json.dumps(row, sort_keys=True)[:900]
-    ref.set(row)
+    write_row(db, rid, row)
     return row, 'BOARD %s %s = %s%s (%s)' % ('ADD' if cur is None else 'SET', rid, row['status'],
                                              (' - ' + row['statusText']) if row.get('statusText') else '',
                                              tab)
@@ -266,7 +408,7 @@ def cmd_pushed(db, rid_text, line, frm, dry):
     row['updated_by'] = _one(frm, 40) or 'ship'
     if dry:
         return row, 'DRY RUN - %s would read: %s' % (rid, row['statusText'])
-    ref.set(row)
+    write_row(db, rid, row)
     return row, 'BOARD %s <- %s' % (rid, row['statusText'])
 
 
@@ -293,7 +435,7 @@ def cmd_confirm(db, rid_text, frm, dry, note=None):
     if dry:
         return row, ('DRY RUN - %s would be confirmed, status stays %r'
                      % (rid, row.get('status')))
-    ref.set(row)
+    write_row(db, rid, row)
     return row, 'BOARD CONFIRMED %s (status stays %s)' % (rid, row.get('status'))
 
 
@@ -430,7 +572,7 @@ def cmd_seed(db, dump_dir, frm, dry, force=False):
         rid = doc.pop('_id')
         doc['updated_at'] = at
         doc['updated_by'] = by
-        row_ref(db, rid).set(doc)
+        write_row(db, rid, doc)
         n += 1
     return rows, 'BOARD SEEDED: %d rows -> users/%s/board' % (n, UID)
 
@@ -484,6 +626,10 @@ def main(argv=None):
     q.add_argument('key')
     q.add_argument('path')
     common(q)
+    q = sub.add_parser('index', help='show the board index, or rebuild it from the collection')
+    q.add_argument('--rebuild', action='store_true')
+    q.add_argument('--backup', default=None, help='write the live rows to this JSON file first')
+    q.add_argument('--dry', action='store_true')
     q = sub.add_parser('seed')
     q.add_argument('--dir', dest='dump', default=r'C:\EdgeLog\manager\open_board\db3')
     q.add_argument('--force', action='store_true')
@@ -513,6 +659,8 @@ def main(argv=None):
             _, msg = cmd_list(db, a.tab, a.only_open)
         elif a.cmd == 'meta':
             _, msg = cmd_meta(db, a.key, a.path, a.frm, a.dry)
+        elif a.cmd == 'index':
+            _, msg = cmd_index(db, a.rebuild, a.backup, a.dry)
         else:
             _, msg = cmd_seed(db, a.dump, a.frm, a.dry, a.force)
     except ToolError as e:

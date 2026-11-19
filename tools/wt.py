@@ -702,6 +702,16 @@ GATES = [
          'PC page render gate FAILED - not pushing', '(PC probe produced no output)',
          prefix='PCPROBE:'),
 
+    # BOARD INDEX GATE (2026-11-19): the open board is no longer read by listening to its 324
+    # documents - it comes out of meta/board_index for three reads, and a row written on the PC
+    # arrives inline for nothing. The board is what the owner reads to decide what to work on and
+    # DONE rows stay on it on purpose, so a row quietly missing is the worst outcome here. The
+    # probe drives the real page with a 324-row fixture and checks the index board is the SAME
+    # board the collection drew, that the fallback still works, and what each decision costs.
+    Gate('boardidx', 'BOARD INDEX gate', 'tools/board_index_probe.py', 'index',
+         'BOARD INDEX gate FAILED - not pushing', '(board index probe produced no output)',
+         prefix='BDPROBE:'),
+
     # PAPERS GATE: tools/research_render_probe.py has existed since 2026-10-11 and was never
     # wired in here, so every assertion in it - including the two added for the PAPERS rename
     # on 10-28 - only ever ran by hand. A gate nobody runs is not a gate.
