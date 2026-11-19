@@ -712,6 +712,15 @@ GATES = [
          'BOARD INDEX gate FAILED - not pushing', '(board index probe produced no output)',
          prefix='BDPROBE:'),
 
+    # TRADES INDEX GATE (2026-11-19): the journal stopped being read one document per trade - it
+    # comes out of meta/trades_index for three reads. The journal is the owner's own record of his
+    # trading, and MANAGER's condition was "no visible change, this is plumbing only", so the gate
+    # renders the ledger twice - once from the index, once from the trades the old listener would
+    # have produced - and refuses the push unless the two are character-for-character identical.
+    Gate('tradeidx', 'TRADES INDEX gate', 'tools/trades_index_probe.py', 'index',
+         'TRADES INDEX gate FAILED - not pushing', '(trades index probe produced no output)',
+         prefix='TIXPROBE:'),
+
     # PAPERS GATE: tools/research_render_probe.py has existed since 2026-10-11 and was never
     # wired in here, so every assertion in it - including the two added for the PAPERS rename
     # on 10-28 - only ever ran by hand. A gate nobody runs is not a gate.

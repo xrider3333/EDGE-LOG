@@ -495,6 +495,7 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
     can never collide. gone: optional list that collects the ids whose source doc no longer exists."""
     own_state = state is None
     state = _load_state() if own_state else state
+    _touched = []                 # journal trades whose pointScore changed in this pass
     fills = fills if fills is not None else _fills_index()
     cache, n = {}, 0
     now = now or pd.Timestamp.now(tz=ET)
@@ -524,6 +525,8 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
                     if not dry_run:
                         _write_score(db, uid, coll, tid, rec)
                         t["pointScore"] = rec         # what is stored now: the next sweep compares against it
+                        if coll == "trades":
+                            _touched.append(tid)      # the website's trades index, told once below
                     log(f"  [point-score] {'(dry) ' if dry_run else ''}{key} {t.get('date')} {t.get('symbol')} "
                         f"{rec.get('total')}/{rec.get('max')}")
             except Exception as e:
@@ -563,6 +566,17 @@ def publish(db, uid, docs, log=print, dry_run=False, force=False, state=None, fi
             f"complete={doc['complete']}")
     if own_state and not dry_run:
         _save_state(state)
+    # THE WEBSITE'S TRADES INDEX (2026-11-19). The page no longer listens to all 108 trade
+    #   documents - it reads meta/trades_index, 3 reads instead of 108 every time a tab opens or a
+    #   listener re-attaches. The index only knows what it is told, so every path that writes a
+    #   trade says so here, AFTER the real write, once for the whole batch. It never raises: the
+    #   trade is already saved, and the page falls back to the collection if the index is stale.
+    if _touched and not dry_run:
+        try:
+            from api import trades_index as _tix
+            _tix.note(db, uid, _touched)
+        except Exception as _e:
+            log(f"  [point-score] trades index not updated: {type(_e).__name__}: {_e}")
     return n
 
 

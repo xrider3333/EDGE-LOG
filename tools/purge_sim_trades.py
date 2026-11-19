@@ -61,6 +61,18 @@ def main():
 
     for ref, *_ in hits:
         ref.delete()
+    # THE WEBSITE'S TRADES INDEX (2026-11-19): the page reads meta/trades_index, so a trade deleted
+    #   here has to be struck from the index as well - otherwise it would keep showing on the
+    #   journal until the next rebuild.
+    try:
+        import sys as _sys
+        _root = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+        if _root not in _sys.path:
+            _sys.path.insert(0, _root)
+        from api import trades_index as _tix
+        _tix.note(db, a.uid, [], deleted=[r.id for r, *_x in hits])
+    except Exception as _e:
+        print(f"trades index not updated: {type(_e).__name__}: {_e}")
     print(f"\ndeleted {len(hits)} paper trade(s) from users/{a.uid}/trades")
 
 

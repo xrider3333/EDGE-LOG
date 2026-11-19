@@ -478,6 +478,17 @@ def sync_trades(db, uid, fills_path=DEFAULT_FILLS, log=print):
             batch.commit(); batch = db.batch(); pending = 0
     if pending:
         batch.commit()
+    # THE WEBSITE'S TRADES INDEX (2026-11-19). The page no longer listens to all 108 trade
+    #   documents - it reads meta/trades_index instead, 3 reads instead of 108 every time a tab
+    #   opens or a listener re-attaches. The index only knows what it is told, so every path that
+    #   writes a trade says so here, AFTER the real write. It never raises: the trade is already
+    #   saved and the page falls back to the collection if the index is missing or stale.
+    if todo:
+        try:
+            from api import trades_index as _tix
+            _tix.note(db, uid, [i for i, _d, _h, _p in todo])
+        except Exception as _e:
+            print('[nt-sync] trades index not updated: %s: %s' % (type(_e).__name__, _e))
 
     # how many round-trips are still open (position not back to flat) — informational
     open_positions = _count_open(fills)

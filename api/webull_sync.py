@@ -625,6 +625,17 @@ def sync_trades(db, uid, keys_path=DEFAULT_KEYS, log=print, force=False):
             batch.commit(); batch = db.batch(); pending = 0
     if pending:
         batch.commit()
+    # THE WEBSITE'S TRADES INDEX (2026-11-19). The page no longer listens to all 108 trade
+    #   documents - it reads meta/trades_index, 3 reads instead of 108 every time a tab opens or a
+    #   listener re-attaches. The index only knows what it is told, so every path that writes a
+    #   trade says so here, AFTER the real write, once for the whole batch. It never raises: the
+    #   trade is already saved, and the page falls back to the collection if the index is stale.
+    if todo:
+        try:
+            from api import trades_index as _tix
+            _tix.note(db, uid, [i for i, _d, _h, _p in todo])
+        except Exception as _e:
+            print('[wb-sync] trades index not updated: %s: %s' % (type(_e).__name__, _e))
 
     state = {"written": written, "last_run_day": today, "last_sync": time.time(),
              "last_run_final": _is_final_time(),
