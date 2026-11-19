@@ -90,6 +90,7 @@ from decimal import ROUND_CEILING, ROUND_FLOOR, ROUND_HALF_UP, Decimal
 from . import market_calendar
 from . import nt_sync
 from . import ntfy_push
+from . import books_toggle
 from . import trade_id as _trade_id
 from . import webull_orders
 
@@ -754,7 +755,14 @@ def load_config(path=None, log=print):
     # already held keeps its own size and still exits by its own rules. Remove the name to turn on.
     # RETIRED (owner 11-16, "retire dip on webull"): a family in RETIRED_LEGS is off in CODE,
     # whatever config.json says -- exits only, history kept in trades.csv.
-    for name in list(merged.get("legs_off") or []) + list(RETIRED_LEGS):
+    # BOOKS TOGGLE (owner 11-19): the paper page's BOOKS card, applied by the box at a flat moment
+    # into <config dir>/books_toggle_applied.json (api/books_toggle.py). It can only ADD a leg to
+    # legs_off; config.json itself is never written.
+    try:
+        _bt_off = books_toggle.applied_legs_off(os.path.dirname(path))
+    except Exception:
+        _bt_off = []
+    for name in list(merged.get("legs_off") or []) + list(RETIRED_LEGS) + list(_bt_off):
         off = [x for x in LEGS if x == name or leg_family(x) == name]
         if not off:
             log(f"[qqq-exec] legs_off: unknown leg {name!r} ignored")
@@ -17916,6 +17924,51 @@ def _note_tick_result(state, ok, exc=None, log=print):
 
 
 # -- runner thread hook (mirrors api.runner._bridge_watchdog_thread) ---------------------
+# BOOKS TOGGLE (owner 11-19, api/books_toggle.py): one Firestore doc read at boot and at flat
+# moments (throttled), PAPER broker mode only; never touches a decision or the order path.
+_BOOKS_TOGGLE_MEM = {}
+
+
+def _books_toggle_step(db, uid, state, log=print, now=None):
+    """Never raises. Returns books_toggle.step's word."""
+    try:
+        if db is None or not uid:
+            return "no db"
+        flat = not (state or {}).get("legs")
+        if not flat:
+            return "not flat"
+        # the first FLAT moment of the process is its boot read (no throttle)
+        boot = not _BOOKS_TOGGLE_MEM.get("booted")
+        _BOOKS_TOGGLE_MEM["booted"] = True
+        meta = db.collection("users").document(uid).collection("meta")
+
+        def _read():
+            snap = meta.document("books_toggle").get()
+            return snap.to_dict() if getattr(snap, "exists", False) else None
+
+        def _mode():
+            try:
+                return _get_broker_adapter(log=log).effective_mode()[0]
+            except Exception:
+                return None
+
+        def _say_line(rec, line):
+            _say(state, "books_toggle", rec.get("applied_ts"), ntfy_push.plain(
+                PHONE_AREA, "OK", "not affected (applied while flat)", line, "nothing",
+                priority="low"), log=log)
+
+        def _publish(rec):
+            meta.document("books_toggle_applied").set(rec)
+
+        return books_toggle.step(out_dir=os.path.dirname(CONFIG_PATH), read_doc=_read,
+                                 broker_mode=_mode(), flat=flat, boot=boot,
+                                 mem=_BOOKS_TOGGLE_MEM, now=now, say=_say_line,
+                                 publish=_publish, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] books toggle step failed ({type(e).__name__}: {e}) -- nothing changed")
+        return "error"
+
+
 def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
     """Own thread, ticking every TICK_SEC -- never blocks the runner's main loop and
     never takes it down. Publishes to every allow-listed uid each tick that changed,
@@ -18036,6 +18089,7 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
                 last_stream_start_attempt = _qqq_stream_window_step(
                     cfg, last_stream_start_attempt, log=log)
                 cfg2, state, doc = tick(cfg=cfg, state=state, db=db, uid=lease_uid, log=log)
+                _books_toggle_step(db, lease_uid or (uids[0] if uids else None), state, log=log)
                 for uid in uids:
                     publish_async(db, uid, doc, state, log=log, cfg=cfg2)
                 # MINOR REVIEW FIX (2026-09-26, item 3): _note_tick_result before

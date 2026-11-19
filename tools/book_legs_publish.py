@@ -1,0 +1,75 @@
+"""Publish the book legs table to the paper page's BOOKS card (owner 11-19).
+
+Reads C:/EdgeLog/manager/open_board/book_legs.json and writes it to Firestore doc
+users/{uid}/meta/book_legs, with each leg's classification from api/books_toggle.py
+(BOOK_LEG_CLASS) attached as leg["cls"], so the page and the box read one table.
+
+    python tools/book_legs_publish.py --dry-run
+    python tools/book_legs_publish.py
+
+Credentials: firebase_admin, serviceAccount.json (same lookup as tools/runboard_watch.py).
+Never print, copy or commit the credentials.
+"""
+import argparse
+import datetime
+import json
+import os
+import sys
+
+ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+sys.path.insert(0, ROOT)
+from api import books_toggle  # noqa: E402
+
+UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
+SRC = r"C:/EdgeLog/manager/open_board/book_legs.json"
+
+
+def _db():
+    import firebase_admin
+    from firebase_admin import credentials, firestore
+    cred = os.path.join(ROOT, "serviceAccount.json")
+    if not os.path.exists(cred):
+        cred = os.path.join(r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG", "serviceAccount.json")
+    if not firebase_admin._apps:
+        firebase_admin.initialize_app(credentials.Certificate(cred))
+    return firestore.client()
+
+
+def build(src):
+    with open(src, encoding="utf-8") as f:
+        d = json.load(f)
+    books = d.get("books")
+    if not isinstance(books, dict) or not books:
+        raise ValueError("book_legs.json has no books")
+    unknown = set()
+    for key, b in books.items():
+        for leg in b.get("legs") or []:
+            c = books_toggle.BOOK_LEG_CLASS.get(leg.get("id"))
+            if c is None:
+                unknown.add(leg.get("id"))
+            leg["cls"] = dict(c) if c else {"cls": "grey", "max": "OFF", "reason": "not classified yet"}
+    return {"basis": d.get("basis"), "books": books, "gates": dict(books_toggle.GATES),
+            "box_version": dict(books_toggle.BOX_VERSION),
+            "published_at": datetime.datetime.now(datetime.timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ"),
+            "unknown_legs": sorted(x for x in unknown if x)}
+
+
+def main(argv=None):
+    ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
+    ap.add_argument("--src", default=SRC)
+    ap.add_argument("--uid", default=UID)
+    ap.add_argument("--dry-run", action="store_true")
+    a = ap.parse_args(argv)
+    doc = build(a.src)
+    n = sum(len(b.get("legs") or []) for b in doc["books"].values())
+    print(f"book_legs: {len(doc['books'])} books, {n} leg rows, unknown legs: {doc['unknown_legs'] or 'none'}")
+    if a.dry_run:
+        print(f"DRY RUN -- would write users/{a.uid}/meta/book_legs ({len(json.dumps(doc))} bytes)")
+        return 0
+    _db().collection("users").document(a.uid).collection("meta").document("book_legs").set(doc)
+    print(f"wrote users/{a.uid}/meta/book_legs")
+    return 0
+
+
+if __name__ == "__main__":
+    sys.exit(main())

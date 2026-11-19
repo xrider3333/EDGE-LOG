@@ -785,6 +785,26 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-more-panel.qbx-fold-panel{margin:0 0 14px;padding:14px 16px}
 .qbx-fold-panel .qb-card{background:none;border:0;border-radius:0;padding:0;margin:0;overflow-x:auto}
 .qbx-fold-panel .qb-section-hd:first-child{margin-top:0}
+/* BOOKS card (owner 11-19): one block per book, one row per leg, OFF / SHADOW / PAPER toggle */
+.bk-wrap{font-size:var(--fsxs)}
+.bk-basis,.bk-empty{color:var(--text5);margin:0 0 10px}
+.bk-book{border-top:1px solid var(--border);padding:8px 0}
+.bk-head{display:flex;flex-wrap:wrap;gap:8px;align-items:baseline;margin-bottom:4px}
+.bk-fig{color:var(--text4)}
+.bk-all,.bk-t{background:none;border:1px solid var(--border);color:var(--text3);font:inherit;padding:1px 6px;border-radius:3px;cursor:pointer}
+.bk-all{margin-left:auto}
+.bk-t.on{background:var(--text2);color:var(--bg1);border-color:var(--text2)}
+.bk-t:disabled{opacity:.35;cursor:not-allowed}
+.bk-leg{padding:4px 0}
+.bk-l1{display:flex;flex-wrap:wrap;gap:4px 10px;align-items:center}
+.bk-name{font-weight:600;min-width:140px}
+.bk-run,.bk-share,.bk-inst{color:var(--text3)}
+.bk-chip{border:1px solid var(--border);border-radius:9px;padding:0 6px;color:var(--text4)}
+.bk-tog{display:inline-flex;gap:2px;margin-left:auto}
+.bk-l2{color:var(--text5)}
+.bk-grey{opacity:.55}
+.bk-pend{font-style:italic}
+.bk-done{color:var(--text4)}
 .qbx-lg6 .qbx-own{margin-top:4px}
 .qbx-lg6 .qbx-chart .qbx-range-row{margin:0}
 .lg-frame .qbx-side{padding-top:0}
@@ -7082,6 +7102,85 @@ function _qbSyncPanel(){
 // Attach/detach the listener to match _qqqExecWantsLive() -- called from renderApp()
 // (covers every tab switch), the visibilitychange handler above, and sign-out. Never
 // stacks a second listener: a live one already attached is a same-tick no-op.
+// ── BOOKS CARD (owner 11-19): one block per book in users/{uid}/meta/book_legs (tools/book_legs_publish.py), each leg OFF / SHADOW / PAPER.
+//    The page writes users/{uid}/meta/books_toggle {legs:{id:state},by,ts}; the box applies it at a flat moment in PAPER mode only and echoes
+//    users/{uid}/meta/books_toggle_applied {legs,applied_ts,applied_by,src_ts,effects}. BOOKS_LEG_CLASS MIRRORS api/books_toggle.py BOOK_LEG_CLASS
+//    (tests/test_books_toggle.py checks they agree): cls, max, exec_leg, reason. BOOKS_GATES mirrors GATES.
+const BOOKS_GATES={pick6:false};
+const BOOKS_LEG_CLASS={
+  ORB314:{cls:'paper',max:'PAPER',exec_leg:'ORB',reason:'QQQ executor runs ORB #314'},
+  ORB234:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ORB #314, not #234'},
+  ORB257:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ORB #314, not #257'},
+  ORB421:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ORB #314, not #421'},
+  NOISE382:{cls:'paper',max:'PAPER',exec_leg:'NOISE',reason:'QQQ executor runs NOISE #382'},
+  NOISE422:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs NOISE #382, not #422 (box shadow leg NOISE_422_PLAIN)'},
+  NOISE304:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs NOISE #382, not #304'},
+  NOISE398:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs NOISE #382, not #398'},
+  NOISE406:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs NOISE #382, not #406'},
+  ENGUQ335:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ENGU-Q #335 as a no-order tracker (owner 10-09)'},
+  ENGUQ407:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ENGU-Q #335, not #407'},
+  PICK6:{cls:'gated',max:'PAPER',exec_leg:null,reason:'gated: PICK6 probe + restart hook must-fix',gate:'pick6'},
+  OPUS86a:{cls:'gated',max:'PAPER',exec_leg:null,reason:'gated: PICK6 probe + restart hook must-fix',gate:'pick6'},
+  GLDNIGHT:{cls:'shadow_only',max:'SHADOW',exec_leg:null,reason:'no GLD executor - owner: skip'},
+  TTMx3:{cls:'grey',max:'SHADOW',exec_leg:null,reason:'ES futures - Webull trades stocks only'},
+  OPUS55a:{cls:'grey',max:'OFF',exec_leg:null,reason:'NQ futures - no QQQ executor for this strategy'},
+  OPUS107a:{cls:'grey',max:'OFF',exec_leg:null,reason:'NQ futures - no QQQ executor for this strategy'},
+  TTIBS300:{cls:'grey',max:'OFF',exec_leg:null,reason:'NQ futures - no QQQ executor for this strategy'},
+  OPUS58c:{cls:'grey',max:'OFF',exec_leg:null,reason:'NQ futures - no QQQ executor for this strategy'}
+};
+const BOOKS_STATES=['OFF','SHADOW','PAPER'];
+function booksMaxState(id){const c=BOOKS_LEG_CLASS[id];if(!c)return 'OFF';if(c.cls==='gated'&&!BOOKS_GATES[c.gate])return 'SHADOW';return c.max;}
+function booksAllowed(id,st){const r=BOOKS_STATES.indexOf(st);return r>=0&&r<=BOOKS_STATES.indexOf(booksMaxState(id));}
+function booksLegState(id){const t=window._booksToggle,l=t&&t.legs;return (l&&BOOKS_STATES.indexOf(l[id])>=0)?l[id]:'OFF';}
+function booksEchoLine(id){
+  const t=window._booksToggle,a=window._booksApplied;if(!t||!t.legs||!(id in t.legs))return '';
+  const ok=a&&a.legs&&a.legs[id]===t.legs[id]&&a.src_ts===t.ts;
+  if(!ok)return '<span class="bk-pend" data-bkpend="1">pending</span>';
+  let loc=String(a.applied_ts||'').slice(11,16);try{const ms=Date.parse(a.applied_ts);if(isFinite(ms))loc=qbNyParts(ms).hm;}catch(e){}
+  return '<span class="bk-done">applied '+loc+', by '+String(a.applied_by||'?').replace(/[<>&"]/g,'')+'</span>';
+}
+function booksCardHtml(QE){
+  const esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
+  const B=window._bookLegs;
+  if(!B||!B.books||typeof B.books!=='object')return '<div class="bk-empty">No book table yet - run tools/book_legs_publish.py on the PC.</div>';
+  const sh=(QE&&QE.rails&&QE.rails.shares)||{};
+  const keys=['463','20','20_provisional','25','25_provisional','30','30_provisional','35','35_cons','35_cons_provisional','40','50'];
+  Object.keys(B.books).forEach(k=>{if(keys.indexOf(k)<0)keys.push(k);});
+  let h='<div class="bk-wrap">'+(B.basis?'<div class="bk-basis">'+esc(B.basis)+'</div>':'');
+  keys.forEach(k=>{const b=B.books[k];if(!b)return;
+    const legs=Array.isArray(b.legs)?b.legs:[];
+    h+='<div class="bk-book" data-bkbook="'+esc(k)+'"><div class="bk-head"><b>'+esc(b.row||k)+'</b>'
+      +'<span class="bk-fig">$'+Math.round(+b.usd_per_year||0).toLocaleString('en-US')+'/yr &middot; max DD '+esc(b.max_dd_pct)+'%'+(b.provisional?' &middot; provisional':'')+'</span>'
+      +'<button type="button" class="bk-all" data-bkall="'+esc(k)+'" title="Set every leg of this book that allows it to SHADOW">all shadow</button></div>';
+    legs.forEach(l=>{const id=String(l.id||''),c=BOOKS_LEG_CLASS[id]||{cls:'grey',max:'OFF',reason:'not classified yet'};
+      const cur=booksLegState(id),grey=c.cls==='grey';
+      const size=(c.exec_leg&&sh[c.exec_leg]!=null)?(sh[c.exec_leg]+' sh (paper now)'):String(l.size||'');
+      const chip=c.cls==='paper'?'PAPER-able':c.cls==='gated'?'gated':c.cls==='shadow_only'?'shadow only':c.cls==='grey'?'no executor':'shadow max';
+      h+='<div class="bk-leg'+(grey?' bk-grey':'')+'" data-bkleg="'+esc(id)+'"><div class="bk-l1"><span class="bk-name">'+esc(l.name||id)+'</span>'
+        +'<span class="bk-run">'+esc(String(l.run||'').split(' ')[0])+'</span><span class="bk-share">'+esc(l.share_pct)+'%</span>'
+        +'<span class="bk-inst">'+esc(l.instrument)+' &middot; '+esc(size)+'</span><span class="bk-chip" title="'+esc(l.status||'')+'">'+chip+'</span>'
+        +'<span class="bk-tog" role="group">'+BOOKS_STATES.map(s=>{const ok=booksAllowed(id,s);
+          return '<button type="button" class="bk-t'+(s===cur?' on':'')+'"'+(ok?'':' disabled')+' data-bkset="'+s+'" data-bkid="'+esc(id)+'">'+s+'</button>';}).join('')+'</span></div>'
+        +'<div class="bk-l2">'+esc(c.reason)+' '+booksEchoLine(id)+'</div></div>';});
+    h+='</div>';});
+  return h+'</div>';
+}
+function booksWrite(legs){
+  try{const u=auth.currentUser&&auth.currentUser.uid;if(!u)return;
+    const clean={};Object.keys(legs).forEach(id=>{if(booksAllowed(id,legs[id]))clean[id]=legs[id];});
+    const doc={legs:clean,by:'page',ts:new Date().toISOString()};
+    window._booksToggle=doc;
+    db.collection('users').doc(u).collection('meta').doc('books_toggle').set(doc).catch(e=>console.warn('books_toggle write failed:',e&&e.message));
+  }catch(e){console.warn('books_toggle write failed:',e);}
+}
+function _booksEnsureLive(u){
+  if(window._booksUnsub)return;
+  const m=db.collection('users').doc(u).collection('meta'),rr=()=>{try{_qqqExecLiveRender();}catch(e){}};
+  const a=m.doc('book_legs').onSnapshot(d=>{window._bookLegs=d.exists?d.data():null;rr();},e=>console.warn('book_legs listener:',e&&e.message));
+  const b=m.doc('books_toggle').onSnapshot(d=>{window._booksToggle=d.exists?d.data():null;rr();},e=>console.warn('books_toggle listener:',e&&e.message));
+  const c=m.doc('books_toggle_applied').onSnapshot(d=>{window._booksApplied=d.exists?d.data():null;rr();},e=>console.warn('books_toggle_applied listener:',e&&e.message));
+  window._booksUnsub=()=>{a();b();c();};
+}
 function _qqqExecEnsureLive(){
   try{
     if(_qqqExecWantsLive()){
@@ -7097,6 +7196,7 @@ function _qqqExecEnsureLive(){
       window._pcLoadUnsub=db.collection('users').doc(u).collection('meta').doc('pc_load').onSnapshot(function(d){
         try{ window._pcLoad=d.exists?d.data():null; _tbSwap('tb-load',_tbLoadHtml()); }catch(e){}
       },function(e){ try{ console.warn('pc_load listener:',e&&e.message); }catch(_){} });
+      try{_booksEnsureLive(u);}catch(e){}
       window._qqqExecUnsub=db.collection('users').doc(u).collection('meta').doc('qqq_exec').onSnapshot(function(d){
         const fc=!!(d&&d.metadata&&d.metadata.fromCache);
         window._qqqExec=d.exists?d.data():null;window._qqqExecMissing=!d.exists;
@@ -7116,6 +7216,7 @@ function _qqqExecEnsureLive(){
       });
     }else if(window._qqqExecUnsub){
       window._qqqExecUnsub();window._qqqExecUnsub=null;window._qqqExecLive=false;
+      if(window._booksUnsub){try{window._booksUnsub();}catch(_){}window._booksUnsub=null;}
       if(window._qqqExecRenderTimer){clearTimeout(window._qqqExecRenderTimer);window._qqqExecRenderTimer=null;}
       window._qqqExecRenderPending=false;
     }
@@ -48044,7 +48145,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbListOpen=qbFoldOpen('list');
         const qbSideNew='<div class="qbx-side">'+qbFoldBtn('list','Strategies',qbListSum,qbListOpen,'qbx-list-fold')
           +'<div class="qbx-list-panel" id="qbf-list"'+(qbListOpen?'':' hidden')+'>'+legListHtml+'</div></div>';
-        const qbOwnSecs=qbFoldHtml('orders','Orders',qbMiniSum,'<div class="qbx-orders-mini">'+qbOrdersCompactHtml+'</div>',true)
+        const qbBooksSum=(window._bookLegs&&window._bookLegs.books)?(Object.keys(window._bookLegs.books).length+' books'):'not published';
+        const qbOwnSecs=qbFoldHtml('books','BOOKS',qbBooksSum,booksCardHtml(QE))
+          +qbFoldHtml('orders','Orders',qbMiniSum,'<div class="qbx-orders-mini">'+qbOrdersCompactHtml+'</div>',true)
           +qbFoldHtml('account','Account',qbAcctSum,qbAccountHtml,true)
           +(ordersHtml?qbFoldHtml('todayorders',QF.isToday?'Today&rsquo;s orders':('Orders on '+QF.dayLabel),qbOrdTodaySum,ordersHtml,true):'')
           +(qeFeedStrips.hasStrips?qbFoldHtml('feedsig','Feed &amp; signals',qbFeedSum,'<div>'+qeFeedStrips.strips+'</div>'):'')
@@ -53492,6 +53595,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         try{localStorage.setItem('el_qb_morestats_open',o?'0':'1');}catch(e){}
         renderApp();};});
       // LEDGER unify step 11: this board's own folds (and the strategy list's phone fold): open / closed, remembered per viewer
+      // BOOKS card (owner 11-19): one leg OFF / SHADOW / PAPER, or a whole book to SHADOW; writes meta/books_toggle, the box applies it when flat
+      content.querySelectorAll('[data-bkset]').forEach(el=>{el.onclick=()=>{
+        const id=el.getAttribute('data-bkid'),st=el.getAttribute('data-bkset');if(!booksAllowed(id,st))return;
+        const legs=Object.assign({},(window._booksToggle&&window._booksToggle.legs)||{});legs[id]=st;booksWrite(legs);renderApp();};});
+      content.querySelectorAll('[data-bkall]').forEach(el=>{el.onclick=()=>{
+        const b=window._bookLegs&&window._bookLegs.books&&window._bookLegs.books[el.getAttribute('data-bkall')];if(!b)return;
+        const legs=Object.assign({},(window._booksToggle&&window._booksToggle.legs)||{});
+        (b.legs||[]).forEach(l=>{if(booksAllowed(l.id,'SHADOW'))legs[l.id]='SHADOW';});booksWrite(legs);renderApp();};});
       content.querySelectorAll('[data-qbfold]').forEach(el=>{el.onclick=()=>{
         const k=el.getAttribute('data-qbfold'),o=el.getAttribute('aria-expanded')!=='true';
         (window._qbFolds||(window._qbFolds={}))[k]=o;
