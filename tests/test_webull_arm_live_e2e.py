@@ -89,7 +89,12 @@ def test_armed_open_goes_live_then_disarm_is_close_only(tmp_path, monkeypatch):
     assert adapter._state_path() == live_path
 
     # -- armed: the OPEN reaches the LIVE client and is booked in state.LIVE.json --
-    state = {"legs": {}, "events": []}
+    # v91.01 LIVE sizing fails closed without today's equity + buying power: seed both
+    # (qqq_exec state for the cap / BP check, the adapter for its % daily rail)
+    monkeypatch.setattr(WO.OrderAdapter, "_equity_today",
+                        {"day": WO._now_ny().strftime("%Y-%m-%d"), "equity": 5000.0}, raising=False)
+    state = {"legs": {}, "events": [], "equity": {"first_net_liq_today": 5000.0, "net_liq": 5000.0,
+             "buying_power": 10000.0, "day": qe._now_et().strftime("%Y-%m-%d")}}
     _send(state, "OPEN", "ORB_1-20261119T143100Z-L")
     assert client.order_v3.place_order.call_count == 1
     assert _held(live_path).get(LEG) == 3
