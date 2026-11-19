@@ -1812,7 +1812,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.98';
+const VERSION='90.99';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1833,6 +1833,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.99',date:'2026-11-19',notes:['Behind the scenes: the app now keeps a private tally of how its live feed behaves - how often it reconnects, how much it is sent, and any refusals from the database - and files it with the record it already writes. It reads nothing extra. When the daily allowance runs short again, this says in one look whether it was many windows left open or a few windows being re-sent everything over and over.']},
 {v:'90.98',date:'2026-11-19',notes:['A WINDOW NOBODY IS LOOKING AT STOPS COSTING MONEY. An EDGE-LOG tab left open in the background was still being sent every change the PC and the box made, and every one of those counted against the daily database allowance - which is what ran it dry twice this month. A tab that has been out of sight for ten minutes now stops listening, and picks straight back up the moment you look at it.','Nothing reloads and nothing is lost: the page you left is the page you come back to, typed text and all. While it is paused the PC load reading says LIVE PAUSED rather than showing a number that is no longer being refreshed.','A tab waiting on something from the PC - a blotter or a candle fetch - never pauses, because that answer arrives on the same live feed.']},
 {v:'90.97',date:'2026-11-19',notes:['Behind the scenes: the PC load reading is now sent only when a number actually moves, or once every five minutes if the box just sits there - about a fifth as much traffic as before, and the chip reads exactly the same.','Behind the scenes: each time the app starts it records which build it is running, so a tab left open on last week version can be found and reopened. One small record, no extra reading.']},
 {v:'90.92',date:'2026-11-18',notes:['PC LOAD ON THE TOP BAR (board item 12). A small grey reading - CPU and RAM - sits at the left of the status chips, beside NT GATE, on every tab and at every width. It is there because the fleet runs on the same machine you work on: when a validate tier, several ships and the builders all go at once the box crawls, and until now the only way to know was to open Task Manager. Hover it for the free memory, the total, and how many runners are up.','IT ONLY RAISES ITS VOICE WHEN IT MATTERS. Grey while the box is fine, amber when memory passes 75 per cent or the processor sits above 90, red when memory passes 90 or under 2 GB is free. With no reading yet it draws nothing at all, so it never shifts the header.','The number is refreshed once a minute by the machine itself, and the chip says so with a question mark if that stops arriving - a stale load figure shown as live would be worse than none.']},
@@ -4502,7 +4503,36 @@ const _fsu={reads:0,writes:0,listen_reads:0,sent:{reads:0,writes:0,listen_reads:
 function _fsuSnapReads(s){try{if(!s||(s.metadata&&s.metadata.fromCache))return 0;if(typeof s.docChanges==='function')return s.docChanges().length;return 1;}catch(e){return 0;}}
 // See the note inside _fsuInstall: a hidden tab stops listening after this long.
 const LS_HIDDEN_MS=10*60*1000;
-const _ls={reg:new Set(),paused:false,t:null,at:0,resumes:0};
+// WHAT THE SDK ACTUALLY DOES ON A 429, read out of firebase-firestore-compat 10.14.1 on
+//   2026-11-19 (MANAGER asked whether the quota error can feed the burn - it can):
+//     * resource-exhausted is NOT a permanent error to this SDK, so a listen stream that
+//       gets one is retried, not dropped. It retries for as long as the tab is open.
+//     * on that error it jumps STRAIGHT TO THE MAXIMUM BACKOFF - 60 seconds - and keeps
+//       reconnecting at that rate (initial 1s, factor 1.5, ceiling 60s).
+//     * a reconnect normally resumes from a token and re-reads nothing. But when the
+//       server answers with an existence filter the client cannot match, the SDK says so
+//       in as many words - falling back to full re-query - and the WHOLE result set is
+//       delivered again, and billed again.
+//   So a tab that starts getting 429s can re-read every listener up to 60 times an hour
+//   with nobody touching it and no document being written. That is a plausible multiplier
+//   for a burn that writes cannot explain, and it is self-feeding: the reads caused by the
+//   retries are what keep the quota exhausted.
+//   NONE OF THE COUNTING BELOW COSTS A READ. It rides on snapshots the app already gets
+//   and on errors the SDK already hands us, and it travels on the boot row that is already
+//   being written, so the next burn can be told apart: many tabs, or few tabs re-reading.
+const _ls={reg:new Set(),paused:false,t:null,at:0,resumes:0,
+  attach:0,reattach:0,snaps:0,docs:0,big:0,errs:{},offline:0,online:0};
+function _lsSeen(s){try{
+  _ls.snaps++;
+  const n=(s&&typeof s.size==='number')?s.size:1;
+  _ls.docs+=n;
+  // A snapshot that re-delivers the whole result set is the expensive one. Count those
+  //   separately: a quiet tab whose BIG count climbs is re-reading, not receiving changes.
+  try{if(s&&typeof s.docChanges==='function'&&n>1&&s.docChanges().length===n)_ls.big++;}catch(e){}
+}catch(e){}}
+function _lsErr(e){try{const c=(e&&(e.code||e.name))||'unknown';_ls.errs[c]=(_ls.errs[c]|0)+1;}catch(_e){}}
+window.addEventListener('offline',function(){_ls.offline++;});
+window.addEventListener('online',function(){_ls.online++;});
 function _lsPause(){try{
   if(_ls.paused)return;
   // Never pause over work in flight: a PC-runner command (blotter, candle fetch) reports
@@ -4515,7 +4545,7 @@ function _lsPause(){try{
 function _lsResume(){try{
   if(!_ls.paused)return;
   _ls.paused=false;window._lsPaused=false;_ls.resumes++;
-  _ls.reg.forEach(function(e){try{if(!e.dead&&!e.unsub&&e.raw)e.unsub=e.raw.apply(e.ref,e.args);}catch(_e){}});
+  _ls.reg.forEach(function(e){try{if(!e.dead&&!e.unsub&&e.raw){_ls.reattach++;e.unsub=e.raw.apply(e.ref,e.args);}}catch(_e){}});
   try{_tbSwap('tb-load',_tbLoadHtml());}catch(_e){}
 }catch(e){}}
 function _lsVis(){try{
@@ -4527,7 +4557,7 @@ window._lsStats=_ls;
 function _fsuInstall(){if(_fsu.on)return;try{const F=firebase.firestore;const DR=F.DocumentReference&&F.DocumentReference.prototype,Q=F.Query&&F.Query.prototype,WB=F.WriteBatch&&F.WriteBatch.prototype;if(!DR||!Q)return;
   const wrapGet=(P)=>{const o=P.get;P.get=function(){return o.apply(this,arguments).then(s=>{try{if(!(s&&s.metadata&&s.metadata.fromCache))_fsu.reads+=(typeof s.size==='number'?Math.max(1,s.size):1);}catch(e){}return s;});};};
   wrapGet(DR);wrapGet(Q);
-  const wrapSnap=(P)=>{const o=P.onSnapshot;P.onSnapshot=function(){const a=[...arguments];for(let i=0;i<a.length;i++){const x=a[i];if(typeof x==='function'){a[i]=function(s){_fsu.listen_reads+=_fsuSnapReads(s);return x.apply(this,arguments);};break;}if(x&&typeof x.next==='function'){const nx=x.next;a[i]=Object.assign({},x,{next:function(s){_fsu.listen_reads+=_fsuSnapReads(s);return nx.apply(x,arguments);}});break;}}return o.apply(this,a);};};
+  const wrapSnap=(P)=>{const o=P.onSnapshot;P.onSnapshot=function(){const a=[...arguments];for(let i=0;i<a.length;i++){const x=a[i];if(typeof x==='function'){a[i]=function(s){_fsu.listen_reads+=_fsuSnapReads(s);_lsSeen(s);return x.apply(this,arguments);};break;}if(x&&typeof x.next==='function'){const nx=x.next;a[i]=Object.assign({},x,{next:function(s){_fsu.listen_reads+=_fsuSnapReads(s);return nx.apply(x,arguments);}});break;}}return o.apply(this,a);};};
   wrapSnap(DR);wrapSnap(Q);
   // A HIDDEN TAB STOPS LISTENING (MANAGER 2026-11-19, after the 11-18 quota night).
   //   Every document the PC or the box writes is delivered to every live listener in every
@@ -4546,7 +4576,10 @@ function _fsuInstall(){if(_fsu.on)return;try{const F=firebase.firestore;const DR
   const wrapReg=(P)=>{const o=P.onSnapshot;P.onSnapshot=function(){
     const self=this,args=[...arguments];
     const e={ref:self,args:args,unsub:null,dead:false};
-    if(_ls.paused){_ls.reg.add(e);}else{e.unsub=o.apply(self,args);_ls.reg.add(e);}
+    for(let i=0;i<args.length;i++){const x=args[i];
+      if(typeof x==='function'&&i>0){const ox=x;args[i]=function(er){_lsErr(er);return ox.apply(this,arguments);};break;}
+      if(x&&typeof x.error==='function'){const oe=x.error;args[i]=Object.assign({},x,{error:function(er){_lsErr(er);return oe.apply(x,arguments);}});break;}}
+    if(_ls.paused){_ls.reg.add(e);}else{_ls.attach++;e.unsub=o.apply(self,args);_ls.reg.add(e);}
     e.raw=o;
     // ONE STABLE handle for the caller. Re-attaching makes a new underlying unsubscribe,
     //   and the caller still holds this one - so it must always detach whatever is current
@@ -4561,22 +4594,26 @@ function _fsuInstall(){if(_fsu.on)return;try{const F=firebase.firestore;const DR
 function _fsuFlush(){try{if(!_fsu.on||!db||typeof currentUser==='undefined'||!currentUser)return;const d={};let any=false;['reads','writes','listen_reads'].forEach(k=>{d[k]=_fsu[k]-_fsu.sent[k];if(d[k])any=true;});if(!any)return;
   const day=new Date().toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'});const key='page_'+((window.matchMedia&&window.matchMedia('(max-width: 760px)').matches)?'phone':'pc');const inc=firebase.firestore.FieldValue.increment;
   const ref=db.collection('users').doc(currentUser.uid).collection('meta').doc('fs_usage_'+day);['reads','writes','listen_reads'].forEach(k=>{_fsu.sent[k]+=d[k];});
-  _fsu.raw.call(ref,{[key]:{reads:inc(d.reads),writes:inc(d.writes+1),listen_reads:inc(d.listen_reads),last:new Date().toISOString()}},{merge:true}).catch(()=>{});}catch(e){}}
+  _fsu.raw.call(ref,{[key]:{reads:inc(d.reads),writes:inc(d.writes+1),listen_reads:inc(d.listen_reads),last:new Date().toISOString()}},{merge:true}).catch(()=>{});try{_clientBootRow(true);}catch(e){}}catch(e){}}
 // WHICH BUILD IS ACTUALLY OPEN (MANAGER 2026-11-19, after the 11-18 quota night). The read
 //   counter above can only report a tab that RUNS it, so the tabs that burn the quota - old
 //   ones, opened days ago, that never reload because a hidden tab is left alone on purpose -
 //   are exactly the ones it cannot see. This row is the opposite: ONE merge write per boot,
 //   no reads ever, naming the build and the device. A day whose row lists a build from last
 //   week has that stale tab in it, and the owner can be told which device to reopen.
-function _clientBootRow(){try{
+function _lsReadout(){try{return{attach:_ls.attach,reattach:_ls.reattach,snaps:_ls.snaps,
+  docs:_ls.docs,full_resends:_ls.big,errs:_ls.errs,offline:_ls.offline,online:_ls.online,
+  paused:!!_ls.paused,resumes:_ls.resumes,up_min:Math.round((Date.now()-_lsT0)/60000)};}catch(e){return null;}}
+const _lsT0=Date.now();
+function _clientBootRow(refresh){try{
   if(!db||typeof currentUser==='undefined'||!currentUser||!_fsu.raw)return;
   const day=new Date().toLocaleDateString('en-CA',{timeZone:'America/Los_Angeles'});
   const kind=(window.matchMedia&&window.matchMedia('(max-width: 760px)').matches)?'phone':'pc';
   const inc=firebase.firestore.FieldValue.increment;
   const key='v'+String(VERSION).replace(/[^0-9]/g,'_')+'_'+kind;
   const ref=db.collection('users').doc(currentUser.uid).collection('meta').doc('clients_'+day);
-  _fsu.raw.call(ref,{[key]:{boots:inc(1),build:String(VERSION),kind:kind,
-    last:new Date().toISOString()}},{merge:true}).catch(function(){});
+  _fsu.raw.call(ref,{[key]:{boots:refresh?inc(0):inc(1),build:String(VERSION),kind:kind,
+    last:new Date().toISOString(),listen:_lsReadout()}},{merge:true}).catch(function(){});
 }catch(e){}}
 
 (function _fsuWait(n){try{if(typeof firebase!=='undefined'&&firebase.apps&&firebase.apps.length&&db){_fsuInstall();return;}}catch(e){}if(n<600)setTimeout(()=>_fsuWait(n+1),1000);})(0);
