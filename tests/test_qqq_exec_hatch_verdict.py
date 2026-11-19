@@ -116,3 +116,11 @@ def test_book_only_kind_please_is_not_lease():
          "Msg: Please close your existing long position, RequestID: a4291b")
     assert qe.book_only_kind(r) == "broker"
     assert qe.book_only_kind("cross-host lease held by box") == "infra"
+
+
+def test_verifier_nits():
+    assert qe.book_only_kind("webull adapter halted") == ""
+    s = qe._pack_side({"bt": 1, "wb": 1, "fs": "ok", "why": "a|b", "parity_band_c": 0.4,
+                       "parity_ok": True, "outside_minute_range": None,
+                       "orb_breakout_gap_design": False})
+    assert len(s.split("|")) == 12 and s.split("|")[8] == "0.4"

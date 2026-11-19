@@ -14454,7 +14454,8 @@ def _cents_short(ps):
 PARITY_BAND_BASE_PS = 0.15
 PARITY_BAND_MIN_SIGMA_PS = 0.363
 PARITY_BAND_DEFAULT_DELAY_S = 8.0
-_VERDICT_BARS_CACHE = {"key": None, "val": None}   # the 1m bar file's (mtime, size) -> bars
+_VERDICT_BARS_CACHE = {"key": None, "val": None}
+_VERDICT_ORDERS_CACHE = {"key": None, "val": None}   # orders.csv (path, mtime, size) -> rows   # the 1m bar file's (mtime, size) -> bars
 
 
 def parity_band_ps(after_close_s=None):
@@ -14518,12 +14519,18 @@ def _verdict_load(ctx):
     except Exception as e:
         log(f"[qqq-exec] hatch verdict: 1m bars unreadable: {type(e).__name__}: {e}")
     try:
-        with open(ORDERS_CSV, encoding="utf-8", newline="") as f:
-            for r in csv.DictReader(f):
-                ep = _et_epoch(r.get("ts_et"))
-                ac = _finite_or_none(r.get("after_close_s"))
-                if ep is not None and ac is not None:
-                    ctx["orders"].append((str(r.get("leg") or "").strip().upper(), ep, ac))
+        ost = os.stat(ORDERS_CSV)
+        okey = (ORDERS_CSV, ost.st_mtime_ns, ost.st_size)
+        if _VERDICT_ORDERS_CACHE.get("key") == okey:
+            ctx["orders"] = _VERDICT_ORDERS_CACHE["val"]
+        else:
+            with open(ORDERS_CSV, encoding="utf-8", newline="") as f:
+                for r in csv.DictReader(f):
+                    ep = _et_epoch(r.get("ts_et"))
+                    ac = _finite_or_none(r.get("after_close_s"))
+                    if ep is not None and ac is not None:
+                        ctx["orders"].append((str(r.get("leg") or "").strip().upper(), ep, ac))
+            _VERDICT_ORDERS_CACHE.update({"key": okey, "val": ctx["orders"]})
     except Exception:
         pass
     return ctx
@@ -14590,7 +14597,7 @@ def book_only_kind(reason):
     # (09-23's eight 417s read as infra until this). Webull's own 429 is infra too.
     if (re.search(r"\blease\b|firestore|rate.?limit|\bquota\b|http status: 429\b|\bhttp 429\b", r)):
         return "infra"
-    if any(k in r for k in ("http status", "openapi_", "serverexception", "webull")) or re.search(r"\b417\b", r):
+    if any(k in r for k in ("http status", "openapi_", "serverexception")) or re.search(r"\b417\b", r):
         return "broker"
     return ""
 
@@ -16368,7 +16375,7 @@ def _pack_side(s):
     return "|".join([_pack_num(s.get("bt")), _pack_num(s.get("wb")), fs,
                      _pack_num(s.get("edge")), _pack_num(s.get("dsg")),
                      _pack_num(s.get("slp")), _pack_num(s.get("unx")),
-                     str(s.get("why") or ""),
+                     str(s.get("why") or "").replace("|", "/"),
                      _pack_num(s.get("parity_band_c")), _pack_bool(s.get("parity_ok")),
                      _pack_bool(s.get("outside_minute_range")),
                      _pack_bool(s.get("orb_breakout_gap_design"))])
