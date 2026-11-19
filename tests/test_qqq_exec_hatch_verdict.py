@@ -109,3 +109,10 @@ def test_parity_ok_uses_the_design_adjusted_gap(monkeypatch):
     assert qe._fill_verdict(row, "OPEN", s, None, {}, _ctx({}))["parity_ok"] is True
     s = dict(s, dsg=0.0, slp=-0.9)
     assert qe._fill_verdict(row, "OPEN", s, None, {}, _ctx({}))["parity_ok"] is False
+
+
+def test_book_only_kind_please_is_not_lease():
+    r = ("ServerException: HTTP Status: 417, Code: OPENAPI_ORDER_SIDE_NOT_MATCH_WITH_POSITION_OPEN, "
+         "Msg: Please close your existing long position, RequestID: a4291b")
+    assert qe.book_only_kind(r) == "broker"
+    assert qe.book_only_kind("cross-host lease held by box") == "infra"

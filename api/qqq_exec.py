@@ -14586,9 +14586,11 @@ def book_only_kind(reason):
     r = str(reason or "").lower()
     if not r:
         return ""
-    if any(k in r for k in ("lease", "firestore", "429", "rate limit", "quota")):
+    # infra first, on WORDS: "please" contains "lease" and a RequestID can hold "429"
+    # (09-23's eight 417s read as infra until this). Webull's own 429 is infra too.
+    if (re.search(r"\blease\b|firestore|rate.?limit|\bquota\b|http status: 429\b|\bhttp 429\b", r)):
         return "infra"
-    if any(k in r for k in ("http status", "417", "openapi_", "serverexception", "webull")):
+    if any(k in r for k in ("http status", "openapi_", "serverexception", "webull")) or re.search(r"\b417\b", r):
         return "broker"
     return ""
 
