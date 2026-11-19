@@ -10,6 +10,7 @@
 ## 2. Before you arm (all must be true)
 - A **separate Webull margin account** with **$3k–8k** in it (not your main account). Live keys saved at the live keys path.
 - **Account pin — YOU type this, nobody else.** In the box's `/home/ubuntu/edgelog/webull_orders/config.json`, set `"account": {"stock_last4": "NNNN"}` with the LAST 4 digits of the live account number (never the full number). Without it every LIVE send is refused ("live account not pinned"). No Claude lane enters, reads back or prints this value.
+- Wipe `qqq_exec/books_toggle_applied.json` (paper toggles must not carry into LIVE).
 - **Paper book flat.** If paper still holds shares, LIVE refuses and stays OFF (you get no live orders).
 - Every item in the go-live readiness table (`docs/WEBULL_GOLIVE_READINESS_1118.md`, must-fix rows) and `docs/EDGELOG_GOLIVE.md` ticked.
 - **MANAGER and you both say GO** in chat.

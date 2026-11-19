@@ -195,13 +195,29 @@ def step(*, out_dir, read_doc, broker_mode, flat, boot, mem, now=None, say=None,
         ok, legs, why = validate(doc)
         if not ok:
             log(f"[books-toggle] invalid doc ({why}) -- nothing changed")
+            src = str(doc.get("ts") if isinstance(doc, dict) else "")
+            if mem.get("invalid_ts") != src:       # ONE line + echo per doc ts, not per read
+                mem["invalid_ts"] = src
+                prev = load_applied(out_dir) or {}
+                rec = dict(prev, status="invalid", reason=str(why)[:160], src_ts=src,
+                           applied_ts="invalid:" + src)
+                if say is not None:
+                    try:
+                        say(rec, ("Books toggle REFUSED (invalid, nothing changed): " + why)[:180])
+                    except Exception as e:
+                        log(f"[books-toggle] phone line failed ({type(e).__name__})")
+                if publish is not None:
+                    try:
+                        publish(rec)
+                    except Exception as e:
+                        log(f"[books-toggle] echo publish failed ({type(e).__name__})")
             return "invalid"
         prev = load_applied(out_dir)
         src_ts = doc.get("ts")
         if prev and prev.get("legs") == legs and prev.get("src_ts") == src_ts:
             return "same"
         eff, off = effects(legs)
-        rec = {"legs": legs, "legs_off": off, "effects": eff, "src_ts": src_ts,
+        rec = {"legs": legs, "legs_off": off, "effects": eff, "src_ts": src_ts, "status": "applied",
                "applied_by": str(doc.get("by") or "page")[:40],
                "applied_ts": time.strftime("%Y-%m-%dT%H:%M:%S", time.gmtime(now)) + "Z"}
         save_applied(out_dir, rec)

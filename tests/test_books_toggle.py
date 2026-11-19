@@ -181,3 +181,16 @@ def test_shadow_on_exec_leg_means_no_orders(tmp_path):
     rec = bt.load_applied(str(tmp_path))
     assert rec["legs_off"] == ["ORB"]
     assert rec["effects"]["ORB314"] == "SHADOW: no orders, signal on the shadow board"
+
+
+def test_invalid_doc_one_line_per_ts_and_invalid_echo(tmp_path):
+    mem, says, pubs = {}, [], []
+    bad = {"legs": {"NOPE": "OFF"}, "ts": "t9"}
+    assert _step(tmp_path, bad, mem=mem, says=says, pubs=pubs) == "invalid"
+    assert _step(tmp_path, bad, mem=mem, says=says, pubs=pubs, now=5000.0) == "invalid"
+    assert len(says) == 1 and len(pubs) == 1
+    assert pubs[0]["status"] == "invalid" and "unknown leg" in pubs[0]["reason"] and pubs[0]["src_ts"] == "t9"
+    assert bt.load_applied(str(tmp_path)) is None          # nothing applied
+    bad2 = dict(bad, ts="t10")
+    assert _step(tmp_path, bad2, mem=mem, says=says, pubs=pubs, now=9000.0) == "invalid"
+    assert len(says) == 2
