@@ -1812,7 +1812,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.03';
+const VERSION='91.04';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1833,6 +1833,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.04',date:'2026-11-19',notes:['THE DATABASE ALLOWANCE CAN NO LONGER EMPTY ITSELF. Twice this month the free daily database quota ran out in the evening. The reason the outage lasted all night rather than a minute: when the database refuses a page for being over the limit, the browser treats that as a passing glitch and asks again every sixty seconds, and some of those retries are charged for the whole list all over again. The refusals were not the aftermath of running dry - they were what kept it dry.','Now the page gives up gracefully. One listener refused is set aside and tried again in five minutes, then ten, then twenty - not every minute. Three refusals and the page stops listening altogether and says so in one line along the bottom: the allowance for today is used up, live updates paused, and the time it comes back in your own clock.','Press Try again now, or leave it: it reconnects by itself at the daily reset. Nothing reloads, nothing you had typed is lost, and the PC load reading says LIVE OFF instead of showing a number that stopped being true.']},
 {v:'90.99',date:'2026-11-19',notes:['Behind the scenes: the app now keeps a private tally of how its live feed behaves - how often it reconnects, how much it is sent, and any refusals from the database - and files it with the record it already writes. It reads nothing extra. When the daily allowance runs short again, this says in one look whether it was many windows left open or a few windows being re-sent everything over and over.']},
 {v:'90.98',date:'2026-11-19',notes:['A WINDOW NOBODY IS LOOKING AT STOPS COSTING MONEY. An EDGE-LOG tab left open in the background was still being sent every change the PC and the box made, and every one of those counted against the daily database allowance - which is what ran it dry twice this month. A tab that has been out of sight for ten minutes now stops listening, and picks straight back up the moment you look at it.','Nothing reloads and nothing is lost: the page you left is the page you come back to, typed text and all. While it is paused the PC load reading says LIVE PAUSED rather than showing a number that is no longer being refreshed.','A tab waiting on something from the PC - a blotter or a candle fetch - never pauses, because that answer arrives on the same live feed.']},
 {v:'90.97',date:'2026-11-19',notes:['Behind the scenes: the PC load reading is now sent only when a number actually moves, or once every five minutes if the box just sits there - about a fifth as much traffic as before, and the chip reads exactly the same.','Behind the scenes: each time the app starts it records which build it is running, so a tab left open on last week version can be found and reopened. One small record, no extra reading.']},
@@ -4530,7 +4531,80 @@ function _lsSeen(s){try{
   //   separately: a quiet tab whose BIG count climbs is re-reading, not receiving changes.
   try{if(s&&typeof s.docChanges==='function'&&n>1&&s.docChanges().length===n)_ls.big++;}catch(e){}
 }catch(e){}}
-function _lsErr(e){try{const c=(e&&(e.code||e.name))||'unknown';_ls.errs[c]=(_ls.errs[c]|0)+1;}catch(_e){}}
+// THE CIRCUIT BREAKER (owner said yes 2026-11-19, through MANAGER, to "why database limit dry. fix it").
+//   The note above says what the SDK does when the day's free reads are gone: it treats the refusal as
+//   temporary, so it keeps reconnecting the listen stream once a minute for as long as the tab is open,
+//   and a reconnect the server cannot match re-delivers the whole result set. Every one of those is billed.
+//   So the refusal does not end the spending - it IS the spending, and it keeps the quota empty until the
+//   tab is closed or the day rolls over. Two rules below, and we touch no other error: an ordinary
+//   disconnect is cheap, because the SDK resumes from a token and re-reads nothing. Only the quota refusal
+//   is worth stepping in front of.
+//   RULE ONE, per listener: on its FIRST resource-exhausted we detach that listener ourselves and try it
+//     again on our own clock - minutes, lengthening - instead of letting the SDK retry every 60 seconds.
+//   RULE TWO, the whole page: after LS_QUOTA_N refusals we stop listening altogether, say so in one plain
+//     line with the local time the allowance resets, and come back on a click or at that reset.
+//   Nothing reloads and nothing typed is lost either way; only the live feed stops.
+const LS_QUOTA_N=3;                        // refusals before the page stops listening altogether
+const LS_BACKOFF_MIN=[5,10,20,30];         // one listener's own retry ladder, in minutes
+const _lsQuota={hits:0,dead:false,timer:null};
+function _lsIsQuota(c){return c==='resource-exhausted'||c==='RESOURCE_EXHAUSTED';}
+function _lsErr(e,ent){try{
+  const c=(e&&(e.code||e.name))||'unknown';_ls.errs[c]=(_ls.errs[c]|0)+1;
+  if(!_lsIsQuota(c))return;                // everything else: leave it to the SDK's resume path
+  _lsQuota.hits++;
+  if(ent)_lsHold(ent);
+  if(!_lsQuota.dead&&_lsQuota.hits>=LS_QUOTA_N)_lsQuotaStop();
+}catch(_e){}}
+function _lsHold(ent){try{
+  if(ent.dead||ent.held)return;
+  ent.held=true;ent.tries=(ent.tries|0)+1;_ls.quota_holds=(_ls.quota_holds|0)+1;
+  try{if(ent.unsub){ent.unsub();ent.unsub=null;}}catch(e){}
+  const mins=LS_BACKOFF_MIN[Math.min(ent.tries-1,LS_BACKOFF_MIN.length-1)];
+  ent.timer=setTimeout(function(){ent.timer=null;ent.held=false;
+    if(ent.dead||_ls.paused||_lsQuota.dead)return;   // a paused or stopped page re-attaches on its own terms
+    try{_ls.reattach++;ent.unsub=ent.raw.apply(ent.ref,ent.args);}catch(e){}
+  },mins*60000);
+}catch(e){}}
+// Milliseconds to the next Pacific midnight - when the free daily allowance is restored.
+function _lsMsToReset(){try{
+  const t=new Date().toLocaleTimeString('en-GB',{timeZone:'America/Los_Angeles',hour12:false}).split(':').map(Number);
+  const secs=(t[0]||0)*3600+(t[1]||0)*60+(t[2]||0);
+  return Math.max(60000,(86400-secs)*1000);
+}catch(e){return 3600000;}}
+function _lsResetClock(){try{return new Date(Date.now()+_lsMsToReset()).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'});}catch(e){return 'the daily reset';}}
+function _lsQuotaStop(){try{
+  _lsQuota.dead=true;window._fsQuotaOut=true;_ls.quota_stops=(_ls.quota_stops|0)+1;
+  _ls.reg.forEach(function(e){try{if(e.timer){clearTimeout(e.timer);e.timer=null;}e.held=false;
+    if(e.unsub){e.unsub();e.unsub=null;}}catch(_e){}});
+  try{_tbSwap('tb-load',_tbLoadHtml());}catch(_e){}
+  _lsQuotaBar();
+  if(_lsQuota.timer)clearTimeout(_lsQuota.timer);
+  _lsQuota.timer=setTimeout(_lsQuotaGo,Math.min(_lsMsToReset()+60000,2147483647));
+}catch(e){}}
+function _lsQuotaGo(){try{
+  if(_lsQuota.timer){clearTimeout(_lsQuota.timer);_lsQuota.timer=null;}
+  _lsQuota.dead=false;_lsQuota.hits=0;window._fsQuotaOut=false;
+  const b=document.getElementById('fs-quota-bar');if(b&&b.parentNode)b.parentNode.removeChild(b);
+  // A page that is ALSO paused for being hidden stays detached - looking at it resumes it.
+  if(!_ls.paused)_ls.reg.forEach(function(e){try{if(!e.dead&&!e.unsub&&e.raw){_ls.reattach++;e.unsub=e.raw.apply(e.ref,e.args);}}catch(_e){}});
+  try{_tbSwap('tb-load',_tbLoadHtml());}catch(_e){}
+}catch(e){}}
+// ONE PLAIN LINE, and a way back. It is added to the body only when this happens, so when it does not
+//   happen there is no element and no layout change at all - the same one-commit revert the chips have.
+function _lsQuotaBar(){try{
+  if(document.getElementById('fs-quota-bar'))return;
+  const d=document.createElement('div');d.id='fs-quota-bar';
+  d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:8px 12px;'
+    +'background:var(--bg2,#1b1b1b);border-top:1px solid var(--line,#333);color:var(--text2,#ccc);'
+    +'font-size:12px;display:flex;gap:10px;align-items:center;justify-content:center;flex-wrap:wrap';
+  const t=document.createElement('span');
+  t.textContent='The free database allowance for today is used up - live updates paused; resets at '+_lsResetClock()+'.';
+  const b=document.createElement('button');b.textContent='Try again now';
+  b.style.cssText='font:inherit;padding:2px 8px;cursor:pointer;background:transparent;color:inherit;'
+    +'border:1px solid var(--line,#444);border-radius:3px';
+  b.onclick=function(){_lsQuotaGo();};
+  d.appendChild(t);d.appendChild(b);document.body.appendChild(d);
+}catch(e){}}
 window.addEventListener('offline',function(){_ls.offline++;});
 window.addEventListener('online',function(){_ls.online++;});
 function _lsPause(){try{
@@ -4545,7 +4619,8 @@ function _lsPause(){try{
 function _lsResume(){try{
   if(!_ls.paused)return;
   _ls.paused=false;window._lsPaused=false;_ls.resumes++;
-  _ls.reg.forEach(function(e){try{if(!e.dead&&!e.unsub&&e.raw){_ls.reattach++;e.unsub=e.raw.apply(e.ref,e.args);}}catch(_e){}});
+  // A listener the breaker is holding, or a page the breaker has stopped, stays detached.
+  if(!_lsQuota.dead)_ls.reg.forEach(function(e){try{if(!e.dead&&!e.unsub&&!e.held&&e.raw){_ls.reattach++;e.unsub=e.raw.apply(e.ref,e.args);}}catch(_e){}});
   try{_tbSwap('tb-load',_tbLoadHtml());}catch(_e){}
 }catch(e){}}
 function _lsVis(){try{
@@ -4577,9 +4652,9 @@ function _fsuInstall(){if(_fsu.on)return;try{const F=firebase.firestore;const DR
     const self=this,args=[...arguments];
     const e={ref:self,args:args,unsub:null,dead:false};
     for(let i=0;i<args.length;i++){const x=args[i];
-      if(typeof x==='function'&&i>0){const ox=x;args[i]=function(er){_lsErr(er);return ox.apply(this,arguments);};break;}
-      if(x&&typeof x.error==='function'){const oe=x.error;args[i]=Object.assign({},x,{error:function(er){_lsErr(er);return oe.apply(x,arguments);}});break;}}
-    if(_ls.paused){_ls.reg.add(e);}else{_ls.attach++;e.unsub=o.apply(self,args);_ls.reg.add(e);}
+      if(typeof x==='function'&&i>0){const ox=x;args[i]=function(er){_lsErr(er,e);return ox.apply(this,arguments);};break;}
+      if(x&&typeof x.error==='function'){const oe=x.error;args[i]=Object.assign({},x,{error:function(er){_lsErr(er,e);return oe.apply(x,arguments);}});break;}}
+    if(_ls.paused||_lsQuota.dead){_ls.reg.add(e);}else{_ls.attach++;e.unsub=o.apply(self,args);_ls.reg.add(e);}
     e.raw=o;
     // ONE STABLE handle for the caller. Re-attaching makes a new underlying unsubscribe,
     //   and the caller still holds this one - so it must always detach whatever is current
@@ -4603,7 +4678,9 @@ function _fsuFlush(){try{if(!_fsu.on||!db||typeof currentUser==='undefined'||!cu
 //   week has that stale tab in it, and the owner can be told which device to reopen.
 function _lsReadout(){try{return{attach:_ls.attach,reattach:_ls.reattach,snaps:_ls.snaps,
   docs:_ls.docs,full_resends:_ls.big,errs:_ls.errs,offline:_ls.offline,online:_ls.online,
-  paused:!!_ls.paused,resumes:_ls.resumes,up_min:Math.round((Date.now()-_lsT0)/60000)};}catch(e){return null;}}
+  paused:!!_ls.paused,resumes:_ls.resumes,quota_holds:(_ls.quota_holds|0),
+  quota_stops:(_ls.quota_stops|0),quota_off:!!_lsQuota.dead,
+  up_min:Math.round((Date.now()-_lsT0)/60000)};}catch(e){return null;}}
 const _lsT0=Date.now();
 function _clientBootRow(refresh){try{
   if(!db||typeof currentUser==='undefined'||!currentUser||!_fsu.raw)return;
@@ -18933,6 +19010,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
 function _tbLoadHtml(){try{
   // PAUSED IS NOT STALE. While this tab is not being looked at it has stopped listening, so
   //   the last number it holds is only as true as the moment it stopped. Say that plainly.
+  // The breaker outranks the hidden-tab pause: this one needs the owner to know.
+  if(window._fsQuotaOut){const _q="The free database allowance for today is used up, so live updates are paused. "
+    +"They come back at the daily reset, or when you press Try again at the bottom of the screen.";
+    return '<span title="'+_q+'" style="color:#e0c341;cursor:help">LIVE OFF</span>';}
   if(window._lsPaused){const _t='This tab stopped listening while nobody was looking at it, to save the daily database allowance. It catches up the moment you come back.';
     return '<span title="'+_t+'" style="color:var(--text5);cursor:help">LIVE PAUSED</span>';}
   const L=window._pcLoad; if(!L||!L.ok) return '';

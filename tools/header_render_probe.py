@@ -511,6 +511,10 @@ def main():
     #   listeners, so the chip says LIVE PAUSED rather than a number nothing is refreshing. It is
     #   wider than the numbers it replaces, so the header has to still fit on a laptop and a phone.
     LSP = PCL + "window._lsPaused=true;"
+    # AND WITH THE DAILY ALLOWANCE GONE (11-19 circuit breaker). The chip says LIVE OFF and a line is
+    #   pinned to the bottom of the screen; neither may push the header off its one line or make the
+    #   page scroll sideways on a phone.
+    QOUT = PCL + "window._fsQuotaOut=true;"
     cases = (('home_1400', 1400, 900, '', HOME, True),
              ('anal_1400', 1400, 900, '', ANAL, False),
              ('home_375', 375, 812, '', HOME, True),
@@ -519,7 +523,9 @@ def main():
              ('pcload_1366', 1366, 900, '', PCL + HOME, True),
              ('pcload_375', 375, 812, '', PCL + HOME, True),
              ('lspaused_1366', 1366, 900, '', LSP + HOME, True),
-             ('lspaused_375', 375, 812, '', LSP + HOME, True))
+             ('lspaused_375', 375, 812, '', LSP + HOME, True),
+             ('quotaout_1366', 1366, 900, '', QOUT + HOME, True),
+             ('quotaout_375', 375, 812, '', QOUT + HOME, True))
     fails = []
     for nm, w, h, theme, tab_js, want_sub in cases:
         shot = os.path.join(out_dir, 'header_%s.png' % nm)

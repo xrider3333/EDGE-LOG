@@ -90,7 +90,7 @@ def test_nothing_in_the_cut_reloads_the_page_or_touches_the_view():
 def test_the_chip_says_paused_rather_than_showing_a_number_nothing_refreshes():
     s = src()
     i = s.index("function _tbLoadHtml()")
-    seg = s[i:i + 700]
+    seg = s[i:i + 2000]
     assert "window._lsPaused" in seg and "LIVE PAUSED" in seg
     assert seg.index("window._lsPaused") < seg.index("window._pcLoad"), \
         "the paused check comes first, or a stale number wins"
