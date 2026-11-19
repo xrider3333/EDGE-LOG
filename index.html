@@ -1812,7 +1812,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='90.97';
+const VERSION='90.98';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1833,6 +1833,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'90.98',date:'2026-11-19',notes:['A WINDOW NOBODY IS LOOKING AT STOPS COSTING MONEY. An EDGE-LOG tab left open in the background was still being sent every change the PC and the box made, and every one of those counted against the daily database allowance - which is what ran it dry twice this month. A tab that has been out of sight for ten minutes now stops listening, and picks straight back up the moment you look at it.','Nothing reloads and nothing is lost: the page you left is the page you come back to, typed text and all. While it is paused the PC load reading says LIVE PAUSED rather than showing a number that is no longer being refreshed.','A tab waiting on something from the PC - a blotter or a candle fetch - never pauses, because that answer arrives on the same live feed.']},
 {v:'90.97',date:'2026-11-19',notes:['Behind the scenes: the PC load reading is now sent only when a number actually moves, or once every five minutes if the box just sits there - about a fifth as much traffic as before, and the chip reads exactly the same.','Behind the scenes: each time the app starts it records which build it is running, so a tab left open on last week version can be found and reopened. One small record, no extra reading.']},
 {v:'90.92',date:'2026-11-18',notes:['PC LOAD ON THE TOP BAR (board item 12). A small grey reading - CPU and RAM - sits at the left of the status chips, beside NT GATE, on every tab and at every width. It is there because the fleet runs on the same machine you work on: when a validate tier, several ships and the builders all go at once the box crawls, and until now the only way to know was to open Task Manager. Hover it for the free memory, the total, and how many runners are up.','IT ONLY RAISES ITS VOICE WHEN IT MATTERS. Grey while the box is fine, amber when memory passes 75 per cent or the processor sits above 90, red when memory passes 90 or under 2 GB is free. With no reading yet it draws nothing at all, so it never shifts the header.','The number is refreshed once a minute by the machine itself, and the chip says so with a question mark if that stops arriving - a stale load figure shown as live would be worse than none.']},
 {v:'90.81',date:'2026-11-18',notes:['Behind the scenes: the app now counts its own database reads and writes, so a day that runs out the free read quota can be traced to who used it']},
@@ -4499,11 +4500,60 @@ function calcStats(tds){
 // tools/fs_usage_report.py can name who uses the 50k/day. One small write per 10 minutes; no extra reads.
 const _fsu={reads:0,writes:0,listen_reads:0,sent:{reads:0,writes:0,listen_reads:0},on:false,raw:null};
 function _fsuSnapReads(s){try{if(!s||(s.metadata&&s.metadata.fromCache))return 0;if(typeof s.docChanges==='function')return s.docChanges().length;return 1;}catch(e){return 0;}}
+// See the note inside _fsuInstall: a hidden tab stops listening after this long.
+const LS_HIDDEN_MS=10*60*1000;
+const _ls={reg:new Set(),paused:false,t:null,at:0,resumes:0};
+function _lsPause(){try{
+  if(_ls.paused)return;
+  // Never pause over work in flight: a PC-runner command (blotter, candle fetch) reports
+  //   back THROUGH a listener, and the owner is owed that answer even in a hidden tab.
+  if((window._pendingCmds|0)>0)return;
+  _ls.paused=true;_ls.at=Date.now();window._lsPaused=true;
+  _ls.reg.forEach(function(e){try{if(e.unsub){e.unsub();e.unsub=null;}}catch(_e){}});
+  try{_tbSwap('tb-load',_tbLoadHtml());}catch(_e){}
+}catch(e){}}
+function _lsResume(){try{
+  if(!_ls.paused)return;
+  _ls.paused=false;window._lsPaused=false;_ls.resumes++;
+  _ls.reg.forEach(function(e){try{if(!e.dead&&!e.unsub&&e.raw)e.unsub=e.raw.apply(e.ref,e.args);}catch(_e){}});
+  try{_tbSwap('tb-load',_tbLoadHtml());}catch(_e){}
+}catch(e){}}
+function _lsVis(){try{
+  if(document.hidden){if(!_ls.t)_ls.t=setTimeout(function(){_ls.t=null;_lsPause();},LS_HIDDEN_MS);}
+  else{if(_ls.t){clearTimeout(_ls.t);_ls.t=null;}_lsResume();}
+}catch(e){}}
+document.addEventListener('visibilitychange',_lsVis);
+window._lsStats=_ls;
 function _fsuInstall(){if(_fsu.on)return;try{const F=firebase.firestore;const DR=F.DocumentReference&&F.DocumentReference.prototype,Q=F.Query&&F.Query.prototype,WB=F.WriteBatch&&F.WriteBatch.prototype;if(!DR||!Q)return;
   const wrapGet=(P)=>{const o=P.get;P.get=function(){return o.apply(this,arguments).then(s=>{try{if(!(s&&s.metadata&&s.metadata.fromCache))_fsu.reads+=(typeof s.size==='number'?Math.max(1,s.size):1);}catch(e){}return s;});};};
   wrapGet(DR);wrapGet(Q);
   const wrapSnap=(P)=>{const o=P.onSnapshot;P.onSnapshot=function(){const a=[...arguments];for(let i=0;i<a.length;i++){const x=a[i];if(typeof x==='function'){a[i]=function(s){_fsu.listen_reads+=_fsuSnapReads(s);return x.apply(this,arguments);};break;}if(x&&typeof x.next==='function'){const nx=x.next;a[i]=Object.assign({},x,{next:function(s){_fsu.listen_reads+=_fsuSnapReads(s);return nx.apply(x,arguments);}});break;}}return o.apply(this,a);};};
   wrapSnap(DR);wrapSnap(Q);
+  // A HIDDEN TAB STOPS LISTENING (MANAGER 2026-11-19, after the 11-18 quota night).
+  //   Every document the PC or the box writes is delivered to every live listener in every
+  //   open tab, and each delivery is a billed read - whether or not anyone is looking at the
+  //   screen. On a ship-heavy evening that is tens of thousands of reads spent on windows
+  //   nobody had in front of them, which is what emptied the free quota on 11-13 and 11-18.
+  //   So: a tab hidden for LS_HIDDEN_MS detaches every listener, and re-attaches them the
+  //   moment anyone looks at it. Nothing reloads, no input is touched, no view state is lost -
+  //   only the live feed stops, and the chips say so rather than showing stale numbers.
+  //   THE TRADE: re-attaching re-reads each listener's documents once (about 450 on this
+  //   account - the board is most of it), so pausing only pays if the tab stays hidden past
+  //   roughly that many writes. Ten minutes is the threshold for that reason; a tab flicked
+  //   behind another window for a moment never pauses at all.
+  //   This sits on the COUNTER'S wrapper, so it catches every listener in the app, including
+  //   any added later, without touching the twenty-odd places that attach one.
+  const wrapReg=(P)=>{const o=P.onSnapshot;P.onSnapshot=function(){
+    const self=this,args=[...arguments];
+    const e={ref:self,args:args,unsub:null,dead:false};
+    if(_ls.paused){_ls.reg.add(e);}else{e.unsub=o.apply(self,args);_ls.reg.add(e);}
+    e.raw=o;
+    // ONE STABLE handle for the caller. Re-attaching makes a new underlying unsubscribe,
+    //   and the caller still holds this one - so it must always detach whatever is current
+    //   and make sure a resume never brings the listener back from the dead.
+    return function(){try{e.dead=true;_ls.reg.delete(e);if(e.unsub){e.unsub();e.unsub=null;}}catch(_e){}};
+  };};
+  wrapReg(DR);wrapReg(Q);
   _fsu.raw=DR.set;['set','update','delete'].forEach(m=>{const o=DR[m];DR[m]=function(){_fsu.writes+=1;return o.apply(this,arguments);};});
   const oadd=F.CollectionReference&&F.CollectionReference.prototype.add;if(oadd)F.CollectionReference.prototype.add=function(){_fsu.writes+=1;return oadd.apply(this,arguments);};
   if(WB){const oc=WB.commit;WB.commit=function(){try{const m=(this._delegate&&this._delegate._mutations)||[];_fsu.writes+=Math.max(1,m.length||0);}catch(e){_fsu.writes+=1;}return oc.apply(this,arguments);};}
@@ -18844,6 +18894,10 @@ namespace NinjaTrader.NinjaScript.Strategies {
 //   NOTHING AT ALL when there is no reading yet - an absent chip changes no layout, which is also what makes this
 //   whole feature a one-commit revert. No colour here that the header does not already use.
 function _tbLoadHtml(){try{
+  // PAUSED IS NOT STALE. While this tab is not being looked at it has stopped listening, so
+  //   the last number it holds is only as true as the moment it stopped. Say that plainly.
+  if(window._lsPaused){const _t='This tab stopped listening while nobody was looking at it, to save the daily database allowance. It catches up the moment you come back.';
+    return '<span title="'+_t+'" style="color:var(--text5);cursor:help">LIVE PAUSED</span>';}
   const L=window._pcLoad; if(!L||!L.ok) return '';
   const cpu=Math.round(L.cpu_pct), mem=Math.round(L.mem_pct), free=L.free_gb;
   // A reading older than 10 minutes means the primary stopped publishing; say so rather than showing a stale number as live.

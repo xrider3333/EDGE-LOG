@@ -507,13 +507,19 @@ def main():
     #   on a laptop, no sideways page scroll on a phone.
     PCL = ("window._pcLoad={ok:true,cpu_pct:98.9,mem_pct:92.4,free_gb:2.4,total_gb:31.7,runners:5,"
            "checked_at:new Date().toISOString().slice(0,19).replace('T',' ')};")
+    # THE SAME CHIP WITH THE LIVE FEED PAUSED (11-19). A tab nobody is looking at detaches its
+    #   listeners, so the chip says LIVE PAUSED rather than a number nothing is refreshing. It is
+    #   wider than the numbers it replaces, so the header has to still fit on a laptop and a phone.
+    LSP = PCL + "window._lsPaused=true;"
     cases = (('home_1400', 1400, 900, '', HOME, True),
              ('anal_1400', 1400, 900, '', ANAL, False),
              ('home_375', 375, 812, '', HOME, True),
              ('mono_375', 375, 812, 'mono', HOME, True),
              ('wbsub_375', 375, 812, '', WBSUB, True),
              ('pcload_1366', 1366, 900, '', PCL + HOME, True),
-             ('pcload_375', 375, 812, '', PCL + HOME, True))
+             ('pcload_375', 375, 812, '', PCL + HOME, True),
+             ('lspaused_1366', 1366, 900, '', LSP + HOME, True),
+             ('lspaused_375', 375, 812, '', LSP + HOME, True))
     fails = []
     for nm, w, h, theme, tab_js, want_sub in cases:
         shot = os.path.join(out_dir, 'header_%s.png' % nm)
