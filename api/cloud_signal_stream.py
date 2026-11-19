@@ -423,6 +423,11 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None)
                                            cs.CLOSE_GRACE_SECONDS)
     today = now.date().isoformat()
     want_live = bool(stream_cfg.get("bar_close_from_stream"))
+    if state is not None:
+        # PRE-STEP SNAPSHOT (VERIFIER 11-18): the caller read the switch OFF and step() has
+        # already run. A flip to ON between the two reads must never commit from the stale
+        # snapshot (would roll state.json back and double-write signals.csv): shadow only.
+        want_live = False
 
     state_changed = False
     keel_events = []          # committed rows for the KEEL entry note, AFTER the loop

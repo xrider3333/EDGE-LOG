@@ -57,3 +57,27 @@ def test_unreadable_switch_keeps_old_order(monkeypatch):
     css.run_stream_aware_step(now=NOW, legs=LEGS, paths={"home": "x"}, fetch=False,
                               log=lambda *a: None)
     assert calls == ["step"]   # refused cache: extras skip entirely, step still runs
+
+def test_snapshot_passed_with_switch_flipped_on_never_commits(monkeypatch):
+    """VERIFIER 11-18: switch read OFF by the caller, flipped ON before the hand-off reads
+    it again -> the pre-step snapshot must never be written back nor rows appended."""
+    import time
+    writes = []
+    epoch = int(time.time()) // 300 * 300
+    monkeypatch.setattr(css, "read_closed_bar_handoff", lambda tf, home=None: {
+        "time": epoch, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1})
+    monkeypatch.setattr(css, "stream_bar_is_usable", lambda p, now: (True, ""))
+    monkeypatch.setattr(cs, "historical_bars", lambda tf, paths: None)
+    monkeypatch.setattr(css, "_augment_with_stream_bar", lambda df, bar: None)
+    monkeypatch.setattr(css, "already_shadowed", lambda *a: False)
+    monkeypatch.setattr(css, "_daily_cache_may_still_change", lambda *a: False)
+    monkeypatch.setattr(css, "_is_disagreement_tripped", lambda *a: False)
+    monkeypatch.setattr(css, "_dry_run_decision", lambda *a, **k: (
+        [{"event": "ENTRY", "leg": "ORB_R6"}], {"trades": {}}))
+    monkeypatch.setattr(css, "record_shadow_decision", lambda *a, **k: None)
+    monkeypatch.setattr(cs, "_append_signals", lambda ev, paths: writes.append("signals"))
+    monkeypatch.setattr(cs, "_write_state", lambda st, paths: writes.append("state"))
+    snap = {"legs": {"ORB_R6": {"trades": {}}}}
+    css._handle_handoff_window(NOW, LEGS, {"home": None},
+                               {"bar_close_from_stream": True}, lambda *a: None, state=snap)
+    assert writes == []
