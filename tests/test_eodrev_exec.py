@@ -42,6 +42,7 @@ def _run(tmp_path, ad, monkeypatch, fills=None, notes=None):
     fills = fills or {}
     monkeypatch.setattr(ex, "lookup", lambda a, rec: fills.get(rec["_sid"], {
         "status": "FILLED", "filled": rec.get("_qty", 0), "price": None}))
+    monkeypatch.setattr(ex, "LOOKUP_PAUSE_S", 0)
     notes = notes if notes is not None else []
     return ex.run_day(p, now_fn=lambda: dt.datetime(2026, 11, 16, 15, 27, tzinfo=ET),
                       adapter=ad, log=lambda *a: None,
@@ -87,7 +88,7 @@ def test_full_day_market_exit_and_fallback(tmp_path, monkeypatch):
     assert sum(1 for t in types if t[1] == "CLOSE") == 7      # 6 exits + XOM fallback
     assert [k["signal_id"] for k in ad.sent].count("EODREV-20261116-S2-FB") == 1
     assert rec["result"] == "traded" and rec["one_sided"] is None
-    assert ex._at(DAY, ex.DEFAULTS["exit_at"]) == dt.datetime(2026, 11, 16, 15, 57, 0, tzinfo=ET)
+    assert ex._at(DAY, ex.DEFAULTS["exit_at"]) == dt.datetime(2026, 11, 16, 15, 59, 0, tzinfo=ET)
     sides = {(k["symbol"], k["intent"]): k["side"] for k in ad.sent if not k["signal_id"].endswith("-X")}
     assert sides[("JPM", "OPEN")] == "SHORT" and sides[("AAPL", "OPEN")] == "BUY"
     again, _ = _run(tmp_path, FakeAd(), monkeypatch)
@@ -132,10 +133,13 @@ def test_refused_short_cancels_unfilled_pair(tmp_path, monkeypatch):
 def test_two_refused_flattens_basket(tmp_path, monkeypatch):
     _sig(str(tmp_path))
     ad = FakeAd(refuse={("JPM", "MARKET"), ("LLY", "MARKET")})
-    rec, notes = _run(tmp_path, ad, monkeypatch, fills={})
+    fills = {f"EODREV-20261116-{l}-O": {"status": "FILLED", "filled": 5, "price": 100.0}
+             for l in ("L1", "L2", "L3", "S2")}
+    rec, notes = _run(tmp_path, ad, monkeypatch, fills=fills)
     sids = [k["signal_id"] for k in ad.sent]
     assert sum(1 for s in sids if s.endswith("-UW")) == 4 and not any(s.endswith("-X") for s in sids)
-    assert rec["one_sided"]["action"] == "flattened the whole basket" and len(notes) == 1
+    assert rec["one_sided"]["action"] == "flattened the whole basket"
+    assert sum("entries refused" in n for n in notes) == 1
 
 
 def test_missing_file_alerts_skip_does_not(tmp_path, monkeypatch):
@@ -209,3 +213,104 @@ def test_probe_uses_market_exit_and_needs_fill(tmp_path, monkeypatch):
     ex.run_probe("AAPL", ex.paths(str(tmp2)), adapter=FakeAd(), log=lambda *a: None,
                  notify=lambda m, **k: notes.append(m), wait_s=0, wait_tries=2)
     assert not ex.probe_ok(ex.paths(str(tmp2))) and "FAILED" in notes[-1]
+
+
+class CancelAd(FakeAd):
+    def __init__(self, refuse=(), cancel_ok=True):
+        super().__init__(refuse)
+        self.cancelled, self.cancel_ok = [], cancel_ok
+
+    def cancel_order(self, sid):
+        self.cancelled.append(sid)
+        return {"ok": self.cancel_ok}
+
+
+def _seq_lookup(monkeypatch, seqs, fills):
+    """lookup that walks a per-sid list of answers (None = failed read), then falls to fills."""
+    def f(a, rec):
+        sid = rec["_sid"]
+        if seqs.get(sid):
+            return seqs[sid].pop(0)
+        return fills.get(sid, {"status": "FILLED", "filled": 0, "price": None})
+    return f
+
+
+def _qty(ad, sid):
+    return next(k["qty"] for k in ad.sent if k["signal_id"] == sid)
+
+
+def test_unwind_partial_fill_cancels_rest_then_closes_filled_only(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = CancelAd(refuse={("XOM", "MARKET")})
+    seq = {"EODREV-20261116-L2-O": [{"status": "PARTIALLY_FILLED", "filled": 3, "price": 410.0}]}
+    monkeypatch.setattr(ex, "LOOKUP_PAUSE_S", 0)
+    monkeypatch.setattr(ex, "lookup", _seq_lookup(monkeypatch, seq, {}))
+    p = ex.paths(str(tmp_path))
+    open(os.path.join(str(tmp_path), "probe.jsonl"), "w").write(
+        json.dumps({"results": [{"open_ok": 1, "exit_filled": 1}] * 2}) + "\n")
+    ex.run_day(p, now_fn=lambda: dt.datetime(2026, 11, 16, 15, 27, tzinfo=ET), adapter=ad,
+               log=lambda *a: None, notify=lambda m, **k: None, sleep=False)
+    sids = [k["signal_id"] for k in ad.sent]
+    assert ad.cancelled[0] == "EODREV-20261116-L2-O"
+    assert sids.index("EODREV-20261116-L2-UW") > 0 and _qty(ad, "EODREV-20261116-L2-UW") == 3
+
+
+def _day(tmp_path, monkeypatch, ad, seq, fills=None):
+    monkeypatch.setattr(ex, "LOOKUP_PAUSE_S", 0)
+    monkeypatch.setattr(ex, "lookup", _seq_lookup(monkeypatch, seq, fills or {}))
+    open(os.path.join(str(tmp_path), "probe.jsonl"), "w").write(
+        json.dumps({"results": [{"open_ok": 1, "exit_filled": 1}] * 2}) + "\n")
+    notes = []
+    rec = ex.run_day(ex.paths(str(tmp_path)), now_fn=lambda: dt.datetime(2026, 11, 16, 15, 27, tzinfo=ET),
+                     adapter=ad, log=lambda *a: None, notify=lambda m, **k: notes.append(m), sleep=False)
+    return rec, notes, [k["signal_id"] for k in ad.sent]
+
+
+def test_unwind_cancel_raced_by_fill_closes_and_exit_does_not_skip(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = CancelAd(refuse={("XOM", "MARKET")})
+    # cancel "ok" but the order had filled: the post-cancel read shows FILLED 8
+    seq = {"EODREV-20261116-L2-O": [{"status": "FILLED", "filled": 8, "price": 410.0}]}
+    rec, _, sids = _day(tmp_path, monkeypatch, ad, seq)
+    leg = next(e for e in rec["entries"] if e["leg"] == "EODREV_L2")
+    assert leg["unwind"] == "closed" and _qty(ad, "EODREV-20261116-L2-UW") == 8
+
+
+def test_unwind_failed_lookup_sends_no_close(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = CancelAd(refuse={("XOM", "MARKET")})
+    seq = {"EODREV-20261116-L2-O": [None] * 6}       # unwind reads + exit reconcile reads all fail
+    rec, notes, sids = _day(tmp_path, monkeypatch, ad, seq)
+    assert not any(s.startswith("EODREV-20261116-L2-") and s != "EODREV-20261116-L2-O" for s in sids)
+    assert "lookup failed" in notes[0] and any("NOTHING sent" in n for n in notes)
+
+
+def test_unwind_failed_lookup_reconciled_at_exit(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = CancelAd(refuse={("XOM", "MARKET")})
+    seq = {"EODREV-20261116-L2-O": [None] * 3 + [{"status": "FILLED", "filled": 6, "price": 410.0}]}
+    rec, notes, sids = _day(tmp_path, monkeypatch, ad, seq)
+    assert _qty(ad, "EODREV-20261116-L2-X") == 6
+
+
+def test_unwind_close_refused_gets_exit_and_fallback(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = CancelAd(refuse={("XOM", "MARKET")})
+    orig = ad.place_stock_order
+    ad.place_stock_order = lambda **k: (dict(orig(**k), ok=False, reason="nope")
+                                        if k["symbol"] == "MSFT" and k["intent"] == "CLOSE" else orig(**k))
+    seq = {"EODREV-20261116-L2-O": [{"status": "FILLED", "filled": 8, "price": 410.0}]}
+    rec, notes, sids = _day(tmp_path, monkeypatch, ad, seq)
+    for w in ("UW", "X", "FB"):
+        assert f"EODREV-20261116-L2-{w}" in sids and _qty(ad, f"EODREV-20261116-L2-{w}") == 8
+    assert any("NOT CLOSED" in n for n in notes)
+
+
+def test_async_reject_after_accept_unwinds_pair(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = CancelAd()
+    fills = {"EODREV-20261116-S3-O": {"status": "REJECTED", "filled": 0, "price": None},
+             "EODREV-20261116-L3-O": {"status": "FILLED", "filled": 23, "price": 140.0}}
+    rec, notes, sids = _day(tmp_path, monkeypatch, ad, {}, fills)
+    assert "EODREV-20261116-L3-UW" in sids and "EODREV-20261116-S3-X" not in sids
+    assert rec["one_sided"]["when"] == ["15:31 check"] and "LLY" in notes[0]

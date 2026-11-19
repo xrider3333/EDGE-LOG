@@ -15,9 +15,9 @@ ONE DAY (python -m api.eodrev_exec run, started by a systemd timer at 15:27 ET M
          ONE-SIDED GUARD: a refused entry closes (or cancels, if unfilled) its rank pair
          (L_i <-> S_i); more than one refused = flatten the whole basket. One alert, reason
          in the ledger.
-  15:57:00  MARKET exits for every entry still open (exit_at; Webull OpenAPI refuses MOC /
+  15:59:00  MARKET exits for every entry still open (exit_at; Webull OpenAPI refuses MOC /
          AT_AUCTION for US equity with HTTP 417, so the exit is a plain MARKET order).
-  15:58  FALLBACK: any exit that was refused, or that Webull's own record shows dead
+  15:59:35  FALLBACK: any exit that was refused, or that Webull's own record shows dead
          (REJECTED/CANCELLED/FAILED), is retried with a second MARKET order.
   16:05  read the fills, write the day's P&L to the ledger. DAILY LOSS RAIL: a day losing
          more than daily_loss_limit_usd blocks the NEXT session (the rail clears after it).
@@ -49,8 +49,9 @@ DEFAULTS = {
     "daily_loss_limit_usd": 400.0,
     "gate_at": "15:29",
     "enter_at": "15:30",
-    "exit_at": "15:57:00",         # MARKET exit (MOC is refused by Webull OpenAPI, HTTP 417)
-    "fallback_at": "15:58",
+    "exit_at": "15:59:00",         # MARKET exit (MOC is refused by Webull OpenAPI, HTTP 417)
+    "async_check_at": "15:31:00",  # one look for refusals that arrive AFTER acceptance
+    "fallback_at": "15:59:35",
     "settle_at": "16:05",
     "max_px_drift": 0.05,          # skip a name whose file px is >5% off the ledger sanity band
     "min_price": 60.0,
@@ -243,11 +244,12 @@ def make_adapter(p, log=print):
     return ad
 
 
-def send(ad, e, intent, day, order_type="MARKET", what=None):
+def send(ad, e, intent, day, order_type="MARKET", what=None, qty=None):
     sid = signal_id(day, e["leg"], what or intent[0])
     try:
         rec = ad.place_stock_order(leg=e["leg"], signal_id=sid, symbol=e["sym"],
-                                   side=broker_side(e["side"], intent), qty=e["qty"],
+                                   side=broker_side(e["side"], intent),
+                                   qty=int(qty if qty is not None else e["qty"]),
                                    intent=intent, order_type=order_type)
     except Exception as ex:      # place_stock_order never raises by contract; belt and braces
         rec = {"ok": False, "reason": f"{type(ex).__name__}: {ex}"}
@@ -291,25 +293,59 @@ def pair_of(e, entries):
     return next((x for x in entries if x["leg"] == want), None)
 
 
+LOOKUP_TRIES = 3
+LOOKUP_PAUSE_S = 1.0
+
+
+def lookup_retry(ad, rec, tries=None, pause=None):
+    """lookup() with a bounded retry; None only when every try failed."""
+    tries = LOOKUP_TRIES if tries is None else tries
+    pause = LOOKUP_PAUSE_S if pause is None else pause
+    for i in range(max(1, int(tries))):
+        ans = lookup(ad, rec)
+        if ans is not None:
+            return ans
+        if pause and i + 1 < tries:
+            time.sleep(pause)
+    return None
+
+
+def _done(ans):
+    return str((ans or {}).get("status")) in ("FILLED", "REJECTED", "CANCELLED", "CANCELED", "FAILED")
+
+
 def unwind(ad, e, day, why, log=print):
-    """Take an accepted entry back out: cancel it if nothing filled, else MARKET-close it."""
-    ans = lookup(ad, e["open_rec"])
-    filled = float((ans or {}).get("filled") or 0)
+    """Take an accepted entry back out. Cancel any unfilled remainder FIRST, re-read the order's
+    final state, then MARKET-close only the quantity that actually filled. A lookup that fails
+    every retry sends NOTHING (never close a position that may not exist): the leg is left for
+    the exit / fallback and a note is returned for the alert. Returns a note string or None."""
     e["unwind_reason"] = why
-    if ans is not None and filled == 0 and str(ans.get("status")) != "FILLED":
-        try:
-            c = ad.cancel_order(e["open_rec"].get("client_order_id") or e["open_sid"]) or {}
-        except Exception as ex:
-            c = {"ok": False, "reason": f"{type(ex).__name__}: {ex}"}
-        if c.get("ok"):
+    try:                                             # ALWAYS cancel the open first
+        c = ad.cancel_order(e["open_rec"].get("client_order_id") or e["open_sid"]) or {}
+    except Exception as ex:
+        c = {"ok": False, "reason": f"{type(ex).__name__}: {ex}"}
+    e["unwind_cancel"] = {"ok": bool(c.get("ok")), "reason": c.get("reason")}
+    ans = lookup_retry(ad, e["open_rec"])            # final state AFTER the cancel (fill race)
+    if ans is None:
+        e["unwind"] = "lookup failed"
+        return f"{e['sym']} {e['side']}: order lookup failed, left for the exit"
+    filled = int(float(ans.get("filled") or 0))
+    if filled <= 0:
+        if _done(ans) or e["unwind_cancel"].get("ok"):
             e.update(unwind="cancelled", open_ok=False)
             log(f"[PICK6 #511] UNWIND cancel {e['leg']} {e['sym']}: {why}")
-            return
-    rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="UW")
-    e.update(unwind="closed" if rec.get("ok") else "close refused",
-             exit_ok=bool(rec.get("ok")), exit_reason=rec.get("reason"), exit_rec=rec)
-    log(f"[PICK6 #511] UNWIND close {e['leg']} {e['sym']}: "
+            return None
+        e["unwind"] = "cancel unconfirmed"
+        return f"{e['sym']} {e['side']}: cancel not confirmed, left for the exit"
+    e["close_qty"] = filled
+    rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="UW", qty=filled)
+    if rec.get("ok"):
+        e.update(unwind="closed", exit_ok=True, exit_reason=rec.get("reason"), exit_rec=rec)
+    else:                       # left WITHOUT exit_rec so the exit AND the fallback retry it
+        e.update(unwind="close refused", unwind_rec=rec, unwind_close_reason=rec.get("reason"))
+    log(f"[PICK6 #511] UNWIND close {filled} {e['leg']} {e['sym']}: "
         f"{'ok' if rec.get('ok') else 'REFUSED ' + str(rec.get('reason'))} ({why})")
+    return None if rec.get("ok") else f"{e['sym']} unwind close refused, exit will retry"
 
 
 def _notify(msg, title="PICK6 #511", log=print):
@@ -346,6 +382,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
 
     def finish(result, **extra):
         state["last_day"] = day.isoformat()
+        state.pop("open_basket", None)
         _save_json(p["state"], state)
         rec = {"day": day.isoformat(), "strategy": STRATEGY, "run": RUN, "result": result, **extra}
         _append(p["ledger"], rec)
@@ -378,35 +415,87 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         entries.append(e)
         log(f"[PICK6 #511] OPEN {e['leg']} {e['side']} {e['qty']} {e['sym']}: "
             f"{'ok' if e['open_ok'] else 'REFUSED ' + str(e['open_reason'])}")
-    refused = [e for e in entries if not e["open_ok"]]
     one_sided = None
-    if refused:
-        why = "; ".join(f"{e['sym']} {e['side']}: {str(e['open_reason'])[:80]}" for e in refused)
+    handled = set()
+
+    def guard(when):
+        """Pair rule: one refused entry unwinds its rank pair; >1 refused flattens the basket."""
+        nonlocal one_sided
+        refused = [e for e in entries if not e["open_ok"] and e.get("unwind") != "cancelled"]
+        new = [e for e in refused if e["leg"] not in handled]
+        if not new:
+            return
+        handled.update(e["leg"] for e in new)
+        why = "; ".join(f"{e['sym']} {e['side']}: {str(e['open_reason'])[:80]}" for e in new)
+        live = [e for e in entries if e["open_ok"] and e.get("unwind") not in ("cancelled", "closed")]
         if len(refused) > 1:
-            targets, action = [e for e in entries if e["open_ok"]], "flattened the whole basket"
+            targets, action = live, "flattened the whole basket"
         else:
-            pr = pair_of(refused[0], entries)
-            targets = [pr] if pr is not None and pr["open_ok"] else []
+            pr = pair_of(new[0], entries)
+            targets = [pr] if pr in live else []
             action = (f"unwound its pair {targets[0]['sym']} {targets[0]['side']}" if targets
                       else "no open pair to unwind")
-        for t in targets:
-            unwind(ad, t, day, f"entry refused: {why}", log=log)
-        one_sided = {"refused": [e["leg"] for e in refused], "reason": why, "action": action,
-                     "unwound": [t["leg"] for t in targets]}
-        notify(f"PICK6 #511: entries refused - {why} -> {action}"[:400], log=log)
+        notes = [n for n in (unwind(ad, t, day, f"entry refused: {why}", log=log) for t in targets) if n]
+        one_sided = one_sided or {"refused": [], "reason": "", "action": "", "unwound": []}
+        one_sided["refused"] += [e["leg"] for e in new]
+        one_sided["reason"] = "; ".join(x for x in (one_sided["reason"], why) if x)
+        one_sided["action"] = action
+        one_sided["unwound"] += [t["leg"] for t in targets]
+        one_sided.setdefault("notes", []).extend(notes)
+        one_sided.setdefault("when", []).append(when)
+        notify((f"PICK6 #511: entries refused ({when}) - {why} -> {action}"
+                + (" | " + "; ".join(notes) if notes else ""))[:400], log=log)
 
-    wait(_at(day, cfg.get("exit_at") or "15:57:00"))
-    for e in entries:
+    guard("at entry")
+    wait(_at(day, cfg.get("async_check_at") or "15:31:00"))
+    for e in entries:                                 # ASYNC REJECT: refused after acceptance
         if not e["open_ok"] or e.get("unwind"):
             continue
-        rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="X")
+        ans = lookup_retry(ad, e["open_rec"])
+        if ans and str(ans["status"]) in ("REJECTED", "CANCELLED", "CANCELED", "FAILED") \
+                and not float(ans.get("filled") or 0):
+            e.update(open_ok=False, open_reason=f"async {ans['status']}")
+    guard("15:31 check")
+    _save_basket(p, state, day, entries)
+
+    wait(_at(day, cfg.get("exit_at") or DEFAULTS["exit_at"]))
+    _close_out(ad, entries, day, cfg, wait, notify, log)
+    _save_basket(p, state, day, entries)
+    return _settle(ad, entries, day, cfg, state, wait, notify, finish, sig=sig,
+                   one_sided=one_sided, log=log)
+
+
+def _save_basket(p, state, day, entries):
+    """Persist the open basket so a restart can resume it (cleared when the day finishes)."""
+    state["open_basket"] = {"day": day.isoformat(), "entries": entries}
+    _save_json(p["state"], state)
+
+
+def _close_out(ad, entries, day, cfg, wait, notify, log):
+    """MARKET exit at exit_at, then the MARKET fallback at fallback_at."""
+    for e in entries:
+        if not e["open_ok"] or e.get("unwind") in ("cancelled", "closed") or e.get("exit_rec"):
+            continue
+        if e.get("unwind") in ("lookup failed", "cancel unconfirmed"):
+            ans = lookup_retry(ad, e["open_rec"])     # reconcile: close only what really filled
+            if ans is None:
+                e["reconcile_failed"] = True
+                notify(f"PICK6 #511: {e['sym']} {e['side']} order state unreadable at exit - "
+                       f"NOTHING sent, check the account", log=log)
+                continue
+            q = int(float(ans.get("filled") or 0))
+            if q <= 0:
+                e.update(unwind="cancelled", open_ok=False)
+                continue
+            e["close_qty"] = q
+        rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="X", qty=e.get("close_qty"))
         e.update(exit_ok=bool(rec.get("ok")), exit_reason=rec.get("reason"), exit_rec=rec)
         log(f"[PICK6 #511] EXIT MARKET {e['leg']} {e['sym']}: "
             f"{'ok' if e['exit_ok'] else 'REFUSED ' + str(e['exit_reason'])}")
 
     wait(_at(day, cfg["fallback_at"]))
     for e in entries:
-        if not e["open_ok"]:
+        if not e["open_ok"] or e.get("reconcile_failed") or e.get("fb_rec"):
             continue
         need = not e.get("exit_ok")
         if not need:
@@ -414,20 +503,24 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
             e["exit_check"] = ans
             need = bool(ans) and str(ans["status"]) in ("REJECTED", "CANCELLED", "CANCELED", "FAILED")
         if need:
-            rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="FB")
+            rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="FB", qty=e.get("close_qty"))
             e.update(fb_ok=bool(rec.get("ok")), fb_reason=rec.get("reason"), fb_rec=rec)
             log(f"[PICK6 #511] FALLBACK MARKET {e['leg']} {e['sym']}: "
                 f"{'ok' if e['fb_ok'] else 'REFUSED ' + str(e['fb_reason'])}")
             if not e["fb_ok"]:
-                notify(f"PICK6 #511: {e['sym']} {e['side']} {e['qty']} NOT CLOSED - exit and "
-                       f"15:58 market both failed; position held overnight", log=log)
+                notify(f"PICK6 #511: {e['sym']} {e['side']} {e.get('close_qty') or e['qty']} NOT "
+                       f"CLOSED - exit and fallback market both failed; position held overnight",
+                       log=log)
 
+
+def _settle(ad, entries, day, cfg, state, wait, notify, finish, sig=None, one_sided=None, log=print):
     wait(_at(day, cfg["settle_at"]))
     for e in entries:
         if not e["open_ok"]:
             continue
         o = lookup(ad, e["open_rec"]) or {}
-        x = lookup(ad, e.get("fb_rec") or e["exit_rec"]) or {}
+        xr = e.get("fb_rec") or e.get("exit_rec")
+        x = (lookup(ad, xr) if xr else None) or {}
         e.update(entry_fill=o.get("price"), filled_qty=o.get("filled") or 0,
                  exit_fill=x.get("price"), exit_status=x.get("status"),
                  exit_filled=x.get("filled"))
@@ -442,8 +535,8 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         state["rail_reason"] = f"{day} lost {pnl:.2f} (limit {limit:.0f})"
         notify(f"PICK6 #511: day loss {pnl:.2f} hit the {limit:.0f} rail - no trade {nxt}", log=log)
     slim = [{k: v for k, v in e.items() if not k.endswith("_rec")} for e in entries]
-    return finish("traded", pnl=pnl, entries=slim, signal_asof=sig.get("asof_et"),
-                  panel_date=sig.get("panel_date"), one_sided=one_sided)
+    return finish("traded", pnl=pnl, entries=slim, signal_asof=(sig or {}).get("asof_et"),
+                  panel_date=(sig or {}).get("panel_date"), one_sided=one_sided)
 
 
 # -- Monday probe (MANAGER 11-14 items a + b) ------------------------------------------------
