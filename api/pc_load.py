@@ -30,6 +30,14 @@ SAMPLE_SEC = 0.4
 # Published no more often than this. The top bar is a glance, not a monitor.
 PUBLISH_SEC = 60.0
 
+# QUIET UNLESS SOMETHING MOVED (MANAGER 2026-11-19, after the 11-18 quota night). A write a
+# minute is 1,440 writes a day - about 7 per cent of the free write cap - and every one of
+# them is also a READ for each open tab holding the listener. The numbers barely move while
+# the box sits idle, so a publish now needs a real change, or this much time to have passed.
+IDLE_PUBLISH_SEC = 300.0
+MOVE_PCT = 5.0        # cpu or memory moved at least this many points
+MOVE_RUNNERS = True   # the runner count changed at all
+
 
 def check(sample_sec=SAMPLE_SEC):
     """A small dict: cpu %, memory %, free GB, how many runners are up. Never raises."""
@@ -82,11 +90,42 @@ def _runners():
         return None
 
 
-def publish(db, uid, log=print, sample_sec=SAMPLE_SEC):
-    """Write users/{uid}/meta/pc_load. Returns the report, or None if nothing was written."""
+def moved(rep, last):
+    """Is this reading worth a write yet? True on a real change, on the idle timer, and
+    whenever we cannot tell - a first reading, a reading that failed, a state flip. It never
+    guesses that nothing happened."""
+    if not last or not isinstance(last, dict):
+        return True
+    if bool(rep.get("ok")) != bool(last.get("ok")):
+        return True
+    if not rep.get("ok"):
+        return (rep.get("_at", 0) - last.get("_at", 0)) >= IDLE_PUBLISH_SEC
+    for k in ("cpu_pct", "mem_pct"):
+        try:
+            if abs(float(rep.get(k)) - float(last.get(k))) >= MOVE_PCT:
+                return True
+        except Exception:
+            return True
+    if MOVE_RUNNERS and rep.get("runners") != last.get("runners"):
+        return True
+    return (rep.get("_at", 0) - last.get("_at", 0)) >= IDLE_PUBLISH_SEC
+
+
+def publish(db, uid, log=print, sample_sec=SAMPLE_SEC, last=None):
+    """Write users/{uid}/meta/pc_load. Returns the report, or None if nothing was written.
+
+    `last` is the report this function returned the time before. Pass it and a reading that
+    has not moved is SKIPPED: the chip keeps showing the one already in Firestore, and its
+    own staleness mark only appears after 10 minutes, well past the idle timer. A skipped
+    publish returns None, so a caller must keep the LAST RETURNED report, not the last call."""
     rep = check(sample_sec=sample_sec)
+    rep["_at"] = time.time()
+    if not moved(rep, last):
+        return None
     try:
-        db.collection("users").document(uid).collection("meta").document("pc_load").set(rep)
+        # _at is this module's own bookkeeping for the throttle - it never goes to the page.
+        body = {k: v for k, v in rep.items() if k != "_at"}
+        db.collection("users").document(uid).collection("meta").document("pc_load").set(body)
     except Exception as e:
         log("pc_load: publish failed: %s: %s" % (type(e).__name__, e))
         return None

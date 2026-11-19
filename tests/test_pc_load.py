@@ -124,7 +124,11 @@ def test_publish_writes_one_doc_at_the_path_the_app_listens_on(monkeypatch):
     out = pc_load.publish(db, "UID")
     assert len(db.writes) == 1, "one small doc per publish - this runs forever on a Spark plan"
     assert db.writes[0][0] == "pc_load"
-    assert out == {"ok": True, "cpu_pct": 1.0}
+    assert db.writes[0][1] == {"ok": True, "cpu_pct": 1.0}, "the page sees the reading, nothing else"
+    # Since the 11-19 throttle the RETURNED report also carries _at, the publish clock the
+    # caller hands back as `last` next time. It is bookkeeping and never reaches Firestore.
+    assert {k: v for k, v in out.items() if k != "_at"} == {"ok": True, "cpu_pct": 1.0}
+    assert isinstance(out["_at"], float)
 
 
 def test_a_failed_write_is_swallowed_and_logged(monkeypatch):

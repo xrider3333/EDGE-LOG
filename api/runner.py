@@ -3510,6 +3510,10 @@ def main(argv=None):
         next_sweep = time.time() + ORPHAN_SWEEP_SEC   # periodic orphan sweep (see sweep_orphans)
         next_health = 0.0   # first pass runs immediately, then every HEALTH_SEC
         next_pc_load = 0.0  # board item 12: see api/pc_load.py
+        # The last reading we actually WROTE, per uid. pc_load.publish compares against it
+        # and skips a reading that has not moved, so this must hold the last PUBLISHED
+        # report - not the last one taken - or the throttle would never see a slow drift.
+        pc_load_last = {}
         # The NT bridge watchdog runs on its OWN thread now -- see
         # _bridge_watchdog_thread for why. Nothing in the main loop republishes it.
         if a.firestore and not _IS_WORKER:
@@ -3746,8 +3750,12 @@ def main(argv=None):
                 try:
                     from api import pc_load as _pcl
                     for _uid in (a.allow_uid or []):
-                        if _uid.strip():
-                            _pcl.publish(q.db, _uid.strip(), log=print)
+                        _u = _uid.strip()
+                        if _u:
+                            _done = _pcl.publish(q.db, _u, log=print,
+                                                 last=pc_load_last.get(_u))
+                            if _done:
+                                pc_load_last[_u] = _done
                 except Exception as e:
                     print(f"[pc-load] skipped: {type(e).__name__}: {e}")
                 next_pc_load = time.time() + _PC_LOAD_SEC
