@@ -38,7 +38,7 @@ def _run(tmp_path, ad, monkeypatch, fills=None, notes=None):
     p = ex.paths(str(tmp_path))
     if not os.path.exists(os.path.join(str(tmp_path), "probe.jsonl")):
         with open(os.path.join(str(tmp_path), "probe.jsonl"), "w") as f:
-            f.write(json.dumps({"results": [{"open_ok": 1, "moc_ok": 1}] * 2}) + "\n")
+            f.write(json.dumps({"results": [{"open_ok": 1, "exit_filled": 1}] * 2}) + "\n")
     fills = fills or {}
     monkeypatch.setattr(ex, "lookup", lambda a, rec: fills.get(rec["_sid"], {
         "status": "FILLED", "filled": rec.get("_qty", 0), "price": None}))
@@ -74,27 +74,68 @@ def test_plan_equal_dollars_and_sides(tmp_path):
     assert ex.broker_side("short", "OPEN") == "SHORT" and ex.broker_side("short", "CLOSE") == "BUY"
 
 
-def test_full_day_moc_and_fallback(tmp_path, monkeypatch):
+def test_full_day_market_exit_and_fallback(tmp_path, monkeypatch):
     _sig(str(tmp_path))
-    ad = FakeAd(refuse={("XOM", "MARKET_ON_CLOSE")})
+    ad = FakeAd()
+    orig = ad.place_stock_order
+    ad.place_stock_order = lambda **k: (dict(orig(**k), ok=False, reason="417")
+                                        if k["signal_id"] == "EODREV-20261116-S2-X" else orig(**k))
     rec, notes = _run(tmp_path, ad, monkeypatch)
     types = [(k["symbol"], k["intent"], k["order_type"]) for k in ad.sent]
     assert sum(1 for t in types if t[1] == "OPEN") == 6
-    assert sum(1 for t in types if t[2] == "MARKET_ON_CLOSE") == 6
-    assert ("XOM", "CLOSE", "MARKET") in types and len(types) == 13
-    assert rec["result"] == "traded"
-    sides = {(k["symbol"], k["intent"]): k["side"] for k in ad.sent if k["order_type"] != "MARKET_ON_CLOSE"}
+    assert not any(t[2] == "MARKET_ON_CLOSE" for t in types)
+    assert sum(1 for t in types if t[1] == "CLOSE") == 7      # 6 exits + XOM fallback
+    assert [k["signal_id"] for k in ad.sent].count("EODREV-20261116-S2-FB") == 1
+    assert rec["result"] == "traded" and rec["one_sided"] is None
+    assert ex._at(DAY, ex.DEFAULTS["exit_at"]) == dt.datetime(2026, 11, 16, 15, 57, 0, tzinfo=ET)
+    sides = {(k["symbol"], k["intent"]): k["side"] for k in ad.sent if not k["signal_id"].endswith("-X")}
     assert sides[("JPM", "OPEN")] == "SHORT" and sides[("AAPL", "OPEN")] == "BUY"
     again, _ = _run(tmp_path, FakeAd(), monkeypatch)
     assert again["result"] == "already ran today"
 
 
-def test_dead_moc_gets_fallback(tmp_path, monkeypatch):
+def test_dead_exit_gets_fallback(tmp_path, monkeypatch):
     _sig(str(tmp_path))
     ad = FakeAd()
-    fills = {"EODREV-20261116-L2-MOC": {"status": "CANCELLED", "filled": 0, "price": None}}
+    fills = {"EODREV-20261116-L2-X": {"status": "CANCELLED", "filled": 0, "price": None}}
     _run(tmp_path, ad, monkeypatch, fills=fills)
-    assert ("MSFT", "MARKET") in [(k["symbol"], k["order_type"]) for k in ad.sent if k["intent"] == "CLOSE"]
+    assert "EODREV-20261116-L2-FB" in [k["signal_id"] for k in ad.sent]
+
+
+def test_refused_short_unwinds_its_long_pair(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = FakeAd(refuse={("XOM", "MARKET")})          # S2 short refused
+    fills = {"EODREV-20261116-L2-O": {"status": "FILLED", "filled": 8, "price": 410.0},
+             "EODREV-20261116-L2-UW": {"status": "FILLED", "filled": 8, "price": 409.0}}
+    rec, notes = _run(tmp_path, ad, monkeypatch, fills=fills)
+    sids = [k["signal_id"] for k in ad.sent]
+    assert "EODREV-20261116-L2-UW" in sids and "EODREV-20261116-L2-X" not in sids
+    assert not any(s.startswith("EODREV-20261116-S2-") and not s.endswith("-O") for s in sids)
+    assert sum(1 for s in sids if s.endswith("-X")) == 4
+    assert rec["one_sided"]["unwound"] == ["EODREV_L2"] and "XOM" in rec["one_sided"]["reason"]
+    assert len(notes) == 1 and "MSFT" in notes[0]
+
+
+def test_refused_short_cancels_unfilled_pair(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = FakeAd(refuse={("JPM", "MARKET")})
+    ad.cancelled = []
+    ad.cancel_order = lambda sid: ad.cancelled.append(sid) or {"ok": True}
+    fills = {"EODREV-20261116-L1-O": {"status": "SUBMITTED", "filled": 0, "price": None}}
+    rec, _ = _run(tmp_path, ad, monkeypatch, fills=fills)
+    assert ad.cancelled == ["EODREV-20261116-L1-O"]
+    assert not any(k["signal_id"].startswith("EODREV-20261116-L1-") and k["intent"] == "CLOSE" for k in ad.sent)
+    leg = next(e for e in rec["entries"] if e["leg"] == "EODREV_L1")
+    assert leg["unwind"] == "cancelled"
+
+
+def test_two_refused_flattens_basket(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = FakeAd(refuse={("JPM", "MARKET"), ("LLY", "MARKET")})
+    rec, notes = _run(tmp_path, ad, monkeypatch, fills={})
+    sids = [k["signal_id"] for k in ad.sent]
+    assert sum(1 for s in sids if s.endswith("-UW")) == 4 and not any(s.endswith("-X") for s in sids)
+    assert rec["one_sided"]["action"] == "flattened the whole basket" and len(notes) == 1
 
 
 def test_missing_file_alerts_skip_does_not(tmp_path, monkeypatch):
@@ -112,11 +153,11 @@ def test_loss_rail_blocks_next_session(tmp_path, monkeypatch):
     for i, (sym, px) in enumerate((("AAPL", 230.0), ("MSFT", 410.0), ("NVDA", 140.0)), 1):
         q = int((10000 / 3) // px)
         fills[f"EODREV-20261116-L{i}-O"] = {"status": "FILLED", "filled": q, "price": px}
-        fills[f"EODREV-20261116-L{i}-MOC"] = {"status": "FILLED", "filled": q, "price": px * 0.95}
+        fills[f"EODREV-20261116-L{i}-X"] = {"status": "FILLED", "filled": q, "price": px * 0.95}
     for i, (sym, px) in enumerate((("JPM", 250.0), ("XOM", 115.0), ("LLY", 800.0)), 1):
         q = int((10000 / 3) // px)
         fills[f"EODREV-20261116-S{i}-O"] = {"status": "FILLED", "filled": q, "price": px}
-        fills[f"EODREV-20261116-S{i}-MOC"] = {"status": "FILLED", "filled": q, "price": px}
+        fills[f"EODREV-20261116-S{i}-X"] = {"status": "FILLED", "filled": q, "price": px}
     rec, notes = _run(tmp_path, FakeAd(), monkeypatch, fills=fills)
     assert rec["pnl"] < -400
     st = json.load(open(os.path.join(str(tmp_path), "exec_state.json")))
@@ -145,11 +186,26 @@ def test_other_book_symbols_skip_in_paper_reconcile(tmp_path):
 def test_no_basket_until_probe_passed(tmp_path):
     _sig(str(tmp_path))
     with open(os.path.join(str(tmp_path), "probe.jsonl"), "w") as f:
-        f.write(json.dumps({"results": [{"open_ok": True, "moc_ok": False}, {"open_ok": True, "moc_ok": True}]}) + "\n")
+        f.write(json.dumps({"results": [{"open_ok": True, "moc_ok": True}] * 2}) + "\n")     # old MOC record no longer counts
+        f.write(json.dumps({"results": [{"open_ok": True, "exit_filled": 0}, {"open_ok": True, "exit_filled": 1}]}) + "\n")
     ad, notes = FakeAd(), []
     rec = ex.run_day(ex.paths(str(tmp_path)), now_fn=lambda: dt.datetime(2026, 11, 16, 15, 27, tzinfo=ET),
                      adapter=ad, log=lambda *a: None, notify=lambda m, **k: notes.append(m), sleep=False)
     assert rec["why"] == "probe not passed" and not ad.sent and notes
     with open(os.path.join(str(tmp_path), "probe.jsonl"), "a") as f:
-        f.write(json.dumps({"results": [{"open_ok": True, "moc_ok": True}] * 2}) + "\n")
+        f.write(json.dumps({"results": [{"open_ok": True, "exit_filled": 1}] * 2}) + "\n")
     assert ex.probe_ok(ex.paths(str(tmp_path)))
+
+
+def test_probe_uses_market_exit_and_needs_fill(tmp_path, monkeypatch):
+    ad, notes = FakeAd(), []
+    monkeypatch.setattr(ex, "lookup", lambda a, rec: {"status": "FILLED", "filled": 1, "price": 1.0})
+    ex.run_probe("AAPL", ex.paths(str(tmp_path)), adapter=ad, log=lambda *a: None,
+                 notify=lambda m, **k: notes.append(m), wait_s=0)
+    assert [k["order_type"] for k in ad.sent] == ["MARKET"] * 4
+    assert ex.probe_ok(ex.paths(str(tmp_path))) and "PASSED" in notes[0]
+    monkeypatch.setattr(ex, "lookup", lambda a, rec: {"status": "SUBMITTED", "filled": 0, "price": None})
+    tmp2 = tmp_path / "b"
+    ex.run_probe("AAPL", ex.paths(str(tmp2)), adapter=FakeAd(), log=lambda *a: None,
+                 notify=lambda m, **k: notes.append(m), wait_s=0, wait_tries=2)
+    assert not ex.probe_ok(ex.paths(str(tmp2))) and "FAILED" in notes[-1]

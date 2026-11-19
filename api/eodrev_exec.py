@@ -12,9 +12,13 @@ ONE DAY (python -m api.eodrev_exec run, started by a systemd timer at 15:27 ET M
          missing / wrong date / malformed = no trade + phone alert; SKIP = no trade, no alert.
   15:30  6 MARKET entries: top k long (BUY), bottom k short (SHORT), equal dollars,
          usd_per_side / k per name, whole shares, sized from the file's 15:20 px.
-  15:44  MARKET_ON_CLOSE exits for every entry that was accepted (inside the 15:50 cutoff).
-  15:58  FALLBACK: any MOC that was refused, or that Webull's own record shows dead
-         (REJECTED/CANCELLED/FAILED), is closed with a plain MARKET order.
+         ONE-SIDED GUARD: a refused entry closes (or cancels, if unfilled) its rank pair
+         (L_i <-> S_i); more than one refused = flatten the whole basket. One alert, reason
+         in the ledger.
+  15:57:00  MARKET exits for every entry still open (exit_at; Webull OpenAPI refuses MOC /
+         AT_AUCTION for US equity with HTTP 417, so the exit is a plain MARKET order).
+  15:58  FALLBACK: any exit that was refused, or that Webull's own record shows dead
+         (REJECTED/CANCELLED/FAILED), is retried with a second MARKET order.
   16:05  read the fills, write the day's P&L to the ledger. DAILY LOSS RAIL: a day losing
          more than daily_loss_limit_usd blocks the NEXT session (the rail clears after it).
 A kill file (<EODREV_DIR>/KILL) stops new entries; exits always go out.
@@ -45,12 +49,12 @@ DEFAULTS = {
     "daily_loss_limit_usd": 400.0,
     "gate_at": "15:29",
     "enter_at": "15:30",
-    "moc_at": "15:44",
+    "exit_at": "15:57:00",         # MARKET exit (MOC is refused by Webull OpenAPI, HTTP 417)
     "fallback_at": "15:58",
     "settle_at": "16:05",
     "max_px_drift": 0.05,          # skip a name whose file px is >5% off the ledger sanity band
     "min_price": 60.0,
-    "require_probe_ok": True,      # no basket until a probe has passed (MOC + short accepted)
+    "require_probe_ok": True,      # no basket until a probe has passed (1-share MARKET exit filled)
 }
 
 
@@ -59,8 +63,9 @@ def _et_now():
 
 
 def _at(day, hhmm):
-    h, m = (int(x) for x in hhmm.split(":"))
-    return _dt.datetime(day.year, day.month, day.day, h, m, tzinfo=ZoneInfo(TZ))
+    parts = [int(x) for x in str(hhmm).split(":")] + [0]
+    return _dt.datetime(day.year, day.month, day.day, parts[0], parts[1], parts[2],
+                        tzinfo=ZoneInfo(TZ))
 
 
 def paths(base=None):
@@ -198,13 +203,21 @@ def day_pnl(entries):
     return tot
 
 
+def _probe_side_ok(x):
+    try:
+        return bool(x.get("open_ok")) and float(x.get("exit_filled") or 0) >= 1
+    except (TypeError, ValueError):
+        return False
+
+
 def probe_ok(p):
-    """True once any probe run recorded both sides accepted: the entry AND its MOC."""
+    """True once any probe run recorded, on both sides, the entry accepted AND a 1-share MARKET
+    exit FILLED. (Old MOC-acceptance records no longer count: Webull refuses MOC, HTTP 417.)"""
     try:
         with open(os.path.join(p["dir"], "probe.jsonl"), encoding="utf-8") as f:
             for line in f:
                 r = json.loads(line).get("results") or []
-                if len(r) == 2 and all(x.get("open_ok") and x.get("moc_ok") for x in r):
+                if len(r) == 2 and all(_probe_side_ok(x) for x in r):
                     return True
     except (FileNotFoundError, ValueError):
         pass
@@ -271,6 +284,34 @@ def lookup(ad, rec):
     return {"status": st, "filled": filled, "price": (notional / filled) if filled else None}
 
 
+def pair_of(e, entries):
+    """The basket's own pairing: long rank i <-> short rank i (EODREV_L2 <-> EODREV_S2)."""
+    tag = e["leg"].split("_")[-1]
+    want = f"{LEG_PREFIX}_{'S' if tag[0] == 'L' else 'L'}{tag[1:]}"
+    return next((x for x in entries if x["leg"] == want), None)
+
+
+def unwind(ad, e, day, why, log=print):
+    """Take an accepted entry back out: cancel it if nothing filled, else MARKET-close it."""
+    ans = lookup(ad, e["open_rec"])
+    filled = float((ans or {}).get("filled") or 0)
+    e["unwind_reason"] = why
+    if ans is not None and filled == 0 and str(ans.get("status")) != "FILLED":
+        try:
+            c = ad.cancel_order(e["open_rec"].get("client_order_id") or e["open_sid"]) or {}
+        except Exception as ex:
+            c = {"ok": False, "reason": f"{type(ex).__name__}: {ex}"}
+        if c.get("ok"):
+            e.update(unwind="cancelled", open_ok=False)
+            log(f"[PICK6 #511] UNWIND cancel {e['leg']} {e['sym']}: {why}")
+            return
+    rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="UW")
+    e.update(unwind="closed" if rec.get("ok") else "close refused",
+             exit_ok=bool(rec.get("ok")), exit_reason=rec.get("reason"), exit_rec=rec)
+    log(f"[PICK6 #511] UNWIND close {e['leg']} {e['sym']}: "
+        f"{'ok' if rec.get('ok') else 'REFUSED ' + str(rec.get('reason'))} ({why})")
+
+
 def _notify(msg, title="PICK6 #511", log=print):
     try:
         from api import ntfy_push
@@ -314,7 +355,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
     if rail_blocks(state, day):
         return finish("blocked by daily loss rail", rail=state.get("rail_reason"))
     if cfg.get("require_probe_ok", True) and not probe_ok(p):
-        notify("PICK6 #511: no trade today - the MOC/short probe has not passed", log=log)
+        notify("PICK6 #511: no trade today - the 1-share MARKET exit probe has not passed", log=log)
         return finish("no trade", why="probe not passed")
     wait(_at(day, cfg["gate_at"]))
     sig, why = read_signal(day, cfg, p["dir"])
@@ -338,27 +379,39 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         log(f"[PICK6 #511] OPEN {e['leg']} {e['side']} {e['qty']} {e['sym']}: "
             f"{'ok' if e['open_ok'] else 'REFUSED ' + str(e['open_reason'])}")
     refused = [e for e in entries if not e["open_ok"]]
+    one_sided = None
     if refused:
-        notify("PICK6 #511: entries refused - " + "; ".join(
-            f"{e['sym']} {e['side']}: {str(e['open_reason'])[:80]}" for e in refused), log=log)
+        why = "; ".join(f"{e['sym']} {e['side']}: {str(e['open_reason'])[:80]}" for e in refused)
+        if len(refused) > 1:
+            targets, action = [e for e in entries if e["open_ok"]], "flattened the whole basket"
+        else:
+            pr = pair_of(refused[0], entries)
+            targets = [pr] if pr is not None and pr["open_ok"] else []
+            action = (f"unwound its pair {targets[0]['sym']} {targets[0]['side']}" if targets
+                      else "no open pair to unwind")
+        for t in targets:
+            unwind(ad, t, day, f"entry refused: {why}", log=log)
+        one_sided = {"refused": [e["leg"] for e in refused], "reason": why, "action": action,
+                     "unwound": [t["leg"] for t in targets]}
+        notify(f"PICK6 #511: entries refused - {why} -> {action}"[:400], log=log)
 
-    wait(_at(day, cfg["moc_at"]))
+    wait(_at(day, cfg.get("exit_at") or "15:57:00"))
     for e in entries:
-        if not e["open_ok"]:
+        if not e["open_ok"] or e.get("unwind"):
             continue
-        rec = send(ad, e, "CLOSE", day, order_type="MARKET_ON_CLOSE", what="MOC")
-        e.update(moc_ok=bool(rec.get("ok")), moc_reason=rec.get("reason"), moc_rec=rec)
-        log(f"[PICK6 #511] MOC {e['leg']} {e['sym']}: "
-            f"{'ok' if e['moc_ok'] else 'REFUSED ' + str(e['moc_reason'])}")
+        rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="X")
+        e.update(exit_ok=bool(rec.get("ok")), exit_reason=rec.get("reason"), exit_rec=rec)
+        log(f"[PICK6 #511] EXIT MARKET {e['leg']} {e['sym']}: "
+            f"{'ok' if e['exit_ok'] else 'REFUSED ' + str(e['exit_reason'])}")
 
     wait(_at(day, cfg["fallback_at"]))
     for e in entries:
         if not e["open_ok"]:
             continue
-        need = not e.get("moc_ok")
+        need = not e.get("exit_ok")
         if not need:
-            ans = lookup(ad, e["moc_rec"])
-            e["moc_check"] = ans
+            ans = lookup(ad, e["exit_rec"])
+            e["exit_check"] = ans
             need = bool(ans) and str(ans["status"]) in ("REJECTED", "CANCELLED", "CANCELED", "FAILED")
         if need:
             rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="FB")
@@ -366,7 +419,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
             log(f"[PICK6 #511] FALLBACK MARKET {e['leg']} {e['sym']}: "
                 f"{'ok' if e['fb_ok'] else 'REFUSED ' + str(e['fb_reason'])}")
             if not e["fb_ok"]:
-                notify(f"PICK6 #511: {e['sym']} {e['side']} {e['qty']} NOT CLOSED - MOC and "
+                notify(f"PICK6 #511: {e['sym']} {e['side']} {e['qty']} NOT CLOSED - exit and "
                        f"15:58 market both failed; position held overnight", log=log)
 
     wait(_at(day, cfg["settle_at"]))
@@ -374,7 +427,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         if not e["open_ok"]:
             continue
         o = lookup(ad, e["open_rec"]) or {}
-        x = lookup(ad, e.get("fb_rec") or e["moc_rec"]) or {}
+        x = lookup(ad, e.get("fb_rec") or e["exit_rec"]) or {}
         e.update(entry_fill=o.get("price"), filled_qty=o.get("filled") or 0,
                  exit_fill=x.get("price"), exit_status=x.get("status"),
                  exit_filled=x.get("filled"))
@@ -390,13 +443,13 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         notify(f"PICK6 #511: day loss {pnl:.2f} hit the {limit:.0f} rail - no trade {nxt}", log=log)
     slim = [{k: v for k, v in e.items() if not k.endswith("_rec")} for e in entries]
     return finish("traded", pnl=pnl, entries=slim, signal_asof=sig.get("asof_et"),
-                  panel_date=sig.get("panel_date"))
+                  panel_date=sig.get("panel_date"), one_sided=one_sided)
 
 
 # -- Monday probe (MANAGER 11-14 items a + b) ------------------------------------------------
-def run_probe(sym="AAPL", p=None, adapter=None, log=print):
-    """1 share BUY + MOC SELL, and 1 share SHORT + MOC BUY on `sym`, PAPER only. Run at ~15:40
-    ET. Prints what Webull answered to each; the MOC cutoff shows as a refusal reason if hit."""
+def run_probe(sym="AAPL", p=None, adapter=None, log=print, notify=None, wait_s=2.0, wait_tries=15):
+    """1 share BUY + MARKET SELL, and 1 share SHORT + MARKET BUY on `sym`, PAPER only, in RTH.
+    Passes only when both 1-share MARKET exits show FILLED on Webull's own record."""
     p = p or paths()
     os.makedirs(p["dir"], exist_ok=True)
     ad = adapter or make_adapter(p, log=log)
@@ -406,20 +459,25 @@ def run_probe(sym="AAPL", p=None, adapter=None, log=print):
         e = {"leg": f"{LEG_PREFIX}_P{'L' if side == 'long' else 'S'}", "sym": sym.upper(),
              "side": side, "qty": 1}
         o = send(ad, e, "OPEN", day, what="PO")
-        m = send(ad, e, "CLOSE", day, order_type="MARKET_ON_CLOSE", what="PM") if o.get("ok") else None
+        m = send(ad, e, "CLOSE", day, order_type="MARKET", what="PX") if o.get("ok") else None
+        ans = None
+        if m is not None and m.get("ok"):
+            for _ in range(int(wait_tries)):
+                ans = lookup(ad, m)
+                if ans and float(ans.get("filled") or 0) >= 1:
+                    break
+                time.sleep(wait_s)
         r = {"side": side, "open_ok": o.get("ok"), "open_reason": o.get("reason"),
-             "moc_ok": (m or {}).get("ok"), "moc_reason": (m or {}).get("reason"),
+             "exit_ok": (m or {}).get("ok"), "exit_reason": (m or {}).get("reason"),
+             "exit_status": (ans or {}).get("status"), "exit_filled": (ans or {}).get("filled") or 0,
              "et": _et_now().strftime("%H:%M:%S")}
-        if m is not None and not m.get("ok"):
-            f = send(ad, e, "CLOSE", day, order_type="MARKET", what="PF")
-            r.update(fb_ok=f.get("ok"), fb_reason=f.get("reason"))
         out.append(r)
         log(f"[PICK6 #511 probe] {json.dumps(r, default=str)}")
     _append(os.path.join(p["dir"], "probe.jsonl"), {"day": str(day), "results": out})
-    good = len(out) == 2 and all(x.get("open_ok") and x.get("moc_ok") for x in out)
-    _notify(("PICK6 #511 probe PASSED: " if good else "PICK6 #511 probe FAILED: ") + "; ".join(
+    good = len(out) == 2 and all(_probe_side_ok(x) for x in out)
+    (notify or _notify)(("PICK6 #511 probe PASSED: " if good else "PICK6 #511 probe FAILED: ") + "; ".join(
         f"{x['side']} open {'ok' if x.get('open_ok') else x.get('open_reason')}, "
-        f"MOC {'ok' if x.get('moc_ok') else x.get('moc_reason')}" for x in out)[:400], log=log)
+        f"exit {('filled ' + str(x.get('exit_filled'))) if _probe_side_ok(x) else (x.get('exit_reason') or x.get('exit_status'))}" for x in out)[:400], log=log)
     return out
 
 
