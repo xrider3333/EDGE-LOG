@@ -62,7 +62,7 @@ def test_greyed_and_gated_legs_cannot_be_paper():
         assert not bt.allowed(leg, "PAPER"), leg
         ok, _, why = bt.validate({"legs": {leg: "PAPER"}})
         assert not ok and "not allowed" in why
-    for leg in ("OPUS55a", "OPUS107a", "TTIBS300", "OPUS58c"):
+    for leg in ("OPUS55a", "OPUS107a", "TTIBS300", "OPUS58c", "TTMx3"):
         assert not bt.allowed(leg, "SHADOW")
     assert bt.allowed("PICK6", "PAPER", gates={"pick6": True})
     assert bt.allowed("ORB314", "PAPER") and bt.allowed("NOISE382", "PAPER")
@@ -162,3 +162,22 @@ def test_qqq_exec_hook_reads_once_and_never_when_open(tmp_path, monkeypatch):
     assert qe._books_toggle_step(DB(), "u", {"legs": {}}, log=lambda *a: None, now=2.0) == "applied"
     assert qe._books_toggle_step(DB(), "u", {"legs": {}}, log=lambda *a: None, now=3.0) == "throttled"
     assert reads.count(1) == 1 and ("set", "books_toggle_applied") in reads
+
+
+def test_absent_doc_or_first_boot_leaves_legs_off_identical(tmp_path):
+    from api import qqq_exec as qe
+    cfgp = tmp_path / "config.json"
+    cfgp.write_text(json.dumps({"legs_off": ["ORB"]}))
+    before = qe.load_config(path=str(cfgp), log=lambda *a: None)["shares"]
+    assert _step(tmp_path, None) == "no doc"                       # no books_toggle doc
+    assert _step(tmp_path, {"legs": {}}, mem={}) == "applied"       # doc with every leg missing
+    assert bt.load_applied(str(tmp_path))["legs_off"] == []
+    after = qe.load_config(path=str(cfgp), log=lambda *a: None)["shares"]
+    assert after == before and after["ORB"] == 0 and after["NOISE"] > 0
+
+
+def test_shadow_on_exec_leg_means_no_orders(tmp_path):
+    assert _step(tmp_path, dict(GOOD, legs={"ORB314": "SHADOW"}, ts="x2")) == "applied"
+    rec = bt.load_applied(str(tmp_path))
+    assert rec["legs_off"] == ["ORB"]
+    assert rec["effects"]["ORB314"] == "SHADOW: no orders, signal on the shadow board"

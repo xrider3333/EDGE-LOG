@@ -7117,12 +7117,12 @@ const BOOKS_LEG_CLASS={
   NOISE304:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs NOISE #382, not #304'},
   NOISE398:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs NOISE #382, not #398'},
   NOISE406:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs NOISE #382, not #406'},
-  ENGUQ335:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ENGU-Q #335 as a no-order tracker (owner 10-09)'},
+  ENGUQ335:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'order path flattens at close, the leg holds overnight; QQQ settings not tuned'},
   ENGUQ407:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ENGU-Q #335, not #407'},
   PICK6:{cls:'gated',max:'PAPER',exec_leg:null,reason:'gated: PICK6 probe + restart hook must-fix',gate:'pick6'},
   OPUS86a:{cls:'gated',max:'PAPER',exec_leg:null,reason:'gated: PICK6 probe + restart hook must-fix',gate:'pick6'},
   GLDNIGHT:{cls:'shadow_only',max:'SHADOW',exec_leg:null,reason:'no GLD executor - owner: skip'},
-  TTMx3:{cls:'grey',max:'SHADOW',exec_leg:null,reason:'ES futures - Webull trades stocks only'},
+  TTMx3:{cls:'grey',max:'OFF',exec_leg:null,reason:'ES futures, paper runs on NinjaTrader, not Webull'},
   OPUS55a:{cls:'grey',max:'OFF',exec_leg:null,reason:'NQ futures - no QQQ executor for this strategy'},
   OPUS107a:{cls:'grey',max:'OFF',exec_leg:null,reason:'NQ futures - no QQQ executor for this strategy'},
   TTIBS300:{cls:'grey',max:'OFF',exec_leg:null,reason:'NQ futures - no QQQ executor for this strategy'},
@@ -7131,7 +7131,13 @@ const BOOKS_LEG_CLASS={
 const BOOKS_STATES=['OFF','SHADOW','PAPER'];
 function booksMaxState(id){const c=BOOKS_LEG_CLASS[id];if(!c)return 'OFF';if(c.cls==='gated'&&!BOOKS_GATES[c.gate])return 'SHADOW';return c.max;}
 function booksAllowed(id,st){const r=BOOKS_STATES.indexOf(st);return r>=0&&r<=BOOKS_STATES.indexOf(booksMaxState(id));}
-function booksLegState(id){const t=window._booksToggle,l=t&&t.legs;return (l&&BOOKS_STATES.indexOf(l[id])>=0)?l[id]:'OFF';}
+// no doc / a missing leg = no change on the box (MANAGER 11-19): the row shows what the box runs today - ORB / NOISE PAPER unless their
+// shares are 0 (config legs_off), the box's own no-order shadow legs SHADOW, everything else OFF
+const BOOKS_BOX_SHADOW={NOISE422:1,ENGUQ335:1};
+function booksBoxState(id,QE){const c=BOOKS_LEG_CLASS[id];if(c&&c.exec_leg){const sh=QE&&QE.rails&&QE.rails.shares;return (sh&&sh[c.exec_leg]!=null&&+sh[c.exec_leg]===0)?'OFF':'PAPER';}
+  return BOOKS_BOX_SHADOW[id]?'SHADOW':'OFF';}
+function booksLegState(id,QE){const t=window._booksToggle,l=t&&t.legs;return (l&&BOOKS_STATES.indexOf(l[id])>=0)?l[id]:booksBoxState(id,QE);}
+function booksEffect(id,st){const c=BOOKS_LEG_CLASS[id];if(!c||!c.exec_leg)return '';return st==='SHADOW'?'SHADOW: no orders, signal on the shadow board':st==='OFF'?'OFF: no orders':'';}
 function booksEchoLine(id){
   const t=window._booksToggle,a=window._booksApplied;if(!t||!t.legs||!(id in t.legs))return '';
   const ok=a&&a.legs&&a.legs[id]===t.legs[id]&&a.src_ts===t.ts;
@@ -7147,13 +7153,14 @@ function booksCardHtml(QE){
   const keys=['463','20','20_provisional','25','25_provisional','30','30_provisional','35','35_cons','35_cons_provisional','40','50'];
   Object.keys(B.books).forEach(k=>{if(keys.indexOf(k)<0)keys.push(k);});
   let h='<div class="bk-wrap">'+(B.basis?'<div class="bk-basis">'+esc(B.basis)+'</div>':'');
+  const inBooks={};keys.forEach(k=>{const b=B.books[k];(b&&Array.isArray(b.legs)?b.legs:[]).forEach(l=>{const i=String(l.id||'');(inBooks[i]=inBooks[i]||[]).push(String(b.row||k));});});
   keys.forEach(k=>{const b=B.books[k];if(!b)return;
     const legs=Array.isArray(b.legs)?b.legs:[];
     h+='<div class="bk-book" data-bkbook="'+esc(k)+'"><div class="bk-head"><b>'+esc(b.row||k)+'</b>'
       +'<span class="bk-fig">$'+Math.round(+b.usd_per_year||0).toLocaleString('en-US')+'/yr &middot; max DD '+esc(b.max_dd_pct)+'%'+(b.provisional?' &middot; provisional':'')+'</span>'
       +'<button type="button" class="bk-all" data-bkall="'+esc(k)+'" title="Set every leg of this book that allows it to SHADOW">all shadow</button></div>';
     legs.forEach(l=>{const id=String(l.id||''),c=BOOKS_LEG_CLASS[id]||{cls:'grey',max:'OFF',reason:'not classified yet'};
-      const cur=booksLegState(id),grey=c.cls==='grey';
+      const cur=booksLegState(id,QE),grey=c.cls==='grey',others=(inBooks[id]||[]).filter(x=>x!==String(b.row||k));
       const size=(c.exec_leg&&sh[c.exec_leg]!=null)?(sh[c.exec_leg]+' sh (paper now)'):String(l.size||'');
       const chip=c.cls==='paper'?'PAPER-able':c.cls==='gated'?'gated':c.cls==='shadow_only'?'shadow only':c.cls==='grey'?'no executor':'shadow max';
       h+='<div class="bk-leg'+(grey?' bk-grey':'')+'" data-bkleg="'+esc(id)+'"><div class="bk-l1"><span class="bk-name">'+esc(l.name||id)+'</span>'
@@ -7161,7 +7168,7 @@ function booksCardHtml(QE){
         +'<span class="bk-inst">'+esc(l.instrument)+' &middot; '+esc(size)+'</span><span class="bk-chip" title="'+esc(l.status||'')+'">'+chip+'</span>'
         +'<span class="bk-tog" role="group">'+BOOKS_STATES.map(s=>{const ok=booksAllowed(id,s);
           return '<button type="button" class="bk-t'+(s===cur?' on':'')+'"'+(ok?'':' disabled')+' data-bkset="'+s+'" data-bkid="'+esc(id)+'">'+s+'</button>';}).join('')+'</span></div>'
-        +'<div class="bk-l2">'+esc(c.reason)+' '+booksEchoLine(id)+'</div></div>';});
+        +'<div class="bk-l2">'+esc(c.reason)+(booksEffect(id,cur)?' &middot; '+booksEffect(id,cur):'')+(others.length?' &middot; same switch in books '+esc(others.join(', ')):'')+' '+booksEchoLine(id)+'</div></div>';});
     h+='</div>';});
   return h+'</div>';
 }

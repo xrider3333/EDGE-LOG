@@ -19,10 +19,9 @@ Box side (api/qqq_exec.py calls books_toggle_step):
   * an unreadable / invalid doc changes NOTHING;
   * the only switch it drives is config.json's existing per-leg "legs_off" (applied through
     load_config from the local books_toggle_applied.json; config.json itself is never written).
-    OFF on a box exec leg = in legs_off; SHADOW / PAPER on that leg = not added. There is no
-    per-leg "shadow only" switch on the box (mode is SHADOW for the book, the broker mirror is one
-    account-wide switch), so SHADOW on a live exec leg is RECORD-ONLY: the leg keeps its current
-    behaviour. Every leg without a box switch is record-only.
+    OFF or SHADOW on a box exec leg = in legs_off (no orders; MANAGER 11-19: the two differ only
+    in the label / record -- the signal still shows on the shadow board); PAPER = not added.
+    A leg missing from the doc changes nothing. Every leg without a box switch is record-only.
   * a toggle can only ever ADD a leg to legs_off; it never removes one config.json lists.
 No decision or order-path logic lives here.
 """
@@ -59,12 +58,12 @@ BOOK_LEG_CLASS = {
     "NOISE304": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #304", "gate": None, "feed": None},
     "NOISE398": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #398", "gate": None, "feed": None},
     "NOISE406": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #406", "gate": None, "feed": None},
-    "ENGUQ335": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ENGU-Q #335 as a no-order tracker (owner 10-09)", "gate": None, "feed": "cloud_signal ENGUQ_335"},
+    "ENGUQ335": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "order path flattens at close, the leg holds overnight; QQQ settings not tuned", "gate": None, "feed": "cloud_signal ENGUQ_335"},
     "ENGUQ407": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ENGU-Q #335, not #407", "gate": None, "feed": None},
     "PICK6":    {"cls": "gated", "max": "PAPER", "exec_leg": None, "reason": "gated: PICK6 probe + restart hook must-fix", "gate": "pick6", "feed": None},
     "OPUS86a":  {"cls": "gated", "max": "PAPER", "exec_leg": None, "reason": "gated: PICK6 probe + restart hook must-fix", "gate": "pick6", "feed": None},
     "GLDNIGHT": {"cls": "shadow_only", "max": "SHADOW", "exec_leg": None, "reason": "no GLD executor - owner: skip", "gate": None, "feed": None},
-    "TTMx3":    {"cls": "grey", "max": "SHADOW", "exec_leg": None, "reason": "ES futures - Webull trades stocks only", "gate": None, "feed": "api/paper.py TTM_299_SSOF2 (NT paper, PC)"},
+    "TTMx3":    {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": "ES futures, paper runs on NinjaTrader, not Webull", "gate": None, "feed": None},
     "OPUS55a":  {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
     "OPUS107a": {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
     "TTIBS300": {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
@@ -122,7 +121,8 @@ def effects(legs):
         elif ex and s == "PAPER":
             eff[k] = f"{ex} on"
         elif ex:
-            eff[k] = f"record only: {ex} keeps its current behaviour (no per-leg shadow switch)"
+            eff[k] = "SHADOW: no orders, signal on the shadow board"
+            off.append(ex)
         else:
             eff[k] = "record only (no box switch)"
     return eff, sorted(set(off))
