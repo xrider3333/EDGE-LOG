@@ -119,7 +119,7 @@ def decide(stranded, managed, state, now, price=None, price_age=None, now_mst=No
         what = f"{str(p.get('side')).lower()} {p.get('qty')} {root_of(p.get('instrument'))} @ {p.get('avg_price')}"
         if age >= STRANDED_SEC and not rec["pushed"]:
             rec["pushed"] = True
-            acts.append(("push", f"NT demo 7240108: STRANDED {what}",
+            acts.append(("push", f"NT paper {DEMO}: STRANDED {what}",
                          f"No running strategy manages this trade ({p.get('leg') or 'no leg'} is not running it) "
                          f"for {int(age)} s. The guard closes it if it moves {PROTECT_PTS:g} pts against the entry "
                          f"or at 13:55 MST."))
@@ -135,7 +135,7 @@ def decide(stranded, managed, state, now, price=None, price_age=None, now_mst=No
             k = "blocked|" + reason[:20]
             if not (state.get(k) or {}).get("pushed"):
                 seen[k] = {"first": now, "pushed": True}
-                acts.append(("push", "NT demo 7240108: STRANDED - cannot close",
+                acts.append(("push", f"NT paper {DEMO}: STRANDED - cannot close",
                              f"{reason}, but another leg's strategy holds a position and the bridge can only "
                              f"flatten the whole account. Close the stranded trade by hand."))
             else:
@@ -159,6 +159,47 @@ def decide(stranded, managed, state, now, price=None, price_age=None, now_mst=No
                     seen[key_of(p)]["flat_tries"] = int(seen[key_of(p)].get("flat_tries", 0)) + 1
                 acts.append(("flatten", reason))
     return acts, seen
+
+
+# NO-TICK ALERT (11-19): every NT price stopped at 12:58:20 MST after a Simulation reconnect storm
+# while each connection still said "Connected"; a short sat 70 min with no fills possible. The capture
+# files are NT's own ticks, so their age IS "is data flowing" - no status line needed.
+TICK_FILES = {"NQ": PRICE_CSV, "MNQ": PRICE_CSV,
+              "ES": os.environ.get("EDGELOG_ES_10S", r"C:\EdgeLog\ohlc\ES_10s.csv")}
+TICK_FILES["MES"] = TICK_FILES["ES"]
+NO_TICK_SEC = 300
+
+
+def in_futures_hours(now_mst):
+    """CME index futures: Sun 16:00 -> Fri 15:00 MST, daily pause 15:00-16:00 MST."""
+    wd, hm = now_mst.weekday(), (now_mst.hour, now_mst.minute)
+    if wd == 5 or (wd == 6 and hm < (16, 0)) or (wd == 4 and hm >= (15, 0)):
+        return False
+    return not ((15, 0) <= hm < (16, 0))
+
+
+def no_tick_alert(positions, ages, state, now, now_mst):
+    """Pure: -> (push or None, state entries). ages = {root: age_sec or None}. One push per stale
+    instrument per outage; only with a position open, only inside trading hours."""
+    if not positions or not in_futures_hours(now_mst):
+        return None, {}
+    keep, stale = {}, []
+    for p in positions:
+        root = root_of(p.get("instrument"))
+        age = ages.get(root)
+        if age is None or age < NO_TICK_SEC:
+            continue
+        k = f"notick|{root}|{int((now - age) // 60)}"          # keyed to when the ticks stopped
+        if (state.get(k) or {}).get("pushed"):
+            keep[k] = state[k]
+            continue
+        keep[k] = {"first": now, "pushed": True}
+        stale.append(f"{p.get('instrument')} ({str(p.get('side')).lower()} {p.get('qty')}, no price for {int(age // 60)} min)")
+    if not stale:
+        return None, keep
+    return (f"NT paper {DEMO}: NO PRICE DATA, position open",
+            "NinjaTrader has sent no price for " + "; ".join(stale) + ". Sim fills need prices: the stop and "
+            "any close will be rejected. Check a chart; reconnect Simulation / Live until it ticks."), keep
 
 
 def _load():
@@ -187,7 +228,14 @@ def run_once(whatif=False):
     stranded, managed = find_stranded(positions, strategies)
     price, age = last_price()
     now = time.time()
-    acts, new = decide(stranded, managed, _load(), now, price, age, dt.datetime.now(PHX))
+    state, now_mst = _load(), dt.datetime.now(PHX)
+    acts, new = decide(stranded, managed, state, now, price, age, now_mst)
+    mine = [p for p in positions if p.get("account") == DEMO]
+    ages = {r: last_price(f, now)[1] for r, f in TICK_FILES.items()}
+    push, keep = no_tick_alert(mine, ages, state, now, now_mst)
+    new.update(keep)
+    if push:
+        acts.append(("push",) + push)
     for a in acts:
         if a[0] == "push":
             print(f"PUSH {a[1]} - {a[2]}")

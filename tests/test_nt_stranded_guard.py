@@ -81,3 +81,17 @@ def test_11_19_rejected_flatten_stops_after_two_and_alerts_once():
     alerts = [a for k in kinds for a in k if "NOT filling" in a]
     assert flat == 2 and len(alerts) == 1
     assert "flatten" not in kinds[2] and all(k == [] for k in kinds[3:])
+
+
+def test_11_19_no_tick_with_position_alerts_once():
+    pos = [{"account": "Sim101", "instrument": "MNQ 12-26", "side": "Short", "qty": 11}]
+    thu = dt.datetime(2026, 11, 19, 13, 4)
+    push, st = G.no_tick_alert(pos, {"MNQ": 200}, {}, 10000.0, thu)
+    assert push is None                                           # under 5 min
+    push, st = G.no_tick_alert(pos, {"MNQ": 340}, {}, 10000.0, thu)
+    assert push and "NO PRICE DATA" in push[0] and "MNQ 12-26" in push[1]
+    again, _ = G.no_tick_alert(pos, {"MNQ": 400}, st, 10060.0, thu)
+    assert again is None                                          # same outage: once
+    assert G.no_tick_alert([], {"MNQ": 999}, {}, 1.0, thu)[0] is None
+    assert G.no_tick_alert(pos, {"MNQ": 999}, {}, 1.0, dt.datetime(2026, 11, 19, 15, 30))[0] is None  # daily pause
+    assert G.no_tick_alert(pos, {"MNQ": 999}, {}, 1.0, dt.datetime(2026, 11, 21, 12, 0))[0] is None   # Saturday
