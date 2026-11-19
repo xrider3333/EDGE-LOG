@@ -30,7 +30,7 @@ class FakeAd:
     def place_stock_order(self, **k):
         self.sent.append(k)
         bad = (k["symbol"], k["order_type"]) in self.refuse
-        return {"ok": not bad, "reason": "417 refused" if bad else "",
+        return {"ok": not bad, "reason": "417 refused" if bad else "", "_qty": k["qty"],
                 "client_order_id": k["signal_id"], "parts": [{"client_order_id": k["signal_id"]}]}
 
 
@@ -372,3 +372,28 @@ def test_half_day_and_holiday_refused(tmp_path, monkeypatch):
     rec = ex.run_day(p, now_fn=lambda: dt.datetime(2026, 11, 26, 15, 27, tzinfo=ET), adapter=ad,
                      log=lambda *a: None, notify=lambda m, **k: None, sleep=False)
     assert rec["result"] == "holiday"
+
+
+def test_basket_saved_right_after_entries(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    calls = []
+    orig = ex._save_basket
+    monkeypatch.setattr(ex, "_save_basket", lambda p, st, d, e: (calls.append(
+        [k["signal_id"] for k in ad.sent]), orig(p, st, d, e)))
+    ad = FakeAd()
+    _run(tmp_path, ad, monkeypatch)
+    assert len(calls) >= 3 and len(calls[0]) == 6 and all(s.endswith("-O") for s in calls[0])
+
+
+def test_exit_and_fallback_close_filled_qty(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    ad = CancelAd()
+    orig = ad.place_stock_order
+    ad.place_stock_order = lambda **k: (dict(orig(**k), ok=False, reason="417")
+                                        if k["signal_id"] == "EODREV-20261116-L1-X" else orig(**k))
+    fills = {"EODREV-20261116-L1-O": {"status": "PARTIALLY_FILLED", "filled": 5, "price": 230.0},
+             "EODREV-20261116-S1-O": {"status": "FILLED", "filled": 13, "price": 250.0}}
+    rec, notes, sids = _day(tmp_path, monkeypatch, ad, {}, fills)
+    assert _qty(ad, "EODREV-20261116-L1-X") == 5 and _qty(ad, "EODREV-20261116-L1-FB") == 5
+    assert _qty(ad, "EODREV-20261116-S1-X") == 13
+    assert "EODREV-20261116-L2-X" not in sids        # nothing filled -> nothing to close

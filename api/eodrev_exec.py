@@ -472,6 +472,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         notify((f"PICK6 #511: entries refused ({when}) - {why} -> {action}"
                 + (" | " + "; ".join(notes) if notes else ""))[:400], log=log)
 
+    _save_basket(p, state, day, entries)             # at once: a crash before 15:31 must not lose it
     guard("at entry")
     wait(_at(day, cfg.get("async_check_at") or "15:31:00"))
     for e in entries:                                 # ASYNC REJECT: refused after acceptance
@@ -502,8 +503,8 @@ def _close_out(ad, entries, day, cfg, wait, notify, log):
     for e in entries:
         if not e["open_ok"] or e.get("unwind") in ("cancelled", "closed") or e.get("exit_rec"):
             continue
-        if e.get("unwind") in ("lookup failed", "cancel unconfirmed"):
-            ans = lookup_retry(ad, e["open_rec"])     # reconcile: close only what really filled
+        if not e.get("close_qty"):
+            ans = lookup_retry(ad, e["open_rec"])     # close the FILLED qty, never the ordered qty     # reconcile: close only what really filled
             if ans is None:
                 e["reconcile_failed"] = True
                 notify(f"PICK6 #511: {e['sym']} {e['side']} order state unreadable at exit - "
