@@ -10,7 +10,7 @@
 ## 2. Before you arm (all must be true)
 - A **separate Webull margin account** with **$3k–8k** in it (not your main account). Live keys saved at the live keys path.
 - **Paper book flat.** If paper still holds shares, LIVE refuses and stays OFF (you get no live orders).
-- Every item in the go-live / readiness doc (`docs/EDGELOG_GOLIVE.md`) ticked.
+- Every item in the go-live readiness table (`docs/WEBULL_GOLIVE_READINESS_1118.md`, must-fix rows) and `docs/EDGELOG_GOLIVE.md` ticked.
 - **MANAGER and you both say GO** in chat.
 - Arm before 09:30 ET, on a normal day (no FOMC, no half day).
 
