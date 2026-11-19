@@ -866,3 +866,11 @@ def test_live_safety_is_in_the_deploys_review_diff_scope():
     for rel in ("api/cloud_signal.py", "api/paper.py"):
         src = io.open(os.path.join(ROOT, rel), encoding="utf-8").read()
         assert "live_safety" in src, rel
+
+
+def test_boot_verify_accepts_local_lease_line():
+    """lease_mode local logs 'LOCAL lease held', not 'lease claimed' (11-19 false VERIFY-FAILED)."""
+    import inspect
+    import tools.box_deploy as bd
+    src = inspect.getsource(bd)
+    assert '"LOCAL lease held" in text' in src

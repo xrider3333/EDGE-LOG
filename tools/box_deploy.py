@@ -695,7 +695,7 @@ def _verify_boot(log_path, since_lines, timeout_sec=BOOT_VERIFY_TIMEOUT_SEC,
         text = r.stdout or ""
         if "SERVING" in text:
             seen["serving"] = True
-        if "lease claimed" in text:
+        if "lease claimed" in text or "LOCAL lease held" in text:  # local lease_mode logs this
             seen["lease"] = True
         if "broker reconcile OK at boot" in text:
             seen["reconcile_ok"] = True
