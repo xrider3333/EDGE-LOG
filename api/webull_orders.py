@@ -332,10 +332,13 @@ def _field(o, *names, default=None):
     return default
 
 
-# LIVE SIZE (2026-11-19): see get_stock_account_balance
-BUYING_POWER_KEYS = ("day_buying_power", "dayBuyingPower", "buying_power", "buyingPower",
-                     "overnight_buying_power", "overnightBuyingPower", "cash_power",
-                     "cashPower", "total_buying_power")
+# LIVE SIZE (2026-11-19): see get_stock_account_balance. UNVERIFIED key list until the
+# once-per-process "balance reply keys" log line from a real LIVE reply has been read. Order:
+# cash / overnight buying power FIRST -- day_buying_power may read 0 or 4x on a small margin
+# account, so it is the last resort.
+BUYING_POWER_KEYS = ("cash_power", "cashPower", "overnight_buying_power", "overnightBuyingPower",
+                     "buying_power", "buyingPower", "total_buying_power",
+                     "day_buying_power", "dayBuyingPower")
 _BALANCE_KEYS_LOGGED = False
 
 

@@ -50,9 +50,14 @@ def _cfg(**kw):
     return cfg
 
 
+def _today():
+    return qe._now_et().strftime("%Y-%m-%d")
+
+
 def _state(equity=5000.0, bp=10000.0):
     return {"legs": {}, "events": [],
-            "equity": {"first_net_liq_today": equity, "net_liq": equity, "buying_power": bp}}
+            "equity": {"first_net_liq_today": equity, "net_liq": equity, "buying_power": bp,
+                       "day": _today()}}
 
 
 def _enter(state, cfg, size="", leg="NOISE", px=600.0):
@@ -84,20 +89,20 @@ def test_tier_selection(equity, tier):
 
 
 def test_tier_defaults_and_config_override():
-    st = {"equity": {"first_net_liq_today": 5200}}
+    st = {"equity": {"first_net_liq_today": 5200, "day": _today()}}
     assert qe._live_leg_limits(_cfg(), st, "NOISE") == (2, 6)
     assert qe._live_leg_limits(_cfg(), st, "ORB") == (3, 9)
     cfg = _cfg(live=dict(qe.DEFAULT_CONFIG["live"], base_shares={"NOISE": 4},
                          max_shares={"NOISE": 5}))
     assert qe._live_leg_limits(cfg, st, "NOISE") == (4, 5)
     # session-start equity wins over a later intraday read
-    st2 = {"equity": {"first_net_liq_today": 8100, "net_liq": 4000}}
+    st2 = {"equity": {"first_net_liq_today": 8100, "net_liq": 4000, "day": _today()}}
     assert qe._live_leg_limits(_cfg(), st2, "NOISE") == (3, 9)
 
 
 @pytest.mark.parametrize("size,want", [(1.0, 1), (1.4, 1), (1.5, 2), (0.2, 1), (2.6, 3), (9, 3)])
 def test_live_rounding_rule_at_3k(size, want):
-    st = {"equity": {"first_net_liq_today": 3000}}
+    st = {"equity": {"first_net_liq_today": 3000, "day": _today()}}
     assert qe._live_sized_shares(_cfg(), st, "NOISE", size) == want
 
 
@@ -138,7 +143,7 @@ def test_live_refuses_without_equity(tmp_path, monkeypatch):
     _isolate(tmp_path, monkeypatch, live=True)
     st = {"legs": {}, "events": []}
     assert _enter(st, _cfg(), size=1.0) is None
-    assert "equity not read" in _orders()[-1]["reason"]
+    assert "equity not read today" in _orders()[-1]["reason"]
 
 
 def test_live_open_within_caps_passes():
@@ -197,7 +202,7 @@ def test_weekly_counts_live_rows_only(tmp_path, monkeypatch):
 def test_balance_reads_buying_power_and_logs_keys_once(monkeypatch):
     logs = []
     payload = {"total_net_liquidation_value": "5000", "total_cash_balance": "4000",
-               "account_currency_assets": [{"currency": "USD", "day_buying_power": "20000"}]}
+               "account_currency_assets": [{"currency": "USD", "day_buying_power": "20000", "cash_power": "6000"}]}
 
     class R:
         def json(self):
@@ -215,8 +220,52 @@ def test_balance_reads_buying_power_and_logs_keys_once(monkeypatch):
     ad._account_id = lambda mode, client, purpose="stock": "acct"
     monkeypatch.setattr(WO, "_BALANCE_KEYS_LOGGED", False)
     b = ad.get_stock_account_balance()
-    assert b["buying_power"] == 20000.0 and b["net_liq"] == 5000.0
+    assert b["buying_power"] == 6000.0 and b["net_liq"] == 5000.0
     ad.get_stock_account_balance()
     key_lines = [m for m in logs if "balance reply keys" in m]
     assert len(key_lines) == 1 and "20000" not in key_lines[0]
     assert "account_currency_assets[0].day_buying_power" in key_lines[0]
+
+
+def test_stale_equity_fails_closed(tmp_path, monkeypatch):
+    _isolate(tmp_path, monkeypatch, live=True)
+    st = _state(equity=8000)
+    st["equity"]["day"] = "2026-11-18"
+    assert qe._live_equity(st) is None
+    assert _enter(st, _cfg(), size=1.0) is None
+    assert "equity not read today" in _orders()[-1]["reason"]
+
+
+def test_bp_unread_refuses_with_one_push_a_day(tmp_path, monkeypatch):
+    pushes = _isolate(tmp_path, monkeypatch, live=True)
+    st = _state(equity=8000, bp=None)
+    assert _enter(st, _cfg(), size=1.0) is None
+    assert "buying power unread" in _orders()[-1]["reason"]
+    assert _enter(st, _cfg(), size=1.0, leg="ORB") is None
+    assert len(pushes) == 1
+
+
+def test_bp_prefers_cash_over_day():
+    b = {"day_buying_power": "0", "overnight_buying_power": "5000"}
+    assert WO._balance_buying_power(b) == 5000.0
+
+
+def test_same_tick_second_open_sees_the_first(tmp_path, monkeypatch):
+    """NOISE + ORB on one tick, each 0.9x the cap: the first lot is in state["legs"] before the
+    second's check, so the second is refused."""
+    _isolate(tmp_path, monkeypatch, live=True)
+    st = _state(equity=1000, bp=1e9)   # cap 1500; price 1350 x 1 share = 0.9x
+    iso = "2026-11-19T09:40:00-05:00"
+    evs = [{"leg": sig, "event": "ENTRY", "side": "long", "ref_time": iso, "ref_price": 1350.0,
+            "bar_source": "webull", "trade_id": trade_id.make(sig, iso, "long"), "size": 1.0}
+           for sig in ("NOISE_304", "ORB_R6")]
+    qe._route_engine_events(st, _cfg(), evs, False, log=NOOP, now=NOW)
+    assert len(st["legs"]) == 1
+    assert "notional" in _orders()[-1]["reason"]
+
+
+def test_adapter_dollar_rail_never_fires_before_the_pct_rail():
+    """Chosen fix: keep the adapter's $ rail, pinned >= 2 pct of the largest tier floor."""
+    top = max(float(k) for k in qe.DEFAULT_CONFIG["live"]["tiers"])
+    pct = qe.DEFAULT_CONFIG["live"]["daily_loss_pct"]
+    assert WO.DEFAULT_RAILS["daily_loss_limit_usd"] >= top * pct / 100.0

@@ -8749,8 +8749,11 @@ def _live_cfg(cfg):
 
 
 def _live_equity(state):
-    """Session-start equity (first net_liq read today), else the last read; None unknown."""
+    """Session-start equity (first net_liq read today), else the last read; None unless the
+    read is from TODAY (fail closed: a stale reading never sizes or caps a LIVE open)."""
     eq = state.get("equity") or {}
+    if eq.get("day") != _now_et().strftime("%Y-%m-%d"):
+        return None
     for k in ("first_net_liq_today", "net_liq"):
         try:
             v = float(eq.get(k))
@@ -8828,7 +8831,7 @@ def _live_open_refusal(cfg, state, leg, shares, px):
     equity = _live_equity(state)
     mult = float(_live_cfg(cfg).get("max_open_notional_pct_equity") or 0)
     if equity is None:
-        return "REFUSED live: account equity not read"
+        return "REFUSED live: equity not read today"
     if mult and held + order > mult * equity:
         return f"REFUSED live notional {held + order:.0f} > {mult:g} x equity {equity:.0f}"
     bp = (state.get("equity") or {}).get("buying_power")
@@ -8836,7 +8839,9 @@ def _live_open_refusal(cfg, state, leg, shares, px):
         bp = float(bp) if bp is not None else None
     except (TypeError, ValueError):
         bp = None
-    if bp is not None and order > bp:
+    if bp is None:
+        return "REFUSED live: buying power unread"
+    if order > bp:
         return f"REFUSED live order {order:.0f} > buying power {bp:.0f}"
     return None
 
@@ -9587,7 +9592,7 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
                           fill_dt=(f.get("dt") if f else sig_dt), signal_source=signal_source,
                           decided_at_ref=decided_at_ref)
             _log_event(state, "live_cap", f"{leg} LIVE entry not taken: {why}", log=log)
-            _say(state, "live_cap", f"{leg}:{_now_et().strftime('%Y-%m-%d')}", ntfy_push.plain(
+            _say(state, "live_cap", _now_et().strftime('%Y-%m-%d'), ntfy_push.plain(
                 PHONE_AREA, "needs a fix", f"{leg} entry skipped",
                 f"{leg} LIVE {shares} shares refused: {why[8:]}",
                 "nothing - check live sizing or buying power"), log=log)
