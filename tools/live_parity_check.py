@@ -75,7 +75,7 @@ if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
 
 TAG = "[live-parity]"
-KINDS = ("ENGINE_ONLY", "LIVE_ONLY", "TIME_DIFF", "NO_FILL", "UNREADABLE")
+KINDS = ("ENGINE_ONLY", "LIVE_ONLY", "TIME_DIFF", "NO_FILL", "VOID_ORDERED", "UNREADABLE")
 TRADE_EVENTS = ("ENTRY", "EXIT")
 TIME_DIFF_MAX_MIN = 30           # same side, bar time off by at most this -> TIME_DIFF, not a miss
 REPLAY_AFTER_CLOSE_MIN = 5       # the replay's `now`: the session close + this (every bar closed)
@@ -623,6 +623,79 @@ def fill_findings(key, day, live_rows_all, broker_rows, orders_rows):
     return out
 
 
+# ── withdrawn rows ───────────────────────────────────────────────────────────────────────
+VOID_EVENTS = ("VOID_ENTRY", "VOID_EXIT", "VOID_SEED")
+
+
+def _signal_id_shapes(tid):
+    """The broker signal_id shapes api/qqq_exec.py builds from a trade id: "qx" + the id
+    with its separators stripped + O (open) or C (close). Returned as a set so a match is
+    exact rather than a substring test."""
+    core = "qx" + "".join(ch for ch in str(tid or "") if ch.isalnum())
+    return {core + "O", core + "C"}
+
+
+def void_audit(sig_rows, broker_rows):
+    """Every WITHDRAWN row in the live ledger, and whether an order carrying its trade id
+    was actually SENT to the broker. Returns (summary dict, findings list).
+
+    WHY (2026-11-18, ENGU-Q hardening). VOID_ENTRY / VOID_EXIT / VOID_SEED are written
+    RETROSPECTIVELY by a repair tool, which relabels the original row and KEEPS its
+    emitted_at -- so a void row and an order placed two seconds "after" it prove nothing
+    by their stamps alone: at order time the row was an ordinary ENTRY. The only question
+    worth a number is how many withdrawn rows had an order SENT for them, which is what
+    this counts. Rows whose order was BLOCKED or failed (sent False) are counted apart --
+    they are not exposure. Whole-ledger, not per-day: a row withdrawn today can belong to
+    an order sent weeks ago, and a count that only looked at `day` would read zero.
+    Read-only: nothing here writes a ledger, a state file or an order."""
+    summary = {"rows": 0, "by_event": {}, "with_trade_id": 0, "ordered_sent": 0,
+               "ordered_blocked": 0, "ordered": []}
+    findings = []
+    if not sig_rows:
+        return summary, findings
+    sent_by_id, seen_by_id = {}, {}
+    for b in broker_rows or []:
+        sid = str(b.get("signal_id") or "").strip()
+        if not sid:
+            continue
+        seen_by_id.setdefault(sid, []).append(b)
+        if _truthy(b.get("sent")):
+            sent_by_id.setdefault(sid, []).append(b)
+    for r in sig_rows:
+        ev = str(r.get("event") or "").strip().upper()
+        if ev not in VOID_EVENTS:
+            continue
+        summary["rows"] += 1
+        summary["by_event"][ev] = summary["by_event"].get(ev, 0) + 1
+        tid = str(r.get("trade_id") or "").strip()
+        if not tid:
+            continue        # pre-trade-id rows: no id to join an order on
+        summary["with_trade_id"] += 1
+        shapes = _signal_id_shapes(tid)
+        sent = [b for sid, rows in sent_by_id.items() if sid in shapes for b in rows]
+        seen = [b for sid, rows in seen_by_id.items() if sid in shapes for b in rows]
+        if not seen:
+            continue
+        if not sent:
+            summary["ordered_blocked"] += 1
+            continue
+        summary["ordered_sent"] += 1
+        intents = sorted({str(b.get("intent") or "?") for b in sent})
+        summary["ordered"].append({"trade_id": tid, "event": ev, "leg": r.get("leg"),
+                                   "ref_time": str(r.get("ref_time") or ""),
+                                   "intents": intents,
+                                   "first_order_ts_et": str(sent[0].get("ts_et") or "")})
+        findings.append(_finding(
+            "VOID_ORDERED", r.get("leg"), ev, r.get("side"), _row_slot(r),
+            _parse_ts(r.get("ref_time")),
+            f"the withdrawn {ev} row for {tid} (bar {r.get('ref_time')}) has "
+            f"{len(sent)} order(s) SENT to the broker ({', '.join(intents)}, first at "
+            f"{sent[0].get('ts_et')}) -- note the void label may have been written AFTER "
+            f"the order, so read the repair tool before calling it a mis-order",
+            trade_id=tid, plain="an order was sent for a signal the engine later withdrew"))
+    return summary, findings
+
+
 # ── the phone push ───────────────────────────────────────────────────────────────────────
 def _leg_word(leg):
     try:
@@ -646,7 +719,9 @@ def _push_item(f):
     return {"ENGINE_ONLY": f"no live signal for {name}",
             "LIVE_ONLY": f"live {name} is not in the backtest",
             "TIME_DIFF": f"{name} came {abs(int(f.get('minutes') or 0))} min off the backtest",
-            "NO_FILL": f"no Webull fill for {name}"}.get(f["kind"], name)
+            "NO_FILL": f"no Webull fill for {name}",
+            "VOID_ORDERED": f"an order was sent for the withdrawn signal {name}"
+            }.get(f["kind"], name)
 
 
 def build_push(findings):
@@ -656,10 +731,11 @@ def build_push(findings):
     from api import ntfy_push
     if not findings:
         return None
-    order = {"ENGINE_ONLY": 0, "LIVE_ONLY": 1, "NO_FILL": 2, "UNREADABLE": 3, "TIME_DIFF": 4}
+    order = {"ENGINE_ONLY": 0, "LIVE_ONLY": 1, "VOID_ORDERED": 2, "NO_FILL": 3,
+             "UNREADABLE": 4, "TIME_DIFF": 5}
     fs = sorted(findings, key=lambda f: (order.get(f["kind"], 9), f.get("time") or ""))
     kinds = {f["kind"] for f in fs}
-    affected = bool(kinds & {"ENGINE_ONLY", "LIVE_ONLY", "NO_FILL"})
+    affected = bool(kinds & {"ENGINE_ONLY", "LIVE_ONLY", "NO_FILL", "VOID_ORDERED"})
     items = [_push_item(f) for f in fs]
     items = [i[:1].upper() + i[1:] for i in items]
     problem = ntfy_push.join_problems(items, limit=PUSH_ITEMS)
@@ -771,6 +847,13 @@ def run_check(home, day, push=True, now=None, log=print, legs=None, skipped=None
         orders_rows = _read_csv(paths["orders_csv"]) or []
     except Exception:
         orders_rows = []
+    try:
+        doc["voids"], void_found = void_audit(sig_rows, broker_rows)
+        findings.extend(void_found)
+    except Exception as e:
+        doc["voids"] = None
+        unreadable(f"the withdrawn-row audit failed ({type(e).__name__}: "
+                   f"{_one_line(e, 80)})", "the void-order audit could not run")
     try:
         trades_rows = _read_csv(paths["trades_csv"])
         doc["executor_trades_on_day"] = sum(

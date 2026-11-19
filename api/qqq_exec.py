@@ -1682,6 +1682,12 @@ NT_PARITY_COLS = ["nt_entry_exec_id", "nt_entry_ts", "nt_entry_px",
 # the closed-trade row exactly like NT_PARITY_COLS above -- missing values (unrecognised
 # instrument) read back as "".
 SIZING_COLS = ["nt_mult", "nt_notional_usd", "shadow_notional_usd", "notional_ratio"]
+# NOTE (2026-11-18): every _append_csv call runs _migrate_csv_header(path, TRADE_COLS)
+# first, which rewrites the on-disk header to THIS tuple -- so a column some other tool
+# added is silently dropped on the next append, taking its values with it. That is why
+# tools/enguq_phantom_mark_20260926.py refused to add a `note` column for the two ENGU-Q
+# ghosts and recorded their identity in corrections.log instead. A column meant to
+# survive must be added HERE; adding it anywhere else is a write that disappears.
 TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit_px",
               "pnl", "nq_pnl_points", "exit_reason"] + NT_PARITY_COLS + SIZING_COLS
               # appended, never inserted -- see ORDER_COLS's signal_source note.
@@ -8086,6 +8092,25 @@ def _consume_engine_signals(state, cfg, now, log=print):
     actionable = ("ENTRY", "EXIT") + (("LEVELS",) if _orb_resting_mode(cfg) != "off" else ())
     for r in new_rows:
         ev = str(r.get("event") or "").strip().upper()
+        if ev.startswith("VOID"):
+            # WITHDRAWN ROWS (2026-11-18). VOID_ENTRY/VOID_EXIT/VOID_SEED are written
+            # RETROSPECTIVELY by a repair tool (tools/cloud_signal_repair_20260914.py,
+            # tools/enguq_phantom_mark_20260926.py), which relabels the original row and
+            # KEEPS its emitted_at -- so a void row's own stamp is the engine's, from
+            # before anyone knew it was void. They were already unreachable (not in
+            # `actionable`) but SILENTLY, down the same branch that skips SEED. Refuse
+            # them by name and count it, so "no withdrawn row ever became an order" is
+            # something the refusal ledger states rather than something the event-name
+            # tuple happens to imply. No behaviour change on any row that exists today.
+            _record_trade_id_issue(
+                state, "engine_void_row",
+                f"{r.get('leg')} {ev} row (bar {r.get('ref_time')}, trade id "
+                f"{str(r.get('trade_id') or '') or 'none'}) is a WITHDRAWN signal "
+                f"-- never acted on", now,
+                {"leg": r.get("leg"), "event": ev,
+                 "row_trade_id": str(r.get("trade_id") or ""),
+                 "ref_time": str(r.get("ref_time") or "")}, log=log)
+            continue
         if ev not in actionable:
             continue  # SEED and any future non-actionable event types
         age = None
@@ -8176,9 +8201,39 @@ TRADE_ID_ISSUES = (
     "entry_duplicate",      # ENTRY for the very trade already open: ignored
     "entry_leg_busy",       # ENTRY for a different trade while a lot is open on the leg: not taken
     "unknown_slot",         # DIP_424 row whose trade id names no known mechanism slot: not acted on
+    "engine_void_row",      # VOID_ENTRY/VOID_EXIT/VOID_SEED row (a withdrawn signal): never acted on
+    "entry_ghost_record",   # ENTRY whose own engine trade record is marked ghost=true: not taken
 )
 # Bookkeeping rather than a refused signal -- left out of the published refused_today sum.
 _TRADE_ID_INFO_ONLY = ("exit_no_lot", "entry_duplicate")
+
+
+def _engine_ghost_trade_ids(log=print):
+    """The trade ids the SIGNAL ENGINE itself marks as ghosts, read from its own
+    state.json (cs.DEFAULT_PATHS["state_path"], state["legs"][leg]["trades"][id]["ghost"]).
+
+    tools/enguq_phantom_mark_20260926.py sets that marker and says in its own docstring
+    that `ghost` is "a convention nothing in api/cloud_signal.py reads today". This is the
+    first reader: an ENTRY whose record is already marked a permanent void is refused
+    instead of opened. Read-only, never cached across ticks (the marker can be written
+    between ticks by a repair tool), and never raises -- an unreadable or absent engine
+    state file returns an empty set, which refuses nothing and leaves every other guard
+    exactly as it was."""
+    try:
+        path = _cs_module().DEFAULT_PATHS["state_path"]
+        if not os.path.exists(path):
+            return set()
+        with open(path, encoding="utf-8") as f:
+            st = json.load(f)
+        out = set()
+        for leg_blk in (st.get("legs") or {}).values():
+            for tid, rec in ((leg_blk or {}).get("trades") or {}).items():
+                if isinstance(rec, dict) and rec.get("ghost"):
+                    out.add(str(tid))
+        return out
+    except Exception as e:
+        log(f"[qqq-exec] engine ghost-marker read failed: {type(e).__name__}: {e}")
+        return set()
 
 
 def _record_trade_id_issue(state, kind, text, nowdt=None, detail=None, log=print):
@@ -8422,6 +8477,18 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                     f"{leg} entry signal is for {_trade_id.describe(row_tid, _NY)}, not today's "
                     f"session ({today}) -- replay leftovers, not taken", nowdt, detail, log=log)
                 continue
+            if row_tid in _engine_ghost_trade_ids(log):
+                # GHOST RECORD (2026-11-18): the engine's own trade record for this id is
+                # marked a permanent void. Nothing could reach here today (a ghost is
+                # marked long after its row was consumed, and the cursor never replays),
+                # so this costs a set lookup and closes the one door that would open if a
+                # ledger were ever replaced or a cursor re-armed behind a marked row.
+                _record_trade_id_issue(
+                    state, "entry_ghost_record",
+                    f"{leg} entry signal {_trade_id.describe(row_tid, _NY)} is marked "
+                    f"ghost=true in the engine's own trade record; not taken",
+                    nowdt, detail, log=log)
+                continue
             if open_lot:
                 if open_lot.get("trade_id") == row_tid:
                     _record_trade_id_issue(
@@ -8434,6 +8501,18 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                         f"{leg} entry signal for {_trade_id.describe(row_tid, _NY)} while the "
                         f"shadow trade {_lot_label(open_lot)} is still open; not taken",
                         nowdt, detail, log=log)
+                    # ORDERS ROW (2026-11-18). A busy-leg refusal used to leave only a WARN
+                    # line and a counter, so the 2026-09-17 ghost -- whose still-open lot
+                    # held the REAL 15:09 entry out (box log: "WARN entry_leg_busy ... not
+                    # taken") -- left nothing in orders.csv, the one ledger a reconciliation
+                    # reads. Written with the same REFUSED convention as the late-entry and
+                    # breaker guards above: no price, no quantity sent, nothing ordered.
+                    _record_order(leg, "ENTER", e["side"],
+                                 int(cfg["shares"].get(leg, 0)), None, None, None,
+                                 f"REFUSED -- entry_leg_busy: "
+                                 f"{_lot_label(open_lot)} still open", log, fill_dt=sig_dt,
+                                 signal_source=cfg.get("signal_source"),
+                                 decided_at_ref=decided_at_ref, quiet=True)
                     if (leg in _hold_legs(cfg) or isinstance(open_lot.get("hold"), dict)) \
                             and not isinstance(open_lot.get("close_pending"), dict):
                         # HOLD OVERNIGHT: the strategy holds one trade at a time, so a new
