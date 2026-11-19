@@ -31,6 +31,7 @@ This module imports nothing of the engine at import time -- the strategy loader 
 import inside the one function that needs it -- so both callers can import it freely.
 """
 import inspect
+import os
 
 # The flag's own name, in one place: a rename that misses a caller must break a test, not
 # silently stop forcing anything.
@@ -69,6 +70,33 @@ def accepts_phantom_safe(strategy):
         return False
 
 
+def looks_engu_family(strategy):
+    """True iff `strategy` looks like an ENGU-Q-family fill-window file, by NAME or by what
+    the module carries. Used only to decide whether NOT accepting the flag is suspicious.
+
+    accepts_phantom_safe fails OPEN by design -- a file that does not name the kwarg is left
+    alone, because forcing a file that swallows it would claim a safety it does not have. The
+    VERIFIER's case (2026-11-18) is the one where that silence is wrong: a wrapper written
+    WITHOUT functools.wraps, exposing only *args/**kw, hides a real ENGU-Q run behind a
+    signature this module cannot read, and the live path would then run the pre-fix fill scan
+    without a word. So the fail-open stays, and this makes it NOISY instead of silent.
+    """
+    name = getattr(strategy, "__name__", None) or str(strategy)
+    if os.path.basename(str(name)).upper().startswith("ENGUQ"):
+        return True
+    mod = _module_for(strategy)
+    if mod is None:
+        return False
+    if hasattr(mod, "_N_SCAN"):
+        return True
+    # the compiled walk is the other tell: a file that calls it runs the same fill scan
+    try:
+        src = inspect.getsource(mod)
+    except Exception:
+        return False
+    return "engu_walk" in src
+
+
 def force_phantom_safe(strategy, params, *, caller, leg_key=None, log=print):
     """The params dict a LIVE/paper/replay caller must hand the engine.
 
@@ -81,6 +109,17 @@ def force_phantom_safe(strategy, params, *, caller, leg_key=None, log=print):
     the leg's own declaration should be fixed rather than left to this net.
     """
     if not accepts_phantom_safe(strategy):
+        # Fail OPEN, but never quietly for a file that LOOKS like the family this guards.
+        if looks_engu_family(strategy):
+            name = getattr(strategy, "__name__", None) or str(strategy)
+            key = ("unreadable", str(caller), str(leg_key), name)
+            if key not in _SAID:
+                _SAID.add(key)
+                log("[live-safety] CANNOT FORCE %s on %s (%s): it looks like an ENGU-Q "
+                    "fill-window file but its run_backtest does not NAME the kwarg, so this "
+                    "live path may be running the pre-fix fill scan. A wrapper without "
+                    "functools.wraps hides the signature -- fix the file or the wrapper."
+                    % (PHANTOM_SAFE, name, leg_key or caller))
         return params
     declared = (params or {}).get(PHANTOM_SAFE)
     if declared is not True:

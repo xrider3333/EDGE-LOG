@@ -79,6 +79,8 @@ from datetime import datetime
 import numpy as np
 import pandas as pd
 
+from . import live_safety as _ls
+
 ARTIFACT_DIR = r"C:\EdgeLog\gate_models"
 PORT = 8392
 LOG_PATH = r"C:\EdgeLog\gate_live.log"
@@ -280,7 +282,14 @@ def _build_artifact(leg):
         if len(bars):
             arrays, _n = paper._append_fresh(arrays, bars)
 
-    res = run_backtest(leg["strategy"], arrays=arrays, params=leg["params"],
+    # LIVE SAFETY (2026-11-18, VERIFIER finding on api/live_safety.py): the arrays above are
+    # master PLUS today's fresh tail, so this is a GROWING window and carries the same
+    # phantom-entry exposure as the live leg -- and this docstring promises it "mirrors the
+    # paper leg exactly", which run_shadow now forces True. Without this the nightly ML gate
+    # would train on a label the paper leg refuses. Same choke-point call as the other two.
+    params = _ls.force_phantom_safe(leg["strategy"], leg["params"], caller="gate_live",
+                                    leg_key=key, log=print)
+    res = run_backtest(leg["strategy"], arrays=arrays, params=params,
                        cost_pts=leg.get("cost_pts", 0.0), return_trades=True)
     T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in (res.get("trades") or [])],
                key=lambda t: t[0])

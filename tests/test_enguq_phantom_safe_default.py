@@ -250,3 +250,85 @@ def test_the_prereg_carries_the_dated_amendment_for_the_forced_arms():
     # and the code comment points AT the amendment rather than re-stating the ruling
     paper = io.open(os.path.join(root, "api", "paper.py"), encoding="utf-8").read()
     assert "AMENDMENT 1 (2026-11-18)" in paper
+
+
+# ── VERIFIER should-fixes, 2026-11-18 (TTM's read of fc11d8cf) ──────────────────────────────
+
+
+def _wrapper_without_wraps(inner):
+    """A wrapper that exposes only *args/**kw -- the VERIFIER's silent-fail-open case."""
+    def run_backtest(*a, **kw):
+        return inner(*a, **kw)
+    return run_backtest
+
+
+def test_a_wrapper_that_hides_the_signature_is_reported_not_passed_over():
+    """accepts_phantom_safe still fails OPEN, but no longer SILENTLY for the family.
+
+    A wrapper written without functools.wraps hides the kwarg, so the live path cannot force
+    it. That is the one case where saying nothing is wrong: the run really is an ENGU-Q
+    fill-window read with the pre-fix scan. One loud CANNOT FORCE line, params untouched.
+    """
+    import types
+    mod = types.ModuleType("ENGUQ_1M_ETH_FAKE_1_0")
+    mod._N_SCAN = 10
+    mod.run_backtest = _wrapper_without_wraps(lambda *a, **kw: {})
+    assert ls.accepts_phantom_safe(mod) is False        # fails open, by design
+    assert ls.looks_engu_family(mod) is True            # but is recognised
+    ls._reset_said_for_tests()
+    said = []
+    p_in = {"a": 1}
+    out = ls.force_phantom_safe(mod, p_in, caller="t", leg_key="FAKE", log=said.append)
+    assert out is p_in                                  # untouched: no false claim of safety
+    assert len(said) == 1 and "CANNOT FORCE" in said[0]
+    assert "functools.wraps" in said[0] and "FAKE" in said[0]
+    # once per leg, not once per bar
+    ls.force_phantom_safe(mod, p_in, caller="t", leg_key="FAKE", log=said.append)
+    assert len(said) == 1
+
+
+def test_a_plain_non_family_file_is_still_silent():
+    """The counterpart: a NOISE/ORB-shaped file that does not take the flag says nothing."""
+    import types
+    mod = types.ModuleType("NOISE_1_0")
+    mod.run_backtest = lambda *a, **kw: {}
+    assert ls.looks_engu_family(mod) is False
+    ls._reset_said_for_tests()
+    said = []
+    p_in = {"a": 1}
+    assert ls.force_phantom_safe(mod, p_in, caller="t", leg_key="NOISE_304",
+                                 log=said.append) is p_in
+    assert said == []
+
+
+def test_a_functools_wraps_decorator_is_still_forced():
+    """The VERIFIER checked this reads through __wrapped__; pin it so it stays true."""
+    import functools
+    import types
+
+    def inner(O, H, L, C, phantom_safe=False, **kw):
+        return {}
+
+    @functools.wraps(inner)
+    def wrapped(*a, **kw):
+        return inner(*a, **kw)
+
+    mod = types.ModuleType("ENGUQ_1M_ETH_WRAPPED_1_0")
+    mod.run_backtest = wrapped
+    assert ls.accepts_phantom_safe(mod) is True
+    out = ls.force_phantom_safe(mod, {}, caller="t", leg_key="W", log=lambda *_: None)
+    assert out["phantom_safe"] is True
+
+
+def test_the_nightly_gate_fit_goes_through_the_same_choke_point():
+    """api/gate_live.py _build_artifact runs the ENGU-Q gate leg on master + TODAY'S tail --
+    a growing window -- and its docstring promises it mirrors the paper leg, which forces
+    True. VERIFIER finding: it called the engine directly. Pin the forcing call and the
+    engine seeing the flag."""
+    from api import gate_live
+    src = io.open(os.path.join(ROOT, "api", "gate_live.py"), encoding="utf-8").read()
+    body = src.split("def _build_artifact", 1)[1].split(chr(10) + "def ", 1)[0]
+    assert "force_phantom_safe" in body, "_build_artifact must go through live_safety"
+    assert "params=params" in body, "it must pass the FORCED params, not leg['params']"
+    assert "params=leg[\"params\"]" not in body
+    assert ls is not None and gate_live._ls is ls

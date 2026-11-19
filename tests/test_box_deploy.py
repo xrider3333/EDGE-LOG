@@ -9,6 +9,7 @@ module opens an ssh connection or touches the network; importing tools.box_deplo
 itself performs no I/O.
 """
 import datetime as dt
+import io
 import os
 import sys
 
@@ -849,3 +850,19 @@ def test_needrestart_helper_runs_the_repo_script_with_sudo(monkeypatch):
     assert rc == 0 and "VERIFY OK" in out
     assert seen["cmd"].startswith("sudo -n bash ")
     assert seen["cmd"].endswith("/EDGE-LOG/deploy/cloud/install_needrestart_override.sh")
+
+
+# -- _STATIC_BOOK_PATHS: the deploy's REVIEW DIFF scope -----------------------------------
+def test_live_safety_is_in_the_deploys_review_diff_scope():
+    """_STATIC_BOOK_PATHS is what the deploy SHOWS for review, not what it copies.
+
+    _book_pathspecs feeds the commit/diff display; the deploy checks out the whole commit,
+    so an unlisted file still reaches the box. What an unlisted file loses is the review:
+    api/live_safety.py decides whether a live ENGU-Q leg runs with the pre-fix fill scan
+    (2026-11-18), which is exactly the kind of change that must not land unseen.
+    """
+    assert "api/live_safety.py" in box_deploy._STATIC_BOOK_PATHS
+    # and it really is live-path code: both services' modules import it at module scope
+    for rel in ("api/cloud_signal.py", "api/paper.py"):
+        src = io.open(os.path.join(ROOT, rel), encoding="utf-8").read()
+        assert "live_safety" in src, rel

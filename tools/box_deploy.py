@@ -161,6 +161,12 @@ _STATIC_BOOK_PATHS = [
     "api/webull_sync.py",
     "api/cloud_signal.py",
     "api/cloud_signal_stream.py",
+    # Imported at module scope by cloud_signal.py and paper.py (2026-11-18): it decides
+    # whether a live ENGU-Q leg runs with the pre-fix fill scan, so a change to it changes
+    # live behaviour and belongs in the deploy's REVIEW DIFF, where this list is read. (The
+    # deploy checks out the whole commit, so an unlisted file is still delivered -- the risk
+    # here is a silent live-behaviour change, not a missing import.)
+    "api/live_safety.py",
     # the live DIP #424 leg's runner, and the trade / Webull order id helper (FIXER 2026-10-10)
     "api/dip_live.py",
     "api/trade_id.py",
