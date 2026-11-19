@@ -1,5 +1,16 @@
 # WEBULL PAPER go-live readiness: every way paper differed from the book (PAPER-WB, 2026-11-18)
 
+## STATUS 2026-11-19 (supersedes the rows below where they differ)
+- **PDT rule:** replaced. SEC approved FINRA SR-FINRA-2025-017 on 2026-04-14, effective 2026-06-04: an intraday margin standard, $2,000 margin minimum (to confirm on the first read-only balance call). The must-fix is now a **buying-power check: BUILT** (v91.01: refuse when an open is over buying power or BP is unread).
+- **Sizing + rails for a $3-8k margin account:** SHIPPED v91.01 271e5da8 (equity tiers, 1.5x notional cap, refuse on stale equity, day 2% / week 5% of equity, weekly counts LIVE rows only, adapter daily rail % in LIVE). Owner config; defaults only. Paper replay table in `WEBULL_LIVE_SIZING_1119.md`.
+- **Hatch verdict:** SHIPPED v91.00 c11a0cb2 (latency-scaled band, outside-minute flag, ORB breakout = design, book-only broker vs infra). 8 of the 19 old hatched days remain. Page side: TRADING-LOG.
+- **ORB late entry (row 7):** FIXED v90.82 04dc5a74, on the box since 11-18.
+- **Order latency:** qqqfast v90.93 (about 8 s down to an estimated 3-5 s). Box deploy Fri 11-20 after 16:05 ET, with the ENGU-Q guards, hatch verdict and sizing.
+- **Lease / Firestore 429 (row 3):** local lease built (v90.88), not on yet. Rehearsal Fri 11-20 before 09:25 ET. 429 recurred 11-19 01:38 ET (stale web-app tabs).
+- **PICK6:** stays PAPER (cannot run at $100k a side in a $3-8k account). One-sided basket and probe-gate fixes are being built.
+- **Runbook:** `WEBULL_LIVE_RUNBOOK.md`; the ARM_LIVE end-to-end paper test passes.
+- **Owner open:** account choice (separate account recommended), `stock_last4` entry, size tier, OK for one read-only live balance call.
+
 This is a read-only audit. Nothing was deployed or changed.
 
 **What it covers**

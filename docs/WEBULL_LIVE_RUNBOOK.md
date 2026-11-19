@@ -2,20 +2,21 @@
 
 ## 1. What "armed" means
 - Real orders need TWO things on the box:
-  1. `"mode": "LIVE"` in `C:\EdgeLog\webull_orders\config.json`, with the legs named in `rails.live_legs` (empty = nothing trades live).
-  2. An empty file named **`ARM_LIVE`** in `C:\EdgeLog\webull_orders\` (path can be changed with env `EDGELOG_WEBULL_ARM_LIVE`). You create it by hand. Claude never does.
+  1. `"mode": "LIVE"` in the box's `/home/ubuntu/edgelog/webull_orders/config.json` (env `EDGELOG_WEBULL_ORDERS_CONFIG`), with the legs named in `rails.live_legs` (empty = nothing trades live).
+  2. An empty file named **`ARM_LIVE`** in `/home/ubuntu/edgelog/webull_orders/` on the box (path can be changed with env `EDGELOG_WEBULL_ARM_LIVE`). You create it by hand. Claude never does.
 - Missing either one = no live orders (the book keeps trading on paper / shadow only).
 - LIVE keeps its own books: `state.LIVE.json`, next to the paper `state.json`. Paper positions never carry over.
 
 ## 2. Before you arm (all must be true)
 - A **separate Webull margin account** with **$3k–8k** in it (not your main account). Live keys saved at the live keys path.
+- **Account pin — YOU type this, nobody else.** In the box's `/home/ubuntu/edgelog/webull_orders/config.json`, set `"account": {"stock_last4": "NNNN"}` with the LAST 4 digits of the live account number (never the full number). Without it every LIVE send is refused ("live account not pinned"). No Claude lane enters, reads back or prints this value.
 - **Paper book flat.** If paper still holds shares, LIVE refuses and stays OFF (you get no live orders).
 - Every item in the go-live readiness table (`docs/WEBULL_GOLIVE_READINESS_1118.md`, must-fix rows) and `docs/EDGELOG_GOLIVE.md` ticked.
 - **MANAGER and you both say GO** in chat.
 - Arm before 09:30 ET, on a normal day (no FOMC, no half day).
 
 ## 3. First live day — what to watch
-- Phone title on every push names the account: **"Webull LIVE 1234"**. If you see "paper", it is not armed.
+- Phone title on every push names the account: **"Webull LIVE"** plus the account's last 4. If you see "paper", it is not armed.
 - First fill: "QQQ book: ... bought" note. Check in the Webull app the share count matches (1–15 shares).
 - Numbers to watch: **shares held** (Webull vs the board — must match), **today's P&L** vs the daily loss limit, **fill price vs signal price** (slippage, a few cents).
 - After 16:00 ET: Webull must show **0 QQQ** (unless a trade is a planned overnight hold). The "day done" note sums the day.
