@@ -8,6 +8,7 @@
 - **Order latency:** qqqfast v90.93 (about 8 s down to an estimated 3-5 s). Box deploy Fri 11-20 after 16:05 ET, with the ENGU-Q guards, hatch verdict and sizing.
 - **Lease / Firestore 429 (row 3):** local lease built (v90.88), not on yet. Rehearsal Fri 11-20 before 09:25 ET. 429 recurred 11-19 01:38 ET (stale web-app tabs).
 - **PICK6:** stays PAPER (cannot run at $100k a side in a $3-8k account). One-sided basket and probe-gate fixes are being built.
+- **PICK6 MUST-FIX BEFORE LIVE (proposal):** a restart hook for the PICK6 unit (systemd Restart=on-failure or a watchdog, plus a HIGH alert), so a box restart between 15:30 and 16:00 resumes the basket at once instead of at the next 15:27 ET timer. The paper fixes (pair unwind, filled-qty exits at 15:59:00 / 15:59:35, 15:31 late-reject check, saved basket, half-day refusal) shipped with pick6fix.
 - **Runbook:** `WEBULL_LIVE_RUNBOOK.md`; the ARM_LIVE end-to-end paper test passes.
 - **Owner open:** account choice (separate account recommended), `stock_last4` entry, size tier, OK for one read-only live balance call.
 
