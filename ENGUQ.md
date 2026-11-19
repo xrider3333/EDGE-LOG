@@ -1823,3 +1823,46 @@ worst drawdown, because the run script printed DD5 and DD% but not worst DD and 
 from the shape of the other numbers. The estimate was $38,300 against a true $28,296, and it hid the
 one-episode flag above. Corrected in place and reported to MANAGER (#958). The script now prints
 worst DD per cell.
+
+## ENGU-Q on ES stays CLOSED-NO: the 0.60 roll-corrected re-grade, RUN 532 (2026-11-18)
+
+The owner ordered this re-grade on 11-16 because the sector-wide frontier was carrying ENGUQES370
+in its pool on run #370's 0.40 no-adjust series. Round 46 had pre-registered the failure condition
+before any grade was read: if the cell only survives at 0.40 a round trip, which is below one tick
+plus commission on ES, it is not a leg. The re-grade changed three things and nothing else: cost
+0.40 to 0.60, source db_noadj_eth to db_adj_eth (ADJ_ES_1m_ETH.csv, id 58, back-adjusted and
+roll-corrected), and trials to the owner's 900. Same ranged file, same ES 1m ETH, same window
+2010-06-07..2026-06-30, same 12-month lockbox, same 8 folds, same mult 50.
+
+RUN 532 came back WEAK, 5 of 6 checks. The single failure is the overfit-selection check: PBO is
+0.881 with the verdict "likely overfit selection". Folds held 7 of 8, with fold 5 (2021-01 to
+2022-02) negative. WF folds total $194,195 over 8.99 years. Against the $291,013 that the sector
+table used for this lane, the ratio is 0.667 - the 0.40 no-adjust series overstated the leg by half
+again, which is the cost artefact the pre-reg predicted. Four numbers on the rebuilt one-unit daily
+series: ROC@$30k 57.5 percent a year, DD5 $27,779, worst DD $46,724 which is 46.7 percent of a
+fixed $100,000 account, Sortino 1.10. Worst DD is 1.68x DD5, so the figure is driven by one episode.
+The lockbox read +$16,085 on 28 trades and nominally passed, but it was not blind.
+
+THE CONCENTRATION READ, which the pre-reg owed either way, is what settles it. Over the WF years
+2016-2025 the ten best trades are $224,226 against a leg total of $207,535 - 108 percent - so the
+other 249 trades lose $16,692 between them. The win rate is 60 of 259. The lockbox year is worse
+still: one single trade is $47,257 of a $55,550 year, 85 percent, the ten best are 178 percent, and
+the remaining 19 trades lose $43,096. 2015 and 2025 are both losing years.
+
+So ENGU-Q on ES stays CLOSED-NO. The pre-set verdict was that the leg re-opens only on a PASS at
+0.60 on the corrected tape, and it did not pass. On the owner-rule window 2016-07-01..2025-06-30 the
+book add would have looked attractive - book #463 $140,142/yr with worst DD $52,238, the leg alone
+$25,706/yr, book +1x $165,848/yr with worst DD $55,653 (55.7 percent of $100k, 22.3 percent of
+$250k), correlation 0.35, so +$25.7k a year for +$3.4k of book drawdown, the best add ratio measured
+in this lane. It is refused anyway, because that ratio is made of ten trades. OPUS-HUNT confirms
+ENGUQES370 had already left the frontier pool at rev 2 as a cost artefact and appears nowhere in
+sector_v6 or v7, so no pick needed rebuilding; the rev 1 picks that held it are superseded.
+
+Validated one-unit daily series, for the record only and not to enter any mix:
+C:/EdgeLog/_anatomy_cache/bookq/allocator_legs/R532_ENGUQES370_mtm.csv and _stats.json.
+Driver: tools/enguq_es370_regrade_queue.py. Job 6OjUcEYjYuDRclf8GX8J, elapsed 6,117 s.
+
+A basis gap surfaced and closed here, worth remembering: book #463's rebuilt daily csv covers
+2010-06-07..2025-06-30, and dividing the whole file by its 15.06 years gives $91,215/yr, while the
+owner-rule basis is the WF window 2016-07-01..2025-06-30 only - 2,542 days, $1,260,800, 8.997 years,
+$140,142/yr, DD $52,238, ROC 80.5. Cut every leg to that window before adding it to the book.
