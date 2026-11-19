@@ -401,11 +401,16 @@ def _trip_disagreement(shadow, leg_key, today_iso, bar_epoch, now, log):
 
 
 # ── the two halves of one tick ───────────────────────────────────────────────────────────
-def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
+def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None):
     """Runs only inside the ~1 minute after a 5m boundary. Reads the hand-off file
     once; if it clears every safety gate, computes (and records) each 5m leg's
     stream-implied decision, and -- only when the owner switch is on AND that leg's
-    disagreement latch is not tripped for today -- commits it for real."""
+    disagreement latch is not tripped for today -- commits it for real.
+
+    `state` (ORDERS FIRST, 2026-11-18): a snapshot of cs state.json taken BEFORE this
+    tick's step() -- run_stream_aware_step hands it in when the owner switch is OFF and
+    the extras run after step(), so the dry run sees exactly the baseline it saw when it
+    ran first. Never written back (state_changed needs want_live, which is off then)."""
     payload = read_closed_bar_handoff("5m", home=paths.get("home"))
     ok, reason = stream_bar_is_usable(payload, now)
     if not ok:
@@ -419,7 +424,6 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log):
     today = now.date().isoformat()
     want_live = bool(stream_cfg.get("bar_close_from_stream"))
 
-    state = None
     state_changed = False
     keel_events = []          # committed rows for the KEEL entry note, AFTER the loop
     for leg_key, cfg in five_m_legs.items():
@@ -561,6 +565,44 @@ def run_stream_aware_step(now=None, legs=None, paths=None, fetch=True, warnings=
         now = now.replace(tzinfo=cs._zi(cs.TZ))
     legs = legs if legs is not None else cs.CROWN_LEGS
     paths = paths or cs.DEFAULT_PATHS
+    # ORDERS FIRST (2026-11-18, bar-close-to-order latency): with the owner switch OFF (the
+    # box today -- bar_close_from_stream False, no stream row ever committed) every extra
+    # below is diagnostic only: deep-copied dry runs (ORB + NOISE incl. KEEL scoring) whose
+    # results go to stream_shadow.json and the log, never to state.json or signals.csv. They
+    # used to run BEFORE step(), so on the tick the REST bar landed the REST what-if dry
+    # runs (and, when the stream bar arrived on the same tick, the stream dry runs) sat in
+    # front of the order-placing step(). Now step() runs first and its rows reach
+    # signals.csv (api/qqq_exec.py wakes on its mtime) before any of them. The extras get
+    # the PRE-step state.json snapshot, so their baseline is what it was. With the switch
+    # ON the old order stays: a stream commit must land before step() decides the bar.
+    want_live = None
+    try:
+        if not cs.bar_cache_refusal("5m", paths):
+            want_live = bool(load_stream_config(paths, log=log).get("bar_close_from_stream"))
+    except Exception:
+        want_live = None   # unknown -> keep the old order (extras first), the safe default
+    if want_live is False:
+        pre_state = None
+        try:
+            if any(v.get("timeframe") == "5m" and v.get("runner") != cs.DIP_RUNNER
+                   for v in legs.values()) and in_handoff_window(now):
+                pre_state = cs._load_state(paths)
+                pre_state.setdefault("legs", {})
+        except Exception as e:
+            log(f"[cloud-signal-stream] pre-step state snapshot failed (stream shadow skips "
+               f"this tick): {type(e).__name__}: {e}")
+            pre_state = False
+        events = cs.step(now=now, legs=legs, paths=paths, fetch=fetch, warnings=warnings)
+        _run_stream_extras(now, legs, paths, log, pre_state=pre_state)
+        return events
+    _run_stream_extras(now, legs, paths, log)
+    return cs.step(now=now, legs=legs, paths=paths, fetch=fetch, warnings=warnings)
+
+
+def _run_stream_extras(now, legs, paths, log, pre_state=None):
+    """The stream hand-off + REST what-if, wrapped so they can never stop step().
+    `pre_state`: None = load state.json when needed (extras run first); a dict = the
+    pre-step snapshot (extras run after step()); False = snapshot failed, skip hand-off."""
     # never a DIP leg (cfg["runner"] == cs.DIP_RUNNER) -- see the module docstring's SCOPE: the
     # classic step() below still decides it, like every leg this filter leaves out
     five_m_legs = {k: v for k, v in legs.items()
@@ -571,11 +613,10 @@ def run_stream_aware_step(now=None, legs=None, paths=None, fetch=True, warnings=
         # leg decides -- nor does a stream decision off the stream bar alone
         if five_m_legs and not cs.bar_cache_refusal("5m", paths):
             stream_cfg = load_stream_config(paths, log=log)
-            if in_handoff_window(now):
-                _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log)
+            if in_handoff_window(now) and pre_state is not False:
+                _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log,
+                                       state=pre_state)
             _resolve_pending_against_rest(now, five_m_legs, paths, log)
     except Exception as e:
         log(f"[cloud-signal-stream] stream extras failed (classic step() still runs): "
            f"{type(e).__name__}: {e}")
-
-    return cs.step(now=now, legs=legs, paths=paths, fetch=fetch, warnings=warnings)
