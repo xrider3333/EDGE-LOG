@@ -1812,7 +1812,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.11';
+const VERSION='91.12';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1833,6 +1833,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.12',date:'2026-11-19',notes:['A SUMMARY CAN NO LONGER HIDE A TRADE. The journal and the board are now read from small summary documents instead of row by row, and those summaries are kept up to date by the programs on the PC that write the rows. If one of those programs is ever running an older version it would write a real trade and not mention it - and the page would have shown you a journal that quietly stopped at yesterday.','So the page checks. Every time it loads the summary it asks for the newest trade and the newest board row directly, and if either is something the summary has not heard of, it stops trusting the summary and reads every row the old way - slower, but complete. It checks again when a window that was left in the background comes back.','It also leaves a note for the PC, and a new check there (index doctor) says exactly which rows a page could not see and rebuilds the summary. A trade you added here on the website now reaches the summary as well.']},
 {v:'91.07',date:'2026-11-19',notes:['WEBULL PAPER calendar: a day is hatched only for a fill outside its minute’s price range, outside the delay-scaled price band, or an order that never went out (broker refused vs our system failed); ORB breakout gaps no longer hatch']},
 {v:'91.06',date:'2026-11-19',notes:['THE JOURNAL NOW OPENS ON THREE READS INSTEAD OF 108. Your trades used to be fetched one database read per trade, every time a tab opened and again every time a window came back from being hidden. The same 108 trades now travel in two documents with a summary, which was the last big charge any tab made - together with the board change, a tab coming back costs about a tenth of what it did.','A trade written by the PC - a fill, a point score, a chart - still appears on its own with no refresh, and costs nothing extra to see.','Nothing on the ledger changes. The summary carries every field of every trade, and a check that runs before each release refuses it unless the ledger drawn from the summary is identical, character for character, to the ledger drawn the old way. If the summary is ever missing or unreadable the page goes back to reading trades one by one, so it can only ever be slower, never short a trade.']},
 {v:'91.05',date:'2026-11-19',notes:['OPENING THE BOARD NOW COSTS THREE READS INSTEAD OF 324. The board page used to be fed one database read per row, every time a tab opened it and again every time a window came back from being hidden - the single biggest charge any tab made, and a large part of why the free daily allowance ran out twice this month. The same 324 rows now travel in three documents.','A row changed on the PC costs nothing at all to see: it arrives with the summary the page is already watching, so the board still moves on its own with no refresh.','The board itself is unchanged - every row, every colour, DONE rows still sitting where they were. If anything about the new summary is missing or unreadable the page quietly goes back to reading the rows one by one, so a bad summary can only make the board slower, never wrong.']},
@@ -4625,6 +4626,13 @@ function _lsResume(){try{
   // A listener the breaker is holding, or a page the breaker has stopped, stays detached.
   if(!_lsQuota.dead)_ls.reg.forEach(function(e){try{if(!e.dead&&!e.unsub&&!e.held&&e.raw){_ls.reattach++;e.unsub=e.raw.apply(e.ref,e.args);}}catch(_e){}});
   try{_tbSwap('tb-load',_tbLoadHtml());}catch(_e){}
+  // A TAB THAT HAS BEEN ASLEEP IS EXACTLY THE ONE THAT MAY HAVE MISSED A NIGHT OF WRITES, so the
+  //   index audits run again when it comes back. Two documents each; the alternative is showing
+  //   the owner a journal that quietly stops at yesterday.
+  try{window._tixAuditing=false;window._bdAuditing=false;
+    if(window._tixRev)_tixAudit((auth&&auth.currentUser&&auth.currentUser.uid)||'',null);
+    if(window._bdRev&&window._bdFallback)_bdAudit((auth&&auth.currentUser&&auth.currentUser.uid)||'',null,window._bdFallback);
+  }catch(_e){}
 }catch(e){}}
 function _lsVis(){try{
   if(document.hidden){if(!_ls.t)_ls.t=setTimeout(function(){_ls.t=null;_lsPause();},LS_HIDDEN_MS);}
@@ -6075,6 +6083,62 @@ function _tixPoke(uid,tid,fields){try{
     recent:firebase.firestore.FieldValue.arrayUnion({rev:0,id:String(tid),trade:cur,web:true})},
     {merge:true}).catch(function(){});
 }catch(e){return Promise.resolve();}}
+// ── CAN AN INDEX HIDE SOMETHING? THE AUDIT (MANAGER 2026-11-19, the hour after v91.06).
+//    The journal and the board are read from index documents that only the NEW code maintains:
+//    api/trades_index.py is told by nt_sync, webull_sync, trade_bars and the purge tool, and
+//    tools/board.py writes the board index itself. The moment any writer runs OLD code - the
+//    shared checkout the PC runner runs from was sixteen commits behind main when this was
+//    written - it writes a real document and tells no index, and a page that trusts the index
+//    would simply not show the owner his new trade. A slow journal is a nuisance. A journal
+//    missing today's fill is unacceptable, so trust is not assumed here; it is checked.
+//
+//    THE CHECK IS TWO DOCUMENTS, not a collection. Ask the collection for its newest row by each
+//    of the two stamps every writer sets - createdAt (every sync, and this page's own add) and
+//    date / updated_at - and compare with what the index holds. If that row is one the index has
+//    never heard of, or it is stamped after the index was last touched, the index is behind and
+//    this tab stops trusting it: it falls back to the listener it always used, and leaves a mark
+//    on the head so tools/index_doctor.py rebuilds it on the PC. Two reads per index per audit,
+//    against the 108 and 324 the fallback itself costs - cheap insurance, and it runs again when
+//    a hidden tab wakes up, which is exactly when it may have missed a night of writes.
+function _ixMs(v){try{
+  if(v==null)return 0;
+  if(typeof v==='object'&&typeof v.toDate==='function')return v.toDate().getTime();
+  if(typeof v==='object'&&v.seconds!=null)return (+v.seconds)*1000;
+  if(typeof v==='number')return v<1e12?v*1000:v;
+  const t=Date.parse(String(v).replace(' ','T'));
+  return isNaN(t)?0:t;
+}catch(e){return 0;}}
+// A date-only stamp ('2026-11-19') means the whole of that day, so it only counts as newer than
+//   the index when the index was last touched BEFORE that day began. Without this every tab would
+//   cry stale every evening, fall back, and spend the reads this whole change exists to save.
+function _ixDayMs(v){const t=_ixMs(v);if(!t)return 0;
+  return (/^\d{4}-\d{2}-\d{2}$/.test(String(v||'').trim()))?t:t;}
+const IX_SKEW_MS=90*1000;     // a sync writes the doc, then the index a moment later
+// Probe one collection: is there a row the index does not have, or one stamped after it?
+//   `held` answers "do you know this id", `at` is when the index was last written.
+function _ixBehind(col,stamps,held,at){
+  const tries=stamps.map(function(f){
+    return col.orderBy(f,'desc').limit(1).get()
+      .then(function(q){
+        if(!q||q.empty)return null;
+        const d=q.docs[0],row=d.data()||{};
+        if(!held(d.id))return 'the index has never heard of '+d.id;
+        const t=_ixDayMs(row[f]);
+        if(t&&at&&t>(at+IX_SKEW_MS))return d.id+' was written after the index ('+f+')';
+        return null;})
+      .catch(function(e){
+        // A refused or impossible probe is NOT evidence of staleness: say nothing and leave the
+        //   index trusted, or a quota refusal would push every tab onto the dearer path.
+        console.warn('[index audit] probe on '+f+' failed:',(e&&e.message)||e);return null;});
+  });
+  return Promise.all(tries).then(function(r){return r.filter(Boolean)[0]||null;});
+}
+// Leave a mark for the PC: ONE write, only when something is actually wrong.
+function _ixMarkStale(uid,doc,why){try{
+  db.collection('users').doc(uid).collection('meta').doc(doc)
+    .set({stale:new Date().toISOString(),stale_why:String(why).slice(0,200)},{merge:true})
+    .catch(function(){});
+}catch(e){}}
 // ── THE TRADES INDEX READER. Returns the unsubscribe handle subscribeAll keeps, so the shape of
 //    the caller is unchanged whether the index or the collection is doing the work.
 function _tixFetch(uid,n){
@@ -6141,6 +6205,7 @@ function _tixOnHead(uid,head,fallback){
       // the head may have moved on since the shards were built - its inline changes win
       all.slice().sort(function(a,b){return (+(a.rev||0))-(+(b.rev||0));}).forEach(_tixTake);
       window._tixRev=rev;window._tixFetching=false;_tixPublish();
+      _tixAudit(uid,head);
     }).catch(function(e){
       window._tixFetching=false;
       console.warn('[trades] index read failed, listening to the collection instead:',(e&&e.message)||e);
@@ -6148,6 +6213,21 @@ function _tixOnHead(uid,head,fallback){
     return 'shards';
   }catch(e){fallback('index threw: '+((e&&e.message)||e));return 'fallback';}
 }
+// Audited ONCE per load, and again whenever a sleeping tab wakes up and re-reads.
+function _tixAudit(uid,head){try{
+  if(window._tixAuditing)return;window._tixAuditing=true;
+  const at=_ixMs((head||{}).updated_at)||_ixMs((head||{}).built_at);
+  _ixBehind(db.collection('users').doc(uid).collection('trades'),['createdAt','date'],
+    function(id){return !!(window._tixRows||{})[String(id)];},at)
+  .then(function(why){
+    window._tixAuditing=false;
+    window._tixAuditedAt=Date.now();window._tixStale=why||null;
+    if(!why)return;
+    console.warn('[trades] the index is behind the journal, reading the collection instead:',why);
+    _ixMarkStale(uid,'trades_index',why);
+    if(window._tixFallback)window._tixFallback('index behind: '+why);
+  });
+}catch(e){window._tixAuditing=false;}}
 window._tixOnHead=_tixOnHead;
 window._tixAttachFn=_tixAttach;   // the render gate drives the real attach (see _idToken: never shadow the name)
 function _tixAttach(uid){
@@ -6438,6 +6518,7 @@ function _bdOnHead(u,head,paint,fallback){
       all.slice().sort(function(a,b){return (+(a.rev||0))-(+(b.rev||0));}).forEach(_bdTake);
       window._bdRev=rev;window._bdAt=Date.now();window._bdLoaded=true;window._bdErr=null;
       window._bdFetching=false;paint();
+      _bdAudit(u,head,fallback);
     }).catch(function(e){
       window._bdFetching=false;
       console.warn('[board] index read failed, listening to the collection instead:',(e&&e.message)||e);
@@ -6445,6 +6526,19 @@ function _bdOnHead(u,head,paint,fallback){
     return 'shards';
   }catch(e){fallback('index threw: '+((e&&e.message)||e));return 'fallback';}
 }
+function _bdAudit(uid,head,fallback){try{
+  if(window._bdAuditing)return;window._bdAuditing=true;
+  const at=_ixMs((head||{}).updated_at)||_ixMs((head||{}).built_at);
+  _ixBehind(db.collection('users').doc(uid).collection('board'),['updated_at','date'],
+    function(id){return !!(window._bdRows||{})[String(id)];},at)
+  .then(function(why){
+    window._bdAuditing=false;window._bdStale=why||null;
+    if(!why)return;
+    console.warn('[board] the index is behind the board, reading the collection instead:',why);
+    _ixMarkStale(uid,'board_index',why);
+    if(fallback)fallback('index behind: '+why);
+  });
+}catch(e){window._bdAuditing=false;}}
 window._bdOnHead=_bdOnHead;
 function loadBoard(uidArg){
   if(window._bdOn)return;                     // onSnapshot stays attached for the whole session
@@ -7584,7 +7678,13 @@ async function addTrade(t){
   const aid=localStorage.getItem('el_account_id')||'';
   const brk=localStorage.getItem('el_broker_name')||'';
   const stamp={};if(aid)stamp.account=aid;if(brk)stamp.broker=brk;
-  if(colRef)await colRef.add({...t,...stamp,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+  if(colRef){
+    // A TRADE ADDED HERE IS WRITTEN BY THE PAGE, not by the PC, so nothing else would tell the
+    //   index about it - and the journal is read from the index now. Poke it with the same row.
+    const _ref=await colRef.add({...t,...stamp,createdAt:firebase.firestore.FieldValue.serverTimestamp()});
+    try{const _u=auth&&auth.currentUser&&auth.currentUser.uid;
+      if(_u&&_ref&&_ref.id)await _tixPoke(_u,_ref.id,{...t,...stamp});}catch(_e){}
+  }
 }
 async function updateTrade(id,data){if(colRef)return colRef.doc(id).update(data);}
 async function deleteTrade(id){if(colRef&&confirm('Delete this trade?'))await colRef.doc(id).delete();}
