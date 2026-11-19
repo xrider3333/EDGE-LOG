@@ -98,6 +98,9 @@ def last_price(path=PRICE_CSV, now=None):
         return None, None
 
 
+MAX_FLATTEN_TRIES = 2          # same position still open after this many flattens = rejected; stop + alert once
+
+
 def in_close_window(now_mst):
     if now_mst.weekday() >= 5:
         return False
@@ -138,7 +141,23 @@ def decide(stranded, managed, state, now, price=None, price_age=None, now_mst=No
             else:
                 seen[k] = state[k]
         else:
-            acts.append(("flatten", reason))
+            # A flatten NinjaTrader rejects (11-19: "no market data available to drive the simulation
+            # engine") still answers ok from the bridge, and the position stays. Retrying every poll
+            # popped an Error dialog every 20 s for an hour. After MAX_FLATTEN_TRIES on the SAME
+            # position: stop, alert once, leave it to a person.
+            tries = max(int(seen[key_of(p)].get("flat_tries", 0)) for p in stranded)
+            if tries >= MAX_FLATTEN_TRIES:
+                k = key_of(stranded[0])
+                if not seen[k].get("gave_up_pushed"):
+                    seen[k]["gave_up_pushed"] = True
+                    acts.append(("push", "NT demo: flatten NOT filling - needs a person",
+                                 f"{reason}: {tries} flatten(s) sent and the position is still open (NinjaTrader "
+                                 f"rejects the close - usually no market data on the Live connection). The guard "
+                                 f"stopped retrying. Reconnect Live in NinjaTrader, then close it by hand."))
+            else:
+                for p in stranded:
+                    seen[key_of(p)]["flat_tries"] = int(seen[key_of(p)].get("flat_tries", 0)) + 1
+                acts.append(("flatten", reason))
     return acts, seen
 
 
@@ -190,7 +209,7 @@ def run_once(whatif=False):
                 print(f"  -> {res}")
                 try:
                     from api import ntfy_push
-                    ntfy_push.push(f"{a[1]}. Bridge said: {res}", title="NT demo 7240108: stranded trade CLOSED",
+                    ntfy_push.push(f"{a[1]}. Bridge said: {res}", title="NT demo: stranded trade - flatten SENT",
                                    priority="high")
                 except Exception:
                     pass

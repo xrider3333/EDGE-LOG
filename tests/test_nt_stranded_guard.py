@@ -67,3 +67,17 @@ def test_never_flattens_under_a_managed_leg_pushes_instead_once():
 
 def test_short_adverse_points():
     assert G.adverse_pts({"side": "Short", "avg_price": 100}, 150) == 50
+
+
+def test_11_19_rejected_flatten_stops_after_two_and_alerts_once():
+    """No market data: NT rejects every close, the bridge still says ok. Two tries, one alert, then quiet."""
+    pos = [{"account": "Sim101", "instrument": "MNQ 12-26", "side": "Short", "qty": 11, "avg_price": 26781.8}]
+    mst = dt.datetime(2026, 11, 19, 13, 56)
+    state, kinds = {}, []
+    for i in range(6):
+        acts, state = G.decide(pos, False, state, 1000.0 + 20 * i, now_mst=mst)
+        kinds.append([a[1] for a in acts if a[0] == "push"] + [a[0] for a in acts if a[0] == "flatten"])
+    flat = sum(k.count("flatten") for k in kinds)
+    alerts = [a for k in kinds for a in k if "NOT filling" in a]
+    assert flat == 2 and len(alerts) == 1
+    assert "flatten" not in kinds[2] and all(k == [] for k in kinds[3:])
