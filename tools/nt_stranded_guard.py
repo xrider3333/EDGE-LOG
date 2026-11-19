@@ -27,6 +27,7 @@ import json
 import os
 import sys
 import time
+import urllib.error
 import urllib.request
 from zoneinfo import ZoneInfo
 
@@ -52,9 +53,16 @@ def _get(path):
 
 
 def _post(path):
+    """POST to the bridge; a 409 (flatten not complete) comes back as its JSON body, ok False."""
     req = urllib.request.Request(BRIDGE + path, data=b"", method="POST")
-    with urllib.request.urlopen(req, timeout=10) as r:
-        return json.loads(r.read().decode("utf-8"))
+    try:
+        with urllib.request.urlopen(req, timeout=60) as r:
+            return json.loads(r.read().decode("utf-8"))
+    except urllib.error.HTTPError as e:
+        try:
+            return json.loads(e.read().decode("utf-8"))
+        except Exception:
+            return {"ok": False, "error": f"HTTP {e.code}"}
 
 
 def root_of(instrument):
@@ -255,6 +263,16 @@ def run_once(whatif=False):
                 except Exception as e:
                     res = {"error": str(e)}
                 print(f"  -> {res}")
+                if (not res.get("ok")) or res.get("rejected") or res.get("not_flat_after"):
+                    # rejected close / partial / flip: say so NOW, by name - never a "flatten sent" note
+                    try:
+                        from api import ntfy_push
+                        ntfy_push.push(f"{a[1]}. NOT flat. rejected={res.get('rejected')} "
+                                       f"not_flat_after={res.get('not_flat_after')} error={res.get('error')}",
+                                       title=f"NT paper {DEMO}: flatten FAILED - needs a person", priority="high")
+                    except Exception:
+                        pass
+                    continue
                 try:
                     from api import ntfy_push
                     ntfy_push.push(f"{a[1]}. Bridge said: {res}", title="NT demo: stranded trade - flatten SENT",

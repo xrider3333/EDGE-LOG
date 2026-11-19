@@ -46,7 +46,8 @@ def _call(method, path, params=None, body=None):
     if data is not None:
         req.add_header("Content-Type", "application/json")
     try:
-        with urllib.request.urlopen(req, timeout=5) as resp:
+        # /flatten waits up to ~9 s per instrument for NinjaTrader to settle each close
+        with urllib.request.urlopen(req, timeout=60 if path == "/flatten" else 5) as resp:
             raw = resp.read().decode("utf-8")
             return resp.status, (json.loads(raw) if raw else None)
     except urllib.error.HTTPError as e:
@@ -193,7 +194,8 @@ def cmd_flatten(args):
         sys.exit(1)
     status, data = _call("POST", "/flatten", params={"account": args.account})
     print(json.dumps(data, indent=2) if args.json else f"status={status} {data}")
-    if status != 200:
+    if status != 200 or not (data or {}).get("ok"):
+        print("FLATTEN DID NOT COMPLETE - the account is NOT flat (see rejected / not_flat_after)")
         sys.exit(1)
 
 

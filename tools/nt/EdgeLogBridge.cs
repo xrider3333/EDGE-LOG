@@ -1917,63 +1917,118 @@ namespace NinjaTrader.NinjaScript.AddOns
             var filled = new List<string>(); var failed = new List<string>(); var notFlat = new List<string>();
             foreach (var p in held)
             {
-                Instrument inst = p.Instrument; string iname = inst.FullName;
-                Order close = null; string why = "";
-                // NinjaTrader's reject reason arrives on the OrderUpdate event, not on the Order
-                EventHandler<OrderEventArgs> onUpd = (snd, e) =>
+                Instrument inst = p.Instrument; string iname = inst.FullName; int want = p.Quantity;
+                string why;
+                OrderState st; int got;
+                Order close = SendClose(acct, inst,
+                    p.MarketPosition == MarketPosition.Short ? OrderAction.BuyToCover : OrderAction.Sell,
+                    want, out st, out got, out why);
+                if (close == null) { failed.Add(iname + ": submit failed: " + why); continue; }
+                if (got <= 0)
                 {
-                    try { if (close != null && e.Order == close && e.Error != ErrorCode.NoError)
-                              why = e.Error + (string.IsNullOrEmpty(e.Comment) ? "" : ": " + e.Comment); }
-                    catch { }
-                };
-                acct.OrderUpdate += onUpd;
-                try
-                {
-                    close = acct.CreateOrder(inst,
-                        p.MarketPosition == MarketPosition.Short ? OrderAction.BuyToCover : OrderAction.Sell,
-                        OrderType.Market, OrderEntry.Manual, TimeInForce.Day, p.Quantity, 0, 0,
-                        "", "Close", Core.Globals.MaxDate, null);
-                    acct.Submit(new[] { close });
+                    // rejected / never filled: the protective stop stays exactly as it was
+                    failed.Add(iname + ": close " + st + (why.Length > 0 ? " (" + why + ")" : "") + " - stop kept");
+                    continue;
                 }
-                catch (Exception ex) { acct.OrderUpdate -= onUpd; failed.Add(iname + ": submit failed: " + ex.Message); continue; }
-                OrderState st = WaitTerminal(close, 5000);
-                acct.OrderUpdate -= onUpd;
-                if (st != OrderState.Filled)
+                if (got < want)
                 {
-                    // rejected / no answer: keep the stop; pull a still-working close so it cannot fill later unseen
-                    if (st != OrderState.Rejected && st != OrderState.Cancelled)
-                        try { acct.Cancel(new[] { close }); } catch { }
-                    failed.Add(iname + ": close " + st + (why.Trim().Length > 0 ? " (" + why.Trim() + ")" : "") + " - stop kept");
+                    // PARTIAL: shrink the instrument's working stops to the shares still held, never more
+                    int left = want - got;
+                    var resized = new List<Order>();
+                    foreach (var o in WorkingOrders(acct, inst, close))
+                        try { if (o.Quantity > left) { o.QuantityChanged = left; resized.Add(o); } } catch { }
+                    if (resized.Count > 0) try { acct.Change(resized); } catch (Exception ex) { why += " resize failed: " + ex.Message; }
+                    failed.Add(iname + ": close PARTIAL " + got + "/" + want + " - stop resized to " + left
+                               + (why.Length > 0 ? " (" + why + ")" : ""));
                     continue;
                 }
                 filled.Add(iname);
-                // close FILLED: now pull the instrument's remaining working orders (the protective stop)
-                var rest = new List<Order>();
-                lock (acct.Orders)
-                    foreach (var o in acct.Orders)
-                        try
-                        {
-                            if (o != close && o.Instrument == inst
-                                && (o.OrderState == OrderState.Working || o.OrderState == OrderState.Accepted
-                                    || o.OrderState == OrderState.TriggerPending || o.OrderState == OrderState.Submitted))
-                                rest.Add(o);
-                        }
-                        catch { }
-                if (rest.Count > 0) acct.Cancel(rest);
-                // the flip race: the stop may have filled in the same instant as the close
-                Thread.Sleep(500);
-                lock (acct.Positions)
-                    foreach (var q2 in acct.Positions)
-                        try { if (q2.Instrument == inst && q2.MarketPosition != MarketPosition.Flat)
-                                  notFlat.Add(iname + " " + q2.MarketPosition + " " + q2.Quantity); }
-                        catch { }
+                // close FILLED in full: pull the instrument's remaining working orders (the stop)
+                var rest = WorkingOrders(acct, inst, close);
+                if (rest.Count > 0)
+                {
+                    acct.Cancel(rest);
+                    foreach (var o in rest) WaitTerminal(o, 3000);
+                }
+                // the flip race: the stop may have filled in the same instant as the close -> close the flip
+                Thread.Sleep(300);
+                Position now = PositionOf(acct, inst);
+                if (now != null && now.MarketPosition != MarketPosition.Flat && now.Quantity > 0)
+                {
+                    string w2; OrderState s2; int g2;
+                    SendClose(acct, inst, now.MarketPosition == MarketPosition.Short ? OrderAction.BuyToCover : OrderAction.Sell,
+                              now.Quantity, out s2, out g2, out w2);
+                    Position after = PositionOf(acct, inst);
+                    string tail = (after == null || after.MarketPosition == MarketPosition.Flat) ? "flip CLOSED"
+                                  : ("STILL " + after.MarketPosition + " " + after.Quantity);
+                    notFlat.Add(iname + " flipped " + now.MarketPosition + " " + now.Quantity + " - " + tail
+                                + (w2.Length > 0 ? " (" + w2 + ")" : ""));
+                }
             }
             bool ok = failed.Count == 0 && notFlat.Count == 0;
             Log("FLATTEN " + acctName + " filled=[" + string.Join(",", filled) + "] failed=[" + string.Join(" | ", failed)
                 + "] not_flat_after=[" + string.Join(",", notFlat) + "]");
-            Respond(s, 200, "{\"ok\":" + (ok ? "true" : "false") + ",\"flattened\":" + filled.Count
+            // 409 when anything is not flat: a caller that only checks the status can never read "closed"
+            Respond(s, ok ? 200 : 409, "{\"ok\":" + (ok ? "true" : "false") + ",\"flattened\":" + filled.Count
                 + ",\"filled\":" + JArr(filled) + ",\"rejected\":" + JArr(failed)
                 + ",\"not_flat_after\":" + JArr(notFlat) + "}");
+        }
+
+        // One market close; waits for it, and on a timeout cancels it AND waits again, so a fill that
+        // lands during the cancel is still counted (never a flat account with a live stop unseen).
+        private Order SendClose(Account acct, Instrument inst, OrderAction act, int qty,
+                                out OrderState st, out int filled, out string why)
+        {
+            st = OrderState.Unknown; filled = 0; why = "";
+            Order close = null; string err = "";
+            EventHandler<OrderEventArgs> onUpd = (snd, e) =>
+            {
+                try { if (close != null && e.Order == close && e.Error != ErrorCode.NoError)
+                          err = e.Error + (string.IsNullOrEmpty(e.Comment) ? "" : ": " + e.Comment); }
+                catch { }
+            };
+            acct.OrderUpdate += onUpd;
+            try
+            {
+                close = acct.CreateOrder(inst, act, OrderType.Market, OrderEntry.Manual, TimeInForce.Day, qty, 0, 0,
+                                         "", "Close", Core.Globals.MaxDate, null);
+                acct.Submit(new[] { close });
+                st = WaitTerminal(close, 5000);
+                if (st != OrderState.Filled && st != OrderState.Rejected && st != OrderState.Cancelled)
+                {
+                    try { acct.Cancel(new[] { close }); } catch { }
+                    st = WaitTerminal(close, 3000);
+                }
+                try { filled = close.Filled; } catch { }
+            }
+            catch (Exception ex) { why = ex.Message; acct.OrderUpdate -= onUpd; return close; }
+            acct.OrderUpdate -= onUpd;
+            why = err;
+            return close;
+        }
+
+        private static List<Order> WorkingOrders(Account acct, Instrument inst, Order except)
+        {
+            var rest = new List<Order>();
+            lock (acct.Orders)
+                foreach (var o in acct.Orders)
+                    try
+                    {
+                        if (o != except && o.Instrument == inst
+                            && (o.OrderState == OrderState.Working || o.OrderState == OrderState.Accepted
+                                || o.OrderState == OrderState.TriggerPending || o.OrderState == OrderState.Submitted))
+                            rest.Add(o);
+                    }
+                    catch { }
+            return rest;
+        }
+
+        private static Position PositionOf(Account acct, Instrument inst)
+        {
+            lock (acct.Positions)
+                foreach (var q in acct.Positions)
+                    try { if (q.Instrument == inst) return q; } catch { }
+            return null;
         }
 
         // Poll an order until NinjaTrader settles it (Filled / Rejected / Cancelled) or the timeout.

@@ -95,3 +95,21 @@ def test_11_19_no_tick_with_position_alerts_once():
     assert G.no_tick_alert([], {"MNQ": 999}, {}, 1.0, thu)[0] is None
     assert G.no_tick_alert(pos, {"MNQ": 999}, {}, 1.0, dt.datetime(2026, 11, 19, 15, 30))[0] is None  # daily pause
     assert G.no_tick_alert(pos, {"MNQ": 999}, {}, 1.0, dt.datetime(2026, 11, 21, 12, 0))[0] is None   # Saturday
+def test_flatten_409_pushes_failed_never_sent(monkeypatch):
+    """Bridge answers 409 / ok:false (close rejected): the guard pushes 'flatten FAILED', not 'SENT'."""
+    import types
+    pushes = []
+    fake = types.SimpleNamespace(push=lambda text, title="", priority="": pushes.append(title))
+    monkeypatch.setitem(sys.modules, "api.ntfy_push", fake)
+    import api
+    monkeypatch.setattr(api, "ntfy_push", fake, raising=False)
+    pos = {"positions": [{"account": G.DEMO, "instrument": "MNQ 12-26", "side": "Short", "qty": 11, "avg_price": 1.0}]}
+    monkeypatch.setattr(G, "_get", lambda p: pos if p == "/positions" else {"strategies": []})
+    monkeypatch.setattr(G, "_post", lambda p: {"ok": False, "rejected": ["MNQ 12-26: close Rejected - stop kept"]})
+    monkeypatch.setattr(G, "_load", lambda: {})
+    monkeypatch.setattr(G, "_save", lambda d: None)
+    monkeypatch.setattr(G, "last_price", lambda *a, **k: (None, None))
+    monkeypatch.setattr(G, "in_close_window", lambda m: True)
+    monkeypatch.setattr(G.os, "system", lambda c: 0)
+    G.run_once()
+    assert any("flatten FAILED" in t for t in pushes) and not any("SENT" in t for t in pushes)
