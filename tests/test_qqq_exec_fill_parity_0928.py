@@ -215,8 +215,9 @@ def test_published_rows_are_packed_and_the_tab_reads_them_back(book):
     r_bad = next(r for r in rows if r["trade_id"] == "ENGUQ_335-20260924T161700Z-L")
     en_before = dict(r_ok["fp"]["en"])
     qe._compact_published_trades(rows)
-    assert r_ok["fp"]["en"] == "735.66|735.87|o|0.21|0|0.21|0|"
-    assert r_bad["fp"]["en"].split("|")[2] == "s" and r_bad["fp"]["en"].endswith("|suspect")
+    assert r_ok["fp"]["en"].split("|")[:8] == "735.66|735.87|o|0.21|0|0.21|0|".split("|")
+    assert len(r_ok["fp"]["en"].split("|")) == 12   # + the hatch verdict, appended
+    assert r_bad["fp"]["en"].split("|")[2] == "s" and r_bad["fp"]["en"].split("|")[7] == "suspect"
     assert r_ok["fp"]["ex"].split("|")[0] == "735.73"
     assert "broker_parity_note" not in r_ok, "an in-band row needs no hover sentence"
     assert r_bad["broker_parity_note"].startswith("FLAGGED"), "a flagged row keeps its hover"

@@ -14443,7 +14443,151 @@ def _cents_short(ps):
     return f"{c:.1f}c {'better' if ps > 0 else 'worse'}"
 
 
-def _broker_trade_parity(row, by_base, engine_px=None, log=print):
+# -- HATCH VERDICT (2026-11-19, MANAGER-approved) --------------------------------------
+# The flat PARITY_TRADE_TOL_PS band flagged 36 hatched days; 34 of them were pure market
+# drift over the ~8 s bar-close-to-send delay. The ENGINE now stamps a per-fill verdict
+# the page only reads: a band that widens with the send delay (QQQ's ~36.3c 1-minute
+# move scale, sqrt-time), whether the fill sat outside that minute's own range, whether an
+# ORB entry's backtest price is the breakout level (then the minute's open is the yard-
+# stick), and on the row what KIND of book-only refusal it was. The old broker_parity_ok
+# flag is unchanged (compatibility).
+PARITY_BAND_BASE_PS = 0.15
+PARITY_BAND_MIN_SIGMA_PS = 0.363
+PARITY_BAND_DEFAULT_DELAY_S = 8.0
+_VERDICT_BARS_CACHE = {"key": None, "val": None}   # the 1m bar file's (mtime, size) -> bars
+
+
+def parity_band_ps(after_close_s=None):
+    """Per-fill band, $/share: 0.15 + 2 * 0.363 * sqrt(t / 60), t = seconds from the
+    signal bar's close to the send (after_close_s); unknown / bad t -> 8 s."""
+    try:
+        t = float(after_close_s)
+        if not math.isfinite(t) or t < 0:
+            raise ValueError
+    except Exception:
+        t = PARITY_BAND_DEFAULT_DELAY_S
+    return PARITY_BAND_BASE_PS + 2.0 * PARITY_BAND_MIN_SIGMA_PS * math.sqrt(t / 60.0)
+
+
+def _et_epoch(ts):
+    """Epoch seconds of an ET wall-clock 'YYYY-MM-DD HH:MM:SS' (or ISO with offset), else None."""
+    try:
+        dt = datetime.fromisoformat(str(ts or "").strip().replace("T", " "))
+        if dt.tzinfo is None:
+            dt = dt.replace(tzinfo=_NY or timezone.utc)
+        return dt.timestamp()
+    except Exception:
+        return None
+
+
+def _verdict_ctx(log=print):
+    """{"bars": {minute_start_epoch: (open, high, low, close)}, "orders": [(leg, epoch,
+    after_close_s)]} -- the box's REST 1m cache (api.cloud_signal's 1m QQQ bars) and
+    orders.csv's after-close latency. LAZY: returns an unloaded context; _verdict_load
+    reads both files the first time a Webull fill actually needs judging, once per
+    publish (a publish with no fills never touches the bar cache). Never raises."""
+    return {"bars": None, "orders": None, "log": log}
+
+
+def _verdict_load(ctx):
+    if ctx.get("bars") is not None:
+        return ctx
+    log = ctx.get("log") or print
+    ctx.update({"bars": {}, "orders": []})
+    try:
+        cs = _cs_module()
+        try:
+            bst = os.stat(cs._cache_path("1m", cs.DEFAULT_PATHS))
+            bkey = (bst.st_mtime_ns, bst.st_size)
+        except Exception:
+            bkey = None
+        if bkey is not None and _VERDICT_BARS_CACHE.get("key") == bkey:
+            ctx["bars"] = _VERDICT_BARS_CACHE["val"]
+            raise StopIteration   # unchanged bar file: never re-read
+        df = cs.load_cached_bars("1m", cs.DEFAULT_PATHS)
+        if df is not None and len(df):
+            for t, o, h, l, c in zip(df["time"], df["open"], df["high"], df["low"], df["close"]):
+                try:
+                    ctx["bars"][int(float(t))] = (float(o), float(h), float(l), float(c))
+                except Exception:
+                    continue
+            if bkey is not None:
+                _VERDICT_BARS_CACHE.update({"key": bkey, "val": ctx["bars"]})
+    except StopIteration:
+        pass
+    except Exception as e:
+        log(f"[qqq-exec] hatch verdict: 1m bars unreadable: {type(e).__name__}: {e}")
+    try:
+        with open(ORDERS_CSV, encoding="utf-8", newline="") as f:
+            for r in csv.DictReader(f):
+                ep = _et_epoch(r.get("ts_et"))
+                ac = _finite_or_none(r.get("after_close_s"))
+                if ep is not None and ac is not None:
+                    ctx["orders"].append((str(r.get("leg") or "").strip().upper(), ep, ac))
+    except Exception:
+        pass
+    return ctx
+
+
+def _fill_verdict(row, intent, s, eng, by_base, ctx):
+    """The per-fill hatch verdict for one _side_parity dict: {parity_band_c (dollars a
+    share, despite the name), parity_ok, outside_minute_range, orb_breakout_gap_design}.
+    parity_ok / outside_minute_range are None when that side cannot be judged. Never raises."""
+    out = {"parity_band_c": None, "parity_ok": None, "outside_minute_range": None,
+           "orb_breakout_gap_design": False}
+    try:
+        ctx = ctx if ctx is not None else {"bars": {}, "orders": []}
+        if s.get("wb") is None:
+            return out
+        bars = _verdict_load(ctx).get("bars") or {}
+        leg = str(row.get("leg") or "").strip().upper()
+        tid = str(row.get("trade_id") or "").strip()
+        brow = _broker_order_for(tid, intent, by_base) if tid else None
+        send_ep = _et_epoch((brow or {}).get("ts_et"))
+        after = None
+        if send_ep is not None:
+            best = None
+            for lg, ep, ac in ctx.get("orders") or ():
+                if lg == leg and abs(ep - send_ep) <= 60 and (best is None or abs(ep - send_ep) < best[0]):
+                    best = (abs(ep - send_ep), ac)
+            after = best[1] if best else None
+        band = parity_band_ps(after)
+        out["parity_band_c"] = _r4(band)
+        mstart = int(send_ep // 60 * 60) if send_ep is not None else None
+        minute = bars.get(mstart) if mstart is not None else None
+        prev = bars.get(mstart - 60) if mstart is not None else None
+        fill, bt = s.get("wb"), s.get("bt")
+        if fill is not None and minute is not None:
+            out["outside_minute_range"] = bool(fill < minute[2] - 1e-9 or fill > minute[1] + 1e-9)
+        ref = bt
+        if (leg == "ORB" and intent == "OPEN" and bt is not None and prev is not None
+                and abs(bt - prev[3]) >= 0.01):
+            # the backtest bought the breakout LEVEL, not the signal bar's close (the
+            # close of the minute before the send) -- measure against the send minute's open
+            out["orb_breakout_gap_design"] = True
+            ref = minute[0] if minute is not None else None
+        if fill is not None and ref is not None:
+            out["parity_ok"] = bool(abs(fill - ref) <= band + 1e-9)
+    except Exception:
+        pass
+    return out
+
+
+def book_only_kind(reason):
+    """'broker' for a refusal Webull itself gave (HTTP 417 and its OPENAPI_ codes),
+    'infra' for this side's own suppressions (cross-host lease, Firestore, 429 rate
+    limit), '' otherwise."""
+    r = str(reason or "").lower()
+    if not r:
+        return ""
+    if any(k in r for k in ("lease", "firestore", "429", "rate limit", "quota")):
+        return "infra"
+    if any(k in r for k in ("http status", "417", "openapi_", "serverexception", "webull")):
+        return "broker"
+    return ""
+
+
+def _broker_trade_parity(row, by_base, engine_px=None, log=print, verdict_ctx=None):
     """FILL PARITY for one trades.csv row (a dict of strings as csv.DictReader reads it,
     with the re-price sidecar's fields already merged by _merge_reprice): each Webull
     fill against the backtest's own price -- see the section comment above. Returns
@@ -14459,6 +14603,8 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print):
         eng = (engine_px or {}).get(trade_id) if trade_id else None
         en = _side_parity(row, "OPEN", by_base, eng)
         ex = _side_parity(row, "CLOSE", by_base, eng)
+        for _intent, _s in (("OPEN", en), ("CLOSE", ex)):
+            _s.update(_fill_verdict(row, _intent, _s, eng, by_base, verdict_ctx))
         out = dict(_pnl_of_record(row, en, ex))
         comp = [s for s in (en, ex) if s.get("edge") is not None]
         if not comp:
@@ -14694,6 +14840,7 @@ def _apply_broker_parity(trades_all, broker_by_base, engine_px=None, log=print):
     fields on that row (parity_ok/parity_note, computed separately in _build_doc,
     BEFORE this runs) are exactly what applied to it before feature #56 existed, and
     this function never reads or writes them. Never raises."""
+    vctx = _verdict_ctx(log=log)
     for row in trades_all:
         if str(row.get("signal_source") or "").strip().lower() == "ninjatrader":
             row.update({"broker_parity_ok": None, "broker_parity_note": _NT_MIRROR_NOTE,
@@ -14701,7 +14848,8 @@ def _apply_broker_parity(trades_all, broker_by_base, engine_px=None, log=print):
                         "pnl_record_src": "book", "pnl_record_note": "",
                         "pnl_backtest": None})
         else:
-            row.update(_broker_trade_parity(row, broker_by_base, engine_px=engine_px, log=log))
+            row.update(_broker_trade_parity(row, broker_by_base, engine_px=engine_px, log=log,
+                                            verdict_ctx=vctx))
 
 
 def _book_only_status(row, by_base, log=print):
@@ -14774,7 +14922,8 @@ def _book_only_status(row, by_base, log=print):
         reason = str(open_row.get("reason") or "").strip()
         if not reason:
             reason = f"broker OPEN did not go through (mode={mode or 'unknown'})"
-        return {"book_only": True, "book_only_reason": reason}
+        return {"book_only": True, "book_only_reason": reason,
+                "book_only_kind": book_only_kind(reason)}
     except Exception as e:
         log(f"[qqq-exec] book-only calc failed for a trade row: {type(e).__name__}: {e}")
         return {"book_only": False, "book_only_reason": ""}
@@ -16192,10 +16341,16 @@ def _pack_num(v):
     return ("%.4f" % float(v)).rstrip("0").rstrip(".") or "0"
 
 
+def _pack_bool(v):
+    return "" if v is None else ("1" if v else "0")
+
+
 def _pack_side(s):
     """One fp side as a compact string for the published doc:
-    'bt|wb|fs|edge|dsg|slp|unx|why' (fs: o = ok, s = suspect, n = no fill; an empty
-    field = None) -- one index entry and ~40 bytes where the dict was 9 leaves and ~120
+    'bt|wb|fs|edge|dsg|slp|unx|why|band|pok|omr|orb' (fs: o = ok, s = suspect, n = no
+    fill; an empty field = None; the last four -- HATCH VERDICT 2026-11-19, APPENDED never
+    inserted -- are parity_band_c ($/sh), parity_ok, outside_minute_range,
+    orb_breakout_gap_design as 1 / 0 / "") -- one index entry and ~40 bytes where the dict was 9 leaves and ~120
     bytes. The book's own price (bk) is left out: it is the row's own entry_px /
     exit_px. The web tab's qeFpSide unpacks it. Anything that is not a dict passes
     through unchanged."""
@@ -16205,7 +16360,10 @@ def _pack_side(s):
     return "|".join([_pack_num(s.get("bt")), _pack_num(s.get("wb")), fs,
                      _pack_num(s.get("edge")), _pack_num(s.get("dsg")),
                      _pack_num(s.get("slp")), _pack_num(s.get("unx")),
-                     str(s.get("why") or "")])
+                     str(s.get("why") or ""),
+                     _pack_num(s.get("parity_band_c")), _pack_bool(s.get("parity_ok")),
+                     _pack_bool(s.get("outside_minute_range")),
+                     _pack_bool(s.get("orb_breakout_gap_design"))])
 
 
 _NT_ONLY_COLS = tuple(NT_PARITY_COLS) + tuple(SIZING_COLS)
