@@ -374,20 +374,46 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
     day = now.date()
     if now.weekday() >= 5:
         return {"day": str(day), "result": "weekend"}
+    wait = (lambda t: _sleep_until(t, now_fn, log)) if sleep else (lambda t: None)
+
+    def finish(result, ledger_day=None, **extra):
+        state["last_day"] = day.isoformat()
+        state.pop("open_basket", None)
+        _save_json(p["state"], state)
+        ld = ledger_day or day.isoformat()
+        rec = {"day": ld, "strategy": STRATEGY, "run": RUN, "result": result, **extra}
+        _append(p["ledger"], rec)
+        log(f"[PICK6 #511] {ld} {result}")
+        return rec
+
+    # RESUME after a restart: a saved basket that never finished is closed out first, so
+    # nothing strands overnight. Runs even when disabled / killed (exits always go out).
+    ob = state.get("open_basket")
+    if ob and ob.get("entries") and state.get("last_day") != ob.get("day"):
+        bday = ob["day"]
+        same = bday == day.isoformat()
+        notify(f"PICK6 #511: RESTART found an open basket from {bday} at {now:%H:%M:%S} ET - "
+               f"{'resuming exits' if same else 'closing it NOW'}", log=log)
+        entries = ob["entries"]
+        ad = adapter or make_adapter(p, log=log)
+        w = wait if same else (lambda t: None)
+        if same:
+            w(_at(day, cfg.get("exit_at") or DEFAULTS["exit_at"]))
+        _close_out(ad, entries, day, cfg, w, notify, log)
+        return _settle(ad, entries, day, cfg, state, w, notify,
+                       lambda r, **x: finish(r, ledger_day=bday, resumed_on=day.isoformat(), **x),
+                       one_sided=None, log=log)
+
     if not cfg.get("enabled", True):
         return {"day": str(day), "result": "disabled"}
     if state.get("last_day") == day.isoformat():
         return {"day": str(day), "result": "already ran today"}
-    wait = (lambda t: _sleep_until(t, now_fn, log)) if sleep else (lambda t: None)
-
-    def finish(result, **extra):
-        state["last_day"] = day.isoformat()
-        state.pop("open_basket", None)
-        _save_json(p["state"], state)
-        rec = {"day": day.isoformat(), "strategy": STRATEGY, "run": RUN, "result": result, **extra}
-        _append(p["ledger"], rec)
-        log(f"[PICK6 #511] {day} {result}")
-        return rec
+    from api import market_calendar
+    if not market_calendar.is_session(day):
+        return {"day": str(day), "result": "holiday"}
+    if market_calendar.session_close_et(day) != "16:00":
+        return finish("no trade", why=f"early close {market_calendar.session_close_et(day)} ET - "
+                                       f"no basket (exit window is after the close)")
 
     if rail_blocks(state, day):
         return finish("blocked by daily loss rail", rail=state.get("rail_reason"))

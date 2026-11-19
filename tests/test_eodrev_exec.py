@@ -314,3 +314,61 @@ def test_async_reject_after_accept_unwinds_pair(tmp_path, monkeypatch):
     rec, notes, sids = _day(tmp_path, monkeypatch, ad, {}, fills)
     assert "EODREV-20261116-L3-UW" in sids and "EODREV-20261116-S3-X" not in sids
     assert rec["one_sided"]["when"] == ["15:31 check"] and "LLY" in notes[0]
+
+
+def _basket_state(tmp_path, bday, entries):
+    with open(os.path.join(str(tmp_path), "exec_state.json"), "w") as f:
+        json.dump({"open_basket": {"day": bday, "entries": entries}}, f)
+
+
+def _leg(leg, sym, side, qty, bday, **kw):
+    sid = f"EODREV-{bday.replace('-', '')}-{leg.split('_')[-1]}-O"
+    return dict({"leg": leg, "sym": sym, "side": side, "qty": qty, "open_ok": True, "open_sid": sid,
+                 "open_rec": {"ok": True, "_sid": sid, "client_order_id": sid}}, **kw)
+
+
+def test_restart_same_day_resumes_exits_and_alerts(tmp_path, monkeypatch):
+    xsid = "EODREV-20261116-L1-X"
+    _basket_state(tmp_path, "2026-11-16", [
+        _leg("EODREV_L1", "AAPL", "long", 14, "2026-11-16",
+             exit_ok=True, exit_rec={"ok": True, "_sid": xsid}),
+        _leg("EODREV_S1", "JPM", "short", 13, "2026-11-16")])
+    ad, notes = FakeAd(), []
+    monkeypatch.setattr(ex, "lookup", lambda a, rec: {"status": "FILLED", "filled": 13, "price": 1.0})
+    rec = ex.run_day(ex.paths(str(tmp_path)), now_fn=lambda: dt.datetime(2026, 11, 16, 15, 45, tzinfo=ET),
+                     adapter=ad, log=lambda *a: None, notify=lambda m, **k: notes.append(m), sleep=False)
+    assert [k["signal_id"] for k in ad.sent] == ["EODREV-20261116-S1-X"]   # no re-entry, no double exit
+    assert "RESTART" in notes[0] and rec["resumed_on"] == "2026-11-16"
+    st = json.load(open(os.path.join(str(tmp_path), "exec_state.json")))
+    assert "open_basket" not in st and st["last_day"] == "2026-11-16"
+
+
+def test_restart_next_day_closes_stranded_basket_now(tmp_path, monkeypatch):
+    _basket_state(tmp_path, "2026-11-16", [_leg("EODREV_L2", "MSFT", "long", 8, "2026-11-16")])
+    ad, notes = FakeAd(), []
+    monkeypatch.setattr(ex, "lookup", lambda a, rec: {"status": "FILLED", "filled": 8, "price": 1.0})
+    rec = ex.run_day(ex.paths(str(tmp_path)), now_fn=lambda: dt.datetime(2026, 11, 17, 9, 0, tzinfo=ET),
+                     adapter=ad, log=lambda *a: None, notify=lambda m, **k: notes.append(m), sleep=False)
+    assert [k["signal_id"] for k in ad.sent] == ["EODREV-20261117-L2-X"]
+    assert rec["day"] == "2026-11-16" and "NOW" in notes[0]
+
+
+def test_basket_saved_to_state_mid_day(tmp_path, monkeypatch):
+    _sig(str(tmp_path))
+    seen = []
+    orig = ex._save_basket
+    monkeypatch.setattr(ex, "_save_basket", lambda p, st, d, e: (seen.append(len(e)), orig(p, st, d, e)))
+    _run(tmp_path, FakeAd(), monkeypatch)
+    assert seen and seen[0] == 6
+
+
+def test_half_day_and_holiday_refused(tmp_path, monkeypatch):
+    _sig(str(tmp_path), day=dt.date(2026, 11, 27))
+    ad = FakeAd()
+    p = ex.paths(str(tmp_path))
+    rec = ex.run_day(p, now_fn=lambda: dt.datetime(2026, 11, 27, 15, 27, tzinfo=ET), adapter=ad,
+                     log=lambda *a: None, notify=lambda m, **k: None, sleep=False)
+    assert rec["result"] == "no trade" and "early close 13:00" in rec["why"] and not ad.sent
+    rec = ex.run_day(p, now_fn=lambda: dt.datetime(2026, 11, 26, 15, 27, tzinfo=ET), adapter=ad,
+                     log=lambda *a: None, notify=lambda m, **k: None, sleep=False)
+    assert rec["result"] == "holiday"
