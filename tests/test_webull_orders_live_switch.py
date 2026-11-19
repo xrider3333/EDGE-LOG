@@ -56,3 +56,15 @@ def test_disarm_while_flat_is_off(tmp_path):
     cfg = _live(tmp_path, armed=False)
     mode, _ = WO.OrderAdapter(config=cfg, log=lambda *x, **k: None).effective_mode()
     assert mode == WO.MODE_OFF
+
+
+# LIVE SIZE (2026-11-19): LIVE opens fail closed without today's equity (the adapter's % daily
+# rail) -- these tests are about other LIVE rules, so every adapter here has read it today.
+import pytest as _pytest_live_eq  # noqa: E402
+
+
+@_pytest_live_eq.fixture(autouse=True)
+def _live_equity_read_today(monkeypatch):
+    monkeypatch.setattr(WO.OrderAdapter, "_equity_today",
+                        {"day": WO._now_ny().strftime("%Y-%m-%d"), "equity": 1_000_000.0},
+                        raising=False)

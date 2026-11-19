@@ -264,8 +264,40 @@ def test_same_tick_second_open_sees_the_first(tmp_path, monkeypatch):
     assert "notional" in _orders()[-1]["reason"]
 
 
-def test_adapter_dollar_rail_never_fires_before_the_pct_rail():
-    """Chosen fix: keep the adapter's $ rail, pinned >= 2 pct of the largest tier floor."""
-    top = max(float(k) for k in qe.DEFAULT_CONFIG["live"]["tiers"])
-    pct = qe.DEFAULT_CONFIG["live"]["daily_loss_pct"]
-    assert WO.DEFAULT_RAILS["daily_loss_limit_usd"] >= top * pct / 100.0
+def _rail_adapter(mode, daily_pnl, equity_day=None, equity=None):
+    ad = WO.OrderAdapter.__new__(WO.OrderAdapter)
+    ad.cfg = {"rails": dict(WO.DEFAULT_RAILS, session_start="00:00", session_end="23:59",
+                            max_total_position_shares=0, live_legs=["NOISE"])}
+    ad.cfg["account"] = {"stock_last4": "1234"}
+    ad._state = {"daily_pnl": daily_pnl}
+    ad._halted, ad._halt_reason, ad._halt_source = False, None, None
+    ad._kill_file = lambda: "Z:/no/such/kill"
+    ad._believed_total_shares = lambda: 0
+    ad.effective_mode = lambda: (mode, "")
+    if equity_day:
+        ad._equity_today = {"day": equity_day, "equity": equity}
+    return ad
+
+
+def _rail_reason(ad):
+    ok, why = ad._check_rails("NOISE", 1, "OPEN")
+    return why if not ok else None
+
+
+def test_adapter_rail_pct_in_live():
+    today = WO._now_ny().strftime("%Y-%m-%d")
+    # 2 pct of 5000 = 100: -150 trips although the $ figure is 200
+    why = _rail_reason(_rail_adapter(WO.MODE_LIVE, -150.0, today, 5000.0))
+    assert why and "daily loss limit" in why
+    assert "daily loss" not in str(_rail_reason(_rail_adapter(WO.MODE_LIVE, -50.0, today, 5000.0)))
+
+
+def test_adapter_rail_live_equity_unread_fails_closed():
+    assert "equity not read today" in _rail_reason(_rail_adapter(WO.MODE_LIVE, 0.0))
+    assert "equity not read today" in _rail_reason(
+        _rail_adapter(WO.MODE_LIVE, 0.0, "2026-01-02", 5000.0))
+
+
+def test_adapter_rail_paper_keeps_dollars():
+    assert "daily loss" not in str(_rail_reason(_rail_adapter(WO.MODE_PAPER, -150.0)))
+    assert "daily loss limit" in _rail_reason(_rail_adapter(WO.MODE_PAPER, -250.0))

@@ -498,3 +498,15 @@ def test_tick_skips_lease_check_entirely_without_db_or_uid(tmp_path, monkeypatch
                              "_maybe_read_account_equity's boot-time read may call the "
                              "broker adapter here -- the LEASE-GATE block must skip it "
                              "entirely when tick() is called without db/uid")
+
+
+# LIVE SIZE (2026-11-19): LIVE opens fail closed without today's equity (the adapter's % daily
+# rail) -- these tests are about other LIVE rules, so every adapter here has read it today.
+import pytest as _pytest_live_eq  # noqa: E402
+
+
+@_pytest_live_eq.fixture(autouse=True)
+def _live_equity_read_today(monkeypatch):
+    monkeypatch.setattr(WO.OrderAdapter, "_equity_today",
+                        {"day": WO._now_ny().strftime("%Y-%m-%d"), "equity": 1_000_000.0},
+                        raising=False)

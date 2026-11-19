@@ -234,6 +234,10 @@ DEFAULT_RAILS = {
     # value (the box's 80 until the deploy's hand edit) still wins.
     "max_total_position_shares": 85,
     "daily_loss_limit_usd": 200.0,
+    # LIVE SIZE (2026-11-19, MANAGER): in LIVE the daily rail is daily_loss_pct x TODAY's
+    # session-start equity (first get_stock_account_balance read of the NY day); equity unread
+    # today = every LIVE open refused (fail closed). PAPER keeps daily_loss_limit_usd.
+    "daily_loss_pct": 2.0,
     "session_start": "09:30",   # NY local, HH:MM, inclusive
     "session_end": "16:00",
     "one_open_position_per_leg": True,
@@ -1516,6 +1520,12 @@ class OrderAdapter:
             if projected > max_total:
                 return False, f"projected total position {projected} exceeds max_total_position_shares {max_total}"
         limit = float(rails.get("daily_loss_limit_usd", 0) or 0)
+        if self.effective_mode()[0] == MODE_LIVE:
+            eq = getattr(self, "_equity_today", None) or {}
+            if eq.get("day") != _now_ny().strftime("%Y-%m-%d") or not eq.get("equity"):
+                return False, "LIVE daily loss rail: equity not read today"
+            pct = float(rails.get("daily_loss_pct", DEFAULT_RAILS["daily_loss_pct"]) or 0)
+            limit = round(eq["equity"] * pct / 100.0, 2)
         if limit and self._state.get("daily_pnl", 0.0) <= -abs(limit) \
                 and not _own_loss_rail_leg(leg, rails):
             return False, f"daily loss limit hit ({self._state.get('daily_pnl', 0.0):.2f} <= -{limit})"
@@ -4335,6 +4345,11 @@ class OrderAdapter:
                 _BALANCE_KEYS_LOGGED = True
                 self.log(f"  [webull-orders] balance reply keys: {_balance_keys(b)}")
             bp = _balance_buying_power(b)
+            if mode == MODE_LIVE and net_liq is not None:
+                day = _now_ny().strftime("%Y-%m-%d")
+                eq = getattr(self, "_equity_today", None) or {}
+                if eq.get("day") != day:
+                    self._equity_today = {"day": day, "equity": float(net_liq)}
             return {"account_id": account_id,
                    "net_liq": float(net_liq) if net_liq is not None else None,
                    "cash": float(cash) if cash is not None else None,
