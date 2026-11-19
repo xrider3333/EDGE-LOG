@@ -33,6 +33,7 @@ from augur_engine.data import find_master, load_master_arrays
 from augur_engine.engine import run_backtest
 from .util import json_safe
 from . import paper_exitday as _xd
+from . import live_safety as _ls
 from . import paper_leg_params as _plp
 
 # ── crowned legs ─────────────────────────────────────────────────────────────────
@@ -488,9 +489,12 @@ ENGUQ_335_VC = dict(buf_atr=0.4, tl_len=238, trail_frac=4.0, ema_len=1340, atr_l
 # One documented consequence of gating the SIGNAL bar, verified 2026-09-29: the resting limit
 # scans forward in BARS, not clock minutes, so a signal late in a session can fill after the
 # session gap (one case in 2025: a Friday 16:5x signal filled Sunday 18:00 ET). That is the
-# parent's behaviour, not something the window introduced, and phantom_safe is deliberately NOT
-# set here so both arms stay byte-comparable with the ENGUQ_335 control, which does not set it
-# either (only the live cloud-signal leg opts in).
+# parent's behaviour, not something the window introduced. phantom_safe is deliberately NOT
+# set here, and no longer needs to be: run_shadow forces it True for every ENGU-Q-family arm
+# (api/live_safety.py, 2026-11-18), so the S1/S2 windows and the ENGUQ_335 control still share
+# one setting -- they share True now instead of sharing False, which is what the prereg's
+# byte-comparability actually requires. A shadow read appends a fresh tail to the master, so
+# these arms had the same phantom-entry exposure the live leg did.
 ENGUQ_335_S1 = dict(ENGUQ_335, sess_from=930, sess_to=1600)
 ENGUQ_335_S2 = dict(ENGUQ_335, sess_from=800, sess_to=1700)
 
@@ -2555,6 +2559,14 @@ def run_shadow(leg, today):
         params = leg["params"]
         if _leg_accepts_return_levels(leg["strategy"]):
             params = dict(params, return_levels=True)
+        # LIVE SAFETY (2026-11-18, api/live_safety.py): run_shadow appends a fresh capture
+        # tail to the master, so this reads a GROWING window exactly like the live leg and
+        # carries the same phantom-entry exposure. Every ENGU-Q-family arm here is forced
+        # safe TOGETHER, which is what keeps the S1/S2 windows byte-comparable with their
+        # ENGUQ_335 control (see the ENGUQ_335_S1/S2 note above: the arms must share the
+        # flag, and they now share True instead of sharing False).
+        params = _ls.force_phantom_safe(leg["strategy"], params, caller="paper.run_shadow",
+                                        leg_key=leg.get("key"), log=_log)
         res = run_backtest(leg["strategy"], arrays=arrays, params=params,
                            cost_pts=leg.get("cost_pts", 0.0), return_trades=True)
         raw = list((res or {}).get("trades") or [])

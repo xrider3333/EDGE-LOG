@@ -179,6 +179,7 @@ if ROOT not in sys.path:
 from augur_engine.engine import run_backtest as engine_run_backtest          # noqa: E402
 from api import market_calendar                                             # noqa: E402
 from api import trade_id as _trade_id                                       # noqa: E402
+from api import live_safety as _ls                                          # noqa: E402
 from api import paper_leg_params as _plp                                    # noqa: E402
 from api.paper import ORB_314, ENGUQ_335                                    # noqa: E402
 import tools.qqq_paper as qp                                                # noqa: E402
@@ -2696,6 +2697,15 @@ def run_leg_trades(cfg, arrays, leg_key=None, log=print, now=None, paths=None, f
     if extra:
         params = dict(params)
         params.update(extra)
+    # LIVE SAFETY (2026-11-18, MANAGER (A') after the VERIFIER's read -- api/live_safety.py).
+    # This is a LIVE/incremental read: the window grows bar by bar, which is the only shape
+    # the ENGU-Q fill-window truncation bug exists in. Every ENGU-Q-family plugin runs with
+    # phantom_safe=True here whatever its leg declared, so a NEW leg cannot register itself
+    # unsafe; the strategy files keep defaulting to False so a BACKTEST is untouched (the
+    # engine slices every IS window and WF fold, and a True default would move stored runs
+    # at each slice end). A leg that had not declared True gets one loud line.
+    params = _ls.force_phantom_safe(cfg["strategy"], params, caller="cloud_signal",
+                                    leg_key=leg_key or cfg.get("key"), log=log)
     res = engine_run_backtest(cfg["strategy"], arrays=arrays, params=params,
                               cost_pts=0.0, return_trades=True)
     if not res or not res.get("trades"):
