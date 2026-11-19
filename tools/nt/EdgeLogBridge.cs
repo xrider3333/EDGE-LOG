@@ -1897,19 +1897,97 @@ namespace NinjaTrader.NinjaScript.AddOns
             if (deny != null) { Respond(s, 403, "{\"error\":" + J(deny) + "}"); Log("flatten REFUSED " + acctName + ": " + deny); return; }
             Account acct = FindAccount(acctName);
             if (acct == null) { Respond(s, 404, "{\"error\":\"no such account\"}"); return; }
-            var instruments = new List<Instrument>();
+            // 2026-11-19: acct.Flatten() cancels EVERY working order first (the protective stop
+            // included) and then sends a market close. With no market data the close was REJECTED,
+            // so the position sat with no stop while this endpoint still answered ok - and the guard
+            // re-sent it every 20 s. Now: send our own market close per position, WAIT for it, and
+            // only cancel that instrument's working orders (the stop) once the close is FILLED. A
+            // rejected close leaves the stop in place and answers ok:false with NinjaTrader's reason.
+            // The killswitch keeps acct.Flatten (its worst case is flat).
+            var held = new List<Position>();
             try
             {
                 lock (acct.Positions)
                     foreach (var p in acct.Positions)
-                        if (p.MarketPosition != MarketPosition.Flat && p.Instrument != null)
-                            instruments.Add(p.Instrument);
+                        if (p.MarketPosition != MarketPosition.Flat && p.Instrument != null && p.Quantity > 0)
+                            held.Add(p);
             }
             catch (Exception ex) { Respond(s, 500, "{\"error\":" + J(ex.Message) + "}"); return; }
-            if (instruments.Count == 0) { Respond(s, 200, "{\"ok\":true,\"note\":\"already flat\"}"); return; }
-            acct.Flatten(instruments);
-            Log("FLATTEN " + acctName + " (" + instruments.Count + " instrument(s))");
-            Respond(s, 200, "{\"ok\":true,\"flattened\":" + instruments.Count + "}");
+            if (held.Count == 0) { Respond(s, 200, "{\"ok\":true,\"note\":\"already flat\"}"); return; }
+            var filled = new List<string>(); var failed = new List<string>(); var notFlat = new List<string>();
+            foreach (var p in held)
+            {
+                Instrument inst = p.Instrument; string iname = inst.FullName;
+                Order close = null; string why = "";
+                // NinjaTrader's reject reason arrives on the OrderUpdate event, not on the Order
+                EventHandler<OrderEventArgs> onUpd = (snd, e) =>
+                {
+                    try { if (close != null && e.Order == close && e.Error != ErrorCode.NoError)
+                              why = e.Error + (string.IsNullOrEmpty(e.Comment) ? "" : ": " + e.Comment); }
+                    catch { }
+                };
+                acct.OrderUpdate += onUpd;
+                try
+                {
+                    close = acct.CreateOrder(inst,
+                        p.MarketPosition == MarketPosition.Short ? OrderAction.BuyToCover : OrderAction.Sell,
+                        OrderType.Market, OrderEntry.Manual, TimeInForce.Day, p.Quantity, 0, 0,
+                        "", "Close", Core.Globals.MaxDate, null);
+                    acct.Submit(new[] { close });
+                }
+                catch (Exception ex) { acct.OrderUpdate -= onUpd; failed.Add(iname + ": submit failed: " + ex.Message); continue; }
+                OrderState st = WaitTerminal(close, 5000);
+                acct.OrderUpdate -= onUpd;
+                if (st != OrderState.Filled)
+                {
+                    // rejected / no answer: keep the stop; pull a still-working close so it cannot fill later unseen
+                    if (st != OrderState.Rejected && st != OrderState.Cancelled)
+                        try { acct.Cancel(new[] { close }); } catch { }
+                    failed.Add(iname + ": close " + st + (why.Trim().Length > 0 ? " (" + why.Trim() + ")" : "") + " - stop kept");
+                    continue;
+                }
+                filled.Add(iname);
+                // close FILLED: now pull the instrument's remaining working orders (the protective stop)
+                var rest = new List<Order>();
+                lock (acct.Orders)
+                    foreach (var o in acct.Orders)
+                        try
+                        {
+                            if (o != close && o.Instrument == inst
+                                && (o.OrderState == OrderState.Working || o.OrderState == OrderState.Accepted
+                                    || o.OrderState == OrderState.TriggerPending || o.OrderState == OrderState.Submitted))
+                                rest.Add(o);
+                        }
+                        catch { }
+                if (rest.Count > 0) acct.Cancel(rest);
+                // the flip race: the stop may have filled in the same instant as the close
+                Thread.Sleep(500);
+                lock (acct.Positions)
+                    foreach (var q2 in acct.Positions)
+                        try { if (q2.Instrument == inst && q2.MarketPosition != MarketPosition.Flat)
+                                  notFlat.Add(iname + " " + q2.MarketPosition + " " + q2.Quantity); }
+                        catch { }
+            }
+            bool ok = failed.Count == 0 && notFlat.Count == 0;
+            Log("FLATTEN " + acctName + " filled=[" + string.Join(",", filled) + "] failed=[" + string.Join(" | ", failed)
+                + "] not_flat_after=[" + string.Join(",", notFlat) + "]");
+            Respond(s, 200, "{\"ok\":" + (ok ? "true" : "false") + ",\"flattened\":" + filled.Count
+                + ",\"filled\":" + JArr(filled) + ",\"rejected\":" + JArr(failed)
+                + ",\"not_flat_after\":" + JArr(notFlat) + "}");
+        }
+
+        // Poll an order until NinjaTrader settles it (Filled / Rejected / Cancelled) or the timeout.
+        private static OrderState WaitTerminal(Order o, int timeoutMs)
+        {
+            var until = DateTime.UtcNow.AddMilliseconds(timeoutMs);
+            OrderState st = OrderState.Unknown;
+            while (DateTime.UtcNow < until)
+            {
+                try { st = o.OrderState; } catch { }
+                if (st == OrderState.Filled || st == OrderState.Rejected || st == OrderState.Cancelled) return st;
+                Thread.Sleep(50);
+            }
+            return st;
         }
 
         private void CancelOrder(NetworkStream s, string acctName, string orderId)
