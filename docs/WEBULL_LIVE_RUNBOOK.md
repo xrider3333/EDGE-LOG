@@ -102,3 +102,9 @@ systemctl cat edgelog-eodrev.service | grep -E "Restart|OnFailure|StartLimit"
 Check the venv / home paths against the existing `/etc/systemd/system/edgelog-eodrev.service` first and use the same.
 The timer (`edgelog-eodrev.timer`) is unchanged. Undo: `sudo systemctl disable edgelog-eodrev-resume.service` and
 re-copy the old service file.
+## Close-anchored bar fetch (closefetch, 11-20)
+
+- The fast fetch (close+1 s, every 1 s, max 20 s) merges the just-closed 5m bar after two identical reads. If it falls back (error, 429, 20 s cap), the normal 30 s clock still picks the bar up, so a fallback bar can merge up to ~60 s late.
+- The session's last bar (15:55; 12:55 on half days) is still handled by the end-of-day settle step (~30 s).
+- Day-1 check: grep CLOSEFETCH and "provisional bar changed" in the cloud-signal log; any "provisional bar changed" = tell MANAGER at once.
+- Box clock: systemd-timesyncd against the cloud metadata server; check `timedatectl timesync-status` (offset over ~200 ms = move the first fetch to close+2 s).
