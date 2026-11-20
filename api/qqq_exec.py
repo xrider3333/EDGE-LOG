@@ -13779,9 +13779,9 @@ def _build_feed_days(state, now_et=None):
     days = state.get("feed_days") or {}
     try:
         _now = now_et or _now_et()
-        _today, _hhmm = _now.strftime("%Y-%m-%d"), _now.strftime("%H:%M")
+        _today, _now_hm = _now.strftime("%Y-%m-%d"), _now.strftime("%H:%M")
     except Exception:
-        _today, _hhmm = None, None
+        _today, _now_hm = None, None
     for day in sorted(days.keys()):
         try:
             d = days[day] or {}
@@ -13801,7 +13801,7 @@ def _build_feed_days(state, now_et=None):
                         and first_tick and first_tick <= "09:35"
                         and last_tick and last_tick >= "15:55")
             note = d.get("note") or ""
-            in_progress = bool(day == _today and _hhmm is not None and _hhmm < "16:10")
+            in_progress = bool(day == _today and _now_hm is not None and _now_hm < "16:10")
             if in_progress:
                 valid = None
                 if not note:
