@@ -180,6 +180,7 @@ from augur_engine.engine import run_backtest as engine_run_backtest          # n
 from api import market_calendar                                             # noqa: E402
 from api import trade_id as _trade_id                                       # noqa: E402
 from api import live_safety as _ls                                          # noqa: E402
+from api import close_fetch as _close_fetch                                 # noqa: E402
 from api import paper_leg_params as _plp                                    # noqa: E402
 from api.paper import ORB_314, ENGUQ_335                                    # noqa: E402
 import tools.qqq_paper as qp                                                # noqa: E402
@@ -1213,6 +1214,13 @@ def _keep_empty_cache_copy(path, log=print):
         return None
 
 
+# CLOSEFETCH (owner via MANAGER 2026-11-20): see api/close_fetch.py. The guard is switched on
+# only by the live engine thread; a direct fetch_and_merge call (tools, tests) is unchanged.
+_PROVISIONAL_GUARD_ON = False
+_PROVISIONAL_GUARD = _close_fetch.ProvisionalBarGuard()
+_CLOSEFETCH_LAST = {}            # timeframe -> {"ok": webull answered, "newest": merged newest epoch}
+
+
 def fetch_and_merge(timeframe, paths=None, log=print):
     """Pull fresh bars, merge into the cache under EDGELOG_HOME, and return
     (merged_epoch_frame, source, cache_ok) where source is "webull" or "yfinance" --
@@ -1326,7 +1334,16 @@ def fetch_and_merge(timeframe, paths=None, log=print):
     fresh = _drop_unsettled(fresh, timeframe, settled_by, source, log=log)
     if source == "yfinance":
         fresh = _yf_only_newer_than_cache(fresh, old, timeframe, log=log)
+    if _PROVISIONAL_GUARD_ON and timeframe == "5m":
+        # CLOSEFETCH: a new newest bar merges only after two identical reads (api/close_fetch.py)
+        _old_newest = int(old["time"].max()) if len(old) else None
+        fresh = _PROVISIONAL_GUARD.filter(timeframe, fresh, _old_newest, log=log)
     merged = _merge_bar_frames(old, fresh)
+    try:
+        _CLOSEFETCH_LAST[timeframe] = {"ok": source == "webull",
+                                       "newest": int(merged["time"].max()) if len(merged) else None}
+    except Exception:
+        pass
     if guarded and refuse is None and _bars_dropped(old, merged):
         refuse = BAR_CACHE_SHRINK
     if refuse:
@@ -8167,6 +8184,17 @@ def cloud_signal_thread(stop=None, log=print):
 
 
 def _engine_thread_run(stop=None, log=print):
+    """CLOSEFETCH: the two-identical-reads guard (api/close_fetch.py) is on only while this
+    thread runs; see _engine_thread_body."""
+    global _PROVISIONAL_GUARD_ON
+    _PROVISIONAL_GUARD_ON = True
+    try:
+        _engine_thread_body(stop=stop, log=log)
+    finally:
+        _PROVISIONAL_GUARD_ON = False
+
+
+def _engine_thread_body(stop=None, log=print):
     """cloud_signal_thread's body once its serving_hosts gate and engine lock are passed --
     see that function's docstring. Never call it directly: it takes no lock itself."""
     log("[cloud-signal] parallel run: ON (signals only, no order path)")
@@ -8221,7 +8249,12 @@ def _engine_thread_run(stop=None, log=print):
                 _migrate_signals_header(_ledger, SIGNAL_COLS)
     except Exception as e:
         log(f"[cloud-signal] ledger header check failed (next append retries): {type(e).__name__}: {e}")
-    last_fetch_wall = 0.0
+    # CLOSEFETCH (owner via MANAGER 2026-11-20, api/close_fetch.py): 1 s fetches from close+1 s
+    # until the just-closed 5m bar is merged (cap close+20 s / 20 calls / any error), else the
+    # classic 30 s clock; new 5m bars merge only after two identical reads.
+    close_clock = _close_fetch.CloseFetchClock(RTH_OPEN, market_calendar, log=log,
+                                               slow_step_s=THREAD_STEP_SEC)
+    cf_newest = None                 # newest 5m bar epoch merged by this thread's last fetch
     settle_mem = {}                  # EOD SETTLE: {date: {"last_try", "done", "gave_up"}}
     while stop is None or not stop.is_set():
         in_session = False           # set before the try so a throw still picks a sleep
@@ -8246,15 +8279,25 @@ def _engine_thread_run(stop=None, log=print):
                 # still calls in, but with fetch=False, so it only ever costs a cheap
                 # on-disk short-circuit check, never an extra network round trip.
                 now_wall = _time.time()
-                do_fetch = (now_wall - last_fetch_wall) >= THREAD_STEP_SEC
-                if do_fetch:
-                    last_fetch_wall = now_wall
+                do_fetch = close_clock.decide(
+                    now_et, now_wall, cf_newest)
                 warnings = {}
-                if _stream_mod is not None:
-                    events = _stream_mod.run_stream_aware_step(
-                        now=now_et, fetch=do_fetch, paths=DEFAULT_PATHS, warnings=warnings, log=log)
-                else:
-                    events = step(now=now_et, fetch=do_fetch, paths=DEFAULT_PATHS, warnings=warnings)
+                _CLOSEFETCH_LAST.pop("5m", None)
+                try:
+                    if _stream_mod is not None:
+                        events = _stream_mod.run_stream_aware_step(
+                            now=now_et, fetch=do_fetch, paths=DEFAULT_PATHS, warnings=warnings, log=log)
+                    else:
+                        events = step(now=now_et, fetch=do_fetch, paths=DEFAULT_PATHS, warnings=warnings)
+                except Exception:
+                    if do_fetch:
+                        close_clock.after_fetch(False)
+                    raise
+                _cf = _CLOSEFETCH_LAST.get("5m") if do_fetch else None
+                if _cf is not None:      # no entry = this step never reached the 5m fetch
+                    if _cf.get("newest") is not None:
+                        cf_newest = _cf["newest"]
+                    close_clock.after_fetch(bool(_cf.get("ok")), cf_newest, _time.time())
                 cache_failed = bool(warnings.get("cache_write_failed"))
                 note = f"{len(events)} event(s)" + (" (cache_write_failed)" if cache_failed else "")
                 # FEED HEALTH (2026-10-05): newest closed bar, its age, bars due/missing and
@@ -8310,6 +8353,11 @@ def _engine_thread_run(stop=None, log=print):
                     sleep_s = _stream_mod.HANDOFF_POLL_SECONDS
             except Exception:
                 sleep_s = THREAD_STEP_SEC
+        if in_session:
+            try:                         # CLOSEFETCH: never sleep through a bar's fast window
+                sleep_s = min(sleep_s, close_clock.sleep_cap(_dt.datetime.now(tz=_zi(TZ))))
+            except Exception:
+                pass
         _time.sleep(sleep_s)
 
 

@@ -1146,7 +1146,7 @@ def test_step_alone_never_writes_the_sidecar(tmp_path):
 
 def test_the_thread_calls_the_tick_after_the_heartbeat_and_nowhere_else():
     import inspect
-    body = inspect.getsource(cs._engine_thread_run)
+    body = inspect.getsource(cs._engine_thread_body)   # CLOSEFETCH: the loop body
     hb = body.index("_write_heartbeat(DEFAULT_PATHS, ok=True, note=note")
     tick = body.index("_next_entry_tick(now_et, events, warnings=warnings")
     shadow = body.index("_shadow_tick(now_et, fetch=True")
