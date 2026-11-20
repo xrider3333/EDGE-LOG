@@ -3394,11 +3394,11 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       +"window._qbNextOpen={};if(window.__probeNextOpen)window.__probeNextOpen.forEach(function(k){window._qbNextOpen[k]=true;});"
       +"try{var ap=JSON.parse(localStorage.getItem('augurPrefs')||'{}');ap.qqqSystemOpen=window.__probeSystemOpen;ap.qqqRailsOpen=0;ap.qqqEventsOpen=0;ap.qqqFeedSigOpen=0;ap.qqqModelOpen=0;localStorage.setItem('augurPrefs',JSON.stringify(ap));}catch(e){}"
       // LEDGER step 11: every own fold starts shut (nothing stored, nothing in memory), unless a case opens some
-      +"try{['orders','account','todayorders','feedsig','system','rails','events','model','list'].forEach(function(k){localStorage.removeItem('el_qb_fold_'+k);});}catch(e){}window._qbFolds=null;"
+      +"try{['books','orders','account','todayorders','feedsig','system','rails','events','model','list'].forEach(function(k){localStorage.removeItem('el_qb_fold_'+k);});}catch(e){}window._qbFolds=null;"
       // LEDGER step 12: the list's Filters row starts with nothing stored (so it is drawn closed unless the build opens it)
       +"try{localStorage.removeItem('el_lg_filters_qb');}catch(e){}"
       +"try{localStorage.setItem('el_lg_daily_qb',window.__probeDaily?'1':'0');}catch(e){}"
-      +"try{var fo=window.__probeFoldOpen;if(fo==='all')fo=['orders','account','todayorders','feedsig','system','rails','events','model','list'];if(fo)fo.forEach(function(k){localStorage.setItem('el_qb_fold_'+k,'1');});}catch(e){}"
+      +"try{var fo=window.__probeFoldOpen;if(fo==='all')fo=['books','orders','account','todayorders','feedsig','system','rails','events','model','list'];if(fo)fo.forEach(function(k){localStorage.setItem('el_qb_fold_'+k,'1');});}catch(e){}"
       +"window._qqqExecLive=false;window._qqqExecLiveErrorAt=window.__probeLiveErr?Date.now():null;window._qqqExecFetchedAt=window.__probeLiveErr?0:Date.now();"
       +"window._qbChartHoverActive=false;"
       +"if(window.__probeCalMonth)window._qqqCalMonth=window.__probeCalMonth;"
@@ -4485,7 +4485,7 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
 
 S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's own sections as closed folds. s11Read = what a viewer sees of the page order and of
   // every fold header (where it is, what it says, whether it is shut, what colour it is drawn in); s11Run = what a viewer does to the folds. ──
-  var S11_KEYS=['orders','account','todayorders','feedsig','system','rails','events','model'];
+  var S11_KEYS=['books','orders','account','todayorders','feedsig','system','rails','events','model'];
   var S11_MARKS={orders:['[data-qbminipill]','[data-qbstop]'],account:['[data-qbasof]','[data-qbrecon]','[data-qbeqchg]'],
     todayorders:['[data-qbordersday]','tbody tr'],feedsig:[],system:['[data-qbordmode]','[data-qblasttick]','[data-qbsheet]'],
     rails:[],events:['.qe-evt-row'],model:[],list:['[data-lgrow]','[data-lggrp]']};
@@ -4720,8 +4720,8 @@ S11_JS = r"""  // ── LEDGER step 11: the fixed page order and this board's o
 """
 
 # ── LEDGER step 11 (2026-10-06): one fixed page order; every own section a closed fold with a one-line summary; one set of breakpoints ──
-S11_OWN_ORDER = ['orders', 'account', 'todayorders', 'feedsig', 'system', 'rails', 'events', 'model']   # the own folds, top to bottom
-S11_OWN_REQUIRED = ['orders', 'account', 'system', 'rails', 'events', 'model']                          # always drawn; Today's orders / Feed & signals only when there is something
+S11_OWN_ORDER = ['books', 'orders', 'account', 'todayorders', 'feedsig', 'system', 'rails', 'events', 'model']   # the own folds, top to bottom
+S11_OWN_REQUIRED = ['books', 'orders', 'account', 'system', 'rails', 'events', 'model']                          # always drawn; Today's orders / Feed & signals only when there is something
 S11_PHONE_TOP_MAX = 760 + 28 + PHONE_TAP_TARGET_EXTRA # phone 375x812: the trade list starts at most this far under the board top. It was 784 before step 11 and 12; step 12's
                              # ... + 28 (owner 10-31, live page): the open / flat line directly under the big number is one small line more
                              # page puts it at 757 (the status line under the hero, the caption in the chart foot), and it must not grow (3 px slack)
