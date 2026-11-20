@@ -64,6 +64,9 @@ def main(argv=None):
     ap.add_argument("--source", required=True)
     ap.add_argument("--cost", type=float, required=True)
     ap.add_argument("--mult", type=float, required=True)
+    _here = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    if _here not in sys.path:
+        sys.path.insert(0, _here)
     from tools.job_host import add_host_args, apply_host
     add_host_args(ap)
     ap.add_argument("--date-from", required=True)
