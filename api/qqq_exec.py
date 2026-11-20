@@ -14814,11 +14814,12 @@ def _trade_hatch_verdict(en, ex):
     """One trade's verdict from its two sides' _fill_verdict fields: ok (True / False /
     None = no side judged; an ORB breakout-level design side is never judged), the
     deciding side's band and gap in cents, and `top` -- the row's top-level fields
-    (parity_band_c IN CENTS, parity_ok, outside_minute_range, orb_breakout_gap_design).
+    fill_parity_* (band IN CENTS, ok, side, outside_minute_range, orb_design) -- prefixed so
+    they never overwrite the NinjaTrader parity_ok on the same row (verifier 11-20).
     Publish only: never touches an order. Never raises."""
     res = {"ok": None, "band_c": None, "gap_c": None, "side": "",
-           "top": {"parity_band_c": None, "parity_ok": None, "parity_side": "",
-                   "outside_minute_range": None, "orb_breakout_gap_design": False}}
+           "top": {"fill_parity_band_c": None, "fill_parity_ok": None, "fill_parity_side": "",
+                   "fill_parity_outside_minute_range": None, "fill_parity_orb_design": False}}
     try:
         sides = [s for s in (en, ex) if isinstance(s, dict)]
         orb = any(bool(s.get("orb_breakout_gap_design")) for s in sides)
@@ -14827,8 +14828,8 @@ def _trade_hatch_verdict(en, ex):
         judged = [s for s in sides if s.get("parity_ok") is not None
                   and not s.get("orb_breakout_gap_design")
                   and _finite_or_none(s.get("parity_band_c")) is not None]
-        res["top"]["orb_breakout_gap_design"] = orb
-        res["top"]["outside_minute_range"] = (any(omr) if omr else None)
+        res["top"]["fill_parity_orb_design"] = orb
+        res["top"]["fill_parity_outside_minute_range"] = (any(omr) if omr else None)
         if not judged:
             return res
         bad = [s for s in judged if s.get("parity_ok") is False]
@@ -14841,8 +14842,8 @@ def _trade_hatch_verdict(en, ex):
         # fill missed (signed gap, + better) -- '' when not flagged
         side = ("worse" if (g or 0.0) < 0 else "better") if bad else ""
         res["side"] = side
-        res["top"].update({"parity_band_c": band_c, "parity_ok": not bad,
-                           "parity_side": side})
+        res["top"].update({"fill_parity_band_c": band_c, "fill_parity_ok": not bad,
+                           "fill_parity_side": side})
     except Exception:
         pass
     return res

@@ -393,6 +393,14 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
     if ob and ob.get("entries") and state.get("last_day") != ob.get("day"):
         bday = ob["day"]
         same = bday == day.isoformat()
+        legs = open_legs(ob["entries"])
+        if same and legs and now >= _at(day, RESUME_UNTIL):
+            # verifier 11-20: a same-day restart after the 16:00 close never sends market
+            # exits -- same rule as --resume-only: one HIGH line, no order, basket kept
+            notify(f"PICK6 #511: restart at {now:%H:%M} ET after 16:00 with {len(legs)} basket "
+                   f"legs still open - NO order sent, check the account", log=log)
+            return {"day": str(day), "result": "restart after 16:00, alert only",
+                    "open_legs": len(legs)}
         notify(f"PICK6 #511: RESTART found an open basket from {bday} at {now:%H:%M:%S} ET - "
                f"{'resuming exits' if same else 'closing it NOW'}", log=log)
         entries = ob["entries"]

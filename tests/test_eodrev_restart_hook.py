@@ -169,3 +169,15 @@ def test_normal_first_run_at_1530_enters(tmp_path, monkeypatch):
     sids = [k["signal_id"] for k in ad.sent]
     assert "EODREV-20261116-L1-O" in sids and "EODREV-20261116-S1-O" in sids
     assert not any("entry refused" in n for n in notes)
+
+
+def test_main_unit_restart_after_1600_alerts_only_no_order(tmp_path, monkeypatch):
+    _state(tmp_path, [_leg("EODREV_L1", "AAPL", "long", 14), _leg("EODREV_S1", "JPM", "short", 13)])
+    monkeypatch.setattr(ex, "lookup", lambda a, rec: {"status": "FILLED", "filled": 14, "price": 1.0})
+    ad, notes = FakeAd(), []
+    rec = ex.run_day(ex.paths(str(tmp_path)), now_fn=lambda: dt.datetime(2026, 11, 16, 16, 3, tzinfo=ET),
+                     adapter=ad, log=lambda *a: None, notify=lambda m, **k: notes.append(m), sleep=False)
+    assert not ad.sent and rec["result"] == "restart after 16:00, alert only"
+    assert len(notes) == 1 and "after 16:00" in notes[0] and "2 basket legs" in notes[0]
+    st = json.load(open(os.path.join(str(tmp_path), "exec_state.json")))
+    assert st["open_basket"]["day"] == "2026-11-16"      # kept: the next run closes it

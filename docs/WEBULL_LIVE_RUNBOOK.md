@@ -89,6 +89,8 @@ legs still open it sends one HIGH line and no order.
 
 On the box, after the code is pulled, at a flat moment (not 15:20-16:10 ET):
 ```
+systemctl --version | head -1   # needs systemd 244 or newer; below 244 STOP, do not install
+[ "$(systemctl --version | awk 'NR==1{print $2}')" -ge 244 ] || { echo "systemd < 244 - stop"; exit 1; }
 cd ~/edgelog/repo   # the repo dir install.sh used
 for u in edgelog-eodrev.service edgelog-eodrev-resume.service edgelog-eodrev-alert.service; do
   sed -e "s#__EDGELOG_USER__#$USER#g" -e "s#__EDGELOG_REPO__#$PWD#g"       -e "s#__EDGELOG_VENV__#$HOME/edgelog/venv#g" -e "s#__EDGELOG_HOME__#$HOME/edgelog#g"       deploy/cloud/$u | sudo tee /etc/systemd/system/$u >/dev/null

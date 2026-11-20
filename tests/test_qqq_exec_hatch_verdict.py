@@ -152,8 +152,8 @@ def test_1119_0945_pok1_22c_gap_is_not_flagged(monkeypatch):
     # fp en '674.09|674.31|o|-0.22|0|-0.22|0||0.4234|1|0|0'
     out = _publish(monkeypatch, _side(674.31, 674.09, 0.4234, True), _none_side())
     assert out["broker_parity_ok"] is True and out["fp"]["flag"] is False
-    assert out["parity_ok"] is True and out["parity_band_c"] == pytest.approx(42.3)
-    assert out["outside_minute_range"] is False and out["orb_breakout_gap_design"] is False
+    assert out["fill_parity_ok"] is True and out["fill_parity_band_c"] == pytest.approx(42.3)
+    assert out["fill_parity_outside_minute_range"] is False and out["fill_parity_orb_design"] is False
     assert "15c" not in out["broker_parity_note"] and "42.3c band" in out["broker_parity_note"]
 
 
@@ -161,34 +161,34 @@ def test_1119_1205_pok0_64c_vs_42_6c_band_is_flagged(monkeypatch):
     # fp en '649.99|649.35|o|-0.64|0|-0.64|0||0.426|0|0|0'
     out = _publish(monkeypatch, _side(649.99, 649.35, 0.426, False), _none_side())
     assert out["broker_parity_ok"] is False and out["fp"]["flag"] is True
-    assert out["parity_ok"] is False and out["parity_band_c"] == pytest.approx(42.6)
+    assert out["fill_parity_ok"] is False and out["fill_parity_band_c"] == pytest.approx(42.6)
     assert out["broker_parity_note"].startswith("FLAGGED, a fill 64.0c worse, outside its 42.6c band")
     assert "15c" not in out["broker_parity_note"]
-    assert out["parity_side"] == "worse"
+    assert out["fill_parity_side"] == "worse"
 
 
 def test_two_sided_band_flags_a_better_fill_and_says_so(monkeypatch):
     out = _publish(monkeypatch, _side(649.35, 649.99, 0.426, False), _none_side())
-    assert out["broker_parity_ok"] is False and out["parity_side"] == "better"
+    assert out["broker_parity_ok"] is False and out["fill_parity_side"] == "better"
     assert out["broker_parity_note"].startswith("FLAGGED, a fill 64.0c better, outside its 42.6c band")
 
 
 def test_parity_side_blank_when_clear_or_unjudged(monkeypatch):
     out = _publish(monkeypatch, _side(674.31, 674.09, 0.4234, True), _none_side())
-    assert out["parity_side"] == ""
+    assert out["fill_parity_side"] == ""
     out = _publish(monkeypatch, _side(700.0, 699.0, None, None), _none_side())
-    assert out["parity_side"] == ""
+    assert out["fill_parity_side"] == ""
 
 
 def test_unjudgeable_side_publishes_none(monkeypatch):
     out = _publish(monkeypatch, _side(700.0, 699.0, None, None), _none_side())
-    assert out["broker_parity_ok"] is None and out["parity_ok"] is None
-    assert out["parity_band_c"] is None and out["fp"]["flag"] is False
+    assert out["broker_parity_ok"] is None and out["fill_parity_ok"] is None
+    assert out["fill_parity_band_c"] is None and out["fp"]["flag"] is False
 
 
 def test_orb_breakout_design_gap_is_never_flagged(monkeypatch):
     out = _publish(monkeypatch, _side(731.0, 732.35, 0.415, False, orb=True), _none_side())
-    assert out["orb_breakout_gap_design"] is True
+    assert out["fill_parity_orb_design"] is True
     assert out["broker_parity_ok"] is None and out["fp"]["flag"] is False
 
 
@@ -202,3 +202,13 @@ def test_board_rollup_reads_the_new_flag(monkeypatch):
     s = qe._broker_parity_summary(rows)
     assert s["checked"] == 2 and s["failed"] == 1
     assert s["legs"]["NOISE"]["flagged"] == 1
+
+
+def test_fill_parity_fields_never_touch_the_nt_parity_ok(monkeypatch):
+    out = _publish(monkeypatch, _side(649.99, 649.35, 0.426, False), _none_side())
+    for k in ("parity_ok", "parity_band_c", "parity_side", "outside_minute_range",
+              "orb_breakout_gap_design"):
+        assert k not in out
+    row = {"parity_ok": True}            # the NinjaTrader read on the same row
+    row.update(out)
+    assert row["parity_ok"] is True and row["fill_parity_ok"] is False
