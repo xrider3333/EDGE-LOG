@@ -83,6 +83,10 @@ def world(tmp_path, monkeypatch):
     monkeypatch.setattr(R, "STATE_PATH", str(tmp_path / "nt_readiness_state.json"))
     monkeypatch.setattr(R, "ENGUQ_STATE_PATH", str(tmp_path / "enguq_state.json"))
     monkeypatch.setattr(R, "NTFY_ENV_PATH", str(tmp_path / "no_ntfy.env"))
+    # hermetic: never read the live Task Scheduler state or the live recover log (11-19 a stranded
+    # Sim101 short made the live log say HELD BACK and turned every run red)
+    monkeypatch.setattr(R, "_task_state", lambda name: "Ready")
+    monkeypatch.setattr(R, "RECOVER_LOG", str(tmp_path / "nt_recover.log"))
     monkeypatch.setattr(R, "CAPTURE_PATHS", {"NQ": str(tmp_path / "NQ_10s.csv"), "ES": str(tmp_path / "ES_10s.csv")})
     from api import ntfy_push
     monkeypatch.setattr(ntfy_push, "push", fake_push)
