@@ -13808,7 +13808,10 @@ def _build_feed_days(state, now_et=None):
                     so_far = 0
                     try:
                         start = _now.replace(hour=9, minute=25, second=0, microsecond=0)
-                        so_far = max(0, int((_now - start).total_seconds() / TICK_SEC))
+                        ch, cm = _hhmm(market_calendar.session_close_et(day))
+                        end = min(_now, _now.replace(hour=ch, minute=cm, second=0,
+                                                     microsecond=0))   # half day: 13:00
+                        so_far = max(0, int((end - start).total_seconds() / TICK_SEC))
                     except Exception:
                         pass
                     gap = max(0, so_far - ticks) * TICK_SEC / 60.0
@@ -15768,7 +15771,8 @@ def _build_readiness(feed_days, parity, reprice, state, log=print):
         days_valid = sum(1 for d in feed_days if d.get("valid"))
         live_parity_checked = int(parity.get("checked") or 0)
         live_parity_failed = int(parity.get("failed") or 0)
-        last10 = feed_days[-10:]
+        # an in-progress day (today before 16:10 ET) has a partial uptime -- not averaged
+        last10 = [d for d in feed_days if not d.get("in_progress")][-10:]
         uptime_vals = [d.get("uptime_pct") for d in last10 if d.get("uptime_pct") is not None]
         uptime_mean_10 = round(sum(uptime_vals) / len(uptime_vals), 4) if uptime_vals else 0.0
         # No "explained trip" bookkeeping exists yet -- every breaker trip on the rolling
