@@ -29,3 +29,4 @@ Found: the every-4-hours refresh rewrote the last 7 days with Yahoo prices (up t
 - 2026-11-15: board changed to [done] BOTH FIXES LIVE 8:59 PM
 - 2026-11-17: board changed to [done] BOTH FIXES LIVE 8:59 PM
 - 2026-11-18: board changed to [done] BOTH FIXES LIVE 8:59 PM
+- 2026-11-19: board changed to [done] BOTH FIXES LIVE 8:59 PM
