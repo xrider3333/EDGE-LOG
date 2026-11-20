@@ -1,6 +1,7 @@
 """HOST PIN (owner 11-20, MANAGER GO): job host field, EDGELOG_HOST_TAG, 6 h fallback."""
 import argparse
 import datetime
+import time
 
 from api import runner as R
 from tools.job_host import add_host_args, apply_host
@@ -55,19 +56,41 @@ class _Col:
 def test_liveness_reads_a_fresh_heartbeat_of_that_tag_only():
     now = datetime.datetime.now(datetime.timezone.utc)
     fresh, stale = now - datetime.timedelta(minutes=1), now - datetime.timedelta(minutes=30)
-    assert R._pinned_host_alive(_Col([{"claimHostTag": "desktop", "heartbeat_at": fresh}]), "desktop")
-    assert not R._pinned_host_alive(_Col([{"claimHostTag": "desktop", "heartbeat_at": stale}]), "desktop")
-    assert not R._pinned_host_alive(_Col([{"claimHostTag": None, "heartbeat_at": fresh}]), "desktop")
-    assert not R._pinned_host_alive(_Col([]), "desktop")
+    assert R._pinned_host_alive_read(_Col([{"claimHostTag": "desktop", "heartbeat_at": fresh}]), "desktop")
+    assert not R._pinned_host_alive_read(_Col([{"claimHostTag": "desktop", "heartbeat_at": stale}]), "desktop")
+    assert not R._pinned_host_alive_read(_Col([{"claimHostTag": None, "heartbeat_at": fresh}]), "desktop")
+    assert not R._pinned_host_alive_read(_Col([]), "desktop")
 
 
 def test_a_failed_liveness_read_never_falls_back():
-    assert R._pinned_host_alive(_Col([], boom=True), "desktop") is True
+    assert R._pinned_host_alive_read(_Col([], boom=True), "desktop") is True
 
 
 def test_queue_helper_flags():
     ap = add_host_args(argparse.ArgumentParser())
     assert apply_host({"n_trials": 900}, ap.parse_args([])) == {"n_trials": 900}
-    assert apply_host({}, ap.parse_args(["--on-desktop"])) == {"host": "desktop"}
-    assert apply_host({}, ap.parse_args(["--host", "Lab"])) == {"host": "lab"}
-    assert apply_host({}, host="desktop") == {"host": "desktop"}
+    j = apply_host({}, ap.parse_args(["--on-desktop"]))
+    assert j["host"] == "desktop" and abs(j["host_pinned_at"] - time.time()) < 60
+    assert apply_host({}, ap.parse_args(["--host", "Lab"]))["host"] == "lab"
+    assert apply_host({}, host="desktop")["host"] == "desktop"
+
+
+def test_liveness_is_cached_per_tag_for_five_minutes():
+    R._ALIVE_CACHE.clear()
+    calls = []
+
+    class _Counting(_Col):
+        def stream(self):
+            calls.append(1)
+            return []
+    col, t = _Counting([]), [1000.0]
+    for _ in range(50):                                   # 50 polls inside 5 min = ONE read
+        assert R._pinned_host_alive(col, "desktop", now_fn=lambda: t[0]) is False
+        t[0] += 5
+    assert len(calls) == 1
+    t[0] += R.ALIVE_CACHE_SEC
+    R._pinned_host_alive(col, "desktop", now_fn=lambda: t[0])
+    assert len(calls) == 2
+    R._pinned_host_alive(col, "lab", now_fn=lambda: t[0])  # another tag has its own entry
+    assert len(calls) == 3
+    R._ALIVE_CACHE.clear()

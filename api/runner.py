@@ -613,7 +613,24 @@ def book_legs_missing_params(legs):
     return out
 
 
-def _pinned_host_alive(col, tag):
+_ALIVE_CACHE = {}          # tag -> (checked_at, alive): HOST PIN liveness, re-read at most every 5 min
+ALIVE_CACHE_SEC = 300.0
+
+
+def _pinned_host_alive(col, tag, now_fn=None):
+    """Cached per tag for ALIVE_CACHE_SEC (VERIFIER must-fix 11-20): without it every runner
+    re-read the whole running list on every poll for every stuck pinned job."""
+    want = str(tag or "").strip().lower()
+    t = (now_fn or time.time)()
+    hit = _ALIVE_CACHE.get(want)
+    if hit is not None and t - hit[0] < ALIVE_CACHE_SEC:
+        return hit[1]
+    alive = _pinned_host_alive_read(col, want)
+    _ALIVE_CACHE[want] = (t, alive)
+    return alive
+
+
+def _pinned_host_alive_read(col, tag):
     """True when a runner tagged `tag` holds a running job whose heartbeat is fresh (the only
     liveness signal that crosses machines). One query, made only for a pinned job already past
     its fallback age. A failed read counts as alive: never fall back on a guess."""
@@ -2182,13 +2199,19 @@ class FirestoreQueue:
                     _resumed = (job.get("progress") or 0) > 0
                     if _qm is not None and not _resumed and _qm.hold(snap.id):
                         continue
-                    # HOST PIN (see host_pin_verdict). New claims only; a resumed orphan was
-                    # already judged when it was first claimed.
+                    # HOST PIN (see host_pin_verdict).
                     _pin_fb = ""
-                    if not _resumed and job.get("host"):
+                    if job.get("host"):
+                        # resumed orphans too (VERIFIER 11-20): an interrupted desktop job resumes on
+                        # the desktop. Age runs from the PIN time when the queue script stamped one,
+                        # so pinning an already-queued job does not make it fallback-eligible at once.
                         try:
-                            _ct = snap.create_time
-                            _age_h = ((time.time() - _ct.timestamp()) / 3600.0) if _ct else None
+                            _pa = job.get("host_pinned_at")
+                            if isinstance(_pa, (int, float)):
+                                _age_h = (time.time() - float(_pa)) / 3600.0
+                            else:
+                                _ct = snap.create_time
+                                _age_h = ((time.time() - _ct.timestamp()) / 3600.0) if _ct else None
                         except Exception:
                             _age_h = None
                         _ok, _fb, _why = host_pin_verdict(job, _HOST_TAG, _age_h, None)
@@ -3465,6 +3488,8 @@ def main(argv=None):
               f"{ORPHAN_SWEEP_SEC:g}s, heartbeat every {HEARTBEAT_SEC:g}s, "
               f"free-RAM floor {MIN_FREE_MEM_BYTES / 1024 ** 3:.1f} GiB"
               f"{'' if _psutil else ' (psutil missing: timestamp rules only)'}")
+        print(f"host tag: {_HOST_TAG or 'none'} (EDGELOG_HOST_TAG) - pinned jobs for another tag wait "
+              f"{HOST_PIN_FALLBACK_H:g} h before this runner may take them")
         # Read-quota meter (2026-09-07): this process reports its OWN Firestore read
         # burn once a minute, so the next quota exhaustion is measured, not guessed
         # at. See _read_meter_thread / _note_reads above.

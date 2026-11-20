@@ -10,6 +10,8 @@ The runner (api/runner.py host_pin_verdict) lets only a runner with EDGELOG_HOST
 job["host"] claim it; after 6 h with no live runner of that tag any runner takes it and the
 owner gets one phone line. No flag = no host field = exactly today's behaviour.
 """
+import time
+
 DESKTOP = "desktop"
 
 
@@ -33,4 +35,5 @@ def apply_host(job, a=None, host=None):
     h = (host or "").strip().lower() or (host_from_args(a) if a is not None else None)
     if h:
         job["host"] = h
+        job["host_pinned_at"] = time.time()   # the runner's 6 h fallback counts from here
     return job
