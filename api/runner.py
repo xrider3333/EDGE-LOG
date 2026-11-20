@@ -659,6 +659,17 @@ except ValueError:
     BOOK_STUCK_ALERT_H = 6.0
 
 
+def claim_extra_fields(pin_fallback="", leg_check_note=""):
+    """Extra fields written IN the claim's single precondition update (never a separate write
+    before it, which would move the doc's update time and make the claim fail forever)."""
+    out = {}
+    if pin_fallback:
+        out["hostFallback"] = pin_fallback
+    if leg_check_note:
+        out["legCheck"] = leg_check_note
+    return out
+
+
 def _stuck_alert(ref, snap, job, lacking, log=print, now=None, push=None):
     """One phone line for a book that has sat queued BOOK_STUCK_ALERT_H hours because this box
     lacks a leg input (VERIFIER 11-20: a book no box can run used to wait forever, silently).
@@ -2279,6 +2290,7 @@ class FirestoreQueue:
                         continue
                     # HOST PIN (see host_pin_verdict).
                     _pin_fb = ""
+                    _leg_note = ""
                     if job.get("host"):
                         # resumed orphans too (VERIFIER 11-20): an interrupted desktop job resumes on
                         # the desktop. Age runs from the PIN time when the queue script stamped one,
@@ -2497,12 +2509,10 @@ class FirestoreQueue:
                             log(f"  [data] book leg check skipped for {snap.id}: "
                                 f"{type(_be).__name__}: {_be}")
                             _blk = []
-                            # on the doc, not just this box's log: the result says it was unchecked
-                            try:
-                                ref.update({"legCheck": "skipped on %s: %s: %s" % (
-                                    _HOST, type(_be).__name__, str(_be)[:160])})
-                            except Exception:
-                                pass
+                            # on the doc, not just this box's log - but INSIDE the claim's own write
+                            # (VERIFIER 11-20 must-fix): a separate update first moved the doc's
+                            # update time and the claim's precondition then always failed.
+                            _leg_note = "skipped on %s: %s: %s" % (_HOST, type(_be).__name__, str(_be)[:160])
                         if _blk:
                             _seen = getattr(self, "_data_logged", None)
                             if _seen is None:
@@ -2553,7 +2563,7 @@ class FirestoreQueue:
                             ref.update({"status": "running", "progress": 0,
                                         "startedAt": _now_utc(), "claimedBy": _WORKER_ID,
                                         "claimHost": _HOST, "claimHostTag": _HOST_TAG,
-                                        **({"hostFallback": _pin_fb} if _pin_fb else {}),
+                                        **claim_extra_fields(_pin_fb, _leg_note),
                                         "heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()},
                                        option=_opt)
                         except Exception as _ce:

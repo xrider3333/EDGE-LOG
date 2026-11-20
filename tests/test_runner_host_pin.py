@@ -152,3 +152,13 @@ def test_stuck_book_alert_once_after_the_age():
     assert len(pushed) == 1 and "legStuckAlertAt" in ref.updates[0]
     assert not R._stuck_alert(ref, _QSnap(9), {"legStuckAlertAt": "x"}, ["l"], push=lambda m, **k: pushed.append(m))
     assert len(pushed) == 1
+
+
+def test_leg_check_note_rides_in_the_claim_write_only():
+    assert R.claim_extra_fields() == {}
+    assert R.claim_extra_fields("", "skipped on x: E: y") == {"legCheck": "skipped on x: E: y"}
+    assert R.claim_extra_fields("fb", "n") == {"hostFallback": "fb", "legCheck": "n"}
+    # no other write of legCheck anywhere in the runner (a pre-claim write breaks the precondition)
+    import inspect
+    src = inspect.getsource(R)
+    assert src.count('"legCheck"') == 1 and "ref.update({\"legCheck\"" not in src
