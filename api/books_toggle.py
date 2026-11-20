@@ -53,6 +53,7 @@ BOOK_LEG_CLASS = {
     "ORB234":   {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314, not #234", "gate": None, "feed": None},
     "ORB257":   {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314, not #257", "gate": None, "feed": None},
     "ORB421":   {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314, not #421", "gate": None, "feed": None},
+    "ORB546":   {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314, not #546", "gate": None, "feed": None},
     "NOISE382": {"cls": "paper", "max": "PAPER", "exec_leg": "NOISE", "reason": "QQQ executor runs NOISE #382", "gate": None, "feed": "cloud_signal NOISE_382"},
     "NOISE422": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #422 (box shadow leg NOISE_422_PLAIN)", "gate": None, "feed": "cloud_signal NOISE_422_PLAIN"},
     "NOISE304": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #304", "gate": None, "feed": None},
@@ -68,6 +69,7 @@ BOOK_LEG_CLASS = {
     "OPUS107a": {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
     "TTIBS300": {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
     "OPUS58c":  {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
+    "OPUS58c_h": {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
 }
 
 APPLIED_NAME = "books_toggle_applied.json"

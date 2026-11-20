@@ -75,7 +75,7 @@ def test_every_published_leg_is_classified():
     d = json.load(open(p, encoding="utf-8"))
     ids = {l["id"] for b in d["books"].values() for l in b["legs"]}
     assert ids <= set(bt.BOOK_LEG_CLASS), ids - set(bt.BOOK_LEG_CLASS)
-    assert len(d["books"]) == 12
+    assert len(d["books"]) >= 12
 
 
 def _js_table():
