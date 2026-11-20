@@ -79,7 +79,64 @@ SESSION = {"db_noadj_rth": "rth", "db_noadj_eth": "eth",      # as the other bac
                                  #   dividend rescales the whole pinned window by one factor, which
                                  #   leaves these ratio-sized strategies' trades and dollars exactly as
                                  #   they ran; anything that does move them is refused by the fold match
-TOOL_VERSION = "tools/backfill_wf_oos.py v1"
+TOOL_VERSION = "tools/backfill_wf_oos.py v2 (warm-aware)"
+
+# WARM STARTS AND WHY THIS TOOL HAS TO KNOW ABOUT THEM (ENGUQ, 2026-11-20).
+# "Warm starts for every scored out-of-sample stretch" (7a95b816, RESEARCH.md item 7) landed
+# 2026-09-20. Since then validate scores every fold through score_candidates_on_folds(...,
+# warm_days=auto.WARM_DAYS), so each out-of-sample stretch is run from WARM_DAYS sessions
+# EARLIER -- a position already open when the stretch begins is carried in, and the result is
+# then trimmed to trades entering at or after it. A COLD replay of the same fold starts flat at
+# te_s, so it misses that carried position and every trade its exit displaces.
+#
+# This tool replayed every fold cold, so before v2 it could not reproduce a fold of any run
+# validated on or after that date that held a position across a fold boundary -- and since a
+# mismatch REFUSES the block, the failure was always "cannot verify", never a wrong number
+# written (audited 2026-11-20: of 253 stored blocks, 160 are backfilled and every one is from
+# the cold era, the other 93 were written by the validate itself; nothing stored is affected).
+#
+# The evidence, from two ENGU-Q runs that straddle the commit: #335 validated 2026-09-08 and
+# reproduces 8 of 8 folds COLD; #407 validated 2026-09-21, one day after it, and reproduces
+# 2 of 8 cold -- exactly the two folds with nothing carried across their boundary -- then 8 of 8
+# WARM, every fold to the cent.
+WARM_STARTS_FROM = "2026-09-20"     # the date 7a95b816 landed; run docs stamp "YYYY-MM-DD HH:MM"
+WARM_DAYS_FALLBACK = 300            # auto.WARM_DAYS as of that commit, used only if the import fails
+
+
+def _warm_days_now():
+    """auto.WARM_DAYS, so a change there follows through here. Imported late (this module keeps
+    its import-time surface small) and never fatal: a build without it falls back to 300."""
+    try:
+        from augur_engine.auto import WARM_DAYS
+        return int(WARM_DAYS or 0)
+    except Exception:
+        return WARM_DAYS_FALLBACK
+
+
+def warm_days_for_doc(d, warm_days=None):
+    """How many warm-up sessions this run's folds were SCORED with -> (warm_days, why).
+
+    Decided by the run's own timestamp against WARM_STARTS_FROM, because that is what decides
+    which code scored it. `warm_days` overrides the era (an explicit --warm-days / --cold).
+
+    A doc with no readable timestamp gets the WARM value: warm has been the engine's behaviour
+    since 2026-09-20, so it is the right guess for anything undated, and rebuild_from_market_data
+    tries the other arm anyway when the first one does not reproduce. The returned `why` is
+    logged and stored on the block, so no block ever leaves here without saying which arm built
+    it."""
+    if warm_days is not None:
+        n = int(warm_days or 0)
+        return n, ("warm_days %d (given explicitly)" % n if n > 0 else "cold (given explicitly)")
+    ts = str((d or {}).get("timestamp") or "").strip()
+    if not ts:
+        n = _warm_days_now()
+        return n, ("warm_days %d (the doc carries no timestamp; warm is the engine's behaviour "
+                   "since %s)" % (n, WARM_STARTS_FROM))
+    if ts[:10] >= WARM_STARTS_FROM:
+        n = _warm_days_now()
+        return n, "warm_days %d (validated %s, on or after %s)" % (n, ts, WARM_STARTS_FROM)
+    return 0, "cold (validated %s, before warm starts landed %s)" % (ts, WARM_STARTS_FROM)
+
 # statuses that are not a refusal: main() exits 0 only when every run ended in one of these
 OK_STATUSES = ("written", "dry", "covered")
 
@@ -297,6 +354,8 @@ def rebuild_plan(d):
             "date_from": str(opt[0]), "date_to": str(opt[1]),
             "expect_n": expect_n, "folds": bounds,
             "run_id": d.get("id"), "data_fp": d.get("data_fp")}
+    plan["warm_days"], plan["warm_why"] = warm_days_for_doc(d)
+    plan["timestamp"] = d.get("timestamp")
     return plan, None
 
 
@@ -351,12 +410,19 @@ def resolve_fold_bounds(plan, index, n):
 
 
 # ── per-fold replay + match ──────────────────────────────────────────────────────────────
-def build_fold_match(ev, index, fb, params, dp=4):
+def build_fold_match(ev, index, fb, params, dp=4, warm_days=0):
     """Re-run ONE fold's out-of-sample slice with its saved params and compare the replay to
     the doc's own saved oos_trades/oos_pnl/oos_pf/oos_wins for that fold (ENGINE_BRIEF STAGE2
     item 6). `ev` is a `make_slice_evaluator` closure (or a stand-in with the same
     `ev(a, b, params, keep_trades=True) -> metrics|None` contract) -- injected so this can be
     unit tested without a real strategy or market data.
+
+    warm_days > 0 calls the evaluator with warm=True, i.e. the fold's stretch is run from
+    warm_days sessions earlier and trimmed back -- what validate has done since 2026-09-20 (see
+    WARM_STARTS_FROM above). The EVALUATOR must have been built with the same warm_days
+    (make_slice_evaluator(..., warm_days=...)); this argument only chooses how it is CALLED, and
+    a cold evaluator ignores warm=True. The default 0 keeps the pre-v2 cold call exactly, which
+    is also what lets a plain `ev(a, b, params, keep_trades=True)` test double keep working.
 
     -> {"fold", "ok", "reason" (None when ok), "pnls" (replayed net trade pnls, in trade
     order), "oos_pnl"/"oos_trades"/"oos_wins"/"oos_pf" (the REPLAYED values -- what feeds
@@ -375,7 +441,8 @@ def build_fold_match(ev, index, fb, params, dp=4):
     pf_s = None if row.get("oos_pf") is None else float(row.get("oos_pf"))
     wins_s = _int_or_none(row.get("oos_wins"))
     saved = {"trades": n_s, "net": net_s, "pf": pf_s, "wins": wins_s}
-    om = ev(te_s, te_e, params, keep_trades=True)
+    om = (ev(te_s, te_e, params, keep_trades=True, warm=True) if warm_days > 0
+          else ev(te_s, te_e, params, keep_trades=True))
     if not om:
         # The evaluator returns nothing for a slice with no trades (a long warm-up that never
         #   clears inside a cold fold, e.g. NQDIP's 250-day trend). _wf_fold_row saves exactly
@@ -383,7 +450,7 @@ def build_fold_match(ev, index, fb, params, dp=4):
         #   and refuses only a fold that saved trades.
         d0, d1 = bar_date_bounds(index, te_s, te_e)
         empty_ok = (n_s == 0 and abs(net_s) <= NET_ABS_TOL and wins_s in (None, 0))
-        return {"fold": fold, "ok": empty_ok,
+        return {"fold": fold, "warm_days": int(warm_days), "ok": empty_ok,
                 "reason": (None if empty_ok else
                            f"the evaluator returned nothing for this fold's slice, but the doc "
                            f"saved {n_s} trade(s) for it"),
@@ -413,7 +480,8 @@ def build_fold_match(ev, index, fb, params, dp=4):
                           else f"{pf_s:.4f}"))
 
     d0, d1 = bar_date_bounds(index, te_s, te_e)
-    return {"fold": fold, "ok": not reasons, "reason": ("; ".join(reasons) or None),
+    return {"fold": fold, "warm_days": int(warm_days),
+            "ok": not reasons, "reason": ("; ".join(reasons) or None),
             "pnls": pnls, "oos_pnl": net_r, "oos_trades": n_r, "oos_wins": wins_r,
             "oos_pf": pf_r, "saved": saved, "d_trades": n_r - n_s, "d_net": net_r - net_s,
             "d_pf": _pf_delta(pf_r, pf_s), "from": d0, "to": d1}
@@ -443,7 +511,8 @@ def provenance_row(m):
     as inf, so the entry is plain JSON. A `rebuild` that did not supply saved figures (only
     test doubles) gets nulls there rather than invented numbers."""
     saved = m.get("saved") if isinstance(m.get("saved"), dict) else {}
-    return {"f": m["fold"], "trades": m["oos_trades"],
+    return {"f": m["fold"], "warm_days": m.get("warm_days"),
+            "off_era": (True if m.get("off_era") else None), "trades": m["oos_trades"],
             "net": _finite_or_none(m["oos_pnl"], 4), "pf": _finite_or_none(m["oos_pf"], 4),
             "wins": m.get("oos_wins"),
             "saved": {"trades": saved.get("trades"), "net": _finite_or_none(saved.get("net"), 4),
@@ -484,6 +553,49 @@ def bars_mismatch_reason(n, expect_n, folds):
     return f"{base} (the data changed since this run validated)"
 
 
+def replay_arms(plan, index, params_list, ev_factory, log=print):
+    """Replay every fold on the run's own era arm, then on the other one if that missed.
+
+    The run's own era picks the FIRST arm (plan["warm_days"], set by rebuild_plan). If every fold
+    reproduces, that is the answer and the other arm is never run. If one does not, the OTHER arm
+    is tried once -- because the era is read off a timestamp, and a timestamp can be missing,
+    re-stamped by a repeat, or sit on the boundary day itself. Whichever arm reproduces is
+    returned and NAMED in the log and in every match's provenance; when neither does, the era
+    arm's matches are returned so the caller refuses with the real deltas.
+
+    A match found on the SECOND arm is stamped off_era=True (MANAGER's VERIFIER point): it still
+    reproduces the doc fold for fold, but the run's own timestamp says it was scored the other
+    way, so one() refuses to WRITE it unless asked explicitly. See one().
+
+    `ev_factory(warm_days)` builds the slice evaluator for one arm. It is an argument rather than
+    built here so this loop -- which is where off_era is SET -- can be unit tested without a
+    strategy or a master; rebuild_from_market_data passes the real make_slice_evaluator closure.
+    """
+    primary = int(plan.get("warm_days") or 0)
+    arms = [primary] + ([0] if primary > 0 else [_warm_days_now()])
+    first = None
+    for wd in arms:
+        ev = ev_factory(wd)
+        log("  replaying %s" % ("WARM (warm_days %d)" % wd if wd > 0 else "COLD")
+            + (" -- %s" % plan["warm_why"] if wd == primary and plan.get("warm_why") else
+               " -- second chance, the %s arm did not reproduce" % ("warm" if primary else "cold")))
+        matches = [build_fold_match(ev, index, fb, params, warm_days=wd)
+                   for fb, params in zip(plan["folds"], params_list)]
+        if all(m["ok"] for m in matches):
+            if wd != primary:
+                for m in matches:
+                    m["off_era"] = True
+                    m["era_warm_days"] = primary
+                log("    every fold reproduced on the %s arm, which is NOT the era this run's "
+                    "timestamp implies (%s)" % ("warm" if wd else "cold", plan.get("warm_why")))
+                log("    -> VERIFIED but OFF-ERA: a write needs --allow-off-era")
+            return matches
+        first = first if first is not None else matches
+        log("    %d of %d fold(s) reproduced on this arm" %
+            (sum(1 for m in matches if m["ok"]), len(matches)))
+    return first
+
+
 def rebuild_from_market_data(plan, log=print):
     """Load the strategy + the pinned data window and replay every fold. Not unit-tested
     directly (everything above is) -- see tests/test_backfill_wf_oos.py."""
@@ -513,10 +625,12 @@ def rebuild_from_market_data(plan, log=print):
     except Exception:
         pass
     plan = dict(plan, folds=resolve_fold_bounds(plan, index, n))
-    ev = make_slice_evaluator(mod, arrays, plan["cost_pts"])
     log(f"  loaded {n} bars {plan['date_from']}..{plan['date_to']}, {len(plan['folds'])} fold(s)")
-    return [build_fold_match(ev, index, fb, params)
-            for fb, params in zip(plan["folds"], params_list)]
+
+    return replay_arms(plan, index, params_list,
+                       lambda wd: make_slice_evaluator(mod, arrays, plan["cost_pts"],
+                                                       warm_days=wd),
+                       log=log)
 
 
 # ── payload + Firestore plumbing (mirrors tools/backfill_lb_tails.py's discipline) ────────
@@ -607,9 +721,16 @@ def _write_landed(ref, payload):
 
 
 def one(db, run_id, write=False, force=False, *, rebuild=None, size_fn=None, budget=None,
-        log=print, at=None):
+        log=print, at=None, allow_off_era=False):
     """Replay, verify and (write=True) backfill one run's validate.wf_oos. Returns a status
-    word: nodoc / skip / covered / mismatch / toobig / dry / changed / conflict / written.
+    word: nodoc / skip / covered / mismatch / offera / toobig / dry / changed / conflict /
+    written.
+
+    offera = every fold reproduced, but on the arm the run's own timestamp does NOT imply (see
+    rebuild_from_market_data). The replay is reported in full either way; only the WRITE is
+    refused, and allow_off_era=True (--allow-off-era) permits it and records off_era on the
+    block. A dry run is never refused for this -- answering "does this run reproduce?" is the
+    verification, and the off-era caveat is logged with it.
     covered = the doc already carries validate.wf_oos (pass --force to rebuild it); skip = the
     run cannot be replayed faithfully here, or a fold's replay disagreed with the saved
     figures badly enough that no block was even built (a reconciliation-guard refusal)."""
@@ -629,6 +750,7 @@ def one(db, run_id, write=False, force=False, *, rebuild=None, size_fn=None, bud
     log(f"#{run_id} {plan['strategy']} {plan['instrument']} {plan['timeframe']} window "
         f"{plan['date_from']}..{plan['date_to']} (pinned) mode {plan['mode']} "
         f"{len(plan['folds'])} fold(s)")
+    log(f"  fold scoring: {plan.get('warm_why') or 'cold'}")
     t0 = time.time()
     try:
         matches = (rebuild or rebuild_from_market_data)(plan, log=log)
@@ -644,12 +766,27 @@ def one(db, run_id, write=False, force=False, *, rebuild=None, size_fn=None, bud
             f"-- {tag}")
     if not all(m["ok"] for m in matches):
         log(f"#{run_id}: FOLD MISMATCH - not written"); return "mismatch"
+    _off = [m for m in matches if m.get("off_era")]
+    if _off:
+        log(f"#{run_id}: OFF-ERA - every fold reproduced, but on the "
+            f"{'warm' if (_off[0].get('warm_days') or 0) > 0 else 'cold'} arm, and this run's "
+            f"timestamp implies the other one ({plan.get('warm_why')}). The replay above is "
+            "sound; the era inference is what is in doubt.")
+        if write and not allow_off_era:
+            log(f"#{run_id}: not written - pass --allow-off-era to store an off-era block")
+            return "offera"
     block = build_block(matches, plan["mode"])
     if block is None:
         log(f"#{run_id}: the reconciliation guard refused the block - not written"); return "mismatch"
     at = at or _now()
+    _wds = sorted({int(m.get("warm_days") or 0) for m in matches})
     block["backfill"] = {"tool": TOOL_VERSION, "at": at,
+                         "warm_days": (_wds[0] if len(_wds) == 1 else _wds),
                          "matches": [provenance_row(m) for m in matches]}
+    if _off:        # permanent and auditable: this block was stored against its run's own era
+        block["backfill"]["off_era"] = {"era_warm_days": _off[0].get("era_warm_days"),
+                                        "replayed_warm_days": _off[0].get("warm_days"),
+                                        "why": plan.get("warm_why")}
     log(f"  block: net {block['net']} pts, {block['trades']} trades, "
         f"PF {block['profit_factor']}, win_rate {block['win_rate']}%, "
         f"max_drawdown {block['max_drawdown']}, sharpe {block['sharpe']}, "
@@ -782,6 +919,11 @@ def main(argv=None):
                          "Firestore, beacon included)")
     ap.add_argument("--force", action="store_true",
                     help="rebuild a run that already carries validate.wf_oos")
+    ap.add_argument("--allow-off-era", action="store_true",
+                    help="write a block whose folds reproduced only on the arm the run's own "
+                         "timestamp does NOT imply (warm vs cold fold scoring). A dry run "
+                         "reports such a replay either way; this permits storing it, and the "
+                         "block records off_era.")
     ap.add_argument("--list", action="store_true",
                     help="list runs with walk-forward fold rows and whether they carry a "
                          "wf_oos block (field-masked; one read per saved run)")
@@ -812,7 +954,8 @@ def main(argv=None):
               else _NoBeacon()) as b:
             for i, rid in enumerate(a.runs, 1):
                 try:
-                    status = one(db, rid, write=a.write, force=a.force)
+                    status = one(db, rid, write=a.write, force=a.force,
+                                 allow_off_era=a.allow_off_era)
                 except Exception as e:
                     print(f"#{rid}: FAILED {type(e).__name__}: {e}")
                     rc = 1

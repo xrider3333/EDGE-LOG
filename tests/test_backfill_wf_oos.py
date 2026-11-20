@@ -899,7 +899,7 @@ def test_main_restores_globals_it_may_override(monkeypatch):
         mp.setenv("EDGELOG_UPLOADS", os.path.join("X:", "fake_uploads"))
         mp.setenv("EDGELOG_DB_PATH", os.path.join("X:", "fake.db"))
         mp.setattr(B, "_db", lambda: object())
-        mp.setattr(B, "one", lambda db, rid, write=False, force=False: "dry")
+        mp.setattr(B, "one", lambda db, rid, write=False, force=False, **kw: "dry")
         mp.setattr(B, "_make_beacon", _FakeBeacon)
         assert B.main(["335"]) == 0
         assert _data.UPLOADS == os.path.join("X:", "fake_uploads")
@@ -918,7 +918,7 @@ def test_dry_run_main_never_opens_the_beacon(monkeypatch):
         raise AssertionError("a dry run opened the research beacon (a Firestore write)")
     monkeypatch.setattr(B, "_make_beacon", _no_beacon)
     seen = []
-    monkeypatch.setattr(B, "one", lambda db, rid, write=False, force=False:
+    monkeypatch.setattr(B, "one", lambda db, rid, write=False, force=False, **kw:
                         (seen.append((rid, write, force)), "dry")[1])
     assert B.main(["335", "382"]) == 0
     assert B.main(["325", "--force"]) == 0
@@ -939,7 +939,9 @@ def test_main_never_opens_a_real_beacon_and_exit_code_reflects_refusals(monkeypa
 
     seen = {}
 
-    def _one(db, rid, write=False, force=False):
+    # **kw: main() also passes allow_off_era (the off-era write guard); these stubs pin the
+    #   dispatch and exit codes, not that argument list.
+    def _one(db, rid, write=False, force=False, **kw):
         seen[rid] = (write, force)
         if rid == 999:
             raise RuntimeError("boom")
@@ -1096,3 +1098,395 @@ def test_rebuild_refuses_honestly_when_run_auto_dropped_the_last_fold(monkeypatc
         B.rebuild_from_market_data(plan, log=lambda *_a: None)
     assert "last fold(s) were likely dropped by run_auto" in str(e.value)
     assert "window itself looks unchanged" in str(e.value)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# WARM vs COLD fold scoring (ENGUQ, 2026-11-20)
+#
+# "Warm starts for every scored out-of-sample stretch" (7a95b816) landed 2026-09-20. Since then
+# validate scores each fold from auto.WARM_DAYS sessions earlier and trims back, so a position
+# already open when a stretch begins is carried in. This tool replayed every fold COLD, so it
+# could not reproduce such a fold -- and because a mismatch REFUSES the block, the symptom was
+# always "cannot verify", never a wrong number written.
+#
+# The two real runs that pinned this down straddle the commit, and their TIMESTAMPS are the
+# fixtures below: ENGU-Q #335 validated 2026-09-08 19:01 (cold era) and reproduces 8 of 8 folds
+# cold; #407 validated 2026-09-21 08:52, one day after the commit, and reproduces 2 of 8 cold --
+# exactly the two folds with nothing carried across their boundary -- then 8 of 8 warm, every
+# fold to the cent. Those end-to-end replays are NOT re-run here: each needs a 308 MB pre-fill
+# tape and a detached worktree of the repo at the run's own commit, which a unit suite cannot
+# carry. They are recorded in C:/EdgeLog/_anatomy_cache/book_stitched/ENGUQ_335_stitched_wf.md
+# and ENGUQ_407_stitched_wf.md with their fold tables. What IS pinned here is every decision
+# this tool makes about them.
+# ─────────────────────────────────────────────────────────────────────────────
+
+RUN335_TS = "2026-09-08 19:01"      # ENGU-Q #335, the cold era
+RUN407_TS = "2026-09-21 08:52"      # ENGU-Q #407, one day after warm starts landed
+
+
+def test_warm_days_for_doc_run335_is_cold_and_run407_is_warm():
+    """The two runs that found the bug, by their own timestamps."""
+    cold, why_cold = B.warm_days_for_doc({"timestamp": RUN335_TS})
+    warm, why_warm = B.warm_days_for_doc({"timestamp": RUN407_TS})
+    assert cold == 0
+    assert warm == B._warm_days_now() > 0
+    assert RUN335_TS in why_cold and "before warm starts" in why_cold
+    assert RUN407_TS in why_warm and B.WARM_STARTS_FROM in why_warm
+
+
+def test_warm_days_for_doc_boundary_day_counts_as_warm():
+    """The commit landed ON 2026-09-20, so that day's runs were scored warm."""
+    assert B.warm_days_for_doc({"timestamp": B.WARM_STARTS_FROM + " 00:01"})[0] > 0
+    assert B.warm_days_for_doc({"timestamp": "2026-09-19 23:59"})[0] == 0
+
+
+@pytest.mark.parametrize("doc", [{}, {"timestamp": ""}, {"timestamp": None}, None])
+def test_warm_days_for_doc_without_a_timestamp_assumes_warm_and_says_so(doc):
+    """Warm has been the engine's behaviour since 2026-09-20, so it is the right guess for an
+    undated doc - and rebuild_from_market_data tries the other arm anyway."""
+    n, why = B.warm_days_for_doc(doc)
+    assert n == B._warm_days_now()
+    assert "no timestamp" in why
+
+
+@pytest.mark.parametrize("given,expect_warm", [(0, False), (300, True), (7, True)])
+def test_warm_days_for_doc_explicit_override_beats_the_era(given, expect_warm):
+    n, why = B.warm_days_for_doc({"timestamp": RUN335_TS}, warm_days=given)
+    assert (n > 0) is expect_warm and n == given
+    assert "explicitly" in why
+
+
+def test_rebuild_plan_carries_the_era(monkeypatch):
+    cold, _ = B.rebuild_plan(dict(_doc(), timestamp=RUN335_TS))
+    warm, _ = B.rebuild_plan(dict(_doc(), timestamp=RUN407_TS))
+    assert cold["warm_days"] == 0 and "before warm starts" in cold["warm_why"]
+    assert warm["warm_days"] > 0 and "on or after" in warm["warm_why"]
+
+
+# ── how the evaluator is CALLED ──────────────────────────────────────────────────────────────
+
+def _ev_recording(trades):
+    """An `ev` double that records the kwargs it was called with."""
+    calls = []
+    pnls = [t[2] for t in trades]
+
+    def ev(a, b, params, keep_trades=False, **kw):
+        calls.append(dict(a=a, b=b, keep_trades=keep_trades, **kw))
+        gw = sum(x for x in pnls if x > 0)
+        gl = -sum(x for x in pnls if x < 0)
+        return {"trades": trades, "total_pnl": sum(pnls), "num_trades": len(trades),
+                "wins": sum(1 for x in pnls if x > 0),
+                "profit_factor": (gw / gl) if gl > 1e-9 else (float("inf") if gw > 0 else 0.0)}
+    return ev, calls
+
+
+def test_build_fold_match_default_is_cold_and_never_passes_warm():
+    """The pre-v2 call, unchanged. _ev_returning's double takes NO warm kwarg at all, so this
+    also pins that every existing caller and test double keeps working."""
+    ev, calls = _ev_recording(_TRADES_10)
+    m = B.build_fold_match(ev, None, _fb(), {"k": 1})
+    assert m["ok"] and m["warm_days"] == 0
+    assert "warm" not in calls[0]
+    # and the older double, which would raise TypeError on an unexpected kwarg:
+    assert B.build_fold_match(_ev_returning(_TRADES_10), None, _fb(), {"k": 1})["ok"]
+
+
+def test_build_fold_match_warm_days_calls_the_evaluator_warm():
+    ev, calls = _ev_recording(_TRADES_10)
+    m = B.build_fold_match(ev, None, _fb(), {"k": 1}, warm_days=300)
+    assert m["ok"] and m["warm_days"] == 300
+    assert calls[0]["warm"] is True and calls[0]["keep_trades"] is True
+
+
+def test_build_fold_match_records_the_arm_on_an_empty_slice_too():
+    """A fold the evaluator returns nothing for still has to say which arm produced that."""
+    def ev(a, b, params, keep_trades=False, **kw):
+        return None
+    idx = pd.date_range("2020-01-01", periods=2000, freq="1D", tz="US/Eastern")
+    fb = _fb(row={"fold": 1, "oos_pnl": 0.0, "oos_trades": 0, "oos_pf": 0.0, "oos_wins": 0})
+    m = B.build_fold_match(ev, idx, fb, {}, warm_days=300)
+    assert m["ok"] and m["warm_days"] == 300
+
+
+# ── the #407 shape: a fold that ONLY reproduces warm ─────────────────────────────────────────
+
+_TRADES_WARM = _TRADES_10                               # what the doc saved
+_TRADES_COLD = _TRADES_10[:-2]                          # cold misses the carried position's pair
+
+
+def _ev_warm_sensitive():
+    """The real asymmetry, in miniature: warm carries in a position already open at te_s, so it
+    returns the doc's trades; cold starts flat and returns fewer."""
+    def ev(a, b, params, keep_trades=False, warm=False):
+        trades = _TRADES_WARM if warm else _TRADES_COLD
+        pnls = [t[2] for t in trades]
+        gw = sum(x for x in pnls if x > 0)
+        gl = -sum(x for x in pnls if x < 0)
+        return {"trades": trades, "total_pnl": sum(pnls), "num_trades": len(trades),
+                "wins": sum(1 for x in pnls if x > 0),
+                "profit_factor": (gw / gl) if gl > 1e-9 else (float("inf") if gw > 0 else 0.0)}
+    return ev
+
+
+def test_a_warm_scored_fold_mismatches_cold_and_reproduces_warm():
+    ev, fb = _ev_warm_sensitive(), _fb()
+    cold = B.build_fold_match(ev, None, fb, {"k": 1})
+    warm = B.build_fold_match(ev, None, fb, {"k": 1}, warm_days=300)
+    assert not cold["ok"] and "trades 8 vs saved 10" in cold["reason"]
+    assert warm["ok"] and warm["reason"] is None
+    assert warm["oos_trades"] == 10 and warm["oos_pnl"] == pytest.approx(8.0)
+
+
+# ── provenance: no block leaves here without saying which arm built it ───────────────────────
+
+def test_provenance_row_carries_warm_days():
+    ev = _ev_warm_sensitive()
+    m = B.build_fold_match(ev, None, _fb(), {"k": 1}, warm_days=300)
+    assert B.provenance_row(m)["warm_days"] == 300
+
+
+def test_block_stamp_records_the_arm():
+    """A written block says which arm every fold was replayed on - backfill.warm_days, a single
+    value because a block is only ever built when ALL folds matched on one arm."""
+    d = _matching_doc()
+    d["timestamp"] = RUN407_TS
+    ref = _Ref((d, "t1"), (d, "t2"))
+
+    def warm_rebuild(plan):
+        assert plan["warm_days"] > 0 and "on or after" in plan["warm_why"]
+        return [dict(m, warm_days=plan["warm_days"]) for m in _matches_from_doc(plan)]
+
+    status, log = _run(ref, warm_rebuild, write=True)
+    assert status == "written"
+    payload, _opt = ref.updates[0]
+    stamp = payload["validate.wf_oos"]["backfill"]
+    assert stamp["warm_days"] == B._warm_days_now()
+    assert stamp["tool"] == B.TOOL_VERSION and "warm-aware" in stamp["tool"]
+    assert all(r["warm_days"] == B._warm_days_now() for r in stamp["matches"])
+    assert "validated %s, on or after" % RUN407_TS in chr(10).join(log)
+
+
+def test_one_logs_the_cold_era_for_a_pre_warm_run():
+    d = _matching_doc()
+    d["timestamp"] = RUN335_TS
+    ref = _Ref((d, "t1"))
+    status, log = _run(ref, _matches_from_doc)
+    assert status == "dry"
+    assert "before warm starts landed" in chr(10).join(log)
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# OFF-ERA: every fold reproduced, but on the arm the run's timestamp does NOT imply
+# (MANAGER's VERIFIER point, 2026-11-20). The second arm exists because the era is inferred
+# from a timestamp that can be missing, re-stamped by a repeat, or sit on the boundary day,
+# so when the other arm reproduces every fold to the cent the inference is what is in doubt,
+# not the replay. Verification still reports it; a WRITE is refused unless asked.
+#
+# Both halves are pinned here. The lines that SET the flag live in replay_arms(), which takes
+# an ev_factory so the loop can be driven without a strategy or a master (see
+# test_replay_arms_*); the lines that CONSUME it are driven through one(). The real end-to-end
+# case behind all of it: ENGU-Q #407 on its own build goes 2 of 8 folds cold then 8 of 8 warm,
+# recorded in book_stitched/ENGUQ_407_stitched_wf.md.
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _off_era_matches(plan):
+    """What the arm loop returns when the SECOND arm reproduced every fold: ok everywhere,
+    plus off_era and the era it contradicts."""
+    return [dict(m, off_era=True, warm_days=B._warm_days_now(), era_warm_days=0)
+            for m in _matches_from_doc(plan)]
+
+
+def test_a_dry_run_reports_an_off_era_replay_instead_of_refusing_it():
+    """"Does this run reproduce?" deserves the honest yes, with the caveat attached."""
+    d = _matching_doc()
+    d["timestamp"] = RUN335_TS                      # the doc says COLD
+    ref = _Ref((d, "t1"))
+    status, log = _run(ref, _off_era_matches)
+    text = chr(10).join(log)
+    assert status == "dry" and ref.updates == []
+    assert "OFF-ERA" in text and "the replay above is sound" in text.lower()
+
+
+def test_a_write_of_an_off_era_block_is_refused_by_default():
+    d = _matching_doc()
+    d["timestamp"] = RUN335_TS
+    ref = _Ref((d, "t1"), (d, "t2"))
+    status, log = _run(ref, _off_era_matches, write=True)
+    assert status == "offera"
+    assert ref.updates == []
+    assert "--allow-off-era" in chr(10).join(log)
+
+
+def test_allow_off_era_writes_it_and_the_block_records_the_choice():
+    d = _matching_doc()
+    d["timestamp"] = RUN335_TS
+    ref = _Ref((d, "t1"), (d, "t2"))
+    status, _log = _run(ref, _off_era_matches, write=True, allow_off_era=True)
+    assert status == "written"
+    payload, _opt = ref.updates[0]
+    off = payload["validate.wf_oos"]["backfill"]["off_era"]
+    assert off["era_warm_days"] == 0 and off["replayed_warm_days"] == B._warm_days_now()
+    assert "before warm starts landed" in off["why"]
+
+
+def test_an_on_era_block_carries_no_off_era_stamp():
+    d = _matching_doc()
+    d["timestamp"] = RUN335_TS
+    ref = _Ref((d, "t1"), (d, "t2"))
+    status, _log = _run(ref, _matches_from_doc, write=True)
+    assert status == "written"
+    payload, _opt = ref.updates[0]
+    assert "off_era" not in payload["validate.wf_oos"]["backfill"]
+
+
+def test_provenance_row_flags_off_era_and_stays_null_otherwise():
+    ev = _ev_warm_sensitive()
+    on = B.build_fold_match(ev, None, _fb(), {"k": 1}, warm_days=300)
+    assert B.provenance_row(on)["off_era"] is None
+    assert B.provenance_row(dict(on, off_era=True))["off_era"] is True
+
+
+def test_offera_is_not_an_ok_status():
+    """main() must exit non-zero on it - it is a refusal, like mismatch."""
+    assert "offera" not in B.OK_STATUSES
+
+
+# -- the arm loop, where off_era is SET ------------------------------------------------------
+#
+# Driven through replay_arms()'s ev_factory, so no strategy and no master are needed: one stub
+# evaluator per arm, the era arm deliberately missing. This is the #407 shape in miniature.
+
+def _arm_plan(ts, folds=3):
+    """A plan as rebuild_plan would hand it over, with the era already resolved from `ts`."""
+    plan = {"mode": "rolling", "cost_pts": 0.783, "timestamp": ts}
+    plan["warm_days"], plan["warm_why"] = B.warm_days_for_doc({"timestamp": ts})
+    # _fb()'s default saved row is the one _TRADES_WARM (= _TRADES_10) reconciles with
+    plan["folds"] = [_fb(fold=i + 1, te_s=1000 * (i + 1), te_e=1000 * (i + 1) + 500)
+                     for i in range(folds)]
+    return plan
+
+
+def _arm_factory(matching_arm):
+    """ev_factory whose evaluator reproduces the doc ONLY on `matching_arm` warm_days.
+    Records which arms were built, so "the second arm is not run when the first matched" is
+    checkable rather than assumed."""
+    built = []
+
+    def factory(wd):
+        built.append(wd)
+        trades = _TRADES_WARM if wd == matching_arm else _TRADES_COLD
+
+        def ev(a, b, params, keep_trades=False, **kw):
+            pnls = [t[2] for t in trades]
+            gw = sum(x for x in pnls if x > 0)
+            gl = -sum(x for x in pnls if x < 0)
+            return {"trades": trades, "total_pnl": sum(pnls), "num_trades": len(trades),
+                    "wins": sum(1 for x in pnls if x > 0),
+                    "profit_factor": (gw / gl) if gl > 1e-9 else 0.0}
+        return ev
+    return factory, built
+
+
+def _arm_run(ts, matching_arm, folds=3):
+    plan = _arm_plan(ts, folds)
+    factory, built = _arm_factory(matching_arm)
+    log = []
+    matches = B.replay_arms(plan, None, [{"k": 1}] * folds, factory, log=log.append)
+    return plan, matches, built, chr(10).join(log)
+
+
+def test_replay_arms_stamps_off_era_when_only_the_other_arm_reproduces():
+    """The run's doc says COLD (#335's era), but only the WARM arm reproduces: every fold is
+    returned ok, flagged off_era, and told which era it contradicts."""
+    warm = B._warm_days_now()
+    plan, matches, built, log = _arm_run(RUN335_TS, matching_arm=warm)
+    assert built == [0, warm]                       # era arm first, then the second chance
+    assert all(m["ok"] for m in matches)
+    assert all(m["off_era"] is True for m in matches)
+    assert all(m["warm_days"] == warm and m["era_warm_days"] == 0 for m in matches)
+    assert "second chance" in log and "VERIFIED but OFF-ERA" in log
+    assert "--allow-off-era" in log
+
+
+def test_replay_arms_stamps_off_era_the_other_way_round_too():
+    """And the mirror case: the doc says WARM (#407's era) but the COLD arm is the one that
+    reproduces, which is what a re-stamped or repeated run looks like."""
+    warm = B._warm_days_now()
+    plan, matches, built, log = _arm_run(RUN407_TS, matching_arm=0)
+    assert built == [warm, 0]
+    assert all(m["ok"] and m["off_era"] is True for m in matches)
+    assert all(m["warm_days"] == 0 and m["era_warm_days"] == warm for m in matches)
+
+
+def test_replay_arms_on_the_era_arm_sets_no_flag_and_never_builds_the_second():
+    plan, matches, built, log = _arm_run(RUN407_TS, matching_arm=B._warm_days_now())
+    assert built == [B._warm_days_now()]            # the second arm is not even constructed
+    assert all(m["ok"] and not m.get("off_era") for m in matches)
+    assert "second chance" not in log and "OFF-ERA" not in log
+
+
+def test_replay_arms_returns_the_ERA_arms_deltas_when_neither_reproduces():
+    """A genuine mismatch must be reported against the arm the run was actually scored on, so
+    the refusal shows the real deltas rather than the second guess's."""
+    plan, matches, built, log = _arm_run(RUN335_TS, matching_arm=-1)   # no arm matches
+    assert built == [0, B._warm_days_now()]
+    assert all(not m["ok"] for m in matches)
+    assert all(m["warm_days"] == 0 for m in matches)          # the ERA arm's, i.e. cold
+    assert "trades 8 vs saved 10" in matches[0]["reason"]
+
+
+# -- and the arm loop's REAL output carried through one() ------------------------------------
+#
+# The off-era consumer tests above use a hand-built stub; these two use what replay_arms
+# actually returns, so the two halves cannot drift apart.
+
+def _row_aware_factory(matching_arm, plan):
+    """Like _arm_factory, but the folds come from a real run doc, so each one's canned trades
+    are built from ITS OWN saved row (keyed by te_s, which replay_arms passes through to ev).
+    The non-matching arm drops the last two trades - the #407 asymmetry in miniature."""
+    rows = {fb["te_s"]: fb["row"] for fb in plan["folds"]}
+
+    def factory(wd):
+        def ev(a, b, params, keep_trades=False, **kw):
+            row = rows[a]
+            n, wins = int(row["oos_trades"]), int(row.get("oos_wins") or 0)
+            pnls = [2.0] * wins + [-1.0] * (n - wins)
+            if wd != matching_arm:
+                pnls = pnls[:-2]
+            gw = sum(x for x in pnls if x > 0)
+            gl = -sum(x for x in pnls if x < 0)
+            return {"trades": [(i, i + 1, p) for i, p in enumerate(pnls)],
+                    "total_pnl": sum(pnls), "num_trades": len(pnls),
+                    "wins": sum(1 for x in pnls if x > 0),
+                    "profit_factor": (gw / gl) if gl > 1e-9 else 0.0}
+        return ev
+    return factory
+
+
+def _off_era_rebuild_via_arm_loop(plan):
+    factory = _row_aware_factory(B._warm_days_now(), plan)
+    return B.replay_arms(plan, None, [{"k": 1}] * len(plan["folds"]), factory,
+                         log=lambda *a: None)
+
+
+def test_an_off_era_write_from_the_real_arm_loop_is_refused_without_the_flag():
+    d = _matching_doc()
+    d["timestamp"] = RUN335_TS                      # cold era; only the warm arm reproduces
+    ref = _Ref((d, "t1"), (d, "t2"))
+    status, log = _run(ref, _off_era_rebuild_via_arm_loop, write=True)
+    assert status == "offera" and ref.updates == []
+    assert "--allow-off-era" in chr(10).join(log)
+
+
+def test_allow_off_era_writes_the_real_arm_loops_block_with_the_stamp():
+    d = _matching_doc()
+    d["timestamp"] = RUN335_TS
+    ref = _Ref((d, "t1"), (d, "t2"))
+    status, _log = _run(ref, _off_era_rebuild_via_arm_loop, write=True, allow_off_era=True)
+    assert status == "written"
+    stamp = ref.updates[0][0]["validate.wf_oos"]["backfill"]
+    assert stamp["off_era"]["era_warm_days"] == 0
+    assert stamp["off_era"]["replayed_warm_days"] == B._warm_days_now()
+    assert "before warm starts landed" in stamp["off_era"]["why"]
+    assert stamp["warm_days"] == B._warm_days_now()
+    assert all(r["off_era"] is True for r in stamp["matches"])
