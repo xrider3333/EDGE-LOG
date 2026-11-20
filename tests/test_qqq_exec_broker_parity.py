@@ -81,12 +81,17 @@ def test_long_signs_buy_lower_sell_higher_is_better():
     assert out["fp"]["ex"]["edge"] == pytest.approx(0.05)
 
 
-def test_one_fill_16_cents_worse_flags_14_cents_does_not():
+def test_one_fill_outside_the_band_flags_14_cents_does_not():
+    # HATCH VERDICT 11-20: the published flag reads the delay-scaled band (~41.5c at
+    # the default 8 s), not the old 15c rule -- 16c is inside it now, 45c is not
     t = _tid()
-    worse = _run(_row(t), [_broker(t, "OPEN", 99.84), _broker(t, "CLOSE", 99.00)],
+    inside = _run(_row(t), [_broker(t, "OPEN", 99.84), _broker(t, "CLOSE", 99.00)],
+                  _eng(100.00, 99.00))
+    assert inside["broker_parity_ok"] is True
+    worse = _run(_row(t), [_broker(t, "OPEN", 99.55), _broker(t, "CLOSE", 99.00)],
                  _eng(100.00, 99.00))
     assert worse["broker_parity_ok"] is False
-    assert "over 15c a share worse" in worse["broker_parity_note"]
+    assert "41.5c band" in worse["broker_parity_note"]
     ok = _run(_row(t), [_broker(t, "OPEN", 99.86), _broker(t, "CLOSE", 99.14)],
               _eng(100.00, 99.00))
     # two fills 14 cents worse each: 28 cents on the round trip, but the band is per fill
@@ -126,11 +131,11 @@ def test_limit_entry_leg_whole_entry_gap_is_design():
 def test_orb_level_exit_is_design_orb_entry_is_slippage():
     t = _tid(leg="ORB_R6", side="S")
     out = _run(_row(t, leg="ORB", exit_reason="signal exit"),
-               [_broker(t, "OPEN", 99.70), _broker(t, "CLOSE", 101.30)],
+               [_broker(t, "OPEN", 99.50), _broker(t, "CLOSE", 101.30)],
                _eng(100.00, 101.00, dac=False))
-    assert out["fp"]["en"]["slp"] == pytest.approx(-0.30)
+    assert out["fp"]["en"]["slp"] == pytest.approx(-0.50)
     assert out["fp"]["ex"]["dsg"] == pytest.approx(-0.30)
-    assert out["broker_parity_ok"] is False   # the entry is 30 cents worse: slippage
+    assert out["broker_parity_ok"] is False   # the entry is 50c worse: slippage past the band
 
 
 def test_noise_before_decide_at_close_is_design():

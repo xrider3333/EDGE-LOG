@@ -671,7 +671,7 @@ def _read_config_for_gate(path=None, log=print):
             "still serve), same as a missing file; fix the file to restore the gate")
         return {}
 
-
+
 # Families retired by the owner: {family: date retired}. Never re-enabled by config.
 RETIRED_LEGS = {"DIP": "2026-11-16"}
 
@@ -14801,6 +14801,48 @@ def book_only_kind(reason):
     return ""
 
 
+def _side_gap_ps(s):
+    """The gap _fill_verdict judged for one side (design taken out), $ a share, or None."""
+    if s.get("slp") is not None:
+        return float(s.get("slp") or 0.0) + float(s.get("unx") or 0.0)
+    if s.get("wb") is not None and s.get("bt") is not None:
+        return float(s["wb"]) - float(s["bt"])
+    return None
+
+
+def _trade_hatch_verdict(en, ex):
+    """One trade's verdict from its two sides' _fill_verdict fields: ok (True / False /
+    None = no side judged; an ORB breakout-level design side is never judged), the
+    deciding side's band and gap in cents, and `top` -- the row's top-level fields
+    (parity_band_c IN CENTS, parity_ok, outside_minute_range, orb_breakout_gap_design).
+    Publish only: never touches an order. Never raises."""
+    res = {"ok": None, "band_c": None, "gap_c": None,
+           "top": {"parity_band_c": None, "parity_ok": None,
+                   "outside_minute_range": None, "orb_breakout_gap_design": False}}
+    try:
+        sides = [s for s in (en, ex) if isinstance(s, dict)]
+        orb = any(bool(s.get("orb_breakout_gap_design")) for s in sides)
+        omr = [s.get("outside_minute_range") for s in sides
+               if s.get("outside_minute_range") is not None]
+        judged = [s for s in sides if s.get("parity_ok") is not None
+                  and not s.get("orb_breakout_gap_design")
+                  and _finite_or_none(s.get("parity_band_c")) is not None]
+        res["top"]["orb_breakout_gap_design"] = orb
+        res["top"]["outside_minute_range"] = (any(omr) if omr else None)
+        if not judged:
+            return res
+        bad = [s for s in judged if s.get("parity_ok") is False]
+        pick = bad[0] if bad else max(judged, key=lambda s: abs(_side_gap_ps(s) or 0.0))
+        band_c = round(float(pick["parity_band_c"]) * 100, 1)
+        g = _side_gap_ps(pick)
+        res.update({"ok": not bad, "band_c": band_c,
+                    "gap_c": round(abs(g) * 100, 1) if g is not None else 0.0})
+        res["top"].update({"parity_band_c": band_c, "parity_ok": not bad})
+    except Exception:
+        pass
+    return res
+
+
 def _broker_trade_parity(row, by_base, engine_px=None, log=print, verdict_ctx=None):
     """FILL PARITY for one trades.csv row (a dict of strings as csv.DictReader reads it,
     with the re-price sidecar's fields already merged by _merge_reprice): each Webull
@@ -14850,7 +14892,16 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print, verdict_ctx=No
         rt_worse = bool(PARITY_ROUND_TRIP and len(comp) == 2
                         and exe < -PARITY_TRADE_TOL_PS - 1e-9)
         flag = bool(worse or odd or rt_worse)
-        st = ("entry and exit" if len(comp) == 2 else
+        # HATCH VERDICT (11-20): the published flag reads the per-fill delay-scaled band
+        # (_fill_verdict's parity_ok) -- the old 15c rule above only words the note when
+        # the new verdict could not decide. ORB breakout-level design gaps never flag.
+        hv = _trade_hatch_verdict(en, ex)
+        out.update(hv["top"])
+        if hv["ok"] is not None:
+            flag = bool(not hv["ok"] or rt_worse)   # the round-trip switch only adds flags
+        else:
+            flag = False   # cannot be judged: published None, never a flag
+        st =("entry and exit" if len(comp) == 2 else
               ("entry only" if en["edge"] is not None else "exit only"))
         side_txt = []
         for nm, s in (("entry", en), ("exit", ex)):
@@ -14867,7 +14918,16 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print, verdict_ctx=No
         usd = gap * shares
         note = (f"Webull vs backtest a share: {', '.join(side_txt)}; "
                 f"{'+' if usd >= 0 else '-'}${abs(usd):.2f} at {shares:g} sh")
-        if worse:
+        if hv["ok"] is not None:
+            if flag and hv["ok"]:
+                note = (f"FLAGGED, the two fills together over {PARITY_TRADE_TOL_PS * 100:.0f}c a "
+                        f"share worse -- " + note)
+            elif flag:
+                note = (f"FLAGGED, a fill outside its {hv['band_c']:.1f}c band "
+                        f"({hv['gap_c']:.1f}c off) -- " + note)
+            else:
+                note = f"within the {hv['band_c']:.1f}c band -- " + note
+        elif worse:
             note = f"FLAGGED, a fill over {PARITY_TRADE_TOL_PS * 100:.0f}c a share worse -- " + note
         elif rt_worse:
             note = (f"FLAGGED, the two fills together over {PARITY_TRADE_TOL_PS * 100:.0f}c a "
@@ -14876,7 +14936,8 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print, verdict_ctx=No
             note = ("FLAGGED, the resting order filled where the backtest did not exit -- "
                     if all(s.get("why") == "diverged" for s in odd) else
                     "FLAGGED, a Webull fill does not fit the tape -- ") + note
-        out.update({"broker_parity_ok": not flag, "broker_parity_note": note,
+        out.update({"broker_parity_ok": (not flag) if hv["ok"] is not None else None,
+                    "broker_parity_note": note,
                     "fp": {"st": st, "en": en, "ex": ex, "exec_ps": _r4(exe),
                            "gap_usd": round(gap * shares, 2),
                            "dsg_usd": round(dsg * shares, 2),
@@ -15126,13 +15187,13 @@ def _book_only_status(row, by_base, log=print):
         trade_id = str(row.get("trade_id") or "").strip()
         open_row = _broker_order_for(trade_id, "OPEN", by_base)
         if open_row is None:
-            return {"book_only": False, "book_only_reason": ""}
+            return {"book_only": False, "book_only_reason": "", "book_only_kind": ""}
         mode = str(open_row.get("mode") or "").strip().upper()
         if mode == "OFF":
-            return {"book_only": False, "book_only_reason": ""}
+            return {"book_only": False, "book_only_reason": "", "book_only_kind": ""}
         ok = str(open_row.get("ok")).strip().lower() in ("true", "1")
         if ok:
-            return {"book_only": False, "book_only_reason": ""}
+            return {"book_only": False, "book_only_reason": "", "book_only_kind": ""}
         reason = str(open_row.get("reason") or "").strip()
         if not reason:
             reason = f"broker OPEN did not go through (mode={mode or 'unknown'})"

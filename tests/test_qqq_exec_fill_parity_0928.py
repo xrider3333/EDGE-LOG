@@ -81,7 +81,7 @@ def test_without_the_next_bar_on_file_it_falls_back_to_the_decision_close(monkey
     r = by_id["NOISE_382-20260928T160500Z-S"]
     assert r["fp"]["en"]["bt"] == pytest.approx(735.31)
     assert r["fp"]["en"]["edge"] == pytest.approx(-0.16)
-    assert r["broker_parity_ok"] is False
+    assert r["broker_parity_ok"] is True      # 16c is inside the hatch band (11-20)
 
 
 def test_orb_entry_only_until_the_backtest_exit_lands(book):
@@ -126,7 +126,7 @@ def test_noise_0925_eod_flatten_design_vs_slippage(book):
     assert ex["bt"] == pytest.approx(744.50)       # engine's own day-end exit (09-28 09:35 row)
     assert ex["dsg"] == pytest.approx(0.42)        # the 15:59 quote was 42c above the close
     assert ex["slp"] == pytest.approx(-0.32)       # Webull sold 32c under that quote
-    assert r["broker_parity_ok"] is False          # 32c worse than the flatten quote
+    assert r["broker_parity_ok"] is True           # 32c worse, inside the ~41.5c band (11-20)
 
 
 def test_book_only_row_is_book_price_labelled(book):
@@ -145,7 +145,7 @@ def test_board_summary_on_the_real_rows(book):
     noise = s["legs"]["NOISE"]
     assert noise["n"] == 7
     assert s["board_flag"] is False
-    assert s["failed"] == 2              # 09-25 12:15 (15:59 flatten 32c under), 09-24 suspect
+    assert s["failed"] == 1              # 09-24 suspect (09-25's 32c is inside the band, 11-20)
     assert "36 of 36" not in s["note"] and "miss" not in s["note"]
     # P&L where both are known: Webull's fills vs the backtest
     assert s["n_both"] == 7
