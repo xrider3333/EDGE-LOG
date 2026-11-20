@@ -6972,13 +6972,17 @@ def tl_sheet_title(t):
 
 
 def tl_has_nt(trades):
-    return any(t.get(k) is not None for t in trades for k in ('nt_points', 'expected_usd', 'track_err_usd'))
+    m = {k: any(t.get(k) is not None for t in trades) for k in ('nt_points', 'expected_usd', 'track_err_usd')}
+    return m if any(m.values()) else False
 
 
 def tl_heads(has_nt):
     """The table's header row: the common columns (this board's labels), then its own."""
-    return (['ENTRY (ET)', 'EXIT / FLAGS', 'STRATEGY', 'SIDE', 'SHARES', 'PTS', 'P&L', 'DAY', 'CHART', 'EXIT (ET)', 'ENTRY $', 'EXIT $', 'RUNNING']
-            + (['NT POINTS', 'EXPECTED $', 'TRACK ERR'] if has_nt else []) + ['REAL P&L', 'SLIP/SH'])
+    # owner 11-20: left to right as the trade happened, checks after P&L, notes last; each NT column only when a shown row carries it
+    nt = has_nt if isinstance(has_nt, dict) else {k: bool(has_nt) for k in ('nt_points', 'expected_usd', 'track_err_usd')}
+    return (['ENTRY (ET)', 'STRATEGY', 'SIDE', 'SHARES', 'ENTRY $', 'EXIT (ET)', 'EXIT $', 'PTS', 'P&L', 'DAY', 'REAL P&L', 'RUNNING']
+            + (['EXPECTED $'] if nt['expected_usd'] else []) + (['TRACK ERR'] if nt['track_err_usd'] else [])
+            + (['NT POINTS'] if nt['nt_points'] else []) + ['SLIP/SH', 'EXIT / FLAGS', 'CHART'])
 
 
 def _avg_slip(t):
