@@ -13756,7 +13756,7 @@ def _expected_ticks(day):
         return 0
 
 
-def _build_feed_days(state):
+def _build_feed_days(state, now_et=None):
     """[{date,ticks,expected_ticks,coverage_pct,uptime_pct,stale_min,first_tick,
     last_tick,valid,note}, ...] oldest-first, derived from the raw per-day tick/stale
     counts in state['feed_days'].
@@ -13768,9 +13768,20 @@ def _build_feed_days(state):
     `uptime_pct` = coverage_pct * (1 - stale_ticks/ticks) folds BOTH failure modes (never
     ticked, and ticked-but-stale) into one number. A day is `valid` evidence only if
     uptime_pct >= 95% AND the adapter was watching by 09:35 ET AND stayed watching
-    through 15:55 ET."""
+    through 15:55 ET.
+
+    IN PROGRESS (owner via MANAGER 2026-11-20): TODAY before 16:10 ET is not judged --
+    its counts are against the FULL day's denominator, so 11:16 ET on a perfect day read
+    "27 pct coverage, adapter absent ~286 min" and hatched the calendar. Such a day
+    publishes valid=None, in_progress=True and a plain note; the verdict lands at 16:10.
+    A gap so far (ticks short of the expected-to-now count) is still named in the note."""
     out = []
     days = state.get("feed_days") or {}
+    try:
+        _now = now_et or _now_et()
+        _today, _hhmm = _now.strftime("%Y-%m-%d"), _now.strftime("%H:%M")
+    except Exception:
+        _today, _hhmm = None, None
     for day in sorted(days.keys()):
         try:
             d = days[day] or {}
@@ -13790,7 +13801,20 @@ def _build_feed_days(state):
                         and first_tick and first_tick <= "09:35"
                         and last_tick and last_tick >= "15:55")
             note = d.get("note") or ""
-            if not valid and not note:
+            in_progress = bool(day == _today and _hhmm is not None and _hhmm < "16:10")
+            if in_progress:
+                valid = None
+                if not note:
+                    so_far = 0
+                    try:
+                        start = _now.replace(hour=9, minute=25, second=0, microsecond=0)
+                        so_far = max(0, int((_now - start).total_seconds() / TICK_SEC))
+                    except Exception:
+                        pass
+                    gap = max(0, so_far - ticks) * TICK_SEC / 60.0
+                    note = "session in progress - verdict at 16:10 ET" + (
+                        f"; ~{gap:.0f} min of ticks missing so far" if gap >= 5 else "")
+            if valid is False and not note:
                 reasons = []
                 if ticks == 0:
                     reasons.append("adapter never ticked this session")
@@ -13811,7 +13835,7 @@ def _build_feed_days(state):
             out.append({"date": day, "ticks": ticks, "expected_ticks": expected_ticks,
                        "coverage_pct": coverage_pct, "uptime_pct": uptime_pct,
                        "stale_min": stale_min, "first_tick": first_tick, "last_tick": last_tick,
-                       "valid": valid, "note": note})
+                       "valid": valid, "note": note, "in_progress": in_progress})
         except Exception:
             continue
     return out[-60:]
