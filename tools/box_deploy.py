@@ -161,6 +161,9 @@ _STATIC_BOOK_PATHS = [
     "api/webull_sync.py",
     "api/cloud_signal.py",
     "api/cloud_signal_stream.py",
+    # the closefetch clock + bar-finality guard cloud_signal imports (2026-11-20): it decides
+    # when a just-closed bar may reach the legs, so it belongs in the review diff
+    "api/close_fetch.py",
     # Imported at module scope by cloud_signal.py and paper.py (2026-11-18): it decides
     # whether a live ENGU-Q leg runs with the pre-fix fill scan, so a change to it changes
     # live behaviour and belongs in the deploy's REVIEW DIFF, where this list is read. (The
