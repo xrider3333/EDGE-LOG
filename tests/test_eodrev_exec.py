@@ -201,19 +201,54 @@ def test_no_basket_until_probe_passed(tmp_path):
     assert ex.probe_ok(ex.paths(str(tmp_path)))
 
 
-def test_probe_uses_market_exit_and_needs_fill(tmp_path, monkeypatch):
-    ad, notes = FakeAd(), []
-    monkeypatch.setattr(ex, "lookup", lambda a, rec: {"status": "FILLED", "filled": 1, "price": 1.0})
-    ex.run_probe("AAPL", ex.paths(str(tmp_path)), adapter=ad, log=lambda *a: None,
-                 notify=lambda m, **k: notes.append(m), wait_s=0)
-    assert [k["order_type"] for k in ad.sent] == ["MARKET"] * 4
-    assert ex.probe_ok(ex.paths(str(tmp_path))) and "PASSED" in notes[0]
-    monkeypatch.setattr(ex, "lookup", lambda a, rec: {"status": "SUBMITTED", "filled": 0, "price": None})
-    tmp2 = tmp_path / "b"
-    ex.run_probe("AAPL", ex.paths(str(tmp2)), adapter=FakeAd(), log=lambda *a: None,
-                 notify=lambda m, **k: notes.append(m), wait_s=0, wait_tries=2)
-    assert not ex.probe_ok(ex.paths(str(tmp2))) and "FAILED" in notes[-1]
+def _probe(tmp, ad, monkeypatch, look, notes, **kw):
+    clock = {"t": dt.datetime(2026, 11, 20, 15, 35, 0, tzinfo=ET)}
+    sends = []
+    orig = ad.place_stock_order
 
+    def place(**k):
+        sends.append((clock["t"].strftime("%H:%M:%S"), k["symbol"], k["side"], k["qty"]))
+        return orig(**k)
+    ad.place_stock_order = place
+    ad.cancel_order = lambda cid: {"ok": True}
+    monkeypatch.setattr(ex, "lookup", look)
+    monkeypatch.setattr(ex, "LOOKUP_PAUSE_S", 0)
+    monkeypatch.setattr(ex, "_sleep_until", lambda t, now_fn, log: clock.update(t=max(clock["t"], t)))
+    ex.run_probe("AAPL", ex.paths(str(tmp)), adapter=ad, log=lambda *a: None,
+                 notify=lambda m, **k: notes.append(m), wait_s=0, wait_tries=3,
+                 now_fn=lambda: clock["t"], **kw)
+    return sends
+
+
+def test_probe_holds_to_1559_on_separate_symbols(tmp_path, monkeypatch):
+    ad, notes = FakeAd(), []
+    sends = _probe(tmp_path, ad, monkeypatch,
+                   lambda a, rec: {"status": "FILLED", "filled": 1, "price": 1.0}, notes)
+    assert [s[0] for s in sends] == ["15:35:00", "15:35:00", "15:59:00", "15:59:00"]
+    assert {s[1] for s in sends[:2]} == {"AAPL", "MSFT"}            # never opposing on one sym
+    assert [k["order_type"] for k in ad.sent] == ["MARKET"] * 4
+    assert ex.probe_ok(ex.paths(str(tmp_path))) and "PASSED" in notes[-1]
+
+
+def test_probe_unfilled_entry_alerts_unwinds_and_fails(tmp_path, monkeypatch):
+    ad, notes = FakeAd(), []
+    sends = _probe(tmp_path, ad, monkeypatch,
+                   lambda a, rec: {"status": "SUBMITTED", "filled": 0, "price": None}, notes)
+    assert len(sends) == 2                                          # no exit for a non-fill
+    assert any("entry not filled" in n for n in notes) and "FAILED" in notes[-1]
+    assert not ex.probe_ok(ex.paths(str(tmp_path)))
+
+
+def test_probe_exit_unfilled_uses_1559_35_fallback(tmp_path, monkeypatch):
+    ad, notes = FakeAd(), []
+
+    def look(a, rec):
+        if rec["_sid"].endswith("-PX"):
+            return {"status": "REJECTED", "filled": 0}
+        return {"status": "FILLED", "filled": 1, "price": 1.0}
+    sends = _probe(tmp_path, ad, monkeypatch, look, notes)
+    assert [s[0] for s in sends][-2:] == ["15:59:35", "15:59:35"]
+    assert ex.probe_ok(ex.paths(str(tmp_path)))
 
 class CancelAd(FakeAd):
     def __init__(self, refuse=(), cancel_ok=True):

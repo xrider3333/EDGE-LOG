@@ -646,37 +646,88 @@ def _settle(ad, entries, day, cfg, state, wait, notify, finish, sig=None, one_si
                   panel_date=(sig or {}).get("panel_date"), one_sided=one_sided)
 
 
-# -- Monday probe (MANAGER 11-14 items a + b) ------------------------------------------------
-def run_probe(sym="AAPL", p=None, adapter=None, log=print, notify=None, wait_s=2.0, wait_tries=15):
-    """1 share BUY + MARKET SELL, and 1 share SHORT + MARKET BUY on `sym`, PAPER only, in RTH.
-    Passes only when both 1-share MARKET exits show FILLED on Webull's own record."""
+# -- probe (MANAGER 11-14 a + b; rewritten 11-20 after the same-second exit bug) -------------
+def run_probe(sym="AAPL", p=None, adapter=None, log=print, notify=None, wait_s=2.0, wait_tries=30,
+              short_sym="MSFT", now_fn=_et_now, sleep=True):
+    """1 share BUY `sym` + 1 share SHORT `short_sym` (separate symbols: Webull refuses opposing
+    open orders on one symbol, HTTP 417 OPEN_ORDER_HAS_BOX_ORDER). PAPER only, in RTH.
+    Each entry must FILL (wait_tries x wait_s, else alert + unwind). Held until exit_at
+    (15:59:00) -> MARKET exit of the filled qty; anything not filled by fallback_at (15:59:35)
+    gets a MARKET fallback. Passes only when both exits show filled on Webull's own record."""
     p = p or paths()
     os.makedirs(p["dir"], exist_ok=True)
     ad = adapter or make_adapter(p, log=log)
-    day = _et_now().date()
-    out = []
-    for side in ("long", "short"):
-        e = {"leg": f"{LEG_PREFIX}_P{'L' if side == 'long' else 'S'}", "sym": sym.upper(),
+    cfg = load_cfg(p)
+    wait = (lambda t: _sleep_until(t, now_fn, log)) if sleep else (lambda t: None)
+    nap = (lambda: time.sleep(wait_s)) if wait_s else (lambda: None)
+    note = notify or _notify
+    day = now_fn().date()
+    legs = []
+    for side, s in (("long", sym), ("short", short_sym)):
+        e = {"leg": f"{LEG_PREFIX}_P{'L' if side == 'long' else 'S'}", "sym": s.upper(),
              "side": side, "qty": 1}
         o = send(ad, e, "OPEN", day, what="PO")
-        m = send(ad, e, "CLOSE", day, order_type="MARKET", what="PX") if o.get("ok") else None
-        ans = None
-        if m is not None and m.get("ok"):
+        e.update(open_ok=bool(o.get("ok")), open_reason=o.get("reason"), open_rec=o,
+                 open_sid=o.get("_sid"), entry_filled=0)
+        if e["open_ok"]:
+            ans = None
             for _ in range(int(wait_tries)):
-                ans = lookup(ad, m)
+                ans = lookup(ad, o)
                 if ans and float(ans.get("filled") or 0) >= 1:
                     break
-                time.sleep(wait_s)
-        r = {"side": side, "open_ok": o.get("ok"), "open_reason": o.get("reason"),
-             "exit_ok": (m or {}).get("ok"), "exit_reason": (m or {}).get("reason"),
-             "exit_status": (ans or {}).get("status"), "exit_filled": (ans or {}).get("filled") or 0,
-             "et": _et_now().strftime("%H:%M:%S")}
+                nap()
+            e["entry_filled"] = int(float((ans or {}).get("filled") or 0))
+            e["entry_status"] = (ans or {}).get("status")
+            if e["entry_filled"] < 1:
+                note(f"PICK6 #511 probe: {e['sym']} {side} entry not filled ({e['entry_status']}) "
+                     f"- unwinding", log=log)
+                unwind(ad, e, day, "probe entry not filled", log=log)
+                e["open_ok"] = False
+        legs.append(e)
+    wait(_at(day, cfg.get("exit_at") or DEFAULTS["exit_at"]))
+    for e in legs:
+        if not e["open_ok"]:
+            continue
+        m = send(ad, e, "CLOSE", day, order_type="MARKET", what="PX", qty=e["entry_filled"])
+        e.update(exit_ok=bool(m.get("ok")), exit_reason=m.get("reason"), exit_rec=m)
+    wait(_at(day, cfg.get("fallback_at") or DEFAULTS["fallback_at"]))
+    for e in legs:
+        if not e["open_ok"]:
+            continue
+        ans = lookup(ad, e["exit_rec"]) if e.get("exit_ok") else None
+        for _ in range(int(wait_tries) if e.get("exit_ok") else 0):
+            if ans and (float(ans.get("filled") or 0) >= e["entry_filled"] or _done(ans)):
+                break
+            nap()
+            ans = lookup(ad, e["exit_rec"])
+        if not (ans and float(ans.get("filled") or 0) >= e["entry_filled"]):
+            fb = send(ad, e, "CLOSE", day, order_type="MARKET", what="PF", qty=e["entry_filled"])
+            e.update(fb_ok=bool(fb.get("ok")), fb_reason=fb.get("reason"))
+            ans = None
+            for _ in range(int(wait_tries) if fb.get("ok") else 0):
+                ans = lookup(ad, fb)
+                if ans and float(ans.get("filled") or 0) >= e["entry_filled"]:
+                    break
+                nap()
+            if not (ans and float(ans.get("filled") or 0) >= e["entry_filled"]):
+                note(f"PICK6 #511 probe: {e['sym']} {e['side']} NOT CLOSED - exit and fallback "
+                     f"failed; check the paper account", log=log)
+        e.update(exit_status=(ans or {}).get("status"), exit_filled=(ans or {}).get("filled") or 0)
+    out = []
+    for e in legs:
+        r = {"side": e["side"], "sym": e["sym"], "open_ok": e["open_ok"],
+             "open_reason": e.get("open_reason"), "entry_filled": e["entry_filled"],
+             "exit_ok": e.get("exit_ok"), "exit_reason": e.get("exit_reason"),
+             "fb_ok": e.get("fb_ok"), "fb_reason": e.get("fb_reason"),
+             "exit_status": e.get("exit_status"), "exit_filled": e.get("exit_filled") or 0,
+             "et": now_fn().strftime("%H:%M:%S")}
         out.append(r)
         log(f"[PICK6 #511 probe] {json.dumps(r, default=str)}")
-    _append(os.path.join(p["dir"], "probe.jsonl"), {"day": str(day), "results": out})
+    _append(os.path.join(p["dir"], "probe.jsonl"), {"day": str(day), "probe": "v3 hold-to-1559",
+                                                     "results": out})
     good = len(out) == 2 and all(_probe_side_ok(x) for x in out)
-    (notify or _notify)(("PICK6 #511 probe PASSED: " if good else "PICK6 #511 probe FAILED: ") + "; ".join(
-        f"{x['side']} open {'ok' if x.get('open_ok') else x.get('open_reason')}, "
+    note(("PICK6 #511 probe PASSED: " if good else "PICK6 #511 probe FAILED: ") + "; ".join(
+        f"{x['sym']} {x['side']} open {'ok' if x.get('open_ok') else x.get('open_reason')}, "
         f"exit {('filled ' + str(x.get('exit_filled'))) if _probe_side_ok(x) else (x.get('exit_reason') or x.get('exit_status'))}" for x in out)[:400], log=log)
     return out
 
@@ -687,6 +738,7 @@ def main(argv=None):
     ap.add_argument("--resume-only", action="store_true",
                     help="run: only resume today's open basket (boot unit); never a fresh entry")
     ap.add_argument("--sym", default="AAPL")
+    ap.add_argument("--short-sym", default="MSFT")
     ap.add_argument("--date", help="check: parse this day's signal file only")
     a = ap.parse_args(argv)
     p = paths()
@@ -706,7 +758,7 @@ def main(argv=None):
         print(json.dumps({"why": why, "plan": plan_entries(sig, cfg, day) if sig else None}, indent=1))
         return 0
     if a.cmd == "probe":
-        run_probe(a.sym, p, log=log)
+        run_probe(a.sym, p, log=log, short_sym=a.short_sym)
         return 0
     if a.cmd == "alert-failed":
         print(json.dumps(alert_failed(p, log=log), default=str))
