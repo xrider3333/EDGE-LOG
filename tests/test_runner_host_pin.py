@@ -94,3 +94,36 @@ def test_liveness_is_cached_per_tag_for_five_minutes():
     R._pinned_host_alive(col, "lab", now_fn=lambda: t[0])  # another tag has its own entry
     assert len(calls) == 3
     R._ALIVE_CACHE.clear()
+
+
+# ── book jobs through the pre-claim data/code guard (MANAGER 11-20) ──
+def _fake(tmp_path, have_panel=True, have_master=True, on_disk=True):
+    f = tmp_path / "S23.py"
+    f.write_text("x")
+    panel = tmp_path / "panel.npz"
+    if have_panel:
+        panel.write_text("p")
+    return dict(
+        strategy_path=lambda name: str(tmp_path / name),
+        strategy_panels=lambda sp: [str(panel)] if sp.endswith("S23.py") else [],
+        find_master=lambda *a: ({"id": 1, "filename": "m.csv"} if have_master else None),
+        master_on_disk=lambda m: on_disk)
+
+
+def test_book_all_legs_present_is_runnable(tmp_path):
+    legs = [{"strategy": "S23.py", "instrument": "QQQ"}, {"strategy": "S23.py", "instrument": "NQ"}]
+    assert R.book_legs_lacking(legs, **_fake(tmp_path)) == []
+
+
+def test_book_leg_without_its_panel_is_named(tmp_path):
+    out = R.book_legs_lacking([{"strategy": "S23.py", "instrument": "QQQ"}], **_fake(tmp_path, have_panel=False))
+    assert len(out) == 1 and "leg 1 (S23.py)" in out[0] and "panel" in out[0]
+
+
+def test_book_leg_missing_file_or_master(tmp_path):
+    kw = _fake(tmp_path)
+    assert "not on disk" in R.book_legs_lacking([{"strategy": "NOPE.py"}], **kw)[0]
+    assert "no master" in R.book_legs_lacking([{"strategy": "S23.py", "instrument": "RTY"}],
+                                              **_fake(tmp_path, have_master=False))[0]
+    assert "not on this disk" in R.book_legs_lacking([{"strategy": "S23.py", "instrument": "RTY"}],
+                                                     **_fake(tmp_path, on_disk=False))[0]

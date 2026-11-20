@@ -653,6 +653,44 @@ def _pinned_host_alive_read(col, tag):
         return True
 
 
+def book_legs_lacking(legs, *, strategy_path=None, strategy_panels=None, find_master=None,
+                      master_on_disk=None):
+    """['leg N (FILE): what is missing', ...] for a book job's legs on THIS box; [] = runnable.
+    Checks the strategy file, its pinned side panels and the leg's master (on disk, not just a
+    registry row), with augur_engine.book's leg defaults (timeframe 5m, session rth). The
+    callables are injectable for tests."""
+    if strategy_path is None or strategy_panels is None:
+        from augur_engine.strategies import strategy_path as _spf, strategy_panels as _spn
+        strategy_path = strategy_path or _spf
+        strategy_panels = strategy_panels or _spn
+    if find_master is None:
+        find_master = ae.find_master
+    if master_on_disk is None:
+        from augur_engine.data import master_on_disk
+    out = []
+    for i, leg in enumerate(legs or []):
+        if not isinstance(leg, dict) or not leg.get("strategy"):
+            continue
+        tag = "leg %d (%s)" % (i + 1, leg.get("strategy"))
+        sp = strategy_path(leg.get("strategy"))
+        if not os.path.exists(sp):
+            out.append(tag + ": strategy file not on disk")
+            continue
+        miss = [q for q in strategy_panels(sp) if not os.path.exists(q)]
+        if miss:
+            out.append(tag + ": pinned panel " + ", ".join(miss)[:160])
+            continue
+        if leg.get("instrument"):
+            tf, sess, src = leg.get("timeframe", "5m"), leg.get("session") or "rth", leg.get("source")
+            m = find_master(leg.get("instrument"), tf, sess, src)
+            what = "%s %s %s%s" % (leg.get("instrument"), tf, sess, " " + str(src) if src else "")
+            if not m:
+                out.append(tag + ": no master " + what)
+            elif not master_on_disk(m):
+                out.append(tag + ": master %s registered but not on this disk" % what)
+    return out
+
+
 def _claimant_pid(claimed_by):
     """claimedBy is 'runner-<pid>-<rand>' (see _WORKER_ID). None when it is anything else."""
     try:
@@ -2404,6 +2442,28 @@ class FirestoreQueue:
                                 _seen[snap.id] = _t
                                 log(f"[data] {_HOST} has no master for {_miss} - leaving "
                                     f"{snap.id} queued for a host that does")
+                            continue
+                    # BOOK JOBS TOO (MANAGER 11-20). The two guards above skip type "book", so
+                    # desktop w7 claimed a book whose S23 leg had no pinned panel on that box: a
+                    # silent no-trade leg and a false book result. Every leg is checked the same
+                    # way (strategy file, its pinned panel, master on disk) before the claim.
+                    if not _resumed and job.get("type") == "book":
+                        _blk = []
+                        try:
+                            _blk = book_legs_lacking(job.get("legs") or [])
+                        except Exception as _be:
+                            log(f"  [data] book leg check skipped for {snap.id}: "
+                                f"{type(_be).__name__}: {_be}")
+                            _blk = []
+                        if _blk:
+                            _seen = getattr(self, "_data_logged", None)
+                            if _seen is None:
+                                _seen = self._data_logged = {}
+                            _t = time.time()
+                            if _t - _seen.get(snap.id, 0.0) >= 600:
+                                _seen[snap.id] = _t
+                                log(f"[data] {_HOST} lacks book leg input(s) {'; '.join(_blk)[:300]} - "
+                                    f"leaving {snap.id} queued for a host that has them")
                             continue
                     # ── FREE-MEMORY GUARD (2026-09-07) ─────────────────────────────
                     # Several runners now drain this queue side by side (primary + the
