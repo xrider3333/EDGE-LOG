@@ -493,6 +493,39 @@ except Exception:
 #   rewrite the same file at once. See the guards in the watch loop below.
 _IS_WORKER = bool(os.environ.get("EDGELOG_WORKER"))
 
+# HOST PIN (owner 11-20 "send backtest to desktop", MANAGER GO). A job doc may carry
+#   host: "desktop" (any tag). Only a runner whose EDGELOG_HOST_TAG equals it claims it; every
+#   other runner leaves it QUEUED. A job with NO host field is claimed exactly as before.
+#   A dead pinned host must never strand a validate: once the job has waited
+#   HOST_PIN_FALLBACK_H hours (default 6, env EDGELOG_HOST_PIN_FALLBACK_H) and no runner with
+#   that tag holds a live job, any runner may take it, and the winner says so in one phone line.
+_HOST_TAG = (os.environ.get("EDGELOG_HOST_TAG") or "").strip().lower() or None
+try:
+    HOST_PIN_FALLBACK_H = float(os.environ.get("EDGELOG_HOST_PIN_FALLBACK_H") or 6.0)
+except ValueError:
+    HOST_PIN_FALLBACK_H = 6.0
+
+
+def host_pin_verdict(job, my_tag, queued_age_h, pinned_host_alive, fallback_h=None):
+    """(claim, fell_back, reason) for one queued job on this runner. Pure: the caller supplies
+    the job's queue age in hours (None = unknown) and whether a runner tagged with the job's
+    host holds a live job (None = not looked up yet; it is only looked up once the age is past
+    the fallback, so a healthy queue pays no extra read)."""
+    want = str((job or {}).get("host") or "").strip().lower()
+    if not want:
+        return True, False, ""
+    if my_tag and my_tag == want:
+        return True, False, ""
+    fb = HOST_PIN_FALLBACK_H if fallback_h is None else fallback_h
+    if queued_age_h is None or queued_age_h < fb:
+        return False, False, "pinned to host %r (this runner is %r)" % (want, my_tag or "untagged")
+    if pinned_host_alive is None:
+        return False, False, "needs-liveness"
+    if pinned_host_alive:
+        return False, False, "pinned to host %r, which is alive and busy" % want
+    return True, True, ("pinned to host %r but no %r runner has been alive for %.1f h of waiting "
+                        "- falling back to this runner" % (want, want, queued_age_h))
+
 # THE RUNNER DOES NOT RUN ON THE CLOUD BOX (2026-09-21). The Oracle box is the Webull paper
 #   book's machine (owner 2026-09-20: its one core is for the adapter, not backtests), and
 #   every duty a runner takes on was written for the PC. On 2026-09-21 a runner there that
@@ -578,6 +611,29 @@ def book_legs_missing_params(legs):
             continue
         out.append("leg %d (%s)" % (i + 1, leg.get("strategy")))
     return out
+
+
+def _pinned_host_alive(col, tag):
+    """True when a runner tagged `tag` holds a running job whose heartbeat is fresh (the only
+    liveness signal that crosses machines). One query, made only for a pinned job already past
+    its fallback age. A failed read counts as alive: never fall back on a guess."""
+    want = str(tag or "").strip().lower()
+    try:
+        from google.cloud.firestore_v1.base_query import FieldFilter as _FF
+        now = datetime.datetime.now(datetime.timezone.utc)
+        for sn in col.where(filter=_FF("status", "==", "running")).stream():
+            d = sn.to_dict() or {}
+            if str(d.get("claimHostTag") or "").strip().lower() != want:
+                continue
+            hb = d.get("heartbeat_at")
+            try:
+                if hb is not None and (now - hb).total_seconds() / 60.0 < ORPHAN_HB_STALE_MIN:
+                    return True
+            except Exception:
+                return True
+        return False
+    except Exception:
+        return True
 
 
 def _claimant_pid(claimed_by):
@@ -2126,6 +2182,29 @@ class FirestoreQueue:
                     _resumed = (job.get("progress") or 0) > 0
                     if _qm is not None and not _resumed and _qm.hold(snap.id):
                         continue
+                    # HOST PIN (see host_pin_verdict). New claims only; a resumed orphan was
+                    # already judged when it was first claimed.
+                    _pin_fb = ""
+                    if not _resumed and job.get("host"):
+                        try:
+                            _ct = snap.create_time
+                            _age_h = ((time.time() - _ct.timestamp()) / 3600.0) if _ct else None
+                        except Exception:
+                            _age_h = None
+                        _ok, _fb, _why = host_pin_verdict(job, _HOST_TAG, _age_h, None)
+                        if _why == "needs-liveness":
+                            _alive = _pinned_host_alive(col, job.get("host"))
+                            _ok, _fb, _why = host_pin_verdict(job, _HOST_TAG, _age_h, _alive)
+                        if not _ok:
+                            _t = time.time()
+                            _seen = getattr(self, "_pin_logged", {})
+                            self._pin_logged = _seen
+                            if _t - _seen.get(snap.id, 0.0) >= 600:
+                                _seen[snap.id] = _t
+                                log(f"  leave {snap.id} queued - {_why}")
+                            continue
+                        if _fb:
+                            _pin_fb = _why
                     # DAY MODE (OWNER 11-04, tools/day_mode.py): 07:00-16:00 MST only runner
                     # slots 1..day_runners claim new work; schedule file re-read live.
                     if not _resumed:
@@ -2341,7 +2420,8 @@ class FirestoreQueue:
                             _opt = self.db.write_option(last_update_time=snap.update_time)
                             ref.update({"status": "running", "progress": 0,
                                         "startedAt": _now_utc(), "claimedBy": _WORKER_ID,
-                                        "claimHost": _HOST,
+                                        "claimHost": _HOST, "claimHostTag": _HOST_TAG,
+                                        **({"hostFallback": _pin_fb} if _pin_fb else {}),
                                         "heartbeat_at": _now_utc(), "heartbeat_pid": os.getpid()},
                                        option=_opt)
                         except Exception as _ce:
@@ -2350,6 +2430,16 @@ class FirestoreQueue:
                             continue
                         if _qm is not None:
                             _qm.running.add(snap.id)
+                        if _pin_fb:
+                            log(f"  HOST PIN FALLBACK {snap.id}: {_pin_fb}")
+                            try:
+                                from api import ntfy_push as _np
+                                _np.push(f"Desktop backtest fell back to {_HOST or 'this PC'}: "
+                                         f"{job.get('strategy') or snap.id} waited "
+                                         f"{HOST_PIN_FALLBACK_H:g}+ h with no desktop worker alive",
+                                         title="Runner")
+                            except Exception as _pe:
+                                log(f"  host-pin fallback push failed: {type(_pe).__name__}: {_pe}")
                         # ── DUPLICATE-WORK GUARD ────────────────────────────────────────
                         # Compare this job against ALREADY-COMPLETED jobs, not just
                         # in-flight ones. Checking only 'queued'/'running' is what let four

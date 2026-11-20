@@ -64,6 +64,8 @@ def main(argv=None):
     ap.add_argument("--source", required=True)
     ap.add_argument("--cost", type=float, required=True)
     ap.add_argument("--mult", type=float, required=True)
+    from tools.job_host import add_host_args, apply_host
+    add_host_args(ap)
     ap.add_argument("--date-from", required=True)
     ap.add_argument("--date-to", required=True)
     ap.add_argument("--dry", action="store_true")
@@ -91,7 +93,7 @@ def main(argv=None):
 
     tag = "GAUNTLET %s co-tuned [%s]" % (os.path.splitext(os.path.basename(pre))[0],
                                          ",".join(a.knob))
-    job = build_job(a)
+    job = apply_host(build_job(a), a)
     job.update(status="queued", progress=0, preset=tag,
                note=("%s. Prereg %s. Knob(s) %s IN the search space next to every crown knob "
                      "(scope C3). %s %s %s %s, window %s..%s pinned, 12-month lockbox, 8 folds, "
