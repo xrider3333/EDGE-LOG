@@ -365,7 +365,8 @@ def _sleep_until(t, now_fn, log):
         time.sleep(min(left, 20.0))
 
 
-def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sleep=True):
+def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sleep=True,
+            resume_only=False):
     p = p or paths()
     os.makedirs(p["dir"], exist_ok=True)
     cfg = load_cfg(p)
@@ -404,6 +405,8 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
                        lambda r, **x: finish(r, ledger_day=bday, resumed_on=day.isoformat(), **x),
                        one_sided=None, log=log)
 
+    if resume_only:                                   # --resume-only: never a fresh entry
+        return {"day": str(day), "result": "resume-only: nothing to resume"}
     if not cfg.get("enabled", True):
         return {"day": str(day), "result": "disabled"}
     if state.get("last_day") == day.isoformat():
@@ -490,6 +493,62 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
     _save_basket(p, state, day, entries)
     return _settle(ad, entries, day, cfg, state, wait, notify, finish, sig=sig,
                    one_sided=one_sided, log=log)
+
+
+# -- restart hook (edgelog-eodrev-resume.service at boot, edgelog-eodrev-alert.service) -----
+RESUME_FROM = "15:27"
+RESUME_UNTIL = "16:00"
+
+
+def open_legs(entries):
+    """Basket legs that hold (or may hold) a position no exit has been sent for."""
+    return [e for e in entries or () if e.get("open_ok")
+            and e.get("unwind") not in ("cancelled", "closed")
+            and not e.get("exit_ok") and not e.get("fb_ok")]
+
+
+def _unfinished_basket(state):
+    ob = state.get("open_basket") or {}
+    if not ob.get("entries") or state.get("last_day") == ob.get("day"):
+        return None
+    return ob
+
+
+def resume_only(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sleep=True):
+    """`run --resume-only` (the boot unit): a no-op unless TODAY's saved basket has open
+    legs and now is 15:27-16:00 ET -- then run_day's resume branch closes it (15:59 exits,
+    filled qty only). Never a fresh entry. After 16:00 with legs still open: one HIGH phone
+    line, no order."""
+    p = p or paths()
+    state = _load_json(p["state"], {})
+    now = now_fn()
+    day = now.date()
+    ob = _unfinished_basket(state)
+    legs = open_legs((ob or {}).get("entries"))
+    if not ob or ob.get("day") != day.isoformat() or not legs:
+        return {"day": str(day), "result": "resume-only: nothing to resume"}
+    if now < _at(day, RESUME_FROM):
+        return {"day": str(day), "result": "resume-only: before 15:27, nothing to do"}
+    if now >= _at(day, RESUME_UNTIL):
+        notify(f"PICK6 #511: box restarted at {now:%H:%M} ET after 16:00 with {len(legs)} basket "
+               f"legs still open - NO order sent, check the account", log=log)
+        return {"day": str(day), "result": "resume-only: after 16:00, alert only",
+                "open_legs": len(legs)}
+    return run_day(p, now_fn=now_fn, adapter=adapter, log=log, notify=notify, sleep=sleep,
+                   resume_only=True)
+
+
+def alert_failed(p=None, now_fn=_et_now, log=print, notify=_notify):
+    """OnFailure= hook (edgelog-eodrev-alert.service): one HIGH phone line, never an order."""
+    p = p or paths()
+    try:
+        ob = _unfinished_basket(_load_json(p["state"], {}))
+        n = len(open_legs((ob or {}).get("entries")))
+    except Exception:
+        n = "?"
+    msg = f"PICK6 unit failed at {now_fn():%H:%M}, basket {n} legs open"
+    notify(msg, log=log)
+    return {"result": "alert", "msg": msg}
 
 
 def _save_basket(p, state, day, entries):
@@ -603,7 +662,9 @@ def run_probe(sym="AAPL", p=None, adapter=None, log=print, notify=None, wait_s=2
 
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
-    ap.add_argument("cmd", choices=("run", "probe", "check"))
+    ap.add_argument("cmd", choices=("run", "probe", "check", "alert-failed"))
+    ap.add_argument("--resume-only", action="store_true",
+                    help="run: only resume today's open basket (boot unit); never a fresh entry")
     ap.add_argument("--sym", default="AAPL")
     ap.add_argument("--date", help="check: parse this day's signal file only")
     a = ap.parse_args(argv)
@@ -625,6 +686,12 @@ def main(argv=None):
         return 0
     if a.cmd == "probe":
         run_probe(a.sym, p, log=log)
+        return 0
+    if a.cmd == "alert-failed":
+        print(json.dumps(alert_failed(p, log=log), default=str))
+        return 0
+    if a.resume_only:
+        print(json.dumps(resume_only(p, log=log), default=str)[:2000])
         return 0
     print(json.dumps(run_day(p, log=log), default=str)[:2000])
     return 0

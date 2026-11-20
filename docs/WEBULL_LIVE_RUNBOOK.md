@@ -78,3 +78,25 @@ Titles start "QQQ book: ...". **CHECK NOW** = look at Webull right away.
 | repricing (helper) | Re-price note | Limit re-priced | Nothing |
 
 Source: every `_say(...)` call in `api/qqq_exec.py` (`api/webull_orders.py` sends no phone notes itself; it only logs).
+
+## PICK6 restart hook: one-time box install (BUILT 11-20, not deployed)
+Units in `deploy/cloud/`: `edgelog-eodrev.service` (now Restart=on-failure, RestartSec=20, at most 5 starts in 600 s,
+OnFailure= alert), new `edgelog-eodrev-resume.service` (at boot: `run --resume-only`) and new
+`edgelog-eodrev-alert.service` (one HIGH phone line: "PICK6 unit failed at HH:MM, basket N legs open").
+What the resume unit does: nothing unless today's saved basket has open legs and it is 15:27-16:00 ET; then it resumes
+so the 15:59:00 / 15:59:35 MARKET exits go out for the filled qty. It never makes a fresh entry. After 16:00 ET with
+legs still open it sends one HIGH line and no order.
+
+On the box, after the code is pulled, at a flat moment (not 15:20-16:10 ET):
+```
+cd ~/edgelog/repo   # the repo dir install.sh used
+for u in edgelog-eodrev.service edgelog-eodrev-resume.service edgelog-eodrev-alert.service; do
+  sed -e "s#__EDGELOG_USER__#$USER#g" -e "s#__EDGELOG_REPO__#$PWD#g"       -e "s#__EDGELOG_VENV__#$HOME/edgelog/venv#g" -e "s#__EDGELOG_HOME__#$HOME/edgelog#g"       deploy/cloud/$u | sudo tee /etc/systemd/system/$u >/dev/null
+done
+sudo systemctl daemon-reload
+sudo systemctl enable edgelog-eodrev-resume.service   # runs at boot only; do not start it by hand
+systemctl cat edgelog-eodrev.service | grep -E "Restart|OnFailure|StartLimit"
+```
+Check the venv / home paths against the existing `/etc/systemd/system/edgelog-eodrev.service` first and use the same.
+The timer (`edgelog-eodrev.timer`) is unchanged. Undo: `sudo systemctl disable edgelog-eodrev-resume.service` and
+re-copy the old service file.

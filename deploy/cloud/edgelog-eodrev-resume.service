@@ -1,0 +1,20 @@
+[Unit]
+# PICK6 #511 RESTART HOOK (11-20): runs once at boot. A no-op unless today's saved basket
+# (eodrev/exec_state.json open_basket) has open legs AND it is 15:27-16:00 ET -- then it resumes
+# the basket so the 15:59:00 / 15:59:35 MARKET exits fire (filled qty only). Never a fresh
+# entry. After 16:00 ET with legs still open: one HIGH phone line, no order.
+Description=PICK6 #511 resume an open basket after a reboot (Webull PAPER)
+After=network-online.target
+Wants=network-online.target
+OnFailure=edgelog-eodrev-alert.service
+
+[Service]
+Type=oneshot
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+ExecStart=__EDGELOG_VENV__/bin/python -u -m api.eodrev_exec run --resume-only
+TimeoutStartSec=3600
+
+[Install]
+WantedBy=multi-user.target

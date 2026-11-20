@@ -1,0 +1,13 @@
+[Unit]
+# OnFailure= target of edgelog-eodrev.service and edgelog-eodrev-resume.service: one HIGH
+# phone line through api.ntfy_push ("PICK6 unit failed at HH:MM, basket N legs open").
+# Never sends an order.
+Description=PICK6 #511 unit failed - phone alert
+
+[Service]
+Type=oneshot
+User=__EDGELOG_USER__
+WorkingDirectory=__EDGELOG_REPO__
+EnvironmentFile=__EDGELOG_HOME__/edgelog.env
+ExecStart=__EDGELOG_VENV__/bin/python -u -m api.eodrev_exec alert-failed
+TimeoutStartSec=120

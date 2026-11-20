@@ -4,6 +4,12 @@
 # MOC exits at 15:44, MARKET fallback 15:58, settles 16:05, then exits. PAPER only (refuses
 # any other adapter mode). Its own order state: __EDGELOG_HOME__/eodrev/orders_state.json.
 Description=PICK6 #511 basket executor (Webull PAPER)
+# RESTART HOOK (11-20): a crash is retried every 20 s, at most 5 times in 10 min; the rerun's
+# resume branch (api.eodrev_exec run_day) finishes a saved basket, never a second entry.
+# Giving up -> edgelog-eodrev-alert.service (one HIGH phone line).
+StartLimitIntervalSec=600
+StartLimitBurst=5
+OnFailure=edgelog-eodrev-alert.service
 
 [Service]
 Type=oneshot
@@ -12,3 +18,5 @@ WorkingDirectory=__EDGELOG_REPO__
 EnvironmentFile=__EDGELOG_HOME__/edgelog.env
 ExecStart=__EDGELOG_VENV__/bin/python -u -m api.eodrev_exec run
 TimeoutStartSec=3600
+Restart=on-failure
+RestartSec=20
