@@ -14816,8 +14816,8 @@ def _trade_hatch_verdict(en, ex):
     deciding side's band and gap in cents, and `top` -- the row's top-level fields
     (parity_band_c IN CENTS, parity_ok, outside_minute_range, orb_breakout_gap_design).
     Publish only: never touches an order. Never raises."""
-    res = {"ok": None, "band_c": None, "gap_c": None,
-           "top": {"parity_band_c": None, "parity_ok": None,
+    res = {"ok": None, "band_c": None, "gap_c": None, "side": "",
+           "top": {"parity_band_c": None, "parity_ok": None, "parity_side": "",
                    "outside_minute_range": None, "orb_breakout_gap_design": False}}
     try:
         sides = [s for s in (en, ex) if isinstance(s, dict)]
@@ -14837,7 +14837,12 @@ def _trade_hatch_verdict(en, ex):
         g = _side_gap_ps(pick)
         res.update({"ok": not bad, "band_c": band_c,
                     "gap_c": round(abs(g) * 100, 1) if g is not None else 0.0})
-        res["top"].update({"parity_band_c": band_c, "parity_ok": not bad})
+        # parity_side (MANAGER 11-20): the band stays two-sided; say which way the deciding
+        # fill missed (signed gap, + better) -- '' when not flagged
+        side = ("worse" if (g or 0.0) < 0 else "better") if bad else ""
+        res["side"] = side
+        res["top"].update({"parity_band_c": band_c, "parity_ok": not bad,
+                           "parity_side": side})
     except Exception:
         pass
     return res
@@ -14923,8 +14928,8 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print, verdict_ctx=No
                 note = (f"FLAGGED, the two fills together over {PARITY_TRADE_TOL_PS * 100:.0f}c a "
                         f"share worse -- " + note)
             elif flag:
-                note = (f"FLAGGED, a fill outside its {hv['band_c']:.1f}c band "
-                        f"({hv['gap_c']:.1f}c off) -- " + note)
+                note = (f"FLAGGED, a fill {hv['gap_c']:.1f}c {hv['side']}, outside its "
+                        f"{hv['band_c']:.1f}c band -- " + note)
             else:
                 note = f"within the {hv['band_c']:.1f}c band -- " + note
         elif worse:

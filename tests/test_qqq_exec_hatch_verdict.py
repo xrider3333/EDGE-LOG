@@ -162,8 +162,22 @@ def test_1119_1205_pok0_64c_vs_42_6c_band_is_flagged(monkeypatch):
     out = _publish(monkeypatch, _side(649.99, 649.35, 0.426, False), _none_side())
     assert out["broker_parity_ok"] is False and out["fp"]["flag"] is True
     assert out["parity_ok"] is False and out["parity_band_c"] == pytest.approx(42.6)
-    assert out["broker_parity_note"].startswith("FLAGGED, a fill outside its 42.6c band")
+    assert out["broker_parity_note"].startswith("FLAGGED, a fill 64.0c worse, outside its 42.6c band")
     assert "15c" not in out["broker_parity_note"]
+    assert out["parity_side"] == "worse"
+
+
+def test_two_sided_band_flags_a_better_fill_and_says_so(monkeypatch):
+    out = _publish(monkeypatch, _side(649.35, 649.99, 0.426, False), _none_side())
+    assert out["broker_parity_ok"] is False and out["parity_side"] == "better"
+    assert out["broker_parity_note"].startswith("FLAGGED, a fill 64.0c better, outside its 42.6c band")
+
+
+def test_parity_side_blank_when_clear_or_unjudged(monkeypatch):
+    out = _publish(monkeypatch, _side(674.31, 674.09, 0.4234, True), _none_side())
+    assert out["parity_side"] == ""
+    out = _publish(monkeypatch, _side(700.0, 699.0, None, None), _none_side())
+    assert out["parity_side"] == ""
 
 
 def test_unjudgeable_side_publishes_none(monkeypatch):
