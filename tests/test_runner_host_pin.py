@@ -127,3 +127,28 @@ def test_book_leg_missing_file_or_master(tmp_path):
                                               **_fake(tmp_path, have_master=False))[0]
     assert "not on this disk" in R.book_legs_lacking([{"strategy": "S23.py", "instrument": "RTY"}],
                                                      **_fake(tmp_path, on_disk=False))[0]
+
+
+class _Ref:
+    def __init__(self):
+        self.updates = []
+
+    def update(self, d, option=None):
+        self.updates.append(d)
+
+
+class _QSnap:
+    def __init__(self, age_h):
+        self.create_time = datetime.datetime.now(datetime.timezone.utc) - datetime.timedelta(hours=age_h)
+        self.update_time = None
+        self.id = "B1"
+
+
+def test_stuck_book_alert_once_after_the_age():
+    pushed = []
+    ref = _Ref()
+    assert not R._stuck_alert(ref, _QSnap(1), {}, ["leg 1 (S23.py): panel"], push=lambda m, **k: pushed.append(m))
+    assert R._stuck_alert(ref, _QSnap(7), {}, ["leg 1 (S23.py): panel"], push=lambda m, **k: pushed.append(m))
+    assert len(pushed) == 1 and "legStuckAlertAt" in ref.updates[0]
+    assert not R._stuck_alert(ref, _QSnap(9), {"legStuckAlertAt": "x"}, ["l"], push=lambda m, **k: pushed.append(m))
+    assert len(pushed) == 1

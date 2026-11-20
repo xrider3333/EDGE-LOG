@@ -653,6 +653,46 @@ def _pinned_host_alive_read(col, tag):
         return True
 
 
+try:
+    BOOK_STUCK_ALERT_H = float(os.environ.get("EDGELOG_BOOK_STUCK_ALERT_H") or 6.0)
+except ValueError:
+    BOOK_STUCK_ALERT_H = 6.0
+
+
+def _stuck_alert(ref, snap, job, lacking, log=print, now=None, push=None):
+    """One phone line for a book that has sat queued BOOK_STUCK_ALERT_H hours because this box
+    lacks a leg input (VERIFIER 11-20: a book no box can run used to wait forever, silently).
+    Once per job across the fleet: the doc is stamped legStuckAlertAt with a precondition on
+    its update time, so only one runner wins the stamp and pushes. Returns True if it pushed."""
+    if job.get("legStuckAlertAt"):
+        return False
+    try:
+        ct = snap.create_time
+        age_h = ((now or time.time()) - ct.timestamp()) / 3600.0 if ct else None
+    except Exception:
+        age_h = None
+    if age_h is None or age_h < BOOK_STUCK_ALERT_H:
+        return False
+    try:
+        opt = ref._client.write_option(last_update_time=snap.update_time) if hasattr(ref, "_client") else None
+        if opt is not None:
+            ref.update({"legStuckAlertAt": _now_utc()}, option=opt)
+        else:
+            ref.update({"legStuckAlertAt": _now_utc()})
+    except Exception:
+        return False                        # another runner stamped it first (or a write failed)
+    try:
+        if push is None:
+            from api import ntfy_push as _np
+            push = _np.push
+        push("Book %s queued %.0f h - no runner has every leg input: %s" % (
+            job.get("book_name") or snap.id, age_h, "; ".join(lacking)[:200]), title="Runner")
+        return True
+    except Exception as e:
+        log(f"  book stuck alert push failed: {type(e).__name__}: {e}")
+        return False
+
+
 def book_legs_lacking(legs, *, strategy_path=None, strategy_panels=None, find_master=None,
                       master_on_disk=None):
     """['leg N (FILE): what is missing', ...] for a book job's legs on THIS box; [] = runnable.
@@ -2447,7 +2487,9 @@ class FirestoreQueue:
                     # desktop w7 claimed a book whose S23 leg had no pinned panel on that box: a
                     # silent no-trade leg and a false book result. Every leg is checked the same
                     # way (strategy file, its pinned panel, master on disk) before the claim.
-                    if not _resumed and job.get("type") == "book":
+                    # Resumed books too (VERIFIER 11-20): an interrupted book must not resume on a
+                    # box that cannot run every leg.
+                    if job.get("type") == "book":
                         _blk = []
                         try:
                             _blk = book_legs_lacking(job.get("legs") or [])
@@ -2455,6 +2497,12 @@ class FirestoreQueue:
                             log(f"  [data] book leg check skipped for {snap.id}: "
                                 f"{type(_be).__name__}: {_be}")
                             _blk = []
+                            # on the doc, not just this box's log: the result says it was unchecked
+                            try:
+                                ref.update({"legCheck": "skipped on %s: %s: %s" % (
+                                    _HOST, type(_be).__name__, str(_be)[:160])})
+                            except Exception:
+                                pass
                         if _blk:
                             _seen = getattr(self, "_data_logged", None)
                             if _seen is None:
@@ -2464,6 +2512,7 @@ class FirestoreQueue:
                                 _seen[snap.id] = _t
                                 log(f"[data] {_HOST} lacks book leg input(s) {'; '.join(_blk)[:300]} - "
                                     f"leaving {snap.id} queued for a host that has them")
+                            _stuck_alert(ref, snap, job, _blk, log)
                             continue
                     # ── FREE-MEMORY GUARD (2026-09-07) ─────────────────────────────
                     # Several runners now drain this queue side by side (primary + the
