@@ -16,12 +16,13 @@ def _et(y, mo, d, h, mi, s=0.0):
 
 
 def _sim(close, appear_at=None, fail_at=(), last_fetch_before=None, until=60.0, step=0.25,
-         guard=True, change_first=False):
+         guard=True, change_first=False, rowfn=None):
     """Drive the clock + guard around one 5m close. Returns (clock, merged_at_s, calls, log).
     appear_at = seconds after close the bar shows in the REST reply (None = never)."""
     logs = []
     clock = cf.CloseFetchClock(RTH_OPEN, market_calendar, log=logs.append)
-    g = cf.ProvisionalBarGuard()
+    cur = {"t": 0.0}
+    g = cf.ProvisionalBarGuard(stable_s=5.0, clock=lambda: cur["t"])
     slot = int((close - dt.timedelta(minutes=5)).timestamp())
     base = 1_000_000.0
     if last_fetch_before is not None:
@@ -32,6 +33,7 @@ def _sim(close, appear_at=None, fail_at=(), last_fetch_before=None, until=60.0, 
     while t <= until:
         now_et = close + dt.timedelta(seconds=t)
         wall = base + t
+        cur["t"] = t
         if clock.decide(now_et, wall, newest):
             fetch_times.append(t)
             if any(abs(t - f) < 1e-9 for f in fail_at):
@@ -41,7 +43,10 @@ def _sim(close, appear_at=None, fail_at=(), last_fetch_before=None, until=60.0, 
                 if appear_at is not None and t >= appear_at:
                     reads += 1
                     c = 2.0 if (change_first and reads == 1) else 3.0
-                    rows.append({"time": slot, "open": 1, "high": 4, "low": 1, "close": c, "volume": 9})
+                    v = 9
+                    if rowfn is not None:
+                        c, v = rowfn(t)
+                    rows.append({"time": slot, "open": 1, "high": 4, "low": 1, "close": c, "volume": v})
                 fresh = pd.DataFrame(rows)
                 if guard:
                     fresh = g.filter("5m", fresh, newest, log=logs.append)
@@ -58,20 +63,20 @@ CLOSE = _et(2026, 11, 20, 10, 5)       # a Friday session
 
 def test_merges_two_seconds_after_close_with_guard():
     clock, merged, calls, logs = _sim(CLOSE, appear_at=0.77)
-    assert merged == 2.0                         # read at +1 held, +2 identical -> merged
+    assert merged == 6.0                         # first read +1, identical through +6 -> merged
     assert clock.state == "merged"
-    assert any("CLOSEFETCH" in x and "2 fast call(s)" in x for x in logs)
+    assert any("CLOSEFETCH" in x and "6 fast call(s)" in x for x in logs)
 
 
 def test_clock_drift_last_fetch_close_minus_1():
     _, merged, calls, _ = _sim(CLOSE, appear_at=0.77, last_fetch_before=1.0)
-    assert merged == 2.0
+    assert merged == 6.0
 
 
 def test_clock_drift_last_fetch_close_minus_29():
-    # the 30 s clock would fire at +1 anyway; fast path merges at +2, not +31
+    # the 30 s clock would fire at +1 anyway; fast path merges at +6, not +31
     _, merged, calls, _ = _sim(CLOSE, appear_at=0.77, last_fetch_before=29.0)
-    assert merged == 2.0
+    assert merged == 6.0
 
 
 def test_missed_bar_falls_back_and_slow_clock_picks_it_up():
@@ -85,15 +90,15 @@ def test_missed_bar_falls_back_and_slow_clock_picks_it_up():
 
 def test_provisional_change_waits_for_two_identical():
     _, merged, calls, logs = _sim(CLOSE, appear_at=0.77, change_first=True)
-    assert merged == 3.0                          # +1 (c=2) held, +2 (c=3) changed, +3 same
+    assert merged == 7.0                          # +1 (c=2) held, +2 (c=3) changed, stable to +7
     assert any("provisional bar changed" in x for x in logs)
 
 
 def test_429_in_window_falls_back_and_still_picked_up():
-    clock, merged, calls, logs = _sim(CLOSE, appear_at=0.77, fail_at=(1.0,), until=70.0)
+    clock, merged, calls, logs = _sim(CLOSE, appear_at=0.77, fail_at=(1.0,), until=75.0)
     assert clock.state == "fallback:fetch error"
     assert not [c for c in calls if 1.0 < c < 31.0]
-    assert merged is not None and merged >= 31.0   # two slow reads
+    assert merged is not None and merged >= 61.0   # two slow reads 30 s apart (+31, +61)
     assert any("fetch error" in x for x in logs)
 
 
@@ -103,7 +108,7 @@ def test_half_day_last_bar_is_anchored():
     assert clock.fast_slot(close + dt.timedelta(seconds=1)) is not None
     assert clock.fast_slot(_et(2026, 11, 27, 13, 5, 1)) is None   # after the half-day close
     _, merged, _, _ = _sim(close, appear_at=0.77)
-    assert merged == 2.0
+    assert merged == 6.0
 
 
 def test_no_fast_fetch_outside_session():
@@ -136,8 +141,35 @@ def test_sleep_cap_never_skips_window():
 
 
 def test_guard_passes_bars_already_cached():
-    g = cf.ProvisionalBarGuard()
+    now = {"t": 0.0}
+    g = cf.ProvisionalBarGuard(stable_s=5.0, clock=lambda: now["t"])
     fresh = pd.DataFrame([{"time": 100, "open": 1, "high": 1, "low": 1, "close": 1, "volume": 1}])
     assert len(g.filter("5m", fresh, 100)) == 1
     assert len(g.filter("5m", fresh, 99)) == 0
+    now["t"] = 4.9
+    assert len(g.filter("5m", fresh, 99)) == 0     # identical but only 4.9 s
+    now["t"] = 5.0
     assert len(g.filter("5m", fresh, 99)) == 1
+
+
+def test_changes_at_2s_and_4s_not_accepted_until_stable_5s():
+    # close moves at +2 and again at +4 -> the last change is read at +4, so merge at +9
+    _, merged, _, logs = _sim(CLOSE, appear_at=0.77,
+                              rowfn=lambda t: (3.0 if t < 2 else 3.05 if t < 4 else 3.1, 9))
+    assert merged == 9.0
+    assert sum("provisional bar changed" in x for x in logs) == 2
+
+
+def test_volume_only_change_counts_as_changed():
+    _, merged, _, logs = _sim(CLOSE, appear_at=0.77, rowfn=lambda t: (3.0, 9 if t < 3 else 12))
+    assert merged == 8.0                          # volume moves at +3 -> stable to +8
+    assert any("provisional bar changed" in x for x in logs)
+
+
+def test_stable_gap_is_config(monkeypatch):
+    monkeypatch.setenv("EDGELOG_BAR_STABLE_S", "8")
+    assert cf.ProvisionalBarGuard().stable_s == 8.0
+    monkeypatch.setenv("EDGELOG_BAR_STABLE_S", "junk")
+    assert cf.ProvisionalBarGuard().stable_s == cf.STABLE_S == 5.0
+    monkeypatch.setenv("EDGELOG_BAR_STABLE_S", "0.2")
+    assert cf.ProvisionalBarGuard().stable_s == 5.0

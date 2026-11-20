@@ -18,22 +18,28 @@ CloseFetchClock -- decides do_fetch for each loop tick. From close+FAST_START_S 
     One summary line per bar: slot, calls, seconds-to-merge (or why it fell back).
 
 ProvisionalBarGuard -- the gate stays "bar is FINAL" (the existing settled-by cutoff in
-    fetch_and_merge); this adds: a NEW newest bar is merged only once it has been read
-    twice with identical OHLCV. The first read holds it back (it is not in the cache, so
-    no leg can act on it); a later identical read merges it. A read that differs from the
-    held copy logs 'provisional bar changed' and holds the new copy until it in turn is
-    read again unchanged. Costs one extra read (~1 s inside the fast window).
+    fetch_and_merge); this adds: a NEW newest bar is merged only once two reads at least
+    STABLE_S (default 5 s, env EDGELOG_BAR_STABLE_S) apart are identical on O, H, L, C AND
+    volume. The first read holds it back (it is not in the cache, so no leg can act on
+    it). Any change - a volume-only change included - logs 'provisional bar changed' and
+    restarts the STABLE_S wait from that read. (MANAGER 11-20: the 11-20 finality probe saw
+    2 of 56 5m bars change after a 0.8 s first read; two reads 1 s apart were not enough.)
+    Inside the fast window that means a send at about close+6 s; the 30 s fallback clock
+    reads 30 s apart, so its second identical read always clears the wait.
 
 Neither piece reads the stream bar; bar_close_from_stream is untouched (stays OFF).
 """
 import datetime as _dt
+import os as _os
 import threading as _threading
+import time as _time
 
 BAR_SECONDS = 300
 FAST_START_S = 1.0
 FAST_STEP_S = 1.0
 FAST_STOP_S = 20.0
 FAST_MAX_CALLS_PER_BAR = 20
+STABLE_S = 5.0                  # MANAGER 11-20: two identical reads >= 5 s apart
 SLOW_STEP_S = 30.0
 
 _OHLCV = ("open", "high", "low", "close", "volume")
@@ -164,12 +170,24 @@ class CloseFetchClock:
             pass
 
 
-class ProvisionalBarGuard:
-    """Holds a new newest bar back until two identical reads (see module docstring)."""
+def stable_s_from_env(default=STABLE_S):
+    """EDGELOG_BAR_STABLE_S (seconds, >= 1); anything unreadable -> default."""
+    try:
+        v = float(_os.environ.get("EDGELOG_BAR_STABLE_S", "") or default)
+        return v if v >= 1.0 else default
+    except (TypeError, ValueError):
+        return default
 
-    def __init__(self):
-        self.held = {}              # timeframe -> (epoch, ohlcv tuple)
+
+class ProvisionalBarGuard:
+    """Holds a new newest bar back until it has read identical (OHLC + volume) across at
+    least `stable_s` seconds (see module docstring)."""
+
+    def __init__(self, stable_s=None, clock=None):
+        self.held = {}              # timeframe -> (epoch, ohlcv tuple, wall time first read so)
         self.lock = _threading.Lock()
+        self.stable_s = float(stable_s if stable_s is not None else stable_s_from_env())
+        self.clock = clock or _time.monotonic
 
     @staticmethod
     def _row(fresh, i):
@@ -177,7 +195,7 @@ class ProvisionalBarGuard:
 
     def filter(self, timeframe, fresh, old_newest, log=print):
         """Return `fresh` with its newest bar removed unless that bar is already in the
-        cache (<= old_newest) or was read before with identical OHLCV."""
+        cache (<= old_newest) or has read identical for at least stable_s seconds."""
         if fresh is None or not len(fresh):
             return fresh
         i = int(fresh["time"].values.argmax())
@@ -187,16 +205,19 @@ class ProvisionalBarGuard:
                 self.held.pop(timeframe, None)
             return fresh
         row = self._row(fresh, i)
+        now = self.clock()
         with self.lock:
             prev = self.held.get(timeframe)
             if prev is not None and prev[0] == t and prev[1] == row:
-                self.held.pop(timeframe, None)
-                return fresh                                  # 2nd identical read: final
+                if now - prev[2] >= self.stable_s:
+                    self.held.pop(timeframe, None)
+                    return fresh                              # stable >= stable_s: final
+                return fresh[fresh["time"] != t].reset_index(drop=True)
             if prev is not None and prev[0] == t:
                 try:
                     log(f"[cloud-signal] provisional bar changed: {timeframe} {t} "
-                        f"{prev[1]} -> {row}; waiting for two identical reads")
+                        f"{prev[1]} -> {row}; waiting {self.stable_s:g}s of identical reads")
                 except Exception:
                     pass
-            self.held[timeframe] = (t, row)
+            self.held[timeframe] = (t, row, now)
         return fresh[fresh["time"] != t].reset_index(drop=True)
