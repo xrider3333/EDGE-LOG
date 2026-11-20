@@ -36,3 +36,36 @@ def test_sha_mismatch_is_refused(tmp_path):
     doc = {"rows": [{"filename": "q.csv", "sha256": "0" * 64}]}
     add, _, ref = I.plan(doc, str(dst), str(up))
     assert not add and "sha256" in ref[0]
+
+
+def test_missing_db_errors_and_never_creates_one(tmp_path):
+    import pytest
+    p = tmp_path / "nope.db"
+    with pytest.raises(sqlite3.OperationalError):
+        I.plan({"rows": []}, str(p), str(tmp_path))
+    assert not p.exists()
+
+
+def test_cli_refuses_without_desktop_tag_or_db(tmp_path, monkeypatch):
+    import pytest
+    j = tmp_path / "r.json"; j.write_text(json.dumps({"rows": []}))
+    dst = tmp_path / "dst.db"; _db(dst, [])
+    monkeypatch.delenv("EDGELOG_HOST_TAG", raising=False)
+    assert I.main(["--json", str(j), "--db", str(dst)]) == 2
+    with pytest.raises(SystemExit):
+        I.main(["--json", str(j)])                    # --db is required
+    monkeypatch.setenv("EDGELOG_HOST_TAG", "desktop")
+    assert I.main(["--json", str(j), "--db", str(tmp_path / "missing.db")]) == 2
+    assert I.main(["--json", str(j), "--db", str(dst)]) == 0
+
+
+def test_backup_is_a_real_sqlite_copy_and_insert_is_conditional(tmp_path):
+    up = tmp_path / "up"; up.mkdir(); (up / "q.csv").write_text("x")
+    dst = tmp_path / "dst.db"; _db(dst, [])
+    row = {"filename": "q.csv", "name": "Q", "instrument": "QQQ", "is_master": 1}
+    _db_rows = lambda: sqlite3.connect(dst).execute("SELECT COUNT(*) FROM csv_files").fetchone()[0]
+    sqlite3.connect(dst).execute("INSERT INTO csv_files (filename) VALUES ('q.csv')").connection.commit()
+    assert I.apply([row], str(dst)) == 0               # registered between plan and insert: no dupe
+    assert _db_rows() == 1
+    baks = list(tmp_path.glob("dst.db.bak-masterimport-*"))
+    assert baks and sqlite3.connect(baks[0]).execute("SELECT COUNT(*) FROM csv_files").fetchone()[0] == 1
