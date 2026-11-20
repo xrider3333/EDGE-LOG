@@ -122,3 +122,50 @@ def test_units_carry_the_hook():
     assert "run --resume-only" in res and "WantedBy=multi-user.target" in res
     assert "After=network-online.target" in res
     assert "alert-failed" in open(os.path.join(d, "edgelog-eodrev-alert.service")).read()
+
+
+# -- entry guard (MANAGER 11-20): refuse ENTRY if today's basket exists or after 15:50 ET --
+def _signal_and_probe(tmp):
+    with open(os.path.join(str(tmp), "probe.jsonl"), "w") as f:
+        f.write(json.dumps({"results": [{"open_ok": 1, "exit_filled": 1}] * 2}) + "\n")
+    with open(os.path.join(str(tmp), "signal_2026-11-16.json"), "w") as f:
+        json.dump({"date": "2026-11-16", "asof_et": "15:20:00", "status": "OK", "k": 3,
+                   "long": [{"sym": x, "px": px, "exch": "NASDAQ"} for x, px in
+                            (("AAPL", 230.0), ("MSFT", 410.0), ("NVDA", 140.0))],
+                   "short": [{"sym": x, "px": px, "exch": "NYSE"} for x, px in
+                             (("JPM", 250.0), ("XOM", 115.0), ("LLY", 800.0))],
+                   "panel_date": "2026-11-13"}, f)
+
+
+def _day(tmp, monkeypatch, hh, mm):
+    _signal_and_probe(tmp)
+    monkeypatch.setattr(ex, "lookup", lambda a, rec: {"status": "FILLED",
+                                                      "filled": rec.get("_qty", 0), "price": 1.0})
+    monkeypatch.setattr(ex, "LOOKUP_PAUSE_S", 0)
+    ad, notes = FakeAd(), []
+    rec = ex.run_day(ex.paths(str(tmp)), now_fn=lambda: dt.datetime(2026, 11, 16, hh, mm, tzinfo=ET),
+                     adapter=ad, log=lambda *a: None, notify=lambda m, **k: notes.append(m),
+                     sleep=False)
+    return rec, notes, ad
+
+
+def test_entry_refused_when_todays_basket_exists(tmp_path, monkeypatch):
+    _state(tmp_path, [])            # today's basket saved (no legs to resume)
+    rec, notes, ad = _day(tmp_path, monkeypatch, 15, 30)
+    assert not ad.sent and rec["result"] == "entry refused"
+    assert len(notes) == 1 and "entry refused" in notes[0] and "already saved" in notes[0]
+    st = json.load(open(os.path.join(str(tmp_path), "exec_state.json")))
+    assert st["open_basket"]["day"] == "2026-11-16"     # left as it was
+
+
+def test_entry_refused_after_1550(tmp_path, monkeypatch):
+    rec, notes, ad = _day(tmp_path, monkeypatch, 15, 51)
+    assert not ad.sent and rec["result"] == "entry refused"
+    assert len(notes) == 1 and "past 15:50" in notes[0]
+
+
+def test_normal_first_run_at_1530_enters(tmp_path, monkeypatch):
+    rec, notes, ad = _day(tmp_path, monkeypatch, 15, 30)
+    sids = [k["signal_id"] for k in ad.sent]
+    assert "EODREV-20261116-L1-O" in sids and "EODREV-20261116-S1-O" in sids
+    assert not any("entry refused" in n for n in notes)

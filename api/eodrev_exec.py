@@ -436,6 +436,18 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
     ad = adapter or make_adapter(p, log=log)
 
     wait(_at(day, cfg["enter_at"]))
+    # ENTRY GUARD (MANAGER 11-20): only ever blocks an ENTRY -- exits / resume untouched.
+    # Today's basket already saved = this day already entered; after 15:50 ET = too late
+    # for the 15:59 exit window. One alert line; the saved basket is left as it is.
+    late = now_fn() > _at(day, ENTRY_CUTOFF)
+    ob_today = (state.get("open_basket") or {}).get("day") == day.isoformat()
+    if ob_today or late:
+        why = ("today's basket is already saved - no second entry" if ob_today else
+               f"now is past {ENTRY_CUTOFF} ET - too late to enter")
+        notify(f"PICK6 #511: entry refused - {why}", log=log)
+        if ob_today:
+            return {"day": str(day), "result": "entry refused", "why": why}
+        return finish("entry refused", why=why)
     entries = []
     for e in plan:
         rec = send(ad, e, "OPEN", day)
@@ -497,6 +509,7 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
 
 # -- restart hook (edgelog-eodrev-resume.service at boot, edgelog-eodrev-alert.service) -----
 RESUME_FROM = "15:27"
+ENTRY_CUTOFF = "15:50"
 RESUME_UNTIL = "16:00"
 
 
