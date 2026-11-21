@@ -15,14 +15,19 @@ ONE DAY (python -m api.eodrev_exec run, started by a systemd timer at 15:27 ET M
          ONE-SIDED GUARD: a refused entry closes (or cancels, if unfilled) its rank pair
          (L_i <-> S_i); more than one refused = flatten the whole basket. One alert, reason
          in the ledger.
-  15:59:10  PREP: read every open entry's filled qty (prep_at; unreadable = one retry at exit).
-  15:59:30  MARKET exits for every entry still open, sent IN PARALLEL (exit_at; Webull OpenAPI
-         refuses MOC / AT_AUCTION for US equity with HTTP 417, so the exit is a plain MARKET).
-  15:59:45  FALLBACK: an exit that was refused, or that Webull's own record shows dead
-         (REJECTED/CANCELLED/FAILED), gets a MARKET order for the qty not yet closed; one still
-         working is alerted, cancelled, and re-sent for the rest ONLY once the cancel is
-         confirmed (unconfirmed = alert, nothing re-sent).
-  16:05  read the fills, write the day's P&L to the ledger. DAILY LOSS RAIL: a day losing
+  15:59:40  PREP: read every open entry's filled qty in parallel AND pre-build its exit order
+         (symbol, side, qty, client_order_id, MARKET, DAY, CORE) -- unreadable = one retry at exit.
+  15:59:50  the pre-built MARKET exits all go IN PARALLEL (exit_at; Webull OpenAPI refuses MOC /
+         AT_AUCTION for US equity with HTTP 417). The adapter lock is let go for the HTTP call
+         (wire_unlocked) so the six sends are on the wire together.
+  15:59:56  FALLBACK for anything not FILLED: read the exit's status + filled qty; working /
+         partial = cancel, confirm by reading; refused or dead = straight on. Then a NEW id
+         (-FB) for min(close_qty - filled, live broker position) -- position unreadable or a
+         cancel unconfirmed = alert, nothing sent. HARD CAP: nothing is sent at/after 15:59:59.5.
+  16:00:05  AFTER CLOSE: read positions; a leftover from these legs = phone alert first, then
+         an EXTENDED-HOURS LIMIT flatten (session ALL), marketable +/-0.3% off the last price.
+         Prep >= exit (or any bad order of the three times) = alert + safe default times.
+  16:05  re-check positions (still held = alert), read the fills, write the day's P&L to the ledger. DAILY LOSS RAIL: a day losing
          more than daily_loss_limit_usd blocks the NEXT session (the rail clears after it).
 A kill file (<EODREV_DIR>/KILL) stops new entries; exits always go out.
 """
@@ -52,10 +57,11 @@ DEFAULTS = {
     "daily_loss_limit_usd": 400.0,
     "gate_at": "15:29",
     "enter_at": "15:30",
-    "prep_at": "15:59:10",         # read every entry's filled qty (the exit's close_qty)
-    "exit_at": "15:59:30",         # MARKET exits, all in parallel (MOC refused by Webull, HTTP 417)
+    "prep_at": "15:59:40",         # read filled qty + pre-build every exit order
+    "exit_at": "15:59:50",         # MARKET exits, all in parallel (MOC refused by Webull, HTTP 417)
     "async_check_at": "15:31:00",  # one look for refusals that arrive AFTER acceptance
-    "fallback_at": "15:59:45",
+    "fallback_at": "15:59:56",
+    "flatten_at": "16:00:05",      # after the close: leftover -> alert + extended-hours LIMIT
     "settle_at": "16:05",
     "max_px_drift": 0.05,          # skip a name whose file px is >5% off the ledger sanity band
     "min_price": 60.0,
@@ -68,9 +74,41 @@ def _et_now():
 
 
 def _at(day, hhmm):
-    parts = [int(x) for x in str(hhmm).split(":")] + [0]
-    return _dt.datetime(day.year, day.month, day.day, parts[0], parts[1], parts[2],
-                        tzinfo=ZoneInfo(TZ))
+    parts = str(hhmm).split(":") + ["0"]
+    sec = float(parts[2])
+    return _dt.datetime(day.year, day.month, day.day, int(parts[0]), int(parts[1]), int(sec),
+                        int(round((sec - int(sec)) * 1e6)), tzinfo=ZoneInfo(TZ))
+
+
+HARD_CAP = "15:59:59.5"           # nothing is SENT at or after this (fallback / probe)
+SAFE_TIMES = {"prep_at": "15:59:40", "exit_at": "15:59:50", "fallback_at": "15:59:56"}
+FLATTEN_PCT = 0.003               # after-close LIMIT this far through the last price
+
+
+def _secs(hhmm):
+    parts = str(hhmm).split(":") + ["0"]
+    return int(parts[0]) * 3600 + int(parts[1]) * 60 + float(parts[2])
+
+
+def exit_times(cfg, notify=None, log=print):
+    """prep_at < exit_at < fallback_at < HARD_CAP, all after 15:50 -- else one alert and the
+    SAFE defaults (a pinned prep_at >= exit_at would read qty AFTER the exits went)."""
+    vals = {k: str(cfg.get(k) or DEFAULTS[k]) for k in SAFE_TIMES}
+    try:
+        s = [_secs(vals[k]) for k in ("prep_at", "exit_at", "fallback_at")]
+        ok = _secs("15:50") <= s[0] < s[1] < s[2] < _secs(HARD_CAP)
+    except (TypeError, ValueError, IndexError):
+        ok = False
+    if ok:
+        return vals
+    msg = (f"PICK6 #511: exit times refused (prep {vals['prep_at']}, exit {vals['exit_at']}, "
+           f"fallback {vals['fallback_at']}: need prep < exit < fallback < {HARD_CAP}) - using "
+           f"{SAFE_TIMES['prep_at']} / {SAFE_TIMES['exit_at']} / {SAFE_TIMES['fallback_at']}")
+    if notify:
+        notify(msg, log=log)
+    else:
+        log(msg)
+    return dict(SAFE_TIMES)
 
 
 def paths(base=None):
@@ -410,10 +448,10 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
         entries = ob["entries"]
         ad = adapter or make_adapter(p, log=log)
         w = wait if same else (lambda t: None)
-        _close_out(ad, entries, day, cfg, w, notify, log)
+        _close_out(ad, entries, day, cfg, w, notify, log, now_fn=now_fn)
         return _settle(ad, entries, day, cfg, state, w, notify,
                        lambda r, **x: finish(r, ledger_day=bday, resumed_on=day.isoformat(), **x),
-                       one_sided=None, log=log)
+                       one_sided=None, log=log, now_fn=now_fn)
 
     if resume_only:                                   # --resume-only: never a fresh entry
         return {"day": str(day), "result": "resume-only: nothing to resume"}
@@ -510,10 +548,10 @@ def run_day(p=None, now_fn=_et_now, adapter=None, log=print, notify=_notify, sle
     guard("15:31 check")
     _save_basket(p, state, day, entries)
 
-    _close_out(ad, entries, day, cfg, wait, notify, log)
+    _close_out(ad, entries, day, cfg, wait, notify, log, now_fn=now_fn)
     _save_basket(p, state, day, entries)
     return _settle(ad, entries, day, cfg, state, wait, notify, finish, sig=sig,
-                   one_sided=one_sided, log=log)
+                   one_sided=one_sided, log=log, now_fn=now_fn)
 
 
 # -- restart hook (edgelog-eodrev-resume.service at boot, edgelog-eodrev-alert.service) -----
@@ -624,17 +662,93 @@ def _read_close_qty(ad, e, tries=None):
     return True
 
 
-def _close_out(ad, entries, day, cfg, wait, notify, log):
-    """prep_at: read every open entry's filled qty. exit_at: one MARKET exit per entry, all
-    sent IN PARALLEL (an unreadable prep read is retried once there; still unreadable =
-    alert, nothing sent). fallback_at: a refused / dead exit gets a MARKET fallback for the
-    qty not yet closed; a still-working exit is alerted, cancelled, and -- only once the
-    cancel is confirmed -- re-sent MARKET for the remaining qty (never a double sell)."""
-    wait(_at(day, cfg.get("prep_at") or DEFAULTS["prep_at"]))
-    _pool_each(lambda e: e.update(_prep_ok=_read_close_qty(ad, e)),
-               [e for e in entries if _exit_due(e)])
+def _build_exit(e, day, what="X", qty=None):
+    """The exit order, built at prep_at so exit_at only has the HTTP send left."""
+    sid = signal_id(day, e["leg"], what)
+    try:
+        from api.webull_orders import _sanitize_client_order_id as _coid
+        coid = _coid(sid)
+    except Exception:                 # pragma: no cover
+        coid = sid
+    return {"leg": e["leg"], "signal_id": sid, "client_order_id": coid, "symbol": e["sym"],
+            "side": broker_side(e["side"], "CLOSE"),
+            "qty": int(qty if qty is not None else e["close_qty"]), "intent": "CLOSE",
+            "order_type": "MARKET", "tif": "DAY", "session": "CORE"}
 
-    wait(_at(day, cfg.get("exit_at") or DEFAULTS["exit_at"]))
+
+def send_order(ad, o, **extra):
+    """Send a pre-built order dict as-is; the record carries _sid and the send's own clock."""
+    k = {x: o[x] for x in ("leg", "signal_id", "symbol", "side", "qty", "intent",
+                           "order_type", "tif")}
+    k.update(extra)
+    t0 = time.monotonic()
+    try:
+        rec = ad.place_stock_order(**k)
+    except Exception as ex:      # place_stock_order never raises by contract; belt and braces
+        rec = {"ok": False, "reason": f"{type(ex).__name__}: {ex}"}
+    rec = dict(rec or {})
+    rec.update(_sid=o["signal_id"], _t0=t0, _t1=time.monotonic())
+    return rec
+
+
+def _warm(ad):
+    """Client + account id cached before exit_at (no token / account call on the hot path)."""
+    try:
+        mode = ad.effective_mode()[0]
+        ad._account_id(mode, ad._client(mode))
+    except Exception:
+        pass
+
+
+def _live_qty(ad, e):
+    """Shares of this leg's direction Webull holds in e's symbol now; None = unreadable."""
+    fn = getattr(ad, "positions", None)
+    if fn is None:
+        return None
+    try:
+        b = (fn() or {}).get("broker")
+    except Exception:
+        return None
+    if not isinstance(b, dict):
+        return None
+    q = float(b.get(str(e["sym"]).upper(), 0) or 0)
+    return int(max(q, 0.0) if e["side"] == "long" else max(-q, 0.0))
+
+
+def _cancel_confirm(ad, rec, now_fn=None, cap=None):
+    """Cancel an exit and read until Webull's record is terminal. (cancel answer, final
+    lookup) -- final None = not confirmed (never re-send then)."""
+    try:
+        c = ad.cancel_order(rec.get("client_order_id") or rec.get("_sid")) or {}
+    except Exception as ex:
+        c = {"ok": False, "reason": f"{type(ex).__name__}: {ex}"}
+    for i in range(CANCEL_TRIES):
+        fin = lookup(ad, rec)
+        if fin is not None and _done(fin):
+            return c, fin
+        if cap is not None and now_fn is not None and now_fn() >= cap:
+            break
+        if LOOKUP_PAUSE_S and i + 1 < CANCEL_TRIES:
+            time.sleep(LOOKUP_PAUSE_S)
+    return c, None
+
+
+def _close_out(ad, entries, day, cfg, wait, notify, log, now_fn=_et_now):
+    """prep_at: read every open entry's filled qty and pre-build its exit. exit_at: the
+    pre-built MARKET exits all go IN PARALLEL with the adapter lock let go for the HTTP call
+    (an unreadable prep read is retried once there; still unreadable = alert, nothing sent).
+    fallback_at: see _fallback_one -- never a send at/after HARD_CAP."""
+    t = exit_times(cfg, notify, log)
+    wait(_at(day, t["prep_at"]))
+
+    def prep(e):
+        e["_prep_ok"] = _read_close_qty(ad, e)
+        if e.get("close_qty"):
+            e["exit_order"] = _build_exit(e, day)
+    _pool_each(prep, [e for e in entries if _exit_due(e)])
+    _warm(ad)
+
+    wait(_at(day, t["exit_at"]))
 
     def exit_one(e):
         if not _exit_due(e):
@@ -647,25 +761,45 @@ def _close_out(ad, entries, day, cfg, wait, notify, log):
                 return
             if not e.get("close_qty"):                    # nothing filled -> nothing to close
                 return
-        rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="X", qty=e.get("close_qty"))
+        o = e.get("exit_order")
+        if not o or int(o["qty"]) != int(e["close_qty"]):
+            o = e["exit_order"] = _build_exit(e, day)
+        rec = send_order(ad, o, wire_unlocked=True)
         e.update(exit_ok=bool(rec.get("ok")), exit_reason=rec.get("reason"), exit_rec=rec)
         log(f"[PICK6 #511] EXIT MARKET {e['leg']} {e['sym']}: "
             f"{'ok' if e['exit_ok'] else 'REFUSED ' + str(e['exit_reason'])}")
     _pool_each(exit_one, entries)
     for e in entries:
         e.pop("_prep_ok", None)
+    sent = [e["exit_rec"] for e in entries if e.get("exit_rec") and "_t0" in e["exit_rec"]]
+    if sent:
+        t0 = min(r["_t0"] for r in sent)
+        spread = {"n": len(sent), "start_ms": round((max(r["_t0"] for r in sent) - t0) * 1e3, 1),
+                  "all_back_ms": round((max(r["_t1"] for r in sent) - t0) * 1e3, 1)}
+        for e in entries:
+            if e.get("exit_rec") in sent:
+                e["exit_spread"] = spread
+        log(f"[PICK6 #511] EXIT SPREAD {spread}")
 
-    wait(_at(day, cfg.get("fallback_at") or DEFAULTS["fallback_at"]))
-    _pool_each(lambda e: _fallback_one(ad, e, day, notify, log),
+    wait(_at(day, t["fallback_at"]))
+    cap = _at(day, HARD_CAP)
+    _pool_each(lambda e: _fallback_one(ad, e, day, notify, log, now_fn, cap),
                [e for e in entries if e["open_ok"] and not e.get("reconcile_failed")
-                and not e.get("fb_rec") and e.get("close_qty")])
+                and not e.get("fb_rec") and e.get("close_qty") and e.get("exit_rec")])
 
 
-def _fallback_one(ad, e, day, notify, log):
+def _fallback_one(ad, e, day, notify, log, now_fn=_et_now, cap=None):
+    """Anything not FILLED: READ the exit's status + filled qty first. Working / partial =
+    cancel and confirm by reading (unconfirmed = alert, nothing sent). Then a NEW id (-FB)
+    for min(close_qty - filled, live broker position) -- a fill that lands between the read
+    and the resend can never turn into a short. Position unreadable = alert, nothing sent.
+    Nothing is sent at or after `cap` (HARD_CAP)."""
+    cap = cap or _at(day, HARD_CAP)
     cq = int(e.get("close_qty") or 0)
     done = 0
-    if e.get("exit_ok"):
-        ans = lookup(ad, e["exit_rec"])
+    xr = e["exit_rec"]
+    if e.get("exit_ok") or xr.get("outcome") == "UNKNOWN":
+        ans = lookup(ad, xr)
         e["exit_check"] = ans
         if ans is None:
             e["fb_skipped"] = "exit state unreadable"
@@ -677,26 +811,14 @@ def _fallback_one(ad, e, day, notify, log):
         if st == "FILLED" or done >= cq:
             return
         if st not in DEAD:                               # still working / pending / partial
-            notify(f"PICK6 #511: {e['sym']} {e['side']} exit still {st} ({done} of {cq}) at "
-                   f"fallback - cancelling and re-sending the rest", log=log)
-            try:
-                c = ad.cancel_order(e["exit_rec"].get("client_order_id")
-                                    or e["exit_rec"].get("_sid")) or {}
-            except Exception as ex:
-                c = {"ok": False, "reason": f"{type(ex).__name__}: {ex}"}
+            notify(f"PICK6 #511: {e['sym']} {e['side']} exit still {st} ({done} of {cq}) "
+                   f"at fallback - cancelling and re-sending the rest", log=log)
+            c, fin = _cancel_confirm(ad, xr, now_fn, cap)
             e["exit_cancel"] = {"ok": bool(c.get("ok")), "reason": c.get("reason")}
-            fin = None
-            for i in range(CANCEL_TRIES):                # wait for a terminal state
-                fin = lookup(ad, e["exit_rec"])
-                if fin is not None and _done(fin):
-                    break
-                fin = None
-                if LOOKUP_PAUSE_S and i + 1 < CANCEL_TRIES:
-                    time.sleep(LOOKUP_PAUSE_S)
             if fin is None:
                 e["fb_skipped"] = "cancel unconfirmed"
-                notify(f"PICK6 #511: {e['sym']} {e['side']} exit cancel NOT confirmed - nothing "
-                       f"re-sent (no double sell), check the account", log=log)
+                notify(f"PICK6 #511: {e['sym']} {e['side']} exit cancel NOT confirmed - "
+                       f"nothing re-sent (no double sell), check the account", log=log)
                 log(f"[PICK6 #511] FALLBACK held {e['leg']} {e['sym']}: cancel unconfirmed")
                 return
             e["exit_check"] = fin
@@ -704,8 +826,25 @@ def _fallback_one(ad, e, day, notify, log):
     rem = cq - done
     if rem <= 0:
         return
+    live = _live_qty(ad, e)
+    if live is None:
+        e["fb_skipped"] = "position unreadable"
+        notify(f"PICK6 #511: {e['sym']} {e['side']} {rem} may be open but the live position "
+               f"could not be read at fallback - nothing sent, check the account", log=log)
+        return
+    if live < rem:
+        log(f"[PICK6 #511] FALLBACK {e['leg']} {e['sym']}: rest {rem} capped to live {live}")
+    rem = min(rem, live)
+    if rem <= 0:
+        e["fb_skipped"] = "already flat at Webull"
+        return
+    if now_fn() >= cap:
+        e["fb_skipped"] = "past hard cap"
+        notify(f"PICK6 #511: {e['sym']} {e['side']} {rem} NOT re-sent - past the {HARD_CAP} "
+               f"cap; the after-close check flattens it extended-hours", log=log)
+        return
     e["exit_part_filled"] = done
-    rec = send(ad, e, "CLOSE", day, order_type="MARKET", what="FB", qty=rem)
+    rec = send_order(ad, _build_exit(e, day, what="FB", qty=rem), wire_unlocked=True)
     e.update(fb_ok=bool(rec.get("ok")), fb_reason=rec.get("reason"), fb_rec=rec, fb_qty=rem)
     log(f"[PICK6 #511] FALLBACK MARKET {rem} {e['leg']} {e['sym']}: "
         f"{'ok' if e['fb_ok'] else 'REFUSED ' + str(e['fb_reason'])}")
@@ -715,8 +854,85 @@ def _fallback_one(ad, e, day, notify, log):
                log=log)
 
 
-def _settle(ad, entries, day, cfg, state, wait, notify, finish, sig=None, one_sided=None, log=print):
+def _last_price(sym, log=print):
+    """Webull snapshot price for `sym`, time-boxed to 5 s; None when unavailable."""
+    import concurrent.futures as cf
+    try:
+        from api import qqq_exec
+        pool = cf.ThreadPoolExecutor(max_workers=1, thread_name_prefix="pick6-quote")
+        fut = pool.submit(qqq_exec._webull_quote_raw, sym, log)
+        pool.shutdown(wait=False)
+        res = fut.result(timeout=5.0)
+        px = res[0] if isinstance(res, tuple) else None
+        return float(px) if px else None
+    except Exception:
+        return None
+
+
+def _after_close(ad, entries, day, notify, log):
+    """16:00:05: any leftover from these legs = phone alert FIRST (whatever happens next),
+    then an EXTENDED-HOURS LIMIT flatten (session ALL; Webull takes only LIMIT outside RTH)
+    priced FLATTEN_PCT through the last price. Returns the legs that had a leftover."""
+    left = []
+    for e in entries:
+        if not (e.get("open_ok") and e.get("close_qty")):
+            continue
+        q = _live_qty(ad, e)
+        if q is None:
+            if getattr(ad, "positions", None) is None:
+                continue                                    # a double without a position read
+            notify(f"PICK6 #511: {e['sym']} position unreadable after the close - check the "
+                   f"account", log=log)
+            left.append(e)
+            continue
+        q = min(q, int(e["close_qty"]))
+        if q <= 0:
+            continue
+        left.append(e)
+        e["after_close_left"] = q
+        notify(f"PICK6 #511: {e['sym']} {e['side']} {q} STILL HELD after the close - "
+               f"sending an extended-hours LIMIT flatten", log=log)
+        for xr in (e.get("exit_rec"), e.get("fb_rec")):     # dead exits roll the books back
+            ans = lookup(ad, xr) if xr else None
+            if ans and hasattr(ad, "apply_order_outcome"):
+                try:
+                    ad.apply_order_outcome(xr.get("_sid"), ans.get("status"), ans.get("filled"))
+                except Exception:
+                    pass
+        px = (_last_price(e["sym"], log) or (e.get("exit_check") or {}).get("price")
+              or (lookup(ad, e["open_rec"]) or {}).get("price"))
+        if not px:
+            notify(f"PICK6 #511: {e['sym']} no last price - extended-hours flatten NOT sent",
+                   log=log)
+            continue
+        sell = e["side"] == "long"
+        lim = round(float(px) * ((1 - FLATTEN_PCT) if sell else (1 + FLATTEN_PCT)), 2)
+        o = dict(_build_exit(e, day, what="AH", qty=q), order_type="LIMIT", session="ALL")
+        rec = send_order(ad, o, extended_hours=True, limit_price=lim)
+        e.update(ah_ok=bool(rec.get("ok")), ah_reason=rec.get("reason"), ah_limit=lim, ah_qty=q)
+        log(f"[PICK6 #511] AFTER-CLOSE LIMIT {q} {e['sym']} @ {lim}: "
+            f"{'ok' if e['ah_ok'] else 'REFUSED ' + str(e['ah_reason'])}")
+        if not e["ah_ok"]:
+            notify(f"PICK6 #511: {e['sym']} extended-hours flatten REFUSED "
+                   f"({str(e['ah_reason'])[:120]}) - close it by hand", log=log)
+    return left
+
+
+def _settle(ad, entries, day, cfg, state, wait, notify, finish, sig=None, one_sided=None, log=print,
+            now_fn=_et_now):
+    wait(_at(day, cfg.get("flatten_at") or DEFAULTS["flatten_at"]))
+    after = now_fn()
+    left = []
+    if after.date() == day and after >= _at(day, "16:00"):   # same day, after the close only
+        left = _after_close(ad, entries, day, notify, log)
     wait(_at(day, cfg["settle_at"]))
+    for e in left:
+        q = _live_qty(ad, e)
+        e["settle_left"] = q
+        if q is None or q > 0:
+            notify(f"PICK6 #511: {e['sym']} {e['side']} STILL "
+                   f"{'unreadable' if q is None else str(q) + ' held'} at settle after the "
+                   f"extended-hours flatten - check the account", log=log)
     for e in entries:
         if not e["open_ok"]:
             continue
@@ -756,8 +972,10 @@ def run_probe(sym="AAPL", p=None, adapter=None, log=print, notify=None, wait_s=2
     """1 share BUY `sym` + 1 share SHORT `short_sym` (separate symbols: Webull refuses opposing
     open orders on one symbol, HTTP 417 OPEN_ORDER_HAS_BOX_ORDER). PAPER only, in RTH.
     Each entry must FILL (wait_tries x wait_s, else alert + unwind). Held until exit_at
-    (15:59:30) -> MARKET exit of the filled qty; anything not filled by fallback_at (15:59:45)
-    gets a MARKET fallback. Passes only when both exits show filled on Webull's own record."""
+    (15:59:50) -> MARKET exit of the filled qty; anything not filled by fallback_at (15:59:56)
+    is CANCELLED and confirmed dead first (unconfirmed = alert, no second order), then a MARKET
+    fallback for the rest only -- never after HARD_CAP. Passes only when both exits show filled
+    on Webull's own record."""
     p = p or paths()
     os.makedirs(p["dir"], exist_ok=True)
     ad = adapter or make_adapter(p, log=log)
@@ -788,13 +1006,15 @@ def run_probe(sym="AAPL", p=None, adapter=None, log=print, notify=None, wait_s=2
                 unwind(ad, e, day, "probe entry not filled", log=log)
                 e["open_ok"] = False
         legs.append(e)
-    wait(_at(day, cfg.get("exit_at") or DEFAULTS["exit_at"]))
+    times = exit_times(cfg, note, log)
+    cap = _at(day, HARD_CAP)
+    wait(_at(day, times["exit_at"]))
     for e in legs:
         if not e["open_ok"]:
             continue
         m = send(ad, e, "CLOSE", day, order_type="MARKET", what="PX", qty=e["entry_filled"])
         e.update(exit_ok=bool(m.get("ok")), exit_reason=m.get("reason"), exit_rec=m)
-    wait(_at(day, cfg.get("fallback_at") or DEFAULTS["fallback_at"]))
+    wait(_at(day, times["fallback_at"]))
     for e in legs:
         if not e["open_ok"]:
             continue
@@ -802,17 +1022,40 @@ def run_probe(sym="AAPL", p=None, adapter=None, log=print, notify=None, wait_s=2
         for _ in range(int(wait_tries) if e.get("exit_ok") else 0):
             if ans and (float(ans.get("filled") or 0) >= e["entry_filled"] or _done(ans)):
                 break
+            if now_fn() >= cap:
+                break
             nap()
             ans = lookup(ad, e["exit_rec"])
-        if not (ans and float(ans.get("filled") or 0) >= e["entry_filled"]):
-            fb = send(ad, e, "CLOSE", day, order_type="MARKET", what="PF", qty=e["entry_filled"])
+        rem = e["entry_filled"] - int(float((ans or {}).get("filled") or 0))
+        if e.get("exit_ok") and rem > 0 and not _done(ans):
+            # CANCEL BEFORE RESEND (VERIFIER 11-21): a stuck exit never gets a second order
+            # until Webull's own record shows it dead
+            c, fin = _cancel_confirm(ad, e["exit_rec"], now_fn, cap)
+            e["exit_cancel"] = {"ok": bool(c.get("ok")), "reason": c.get("reason")}
+            if fin is None:
+                note(f"PICK6 #511 probe: {e['sym']} {e['side']} exit cancel NOT confirmed - "
+                     f"nothing re-sent, check the paper account", log=log)
+                e.update(fb_ok=False, fb_reason="cancel unconfirmed")
+                rem = 0
+            else:
+                ans = fin
+                rem = e["entry_filled"] - int(float(fin.get("filled") or 0))
+        if rem > 0 and now_fn() >= cap:
+            note(f"PICK6 #511 probe: {e['sym']} {e['side']} {rem} not closed by {HARD_CAP} - "
+                 f"nothing sent after the cap, check the paper account", log=log)
+            e.update(fb_ok=False, fb_reason="past hard cap")
+        elif rem > 0:
+            pre = int(float((ans or {}).get("filled") or 0))
+            fb = send(ad, e, "CLOSE", day, order_type="MARKET", what="PF", qty=rem)
             e.update(fb_ok=bool(fb.get("ok")), fb_reason=fb.get("reason"))
             ans = None
             for _ in range(int(wait_tries) if fb.get("ok") else 0):
                 ans = lookup(ad, fb)
-                if ans and float(ans.get("filled") or 0) >= e["entry_filled"]:
+                if ans and float(ans.get("filled") or 0) >= rem:
                     break
                 nap()
+            if ans is not None:
+                ans = dict(ans, filled=pre + float(ans.get("filled") or 0))
             if not (ans and float(ans.get("filled") or 0) >= e["entry_filled"]):
                 note(f"PICK6 #511 probe: {e['sym']} {e['side']} NOT CLOSED - exit and fallback "
                      f"failed; check the paper account", log=log)

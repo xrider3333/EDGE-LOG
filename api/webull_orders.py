@@ -1926,7 +1926,7 @@ class OrderAdapter:
         return last
 
     def _send_part(self, client, account_id, mode, leg, symbol, intent, side, qty,
-                   part_coid, new_order, label, stop_at=None):
+                   part_coid, new_order, label, stop_at=None, wire_unlocked=False):
         """Send ONE broker part (PENDING on disk first). On an exception a 4xx is a
         refusal; else look it up: FILLED/live = sent, dead books its filled qty, unclear
         stays PENDING with outcome "UNKNOWN". Caller holds the lock. `order_type` and
@@ -1942,7 +1942,11 @@ class OrderAdapter:
         rec = {"side": side, "qty": qty, "client_order_id": part_coid, "sent": True,
                "response": None}
         try:
-            resp = client.order_v3.place_order(account_id, [new_order])
+            if wire_unlocked:      # WIRE UNLOCKED: only the HTTP call runs without the lock
+                with self._lock_released():
+                    resp = client.order_v3.place_order(account_id, [new_order])
+            else:
+                resp = client.order_v3.place_order(account_id, [new_order])
         except Exception as e:
             reason = f"{type(e).__name__}: {e}"
             self.log(f"  [webull-orders] {mode} place_order FAILED for {symbol} {side} {qty} "
@@ -3632,7 +3636,8 @@ class OrderAdapter:
     def place_stock_order(self, *, leg, signal_id, symbol, side, qty, intent="OPEN",
                           order_type="MARKET", limit_price=None, tif="DAY",
                           extended_hours=False, market="US", account_id=None,
-                          instrument_id=None, remainder=False, dup_wait_until=None):
+                          instrument_id=None, remainder=False, dup_wait_until=None,
+                          wire_unlocked=False):
         """Idempotent on signal_id. Returns a record dict always (never raises for a
         blocked/no-op/OFF path -- only an unexpected SDK exception in PAPER/LIVE is
         caught and reported via record["error"], never propagated).
@@ -3693,7 +3698,13 @@ class OrderAdapter:
         then, for another leg's identical order still working at Webull -- the record then
         carries "dup_wait" ({"for", "settled", "changed", "waited_sec"}). An OPEN whose wait
         moved the books is put through the rails again. None (the default) is today's path
-        byte for byte."""
+        byte for byte.
+
+        WIRE UNLOCKED (2026-11-21, PICK6 exit): `wire_unlocked=True` lets the adapter lock go
+        for the place_order HTTP call ONLY (the PENDING part and the UNKNOWN record are on disk
+        before it, the books move after it, both under the lock) -- so independent symbols sent
+        from several threads are on the wire together instead of one after another. The caller
+        must never send two orders on ONE symbol this way. False (the default) is unchanged."""
         with self._sends_lock:
             self._stock_sends += 1
         try:
@@ -3702,14 +3713,15 @@ class OrderAdapter:
                 intent=intent, order_type=order_type, limit_price=limit_price, tif=tif,
                 extended_hours=extended_hours, market=market, account_id=account_id,
                 instrument_id=instrument_id, remainder=remainder,
-                dup_wait_until=dup_wait_until)
+                dup_wait_until=dup_wait_until, wire_unlocked=wire_unlocked)
         finally:
             with self._sends_lock:
                 self._stock_sends -= 1
 
     def _place_stock_order(self, *, leg, signal_id, symbol, side, qty, intent, order_type,
                            limit_price, tif, extended_hours, market, account_id,
-                           instrument_id, remainder, dup_wait_until=None):
+                           instrument_id, remainder, dup_wait_until=None,
+                           wire_unlocked=False):
         """place_stock_order's body (see its docstring)."""
         side = str(side).upper()
         intent = str(intent).upper()
@@ -3937,7 +3949,7 @@ class OrderAdapter:
                         client, account_id, mode, leg, symbol, intent, part_side, part_qty,
                         part_coid, new_order,
                         f", part {i}/{len(parts_plan)}" if len(parts_plan) > 1 else "",
-                        stop_at=stop_at))
+                        stop_at=stop_at, wire_unlocked=wire_unlocked))
 
                 all_ok = all(p["ok"] for p in parts)
                 record.update(ok=all_ok, sent=True, account_id=account_id, parts=parts)
