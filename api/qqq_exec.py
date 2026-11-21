@@ -1963,9 +1963,14 @@ def _signals_mtime():
         return None
 
 
-def _wait_next_tick(stop=None, now=None):
+def _wait_next_tick(stop=None, now=None, fill_step=None, fill_hot=None):
     """Wait up to TICK_SEC; in the fast window after a 5m close, return as soon as the
-    engine's signals.csv changes. Returns True when woken early by a new row. Never raises."""
+    engine's signals.csv changes. Returns True when woken early by a new row. Never raises.
+
+    fill_step / fill_hot (latency item G, 2026-11-21): while fill_hot() is True the wait
+    is cut into BROKER_FILL_FAST_GAP_SEC slices and fill_step() runs after each one (a
+    fast fill-capture pass, see _maybe_capture_broker_fills(fast=True)). The tick
+    cadence itself (t_end) is unchanged."""
     def _sleep(sec):
         if stop is not None:
             return stop.wait(sec)
@@ -1979,7 +1984,24 @@ def _wait_next_tick(stop=None, now=None):
             left = t_end - time.time()
             if left <= 0:
                 return False
+            hot = False
+            if fill_step is not None and fill_hot is not None:
+                try:
+                    hot = bool(fill_hot())
+                except Exception:
+                    hot = False
             in_window = (now_s % 300.0) < FAST_POLL_WINDOW_SEC + TICK_SEC
+            if hot:
+                if _sleep(min(BROKER_FILL_FAST_GAP_SEC, left)):
+                    return False
+                try:
+                    fill_step()
+                except Exception:
+                    pass
+                if in_window and base is not None and _signals_mtime() != base:
+                    return True
+                now = None
+                continue
             if not in_window or base is None:
                 _sleep(left)
                 return False
@@ -4992,6 +5014,43 @@ def _build_broker_status(state=None, log=print):
 BROKER_FILL_CAPTURE_FIRST_DELAY_SEC = 3.0    # a market order is rarely filled sooner
 BROKER_FILL_CAPTURE_RETRY_GAP_SEC = 10.0     # never two attempts at one job back to back
 BROKER_FILL_CAPTURE_MAX_AGE_SEC = 60.0       # give up "after about a minute"
+# FAST FILL CONFIRM (latency item G, 2026-11-21): the fill used to be SEEN 4.7-16.5 s
+# after the ack (first query 3 s after queueing, then one per 10 s, and only on a 5 s
+# tick). For the first BROKER_FILL_FAST_WINDOW_SEC after a job is queued, serve()'s
+# wait between ticks now runs _maybe_capture_broker_fills(fast=True) every
+# BROKER_FILL_FAST_GAP_SEC: still ONE order_status() call per step, only for jobs
+# inside the window. A market order usually answers FILLED on the first or second
+# query, which ends the job -- so the calls per order are about the same as before
+# (often fewer). A job whose query reports a rate limit (429) leaves fast mode for
+# good and falls back to the ordinary 3 s / 10 s schedule.
+BROKER_FILL_FAST_WINDOW_SEC = 5.0
+BROKER_FILL_FAST_FIRST_DELAY_SEC = 0.3
+BROKER_FILL_FAST_GAP_SEC = 0.5
+
+
+def _fill_fast_eligible(item, now):
+    """True when a fill-capture job is still inside its fast-confirm window."""
+    try:
+        if item.get("fast_off"):
+            return False
+        return now - float(item.get("first_at") or 0) < BROKER_FILL_FAST_WINDOW_SEC
+    except Exception:
+        return False
+
+
+def _fill_capture_hot(state, now=None):
+    """True when any queued fill-capture job is in its fast window. Never raises."""
+    try:
+        now = time.time() if now is None else now
+        q = (state or {}).get("_broker_fill_capture") or {}
+        return any(_fill_fast_eligible(it, now) for it in q.values())
+    except Exception:
+        return False
+
+
+def _rate_limited_note(note):
+    n = str(note or "").lower()
+    return "429" in n or "too many" in n or "rate limit" in n
 
 
 def _queue_broker_fill_capture(state, *, leg, intent, signal_id, account_id, shadow_px,
@@ -5341,7 +5400,7 @@ def _say_order_outcome(state, leg, intent, side, status, filled, unsold, requeue
         return None, False
 
 
-def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
+def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print, fast=False):
     """Service the queued fill-price jobs (see _queue_broker_fill_capture) -- modelled
     on _maybe_resend_broker_orders: giving up on a stale job is cheap local bookkeeping
     (no network) and every overdue one is cleared in the same tick, but at most ONE
@@ -5363,7 +5422,12 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
     needs it. Runs regardless of `active` -- a status READ is not a trading action, and
     a job still has to age out on its own clock even if the session window has closed
     (a CLOSE from 15:59 must not be left uncaptured forever just because it is now
-    after hours)."""
+    after hours).
+
+    fast=True (latency item G, 2026-11-21): called between ticks by serve()'s wait;
+    looks ONLY at jobs inside their fast window (_fill_fast_eligible) and uses the
+    short BROKER_FILL_FAST_* delays. Still at most one SDK call per call. fast=False
+    (the tick path) is unchanged."""
     q = state.get("_broker_fill_capture") or {}
     if not q:
         return
@@ -5377,6 +5441,11 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
         for key in sorted(q, key=lambda k: float(q[k].get("first_at") or 0)):
             item = q[key]
             age = now - float(item.get("first_at") or now)
+            if fast and not _fill_fast_eligible(item, now):
+                continue
+            first_delay = (BROKER_FILL_FAST_FIRST_DELAY_SEC if fast
+                           else BROKER_FILL_CAPTURE_FIRST_DELAY_SEC)
+            retry_gap = BROKER_FILL_FAST_GAP_SEC if fast else BROKER_FILL_CAPTURE_RETRY_GAP_SEC
             parts = item.get("parts")
             if parts:
                 # ORDER NETTING (2026-09-24): a job with more than one broker part --
@@ -5391,13 +5460,13 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
                     q.pop(key, None)
                     _finish_fill_capture_parts(item, log=log)
                     continue
-                if age < BROKER_FILL_CAPTURE_FIRST_DELAY_SEC:
+                if age < first_delay:
                     continue
                 target = None
                 for p in parts:
                     if p.get("resolved"):
                         continue
-                    if now - float(p.get("last_at") or 0) < BROKER_FILL_CAPTURE_RETRY_GAP_SEC:
+                    if now - float(p.get("last_at") or 0) < retry_gap:
                         continue
                     target = p
                     break
@@ -5420,6 +5489,8 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
                 else:
                     target["working"] = outcome.get("working", target.get("working"))
                     target["last_note"] = note
+                    if _rate_limited_note(note):
+                        item["fast_off"] = True
                     log(f"[qqq-exec] fill-capture retry {target['tries']} for {item.get('leg')} "
                         f"{item.get('intent')} part {target['client_order_id']}: {note}")
                 if all(p.get("resolved") for p in parts):
@@ -5434,9 +5505,9 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
                     item, None, item.get("last_note") or "gave up waiting for a fill price",
                     log=log)
                 continue
-            if age < BROKER_FILL_CAPTURE_FIRST_DELAY_SEC:
+            if age < first_delay:
                 continue
-            if now - float(item.get("last_at") or 0) < BROKER_FILL_CAPTURE_RETRY_GAP_SEC:
+            if now - float(item.get("last_at") or 0) < retry_gap:
                 continue
             item["tries"] = int(item.get("tries") or 0) + 1
             item["last_at"] = now
@@ -5455,11 +5526,25 @@ def _maybe_capture_broker_fills(state, cfg, nowdt, active, log=print):
             else:
                 item["working"] = outcome.get("working", item.get("working"))
                 item["last_note"] = note
+                if _rate_limited_note(note):
+                    item["fast_off"] = True
                 log(f"[qqq-exec] fill-capture retry {item['tries']} for {item.get('leg')} "
                     f"{item.get('intent')} (signal {item.get('signal_id')}): {note}")
             return  # ONE order_status() SDK call per tick
     except Exception as e:
         log(f"[qqq-exec] fill-capture housekeeping failed (non-fatal): {type(e).__name__}: {e}")
+
+
+def _fast_fill_step(state, log=print):
+    """One fast fill-capture pass between ticks (latency item G). Same thread as tick(),
+    so no lock is needed on `state`; saves state when a job finished. Never raises."""
+    try:
+        before = set(state.get("_broker_fill_capture") or {})
+        _maybe_capture_broker_fills(state, None, _now_et(), True, log=log, fast=True)
+        if set(state.get("_broker_fill_capture") or {}) != before:
+            save_state(state, log=log)
+    except Exception as e:
+        log(f"[qqq-exec] fast fill-capture failed (non-fatal): {type(e).__name__}: {e}")
 
 
 # -- broker daily P&L wiring (2026-09-14) --------------------------------------------
@@ -18255,7 +18340,8 @@ def qqq_exec_thread(db, uids, stop=None, log=print, on_tick=None):
             except Exception as e:
                 log(f"[qqq-exec] tick failed: {type(e).__name__}: {e}\n{traceback.format_exc()}")
                 _note_tick_result(state, False, exc=e, log=log)
-            _wait_next_tick(stop)
+            _wait_next_tick(stop, fill_step=lambda: _fast_fill_step(state, log=log),
+                            fill_hot=lambda: _fill_capture_hot(state))
     finally:
         # LIVE WEBULL STREAM (2026-09-23, item 3): unconditional and first -- covers a
         # normal loop exit, a mid-loop stand-down (_stand_down above returns through

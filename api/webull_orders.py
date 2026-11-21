@@ -181,6 +181,117 @@ import logging
 logging.getLogger("webull.core.client").setLevel(logging.CRITICAL)
 
 
+# ── KEEP-ALIVE HTTPS (latency item D, 2026-11-21) ─────────────────────────────────────
+# webull_openapi_python_sdk 2.0.12 (webull/core/http/response.py, get_response_object)
+# does `with Session() as s:` for EVERY request, so every order paid a fresh TCP+TLS
+# handshake (~35 ms measured on the paper box). install_keepalive() swaps that module's
+# `Session` name -- and nothing else -- for a factory that hands back ONE requests.Session
+# PER THREAD and does not close it on `with` exit, so the pooled connection is reused.
+# Request content is unchanged: same prepare_request/send call, and the session's
+# cookie jar is cleared before every use so nothing a response set is sent back.
+# Safety: a request that raises drops (closes) that thread's session so the next one
+# starts clean; a session idle longer than KEEPALIVE_MAX_IDLE_SEC is replaced before use
+# (load balancers drop idle sockets, and a POST on a dead socket would just fail).
+# Fallback: if the SDK module or its `Session` name is not what we expect, nothing is
+# patched and the SDK's own per-request session runs as before. EDGELOG_WEBULL_KEEPALIVE=0
+# turns it off. Process-wide once installed: every SDK call made through that module
+# (order sends, status reads, quotes) reuses connections the same way.
+KEEPALIVE_MAX_IDLE_SEC = 50.0
+_KEEPALIVE_LOCK = threading.Lock()
+_KEEPALIVE_STATE = {"installed": False, "original": None}
+
+
+class _KeepAliveSessionFactory:
+    """Stands in for requests.Session inside webull.core.http.response. Calling it
+    returns a context manager over this thread's persistent session."""
+
+    def __init__(self, session_cls, max_idle=None, clock=time.monotonic):
+        self._session_cls = session_cls
+        self._max_idle = KEEPALIVE_MAX_IDLE_SEC if max_idle is None else max_idle
+        self._clock = clock
+        self._local = threading.local()
+
+    def _drop(self):
+        sess = getattr(self._local, "session", None)
+        self._local.session = None
+        if sess is not None:
+            try:
+                sess.close()
+            except Exception:
+                pass
+
+    def _get(self):
+        sess = getattr(self._local, "session", None)
+        last = getattr(self._local, "last_used", None)
+        if sess is not None and last is not None and self._clock() - last > self._max_idle:
+            self._drop()
+            sess = None
+        if sess is None:
+            sess = self._session_cls()
+            self._local.session = sess
+        try:
+            sess.cookies.clear()
+        except Exception:
+            pass
+        return sess
+
+    def __call__(self, *args, **kwargs):
+        factory = self
+
+        class _Ctx:
+            def __enter__(self_inner):
+                return factory._get()
+
+            def __exit__(self_inner, exc_type, exc, tb):
+                if exc_type is not None:
+                    factory._drop()   # never reuse a connection that just failed
+                else:
+                    factory._local.last_used = factory._clock()
+                return False
+
+        return _Ctx()
+
+
+def install_keepalive(log=None):
+    """Patch webull.core.http.response.Session once per process. Returns True when the
+    keep-alive factory is in place. Never raises; on any surprise leaves the SDK as is."""
+    if str(os.environ.get("EDGELOG_WEBULL_KEEPALIVE", "1")).strip() in ("0", "false", "off"):
+        return False
+    with _KEEPALIVE_LOCK:
+        if _KEEPALIVE_STATE["installed"]:
+            return True
+        try:
+            from webull.core.http import response as _wresp
+            import requests
+            orig = getattr(_wresp, "Session", None)
+            if orig is not requests.Session:
+                if log:
+                    log("[webull-orders] keep-alive NOT installed: SDK Session is not "
+                        "requests.Session (SDK changed?) -- using the SDK's own sessions")
+                return False
+            _wresp.Session = _KeepAliveSessionFactory(orig)
+            _KEEPALIVE_STATE.update(installed=True, original=orig)
+            return True
+        except Exception as e:
+            if log:
+                log(f"[webull-orders] keep-alive NOT installed ({type(e).__name__}: {e}) "
+                    "-- using the SDK's own sessions")
+            return False
+
+
+def uninstall_keepalive():
+    """Put the SDK's own Session back (tests / emergency). Never raises."""
+    with _KEEPALIVE_LOCK:
+        if not _KEEPALIVE_STATE["installed"]:
+            return
+        try:
+            from webull.core.http import response as _wresp
+            _wresp.Session = _KEEPALIVE_STATE["original"]
+        except Exception:
+            pass
+        _KEEPALIVE_STATE.update(installed=False, original=None)
+
+
 # ── modes ───────────────────────────────────────────────────────────
 MODE_OFF = "OFF"
 MODE_PAPER = "PAPER"
@@ -1359,6 +1470,7 @@ class OrderAdapter:
         # per-process log-rotation race across the runner's worker fleet.
         api._file_logger_set = True
         logging.getLogger("webull.core").addHandler(logging.NullHandler())
+        install_keepalive(log=self.log)   # latency item D; no-op fallback on any surprise
         return TradeClient(api)
 
     def _client(self, mode):
