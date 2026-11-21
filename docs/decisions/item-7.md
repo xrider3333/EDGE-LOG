@@ -30,3 +30,4 @@ On the server since Sun 14:12. ENGU-Q and DIP shadows run, nothing live changed
 - 2026-11-17: board changed to [done] DEPLOYED SUN
 - 2026-11-18: board changed to [done] DEPLOYED SUN
 - 2026-11-19: board changed to [done] DEPLOYED SUN
+- 2026-11-20: board changed to [done] DEPLOYED SUN

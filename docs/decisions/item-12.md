@@ -30,3 +30,4 @@ All missing ES/NQ days filled from NinjaTrader: 2020 days, July 2026, and NQ ove
 - 2026-11-17: board changed to [done] DONE 10-15
 - 2026-11-18: board changed to [done] DONE 10-15
 - 2026-11-19: board changed to [done] DONE 10-15
+- 2026-11-20: board changed to [done] DONE 10-15
