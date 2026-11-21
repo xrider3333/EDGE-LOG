@@ -8358,7 +8358,21 @@ def _engine_thread_body(stop=None, log=print):
                 sleep_s = min(sleep_s, close_clock.sleep_cap(_dt.datetime.now(tz=_zi(TZ))))
             except Exception:
                 pass
-        _time.sleep(sleep_s)
+        _engine_sleep(sleep_s, in_session)
+
+
+def _engine_sleep(sleep_s, in_session):
+    """time.sleep, except with the OWN-BAR flag on (api/ownbar.py) in session: block on the
+    engine's UDP wake socket so the streamer's 'bar folded' datagram ends the wait at once."""
+    if in_session:
+        try:
+            from api import ownbar as _ob
+            if _ob.enabled():
+                _ob.shared_socket(_ob.engine_port()).wait(sleep_s)
+                return
+        except Exception:
+            pass
+    _time.sleep(sleep_s)
 
 
 def cmd_loop():

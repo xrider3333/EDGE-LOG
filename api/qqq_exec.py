@@ -1941,7 +1941,14 @@ BROKER_ORDER_COLS = ["ts_et", "leg", "intent", "side", "shares", "signal_id",
                      # LATENCY (owner 11-04, MANAGER #266 / #247 fix 4): when the send
                      # started, how long Webull took to answer, and when this book first
                      # saw the fill (the deferred capture -- an upper bound on fill time).
-                     "send_start_et", "ack_ms", "fill_seen_et"]
+                     "send_start_et", "ack_ms", "fill_seen_et",
+                     # OWN-BAR LATENCY STAMPS (2026-11-21): epoch seconds, appended at the
+                     # END (same back-compat rule). bar_end_ts / decision_ts come from the
+                     # engine row (emitted_at, floored to its 5m close) -- blank for a send
+                     # no engine row started; send_ts / ack_ts around the place call;
+                     # place_ts / fill_ts = Webull's own place_time / filled_time (ms ->
+                     # s) once the fill capture reads the order detail.
+                     "bar_end_ts", "decision_ts", "send_ts", "ack_ts", "place_ts", "fill_ts"]
 
 _ORDER_ADAPTER = None
 
@@ -1971,11 +1978,75 @@ def _wait_next_tick(stop=None, now=None, fill_step=None, fill_hot=None):
     is cut into BROKER_FILL_FAST_GAP_SEC slices and fill_step() runs after each one (a
     fast fill-capture pass, see _maybe_capture_broker_fills(fast=True)). The tick
     cadence itself (t_end) is unchanged."""
+    wake = _ownbar_exec_socket()
+
     def _sleep(sec):
+        if wake is not None:
+            # OWN-BAR (2026-11-21): the engine's 'rows committed' datagram ends the wait
+            got = wake.wait(sec)
+            if stop is not None and stop.is_set():
+                return True
+            if got:
+                raise _OwnbarWoken()
+            return False
         if stop is not None:
             return stop.wait(sec)
         time.sleep(sec)
         return False
+    try:
+        return _wait_next_tick_body(_sleep, stop, now, fill_step, fill_hot)
+    except _OwnbarWoken:
+        return True
+
+
+class _OwnbarWoken(BaseException):
+    pass
+
+
+_OWNBAR_WARM = {"thread": None}
+
+
+def _ownbar_exec_socket():
+    """The executor's UDP wake socket while EDGELOG_OWNBAR_DECIDE=1 (else None). Also starts
+    the keep-alive warm thread (item E) once. Never raises."""
+    try:
+        from . import ownbar
+        if not ownbar.enabled():
+            return None
+        _ensure_ownbar_warm_thread()
+        return ownbar.shared_socket(ownbar.exec_port())
+    except Exception:
+        return None
+
+
+def _ensure_ownbar_warm_thread():
+    """OWN-BAR item E: ~3 s before each 5m boundary, one HEAD on the send worker's own
+    keep-alive session (webull_orders.keepalive_warm) so the first send of the bar skips
+    the TLS handshake. Skipped while a send is in flight. Never raises."""
+    if _OWNBAR_WARM["thread"] is not None:
+        return
+    from . import ownbar
+
+    def _loop():
+        while True:
+            try:
+                now = time.time()
+                target = ownbar.next_boundary(now) - ownbar.warm_lead_s()
+                if target <= now:
+                    target += 300
+                time.sleep(max(0.0, target - now))
+                fut = _send_inflight_future()
+                if fut is None or fut.done():
+                    _place_order_executor.submit(webull_orders.keepalive_warm)
+            except Exception:
+                time.sleep(5)
+
+    th = threading.Thread(target=_loop, name="qqq-ownbar-warm", daemon=True)
+    _OWNBAR_WARM["thread"] = th
+    th.start()
+
+
+def _wait_next_tick_body(_sleep, stop, now, fill_step, fill_hot):
     try:
         t_end = time.time() + TICK_SEC
         base = _signals_mtime()
@@ -2548,6 +2619,51 @@ _order_status_executor = concurrent.futures.ThreadPoolExecutor(
     max_workers=1, thread_name_prefix="qqq-orderstatus")
 
 
+# OWN-BAR LATENCY STAMPS (2026-11-21): Webull's own place_time / filled_time (epoch ms) from
+# the order detail, by client order id, for _finish_fill_capture's place_ts / fill_ts.
+_ORDER_TIMES = {}
+
+
+def _epoch_s(v):
+    try:
+        x = float(v)
+    except (TypeError, ValueError):
+        return None
+    if x <= 0:
+        return None
+    return round(x / 1000.0, 3) if x > 1e11 else round(x, 3)
+
+
+def _stash_order_times(response, coid, signal_id=None):
+    try:
+        item = webull_orders._order_item(response, coid)
+        if not isinstance(item, dict):
+            return
+        t = {"place_ts": _epoch_s(webull_orders._field(item, "place_time", "placeTime")),
+             "fill_ts": _epoch_s(webull_orders._field(item, "filled_time", "filledTime"))}
+        if len(_ORDER_TIMES) > 500:
+            _ORDER_TIMES.clear()
+        for k in {str(coid), str(signal_id or coid)}:
+            _ORDER_TIMES[k] = t
+    except Exception:
+        pass
+
+
+def _order_times_for(item):
+    """{place_ts, fill_ts} known for a fill-capture job (earliest place, latest fill)."""
+    keys = [str(item.get("signal_id"))] + [str(p.get("client_order_id"))
+                                         for p in (item.get("parts") or [])]
+    got = [_ORDER_TIMES[k] for k in keys if k in _ORDER_TIMES]
+    places = [g["place_ts"] for g in got if g.get("place_ts")]
+    fills = [g["fill_ts"] for g in got if g.get("fill_ts")]
+    out = {}
+    if places:
+        out["place_ts"] = min(places)
+    if fills:
+        out["fill_ts"] = max(fills)
+    return out
+
+
 def _query_broker_fill(adapter, signal_id, account_id=None, log=print, outcome=None):
     """(filled_price_or_None, note_or_None) -- asks Webull for this order's CURRENT
     status, bounded to ORDER_STATUS_HARD_TIMEOUT_SEC wall-clock on its own worker
@@ -2589,6 +2705,7 @@ def _query_broker_fill(adapter, signal_id, account_id=None, log=print, outcome=N
         if item_coid is not None and str(item_coid) != str(coid):
             return None, "record is about another order"
         fields = webull_orders.order_status_fields(result.get("response"), coid)
+        _stash_order_times(result.get("response"), coid, signal_id)
         apply = getattr(adapter, "apply_order_outcome", None) if outcome is not None else None
         if callable(apply):
             res = apply(coid, fields.get("status"),
@@ -3443,6 +3560,37 @@ def _place_stock_order_with_timeout(adapter, *, leg, signal_id, symbol, side, qt
         raise
 
 
+# OWN-BAR LATENCY STAMPS (2026-11-21): the engine row being routed right now (set per event
+# by _route_engine_events, same thread as every send it causes). A send with no engine row
+# behind it (EOD flatten, a resend, a resting fill) carries the last one only within
+# _LATENCY_CTX_MAX_AGE_S of it being set -- stale context is dropped, never guessed.
+_LATENCY_CTX = {}
+_LATENCY_CTX_MAX_AGE_S = 30.0
+
+
+def _set_latency_ctx(e):
+    _LATENCY_CTX.clear()
+    try:
+        em = datetime.fromisoformat(str(e.get("emitted_at") or ""))
+        dec = em.timestamp()
+        _LATENCY_CTX.update(decision_ts=dec, bar_end_ts=float(int(dec // 300) * 300),
+                            set_at=time.time())
+    except Exception:
+        pass
+
+
+def _latency_stamps(send_ts, ack_ts):
+    """bar_end_ts/decision_ts/send_ts/ack_ts for one broker_orders.csv row ('' if unknown)."""
+    out = {"bar_end_ts": "", "decision_ts": "", "place_ts": "", "fill_ts": "",
+           "send_ts": round(send_ts, 3) if send_ts else "",
+           "ack_ts": round(ack_ts, 3) if ack_ts else ""}
+    ctx = dict(_LATENCY_CTX)
+    if ctx.get("set_at") and time.time() - ctx["set_at"] <= _LATENCY_CTX_MAX_AGE_S:
+        out["bar_end_ts"] = ctx.get("bar_end_ts", "")
+        out["decision_ts"] = round(ctx.get("decision_ts"), 3) if ctx.get("decision_ts") else ""
+    return out
+
+
 def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, seq=0,
                       trade_id=None, resend=0, requeue=True, nowdt=None, log=print,
                       remainder=False):
@@ -3499,6 +3647,7 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
     its OWN latest landed stamp right before each send (_LeaseHolder.send_gate); a process that
     is not lease-managed (a direct call, a test) has no such state and is unaffected."""
     _t_send0, _t_send0_et = time.time(), _now_et()
+    _lat_send = _lat_ack = None
     if not shares or shares <= 0:
         return
     signal_id = _broker_signal_id(leg, ts, intent, seq=seq, trade_id=trade_id)
@@ -3581,12 +3730,14 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
             # mode, a test double and the after-hours sell (_ah_send) never wait
             dup_until = (_dup_wait_until(state, nowdt)
                          if armed and isinstance(adapter, webull_orders.OrderAdapter) else None)
+            _lat_send = time.time()
             rec = _place_stock_order_with_timeout(
                 adapter, leg=leg, signal_id=signal_id, symbol=BROKER_SYMBOL,
                 side=_broker_side(side, intent), qty=int(round(shares)), intent=intent,
                 mode=mode, log=log, **({"remainder": True} if remainder else {}),
                 **({"order_kwargs": {"dup_wait_until": dup_until}}
                    if dup_until is not None else {}))
+            _lat_ack = time.time()
             _note_dup_wait(state, rec, leg, intent, nowdt, log=log)
             if ((rec or {}).get("dup_wait") or {}).get("changed") and not (rec or {}).get("duplicate"):
                 # the wait booked ANOTHER leg's terminal answer (say its acked sell died) as a
@@ -3670,6 +3821,7 @@ def _mirror_to_broker(state, *, leg, side, shares, shadow_px, intent, ts=None, s
         "ack_ms": round((time.time() - _t_send0) * 1000),
         "fill_seen_et": "",
     }
+    row.update(_latency_stamps(_lat_send, _lat_ack))
     _append_csv(BROKER_ORDERS_CSV, BROKER_ORDER_COLS, row, BROKER_ORDERS_KEEP)
     state["_broker_last"] = {"leg": leg, "intent": intent, "mode": rec.get("mode"),
                              "ok": rec.get("ok"), "reason": row["reason"]}
@@ -5157,7 +5309,7 @@ def _update_broker_order_row(signal_id, updates, log=print):
         # has a capture of its own -- a later market close's capture must land on ITS
         # row, never overwrite Webull's stop/target price on the resting one
         if row.get("signal_id") == signal_id and not _is_resting_fill_row(row):
-            row.update(updates)
+            row.update({k: v for k, v in updates.items() if k in fieldnames})
             found = True
             break
     if not found:
@@ -5199,6 +5351,7 @@ def _finish_fill_capture(item, px, note, log=print):
             updates["broker_fill_px"] = px
             updates["slippage"] = slippage if slippage is not None else ""
             updates["fill_seen_et"] = _now_et().strftime("%Y-%m-%d %H:%M:%S")
+            updates.update(_order_times_for(item))
         elif note:
             # only ever fills an otherwise-blank reason cell -- a capture job exists
             # only for a row that was already ok+sent (see _queue_broker_fill_capture),
@@ -8265,6 +8418,7 @@ def _consume_engine_signals(state, cfg, now, log=print):
             out.append({"leg": r["leg"], "event": ev, "side": r.get("side") or "long",
                        "ref_time": r["ref_time"], "ref_price": float(r["ref_price"]),
                        "bar_source": r.get("bar_source") or "",
+                       "emitted_at": r.get("emitted_at") or "",
                        # "" for a row written before cloud_signal wrote trade ids -- see
                        # _route_engine_events' OLD ROWS rule for what that means
                        "trade_id": str(r.get("trade_id") or "").strip(),
@@ -8536,6 +8690,7 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
     events = sorted(events or [], key=lambda ev: 1 if (str(ev.get("leg")) == DIP_ENGINE_KEY
                                                        and ev.get("event") == "ENTRY") else 0)
     for e in events:
+        _set_latency_ctx(e)
         leg = _exec_leg_for(e["leg"], str(e.get("trade_id") or "").strip())
         if leg is None:
             if e.get("leg") == DIP_ENGINE_KEY:
@@ -15985,6 +16140,18 @@ def _eod_summary_from(nowdt):
     return (t // 60, t % 60)
 
 
+def _latency_summary_today(today):
+    """OWN-BAR LATENCY (2026-11-21): p50/p90 bar_end->send, send->ack, send->fill over today's
+    broker_orders.csv rows that carry the stamps; '' when none do. Never raises."""
+    try:
+        from . import ownbar
+        with open(BROKER_ORDERS_CSV, encoding="utf-8", newline="") as f:
+            rows = [r for r in csv.DictReader(f) if str(r.get("ts_et") or "").startswith(today)]
+        return ownbar.latency_line(rows)
+    except Exception:
+        return ""
+
+
 def _maybe_send_eod_summary(state, doc, nowdt, log=print):
     """Once per ET weekday, at/after the session close + 5 min (16:05 ET; 13:05 on a half
     day -- _eod_summary_from), pushes one ntfy summary of the day."""
@@ -16045,6 +16212,9 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         msg = (f"Trades {n} | {pnl_txt} | fills vs backtest checked/flagged last "
               f"{parity['checked']}/{parity['failed']}{all_txt}{roll_txt} | feed uptime {uptime_txt} | "
               f"rail trips {rail_trips} | {flat_txt}")
+        lat_txt = _latency_summary_today(today)
+        if lat_txt:
+            msg += f" | {lat_txt}"
         log(f"[qqq-exec] EOD summary: {msg}")
         # WEBULL PUSH PLAN 10-07, group G: the day summary is a low note; the full line stays
         # in the log and the timeline event
@@ -16063,6 +16233,8 @@ def _maybe_send_eod_summary(state, doc, nowdt, log=print):
         else:
             problem = (f"{'Made' if float(pnl or 0) >= 0 else 'Lost'} {ntfy_push.usd(pnl or 0)} "
                        f"today {where}; {flat_words}")
+        if lat_txt:
+            problem += f". {lat_txt}"
         _say(state, "day_summary", today, ntfy_push.plain(
             PHONE_AREA, "day done", None, problem, "nothing", priority="low"), log=log)
         state["eod_summary_done_date"] = today
@@ -17731,8 +17903,11 @@ def tick(*, fills_path=DEFAULT_FILLS, now=None, quote_fn=default_webull_quote,
         if src_mode == "engine":
             events = _consume_engine_signals(state, cfg, nowdt, log=log)
             if events:
-                _route_engine_events(state, cfg, events, entries_blocked, log=log, now=nowdt,
-                                     dip_entries_blocked=dip_entries_blocked)
+                try:
+                    _route_engine_events(state, cfg, events, entries_blocked, log=log, now=nowdt,
+                                         dip_entries_blocked=dip_entries_blocked)
+                finally:
+                    _LATENCY_CTX.clear()
         else:
             fills = nt_sync.parse_fills(fills_path)
             # fills.csv "Time" is UTC (EdgeLogExport.cs: ex.Time.ToUniversalTime()). Convert to

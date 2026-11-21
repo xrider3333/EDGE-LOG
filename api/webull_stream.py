@@ -750,6 +750,13 @@ class WebullBarStreamer:
         self._session_label_counts = {}   # trading_session value (or None) -> count seen
 
         self._last_message_epoch = None
+        # OWN-BAR FAST PATH (2026-11-21, api/ownbar.py): recent closed 1m bars by start
+        # epoch, the wall time of the last real feed message (never set by a connect),
+        # and when the current connection came up.
+        self._recent_1m = {}
+        self._last_feed_epoch = None
+        self._last_connect_epoch = None
+        self._ownbar_thread = None
         self._stop = threading.Event()
         self._client = None
         self._watchdog_thread = None
@@ -759,6 +766,7 @@ class WebullBarStreamer:
     def _on_message(self, topic, payload):
         now = self._clock()
         self._last_message_epoch = now
+        self._last_feed_epoch = now
         with self._lock:
             self._message_times.append(now)
 
@@ -801,6 +809,8 @@ class WebullBarStreamer:
                 if closed:
                     self._pending_rows.setdefault(secs, []).extend(closed)
                     self._closed_bars[secs] = closed[-1]
+                    if secs == 60:
+                        self._remember_1m(closed)
                     # item 10: counts THIS bar too, so it reads 1 on the very first
                     # close after a (re)connect -- next_handoff_bar's own docstring
                     # explains why it gates on < 2, not < 1.
@@ -893,7 +903,70 @@ class WebullBarStreamer:
         # next_handoff_bar gates on, so that first bar is never published.
         with self._lock:
             self._bars_closed_since_connect = {secs: 0 for secs in self.builders}
+            self._last_connect_epoch = self._clock()
         return client
+
+    # -- OWN-BAR FAST PATH (2026-11-21, api/ownbar.py) --
+    def _remember_1m(self, closed):
+        """Caller holds self._lock. Keeps the last ~15 closed 1m bars by start epoch."""
+        for b in closed:
+            self._recent_1m[int(b["time"])] = dict(b)
+        if len(self._recent_1m) > 15:
+            for k in sorted(self._recent_1m)[:-15]:
+                self._recent_1m.pop(k, None)
+
+    def own_minutes(self, bar_start):
+        """{1m start: bar} for the five minutes of the 5m bar opening at bar_start: closed
+        1m bars plus the still-open 1m bar (the 5th minute is normally still open at the
+        boundary -- the builder closes a minute only on the next minute's first print)."""
+        out = {}
+        with self._lock:
+            for k in range(5):
+                t = int(bar_start) + 60 * k
+                if t in self._recent_1m:
+                    out[t] = dict(self._recent_1m[t])
+            b1 = self.builders.get(60)
+            cur = b1._bars.get(self.symbols[0]) if b1 is not None else None
+            if cur is not None and int(bar_start) <= int(cur["time"]) < int(bar_start) + 300:
+                out.setdefault(int(cur["time"]), dict(cur))
+        return out
+
+    def _ownbar_pass(self, now=None):
+        """Fold the 5m bar that just closed, publish it (or why not) and wake the engine.
+        Returns the payload. Never raises."""
+        from api import ownbar
+        try:
+            now = self._clock() if now is None else now
+            bar_end = int(now // 300) * 300
+            bar_start = bar_end - 300
+            et = datetime.fromtimestamp(bar_start, ZoneInfo(TZ))
+            if et.weekday() >= 5 or not (dtime(9, 30) <= et.time() < dtime(16, 0)):
+                return None
+            bar, reason = ownbar.fold_own_bar(
+                self.own_minutes(bar_start), bar_start, now, self._last_feed_epoch,
+                self._client is not None, self._last_connect_epoch)
+            payload = {"bar_start": bar_start, "bar_end": bar_end, "ok": bar is not None,
+                       "reason": reason, "bar": bar, "built_ts": now,
+                       "last_update_age_s": (None if self._last_feed_epoch is None
+                                             else round(now - self._last_feed_epoch, 3))}
+            ownbar.write_handoff(self.handoff_home or edgelog_home(), payload)
+            ownbar.wake(ownbar.engine_port(), str(bar_end).encode())
+            if bar is None:
+                self.log(f"[webull-stream] own bar @ {bar_start} NOT usable: {reason} -- "
+                         "REST path decides this bar")
+            return payload
+        except Exception as e:
+            self.log(f"[webull-stream] own-bar pass failed: {type(e).__name__}: {e}")
+            return None
+
+    def _ownbar_loop(self):
+        from api import ownbar
+        while not self._stop.is_set():
+            now = self._clock()
+            target = ownbar.next_boundary(now) + ownbar.grace_s()
+            if self._stop.wait(max(0.0, target - now)):
+                break
+            self._ownbar_pass()
 
     def _watchdog(self):
         attempt = 0
@@ -996,6 +1069,14 @@ class WebullBarStreamer:
         self._watchdog_thread.start()
         self._handoff_thread = threading.Thread(target=self._handoff_loop, name="webull-stream-handoff", daemon=True)
         self._handoff_thread.start()
+        try:
+            from api import ownbar
+            if ownbar.enabled():
+                self._ownbar_thread = threading.Thread(target=self._ownbar_loop,
+                                                       name="webull-stream-ownbar", daemon=True)
+                self._ownbar_thread.start()
+        except Exception as e:
+            self.log(f"[webull-stream] own-bar loop not started: {type(e).__name__}: {e}")
 
     def stop(self):
         self._stop.set()

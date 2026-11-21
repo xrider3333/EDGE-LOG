@@ -362,14 +362,20 @@ def already_shadowed(paths, leg_key, bar_epoch):
     return str(bar_epoch) in (shadow.get(leg_key) or {})
 
 
+def _wall_now():
+    import time as _t
+    return _t.time()
+
+
 def record_shadow_decision(paths, leg_key, bar_epoch, events, bar, baseline_leg_state,
-                           now_epoch, committed_live, log=print):
+                           now_epoch, committed_live, log=print, source="stream"):
     shadow = _load_shadow(paths)
     shadow.setdefault(leg_key, {})[str(bar_epoch)] = {
         "events": events, "bar": bar, "baseline_leg_state": baseline_leg_state,
         "decided_epoch": now_epoch,
         "decided_at": _dt.datetime.fromtimestamp(now_epoch, tz=cs._zi(cs.TZ)).isoformat(),
         "committed_live": bool(committed_live),
+        "source": source,
     }
     _save_shadow(shadow, paths)
 
@@ -401,7 +407,8 @@ def _trip_disagreement(shadow, leg_key, today_iso, bar_epoch, now, log):
 
 
 # ── the two halves of one tick ───────────────────────────────────────────────────────────
-def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None):
+def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None,
+                           payload=None, force_live=False, bar_source="stream", on_commit=None):
     """Runs only inside the ~1 minute after a 5m boundary. Reads the hand-off file
     once; if it clears every safety gate, computes (and records) each 5m leg's
     stream-implied decision, and -- only when the owner switch is on AND that leg's
@@ -411,10 +418,11 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None)
     tick's step() -- run_stream_aware_step hands it in when the owner switch is OFF and
     the extras run after step(), so the dry run sees exactly the baseline it saw when it
     ran first. Never written back (state_changed needs want_live, which is off then)."""
-    payload = read_closed_bar_handoff("5m", home=paths.get("home"))
-    ok, reason = stream_bar_is_usable(payload, now)
-    if not ok:
-        return
+    if payload is None:
+        payload = read_closed_bar_handoff("5m", home=paths.get("home"))
+        ok, reason = stream_bar_is_usable(payload, now)
+        if not ok:
+            return
     bar = {k: payload[k] for k in ("time", "open", "high", "low", "close", "volume")}
     bar_epoch = int(bar["time"])
     rest_df = cs.historical_bars("5m", paths)
@@ -422,7 +430,7 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None)
     effective_now = _effective_now_for_bar(bar_epoch + cs.TIMEFRAME_SECONDS["5m"],
                                            cs.CLOSE_GRACE_SECONDS)
     today = now.date().isoformat()
-    want_live = bool(stream_cfg.get("bar_close_from_stream"))
+    want_live = bool(stream_cfg.get("bar_close_from_stream")) or bool(force_live)
     if state is not None:
         # PRE-STEP SNAPSHOT (VERIFIER 11-18): the caller read the switch OFF and step() has
         # already run. A flip to ON between the two reads must never commit from the stale
@@ -452,7 +460,7 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None)
         baseline = copy.deepcopy(leg_state)
         not_taken = []        # "not taken: the market is closed" lines -- logged on commit only
         events, mutated = _dry_run_decision(leg_key, cfg, augmented, effective_now, leg_state,
-                                            "stream", log, paths=paths,
+                                            bar_source, log, paths=paths,
                                             not_taken_log=not_taken.append)
         if events is None:
             continue
@@ -470,6 +478,11 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None)
             mutated["last_bar_epoch"] = bar_epoch
             state["legs"][leg_key] = mutated
             cs._append_signals(events, paths)
+            if on_commit is not None and events:
+                try:
+                    on_commit(leg_key, events)   # OWN-BAR: wake the executor per leg
+                except Exception:
+                    pass
             # KEEL ENTRY EXTRAS (MANAGER #76): a committed stream ENTRY is the leg's real
             # entry (step() will not emit it again), so its KEEL log line / size-diff alert
             # goes out from here -- after the loop and the state write, see below
@@ -477,7 +490,7 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None)
             state_changed = True
             committed = True
             log(f"[cloud-signal-stream] LIVE from the stream: {leg_key} @ {bar_epoch} -- "
-               f"{len(events)} event(s), bar_source=stream")
+               f"{len(events)} event(s), bar_source={bar_source}")
             for line in not_taken:   # this commit IS the leg's real decision (see above)
                 log(line)
             # LATE SKIPS ARE NEVER SILENT (owner 2026-10-14): the dry run could not page
@@ -488,7 +501,8 @@ def _handle_handoff_window(now, five_m_legs, paths, stream_cfg, log, state=None)
             log(f"[cloud-signal-stream] {leg_key}: stream decision computed but not fired "
                f"live -- disagreement latch tripped today ({today})")
         record_shadow_decision(paths, leg_key, bar_epoch, events, bar, baseline,
-                               now.timestamp(), committed, log=log)
+                               _wall_now() if bar_source == "ownbar" else now.timestamp(),
+                               committed, log=log, source=bar_source)
         log(f"[cloud-signal-stream] shadow: {leg_key} stream decision @ {bar_epoch} -> "
            f"{len(events)} event(s)")
     if state_changed:
@@ -546,6 +560,9 @@ def _resolve_pending_against_rest(now, five_m_legs, paths, log):
                    f"{detail}; ohlc_diff(stream-rest)={_ohlc_diff(rec['bar'], rest_bar)}")
                 if rec.get("committed_live"):
                     _trip_disagreement(shadow, leg_key, now.date().isoformat(), bar_epoch, now, log)
+            if rec.get("source") == "ownbar":
+                _ownbar_audit(paths, leg_key, bar_epoch, rec, rest_bar, rest_events, match,
+                              detail, log)
             del pending[bar_epoch_str]
             changed = True
         if pending:
@@ -554,6 +571,125 @@ def _resolve_pending_against_rest(now, five_m_legs, paths, log):
             shadow.pop(leg_key, None)
     if changed:
         _save_shadow(shadow, paths)
+
+
+# ── OWN-BAR FAST PATH (owner order 2026-11-21, PAPER only -- see api/ownbar.py) ─────────
+# The executor's streamer folds the five stream 1m bars at the boundary and publishes
+# ohlc_stream/QQQ_5m_ownbar.json + a UDP wake. Here that bar is committed through the SAME
+# _handle_handoff_window commit path item 10 uses (bar_source="ownbar"); a bar the gates
+# refuse is simply not committed, so step()'s REST + guard path decides it as today. The
+# REST-final bar is still compared afterwards (_resolve_pending_against_rest ->
+# _ownbar_audit): logs/ownbar_audit.jsonl + a phone alert on a decision flip. Nothing is
+# ever reversed.
+OWNBAR_MISSING_AFTER_S = 1.0     # no own-bar file for this boundary by close+1 s -> fallback
+_OWNBAR_ALERTS = None
+_OWNBAR_DONE = {"bar_end": None}
+_OWNBAR_REFUSAL_LOGGED = {"why": None}
+
+
+def _ownbar_mod():
+    from api import ownbar
+    return ownbar
+
+
+def _alerts():
+    global _OWNBAR_ALERTS
+    if _OWNBAR_ALERTS is None:
+        _OWNBAR_ALERTS = _ownbar_mod().EpisodeAlert()
+    return _OWNBAR_ALERTS
+
+
+def _ownbar_push(msg, paths, log, priority="high"):
+    """Phone alert through the engine's own ntfy helper (background thread)."""
+    try:
+        cs._engine_push_background(msg, "QQQ own bar", priority=priority, paths=paths, log=log)
+    except Exception as e:
+        log(f"[cloud-signal-stream] own-bar push failed: {type(e).__name__}: {e}")
+
+
+def ownbar_active(paths, log=print):
+    """True when EDGELOG_OWNBAR_DECIDE=1 and the broker config is PAPER. A set flag beside a
+    LIVE (or non-PAPER) config is refused, logged and alerted once per reason."""
+    ob = _ownbar_mod()
+    if not ob.enabled():
+        return False
+    on, why = ob.active()
+    if on:
+        _OWNBAR_REFUSAL_LOGGED["why"] = None
+        return True
+    if _OWNBAR_REFUSAL_LOGGED["why"] != why:
+        _OWNBAR_REFUSAL_LOGGED["why"] = why
+        log(f"[cloud-signal-stream] own-bar fast path REFUSED: {why}")
+        _ownbar_push(f"Own-bar fast path is OFF: {why}. REST bars decide.", paths, log)
+    return False
+
+
+def _ownbar_fallback(paths, bar_end, why, log):
+    log(f"[cloud-signal-stream] own bar @ close {bar_end}: FALLBACK to REST -- {why}")
+    _ownbar_mod().append_audit(paths.get("home") or cs.edgelog_home(),
+                               {"kind": "fallback", "bar_end": bar_end, "why": why})
+    _alerts().fail("ownbar", f"Own-bar path fell back to REST bars: {why}. Orders now wait "
+                   "for the REST bar (~7 s). One alert per episode.",
+                   lambda m: _ownbar_push(m, paths, log))
+
+
+def handle_ownbar(now, five_m_legs, paths, log, wall=None):
+    """One own-bar pass for the boundary that just closed. Returns True when the bar was
+    handled (committed or fallen back), False when there is nothing to do yet."""
+    import time as _t
+    ob = _ownbar_mod()
+    wall = _t.time() if wall is None else wall
+    bar_end = int(wall // 300) * 300
+    if _OWNBAR_DONE["bar_end"] == bar_end:
+        return False
+    if wall - bar_end > HANDOFF_WINDOW_SECONDS:
+        return False
+    home = paths.get("home") or cs.edgelog_home()
+    payload = ob.read_handoff(home)
+    if not payload or int(payload.get("bar_end") or 0) != bar_end:
+        if wall - bar_end < OWNBAR_MISSING_AFTER_S:
+            return False
+        _OWNBAR_DONE["bar_end"] = bar_end
+        _ownbar_fallback(paths, bar_end, "no own bar published for this close (stream "
+                         "thread down?)", log)
+        return True
+    _OWNBAR_DONE["bar_end"] = bar_end
+    if not payload.get("ok") or not payload.get("bar"):
+        _ownbar_fallback(paths, bar_end, str(payload.get("reason") or "own bar unusable"), log)
+        return True
+    _alerts().ok("ownbar")
+    bar = dict(payload["bar"])
+    t_dec0 = _t.time()
+
+    def _wake_exec(leg_key, events):
+        ob.wake(ob.exec_port(), f"{leg_key}:{bar_end}".encode())
+        log(f"[cloud-signal-stream] own bar {leg_key} @ close {bar_end}: decided "
+            f"{(_t.time() - bar_end) * 1000:.0f} ms after bar end "
+            f"(decision {(_t.time() - t_dec0) * 1000:.0f} ms), executor woken")
+
+    _handle_handoff_window(now, five_m_legs, paths, {}, log, payload=bar, force_live=True,
+                           bar_source="ownbar", on_commit=_wake_exec)
+    return True
+
+
+def _ownbar_audit(paths, leg_key, bar_epoch, rec, rest_bar, rest_events, match, detail, log):
+    """Own bar vs REST-final: one jsonl row; a decision flip pages (never reversed)."""
+    ob = _ownbar_mod()
+    flip = not match
+    ob.append_audit(paths.get("home") or cs.edgelog_home(), {
+        "kind": "audit", "leg": leg_key, "bar_start": bar_epoch,
+        "own_bar": rec.get("bar"), "rest_final_bar": rest_bar,
+        "ohlc_diff_own_minus_rest": _ohlc_diff(rec.get("bar") or {}, rest_bar),
+        "own_decision": _canonical_events(rec.get("events")),
+        "rest_decision": _canonical_events(rest_events),
+        "committed_live": bool(rec.get("committed_live")),
+        "decided_epoch": rec.get("decided_epoch"), "flip": flip, "detail": detail,
+    })
+    if flip:
+        own_n, rest_n = len(rec.get("events") or []), len(rest_events or [])
+        _ownbar_push(f"OWN-BAR FLIP {leg_key} bar {bar_epoch}: own bar decided {own_n} "
+                     f"event(s), REST-final bar {rest_n}. Order NOT reversed -- check the "
+                     f"position. {detail}"[:900], paths, log, priority="urgent")
 
 
 # ── the one integration point api/cloud_signal.py calls ─────────────────────────────────
@@ -570,6 +706,29 @@ def run_stream_aware_step(now=None, legs=None, paths=None, fetch=True, warnings=
         now = now.replace(tzinfo=cs._zi(cs.TZ))
     legs = legs if legs is not None else cs.CROWN_LEGS
     paths = paths or cs.DEFAULT_PATHS
+    # OWN-BAR FAST PATH (2026-11-21): flag on + PAPER -> the own bar is committed first, the
+    # item-10 hand-off path is skipped, and step() (REST + guard) decides anything not
+    # committed. Flag off -> nothing below this block changes.
+    own = False
+    try:
+        own = ownbar_active(paths, log=log)
+    except Exception as e:
+        log(f"[cloud-signal-stream] own-bar check failed (classic path): {type(e).__name__}: {e}")
+    if own:
+        five_m_legs = {k: v for k, v in legs.items()
+                       if v.get("timeframe") == "5m" and v.get("runner") != cs.DIP_RUNNER}
+        try:
+            if five_m_legs and not cs.bar_cache_refusal("5m", paths):
+                handle_ownbar(now, five_m_legs, paths, log)
+        except Exception as e:
+            log(f"[cloud-signal-stream] own-bar pass failed (REST path decides): "
+               f"{type(e).__name__}: {e}")
+        try:
+            if five_m_legs:
+                _resolve_pending_against_rest(now, five_m_legs, paths, log)
+        except Exception as e:
+            log(f"[cloud-signal-stream] own-bar audit failed: {type(e).__name__}: {e}")
+        return cs.step(now=now, legs=legs, paths=paths, fetch=fetch, warnings=warnings)
     # ORDERS FIRST (2026-11-18, bar-close-to-order latency): with the owner switch OFF (the
     # box today -- bar_close_from_stream False, no stream row ever committed) every extra
     # below is diagnostic only: deep-copied dry runs (ORB + NOISE incl. KEEL scoring) whose

@@ -279,6 +279,29 @@ def install_keepalive(log=None):
             return False
 
 
+def keepalive_warm(url=None, timeout=1.5):
+    """OWN-BAR item E (2026-11-21): one HEAD through THIS thread's keep-alive session, so the
+    next order sent on this thread reuses a live TLS connection. Run it on the send worker
+    thread. Returns elapsed ms, or None when keep-alive is not installed / the call failed.
+    Never raises; sends no order, touches no account endpoint."""
+    try:
+        with _KEEPALIVE_LOCK:
+            installed = _KEEPALIVE_STATE["installed"]
+        if not installed:
+            return None
+        from webull.core.http import response as _wresp
+        factory = _wresp.Session
+        if not isinstance(factory, _KeepAliveSessionFactory):
+            return None
+        url = url or os.environ.get("EDGELOG_WEBULL_WARM_URL", "https://api.webull.com/")
+        t0 = time.monotonic()
+        with factory() as sess:
+            sess.head(url, timeout=timeout, allow_redirects=False)
+        return (time.monotonic() - t0) * 1000.0
+    except Exception:
+        return None
+
+
 def uninstall_keepalive():
     """Put the SDK's own Session back (tests / emergency). Never raises."""
     with _KEEPALIVE_LOCK:
