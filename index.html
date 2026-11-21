@@ -1645,6 +1645,7 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    out in that order as the window narrows. A column comes back only once the box has room for it (a scrollbar can take 15 px): hm-s3 above
    1010 px, hm-s2 above 900 px, hm-s1 above 700 px - the breakpoints used to sit 30 to 45 px too low and the box scrolled inside itself there. */
 .hm-dtable.hm-simple{min-width:0}
+.hm-dtable:not(.hm-simple){width:max-content;min-width:0}
 /* FULL view fits the page width on a laptop or wider (owner 11-16: no sideways scroll, smaller font is fine) */
 @media (min-width:1100px){.hm-dtable:not(.hm-simple){min-width:0;font-size:10px}.hm-dtable:not(.hm-simple) th{padding:7px 4px;font-size:9px;letter-spacing:.5px}.hm-dtable:not(.hm-simple) td{padding:6px 4px}.hm-dtable:not(.hm-simple) td.hm-notes-cell{max-width:110px;overflow:hidden;text-overflow:ellipsis}.hm-dtable:not(.hm-simple) td.hm-notes-cell input{width:100px}.hm-dtable:not(.hm-simple) input[data-field="chartUrl"]{width:36px;max-width:36px}.hm-dtable:not(.hm-simple) th{letter-spacing:0}.hm-dtable:not(.hm-simple) th,.hm-dtable:not(.hm-simple) td{padding-left:3px !important;padding-right:3px !important}.hm-dtable:not(.hm-simple) .lg-d-full{display:none}.hm-dtable:not(.hm-simple) .lg-d-short{display:inline}.hm-dtable:not(.hm-simple) td.hm-notes-cell input{width:84px !important;max-width:84px}.hm-dtable:not(.hm-simple) td.lg-c-chart input{width:30px !important;max-width:30px}.hm-dtable:not(.hm-simple) td.lg-c-strat{max-width:52px;overflow:hidden;text-overflow:ellipsis}.hm-dtable:not(.hm-simple) .inline-sel,.hm-dtable:not(.hm-simple) .inline-txt{font-size:10px;max-width:120px}}
 /* SIMPLE's SETUP . TF . CHART group (owner 2026-10-10: "time frame, setup selector, and chart selector in one spot"): the setup select, the TF
@@ -1832,7 +1833,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.41';
+const VERSION='91.42';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1853,6 +1854,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.42',date:'2026-11-20',notes:['LEDGER REAL TABLE FULL: columns sized to their content, no wide blank gaps','WEBULL PAPER: a better fill never hatches the calendar or reads behind the backtest; CHECK FILL on a better fill is amber with the reason on hover','WEBULL PAPER: FILLS BEHIND BACKTEST says on hover which strategy and by how much','WEBULL PAPER BOOK card: active book name, estimated $/yr and max DD on top; each live leg shows today']},
 {v:'91.39',date:'2026-11-20',notes:['WEBULL PAPER BOOKS: the new ORB leg (run 546) and the half-size expiry-week leg are named in the switch rules (shadow only / no executor) instead of showing as unknown.']},
 {v:'91.38',date:'2026-11-20',notes:['WALK-FORWARD VERIFIER NOW MATCHES HOW A RUN WAS SCORED. Folds were always re-checked cold, but since 2026-09-20 the engine scores each out-of-sample stretch with a warm-up so a position already open when the stretch starts is carried in. The checker now reads the run date and re-checks the same way, so a run from that date on can be verified at all; it tries the other way too before giving up, and if only that other way matches it says so and refuses to save the result unless told to. No saved number changes: an audit of all 495 runs found no stored block built the wrong way, because a mismatch always refused to write rather than writing something wrong.']},
 {v:'91.37',date:'2026-11-20',notes:['WEBULL PAPER BOOKS: the no-gold version of each book is listed first, with the gold version right under it marked with gold (research).']},
@@ -45440,7 +45442,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(parFailedForHero>0)chips.push(qbChipG(parFailedForHero+' PARITY MISMATCH'+(parFailedForHero===1?'':'ES'),'var(--attn-red)'));
         // FILL PARITY running average (2026-09-28): only the leg/board rolling flag reaches
         // the hero -- one flagged trade stays on its own row.
-        if(QBPAR&&QBPAR.board_flag)chips.push(qbChipG('FILLS BEHIND BACKTEST','var(--attn-red)'));
+        if(QBPAR&&QBPAR.board_flag){const _lg=QBPAR.legs||{},_t=Object.keys(_lg).filter(k=>_lg[k]&&_lg[k].flag).map(k=>{const L=_lg[k],a=Number(L.avg_exec_ps);return k+': its last '+(L.n||'?')+' trades filled on average '+(isFinite(a)?Math.abs(a*100).toFixed(1)+'¢ a share '+(a<0?'worse':'better'):'?')+' than the backtest, '+(L.flagged||0)+' flagged';}).join(' | ');
+          chips.push('<span title="'+(_t||'the running average of Webull fills is too far worse than the backtest').replace(/"/g,'&quot;')+'">'+qbChipG('FILLS BEHIND BACKTEST','var(--attn-red)')+'</span>');}
         if(QRHEALTH&&QRHEALTH.warn)chips.push(qbChipG('RATIO DRIFT','var(--warn)'));
         if(qeSlowLatency)chips.push(qbChipG('SLOW LATENCY','var(--warn)'));
         if(QREADY&&QREADY.ready===false)chips.push(qbChipG('NOT READY','var(--warn)'));
@@ -46113,9 +46116,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // owner 11-19 (PAPER-WB rule, engine v91.00): a fill hatches only on a real verdict the engine stamped -
           // fp side [9] pok=0 (outside the latency-scaled parity band, design gap removed) or [10] omr=1 (outside its minute range).
           // ORB breakout gaps are design and never hatch. Rows without [9] keep the old flat parity flag.
-          const qbFpV=t=>{if(t&&(t.fill_parity_ok===true||t.fill_parity_ok===false))return {band:(t.fill_parity_ok===false&&t.fill_parity_side!=='better')?1:0,omr:t.fill_parity_outside_minute_range?1:0};
+          const qbFpV=t=>{if(t&&(t.fill_parity_ok===true||t.fill_parity_ok===false))return {band:(t.fill_parity_ok===false&&t.fill_parity_side!=='better')?1:0,omr:(t.fill_parity_outside_minute_range&&t.fill_parity_side!=='better')?1:0};
             const fp=t&&t.fp;if(!fp)return null;let has=false,band=0,omr=0;
-            [fp.en,fp.ex].forEach(x=>{if(typeof x!=='string')return;const q=x.split('|');if(q.length<10)return;has=true;if(q[9]==='0')band++;if(q[10]==='1')omr++;});
+            [fp.en,fp.ex].forEach(x=>{if(typeof x!=='string')return;const q=x.split('|');if(q.length<10)return;has=true;const worse=!(Number(q[3])>=0);if(q[9]==='0'&&worse)band++;if(q[10]==='1'&&worse)omr++;});
             return has?{band:band,omr:omr}:null;};
           qbRangeTrades.forEach(t=>{const d=qeTradeDate(t);if(!d)return;const c=fl[d]||(fl[d]={rep:0,par:0,band:0,omr:0,bo:0,bob:0,boi:0});
             if(qeRepriced(t))c.rep++;const v=qbFpV(t);
@@ -46675,7 +46678,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               sw:s.lk?{on:qbShOn.indexOf(s.lk)>=0}:undefined,off:!(s.lk&&qbShOn.indexOf(s.lk)>=0),swKey:s.lk?('sh:'+s.lk):undefined};});
           // LEDGER UI r2 step 10 (scope SCOPE_LEDGER_UI_R2_2026-11-03, items 3, 34): 'not counted' once, in the Shadow title; the Retired and
           // Shadow notes ride in a ? on the group header (g.help) instead of a full line on every render
-          const gBook={key:'book',title:'BOOK',count:bookRows.length,rows:bookRows};
+          // owner 11-20 (via MANAGER): the BOOK card leads with the active book - its name, estimated $/yr and max DD from the book table
+          // (window._bookLegs; an estimate, never this account's result) - and each live leg row carries TODAY beside its range total
+          const _tdy=(typeof QF!=='undefined'&&QF&&QF.todayNY)||'';
+          bookRows.forEach(r=>{if(!r||r.key==='~other'||!_tdy)return;const tt=qbAllTrades.filter(t=>qbFamOf(t.leg)===r.key&&qeTradeDate(t)===_tdy);
+            if(tt.length){const n=tt.reduce((x,t)=>x+(+qePnlOf(t)||0),0);r.value3='<span class="'+ledgerCls(n)+'" data-qbrowtoday="'+esc(r.key)+'" title="closed trades today">today '+ledgerSigned(n)+'</span>';}});
+          const _bkNote=(()=>{try{const B=window._bookLegs,live=bookRows.filter(r=>r.key!=='~other').map(r=>r.key).sort().join('+');
+            let hit=null;if(B&&B.books)Object.keys(B.books).forEach(k=>{const bk=B.books[k];if(hit||!bk||!Array.isArray(bk.legs)||/prov/.test(k))return;
+              const ex=bk.legs.map(l=>(BOOKS_LEG_CLASS[String(l.id||'')]||{}).exec_leg).filter(Boolean).sort().join('+');if(ex&&ex===live)hit=bk;});
+            const nm=bookRows.filter(r=>r.key!=='~other').map(r=>{const m=(QE_LEGS.find(x=>x[0]===r.key)||[]);return (m[1]||r.key)+' '+(m[3]||'');}).join(' + ');
+            return '<div class="qbx-bk-head" data-qbbookhead="1" style="display:flex;flex-wrap:wrap;gap:4px 10px;align-items:baseline;font-size:11px;color:var(--text3);margin:0 0 4px">'
+              +'<b style="color:var(--text)">'+esc(hit?('Book '+(hit.row||'')):'Live book')+'</b><span>'+esc(nm)+'</span>'
+              +(hit?('<span title="the book table’s backtest estimate for this mix of legs - not this account’s result">est. $'+Math.round(+hit.usd_per_year||0).toLocaleString('en-US')+'/yr &middot; max DD '+esc(hit.max_dd_pct)+'%</span>'):'')+'</div>';}catch(e){return '';}})();
+          const gBook={key:'book',title:'BOOK',count:bookRows.length,note:_bkNote,rows:bookRows};
           const gRet=retModels.length?{key:'retired',title:'Retired',fold:true,open:qbRetOpen,
             count:retOne?(retOne.since?'flat since '+retOne.since:'no trades yet'):(retModels.length+' strategies'),
             help:qbRetiredInfo.map(x=>x.label+(x.since?' last traded on '+x.since:' has no trades')).join('; ')
@@ -46999,14 +47014,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // owner 11-20: rows stamped by engine v91.00 carry the verdict (fp side [9] pok, [10] omr) - the chip reads it, not the flat 15c flag
               const _qv=(()=>{if(t.fill_parity_ok===true||t.fill_parity_ok===false)return {band:t.fill_parity_ok===false&&t.fill_parity_side!=='better',omr:!!t.fill_parity_outside_minute_range};
                 const fp=t.fp;if(!fp)return null;let has=false,band=false,omr=false;
-                [fp.en,fp.ex].forEach(x=>{if(typeof x!=='string')return;const q=x.split('|');if(q.length<10)return;has=true;if(q[9]==='0')band=true;if(q[10]==='1')omr=true;});
-                return has?{band:band,omr:omr}:null;})();
+                const why=[],nm={en:'Entry',ex:'Exit'};let allBetter=true;
+                ['en','ex'].forEach(k=>{const x=fp[k];if(typeof x!=='string')return;const q=x.split('|');if(q.length<10)return;has=true;const e=Number(q[3]),worse=!(e>=0);
+                  if(q[9]==='0'&&worse)band=true;if(q[10]==='1')omr=true;
+                  if((q[9]==='0'&&worse)||q[10]==='1'){if(worse)allBetter=false;
+                    why.push(nm[k]+': Webull '+q[1]+' vs backtest '+q[0]+' = '+Math.abs(e).toFixed(2)+' a share '+(worse?'WORSE':'BETTER')
+                      +(q[10]==='1'?'. Webull’s price is outside the high-low of our feed’s 1-minute bar for that minute, so the two price sources disagree - check the fill, it is not counted as behind the backtest':'. Outside the allowed fill band'));}});
+                return has?{band:band,omr:omr,better:allBetter,why:why.join(' | ')}:null;})();
               const bOk=_qv?((_qv.band||_qv.omr)?false:(t.broker_parity_ok==null?t.broker_parity_ok:true)):t.broker_parity_ok;
               const note=String(t.broker_parity_note||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
               if(bOk===false){
                 const fpD=qeFpOf(t);
                 const odd=_qv?_qv.omr:!!(fpD&&[fpD.en,fpD.ex].some(s=>s&&Math.abs(Number(s.unx)||0)>=0.00005));
-                return ' <span title="'+note+'">'+qePill(odd?'CHECK FILL':'FILL GAP','var(--attn-red)')+'</span>';
+                const _wh=(_qv&&_qv.why)?String(_qv.why).replace(/"/g,'&quot;'):note;
+                return ' <span title="'+_wh+'">'+qePill(odd?'CHECK FILL':'FILL GAP',(_qv&&_qv.better)?'var(--warn)':'var(--attn-red)')+'</span>';
               }
               if(bOk===undefined||bOk===null){
                 return ' <span title="'+(note||'not compared yet')+'">'+qePill('NOT COMPARED','var(--text4)')+'</span>';
