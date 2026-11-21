@@ -1920,7 +1920,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.69';
+const VERSION='91.70';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1941,6 +1941,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.70',date:'2026-11-21',notes:['NT8 PAPER curve: a percent axis on the left beside the dollar axis - each grid line also reads its percent of the Sim101 account at the start of the range, the same base as the realized percent in the hero (hover a percent tick to see the base). Hovering the chart shows the total and the day in dollars and percent, and each switched-on strategy line with its own dollars and percent. No Sim101 cash known, no percent axis','NT8 PAPER hero: the percent was missing because no Sim101 cash existed anywhere - NinjaTrader is off, its AddOn heartbeat went blank as NT closed, and the page had never seen a live bridge snapshot. The NT bridge publisher now keeps the last Sim101 cash it saw (last_accounts) through every down cycle, and the page reads it, so the percent survives weekends from the next time NT runs. Until then the hero reads (% n/a) with the reason on hover','WEBULL PAPER and REAL (P and L view, a range with no deposits inside) curves get the same percent axis, of the base their hero and hover already use']},
 {v:'91.69',date:'2026-11-21',notes:['LEDGER heroes (REAL, NT8 PAPER, WEBULL PAPER): the lines under the big number are one tidy grid - label, then the dollar figure, then the percent - each column lined up and flush with the big number, one size, the same arrow and spacing on every line (REAL now reads today and all time with the same layout, the percent with a space before it)','NT8 PAPER: with NinjaTrader off (NT not answering) today and realized still show a percent, of the last Sim101 cash the page or the NT sync saw - the hover says base: Sim101 cash as of that time. Only if no cash was ever seen is there no percent']},
 {v:'91.67',date:'2026-11-21',notes:['LEDGER daily charts (REAL, NT8 PAPER, WEBULL PAPER): the plot now fills its card - each side keeps only the room its tick numbers need (the chart used to sit shrunk in the middle with empty space both sides)','Daily charts: the hover line (date, day, total) sits in its own strip above the chart, never over the bars or the line, and clears the moment the pointer or finger leaves','Daily charts: the DAY and TOTAL axis titles have their own row above the numbers, so they no longer squeeze into the top tick']},
 {v:'91.64',date:'2026-11-21',notes:['WEBULL PAPER: today and realized show a percent beside the dollar figure, of the paper account at the start of the day or range (hover says the base)','WEBULL PAPER: each strategy card is two short lines - name, P&L and switch on top, then the P&L percent and a quiet size and estimate a year line; trades, win rate, today and the rest stay under the arrow','WEBULL PAPER: new Books (what-if) fold under Strategies - a dropdown per book with its legs. LIVE legs are on the box and paper trade; SHADOW legs are not, and their switch draws their as-if P&L as a dashed line on the chart and a what-if total, never in the account number. A leg with no shadow series yet reads no shadow data yet']},
@@ -3241,6 +3242,12 @@ function ntSimCashLast(){
   try{const A=(typeof ntSync!=='undefined'&&ntSync&&ntSync.addon_accounts)||null,nm=A?(A.Sim101?'Sim101':(A.DEMO7240108?'DEMO7240108':null)):null;
     if(nm&&A[nm].cash!=null&&isFinite(+A[nm].cash)&&+A[nm].cash>0){const ls=+ntSync.last_sync||0,age=+ntSync.addon_alive_secs||0;
       C.push({name:nm,cash:+A[nm].cash,realized:A[nm].realized,at:ls?(ls-age)*1000:0});}}catch(e){}
+  // v91.70: meta/nt_bridge last_accounts - api/nt_bridge_pub.py carries the last UP snapshot's accounts forward on every down cycle
+  // (11-21: the AddOn heartbeat's accts was {} after NT closed and this browser had never seen a live bridge, so both sources above were empty)
+  try{const B=window._ntBridge||null,LA=(B&&Array.isArray(B.last_accounts))?B.last_accounts:[];
+    const a=LA.find(x=>x&&x.name==='Sim101')||LA.find(x=>x&&x.name==='DEMO7240108')||null;
+    if(a&&a.cash!=null&&isFinite(+a.cash)&&+a.cash>0){const t=B.last_accounts_at?Date.parse(String(B.last_accounts_at).replace(' ','T')+'Z'):NaN;
+      C.push({name:String(a.name),cash:+a.cash,realized:a.realized,at:isFinite(t)?t:0});}}catch(e){}
   if(!C.length)return null;
   C.sort((a,b)=>b.at-a.at);
   return C[0];
@@ -3601,6 +3608,8 @@ function _lgDash(l,all){return l.dash||_LG_DASHES[Math.max(0,(all||[]).indexOf(l
 const _LG_DASHES_MONO=['2 3','6 3','2 7','6 3 2 3'];
 const _lgMono=()=>(document.documentElement.getAttribute('data-theme')||'')==='mono';
 function _lgDashOf(l,o){return (_lgMono()&&l.dashMono)?l.dashMono:(o.lineDash||_lgDash(l,o.lines));}
+// % tick label (the shared chart's left gutter): whole percent from 10 up, one place from 1, two under 1
+function _lgAxisPct(p){const a=Math.abs(p);if(a<1e-9)return '0%';return (p<0?'-':'+')+(a>=10?a.toFixed(0):(a>=1?a.toFixed(1):a.toFixed(2)))+'%';}
 function _lgAxisMoney(v){const a=Math.abs(v);return (v<0?'-':'')+'$'+a.toLocaleString(undefined,{maximumFractionDigits:a<10?2:0});}
 function _lgDateLbl(ds,withYear){
   if(!ds)return '';const M=['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
@@ -4653,7 +4662,11 @@ function ledgerChartRender(wrap,o){
       lo=nlo;hi=nhi;});
     if(lo===hi){lo-=1;hi+=1;}
     const pv=(hi-lo)*0.12;lo-=pv;hi+=pv;
-    const L=4,R=W<600?54:66,T=12,B=22,pw=W-L-R,ph=H-T-B;
+    // owner 11-21 ('put the nt8 % on the chart'): o.pctBase = the account at the start of the range. Each $ grid line then also carries
+    // its % of that base in a LEFT gutter (cumulative $ / base); no base = no % axis, never a made-up one. o.pctTip says what the base is.
+    const pB=(o.pctBase!=null&&isFinite(+o.pctBase)&&+o.pctBase>0)?+o.pctBase:null;
+    const tks=_lgNiceTicks(lo,hi,W<600?3:4),pctLbl=pB?tks.map(tv=>_lgAxisPct(tv/pB*100)):[];
+    const L=pB?Math.ceil(Math.max(3,...pctLbl.map(t=>t.length))*5.6+10):4,R=W<600?54:66,T=12,B=22,pw=W-L-R,ph=H-T-B;
     const X=i=>L+(n<=1?pw/2:(i/(n-1))*pw),Y=v=>T+(1-(v-lo)/(hi-lo))*ph;
     // o.totalColor: a board's own colour for the total line (WEBULL PAPER: the page's text colour, so the total reads as the one solid
     // line under every theme and the strategies are the dotted ones); the default stays green up / red down
@@ -4667,9 +4680,10 @@ function ledgerChartRender(wrap,o){
       // the x attribute read x=""<n>" from 11-18 (calm-down 9), which parsed as x=0 and drew every band at the left edge
       o.bands.forEach(b=>{if(b.i==null||b.i<0||b.i>=n)return;const x0=Math.max(L,X(b.i)-half),x1=Math.min(L+pw,X(b.i)+half);
         h+='<rect data-lgband="1"'+(b.fix?' data-lgbandfix="1"':'')+(ledgerCavOn()?'':' visibility="hidden"')+' x="'+x0.toFixed(1)+'" y="'+T+'" width="'+Math.max(1,x1-x0).toFixed(1)+'" height="'+ph+'" fill="url(#'+hid+(b.fix?'f':'')+')"><title>'+esc(b.title||'')+'</title></rect>';});}
-    _lgNiceTicks(lo,hi,W<600?3:4).forEach(tv=>{const yy=Y(tv).toFixed(1);
+    tks.forEach((tv,k)=>{const yy=Y(tv).toFixed(1);
       h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+yy+'" y2="'+yy+'" style="stroke:var(--border2)" stroke-width="1"/>'
-        +'<text data-lgtick="1" x="'+(L+pw+6)+'" y="'+(+yy+3)+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc((o.fmtAxis||_lgAxisMoney)(tv))+'</text>';});
+        +'<text data-lgtick="1" x="'+(L+pw+6)+'" y="'+(+yy+3)+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc((o.fmtAxis||_lgAxisMoney)(tv))+'</text>'
+        +(pB?'<text data-lgpcttick="1" x="'+(L-6)+'" y="'+(+yy+3)+'" text-anchor="end" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace"><title>'+esc(o.pctTip||('% of '+_lgAxisMoney(pB)))+'</title>'+esc(pctLbl[k])+'</text>':'');});
     const by=Y(pts[0].v).toFixed(1);
     h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+by+'" y2="'+by+'" style="stroke:var(--text5)" stroke-opacity="0.5" stroke-width="1" stroke-dasharray="4 4"/>';
     refs.forEach(r=>{const yy=(r.pin==='top'?T+1:(r.pin==='bottom'?T+ph-1:Y(r.v))).toFixed(1),i0=Math.max(0,Math.min(n-1,+r.i||0)),x0=Math.min(X(i0),L+pw-40);
@@ -17643,6 +17657,10 @@ function _hmRenderChartInto(root){
   _hmRenderHeroDefault(endVal,startVal);
   ledgerChartRender(wrapEl,{id:'hm',height:(wrapEl.clientWidth||900)<420?200:330,pts:ser,up:up,aria:'REAL '+(homeChartMode==='equity'?'account equity':'P&L')+', '+(_HM_RANGE_LABEL[homeRange]||''),
     lines:_hmBrokerLines(ser),refs:_hmGoalRefs(ser),
+    // v91.70 (owner 11-21, same as NT8 PAPER): P&L view gets the % axis of the hover's own base (the account at the range start), only
+    // while no deposit or withdrawal falls inside the range - then one base fits every point; equity view and a range with cash moves: none
+    ...(()=>{if(homeChartMode==='equity')return {};const b0=_hmWindowStartEquity(homeRange),b=_hmPnlPctBase(homeRange);
+      return (b&&Math.abs(Math.abs(b0)-b)<0.005)?{pctBase:b,pctTip:'% of the account at the start of the range ('+ledgerMoney(b)+')'}:{};})(),
     onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_real')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_real',JSON.stringify(off));}catch(e){}},
     onScrub:(i,p)=>{
       _hmPaintBig(elMoney(p.v));
@@ -47290,6 +47308,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // colour (owner 10-31) - the direction still reads from the hero's arrow and sign
             window._qbLgChart={id:'qbwb',legendInto:'#qb-lg-legend',pts:cpts,up:lastV>=0,lines:lines,bands:bands,marks:marks,totalColor:'var(--text)',lineOpacity:0.85,lineWidth:1.4,
               aria:'Webull paper P&L of record, '+(LEDGER_RANGE_LABEL[qbRange]||qbRange),
+              // v91.70 (owner 11-21, same as NT8 PAPER): the % axis beside the $ one, of the hero's realized-% base (the account at the range start)
+              pctBase:(qbPctRangeBase!=null&&isFinite(qbPctRangeBase)&&qbPctRangeBase>0)?qbPctRangeBase:null,
+              pctTip:(qbPctRangeBase!=null&&qbPctRangeBase>0)?('% of the paper account at the start of the range ('+ledgerMoney(qbPctRangeBase)+', from Webull’s account equity)'):'',
               onToggle:(nm,on)=>{const k=nameKey[nm]||nm;try{const o=JSON.parse(localStorage.getItem('el_lg_lines_webull')||'{}')||{};if(on)delete o[k];else o[k]=1;localStorage.setItem('el_lg_lines_webull',JSON.stringify(o));}catch(e){}},
               onScrub:(i,p)=>{
                 window._qbChartHoverActive=true;   // the live listener holds its redraw until the scrub ends
@@ -47309,7 +47330,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 if(h.today)h.today.innerHTML=i?ledgerHeroCells({label:'on '+when,v:dayV,fig:(dayV<0?'-':'+')+_hmMoney(Math.abs(dayV))})
                   :ledgerHeroCells({label:'start of the range'});
                 const rc=pc.v>=0?'hm-up':'hm-down';
-                if(h.range)h.range.innerHTML=ledgerHeroCells({label:'cash',v:pc.v,cls:rc,fig:ledgerSigned(pc.v),
+                if(h.range)h.range.innerHTML=ledgerHeroCells({label:'cash',v:pc.v,cls:rc,fig:ledgerSigned(pc.v),pct:qbPctHtml(pc.v,qbPctRangeBase,'hover',rc),
                   extra:'&middot; closed trades &middot; '+qbRangeWord+(i?' &middot; through '+when:' &middot; start')});
               },
               onLeave:()=>{
@@ -51171,7 +51192,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const nm=_hmEsc(String(_p2PctAcct.name||'Sim101'));
           const src=_p2PctAcct.live?'from the NT bridge cash':('base: '+nm+' cash as of '+ntSimCashWhen(_p2PctAcct.at)+', the last NinjaTrader reported - NT is not answering now');
           return '<span class="qbx-pct '+(key==='today'?(v>=0?'hm-up':'hm-down'):ledgerCls(v))+'" data-p2pct="'+key+'"'+(_p2PctAcct.live?'':' data-p2pctcached')+' title="of the '+nm+' account at the start of '+(key==='today'?'the session':'the range')+' ('+ledgerMoney(base)+', '+src+')">('+t+')</span>';};
-        const _p2TodayPct=_p2PctHtml(_H.today,_p2PctDayBase,'today');
+        // v91.70: no Sim101 cash ever seen anywhere = a muted '(% n/a)' that says why on hover, instead of a blank that reads as broken
+        const _p2PctNone=key=>_p2PctAcct?'':'<span class="qbx-pct" style="color:var(--text5)" data-p2pctnone="'+key+'" title="No %: no Sim101 cash has been seen yet - NinjaTrader is not answering, its AddOn heartbeat left no account cash, and this page never saw a live NT bridge snapshot. The % comes back the first time NinjaTrader runs (the bridge now keeps the last cash it saw).">(% n/a)</span>';
+        const _p2TodayPct=_p2PctHtml(_H.today,_p2PctDayBase,'today')||_p2PctNone('today');
+        // owner 11-21 ('put the nt8 % on the chart'): the curve's % axis uses the SAME base as realized % (the account at the start of the range)
+        if(window._p2Chart){const _rb=(_p2PctRangeBase!=null&&isFinite(_p2PctRangeBase)&&_p2PctRangeBase>0)?_p2PctRangeBase:null;
+          window._p2Chart.pctBase=_rb;
+          window._p2Chart.pctTip=_rb?('% of the '+String(_p2PctAcct.name||'Sim101')+' account at the start of the range ('+ledgerMoney(_rb)+' = '+(_p2PctAcct.live?'NT bridge cash':('last '+String(_p2PctAcct.name||'Sim101')+' cash seen, '+ntSimCashWhen(_p2PctAcct.at)))+' less the realized in the range)'):'';}
         const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',under:'p2-hero-under',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},todayInline:true,
           // r2 step 2 (item 41): the definition is the label's tooltip
           label:'<span title="'+_p2LabelTip.replace(/"/g,'&quot;')+'">BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity</span>',
@@ -51195,7 +51222,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // owner 11-21: 'realized, arrow, +$X (+x%), N trades ?' on the hero grid
           range:ledgerHeroCells({label:'<span data-p2realword>realized</span>',v:_H.net,cls:ledgerCls(_H.net),fig:ledgerSigned(_H.net),
             figAttr:' data-p2realized title="The realised half of the net equity above: only trades that have CLOSED, from the book legs switched on, in this range ('+_pcwLbl+'). This is the figure the chart\'s solid line ends at."',
-            pct:_p2PctHtml(_H.net,_p2PctRangeBase,'realized'),
+            pct:_p2PctHtml(_H.net,_p2PctRangeBase,'realized')||_p2PctNone('realized'),
             extra:'&middot; '+_H.n+' trade'+(_H.n===1?'':'s')
               +'<span class="lg-help" data-p2herobtn role="button" tabindex="0" aria-expanded="'+(window._p2HeroDetOpen?'true':'false')+'" title="details: the chart check and the strategies not counted">?</span>'}),
           note:_p2HeroNote,
@@ -54405,17 +54432,25 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
          // the figure plus those words - not textContent, which left the figure standing with nothing to say what it was.
          const numQ=num?((num.querySelector('.qbx-hero-qual')||{}).outerHTML||''):'';
          const num0=num?num.innerHTML:'',rng0=rng?rng.innerHTML:'';
+         // owner 11-21: C.pctBase (the hero's realized-% base) puts a % axis beside the $ one and a % on the scrub; none = no % anywhere
+         const _pB=(C.pctBase!=null&&isFinite(+C.pctBase)&&+C.pctBase>0)?+C.pctBase:null;
+         const _pT=v=>{if(!_pB)return '';const q=v/_pB*100,a=Math.abs(q);return (a<0.0005?'0.00':((q<0?'-':'+')+(a<0.1?a.toFixed(3):a.toFixed(2))))+'%';};
+         const _pS=(v,key)=>_pB?'<span class="qbx-pct '+ledgerCls(v)+'" data-p2pcthover="'+key+'" title="'+_hmEsc(C.pctTip||'')+'">('+_pT(v)+')</span>':'';
          if(_lgDailyOn('p2'))ledgerDailyChart(wrapEl,C.pts,{id:'p2'});else
          ledgerChartRender(wrapEl,{id:'p2',legendInto:'#p2-lg-legend',pts:C.pts,up:C.up,aria:C.aria,lines:C.lines,bands:C.bands,totalColor:C.totalColor,lineDash:C.lineDash,lineOpacity:C.lineOpacity,
+           pctBase:_pB,pctTip:C.pctTip,
            onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_nt8')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_nt8',JSON.stringify(off));}catch(e){}},
            onScrub:(i,p)=>{
-             if(num)num.innerHTML=_hmEsc(ledgerMoney(p.v))+numQ;
+             if(num)num.innerHTML=_hmEsc(ledgerMoney(p.v))+(_pB?' '+_pS(p.v,'total'):'')+numQ;
              if(!rng)return;
              // owner 11-21: the scrub writes cells of the hero grid too ('that day, arrow, +$X, Tue, Aug 12, 2026')
              if(!p.date||i===0){rng.innerHTML=ledgerHeroCells({label:'start of the range'});return;}
              const dd=p.v-C.pts[i-1].v;
              let dl=p.date;try{dl=new Date(p.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});}catch(_e){}
-             rng.innerHTML=ledgerHeroCells({label:'that day',v:dd,fig:ledgerSigned(dd),extra:'\u00b7 '+_hmEsc(dl)});},
+             // v91.70: '\u00b7 <date> \u00b7 total +$X (+x%)' and, with a % base, each switched-on strategy's own total and % through that day
+             let ex='\u00b7 '+_hmEsc(dl)+' \u00b7 total '+ledgerSigned(p.v)+(_pB?' '+_pS(p.v,'cum'):'');
+             if(_pB)(C.lines||[]).filter(l=>l.on!==false&&l.vals&&l.vals[i]!=null).forEach(l=>{ex+=' \u00b7 '+_hmEsc(l.name)+' '+ledgerSigned(+l.vals[i])+' ('+_pT(+l.vals[i])+')';});
+             rng.innerHTML=ledgerHeroCells({label:'that day',v:dd,fig:ledgerSigned(dd),pct:_pS(dd,'day'),extra:ex});},
            onLeave:()=>{if(num)num.innerHTML=num0;if(rng)rng.innerHTML=rng0;}});
        }}
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};

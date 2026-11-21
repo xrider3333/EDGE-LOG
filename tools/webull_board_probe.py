@@ -3563,6 +3563,9 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
         days:Object.keys(ds).length,sw:!!sw,swOn:on?(on.getAttribute('data-v')||(on.textContent||'').trim()):null,curve:!!d.querySelector('#qb-lg-chart [data-lgdate]')};})();
     r.chartDates=csv?csv.querySelectorAll('[data-lgdate]').length:0;
     r.chartTicks=csv?csv.querySelectorAll('[data-lgtick]').length:0;
+    // v91.70: the % axis (left gutter) beside the $ one - drawn only when the hero has a realized % base
+    r.chartPctTicks=csv?csv.querySelectorAll('[data-lgpcttick]').length:0;
+    r.heroRealPct=!!d.querySelector('.lg-hero [data-qbpct="realized"]');
     r.chartBands=csv?csv.querySelectorAll('[data-lgband]').length:0;
     r.bandTitles=csv?[].map.call(csv.querySelectorAll('[data-lgband] title'),function(t){return t.textContent;}):[];
     r.chartMarks=csv?csv.querySelectorAll('[data-lgmark]').length:0;
@@ -8835,6 +8838,11 @@ def _judge(data, fixture):
                              % (nm, r.get('chartDates'), r.get('chartTicks')))
             if not r.get('chartBands'):
                 fails.append('%s: no hatched data-caveat day on the chart ([data-lgband])' % nm)
+            # v91.70 (owner 11-21, same as NT8 PAPER): a % axis exactly when the hero has a realized % base, one % label per $ grid line
+            if r.get('heroRealPct') and r.get('chartPctTicks') != r.get('chartTicks'):
+                fails.append('%s: the hero has a realized %% base but the chart has %s %% ticks for %s $ ticks' % (nm, r.get('chartPctTicks'), r.get('chartTicks')))
+            if not r.get('heroRealPct') and r.get('chartPctTicks'):
+                fails.append('%s: the chart draws a %% axis (%s ticks) with no %% base in the hero' % (nm, r.get('chartPctTicks')))
             # owner 10-31: the hover names the day's caveat in plain words ('10-20: 2 book-only trades (order never reached Webull)')
             for bt in r.get('bandTitles') or []:
                 if not re.match(r'^\d\d-\d\d: ', bt or '') or not any(k in bt for k in ('book-only trade', 'priced from the 1-minute tape', 'failed the parity check')):

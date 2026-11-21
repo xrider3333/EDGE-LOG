@@ -510,6 +510,9 @@ CASES.extend([
     # owner 11-21: NT not answering (the bridge doc has no accounts) - the % base is the last Sim101 cash this browser saw (el_nt_sim_cash)
     ('nt-down-cached',   {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': _nt8_bridge(up=False)},
                           'ls': {'el_nt_sim_cash': json.dumps({'name': 'Sim101', 'cash': 101375.0, 'realized': None, 'at': 1795000000000})}}),
+    # v91.70: NT not answering, nothing in this browser, but meta/nt_bridge carries last_accounts (api/nt_bridge_pub.py carry-forward)
+    ('nt-down-lastacc',  {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': _nt8_bridge(up=False, last_accounts=[{'name': 'Sim101', 'cash': 101375.0}],
+                                                                                    last_accounts_at='2099-01-01 00:00:00')}}),
     ('feed-degraded',    {'sub': 'paper2', 'prefs': {}, 'win': {}, 'feedwarn': KEEPS_FEED}),
     ('feed-healthy',     {'sub': 'paper2', 'prefs': {}, 'win': {}, 'feedclean': True}),
     ('roll-marks',       {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fl', 'ls': {'el_lg_view_nt8': 'list'},
@@ -1480,6 +1483,12 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           var row=e?e.closest('.lg-hero-row'):null,fg=row?row.querySelector('.lg-hl-v span:last-child'):null,lb=row?row.querySelector('.lg-hl-l'):null;
           o[k]=e?{t:e.textContent.trim(),cls:e.className,tip:e.getAttribute('title')||'',figCls:fg?fg.className:'',inCell:!!e.closest('.lg-hl-p'),
             label:lb?lb.textContent.trim():'',cached:e.hasAttribute('data-p2pctcached')}:null;});return o;})();
+        // v91.70 (owner 11-21 'put the nt8 % on the chart'): the % axis ticks on the curve, the muted '(% n/a)' when no base was ever seen
+        r.p2pctAxis=(function(){var sv=d.querySelector('#p2-chart svg');if(!sv)return null;var t=sv.querySelectorAll('[data-lgpcttick]');
+          var ti=t.length?((t[0].querySelector('title')||{}).textContent||''):'';
+          return {n:t.length,usd:sv.querySelectorAll('[data-lgtick]').length,labels:[].map.call(t,function(x){return x.textContent.replace(ti,'').trim();}),tip:ti,
+            usdLabels:[].map.call(sv.querySelectorAll('[data-lgtick]'),function(x){return x.textContent.trim();}),base:(w._p2Chart||{}).pctBase||null};})();
+        r.p2pctNone=[].map.call(d.querySelectorAll('.lg-hero [data-p2pctnone]'),function(x){return x.getAttribute('data-p2pctnone');});
         // owner 11-21: every $ cell of the hero grid starts at one x, every % cell at one x (left edges in px, rows with that cell only)
         r.heroCols=(function(){var g=d.querySelector('.lg-hero .lg-hero-grid');if(!g)return null;
           var L=function(q){return [].map.call(g.querySelectorAll(q),function(c){return Math.round(c.getBoundingClientRect().left*10)/10;});};
@@ -2237,6 +2246,41 @@ def run(alt_index=None, timeout=300):
             fails.append('nt-roster: realized %% %s, want %.4f%% (realized $ / Sim101 cash less the range realized)' % (_m.group(1), _exp))
     if any(((cases.get('paper2') or {}).get('p2pct') or {}).values()):
         fails.append('paper2: the hero shows a %% with no bridge snapshot (no basis - must show none)')
+    # v91.70 (owner 11-21 'put the nt8 % on the chart'): a % axis beside the $ axis whenever the hero has a base, one % tick per $ tick,
+    # each = that $ / the base; no base = no % axis and the hero says '(% n/a)' with why on hover
+    _pctax = re.compile(r'^(0%|[+-]\d+(\.\d{1,2})?%)$')
+    for _nm in ('nt-roster', 'nt-down-cached', 'nt-down-lastacc'):
+        _ax = (cases.get(_nm) or {}).get('p2pctAxis')
+        if not _ax or not _ax.get('n'):
+            fails.append('%s: the NT8 curve has a %% base but no %% axis ticks (data-lgpcttick)' % _nm)
+            continue
+        if _ax['n'] != _ax.get('usd'):
+            fails.append('%s: %d %% ticks vs %d $ ticks - want one %% per $ grid line' % (_nm, _ax['n'], _ax.get('usd') or 0))
+        if not all(_pctax.match(x or '') for x in _ax.get('labels') or []):
+            fails.append('%s: %% tick labels %r are not like +12%% / -1.5%% / 0%%' % (_nm, _ax.get('labels')))
+        if 'Sim101' not in (_ax.get('tip') or ''):
+            fails.append('%s: the %% axis hover does not name the Sim101 base: %r' % (_nm, _ax.get('tip')))
+        _b = _ax.get('base')
+        for _u, _q in zip(_ax.get('usdLabels') or [], _ax.get('labels') or []):
+            try:
+                _uv = float(_u.replace('$', '').replace(',', ''))
+                _qv = float(_q.replace('%', ''))
+            except ValueError:
+                continue
+            _ex = _uv / _b * 100 if _b else 0
+            if abs(_qv - _ex) > max(0.6, abs(_ex) * 0.06):
+                fails.append('%s: %% tick %s beside $ tick %s, want about %.2f%% of base %s' % (_nm, _q, _u, _ex, _b))
+                break
+    if not (((cases.get('nt-down-lastacc') or {}).get('p2pct') or {}).get('realized') or {}).get('cached'):
+        fails.append('nt-down-lastacc: meta/nt_bridge last_accounts carries a Sim101 cash but the hero shows no cached realized %%')
+    for _nm in ('paper2', 'nt-down', 'nt-none'):
+        _ax = (cases.get(_nm) or {}).get('p2pctAxis') or {}
+        if _ax.get('n'):
+            fails.append('%s: the NT8 curve draws a %% axis with no Sim101 cash ever seen (no base - must show none)' % _nm)
+        if (cases.get(_nm) or {}).get('p2pctAxis') is not None and sorted((cases.get(_nm) or {}).get('p2pctNone') or []) != ['realized', 'today']:
+            fails.append("%s: no %% base and the hero does not say '(%% n/a)' on today and realized (got %r)" % (_nm, (cases.get(_nm) or {}).get('p2pctNone')))
+    if (cases.get('nt-roster') or {}).get('p2pctNone'):
+        fails.append("nt-roster: the hero says '(%% n/a)' with a live Sim101 cash")
     # owner 10-31 (live page): the open line directly under the big number, the figures under the name, the hatch hover and caption
     for nm in ('paper2', 'phone375'):
         r = cases.get(nm) or {}

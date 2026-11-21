@@ -154,6 +154,21 @@ def snapshot():
         return out
 
 
+def _last_accounts(db, uid, rep):
+    """{last_accounts, last_accounts_at} for the doc about to be written: this snapshot's accounts when it is up and any has a
+    cash, else the values the current doc already carries (or its own accounts, if a pre-carry doc had them). {} when none."""
+    acc = rep.get("accounts") or []
+    if rep.get("up") and any(isinstance(a, dict) and a.get("cash") is not None for a in acc):
+        return {"last_accounts": acc, "last_accounts_at": rep.get("checked_at")}
+    cur = db.collection("users").document(uid).collection("meta").document("nt_bridge").get()
+    d = (cur.to_dict() if getattr(cur, "exists", False) else None) or {}
+    if d.get("last_accounts"):
+        return {"last_accounts": d.get("last_accounts"), "last_accounts_at": d.get("last_accounts_at")}
+    if d.get("accounts"):
+        return {"last_accounts": d.get("accounts"), "last_accounts_at": d.get("checked_at")}
+    return {}
+
+
 def publish(db, uid):
     """Run snapshot() and write users/{uid}/meta/nt_bridge. Never raises.
 
@@ -191,6 +206,13 @@ def publish(db, uid):
         rep["held_back"] = nt_held_back.state(live, orders)
     except Exception:
         rep["held_back"] = []
+    # LAST ACCOUNTS (2026-11-21): a down snapshot has accounts [], and the AddOn heartbeat's accts goes {} as NT closes, so over a weekend
+    # nothing held the Sim101 cash the NT8 PAPER % is of. Carry the last UP snapshot's accounts (with a cash) forward on every cycle as
+    # last_accounts + last_accounts_at (the UTC checked_at it was read). One extra small read on a down cycle only; never fatal.
+    try:
+        rep.update(_last_accounts(db, uid, rep))
+    except Exception:
+        pass
     try:
         db.collection("users").document(uid).collection("meta").document(
             "nt_bridge").set(rep)

@@ -1430,6 +1430,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       r.chartH=Math.round(vb.length===4&&vb[2]>0&&vb[3]>0?vb[3]*Math.min(cr.width/vb[2],cr.height/vb[3]):cr.height);}
     r.chartDates=csv?csv.querySelectorAll('[data-lgdate]').length:0;
     r.chartTicks=csv?csv.querySelectorAll('[data-lgtick]').length:0;
+    r.chartPctTicks=csv?csv.querySelectorAll('[data-lgpcttick]').length:0;
     // LEDGER shared stats strip (unify step 6): four tiles in order, drawdown positive, the More stats fold opens
     r.stats=Array.prototype.map.call(d.querySelectorAll('#hm-stat-strip [data-lgstat]'),function(e){
       var v=e.querySelector('.lg-stat-val');return e.getAttribute('data-lgstat')+'='+(v?(v.textContent||'').trim():'');});
@@ -1504,6 +1505,9 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     // made every swatch 260px tall. Switch to P&L, measure, switch back to the case's own view (EQUITY, or P&L for a 'chartMode' case).
     W().eval("homeChartMode='pnl';renderApp();");
     var lgb=d.querySelectorAll('#hm-chart-wrap .lg-legend button');r.legendN=lgb.length;
+    // v91.70: the P&L view's % axis - one % label per $ grid line when one base fits the range (no deposit inside it), else none
+    (function(){var sv=d.querySelector('#hm-chart-wrap svg');r.pnlPct={want:!!W().eval('(function(){var b0=_hmWindowStartEquity(homeRange),b=_hmPnlPctBase(homeRange);return !!(b&&Math.abs(Math.abs(b0)-b)<0.005);})()'),
+      pct:sv?sv.querySelectorAll('[data-lgpcttick]').length:0,usd:sv?sv.querySelectorAll('[data-lgtick]').length:0};})();
     r.legendH=Math.max.apply(null,[0].concat(Array.prototype.map.call(lgb,function(b){return Math.round(b.getBoundingClientRect().height);})));
     // DAILY toggle (owner GO 11-16): clicking it draws one bar per close day and the running total line, then back
     var dbt=d.querySelector('#hm-mode-toggle [data-hmmode="daily"]');r.daily={btn:!!dbt};
@@ -4630,6 +4634,12 @@ def _judge(data, data_obj):
         if (r.get('chartDates') or 0) < 2 or (r.get('chartTicks') or 0) < 2:
             fails.append('%s: the equity chart has %s date labels and %s price labels (needs 2+ of each)'
                          % (nm, r.get('chartDates'), r.get('chartTicks')))
+        # v91.70 (owner 11-21, same as NT8 PAPER): REAL's % axis is P&L view only, and only when one base fits the whole range
+        _pp = r.get('pnlPct') or {}
+        if _pp and ((_pp.get('want') and _pp.get('pct') != _pp.get('usd')) or (not _pp.get('want') and _pp.get('pct'))):
+            fails.append('%s: P&L view %% axis has %s %% ticks for %s $ ticks (a single range base: %s)' % (nm, _pp.get('pct'), _pp.get('usd'), _pp.get('want')))
+        if (r.get('chartMode') or cfg.get('chartMode') or 'equity') == 'equity' and r.get('chartPctTicks'):
+            fails.append('%s: the EQUITY view draws a %% axis (%s ticks) - it has none' % (nm, r.get('chartPctTicks')))
         st = r.get('stats') or []
         if [x.split('=')[0] for x in st] != ['net', 'winrate', 'pf', 'maxdd']:
             fails.append('%s: the stats strip reads %r, not the four tiles win rate, profit factor, max drawdown, '
