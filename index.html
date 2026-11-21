@@ -2703,7 +2703,7 @@ let homeNewTradeOpen=false;
 let homeJournalOpen=false;try{homeJournalOpen=localStorage.getItem('el_home_journal_open')==='1';}catch(e){}
 let formOpen=false,showAllCols=false;
 let autoHandle=null,autoTimer=null,autoInterval=60;
-let ntSync=null,unsubNT=null,ntRefreshing=false; // NinjaTrader runner auto-sync status
+let ntSync=null,unsubNT=null,ntRefreshing=false,ntRealDays=null,unsubNRD=null; // NinjaTrader runner auto-sync status
 let wbSync=null,unsubWB=null,wbRefreshing=false; // Webull runner auto-sync status + live account balance
 // PER-LEG TRADING SWITCH on WEBULL PAPER (MANAGER #186, owner 11-07: "wants to see DIP off as a
 //   toggle"). meta/qqq_leg_switch = { legs:{ <FAMILY>:false }, at, by }. A leg ABSENT from the map
@@ -3144,7 +3144,35 @@ function reconBadge(){
 // its heartbeat; if NinjaTrader says money was made/lost today but the day's logged NT
 // trades do not add up to it (or are absent), fills likely happened on NT web/mobile —
 // which NEVER reach the desktop AddOn — so prompt a Position History CSV import.
-function ntReconBadge(){
+// Past days (tools/nt_real_days.py -> meta/nt_real_days): a real-account day with realized P&L whose
+// logged NT trades do not add up to it, in the last 10 NY days before today.
+function ntRealDaysBadge(){
+  const acc=ntRealDays&&ntRealDays.accounts;if(!acc)return '';
+  if(activeBroker&&activeBroker!=='NinjaTrader')return '';
+  const SIM=/^(sim|backtest|playback|demo)/i;
+  const today=new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const floor=new Date(Date.now()-10*864e5).toLocaleDateString('en-CA',{timeZone:'America/New_York'});
+  const f=x=>(x<0?'-$':'$')+Math.abs(x).toFixed(2);
+  const bad=[];
+  for(const acct of Object.keys(acc)){
+    if(SIM.test(acct))continue;
+    for(const day of Object.keys(acc[acct]||{}).sort()){
+      if(day<floor||day>=today)continue;
+      const realized=+((acc[acct][day]||{}).realized||0);
+      if(Math.abs(realized)<=0.005)continue;
+      const tr=trades.filter(t=>(t.broker||'NinjaTrader')==='NinjaTrader'&&String(t.account)===acct&&t.date===day);
+      const net=tr.reduce((s,t)=>s+(t.pnl||0),0),gross=tr.reduce((s,t)=>s+(t.grossPnl||t.pnl||0),0);
+      if(tr.length&&Math.min(Math.abs(realized-net),Math.abs(realized-gross))<=2.5)continue;
+      bad.push({acct,day,realized,net,n:tr.length});
+    }
+  }
+  if(!bad.length)return '';
+  const tip=bad.map(b=>`${b.acct} ${b.day}: NinjaTrader ${f(b.realized)} realized, log ${f(b.net)} (${b.n} trades)`).join('; ');
+  const lbl=bad.map(b=>`${b.day.slice(5)} not imported (${f(b.realized)})`).join(', ');
+  return `<span title="${tip} — download that day's Position History CSV from NT web and drop it on the IMPORT tab." style="color:var(--yellow);font-size:var(--fsxs);margin-left:8px;cursor:pointer" onclick="_navToImportExport('import')">⚠ NT real: ${lbl}</span>`;
+}
+function ntReconBadge(){return ntReconToday()+ntRealDaysBadge();}
+function ntReconToday(){
   if(!ntSync||!ntSync.addon_accounts)return '';
   if(activeBroker&&activeBroker!=='NinjaTrader')return '';
   const metaAge=ntSync.last_sync?(Date.now()/1000-ntSync.last_sync):Infinity;
@@ -6378,6 +6406,8 @@ function subscribeAll(uid){
   //   update redraws HOME too; with the page on any other tab it refreshes the gear's
   //   IMPORT / EXPORT panel if that is the thing open.
   unsubNT=metaRef.doc('nt_sync').onSnapshot(d=>{ntSync=d.data()||null;if((activeTab==='import_export'&&(window._dataSubTab||'import')==='import')||activeTab==='trades'||activeTab==='home')renderApp();else if(window.refreshImportExportPanel)window.refreshImportExportPanel();});
+  if(unsubNRD)unsubNRD();   // meta/nt_real_days: past-day real-account realized P&L (tools/nt_real_days.py)
+  unsubNRD=metaRef.doc('nt_real_days').onSnapshot(d=>{ntRealDays=d.data()||null;if(activeTab==='trades'||activeTab==='home')renderApp();},()=>{});
   if(unsubWB)unsubWB();
   unsubWB=metaRef.doc('webull_sync').onSnapshot(d=>{wbSync=d.data()||null;if(_onResTables())return;renderApp();}); // net_liq drives Webull's per-account balance
   if(unsubQBSW)unsubQBSW();

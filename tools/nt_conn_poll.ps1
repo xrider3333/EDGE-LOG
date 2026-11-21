@@ -137,6 +137,20 @@ while ($true) {
     try { & $py @ga 2>&1 | Where-Object { $_ -match '^(PUSH|FLATTEN|  ->|push failed)' } | ForEach-Object { Log "  [stranded] $_" } }
     catch { Log "  [stranded] guard failed: $($_.Exception.Message)" }
   }
+  # NT REAL DAYS (tools/nt_real_days.py): record the real account's realized P&L at most every 10 min,
+  # and check past days against the log once a day after 14:10 MST. Never lets the poller die.
+  try {
+    if ($null -ne $h -and -not $WhatIf -and (-not $script:realRec -or ((Get-Date) - $script:realRec).TotalMinutes -ge 10)) {
+      $script:realRec = Get-Date
+      & $py "$repo\tools\nt_real_days.py" record 2>&1 | Where-Object { $_ -match 'recorded|failed|Error' } | ForEach-Object { Log "  [real-days] $_" }
+    }
+    $mst = [System.TimeZoneInfo]::ConvertTimeBySystemTimeZoneId((Get-Date), 'US Mountain Standard Time')
+    $mstDay = $mst.ToString('yyyy-MM-dd')
+    if (-not $WhatIf -and ($mst.Hour * 60 + $mst.Minute) -ge 850 -and $script:realChk -ne $mstDay) {
+      $script:realChk = $mstDay
+      & $py "$repo\tools\nt_real_days.py" check 2>&1 | ForEach-Object { Log "  [real-days] $_" }
+    }
+  } catch { Log "  [real-days] failed: $($_.Exception.Message)" }
   if ($Once) { break }
   Start-Sleep -Seconds $PollSec
 }
