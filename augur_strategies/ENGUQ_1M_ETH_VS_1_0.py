@@ -154,9 +154,13 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None,
     """The parent's walk, re-weighted trade by trade. Returns the parent's own dict shape.
 
     The parent is asked for levels (its per-trade stop ladder) because `risk` is the sizing
-    input; that forces its interpreted walk, which tests/test_fastloop_parity.py holds
-    bit-identical to its compiled one, so the TRADES are the same either way -- only the
-    speed differs.
+    input, and that forces its interpreted walk. The claim that matters is NOT the general
+    compiled-vs-interpreted parity: test_fastloop_parity covers ENGU-Q's own shape but passes
+    return_levels in none of its cases, so it says nothing about the levels path. What this file
+    actually depends on is narrower -- asking for levels must not change which trades happen --
+    and tests/test_enguq_vs_sizing.py pins exactly that, plus that every levels row carries a
+    usable `risk` (without one, sizing would silently fall back to 1.0 and this file would be
+    the base leg wearing a different name).
     """
     target = float(params.get("vs_target_pts", 35.0))
     min_u = float(params.get("vs_min_u", 0.25))

@@ -144,3 +144,41 @@ def test_target_matching_every_risk_reproduces_the_parent_exactly(mod):
                          vs_min_u=1.0, vs_max_u=1.0)
     assert [round(t[2], 9) for t in b["trades"]] == [round(t[2], 9) for t in a["trades"]]
     assert b["total_pnl"] == pytest.approx(a["total_pnl"], abs=0.02)
+
+
+# ── the dependency VERIFIER asked about: does asking for levels change the trades? ───────────
+def test_asking_the_parent_for_levels_does_not_change_its_trades():
+    """THE REAL RISK in the VS file, and it is not the one I first described.
+
+    VS always calls the parent with return_levels=True, because `risk` is its sizing input, and
+    that forces the parent's INTERPRETED walk (the compiled one does not expose the stop path).
+    I had justified this by pointing at tests/test_fastloop_parity.py. That test does cover
+    ENGU-Q's own shape -- three R2 cases on 1m bars with trailing on, plus R3 and R5 -- but NOT
+    ONE of its cases passes return_levels, so it compares the two walks with levels OFF and says
+    nothing about the levels path. The thing VS depends on is narrower and is pinned here: asking
+    for levels must not change WHICH trades happen or what they earn.
+    """
+    o, h, lo, c, v, day = _bars()
+    parent = load_strategy("ENGUQ_1M_ETH_R2_1_0.py")
+    plain = parent.run_backtest(o, h, lo, c, volumes=v, day_id=day, return_trades=True)
+    withlv = parent.run_backtest(o, h, lo, c, volumes=v, day_id=day, return_trades=True,
+                                 return_levels=True)
+    if not plain or not plain.get("trades"):
+        pytest.skip("the synthetic tape produced no trades for the parent")
+    assert [tuple(t) for t in withlv["trades"]] == [tuple(t) for t in plain["trades"]]
+    assert withlv["total_pnl"] == pytest.approx(plain["total_pnl"])
+    assert len(withlv["levels"]) == len(plain["trades"])
+
+
+def test_every_levels_row_carries_a_usable_risk():
+    """If the parent ever stopped reporting `risk`, VS would quietly size every trade at 1.0 --
+    the bad-risk fallback -- and look like the base leg while claiming to be vol-scaled. A
+    missing risk is a reason to fail a test, not to trade."""
+    o, h, lo, c, v, day = _bars()
+    parent = load_strategy("ENGUQ_1M_ETH_R2_1_0.py")
+    out = parent.run_backtest(o, h, lo, c, volumes=v, day_id=day, return_trades=True,
+                              return_levels=True)
+    if not out or not out.get("trades"):
+        pytest.skip("the synthetic tape produced no trades for the parent")
+    risks = [(r or {}).get("risk") for r in out["levels"]]
+    assert all(r is not None and r > 0 for r in risks), risks[:10]
