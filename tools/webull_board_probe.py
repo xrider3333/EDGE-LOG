@@ -1083,13 +1083,27 @@ def _variant_docs(fixture):
     ntp['parity'] = dict(ntp['parity'], checked=5, ok=3, failed=2, worst_err_usd=4.2, note='the NinjaTrader mirror check: 2 of 5 trades are off')
     out.append(('NT parity: 2 of 5 mismatched', FRESH_NOW, ntp, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
                par_chip='2 PARITY MISMATCHES', fills_chip=False)))
-    fbb = base()
-    fbb['broker_parity'] = dict(fbb['broker_parity'], board_flag=True)
+    def worse_leg(d, k='NOISE', a=-0.07):
+        bp = d['broker_parity']
+        bp['board_flag'] = True
+        bp['legs'] = dict(bp.get('legs') or {})
+        bp['legs'][k] = dict(bp['legs'].get(k) or {}, flag=True, avg_exec_ps=a)
+        return d
+    fbb = worse_leg(base())
     out.append(('fills behind the backtest (rolling flag)', FRESH_NOW, fbb, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
                par_chip=None, fills_chip=True)))
+    fbd = base()
+    fbd['broker_parity'] = dict(fbd['broker_parity'], board_flag=True, board=dict(fbd['broker_parity']['board'], avg_exec_ps=-0.0612))
+    out.append(('fills behind the backtest, board-wide only', FRESH_NOW, fbd, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
+               par_chip=None, fills_chip=True)))
+    fbg = base()
+    fbg['broker_parity'] = dict(fbg['broker_parity'], board_flag=True)   # the fixture's board and legs average BETTER than the backtest
+    fbg['broker_parity']['legs'] = dict(fbg['broker_parity']['legs'], ORB=dict(fbg['broker_parity']['legs']['ORB'], flag=True))
+    out.append(('a flag on a better-than-backtest average', FRESH_NOW, fbg, dict(none, today='today', top=('flat', 'WEBULL FLAT'), eq_stale=False,
+               par_chip=None, fills_chip=False)))
     sbx = base()
     sbx['parity'] = dict(sbx['parity'], checked=5, ok=4, failed=1, worst_err_usd=2.1, note='the NinjaTrader mirror check: 1 of 5 trades is off')
-    sbx['broker_parity'] = dict(sbx['broker_parity'], board_flag=True)
+    worse_leg(sbx)
     out.append(('one parity mismatch + fills behind, box silent 5 min', '2026-10-05 10:08:06', sbx, dict(none, silent='BOX SILENT 5 min',
                today='today', top=('stale', 'WEBULL STALE 5 min'), strip_has=['BOX SILENT 5 min'], strip_lacks=['feed OK'], stop='today',
                orders='today', legtoday='TODAY', eq_stale=True, mini_silent='Last known: OFF, as of Mon 10:03.',
@@ -1107,7 +1121,7 @@ def _variant_docs(fixture):
     def alarms(d):
         d['breaker_tripped'] = True
         d['kill'] = True
-        d['broker_parity']['board_flag'] = True
+        worse_leg(d)
         d['parity'] = dict(d['parity'], checked=3, ok=1, failed=2)
         return d
     chips = ['BREAKER TRIPPED', 'KILL ACTIVE', 'FILLS BEHIND BACKTEST', '2 PARITY MISMATCHES']
@@ -2023,8 +2037,8 @@ MUTANTS = [
      "title=\"'+qbEsc(qbFlagsText(v._t))+'\">!</span>':'');},",
      "a flagged row shows only a '!' whose words are in a tooltip a phone cannot show (review L1)"),
     ('tl-caveat-word-order',
-     "const QB_CAV_ORDER=['BOOK ONLY','CHECK FILL','FILL GAP','BOOK PRICE','PART BOOK PRICE','NOT COMPARED'];",
-     "const QB_CAV_ORDER=['NOT COMPARED','BOOK ONLY','CHECK FILL','FILL GAP','BOOK PRICE','PART BOOK PRICE'];",
+     "const QB_CAV_ORDER=['BOOK ONLY','CHECK FILL','FILL GAP','FILL OFF TAPE (WEBULL PAPER)','BOOK PRICE','PART BOOK PRICE','NOT COMPARED'];",
+     "const QB_CAV_ORDER=['NOT COMPARED','BOOK ONLY','CHECK FILL','FILL GAP','FILL OFF TAPE (WEBULL PAPER)','BOOK PRICE','PART BOOK PRICE'];",
      'a book-only row says NOT COMPARED instead of BOOK ONLY'),
     ('tl-caveat-in-time-cell',
      "return qbEsc(a?((ed&&cd&&ed!==cd?ed.slice(5)+' ':'')+a):'--')+(b?'<small>&rarr; '+qbEsc(b)+'</small>':'');",
@@ -2507,14 +2521,15 @@ MUTANTS = [
      "' book-only trade'+(brokerInfo.book_only_count===1?'':'s')+' excluded)",
      "' book-only trade'+'s'+' excluded)",
      "the hero's broker line says '1 book-only trades excluded'"),
+    # re-anchored for board row 112 (11-20): the chip names the leg(s) behind and shows only for a WORSE running average
     ('fills-behind-chip-gone',
-     "if(QBPAR&&QBPAR.board_flag)chips.push(qbChipG('FILLS BEHIND BACKTEST','var(--attn-red)'));",
-     '',
+     "chips.push(qbChipG('FILLS BEHIND BACKTEST: '+",
+     "(qbChipG('FILLS BEHIND BACKTEST: '+",
      'the hero never shows FILLS BEHIND BACKTEST'),
     ('fills-behind-chip-always',
-     "if(QBPAR&&QBPAR.board_flag)chips.push(qbChipG('FILLS BEHIND",
-     "if(QBPAR)chips.push(qbChipG('FILLS BEHIND",
-     'the hero shows FILLS BEHIND BACKTEST whenever the box sends a broker parity summary, flag up or not'),
+     "if(_bad.length||_brd){",
+     "if(true){",
+     'the hero shows FILLS BEHIND BACKTEST whenever the box sends a broker parity summary, flag up or not, better or worse'),
     ('parity-chip-gone',
      "if(parFailedForHero>0)chips.push(qbChipG(parFailedForHero+' PARITY MISMATCH'+(parFailedForHero===1?'':'ES'),'var(--attn-red)'));",
      '',
@@ -3220,7 +3235,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
       var v=b.querySelector('.lg-row-val'),vc=v?v.cloneNode(true):null,sm=vc?vc.querySelector('small:not(.lg-row-v3)'):null,sm0=v?v.querySelector('small'):null,v2=null;
       if(sm){v2=(sm.textContent||'').replace(/\\s+/g,' ').trim();sm.parentNode.removeChild(sm);}
       // owner 10-31 14:35: the 'open -$X · N lots' line under a row that holds lots (read, then taken out of the value)
-      var v3=vc?vc.querySelector('.lg-row-v3'):null,open3=null;if(v3){open3=(v3.textContent||'').replace(/\\s+/g,' ').trim();v3.parentNode.removeChild(v3);}
+      var v3=vc?vc.querySelector('.lg-row-v3'):null,open3=null,today3=false;if(v3){open3=(v3.textContent||'').replace(/\\s+/g,' ').trim();today3=!!v3.querySelector('[data-qbrowtoday]')&&/^today /.test(open3);v3.parentNode.removeChild(v3);}
       var nmc=b.querySelector('.lg-row-name .lg-row-nm'),dot=!!b.querySelector('.lg-row-name i');
       var rl=b.querySelector('.lg-row-name [data-qbrunlink]');   // owner 10-31 15:30: the run number is a link to the run's report
       // owner 10-31 15:50: the name reads 'NOISE #382.2 keel' (run.set + model word). label = the words as shown; name = family + run
@@ -3264,7 +3279,7 @@ var CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=_
         tip:shl?shl.getAttribute('title'):null,seed:shs?(shs.textContent||'').trim():null,open:sho?(sho.textContent||'').replace(/\\s+/g,' ').trim():null,
         sub:subTxt||null,subShown:sb?w.getComputedStyle(sb).display!=='none':subFromMore,more:!!b.querySelector('[data-lgrowmore]'),
         value:vc?(vc.textContent||'').replace(/\\s+/g,' ').trim():null,value2:v2,value2Shown:sm0?w.getComputedStyle(sm0).display!=='none':false,
-        open3:open3,nameColor:nmc?nmc.style.color:null,dot:dot,runLink:rl?rl.getAttribute('data-qbrunlink'):null,
+        open3:open3,today3:today3,nameColor:nmc?nmc.style.color:null,dot:dot,runLink:rl?rl.getAttribute('data-qbrunlink'):null,
         nameCut:nameCut,nameW:nm?Math.round(nm.clientWidth):null,
         off:b.classList.contains('off'),h:Math.round(rc.height),sw:b.querySelectorAll('[data-lgsw]').length,
         valColor:v?w.getComputedStyle(v).color:null,expanded:b.getAttribute('aria-expanded'),
@@ -6329,7 +6344,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         # THE THIRD MONEY LINE IS GONE AND MUST STAY GONE (owner 2026-11-08). 'unrealized +$X ·
         #   3 lots · 300 sh' was the widest string in the value column and therefore the reason the
         #   name had no room on a phone. Its figures are in the expander now, asserted above.
-        if not is_other and x.get('open3'):
+        # owner 11-20 (v91.42, via MANAGER): a live leg row may carry its 'today +$X' line ([data-qbrowtoday]) - the one allowed third line
+        if not is_other and x.get('open3') and not x.get('today3'):
             fails.append('%s: list row %s has a third money line under its figures again (%r) - the collapsed row carries one number and '
                          'the open P&L under it, nothing else' % (tag, x.get('name'), x.get('open3')))
     rt = by.get('retired')
@@ -6799,12 +6815,22 @@ def fmt_et(iso):
     return '%s %s, %s:%s' % (MON3[int(m.group(2)) - 1], m.group(3), m.group(4), m.group(5))
 
 
-CAV_ORDER = ['BOOK ONLY', 'CHECK FILL', 'FILL GAP', 'BOOK PRICE', 'PART BOOK PRICE', 'NOT COMPARED']
+CAV_ORDER = ['BOOK ONLY', 'CHECK FILL', 'FILL GAP', 'FILL OFF TAPE (WEBULL PAPER)', 'BOOK PRICE', 'PART BOOK PRICE', 'NOT COMPARED']
+OFF_TAPE_WORD = 'FILL OFF TAPE (WEBULL PAPER)'   # v91.43: the chip that replaced CHECK FILL for a Webull fill outside its minute's high/low
+CAV_SHORT = {OFF_TAPE_WORD: 'OFF TAPE'}   # index.html qbCavWord keeps the narrow-row word short
 
 
 def _fill_word(t):
-    """index.html parityChip on a failed fill check: CHECK FILL when a side has an unexplained part (a fill that does not fit the tape), else FILL GAP."""
+    """index.html parityChip on a failed fill check: FILL OFF TAPE (WEBULL PAPER) when a fill does not fit the tape (v91.43; it was
+    CHECK FILL), else FILL GAP. Rows that carry the box's verdict (fill_parity_ok, or fp sides with the [10] omr field) are read by it;
+    older rows by a side with an unexplained part."""
+    if t.get('fill_parity_ok') is True or t.get('fill_parity_ok') is False:
+        return OFF_TAPE_WORD if t.get('fill_parity_outside_minute_range') else 'FILL GAP'
     fp = t.get('fp') if isinstance(t.get('fp'), dict) else None
+    sides = [fp.get(k) for k in ('en', 'ex')] if fp else []
+    packed = [x.split('|') for x in sides if isinstance(x, str)]
+    if any(len(p) >= 10 for p in packed):
+        return OFF_TAPE_WORD if any(len(p) >= 11 and p[10] == '1' for p in packed if len(p) >= 10) else 'FILL GAP'
     for k in ('en', 'ex'):
         s = fp.get(k) if fp else None
         if isinstance(s, str):
@@ -6815,14 +6841,15 @@ def _fill_word(t):
         else:
             continue
         if u == u and abs(u) >= 0.00005:
-            return 'CHECK FILL'
+            return OFF_TAPE_WORD
     return 'FILL GAP'
 
 
 def row_cav_word(t):
     """The one caveat word a row carries under its strategy name (index.html qbCavWord): the first of CAV_ORDER that the row's own flags hold."""
     words = [(_fill_word(t) if isinstance(w, tuple) else w) for w in tl_flags_want(t)[1:]]
-    return next((k for k in CAV_ORDER if k in words), '')
+    k = next((k for k in CAV_ORDER if k in words), '')
+    return CAV_SHORT.get(k, k)
 
 
 def row_caveat(t):
@@ -6844,10 +6871,15 @@ def tl_flags_want(t):
     src = str(t.get('pnl_record_src') or '')
     if not t.get('book_only') and not nt and src in ('book', 'part'):
         want.append('PART BOOK PRICE' if src == 'part' else 'BOOK PRICE')
-    if not nt:
+    if not nt and (t.get('fill_parity_off_tape') is True or str(t.get('fill_parity_off_tape')).lower() == 'true'):
+        # board row 112: the box's off-tape tag - the amber chip, plus FILL GAP only when a judged side missed the band worse
+        want.append(OFF_TAPE_WORD)
+        if t.get('fill_parity_ok') is False and t.get('fill_parity_side') != 'better':
+            want.append('FILL GAP')
+    elif not nt:
         ok = t.get('broker_parity_ok')
         if ok is False:
-            want.append(('FILL GAP', 'CHECK FILL'))
+            want.append(('FILL GAP', OFF_TAPE_WORD))
         elif ok is None:
             want.append('NOT COMPARED')
     return want
@@ -7355,7 +7387,7 @@ def panel_pick(doc):
             # no backtest P&L, and the box says why (the backtest has not exited this trade): the panel's dash carries those words
             first(lambda t: _fin(t.get('pnl_backtest')) is None and bt_why(t, doc) != 'not on record'),
             # a flagged trade whose cause is a fill that does not fit the tape (CHECK FILL): the FILLS vs BACKTEST line must say so, not '15 cents worse'
-            first(lambda t: t.get('broker_parity_ok') is False and not t.get('book_only') and _fill_word(t) == 'CHECK FILL')]
+            first(lambda t: t.get('broker_parity_ok') is False and not t.get('book_only') and _fill_word(t) == OFF_TAPE_WORD)]
     seen, variety = set(), []
     for t in cand:
         if t is not None and row_key(t) not in seen:
@@ -8226,9 +8258,46 @@ def expected_par_chip(doc):
     return ('%d PARITY MISMATCH%s' % (n, '' if n == 1 else 'ES')) if n > 0 else None
 
 
+def _bp_avg(v):
+    try:
+        a = float(v)
+    except (TypeError, ValueError):
+        return None
+    return a if a == a else None
+
+
+def _cents_avg(a):
+    """index.html's '(-7c avg)' figure: cents a share, one decimal unless whole, half rounded up (JS Math.round)."""
+    import math
+    c = math.floor(a * 1000 + 0.5) / 10.0
+    txt = ('%d' % c) if c == int(c) else ('%.1f' % c)
+    return ('+' if c > 0 else '') + txt + 'c avg'
+
+
+def expected_fills_parts(doc):
+    """The words FILLS BEHIND BACKTEST must carry (board row 112): each leg flagged with a WORSE running average ('NOISE', '(-7c avg)'),
+    else 'board (-6c avg)' when only the board-wide average flagged worse. None = not drawn: a flag on a better average never draws it."""
+    bp = doc.get('broker_parity') or {}
+    legs = bp.get('legs') or {}
+    bad = sorted(k for k, L in legs.items() if isinstance(L, dict) and L.get('flag')
+                 and _bp_avg(L.get('avg_exec_ps')) is not None and _bp_avg(L.get('avg_exec_ps')) < 0)
+    if bad:
+        fam = {'ENGUQ': 'ENGU-Q'}
+        return [fam.get(k, k.split('_')[0]) for k in bad] + ['(' + _cents_avg(_bp_avg(legs[k].get('avg_exec_ps'))) + ')' for k in bad]
+    ba = _bp_avg((bp.get('board') or {}).get('avg_exec_ps'))
+    if bp.get('board_flag') and ba is not None and ba < 0:
+        return ['board (' + _cents_avg(ba) + ')']
+    return None
+
+
 def expected_fills_chip(doc):
-    """FILLS BEHIND BACKTEST is drawn while the broker parity's rolling flag (board_flag) is up."""
-    return bool((doc.get('broker_parity') or {}).get('board_flag'))
+    """FILLS BEHIND BACKTEST is drawn while a running average (a leg's or the board's) is flagged AND worse than the backtest."""
+    return expected_fills_parts(doc) is not None
+
+
+def fills_chip_key(flags):
+    """The hero's FILLS BEHIND BACKTEST chip as drawn ('FILLS BEHIND BACKTEST: NOISE #382 (-7c avg)'), or None."""
+    return next((k for k in flags if k.startswith(FILLS_CHIP)), None)
 
 
 def expected_recon(doc):
@@ -8313,11 +8382,16 @@ def _hero_extras(tag, r, doc, fails, stale_like=False, colour=True, ex=None, sys
     wf = expected_fills_chip(doc)
     if 'fills_chip' in ex and ex['fills_chip'] != wf:
         fails.append("%s: the probe's own case is wrong: the doc implies FILLS BEHIND BACKTEST %s, the variant says %s" % (tag, wf, ex['fills_chip']))
-    if wf != (FILLS_CHIP in flags):
-        fails.append('%s: the hero %s the %s chip (the broker parity rolling flag is %s); chips %r'
-                     % (tag, 'lacks' if wf else 'shows', FILLS_CHIP, 'up' if wf else 'down', sorted(flags)))
+    fk = fills_chip_key(flags)
+    if wf != (fk is not None):
+        fails.append('%s: the hero %s the %s chip (a worse running average is %s); chips %r'
+                     % (tag, 'lacks' if wf else 'shows', FILLS_CHIP, 'flagged' if wf else 'not flagged', sorted(flags)))
+    elif fk is not None:
+        miss = [w for w in expected_fills_parts(doc) if w not in fk]
+        if not fk.startswith(FILLS_CHIP + ': ') or miss:
+            fails.append('%s: the hero chip reads %r, want it to name who is behind (%s)' % (tag, fk, ', '.join(expected_fills_parts(doc))))
     if colour:
-        for k in pc + ([FILLS_CHIP] if FILLS_CHIP in flags else []):
+        for k in pc + ([fk] if fk is not None else []):
             if (flags[k] == 'grey') != stale_like:
                 fails.append('%s: the hero chip %s is drawn %s, want %s (a flag the box wrote is only as current as its doc)'
                              % (tag, k, flags[k], 'grey' if stale_like else 'in colour'))
@@ -8759,6 +8833,8 @@ def _keeps_problems(tag, r, ex, fails):
                      % (tag, r.get('legTodayVal'), ex['legtodayval']))
     flags = r.get('flags') or {}
     for k, want in (ex.get('flags_has') or {}).items():
+        if k == FILLS_CHIP and fills_chip_key(flags):
+            k = fills_chip_key(flags)
         if flags.get(k) != want:
             fails.append('%s: the hero chip %s is %s, want it drawn %s (chips: %r)' % (tag, k, 'missing' if k not in flags else 'drawn ' + flags[k], want, flags))
     for k in ex.get('flags_lacks') or []:

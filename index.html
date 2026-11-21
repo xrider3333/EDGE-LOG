@@ -1833,7 +1833,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.51';
+const VERSION='91.52';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1854,6 +1854,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.52',date:'2026-11-20',notes:['WEBULL PAPER: an off-tape fill never hatches the calendar or chart and never counts as a failed parity check; its hover says the P&L uses the minute close','WEBULL PAPER: FILLS BEHIND BACKTEST names the strategy and its average (e.g. NOISE #382 (-7c avg)), or says board; a better-than-backtest average never shows it']},
 {v:'91.49',date:'2026-11-20',notes:['WEBULL PAPER BOOK card: each live leg shows its book-table estimate a year','BOOKS card: estimate label, was $X/yr, max DD without 2020, ROC, Sortino, 2016-20 vs 2021-25 $/yr, and each leg status']},
 {v:'91.48',date:'2026-11-20',notes:['LEDGER REAL TABLE FULL: fits the laptop width again with no sideways scroll, still sized to content']},
 {v:'91.44',date:'2026-11-20',notes:['WEBULL PAPER: a fill the box marks off tape shows an amber FILL OFF TAPE (WEBULL PAPER) chip with the reason on hover, never a slippage loss']},
@@ -45452,8 +45453,22 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(parFailedForHero>0)chips.push(qbChipG(parFailedForHero+' PARITY MISMATCH'+(parFailedForHero===1?'':'ES'),'var(--attn-red)'));
         // FILL PARITY running average (2026-09-28): only the leg/board rolling flag reaches
         // the hero -- one flagged trade stays on its own row.
-        if(QBPAR&&QBPAR.board_flag){const _lg=QBPAR.legs||{},_t=Object.keys(_lg).filter(k=>_lg[k]&&_lg[k].flag).map(k=>{const L=_lg[k],a=Number(L.avg_exec_ps);return k+': its last '+(L.n||'?')+' trades filled on average '+(isFinite(a)?Math.abs(a*100).toFixed(1)+'¢ a share '+(a<0?'worse':'better'):'?')+' than the backtest, '+(L.flagged||0)+' flagged';}).join(' | ');
-          chips.push('<span title="'+(_t||'the running average of Webull fills is too far worse than the backtest').replace(/"/g,'&quot;')+'">'+qbChipG((Object.keys(_lg).filter(k=>_lg[k]&&_lg[k].flag).join(' + ')||'')+(Object.keys(_lg).some(k=>_lg[k]&&_lg[k].flag)?' ':'')+'FILLS BEHIND BACKTEST','var(--attn-red)')+'</span>');}
+        // board row 112 (owner 11-20): the chip names the leg(s) whose running average is worse ('NOISE #382 (-7c avg)'), or says
+        // 'board' when only the board-wide average flagged. avg_exec_ps is signed (+ better): a flag on a BETTER average never shows it.
+        if(QBPAR){const _lg=QBPAR.legs||{},_avg=v=>{const a=Number(v);return (v===null||v===undefined||v===''||!isFinite(a))?null:a;},
+          _ct=a=>{const c=Math.round(a*1000)/10;return (c>0?'+':'')+(Number.isInteger(c)?String(c):c.toFixed(1))+'c avg';},
+          _nm=k=>{const fk=qbFamOf(k),f=QE_LEGS.find(x=>x[0]===fk);return (f&&fk!=='DIP')?(f[1]+' '+f[3]):qbLegDisp(k);},
+          _bad=Object.keys(_lg).sort().filter(k=>{const L=_lg[k];if(!L||!L.flag)return false;const a=_avg(L.avg_exec_ps);return a!==null&&a<0;}),
+          _ba=_avg(QBPAR.board&&QBPAR.board.avg_exec_ps),_brd=!!QBPAR.board_flag&&_ba!==null&&_ba<0;
+          if(_bad.length||_brd){
+            const _who=_bad.length?_bad.map(k=>_nm(k)+' ('+_ct(_avg(_lg[k].avg_exec_ps))+')').join(', '):('board ('+_ct(_ba)+')');
+            const _t=(_bad.length?_bad.map(k=>{const L=_lg[k],a=_avg(L.avg_exec_ps);return _nm(k)+': its last '+(L.n||'?')+' trades filled on average '+Math.abs(a*100).toFixed(1)+'¢ a share worse than the backtest, '+(L.flagged||0)+' flagged';}).join(' | ')
+              :('Board-wide: the last '+((QBPAR.board&&QBPAR.board.n)||'?')+' trades across all legs filled on average '+Math.abs(_ba*100).toFixed(1)+'¢ a share worse than the backtest; no single leg is flagged'))
+              +'. The chip shows when a running average is more than '+Math.round((Number(QBPAR.tol_roll_ps)||0.05)*100)+'¢ a share worse; a better-than-backtest average never shows it.';
+            // two or three named legs run long: this one chip may wrap (never a sideways scroll on a phone)
+            // the title rides on the chip itself (a plain wrapper span read as 'colour' on a silent box, where the chip is grey)
+            chips.push(qbChipG('FILLS BEHIND BACKTEST: '+String(_who).replace(/&/g,'&amp;').replace(/</g,'&lt;'),'var(--attn-red)')
+              .replace('class="lg-chip" style="','data-qbfillsbehind="1" title="'+_t.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" class="lg-chip" style="white-space:normal;max-width:100%;'));}}
         if(QRHEALTH&&QRHEALTH.warn)chips.push(qbChipG('RATIO DRIFT','var(--warn)'));
         if(qeSlowLatency)chips.push(qbChipG('SLOW LATENCY','var(--warn)'));
         if(QREADY&&QREADY.ready===false)chips.push(qbChipG('NOT READY','var(--warn)'));
@@ -45849,7 +45864,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // cannot drift from the trade-row chip again: NT-mirrored rows keep the old NinjaTrader check,
         // every engine row is judged engine-vs-broker (the hatch read only the NT field after v73.866,
         // so a genuine engine-vs-Webull mismatch never hatched its day).
-        const qeParityFailed=t=>!!t&&(qeIsNtMirror(t)?t.parity_ok===false:t.broker_parity_ok===false);
+        // board row 112: an off-tape Webull paper side (the box's fill_parity_off_tape) is not judged - it never fails parity on its own;
+        // only a judged side the box stamped worse (fill_parity_ok false, not 'better') still does. Rows without the field read as before.
+        const qeOffTape=t=>!!t&&(t.fill_parity_off_tape===true||String(t.fill_parity_off_tape).toLowerCase()==='true');
+        const qeParityFailed=t=>!!t&&(qeIsNtMirror(t)?t.parity_ok===false:(qeOffTape(t)?(t.fill_parity_ok===false&&t.fill_parity_side!=='better'):t.broker_parity_ok===false));
         const effParOk=t=>qeIsNtMirror(t)?t.parity_ok:t.broker_parity_ok;
         const effParNote=t=>qeIsNtMirror(t)?t.parity_note:t.broker_parity_note;
         // REPRICED FALLBACK (2026-09-20). A trade the adapter could not mark at exit
@@ -46126,7 +46144,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // owner 11-19 (PAPER-WB rule, engine v91.00): a fill hatches only on a real verdict the engine stamped -
           // fp side [9] pok=0 (outside the latency-scaled parity band, design gap removed) or [10] omr=1 (outside its minute range).
           // ORB breakout gaps are design and never hatch. Rows without [9] keep the old flat parity flag.
-          const qbFpV=t=>{if(t&&(t.fill_parity_ok===true||t.fill_parity_ok===false))return {band:(t.fill_parity_ok===false&&t.fill_parity_side!=='better')?1:0,omr:(t.fill_parity_outside_minute_range&&t.fill_parity_side!=='better')?1:0};
+          // board row 112: an off-tape side (fill_parity_off_tape, a stale Webull paper print) never hatches; a judged band miss on the other side still does
+          const qbFpV=t=>{const ot=qeOffTape(t);if(t&&(t.fill_parity_ok===true||t.fill_parity_ok===false))return {band:(t.fill_parity_ok===false&&t.fill_parity_side!=='better')?1:0,omr:(!ot&&t.fill_parity_outside_minute_range&&t.fill_parity_side!=='better')?1:0};
+            if(ot)return {band:0,omr:0};
             const fp=t&&t.fp;if(!fp)return null;let has=false,band=0,omr=0;
             [fp.en,fp.ex].forEach(x=>{if(typeof x!=='string')return;const q=x.split('|');if(q.length<10)return;has=true;const worse=!(Number(q[3])>=0);if(q[9]==='0'&&worse)band++;if(q[10]==='1'&&worse)omr++;});
             return has?{band:band,omr:omr}:null;};
@@ -47033,9 +47053,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       +(q[10]==='1'?'. Webull’s price is outside the high-low of our feed’s 1-minute bar for that minute, so the two price sources disagree - check the fill, it is not counted as behind the backtest':'. Outside the allowed fill band'));}});
                 return has?{band:band,omr:omr,better:allBetter,why:why.join(' | ')}:null;})();
               // PAPER-WB 00631491: an off-tape side is no longer judged - the box publishes fill_parity_off_tape; amber, never a slippage loss
-              if(t.fill_parity_off_tape===true||String(t.fill_parity_off_tape).toLowerCase()==='true'){
-                const _ot=('Webull paper printed a price outside what traded in that minute on our feed (most likely a stale paper fill). It is not judged and not a slippage loss; the P&L uses the backtest price. '+String(t.broker_parity_note||'')).replace(/</g,'&lt;').replace(/"/g,'&quot;');
-                return ' <span title="'+_ot+'">'+qePill('FILL OFF TAPE (WEBULL PAPER)','var(--warn)')+'</span>';}
+              // board row 112: the amber chip replaces the red check; a band miss the box judged on the OTHER side still shows FILL GAP beside it
+              if(qeOffTape(t)){
+                const _ot=('Webull paper filled outside this minute’s high/low (stale simulator price). P&L uses the minute close.'+(t.broker_parity_note?(' — '+String(t.broker_parity_note)):'')).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+                const _gap=(t.fill_parity_ok===false&&t.fill_parity_side!=='better')?(' <span title="'+((_qv&&_qv.why)?String(_qv.why):'a judged Webull fill was worse than the parity band allows').replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;')+'">'+qePill('FILL GAP','var(--attn-red)')+'</span>'):'';
+                return ' <span title="'+_ot+'">'+qePill('FILL OFF TAPE (WEBULL PAPER)','var(--warn)')+'</span>'+_gap;}
               const bOk=_qv?((_qv.band||_qv.omr)?false:(t.broker_parity_ok==null?t.broker_parity_ok:true)):t.broker_parity_ok;
               const note=String(t.broker_parity_note||'').replace(/</g,'&lt;').replace(/"/g,'&quot;');
               if(bOk===false){
@@ -47155,9 +47177,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const qbFlagsText=t=>qbFlagsHtml(t).replace(/<[^>]*>/g,' ').replace(/\s+/g,' ').trim();
               // the one caveat word a row carries where the flags column is not drawn (a phone row, a list box 800 px or narrower): the first of these
               // that the row's own flags hold, so it can never say a word the flags column does not; every flag stays in its tooltip and in the panel
-              const QB_CAV_ORDER=['BOOK ONLY','CHECK FILL','FILL GAP','BOOK PRICE','PART BOOK PRICE','NOT COMPARED'];
+              const QB_CAV_ORDER=['BOOK ONLY','CHECK FILL','FILL GAP','FILL OFF TAPE (WEBULL PAPER)','BOOK PRICE','PART BOOK PRICE','NOT COMPARED'];
               QB_CAV_ORDER.unshift('MISSED');QB_CAV_ORDER.push('NOTE');   // a missed signal says so first; NOTE only when nothing else is flagged
-              const qbCavWord=t=>{const h=qbFlagsHtml(t),w=[],re=/<span style="[^"]*">([A-Z][A-Z ]*[A-Z])<\/span>/g;let m;while((m=re.exec(h)))w.push(m[1]);return QB_CAV_ORDER.find(k=>w.indexOf(k)>=0)||'';};
+              const qbCavWord=t=>{const h=qbFlagsHtml(t),w=[],re=/<span style="[^"]*">([A-Z][A-Z ()]*[A-Z)])<\/span>/g;let m;while((m=re.exec(h)))w.push(m[1]);const k=QB_CAV_ORDER.find(k=>w.indexOf(k)>=0)||'';return k==='FILL OFF TAPE (WEBULL PAPER)'?'OFF TAPE':k;};   // the narrow-row word stays short
               const qbHay=v=>[v.strategy,v._t.leg,v.side,'QQQ',v._t.exit_reason,v._t.trade_id,v.date,String(v._t.exit_ts||'').slice(0,10),qbFlagsText(v._t)].join(' ');
               const qbMatch=v=>{
                 if(!ledgerTradeMatch(v,qbChipSel,qbQuery,{pnl:x=>x.pnl,hay:qbHay}))return false;   // search + ALL / LONG / SHORT / WINS / LOSSES
@@ -47271,12 +47293,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // the NinjaTrader figures when the trade carries them, the record-vs-backtest line, the fill gap in dollars (gap / design / slippage and
               // unexplained, from the box's fp), the reason a backtest P&L is missing, and the fill breakdown with its FLAGGED word; notes = read-only words (exit reason, the flags, the
               // parity note, the KEEL size note); actions = OPEN CANDLES. Nothing in it changes the trade. Theme tokens only: no hue in MONO.
-              const qbFlagPairs=t=>{const out=[],re=/(?:<span title="([^"]*)">)?<span style="[^"]*">([A-Z][A-Z ]*[A-Z])<\/span>/g,h=qbFlagsHtml(t);let m;while((m=re.exec(h)))out.push([m[2],m[1]||'']);return out;};
+              const qbFlagPairs=t=>{const out=[],re=/(?:<span title="([^"]*)">)?<span style="[^"]*">([A-Z][A-Z ()]*[A-Z)])<\/span>/g,h=qbFlagsHtml(t);let m;while((m=re.exec(h)))out.push([m[2],m[1]||'']);return out;};
               const QB_FLAG_WORDS={'BOOK ONLY':'the order never reached Webull, so the money is the book price',
                 'BOOK PRICE':'no Webull fill was captured on either side, so the book price stands',
                 'PART BOOK PRICE':'Webull filled one side only, so the other side is at the book price',
                 'FILL GAP':'a Webull fill was worse than the backtest by more than the price band allows (15 cents, widened for the seconds the order took to send) once the known design gap is taken out',
                 'CHECK FILL':'a Webull fill that does not fit the tape, so check it',
+                'FILL OFF TAPE (WEBULL PAPER)':'Webull paper filled outside that minute’s high/low (a stale simulator price); not judged, never a slippage loss, the P&L uses the minute close',
                 'NOT COMPARED':'no fill comparison against the backtest was possible',
                 'EOD':'closed at the end of the day','BREAKER':'closed by the daily loss breaker','KILL':'closed by the kill switch',
                 'PARITY NOTE':'a NinjaTrader parity note is on this trade','RECONSTRUCTED':'the NinjaTrader side was rebuilt from the order ledger',
