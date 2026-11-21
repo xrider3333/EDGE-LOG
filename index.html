@@ -1860,7 +1860,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.60';
+const VERSION='91.61';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1881,6 +1881,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.61',date:'2026-11-21',notes:['LEDGER REAL trade chart: new 10s and 30s timeframe buttons, drawn from the NinjaTrader 10-second capture (the trade plus or minus 30 minutes)','LEDGER REAL trade chart: a trade marked with a timeframe opens on it (a 10s trade opens on 10s bars); a trade with no 10-second bars (before 2026-06-23) opens on 1m and the greyed 10s button says why on hover']},
 {v:'91.60',date:'2026-11-21',notes:['WEBULL PAPER calendar and chart: a fill hatches its day only when it is outside its delay-scaled price band AND more than 25c a share worse than the backtest (design gap taken out); a fill up to 25c worse never hatches and still counts in FILLS BEHIND BACKTEST; better fills never hatch','As sends get faster the band narrows and the 25c floor takes over','The box publishes the same verdict per trade (fill_parity_hatch) so the page and the box agree']},
 {v:'91.59',date:'2026-11-21',notes:['Calendars (WEBULL PAPER, NT8 PAPER): a caveat day whose cause has been fixed now hatches BLUE; amber means the cause is still open. Works back over past days (one list, docs/caveat_fixes.json); the hover says what fixed it and when','Calendars: the line under the calendar counts open and fixed caveat days apart, each with its own swatch','Charts: the shown caveat columns sit on their own day again (they had all drawn at the left edge since 11-18), and fixed ones hatch blue']},
 {v:'91.53',date:'2026-11-20',notes:['NT8 PAPER and WEBULL PAPER tables: each row reads entry time, entry price, exit time, exit price, then strategy, side, size and the result (NT8 PAPER has its own ENTRY $ / EXIT (ET) / EXIT $ columns now)','LEDGER REAL TABLE FULL under 1100 px: tight cells sized to content, no 1400 px floor spreading the columns apart']},
@@ -10397,14 +10398,23 @@ window.candleSVG=function(bars,overlays,markers,opts){
     return lwP;};
   window._lwLoad=lwLoad;
 
-  const TFS=[['1m',1],['2m',2],['3m',3],['5m',5],['10m',10],['15m',15],['30m',30],['1h',60],['4h',240],['D',1440]];
+  // 10s / 30s (owner 11-21): sub-minute sizes, drawn only from a source that carries 10-second bars (source.sub: the REAL trade
+  // docs' b10s window, the trade +/- 30 min); every other source hides them. TFMIN holds minutes, so they are fractions (1/6, 1/2).
+  const TFS=[['10s',1/6],['30s',0.5],['1m',1],['2m',2],['3m',3],['5m',5],['10m',10],['15m',15],['30m',30],['1h',60],['4h',240],['D',1440]];
   const TFMIN={};TFS.forEach(p=>{TFMIN[p[0]]=p[1];});
+  const isSub=tf=>(TFMIN[tf]||1)<1;
   const ANCHOR=570;   // 09:30, the regular-session open every intraday bar counts from (1h bars start 09:30, 10:30, ...)
   const pad2=v=>String(v).padStart(2,'0');
   const ts=(d,m)=>Date.UTC(+d.slice(0,4),+d.slice(5,7)-1,+d.slice(8,10),Math.floor(m/60),m%60)/1000;
   const minOf=t=>(+t.slice(11,13))*60+(+t.slice(14,16));
-  const bucket=(t,n)=>{t=String(t||'');if(t.length<16)return null;const d=t.slice(0,10),m=minOf(t);
-    return n>=1440?ts(d,0):ts(d,m-((((m-ANCHOR)%n)+n)%n));};
+  // bars are bucketed in SECONDS into the day ('YYYY-MM-DD HH:MM' or 'YYYY-MM-DD HH:MM:SS'), so a 10s / 30s size works too (a minute
+  // bar has no seconds, so every minute size buckets exactly as before)
+  const secOf=t=>(+t.slice(11,13))*3600+(+t.slice(14,16))*60+((t.length>=19&&t.charAt(16)===':')?(+t.slice(17,19)||0):0);
+  const bucket=(t,n)=>{t=String(t||'');if(t.length<16)return null;const d=t.slice(0,10);if(n>=1440)return ts(d,0);
+    const s=secOf(t),N=Math.max(1,Math.round(n*60)),A=ANCHOR*60;return ts(d,0)+s-((((s-A)%N)+N)%N);};
+  // the trade's entry / exit time at bar size n: on a 10s / 30s chart the source's exact second (x._etS / x._xtS, from the fills) when it has one
+  const etOf=(x,n)=>((n<1&&x&&x._etS)||(x&&x._et));
+  const xtOf=(x,n)=>((n<1&&x&&x._xtS)||(x&&x._xt2));
   // minute bars {t:'YYYY-MM-DD HH:MM',o,h,l,c,v} -> the library's bars at n minutes (1440 = one bar a day)
   const agg=(M,n)=>{const out=[];let cur=null;
     for(const b of M){const time=bucket(b.t,n);if(time==null)continue;
@@ -10434,7 +10444,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   // row 75: bars handed in as arrays -> the day shape above ({bars: 09:30-16:00, ext: the rest}); t may be wall clock or epoch
   const normT=t=>{if(t==null)return '';if(typeof t==='number'&&isFinite(t)){const d=new Date((t>1e11?t:t*1000));
       try{return d.toLocaleDateString('en-CA',{timeZone:'America/New_York'})+' '+d.toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour:'2-digit',minute:'2-digit',hour12:false});}catch(_e){return '';}}
-    return String(t).replace('T',' ').slice(0,16);};
+    return String(t).replace('T',' ').slice(0,19).replace(/[^0-9: -].*$/,'');};   // seconds kept (10-second bars)
   const splitDays=(bars,ext)=>{const days={};
     const put=(b,isExt)=>{if(!b)return;const t=normT(b.t);if(t.length<16||!isFinite(+b.o))return;const d=t.slice(0,10),m=minOf(t);
       const D=days[d]||(days[d]={bars:[],ext:[],coarse:false,doc:null}),row={t:t,o:+b.o,h:+b.h,l:+b.l,c:+b.c,v:+b.v||0};
@@ -10518,9 +10528,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
       if(!hasIn&&mk.book_in&&mk.book_in.t)put(mk.book_in.t,{position:long?'belowBar':'aboveBar',shape:long?'arrowUp':'arrowDown',color:'muted',text:'book '+(long?'buy ':'sell ')+'@ '+f2(mk.book_in.px),kind:'book_in'});
       if(!hasOut&&mk.book_out&&mk.book_out.t)put(mk.book_out.t,{position:long?'aboveBar':'belowBar',shape:long?'arrowDown':'arrowUp',color:'muted',text:'book '+(long?'sell ':'buy ')+'@ '+f2(mk.book_out.px),kind:'book_out'});
     }else{
-      const w=x._wbMissed?'signal ':'';
-      if(x._et)put(x._et,{position:long?'belowBar':'aboveBar',shape:long?'arrowUp':'arrowDown',color:x._wbMissed?'muted':'blue',text:w+(long?'buy ':'sell ')+sh+'@ '+f2(x._ep),kind:'in'});
-      if(x._xt2)put(x._xt2,{position:long?'aboveBar':'belowBar',shape:long?'arrowDown':'arrowUp',color:x._wbMissed?'muted':'blue',text:w+(long?'sell ':'buy ')+sh+'@ '+f2(x._xp),kind:'out'});
+      const w=x._wbMissed?'signal ':'',et=etOf(x,n),xt=xtOf(x,n);
+      if(et)put(et,{position:long?'belowBar':'aboveBar',shape:long?'arrowUp':'arrowDown',color:x._wbMissed?'muted':'blue',text:w+(long?'buy ':'sell ')+sh+'@ '+f2(x._ep),kind:'in'});
+      if(xt)put(xt,{position:long?'aboveBar':'belowBar',shape:long?'arrowDown':'arrowUp',color:x._wbMissed?'muted':'blue',text:w+(long?'sell ':'buy ')+sh+'@ '+f2(x._xp),kind:'out'});
     }
     out.sort((a,b)=>a.time-b.time);
     return out;};
@@ -10575,12 +10585,13 @@ window.candleSVG=function(bars,overlays,markers,opts){
   window._lwLevels=levels;   // test hook
   // the stop in force on the bar at time t (n-minute bars): the last rung at or before the bar's close, else the first
   const stopAt=(lv,t,n)=>{if(!lv||lv.stop==null)return null;if(!lv.ladder)return lv.stop;let px=null;
-    for(const p of lv.ladder){if(p.time<=t+n*60-60)px=p.px;else break;}return px==null?lv.ladder[0].px:px;};
+    for(const p of lv.ladder){if(p.time<=t+n*60-Math.min(60,n*60))px=p.px;else break;}return px==null?lv.ladder[0].px:px;};
   // MFE / MAE: the best and worst price between the entry and the exit (or the last bar shown), from the minute bars
-  const excursion=(x,M,lastT)=>{if(!x||num(x._ep)==null||!x._et)return null;const long=String(x._side||'long')!=='short';
-    const t0=bucket(x._et,1);if(t0==null)return null;let t1=x._xt2?bucket(x._xt2,1):Infinity;if(lastT!=null&&lastT<t1)t1=lastT;
+  // n = the chart's bar size (optional): under a minute M holds 10-second bars, read at their own size
+  const excursion=(x,M,lastT,n)=>{if(!x||num(x._ep)==null||!x._et)return null;const long=String(x._side||'long')!=='short',nn=n||1,u=nn<1?1/6:1;
+    const t0=bucket(etOf(x,nn),u);if(t0==null)return null;const xt=xtOf(x,nn);let t1=xt?bucket(xt,u):Infinity;if(lastT!=null&&lastT<t1)t1=lastT;
     let hi=null,lo=null,hiT=null,loT=null;
-    for(const b of (M||[])){const t=bucket(b.t,1);if(t==null||t<t0)continue;if(t>t1)break;const h=+b.h,l=+b.l;if(hi==null||h>hi){hi=h;hiT=t;}if(lo==null||l<lo){lo=l;loT=t;}}
+    for(const b of (M||[])){const t=bucket(b.t,u);if(t==null||t<t0)continue;if(t>t1)break;const h=+b.h,l=+b.l;if(hi==null||h>hi){hi=h;hiT=t;}if(lo==null||l<lo){lo=l;loT=t;}}
     if(hi==null)return null;const ep=+x._ep,fav=long?hi:lo,adv=long?lo:hi;
     return {fav:fav,adv:adv,favT:long?hiT:loT,advT:long?loT:hiT,favPts:(fav-ep)*(long?1:-1),advPts:(adv-ep)*(long?1:-1)};};
   window._lwExcursion=excursion;   // test hook
@@ -10595,7 +10606,16 @@ window.candleSVG=function(bars,overlays,markers,opts){
   window._lwState=()=>alive()?{tf:S.tf,bars:(S.bars||[]).length,days:Object.keys(S.days||{}).sort(),endLo:!!S.endLo,endHi:!!S.endHi,busy:!!S.busy,
     lines:(S.pl||[]).length,tid:S.x&&S.x._tid,label:S.x&&S.x._label,chart:!!S.chart,range:(S.chart?S.chart.timeScale().getVisibleLogicalRange():null),
     on:Object.assign({},S.on||{}),hide:Object.assign({},S.hide||{}),flags:(S.flags||[]).length,replay:!!S.replay,cut:S.cut,all:(S.all||[]).length,levels:S.lv,exc:S.exc,runs:(S.runs||[]).length,orbs:(S.orbs||[]).length,vwap:Object.keys(S.vwAt||{}).length,
-    range:S.range||null,src:(S.src&&S.src.kind)||'box',no:S.x&&S.x._no,err:S.loadErr||null}:null;
+    range:S.range||null,src:(S.src&&S.src.kind)||'box',no:S.x&&S.x._no,err:S.loadErr||null,
+    tfWant:S.tfWant||null,sub:!!(S.src&&S.src.sub),has10:has10(),why10:has10()?'':why10()}:null;
+  // 10s / 30s (owner 11-21): does the trade on show have 10-second bars, and if not, why (the greyed button's hover says it)
+  const has10=()=>{const D=S.days10;return !!(D&&Object.keys(D).some(d=>(D[d].bars||[]).length||(D[d].ext||[]).length));};
+  const why10=()=>{if(!S.sub10Known)return 'loading the 10-second bars';const d=String(S.x&&S.x._et||'').slice(0,10),f=(S.src&&S.src.sub10From)||'';
+    if(f&&d&&d<f)return 'no 10-second bars: they start '+f+' (the NinjaTrader 10-second capture) and this trade is older';
+    return (S.src&&S.src.text&&S.src.text.no10)||'no 10-second bars for this trade';};
+  // the size a trade opens on: the one wanted (the trade's own timeframe, or the one picked), but a 10s / 30s wish with no
+  // 10-second bars for this trade falls back to 1m (the wish is kept: the next trade that has them opens on it again)
+  const fitTf=()=>{const w=S.tfWant||S.tf||'1m';return (isSub(w)&&!(S.src&&S.src.sub&&has10()))?'1m':w;};
 
   const status=html=>{const e=S.ov&&S.ov.querySelector('[data-lwstatus]');if(e)e.innerHTML=html;};
   const rowsOf=()=>{let r=[];try{r=(S.ctx&&S.ctx.all)?S.ctx.all():[];}catch(_e){}return (r||[]).filter(q=>q&&q._et&&((S.src&&S.src.rowOk)?S.src.rowOk(q):q._qbars));};
@@ -10684,7 +10704,11 @@ window.candleSVG=function(bars,overlays,markers,opts){
 
   const syncCtl=()=>{if(!alive())return;
     const base=TFMIN[(S.src&&S.src.base)||'1m']||1;
-    S.ov.querySelectorAll('[data-lwtf]').forEach(b=>{const k=b.getAttribute('data-lwtf'),on=k===S.tf;b.style.display=(TFMIN[k]<base)?'none':'';
+    S.ov.querySelectorAll('[data-lwtf]').forEach(b=>{const k=b.getAttribute('data-lwtf'),on=k===S.tf,sb=isSub(k);
+      b.style.display=(sb?!(S.src&&S.src.sub&&base<=1):(TFMIN[k]<base))?'none':'';
+      // 10s / 30s with no 10-second bars for this trade: shown, greyed, and the hover says why (aria-disabled keeps the tooltip working)
+      const off=sb&&!has10();b.setAttribute('aria-disabled',off?'true':'false');b.style.opacity=off?'0.4':'';b.style.cursor=off?'not-allowed':'pointer';
+      b.title=sb?(off?why10():(k+' bars from the NinjaTrader 10-second capture (the trade +/- 30 min)')):'';
       b.style.background=on?'var(--bg2)':'transparent';b.style.color=on?'var(--text)':'var(--text4)';b.style.fontWeight=on?'700':'400';b.setAttribute('aria-pressed',on?'true':'false');});
     const lg=S.ov.querySelector('[data-lwlog]');if(lg){lg.style.color=S.log?'var(--text)':'var(--text3)';lg.style.borderColor=S.log?'var(--text4)':'var(--border)';}
     S.ov.querySelectorAll('[data-lwchip]').forEach(b=>{const k=b.getAttribute('data-lwchip'),on=!!(S.on&&S.on[k]);
@@ -10707,7 +10731,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     if(!bar){const b=S.bars||[];if(!b.length){ro.innerHTML='';return;}
       let i=b.length-1;try{const lr=S.chart.timeScale().getVisibleLogicalRange();if(lr)i=Math.max(0,Math.min(b.length-1,Math.floor(lr.to)));}catch(_e){}bar=b[i];}
     const b=S.bars||[],j=b.indexOf(bar),pv=j>0?b[j-1].close:bar.open,ch=bar.close-pv,cp=pv?ch/pv*100:0,c=pnlCol(ch);
-    const d=new Date(bar.time*1000),dt=pad2(d.getUTCMonth()+1)+'/'+pad2(d.getUTCDate())+(TFMIN[S.tf]>=1440?'':(' '+pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes())));
+    const d=new Date(bar.time*1000),dt=pad2(d.getUTCMonth()+1)+'/'+pad2(d.getUTCDate())+(TFMIN[S.tf]>=1440?'':(' '+pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes())+(isSub(S.tf)?':'+pad2(d.getUTCSeconds()):'')));
     const k=(l,v)=>'<span style="color:var(--text5)">'+l+'</span> <span style="color:'+c+'">'+v+'</span>';
     const hid=S.hide||{},on=S.on||{},f2=v=>v==null?'&mdash;':(+v).toFixed(2);
     // one legend row per study on the chart (TradingView style): name, its value on this bar, the eye (hide / show), the x (remove)
@@ -10734,8 +10758,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
   const ethNote=()=>{const e=S.ov&&S.ov.querySelector('[data-lwnote]');if(!e)return;const d0=String(S.x&&S.x._et||'').slice(0,10),D=S.days&&S.days[d0];
     const show=!!(S.on&&S.on.sess&&D&&!(D.ext&&D.ext.length));e.hidden=!show;if(show)e.textContent='no extended-hours bars for this day yet \u00b7 showing the regular session';};
 
-  const minuteBars=()=>{const ds=Object.keys(S.days).sort(),ext=!!(S.on&&S.on.sess);let M=[];
-    ds.forEach(d=>{const D=S.days[d];if(ext&&D.ext&&D.ext.length){const pre=D.ext.filter(b=>minOf(b.t)<ANCHOR),post=D.ext.filter(b=>minOf(b.t)>=960);M=M.concat(pre,D.bars,post);}else M=M.concat(D.bars);});return M;};
+  // the base bars of the chart: the minutes (S.days), or on a 10s / 30s chart the 10-second bars (S.days10)
+  const minuteBars=DD=>{DD=DD||S.days;const ds=Object.keys(DD).sort(),ext=!!(S.on&&S.on.sess);let M=[];
+    ds.forEach(d=>{const D=DD[d];if(ext&&D.ext&&D.ext.length){const pre=D.ext.filter(b=>minOf(b.t)<ANCHOR),post=D.ext.filter(b=>minOf(b.t)>=960);M=M.concat(pre,D.bars,post);}else M=M.concat(D.bars);});return M;};
   const marksOf=()=>{if(S.src&&S.src.marks)return S.src.marks(S.x,S.days)||null;if(!S.x._tid)return null;for(const d of Object.keys(S.days)){const doc=S.days[d].doc,m=doc&&(doc.marks||[]).find(q=>q&&q.trade_id===S.x._tid);if(m)return m;}return null;};
 
   // (re)draw the series at the current timeframe; keep: 'view' holds the visible time span, 'shift' a left-side prepend
@@ -10743,14 +10768,14 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const n=TFMIN[S.tf]||1,ts0=S.chart.timeScale();
     let vr=null,lr=null,first=S.bars&&S.bars.length?S.bars[0].time:null;
     try{vr=ts0.getVisibleRange();lr=ts0.getVisibleLogicalRange();}catch(_e){}
-    S.M=minuteBars();S.all=agg(S.M,n);S.bars=S.all;
+    S.M=(n<1&&S.days10)?minuteBars(S.days10):minuteBars();S.all=agg(S.M,n);S.bars=S.all;
     if(S.replay&&keep==='shift'&&first!=null&&S.cut!=null){const k0=S.all.findIndex(b=>b.time>=first);if(k0>0)S.cut+=k0;}   // earlier days came in: the cursor keeps its bar
     // replay (row 73): only the bars up to the cursor exist for the chart; anything after it stays unknown
     if(S.replay){if(S.cut==null||S.cut>=S.all.length)S.cut=S.all.length-1;if(S.cut<0)S.cut=0;S.bars=S.all.slice(0,S.cut+1);}
     const lastT=S.bars.length?S.bars[S.bars.length-1].time:null;
-    S.xHide=!!(S.replay&&S.x._xt2&&lastT!=null&&bucket(S.x._xt2,n)>lastT);
+    S.xHide=!!(S.replay&&xtOf(S.x,n)&&lastT!=null&&bucket(xtOf(S.x,n),n)>lastT);
     const up=S.th.green,dn=S.th.red,ua=rgba(up,0.45),da=rgba(dn,mono()?0.85:0.45);
-    try{S.chart.applyOptions({timeScale:{timeVisible:n<1440}});}catch(_e){}
+    try{S.chart.applyOptions({timeScale:{timeVisible:n<1440,secondsVisible:n<1}});}catch(_e){}
     S.cs.setData(S.bars.map(b=>({time:b.time,open:b.open,high:b.high,low:b.low,close:b.close})));
     S.vs.setData(S.bars.map(b=>({time:b.time,value:b.volume,color:b.close>=b.open?ua:da})));
     S.mk=marksOf();if(S.mk&&!S.mk.synthetic&&window._qbFillsFromMarks)window._qbFillsFromMarks(S.x,S.mk);
@@ -10762,7 +10787,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
     ls.forEach(l=>{S.pl.push(S.cs.createPriceLine({price:l.price,color:col(l.col),lineWidth:l.width||1,lineStyle:l.style,axisLabelVisible:true,title:l.title}));});
     // the position box: from the entry bar to the exit bar, between the entry and exit prices, green for a win, red for a loss
     // (with a stop or target on record the overlay draws the risk box instead - row 62)
-    S.eI=snap(S.bars,bucket(S.x._et,n));S.xI=(S.x._xt2&&!S.xHide)?snap(S.bars,bucket(S.x._xt2,n)):null;
+    S.eI=snap(S.bars,bucket(etOf(S.x,n),n));S.xI=(xtOf(S.x,n)&&!S.xHide)?snap(S.bars,bucket(xtOf(S.x,n),n)):null;
     if(S.eI!=null&&new Date(S.bars[S.eI].time*1000).toISOString().slice(0,10)!==String(S.x._et).slice(0,10))S.eI=null;
     if(S.xI!=null&&new Date(S.bars[S.xI].time*1000).toISOString().slice(0,10)!==String(S.x._xt2).slice(0,10))S.xI=null;
     S.lv=levels(S.mk);const riskBox=S.lv.stop!=null||S.lv.target!=null;
@@ -10793,7 +10818,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
         const h=+b.h,l=+b.l;if(m<ANCHOR+5){if(o.h5==null||h>o.h5)o.h5=h;if(o.l5==null||l<o.l5)o.l5=l;}if(o.h15==null||h>o.h15)o.h15=h;if(o.l15==null||l<o.l15)o.l15=l;}
       Object.keys(byDay).forEach(d=>{const o=byDay[d],a5=snap(S.bars,ts(d,ANCHOR+5)),a15=snap(S.bars,ts(d,ANCHOR+15)),e=snap(S.bars,ts(d,960)-1);
         if(a5==null||e==null||dayOf(S.bars[a5].time)!==d)return;S.orbs.push({d:d,h5:o.h5,l5:o.l5,h15:o.h15,l15:o.l15,i5:a5,i15:(a15==null||dayOf(S.bars[a15].time)!==d)?a5:a15,iEnd:e});});}
-    if(S.eI!=null)S.exc=excursion(S.x,S.M,lastT!=null?lastT+n*60-60:null);
+    if(S.eI!=null)S.exc=excursion(S.x,S.M,lastT!=null?lastT+n*60-Math.min(60,n*60):null,n);
     S.dirty=true;
     if(keep==='shift'&&lr&&first!=null){const k=S.bars.findIndex(b=>b.time>=first);if(k>0)setRange(lr.from+k,lr.to+k);}
     else if(keep==='stay'&&lr)setRange(lr.from,lr.to);
@@ -10869,7 +10894,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
   window._lwPaint=()=>{S.dirty=true;paint();};   // test hook
 
   // ── REPLAY (row 73): the cursor starts on the entry bar; left / right move it one bar; Esc leaves ──
-  const replayOn=()=>{if(!S.chart||!S.all||!S.all.length)return;const n=TFMIN[S.tf]||1;let i=snap(S.all,bucket(S.x._et,n));if(i==null)i=S.all.length-1;
+  const replayOn=()=>{if(!S.chart||!S.all||!S.all.length)return;const n=TFMIN[S.tf]||1;let i=snap(S.all,bucket(etOf(S.x,n),n));if(i==null)i=S.all.length-1;
     S.replay=true;S.cut=i;draw('stay');replayView();syncCtl();info();};
   const replayOff=()=>{if(!S.replay)return;S.replay=false;S.cut=null;draw('stay');syncCtl();info();};
   const replayStep=k=>{if(!S.replay||!S.all)return;S.cut=Math.max(0,Math.min(S.all.length-1,S.cut+k));draw('stay');replayView();info();};
@@ -10890,7 +10915,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
       if(k>0)setTimeout(()=>again(k-1),60);};
     requestAnimationFrame(()=>again(0));setTimeout(()=>again(9),30);};
   const goTrade=()=>{if(!S.chart||!S.bars||!S.bars.length)return;const n=TFMIN[S.tf]||1;autoY();
-    let a=snap(S.bars,bucket(S.x._et,n)),b=snap(S.bars,bucket(S.x._xt2||S.x._et,n));if(a==null)a=0;if(b==null)b=a;
+    let a=snap(S.bars,bucket(etOf(S.x,n),n)),b=snap(S.bars,bucket(xtOf(S.x,n)||etOf(S.x,n),n));if(a==null)a=0;if(b==null)b=a;
     const span=Math.max(60,(b-a)+40),mid=(a+b)/2;
     setRange(mid-span/2,mid+span/2);};
 
@@ -10900,6 +10925,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
     const coarse=ds.some(d=>S.days[d].coarse),d0=String(S.x&&S.x._et||'').slice(0,10);
     if(S.replay&&S.bars&&S.bars.length){const b=S.bars[S.bars.length-1],d=new Date(b.time*1000);
       status('<b style="color:var(--text3)">REPLAY</b> &middot; at '+pad2(d.getUTCMonth()+1)+'/'+pad2(d.getUTCDate())+' '+pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes())+' ET &middot; '+(S.bars.length)+' / '+(S.all||[]).length+' bars &middot; left / right step one bar &middot; Esc leaves');return;}
+    if(isSub(S.tf)&&S.days10&&S.bars&&S.bars.length){const hm=t=>{const d=new Date(t*1000);return pad2(d.getUTCHours())+':'+pad2(d.getUTCMinutes());};
+      status((txt('bars10')||(S.tf+' bars'))+' &middot; '+dayOf(S.bars[0].time).slice(5)+' '+hm(S.bars[0].time)+' &rarr; '+hm(S.bars[S.bars.length-1].time)+' ET ('+S.bars.length+' bars)');return;}
     if(txt('bars')){status(txt('bars')+' &middot; '+ds[0].slice(5)+' &rarr; '+ds[ds.length-1].slice(5)+' ('+ds.length+(ds.length>1?' days)':' day)'));return;}
     status((S.busy?'<b style="color:var(--text3)">loading more days&hellip;</b> &middot; ':'')
       +((d0&&!S.days[d0])?'<span style="color:var(--text3)">no box bars for this trade&#39;s day yet (the box publishes at 16:10 ET)</span> &middot; ':'')
@@ -10931,9 +10958,10 @@ window.candleSVG=function(bars,overlays,markers,opts){
     for(const k of [-1,1])for(let g=0;g<40&&ok()&&!(k<0?S.endLo:S.endHi);g++){
       if(S.busy){await new Promise(r=>setTimeout(r,150));continue;}did=true;await more(k);}
     if(did&&alive()&&S.seq===seq&&S.tf===tf)goTrade();};
-  const setTf=async tf=>{if(!TFMIN[tf]||!S.chart)return;const prev=S.tf;S.tf=tf;
+  const setTf=async tf=>{if(!TFMIN[tf]||!S.chart)return;if(isSub(tf)&&!(S.src&&S.src.sub&&has10()))return;   // a greyed 10s / 30s: its hover says why
+    const prev=S.tf;S.tf=tf;S.tfWant=tf;S.tfPicked=true;
     try{localStorage.setItem('el_lw_tf',tf);}catch(_e){}
-    autoY();draw(prev?'view':'trade');topUp();};
+    autoY();draw((prev&&isSub(prev)===isSub(tf))?'view':'trade');topUp();};   // 1m <-> 10s is another bar set (10s spans the trade +/- 30 min): frame the trade
 
   const savePng=()=>{if(!S.chart)return;try{
     const cv=S.chart.takeScreenshot(),el=S.ov.querySelector('[data-lwchartel]'),dk=Math.max(1,cv.width/Math.max(1,(el&&el.clientWidth)||cv.width));
@@ -10950,7 +10978,9 @@ window.candleSVG=function(bars,overlays,markers,opts){
 
   // a trade: its own days (entry to exit, at most 6 sessions read up front) plus one session before, then centre on it
   const loadTrade=async x=>{S.x=x;S.seq=++SEQ;const seq=S.seq;S.days={};S.endLo=false;S.endHi=false;S.busy=true;S.mk=null;S.bars=[];S.M=[];S.all=[];
-    S.replay=false;S.cut=null;S.lv=null;S.exc=null;S.runs=[];S.orbs=[];S.vwAt={};S.dirty=true;S.loadErr=null;S.range=null;
+    S.replay=false;S.cut=null;S.lv=null;S.exc=null;S.runs=[];S.orbs=[];S.vwAt={};S.dirty=true;S.loadErr=null;S.range=null;S.days10=null;S.sub10Known=false;
+    // stepping to another trade: until a size is picked by hand, each trade opens on its own timeframe (the source's tfOf: a REAL trade's ledger timeframe)
+    if(!S.tfPicked&&S.src&&S.src.tfOf){const t=S.src.tfOf(x);if(t&&TFMIN[t])S.tfWant=t;}
     header();syncCtl();status('<b style="color:var(--text3)">'+(txt('loading')||'loading this trade&#39;s candles from the box&hellip;')+'</b>');
     if(S.cs){S.cs.setData([]);S.vs.setData([]);if(S.bs)S.bs.setData([]);if(S.vw)S.vw.setData([]);S.cs.setMarkers([]);(S.pl||[]).forEach(p=>{try{S.cs.removePriceLine(p);}catch(_e){}});S.pl=[];autoY();}
     S.flags=[];const lg=S.ov.querySelector('[data-lwlegend]');if(lg)lg.innerHTML='';readout(null);const nt=S.ov.querySelector('[data-lwnote]');if(nt)nt.hidden=true;
@@ -10959,7 +10989,8 @@ window.candleSVG=function(bars,overlays,markers,opts){
       let got=null;try{got=await S.src.load(x,h=>{if(alive()&&S.seq===seq)status(h);});}
       catch(e){if(!alive()||S.seq!==seq)return;S.busy=false;S.loadErr=String(e&&e.message||e);info();return;}
       if(!alive()||S.seq!==seq)return;
-      const D=(got&&got.days)||{};Object.keys(D).forEach(dd=>{S.days[dd]=D[dd];});S.endLo=true;S.endHi=true;}
+      const D=(got&&got.days)||{};Object.keys(D).forEach(dd=>{S.days[dd]=D[dd];});S.endLo=true;S.endHi=true;
+      S.days10=(got&&got.days10)||null;}
     else{
       const d0=String(x._et||'').slice(0,10),d1=String(x._xt2||x._et||'').slice(0,10)||d0;
       const want=[];let d=d0;for(let k=0;k<12&&d<=d1&&want.length<6;k++){if(isWd(d))want.push(d);d=addDay(d,1);}
@@ -10968,7 +10999,7 @@ window.candleSVG=function(bars,overlays,markers,opts){
       want.forEach((dd,i)=>{if(rs[i])S.days[dd]=rs[i];});
       const before=await walk(d0,-1,1);if(!alive()||S.seq!==seq)return;
       before.got.forEach(p=>{S.days[p[0]]=p[1];});if(before.end)S.endLo=true;}
-    S.busy=false;S.range=rangeOf(S.days);
+    S.busy=false;S.range=rangeOf(S.days);S.sub10Known=true;S.tf=fitTf();
     if(!Object.keys(S.days).length){S.bars=[];S.M=[];info();return;}
     draw('trade');topUp();};
 
@@ -10987,13 +11018,16 @@ window.candleSVG=function(bars,overlays,markers,opts){
     S.ctx=ctx||null;S.src=src;S.x=x;S.th=theme();try{S.log=localStorage.getItem('el_lw_log')==='1';}catch(_e){}
     S.on={};S.hide={};CHIPS.forEach(p=>{S.on[p[0]]=chipOn(p[0]);S.hide[p[0]]=chipHid(p[0]);});S.replay=false;S.cut=null;
     let tf=(spec.tf&&TFMIN[spec.tf])?spec.tf:'1m';if(!spec.tf){try{const t=localStorage.getItem('el_lw_tf');if(t&&TFMIN[t])tf=t;}catch(_e){}}
+    S.tfPicked=false;S.days10=null;S.sub10Known=false;
     // a hold too long to read on 1-minute bars at this width opens on 5 (the 1M chip is one tap away)
     if(tf==='1m'&&src.fitTf!==false&&window._qbFitTf&&window._qbFitTf(x,window.innerWidth||1024)!=='1m')tf='5m';
-    const base=TFMIN[src.base||'1m']||1;if((TFMIN[tf]||1)<base)tf=src.base;   // a 5-minute source has no 1-minute chart
-    S.tf=tf;
+    const base=TFMIN[src.base||'1m']||1;if((TFMIN[tf]||1)<base&&!(isSub(tf)&&src.sub&&base<=1))tf=src.base;   // a 5-minute source has no 1-minute chart
+    S.tfWant=tf;S.tf=isSub(tf)?'1m':tf;   // 10s / 30s only once the trade's 10-second bars are in (fitTf)
     const ov=shell();S.ov=ov;header();syncCtl();status('<b style="color:var(--text3)">loading the chart&hellip;</b>');
     // the bars start loading now, alongside the library (one request, cached): the range is known even if the library never comes
-    if(src.load){try{src.load(x,()=>{}).then(g=>{if(alive()&&S.x===x&&!S.range)S.range=rangeOf((g&&g.days)||{});}).catch(e=>{if(alive()&&S.x===x&&!S.chart){S.loadErr=String(e&&e.message||e);}});}catch(_e){}}
+    if(src.load){try{src.load(x,()=>{}).then(g=>{if(alive()&&S.x===x&&!S.range)S.range=rangeOf((g&&g.days)||{});
+        // and whether it has 10-second bars: the timeframe row (and the size it opens on) is right even before the library comes
+        if(alive()&&S.x===x&&!S.chart){S.days10=(g&&g.days10)||null;S.sub10Known=true;S.tf=fitTf();syncCtl();}}).catch(e=>{if(alive()&&S.x===x&&!S.chart){S.loadErr=String(e&&e.message||e);}});}catch(_e){}}
     let LW=null;
     try{LW=await lwLoad();}catch(e){
       if(!alive()||S.ov!==ov)return;
@@ -12730,19 +12764,27 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
   // the 1-minute set, read once per trade through _rtBarsDoc's cache), and with no doc yet ONE get_bars to the PC (the NinjaTrader
   // capture, ETH, pad_sessions:1) cached under the trade id like NT8. Stocks have no candle row today (no bars yet) and still have
   // none. The record's size, side and fees go in the header line; a stop / target is drawn only when the record carries one
-  // (_lv, from _hmCandleRow) - real trades have none today, so no box is invented. 10-second bars stay in the trade panel's
-  // compact chart (the shared viewer starts at one minute).
+  // (_lv, from _hmCandleRow) - real trades have none today, so no box is invented.
+  // 10s / 30s (owner 11-21): the same doc's b10s (the NinjaTrader 10-second capture, the trade +/- 30 min, published by
+  // api/trade_bars.py since the capture began 2026-06-23) - no extra read. The chart OPENS on the trade's own ledger timeframe
+  // (x._tf: 10s, 1m, 5m ...); a 10s trade with no 10-second bars opens on 1m and the greyed 10s button says why.
   const _rtRow=tid=>(window._hmCandleRows||[]).find(q=>String(q._tid)===String(tid))||null;
   const _rtLwSrc=x=>{const inst0=String(_cB(x).instrument||'ES');
-    const src={kind:'real',tag:'real',base:'1m',legend:false,fitTf:false,rowOk:q=>!!(q&&q._rbars&&!!q._missed===!!x._missed),
+    const src={kind:'real',tag:'real',base:'1m',sub:true,sub10From:'2026-06-23',tfOf:q=>(q&&q._tf)||'1m',legend:false,fitTf:false,rowOk:q=>!!(q&&q._rbars&&!!q._missed===!!x._missed),
       what:q=>{const T=(q&&q._psT)||{},n=(T.size!=null&&T.size!==''&&isFinite(+T.size))?+T.size:null,fee=+T.fees||0;
         return (q._missed?'should have traded':'your trade')+' ('+String(T.symbol||inst0).toUpperCase()+' futures'+(n!=null?(' · '+n+(n===1?' contract':' contracts')):'')
           +(fee?(' · fees -$'+fee.toFixed(2)):'')+')';},
-      text:{loading:'loading the candles&hellip;',bars:inst0+' 1m bars',err:'is the runner awake? PREV / NEXT retries',
+      text:{loading:'loading the candles&hellip;',bars:inst0+' 1m bars',bars10:inst0+' 10s bars (NinjaTrader capture)',no10:'no 10-second bars were published for this trade',
+        err:'is the runner awake? PREV / NEXT retries',
         noBars:x._missed?'the chart is not published yet - your PC adds it a few minutes after you save the entry':'the chart is not published yet - your PC adds it a few minutes after the trade syncs'},
       load:async(q,say)=>{
         let rb=null;try{rb=await window._rtBarsForTrade(q,'1m');}catch(_e){rb=null;}
-        if(rb&&Array.isArray(rb.bars)&&rb.bars.length){if(q._ep==null&&rb.entry_idx!=null)q._ep=rb.bars[rb.entry_idx].o;return {days:window._lwSplitDays(rb.bars,null)};}
+        if(rb&&Array.isArray(rb.bars)&&rb.bars.length){if(q._ep==null&&rb.entry_idx!=null)q._ep=rb.bars[rb.entry_idx].o;
+          // the 10-second bars (same doc, already read): with them the fills' exact seconds, so a 10s chart puts the arrows on their own bar
+          let r10=null;try{r10=await window._rtBarsForTrade(q,'10s');}catch(_e){r10=null;}
+          const ok10=!!(r10&&Array.isArray(r10.bars)&&r10.bars.length);
+          if(ok10){try{if(r10.entry_t)q._etS=window._rtEtStr(+r10.entry_t,true);if(r10.exit_t)q._xtS=window._rtEtStr(+r10.exit_t,true);}catch(_e){}}
+          return {days:window._lwSplitDays(rb.bars,null),days10:ok10?window._lwSplitDays(r10.bars,null):null};}
         // no doc yet: ask the PC once - the same request and session cache the old viewer used (_fetchBars / _barsCache)
         const t0=Date.now(),tk=setInterval(()=>{try{say('<b style="color:var(--blue)">FETCHING FROM YOUR PC&hellip; '+Math.round((Date.now()-t0)/1000)+'s</b> &middot; ~30s normally; up to 5 min behind a running backtest');}catch(_e){}},500);
         try{const r=await _fetchBars(q._no,Object.assign({},_cB(q),{entry_time:q._et,exit_time:q._xt2,pad_sessions:1}),300000);
@@ -12754,7 +12796,7 @@ const _blotPut=(id,val)=>_blotDB().then(db=>new Promise((res,rej)=>{const t=db.t
     // the symbol follows the trade on show (PREV / NEXT may step from an MES trade to an MNQ one): the header, the TV button, the PNG name
     Object.defineProperty(src,'symbol',{enumerable:true,get:()=>{try{const st=window._lwState&&window._lwState(),r=st&&_rtRow(st.tid);return String((r&&r._pb&&r._pb.instrument)||inst0);}catch(_e){return inst0;}}});
     return src;};
-  window._lwOpenReal=(x,glyphEl,ctx)=>window.lwTradeChart({trade:x,glyph:glyphEl,ctx:ctx,source:_rtLwSrc(x),tf:TF_OK(x._tf)?x._tf:undefined});
+  window._lwOpenReal=(x,glyphEl,ctx)=>window.lwTradeChart({trade:x,glyph:glyphEl,ctx:ctx,source:_rtLwSrc(x),tf:(TF_OK(x._tf)||x._tf==='10s'||x._tf==='30s')?x._tf:undefined});
   // ── RUN REPORTS (the trade blotters of a run REPORT / COMPARE / STUDIES / validate row) on the shared viewer (row 75 step 3, the last) ──
   // The bars are exactly the ones the old viewer asked for: ONE get_bars to the PC through _fetchBars (the run's own instrument /
   // timeframe / session / source / run_id from the blotter's B, a row's _pb override winning, the trade's entry and exit, pad_sessions:1),

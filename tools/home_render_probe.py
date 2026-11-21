@@ -452,6 +452,15 @@ INTERACTIONS = [
 # Builds this gate must catch, made from the CURRENT index.html by one string replacement each
 # (so they never go stale the way a pinned old commit would). (name, anchor, replacement, why)
 MUTANTS = [
+    # 10s / 30s on the REAL trade chart (owner 11-21): a 10s trade opens on its own timeframe; a doc's 10-second bars reach the chart
+    ('real-chart-ignores-10s-tf',
+     "return (isSub(w)&&!(S.src&&S.src.sub&&has10()))?'1m':w;",
+     "return isSub(w)?'1m':w;",
+     'a trade marked 10s opens the shared chart on 1m instead of on its own timeframe, although its 10-second bars are there'),
+    ('real-chart-drops-10s-bars',
+     'return {days:window._lwSplitDays(rb.bars,null),days10:ok10?window._lwSplitDays(r10.bars,null):null};',
+     'return {days:window._lwSplitDays(rb.bars,null),days10:null};',
+     'the REAL chart never hands its 10-second bars to the viewer, so 10s / 30s stay greyed on every trade'),
     # LEDGER improvements 9 + 12 (2026-10-16, round 3): the picture's chart, the goal level per account, the picture's chart width on a phone
     ('image-no-chart',
      'b+=chart;y+=CH;',
@@ -1605,6 +1614,12 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       var reads0=w.__probeBarReads||0;
       w._openTradeCandles(row,null,{B:{},all:function(){return [row];},order:function(){return [row];}});
       var lw=null,k;for(k=0;k<60&&!(lw&&lw.range);k++){await sleep(50);lw=(w._lwState&&q('[data-lwchart]'))?w._lwState():null;}
+      // 10s / 30s (owner 11-21): wait until the chart knows whether the trade has 10-second bars, then read the opening size and the buttons
+      for(k=0;k<60&&lw&&!lw.has10&&/^loading/.test(lw.why10||'');k++){await sleep(50);lw=w._lwState();}
+      var tfb=function(v){var b=q('[data-lwtf="'+v+'"]');return b?{shown:b.style.display!=='none',off:b.getAttribute('aria-disabled')==='true',title:b.getAttribute('title')||''}:null;};
+      st.rowTf=row._tf;st.tf=lw?lw.tf:null;st.has10=lw?lw.has10:null;st.b10=tfb('10s');st.b30=tfb('30s');st.b1=tfb('1m');
+      if(lw&&lw.chart&&st.b30&&!st.b30.off){q('[data-lwtf="30s"]').click();await sleep(250);var l3=w._lwState();st.after30=l3?{tf:l3.tf,bars:l3.bars}:null;
+        var stt=q('[data-lwstatus]');st.status30=stt?(stt.textContent||'').slice(0,120):'';}
       st.lw=!!q('[data-lwchart]');st.old=!!q('#chart-body');
       st.range=lw&&lw.range?[lw.range.lo,lw.range.hi]:null;st.src=lw?lw.src:null;st.err=lw?lw.err:null;st.no=lw?lw.no:null;
       st.title=txt('[data-lwtitle]');st.sub=txt('[data-lwsub]');if(st.sub)st.sub=st.sub.slice(0,200);
@@ -1615,6 +1630,21 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
       var cl=q('#chart-close');if(cl)cl.click();
       await sleep(60);
       st.closed=!q('[data-lwchart]')&&!q('#chart-body');
+      // the same trade marked 10s but with NO 10-second bars on its doc (published after 06-23, and one dated before the capture began):
+      // it must open on 1m, and the 10s button is shown greyed with the reason on hover
+      var src0=w._rtBarsSource;
+      w._rtBarsSource=async function(tid){if(!/^probe_(no10|old10)$/.test(String(tid)))return src0(tid);
+        var d=await src0(I.tid);if(d)delete d.b10s;return d;};
+      st.no10={};
+      for(var ci=0;ci<2;ci++){var kind=ci?'old10':'no10';
+        var cl2=Object.assign({},row,{_tid:'probe_'+kind,_no:'RT:probe_'+kind,_tf:'10s',_etS:null,_xtS:null});
+        if(ci){cl2._et='2026-05-15 09:40';cl2._xt2='2026-05-15 09:44';}
+        if(!cl2)continue;
+        w._openTradeCandles(cl2,null,{B:{},all:function(){return [cl2];},order:function(){return [cl2];}});
+        var l2=null;for(k=0;k<80;k++){await sleep(50);l2=(w._lwState&&q('[data-lwchart]'))?w._lwState():null;if(l2&&l2.no==='RT:probe_'+kind&&l2.range&&!/^loading/.test(l2.why10||''))break;}
+        st.no10[kind]={tf:l2?l2.tf:null,want:l2?l2.tfWant:null,has10:l2?l2.has10:null,why:l2?l2.why10:null,b10:tfb('10s')};
+        try{if(w._lwClose)w._lwClose();}catch(e){}await sleep(40);}
+      w._rtBarsSource=src0;
     });
     // 3. a SHOULD HAVE TRADED entry's panel
     await step(res,'missedPanel',async function(st){
@@ -4687,6 +4717,31 @@ def _judge(data, data_obj):
                              % (tag, vw.get('scrollW'), vw.get('clientW'), vw.get('boxR'), vw.get('vw')))
             if not vw.get('closed'):
                 fails.append('%s: the close did not shut the candle viewer' % tag)
+            # 10s / 30s (owner 11-21): every probe trade doc carries b10s, so the buttons are live and the chart opens on the trade's own timeframe
+            for v in ('10s', '30s'):
+                b = vw.get('b' + v[:-1]) or {}
+                if not b.get('shown'):
+                    fails.append('%s: the shared chart has no %s timeframe button for a real trade with 10-second bars (%r)' % (tag, v, b))
+                elif b.get('off'):
+                    fails.append('%s: the %s button is greyed although the trade doc has 10-second bars (hover %r)' % (tag, v, b.get('title')))
+            if not vw.get('has10'):
+                fails.append('%s: the shared chart did not pick up the trade doc 10-second bars (has10=%r)' % (tag, vw.get('has10')))
+            if vw.get('tf') != vw.get('rowTf'):
+                fails.append('%s: a trade marked %r opened the shared chart on %r, not on its own timeframe' % (tag, vw.get('rowTf'), vw.get('tf')))
+            a30 = vw.get('after30')
+            if a30 is not None and (a30.get('tf') != '30s' or not a30.get('bars')):
+                fails.append('%s: the 30s button did not redraw the chart on 30-second bars (%r)' % (tag, a30))
+            if a30 is not None and '10s bars' not in (vw.get('status30') or ''):
+                fails.append('%s: on 30s the status line does not say the bars are the 10-second capture (%r)' % (tag, vw.get('status30')))
+            for kind, needle in (('no10', 'no 10-second bars'), ('old10', '2026-06-23')):
+                n = (vw.get('no10') or {}).get(kind) or {}
+                b = n.get('b10') or {}
+                if n.get('tf') != '1m' or n.get('want') != '10s':
+                    fails.append('%s: a 10s trade with no 10-second bars (%s) opened on %r (wanted %r), not on 1m' % (tag, kind, n.get('tf'), n.get('want')))
+                if not b.get('shown') or not b.get('off'):
+                    fails.append('%s: with no 10-second bars (%s) the 10s button is not shown greyed (%r)' % (tag, kind, b))
+                elif needle not in (b.get('title') or ''):
+                    fails.append('%s: the greyed 10s button hover (%s) does not say why: %r' % (tag, kind, b.get('title')))
         mp = st.get('missedPanel') or {}
         _errs(tag + ' SHOULD HAVE TRADED panel', mp, fails)
         if mp.get('threw'):
