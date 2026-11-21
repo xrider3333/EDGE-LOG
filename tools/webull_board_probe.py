@@ -1760,6 +1760,15 @@ MUTANTS = [
      "days:qbCalDays,caveats:qbCalCav,open:qbCalOpen,",
      "days:qbCalDays,caveats:{},open:qbCalOpen,",
      'the data-caveat days are no longer hatched amber with the dot on the calendar'),
+    # owner 11-21: amber = cause open, blue = cause fixed (docs/caveat_fixes.json)
+    ('caveat-fix-ignored',
+     "+(why?(cfx[ds]?' cav fix':' cav'):'')",
+     "+(why?' cav':'')",
+     'a caveat day whose cause is fixed is no longer drawn blue on the calendar'),
+    ('caveat-fix-everything',
+     "if(!open)fixed[d]=1;",
+     "fixed[d]=1;",
+     'a caveat day with an open cause is drawn blue (fixed)'),
     ('caveat-feed-days-lost',
      "if(fd&&fd.valid===false&&(!cut||d>=cut))why.push(",
      "if(false&&fd&&fd.valid===false&&(!cut||d>=cut))why.push(",
@@ -3134,7 +3143,7 @@ PROBE_HTML = """<!DOCTYPE html>
 <iframe id="f" src="../index.html" style="width:1366px;height:768px;border:0;display:block"></iframe>
 <pre id="o" style="display:none"></pre>
 <script>
-var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__, TLS=__TLS__, OLDMARKS=__OLDMARKS__, SHB=__SHB__;
+var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VARS__, STATS=__STATS__, TLS=__TLS__, OLDMARKS=__OLDMARKS__, SHB=__SHB__, CVF=__CVF__;
 (function(){
   var out={cases:{},notes:[]}, reported=false, t0=Date.now(), sink=null, phase=0, PS0=null;
   function finish(why){
@@ -3212,7 +3221,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
       var m=e.querySelector('.m'),n=e.querySelector('.n'),cs=w.getComputedStyle(e),af=w.getComputedStyle(e,'::after');
       c.days.push({d:+(d.textContent||'').trim(),traded:e.tagName==='BUTTON',ds:e.getAttribute('data-lgcalday'),
         cav:e.classList.contains('cav'),hatch:(cs.backgroundImage||'').indexOf('repeating-linear-gradient')>=0,
-        dot:af.content!=='none'&&af.width==='5px',title:e.getAttribute('title'),m:m?(m.textContent||'').trim():null,n:n?(n.textContent||'').trim():null,
+        dot:af.content!=='none'&&af.width==='5px',fix:e.classList.contains('fix'),fixDot:af.content!=='none'&&af.width==='3px',bg:cs.backgroundImage||'',title:e.getAttribute('title'),m:m?(m.textContent||'').trim():null,n:n?(n.textContent||'').trim():null,
         mColor:m?w.getComputedStyle(m).color:null,up:e.classList.contains('up'),down:e.classList.contains('down')});
     });
     c.sumColors=[].map.call(cal.querySelectorAll('.lg-cal-sum span'),function(e){return w.getComputedStyle(e).color;});
@@ -3380,6 +3389,8 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     w._bookLegs=BKL?w.JSON.parse(JSON.stringify(BKL)):null;
     // STRATEGY SWITCHES (owner 11-18): every case counts every leg ([]) unless it asks for the page's own default (DIP off)
     w.__qbLegsOffDefault=cfg.legsDefault?null:[];w._qbLegsOff=null;try{w.localStorage.removeItem('el_qb_legs_off');}catch(e){}w._qbShOn=null;try{w.localStorage.removeItem('el_qb_sh_on');}catch(e){}
+    // owner 11-21: the page's caveat-fix list, pinned to docs/caveat_fixes.json before every render (the page's own fetch is async)
+    w.__caveatFixes=w.JSON.parse(JSON.stringify(CVF));
     w.__probeScrub=!!cfg.scrub;
     w.__probeDaily=!!cfg.daily;   // DAILY | CURVE switch: every case judges the CURVE ('0') unless it asks for the default DAILY ('1')
     w.__probeNextOpen=cfg.nextOpen||null;
@@ -5826,6 +5837,55 @@ def expected_caveats(trades, feed_days, cutoff=None):
     return out
 
 
+def _caveat_fixes():
+    """docs/caveat_fixes.json's fixes (the page reads the same file over the probe's own server)."""
+    try:
+        with open(os.path.join(ROOT, 'docs', 'caveat_fixes.json'), encoding='utf-8') as fh:
+            return (json.load(fh) or {}).get('fixes') or []
+    except (OSError, ValueError):
+        return []
+
+
+def caveat_fixed(cal, kind, day, fixes=None):
+    """True when docs/caveat_fixes.json marks cause `kind` on `day` of calendar `cal` fixed (the page's ledgerCavFix)."""
+    for f in (_caveat_fixes() if fixes is None else fixes):
+        if kind not in (f.get('kinds') or []) or not f.get('fixed_on'):
+            continue
+        cs = f.get('calendars') or []
+        if cs and cal not in cs and '*' not in cs:
+            continue
+        if f.get('from') and day < f['from']:
+            continue
+        if day > (f.get('to') or f['fixed_on']):
+            continue
+        return True
+    return False
+
+
+def expected_fixed_days(trades, feed_days, cutoff=None):
+    """The caveat days of expected_caveats() whose EVERY cause is fixed in docs/caveat_fixes.json (drawn blue). A failed fill /
+    parity check is never fixed by the registry (no entry names fill_band / fill_outside_minute / parity_old)."""
+    kinds = {}
+    for t in _range_rows(trades, cutoff):
+        d = _close_day(t)
+        if not d:
+            continue
+        if _fin(t.get('pnl')) is None and _fin(t.get('real_pnl')) is not None:
+            kinds.setdefault(d, set()).add('tape_reprice')
+        nt = str(t.get('signal_source') or '').lower() == 'ninjatrader'
+        if (t.get('parity_ok') is False) if nt else (t.get('broker_parity_ok') is False):
+            kinds.setdefault(d, set()).add('parity')
+        if t.get('book_only'):
+            k = t.get('book_only_kind') or ''
+            kinds.setdefault(d, set()).add('book_only_' + k if k in ('broker', 'infra') else 'book_only')
+    for f in feed_days or []:
+        d = f.get('date')
+        if d and f.get('valid') is False and (not cutoff or d >= cutoff):
+            kinds.setdefault(d, set()).add('feed_invalid')
+    fixes = _caveat_fixes()
+    return set(d for d, ks in kinds.items() if ks and all(caveat_fixed('qb', k, d, fixes) for k in ks))
+
+
 def cal_month_figs(days, month):
     """(money, trades, wins, losses) of one month of expected_cal()."""
     v = n = w = l = 0
@@ -6113,9 +6173,18 @@ def _judge_cal(tag, c, vp, theme, doc, cutoff, want_month, open_want, today, fai
     if got_cav != want_cav:
         fails.append('%s: the hatched caveat days are %s, the fixture says %s (tape-priced exit, failed parity, book only, '
                      'feed invalid)' % (tag, got_cav, want_cav))
-    unhatched = [x['d'] for x in c.get('days') or [] if x.get('cav') and not (x.get('hatch') and x.get('dot'))]
+    # owner 11-21: a caveat day whose every cause is fixed (docs/caveat_fixes.json) hatches BLUE with a hollow dot; the rest stay amber
+    want_fix = sorted(int(d[8:10]) for d in expected_fixed_days(trades, doc.get('feed_days'), cutoff) if d.startswith(mo))
+    got_fix = sorted(x['d'] for x in c.get('days') or [] if x.get('cav') and x.get('fix'))
+    if got_fix != want_fix:
+        fails.append('%s: the BLUE (cause fixed) caveat days are %s, docs/caveat_fixes.json says %s' % (tag, got_fix, want_fix))
+    unhatched = [x['d'] for x in c.get('days') or [] if x.get('cav') and not x.get('fix') and not (x.get('hatch') and x.get('dot'))]
     if unhatched:
         fails.append('%s: caveat days %s are marked but not hatched amber with the dot' % (tag, unhatched))
+    unblue = [x['d'] for x in c.get('days') or [] if x.get('cav') and x.get('fix')
+              and not (x.get('hatch') and x.get('fixDot') and '45deg' in (x.get('bg') or '') and '135deg' not in (x.get('bg') or ''))]
+    if unblue:
+        fails.append('%s: fixed caveat days %s are not hatched blue at 45deg with the hollow dot' % (tag, unblue))
     ew, gw = cal_weeks(days, mo), c.get('weeks') or []
     if len(gw) != len(ew):
         fails.append('%s: the calendar has %d week cells, want %d' % (tag, len(gw), len(ew)))
@@ -8095,7 +8164,8 @@ def _attempt(chrome, alt_index, fixture):
     html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__STATS__', json.dumps(stats)).replace('__TLS__', json.dumps(tls)).replace('__TLJS__', TL_JS).replace('__S11JS__', S11_JS)
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants)).replace('__SHB__', json.dumps(_shadow_block()))
-            .replace('__FIX__', json.dumps(fixture)).replace('__BKL__', json.dumps(BOOK_LEGS_FIX)).replace('__OLDMARKS__', json.dumps(OLD_MARKS)))
+            .replace('__FIX__', json.dumps(fixture)).replace('__BKL__', json.dumps(BOOK_LEGS_FIX)).replace('__OLDMARKS__', json.dumps(OLD_MARKS))
+            .replace('__CVF__', json.dumps(_caveat_fixes())))
     io.open(os.path.join(pdir, 'probe.html'), 'w', encoding='utf-8').write(html)
     srv = http.server.ThreadingHTTPServer(('127.0.0.1', 0), make_handler(ROOT, alt_index))
     port = srv.server_address[1]

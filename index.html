@@ -40,6 +40,8 @@ window._pfHtml=function(v){var n=+v;if(v==null||!isFinite(n))return String(v==nu
      (KEEL stale, NOT READY, HELD, book-only, ...) - orange, outlined pill, never the gold --yellow a strategy line
      (DIP) is drawn in; kept under MONO like the other attention colours. */
   --attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;--warn:#ff8a3d;
+  /* owner 11-21: a caveat day whose cause is fixed hatches BLUE (amber = still open); no theme overrides it, so MONO keeps it blue */
+  --attn-blue:#4a9eff;
 }
 
 [data-theme="frost"]{--bg:#0c0c14;--bg1:#1a1a24;--bg2:#14141e;--bg3:#10101a;--border:#2e2e3d;--border2:#1f1f2c;--text:#f5f5fa;--text2:#d0d0d8;--text3:#9c9cac;--text4:#a8a8b8;--text5:#7a7a8a;--green:#4ade80;--red:#fb7185;--yellow:#fcd34d;--blue:#7dd3fc;--purple:#c4b5fd;--vwap:#fb923c;--attn-red:#ff5c5c;--attn-amber:#ffb020;--attn-ok:#35d07f;--warn:#ff8a3d;}
@@ -154,7 +156,7 @@ window._pfHtml=function(v){var n=+v;if(v==null||!isFinite(n))return String(v==nu
 [data-theme="slate"] .btn-ghost.active{border-bottom:2px solid #58a6ff;color:#e6edf3}
 
 /* ──── PAPER — light theme for daytime ──── */
-[data-theme="paper"]{--bg:#f5f5f2;--bg1:#ffffff;--bg2:#fafaf7;--bg3:#f0f0ec;--border:#d8d8d4;--border2:#e8e8e4;--text:#1a1a1a;--text2:#3a3a3a;--text3:#6a6a6a;--text4:#888888;--text5:#a8a8a8;--green:#10b981;--red:#dc2626;--yellow:#d97706;--blue:#2563eb;--purple:#7c3aed;--attn-red:#dc2626;--attn-amber:#b45309;--attn-ok:#059669;}
+[data-theme="paper"]{--bg:#f5f5f2;--bg1:#ffffff;--bg2:#fafaf7;--bg3:#f0f0ec;--border:#d8d8d4;--border2:#e8e8e4;--text:#1a1a1a;--text2:#3a3a3a;--text3:#6a6a6a;--text4:#888888;--text5:#a8a8a8;--green:#10b981;--red:#dc2626;--yellow:#d97706;--blue:#2563eb;--purple:#7c3aed;--attn-red:#dc2626;--attn-amber:#b45309;--attn-ok:#059669;--attn-blue:#1d4ed8;}
 [data-theme="paper"] body,[data-theme="paper"] html{background:#f5f5f2}
 [data-theme="paper"] .section{background:#ffffff;border:1px solid rgba(0,0,0,0.06);border-radius:14px;box-shadow:0 1px 3px rgba(0,0,0,0.02)}
 [data-theme="paper"] .hero-card{background:#ffffff;border:1px solid rgba(0,0,0,0.06);border-radius:12px;transition:all 0.2s;box-shadow:0 1px 3px rgba(0,0,0,0.02)}
@@ -593,6 +595,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-lg-key span{display:inline-flex;align-items:center;gap:5px}
 .qbx-lg-key i{display:inline-block;width:9px;height:9px;border-radius:2px;flex:0 0 auto}
 .qbx-lg-key i.qbx-lg-hatch{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--yellow) 60%,transparent) 0 2px,transparent 2px 4px)}
+.qbx-lg-key i.qbx-lg-hatch.fix{background:repeating-linear-gradient(-45deg,color-mix(in srgb,var(--attn-blue) 60%,transparent) 0 2px,transparent 2px 4px)}
 .qbx-lg-key .qbx-lg-short{display:none}
 @media(max-width:600px){.qbx-lg-key .qbx-lg-long{display:none}.qbx-lg-key .qbx-lg-short{display:inline}}
 /* bottom sheet */
@@ -986,6 +989,9 @@ button.lg-cal-day:hover{border-color:var(--text5)}
 .lg-cal-day.today .d{color:var(--text);font-weight:700;text-decoration:underline;text-underline-offset:2px}
 .lg-cal-day.cav{background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--attn-amber) 32%,transparent) 0 3px,transparent 3px 7px)}
 .lg-cal-day.cav::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--attn-amber)}
+/* owner 11-21: cause fixed (docs/caveat_fixes.json) = BLUE hatch at the other angle and a hollow dot, so MONO and colour-blind eyes still tell it apart */
+.lg-cal-day.cav.fix{background-image:repeating-linear-gradient(45deg,color-mix(in srgb,var(--attn-blue) 30%,transparent) 0 3px,transparent 3px 7px)}
+.lg-cal-day.cav.fix::after{background:transparent;border:1px solid var(--attn-blue);width:3px;height:3px}
 .lg-cal-wk{border-left:1px solid var(--border2);border-radius:0;padding-left:2px}
 .lg-cal-wk .d{letter-spacing:.5px}
 .lg-cal-note{font-size:9px;color:var(--text5);margin-top:8px;letter-spacing:.3px}
@@ -1520,8 +1526,11 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-cal-cav{margin:6px 0 2px;font-size:10px;color:var(--text4)}
 .lg-cal-cav>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px}
 .lg-cal-cav>summary::-webkit-details-marker{display:none}
-.lg-cal-cavsw{display:inline-block;width:12px;height:10px;flex:none;border-radius:2px;background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--yellow) 60%,transparent) 0 2px,transparent 2px 4px)}
-.lg-cal-cavrow{padding:3px 0 0 18px;line-height:1.35}.lg-cal-cavrow b{font-weight:600;color:var(--text3);margin-right:4px}
+.lg-cal-cavsw{display:inline-block;width:12px;height:10px;flex:none;border-radius:2px;background:repeating-linear-gradient(135deg,color-mix(in srgb,var(--attn-amber) 60%,transparent) 0 2px,transparent 2px 4px)}
+.lg-cal-cavsw.fix{background:repeating-linear-gradient(45deg,color-mix(in srgb,var(--attn-blue) 60%,transparent) 0 2px,transparent 2px 4px)}
+.lg-cal-cav>summary .lg-cal-cavn{display:inline-flex;align-items:center;gap:4px}
+.lg-cal-cavrow{padding:3px 0 0 18px;line-height:1.35;position:relative}.lg-cal-cavrow b{font-weight:600;color:var(--text3);margin-right:4px}
+.lg-cal-cavrow .lg-cal-cavsw{position:absolute;left:0;top:5px;width:10px;height:8px}
 .lg-cav-tgl{position:absolute;left:6px;bottom:24px;font-size:9px;letter-spacing:.04em;padding:1px 7px;border-radius:9px;border:1px solid var(--border);background:var(--bg1);color:var(--text4);cursor:pointer;opacity:.8}
 .lg-cav-tgl.on{color:var(--yellow);border-color:color-mix(in srgb,var(--yellow) 45%,transparent)}
 .lg-uni{--uc-h:26px;--uc-r:7px;--uc-fs:9.5px;--uc-card:color-mix(in srgb,var(--bg1) 45%,transparent)}
@@ -1851,7 +1860,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.58';
+const VERSION='91.59';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1872,6 +1881,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.59',date:'2026-11-21',notes:['Calendars (WEBULL PAPER, NT8 PAPER): a caveat day whose cause has been fixed now hatches BLUE; amber means the cause is still open. Works back over past days (one list, docs/caveat_fixes.json); the hover says what fixed it and when','Calendars: the line under the calendar counts open and fixed caveat days apart, each with its own swatch','Charts: the shown caveat columns sit on their own day again (they had all drawn at the left edge since 11-18), and fixed ones hatch blue']},
 {v:'91.53',date:'2026-11-20',notes:['NT8 PAPER and WEBULL PAPER tables: each row reads entry time, entry price, exit time, exit price, then strategy, side, size and the result (NT8 PAPER has its own ENTRY $ / EXIT (ET) / EXIT $ columns now)','LEDGER REAL TABLE FULL under 1100 px: tight cells sized to content, no 1400 px floor spreading the columns apart']},
 {v:'91.52',date:'2026-11-20',notes:['WEBULL PAPER: an off-tape fill never hatches the calendar or chart and never counts as a failed parity check; its hover says the P&L uses the minute close','WEBULL PAPER: FILLS BEHIND BACKTEST names the strategy and its average (e.g. NOISE #382 (-7c avg)), or says board; a better-than-backtest average never shows it']},
 {v:'91.49',date:'2026-11-20',notes:['WEBULL PAPER BOOK card: each live leg shows its book-table estimate a year','BOOKS card: estimate label, was $X/yr, max DD without 2020, ROC, Sortino, 2016-20 vs 2021-25 $/yr, and each leg status']},
@@ -3444,7 +3454,7 @@ function ledgerRangePillsHtml(active,attr,ranges){
 // onLeave). It draws at the box's real pixel width and redraws when that width changes, so a phone never squashes it.
 // pts: [{v, date}] - the first point is the start of the range (date may be null). Optional extras for the boards:
 //   o.lines = [{name, color, vals (one per point, null = gap), on}]  faint lines + legend toggles (onToggle(name, on))
-//   o.bands = [{i, title}]  a hatched amber column on point i (a caveat day; the hatch survives MONO)
+//   o.bands = [{i, title, fix}]  a hatched amber column on point i (a caveat day; the hatch survives MONO); fix:true = blue (cause fixed)
 //   o.marks = [{i, label}]  a dotted vertical marker on point i with a small label at the top (a version change)
 //   o.totalColor (css colour) paints the total line, its dot and its wash instead of the up / down colour; o.lineDash (svg dash)
 //     dashes EVERY faint line the same (NT8: dotted) and o.lineOpacity sets their opacity (default 0.6) - the legend swatches follow
@@ -3585,9 +3595,45 @@ function ledgerCalDays(list,o){
 function ledgerCalMonths(days){const m={};Object.keys(days||{}).forEach(d=>{m[d.slice(0,7)]=1;});return Object.keys(m).sort();}
 // the month to show: the asked one when it has trades in range, else the newest month with trades, else this month
 function ledgerCalPick(days,want){const ms=ledgerCalMonths(days);if(want&&ms.indexOf(want)>=0)return want;return ms.length?ms[ms.length-1]:ledgerTodayNY().slice(0,7);}
-// o = {id, month 'YYYY-MM', days (ledgerCalDays), caveats {date: reason}, open, note, after (html under the calendar, inside the open panel)}
+// ── CAVEAT FIXES (owner 11-21, standing order for every calendar) ──
+// A caveat day hatches AMBER while its cause is open and BLUE once the cause is fixed. What counts as fixed is one static,
+// data-driven list, docs/caveat_fixes.json: {fixes:[{id, calendars:['qb'|'p2'|'*'], kinds:[cause code], from, to, fixed_on, ref, note}]}.
+// A caveat part {k: cause code, t: plain words} on day d of calendar cal is fixed when an entry lists cal (or '*') and k, and
+// from <= d <= (to, else fixed_on) - so a fix works back over every past day, and the same cause coming back after the fix
+// stays amber. A day turns blue only when EVERY part on it is fixed; a mixed day stays amber and says which part was fixed.
+// Cause codes - WEBULL PAPER (qb): tape_reprice, fill_outside_minute, fill_band, parity_old, book_only_broker, book_only_infra,
+// book_only, feed_invalid. NT8 PAPER (p2): roll_splice, orb_lookahead. window.__caveatFixes (an array) stands in for the probes.
+window.CAVEAT_FIXES=window.CAVEAT_FIXES||null;
+function ledgerCavFixList(){const a=window.__caveatFixes||window.CAVEAT_FIXES;return Array.isArray(a)?a:[];}
+function ledgerCavFix(cal,kind,d){
+  const L=ledgerCavFixList();
+  for(let i=0;i<L.length;i++){const f=L[i];if(!f||!Array.isArray(f.kinds)||f.kinds.indexOf(kind)<0||!f.fixed_on)continue;
+    const cs=f.calendars;if(Array.isArray(cs)&&cs.length&&cs.indexOf(cal)<0&&cs.indexOf('*')<0)continue;
+    if(f.from&&d<f.from)continue;const to=f.to||f.fixed_on;if(d>to)continue;return f;}
+  return null;
+}
+// parts {date: [{k, t}]} -> {cav: {date: words}, fixed: {date: 1}}: the words keep each open part as it was and add
+// ' - fixed: <note> (<fixed_on>)' to each fixed one; fixed[date] only when every part of the day is fixed
+function ledgerCavResolve(cal,parts,sep){
+  sep=sep||' · ';const cav={},fixed={},esc=s=>String(s==null?'':s).replace(/&/g,'&amp;').replace(/</g,'&lt;');
+  Object.keys(parts||{}).forEach(d=>{const ps=(parts[d]||[]).filter(p=>p&&p.t);if(!ps.length)return;let open=0;
+    cav[d]=ps.map(p=>{const f=ledgerCavFix(cal,p.k,d);if(!f){open++;return p.t;}return p.t+' - fixed: '+esc(f.note||'cause fixed')+' ('+esc(f.fixed_on)+')';}).join(sep);
+    if(!open)fixed[d]=1;});
+  return {cav:cav,fixed:fixed};
+}
+// docs/caveat_fixes.json is read once per load; when it lands after a calendar or chart already drew, the board redraws once
+function ledgerCavFixesLoad(){
+  if(window.__caveatFixes||window._cavFixesAsked||typeof fetch!=='function')return;window._cavFixesAsked=1;
+  fetch('docs/caveat_fixes.json?v='+encodeURIComponent(typeof VERSION!=='undefined'?VERSION:'')).then(r=>r.ok?r.json():null).then(j=>{
+    window.CAVEAT_FIXES=(j&&Array.isArray(j.fixes))?j.fixes:[];
+    if(window.CAVEAT_FIXES.length&&document.querySelector('.lg-cal-day.cav,[data-lgband],[data-lgcalcav]')&&typeof renderApp==='function'){try{renderApp();}catch(e){}}
+  }).catch(()=>{window.CAVEAT_FIXES=[];});
+}
+ledgerCavFixesLoad();
+// o = {id, month 'YYYY-MM', days (ledgerCalDays), caveats {date: reason}, cavFixed {date: 1} (every caveat of that day fixed: blue hatch),
+//      open, note, after (html under the calendar, inside the open panel)}
 function ledgerCalendarHtml(o){
-  o=o||{};const id=o.id||'lg',days=o.days||{},cav=o.caveats||{},open=!!(o.open||o.bare);
+  o=o||{};const id=o.id||'lg',days=o.days||{},cav=o.caveats||{},cfx=o.cavFixed||{},open=!!(o.open||o.bare);
   const ms=ledgerCalMonths(days),mo=o.month||ledgerCalPick(days),y=+mo.slice(0,4),m=+mo.slice(5,7);
   const MN=['January','February','March','April','May','June','July','August','September','October','November','December'];
   let mv=0,mn=0,mw=0,ml=0;Object.keys(days).forEach(d=>{if(d.slice(0,7)===mo){const c=days[d];mv+=c.v;mn+=c.n;mw+=c.w;ml+=c.l;}});
@@ -3607,7 +3653,7 @@ function ledgerCalendarHtml(o){
     slots.slice(w,w+7).forEach(d=>{
       if(d==null){cells+='<div></div>';return;}
       const ds=mo+'-'+String(d).padStart(2,'0'),c=days[ds],why=cav[ds];
-      const cls='lg-cal-day'+(c?(c.v>=0?' up':' down'):'')+(ds===today?' today':'')+(why?' cav':'');
+      const cls='lg-cal-day'+(c?(c.v>=0?' up':' down'):'')+(ds===today?' today':'')+(why?(cfx[ds]?' cav fix':' cav'):'');
       const lbl=_lgDateLbl(ds)+': '+(c?ledgerSigned(c.v)+', '+c.n+' trade'+(c.n===1?'':'s')+((c.w+c.l)?', '+c.w+' won':''):'no trades')+(why?' - '+why:'');
       const inner='<span class="d">'+d+'</span>'+(c?'<span class="m">'+ledgerShortMoney(c.v)+'</span><span class="n">'+c.n+' tr</span>':'');
       if(c){wv+=c.v;wn+=c.n;wd++;cells+='<button type="button" class="'+cls+'" data-lgcalday="'+ds+'" title="'+lbl.replace(/"/g,'&quot;')+'" aria-label="'+lbl.replace(/"/g,'&quot;')+'">'+inner+'</button>';}
@@ -3623,13 +3669,18 @@ function ledgerCalendarHtml(o){
     +'<div class="lg-cal-hd"><span class="lg-cal-title">'+MN[m-1]+' '+y+'</span>'+nav(-1,'&#9664;',atFirst)+nav(1,'&#9654;',atLast)+'<span class="lg-cal-sum">'+sum+'</span></div>'
     +'<div class="lg-cal-grid">'+cells+'</div>'
     // owner 11-18: the hatch explains itself - one line under the grid and, behind a tap, each hatched day of the month with its reason
+    // owner 11-21: open (amber) and fixed (blue) are counted apart, each with its own swatch; each row carries its day's swatch
     +(()=>{const cd=Object.keys(cav).filter(k=>k.slice(0,7)===mo).sort();if(!cd.length)return '';
-      return '<details class="lg-cal-cav" data-lgcalcav="'+id+'"><summary><i class="lg-cal-cavsw" aria-hidden="true"></i>hatched = a day with a data caveat ('+cd.length+' this month) &middot; its trades still count</summary>'
-        +cd.map(k=>'<div class="lg-cal-cavrow" data-lgcalcavday="'+k+'"><b>'+_lgDateLbl(k)+'</b> '+cav[k]+'</div>').join('')+'</details>';})()
+      const nf=cd.filter(k=>cfx[k]).length,no=cd.length-nf;
+      return '<details class="lg-cal-cav" data-lgcalcav="'+id+'" data-lgcalcavopen="'+no+'" data-lgcalcavfixed="'+nf+'"><summary>hatched = a day with a data caveat this month:'
+        +'<span class="lg-cal-cavn" title="amber hatch: the cause is still open"><i class="lg-cal-cavsw" aria-hidden="true"></i>'+no+' open</span>'
+        +'<span class="lg-cal-cavn" title="blue hatch: the cause behind it has been fixed"><i class="lg-cal-cavsw fix" aria-hidden="true"></i>'+nf+' fixed</span>'
+        +'&middot; its trades still count</summary>'
+        +cd.map(k=>'<div class="lg-cal-cavrow'+(cfx[k]?' fix':'')+'" data-lgcalcavday="'+k+'"><i class="lg-cal-cavsw'+(cfx[k]?' fix':'')+'" aria-hidden="true"></i><b>'+_lgDateLbl(k)+'</b> '+cav[k]+'</div>').join('')+'</details>';})()
     // LEDGER redesign step 4: one short line, the full words behind the ?. r2 step 1 (item 15): shorter still, and a board's own note
     // (o.note) goes INTO the ? instead of replacing the line - NT8's three sentences printed on every render.
     +'<div class="lg-cal-note">Closed-day money &middot; tap a day to jump'
-      +'<span class="lg-help" data-lgcalhelp title="'+String(o.note||'Each cell is the money from the trades that CLOSED that day, inside the chosen range - an overnight trade counts on the day it closed, not the day it opened. The WEEK column at the right is that week\'s own total. A hatched day carries a data caveat; hover it to read which. Tapping a day with trades jumps the trade list to that day and flashes it.').replace(/<[^>]*>/g,'').replace(/"/g,'&quot;')+'">?</span>'
+      +'<span class="lg-help" data-lgcalhelp title="'+String(o.note||'Each cell is the money from the trades that CLOSED that day, inside the chosen range - an overnight trade counts on the day it closed, not the day it opened. The WEEK column at the right is that week\'s own total. A hatched day carries a data caveat; hover it to read which - amber while the cause is open, blue once it is fixed. Tapping a day with trades jumps the trade list to that day and flashes it.').replace(/<[^>]*>/g,'').replace(/"/g,'&quot;')+'">?</span>'
       +'</div></div>'+(o.after||'')+'</div>';
 }
 // month arithmetic for the arrows: 'YYYY-MM' moved by n months, clamped to the months that have trades
@@ -4442,9 +4493,12 @@ function ledgerChartRender(wrap,o){
     let h='<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" style="height:'+H+'px;touch-action:pan-y" role="img" aria-label="'+esc(o.aria||'equity chart')+'">'
       +'<defs><linearGradient id="'+gid+'" x1="0" y1="0" x2="0" y2="1"><stop offset="0%" style="stop-color:'+col+'" stop-opacity="0.12"/><stop offset="100%" style="stop-color:'+col+'" stop-opacity="0"/></linearGradient></defs>';
     const hid='lgHatch_'+(o.id||'c'),half=n>1?pw/(n-1)/2:pw/2;
-    if(o.bands&&o.bands.length){h+='<defs><pattern id="'+hid+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--yellow)" stroke-width="2" stroke-opacity="0.45"/></pattern></defs>';
+    // owner 11-21: a band with fix:true (every caveat of that day fixed, docs/caveat_fixes.json) hatches BLUE at the other angle
+    if(o.bands&&o.bands.length){h+='<defs><pattern id="'+hid+'" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(45)"><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--yellow)" stroke-width="2" stroke-opacity="0.45"/></pattern>'
+        +'<pattern id="'+hid+'f" width="6" height="6" patternUnits="userSpaceOnUse" patternTransform="rotate(-45)"><line x1="0" y1="0" x2="0" y2="6" style="stroke:var(--attn-blue)" stroke-width="2" stroke-opacity="0.45"/></pattern></defs>';
+      // the x attribute read x=""<n>" from 11-18 (calm-down 9), which parsed as x=0 and drew every band at the left edge
       o.bands.forEach(b=>{if(b.i==null||b.i<0||b.i>=n)return;const x0=Math.max(L,X(b.i)-half),x1=Math.min(L+pw,X(b.i)+half);
-        h+='<rect data-lgband="1"'+(ledgerCavOn()?'':' visibility="hidden"')+' x=""'+x0.toFixed(1)+'" y="'+T+'" width="'+Math.max(1,x1-x0).toFixed(1)+'" height="'+ph+'" fill="url(#'+hid+')"><title>'+esc(b.title||'')+'</title></rect>';});}
+        h+='<rect data-lgband="1"'+(b.fix?' data-lgbandfix="1"':'')+(ledgerCavOn()?'':' visibility="hidden"')+' x="'+x0.toFixed(1)+'" y="'+T+'" width="'+Math.max(1,x1-x0).toFixed(1)+'" height="'+ph+'" fill="url(#'+hid+(b.fix?'f':'')+')"><title>'+esc(b.title||'')+'</title></rect>';});}
     _lgNiceTicks(lo,hi,W<600?3:4).forEach(tv=>{const yy=Y(tv).toFixed(1);
       h+='<line x1="'+L+'" x2="'+(L+pw)+'" y1="'+yy+'" y2="'+yy+'" style="stroke:var(--border2)" stroke-width="1"/>'
         +'<text data-lgtick="1" x="'+(L+pw+6)+'" y="'+(+yy+3)+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc((o.fmtAxis||_lgAxisMoney)(tv))+'</text>';});
@@ -46233,27 +46287,30 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             if(t.book_only){const k=t.book_only_kind||'';if(k==='broker')c.bob++;else if(k==='infra')c.boi++;else c.bo++;}});
           Object.keys(fl).concat(Object.keys(feedByDate)).forEach(d=>{
             const c=fl[d]||{rep:0,par:0,band:0,omr:0,bo:0,bob:0,boi:0},fd=feedByDate[d],why=[];
-            if(c.rep)why.push(c.rep+' priced from the 1-minute tape (the adapter could not mark the exit)');
-            if(c.omr)why.push(c.omr+' filled outside that minute’s high-low range');
-            if(c.band)why.push(c.band+' filled worse than the parity band allows');
-            if(c.par)why.push(c.par+' failed the parity check (older 15c rule)');
-            if(c.bob)why.push(c.bob+' refused by the broker (book only)');
-            if(c.boi)why.push(c.boi+' never sent - our system failed (book only)');
-            if(c.bo)why.push(c.bo+' never reached the broker (book only)');
+            if(c.rep)why.push({k:'tape_reprice',t:c.rep+' priced from the 1-minute tape (the adapter could not mark the exit)'});
+            if(c.omr)why.push({k:'fill_outside_minute',t:c.omr+' filled outside that minute’s high-low range'});
+            if(c.band)why.push({k:'fill_band',t:c.band+' filled worse than the parity band allows'});
+            if(c.par)why.push({k:'parity_old',t:c.par+' failed the parity check (older 15c rule)'});
+            if(c.bob)why.push({k:'book_only_broker',t:c.bob+' refused by the broker (book only)'});
+            if(c.boi)why.push({k:'book_only_infra',t:c.boi+' never sent - our system failed (book only)'});
+            if(c.bo)why.push({k:'book_only',t:c.bo+' never reached the broker (book only)'});
             // owner 11-20: today's feed verdict is provisional until the close - never hatch a day still trading
             const _etNow=(()=>{try{return new Intl.DateTimeFormat('en-CA',{timeZone:'America/New_York',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',hour12:false}).format(new Date());}catch(e){return '';}})();
             const _live=_etNow.slice(0,10)===d&&_etNow.slice(12)<'16:10';
-            if(fd&&fd.valid===false&&!_live&&(!cut||d>=cut))why.push('FEED INVALID'+(fd.note?(': '+esc(fd.note)):''));
-            if(why.length)out[d]=why.join(' · ');
+            if(fd&&fd.valid===false&&!_live&&(!cut||d>=cut))why.push({k:'feed_invalid',t:'FEED INVALID'+(fd.note?(': '+esc(fd.note)):'')});
+            if(why.length)out[d]=why;
           });
-          return out;
+          // owner 11-21: each part carries its cause code; docs/caveat_fixes.json decides which are fixed (blue) - see ledgerCavResolve
+          const r=ledgerCavResolve('qb',out);window._qbCalCavFixed=r.fixed;window._qbCalCavText=r.cav;
+          return r.cav;
         })();
+        const qbCalCavFixed=window._qbCalCavFixed||{};
         // the month a viewer chose (memory, else the stored one); a month with no trades in the range falls back to the newest one that has
         const qbCalWant=(()=>{let m=window._qqqCalMonth||null;if(!m){try{m=localStorage.getItem('el_qb_cal_month');}catch(e){}}return /^\d{4}-\d{2}$/.test(String(m||''))?m:null;})();
         const qbCalOpen=(()=>{let o=window._qbCalOpen!=null?!!window._qbCalOpen:(window.innerWidth||1200)>600;try{const sv=localStorage.getItem('el_qb_cal_open2');if(sv!=null)o=sv==='1';}catch(e){}return o;})();
         window._qbCalDays=qbCalDays;   // the month arrows step through the months that have trades in this range
-        const qbCalHtml=ledgerCalendarHtml({id:'qb',month:ledgerCalPick(qbCalDays,qbCalWant),days:qbCalDays,caveats:qbCalCav,open:qbCalOpen,
-          note:'Each day is the P&amp;L of record of the trades that closed that day, in the chosen range (Webull fills, else the book price). A hatched day carries a data caveat; its trades still count. Tap a day to jump the trade list there.'});
+        const qbCalHtml=ledgerCalendarHtml({id:'qb',month:ledgerCalPick(qbCalDays,qbCalWant),days:qbCalDays,caveats:qbCalCav,open:qbCalOpen,cavFixed:qbCalCavFixed,
+          note:'Each day is the P&amp;L of record of the trades that closed that day, in the chosen range (Webull fills, else the book price). A hatched day carries a data caveat (amber = open, blue = its cause has been fixed); its trades still count. Tap a day to jump the trade list there.'});
 
         // ── QB LEGS — per leg: the position pill, the live line, the figures of the box's day and the detail a tap opens
         // (badge / legUnreal / legTodayRealized / legClosedSum / notionalHtml), built once in the forEach below for the strategy list.
@@ -46920,7 +46977,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               if(f.bo)why.push(f.bo+' book-only trade'+(f.bo===1?'':'s')+' (order never reached Webull)');
               if(f.rep)why.push(f.rep+' exit'+(f.rep===1?'':'s')+' priced from the 1-minute tape (no fill price captured)');
               if(f.par)why.push(f.par+' trade'+(f.par===1?'':'s')+' failed the parity check (fill far from the backtest price)');
-              bands.push({i:i,title:String(p.date).slice(5)+': '+why.join('; ')+'. Day '+qeMoney(pts[e].v)+' from '+f.n+' trade'+(f.n===1?'':'s')+'; they still count.'});
+              // owner 11-21: a day whose every caveat is fixed (the calendar's own reading of docs/caveat_fixes.json) hatches blue and says what fixed it
+              const fx=!!(window._qbCalCavFixed||{})[p.date],fxWhy=fx?String((window._qbCalCavText||{})[p.date]||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<'):'';
+              bands.push({i:i,fix:fx,title:String(p.date).slice(5)+': '+(fx&&fxWhy?fxWhy:why.join('; '))+'. Day '+qeMoney(pts[e].v)+' from '+f.n+' trade'+(f.n===1?'':'s')+'; they still count.'});
             });
             // VERSION MARKERS (kept from 2026-09-24): family + run numbers, e.g. "NOISE #304 -> #382";
             // the label sits right of the marker, so where it would not fit only the new run is named
@@ -47005,7 +47064,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const hasBookOnly=qbRangeTrades.some(t=>t.book_only),hasBookPx=qbRangeTrades.some(t=>!t.book_only&&/^(book|part)$/.test(String(t.pnl_record_src||'')));
             const hasBookPriced=hasBookOnly||hasBookPx;
             // owner 10-31: the key's words now live in the caption's ? hover (qbKeyWords); the old key markup is kept only for a phone's short line
-            const qbKeyWords=(bands.length?' \u00b7 hatched = a day with a data caveat (a book-only trade, a tape-priced exit or a failed parity check); hover the column to see which; its trades still count':'')
+            const qbKeyWords=(bands.length?' \u00b7 hatched = a day with a data caveat (a book-only trade, a tape-priced exit or a failed parity check); hover the column to see which; its trades still count'+(bands.some(b=>b.fix)?' · amber hatch = cause still open, blue hatch = cause fixed':''):'')
               +(hasBookOnly?' \u00b7 book only = order never reached Webull':'')+(hasBookPx?' \u00b7 book price = no Webull fill price captured for a side':'');
             const keyHtml=false?('<div class="qbx-lg-key">'
               +(bands.length?'<span title="a hatched column is a day with a data caveat: a book-only trade (the order never reached Webull), an exit priced from the 1-minute tape (no fill price captured) or a failed parity check (fill far from the backtest price); hover the column to see which"><i class="qbx-lg-hatch"></i><span class="qbx-lg-long">hatched = a day with a data caveat (a book-only trade, a tape-priced exit or a failed parity check) &middot; hover the column to see which &middot; its trades still count</span><span class="qbx-lg-short">hatched = caveat day &middot; hover for which</span></span>':'')
@@ -49147,7 +49206,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _rhTabs='<div class="p2ctl" data-p2range data-p2sec="pills">'+ledgerRangePillsHtml(_pcw,'data-pcwin')+'</div>';
       // owner 10-31 18:00: the caption + ? ride at the right end of the chart's own row (pills, legend, caption) - no separate chart foot
       const _rhFoot='<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="p2"><span class="lg-chart-cap"><span class="p2rhkey">Cumulative P&amp;L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw)+'</span>'
-        +'<span class="lg-help" data-p2caphelp title="solid line = all book legs \u00b7 dotted = each strategy \u00b7 hatched = a day with a data caveat (a roll-splice trade or a look-ahead ORB trade; hover the column to see which) \u00b7 hover the chart to scrub">?</span></span></div>';
+        +'<span class="lg-help" data-p2caphelp title="solid line = all book legs \u00b7 dotted = each strategy \u00b7 hatched = a day with a data caveat (a roll-splice trade or a look-ahead ORB trade; hover the column to see which) \u00b7 amber hatch = cause still open, blue hatch = cause fixed \u00b7 hover the chart to scrub">?</span></span></div>';
       const _rhChart=(()=>{
         if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+ledgerDailyModeHtml('p2')+'<div class="lg-legend-slot" id="p2-lg-legend"></div>'+_rhFoot+'</div></div>';
         return '<div data-p2sec="chart"><div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div><div class="lg-chart-row">'+_rhTabs+_rhFoot+'</div></div>';
@@ -50898,20 +50957,22 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // STEP 7. The calendar takes the same counted trades; a day marked amber is one on which a roll-splice trade or an ORB look-ahead
         // engine trade closed (the same two marks the trade rows carry). The fold and the month are remembered per browser.
         const _pnCalDays=ledgerCalDays(_pnRows,{pnl:_pnPnl,day:_closeDay});
-        const _pnCav={};
+        // owner 11-21: each caveat carries its cause code (roll_splice / orb_lookahead); docs/caveat_fixes.json decides which are fixed (blue)
+        const _pnCavParts={};
         _pnRows.forEach(t=>{const d=_closeDay(t);if(!d)return;
           const why=[];
-          if(t.roll_artifact)why.push('a roll-splice trade closed (September 2026 contract roll; kept, not deleted)');
-          if(legOf(t)==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0))why.push('a look-ahead ORB trade closed (its volume filter sees the whole day: reference only)');
-          why.forEach(w=>{const cur=_pnCav[d]?_pnCav[d].split('; '):[];if(cur.indexOf(w)<0)cur.push(w);_pnCav[d]=cur.join('; ');});});
+          if(t.roll_artifact)why.push({k:'roll_splice',t:'a roll-splice trade closed (September 2026 contract roll; kept, not deleted)'});
+          if(legOf(t)==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0))why.push({k:'orb_lookahead',t:'a look-ahead ORB trade closed (its volume filter sees the whole day: reference only)'});
+          why.forEach(w=>{const cur=_pnCavParts[d]||(_pnCavParts[d]=[]);if(!cur.some(x=>x.k===w.k))cur.push(w);});});
+        const _pnCavR=ledgerCavResolve('p2',_pnCavParts,'; '),_pnCav=_pnCavR.cav,_pnCavFixed=_pnCavR.fixed;
         // owner 10-31: open by default above 600 px (a new key, so an earlier 'closed' choice no longer hides it); a phone keeps it shut
         const _pnCalOpen=(()=>{const v=_pnLs('el_lg_cal_nt8b');if(v==='1'||v==='0')return v==='1';return (window.innerWidth||1200)>600;})();
         const _pnCalMonth=ledgerCalPick(_pnCalDays,window._paperCalMonth||_pnLs('el_lg_calmo_nt8')||'');
         window._paperCalMonth=_pnCalMonth;window._pnCalDays=_pnCalDays;
         // the chart hatches the SAME caveat days the calendar marks (a roll-splice or ORB look-ahead trade closed that day)
-        if(window._p2Chart&&window._p2Chart.pts){const P=window._p2Chart.pts;window._p2Chart.bands=P.map((p,i)=>(p.date&&_pnCav[p.date])?{i:i,title:String(p.date).slice(5)+': '+_pnCav[p.date]}:null).filter(Boolean);}
-        const _pnCal=ledgerCalendarHtml({id:'p2',month:_pnCalMonth,days:_pnCalDays,caveats:_pnCav,open:_pnCalOpen||_hmCalBare(),bare:_hmCalBare(),
-          note:'Each day is the money from book trades that closed that day, in the chosen range. Tap a day to select its trades in the trades list (then OPEN N CHARTS). Amber hatch = a roll-splice trade or an ORB look-ahead engine trade closed that day.'});
+        if(window._p2Chart&&window._p2Chart.pts){const P=window._p2Chart.pts;window._p2Chart.bands=P.map((p,i)=>(p.date&&_pnCav[p.date])?Object.assign({i:i,title:String(p.date).slice(5)+': '+_pnCav[p.date]},{fix:!!_pnCavFixed[p.date]}):null).filter(Boolean);}
+        const _pnCal=ledgerCalendarHtml({id:'p2',month:_pnCalMonth,days:_pnCalDays,caveats:_pnCav,cavFixed:_pnCavFixed,open:_pnCalOpen||_hmCalBare(),bare:_hmCalBare(),
+          note:'Each day is the money from book trades that closed that day, in the chosen range. Tap a day to select its trades in the trades list (then OPEN N CHARTS). Amber hatch = a roll-splice trade or an ORB look-ahead engine trade closed that day; blue hatch = the cause behind it has been fixed.'});
         // STEP 10. One row per strategy on the shared list. Name = the family-name label (family + run number + variant), the dot is the
         // live NinjaTrader state (the sub-line says it in words), value = the range P&L, value2 = trades and win rate. A BOOK row's switch
         // counts the leg everywhere; the other rows' switches only list that strategy trades in the trades table.

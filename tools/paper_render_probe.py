@@ -1239,7 +1239,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         var w=fr.contentWindow;try{w.renderAuth=function(){};}catch(e){}
         var ok=w.eval("(function(){try{localStorage.setItem('augurPrefs','{}');localStorage.setItem('el_lg_daily_p2','0');var F="+JSON.stringify(FIX)+";"
           +"window._paperTrades=F.trades;window._paperReports=F.reports;window._ntBtMatch=F.ntBt;window._ntBridge=F.ntBridge;window._paperLoaded=true;window._paperLoading=false;"
-          +"window._paperTradeInfo=F.tradeInfo;window._p2Open={};window._paperOtherOn=null;window._paperLegOff=null;window._paperCurveWin=null;"
+          +"window._paperTradeInfo=F.tradeInfo;window.__caveatFixes=F.cavFixes||[];window._p2Open={};window._paperOtherOn=null;window._paperLegOff=null;window._paperCurveWin=null;"
           +"activeTab='augur';augurSub='paper2';renderApp();return !!document.querySelector('.p2rh');}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
         if(ok===true)return 'OK';
         await pnSleep(700);
@@ -1579,7 +1579,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           return {month:g.getAttribute('data-lgcalmonth'),title:_t(g.querySelector('.lg-cal-title')),sum:_t(g.querySelector('.lg-cal-sum')),
             days:[].map.call(days,function(b){return b.getAttribute('data-lgcalday');}),
             dayN:[].map.call(days,function(b){return parseInt((b.querySelector('.n')||{textContent:'0'}).textContent,10)||0;}),
-            cells:g.querySelectorAll('.lg-cal-grid > *').length,cav:g.querySelectorAll('.lg-cal-day.cav').length,
+            cells:g.querySelectorAll('.lg-cal-grid > *').length,cav:g.querySelectorAll('.lg-cal-day.cav').length,cavFix:g.querySelectorAll('.lg-cal-day.cav.fix').length,
             prevDis:(g.querySelector('[data-lgcalmo="-1"]')||{}).disabled,nextDis:(g.querySelector('[data-lgcalmo="1"]')||{}).disabled};}
         r.cal=_calState();
         r.calPanelHidden=(function(){var p=d.getElementById('p2-cal');return p?!!p.hidden:null;})();
@@ -1810,6 +1810,31 @@ def _set_words(k, label, plp):
     return out
 
 
+def _caveat_fixes(root):
+    """docs/caveat_fixes.json's fixes - the list the page reads to draw a fixed caveat day blue."""
+    try:
+        with open(os.path.join(root, 'docs', 'caveat_fixes.json'), encoding='utf-8') as fh:
+            return (json.load(fh) or {}).get('fixes') or []
+    except (OSError, ValueError):
+        return []
+
+
+def _caveat_fixed(cal, kind, day, fixes):
+    """The page's ledgerCavFix: cause `kind` on `day` of calendar `cal` is fixed by an entry of `fixes`."""
+    for f in fixes:
+        if kind not in (f.get('kinds') or []) or not f.get('fixed_on'):
+            continue
+        cs = f.get('calendars') or []
+        if cs and cal not in cs and '*' not in cs:
+            continue
+        if f.get('from') and day < f['from']:
+            continue
+        if day > (f.get('to') or f['fixed_on']):
+            continue
+        return True
+    return False
+
+
 def build_fixture(root, fix_path):
     """The real captured fixture plus everything it predates (injected trades, book weights, capture health).
     Shared by the probe and by any scratch harness that wants the same board."""
@@ -1936,6 +1961,8 @@ def run(alt_index=None, timeout=300):
     nt_labels = {d['label'] for d in defs.values() if d['nt']}
 
     fixture = build_fixture(root, fix_path)
+    # owner 11-21: the page's caveat-fix list (docs/caveat_fixes.json), pinned before render - the page's own fetch is async
+    fixture['cavFixes'] = _caveat_fixes(root)
     ALL_CASES = list(CASES) + extra_cases(fixture)
     global CASE_CFG
     CASE_CFG = dict((n, c) for n, c in ALL_CASES)
@@ -2487,7 +2514,16 @@ def run(alt_index=None, timeout=300):
         rows = [t for t in (allrows if rows is None else rows) if _close(t)[:7] == mo_]
         cav = set(_close(t) for t in rows if t.get('leg') == 'ORB' or t.get('roll_artifact')
                   or 'lookahead-engine' in (t.get('flags') or []))
-        return {'n': len(rows), 'net': _sum_net(rows), 'days': sorted(set(_close(t) for t in rows)), 'cav': len(cav)}
+        # owner 11-21: a day is BLUE when every cause on it is fixed in docs/caveat_fixes.json (roll_splice / orb_lookahead)
+        kinds = {}
+        for t in rows:
+            if t.get('roll_artifact'):
+                kinds.setdefault(_close(t), set()).add('roll_splice')
+            if t.get('leg') == 'ORB' or 'lookahead-engine' in (t.get('flags') or []):
+                kinds.setdefault(_close(t), set()).add('orb_lookahead')
+        cfx = fixture.get('cavFixes') or []
+        fixed = [d for d, ks in kinds.items() if ks and all(_caveat_fixed('p2', k, d, cfx) for k in ks)]
+        return {'n': len(rows), 'net': _sum_net(rows), 'days': sorted(set(_close(t) for t in rows)), 'cav': len(cav), 'cavFix': len(fixed)}
 
     def _cal_sum(txt):
         m = _re.search(r'(\d+) trades?', txt or '')
@@ -2511,6 +2547,8 @@ def run(alt_index=None, timeout=300):
             fails.append('%s: the calendar grid has %s cells (rows of 7 days + a WEEK cell expected)' % (tag, cal.get('cells')))
         if cal.get('cav') != e['cav']:
             fails.append('%s: %s caveat day(s) hatched, expected %d (days with a roll-splice or ORB look-ahead trade)' % (tag, cal.get('cav'), e['cav']))
+        if cal.get('cavFix') != e['cavFix']:
+            fails.append('%s: %s caveat day(s) hatched BLUE (cause fixed), docs/caveat_fixes.json says %d' % (tag, cal.get('cavFix'), e['cavFix']))
 
     def _tap_ok(tag, tap):
         if not tap or not tap.get('sel') or tap.get('sel') != tap.get('forDay') or tap.get('sel') != tap.get('cellN') \
