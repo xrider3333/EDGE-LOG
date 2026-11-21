@@ -214,6 +214,9 @@ import tempfile
 import threading
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ledger_daily_check import DAILY_CHECK_JS, judge_daily, summary as daily_summary  # noqa: E402 (owner 11-21)
+
 def _el_money(v, signed=False):
     """Python twin of index.html elMoney (calm-down item 6; pinned by tools/money_fmt_probe.py)."""
     n = float(v); a = abs(n)
@@ -1492,7 +1495,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           legend:d.querySelectorAll('.p2rh .lg-legend [data-lgline]').length,n:_pc?_pc.pts.length:0,last:(_pc&&_pc.pts.length)?_pc.pts[_pc.pts.length-1].v:null,
           faint:_cs.querySelectorAll('path[stroke-dasharray]').length}:null;
         var _dz=d.querySelector('#p2-chart [data-lgdaily="p2"]'),_dm=d.querySelectorAll('[data-lgdaymode="p2"]');
-        r.daily=_dz?{h:Math.round(_dz.getBoundingClientRect().height),attrH:+_dz.getAttribute('height'),bars:_dz.querySelectorAll('[data-lgdaily-bar]').length,line:_dz.querySelectorAll('[data-lgdaily-line]').length,
+        r.daily=_dz?{chk:__lgDailyCheck(_dz.parentNode,'lgdaily'),h:Math.round(_dz.getBoundingClientRect().height),attrH:+_dz.getAttribute('height'),bars:_dz.querySelectorAll('[data-lgdaily-bar]').length,line:_dz.querySelectorAll('[data-lgdaily-line]').length,
           yl:_dz.querySelectorAll('[data-lgdaily-y]').length,yr:_dz.querySelectorAll('[data-lgdaily-yr]').length,xl:_dz.querySelectorAll('[data-lgdaily-x]').length,
           sw:_dm.length,swOn:[].map.call(d.querySelectorAll('[data-lgdaymode="p2"].active'),function(x){return x.getAttribute('data-v');}),
           pts:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.length:null,dated:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.filter(function(q){return q&&q.date;}).length:null,
@@ -1972,7 +1975,7 @@ def run(alt_index=None, timeout=300):
 
     pdir = tempfile.mkdtemp(prefix='_paperprobe_', dir=root)
     ppath = os.path.join(pdir, 'probe.html')
-    html = (PROBE_HTML
+    html = (PROBE_HTML.replace('<script>', '<script>' + DAILY_CHECK_JS, 1)
             .replace('__CASES__', json.dumps([[n, c] for n, c in ALL_CASES]))
             .replace('__FIX__', json.dumps(fixture))
             .replace('__HOUSE__', json.dumps(HOUSE_WIDTHS))
@@ -2364,6 +2367,9 @@ def run(alt_index=None, timeout=300):
         fails.append('paper2: the colour check found no money cells to read')
 
     # LEDGER step 5 -- the shared chart: drawn, the last point is the big number, scrub writes the hero and restores it
+    # owner 11-21: every case that drew the daily chart - it fills its card, its readout sits above the plot and clears on leave, titles clear the ticks
+    for nm, r in sorted(cases.items()):
+        judge_daily(nm + ' DAILY', ((r or {}).get('daily') or {}).get('chk'), fails)
     for nm in ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'range-3m', 'range-ytd', 'range-1m', 'range-saved'):
         r = cases.get(nm) or {}
         if nm == 'daily-on':

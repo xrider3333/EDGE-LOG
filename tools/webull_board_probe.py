@@ -380,6 +380,9 @@ import tempfile
 import threading
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ledger_daily_check import DAILY_CHECK_JS, judge_daily, summary as daily_summary  # noqa: E402 (owner 11-21)
+
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 FIXTURE = os.path.join(ROOT, 'tools', 'fixtures', 'qqq_exec_box1005.json')
@@ -3551,7 +3554,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     r.daily=(function(){var sv=d.querySelector('#qb-lg-chart [data-lgdaily="qb"]');if(!sv)return {svg:false};var pts=(w._qbLgChart&&w._qbLgChart.pts)||[],ds={};
       pts.forEach(function(p){if(p&&p.date)ds[String(p.date).slice(0,10)]=1;});
       var sw=d.querySelector('[data-lgdaymode="qb"]'),on=sw?sw.querySelector('.active,[aria-pressed="true"]'):null;
-      return {svg:true,bars:sv.querySelectorAll('[data-lgdaily-bar]').length,line:sv.querySelectorAll('[data-lgdaily-line]').length,
+      return {svg:true,chk:__lgDailyCheck(sv.parentNode,'lgdaily'),bars:sv.querySelectorAll('[data-lgdaily-bar]').length,line:sv.querySelectorAll('[data-lgdaily-line]').length,
         y:sv.querySelectorAll('[data-lgdaily-y]').length,yr:sv.querySelectorAll('[data-lgdaily-yr]').length,x:sv.querySelectorAll('[data-lgdaily-x]').length,
         days:Object.keys(ds).length,sw:!!sw,swOn:on?(on.getAttribute('data-v')||(on.textContent||'').trim()):null,curve:!!d.querySelector('#qb-lg-chart [data-lgdate]')};})();
     r.chartDates=csv?csv.querySelectorAll('[data-lgdate]').length:0;
@@ -8297,7 +8300,7 @@ def _attempt(chrome, alt_index, fixture):
              for c in _stats_cases(fixture)]
     tls = [dict({'name': c['name'], 'scen': c['scen'], 'doc': c['doc'], 'vp': c['vp'], 'theme': c['theme'], 'today': c['today'], 'wh': c['wh'],
                  'widths': c.get('widths'), 'page': TL_PAGE}, **(c.get('pn') or {})) for c in _tl_cases(fixture)]
-    html = (PROBE_HTML.replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
+    html = (PROBE_HTML.replace('<script>', '<script>' + DAILY_CHECK_JS, 1).replace('__CASES__', json.dumps(CASES)).replace('__VP__', json.dumps(VIEWPORTS))
             .replace('__STATS__', json.dumps(stats)).replace('__TLS__', json.dumps(tls)).replace('__TLJS__', TL_JS).replace('__S11JS__', S11_JS)
             .replace('__NOW__', json.dumps(et_ms(FRESH_NOW))).replace('__VARS__', json.dumps(variants)).replace('__SHB__', json.dumps(_shadow_block()))
             .replace('__FIX__', json.dumps(fixture)).replace('__BKL__', json.dumps(BOOK_LEGS_FIX)).replace('__OLDMARKS__', json.dumps(OLD_MARKS))
@@ -8774,6 +8777,8 @@ def _judge(data, fixture):
                 fails.append('DAILY default: labels left %s, right %s, dates %s (want 1+, 1+, 2+)' % (dr.get('y'), dr.get('yr'), dr.get('x')))
             if dr.get('curve'):
                 fails.append('DAILY default: the curve chart is drawn as well as the daily chart')
+            # owner 11-21: the daily chart fills its card, its readout sits above the plot and clears on leave, titles clear the ticks
+            judge_daily('DAILY default', dr.get('chk'), fails)
     for nm, cfg in CASES:
         r = cases.get(nm)
         if r is None:

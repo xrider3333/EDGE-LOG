@@ -235,6 +235,9 @@ import tempfile
 import threading
 import time
 
+sys.path.insert(0, os.path.dirname(os.path.abspath(__file__)))
+from ledger_daily_check import DAILY_CHECK_JS, judge_daily, summary as daily_summary  # noqa: E402 (owner 11-21)
+
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 
 VIEWPORTS = {'laptop': [1366, 768], 'phone': [375, 812], 'narrow': [1000, 768], 'edge600': [600, 800], 'edge601': [601, 800]}
@@ -1501,6 +1504,7 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     var cside=d.querySelector('[data-lgframe-top="hm"] [data-hmsec="cal"]');r.daily.calSide=!!cside;
     if(cside&&W().innerWidth>=1100){var cb=cside.getBoundingClientRect(),cw=d.querySelector('#hm-chart-wrap').getBoundingClientRect();r.daily.calRight=cb.left>=cw.right-1;}
     if(dbt){dbt.click();var dsv=d.querySelector('#hm-chart-wrap svg[data-hmdaily]');r.daily.bars=dsv?dsv.querySelectorAll('rect').length:0;
+      r.daily.chk=__lgDailyCheck(d.querySelector('#hm-chart-wrap'),'hmdaily');
       r.daily.line=!!(dsv&&dsv.querySelector('path'));r.daily.yLab=dsv?dsv.querySelectorAll('[data-hmdaily-y]').length:0;r.daily.xLab=dsv?dsv.querySelectorAll('[data-hmdaily-x]').length:0;var ar=dsv&&dsv.querySelector('[data-hmdaily-area]'),gs=dsv?[].map.call(dsv.querySelectorAll('#hm-daily-fill stop'),function(x){return x.getAttribute('stop-color');}):[];r.daily.area=!!ar&&(ar.getAttribute('fill')||'').indexOf('url(#hm-daily-fill)')===0;r.daily.stops=gs.join(',');r.daily.days=Object.keys(W().eval('(function(){var b={};_hmTradesInRange(bScope(trades),homeRange).forEach(function(t){b[ledgerCloseDay(t)]=1;});return b;})()')).length;}
     W().eval('homeChartMode='+JSON.stringify(cfg.chartMode||'equity')+';renderApp();');
     // LEDGER step 9: while nothing is open the shared trade panel is not in the page at all (no node, no layer); that is also what keeps a closed
@@ -2879,7 +2883,7 @@ def _render_page(chrome, root, alt_index, cases, inter, qs, data_obj, bars, pane
     """One render of the probe page in a fresh headless Chrome. Returns (data, error message or None)."""
     pdir = tempfile.mkdtemp(prefix='_homeprobe_', dir=root)
     ppath = os.path.join(pdir, 'probe.html')
-    html = (PROBE_HTML
+    html = (PROBE_HTML.replace('<script>', '<script>' + DAILY_CHECK_JS, 1)
             .replace('__QS__', qs)
             .replace('__CASES__', json.dumps(cases))
             .replace('__INTER__', json.dumps(inter))
@@ -4557,6 +4561,8 @@ def _judge(data, data_obj):
             fails.append('%s: DAILY has no axis labels (dollar labels %s, date labels %s)' % (nm, dly.get('yLab'), dly.get('xLab')))
         if dly.get('days') and (not dly.get('area') or '#1d9e75' not in (dly.get('stops') or '') or '#e24b4a' not in (dly.get('stops') or '')):
             fails.append('%s: DAILY has no green-above / red-below fill under the line (area %s, stops %s)' % (nm, dly.get('area'), dly.get('stops')))
+        # owner 11-21: the daily chart fills its card, its readout sits above the plot and clears on leave, axis titles clear the ticks
+        judge_daily(nm + ' DAILY', dly.get('chk'), fails)
         if not dly.get('btn'):
             fails.append('%s: the chart has no DAILY toggle beside EQUITY and P&L' % nm)
         elif dly.get('bars') != dly.get('days') or (dly.get('days') and not dly.get('line')):

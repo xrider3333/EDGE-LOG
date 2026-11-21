@@ -1592,7 +1592,11 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 }
 .hm-sec-chart .lg-chart-foot{margin-bottom:10px}
 .hm-chart-wrap{position:relative}
-.hm-daily-tip{position:absolute;top:0;display:flex;gap:10px;align-items:baseline;padding:4px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);font-size:10.5px;white-space:nowrap;pointer-events:none;z-index:5}
+.hm-daily-tip{position:absolute;top:0;display:flex;gap:10px;align-items:baseline;padding:2px 8px;border:1px solid var(--border);border-radius:6px;background:var(--bg1);font-size:10.5px;line-height:16px;white-space:nowrap;pointer-events:none;z-index:5}
+/* owner 11-21: display:flex above beat the hidden attribute, so the readout stayed on screen after the pointer left; [hidden] wins now */
+.hm-daily-tip[hidden]{display:none!important}
+/* owner 11-21: the daily charts' readout lives in its own strip ABOVE the plot (reserved height), never over the bars or the line */
+.lg-daily-strip{position:relative;height:22px;margin:0 0 2px}
 .hm-daily-tip b{font-weight:600;color:var(--text2)}
 /* LEDGER unify step 11: REAL's page is built in ONE fixed order at every width (the markup is in that order - no order: rules): hero, range pills
    with the EQUITY | P&L switch, equity chart, the four tiles, More stats, calendar, accounts, the trade list, then REAL's own sections, each a closed
@@ -1891,7 +1895,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.66';
+const VERSION='91.67';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1912,6 +1916,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.67',date:'2026-11-21',notes:['LEDGER daily charts (REAL, NT8 PAPER, WEBULL PAPER): the plot now fills its card - each side keeps only the room its tick numbers need (the chart used to sit shrunk in the middle with empty space both sides)','Daily charts: the hover line (date, day, total) sits in its own strip above the chart, never over the bars or the line, and clears the moment the pointer or finger leaves','Daily charts: the DAY and TOTAL axis titles have their own row above the numbers, so they no longer squeeze into the top tick']},
 {v:'91.64',date:'2026-11-21',notes:['WEBULL PAPER: today and realized show a percent beside the dollar figure, of the paper account at the start of the day or range (hover says the base)','WEBULL PAPER: each strategy card is two short lines - name, P&L and switch on top, then the P&L percent and a quiet size and estimate a year line; trades, win rate, today and the rest stay under the arrow','WEBULL PAPER: new Books (what-if) fold under Strategies - a dropdown per book with its legs. LIVE legs are on the box and paper trade; SHADOW legs are not, and their switch draws their as-if P&L as a dashed line on the chart and a what-if total, never in the account number. A leg with no shadow series yet reads no shadow data yet']},
 {v:'91.63',date:'2026-11-21',notes:['NT8 PAPER: today and realized show a percent beside the dollar figure, in the same colour - of the Sim101 account at the start of the session or range (from the NT bridge cash; hover says the base). No bridge snapshot, no percent']},
 {v:'91.61',date:'2026-11-21',notes:['LEDGER REAL trade chart: new 10s and 30s timeframe buttons, drawn from the NinjaTrader 10-second capture (the trade plus or minus 30 minutes)','LEDGER REAL trade chart: a trade marked with a timeframe opens on it (a 10s trade opens on 10s bars); a trade with no 10-second bars (before 2026-06-23) opens on 1m and the greyed 10s button says why on hover']},
@@ -4451,64 +4456,98 @@ function ledgerDailyModeHtml(id){const on=_lgDailyOn(id);
 document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-lgdaymode]');if(!b)return;
   try{localStorage.setItem('el_lg_daily_'+b.getAttribute('data-lgdaymode'),b.getAttribute('data-v'));}catch(x){}
   if(typeof renderApp==='function')renderApp();});
+// owner 11-21 (LEDGER chart fixes, every daily chart - REAL, NT8 PAPER, WEBULL PAPER - draws HERE):
+//  1. the svg is drawn at the box's own pixel width with its own height (it was viewBox + meet under a fixed CSS height, which
+//     letterboxed the plot into the middle of the card); each side keeps just the room its widest tick label needs, and a resize redraws
+//  2. the hover readout sits in its own strip ABOVE the plot (reserved height), never over the bars or the line
+//  3. the readout and the crosshair clear on pointer / mouse leave, touch end / cancel and on a redraw (the readout's display:flex used to
+//     beat its hidden attribute, so it stayed up after the pointer left)
+//  4. the axis titles (DAY, TOTAL) have their own row above the plot, over their own axis, clear of every tick label
+// o: {id, attr ('lgdaily' by default; REAL keeps 'hmdaily'), gradId, aria, height, onHover(total, day), onLeave()}
 function ledgerDailyChart(wrapEl,pts,o){
   o=o||{};if(!wrapEl)return;
+  const A=o.attr||'lgdaily';
   const last={},ord=[];(pts||[]).forEach(p=>{const d=p&&p.date?String(p.date).slice(0,10):null;if(!d)return;if(!(d in last))ord.push(d);last[d]=+p.v||0;});
   const days=ord.sort();
+  if(wrapEl._lgdRO){try{wrapEl._lgdRO.disconnect();}catch(e){}wrapEl._lgdRO=null;}
+  if(wrapEl._lgRO){try{wrapEl._lgRO.disconnect();}catch(e){}wrapEl._lgRO=null;}
   if(!days.length){wrapEl.innerHTML='<div class="hm-empty-state">No closed trades in this range</div>';return;}
   const base=(pts&&pts.length)?(+pts[0].v||0):0,by={};let prev=base;
   days.forEach(d=>{by[d]=+(last[d]-prev).toFixed(2);prev=last[d];});
   let c=0;const cum=days.map(d=>(c=+(c+by[d]).toFixed(2)));
-  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=W<420?220:o.height||330,pt=14,pb=24,pl=58,pr=58;
   const bv=days.map(d=>by[d]),bmx=Math.max(0,...bv),bmn=Math.min(0,...bv),cmx=Math.max(0,...cum),cmn=Math.min(0,...cum);
   const fr=(a,b)=>(a-b)>0?a/(a-b):0.5;
   let az=Math.min(0.92,Math.max(0.08,(fr(bmx,bmn)+fr(cmx,cmn))/2));
   if(bmn===0&&cmn===0)az=1;else if(bmx===0&&cmx===0)az=0;
   const top=(mx_,mn_)=>{const k=Math.max(az>0?mx_/az:0,az<1?-mn_/(1-az):0)||1;return [az*k,-(1-az)*k];};
   const [bT,bB]=top(bmx,bmn),[cT,cB]=top(cmx,cmn);
-  const mk=(T,B)=>v=>pt+(T-v)/((T-B)||1)*(H-pt-pb);
-  const y=mk(bT,bB),yc=mk(cT,cB),slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7));
-  const G='#1d9e75',R='#e24b4a',y0=y(0),cx=i=>pl+slot*i+slot/2;
-  const money=v=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:Math.abs(v)<100?2:0});
+  const G='#1d9e75',R='#e24b4a',gid=o.gradId||('lg-daily-fill-'+(o.id||'x'));
   const dl=d=>{try{return _hmFmtDateLong(d);}catch(e){return d;}};
-  let bars='',line='';
-  days.forEach((d,i)=>{const v=by[d],x=pl+slot*i+(slot-bw)/2,yy=Math.min(y(v),y0),h=Math.max(1,Math.abs(y(v)-y0));
-    bars+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+(v>=0?G:R)+'" opacity="0.85" data-lgdaily-bar="1"><title>'+dl(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></rect>';
-    line+=(i?'L':'M')+cx(i).toFixed(1)+' '+yc(cum[i]).toFixed(1);});
-  const area=line+'L'+cx(days.length-1).toFixed(1)+' '+y0.toFixed(1)+'L'+cx(0).toFixed(1)+' '+y0.toFixed(1)+'Z';
-  const gid='lg-daily-fill-'+(o.id||'x');
-  const off=Math.min(1,Math.max(0,(y0-pt)/((H-pb)-pt))).toFixed(4);
-  const grad='<defs><linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse" x1="0" y1="'+pt+'" x2="0" y2="'+(H-pb)+'">'
-    +'<stop offset="0" stop-color="'+G+'" stop-opacity="0.35"/><stop offset="'+off+'" stop-color="'+G+'" stop-opacity="0.04"/>'
-    +'<stop offset="'+off+'" stop-color="'+R+'" stop-opacity="0.04"/><stop offset="1" stop-color="'+R+'" stop-opacity="0.35"/></linearGradient></defs>';
-  const tk=(T,B)=>[T,T/2,0,B/2,B].filter(v=>Math.abs(v)>0.004||v===0).filter((v,k,a)=>a.findIndex(u=>Math.abs(u-v)<1e-9)===k);
-  const lt=tk(bT,bB).filter((v,k,a)=>a.findIndex(u=>Math.abs(y(u)-y(v))<14)===k);
-  const rt=tk(cT,cB).filter((v,k,a)=>a.findIndex(u=>Math.abs(yc(u)-yc(v))<14)===k);
-  const yAx=lt.map(v=>'<text x="'+(pl-8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text5)" data-lgdaily-y="1">'+money(v)+'</text>'
-      +(v!==0?'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 4" opacity="0.6"/>':'')).join('')
-    +rt.map(v=>'<text x="'+(W-pr+8)+'" y="'+(yc(v)+3.5).toFixed(1)+'" text-anchor="start" font-size="10" fill="var(--text3)" data-lgdaily-yr="1">'+money(v)+'</text>').join('')
-    +'<text x="'+(pl-8)+'" y="9" text-anchor="end" font-size="8.5" letter-spacing="1" fill="var(--text5)">DAY</text>'
-    +'<text x="'+(W-pr+8)+'" y="9" text-anchor="start" font-size="8.5" letter-spacing="1" fill="var(--text3)">TOTAL</text>';
-  const di=[...new Set([0,Math.floor((days.length-1)/2),days.length-1])];
-  const xAx=di.map(i=>'<text x="'+cx(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+(i===0&&days.length>1?'start':(i===days.length-1&&days.length>1?'end':'middle'))+'" font-size="10" fill="var(--text5)" data-lgdaily-x="1">'+days[i].slice(5).replace('-','/')+'</text>').join('');
-  wrapEl.style.position='relative';
-  wrapEl.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="daily P&L bars and running total" data-lgdaily="'+(o.id||'')+'" style="width:100%;height:auto;display:block">'
-    +grad+yAx
-    +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--text5)" stroke-width="1.2" opacity="0.7"/>'
-    +'<path d="'+area+'" fill="url(#'+gid+')" stroke="none"/>'
-    +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6" data-lgdaily-line="1"/>'+xAx
-    +'<line data-lgdaily-cross="1" x1="0" x2="0" y1="'+pt+'" y2="'+(H-pb)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"/></svg>'
-    +'<div class="hm-daily-tip" hidden></div>';
-  const svg=wrapEl.querySelector('svg'),cross=svg.querySelector('[data-lgdaily-cross]'),tip=wrapEl.querySelector('.hm-daily-tip');
-  const show=ev=>{const r=svg.getBoundingClientRect();if(!r.width)return;const sx=(ev.clientX-r.left)*W/r.width;
-    const i=Math.max(0,Math.min(days.length-1,Math.floor((sx-pl)/slot)));const X=cx(i);
-    cross.setAttribute('x1',X.toFixed(1));cross.setAttribute('x2',X.toFixed(1));cross.setAttribute('visibility','visible');
-    tip.innerHTML='<b>'+dl(days[i])+'</b><span class="'+ledgerCls(by[days[i]])+'">day '+ledgerSigned(by[days[i]])+'</span><span class="'+ledgerCls(cum[i])+'">total '+ledgerSigned(cum[i])+'</span>';
-    tip.hidden=false;const px=X*r.width/W;tip.style.left=Math.max(0,Math.min(r.width-tip.offsetWidth,px-tip.offsetWidth/2))+'px';
-    if(o.onHover)try{o.onHover(cum[i],days[i]);}catch(e){}};
-  const hide=()=>{cross.setAttribute('visibility','hidden');tip.hidden=true;if(o.onLeave)try{o.onLeave();}catch(e){}};
-  svg.addEventListener('mousemove',show);svg.addEventListener('mouseleave',hide);
-  svg.addEventListener('touchmove',e=>{if(e.touches[0])show(e.touches[0]);},{passive:true});svg.addEventListener('touchend',hide);
+  const FONT='JetBrains Mono, monospace';
+  let cvs=null;
+  const tw=(txt,px,ls)=>{let w=0;try{cvs=cvs||document.createElement('canvas');const g=cvs.getContext('2d');g.font=px+'px '+FONT;w=g.measureText(txt).width;}catch(e){}
+    return (w>0?w:txt.length*px*0.6)+txt.length*(ls||0);};
+  const draw=()=>{
+    const W=Math.max(240,Math.round(wrapEl.clientWidth||900)),H=W<420?220:(o.height||330),narrow=W<420,fs=narrow?9:10;
+    wrapEl._lgdW=W;
+    // tick money: whole dollars from $10 up (cents only under $10), so a label is as short as it can be and the gutters stay thin
+    const money=v=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:Math.abs(v)<10?2:0});
+    const pt=22,pb=22,ph=H-pt-pb;
+    const mk=(T,B)=>v=>pt+(T-v)/((T-B)||1)*ph;
+    const y=mk(bT,bB),yc=mk(cT,cB);
+    const tk=(T,B)=>[T,T/2,0,B/2,B].filter(v=>Math.abs(v)>0.004||v===0).filter((v,k,a)=>a.findIndex(u=>Math.abs(u-v)<1e-9)===k);
+    const lt=tk(bT,bB).filter((v,k,a)=>a.findIndex(u=>Math.abs(y(u)-y(v))<14)===k);
+    const rt=tk(cT,cB).filter((v,k,a)=>a.findIndex(u=>Math.abs(yc(u)-yc(v))<14)===k);
+    // each gutter = its widest tick label + 6 px to the plot + 2 px to the card edge (the titles have their own row, so they never widen it)
+    const gap=6,edge=2,tfs=8.5,tls=1;
+    const pl=Math.ceil(Math.max(...lt.map(v=>tw(money(v),fs)))+gap+edge);
+    const pr=Math.ceil(Math.max(...rt.map(v=>tw(money(v),fs)))+gap+edge);
+    const slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7)),y0=y(0),cx=i=>pl+slot*i+slot/2;
+    let bars='',line='';
+    days.forEach((d,i)=>{const v=by[d],x=pl+slot*i+(slot-bw)/2,yy=Math.min(y(v),y0),h=Math.max(1,Math.abs(y(v)-y0));
+      bars+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+(v>=0?G:R)+'" opacity="0.85" data-'+A+'-bar="1"><title>'+dl(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></rect>';
+      line+=(i?'L':'M')+cx(i).toFixed(1)+' '+yc(cum[i]).toFixed(1);});
+    const area=line+'L'+cx(days.length-1).toFixed(1)+' '+y0.toFixed(1)+'L'+cx(0).toFixed(1)+' '+y0.toFixed(1)+'Z';
+    // the gradient switches colour exactly at the $0 line (userSpaceOnUse = page units), and fades toward $0 from both sides
+    const off=Math.min(1,Math.max(0,(y0-pt)/ph)).toFixed(4);
+    const grad='<defs><linearGradient id="'+gid+'" gradientUnits="userSpaceOnUse" x1="0" y1="'+pt+'" x2="0" y2="'+(H-pb)+'">'
+      +'<stop offset="0" stop-color="'+G+'" stop-opacity="0.35"/><stop offset="'+off+'" stop-color="'+G+'" stop-opacity="0.04"/>'
+      +'<stop offset="'+off+'" stop-color="'+R+'" stop-opacity="0.04"/><stop offset="1" stop-color="'+R+'" stop-opacity="0.35"/></linearGradient></defs>';
+    const yAx=lt.map(v=>'<text x="'+(pl-gap)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="'+fs+'" font-family="'+FONT+'" fill="var(--text5)" data-'+A+'-y="1">'+money(v)+'</text>'
+        +(v!==0?'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 4" opacity="0.6"/>':'')).join('')
+      +rt.map(v=>'<text x="'+(W-pr+gap)+'" y="'+(yc(v)+3.5).toFixed(1)+'" text-anchor="start" font-size="'+fs+'" font-family="'+FONT+'" fill="var(--text3)" data-'+A+'-yr="1">'+money(v)+'</text>').join('')
+      // the titles sit in their own row (y 0-12) at the card's outer edges, over their own axis; the top tick label starts below y 15
+      +'<text x="'+edge+'" y="10" text-anchor="start" font-size="'+tfs+'" letter-spacing="'+tls+'" font-family="'+FONT+'" fill="var(--text5)" data-'+A+'-ylab="day">DAY</text>'
+      +'<text x="'+(W-edge)+'" y="10" text-anchor="end" font-size="'+tfs+'" letter-spacing="'+tls+'" font-family="'+FONT+'" fill="var(--text3)" data-'+A+'-ylab="total">TOTAL</text>';
+    // dates: first, middle, last close day
+    const di=[...new Set([0,Math.floor((days.length-1)/2),days.length-1])];
+    const xAx=di.map(i=>'<text x="'+cx(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+(i===0&&days.length>1?'start':(i===days.length-1&&days.length>1?'end':'middle'))+'" font-size="'+fs+'" font-family="'+FONT+'" fill="var(--text5)" data-'+A+'-x="1">'+days[i].slice(5).replace('-','/')+'</text>').join('');
+    wrapEl.style.position='relative';
+    wrapEl.innerHTML='<div class="lg-daily-strip" data-'+A+'-strip="1"><div class="hm-daily-tip" data-'+A+'-tip="1" hidden></div></div>'
+      +'<svg width="'+W+'" height="'+H+'" viewBox="0 0 '+W+' '+H+'" role="img" aria-label="'+String(o.aria||'daily P&L bars and running total').replace(/"/g,'&quot;')+'" data-'+A+'="'+(A==='hmdaily'?'1':(o.id||''))+'" style="width:100%;height:'+H+'px;display:block;touch-action:pan-y">'
+      +grad+yAx
+      +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--text5)" stroke-width="1.2" opacity="0.7" data-'+A+'-zero="1"/>'
+      +'<path d="'+area+'" fill="url(#'+gid+')" stroke="none" data-'+A+'-area="1"/>'
+      +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6" data-'+A+'-line="1"/>'+xAx
+      +'<line data-'+A+'-cross="1" x1="0" x2="0" y1="'+pt+'" y2="'+(H-pb)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"/></svg>';
+    const svg=wrapEl.querySelector('svg'),cross=svg.querySelector('[data-'+A+'-cross]'),tip=wrapEl.querySelector('[data-'+A+'-tip]');
+    let on=false;
+    const show=ev=>{const r=svg.getBoundingClientRect();if(!r.width)return;const sx=(ev.clientX-r.left)*W/r.width;
+      const i=Math.max(0,Math.min(days.length-1,Math.floor((sx-pl)/slot)));const X=cx(i);
+      cross.setAttribute('x1',X.toFixed(1));cross.setAttribute('x2',X.toFixed(1));cross.setAttribute('visibility','visible');
+      tip.innerHTML='<b>'+dl(days[i])+'</b><span class="'+ledgerCls(by[days[i]])+'">day '+ledgerSigned(by[days[i]])+'</span><span class="'+ledgerCls(cum[i])+'">total '+ledgerSigned(cum[i])+'</span>';
+      tip.hidden=false;on=true;const px=X*r.width/W,sw=tip.parentNode.clientWidth||r.width;
+      tip.style.left=Math.max(0,Math.min(sw-tip.offsetWidth,px-tip.offsetWidth/2))+'px';
+      if(o.onHover)try{o.onHover(cum[i],days[i]);}catch(e){}};
+    const hide=()=>{cross.setAttribute('visibility','hidden');tip.hidden=true;tip.innerHTML='';if(!on)return;on=false;if(o.onLeave)try{o.onLeave();}catch(e){}};
+    svg.addEventListener('mousemove',show);svg.addEventListener('pointermove',ev=>{if(ev.pointerType!=='touch')show(ev);});
+    svg.addEventListener('touchstart',e=>{if(e.touches[0])show(e.touches[0]);},{passive:true});
+    svg.addEventListener('touchmove',e=>{if(e.touches[0])show(e.touches[0]);},{passive:true});
+    ['mouseleave','pointerleave','pointercancel','touchend','touchcancel'].forEach(t=>svg.addEventListener(t,hide));
+    wrapEl.onmouseleave=hide;wrapEl._lgdHide=hide;
+  };
+  draw();
+  if(window.ResizeObserver){wrapEl._lgdRO=new ResizeObserver(()=>{const w=Math.round(wrapEl.clientWidth||0);if(w&&Math.abs(w-(wrapEl._lgdW||0))>2&&wrapEl.querySelector('[data-'+A+'-strip]'))draw();});wrapEl._lgdRO.observe(wrapEl);}
 }
 // calm-down 9 (owner 11-18): caveat hatch hidden by default; a small CAVEATS toggle on the chart shows it, remembered per viewer
 function ledgerCavOn(){try{return localStorage.getItem('el_lg_cav')==='1';}catch(e){return false;}}
@@ -4606,6 +4645,7 @@ function ledgerChartRender(wrap,o){
   };
   draw();
   if(wrap._lgRO)wrap._lgRO.disconnect();
+  if(wrap._lgdRO){wrap._lgdRO.disconnect();wrap._lgdRO=null;}
   if(window.ResizeObserver){wrap._lgRO=new ResizeObserver(()=>{const w=Math.round(wrap.clientWidth||0);if(w&&Math.abs(w-(wrap._lgW||0))>2)draw();});wrap._lgRO.observe(wrap);}
 }
 function calcStats(tds){
@@ -17506,60 +17546,11 @@ function _hmRenderDailyInto(wrapEl){
   let c=0;const cum=days.map(d=>(c=+(c+by[d]).toFixed(2)));
   _hmRenderHeroDefault(c,0);
   if(!days.length){wrapEl.innerHTML='<div class="hm-empty-state">No closed trades in this range</div>';return;}
-  // owner 11-17: a dollar axis on the left, dates along the bottom, and the running total filled down to $0 - green above, red below
-  const W=Math.max(320,Math.round(wrapEl.clientWidth||900)),H=W<420?220:330,pt=14,pb=24,pl=58,pr=58;
-  // owner 11-17: TWO dollar axes - left for the day bars, right for the running total, each scaled to its own series, both $0 on one line
-  const bv=days.map(d=>by[d]),bmx=Math.max(0,...bv),bmn=Math.min(0,...bv),cmx=Math.max(0,...cum),cmn=Math.min(0,...cum);
-  const fr=(a,b)=>(a-b)>0?a/(a-b):0.5;
-  let az=Math.min(0.92,Math.max(0.08,(fr(bmx,bmn)+fr(cmx,cmn))/2));
-  if(bmn===0&&cmn===0)az=1;else if(bmx===0&&cmx===0)az=0;
-  const top=(mx_,mn_)=>{const k=Math.max(az>0?mx_/az:0,az<1?-mn_/(1-az):0)||1;return [az*k,-(1-az)*k];};
-  const [bT,bB]=top(bmx,bmn),[cT,cB]=top(cmx,cmn);
-  const mk=(T,B)=>v=>pt+(T-v)/((T-B)||1)*(H-pt-pb);
-  const y=mk(bT,bB),yc=mk(cT,cB),slot=(W-pl-pr)/days.length,bw=Math.max(2,Math.min(28,slot*0.7));
-  const mx=bT,mn=bB;
-  const G='#1d9e75',R='#e24b4a',y0=y(0),cx=i=>pl+slot*i+slot/2;
-  const money=v=>(v<0?'-':'')+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:Math.abs(v)<100?2:0});
-  let bars='',line='';
-  days.forEach((d,i)=>{const v=by[d],x=pl+slot*i+(slot-bw)/2,yy=Math.min(y(v),y0),h=Math.max(1,Math.abs(y(v)-y0));
-    bars+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+(v>=0?G:R)+'" opacity="0.85"><title>'+_hmFmtDateLong(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></rect>';
-    line+=(i?'L':'M')+cx(i).toFixed(1)+' '+yc(cum[i]).toFixed(1);});
-  const area=line+'L'+cx(days.length-1).toFixed(1)+' '+y0.toFixed(1)+'L'+cx(0).toFixed(1)+' '+y0.toFixed(1)+'Z';
-  // the gradient switches colour exactly at the $0 line (userSpaceOnUse = page units), and fades toward $0 from both sides
-  const off=Math.min(1,Math.max(0,(y0-pt)/((H-pb)-pt))).toFixed(4);
-  const grad='<defs><linearGradient id="hm-daily-fill" gradientUnits="userSpaceOnUse" x1="0" y1="'+pt+'" x2="0" y2="'+(H-pb)+'">'
-    +'<stop offset="0" stop-color="'+G+'" stop-opacity="0.35"/><stop offset="'+off+'" stop-color="'+G+'" stop-opacity="0.04"/>'
-    +'<stop offset="'+off+'" stop-color="'+R+'" stop-opacity="0.04"/><stop offset="1" stop-color="'+R+'" stop-opacity="0.35"/></linearGradient></defs>';
-  // dollar axis: top, $0 and bottom (only the ones far enough apart to read)
-  const tk=(T,B)=>[T,T/2,0,B/2,B].filter(v=>Math.abs(v)>0.004||v===0).filter((v,k,a)=>a.findIndex(u=>Math.abs(u-v)<1e-9)===k);
-  const lt=tk(bT,bB).filter((v,k,a)=>a.findIndex(u=>Math.abs(y(u)-y(v))<14)===k);
-  const rt=tk(cT,cB).filter((v,k,a)=>a.findIndex(u=>Math.abs(yc(u)-yc(v))<14)===k);
-  const yAx=lt.map(v=>'<text x="'+(pl-8)+'" y="'+(y(v)+3.5).toFixed(1)+'" text-anchor="end" font-size="10" fill="var(--text5)" data-hmdaily-y="1">'+money(v)+'</text>'
-      +(v!==0?'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" stroke="var(--border2)" stroke-width="1" stroke-dasharray="2 4" opacity="0.6"/>':'')).join('')
-    +rt.map(v=>'<text x="'+(W-pr+8)+'" y="'+(yc(v)+3.5).toFixed(1)+'" text-anchor="start" font-size="10" fill="var(--text3)" data-hmdaily-yr="1">'+money(v)+'</text>').join('')
-    +'<text x="'+(pl-8)+'" y="9" text-anchor="end" font-size="8.5" letter-spacing="1" fill="var(--text5)" data-hmdaily-ylab="day">DAY</text>'
-    +'<text x="'+(W-pr+8)+'" y="9" text-anchor="start" font-size="8.5" letter-spacing="1" fill="var(--text3)" data-hmdaily-ylab="total">TOTAL</text>';
-  // dates: first, middle, last close day
-  const di=[...new Set([0,Math.floor((days.length-1)/2),days.length-1])];
-  const xAx=di.map(i=>'<text x="'+cx(i).toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+(i===0&&days.length>1?'start':(i===days.length-1&&days.length>1?'end':'middle'))+'" font-size="10" fill="var(--text5)" data-hmdaily-x="1">'+_hmEsc(days[i].slice(5).replace('-','/'))+'</text>').join('');
-  wrapEl.innerHTML='<svg viewBox="0 0 '+W+' '+H+'" preserveAspectRatio="xMidYMid meet" role="img" aria-label="REAL daily P&L bars and running total, '+(_HM_RANGE_LABEL[homeRange]||'')+'" data-hmdaily="1">'
-    +grad+yAx
-    +'<line x1="'+pl+'" x2="'+(W-pr)+'" y1="'+y0.toFixed(1)+'" y2="'+y0.toFixed(1)+'" stroke="var(--text5)" stroke-width="1.2" opacity="0.7" data-hmdaily-zero="1"/>'
-    +'<path d="'+area+'" fill="url(#hm-daily-fill)" stroke="none" data-hmdaily-area="1"/>'
-    +bars+'<path d="'+line+'" fill="none" stroke="var(--text3)" stroke-width="1.6"/>'+xAx
-    +'<line data-hmdaily-cross="1" x1="0" x2="0" y1="'+pt+'" y2="'+(H-pb)+'" stroke="var(--text4)" stroke-width="1" stroke-dasharray="3 3" visibility="hidden"/></svg>'
-    +'<div class="hm-daily-tip" data-hmdaily-tip="1" hidden></div>';
-  // hover readout: the day under the pointer - date, the day P&L and the running total; the big number follows it
-  const svg=wrapEl.querySelector('svg'),cross=svg.querySelector('[data-hmdaily-cross]'),tip=wrapEl.querySelector('[data-hmdaily-tip]');
-  const show=ev=>{const r=svg.getBoundingClientRect();if(!r.width)return;const sx=(ev.clientX-r.left)*W/r.width;
-    const i=Math.max(0,Math.min(days.length-1,Math.floor((sx-pl)/slot)));const X=cx(i);
-    cross.setAttribute('x1',X.toFixed(1));cross.setAttribute('x2',X.toFixed(1));cross.setAttribute('visibility','visible');
-    tip.innerHTML='<b>'+_hmFmtDateLong(days[i])+'</b><span class="'+ledgerCls(by[days[i]])+'">day '+ledgerSigned(by[days[i]])+'</span><span class="'+ledgerCls(cum[i])+'">total '+ledgerSigned(cum[i])+'</span>';
-    tip.hidden=false;const px=X*r.width/W;tip.style.left=Math.max(0,Math.min(r.width-tip.offsetWidth,px-tip.offsetWidth/2))+'px';
-    try{_hmPaintBig(elMoney(cum[i]));}catch(e){}};
-  const hide=()=>{cross.setAttribute('visibility','hidden');tip.hidden=true;try{_hmRenderHeroDefault(c,0);}catch(e){}};
-  svg.addEventListener('mousemove',show);svg.addEventListener('mouseleave',hide);
-  svg.addEventListener('touchmove',e=>{if(e.touches[0])show(e.touches[0]);},{passive:true});svg.addEventListener('touchend',hide);
+  // owner 11-17: a dollar axis on the left (DAY bars), the running total on the right (TOTAL), dates along the bottom, the total filled down to $0;
+  // owner 11-21: drawn by the shared ledgerDailyChart (the PAPER boards' daily chart), so the width, readout strip, leave and axis-title fixes are one code
+  const pts=[{v:0,date:null}].concat(days.map((d,i)=>({v:cum[i],date:d})));
+  ledgerDailyChart(wrapEl,pts,{id:'hm',attr:'hmdaily',gradId:'hm-daily-fill',aria:'REAL daily P&L bars and running total, '+(_HM_RANGE_LABEL[homeRange]||''),
+    onHover:v=>_hmPaintBig(elMoney(v)),onLeave:()=>_hmRenderHeroDefault(c,0)});
 }
 function _hmRenderChartInto(root){
   const wrapEl=root.querySelector('#hm-chart-wrap');
