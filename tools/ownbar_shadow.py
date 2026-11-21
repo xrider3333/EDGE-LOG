@@ -33,6 +33,23 @@ STABLE_S = float(os.environ.get("OWNBAR_STABLE_S", "5"))
 STEP_S = float(os.environ.get("OWNBAR_STEP_S", "1"))
 MAX_S = float(os.environ.get("OWNBAR_MAX_S", "45"))
 FIELDS = ("open", "high", "low", "close", "volume")
+BACKOFF_429_S = float(os.environ.get("OWNBAR_BACKOFF_429_S", "60"))
+_BACKOFF_UNTIL = [0.0]
+
+
+def _private_token_dir():
+    """VERIFIER 11-21: never write the shared Webull token file. Copy the shared token dir
+    into a private one and point the SDK there, so any refresh the SDK writes lands in the
+    copy. Returns the private path (or None when there is no shared dir to copy)."""
+    import shutil
+    shared = os.environ.get("EDGELOG_WEBULL_TOKEN_DIR") or os.path.join(HOME, "webull_token")
+    if not os.path.isdir(shared):
+        return None
+    priv = os.path.join(HOME, "ownbar_shadow_token")
+    shutil.rmtree(priv, ignore_errors=True)
+    shutil.copytree(shared, priv)
+    os.environ["EDGELOG_WEBULL_TOKEN_DIR"] = priv
+    return priv
 
 
 def tail_rows(path, nbytes=4096):
@@ -65,13 +82,29 @@ def fold_own(rows1m, start):
                     mins[4][3], sum(m[4] for m in mins)], "minutes": 5}
 
 
+def _is_429(text):
+    t = str(text or "").lower()
+    return "429" in t or "rate limit" in t or "too many" in t
+
+
 def rest_read(cs, start):
+    """One REST read. VERIFIER 11-21: on a 429 from the shared Webull key, stop reading for
+    BACKOFF_429_S so the executor keeps the quota; reads inside a back-off return 'BACKOFF'."""
+    if time.time() < _BACKOFF_UNTIL[0]:
+        return "BACKOFF"
     try:
         df = cs._fetch_webull("5m", count=3, log=lambda *a: None)
     except Exception as e:  # noqa: BLE001 - log-only probe
+        if _is_429(e):
+            _BACKOFF_UNTIL[0] = time.time() + BACKOFF_429_S
+            return "ERR 429"
         return "ERR " + type(e).__name__
     if df is None:
-        return "ERR " + str(getattr(cs, "_WEBULL_LAST_ERR", {}).get("text"))[:80]
+        txt = str(getattr(cs, "_WEBULL_LAST_ERR", {}).get("text"))
+        if _is_429(txt):
+            _BACKOFF_UNTIL[0] = time.time() + BACKOFF_429_S
+            return "ERR 429"
+        return "ERR " + txt[:80]
     for _, r in df.iterrows():
         if int(r["time"]) == start:
             return [float(r[k]) for k in FIELDS]
@@ -104,6 +137,9 @@ def one_bar(cs, close):
     while t <= close + MAX_S:
         wait_until(t)
         v = rest_read(cs, start)
+        if v in ("ERR 429", "BACKOFF"):
+            reads.append([round(time.time() - close, 2), v])
+            break
         off = round(time.time() - close, 2)
         reads.append([off, v])
         if isinstance(v, list):
@@ -126,6 +162,7 @@ def one_bar(cs, close):
 
 
 def main():
+    _private_token_dir()   # before the SDK is imported: it reads the dir at import / first call
     from api import cloud_signal as cs  # data fetch only; no order path is touched
     now = dt.datetime.now(ET)
     if now.weekday() >= 5:
