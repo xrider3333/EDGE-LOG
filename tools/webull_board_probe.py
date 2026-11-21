@@ -3137,6 +3137,72 @@ MUTANTS = [
      "ORB's planned loss rounds a half-cent opening range to cents, so 2.5x it is not the risk a share beside it"),
 ]
 
+# MUTANT ANCHOR REFRESH (2026-11-21, MANAGER): 32 mutants had anchors on code the page has since rewritten (the selftest stopped
+#   INCONCLUSIVE on the first). Each is re-pointed at the CURRENT text of the same code, breaking it the same way, or retired where the
+#   thing it broke no longer exists by owner decision. Matching is newline-blind (the selftest compares LF to LF).
+_MUTANT_REANCHOR = {
+    'chart-not-drawn': ("if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw){if(_lgDailyOn('qb'))ledgerDailyChart(lgw,window._qbLgChart.pts,{id:'qb'});else ledgerChartRender(lgw,window._qbLgChart);}}",
+                        ""),
+    'bare-leg-on-rows': ("return '<span class=\"qb-trade-leg\" title=\"the strategy (family, run.set and model word) that took this trade\">'",
+                         None),
+    'caveat-days-lost': ("bands.push({i:i,fix:fx,title:String(p.date).slice(5)+': '+(fx&&fxWhy?fxWhy:why.join('; '))+'. Day '+qeMoney(pts[e].v)+' from '+f.n+' trade'+(f.n===1?'':'s')+'; they still count.'});",
+                         ""),
+    'hatch-hover-not-plain': ("bands.push({i:i,fix:fx,title:String(p.date).slice(5)+': '+",
+                              "bands.push({i:i,fix:fx,title:'Data caveat - '+p.date+' - '+"),
+    'stats-book-pnl': ("ledgerStats(qbStatRows,{pnl:qePnlOf,day:qeTradeDate})",
+                       "ledgerStats(qbStatRows,{pnl:t=>+t.pnl||0,day:qeTradeDate})"),
+    'shadow-on-board': ("const qbAllTrades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t));",
+                        "const qbAllTrades=(QE.trades_all||[]).filter(t=>true);"),
+    'shadow-trades-in-account': ("const qbAllTrades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t));",
+                                 "const qbAllTrades=(QE.trades_all||[]).filter(t=>!qbIsShadowRow(t)).concat(((QE.shadow_trades||{}).trades||[]).filter(x=>x.exit_time).map(x=>({leg:x.leg,trade_id:x.trade_id,side:x.side,entry_ts:String(x.entry_time).slice(0,19).replace('T',' '),exit_ts:String(x.exit_time).slice(0,19).replace('T',' '),entry_px:x.entry_px,exit_px:x.exit_px,shares:x.shares,pnl_record:x.pnl_usd})));"),
+    'hold-missing': ("Object.assign({},t,{durationMins:qbHoldMins(t),",
+                     "Object.assign({},t,{durationMins:null,"),
+    'caveat-feed-days-lost': ("if(fd&&fd.valid===false&&!_live&&(!cut||d>=cut))why.push(",
+                              "if(false&&fd&&fd.valid===false&&!_live&&(!cut||d>=cut))why.push("),
+    'shadow-in-list-total': ("const fg=qbRangeFigs(qbRangeAll.filter(t=>qbFamOf(t.leg)===key));",
+                             "const fg=qbRangeFigs(qbRangeAll.concat(qbShadowRange).filter(t=>qbFamOf(t.leg)===key));"),
+    'shadow-trades-in-list-total': ("const fg=qbRangeFigs(qbRangeAll.filter(t=>qbFamOf(t.leg)===key));",
+                                    "const fg=qbRangeFigs(qbRangeAll.concat(qbShRangeClosed.map(t=>Object.assign({},t,{leg:t.leg.split('_')[0]}))).filter(t=>qbFamOf(t.leg)===key));"),
+    'row-without-run-number': ("row:{key:key,name:label+' '+qbRunLinkHtml(qeLegShortTag(key,runNo),key),",
+                               "row:{key:key,name:label,"),
+    'row-run-link-missing': ("row:{key:key,name:label+' '+qbRunLinkHtml(qeLegShortTag(key,runNo),key),",
+                             "row:{key:key,name:label+' '+qeLegShortTag(key,runNo),"),
+    'status-strip-below-stats': (",status:qbStatusSec,pills:'',chart:'<div class=\"qbx-chart\">'+equityHtml+'</div>',\n          stats:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>',",
+                                 ",status:'',pills:'',chart:'<div class=\"qbx-chart\">'+equityHtml+'</div>',\n          stats:'<div class=\"qbx-stats qbx-lgstats\">'+qbLgStatsHtml+'</div>'+qbStatusSec,"),
+    'list-total-ignores-range': ("count:qbRangeTrades.length?ledgerSigned(qbRangePnl):qbRangeNone,moreSet:qbLegOpenSet",
+                                 "count:qbRangeTrades.length?ledgerSigned(closedSum):qbRangeNone,moreSet:qbLegOpenSet"),
+    'own-folds-order-wrong': ("const qbOwnSecs=qbFoldHtml('books','BOOKS',qbBooksSum,booksCardHtml(QE))\n          +qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)\n          +qbFoldHtml('account','Account',qbAcctSum,qbAccountHtml,true)",
+                              "const qbOwnSecs=qbFoldHtml('books','BOOKS',qbBooksSum,booksCardHtml(QE))\n          +qbFoldHtml('account','Account',qbAcctSum,qbAccountHtml,true)\n          +qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)"),
+    'breaker-line-removed': ("+qbFoldHtml('orders','Orders',qbMiniSum,'<div class=\"qbx-orders-mini\">'+qbOrdersCompactHtml+'</div>',true)",
+                             ""),
+    'oldflag-changes-the-board': ("body=qbWide?ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper lg-lside lg-uni',",
+                                  "body=qbWide?ledgerFrameHtml({id:'qb',cls:'qb-shell'+(location.search.indexOf('old'+'boards=1')>=0?'':' qbx-lg6')+' lg-paper lg-lside lg-uni',"),
+    'old-marker-back-in-page': ("body=qbWide?ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper lg-lside lg-uni',",
+                                "body=qbWide?ledgerFrameHtml({id:'qb',cls:'qb-shell qbx-lg6 lg-paper lg-lside lg-uni',handle:'<span data-qb'+'traderow=\"0\"></span>',"),
+    'broker-made-wrong-figure': (">Webull fills '+qeMoney(brokerInfo.broker_net)+",
+                                 ">Webull fills '+qeMoney(brokerInfo.book_net)+"),
+    'broker-made-plural-wrong': ("brokerInfo.book_only_count+' trade'+(brokerInfo.book_only_count===1?'':'s')+' never reached the broker",
+                                 "brokerInfo.book_only_count+' trade'+'s'+' never reached the broker"),
+    'row-figs-under-number-again': ("value2:fgHas?qbPctHtml(fgTot,qbPctRangeBase,'leg:'+key,ledgerCls(fgTot)).trim():'',",
+                                    "value2:qbFigsLine(fg),"),
+    'row-open-line-missing': ("openHtml:legOpenPnl!=null?('<span data-qbrowopen=",
+                              "openHtml:false?('<span data-qbrowopen="),
+}
+# retired: the code each one broke is gone by owner decision, so there is nothing left to break
+_MUTANT_RETIRED = {
+    'sub-strip-not-repinned',       # the sticky sub-row pin is shared app code now (nav-subrow), not this board's
+    'stats-reverse-order',          # B10: ledgerStats orders the rows itself (close day, exit time); the board passes no sorted list
+    'list-has-switch',              # owner 11-18: every strategy row HAS an on / off switch now
+    'filters-line-names-retired',   # LEDGER UI r2 step 5: the list has no Filters row
+    'filters-row-missing',          # LEDGER UI r2 step 5: the list has no Filters row
+    'shadow-sub-line-words',        # LEDGER UI r2 step 10: 'not counted' lives once, in the Shadow title
+    'hero-cash-line-no-closed-word',  # LEDGER UI r2 step 2: 'closed trades' is the realized figure's title, not a visible word
+    'row-more-word-missing',        # LEDGER UI r2 step 7: the shared chevron replaced the 'more' word
+}
+MUTANTS = [((m[0],) + ((_MUTANT_REANCHOR[m[0]][0], m[2] if _MUTANT_REANCHOR[m[0]][1] is None else _MUTANT_REANCHOR[m[0]][1])
+                       if m[0] in _MUTANT_REANCHOR else (m[1], m[2])) + (m[3],))
+           for m in MUTANTS if m[0] not in _MUTANT_RETIRED]
+
 PROBE_HTML = """<!DOCTYPE html>
 <html><head><meta charset="utf-8"><title>webull board probe</title></head>
 <body style="margin:0">
@@ -9650,7 +9716,9 @@ def selftest(jobs=1, only=None):
         sys.stdout.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
     except Exception:
         pass
-    src = io.open(os.path.join(ROOT, 'index.html'), encoding='utf-8', newline='').read()
+    # newline-blind: a Windows checkout writes index.html (and this file's multi-line anchors) with CRLF, a Linux one with LF - both are
+    #   compared as LF, and each broken copy is written LF
+    src = io.open(os.path.join(ROOT, 'index.html'), encoding='utf-8', newline='').read().replace('\r\n', '\n')
     t0 = time.time()
     tmpdir = tempfile.mkdtemp(prefix='webullprobe-selftest-')
     bad = []
@@ -9666,6 +9734,7 @@ def selftest(jobs=1, only=None):
         for name, anchor, repl, why in MUTANTS:
             if only_set is not None and name not in only_set:
                 continue
+            anchor, repl = anchor.replace('\r\n', '\n'), repl.replace('\r\n', '\n')
             n = src.count(anchor)
             if n != 1:
                 print('SELFTEST: INCONCLUSIVE -- mutant %r cannot be built: its anchor appears %d times in '
