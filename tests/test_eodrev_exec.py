@@ -88,7 +88,7 @@ def test_full_day_market_exit_and_fallback(tmp_path, monkeypatch):
     assert sum(1 for t in types if t[1] == "CLOSE") == 7      # 6 exits + XOM fallback
     assert [k["signal_id"] for k in ad.sent].count("EODREV-20261116-S2-FB") == 1
     assert rec["result"] == "traded" and rec["one_sided"] is None
-    assert ex._at(DAY, ex.DEFAULTS["exit_at"]) == dt.datetime(2026, 11, 16, 15, 59, 0, tzinfo=ET)
+    assert ex._at(DAY, ex.DEFAULTS["exit_at"]) == dt.datetime(2026, 11, 16, 15, 59, 30, tzinfo=ET)
     sides = {(k["symbol"], k["intent"]): k["side"] for k in ad.sent if not k["signal_id"].endswith("-X")}
     assert sides[("JPM", "OPEN")] == "SHORT" and sides[("AAPL", "OPEN")] == "BUY"
     again, _ = _run(tmp_path, FakeAd(), monkeypatch)
@@ -224,7 +224,7 @@ def test_probe_holds_to_1559_on_separate_symbols(tmp_path, monkeypatch):
     ad, notes = FakeAd(), []
     sends = _probe(tmp_path, ad, monkeypatch,
                    lambda a, rec: {"status": "FILLED", "filled": 1, "price": 1.0}, notes)
-    assert [s[0] for s in sends] == ["15:35:00", "15:35:00", "15:59:00", "15:59:00"]
+    assert [s[0] for s in sends] == ["15:35:00", "15:35:00", "15:59:30", "15:59:30"]
     assert {s[1] for s in sends[:2]} == {"AAPL", "MSFT"}            # never opposing on one sym
     assert [k["order_type"] for k in ad.sent] == ["MARKET"] * 4
     assert ex.probe_ok(ex.paths(str(tmp_path))) and "PASSED" in notes[-1]
@@ -247,7 +247,7 @@ def test_probe_exit_unfilled_uses_1559_35_fallback(tmp_path, monkeypatch):
             return {"status": "REJECTED", "filled": 0}
         return {"status": "FILLED", "filled": 1, "price": 1.0}
     sends = _probe(tmp_path, ad, monkeypatch, look, notes)
-    assert [s[0] for s in sends][-2:] == ["15:59:35", "15:59:35"]
+    assert [s[0] for s in sends][-2:] == ["15:59:45", "15:59:45"]
     assert ex.probe_ok(ex.paths(str(tmp_path)))
 
 class CancelAd(FakeAd):
@@ -314,7 +314,7 @@ def test_unwind_cancel_raced_by_fill_closes_and_exit_does_not_skip(tmp_path, mon
 def test_unwind_failed_lookup_sends_no_close(tmp_path, monkeypatch):
     _sig(str(tmp_path))
     ad = CancelAd(refuse={("XOM", "MARKET")})
-    seq = {"EODREV-20261116-L2-O": [None] * 6}       # unwind reads + exit reconcile reads all fail
+    seq = {"EODREV-20261116-L2-O": [None] * 7}       # unwind (3) + prep (3) + exit retry (1) reads all fail
     rec, notes, sids = _day(tmp_path, monkeypatch, ad, seq)
     assert not any(s.startswith("EODREV-20261116-L2-") and s != "EODREV-20261116-L2-O" for s in sids)
     assert "lookup failed" in notes[0] and any("NOTHING sent" in n for n in notes)
@@ -432,3 +432,147 @@ def test_exit_and_fallback_close_filled_qty(tmp_path, monkeypatch):
     assert _qty(ad, "EODREV-20261116-L1-X") == 5 and _qty(ad, "EODREV-20261116-L1-FB") == 5
     assert _qty(ad, "EODREV-20261116-S1-X") == 13
     assert "EODREV-20261116-L2-X" not in sids        # nothing filled -> nothing to close
+
+
+# -- 15:59:10 prep / 15:59:30 parallel exits / 15:59:45 pending-aware fallback --------------
+def _clock_day(tmp_path, monkeypatch, look, ad=None, cancel_ok=True):
+    """run_day on a fake clock: every wait jumps the clock; lookups and sends record the time."""
+    _sig(str(tmp_path))
+    ad = ad or CancelAd(cancel_ok=cancel_ok)
+    clock = {"t": dt.datetime(2026, 11, 16, 15, 27, tzinfo=ET)}
+    sends, looks, notes = [], [], []
+    orig = ad.place_stock_order
+
+    def place(**k):
+        sends.append((clock["t"].strftime("%H:%M:%S"), k["signal_id"], k["qty"]))
+        return orig(**k)
+    ad.place_stock_order = place
+
+    def lk(a, rec):
+        looks.append((clock["t"].strftime("%H:%M:%S"), rec["_sid"]))
+        return look(rec["_sid"], rec)
+    monkeypatch.setattr(ex, "lookup", lk)
+    monkeypatch.setattr(ex, "LOOKUP_PAUSE_S", 0)
+    monkeypatch.setattr(ex, "_sleep_until", lambda t, now_fn, log: clock.update(t=max(clock["t"], t)))
+    open(os.path.join(str(tmp_path), "probe.jsonl"), "w").write(
+        json.dumps({"results": [{"open_ok": 1, "exit_filled": 1}] * 2}) + "\n")
+    rec = ex.run_day(ex.paths(str(tmp_path)), now_fn=lambda: clock["t"], adapter=ad,
+                     log=lambda *a: None, notify=lambda m, **k: notes.append(m), sleep=True)
+    return rec, ad, sends, looks, notes
+
+
+def _filled(sid, rec):
+    return {"status": "FILLED", "filled": rec.get("_qty", 0), "price": 100.0}
+
+
+def test_prep_reads_at_1559_10_and_all_exits_go_at_1559_30(tmp_path, monkeypatch):
+    rec, ad, sends, looks, _ = _clock_day(tmp_path, monkeypatch, _filled)
+    entry_reads = [t for t, sid in looks if sid.endswith("-O") and "15:59:00" <= t < "16:00:00"]
+    assert entry_reads and set(entry_reads) == {"15:59:10"}            # close_qty read at prep
+    exits = [(t, sid) for t, sid, _ in sends if sid.endswith("-X")]
+    assert len(exits) == 6 and {t for t, _ in exits} == {"15:59:30"}
+    assert not any(sid.endswith("-FB") for _, sid, _ in sends)
+    assert rec["result"] == "traded"
+
+
+def test_exits_are_sent_in_parallel(tmp_path, monkeypatch):
+    import threading
+    gate = threading.Barrier(6, timeout=5)      # 6 sends must be in flight together
+    ad = CancelAd()
+    orig = ad.place_stock_order
+
+    def place(**k):
+        if k["signal_id"].endswith("-X"):
+            gate.wait()
+        return orig(**k)
+    ad.place_stock_order = place
+    rec, ad, sends, _, _ = _clock_day(tmp_path, monkeypatch, _filled, ad=ad)
+    assert sum(1 for _, sid, _ in sends if sid.endswith("-X")) == 6 and not gate.broken
+
+
+def test_prep_unreadable_retries_once_at_exit(tmp_path, monkeypatch):
+    calls = {"n": 0}
+
+    def look(sid, rec):
+        if sid == "EODREV-20261116-L1-O" and rec is not None:
+            calls["n"] += 1
+            if calls["n"] > 1 and calls["n"] <= 4:        # 15:31 read ok, prep 3 tries fail
+                return None
+        return _filled(sid, rec)
+    rec, ad, sends, looks, notes = _clock_day(tmp_path, monkeypatch, look)
+    l1 = [t for t, sid in looks if sid == "EODREV-20261116-L1-O" and t < "16:00:00"]
+    assert l1[-1] == "15:59:30" and ("15:59:30", "EODREV-20261116-L1-X", 14) in sends
+    assert not any("unreadable" in n for n in notes)
+
+
+def test_prep_and_exit_unreadable_alerts_and_sends_nothing(tmp_path, monkeypatch):
+    def look(sid, rec):
+        if sid == "EODREV-20261116-L1-O":
+            return None
+        return _filled(sid, rec)
+    rec, ad, sends, _, notes = _clock_day(tmp_path, monkeypatch, look)
+    assert not any(sid.startswith("EODREV-20261116-L1-") and not sid.endswith("-O")
+                   for _, sid, _ in sends)
+    assert any("AAPL" in n and "NOTHING sent" in n for n in notes)
+
+
+def test_pending_exit_alert_cancel_resend_remaining(tmp_path, monkeypatch):
+    seq = {"n": 0}
+
+    def look(sid, rec):
+        if sid == "EODREV-20261116-S1-X":
+            seq["n"] += 1
+            if seq["n"] == 1:
+                return {"status": "SUBMITTED", "filled": 0, "price": None}   # at fallback
+            return {"status": "CANCELLED", "filled": 0, "price": None}        # after the cancel
+        return _filled(sid, rec)
+    rec, ad, sends, _, notes = _clock_day(tmp_path, monkeypatch, look)
+    assert ad.cancelled == ["EODREV-20261116-S1-X"]
+    fb = [s for s in sends if s[1] == "EODREV-20261116-S1-FB"]
+    assert fb == [("15:59:45", "EODREV-20261116-S1-FB", 13)]
+    assert any("JPM" in n and "SUBMITTED" in n and "cancelling" in n for n in notes)
+
+
+def test_partially_filled_exit_resends_only_the_rest(tmp_path, monkeypatch):
+    seq = {"n": 0}
+
+    def look(sid, rec):
+        if sid == "EODREV-20261116-L2-X":
+            seq["n"] += 1
+            if seq["n"] == 1:
+                return {"status": "PARTIALLY_FILLED", "filled": 3, "price": 409.0}
+            if seq["n"] == 2:
+                return {"status": "PARTIALLY_FILLED", "filled": 4, "price": 409.0}  # cancel pending
+            return {"status": "CANCELLED", "filled": 5, "price": 409.0}             # final
+        if sid == "EODREV-20261116-L2-FB":
+            return {"status": "FILLED", "filled": 3, "price": 408.0}
+        return _filled(sid, rec)
+    rec, ad, sends, _, notes = _clock_day(tmp_path, monkeypatch, look)
+    assert ad.cancelled == ["EODREV-20261116-L2-X"]
+    assert [s for s in sends if s[1] == "EODREV-20261116-L2-FB"] == [
+        ("15:59:45", "EODREV-20261116-L2-FB", 8 - 5)]                     # MSFT 8 shares
+    leg = next(e for e in rec["entries"] if e["leg"] == "EODREV_L2")
+    assert leg["exit_filled"] == 8                                       # 5 + 3, no false alert
+    assert not any("exit filled" in n for n in notes)
+
+
+def test_unconfirmed_cancel_alerts_and_does_not_resend(tmp_path, monkeypatch):
+    def look(sid, rec):
+        if sid == "EODREV-20261116-L3-X":
+            return {"status": "PENDING_CANCEL", "filled": 0, "price": None}
+        return _filled(sid, rec)
+    rec, ad, sends, _, notes = _clock_day(tmp_path, monkeypatch, look, cancel_ok=False)
+    assert ad.cancelled == ["EODREV-20261116-L3-X"]
+    assert not any(s[1] == "EODREV-20261116-L3-FB" for s in sends)
+    assert any("NVDA" in n and "cancel NOT confirmed" in n for n in notes)
+
+
+def test_refused_exit_gets_fallback_at_1559_45(tmp_path, monkeypatch):
+    ad = CancelAd()
+    orig = ad.place_stock_order
+    ad.place_stock_order = lambda **k: (dict(orig(**k), ok=False, reason="417")
+                                        if k["signal_id"] == "EODREV-20261116-S3-X" else orig(**k))
+    rec, ad, sends, _, _ = _clock_day(tmp_path, monkeypatch, _filled, ad=ad)
+    assert [s for s in sends if s[1] == "EODREV-20261116-S3-FB"] == [
+        ("15:59:45", "EODREV-20261116-S3-FB", 4)]                          # LLY 4 shares
+    assert ad.cancelled == []
