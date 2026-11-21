@@ -7,10 +7,10 @@ P&L against today's logged trades. A real trade placed on NT web/mobile on an ea
 went unflagged once the day rolled over.
 
     record()  GET the local bridge /accounts (read only), store realized per non-sim account for the
-              current New York date in C:\\EdgeLog\\nt_real_days.json (last value of the day wins), and
+              current CME session date (18:00 ET rolls to the next) in C:\\EdgeLog\\nt_real_days.json (last value of the day wins), and
               mirror the file to users/{uid}/meta/nt_real_days (one write, only when it changed).
               Bridge down = nothing, quietly.
-    check()   for each recorded day in the last `days` (and not before the last import date), compare
+    check()   for each recorded day in the last `days` (every one, even before the newest import), compare
               with the logged NinjaTrader trades of that account and NY close date (read from
               meta/trades_index: head + shards, a few docs once a day). Mismatch -> one phone push per
               (account, day, rounded realized), keyed in C:\\EdgeLog\\nt_real_days_state.json.
@@ -46,6 +46,17 @@ try:
     NY = ZoneInfo("America/New_York")
 except Exception:                       # tzdata missing: EST fixed offset is close enough for a date
     NY = _dt.timezone(_dt.timedelta(hours=-5))
+
+
+def session_day(now=None):
+    """The CME trading session NT's RealizedProfitLoss belongs to: it resets ~18:00 ET, so a
+    reading from 18:00 ET on counts for the NEXT session (Fri/Sat evening -> Monday). Stamping
+    by NY calendar day let the evening reset overwrite day D with the new session's 0 (verifier 11-20)."""
+    t = (now or _dt.datetime.now(NY)).astimezone(NY)
+    d = t.date() + _dt.timedelta(days=1 if t.hour >= 18 else 0)
+    while d.weekday() >= 5:
+        d += _dt.timedelta(days=1)
+    return d.isoformat()
 
 
 def ny_today(now=None):
@@ -104,7 +115,7 @@ def record(path=DATA_PATH, now=None, log=print):
     rows = bridge_accounts()
     if rows is None:
         return False
-    day = ny_today(now)
+    day = session_day(now)
     data = _load(path)
     before = json.dumps(data, sort_keys=True)
     seen = (now or _dt.datetime.now(NY)).astimezone(NY).isoformat(timespec="seconds")
@@ -160,7 +171,6 @@ def last_import_date(trades):
 
 def mismatches(data, trades, today, days=10):
     floor = (_dt.date.fromisoformat(today) - _dt.timedelta(days=days)).isoformat()
-    lid = last_import_date(trades)
     # Every recorded day in the window, NOT only days after the newest import: 11-19 can be
     # missing while 11-20 is logged, and that is the exact case this check exists for.
     start = floor
@@ -201,8 +211,13 @@ def check(days=10, path=DATA_PATH, state_path=STATE_PATH, now=None, trades=None,
         msg = ("NT real {a} {d}: NinjaTrader says {r:.2f} realized, the log has {n:.2f} ({c} trades)"
                " - import Position History for that day").format(
             a=m["account"], d=m["day"], r=m["realized"], n=m["net"], c=m["n"])
-        ntfy_push.push(msg, title="NinjaTrader: trades not imported", priority="default")
+        try:
+            ntfy_push.push(msg, title="NinjaTrader: trades not imported", priority="default")
+        except Exception as e:
+            log("push failed: %s" % type(e).__name__)
+            continue
         state[key] = time.time()
+        _save(state_path, state)
         sent.append(msg)
         log(msg)
     if sent:
@@ -224,4 +239,9 @@ def main(argv=None):
 
 
 if __name__ == "__main__":
+    # the NT poller runs this inline: a hung Firestore call must never stall its loop (verifier 11-20)
+    import os, threading
+    _t = threading.Timer(90, lambda: (print("nt_real_days: timed out after 90 s"), os._exit(3)))
+    _t.daemon = True
+    _t.start()
     sys.exit(main())

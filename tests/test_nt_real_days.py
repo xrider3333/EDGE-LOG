@@ -69,3 +69,12 @@ def test_sim_account_ignored(env):
     _seed(env["data"], {"Sim101": {"2026-11-18": {"realized": 500.0, "seen_at": "x"}}})
     assert nrd.check(10, env["data"], env["state"], now=NOW, trades=[], log=lambda m: None) == []
     assert not env["pushes"]
+
+
+def test_session_day_rolls_at_18_et_and_skips_weekend():
+    import datetime as dt
+    from tools import nt_real_days as M
+    ny = M.NY
+    assert M.session_day(dt.datetime(2026, 11, 19, 17, 59, tzinfo=ny)) == "2026-11-19"
+    assert M.session_day(dt.datetime(2026, 11, 19, 18, 0, tzinfo=ny)) == "2026-11-20"
+    assert M.session_day(dt.datetime(2026, 11, 20, 19, 0, tzinfo=ny)) == "2026-11-23"
