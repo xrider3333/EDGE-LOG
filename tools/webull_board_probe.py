@@ -3538,6 +3538,10 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     r.heroHeldNote=!!q('#qb-hero-note [data-qbheldnote]');r.heroBrokerFolded=!!q('#qb-hero-note details [data-qbbroker]');
     var tpl=q('#qb-lg-chart svg polyline');r.totalStroke=tpl?tpl.style.stroke:null;
     r.heroToday=txt('#qb-hero-today');
+    // owner 11-21 (ONE HERO GRID): the left edge of every $ cell, every % cell and every label cell under the big number, and of the big number
+    r.heroCols=(function(){var g=q('.lg-hero .lg-hero-grid');if(!g)return null;
+      var L=function(s){return [].map.call(g.querySelectorAll(s),function(c){return Math.round(c.getBoundingClientRect().left*10)/10;});};
+      var bg=q('#qb-hero-value');return {v:L('.lg-hl-v'),p:L('.lg-hl-p'),l:L('.lg-hl-l'),big:bg?Math.round(bg.getBoundingClientRect().left*10)/10:null};})();
     // HOLD OVERNIGHT: a scrub to the chart's last point writes the day line the resting hero shows (read, then left)
     if(w.__probeScrub){var sv0=d.querySelector('#qb-lg-chart svg');
       if(sv0){var rc0=sv0.getBoundingClientRect(),y0=rc0.top+rc0.height/2;
@@ -6348,14 +6352,26 @@ def _hero_qual_problems(tag, r, doc, fails):
     rng = r.get('heroRange') or ''
     # owner 10-31 15:30 -> LEDGER UI r2 (item 5): 'realized +$X' alone; 'closed trades' and the stretch are the figure's title
     # owner 11-21 ('wheres % change'): the realized figure may carry its % of the account right after it, '(+0.012%)'
-    if r.get('heroRange') is not None and not re.match(r'^realized [+-]\$[\d,]+\.\d\d( \((?:[+-]\d+\.\d{2,3}|0\.00)%\))?$', rng):
+    # owner 11-21 (ONE HERO GRID): the realized row carries the same arrow as every other hero row, 'realized ARROW +$X (+x%)'
+    if r.get('heroRange') is not None and not re.match(r'^realized [▲▼] [+-]\$[\d,]+\.\d\d( \((?:[+-]\d+\.\d{2,3}|0\.00)%\))?$', rng):
         fails.append("%s: the realized line reads %r, want 'realized +$X' alone (LEDGER UI r2 item 5)" % (tag, rng))
+    # owner 11-21 (ONE HERO GRID): the $ cells share one left edge, the % cells another (within 2 px), the grid flush with the big number
+    hc = r.get('heroCols')
+    if hc is None:
+        fails.append('%s: no hero grid (.lg-hero-grid) under the big number' % tag)
+    else:
+        for col, what in (('v', '$'), ('p', '%'), ('l', 'label')):
+            xs = hc.get(col) or []
+            if xs and max(xs) - min(xs) > 2:
+                fails.append('%s: the hero %s cells do not share a left edge (x = %s)' % (tag, what, xs))
+        if hc.get('l') and hc.get('big') is not None and abs(min(hc['l']) - hc['big']) > 2:
+            fails.append('%s: the hero grid starts at x %s, the big number at x %s (want flush)' % (tag, min(hc['l']), hc['big']))
     # owner 10-31 (live page): the open line sits DIRECTLY under the big number, the cash line under it
     und = r.get('heroUnder')
     if und is None:
         fails.append('%s: no line directly under the big number (#qb-hero-under: the open position, or flat)' % tag)
     else:
-        if r.get('heroUnderNext') != 'qb-hero-range' or r.get('heroUnderPrev') not in ('qb-hero-value', None):   # CALM-DOWN item 1 (owner 11-18): open line = first tile under the big number
+        if r.get('heroUnderNext') != 'qb-hero-range' or r.get('heroUnderPrev') not in ('qb-hero-value', 'qb-hero-today', None):   # owner 11-21: today, open, realized = rows of the hero grid   # CALM-DOWN item 1 (owner 11-18): open line = first tile under the big number
             fails.append('%s: the open line is not directly under the big number with the cash line under it (before it: %r, after it: %r)'
                          % (tag, r.get('heroUnderPrev'), r.get('heroUnderNext')))
         if not (und.startswith('unrealized ') or und == ''):
@@ -6428,6 +6444,13 @@ def _v2_ok(got, base, doc=None, keys=()):
         return False
     tf = _today_figure(doc, keys) if doc else None
     return tf is None or m.group(2) == signed(tf[0])
+
+
+def _today_first(want):
+    """owner 11-21 (ONE HERO GRID): the label leads the row - an expectation written '<ARROW> -$2.60 today' reads 'today <ARROW> -$2.60'."""
+    if isinstance(want, str) and want.endswith(' today'):
+        return 'today ' + want[:-len(' today')]
+    return want
 
 
 def _nopct(got):
@@ -8796,7 +8819,8 @@ def _judge(data, fixture):
         if not MONEY_RE.match(r.get('heroBig') or ''):
             fails.append('%s: the hero big number reads %r, not a dollar amount' % (nm, r.get('heroBig')))
         _hero_qual_problems(nm, r, fixture, fails)
-        if not (r.get('heroToday') or '').endswith('today'):
+        # owner 11-21 (ONE HERO GRID): the today row reads 'today ARROW +$X (+x%)', label first
+        if not (r.get('heroToday') or '').startswith('today '):
             fails.append('%s: the hero has no "today" line (got %r)' % (nm, r.get('heroToday')))
         if r.get('pills') != ','.join(LEDGER_RANGES):
             fails.append('%s: the range pills read %r, not %s' % (nm, r.get('pills'), ' '.join(LEDGER_RANGES)))
@@ -9137,9 +9161,9 @@ def _held_problems(tag, r, ex, fails):
         return v[0] if isinstance(v, list) else v
     if h.get('side') != 'LONG':
         fails.append("%s: ENGU-Q's side pill reads %r, want LONG" % (tag, h.get('side')))
-    if ex.get('hero_today') and _nopct(r.get('heroToday')) != ex['hero_today']:
+    if ex.get('hero_today') and _nopct(r.get('heroToday')) != _today_first(ex['hero_today']):
         fails.append("%s: the hero's today line reads %r, want %r (a carried lot counts from the prior close, nothing of it before the "
-                     "open; a lot entered today in full)" % (tag, r.get('heroToday'), ex['hero_today']))
+                     "open; a lot entered today in full)" % (tag, r.get('heroToday'), _today_first(ex['hero_today'])))
     if t('pill') != 'HELD':
         fails.append('%s: the ENGU-Q row has no HELD tag beside its side pill (%r)' % (tag, h.get('pill')))
     if want['line'] not in (t('line') or ''):
@@ -9511,8 +9535,9 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             elif want is not None and fresh.get(k) != want:
                 fails.append('%s: the hero %s chip reads %r, want %r' % (tag, label, fresh.get(k), want))
         today = r.get('heroToday') or ''
-        if ex.get('today') and not today.endswith(ex['today']):
-            fails.append('%s: the hero today line reads %r, want it to end with %r' % (tag, today, ex['today']))
+        # owner 11-21 (ONE HERO GRID): the day word is the row's label, so it leads the line
+        if ex.get('today') and not today.startswith(ex['today'] + ' '):
+            fails.append('%s: the hero today line reads %r, want it to start with %r' % (tag, today, ex['today']))
         if tuple(r.get('top') or ()) != tuple(ex['top']):
             fails.append('%s: the top bar WEBULL chip is %r, want %r' % (tag, r.get('top'), ex['top']))
         strip = r.get('strip') or ''
@@ -9630,13 +9655,14 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             _next_absent(tag, r, fails)
         if ex.get('held'):
             _held_problems(tag, r, ex, fails)
-        elif ex.get('hero_today') and _nopct(r.get('heroToday')) != ex['hero_today']:
+        elif ex.get('hero_today') and _nopct(r.get('heroToday')) != _today_first(ex['hero_today']):
             fails.append("%s: the hero's today line reads %r, want %r (a held trade closed today counts from the prior close)"
-                         % (tag, r.get('heroToday'), ex['hero_today']))
+                         % (tag, r.get('heroToday'), _today_first(ex['hero_today'])))
         if ex.get('scrub'):
-            want = (ex.get('hero_today') or '')[:-len(' today')] + ' '
-            if not (r.get('scrubTodayEnd') or '').startswith(want):
-                fails.append("%s: a scrub to the chart's last point writes %r into the today line, want it to start %r (the resting "
+            # owner 11-21 (ONE HERO GRID): the scrub's row is 'on <day> ARROW -$X' - the figure is the resting one, after the day label
+            want = ' ' + (ex.get('hero_today') or '')[:-len(' today')]
+            if not (r.get('scrubTodayEnd') or '').endswith(want):
+                fails.append("%s: a scrub to the chart's last point writes %r into the today line, want it to end %r (the resting "
                              "figure: the line must not move when the mouse comes in)" % (tag, r.get('scrubTodayEnd'), want))
             if r.get('scrubTodayAfter') != r.get('heroToday'):
                 fails.append('%s: leaving the chart did not put the today line back (%r -> %r)'

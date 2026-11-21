@@ -1465,7 +1465,7 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .hm-lside>.lg-frame-top>[data-hmsec="cal"]{grid-column:2;grid-row:1/span 8;align-self:start;margin-top:0}
   .hm-lside>.lg-frame-side>.lg-frame-side-in>*{order:0}
   .hm-lside .lg-frame-side #hm-hero-value{font-size:30px!important}
-  .hm-lside .lg-frame-side #hm-hero-label,.hm-lside .lg-frame-side #hm-hero-under,.hm-lside .lg-frame-side #hm-hero-delta,.hm-lside .lg-frame-side #hm-hero-today{font-size:11px!important}
+  .hm-lside .lg-frame-side #hm-hero-label{font-size:11px!important}
   .hm-lside .lg-frame-side [data-hmsec="status"]{font-size:10.5px;margin:6px 0}
   .hm-lside .lg-frame-side [data-hmsec="stats"]>*{display:grid!important;grid-template-columns:1fr 1fr;gap:6px}
   .hm-lside .lg-frame-side [data-hmsec="stats"]>*>*{min-width:0;padding:6px 8px!important;font-size:10.5px}
@@ -1525,6 +1525,31 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-lside .lg-frame-side .qbx-sh-seed{display:block;width:fit-content;max-width:100%;box-sizing:border-box;margin-top:2px}
   .lg-lside .lg-frame-side .lg-status-row{flex-wrap:wrap}.lg-lside .lg-frame-side .lg-status-line{flex:1 1 100%;min-width:0;white-space:normal}
 }
+/* ONE HERO GRID (owner 11-21, LEDGER > REAL sidebar: 'clean this up ... i want it all clean on that sidebar. and the same across the ledger'):
+   under the big number, today / the open line / the realized or range line are rows of ONE grid - label | $ | % | the rest - so the $
+   figures share a left edge, the % figures share a left edge, and the grid starts at the big number's left edge (no tile padding). One type
+   size for every row, tabular figures. Each row is a subgrid of the hero grid; a wrapper span inside a row (a data attr, a title) is
+   display:contents, so its cells still sit in the columns. A row with no cells takes no room. */
+.lg-hero-one .lg-hero-grid{display:grid;grid-template-columns:fit-content(45%) max-content max-content minmax(0,1fr);column-gap:8px;row-gap:4px;
+  align-items:baseline;justify-items:start;margin:8px 0 0;padding:0;font-size:13px;line-height:1.35;font-family:var(--lg-num);font-variant-numeric:tabular-nums}
+.lg-hero-one .lg-hero-grid>.lg-hero-row{display:grid;grid-template-columns:subgrid;grid-column:1/-1;align-items:baseline;gap:1px 8px;margin:0;padding:0;
+  border:0;border-radius:0;background:none;font-size:inherit!important;line-height:inherit;min-width:0;max-width:none}
+.lg-hero-one .lg-hero-grid>.lg-hero-row:not(:has(.lg-hl)){display:none}
+.lg-hero-row :not(.lg-hl):has(.lg-hl){display:contents}
+.lg-hl{min-width:0;white-space:nowrap;font-family:var(--lg-num);font-variant-numeric:tabular-nums}
+.lg-hl-l{grid-column:1;color:var(--text5);white-space:normal}
+.lg-hl-v{grid-column:2}
+.lg-hl-p{grid-column:3}
+.lg-hl-p .qbx-pct{font-size:inherit}
+.lg-hl-x{grid-column:4;color:var(--text5);white-space:normal}
+.lg-hl-x .lg-help{margin-left:6px}
+/* a row with no % (the open line) lets its last cell start in the % column, so '· DIP #424 · 4 lots' wraps less */
+.lg-hl-v+.lg-hl-x{grid-column:3/-1}
+.lg-hero-big .qbx-hero-qual{vertical-align:baseline}
+/* the three ledger sidebars: one size, and the last cell ('· 10 trades ?') goes under the $ column instead of squeezing beside the % */
+.lg-frame-side .lg-hero-one .lg-hero-grid{font-size:11px;row-gap:3px}
+.lg-frame-side .lg-hero-one .lg-hl-x{grid-column:2/-1}
+@media (max-width:600px){.lg-hero-one .lg-hero-grid{font-size:12px;line-height:1.25;margin-top:6px;row-gap:2px}}
 .lg-uni .qb-chart-wrap,.lg-uni [data-p2sec="chart"]{display:flex;flex-direction:column}
 .lg-uni .qb-chart-wrap>.lg-chart-row,.lg-uni [data-p2sec="chart"]>.lg-chart-row{order:-1;margin:0 0 6px}
 .hm-addrow.hm-addrow-inl{display:inline-flex;align-items:center;gap:8px;position:relative;grid-template-columns:none;grid-template-areas:none}
@@ -1895,7 +1920,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.68';
+const VERSION='91.69';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1916,6 +1941,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.69',date:'2026-11-21',notes:['LEDGER heroes (REAL, NT8 PAPER, WEBULL PAPER): the lines under the big number are one tidy grid - label, then the dollar figure, then the percent - each column lined up and flush with the big number, one size, the same arrow and spacing on every line (REAL now reads today and all time with the same layout, the percent with a space before it)','NT8 PAPER: with NinjaTrader off (NT not answering) today and realized still show a percent, of the last Sim101 cash the page or the NT sync saw - the hover says base: Sim101 cash as of that time. Only if no cash was ever seen is there no percent']},
 {v:'91.67',date:'2026-11-21',notes:['LEDGER daily charts (REAL, NT8 PAPER, WEBULL PAPER): the plot now fills its card - each side keeps only the room its tick numbers need (the chart used to sit shrunk in the middle with empty space both sides)','Daily charts: the hover line (date, day, total) sits in its own strip above the chart, never over the bars or the line, and clears the moment the pointer or finger leaves','Daily charts: the DAY and TOTAL axis titles have their own row above the numbers, so they no longer squeeze into the top tick']},
 {v:'91.64',date:'2026-11-21',notes:['WEBULL PAPER: today and realized show a percent beside the dollar figure, of the paper account at the start of the day or range (hover says the base)','WEBULL PAPER: each strategy card is two short lines - name, P&L and switch on top, then the P&L percent and a quiet size and estimate a year line; trades, win rate, today and the rest stay under the arrow','WEBULL PAPER: new Books (what-if) fold under Strategies - a dropdown per book with its legs. LIVE legs are on the box and paper trade; SHADOW legs are not, and their switch draws their as-if P&L as a dashed line on the chart and a what-if total, never in the account number. A leg with no shadow series yet reads no shadow data yet']},
 {v:'91.63',date:'2026-11-21',notes:['NT8 PAPER: today and realized show a percent beside the dollar figure, in the same colour - of the Sim101 account at the start of the session or range (from the NT bridge cash; hover says the base). No bridge snapshot, no percent']},
@@ -3195,6 +3221,35 @@ function reconBadge(){
   return `<span title="Webull holds a position your log doesn't reflect (or vice-versa) — a fill may not have synced. ${m}" style="color:var(--yellow);font-size:var(--fsxs);margin-left:8px">⚠ Webull out of sync (${(r.mismatches||[]).length})</span>`;
 }
 
+// ══ NT8 PAPER % BASE WHEN NT IS NOT ANSWERING (owner 11-21: NT8 showed no % over the weekend, which read as broken) ══
+// The % beside NT8 PAPER's today and realized figures is of the Sim101 account. Its cash comes from the NT bridge snapshot
+// (meta/nt_bridge accounts), which is empty while NinjaTrader is off. Then the base is the LAST Sim101 cash ever seen, the newer of:
+//   - this browser's own copy (localStorage el_nt_sim_cash), written each time the page draws a live bridge snapshot with that cash
+//   - meta/nt_sync addon_accounts (api/nt_sync.py copies the AddOn heartbeat file, which keeps its last values after NT closes);
+//     its time = last_sync less the heartbeat's age
+// Only if neither was ever seen is there no %. The hover says 'base: Sim101 cash as of <time>'.
+const NT_SIM_CASH_LS='el_nt_sim_cash';
+function ntSimCashRemember(a,atMs){
+  try{if(!a||a.cash==null||!isFinite(+a.cash)||+a.cash<=0)return;
+    localStorage.setItem(NT_SIM_CASH_LS,JSON.stringify({name:String(a.name||'Sim101'),cash:+a.cash,
+      realized:(a.realized!=null&&isFinite(+a.realized))?+a.realized:null,at:isFinite(+atMs)?+atMs:Date.now()}));}catch(e){}
+}
+function ntSimCashLast(){
+  const C=[];
+  try{const o=JSON.parse(localStorage.getItem(NT_SIM_CASH_LS)||'null');
+    if(o&&o.cash!=null&&isFinite(+o.cash)&&+o.cash>0)C.push({name:String(o.name||'Sim101'),cash:+o.cash,realized:o.realized,at:+o.at||0});}catch(e){}
+  try{const A=(typeof ntSync!=='undefined'&&ntSync&&ntSync.addon_accounts)||null,nm=A?(A.Sim101?'Sim101':(A.DEMO7240108?'DEMO7240108':null)):null;
+    if(nm&&A[nm].cash!=null&&isFinite(+A[nm].cash)&&+A[nm].cash>0){const ls=+ntSync.last_sync||0,age=+ntSync.addon_alive_secs||0;
+      C.push({name:nm,cash:+A[nm].cash,realized:A[nm].realized,at:ls?(ls-age)*1000:0});}}catch(e){}
+  if(!C.length)return null;
+  C.sort((a,b)=>b.at-a.at);
+  return C[0];
+}
+function ntSimCashWhen(ms){
+  if(!ms)return 'an unknown time';
+  try{return new Date(ms).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';}
+  catch(e){return new Date(ms).toISOString().slice(0,16).replace('T',' ')+' UTC';}
+}
 // NT recon badge — the desktop AddOn (v2.1+) reports each account's realized day P&L in
 // its heartbeat; if NinjaTrader says money was made/lost today but the day's logged NT
 // trades do not add up to it (or are absent), fills likely happened on NT web/mobile —
@@ -3467,20 +3522,42 @@ function ledgerHeroHtml(o){
   // CALM-DOWN item 1 (owner pick 11-18, 'one headline number'): the hero is ONE big number with today's change as a small coloured
   // line under it. The other hero lines (the open position o.under, the realized / range line o.range) move into a row of small tiles
   // directly under it - same ids, same html, nothing removed. o.todayInline is kept for callers but no longer changes the layout.
-  const tiles=(o.under!=null?'<div class="lg-hero-tile lg-hero-under"'+id('under')+'>'+o.under+'</div>':'')
-    +'<div class="lg-hero-tile lg-hero-range"'+id('range')+'>'+(o.range||'')+'</div>';
+  // ONE HERO GRID (owner 11-21): today, the open line and the realized / range line are rows of ONE grid (.lg-hero-grid) under the big
+  // number - label | $ | % | the rest - so every $ starts at the same x, every % at the same x, all of it flush with the big number's left
+  // edge. Each row's html is cells from ledgerHeroCells (a board that writes a row later - a chart scrub - writes cells too).
+  const row=(k,h)=>'<div class="lg-hero-row lg-hero-'+k+'"'+id(k)+'>'+(h||'')+'</div>';
   return '<div class="lg-hero lg-hero-one"><div class="lg-hero-main">'
     +'<div class="lg-hero-label"'+id('label')+'>'+(o.label||'')+'</div>'
     +'<div class="lg-hero-big"'+id('big')+'>'+(o.big||'')+'</div>'
-    +'<div class="lg-hero-today"'+id('today')+'>'+(o.today||'')+'</div>'
-    +'<div class="lg-hero-tiles">'+tiles+'</div>'
+    +'<div class="lg-hero-grid">'+row('today',o.today)+(o.under!=null?row('under',o.under):'')+row('range',o.range)+'</div>'
     +(o.note!=null?'<div class="lg-hero-note"'+id('note')+'>'+o.note+'</div>':'')
     +'</div><div class="lg-hero-chips"'+id('chips')+'>'+(o.chips||'')+'</div></div>';
 }
-// "+$12.50 today": signed and arrowed, so it reads the same under the MONO theme (no colour needed)
-function ledgerTodayHtml(v){
-  v=+v||0;const up=v>=0;
-  return '<span class="'+(up?'hm-up':'hm-down')+'">'+(up?'&#9650; +':'&#9660; -')+elMoney(Math.abs(v))+'</span> <span class="lg-suffix">today</span>';
+// ══ ONE HERO LINE (owner 11-21, LEDGER > REAL sidebar: 'clean this up ... the all time pnl and % are all off-centered') ══
+// The cells of one row of the hero grid, the same on REAL, NT8 PAPER and WEBULL PAPER: label | $ | % | the rest. A cell left out keeps
+// its column (each cell names its own grid column), so a row with no % still puts its $ under the $ above it.
+//   o.label   html of the label cell ('today', 'all time', 'realized', 'unrealized', a scrub's day)
+//   o.v       a number: the $ cell is the arrow, a space, then the signed figure (o.fig overrides the figure text; o.cls the colour class,
+//             hm-up / hm-down by sign when left out). Without o.v, o.fig alone is the $ cell, no arrow ('n/a', 'not priced yet').
+//   o.figAttr extra attributes on the figure span (data-*, title); o.pct html of the % cell; o.extra html of the last cell ('· 10 trades ?')
+//   o.css     inline style on every cell (WEBULL's dimmed not-today line)
+// Signed and arrowed, so a line reads the same under the MONO theme (no colour needed). Cells are joined by a space, so a row's text
+// reads 'today ▲ +$12.50 (+0.01%)'.
+function ledgerHeroCells(o){
+  o=o||{};
+  const st=o.css?' style="'+o.css+'"':'';
+  const cell=(k,h)=>(h==null||h==='')?'':'<span class="lg-hl lg-hl-'+k+'"'+st+'>'+h+'</span>';
+  const n=ledgerNum(o.v);let money='';
+  if(n!=null){
+    const cls=o.cls||(n>=0?'hm-up':'hm-down');
+    const fig=o.fig!=null?o.fig:((n<0?'-':'+')+elMoney(Math.abs(n)));
+    money='<span class="lg-hl-arr '+cls+'" aria-hidden="true">'+(n>=0?'&#9650;':'&#9660;')+'</span> <span class="'+cls+'"'+(o.figAttr||'')+'>'+fig+'</span>';
+  }else if(o.fig!=null&&o.fig!=='')money='<span'+(o.cls?' class="'+o.cls+'"':'')+(o.figAttr||'')+'>'+o.fig+'</span>';
+  return [cell('l',o.label),cell('v',money),cell('p',String(o.pct||'').trim()),cell('x',o.extra)].filter(Boolean).join(' ');
+}
+// 'today ▲ +$12.50 (+0.01%)': pct = the % cell's html (a board with an account base passes it; REAL has none)
+function ledgerTodayHtml(v,pct){
+  return ledgerHeroCells({label:'today',v:+v||0,pct:pct});
 }
 function ledgerRangePillsHtml(active,attr,ranges){
   return '<div class="lg-pills">'+(ranges||LEDGER_RANGES).map(r=>'<button type="button" '+attr+'="'+r+'" class="'+(active===r?'active':'')
@@ -17259,9 +17336,11 @@ function _hmOpenLineHtml(){
     +'The account balance above therefore carries this position at cost, not at the market.';
   // r2 step 2 (item 7): 'unrealized n/a · N open at NinjaTrader' - the three-sentence reason stays in the title; n/a is the house word for a
   // figure that cannot be computed (LEDGER_NO_FIGURE_SHORT), never 0 and never blank
-  return '<span data-hmheroopenline title="'+tip.replace(/"/g,'&quot;')+'"><span class="hm-suffix">unrealized </span>'
-    +'<span data-hmheroopen>'+LEDGER_NO_FIGURE_SHORT+'</span>'
-    +'<span class="hm-suffix"> &middot; '+n+' open at NinjaTrader</span></span>';
+  // owner 11-21: a row of the hero grid (ledgerHeroCells); the wrapper keeps its data attr and is invisible to the grid (display:contents),
+  // so the title rides on the cells
+  const t=' title="'+tip.replace(/"/g,'&quot;')+'"';
+  return '<span data-hmheroopenline'+t+'>'+ledgerHeroCells({label:'<span'+t+'>unrealized</span>',fig:LEDGER_NO_FIGURE_SHORT,figAttr:' data-hmheroopen'+t,
+    extra:'<span'+t+'>&middot; '+n+' open at NinjaTrader</span>'})+'</span>';
 }
 // REAL's top-right chips: none since LEDGER step 12 - the Webull and NinjaTrader sync checks are in the status line under the hero
 // (_hmStatusLine); the slot stays, empty, in the same spot as the other boards' chips
@@ -17503,11 +17582,11 @@ function _hmPaintBig(txt){
     :'<span class="lg-suffix qbx-hero-qual" data-hmheroqual="realized" title="Cumulative money from CLOSED trades inside the chosen range. An open position is not in it.">realized</span>');
 }
 function _hmPaintDelta(delta,pct,suffix){
-  const up=delta>=0;
-  const tri=up?'&#9650;':'&#9660;';
+  // owner 11-21 (the circled line): 'all time ▲ +$111.96 (+3.76%)' on the hero grid - label, $, % in their own columns
   const elD=document.getElementById('hm-hero-delta');
   if(!elD)return;
-  elD.innerHTML=`<span class="${up?'hm-up':'hm-down'}">${tri}</span><span class="${up?'hm-up':'hm-down'}">${elMoney(Math.abs(delta))}${pct==null||!isFinite(pct)?'':' ('+_hmPct(pct)+')'}</span><span class="hm-suffix">${_hmEsc(suffix)}</span>`;
+  const cls=delta>=0?'hm-up':'hm-down';
+  elD.innerHTML=ledgerHeroCells({label:_hmEsc(suffix),v:delta,pct:(pct==null||!isFinite(pct))?'':'<span class="'+cls+'">('+_hmPct(pct)+')</span>'});
 }
 function _hmRenderHeroDefault(endVal,startVal){
   const lbl=document.getElementById('hm-hero-label');if(lbl)lbl.innerHTML=_hmHeroLabel();
@@ -45658,8 +45737,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // a flag the box wrote is only as current as the doc: grey while the box is silent
       const qbChipG=(txt,col)=>qbChip(txt,QF.stale?'var(--text4)':col);
       // the shared today line's look (signed + arrowed, MONO-safe), with the box's own day for its word
-      const qbNotTodayHtml=v=>{const up=v>=0;return '<span data-qbnottoday style="'+qbDimCss+'" title="From '+QF.dayLabel+', the box\u2019s last trading day - not today">'
-        +'<span class="'+(up?'hm-up':'hm-down')+'">'+(up?'&#9650; +':'&#9660; -')+ledgerMoney(Math.abs(v))+'</span> <span class="lg-suffix">'+QF.dayLabel+'</span></span>';};
+      // owner 11-21: cells of the hero grid ('Mon 10-05 ARROW -$6.80 (-0.001%)'); the wrapper keeps its data attr and title and is invisible to
+      // the grid (display:contents), so the dim style rides on each cell
+      const qbNotTodayHtml=(v,pct)=>'<span data-qbnottoday style="'+qbDimCss+'" title="From '+QF.dayLabel+', the box\u2019s last trading day - not today">'
+        +ledgerHeroCells({label:QF.dayLabel,v:v,fig:(v<0?'-':'+')+ledgerMoney(Math.abs(v)),pct:pct,css:qbDimCss})+'</span>';
       const qbHeroBuild=(netVal,sinceLabel,parFailedForHero,brokerInfo,todayVal,rangeInfo)=>{
         const chips=qbFreshChips();
         if(QE&&QE.breaker_tripped)chips.push(qbChipG('BREAKER TRIPPED','var(--attn-red)'));
@@ -45720,16 +45801,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // when nothing is held - and the CASH line under that: 'cash +$23.66 · closed trades · all time'. Both are in the net number.
         // owner 10-31 15:30 (live page): 'unrealized -$295.74 · DIP #424 · 4 lots' ONLY while something is open (no 'flat' word any more),
         // then 'realized +$23.66 · closed trades · since 09-03' (the range's own word when one is chosen)
+        // owner 11-21: every line under the big number is a row of the shared hero grid (ledgerHeroCells: label | $ | % | the rest)
+        const openTip=' title="The lots not sold yet, at the last mark - part of the net number above (closed + open)"';
         const openLine=(rangeInfo&&rangeInfo.open)
-          ?('<span class="hm-suffix">unrealized </span>'+(ov!=null?('<span class="'+(ov>=0?'hm-up':'hm-down')+'" data-qbheroopen>'+ledgerSigned(ov)+'</span>'):'<span class="hm-suffix" data-qbheroopen-unpriced>not priced yet</span>')
-            +(rangeInfo.openWho?'<span class="hm-suffix"> &middot; '+rangeInfo.openWho+'</span>':''))
+          ?ledgerHeroCells({label:'<span'+openTip+'>unrealized</span>',
+            v:ov,fig:ov!=null?ledgerSigned(ov):'<span class="hm-suffix" data-qbheroopen-unpriced>not priced yet</span>',figAttr:ov!=null?' data-qbheroopen':'',
+            extra:rangeInfo.openWho?'&middot; '+rangeInfo.openWho:''})
           :'';
         // r2 step 2 (item 5): 'realized +$X' - 'closed trades' is what realized means and the range is the lit pill; both stay in the title
-        const rangeLine=rv==null?'':('<span class="hm-suffix" data-qbrealword>realized </span><span class="'+rc+'" data-qbcash title="closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||(rangeInfo&&rangeInfo.sinceWord)||'all time')+'">'+ledgerSigned(rv)+'</span>'
-          +((rangeInfo&&rangeInfo.realPct)||''));
-        // owner 11-21: '(+Y%)' rides right after today's $ (before the word 'today'), the same colour as the $ figure
+        const rangeLine=rv==null?'':ledgerHeroCells({label:'<span data-qbrealword>realized</span>',v:rv,cls:rc,fig:ledgerSigned(rv),
+          figAttr:' data-qbcash title="closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||(rangeInfo&&rangeInfo.sinceWord)||'all time')+'"',
+          pct:(rangeInfo&&rangeInfo.realPct)||''});
+        // owner 11-21: '(+Y%)' is the today row's % cell, the same colour as the $ figure
         const todayPct=(rangeInfo&&rangeInfo.todayPct)||'';
-        const withTodayPct=h=>todayPct?h.replace(/(<\/span>)( <span class="lg-suffix">)/,'$1'+todayPct.replace(/\$/g,'$$$$')+'$2'):h;
         const heroMain=ledgerHeroHtml({
           ids:{label:'qb-hero-label',big:'qb-hero-value',under:'qb-hero-under',today:'qb-hero-today',range:'qb-hero-range',chips:'qb-hero-chips',note:'qb-hero-note'},
           // r2 step 2 (item 31): 'WEBULL PAPER · NET EQUITY' - uppercase like REAL; the words beside the number are gone (item 1)
@@ -45740,8 +45824,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // LEDGER redesign step 9 (owner 2026-11-01): this board already added closed + open, which IS net equity under the one rule;
           // what changed is that the small word beside it says 'net equity' instead of 'net', the same words REAL and NT8 now print.
           big:(netVal==null||!isFinite(Number(netVal)))?'—':(elMoney(Number(netVal))+'<span class="lg-suffix qbx-hero-qual" data-qbheroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>'),
-          today:(todayVal==null||!isFinite(Number(todayVal)))?'':withTodayPct(QF.isToday?ledgerTodayHtml(Number(todayVal)):qbNotTodayHtml(Number(todayVal))),
-          under:openLine?('<span data-qbheroopenline title="The lots not sold yet, at the last mark - part of the net number above (closed + open)">'+openLine+'</span>'):'',
+          today:(todayVal==null||!isFinite(Number(todayVal)))?'':(QF.isToday?ledgerTodayHtml(Number(todayVal),todayPct):qbNotTodayHtml(Number(todayVal),todayPct)),
+          under:openLine?('<span data-qbheroopenline'+openTip+'>'+openLine+'</span>'):'',
           range:rangeLine,
           // calm-down 8 (owner 11-18): red / blocking chips stay out in plain sight; the amber ones fold into ONE dot + line, detail on tap
           chips:(()=>{const red=chips.filter(c=>/attn-red/.test(c)),amb=chips.filter(c=>!/attn-red/.test(c));
@@ -47221,11 +47305,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 let j=i;while(j>0&&pts[j-1].date&&pts[j-1].date===p.date)j--;
                 const dayV=i?Math.round((pc.v-(j>0?pts[j-1].v:0)+(i===n-1&&p.date===qeBoxDay?((atNow?openMarkPnl:0)-qbHeldCarry):0))*100)/100:0;
                 const when=p.date?_lgDateLbl(p.date,true):'';
-                if(h.today)h.today.innerHTML=i?('<span class="'+(dayV>=0?'hm-up':'hm-down')+'">'+(dayV>=0?'&#9650; +':'&#9660; -')+_hmMoney(Math.abs(dayV))+'</span> <span class="lg-suffix">on '+when+'</span>')
-                  :'<span class="lg-suffix">start of the range</span>';
+                // owner 11-21: the scrub writes cells of the hero grid too, so the figures stay in their columns while the mouse moves
+                if(h.today)h.today.innerHTML=i?ledgerHeroCells({label:'on '+when,v:dayV,fig:(dayV<0?'-':'+')+_hmMoney(Math.abs(dayV))})
+                  :ledgerHeroCells({label:'start of the range'});
                 const rc=pc.v>=0?'hm-up':'hm-down';
-                if(h.range)h.range.innerHTML='<span class="hm-suffix">cash </span><span class="'+rc+'">'+ledgerSigned(pc.v)+'</span>'
-                  +'<span class="hm-suffix"> &middot; closed trades &middot; '+qbRangeWord+(i?' &middot; through '+when:' &middot; start')+'</span>';
+                if(h.range)h.range.innerHTML=ledgerHeroCells({label:'cash',v:pc.v,cls:rc,fig:ledgerSigned(pc.v),
+                  extra:'&middot; closed trades &middot; '+qbRangeWord+(i?' &middot; through '+when:' &middot; start')});
               },
               onLeave:()=>{
                 const h=heroEls();
@@ -51068,26 +51153,38 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         //                session; cash - the book's today $ when the snapshot has no realized figure)
         //   realized % = realized $ / the account at the start of the range (cash - the book's realized in the range)
         // No bridge snapshot = no %, never a made-up basis. Three places under 0.1%; a figure that rounds to nothing reads 0.00%.
-        const _p2PctAcct=(()=>{const A=(window._ntBridge&&Array.isArray(window._ntBridge.accounts))?window._ntBridge.accounts:[];
-          return A.find(a=>a&&a.name==='Sim101')||A.find(a=>a&&a.name==='DEMO7240108')||null;})();
-        const _p2PctCash=(_p2PctAcct&&_p2PctAcct.cash!=null&&isFinite(+_p2PctAcct.cash))?+_p2PctAcct.cash:null;
-        const _p2PctDayBase=_p2PctCash==null?null:(_p2PctCash-((_p2PctAcct.realized!=null&&isFinite(+_p2PctAcct.realized))?+_p2PctAcct.realized:_H.today));
+        // owner 11-21 (NT8 showed no % over the weekend): NT not answering = the bridge has no accounts, so the base is the last Sim101 cash
+        // this page or the NT sync ever saw (ntSimCashLast), with its time in the hover. A live snapshot is remembered for that day.
+        const _p2B=window._ntBridge||null;
+        const _p2BAt=(()=>{const t=_p2B&&_p2B.checked_at?Date.parse(String(_p2B.checked_at).replace(' ','T')+'Z'):NaN;return isFinite(t)?t:Date.now();})();
+        const _p2PctAcct=(()=>{const A=(_p2B&&Array.isArray(_p2B.accounts))?_p2B.accounts:[];
+          const a=A.find(x=>x&&x.name==='Sim101')||A.find(x=>x&&x.name==='DEMO7240108')||null;
+          if(a&&a.cash!=null&&isFinite(+a.cash)){const live=_p2B.up!==false;if(live)ntSimCashRemember(a,_p2BAt);return {name:a.name,cash:+a.cash,realized:a.realized,at:_p2BAt,live:live};}
+          const c=ntSimCashLast();return c?Object.assign(c,{live:false}):null;})();
+        const _p2PctCash=_p2PctAcct?_p2PctAcct.cash:null;
+        // a cached cash from an earlier New York day is the account at the start of today (nothing has traded since NT stopped answering)
+        const _p2PctSameDay=!!_p2PctAcct&&(_p2PctAcct.live||(()=>{try{return new Date(_p2PctAcct.at).toLocaleDateString('en-CA',{timeZone:'America/New_York'})===ledgerTodayNY();}catch(e){return false;}})());
+        const _p2PctDayBase=_p2PctCash==null?null:(_p2PctCash-(!_p2PctSameDay?0:((_p2PctAcct.realized!=null&&isFinite(+_p2PctAcct.realized))?+_p2PctAcct.realized:_H.today)));
         const _p2PctRangeBase=_p2PctCash==null?null:(_p2PctCash-_H.net);
         const _p2PctHtml=(v,base,key)=>{v=Number(v);if(base==null||!isFinite(base)||base<=0||!isFinite(v))return '';
           const p=v/base*100,a=Math.abs(p),t=a<0.0005?'0.00%':((p<0?'-':'+')+(a<0.1?a.toFixed(3):a.toFixed(2))+'%');
-          return ' <span class="qbx-pct '+(key==='today'?(v>=0?'hm-up':'hm-down'):ledgerCls(v))+'" data-p2pct="'+key+'" title="of the '+_hmEsc(String(_p2PctAcct.name||'Sim101'))+' account at the start of '+(key==='today'?'the session':'the range')+' ('+ledgerMoney(base)+', from the NT bridge cash)">('+t+')</span>';};
+          const nm=_hmEsc(String(_p2PctAcct.name||'Sim101'));
+          const src=_p2PctAcct.live?'from the NT bridge cash':('base: '+nm+' cash as of '+ntSimCashWhen(_p2PctAcct.at)+', the last NinjaTrader reported - NT is not answering now');
+          return '<span class="qbx-pct '+(key==='today'?(v>=0?'hm-up':'hm-down'):ledgerCls(v))+'" data-p2pct="'+key+'"'+(_p2PctAcct.live?'':' data-p2pctcached')+' title="of the '+nm+' account at the start of '+(key==='today'?'the session':'the range')+' ('+ledgerMoney(base)+', '+src+')">('+t+')</span>';};
         const _p2TodayPct=_p2PctHtml(_H.today,_p2PctDayBase,'today');
         const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',under:'p2-hero-under',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},todayInline:true,
           // r2 step 2 (item 41): the definition is the label's tooltip
           label:'<span title="'+_p2LabelTip.replace(/"/g,'&quot;')+'">BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity</span>',
           big:elMoney(_netEq)+'<span class="lg-suffix qbx-hero-qual" data-p2heroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>',
-          today:_p2TodayPct?ledgerTodayHtml(_H.today).replace(/(<\/span>)( <span class="lg-suffix">)/,'$1'+_p2TodayPct.replace(/\$/g,'$$$$')+'$2'):ledgerTodayHtml(_H.today),
+          today:ledgerTodayHtml(_H.today,_p2TodayPct),
           // owner 10-31 (live page, same as Webull): the OPEN line sits DIRECTLY under the big number - 'open -$X · N trades · not counted'
           // (NT8's big number is closed trades only, so its open trades are named, never added) or 'flat' when nothing is open
           // owner 10-31 15:30 (same words as Webull): 'unrealized -$X · N trades · not counted' ONLY while a trade is open - no 'flat' word
+          // owner 11-21: one row of the hero grid (label | $ | the rest); the wrapper keeps its data attr and is invisible to the grid
           under:'<span data-p2heroopenline>'+(_heroOpen.n
-            ?('<span class="hm-suffix">unrealized </span><span class="'+(_heroOpen.v>=0?'hm-up':'hm-down')+'" data-p2heroopen title="Open trades of the counted legs, at their last mark. This is the unrealised half of the net equity above; it counts on no day until it closes, so it is not on the chart.">'+ledgerSigned(_heroOpen.v)+'</span>'
-              +'<span class="hm-suffix"> &middot; '+_heroOpen.n+' open</span>')   // r2 step 2 (item 6): 'in the number above' is the net-equity rule, in the title
+            ?ledgerHeroCells({label:'unrealized',v:_heroOpen.v,fig:ledgerSigned(_heroOpen.v),
+              figAttr:' data-p2heroopen title="Open trades of the counted legs, at their last mark. This is the unrealised half of the net equity above; it counts on no day until it closes, so it is not on the chart."',
+              extra:'&middot; '+_heroOpen.n+' open'})   // r2 step 2 (item 6): 'in the number above' is the net-equity rule, in the title
             :'')+'</span>',
           // owner 10-31 (same ask as Webull): the big number is CLOSED trades only, and says so; an open position is a different
           // quantity, named apart from it and never added; every caveat sentence (other strategies, weights, the demo account) sits
@@ -51095,8 +51192,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // owner 10-31 15:30: 'realized +$X · N closed trades · <range>' - the big number IS the realized figure here (closed trades only)
           // r2 step 2 (item 4): 'realized +$X . N trades . ?' - 'closed' is what realized means, the range is the lit pill, and the details panel
           // (the chart-tie check, the not-counted count) opens from the ? (data-p2herobtn, as before)
-          range:'<span class="hm-suffix" data-p2realword>realized </span><span class="'+ledgerCls(_H.net)+'" data-p2realized title="The realised half of the net equity above: only trades that have CLOSED, from the book legs switched on, in this range ('+_pcwLbl+'). This is the figure the chart\'s solid line ends at.">'+ledgerSigned(_H.net)+'</span>'+_p2PctHtml(_H.net,_p2PctRangeBase,'realized')+'<span class="lg-suffix">\u00b7</span><span>'+_H.n+' trade'+(_H.n===1?'':'s')+'</span>'
-            +'<span class="lg-help" data-p2herobtn role="button" tabindex="0" aria-expanded="'+(window._p2HeroDetOpen?'true':'false')+'" title="details: the chart check and the strategies not counted">?</span>',
+          // owner 11-21: 'realized, arrow, +$X (+x%), N trades ?' on the hero grid
+          range:ledgerHeroCells({label:'<span data-p2realword>realized</span>',v:_H.net,cls:ledgerCls(_H.net),fig:ledgerSigned(_H.net),
+            figAttr:' data-p2realized title="The realised half of the net equity above: only trades that have CLOSED, from the book legs switched on, in this range ('+_pcwLbl+'). This is the figure the chart\'s solid line ends at."',
+            pct:_p2PctHtml(_H.net,_p2PctRangeBase,'realized'),
+            extra:'&middot; '+_H.n+' trade'+(_H.n===1?'':'s')
+              +'<span class="lg-help" data-p2herobtn role="button" tabindex="0" aria-expanded="'+(window._p2HeroDetOpen?'true':'false')+'" title="details: the chart check and the strategies not counted">?</span>'}),
           note:_p2HeroNote,
           chips:''});
         // ══ LEDGER steps 6, 7 and 10 on the shared parts (NT8 PAPER) ══
@@ -54310,10 +54411,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
            onScrub:(i,p)=>{
              if(num)num.innerHTML=_hmEsc(ledgerMoney(p.v))+numQ;
              if(!rng)return;
-             if(!p.date||i===0){rng.innerHTML='<span>start of the range</span>';return;}
+             // owner 11-21: the scrub writes cells of the hero grid too ('that day, arrow, +$X, Tue, Aug 12, 2026')
+             if(!p.date||i===0){rng.innerHTML=ledgerHeroCells({label:'start of the range'});return;}
              const dd=p.v-C.pts[i-1].v;
              let dl=p.date;try{dl=new Date(p.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});}catch(_e){}
-             rng.innerHTML='<span class="'+(dd>=0?'hm-up':'hm-down')+'">'+(dd>=0?'\u25b2 ':'\u25bc ')+ledgerSigned(dd)+'</span><span class="lg-suffix">that day</span><span class="lg-suffix">\u00b7</span><span>'+dl+'</span>';},
+             rng.innerHTML=ledgerHeroCells({label:'that day',v:dd,fig:ledgerSigned(dd),extra:'\u00b7 '+_hmEsc(dl)});},
            onLeave:()=>{if(num)num.innerHTML=num0;if(rng)rng.innerHTML=rng0;}});
        }}
       const mh=content.querySelector('[data-mcphelp]');if(mh)mh.onclick=()=>{window._paperMcpHelp=!window._paperMcpHelp;renderApp();};

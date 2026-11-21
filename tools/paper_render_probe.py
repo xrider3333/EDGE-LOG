@@ -507,6 +507,9 @@ HAND_NOTE = 'MANUAL EXIT test note'
 CASES.extend([
     ('nt-roster',        {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': KEEPS_BRIDGE}}),
     ('nt-roster-detail', {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': KEEPS_BRIDGE, '_paperNtDetail': True}}),
+    # owner 11-21: NT not answering (the bridge doc has no accounts) - the % base is the last Sim101 cash this browser saw (el_nt_sim_cash)
+    ('nt-down-cached',   {'sub': 'paper2', 'prefs': {}, 'win': {'_ntBridge': _nt8_bridge(up=False)},
+                          'ls': {'el_nt_sim_cash': json.dumps({'name': 'Sim101', 'cash': 101375.0, 'realized': None, 'at': 1795000000000})}}),
     ('feed-degraded',    {'sub': 'paper2', 'prefs': {}, 'win': {}, 'feedwarn': KEEPS_FEED}),
     ('feed-healthy',     {'sub': 'paper2', 'prefs': {}, 'win': {}, 'feedclean': True}),
     ('roll-marks',       {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fl', 'ls': {'el_lg_view_nt8': 'list'},
@@ -1345,6 +1348,8 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           +"localStorage.removeItem('el_lg_stats_nt8');localStorage.removeItem('el_lg_cal_nt8b');localStorage.removeItem('el_lg_calmo_nt8');"
           // LEDGER step 12: the Filters row of the strategy list starts closed (no stored choice) in every case
           +"localStorage.removeItem('el_lg_filters_p2');"
+          // owner 11-21: the last Sim101 cash this browser saw (the NT8 % base while NT is not answering) starts empty in every case
+          +"localStorage.removeItem('el_nt_sim_cash');"
           +"var LS=Object.assign({'el_lg_daily_p2':'0'},"+JSON.stringify(cfg.ls||{})+");for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
           +"var W="+JSON.stringify(win)+";for(var k in W)window[k]=W[k];"
           +(cfg.theme?("prefs.theme="+JSON.stringify(cfg.theme)+";applyTheme();"):"")
@@ -1470,8 +1475,15 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           warnInChips:_hh.querySelectorAll('.lg-hero-chips .p2warn').length,chips:_hh.querySelectorAll('.lg-hero-chips .lg-chip').length,
           warnInStatus:d.querySelectorAll('[data-lgstatus="p2"] .p2warn').length}:null;
         // owner 11-21: the % beside the hero's today and realized figures (of the Sim101 account; only with a bridge snapshot)
+        // owner 11-21 (ONE HERO GRID): the % sits in its row's % cell; figCls = the $ figure of the same row, label = the row's label cell
         r.p2pct=(function(){var o={};['today','realized'].forEach(function(k){var e=d.querySelector('.lg-hero [data-p2pct="'+k+'"]');
-          o[k]=e?{t:e.textContent.trim(),cls:e.className,tip:e.getAttribute('title')||'',prevCls:(e.previousElementSibling||{}).className||'',nextTxt:(e.nextElementSibling||{}).textContent||''}:null;});return o;})();
+          var row=e?e.closest('.lg-hero-row'):null,fg=row?row.querySelector('.lg-hl-v span:last-child'):null,lb=row?row.querySelector('.lg-hl-l'):null;
+          o[k]=e?{t:e.textContent.trim(),cls:e.className,tip:e.getAttribute('title')||'',figCls:fg?fg.className:'',inCell:!!e.closest('.lg-hl-p'),
+            label:lb?lb.textContent.trim():'',cached:e.hasAttribute('data-p2pctcached')}:null;});return o;})();
+        // owner 11-21: every $ cell of the hero grid starts at one x, every % cell at one x (left edges in px, rows with that cell only)
+        r.heroCols=(function(){var g=d.querySelector('.lg-hero .lg-hero-grid');if(!g)return null;
+          var L=function(q){return [].map.call(g.querySelectorAll(q),function(c){return Math.round(c.getBoundingClientRect().left*10)/10;});};
+          var bg=d.querySelector('.lg-hero .lg-hero-big');return {v:L('.lg-hl-v'),p:L('.lg-hl-p'),l:L('.lg-hl-l'),big:bg?Math.round(bg.getBoundingClientRect().left*10)/10:null};})();
         r.pills=[].map.call(d.querySelectorAll('.lg-pills button'),function(x){return x.textContent.trim();});
         r.pillActive=[].map.call(d.querySelectorAll('.lg-pills button.active'),function(x){return x.textContent.trim();});
         r.oldTabs=d.querySelectorAll('.p2rhtabs').length;
@@ -2182,12 +2194,41 @@ def run(alt_index=None, timeout=300):
             fails.append('nt-roster: the %s %% reads %r, want (+x.xx%%) or (+x.xxx%%) under 0.1%%' % (_k, _e.get('t')))
         if 'Sim101' not in (_e.get('tip') or ''):
             fails.append('nt-roster: the %s %% hover does not name the Sim101 basis: %r' % (_k, _e.get('tip')))
-        _pc = [c for c in (_e.get('prevCls') or '').split() if c.startswith(('hm-', 'lg-'))]
+        # owner 11-21 (ONE HERO GRID): the % is its row's % cell, in the colour of that row's $ figure
+        _pc = [c for c in (_e.get('figCls') or '').split() if c.startswith(('hm-', 'lg-'))]
         _cc = [c for c in (_e.get('cls') or '').split() if c.startswith(('hm-', 'lg-'))]
-        if not _pc or _pc != _cc:
-            fails.append('nt-roster: the %s %% is not right after its $ in the same colour (%r vs %r)' % (_k, _e.get('prevCls'), _e.get('cls')))
-    if _pp.get('today') and 'today' not in (_pp['today'].get('nextTxt') or ''):
-        fails.append("nt-roster: the today %% does not sit between the $ and the word 'today'")
+        if not _e.get('inCell') or not _pc or _pc != _cc:
+            fails.append('nt-roster: the %s %% is not in its row %% cell in the colour of the $ (%r vs %r)' % (_k, _e.get('figCls'), _e.get('cls')))
+        if _e.get('cached'):
+            fails.append('nt-roster: the %s %% is marked cached on a live bridge snapshot' % _k)
+    if _pp.get('today') and (_pp['today'].get('label') or '') != 'today':
+        fails.append("nt-roster: the today %% is not on the row labelled 'today' (label %r)" % (_pp['today'].get('label'),))
+    # owner 11-21: NT not answering - the % is still there, from the last Sim101 cash seen, and the hover says so; never one without a base
+    _pcd = (cases.get('nt-down-cached') or {}).get('p2pct') or {}
+    for _k in ('today', 'realized'):
+        _e = _pcd.get(_k)
+        if not _e:
+            fails.append('nt-down-cached: NT is not answering and the NT8 hero shows no %% beside %s - want one from the last Sim101 cash seen' % _k)
+            continue
+        if not _pctre.match(_e.get('t') or ''):
+            fails.append('nt-down-cached: the %s %% reads %r' % (_k, _e.get('t')))
+        if 'base: Sim101 cash as of ' not in (_e.get('tip') or '') or not _e.get('cached'):
+            fails.append("nt-down-cached: the %s %% hover does not say 'base: Sim101 cash as of <time>': %r" % (_k, _e.get('tip')))
+    for _nm in ('nt-down', 'nt-none'):
+        if any(((cases.get(_nm) or {}).get('p2pct') or {}).values()):
+            fails.append('%s: the hero shows a %% with no Sim101 cash ever seen (no basis - must show none)' % _nm)
+    # owner 11-21 (ONE HERO GRID): the $ column and the % column each share one left edge (within 2 px), and the grid is flush with the big number
+    for _nm in ('paper2', 'nt-roster', 'nt-down-cached', 'phone375'):
+        _hc = (cases.get(_nm) or {}).get('heroCols')
+        if not _hc:
+            fails.append('%s: no hero grid (.lg-hero-grid) under the big number' % _nm)
+            continue
+        for _col, _what in (('v', '$'), ('p', '%'), ('l', 'label')):
+            _xs = _hc.get(_col) or []
+            if _xs and max(_xs) - min(_xs) > 2:
+                fails.append('%s: the hero %s cells do not share a left edge (x = %s)' % (_nm, _what, _xs))
+        if _hc.get('l') and _hc.get('big') is not None and abs(min(_hc['l']) - _hc['big']) > 2:
+            fails.append('%s: the hero grid starts at x %s, the big number at x %s (want flush)' % (_nm, min(_hc['l']), _hc['big']))
     _rn = _pr.get('heroNum')
     if _pp.get('realized') and _rn is not None and 101375.0 - _rn > 0:
         _m = re.search(r'([+-]?\d+\.\d+)%', _pp['realized'].get('t') or '')
@@ -2206,7 +2247,7 @@ def run(alt_index=None, timeout=300):
         if und is None:
             fails.append('%s: no line directly under the big number (#p2-hero-under: the open trades, or flat)' % nm)
         else:
-            if h.get('underNext') != 'p2-hero-range' or h.get('underPrev') not in ('p2-hero-value', None):   # CALM-DOWN item 1 (owner 11-18): open line = first tile under the big number
+            if h.get('underNext') != 'p2-hero-range' or h.get('underPrev') not in ('p2-hero-value', 'p2-hero-today', None):   # owner 11-21: today, open, realized = rows of the hero grid   # CALM-DOWN item 1 (owner 11-18): open line = first tile under the big number
                 fails.append('%s: the open line is not directly under the big number with the range line under it (before: %r, after: %r)' % (nm, h.get('underPrev'), h.get('underNext')))
             # owner 10-31 15:30 + redesign step 9 + LEDGER UI r2 (item 6): 'unrealized -$X · N open' only while a trade is open; the
             # net-equity rule ('in the number above') is the figure's title, not a printed clause

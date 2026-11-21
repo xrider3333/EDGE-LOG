@@ -412,6 +412,9 @@ PHONE_TAP_TARGET_EXTRA = 48
 # PAPER boards have always kept their folds - NT8 PAPER's phone list starts 836 px down. Four closed fold headers at the 40 px tap size of step 11
 # is the height that buys: measured 854 px against 700 before, so the allowance is 160 px. It is what the folds add, not a new floor.
 PHONE_OWN_FOLDS_EXTRA = 160
+# owner 11-21 (ONE HERO GRID): on a phone the hero puts today and the range line on two rows of one grid (they shared one line before) -
+# measured 921 px against 908, so the allowance is 20 px. It is what the second row adds, not a new floor.
+PHONE_HERO_GRID_EXTRA = 20
 
 
 def _phone_extra(cfg):
@@ -1411,8 +1414,12 @@ var KIT=__KIT__, CASES=__CASES__, INTER=__INTER__, VP=__VP__, DATA=__DATA__, BAR
     r.heroBig=hv?(function(){var c=hv.cloneNode(true);[].forEach.call(c.querySelectorAll('.qbx-hero-qual'),function(x){x.parentNode.removeChild(x);});return (c.textContent||'').trim();})():null;
     r.heroQual=hv?(function(){var e=hv.querySelector('[data-hmheroqual]');return e?(e.textContent||'').trim()+'|'+(e.getAttribute('data-hmheroqual')||''):null;})():null;
     r.heroOpenLine=(function(){var e=d.getElementById('hm-hero-under');return e?(e.textContent||'').replace(/\\s+/g,' ').trim():null;})();
-    r.heroTodayInline=!!(d.querySelector('.lg-hero-one #hm-hero-today')&&d.querySelector('.lg-hero-tiles #hm-hero-delta'));
+    // owner 11-21 (ONE HERO GRID): today and the range line are rows of the one hero grid under the big number
+    r.heroTodayInline=!!(d.querySelector('.lg-hero-one .lg-hero-grid #hm-hero-today')&&d.querySelector('.lg-hero-one .lg-hero-grid #hm-hero-delta'));
     r.heroToday=ht?(ht.textContent||'').replace(/\\s+/g,' ').trim():null;
+    r.heroCols=(function(){var g=d.querySelector('.lg-hero .lg-hero-grid');if(!g)return null;
+      var L=function(s){return [].map.call(g.querySelectorAll(s),function(c){return Math.round(c.getBoundingClientRect().left*10)/10;});};
+      return {v:L('.lg-hl-v'),p:L('.lg-hl-p'),l:L('.lg-hl-l'),big:hv?Math.round(hv.getBoundingClientRect().left*10)/10:null};})();
     // LEDGER redesign step 2: the range pills ride on the chart's one control row (.lg-chart-row) now, not a row of their own
     r.pills=Array.prototype.map.call(d.querySelectorAll('.lg-chart-row [data-hmrange], .hm-ctl [data-hmrange], .hm-range-row [data-hmrange]'),function(b){return b.getAttribute('data-hmrange');}).join(',');
     // LEDGER shared equity chart (unify step 5): real height on every width, dates and a price scale
@@ -4506,7 +4513,7 @@ def _judge(data, data_obj):
                 if r.get('visCells') != 5:
                     fails.append('%s: a phone row shows %s cells, expected five (time, symbol, side, net, chart)'
                                  % (nm, r.get('visCells')))
-                _top_max = PHONE_LIST_TOP_MAX + PHONE_TAP_TARGET_EXTRA + PHONE_OWN_FOLDS_EXTRA + _phone_extra(cfg)
+                _top_max = PHONE_LIST_TOP_MAX + PHONE_TAP_TARGET_EXTRA + PHONE_OWN_FOLDS_EXTRA + PHONE_HERO_GRID_EXTRA + _phone_extra(cfg)
                 _screen_max = (r.get('viewH') or 0) + PHONE_TAP_TARGET_EXTRA + PHONE_OWN_FOLDS_EXTRA
                 if r.get('listTop') is None or r.get('listTop') > _screen_max:
                     fails.append('%s: the trade list starts %spx below the top of the board on a phone, more than one '
@@ -4586,12 +4593,19 @@ def _judge(data, data_obj):
                                                 ', '.join(r.get('wide') or []) or '?'))
         if not re.match(r'^-?\$[\d,]+\.\d\d$', r.get('heroBig') or ''):
             fails.append('%s: the hero big number reads %r, not a dollar amount' % (nm, r.get('heroBig')))
-        if not (r.get('heroToday') or '').endswith('today'):
+        # owner 11-21 (ONE HERO GRID): the today row leads with its label, 'today ARROW +$X'
+        if not (r.get('heroToday') or '').startswith('today '):
             fails.append('%s: the hero has no "today" line (got %r)' % (nm, r.get('heroToday')))
-        # LEDGER redesign steps 6 and 9: today rides at the right end of the realized line (no line of its own), and the big number
-        # carries the words that say which of the three quantities it is - NET EQUITY in EQUITY view.
         if not r.get('heroTodayInline'):
-            fails.append("%s: the one-headline hero is broken - today must sit under the big number and the realized line in the tiles (calm-down item 1)" % nm)
+            fails.append("%s: the one-headline hero is broken - today and the range line must be rows of the hero grid under the big number (owner 11-21)" % nm)
+        # owner 11-21 (ONE HERO GRID): every $ cell shares one left edge, every % cell another (within 2 px), the grid flush with the big number
+        _hc = r.get('heroCols') or {}
+        for _col, _what in (('v', '$'), ('p', '%'), ('l', 'label')):
+            _xs = _hc.get(_col) or []
+            if _xs and max(_xs) - min(_xs) > 2:
+                fails.append('%s: the hero %s cells do not share a left edge (x = %s)' % (nm, _what, _xs))
+        if _hc.get('l') and _hc.get('big') is not None and abs(min(_hc['l']) - _hc['big']) > 2:
+            fails.append('%s: the hero grid starts at x %s, the big number at x %s (want flush)' % (nm, min(_hc['l']), _hc['big']))
         # LEDGER UI r2 (item 1): in EQUITY view the words beside the number are gone (the label names it); the node stays with its data attr
         _qual_want = 'realized|realized' if (cfg.get('chartMode') or 'equity') == 'pnl' else '|net'
         if (r.get('heroQual') or '') != _qual_want:
