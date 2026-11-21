@@ -14681,13 +14681,15 @@ PARITY_BAND_BASE_PS = 0.15
 PARITY_BAND_MIN_SIGMA_PS = 0.363
 PARITY_BAND_DEFAULT_DELAY_S = 8.0
 # FILL HATCH THRESHOLD (owner 11-21: "obv 50 cents is a lot, i'll let you judge"; MANAGER ruling
-# 11-21): a Webull fill hatches its calendar / chart day only when it is MORE than 25c a share
-# WORSE than the backtest price, design gap taken out (slippage + unexplained) -- about 4x NOISE's
-# average 5.9c slip and ~4 bp of QQQ. A fill worse by up to 25c never hatches (it still counts in
+# 11-21, the AND rule): a Webull fill hatches its calendar / chart day only when it is BOTH outside
+# its delay-scaled parity band (parity_ok False) AND MORE than 25c a share WORSE than the backtest
+# price, design gap taken out (slippage + unexplained) -- 25c is about 4x NOISE's average 5.9c slip
+# and ~4 bp of QQQ. Today the ~41c band (8 s send) binds; as sub-1 s sends narrow the band, the
+# 25c floor binds. A fill worse by up to 25c never hatches (it still counts in
 # FILLS BEHIND BACKTEST); a better fill never hatches; an off-tape fill and an ORB breakout-level
 # design side are never judged. Published per row as fill_parity_hatch. The page's twin is
-# FILL_HATCH_WORSE_PS in index.html -- change both together. The parity band above still decides
-# broker_parity_ok / fill_parity_ok (the chips and the note); it no longer decides the hatch.
+# FILL_HATCH_WORSE_PS in index.html -- change both together. The parity band alone still decides
+# broker_parity_ok / fill_parity_ok (the chips and the note).
 FILL_HATCH_WORSE_PS = 0.25
 _VERDICT_BARS_CACHE = {"key": None, "val": None}
 _VERDICT_ORDERS_CACHE = {"key": None, "val": None}   # orders.csv (path, mtime, size) -> rows   # the 1m bar file's (mtime, size) -> bars
@@ -14824,12 +14826,14 @@ def _fill_verdict(row, intent, s, eng, by_base, ctx):
             return out
         if gap is not None:
             out["parity_ok"] = bool(abs(gap) <= band + 1e-9)
-        # FILL_HATCH_WORSE_PS (owner 11-21): signed, + better, design taken out; an ORB
-        # breakout-level side is design and never judged
-        if not out["orb_breakout_gap_design"]:
+        # FILL_HATCH_WORSE_PS (owner 11-21, AND rule): outside the band AND more than 25c
+        # worse (signed, + better, design taken out); an ORB breakout-level side is design and
+        # never judged; no band verdict -> no hatch verdict
+        if not out["orb_breakout_gap_design"] and out["parity_ok"] is not None:
             hg = _side_hatch_gap_ps(s)
             if hg is not None:
-                out["hatch_worse"] = bool(hg < -FILL_HATCH_WORSE_PS - 1e-9)
+                out["hatch_worse"] = bool(out["parity_ok"] is False
+                                          and hg < -FILL_HATCH_WORSE_PS - 1e-9)
     except Exception:
         pass
     return out

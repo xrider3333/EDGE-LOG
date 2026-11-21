@@ -237,23 +237,31 @@ def test_fill_hatch_threshold_is_25c():
 
 
 def test_fill_verdict_hatch_worse_threshold(monkeypatch):
+    # AND rule (MANAGER 11-21): outside the delay-scaled band AND more than 25c worse
     monkeypatch.setattr(qe, "_broker_order_for", lambda t, i, b: None)
     row = {"leg": "NOISE", "trade_id": "x"}
 
     def hw(slp, dsg=0.0, unx=0.0):
         s = {"bt": 700.0, "wb": 700.0 - slp, "edge": dsg + slp + unx, "dsg": dsg, "slp": slp, "unx": unx}
         return qe._fill_verdict(row, "OPEN", s, None, {}, _ctx({}))["hatch_worse"]
-    assert hw(-0.26) is True            # 26c worse: hatches
-    assert hw(-0.25) is False           # exactly 25c: never
-    assert hw(-0.20) is False           # 20c worse: inside the band of tolerance, never
-    assert hw(+0.64) is False           # a better fill never hatches
+    # the usual 8 s send: a ~41.5c band binds
+    assert hw(-0.26) is False           # 26c worse but inside the band: never
+    assert hw(-0.41) is False
+    assert hw(-0.42) is True            # outside the band and over 25c: hatches
+    assert hw(-0.64) is True            # 11-19 12:05
+    assert hw(+0.64) is False           # a better fill never hatches, even outside the band
     assert hw(-0.10, dsg=-0.50) is False   # design part taken out: 10c slippage only
     assert hw(-0.10, unx=-0.20) is None    # a fill that does not fit the tape is off tape: never judged
     # no slippage split: the side's whole edge decides
-    s = {"bt": 700.0, "wb": 700.3, "edge": -0.30}
+    s = {"bt": 700.0, "wb": 700.5, "edge": -0.50}
     assert qe._fill_verdict(row, "OPEN", s, None, {}, _ctx({}))["hatch_worse"] is True
     # not compared: no verdict
     assert qe._fill_verdict(row, "OPEN", {"bt": 700.0, "wb": None}, None, {}, _ctx({}))["hatch_worse"] is None
+    # a sub-1 s send narrows the band to ~20c: the 25c floor binds
+    monkeypatch.setattr(qe, "parity_band_ps", lambda after=None: 0.20)
+    assert hw(-0.24) is False           # outside the 20c band, only 24c worse: never
+    assert hw(-0.25) is False           # exactly 25c: never
+    assert hw(-0.26) is True
 
 
 def test_trade_hatch_verdict_publishes_fill_parity_hatch():
@@ -262,7 +270,7 @@ def test_trade_hatch_verdict_publishes_fill_parity_hatch():
                 "hatch_worse": hw, "off_tape": off, "orb_breakout_gap_design": orb}
     top = qe._trade_hatch_verdict(side(True), side(False))["top"]
     assert top["fill_parity_hatch"] is True
-    # 11-19 12:05: 64c worse, outside its 42.6c band - still hatches under the 25c rule
+    # both sides judged and neither hatches
     assert qe._trade_hatch_verdict(side(False), side(False))["top"]["fill_parity_hatch"] is False
     assert qe._trade_hatch_verdict(side(None), side(None))["top"]["fill_parity_hatch"] is None
     # an off-tape or ORB-design side never hatches, even if a stale field says so

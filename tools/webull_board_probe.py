@@ -5814,17 +5814,20 @@ def expected_cal(trades, cutoff=None):
     return days
 
 
-FILL_HATCH_WORSE_PS = 0.25   # owner 11-21: the page's FILL_HATCH_WORSE_PS / the box's api.qqq_exec.FILL_HATCH_WORSE_PS
+FILL_HATCH_WORSE_PS = 0.25   # owner 11-21 (AND rule: outside the band AND over 25c worse): the page's FILL_HATCH_WORSE_PS / the box's api.qqq_exec.FILL_HATCH_WORSE_PS
 
 
 def _fill_side_hatch(x):
-    """The page's ledgerFillSideHatch: one packed fp side more than 25c worse (design out) -> True, judged and not -> False,
-    not judgeable (no fill, suspect, outside its minute, ORB breakout design) -> None."""
+    """The page's ledgerFillSideHatch (AND rule, 11-21): one packed fp side outside its band (pok 0) AND more than 25c worse
+    (design out) -> True, judged and not -> False, not judgeable (no fill, suspect, outside its minute, ORB breakout design,
+    no band verdict) -> None."""
     if not isinstance(x, str):
         return None
     q = x.split('|')
-    if len(q) < 10 or q[2] != 'o' or (len(q) > 10 and q[10] == '1') or (len(q) > 11 and q[11] == '1'):
+    if len(q) < 10 or q[2] != 'o' or (len(q) > 10 and q[10] == '1') or (len(q) > 11 and q[11] == '1') or q[9] not in ('0', '1'):
         return None
+    if q[9] == '1':
+        return False
     slp, unx, edge = _fin(q[5]) if q[5] != '' else None, _fin(q[6]) if q[6] != '' else None, _fin(q[3]) if q[3] != '' else None
     g = (slp + (unx or 0.0)) if slp is not None else edge
     if g is None:

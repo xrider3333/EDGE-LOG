@@ -1,5 +1,6 @@
-"""FILL HATCH THRESHOLD (owner 11-21, MANAGER ruling): a Webull fill hatches its WEBULL PAPER calendar / chart day only
-when it is MORE than 25c a share worse than the backtest price (design gap taken out). Three copies of that rule must
+"""FILL HATCH THRESHOLD (owner 11-21, MANAGER ruling - the AND rule): a Webull fill hatches its WEBULL PAPER calendar /
+chart day only when it is BOTH outside its delay-scaled parity band (pok 0) AND MORE than 25c a share worse than the
+backtest price (design gap taken out). Three copies of that rule must
 agree: the page (index.html FILL_HATCH_WORSE_PS + ledgerFillSideHatch, used by the calendar AND the chart through
 qbFillHatch), the box (api/qqq_exec.py FILL_HATCH_WORSE_PS, published as fill_parity_hatch) and the render probe's
 python twin (tools/webull_board_probe.py). The page's own function is run in headless Chrome on real packed fp sides.
@@ -27,13 +28,16 @@ CASES = [
     ('674.92|674.24|o|-0.68|0|-0.68|0||0.4144|0|0|0', True),       # 11-05 NOISE entry 68c worse
     ('676.96|676.42|o|-0.54|0|-0.54|0||0.4165|0|0|0', True),       # 11-13 NOISE entry 54c worse
     ('679.2|678.73|o|0.47|0|0.47|0||0.4254|0|0|0', False),         # 11-13 47c BETTER: never
-    ('700|700.26|o|-0.26|0|-0.26|0||0.4151|1|0|0', True),          # 26c worse, inside the old band: hatches now
+    ('700|700.26|o|-0.26|0|-0.26|0||0.4151|1|0|0', False),         # 26c worse but inside its 41.5c band: never (11-16 style)
+    ('700|700.26|o|-0.26|0|-0.26|0||0.2|0|0|0', True),             # 26c worse, outside a narrow 20c band (sub-1 s send): hatches
+    ('700|700.24|o|-0.24|0|-0.24|0||0.2|0|0|0', False),            # outside a 20c band but only 24c worse: the 25c floor binds
     ('700|700.25|o|-0.25|0|-0.25|0||0.4151|1|0|0', False),         # exactly 25c: never
     ('647.05|648.06|o|-1.01|-0.78|-0.23|0|eod|0.4151|1|0|0', False),  # 101c worse but 78c of it design: 23c slippage
     ('691.95|691.45|s|-0.5|0|0|-0.5|suspect|0.4151||1|0', None),   # 11-04 off tape: never judged
     ('671.1|669.8|o|-1.3|0|-1.3|0||1.7949|1|0|1', None),           # ORB breakout-level design: never judged
     ('678.57||n|||||nofill||||0', None),                           # no fill
-    ('700|700.3|o|-0.3|||||0.4151|1|0|0', True),                              # no slippage split: the whole edge decides
+    ('700|700.5|o|-0.5|0|-0.5|0||||0|0', None),                    # no band verdict: not judged
+    ('700|700.5|o|-0.5|||||0.4151|0|0|0', True),                              # no slippage split: the whole edge decides
 ]
 
 
@@ -67,10 +71,12 @@ def test_box_matches_cases():
         q = side.split('|')
         if q[2] != 'o' or q[10] == '1' or q[11] == '1':
             continue
+        if q[9] not in ('0', '1'):
+            continue
         n = lambda v: None if v == '' else float(v)  # noqa: E731
         s = {'edge': n(q[3]), 'dsg': n(q[4]), 'slp': n(q[5]), 'unx': n(q[6])}
         hg = qe._side_hatch_gap_ps(s)
-        assert (hg < -qe.FILL_HATCH_WORSE_PS - 1e-9) is want, side
+        assert (q[9] == '0' and hg < -qe.FILL_HATCH_WORSE_PS - 1e-9) is want, side
 
 
 def test_page_function_matches_cases_in_chrome():
