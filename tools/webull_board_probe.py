@@ -7010,9 +7010,10 @@ def tl_has_nt(trades):
 
 def tl_heads(has_nt):
     """The table's header row: the common columns (this board's labels), then its own."""
-    # owner 11-20: left to right as the trade happened, checks after P&L, notes last; each NT column only when a shown row carries it
+    # owner 11-20 (board 111): entry time, entry price, exit time, exit price first, then what and the result, checks after P&L,
+    # notes last; each NT column only when a shown row carries it
     nt = has_nt if isinstance(has_nt, dict) else {k: bool(has_nt) for k in ('nt_points', 'expected_usd', 'track_err_usd')}
-    return (['ENTRY (ET)', 'STRATEGY', 'SIDE', 'SHARES', 'ENTRY $', 'EXIT (ET)', 'EXIT $', 'PTS', 'P&L', 'DAY', 'REAL P&L', 'RUNNING']
+    return (['ENTRY (ET)', 'ENTRY $', 'EXIT (ET)', 'EXIT $', 'STRATEGY', 'SIDE', 'SHARES', 'PTS', 'P&L', 'DAY', 'REAL P&L', 'RUNNING']
             + (['EXPECTED $'] if nt['expected_usd'] else []) + (['TRACK ERR'] if nt['track_err_usd'] else [])
             + (['NT POINTS'] if nt['nt_points'] else []) + ['SLIP/SH', 'EXIT / FLAGS', 'CHART'])
 

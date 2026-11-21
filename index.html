@@ -1645,6 +1645,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    out in that order as the window narrows. A column comes back only once the box has room for it (a scrollbar can take 15 px): hm-s3 above
    1010 px, hm-s2 above 900 px, hm-s1 above 700 px - the breakpoints used to sit 30 to 45 px too low and the box scrolled inside itself there. */
 .hm-dtable.hm-simple{min-width:0}
+/* FULL under 1100 px (owner board 111, 11-20: wide blank gaps between DATE, OUT, DUR, SYM, DIR): sized to its content with tight cells and
+   scrolling inside its own box - no 1400 px floor stretching every column. 1100 px and up keep the rule below. */
+@media (max-width:1100px){.hm-dtable:not(.hm-simple){width:max-content;min-width:0}.hm-dtable:not(.hm-simple) th,.hm-dtable:not(.hm-simple) td{padding-left:5px;padding-right:5px}.hm-dtable:not(.hm-simple) th{letter-spacing:.5px}}
 @media (min-width:1100px){.hm-dtable:not(.hm-simple){width:auto;max-width:100%;min-width:0}}
 /* FULL view fits the page width on a laptop or wider (owner 11-16: no sideways scroll, smaller font is fine) */
 @media (min-width:1100px){.hm-dtable:not(.hm-simple){min-width:0;font-size:10px}.hm-dtable:not(.hm-simple) th{padding:7px 4px;font-size:9px;letter-spacing:.5px}.hm-dtable:not(.hm-simple) td{padding:6px 4px}.hm-dtable:not(.hm-simple) td.hm-notes-cell{max-width:110px;overflow:hidden;text-overflow:ellipsis}.hm-dtable:not(.hm-simple) td.hm-notes-cell input{width:100px}.hm-dtable:not(.hm-simple) input[data-field="chartUrl"]{width:36px;max-width:36px}.hm-dtable:not(.hm-simple) th{letter-spacing:0}.hm-dtable:not(.hm-simple) th,.hm-dtable:not(.hm-simple) td{padding-left:3px !important;padding-right:3px !important}.hm-dtable:not(.hm-simple) .lg-d-full{display:none}.hm-dtable:not(.hm-simple) .lg-d-short{display:inline}.hm-dtable:not(.hm-simple) td.hm-notes-cell input{width:84px !important;max-width:84px}.hm-dtable:not(.hm-simple) td.lg-c-chart input{width:30px !important;max-width:30px}.hm-dtable:not(.hm-simple) td.lg-c-strat{max-width:52px;overflow:hidden;text-overflow:ellipsis}.hm-dtable:not(.hm-simple) .inline-sel,.hm-dtable:not(.hm-simple) .inline-txt{font-size:10px;max-width:120px}}
@@ -1833,7 +1836,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.52';
+const VERSION='91.53';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1854,6 +1857,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.53',date:'2026-11-20',notes:['NT8 PAPER and WEBULL PAPER tables: each row reads entry time, entry price, exit time, exit price, then strategy, side, size and the result (NT8 PAPER has its own ENTRY $ / EXIT (ET) / EXIT $ columns now)','LEDGER REAL TABLE FULL under 1100 px: tight cells sized to content, no 1400 px floor spreading the columns apart']},
 {v:'91.52',date:'2026-11-20',notes:['WEBULL PAPER: an off-tape fill never hatches the calendar or chart and never counts as a failed parity check; its hover says the P&L uses the minute close','WEBULL PAPER: FILLS BEHIND BACKTEST names the strategy and its average (e.g. NOISE #382 (-7c avg)), or says board; a better-than-backtest average never shows it']},
 {v:'91.49',date:'2026-11-20',notes:['WEBULL PAPER BOOK card: each live leg shows its book-table estimate a year','BOOKS card: estimate label, was $X/yr, max DD without 2020, ROC, Sortino, 2016-20 vs 2021-25 $/yr, and each leg status']},
 {v:'91.48',date:'2026-11-20',notes:['LEDGER REAL TABLE FULL: fits the laptop width again with no sideways scroll, still sized to content']},
@@ -46974,7 +46978,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(qbTlClear?'<span class="qbx-tl-clear" data-qbclear role="button" tabindex="0" title="clear the search and the chip">&#10005; clear</span>':'')
             +'<button type="button" class="qb-hero-refresh qbx-csv" data-qeexportcsv title="Export the '+matchedN+' trade'+(matchedN===1?'':'s')+' in this list as a CSV file">&#11015; CSV</button>',
           labels:{time:'ENTRY (ET)',sym:'STRATEGY',size:'SHARES',pnl:'P&amp;L',pts:'PTS',strat:'EXIT / FLAGS'},
-          order:['time','sym','side','size','epx','out','xpx','pts','pnl','real','run','exp','trk','ntp','slip','strat','chart']});
+          // owner board 111 (11-20): entry time, entry price, exit time, exit price first - the order the trade happened - then what and the result
+          order:['time','epx','out','xpx','sym','side','size','pts','pnl','real','run','exp','trk','ntp','slip','strat','chart']});
         // owner 10-31 15:30: the open positions sit at the TOP of the trade list as a small OPEN group (one row a leg or DIP lot: entry time,
         // strategy and run, side, shares, the unrealized mark), then the closed trades newest first as before. Read from the same positions
         // the headline and the strategy rows use (the live leg's mark when it has one, else the book's own); counted nowhere, no panel.
@@ -49353,7 +49358,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             time:(r,v)=>{
               const op=r._open?'<b class="p2tl-open">OPEN</b> ':'';
               return v==='table'
-                ?'<span class="p2tlt">'+tick(r)+'<span>'+X(md(r._en.slice(0,10)))+' '+X(r._en.slice(11,16)||'--')+'<span class="p2tl-to"> → '+op+X(exTxt(r))+'</span></span></span>'
+                ?'<span class="p2tlt">'+tick(r)+'<span>'+X(md(r._en.slice(0,10)))+' '+X(r._en.slice(11,16)||'--')+'</span></span>'
                 :'<span class="p2tlt">'+tick(r)+'<span class="p2tlt-tx">'+X(r._en.slice(11,16)||'--')+'<small>→ '+op+X(exTxt(r))+'</small></span></span>';
             },
             sym:r=>{
@@ -49382,7 +49387,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               case 'side':return sortTh(label,cls,'side',false);
               case 'pnl':return sortTh(label,cls+' num','usd',false);
               case 'pts':return sortTh(label,cls+' num','pts',false);
-              case 'px':return sortTh(label,cls,'entrypx',false);
+              case 'epx':return sortTh(label,cls+' num','entrypx',false);
+              case 'xt':return sortTh(label,cls,'exit',false);
+              case 'xpx':return sortTh(label,cls+' num','exitpx',false);
             }
             return null;
           };
@@ -49390,7 +49397,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const dltOf=r=>{const x=mt(r);return (x&&x.pnl_diff_usd!=null)?+x.pnl_diff_usd:null;};
           const dash='<span class="lg-flat">—</span>';
           const cols=[
-            {k:'px',label:'ENTRY → EXIT PRICE',attr:()=>'title="entry price → exit price"',td:r=>(r.entry_px!=null?(+r.entry_px).toFixed(2):'—')+' → '+(r.exit_px!=null?(+r.exit_px).toFixed(2):'—')},
+            // owner board 111 (11-20): a row reads as the trade happened - entry time, entry price, exit time, exit price - then the rest
+            {k:'epx',label:'ENTRY $',cls:'num',attr:()=>'title="entry price"',td:r=>r.entry_px!=null?(+r.entry_px).toFixed(2):'—'},
+            {k:'xt',label:'EXIT (ET)',attr:()=>'title="exit date and time, New York time"',td:r=>(r._open?'<b class="p2tl-open">OPEN</b> ':'')+(r._ex?X(md(r._ex.slice(0,10))+' '+r._ex.slice(11,16)):'—')},
+            {k:'xpx',label:'EXIT $',cls:'num',attr:()=>'title="exit price"',td:r=>r.exit_px!=null?(+r.exit_px).toFixed(2):'—'},
             {k:'hold',label:'HOLD',cls:'num',attr:()=>'title="time in the trade, entry to exit"',td:r=>X(durStr(r))},
             {k:'slip',label:'SLIP',cls:'num',attr:()=>'title="entry slippage in points vs the engine, signed AGAINST us: positive = the live fill was worse. Matched NinjaTrader trades only"',
               td:r=>{const s=slipOf(r);return s==null?dash:'<span class="'+(s>0?'lg-down':(s<0?'lg-up':'lg-flat'))+'">'+(s>0?'+':'')+s.toFixed(2)+'</span>';}},
@@ -49430,10 +49440,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             chips:m.fams.map(f=>({k:'fam:'+f,label:f})),pnl:r=>r.pnl,net:r=>r._unc?0:r.pnl,
             placeholder:'Search strategy, day, side...',countExtra:cx.length?'<span class="p2tl-cx">'+cx.join(' · ')+'</span>':'',
             slot:slot,afterBar:openBlock+note,empty:empty,cells:cells,hide:['strat'],
-            labels:{time:'ENTRY → EXIT (ET)',sym:'STRATEGY',pnl:'NET $'},
-            attr:{time:()=>'title="entry date and time → exit date and time, New York time. The day header is the day the trade CLOSED"'},
+            labels:{time:'ENTRY (ET)',sym:'STRATEGY',pnl:'NET $'},
+            attr:{time:()=>'title="entry date and time, New York time (the exit is in EXIT). The day header is the day the trade CLOSED"'},
             rowAttr:rowAttr,rowSlot:eng,dayHeaders:m.dayOn,dayCol:true,dayAsc:m.dayAsc,th:th,cols:cols,
-            order:['time','sym','side','size','px','hold','pts','pnl','cum','dlt','slip','eng','chart']});
+            order:['time','epx','xt','xpx','sym','side','size','hold','pts','pnl','cum','dlt','slip','eng','chart']});
         };
         // ticks: repaint in place (no redraw), so a keyboard user keeps the focus and the page keeps its scroll
         const paint=root=>{
