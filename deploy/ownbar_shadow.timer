@@ -1,0 +1,10 @@
+# NOT INSTALLED. Weekdays 09:29 ET (box clock may be UTC: the timezone is explicit).
+[Unit]
+Description=Daily own-bar shadow study, weekdays 09:29 ET
+
+[Timer]
+OnCalendar=Mon..Fri *-*-* 09:29:00 America/New_York
+Persistent=false
+
+[Install]
+WantedBy=timers.target

@@ -1,0 +1,13 @@
+# NOT INSTALLED. Log-only own-bar shadow study (tools/ownbar_shadow.py). Reviewer installs.
+[Unit]
+Description=EDGE-LOG own-bar shadow study (log-only, no orders)
+After=network-online.target
+
+[Service]
+Type=oneshot
+User=ubuntu
+Environment=EDGELOG_HOME=/home/ubuntu/edgelog
+WorkingDirectory=/home/ubuntu/edgelog/EDGE-LOG
+ExecStart=/home/ubuntu/edgelog/venv/bin/python /home/ubuntu/edgelog/EDGE-LOG/tools/ownbar_shadow.py
+TimeoutStartSec=7h
+Nice=10
