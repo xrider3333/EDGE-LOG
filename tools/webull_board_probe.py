@@ -4041,6 +4041,39 @@ __S11JS__
             if(shs.length){var pick=null;for(var si=0;si<shs.length;si++){shs[si].click();await new Promise(function(r){setTimeout(r,300);});if(shl().length){pick=1;break;}}
               var r2=rd();out.tog.shNet=r2.net;out.tog.shLines=shl().length;var wi=D().querySelector('[data-qbshwhatif]');out.tog.shWhatIf=wi?wi.textContent.trim():null;
               try{out.tog.shStored=W().localStorage.getItem('el_qb_sh_on');}catch(e){}}
+            // BOOK AS-IF (v91.71): the shared book panel on WEBULL PAPER - book-type headers (stock first here), open by default, a replay shadow
+            // switch draws a dashed line + the what-if total and never moves the headline; the switch is remembered (el_bka_on_qb)
+            try{var bw=W(),bd=D(),BK={};var LSb=bw.localStorage,dly0=LSb.getItem('el_lg_daily_qb');
+              var cp=(bw._qbLgChart&&bw._qbLgChart.pts)||[],cds=cp.map(function(p){return p.date;}).filter(Boolean);var dA=cds[0]||'2026-10-01',dB=cds[cds.length-1]||dA;
+              bw._bookLegs={books:{'463':{row:'Book #463 today',legs:[{id:'ORB314',name:'ORB314',run:'#314',instrument:'NQ'},{id:'NOISE422',name:'NOISE422',run:'#422',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'}]},
+                'stk':{row:'stocks only',legs:[{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'},{id:'OPUS86a',name:'last-10-minutes',run:'#526',instrument:'stock basket'}]},
+                '30':{row:'30',legs:[{id:'ORB314',name:'ORB314',run:'#314',instrument:'NQ'},{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'}]}}};
+              bw._bookAsif={generated_at:'2026-11-21T21:10:00Z',data_end:dB,legs:{
+                OPUS55a:{name:'midday + late NQ',kind:'futures',src:'replay',d:[dA,dB],p:[1000,-250],n:[1,1],data_end:dB,params_run:524},
+                PICK6:{name:'PICK6 stocks',kind:'stock',src:'replay',d:[dA],p:[300],n:[1],data_end:dB,params_run:511},
+                OPUS86a:{name:'last-10-minutes',kind:'stock',src:'replay',d:[dB],p:[-40],n:[1],data_end:dB,params_run:526}}};
+              bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');LSb.removeItem('el_bka_panel_qb');
+              bw.renderApp();await new Promise(function(r){setTimeout(r,300);});
+              var bs=function(){var d=D(),pn=d.querySelector('[data-bka="qb"]'),c=W()._qbLgChart||{lines:[]},o=rd();
+                o.panel=!!pn;o.vis=pn?(pn.offsetHeight>0):false;
+                o.types=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkatypehd]'),function(e){return e.getAttribute('data-bkatypehd');});
+                o.legs=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkaleg]'),function(e){var sw=e.querySelector('.lg-sw');return e.getAttribute('data-bkaleg')+'/'+e.getAttribute('data-bkamode')+(sw?('/'+(sw.getAttribute('data-lgsw')?'lgsw':'bkasw')+'='+sw.getAttribute('aria-checked')):'');});
+                o.sh=(c.lines||[]).filter(function(l){return l.shadow&&l.bka;}).map(function(l){return [l.bka,l.dash];});
+                o.wi=(c.lines||[]).filter(function(l){return l.whatif;}).map(function(l){return l.vals[l.vals.length-1];});
+                o.tot=(c.pts&&c.pts.length)?c.pts[c.pts.length-1].v:null;
+                var hw=d.querySelector('[data-qbbkawhatif]');o.heroWhatif=hw?parseFloat(hw.getAttribute('data-qbbkawhatif')):null;
+                o.svgDash=!!(d.querySelector('#qb-lg-chart svg path[stroke-dasharray="7 3 1.5 3"]'));
+                return o;};
+              BK.s0=bs();
+              if(!D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]')){var bf=D().querySelector('[data-bka="qb"] [data-bkafold="463"]');if(bf){bf.click();await new Promise(function(r){setTimeout(r,300);});}}
+              var bsw=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');
+              if(bsw){bsw.click();await new Promise(function(r){setTimeout(r,300);});BK.s1=bs();BK.stored=LSb.getItem('el_bka_on_qb');BK.daily=LSb.getItem('el_lg_daily_qb');
+                var bsw2=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');if(bsw2){bsw2.click();await new Promise(function(r){setTimeout(r,300);});}BK.s2=bs();}
+              bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');
+              if(dly0==null)LSb.removeItem('el_lg_daily_qb');else LSb.setItem('el_lg_daily_qb',dly0);
+              delete bw._bookLegs;delete bw._bookAsif;bw.renderApp();
+              out.tog.bka=BK;
+            }catch(e){out.tog.bka={threw:String(e&&e.stack?e.stack:e)};}
           }}catch(e){out.tog={threw:String(e&&e.stack?e.stack:e)};}
         try{await interact();}catch(e){out.inter={threw:String(e&&e.stack?e.stack:e)};}
         // LEDGER step 11: the own folds, the list's phone fold, storage that throws, every fold open at six widths
@@ -9009,6 +9042,38 @@ def _judge(data, fixture):
                 fails.append('shadow switch run: the shadow choice is not remembered (el_qb_sh_on = %r)' % tg.get('shStored'))
         else:
             fails.append('shadow switch run: the variant draws no shadow switch at all')
+        # BOOK AS-IF (v91.71): the shared book panel - book-type headers, visible by default, a replay shadow switch adds a dashed line + the
+        # what-if total, the headline never moves, the choice is remembered
+        bka = tg.get('bka') or {}
+        if bka.get('threw') or not bka.get('s0'):
+            fails.append('book as-if run: did not run -- %s' % _first(bka.get('threw') or 'no readout'))
+        else:
+            b0, b1, b2 = bka.get('s0') or {}, bka.get('s1') or {}, bka.get('s2') or {}
+            if not b0.get('panel') or not b0.get('vis'):
+                fails.append('book as-if run: the Books as-if panel is not visible by default (panel %r, visible %r)' % (b0.get('panel'), b0.get('vis')))
+            if b0.get('types') != ['stock', 'mixed', 'futures']:
+                fails.append('book as-if run: book-type headers %r, want stock, futures + stock, futures' % (b0.get('types'),))
+            if not any(x.startswith('ORB314/live/lgsw=') for x in (b0.get('legs') or [])):
+                fails.append('book as-if run: ORB314 (on the box) is not a LIVE row on the strategy switch: %r' % (b0.get('legs'),))
+            if b0.get('sh') or b0.get('heroWhatif') is not None:
+                fails.append('book as-if run: a book leg is drawn as-if before any switch was flipped (%r)' % (b0.get('sh'),))
+            if not b1:
+                fails.append('book as-if run: no OPUS55a shadow switch in book 463: %r' % (b0.get('legs'),))
+            else:
+                if ['OPUS55a', '7 3 1.5 3'] not in (b1.get('sh') or []) or not b1.get('svgDash'):
+                    fails.append('book as-if run: switching OPUS55a on drew no dashed line (%r, svg dash %r)' % (b1.get('sh'), b1.get('svgDash')))
+                _base = (b0.get('wi') or [b0.get('tot')])[0]
+                if len(b1.get('wi') or []) != 1 or _base is None or round(b1['wi'][0] - _base, 2) not in (750.0, 1000.0):
+                    fails.append('book as-if run: the what-if total line is missing or does not carry the switched-on leg (%r, base %r)' % (b1.get('wi'), _base))
+                if b1.get('net') != b0.get('net') or b1.get('tot') != b0.get('tot'):
+                    fails.append('book as-if run: a shadow switch moved the headline or the solid total (%r -> %r, %r -> %r)'
+                                 % (b0.get('net'), b1.get('net'), b0.get('tot'), b1.get('tot')))
+                if b1.get('heroWhatif') is None:
+                    fails.append('book as-if run: no what-if incl. book as-if figure under the headline')
+                if 'OPUS55a' not in (bka.get('stored') or '') or bka.get('daily') != '0':
+                    fails.append('book as-if run: the switch is not remembered or the chart did not move to CURVE (%r, %r)' % (bka.get('stored'), bka.get('daily')))
+                if b2.get('sh') or (b2.get('wi') or None) != (b0.get('wi') or None):
+                    fails.append('book as-if run: switching OPUS55a off did not put the chart back (%r, what-if %r -> %r)' % (b2.get('sh'), b0.get('wi'), b2.get('wi')))
         if tg.get('stored') != '["ORB"]':
             fails.append('strategy switch run: the choice is not remembered for this viewer (el_qb_legs_off = %r, want ["ORB"])' % tg.get('stored'))
     isc = data.get('iscroll')

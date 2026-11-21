@@ -1724,6 +1724,45 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               I.calFold={closed:d.querySelector('[data-lgcalfold="p2"]').getAttribute('aria-expanded'),hidden:(d.getElementById('p2-cal')||{}).hidden,stored:localStorage.getItem('el_lg_cal_nt8b')};
               _click('[data-lgcalfold="p2"]');I.calFold.reopen=d.querySelector('[data-lgcalfold="p2"]').getAttribute('aria-expanded');
             }
+            // BOOK AS-IF (v91.71): the shared book panel on NT8 PAPER - grouped by book type, a LIVE leg on the board's own switch, a SHADOW
+            // switch adds a dashed line + the what-if total to the chart and never moves the account figures; one click = a whole book as-if
+            try{
+              var BK={},LS0=localStorage,dly0=LS0.getItem('el_lg_daily_p2');
+              var sd=(w._p2Scrub&&w._p2Scrub.dates)||[];var dA=sd[0]||'2026-08-12',dB=sd[sd.length-1]||dA;
+              w._bookLegs={books:{'463':{row:'Book #463 today',legs:[{id:'ENGUQ335',name:'ENGU-Q',run:'#335',instrument:'NQ',size:'1 NQ'},{id:'NOISE422',name:'NOISE422',run:'#422',instrument:'NQ'},{id:'ORB234',name:'ORB234',run:'#234',instrument:'NQ'},{id:'TTMx3',name:'TTM x3',run:'#369 seat',instrument:'ES'}]},
+                '30':{row:'30',legs:[{id:'ORB234',name:'ORB234',run:'#234',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'},{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'},{id:'GLDNIGHT',name:'gold overnight',run:'#541',instrument:'other (GLD ETF)'}]}}};
+              w._bookAsif={generated_at:'2026-11-21T21:10:00Z',data_end:dB,legs:{
+                OPUS55a:{name:'midday + late NQ',kind:'futures',src:'replay',d:[dA,dB],p:[1000,-250],n:[1,1],data_end:dB,params_run:524,strategy:'MISC_SMALLLEGS_1_0.py'},
+                PICK6:{name:'PICK6 stocks',kind:'stock',src:'replay',d:[dA],p:[300],n:[1],data_end:dB,params_run:511},
+                GLDNIGHT:{name:'gold overnight',kind:'stock',src:'replay',reason:'no GLD 5m RTH master in the registry'}}};
+              w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');LS0.removeItem('el_bka_panel_nt8');
+              w.renderApp();
+              var _pc=function(){var pc=w._p2Chart||{lines:[]};return {n:(pc.lines||[]).length,
+                sh:(pc.lines||[]).filter(function(l){return l.shadow&&!l.whatif;}).map(function(l){return [l.bka||l.name,l.dash];}),
+                wi:(pc.lines||[]).filter(function(l){return l.whatif;}).map(function(l){return l.vals[l.vals.length-1];}),
+                tot:(pc.pts&&pc.pts.length)?pc.pts[pc.pts.length-1].v:null};};
+              var _bs=function(){var s=_snap();s.big=_t(d.getElementById('p2-hero-value'));s.chart=_pc();
+                s.types=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkatypehd]'),function(e){return e.getAttribute('data-bkatypehd')+':'+_t(e);});
+                s.books=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkabook]'),function(e){return e.getAttribute('data-bkabook')+(e.classList.contains('open')?'*':'');});
+                s.legs=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg]'),function(e){var sw=e.querySelector('.lg-sw');return e.getAttribute('data-bkaleg')+'/'+e.getAttribute('data-bkamode')+(sw?('/'+(sw.getAttribute('data-lgsw')?'lgsw':'bkasw')+'='+sw.getAttribute('aria-checked')):'');});
+                s.nodata=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkanodata]'),function(e){return e.getAttribute('data-bkanodata')+':'+_t(e);});
+                var wi=d.querySelector('[data-bkawhatif="nt8"]');s.whatif=wi?parseFloat(wi.getAttribute('data-bkawhatifv')):null;
+                s.inRail=!!d.querySelector('.p2rail [data-bka="nt8"]');return s;};
+              BK.s0=_bs();
+              // open the second book, switch its shadow leg on
+              if(_click('[data-bka="nt8"] [data-bkafold="30"]')){BK.s1=_bs();
+                if(_click('[data-bka="nt8"] [data-bkasw="OPUS55a"]')){BK.s2=_bs();BK.daily=LS0.getItem('el_lg_daily_p2');BK.stored=LS0.getItem('el_bka_on_nt8');}
+                // a LIVE leg's switch inside the panel = the board's own strategy switch
+                if(_click('[data-bka="nt8"] [data-lgsw="ORB"]')){BK.s3=_bs();_click('[data-bka="nt8"] [data-lgsw="ORB"]');}
+                _click('[data-bka="nt8"] [data-bkasw="OPUS55a"]');BK.s4=_bs();
+                // one click: the whole book as-if (its replay shadow legs on), and again: off
+                if(_click('[data-bka="nt8"] [data-bkaall="30"]')){BK.s5=_bs();_click('[data-bka="nt8"] [data-bkaall="30"]');BK.s6=_bs();}
+              }
+              w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');
+              if(dly0==null)LS0.removeItem('el_lg_daily_p2');else LS0.setItem('el_lg_daily_p2',dly0);
+              delete w._bookLegs;delete w._bookAsif;w.renderApp();
+              I.bka=BK;
+            }catch(e){I.bka={err:String(e&&e.stack?e.stack:e)};}
             r.int=I;
           }catch(e){r.int={err:String(e&&e.stack?e.stack:e)};}
         }
@@ -2107,6 +2146,56 @@ def run(alt_index=None, timeout=300):
             fails.append('%s: no NOISE_422 row on the board' % nm)
         if not any(l.startswith('NOISE #422') for l in (r.get('tradeLegs') or {})):
             fails.append('%s: the NOISE #422 trade did not reach the trades table' % nm)
+    # BOOK AS-IF (v91.71) on NT8 PAPER: book-type headers, LIVE vs SHADOW rows, a shadow switch adds a dashed line + the what-if total,
+    # the account figures never move, one click = a whole book as-if (paper2 case, fixture book table + as-if doc seeded by the probe)
+    _bka = ((cases.get('paper2') or {}).get('int') or {}).get('bka') or {}
+    _bka_ok = []
+    if _bka.get('err') or not _bka.get('s0'):
+        fails.append('paper2 book as-if: the panel case did not run: %s' % (_bka.get('err') or 'no readout'))
+    else:
+        s0, s1, s2 = _bka.get('s0') or {}, _bka.get('s1') or {}, _bka.get('s2') or {}
+        tys = [t.split(':')[0] for t in (s0.get('types') or [])]
+        if tys[:2] != ['futures', 'mixed']:
+            fails.append('paper2 book as-if: book-type headers %r, want futures books then futures + stock books' % (s0.get('types'),))
+        if not s0.get('inRail'):
+            fails.append('paper2 book as-if: the panel is not in the strategy sidebar (.p2rail)')
+        if not any(x.startswith('ORB234/live/lgsw=true') for x in (s0.get('legs') or [])):
+            fails.append('paper2 book as-if: ORB234 is not a LIVE row on the strategy switch: %r' % (s0.get('legs'),))
+        lg1 = s1.get('legs') or []
+        if 'OPUS55a/shadow/bkasw=false' not in lg1 or not any(x.startswith('PICK6/shadow/') for x in lg1):
+            fails.append('paper2 book as-if: book 30 opened without its SHADOW rows: %r' % (lg1,))
+        if not any(x.startswith('GLDNIGHT:') and 'no GLD' in x for x in (s1.get('nodata') or [])):
+            fails.append('paper2 book as-if: a leg with no series does not show its reason: %r' % (s1.get('nodata'),))
+        sh2 = s2.get('chart', {}).get('sh') or []
+        if ['OPUS55a', '7 3 1.5 3'] not in sh2:
+            fails.append('paper2 book as-if: switching OPUS55a on drew no dashed shadow line: %r' % (sh2,))
+        wi2 = s2.get('chart', {}).get('wi') or []
+        tot2 = s2.get('chart', {}).get('tot')
+        if len(wi2) != 1 or tot2 is None or round(wi2[0] - tot2, 2) not in (750.0, 1000.0):
+            fails.append('paper2 book as-if: the what-if total line is missing or wrong (what-if %r, total %r)' % (wi2, tot2))
+        for k in ('big', 'hero', 'tiles', 'bookNet', 'bookN', 'tradeRows'):
+            if s1.get(k) != s2.get(k):
+                fails.append('paper2 book as-if: a shadow switch moved the account figure %s (%r -> %r)' % (k, s1.get(k), s2.get(k)))
+        if s1.get('chart', {}).get('tot') != tot2:
+            fails.append('paper2 book as-if: a shadow switch moved the solid total line (%r -> %r)' % (s1.get('chart', {}).get('tot'), tot2))
+        if s2.get('whatif') is None:
+            fails.append('paper2 book as-if: no what-if total line in the panel with a shadow leg on')
+        if _bka.get('daily') != '0' or 'OPUS55a' not in (_bka.get('stored') or ''):
+            fails.append('paper2 book as-if: switching a shadow leg on did not move the chart to CURVE / was not remembered (%r, %r)'
+                         % (_bka.get('daily'), _bka.get('stored')))
+        s3 = _bka.get('s3') or {}
+        if s3 and (s3.get('hero') == s2.get('hero') or 'ORB234/live/lgsw=false' not in (s3.get('legs') or [])):
+            fails.append('paper2 book as-if: the LIVE ORB switch in the panel is not the strategy switch (hero %r -> %r)' % (s2.get('hero'), s3.get('hero')))
+        s4 = _bka.get('s4') or {}
+        if s4.get('chart', {}).get('sh') or s4.get('chart', {}).get('wi'):
+            fails.append('paper2 book as-if: switching OPUS55a off left lines on the chart: %r' % (s4.get('chart'),))
+        s5, s6 = _bka.get('s5') or {}, _bka.get('s6') or {}
+        ids5 = sorted(x[0] for x in (s5.get('chart', {}).get('sh') or []))
+        if ids5 != ['OPUS55a', 'PICK6']:
+            fails.append('paper2 book as-if: one click on book 30 as-if switched on %r, want its two replay shadow legs' % (ids5,))
+        if s6.get('chart', {}).get('sh'):
+            fails.append('paper2 book as-if: a second click on book 30 as-if left lines on: %r' % (s6.get('chart', {}).get('sh'),))
+        _bka_ok = [len(s0.get('types') or []), len(lg1), len(sh2)]
     # the capture-health line: one per instrument, low-delta day flagged in words (not colour alone)
     for nm in ('base', 'paper2'):
         r = cases.get(nm) or {}
@@ -3734,6 +3823,7 @@ def run(alt_index=None, timeout=300):
     say('PAPERPROBE step 12: %s' % s12_info)
     say('PAPERPROBE keeps G5-G8: %s' % keeps_info)
     say('PAPERPROBE NT8 board fix: %s' % nt8_info)
+    say('PAPERPROBE book as-if (v91.71): %d book-type headers, %d legs in book 30, a shadow switch drew %d dashed line(s) + the what-if total, account figures unchanged, one-click book as-if on / off' % tuple(_bka_ok or [0, 0, 0]))
     return PASS, out_lines
 
 
