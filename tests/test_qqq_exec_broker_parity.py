@@ -160,7 +160,8 @@ def test_suspect_fill_is_unexplained_flagged_and_left_out_of_pnl_of_record():
     assert en["fs"] == "suspect"
     assert en["unx"] == pytest.approx(739.3717 - 737.88)
     assert en["dsg"] == 0.0 and en["slp"] == 0.0
-    assert out["broker_parity_ok"] is False
+    assert out["broker_parity_ok"] is not False   # off tape (11-20): never a flag
+    assert out["fill_parity_off_tape"] is True and out["broker_parity_note"].startswith("OFF TAPE")
     assert "does not fit the tape" in out["broker_parity_note"]
     # P&L of record: the suspect entry is NOT used -- book entry + Webull exit
     assert out["pnl_record"] == pytest.approx(round((741.32 - 739.3817) * 10, 2))

@@ -14805,6 +14805,14 @@ def _fill_verdict(row, intent, s, eng, by_base, ctx):
             # close of the minute before the send) -- measure against the send minute's open
             out["orb_breakout_gap_design"] = True
             gap = (fill - minute[0]) if (minute is not None and fill is not None) else None
+        # OFF TAPE (MANAGER 11-20, owner: make the box immune to stale paper fills): a
+        # Webull fill outside its own send minute's high/low is a broker artefact (09-24,
+        # 11-04, 11-20). It is tagged off_tape, booked at the minute close by the reprice,
+        # left out of the slippage average, and never judged -- so it never flags the
+        # trade, never counts as a failed parity check, and never raises a red alert.
+        if out["outside_minute_range"] or _side_is_suspect(s):
+            out["off_tape"] = True
+            return out
         if gap is not None:
             out["parity_ok"] = bool(abs(gap) <= band + 1e-9)
     except Exception:
@@ -14846,7 +14854,8 @@ def _trade_hatch_verdict(en, ex):
     Publish only: never touches an order. Never raises."""
     res = {"ok": None, "band_c": None, "gap_c": None, "side": "",
            "top": {"fill_parity_band_c": None, "fill_parity_ok": None, "fill_parity_side": "",
-                   "fill_parity_outside_minute_range": None, "fill_parity_orb_design": False}}
+                   "fill_parity_outside_minute_range": None, "fill_parity_orb_design": False,
+                   "fill_parity_off_tape": False}}
     try:
         sides = [s for s in (en, ex) if isinstance(s, dict)]
         orb = any(bool(s.get("orb_breakout_gap_design")) for s in sides)
@@ -14857,6 +14866,7 @@ def _trade_hatch_verdict(en, ex):
                   and _finite_or_none(s.get("parity_band_c")) is not None]
         res["top"]["fill_parity_orb_design"] = orb
         res["top"]["fill_parity_outside_minute_range"] = (any(omr) if omr else None)
+        res["top"]["fill_parity_off_tape"] = any(bool(s.get("off_tape")) for s in sides)
         if not judged:
             return res
         bad = [s for s in judged if s.get("parity_ok") is False]
@@ -14969,6 +14979,10 @@ def _broker_trade_parity(row, by_base, engine_px=None, log=print, verdict_ctx=No
             note = ("FLAGGED, the resting order filled where the backtest did not exit -- "
                     if all(s.get("why") == "diverged" for s in odd) else
                     "FLAGGED, a Webull fill does not fit the tape -- ") + note
+        if hv["top"].get("fill_parity_off_tape"):
+            note = ("OFF TAPE, a Webull fill outside its own minute's high/low (a paper "
+                    "fill artefact): booked at the minute close, not judged, no flag -- "
+                    + note)
         out.update({"broker_parity_ok": (not flag) if hv["ok"] is not None else None,
                     "broker_parity_note": note,
                     "fp": {"st": st, "en": en, "ex": ex, "exec_ps": _r4(exe),
@@ -16692,7 +16706,7 @@ def _compact_published_trades(trades_all):
                 fp["en"] = _pack_side(fp.get("en"))
                 fp["ex"] = _pack_side(fp.get("ex"))
                 t["fp"] = fp
-            if t.get("broker_parity_ok") is True:
+            if t.get("broker_parity_ok") is True and not t.get("fill_parity_off_tape"):
                 t.pop("broker_parity_note", None)
             if t.get("pnl_record_note") == "":
                 t.pop("pnl_record_note", None)   # the tab only reads it off a non-Webull row

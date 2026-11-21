@@ -55,7 +55,8 @@ def test_fill_verdict_band_range_and_orb_design(monkeypatch):
     assert v["orb_breakout_gap_design"] is False
     # fill outside the minute's low/high and > band away
     v = qe._fill_verdict(row, "OPEN", {"bt": 732.33, "wb": 733.0}, None, {}, _ctx(bars))
-    assert v["outside_minute_range"] is True and v["parity_ok"] is False
+    # off tape (11-20): never judged, tagged instead
+    assert v["outside_minute_range"] is True and v["parity_ok"] is None and v["off_tape"] is True
     # breakout level != signal bar close: measured vs the send minute's open
     v = qe._fill_verdict(row, "OPEN", {"bt": 731.00, "wb": 732.35}, None, {}, _ctx(bars))
     assert v["orb_breakout_gap_design"] is True and v["parity_ok"] is True
@@ -212,3 +213,19 @@ def test_fill_parity_fields_never_touch_the_nt_parity_ok(monkeypatch):
     row = {"parity_ok": True}            # the NinjaTrader read on the same row
     row.update(out)
     assert row["parity_ok"] is True and row["fill_parity_ok"] is False
+
+
+def test_off_tape_fill_never_flags_or_fails(monkeypatch):
+    """MANAGER 11-20: an off-tape side (outside its minute, or suspect) is not judged:
+    the trade is not flagged and publishes fill_parity_off_tape."""
+    en = {"parity_ok": True, "parity_band_c": 0.05, "outside_minute_range": False,
+          "orb_breakout_gap_design": False, "slp": 0.0, "unx": 0.0}
+    ex = {"parity_ok": None, "parity_band_c": 0.05, "outside_minute_range": True,
+          "orb_breakout_gap_design": False, "off_tape": True, "slp": 0.0, "unx": 2.34}
+    hv = qe._trade_hatch_verdict(en, ex)
+    assert hv["ok"] is True and hv["top"]["fill_parity_off_tape"] is True
+    hv2 = qe._trade_hatch_verdict({}, ex)
+    assert hv2["ok"] is None and hv2["top"]["fill_parity_off_tape"] is True
+    s = {"bt": 609.46, "wb": 607.12, "fs": "suspect", "slp": 0.0, "unx": 2.34}
+    v = qe._fill_verdict({"leg": "ORB"}, "CLOSE", s, None, {}, {"bars": {}, "orders": []})
+    assert v["parity_ok"] is None and v["off_tape"] is True

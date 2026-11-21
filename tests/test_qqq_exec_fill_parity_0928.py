@@ -109,7 +109,7 @@ def test_enguq_0924_suspect_capture_is_marked_not_rewritten(book):
     by_id, _ = book
     r = by_id["ENGUQ_335-20260924T161700Z-L"]
     assert r["fp"]["en"]["fs"] == "suspect"
-    assert r["broker_parity_ok"] is False
+    assert r["broker_parity_ok"] is not False and r["fill_parity_off_tape"] is True   # off tape (11-20)
     assert r["pnl_record_src"] == "part"
     assert r["pnl_record"] == pytest.approx(round((741.32 - 739.3817) * 10, 2))
     # the backtest's own exit came four days later (the 09-28 10:42 stop): design gap
@@ -145,7 +145,7 @@ def test_board_summary_on_the_real_rows(book):
     noise = s["legs"]["NOISE"]
     assert noise["n"] == 7
     assert s["board_flag"] is False
-    assert s["failed"] == 1              # 09-24 suspect (09-25's 32c is inside the band, 11-20)
+    assert s["failed"] == 0              # 09-24 suspect is off tape, never a failure (11-20)
     assert "36 of 36" not in s["note"] and "miss" not in s["note"]
     # P&L where both are known: Webull's fills vs the backtest
     assert s["n_both"] == 7
@@ -220,7 +220,7 @@ def test_published_rows_are_packed_and_the_tab_reads_them_back(book):
     assert r_bad["fp"]["en"].split("|")[2] == "s" and r_bad["fp"]["en"].split("|")[7] == "suspect"
     assert r_ok["fp"]["ex"].split("|")[0] == "735.73"
     assert "broker_parity_note" not in r_ok, "an in-band row needs no hover sentence"
-    assert r_bad["broker_parity_note"].startswith("FLAGGED"), "a flagged row keeps its hover"
+    assert r_bad["broker_parity_note"].startswith("OFF TAPE"), "an off-tape row keeps its hover"
     parts = r_ok["fp"]["en"].split("|")
     assert float(parts[0]) == en_before["bt"] and float(parts[3]) == en_before["edge"]
 
