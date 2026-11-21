@@ -908,6 +908,11 @@ select option:checked{background:var(--bg3);color:var(--text)}
 /* CALM-DOWN item 5 (owner 11-18): colour only on money - green / red stays on P&L (.lg-up/.lg-down/.hm-up/.hm-down, calendar day money); long / short / deposit tags go grey, chips read as plain text unless they are a warning (.p2warn, .lg-warn-pill, .lg-chk-dot, .lg-sw, .lg-status-line, [data-p2rowopen] keep theirs). */
 .lg-frame .lg-side.long,.lg-frame .lg-side.short,.lg-frame .hm-dir-badge.long,.lg-frame .hm-dir-badge.short,.lg-frame .hm-tile.long,.lg-frame .hm-tile.short,.lg-frame .hm-tile.dep,.lg-frame .hm-rowend .r1.dep,.p2rh .lg-side.long,.p2rh .lg-side.short,.p2rh .hm-dir-badge.long,.p2rh .hm-dir-badge.short,.p2rh .hm-tile.long,.p2rh .hm-tile.short,.p2rh .hm-tile.dep,.p2rh .hm-rowend .r1.dep{color:var(--text3)!important;background:transparent!important;border-color:transparent!important}
 .lg-frame .lg-chip:not(.p2warn):not(.lg-warn-pill):not([style]),.lg-frame .hm-ledger-chip,.lg-frame .lg-panel-tag,.lg-frame .hm-badge-s,.p2rh .lg-chip:not(.p2warn):not(.lg-warn-pill):not([style]),.p2rh .hm-ledger-chip,.p2rh .lg-panel-tag,.p2rh .hm-badge-s{color:var(--text3)!important;background:transparent!important;border-color:transparent!important}
+/* CALM-DOWN item 5b (board row 94, 11-20): the trade tables too - green / red only on money cells (P&L, day net, CUM, delta $, REAL P&L, track err). Not money, now plain:
+   SLIP in points (NT8), ACCT% (REAL FULL), the SCORE / POINTS rating pills (REAL), the strategy name's own colour (NT8 + Webull; leg colours include greens) and the
+   header's filter-on dot. Colour CSS only, no markup moved. Warning / flag chips (ROLL, the yellow warning sign, NOT BOOK, ENGINES, flags, caveat words, NA) keep theirs. */
+.lg-frame .lg-c-slip .lg-up,.lg-frame .lg-c-slip .lg-down,.p2rh .lg-c-slip .lg-up,.p2rh .lg-c-slip .lg-down,.lg-frame .lg-c-acctp .hm-up,.lg-frame .lg-c-acctp .hm-down,.p2rh .lg-c-acctp .hm-up,.p2rh .lg-c-acctp .hm-down,.lg-frame .lg-c-sym > span[style^="color:"],.lg-frame .lg-c-sym [data-pc="leg"] > span[style^="color:"],.p2rh .lg-c-sym > span[style^="color:"],.p2rh .lg-c-sym [data-pc="leg"] > span[style^="color:"],.lg-frame th span[style="color:var(--green)"],.p2rh th span[style="color:var(--green)"]{color:inherit!important}
+.lg-frame .lg-c-score .score-pill[style*="border-color"],.lg-frame .lg-c-ptsc .score-pill[style*="border-color"],.p2rh .lg-c-score .score-pill[style*="border-color"],.p2rh .lg-c-ptsc .score-pill[style*="border-color"]{color:inherit!important;background:transparent!important;border-color:transparent!important}
 .lg-chip{display:inline-flex;align-items:center;gap:5px;font-size:10px;letter-spacing:.4px;padding:3px 9px;border-radius:999px;border:1px solid var(--border);background:var(--bg1);white-space:nowrap}
 .lg-pills{display:flex;gap:18px;flex-wrap:wrap}
 .lg-pills button{background:none;border:none;padding:0 0 5px;font-size:10px;letter-spacing:2px;text-transform:uppercase;color:var(--text5);border-bottom:2px solid transparent;font-family:'JetBrains Mono',monospace;cursor:pointer}
@@ -1846,7 +1851,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.55';
+const VERSION='91.56';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
