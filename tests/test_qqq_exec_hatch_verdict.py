@@ -229,3 +229,49 @@ def test_off_tape_fill_never_flags_or_fails(monkeypatch):
     s = {"bt": 609.46, "wb": 607.12, "fs": "suspect", "slp": 0.0, "unx": 2.34}
     v = qe._fill_verdict({"leg": "ORB"}, "CLOSE", s, None, {}, {"bars": {}, "orders": []})
     assert v["parity_ok"] is None and v["off_tape"] is True
+
+
+# -- owner 11-21: a fill hatches its day only when MORE than 25c a share worse (FILL_HATCH_WORSE_PS) --
+def test_fill_hatch_threshold_is_25c():
+    assert qe.FILL_HATCH_WORSE_PS == pytest.approx(0.25)
+
+
+def test_fill_verdict_hatch_worse_threshold(monkeypatch):
+    monkeypatch.setattr(qe, "_broker_order_for", lambda t, i, b: None)
+    row = {"leg": "NOISE", "trade_id": "x"}
+
+    def hw(slp, dsg=0.0, unx=0.0):
+        s = {"bt": 700.0, "wb": 700.0 - slp, "edge": dsg + slp + unx, "dsg": dsg, "slp": slp, "unx": unx}
+        return qe._fill_verdict(row, "OPEN", s, None, {}, _ctx({}))["hatch_worse"]
+    assert hw(-0.26) is True            # 26c worse: hatches
+    assert hw(-0.25) is False           # exactly 25c: never
+    assert hw(-0.20) is False           # 20c worse: inside the band of tolerance, never
+    assert hw(+0.64) is False           # a better fill never hatches
+    assert hw(-0.10, dsg=-0.50) is False   # design part taken out: 10c slippage only
+    assert hw(-0.10, unx=-0.20) is None    # a fill that does not fit the tape is off tape: never judged
+    # no slippage split: the side's whole edge decides
+    s = {"bt": 700.0, "wb": 700.3, "edge": -0.30}
+    assert qe._fill_verdict(row, "OPEN", s, None, {}, _ctx({}))["hatch_worse"] is True
+    # not compared: no verdict
+    assert qe._fill_verdict(row, "OPEN", {"bt": 700.0, "wb": None}, None, {}, _ctx({}))["hatch_worse"] is None
+
+
+def test_trade_hatch_verdict_publishes_fill_parity_hatch():
+    def side(hw, off=False, orb=False):
+        return {"parity_ok": True, "parity_band_c": 0.415, "slp": -0.3 if hw else -0.1, "unx": 0.0,
+                "hatch_worse": hw, "off_tape": off, "orb_breakout_gap_design": orb}
+    top = qe._trade_hatch_verdict(side(True), side(False))["top"]
+    assert top["fill_parity_hatch"] is True
+    # 11-19 12:05: 64c worse, outside its 42.6c band - still hatches under the 25c rule
+    assert qe._trade_hatch_verdict(side(False), side(False))["top"]["fill_parity_hatch"] is False
+    assert qe._trade_hatch_verdict(side(None), side(None))["top"]["fill_parity_hatch"] is None
+    # an off-tape or ORB-design side never hatches, even if a stale field says so
+    assert qe._trade_hatch_verdict(side(True, off=True), side(None))["top"]["fill_parity_hatch"] is None
+    assert qe._trade_hatch_verdict(side(True, orb=True), side(False))["top"]["fill_parity_hatch"] is False
+
+
+def test_assessed_open_days_stay_hatched_under_25c():
+    # owner 11-21 re-assessment: the five open days' worst fills (cents worse, design out) all exceed 25c
+    for d, worst_c in (("2026-10-16", 46.0), ("2026-11-04", 80.0), ("2026-11-05", 68.0),
+                       ("2026-11-13", 54.0), ("2026-11-19", 64.0)):
+        assert worst_c / 100 > qe.FILL_HATCH_WORSE_PS, d

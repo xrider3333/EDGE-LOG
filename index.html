@@ -1881,6 +1881,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.60',date:'2026-11-21',notes:['WEBULL PAPER calendar and chart: a fill hatches its day only when it is more than 25c a share worse than the backtest (design gap taken out); a fill up to 25c worse never hatches and still counts in FILLS BEHIND BACKTEST; better fills never hatch','The box publishes the same 25c verdict per trade (fill_parity_hatch) so the page and the box agree']},
 {v:'91.59',date:'2026-11-21',notes:['Calendars (WEBULL PAPER, NT8 PAPER): a caveat day whose cause has been fixed now hatches BLUE; amber means the cause is still open. Works back over past days (one list, docs/caveat_fixes.json); the hover says what fixed it and when','Calendars: the line under the calendar counts open and fixed caveat days apart, each with its own swatch','Charts: the shown caveat columns sit on their own day again (they had all drawn at the left edge since 11-18), and fixed ones hatch blue']},
 {v:'91.53',date:'2026-11-20',notes:['NT8 PAPER and WEBULL PAPER tables: each row reads entry time, entry price, exit time, exit price, then strategy, side, size and the result (NT8 PAPER has its own ENTRY $ / EXIT (ET) / EXIT $ columns now)','LEDGER REAL TABLE FULL under 1100 px: tight cells sized to content, no 1400 px floor spreading the columns apart']},
 {v:'91.52',date:'2026-11-20',notes:['WEBULL PAPER: an off-tape fill never hatches the calendar or chart and never counts as a failed parity check; its hover says the P&L uses the minute close','WEBULL PAPER: FILLS BEHIND BACKTEST names the strategy and its average (e.g. NOISE #382 (-7c avg)), or says board; a better-than-backtest average never shows it']},
@@ -3604,6 +3605,20 @@ function ledgerCalPick(days,want){const ms=ledgerCalMonths(days);if(want&&ms.ind
 // Cause codes - WEBULL PAPER (qb): tape_reprice, fill_outside_minute, fill_band, parity_old, book_only_broker, book_only_infra,
 // book_only, feed_invalid. NT8 PAPER (p2): roll_splice, orb_lookahead. window.__caveatFixes (an array) stands in for the probes.
 window.CAVEAT_FIXES=window.CAVEAT_FIXES||null;
+// FILL HATCH THRESHOLD (owner 11-21: "obv 50 cents is a lot, i'll let you judge"; MANAGER ruling 11-21): a Webull fill hatches
+// its day on the WEBULL PAPER calendar AND chart only when it is MORE than 25c a share worse than the backtest price, design gap
+// taken out (slippage + unexplained) - about 4x NOISE's average 5.9c slip, ~4 bp of QQQ. Up to 25c worse never hatches (it still
+// counts in FILLS BEHIND BACKTEST); a better fill never hatches. The box's twin is api/qqq_exec.py FILL_HATCH_WORSE_PS (published per
+// row as fill_parity_hatch, read first) - change both together.
+const FILL_HATCH_WORSE_PS=0.25;
+// one packed fp side ('bt|wb|fs|edge|dsg|slp|unx|why|band|pok|omr|orb') -> true when it is more than FILL_HATCH_WORSE_PS worse;
+// false when judged and not; null when it cannot be judged (no fill, off tape / suspect, outside its minute, ORB breakout design)
+function ledgerFillSideHatch(x){
+  if(typeof x!=='string')return null;const q=x.split('|');if(q.length<10||q[2]!=='o'||q[10]==='1'||q[11]==='1')return null;
+  const n=v=>(v===''||v==null)?null:(isFinite(+v)?+v:null),slp=n(q[5]),unx=n(q[6]),edge=n(q[3]);
+  const g=slp!==null?slp+(unx||0):edge;if(g===null)return null;
+  return g<-FILL_HATCH_WORSE_PS-1e-9;
+}
 function ledgerCavFixList(){const a=window.__caveatFixes||window.CAVEAT_FIXES;return Array.isArray(a)?a:[];}
 function ledgerCavFix(cal,kind,d){
   const L=ledgerCavFixList();
@@ -45999,6 +46014,19 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // only a judged side the box stamped worse (fill_parity_ok false, not 'better') still does. Rows without the field read as before.
         const qeOffTape=t=>!!t&&(t.fill_parity_off_tape===true||String(t.fill_parity_off_tape).toLowerCase()==='true');
         const qeParityFailed=t=>!!t&&(qeIsNtMirror(t)?t.parity_ok===false:(qeOffTape(t)?(t.fill_parity_ok===false&&t.fill_parity_side!=='better'):t.broker_parity_ok===false));
+        // owner 11-21: ONE fill-hatch reading for the calendar and the chart - {band: fills more than FILL_HATCH_WORSE_PS worse,
+        // omr: the kept outside-the-bar's-range rule} or null (no verdict: an NT-mirrored row keeps its old parity flag).
+        // The box's own fill_parity_hatch wins when published; else each packed fp side is judged here the same way.
+        const qbFillHatch=t=>{
+          if(!t||qeIsNtMirror(t))return null;
+          const ot=qeOffTape(t),top=(t.fill_parity_ok===true||t.fill_parity_ok===false),fp=t.fp;
+          let has=top,band=0,omr=top?((!ot&&t.fill_parity_outside_minute_range&&t.fill_parity_side!=='better')?1:0):0;
+          if(t.fill_parity_hatch===true||t.fill_parity_hatch===false)return {band:t.fill_parity_hatch?1:0,omr:omr};
+          if(fp)[fp.en,fp.ex].forEach(x=>{if(typeof x!=='string')return;const q=x.split('|');if(q.length<10)return;has=true;
+            if(q[10]==='1'){if(!top&&!ot&&!(Number(q[3])>=0))omr++;return;}
+            if(ledgerFillSideHatch(x)===true)band++;});
+          else if(ot)return {band:0,omr:0};
+          return has?{band:band,omr:omr}:null;};
         const effParOk=t=>qeIsNtMirror(t)?t.parity_ok:t.broker_parity_ok;
         const effParNote=t=>qeIsNtMirror(t)?t.parity_note:t.broker_parity_note;
         // REPRICED FALLBACK (2026-09-20). A trade the adapter could not mark at exit
@@ -46276,11 +46304,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // fp side [9] pok=0 (outside the latency-scaled parity band, design gap removed) or [10] omr=1 (outside its minute range).
           // ORB breakout gaps are design and never hatch. Rows without [9] keep the old flat parity flag.
           // board row 112: an off-tape side (fill_parity_off_tape, a stale Webull paper print) never hatches; a judged band miss on the other side still does
-          const qbFpV=t=>{const ot=qeOffTape(t);if(t&&(t.fill_parity_ok===true||t.fill_parity_ok===false))return {band:(t.fill_parity_ok===false&&t.fill_parity_side!=='better')?1:0,omr:(!ot&&t.fill_parity_outside_minute_range&&t.fill_parity_side!=='better')?1:0};
-            if(ot)return {band:0,omr:0};
-            const fp=t&&t.fp;if(!fp)return null;let has=false,band=0,omr=0;
-            [fp.en,fp.ex].forEach(x=>{if(typeof x!=='string')return;const q=x.split('|');if(q.length<10)return;has=true;const worse=!(Number(q[3])>=0);if(q[9]==='0'&&worse)band++;if(q[10]==='1'&&worse)omr++;});
-            return has?{band:band,omr:omr}:null;};
+          // owner 11-21: the band verdict gave way to FILL_HATCH_WORSE_PS (more than 25c a share worse) - qbFillHatch, shared with the chart
+          const qbFpV=qbFillHatch;
           qbRangeTrades.forEach(t=>{const d=qeTradeDate(t);if(!d)return;const c=fl[d]||(fl[d]={rep:0,par:0,band:0,omr:0,bo:0,bob:0,boi:0});
             if(qeRepriced(t))c.rep++;const v=qbFpV(t);
             if(v){if(v.band)c.band++;if(v.omr)c.omr++;}else if(qeParityFailed(t))c.par++;
@@ -46289,7 +46314,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const c=fl[d]||{rep:0,par:0,band:0,omr:0,bo:0,bob:0,boi:0},fd=feedByDate[d],why=[];
             if(c.rep)why.push({k:'tape_reprice',t:c.rep+' priced from the 1-minute tape (the adapter could not mark the exit)'});
             if(c.omr)why.push({k:'fill_outside_minute',t:c.omr+' filled outside that minute’s high-low range'});
-            if(c.band)why.push({k:'fill_band',t:c.band+' filled worse than the parity band allows'});
+            if(c.band)why.push({k:'fill_band',t:c.band+' filled more than '+Math.round(FILL_HATCH_WORSE_PS*100)+'c a share worse than the backtest'});
             if(c.par)why.push({k:'parity_old',t:c.par+' failed the parity check (older 15c rule)'});
             if(c.bob)why.push({k:'book_only_broker',t:c.bob+' refused by the broker (book only)'});
             if(c.boi)why.push({k:'book_only_infra',t:c.boi+' never sent - our system failed (book only)'});
@@ -46942,7 +46967,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const pv=qePnlOf(t),k=qbFamOf((t&&t.leg)||'?'),d=qeTradeDate(t);
               run=Math.round((run+pv)*100)/100;legRun[k]=Math.round(((legRun[k]||0)+pv)*100)/100;
               raw.push({v:run,date:d,legs:Object.assign({},legRun)});
-              if(d){const f=(flags[d]=flags[d]||{n:0,rep:0,par:0,bo:0});f.n++;if(qeRepriced(t))f.rep++;if(qeParityFailed(t))f.par++;if(t.book_only)f.bo++;}
+              if(d){const f=(flags[d]=flags[d]||{n:0,rep:0,par:0,bo:0});f.n++;if(qeRepriced(t))f.rep++;const hv=qbFillHatch(t);if(hv?(hv.band||hv.omr):qeParityFailed(t))f.par++;if(t.book_only)f.bo++;}
             });
             const pts=ledgerDailyPoints(raw);
             // ACCOUNT EQUITY LINE (owner 10-31 15:00): the solid line is closed P&L + the open lots marked to market per day, so it ends
@@ -46976,7 +47001,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const why=[];
               if(f.bo)why.push(f.bo+' book-only trade'+(f.bo===1?'':'s')+' (order never reached Webull)');
               if(f.rep)why.push(f.rep+' exit'+(f.rep===1?'':'s')+' priced from the 1-minute tape (no fill price captured)');
-              if(f.par)why.push(f.par+' trade'+(f.par===1?'':'s')+' failed the parity check (fill far from the backtest price)');
+              if(f.par)why.push(f.par+' trade'+(f.par===1?'':'s')+' filled more than '+Math.round(FILL_HATCH_WORSE_PS*100)+'c a share worse than the backtest (or failed the parity check)');
               // owner 11-21: a day whose every caveat is fixed (the calendar's own reading of docs/caveat_fixes.json) hatches blue and says what fixed it
               const fx=!!(window._qbCalCavFixed||{})[p.date],fxWhy=fx?String((window._qbCalCavText||{})[p.date]||'').replace(/&amp;/g,'&').replace(/&lt;/g,'<'):'';
               bands.push({i:i,fix:fx,title:String(p.date).slice(5)+': '+(fx&&fxWhy?fxWhy:why.join('; '))+'. Day '+qeMoney(pts[e].v)+' from '+f.n+' trade'+(f.n===1?'':'s')+'; they still count.'});

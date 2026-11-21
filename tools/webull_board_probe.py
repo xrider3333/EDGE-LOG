@@ -5814,6 +5814,59 @@ def expected_cal(trades, cutoff=None):
     return days
 
 
+FILL_HATCH_WORSE_PS = 0.25   # owner 11-21: the page's FILL_HATCH_WORSE_PS / the box's api.qqq_exec.FILL_HATCH_WORSE_PS
+
+
+def _fill_side_hatch(x):
+    """The page's ledgerFillSideHatch: one packed fp side more than 25c worse (design out) -> True, judged and not -> False,
+    not judgeable (no fill, suspect, outside its minute, ORB breakout design) -> None."""
+    if not isinstance(x, str):
+        return None
+    q = x.split('|')
+    if len(q) < 10 or q[2] != 'o' or (len(q) > 10 and q[10] == '1') or (len(q) > 11 and q[11] == '1'):
+        return None
+    slp, unx, edge = _fin(q[5]) if q[5] != '' else None, _fin(q[6]) if q[6] != '' else None, _fin(q[3]) if q[3] != '' else None
+    g = (slp + (unx or 0.0)) if slp is not None else edge
+    if g is None:
+        return None
+    return g < -FILL_HATCH_WORSE_PS - 1e-9
+
+
+def fill_hatch(t):
+    """The page's qbFillHatch (calendar + chart): True when the row hatches its day for a fill. The box's fill_parity_hatch wins;
+    else a packed fp side more than 25c worse, or the kept outside-the-bar's-range rule; a row with neither keeps the old flat
+    parity flag (an NT-mirrored row its NinjaTrader parity_ok)."""
+    if str(t.get('signal_source') or '').lower() == 'ninjatrader':
+        return t.get('parity_ok') is False
+    ot = t.get('fill_parity_off_tape') is True or str(t.get('fill_parity_off_tape')).lower() == 'true'
+    top = t.get('fill_parity_ok') in (True, False)
+    omr = top and not ot and bool(t.get('fill_parity_outside_minute_range')) and t.get('fill_parity_side') != 'better'
+    if t.get('fill_parity_hatch') in (True, False):
+        return bool(t['fill_parity_hatch']) or omr
+    fp = t.get('fp')
+    if fp:
+        has, band = top, False
+        for x in (fp.get('en'), fp.get('ex')):
+            if not isinstance(x, str) or len(x.split('|')) < 10:
+                continue
+            has = True
+            q = x.split('|')
+            if q[10] == '1':
+                v3 = 0.0 if q[3] == '' else _fin(q[3])
+                if not top and not ot and not (v3 is not None and v3 >= 0):
+                    omr = True
+                continue
+            if _fill_side_hatch(x) is True:
+                band = True
+        if has:
+            return band or omr
+    elif ot:
+        return False
+    if top:
+        return omr
+    return t.get('broker_parity_ok') is False
+
+
 def expected_caveats(trades, feed_days, cutoff=None):
     """{day: {reasons}} -- the days the calendar hatches: an exit priced from the 1-minute tape (no book pnl, a re-priced one),
     a failed parity check (the NinjaTrader one for a mirrored row, else engine against broker), a book-only trade, or a feed
@@ -5826,7 +5879,7 @@ def expected_caveats(trades, feed_days, cutoff=None):
         if _fin(t.get('pnl')) is None and _fin(t.get('real_pnl')) is not None:
             out.setdefault(d, set()).add('tape')
         nt = str(t.get('signal_source') or '').lower() == 'ninjatrader'
-        if (t.get('parity_ok') is False) if nt else (t.get('broker_parity_ok') is False):
+        if fill_hatch(t):
             out.setdefault(d, set()).add('parity')
         if t.get('book_only'):
             out.setdefault(d, set()).add('book')
@@ -5873,7 +5926,7 @@ def expected_fixed_days(trades, feed_days, cutoff=None):
         if _fin(t.get('pnl')) is None and _fin(t.get('real_pnl')) is not None:
             kinds.setdefault(d, set()).add('tape_reprice')
         nt = str(t.get('signal_source') or '').lower() == 'ninjatrader'
-        if (t.get('parity_ok') is False) if nt else (t.get('broker_parity_ok') is False):
+        if fill_hatch(t):
             kinds.setdefault(d, set()).add('parity')
         if t.get('book_only'):
             k = t.get('book_only_kind') or ''

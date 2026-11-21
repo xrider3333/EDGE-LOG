@@ -14680,6 +14680,15 @@ def _cents_short(ps):
 PARITY_BAND_BASE_PS = 0.15
 PARITY_BAND_MIN_SIGMA_PS = 0.363
 PARITY_BAND_DEFAULT_DELAY_S = 8.0
+# FILL HATCH THRESHOLD (owner 11-21: "obv 50 cents is a lot, i'll let you judge"; MANAGER ruling
+# 11-21): a Webull fill hatches its calendar / chart day only when it is MORE than 25c a share
+# WORSE than the backtest price, design gap taken out (slippage + unexplained) -- about 4x NOISE's
+# average 5.9c slip and ~4 bp of QQQ. A fill worse by up to 25c never hatches (it still counts in
+# FILLS BEHIND BACKTEST); a better fill never hatches; an off-tape fill and an ORB breakout-level
+# design side are never judged. Published per row as fill_parity_hatch. The page's twin is
+# FILL_HATCH_WORSE_PS in index.html -- change both together. The parity band above still decides
+# broker_parity_ok / fill_parity_ok (the chips and the note); it no longer decides the hatch.
+FILL_HATCH_WORSE_PS = 0.25
 _VERDICT_BARS_CACHE = {"key": None, "val": None}
 _VERDICT_ORDERS_CACHE = {"key": None, "val": None}   # orders.csv (path, mtime, size) -> rows   # the 1m bar file's (mtime, size) -> bars
 
@@ -14767,7 +14776,7 @@ def _fill_verdict(row, intent, s, eng, by_base, ctx):
     share, despite the name), parity_ok, outside_minute_range, orb_breakout_gap_design}.
     parity_ok / outside_minute_range are None when that side cannot be judged. Never raises."""
     out = {"parity_band_c": None, "parity_ok": None, "outside_minute_range": None,
-           "orb_breakout_gap_design": False}
+           "orb_breakout_gap_design": False, "hatch_worse": None}
     try:
         ctx = ctx if ctx is not None else {"bars": {}, "orders": []}
         if s.get("wb") is None:
@@ -14815,9 +14824,30 @@ def _fill_verdict(row, intent, s, eng, by_base, ctx):
             return out
         if gap is not None:
             out["parity_ok"] = bool(abs(gap) <= band + 1e-9)
+        # FILL_HATCH_WORSE_PS (owner 11-21): signed, + better, design taken out; an ORB
+        # breakout-level side is design and never judged
+        if not out["orb_breakout_gap_design"]:
+            hg = _side_hatch_gap_ps(s)
+            if hg is not None:
+                out["hatch_worse"] = bool(hg < -FILL_HATCH_WORSE_PS - 1e-9)
     except Exception:
         pass
     return out
+
+
+def _side_hatch_gap_ps(s):
+    """The signed gap (+ better, $ a share) FILL_HATCH_WORSE_PS judges for one side:
+    slippage + unexplained when _side_parity split them, else the side's whole edge. None
+    when the side was not compared. The page reads the same fields off the packed side
+    (q[5] + q[6], else q[3])."""
+    try:
+        if s.get("slp") is not None:
+            return float(s.get("slp") or 0.0) + float(s.get("unx") or 0.0)
+        if s.get("edge") is not None:
+            return float(s["edge"])
+    except Exception:
+        pass
+    return None
 
 
 def book_only_kind(reason):
@@ -14855,7 +14885,7 @@ def _trade_hatch_verdict(en, ex):
     res = {"ok": None, "band_c": None, "gap_c": None, "side": "",
            "top": {"fill_parity_band_c": None, "fill_parity_ok": None, "fill_parity_side": "",
                    "fill_parity_outside_minute_range": None, "fill_parity_orb_design": False,
-                   "fill_parity_off_tape": False}}
+                   "fill_parity_off_tape": False, "fill_parity_hatch": None}}
     try:
         sides = [s for s in (en, ex) if isinstance(s, dict)]
         orb = any(bool(s.get("orb_breakout_gap_design")) for s in sides)
@@ -14867,6 +14897,11 @@ def _trade_hatch_verdict(en, ex):
         res["top"]["fill_parity_orb_design"] = orb
         res["top"]["fill_parity_outside_minute_range"] = (any(omr) if omr else None)
         res["top"]["fill_parity_off_tape"] = any(bool(s.get("off_tape")) for s in sides)
+        # FILL_HATCH_WORSE_PS (owner 11-21): the day hatches when any judged side is more than
+        # 25c worse; None when no side could be judged (off tape / ORB design / not compared)
+        hw = [s.get("hatch_worse") for s in sides if s.get("hatch_worse") is not None
+              and not s.get("off_tape") and not s.get("orb_breakout_gap_design")]
+        res["top"]["fill_parity_hatch"] = (any(hw) if hw else None)
         if not judged:
             return res
         bad = [s for s in judged if s.get("parity_ok") is False]
