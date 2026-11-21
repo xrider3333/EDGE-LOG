@@ -161,8 +161,9 @@ def last_import_date(trades):
 def mismatches(data, trades, today, days=10):
     floor = (_dt.date.fromisoformat(today) - _dt.timedelta(days=days)).isoformat()
     lid = last_import_date(trades)
-    # Spec: start at the later of (today - days) and the newest NT import date.
-    start = max(floor, lid) if lid else floor
+    # Every recorded day in the window, NOT only days after the newest import: 11-19 can be
+    # missing while 11-20 is logged, and that is the exact case this check exists for.
+    start = floor
     out = []
     for acct, by_day in sorted(data.items()):
         if not is_real(acct):
