@@ -75,6 +75,15 @@ from augur_engine.analytics import wf_oos_block, bar_date_bounds  # noqa: E402
 
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 SESSION = {"db_noadj_rth": "rth", "db_noadj_eth": "eth",      # as the other backfill tools
+           # The BACK-ADJUSTED Databento masters (ADJ_<MKT>_<tf>_<session>.csv, registered
+           #   2026-11-18). They are the same session as their no-adjust twin -- only the price
+           #   LEVELS differ, by the roll offsets -- so the session map treats them alike, which
+           #   is what tools/enguq_backfill_runs.py's own SESSION_OF has always done. Without
+           #   these two keys every run on an adjusted master was refused as an "unknown
+           #   data_source", and since ENGU-Q's registered master moved to db_adj_eth that was
+           #   the NQ crown, the ES re-grade and both 2026-11-20 transfers -- a replay refused
+           #   for a missing dictionary key, not for anything wrong with the run.
+           "db_adj_rth": "rth", "db_adj_eth": "eth",
            "yahoo_adj": "rth"}   # dividend-adjusted daily ETF masters (the ETFDIP runs). A later
                                  #   dividend rescales the whole pinned window by one factor, which
                                  #   leaves these ratio-sized strategies' trades and dollars exactly as

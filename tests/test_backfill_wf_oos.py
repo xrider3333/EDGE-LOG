@@ -382,6 +382,24 @@ def test_plan_accepts_the_adjusted_daily_etf_source():
     assert B.SESSION.get("yahoo_adj") == "rth"
 
 
+def test_plan_accepts_the_back_adjusted_databento_sources():
+    """A back-adjusted master is the SAME session as its no-adjust twin -- only the price levels
+    differ by the roll offsets -- so a run on one must be replayable. These were missing until
+    2026-11-20, which refused every ENGU-Q run since the family's registered master moved to
+    db_adj_eth (the NQ crown, the ES re-grade, the YM and RTY transfers) for a missing key."""
+    assert B.SESSION.get("db_adj_eth") == "eth"
+    assert B.SESSION.get("db_adj_rth") == "rth"
+    for src, sess in (("db_adj_eth", "eth"), ("db_adj_rth", "rth")):
+        plan, why = B.rebuild_plan(_doc(data_source=src))
+        assert why is None, why
+        assert plan["session"] == sess and plan["source"] == src
+
+
+def test_plan_still_refuses_a_source_it_does_not_know():
+    _plan, why = B.rebuild_plan(_doc(data_source="db_halfadj_eth"))
+    assert why and "unknown data_source" in why
+
+
 def test_build_fold_match_dates_from_the_index():
     fb = _fb(te_s=10, te_e=20)
     idx = pd.date_range("2020-01-01", periods=30, freq="1D", tz="US/Eastern")
