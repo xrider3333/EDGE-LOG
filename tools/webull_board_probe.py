@@ -3251,7 +3251,10 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
       var sb=b.querySelector('.lg-row-sub'),rc=b.getBoundingClientRect(),ex=b.nextElementSibling;
       // BOOK SIDEBAR (board 113): a live leg's 'size · $/yr' line from the book table sits in the sub-line as [data-qbbkleg]; read apart
       var bkl=b.querySelector('[data-qbbkleg]'),bkleg=bkl?(bkl.textContent||'').replace(/\\s+/g,' ').trim():null;
-      var sbc=sb?sb.cloneNode(true):null;if(sbc)sbc.querySelectorAll('[data-qbbkleg]').forEach(function(e){e.parentNode.removeChild(e);});
+      // owner 11-21 (compressed cards): a held leg's 'open +$X' rides at the end of that quiet line ([data-qbrowopen]); read apart too
+      var rop=b.querySelector('.lg-row-sub [data-qbrowopen]'),rowOpen=rop?(rop.textContent||'').replace(/\\s+/g,' ').trim():null;
+      var sbc=sb?sb.cloneNode(true):null;if(sbc)sbc.querySelectorAll('[data-qbbkleg],[data-qbrowopen]').forEach(function(e){e.parentNode.removeChild(e);});
+      if(sbc&&/^[\\s\\u00b7]*$/.test(sbc.textContent||''))sbc.textContent='';
       var shl=b.querySelector('[data-qbshleg]'),shs=b.querySelector('[data-qbshseed]'),sho=b.querySelector('[data-qbshopen]');
       // LEDGER UI r2 step 7: a leg row's trades / win rate / today line moved into its expander (.lg-row-morebody > .qbx-lg-extra, rows
       // 'Trades N', 'Win rate X%', 'Today ±$X'); the reader folds them back into the old 'N trades · X% won · today ±$X' line so every
@@ -3282,7 +3285,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
       if(exX)[].forEach.call(exX.querySelectorAll('.lg-ms-row'),function(r){
         var l=r.querySelector('.l'),v=r.querySelector('.v');
         if(l&&v)exFacts[(l.textContent||'').replace(/\\s+/g,' ').trim()]=(v.textContent||'').replace(/\\s+/g,' ').trim();});
-      return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,label:label,facts:exFacts,bkleg:bkleg,
+      return {key:b.getAttribute('data-lgrow'),name:cn?(cn.textContent||'').replace(/\\s+/g,' ').trim():null,tag:tg,label:label,facts:exFacts,bkleg:bkleg,rowOpen:rowOpen,
         cell:rl?rl.getAttribute('data-qbcell'):null,
         tip:shl?shl.getAttribute('title'):null,seed:shs?(shs.textContent||'').trim():null,open:sho?(sho.textContent||'').replace(/\\s+/g,' ').trim():null,
         sub:subTxt||null,subShown:sb?w.getComputedStyle(sb).display!=='none':subFromMore,more:!!b.querySelector('[data-lgrowmore]'),
@@ -6275,7 +6278,8 @@ def _hero_qual_problems(tag, r, doc, fails):
         fails.append("%s: the big number's qualifier reads %r, want an empty qualifier node (LEDGER UI r2 item 1)" % (tag, r.get('heroQual')))
     rng = r.get('heroRange') or ''
     # owner 10-31 15:30 -> LEDGER UI r2 (item 5): 'realized +$X' alone; 'closed trades' and the stretch are the figure's title
-    if r.get('heroRange') is not None and not re.match(r'^realized [+-]\$[\d,]+\.\d\d$', rng):
+    # owner 11-21 ('wheres % change'): the realized figure may carry its % of the account right after it, '(+0.012%)'
+    if r.get('heroRange') is not None and not re.match(r'^realized [+-]\$[\d,]+\.\d\d( \((?:[+-]\d+\.\d{2,3}|0\.00)%\))?$', rng):
         fails.append("%s: the realized line reads %r, want 'realized +$X' alone (LEDGER UI r2 item 5)" % (tag, rng))
     # owner 10-31 (live page): the open line sits DIRECTLY under the big number, the cash line under it
     und = r.get('heroUnder')
@@ -6357,6 +6361,12 @@ def _v2_ok(got, base, doc=None, keys=()):
     return tf is None or m.group(2) == signed(tf[0])
 
 
+def _nopct(got):
+    """owner 11-21 ('wheres % change'): the hero's today line carries its % of the account, '▲ +$8.96 (+0.001%) today'; a check pinned on
+    the dollar wording reads it without that '(...%)'."""
+    return re.sub(r' \((?:[+-]\d+\.\d{2,3}|0\.00)%\)', '', got) if isinstance(got, str) else got
+
+
 def _v2_base(got):
     """The figures line without its today suffix."""
     return TODAY_SUFFIX_RE.sub('', got or '')
@@ -6417,8 +6427,9 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         bl = x.get('bkleg') or ''
         if re.search(r'undefined|NaN|null', bl):
             fails.append('%s: list row %s leg line reads %r' % (tag, x.get('name'), bl))
-        if ret and x.get('key') == 'ORB' and '$40,000/yr' not in bl:
-            fails.append("%s: list row ORB #314's leg line reads %r, want the book table's $40,000/yr" % (tag, bl))
+        # owner 11-21 (compressed cards): the $/yr reads short, '$40k/yr' ($40,000 a year in the hover)
+        if ret and x.get('key') == 'ORB' and '$40k/yr' not in bl:
+            fails.append("%s: list row ORB #314's leg line reads %r, want the book table's $40k/yr" % (tag, bl))
         if ret and x.get('key') == 'NOISE' and '$' in bl:
             fails.append("%s: list row NOISE #382's leg line reads %r - the book table has no $/yr for it" % (tag, bl))
     if bk.get('fold') or not (bk.get('head') or '').upper().startswith('BOOK') or ('· %d' % len(want_names)) not in (bk.get('head') or ''):
@@ -6463,9 +6474,12 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         #   the longest strings on the row and are now facts in the expander.
         if opn_fam is not None and e and not is_other:
             want_eq = ('open %s' % signed(_oz_e[0])) if _oz_e else None
-            if (x.get('value2') or None) != want_eq:
-                fails.append('%s: list row %s reads %r under its number, want %r (the open P&L alone while it holds lots, nothing when flat)' % (tag, x.get('name'), x.get('value2'), want_eq))
-            if _oz_e and re.search(r'lot|sh\b', x.get('value2') or ''):
+            # owner 11-21 (compressed cards): under the number only its % '(+0.004%)'; the open P&L moved to the quiet second line
+            if x.get('value2') and not re.match(r'^\((?:[+-]\d+\.\d{2,3}|0\.00)%\)$', x.get('value2')):
+                fails.append('%s: list row %s reads %r under its number, want its %% alone, e.g. (+0.004%%)' % (tag, x.get('name'), x.get('value2')))
+            if (x.get('rowOpen') or None) != want_eq:
+                fails.append('%s: list row %s reads %r as its open line, want %r (the open P&L alone while it holds lots, nothing when flat)' % (tag, x.get('name'), x.get('rowOpen'), want_eq))
+            if _oz_e and re.search(r'lot|sh\b', x.get('rowOpen') or ''):
                 fails.append('%s: list row %s still carries the lots or the share count on the collapsed row (%r) - they belong in the expander' % (tag, x.get('name'), x.get('value2')))
             # WHAT LEFT THE ROW MUST BE IN THE EXPANDER. This is the assertion that keeps 'moved'
             #   from turning into 'dropped': the split, the position and the parameter set.
@@ -9052,7 +9066,7 @@ def _held_problems(tag, r, ex, fails):
         return v[0] if isinstance(v, list) else v
     if h.get('side') != 'LONG':
         fails.append("%s: ENGU-Q's side pill reads %r, want LONG" % (tag, h.get('side')))
-    if ex.get('hero_today') and r.get('heroToday') != ex['hero_today']:
+    if ex.get('hero_today') and _nopct(r.get('heroToday')) != ex['hero_today']:
         fails.append("%s: the hero's today line reads %r, want %r (a carried lot counts from the prior close, nothing of it before the "
                      "open; a lot entered today in full)" % (tag, r.get('heroToday'), ex['hero_today']))
     if t('pill') != 'HELD':
@@ -9094,7 +9108,7 @@ def _held_problems(tag, r, ex, fails):
             hmax = PHONE_ROW_MAX_H + (PHONE_ROW_OPEN_H if row[0].get('open3') else 0)
             if row[0].get('h', 0) > hmax or not row[0].get('h'):
                 fails.append('%s: on a phone the ENGU-Q row is %s px tall, want one line (1 to %d px)' % (tag, row[0].get('h'), hmax))
-        elif not (row[0].get('value2') or '').startswith('open '):
+        elif not (row[0].get('rowOpen') or '').startswith('open '):
             # owner 2026-11-08: the headline IS the equity now, so what sits under it is the open part
             fails.append("%s: ENGU-Q's row shows %r under its number, want 'open ±$X' under the equity while it holds its lot" % (tag, row[0].get('value2')))
 
@@ -9125,7 +9139,7 @@ def _dip_problems(tag, r, ex, fails):
         #   this expectation adds the lots the case is holding to the family's closed figure. The
         #   realized figure itself is still checked - in the expander, where it now lives.
         _wv = want['value'][0]
-        _op = (row.get('value2') or '')
+        _op = (row.get('rowOpen') or '')
         if _op.startswith('open '):
             _wv = signed(round(_money_val(want['value'][0]) + _money_val(_op[5:]), 2))
         if (row.get('value'), _v2_base(row.get('sub'))) != (_wv, want['value'][1]):
@@ -9545,7 +9559,7 @@ def _judge_variants(data, fixture, fails, unfinished, why):
             _next_absent(tag, r, fails)
         if ex.get('held'):
             _held_problems(tag, r, ex, fails)
-        elif ex.get('hero_today') and r.get('heroToday') != ex['hero_today']:
+        elif ex.get('hero_today') and _nopct(r.get('heroToday')) != ex['hero_today']:
             fails.append("%s: the hero's today line reads %r, want %r (a held trade closed today counts from the prior close)"
                          % (tag, r.get('heroToday'), ex['hero_today']))
         if ex.get('scrub'):

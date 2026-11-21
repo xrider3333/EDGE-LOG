@@ -818,6 +818,37 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-bk-l2{font-variant-numeric:tabular-nums}
 .qbx-bk-l3{font-size:10px;color:var(--text5);font-variant-numeric:tabular-nums}
 .qbx-bk-leg{color:var(--text5);font-variant-numeric:tabular-nums}
+/* COMPRESSED STRATEGY CARDS (owner 11-21 'compress side bar strategies. revamp. 1-2 rows only'). On .lg-list-cmp a row is a two-line grid:
+   line 1 = name (family + run link, model word, side pill) | P&L $ | chevron | switch; line 2 = the quiet 'size · ~$/yr · open' line,
+   with the P&L % under the $. The name+sub wrapper is display:contents so the name and the sub are grid items of their own. Scoped
+   to .qbx-side (WEBULL PAPER) and specific enough to beat the side panel's and the phone's .lg-row rules; nothing else changes shape. */
+.qbx-side .lg-list.lg-list-cmp .lg-row{grid-template-columns:minmax(0,1fr) auto auto auto;grid-template-areas:"nm val more sw" "sub val more sw";align-items:center;gap:1px 8px;padding:6px 4px}
+.qbx-side .lg-list.lg-list-cmp .lg-row>span:first-child{display:contents}
+.qbx-side .lg-list.lg-list-cmp .lg-row .lg-row-name{grid-area:nm;grid-column:auto;min-width:0;font-size:11px;line-height:1.3;white-space:normal;overflow-wrap:anywhere}
+.qbx-side .lg-list.lg-list-cmp .lg-row .lg-row-name .lg-row-tag{display:inline;margin-left:4px}
+.qbx-side .lg-list.lg-list-cmp .lg-row .lg-row-sub{grid-area:sub;display:block;margin-top:0;font-size:9.5px;line-height:1.3;color:var(--text5);min-width:0}
+.qbx-side .lg-list.lg-list-cmp .lg-row .lg-row-val{grid-area:val;max-width:none;text-align:right;font-size:12px;line-height:1.25;align-self:center}
+.qbx-side .lg-list.lg-list-cmp .lg-row .lg-row-val,.qbx-side .lg-list.lg-list-cmp .lg-row .lg-row-val *{white-space:nowrap!important;overflow-wrap:normal!important}
+.qbx-side .lg-list.lg-list-cmp .lg-row .lg-row-val small{display:block;margin-top:0;font-size:9.5px}
+.qbx-side .lg-list.lg-list-cmp .lg-row .lg-row-more{grid-area:more}
+.qbx-side .lg-list.lg-list-cmp .lg-row .lg-sw{grid-area:sw}
+.qbx-side .lg-list.lg-list-cmp .lg-row>span:empty:not(.lg-sw){display:none}
+.qbx-side .lg-list.lg-list-cmp .lg-row-detail{padding-left:4px;padding-right:4px}
+.qbx-pct{font-variant-numeric:tabular-nums;font-size:.9em}
+.qbx-hero>.lg-hero-excl+.lg-hero-excl{margin-left:10px}
+.qbx-bkdd-box{margin-top:6px}
+/* BOOK DROPDOWNS (owner 11-21): LIVE (on the box) is a solid pill; SHADOW (not on the box, as-if) a dashed one, its name muted italic -
+   the same split the chart draws (live legs dotted in colour under the solid total, shadow legs dashed grey) */
+.qbx-bkdd-tag{display:inline-block;font-size:8.5px;font-weight:700;letter-spacing:.04em;line-height:13px;padding:0 5px;border-radius:999px;border:1px solid var(--text3);color:var(--text3);white-space:nowrap;vertical-align:1px}
+.qbx-bkdd-tag.live{border-style:solid;color:var(--text);border-color:var(--text2)}
+.qbx-bkdd-tag.sh{border-style:dashed;color:var(--text5);border-color:var(--text5)}
+.qbx-bkdd-shnm{font-style:italic;color:var(--text3)}
+.qbx-bkdd-run{color:var(--text5)}
+.qbx-bkdd-act{font-size:8.5px;font-weight:700;padding:0 5px;border-radius:999px;border:1px solid var(--text3);color:var(--text2);vertical-align:1px}
+.qbx-bkdd-key{font-size:9.5px;line-height:1.5;color:var(--text5);padding:4px 4px 6px}
+.qbx-bkdd .lg-grp-hd{white-space:normal!important;text-align:left;line-height:1.35}
+.qbx-bkdd .lg-grp-note{font-size:10px;padding:2px 4px 4px;color:var(--text4)}
+.qbx-side .lg-list.qbx-bkdd .lg-row.off .lg-row-sub{opacity:.6}
 .qbx-lg6 .qbx-own{margin-top:4px}
 .qbx-lg6 .qbx-chart .qbx-range-row{margin:0}
 .lg-frame .qbx-side{padding-top:0}
@@ -1881,6 +1912,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.63',date:'2026-11-21',notes:['WEBULL PAPER: today and realized show a percent beside the dollar figure, of the paper account at the start of the day or range (hover says the base)','WEBULL PAPER: each strategy card is two short lines - name, P&L and switch on top, then the P&L percent and a quiet size and estimate a year line; trades, win rate, today and the rest stay under the arrow','WEBULL PAPER: new Books (what-if) fold under Strategies - a dropdown per book with its legs. LIVE legs are on the box and paper trade; SHADOW legs are not, and their switch draws their as-if P&L as a dashed line on the chart and a what-if total, never in the account number. A leg with no shadow series yet reads no shadow data yet']},
 {v:'91.63',date:'2026-11-21',notes:['NT8 PAPER: today and realized show a percent beside the dollar figure, in the same colour - of the Sim101 account at the start of the session or range (from the NT bridge cash; hover says the base). No bridge snapshot, no percent']},
 {v:'91.61',date:'2026-11-21',notes:['LEDGER REAL trade chart: new 10s and 30s timeframe buttons, drawn from the NinjaTrader 10-second capture (the trade plus or minus 30 minutes)','LEDGER REAL trade chart: a trade marked with a timeframe opens on it (a 10s trade opens on 10s bars); a trade with no 10-second bars (before 2026-06-23) opens on 1m and the greyed 10s button says why on hover']},
 {v:'91.60',date:'2026-11-21',notes:['WEBULL PAPER calendar and chart: a fill hatches its day only when it is outside its delay-scaled price band AND more than 25c a share worse than the backtest (design gap taken out); a fill up to 25c worse never hatches and still counts in FILLS BEHIND BACKTEST; better fills never hatch','As sends get faster the band narrows and the 25c floor takes over','The box publishes the same verdict per trade (fill_parity_hatch) so the page and the box agree']},
@@ -3735,11 +3767,11 @@ function ledgerListHtml(groups,o){
     +(r.sub?'<span class="lg-row-sub">'+r.sub+'</span>':'')+'</span>'
     +'<span class="lg-row-val'+(r.cls?' '+r.cls:'')+'">'+(r.value==null?'':r.value)+(r.value3?'<small class="lg-row-v3">'+r.value3+'</small>':'')+(r.value2?'<small class="lg-row-v2">'+r.value2+'</small>':'')+'</span>'
     +(r.more?'<span class="lg-row-more" role="button" tabindex="0" data-lgrowmore="'+esc(r.key)+'" aria-expanded="'+!!r.more.open+'" aria-label="more about '+esc(String(r.name).replace(/<[^>]*>/g,''))+'" title="'+(r.more.open?'less':'more')+'"><span class="lg-chev" aria-hidden="true">&#9662;</span></span>':(anyMore?'<span></span>':''))
-    +(r.sw?'<span class="lg-sw'+(r.sw.on?' on':'')+'" role="switch" aria-checked="'+!!r.sw.on+'" aria-label="count '+esc(String(r.name).replace(/<[^>]*>/g,''))+'" data-lgsw="'+esc(r.key)+'"></span>':(anySw?'<span></span>':''))
+    +(r.sw?'<span class="lg-sw'+(r.sw.on?' on':'')+'" role="switch" aria-checked="'+!!r.sw.on+'" aria-label="count '+esc(String(r.name).replace(/<[^>]*>/g,''))+'" data-lgsw="'+esc(r.swKey||r.key)+'"></span>':(anySw?'<span></span>':''))
     +'</button>'
     +(r.more?'<div class="lg-row-detail lg-row-morebody'+(r.off?' off':'')+'" data-lgrowmorebody="'+esc(r.key)+'"'+(r.more.open?'':' hidden')+'>'+(r.more.html||'')+'</div>':'')
     +(r.detail?'<div class="lg-row-detail'+(r.off?' off':'')+'" data-lgrowdetail="'+esc(r.key)+'">'+r.detail+'</div>':'');
-  return '<div class="lg-list'+(anySw?'':' lg-list-nosw')+(anyMore?' lg-list-more':'')+'" data-lglist="'+esc(o.id||'lg')+'">'
+  return '<div class="lg-list'+(anySw?'':' lg-list-nosw')+(anyMore?' lg-list-more':'')+(o.cls?' '+o.cls:'')+'" data-lglist="'+esc(o.id||'lg')+'">'
     +(o.title?'<div class="lg-list-hd"><span>'+o.title+'</span>'+(o.count?'<span class="n">'+o.count+'</span>':'')+'</div>':'')
     +(o.filters||'')
     +(groups||[]).map(g=>{
@@ -45702,7 +45734,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(rangeInfo.openWho?'<span class="hm-suffix"> &middot; '+rangeInfo.openWho+'</span>':''))
           :'';
         // r2 step 2 (item 5): 'realized +$X' - 'closed trades' is what realized means and the range is the lit pill; both stay in the title
-        const rangeLine=rv==null?'':('<span class="hm-suffix" data-qbrealword>realized </span><span class="'+rc+'" data-qbcash title="closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||(rangeInfo&&rangeInfo.sinceWord)||'all time')+'">'+ledgerSigned(rv)+'</span>');
+        const rangeLine=rv==null?'':('<span class="hm-suffix" data-qbrealword>realized </span><span class="'+rc+'" data-qbcash title="closed trades &middot; '+((rangeInfo&&rangeInfo.rangeWord)||(rangeInfo&&rangeInfo.sinceWord)||'all time')+'">'+ledgerSigned(rv)+'</span>'
+          +((rangeInfo&&rangeInfo.realPct)||''));
+        // owner 11-21: '(+Y%)' rides right after today's $ (before the word 'today'), the same colour as the $ figure
+        const todayPct=(rangeInfo&&rangeInfo.todayPct)||'';
+        const withTodayPct=h=>todayPct?h.replace(/(<\/span>)( <span class="lg-suffix">)/,'$1'+todayPct.replace(/\$/g,'$$$$')+'$2'):h;
         const heroMain=ledgerHeroHtml({
           ids:{label:'qb-hero-label',big:'qb-hero-value',under:'qb-hero-under',today:'qb-hero-today',range:'qb-hero-range',chips:'qb-hero-chips',note:'qb-hero-note'},
           // r2 step 2 (item 31): 'WEBULL PAPER · NET EQUITY' - uppercase like REAL; the words beside the number are gone (item 1)
@@ -45713,7 +45749,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // LEDGER redesign step 9 (owner 2026-11-01): this board already added closed + open, which IS net equity under the one rule;
           // what changed is that the small word beside it says 'net equity' instead of 'net', the same words REAL and NT8 now print.
           big:(netVal==null||!isFinite(Number(netVal)))?'—':(elMoney(Number(netVal))+'<span class="lg-suffix qbx-hero-qual" data-qbheroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>'),
-          today:(todayVal==null||!isFinite(Number(todayVal)))?'':(QF.isToday?ledgerTodayHtml(Number(todayVal)):qbNotTodayHtml(Number(todayVal))),
+          today:(todayVal==null||!isFinite(Number(todayVal)))?'':withTodayPct(QF.isToday?ledgerTodayHtml(Number(todayVal)):qbNotTodayHtml(Number(todayVal))),
           under:openLine?('<span data-qbheroopenline title="The lots not sold yet, at the last mark - part of the net number above (closed + open)">'+openLine+'</span>'):'',
           range:rangeLine,
           // calm-down 8 (owner 11-18): red / blocking chips stay out in plain sight; the amber ones fold into ONE dot + line, detail on tap
@@ -46193,6 +46229,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbRangePnl=Math.round(qbRangeTrades.reduce((s,t)=>s+qePnlOf(t),0)*100)/100;
         const qbRangeWord=qbRange?(LEDGER_RANGE_LABEL[qbRange]||qbRange):'';
         const qbRangeNone=LEDGER_NO_TRADES;   // r2 step 3 (item 17): one string, no per-range sentence builder
+        // % CHANGE (owner 11-21 'wheres % change'): the hero's today and realized figures, and each strategy row, carry a % beside the $.
+        // v73.891 printed '+$X (+Y%) today' from the box's change_today_pct, dropped in v73.892 because that was the ACCOUNT's move; the
+        // same '(+Y%)' convention is back, now of the board's own figure over the account's equity basis (QE.equity, Webull's net_liq):
+        //   today %    = today $ / the account at the start of the box's day (net_liq - change_today, the box's first_net_liq_today)
+        //   realized % = realized $ / the account at the start of the range (net_liq - this board's P&L since its start + what closed
+        //                before the range). No equity read yet = no %, never a made-up basis.
+        const qbEqNet=(QEQUITY&&qeFinRec(QEQUITY.net_liq)!==null)?Number(QEQUITY.net_liq):null;
+        const qbPctDayBase=qbEqNet!==null?(qbEqNet-((QEQUITY&&qeFinRec(QEQUITY.change_today)!==null)?Number(QEQUITY.change_today):0)):null;
+        const qbPctRangeBase=qbEqNet!==null?(qbEqNet-sinceStartPnl+(closedSum-qbRangePnl)):null;
+        // three places under 0.1% (a $1M paper account moves in thousandths); a figure that rounds to nothing reads 0.00%, never -0.000%
+        const qbPctTxt=(v,base)=>{v=Number(v);if(base==null||!isFinite(base)||base<=0||!isFinite(v))return '';const p=v/base*100,a=Math.abs(p);
+          if(a<0.0005)return '0.00%';
+          return (p<0?'-':'+')+(a<0.1?a.toFixed(3):a.toFixed(2))+'%';};
+        const qbPctHtml=(v,base,key,cls)=>{const t=qbPctTxt(v,base);if(!t)return '';
+          return ' <span class="qbx-pct '+(cls||(Number(v)>=0?'hm-up':'hm-down'))+'" data-qbpct="'+key+'" title="of the paper account at the start of '+(key==='today'?'the day':'the range')+' ('+ledgerMoney(base)+', from Webull’s account equity)">('+t+')</span>';};
         // THE CALENDAR AND THE STRATEGY LIST FOLLOW THE CHOSEN RANGE TOO (LEDGER unify steps 7 and 10). qbRangeFigs: one strategy's
         // trades in the range - how many, the P&L of record they add up to (to the cent, as the hero's range line does) and the win
         // rate (a $0 trade is neither a win nor a loss). The shadow legs' own trades in the range stay in qbShadowRange, never counted.
@@ -46653,6 +46704,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbPosFamsHeld=qbPosFams.filter(f=>qbPosKeys.filter(k=>qbFamOf(k)===f).every(k=>qbHeld[k])).length;
         let legListHtml='';
         let qbListSum='';   // the strategy list's one-line header on a phone (LEDGER unify step 11)
+        let qbBookDdHtml='',qbBookDdSum='';   // BOOK DROPDOWNS (owner 11-21), built with the strategy list below
         // TRADING ON / OFF FOR ONE LEG (MANAGER #186, owner 11-07). Deliberately NOT the shared row
         //   switch: on every other paper list that switch means COUNT THIS LEG IN THE FIGURES, and a
         //   control that stops real paper orders must not wear the same shape in the same place on
@@ -46841,7 +46893,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 sub:'',
                 value:fgHas?('<span data-qbrowequity="'+key+'" title="'+(legOpenPnl!=null?'closed trades in the range PLUS the open position now':'closed trades in the range - nothing open')+'">'+ledgerSigned(fgTot)+'</span>'):'&mdash;',cls:fgHas?ledgerCls(fgTot):'',
                 value3:'',
-                value2:legOpenPnl!=null?('<span data-qbrowopen="'+key+'" class="'+ledgerCls(legOpenPnl)+'" title="the open position\u2019s P&L now - the lots and shares behind it are in the row\u2019s expander">open '+ledgerSigned(legOpenPnl)+'</span>'):'',
+                // COMPRESSED CARD (owner 11-21 'compress side bar strategies ... 1-2 rows only'): under the $ only its % (of the account at
+                // the range start, qbPctRangeBase); the open P&L moves to the quiet second line (sub, built with the size and $/yr below)
+                value2:fgHas?qbPctHtml(fgTot,qbPctRangeBase,'leg:'+key,ledgerCls(fgTot)).trim():'',
+                openHtml:legOpenPnl!=null?('<span data-qbrowopen="'+key+'" class="'+ledgerCls(legOpenPnl)+'" title="the open position\u2019s P&L now - the lots and shares behind it are in the row\u2019s expander">open '+ledgerSigned(legOpenPnl)+'</span>'):'',
                 // the KEEL warning stays out in the open: it is an alarm
                 detail:qbKeelWarnHtml||'',
                 more:{open:legOpenNow,html:'<div class="qbx-lg-extra" data-qbextra="'+key+'">'+legFacts+qbLegTradeRow(key)
@@ -46916,8 +46971,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // owner 11-20 (via MANAGER): the BOOK card leads with the active book - its name, estimated $/yr and max DD from the book table
           // (window._bookLegs; an estimate, never this account's result) - and each live leg row carries TODAY beside its range total
           const _tdy=(typeof QF!=='undefined'&&QF&&QF.todayNY)||'';
-          bookRows.forEach(r=>{if(!r||r.key==='~other'||!_tdy)return;const tt=qbAllTrades.filter(t=>qbFamOf(t.leg)===r.key&&qeTradeDate(t)===_tdy);
-            if(tt.length){const n=tt.reduce((x,t)=>x+(+qePnlOf(t)||0),0);r.value3='<span class="'+ledgerCls(n)+'" data-qbrowtoday="'+esc(r.key)+'" title="closed trades today">today '+ledgerSigned(n)+'</span>';}});
+          // owner 11-21 (compressed cards, 1-2 rows): today's figure left the collapsed row - it is the 'Today' fact in the row's expander
           // BOOK SIDEBAR (board 113, owner-approved 11-20): the head is the ACTIVE book - the book table's book whose QQQ-executor legs
           // are exactly this board's live legs (booksActiveBook) - its name, $/yr, max DD and DD ex-2020; an 'estimate' tag and the old
           // champion's $/yr struck through while it is provisional; ROC30 / Sortino small and 2016-20 vs 2021-25 $/yr on one line. Each
@@ -46929,13 +46983,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           bookRows.forEach(r=>{if(!r||r.key==='~other')return;try{
             const f=(_bkB&&_bkB.books)?booksLegFor(_bkB,_bkAct,r.key):null,l=f&&f.l;
             const shN=booksNum(_bkSh[r.key]),size=shN!=null?(qeInt(shN)+' sh'):(l&&l.size?String(l.size):'');
-            const usd=l?booksUsd(l.usd_per_year):'';
-            const parts=[size,usd?((f.own?'':'~')+usd+'/yr'):''].filter(Boolean);if(!parts.length)return;
+            // owner 11-21: the $/yr reads short ('~$27.4k/yr'); the full figure is in the hover
+            const usdN=l?booksNum(l.usd_per_year):null,usdFull=l?booksUsd(l.usd_per_year):'';
+            const usd=usdN==null?'':((usdN<0?'-$':'$')+(Math.abs(usdN)>=1000?(Math.abs(usdN)/1000).toFixed(1).replace(/\.0$/,'')+'k':Math.round(Math.abs(usdN))));
+            const parts=[size,usd?((f.own?'':'~')+usd+'/yr'):''].filter(Boolean);
+            if(!parts.length)return;
             const tip=(l?('Book table: '+String(l.name||l.id||r.key)+(l.run?' '+l.run:'')+' in '+booksBookName(f.b,f.k)
               +(booksNum(l.share_pct)!=null?(', '+booksNum(l.share_pct)+'% of the book'):'')+(l.status?(' ('+String(l.status)+')'):'')
               +(f.own?'':' - not the live book, so its $/yr is a guide only')+'. '):'')+(shN!=null?'Size = the box’s live share count. ':'')
-              +'An estimate from the book table, never this account’s result.';
+              +(usdFull?(usdFull+' a year. '):'')+'An estimate from the book table, never this account’s result.';
             r.sub='<span class="qbx-bk-leg" data-qbbkleg="'+esc(r.key)+'" title="'+esc(tip)+'">'+esc(parts.join(' · '))+'</span>';}catch(e){}});
+          // the open P&L of a leg that holds something rides at the end of that quiet second line
+          bookRows.forEach(r=>{if(r&&r.openHtml)r.sub=(r.sub?r.sub+' &middot; ':'')+r.openHtml;});
           const _bkNote=(()=>{try{
             const nm=bookRows.filter(r=>r.key!=='~other').map(r=>{const m=(QE_LEGS.find(x=>x[0]===r.key)||[]);return ((m[1]||r.key)+' '+(m[3]||'')).trim();}).join(' + ');
             const tipEst='the book table’s backtest estimate for this mix of legs - not this account’s result';
@@ -46970,8 +47029,63 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             rows:retRows.concat(shRows)};
           // r2 steps 3, 5 and 7: the range word is gone from the count (the pill is lit), there is no Filters row (this list has none), and
           // the rows carry their own expander (r.more, remembered in window._qbLegOpen) - no html splice under the list any more
-          legListHtml=ledgerListHtml([gBook,gShadow],{id:'qb',title:'Strategies',
+          legListHtml=ledgerListHtml([gBook,gShadow],{id:'qb',title:'Strategies',cls:'lg-list-cmp',
             count:qbRangeTrades.length?ledgerSigned(qbRangePnl):qbRangeNone,moreSet:qbLegOpenSet});
+          // ── BOOK DROPDOWNS (owner 11-21: 'i want the book drop downs with their respective strategies that i can toggle on the charts to show
+          // how they'd effect the overall strategy. this would be shadow only ... delineate the two'). One fold per book in the book table
+          // (window._bookLegs; the active book first, then booksOrderedKeys order), each opening to that book's legs:
+          //   LIVE   - the leg the box trades on Webull now (its exec_leg is one of this board's live legs). Solid pill; its switch IS the
+          //            Strategies switch (qbLegsOff), so both lists always agree.
+          //   SHADOW - not on the box. Its as-if P&L comes ONLY from the box's own no-order shadow series (QE.shadow_trades, the v90.80
+          //            switch): ON draws it as a dashed grey line on the chart and adds it to the 'realized incl. shadow (what-if)' line
+          //            under the headline - never the account number, the tiles or the calendar. Same switch as its row in shadow / retired.
+          //   no shadow data yet - a book leg with no shadow series on the box: greyed, no switch, no figure (nothing is invented).
+          // Each book's note: its live legs switched on + its shadow legs switched on, closed P&L in the range = that book's what-if.
+          // Open books are remembered per viewer (el_qb_bookdd_open, a list of book keys; storage may be blocked).
+          try{
+            const B=_bkB;
+            if(B&&B.books&&typeof B.books==='object'){
+              let ddOpen=Array.isArray(window._qbBookDdOpen)?window._qbBookDdOpen:null;
+              if(!ddOpen){ddOpen=[];try{const v=localStorage.getItem('el_qb_bookdd_open');const a=v?JSON.parse(v):null;if(Array.isArray(a))ddOpen=a;}catch(e){}window._qbBookDdOpen=ddOpen;}
+              const keys=booksOrderedKeys(B);
+              if(_bkAct){const i=keys.indexOf(_bkAct.k);if(i>0){keys.splice(i,1);keys.unshift(_bkAct.k);}}
+              const liveM={};qbLegModels.filter(m=>!m.retired).forEach(m=>{liveM[m.key]=m;});
+              // a book leg's shadow series on the box: 'ENGUQ335' -> ENGUQ_335, 'NOISE422' -> NOISE_422_PLAIN (the plain line first)
+              const shKeyFor=id=>{const m=/^([A-Za-z]+?)(\d+)/.exec(String(id||''));if(!m)return null;const pre=(m[1]+'_'+m[2]).toUpperCase();
+                const c=qbShLegs.filter(k=>{const u=String(k).toUpperCase();return u===pre||u.indexOf(pre+'_')===0;});
+                return c.length?(c.find(k=>/_PLAIN$/i.test(k))||c[0]):null;};
+              const noAttr=h=>String(h||'').replace(/ data-qb[\w-]*="[^"]*"/g,'');
+              const legRow=(bk,l)=>{
+                const id=String((l&&l.id)||''),c=BOOKS_LEG_CLASS[id]||{},ex=c.exec_leg||null,key='~bk:'+bk+':'+id;
+                const nm=esc(String((l&&l.name)||id))+((l&&l.run)?' <span class="qbx-bkdd-run">'+esc(String(l.run).split(' ')[0])+'</span>':'');
+                const tip=esc(String((l&&l.size)||'')+((l&&l.status)?' - '+l.status:''));
+                if(ex&&liveM[ex]){const m=liveM[ex],off=qbLegsOff.indexOf(ex)>=0;
+                  return {key:key,name:'<span title="'+tip+'">'+nm+'</span>',tag:'<span class="qbx-bkdd-tag live" data-qbbkddmode="live" title="on the box: paper orders on Webull, in the account number">LIVE</span>',
+                    sub:'on the box &middot; paper orders',value:noAttr(m.row.value),cls:m.row.cls,value2:noAttr(m.row.value2),
+                    sw:{on:!off},swKey:ex,off:off,live:true,net:Number(m.fg&&m.fg.net)||0};}
+                const sk=ex?null:shKeyFor(id);
+                if(sk){const f=qbRangeFigs(qbShRangeClosed.filter(t=>t.leg===sk)),on=qbShOn.indexOf(sk)>=0;
+                  return {key:key,name:'<span class="qbx-bkdd-shnm" title="'+tip+'">'+nm+'</span>',tag:'<span class="qbx-bkdd-tag sh" data-qbbkddmode="shadow" title="not on the box: as-if P&amp;L from its own signals, no orders">SHADOW</span>',
+                    sub:'as-if &middot; '+esc(qbShLegName(sk))+' &middot; '+qbFigsLine(f),value:f.n?ledgerSigned(f.net):'&mdash;',cls:f.n?ledgerCls(f.net):'',
+                    value2:f.n?qbPctHtml(f.net,qbPctRangeBase,'bk',ledgerCls(f.net)).trim():'',sw:{on:on},swKey:'sh:'+sk,off:!on,shadow:true,net:f.n?f.net:0};}
+                return {key:key,name:'<span title="'+tip+'">'+nm+'</span>',tag:'<span class="qbx-bkdd-tag sh" data-qbbkddmode="nodata">SHADOW</span>',
+                  sub:'<span data-qbbkddnodata="'+esc(id)+'">'+(ex?'not trading on the box now':'no shadow data yet')+'</span>',value:'&mdash;',off:true,nodata:true};};
+              const groups=keys.map(k=>{const b=B.books[k];if(!b)return null;
+                const rows=(Array.isArray(b.legs)?b.legs:[]).map(l=>legRow(k,l));
+                const nL=rows.filter(r=>r.live).length,nS=rows.filter(r=>r.shadow).length,nN=rows.filter(r=>r.nodata).length;
+                const lv=Math.round(rows.filter(r=>r.live&&!r.off).reduce((a,r)=>a+r.net,0)*100)/100,sv=Math.round(rows.filter(r=>r.shadow&&!r.off).reduce((a,r)=>a+r.net,0)*100)/100;
+                const isAct=!!(_bkAct&&_bkAct.k===k);
+                return {key:'bk:'+k,fold:true,open:ddOpen.indexOf(k)>=0,
+                  title:'<span data-qbbkdd="'+esc(k)+'">'+esc(booksBookName(b,k))+'</span>'+(isAct?' <span class="qbx-bkdd-act">active</span>':''),
+                  count:nL+' live &middot; '+nS+' shadow'+(nN?' &middot; '+nN+' no data':''),
+                  note:'<span data-qbbkddtotal="'+esc(k)+'" title="closed trades in the range: the live legs switched on plus the shadow legs switched on - never the account number">what-if <b class="'+ledgerCls(lv+sv)+'">'+ledgerSigned(Math.round((lv+sv)*100)/100)+'</b> = live '+ledgerSigned(lv)+' + shadow on '+ledgerSigned(sv)+'</span>',
+                  rows:rows};}).filter(Boolean);
+              qbBookDdHtml='<div class="qbx-bkdd-key"><span class="qbx-bkdd-tag live">LIVE</span> on the box, paper orders (solid) &middot; <span class="qbx-bkdd-tag sh">SHADOW</span> not on the box, as-if from its signals (dashed on the chart, never in the account)</div>'
+                +ledgerListHtml(groups,{id:'qbbk',cls:'lg-list-cmp qbx-bkdd'});
+              const nOn=qbShOn.length;
+              qbBookDdSum=groups.length+(groups.length===1?' book':' books')+(nOn?(' &middot; '+nOn+' shadow on'):'');
+            }
+          }catch(e){qbBookDdHtml='';}
           // the phone's one-line header for the list (item 38): 'N live · +$X · N open'
           qbListSum=bookRows.filter(r=>r.key!=='~other').length+' live &middot; '
             +(qbRangeTrades.length?('<span class="'+ledgerCls(qbRangePnl)+'">'+ledgerSigned(qbRangePnl)+'</span>'):qbRangeNone)
@@ -47858,6 +47972,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbOpenWho=Object.keys(qbOpenByFam).map(f=>{const L=QE_LEGS.find(l=>l[0]===f),o=qbOpenByFam[f];return (L?qbLegFullName(f,L[3]):f)+' &middot; '+o.lots+' lot'+(o.lots===1?'':'s');}).join(', ');
         const qbHero=qbHeroBuild(sinceStartPnl,qbSinceLabel,parFailed,qbBrokerInfo,heroTodayVal,
           {val:qbRangePnl,open:posCount>0,openVal:openMarkPnl,openWho:qbOpenWho,rangeWord:(qbRange&&qbRange!=='ALL')?qbRangeWord:'',
+           todayPct:qbPctHtml(heroTodayVal,qbPctDayBase,'today'),realPct:qbPctHtml(qbRangePnl,qbPctRangeBase,'realized'),
            sinceWord:(QE.live_from&&/^\d{4}-\d{2}-\d{2}/.test(String(QE.live_from)))?('since '+String(QE.live_from).slice(5,10)):''});
         const qbHeroHtml=qbHero.main;
         const qbStatusStripHtml=qbHero.strip;
@@ -48472,8 +48587,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // Account, Today's orders, Feed & signals, System, Rails, Event timeline, Model reference. Nothing is dropped: each one's content is what the
         // old page drew, now behind its header.
         const qbListOpen=qbFoldOpen('list');
+        const qbBookDdOpen=qbFoldOpen('bookdd');
+        // BOOK DROPDOWNS (owner 11-21): right under the strategy list, inside its panel (so a phone's folded Strategies keeps the trade list
+        // within the first screen), one disclosure (remembered, el_qb_fold_bookdd) holding a dropdown per book. Its own data-qbbkddfold
+        // button, not one of the board's own folds (data-qbfold) that run after the trade list.
         const qbSideNew='<div class="qbx-side">'+qbFoldBtn('list','Strategies',qbListSum,qbListOpen,'qbx-list-fold')
-          +'<div class="qbx-list-panel" id="qbf-list"'+(qbListOpen?'':' hidden')+'>'+legListHtml+'</div></div>';
+          +'<div class="qbx-list-panel" id="qbf-list"'+(qbListOpen?'':' hidden')+'>'+legListHtml
+          +(qbBookDdHtml?('<div class="qbx-bkdd-box" data-qbbookdd="1">'
+            +qbFoldBtn('bookdd','Books &middot; what-if',qbBookDdSum,qbBookDdOpen,'qbx-bkdd-fold').replace(' data-qbfold="bookdd"',' data-qbbkddfold="1"')
+            +'<div class="qbx-bkdd-panel" id="qbf-bookdd"'+(qbBookDdOpen?'':' hidden')+'>'+(qbBookDdOpen?qbBookDdHtml:'')+'</div></div>'):'')
+          +'</div></div>';
         const qbBooksSum=(window._bookLegs&&window._bookLegs.books)?(Object.keys(window._bookLegs.books).length+' books'):'not published';
         const qbOwnSecs=qbFoldHtml('books','BOOKS',qbBooksSum,booksCardHtml(QE))
           +qbFoldHtml('orders','Orders',qbMiniSum,'<div class="qbx-orders-mini">'+qbOrdersCompactHtml+'</div>',true)
@@ -53898,7 +54021,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         if(s.has(k))s.delete(k);else s.add(k);
         renderApp();};});
       // STRATEGY SWITCHES (owner 11-18): a switch takes its strategy in or out of every figure on the board; remembered per viewer
-      content.querySelectorAll('[data-lglist="qb"] [data-lgsw]').forEach(sw=>{sw.onclick=ev=>{ev.stopPropagation();
+      // BOOK DROPDOWNS (owner 11-21): a book opens / closes, remembered per viewer (el_qb_bookdd_open); its leg switches are the SAME
+      // switches as the Strategies list (a LIVE leg: el_qb_legs_off; a SHADOW leg: el_qb_sh_on), handled by the one switch handler below
+      content.querySelectorAll('[data-qbbkddfold]').forEach(el=>{el.onclick=()=>{
+        const o=el.getAttribute('aria-expanded')!=='true';(window._qbFolds||(window._qbFolds={})).bookdd=o;
+        try{localStorage.setItem('el_qb_fold_bookdd',o?'1':'0');}catch(e){}renderApp();};});
+      content.querySelectorAll('[data-lglist="qbbk"] [data-lggrp]').forEach(el=>{el.onclick=()=>{
+        const k=String(el.getAttribute('data-lggrp')||'').replace(/^bk:/,''),S=(Array.isArray(window._qbBookDdOpen)?window._qbBookDdOpen:[]).slice(),i=S.indexOf(k);
+        if(i>=0)S.splice(i,1);else S.push(k);
+        window._qbBookDdOpen=S;try{localStorage.setItem('el_qb_bookdd_open',JSON.stringify(S));}catch(e){}renderApp();};});
+      content.querySelectorAll('[data-lglist="qb"] [data-lgsw],[data-lglist="qbbk"] [data-lgsw]').forEach(sw=>{sw.onclick=ev=>{ev.stopPropagation();
         const k=sw.getAttribute('data-lgsw');
         if(k.indexOf('sh:')===0){const sk=k.slice(3),S=(window._qbShOn||[]).slice(),j=S.indexOf(sk);if(j>=0)S.splice(j,1);else S.push(sk);
           window._qbShOn=S;try{localStorage.setItem('el_qb_sh_on',JSON.stringify(S));}catch(e){}renderApp();return;}
