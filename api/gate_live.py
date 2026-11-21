@@ -296,6 +296,15 @@ def _build_artifact(leg):
     if len(T) < 100:
         raise RuntimeError(f"{key}: only {len(T)} trades -- refusing to fit")
 
+    # BOOK PARITY (2026-11-20, board 102): the book's walk (ml_gate.gate_trades) fits first at
+    # min_history completed trades and refits every refit_every after that, so on any day it scores
+    # with the model fit on the first 30 + 25*k trades. Fitting on ALL trades here made live p differ
+    # from the book's by up to 0.03 around the 0.55 cut (Custom ML gate diff 11-13, input f = model).
+    _g = leg.get("gate") or {}
+    _mh = int(_g.get("min_history", 30)); _re = int(_g.get("refit_every", 25))
+    n_all = len(T)
+    if n_all >= _mh:
+        T = T[:_mh + _re * ((n_all - _mh) // _re)]
     F, names = entry_features_causal(arrays)
     E = np.array([t[0] for t in T])
     P = np.array([t[2] for t in T], float)
@@ -319,6 +328,7 @@ def _build_artifact(leg):
            "feature_names": list(names),
            "strategy": leg["strategy"], "params": dict(leg["params"]),
            "n_trades_trained": len(T),
+           "n_trades_total": n_all, "walk_cadence": [_mh, _re],
            "trained_through": str(pd.Timestamp(arrays["index"][-1])),
            "built_at": datetime.now().isoformat(timespec="seconds"),
            "pipe": mdl}
