@@ -2,7 +2,7 @@
 
 Read-only. No broker call: the two inputs are files the pipeline already writes.
   book   Firestore users/{uid}/paper_trades, the shadow round trips of the legs NinjaTrader trades
-         (nt_legs(): NOISE_H_RF + ENGUQ_335 today), closed on `day`.
+         (nt_legs(): NOISE_H_RF + NOISE_422 + ENGUQ_335 today), closed on `day`.
   broker C:\\EdgeLog\\fills.csv (tools/EdgeLogExport.cs): ExecutionId, Time (UTC), Account, Instrument,
          Action, Qty, Price, Commission, OrderId, SignalName. DEMO7240108 rows only - never 1810769.
 Both become naive New York datetimes and go to tools/reconcile_core.reconcile (its docstring is the spec).
@@ -12,8 +12,11 @@ SIZES ARE DOLLARS PER POINT. reconcile_core prices a pair as (close - open) x sh
 contracts (EdgeLogNOISE Qty = 3, q = Math.Round(size * Qty)); ENGU-Q trades 1 NQ ($20/pt) per unit.
 The book side is rounded the same way so a 3.58-unit day is the 11 contracts NinjaTrader sent.
 
-INTENT comes from the signal name: NZ / EQ open; NZexit, NZstop, EQx, 'Exit on session close' and
-'Close' close. A nameless or unknown row keeps its leg from the instrument (MNQ = NOISE, NQ = ENGU-Q).
+INTENT comes from the signal name: NZ / N4 / EQ open; NZexit, NZstop, N4exit, N4stop, EQx,
+'Exit on session close' and 'Close' close. A nameless or unknown row keeps its leg from the instrument
+(NQ = ENGU-Q). MNQ is traded by TWO legs since 2026-11-20 - EdgeLogNOISE (NZ -> NOISE_H_RF) and
+EdgeLogNOISE422 (N4 -> NOISE_422) - so a nameless MNQ row goes to the leg whose open position it
+reduces (by the signed fills seen so far), and to the one whose open size it equals if both do.
 Partial fills of one order (same OrderId) are one row at the share-weighted price.
 
   python tools/nt_fill_reconcile.py --day 2026-10-29           print the report
@@ -45,39 +48,62 @@ SHARED_KEY = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG\serviceAccount.json"    
 BAR_SEC = 300.0
 TOL_SEC = BAR_SEC + 90.0
 # leg family -> (instrument root, contracts per book unit, $ per point)
-SPEC = {"NOISE": ("MNQ", 3, 2.0), "ENGUQ": ("NQ", 1, 20.0)}
+SPEC = {"NOISE": ("MNQ", 3, 2.0), "NOISE_422": ("MNQ", 3, 2.0), "ENGUQ": ("NQ", 1, 20.0)}
 BOOK_USD_PER_PT = 20.0            # paper_trades pnl_usd = points x $20 x size, NOISE included
-CLOSE_SIGNALS =("NZEXIT", "NZSTOP", "EQX", "EXIT ON SESSION CLOSE", "CLOSE")
+CLOSE_SIGNALS =("NZEXIT", "NZSTOP", "N4EXIT", "N4STOP", "EQX", "EXIT ON SESSION CLOSE", "CLOSE")
+NT_SIGNALS = ("NZ", "N4", "EQ")   # EdgeLogNOISE, EdgeLogNOISE422, EdgeLogENGUQ1m
 
 
 def nt_legs(day):
-    """The legs NinjaTrader trades on `day`: whatever the NZ and EQ signal names map to."""
-    return {pr.leg_from_signal(s, trade_date=day) for s in ("NZ", "EQ")}
+    """The legs NinjaTrader trades on `day`: whatever the NZ, N4 and EQ signal names map to."""
+    return {pr.leg_from_signal(s, trade_date=day) for s in NT_SIGNALS}
 
 
 def _family(leg):
-    return "ENGUQ" if str(leg).startswith("ENGUQ") else "NOISE"
+    """SPEC key. NOISE_422 is its own family: same MNQ contract as NOISE_H_RF, separate parity."""
+    if str(leg).startswith("ENGUQ"):
+        return "ENGUQ"
+    return "NOISE_422" if str(leg) == "NOISE_422" else "NOISE"
 
 
 def _ny(ts_utc_text):
     return dt.datetime.fromisoformat(ts_utc_text).replace(tzinfo=UTC).astimezone(NY).replace(tzinfo=None)
 
 
-def _leg_for(row, day):
+def _leg_candidates(row, day):
+    """[leg] when the signal names it; else every NT leg trading this row's instrument."""
     sig = (row.get("SignalName") or "").strip()
-    leg = pr.leg_from_signal(sig, trade_date=day) if sig.upper()[:2] in ("NZ", "EQ") else None
+    leg = pr.leg_from_signal(sig, trade_date=day) if sig.upper()[:2] in NT_SIGNALS else None
     if leg:
-        return leg
+        return [leg]
     root = (row.get("Instrument") or "").split(" ")[0].upper()
-    for fam, (inst, _q, _m) in SPEC.items():
-        if root == inst:
-            return {l for l in nt_legs(day) if _family(l) == fam}.pop()
-    return None
+    fams = {fam for fam, (inst, _q, _m) in SPEC.items() if root == inst}
+    return sorted(l for l in nt_legs(day) if _family(l) in fams)
+
+
+def _signed(row, qty):
+    act = (row.get("Action") or "").upper()
+    return qty if act.startswith("BUY") else -qty
+
+
+def _leg_for(row, day, net=None):
+    """The row's leg. A nameless row on an instrument two legs trade goes to the leg whose open
+    position (net: leg -> signed contracts so far) it reduces; if both, the one it closes exactly."""
+    cands = _leg_candidates(row, day)
+    if len(cands) <= 1:
+        return cands[0] if cands else None
+    net = net or {}
+    s = _signed(row, rc._f(row.get("Qty")) or 0.0)
+    red = [l for l in cands if net.get(l, 0.0) * s < 0]
+    if len(red) == 1:
+        return red[0]
+    exact = [l for l in red if abs(net.get(l, 0.0)) == abs(s)]
+    return exact[0] if len(exact) == 1 else None
 
 
 def nt_orders(day, fills_path=FILLS_CSV):
     """(orders, log_start) from fills.csv's demo rows, one row per OrderId."""
-    by_order, stamps = {}, []
+    by_order, stamps, rows = {}, [], []
     with open(fills_path, encoding="utf-8-sig", newline="") as f:
         for r in csv.DictReader(f):
             try:
@@ -85,14 +111,18 @@ def nt_orders(day, fills_path=FILLS_CSV):
             except (KeyError, ValueError):
                 continue
             stamps.append(ts)
-            if r.get("Account") != DEMO:
-                continue
-            leg = _leg_for(r, ts.date())
+            if r.get("Account") == DEMO:
+                rows.append((ts, r))
+    net = {}                                  # leg -> signed contracts, in time order
+    for ts, r in sorted(rows, key=lambda x: x[0]):
+            oid = r.get("OrderId") or r.get("ExecutionId")
+            leg = by_order[oid]["leg"] if oid in by_order else _leg_for(r, ts.date(), net)
             qty, px = rc._f(r.get("Qty")), rc._f(r.get("Price"))
             if not leg or not qty or px is None:
                 continue
+            net[leg] = net.get(leg, 0.0) + _signed(r, qty)
             sig = (r.get("SignalName") or "").strip().upper()
-            o = by_order.setdefault(r.get("OrderId") or r.get("ExecutionId"), {
+            o = by_order.setdefault(oid, {
                 "ts": ts, "leg": leg, "intent": "CLOSE" if sig in CLOSE_SIGNALS else "OPEN",
                 "side": (r.get("Action") or "").upper(), "qty": 0.0, "notional": 0.0,
                 "ok": True, "signal_id": ""})

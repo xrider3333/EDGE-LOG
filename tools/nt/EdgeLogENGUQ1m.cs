@@ -525,7 +525,8 @@ namespace NinjaTrader.NinjaScript.Strategies
                     foreach (Order o in Orders)
                         if (o.Name == "EQ" && (o.OrderState == OrderState.Working
                             || o.OrderState == OrderState.Accepted
-                            || o.OrderState == OrderState.Submitted))
+                            || o.OrderState == OrderState.Submitted
+                            || o.OrderState == OrderState.TriggerPending))   // 2026-11-20: MIT may sit TriggerPending
                             CancelOrder(o);
                     limitPending = false;
                 }
@@ -650,7 +651,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                 limitSwingLow = swingLow;
                 limitBar      = CurrentBar;
                 limitPending  = true;
-                EnterLongLimit(0, true, Qty, limitPx, "EQ");
+                // 2026-11-20: MIT, not Limit. The book (fastloop.py ~205-225) fills when a
+                // later bar's low <= limit, at the limit (or the open on a gap through).
+                // An NT resting limit needs price to TRADE THROUGH, so a touch-only bar
+                // never filled (11-19, 28187.25). A buy MIT triggers on the touch and goes
+                // market. Managed signature: (bip, liveUntilCancelled, qty, stopPrice, name).
+                EnterLongMIT(0, true, Qty, limitPx, "EQ");
             }
             else
             {
@@ -666,7 +672,7 @@ namespace NinjaTrader.NinjaScript.Strategies
         private bool PendingEntry()
         {
             foreach (Order o in Orders)
-                if (o.Name == "EQ" && (o.OrderState == OrderState.Working || o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Submitted))
+                if (o.Name == "EQ" && (o.OrderState == OrderState.Working || o.OrderState == OrderState.Accepted || o.OrderState == OrderState.Submitted || o.OrderState == OrderState.TriggerPending))   // 2026-11-20: MIT
                     return true;
             return false;
         }

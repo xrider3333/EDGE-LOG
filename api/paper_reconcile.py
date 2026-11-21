@@ -72,7 +72,9 @@ _SIZE_SLACK = 0.5 + 1e-9
 # `nt` field claims those NinjaScripts: EdgeLogNOISE -> NOISE_H_RF, EdgeLogORB230 -> ORB.
 # EQ (EdgeLogENGUQ1m) is date-dependent -- see _ENGUQ_SWITCH_DATE below -- so it is NOT in
 # this static table.
-SIGNAL_PREFIX = {"NZ": "NOISE_H_RF", "ORB": "ORB"}
+# 2026-11-20: N4 = EdgeLogNOISE422 (tools/nt/EdgeLogNOISE422.cs), the book's NOISE #422 leg,
+# no gate, hourly squeeze tilt; scored against paper leg NOISE_422 (api/paper.py).
+SIGNAL_PREFIX = {"NZ": "NOISE_H_RF", "N4": "NOISE_422", "ORB": "ORB"}
 
 # 2026-09-08: EdgeLogENGUQ1m switched from the ENGUQ_ER settings to the #335 (R2) knobs.
 # Evidence: commit f484c0e ("EdgeLogENGUQ1m set to the R2 knobs (check ok, Realtime) ...
@@ -125,12 +127,16 @@ def _map_signal(sig, trade_date=None):
 # shadow legs; every one of them used to be a "never took it" problem each day, so the two that
 # matter drowned (10-27: ENGUQ_335 SHADOW-ONLY sat in a list of 40). EdgeLogORB230 is not
 # loaded on NinjaTrader any more, so ORB is not here.
-NT_LEG_SIGNALS = ("NZ", "EQ")
+NT_LEG_SIGNALS = ("NZ", "N4", "EQ")
+# EdgeLogNOISE422 (#422, N4) trades on NT from this session on (owner F5 + second chart);
+# before it, NOISE_422 book trades are not NT problems. Move it if the go-live slips.
+N4_START_DATE = "2026-11-23"
 
 
 def nt_legs(trade_date=None):
     """The leg keys NinjaTrader trades on `trade_date` (EQ moves with _ENGUQ_SWITCH_DATE)."""
-    return {_map_signal(s, trade_date)[1] for s in NT_LEG_SIGNALS}
+    return {_map_signal(s, trade_date)[1] for s in NT_LEG_SIGNALS
+            if not (s == "N4" and trade_date is not None and str(trade_date)[:10] < N4_START_DATE)}
 
 
 def leg_from_signal(sig, trade_date=None):

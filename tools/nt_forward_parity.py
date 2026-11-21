@@ -1,7 +1,8 @@
 """tools/nt_forward_parity.py -- E6/E10 NT side: forward paper (NinjaTrader DEMO fills) vs the book, per leg.
 
 Read-only. Reuses tools/nt_fill_reconcile.py day by day (book = Firestore paper_trades shadow round trips,
-broker = C:\\EdgeLog\\fills.csv DEMO7240108 rows) and rolls the days up per family (NOISE, ENGUQ):
+broker = C:\\EdgeLog\\fills.csv DEMO7240108 rows) and rolls the days up per family (NOISE = #243 NOISE_H_RF on NZ,
+NOISE_422 = book #422 on N4 since 2026-11-20, ENGUQ):
   book_n / nt_n        round trips the book took / that NinjaTrader filled and matched
   fill_rate            nt_n / book_n (missed trades are a parity failure, not slippage)
   hit_book / hit_nt    win rate over the MATCHED trades, book pnl vs NT fill pnl

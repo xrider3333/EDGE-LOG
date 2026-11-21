@@ -83,3 +83,32 @@ def test_size_diff_is_a_column_not_a_miss(tmp_path):
     rep = N.run(day, rows, f)
     assert not rep["no_fill"] and not rep["orphan_fills"]
     assert rep["matched"][0]["size_diff"] == -2.0 and rep["matched"][0]["shares"] == 20.0
+
+
+def test_n4_is_noise_422_and_session_close_rows_split_between_the_two_mnq_legs(tmp_path):
+    """EdgeLogNOISE (NZ, 11) and EdgeLogNOISE422 (N4, 5 = round(1.75 x 3)) both long MNQ; the
+    nameless session-close sells go to the leg whose open size each one closes."""
+    day = dt.date(2026, 11, 20)
+    f = _fills(tmp_path, [
+        "a,2026-11-20 14:40:00,DEMO7240108,MNQ 12-26,BUY,11,28000,0,o1,NZ",
+        "b,2026-11-20 14:40:01,DEMO7240108,MNQ 12-26,BUY,5,28000,0,o2,N4",
+        "c,2026-11-20 20:59:30,DEMO7240108,MNQ 12-26,SELL,5,28010,0,o3,Exit on session close",
+        "d,2026-11-20 20:59:30,DEMO7240108,MNQ 12-26,SELL,11,28010,0,o4,Exit on session close"])
+    assert "NOISE_422" in N.nt_legs(day) and N._family("NOISE_422") == "NOISE_422"
+    orders, _ = N.nt_orders(day, f)
+    legs = sorted((o["leg"], o["intent"], o["shares"]) for o in orders)
+    assert legs == [("NOISE_422", "CLOSE", 10.0), ("NOISE_422", "OPEN", 10.0),
+                    ("NOISE_H_RF", "CLOSE", 22.0), ("NOISE_H_RF", "OPEN", 22.0)]
+    book = [_book(leg="NOISE_H_RF", size=11 / 3, entryIso="2026-11-20T09:40:00-05:00",
+                  exitIso="2026-11-20T15:59:30-05:00", entry_px="28000", exit_px="28010",
+                  pnl_usd=str(10 * 20 * 11 / 3)),
+            _book(leg="NOISE_422", size=1.75, entryIso="2026-11-20T09:40:00-05:00",
+                  exitIso="2026-11-20T15:59:30-05:00", entry_px="28000", exit_px="28010",
+                  pnl_usd=str(10 * 20 * 1.75))]
+    rep = N.run(day, book, fills_path=f)
+    assert rep["status"] == "clean", rep
+
+
+def test_nt_legs_include_noise_422():
+    from api import paper_reconcile as pr
+    assert "N4" in pr.NT_LEG_SIGNALS

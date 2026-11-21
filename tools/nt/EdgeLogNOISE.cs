@@ -358,6 +358,57 @@ namespace NinjaTrader.NinjaScript.Strategies
             }
         }
 
+        // ── SHARED ACCOUNT RAIL (2026-11-20) ─────────────────────────────────
+        // EdgeLogNOISE (#243, NZ) and EdgeLogNOISE422 (#422, N4) trade the SAME MNQ contract
+        // in the same account. Each strategy's Position only sees its own fills, so neither
+        // cap above can see the other leg. Before any entry, read the ACCOUNT's net position
+        // on this instrument (both strategies' fills) and clamp so that
+        // abs(account position) + qty <= AccountMaxContracts. Real time only: historical /
+        // Analyzer fills are virtual and never reach the account. Same block in both files.
+        // Known gap: two entries sent on the same bar both read the account before either
+        // fills, so each is clamped against the pre-fill position only.
+        private const int AccountMaxContracts = 40;
+
+        /// <summary>The entry quantity after the shared rail; 0 = skip (reason printed).
+        /// If the account cannot be read the entry is skipped: an unknown exposure never
+        /// passes the rail.</summary>
+        private int RailClamp(int q)
+        {
+            if (q <= 0) return q;
+            int net = 0;
+            try
+            {
+                string inst = Instrument != null ? Instrument.FullName : "";
+                lock (Account.Positions)
+                    foreach (Position p in Account.Positions)
+                    {
+                        if (p == null || p.Instrument == null || p.Instrument.FullName != inst) continue;
+                        if (p.MarketPosition == MarketPosition.Long)       net += p.Quantity;
+                        else if (p.MarketPosition == MarketPosition.Short) net -= p.Quantity;
+                    }
+            }
+            catch (Exception ex)
+            {
+                Print(Name + " account rail: cannot read the account position (" + ex.Message
+                      + ") -> entry of " + q + " SKIPPED");
+                return 0;
+            }
+            int room = AccountMaxContracts - Math.Abs(net);
+            if (room <= 0)
+            {
+                Print(Name + " account rail: account holds " + net + " on " + Instrument.FullName
+                      + ", max " + AccountMaxContracts + " -> entry of " + q + " SKIPPED");
+                return 0;
+            }
+            if (q > room)
+            {
+                Print(Name + " account rail: account holds " + net + ", max " + AccountMaxContracts
+                      + " -> entry clamped " + q + " -> " + room);
+                return room;
+            }
+            return q;
+        }
+
         // ── ledger plumbing ──────────────────────────────────────────────────
         private const string LEDGER_PATH   = @"C:\EdgeLog\gate_decisions.csv";
         private const string LEDGER_HEADER = "ts_utc,strategy,leg,nt_bar_time,state,outcome,"
@@ -1189,6 +1240,12 @@ namespace NinjaTrader.NinjaScript.Strategies
                             ans = NotAsked("not_realtime", (IsInStrategyAnalyzer || HistFills) ? Qty : 0);
                         ApplyCap(ans);
                         int q = ans.Q;
+                        if (q > 0 && State == State.Realtime)
+                        {
+                            int railed = RailClamp(q);
+                            if (railed != q && ans.Reason.Length == 0) ans.Reason = "account_rail";
+                            q = railed;
+                        }
                         if (q > 0)
                         {
                             if (longTrig) EnterLong(q, "NZ");
