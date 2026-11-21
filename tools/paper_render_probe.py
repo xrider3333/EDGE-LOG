@@ -1466,6 +1466,9 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           parts:['.lg-hero-main','.lg-hero-label','.lg-hero-big','.lg-hero-today','.lg-hero-range','.lg-hero-chips'].map(function(q){return _hh.querySelector(q)?1:0;}).join(''),
           warnInChips:_hh.querySelectorAll('.lg-hero-chips .p2warn').length,chips:_hh.querySelectorAll('.lg-hero-chips .lg-chip').length,
           warnInStatus:d.querySelectorAll('[data-lgstatus="p2"] .p2warn').length}:null;
+        // owner 11-21: the % beside the hero's today and realized figures (of the Sim101 account; only with a bridge snapshot)
+        r.p2pct=(function(){var o={};['today','realized'].forEach(function(k){var e=d.querySelector('.lg-hero [data-p2pct="'+k+'"]');
+          o[k]=e?{t:e.textContent.trim(),cls:e.className,tip:e.getAttribute('title')||'',prevCls:(e.previousElementSibling||{}).className||'',nextTxt:(e.nextElementSibling||{}).textContent||''}:null;});return o;})();
         r.pills=[].map.call(d.querySelectorAll('.lg-pills button'),function(x){return x.textContent.trim();});
         r.pillActive=[].map.call(d.querySelectorAll('.lg-pills button.active'),function(x){return x.textContent.trim();});
         r.oldTabs=d.querySelectorAll('.p2rhtabs').length;
@@ -2163,6 +2166,33 @@ def run(alt_index=None, timeout=300):
             fails.append('%s: BOOK rows %s are not exactly the _BOOK legs %s' % (nm, keys, sorted(book_w)))
         if (r.get('bookW') or {}) != book_w:
             fails.append('%s: the board used book weights %s, api/paper.py _BOOK says %s' % (nm, r.get('bookW'), book_w))
+    # owner 11-21: NT8 PAPER hero shows today $ (+x%) and realized $ (+x%) - basis = the bridge's Sim101 cash; no bridge snapshot = no %
+    _pr = cases.get('nt-roster') or {}
+    _pp = _pr.get('p2pct') or {}
+    _pctre = re.compile(r'^\([+-]\d+\.(\d{3}|\d{2})%\)$|^\(0\.00%\)$')
+    for _k in ('today', 'realized'):
+        _e = _pp.get(_k)
+        if not _e:
+            fails.append('nt-roster: the NT8 hero shows no %% beside %s (data-p2pct=%s)' % (_k, _k))
+            continue
+        if not _pctre.match(_e.get('t') or ''):
+            fails.append('nt-roster: the %s %% reads %r, want (+x.xx%%) or (+x.xxx%%) under 0.1%%' % (_k, _e.get('t')))
+        if 'Sim101' not in (_e.get('tip') or ''):
+            fails.append('nt-roster: the %s %% hover does not name the Sim101 basis: %r' % (_k, _e.get('tip')))
+        _pc = [c for c in (_e.get('prevCls') or '').split() if c.startswith(('hm-', 'lg-'))]
+        _cc = [c for c in (_e.get('cls') or '').split() if c.startswith(('hm-', 'lg-'))]
+        if not _pc or _pc != _cc:
+            fails.append('nt-roster: the %s %% is not right after its $ in the same colour (%r vs %r)' % (_k, _e.get('prevCls'), _e.get('cls')))
+    if _pp.get('today') and 'today' not in (_pp['today'].get('nextTxt') or ''):
+        fails.append("nt-roster: the today %% does not sit between the $ and the word 'today'")
+    _rn = _pr.get('heroNum')
+    if _pp.get('realized') and _rn is not None and 101375.0 - _rn > 0:
+        _m = re.search(r'([+-]?\d+\.\d+)%', _pp['realized'].get('t') or '')
+        _exp = _rn / (101375.0 - _rn) * 100
+        if _m and abs(float(_m.group(1)) - _exp) > (0.0006 if abs(_exp) < 0.1 else 0.006):
+            fails.append('nt-roster: realized %% %s, want %.4f%% (realized $ / Sim101 cash less the range realized)' % (_m.group(1), _exp))
+    if any(((cases.get('paper2') or {}).get('p2pct') or {}).values()):
+        fails.append('paper2: the hero shows a %% with no bridge snapshot (no basis - must show none)')
     # owner 10-31 (live page): the open line directly under the big number, the figures under the name, the hatch hover and caption
     for nm in ('paper2', 'phone375'):
         r = cases.get(nm) or {}
