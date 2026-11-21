@@ -83,6 +83,10 @@ TASK_MAX_AGE_H = {
 }
 # LastTaskResult codes that are not failures: 0 ok, 267009 running, 267011 never run, 267014 terminated by us
 OK_RESULTS = {0, 267009, 267011, 267014}
+# 0x800710E0 'operator or administrator refused the request': Windows refused or cut a run while the PC slept or was
+# waking (2026-11-21 11:26, resume at 11:20: import + watchdog both ended with it, data complete, next run fine).
+# Not a task failure; the staleness check below still fails a task that stops running (owner 11-21: no false page).
+TRANSIENT_RESULTS = {2147946720, -2147020576}
 # Exit codes that mean "ran and reported", per task. tools/nt_readiness.py exits 1 when it FOUND problems (and has
 # already pushed them itself) - that is its documented result, not a failure of the task. Staleness still applies.
 REPORTING_EXIT_CODES = {"EdgeLog NT readiness": {1}}
@@ -124,7 +128,7 @@ def check_tasks(now_local, tasks=None):
         if not t.get("enabled") or t["name"] not in TASK_MAX_AGE_H:
             continue
         res = t.get("result")
-        if res not in OK_RESULTS and res not in REPORTING_EXIT_CODES.get(t["name"], ()):
+        if res not in OK_RESULTS and res not in TRANSIENT_RESULTS and res not in REPORTING_EXIT_CODES.get(t["name"], ()):
             out.append(_item("task:" + t["name"], "fail", t["name"],
                              f"last run ended with code {res} (not 0)"))
             continue

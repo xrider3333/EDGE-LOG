@@ -18,6 +18,18 @@ def test_failed_task_and_stale_task_are_failures():
     assert out == {"task:EdgeLog push NQ master to box": "fail", "task:EdgeLog NT recover watchdog": "fail"}
 
 
+def test_a_run_refused_by_sleep_is_not_a_failure_but_staleness_still_is():
+    # 2026-11-21: PC resumed 11:20, import + watchdog runs ended 0x800710E0; data complete - no page (owner 11-21)
+    tasks = [
+        {"name": "EdgeLog NT 10s import", "enabled": True, "last": NOW, "result": 2147946720},
+        {"name": "EdgeLog NT recover watchdog", "enabled": True, "last": NOW, "result": -2147020576},
+    ]
+    assert [i["status"] for i in S.check_tasks(NOW, tasks)] == ["pass"]
+    tasks[0]["last"] = NOW - dt.timedelta(hours=3)
+    out = {i["id"]: i["status"] for i in S.check_tasks(NOW, tasks)}
+    assert out == {"task:EdgeLog NT 10s import": "fail"}
+
+
 def test_box_push_failed_line_is_a_failure(tmp_path):
     p = tmp_path / "push.log"
     p.write_text("2026-10-02T21:00:01 OK pushed\n2026-10-03T21:00:01 FAIL ssh timeout\n")
