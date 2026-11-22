@@ -906,7 +906,12 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .lg-shmark{font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--text5);border:1px dashed var(--text5);border-radius:999px;padding:0 4px;line-height:11px}
 .bka-hv{white-space:normal;overflow-wrap:anywhere;font-weight:600}.bka-hv.wi{font-weight:700}
 .bka-kpi{margin:10px 0 4px;border-top:1px solid var(--border2);padding-top:6px;font-size:11px;min-width:0;max-width:100%}
-.bka-kpi-hd{display:flex;align-items:center;gap:6px;padding:0 2px 4px}.bka-kpi-hd .bka-s{margin-left:auto}
+.bka-kpi-hd{display:flex;align-items:center;gap:6px;padding:0 2px 4px;height:22px;box-sizing:border-box;line-height:16px;cursor:pointer;user-select:none;white-space:nowrap;overflow:hidden;min-width:0}.bka-kpi-hd .bka-s{margin-left:auto}
+.bka-kpi-hd>*{flex:0 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis}.bka-kpi-hd .bka-s~.bka-s{margin-left:0}.bka-kpi-hd .lg-help,.bka-kcaret{flex:0 0 auto}
+.bka-kcaret{color:var(--text4);font-size:10px}
+/* board 160: folded by default - the header line only, whatever is switched on */
+.bka-kpi:not(.bka-kpi-open) .bka-kpi-body{display:none}
+.bka-kpi-hint{font-size:10px;color:var(--text5);padding:0 2px 4px}
 .bka-kpi-slot{min-width:0;max-width:100%}
 /* width:0 + min-width:100% = the table never widens its grid / flex parent (a phone page must never scroll sideways); it scrolls in here */
 .bka-kpi-scroll{overflow-x:auto;width:0;min-width:100%;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
@@ -1835,13 +1840,13 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lgv-tag.lgv-wi{color:var(--yellow);border:1px dashed var(--yellow)}
 .lgv-tag.lgv-sz{color:var(--blue);border:1px dashed var(--blue)}
 .lgv-hint{font-size:9px;color:var(--text5)}
+.lgv-tag.lgv-off{visibility:hidden}
 .lgv-whatif{outline:1px dashed color-mix(in srgb,var(--yellow) 70%,transparent);outline-offset:3px;border-radius:4px}
 /* board 147: a shadow leg's as-if trade row in the ledger table (dimmed by .lg-tl-ghost) carries a small dashed 'shadow' tag; board 146: the SIZED cell */
 .lgv-shtag{display:inline-block;font-size:8px;font-weight:700;letter-spacing:.4px;text-transform:uppercase;padding:0 4px;margin-left:3px;border:1px dashed var(--text4);border-radius:3px;color:var(--text3);vertical-align:1px}
 .lgv-szq{font-variant-numeric:tabular-nums;white-space:nowrap}
 .lgv-szq small,[data-lgvszq] small{font-size:8px;color:var(--text4)}
 .lgv-nostop{font-size:8px;font-weight:700;letter-spacing:.3px;color:var(--warn);white-space:nowrap}
-.lgv-heroTag{display:inline-block;margin-left:6px;vertical-align:middle}
 .lgv-s{display:none}
 /* a phone: one short line (LIVE WHAT-IF | FIXED 1% 2% 3%), and the chart gives back the same height, so the trade list does not move down */
 @media (max-width:600px){.lgv-bar{gap:4px;margin:0 0 4px}.lgv-bar .hm-mode button{padding:3px 7px;letter-spacing:0;font-size:9px}.lgv-l{display:none}.lgv-s{display:inline}}
@@ -2153,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.07';
+const VERSION='92.08';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -8157,9 +8162,15 @@ function bkaTradesIds(id){id=String(id==null?'':id);const out=[id];if(!id)return
 function _bkaTrMiss(id,tried){const M=window._bkaTrMissLog||(window._bkaTrMissLog={});if(M[id])return;M[id]=1;
   try{console.info('book_asif_trades: no doc for leg '+id+' (tried '+tried.map(x=>'book_asif_trades_'+x).join(', ')+') - its as-if rows stay empty');}catch(e){}}
 function bkaTradesGet(id){id=String(id==null?'':id);if(!id)return null;const C=window._bkaTr||(window._bkaTr={});
-  if(C[id]&&!(C[id].st==='err'&&Date.now()-(C[id].errAt||0)>60000))return C[id];   // (sweep 3 #7) a failed read is asked again after 60 s
-  try{if(typeof db==='undefined'||!db||typeof auth==='undefined'||!auth||!auth.currentUser)return null;}catch(e){return null;}
-  const E={st:'loading',rows:[]};C[id]=E;
+  // R5 (11-22): the cache is per stamp - book_asif.generated_at and the leg's built_at. A new stamp (the daily series moved on) reads the
+  // trades again; the old rows stay on screen until the new ones land. A failed read AND a missing doc ('none') are asked again after 60 s.
+  const _D=window._bookAsif,_L=bkaLeg(id),g=(_D&&_D.generated_at)||null,ba=(_L&&_L.built_at)||null,c=C[id];
+  if(c){const stale=c.st!=='loading'&&((c.g&&g&&c.g!==g)||(c.ba&&ba&&c.ba!==ba));
+    const retry=(c.st==='err'||c.st==='none')&&Date.now()-(c.errAt||0)>60000;   // (sweep 3 #7) + R5
+    if(!stale&&!retry)return c;}
+  try{if(typeof db==='undefined'||!db||typeof auth==='undefined'||!auth||!auth.currentUser)return c||null;}catch(e){return c||null;}
+  const keep=!!(c&&c.st==='ok');
+  const E={st:keep?'ok':'loading',rows:keep?c.rows:[],g:g,ba:ba};C[id]=E;
   const done=()=>{setTimeout(()=>{try{if(!window._qbChartHoverActive&&typeof renderApp==='function')renderApp();}catch(e){}},50);};
   try{const m=db.collection('users').doc(auth.currentUser.uid).collection('meta'),ids=bkaTradesIds(id);
     const readOne=k=>{const base='book_asif_trades_'+k;return m.doc(base).get().then(d=>{if(!d.exists)return null;
@@ -8168,7 +8179,7 @@ function bkaTradesGet(id){id=String(id==null?'':id);if(!id)return null;const C=w
       const rd=[];for(let j=1;j<parts;j++)rd.push(m.doc(base+'_'+j).get().then(q=>{const y=q.exists?(q.data()||{}):{};return Array.isArray(y.rows)?y.rows:[];}));
       return Promise.all(rd).then(a=>[first].concat(a));});};
     const walk=j=>j>=ids.length?Promise.resolve(null):readOne(ids[j]).then(P=>P||walk(j+1));
-    walk(0).then(P=>{if(P){E.rows=[].concat(...P).filter(r=>r&&typeof r==='object');E.st='ok';}else{E.st='none';_bkaTrMiss(id,ids);}done();})
+    walk(0).then(P=>{if(P){E.rows=[].concat(...P).filter(r=>r&&typeof r==='object');E.st='ok';}else{E.st='none';E.rows=[];E.errAt=Date.now();_bkaTrMiss(id,ids);}done();})
     .catch(e=>{E.st='err';E.errAt=Date.now();E.why=(e&&e.message)||'read failed';console.warn('book_asif_trades '+id+':',E.why);done();});
   }catch(e){E.st='err';E.errAt=Date.now();E.why=String(e&&e.message||e);}
   return E;}
@@ -8184,7 +8195,7 @@ function bkaShadowRaw(s,o){o=o||{};let raw=o.rows,stock=false;
     const mult=pos(L&&L.mult)||(stock?1:null);
     T.rows.forEach((r,i)=>{if(r.open===true)return;
       if(stock||!o.qqq){const st=pos(r.stop),ep=pos(r.ep);
-        raw.push({i:i,d:r.d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:+r.size,pnl:r.pnl,r:pos(r.risk_usd)||((st&&ep&&mult&&Math.abs(ep-st)>0)?Math.abs(ep-st)*mult:null)});}
+        raw.push({i:i,d:r.d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:+r.size,fu:stock,pnl:r.pnl,r:pos(r.risk_usd)||((st&&ep&&mult&&Math.abs(ep-st)>0)?Math.abs(ep-st)*mult:null)});}
       else if(r.q&&r.q.usd!=null&&+r.q.sh>0)raw.push({i:i,d:r.d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:+r.q.sh,pnl:r.q.usd,pxWord:'NQ',r:pos(r.q.risk_usd)});});}
   return {stock:stock,rows:raw};}
 // board 155 (owner 11-22): ONE walk of a switched-on shadow leg's as-if trades for a ledger table - WEBULL PAPER (board 147) and NT8 PAPER
@@ -8205,7 +8216,7 @@ function bkaShadowTrades(s,o){o=o||{};const out=[];if(!s||!s.days)return out;
     if(o.sized){if(tU&&tU[i]!=null&&!tFix[i]){sizedLeg=true;qty=+tU[i];pnl=pu*qty;}
       else if(!tU&&!s.fixed&&s.units&&s.units[d]!=null){sizedLeg=true;const m=+s.units[d]||0;qty=r.qty*m;pnl=+r.pnl*m;}   // v91.83 daily path (a leg-level stop_risk_usd)
       else fixed=true;}
-    out.push({i:i,d:d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:Math.round(qty*1000)/1000,as:r.qty,pu:pu,
+    out.push({i:i,d:d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:Math.round(qty*1000)/1000,as:r.qty,pu:pu,fu:!!r.fu,
       pnl:Math.round(pnl*100)/100,pxWord:r.pxWord||null,stock:stock,sizedLeg:sizedLeg,fixed:fixed});});
   return out;}
 // cumulative as-if $ of one leg through each chart date (ascending; a null date = the range start, $0), counting days from `from` on
@@ -8301,8 +8312,22 @@ function bkaKpiSpec(board,ctx,live,base,baseWord,fwd){if(!ctx)return null;
     sh.push({id:fid,name:f.name,days:f.days,perTrade:f.perTrade});});
   return {board:board,base:base,baseWord:baseWord,from:ctx.from||null,to:bkaTodayNY(),live:live||{days:{},perTrade:null},shadows:sh};}
 // THE TABLE. spec = {board, base, baseWord, from, to, live:{days, perTrade}, shadows:[{id, name, days, perTrade?}]}; nothing when no shadow is on
+// board 160 (owner 11-22): the table is FOLDED by default - only its one-line header shows; a click on the header unfolds it, remembered
+// per board (el_bka_kpi_open_<board>). With no shadow on the slot still holds the same one-line header, so a shadow switch never moves the page.
+function bkaKpiOpen(b){try{return localStorage.getItem('el_bka_kpi_open_'+b)==='1';}catch(e){return false;}}
+function bkaKpiHdHtml(b,open,inner){return '<div class="bka-kpi-hd" role="button" tabindex="0" data-bkakpihd="'+b+'" aria-expanded="'+(open?'true':'false')+'" title="'+(open?'Fold':'Unfold')+' the what-if KPI table">'+inner
+  +'<span class="bka-kcaret" aria-hidden="true">'+(open?'&#9662;':'&#9656;')+'</span></div>';}
+function bkaKpiNoneHtml(b){const open=bkaKpiOpen(b);
+  return '<div class="bka-kpi bka-kpi-none'+(open?' bka-kpi-open':'')+'" data-bkakpinone="'+b+'">'+bkaKpiHdHtml(b,open,'<span class="bka-t">What-if KPIs</span><span class="bka-s">0 shadows on</span>')
+    +'<div class="bka-kpi-body bka-kpi-hint">Switch a shadow leg on in the Books panel to compare.</div></div>';}
+function bkaKpiToggle(h){const b=h.getAttribute('data-bkakpihd'),box=h.closest('.bka-kpi');if(!box)return;const open=!box.classList.contains('bka-kpi-open');
+  box.classList.toggle('bka-kpi-open',open);h.setAttribute('aria-expanded',open?'true':'false');h.title=(open?'Fold':'Unfold')+' the what-if KPI table';
+  const c=h.querySelector('.bka-kcaret');if(c)c.innerHTML=open?'&#9662;':'&#9656;';
+  try{localStorage.setItem('el_bka_kpi_open_'+b,open?'1':'0');}catch(e){}}
+document.addEventListener('click',e=>{const h=e.target&&e.target.closest&&e.target.closest('[data-bkakpihd]');if(!h||e.target.closest('.lg-help'))return;bkaKpiToggle(h);});
+document.addEventListener('keydown',e=>{if(e.key!=='Enter'&&e.key!==' ')return;const h=(e.target&&e.target.matches&&e.target.matches('[data-bkakpihd]'))?e.target:null;if(!h)return;e.preventDefault();bkaKpiToggle(h);});
 function bkaKpiTableHtml(spec){
-  if(!spec||!spec.shadows||!spec.shadows.length)return '';
+  if(!spec||!spec.shadows||!spec.shadows.length)return (spec&&spec.board)?bkaKpiNoneHtml(spec.board):'';
   const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const to=spec.to||null,from=spec.from||null,inR=d=>(!from||d>=from)&&(!to||d<=to);
   const clip=m=>{const o={};Object.keys(m||{}).forEach(d=>{if(inR(d))o[d]=m[d];});return o;};
@@ -8343,11 +8368,12 @@ function bkaKpiTableHtml(spec){
   const tip='Over the chart range. LIVE = the account (the counted legs). WHAT-IF = LIVE + every shadow leg switched on. Each shadow column = that leg alone, as-if (simulated, never the account). '
     +'% = net / '+(spec.baseWord||'the % base')+'. Max DD % = the fall from the high of base + P&L. ROC@30k = 30 x net a year / max DD (the return a year on 100k sized so max DD is 30k). Sortino = daily, annualised (sqrt 252), over every market day of the range; LIVE max DD and Sortino are the tiles own figures. '
     +'DD5 = the average of the 5 deepest drawdowns. A shadow leg has daily figures only, so its win rate and PF are per day. Up / down triangles = better / worse than LIVE.';
-  return '<div class="bka-kpi" data-bkakpi="'+esc(spec.board||'')+'"><div class="bka-kpi-hd"><span class="bka-t">What-if KPIs'+((ko.from&&ko.to)?('<span class="bka-krange" data-bkakrange="1"> &middot; '+[ko.from,ko.to].map(d=>String(d).slice(5,7)+'/'+String(d).slice(8,10)+'/'+String(d).slice(2,4)).join('-')+'</span>'):'')+'</span><span class="lg-help" title="'+esc(tip)+'">?</span>'
+  const _kb=String(spec.board||''),_ko=bkaKpiOpen(_kb);
+  return '<div class="bka-kpi'+(_ko?' bka-kpi-open':'')+'" data-bkakpi="'+esc(_kb)+'">'+bkaKpiHdHtml(esc(_kb),_ko,'<span class="bka-t">What-if KPIs'+((ko.from&&ko.to)?('<span class="bka-krange" data-bkakrange="1"> &middot; '+[ko.from,ko.to].map(d=>String(d).slice(5,7)+'/'+String(d).slice(8,10)+'/'+String(d).slice(2,4)).join('-')+'</span>'):'')+'</span><span class="lg-help" title="'+esc(tip)+'">?</span>'
     +'<span class="bka-s">'+(cols.length-2)+' shadow'+((cols.length-2)===1?'':'s')+' on</span>'
     +(spec.sizing?'<span class="bka-s" data-bkaksizing="1" data-riskn="'+spec.sizing.riskN+'" data-fixn="'+spec.sizing.fixN+'" title="'+esc('Sized '+spec.sizing.word+': '+spec.sizing.riskN+' trade'+(spec.sizing.riskN===1?'':'s')+' carry a stop and are risk-sized from it; '+spec.sizing.fixN+' have no stop and stay at their fixed as-traded size (no stop, fixed size). '+(spec.sizing.shFixed.length?('Shadow legs left FIXED (no stop distance in the as-if data): '+spec.sizing.shFixed.join(', ')+'.'):''))+'">'
-      +esc(spec.sizing.word)+': '+spec.sizing.riskN+' risk-sized, '+spec.sizing.fixN+' fixed (no stop)</span>':'')+'</div>'
-    +'<div class="bka-kpi-scroll"><table class="bka-ktab"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';}
+      +esc(spec.sizing.word)+': '+spec.sizing.riskN+' risk-sized, '+spec.sizing.fixN+' fixed (no stop)</span>':''))
+    +'<div class="bka-kpi-body bka-kpi-scroll"><table class="bka-ktab"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';}
 // the switched-on shadow legs' as-if sum in a range (the panel head and the hero what-if); skip as above
 // v91.92 (E2): under a RISK % the chart and the KPI table read each shadow leg's SIZED days (lgvScaleShadows, kept per board in
 // window._lgvShQbSized / _lgvShP2Sized); the Books panel reads the same days so one screen shows one number per leg. null = not sized.
@@ -8424,25 +8450,25 @@ function lgvSizeChain(rows,o){rows=rows||[];o=o||{};const n=rows.length,ix=[];fo
 function lgvScaleShadows(shadows,liveByDay,o){o=o||{};liveByDay=liveByDay||{};
   const D=new Set(Object.keys(liveByDay));(shadows||[]).forEach(s=>Object.keys(s.days||{}).forEach(d=>D.add(d)));
   const out=(shadows||[]).map(s=>{
-    const W=(typeof o.trades==='function')?o.trades(s):null,tr=(W&&Array.isArray(W.rows))?W.rows.filter(r=>r&&r.d&&+r.qty>0&&r.pnl!=null&&isFinite(+r.pnl)):[];
+    const W=(typeof o.trades==='function')?o.trades(s):null,tStep=(W&&W.stock&&o.stockStep)?o.stockStep:(o.tradeStep||o.step),tr=(W&&Array.isArray(W.rows))?W.rows.filter(r=>r&&r.d&&+r.qty>0&&r.pnl!=null&&isFinite(+r.pnl)):[];
     const byT=tr.some(r=>r.r!=null&&+r.r>0);
     const rk=(!byT&&s.stopRisk!=null&&isFinite(+s.stopRisk)&&+s.stopRisk>0)?+s.stopRisk:null;
     const x=Object.assign({},s,{days:(rk||byT)?{}:Object.assign({},s.days||{}),units:{},risk:rk,fixed:!rk&&!byT,noStop:!rk&&!byT,raw:s.days});
-    if(byT){const T={};tr.forEach((r,j)=>{(T[r.d]||(T[r.d]=[])).push(Object.assign({j:r.i!=null?r.i:j},r));});x._tr=T;x.tU={};x.tFix={};x.riskN=0;x.fixN=0;x.byTrade=true;}
+    if(byT){const T={};tr.forEach((r,j)=>{(T[r.d]||(T[r.d]=[])).push(Object.assign({j:r.i!=null?r.i:j},r));});x._tr=T;x.tU={};x.tFix={};x.riskN=0;x.fixN=0;x.byTrade=true;x._step=tStep;}
     return x;});
   let real=0;
   Array.from(D).sort().forEach(d=>{const eq=(+o.start||0)+real;let add=+liveByDay[d]||0;
     out.forEach(s=>{const r=s.raw&&s.raw[d];if(!r)return;
       if(s.fixed){add+=+r.p||0;return;}
-      if(s.byTrade){const L=s._tr[d];if(!L||!L.length){s.days[d]={p:+r.p||0,n:+r.n||0};add+=+r.p||0;return;}
+      if(s.byTrade){const L=s._tr[d];if(!L||!L.length){s.days[d]={p:0,n:0,miss:true};(s.missDays||(s.missDays=[])).push(d);return;}   // R5: no trades cached for the day - $0, never the unsized 1-lot $
         let p=0,n=0;L.forEach(t=>{const pu=+t.pnl/+t.qty;
           if(!(t.r!=null&&+t.r>0)){s.tFix[t.j]=true;s.fixN++;p+=+t.pnl;n++;return;}
-          s.riskN++;const c=lgvUnits(eq,o.pct,+t.r,o.tradeStep||o.step,o.tradeCap!=null?o.tradeCap:o.cap);s.tU[t.j]=c;if(c>0){p+=pu*c;n++;}});
+          s.riskN++;const c=lgvUnits(eq,o.pct,+t.r,s._step,o.tradeCap!=null?o.tradeCap:o.cap);s.tU[t.j]=c;if(c>0){p+=pu*c;n++;}});
         p=Math.round(p*100)/100;s.days[d]={p:p,n:n};add+=p;return;}
       const c=lgvUnits(eq,o.pct,s.risk,o.step,o.cap);
       const p=Math.round((+r.p||0)*c*100)/100;s.days[d]={p:p,n:c>0?(+r.n||0):0};s.units[d]=c;add+=p;});
     real+=add;});
-  out.forEach(s=>{delete s.raw;delete s._tr;});return out;}
+  out.forEach(s=>{delete s.raw;delete s._tr;delete s._step;});return out;}
 // the switched-on SHADOW legs of a board as day maps in [from, to]: the Books panel as-if legs (skip(id) = live here, or drawn as a forward
 // leg) plus `extra` (Webull: the box's own shadow legs switched on, already {id, name, style, days}); each keeps its v91.79 colour
 function lgvShadowLegs(board,from,to,skip,extra){const out=[],seen={};
@@ -8490,25 +8516,23 @@ function lgvBarHtml(b,o){o=o||{};const v=lgvView(b),s=lgvSize(b),ok=!!o.whatifOk
     +btn('view','whatif','WHAT-IF',eff==='whatif',ok?'LIVE + every shadow leg switched on, added into the hero, tiles, chart and calendar. Never the account.':hint,!ok)+'</div>'
     +'<div class="hm-mode lgv-size" role="group" aria-label="sizing">'
     +RTS_COLS.map(([k,l])=>btn('size',k,'<span class="lgv-l">'+(k==='fixed'?('FIXED '+(o.fixedWord||'')).trim():l)+'</span><span class="lgv-s">'+(k==='fixed'?'FIXED':(k.slice(1)+'%'))+'</span>',s===k,k==='fixed'?'As traded ('+(o.fixedWord||'the fixed lot')+').':('Each closed trade re-priced at '+k.slice(1)+' % of the account risked on it. '+(o.sizeTip||'')),false)).join('')+'</div>'
-    +(eff==='whatif'?'<span class="lgv-tag lgv-wi" data-lgvtag="whatif" title="'+esc(o.whatifTip||'LIVE + the switched-on shadow legs, simulated. Not the account.')+'">what-if</span>':'')
-    +(s!=='fixed'?'<span class="lgv-tag lgv-sz" data-lgvtag="size" title="'+esc(o.sizeTip||'')+'">sized: '+lgvSizeWord(s)+'</span>':'')
+    // board 159 (owner 11-22): both tags always hold their slot (hidden when off), so WHAT-IF / RISK never reflow the bar. The size tag
+    // carries the risk-sized / fixed counts (data-riskn / data-fixn, and its hover) that the sidebar hero tag used to show.
+    +(eff==='whatif'?'<span class="lgv-tag lgv-wi" data-lgvtag="whatif" title="'+esc(o.whatifTip||'LIVE + the switched-on shadow legs, simulated. Not the account.')+'">what-if</span>':'<span class="lgv-tag lgv-wi lgv-off" aria-hidden="true">what-if</span>')
+    +(s!=='fixed'?('<span class="lgv-tag lgv-sz" data-lgvtag="size"'+(o.sized?(' data-riskn="'+(+o.sized.riskN||0)+'" data-fixn="'+(+o.sized.fixN||0)+'"'):'')+' title="'+esc((o.sized?((+o.sized.riskN||0)+' risk-sized, '+(+o.sized.fixN||0)+' fixed (no stop). '):'')+(o.sizeTip||''))+'">sized: '+lgvSizeWord(s)+'</span>'):'<span class="lgv-tag lgv-sz lgv-off" aria-hidden="true">sized: RISK 1 %</span>')
     +((!ok&&v==='whatif')?'<span class="lgv-hint" data-lgvhint="1">'+esc(hint)+'</span>':'')
     +'</div>';}
 // ledgerfix5 E (owner 11-22): the SIZE / SHARES cell under RISK 1 / 2 / 3 %, replacing board 146's separate SIZED column. units = the sized
 // quantity (undefined = not sized here: the as-traded size, plain; 0 = rounded to nothing, skipped); fixed = no risk figure, kept at the
 // as-traded size and marked 'fixed (no stop)'; the as-traded size always rides in the hover ('traded 10 sh'). word = the unit after the
 // number ('' when the column header already says it). data-lgvszq = the sized quantity | 'fixed' | '0' | 'none' (probes).
-function lgvQtyCell(units,fixed,asTraded,word,s){
-  const sz=lgvSizeWord(s||''),w=word?' '+word:'',tw=word||'sh',fmt=v=>String(Math.round(+v*1000)/1000);
+function lgvQtyCell(units,fixed,asTraded,word,s,hoverWord){
+  const sz=lgvSizeWord(s||''),w=word?' '+word:'',tw=hoverWord||word||'sh',fmt=v=>String(Math.round(+v*1000)/1000);
   if(fixed)return '<span class="lgv-szq lgv-szq-fx" data-lgvszq="fixed" title="no stop: kept at the as-traded size under '+sz+' (traded '+fmt(asTraded)+' '+tw+')">'+fmt(asTraded)+w+' <small class="lgv-nostop">fixed (no stop)</small></span>';
   if(units===undefined||units===null)return '<span data-lgvszq="none" title="traded '+fmt(asTraded)+' '+tw+'">'+fmt(asTraded)+w+'</span>';
   if(!(+units>0))return '<span class="lg-flat" data-lgvszq="0" title="rounds to 0 at '+sz+': skipped, $0 (traded '+fmt(asTraded)+' '+tw+')">0'+w+' <small>skipped</small></span>';
   return '<span class="lgv-szq" data-lgvszq="'+fmt(units)+'" title="'+sz+': '+fmt(units)+' '+tw+' sized from the trade’s own risk (traded '+fmt(asTraded)+' '+tw+')">'+fmt(units)+w+'</span>';}
-// the small tags beside the hero label
-// v91.83: Z = the board's sized summary; the size tag reads 'N risk-sized, M fixed' (M = trades with no stop, left at their fixed size)
-function lgvHeroTags(eff,s,Z){const cnt=(Z&&s&&s!=='fixed')?{r:+Z.riskN||0,f:+Z.fixN||0}:null;
-  return (eff==='whatif'?'<span class="lgv-tag lgv-wi lgv-heroTag" data-lgvherotag="whatif" title="LIVE + the switched-on shadow legs. Not the account.">what-if</span>':'')
-  +(s&&s!=='fixed'?'<span class="lgv-tag lgv-sz lgv-heroTag" data-lgvherotag="size"'+(cnt?(' data-riskn="'+cnt.r+'" data-fixn="'+cnt.f+'" title="'+cnt.r+' trade'+(cnt.r===1?'':'s')+' risk-sized from their own stop; '+cnt.f+' with no stop: no stop, fixed size (as traded)"'):'')+'>sized: '+lgvSizeWord(s)+(cnt?(' &middot; '+cnt.r+' risk-sized, '+cnt.f+' fixed'):'')+'</span>':'');}
+// board 159 (owner 11-22): the hero tags (what-if, sized) are gone from the sidebar cards; the bar above the chart carries them
 document.addEventListener('click',e=>{const t=e.target&&e.target.closest&&e.target.closest('[data-lgvview],[data-lgvsize]');if(!t||t.disabled)return;
   const b=t.getAttribute('data-lgvboard');if(!b)return;
   if(t.hasAttribute('data-lgvview'))_lgvLsSet('el_lgv_view_'+b,t.getAttribute('data-lgvview'));
@@ -19428,7 +19452,7 @@ function _hmFrameCells(full){
     size:t=>t.size!=null?_hmEsc(t.size):'--',
     pts:t=>_hmPtsText(t),
     strat:t=>(t.broker||t.account)?ledgerBrokerCell(t.broker||t.account,_hmEsc):'--',
-    chart:(t,v)=>_hmCandleGlyph(t)+lnk(t)+((v==='table'&&full)?`<input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${_hmEsc(t.chartUrl||'')}" placeholder="chart url" title="${t.chartUrl?_hmEsc(t.chartUrl):'Paste a chart URL'}" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:9px;width:${t.chartUrl?'34px':'62px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='170px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'34px':'62px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`:'')
+    chart:(t,v)=>_hmCandleGlyph(t)+lnk(t)+((v==='table'&&full)?`<input class="inline-txt" data-field="chartUrl" data-id="${t.id}" value="${_hmEsc(t.chartUrl||'')}" placeholder="chart url" title="${t.chartUrl?_hmEsc(t.chartUrl):'Paste a chart URL'}" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--blue);font-family:inherit;font-size:9px;width:${t.chartUrl?'34px':'62px'};padding:1px 2px;outline:none" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='170px'" onblur="this.style.borderBottomColor='transparent';this.style.width=this.value?'34px':'62px';if(this.value!==this.defaultValue){saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`:'')
   };
 }
 // REAL's own table columns, after the common ones: SIMPLE = score, points, grade, setup, notes; FULL = every other column
@@ -19444,7 +19468,7 @@ function _hmFrameCols(full){
       // the SETUP . TF . CHART group (owner 2026-10-10): the three a trade is tagged with, side by side in one cell, the last optional column to go
       {k:'kit',label:'SETUP &middot; TF &middot; CHART',phone:true,tdCls:'lg-skip',td:t=>'<span class="hm-kit">'+setup(t)+_hmTfBtnHtml(t)+_hmCandleGlyph(t)+_hmCurlCellHtml(t)+'</span>'},
       {k:'notes',label:'NOTES',cls:'hm-s-notes hm-s1',tdCls:'hm-notes-cell lg-skip',attr:ttl,
-        td:t=>`<input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:100%;box-sizing:border-box;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)'" onblur="this.style.borderBottomColor='transparent';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`}
+        td:t=>`<input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:100%;box-sizing:border-box;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)'" onblur="this.style.borderBottomColor='transparent';if(this.value!==this.defaultValue){saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`}
     ];
   }
   const runBals=_hmRunningBalances(),bal=t=>runBals[t.id];
@@ -19463,7 +19487,7 @@ function _hmFrameCols(full){
     {k:'tf',label:'TF',td:t=>`<button type="button" class="tf-btn" data-tid="${t.id}" data-tfkey="hm-${t.id}" onclick="event.stopPropagation();window.openTfPicker(this)" title="Pick one or more timeframes">${_hmEsc(tfLabel(t.timeframe))}</button>`},
     {k:'tags',label:'TAGS',tdCls:'lg-skip',attr:()=>'style="padding:3px 6px;max-width:130px"',td:t=>_hmTagEditorHtml(t,'tagpick-'+t.id,true)},
     {k:'notes',label:'NOTES',tdCls:'hm-notes-cell lg-skip',attr:t=>'style="max-width:none;overflow:visible" '+ttl(t),
-      td:t=>`<input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:160px;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='360px'" onblur="this.style.borderBottomColor='transparent';this.style.width='160px';if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`}
+      td:t=>`<input class="inline-txt" data-field="notes" data-id="${t.id}" value="${_hmEsc(t.notes||'')}" placeholder="+ note" style="background:transparent;border:none;border-bottom:1px solid transparent;color:var(--text3);font-family:inherit;font-size:inherit;width:160px;padding:1px 2px;outline:none;text-overflow:ellipsis" onfocus="this.style.borderBottomColor='var(--blue)';this.style.width='360px'" onblur="this.style.borderBottomColor='transparent';this.style.width='160px';if(this.value!==this.defaultValue){saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>`}
   ];
   // SHOW MORE: the order / fill ids and the source (the broker is already a common column)
   if(homeExtras)[['account','ACCOUNT'],['buyOrderId','BUY ORD'],['sellOrderId','SELL ORD'],['buyFillId','BUY FILL'],['sellFillId','SELL FILL'],['positionId','POS ID'],['pairId','PAIR ID'],['source','SRC']]
@@ -19498,7 +19522,7 @@ function _hmCurlStHtml(id){
 }
 function _hmCurlCellHtml(t){
   const u=String(t.chartUrl||''),e=_hmEsc(u);
-  return `${u?`<a href="${e}" target="_blank" class="clink chart-link hm-curl-a" data-url="${e}" title="your TradingView snapshot" style="text-decoration:none">&#128200;</a>`:''}<input class="inline-txt hm-curl" data-field="chartUrl" data-id="${_hmEsc(t.id)}" value="${e}" placeholder="paste link" autocomplete="off" spellcheck="false" aria-label="chart link" title="${u?e:'Paste a TradingView snapshot link here - it saves at once'}" onblur="if(this.value!==this.defaultValue){this.defaultValue=this.value;saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>${_hmCurlStHtml(t.id)}`;
+  return `${u?`<a href="${e}" target="_blank" class="clink chart-link hm-curl-a" data-url="${e}" title="your TradingView snapshot" style="text-decoration:none">&#128200;</a>`:''}<input class="inline-txt hm-curl" data-field="chartUrl" data-id="${_hmEsc(t.id)}" value="${e}" placeholder="paste link" autocomplete="off" spellcheck="false" aria-label="chart link" title="${u?e:'Paste a TradingView snapshot link here - it saves at once'}" onblur="if(this.value!==this.defaultValue){saveInlineField(this);}" onkeydown="if(event.key==='Enter')this.blur()"/>${_hmCurlStHtml(t.id)}`;
 }
 function _hmCurlSay(id,ok,msg){
   const n={id:String(id),ok:!!ok,msg:String(msg||''),until:Date.now()+(ok?2500:6000)};
@@ -47696,7 +47720,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _lgvShQb=(()=>{if(!_lgvSizedQb||!_lgvShQbRaw.length)return _lgvShQbRaw;
           const lb={};trades.forEach(t=>{const d=qeTradeDate(t);if(!d||(_lgvSizedQb.cut&&d<_lgvSizedQb.cut))return;lb[d]=(lb[d]||0)+qePnlOf(t);});
           return lgvScaleShadows(_lgvShQbRaw,lb,{pct:_lgvPctQb,start:_lgvSizedQb.start,step:0.1,cap:Math.max(0.1,Math.floor(10*20*(_lgvSizedQb.ratio||41)/10)),
-            tradeStep:1,tradeCap:_lgvSizedQb.cap||8200,trades:s=>{const own=_qbShOwnRows(s);return own?{rows:own}:bkaShadowRaw(s,{qqq:true});}});})();
+            tradeStep:1,stockStep:0.01,tradeCap:_lgvSizedQb.cap||8200,trades:s=>{const own=_qbShOwnRows(s);return own?{rows:own}:bkaShadowRaw(s,{qqq:true});}});})();
         window._lgvShQbSized=_lgvSizedQb?_lgvShQb:null;
         // the what-if day rows (one per shadow leg and day, flagged _lgvWhatIf): the tiles and the calendar count them in WHAT-IF only
         const _lgvRowsQb=_lgvEffQb!=='whatif'?[]:[].concat(..._lgvShQb.map(s=>Object.keys(s.days).filter(d=>+s.days[d].p||+s.days[d].n).map(d=>({
@@ -48506,7 +48530,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(Z.fixN?(': '+Object.keys(Z.fixL).map(k=>k+' '+Z.fixL[k]).join(', ')):'')+'). '
               +Z.skipped+' trade'+(Z.skipped===1?'':'s')+' rounded to 0 shares and skipped. Open lots and trades before the range stay as traded.'
               +(_lgvShQbRaw.length?' Shadow legs: each as-if trade sized like a live trade (shares = floor(equity x risk % / its q.risk_usd a share)) when its as-if data carries a risk figure; '+_lgvShQb.filter(x=>x.fixed).length+' of '+_lgvShQb.length+' have none and stay FIXED (no stop).':'')):'';
-            return lgvBarHtml('qb',{whatifOk:_lgvShQbMem.length>0,fixedWord:'10 sh',sizeTip:tip,whatifTip:'LIVE + '+_lgvShQbMem.map(x=>x.name).join(', ')+' (simulated, never the account).'});})();
+            return lgvBarHtml('qb',{whatifOk:_lgvShQbMem.length>0,fixedWord:'10 sh',sizeTip:tip,sized:Z,whatifTip:'LIVE + '+_lgvShQbMem.map(x=>x.name).join(', ')+' (simulated, never the account).'});})();
           const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerChartOptsHtml('qb')+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
             +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="qb"><span class="lg-chart-cap">'+(capHtml||'')+'</span></div></div>';
           const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord):('Cumulative P&amp;L since '+naS(QE.live_from));
@@ -48987,9 +49011,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                     const en=String(r.et||'').replace('T',' ').slice(0,16),ex=String(r.xt||'').replace('T',' ').slice(0,16);
                     const t={_shadow:true,leg:'SH_'+s.id,trade_id:'SH-'+s.id+'-'+i,side:r.side||'',entry_ts:en?en+':00':'',exit_ts:ex?ex+':00':'',
                       entry_px:r.ep,exit_px:r.xp,shares:q,pnl_record:p,exit_reason:'as-if (simulated)',book_only:false,
-                      _shName:s.name,_shColor:col,_pxWord:r.pxWord||null,_szU:r.sizedLeg?q:undefined,_szFixed:r.fixed,_szAs:r.as,_szWord:'sh',_szNoStop:!!(r.fixed&&s.noStop)};
+                      _shName:s.name,_shColor:col,_pxWord:r.pxWord||null,_szU:r.sizedLeg?q:undefined,_szFixed:r.fixed,_szAs:r.as,_szWord:r.fu?'units':'sh',_szFu:!!r.fu,_szNoStop:!!(r.fixed&&s.noStop)};
                     out.push({id:'SH|'+s.id+'|'+i,date:en.slice(0,10),entryTime:en.slice(11,16)+':00',exitTime:ex.slice(11,16)+':00',exitDate:d,
-                      symbol:s.name,strategy:s.name,side:r.side?String(r.side).toUpperCase():'',size:q,pnl:p,points:isFinite(+r.pu)?+r.pu:null,_t:t,_ghost:true,_shRow:true});});});
+                      symbol:s.name,strategy:s.name,side:r.side?String(r.side).toUpperCase():'',size:q,pnl:p,points:(!r.fu&&isFinite(+r.pu))?+r.pu:null,_t:t,_ghost:true,_shRow:true});});});   // R6: a stock leg (file units) has no per-share PTS
                 return out;})();
               window._qbShadowRowsN=qbShadowVm.length;
               qbShadowVm.forEach(v=>qbGhostVm.push(v));
@@ -49095,7 +49119,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                       +(cw?'<span class="qbx-cav" data-qbcav="'+cw+'" title="'+qbEsc(qbFlagsText(v._t))+'">'+cw+'</span>':'');},
                   pts:v=>v.points==null?'--':((v.points>=0?'+':'-')+Math.abs(v.points).toFixed(2)+'/sh'),
                   // ledgerfix5 E: SHARES = the sized quantity under RISK n % (hover: 'traded N sh'); FIXED = as traded, as before
-                  size:v=>{const t=v._t;if(!_lgvSizedQb||t._missed)return v.size!=null?qbEsc(v.size):'--';
+                  size:v=>{const t=v._t;if(t._szFu)return '<span data-lgvszfu="1" title="size in the as-if file units (0.1 / 1.0 of a book unit), not shares">'+(_lgvSizedQb?lgvQtyCell(t._szU,!!t._szFixed,t._szAs,'',_lgvSzQb,'units'):qbEsc(v.size))+'</span>';   // R6
+                    if(!_lgvSizedQb||t._missed)return v.size!=null?qbEsc(v.size):'--';
                     if(t._shadow)return lgvQtyCell(t._szU,!!t._szFixed,t._szAs,'',_lgvSzQb);
                     return lgvQtyCell((t.lgv_sh===undefined&&!t.lgv_fixed)?undefined:t.lgv_sh,!!t.lgv_fixed,Number(t.shares)>0?Number(t.shares):10,'',_lgvSzQb);},
                   // the exit reason with the flags (BOOK ONLY, FILL GAP, EOD ...); in the LIST the flags come first, the cell clips from the right
@@ -50083,8 +50108,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // LEDGER step 12: the shared page frame - the top block in LEDGER_TOP_ORDER (hero, status, pills + chart, stats, calendar), the strategy
         // list (the right-hand panel from 1100 px, under the calendar below it), then the trade list and this board's own folds
         // board 145 (owner GO 11-22): a SIZED view (RISK %) is simulated even on LIVE, so it gets the same dashed what-if accent
-        const _lgvWrapQb=(h,k)=>(_lgvEffQb==='whatif'||_lgvSzQb!=='fixed')?('<div class="lgv-whatif" data-lgvwi="'+k+'"><span class="lgv-tag lgv-wi" data-lgvtag="'+(_lgvEffQb==='whatif'?'whatif':'sized')+'">'+(_lgvEffQb==='whatif'?'what-if':'simulated')+'</span>'+h+'</div>'):h;
-        const qbTop={hero:'<div class="qbx-hero'+(_lgvSzQb!=='fixed'?' lgv-whatif':'')+'"'+(_lgvSzQb!=='fixed'?' data-lgvsim="1"':'')+'>'+(lgvHeroTags(_lgvEffQb,_lgvSzQb,_lgvSizedQb)?'<div class="lgv-herotags" data-lgvherotags="qb">'+lgvHeroTags(_lgvEffQb,_lgvSzQb,_lgvSizedQb)+'</div>':'')+qbHeroHtml
+        // board 159 (owner 11-22): the wrapper is always there and carries no tag - only the dashed outline (no layout) marks WHAT-IF / sized
+        const _lgvWrapQb=(h,k)=>{const on=_lgvEffQb==='whatif'||_lgvSzQb!=='fixed';return '<div class="lgv-wislot'+(on?' lgv-whatif':'')+'"'+(on?(' data-lgvwi="'+k+'" title="'+(_lgvEffQb==='whatif'?'what-if: LIVE + the switched-on shadow legs':'simulated: sized')+', not the account"'):'')+'>'+h+'</div>';};
+        const qbTop={hero:'<div class="qbx-hero'+(_lgvSzQb!=='fixed'?' lgv-whatif':'')+'"'+(_lgvSzQb!=='fixed'?' data-lgvsim="1"':'')+'>'+qbHeroHtml
           +(qbShOnA.length?'<span class="lg-hero-excl" data-qbshwhatif="'+qbShOnSum+'" title="What-if only: the switched-on shadow legs’ closed would-be P&amp;L in this range added to the realized figure. Never part of the account number.">realized incl. shadow (what-if) '+ledgerSigned(Math.round((qbRangePnl+qbShOnSum)*100)/100)+'</span>':'')
           +(()=>{try{const C=window._qbBkaCtx;if(!C)return '';const v=bkaOnSum('qb',C.from,null,id=>!!(C.live(id)||C.fwd(id)));
             if(!bkaOnA('qb').some(id=>!(C.live(id)||C.fwd(id))&&bkaLegB('qb',id)&&Array.isArray(bkaLegB('qb',id).d)))return '';
@@ -50937,7 +50963,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +_lgvSizedP2.skipped+' trade'+(_lgvSizedP2.skipped===1?'':'s')+' rounded to 0 and skipped. Trades before the range stay as traded.'
           +(_lgvShP2Raw.length?' Shadow legs: each as-if trade sized like a live trade (contracts = floor(equity x risk % / its risk_usd a contract) in 0.1 steps, cap 10) when its as-if data carries a risk figure; '+_lgvShP2.filter(x=>x.fixed).length+' of '+_lgvShP2.length+' have none and stay FIXED (no stop).':'')):'';
       window._lgvShP2Sized=_lgvSizedP2?_lgvShP2:null;
-      const _lgvBarP2=lgvBarHtml('p2',{whatifOk:_lgvShP2Mem.length>0,fixedWord:'1 NQ',sizeTip:_lgvSizeTipP2,
+      const _lgvBarP2=lgvBarHtml('p2',{whatifOk:_lgvShP2Mem.length>0,fixedWord:'1 NQ',sizeTip:_lgvSizeTipP2,sized:_lgvSizedP2,
         whatifTip:'LIVE + '+_lgvShP2Mem.map(s=>s.name).join(', ')+' (simulated as-if, never the account).'});
       const _rhChart=(()=>{
         // v91.79: the what-if KPI table sits under the chart row (filled when the chart is wired; empty with no shadow leg on)
@@ -52704,7 +52730,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           window._p2Chart.pctTip=_rb?('% of '+_p2PctBaseTip(_rb,_H0,'this range')):'';}
         const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',under:'p2-hero-under',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},todayInline:true,
           // r2 step 2 (item 41): the definition is the label's tooltip
-          label:'<span title="'+_p2LabelTip.replace(/"/g,'&quot;')+'">BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity</span>'+lgvHeroTags(_lgvEffP2,_lgvSzP2,_lgvSizedP2),
+          label:'<span title="'+_p2LabelTip.replace(/"/g,'&quot;')+'">BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity</span>',
           big:elMoney(_netEq)+'<span class="lg-suffix qbx-hero-qual" data-p2heroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>',
           today:ledgerTodayHtml(_H.today,_p2TodayPct),
           // owner 10-31 (live page, same as Webull): the OPEN line sits DIRECTLY under the big number - 'open -$X · N trades · not counted'
@@ -53096,8 +53122,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // longer moves them); the tiles, then the CALENDAR (open by default), then the More stats fold
         // v91.81: in WHAT-IF the tiles and the calendar carry the dashed accent and a what-if tag (they count the shadow day rows)
         // board 145 (owner GO 11-22): a SIZED view (RISK %) is simulated even on LIVE, so it gets the same dashed what-if accent
-        const _lgvWrapP2=(h,k)=>(_lgvEffP2==='whatif'||_lgvSzP2!=='fixed')?('<div class="lgv-whatif" data-lgvwi="'+k+'"><span class="lgv-tag lgv-wi" data-lgvtag="'+(_lgvEffP2==='whatif'?'whatif':'sized')+'">'+(_lgvEffP2==='whatif'?'what-if':'simulated')+'</span>'+h+'</div>'):h;
-        const _p2TopS={hero:_p2Sec('hero',_lgvSzP2!=='fixed'?('<div class="lgv-whatif" data-lgvsim="1">'+_p2HeadNew+'</div>'):_p2HeadNew),status:_p2NeedsYou+_p2StatFold,pills:'',chart:_rhChart,
+        // board 159 (owner 11-22): the wrapper is always there and carries no tag - only the dashed outline (no layout) marks WHAT-IF / sized
+        const _lgvWrapP2=(h,k)=>{const on=_lgvEffP2==='whatif'||_lgvSzP2!=='fixed';return '<div class="lgv-wislot'+(on?' lgv-whatif':'')+'"'+(on?(' data-lgvwi="'+k+'" title="'+(_lgvEffP2==='whatif'?'what-if: LIVE + the switched-on shadow legs':'simulated: sized')+', not the account"'):'')+'>'+h+'</div>';};
+        const _p2TopS={hero:_p2Sec('hero','<div class="lgv-wislot'+(_lgvSzP2!=='fixed'?' lgv-whatif" data-lgvsim="1"':'"')+'>'+_p2HeadNew+'</div>'),status:_p2NeedsYou+_p2StatFold,pills:'',chart:_rhChart,
           stats:_p2Sec('stats',_lgvWrapP2(_pnUi.strip,'stats')),more:'',cal:_p2Sec('cal',_lgvWrapP2(_pnUi.cal,'cal'))+_p2Sec('more',_pnUi.more)};
         const _p2Top=LEDGER_PAPER_TOP_ORDER.map(k=>_p2TopS[k]||'').join('');
         // the board own sections, after the trades: the 10s capture (with the data feed warning), then the four cards

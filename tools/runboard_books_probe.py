@@ -280,16 +280,23 @@ def main():
             continue
         if r['bookRows'] < 2:
             bad.append('%s: expected both book rows, saw %s' % (smp, r['bookRows']))
+        # b7b2909d (#14): the worst-stretch and day-rule lines are WHOLE-RUN figures, printed on the FULL stage only; on IS / LB
+        # they must be absent (the page is right; this gate expected them on every stage until 11-22)
+        full_only = (('hasDates', 'the worst-stretch dates are not printed'),
+                     ('hasDepth', 'the worst-stretch depth is not printed'),
+                     ('dayRule', 'the day-stamping disagreement is not printed on the row'))
         for k, why in (('hasNew', 'the new-format book row is missing'),
                        ('hasOld', 'the pre-v73.638 book row is missing'),
-                       ('hasDates', 'the worst-stretch dates are not printed'),
-                       ('hasDepth', 'the worst-stretch depth is not printed'),
                        ('namesInert', 'the absent leg is not named'),
                        ('oldClean', 'a book with no worst_stretch block printed one anyway'),
-                       ('dayRule', 'the day-stamping disagreement is not printed on the row'),
-                       ('oldNoDayRule', 'a book with no day_rule block printed one anyway')):
+                       ('oldNoDayRule', 'a book with no day_rule block printed one anyway')) + (full_only if smp == 'full' else ()):
             if not r.get(k):
                 bad.append('%s: %s' % (smp, why))
+        if smp != 'full':
+            for k, why in (('hasDates', 'the whole-run worst-stretch dates print on a %s stage' % smp),
+                           ('dayRule', 'the whole-run day-rule line prints on a %s stage' % smp)):
+                if r.get(k):
+                    bad.append('%s: %s' % (smp, why))
         if r.get('undef'):
             bad.append('%s: a book row printed undefined or NaN' % smp)
         dd_m, dd_c, net_m = MTM_EXPECT[smp]

@@ -4086,7 +4086,10 @@ __S11JS__
                 o.paths=[].map.call(d.querySelectorAll('#qb-lg-chart path[data-lgshadow]'),function(e){return [e.getAttribute('data-lgshadow'),CS(e).stroke,e.getAttribute('stroke-width')];});
                 o.swatch=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkaleg] svg.bka-swatch line'),function(e){return [e.closest('svg').getAttribute('data-bkaswatch'),CS(e).stroke];});
                 o.legsh=[].map.call(d.querySelectorAll('#qb-lg-legend [data-lglegshadow], #qb-lg-chart [data-lglegshadow]'),function(e){var ln=e.querySelector('line');return [e.getAttribute('data-lglegshadow'),ln?CS(ln).stroke:'',!!e.querySelector('.lg-shmark')];});
-                var kp=d.querySelector('#qb-bka-kpi [data-bkakpi]');
+                var kp=d.querySelector('#qb-bka-kpi [data-bkakpi]'),ksl=d.querySelector('#qb-bka-kpi');
+                // board 159/160: the KPI slot is one folded header line whatever is on; no what-if / sized tag outside the bar above the chart
+                o.kslot=ksl?{h:ksl.offsetHeight,open:!!ksl.querySelector('.bka-kpi-open'),hd:!!ksl.querySelector('[data-bkakpihd]')}:null;
+                o.strayTags=[].filter.call(d.querySelectorAll('.lgv-tag'),function(e){return !e.closest('[data-lgvbar]')&&CS(e).visibility!=='hidden'&&e.offsetParent;}).map(function(e){return e.textContent;});
                 o.kpi=kp?{cols:[].map.call(kp.querySelectorAll('thead [data-bkakcol]'),function(e){return e.getAttribute('data-bkakcol');}),
                   net:[].map.call(kp.querySelectorAll('[data-bkakrow="net"] [data-bkaknet]'),function(e){return [e.getAttribute('data-bkakcell'),parseFloat(e.getAttribute('data-bkaknet'))];}),
                   scroll:CS(kp.querySelector('.bka-kpi-scroll')).overflowX,pageW:d.documentElement.scrollWidth,vw:W().innerWidth}:null;
@@ -4131,7 +4134,7 @@ __S11JS__
               var cc=function(c){var e=D().createElement('span');e.style.color=c;D().body.appendChild(e);var v=W().getComputedStyle(e).color;e.remove();return v;};
               var hv=function(){var d=D(),x=d.querySelector('[data-lgvbar="qb"]'),wb=x?x.querySelector('[data-lgvview="whatif"]'):null,c=W()._qbLgChart;
                 return {big:(d.getElementById('qb-hero-value')||{}).textContent,range:(d.getElementById('qb-hero-range')||{}).textContent,eff:x?x.getAttribute('data-lgveff'):null,
-                  size:x?x.getAttribute('data-lgvsizenow'):null,wiDis:wb?!!wb.disabled:null,tags:[].map.call(d.querySelectorAll('[data-lgvherotag]'),function(e){return e.getAttribute('data-lgvherotag');}),
+                  size:x?x.getAttribute('data-lgvsizenow'):null,wiDis:wb?!!wb.disabled:null,tags:[].map.call(d.querySelectorAll('[data-lgvbar] [data-lgvtag]'),function(e){return e.getAttribute('data-lgvtag');}),
                   wi:[].map.call(d.querySelectorAll('[data-lgvwi]'),function(e){return e.getAttribute('data-lgvwi');}),
                   end:(c&&c.pts&&c.pts.length)?c.pts[c.pts.length-1].v:null,stats:((d.querySelector('.qbx-lgstats')||{}).textContent||'').replace(/ +/g,' ').trim()};};
               vw.renderApp();await wt();LV.a=hv();
@@ -4168,7 +4171,7 @@ __S11JS__
                 var zsum=function(Z){var u=0,f=0;Object.keys(Z.by).forEach(function(k){u+=Z.by[k].usd;f+=Z.by[k].fx;});return {usd:Math.round(u*100)/100,fx:Math.round(f*100)/100};};
                 var zoff=function(Z){return Object.keys(Z.by).filter(function(k){var b=Z.by[k];return b.fixed&&(Math.round(b.usd*100)!==Math.round(b.fx*100)||b.units!==null);}).map(function(k){return [k,Z.by[k].usd,Z.by[k].fx];});};
                 LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,n:Z.n,riskN:Z.riskN,fixN:Z.fixN,off:zoff(Z),sum:zsum(Z)}:null;LV.storedSize=LSv.getItem('el_lgv_size_qb');
-                var ht=D().querySelector('[data-lgvherotag="size"]');LV.heroCnt=ht?{r:ht.getAttribute('data-riskn'),f:ht.getAttribute('data-fixn'),txt:ht.textContent}:null;
+                var ht=D().querySelector('[data-lgvbar] [data-lgvtag="size"]');LV.heroCnt=ht?{r:ht.getAttribute('data-riskn'),f:ht.getAttribute('data-fixn'),txt:ht.getAttribute('title')||''}:null;
                 LV.noMedian=['lgvMedianLoss','lgvFallbacks'].filter(function(k){return typeof vw[k]==='function';});
                 // v91.83: give the EARLIEST-entry trade in the range a stop_px $5 under its entry (the field PAPER-WB publishes); it alone is
                 // risk-sized at start x 1 % / about $5 a share (nothing has exited before it, so the equity is the start); every other row stays FIXED
@@ -9289,6 +9292,13 @@ def _judge(data, fixture):
                         fails.append('what-if KPIs: %s the switch the table is %r with shadow lines %r on' % (_nm, _b.get('kpi'), _on))
                 if not b1.get('kpi'):
                     fails.append('what-if KPIs: no table with OPUS55a on')
+                # board 160: folded by default, and the folded slot height does not move when a shadow goes on / off
+                _ks = [(_b.get('kslot') or {}) for _b in (b0, b1, b2)]
+                if any(not k.get('hd') or k.get('open') for k in _ks) or len(set(k.get('h') for k in _ks)) != 1:
+                    fails.append('what-if KPIs (board 160): not folded by default, or the folded slot height moved with a shadow switch (%r)' % (_ks,))
+                for _nm, _bx in (('before', b0), ('on', b1), ('after', b2)):
+                    if _bx.get('strayTags'):
+                        fails.append('board 159: a what-if / sized tag outside the chart bar (%s: %r)' % (_nm, _bx.get('strayTags')))
                 if not b3:
                     fails.append('what-if colours: no PICK6 shadow switch in the stock book: %r' % (b1.get('legs'),))
                 else:
@@ -9420,10 +9430,11 @@ def _judge(data, fixture):
             if not (isinstance(u0, (int, float)) and u0 > 0) or sR.get('byTrade') is not True or (sR.get('tFix') or {}).get('1') is not True:
                 fails.append('ledgerfix5 D: RISK 1 %% did not size the PICK6 shadow trade from its risk_usd (%r)' % (sR,))
             else:
-                want_u = math.floor((sR.get('start') or 0) * 0.01 / 2 + 1e-9)
+                # R6 (11-22): PICK6 is a stock leg in FILE units (0.1 / 1.0), sized in 0.01 steps (was whole shares)
+                want_u = round(math.floor((sR.get('start') or 0) * 0.01 / 2 / 0.01 + 1e-9) * 0.01, 6)
                 qs = sorted((r.get('q') or '') for r in (sR.get('rows') or []))
-                if u0 != want_u or qs != sorted([str(want_u), 'fixed']):
-                    fails.append('ledgerfix5 D/E: the PICK6 shadow sized at %r (cells %r), want floor(start %r x 1 %% / $2) = %r and one fixed (no stop)' % (u0, qs, sR.get('start'), want_u))
+                if abs(u0 - want_u) > 1e-6 or qs != sorted(['%g' % round(want_u, 3), 'fixed']):
+                    fails.append('ledgerfix5 D/E: the PICK6 shadow sized at %r (cells %r), want floor(start %r x 1 %% / $2) in 0.01 file units = %r and one fixed (no stop)' % (u0, qs, sR.get('start'), want_u))
                 if sorted(r.get('pts') for r in (sR.get('rows') or [])) != sorted(r.get('pts') for r in (lv.get('shF') or [])):
                     fails.append('ledgerfix5 E: the shadow PTS moved with sizing (%r / %r)' % (sR.get('rows'), lv.get('shF')))
             if sR.get('szCol'):

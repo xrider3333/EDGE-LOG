@@ -1765,7 +1765,10 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                 s.paths=[].map.call(d.querySelectorAll('#p2-chart path[data-lgshadow]'),function(e){return [e.getAttribute('data-lgshadow'),getComputedStyle(e).stroke,e.getAttribute('stroke-width'),e.getAttribute('stroke-dasharray')];});
                 s.swatch=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg] svg.bka-swatch line'),function(e){return [e.closest('svg').getAttribute('data-bkaswatch'),getComputedStyle(e).stroke];});
                 s.legsh=[].map.call(d.querySelectorAll('#p2-lg-legend [data-lglegshadow], #p2-chart [data-lglegshadow]'),function(e){var ln=e.querySelector('line');return [e.getAttribute('data-lglegshadow'),ln?getComputedStyle(ln).stroke:'',!!e.querySelector('.lg-shmark')];});
-                var kp=d.querySelector('#p2-bka-kpi [data-bkakpi]');
+                var kp=d.querySelector('#p2-bka-kpi [data-bkakpi]'),ksl=d.querySelector('#p2-bka-kpi');
+                // board 159/160: the KPI slot is one folded header line whatever is on; no what-if / sized tag outside the bar above the chart
+                s.kslot=ksl?{h:ksl.offsetHeight,open:!!ksl.querySelector('.bka-kpi-open'),hd:!!ksl.querySelector('[data-bkakpihd]')}:null;
+                s.strayTags=[].filter.call(d.querySelectorAll('.lgv-tag'),function(e){return !e.closest('[data-lgvbar]')&&getComputedStyle(e).visibility!=='hidden'&&e.offsetParent;}).map(function(e){return e.textContent;});
                 s.kpi=kp?{cols:[].map.call(kp.querySelectorAll('thead [data-bkakcol]'),function(e){return e.getAttribute('data-bkakcol');}),
                   net:[].map.call(kp.querySelectorAll('[data-bkakrow="net"] [data-bkaknet]'),function(e){return [e.getAttribute('data-bkakcell'),parseFloat(e.getAttribute('data-bkaknet'))];}),
                   rows:[].map.call(kp.querySelectorAll('tbody tr'),function(e){return e.getAttribute('data-bkakrow');}),
@@ -1815,7 +1818,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               var _cc=function(c){var e=d.createElement('span');e.style.color=c;d.body.appendChild(e);var v=getComputedStyle(e).color;e.remove();return v;};
               var _hv=function(){var bar=d.querySelector('[data-lgvbar="p2"]'),wb=bar?bar.querySelector('[data-lgvview="whatif"]'):null,rz=d.querySelector('#p2-hero-range [data-p2realized]');
                 var C=w._p2Chart;return {big:_t(d.getElementById('p2-hero-value')),real:rz?_lvNum(_t(rz)):null,eff:bar?bar.getAttribute('data-lgveff'):null,size:bar?bar.getAttribute('data-lgvsizenow'):null,
-                  wiDis:wb?!!wb.disabled:null,tags:[].map.call(d.querySelectorAll('[data-lgvherotag]'),function(e){return e.getAttribute('data-lgvherotag');}),
+                  wiDis:wb?!!wb.disabled:null,tags:[].map.call(d.querySelectorAll('[data-lgvbar] [data-lgvtag]'),function(e){return e.getAttribute('data-lgvtag');}),
                   barTags:[].map.call(d.querySelectorAll('[data-lgvbar="p2"] [data-lgvtag]'),function(e){return e.getAttribute('data-lgvtag');}),
                   wi:[].map.call(d.querySelectorAll('[data-lgvwi]'),function(e){return e.getAttribute('data-lgvwi');}),
                   end:(C&&C.pts&&C.pts.length)?C.pts[C.pts.length-1].v:null,tiles:_t(d.querySelector('[data-p2sec="stats"]'))};};
@@ -1861,7 +1864,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               if(_click('[data-lgvboard="p2"][data-lgvsize="r1"]')){LV.e=_hv();var Z=w._lgvP2;LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,fixN:Z.fixN,riskN:Z.riskN,n:Z.n,storedSize:LS1.getItem('el_lgv_size_p2'),
                   fixedOff:Object.keys(Z.by).filter(function(k){var b=Z.by[k];return b.fixed&&Math.round(b.usd*100)!==Math.round(b.fx*100);}).map(function(k){return [k,Z.by[k].usd,Z.by[k].fx];}),
                   fixedUnits:Object.keys(Z.by).filter(function(k){return Z.by[k].fixed&&Z.by[k].units!==null;}).length}:null;
-                var ht=d.querySelector('[data-lgvherotag="size"]');LV.heroCnt=ht?{r:ht.getAttribute('data-riskn'),f:ht.getAttribute('data-fixn'),txt:_t(ht)}:null;
+                var ht=d.querySelector('[data-lgvbar] [data-lgvtag="size"]');LV.heroCnt=ht?{r:ht.getAttribute('data-riskn'),f:ht.getAttribute('data-fixn'),txt:ht.getAttribute('title')||''}:null;
                 // v91.83: give the EARLIEST-entry closed book trade a logged stop (stops[0].px) 10 points from its entry; it alone is risk-sized at
                 // $100,000 x 1 % / (10 pts x $ a point); every other trade stays FIXED. Then put the trade back as it was.
                 if(Z){var ks=Object.keys(Z.by).sort(function(a,b){return Z.by[a].e-Z.by[b].e||a-b;});
@@ -2373,6 +2376,13 @@ def run(alt_index=None, timeout=300):
             fails.append('paper2 what-if KPIs: the table shows with no shadow leg on (%r / %r)' % (s1.get('kpi'), s4.get('kpi')))
         if not s2.get('kpi'):
             fails.append('paper2 what-if KPIs: no table with OPUS55a on')
+        # board 160: folded by default, and the slot height does not move when a shadow goes on (folded)
+        _k1, _k2 = s1.get('kslot') or {}, s2.get('kslot') or {}
+        if not _k1.get('hd') or not _k2.get('hd') or _k1.get('open') or _k2.get('open') or _k1.get('h') != _k2.get('h'):
+            fails.append('paper2 what-if KPIs (board 160): not folded by default, or the folded slot height moved with a shadow on (%r -> %r)' % (_k1, _k2))
+        for _nm, _sx in (('s1', s1), ('s2', s2), ('s5', s5)):
+            if _sx.get('strayTags'):
+                fails.append('paper2 board 159: a what-if / sized tag outside the chart bar (%s: %r)' % (_nm, _sx.get('strayTags')))
         pth = {x[0]: x for x in (s5.get('paths') or [])}
         sO, sP = (pth.get('OPUS55a') or [None, None])[1], (pth.get('PICK6') or [None, None])[1]
         if not sO or not sP or sO == sP:
