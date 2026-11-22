@@ -65,7 +65,8 @@ UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 # board's own first ledger day, so the series starts early enough for both
 WINDOW_FROM = "2026-06-01"
 WARM_DAYS = 330                      # NOISE's 104-day lookback, EODREV's 180-day beta, ENGU-Q's 1340-bar EMA
-SCHEMA = 5                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check); 3 = the qqq block (v91.74); 4 = per-trade sizes in the qqq block + ML guard + panel ext; 5 = per-trade risk_pts / risk_usd (11-22)
+MIN_REAL_LOSERS = 5                  # sweep 4: fewer real (beyond-cost) losers than this -> no risk unit
+SCHEMA = 6                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check); 3 = the qqq block (v91.74); 4 = per-trade sizes in the qqq block + ML guard + panel ext; 5 = per-trade risk_pts / risk_usd (11-22); 6 = sweep 4 risk fixes
 
 # Book-table leg id -> which run's champion it is, and anything the run doc does not say. `run` is the run the book
 # table names (the label); `params_run` (if set) is the run whose champion is replayed (NOISE398 = #528's PASS pick);
@@ -711,7 +712,9 @@ def qqq_block(spec, st, refs=None, per_trade=None):
         one = (float(t[2]) + (fs - 1.0) * fcost + ecost) / fs - ecost if fs != 1.0 else float(t[2])
         usd = qqq_trade_usd(to_pts(one), rp, qp, n, sz["slip"], beta)
         if per_trade is not None:
-            per_trade[id(t)] = {"sh": int(n), "usd": round(usd, 2)}
+            # k = QQQ $ per share for ONE point of the leg's instrument at the ENTRY-day close ratio (x beta on ES): the
+            # risk conversion uses this, never the trade's own result (sweep 4, item 2: no look-ahead)
+            per_trade[id(t)] = {"sh": int(n), "usd": round(usd, 2), "_k": (float(qp) / float(rp)) * float(beta)}
         if xi >= last:
             lb_usd += usd
             lb_n += 1
@@ -844,6 +847,11 @@ def trade_rows(spec, st, pq=None):
     # or share for a stock file in $) loses at that risk.
     from augur_engine.risk_sizing import median_loss_pts
     mult = float(st["mult"])
+    # sweep 4 item 1: a loser no bigger than the round-trip cost is a flat trade that paid its fee (closed at entry);
+    # counting those made ENGU-Q #335's unit = cost only ($10.66) and sized shadows to the cap. They are left out; with
+    # fewer than MIN_REAL_LOSERS real losers the unit stays null and the page shows the leg fixed (no stop).
+    cost_floor = (ecost if units != "usd" else float((spec.get("params") or {}).get("cost_pts") or 0) *
+                  float((spec.get("params") or {}).get("point_value") or 0)) + 1e-9
     hist = []
     for t, size in st.get("sized") or []:
         xi = min(int(t[1]), last)
@@ -852,7 +860,8 @@ def trade_rows(spec, st, pq=None):
             continue
         fs = float(fsz.get(id(t), 1.0) or 1.0)
         hist.append((float(t[2]) + (fs - 1.0) * ecost) / fs if units != "usd" else float(t[2]) / fs)
-    r_unit = median_loss_pts(hist) if hist else None
+    real = [x for x in hist if x < -cost_floor]
+    r_unit = median_loss_pts(real) if len(real) >= MIN_REAL_LOSERS else None
     risk_pts = round(r_unit, 4) if (r_unit and units != "usd") else None
     risk_usd = (round(r_unit * mult, 2) if units != "usd" else round(r_unit, 2)) if r_unit else None
     rows = []
@@ -877,13 +886,10 @@ def trade_rows(spec, st, pq=None):
             r["open"] = True
         if pq and id(t) in pq:
             q = dict(pq[id(t)])
-            # QQQ terms: $ one SHARE loses at the same risk = the leg's risk at this trade's size, converted at this trade's
-            # own NQ-$ -> QQQ-$ ratio, per share
-            try:
-                if risk_usd and r["pnl"] and q.get("usd") is not None and float(q.get("sh") or 0) > 0:
-                    q["risk_usd"] = round(risk_usd * r["size"] * abs(float(q["usd"]) / r["pnl"]) / float(q["sh"]), 4)
-            except Exception:
-                pass
+            k = q.pop("_k", None)
+            # QQQ terms: $ one SHARE loses at the risk unit = risk points x the entry-day QQQ / NQ (or ES x beta) ratio
+            if risk_pts and k:
+                q["risk_usd"] = round(risk_pts * k, 4)
             r["q"] = q
         rows.append(r)
     return rows
@@ -1151,10 +1157,9 @@ def main(argv=None):
            "note": "simulated as-if: each leg's pinned champion on current data with its run's cost, closed trades by "
                    "New York day; never the account",
            "legs": out_legs}
-    _write_json(os.path.join(OUT_DIR, "book_asif.json"), doc)
     ok = sum(1 for r in out_legs.values() if r.get("d") is not None)
     bad = {k: r.get("reason") for k, r in out_legs.items() if r.get("reason")}
-    print("wrote %s: %d legs with a series, %d without%s" % (os.path.join(OUT_DIR, "book_asif.json"), ok, len(bad),
+    print("built %s (written after publish): %d legs with a series, %d without%s" % (os.path.join(OUT_DIR, "book_asif.json"), ok, len(bad),
           "".join("\n  %s: %s" % kv for kv in bad.items())))
     if db is not None and (changed or a.force):
         ref = db.collection("users").document(UID).collection("meta")
@@ -1166,12 +1171,15 @@ def main(argv=None):
             h = hashlib.sha1(json.dumps(rows, sort_keys=True, default=str).encode()).hexdigest()[:16]
             if hashes.get(lid) == h:       # Firestore Spark quota: write a leg's trades only when they change
                 continue
-            hashes[lid] = h; nw += 1
             for j in range(0, max(len(rows), 1), TRADES_PER_DOC):
                 ref.document("book_asif_trades_%s%s" % (lid, "" if j == 0 else "_%d" % (j // TRADES_PER_DOC))).set(
                     {"leg": lid, "window_from": WINDOW_FROM, "generated_at": doc["generated_at"], "part": j // TRADES_PER_DOC,
                      "parts": -(-len(rows) // TRADES_PER_DOC) or 1, "rows": rows[j:j + TRADES_PER_DOC]})
-        _write_json(hp, hashes)
+            hashes[lid] = h; nw += 1           # recorded only once its docs are written
+            _write_json(hp, hashes)
+        # sweep 4 item 3: the local copy is the "last published" mark - written only AFTER every Firestore write above
+        # succeeded, so a failed publish (429) is retried next run instead of read as "nothing changed"
+        _write_json(os.path.join(OUT_DIR, "book_asif.json"), doc)
         try:
             ref.document("book_asif_req").set({"legs": [], "cleared_at": _now_utc()})
         except Exception:
@@ -1179,6 +1187,8 @@ def main(argv=None):
         print("published users/<uid>/meta/book_asif (%d bytes) + %d of %d per-leg trade docs (changed only)" % (len(json.dumps(slim, default=str)), nw, len(trs)))
     elif db is not None:
         print("nothing changed - not published")
+    else:
+        _write_json(os.path.join(OUT_DIR, "book_asif.json"), doc)
     return 0
 
 
