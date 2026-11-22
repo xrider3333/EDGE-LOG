@@ -4079,7 +4079,7 @@ __S11JS__
                 var CS=W().getComputedStyle;
                 o.paths=[].map.call(d.querySelectorAll('#qb-lg-chart path[data-lgshadow]'),function(e){return [e.getAttribute('data-lgshadow'),CS(e).stroke,e.getAttribute('stroke-width')];});
                 o.swatch=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkaleg] svg.bka-swatch line'),function(e){return [e.closest('svg').getAttribute('data-bkaswatch'),CS(e).stroke];});
-                o.legsh=[].map.call(d.querySelectorAll('#qb-lg-legend [data-lglegshadow]'),function(e){var ln=e.querySelector('line');return [e.getAttribute('data-lglegshadow'),ln?CS(ln).stroke:'',!!e.querySelector('.lg-shmark')];});
+                o.legsh=[].map.call(d.querySelectorAll('#qb-lg-legend [data-lglegshadow], #qb-lg-chart [data-lglegshadow]'),function(e){var ln=e.querySelector('line');return [e.getAttribute('data-lglegshadow'),ln?CS(ln).stroke:'',!!e.querySelector('.lg-shmark')];});
                 var kp=d.querySelector('#qb-bka-kpi [data-bkakpi]');
                 o.kpi=kp?{cols:[].map.call(kp.querySelectorAll('thead [data-bkakcol]'),function(e){return e.getAttribute('data-bkakcol');}),
                   net:[].map.call(kp.querySelectorAll('[data-bkakrow="net"] [data-bkaknet]'),function(e){return [e.getAttribute('data-bkakcell'),parseFloat(e.getAttribute('data-bkaknet'))];}),
@@ -5572,8 +5572,29 @@ def expected_leg_name(t):
     return '%s %s' % (fam, CURRENT_RUN.get(leg, ''))
 
 
+def el_money(v, signed=False, compact_from=100000):
+    """index.html elMoney (board 145-D: ONE money format on the ledger pages; tools/money_fmt_probe.py pins the JS):
+    under $1,000 cents kept, $1,000 up whole dollars with commas, compact from $100,000 ($987.7k / $1.23M);
+    signed: '+' on a gain, '-' on a loss, no sign on zero (a value that rounds to $0.00 is zero)."""
+    if v is None or v == '':
+        return '\u2014'
+    n = float(v)
+    a = abs(n)
+    if a >= compact_from:
+        body = ('$%.2fM' % (_js_round(a / 1e4) / 100)) if a >= 999950 else ('$%.1fk' % (_js_round(a / 100) / 10))
+    elif a >= 1000:
+        body = '$' + format(_js_round(a), ',')
+    else:
+        c = _js_round(a * 100) / 100
+        body = ('$' + format(_js_round(a), ',')) if c >= 1000 else ('$%.2f' % c)
+        if c == 0:
+            n = 0
+    return ('-' if n < 0 else ('+' if signed and n > 0 else '')) + body
+
+
 def money(v):
-    return ('-' if v < 0 else '') + '${:,.2f}'.format(abs(v))
+    """index.html ledgerMoney / qeMoney (board 145-D): elMoney."""
+    return el_money(v)
 
 
 def _close_day(t):
@@ -5591,19 +5612,13 @@ def _js_round(x):
 
 
 def signed(v):
-    """index.html ledgerSigned: '+$1.00' / '-$1.00' (a zero reads '+$0.00')."""
-    return ('+' if v >= 0 else '-') + money(abs(v))
+    """index.html ledgerSigned (board 145-D): elMoney signed - '+$1.00' / '-$1.00', a zero reads '$0.00'."""
+    return el_money(v, signed=True)
 
 
 def short_money(v):
-    """index.html ledgerShortMoney without its sign: $276, $1.2k, $12k."""
-    a = abs(v)
-    if a >= 10000:
-        return '$%dk' % _js_round(a / 1000)
-    if a >= 1000:
-        s = '%.1f' % (a / 1000)
-        return '$' + (s[:-2] if s.endswith('.0') else s) + 'k'
-    return '$%d' % _js_round(a)
+    """index.html ledgerShortMoney without its sign (board 145-D): elMoney compact from $10,000 - $275.66, $1,234, $12.3k."""
+    return el_money(abs(v), compact_from=10000)
 
 
 def _fin(v):
@@ -5929,8 +5944,8 @@ BOOK_LEGS_FIX = {'basis': 'probe fixture', 'books': {
     '30_prov': {'row': '30 provisional', 'label': 'estimate, probe, WITH GOLD', 'provisional': True, 'usd_per_year': 1,
                 'legs': [{'id': 'ORB314', 'name': 'ORB', 'run': '#314'}, {'id': 'NOISE382', 'name': 'NOISE', 'run': '#382'},
                          {'id': 'GLDNIGHT', 'name': 'GLD night', 'run': '', 'size': '100 sh'}]}}}
-BOOK_HEAD_WANT = ['Book 30 provisional', 'estimate', '$98,765/yr', 'was $140,142', 'max DD 31.2%', 'ex-2020 24.6%', 'ROC30 97.1',
-                  'Sortino 4.51', '2016-20 $68,870', '2021-25 $173,344']
+BOOK_HEAD_WANT = ['Book 30 provisional', 'estimate', '$98,765/yr', 'was $140.1k', 'max DD 31.2%', 'ex-2020 24.6%', 'ROC30 97.1',
+                  'Sortino 4.51', '2016-20 $68,870', '2021-25 $173.3k']   # board 145-D: elMoney compacts from $100,000
 BOOK_NAMES_RETIRED = ['ORB #314', 'NOISE #382']   # the BOOK rows while ENGU-Q is retired (the page's default) and holds no position
 LEG_KEYS = [('ORB', 'ORB #314'), ('ENGUQ', 'ENGU-Q #335'), ('NOISE', 'NOISE #382')]
 MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November',
@@ -5999,9 +6014,12 @@ def _grey(css):
 
 
 def _money_val(txt):
-    """'+$41.11' / '-$1,234.50' -> float, else None."""
-    m = re.match(r'^([+-])\$([\d,]+\.\d\d)$', (txt or '').strip())
-    return None if not m else (-1 if m.group(1) == '-' else 1) * float(m.group(2).replace(',', ''))
+    """'+$41.11' / '-$1,234' / '$0.00' / '+$12.3k' -> float, else None (board 145-D: the elMoney forms)."""
+    m = re.match(r'^([+-]?)\$([\d,]+(?:\.\d+)?)([kM]?)$', (txt or '').strip())
+    if not m:
+        return None
+    v = float(m.group(2).replace(',', '')) * {'': 1, 'k': 1e3, 'M': 1e6}[m.group(3)]
+    return -v if m.group(1) == '-' else v
 
 
 def expected_cal(trades, cutoff=None):
@@ -6192,8 +6210,8 @@ def cal_weeks(days, month):
 
 
 def short_signed(v):
-    """index.html ledgerShortMoney with its sign: '+$1.2k' / '-$47'."""
-    return ('-' if v < 0 else '+') + short_money(v)
+    """index.html ledgerShortMoney with its sign (board 145-D): elMoney signed, compact from $10,000; no sign on zero."""
+    return el_money(v, signed=True, compact_from=10000)
 
 
 def _row_figs(vals):
@@ -6543,8 +6561,9 @@ def _hero_qual_problems(tag, r, doc, fails):
             fails.append('%s: nothing is held, but the trade list draws an OPEN group (%r)' % (tag, osec))
     if r.get('heroHeldNote'):
         fails.append('%s: the hero names a lot held overnight; that line belongs in the strategy row (owner 10-31)' % tag)
-    if r.get('totalStroke') is not None and r.get('totalStroke') != 'var(--text)':
-        fails.append("%s: the chart's total line is drawn in %r, want var(--text) (the one solid line, in the page's text colour)" % (tag, r.get('totalStroke')))
+    # board 152 (owner 11-22): the total line is green above $0 and red below - one zero-split gradient (lgZero_<id>), not a flat colour
+    if r.get('totalStroke') is not None and not re.match(r'^url\("?#lgZero_', str(r.get('totalStroke'))):
+        fails.append("%s: the chart's total line is drawn in %r, want the green-above / red-below $0 gradient url(#lgZero_...)" % (tag, r.get('totalStroke')))
 
 
 TODAY_SUFFIX_RE = re.compile(r' · (today|\w{3} \d{2}-\d{2}) (-?\$[\d,]+\.\d\d)$')
@@ -6656,8 +6675,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         if re.search(r'undefined|NaN|null', bl):
             fails.append('%s: list row %s leg line reads %r' % (tag, x.get('name'), bl))
         # owner 11-21 (compressed cards): the $/yr reads short, '$40k/yr' ($40,000 a year in the hover)
-        if ret and x.get('key') == 'ORB' and '$40k/yr' not in bl:
-            fails.append("%s: list row ORB #314's leg line reads %r, want the book table's $40k/yr" % (tag, bl))
+        if ret and x.get('key') == 'ORB' and '$40.0k/yr' not in bl:   # board 145-D: elMoney compact
+            fails.append("%s: list row ORB #314's leg line reads %r, want the book table's $40.0k/yr" % (tag, bl))
         if ret and x.get('key') == 'NOISE' and '$' in bl:
             fails.append("%s: list row NOISE #382's leg line reads %r - the book table has no $/yr for it" % (tag, bl))
     if bk.get('fold') or not (bk.get('head') or '').upper().startswith('LIVE') or ('· %d' % len(want_names)) not in (bk.get('head') or ''):
@@ -7227,9 +7246,9 @@ def loc2(x):
 
 
 def qe_money(v):
-    """index.html qeMoney: $1,234.50 / -$1.00, a dash for null / NaN."""
+    """index.html qeMoney (board 145-D): elMoney - $987.65 / $1,235 / -$1.00, a dash for null / NaN."""
     x = _num(v)
-    return DASH if x is None else ('-$' if x < 0 else '$') + loc2(x)
+    return DASH if x is None else el_money(x)
 
 
 def qe_num(v, d=0):

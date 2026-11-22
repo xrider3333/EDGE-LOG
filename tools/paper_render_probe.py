@@ -1761,7 +1761,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                 // v91.79: each shadow line's stroke, its swatch in the panel, its legend entry, and the what-if KPI table
                 s.paths=[].map.call(d.querySelectorAll('#p2-chart path[data-lgshadow]'),function(e){return [e.getAttribute('data-lgshadow'),getComputedStyle(e).stroke,e.getAttribute('stroke-width'),e.getAttribute('stroke-dasharray')];});
                 s.swatch=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg] svg.bka-swatch line'),function(e){return [e.closest('svg').getAttribute('data-bkaswatch'),getComputedStyle(e).stroke];});
-                s.legsh=[].map.call(d.querySelectorAll('#p2-lg-legend [data-lglegshadow]'),function(e){var ln=e.querySelector('line');return [e.getAttribute('data-lglegshadow'),ln?getComputedStyle(ln).stroke:'',!!e.querySelector('.lg-shmark')];});
+                s.legsh=[].map.call(d.querySelectorAll('#p2-lg-legend [data-lglegshadow], #p2-chart [data-lglegshadow]'),function(e){var ln=e.querySelector('line');return [e.getAttribute('data-lglegshadow'),ln?getComputedStyle(ln).stroke:'',!!e.querySelector('.lg-shmark')];});
                 var kp=d.querySelector('#p2-bka-kpi [data-bkakpi]');
                 s.kpi=kp?{cols:[].map.call(kp.querySelectorAll('thead [data-bkakcol]'),function(e){return e.getAttribute('data-bkakcol');}),
                   net:[].map.call(kp.querySelectorAll('[data-bkakrow="net"] [data-bkaknet]'),function(e){return [e.getAttribute('data-bkakcell'),parseFloat(e.getAttribute('data-bkaknet'))];}),
@@ -2444,7 +2444,8 @@ def run(alt_index=None, timeout=300):
             want_usd = round(sp['pu'] * want_u, 2) if want_u is not None else None
             if (pv not in (20, 50) or sp.get('fixed') is not False or sp.get('units') != want_u or want_usd is None
                     or abs((sp.get('usd') or 0) - want_usd) > 0.011 or sp.get('riskN') != 1 or sp.get('fixN') != sp.get('n') - 1
-                    or sp.get('others') != 0 or sp.get('off') or round(start_real_delta(sp, dd), 2) != round(want_usd - sp['fx'], 2)):
+                    or sp.get('others') != 0 or sp.get('off')
+                    or abs(start_real_delta(sp, dd) - (want_usd - sp['fx'])) > el_tol(sp.get('real') or 0, 2)):   # board 145-D: realized prints at elMoney precision
                 fails.append('paper2 sizing: the stopped trade is not the hand figure (%s NQ, $%s from $100,000 at $%s a point x 10): %r'
                              % (want_u, want_usd, pv, sp))
             _lv['_want'] = (want_u, want_usd, pv)
@@ -2552,7 +2553,7 @@ def run(alt_index=None, timeout=300):
         ne, op = r.get('netEqNum'), r.get('openNum') or 0
         if ne is None:
             fails.append('%s: no big number to read (#p2-hero-value)' % nm)
-        elif abs(ne - (hn + op)) > _el_money_tol(hn + op):   # calm-down item 6: the headline is compact from $100k, no cents from $1,000
+        elif abs(ne - (hn + op)) > _el_money_tol(hn + op) + _el_money_tol(hn) + _el_money_tol(op):   # board 145-D: each part is read at elMoney precision too   # calm-down item 6: the headline is compact from $100k, no cents from $1,000
             fails.append('%s: the big number is %s, but net equity is the realised %s plus the open %s = %s (redesign step 9)'
                          % (nm, ne, hn, op, round(hn + op, 2)))
         # LEDGER UI r2 (item 1): the words beside the number are gone (the label names it); the qualifier node stays, empty
@@ -2835,7 +2836,7 @@ def run(alt_index=None, timeout=300):
         bad = [x for x in (r.get('calMarks') or []) if not _re.match(r'^[+-]\$', x)]
         if bad:
             fails.append('%s: calendar money without a sign: %s' % (nm, bad[:3]))
-        bad = [x for x in (r.get('grpMarks') or []) if not _re.search(r'[\u25b2\u25bc] [+-]\$', x)]
+        bad = [x for x in (r.get('grpMarks') or []) if not _re.search(r'[\u25b2\u25bc] ([+-]\$|\$0\.00)', x)]   # board 145-D: a zero carries no sign
         if bad:
             fails.append('%s: group totals without an arrow and a sign: %s' % (nm, bad[:3]))
     # Max drawdown prints POSITIVE, the way REAL prints it ($1,234.56, no minus sign)
@@ -2949,8 +2950,7 @@ def run(alt_index=None, timeout=300):
         return {'net': _el_money(e['net'], signed=True), 'winrate': wr, 'pf': pf, 'maxdd': _el_money(e['dd'])}
 
     def _money_in(txt):
-        m = _re.search(r'(-?)\$([0-9,]+(?:\.[0-9]+)?)', (txt or '').replace('+', ''))
-        return None if not m else (-1 if m.group(1) else 1) * float(m.group(2).replace(',', ''))
+        return el_money_val(txt)   # board 145-D: the elMoney forms
 
     def _sum_net(rows):
         return sum((t.get('pnl_usd') or 0) * _w(t) for t in rows)
@@ -2978,7 +2978,7 @@ def run(alt_index=None, timeout=300):
         if exp is None:
             if dd != '--':
                 fails.append('%s: max drawdown reads %r for a range with no counted trade (expected --)' % (nm, dd))
-        elif not _re.match(r'^\$[0-9,]+\.[0-9]{2}$', dd) or abs(_money_in(dd) - exp['dd']) > 0.006:
+        elif not _re.match(r'^\$[0-9,]+(\.[0-9]{2}|\.[0-9]k|\.[0-9]{2}M)?$', dd) or not el_close(_money_in(dd), exp['dd']):
             fails.append('%s: max drawdown reads %r, expected the POSITIVE amount %s from the fixture' % (nm, dd, want['maxdd']))
         if r.get('oldStatCells'):
             fails.append('%s: the old ten-cell stats grid is still on the board' % nm)
@@ -3014,7 +3014,7 @@ def run(alt_index=None, timeout=300):
                               ('Average loss', exp_all['avgl']), ('Best day', exp_all['best']), ('Worst day', exp_all['worst']),
                               ('Max drawdown', exp_all['dd'])):
             got_v = _money_in(rowsd.get(label))
-            if got_v is None or abs(got_v - want_v) > 0.006:
+            if not el_close(got_v, want_v):
                 fails.append('paper2: More stats %r reads %r, the fixture says %.2f' % (label, rowsd.get(label), want_v))
         # the shared row reads "2 of 4 · 50%" since LEDGER shared parts round 1 (JS Math.round: halves go up)
         want_gd = '%d of %d' % (exp_all['green'], exp_all['days']) + (
@@ -3062,7 +3062,7 @@ def run(alt_index=None, timeout=300):
             fails.append('%s: the calendar shows %r, expected %s' % (tag, cal.get('month'), mo_))
             return
         net_g, n_g = _cal_sum(cal.get('sum'))
-        if net_g is None or abs(net_g - e['net']) > 0.006 or n_g != e['n']:
+        if not el_close(net_g, e['net']) or n_g != e['n']:
             fails.append('%s: the month header reads %r, the fixture says %+.2f over %d trade(s)' % (tag, cal.get('sum'), e['net'], e['n']))
         if sorted(cal.get('days') or []) != e['days'] or sum(cal.get('dayN') or []) != e['n']:
             fails.append('%s: the calendar days %s (%s trades) are not the fixture days %s (%d trades)'
@@ -3173,9 +3173,9 @@ def run(alt_index=None, timeout=300):
         fails.append('paper2: the switch probe did not run (the fixture needs ORB trades with money in the range)')
     else:
         e1 = _stats_of(_rows_for('ALL', ('ORB',)))
-        if abs(f1['hero'] - (f0['hero'] - orb_net)) > 0.01:
+        if abs(f1['hero'] - (f0['hero'] - orb_net)) > el_tol(f0['hero'], 2):
             fails.append('paper2: switching ORB off moved the big number %.2f to %.2f, expected %.2f' % (f0['hero'], f1['hero'], f0['hero'] - orb_net))
-        if abs((f1.get('chartLast') or 0) - f1['hero']) > 0.01 or abs((f1.get('bookNet') or 0) - f1['hero']) > 0.01:
+        if abs((f1.get('chartLast') or 0) - f1['hero']) > el_tol(f1['hero']) or abs((f1.get('bookNet') or 0) - f1['hero']) > el_tol(f1['hero']):
             fails.append('paper2: after the flip the chart end %s / BOOK group total %s are not the big number %s' % (f1.get('chartLast'), f1.get('bookNet'), f1['hero']))
         if f1.get('tiles') != _tiles_of(e1):
             fails.append('paper2: after the flip the tiles read %s, the fixture says %s' % (f1.get('tiles'), _tiles_of(e1)))
@@ -3336,8 +3336,7 @@ def run(alt_index=None, timeout=300):
         return '%dh' % (mm // 60) + (' %dm' % (mm % 60) if mm % 60 else '')
 
     def _num_of(txt):
-        m = _re.search(r'([+-])\$([0-9,]+\.[0-9]{2})', txt or '')
-        return None if not m else (1 if m.group(1) == '+' else -1) * float(m.group(2).replace(',', ''))
+        return el_money_val(txt)   # board 145-D: the elMoney forms ($0.00 carries no sign)
 
     FRAME_CASES = {
         'base': {}, 'cols-all': {}, 'paper2': {}, 'paper2-cols-all': {}, 'other-open': {}, 'fwd-closed': {}, 'book-fallback': {},
@@ -3415,17 +3414,17 @@ def run(alt_index=None, timeout=300):
                 continue
             txt = (x.get('net') or '').strip()
             n = _num_of(txt)
-            if n is None or not _re.match(r'^[+-]\$', txt):
+            if n is None or not (_re.match(r'^[+-]\$', txt) or txt == '$0.00'):   # board 145-D: a zero carries no sign
                 fails.append('%s: the day %s net reads %r - it needs a sign' % (nm, x.get('day'), txt))
                 continue
-            if abs(n - e['net']) > 0.006:
+            if not el_close(n, e['net']):
                 fails.append('%s: the day %s net reads %r, the fixture says %+.2f' % (nm, x.get('day'), txt, e['net']))
             cls = 'lg-up' if n > 0 else ('lg-down' if n < 0 else 'lg-flat')
             if cls not in (x.get('cls') or ''):
                 fails.append('%s: the day %s net %r is not coloured %s (%r)' % (nm, x.get('day'), txt, cls, x.get('cls')))
             shown = by_day.get(x.get('day'), [])
             s = sum(_num_of(y.get('pnl')) or 0 for y in shown if not y.get('unc'))
-            if abs(s - n) > 0.006:
+            if abs(s - n) > el_tol(n, 1 + len(shown)):
                 fails.append('%s: the day %s net %s is not the sum %.2f of its counted rows' % (nm, x.get('day'), txt, s))
         for day, e in e_days.items():
             ids = set(y['id'] for y in by_day.get(day, []))
@@ -3438,7 +3437,7 @@ def run(alt_index=None, timeout=300):
             if y.get('unc') != (not _w(t)):
                 fails.append('%s: the row %s is marked not-counted=%s, the strategy %s is %s' % (nm, t['id'], y.get('unc'), t.get('leg'), 'outside' if not _w(t) else 'in the book'))
             pn = _num_of(y.get('pnl'))
-            if pn is None or abs(pn - round(_disp(t), 2)) > 0.006:
+            if not el_close(pn, round(_disp(t), 2)):
                 fails.append('%s: the row %s shows %r, the fixture says %+.2f' % (nm, t['id'], y.get('pnl'), _disp(t)))
             if y.get('side') != (_side_of(t) or None):
                 fails.append('%s: the row %s side reads %r, expected %r' % (nm, t['id'], y.get('side'), _side_of(t)))
@@ -3723,7 +3722,7 @@ def run(alt_index=None, timeout=300):
         return _re.sub(_re.escape(BSL + 'u') + '([0-9a-fA-F]{4})', lambda m_: chr(int(m_.group(1), 16)), d.get('label') or str(t.get('leg')))
 
     def _sgn(v):
-        return ('+' if v >= 0 else '-') + '$' + format(abs(round(v, 2)), ',.2f')
+        return el_money(v, signed=True)   # board 145-D: ledgerSigned = elMoney signed
 
     def _sg2(v):
         return ('+' if v >= 0 else '-') + '%.2f' % abs(v)
@@ -4863,14 +4862,59 @@ def read_leg_chips(index_path):
     return chips
 
 
+def el_money(v, signed=False, compact_from=100000):
+    """index.html elMoney (board 145-D: ONE money format on the ledger pages; tools/money_fmt_probe.py pins the JS):
+    under $1,000 cents kept, $1,000 up whole dollars with commas, compact from $100,000 ($987.7k / $1.23M);
+    signed: '+' on a gain, '-' on a loss, no sign on zero (a value that rounds to $0.00 is zero)."""
+    if v is None or v == '':
+        return '\u2014'
+    import math as _m
+    jr = lambda x: int(_m.floor(x + 0.5))
+    n = float(v)
+    a = abs(n)
+    if a >= compact_from:
+        body = ('$%.2fM' % (jr(a / 1e4) / 100)) if a >= 999950 else ('$%.1fk' % (jr(a / 100) / 10))
+    elif a >= 1000:
+        body = '$' + format(jr(a), ',')
+    else:
+        c = jr(a * 100) / 100
+        body = ('$' + format(jr(a), ',')) if c >= 1000 else ('$%.2f' % c)
+        if c == 0:
+            n = 0
+    return ('-' if n < 0 else ('+' if signed and n > 0 else '')) + body
+
+
+def el_tol(v, n=1):
+    """the display precision of an elMoney figure near v (board 145-D): cents under $1,000, whole dollars to $100,000, then $100
+    ($987.7k) / $10,000 ($1.23M). n = how many such figures were added up (a day net vs the sum of its rows)."""
+    a = abs(v or 0)
+    step = 0.01 if a < 999.995 else (1.0 if a < 100000 else (100.0 if a < 999950 else 10000.0))
+    return n * step / 2 + 0.006
+
+
+def el_close(got, want, n=1):
+    """got (a figure read off the page) agrees with want at the page's display precision."""
+    return got is not None and want is not None and abs(got - want) <= el_tol(want, n)
+
+
+def el_money_val(txt):
+    """the first elMoney figure in txt ('+$41.11', '-$1,234', '$0.00', '+$12.3k', '$1.23M') -> float, else None."""
+    import re as _r
+    m = _r.search(r'([+-]?)\$([0-9,]+(?:\.[0-9]+)?)([kM]?)', txt or '')
+    if not m:
+        return None
+    v = float(m.group(2).replace(',', '')) * {'': 1, 'k': 1e3, 'M': 1e6}[m.group(3)]
+    return -v if m.group(1) == '-' else v
+
+
 def _page_usd(v):
-    """fmtUsd: whole dollars (half up), thousands separators."""
-    return ('-$' if v < 0 else '$') + format(int(abs(v) + 0.5), ',')
+    """the NT8 PAPER money cells (board 145-D: elMoney, was fmtUsd whole dollars)."""
+    return el_money(v)
 
 
 def _page_signed(v):
-    """ledgerSigned: signed, to the cent."""
-    return ('+' if v >= 0 else '-') + '$' + format(abs(round(v, 2)), ',.2f')
+    """ledgerSigned (board 145-D): elMoney signed."""
+    return el_money(v, signed=True)
 
 
 def _judge_keeps(cases, fixture, index_path, fails):

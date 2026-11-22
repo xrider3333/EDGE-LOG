@@ -2995,8 +2995,28 @@ def _close_key(t):
     return '%s %05d' % (_close_day(t), secs)
 
 
+def el_money(v, signed=False, compact_from=100000):
+    """index.html elMoney (board 145-D: ONE money format on the ledger pages; tools/money_fmt_probe.py pins the JS)."""
+    if v is None or v == '':
+        return '\u2014'
+    jr = lambda x: int(math.floor(x + 0.5))
+    n = float(v)
+    a = abs(n)
+    if a >= compact_from:
+        body = ('$%.2fM' % (jr(a / 1e4) / 100)) if a >= 999950 else ('$%.1fk' % (jr(a / 100) / 10))
+    elif a >= 1000:
+        body = '$' + format(jr(a), ',')
+    else:
+        c = jr(a * 100) / 100
+        body = ('$' + format(jr(a), ',')) if c >= 1000 else ('$%.2f' % c)
+        if c == 0:
+            n = 0
+    return ('-' if n < 0 else ('+' if signed and n > 0 else '')) + body
+
+
 def _signed(v):
-    return '%s$%s' % ('+' if v >= 0 else '-', format(abs(v), ',.2f'))
+    """ledgerSigned (board 145-D): elMoney signed."""
+    return el_money(v, signed=True)
 
 
 def expected_days(trades):
@@ -3044,7 +3064,8 @@ def expected_balances(trades, ledger, broker=None):
 
 
 def _usd(v):
-    return ('-' if v < 0 else '') + '$' + format(abs(v), ',.2f')
+    """ledgerMoney (board 145-D): elMoney."""
+    return el_money(v)
 
 
 def _cents(text):
@@ -4164,7 +4185,7 @@ def _goal_level_checks(tag, cfg, g, day, mode, want, dep_in, fails):
     3 px under its grid line), within GOAL_VALUE_TOL_PX and never more than 2% of the plotted span."""
     goal = cfg['goal']
     mon = MONTHS[int(day[5:7]) - 1]
-    amt = '$' + format(goal, ',.2f')
+    amt = el_money(goal)   # board 145-D
     lines, labels = g.get('lines') or [], g.get('labels') or []
     if g.get('n') != 1 or len(lines) != 1 or len(labels) != 1:
         fails.append('%s: REAL\'s chart draws %s month goal level(s) ([data-lgref]) and %d label(s) with a goal of %s set, expected exactly one of each'
@@ -4229,7 +4250,7 @@ def _goal_words_check(tag, g, day, goal, tcase, fails):
     """The month goal words line under the chart (goalRead): the ONE [data-hmgoal] inside #hm-goal reads "<Month> goal: <this month's net,
     signed> of <goal> . <N>%" (N never below 0), the net of `tcase` (the trades in view) closed in the New York month of `day`."""
     mon = MONTHS[int(day[5:7]) - 1]
-    amt = '$' + format(goal, ',.2f')
+    amt = el_money(goal)   # board 145-D
     if g.get('wordsN') != 1:
         fails.append('%s: #hm-goal under the chart holds %s month goal words lines ([data-hmgoal]), expected exactly one while a goal of %s is set '
                      '(#hm-goal reads %r)' % (tag, g.get('wordsN'), amt, g.get('words')))
