@@ -62,6 +62,14 @@ _AUGUR_PARENT = "MISC_EODREV_1_1.py"
 PANEL_PATH = r"C:/EdgeLog/alpaca_cache/eodrev_panel/eodrev_u100_panel_v1.npz"
 PANEL_SHA256 = "2d789ae97f566ccf94d6bebe97e4f2ff0f224ee11e1d71929409238785ec37ab"
 
+# AS-IF EXTENSION (2026-11-21, the book as-if series only - tools/book_asif_series.py). UNSET (the default, the runner,
+# every validate) = the pinned panel alone, exactly as run #511 read it. SET to a side panel of the same layout and
+# every session AFTER the pinned panel's last date is scored on that panel, computed on its own rows only (no splice: a
+# split-basis change between the two builds never enters a return). Everything up to the pinned end still comes from the
+# pinned, sha-checked panel. A set path that does not exist raises - never a silent fall-back. Never set it on the
+# runner or for a validate.
+PANEL_EXT_ENV = "MISC_EODREV_1_2_PANEL_EXT"
+
 DEFAULT_PARAMS = {
     "notional": {"default": 100000, "min": 100000, "max": 100000, "step": 1, "type": "int",
                  "label": "Dollars a side",
@@ -106,32 +114,52 @@ def _panel():
         return _CACHE["panel"]
     p = None
     if os.path.exists(PANEL_PATH):
-        with open(PANEL_PATH, "rb") as fh:
-            raw = fh.read()
-        if hashlib.sha256(raw).hexdigest() != PANEL_SHA256:
-            raise RuntimeError("MISC_EODREV_1_2: side panel %s is not the pinned build" % PANEL_PATH)
-        z = np.load(PANEL_PATH, allow_pickle=False)
-        nm = [str(x) for x in z["names"]]
-        if nm[-1] != "SPY":
-            raise RuntimeError("MISC_EODREV_1_2: side panel's last column must be SPY")
-        days = pd.Index(z["dates"].astype("int64"))
-        f = lambda key: pd.DataFrame(z[key], index=days, columns=nm)
-        ps, pe, c10, dc, rawc = f("ps"), f("pe"), f("c10"), f("dc"), f("raw")
-        names = nm[:-1]
-        pc = c10.shift(1)                              # yesterday's 15:50 close
-        ret = (dc[names] / pe[names] - 1.0)            # 15:30 open -> official close (the fill)
-        mem = pd.DataFrame(z["member"], index=days, columns=nm)[names].astype(bool)
-        p = {"days": days, "names": names, "member": mem,
-             "s0": (ps / pc - 1.0),                    # prior close -> 15:20 move (SPY in the last column)
-             "ret": ret,
-             "pe": pe[names],
-             "rp": rawc[names].shift(1),               # yesterday's raw close
-             "dr": (c10 / pc - 1.0)}                   # daily returns for beta
+        p = _load_panel(PANEL_PATH, PANEL_SHA256)
     _CACHE["panel"] = p
     return p
 
 
-def _beta(p, w):
+def _ext():
+    """(panel, its own memo) of the as-if extension panel, or None when PANEL_EXT_ENV is unset (the default)."""
+    path = (os.environ.get(PANEL_EXT_ENV) or "").strip()
+    if not path:
+        return None
+    key = ("ext", os.path.abspath(path))
+    if key not in _CACHE:
+        if not os.path.exists(path):
+            raise RuntimeError("MISC_EODREV_1_2: %s names %s, which does not exist" % (PANEL_EXT_ENV, path))
+        _CACHE[key] = (_load_panel(path, None), {})
+    return _CACHE[key]
+
+
+def _load_panel(path, sha):
+    """The panel's derived frames; `sha` None = not pinned (the as-if extension only)."""
+    with open(path, "rb") as fh:
+        raw = fh.read()
+    if sha is not None and hashlib.sha256(raw).hexdigest() != sha:
+        raise RuntimeError("MISC_EODREV_1_2: side panel %s is not the pinned build" % path)
+    z = np.load(path, allow_pickle=False)
+    nm = [str(x) for x in z["names"]]
+    if nm[-1] != "SPY":
+        raise RuntimeError("MISC_EODREV_1_2: side panel's last column must be SPY")
+    days = pd.Index(z["dates"].astype("int64"))
+    f = lambda key: pd.DataFrame(z[key], index=days, columns=nm)
+    ps, pe, c10, dc, rawc = f("ps"), f("pe"), f("c10"), f("dc"), f("raw")
+    names = nm[:-1]
+    pc = c10.shift(1)                              # yesterday's 15:50 close
+    ret = (dc[names] / pe[names] - 1.0)            # 15:30 open -> official close (the fill)
+    mem = pd.DataFrame(z["member"], index=days, columns=nm)[names].astype(bool)
+    p = {"days": days, "names": names, "member": mem,
+         "s0": (ps / pc - 1.0),                    # prior close -> 15:20 move (SPY in the last column)
+         "ret": ret,
+         "pe": pe[names],
+         "rp": rawc[names].shift(1),               # yesterday's raw close
+         "dr": (c10 / pc - 1.0)}                   # daily returns for beta
+    return p
+
+
+def _beta(p, w, cache=None):
+    _CACHE = globals()["_CACHE"] if cache is None else cache
     key = ("beta", int(w))
     if key not in _CACHE:
         names = p["names"]; dr = p["dr"]; m = dr["SPY"]
@@ -143,7 +171,8 @@ def _beta(p, w):
     return _CACHE[key]
 
 
-def _habit(p, L, min_price):
+def _habit(p, L, min_price, cache=None):
+    _CACHE = globals()["_CACHE"] if cache is None else cache
     key = ("habit", int(L), float(min_price))
     if key not in _CACHE:
         ret = p["ret"]; ok = p["member"] & (p["rp"] >= float(min_price))
@@ -154,19 +183,21 @@ def _habit(p, L, min_price):
     return _CACHE[key]
 
 
-def _daily_pnl(p, notional, spread_cents, fee_bps, k, beta_len, min_price, beta_adjust, period_len, period_wt):
+def _daily_pnl(p, notional, spread_cents, fee_bps, k, beta_len, min_price, beta_adjust, period_len, period_wt,
+               cache=None):
     """{yyyymmdd: dollars} for one config, over every panel session."""
+    _CACHE = globals()["_CACHE"] if cache is None else cache
     key = ("pnl", float(notional), float(spread_cents), float(fee_bps), int(k), int(beta_len),
            float(min_price), bool(beta_adjust), int(period_len), float(period_wt))
     if key not in _CACHE:
         names = p["names"]; s0 = p["s0"]; spy = s0["SPY"]; ret = p["ret"]; rp = p["rp"]
         ok = p["member"] & (rp >= float(min_price))
         if beta_adjust:
-            rev = -(s0[names] - _beta(p, int(beta_len)).mul(spy, axis=0))
+            rev = -(s0[names] - _beta(p, int(beta_len), cache).mul(spy, axis=0))
         else:
             rev = -(s0[names].sub(spy, axis=0))
         score = (rev.where(ok).rank(axis=1, pct=True)
-                 + float(period_wt) * _habit(p, int(period_len), min_price).where(ok).rank(axis=1, pct=True)).where(ok)
+                 + float(period_wt) * _habit(p, int(period_len), min_price, cache).where(ok).rank(axis=1, pct=True)).where(ok)
         cost = (float(spread_cents) / 100.0) / rp + float(fee_bps) * 1e-4
         r = score.rank(axis=1, ascending=False)
         n = score.notna().sum(axis=1)
@@ -199,6 +230,13 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
     minute = (idx.hour * 60 + idx.minute).to_numpy()
     pnl = _daily_pnl(p, notional, spread_cents, fee_bps, k, beta_len, min_price, beta_adjust,
                      period_len, period_wt)
+    x = _ext()
+    if x is not None:                                # as-if only: sessions after the pinned panel's last date
+        last = int(p["days"][-1])
+        xp = _daily_pnl(x[0], notional, spread_cents, fee_bps, k, beta_len, min_price, beta_adjust,
+                        period_len, period_wt, cache=x[1])
+        pnl = dict(pnl)
+        pnl.update({d: v for d, v in xp.items() if int(d) > last})
     trades = []
     cut = np.flatnonzero(np.diff(date) != 0) + 1
     starts = np.concatenate([[0], cut]); ends = np.concatenate([cut, [n]])

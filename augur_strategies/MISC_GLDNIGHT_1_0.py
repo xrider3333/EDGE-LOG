@@ -109,6 +109,14 @@ PANEL_PATH = r"C:/EdgeLog/alpaca_cache/gldnight_panel/gldnight_panel_v1.npz"
 PANEL_SHA256 = "274eff68f1269ac46d19a3f3ebe54f79aba582284209609e78d8e6cee6de632a"   # built 2026-11-18, 2,637 sessions
 PANEL_KEYS = ("dates", "open", "close", "raw", "first_min", "last_min", "gap")
 
+# AS-IF EXTENSION (2026-11-21, the book as-if series only - tools/book_asif_series.py). UNSET (the default, the runner,
+# every validate) = the pinned panel alone, exactly as run #541 read it. SET to a side panel of the same layout and
+# every night whose exit session D is AFTER the pinned panel's last date is scored on that panel, computed on its own
+# rows only (no splice: a split-basis change between the two builds never enters a return). Everything up to the pinned
+# end still comes from the pinned, sha-checked panel. A set path that does not exist raises - never a silent fall-back.
+# Never set it on the runner or for a validate.
+PANEL_EXT_ENV = "MISC_GLDNIGHT_1_0_PANEL_EXT"
+
 NIGHT_MODES = ("weeknights", "every_night", "weekend_only")
 
 DEFAULT_PARAMS = {
@@ -153,6 +161,20 @@ def _panel():
         p = _derive({k: z[k] for k in PANEL_KEYS})
     _CACHE["panel"] = p
     return p
+
+
+def _ext():
+    """The as-if extension panel, or None when PANEL_EXT_ENV is unset (the default)."""
+    path = (os.environ.get(PANEL_EXT_ENV) or "").strip()
+    if not path:
+        return None
+    key = ("ext", os.path.abspath(path))
+    if key not in _CACHE:
+        if not os.path.exists(path):
+            raise RuntimeError("MISC_GLDNIGHT_1_0: %s names %s, which does not exist" % (PANEL_EXT_ENV, path))
+        z = np.load(path, allow_pickle=False)
+        _CACHE[key] = _derive({k: z[k] for k in PANEL_KEYS})
+    return _CACHE[key]
 
 
 def _derive(p):
@@ -299,6 +321,11 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
         return None
     rows = _trades(p, index, opens, closes, notional=notional, cents_share=cents_share, fee_bps=fee_bps,
                    nights=nights)
+    x = _ext()
+    if x is not None:                                   # as-if only: nights whose exit D is after the pinned end
+        last = int(p["dates"][-1])
+        rows = rows + [r for r in _trades(x, index, opens, closes, notional=notional, cents_share=cents_share,
+                                          fee_bps=fee_bps, nights=nights) if r["D"] > last]
     trades = [(r["e"], r["x"], float(r["net"]), 1, float(r["p_in"]), float(r["p_out"])) for r in rows]
     return _score(trades, return_trades)
 

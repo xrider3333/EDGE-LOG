@@ -99,6 +99,14 @@ _AUGUR_MARKET = {"instrument": "SPY", "timeframe": "5m", "session": "rth",
 PANEL_PATH = r"C:/EdgeLog/alpaca_cache/auchabit_panel/auchabit_panel_v1.npz"
 PANEL_SHA256 = "e7de7ff79afa137f14d0a989a45d10e693e2b6d9ec8bacb8b95bb81e05a2b6e1"
 
+# AS-IF EXTENSION (2026-11-21, the book as-if series only - tools/book_asif_series.py). UNSET (the default, the runner,
+# every validate) = the pinned panel alone, exactly as run #526 read it. SET to a side panel of the same layout and
+# every session AFTER the pinned panel's last date is scored on that panel, computed on its own rows only (no splice: a
+# split-basis change between the two builds never enters a return). Everything up to the pinned end still comes from the
+# pinned, sha-checked panel. A set path that does not exist raises - never a silent fall-back. Never set it on the
+# runner or for a validate.
+PANEL_EXT_ENV = "MISC_AUCHABIT_1_0_PANEL_EXT"
+
 DEFAULT_PARAMS = {
     "notional": {"default": 100000, "min": 100000, "max": 100000, "step": 1, "type": "int",
                  "label": "Dollars a side",
@@ -165,14 +173,17 @@ def _prepare(dates, names, full, o50, c50, dc, raw, member):
             "xa": {}, "day": {}}
 
 
-def _read_panel():
-    """The pinned panel's arrays, or None when the file is not on this machine (sha-checked)."""
-    if not os.path.exists(PANEL_PATH):
+def _read_panel(path=None, pinned=True):
+    """The pinned panel's arrays, or None when the file is not on this machine (sha-checked). `path` + `pinned=False`
+    = the as-if extension panel (PANEL_EXT_ENV), not sha-checked."""
+    if path is None:
+        path = PANEL_PATH
+    if not os.path.exists(path):
         return None
-    with open(PANEL_PATH, "rb") as fh:
+    with open(path, "rb") as fh:
         raw = fh.read()
-    if hashlib.sha256(raw).hexdigest() != PANEL_SHA256:
-        raise RuntimeError("MISC_AUCHABIT_1_0: side panel %s is not the pinned build" % PANEL_PATH)
+    if pinned and hashlib.sha256(raw).hexdigest() != PANEL_SHA256:
+        raise RuntimeError("MISC_AUCHABIT_1_0: side panel %s is not the pinned build" % path)
     z = np.load(io.BytesIO(raw), allow_pickle=False)          # the bytes that were hashed are the bytes loaded
     a = {key: z[key] for key in ("dates", "full", "o50", "c50", "dc", "raw", "member")}
     a["names"] = [str(x) for x in z["names"]]
@@ -186,6 +197,20 @@ def _panel():
     p = None if a is None else _prepare(**a)
     _CACHE["panel"] = p
     return p
+
+
+def _ext():
+    """The prepared as-if extension panel, or None when PANEL_EXT_ENV is unset (the default)."""
+    path = (os.environ.get(PANEL_EXT_ENV) or "").strip()
+    if not path:
+        return None
+    key = ("ext", os.path.abspath(path))
+    if key not in _CACHE:
+        a = _read_panel(path, pinned=False)
+        if a is None:
+            raise RuntimeError("MISC_AUCHABIT_1_0: %s names %s, which does not exist" % (PANEL_EXT_ENV, path))
+        _CACHE[key] = _prepare(**a)
+    return _CACHE[key]
 
 
 def _elig(p, min_price):
@@ -283,6 +308,11 @@ def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=No
     date = (idx.year * 10000 + idx.month * 100 + idx.day).to_numpy()
     minute = (idx.hour * 60 + idx.minute).to_numpy()
     dd, net = _daily(p, notional, spread_cents, fee_bps, period_len, k, min_price, weekday_habit, legs)
+    x = _ext()
+    if x is not None:                                # as-if only: sessions after the pinned panel's last date
+        xd, xn = _daily(x, notional, spread_cents, fee_bps, period_len, k, min_price, weekday_habit, legs)
+        keep = xd > int(p["dates"][-1])
+        dd, net = np.concatenate([dd, xd[keep]]), np.concatenate([net, xn[keep]])
     trades = []
     cut = np.flatnonzero(np.diff(date) != 0) + 1
     starts = np.concatenate([[0], cut])
