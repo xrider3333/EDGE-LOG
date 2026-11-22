@@ -70,6 +70,10 @@ BOOK_LEG_CLASS = {
     "TTIBS300": {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
     "OPUS58c":  {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
     "OPUS58c_h": {"cls": "grey", "max": "OFF", "exec_leg": None, "reason": _NQ, "gate": None, "feed": None},
+    # board 142 ML legs (11-22): research what-if rows, no order path
+    "NOISE422_fixed": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #422 fixed tilts", "gate": None, "feed": None},
+    "NOISE422_keel": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #422 KEEL", "gate": None, "feed": None},
+    "NOISE382_fixed": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382 KEEL, not the fixed-tilt version", "gate": None, "feed": None},
 }
 
 APPLIED_NAME = "books_toggle_applied.json"
