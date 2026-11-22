@@ -65,7 +65,7 @@ UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 # board's own first ledger day, so the series starts early enough for both
 WINDOW_FROM = "2026-06-01"
 WARM_DAYS = 330                      # NOISE's 104-day lookback, EODREV's 180-day beta, ENGU-Q's 1340-bar EMA
-SCHEMA = 4                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check); 3 = the qqq block (v91.74); 4 = per-trade sizes in the qqq block + ML guard + panel ext
+SCHEMA = 5                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check); 3 = the qqq block (v91.74); 4 = per-trade sizes in the qqq block + ML guard + panel ext; 5 = per-trade risk_pts / risk_usd (11-22)
 
 # Book-table leg id -> which run's champion it is, and anything the run doc does not say. `run` is the run the book
 # table names (the label); `params_run` (if set) is the run whose champion is replayed (NOISE398 = #528's PASS pick);
@@ -829,7 +829,7 @@ def trade_rows(spec, st, pq=None):
     ep = entry price, xp = exit price (reconstructed: entry +/- the gross points a contract moved; null when the file
     reports dollars), size = contracts (gate size x the file's own size), pnl = $ at the leg's book size (what the daily
     series sums), open = true when it exits on the master's last bar (may still be open), stop = null (the replay does
-    not return stop levels), q = {sh, usd} the QQQ terms the Webull box would have traded (absent when no QQQ map)."""
+    not return stop levels), risk_pts / risk_usd / risk_src = the engine's median-loss risk unit (per contract), q = {sh, usd, risk_usd} the QQQ terms the Webull box would have traded (absent when no QQQ map)."""
     import numpy as np
     idx, last, sess_idx = st.get("index"), st.get("last"), st.get("sess_idx")
     if idx is None:
@@ -837,6 +837,24 @@ def trade_rows(spec, st, pq=None):
     fsz = st.get("file_sizes") or {}
     units = spec.get("pnl_units") or "points"
     ecost = float(spec.get("cost_pts") or 0)
+    # per-trade RISK for the page's RISK n % sizing (MANAGER 11-22). The engine's rule (augur_engine/risk_sizing.py): the
+    # trade's own |entry - initial stop| when the strategy exposes it, else the MEDIAN LOSING TRADE per contract. The book
+    # replay does not return stop levels, so every leg takes the median-loss unit, measured CAUSALLY on the leg's own
+    # warm-up trades that exited BEFORE WINDOW_FROM (never on the shown trades). risk_usd = $ one size unit (contract,
+    # or share for a stock file in $) loses at that risk.
+    from augur_engine.risk_sizing import median_loss_pts
+    mult = float(st["mult"])
+    hist = []
+    for t, size in st.get("sized") or []:
+        xi = min(int(t[1]), last)
+        d = str(np.datetime_as_string(sess_idx[xi], unit="D")) if sess_idx is not None else str(st["days_idx"][xi])
+        if d >= WINDOW_FROM:
+            continue
+        fs = float(fsz.get(id(t), 1.0) or 1.0)
+        hist.append((float(t[2]) + (fs - 1.0) * ecost) / fs if units != "usd" else float(t[2]) / fs)
+    r_unit = median_loss_pts(hist) if hist else None
+    risk_pts = round(r_unit, 4) if (r_unit and units != "usd") else None
+    risk_usd = (round(r_unit * mult, 2) if units != "usd" else round(r_unit, 2)) if r_unit else None
     rows = []
     for t, size in st.get("sized") or []:
         ei, xi = min(int(t[0]), last), min(int(t[1]), last)
@@ -853,11 +871,20 @@ def trade_rows(spec, st, pq=None):
             xp = round(ep + sg * (one + ecost), 2)
         r = {"et": _ts(idx, ei), "xt": _ts(idx, xi), "d": d, "side": "long" if sg == 1 else ("short" if sg == -1 else None),
              "ep": None if ep is None else round(ep, 2), "xp": xp, "size": round(float(size) * fs * float(st["weight"]), 3),
-             "pnl": round(float(t[2]) * float(st["mult"]) * float(st["weight"]) * float(size), 2), "stop": None}
+             "pnl": round(float(t[2]) * float(st["mult"]) * float(st["weight"]) * float(size), 2), "stop": None,
+             "risk_pts": risk_pts, "risk_usd": risk_usd, "risk_src": "median_loss" if risk_usd else None}
         if xi >= last:
             r["open"] = True
         if pq and id(t) in pq:
-            r["q"] = pq[id(t)]
+            q = dict(pq[id(t)])
+            # QQQ terms: $ one SHARE loses at the same risk = the leg's risk at this trade's size, converted at this trade's
+            # own NQ-$ -> QQQ-$ ratio, per share
+            try:
+                if risk_usd and r["pnl"] and q.get("usd") is not None and float(q.get("sh") or 0) > 0:
+                    q["risk_usd"] = round(risk_usd * r["size"] * abs(float(q["usd"]) / r["pnl"]) / float(q["sh"]), 4)
+            except Exception:
+                pass
+            r["q"] = q
         rows.append(r)
     return rows
 
