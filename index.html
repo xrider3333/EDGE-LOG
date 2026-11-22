@@ -864,6 +864,14 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .bka-whatif{font-size:11px;color:var(--text3);padding:4px 2px 6px;font-variant-numeric:tabular-nums}
 .bka-whatif b{font-weight:700}
 .bka-type{margin-top:6px}
+/* board 154: the book chips over the strategy-first list, and the small book tags on each strategy row */
+.bka-chips{display:flex;flex-wrap:wrap;gap:4px;padding:4px 2px 6px}
+.bka-chip{font:inherit;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;padding:1px 8px;border-radius:999px;border:1px dashed var(--text4);background:none;color:var(--text3);cursor:pointer;line-height:16px}
+.bka-chip.on{border-style:solid;border-color:var(--text2);color:var(--text1,var(--text2));background:color-mix(in srgb,var(--text2) 14%,transparent)}
+.bka-chip.on.rem{opacity:.55}
+.bka-chip.act{box-shadow:inset 0 -2px 0 var(--text3)}
+.bka-chip:disabled{opacity:.4;cursor:default}
+.bka-btag{display:inline-block;font-size:8px;font-weight:700;line-height:12px;padding:0 4px;margin-left:2px;border-radius:3px;border:1px solid var(--border2);color:var(--text4);vertical-align:1px}
 .bka-type-hd{font-size:9.5px;letter-spacing:1.5px;text-transform:uppercase;color:var(--text3);font-weight:700;padding:6px 2px 3px;border-bottom:1px solid var(--border2)}
 .bka-n{color:var(--text5);font-weight:400;letter-spacing:0}
 .bka-book{border-bottom:1px solid var(--border2)}
@@ -2144,7 +2152,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.01';
+const VERSION='92.02';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -8010,7 +8018,8 @@ function booksLegFor(B,act,fam){
 function booksNum(v){if(v==null||v===''||typeof v==='boolean')return null;const n=+v;return isFinite(n)?n:null;}
 function booksUsd(v){const n=booksNum(v);return n==null?'':elMoney(n);}   // board 145-D: one money format
 // v91.91: only the no-gold books are left, so 'no gold' leaves their names ('20 no gold' -> 'Book 20')
-function booksBookName(b,k){const r=String((b&&b.row)||String(k||'').replace(/_nogold$/,'').replace(/_/g,' ')||'').replace(/,?\s*no gold\b.*$/i,'').trim();return /book/i.test(r)?r:('Book '+r);}
+// board 154: the raw + ML book of a limit reads 'Book 20' too (no 'no gold' / 'ML' words)
+function booksBookName(b,k){const r=String((b&&b.row)||String(k||'').replace(/_nogold(_ml)?$/,'').replace(/_ml$/,'').replace(/_/g,' ')||'').replace(/,?\s*no gold\b.*$/i,'').replace(/\s*[(,+]?\s*(raw\s*\+\s*)?\bML\b\)?/g,'').trim();return /book/i.test(r)?r:('Book '+r);}
 // ── BOOK AS-IF (owner 11-21: 'put the book configs on the ledger shadow! divided by book type. i want to toggle them!', v91.71) ──
 // ONE renderer for NT8 PAPER and WEBULL PAPER. Every book in the book table (window._bookLegs, meta/book_legs) is a dropdown of its
 // legs; the books sit under a header per TYPE, read from their legs' instruments (all futures / all stocks / futures + stocks).
@@ -8384,6 +8393,18 @@ document.addEventListener('click',e=>{const t=e.target&&e.target.closest&&e.targ
   if(t.hasAttribute('data-lgvview'))_lgvLsSet('el_lgv_view_'+b,t.getAttribute('data-lgvview'));
   if(t.hasAttribute('data-lgvsize'))_lgvLsSet('el_lgv_size_'+b,t.getAttribute('data-lgvsize'));
   if(typeof renderApp==='function')renderApp();});
+// board 154 (owner GO 11-22): the as-if panel shows ONE book per DD limit - the raw + ML book '<lim>_nogold_ml' when the table has it, else
+// '<lim>_nogold' (else a plain '<lim>' that is not a gold book) for 20 / 25 / 30 / 35 / 40 / 50 - plus ONE '#463 today' ('463', else
+// '463_nogold'). Raw-only twins of an _ml book, every *_prov*, 35_cons* and the duplicate 463_nogold are left out HERE (the page filter), so
+// an older doc still reads right. The single-leg ML books (382_keel, 234_gate, 314_gate: '<run>_keel' / '<run>_gate') are the 'ML shadows'.
+// -> {chips: [{key, label ('20' | '#463'), name ('Book 20' | '#463 today')}], ml: [keys]}
+const BKA_LIMS=['20','25','30','35','40','50'];
+function bkaPanelBooks(B){const out={chips:[],ml:[]};const bk=(B&&B.books&&typeof B.books==='object')?B.books:null;if(!bk)return out;
+  const has=k=>!!bk[k]&&!booksIsGold(B,k);
+  BKA_LIMS.forEach(l=>{const k=[l+'_nogold_ml',l+'_nogold',l].find(has);if(k)out.chips.push({key:k,label:l,name:'Book '+l});});
+  const k463=['463','463_nogold'].find(has);if(k463)out.chips.push({key:k463,label:'#463',name:'#463 today'});
+  Object.keys(bk).forEach(k=>{if(/^\d+_(keel|gate)$/i.test(k)&&!booksIsGold(B,k))out.ml.push(k);});
+  return out;}
 // THE PANEL. ctx: {board:'nt8'|'qb', listId (the root's data-lglist, so a LIVE switch reaches the board's own switch handler), from, to,
 //   live:id=>null|{key,on,net,label}, fwd:id=>null|{key,on,net,n,label} (Webull's box shadow), order:[types], active:book key,
 //   accountNet: the board's figure in the range (the what-if head), fwdOnNet: Webull's switched-on box shadow sum}
@@ -8395,20 +8416,17 @@ function bkaPanelHtml(ctx){
   const rem=x=>(x&&!app)?' rem':'';
   if(!B||!B.books||typeof B.books!=='object'){
     return '<div class="bka" data-bka="'+board+'"><div class="bka-hd"><span class="bka-t">Books &middot; as-if</span><span class="bka-s">book table not published yet</span></div></div>';}
-  const keys=booksOrderedKeys(B);
-  if(ctx.active){const i=keys.indexOf(ctx.active);if(i>0){keys.splice(i,1);keys.unshift(ctx.active);}}
-  const openBooks=bkaOpenBooks(board,ctx.active||keys[0]);
   const from=ctx.from||null,to=ctx.to||null;
   const genAt=D&&D.generated_at?String(D.generated_at).replace('T',' ').slice(0,16)+' UTC':'';
   // v91.72 (owner 11-21 'same with the books'): ONE compact row per leg - name + run, $, switch. LIVE / SHADOW is the row's left rule (solid =
   // in the account, dashed = as-if, the chart's own line styles) plus a hidden word for screen readers; what used to be the leg's sub-line
   // (where the figure comes from, trades, size, data end) is the row's hover. Book rows: name, what-if $, the one-click as-if switch.
-  const legRow=(bk,l)=>{
+  const legRow=(bk,l,tags)=>{
     const id=String((l&&l.id)||''),L=bkaLegB(board,id),lv=ctx.live?ctx.live(id):null,fw=(()=>{const f0=(!lv&&ctx.fwd)?ctx.fwd(id):null;if(!f0||!app)return f0;
       const z=bkaSizedNet(board,id,from,to);return (z&&z.n)?Object.assign({},f0,{net:z.net,n:z.n}):f0;})();   // v91.92 E2: sized under a RISK %
     // v91.91 ONE LABEL: FAMILY #RUN.CFG raw (the book table's own name and size ride in the hover)
     const _bc=bkaLegCfg(id);
-    const nm='<span class="bka-nmt" data-bkalbl="'+esc(_bc.label)+'">'+esc(_bc.label)+'</span>';
+    const nm='<span class="bka-nmt" data-bkalbl="'+esc(_bc.label)+'">'+esc(_bc.label)+'</span>'+(tags||'');   // board 154: the chips of the books that hold it
     const size=esc(String((l&&l.size)||''))+((l&&l.name&&String(l.name)!==id)?(' · book table: '+esc(String(l.name))):'')
       +(_bc.cell==null?(' · run #'+esc(_bc.run)+' champion (its set number is not in the page)'):(' · set '+_bc.cell+(_bc.cell===0?' = the file own config (the run stored no champion)':' = run #'+esc(_bc.run)+' champion')));
     // v91.79: a shadow row leads with its colour swatch, the same colour and dash its line draws on the chart
@@ -8447,31 +8465,28 @@ function bkaPanelHtml(ctx){
       +(L.stale?' <span class="bka-stale" title="data ends '+esc(String(L.data_end||''))+'">&#9888;</span>':''),
       '<span class="bka-val '+(f.n?ledgerCls(f.net):'')+'"'+(_fz?' data-bkasized="1"':'')+'>'+(f.n?ledgerSigned(f.net):'&mdash;')+'</span>',   // v91.92 E3: no trades = an em dash
       '<span class="lg-sw bka-shsw'+(isOn?' on':'')+rem(isOn)+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>',bkaSwatchHtml(id));};
-  const byType={};
-  keys.forEach(k=>{const b=B.books[k];if(!b)return;(byType[bkaBookType(b)]=byType[bkaBookType(b)]||[]).push(k);});
-  const order=(ctx.order||['futures','mixed','stock']).filter(t=>byType[t]).concat(Object.keys(byType).filter(t=>(ctx.order||['futures','mixed','stock']).indexOf(t)<0));
-  const body=order.map(t=>'<div class="bka-type" data-bkatype="'+t+'"><div class="bka-type-hd" data-bkatypehd="'+t+'">'+esc(BKA_TYPES[t]||t)+' <span class="bka-n">'+byType[t].length+'</span></div>'
-    +byType[t].map(k=>{const b=B.books[k],legs=Array.isArray(b.legs)?b.legs:[],open=openBooks.indexOf(k)>=0;
-      const shIds=legs.map(l=>String(l.id||'')).filter(id=>id&&!(ctx.live&&ctx.live(id))&&!(ctx.fwd&&ctx.fwd(id))&&!(bkaLegB(board,id)&&bkaLegB(board,id).reason));
-      const allOn=shIds.length&&shIds.every(id=>on.indexOf(id)>=0);
-      const nL=legs.filter(l=>ctx.live&&ctx.live(String(l.id||''))).length;
-      // the book's what-if in the range: its live legs switched on + its shadow legs switched on (replay or forward)
-      // v91.92 (E1): the remembered shadow legs count only in WHAT-IF - in LIVE no what-if $ shows anywhere; (E2) sized under a RISK %
-      let lv=0,sv=0;legs.forEach(l=>{const id=String(l.id||''),x=ctx.live&&ctx.live(id);if(x){if(x.on)lv+=+x.net||0;return;}
-        if(!app)return;
-        const z=bkaSizedNet(board,id,from,to);
-        const fw=ctx.fwd&&ctx.fwd(id);if(fw){if(fw.on)sv+=z?z.net:(+fw.net||0);return;}
-        if(on.indexOf(id)>=0){const L=bkaLegB(board,id);if(L&&Array.isArray(L.d))sv+=z?z.net:bkaSum(L,from,to).net;}});
-      const wi=Math.round((lv+sv)*100)/100;
-      const wiTip='what-if in the range '+ledgerSigned(wi)+' = live legs switched on '+ledgerSigned(Math.round(lv*100)/100)+' + shadow legs switched on '+ledgerSigned(Math.round(sv*100)/100)+' - closed P&L, never the account number';
-      return '<div class="bka-book'+(open?' open':'')+'" data-bkabook="'+esc(k)+'">'
-        +'<div class="bka-bhd"><button type="button" class="bka-bfold" data-bkafold="'+esc(k)+'" aria-expanded="'+open+'" title="'+esc(booksBookName(b,k))+' · '+legs.length+' legs · '+nL+' live on this board"><span class="lg-chev" aria-hidden="true">&#9662;</span>'
-        +'<span class="bka-bname">'+esc(booksBookName(b,k))+'</span>'+(ctx.active===k?' <span class="bka-act">'+esc(ctx.activeWord||'this board')+'</span>':'')+'</button>'
-        +'<span class="bka-bval '+((lv||sv)?ledgerCls(wi):'')+'" data-bkabooktotal="'+esc(k)+'" title="'+esc(wiTip)+'">'+((lv||sv)?ledgerSigned(wi):'&mdash;')+'</span>'
-        +(shIds.length?'<button type="button" class="lg-sw bka-all'+(allOn?' on':'')+rem(allOn)+'" data-bkaall="'+esc(k)+'" data-bkaids="'+esc(shIds.join(','))+'" aria-pressed="'+!!allOn+'" aria-label="'+esc(booksBookName(b,k))+' as-if" title="'+(allOn?'as-if ON: switch this book’s shadow legs off':'as-if: switch on all '+shIds.length+' of this book’s shadow legs')+'"></button>':'<span class="bka-allnone"></span>')
-        +'</div>'
-        +(open?('<div class="bka-bbody">'+legs.map(l=>legRow(k,l)).join('')+'</div>'):'')
-        +'</div>';}).join('')+'</div>').join('');
+  // board 154 (owner GO 11-22) STRATEGY FIRST: a row of book chips ([20] [25] [30] [35] [40] [50] [#463]); under it EACH strategy (leg id)
+  // ONCE - its label, the chips of the books that hold it, its $ and its own switch (as before); the single-leg ML books' legs in a small
+  // 'ML shadows' group at the bottom. A chip turns on exactly that book's shadow legs (the other shadow legs off); tapped again (all on) it
+  // turns them off. Active = every shadow leg of the book on. The LIVE / WHAT-IF rules, the remembered set and the lazy trade reads stand.
+  const PB=bkaPanelBooks(B),shOf=k=>{const b=B.books[k],legs=Array.isArray(b&&b.legs)?b.legs:[];
+    return legs.map(l=>String(l.id||'')).filter(id=>id&&!(ctx.live&&ctx.live(id))&&!(ctx.fwd&&ctx.fwd(id))&&!(bkaLegB(board,id)&&bkaLegB(board,id).reason));};
+  const bookWi=k=>{const b=B.books[k],legs=Array.isArray(b&&b.legs)?b.legs:[];let lv=0,sv=0;
+    legs.forEach(l=>{const id=String(l.id||''),x=ctx.live&&ctx.live(id);if(x){if(x.on)lv+=+x.net||0;return;}if(!app)return;
+      const z=bkaSizedNet(board,id,from,to),fw=ctx.fwd&&ctx.fwd(id);if(fw){if(fw.on)sv+=z?z.net:(+fw.net||0);return;}
+      if(on.indexOf(id)>=0){const L=bkaLegB(board,id);if(L&&Array.isArray(L.d))sv+=z?z.net:bkaSum(L,from,to).net;}});
+    return {lv:lv,sv:sv,wi:Math.round((lv+sv)*100)/100};};
+  const chipRow='<div class="bka-chips" data-bkachips="'+board+'" role="group" aria-label="books">'+PB.chips.map(c=>{const ids=shOf(c.key),allOn=ids.length>0&&ids.every(id=>on.indexOf(id)>=0),w=bookWi(c.key);
+      const tip=c.name+(ctx.active===c.key?' ('+(ctx.activeWord||'this board')+')':'')+' · '+((B.books[c.key].legs||[]).length)+' legs · '+(ids.length?(allOn?'as-if ON: tap to switch its '+ids.length+' shadow legs off':'tap to switch on exactly its '+ids.length+' shadow legs'):'no shadow legs here')
+        +((w.lv||w.sv)?(' · what-if in the range '+ledgerSigned(w.wi)):'');
+      return '<button type="button" class="bka-chip'+(allOn?' on':'')+rem(allOn)+(ctx.active===c.key?' act':'')+'" data-bkachip="'+esc(c.key)+'" data-bkabook="'+esc(c.key)+'" data-bkaids="'+esc(ids.join(','))+'" aria-pressed="'+!!allOn+'"'+(ids.length?'':' disabled')+' title="'+esc(tip)+'">'+esc(c.label)+'</button>';}).join('')+'</div>';
+  const holders={},firstLeg={},mainIds=[],mlIds=[];
+  PB.chips.forEach(c=>{(B.books[c.key].legs||[]).forEach(l=>{const id=String((l&&l.id)||'');if(!id)return;(holders[id]=holders[id]||[]).push(c.label);if(!firstLeg[id]){firstLeg[id]=l;mainIds.push(id);}});});
+  PB.ml.forEach(k=>{(B.books[k].legs||[]).forEach(l=>{const id=String((l&&l.id)||'');if(!id||firstLeg[id])return;firstLeg[id]=l;mlIds.push(id);});});
+  const tagsOf=id=>(holders[id]||[]).map(x=>' <span class="bka-btag" data-bkabtag="'+esc(x)+'">'+esc(x)+'</span>').join('');
+  const body=chipRow+'<div class="bka-strats" data-bkastrats="'+board+'">'+mainIds.map(id=>legRow(null,firstLeg[id],tagsOf(id))).join('')+'</div>'
+    +(mlIds.length?('<div class="bka-type" data-bkatype="ml"><div class="bka-type-hd" data-bkatypehd="ml">ML shadows <span class="bka-n">'+mlIds.length+'</span></div>'
+      +mlIds.map(id=>legRow(null,firstLeg[id],' <span class="bka-btag" data-bkabtag="ML">ML</span>')).join('')+'</div>'):'');
   const _szAll=app?bkaSizedOf(board):null;
   const shOn=_szAll?Math.round(_szAll.reduce((a,x)=>a+Object.keys(x.days||{}).reduce((b,d)=>((from&&d<from)||(to&&d>to))?b:b+(+x.days[d].p||0),0),0)*100)/100
     :bkaOnSum(board,from,to,id=>!!((ctx.live&&ctx.live(id))||(ctx.fwd&&ctx.fwd(id))))+(+ctx.fwdOnNet||0);   // v91.92 E2
@@ -8491,8 +8506,9 @@ document.addEventListener('click',function(e){
   const t=e.target&&e.target.closest?e.target:null;if(!t)return;
   const root=t.closest('[data-bka]');if(!root)return;
   const board=root.getAttribute('data-bka');
-  const sw=t.closest('[data-bkasw]'),all=t.closest('[data-bkaall]'),fold=t.closest('[data-bkafold]'),pan=t.closest('[data-bkapanel]');
-  if(!sw&&!all&&!fold&&!pan)return;
+  const sw=t.closest('[data-bkasw]'),all=t.closest('[data-bkaall]'),fold=t.closest('[data-bkafold]'),pan=t.closest('[data-bkapanel]'),chip=t.closest('[data-bkachip]');
+  if(!sw&&!all&&!fold&&!pan&&!chip)return;
+  if(chip&&chip.disabled)return;
   e.preventDefault();e.stopPropagation();
   const lb=lgvBoardOf(board);
   if(sw){const id=sw.getAttribute('data-bkasw'),was=bkaOn(board).indexOf(id)>=0;
@@ -8500,6 +8516,15 @@ document.addEventListener('click',function(e){
   else if(all){const ids=String(all.getAttribute('data-bkaids')||'').split(',').filter(Boolean);if(!ids.length)return;
     const was=all.getAttribute('aria-pressed')==='true';
     if(was&&!lgvApplied(lb))_lgvLsSet('el_lgv_view_'+lb,'whatif');else bkaSetOn(board,ids,!was);}
+  else if(chip){const ids=String(chip.getAttribute('data-bkaids')||'').split(',').filter(Boolean);if(!ids.length)return;
+    // board 154: exactly this book's shadow legs on (the other shadow legs off); a chip already all on switches its legs off. In LIVE a
+    // remembered book just brings WHAT-IF back (as the book switch did).
+    const was=chip.getAttribute('aria-pressed')==='true';
+    if(was&&!lgvApplied(lb))_lgvLsSet('el_lgv_view_'+lb,'whatif');
+    else if(was)bkaSetOn(board,ids,false);
+    else{const off=bkaOn(board).filter(id=>ids.indexOf(id)<0);
+      if(off.length){const S=bkaOn(board).filter(id=>off.indexOf(id)<0);window['_bkaOn_'+board]=S;_bkaLsSet('el_bka_on_'+board,S);}
+      bkaSetOn(board,ids,true);}}
   else if(fold){const k=fold.getAttribute('data-bkafold'),S=bkaOpenBooks(board).slice(),i=S.indexOf(k);if(i>=0)S.splice(i,1);else S.push(k);
     window['_bkaOpen_'+board]=S;_bkaLsSet('el_bka_open_'+board,S);}
   else if(pan){_bkaLsSet('el_bka_panel_'+board,bkaPanelOpen(board)?0:1);}

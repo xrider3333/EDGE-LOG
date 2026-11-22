@@ -4069,6 +4069,9 @@ __S11JS__
               var bs=function(){var d=D(),pn=d.querySelector('[data-bka="qb"]'),c=W()._qbLgChart||{lines:[]},o=rd();
                 o.panel=!!pn;o.vis=pn?(pn.offsetHeight>0):false;
                 o.types=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkatypehd]'),function(e){return e.getAttribute('data-bkatypehd');});
+                // board 154: strategy first - the book chips, and each leg listed once
+                o.chips=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkachip]'),function(e){return e.textContent.trim();});
+                o.legIds=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkaleg]'),function(e){return e.getAttribute('data-bkaleg');});
                 o.legs=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkaleg]'),function(e){var sw=e.querySelector('.lg-sw');return e.getAttribute('data-bkaleg')+'/'+e.getAttribute('data-bkamode')+(sw?('/'+(sw.getAttribute('data-lgsw')?'lgsw':'bkasw')+'='+sw.getAttribute('aria-checked')):'');});
                 o.sh=(c.lines||[]).filter(function(l){return l.shadow&&l.bka;}).map(function(l){return [l.bka,l.dash];});
                 o.wi=(c.lines||[]).filter(function(l){return l.whatif;}).map(function(l){return l.vals[l.vals.length-1];});
@@ -9200,8 +9203,13 @@ def _judge(data, fixture):
             if not b0.get('panel') or not b0.get('vis') or cl.get('open') or cl.get('legs'):
                 fails.append('book as-if run: the Books as-if panel is not there, or not closed by default (panel %r, visible %r, closed %r)'
                              % (b0.get('panel'), b0.get('vis'), cl))
-            if b0.get('types') != ['stock', 'mixed', 'futures']:
-                fails.append('book as-if run: book-type headers %r, want stock, futures + stock, futures' % (b0.get('types'),))
+            # board 154 (owner GO 11-22): strategy first - a row of book chips (one book per DD limit + #463), each leg listed ONCE,
+            # no book-type headers (only the 'ml' ML shadows group may show)
+            if not b0.get('chips') or len(set(b0.get('chips'))) != len(b0.get('chips')) or [t for t in (b0.get('types') or []) if t != 'ml']:
+                fails.append('book as-if run: book chips %r / group headers %r, want one chip per book and no book-type headers'
+                             % (b0.get('chips'), b0.get('types')))
+            if len(set(b0.get('legIds') or [])) != len(b0.get('legIds') or []):
+                fails.append('book as-if run: a strategy is listed more than once: %r' % (b0.get('legIds'),))
             if not any(x.startswith('ORB314/live/lgsw=') for x in (b0.get('legs') or [])):
                 fails.append('book as-if run: ORB314 (on the box) is not a LIVE row on the strategy switch: %r' % (b0.get('legs'),))
             if b0.get('sh') or b0.get('heroWhatif') is not None:

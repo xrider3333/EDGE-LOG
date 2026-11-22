@@ -1754,6 +1754,9 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               var _bs=function(){var s=_snap();s.big=_t(d.getElementById('p2-hero-value'));s.chart=_pc();
                 s.types=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkatypehd]'),function(e){return e.getAttribute('data-bkatypehd')+':'+_t(e);});
                 s.books=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkabook]'),function(e){return e.getAttribute('data-bkabook')+(e.classList.contains('open')?'*':'');});
+                // board 154: strategy first - the book chips, each leg listed once
+                s.chips=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkachip]'),function(e){return e.textContent.trim()+(e.classList.contains('on')?'*':'');});
+                s.legIds=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg]'),function(e){return e.getAttribute('data-bkaleg');});
                 s.legs=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg]'),function(e){var sw=e.querySelector('.lg-sw');return e.getAttribute('data-bkaleg')+'/'+e.getAttribute('data-bkamode')+(sw?('/'+(sw.getAttribute('data-lgsw')?'lgsw':'bkasw')+'='+sw.getAttribute('aria-checked')):'');});
                 s.nodata=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkanodata]'),function(e){return e.getAttribute('data-bkanodata')+':'+_t(e)+' '+(e.getAttribute('title')||'');});
                 var wi=d.querySelector('[data-bkawhatif="nt8"]');s.whatif=wi?parseFloat(wi.getAttribute('data-bkawhatifv')):null;
@@ -1770,7 +1773,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                 return s;};
               BK.s0=_bs();
               // open the second book, switch its shadow leg on
-              if(_click('[data-bka="nt8"] [data-bkafold="30"]')){BK.s1=_bs();
+              {BK.s1=_bs();   // board 154: no book folds - every strategy is listed once under the book chips
                 if(_click('[data-bka="nt8"] [data-bkasw="OPUS55a"]')){BK.s2=_bs();BK.daily=LS0.getItem('el_lg_slines_p2');BK.stored=LS0.getItem('el_bka_on_nt8');
                   // v91.89: the switch flipped the board to WHAT-IF; LIVE drops every shadow but keeps the switch remembered; WHAT-IF restores it
                   var _eff=function(){var b=d.querySelector('[data-lgvbar="p2"]');return b?b.getAttribute('data-lgveff'):null;};
@@ -1782,13 +1785,13 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                 if(_click('[data-bka="nt8"] [data-lgsw="ORB"]')){BK.s3=_bs();_click('[data-bka="nt8"] [data-lgsw="ORB"]');}
                 _click('[data-bka="nt8"] [data-bkasw="OPUS55a"]');BK.s4=_bs();
                 // one click: the whole book as-if (its replay shadow legs on), and again: off
-                if(_click('[data-bka="nt8"] [data-bkaall="30"]')){BK.s5=_bs();
+                if(_click('[data-bka="nt8"] [data-bkachip^="30"]')){BK.s5=_bs();
                   // v91.79: the hover readout lists each shadow leg's $ in its own colour
                   try{var sv=d.querySelector('#p2-chart svg');if(sv){var rc=sv.getBoundingClientRect();
                     sv.dispatchEvent(new PointerEvent('pointermove',{clientX:rc.right-80,clientY:rc.top+40,pointerType:'mouse',bubbles:true}));
                     BK.hover=[].map.call(d.querySelectorAll('#p2-hero-range [data-bkahover]'),function(e){return [e.getAttribute('data-bkahover'),getComputedStyle(e).color];});
                     sv.dispatchEvent(new PointerEvent('pointerleave',{pointerType:'mouse'}));}}catch(e){BK.hover='err '+e;}
-                  _click('[data-bka="nt8"] [data-bkaall="30"]');BK.s6=_bs();}
+                  _click('[data-bka="nt8"] [data-bkachip^="30"]');BK.s6=_bs();}
               }
               w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');
               if(dly0==null)LS0.removeItem('el_lg_slines_p2');else LS0.setItem('el_lg_slines_p2',dly0);
@@ -2270,9 +2273,13 @@ def run(alt_index=None, timeout=300):
         fails.append('paper2 book as-if: the panel case did not run: %s' % (_bka.get('err') or 'no readout'))
     else:
         s0, s1, s2 = _bka.get('s0') or {}, _bka.get('s1') or {}, _bka.get('s2') or {}
+        # board 154 (owner GO 11-22): strategy first - one chip per book, no book-type headers (only the 'ml' ML shadows group), each leg once
         tys = [t.split(':')[0] for t in (s0.get('types') or [])]
-        if tys[:2] != ['futures', 'mixed']:
-            fails.append('paper2 book as-if: book-type headers %r, want futures books then futures + stock books' % (s0.get('types'),))
+        chs = [c.rstrip('*') for c in (s0.get('chips') or [])]
+        if not chs or len(set(chs)) != len(chs) or '30' not in chs or [t for t in tys if t != 'ml']:
+            fails.append('paper2 book as-if: book chips %r / group headers %r, want one chip per book (30 among them) and no book-type headers' % (s0.get('chips'), s0.get('types')))
+        if len(set(s0.get('legIds') or [])) != len(s0.get('legIds') or []):
+            fails.append('paper2 book as-if: a strategy is listed more than once: %r' % (s0.get('legIds'),))
         if not s0.get('inRail'):
             fails.append('paper2 book as-if: the panel is not in the strategy sidebar (.p2rail)')
         if not any(x.startswith('ORB234/live/lgsw=true') for x in (s0.get('legs') or [])):
@@ -2324,7 +2331,9 @@ def run(alt_index=None, timeout=300):
         s5, s6 = _bka.get('s5') or {}, _bka.get('s6') or {}
         ids5 = sorted(x[0] for x in (s5.get('chart', {}).get('sh') or []))
         if ids5 != ['OPUS55a', 'PICK6']:
-            fails.append('paper2 book as-if: one click on book 30 as-if switched on %r, want its two replay shadow legs' % (ids5,))
+            fails.append('paper2 book as-if: one click on the [30] book chip switched on %r, want its two replay shadow legs' % (ids5,))
+        if '30*' not in (s5.get('chips') or []):
+            fails.append('paper2 book as-if: the [30] chip does not read active with all its legs on: %r' % (s5.get('chips'),))
         if s6.get('chart', {}).get('sh'):
             fails.append('paper2 book as-if: a second click on book 30 as-if left lines on: %r' % (s6.get('chart', {}).get('sh'),))
         _bka_ok = [len(s0.get('types') or []), len(lg1), len(sh2)]
