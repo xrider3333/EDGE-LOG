@@ -58,10 +58,19 @@ UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 # board's own first ledger day, so the series starts early enough for both
 WINDOW_FROM = "2026-06-01"
 WARM_DAYS = 330                      # NOISE's 104-day lookback, EODREV's 180-day beta, ENGU-Q's 1340-bar EMA
-SCHEMA = 1
+SCHEMA = 2                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check)
 
 # Book-table leg id -> which run's champion it is, and anything the run doc does not say. `run` is the run the book
-# table names (its pinned champion); `weight` is the book's size (TTMx3 = 3 ES, OPUS58c_h = half size).
+# table names (the label); `params_run` (if set) is the run whose champion is replayed (NOISE398 = #528's PASS pick);
+# `weight` is the book's size (TTMx3 = 3 ES, OPUS58c_h = half size); `paper_usd_per_side` sizes a dollars leg to the
+# paper account (PICK6 trades $10k a side on Webull paper, api/eodrev_exec.py usd_per_side; the plugin is $100k a
+# side); `params` pins a config when the run stored no champion (only where every knob of the file is pinned anyway).
+# 11-21 owner review: every leg's cost_pts / mult is checked against how its strategy reports P&L (unit_check): a
+# "points" file needs the run's cost and the contract multiplier, a "usd" file charges its own cost inside and must
+# run at job cost 0, mult 1.
+_EXPCAL_ONLY = {"cost_pts": 0.533, "point_value": 20}
+_EXPCAL_FROM = ("the file's only config (every knob pinned: NQ 0.533 pts a round trip at $20 a point, charged inside "
+                "the file); run #543 stored no champion")
 LEG_SPECS = {
     "ENGUQ335":  {"run": 335},
     "NOISE422":  {"run": 422},
@@ -69,19 +78,24 @@ LEG_SPECS = {
     "TTMx3":     {"run": 369, "weight": 3.0, "note": "3 ES, the #369 seat"},
     "NOISE406":  {"run": 406},
     "NOISE304":  {"run": 304},
-    "NOISE398":  {"run": 398, "note": "engine PASS run #528 holds the same file"},
+    "NOISE398":  {"run": 398, "params_run": 528,
+                  "note": "#398's file with engine PASS run #528's champion (gate_len 16; #398's own pick was 20)"},
     "NOISE382":  {"run": 382},
     "ORB546":    {"run": 546},
     "ORB314":    {"run": 314},
     "ORB421":    {"run": 421, "note": "= #257 seat"},
     "TTIBS300":  {"run": 300},
-    "OPUS55a":   {"run": 524},
+    "OPUS55a":   {"run": 524, "note": "up to 2 NQ = one 1-NQ trade tuple per leg trade, legs can overlap; weight 1"},
     "OPUS107a":  {"run": 518},
-    "OPUS58c":   {"run": 543},
-    "OPUS58c_h": {"run": 543, "weight": 0.5, "note": "half size"},
-    "OPUS86a":   {"run": 526},
-    "PICK6":     {"run": 511},
-    "GLDNIGHT":  {"run": 541},
+    "OPUS58c":   {"run": 543, "params": _EXPCAL_ONLY, "params_from": _EXPCAL_FROM},
+    "OPUS58c_h": {"run": 543, "weight": 0.5, "note": "half size", "params": _EXPCAL_ONLY,
+                  "params_from": _EXPCAL_FROM},
+    "OPUS86a":   {"run": 526, "note": "$100k a side = the file's pinned notional; cost charged inside the file"},
+    "PICK6":     {"run": 511, "paper_usd_per_side": 10000.0, "size": "$10k a side (paper size)",
+                  "note": "Webull paper PICK6 trades $10k a side (api/eodrev_exec.py); the #511 champion is $100k a "
+                          "side, so the as-if runs at 0.1x",
+                  "stale_fix": "the pinned #511 side panel and the SPY 5m clock both end 2026-06-30"},
+    "GLDNIGHT":  {"run": 541, "note": "$100k a trade = the file's pinned notional; cost charged inside the file"},
 }
 SOURCE_MAP = {   # a run doc's source_name -> (session, registry source)
     "rth - no-adj": ("rth", "db_noadj_rth"), "eth - no-adj": ("eth", "db_noadj_eth"),
@@ -165,12 +179,19 @@ def leg_spec(leg_id, book_leg):
     s = LEG_SPECS.get(leg_id)
     if not s:
         raise ValueError("no replay spec for this leg yet (add it to LEG_SPECS in tools/book_asif_series.py)")
-    doc = run_doc(s["run"])
+    prun = int(s.get("params_run") or s["run"])
+    doc = run_doc(prun)
     if not doc:
-        raise ValueError("run #%d doc not found" % s["run"])
+        raise ValueError("run #%d doc not found" % prun)
     champ = ((doc.get("validate") or {}).get("champion")) or doc.get("best_params") or {}
     if not isinstance(champ, dict):
         champ = {}
+    if champ:
+        params_from = "champion of run #%d" % prun
+    elif s.get("params"):
+        champ, params_from = dict(s["params"]), s.get("params_from") or "pinned in LEG_SPECS"
+    else:
+        params_from = "strategy defaults (the run stored no champion)"
     inst = str(doc.get("instrument") or "").upper()
     sess, src = _session_source(doc)
     mult = doc.get("multiplier")
@@ -180,11 +201,61 @@ def leg_spec(leg_id, book_leg):
         mult = None
     if mult is None:
         mult = MULT.get(inst, 1.0)
-    return {"run": s["run"], "strategy": doc["strategy"], "params": dict(champ), "instrument": inst,
-            "timeframe": doc.get("timeframe") or "5m", "session": sess, "source": src,
-            "cost_pts": float(doc.get("cost_pts") or 0), "mult": mult, "weight": float(s.get("weight", 1.0)),
-            "params_from": "champion" if champ else "strategy defaults (the run stored no champion)",
-            "note": s.get("note", "")}
+    weight = float(s["weight"]) if "weight" in s else size_weight((book_leg or {}).get("size"), s, champ)
+    spec = {"run": s["run"], "params_run": prun, "strategy": doc["strategy"], "params": dict(champ),
+            "instrument": inst, "timeframe": doc.get("timeframe") or "5m", "session": sess, "source": src,
+            "cost_pts": float(doc.get("cost_pts") or 0), "mult": mult, "weight": weight,
+            "params_from": params_from, "note": s.get("note", ""), "size": s.get("size") or "",
+            "stale_fix": s.get("stale_fix", "")}
+    spec["pnl_units"] = strategy_pnl_units(spec["strategy"])
+    bad = unit_check(spec, spec["pnl_units"])
+    if bad:
+        raise ValueError("cost / mult do not fit the strategy's P&L units (%s): %s" % (spec["pnl_units"], bad))
+    return spec
+
+
+def strategy_pnl_units(strategy):
+    """The file's PNL_UNITS constant ("points" when absent) read from its source text, None if no file."""
+    import re
+    for root in (HERE, SHARED):
+        p = os.path.join(root, "augur_strategies", os.path.basename(str(strategy)))
+        if os.path.exists(p):
+            with open(p, encoding="utf-8", errors="replace") as f:
+                m = re.search(r"""^PNL_UNITS\s*=\s*["']([A-Za-z]+)["']""", f.read(), re.M)
+            return m.group(1).lower() if m else "points"
+    return None
+
+
+def unit_check(spec, units):
+    """'' when cost_pts / mult fit how the strategy reports P&L, else what is wrong."""
+    if units is None:
+        return "strategy file not found"
+    bad = []
+    if units == "usd":
+        if spec["cost_pts"] != 0:
+            bad.append("job cost_pts %s on a dollars file (it charges its own cost; must be 0)" % spec["cost_pts"])
+        if spec["mult"] != 1.0:
+            bad.append("mult %s on a dollars file (must be 1)" % spec["mult"])
+        return "; ".join(bad)
+    if not spec["cost_pts"] > 0:
+        bad.append("cost_pts 0 on a points file (no cost charged)")
+    want = MULT.get(spec["instrument"])
+    if want is not None and spec["mult"] != want:
+        bad.append("mult %s on a points %s file (the contract is %s)" % (spec["mult"], spec["instrument"], want))
+    return "; ".join(bad)
+
+
+def size_weight(book_size, s, params):
+    """The weight the book row's size implies: 'x N' / 'N ES' -> N, 'half' -> 0.5, a paper dollars size -> it over
+    the file's notional; anything else (1 NQ; up to 2 NQ = per-tuple contracts; $100k = the pinned notional) -> 1."""
+    import re
+    if s.get("paper_usd_per_side"):
+        return float(s["paper_usd_per_side"]) / float((params or {}).get("notional") or 100000)
+    t = str(book_size or "").lower()
+    if "half" in t:
+        return 0.5
+    m = re.search(r"\bx\s*(\d+(?:\.\d+)?)\b", t) or re.search(r"^\s*(\d+(?:\.\d+)?)\s*(?:es|ym|rty)\b", t)
+    return float(m.group(1)) if m else 1.0
 
 
 def leg_kind(book_leg, spec=None):
@@ -253,8 +324,11 @@ def build_leg(leg_id, book_leg, force=False, say=print):
         rec.update(kind=leg_kind(book_leg), reason=str(e))
         return rec, False
     rec["kind"] = leg_kind(book_leg, spec)
-    rec.update(strategy=spec["strategy"], params_run=spec["run"], cost_pts=spec["cost_pts"], mult=spec["mult"],
-               weight=spec["weight"], params_from=spec["params_from"], tf=spec["timeframe"], session=spec["session"])
+    rec.update(strategy=spec["strategy"], params_run=spec["params_run"], cost_pts=spec["cost_pts"], mult=spec["mult"],
+               weight=spec["weight"], params_from=spec["params_from"], tf=spec["timeframe"], session=spec["session"],
+               pnl_units=spec["pnl_units"], params=spec["params"])
+    if spec.get("size"):
+        rec["size"] = spec["size"]
     if spec.get("note"):
         rec["note"] = spec["note"]
     m, mend = master_end(spec)
@@ -290,6 +364,8 @@ def build_leg(leg_id, book_leg, force=False, say=print):
     if lag is not None and lag > 7:
         series["stale"] = "the %s %s master ends %s, so this series stops there (the data needs a refresh)" % (
             spec["instrument"], spec["timeframe"], series["data_end"][:10])
+        if spec.get("stale_fix"):
+            series["stale"] += "; " + spec["stale_fix"]
     rec.update(series)
     _write_json(cpath, {"key": key, "series": series})
     say("  %-10s %s  %3d trades  net %+10.2f  data to %s  (%.1fs)" % (
