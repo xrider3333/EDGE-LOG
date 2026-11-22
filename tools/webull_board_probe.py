@@ -3363,7 +3363,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
         nameCut:nameCut,nameW:nm?Math.round(nm.clientWidth):null,
         off:b.classList.contains('off'),h:Math.round(rc.height),sw:b.querySelectorAll('[data-lgsw]').length,
         valColor:v?w.getComputedStyle(v).color:null,expanded:b.getAttribute('aria-expanded'),
-        extra:exX?exX.getAttribute('data-qbextra'):null};
+        extra:exX?exX.getAttribute('data-qbextra'):null,title:b.getAttribute('title')};
     }
     var hd=lst.querySelector('.lg-list-hd'),hs=hd?hd.querySelectorAll('span'):[],box=lst.getBoundingClientRect();
     var side=q('.qbx-side'),hist=q('.qbx-history'),acct=q('.qbx-account'),sh=q('.qb-shell'),fr=q('[data-lgtrade]')||q('[data-qbtraderow]'),sy=w.scrollY||0;
@@ -3376,7 +3376,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
       groups:[].map.call(lst.querySelectorAll('.lg-grp'),function(g){
         var h=g.querySelector('.lg-grp-hd'),f=g.querySelector('[data-lggrp]'),n=g.querySelector('.lg-grp-note'),hp=g.querySelector('.lg-grp-hd [data-lggrphelp]');
         return {key:g.getAttribute('data-lggroup'),head:h?(h.textContent||'').replace(/\\s+/g,' ').trim():null,fold:!!f,
-          expanded:f?f.getAttribute('aria-expanded'):null,note:n?(n.textContent||'').replace(/\\s+/g,' ').trim():(hp?(hp.getAttribute('title')||''):null),
+          expanded:f?f.getAttribute('aria-expanded'):null,note:n?(n.textContent||'').replace(/\\s+/g,' ').trim():(hp?(hp.getAttribute('title')||''):(h&&h.getAttribute('title'))||null),
           rows:[].map.call(g.querySelectorAll('[data-lgrow]'),rowRead)};}),
       sw:lst.querySelectorAll('[data-lgsw]').length,
       geo:{listTop:top(lst),listBottom:bot(lst),listLeft:Math.round(box.left),listRight:Math.round(box.right),sideTop:top(side),
@@ -3845,26 +3845,19 @@ __S11JS__
       // 1. the Retired group (a fold of the shared list) opens and closes, and the choice is kept for this viewer; opened it lists
       // ENGU-Q #335 and the rows add up (the whole list is read open, for the judge to add up against the account's figure)
       var none={getAttribute:function(){return null;}};
-      // BOOK SIDEBAR (board 113): Retired lives in the one 'shadow / retired (n)' fold ([data-lggrp="shadow"], el_qb_shadow_open)
-      var rb=q('.qbx-side [data-lggrp="shadow"]');
+      // v91.89 (owner 11-22): Retired is its own 'retired (n)' fold ([data-lggrp="retired"], el_qb_retired_open), closed by default;
+      // SHADOW is a plain labelled group (no fold) drawn only while the box lists a shadow leg
+      var rb=q('.qbx-side [data-lggrp="retired"]');
       if(rb){rb.click();await sleep(80);}
-      var st=null;try{st=w.localStorage.getItem('el_qb_shadow_open');}catch(e){}
-      res.open={expanded:(q('.qbx-side [data-lggrp="shadow"]')||none).getAttribute('aria-expanded'),
-        rows:d.querySelectorAll('.qbx-side [data-lggroup="shadow"] [data-lgrow="ENGUQ"]').length,engu:!!q('.qbx-side [data-lggroup="shadow"] [data-lgrow="ENGUQ"]'),stored:st,list:listRead()};
-      rb=q('.qbx-side [data-lggrp="shadow"]');
+      var st=null;try{st=w.localStorage.getItem('el_qb_retired_open');}catch(e){}
+      res.open={expanded:(q('.qbx-side [data-lggrp="retired"]')||none).getAttribute('aria-expanded'),
+        rows:d.querySelectorAll('.qbx-side [data-lggroup="retired"] [data-lgrow="ENGUQ"]').length,engu:!!q('.qbx-side [data-lggroup="retired"] [data-lgrow="ENGUQ"]'),stored:st,list:listRead()};
+      rb=q('.qbx-side [data-lggrp="retired"]');
       if(rb){rb.click();await sleep(80);}
-      res.closed={expanded:(q('.qbx-side [data-lggrp="shadow"]')||none).getAttribute('aria-expanded'),
-        rows:d.querySelectorAll('.qbx-side [data-lggroup="shadow"] [data-lgrow]').length};
-      // 1b. the Shadow group opens (this doc has no shadow leg, so its note says so), closes, and is remembered
-      var sb2=q('.qbx-side [data-lggrp="shadow"]'),sd={};
+      res.closed={expanded:(q('.qbx-side [data-lggrp="retired"]')||none).getAttribute('aria-expanded'),
+        rows:d.querySelectorAll('.qbx-side [data-lggroup="retired"] [data-lgrow]').length};
       var grp=function(k){var l=listRead();return l?l.groups.filter(function(g){return g.key===k;})[0]||null:null;};
-      if(sb2){sb2.click();await sleep(80);
-        sd.open=grp('shadow');
-        try{sd.stored=w.localStorage.getItem('el_qb_shadow_open');}catch(e){}
-        var sb3=q('.qbx-side [data-lggrp="shadow"]');if(sb3){sb3.click();await sleep(80);}
-        sd.closed=grp('shadow');
-        try{sd.stored2=w.localStorage.getItem('el_qb_shadow_open');}catch(e){}}
-      res.shadow=sd;
+      res.shadow={group:grp('shadow')};
       // 1c. a leg row opens its detail right under it and closes again
       var lr=q('.qbx-side [data-lgrowmore="NOISE"]'),ld={};
       if(lr){lr.click();await sleep(80);
@@ -4043,7 +4036,15 @@ __S11JS__
             out.tog.shLinesDef=shl().length;
             if(shs.length){var pick=null;for(var si=0;si<shs.length;si++){shs[si].click();await new Promise(function(r){setTimeout(r,300);});if(shl().length){pick=1;break;}}
               var r2=rd();out.tog.shNet=r2.net;out.tog.shLines=shl().length;var wi=D().querySelector('[data-qbshwhatif]');out.tog.shWhatIf=wi?wi.textContent.trim():null;
-              try{out.tog.shStored=W().localStorage.getItem('el_qb_sh_on');}catch(e){}}
+              try{out.tog.shStored=W().localStorage.getItem('el_qb_sh_on');}catch(e){}
+              // v91.89 (owner 11-22): a shadow ON flips the board to WHAT-IF; LIVE drops it (headline = the account) and keeps it remembered
+              var _vb=function(){var x=D().querySelector('[data-lgvbar="qb"]');return x?x.getAttribute('data-lgveff'):null;};
+              out.tog.shEff=_vb();
+              var lvb=D().querySelector('[data-lgvbar="qb"] [data-lgvview="live"]');
+              if(lvb){lvb.click();await new Promise(function(r){setTimeout(r,300);});
+                out.tog.shEffL=_vb();out.tog.shNetL=rd().net;out.tog.shLinesL=shl().length;
+                out.tog.shRemL=[].filter.call(D().querySelectorAll('[data-lglist="qb"] [data-lgsw^="sh:"]'),function(x){return x.classList.contains('on')&&x.classList.contains('rem');}).length;}}
+            try{var vr=W();vr._qbShOn=[];vr.localStorage.setItem('el_qb_sh_on','[]');vr.localStorage.removeItem('el_lgv_view_qb');vr.renderApp();await new Promise(function(r){setTimeout(r,300);});}catch(e){}
             // BOOK AS-IF (v91.71): the shared book panel on WEBULL PAPER - book-type headers (stock first here), open by default, a replay shadow
             // switch draws a dashed line + the what-if total and never moves the headline; the switch is remembered (el_bka_on_qb)
             try{var bw=W(),bd=D(),BK={};var LSb=bw.localStorage,dly0=LSb.getItem('el_lg_daily_qb');
@@ -4058,7 +4059,11 @@ __S11JS__
                 PICK6:{name:'PICK6 stocks',kind:'stock',src:'replay',d:[dA],p:[300],n:[1],data_end:dB,params_run:511},
                 OPUS86a:{name:'last-10-minutes',kind:'stock',src:'replay',d:[dB],p:[-40],n:[1],data_end:dB,params_run:526}}};
               bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');LSb.removeItem('el_bka_panel_qb');
+              var vwb0=LSb.getItem('el_lgv_view_qb');LSb.removeItem('el_lgv_view_qb');
               bw.renderApp();await new Promise(function(r){setTimeout(r,300);});
+              // v91.89: the panel is closed by default; open it for the rows
+              BK.closed={open:!!D().querySelector('[data-bka="qb"].open'),legs:D().querySelectorAll('[data-bka="qb"] [data-bkaleg]').length};
+              var bpn=D().querySelector('[data-bka="qb"] [data-bkapanel]');if(bpn){bpn.click();await new Promise(function(r){setTimeout(r,300);});}
               var bs=function(){var d=D(),pn=d.querySelector('[data-bka="qb"]'),c=W()._qbLgChart||{lines:[]},o=rd();
                 o.panel=!!pn;o.vis=pn?(pn.offsetHeight>0):false;
                 o.types=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkatypehd]'),function(e){return e.getAttribute('data-bkatypehd');});
@@ -4087,6 +4092,11 @@ __S11JS__
               if(!D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]')){var bf=D().querySelector('[data-bka="qb"] [data-bkafold="463"]');if(bf){bf.click();await new Promise(function(r){setTimeout(r,300);});}}
               var bsw=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');
               if(bsw){bsw.click();await new Promise(function(r){setTimeout(r,300);});BK.s1=bs();BK.stored=LSb.getItem('el_bka_on_qb');BK.daily=LSb.getItem('el_lg_daily_qb');
+                var _ve=function(){var x=D().querySelector('[data-lgvbar="qb"]');return x?x.getAttribute('data-lgveff'):null;};BK.eff1=_ve();
+                var lvq=D().querySelector('[data-lgvbar="qb"] [data-lgvview="live"]');
+                if(lvq){lvq.click();await new Promise(function(r){setTimeout(r,300);});BK.s1L=bs();BK.eff1L=_ve();
+                  var rq=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');BK.rem1L=rq?(rq.classList.contains('rem')+'/'+rq.getAttribute('aria-checked')):null;
+                  var wvq=D().querySelector('[data-lgvbar="qb"] [data-lgvview="whatif"]');if(wvq){wvq.click();await new Promise(function(r){setTimeout(r,300);});}BK.eff1W=_ve();}
                 // v91.79: a second shadow leg (PICK6, the stock book) - two colours, swatches, legend, hover, the KPI table
                 if(!D().querySelector('[data-bka="qb"] [data-bkasw="PICK6"]')){var bf2=D().querySelector('[data-bka="qb"] [data-bkafold="stk"]');if(bf2){bf2.click();await new Promise(function(r){setTimeout(r,300);});}}
                 var psw=D().querySelector('[data-bka="qb"] [data-bkasw="PICK6"]');
@@ -4097,7 +4107,8 @@ __S11JS__
                     sv.dispatchEvent(new (W().PointerEvent)('pointerleave',{pointerType:'mouse'}));}}catch(e){BK.hover='err '+e;}
                   var psw2=D().querySelector('[data-bka="qb"] [data-bkasw="PICK6"]');if(psw2){psw2.click();await new Promise(function(r){setTimeout(r,300);});}}
                 var bsw2=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');if(bsw2){bsw2.click();await new Promise(function(r){setTimeout(r,300);});}BK.s2=bs();}
-              bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');
+              bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');LSb.removeItem('el_bka_panel_qb');
+              if(vwb0==null)LSb.removeItem('el_lgv_view_qb');else LSb.setItem('el_lgv_view_qb',vwb0);
               if(dly0==null)LSb.removeItem('el_lg_daily_qb');else LSb.setItem('el_lg_daily_qb',dly0);
               delete bw._bookLegs;delete bw._bookAsif;bw.renderApp();
               out.tog.bka=BK;
@@ -5892,7 +5903,7 @@ def _shadow_open_line(os_):
 # LEDGER unify steps 7 + 10: the shared calendar and the shared strategy list, recomputed here from the fixture (never read off
 # the page). The calendar takes the chosen range's trades at the P&L of record on their close day; the list's rows are the legs
 # the board names (ORB #314, ENGU-Q #335, NOISE #382), the range's P&L of record, trades and win rate.
-LIST_GROUPS = ['book', 'shadow']   # BOOK SIDEBAR (board 113): Retired and Shadow are ONE fold, 'shadow / retired (n)', key 'shadow'
+LIST_GROUPS = ['book', 'shadow', 'retired']   # v91.89: LIVE, SHADOW (a label group, only with shadow legs), the 'retired (n)' fold
 BOOK_NAMES = ['ORB #314', 'ENGU-Q #335', 'NOISE #382']   # the rows under BOOK with no leg retired, or while ENGU-Q holds a position
 RETIRED_NAME = 'ENGU-Q #335'
 # BOOK SIDEBAR (board 113): the book table the page reads (users/{uid}/meta/book_legs, tools/book_legs_publish.py), seeded on every case.
@@ -6594,10 +6605,13 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
     # ENGU-Q is retired (a no-order tracker since 2026-10-09) unless the case empties the retired list, and a retired leg that holds
     # a position is a BOOK leg again (owner decision 9)
     ret = bool(retired) and RETIRED_KEY not in pos
-    want_keys = list(LIST_GROUPS)
+    # v91.89 (owner 11-22): LIVE, then SHADOW (a plain label group, only while the box lists a shadow leg), then the 'retired (n)' fold
+    _sh_want = expected_shadow_rows(doc, cutoff, retired=retired)
+    _sh_err = bool((doc.get('shadow_trades') or {}).get('error'))
+    want_keys = ['book'] + (['shadow'] if (_sh_want or _sh_err) else []) + (['retired'] if ret else [])
     if keys != want_keys:
-        fails.append('%s: the strategy list groups are %r, want %r (BOOK, then the one shadow / retired fold - the retired leg in it only '
-                     'while it is retired and holds no position - ENGU-Q #335, a tracker since 2026-10-09)' % (tag, keys, want_keys))
+        fails.append('%s: the strategy list groups are %r, want %r (LIVE, then SHADOW while the box lists a shadow leg, then the retired fold - '
+                     'the retired leg in it only while it is retired and holds no position - ENGU-Q #335, a tracker since 2026-10-09)' % (tag, keys, want_keys))
         return
     by = dict((g['key'], g) for g in groups)
     if lg.get('title') != 'Strategies' or lg.get('count') != expected_list_count(trades, cutoff, range_key):
@@ -6638,8 +6652,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             fails.append("%s: list row ORB #314's leg line reads %r, want the book table's $40k/yr" % (tag, bl))
         if ret and x.get('key') == 'NOISE' and '$' in bl:
             fails.append("%s: list row NOISE #382's leg line reads %r - the book table has no $/yr for it" % (tag, bl))
-    if bk.get('fold') or not (bk.get('head') or '').upper().startswith('BOOK') or ('· %d' % len(want_names)) not in (bk.get('head') or ''):
-        fails.append('%s: the BOOK group reads %r (fold %s)' % (tag, bk.get('head'), bk.get('fold')))
+    if bk.get('fold') or not (bk.get('head') or '').upper().startswith('LIVE') or ('· %d' % len(want_names)) not in (bk.get('head') or ''):
+        fails.append('%s: the LIVE group reads %r (fold %s)' % (tag, bk.get('head'), bk.get('fold')))
     names = [x['name'] for x in bk.get('rows') or []]
     if names != want_names:
         fails.append('%s: the BOOK rows are %r, want %r (family + run number, from the leg definitions%s)'
@@ -6729,11 +6743,13 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             fails.append("%s: list row %s's run number is not a link to the run's report ([data-qbrunlink])" % (tag, x.get('name')))
         if not is_other and not x.get('more'):   # LEDGER UI r2 step 7: the shared chevron ([data-lgrowmore]) is the way into the row's extras
             fails.append("%s: list row %s has no chevron ([data-lgrowmore]) - its extras have no visible way in (tag %r)" % (tag, x.get('name'), x.get('tag')))
-        # owner 10-31 14:35: the name in its chart line's colour, no dot before it; 'open -$X · N lots' under the number only while it holds lots
-        if not is_other and x.get('dot'):
-            fails.append('%s: list row %s still has a coloured dot before its name (the name itself carries the colour now)' % (tag, x.get('name')))
-        if not is_other and not x.get('nameColor'):
-            fails.append('%s: list row %s is not named in its chart line colour' % (tag, x.get('name')))
+        # v91.89 (owner 11-22): a colour dot (its chart line) before a plain name; the quiet lines live in the row hover
+        if not is_other and not x.get('dot'):
+            fails.append('%s: list row %s has no colour dot before its name (its chart line colour)' % (tag, x.get('name')))
+        if not is_other and x.get('nameColor'):
+            fails.append('%s: list row %s is still named in colour (the dot carries it now)' % (tag, x.get('name')))
+        if not is_other and x.get('bkleg') and x.get('bkleg') not in (x.get('title') or ''):
+            fails.append('%s: list row %s hover %r does not carry its size / $ a year line %r' % (tag, x.get('name'), x.get('title'), x.get('bkleg')))
         # THE THIRD MONEY LINE IS GONE AND MUST STAY GONE (owner 2026-11-08). 'unrealized +$X ·
         #   3 lots · 300 sh' was the widest string in the value column and therefore the reason the
         #   name had no room on a phone. Its figures are in the expander now, asserted above.
@@ -6743,20 +6759,23 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                          'the open P&L under it, nothing else' % (tag, x.get('name'), x.get('open3')))
     # BOOK SIDEBAR (board 113): one fold, 'shadow / retired (n)' - the retired leg first (tagged 'retired', still counted), then the
     #   no-order shadow legs. Its open state is the Shadow fold's (el_qb_shadow_open); a case that opens Retired or Shadow opens it.
-    sh = by['shadow']
-    shadow = expected_shadow_rows(doc, cutoff, retired=retired)
+    # v91.89 (owner 11-22): SHADOW = a plain label group, its rows always drawn; the retired legs in a 'retired (n)' fold closed by default
+    sh = by.get('shadow') or {}
+    shadow = _sh_want
     n_ret = 1 if ret else 0
-    want_head = 'shadow / retired (%d)' % (n_ret + len(shadow))
-    if not sh.get('fold') or (sh.get('head') or '').replace('▾', '').replace('?', '').strip() != want_head:
-        fails.append('%s: the shadow / retired group reads %r (fold %s), want a fold reading %r'
-                     % (tag, sh.get('head'), sh.get('fold'), want_head))
-    fold_open = bool(retired_open or shadow_open)
-    if sh.get('expanded') != ('true' if fold_open else 'false'):
-        fails.append('%s: the shadow / retired group is aria-expanded=%r, want %r (closed until a viewer opens it)'
-                     % (tag, sh.get('expanded'), 'true' if fold_open else 'false'))
-    if (not fold_open) and sh.get('rows'):
-        fails.append('%s: the shadow / retired group draws %d rows while closed' % (tag, len(sh['rows'])))
-    rt_rows = [x for x in sh.get('rows') or [] if x.get('key') == RETIRED_KEY]
+    if shadow and (sh.get('fold') or not (sh.get('head') or '').upper().startswith('SHADOW')):
+        fails.append('%s: the SHADOW group reads %r (fold %s), want a plain SHADOW label' % (tag, sh.get('head'), sh.get('fold')))
+    rg = by.get('retired') or {}
+    fold_open = bool(retired_open)
+    if ret:
+        if not rg.get('fold') or (rg.get('head') or '').replace('▾', '').replace('?', '').strip() != 'retired (%d)' % n_ret:
+            fails.append('%s: the retired group reads %r (fold %s), want a fold reading %r' % (tag, rg.get('head'), rg.get('fold'), 'retired (%d)' % n_ret))
+        if rg.get('expanded') != ('true' if fold_open else 'false'):
+            fails.append('%s: the retired group is aria-expanded=%r, want %r (closed until a viewer opens it)'
+                         % (tag, rg.get('expanded'), 'true' if fold_open else 'false'))
+        if (not fold_open) and rg.get('rows'):
+            fails.append('%s: the retired group draws %d rows while closed' % (tag, len(rg['rows'])))
+    rt_rows = [x for x in rg.get('rows') or [] if x.get('key') == RETIRED_KEY]
     rt = {'rows': rt_rows} if ret else None
     if fold_open and ret:
         if [x['name'] for x in rt_rows] != [RETIRED_NAME]:
@@ -6789,7 +6808,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         if None not in counted and abs(sum(counted) - want_tot) > 0.011:
             fails.append('%s: BOOK + Retired add up to %s, the P&L of record of the range is %s (a shadow leg, or a leg with no row, '
                          'moved the list off the account number)' % (tag, signed(round(sum(counted), 2)), signed(want_tot)))
-    if shadow_open:
+    if shadow:
         srows = [x for x in sh.get('rows') or [] if x.get('key') != RETIRED_KEY]
         sn = [(x.get('name'), x.get('value')) for x in srows]
         want_sn = [(e['name'], e['value']) for e in shadow]
@@ -6814,7 +6833,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                     fails.append('%s: the Shadow row %s hover does not say how it trades (%r); it says %r' % (tag, nm, e['note'], _first(tip, 500)))
                 if not e.get('note') and 'dip mechanisms' in tip:
                     fails.append('%s: the Shadow row %s hover carries the DIP #424 note: %r' % (tag, nm, _first(tip, 500)))
-                if not vp.startswith('phone'):
+                if not vp.startswith('phone') and x.get('value2') is not None:
                     if x.get('value2') != e['value2']:
                         fails.append("%s: the Shadow row %s reads %r under its money, the doc says %r" % (tag, nm, x.get('value2'), e['value2']))
                     if SHADOW_SUB not in (x.get('sub') or ''):
@@ -6836,8 +6855,9 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
         tall = [(x['name'], x['h']) for g in groups if g.get('key') != 'shadow' for x in g.get('rows') or [] if x.get('h', 0) > PHONE_ROW_MAX_H]
         if tall:
             fails.append('%s: on a phone every list row is the name line plus its figures line (<= %d px), but %s are taller' % (tag, PHONE_ROW_MAX_H, tall[:3]))
-    if any(x.get('sub') and not x.get('subShown') for x in rows):
-        fails.append('%s: the trades / win rate line under the name is hidden (it shows at every width, owner 10-31 15:30)' % tag)
+    # v91.89 (owner 11-22): ONE row per strategy - the second line is drawn as nothing (it is in the row hover)
+    if any(x.get('subShown') and x.get('sub') and not x.get('more') for x in rows if x.get('name') != OTHER_NAME):
+        fails.append('%s: a strategy row still draws its second line (owner 11-22: one row, the rest in the hover)' % tag)
     if theme == 'mono':
         bad = [x['valColor'] for x in rows if x.get('valColor') and not _grey(x['valColor'])]
         if bad:
@@ -6871,16 +6891,10 @@ def _judge_inter_ledger(tag, res, fixture, fails):
     trades = fixture.get('trades_all') or []
     o = res.get('open') or {}
     _judge_list(tag + ' [Retired open]', o.get('list'), 'laptop', 'dark', fixture, None, 'ALL', True, False, fails, retired=True)
+    # v91.89: this doc lists no shadow leg, so there is no SHADOW group at all (it is a plain label group, drawn only with rows)
     sd = res.get('shadow') or {}
-    if not sd:
-        fails.append('%s: no Shadow group to open ([data-lggrp="shadow"])' % tag)
-    else:
-        so, sc2 = sd.get('open') or {}, sd.get('closed') or {}
-        if so.get('expanded') != 'true' or [x for x in so.get('rows') or [] if x.get('key') != RETIRED_KEY] or SHADOW_NOTE not in (so.get('note') or '') or sd.get('stored') != '1':
-            fails.append('%s: the Shadow group did not open with its note and the choice kept (%s, stored %r)'
-                         % (tag, {k: so.get(k) for k in ('expanded', 'rows', 'note')}, sd.get('stored')))
-        if sc2.get('expanded') != 'false' or sc2.get('rows') or sd.get('stored2') != '0':
-            fails.append('%s: the Shadow group did not close again (%s, stored %r)' % (tag, sc2.get('expanded'), sd.get('stored2')))
+    if sd.get('group'):
+        fails.append('%s: a SHADOW group is drawn with no shadow leg in the doc (%r)' % (tag, sd.get('group')))
     lw = res.get('legrow') or {}
     fig = expected_leg_figs(trades)['NOISE #382']
     if lw.get('expanded') != 'true' or any(s not in (lw.get('detail') or '') for s in ('SINCE START', 'UNREALIZED', 'POSITION', 'Trades', 'Win rate')):
@@ -7048,7 +7062,8 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
     sh_rows = [x for g in sh for x in g.get('rows') or [] if x.get('key') != RETIRED_KEY]
     if b.get('error'):
         # the error form: the fold says there is nothing and why, in plain words, and draws no row
-        if rows or not sh or (sh[0].get('head') or '').replace('▾', '').replace('?', '').strip() != 'shadow / retired (%d)' % n_ret or sh_rows \
+        # v91.89: the SHADOW label with 0 rows, the reason in its header hover
+        if rows or not sh or (sh[0].get('head') or '').replace('▾', '').strip() != 'SHADOW · 0' or sh_rows \
                 or SHADOW_NOTE not in note or ('(%s)' % b['error']) not in note:
             fails.append('%s: with the box\'s error form (%r) the Shadow fold reads %r, note %r (want no row, %r and the reason)'
                          % (tag, b['error'], sh[0].get('head') if sh else None, note, SHADOW_NOTE))
@@ -7069,9 +7084,14 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
     got_open = dict((x['name'], x['open']) for x in rows if x['name'] in SHADOW_DIP_OPEN)
     if got_open:   # DIP #424 retired 11-16: no DIP row is drawn, so it has no open line
         fails.append("%s: the probe's own case is wrong: retired DIP #424 still has open lines %r" % (tag, got_open))
-    if sh and (sh[0].get('head') or '').replace('▾', '').replace('?', '').strip() != 'shadow / retired (%d)' % (n_ret + len(rows)):
-        fails.append('%s: the Shadow fold reads %r, want "shadow / retired (%d)" (one row per shadow leg the box lists, plus the retired leg)'
-                     % (tag, sh[0].get('head'), n_ret + len(rows)))
+    # v91.89 (owner 11-22): SHADOW is its own label group ('SHADOW · n', one per shadow leg the box lists); the retired leg sits in
+    # the separate 'retired (n)' fold
+    if sh and (sh[0].get('head') or '').replace('▾', '').strip() != 'SHADOW · %d' % len(rows):
+        fails.append('%s: the SHADOW group reads %r, want "SHADOW · %d" (one row per shadow leg the box lists)'
+                     % (tag, sh[0].get('head'), len(rows)))
+    rt = [g for g in lg.get('groups') or [] if g.get('key') == 'retired']
+    if n_ret and (not rt or (rt[0].get('head') or '').replace('▾', '').strip() != 'retired (%d)' % n_ret):
+        fails.append('%s: the retired fold reads %r, want "retired (%d)"' % (tag, rt[0].get('head') if rt else None, n_ret))
     if sc_.get('list_open'):
         hs = [(x.get('name'), x.get('h')) for x in sh_rows]
         if len(hs) != len(rows) or any(not h for _n, h in hs):
@@ -7205,6 +7225,12 @@ def qe_money(v):
 def qe_num(v, d=0):
     x = _num(v)
     return DASH if x is None else js_fixed(x, d)
+
+
+def mdy(iso):
+    """index.html lgMDY (v91.89): '2026-10-10...' -> '10/10/26'."""
+    m = re.match(r'^(\d{4})-(\d{2})-(\d{2})', str(iso or ''))
+    return '%s/%s/%s' % (m.group(2), m.group(3), m.group(1)[2:]) if m else DASH
 
 
 def fmt_et(iso):
@@ -7393,8 +7419,8 @@ def tl_time_text(t, mode):
     strategy cell's since 2026-10-08)."""
     en, ex = str(t.get('entry_ts') or ''), str(t.get('exit_ts') or '')
     ed, a, b, cd = en[:10], en[11:16], ex[11:16], _close_day(t)
-    if mode == 'table':
-        return ed + ed[5:] + ' ' + (a or '--')
+    if mode == 'table':   # v91.89: the dates are their own columns (ENTRY DATE / EXIT DATE), the time cell is the entry time alone
+        return a or '--'
     s = ((ed[5:] + ' ' if (ed and cd and ed != cd) else '') + a) if a else '--'
     if b:
         s += '→ ' + b
@@ -7415,7 +7441,8 @@ def tl_heads(has_nt):
     # owner 11-20 (board 111): entry time, entry price, exit time, exit price first, then what and the result, checks after P&L,
     # notes last; each NT column only when a shown row carries it
     nt = has_nt if isinstance(has_nt, dict) else {k: bool(has_nt) for k in ('nt_points', 'expected_usd', 'track_err_usd')}
-    return (['ENTRY (ET)', 'ENTRY $', 'EXIT (ET)', 'EXIT $', 'STRATEGY', 'SIDE', 'SHARES', 'PTS', 'P&L', 'DAY', 'REAL P&L', 'RUNNING']
+    # v91.89 (owner 11-22): entry date + exit date, entry time + exit time, entry $ + exit $ back to back, then the rest
+    return (['ENTRY DATE', 'EXIT DATE', 'ENTRY (ET)', 'EXIT (ET)', 'ENTRY $', 'EXIT $', 'STRATEGY', 'SIDE', 'SHARES', 'PTS', 'P&L', 'DAY', 'REAL P&L', 'RUNNING']
             + (['EXPECTED $'] if nt['expected_usd'] else []) + (['TRACK ERR'] if nt['track_err_usd'] else [])
             + (['NT POINTS'] if nt['nt_points'] else []) + ['SLIP/SH', 'EXIT / FLAGS', 'CHART'])
 
@@ -7435,8 +7462,9 @@ def _avg_slip(t):
 
 def tl_own_cells(t, run, has_nt):
     """The table's own columns: exit time, entry / exit price, running total, [NinjaTrader three], real P&L, slip a share."""
-    out = {'out': fmt_et(t.get('exit_ts')), 'epx': qe_money(t.get('entry_px')), 'xpx': qe_money(t.get('exit_px')),
-           'run': qe_money(run)}
+    xm = re.search(r'[ T](\d{2}:\d{2})', str(t.get('exit_ts') or ''))
+    out = {'edt': mdy(t.get('entry_ts')), 'xdt': mdy(t.get('exit_ts')), 'out': xm.group(1) if xm else DASH,
+           'epx': qe_money(t.get('entry_px')), 'xpx': qe_money(t.get('exit_px')), 'run': qe_money(run)}
     if has_nt:
         out['ntp'] = DASH if t.get('nt_points') is None else qe_num(t.get('nt_points'), 2)
         out['exp'] = DASH if t.get('expected_usd') is None else qe_money(t.get('expected_usd'))
@@ -9116,10 +9144,15 @@ def _judge(data, fixture):
                 fails.append('shadow switch run: a shadow leg is on by default (%s switches on, %s shadow lines)' % (tg.get('shOnDef'), tg.get('shLinesDef')))
             if not tg.get('shLines'):
                 fails.append('shadow switch run: switching shadow legs on drew no dashed (shadow) line on the chart')
-            if tg.get('shNet') != d2.get('net'):
-                fails.append('shadow switch run: a shadow leg changed the headline (%r -> %r) - shadows are never in the account number' % (d2.get('net'), tg.get('shNet')))
-            if not tg.get('shWhatIf') or 'what-if' not in tg.get('shWhatIf'):
-                fails.append('shadow switch run: no what-if figure under the headline (%r)' % tg.get('shWhatIf'))
+            # v91.89 (owner 11-22): a shadow ON flips the board to WHAT-IF; LIVE puts the account number back, draws no shadow line and
+            # keeps the switch remembered (outlined)
+            if tg.get('shEff') != 'whatif':
+                fails.append('shadow switch run: switching a shadow leg on did not flip the board to WHAT-IF (%r)' % (tg.get('shEff'),))
+            if tg.get('shEffL') != 'live' or tg.get('shNetL') != d2.get('net') or tg.get('shLinesL'):
+                fails.append('shadow switch run: LIVE with a shadow remembered is not the account (view %r, headline %r -> %r, shadow lines %r)'
+                             % (tg.get('shEffL'), d2.get('net'), tg.get('shNetL'), tg.get('shLinesL')))
+            if not tg.get('shRemL'):
+                fails.append('shadow switch run: in LIVE the remembered shadow switch is not drawn as remembered (on + rem)')
             if not tg.get('shStored') or tg.get('shStored') == '[]':
                 fails.append('shadow switch run: the shadow choice is not remembered (el_qb_sh_on = %r)' % tg.get('shStored'))
         else:
@@ -9131,8 +9164,10 @@ def _judge(data, fixture):
             fails.append('book as-if run: did not run -- %s' % _first(bka.get('threw') or 'no readout'))
         else:
             b0, b1, b2 = bka.get('s0') or {}, bka.get('s1') or {}, bka.get('s2') or {}
-            if not b0.get('panel') or not b0.get('vis'):
-                fails.append('book as-if run: the Books as-if panel is not visible by default (panel %r, visible %r)' % (b0.get('panel'), b0.get('vis')))
+            cl = bka.get('closed') or {}
+            if not b0.get('panel') or not b0.get('vis') or cl.get('open') or cl.get('legs'):
+                fails.append('book as-if run: the Books as-if panel is not there, or not closed by default (panel %r, visible %r, closed %r)'
+                             % (b0.get('panel'), b0.get('vis'), cl))
             if b0.get('types') != ['stock', 'mixed', 'futures']:
                 fails.append('book as-if run: book-type headers %r, want stock, futures + stock, futures' % (b0.get('types'),))
             if not any(x.startswith('ORB314/live/lgsw=') for x in (b0.get('legs') or [])):
@@ -9144,21 +9179,24 @@ def _judge(data, fixture):
             else:
                 if ['OPUS55a', '6 3'] not in (b1.get('sh') or []) or not b1.get('svgDash'):
                     fails.append('book as-if run: switching OPUS55a on drew no dashed line (%r, svg dash %r)' % (b1.get('sh'), b1.get('svgDash')))
-                _base = (b0.get('wi') or [b0.get('tot')])[0]
+                # v91.89 (owner 11-22): the switch flips the board to WHAT-IF - the solid total IS LIVE + the leg (no extra what-if line)
+                _base = b0.get('tot')
+                if bka.get('eff1') != 'whatif':
+                    fails.append('book as-if run: switching OPUS55a on did not flip the board to WHAT-IF (%r)' % (bka.get('eff1'),))
                 # v91.74: on WEBULL PAPER the leg adds its QQQ figures (12.50 / 9.40 in the fixture), never the NQ dollars (1000 / 750)
-                if len(b1.get('wi') or []) != 1 or _base is None or round(b1['wi'][0] - _base, 2) not in (9.4, 12.5):
-                    fails.append('book as-if run: the what-if total line is missing or does not carry the switched-on leg in QQQ dollars (%r, base %r; want +9.40 or +12.50, NQ dollars would be +750 / +1000)' % (b1.get('wi'), _base))
-                elif abs(b1['wi'][0] - _base) > 100:
-                    fails.append('book as-if run: a toggled leg added %r on Webull - NQ scale, not the QQQ account scale' % (b1['wi'][0] - _base,))
+                if b1.get('wi') or _base is None or b1.get('tot') is None or round(b1['tot'] - _base, 2) not in (9.4, 12.5):
+                    fails.append('book as-if run: in WHAT-IF the solid total is not LIVE + the leg in QQQ dollars (%r -> %r, extra what-if lines %r; want +9.40 or +12.50, NQ dollars would be +750 / +1000)' % (_base, b1.get('tot'), b1.get('wi')))
+                s1L = bka.get('s1L') or {}
+                if bka.get('eff1L') != 'live' or s1L.get('sh') or s1L.get('wi') or s1L.get('kpi') is not None \
+                        or s1L.get('net') != b0.get('net') or s1L.get('tot') != b0.get('tot'):
+                    fails.append('book as-if run: LIVE with OPUS55a remembered is not the account (view %r, lines %r, KPI %r, headline %r -> %r, total %r -> %r)'
+                                 % (bka.get('eff1L'), s1L.get('sh'), s1L.get('kpi'), b0.get('net'), s1L.get('net'), b0.get('tot'), s1L.get('tot')))
+                if bka.get('rem1L') != 'true/true' or bka.get('eff1W') != 'whatif':
+                    fails.append('book as-if run: LIVE did not keep OPUS55a remembered, or WHAT-IF did not restore it (%r, %r)' % (bka.get('rem1L'), bka.get('eff1W')))
                 if b1.get('qsh') != '~10 QQQ sh' or not b1.get('qtip'):
                     fails.append('book as-if run: the OPUS55a row does not show ~10 QQQ sh with the conversion rule in its hover (%r, rule in hover %r)' % (b1.get('qsh'), b1.get('qtip')))
                 if not str(b1.get('nq') or '').startswith('nodata|no QQQ|no QQQ conversion: probe: no QQQ close'):
                     fails.append('book as-if run: a leg with no QQQ series does not say why (%r)' % (b1.get('nq'),))
-                if b1.get('net') != b0.get('net') or b1.get('tot') != b0.get('tot'):
-                    fails.append('book as-if run: a shadow switch moved the headline or the solid total (%r -> %r, %r -> %r)'
-                                 % (b0.get('net'), b1.get('net'), b0.get('tot'), b1.get('tot')))
-                if b1.get('heroWhatif') is None:
-                    fails.append('book as-if run: no what-if incl. book as-if figure under the headline')
                 if 'OPUS55a' not in (bka.get('stored') or '') or bka.get('daily') != '0':
                     fails.append('book as-if run: the switch is not remembered or the chart did not move to CURVE (%r, %r)' % (bka.get('stored'), bka.get('daily')))
                 if b2.get('sh') or (b2.get('wi') or None) != (b0.get('wi') or None):
@@ -9179,8 +9217,8 @@ def _judge(data, fixture):
                     sO, sP = (pth.get('OPUS55a') or [None, None])[1], (pth.get('PICK6') or [None, None])[1]
                     if not sO or not sP or sO == sP:
                         fails.append('what-if colours: two shadow legs on do not draw two different strokes (%r)' % (b3.get('paths'),))
-                    if 'whatif' not in pth or pth['whatif'][2] != '2.4':
-                        fails.append('what-if colours: the what-if total is not the heavier line (%r)' % (pth.get('whatif'),))
+                    if 'whatif' in pth:   # v91.89: in WHAT-IF the solid total is the what-if total; no separate what-if line
+                        fails.append('what-if colours: WHAT-IF draws a separate what-if total line (%r)' % (pth.get('whatif'),))
                     swm = {x[0]: x[1] for x in (b3.get('swatch') or [])}
                     lgm = {x[0]: x for x in (b3.get('legsh') or [])}
                     hv = {x[0]: x[1] for x in (bka.get('hover') or [])} if isinstance(bka.get('hover'), list) else {}
@@ -9612,8 +9650,8 @@ def _dip_problems(tag, r, ex, fails):
         for x in sh:
             if x.get('name') in SHADOW_DIP_OPEN and x.get('open') != SHADOW_DIP_OPEN[x['name']]:
                 fails.append("%s: the Shadow fold's %s row reads %r, want %r" % (tag, x['name'], x.get('open'), SHADOW_DIP_OPEN[x['name']]))
-        if [gg.get('key') for gg in groups] != ['book', 'shadow']:
-            fails.append('%s: the strategy list groups are %r, want BOOK, shadow / retired' % (tag, [gg.get('key') for gg in groups]))
+        if [gg.get('key') for gg in groups][:2] != ['book', 'shadow']:
+            fails.append('%s: the strategy list groups are %r, want LIVE, SHADOW (then retired)' % (tag, [gg.get('key') for gg in groups]))
 
 
 def _next_absent(tag, r, fails):

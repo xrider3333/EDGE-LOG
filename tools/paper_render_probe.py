@@ -1739,7 +1739,11 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                 PICK6:{name:'PICK6 stocks',kind:'stock',src:'replay',d:[dA],p:[300],n:[1],data_end:dB,params_run:511},
                 GLDNIGHT:{name:'gold overnight',kind:'stock',src:'replay',reason:'no GLD 5m RTH master in the registry'}}};
               w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');LS0.removeItem('el_bka_panel_nt8');
+              var vw0=LS0.getItem('el_lgv_view_p2');LS0.removeItem('el_lgv_view_p2');
               w.renderApp();
+              // v91.89: the panel is closed by default - its head still counts the shadows on; open it for the rows
+              BK.closed={open:!!d.querySelector('[data-bka="nt8"].open'),legs:d.querySelectorAll('[data-bka="nt8"] [data-bkaleg]').length};
+              _click('[data-bka="nt8"] [data-bkapanel]');
               var _pc=function(){var pc=w._p2Chart||{lines:[]};return {n:(pc.lines||[]).length,
                 sh:(pc.lines||[]).filter(function(l){return l.shadow&&!l.whatif;}).map(function(l){return [l.bka||l.name,l.dash];}),
                 wi:(pc.lines||[]).filter(function(l){return l.whatif;}).map(function(l){return l.vals[l.vals.length-1];}),
@@ -1764,7 +1768,13 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               BK.s0=_bs();
               // open the second book, switch its shadow leg on
               if(_click('[data-bka="nt8"] [data-bkafold="30"]')){BK.s1=_bs();
-                if(_click('[data-bka="nt8"] [data-bkasw="OPUS55a"]')){BK.s2=_bs();BK.daily=LS0.getItem('el_lg_daily_p2');BK.stored=LS0.getItem('el_bka_on_nt8');}
+                if(_click('[data-bka="nt8"] [data-bkasw="OPUS55a"]')){BK.s2=_bs();BK.daily=LS0.getItem('el_lg_daily_p2');BK.stored=LS0.getItem('el_bka_on_nt8');
+                  // v91.89: the switch flipped the board to WHAT-IF; LIVE drops every shadow but keeps the switch remembered; WHAT-IF restores it
+                  var _eff=function(){var b=d.querySelector('[data-lgvbar="p2"]');return b?b.getAttribute('data-lgveff'):null;};
+                  BK.eff2=_eff();
+                  if(_click('[data-lgvbar="p2"] [data-lgvview="live"]')){BK.s2L=_bs();BK.eff2L=_eff();BK.stored2L=LS0.getItem('el_bka_on_nt8');
+                    var rs=d.querySelector('[data-bka="nt8"] [data-bkasw="OPUS55a"]');BK.rem2L=rs?(rs.classList.contains('rem')+'/'+rs.getAttribute('aria-checked')):null;}
+                  if(_click('[data-lgvbar="p2"] [data-lgvview="whatif"]')){BK.s2W=_bs();BK.eff2W=_eff();}}
                 // a LIVE leg's switch inside the panel = the board's own strategy switch
                 if(_click('[data-bka="nt8"] [data-lgsw="ORB"]')){BK.s3=_bs();_click('[data-bka="nt8"] [data-lgsw="ORB"]');}
                 _click('[data-bka="nt8"] [data-bkasw="OPUS55a"]');BK.s4=_bs();
@@ -1779,6 +1789,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               }
               w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');
               if(dly0==null)LS0.removeItem('el_lg_daily_p2');else LS0.setItem('el_lg_daily_p2',dly0);
+              if(vw0==null)LS0.removeItem('el_lgv_view_p2');else LS0.setItem('el_lgv_view_p2',vw0);LS0.removeItem('el_bka_panel_nt8');
               delete w._bookLegs;delete w._bookAsif;w.renderApp();
               // v91.79 pure maths on a known fixture: +1000, -3000, +500, -1000 on a $10,000 base over a 365-day range
               BK.fx=w.bkaKpiOf({'2026-01-05':{p:1000,n:1},'2026-01-06':{p:-3000,n:2},'2026-01-07':{p:500,n:1},'2026-01-08':{p:-1000,n:1}},
@@ -2249,15 +2260,30 @@ def run(alt_index=None, timeout=300):
         sh2 = s2.get('chart', {}).get('sh') or []
         if ['OPUS55a', '6 3'] not in sh2:
             fails.append('paper2 book as-if: switching OPUS55a on drew no dashed shadow line: %r' % (sh2,))
+        # v91.89 (owner 11-22): switching a shadow ON flips the board to WHAT-IF - the solid total IS LIVE + the shadow (no extra what-if line);
+        # LIVE drops every shadow (account figures back, no line, no KPI table) and keeps the switch remembered; WHAT-IF restores it
         wi2 = s2.get('chart', {}).get('wi') or []
         tot2 = s2.get('chart', {}).get('tot')
-        if len(wi2) != 1 or tot2 is None or round(wi2[0] - tot2, 2) not in (750.0, 1000.0):
-            fails.append('paper2 book as-if: the what-if total line is missing or wrong (what-if %r, total %r)' % (wi2, tot2))
+        tot1 = s1.get('chart', {}).get('tot')
+        cl = _bka.get('closed') or {}
+        if cl.get('open') or cl.get('legs'):
+            fails.append('paper2 book as-if: the panel is not closed by default (%r)' % (cl,))
+        if _bka.get('eff2') != 'whatif':
+            fails.append('paper2 book as-if: switching a shadow on did not flip the board to WHAT-IF (%r)' % (_bka.get('eff2'),))
+        if wi2 or tot2 is None or tot1 is None or round(tot2 - tot1, 2) not in (750.0, 1000.0):
+            fails.append('paper2 book as-if: in WHAT-IF the solid total is not LIVE + the shadow (total %r -> %r, extra what-if lines %r)' % (tot1, tot2, wi2))
+        s2L, s2W = _bka.get('s2L') or {}, _bka.get('s2W') or {}
+        if _bka.get('eff2L') != 'live' or s2L.get('chart', {}).get('sh') or s2L.get('chart', {}).get('wi') or s2L.get('kpi') is not None:
+            fails.append('paper2 book as-if: LIVE still shows a shadow (view %r, chart %r, KPI %r)' % (_bka.get('eff2L'), s2L.get('chart'), s2L.get('kpi')))
         for k in ('big', 'hero', 'tiles', 'bookNet', 'bookN', 'tradeRows'):
-            if s1.get(k) != s2.get(k):
-                fails.append('paper2 book as-if: a shadow switch moved the account figure %s (%r -> %r)' % (k, s1.get(k), s2.get(k)))
-        if s1.get('chart', {}).get('tot') != tot2:
-            fails.append('paper2 book as-if: a shadow switch moved the solid total line (%r -> %r)' % (s1.get('chart', {}).get('tot'), tot2))
+            if s1.get(k) != s2L.get(k):
+                fails.append('paper2 book as-if: LIVE with a remembered shadow moved the account figure %s (%r -> %r)' % (k, s1.get(k), s2L.get(k)))
+        if s1.get('chart', {}).get('tot') != s2L.get('chart', {}).get('tot'):
+            fails.append('paper2 book as-if: LIVE with a remembered shadow moved the solid total line (%r -> %r)' % (tot1, s2L.get('chart', {}).get('tot')))
+        if 'OPUS55a' not in (_bka.get('stored2L') or '') or _bka.get('rem2L') != 'true/true':
+            fails.append('paper2 book as-if: LIVE did not keep the shadow switch remembered and dimmed (%r, %r)' % (_bka.get('stored2L'), _bka.get('rem2L')))
+        if _bka.get('eff2W') != 'whatif' or ['OPUS55a', '6 3'] not in (s2W.get('chart', {}).get('sh') or []):
+            fails.append('paper2 book as-if: WHAT-IF did not restore the remembered shadow (%r, %r)' % (_bka.get('eff2W'), s2W.get('chart')))
         if s2.get('whatif') is None:
             fails.append('paper2 book as-if: no what-if total line in the panel with a shadow leg on')
         if _bka.get('daily') != '0' or 'OPUS55a' not in (_bka.get('stored') or ''):
@@ -2286,8 +2312,8 @@ def run(alt_index=None, timeout=300):
         sO, sP = (pth.get('OPUS55a') or [None, None])[1], (pth.get('PICK6') or [None, None])[1]
         if not sO or not sP or sO == sP:
             fails.append('paper2 what-if colours: two shadow legs on do not draw two different strokes (%r)' % (s5.get('paths'),))
-        if 'whatif' not in pth or pth['whatif'][2] != '2.4':
-            fails.append('paper2 what-if colours: the what-if total is not the heavier line (%r)' % (pth.get('whatif'),))
+        if 'whatif' in pth:   # v91.89: in WHAT-IF the solid total is the what-if total; no separate what-if line
+            fails.append('paper2 what-if colours: WHAT-IF draws a separate what-if total line (%r)' % (pth.get('whatif'),))
         swm = {x[0]: x[1] for x in (s5.get('swatch') or [])}
         for lid, st in (('OPUS55a', sO), ('PICK6', sP)):
             if not st or swm.get(lid) != st:
