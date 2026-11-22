@@ -4126,7 +4126,24 @@ __S11JS__
                 LSv.setItem('el_lg_daily_qb','0');vw.renderApp();await wt();}
               var lb=D().querySelector('[data-lgvboard="qb"][data-lgvview="live"]');if(lb){lb.click();await wt();}LV.d=hv();
               var rb=D().querySelector('[data-lgvboard="qb"][data-lgvsize="r1"]');if(rb){rb.click();await wt();LV.e=hv();var Z=W()._lgvQb;
-                LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,n:Z.n,stopN:Z.stopN,fbN:Z.fbN}:null;LV.storedSize=LSv.getItem('el_lgv_size_qb');}
+                var zsum=function(Z){var u=0,f=0;Object.keys(Z.by).forEach(function(k){u+=Z.by[k].usd;f+=Z.by[k].fx;});return {usd:Math.round(u*100)/100,fx:Math.round(f*100)/100};};
+                var zoff=function(Z){return Object.keys(Z.by).filter(function(k){var b=Z.by[k];return b.fixed&&(Math.round(b.usd*100)!==Math.round(b.fx*100)||b.units!==null);}).map(function(k){return [k,Z.by[k].usd,Z.by[k].fx];});};
+                LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,n:Z.n,riskN:Z.riskN,fixN:Z.fixN,off:zoff(Z),sum:zsum(Z)}:null;LV.storedSize=LSv.getItem('el_lgv_size_qb');
+                var ht=D().querySelector('[data-lgvherotag="size"]');LV.heroCnt=ht?{r:ht.getAttribute('data-riskn'),f:ht.getAttribute('data-fixn'),txt:ht.textContent}:null;
+                LV.noMedian=['lgvMedianLoss','lgvFallbacks'].filter(function(k){return typeof vw[k]==='function';});
+                // v91.83: give the EARLIEST-entry trade in the range a stop_px $5 under its entry (the field PAPER-WB publishes); it alone is
+                // risk-sized at start x 1 % / about $5 a share (nothing has exited before it, so the equity is the start); every other row stays FIXED
+                if(Z){var ks=Object.keys(Z.by).sort(function(a,b){return Z.by[a].e-Z.by[b].e||a-b;});
+                  var shF=function(t){return !!t&&(t.shadow===true||String(t.shadow||'').toLowerCase()==='true'||String(t.layer||'').toLowerCase()==='shadow');};
+                  var fixedRows=((vw._qqqExec||{}).trades_all||[]).filter(function(t){return !shF(t);});
+                  var k0=ks.filter(function(k){var t=fixedRows[+k];return t&&isFinite(Number(t.entry_px))&&Number(t.entry_px)>10&&Number(t.shares)>0;})[0];
+                  if(k0!=null){var T=fixedRows[+k0],had=Object.prototype.hasOwnProperty.call(T,'stop_px'),was=T.stop_px;
+                    T.stop_px=Math.round((Number(T.entry_px)-5)*100)/100;
+                    vw.renderApp();await wt();var Z2=W()._lgvQb;
+                    LV.stop={k:k0,ep:Number(T.entry_px),st:T.stop_px,sh:Number(T.shares),fx:Z.by[k0].fx,start:Z2.start,cap:Z2.cap,usd:Z2.by[k0].usd,units:Z2.by[k0].units,fixed:Z2.by[k0].fixed,
+                      riskN:Z2.riskN,fixN:Z2.fixN,n:Z2.n,off:zoff(Z2),sum:zsum(Z2),range:hv().range,
+                      others:Object.keys(Z2.by).filter(function(k){return k!==k0&&!Z2.by[k].fixed;}).length};
+                    if(had)T.stop_px=was;else delete T.stop_px;vw.renderApp();await wt();}}}
               var fb2=D().querySelector('[data-lgvboard="qb"][data-lgvsize="fixed"]');if(fb2){fb2.click();await wt();}LV.f=hv();
               LSv.removeItem('el_lgv_view_qb');LSv.removeItem('el_lgv_size_qb');vw._bkaOn_qb=[];LSv.removeItem('el_bka_on_qb');
               if(shOn0==null)LSv.removeItem('el_qb_sh_on');else LSv.setItem('el_qb_sh_on',shOn0);vw._qbShOn=shW0;
@@ -9232,10 +9249,40 @@ def _judge(data, fixture):
             if st and not seen:
                 fails.append('stacked bars: the shadow leg PICK6 has no segment of its own in WHAT-IF')
             sz = lv.get('sz') or {}
-            if not le or le.get('size') != 'r1' or 'size' not in (le.get('tags') or []) or le.get('range') == ld.get('range') or lv.get('storedSize') != 'r1':
-                fails.append('sizing: RISK 1 %% did not re-price the realized figure, show its tag or get remembered (%r)' % (le,))
-            if not sz or (sz.get('taken') or 0) + (sz.get('skipped') or 0) != sz.get('n') or sz.get('stopN') != 0 or sz.get('fbN') != sz.get('n'):
-                fails.append('sizing: every Webull trade must use the median-loss risk (no stop column) and count once (%r)' % (sz,))
+            # v91.83: the fixture rows carry no stop_px, so every trade is 'no stop, fixed size' and RISK 1 % reads exactly FIXED
+            if not le or le.get('size') != 'r1' or 'size' not in (le.get('tags') or []) or lv.get('storedSize') != 'r1':
+                fails.append('sizing: RISK 1 %% did not show its tag or get remembered (%r)' % (le,))
+            if le and le.get('range') != ld.get('range'):
+                fails.append('sizing: with no stop_px on any row RISK 1 %% must read exactly FIXED (%r -> %r)' % (ld.get('range'), le.get('range')))
+            if not sz or sz.get('riskN') != 0 or sz.get('fixN') != sz.get('n') or sz.get('taken') != 0 or sz.get('off'):
+                fails.append('sizing: every Webull row without stop_px must stay at its FIXED $ (no median guess) (%r)' % (sz,))
+            if sz and (sz.get('sum') or {}).get('usd') != (sz.get('sum') or {}).get('fx'):
+                fails.append('sizing: no-stop rows sum %r, FIXED sums %r' % ((sz.get('sum') or {}).get('usd'), (sz.get('sum') or {}).get('fx')))
+            hc = lv.get('heroCnt') or {}
+            if sz and (str(hc.get('r')) != '0' or str(hc.get('f')) != str(sz.get('n')) or 'risk-sized' not in (hc.get('txt') or '')):
+                fails.append('sizing: the hero size tag does not count risk-sized vs fixed trades (%r)' % (hc,))
+            if lv.get('noMedian'):
+                fails.append('sizing: the median-loss fallback is still on the page (%r)' % (lv.get('noMedian'),))
+            try:
+                _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'index.html'), encoding='utf-8').read()
+                for _bad in ('lgvMedianLoss', 'lgvFallbacks', 'median loss used'):
+                    if _bad in _src:
+                        fails.append('sizing: %r is still in index.html (no median fallback in the ledger sizing path)' % _bad)
+            except OSError:
+                pass
+            # one row given stop_px = entry - 5: HAND figure = floor(start x 1 % / 0.50) shares (capped), $ = its fixed $ / its shares x those shares
+            sp = lv.get('stop') or {}
+            if not sp:
+                fails.append('sizing: the stop_px row could not be set up (%r)' % (lv.get('stop'),))
+            else:
+                risk = abs(sp['ep'] - sp['st'])
+                want_u = min(math.floor(sp['start'] * 0.01 / risk + 1e-9), sp['cap'])
+                want_usd = round(sp['fx'] / sp['sh'] * want_u, 2)
+                if (sp.get('fixed') is not False or sp.get('units') != want_u or abs((sp.get('usd') or 0) - want_usd) > 0.011
+                        or sp.get('riskN') != 1 or sp.get('fixN') != sp.get('n') - 1 or sp.get('others') != 0 or sp.get('off')):
+                    fails.append('sizing: the stop_px row is not the hand figure (%s sh, $%.2f; risk $%.2f/sh from $%.2f): %r'
+                                 % (want_u, want_usd, risk, sp['start'], sp))
+                lv['_want'] = (want_u, want_usd, risk)
             for k in ('big', 'range', 'stats', 'end'):
                 if lf.get(k) != ld.get(k):
                     fails.append('sizing: FIXED is not the account again (%s %r -> %r)' % (k, ld.get(k), lf.get(k)))
@@ -9958,6 +10005,12 @@ def _report(t0, attempt, may_retry, chrome, alt_index, fixture):
              pnl_r.get('w'), pnl_r.get('h'), pnp_r.get('w'), pnp_r.get('h'), len(PN_RUNS), 2 * len(PN_WIDTHS),
              ' | '.join('%s %s%s' % (x.get('name'), x.get('value'), (' (' + x['open'] + ')') if x.get('open') else '') for x in sh_rows),
              '%s px (frame %s px)' % ((shg_geo.get('histTop') or 0) - (shg_geo.get('shellTop') or 0), _shadow_phone_top(shp))))
+    _lv = (data.get('tog') or {}).get('lgv') or {}
+    _sz, _sp = _lv.get('sz') or {}, _lv.get('stop') or {}
+    print('  sizing v91.83: RISK 1 %%, no stop_px on any row -> %s of %s trades fixed, range $%s = FIXED $%s; one row given stop_px %s under entry %s '
+          '-> %s sh, $%s (fixed $%s), range $%s; no median fallback'
+          % (_sz.get('fixN'), _sz.get('n'), (_sz.get('sum') or {}).get('usd'), (_sz.get('sum') or {}).get('fx'),
+             _sp.get('st'), _sp.get('ep'), _sp.get('units'), _sp.get('usd'), _sp.get('fx'), (_sp.get('sum') or {}).get('usd')))
     if first:
         print('  FLAKE: attempt 1 did not pass on this same file, the retry did. It said:')
         for f in first[1][:4]:

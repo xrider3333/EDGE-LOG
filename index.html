@@ -2100,7 +2100,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.86';
+const VERSION='91.87';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2121,6 +2121,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.87',date:'2026-11-22',notes:['LEDGER SIZING sizes only from a real stop (board item 136). RISK 1 / 2 / 3 pct on NT8 PAPER and WEBULL PAPER now sizes a trade only when it carries its own initial stop: on Webull the stop_px field on the trade row (the initial stop from the entry signal), risk a share = entry price to stop_px; on NT8 the first logged stop, else stop_px. A trade with no stop stays at its FIXED as-traded size and dollars, unchanged, and its hover says no stop, fixed size. The median losing trade guess is gone everywhere in the ledger sizing: on Webull it made a few dollars the risk and sized trades absurdly (a fixture went from -28 to +5,469 at 1 pct with a 142k drawdown). Until the box publishes stop_px every Webull trade reads no stop, fixed size, so RISK on Webull equals FIXED for now','The hero size tag and the what-if KPI table say how many trades were risk-sized and how many were left fixed. Shadow legs with daily figures only are scaled by the risk pct only when their as-if data carries a stop distance; otherwise they stay FIXED and the tag hover says so']},
 {v:'91.82',date:'2026-11-22',notes:['LEDGER NT8 PAPER and WEBULL PAPER (owner 11-22): a VIEW switch at the top of the chart card, LIVE | WHAT-IF. LIVE is the account, only the strategies the platform trades, exactly as before. WHAT-IF adds every shadow leg switched on (the Books panel as-if legs; on Webull also the box shadow rows switched on) into the hero, the tiles, the chart and the calendar, each tagged what-if with a dashed amber outline so it is never read as the account. With no shadow switched on WHAT-IF is greyed out with a hint. Remembered per board','DAILY bars are now stacked by strategy: each day is split into every strategy own P&L that day in its line colour (shadow legs in their v91.79 colours in WHAT-IF), gains stacked up from $0 and losses down, with the day net as a tick across the bar and the running total line kept. Anything the strategies do not explain (an open lot mark) is one grey other piece, so the pieces always add up to the day. The hover lists each strategy $ in its colour. REAL keeps plain bars (its lines are per broker, not per strategy)','SIZING switch beside it: FIXED (as traded, 1 NQ on NT8, 10 sh on Webull) | RISK 1 / 2 / 3 pct. It re-prices every closed trade in the range with the v91.80 rule on a compounding account: NT8 starts at its pct base (100,000 plus the realized before the range), Webull at its hero base (the account at the range start). Risk = the trade own initial stop when it logged one, else the strategy median losing trade in the range (the tag hover says how many trades used it). 0.1 NQ steps on NT8, whole shares on Webull, 10 NQ cap; a trade that rounds to 0 is skipped. The hero, tiles, chart, calendar and the what-if KPI table re-price, with a sized tag. Shadow legs have daily figures only, so each day is scaled by the risk-pct contracts over the 1-contract base. FIXED leaves every account figure exactly as it was']},
 {v:'91.80',date:'2026-11-22',notes:['RESULTS (a past run, section 1A): a WALK-FORWARD P&L panel under the champion chart (owner items 131 and 132). CURVE or DAILY: the run walk-forward chain as a running total, or one bar per day plus the running total (the ledger daily chart). SIZING: FIXED 1 contract or RISK 1 / 2 / 3 % of a $30k account that compounds, contracts in micro steps up to 10; the choice redraws the chart and a side-by-side table shows all four - net, end equity, DD % from peak, ROC at $30k, DD5, Sortino, trades, skipped trades, most contracts - with an amber warning on 3 % when the account falls below half its start or more than 35 % from a high. The numbers come from a replay of every fold that has to match the run to the dollar (tools/run_trades_series.py); a run without one shows BUILD DAILY SERIES, which asks the desktop to build it. Nothing is estimated on the page.']},
 {v:'91.79',date:'2026-11-22',notes:['NT8 PAPER and WEBULL PAPER what-if (owner: the what if colors are hard to delineate for the strategies i added): every switched-on shadow leg now draws in its own colour from a fixed palette of 8 (coral, magenta, cyan, lime, pink, lemon, periwinkle, tan - clear of the ORB, ENGU-Q, NOISE and TTM colours; a darker set on PAPER, greys with a dash pattern each under MONO). A leg keeps its colour across toggles and reloads (set by its id). Shadow lines stay dashed and a little heavier than the strategy lines; the what-if total is one heavy dash-dot line','The leg row in the Books panel shows a swatch in the leg colour, the chart legend marks each shadow leg with a shadow tag, and the hover readout lists each shadow leg dollars in its colour. The box forward shadow lines on WEBULL PAPER take their book leg colour too','What-if KPIs (owner: id like to be able to compare the kpis): with a shadow leg on, a table under the chart compares LIVE, WHAT-IF (live plus the shadow legs on) and each shadow leg on the chart range - Net, %, Trades, Win rate, Profit factor, Max DD, Max DD % (fall from the high), ROC at 30k (annualised, short range marked), Sortino (daily, annualised), DD5 (fewer than 5 episodes says n). A shadow leg has daily figures only, so its win rate and PF read per day. Up and down triangles mark better or worse than LIVE. The table scrolls sideways in its own box on a phone']},
@@ -7978,7 +7979,7 @@ function bkaKpiTableHtml(spec){
     if(a==null||b==null||!isFinite(a)&&!isFinite(b))return '';const d=(isFinite(a)?a:1e12)-(isFinite(b)?b:1e12);if(Math.abs(d)<1e-9)return '';
     return (d*r[3]>0)?' bka-kb':' bka-kw';};
   const mark=cls=>cls===' bka-kb'?'<span class="bka-km" aria-label="better than LIVE">&#9650;</span>':(cls===' bka-kw'?'<span class="bka-km" aria-label="worse than LIVE">&#9660;</span>':'');
-  const head='<tr><th class="bka-krl" scope="col"></th>'+cols.map(c=>'<th scope="col" data-bkakcol="'+esc(c.key)+'"'+(c.sh?' title="'+esc(c.label)+' - SHADOW, as-if, never the account"':'')+'>'
+  const head='<tr><th class="bka-krl" scope="col"></th>'+cols.map(c=>'<th scope="col" data-bkakcol="'+esc(c.key)+'"'+(c.sh?' title="'+esc(c.label)+' - SHADOW, as-if, never the account'+((spec.shadows.find(s=>s.id===c.id)||{}).fixedNoStop?'. No stop distance in its as-if data: no stop, fixed size':'')+'"':'')+'>'
     +(c.sh?bkaSwatchHtml(c.id)+' ':'')+'<span class="bka-kh">'+esc(c.label)+'</span></th>').join('')+'</tr>';
   const body=rows.map(r=>'<tr data-bkakrow="'+r[0]+'"><th scope="row" class="bka-krl">'+r[1]+'</th>'+cols.map(c=>{const cl=cmp(r,c);
     return '<td class="'+(c.wi?'bka-kwi':'')+cl+'" data-bkakcell="'+esc(c.key)+'"'+(r[0]==='net'?' data-bkaknet="'+c.k.net+'"':'')+'>'+r[2](c.k,c)+mark(cl)+'</td>';}).join('')+'</tr>').join('');
@@ -7986,7 +7987,9 @@ function bkaKpiTableHtml(spec){
     +'% = net / '+(spec.baseWord||'the % base')+'. Max DD % = the fall from the high of base + P&L. ROC@30k = net a year / $30,000. Sortino = daily, annualised (sqrt 252), over the same days for every column. '
     +'DD5 = the average of the 5 deepest drawdowns. A shadow leg has daily figures only, so its win rate and PF are per day. Up / down triangles = better / worse than LIVE.';
   return '<div class="bka-kpi" data-bkakpi="'+esc(spec.board||'')+'"><div class="bka-kpi-hd"><span class="bka-t">What-if KPIs</span><span class="lg-help" title="'+esc(tip)+'">?</span>'
-    +'<span class="bka-s">'+(cols.length-2)+' shadow on</span></div>'
+    +'<span class="bka-s">'+(cols.length-2)+' shadow on</span>'
+    +(spec.sizing?'<span class="bka-s" data-bkaksizing="1" data-riskn="'+spec.sizing.riskN+'" data-fixn="'+spec.sizing.fixN+'" title="'+esc('Sized '+spec.sizing.word+': '+spec.sizing.riskN+' trade'+(spec.sizing.riskN===1?'':'s')+' carry a stop and are risk-sized from it; '+spec.sizing.fixN+' have no stop and stay at their fixed as-traded size (no stop, fixed size). '+(spec.sizing.shFixed.length?('Shadow legs left FIXED (no stop distance in the as-if data): '+spec.sizing.shFixed.join(', ')+'.'):''))+'">'
+      +esc(spec.sizing.word)+': '+spec.sizing.riskN+' risk-sized, '+spec.sizing.fixN+' fixed (no stop)</span>':'')+'</div>'
     +'<div class="bka-kpi-scroll"><table class="bka-ktab"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';}
 // the switched-on shadow legs' as-if sum in a range (the panel head and the hero what-if); skip as above
 function bkaOnSum(board,from,to,skip){let s=0;const seen={};bkaOn(board).forEach(id=>{if(seen[id]||(skip&&skip(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(L&&Array.isArray(L.d))s+=bkaSum(L,from,to).net;});return Math.round(s*100)/100;}
@@ -7997,49 +8000,51 @@ function bkaOnSum(board,from,to,skip){let s=0;const seen={};bkaOn(board).forEach
 // SIZING FIXED (as traded: 10 sh on Webull, 1 NQ on NT8) | RISK 1 / 2 / 3 %: every closed trade re-priced with the v91.80 rule
 //        (augur_engine/risk_sizing.py size_chain). v91.80 ships that maths in Python only (the RESULTS panel reads the desktop's table), so
 //        lgvSizeChain is its one JS mirror: equity at an entry = start + the sized $ of every trade that EXITED at or before it; units =
-//        floor(equity x pct / risk a unit) in steps (0.1 NQ = a micro; 1 QQQ share), capped (10 NQ); risk = the trade's own initial stop, else
-//        the strategy's median losing trade in the range (flagged); 0 units = the trade is skipped. Remembered per board: el_lgv_view_<b>,
-//        el_lgv_size_<b> (b = p2 | qb).
+//        floor(equity x pct / risk a unit) in steps (0.1 NQ = a micro; 1 QQQ share), capped (10 NQ); risk = the trade's own initial stop
+//        (v91.83, MANAGER 11-22, board item 136: Webull stop_px, NT8 stops[0].px else stop_px). A trade with NO stop is never guessed: it
+//        stays at its FIXED as-traded $ ('no stop, fixed size') and still counts in the compounding account. The v91.81 median-losing-trade
+//        fallback is gone (on Webull its few-dollar risk sized trades absurdly: -$28 read +$5,469 with a $142k DD). 0 units = skipped.
+//        Remembered per board: el_lgv_view_<b>, el_lgv_size_<b> (b = p2 | qb).
 function _lgvLs(k){try{return localStorage.getItem(k);}catch(e){return null;}}
 function _lgvLsSet(k,v){try{localStorage.setItem(k,v);}catch(e){}}
 function lgvView(b){return _lgvLs('el_lgv_view_'+b)==='whatif'?'whatif':'live';}
 function lgvSize(b){const v=_lgvLs('el_lgv_size_'+b);return (v==='r1'||v==='r2'||v==='r3')?v:'fixed';}
 function lgvPct(s){return s==='r1'?0.01:(s==='r2'?0.02:(s==='r3'?0.03:null));}
 function lgvSizeWord(s){return (s==='r1'||s==='r2'||s==='r3')?('RISK '+s.slice(1)+' %'):'FIXED';}
-// pure: |median| of the losing values (risk_sizing.median_loss_pts), null when none lost
-function lgvMedianLoss(xs){const L=(xs||[]).map(Number).filter(x=>isFinite(x)&&x<0).map(x=>-x).sort((a,b)=>a-b),k=L.length;
-  if(!k)return null;return k%2?L[(k-1)/2]:0.5*(L[k/2-1]+L[k/2]);}
 // pure: risk_sizing.contracts_for - floor(equity x pct / risk) in `step` units, capped; 0 when it rounds to nothing
 function lgvUnits(eq,pct,risk,step,cap){step=step||0.1;eq=+eq;pct=+pct;risk=+risk;
   if(!(eq>0)||!(pct>0)||!(risk>0))return 0;
   const c=Math.round(Math.floor((eq*pct/risk)/step+1e-9)*step*1e6)/1e6;return (cap!=null&&isFinite(+cap))?Math.min(c,+cap):c;}
-// pure: risk_sizing.size_chain in dollars. rows: [{e: entry sort key, x: exit sort key (Infinity = still open), pu: $ a unit, r: $ risk a unit
-// or null, k: strategy key}]; o: {pct, start, step, cap, fb: {k: fallback $ risk a unit}}. -> {usd, units, fb (bool each), taken, skipped, fbN}
+// pure: risk_sizing.size_chain in dollars, stop-only (v91.83). rows: [{e: entry sort key, x: exit sort key (Infinity = still open), pu: $ a
+// unit, r: $ risk a unit from the trade's own initial stop or null, fx: the trade's FIXED as-traded $, k: strategy key}]; o: {pct, start, step,
+// cap}. A row with r: units = floor(equity x pct / r) in steps, capped; 0 = skipped. A row without r: NOT sized, its $ = fx exactly (units null,
+// fixed true), and that $ still compounds into the account. -> {usd, units, fixed (bool each), taken, skipped, fixN, riskN}
 function lgvSizeChain(rows,o){rows=rows||[];o=o||{};const n=rows.length,ix=[];for(let i=0;i<n;i++)ix.push(i);
   const ord=ix.slice().sort((a,b)=>((+rows[a].e)-(+rows[b].e))||(a-b)),bx=ix.slice().sort((a,b)=>((+rows[a].x)-(+rows[b].x))||(a-b));
-  const usd=ix.map(()=>0),units=ix.map(()=>0),fb=ix.map(()=>false),sized=ix.map(()=>false);
-  let real=0,xp=0,taken=0,skipped=0,fbN=0;const start=+o.start||0;
+  const usd=ix.map(()=>0),units=ix.map(()=>0),fixed=ix.map(()=>false),sized=ix.map(()=>false);
+  let real=0,xp=0,taken=0,skipped=0,fixN=0,riskN=0;const start=+o.start||0;
   ord.forEach(i=>{const t=rows[i];
     while(xp<n&&(+rows[bx[xp]].x)<=(+t.e)){const j=bx[xp];if(sized[j])real+=usd[j];xp++;}
-    let rk=(t.r!=null&&+t.r>0)?+t.r:null;
-    if(rk==null){rk=(o.fb||{})[t.k];rk=(rk!=null&&+rk>0)?+rk:null;fb[i]=true;fbN++;}
-    const c=rk?lgvUnits(start+real,o.pct,rk,o.step,o.cap):0;
+    const rk=(t.r!=null&&+t.r>0)?+t.r:null;
+    if(rk==null){fixed[i]=true;fixN++;units[i]=null;usd[i]=Math.round((+t.fx||0)*100)/100;sized[i]=true;return;}
+    riskN++;const c=lgvUnits(start+real,o.pct,rk,o.step,o.cap);
     if(!(c>0)){skipped++;return;}
     units[i]=c;usd[i]=Math.round((+t.pu||0)*c*100)/100;sized[i]=true;taken++;});
-  return {usd:usd,units:units,fb:fb,taken:taken,skipped:skipped,fbN:fbN};}
-// pure: each strategy's median losing $ a unit over the given rows (the fallback risk when a trade has no stop)
-function lgvFallbacks(rows){const by={},out={};(rows||[]).forEach(r=>{(by[r.k]=by[r.k]||[]).push(+r.pu||0);});Object.keys(by).forEach(k=>{out[k]=lgvMedianLoss(by[k]);});return out;}
-// pure: shadow legs that only have DAILY figures, sized day by day (the brief: 'scale them by the ratio of risk-% contracts to the 1-contract
-// base on each day'). Each leg's risk a unit = its median losing trade, read from its losing days as day $ / trades that day (flagged: no stop).
-// Equity on a day = start + the sized live $ and sized shadow $ of every earlier day. shadows: [{id, days: {d: {p, n}}}]; liveByDay {d: $}.
-// -> the same legs with days re-priced, plus units {d: x}, risk (the $ a unit used, or null = no losing day, nothing taken)
+  return {usd:usd,units:units,fixed:fixed,taken:taken,skipped:skipped,fixN:fixN,riskN:riskN};}
+// pure: shadow legs that only have DAILY figures, sized day by day by the ratio of risk-% units to the 1-unit base. v91.83: a leg is scaled
+// ONLY when its as-if data carries a real stop distance (stopRisk = $ risk a unit, from the as-if doc's stop_risk_usd); a leg without one is
+// left FIXED (days as published, fixed: true) and says so - never a guess from its losing days. Equity on a day = start + the live $ and
+// every leg's $ (sized or fixed) of every earlier day. shadows: [{id, days: {d: {p, n}}, stopRisk?}]; liveByDay {d: $}.
+// -> the same legs with days re-priced (or as published), units {d: x} (sized legs), risk (the $ a unit used, null = fixed), fixed
 function lgvScaleShadows(shadows,liveByDay,o){o=o||{};liveByDay=liveByDay||{};
   const D=new Set(Object.keys(liveByDay));(shadows||[]).forEach(s=>Object.keys(s.days||{}).forEach(d=>D.add(d)));
-  const out=(shadows||[]).map(s=>{const per=Object.keys(s.days||{}).map(d=>{const r=s.days[d];return (+r.n>0)?(+r.p||0)/(+r.n):(+r.p||0);});
-    return Object.assign({},s,{days:{},units:{},risk:lgvMedianLoss(per),raw:s.days});});
+  const out=(shadows||[]).map(s=>{const rk=(s.stopRisk!=null&&isFinite(+s.stopRisk)&&+s.stopRisk>0)?+s.stopRisk:null;
+    return Object.assign({},s,{days:rk?{}:Object.assign({},s.days||{}),units:{},risk:rk,fixed:!rk,raw:s.days});});
   let real=0;
   Array.from(D).sort().forEach(d=>{const eq=(+o.start||0)+real;let add=+liveByDay[d]||0;
-    out.forEach(s=>{const r=s.raw&&s.raw[d];if(!r)return;const c=s.risk?lgvUnits(eq,o.pct,s.risk,o.step,o.cap):0;
+    out.forEach(s=>{const r=s.raw&&s.raw[d];if(!r)return;
+      if(s.fixed){add+=+r.p||0;return;}
+      const c=lgvUnits(eq,o.pct,s.risk,o.step,o.cap);
       const p=Math.round((+r.p||0)*c*100)/100;s.days[d]={p:p,n:c>0?(+r.n||0):0};s.units[d]=c;add+=p;});
     real+=add;});
   out.forEach(s=>{delete s.raw;});return out;}
@@ -8047,13 +8052,18 @@ function lgvScaleShadows(shadows,liveByDay,o){o=o||{};liveByDay=liveByDay||{};
 // leg) plus `extra` (Webull: the box's own shadow legs switched on, already {id, name, style, days}); each keeps its v91.79 colour
 function lgvShadowLegs(board,from,to,skip,extra){const out=[],seen={};
   bkaOn(board).forEach(id=>{if(seen[id]||(skip&&skip(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(!L||!Array.isArray(L.d))return;
-    out.push({id:id,name:(L.name||id)+' as-if',style:bkaLineStyle(id),days:bkaDaysOf(L,from||null,to||null)});});
+    const sr=(board==='qb'&&L._q)?L._q.stop_risk_usd:L.stop_risk_usd;
+    out.push({id:id,name:(L.name||id)+' as-if',style:bkaLineStyle(id),days:bkaDaysOf(L,from||null,to||null),stopRisk:(sr!=null&&isFinite(+sr)&&+sr>0)?+sr:null});});
   (extra||[]).forEach(x=>{if(x&&x.days&&Object.keys(x.days).length)out.push(x);});
   return out;}
 function lgvDaysTotal(shadows,from,to){let s=0;(shadows||[]).forEach(x=>Object.keys(x.days||{}).forEach(d=>{if((from&&d<from)||(to&&d>to))return;s+=+x.days[d].p||0;}));return Math.round(s*100)/100;}
 // a day map as the {d, p, n} series bkaCum reads
 // the what-if KPI spec with its shadow columns sized like the board (RISK %): each shadow column takes the sized day map of the same leg
-function lgvKpiSized(spec,sized){if(!spec||!Array.isArray(sized)||!sized.length)return spec;(spec.shadows||[]).forEach(s=>{const m=sized.find(x=>x.id===s.id);if(m){s.days=m.days;s.perTrade=null;}});return spec;}
+// v91.83: Z = the board's sized summary (window._lgvQb / _lgvP2): the table says how many trades were risk-sized vs left fixed (no stop)
+function lgvKpiSized(spec,sized,Z){if(!spec)return spec;
+  if(Z&&Z.size&&Z.size!=='fixed')spec.sizing={word:lgvSizeWord(Z.size),riskN:+Z.riskN||0,fixN:+Z.fixN||0,shFixed:(Array.isArray(sized)?sized:[]).filter(x=>x&&x.fixed).map(x=>x.id)};
+  if(!Array.isArray(sized)||!sized.length)return spec;
+  (spec.shadows||[]).forEach(s=>{const m=sized.find(x=>x.id===s.id);if(m){s.days=m.days;s.perTrade=null;if(m.fixed)s.fixedNoStop=true;}});return spec;}
 function lgvDayL(days){const d=Object.keys(days||{}).sort();return {d:d,p:d.map(x=>+days[x].p||0),n:d.map(x=>+days[x].n||0)};}
 // THE CHART. C = a board chart {pts: [{v, date}] (pts[0] = the range start), lines, comps}. Every shadow becomes a dashed line in its own colour;
 // whatif: the solid total = LIVE + every shadow (it IS the what-if total, so no extra line), else one what-if total line rides on top as in
@@ -8090,8 +8100,10 @@ function lgvBarHtml(b,o){o=o||{};const v=lgvView(b),s=lgvSize(b),ok=!!o.whatifOk
     +((!ok&&v==='whatif')?'<span class="lgv-hint" data-lgvhint="1">'+esc(hint)+'</span>':'')
     +'</div>';}
 // the small tags beside the hero label
-function lgvHeroTags(eff,s){return (eff==='whatif'?'<span class="lgv-tag lgv-wi lgv-heroTag" data-lgvherotag="whatif" title="LIVE + the switched-on shadow legs. Not the account.">what-if</span>':'')
-  +(s&&s!=='fixed'?'<span class="lgv-tag lgv-sz lgv-heroTag" data-lgvherotag="size">sized: '+lgvSizeWord(s)+'</span>':'');}
+// v91.83: Z = the board's sized summary; the size tag reads 'N risk-sized, M fixed' (M = trades with no stop, left at their fixed size)
+function lgvHeroTags(eff,s,Z){const cnt=(Z&&s&&s!=='fixed')?{r:+Z.riskN||0,f:+Z.fixN||0}:null;
+  return (eff==='whatif'?'<span class="lgv-tag lgv-wi lgv-heroTag" data-lgvherotag="whatif" title="LIVE + the switched-on shadow legs. Not the account.">what-if</span>':'')
+  +(s&&s!=='fixed'?'<span class="lgv-tag lgv-sz lgv-heroTag" data-lgvherotag="size"'+(cnt?(' data-riskn="'+cnt.r+'" data-fixn="'+cnt.f+'" title="'+cnt.r+' trade'+(cnt.r===1?'':'s')+' risk-sized from their own stop; '+cnt.f+' with no stop: no stop, fixed size (as traded)"'):'')+'>sized: '+lgvSizeWord(s)+(cnt?(' &middot; '+cnt.r+' risk-sized, '+cnt.f+' fixed'):'')+'</span>':'');}
 document.addEventListener('click',e=>{const t=e.target&&e.target.closest&&e.target.closest('[data-lgvview],[data-lgvsize]');if(!t||t.disabled)return;
   const b=t.getAttribute('data-lgvboard');if(!b)return;
   if(t.hasAttribute('data-lgvview'))_lgvLsSet('el_lgv_view_'+b,t.getAttribute('data-lgvview'));
@@ -46912,8 +46924,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // v91.81 SIZING (owner 11-22: 'what the pnls would look like if they werent the 10 share'): RISK n % re-prices every closed trade in the
         // range with lgvSizeChain (the v91.80 rule) in QQQ SHARES, the share equivalent of the NQ rule: start = the hero's realized-% base (the
         // account at the range start: net_liq - the open mark - the range's realized, as traded; no account read = $30,000, said so), risk a share
-        // = |entry - initial stop| when the row carries one (initial_stop_px / stop_px), else the leg's median losing trade a share in the range
-        // (trades.csv has no stop column today, so every Webull trade is flagged 'stop unknown, median loss used'); 1-share steps, capped at
+        // = |entry_px - stop_px| when the row carries one (v91.83: stop_px = the initial stop from the ENTRY signal, the same field in trades.csv
+        // and in the qqq_exec doc's trades_all rows, read raw off users/{uid}/meta/qqq_exec; PAPER-WB publishes and backfills it). A row with no
+        // stop_px is NOT sized: it keeps its FIXED as-traded $ ('no stop, fixed size'; never the median-loss guess); 1-share steps, capped at
         // 10 NQ = 10 x 20 x the trade's NQ/QQQ ratio shares. pnl_record carries the sized $ (pnl_fixed the as-traded one); the shares column
         // stays as traded (lgv_sh holds the sized shares). Open lots and trades before the range stay as traded. FIXED = nothing changes.
         const _lgvSzQb=lgvSize('qb'),_lgvPctQb=lgvPct(_lgvSzQb);
@@ -46930,17 +46943,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const ms=s=>{const x=Date.parse(String(s||'').replace(' ','T')+'Z');return isFinite(x)?x:0;};
           const idx=[],rows=[];
           qbAllTradesFixed.forEach((t,i)=>{if(!inR(t)||!legOn(t))return;const sh=Number(t.shares)>0?Number(t.shares):10,ep=Number(t.entry_px);
-            const st=[t.initial_stop_px,t.stop_px].map(Number).find(v=>isFinite(v)&&v>0);
-            const r=(st!=null&&isFinite(ep)&&Math.abs(ep-st)>0)?Math.abs(ep-st):null;
+            const st=(t.stop_px===null||t.stop_px===undefined||t.stop_px==='')?NaN:Number(t.stop_px);
+            const r=(isFinite(st)&&st>0&&isFinite(ep)&&Math.abs(ep-st)>0)?Math.abs(ep-st):null;
             const ratio=isFinite(Number(t.ratio_at_entry))&&Number(t.ratio_at_entry)>0?Number(t.ratio_at_entry):rh;
-            idx.push(i);rows.push({e:ms(t.entry_ts),x:ms(t.exit_ts)||ms(t.entry_ts),pu:_lgvQbPnl(t)/sh,r:r,k:qbFamOf(t.leg),cap:Math.floor(10*20*ratio)});});
-          const fbm=lgvFallbacks(rows);
+            idx.push(i);rows.push({e:ms(t.entry_ts),x:ms(t.exit_ts)||ms(t.entry_ts),pu:_lgvQbPnl(t)/sh,fx:_lgvQbPnl(t),r:r,k:qbFamOf(t.leg),cap:Math.floor(10*20*ratio)});});
           // the cap differs a little per trade (its own ratio): the chain takes the smallest so no trade ever passes 10 NQ
-          const S=lgvSizeChain(rows,{pct:_lgvPctQb,start:start,step:1,cap:rows.length?Math.min(...rows.map(r=>r.cap)):8200,fb:fbm});
-          const by={};idx.forEach((i,j)=>{by[i]={usd:S.usd[j],units:S.units[j],fb:S.fb[j],risk:rows[j].r!=null?rows[j].r:fbm[rows[j].k]};});
-          return {size:_lgvSzQb,pct:_lgvPctQb,start:start,startFromAcct:eqN!==null,cut:cut,by:by,taken:S.taken,skipped:S.skipped,fbN:S.fbN,n:rows.length,stopN:rows.filter(r=>r.r!=null).length,fbm:fbm,ratio:rh};})();
+          const S=lgvSizeChain(rows,{pct:_lgvPctQb,start:start,step:1,cap:rows.length?Math.min(...rows.map(r=>r.cap)):8200});
+          const capQ=rows.length?Math.min(...rows.map(r=>r.cap)):8200;
+          const by={};idx.forEach((i,j)=>{by[i]={usd:S.usd[j],units:S.units[j],fixed:S.fixed[j],fx:rows[j].fx,risk:rows[j].r,e:rows[j].e};});
+          const fixL={};rows.forEach((r,j)=>{if(S.fixed[j])fixL[r.k]=(fixL[r.k]||0)+1;});
+          return {size:_lgvSzQb,pct:_lgvPctQb,start:start,cap:capQ,startFromAcct:eqN!==null,cut:cut,by:by,taken:S.taken,skipped:S.skipped,riskN:S.riskN,fixN:S.fixN,fixL:fixL,n:rows.length,ratio:rh};})();
         window._lgvQb=_lgvSizedQb;
-        const qbAllTrades=_lgvSizedQb?qbAllTradesFixed.map((t,i)=>{const z=_lgvSizedQb.by[i];return z?Object.assign({},t,{pnl_fixed:_lgvQbPnl(t),pnl_record:z.usd,lgv_sh:z.units,lgv_fb:z.fb,lgv_risk:z.risk}):t;}):qbAllTradesFixed;
+        const qbAllTrades=_lgvSizedQb?qbAllTradesFixed.map((t,i)=>{const z=_lgvSizedQb.by[i];return z?Object.assign({},t,{pnl_fixed:_lgvQbPnl(t),pnl_record:z.usd,lgv_sh:z.units,lgv_fixed:z.fixed,lgv_note:z.fixed?'no stop, fixed size':('risk-sized: '+z.units+' sh, $'+(+z.risk).toFixed(2)+'/sh to the stop'),lgv_risk:z.risk}):t;}):qbAllTradesFixed;
         const trades=qbAllTrades.filter(t=>qbLegsOff.indexOf(qbFamOf(t.leg))<0);  // newest-first, per api/qqq_exec.py _build_doc
         // The no-order shadow legs are held apart: the strategy list draws them in its own "Shadow - not counted" group and they
         // are never added to the account number, the chart, the stats, the calendar or any leg above it (LEDGER unify step 10).
@@ -47991,9 +48005,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // v91.81: the VIEW + SIZING bar at the top of the chart card
           const _lgvBarQb=(()=>{const Z=_lgvSizedQb;
             const tip=Z?('Start '+ledgerMoney(Z.start)+(Z.startFromAcct?' (the account at the range start: the hero realized-% base)':' (no account read yet: $30,000)')+', compounding on closed trades, whole shares, capped at 10 NQ (10 x 20 x the NQ/QQQ ratio, about '+Math.round(200*(Z.ratio||41)).toLocaleString('en-US')+' sh). '
-              +Z.stopN+' of '+Z.n+' trades carry a stop; the rest: stop unknown, median loss used ('+Object.keys(Z.fbm).filter(k=>Z.fbm[k]).map(k=>k+' $'+(+Z.fbm[k]).toFixed(2)+'/sh').join(', ')+'). '
+              +Z.riskN+' of '+Z.n+' trades carry a stop_px and are risk-sized (risk = entry to the initial stop); '+Z.fixN+' have no stop: no stop, fixed size (as traded'
+              +(Z.fixN?(': '+Object.keys(Z.fixL).map(k=>k+' '+Z.fixL[k]).join(', ')):'')+'). '
               +Z.skipped+' trade'+(Z.skipped===1?'':'s')+' rounded to 0 shares and skipped. Open lots and trades before the range stay as traded.'
-              +(_lgvShQbRaw.length?' Shadow legs: each day scaled by the risk-% lots (median losing trade a lot) over the box lot.':'')):'';
+              +(_lgvShQbRaw.length?' Shadow legs: scaled by the risk-% lots over the box lot only when their as-if data carries a stop distance; '+_lgvShQb.filter(x=>x.fixed).length+' of '+_lgvShQb.length+' have none and stay FIXED.':'')):'';
             return lgvBarHtml('qb',{whatifOk:_lgvShQbRaw.length>0,fixedWord:'10 sh',sizeTip:tip,whatifTip:'LIVE + '+_lgvShQbRaw.map(x=>x.name).join(', ')+' (simulated, never the account).'});})();
           const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerDailyModeHtml('qb')+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
             +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="qb"><span class="lg-chart-cap">'+(capHtml||'')+'</span></div></div>';
@@ -48147,7 +48162,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // or not; a RISK % or the WHAT-IF view rebuilds the shadow lines from the sized / added day maps, and WHAT-IF makes the solid total
             // LIVE + the shadows
             try{const C=window._qbLgChart;C.phoneH=176;
-              if(_lgvSizedQb)C.tipNote='sized '+lgvSizeWord(_lgvSzQb)+(_lgvSizedQb.fbN?(': stop unknown on '+_lgvSizedQb.fbN+' of '+_lgvSizedQb.n+' trades, median loss used'):': every trade risks its own stop');
+              if(_lgvSizedQb)C.tipNote='sized '+lgvSizeWord(_lgvSzQb)+': '+_lgvSizedQb.riskN+' risk-sized, '+_lgvSizedQb.fixN+' no stop, fixed size';
               C.comps=lineLegs.map(([key,label,color,runNo])=>({k:key,name:qbLegFullName(key,runNo),color:color,
                 vals:pts.map((p,i)=>i===0?0:Math.round((((p.legs&&p.legs[key]!=null)?p.legs[key]:0)+qbMarkAt(i,key))*100)/100)}));
               if(_lgvEffQb==='whatif'||_lgvSizedQb){const sc=lgvApplyShadows(C,_lgvShQb,_lgvFromQb,_lgvEffQb==='whatif');
@@ -49527,7 +49542,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // LEDGER step 12: the shared page frame - the top block in LEDGER_TOP_ORDER (hero, status, pills + chart, stats, calendar), the strategy
         // list (the right-hand panel from 1100 px, under the calendar below it), then the trade list and this board's own folds
         const _lgvWrapQb=(h,k)=>_lgvEffQb==='whatif'?('<div class="lgv-whatif" data-lgvwi="'+k+'"><span class="lgv-tag lgv-wi" data-lgvtag="whatif">what-if</span>'+h+'</div>'):h;
-        const qbTop={hero:'<div class="qbx-hero">'+(lgvHeroTags(_lgvEffQb,_lgvSzQb)?'<div class="lgv-herotags" data-lgvherotags="qb">'+lgvHeroTags(_lgvEffQb,_lgvSzQb)+'</div>':'')+qbHeroHtml
+        const qbTop={hero:'<div class="qbx-hero">'+(lgvHeroTags(_lgvEffQb,_lgvSzQb,_lgvSizedQb)?'<div class="lgv-herotags" data-lgvherotags="qb">'+lgvHeroTags(_lgvEffQb,_lgvSzQb,_lgvSizedQb)+'</div>':'')+qbHeroHtml
           +(qbShOn.length?'<span class="lg-hero-excl" data-qbshwhatif="'+qbShOnSum+'" title="What-if only: the switched-on shadow legs’ closed would-be P&amp;L in this range added to the realized figure. Never part of the account number.">realized incl. shadow (what-if) '+ledgerSigned(Math.round((qbRangePnl+qbShOnSum)*100)/100)+'</span>':'')
           +(()=>{try{const C=window._qbBkaCtx;if(!C)return '';const v=bkaOnSum('qb',C.from,null,id=>!!(C.live(id)||C.fwd(id)));
             if(!bkaOn('qb').some(id=>!(C.live(id)||C.fwd(id))&&bkaLegB('qb',id)&&Array.isArray(bkaLegB('qb',id).d)))return '';
@@ -49585,7 +49600,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // v91.81 SIZING (owner 11-22: 'what the pnls would look like if they werent 1 NQ but the 1/2/3 % rule'): with RISK n % picked, every
       // trade of a book leg in the range is re-priced by lgvSizeChain (the v91.80 rule) on a compounding account that starts at the NT8 %
       // base (NT8_PCT_BASE_USD + the book's realized before the range, as traded; ALL = $100,000). Risk a contract = |entry - initial stop| x
-      // $20 (ES $50) when the trade logged a stop (stops[0], else stop_px), else the leg's median losing trade in the range (flagged).
+      // $20 (ES $50) when the trade logged a stop (paper_trades stops[0].px, else stop_px). v91.83: a trade with no stop is NOT sized - it keeps
+      // its FIXED as-traded $ ('no stop, fixed size'); the median-losing-trade fallback is gone.
       // 0.1 NQ steps (micros), 10 NQ cap; the book weight (TTM x3) gives way to the sized contracts. Trades before the range stay as traded.
       // pnl_fixed keeps the as-traded $. FIXED = this block does nothing, so every account figure is exactly as before.
       const _lgvSzP2=lgvSize('p2'),_lgvPctP2=lgvPct(_lgvSzP2);
@@ -49601,12 +49617,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         _ptW.forEach((t,i)=>{if(!_bookSet.has(legOf(t))||!inR(t))return;
           const z=(+t.size>0)?+t.size:1,raw=(t.pnl_unw!=null?+t.pnl_unw:+t.pnl_usd)||0,st=stopOf(t),ep=+t.entry_px;
           const r=(st!=null&&isFinite(ep)&&Math.abs(ep-st)>0)?Math.abs(ep-st)*pv(t):null;
-          idx.push(i);rows.push({e:+t.entryTime||0,x:t.open===true?Infinity:(+t.exitTime||+t.entryTime||0),pu:raw/z,r:r,k:legOf(t)});});
-        const fbm=lgvFallbacks(rows.filter((r,j)=>_ptW[idx[j]].open!==true));
-        const S=lgvSizeChain(rows,{pct:_lgvPctP2,start:start,step:0.1,cap:10,fb:fbm});
-        const by={};idx.forEach((i,j)=>{by[i]={usd:S.usd[j],units:S.units[j],fb:S.fb[j],risk:rows[j].r!=null?rows[j].r:fbm[rows[j].k]};});
-        return {size:_lgvSzP2,pct:_lgvPctP2,start:start,cut:cut,by:by,taken:S.taken,skipped:S.skipped,fbN:S.fbN,n:rows.length,stopN:rows.filter(r=>r.r!=null).length,fbm:fbm};})();
-      const _pt=_lgvSizedP2?_ptW.map((t,i)=>{const z=_lgvSizedP2.by[i];return z?Object.assign({},t,{pnl_fixed:t.pnl_usd,pnl_usd:z.usd,lgv_units:z.units,lgv_fb:z.fb,lgv_risk:z.risk}):t;}):_ptW;
+          idx.push(i);rows.push({e:+t.entryTime||0,x:t.open===true?Infinity:(+t.exitTime||+t.entryTime||0),pu:raw/z,fx:+t.pnl_usd||0,r:r,k:legOf(t)});});
+        const S=lgvSizeChain(rows,{pct:_lgvPctP2,start:start,step:0.1,cap:10});
+        const by={};idx.forEach((i,j)=>{by[i]={usd:S.usd[j],units:S.units[j],fixed:S.fixed[j],fx:rows[j].fx,risk:rows[j].r,e:rows[j].e,pu:rows[j].pu};});
+        const fixL={};rows.forEach((r,j)=>{if(S.fixed[j])fixL[r.k]=(fixL[r.k]||0)+1;});
+        return {size:_lgvSzP2,pct:_lgvPctP2,start:start,cut:cut,by:by,taken:S.taken,skipped:S.skipped,riskN:S.riskN,fixN:S.fixN,fixL:fixL,n:rows.length};})();
+      const _pt=_lgvSizedP2?_ptW.map((t,i)=>{const z=_lgvSizedP2.by[i];return z?Object.assign({},t,{pnl_fixed:t.pnl_usd,pnl_usd:z.usd,lgv_units:z.units,lgv_fixed:z.fixed,lgv_note:z.fixed?'no stop, fixed size':('risk-sized: '+z.units+' NQ'),lgv_risk:z.risk}):t;}):_ptW;
       window._lgvP2=_lgvSizedP2;
       // ── ONE definition of the legs this board knows about (2026-08-16). This used to be
       // FIVE hardcoded lists (_legColor, _legLabel, PLEGS, _tileDefs, _curveSeries) kept in
@@ -50368,10 +50384,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         +'<span class="lg-help" data-p2caphelp title="solid line = all book legs \u00b7 dotted = each strategy \u00b7 hatched = a day with a data caveat (a roll-splice trade or a look-ahead ORB trade; hover the column to see which) \u00b7 amber hatch = cause still open, blue hatch = cause fixed \u00b7 hover the chart to scrub">?</span></span></div>';
       // v91.81: the VIEW + SIZING bar at the top of the chart card
       const _lgvSizeTipP2=_lgvSizedP2?('Start '+ledgerMoney(_lgvSizedP2.start)+' (the NT8 % base) compounding on closed trades, 0.1 NQ steps, 10 NQ cap. '
-          +_lgvSizedP2.stopN+' of '+_lgvSizedP2.n+' trades logged a stop (risk = entry to initial stop); the rest: stop unknown, median loss used ('
-          +Object.keys(_lgvSizedP2.fbm).filter(k=>_lgvSizedP2.fbm[k]).map(k=>(_legLabel[k]||k)+' '+ledgerMoney(Math.round(_lgvSizedP2.fbm[k]))+'/NQ').join(', ')+'). '
+          +_lgvSizedP2.riskN+' of '+_lgvSizedP2.n+' trades logged a stop and are risk-sized (risk = entry to initial stop); '+_lgvSizedP2.fixN+' have no stop: no stop, fixed size (as traded'
+          +(_lgvSizedP2.fixN?(': '+Object.keys(_lgvSizedP2.fixL).map(k=>(_legLabel[k]||k)+' '+_lgvSizedP2.fixL[k]).join(', ')):'')+'). '
           +_lgvSizedP2.skipped+' trade'+(_lgvSizedP2.skipped===1?'':'s')+' rounded to 0 and skipped. Trades before the range stay as traded.'
-          +(_lgvShP2Raw.length?' Shadow legs have daily figures only: each day is scaled by the risk-% contracts (median losing trade a contract) over the 1-contract base.':'')):'';
+          +(_lgvShP2Raw.length?' Shadow legs have daily figures only: scaled by the risk-% contracts over the 1-contract base only when their as-if data carries a stop distance; '+_lgvShP2.filter(x=>x.fixed).length+' of '+_lgvShP2.length+' have none and stay FIXED.':'')):'';
       window._lgvShP2Sized=_lgvSizedP2?_lgvShP2:null;
       const _lgvBarP2=lgvBarHtml('p2',{whatifOk:_lgvShP2Raw.length>0,fixedWord:'1 NQ',sizeTip:_lgvSizeTipP2,
         whatifTip:'LIVE + '+_lgvShP2Raw.map(s=>s.name).join(', ')+' (simulated as-if, never the account).'});
@@ -50418,7 +50434,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // v91.81: the DAILY stack reads each strategy line (all of them, hidden or not: their sum is the total); a RISK % or the WHAT-IF view
         // rebuilds the shadow lines from the sized / added day maps, and WHAT-IF makes the solid total LIVE + the shadows
         try{const C=window._p2Chart;C.phoneH=176;
-          if(_lgvSizedP2)C.tipNote='sized '+lgvSizeWord(_lgvSzP2)+(_lgvSizedP2.fbN?(': stop unknown on '+_lgvSizedP2.fbN+' of '+_lgvSizedP2.n+' trades, median loss used'):': every trade risks its own stop');
+          if(_lgvSizedP2)C.tipNote='sized '+lgvSizeWord(_lgvSzP2)+': '+_lgvSizedP2.riskN+' risk-sized, '+_lgvSizedP2.fixN+' no stop, fixed size';
           C.comps=C.lines.filter(l=>!l.shadow).map(l=>({k:l.name,name:l.name,color:l.color,vals:l.vals.slice()}));
           if(_lgvEffP2==='whatif'||_lgvSizedP2){const sc=lgvApplyShadows(C,_lgvShP2,_lgvFromP2,_lgvEffP2==='whatif');
             C.lines.forEach(l=>{if(l.shadow)l.on=!_lgOff[l.name];});
@@ -52101,7 +52117,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           window._p2Chart.pctTip=_rb?('% of '+_p2PctBaseTip(_rb,_H0,'this range')):'';}
         const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',under:'p2-hero-under',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},todayInline:true,
           // r2 step 2 (item 41): the definition is the label's tooltip
-          label:'<span title="'+_p2LabelTip.replace(/"/g,'&quot;')+'">BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity</span>'+lgvHeroTags(_lgvEffP2,_lgvSzP2),
+          label:'<span title="'+_p2LabelTip.replace(/"/g,'&quot;')+'">BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity</span>'+lgvHeroTags(_lgvEffP2,_lgvSzP2,_lgvSizedP2),
           big:elMoney(_netEq)+'<span class="lg-suffix qbx-hero-qual" data-p2heroqual="net" title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">'+LEDGER_NET_EQUITY_WORD+'</span>',
           today:ledgerTodayHtml(_H.today,_p2TodayPct),
           // owner 10-31 (live page, same as Webull): the OPEN line sits DIRECTLY under the big number - 'open -$X · N trades · not counted'
@@ -55052,7 +55068,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         homeRange=el.getAttribute('data-qbrange');renderApp();};});
       // LEDGER shared equity chart (unify step 5): drawn into its box now that the page is in place
       // v91.79: the what-if KPI table under the chart (only with a shadow leg on)
-      {const sl=content.querySelector('#qb-bka-kpi');if(sl){try{sl.innerHTML=bkaKpiTableHtml(lgvKpiSized(bkaKpiSpec('qb',window._qbBkaCtx,window._qbKpiLive,window._qbKpiBase,'the realized-% base (the account at the range start)',window._qbKpiFwd),window._lgvShQbSized));}catch(e){console.warn('what-if KPIs:',e);sl.innerHTML='';}}}
+      {const sl=content.querySelector('#qb-bka-kpi');if(sl){try{sl.innerHTML=bkaKpiTableHtml(lgvKpiSized(bkaKpiSpec('qb',window._qbBkaCtx,window._qbKpiLive,window._qbKpiBase,'the realized-% base (the account at the range start)',window._qbKpiFwd),window._lgvShQbSized,window._lgvQb));}catch(e){console.warn('what-if KPIs:',e);sl.innerHTML='';}}}
       if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw){if(_lgDailyOn('qb'))ledgerDailyChart(lgw,window._qbLgChart.pts,{id:'qb',comps:window._qbLgChart.comps,phoneH:194,tipNote:window._qbLgChart.tipNote});else ledgerChartRender(lgw,window._qbLgChart);}}
       // LEDGER shared strategy list (unify step 10): a tap on a leg opens its detail under the row (since start, unrealized, the
       // box's day, position, notional); the Retired and Shadow folds open and close, each remembered per viewer (closed until opened)
@@ -55343,7 +55359,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // The shared chart: mouse hover on a laptop, finger drag on a phone. onScrub writes the hero number and the range
       // line (nothing re-renders), onLeave puts them back. The legend switches each faint leg line and is remembered.
       // v91.79: the what-if KPI table under the chart (only with a shadow leg on)
-      {const sl=content.querySelector('#p2-bka-kpi');if(sl){try{sl.innerHTML=bkaKpiTableHtml(lgvKpiSized(bkaKpiSpec('nt8',window._p2BkaCtx,window._p2KpiLive,window._p2KpiBase,'the NT8 paper base ($'+NT8_PCT_BASE_USD.toLocaleString('en-US')+' + realized before the range)',null),window._lgvShP2Sized));}catch(e){console.warn('what-if KPIs:',e);sl.innerHTML='';}}}
+      {const sl=content.querySelector('#p2-bka-kpi');if(sl){try{sl.innerHTML=bkaKpiTableHtml(lgvKpiSized(bkaKpiSpec('nt8',window._p2BkaCtx,window._p2KpiLive,window._p2KpiBase,'the NT8 paper base ($'+NT8_PCT_BASE_USD.toLocaleString('en-US')+' + realized before the range)',null),window._lgvShP2Sized,window._lgvP2));}catch(e){console.warn('what-if KPIs:',e);sl.innerHTML='';}}}
       {const wrapEl=content.querySelector('#p2-chart'),C=window._p2Chart;
        if(wrapEl&&C){
          const num=content.querySelector('#p2-hero-value'),rng=content.querySelector('#p2-hero-range');

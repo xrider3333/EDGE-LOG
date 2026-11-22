@@ -205,6 +205,7 @@ import datetime
 import http.server
 import io
 import json
+import math
 import os
 import re
 import shutil
@@ -1815,14 +1816,28 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                   sv.dispatchEvent(new MouseEvent('mouseleave',{bubbles:true}));}}catch(e){LV.tip='err '+e;}
                 LS1.setItem('el_lg_daily_p2','0');w.renderApp();}
               _click('[data-lgvboard="p2"][data-lgvview="live"]');LV.d=_hv();
-              if(_click('[data-lgvboard="p2"][data-lgvsize="r1"]')){LV.e=_hv();var Z=w._lgvP2;LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,fbN:Z.fbN,n:Z.n,stopN:Z.stopN,storedSize:LS1.getItem('el_lgv_size_p2')}:null;}
+              if(_click('[data-lgvboard="p2"][data-lgvsize="r1"]')){LV.e=_hv();var Z=w._lgvP2;LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,fixN:Z.fixN,riskN:Z.riskN,n:Z.n,storedSize:LS1.getItem('el_lgv_size_p2'),
+                  fixedOff:Object.keys(Z.by).filter(function(k){var b=Z.by[k];return b.fixed&&Math.round(b.usd*100)!==Math.round(b.fx*100);}).map(function(k){return [k,Z.by[k].usd,Z.by[k].fx];}),
+                  fixedUnits:Object.keys(Z.by).filter(function(k){return Z.by[k].fixed&&Z.by[k].units!==null;}).length}:null;
+                var ht=d.querySelector('[data-lgvherotag="size"]');LV.heroCnt=ht?{r:ht.getAttribute('data-riskn'),f:ht.getAttribute('data-fixn'),txt:_t(ht)}:null;
+                // v91.83: give the EARLIEST-entry closed book trade a logged stop (stops[0].px) 10 points from its entry; it alone is risk-sized at
+                // $100,000 x 1 % / (10 pts x $ a point); every other trade stays FIXED. Then put the trade back as it was.
+                if(Z){var ks=Object.keys(Z.by).sort(function(a,b){return Z.by[a].e-Z.by[b].e||a-b;});
+                  var k0=ks.filter(function(k){var t=(w._paperTrades||[])[+k];return t&&t.open!==true&&isFinite(+t.entry_px)&&+t.entry_px>20;})[0];
+                  if(k0!=null){var T=w._paperTrades[+k0],hadS=Object.prototype.hasOwnProperty.call(T,'stops'),wasS=T.stops;
+                    T.stops=[{t:T.entryTime||0,px:+T.entry_px-10,reason:'probe'}];w.renderApp();var Z2=w._lgvP2;
+                    LV.stop={k:k0,ep:+T.entry_px,st:+T.entry_px-10,start:Z2.start,usd:Z2.by[k0].usd,units:Z2.by[k0].units,fixed:Z2.by[k0].fixed,risk:Z2.by[k0].risk,pu:Z2.by[k0].pu,fx:Z2.by[k0].fx,
+                      riskN:Z2.riskN,fixN:Z2.fixN,n:Z2.n,real:_hv().real,others:Object.keys(Z2.by).filter(function(k){return k!==k0&&!Z2.by[k].fixed;}).length,
+                      off:Object.keys(Z2.by).filter(function(k){var b=Z2.by[k];return b.fixed&&Math.round(b.usd*100)!==Math.round(b.fx*100);}).length};
+                    if(hadS)T.stops=wasS;else delete T.stops;w.renderApp();}}}
               _click('[data-lgvboard="p2"][data-lgvsize="fixed"]');LV.f=_hv();
               // pure maths on hand-computed fixtures (risk_sizing.size_chain in $; see the judge for the working)
-              var FX=[{e:1,x:2,pu:1000,r:500,k:'X'},{e:3,x:4,pu:-400,r:null,k:'X'},{e:5,x:6,pu:-600,r:null,k:'X'},{e:7,x:8,pu:50,r:20000,k:'Y'},{e:9,x:10,pu:10,r:50,k:'Y'}];
-              LV.fx=w.lgvSizeChain(FX,{pct:0.01,start:100000,step:0.1,cap:10,fb:w.lgvFallbacks(FX)});
+              var FX=[{e:1,x:2,pu:1000,fx:1000,r:500,k:'X'},{e:3,x:4,pu:-400,fx:-400,r:null,k:'X'},{e:5,x:6,pu:-600,fx:-600,r:null,k:'X'},{e:7,x:8,pu:50,fx:50,r:20000,k:'Y'},{e:9,x:10,pu:10,fx:10,r:50,k:'Y'}];
+              LV.fx=w.lgvSizeChain(FX,{pct:0.01,start:100000,step:0.1,cap:10});
               LV.fxSh=w.lgvUnits(30000,0.02,0.85,1,8235);
-              var SC=w.lgvScaleShadows([{id:'S',days:{'2026-01-02':{p:-200,n:2},'2026-01-03':{p:300,n:1}}}],{'2026-01-02':500},{pct:0.01,start:100000,step:0.1,cap:10});
-              LV.fxScale={days:SC[0].days,units:SC[0].units,risk:SC[0].risk};
+              var SC=w.lgvScaleShadows([{id:'S',stopRisk:100,days:{'2026-01-02':{p:-200,n:2},'2026-01-03':{p:300,n:1}}},{id:'F',days:{'2026-01-02':{p:-200,n:2}}}],{'2026-01-02':500},{pct:0.01,start:100000,step:0.1,cap:10});
+              LV.fxScale={days:SC[0].days,units:SC[0].units,risk:SC[0].risk,fixed:SC[0].fixed,F:{days:SC[1].days,risk:SC[1].risk,fixed:SC[1].fixed}};
+              LV.noMedian=['lgvMedianLoss','lgvFallbacks'].filter(function(k){return typeof w[k]==='function';});
               LS1.removeItem('el_lgv_view_p2');LS1.removeItem('el_lgv_size_p2');w._bkaOn_nt8=[];LS1.removeItem('el_bka_on_nt8');
               if(dly1==null)LS1.removeItem('el_lg_daily_p2');else LS1.setItem('el_lg_daily_p2',dly1);
               delete w._bookLegs;delete w._bookAsif;w.renderApp();
@@ -2309,6 +2324,9 @@ def run(alt_index=None, timeout=300):
         if len(set(sl)) != 8 or sl != (_bka.get('slotsStable') or []):
             fails.append('paper2 what-if colours: 8 legs of one book table do not get 8 stable, distinct slots (%r / %r)' % (sl, _bka.get('slotsStable')))
     # v91.81 LEDGER VIEWS: LIVE | WHAT-IF, stacked DAILY bars, FIXED | RISK n %
+    def start_real_delta(sp, dd):
+        # the hero realized moves by exactly (sized $ - fixed $) of the one stopped trade
+        return (sp.get('real') or 0) - (dd.get('real') or 0)
     _lv = ((cases.get('paper2') or {}).get('int') or {}).get('lgv') or {}
     _lgv_ok = False
     if _lv.get('err') or not _lv.get('a'):
@@ -2357,34 +2375,75 @@ def run(alt_index=None, timeout=300):
         tip = _lv.get('tip')
         if not isinstance(tip, list) or not tip or any(x[2] and x[1] != x[2] for x in tip):
             fails.append('paper2 stacked bars: the hover does not list each strategy in its colour (%r)' % (tip,))
-        if not e or e.get('size') != 'r1' or 'size' not in (e.get('tags') or []) or e.get('real') == dd.get('real'):
-            fails.append('paper2 sizing: RISK 1 %% did not re-price the hero or show its tag (%r)' % (e,))
+        if not e or e.get('size') != 'r1' or 'size' not in (e.get('tags') or []):
+            fails.append('paper2 sizing: RISK 1 %% did not show its tag (%r)' % (e,))
+        # v91.83: the fixture trades log no stop, so RISK 1 % must read exactly FIXED (no stop, fixed size)
+        if e and e.get('real') != dd.get('real'):
+            fails.append('paper2 sizing: with no stop on any trade RISK 1 %% must read exactly FIXED (%r -> %r)' % (dd.get('real'), e.get('real')))
+        sp = _lv.get('stop') or {}
+        if not sp:
+            fails.append('paper2 sizing: the stop row could not be set up')
+        else:
+            # HAND: risk a contract = 10 pts x $20 (NQ) or $50 (ES), units = floor(100,000 x 1 % / risk) in 0.1 steps, cap 10, $ = $ a contract x units
+            pv = round((sp.get('risk') or 0) / 10.0, 6)
+            want_u = min(math.floor(100000 * 0.01 / (10 * pv) * 10 + 1e-9) / 10.0, 10) if pv in (20, 50) else None
+            want_usd = round(sp['pu'] * want_u, 2) if want_u is not None else None
+            if (pv not in (20, 50) or sp.get('fixed') is not False or sp.get('units') != want_u or want_usd is None
+                    or abs((sp.get('usd') or 0) - want_usd) > 0.011 or sp.get('riskN') != 1 or sp.get('fixN') != sp.get('n') - 1
+                    or sp.get('others') != 0 or sp.get('off') or round(start_real_delta(sp, dd), 2) != round(want_usd - sp['fx'], 2)):
+                fails.append('paper2 sizing: the stopped trade is not the hand figure (%s NQ, $%s from $100,000 at $%s a point x 10): %r'
+                             % (want_u, want_usd, pv, sp))
+            _lv['_want'] = (want_u, want_usd, pv)
         sz = _lv.get('sz') or {}
-        if not sz or round(sz.get('start') or 0, 2) != 100000.0 or sz.get('storedSize') != 'r1' or (sz.get('taken') or 0) + (sz.get('skipped') or 0) != sz.get('n'):
-            fails.append('paper2 sizing: RISK 1 %% on ALL must start at $100,000, count every trade once and be remembered (%r)' % (sz,))
+        if (not sz or round(sz.get('start') or 0, 2) != 100000.0 or sz.get('storedSize') != 'r1'
+                or (sz.get('taken') or 0) + (sz.get('skipped') or 0) + (sz.get('fixN') or 0) != sz.get('n')
+                or (sz.get('riskN') or 0) + (sz.get('fixN') or 0) != sz.get('n')):
+            fails.append('paper2 sizing: RISK 1 %% on ALL must start at $100,000, count every trade once (risk-sized + fixed = n) and be remembered (%r)' % (sz,))
+        # v91.83: a trade with no stop is NOT sized - its $ is its FIXED as-traded $ exactly, with no units
+        if sz and (sz.get('fixedOff') or sz.get('fixedUnits')):
+            fails.append('paper2 sizing: a no-stop trade moved off its FIXED $ (%r, %r with units)' % (sz.get('fixedOff'), sz.get('fixedUnits')))
+        hc = _lv.get('heroCnt') or {}
+        if sz and (str(hc.get('r')) != str(sz.get('riskN')) or str(hc.get('f')) != str(sz.get('fixN')) or 'risk-sized' not in (hc.get('txt') or '')):
+            fails.append('paper2 sizing: the hero size tag does not count risk-sized vs fixed trades (%r vs %r)' % (hc, sz))
+        if _lv.get('noMedian'):
+            fails.append('paper2 sizing: the median-loss fallback is still on the page (%r)' % (_lv.get('noMedian'),))
+        try:
+            _src = open(os.path.join(os.path.dirname(os.path.abspath(__file__)), '..', 'index.html'), encoding='utf-8').read()
+            for _bad in ('lgvMedianLoss', 'lgvFallbacks', 'median loss used'):
+                if _bad in _src:
+                    fails.append('paper2 sizing: %r is still in index.html (no median fallback in the ledger sizing path)' % _bad)
+        except OSError:
+            pass
         for k in ('big', 'real', 'tiles', 'end'):
             if f.get(k) != dd.get(k):
                 fails.append('paper2 sizing: FIXED is not the account again (%s %r -> %r)' % (k, dd.get(k), f.get(k)))
-        # HAND-COMPUTED (risk_sizing.size_chain, $100,000 at 1 %, 0.1 steps, cap 10). X's median losing trade = median(400, 600) = $500 a unit.
-        #   A: 100,000 x 1 % / 500 = 2.0 units -> +2,000.  B (no stop): 102,000 -> 2.04 -> 2.0 -> -800.  C: 101,200 -> 2.024 -> 2.0 -> -1,200.
-        #   D: 100,000 / 20,000 risk = 0.05 -> 0 -> skipped.  E: 1,000 / 50 = 20 -> capped 10 -> +100.  Net +100.
+        # HAND-COMPUTED (risk_sizing.size_chain, stop-only, $100,000 at 1 %, 0.1 steps, cap 10). v91.83: no median fallback.
+        #   A (stop $500): 100,000 x 1 % / 500 = 2.0 units -> +2,000.  B, C (no stop): FIXED as traded -> -400, -600 (units null).
+        #   D: 101,000 x 1 % / 20,000 risk = 0.05 -> 0 -> skipped.  E: 1,010 / 50 = 20.2 -> capped 10 -> +100.  Net +1,100.
+        #   (v91.81 with the median-loss guess read B -800 and C -1,200.)
         fx = _lv.get('fx') or {}
-        if (fx.get('usd') != [2000, -800, -1200, 0, 100] or fx.get('units') != [2, 2, 2, 0, 10] or fx.get('taken') != 4
-                or fx.get('skipped') != 1 or fx.get('fbN') != 2):
-            fails.append('paper2 sizing: the RISK 1 %% fixture is not the hand figure (+2000 -800 -1200 skip +100): %r' % (fx,))
+        if (fx.get('usd') != [2000, -400, -600, 0, 100] or fx.get('units') != [2, None, None, 0, 10] or fx.get('taken') != 2
+                or fx.get('skipped') != 1 or fx.get('fixN') != 2 or fx.get('riskN') != 3 or fx.get('fixed') != [False, True, True, False, False]):
+            fails.append('paper2 sizing: the RISK 1 %% fixture is not the hand figure (+2000, fixed -400 -600, skip, +100): %r' % (fx,))
         if _lv.get('fxSh') != 705:
             fails.append('paper2 sizing: $30,000 x 2 %% / $0.85 a share must be 705 whole shares, got %r' % (_lv.get('fxSh'),))
-        # daily-only shadow: risk = median losing trade = 200 / 2 = $100. Day 1: 100,000 x 1 % / 100 = 10 -> -2,000 (+ live 500 -> 98,500).
-        # Day 2: 985 / 100 = 9.85 -> 9.8 -> +2,940
+        # daily-only shadows: S carries a real stop distance ($100 a unit), F carries none (stays FIXED, never guessed).
+        # Day 1: 100,000 x 1 % / 100 = 10 -> S -2,000; F -200 as published; live +500 -> 98,300. Day 2: 983 / 100 = 9.83 -> 9.8 -> S +2,940
         fs = _lv.get('fxScale') or {}
         dmap = {k: v.get('p') for k, v in (fs.get('days') or {}).items()}
-        if dmap != {'2026-01-02': -2000, '2026-01-03': 2940} or fs.get('risk') != 100 or (fs.get('units') or {}).get('2026-01-03') != 9.8:
+        if (dmap != {'2026-01-02': -2000, '2026-01-03': 2940} or fs.get('risk') != 100 or fs.get('fixed') is not False
+                or (fs.get('units') or {}).get('2026-01-03') != 9.8):
             fails.append('paper2 sizing: the daily shadow scaling fixture is off: %r' % (fs,))
+        ff = fs.get('F') or {}
+        if ff.get('fixed') is not True or ff.get('risk') is not None or {k: v.get('p') for k, v in (ff.get('days') or {}).items()} != {'2026-01-02': -200}:
+            fails.append('paper2 sizing: a shadow leg with no stop distance must stay FIXED as published: %r' % (ff,))
         _lgv_ok = True
     if _lgv_ok:
         say('PAPERPROBE ledger views (v91.81): LIVE = account with a shadow on, WHAT-IF adds +750 to hero / chart and tags tiles + calendar, '
-            '%d stacked days add up in line colours, RISK 1 %% re-prices from $100,000, FIXED = account; size_chain fixture +100 (2000 -800 -1200 skip +100)'
-            % len(_lv.get('stack') or []))
+            '%d stacked days add up in line colours, RISK 1 %% re-prices from $100,000 (%s risk-sized, %s fixed), FIXED = account; '
+            'size_chain fixture +1,100 (2000, fixed -400 -600, skip, +100), no median fallback; one trade given a 10-pt stop -> %s NQ, $%s (fixed $%s)'
+            % (len(_lv.get('stack') or []), (_lv.get('sz') or {}).get('riskN'), (_lv.get('sz') or {}).get('fixN'),
+               (_lv.get('stop') or {}).get('units'), (_lv.get('stop') or {}).get('usd'), (_lv.get('stop') or {}).get('fx')))
     # the capture-health line: one per instrument, low-delta day flagged in words (not colour alone)
     for nm in ('base', 'paper2'):
         r = cases.get(nm) or {}
