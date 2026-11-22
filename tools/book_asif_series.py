@@ -268,7 +268,7 @@ def leg_kind(book_leg, spec=None):
 # ── QQQ conversion for WEBULL PAPER (owner 11-21: "the configs, while tested on EL with NQ futures, should be webull/QQQ
 # compatible", v91.74) ──────────────────────────────────────────────────────────────────────────────────────────────
 # The Webull box (api/qqq_exec.py) trades QQQ SHARES, never contracts. Its sizing rule is size_mode "fixed" (the default,
-# api/qqq_exec.py:330; the else branch of _open_lot, ~:9530): a lot is cfg["shares"][exec_leg] shares (DEFAULT_CONFIG
+# api/qqq_exec.py:328; the else branch of _open_lot, ~:9530): a lot is cfg["shares"][exec_leg] shares (DEFAULT_CONFIG
 # :279 = 5 each; the box's config.json, C:/EdgeLog/qqq_exec/config.json, sets ORB / ENGUQ / NOISE = 10), one lot per
 # signal whatever the NQ quantity. Every fill pays slippage_per_share (:323, $0.01) against us on entry AND exit
 # (_apply_slippage, :8679). Its old NinjaTrader mirror priced QQQ as NQ / (NQ:QQQ ratio calibrated each day, :7617).
