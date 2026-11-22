@@ -81,7 +81,8 @@ def test_verify_chain_refuses_a_fold_miss_and_wf_net():
 
 
 def _payload(n):
-    tr = [{"e": 1700000000 + i, "x": 1700000300 + i, "s": 1, "p": 1.25, "z": 1, "r": 10.0, "f": 1} for i in range(n)]
+    tr = [{"e": 1700000000 + i, "x": 1700000300 + i, "s": 1, "p": 1.25, "z": 1, "r": 10.0, "f": 1, "d": "2024-01-02"}
+          for i in range(n)]
     daily = {"d": ["2024-01-02"], "p": [0.0], "n": [0]}
     return R.series_payload(1, {"strategy": "S.py", "instrument": "NQ", "timeframe": "5m", "cost_pts": 0.5},
                             20.0, tr, daily, {"d_usd": 0.0}, "replay", None, "cold", "levels")
@@ -90,7 +91,7 @@ def _payload(n):
 def test_payload_columnar_and_single_doc_when_small():
     p = _payload(5)
     assert p["n_trades"] == 5 and p["risk_n"] == 5 and p["risk_src"] == "levels"
-    assert set(p["trades"]) == {"e", "x", "s", "p", "z", "r", "f"} and len(p["trades"]["p"]) == 5
+    assert set(p["trades"]) == {"e", "x", "s", "p", "z", "r", "f", "d"} and len(p["trades"]["p"]) == 5
     docs = R.chunk_payload(p)
     assert [d for d, _ in docs] == ["wf"] and docs[0][1]["t_chunks"] == 0
 
@@ -105,3 +106,15 @@ def test_chunking_splits_trades_under_budget_and_round_trips():
     for _, body in docs[1:]:
         back += body["trades"]["e"]
     assert back == p["trades"]["e"]
+
+
+def test_add_sizing_four_columns_on_the_series_days():
+    tr = [{"e": 1, "x": 2, "s": 1, "p": 9.5, "z": 1, "r": 15.0, "f": 1, "d": "2024-01-02"},
+          {"e": 3, "x": 4, "s": -1, "p": -20.5, "z": 1, "r": 7.0, "f": 1, "d": "2024-01-03"}]
+    daily = R.daily_from_trades(["2024-01-02", "2024-01-03"], [190.0, -410.0], "2024-01-01", "2024-01-04")
+    p = R.series_payload(1, {"cost_pts": 0.5}, 20.0, tr, daily, {}, "replay", None, "cold", "levels")
+    R.add_sizing(p)
+    sz = p["sizing"]
+    assert set(sz["cols"]) == {"fixed", "r1", "r2", "r3"} and sz["risk_src"] == "trade"
+    assert len(sz["cols"]["r1"]["eq"]) == len(daily["d"]) and "d" not in sz["cols"]["r1"]
+    assert sz["cols"]["fixed"]["net"] == -220.0 and sz["cols"]["r1"]["net"] == 190.0 - 861.0

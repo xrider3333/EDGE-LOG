@@ -186,7 +186,7 @@ def verify_chain(matches, mult, wf_net_pts=None):
 
 def series_payload(run_id, plan, mult, trades, daily, verify, src, tape, arm, risk_src, engine_root=None):
     """The stored shape (see the module docstring)."""
-    cols = {k: [] for k in ("e", "x", "s", "p", "z", "r", "f")}
+    cols = {k: [] for k in ("e", "x", "s", "p", "z", "r", "f", "d")}
     for t in trades:
         for k in cols:
             cols[k].append(t.get(k))
@@ -198,6 +198,22 @@ def series_payload(run_id, plan, mult, trades, daily, verify, src, tape, arm, ri
             "from": daily["d"][0] if daily["d"] else None, "to": daily["d"][-1] if daily["d"] else None,
             "n_trades": len(trades), "risk_src": (risk_src if nz else None), "risk_n": nz,
             "verify": verify, "daily": daily, "trades": cols}
+
+
+def add_sizing(payload):
+    """payload["sizing"]: FIXED 1 / RISK 1 / 2 / 3 % read through augur_engine.risk_sizing (board 132), every column
+    on the series' own days (the curve is `eq`, one value per payload["daily"]["d"] entry)."""
+    from augur_engine.risk_sizing import sizing_table
+    tr = payload["trades"]
+    trades = [{"e": tr["e"][i], "x": tr["x"][i], "p": tr["p"][i], "z": tr["z"][i], "r": tr["r"][i], "d": tr["d"][i]}
+              for i in range(len(tr["p"]))]
+    days = payload["daily"]["d"]
+    tab = sizing_table(trades, days, point_value=payload["mult"], cost_pts=payload["cost_pts"])
+    for c in tab["cols"].values():
+        if c.pop("d", None) != days:
+            raise Refused("sizing curve days do not line up with the daily series")
+    payload["sizing"] = tab
+    return payload
 
 
 def chunk_payload(payload, budget=DOC_BUDGET):
@@ -409,7 +425,7 @@ def _trades_from(raw, index, eth, levels):
             out.append({"e": int(et.timestamp()), "x": int(xt.timestamp()), "s": side,
                         "p": round(float(t[2]), 6), "z": (round(float(sizes[k]), 6) if sizes else 1),
                         "r": (round(rk[k], 6) if rk and rk[k] is not None else None), "f": int(fb["fold"]),
-                        "_xd": session_day(xt, eth)})
+                        "d": session_day(xt, eth)})
     return out, ("levels" if any_risk else None)
 
 
@@ -521,15 +537,15 @@ def build_one(db, rid, tapes=None, write=False, engine_root=None, log=_say, publ
         tr = res["trades"]
         f0 = min(m["from"] for m in res["matches"] if m.get("from"))
         f1 = max(m["to"] for m in res["matches"] if m.get("to"))
-        days = [t["_xd"] for t in tr]
+        days = [t["d"] for t in tr]
         if days and (min(days) < f0 or max(days) > _next_bday(f1)):
             raise Refused("trade exit days %s..%s fall outside the fold span %s..%s" % (min(days), max(days), f0, f1))
         usd = [t["p"] * res["mult"] for t in tr]
         daily = daily_from_trades(days, usd, f0, f1)
-        for t in tr:
-            t.pop("_xd", None)
         payload = series_payload(rid, plan, res["mult"], tr, daily, info,
                                  "replay", res.get("tape"), res["arm"], res["risk_src"], engine_root)
+        if engine_root is None:
+            add_sizing(payload)          # a pinned child leaves this to its parent (today's risk_sizing)
     except Refused as e:
         log("  REFUSED: %s" % e)
         if write and publish_refused and db is not None:
@@ -575,9 +591,16 @@ def _pinned_child(db, rid, a, why_today):
         return "refused", why
     _say("  today's code refused; replaying #%s on the pinned checkout %s" % (rid, root))
     cmd = [sys.executable, "-u", os.path.abspath(__file__), str(rid), "--engine-root", root]
-    cmd += (["--write"] if a.write else []) + sum((["--tape", t] for t in (a.tape or [])), [])
-    r = subprocess.run(cmd)
+    cmd += sum((["--tape", t] for t in (a.tape or [])), [])
+    r = subprocess.run(cmd)              # the child writes the local json only (no --write)
     if r.returncode == 0:
+        p = os.path.join(OUT_DIR, "%s_wf.json" % rid)
+        payload = add_sizing(json.load(open(p, encoding="utf-8")))
+        with open(p + ".tmp", "w", encoding="utf-8") as f:
+            json.dump(payload, f, separators=(",", ":"))
+        os.replace(p + ".tmp", p)
+        if a.write:
+            publish(db, rid, chunk_payload(payload))
         return "built", None
     return "refused", "%s | pinned %s also refused" % (why_today, sha[:8])
 
@@ -590,6 +613,8 @@ def main(argv=None):
     ap.add_argument("--tape", action="append", help="replay on this tape csv only (repeatable)")
     ap.add_argument("--engine-root", help="a pinned checkout to import augur_engine / tools / strategies from")
     ap.add_argument("--skip-built", action="store_true", help="skip runs whose local json already exists")
+    ap.add_argument("--local", action="store_true",
+                    help="no replay: re-read the local <run>_wf.json, recompute the sizing block, (with --write) publish")
     ap.add_argument("--pin", action="store_true",
                     help="when today's code refuses a run, replay it again on a detached checkout of the commit the "
                          "run started on (C:/EdgeLog/replay_wt/<sha8>, created when missing) in a child process")
@@ -605,6 +630,21 @@ def main(argv=None):
         _say("page requests: %s" % (req or "none"))
         runs += [r for r in req if r not in runs]
     rc, settled = 0, []
+    if a.local:
+        for rid in runs:
+            p = os.path.join(OUT_DIR, "%s_wf.json" % rid)
+            if not os.path.exists(p):
+                _say("#%s: no local series %s" % (rid, p))
+                rc = 1
+                continue
+            payload = add_sizing(json.load(open(p, encoding="utf-8")))
+            with open(p + ".tmp", "w", encoding="utf-8") as f:
+                json.dump(payload, f, separators=(",", ":"))
+            os.replace(p + ".tmp", p)
+            _say("#%s: sizing recomputed from %s" % (rid, p))
+            if a.write:
+                publish(db, rid, chunk_payload(payload))
+        return rc
     for rid in runs:
         if a.skip_built and os.path.exists(os.path.join(OUT_DIR, "%s_wf.json" % rid)):
             _say("#%s: local series exists, skipped" % rid)
