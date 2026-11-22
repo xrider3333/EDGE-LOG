@@ -175,3 +175,13 @@ def test_fill_missing_stops_noop_when_every_trade_has_a_stop():
     p = _payload(3)
     assert p["risk_source"] == "stop"
     assert R.fill_missing_stops({}, p) is None
+
+
+def test_chunking_respects_the_index_entry_cap():
+    # distinct stops per trade cost Firestore an index entry each: a small-in-bytes doc must still split
+    p = _payload(3000)
+    p["trades"]["r"] = [5.0 + i * 0.01 for i in range(3000)]
+    assert R.index_entries(p) > 5_000
+    docs = R.chunk_payload(p, entry_budget=5_000)
+    assert len(docs) >= 3 and all(R.index_entries(b) <= 5_000 for _, b in docs[1:])
+    assert sum(len(b["trades"]["r"]) for _, b in docs[1:]) == 3000

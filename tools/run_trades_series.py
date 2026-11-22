@@ -93,6 +93,8 @@ REPLAY_WT = r"C:/EdgeLog/replay_wt"   # pinned detached checkouts, one per commi
 RUN_TZ = "-07:00"                 # run docs stamp the runner PC's local time (MST, no DST)
 USD_TOL = 1.0                 # chain total vs the doc's fold sum, dollars
 DOC_BUDGET = 900_000          # bytes of JSON per Firestore doc (cap 1 MiB)
+ENTRY_BUDGET = 15_000         # index_entries() per doc: Firestore caps a doc at 40,000 index entries and counts about
+                              # twice this estimate (#422 at 20.4k estimated was refused, at 17.6k it was taken)
 ETH_ROLL_H = 18               # ET hour an ETH session rolls to the next day
 
 
@@ -273,17 +275,28 @@ def add_sizing(payload):
     return payload
 
 
-def chunk_payload(payload, budget=DOC_BUDGET):
-    """-> [(doc_id, dict)]: 'wf' alone when it fits, else 'wf' (everything but the trades, plus t_chunks) and
-    wf_t1..wf_tk each holding a contiguous slice of the trade columns."""
+def index_entries(o):
+    """Rough Firestore index-entry count of a doc: 2 per scalar, distinct values + 2 per array (array-contains
+    indexes each DISTINCT element - a column of real stops costs ~1 entry a trade where an all-null one cost 1)."""
+    if isinstance(o, dict):
+        return sum(index_entries(v) for v in o.values())
+    if isinstance(o, list):
+        return len(set(json.dumps(x, sort_keys=True, default=str) for x in o)) + 2
+    return 2
+
+
+def chunk_payload(payload, budget=DOC_BUDGET, entry_budget=ENTRY_BUDGET):
+    """-> [(doc_id, dict)]: 'wf' alone when it fits (bytes AND index entries), else 'wf' (everything but the trades,
+    plus t_chunks) and wf_t1..wf_tk each holding a contiguous slice of the trade columns."""
     size = len(json.dumps(payload, separators=(",", ":"), default=str))
-    if size <= budget:
+    if size <= budget and index_entries(payload) <= entry_budget:
         return [("wf", dict(payload, t_chunks=0, bytes=size))]
     tr = payload["trades"]
     n = len(tr["p"])
     head = {k: v for k, v in payload.items() if k != "trades"}
     per_trade = max(1, (size - len(json.dumps(head, default=str))) // max(1, n))
-    step = max(1, int(budget * 0.9) // per_trade)
+    per_entry = max(1.0, index_entries(tr) / max(1, n))
+    step = max(1, min(int(budget * 0.9) // per_trade, int(entry_budget * 0.9 / per_entry)))
     chunks = []
     for i, a in enumerate(range(0, n, step), 1):
         chunks.append(("wf_t%d" % i, {"run": payload["run"], "i": i, "a": a,
