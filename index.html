@@ -1777,6 +1777,25 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .hm-mode{display:flex;border:1px solid var(--border);border-radius:8px;overflow:hidden;flex:none}
 .hm-mode button{background:transparent;border:none;padding:7px 14px;font-size:10px;letter-spacing:1px;color:var(--text5);font-family:'JetBrains Mono',monospace;cursor:pointer}
 .hm-mode button.active{background:var(--bg1);color:var(--text)}
+/* owner 11-22 board 131/132: past-run WALK-FORWARD P&L panel (CURVE | DAILY, SIZING table) */
+.rts-panel{margin-top:10px;padding:10px 4px 6px;border-top:1px solid color-mix(in srgb,var(--border) 60%,transparent)}
+.rts-hd{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin:0 0 6px}
+.rts-ttl{font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px}
+.rts-ctl{display:flex;gap:8px;flex-wrap:wrap;margin-left:auto}
+.rts-ctl .hm-mode button{padding:5px 10px}
+.rts-chart{min-height:120px;overflow:hidden}
+.rts-msg{font-size:11px;color:var(--text4);padding:8px 2px;line-height:1.5}
+.rts-req{margin-left:6px;background:transparent;border:1px solid var(--border);border-radius:6px;color:var(--text2);font:inherit;font-size:10px;letter-spacing:1px;padding:4px 10px;cursor:pointer}
+.rts-v{font-size:10px;color:var(--text5);margin:4px 2px 8px}
+.rts-kpi{width:100%;border-collapse:collapse;font-family:'JetBrains Mono',monospace;font-size:11px}
+.rts-kpi th,.rts-kpi td{padding:3px 6px;text-align:right;border-bottom:1px solid color-mix(in srgb,var(--border) 45%,transparent);white-space:nowrap}
+.rts-kpi th{font-size:9px;letter-spacing:.5px;color:var(--text3);font-weight:600}
+.rts-kpi td:first-child,.rts-kpi th:first-child{text-align:left;color:var(--text4);font-size:9px;letter-spacing:.5px}
+.rts-kpi .rts-sel{background:color-mix(in srgb,var(--bg1) 80%,transparent);color:var(--text)}
+.rts-kpi .rts-warn{color:var(--attn-amber,#ffb020)}
+.rts-warnline{margin:6px 2px 0;font-size:11px;color:var(--attn-amber,#ffb020)}
+.rts-note{margin:6px 2px 0;font-size:10px;color:var(--text5);line-height:1.5}
+@media (max-width:600px){.rts-panel{overflow-x:auto}.rts-kpi{font-size:10px}}
 .hm-wrap.lg-flow .hm-chart-wrap{margin:8px 0 0}
 /* LEDGER redesign step 5: the own folds come BEFORE the trade list now, so the gap belongs above the list */
 .hm-own+#hm-feed-container{margin-top:18px}
@@ -2066,7 +2085,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.79';
+const VERSION='91.80';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2087,6 +2106,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.80',date:'2026-11-22',notes:['RESULTS (a past run, section 1A): a WALK-FORWARD P&L panel under the champion chart (owner items 131 and 132). CURVE or DAILY: the run walk-forward chain as a running total, or one bar per day plus the running total (the ledger daily chart). SIZING: FIXED 1 contract or RISK 1 / 2 / 3 % of a $30k account that compounds, contracts in micro steps up to 10; the choice redraws the chart and a side-by-side table shows all four - net, end equity, DD % from peak, ROC at $30k, DD5, Sortino, trades, skipped trades, most contracts - with an amber warning on 3 % when the account falls below half its start or more than 35 % from a high. The numbers come from a replay of every fold that has to match the run to the dollar (tools/run_trades_series.py); a run without one shows BUILD DAILY SERIES, which asks the desktop to build it. Nothing is estimated on the page.']},
 {v:'91.79',date:'2026-11-22',notes:['NT8 PAPER and WEBULL PAPER what-if (owner: the what if colors are hard to delineate for the strategies i added): every switched-on shadow leg now draws in its own colour from a fixed palette of 8 (coral, magenta, cyan, lime, pink, lemon, periwinkle, tan - clear of the ORB, ENGU-Q, NOISE and TTM colours; a darker set on PAPER, greys with a dash pattern each under MONO). A leg keeps its colour across toggles and reloads (set by its id). Shadow lines stay dashed and a little heavier than the strategy lines; the what-if total is one heavy dash-dot line','The leg row in the Books panel shows a swatch in the leg colour, the chart legend marks each shadow leg with a shadow tag, and the hover readout lists each shadow leg dollars in its colour. The box forward shadow lines on WEBULL PAPER take their book leg colour too','What-if KPIs (owner: id like to be able to compare the kpis): with a shadow leg on, a table under the chart compares LIVE, WHAT-IF (live plus the shadow legs on) and each shadow leg on the chart range - Net, %, Trades, Win rate, Profit factor, Max DD, Max DD % (fall from the high), ROC at 30k (annualised, short range marked), Sortino (daily, annualised), DD5 (fewer than 5 episodes says n). A shadow leg has daily figures only, so its win rate and PF read per day. Up and down triangles mark better or worse than LIVE. The table scrolls sideways in its own box on a phone']},
 {v:'91.77',date:'2026-11-21',notes:['WEBULL PAPER sidebar tidy (owner: clean this up), like the NT8 status: ONE status line under the hero - a dot, closed or open, feed OK, box 1 s and the number of checks - with a small refresh icon on the same line. A tap on the line opens the amber checks, ratio not used, excluding ENGU-Q, DIP and the Webull fills caveat that sat behind the old details fold; the choice is remembered per browser. The stray Status label, the lone details toggle and the Refresh row are gone','FILLS BEHIND BACKTEST is now a small amber chip under the status line (fills -5.9c NOISE #382); the hover keeps the full words. Red alarm chips (breaker, kill, feed stale, parity mismatch, box silent) stay in plain sight under the line','Strategies list: with no book of the table live, the BOOK header and its two lines are one quiet line, Live: ORB #314 + NOISE #382; the not one of the 24 books note is its hover','NT8 PAPER percent: the base is now a fixed $100,000 paper account (the NinjaTrader Sim101 default, one constant NT8_PCT_BASE_USD the owner can change) plus the realized before the range, so ALL reads realized / $100,000 (about +62 pct, not +111 pct off the Sim101 cash, which never held the backfilled book trades). Today uses the realized before today. The hero today and realized percent, the chart percent axis and its hover all use it, and the percent shows even when NinjaTrader never reported cash (no more % n/a). WEBULL and REAL bases are unchanged']},
 {v:'91.75',date:'2026-11-21',notes:['WEBULL PAPER books panel in QQQ (owner: the configs tested on EL with NQ futures should be webull/QQQ compatible): every futures leg as-if is now shown as the Webull box would trade it - its fixed QQQ lot (10 shares for ORB, NOISE and ENGU-Q legs, a leg the box does not trade = the box 1-NQ lot x its book size, 3 ES = 30), each trade as gross NQ points x QQQ/NQ close that day, less one cent a share each side. ES legs map to QQQ through the QQQ-on-ES daily beta (the box trades no SPY). Stock legs stay in dollars. Each leg row shows ~N QQQ sh and its hover gives the rule; the what-if total uses the QQQ figures. NT8 PAPER keeps NQ dollars.','tools/book_asif_series.py writes a qqq block per leg (d, p, n, net, shares, rule) next to the NQ series in meta/book_asif; a leg that cannot convert says why.']},
@@ -4820,6 +4840,87 @@ function ledgerDailyChart(wrapEl,pts,o){
   draw();
   if(window.ResizeObserver){wrapEl._lgdRO=new ResizeObserver(()=>{const w=Math.round(wrapEl.clientWidth||0);if(w&&Math.abs(w-(wrapEl._lgdW||0))>2&&wrapEl.querySelector('[data-'+A+'-strip]'))draw();});wrapEl._lgdRO.observe(wrapEl);}
 }
+// owner 11-22 (board 131 + 132): the PAST RUN's walk-forward P&L as CURVE | DAILY, and a SIZING read - FIXED 1 contract vs RISK 1 / 2 / 3 %
+//   of a compounding $30,000 account (contracts = floor(equity x pct / (stop pts x point value)) in micro steps, cap 10). Every figure is
+//   READ from users/<uid>/runs/<id>/series/wf, written by tools/run_trades_series.py only after the replayed chain matched the run doc to
+//   the dollar (sizing: augur_engine/risk_sizing.py). Nothing is computed or invented here: a run with no series says so and can ask the
+//   desktop for one (meta/run_series_req, the book_asif_req pattern).
+window._rtsCache=window._rtsCache||{};
+const RTS_COLS=[['fixed','FIXED 1'],['r1','RISK 1 %'],['r2','RISK 2 %'],['r3','RISK 3 %']];
+const RTS_DD_WARN=35;
+function _rtsPref(k,dflt){try{const v=localStorage.getItem('el_rts_'+k);return v==null?dflt:v;}catch(e){return dflt;}}
+function _rtsSetPref(k,v){try{localStorage.setItem('el_rts_'+k,v);}catch(e){}}
+function _rtsEsc(s){return String(s==null?'':s).replace(/[&<>"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]));}
+function _rtsUsd(v,sg){if(v==null||!isFinite(+v))return '-';v=+v;return (v<0?'-':(sg&&v>0?'+':''))+'$'+Math.abs(v).toLocaleString(undefined,{maximumFractionDigits:0});}
+function _rtsNum(v,dp){return (v==null||!isFinite(+v))?'-':(+v).toFixed(dp);}
+function rtsHasWf(d){return !!(d&&d.id!=null&&d.validate&&d.validate.wf_ran!==false&&Array.isArray(d.top10_results)&&d.top10_results.some(f=>f&&f.fold!=null)
+  &&!(d.book&&Array.isArray(d.book.legs)));}
+function rtsLoad(id,force){const C=window._rtsCache;id=String(id);if(C[id]&&!force&&C[id].st!=='err')return;
+  const asked=C[id]&&C[id].asked;C[id]={st:'loading',asked:asked};
+  const u=(typeof auth!=='undefined'&&auth&&auth.currentUser&&auth.currentUser.uid)||null;
+  if(!u||typeof db==='undefined'||!db){C[id]={st:'err',why:'not signed in'};rtsFill(id);return;}
+  const col=db.collection('users').doc(u).collection('runs').doc(id).collection('series');
+  Promise.all([col.doc('wf').get(),col.doc('wf_status').get()]).then(([a,b])=>{
+    C[id]=(a&&a.exists)?{st:'ok',S:a.data()}:{st:'none',status:(b&&b.exists)?b.data():null,asked:asked};rtsFill(id);
+  }).catch(e=>{C[id]={st:'err',why:(e&&e.message)||String(e)};rtsFill(id);});}
+function rtsFill(id){document.querySelectorAll('[data-rts-run="'+id+'"]').forEach(el=>{el.innerHTML=rtsInner(id);rtsDraw(el,id);});}
+function runSeriesPanelHtml(d){if(!rtsHasWf(d))return '';const id=String(d.id);
+  if(!window._rtsCache[id])setTimeout(()=>rtsLoad(id),0);
+  else setTimeout(()=>document.querySelectorAll('[data-rts-run="'+id+'"]').forEach(el=>rtsDraw(el,id)),0);
+  return '<div class="rts-panel" data-rts-run="'+id+'">'+rtsInner(id)+'</div>';}
+function _rtsHead(right){return '<div class="rts-hd"><span class="rts-ttl">WALK-FORWARD P&amp;L</span>'+(right||'')+'</div>';}
+function rtsInner(id){const c=window._rtsCache[String(id)];
+  if(!c||c.st==='loading')return _rtsHead()+'<div class="rts-msg">Reading the daily series ...</div>';
+  if(c.st==='err')return _rtsHead()+'<div class="rts-msg">Could not read the daily series: '+_rtsEsc(c.why)+'</div>';
+  if(c.st==='none'){const s=c.status;
+    if(s&&s.state==='refused')return _rtsHead()+'<div class="rts-msg">No daily series. The replay did not reproduce this run, so nothing was built: '+_rtsEsc(s.why)+'</div>';
+    return _rtsHead()+'<div class="rts-msg">No daily series yet. It is replayed fold by fold and kept only when it matches this run to the dollar.'
+      +(c.asked?' <b>Asked</b> - the desktop builds it on its next pass.':' <button type="button" class="rts-req" data-rts-req="'+_rtsEsc(id)+'">BUILD DAILY SERIES</button>')+'</div>';}
+  const S=c.S,Z=S.sizing,mode=_rtsPref('mode','curve')==='daily'?'daily':'curve';
+  let sel=_rtsPref('size','fixed');if(!Z||!Z.cols||!Z.cols[sel])sel='fixed';
+  const inst=_rtsEsc(S.instrument||'');
+  const tg=(k,v,lab,on,tip)=>'<button type="button" data-rts-'+k+'="'+v+'" data-rts-id="'+_rtsEsc(id)+'" class="'+(on?'active':'')+'" title="'+tip+'">'+lab+'</button>';
+  const modeH='<div class="hm-mode">'+tg('mode','curve','CURVE',mode==='curve','the running total')+tg('mode','daily','DAILY',mode==='daily','one bar per day plus the running total')+'</div>';
+  const sizeH=(Z&&Z.cols)?'<div class="hm-mode rts-size">'+RTS_COLS.map(([k,l])=>tg('size',k,k==='fixed'?('FIXED 1 '+inst):l,sel===k,k==='fixed'?'one contract every trade':('risk '+k.slice(1)+' % of the account on each trade'))).join('')+'</div>':'';
+  const v=S.verify||{};
+  const vline='Replayed '+(S.n_trades||0)+' trades, every fold matched this run ('+_rtsUsd(v.replay_usd)+' vs '+_rtsUsd(v.doc_usd)+' at 1 contract)'+(S.from?' &middot; '+_rtsEsc(S.from)+' to '+_rtsEsc(S.to):'');
+  let tab='';
+  if(Z&&Z.cols){const st=Z.start||30000;
+    const warn=k=>{const x=Z.cols[k];return k==='r3'&&!!x&&(!!x.ruin||(x.dd_pct!=null&&+x.dd_pct>RTS_DD_WARN));};
+    const rows=[['NET',x=>_rtsUsd(x.net,1)],['END EQUITY',x=>_rtsUsd(x.end_equity)],['DD % FROM PEAK',x=>_rtsNum(x.dd_pct,1)+(x.dd_pct!=null?'%':'')],
+      ['ROC @ $30K',x=>_rtsNum(x.roc30,1)],['DD5',x=>_rtsUsd(x.dd5)],['SORTINO',x=>_rtsNum(x.sortino,2)],['TRADES',x=>String(x.trades)],
+      ['SKIPPED',x=>String(x.skipped)],['MAX CONTRACTS',x=>_rtsNum(x.max_contracts,1)]];
+    const cls=k=>(k===sel?'rts-sel':'')+(warn(k)?' rts-warn':'');
+    tab='<table class="rts-kpi"><thead><tr><th></th>'+RTS_COLS.map(([k,l])=>'<th class="'+cls(k)+'" data-rts-col="'+k+'">'+(k==='fixed'?('FIXED 1 '+inst):l)+(warn(k)?' &#9888;':'')+'</th>').join('')+'</tr></thead><tbody>'
+      +rows.map(([n,f])=>'<tr><td>'+n+'</td>'+RTS_COLS.map(([k])=>{const x=Z.cols[k];return '<td class="'+cls(k)+'">'+(x?f(x):'-')+'</td>';}).join('')+'</tr>').join('')+'</tbody></table>';
+    const r3=Z.cols.r3;
+    if(r3&&warn('r3')){const parts=[];if(r3.ruin)parts.push('the account fell below half its $'+(st/1000).toFixed(0)+'k start (low '+_rtsUsd(r3.min_equity)+')');
+      if(r3.dd_pct!=null&&+r3.dd_pct>RTS_DD_WARN)parts.push('a '+_rtsNum(r3.dd_pct,1)+'% fall from a high, over '+RTS_DD_WARN+'%');
+      tab+='<div class="rts-warnline" data-rts-warn="r3">&#9888; RISK 3 %: '+parts.join('; ')+'.</div>';}
+    const rk=Z.risk_src==='trade'?'each trade risks its own initial stop':(Z.risk_src==='mixed'?'trades without a stop use the median losing trade ('+_rtsNum(Z.fallback_risk_pts,1)+' pts) as the risk':'<b>this strategy reports no stop</b>, so every trade uses the median losing trade ('+_rtsNum(Z.fallback_risk_pts,1)+' pts) as the risk');
+    tab+='<div class="rts-note">$'+(st/1000).toFixed(0)+'k start, compounding on closed trades; contracts in 0.1 steps (micros), at most '+(Z.max_contracts_cap||10)+'; '+rk+'. A trade that rounds to 0 contracts is skipped. DD % is the fall from the equity high on this account. Entries and exits are the run&rsquo;s own.</div>';}
+  else tab='<div class="rts-note">This series was built before the sizing read; the next desktop pass adds it.</div>';
+  return _rtsHead('<span class="rts-ctl">'+modeH+sizeH+'</span>')+'<div class="rts-chart" data-rts-chart="'+_rtsEsc(id)+'"></div><div class="rts-v">'+vline+'</div>'+tab;}
+function rtsDraw(el,id){const c=window._rtsCache[String(id)];if(!c||c.st!=='ok')return;const wrap=el.querySelector('[data-rts-chart]');if(!wrap)return;
+  const S=c.S,Z=S.sizing,D=(S.daily&&S.daily.d)||[];if(!D.length){wrap.innerHTML='<div class="rts-msg">No days in the series.</div>';return;}
+  let sel=_rtsPref('size','fixed');if(!Z||!Z.cols||!Z.cols[sel])sel='fixed';
+  let cum;if(Z&&Z.cols&&Z.cols[sel]&&Array.isArray(Z.cols[sel].eq)&&Z.cols[sel].eq.length===D.length){const st=Z.start||30000;cum=Z.cols[sel].eq.map(v=>+v-st);}
+  else{let s=0;cum=(S.daily.p||[]).map(v=>(s+=(+v||0)));}
+  if(_rtsPref('mode','curve')==='daily'){const pts=D.map((d,i)=>({date:d,v:cum[i]}));
+    if(cum[0]!==0){const p=new Date(D[0]+'T12:00:00Z');p.setUTCDate(p.getUTCDate()-1);pts.unshift({date:p.toISOString().slice(0,10),v:0});}
+    try{ledgerDailyChart(wrap,pts,{id:'rts'+id,attr:'rtsdaily',height:300,aria:'walk-forward daily P&L and running total'});}catch(e){wrap.innerHTML='<div class="rts-msg">Chart failed: '+_rtsEsc(e&&e.message)+'</div>';}}
+  else{if(wrap._lgdRO){try{wrap._lgdRO.disconnect();}catch(e){}wrap._lgdRO=null;}
+    const data=cum.map((y,i)=>({x:i,y:+y.toFixed(2)}));
+    wrap.innerHTML=svgXY(data,(cum[cum.length-1]>=0?'var(--green)':'var(--red)'),i=>String(D[Math.max(0,Math.min(D.length-1,Math.round(i)))]||'').slice(0,7),940,280).replace(' height="280"','');}}
+document.addEventListener('click',e=>{const t=e.target&&e.target.closest&&e.target.closest('[data-rts-mode],[data-rts-size],[data-rts-req]');if(!t)return;
+  if(t.hasAttribute('data-rts-req')){const id=t.getAttribute('data-rts-req');const u=(typeof auth!=='undefined'&&auth&&auth.currentUser&&auth.currentUser.uid)||null;
+    const c=window._rtsCache[id]||{};c.asked=true;window._rtsCache[id]=c;
+    if(u&&typeof db!=='undefined'&&db){const n=Number(id);db.collection('users').doc(u).collection('meta').doc('run_series_req').set({runs:firebase.firestore.FieldValue.arrayUnion(isFinite(n)?n:id),ts:new Date().toISOString(),by:'page'},{merge:true}).catch(er=>console.warn('run_series_req write failed:',er&&er.message));}
+    rtsFill(id);return;}
+  const id=t.getAttribute('data-rts-id');
+  if(t.hasAttribute('data-rts-mode'))_rtsSetPref('mode',t.getAttribute('data-rts-mode'));
+  if(t.hasAttribute('data-rts-size'))_rtsSetPref('size',t.getAttribute('data-rts-size'));
+  if(id)rtsFill(id);});
 // calm-down 9 (owner 11-18): caveat hatch hidden by default; a small CAVEATS toggle on the chart shows it, remembered per viewer
 function ledgerCavOn(){try{return localStorage.getItem('el_lg_cav')==='1';}catch(e){return false;}}
 function ledgerCavSet(on){try{localStorage.setItem('el_lg_cav',on?'1':'0');}catch(e){}}
@@ -30614,6 +30715,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           +'<div style="display:flex;align-items:center;gap:10px;margin:0 0 4px;flex-wrap:wrap"><span style="font-weight:700;font-size:9px;color:var(--text2);letter-spacing:.5px;display:none">'+(_eqcInfo=_infoIc(_ipAB('The champion config equity curve, chronological: in-sample + walk-forward first (green), then the purple LOCKBOX holdout the optimizer never saw. The labels inside the top of the chart mark its three sections: IS = in-sample, WF = walk-forward, LB = lockbox (with its held/fail mark). Blue bands = the walk-forward test windows; pink segments = high-water marks; the red pane below = underwater drawdown on the same time axis. Double-click expands with a live crosshair and trade blotter. GRAPH DETAIL thins only the drawn line — never the totals.','best config · 1 contract · whole run')))+'</span><span style="display:flex;align-items:center;gap:6px;font-size:8px;color:var(--text5)"><span style="letter-spacing:.5px">GRAPH DETAIL</span><input type="range" class="fillrng" min="5" max="100" step="5" value="'+Math.round((window._eqDetail||1)*100)+'" oninput="this.nextElementSibling.textContent=this.value+\'%\';this.style.background=\'linear-gradient(90deg,var(--blue) \'+((this.value-5)/95*100)+\'%,var(--bg1) 0)\'" onchange="window._eqDetail=+this.value/100;renderApp()" style="width:120px;background:linear-gradient(90deg,var(--blue) '+(((Math.round((window._eqDetail||1)*100))-5)/95*100).toFixed(1)+'%,var(--bg1) 0)"><span>'+Math.round((window._eqDetail||1)*100)+'%</span></span></div>'
           +'<div id="res-step-8" style="scroll-margin-top:64px"'+_eqxA+'>'+championEquityHtml(_vLbWarm(d),mlt,d.top10_results,1,_wfOosOf(d,mlt))+'</div>';
         _eqRest=''
+          +runSeriesPanelHtml(d)   // owner 11-22 board 131/132: WF P&L CURVE | DAILY + SIZING (series/wf)
           +((mo=>mo?'<div style="margin-top:9px">'+mo+'</div>':'')(monthlyPnlHtml(d.regime,mlt,_V)))
           +((wf=>wf?'<div style="margin-top:4px"><div id="res-step-5" style="scroll-margin-top:64px"></div>'+wf+'</div>':'')(isOosFoldsHtml(d,mlt)))
           +((st=>st?'<div style="margin-top:5px">'+st+'</div>':'')(stressPanelHtml(d.stress,mlt,'1D',_dscope)));

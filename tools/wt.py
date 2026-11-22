@@ -676,6 +676,12 @@ GATES = [
          prefix='SELFTEST:', args=('--selftest',), slow=True,
          cover=('tools/report_render_probe.py', 'tools/fixtures/run_report.json',
                 'tools/kill_on_exit.py')),
+    # RUN SERIES GATE (2026-11-22, board 131 + 132): the report's WALK-FORWARD P&L panel - CURVE |
+    # DAILY, the FIXED / RISK 1-2-3 % sizing table and its amber 3 % warning, BUILD DAILY SERIES -
+    # rendered on run_report.json with a series built by tools/run_trades_series + risk_sizing.
+    Gate('rtsprobe', 'past-run WF P&L panel render gate', 'tools/run_series_render_probe.py', 'index',
+         'past-run WF P&L panel render gate FAILED - not pushing', '(run series probe produced no output)',
+         prefix='RTSPROBE:'),
 
     # AXES GATE (2026-09-07): the 1E ALL-CONFIGS axis set and the 1A CONFIG FUNNEL's line
     # procedure. matrix_axes_render_probe.py had caught a real regression (045de82, v73.520) - the

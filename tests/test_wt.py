@@ -87,6 +87,7 @@ def test_every_gate_ship_has_run_is_still_in_the_table_in_the_same_order():
         ('report', 'run-report render gate FAILED - not pushing'),
         ('report-selftest', 'run-report gate SELF-TEST FAILED - the gate no longer catches a '
                             'known-bad build - not pushing'),
+        ('rtsprobe', 'past-run WF P&L panel render gate FAILED - not pushing'),   # 2026-11-22 board 131 + 132
         ('axes', '1E axes / 1A funnel render gate FAILED - not pushing'),
         ('cmp2', 'COMPARE beta (cmp2) render gate FAILED - not pushing'),
         ('pc', 'PC page render gate FAILED - not pushing'),
