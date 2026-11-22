@@ -1710,8 +1710,8 @@ MUTANTS = [
      "const trades=(QE.trades_all||[]).filter(t=>true);",
      "a shadow row enters the hero, the chart, the stat tiles, More stats and the trade list"),
     ('pf-line-swapped',
-     "ledgerShortMoney(s.grossWin).slice(1)+' won &middot; '+ledgerShortMoney(s.grossLoss).slice(1)+' lost'",
-     "ledgerShortMoney(s.grossLoss).slice(1)+' won &middot; '+ledgerShortMoney(s.grossWin).slice(1)+' lost'",
+     "(sh?(ledgerShortMoney(s.grossWin).slice(1)+' / '+ledgerShortMoney(s.grossLoss).slice(1))",
+     "(sh?(ledgerShortMoney(s.grossLoss).slice(1)+' / '+ledgerShortMoney(s.grossWin).slice(1))",
      "the PROFIT FACTOR line swaps what was won and what was lost"),
     ('best-trade-is-worst',
      "best=Math.max.apply(null,pv)",
@@ -5604,9 +5604,10 @@ def expected_stats(trades, cutoff=None):
         return {'net': ('--', ''), 'winrate': ('--', ''), 'pf': ('--', ''), 'maxdd': ('--', '')}
     wr = ('%d%%' % _js_round(w / (w + l) * 100)) if (w + l) else '--'
     pf = '--' if (not gw and not gl) else ('%.2f' % (gw / gl) if gl > 0 else 'no losses')
-    return {'net': (signed(net), '%d trade%s · %d day%s' % (n, '' if n == 1 else 's', days, '' if days == 1 else 's')),
-            'winrate': (wr, '%d W · %d L' % (w, l) + (' · %d even' % f if f else '')),
-            'pf': (pf, ('%s won · %s lost' % (short_money(gw), short_money(gl))) if (gw or gl) else ''),
+    # v91.72 (owner 11-21 'no ellipsis'): the paper tiles' short sub-lines; the long words ride in each tile's hover
+    return {'net': (signed(net), '%d tr · %d d' % (n, days)),
+            'winrate': (wr, '%dW %dL' % (w, l) + (' %dE' % f if f else '')),
+            'pf': (pf, ('%s / %s' % (short_money(gw), short_money(gl))) if (gw or gl) else ''),
             'maxdd': (money(dd), '')}
 
 
@@ -8454,8 +8455,8 @@ def _judge_tiles(tag, r, want, fails):
     # an empty range has no money and no count: both read as the house's no-figure dash / blank sub-line
     if not re.match(r'^([+-]\$[\d,]+\.\d\d|--)$', got['net'][0]) or (got['net'][0] == '--') != (want['net'][0] == '--'):
         fails.append('%s: NET P&L reads %r, not a signed dollar amount' % (tag, got['net'][0]))
-    if got['net'][1] != want['net'][1] and not re.match(r'^\d+ trades? \u00b7 \d+ days?$', got['net'][1]):
-        fails.append("%s: the Net P&L tile's sub-line reads %r, want the trade count and the day count ('47 trades . 12 days')" % (tag, got['net'][1]))
+    if got['net'][1] != want['net'][1] and not re.match(r'^\d+ tr \u00b7 \d+ d$', got['net'][1]):
+        fails.append("%s: the Net P&L tile's sub-line reads %r, want the trade count and the day count ('47 tr . 12 d')" % (tag, got['net'][1]))
     if got['maxdd'][1]:
         fails.append('%s: the Max drawdown tile still carries the sub-line %r - the label says drawdown (redesign step 4)' % (tag, got['maxdd'][1]))
     for k in STAT_KEYS:
@@ -9002,7 +9003,7 @@ def _judge(data, fixture):
         _judge_tl_frame(tag, r.get('tl'), doc, cut, fails, vp=vp, theme=sc_['theme'], top_check=not (sc_['more'] or sc_.get('list_open')), today=sc_['today'],
                         none_text=('No trades \u00b7 %d more outside this range' % len(tl_range_rows(doc))) if sc_['empty'] else None)
         if nm == '$0 trade':
-            if '1 even' not in (want['winrate'][1] or ''):
+            if ' 1E' not in (want['winrate'][1] or ''):   # v91.72: the short win rate line ('14W 32L 1E')
                 fails.append('%s: the probe\'s $0 fixture trade did not land (%r)' % (tag, want['winrate'][1]))
             cw = month_won(tr, cm)
             if r.get('calWon') != cw:

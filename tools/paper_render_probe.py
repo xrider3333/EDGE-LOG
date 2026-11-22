@@ -1121,7 +1121,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
       var CT={kind:'[data-pkind]',fam:'[data-pfam]',sort:'[data-lsort]',base:'[data-pbase]'},ins={},outs={};
       for(var ck in CT){ins[ck]=cnt(fy,CT[ck]);outs[ck]=cnt(bd,CT[ck])-ins[ck];}
       var pbe=fy?fy.querySelector('[data-pbase]'):null;
-      o.filt={exp:fb?fb.getAttribute('aria-expanded'):null,hidden:fy?fy.hidden:null,sum:tx(f0.querySelector('[data-lgfiltsum="p2"]')),afterHd:!!(lh&&lh.nextElementSibling===f0),inList:!!ll,ins:ins,out:outs,
+      o.filt={exp:fb?fb.getAttribute('aria-expanded'):null,hidden:fy?fy.hidden:null,sum:tx(f0.querySelector('[data-lgfiltsum="p2"]')),afterHd:!!(f0.parentElement&&f0.parentElement.classList.contains('lg-listmore-body')&&f0.parentElement.firstElementChild===f0),inList:!!ll,ins:ins,out:outs,
         on:{kind:onTx('[data-pkind].on'),fam:onTx('[data-pfam].on'),sort:onTx('[data-lsort].on'),base:pbe?pbe.getAttribute('aria-checked'):null},
         ls:(function(){try{return w.localStorage.getItem('el_lg_filters_p2');}catch(e){return 'ERR';}})()};}
     // the keeps: tick boxes + OPEN N CHARTS, the per-strategy filters, the strategy switches, the calendar days, the auto-recover switch
@@ -1215,6 +1215,8 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     // on a page narrower than 1100 px the strategy list is a fold: it is opened first when it is closed, so the row can be seen, and closed again after
     var lf=d.querySelector('.p2fold-hd[data-p2card="list"]'),lfWas=lf?lf.getAttribute('aria-expanded'):null;
     if(lf&&lfWas!=='true')lf.click();
+    // v91.72: the Filters row sits inside the list's ONE More fold: opened first (in place, no redraw)
+    var mf=d.querySelector('[data-lglistmorebtn="p2"]');if(mf&&mf.getAttribute('aria-expanded')!=='true')mf.click();
     if(!B()||!BD()){R.btn=false;return R;}
     R.btn=true;R.start={exp:B().getAttribute('aria-expanded'),hidden:BD().hidden,ls:LSf(),sum:SM()};
     B().click();
@@ -1350,7 +1352,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           // the per-browser LEDGER choices (More stats fold, calendar fold, calendar month) start empty in every case
           +"localStorage.removeItem('el_lg_stats_nt8');localStorage.removeItem('el_lg_cal_nt8b');localStorage.removeItem('el_lg_calmo_nt8');"
           // LEDGER step 12: the Filters row of the strategy list starts closed (no stored choice) in every case
-          +"localStorage.removeItem('el_lg_filters_p2');"
+          +"localStorage.removeItem('el_lg_filters_p2');localStorage.removeItem('el_lg_listmore_p2');"
           // owner 11-21: the last Sim101 cash this browser saw (the NT8 % base while NT is not answering) starts empty in every case
           +"localStorage.removeItem('el_nt_sim_cash');"
           +"var LS=Object.assign({'el_lg_daily_p2':'0'},"+JSON.stringify(cfg.ls||{})+");for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
@@ -1716,7 +1718,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
             if(_click('[data-lgsw="NOISE_H"]')){I.oth1=_snap();_click('[data-lgsw="NOISE_H"]');I.oth2=_snap();}
             if(I.fwd1&&_click('[data-lglist="p2"] [data-lggrp="fwd"]')){I.fwd2=_fg();I.fwdPref2=_fp();}
             // tapping the row does what its switch does
-            if(_click('[data-lglist="p2"] [data-lgrow="ORB"]')){I.rowTap=_snap();_click('[data-lglist="p2"] [data-lgrow="ORB"]');}
+            if(_click('[data-lglist="p2"] [data-lgrow="ORB"]')){I.rowTap=_snap();var _ro=d.querySelector('[data-lglist="p2"] [data-lgrow="ORB"]');I.rowTap.rowOpen=_ro?_ro.getAttribute('aria-expanded'):null;_click('[data-lglist="p2"] [data-lgrow="ORB"]');}
             _click('[data-lgcal="p2"][data-lgcalmo="1"]');
             I.calBack=_calState();
             // the calendar fold: closed means the panel is hidden and the choice is stored; open again
@@ -1745,7 +1747,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                 s.types=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkatypehd]'),function(e){return e.getAttribute('data-bkatypehd')+':'+_t(e);});
                 s.books=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkabook]'),function(e){return e.getAttribute('data-bkabook')+(e.classList.contains('open')?'*':'');});
                 s.legs=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg]'),function(e){var sw=e.querySelector('.lg-sw');return e.getAttribute('data-bkaleg')+'/'+e.getAttribute('data-bkamode')+(sw?('/'+(sw.getAttribute('data-lgsw')?'lgsw':'bkasw')+'='+sw.getAttribute('aria-checked')):'');});
-                s.nodata=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkanodata]'),function(e){return e.getAttribute('data-bkanodata')+':'+_t(e);});
+                s.nodata=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkanodata]'),function(e){return e.getAttribute('data-bkanodata')+':'+_t(e)+' '+(e.getAttribute('title')||'');});
                 var wi=d.querySelector('[data-bkawhatif="nt8"]');s.whatif=wi?parseFloat(wi.getAttribute('data-bkawhatifv')):null;
                 s.inRail=!!d.querySelector('.p2rail [data-bka="nt8"]');return s;};
               BK.s0=_bs();
@@ -2671,9 +2673,10 @@ def run(alt_index=None, timeout=300):
             fails.append('%s: the old ten-cell stats grid is still on the board' % nm)
         if exp is not None:
             sub = dict((x['k'], x.get('sub') or '') for x in tiles)
-            if '%d W' % exp['wins'] not in sub['winrate'] or '%d L' % exp['losses'] not in sub['winrate']:
-                fails.append('%s: the win rate tile says %r, expected %d W and %d L' % (nm, sub['winrate'], exp['wins'], exp['losses']))
-            want_sub = '%d trade%s \u00b7 %d day%s' % (exp['n'], '' if exp['n'] == 1 else 's', exp['days'], '' if exp['days'] == 1 else 's')
+            # v91.72 (owner 11-21 'no ellipsis'): the paper tiles' short sub-lines ('64W 122L', '186 tr \u00b7 58 d'); the long words are the tile hover
+            if not sub['winrate'].startswith('%dW %dL' % (exp['wins'], exp['losses'])):
+                fails.append('%s: the win rate tile says %r, expected %dW %dL' % (nm, sub['winrate'], exp['wins'], exp['losses']))
+            want_sub = '%d tr \u00b7 %d d' % (exp['n'], exp['days'])
             if sub['net'] != want_sub:
                 fails.append('%s: the Net P&L tile sub-line says %r, expected %r (the trade count folded in, redesign step 10)'
                              % (nm, sub['net'], want_sub))
@@ -2878,8 +2881,9 @@ def run(alt_index=None, timeout=300):
             if f2.get(k) != f0.get(k) and not (isinstance(f0.get(k), float) and abs(f2.get(k) - f0.get(k)) < 0.01):
                 fails.append('paper2: flipping ORB back did not restore %s (%r then %r)' % (k, f0.get(k), f2.get(k)))
         rt = I.get('rowTap') or {}
-        if abs((rt.get('hero') or 0) - f1['hero']) > 0.01 or 'ORB=false' not in (rt.get('sw') or ''):
-            fails.append('paper2: tapping the ORB row did not do what its switch does (big number %s, expected %s)' % (rt.get('hero'), f1['hero']))
+        # v91.72: a row tap opens the row's detail (the chevron is gone from the one-line row) and never flips the switch
+        if abs((rt.get('hero') or 0) - f0['hero']) > 0.01 or 'ORB=true' not in (rt.get('sw') or '') or rt.get('rowOpen') != 'true':
+            fails.append('paper2: tapping the ORB row should open its detail and leave the switch alone (big number %s, expected %s; row open %r)' % (rt.get('hero'), f0['hero'], rt.get('rowOpen')))
         # a strategy outside the book: its switch lists its trades and never moves a counted figure
         o1, o2 = I.get('oth1') or {}, I.get('oth2') or {}
         nh = [t for t in fixture['trades'] if t.get('leg') == 'NOISE_H' and t.get('open') is not True]
@@ -2919,8 +2923,11 @@ def run(alt_index=None, timeout=300):
             if not g.get(key) or g[key] >= g['tradesTop']:
                 fails.append('phone375: the %s fold sits below the trade list on a phone (%s >= %s) - the fixed page order' % (key[:-3], g.get(key), g['tradesTop']))
     rh = [x.get('h') or 0 for x in ((cases.get('phone375-list-open') or {}).get('listRowInfo') or [])]
-    if not rh or max(rh) > 72:   # owner 10-31 15:30: the name line plus the trades / win rate line, at every width
-        fails.append('phone375: strategy rows are up to %s px tall - the name line plus its figures line expected (72 or less)' % (max(rh) if rh else None))
+    if not rh or max(rh) > 44:   # v91.72 (owner 11-21): ONE row per strategy - dot, name, $, switch - at every width
+        fails.append('phone375: strategy rows are up to %s px tall - one row expected (44 or less)' % (max(rh) if rh else None))
+    rl = [(x.get('key'), x.get('h') or 0) for x in ((cases.get('paper2') or {}).get('listRowInfo') or []) if x.get('group') == 'book']
+    if not rl or max(h for _, h in rl) > 44:
+        fails.append('paper2: strategy cards are not single rows at laptop width (%r) - dot, short name, $ and switch on one row, under 44 px' % (rl,))
     tt = [x.get('top') for x in (r.get('statTiles') or [])]
     if len(tt) != 4 or not (tt[0] == tt[1] and tt[2] == tt[3] and tt[2] > tt[0]):
         fails.append('phone375: the four stat tiles should sit two by two (tops %s)' % tt)
@@ -3845,10 +3852,10 @@ def _nt_expect(cfg, fixture):
     if B is None:
         return 'NT no snapshot', True, 0
     if B.get('up') is False:
-        return 'NT not answering', True, 0
+        return 'NT off', True, 0
     if not n:
-        return 'NT running nothing', True, pos
-    return 'NT %d of %d running' % (run, n), run < n, pos
+        return 'NT idle', True, pos
+    return 'NT %d/%d running' % (run, n), run < n, pos
 
 
 def _health_expect(cards, has_cap):
@@ -3981,32 +3988,22 @@ def _judge_s11(cases, fixture, data, fails):
                 if (w_bad and not all(b in w_tip for b in w_bad)) or (not w_bad and 'clear' not in w_tip.lower()):
                     fails.append('%s tooltip does not name %s: %r' % (tag, ', '.join(w_bad) if w_bad else 'the all-clear', w_tip))
             n_fold_reads += 1
-        # the status header row (NT8 board fix 10-09): on a laptop the sentence, the auto-recover switch and REFRESH share one row; on a phone (600 px and narrower)
-        # the sentence takes the full width and the switch + REFRESH sit on a second row, right-aligned
+        # the status header row (v91.72, owner 11-21 'one status line'): the sentence, the auto-recover switch and the refresh icon share ONE row
+        # whenever they fit; the switch + refresh may drop under the sentence only when the row is too narrow for both (night-mode words), never
+        # overlap it, and the refresh icon always ends at the right of the row
         sr = s.get('statusRow') or {}
         hd_, act_, row_, rf_ = sr.get('hd'), sr.get('act'), sr.get('row'), sr.get('rf')
+        _night = 'night' in ((s.get('wdsw') or {}).get('txt') or '') or 'NT8 off' in ((s.get('wdsw') or {}).get('txt') or '')
         if not (hd_ and act_ and row_ and rf_):
             fails.append('%s: the status header row could not be measured (%r)' % (nm, sr))
-        elif vw <= 600:
-            if act_['top'] < hd_['bottom'] - 2:
-                fails.append('%s: on a phone (%d px) the auto-recover switch and REFRESH must sit on a second row under the status sentence (sentence %s..%s, switch row from %s)'
-                             % (nm, vw, hd_['top'], hd_['bottom'], act_['top']))
-            if hd_['w'] < row_['w'] - 4:
-                fails.append('%s: on a phone (%d px) the status sentence must take the full width of its row (sentence %s px of %s px)' % (nm, vw, hd_['w'], row_['w']))
-            if rf_['right'] < row_['right'] - 20:
-                fails.append('%s: on a phone (%d px) REFRESH must sit at the right of its row (REFRESH ends at %s, the row at %s)' % (nm, vw, rf_['right'], row_['right']))
-        elif act_['top'] >= hd_['bottom'] - 2:
-            # wider than a phone the switch row drops under the sentence ONLY when the sentence would keep less than 420 px beside it
-            # (night mode adds long words to the switch); then the sentence takes the full width and REFRESH stays at the right
-            if row_['w'] - act_['w'] - 8 >= 420:
-                fails.append('%s: at %d px the switch and REFRESH wrapped under the status sentence although the sentence keeps %s px beside them (420 px is enough)'
-                             % (nm, vw, row_['w'] - act_['w'] - 8))
-            if hd_['w'] < row_['w'] - 4:
-                fails.append('%s: at %d px the switch row wrapped but the status sentence does not take the full width (sentence %s px of %s px)' % (nm, vw, hd_['w'], row_['w']))
+        else:
+            same_row = act_['top'] < hd_['bottom'] - 2
+            if same_row and act_['left'] < hd_['right'] - 2:
+                fails.append('%s: at %d px the auto-recover switch / refresh overlap the status sentence (sentence ends %s, switch starts %s)' % (nm, vw, hd_['right'], act_['left']))
             if rf_['right'] < row_['right'] - 20:
                 fails.append('%s: at %d px REFRESH must sit at the right of its row (REFRESH ends at %s, the row at %s)' % (nm, vw, rf_['right'], row_['right']))
-        elif hd_['w'] < 400:
-            fails.append('%s: at %d px the status sentence is squeezed to %s px beside the switch and REFRESH (it keeps 420 px, or they wrap under it)' % (nm, vw, hd_['w']))
+            if not _night and (row_.get('h') or 0) > 44:
+                fails.append('%s: at %d px the status line is %s px tall - one line expected (44 px or less)' % (nm, vw, row_.get('h')))
         # the status summary is ONE plain sentence of whole tokens (NT8 board fix 10-09), each judged from the case's own bridge: how many of the strategies
         # NinjaTrader should run are Realtime (red when there is none or fewer), then "K positions open" when something is open, then ONE warning token (the
         # number of warning chips) or "all checks clear". The per-warning detail lives in the status fold tooltip and in the chips of its body.
@@ -4019,7 +4016,7 @@ def _judge_s11(cases, fixture, data, fails):
             want_tok = [nt_txt]
             if n_pos:
                 want_tok.append('\u00b7 %d open' % n_pos)
-            want_tok.append(('\u00b7 %d check%s a look' % (len(wcs), ' needs' if len(wcs) == 1 else 's need')) if wcs else '\u00b7 checks clear')
+            want_tok.append(('\u00b7 %d check%s' % (len(wcs), '' if len(wcs) == 1 else 's')) if wcs else '\u00b7 all clear')
             got_tok = [t['t'] for t in tok]
             if got_tok != want_tok:
                 fails.append('%s: the status sentence reads %r, expected the tokens %r (%d warning chip(s))' % (nm, got_tok, want_tok, len(wcs)))
@@ -4283,11 +4280,11 @@ def _judge_nt8(cases, fixture, fails):
         st = [f for f in ((cases.get(nm) or {}).get('s11') or {}).get('folds') or [] if f['k'] == 'status']
         return (st[0].get('tok') or []) if st else []
     for nm, want_txt, want_bad, want_pos in (
-            ('nt-count-partial', 'NT 1 of 2 running', True, '\u00b7 1 open'),
-            ('nt-count-all', 'NT 2 of 2 running', False, None),
-            ('nt-down', 'NT not answering', True, None),
+            ('nt-count-partial', 'NT 1/2 running', True, '\u00b7 1 open'),
+            ('nt-count-all', 'NT 2/2 running', False, None),
+            ('nt-down', 'NT off', True, None),
             ('nt-none', 'NT no snapshot', True, None),
-            ('paper2', 'NT running nothing', True, None)):
+            ('paper2', 'NT idle', True, None)):
         tok = _tok(nm)
         if not tok or tok[0]['t'] != want_txt:
             fails.append('%s: the NinjaTrader count in the status sentence reads %r, expected %r' % (nm, tok[0]['t'] if tok else None, want_txt))
@@ -4466,7 +4463,7 @@ def _judge_s12(cases, data, fails):
         fl = s.get('filt') or {}
         n_filt += 1
         if not fl.get('inList') or not fl.get('afterHd'):
-            fails.append('%s: the Filters row is not right after the strategy list header (in the list %s, after the header %s)' % (nm, fl.get('inList'), fl.get('afterHd')))
+            fails.append('%s: the Filters row is not the first thing in the strategy list More fold (in the list %s, first in More %s)' % (nm, fl.get('inList'), fl.get('afterHd')))
         if 'el_lg_filters_p2' not in (cfg.get('ls') or {}) and (fl.get('exp') != 'false' or fl.get('hidden') is not True):
             fails.append('%s: the Filters row is open to start with (aria-expanded=%r, body hidden=%r) - it starts closed' % (nm, fl.get('exp'), fl.get('hidden')))
         ins, out = fl.get('ins') or {}, fl.get('out') or {}

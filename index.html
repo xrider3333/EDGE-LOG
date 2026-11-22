@@ -1565,6 +1565,67 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
   .lg-lside .lg-frame-side .qbx-sh-seed{display:block;width:fit-content;max-width:100%;box-sizing:border-box;margin-top:2px}
   .lg-lside .lg-frame-side .lg-status-row{flex-wrap:wrap}.lg-lside .lg-frame-side .lg-status-line{flex:1 1 100%;min-width:0;white-space:normal}
 }
+/* v91.72 SIDEBAR TIDY (owner 11-21, NT8 PAPER at phone width: 'clean up the side bar for the ledger. get rid of this garbly nonsense. same with
+   the books'). ONE row per strategy (.lg-list-row1: dot, short name, $, switch; a row tap opens its detail), ONE quiet More fold under the
+   counted rows (.lg-listmore: filters, the not-counted groups, the trades-loaded line), paper tiles' sub-lines whole (no ellipsis). Selectors
+   carry [data-lglist] so they outrank the 11-18 sidebar rules above (which stack name / $ / switch on three lines). */
+.lg-sr{position:absolute!important;width:1px!important;height:1px!important;padding:0!important;margin:-1px!important;overflow:hidden!important;clip:rect(0,0,0,0)!important;white-space:nowrap!important;border:0!important}
+.lg-list.lg-list-row1[data-lglist] .lg-row{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:none;gap:0 8px;padding:7px 4px;min-height:34px;align-items:center;cursor:pointer}
+.lg-list.lg-list-row1[data-lglist] .lg-row>:first-child{grid-column:auto;min-width:0}
+.lg-list.lg-list-row1[data-lglist] .lg-row>.lg-row-more,.lg-list.lg-list-row1[data-lglist] .lg-row>span:empty:not(.lg-sw){display:none}
+.lg-list.lg-list-row1[data-lglist] .lg-row-name{grid-column:auto;display:block;min-width:0;font-size:11px;line-height:1.3;letter-spacing:0;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis!important}
+.lg-list.lg-list-row1[data-lglist] .lg-row-name *{white-space:nowrap!important}
+.lg-list.lg-list-row1[data-lglist] .lg-row-name i{margin-right:6px}
+.lg-list.lg-list-row1[data-lglist] .lg-row-name .lg-row-tag{display:inline;margin-left:5px;font-size:9.5px}
+.lg-list.lg-list-row1[data-lglist] .lg-row-name .qbx-lg-pill{font-size:8.5px;padding:0 4px;margin-left:5px!important}
+.lg-list.lg-list-row1[data-lglist] .lg-row-sub{display:none}
+.lg-list.lg-list-row1[data-lglist] .lg-row-val{text-align:right;font-size:11.5px;line-height:1.3;white-space:nowrap!important}
+.lg-list.lg-list-row1[data-lglist] .lg-row-val small{display:none}
+.lg-list.lg-list-row1[data-lglist] .lg-row[aria-expanded="true"]{background:color-mix(in srgb,var(--text) 5%,transparent)}
+.lg-list.lg-list-row1[data-lglist] .lg-row-detail{padding:2px 4px 8px 18px;margin-top:0}
+.lg-row-warn{margin-left:5px;color:var(--warn,var(--yellow));cursor:help;font-size:10px}
+.lg-listmore{border-top:1px solid var(--border2)}
+.lg-listmore-btn{display:flex;align-items:center;gap:8px;width:100%;background:none;border:none;padding:8px 4px;font-family:inherit;font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text5);cursor:pointer;text-align:left}
+.lg-listmore-btn:hover{color:var(--text3)}
+.lg-listmore-sum{flex:1 1 auto;min-width:0;text-transform:none;letter-spacing:0;font-size:9.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lg-listmore-btn .lg-chev{transition:transform .18s ease;margin-left:auto}
+.lg-listmore-btn[aria-expanded="true"] .lg-chev{transform:rotate(180deg)}
+.lg-listmore-body .lg-grp-hd,.lg-listmore-body .lg-filters-btn{padding-left:4px;padding-right:4px}
+.lg-listmore-body .lg-grp-hd{font-size:9px;letter-spacing:1px}
+/* the NT8 status line: the sentence, the auto-recover switch and the refresh icon on ONE row (wrapping under only when night-mode words need it) */
+.p2fold-status-wrap .p2fold-status .p2fold-row{flex-wrap:wrap;align-items:center;gap:4px 8px}
+.p2fold-status-wrap .p2fold-status .p2fold-hd{flex:1 1 auto;min-width:0;width:auto}
+.p2fold-status-wrap .p2fold-status .p2fold-t{display:none}
+.p2fold-status-wrap .p2fold-status .p2fold-sum{font-size:10.5px;max-height:none}
+.p2fold-status-wrap .p2fold-status .p2fold-act{flex:none;margin:0 0 0 auto;gap:6px;flex-wrap:nowrap}
+.p2fold-status-wrap .p2wd.p2chip{height:22px;padding:0 2px 0 0;border:0;background:none;gap:5px!important}
+.p2fold-status-wrap .p2wd .p2wd-t{font-size:9.5px;font-weight:500;color:var(--text4);letter-spacing:0}
+.p2fold-status-wrap .p2wd .p2wd-t b{font-weight:600;color:var(--text3)}
+.p2fold-status-wrap .p2wd .p2sw{width:26px;height:15px}.p2fold-status-wrap .p2wd .p2sw::after{width:11px;height:11px;top:1px;left:1px}.p2fold-status-wrap .p2wd .p2sw.on::after{transform:translateX(11px)}
+.p2fold-status-wrap .p2rf.p2rf{height:22px!important;padding:0 7px!important;border-color:var(--border2)!important}.p2fold-status-wrap .p2rf .p2rf-tx{display:none}
+/* the Books · as-if panel: one row per book (name, what-if $, as-if switch), one row per leg (name, $, switch; solid rule = LIVE, dashed = SHADOW) */
+.bka-hd{gap:6px;justify-content:flex-start}
+.bka .bka-key{padding:0;margin:0;line-height:normal}
+.bka-s{margin-left:auto}
+.bka-bhd{display:grid;grid-template-columns:minmax(0,1fr) auto auto;align-items:center;gap:0 8px;min-height:30px}
+.bka-bfold{min-width:0;flex-wrap:nowrap;overflow:hidden;padding:4px 0}
+.bka[data-lglist] .bka-bname{white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis!important;min-width:0}
+.bka-act{flex:none}
+.bka[data-lglist] .bka-bval{font-size:11.5px;text-align:right;font-variant-numeric:tabular-nums;white-space:nowrap!important;color:var(--text5)}
+.bka .lg-sw.bka-all{border:0;padding:0;border-radius:9px;font-size:0;background:var(--border)}
+.bka .lg-sw.bka-all.on{background:color-mix(in srgb,var(--text3) 55%,transparent)}
+.bka .lg-sw.bka-all.on::after{left:15px}
+.bka-allnone{width:30px}
+.bka-bbody{padding:0 0 6px 12px}
+.bka .bka-leg{grid-template-columns:minmax(0,1fr) auto auto;gap:0 8px;padding:4px 0 4px 8px;margin:3px 0;border-top:0;border-left:2px solid var(--text3);min-height:22px}
+.bka .bka-leg.sh{border-left-style:dashed;border-left-color:var(--text5)}
+.bka[data-lglist] .bka-nm{white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis!important;line-height:1.3}
+.bka[data-lglist] .bka-nm *{white-space:nowrap!important}
+.bka .bka-val{font-size:11.5px}
+.bka-why{font-size:9.5px;color:var(--text5);cursor:help}
+.bka-stale{cursor:help}
+@media (max-width:600px){.bka-bbody{padding-left:8px}}
+.p2rh .lg-stat-sub,.qbx-lgstats .lg-stat-sub{white-space:normal;overflow:visible;text-overflow:clip;overflow-wrap:anywhere}
 /* ONE HERO GRID (owner 11-21, LEDGER > REAL sidebar: 'clean this up ... i want it all clean on that sidebar. and the same across the ledger'):
    under the big number, today / the open line / the realized or range line are rows of ONE grid - label | $ | % | the rest - so the $
    figures share a left edge, the % figures share a left edge, and the grid starts at the big number's left edge (no tile padding). One type
@@ -1960,7 +2021,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.71';
+const VERSION='91.72';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -1981,6 +2042,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.72',date:'2026-11-21',notes:['NT8 PAPER sidebar tidy (owner: get rid of this garbly nonsense): each strategy is ONE row - live dot, short name with its run number (ORB #234.1), the dollar figure and a small switch. The variant tag, the model word and the open / equity lines moved to the row hover and to the detail a row tap opens (the chevron is gone; the switch alone counts a leg in or out)','One quiet More fold under the strategies holds the Filters row, the three not-counted groups (forward tests and controls, other / shadow, retired; each still its own fold) and the trades-loaded line. Closed by default, remembered per browser. The BOOK header row that repeated the hero is gone','Status is one line: NT off (or NT 2/2 running, NT idle) and the number of checks, then the auto-recover switch and a refresh icon; a tap opens the chips as before. The NEEDS YOU banner is unchanged','Stat tiles on NT8 PAPER and WEBULL PAPER: short sub-lines that never cut off (10 tr and 4 d, 64W 122L, the won / lost amounts); the long words are the tile hover','Books as-if panel (both paper boards): one row per book - name, what-if dollars, the one-click as-if switch - and one row per leg - name, dollars, switch. A solid left rule marks a LIVE leg and a dashed one a SHADOW leg, matching the chart lines; the explanations moved to an i hover and each row hover. Only the active book starts open','NT8 realized percent: its hover now states the base plainly (Sim101 cash minus the realized in the range); the formula is unchanged']},
 {v:'91.71',date:'2026-11-21',notes:['NT8 PAPER and WEBULL PAPER: every book config in the book table now sits on the ledger, grouped by book type (futures books, futures plus stock books, stock books), open by default under the strategy list','Each book is a dropdown of its legs with a switch on every leg. LIVE legs are traded on that board and in the account (solid pill, the same switch as the strategy list). SHADOW legs are not traded there: switched on, each draws its as-if P&L as a dashed line on the CURVE chart, plus one what-if total line (the board total plus every shadow leg switched on). Shadow dollars never go into the account figures','One click on a book as-if button switches on all of that book shadow legs; a leg on in one book is on in every book that holds it; the switches are remembered per browser','The as-if series is simulated, never the account: each leg pinned champion (the run the book table names) on current data with that run cost, closed trades by New York day (tools/book_asif_series.py, refreshed after the close and whenever the book table changes). On WEBULL PAPER a leg the box already shadows keeps the box forward shadow series','Switching a shadow leg on moves the chart to the CURVE view, where the lines draw. A leg without a series reads its reason (or building) instead of a blank']},
 {v:'91.70',date:'2026-11-21',notes:['NT8 PAPER curve: a percent axis on the left beside the dollar axis - each grid line also reads its percent of the Sim101 account at the start of the range, the same base as the realized percent in the hero (hover a percent tick to see the base). Hovering the chart shows the total and the day in dollars and percent, and each switched-on strategy line with its own dollars and percent. No Sim101 cash known, no percent axis','NT8 PAPER hero: the percent was missing because no Sim101 cash existed anywhere - NinjaTrader is off, its AddOn heartbeat went blank as NT closed, and the page had never seen a live bridge snapshot. The NT bridge publisher now keeps the last Sim101 cash it saw (last_accounts) through every down cycle, and the page reads it, so the percent survives weekends from the next time NT runs. Until then the hero reads (% n/a) with the reason on hover','WEBULL PAPER and REAL (P and L view, a range with no deposits inside) curves get the same percent axis, of the base their hero and hover already use']},
 {v:'91.69',date:'2026-11-21',notes:['LEDGER heroes (REAL, NT8 PAPER, WEBULL PAPER): the lines under the big number are one tidy grid - label, then the dollar figure, then the percent - each column lined up and flush with the big number, one size, the same arrow and spacing on every line (REAL now reads today and all time with the same layout, the percent with a space before it)','NT8 PAPER: with NinjaTrader off (NT not answering) today and realized still show a percent, of the last Sim101 cash the page or the NT sync saw - the hover says base: Sim101 cash as of that time. Only if no cash was ever seen is there no percent']},
@@ -3665,14 +3727,18 @@ function _lgDateLbl(ds,withYear){
 // (redesign step 4). o.winNote = extra html at the end of the WIN RATE sub-line; o.id = the strip's element id.
 function ledgerStatStripHtml(s,o){
   o=o||{};
-  const tile=(k,lbl,val,sub)=>'<div class="lg-stat" data-lgstat="'+k+'"><div class="lg-stat-lbl">'+lbl+'</div><div class="lg-stat-val">'+val+'</div><div class="lg-stat-sub">'+(sub||'&nbsp;')+'</div></div>';
+  const tile=(k,lbl,val,sub,tip)=>'<div class="lg-stat" data-lgstat="'+k+'"'+(tip?' title="'+tip+'"':'')+'><div class="lg-stat-lbl">'+lbl+'</div><div class="lg-stat-val">'+val+'</div><div class="lg-stat-sub">'+(sub||'&nbsp;')+'</div></div>';
   const wr=s&&s.winRate!=null?Math.round(s.winRate*100)+'%':'--';
-  const wl=s?s.wins+' W &middot; '+s.losses+' L'+(s.flat?' &middot; '+s.flat+' even':''):'';
-  const cnt=s?(s.trades+' trade'+(s.trades===1?'':'s')+' &middot; '+s.days+' day'+(s.days===1?'':'s')):'';
+  // v91.72 (owner 11-21 'no ellipsis'): o.short = the paper sidebars' short sub-lines that fit a 150 px tile ('186 tr · 58 d', '64W 122L',
+  // '$284k / $221k'); the long words ride in each tile's hover. REAL keeps the long words.
+  const sh=!!o.short;
+  const wl=s?(sh?(s.wins+'W '+s.losses+'L'+(s.flat?' '+s.flat+'E':'')):(s.wins+' W &middot; '+s.losses+' L'+(s.flat?' &middot; '+s.flat+' even':''))):'';
+  const cnt=s?(sh?(s.trades+' tr &middot; '+s.days+' d'):(s.trades+' trade'+(s.trades===1?'':'s')+' &middot; '+s.days+' day'+(s.days===1?'':'s'))):'';
   return '<div class="lg-stats"'+(o.id?' id="'+o.id+'"':'')+'>'
-    +tile('net','Net P&amp;L','<span class="'+ledgerCls(s?s.net:null)+'">'+(s?elMoney(s.net,{signed:true}):'--')+'</span>',cnt)
-    +tile('winrate','Win rate',wr,wl+(o.winNote||''))
-    +tile('pf','Profit factor',s?ledgerPfText(s.pf):'--',s&&s.pf!=null?ledgerShortMoney(s.grossWin).slice(1)+' won &middot; '+ledgerShortMoney(s.grossLoss).slice(1)+' lost':'')
+    +tile('net','Net P&amp;L','<span class="'+ledgerCls(s?s.net:null)+'">'+(s?elMoney(s.net,{signed:true}):'--')+'</span>',cnt,(sh&&s)?(s.trades+' trades, '+s.days+' days with a trade'):'')
+    +tile('winrate','Win rate',wr,wl+(o.winNote||''),(sh&&s)?(s.wins+' wins, '+s.losses+' losses'+(s.flat?', '+s.flat+' even':'')):'')
+    +tile('pf','Profit factor',s?ledgerPfText(s.pf):'--',s&&s.pf!=null?(sh?(ledgerShortMoney(s.grossWin).slice(1)+' / '+ledgerShortMoney(s.grossLoss).slice(1)):(ledgerShortMoney(s.grossWin).slice(1)+' won &middot; '+ledgerShortMoney(s.grossLoss).slice(1)+' lost')):'',
+      (sh&&s&&s.pf!=null)?(ledgerShortMoney(s.grossWin).slice(1)+' won, '+ledgerShortMoney(s.grossLoss).slice(1)+' lost'):'')
     +tile('maxdd','Max drawdown',s?elMoney(s.maxDD):'--','')
     +'</div>';
 }
@@ -3895,7 +3961,7 @@ function ledgerListHtml(groups,o){
   const anySw=(groups||[]).some(g=>(g.rows||[]).some(r=>r&&r.sw));
   const anyMore=(groups||[]).some(g=>(g.rows||[]).some(r=>r&&r.more));
   if(o.moreSet)LEDGER_MORE_SETS[String(o.id||'lg')]=o.moreSet;
-  const row=r=>'<button type="button" class="lg-row'+(r.sel?' sel':'')+(r.off?' off':'')+(r.wrap?' wrap':'')+'" data-lgrow="'+esc(r.key)+'"'+(r.sel?' aria-current="true"':'')+(r.more?' aria-expanded="'+!!r.more.open+'"':'')+'>'
+  const row=r=>'<button type="button" class="lg-row'+(r.sel?' sel':'')+(r.off?' off':'')+(r.wrap?' wrap':'')+'" data-lgrow="'+esc(r.key)+'"'+(r.title?' title="'+esc(r.title)+'"':'')+(r.sel?' aria-current="true"':'')+(r.more?' aria-expanded="'+!!r.more.open+'"':'')+'>'
     +'<span style="min-width:0"><span class="lg-row-name" style="display:block">'+(r.color?'<i style="background:'+r.color+'"></i>':'')+(r.nameColor?'<span class="lg-row-nm" style="color:'+r.nameColor+'">'+r.name+'</span>':r.name)+(r.tag?'<span class="lg-row-tag">'+r.tag+'</span>':'')+'</span>'
     +(r.sub?'<span class="lg-row-sub">'+r.sub+'</span>':'')+'</span>'
     +'<span class="lg-row-val'+(r.cls?' '+r.cls:'')+'">'+(r.value==null?'':r.value)+(r.value3?'<small class="lg-row-v3">'+r.value3+'</small>':'')+(r.value2?'<small class="lg-row-v2">'+r.value2+'</small>':'')+'</span>'
@@ -3904,19 +3970,44 @@ function ledgerListHtml(groups,o){
     +'</button>'
     +(r.more?'<div class="lg-row-detail lg-row-morebody'+(r.off?' off':'')+'" data-lgrowmorebody="'+esc(r.key)+'"'+(r.more.open?'':' hidden')+'>'+(r.more.html||'')+'</div>':'')
     +(r.detail?'<div class="lg-row-detail'+(r.off?' off':'')+'" data-lgrowdetail="'+esc(r.key)+'">'+r.detail+'</div>':'');
-  return '<div class="lg-list'+(anySw?'':' lg-list-nosw')+(anyMore?' lg-list-more':'')+(o.cls?' '+o.cls:'')+'" data-lglist="'+esc(o.id||'lg')+'">'
-    +(o.title?'<div class="lg-list-hd"><span>'+o.title+'</span>'+(o.count?'<span class="n">'+o.count+'</span>':'')+'</div>':'')
-    +(o.filters||'')
-    +(groups||[]).map(g=>{
+  // v91.72 (owner 11-21 'get rid of this garbly nonsense'): o.moreFold = {label, sum, open} puts the Filters row, every group marked g.more
+  // and the foot line behind ONE quiet fold under the counted rows (closed by default, remembered per list: el_lg_listmore_<id>).
+  // g.hdHidden keeps a group's header in the page for screen readers (and its data attrs) but draws nothing.
+  const MF=o.moreFold||null,lid=String(o.id||'lg').replace(/[^\w-]/g,'');
+  const grpHtml=g=>{
       // r2 step 10 (item 34): g.help = the group's caveat behind a ? on its header (a g.note is a full line on every render; keep it for a live condition only)
       const help=g.help?'<span class="lg-help" data-lggrphelp="'+esc(g.key)+'" title="'+esc(String(g.help).replace(/<[^>]*>/g,''))+'">?</span>':'';
       const hd=g.title?(g.fold
         ?'<button type="button" class="lg-grp-hd" data-lggrp="'+esc(g.key)+'" aria-expanded="'+!!g.open+'"'+(g.titleTip?' title="'+esc(g.titleTip)+'"':'')+'><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+help+'</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>'
-        :'<div class="lg-grp-hd"'+(g.titleTip?' title="'+esc(g.titleTip)+'"':'')+'><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+help+'</span></div>'):'';
+        :'<div class="lg-grp-hd'+(g.hdHidden?' lg-sr':'')+'"'+(g.titleTip?' title="'+esc(g.titleTip)+'"':'')+'><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+help+'</span></div>'):'';
       const body=(!g.fold||g.open)?((g.note?'<div class="lg-grp-note">'+g.note+'</div>':'')+(g.rows||[]).map(row).join('')):'';
       return '<div class="lg-grp" data-lggroup="'+esc(g.key||'')+'">'+hd+body+'</div>';
-    }).join('')+(o.foot?'<div class="lg-list-foot">'+o.foot+'</div>':'')+'</div>';
+  };
+  const foot=o.foot?'<div class="lg-list-foot">'+o.foot+'</div>':'';
+  if(!MF)return '<div class="lg-list'+(anySw?'':' lg-list-nosw')+(anyMore?' lg-list-more':'')+(o.cls?' '+o.cls:'')+'" data-lglist="'+esc(o.id||'lg')+'">'
+    +(o.title?'<div class="lg-list-hd"><span>'+o.title+'</span>'+(o.count?'<span class="n">'+o.count+'</span>':'')+'</div>':'')
+    +(o.filters||'')+(groups||[]).map(grpHtml).join('')+foot+'</div>';
+  const mOpen=MF.open!=null?!!MF.open:ledgerListMoreOpen(lid);
+  return '<div class="lg-list'+(anySw?'':' lg-list-nosw')+(anyMore?' lg-list-more':'')+(o.cls?' '+o.cls:'')+'" data-lglist="'+esc(o.id||'lg')+'">'
+    +(o.title?'<div class="lg-list-hd"><span>'+o.title+'</span>'+(o.count?'<span class="n">'+o.count+'</span>':'')+'</div>':'')
+    +(groups||[]).filter(g=>!g.more).map(grpHtml).join('')
+    +'<div class="lg-listmore" data-lglistmore="'+lid+'">'
+      +'<button type="button" class="lg-listmore-btn" data-lglistmorebtn="'+lid+'" aria-expanded="'+mOpen+'" aria-controls="'+lid+'-listmore"'+(MF.tip?' title="'+esc(MF.tip)+'"':'')+'>'
+      +'<span class="lg-listmore-t">'+(MF.label||'More')+'</span>'+(MF.sum?'<span class="lg-listmore-sum">'+MF.sum+'</span>':'')+'<span class="lg-chev" aria-hidden="true">&#9662;</span></button>'
+      +'<div class="lg-listmore-body" id="'+lid+'-listmore"'+(mOpen?'':' hidden')+'>'+(o.filters||'')+(groups||[]).filter(g=>g.more).map(grpHtml).join('')+foot+'</div>'
+    +'</div></div>';
 }
+function ledgerListMoreOpen(id){try{return localStorage.getItem('el_lg_listmore_'+id)==='1';}catch(e){return false;}}
+// the More fold under a list opens / closes in place (no redraw); the choice is remembered per list
+document.addEventListener('click',function(e){
+  const b=e.target&&e.target.closest?e.target.closest('[data-lglistmorebtn]'):null;
+  if(!b)return;
+  const id=b.getAttribute('data-lglistmorebtn'),on=b.getAttribute('aria-expanded')!=='true';
+  b.setAttribute('aria-expanded',on?'true':'false');
+  const box=b.closest('[data-lglistmore]'),body=box?box.querySelector('.lg-listmore-body'):null;
+  if(body)body.hidden=!on;
+  try{localStorage.setItem('el_lg_listmore_'+id,on?'1':'0');}catch(_e){}
+});
 // the one click handler for every board's row chevron (r2 step 6): flip the chevron and its body in place, remember the key in the
 // board's Set (LEDGER_MORE_SETS[list id]) so the next render draws it the same; a row tap or a switch under it is never reached
 document.addEventListener('click',function(e){
@@ -7589,7 +7680,7 @@ function bkaOnSum(board,from,to,skip){let s=0;const seen={};bkaOn(board).forEach
 function bkaPanelHtml(ctx){
   const B=window._bookLegs,esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
   const board=ctx.board,D=window._bookAsif,on=bkaOn(board),panelOpen=bkaPanelOpen(board);
-  const sumTxt=()=>{const nOn=on.filter(id=>!(ctx.live&&ctx.live(id))).length;return nOn?(nOn+' shadow on'):'switch a leg on to see it as-if';};
+  const sumTxt=()=>{const nOn=on.filter(id=>!(ctx.live&&ctx.live(id))).length;return nOn?(nOn+' shadow on'):'';};
   if(!B||!B.books||typeof B.books!=='object'){
     return '<div class="bka" data-bka="'+board+'"><div class="bka-hd"><span class="bka-t">Books &middot; as-if</span><span class="bka-s">book table not published yet</span></div></div>';}
   const keys=booksOrderedKeys(B);
@@ -7597,43 +7688,46 @@ function bkaPanelHtml(ctx){
   const openBooks=bkaOpenBooks(board,ctx.active||keys[0]);
   const from=ctx.from||null,to=ctx.to||null;
   const genAt=D&&D.generated_at?String(D.generated_at).replace('T',' ').slice(0,16)+' UTC':'';
+  // v91.72 (owner 11-21 'same with the books'): ONE compact row per leg - name + run, $, switch. LIVE / SHADOW is the row's left rule (solid =
+  // in the account, dashed = as-if, the chart's own line styles) plus a hidden word for screen readers; what used to be the leg's sub-line
+  // (where the figure comes from, trades, size, data end) is the row's hover. Book rows: name, what-if $, the one-click as-if switch.
   const legRow=(bk,l)=>{
     const id=String((l&&l.id)||''),L=bkaLeg(id),lv=ctx.live?ctx.live(id):null,fw=(!lv&&ctx.fwd)?ctx.fwd(id):null;
     const run=(l&&l.run)?String(l.run).split(' ')[0]:'';
     const nm='<span class="bka-nmt">'+esc(String((l&&l.name)||id))+'</span>'+(run?' <span class="bka-run">'+esc(run)+'</span>':'');
     const size=esc(String((l&&l.size)||''));
+    const row=(cls,attrs,tag,tip,nmExtra,val,sw)=>'<div class="bka-leg '+cls+'" '+attrs+' title="'+tip+'">'
+      +'<span class="bka-nm"><span class="lg-sr">'+tag+' </span>'+nm+(nmExtra||'')+'</span>'+val+sw+'</div>';
     if(lv){
-      return '<div class="bka-leg live'+(lv.on?'':' off')+'" data-bkaleg="'+esc(id)+'" data-bkamode="live">'
-        +'<span class="bka-nm"><span class="bka-tag live" title="traded on this board: in the account number">LIVE</span> '+nm
-        +'<span class="bka-sub">'+esc(lv.label||'in the account')+(size?' &middot; '+size:'')+'</span></span>'
-        +'<span class="bka-val '+ledgerCls(lv.net)+'">'+(lv.net==null?'&mdash;':ledgerSigned(lv.net))+'</span>'
-        +'<span class="lg-sw'+(lv.on?' on':'')+'" role="switch" aria-checked="'+!!lv.on+'" aria-label="count '+esc(id)+'" data-lgsw="'+esc(lv.key)+'"></span></div>';}
+      return row('live'+(lv.on?'':' off'),'data-bkaleg="'+esc(id)+'" data-bkamode="live"','LIVE',
+        'LIVE: traded on this board, in the account number - '+esc(lv.label||'in the account')+(size?' · '+size:''),'',
+        '<span class="bka-val '+ledgerCls(lv.net)+'">'+(lv.net==null?'&mdash;':ledgerSigned(lv.net))+'</span>',
+        '<span class="lg-sw'+(lv.on?' on':'')+'" role="switch" aria-checked="'+!!lv.on+'" aria-label="count '+esc(id)+'" data-lgsw="'+esc(lv.key)+'"></span>');}
     if(fw){
-      return '<div class="bka-leg sh'+(fw.on?'':' off')+'" data-bkaleg="'+esc(id)+'" data-bkamode="shadow" data-bkasrc="forward">'
-        +'<span class="bka-nm"><span class="bka-tag sh" title="not traded here: as-if from the box’s own no-order shadow signals">SHADOW</span> '+nm
-        +'<span class="bka-sub" title="forward shadow: the box’s own signals since it started shadowing this leg">forward shadow &middot; '+esc(fw.label||'')+' &middot; '+(fw.n||0)+' trades</span></span>'
-        +'<span class="bka-val '+(fw.n?ledgerCls(fw.net):'')+'">'+(fw.n?ledgerSigned(fw.net):'&mdash;')+'</span>'
-        +'<span class="lg-sw bka-shsw'+(fw.on?' on':'')+'" role="switch" aria-checked="'+!!fw.on+'" aria-label="show '+esc(id)+' as-if" data-lgsw="'+esc(fw.key)+'"></span></div>';}
+      return row('sh'+(fw.on?'':' off'),'data-bkaleg="'+esc(id)+'" data-bkamode="shadow" data-bkasrc="forward"','SHADOW',
+        'SHADOW (forward): not traded here - as-if from the box’s own no-order shadow signals since it started shadowing this leg · '+esc(fw.label||'')+' · '+(fw.n||0)+' trades','',
+        '<span class="bka-val '+(fw.n?ledgerCls(fw.net):'')+'">'+(fw.n?ledgerSigned(fw.net):'&mdash;')+'</span>',
+        '<span class="lg-sw bka-shsw'+(fw.on?' on':'')+'" role="switch" aria-checked="'+!!fw.on+'" aria-label="show '+esc(id)+' as-if" data-lgsw="'+esc(fw.key)+'"></span>');}
     const isOn=on.indexOf(id)>=0;
     if(!L||!Array.isArray(L.d)){
       const asked=(window._bkaAsked||[]).indexOf(id)>=0||isOn;
-      const why=L&&L.reason?esc(L.reason):(D?(asked?'building… (the next as-if run adds it)':'no as-if series yet - switch it on to build it'):(window._bookAsifErr?('as-if data not readable: '+esc(window._bookAsifErr)):'loading the as-if series…'));
-      return '<div class="bka-leg sh nodata'+(isOn?'':' off')+'" data-bkaleg="'+esc(id)+'" data-bkamode="nodata">'
-        +'<span class="bka-nm"><span class="bka-tag sh">SHADOW</span> '+nm+'<span class="bka-sub" data-bkanodata="'+esc(id)+'">'+why+'</span></span>'
-        +'<span class="bka-val">&mdash;</span>'
-        +(L&&L.reason?'<span></span>':'<span class="lg-sw bka-shsw'+(isOn?' on':'')+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>')+'</div>';}
+      const why=L&&L.reason?String(L.reason):(D?(asked?'building… (the next as-if run adds it)':'no as-if series yet - switch it on to build it'):(window._bookAsifErr?('as-if data not readable: '+window._bookAsifErr):'loading the as-if series…'));
+      const short=L&&L.reason?'no data':(D?(asked?'building':'not built'):(window._bookAsifErr?'unreadable':'loading'));
+      return row('sh nodata'+(isOn?'':' off'),'data-bkaleg="'+esc(id)+'" data-bkamode="nodata"','SHADOW','SHADOW: '+esc(why),
+        ' <span class="bka-why" data-bkanodata="'+esc(id)+'" title="'+esc(why)+'">'+esc(short)+'</span>',
+        '<span class="bka-val">&mdash;</span>',
+        (L&&L.reason?'<span></span>':'<span class="lg-sw bka-shsw'+(isOn?' on':'')+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>'));}
     const f=bkaSum(L,from,to);
-    const tip='Simulated as-if, never the account: '+(L.strategy||'')+' with run #'+(L.params_run||'?')+'’s '+(L.params_from||'champion')
+    const tip='SHADOW: not traded here, simulated as-if, never the account - '+(L.strategy||'')+' with run #'+(L.params_run||'?')+'’s '+(L.params_from||'champion')
       +', cost '+(L.cost_pts!=null?L.cost_pts:'?')+' pts, x'+(L.mult||1)+(L.weight&&L.weight!==1?(' x'+L.weight+' size'):'')
-      +', closed trades by New York day, data to '+(L.data_end||'?')+'.'+(L.note?(' '+L.note+'.'):'')
+      +', closed trades by New York day, data to '+(L.data_end||'?')+'. Replay · '+f.n+' trade'+(f.n===1?'':'s')+' in the range'+(size?' · '+size:'')+'.'
+      +(L.note?(' '+L.note+'.'):'')
       +(L.last_bar_n?(' Plus '+L.last_bar_n+' trade(s) still open at the last bar ('+ledgerSigned(L.last_bar_usd)+'), not counted yet.'):'')
       +(L.stale?(' '+L.stale+'.'):'');
-    return '<div class="bka-leg sh'+(isOn?'':' off')+'" data-bkaleg="'+esc(id)+'" data-bkamode="shadow" data-bkasrc="replay" data-bkanet="'+f.net+'">'
-      +'<span class="bka-nm"><span class="bka-tag sh" title="not traded here: simulated as-if">SHADOW</span> '+nm
-      +'<span class="bka-sub" title="'+esc(tip)+'">replay &middot; '+f.n+' trade'+(f.n===1?'':'s')+(size?' &middot; '+size:'')
-      +(L.stale?' &middot; <span class="bka-stale">data ends '+esc(String(L.data_end||'').slice(5))+'</span>':'')+'</span></span>'
-      +'<span class="bka-val '+(f.n?ledgerCls(f.net):'')+'" title="'+esc(tip)+'">'+(f.n?ledgerSigned(f.net):'$0')+'</span>'
-      +'<span class="lg-sw bka-shsw'+(isOn?' on':'')+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span></div>';};
+    return row('sh'+(isOn?'':' off'),'data-bkaleg="'+esc(id)+'" data-bkamode="shadow" data-bkasrc="replay" data-bkanet="'+f.net+'"','SHADOW',esc(tip),
+      (L.stale?' <span class="bka-stale" title="data ends '+esc(String(L.data_end||''))+'">&#9888;</span>':''),
+      '<span class="bka-val '+(f.n?ledgerCls(f.net):'')+'">'+(f.n?ledgerSigned(f.net):'$0')+'</span>',
+      '<span class="lg-sw bka-shsw'+(isOn?' on':'')+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>');};
   const byType={};
   keys.forEach(k=>{const b=B.books[k];if(!b)return;(byType[bkaBookType(b)]=byType[bkaBookType(b)]||[]).push(k);});
   const order=(ctx.order||['futures','mixed','stock']).filter(t=>byType[t]).concat(Object.keys(byType).filter(t=>(ctx.order||['futures','mixed','stock']).indexOf(t)<0));
@@ -7647,24 +7741,25 @@ function bkaPanelHtml(ctx){
         const fw=ctx.fwd&&ctx.fwd(id);if(fw){if(fw.on)sv+=+fw.net||0;return;}
         if(on.indexOf(id)>=0){const L=bkaLeg(id);if(L&&Array.isArray(L.d))sv+=bkaSum(L,from,to).net;}});
       const wi=Math.round((lv+sv)*100)/100;
+      const wiTip='what-if in the range '+ledgerSigned(wi)+' = live legs switched on '+ledgerSigned(Math.round(lv*100)/100)+' + shadow legs switched on '+ledgerSigned(Math.round(sv*100)/100)+' - closed P&L, never the account number';
       return '<div class="bka-book'+(open?' open':'')+'" data-bkabook="'+esc(k)+'">'
-        +'<div class="bka-bhd"><button type="button" class="bka-bfold" data-bkafold="'+esc(k)+'" aria-expanded="'+open+'"><span class="lg-chev" aria-hidden="true">&#9662;</span>'
-        +'<span class="bka-bname">'+esc(booksBookName(b,k))+'</span>'+(ctx.active===k?' <span class="bka-act">'+esc(ctx.activeWord||'this board')+'</span>':'')
-        +'<span class="bka-bcount">'+legs.length+' legs &middot; '+nL+' live</span></button>'
-        +(shIds.length?'<button type="button" class="bka-all'+(allOn?' on':'')+'" data-bkaall="'+esc(k)+'" data-bkaids="'+esc(shIds.join(','))+'" aria-pressed="'+!!allOn+'" title="'+(allOn?'switch this book’s shadow legs off':'show this whole book as-if: switch on all '+shIds.length+' of its shadow legs')+'">'+(allOn?'as-if on':'as-if')+'</button>':'')
+        +'<div class="bka-bhd"><button type="button" class="bka-bfold" data-bkafold="'+esc(k)+'" aria-expanded="'+open+'" title="'+esc(booksBookName(b,k))+' · '+legs.length+' legs · '+nL+' live on this board"><span class="lg-chev" aria-hidden="true">&#9662;</span>'
+        +'<span class="bka-bname">'+esc(booksBookName(b,k))+'</span>'+(ctx.active===k?' <span class="bka-act">'+esc(ctx.activeWord||'this board')+'</span>':'')+'</button>'
+        +'<span class="bka-bval '+((lv||sv)?ledgerCls(wi):'')+'" data-bkabooktotal="'+esc(k)+'" title="'+esc(wiTip)+'">'+((lv||sv)?ledgerSigned(wi):'&mdash;')+'</span>'
+        +(shIds.length?'<button type="button" class="lg-sw bka-all'+(allOn?' on':'')+'" data-bkaall="'+esc(k)+'" data-bkaids="'+esc(shIds.join(','))+'" aria-pressed="'+!!allOn+'" aria-label="'+esc(booksBookName(b,k))+' as-if" title="'+(allOn?'as-if ON: switch this book’s shadow legs off':'as-if: switch on all '+shIds.length+' of this book’s shadow legs')+'"></button>':'<span class="bka-allnone"></span>')
         +'</div>'
-        +(open?('<div class="bka-bbody"><div class="bka-bnote" data-bkabooktotal="'+esc(k)+'" title="closed P&amp;L in the range: the live legs switched on plus the shadow legs switched on - never the account number">what-if <b class="'+ledgerCls(wi)+'">'+ledgerSigned(wi)+'</b> = live '+ledgerSigned(Math.round(lv*100)/100)+' + shadow on '+ledgerSigned(Math.round(sv*100)/100)+'</div>'
-          +legs.map(l=>legRow(k,l)).join('')+'</div>'):'')
+        +(open?('<div class="bka-bbody">'+legs.map(l=>legRow(k,l)).join('')+'</div>'):'')
         +'</div>';}).join('')+'</div>').join('');
   const shOn=bkaOnSum(board,from,to,id=>!!((ctx.live&&ctx.live(id))||(ctx.fwd&&ctx.fwd(id))))+(+ctx.fwdOnNet||0);
   const acct=+ctx.accountNet||0,anyOn=on.some(id=>!(ctx.live&&ctx.live(id)))||(+ctx.fwdOnNet||0)!==0;
+  const keyTip='Solid rule = LIVE: traded here, in the account (solid on the chart). Dashed rule = SHADOW: not traded here, simulated as-if from its pinned champion (dashed on the chart, never in the account). The switch on a book row turns all its shadow legs on or off at once.'
+    +(genAt?' As-if run '+genAt+(D&&D.data_end?', data to '+D.data_end:'')+'.':'');
   const head='<div class="bka-hd"><button type="button" class="bka-pfold" data-bkapanel="'+board+'" aria-expanded="'+panelOpen+'"><span class="lg-chev" aria-hidden="true">&#9662;</span><span class="bka-t">Books &middot; as-if</span></button>'
+    +'<span class="lg-help bka-key" title="'+esc(keyTip)+'">i</span>'
     +'<span class="bka-s" data-bkasum="'+board+'">'+sumTxt()+'</span></div>';
-  const whatif=anyOn?('<div class="bka-whatif" data-bkawhatif="'+board+'" data-bkawhatifv="'+Math.round((acct+shOn)*100)/100+'" title="What-if only: the switched-on shadow legs added to this board’s figure for the range. Never part of the account number.">what-if total <b class="'+ledgerCls(acct+shOn)+'">'+ledgerSigned(Math.round((acct+shOn)*100)/100)+'</b> = '+esc(ctx.accountWord||'account')+' '+ledgerSigned(acct)+' + shadow on '+ledgerSigned(Math.round(shOn*100)/100)+'</div>'):'';
-  const key='<div class="bka-key"><span class="bka-tag live">LIVE</span> traded here, in the account (solid) &middot; <span class="bka-tag sh">SHADOW</span> not traded here: simulated as-if from its pinned champion (dashed on the chart, never in the account)'
-    +(genAt?' &middot; as-if run '+esc(genAt)+(D&&D.data_end?', data to '+esc(D.data_end):''):'')+'</div>';
+  const whatif=anyOn?('<div class="bka-whatif" data-bkawhatif="'+board+'" data-bkawhatifv="'+Math.round((acct+shOn)*100)/100+'" title="What-if only: '+esc(ctx.accountWord||'account')+' '+ledgerSigned(acct)+' + shadow on '+ledgerSigned(Math.round(shOn*100)/100)+'. Never part of the account number.">what-if total <b class="'+ledgerCls(acct+shOn)+'">'+ledgerSigned(Math.round((acct+shOn)*100)/100)+'</b></div>'):'';
   return '<div class="bka'+(panelOpen?' open':'')+'" data-bka="'+board+'" data-lglist="'+esc(ctx.listId||('bka'+board))+'">'+head
-    +(panelOpen?(whatif+key+body):'')+'</div>';
+    +(panelOpen?(whatif+body):'')+'</div>';
 }
 // clicks, delegated once for both boards: a shadow switch, a book's as-if, a book fold, the panel fold. A LIVE switch carries the
 // board's own data-lgsw and is handled by that board's switch handler.
@@ -48727,7 +48822,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // under the one 'No trades' line (LEDGER_NO_TRADES) by itself, so the Account rows (equity, cash, open exposure, the daily
         // loss limit), which do not depend on the range, stay visible with no board-side wrapper.
         // owner 10-31 ('clean this up'): the four tiles, then the CALENDAR (open by default), then the More stats fold under it
-        const qbLgStatsHtml=ledgerStatStripHtml(qbLs,{id:'qb-stat-strip'});
+        const qbLgStatsHtml=ledgerStatStripHtml(qbLs,{id:'qb-stat-strip',short:true});
         // r2 step 3 (items 2, 40): the ? note no longer repeats the range word; the range goes in so DD5 / ROC know ALL / YTD
         const qbLgMoreHtml=(ledgerMoreStatsHtml(qbLs,qbMoreOpen?qbOwnStatGroups():[],{open:qbMoreOpen,id:'qb',range:qbRange||'ALL',
             note:'Range rows at P&amp;L of record (Webull fill, else book). Account rows as of the box\u2019s last save.'}));
@@ -51275,13 +51370,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // what it should run, what is open, and how many checks need a look - each a token that wraps whole onto a second line on a phone
           const tk=(t,c)=>'<span class="p2st'+(c?' '+c:'')+'">'+t+'</span>';
           // LEDGER UI r2 step 4 (scope SCOPE_LEDGER_UI_R2_2026-11-03 item 42): 'NT 3 of 4 running \u00b7 1 open \u00b7 checks clear' - the full sentence is the title
-          const ntTxt=!B?'NT no snapshot':(B.up===false?'NT not answering'
-            :(!F.nExp?'NT running nothing':('NT '+F.run+' of '+F.nExp+' running')));
+          // v91.72 (owner 11-21): ONE short status line, '● NT off · 4 checks' then the auto-recover switch and the refresh icon; a tap opens the chips
+          const ntTxt=!B?'NT no snapshot':(B.up===false?'NT off'
+            :(!F.nExp?'NT idle':('NT '+F.run+'/'+F.nExp+' running')));
           const ntBad=!B||B.up===false||!F.nExp||F.run<F.nExp;
           const sum=tk(_p2Xs(ntTxt),'p2st-nt'+(ntBad?' p2st-bad':''))
             +(F.pos?(' '+tk('\u00b7 '+F.pos+' open')):'')
-            +' '+tk('\u00b7 '+(W.length?('<span class="lg-chk-dot" aria-hidden="true"></span>'+W.length+' check'+(W.length===1?' needs':'s need')+' a look'):'checks clear'),W.length?'p2st-warn':'');
-          const tip=(W.length?(W.length+' warning'+(W.length===1?'':'s')+': '+W.map(w=>w.txt).join(' | ')+' | '):'no warnings | ')+T.join(' | ');
+            +' '+tk('\u00b7 '+(W.length?('<span class="lg-chk-dot" aria-hidden="true"></span>'+W.length+' check'+(W.length===1?'':'s')):'all clear'),W.length?'p2st-warn':'');
+          const tip=(ntBad?(ntTxt==='NT off'?'NinjaTrader is not answering. ':(ntTxt==='NT idle'?'NinjaTrader is running no strategy. ':'')):'')+(W.length?(W.length+' warning'+(W.length===1?'':'s')+': '+W.map(w=>w.txt).join(' | ')+' | '):'no warnings | ')+T.join(' | ');
           // REFRESH stays on the line; on a phone only its icon shows (the word is back at 601 px)
           const rf='<button data-paperrefresh class="p2rf" aria-label="Refresh" title="Reload the paper trades and reports" style="height:24px;padding:0 12px;font-size:10px;font-weight:700;letter-spacing:1px;border-radius:999px;border:1px solid var(--border);background:var(--bg2);color:var(--text3);cursor:pointer">'
             +(window._paperLoading?'<span class="p2rf-ic">\u2026</span> <span class="p2rf-tx">LOADING\u2026</span>':'<span class="p2rf-ic">\u27f3</span> <span class="p2rf-tx">REFRESH</span>')+'</button>';
@@ -51383,7 +51479,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const p=v/base*100,a=Math.abs(p),t=a<0.0005?'0.00%':((p<0?'-':'+')+(a<0.1?a.toFixed(3):a.toFixed(2))+'%');
           const nm=_hmEsc(String(_p2PctAcct.name||'Sim101'));
           const src=_p2PctAcct.live?'from the NT bridge cash':('base: '+nm+' cash as of '+ntSimCashWhen(_p2PctAcct.at)+', the last NinjaTrader reported - NT is not answering now');
-          return '<span class="qbx-pct '+(key==='today'?(v>=0?'hm-up':'hm-down'):ledgerCls(v))+'" data-p2pct="'+key+'"'+(_p2PctAcct.live?'':' data-p2pctcached')+' title="of the '+nm+' account at the start of '+(key==='today'?'the session':'the range')+' ('+ledgerMoney(base)+', '+src+')">('+t+')</span>';};
+          return '<span class="qbx-pct '+(key==='today'?(v>=0?'hm-up':'hm-down'):ledgerCls(v))+'" data-p2pct="'+key+'"'+(_p2PctAcct.live?'':' data-p2pctcached')+' title="'+(key==='today'?('of the '+nm+' account at the start of the session ('+ledgerMoney(base)+', '+src+')')
+            // v91.72 (owner 11-21): the base said plainly - the owner decides the base later; the formula is unchanged
+            :('Base '+ledgerMoney(base)+' = '+nm+' cash '+ledgerMoney(_p2PctCash)+' minus the realized '+ledgerSigned(v)+' in this range ('+src+'). '+ledgerSigned(v)+' / '+ledgerMoney(base)+' = '+t+'.'))+'">('+t+')</span>';};
         // v91.70: no Sim101 cash ever seen anywhere = a muted '(% n/a)' that says why on hover, instead of a blank that reads as broken
         const _p2PctNone=key=>_p2PctAcct?'':'<span class="qbx-pct" style="color:var(--text5)" data-p2pctnone="'+key+'" title="No %: no Sim101 cash has been seen yet - NinjaTrader is not answering, its AddOn heartbeat left no account cash, and this page never saw a live NT bridge snapshot. The % comes back the first time NinjaTrader runs (the bridge now keeps the last cash it saw).">(% n/a)</span>';
         const _p2TodayPct=_p2PctHtml(_H.today,_p2PctDayBase,'today')||_p2PctNone('today');
@@ -51469,7 +51567,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return rows;
         })();
         const _pnStatsOpen=_pnLs('el_lg_stats_nt8')==='1';
-        const _pnStrip=ledgerStatStripHtml(_pnS,{id:'p2-stat-strip'});
+        const _pnStrip=ledgerStatStripHtml(_pnS,{id:'p2-stat-strip',short:true});
         // r2 step 15: the entry-time strip (epoch seconds -> New York clock) as a full-width group; step 13: the range goes in for DD5 / ROC
         const _pnTodAt=t=>{const e=+t.entryTime;if(!(e>0))return '';try{const p=new Date(e*1000).toLocaleTimeString('en-GB',{timeZone:'America/New_York',hour12:false,hour:'2-digit',minute:'2-digit'});return p.replace(/^24/,'00');}catch(x){return '';}};
         const _pnTod=ledgerTodStripHtml(_pnRows,_pnTodAt,_pnPnl);
@@ -51549,22 +51647,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +(_cell==null?' <span class="qbx-vrt" data-p2set="none">set ?</span>':'')+(_variant?(' <span class="qbx-vrt" data-p2variant="'+_variant+'" title="model variant">'+_variant+'</span>'):'');
           const _lblHtml=/#\d+/.test(label)?_pnX(label).replace(/#(\d+)/,(m,n)=>_runLink(n)):(_pnX(label)+(_srcRun?(' '+_runLink(_srcRun)):''));
           const _op0=open[0],_opSide=_op0?_pnDir(_op0.side):'';
-          const _sidePill=_op0?('<span class="qbx-lg-pill" data-p2legpill="'+_pnX(name)+'" style="margin-left:6px;color:'+(_opSide==='SHORT'?'var(--red)':'var(--green)')+'">'+(_opSide||'OPEN')+'</span>'):'';
+          const _sidePill=_op0?('<span class="qbx-lg-pill" data-p2legpill="'+_pnX(name)+'" title="'+(_opSide||'a trade')+' open now" style="margin-left:6px;color:'+(_opSide==='SHORT'?'var(--red)':'var(--green)')+'">'+(_opSide?_opSide.charAt(0):'OPEN')+'</span>'):'';
           // r2 step 16 (item 47): 'set 2' / 'set ?' - the hover is unchanged
           const _paramsTag=(_cell!=null)?('<span class="qbx-params" data-p2params="'+_cell+'" title="run #'+(_srcRun||'?')+': '+_howWords+' \u00b7 model variant '+_variant+'">set '+_cell+(_how==='defaults'?' (defaults)':'')+'</span>')
             :('<span class="qbx-params" data-p2params="none" title="the values this leg trades sit in no row of the report\u2019s saved config grid \u00b7 model variant '+(_variant||'?')+'">set ?</span>');
           more+=R('Set',_paramsTag);
           const eq=a.net+a.openUsd;
-          return {key:name,wrap:true,
-            name:_crownIc(name)+_lblHtml+_sidePill
-              +((name==='ORB')?'<span title="'+_pnX(ORB_LA_TIP)+'" style="margin-left:5px;color:var(--warn);cursor:help">\u26a0</span>':''),
+          // v91.72 (owner 11-21 'get rid of this garbly nonsense'): ONE row - dot, the short name (family + run number: 'ORB #234.1'), the $ and the
+          // switch. The label's variant tag (' · RAW', ' · SIZE TILT'), the model word and the open / equity lines moved into the row hover and the
+          // detail a row tap opens (the Set / Market rows there already carry them).
+          const _lblShort=String(label).split(' \u00b7 ')[0];
+          const _runShort=n=>'<span class="qbx-runlink" data-p2runlink="'+n+'"'+(_cell!=null?(' data-p2cell="'+_cell+'"'):'')+' role="link" tabindex="0" title="open run #'+n+'\u2019s report">'+window.cfgIdText({run:n,cell:_cell})+'</span>';
+          const _lblHtml1=/#\d+/.test(_lblShort)?_pnX(_lblShort).replace(/#(\d+)/,(m,n)=>_runShort(n)):(_pnX(_lblShort)+(_srcRun?(' '+_runShort(_srcRun)):''));
+          if(a.openN)more+=R('Unrealized','<span data-p2rowopen="'+_pnX(name)+'" class="'+ledgerCls(a.openUsd)+'">'+ledgerSigned(a.openUsd)+' &middot; '+a.openN+' open'+(openCt?(' &middot; '+openCt+' ct'):'')+'</span>')
+            +R('Equity','<span data-p2rowequity="'+_pnX(name)+'" class="'+ledgerCls(eq)+'" title="closed + unrealized">'+ledgerSigned(eq)+'</span>');
+          return {key:name,wrap:false,
+            title:_pnX(label)+(_variant?(' \u00b7 model '+_variant):'')+(a.openN?(' \u00b7 unrealized '+ledgerSigned(a.openUsd)+', '+a.openN+' open'):'')+' \u00b7 tap for details',
+            name:_crownIc(name)+_lblHtml1+_sidePill
+              +((name==='ORB')?'<span class="lg-row-warn" title="'+_pnX(ORB_LA_TIP)+'">\u26a0</span>':''),
             tag:((isBook&&bw&&bw!==1)?('x'+bw):''),
             color:lv.dc,
             nameColor:(typeof _legColor!=='undefined'&&_legColor[name])||null,   // owner 10-31: the name in its chart line's colour
             sub:'',
             value:a.n?('<span title="closed trades of this leg in the range"><span aria-hidden="true">'+(a.net>=0?'\u25b2':'\u25bc')+'</span> '+ledgerSigned(a.net)+'</span>'):'&mdash;',
-            value3:a.openN?('<span data-p2rowopen="'+_pnX(name)+'" class="'+ledgerCls(a.openUsd)+'">unrealized '+ledgerSigned(a.openUsd)+' &middot; '+a.openN+' open'+(openCt?(' &middot; '+openCt+' ct'):'')+'</span>'):'',
-            value2:a.openN?('<span data-p2rowequity="'+_pnX(name)+'" class="'+ledgerCls(eq)+'" title="closed + unrealized">equity '+ledgerSigned(eq)+'</span>'):'',
             cls:a.n?ledgerCls(a.net):'',
             off:isBook&&!sel,
             more:{open:moreOpen,html:'<div class="p2rowmore">'+more+'</div>'},
@@ -51581,22 +51686,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _pnUncNote='Switch = list its trades only.';
         let _pnUncNoted=false;
         const _pnUncN=open=>{if(!open||_pnUncNoted)return '';_pnUncNoted=true;return _pnUncNote;};
-        const _pnGroups=[{key:'book',title:'BOOK #'+_bookRun,
+        // v91.72: the BOOK header row repeated the hero ('BOOK #463 · +$X · 4 of 4 on'): kept for screen readers and the probe, drawn as nothing;
+        // the three not-counted groups sit behind the list's ONE More fold (each still its own fold inside, closed by default, remembered)
+        const _pnGroups=[{key:'book',title:'BOOK #'+_bookRun,hdHidden:true,
           count:_pnGc('book',_bookNet,_bookN,_bookKeys.length,_pnMoney(_bookNet)+' &middot; '+_nShown+' of '+_bookDefs.length+' on'),
           titleTip:'COUNTED in the big number, the curve, the stats and the calendar, at book weights'+(_bookWtxt?(' ('+_pnX(_bookWtxt)+')'):'')+'. A switch leaves that leg out of all of them.',
           note:'<span data-p2listed data-net="'+_listedNet.toFixed(2)+'" data-n="'+_listedN+'" data-tie="'+(_pnTie?'1':'0')+'"'+(_pnTie?' hidden':'')+'>'+(_pnTie?'= the big number':'does not match the big number: check the switches')+'</span>',
           rows:_bookRowsOrdered.map(d=>_pnRow(d[0],d[1],'book'))}];
-        if(_pnFwdKeys.length)_pnGroups.push({key:'fwd',title:'Forward tests &amp; controls - not counted',
+        if(_pnFwdKeys.length)_pnGroups.push({key:'fwd',more:true,title:'Forward tests &amp; controls - not counted',
           count:_pnGc('fwd',_pnFwdA.net,_pnFwdA.n,_pnFwdKeys.length,_pnFwdKeys.length+' &middot; '+_pnMoney(_pnFwdA.net)),
           fold:true,open:!!window._paperFwdOpen,
           note:_pnUncN(!!window._paperFwdOpen),
           rows:window._paperFwdOpen?_legOrder.filter(d=>!_bookSet.has(d[0])&&!_isArchivedLeg(d[0])).map(d=>_pnRow(d[0],d[1],'fwd')):[]});
-        if(_otherKeys.length)_pnGroups.push({key:'other',title:'Other / shadow - not counted',
+        if(_otherKeys.length)_pnGroups.push({key:'other',more:true,title:'Other / shadow - not counted',
           count:_pnGc('other',_pnOthA.net,_pnOthA.n,_otherKeys.length,_otherKeys.length+' &middot; '+_pnMoney(_pnOthA.net)),
           fold:true,open:!!window._paperOtherOpen,titleTip:'Strategies the runner computes that have no listed row.',
           note:_pnUncN(!!window._paperOtherOpen),
           rows:window._paperOtherOpen?_otherKeys.map(k=>_pnRow(k,_pnNice(k),'other')):[]});
-        if(_pnRetKeys.length)_pnGroups.push({key:'retired',title:'Retired - not counted',
+        if(_pnRetKeys.length)_pnGroups.push({key:'retired',more:true,title:'Retired - not counted',
           count:_pnGc('retired',_pnRetA.net,_pnRetA.n,_pnRetKeys.length,_pnRetKeys.length+' &middot; '+_pnMoney(_pnRetA.net)),
           fold:true,open:_showArch,titleTip:'Retired strategies, kept so their history and colours still resolve.',
           note:_pnUncN(_showArch),
@@ -51636,7 +51743,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               return '<div class="p2railfoot" data-p2loaded data-loaded="'+nL+'" data-stored="'+(nSt==null?'':nSt)+'" data-listed="'+(nL-nOth)+'" data-other="'+nOth+'" title="'+_pnX(ld+' · '+(nL-nOth)+' book + '+nOth+' not counted')+'">'+short+'</div>';
             })();
           return '<div class="p2rail">'
-            +ledgerListHtml(_pnGroups,{id:'p2',moreSet:(window._p2MoreOpen||(window._p2MoreOpen=new Set())),
+            +ledgerListHtml(_pnGroups,{id:'p2',cls:'lg-list-row1',moreSet:(window._p2MoreOpen||(window._p2MoreOpen=new Set())),
+              moreFold:{label:'More',sum:_pnX((_pnFwdKeys.length+_otherKeys.length+_pnRetKeys.length)+' not counted \u00b7 filters \u00b7 '+_pt.length+' trades'),
+                tip:'Filters, the strategies that are not counted (forward tests and controls, other / shadow, retired) and how many trades are loaded'},
               title:'<span class="p2railhd-t" title="'+_pnX('Book switch = counted everywhere on the left. Other switches only list that strategy trades in the trades table. Dot = live in NinjaTrader. 👑 = the standing champion of its family.'
                 +(_crownGone.length?(' Crowns NOT on this board: '+_crownGone.map(d=>d.label).join(', ')+'.'):''))+'" style="cursor:help">Strategies</span>',
               count:'<span class="p2railct">'+_nShown+' of '+_bookDefs.length+' on</span>'+(_legOff.length?' <span class="p2link" data-paperlegall title="switch every book leg on">all</span>':''),
@@ -54571,10 +54680,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // LEDGER step 8: the list is the shared frame; a tap ticks that day rows and scrolls the list to that day header
           if(window._ntTl&&content.querySelector('[data-lglist-frame="nt8"]')){window._ntTl.pickDay(ds);return;}
         };});
-        content.querySelectorAll('[data-lglist="p2"] [data-lgrow]').forEach(b=>{b.onclick=()=>_wFlip(b.getAttribute('data-lgrow'));});
+        // v91.72: a row tap opens its detail (the chevron is gone from the one-line row); the switch is the only thing that counts a leg in or out
+        content.querySelectorAll('[data-lglist="p2"] [data-lgrow]').forEach(b=>{b.onclick=()=>{const m=b.querySelector('[data-lgrowmore]');if(m)ledgerRowMoreFlip(m);};});
         content.querySelectorAll('[data-lglist="p2"] [data-lgsw]').forEach(s=>{s.onclick=ev=>{ev.stopPropagation();_wFlip(s.getAttribute('data-lgsw'));};});
         content.querySelectorAll('[data-lglist="p2bk"] [data-lgsw]').forEach(s=>{s.onclick=ev=>{ev.stopPropagation();_wFlip(s.getAttribute('data-lgsw'));};});   // BOOK AS-IF LIVE legs (v91.71)
-        // MORE on a strategy row (owner 10-31): opens that row's detail in place; the row button itself still flips the switch
+        // MORE on a strategy row (owner 10-31): opens that row's detail in place
         content.querySelectorAll('[data-lglist="p2"] [data-p2runlink]').forEach(el=>{const go=ev=>_paperOpenRun(el.getAttribute('data-p2runlink'),ev);
           el.onclick=go;el.onkeydown=ev=>{if(ev.key==='Enter'||ev.key===' ')go(ev);};});
         // r2 step 6: the row chevron is the shared [data-lgrowmore] handler (ledgerRowMoreFlip); window._p2MoreOpen is its Set
