@@ -65,13 +65,34 @@ def drop_gold_books(books):
     return out
 
 
+# owner GO board 154 (11-22): NO DUPLICATE BOOKS. Publish ONE book per DD limit (the best raw+ML mix, key '<lim>_nogold_ml';
+# where ML does not help the raw no-gold row IS the best mix and is published under that key), ONE '#463 today', and the
+# single-leg ML shadow books. Raw-only twins, *_prov*, 35_cons* and 463_nogold are no longer published.
+LIMITS = (20, 25, 30, 35, 40, 50)
+SHADOW_BOOKS = ("382_keel", "234_gate", "314_gate")
+
+
+def pick_books(books):
+    out = {}
+    for lim in LIMITS:
+        b = books.get("%d_nogold_ml" % lim) or books.get("%d_nogold" % lim)
+        if b:
+            out["%d_nogold_ml" % lim] = b
+    if "463" in books:
+        out["463"] = books["463"]
+    for k in SHADOW_BOOKS:
+        if k in books:
+            out[k] = books[k]
+    return out
+
+
 def build(src):
     with open(src, encoding="utf-8") as f:
         d = json.load(f)
     books = d.get("books")
     if not isinstance(books, dict) or not books:
         raise ValueError("book_legs.json has no books")
-    books = drop_gold_books(books)
+    books = drop_gold_books(pick_books(books))
     unknown = set()
     for key, b in books.items():
         for leg in b.get("legs") or []:
@@ -90,6 +111,7 @@ def main(argv=None):
     ap.add_argument("--src", default=SRC)
     ap.add_argument("--uid", default=UID)
     ap.add_argument("--dry-run", action="store_true")
+    ap.add_argument("--force", action="store_true", help="write even when nothing changed")
     a = ap.parse_args(argv)
     doc = build(a.src)
     n = sum(len(b.get("legs") or []) for b in doc["books"].values())
@@ -97,7 +119,17 @@ def main(argv=None):
     if a.dry_run:
         print(f"DRY RUN -- would write users/{a.uid}/meta/book_legs ({len(json.dumps(doc))} bytes)")
         return 0
+    # Firestore Spark caps: write only when the content changed (published_at left out of the hash)
+    import hashlib
+    h = hashlib.sha256(json.dumps({k: v for k, v in doc.items() if k != "published_at"}, sort_keys=True).encode()).hexdigest()
+    hp = os.path.join(r"C:/EdgeLog/shadow_asif", "book_legs_publish.sha")
+    old = open(hp).read().strip() if os.path.exists(hp) else ""
+    if h == old and not a.force:
+        print("book_legs unchanged - nothing written")
+        return 0
     _db().collection("users").document(a.uid).collection("meta").document("book_legs").set(doc)
+    os.makedirs(os.path.dirname(hp), exist_ok=True)
+    open(hp, "w").write(h)
     print(f"wrote users/{a.uid}/meta/book_legs")
     return 0
 
