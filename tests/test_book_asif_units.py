@@ -99,7 +99,7 @@ def test_qqq_shares_follow_the_box_lot():
     assert b.qqq_shares("TTMx3", 3.0, sz)[0] == 30 and b.exec_leg_for("TTMx3") is None
     assert b.qqq_shares("OPUS58c_h", 0.5, sz)[0] == 5
     assert b.exec_sizing(cfg_path=None) == {"shares": {"ORB": 5, "ENGUQ": 5, "NOISE": 5}, "slip": 0.01,
-                                            "src": "api/qqq_exec.py DEFAULT_CONFIG"}
+                                            "src": "api/qqq_exec.py DEFAULT_CONFIG", "max": 10}
 
 
 def _st(trades, days):
@@ -125,3 +125,123 @@ def test_qqq_block_replays_a_known_nq_trade():
     # stock legs stay as dollars; an instrument the box cannot map says why
     assert b.qqq_block({"instrument": "SPY", "pnl_units": "usd"}, {}, refs)["same"] is True
     assert "no QQQ map for ZN" in b.qqq_block({"instrument": "ZN", "pnl_units": "points"}, {}, refs)["reason"]
+
+
+# ── 11-21 asifml: ML leak guard, per-trade sizes, the side-panel env var ──────────────────────────────────────────
+def _ml_model(tmp_path, body=b"fitted-model-bytes"):
+    import hashlib
+    p = tmp_path / "leg.pkl"
+    p.write_bytes(body)
+    return str(p), hashlib.sha256(body).hexdigest()
+
+
+def test_ml_guard_ignores_a_leg_with_no_model():
+    assert b.ml_guard("NOISE422", {"strategy": "NOISE_1_0.py", "run": 1}, {}, registry={}) is None
+
+
+def test_ml_guard_refuses_a_model_trained_into_the_window(tmp_path):
+    path, sha = _ml_model(tmp_path)
+    reg = {"MLX": {"model_path": path, "sha256": sha, "trained_through": "2026-06-01"}}
+    with pytest.raises(ValueError, match="on or after the as-if window start"):
+        b.ml_guard("MLX", {"strategy": "NOISE_1_0.py", "run": 7}, {}, registry=reg)
+    reg["MLX"]["trained_through"] = "2026-09-30"
+    with pytest.raises(ValueError, match="ML leak guard"):
+        b.ml_guard("MLX", {"strategy": "NOISE_1_0.py", "run": 7}, {}, registry=reg)
+
+
+def test_ml_guard_refuses_an_unknown_training_end(tmp_path):
+    path, sha = _ml_model(tmp_path)
+    reg = {"MLX": {"model_path": path, "sha256": sha}}
+    with pytest.raises(ValueError, match="training end .* is unknown"):
+        b.ml_guard("MLX", {"strategy": "NOISE_1_0.py", "run": 7}, {}, registry=reg)
+
+
+def test_ml_guard_needs_the_run_pinned_artifact(tmp_path):
+    path, sha = _ml_model(tmp_path)
+    with pytest.raises(ValueError, match="not pinned"):
+        b.ml_guard("MLX", {"strategy": "NOISE_1_0.py", "run": 7}, {},
+                   registry={"MLX": {"model_path": path, "trained_through": "2026-03-31"}})
+    with pytest.raises(ValueError, match="not the run's model"):     # the run doc's pin wins over the registry
+        b.ml_guard("MLX", {"strategy": "NOISE_1_0.py", "run": 7}, {"model_sha256": "0" * 64},
+                   registry={"MLX": {"model_path": path, "sha256": sha, "trained_through": "2026-03-31"}})
+
+
+def test_ml_guard_passes_a_pinned_model_trained_before_the_window(tmp_path):
+    path, sha = _ml_model(tmp_path)
+    doc = {"model_path": path, "model_sha256": sha, "model_trained_through": "2026-05-29T16:00:00"}
+    g = b.ml_guard("MLX", {"strategy": "NOISE_1_0.py", "run": 7}, doc, registry={})
+    assert g["sha12"] == sha[:12] and g["trained_through"] == "2026-05-29" and g["model_path"] == path
+
+
+def test_ml_registry_is_empty_and_documented():
+    assert b.ML_LEGS == {} and "leak" in (b.__doc__ + b.ML_LEGS.__class__.__doc__ + open(b.__file__).read()).lower()
+
+
+def test_box_sized_shares_follows_the_box_rule():
+    assert b.box_sized_shares(10, 1.0, 60) == (10, False)
+    assert b.box_sized_shares(10, 1.5, 60) == (15, False)
+    assert b.box_sized_shares(10, 0.04, 60) == (1, False)        # floored at one share
+    assert b.box_sized_shares(10, 8.0, 60) == (60, True)         # clamped, not refused
+    assert b.box_sized_shares(0, 2.0, 60) == (0, False)          # a leg the owner turned off stays off
+
+
+def test_qqq_block_applies_a_file_size():
+    refs = {"qqq": {"2026-07-01": 525.0}, "NQ": {"2026-07-01": 21000.0}, "ES": {}, "beta_es": 1.4, "beta_src": "t",
+            "sizing": {"shares": {"ORB": 10, "ENGUQ": 10, "NOISE": 10}, "slip": 0.01, "src": "t", "max": 60}}
+    spec = {"instrument": "NQ", "pnl_units": "points", "cost_pts": 0.533, "weight": 1.0, "params": {},
+            "_leg_id": "NOISE422", "strategy": "NOISE_1_8_CT304H.py"}
+    # a 1.5x tilted trade, raw 25.533 gross pts a contract: the file folds 1.5 x 25.533 - 0.5 x 0.533, the engine
+    # charges 0.533 once -> t[2] = 1.5 x 25 = 37.5. The box: 15 shares at 25.533 gross / 40 - slippage
+    t = (0, 1, 37.5)
+    st = _st([t], ["2026-07-01", "2026-07-02", "2026-07-03"])
+    st["file_sizes"] = {id(t): 1.5}
+    q = b.qqq_block(spec, st, refs)
+    assert q["shares"] == 10 and q["p"][0] == pytest.approx(round(25.533 / 40 * 15 - 2 * 0.01 * 15, 2))
+    assert "1 trade(s) carry a per-trade size" in q["sized"]
+    st0 = _st([t], ["2026-07-01", "2026-07-02", "2026-07-03"])        # unsized: the old reading
+    assert b.qqq_block(spec, st0, refs)["p"][0] == pytest.approx(round((37.5 + 0.533) / 40 * 10 - 0.2, 2))
+
+
+def _fake_state(trades, sizes, days):
+    import numpy as np
+    return {"_state": {"sized": [(t, s) for t, s in zip(trades, sizes)], "mult": 20.0, "weight": 1.0,
+                       "sess_idx": np.array(days, dtype="datetime64[D]"), "last": len(days) - 1, "days_idx": None,
+                       "file_sizes": None}, "master": "fake"}
+
+
+def test_simulate_applies_the_gate_size_and_scopes_the_panel_env(monkeypatch):
+    import augur_engine.book as eb
+    seen = {}
+    env = "MISC_TEST_PANEL_EXT"
+    monkeypatch.delenv(env, raising=False)
+
+    def fake(leg, a, z, keep_state=False):
+        seen["env"] = os.environ.get(env)
+        return [], _fake_state([(0, 1, 10.0), (1, 2, 10.0)], [1.0, 0.5], ["2026-07-01", "2026-07-02", "2026-07-03", "2026-07-06"])
+    monkeypatch.setattr(eb, "_leg_trades", fake)
+    monkeypatch.setattr(b, "qqq_block", lambda spec, st: {"same": True})
+    spec = {"strategy": "X.py", "params": {}, "instrument": "SPY", "timeframe": "5m", "session": "rth", "source": None,
+            "cost_pts": 0.0, "mult": 20.0, "weight": 1.0, "panel_ext": {"env": env, "path": "C:/x/panel.npz"}}
+    days, info = b.simulate(spec)
+    assert seen["env"] == "C:/x/panel.npz"            # set while the leg replays
+    assert os.environ.get(env) is None                # and gone after it
+    assert days["2026-07-02"][0] == pytest.approx(200.0) and days["2026-07-03"][0] == pytest.approx(100.0)
+    assert "1 trade(s) carry a per-trade size" in info["sized"]
+
+
+def test_leg_env_restores_a_previous_value(monkeypatch):
+    monkeypatch.setenv(b.MODEL_ENV, "before")
+    with b.leg_env({"ml": {"model_path": "C:/m.pkl"}}):
+        assert os.environ[b.MODEL_ENV] == "C:/m.pkl"
+    assert os.environ[b.MODEL_ENV] == "before"
+
+
+def test_panel_refresh_once_per_master_day(monkeypatch):
+    monkeypatch.setattr(b, "panel_ext_info", lambda env, path: {"end": "2026-11-19"})
+    legs = ["PICK6", "OPUS86a", "GLDNIGHT", "NOISE422"]
+    assert b.panels_to_refresh(legs, "2026-11-20", {}, "2026-11-20") == [
+        ("PICK6", "eodrev"), ("OPUS86a", "auchabit"), ("GLDNIGHT", "gldnight")]
+    assert b.panels_to_refresh(legs, "2026-11-20", {"PICK6": "2026-11-20"}, "2026-11-20")[0][0] == "OPUS86a"
+    assert b.panels_to_refresh(legs, "2026-11-19", {}, "2026-11-20") == []      # panel already at the master's end
+    assert b.panels_to_refresh(legs, "2026-11-21", {}, "2026-11-19") == []      # today's session is not complete yet
+    assert b.panels_to_refresh(legs, None, {}, "2026-11-20") == []

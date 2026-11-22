@@ -29,6 +29,13 @@ doc does not carry); those are built on the next run.
     python tools/book_asif_series.py --no-publish  # local file only
     python tools/book_asif_series.py --force       # rebuild every leg
     python tools/book_asif_series.py --legs NOISE422,ORB234
+    python tools/book_asif_series.py --panels-only # just re-pull the stale PICK6 / OPUS86a / GLDNIGHT panels
+
+PANELS. Every run (the 30-min scheduled one too) first re-pulls an extension panel (tools/asif_ext_panels.py) whose
+last day is before the SPY 5m stock master's last COMPLETED session, once per panel per master day
+(C:/EdgeLog/shadow_asif/panel_refresh.json); the new panel's sha changes that leg's cache key, so it rebuilds.
+--no-panel-refresh skips it. SIZES: a trade's per-trade size (a gate's multiplier, a file's own size such as NOISE's
+tilt) is applied in the NQ series and the qqq block. ML: see ML_LEGS (the leak guard).
 
 Run from anywhere: the engine and its master registry are imported from the SHARED checkout (the worktree registry
 trap). Read-only on the registry; never touches optimizer_history.db writes, orders or api/.
@@ -58,7 +65,7 @@ UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 # board's own first ledger day, so the series starts early enough for both
 WINDOW_FROM = "2026-06-01"
 WARM_DAYS = 330                      # NOISE's 104-day lookback, EODREV's 180-day beta, ENGU-Q's 1340-bar EMA
-SCHEMA = 3                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check); 3 = the qqq block (v91.74)
+SCHEMA = 4                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check); 3 = the qqq block (v91.74); 4 = per-trade sizes in the qqq block + ML guard + panel ext
 
 # Book-table leg id -> which run's champion it is, and anything the run doc does not say. `run` is the run the book
 # table names (the label); `params_run` (if set) is the run whose champion is replayed (NOISE398 = #528's PASS pick);
@@ -68,6 +75,38 @@ SCHEMA = 3                           # 2 = 11-21 owner-review fixes (PICK6 paper
 # 11-21 owner review: every leg's cost_pts / mult is checked against how its strategy reports P&L (unit_check): a
 # "points" file needs the run's cost and the contract multiplier, a "usd" file charges its own cost inside and must
 # run at job cost 0, mult 1.
+# Side-panel legs: the plugin's pinned panel ends 2026-06-30 (runs #511 / #526 / #541 reproduce from it). `panel_ext`
+# names the plugin's PANEL_EXT_ENV hook and a fresher panel; sessions after the pinned end are scored on that panel
+# alone (augur_strategies/MISC_*: unset = the pinned behaviour byte for byte). Panels: tools/asif_ext_panels.py
+# eodrev / auchabit / gldnight (fresh Alpaca pulls from a fixed start; re-run them to move the series forward -
+# refresh_ext_panels() below does that once per new stock-master day).
+_PANEL_EXT = {
+    "PICK6": ("MISC_EODREV_1_2_PANEL_EXT", r"C:/EdgeLog/alpaca_cache/eodrev_panel/eodrev_u100_panel_asif.npz"),
+    "OPUS86a": ("MISC_AUCHABIT_1_0_PANEL_EXT", r"C:/EdgeLog/alpaca_cache/auchabit_panel/auchabit_panel_asif.npz"),
+    "GLDNIGHT": ("MISC_GLDNIGHT_1_0_PANEL_EXT", r"C:/EdgeLog/alpaca_cache/gldnight_panel/gldnight_panel_asif.npz"),
+}
+_PANEL_BUILD = {"PICK6": "eodrev", "OPUS86a": "auchabit", "GLDNIGHT": "gldnight"}   # tools/asif_ext_panels.py <what>
+PANEL_STAMP = os.path.join(OUT_DIR, "panel_refresh.json")
+PANEL_BUILD_TIMEOUT = 20 * 60
+
+# ── ML LEGS (owner promise 11-21, MANAGER): a book leg whose strategy scores trades with a TRAINED MODEL ──
+ML_LEGS = {}
+"""Registry of book legs whose strategy loads a trained model file, for legs whose run doc / strategy file do not say
+so themselves. leg_id -> {"model_path": str, "sha256": "<hex, >= 12 chars: the artifact pinned to the leg's run>",
+"trained_through": "YYYY-MM-DD"}. Empty on 11-21: no current book leg loads a model (grep of augur_strategies for
+joblib / .pkl / MODEL_PATH / trained_through finds only research panels, never a fitted model).
+
+A leg is an ML leg when ANY of these says so (first wins for each field):
+  1. the run doc: model_path, model_sha256 (the pin), model_trained_through / trained_through;
+  2. ML_LEGS[leg_id] (this dict);
+  3. the strategy file's module constants: MODEL_PATH, MODEL_SHA256, TRAINED_THROUGH, ML = True / USES_MODEL = True.
+LEAK GUARD (ml_guard): the series is REFUSED, with the reason on the page, when the model path or its pin is missing,
+the file on disk does not hash to the pin, the training end is unknown, or the training end is on or after
+WINDOW_FROM (a model that saw the as-if window would draw an in-sample line). A passing leg replays with the EXACT
+pinned file: its path is handed to the strategy in MODEL_ENV, set only while that leg replays.
+A `gate` block in LEG_SPECS (augur_engine.book's ML gate, api/paper_gate.apply_gate) is not a stored model: it refits
+walk-forward on the leg's own earlier trades inside the replay, so it needs no pin; its per-trade size is applied."""
+MODEL_ENV = "EDGELOG_ASIF_MODEL_PATH"
 _EXPCAL_ONLY = {"cost_pts": 0.533, "point_value": 20}
 _EXPCAL_FROM = ("the file's only config (every knob pinned: NQ 0.533 pts a round trip at $20 a point, charged inside "
                 "the file); run #543 stored no champion")
@@ -94,7 +133,7 @@ LEG_SPECS = {
     "PICK6":     {"run": 511, "paper_usd_per_side": 10000.0, "size": "$10k a side (paper size)",
                   "note": "Webull paper PICK6 trades $10k a side (api/eodrev_exec.py); the #511 champion is $100k a "
                           "side, so the as-if runs at 0.1x",
-                  "stale_fix": "the pinned #511 side panel and the SPY 5m clock both end 2026-06-30"},
+                  "stale_fix": "re-run python tools/asif_ext_panels.py eodrev"},
     "GLDNIGHT":  {"run": 541, "note": "$100k a trade = the file's pinned notional; cost charged inside the file"},
 }
 SOURCE_MAP = {   # a run doc's source_name -> (session, registry source)
@@ -207,11 +246,125 @@ def leg_spec(leg_id, book_leg):
             "cost_pts": float(doc.get("cost_pts") or 0), "mult": mult, "weight": weight,
             "params_from": params_from, "note": s.get("note", ""), "size": s.get("size") or "",
             "stale_fix": s.get("stale_fix", "")}
+    if s.get("gate"):
+        spec["gate"] = dict(s["gate"])
+    if leg_id in _PANEL_EXT:
+        spec["panel_ext"] = panel_ext_info(*_PANEL_EXT[leg_id])
     spec["pnl_units"] = strategy_pnl_units(spec["strategy"])
     bad = unit_check(spec, spec["pnl_units"])
     if bad:
         raise ValueError("cost / mult do not fit the strategy's P&L units (%s): %s" % (spec["pnl_units"], bad))
+    ml = ml_guard(leg_id, spec, doc)            # raises ValueError("ML leak guard: ...") on a refused model
+    if ml:
+        spec["ml"] = ml
     return spec
+
+
+def panel_ext_info(env, path):
+    """{env, path, sha12, end} of a side-panel leg's as-if extension panel; {} when the file is not on this machine
+    (the leg then runs on the pinned panel alone and stops at its end, as before)."""
+    if not os.path.exists(path):
+        return {}
+    import numpy as np
+    with open(path, "rb") as f:
+        sha = hashlib.sha256(f.read()).hexdigest()[:12]
+    with np.load(path, allow_pickle=False) as z:
+        end = str(int(z["dates"][-1]))
+    return {"env": env, "path": path, "sha12": sha, "end": "%s-%s-%s" % (end[:4], end[4:6], end[6:])}
+
+
+# ── the ML leak guard (see ML_LEGS) ──────────────────────────────────────────────────────────────────────
+def _strategy_path(strategy):
+    for root in (HERE, SHARED):
+        p = os.path.join(root, "augur_strategies", os.path.basename(str(strategy)))
+        if os.path.exists(p):
+            return p
+    return None
+
+
+def strategy_ml_markers(strategy):
+    """The file's ML module constants (MODEL_PATH, MODEL_SHA256, TRAINED_THROUGH, ML, USES_MODEL) read from its
+    source text as literals - the file is never imported for this."""
+    import ast
+    import re
+    p = _strategy_path(strategy)
+    if not p:
+        return {}
+    with open(p, encoding="utf-8", errors="replace") as f:
+        src = f.read()
+    out = {}
+    for m in re.finditer(r"^(MODEL_PATH|MODEL_SHA256|TRAINED_THROUGH|ML|USES_MODEL)\s*=\s*(.+?)\s*(?:#.*)?$", src, re.M):
+        try:
+            out[m.group(1)] = ast.literal_eval(m.group(2))
+        except Exception:
+            out[m.group(1)] = m.group(2)
+    return out
+
+
+def _sha256_file(path):
+    h = hashlib.sha256()
+    with open(path, "rb") as f:
+        for chunk in iter(lambda: f.read(1 << 20), b""):
+            h.update(chunk)
+    return h.hexdigest()
+
+
+def _sidecar_trained_through(path):
+    """trained_through from a JSON sidecar next to the model (<path>.json or <stem>.meta.json); the pickle itself is
+    never unpickled to read it."""
+    stem = os.path.splitext(path)[0]
+    for side in (path + ".json", stem + ".meta.json", stem + ".json"):
+        d = _load_json(side)
+        if isinstance(d, dict) and d.get("trained_through"):
+            return str(d["trained_through"])
+    return None
+
+
+def ml_guard(leg_id, spec, doc, registry=None):
+    """None for a leg with no trained model; else {model_path, sha12, trained_through, from} for a model that passes
+    the leak guard; raises ValueError('ML leak guard: ...') when the series must be refused (see ML_LEGS)."""
+    reg = (ML_LEGS if registry is None else registry).get(leg_id) or {}
+    doc = doc or {}
+    mk = strategy_ml_markers(spec.get("strategy"))
+    flagged = bool(reg or doc.get("model_path") or doc.get("model_sha256") or mk.get("MODEL_PATH")
+                   or mk.get("ML") is True or mk.get("USES_MODEL") is True)
+    if not flagged:
+        return None
+    run = spec.get("params_run") or spec.get("run")
+
+    def first(*pairs):
+        for v, where in pairs:
+            if v:
+                return str(v), where
+        return None, None
+    path, path_from = first((doc.get("model_path"), "run #%s doc" % run), (reg.get("model_path"), "ML_LEGS"),
+                            (mk.get("MODEL_PATH"), "the strategy file"))
+    pin, pin_from = first((doc.get("model_sha256"), "run #%s doc" % run), (reg.get("sha256"), "ML_LEGS"),
+                          (mk.get("MODEL_SHA256"), "the strategy file"))
+    if not path:
+        raise ValueError("ML leak guard: the strategy uses a trained model but no model file is named (run doc "
+                         "model_path, ML_LEGS or the file's MODEL_PATH)")
+    if not pin or len(pin) < 12:
+        raise ValueError("ML leak guard: model %s is not pinned to run #%s (no model_sha256 on the run doc, in "
+                         "ML_LEGS or in the file) - cannot prove the replay uses the run's own model"
+                         % (os.path.basename(path), run))
+    if not os.path.exists(path):
+        raise ValueError("ML leak guard: pinned model %s is not on this machine" % path)
+    sha = _sha256_file(path)
+    if not sha.startswith(pin.lower()):
+        raise ValueError("ML leak guard: model %s hashes %s, run #%s pins %s - not the run's model"
+                         % (os.path.basename(path), sha[:12], run, pin[:12]))
+    tt, tt_from = first((doc.get("model_trained_through") or doc.get("trained_through"), "run #%s doc" % run),
+                        (reg.get("trained_through"), "ML_LEGS"), (mk.get("TRAINED_THROUGH"), "the strategy file"),
+                        (_sidecar_trained_through(path), "the model's sidecar json"))
+    if not tt:
+        raise ValueError("ML leak guard: the training end of model %s is unknown - refused (an unknown end may "
+                         "overlap the as-if window from %s)" % (os.path.basename(path), WINDOW_FROM))
+    if str(tt)[:10] >= WINDOW_FROM:
+        raise ValueError("ML leak guard: model %s was trained through %s, on or after the as-if window start %s - "
+                         "its as-if line would be in-sample" % (os.path.basename(path), str(tt)[:10], WINDOW_FROM))
+    return {"model_path": path, "sha12": sha[:12], "trained_through": str(tt)[:10],
+            "from": "path: %s; pin: %s; training end: %s" % (path_from, pin_from, tt_from)}
 
 
 def strategy_pnl_units(strategy):
@@ -282,6 +435,7 @@ def leg_kind(book_leg, spec=None):
 QQQ_EXEC_CFG = r"C:\EdgeLog\qqq_exec\config.json"
 EXEC_DEFAULT_SHARES = {"ORB": 5, "ENGUQ": 5, "NOISE": 5}      # api/qqq_exec.py DEFAULT_CONFIG["shares"]
 EXEC_DEFAULT_SLIP = 0.01                                       # api/qqq_exec.py DEFAULT_CONFIG["slippage_per_share"]
+EXEC_DEFAULT_MAX = 10                                          # api/qqq_exec.py DEFAULT_CONFIG["max_shares_per_leg"]
 QQQ_DAILY_FILES = (   # priority order; a 5m file gives the close of each ET day's last RTH bar
     (r"C:\EdgeLog\qqq_bars\QQQ_ext_alpaca_5m.csv", "5m"),
     (r"C:\EdgeLog\ohlc\QQQ_5m.csv", "5m"),
@@ -304,6 +458,7 @@ def exec_leg_for(leg_id):
 def exec_sizing(cfg_path=QQQ_EXEC_CFG):
     """{shares: {leg: n}, slip, src}: the box executor's fixed share table and slippage, its config over code defaults."""
     shares, slip, src = dict(EXEC_DEFAULT_SHARES), EXEC_DEFAULT_SLIP, "api/qqq_exec.py DEFAULT_CONFIG"
+    mx = EXEC_DEFAULT_MAX
     cfg = _load_json(cfg_path) if cfg_path else None
     if isinstance(cfg, dict):
         for k, v in (cfg.get("shares") or {}).items():
@@ -313,8 +468,28 @@ def exec_sizing(cfg_path=QQQ_EXEC_CFG):
                 pass
         if cfg.get("slippage_per_share") is not None:
             slip = float(cfg["slippage_per_share"])
+        try:
+            mx = int(cfg.get("max_shares_per_leg", mx) or 0)
+        except (TypeError, ValueError):
+            pass
         src = "qqq_exec/config.json over api/qqq_exec.py DEFAULT_CONFIG"
-    return {"shares": shares, "slip": slip, "src": src}
+    return {"shares": shares, "slip": slip, "src": src, "max": mx}
+
+
+def box_sized_shares(base, size, cap):
+    """The box's PAPER lot for a signal carrying a per-trade size (api/qqq_exec.py _open_lot, size_mode "fixed"):
+    size 1 -> the base lot; else max(1, round(base x size)) (_sized_shares), CLAMPED to max_shares_per_leg (the
+    SIZED branch clamps, it does not refuse). Returns (shares, clamped?)."""
+    base = int(base)
+    if base <= 0:
+        return 0, False
+    s = float(size)
+    if abs(s - 1.0) < 1e-12:
+        return base, False
+    want = max(1, int(round(base * s)))
+    if cap and want > cap:
+        return int(cap), True
+    return want, False
 
 
 def qqq_shares(leg_id, weight, sizing):
@@ -428,6 +603,21 @@ def _on_or_before(dmap, day, keys_sorted):
     return dmap[keys_sorted[i]] if i >= 0 else None
 
 
+def size_cost_units(spec, units, cost, prm):
+    """The cost a size-folding file used in its fold, in the file's P&L units: its _COST_PTS constant (NOISE CT304 /
+    CT304H = 0.533, the run's cost) when the file has one, else the run's cost (points) or the file's cost x
+    point_value (dollars)."""
+    import re
+    p = _strategy_path(spec.get("strategy")) if spec.get("strategy") else None
+    if p:
+        with open(p, encoding="utf-8", errors="replace") as f:
+            m = re.search(r"^_COST_PTS\s*=\s*([0-9.]+)", f.read(), re.M)
+        if m:
+            c = float(m.group(1))
+            return c * float(prm.get("point_value") or 1) if units == "usd" else c
+    return float(cost) * float(prm.get("point_value") or 1) if units == "usd" else float(cost)
+
+
 def qqq_block(spec, st, refs=None):
     """The leg's as-if in QQQ dollars as the Webull box would have traded it: {d, p, n, net, trades, shares, rule, ...};
     {reason} when it cannot be converted; {same: True, rule} for a stock leg (already dollars)."""
@@ -466,7 +656,16 @@ def qqq_block(spec, st, refs=None):
     def dayf(i):
         return str(np.datetime_as_string(sess_idx[i], unit="D")) if sess_idx is not None else str(days_idx[i])
 
-    days, lb_usd, lb_n, miss, seen = {}, 0.0, 0, 0, set()
+    # PER-TRADE SIZE (11-21 asifml). Two sources, multiplied: the gate's size (`sized`, 1.0 ungated) and the file's
+    # own size (st["file_sizes"], NOISE CT304 / CT304H tilt: run_backtest's trade_sizes). The file FOLDS its size into
+    # t[2] as s x raw - (s - 1) x its cost, the engine then charges its cost once, so one contract's raw move is
+    # (t[2] + (s - 1) x file cost + engine cost) / s (= t[2] / s + cost when the two costs agree, NOISE CT304 / CT304H);
+    # the box trades that per share and carries the size in its share count.
+    fsz = st.get("file_sizes") or {}
+    fcost = size_cost_units(spec, units, cost, prm)
+    ecost = float(spec.get("cost_pts") or 0)           # the engine's own cost, charged once a trade (0 on a $ file)
+    cap = int(sz.get("max") or 0)
+    days, lb_usd, lb_n, miss, seen, n_sized, n_clamp = {}, 0.0, 0, 0, set(), 0, 0
     for t, size in st.get("sized") or []:
         ei, xi = min(int(t[0]), last), min(int(t[1]), last)
         ed = dayf(ei)
@@ -474,11 +673,13 @@ def qqq_block(spec, st, refs=None):
         if not qp or not rp:
             miss += 1
             continue
-        n = int(round(per * float(size)))
+        fs = float(fsz.get(id(t), 1.0) or 1.0)
+        tot = float(size) * fs
+        n, clamped = box_sized_shares(per, tot, cap)
         if n <= 0:
             continue
-        seen.add(n)
-        usd = qqq_trade_usd(to_pts(t[2]), rp, qp, n, sz["slip"], beta)
+        one = (float(t[2]) + (fs - 1.0) * fcost + ecost) / fs - ecost if fs != 1.0 else float(t[2])
+        usd = qqq_trade_usd(to_pts(one), rp, qp, n, sz["slip"], beta)
         if xi >= last:
             lb_usd += usd
             lb_n += 1
@@ -486,6 +687,9 @@ def qqq_block(spec, st, refs=None):
         d = dayf(xi)
         if d < WINDOW_FROM:
             continue
+        seen.add(n)
+        n_sized += int(abs(tot - 1.0) > 1e-12)
+        n_clamp += int(clamped)
         a = days.setdefault(d, [0.0, 0])
         a[0] += usd
         a[1] += 1
@@ -504,6 +708,11 @@ def qqq_block(spec, st, refs=None):
         out["beta"] = beta
     if len(seen) > 1:
         out["shares_range"] = [min(seen), max(seen)]
+    if n_sized:
+        out["sized"] = ("%d trade(s) carry a per-trade size: the box lot x size (round, min 1)%s; points per contract "
+                        "unfolded from the file's size at %g cost" % (
+                            n_sized, ", %d clamped to max_shares_per_leg %d" % (n_clamp, cap) if n_clamp else "",
+                            fcost))
     if miss:
         out["skipped"] = "%d trade(s) with no QQQ or %s close on or before the entry day" % (miss, root)
     return out
@@ -527,12 +736,17 @@ def simulate(spec, date_to=None):
     warm = (dt.date.fromisoformat(WINDOW_FROM) - dt.timedelta(days=WARM_DAYS)).isoformat()
     leg = {k: spec[k] for k in ("strategy", "params", "instrument", "timeframe", "session", "source", "cost_pts",
                                 "mult", "weight")}
-    _out, info = _leg_trades(leg, warm, date_to, keep_state=True)
+    if spec.get("gate"):
+        leg["gate"] = spec["gate"]
+    with leg_env(spec):                                 # panel / model env vars: this leg's replay only
+        _out, info = _leg_trades(leg, warm, date_to, keep_state=True)
     st = info.get("_state") or {}
     sess_idx, last = st.get("sess_idx"), st.get("last")
-    days, last_bar_usd, last_bar_n = {}, 0.0, 0
+    fsz = st.get("file_sizes") or {}
+    days, last_bar_usd, last_bar_n, n_sized = {}, 0.0, 0, 0
     for t, size in st.get("sized") or []:
         i = min(int(t[1]), last)
+        # size = the gate's per-trade size (1.0 ungated); a file's own size (NOISE tilt) is already folded into t[2]
         usd = float(t[2]) * float(st["mult"]) * float(st["weight"]) * float(size)
         if i >= last:                       # exits on the master's last bar: may still be open
             last_bar_usd += usd
@@ -541,6 +755,7 @@ def simulate(spec, date_to=None):
         d = str(np.datetime_as_string(sess_idx[i], unit="D")) if sess_idx is not None else str(st["days_idx"][i])
         if d < WINDOW_FROM:
             continue
+        n_sized += int(abs(float(size) * float(fsz.get(id(t), 1.0) or 1.0) - 1.0) > 1e-12)
         a = days.setdefault(d, [0.0, 0])
         a[0] += usd
         a[1] += 1
@@ -553,8 +768,43 @@ def simulate(spec, date_to=None):
         qb = qqq_block(spec, st)
     except Exception as e:
         qb = {"reason": "QQQ conversion failed: %s: %s" % (type(e).__name__, str(e)[:200])}
-    return days, {"master": info.get("master"), "last_bar_usd": round(last_bar_usd, 2), "last_bar_n": last_bar_n,
-                  "data_end": last_day, "qqq": qb}
+    out = {"master": info.get("master"), "last_bar_usd": round(last_bar_usd, 2), "last_bar_n": last_bar_n,
+           "data_end": last_day, "qqq": qb}
+    if n_sized:
+        out["sized"] = ("%d trade(s) carry a per-trade size (%s); applied" % (
+            n_sized, "the file's own size, folded into its P&L" if fsz else "the gate's size multiplier"))
+    if info.get("gate"):
+        out["gate"] = info["gate"]
+    return days, out
+
+
+class leg_env:
+    """Sets one leg's replay env vars (side-panel extension, pinned ML model) for the `with` block only and restores
+    whatever was there before - another leg never sees them."""
+
+    def __init__(self, spec):
+        self.set = {}
+        ext = spec.get("panel_ext") or {}
+        if ext.get("env") and ext.get("path"):
+            self.set[ext["env"]] = ext["path"]
+        ml = spec.get("ml") or {}
+        if ml.get("model_path"):
+            self.set[MODEL_ENV] = ml["model_path"]
+        self.prev = {}
+
+    def __enter__(self):
+        for k, v in self.set.items():
+            self.prev[k] = os.environ.get(k)
+            os.environ[k] = v
+        return self
+
+    def __exit__(self, *exc):
+        for k, v in self.prev.items():
+            if v is None:
+                os.environ.pop(k, None)
+            else:
+                os.environ[k] = v
+        return False
 
 
 def spec_key(spec, mend):
@@ -603,6 +853,17 @@ def build_leg(leg_id, book_leg, force=False, say=print):
               "data_end": info.get("data_end") or mend[:10], "master": info.get("master"),
               "last_bar_usd": info.get("last_bar_usd"), "last_bar_n": info.get("last_bar_n"),
               "built_at": _now_utc(), "secs": round(time.time() - t0, 1), "qqq": info.get("qqq")}
+    ext = spec.get("panel_ext") or {}
+    if ext:
+        series["panel_ext"] = "%s (sha %s, to %s)" % (os.path.basename(ext["path"]), ext["sha12"], ext["end"])
+        series["data_end"] = min(series["data_end"][:10], ext["end"])
+    for k in ("sized", "gate"):
+        if info.get(k):
+            series[k] = info[k]
+    if spec.get("ml"):
+        series["ml"] = "model %s (sha %s) trained through %s, before the window from %s (%s)" % (
+            os.path.basename(spec["ml"]["model_path"]), spec["ml"]["sha12"], spec["ml"]["trained_through"],
+            WINDOW_FROM, spec["ml"]["from"])
     if not ds:
         series["empty"] = "no trades closed since %s" % WINDOW_FROM
     try:
@@ -640,12 +901,84 @@ def requested_legs(db):
         return []
 
 
+# ── nightly refresh of the side-panel extension panels ───────────────────────────────────────────────────
+def stock_master_end():
+    """The last session (YYYY-MM-DD) of the SPY 5m RTH stock master (alpaca_split_rth) - the clock PICK6 runs on and
+    the stocks the three panels are pulled with; None when not registered."""
+    from augur_engine.data import find_master
+    m = find_master("SPY", "5m", "rth", "alpaca_split_rth")
+    return str(m.get("date_to") or "")[:10] or None if m else None
+
+
+def _last_completed_session_et(now=None):
+    """Yesterday in New York: the panel builders pull daily bars of COMPLETED sessions only (before midnight ET)."""
+    from zoneinfo import ZoneInfo
+    now = now or dt.datetime.now(ZoneInfo("America/New_York"))
+    return (now.date() - dt.timedelta(days=1)).isoformat()
+
+
+def panels_to_refresh(leg_ids, master_end, stamp, today_cap):
+    """[(leg, what)] whose extension panel ends before the stock master's last COMPLETED session and that were not
+    already tried for that session (the stamp: one try per panel per master day, so the 30-min task never loops)."""
+    if not master_end:
+        return []
+    target = min(master_end, today_cap)
+    out = []
+    for lid in leg_ids:
+        if lid not in _PANEL_EXT:
+            continue
+        info = panel_ext_info(*_PANEL_EXT[lid])
+        end = info.get("end") or ""
+        if end >= target or (stamp or {}).get(lid) == target:
+            continue
+        out.append((lid, _PANEL_BUILD[lid]))
+    return out
+
+
+def refresh_ext_panels(leg_ids, say=print, runner=None):
+    """Re-run tools/asif_ext_panels.py for each stale panel (see panels_to_refresh). A failure is logged, never fatal:
+    the leg then reads the older panel and its data_end says how far it got."""
+    import subprocess
+    try:
+        mend = stock_master_end()
+    except Exception as e:
+        say("panel refresh: no stock master (%s) - skipped" % e)
+        return []
+    stamp = _load_json(PANEL_STAMP, {}) or {}
+    target = min(mend or "", _last_completed_session_et())
+    todo = panels_to_refresh(leg_ids, mend, stamp, _last_completed_session_et())
+    done = []
+    for lid, what in todo:
+        cmd = [sys.executable, os.path.join(HERE, "tools", "asif_ext_panels.py"), what]
+        say("panel refresh: %s panel ends before %s - %s" % (lid, target, " ".join(cmd[1:])))
+        t0 = time.time()
+        try:
+            if runner:
+                rc = runner(cmd)
+            else:
+                rc = subprocess.run(cmd, cwd=HERE, timeout=PANEL_BUILD_TIMEOUT).returncode
+        except Exception as e:
+            rc = "%s: %s" % (type(e).__name__, e)
+        say("panel refresh: %s -> %s (%.0fs)" % (what, rc, time.time() - t0))
+        stamp[lid] = target
+        stamp[lid + "_rc"] = str(rc)
+        stamp[lid + "_at"] = _now_utc()
+        done.append((lid, rc))
+    if todo:
+        _write_json(PANEL_STAMP, stamp)
+    return done
+
+
 def main(argv=None):
     ap = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     ap.add_argument("--src", default=BOOK_TABLE)
     ap.add_argument("--legs", default="", help="comma list of leg ids (default: every leg of every book)")
     ap.add_argument("--force", action="store_true", help="rebuild every leg and publish")
     ap.add_argument("--no-publish", action="store_true")
+    ap.add_argument("--no-panel-refresh", action="store_true",
+                    help="skip re-pulling the PICK6 / OPUS86a / GLDNIGHT extension panels")
+    ap.add_argument("--panels-only", action="store_true",
+                    help="only refresh the stale extension panels, then exit")
     a = ap.parse_args(argv)
     try:
         sys.stdout.reconfigure(encoding="utf-8")
@@ -667,7 +1000,11 @@ def main(argv=None):
             print("Firestore not reachable (%s) - local file only" % e)
             db = None
     want = [x.strip() for x in a.legs.split(",") if x.strip()] or list(legs)
-    prev = _load_json(os.path.join(OUT_DIR, "book_asif.json"), {}) or {}
+    if not a.no_panel_refresh:
+        refresh_ext_panels([x for x in want if x in legs])
+    if a.panels_only:
+        return 0
+    prev =_load_json(os.path.join(OUT_DIR, "book_asif.json"), {}) or {}
     out_legs = dict(prev.get("legs") or {})
     changed = False
     print("book as-if: %d distinct legs in %d books, window from %s" % (len(legs), len(table["books"]), WINDOW_FROM))
