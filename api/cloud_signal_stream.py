@@ -581,7 +581,8 @@ def _resolve_pending_against_rest(now, five_m_legs, paths, log):
 # REST-final bar is still compared afterwards (_resolve_pending_against_rest ->
 # _ownbar_audit): logs/ownbar_audit.jsonl + a phone alert on a decision flip. Nothing is
 # ever reversed.
-OWNBAR_MISSING_AFTER_S = 1.0     # no own-bar file for this boundary by close+1 s -> fallback
+OWNBAR_MISSING_AFTER_S = 1.5     # no own-bar file for this boundary by close+1.5 s -> fallback
+                                 # (the streamer itself gives up at close + ownbar.CONFIRM_BY_S)
 _OWNBAR_ALERTS = None
 _OWNBAR_DONE = {"bar_end": None}
 _OWNBAR_REFUSAL_LOGGED = {"why": None}
@@ -633,6 +634,19 @@ def _ownbar_fallback(paths, bar_end, why, log):
                    lambda m: _ownbar_push(m, paths, log))
 
 
+def _rth_bar(bar_start):
+    """True when the 5m bar opening at bar_start is a regular-session bar (09:30..15:55 ET,
+    weekday, and before a half day's close)."""
+    try:
+        et = _dt.datetime.fromtimestamp(bar_start, tz=cs._zi(cs.TZ))
+        if et.weekday() >= 5 or not (cs.RTH_OPEN <= et.time() < cs.RTH_CLOSE):
+            return False
+        close = cs._session_close_dt(et)
+        return close is None or et + _dt.timedelta(minutes=5) <= close
+    except Exception:
+        return False
+
+
 def handle_ownbar(now, five_m_legs, paths, log, wall=None):
     """One own-bar pass for the boundary that just closed. Returns True when the bar was
     handled (committed or fallen back), False when there is nothing to do yet."""
@@ -644,6 +658,8 @@ def handle_ownbar(now, five_m_legs, paths, log, wall=None):
         return False
     if wall - bar_end > HANDOFF_WINDOW_SECONDS:
         return False
+    if not _rth_bar(bar_end - 300):
+        return False          # the 09:25 bar (or any non-RTH bar) has no own bar -- not a fallback
     home = paths.get("home") or cs.edgelog_home()
     payload = ob.read_handoff(home)
     if not payload or int(payload.get("bar_end") or 0) != bar_end:

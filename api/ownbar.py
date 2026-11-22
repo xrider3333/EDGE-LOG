@@ -55,7 +55,12 @@ def stale_s():
 
 
 def grace_s():
-    return _env_float("EDGELOG_OWNBAR_GRACE_S", 0.05)
+    return _env_float("EDGELOG_OWNBAR_GRACE_S", 0.3)
+
+
+# VERIFIER 11-21: no proof the 5th minute is complete by boundary + CONFIRM_BY_S -> REST
+CONFIRM_BY_S = 1.0
+NOT_CONFIRMED = "last 1m bar not confirmed closed"
 
 
 def engine_port():
@@ -67,7 +72,7 @@ def exec_port():
 
 
 def warm_lead_s():
-    return _env_float("EDGELOG_OWNBAR_WARM_S", 3.0)
+    return _env_float("EDGELOG_OWNBAR_WARM_S", 5.0)
 
 
 def live_refusal(load_config=None):
@@ -108,7 +113,7 @@ def _minute_ok(m):
 
 
 def fold_own_bar(minutes, bar_start, now, last_update_epoch, connected, connect_epoch,
-                 stale_after=None, grace=None):
+                 stale_after=None, grace=None, fifth_closed=True):
     """(bar, reason). `minutes` = {1m bar start epoch: {open,high,low,close,volume}}.
     bar is the folded 5m dict (time = bar_start) or None with the reason it may not be
     used (then the REST path decides). Pure."""
@@ -118,14 +123,16 @@ def fold_own_bar(minutes, bar_start, now, last_update_epoch, connected, connect_
     if not connected:
         return None, "stream not connected"
     if last_update_epoch is None:
-        return None, "no stream update seen"
+        return None, "no QQQ trade print seen"
     age = now - last_update_epoch
     if age > stale_after:
-        return None, f"stream stale: last update {age:.2f}s old (limit {stale_after:g}s)"
+        return None, f"stream stale: last QQQ print {age:.2f}s old (limit {stale_after:g}s)"
     if connect_epoch is None or connect_epoch > bar_start:
         return None, "stream (re)connected inside this bar -- partial"
     if now < close + grace:
         return None, "last 1m bar not closed yet"
+    if not fifth_closed:
+        return None, f"{NOT_CONFIRMED} (no print at/after the boundary, builder not rolled)"
     rows = []
     for k in range(5):
         m = minutes.get(bar_start + MINUTE * k)

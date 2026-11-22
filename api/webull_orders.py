@@ -279,7 +279,7 @@ def install_keepalive(log=None):
             return False
 
 
-def keepalive_warm(url=None, timeout=1.5):
+def keepalive_warm(url=None, timeout=(0.4, 0.4)):
     """OWN-BAR item E (2026-11-21): one HEAD through THIS thread's keep-alive session, so the
     next order sent on this thread reuses a live TLS connection. Run it on the send worker
     thread. Returns elapsed ms, or None when keep-alive is not installed / the call failed.

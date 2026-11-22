@@ -2004,6 +2004,18 @@ class _OwnbarWoken(BaseException):
 
 
 _OWNBAR_WARM = {"thread": None}
+_OWNBAR_ACTIVE = {"at": 0.0, "on": False}
+
+
+def _ownbar_active_cached():
+    """ownbar.active() (flag + PAPER config), re-read at most every 60 s. Never raises."""
+    try:
+        from . import ownbar
+        if time.monotonic() - _OWNBAR_ACTIVE["at"] > 60.0:
+            _OWNBAR_ACTIVE.update(at=time.monotonic(), on=bool(ownbar.active()[0]))
+        return _OWNBAR_ACTIVE["on"]
+    except Exception:
+        return False
 
 
 def _ownbar_exec_socket():
@@ -2011,7 +2023,7 @@ def _ownbar_exec_socket():
     the keep-alive warm thread (item E) once. Never raises."""
     try:
         from . import ownbar
-        if not ownbar.enabled():
+        if not ownbar.enabled() or not _ownbar_active_cached():
             return None
         _ensure_ownbar_warm_thread()
         return ownbar.shared_socket(ownbar.exec_port())
@@ -2036,7 +2048,7 @@ def _ensure_ownbar_warm_thread():
                     target += 300
                 time.sleep(max(0.0, target - now))
                 fut = _send_inflight_future()
-                if fut is None or fut.done():
+                if _ownbar_active_cached() and (fut is None or fut.done()):
                     _place_order_executor.submit(webull_orders.keepalive_warm)
             except Exception:
                 time.sleep(5)
@@ -5302,6 +5314,9 @@ def _update_broker_order_row(signal_id, updates, log=print):
         return False
     if not fieldnames:
         return False
+    # OWN-BAR (VERIFIER 11-21): an older on-disk header gains any column the update carries
+    # (appended at the end, old rows padded "") instead of silently dropping it
+    fieldnames = list(fieldnames) + [k for k in updates if k not in fieldnames]
     found = False
     for row in rows:
         # RESTING ORB STOP (2026-09-29 review): a resting fill row shares its trade's CLOSE
@@ -5309,7 +5324,7 @@ def _update_broker_order_row(signal_id, updates, log=print):
         # has a capture of its own -- a later market close's capture must land on ITS
         # row, never overwrite Webull's stop/target price on the resting one
         if row.get("signal_id") == signal_id and not _is_resting_fill_row(row):
-            row.update({k: v for k, v in updates.items() if k in fieldnames})
+            row.update(updates)
             found = True
             break
     if not found:

@@ -142,7 +142,8 @@ def _streamer(tmp_path, now):
     s = ws.WebullBarStreamer(log=NOOP, clock=lambda: now, handoff_home=str(tmp_path))
     s._client = object()
     s._last_connect_epoch = B0 - 600
-    s._last_feed_epoch = now - 0.2
+    s._last_print_wall = now - 0.2
+    s._last_print_event_epoch = CLOSE + 0.01      # a QQQ print at/after the boundary
     m = _minutes()
     last = m.pop(B0 + 240)
     with s._lock:
@@ -156,8 +157,8 @@ def test_streamer_publishes_own_bar_and_wakes_engine(tmp_path, monkeypatch):
     monkeypatch.setenv("EDGELOG_OWNBAR_ENGINE_PORT", str(port))
     sock = ownbar.WakeSocket(port)
     try:
-        s = _streamer(tmp_path, CLOSE + 0.06)
-        p = s._ownbar_pass(CLOSE + 0.06)
+        s = _streamer(tmp_path, CLOSE + 0.35)
+        p = s._ownbar_pass(CLOSE + 0.35)
         assert p["ok"] and p["bar"]["close"] == 104.5 and p["bar_end"] == CLOSE
         assert ownbar.read_handoff(str(tmp_path))["bar"]["volume"] == p["bar"]["volume"]
         assert sock.wait(1.0) == str(CLOSE).encode()
@@ -167,18 +168,18 @@ def test_streamer_publishes_own_bar_and_wakes_engine(tmp_path, monkeypatch):
 
 def test_streamer_stale_feed_publishes_not_ok(tmp_path, monkeypatch):
     monkeypatch.setenv("EDGELOG_OWNBAR_ENGINE_PORT", str(_free_port()))
-    s = _streamer(tmp_path, CLOSE + 0.06)
-    s._last_feed_epoch = CLOSE + 0.06 - 2.1
-    p = s._ownbar_pass(CLOSE + 0.06)
+    s = _streamer(tmp_path, CLOSE + 0.35)
+    s._last_print_wall = CLOSE + 0.35 - 2.1
+    p = s._ownbar_pass(CLOSE + 0.35)
     assert p["ok"] is False and "stale" in p["reason"]
 
 
 def test_streamer_missing_minute_publishes_not_ok(tmp_path, monkeypatch):
     monkeypatch.setenv("EDGELOG_OWNBAR_ENGINE_PORT", str(_free_port()))
-    s = _streamer(tmp_path, CLOSE + 0.06)
+    s = _streamer(tmp_path, CLOSE + 0.35)
     with s._lock:
         s._recent_1m.pop(B0 + 120)
-    p = s._ownbar_pass(CLOSE + 0.06)
+    p = s._ownbar_pass(CLOSE + 0.35)
     assert p["ok"] is False and "missing minute" in p["reason"]
 
 
@@ -216,10 +217,10 @@ def test_unusable_own_bar_falls_back_to_rest_and_alerts_once_per_episode(engine)
     assert len(pushes) == 2
 
 
-def test_no_own_bar_file_falls_back_after_1s(engine):
+def test_no_own_bar_file_falls_back_after_1_5s(engine):
     paths, pushes, handled = engine
-    assert css.handle_ownbar(None, {"X": {}}, paths, NOOP, wall=CLOSE + 0.3) is False
-    assert css.handle_ownbar(None, {"X": {}}, paths, NOOP, wall=CLOSE + 1.2) is True
+    assert css.handle_ownbar(None, {"X": {}}, paths, NOOP, wall=CLOSE + 1.2) is False
+    assert css.handle_ownbar(None, {"X": {}}, paths, NOOP, wall=CLOSE + 1.6) is True
     assert handled == [] and len(pushes) == 1
 
 
@@ -306,10 +307,10 @@ def test_bar_end_to_send_under_300ms_with_fake_adapter(tmp_path, monkeypatch):
             sent.append(time.perf_counter())
             return {"ok": True, "sent": True}
     try:
-        s = _streamer(tmp_path, CLOSE + 0.06)
+        s = _streamer(tmp_path, CLOSE + 0.35)
         sig = tmp_path / "signals.csv"
         t0 = time.perf_counter()
-        s._ownbar_pass(CLOSE + 0.06)
+        s._ownbar_pass(CLOSE + 0.35)
         assert eng.wait(1.0)                                     # engine woken
         p = ownbar.read_handoff(str(tmp_path))
         assert p["ok"]
@@ -325,3 +326,98 @@ def test_bar_end_to_send_under_300ms_with_fake_adapter(tmp_path, monkeypatch):
     finally:
         eng.close()
         exe.close()
+
+
+# -- VERIFIER 11-21 must-fixes ---------------------------------------------------------------
+def test_grace_default_is_0_3(monkeypatch):
+    monkeypatch.delenv("EDGELOG_OWNBAR_GRACE_S", raising=False)
+    assert ownbar.grace_s() == 0.3
+
+
+def test_unconfirmed_fifth_minute_is_refused():
+    bar, why = ownbar.fold_own_bar(_minutes(), B0, CLOSE + 0.35, CLOSE + 0.3, True, B0 - 600,
+                                   stale_after=2.0, grace=0.3, fifth_closed=False)
+    assert bar is None and why.startswith(ownbar.NOT_CONFIRMED)
+
+
+def test_streamer_waits_for_fifth_minute_evidence_then_falls_back(tmp_path, monkeypatch):
+    monkeypatch.setenv("EDGELOG_OWNBAR_ENGINE_PORT", str(_free_port()))
+    s = _streamer(tmp_path, CLOSE + 0.35)
+    s._last_print_event_epoch = CLOSE - 0.5          # last print still inside minute 5
+    assert s.fifth_minute_closed(CLOSE) is False
+    assert s._ownbar_pass(CLOSE + 0.35, final=False) == {
+        "retry": True, "reason": s._ownbar_pass(CLOSE + 0.35, final=False)["reason"]}
+    assert ownbar.read_handoff(str(tmp_path)) is None   # nothing published while retrying
+    p = s._ownbar_pass(CLOSE + 1.0, final=True)
+    assert p["ok"] is False and ownbar.NOT_CONFIRMED in p["reason"]
+
+
+def test_fifth_minute_evidence_print_or_rolled_builder(tmp_path):
+    s = _streamer(tmp_path, CLOSE + 0.35)
+    assert s.fifth_minute_closed(CLOSE) is True       # print stamped at/after the boundary
+    s._last_print_event_epoch = CLOSE - 1
+    assert s.fifth_minute_closed(CLOSE) is False
+    with s._lock:
+        s.builders[60]._bars[s.symbols[0]] = {"time": CLOSE, "open": 1, "high": 1, "low": 1,
+                                              "close": 1, "volume": 1}
+    assert s.fifth_minute_closed(CLOSE) is True       # builder rolled to the next minute
+
+
+class _Q:
+    def __init__(self):
+        b = type("B", (), {})()
+        b.symbol, b.timestamp, b.trading_session = "QQQ", 0, None
+        self.basic = b
+        self.bids = [type("L", (), {"price": "1", "size": "1"})()]
+        self.asks = [type("L", (), {"price": "1.01", "size": "1"})()]
+
+
+def test_quotes_do_not_refresh_trade_print_staleness(tmp_path):
+    now = [CLOSE + 0.35]
+    s = ws.WebullBarStreamer(log=NOOP, clock=lambda: now[0], handoff_home=str(tmp_path))
+    s._last_print_wall = now[0] - 2.1
+    s._on_message("quote", _Q())                      # a quote arrives: feed is "alive"
+    assert s._last_feed_epoch == now[0]
+    assert s._last_print_wall == now[0] - 2.1         # but the trade-print clock did not move
+
+
+def test_handle_ownbar_skips_non_rth_bar(engine):
+    paths, pushes, handled = engine
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    open_bar_end = int(datetime(2026, 11, 23, 9, 30, tzinfo=ZoneInfo("America/New_York")).timestamp())
+    assert css.handle_ownbar(None, {"X": {}}, paths, NOOP, wall=open_bar_end + 2) is False
+    assert pushes == [] and handled == []
+
+
+def test_exec_socket_and_warm_gated_on_paper(monkeypatch):
+    from api import qqq_exec as qe
+    monkeypatch.setenv("EDGELOG_OWNBAR_DECIDE", "1")
+    monkeypatch.setattr(ownbar, "live_refusal", lambda load_config=None: "broker mode is LIVE")
+    qe._OWNBAR_ACTIVE.update(at=0.0, on=False)
+    monkeypatch.setattr(qe, "_ensure_ownbar_warm_thread", lambda: pytest.fail("warm started"))
+    assert qe._ownbar_exec_socket() is None
+
+
+def test_warm_head_timeout_is_short():
+    import inspect
+    from api import webull_orders as wo
+    assert inspect.signature(wo.keepalive_warm).parameters["timeout"].default == (0.4, 0.4)
+    assert ownbar.warm_lead_s() == 5.0
+
+
+def test_update_row_migrates_old_header(tmp_path, monkeypatch):
+    import csv
+    from api import qqq_exec as qe
+    path = tmp_path / "broker_orders.csv"
+    old = ["ts_et", "leg", "signal_id", "broker_fill_px"]
+    with open(path, "w", newline="", encoding="utf-8") as f:
+        w = csv.DictWriter(f, fieldnames=old)
+        w.writeheader()
+        w.writerow({"ts_et": "x", "leg": "L", "signal_id": "S0", "broker_fill_px": ""})
+        w.writerow({"ts_et": "x", "leg": "L", "signal_id": "S1", "broker_fill_px": ""})
+    monkeypatch.setattr(qe, "BROKER_ORDERS_CSV", str(path))
+    assert qe._update_broker_order_row("S1", {"broker_fill_px": 1.5, "fill_ts": 123.4}, log=NOOP)
+    rows = list(csv.DictReader(open(path, encoding="utf-8", newline="")))
+    assert rows[1]["fill_ts"] == "123.4" and rows[1]["broker_fill_px"] == "1.5"
+    assert rows[0]["fill_ts"] == ""

@@ -755,6 +755,10 @@ class WebullBarStreamer:
         # and when the current connection came up.
         self._recent_1m = {}
         self._last_feed_epoch = None
+        # VERIFIER 11-21 MUST-FIX 2: wall time of the last QQQ TRADE print (TICK topic only --
+        # never a quote/snapshot), and that print's own event epoch. The 2 s rule reads these.
+        self._last_print_wall = None
+        self._last_print_event_epoch = None
         self._last_connect_epoch = None
         self._ownbar_thread = None
         self._stop = threading.Event()
@@ -800,6 +804,9 @@ class WebullBarStreamer:
 
         with self._lock:
             self._last_trade = update
+            if topic == "tick" or (topic != "snapshot" and hasattr(payload, "get_volume")):
+                self._last_print_wall = now
+                self._last_print_event_epoch = update.epoch
         if not is_regular_session(update.trading_session, update.epoch):
             return   # extended-hours (or otherwise non-RTH) print: seen in last_trade(),
                      # but must never enter an RTH bar (crowned configs are regular-session only)
@@ -931,7 +938,19 @@ class WebullBarStreamer:
                 out.setdefault(int(cur["time"]), dict(cur))
         return out
 
-    def _ownbar_pass(self, now=None):
+    def fifth_minute_closed(self, bar_end):
+        """VERIFIER 11-21 MUST-FIX 1: evidence the bar's last minute is complete -- a QQQ
+        trade print stamped at/after the boundary was received, or the 1m builder already
+        rolled to a minute at/after it."""
+        with self._lock:
+            ev = self._last_print_event_epoch
+            b1 = self.builders.get(60)
+            cur = b1._bars.get(self.symbols[0]) if b1 is not None else None
+        if ev is not None and ev >= bar_end:
+            return True
+        return cur is not None and int(cur["time"]) >= int(bar_end)
+
+    def _ownbar_pass(self, now=None, final=True):
         """Fold the 5m bar that just closed, publish it (or why not) and wake the engine.
         Returns the payload. Never raises."""
         from api import ownbar
@@ -943,12 +962,15 @@ class WebullBarStreamer:
             if et.weekday() >= 5 or not (dtime(9, 30) <= et.time() < dtime(16, 0)):
                 return None
             bar, reason = ownbar.fold_own_bar(
-                self.own_minutes(bar_start), bar_start, now, self._last_feed_epoch,
-                self._client is not None, self._last_connect_epoch)
+                self.own_minutes(bar_start), bar_start, now, self._last_print_wall,
+                self._client is not None, self._last_connect_epoch,
+                fifth_closed=self.fifth_minute_closed(bar_end))
+            if bar is None and not final and reason.startswith(ownbar.NOT_CONFIRMED):
+                return {"retry": True, "reason": reason}
             payload = {"bar_start": bar_start, "bar_end": bar_end, "ok": bar is not None,
                        "reason": reason, "bar": bar, "built_ts": now,
-                       "last_update_age_s": (None if self._last_feed_epoch is None
-                                             else round(now - self._last_feed_epoch, 3))}
+                       "last_print_age_s": (None if self._last_print_wall is None
+                                            else round(now - self._last_print_wall, 3))}
             ownbar.write_handoff(self.handoff_home or edgelog_home(), payload)
             ownbar.wake(ownbar.engine_port(), str(bar_end).encode())
             if bar is None:
@@ -966,7 +988,14 @@ class WebullBarStreamer:
             target = ownbar.next_boundary(now) + ownbar.grace_s()
             if self._stop.wait(max(0.0, target - now)):
                 break
-            self._ownbar_pass()
+            # last minute unconfirmed -> re-check every 50 ms up to boundary + CONFIRM_BY_S,
+            # then publish the refusal (REST decides)
+            deadline = ownbar.next_boundary(now) + ownbar.CONFIRM_BY_S
+            while True:
+                final = self._clock() >= deadline
+                p = self._ownbar_pass(final=final)
+                if not (isinstance(p, dict) and p.get("retry")) or self._stop.wait(0.05):
+                    break
 
     def _watchdog(self):
         attempt = 0
