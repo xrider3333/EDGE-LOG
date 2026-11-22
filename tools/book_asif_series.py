@@ -135,6 +135,25 @@ LEG_SPECS = {
                           "side, so the as-if runs at 0.1x",
                   "stale_fix": "re-run python tools/asif_ext_panels.py eodrev"},
     "GLDNIGHT":  {"run": 541, "note": "$100k a trade = the file's pinned notional; cost charged inside the file"},
+    # ── board 142 ML legs (11-22, MANAGER GO): the raw leg + a gate block; nothing stored, nothing leaks ──
+    # fixed tilts = v12's a-priori sizes (no model); KEEL = the causal walk frozen at the as-if start, so no
+    # as-if trade ever trains the state that sizes another (paper_gate.apply_gate modes comp / keel_frozen).
+    "NOISE422_fixed": {"run": 422, "label": "NOISE #422 fixed tilts",
+                       "note": "v12 fixed tilts, no model: compression 1.5x, Friday 1.5x, cap 3, 0.5x before FOMC",
+                       "gate": {"mode": "comp", "mult": 1.5, "dow": {"4": 1.5},
+                                "event": {"mult": 0.5, "cut_hour": 14}}},
+    "NOISE382_fixed": {"run": 382, "label": "NOISE #382 fixed tilts",
+                       "note": "v12 fixed tilts, no model: compression 1.5x, Friday 1.5x, cap 3, 0.5x before FOMC",
+                       "gate": {"mode": "comp", "mult": 1.5, "dow": {"4": 1.5},
+                                "event": {"mult": 0.5, "cut_hour": 14}}},
+    "NOISE422_keel":  {"run": 422, "label": "NOISE #422 KEEL",
+                       "note": "KEEL v12 seed 42, causal walk before 2026-06-01, frozen state from then on",
+                       "warm_from": "2010-06-07",
+                       "gate": {"mode": "keel_frozen", "freeze_from": "2026-06-01", "version": "v12", "seed": 42}},
+    "NOISE382_keel":  {"run": 382, "label": "NOISE #382.2 KEEL",
+                       "note": "the live Webull stack: KEEL v12 seed 42, frozen at 2026-06-01",
+                       "warm_from": "2010-06-07",
+                       "gate": {"mode": "keel_frozen", "freeze_from": "2026-06-01", "version": "v12", "seed": 42}},
 }
 SOURCE_MAP = {   # a run doc's source_name -> (session, registry source)
     "rth - no-adj": ("rth", "db_noadj_rth"), "eth - no-adj": ("eth", "db_noadj_eth"),
@@ -248,6 +267,8 @@ def leg_spec(leg_id, book_leg):
             "stale_fix": s.get("stale_fix", "")}
     if s.get("gate"):
         spec["gate"] = dict(s["gate"])
+    if s.get("warm_from"):       # KEEL legs: the pre-freeze state is built on the leg's whole trade history
+        spec["warm_from"] = s["warm_from"]
     if leg_id in _PANEL_EXT:
         spec["panel_ext"] = panel_ext_info(*_PANEL_EXT[leg_id])
     spec["pnl_units"] = strategy_pnl_units(spec["strategy"])
@@ -733,7 +754,7 @@ def simulate(spec, date_to=None):
     """Closed trades by New York session day from WINDOW_FROM: (days {d: [usd, n]}, info)."""
     import numpy as np
     from augur_engine.book import _leg_trades
-    warm = (dt.date.fromisoformat(WINDOW_FROM) - dt.timedelta(days=WARM_DAYS)).isoformat()
+    warm = spec.get("warm_from") or (dt.date.fromisoformat(WINDOW_FROM) - dt.timedelta(days=WARM_DAYS)).isoformat()
     leg = {k: spec[k] for k in ("strategy", "params", "instrument", "timeframe", "session", "source", "cost_pts",
                                 "mult", "weight")}
     if spec.get("gate"):
