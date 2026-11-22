@@ -151,6 +151,14 @@ LEG_SPECS = {
                        "note": "KEEL v12 causal walk from 2010: each trade sized only from trades already closed, keeps learning (owner 11-22)",
                        "warm_from": "2010-06-07",
                        "gate": {"mode": "keel", "version": "v12"}},
+    # ML gates whose standalone ROC@30k beats raw (test 111; owner 11-22): causal gate_trades walk seeded from 2010,
+    # refit every 25 closed trades - live-like learning, no stored model. ENGU-Q #335 hybrid rf is LEFT OUT: worse than raw.
+    "ORB234_gate":    {"run": 234, "label": "ORB #234.x gate", "warm_from": "2010-06-07",
+                       "note": "hybrid rf gate at 0.45 (ORB_H's recipe on its own seat), causal refit every 25 trades",
+                       "gate": {"mode": "hybrid", "model": "rf", "threshold": 0.45}},
+    "ORB314_gate":    {"run": 314, "label": "ORB #314.x gate", "warm_from": "2010-06-07",
+                       "note": "hybrid tree gate at 0.45, size x1.2785 (WF drawdown match, 09-27), causal refit every 25 trades",
+                       "gate": {"mode": "hybrid", "model": "tree", "threshold": 0.45, "recycle_factor": 1.2785}},
     "NOISE382_keel":  {"run": 382, "label": "NOISE #382.2 KEEL",
                        "note": "the live Webull stack: KEEL v12 causal walk from 2010, keeps learning as trades close (owner 11-22)",
                        "warm_from": "2010-06-07",
@@ -1126,16 +1134,22 @@ def main(argv=None):
         trs = {lid: r.get("tr") for lid, r in out_legs.items() if r.get("tr") is not None}
         slim = dict(doc, legs={lid: {k: v for k, v in r.items() if k != "tr"} for lid, r in out_legs.items()})
         ref.document("book_asif").set(slim)
+        hp = os.path.join(OUT_DIR, "trades_hash.json"); hashes = _load_json(hp, {}) or {}; nw = 0
         for lid, rows in trs.items():      # board 147: per-trade rows, one doc per leg (book_asif_trades_<leg>)
+            h = hashlib.sha1(json.dumps(rows, sort_keys=True, default=str).encode()).hexdigest()[:16]
+            if hashes.get(lid) == h:       # Firestore Spark quota: write a leg's trades only when they change
+                continue
+            hashes[lid] = h; nw += 1
             for j in range(0, max(len(rows), 1), TRADES_PER_DOC):
                 ref.document("book_asif_trades_%s%s" % (lid, "" if j == 0 else "_%d" % (j // TRADES_PER_DOC))).set(
                     {"leg": lid, "window_from": WINDOW_FROM, "generated_at": doc["generated_at"], "part": j // TRADES_PER_DOC,
                      "parts": -(-len(rows) // TRADES_PER_DOC) or 1, "rows": rows[j:j + TRADES_PER_DOC]})
+        _write_json(hp, hashes)
         try:
             ref.document("book_asif_req").set({"legs": [], "cleared_at": _now_utc()})
         except Exception:
             pass
-        print("published users/<uid>/meta/book_asif (%d bytes) + %d per-leg trade docs" % (len(json.dumps(slim, default=str)), len(trs)))
+        print("published users/<uid>/meta/book_asif (%d bytes) + %d of %d per-leg trade docs (changed only)" % (len(json.dumps(slim, default=str)), nw, len(trs)))
     elif db is not None:
         print("nothing changed - not published")
     return 0

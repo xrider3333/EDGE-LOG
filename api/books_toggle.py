@@ -74,6 +74,9 @@ BOOK_LEG_CLASS = {
     "NOISE422_fixed": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #422 fixed tilts", "gate": None, "feed": None},
     "NOISE422_keel": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #422 KEEL", "gate": None, "feed": None},
     "NOISE382_fixed": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382 KEEL, not the fixed-tilt version", "gate": None, "feed": None},
+    "NOISE382_keel": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "as-if of the live NOISE #382.2 KEEL leg; record only", "gate": None, "feed": None},
+    "ORB234_gate": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314, not #234 gated", "gate": None, "feed": None},
+    "ORB314_gate": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314 ungated, not the gated version", "gate": None, "feed": None},
 }
 
 APPLIED_NAME = "books_toggle_applied.json"
