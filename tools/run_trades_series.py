@@ -26,7 +26,10 @@ WHAT EACH TRADE CARRIES (columnar, so the Firestore doc stays small):
   e / x   entry / exit bar time, epoch SECONDS (UTC)        s   side +1 / -1 (null when the tuple has none)
   p       NET points at the run's own 1-contract unit, after the run's cost_pts (exactly the engine's chain value)
   z       the file's own per-trade size where it reports one (NOISE's tilt), else 1 - so p / z is per contract
-  r       initial risk in points (|entry - initial stop|) from the strategy's return_levels rows, else null
+  r       initial risk in points (|entry - initial stop|) from the strategy's return_levels rows, else null.
+          A pinned replay from before return_levels (2026-10-31) takes r from the CURRENT file run on the same tape,
+          folds, arm and params, matched on entry time + side (>= 95 pct must match or the run is refused);
+          risk_source on the doc and on sizing says which: stop / stop_from_current_file / median
   f       walk-forward fold number
 DAILY: {d: [YYYY-MM-DD], p: [$ a day at 1 contract], n: [trades closed that day]}, every weekday of the WF span,
 zero days included (the house four-numbers convention). A trade is dated by its EXIT on the New York session day
@@ -151,6 +154,56 @@ def risk_from_levels(levels, n_trades, entry_bars=None):
             out.append(None)
     return out
 
+STOP_MATCH_MIN = 0.95         # current file's trades must line up with the pinned replay's on this share (entry, side)
+
+
+def match_stops(trades, current):
+    """Stops for a pinned replay whose code returned none (REPLAY A RUN = PIN THE CODE: a pin from before the
+    2026-10-31 return_levels overlay), read off the CURRENT strategy file's own trades on the same bars and params.
+    `trades`: the payload's trades (dicts with e, s); `current`: dicts with e, s, r from the current file.
+    A trade matches on the same entry time AND side (side compared only when both carry one); several current trades
+    at one entry are taken in order. -> (risks list aligned to `trades` (None = unmatched), matched count)."""
+    pool = {}
+    for c in current:
+        pool.setdefault(int(c["e"]), []).append(c)
+    out, hit = [], 0
+    for t in trades:
+        cands = pool.get(int(t["e"]), [])
+        k = next((i for i, c in enumerate(cands)
+                  if t.get("s") is None or c.get("s") is None or int(c["s"]) == int(t["s"])), None)
+        if k is None:
+            out.append(None)
+            continue
+        c = cands.pop(k)
+        hit += 1
+        rk = c.get("r")
+        out.append(round(float(rk), 6) if rk is not None and float(rk) > 0 else None)
+    return out, hit
+
+
+def apply_current_stops(payload, current, source, min_match=STOP_MATCH_MIN):
+    """Fill payload trades' missing r from `current` (match_stops). Refuses (Refused) when fewer than `min_match` of
+    the trades line up - then the current file is not the run's rule and its stops would be a guess. Trades that do
+    not match keep r null (the sizing falls back to the median losing trade for them and counts them)."""
+    tr = payload["trades"]
+    n = len(tr["e"])
+    rows = [{"e": tr["e"][i], "s": tr["s"][i]} for i in range(n)]
+    risks, hit = match_stops(rows, current)
+    pct = (hit / n) if n else 0.0
+    if n == 0 or pct < min_match:
+        raise Refused("stops from the current file refused: %d of %d trades (%.1f pct) match on entry time and side, "
+                      "below %.0f pct - the current %s is not the rule the run traded"
+                      % (hit, n, 100.0 * pct, 100.0 * min_match, source))
+    tr["r"] = [tr["r"][i] if tr["r"][i] is not None else risks[i] for i in range(n)]
+    nz = sum(1 for v in tr["r"] if v is not None)
+    info = {"source": source, "matched": hit, "n": n, "pct": round(100.0 * pct, 2), "current_trades": len(current),
+            "with_stop": nz, "median_fallback": n - nz}
+    payload["risk_n"] = nz
+    payload["risk_src"] = "stop_from_current_file" if nz else None
+    payload["risk_source"] = "stop_from_current_file" if nz else "median"
+    payload["risk_match"] = info
+    return info
+
 
 def verify_chain(matches, mult, wf_net_pts=None):
     """-> (ok, info). Every fold ok AND |sum(replayed) - sum(saved)| x mult <= USD_TOL. `wf_net_pts`, the doc's
@@ -197,6 +250,7 @@ def series_payload(run_id, plan, mult, trades, daily, verify, src, tape, arm, ri
             "timeframe": plan.get("timeframe"), "mult": float(mult), "cost_pts": float(plan.get("cost_pts") or 0.0),
             "from": daily["d"][0] if daily["d"] else None, "to": daily["d"][-1] if daily["d"] else None,
             "n_trades": len(trades), "risk_src": (risk_src if nz else None), "risk_n": nz,
+            "risk_source": ("stop" if nz else "median"),
             "verify": verify, "daily": daily, "trades": cols}
 
 
@@ -212,6 +266,9 @@ def add_sizing(payload):
     for c in tab["cols"].values():
         if c.pop("d", None) != days:
             raise Refused("sizing curve days do not line up with the daily series")
+    rs = payload.get("risk_source") or ("stop" if payload.get("risk_n") else "median")
+    tab["risk_source"] = rs                       # stop / stop_from_current_file / median (where r came from)
+    tab["risk_match"] = payload.get("risk_match")
     payload["sizing"] = tab
     return payload
 
@@ -300,7 +357,7 @@ def replay_run(doc, tapes=None, log=_say):
     from tools import backfill_wf_oos as B
     from augur_engine.strategies import load_strategy
     from augur_engine.auto import _auto_space_from_params
-    from augur_engine.data import find_master, load_master_arrays
+    from augur_engine.data import find_master
     plan, reason = B.rebuild_plan(doc)
     if reason:
         raise Refused(reason)
@@ -323,26 +380,12 @@ def replay_run(doc, tapes=None, log=_say):
                  for fb in plan["folds"])
     tried = []
     for kind, path in candidate_tapes(master, tapes):
-        m2 = dict(master, filename=os.path.abspath(path))
         try:
-            arrays = load_master_arrays(m2, date_from=plan["date_from"], date_to=plan["date_to"])
-        except Exception as e:
-            tried.append("%s: load failed %s" % (path, e))
+            arrays, folds = _tape_folds(plan, master, path, has_ts)
+        except ValueError as e:
+            tried.append("%s (%s): %s" % (kind, path, e))
             continue
         n = len(arrays["close"])
-        index = arrays.get("index")
-        if has_ts:
-            try:
-                folds = B.resolve_fold_bounds(dict(plan, today_fp=None), index, n)
-            except Exception as e:
-                tried.append("%s (%s): %s" % (kind, path, str(e)[:160]))
-                continue
-        else:
-            if n != plan["expect_n"]:
-                tried.append("%s (%s): %d bars, doc expects %d" % (kind, os.path.basename(os.path.dirname(path))
-                                                                  + "/" + os.path.basename(path), n, plan["expect_n"]))
-                continue
-            folds = plan["folds"]
         log("  tape %s %s: %d bars %s..%s" % (kind, path, n, plan["date_from"], plan["date_to"]))
         res = _replay_on(plan, mod, arrays, folds, params_list, levels, mult, eth, log)
         if res is not None:
@@ -350,6 +393,27 @@ def replay_run(doc, tapes=None, log=_say):
             return res
         tried.append("%s (%s): the tape matched but the folds did not reproduce" % (kind, path))
     raise Refused("no tape reproduces the run | " + " | ".join(tried[-6:]))
+
+
+def _tape_folds(plan, master, path, has_ts):
+    """-> (arrays, folds) for one tape, or ValueError(why): rows with timestamps are re-located by time, rows with bar
+    indices only need the window to hold EXACTLY the doc's bar count (FOLD BOUNDS = BAR INDICES)."""
+    from tools import backfill_wf_oos as B
+    from augur_engine.data import load_master_arrays
+    m2 = dict(master, filename=os.path.abspath(path))
+    try:
+        arrays = load_master_arrays(m2, date_from=plan["date_from"], date_to=plan["date_to"])
+    except Exception as e:
+        raise ValueError("load failed %s" % e)
+    n = len(arrays["close"])
+    if has_ts:
+        try:
+            return arrays, B.resolve_fold_bounds(dict(plan, today_fp=None), arrays.get("index"), n)
+        except Exception as e:
+            raise ValueError(str(e)[:160])
+    if n != plan["expect_n"]:
+        raise ValueError("%d bars, doc expects %d" % (n, plan["expect_n"]))
+    return arrays, plan["folds"]
 
 
 def _replay_on(plan, mod, arrays, folds, params_list, levels, mult, eth, log):
@@ -426,7 +490,74 @@ def _trades_from(raw, index, eth, levels):
                         "p": round(float(t[2]), 6), "z": (round(float(sizes[k]), 6) if sizes else 1),
                         "r": (round(rk[k], 6) if rk and rk[k] is not None else None), "f": int(fb["fold"]),
                         "d": session_day(xt, eth)})
-    return out, ("levels" if any_risk else None)
+    return out, ("stop" if any_risk else None)
+
+
+def current_file_stops(doc, payload, log=_say):
+    """Run TODAY's strategy file with return_levels on the SAME tape, folds, arm and champion params the payload was
+    replayed on, and return its trades as [{e, s, r}] (no verify: the match against the pinned trades is the check).
+    Raises Refused when the current file exposes no stop levels or the tape does not line up."""
+    import pandas as pd
+    from tools import backfill_wf_oos as B
+    import augur_engine.data as _data
+    from augur_engine.strategies import load_strategy
+    from augur_engine.auto import _auto_space_from_params
+    plan, reason = B.rebuild_plan(doc)
+    if reason:
+        raise Refused(reason)
+    mod = load_strategy(plan["strategy"])
+    if not _wants_levels(mod):
+        raise Refused("the current %s has no return_levels" % plan["strategy"])
+    pkeys = list(_auto_space_from_params(getattr(mod, "DEFAULT_PARAMS", {}) or {}).keys())
+    params_list, reason = B.fold_params(pkeys, [fb["row"] for fb in plan["folds"]])
+    if reason:
+        raise Refused(reason)
+    master = _data.find_master(plan["instrument"], plan["timeframe"], plan["session"], plan["source"])
+    if master is None:
+        raise Refused("no master for the current-file stop pass")
+    path = payload.get("tape") or os.path.join(_data.UPLOADS, master["filename"])
+    has_ts = all(fb["row"].get("test_start_ts") is not None and fb["row"].get("test_end_ts") is not None
+                 for fb in plan["folds"])
+    try:
+        arrays, folds = _tape_folds(plan, master, path, has_ts)
+    except ValueError as e:
+        raise Refused("current-file stop pass: tape %s: %s" % (path, e))
+    arm = str(payload.get("arm") or "cold")
+    wd = int(arm.split()[1]) if arm.startswith("warm") else 0
+    ev = _evaluator(mod, arrays, plan["cost_pts"], wd)
+    if ev is None:
+        raise Refused("current-file stop pass: no evaluator for arm %s" % arm)
+    index = pd.DatetimeIndex(arrays["index"])
+    raw = []
+    for fb, params in zip(folds, params_list):
+        p = dict(params, return_levels=True)
+        om = (ev(fb["te_s"], fb["te_e"], p, keep_trades=True, warm=True) if wd
+              else ev(fb["te_s"], fb["te_e"], p, keep_trades=True))
+        raw.append((fb, om))
+    trades, _ = _trades_from(raw, index, str(plan["session"]).lower() == "eth", True)
+    log("  current %s (%s, %s): %d trades, %d with a stop"
+        % (plan["strategy"], arm, os.path.basename(path), len(trades), sum(1 for t in trades if t["r"] is not None)))
+    return [{"e": t["e"], "s": t["s"], "r": t["r"]} for t in trades], plan["strategy"]
+
+
+def fill_missing_stops(doc, payload, log=_say):
+    """When the replay's code returned no stop for some trades (a pin from before return_levels), take them from the
+    CURRENT file (current_file_stops + apply_current_stops). No-op when every trade already has one, or when the
+    current file has no stop rule either (the median fallback is then the honest read)."""
+    tr = payload["trades"]
+    if all(v is not None for v in tr["r"]):
+        return None
+    try:
+        cur, name = current_file_stops(doc, payload, log)
+    except Refused as e:
+        if "has no return_levels" in str(e):
+            log("  %s - risk stays the median losing trade" % e)
+            return None
+        raise
+    info = apply_current_stops(payload, cur, "current " + name)
+    log("  stops from the current file: %d of %d trades matched (%.2f pct), %d carry a stop, %d on the median"
+        % (info["matched"], info["n"], info["pct"], info["with_stop"], info["median_fallback"]))
+    return info
 
 
 # ── Firestore ────────────────────────────────────────────────────────────────────────────────────────────
@@ -595,7 +726,16 @@ def _pinned_child(db, rid, a, why_today):
     r = subprocess.run(cmd)              # the child writes the local json only (no --write)
     if r.returncode == 0:
         p = os.path.join(OUT_DIR, "%s_wf.json" % rid)
-        payload = add_sizing(json.load(open(p, encoding="utf-8")))
+        payload = json.load(open(p, encoding="utf-8"))
+        try:
+            fill_missing_stops(dict(doc, id=rid), payload)
+        except Refused as e:
+            why = "%s | pinned %s replayed, but %s" % (why_today, sha[:8], e)
+            _say("  REFUSED: %s" % e)
+            if a.write:
+                publish_refusal(db, rid, why)
+            return "refused", why
+        payload = add_sizing(payload)
         with open(p + ".tmp", "w", encoding="utf-8") as f:
             json.dump(payload, f, separators=(",", ":"))
         os.replace(p + ".tmp", p)
@@ -637,7 +777,16 @@ def main(argv=None):
                 _say("#%s: no local series %s" % (rid, p))
                 rc = 1
                 continue
-            payload = add_sizing(json.load(open(p, encoding="utf-8")))
+            payload = json.load(open(p, encoding="utf-8"))
+            if payload.get("engine_root") and not all(v is not None for v in payload["trades"]["r"]):
+                snap = _run_ref(db, rid).get()
+                try:
+                    fill_missing_stops(dict(snap.to_dict() or {}, id=rid), payload)
+                except Refused as e:
+                    _say("#%s: REFUSED %s" % (rid, e))
+                    rc = 1
+                    continue
+            payload = add_sizing(payload)
             with open(p + ".tmp", "w", encoding="utf-8") as f:
                 json.dump(payload, f, separators=(",", ":"))
             os.replace(p + ".tmp", p)

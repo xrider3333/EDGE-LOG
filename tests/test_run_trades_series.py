@@ -118,3 +118,60 @@ def test_add_sizing_four_columns_on_the_series_days():
     assert set(sz["cols"]) == {"fixed", "r1", "r2", "r3"} and sz["risk_src"] == "trade"
     assert len(sz["cols"]["r1"]["eq"]) == len(daily["d"]) and "d" not in sz["cols"]["r1"]
     assert sz["cols"]["fixed"]["net"] == -220.0 and sz["cols"]["r1"]["net"] == 190.0 - 861.0
+
+
+# -- stops from the CURRENT file when the pinned code returned none (run #422, pin 64afdc45 before return_levels) --
+def _nostop_payload(n, side=1):
+    tr = [{"e": 1700000000 + 300 * i, "x": 1700000200 + 300 * i, "s": side, "p": (5.0 if i % 2 else -4.0), "z": 1,
+           "r": None, "f": 1, "d": "2024-01-02"} for i in range(n)]
+    daily = {"d": ["2024-01-02"], "p": [0.0], "n": [0]}
+    return R.series_payload(1, {"cost_pts": 0.5}, 20.0, tr, daily, {}, "replay", None, "warm 300", None)
+
+
+def test_match_stops_entry_time_and_side():
+    trades = [{"e": 10, "s": 1}, {"e": 20, "s": -1}, {"e": 30, "s": 1}, {"e": 40, "s": None}]
+    cur = [{"e": 10, "s": 1, "r": 12.0}, {"e": 20, "s": 1, "r": 9.0}, {"e": 30, "s": 1, "r": 0.0},
+           {"e": 40, "s": -1, "r": 6.5}, {"e": 50, "s": 1, "r": 3.0}]
+    risks, hit = R.match_stops(trades, cur)
+    # 20: wrong side -> unmatched; 30: matched but no usable stop; 40: pinned side unknown -> entry time alone
+    assert risks == [12.0, None, None, 6.5] and hit == 3
+
+
+def test_apply_current_stops_fills_r_and_records_the_source():
+    p = _nostop_payload(40)
+    assert p["risk_source"] == "median" and p["risk_n"] == 0
+    cur = [{"e": e, "s": 1, "r": 8.0 + k % 3} for k, e in enumerate(p["trades"]["e"]) if k != 7]  # 39 of 40 match
+    info = R.apply_current_stops(p, cur, "current NOISE_1_8_CT304H.py")
+    assert info["matched"] == 39 and info["pct"] == 97.5 and info["median_fallback"] == 1
+    assert p["risk_source"] == "stop_from_current_file" and p["risk_n"] == 39 and p["trades"]["r"][7] is None
+    R.add_sizing(p)
+    sz = p["sizing"]
+    assert sz["risk_source"] == "stop_from_current_file" and sz["risk_match"]["matched"] == 39
+    assert sz["risk_src"] == "mixed" and sz["cols"]["r1"]["risk_fallback_n"] == 1
+    # an 8-11 pt stop at 1 pct of $30k = 1.3-1.8 NQ, nowhere near the 10-contract cap
+    assert sz["cols"]["r1"]["max_contracts"] < 10
+
+
+def test_apply_current_stops_refuses_under_95_pct():
+    p = _nostop_payload(40)
+    cur = [{"e": e, "s": 1, "r": 8.0} for e in p["trades"]["e"][:37]]           # 37 of 40 = 92.5 pct
+    try:
+        R.apply_current_stops(p, cur, "current X.py")
+    except R.Refused as e:
+        assert "37 of 40" in str(e) and "below 95 pct" in str(e)
+    else:
+        raise AssertionError("expected a refusal")
+    assert p["risk_source"] == "median" and all(v is None for v in p["trades"]["r"])
+    side = [{"e": e, "s": -1, "r": 8.0} for e in p["trades"]["e"]]               # right times, wrong side
+    try:
+        R.apply_current_stops(p, side, "current X.py")
+    except R.Refused:
+        pass
+    else:
+        raise AssertionError("a side mismatch must not count")
+
+
+def test_fill_missing_stops_noop_when_every_trade_has_a_stop():
+    p = _payload(3)
+    assert p["risk_source"] == "stop"
+    assert R.fill_missing_stops({}, p) is None
