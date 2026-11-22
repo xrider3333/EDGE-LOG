@@ -4067,7 +4067,16 @@ __S11JS__
                 o.wi=(c.lines||[]).filter(function(l){return l.whatif;}).map(function(l){return l.vals[l.vals.length-1];});
                 o.tot=(c.pts&&c.pts.length)?c.pts[c.pts.length-1].v:null;
                 var hw=d.querySelector('[data-qbbkawhatif]');o.heroWhatif=hw?parseFloat(hw.getAttribute('data-qbbkawhatif')):null;
-                o.svgDash=!!(d.querySelector('#qb-lg-chart svg path[stroke-dasharray="7 3 1.5 3"]'));
+                o.svgDash=!!(d.querySelector('#qb-lg-chart svg path[stroke-dasharray="6 3"]'));
+                // v91.79: each shadow line's stroke, its swatch in the panel, its legend entry and the what-if KPI table
+                var CS=W().getComputedStyle;
+                o.paths=[].map.call(d.querySelectorAll('#qb-lg-chart path[data-lgshadow]'),function(e){return [e.getAttribute('data-lgshadow'),CS(e).stroke,e.getAttribute('stroke-width')];});
+                o.swatch=[].map.call(d.querySelectorAll('[data-bka="qb"] [data-bkaleg] svg.bka-swatch line'),function(e){return [e.closest('svg').getAttribute('data-bkaswatch'),CS(e).stroke];});
+                o.legsh=[].map.call(d.querySelectorAll('#qb-lg-legend [data-lglegshadow]'),function(e){var ln=e.querySelector('line');return [e.getAttribute('data-lglegshadow'),ln?CS(ln).stroke:'',!!e.querySelector('.lg-shmark')];});
+                var kp=d.querySelector('#qb-bka-kpi [data-bkakpi]');
+                o.kpi=kp?{cols:[].map.call(kp.querySelectorAll('thead [data-bkakcol]'),function(e){return e.getAttribute('data-bkakcol');}),
+                  net:[].map.call(kp.querySelectorAll('[data-bkakrow="net"] [data-bkaknet]'),function(e){return [e.getAttribute('data-bkakcell'),parseFloat(e.getAttribute('data-bkaknet'))];}),
+                  scroll:CS(kp.querySelector('.bka-kpi-scroll')).overflowX,pageW:d.documentElement.scrollWidth,vw:W().innerWidth}:null;
                 // v91.74: the QQQ conversion - OPUS55a's row shows its QQQ size and rule, TTIBS300 (no qqq series) says why
                 var qr=d.querySelector('[data-bka="qb"] [data-bkaleg="OPUS55a"]'),qs=qr?qr.querySelector('[data-bkaqsh]'):null;
                 o.qsh=qs?qs.textContent.trim():null;o.qtip=qr?String(qr.getAttribute('title')||'').indexOf('SHADOW in QQQ')>=0&&String(qr.getAttribute('title')||'').indexOf('x 10 sh')>=0:null;
@@ -4078,6 +4087,15 @@ __S11JS__
               if(!D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]')){var bf=D().querySelector('[data-bka="qb"] [data-bkafold="463"]');if(bf){bf.click();await new Promise(function(r){setTimeout(r,300);});}}
               var bsw=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');
               if(bsw){bsw.click();await new Promise(function(r){setTimeout(r,300);});BK.s1=bs();BK.stored=LSb.getItem('el_bka_on_qb');BK.daily=LSb.getItem('el_lg_daily_qb');
+                // v91.79: a second shadow leg (PICK6, the stock book) - two colours, swatches, legend, hover, the KPI table
+                if(!D().querySelector('[data-bka="qb"] [data-bkasw="PICK6"]')){var bf2=D().querySelector('[data-bka="qb"] [data-bkafold="stk"]');if(bf2){bf2.click();await new Promise(function(r){setTimeout(r,300);});}}
+                var psw=D().querySelector('[data-bka="qb"] [data-bkasw="PICK6"]');
+                if(psw){psw.click();await new Promise(function(r){setTimeout(r,300);});BK.s3=bs();
+                  try{var sv=D().querySelector('#qb-lg-chart svg');if(sv){var rc=sv.getBoundingClientRect();
+                    sv.dispatchEvent(new (W().PointerEvent)('pointermove',{clientX:rc.right-80,clientY:rc.top+40,pointerType:'mouse',bubbles:true}));
+                    BK.hover=[].map.call(D().querySelectorAll('#qb-hero-range [data-bkahover]'),function(e){return [e.getAttribute('data-bkahover'),W().getComputedStyle(e).color];});
+                    sv.dispatchEvent(new (W().PointerEvent)('pointerleave',{pointerType:'mouse'}));}}catch(e){BK.hover='err '+e;}
+                  var psw2=D().querySelector('[data-bka="qb"] [data-bkasw="PICK6"]');if(psw2){psw2.click();await new Promise(function(r){setTimeout(r,300);});}}
                 var bsw2=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');if(bsw2){bsw2.click();await new Promise(function(r){setTimeout(r,300);});}BK.s2=bs();}
               bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');
               if(dly0==null)LSb.removeItem('el_lg_daily_qb');else LSb.setItem('el_lg_daily_qb',dly0);
@@ -9075,7 +9093,7 @@ def _judge(data, fixture):
             if not b1:
                 fails.append('book as-if run: no OPUS55a shadow switch in book 463: %r' % (b0.get('legs'),))
             else:
-                if ['OPUS55a', '7 3 1.5 3'] not in (b1.get('sh') or []) or not b1.get('svgDash'):
+                if ['OPUS55a', '6 3'] not in (b1.get('sh') or []) or not b1.get('svgDash'):
                     fails.append('book as-if run: switching OPUS55a on drew no dashed line (%r, svg dash %r)' % (b1.get('sh'), b1.get('svgDash')))
                 _base = (b0.get('wi') or [b0.get('tot')])[0]
                 # v91.74: on WEBULL PAPER the leg adds its QQQ figures (12.50 / 9.40 in the fixture), never the NQ dollars (1000 / 750)
@@ -9096,6 +9114,49 @@ def _judge(data, fixture):
                     fails.append('book as-if run: the switch is not remembered or the chart did not move to CURVE (%r, %r)' % (bka.get('stored'), bka.get('daily')))
                 if b2.get('sh') or (b2.get('wi') or None) != (b0.get('wi') or None):
                     fails.append('book as-if run: switching OPUS55a off did not put the chart back (%r, what-if %r -> %r)' % (b2.get('sh'), b0.get('wi'), b2.get('wi')))
+                # v91.79 WHAT-IF COLOURS + KPI COMPARE
+                b3 = bka.get('s3') or {}
+                # the table shows exactly when a shadow line is on (the fixture keeps one box forward shadow leg on: NOISE422)
+                for _nm, _b in (('before', b0), ('after', b2)):
+                    _on = [x[0] for x in (_b.get('paths') or []) if x[0] != 'whatif']
+                    if bool(_b.get('kpi')) != bool(_on) or (_b.get('kpi') and _b['kpi'].get('cols') != ['live', 'whatif'] + _on):
+                        fails.append('what-if KPIs: %s the switch the table is %r with shadow lines %r on' % (_nm, _b.get('kpi'), _on))
+                if not b1.get('kpi'):
+                    fails.append('what-if KPIs: no table with OPUS55a on')
+                if not b3:
+                    fails.append('what-if colours: no PICK6 shadow switch in the stock book: %r' % (b1.get('legs'),))
+                else:
+                    pth = {x[0]: x for x in (b3.get('paths') or [])}
+                    sO, sP = (pth.get('OPUS55a') or [None, None])[1], (pth.get('PICK6') or [None, None])[1]
+                    if not sO or not sP or sO == sP:
+                        fails.append('what-if colours: two shadow legs on do not draw two different strokes (%r)' % (b3.get('paths'),))
+                    if 'whatif' not in pth or pth['whatif'][2] != '2.4':
+                        fails.append('what-if colours: the what-if total is not the heavier line (%r)' % (pth.get('whatif'),))
+                    swm = {x[0]: x[1] for x in (b3.get('swatch') or [])}
+                    lgm = {x[0]: x for x in (b3.get('legsh') or [])}
+                    hv = {x[0]: x[1] for x in (bka.get('hover') or [])} if isinstance(bka.get('hover'), list) else {}
+                    for lid, st in (('OPUS55a', sO), ('PICK6', sP)):
+                        if not st or swm.get(lid) != st:
+                            fails.append('what-if colours: the %s swatch %r does not match its line %r' % (lid, swm.get(lid), st))
+                        e = lgm.get(lid)
+                        if not e or e[1] != st or not e[2]:
+                            fails.append('what-if colours: the legend has no %s entry in its colour with a shadow mark: %r' % (lid, e))
+                        if not st or hv.get(lid) != st:
+                            fails.append('what-if colours: the hover readout has no %s $ in its colour (%r)' % (lid, bka.get('hover')))
+                    k3 = b3.get('kpi') or {}
+                    # the box's forward shadow lines switched on (NOISE422 in the fixture) take a column after the replay legs
+                    _fw = [x for x in pth if x not in ('OPUS55a', 'PICK6', 'whatif')]
+                    if k3.get('cols') != ['live', 'whatif', 'OPUS55a', 'PICK6'] + _fw:
+                        fails.append('what-if KPIs: columns %r, want LIVE, WHAT-IF, OPUS55a, PICK6 + the forward shadow legs on %r' % (k3.get('cols'), _fw))
+                    nets = dict((c, v) for c, v in (k3.get('net') or []))
+                    if len(nets) != 4 + len(_fw) or round(nets.get('whatif', 0) - sum(v for c, v in nets.items() if c != 'whatif'), 2) != 0:
+                        fails.append('what-if KPIs: WHAT-IF net is not LIVE net + the shadow nets (%r)' % (nets,))
+                    if round(nets.get('OPUS55a', 0), 2) not in (9.4, 12.5) or round(nets.get('PICK6', 0), 2) != 300.0:
+                        fails.append('what-if KPIs: the shadow nets %r are not the QQQ / stock fixture (OPUS55a 9.40 or 12.50, PICK6 300)' % (nets,))
+                    if k3.get('scroll') not in ('auto', 'scroll'):
+                        fails.append('what-if KPIs: the table box does not scroll sideways on its own (overflow-x %r)' % (k3.get('scroll'),))
+                    if k3.get('pageW') and k3.get('vw') and k3['pageW'] > k3['vw'] + 1:
+                        fails.append('what-if KPIs: the page scrolls sideways with the table on (%r > %r)' % (k3.get('pageW'), k3.get('vw')))
         if tg.get('stored') != '["ORB"]':
             fails.append('strategy switch run: the choice is not remembered for this viewer (el_qb_legs_off = %r, want ["ORB"])' % tg.get('stored'))
     isc = data.get('iscroll')

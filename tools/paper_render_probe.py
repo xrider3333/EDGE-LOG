@@ -1749,7 +1749,17 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                 s.legs=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg]'),function(e){var sw=e.querySelector('.lg-sw');return e.getAttribute('data-bkaleg')+'/'+e.getAttribute('data-bkamode')+(sw?('/'+(sw.getAttribute('data-lgsw')?'lgsw':'bkasw')+'='+sw.getAttribute('aria-checked')):'');});
                 s.nodata=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkanodata]'),function(e){return e.getAttribute('data-bkanodata')+':'+_t(e)+' '+(e.getAttribute('title')||'');});
                 var wi=d.querySelector('[data-bkawhatif="nt8"]');s.whatif=wi?parseFloat(wi.getAttribute('data-bkawhatifv')):null;
-                s.inRail=!!d.querySelector('.p2rail [data-bka="nt8"]');return s;};
+                s.inRail=!!d.querySelector('.p2rail [data-bka="nt8"]');
+                // v91.79: each shadow line's stroke, its swatch in the panel, its legend entry, and the what-if KPI table
+                s.paths=[].map.call(d.querySelectorAll('#p2-chart path[data-lgshadow]'),function(e){return [e.getAttribute('data-lgshadow'),getComputedStyle(e).stroke,e.getAttribute('stroke-width'),e.getAttribute('stroke-dasharray')];});
+                s.swatch=[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg] svg.bka-swatch line'),function(e){return [e.closest('svg').getAttribute('data-bkaswatch'),getComputedStyle(e).stroke];});
+                s.legsh=[].map.call(d.querySelectorAll('#p2-lg-legend [data-lglegshadow]'),function(e){var ln=e.querySelector('line');return [e.getAttribute('data-lglegshadow'),ln?getComputedStyle(ln).stroke:'',!!e.querySelector('.lg-shmark')];});
+                var kp=d.querySelector('#p2-bka-kpi [data-bkakpi]');
+                s.kpi=kp?{cols:[].map.call(kp.querySelectorAll('thead [data-bkakcol]'),function(e){return e.getAttribute('data-bkakcol');}),
+                  net:[].map.call(kp.querySelectorAll('[data-bkakrow="net"] [data-bkaknet]'),function(e){return [e.getAttribute('data-bkakcell'),parseFloat(e.getAttribute('data-bkaknet'))];}),
+                  rows:[].map.call(kp.querySelectorAll('tbody tr'),function(e){return e.getAttribute('data-bkakrow');}),
+                  scroll:getComputedStyle(kp.querySelector('.bka-kpi-scroll')).overflowX}:null;
+                return s;};
               BK.s0=_bs();
               // open the second book, switch its shadow leg on
               if(_click('[data-bka="nt8"] [data-bkafold="30"]')){BK.s1=_bs();
@@ -1758,11 +1768,23 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                 if(_click('[data-bka="nt8"] [data-lgsw="ORB"]')){BK.s3=_bs();_click('[data-bka="nt8"] [data-lgsw="ORB"]');}
                 _click('[data-bka="nt8"] [data-bkasw="OPUS55a"]');BK.s4=_bs();
                 // one click: the whole book as-if (its replay shadow legs on), and again: off
-                if(_click('[data-bka="nt8"] [data-bkaall="30"]')){BK.s5=_bs();_click('[data-bka="nt8"] [data-bkaall="30"]');BK.s6=_bs();}
+                if(_click('[data-bka="nt8"] [data-bkaall="30"]')){BK.s5=_bs();
+                  // v91.79: the hover readout lists each shadow leg's $ in its own colour
+                  try{var sv=d.querySelector('#p2-chart svg');if(sv){var rc=sv.getBoundingClientRect();
+                    sv.dispatchEvent(new PointerEvent('pointermove',{clientX:rc.right-80,clientY:rc.top+40,pointerType:'mouse',bubbles:true}));
+                    BK.hover=[].map.call(d.querySelectorAll('#p2-hero-range [data-bkahover]'),function(e){return [e.getAttribute('data-bkahover'),getComputedStyle(e).color];});
+                    sv.dispatchEvent(new PointerEvent('pointerleave',{pointerType:'mouse'}));}}catch(e){BK.hover='err '+e;}
+                  _click('[data-bka="nt8"] [data-bkaall="30"]');BK.s6=_bs();}
               }
               w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');
               if(dly0==null)LS0.removeItem('el_lg_daily_p2');else LS0.setItem('el_lg_daily_p2',dly0);
               delete w._bookLegs;delete w._bookAsif;w.renderApp();
+              // v91.79 pure maths on a known fixture: +1000, -3000, +500, -1000 on a $10,000 base over a 365-day range
+              BK.fx=w.bkaKpiOf({'2026-01-05':{p:1000,n:1},'2026-01-06':{p:-3000,n:2},'2026-01-07':{p:500,n:1},'2026-01-08':{p:-1000,n:1}},
+                ['2026-01-05','2026-01-06','2026-01-07','2026-01-08'],{base:10000,from:'2026-01-01',to:'2026-12-31'});
+              var U8=['ORB234','ENGUQ335','NOISE422','TTMx3','OPUS55a','PICK6','GLDNIGHT','OPUS86a'];
+              BK.slots=U8.map(function(id){return w.bkaColorSlot(id,U8);});
+              BK.slotsStable=U8.map(function(id){return w.bkaColorSlot(id,U8.slice().reverse());});
               I.bka=BK;
             }catch(e){I.bka={err:String(e&&e.stack?e.stack:e)};}
             r.int=I;
@@ -2169,7 +2191,7 @@ def run(alt_index=None, timeout=300):
         if not any(x.startswith('GLDNIGHT:') and 'no GLD' in x for x in (s1.get('nodata') or [])):
             fails.append('paper2 book as-if: a leg with no series does not show its reason: %r' % (s1.get('nodata'),))
         sh2 = s2.get('chart', {}).get('sh') or []
-        if ['OPUS55a', '7 3 1.5 3'] not in sh2:
+        if ['OPUS55a', '6 3'] not in sh2:
             fails.append('paper2 book as-if: switching OPUS55a on drew no dashed shadow line: %r' % (sh2,))
         wi2 = s2.get('chart', {}).get('wi') or []
         tot2 = s2.get('chart', {}).get('tot')
@@ -2198,6 +2220,53 @@ def run(alt_index=None, timeout=300):
         if s6.get('chart', {}).get('sh'):
             fails.append('paper2 book as-if: a second click on book 30 as-if left lines on: %r' % (s6.get('chart', {}).get('sh'),))
         _bka_ok = [len(s0.get('types') or []), len(lg1), len(sh2)]
+        # v91.79 WHAT-IF COLOURS + KPI COMPARE: two shadow legs on = two different strokes, each swatch = its line, legend marks them shadow,
+        # the hover lists them in their colours, the KPI table shows only with a shadow on, WHAT-IF net = LIVE net + the shadow nets
+        if s1.get('kpi') is not None or s4.get('kpi') is not None:
+            fails.append('paper2 what-if KPIs: the table shows with no shadow leg on (%r / %r)' % (s1.get('kpi'), s4.get('kpi')))
+        if not s2.get('kpi'):
+            fails.append('paper2 what-if KPIs: no table with OPUS55a on')
+        pth = {x[0]: x for x in (s5.get('paths') or [])}
+        sO, sP = (pth.get('OPUS55a') or [None, None])[1], (pth.get('PICK6') or [None, None])[1]
+        if not sO or not sP or sO == sP:
+            fails.append('paper2 what-if colours: two shadow legs on do not draw two different strokes (%r)' % (s5.get('paths'),))
+        if 'whatif' not in pth or pth['whatif'][2] != '2.4':
+            fails.append('paper2 what-if colours: the what-if total is not the heavier line (%r)' % (pth.get('whatif'),))
+        swm = {x[0]: x[1] for x in (s5.get('swatch') or [])}
+        for lid, st in (('OPUS55a', sO), ('PICK6', sP)):
+            if not st or swm.get(lid) != st:
+                fails.append('paper2 what-if colours: the %s swatch %r does not match its line %r' % (lid, swm.get(lid), st))
+        lgm = {x[0]: x for x in (s5.get('legsh') or [])}
+        for lid, st in (('OPUS55a', sO), ('PICK6', sP)):
+            e = lgm.get(lid)
+            if not e or e[1] != st or not e[2]:
+                fails.append('paper2 what-if colours: the legend has no %s entry in its colour with a shadow mark: %r' % (lid, e))
+        hv = {x[0]: x[1] for x in (_bka.get('hover') or [])} if isinstance(_bka.get('hover'), list) else {}
+        for lid, st in (('OPUS55a', sO), ('PICK6', sP)):
+            if not st or hv.get(lid) != st:
+                fails.append('paper2 what-if colours: the hover readout has no %s $ in its colour (%r)' % (lid, _bka.get('hover')))
+        k5 = s5.get('kpi') or {}
+        if k5.get('cols') != ['live', 'whatif', 'OPUS55a', 'PICK6']:
+            fails.append('paper2 what-if KPIs: columns %r, want LIVE, WHAT-IF, OPUS55a, PICK6' % (k5.get('cols'),))
+        nets = dict((c, v) for c, v in (k5.get('net') or []))
+        if len(nets) != 4 or round(nets.get('whatif', 0) - nets.get('live', 0) - nets.get('OPUS55a', 0) - nets.get('PICK6', 0), 2) != 0:
+            fails.append('paper2 what-if KPIs: WHAT-IF net is not LIVE net + the shadow nets (%r)' % (nets,))
+        if round(nets.get('OPUS55a', 0), 2) not in (750.0, 1000.0, -250.0) or round(nets.get('PICK6', 0), 2) not in (300.0, 0.0):
+            fails.append('paper2 what-if KPIs: the shadow nets %r do not match the as-if fixture' % (nets,))
+        want_rows = ['net', 'pct', 'trades', 'winrate', 'pf', 'maxdd', 'ddpct', 'roc30', 'sortino', 'dd5']
+        if k5.get('rows') != want_rows:
+            fails.append('paper2 what-if KPIs: rows %r, want %r' % (k5.get('rows'), want_rows))
+        if k5.get('scroll') not in ('auto', 'scroll'):
+            fails.append('paper2 what-if KPIs: the table box does not scroll sideways on its own (overflow-x %r)' % (k5.get('scroll'),))
+        fx = _bka.get('fx') or {}
+        # cum 1000, -2000, -1500, -2500 on $10,000: high 11,000, low 7,500 -> 31.818%; one open episode of $3,500; PF per day 1500 / 4000
+        if (round(fx.get('ddPct') or 0, 3) != 31.818 or fx.get('maxDD') != 3500 or round(fx.get('pf') or 0, 3) != 0.375
+                or fx.get('dd5n') != 1 or round(fx.get('dd5') or 0, 2) != 3500 or not fx.get('perDay') or round(fx.get('winRate') or 0, 2) != 0.5
+                or round(fx.get('sortino') or 0, 3) != -6.275 or round(fx.get('roc30') or 0, 2) != -8.34 or fx.get('short')):
+            fails.append('paper2 what-if KPIs: the fixture maths is off: %r' % (fx,))
+        sl = _bka.get('slots') or []
+        if len(set(sl)) != 8 or sl != (_bka.get('slotsStable') or []):
+            fails.append('paper2 what-if colours: 8 legs of one book table do not get 8 stable, distinct slots (%r / %r)' % (sl, _bka.get('slotsStable')))
     # the capture-health line: one per instrument, low-delta day flagged in words (not colour alone)
     for nm in ('base', 'paper2'):
         r = cases.get(nm) or {}
@@ -3837,6 +3906,7 @@ def run(alt_index=None, timeout=300):
     say('PAPERPROBE keeps G5-G8: %s' % keeps_info)
     say('PAPERPROBE NT8 board fix: %s' % nt8_info)
     say('PAPERPROBE book as-if (v91.71): %d book-type headers, %d legs in book 30, a shadow switch drew %d dashed line(s) + the what-if total, account figures unchanged, one-click book as-if on / off' % tuple(_bka_ok or [0, 0, 0]))
+    say('PAPERPROBE what-if colours + KPIs (v91.79): two shadow legs = two strokes, swatch = line, legend shadow mark, hover in colour, KPI table only with a shadow on, WHAT-IF net = LIVE + shadows, DD % fixture 31.818%')
     return PASS, out_lines
 
 

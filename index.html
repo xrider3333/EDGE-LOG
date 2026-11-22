@@ -889,6 +889,30 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .bka-tag.live{border-style:solid;color:var(--text);border-color:var(--text2)}
 .bka-tag.sh{border-style:dashed;color:var(--text5);border-color:var(--text5)}
 .bka .lg-sw.bka-shsw.on{background:color-mix(in srgb,var(--text3) 55%,transparent)}
+/* v91.79 what-if colours: 8 shadow-leg hues, clear of the live lines (ORB blue, ENGU-Q violet, NOISE green, TTM / DIP amber); PAPER (light) = darker set; MONO = greys (each slot has its own dash) */
+:root{--bka-c0:#ff7a59;--bka-c1:#f062d6;--bka-c2:#33d6e8;--bka-c3:#66dd44;--bka-c4:#ffa3c4;--bka-c5:#f0e442;--bka-c6:#8c9eff;--bka-c7:#d2a679}
+[data-theme="paper"]{--bka-c0:#d9481f;--bka-c1:#b5179e;--bka-c2:#0e7490;--bka-c3:#4d7c0f;--bka-c4:#db2777;--bka-c5:#a16207;--bka-c6:#4338ca;--bka-c7:#92400e}
+[data-theme="mono"]{--bka-c0:#e8e8e8;--bka-c1:#c8c8c8;--bka-c2:#b0b0b0;--bka-c3:#d8d8d8;--bka-c4:#a0a0a0;--bka-c5:#bcbcbc;--bka-c6:#909090;--bka-c7:#cfcfcf}
+.bka-swatch{display:inline-block;vertical-align:middle;flex:none;margin-right:4px}
+.bka-leg.off .bka-swatch{opacity:.45}
+.lg-shmark{font-size:8px;letter-spacing:.06em;text-transform:uppercase;color:var(--text5);border:1px dashed var(--text5);border-radius:999px;padding:0 4px;line-height:11px}
+.bka-hv{white-space:normal;overflow-wrap:anywhere;font-weight:600}.bka-hv.wi{font-weight:700}
+.bka-kpi{margin:10px 0 4px;border-top:1px solid var(--border2);padding-top:6px;font-size:11px;min-width:0;max-width:100%}
+.bka-kpi-hd{display:flex;align-items:center;gap:6px;padding:0 2px 4px}.bka-kpi-hd .bka-s{margin-left:auto}
+.bka-kpi-slot{min-width:0;max-width:100%}
+/* width:0 + min-width:100% = the table never widens its grid / flex parent (a phone page must never scroll sideways); it scrolls in here */
+.bka-kpi-scroll{overflow-x:auto;width:0;min-width:100%;-webkit-overflow-scrolling:touch;overscroll-behavior-x:contain}
+.bka-ktab{border-collapse:collapse;font-variant-numeric:tabular-nums;font-size:11px;white-space:nowrap}
+.bka-ktab th,.bka-ktab td{padding:4px 10px;text-align:right;border-bottom:1px solid var(--border2);background:none;text-transform:none;letter-spacing:0;font-size:11px}
+.bka-ktab thead th{color:var(--text3);font-weight:700;max-width:150px;overflow:hidden;text-overflow:clip}
+.bka-ktab thead th .bka-kh{display:inline-block;max-width:120px;overflow:hidden;vertical-align:middle;white-space:nowrap}
+.bka-ktab .bka-krl{text-align:left;color:var(--text4);font-weight:600;position:sticky;left:0;background:var(--bg1);z-index:1}
+.bka-ktab td{color:var(--text2);min-width:72px}
+.bka-ktab td.bka-kwi{font-weight:700;color:var(--text)}
+.bka-ktab td.bka-kb{color:var(--green)}.bka-ktab td.bka-kw{color:var(--red)}
+[data-theme="mono"] .bka-ktab td.bka-kw{color:var(--text3)}
+.bka-km{font-size:8px;margin-left:3px;vertical-align:1px}
+.bka-kpd{font-size:8.5px;color:var(--text5);font-weight:400}
 @media (max-width:600px){.bka-bbody{padding-left:6px}.bka-leg{gap:2px 6px}}
 .qbx-lg6 .qbx-own{margin-top:4px}
 .qbx-lg6 .qbx-chart .qbx-range-row{margin:0}
@@ -2042,7 +2066,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.78';
+const VERSION='91.79';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2063,6 +2087,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.79',date:'2026-11-22',notes:['NT8 PAPER and WEBULL PAPER what-if (owner: the what if colors are hard to delineate for the strategies i added): every switched-on shadow leg now draws in its own colour from a fixed palette of 8 (coral, magenta, cyan, lime, pink, lemon, periwinkle, tan - clear of the ORB, ENGU-Q, NOISE and TTM colours; a darker set on PAPER, greys with a dash pattern each under MONO). A leg keeps its colour across toggles and reloads (set by its id). Shadow lines stay dashed and a little heavier than the strategy lines; the what-if total is one heavy dash-dot line','The leg row in the Books panel shows a swatch in the leg colour, the chart legend marks each shadow leg with a shadow tag, and the hover readout lists each shadow leg dollars in its colour. The box forward shadow lines on WEBULL PAPER take their book leg colour too','What-if KPIs (owner: id like to be able to compare the kpis): with a shadow leg on, a table under the chart compares LIVE, WHAT-IF (live plus the shadow legs on) and each shadow leg on the chart range - Net, %, Trades, Win rate, Profit factor, Max DD, Max DD % (fall from the high), ROC at 30k (annualised, short range marked), Sortino (daily, annualised), DD5 (fewer than 5 episodes says n). A shadow leg has daily figures only, so its win rate and PF read per day. Up and down triangles mark better or worse than LIVE. The table scrolls sideways in its own box on a phone']},
 {v:'91.77',date:'2026-11-21',notes:['WEBULL PAPER sidebar tidy (owner: clean this up), like the NT8 status: ONE status line under the hero - a dot, closed or open, feed OK, box 1 s and the number of checks - with a small refresh icon on the same line. A tap on the line opens the amber checks, ratio not used, excluding ENGU-Q, DIP and the Webull fills caveat that sat behind the old details fold; the choice is remembered per browser. The stray Status label, the lone details toggle and the Refresh row are gone','FILLS BEHIND BACKTEST is now a small amber chip under the status line (fills -5.9c NOISE #382); the hover keeps the full words. Red alarm chips (breaker, kill, feed stale, parity mismatch, box silent) stay in plain sight under the line','Strategies list: with no book of the table live, the BOOK header and its two lines are one quiet line, Live: ORB #314 + NOISE #382; the not one of the 24 books note is its hover','NT8 PAPER percent: the base is now a fixed $100,000 paper account (the NinjaTrader Sim101 default, one constant NT8_PCT_BASE_USD the owner can change) plus the realized before the range, so ALL reads realized / $100,000 (about +62 pct, not +111 pct off the Sim101 cash, which never held the backfilled book trades). Today uses the realized before today. The hero today and realized percent, the chart percent axis and its hover all use it, and the percent shows even when NinjaTrader never reported cash (no more % n/a). WEBULL and REAL bases are unchanged']},
 {v:'91.75',date:'2026-11-21',notes:['WEBULL PAPER books panel in QQQ (owner: the configs tested on EL with NQ futures should be webull/QQQ compatible): every futures leg as-if is now shown as the Webull box would trade it - its fixed QQQ lot (10 shares for ORB, NOISE and ENGU-Q legs, a leg the box does not trade = the box 1-NQ lot x its book size, 3 ES = 30), each trade as gross NQ points x QQQ/NQ close that day, less one cent a share each side. ES legs map to QQQ through the QQQ-on-ES daily beta (the box trades no SPY). Stock legs stay in dollars. Each leg row shows ~N QQQ sh and its hover gives the rule; the what-if total uses the QQQ figures. NT8 PAPER keeps NQ dollars.','tools/book_asif_series.py writes a qqq block per leg (d, p, n, net, shares, rule) next to the NQ series in meta/book_asif; a leg that cannot convert says why.']},
 {v:'91.72',date:'2026-11-21',notes:['NT8 PAPER sidebar tidy (owner: get rid of this garbly nonsense): each strategy is ONE row - live dot, short name with its run number (ORB #234.1), the dollar figure and a small switch. The variant tag, the model word and the open / equity lines moved to the row hover and to the detail a row tap opens (the chevron is gone; the switch alone counts a leg in or out)','One quiet More fold under the strategies holds the Filters row, the three not-counted groups (forward tests and controls, other / shadow, retired; each still its own fold) and the trades-loaded line. Closed by default, remembered per browser. The BOOK header row that repeated the hero is gone','Status is one line: NT off (or NT 2/2 running, NT idle) and the number of checks, then the auto-recover switch and a refresh icon; a tap opens the chips as before. The NEEDS YOU banner is unchanged','Stat tiles on NT8 PAPER and WEBULL PAPER: short sub-lines that never cut off (10 tr and 4 d, 64W 122L, the won / lost amounts); the long words are the tile hover','Books as-if panel (both paper boards): one row per book - name, what-if dollars, the one-click as-if switch - and one row per leg - name, dollars, switch. A solid left rule marks a LIVE leg and a dashed one a SHADOW leg, matching the chart lines; the explanations moved to an i hover and each row hover. Only the active book starts open','NT8 realized percent: its hover now states the base plainly (Sim101 cash minus the realized in the range); the formula is unchanged']},
@@ -4854,7 +4879,8 @@ function ledgerChartRender(wrap,o){
         +(r.label?'<text data-lgreflbl="1" x="'+(lEnd?L+pw-3:x0+3).toFixed(1)+'" y="'+(r.pin==='top'?+yy+10:+yy-4)+'"'+(lEnd?' text-anchor="end"':'')+' font-size="9" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(r.label)+'</text>':'');});
     // each faint line also gets its own dash, so the lines stay apart under MONO where every colour turns grey
     lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(i>=n||v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
-      if(d)h+='<path d="'+d+'" fill="none" style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="'+(o.lineOpacity!=null?o.lineOpacity:0.6)+'" stroke-width="'+(o.lineWidth!=null?Math.min(o.lineWidth,1):0.9)+'" stroke-dasharray="'+_lgDashOf(l,o)+'"/>';});
+      // v91.79: a line may carry its own width / opacity (the what-if shadow legs and the heavier what-if total); data-lgshadow marks them
+      if(d)h+='<path d="'+d+'" fill="none"'+(l.shadow?' data-lgshadow="'+String(l.whatif?'whatif':(l.bka||l.bkaFwd||l.name)).replace(/"/g,'')+'"':'')+' style="stroke:'+(l.color||'var(--text4)')+'" stroke-opacity="'+(l.opacity!=null?l.opacity:(o.lineOpacity!=null?o.lineOpacity:0.6))+'" stroke-width="'+(l.width!=null?l.width:(o.lineWidth!=null?Math.min(o.lineWidth,1):0.9))+'" stroke-dasharray="'+_lgDashOf(l,o)+'"/>';});
     (o.marks||[]).forEach(m=>{if(m.i==null||m.i<0||m.i>=n)return;const xx=X(m.i).toFixed(1);
       h+='<line data-lgmark="1" x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text4)" stroke-width="1" stroke-dasharray="2 3"/>'
         +'<text x="'+(+xx+3)+'" y="'+(T-3)+'" font-size="8" style="fill:var(--text4);paint-order:stroke;stroke:var(--bg);stroke-width:3px" font-family="JetBrains Mono, monospace" data-lgmarklbl="1">'+esc(m.label||'')+'</text>';});
@@ -4871,7 +4897,7 @@ function ledgerChartRender(wrap,o){
         h+='<text data-lgdate="1" x="'+xx.toFixed(1)+'" y="'+(H-6)+'" text-anchor="'+anchor+'" font-size="9" style="fill:var(--text5)" font-family="JetBrains Mono, monospace">'+esc(_lgDateLbl(pts[i].date,yrs))+'</text>';}}
     h+='<line data-lgx="1" x1="0" x2="0" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text5)" stroke-opacity="0.6" stroke-width="1" visibility="hidden"/>'
       +'<circle data-lgdot="1" cx="0" cy="0" r="4" style="fill:'+col+'" visibility="hidden"/></svg>';
-    let lg='';if(o.lines&&o.lines.length)lg='<div class="lg-legend">'+o.lines.map((l,i)=>'<button type="button" data-lgline="'+i+'" class="'+(l.on===false?'off':'')+'" title="show or hide this line"><svg width="16" height="4" style="display:inline-block"><line x1="0" y1="2" x2="16" y2="2" style="stroke:'+(l.color||'var(--text4)')+'" stroke-width="2" stroke-dasharray="'+_lgDashOf(l,o)+'"/></svg>'+esc(l.name)+'</button>').join('')+'</div>';
+    let lg='';if(o.lines&&o.lines.length)lg='<div class="lg-legend">'+o.lines.map((l,i)=>'<button type="button" data-lgline="'+i+'" class="'+(l.on===false?'off':'')+(l.shadow?' lg-shleg':'')+'"'+(l.shadow?' data-lglegshadow="'+esc(l.whatif?'whatif':(l.bka||l.bkaFwd||l.name))+'"':'')+' title="show or hide this line'+(l.shadow?' (shadow: as-if, never the account)':'')+'"><svg width="16" height="4" style="display:inline-block"><line x1="0" y1="2" x2="16" y2="2" style="stroke:'+(l.color||'var(--text4)')+'" stroke-width="'+(l.shadow?(l.whatif?3:2.4):2)+'" stroke-dasharray="'+_lgDashOf(l,o)+'"/></svg>'+esc(l.name)+(l.shadow&&!l.whatif?' <span class="lg-shmark">shadow</span>':'')+'</button>').join('')+'</div>';
     // paper tabs (owner 10-31): the legend sits on the range pills' line under the chart, in a slot the board names (o.legendInto)
     const le=o.legendInto?(typeof o.legendInto==='string'?(wrap.closest('[data-lgframe]')||document).querySelector(o.legendInto):o.legendInto):null;
     if(le)le.innerHTML=lg;else h+=lg;
@@ -7704,11 +7730,127 @@ function bkaChartLines(board,from,dates,totalVals,skip,extra){
   const out=[],sums=dates.map(()=>0),seen={};let any=false;
   bkaOn(board).forEach(id=>{if(seen[id]||(skip&&skip(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(!L||!Array.isArray(L.d))return;
     const vals=bkaCum(L,from,dates);any=true;vals.forEach((v,i)=>{sums[i]+=v;});
-    out.push({name:(L.name||id)+' as-if',color:'var(--text3)',dash:'7 3 1.5 3',dashMono:'7 3 1.5 3',shadow:true,bka:id,vals:vals});});
+    out.push(Object.assign({name:(L.name||id)+' as-if',bka:id,vals:vals},bkaLineStyle(id)));});
   (extra||[]).forEach(l=>{any=true;(l.vals||[]).forEach((v,i)=>{if(i<sums.length)sums[i]+=(+v||0);});});
-  if(any)out.push({name:'what-if total',color:'var(--text2)',dash:'10 4',dashMono:'10 4',shadow:true,whatif:true,
-    vals:dates.map((_,i)=>Math.round(((+totalVals[i]||0)+sums[i])*100)/100)});
+  if(any)out.push(Object.assign({name:'what-if total',whatif:true,vals:dates.map((_,i)=>Math.round(((+totalVals[i]||0)+sums[i])*100)/100)},BKA_WHATIF_STYLE));
   return out;}
+// ── WHAT-IF COLOURS (v91.79, owner 11-22: 'the what if colors are hard to delineate for the strategies i added') ──
+// Every switched-on shadow leg gets its own hue from a fixed categorical palette of 8 (CSS --bka-c0..7: one set for the dark themes, a
+// darker set for PAPER (light), a grey ramp under MONO, where each slot also has its own dash pattern). The hues stay clear of the live
+// strategy lines (ORB blue, ENGU-Q violet, NOISE green, TTM / DIP amber): coral, magenta, cyan, lime, pink, lemon, periwinkle, tan.
+// A leg keeps its slot across toggles and reloads: the slot comes from the leg id (FNV hash), and the book table's legs are dealt their
+// slots in id order with linear probing, so the first 8 legs of the table never share a colour. Shadow stays dashed; the what-if total is
+// the one heavy dash-dot line in the text colour.
+const BKA_PAL_N=8;
+const BKA_DASH='6 3';
+const BKA_DASH_MONO=['7 3 1.5 3','4 2','1.5 3','9 3 2 3 2 3','3 5','12 3','2 2 6 2','1 5'];
+const BKA_WHATIF_STYLE={color:'var(--text2)',dash:'10 3 2 3',dashMono:'10 3 2 3',width:2.4,opacity:1,shadow:true};
+function _bkaHash(s){let h=2166136261;s=String(s==null?'':s);for(let i=0;i<s.length;i++){h^=s.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+// pure: the slot of `id` given the universe of leg ids (any order); an id outside the universe takes its plain hash slot
+function bkaColorSlot(id,universe,n){n=n||BKA_PAL_N;id=String(id==null?'':id);
+  const U=Array.from(new Set((universe||[]).map(String))).sort();
+  if(U.indexOf(id)<0)return _bkaHash(id)%n;
+  let used={},cnt=0,slot=0;
+  for(const u of U){if(cnt>=n){used={};cnt=0;}let s=_bkaHash(u)%n;while(used[s])s=(s+1)%n;used[s]=1;cnt++;if(u===id){slot=s;break;}}
+  return slot;}
+function bkaUniverse(){const B=window._bookLegs;if(!B||!B.books)return [];
+  if(window._bkaUniSrc===B&&window._bkaUni)return window._bkaUni;
+  const s=new Set();Object.keys(B.books).forEach(k=>{const b=B.books[k];(Array.isArray(b&&b.legs)?b.legs:[]).forEach(l=>{if(l&&l.id)s.add(String(l.id));});});
+  window._bkaUniSrc=B;window._bkaUni=Array.from(s).sort();return window._bkaUni;}
+function bkaColorOf(id){const s=bkaColorSlot(id,bkaUniverse());return {slot:s,color:'var(--bka-c'+s+')',dashMono:BKA_DASH_MONO[s%BKA_DASH_MONO.length]};}
+function bkaLineStyle(id){const c=bkaColorOf(id);return {color:c.color,dash:BKA_DASH,dashMono:c.dashMono,width:1.5,opacity:0.95,shadow:true,slot:c.slot};}
+// the swatch: a short line in the leg's colour and dash, the same one the chart legend draws
+function bkaSwatchHtml(id,attr){const c=bkaColorOf(id),d=_lgMono()?c.dashMono:BKA_DASH;
+  return '<svg class="bka-swatch" '+(attr||'')+' data-bkaswatch="'+String(id).replace(/"/g,'')+'" data-bkaslot="'+c.slot+'" width="14" height="6" aria-hidden="true"><line x1="0" y1="3" x2="14" y2="3" style="stroke:'+c.color+'" stroke-width="2.4" stroke-dasharray="'+d+'"/></svg>';}
+// the hover readout: each switched-on shadow line's $ through point i, in its own colour
+function bkaHoverHtml(lines,i){return (lines||[]).filter(l=>l&&l.shadow&&l.on!==false&&l.vals&&l.vals[i]!=null).map(l=>
+  ' <span class="bka-hv'+(l.whatif?' wi':'')+'" data-bkahover="'+String(l.bka||l.bkaFwd||l.name).replace(/"/g,'')+'" style="color:'+l.color+'">&middot; '+String(l.name).replace(/&/g,'&amp;').replace(/</g,'&lt;')+' '+ledgerSigned(+l.vals[i])+'</span>').join('');}
+// ── WHAT-IF KPI COMPARE (v91.79, owner 11-22: 'id like to be able to compare the kpis') ──
+// Pure maths, one daily series per column. days = {date: {p: $ closed that New York day, n: trades closed}}; axis = the sorted common
+// calendar (every date any column moved, in the range), so every column is read over the same days. o = {base (the % base), from, to
+// (YYYY-MM-DD, the range), perTrade: {trades, winRate, pf} when per-trade figures exist (LIVE), else win rate and PF are PER DAY}.
+//   net = the sum; pct = net / base; trades = per-trade count or the daily n summed
+//   win rate / PF per day = green days / (green + red days), sum of green days / sum of red days
+//   maxDD = the deepest fall of the cumulative $ from its high (the curve starts flat at 0)
+//   ddPct = the same fall from the HIGH of base + cum, in % (_ddPctPeakOf, the house DD%)
+//   roc30 = annualised net / $30,000 in % (years = calendar days of the range / 365.25); short = a range under 180 days
+//   sortino = mean day / downside deviation (days under $0 squared, over ALL axis days) x sqrt(252); null without a red day
+//   dd5 = the average of the 5 deepest drawdown episodes (_dd5Of), dd5n = how many episodes it found
+function bkaKpiOf(days,axis,o){o=o||{};days=days||{};axis=axis||[];
+  const x=axis.map(d=>{const r=days[d];return r?(+r.p||0):0;});
+  let net=0,n=0,gW=0,gL=0,dW=0,dL=0;axis.forEach((d,i)=>{const r=days[d];net+=x[i];if(r)n+=+r.n||0;if(x[i]>0){dW++;gW+=x[i];}else if(x[i]<0){dL++;gL-=x[i];}});
+  const cum=[];let c=0,pk=0,mdd=0;x.forEach(v=>{c+=v;cum.push(c);if(c>pk)pk=c;if(pk-c>mdd)mdd=pk-c;});
+  const base=(+o.base>0)?+o.base:null;
+  const dp=(base&&cum.length)?_ddPctPeakOf(cum,1,base):null;
+  const d5=cum.length?_dd5Of(cum,5):null;
+  const t0=o.from?Date.parse(o.from+'T12:00:00Z'):(axis.length?Date.parse(axis[0]+'T12:00:00Z'):NaN),t1=o.to?Date.parse(o.to+'T12:00:00Z'):(axis.length?Date.parse(axis[axis.length-1]+'T12:00:00Z'):NaN);
+  const span=(isFinite(t0)&&isFinite(t1))?Math.max(1,Math.round((t1-t0)/864e5)+1):null;
+  const N=x.length,mean=N?net/N:0,dn=N>1?Math.sqrt(x.reduce((a,v)=>a+(v<0?v*v:0),0)/N):0;
+  const pt=o.perTrade||null;
+  return {net:Math.round(net*100)/100,pct:base?net/base*100:null,trades:pt?pt.trades:n,
+    winRate:pt?pt.winRate:((dW+dL)?dW/(dW+dL):null),pf:pt?pt.pf:((dW||dL)?(dL?gW/gL:Infinity):null),perDay:!pt,
+    dayWinRate:(dW+dL)?dW/(dW+dL):null,dayPf:(dW||dL)?(dL?gW/gL:Infinity):null,
+    maxDD:Math.round(mdd*100)/100,ddPct:dp?dp.pct:null,roc30:span?(net/(span/365.25))/30000*100:null,short:span!=null&&span<180,span:span,
+    sortino:(N>1&&dn>0)?(mean/dn)*Math.sqrt(252):null,dd5:d5?d5.dd5:null,dd5n:d5?d5.n:0,days:N};}
+// pure: shadow leg days from an as-if series {d,p,n} in [from, to]
+function bkaDaysOf(L,from,to){const out={},d=(L&&L.d)||[];d.forEach((x,i)=>{if((from&&x<from)||(to&&x>to))return;const r=out[x]||(out[x]={p:0,n:0});r.p+=+L.p[i]||0;r.n+=+((L.n||[])[i])||0;});return out;}
+// pure: day maps added together (the WHAT-IF column = LIVE + every shadow column)
+function bkaDaysAdd(list){const out={};(list||[]).forEach(m=>Object.keys(m||{}).forEach(d=>{const r=out[d]||(out[d]={p:0,n:0});r.p+=+m[d].p||0;r.n+=+m[d].n||0;}));return out;}
+// trades -> day map, with the board's own close-day and $ readers
+function bkaDaysOfTrades(rows,dayOf,pnlOf){const out={};(rows||[]).forEach(t=>{const d=dayOf(t);if(!d)return;const r=out[d]||(out[d]={p:0,n:0});r.p+=+pnlOf(t)||0;r.n++;});return out;}
+// the board's spec: ctx = the Books panel context (from, live, fwd), live = {days, perTrade}, fwd = Webull's forward shadow legs on
+function bkaTodayNY(){try{return new Date().toLocaleDateString('en-CA',{timeZone:'America/New_York'});}catch(e){return new Date().toISOString().slice(0,10);}}
+function bkaKpiSpec(board,ctx,live,base,baseWord,fwd){if(!ctx)return null;
+  const sh=[],seen={};
+  bkaOn(board).forEach(id=>{if(seen[id]||(ctx.live&&ctx.live(id))||(ctx.fwd&&ctx.fwd(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(!L||!Array.isArray(L.d))return;
+    sh.push({id:id,name:(L.name||id),days:bkaDaysOf(L,ctx.from||null,null)});});
+  (fwd||[]).forEach(f=>{const fid=bkaUniverse().find(id=>{const x=ctx.fwd&&ctx.fwd(id);return x&&x.key==='sh:'+f.key;})||f.key;
+    sh.push({id:fid,name:f.name,days:f.days,perTrade:f.perTrade});});
+  return {board:board,base:base,baseWord:baseWord,from:ctx.from||null,to:bkaTodayNY(),live:live||{days:{},perTrade:null},shadows:sh};}
+// THE TABLE. spec = {board, base, baseWord, from, to, live:{days, perTrade}, shadows:[{id, name, days, perTrade?}]}; nothing when no shadow is on
+function bkaKpiTableHtml(spec){
+  if(!spec||!spec.shadows||!spec.shadows.length)return '';
+  const esc=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const to=spec.to||null,from=spec.from||null,inR=d=>(!from||d>=from)&&(!to||d<=to);
+  const clip=m=>{const o={};Object.keys(m||{}).forEach(d=>{if(inR(d))o[d]=m[d];});return o;};
+  const liveD=clip(spec.live&&spec.live.days),shD=spec.shadows.map(s=>clip(s.days));
+  const axis=Array.from(new Set(Object.keys(liveD).concat(...shD.map(m=>Object.keys(m))))).sort();
+  const ko={base:spec.base,from:from||axis[0]||null,to:to||axis[axis.length-1]||null};
+  const cols=[{key:'live',label:'LIVE',k:bkaKpiOf(liveD,axis,Object.assign({perTrade:spec.live&&spec.live.perTrade},ko))},
+    {key:'whatif',label:'WHAT-IF',k:bkaKpiOf(bkaDaysAdd([liveD].concat(shD)),axis,ko),wi:true}]
+    .concat(spec.shadows.map((s,i)=>({key:s.id,label:s.name,k:bkaKpiOf(shD[i],axis,Object.assign({perTrade:s.perTrade},ko)),sh:true,id:s.id,fwd:!!s.perTrade})));
+  // per-trade LIVE trade count joins the WHAT-IF count (LIVE trades + shadow trades)
+  cols[1].k.trades=cols.reduce((a,c,i)=>i===1?a:a+(+c.k.trades||0),0);
+  const L=cols[0].k;
+  const M=v=>v==null?'&mdash;':ledgerSigned(Math.round(v*100)/100),U=v=>v==null?'&mdash;':elMoney(Math.round(v*100)/100);
+  const P=v=>v==null||!isFinite(v)?'&mdash;':((v<0?'-':'+')+Math.abs(v).toFixed(2)+'%');
+  const R=v=>v==null?'&mdash;':(isFinite(v)?v.toFixed(2):'&infin;');
+  const rows=[
+    ['net','Net $',k=>'<span class="'+ledgerCls(k.net)+'">'+M(k.net)+'</span>',1,k=>k.net],
+    ['pct','%',k=>P(k.pct),1,k=>k.pct],
+    ['trades','Trades',k=>String(k.trades==null?'—':k.trades),0,null],
+    ['winrate','Win rate',(k,c)=>(k.winRate==null?'&mdash;':Math.round(k.winRate*100)+'%')+(k.perDay?' <span class="bka-kpd">/day</span>':''),1,(k,c)=>c.ref?k.dayWinRate:k.winRate],
+    ['pf','Profit factor',k=>R(k.pf)+(k.perDay?' <span class="bka-kpd">/day</span>':''),1,(k,c)=>c.ref?k.dayPf:k.pf],
+    ['maxdd','Max DD $',k=>U(k.maxDD),-1,k=>k.maxDD],
+    ['ddpct','Max DD %',k=>k.ddPct==null?'&mdash;':k.ddPct.toFixed(2)+'%',-1,k=>k.ddPct],
+    ['roc30','ROC@30k',k=>(k.roc30==null?'&mdash;':(k.roc30.toFixed(1)+'%/yr'))+(k.short?' <span class="bka-kpd" title="short range: annualised from '+k.span+' days">short range</span>':''),1,k=>k.roc30],
+    ['sortino','Sortino',k=>R(k.sortino),1,k=>k.sortino],
+    ['dd5','DD5',k=>(k.dd5==null?'&mdash;':U(k.dd5))+(k.dd5!=null&&k.dd5n<5?' <span class="bka-kpd" title="only '+k.dd5n+' drawdown episode'+(k.dd5n===1?'':'s')+' in the range, so this is their average">n='+k.dd5n+'</span>':''),-1,k=>k.dd5]];
+  // better / worse vs LIVE: a per-day win rate or PF is read against LIVE's own per-day figure, never its per-trade one
+  const cmp=(r,c)=>{if(c.key==='live'||!r[3]||!r[4])return '';const perDay=c.k.perDay&&!L.perDay;const a=r[4](c.k,{}),b=r[4](L,{ref:perDay});
+    if(a==null||b==null||!isFinite(a)&&!isFinite(b))return '';const d=(isFinite(a)?a:1e12)-(isFinite(b)?b:1e12);if(Math.abs(d)<1e-9)return '';
+    return (d*r[3]>0)?' bka-kb':' bka-kw';};
+  const mark=cls=>cls===' bka-kb'?'<span class="bka-km" aria-label="better than LIVE">&#9650;</span>':(cls===' bka-kw'?'<span class="bka-km" aria-label="worse than LIVE">&#9660;</span>':'');
+  const head='<tr><th class="bka-krl" scope="col"></th>'+cols.map(c=>'<th scope="col" data-bkakcol="'+esc(c.key)+'"'+(c.sh?' title="'+esc(c.label)+' - SHADOW, as-if, never the account"':'')+'>'
+    +(c.sh?bkaSwatchHtml(c.id)+' ':'')+'<span class="bka-kh">'+esc(c.label)+'</span></th>').join('')+'</tr>';
+  const body=rows.map(r=>'<tr data-bkakrow="'+r[0]+'"><th scope="row" class="bka-krl">'+r[1]+'</th>'+cols.map(c=>{const cl=cmp(r,c);
+    return '<td class="'+(c.wi?'bka-kwi':'')+cl+'" data-bkakcell="'+esc(c.key)+'"'+(r[0]==='net'?' data-bkaknet="'+c.k.net+'"':'')+'>'+r[2](c.k,c)+mark(cl)+'</td>';}).join('')+'</tr>').join('');
+  const tip='Over the chart range. LIVE = the account (the counted legs). WHAT-IF = LIVE + every shadow leg switched on. Each shadow column = that leg alone, as-if (simulated, never the account). '
+    +'% = net / '+(spec.baseWord||'the % base')+'. Max DD % = the fall from the high of base + P&L. ROC@30k = net a year / $30,000. Sortino = daily, annualised (sqrt 252), over the same days for every column. '
+    +'DD5 = the average of the 5 deepest drawdowns. A shadow leg has daily figures only, so its win rate and PF are per day. Up / down triangles = better / worse than LIVE.';
+  return '<div class="bka-kpi" data-bkakpi="'+esc(spec.board||'')+'"><div class="bka-kpi-hd"><span class="bka-t">What-if KPIs</span><span class="lg-help" title="'+esc(tip)+'">?</span>'
+    +'<span class="bka-s">'+(cols.length-2)+' shadow on</span></div>'
+    +'<div class="bka-kpi-scroll"><table class="bka-ktab"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';}
 // the switched-on shadow legs' as-if sum in a range (the panel head and the hero what-if); skip as above
 function bkaOnSum(board,from,to,skip){let s=0;const seen={};bkaOn(board).forEach(id=>{if(seen[id]||(skip&&skip(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(L&&Array.isArray(L.d))s+=bkaSum(L,from,to).net;});return Math.round(s*100)/100;}
 // THE PANEL. ctx: {board:'nt8'|'qb', listId (the root's data-lglist, so a LIVE switch reaches the board's own switch handler), from, to,
@@ -7733,8 +7875,9 @@ function bkaPanelHtml(ctx){
     const run=(l&&l.run)?String(l.run).split(' ')[0]:'';
     const nm='<span class="bka-nmt">'+esc(String((l&&l.name)||id))+'</span>'+(run?' <span class="bka-run">'+esc(run)+'</span>':'');
     const size=esc(String((l&&l.size)||''));
-    const row=(cls,attrs,tag,tip,nmExtra,val,sw)=>'<div class="bka-leg '+cls+'" '+attrs+' title="'+tip+'">'
-      +'<span class="bka-nm"><span class="lg-sr">'+tag+' </span>'+nm+(nmExtra||'')+'</span>'+val+sw+'</div>';
+    // v91.79: a shadow row leads with its colour swatch, the same colour and dash its line draws on the chart
+    const row=(cls,attrs,tag,tip,nmExtra,val,sw,swatch)=>'<div class="bka-leg '+cls+'" '+attrs+' title="'+tip+'">'
+      +'<span class="bka-nm">'+(swatch||'')+'<span class="lg-sr">'+tag+' </span>'+nm+(nmExtra||'')+'</span>'+val+sw+'</div>';
     if(lv){
       return row('live'+(lv.on?'':' off'),'data-bkaleg="'+esc(id)+'" data-bkamode="live"','LIVE',
         'LIVE: traded on this board, in the account number - '+esc(lv.label||'in the account')+(size?' · '+size:''),'',
@@ -7744,7 +7887,7 @@ function bkaPanelHtml(ctx){
       return row('sh'+(fw.on?'':' off'),'data-bkaleg="'+esc(id)+'" data-bkamode="shadow" data-bkasrc="forward"','SHADOW',
         'SHADOW (forward): not traded here - as-if from the box’s own no-order shadow signals since it started shadowing this leg · '+esc(fw.label||'')+' · '+(fw.n||0)+' trades','',
         '<span class="bka-val '+(fw.n?ledgerCls(fw.net):'')+'">'+(fw.n?ledgerSigned(fw.net):'&mdash;')+'</span>',
-        '<span class="lg-sw bka-shsw'+(fw.on?' on':'')+'" role="switch" aria-checked="'+!!fw.on+'" aria-label="show '+esc(id)+' as-if" data-lgsw="'+esc(fw.key)+'"></span>');}
+        '<span class="lg-sw bka-shsw'+(fw.on?' on':'')+'" role="switch" aria-checked="'+!!fw.on+'" aria-label="show '+esc(id)+' as-if" data-lgsw="'+esc(fw.key)+'"></span>',bkaSwatchHtml(id));}
     const isOn=on.indexOf(id)>=0;
     if(!L||!Array.isArray(L.d)){
       const asked=(window._bkaAsked||[]).indexOf(id)>=0||isOn;
@@ -7753,7 +7896,7 @@ function bkaPanelHtml(ctx){
       return row('sh nodata'+(isOn?'':' off'),'data-bkaleg="'+esc(id)+'" data-bkamode="nodata"','SHADOW','SHADOW: '+esc(why),
         ' <span class="bka-why" data-bkanodata="'+esc(id)+'" title="'+esc(why)+'">'+esc(short)+'</span>',
         '<span class="bka-val">&mdash;</span>',
-        (L&&L.reason?'<span></span>':'<span class="lg-sw bka-shsw'+(isOn?' on':'')+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>'));}
+        (L&&L.reason?'<span></span>':'<span class="lg-sw bka-shsw'+(isOn?' on':'')+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>'),L&&L.reason?'':bkaSwatchHtml(id));}
     const f=bkaSum(L,from,to),Q=L._q||null;
     const qTxt=Q?('~'+(+Q.shares||0)+' QQQ sh'+(Q.shares_range?(' ('+Q.shares_range[0]+'-'+Q.shares_range[1]+')'):'')):'';
     const tip=(Q?('SHADOW in QQQ: as the Webull box would trade it, '+qTxt+' a trade, via '+(Q.via||'QQQ/NQ ratio')+'. '+(Q.rule||'')+(Q.skipped?(' '+Q.skipped+'.'):'')+' The replay: '):'')
@@ -7767,7 +7910,7 @@ function bkaPanelHtml(ctx){
       (Q?' <span class="bka-run bka-qsh" data-bkaqsh="'+(+Q.shares||0)+'">'+esc(qTxt)+'</span>':'')
       +(L.stale?' <span class="bka-stale" title="data ends '+esc(String(L.data_end||''))+'">&#9888;</span>':''),
       '<span class="bka-val '+(f.n?ledgerCls(f.net):'')+'">'+(f.n?ledgerSigned(f.net):'$0')+'</span>',
-      '<span class="lg-sw bka-shsw'+(isOn?' on':'')+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>');};
+      '<span class="lg-sw bka-shsw'+(isOn?' on':'')+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>',bkaSwatchHtml(id));};
   const byType={};
   keys.forEach(k=>{const b=B.books[k];if(!b)return;(byType[bkaBookType(b)]=byType[bkaBookType(b)]||[]).push(k);});
   const order=(ctx.order||['futures','mixed','stock']).filter(t=>byType[t]).concat(Object.keys(byType).filter(t=>(ctx.order||['futures','mixed','stock']).indexOf(t)<0));
@@ -46690,6 +46833,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbEqNet=(QEQUITY&&qeFinRec(QEQUITY.net_liq)!==null)?Number(QEQUITY.net_liq):null;
         const qbPctDayBase=qbEqNet!==null?(qbEqNet-((QEQUITY&&qeFinRec(QEQUITY.change_today)!==null)?Number(QEQUITY.change_today):0)):null;
         const qbPctRangeBase=qbEqNet!==null?(qbEqNet-sinceStartPnl+(closedSum-qbRangePnl)):null;
+        window._qbKpiBase=qbPctRangeBase;   // v91.79: the what-if KPI table's % base (the hero's realized-% base)
         // three places under 0.1% (a $1M paper account moves in thousandths); a figure that rounds to nothing reads 0.00%, never -0.000%
         const qbPctTxt=(v,base)=>{v=Number(v);if(base==null||!isFinite(base)||base<=0||!isFinite(v))return '';const p=v/base*100,a=Math.abs(p);
           if(a<0.0005)return '0.00%';
@@ -46752,6 +46896,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbShLegName=k=>{if(qbShInfo(k))return qbShInfo(k).name;const m=/^([A-Za-z]+)_(\d+)(?:_(\w+))?$/.exec(String(k||''));if(!m)return String(naS(k));
           const f=QE_LEGS.find(x=>x[0]===m[1].toUpperCase()),v=m[3]?(m[3].toUpperCase()==='KEEL'?'KEEL':m[3].toLowerCase().replace(/_/g,' ')):'';
           return (f?f[1]:m[1].toUpperCase())+' #'+m[2]+(v?' '+v:'');};
+        // v91.79: the box's switched-on forward shadow legs for the what-if KPI table (per-trade figures: these have trades)
+        try{window._qbKpiFwd=qbShOn.map(k=>{const mine=qbShOnClosed.filter(t=>t.leg===k);if(!mine.length)return null;
+          const pnl=t=>+t.pnl_record||0,w=mine.filter(t=>pnl(t)>0),l=mine.filter(t=>pnl(t)<0),gw=w.reduce((a,t)=>a+pnl(t),0),gl=-l.reduce((a,t)=>a+pnl(t),0);
+          return {key:k,name:qbShLegName(k)+' (shadow)',days:bkaDaysOfTrades(mine,t=>t.exitDate,pnl),
+            perTrade:{trades:mine.length,winRate:(w.length+l.length)?w.length/(w.length+l.length):null,pf:(gw||gl)?(gl>0?gw/gl:Infinity):null}};}).filter(Boolean);}catch(e){console.warn('what-if KPIs fwd:',e);window._qbKpiFwd=[];}
         const qbRangeFigs=rows=>{
           let net=0,w=0,l=0;
           rows.forEach(t=>{const v=qePnlOf(t);net+=v;if(v>0)w++;else if(v<0)l++;});
@@ -47540,7 +47689,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             window._qbLgChart=null;
             equityHtml='<div class="qb-chart-wrap">'
               +'<div style="color:var(--text5);font-size:var(--fsxs);text-align:center;padding:18px 0">'+(closedN?qbRangeNone:'curve starts with the first closed trade')+'</div>'
-              +qbChartRow(false,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(''))+'</div>';
+              +qbChartRow(false,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(''))+'<div class="bka-kpi-slot" id="qb-bka-kpi"></div></div>';
           }else{
             const tsOf=t=>String((t&&(t.exit_ts||t.entry_ts))||'');
             const chrono=qbRangeTrades.slice().sort((a,b)=>tsOf(a)<tsOf(b)?-1:tsOf(a)>tsOf(b)?1:0);
@@ -47626,8 +47775,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // switched-on shadow legs: one dashed grey line each, its closed would-be P&L summed by the New York day it closed (never in the total)
             qbShOn.forEach(k=>{const mine=qbShOnClosed.filter(t=>t.leg===k);if(!mine.length)return;
               const nm=qbShLegName(k)+' (shadow)';nameKey[nm]='sh:'+k;
-              lines.push({name:nm,color:'var(--text3)',on:!lgOff['sh:'+k],dash:'7 3 1.5 3',dashMono:'7 3 1.5 3',shadow:true,
-                vals:pts.map((p,i)=>i===0?0:Math.round(mine.filter(t=>p.date&&t.exitDate<=p.date).reduce((a,t)=>a+(t.pnl_record||0),0)*100)/100)});});
+              // v91.79: its colour is the book leg's own (the swatch on its row in the Books panel), else its key's
+              const fid=(()=>{const C=window._qbBkaCtx;if(!C||!C.fwd)return null;return bkaUniverse().find(id=>{const f=C.fwd(id);return f&&f.key==='sh:'+k;})||null;})();
+              lines.push(Object.assign({name:nm,on:!lgOff['sh:'+k],bkaFwd:fid||k},bkaLineStyle(fid||k),{
+                vals:pts.map((p,i)=>i===0?0:Math.round(mine.filter(t=>p.date&&t.exitDate<=p.date).reduce((a,t)=>a+(t.pnl_record||0),0)*100)/100)}));});
             // BOOK AS-IF (v91.71): each switched-on replay leg of the book panel as a dashed grey line, and ONE what-if total = the solid total
             // + every switched-on shadow line (the box's forward shadow lines above included). Never the total itself.
             try{const C=window._qbBkaCtx;if(C){const _bd=cpts.map((p,i)=>i===0?null:(p.date||null)),_bt=cpts.map(p=>+p.v||0);
@@ -47667,7 +47818,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   :ledgerHeroCells({label:'start of the range'});
                 const rc=pc.v>=0?'hm-up':'hm-down';
                 if(h.range)h.range.innerHTML=ledgerHeroCells({label:'cash',v:pc.v,cls:rc,fig:ledgerSigned(pc.v),pct:qbPctHtml(pc.v,qbPctRangeBase,'hover',rc),
-                  extra:'&middot; closed trades &middot; '+qbRangeWord+(i?' &middot; through '+when:' &middot; start')});
+                  extra:'&middot; closed trades &middot; '+qbRangeWord+(i?' &middot; through '+when:' &middot; start')+bkaHoverHtml(lines,i)});
               },
               onLeave:()=>{
                 const h=heroEls();
@@ -47693,7 +47844,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // LEDGER step 12: the caption and the key sit under the chart, in the shared chart foot (the same place on every board)
             equityHtml='<div class="qb-chart-wrap">'
               +'<div class="qbx-lgchart" id="qb-lg-chart"></div>'
-              +qbChartRow(true,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(qbKeyWords))+'</div>';
+              +qbChartRow(true,'<span class="qbx-chart-cap'+((qbRange&&qbRange!=='ALL')?'':' qbx-cap-all')+'">'+qbRangeCap+'</span>'+qbCapHelp(qbKeyWords))+'<div class="bka-kpi-slot" id="qb-bka-kpi"></div></div>';
           }
         }
 
@@ -48828,6 +48979,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           exitDate:qeTradeDate(t),date:(String((t&&t.entry_ts)||'').slice(0,10)||null),
           entryTime:qbClock(t&&t.entry_ts),exitTime:qbClock(t&&t.exit_ts)}));
         const qbLs=ledgerStats(qbStatRows,{pnl:qePnlOf,day:qeTradeDate});
+        try{window._qbKpiLive={days:bkaDaysOfTrades(qbStatRows,qeTradeDate,qePnlOf),perTrade:qbLs?{trades:qbLs.trades,winRate:qbLs.winRate,pf:qbLs.pf}:{trades:0,winRate:null,pf:null}};}catch(e){window._qbKpiLive=null;}
         const qbMoreOpen=(()=>{let o=window._qbMoreStatsOpen!=null?!!window._qbMoreStatsOpen:!!(APREF.qqqMoreStatsOpen!=null&&+APREF.qqqMoreStatsOpen);try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();
         // the board's own rows: the account as of its last read (not the range), then what the range's trades
         // made at Webull's fills against the book, how many never reached Webull, fill coverage and slippage
@@ -49842,8 +49994,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _rhFoot='<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="p2"><span class="lg-chart-cap"><span class="p2rhkey">Cumulative P&amp;L, '+(LEDGER_RANGE_LABEL[_pcw]||_pcw)+'</span>'
         +'<span class="lg-help" data-p2caphelp title="solid line = all book legs \u00b7 dotted = each strategy \u00b7 hatched = a day with a data caveat (a roll-splice trade or a look-ahead ORB trade; hover the column to see which) \u00b7 amber hatch = cause still open, blue hatch = cause fixed \u00b7 hover the chart to scrub">?</span></span></div>';
       const _rhChart=(()=>{
-        if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+ledgerDailyModeHtml('p2')+'<div class="lg-legend-slot" id="p2-lg-legend"></div>'+_rhFoot+'</div></div>';
-        return '<div data-p2sec="chart"><div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div><div class="lg-chart-row">'+_rhTabs+_rhFoot+'</div></div>';
+        // v91.79: the what-if KPI table sits under the chart row (filled when the chart is wired; empty with no shadow leg on)
+        if(_rhN)return '<div data-p2sec="chart"><div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+ledgerDailyModeHtml('p2')+'<div class="lg-legend-slot" id="p2-lg-legend"></div>'+_rhFoot+'</div><div class="bka-kpi-slot" id="p2-bka-kpi"></div></div>';
+        return '<div data-p2sec="chart"><div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div><div class="lg-chart-row">'+_rhTabs+_rhFoot+'</div><div class="bka-kpi-slot" id="p2-bka-kpi"></div></div>';
       })();
       // the plotted days and the bold line's totals (plain numbers, no DOM): the render probe reads them
       window._p2Scrub={dates:_winDates,total:_rhTotal};
@@ -49857,7 +50010,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _bkaLive=id=>{const k=BKA_NT8_LIVE[id];if(!k||!_bookSet.has(k))return null;
         let net=null;try{net=Math.round(legAgg(k,PSCOPE).net*100)/100;}catch(e){}
         return {key:k,on:!_legOff.includes(k),net:net,label:'NinjaTrader paper'+((_bookW[k]&&_bookW[k]!==1)?(' x'+_bookW[k]):'')};};
-      const _bkaCtx={board:'nt8',listId:'p2bk',from:_bkaFrom,live:_bkaLive,order:['futures','mixed','stock'],
+      const _bkaCtx=window._p2BkaCtx={board:'nt8',listId:'p2bk',from:_bkaFrom,live:_bkaLive,order:['futures','mixed','stock'],
         active:(window._bookLegs&&window._bookLegs.books&&window._bookLegs.books[String(_bookRun)])?String(_bookRun):null,activeWord:'on NT8',
         accountNet:Math.round(_H.net*100)/100,accountWord:'book'};
       window._p2Chart=null;
@@ -51543,6 +51696,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // before today). It no longer reads the Sim101 cash, so the % always shows, NT up or not; _p2PctAcct above still remembers the cash.
         const _p2PctDayBase=NT8_PCT_BASE_USD+_H0today;
         const _p2PctRangeBase=NT8_PCT_BASE_USD+_H0;
+        window._p2KpiBase=_p2PctRangeBase;   // v91.79: the what-if KPI table's % base (the same as the hero's realized %)
         const _p2PctBaseTip=(base,pre,word)=>'base '+ledgerMoney(base)+' = '+ledgerMoney(NT8_PCT_BASE_USD)+' account + realized before '+word+' ('+ledgerSigned(Math.round(pre*100)/100)+') (fixed NT8 paper account size, the Sim101 default)';
         const _p2PctHtml=(v,base,key)=>{v=Number(v);if(base==null||!isFinite(base)||base<=0||!isFinite(v))return '';
           const p=v/base*100,a=Math.abs(p),t=a<0.0005?'0.00%':((p<0?'-':'+')+(a<0.1?a.toFixed(3):a.toFixed(2))+'%');
@@ -51601,6 +51755,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           .map(t=>Object.assign({},t,{type:_pnDir(t.side),
             durationMins:(+t.exitTime>0&&+t.entryTime>0&&+t.exitTime>=+t.entryTime)?(+t.exitTime-+t.entryTime)/60:null}));
         const _pnS=ledgerStats(_pnRows,{pnl:_pnPnl,day:_closeDay,sorted:true});
+        // v91.79: LIVE for the what-if KPI table - the counted trades by close day, and their per-trade win rate / PF
+        try{window._p2KpiLive={days:bkaDaysOfTrades(_pnRows,_closeDay,_pnPnl),perTrade:_pnS?{trades:_pnS.trades,winRate:_pnS.winRate,pf:_pnS.pf}:{trades:0,winRate:null,pf:null}};}catch(e){window._p2KpiLive=null;}
         // the board's own More stats group: every listed strategy that traded in the range (or whose control did) against its matched
         // control, the dollar gap, and its forward and backfilled trades apart - the figures the old rail kept on its hovers and its
         // Config + gate rows. Range scoped like everything else on the board.
@@ -54500,6 +54656,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-qbrange]').forEach(el=>{el.onclick=()=>{
         homeRange=el.getAttribute('data-qbrange');renderApp();};});
       // LEDGER shared equity chart (unify step 5): drawn into its box now that the page is in place
+      // v91.79: the what-if KPI table under the chart (only with a shadow leg on)
+      {const sl=content.querySelector('#qb-bka-kpi');if(sl){try{sl.innerHTML=bkaKpiTableHtml(bkaKpiSpec('qb',window._qbBkaCtx,window._qbKpiLive,window._qbKpiBase,'the realized-% base (the account at the range start)',window._qbKpiFwd));}catch(e){console.warn('what-if KPIs:',e);sl.innerHTML='';}}}
       if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw){if(_lgDailyOn('qb'))ledgerDailyChart(lgw,window._qbLgChart.pts,{id:'qb'});else ledgerChartRender(lgw,window._qbLgChart);}}
       // LEDGER shared strategy list (unify step 10): a tap on a leg opens its detail under the row (since start, unrealized, the
       // box's day, position, notional); the Retired and Shadow folds open and close, each remembered per viewer (closed until opened)
@@ -54789,6 +54947,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-pcwin]').forEach(el=>{el.onclick=()=>{window._paperCurveWin=el.getAttribute('data-pcwin');savePref('paperRange',window._paperCurveWin);renderApp();};});
       // The shared chart: mouse hover on a laptop, finger drag on a phone. onScrub writes the hero number and the range
       // line (nothing re-renders), onLeave puts them back. The legend switches each faint leg line and is remembered.
+      // v91.79: the what-if KPI table under the chart (only with a shadow leg on)
+      {const sl=content.querySelector('#p2-bka-kpi');if(sl){try{sl.innerHTML=bkaKpiTableHtml(bkaKpiSpec('nt8',window._p2BkaCtx,window._p2KpiLive,window._p2KpiBase,'the NT8 paper base ($'+NT8_PCT_BASE_USD.toLocaleString('en-US')+' + realized before the range)',null));}catch(e){console.warn('what-if KPIs:',e);sl.innerHTML='';}}}
       {const wrapEl=content.querySelector('#p2-chart'),C=window._p2Chart;
        if(wrapEl&&C){
          const num=content.querySelector('#p2-hero-value'),rng=content.querySelector('#p2-hero-range');
@@ -54813,7 +54973,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
              let dl=p.date;try{dl=new Date(p.date+'T12:00:00').toLocaleDateString('en-US',{weekday:'short',month:'short',day:'numeric',year:'numeric'});}catch(_e){}
              // v91.70: '\u00b7 <date> \u00b7 total +$X (+x%)' and, with a % base, each switched-on strategy's own total and % through that day
              let ex='\u00b7 '+_hmEsc(dl)+' \u00b7 total '+ledgerSigned(p.v)+(_pB?' '+_pS(p.v,'cum'):'');
-             if(_pB)(C.lines||[]).filter(l=>l.on!==false&&l.vals&&l.vals[i]!=null).forEach(l=>{ex+=' \u00b7 '+_hmEsc(l.name)+' '+ledgerSigned(+l.vals[i])+' ('+_pT(+l.vals[i])+')';});
+             if(_pB)(C.lines||[]).filter(l=>!l.shadow&&l.on!==false&&l.vals&&l.vals[i]!=null).forEach(l=>{ex+=' \u00b7 '+_hmEsc(l.name)+' '+ledgerSigned(+l.vals[i])+' ('+_pT(+l.vals[i])+')';});
+             ex+=bkaHoverHtml(C.lines,i);   // v91.79: each switched-on shadow leg's $ through that day, in its own colour
              rng.innerHTML=ledgerHeroCells({label:'that day',v:dd,fig:ledgerSigned(dd),pct:_pS(dd,'day'),extra:ex});},
            onLeave:()=>{if(num)num.innerHTML=num0;if(rng)rng.innerHTML=rng0;}});
        }}
