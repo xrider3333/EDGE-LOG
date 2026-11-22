@@ -1823,6 +1823,19 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               w.renderApp();LV.a=_hv();
               w._bkaOn_nt8=['OPUS55a'];LS1.setItem('el_bka_on_nt8','["OPUS55a"]');w.renderApp();LV.b=_hv();
               if(_click('[data-lgvboard="p2"][data-lgvview="whatif"]')){LV.c=_hv();LV.stored=LS1.getItem('el_lgv_view_p2');
+                // board 155: the shadow's own as-if trades in the NT8 trade table - seeded into the per-session cache bkaTradesGet reads (no
+                // Firestore): two closed rows on the leg's days, one open row and one on a day the chart does not count (both left out)
+                var _shr=function(){return [].map.call(d.querySelectorAll('#nt8-tl [data-ptshadow]'),function(e){return {g:e.classList.contains('lg-tl-ghost'),tag:!!e.querySelector('.lgv-shtag'),txt:_t(e)};});};
+                var _cnt=function(){var c=d.querySelector('#nt8-tl [data-lgcount]');return c?_t(c):null;};
+                LV.cnt0=_cnt();var _bt0=w._bkaTr;
+                w._bkaTr={OPUS55a:{st:'ok',rows:[{et:eA+'T10:00',xt:eA+'T11:30',d:eA,side:'long',ep:20000,xp:20050,size:1,pnl:1000},
+                  {et:eB+'T10:00',xt:eB+'T10:45',d:eB,side:'short',ep:20100,xp:20112.5,size:1,pnl:-250},
+                  {et:eB+'T15:00',xt:eB+'T15:55',d:eB,side:'long',ep:1,xp:2,size:1,pnl:5,open:true},
+                  {et:'2020-01-02T10:00',xt:'2020-01-02T11:00',d:'2020-01-02',side:'long',ep:1,xp:2,size:1,pnl:7}]}};
+                w.renderApp();LV.shW=_shr();LV.cntW=_cnt();
+                _click('[data-lgvboard="p2"][data-lgvview="live"]');LV.shL=_shr();LV.cntL=_cnt();
+                _click('[data-lgvboard="p2"][data-lgvview="whatif"]');
+                if(_bt0===undefined)delete w._bkaTr;else w._bkaTr=_bt0;
                 LS1.setItem('el_lg_bars_p2','1');w.renderApp();
                 var cm={};(w._p2Chart.comps||[]).forEach(function(c){cm[c.k]=_cc(c.color);});
                 LV.stack=[].map.call(d.querySelectorAll('#p2-chart [data-lgdaily-stack]'),function(g){return {d:g.getAttribute('data-lgdaily-stack'),net:parseFloat(g.getAttribute('data-net')),
@@ -2410,6 +2423,14 @@ def run(alt_index=None, timeout=300):
                 fails.append('paper2 ledger views: WHAT-IF is not shown / tagged / remembered (%r, stored %r)' % (c, _lv.get('stored')))
             if sorted(c.get('wi') or []) != ['cal', 'stats']:
                 fails.append('paper2 ledger views: WHAT-IF does not mark the tiles and the calendar (%r)' % (c.get('wi'),))
+            # board 155: the shadow's as-if trades sit in the NT8 trade table in WHAT-IF only - dimmed, tagged, in contracts (NQ), never counted
+            shW = _lv.get('shW') or []
+            if len(shW) != 2 or not all(r.get('g') and r.get('tag') for r in shW) or not all(' NQ' in (r.get('txt') or '') for r in shW):
+                fails.append('paper2 board 155: WHAT-IF must list the 2 closed in-range OPUS55a as-if rows, dimmed with a shadow tag and NQ contracts (%r)' % (shW,))
+            if _lv.get('shL'):
+                fails.append('paper2 board 155: LIVE lists shadow as-if rows in the NT8 trade table (%r)' % (_lv.get('shL'),))
+            if _lv.get('cntW') != _lv.get('cnt0') or _lv.get('cntL') != _lv.get('cnt0'):
+                fails.append('paper2 board 155: shadow rows moved the trade count (%r / %r / %r)' % (_lv.get('cnt0'), _lv.get('cntW'), _lv.get('cntL')))
             # OPUS55a as-if +1000 then -250 on two plotted days (one day = the same 750)
             if c.get('real') is None or b.get('real') is None or round(c['real'] - b['real'], 2) != 750.0:
                 fails.append('paper2 ledger views: WHAT-IF realized %r is not LIVE %r + the shadow 750' % (c.get('real'), b.get('real')))

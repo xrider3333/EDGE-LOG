@@ -2152,7 +2152,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.02';
+const VERSION='92.03';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -8107,6 +8107,26 @@ function bkaTradesGet(id){id=String(id==null?'':id);if(!id)return null;const C=w
     .catch(e=>{E.st='err';E.why=(e&&e.message)||'read failed';console.warn('book_asif_trades '+id+':',E.why);done();});
   }catch(e){E.st='err';E.why=String(e&&e.message||e);}
   return E;}
+// board 155 (owner 11-22): ONE walk of a switched-on shadow leg's as-if trades for a ledger table - WEBULL PAPER (board 147) and NT8 PAPER
+// both read it. s = a board shadow ({id, days, units?, fixed?}: lgvShadowLegs, then lgvScaleShadows under RISK n %). o = {qqq: true on
+// WEBULL PAPER (a futures leg as the box trades it: r.q {sh, usd}, its prices stay NQ points; a row with no QQQ figure is left out) | false
+// (NT8: contracts / shares and the leg's own $), sized (the board is on RISK n %: a leg with a stop scales by s.units[day]), rows (the
+// board's own rows instead of the book leg's, already {d, et, xt, side, ep, xp, qty, pnl})}. Book legs read bkaTradesGet (lazy, once a
+// session, never a listener). Only CLOSED rows on the days the chart counts for that shadow (s.days) come back; [] while loading.
+// -> [{i, d, et, xt, side, ep, xp, qty (sized), as (the unsized qty), pnl (sized), pxWord, stock, sizedLeg, fixed}]
+function bkaShadowTrades(s,o){o=o||{};const out=[];if(!s||!s.days)return out;
+  let raw=o.rows,stock=false;
+  if(!raw){const T=bkaTradesGet(s.id);if(!T||T.st!=='ok')return out;
+    const L=bkaLeg(s.id);stock=!L||L.kind==='stock'||!!(o.qqq&&L.qqq&&L.qqq.same);raw=[];
+    T.rows.forEach((r,i)=>{if(r.open===true)return;
+      if(stock||!o.qqq)raw.push({i:i,d:r.d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:+r.size,pnl:r.pnl});
+      else if(r.q&&r.q.usd!=null&&+r.q.sh>0)raw.push({i:i,d:r.d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:+r.q.sh,pnl:r.q.usd,pxWord:'NQ'});});}
+  const sizedLeg=!!o.sized&&!s.fixed;
+  raw.forEach((r,j)=>{const d=r.d;if(!d||!s.days[d]||!(r.qty>0)||r.pnl==null||!isFinite(+r.pnl))return;
+    const m=sizedLeg?(+((s.units||{})[d])||0):1;
+    out.push({i:r.i!=null?r.i:j,d:d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:Math.round(r.qty*m*1000)/1000,as:r.qty,
+      pnl:Math.round(+r.pnl*m*100)/100,pxWord:r.pxWord||null,stock:stock,sizedLeg:sizedLeg,fixed:!!o.sized&&!!s.fixed});});
+  return out;}
 // cumulative as-if $ of one leg through each chart date (ascending; a null date = the range start, $0), counting days from `from` on
 function bkaCum(L,from,dates){const d=(L&&L.d)||[],p=(L&&L.p)||[],out=[];let j=0,c=0;
   dates.forEach(x=>{if(!x){out.push(0);return;}while(j<d.length&&d[j]<=x){if(!from||d[j]>=from)c+=+p[j]||0;j++;}out.push(Math.round(c*100)/100);});
@@ -48819,22 +48839,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               // (q.sh shares, q.usd); its prices stay NQ points and say so; a row with no QQQ figure is left out. Under RISK n % a sized leg's
               // row is scaled by that day's units (the same lgvScaleShadows result the chart reads).
               const qbShadowVm=(()=>{if(_lgvEffQb!=='whatif')return [];const out=[],sized=!!_lgvSizedQb;
-                (_lgvShQb||[]).forEach(s=>{if(!s||!s.days)return;const col=(s.style&&s.style.color)||'var(--text4)',sizedLeg=sized&&!s.fixed;
-                  const add=(r,i)=>{const d=r.d;if(!d||!s.days[d]||!(r.qty>0)||r.pnl==null||!isFinite(+r.pnl))return;
-                    const m=sizedLeg?(+((s.units||{})[d])||0):1,q=Math.round(r.qty*m*1000)/1000,p=Math.round(+r.pnl*m*100)/100;
+                (_lgvShQb||[]).forEach(s=>{if(!s||!s.days)return;const col=(s.style&&s.style.color)||'var(--text4)';
+                  // board 155: the shared walk (bkaShadowTrades) - a box shadow leg hands in its own trades, a book leg reads its as-if doc
+                  const own=s.shKey?qbShClosed.filter(t=>t.leg===s.shKey).map((t,i)=>({i:i,d:t.exitDate,et:t.en?(t.en.date+' '+t.en.hm):'',xt:t.ex?(t.ex.date+' '+t.ex.hm):'',
+                    side:t.side,ep:t.ep,xp:t.xp,qty:+t.shares,pnl:t.pnl_record})):null;
+                  bkaShadowTrades(s,{qqq:true,sized:sized,rows:own}).forEach(r=>{const i=r.i,q=r.qty,p=r.pnl,d=r.d;
                     const en=String(r.et||'').replace('T',' ').slice(0,16),ex=String(r.xt||'').replace('T',' ').slice(0,16);
                     const t={_shadow:true,leg:'SH_'+s.id,trade_id:'SH-'+s.id+'-'+i,side:r.side||'',entry_ts:en?en+':00':'',exit_ts:ex?ex+':00':'',
                       entry_px:r.ep,exit_px:r.xp,shares:q,pnl_record:p,exit_reason:'as-if (simulated)',book_only:false,
-                      _shName:s.name,_shColor:col,_pxWord:r.pxWord||null,_szU:sizedLeg?q:undefined,_szFixed:sized&&!!s.fixed,_szAs:r.qty,_szWord:'sh'};
+                      _shName:s.name,_shColor:col,_pxWord:r.pxWord||null,_szU:r.sizedLeg?q:undefined,_szFixed:r.fixed,_szAs:r.as,_szWord:'sh'};
                     out.push({id:'SH|'+s.id+'|'+i,date:en.slice(0,10),entryTime:en.slice(11,16)+':00',exitTime:ex.slice(11,16)+':00',exitDate:d,
-                      symbol:s.name,strategy:s.name,side:r.side?String(r.side).toUpperCase():'',size:q,pnl:p,points:null,_t:t,_ghost:true,_shRow:true});};
-                  if(s.shKey){qbShClosed.filter(t=>t.leg===s.shKey).forEach((t,i)=>add({d:t.exitDate,et:t.en?(t.en.date+' '+t.en.hm):'',xt:t.ex?(t.ex.date+' '+t.ex.hm):'',
-                    side:t.side,ep:t.ep,xp:t.xp,qty:+t.shares,pnl:t.pnl_record},i));return;}
-                  const T=bkaTradesGet(s.id);if(!T||T.st!=='ok')return;
-                  const L=bkaLeg(s.id),stock=!L||L.kind==='stock'||!!(L.qqq&&L.qqq.same);
-                  T.rows.forEach((r,i)=>{if(r.open===true)return;
-                    if(stock)add({d:r.d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:+r.size,pnl:r.pnl},i);
-                    else if(r.q&&r.q.usd!=null&&+r.q.sh>0)add({d:r.d,et:r.et,xt:r.xt,side:r.side,ep:r.ep,xp:r.xp,qty:+r.q.sh,pnl:r.q.usd,pxWord:'NQ'},i);});});
+                      symbol:s.name,strategy:s.name,side:r.side?String(r.side).toUpperCase():'',size:q,pnl:p,points:null,_t:t,_ghost:true,_shRow:true});});});
                 return out;})();
               window._qbShadowRowsN=qbShadowVm.length;
               qbShadowVm.forEach(v=>qbGhostVm.push(v));
@@ -51057,6 +51072,24 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           while(end<ord.length&&dayAt(end)===dayAt(end-1))end++;
           return ord.slice(0,end);
         };
+        // board 155 (owner 11-22): the switched-on shadows' as-if trades as NT8 rows - the shared walk bkaShadowTrades (the one reader WEBULL
+        // PAPER uses), native units: a futures leg in contracts and its own NQ / ES points and $, a stock / ETF leg in shares and $. Sized like
+        // the chart under RISK n % (_lgvShP2 carries the units). _raw is a trade-doc stand-in so the column sorts (_PSORTS) read it too.
+        const _nyEp=v=>{const u=Date.parse(String(v||'').replace(' ','T').slice(0,16)+':00Z');if(!isFinite(u))return 0;
+          try{const w=Date.parse(new Date(u).toLocaleString('sv-SE',{timeZone:'America/New_York'}).replace(' ','T')+'Z');return Math.round((u+(u-w))/1000);}catch(e){return Math.round(u/1000);}};
+        const _ntShRows=()=>{if(_lgvEffP2!=='whatif')return [];const out=[];
+          (_lgvShP2||[]).forEach(s=>{if(!s||!s.days)return;const L=bkaLeg(s.id)||{},col=(s.style&&s.style.color)||'var(--text4)';
+            const ins=String(L.instrument||'').toUpperCase();
+            bkaShadowTrades(s,{qqq:false,sized:!!_lgvSizedP2}).forEach(r=>{
+              const en=String(r.et||'').replace('T',' ').slice(0,16),ex=String(r.xt||'').replace('T',' ').slice(0,16),a=_nyEp(en),b=_nyEp(ex);
+              const sd=String(r.side||'').toLowerCase(),sg=sd==='long'?1:(sd==='short'?-1:0);
+              const pts=(!r.stock&&sg&&r.ep!=null&&r.xp!=null&&isFinite(+r.ep)&&isFinite(+r.xp))?Math.round((+r.xp-+r.ep)*sg*100)/100:null;
+              const w=r.stock?'sh':(ins.indexOf('ES')===0?'ES':(ins.indexOf('NQ')===0||!ins?'NQ':ins));
+              out.push({id:'SH|'+s.id+'|'+r.i,date:en.slice(0,10),exitDate:r.d,entryTime:en.slice(11,16)+':00',exitTime:ex.slice(11,16)+':00',
+                type:sg>0?'LONG':(sg<0?'SHORT':''),pnl:r.pnl,pnl_usd:r.pnl,points:pts,strategy:s.name,size:r.qty,bw:1,entry_px:r.ep,exit_px:r.xp,
+                durationSecs:(a>0&&b>=a)?(b-a):null,_raw:{leg:'SH_'+s.id,side:sg,entryTime:a,exitTime:b,entry_px:r.ep,exit_px:r.xp,pnl_pts:pts,pnl_usd:r.pnl},
+                _leg:'SH_'+s.id,_unc:false,_open:false,_en:en,_ex:ex,_cd:r.d,_shRow:true,_shColor:col,_shWord:w,_shAs:r.as,_shSized:r.sizedLeg,_shFixed:r.fixed});});});
+          window._ntShadowRowsN=out.length;return out;};
         // what the list shows right now: the board filters (_tSorted) then the search and the chips
         const model=()=>{
           const view=ledgerTradeViewGet(ID,((window.innerWidth||1400)<=600)?'list':'table'),tbl=view==='table',dayOn=!tbl||_psCol==='date',dayAsc=_psCol==='date'&&_psDir==='asc';
@@ -51067,12 +51100,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const query=window._ptQuery||'',famOn=chip.indexOf('fam:')===0?chip.slice(4):'';
           const hay=r=>[r.strategy,r._leg,_famOf(r._leg),r.type,r._cd,r._en.slice(0,10),r._ex.slice(0,10),r._unc?'not book':'',r._open?'open unrealised':''].join(' ');
           const pass=r=>ledgerTradeMatch(r,chip,query,{pnl:x=>x._open?0:x.pnl,hay:hay})&&(!famOn||_famOf(r._leg)===famOn);
-          const matched=listed.filter(pass),closedAll=listed.filter(r=>!r._open),openRows=matched.filter(r=>r._open),closedM=matched.filter(r=>!r._open);
-          const shown=cap(closedM,dayOn);
+          const matched=listed.filter(pass),closedAll=listed.filter(r=>!r._open),openRows=matched.filter(r=>r._open);
+          // board 155: WHAT-IF only - each switched-on shadow's own as-if trades join the closed rows (merged by close day, or by the sort column),
+          // dimmed with a shadow tag (ghost: no count, day net, DAY cell or CUM); a fam chip shows the live family only
+          const shM=famOn?[]:_ntShRows().filter(r=>ledgerTradeMatch(r,chip,query,{pnl:x=>x.pnl,hay:x=>[x.strategy,x._leg,x.type,x._cd,x._en.slice(0,10),'shadow as-if what-if'].join(' ')}));
+          let closedM=matched.filter(r=>!r._open);
+          if(shM.length){closedM=closedM.concat(shM);if(!dayOn)closedM.sort((a,b)=>{const x=_psKey(a._raw),y=_psKey(b._raw);
+            const c=(typeof x==='string'||typeof y==='string')?String(x).localeCompare(String(y)):(x-y);return _psDir==='asc'?c:-c;});}
+          const shown=cap(closedM,dayOn);   // a shadow row uses a place in the ~200-row page (a leg can hold years of rows)
           let ord=shown;
           if(dayOn){ord=ledgerByClose(shown);if(!dayAsc)ord.reverse();}
           return {view:view,tbl:tbl,dayOn:dayOn,dayAsc:dayAsc,fams:fams,chip:chip,query:query,listed:listed,closedAll:closedAll,closedM:closedM,
-            openRows:openRows,shown:shown,display:openRows.concat(ord)};
+            openRows:openRows,shown:shown,display:openRows.concat(ord),nSh:shM.length};
         };
         // the key of a trade in the bars cache and in the gallery (_no): its own id, never its place in the list, which changes with every sort, search and chip
         const pno=r=>String(r.id).replace(/^pt_/,'');
@@ -51097,16 +51136,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           [...sel].forEach(i=>{if(!have.has(i))sel.delete(i);});
           // the chart rows, in the order the list reads: a CHART pill, ALL CHARTS, OPEN N CHARTS and PREV / NEXT in the viewer walk the same trades
           const crow=[];
-          m.display.forEach(r=>{crow.push(crowOf(r,pno(r)));});
+          m.display.forEach(r=>{if(!r._shRow)crow.push(crowOf(r,pno(r)));});   // board 155: a shadow row has no NT8 chart
           window._paperCandleRows=crow;
           // CUM: the running total of the counted rows shown, in the order they closed (a trade outside the book has none)
           const cum=new Map();let run=0;
-          ledgerByClose(m.shown).forEach(r=>{if(r._unc){cum.set(r.id,null);return;}run+=(+r.pnl||0);cum.set(r.id,run);});
-          const eng=r=>_engineCell(r._raw).replace(/^<td[^>]*>/,'').replace(/<\/td>$/,'');
+          ledgerByClose(m.shown).forEach(r=>{if(r._unc||r._shRow){cum.set(r.id,null);return;}run+=(+r.pnl||0);cum.set(r.id,run);});
+          const eng=r=>r._shRow?'<span title="a shadow leg as-if trade (WHAT-IF): simulated, never the account - no engine or NinjaTrader check" style="font-size:8px;color:var(--text5)">as-if</span>'
+            :_engineCell(r._raw).replace(/^<td[^>]*>/,'').replace(/<\/td>$/,'');
           const mt=r=>r.entryIso?(_ntMatch[_ntKey(r._leg,r.entryIso)]||null):null;
           const md=ds=>String(ds||'').slice(5);
           const exTxt=r=>r._ex?((r._ex.slice(0,10)!==r._en.slice(0,10)?md(r._ex.slice(0,10))+' ':'')+r._ex.slice(11,16)):'—';
-          const tick=r=>'<label class="p2tk" title="tick to chart this trade"><input type="checkbox" data-pttick="'+X(r.id)+'"'+(sel.has(r.id)?' checked':'')+' aria-label="select this trade for the chart gallery"></label>';
+          const tick=r=>r._shRow?'<span class="p2tk" aria-hidden="true"></span>':'<label class="p2tk" title="tick to chart this trade"><input type="checkbox" data-pttick="'+X(r.id)+'"'+(sel.has(r.id)?' checked':'')+' aria-label="select this trade for the chart gallery"></label>';
           const allTick='<label class="p2tk" title="tick every trade shown"><input type="checkbox" data-pttickall aria-label="tick every trade shown"></label>';
           const cells={
             time:(r,v)=>{
@@ -51116,20 +51156,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 :'<span class="p2tlt">'+tick(r)+'<span class="p2tlt-tx">'+X(r._en.slice(11,16)||'--')+'<small>→ '+op+X(exTxt(r))+'</small></span></span>';
             },
             sym:r=>{
+              if(r._shRow)return '<span data-pc="leg"><span style="color:'+r._shColor+';font-weight:700">'+X(r.strategy)+'</span> <span class="lgv-shtag" data-lgvshrow="1" title="shadow leg, as-if (simulated) - never the account">shadow</span></span>';
               const t=r._raw,leg=r._leg,lc=_legColor[leg]||'#5b8def',flagged=leg==='ORB'||(Array.isArray(t.flags)&&t.flags.indexOf('lookahead-engine')>=0);
               const la=flagged?'<span title="'+ORB_LA_TIP.replace(/"/g,'&quot;')+'" style="margin-left:4px;color:var(--yellow);cursor:help">⚠</span>':'';
               const roll=t.roll_artifact?'<span title="'+String(t.roll_note||'2026-09 contract roll splice (ROLL_AUDIT 4.5.4) - kept, not deleted').replace(/"/g,'&quot;')+'" style="margin-left:4px;font-size:8px;font-weight:700;letter-spacing:.5px;padding:1px 5px;border-radius:4px;border:1px solid var(--attn-amber);color:var(--attn-amber);cursor:help">ROLL</span>':'';
               return '<span data-pc="leg">'+_crownIc(leg)+'<span style="color:'+lc+';font-weight:700">'+(_legLabel[leg]||leg)+'</span>'+la+roll+(r._unc?_othBadge:'')+'</span>';
             },
             side:r=>r.type?'<span class="lg-side '+(r.type==='LONG'?'long':'short')+'">'+r.type+'</span>':'—',
-            size:r=>{const s=(+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1);return String(+s.toFixed(2));},
+            size:r=>{if(r._shRow)return X(String(+(+r.size).toFixed(3)))+' <small>'+X(r._shWord)+'</small>';const s=(+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1);return String(+s.toFixed(2));},
             pnl:r=>{const v=+r.pnl_usd||0;return '<span class="'+ledgerPnlCls(v)+'"'+(r._open?' style="opacity:.6;font-style:italic"':'')+'>'+ledgerSigned(v)+'</span>'+(r._open?' <small class="p2tl-unr">unrealised</small>':'');},
             pts:r=>(r.points==null||r.points==='')?'--':((+r.points>=0?'+':'-')+Math.abs(+r.points).toFixed(2)),
-            chart:r=>r._en
+            chart:r=>r._shRow?'<span title="a shadow as-if trade: no NT8 chart" style="font-size:8px;color:var(--text5)">—</span>':r._en
               ?'<span data-ptchart="'+X(r.id)+'" class="p2tl-chart" role="button" tabindex="0" title="open this trade session candles"><svg width="12" height="11" viewBox="0 0 14 13" aria-hidden="true"><path d="M3.5 1v11M10.5 2.5v9" stroke="currentColor" stroke-width="1"/><rect x="1.8" y="3.5" width="3.4" height="5.5" fill="currentColor"/><rect x="8.8" y="4.5" width="3.4" height="4.5" fill="none" stroke="currentColor" stroke-width="1"/></svg><b>CHART</b></span>'
               :'<span title="this trade has no usable entry time, so there is nothing to centre a chart on" style="font-size:8px;color:var(--text5)">—</span>'
           };
-          const rowAttr=r=>'data-pcd="'+X(r._cd)+'" data-ptleg="'+X(r._leg)+'"'+(sel.has(r.id)?' data-ptsel="1"':'')+(r._unc?' data-ptunc="1"':'')+(r._open?' data-ptopenrow="1"':'');
+          const rowAttr=r=>'data-pcd="'+X(r._cd)+'" data-ptleg="'+X(r._leg)+'"'+(r._shRow?' data-ptshadow="1"':'')+(sel.has(r.id)?' data-ptsel="1"':'')+(r._unc?' data-ptunc="1"':'')+(r._open?' data-ptopenrow="1"':'');
           // the sort headers of the old table, on the frame columns: a click re-renders in the new order (a date sort keeps the day headers)
           const arrow=k=>_psCol===k?'<span style="margin-left:3px;color:var(--text3)">'+(_psDir==='asc'?'▲':'▼')+'</span>':'<span style="margin-left:3px;color:var(--text5);opacity:.45">▾</span>';
           const sortTh=(label,cls,sk,withTick)=>'<th class="'+cls+'" title="click to sort by this column, click again to flip it'+(_psCol===sk?(_psDir==='asc'?' (now oldest / lowest first)':' (now newest / highest first)'):'')+'">'
@@ -51165,7 +51206,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               td:r=>{const d=dltOf(r);return d==null?dash:'<span class="'+ledgerPnlCls(d)+'">'+ledgerSigned(d)+'</span>';}},
             // board 146: under RISK n % the contracts each trade is re-priced at (lgv_units off _lgvSizedP2), next to the NET $
             _lgvSizedP2&&{k:'szq',label:'SIZED',cls:'num',attr:()=>'title="the contracts this trade is re-priced at under '+lgvSizeWord(_lgvSzP2)+' (NET $ reads that size)"',
-              td:r=>{const w=String((_legMkt(r._leg)||{}).instrument||'NQ'),as=+((+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1)).toFixed(2);
+              td:r=>{if(r._shRow)return lgvSizedCell(r._shSized?r.size:undefined,!!r._shFixed,r._shAs,r._shWord,_lgvSzP2);
+                const w=String((_legMkt(r._leg)||{}).instrument||'NQ'),as=+((+r.size>0?+r.size:1)*(+r.bw>0?+r.bw:1)).toFixed(2);
                 return lgvSizedCell((r.lgv_units===undefined&&!r.lgv_fixed)?undefined:r.lgv_units,!!r.lgv_fixed,as,w,_lgvSzP2);}},
             {k:'cum',label:'CUM',cls:'num',attr:()=>'title="running total of the counted rows shown, in the order they closed"',
               td:r=>{const c=cum.get(r.id);return c==null?dash:'<span class="'+ledgerPnlCls(c)+'" style="opacity:.8">'+ledgerSigned(c)+'</span>';}},
@@ -51192,6 +51234,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const note='<div class="p2tl-note">EL / NT / TV chips: green = matched · red = missed · grey = not run / not checked · day = close day · entry date stays on the row</div>';
           const nUnc=m.closedM.filter(r=>r._unc).length,cx=[];
           if(nUnc)cx.push('+ '+nUnc+' other, not counted');
+          if(m.nSh)cx.push('+ '+m.nSh+' shadow as-if, not counted');
           if(m.openRows.length)cx.push(m.openRows.length+' open');
           if(m.shown.length<m.closedM.length)cx.push('showing the newest '+m.shown.length+' of '+m.closedM.length);
           const empty=m.closedAll.length
@@ -51203,7 +51246,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             slot:slot,afterBar:openBlock+note,empty:empty,cells:cells,hide:['strat'],
             labels:{time:'ENTRY (ET)',sym:'STRATEGY',pnl:'NET $'},
             attr:{time:()=>'title="entry time, New York time (the date is in ENTRY DATE, the exit in EXIT). The day header is the day the trade CLOSED"'},
-            rowAttr:rowAttr,rowSlot:eng,dayHeaders:m.dayOn,dayCol:true,dayAsc:m.dayAsc,th:th,cols:cols,
+            rowAttr:rowAttr,rowSlot:eng,dayHeaders:m.dayOn,dayCol:true,dayAsc:m.dayAsc,th:th,cols:cols,ghost:r=>!!r._shRow,
             order:['edt','xdt','time','xt','epx','xpx','sym','side','size','hold','pts','pnl','szq','cum','dlt','slip','eng','chart']});
         };
         // ticks: repaint in place (no redraw), so a keyboard user keeps the focus and the page keeps its scroll
@@ -51234,7 +51277,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             onQuery:v=>{window._ptQuery=v;draw();},
             onChip:c=>{window._ptChip=c;draw();},
             onView:()=>{draw();},
-            onRow:id=>{window._ptRowId=id;window._ntPanelId=id;syncPanel();}});   // LEDGER step 9: a row click opens the shared trade panel for that trade
+            onRow:id=>{if(String(id).indexOf('SH|')===0)return;window._ptRowId=id;window._ntPanelId=id;syncPanel();}});   // LEDGER step 9: a row click opens the shared trade panel for that trade
           if(!fr)return null;
           const sel=SEL();
           fr.querySelectorAll('[data-ptchart]').forEach(b=>{
