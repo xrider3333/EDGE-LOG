@@ -2344,7 +2344,9 @@ def run(alt_index=None, timeout=300):
         # cum 1000, -2000, -1500, -2500 on $10,000: high 11,000, low 7,500 -> 31.818%; one open episode of $3,500; PF per day 1500 / 4000
         if (round(fx.get('ddPct') or 0, 3) != 31.818 or fx.get('maxDD') != 3500 or round(fx.get('pf') or 0, 3) != 0.375
                 or fx.get('dd5n') != 1 or round(fx.get('dd5') or 0, 2) != 3500 or not fx.get('perDay') or round(fx.get('winRate') or 0, 2) != 0.5
-                or round(fx.get('sortino') or 0, 3) != -6.275 or round(fx.get('roc30') or 0, 2) != -8.34 or fx.get('short')):
+                # board 144 items 2 + 20: ROC@30k = 30 x MAR (30 x -2500 over 365 days / 3500 = -21.44 pct), Sortino over the 261
+                # weekdays of 2026 (257 zero days in), not the 4 days that moved
+                or round(fx.get('sortino') or 0, 3) != -0.777 or round(fx.get('roc30') or 0, 2) != -21.44 or fx.get('short')):
             fails.append('paper2 what-if KPIs: the fixture maths is off: %r' % (fx,))
         sl = _bka.get('slots') or []
         if len(set(sl)) != 8 or sl != (_bka.get('slotsStable') or []):

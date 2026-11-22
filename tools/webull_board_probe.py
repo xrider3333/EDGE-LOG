@@ -3504,7 +3504,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
       +"window._qqqExecLive=false;window._qqqExecLiveErrorAt=window.__probeLiveErr?Date.now():null;window._qqqExecFetchedAt=window.__probeLiveErr?0:Date.now();"
       +"window._qbChartHoverActive=false;"
       +"if(window.__probeCalMonth)window._qqqCalMonth=window.__probeCalMonth;"
-      +"homeRange=window.__probeRange||'ALL';currentUser=currentUser||{uid:'probe-uid'};"
+      +"homeRange=window.__probeRange||'ALL';window._qbRangeSel=homeRange;currentUser=currentUser||{uid:'probe-uid'};"
       +"activeTab=window.__probeTab||'augur';augurSub='qqqpaper';window._lastRenderTab=activeTab;"
       +"try{window.scrollTo(0,0);}catch(e){}"
       +"renderApp();return 'OK';"
@@ -4483,8 +4483,8 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     res.csvAll=await csvNow();
     await clickChip('LONG');res.csvLong=await csvNow();res.longRows=tlKeys();
     await clickChip('ALL');await typeIn('orb');res.csvOrb=await csvNow();res.orbRows=tlKeys();await typeIn('');
-    w.eval("homeRange='1W';renderApp();");await sleep(150);await clickChip('LONG');res.csv1wLong=await csvNow();res.w1LongRows=tlKeys();
-    await clickChip('ALL');w.eval("homeRange='ALL';renderApp();");await sleep(150);
+    w.eval("homeRange='1W';window._qbRangeSel=homeRange;renderApp();");await sleep(150);await clickChip('LONG');res.csv1wLong=await csvNow();res.w1LongRows=tlKeys();
+    await clickChip('ALL');w.eval("homeRange='ALL';window._qbRangeSel=homeRange;renderApp();");await sleep(150);
     unstubDownload();
     // a calendar tap on a day the chip hides clears the chip and lands on that day
     await clickChip('SHORT');
@@ -4666,9 +4666,9 @@ TL_JS = r"""  // ── LEDGER step 8: this board's trade list is the shared fra
     // 9. the trade leaves the board's rows (another range): the panel closes on its own; leaving the board closes it too
     if(T.heavy)await pStep(res,'gone',async function(st){
       await pOpen(T.k2);st.opened=!!q(PNQ);
-      w.eval("homeRange='TODAY';renderApp();");await sleep(160);
+      w.eval("homeRange='TODAY';window._qbRangeSel=homeRange;renderApp();");await sleep(160);
       st.closed=!q('.lg-panel,.lg-panel-layer');st.key=w.eval('window._qbPanelKey');
-      w.eval("homeRange='ALL';renderApp();");await sleep(140);
+      w.eval("homeRange='ALL';window._qbRangeSel=homeRange;renderApp();");await sleep(140);
       st.back=!q('.lg-panel,.lg-panel-layer');
     });
     if(T.heavy)await pStep(res,'leave',async function(st){

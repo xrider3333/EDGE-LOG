@@ -1082,6 +1082,8 @@ button.lg-cal-day:hover{border-color:var(--text5)}
 .lg-cal-day.down{background:color-mix(in srgb,var(--red) 14%,transparent);border-color:color-mix(in srgb,var(--red) 38%,transparent)}
 .lg-cal-day.up .m{color:var(--green)}
 .lg-cal-day.down .m{color:var(--red)}
+.lg-cal-day.flat{background:color-mix(in srgb,var(--text5) 10%,transparent);border-color:color-mix(in srgb,var(--text5) 30%,transparent)}
+.lg-cal-day.flat .m{color:var(--text4)}
 .lg-cal-day.today .d{color:var(--text);font-weight:700;text-decoration:underline;text-underline-offset:2px}
 .lg-cal-day.cav{background-image:repeating-linear-gradient(135deg,color-mix(in srgb,var(--attn-amber) 32%,transparent) 0 3px,transparent 3px 7px)}
 .lg-cal-day.cav::after{content:'';position:absolute;top:3px;right:3px;width:5px;height:5px;border-radius:50%;background:var(--attn-amber)}
@@ -2132,7 +2134,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.93';
+const VERSION='91.94';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2153,6 +2155,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.94',date:'2026-11-22',notes:['LEDGER BUG FIXES (board 144). ROC at 30k is ONE formula everywhere (ledgerRoc30: 30 x MAR, MAR = yearly net over max DD, years = calendar days of the SELECTED range / 365.25) in More stats and the what-if KPI table, which divided by a flat 30,000. The KPI table LIVE column takes max DD and Sortino from the same ledgerStats as the tiles. Sharpe and Sortino count weekdays with no trade in the range as 0 days, in the tiles and the KPI table. RESULTS WF P and L panel retries a read error on redraw and on sign-in, and re-reads once a minute after BUILD DAILY SERIES. PAST RUNS max DD prints positive. WEBULL PAPER range pills keep their own saved range (el_qb_range) and no longer move REAL. RESULTS sizing note names the run rule (median losing trade per contract after cost for a no-stop trade) and says the ledgers keep no-stop trades fixed. Calendar: a 0 dollar day or week is drawn flat, not green. REAL: hover percent counts deposits the same way as the headline at the range start; running balances walk in close order and skip a missing P and L; chart series, calendar and today net skip a missing figure (B5). REAL trade list draws 150 rows with SHOW MORE. NT8 RISK sizing reads dollars per point from the instrument (ES 50, NQ 20, YM 5, RTY 50, MNQ 2, MES 5), warning once and using 20 when unknown.']},
 {v:'91.92',date:'2026-11-22',notes:['UI round from board 145 (owner GO 11-22). PAST RUNS: the default list is RUN, date, strategy, market, the four walk-forward numbers (WF ROC at 30k DD = 30 x WF MAR, WF DD5 and WF DD pct off the saved WF curve or the engine figure, WF Sortino) and the verdict; trades, mode, timeframe, the whole-run net / drawdown / MAR / PF / Sharpe / win rate, score, run time, source, range and days fold behind MORE COLUMNS, remembered per viewer. A run with no checked WF test shows a dash.','LEDGER NT8 / WEBULL: with SIZING on RISK pct the LIVE chip reads LIVE - sized (simulated) and the hero, tiles and calendar carry the dashed what-if accent with a simulated tag; FIXED LIVE is unchanged.','RESULTS run report: the WALK-FORWARD P&L header carries its date window, the sizing table ROC at 30K row reads in pct, and the CURVE x axis reads Mar 24 style months. What-if KPI header prints its range dates and N shadows on.']},
 {v:'91.90',date:'2026-11-22',notes:['LEDGER UX on NT8 PAPER and WEBULL PAPER (owner 11-22). LIVE / WHAT-IF: the board opens in LIVE with no shadow anywhere; switching on any shadow (a Books as-if leg or a Webull box shadow row) flips it to WHAT-IF; LIVE goes back to the pure account and keeps the switches remembered (drawn outlined, adding nothing); WHAT-IF brings the remembered set back; switching off the last shadow returns to LIVE; remembered per board. SIDEBAR: one row per strategy (colour dot = its chart line, family + run, P and L, switch), the second lines in the row hover; a LIVE label, then SHADOW, then the retired legs in a retired (n) fold closed by default; no question-mark glyphs and no Live line; Books as-if closed by default with the count of shadows on. TRADE TABLE: ENTRY DATE, EXIT DATE, ENTRY time, EXIT time, ENTRY $, EXIT $ first, dates as MM/DD/YY, the strategy name in its chart line colour, 10 px text and tighter rows.']},
 {v:'91.87',date:'2026-11-22',notes:['LEDGER SIZING sizes only from a real stop (board item 136). RISK 1 / 2 / 3 pct on NT8 PAPER and WEBULL PAPER now sizes a trade only when it carries its own initial stop: on Webull the stop_px field on the trade row (the initial stop from the entry signal), risk a share = entry price to stop_px; on NT8 the first logged stop, else stop_px. A trade with no stop stays at its FIXED as-traded size and dollars, unchanged, and its hover says no stop, fixed size. The median losing trade guess is gone everywhere in the ledger sizing: on Webull it made a few dollars the risk and sized trades absurdly (a fixture went from -28 to +5,469 at 1 pct with a 142k drawdown). Until the box publishes stop_px every Webull trade reads no stop, fixed size, so RISK on Webull equals FIXED for now','The hero size tag and the what-if KPI table say how many trades were risk-sized and how many were left fixed. Shadow legs with daily figures only are scaled by the risk pct only when their as-if data carries a stop distance; otherwise they stay FIXED and the tag hover says so']},
@@ -3478,6 +3481,18 @@ function ntSimCashLast(){
 // never ran in Sim101, so cash minus the range realized (about $56k on ALL) read +111%. Base = this account size + the realized before
 // the range starts (today: before today). The owner can change this number; $100,000 is the NinjaTrader Sim101 default.
 const NT8_PCT_BASE_USD=100000;
+// board 144 item 22: $ per point by instrument, for NT8 RISK % sizing (was TTM ? 50 : 20). The instrument is the trade's own
+// (instrument / symbol root) when it has one, else the leg's: TTM and DIP_ES trade ES, DIP_NQ / ORB / NOISE / ENGUQ trade NQ.
+// Anything else falls back to NQ's $20 with ONE console warning.
+const NT8_POINT_VALUE={ES:50,NQ:20,YM:5,RTY:50,MNQ:2,MES:5,MYM:0.5,M2K:5};
+const NT8_LEG_INSTRUMENT=[['TTM','ES'],['DIP_ES','ES'],['DIP_NQ','NQ'],['ORB','NQ'],['NOISE','NQ'],['ENGUQ','NQ'],['ENGU','NQ']];
+function nt8PointValue(t,leg){
+  const root=v=>{const m=String(v||'').toUpperCase().match(/^\s*([A-Z0-9]+?)(?:[FGHJKMNQUVXZ]\d{1,2})?(?=[\s.:_-]|$)/);return m?m[1]:'';};
+  let k=root(t&&(t.instrument||t.root||t.symbol));
+  if(!(k in NT8_POINT_VALUE)){const L=String(leg||'').toUpperCase();const hit=NT8_LEG_INSTRUMENT.find(x=>L.indexOf(x[0])===0);k=hit?hit[1]:'';}
+  if(k in NT8_POINT_VALUE)return NT8_POINT_VALUE[k];
+  if(!nt8PointValue._warned){nt8PointValue._warned=1;console.warn('NT8 RISK sizing: no $/point for leg '+leg+' ('+((t&&(t.instrument||t.symbol))||'no instrument')+'), using NQ $20');}
+  return 20;}
 function ntSimCashWhen(ms){
   if(!ms)return 'an unknown time';
   try{return new Date(ms).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';}
@@ -3609,6 +3624,24 @@ function ledgerInRange(list,range){const c=ledgerCutoff(range);return c?(list||[
 //   o.include(t) false = left out of win rate, profit factor, streak and day stats, still counted in net and drawdown
 //   o.day(t)     the day a trade belongs to (default ledgerCloseDay); o.sorted: true = list is already in close order
 // Drawdown and the largest loss come back POSITIVE; profit factor is Infinity when nothing lost (shown "no losses").
+// ── ROC @ $30k, THE ONE FORMULA (board 144 item 2) ── the house yardstick = 30 x MAR, in %, MAR = yearly net / max DD: the return a year on
+// $100k when sized so the worst drawdown is $30k (augur_engine/drawdowns.py four_numbers, what COMPARE plots). years = calendar days of the
+// range / 365.25. null without a drawdown or a span.
+// Every board reads it from here: More stats (ledgerMoreStatsHtml) and the what-if KPI table (bkaKpiOf).
+function ledgerRoc30(net,maxDD,spanDays){net=+net;maxDD=+maxDD;spanDays=+spanDays;
+  if(!isFinite(net)||!(maxDD>0)||!(spanDays>0))return null;return 30*(net/(spanDays/365.25))/maxDD;}
+// calendar days from a to b, both counted ('YYYY-MM-DD'); 0 when either is missing
+function ledgerSpanDays(a,b){const t0=Date.parse(String(a||'')+'T12:00:00Z'),t1=Date.parse(String(b||'')+'T12:00:00Z');
+  return (isFinite(t0)&&isFinite(t1)&&t1>=t0)?Math.round((t1-t0)/864e5)+1:0;}
+// the weekdays (Mon-Fri) from a to b, both counted, as 'YYYY-MM-DD' - the market days a daily Sharpe / Sortino reads (board 144 item 20)
+function ledgerBizDays(a,b){const out=[],t0=Date.parse(String(a||'')+'T12:00:00Z'),t1=Date.parse(String(b||'')+'T12:00:00Z');
+  if(!isFinite(t0)||!isFinite(t1)||t1<t0||(t1-t0)/864e5>40000)return out;
+  for(let t=t0;t<=t1;t+=864e5){const d=new Date(t),w=d.getUTCDay();if(w>0&&w<6)out.push(d.toISOString().slice(0,10));}return out;}
+// the range a board shows: o.from / o.to when given, else o.range's cutoff (ALL = the first trade day) to today, else first..last trade day
+function ledgerRangeSpan(o,firstDay,lastDay){o=o||{};
+  const from=o.from||(o.range&&typeof ledgerCutoff==='function'?ledgerCutoff(o.range):null)||firstDay||null;
+  const to=o.to||(o.range&&typeof ledgerTodayNY==='function'?ledgerTodayNY():null)||lastDay||null;
+  return {from:from&&firstDay&&firstDay<from?firstDay:from,to:to&&lastDay&&lastDay>to?lastDay:to};}
 function ledgerStats(list,o){
   o=o||{};
   const P=o.pnl||(t=>+t.pnl||0),N=o.net||P,D=o.day||ledgerCloseDay,inc=o.include||(()=>true);
@@ -3642,13 +3675,18 @@ function ledgerStats(list,o){
   const days=Object.keys(byDay).sort(),dv=days.map(k=>byDay[k]);
   let bestDay=null,worstDay=null;
   days.forEach(k=>{if(!bestDay||byDay[k]>bestDay.v)bestDay={date:k,v:byDay[k]};if(!worstDay||byDay[k]<worstDay.v)worstDay={date:k,v:byDay[k]};});
-  const meanD=dv.length?dv.reduce((a,b)=>a+b,0)/dv.length:0;
+  // board 144 item 20: Sharpe / Sortino annualise sqrt(252) over MARKET days, so a weekday in the range with no trade is a $0 day in the
+  // series (it was left out, which read a quiet month as a steady one). The range is o.from / o.to, else o.range to today, else first..last trade.
+  const rg=ledgerRangeSpan(o,days[0]||null,days[days.length-1]||null);
+  const zd=days.length?ledgerBizDays(rg.from,rg.to).filter(k=>!(k in byDay)).length:0;
+  const dz=zd?dv.concat(new Array(zd).fill(0)):dv;
+  const meanD=dz.length?dz.reduce((a,b)=>a+b,0)/dz.length:0;
   // B4: sqrt(252) on DOLLAR day totals, not returns - and when every day is identical the deviation is 0,
   // where the old `||1` printed meanD*15.87 (two identical +$50 days read 'Sharpe (daily) 793.70'). A spread
   // of zero cannot give a ratio, so there is no figure: null, which the board draws as '--'.
-  const sdD=dv.length>1?stdDev(dv):0;
+  const sdD=dz.length>1?stdDev(dz):0;
   // step 11: Sortino on the same dollar day totals - downside deviation (days under $0, squared, over ALL days), sqrt(252); no down day = no figure
-  const dnD=dv.length>1?Math.sqrt(dv.reduce((a,b)=>a+(b<0?b*b:0),0)/dv.length):0;
+  const dnD=dz.length>1?Math.sqrt(dz.reduce((a,b)=>a+(b<0?b*b:0),0)/dz.length):0;
   const avgTrade=nP?sumP/nP:null,avgLoss=losses?-gl/losses:null;
   return {trades:tds.length,excluded:all.length-tds.length,wins,losses,flat,badPnl,
     winRate:(wins+losses)?wins/(wins+losses):null,
@@ -3658,8 +3696,8 @@ function ledgerStats(list,o){
     // EV R = the average trade in units of the average loss (the engine's cross-strategy number)
     evR:(avgTrade!=null&&avgLoss!=null&&avgLoss<0)?avgTrade/(-avgLoss):null,
     maxDD,largestLoss,largestWin,recovery:maxDD>0?net/maxDD:null,
-    sharpe:(dv.length>1&&sdD>0)?(meanD/sdD)*Math.sqrt(252):null,
-    sortino:(dv.length>1&&dnD>0)?(meanD/dnD)*Math.sqrt(252):null,
+    sharpe:(dz.length>1&&sdD>0)?(meanD/sdD)*Math.sqrt(252):null,
+    sortino:(dz.length>1&&dnD>0)?(meanD/dnD)*Math.sqrt(252):null,mktDays:dz.length,rangeFrom:rg.from,rangeTo:rg.to,
     bestDay,worstDay,greenDays:dv.filter(v=>v>0).length,days:days.length,
     pnlPerDay:days.length?net/days.length:null,maxRunW,maxRunL,cum:cum,firstDay:days[0]||null,lastDay:days[days.length-1]||null,
     longs,shorts,longNet,shortNet,avgHoldMins:holdN?holdSum/holdN:null,streak:{n:sn,dir:sd}};
@@ -3902,10 +3940,12 @@ function ledgerMoreStatsHtml(s,ownGroups,o){
   const T=(lbl,tip)=>'<span title="'+String(tip).replace(/"/g,'&quot;')+'">'+lbl+'</span>';
   const longRange=(o.range==='ALL'||o.range==='YTD')&&s.days>=60&&s.trades>=30;
   const dd5=longRange&&typeof _dd5Of==='function'?_dd5Of(s.cum,5):null;
-  const spanDays=(s.firstDay&&s.lastDay)?Math.max(1,Math.round((new Date(s.lastDay+'T12:00:00Z')-new Date(s.firstDay+'T12:00:00Z'))/86400000)+1):0;
-  // ROC @ $30k DD: size the account so this range's max drawdown is exactly $30k, then the annualised net over that $30k = annual net / max DD
-  const roc=(longRange&&s.maxDD>0&&spanDays>0)?(s.net*365/spanDays)/s.maxDD*100:null;
-  const rocRow=longRange?[[T('ROC @ $30k DD','Annualised net P&amp;L as a percentage of a $30,000 account sized so that this range’s max drawdown is the whole $30k - the lane records’ yardstick ('+spanDays+' calendar days annualised).')]
+  // board 144 item 21: annualised over the SELECTED range (o.from / o.to, else the range's cutoff to today), not first..last trade
+  const rgS=ledgerRangeSpan({from:o.from||s.rangeFrom||null,to:o.to||s.rangeTo||null,range:o.range==='ALL'?null:o.range},s.firstDay,s.lastDay);
+  const spanDays=ledgerSpanDays(rgS.from,rgS.to);
+  // ROC @ $30k DD = 30 x MAR (ledgerRoc30): the return a year on $100k sized so this range's max drawdown is exactly $30k
+  const roc=longRange?ledgerRoc30(s.net,s.maxDD,spanDays):null;
+  const rocRow=longRange?[[T('ROC @ $30k DD','30 x MAR (annualised net / max drawdown): the return a year on a $100,000 account sized so that this range’s max drawdown is $30k - the lane records’ yardstick, as COMPARE plots it ('+spanDays+' calendar days of the selected range annualised).')]
       .concat(K(['trades','days'],roc==null?'--':(roc>=0?'+':'')+Math.round(roc)+'%',roc==null?'':ledgerCls(roc)))]:[];
   const dd5Row=longRange?[[T('DD5','The average depth of the five deepest drawdown episodes on the cumulative closed path (an episode runs from a peak to where that peak is next regained). (n=k) when fewer than five episodes exist.'),
       dd5?ledgerMoney(dd5.dd5)+(dd5.n<5?' <span style="color:var(--text5)">(n='+dd5.n+')</span>':''):'--']]:[];
@@ -3945,8 +3985,9 @@ function ledgerMoreStatsHtml(s,ownGroups,o){
 // (a trade left out by include still adds its money and its count, it just is not a win or a loss).
 function ledgerCalDays(list,o){
   o=o||{};const P=o.pnl||(t=>+t.pnl||0),N=o.net||P,D=o.day||ledgerCloseDay,inc=o.include||(()=>true),out={};
-  (list||[]).forEach(t=>{const k=D(t);if(!k)return;const c=out[k]||(out[k]={v:0,n:0,w:0,l:0});c.v+=+N(t)||0;c.n++;
-    if(inc(t)){const p=+P(t)||0;if(p>0)c.w++;else if(p<0)c.l++;}});
+  (list||[]).forEach(t=>{const k=D(t);if(!k)return;const c=out[k]||(out[k]={v:0,n:0,w:0,l:0});const m=ledgerNum(N(t));if(m!=null)c.v+=m;c.n++;
+    // B5: a missing money figure is counted as a trade but adds nothing and is never a win or a loss (board 144 item 18)
+    if(inc(t)){const p=ledgerNum(P(t));if(p!=null){if(p>0)c.w++;else if(p<0)c.l++;}}});
   return out;
 }
 function ledgerCalMonths(days){const m={};Object.keys(days||{}).forEach(d=>{m[d.slice(0,7)]=1;});return Object.keys(m).sort();}
@@ -4027,14 +4068,14 @@ function ledgerCalendarHtml(o){
     slots.slice(w,w+7).forEach(d=>{
       if(d==null){cells+='<div></div>';return;}
       const ds=mo+'-'+String(d).padStart(2,'0'),c=days[ds],why=cav[ds];
-      const cls='lg-cal-day'+(c?(c.v>=0?' up':' down'):'')+(ds===today?' today':'')+(why?(cfx[ds]?' cav fix':' cav'):'');
+      const cls='lg-cal-day'+(c?(Math.abs(c.v)<0.005?' flat':(c.v>0?' up':' down')):'')+(ds===today?' today':'')+(why?(cfx[ds]?' cav fix':' cav'):'');
       const lbl=_lgDateLbl(ds)+': '+(c?ledgerSigned(c.v)+', '+c.n+' trade'+(c.n===1?'':'s')+((c.w+c.l)?', '+c.w+' won':''):'no trades')+(why?' - '+why:'');
       const inner='<span class="d">'+d+'</span>'+(c?'<span class="m">'+ledgerShortMoney(c.v)+'</span><span class="n">'+c.n+' tr</span>':'');
       if(c){wv+=c.v;wn+=c.n;wd++;cells+='<button type="button" class="'+cls+'" data-lgcalday="'+ds+'" title="'+lbl.replace(/"/g,'&quot;')+'" aria-label="'+lbl.replace(/"/g,'&quot;')+'">'+inner+'</button>';}
       else cells+='<div class="'+cls+'" title="'+lbl.replace(/"/g,'&quot;')+'">'+inner+'</div>';
     });
     // a week with no trades stays empty - no trades is not a flat week
-    cells+=wd?'<div class="lg-cal-day lg-cal-wk '+(wv>=0?'up':'down')+'" style="background:none;border-color:transparent" title="week: '+ledgerSigned(wv)+', '+wn+' trade'+(wn===1?'':'s')+'"><span class="d">WK</span><span class="m">'+ledgerShortMoney(wv)+'</span><span class="n">'+wn+' tr</span></div>'
+    cells+=wd?'<div class="lg-cal-day lg-cal-wk '+(Math.abs(wv)<0.005?'flat':(wv>0?'up':'down'))+'" style="background:none;border-color:transparent" title="week: '+ledgerSigned(wv)+', '+wn+' trade'+(wn===1?'':'s')+'"><span class="d">WK</span><span class="m">'+ledgerShortMoney(wv)+'</span><span class="n">'+wn+' tr</span></div>'
       :'<div class="lg-cal-day lg-cal-wk"></div>';
   }
   const i=ms.indexOf(mo),atFirst=i<=0,atLast=i<0||i>=ms.length-1;
@@ -4931,15 +4972,24 @@ function rtsHasWf(d){return !!(d&&d.id!=null&&d.validate&&d.validate.wf_ran!==fa
 function rtsLoad(id,force){const C=window._rtsCache;id=String(id);if(C[id]&&!force&&C[id].st!=='err')return;
   const asked=C[id]&&C[id].asked;C[id]={st:'loading',asked:asked};
   const u=(typeof auth!=='undefined'&&auth&&auth.currentUser&&auth.currentUser.uid)||null;
-  if(!u||typeof db==='undefined'||!db){C[id]={st:'err',why:'not signed in'};rtsFill(id);return;}
+  if(!u||typeof db==='undefined'||!db){C[id]={st:'err',why:'not signed in',at:Date.now(),asked:asked};rtsFill(id);return;}
   const col=db.collection('users').doc(u).collection('runs').doc(id).collection('series');
   Promise.all([col.doc('wf').get(),col.doc('wf_status').get()]).then(([a,b])=>{
-    C[id]=(a&&a.exists)?{st:'ok',S:a.data()}:{st:'none',status:(b&&b.exists)?b.data():null,asked:asked};rtsFill(id);
-  }).catch(e=>{C[id]={st:'err',why:(e&&e.message)||String(e)};rtsFill(id);});}
+    C[id]=(a&&a.exists)?{st:'ok',S:a.data()}:{st:'none',status:(b&&b.exists)?b.data():null,asked:asked,at:Date.now()};rtsFill(id);
+  }).catch(e=>{C[id]={st:'err',why:(e&&e.message)||String(e),at:Date.now(),asked:asked};rtsFill(id);});}
+// board 144 item 5: an error is never final. A redraw retries it (at most every 5 s), signing in retries every errored run, and after
+// BUILD DAILY SERIES the panel re-reads once a minute (up to an hour) while it is on screen, so the series shows up without a reload.
+function rtsRetryErrors(){const C=window._rtsCache||{};Object.keys(C).forEach(id=>{if(C[id]&&C[id].st==='err')rtsLoad(id,true);});}
+function rtsPollAfterAsk(id){id=String(id);const P=window._rtsPoll=window._rtsPoll||{};if(P[id])return;let n=0;
+  P[id]=setInterval(()=>{const c=window._rtsCache[id];n++;
+    if(!c||c.st==='ok'||(c.st==='none'&&c.status&&c.status.state==='refused')||n>60||!document.querySelector('[data-rts-run="'+id+'"]')){clearInterval(P[id]);delete P[id];return;}
+    if(c.st!=='loading')rtsLoad(id,true);},60000);}
 function rtsFill(id){document.querySelectorAll('[data-rts-run="'+id+'"]').forEach(el=>{el.innerHTML=rtsInner(id);rtsDraw(el,id);});}
 function runSeriesPanelHtml(d){if(!rtsHasWf(d))return '';const id=String(d.id);
-  if(!window._rtsCache[id])setTimeout(()=>rtsLoad(id),0);
+  const c0=window._rtsCache[id];
+  if(!c0||(c0.st==='err'&&!(Date.now()-(+c0.at||0)<5000)))setTimeout(()=>rtsLoad(id),0);
   else setTimeout(()=>document.querySelectorAll('[data-rts-run="'+id+'"]').forEach(el=>rtsDraw(el,id)),0);
+  if(c0&&c0.asked&&c0.st==='none')setTimeout(()=>{if(!(Date.now()-(+c0.at||0)<60000))rtsLoad(id,true);rtsPollAfterAsk(id);},0);
   return '<div class="rts-panel" data-rts-run="'+id+'">'+rtsInner(id)+'</div>';}
 function _rtsHead(right,win){return '<div class="rts-hd"><span class="rts-ttl">WALK-FORWARD P&amp;L'+(win?'<span class="rts-win" data-rts-win="1" style="margin-left:8px;font-weight:400;letter-spacing:.3px;color:var(--text4)">'+win+'</span>':'')+'</span>'+(right||'')+'</div>';}
 function rtsInner(id){const c=window._rtsCache[String(id)];
@@ -4970,8 +5020,12 @@ function rtsInner(id){const c=window._rtsCache[String(id)];
     if(r3&&warn('r3')){const parts=[];if(r3.ruin)parts.push('the account fell below half its $'+(st/1000).toFixed(0)+'k start (low '+_rtsUsd(r3.min_equity)+')');
       if(r3.dd_pct!=null&&+r3.dd_pct>RTS_DD_WARN)parts.push('a '+_rtsNum(r3.dd_pct,1)+'% fall from a high, over '+RTS_DD_WARN+'%');
       tab+='<div class="rts-warnline" data-rts-warn="r3">&#9888; RISK 3 %: '+parts.join('; ')+'.</div>';}
-    const rk=Z.risk_src==='trade'?'each trade risks its own initial stop':(Z.risk_src==='mixed'?'trades without a stop use the median losing trade ('+_rtsNum(Z.fallback_risk_pts,1)+' pts) as the risk':'<b>this strategy reports no stop</b>, so every trade uses the median losing trade ('+_rtsNum(Z.fallback_risk_pts,1)+' pts) as the risk');
-    tab+='<div class="rts-note">$'+(st/1000).toFixed(0)+'k start, compounding on closed trades; contracts in 0.1 steps (micros), at most '+(Z.max_contracts_cap||10)+'; '+rk+'. A trade that rounds to 0 contracts is skipped. DD % is the fall from the equity high on this account. Entries and exits are the run&rsquo;s own.</div>';}
+    // board 144 item 12: says exactly what augur_engine/risk_sizing.py does (a no-stop trade risks the run's median losing trade, points per
+    // contract after cost) and that the ledger boards do NOT do this - their RISK % keeps a no-stop trade at its fixed size
+    const fbw='the run&rsquo;s median losing trade ('+_rtsNum(Z.fallback_risk_pts,1)+' pts per contract, after cost)';
+    const rk=Z.risk_src==='trade'?'each trade risks its own initial stop':(Z.risk_src==='mixed'?'a trade without a stop takes '+fbw+' as its risk':'<b>this strategy reports no stop</b>, so every trade takes '+fbw+' as its risk');
+    const rkL=Z.risk_src==='trade'?'':' The paper ledgers size differently: their RISK % keeps a trade with no stop at its fixed size.';
+    tab+='<div class="rts-note">$'+(st/1000).toFixed(0)+'k start, compounding on closed trades; contracts in 0.1 steps (micros), at most '+(Z.max_contracts_cap||10)+'; '+rk+'. A trade that rounds to 0 contracts is skipped. DD % is the fall from the equity high on this account. Entries and exits are the run&rsquo;s own.'+rkL+'</div>';}
   else tab='<div class="rts-note">This series was built before the sizing read; the next desktop pass adds it.</div>';
   return _rtsHead('<span class="rts-ctl">'+modeH+sizeH+'</span>',S.from?(_rtsEsc(S.from)+' &ndash; '+_rtsEsc(S.to||'')):'')+'<div class="rts-chart" data-rts-chart="'+_rtsEsc(id)+'"></div><div class="rts-v">'+vline+'</div>'+tab;}
 function rtsDraw(el,id){const c=window._rtsCache[String(id)];if(!c||c.st!=='ok')return;const wrap=el.querySelector('[data-rts-chart]');if(!wrap)return;
@@ -4993,7 +5047,7 @@ document.addEventListener('click',e=>{const t=e.target&&e.target.closest&&e.targ
   if(t.hasAttribute('data-rts-req')){const id=t.getAttribute('data-rts-req');const u=(typeof auth!=='undefined'&&auth&&auth.currentUser&&auth.currentUser.uid)||null;
     const c=window._rtsCache[id]||{};c.asked=true;window._rtsCache[id]=c;
     if(u&&typeof db!=='undefined'&&db){const n=Number(id);db.collection('users').doc(u).collection('meta').doc('run_series_req').set({runs:firebase.firestore.FieldValue.arrayUnion(isFinite(n)?n:id),ts:new Date().toISOString(),by:'page'},{merge:true}).catch(er=>console.warn('run_series_req write failed:',er&&er.message));}
-    rtsFill(id);return;}
+    rtsFill(id);rtsPollAfterAsk(id);return;}
   const id=t.getAttribute('data-rts-id');
   if(t.hasAttribute('data-rts-mode'))_rtsSetPref('mode',t.getAttribute('data-rts-mode'));
   if(t.hasAttribute('data-rts-size'))_rtsSetPref('size',t.getAttribute('data-rts-size'));
@@ -7952,8 +8006,10 @@ function bkaHoverHtml(lines,i){return (lines||[]).filter(l=>l&&l.shadow&&l.on!==
 //   win rate / PF per day = green days / (green + red days), sum of green days / sum of red days
 //   maxDD = the deepest fall of the cumulative $ from its high (the curve starts flat at 0)
 //   ddPct = the same fall from the HIGH of base + cum, in % (_ddPctPeakOf, the house DD%)
-//   roc30 = annualised net / $30,000 in % (years = calendar days of the range / 365.25); short = a range under 180 days
-//   sortino = mean day / downside deviation (days under $0 squared, over ALL axis days) x sqrt(252); null without a red day
+//   roc30 = ledgerRoc30: 30 x MAR in % (MAR = annualised net / max DD; the return a year on $100k sized so max DD = $30k); short = under 180 days
+//   sortino = mean day / downside deviation (days under $0 squared, over every MARKET day of the range - axis days plus the weekdays with
+//   no move, as ledgerStats counts them) x sqrt(252); null without a red day
+//   board 144 item 3: perTrade.maxDD / perTrade.sortino (LIVE) = the tiles' own ledgerStats figures and win over the daily ones here
 //   dd5 = the average of the 5 deepest drawdown episodes (_dd5Of), dd5n = how many episodes it found
 function bkaKpiOf(days,axis,o){o=o||{};days=days||{};axis=axis||[];
   const x=axis.map(d=>{const r=days[d];return r?(+r.p||0):0;});
@@ -7964,13 +8020,15 @@ function bkaKpiOf(days,axis,o){o=o||{};days=days||{};axis=axis||[];
   const d5=cum.length?_dd5Of(cum,5):null;
   const t0=o.from?Date.parse(o.from+'T12:00:00Z'):(axis.length?Date.parse(axis[0]+'T12:00:00Z'):NaN),t1=o.to?Date.parse(o.to+'T12:00:00Z'):(axis.length?Date.parse(axis[axis.length-1]+'T12:00:00Z'):NaN);
   const span=(isFinite(t0)&&isFinite(t1))?Math.max(1,Math.round((t1-t0)/864e5)+1):null;
-  const N=x.length,mean=N?net/N:0,dn=N>1?Math.sqrt(x.reduce((a,v)=>a+(v<0?v*v:0),0)/N):0;
+  const zd=(o.from&&o.to)?ledgerBizDays(o.from,o.to).filter(d=>axis.indexOf(d)<0).length:0;
+  const N=x.length+zd,mean=N?net/N:0,dn=N>1?Math.sqrt(x.reduce((a,v)=>a+(v<0?v*v:0),0)/N):0;
   const pt=o.perTrade||null;
+  if(pt&&pt.maxDD!=null&&isFinite(+pt.maxDD))mdd=+pt.maxDD;
   return {net:Math.round(net*100)/100,pct:base?net/base*100:null,trades:pt?pt.trades:n,
     winRate:pt?pt.winRate:((dW+dL)?dW/(dW+dL):null),pf:pt?pt.pf:((dW||dL)?(dL?gW/gL:Infinity):null),perDay:!pt,
     dayWinRate:(dW+dL)?dW/(dW+dL):null,dayPf:(dW||dL)?(dL?gW/gL:Infinity):null,
-    maxDD:Math.round(mdd*100)/100,ddPct:dp?dp.pct:null,roc30:span?(net/(span/365.25))/30000*100:null,short:span!=null&&span<180,span:span,
-    sortino:(N>1&&dn>0)?(mean/dn)*Math.sqrt(252):null,dd5:d5?d5.dd5:null,dd5n:d5?d5.n:0,days:N};}
+    maxDD:Math.round(mdd*100)/100,ddPct:dp?dp.pct:null,roc30:span?ledgerRoc30(net,mdd,span):null,short:span!=null&&span<180,span:span,
+    sortino:(pt&&'sortino' in pt)?pt.sortino:((N>1&&dn>0)?(mean/dn)*Math.sqrt(252):null),dd5:d5?d5.dd5:null,dd5n:d5?d5.n:0,days:N};}
 // pure: shadow leg days from an as-if series {d,p,n} in [from, to]
 function bkaDaysOf(L,from,to){const out={},d=(L&&L.d)||[];d.forEach((x,i)=>{if((from&&x<from)||(to&&x>to))return;const r=out[x]||(out[x]={p:0,n:0});r.p+=+L.p[i]||0;r.n+=+((L.n||[])[i])||0;});return out;}
 // pure: day maps added together (the WHAT-IF column = LIVE + every shadow column)
@@ -8025,7 +8083,7 @@ function bkaKpiTableHtml(spec){
   const body=rows.map(r=>'<tr data-bkakrow="'+r[0]+'"><th scope="row" class="bka-krl">'+r[1]+'</th>'+cols.map(c=>{const cl=cmp(r,c);
     return '<td class="'+(c.wi?'bka-kwi':'')+cl+'" data-bkakcell="'+esc(c.key)+'"'+(r[0]==='net'?' data-bkaknet="'+c.k.net+'"':'')+'>'+r[2](c.k,c)+mark(cl)+'</td>';}).join('')+'</tr>').join('');
   const tip='Over the chart range. LIVE = the account (the counted legs). WHAT-IF = LIVE + every shadow leg switched on. Each shadow column = that leg alone, as-if (simulated, never the account). '
-    +'% = net / '+(spec.baseWord||'the % base')+'. Max DD % = the fall from the high of base + P&L. ROC@30k = net a year / $30,000. Sortino = daily, annualised (sqrt 252), over the same days for every column. '
+    +'% = net / '+(spec.baseWord||'the % base')+'. Max DD % = the fall from the high of base + P&L. ROC@30k = 30 x net a year / max DD (the return a year on 100k sized so max DD is 30k). Sortino = daily, annualised (sqrt 252), over every market day of the range; LIVE max DD and Sortino are the tiles own figures. '
     +'DD5 = the average of the 5 deepest drawdowns. A shadow leg has daily figures only, so its win rate and PF are per day. Up / down triangles = better / worse than LIVE.';
   return '<div class="bka-kpi" data-bkakpi="'+esc(spec.board||'')+'"><div class="bka-kpi-hd"><span class="bka-t">What-if KPIs'+((ko.from&&ko.to)?('<span class="bka-krange" data-bkakrange="1"> &middot; '+[ko.from,ko.to].map(d=>String(d).slice(5,7)+'/'+String(d).slice(8,10)+'/'+String(d).slice(2,4)).join('-')+'</span>'):'')+'</span><span class="lg-help" title="'+esc(tip)+'">?</span>'
     +'<span class="bka-s">'+(cols.length-2)+' shadow'+((cols.length-2)===1?'':'s')+' on</span>'
@@ -17891,7 +17949,8 @@ function _hmFullSeries(mode){
   const scoped=ledgerByClose(bScope(trades));
   let c=0;
   const pts=[{v:0,date:scoped.length?ledgerCloseDay(scoped[0]):null}];
-  scoped.forEach(t=>{c=+(c+(+t.pnl||0)).toFixed(2);pts.push({v:c,date:ledgerCloseDay(t),id:t.id});});
+  // board 144 item 18 (B5): a trade with no money figure adds no point and no $0 - it is skipped, as the tiles skip it
+  scoped.forEach(t=>{const v=ledgerNum(t.pnl);if(v==null)return;c=+(c+v).toFixed(2);pts.push({v:c,date:ledgerCloseDay(t),id:t.id});});
   return pts;
 }
 // Net P&L / net deposits FROM TRADES OR LEDGER EVENTS DATED INSIDE the range only - used to
@@ -17924,9 +17983,8 @@ function _hmRangeDeposits(range,uptoDate){
     .reduce((s,e)=>s+(e.amount||0),0).toFixed(2);
 }
 function _hmPnlPctBase(range,uptoDate){
-  const dep=+(_hmTradesInRange(scopedLedger()||[],range)||[])
-    .filter(e=>!uptoDate||!e.date||e.date<=uptoDate)
-    .reduce((s,e)=>s+(e.amount||0),0).toFixed(2);
+  // board 144 item 16: the same deposits reader as the headline, so uptoDate '' (the range's first point) counts NO deposits here too
+  const dep=_hmRangeDeposits(range,uptoDate);
   const base=_hmWindowStartEquity(range)+dep;
   return Math.abs(base)>0.005?Math.abs(base):null;
 }
@@ -17956,7 +18014,7 @@ function _hmRangeSeries(range,mode){
   if(!_hmCutoff(range))return _hmFullSeries(mode);
   let c=0;
   const pts=[{v:0,date:null}];
-  ledgerByClose(_hmTradesInRange(bScope(trades),range)).forEach(t=>{c=+(c+(+t.pnl||0)).toFixed(2);pts.push({v:c,date:ledgerCloseDay(t),id:t.id});});
+  ledgerByClose(_hmTradesInRange(bScope(trades),range)).forEach(t=>{const v=ledgerNum(t.pnl);if(v==null)return;c=+(c+v).toFixed(2);pts.push({v:c,date:ledgerCloseDay(t),id:t.id});});
   return pts;
 }
 // Running balance per trade id, scoped to the ACCOUNT pill - the EXACT same math the
@@ -17967,11 +18025,9 @@ function _hmRangeSeries(range,mode){
 function _hmRunningBalances(){
   const byDate={};
   (scopedLedger()||[]).forEach(ev=>{byDate[ev.date]=(byDate[ev.date]||0)+ev.amount;});
-  const sortedTr=[...bScope(trades)].sort((a,b)=>{
-    if(a.date!==b.date)return a.date>b.date?1:-1;
-    return (a.entryTime||'')>(b.entryTime||'')?1:-1;
-  });
-  const firstTradeDate=sortedTr[0]&&sortedTr[0].date;
+  // board 144 item 17: CLOSE order (the order the money landed), and a deposit is applied by the close day, not the entry
+  const sortedTr=ledgerByClose(bScope(trades));
+  const firstTradeDate=sortedTr[0]&&ledgerCloseDay(sortedTr[0]);
   let bal=0;
   const applied=new Set();
   Object.keys(byDate).sort().forEach(d=>{
@@ -17984,9 +18040,9 @@ function _hmRunningBalances(){
   const runBals={};
   sortedTr.forEach(t=>{
     Object.keys(byDate).forEach(d=>{
-      if(!applied.has(d)&&d<=t.date){bal+=byDate[d];applied.add(d);}
+      if(!applied.has(d)&&d<=ledgerCloseDay(t)){bal+=byDate[d];applied.add(d);}
     });
-    bal=+(bal+t.pnl).toFixed(2);
+    const v=ledgerNum(t.pnl);if(v!=null)bal=+(bal+v).toFixed(2);   // a missing figure moves nothing (was NaN for every row after it)
     runBals[t.id]=bal;
   });
   return runBals;
@@ -18381,7 +18437,7 @@ function _hmLossBarHtml(){
 }
 function _hmTodayNet(){
   const today=ledgerTodayNY();
-  return +bScope(trades).filter(t=>ledgerCloseDay(t)===today).reduce((s,t)=>s+(+t.pnl||0),0).toFixed(2);
+  return +bScope(trades).filter(t=>ledgerCloseDay(t)===today).reduce((s,t)=>{const v=ledgerNum(t.pnl);return v==null?s:s+v;},0).toFixed(2);
 }
 // LEDGER redesign step 9: the big number and the small words beside it, written together, so a chart scrub (which rewrites this node on
 // every mousemove) can never leave the figure standing without the words that say what it is.
@@ -18523,6 +18579,8 @@ function _hmJumpToDay(ds){
   const c=document.getElementById('hm-feed-container');
   // the list's day groups and the table's day header rows both carry [data-lgday]
   const el=c?c.querySelector('[data-lgday="'+ds+'"]'):null;
+  // board 144 item 19: the day may sit past the drawn rows - draw them all once and jump again
+  if(!el&&window._hmShowCut&&!_hmJumpToDay._again&&typeof renderApp==='function'){window._hmShowN=1e9;renderApp();_hmJumpToDay._again=1;try{_hmJumpToDay(ds);}finally{_hmJumpToDay._again=0;}return;}
   if(!el){if(window.hmShowTrades)window.hmShowTrades({date:ds});return;}
   el.scrollIntoView({behavior:'smooth',block:'start'});
   el.classList.remove('lg-flash');void el.offsetWidth;el.classList.add('lg-flash');
@@ -18530,7 +18588,7 @@ function _hmJumpToDay(ds){
 }
 // REAL on the shared stats (unify step 6): win / loss by the gross-or-net switch, money by the trade's own P&L,
 // trades marked IGNORE IN METRICS stay in net and drawdown only - the same split calcStats has always made
-function _hmLedgerStats(rangeTrades){return ledgerStats(bScope(rangeTrades),{pnl:pnlVal,net:t=>+t.pnl||0,include:t=>!(t&&t.statsExcluded)});}
+function _hmLedgerStats(rangeTrades,range){return ledgerStats(bScope(rangeTrades),{pnl:pnlVal,net:t=>+t.pnl||0,include:t=>!(t&&t.statsExcluded),range:range||null});}
 // LEDGER improvements 3 + 6 (owner order 10-12): what the range says about entry quality and setups, as More stats groups.
 // Trades marked IGNORE IN METRICS stay out, as they do in win rate; the point score is the SMA or EMA one the SCORE toggle shows.
 function _hmEdgeGroups(rangeTrades){
@@ -19194,13 +19252,23 @@ function _hmToolsHtml(){
       </span></div>`;
 }
 // REAL's whole trade list: the frame with REAL's rows, chips, slots and columns
+// board 144 item 19 (speed): the list draws the newest HM_LIST_STEP trades of the range (or the first ones of a sorted table) and a SHOW MORE
+// button adds the next step - every trade in range was drawn on every redraw (thousands of rows), as PAST RUNS draws 75 and loads more.
+const HM_LIST_STEP=150;
+function _hmCapRows(rows,sorted){const n=Math.max(HM_LIST_STEP,+window._hmShowN||0);window._hmShowCut=rows.length>n;
+  if(rows.length<=n)return rows;if(sorted)return rows.slice(0,n);
+  const keep=new Set(ledgerByClose(rows).slice(-n));return rows.filter(t=>keep.has(t));}
+function _hmShowMoreHtml(all){const shown=Math.max(HM_LIST_STEP,+window._hmShowN||0);if(all<=shown)return '';
+  return '<div class="hm-showmore" style="text-align:center;padding:9px 0 3px"><button type="button" class="hm-ghostbtn" data-hmshowmore>SHOW MORE &middot; '+shown+' of '+all+' drawn</button></div>';}
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-hmshowmore]');if(!b)return;
+  window._hmShowN=Math.max(HM_LIST_STEP,+window._hmShowN||0)+HM_LIST_STEP;if(typeof renderApp==='function')renderApp();});
 function _hmFrameHtml(list){
   const tbl=homeView==='table',full=homeLedger==='full';
   const filt=!!(homeQuery&&homeQuery.trim())||homeChip!=='ALL';
   // deposits sit in their day under BY TRADE while no chip or search narrows the list
   const evs=(!tbl&&homeFeedMode!=='day'&&!filt)?_hmTradesInRange(scopedLedger()||[],homeRange).map(ev=>({date:ev.date,html:_hmDepositRow(ev)})):[];
   return ledgerTradeListHtml({
-    id:'hm',charts:true,view:tbl?'table':'list',rows:(tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,total:bScope(_hmTradesInRange(trades,homeRange)).length,query:homeQuery,chip:homeChip,
+    id:'hm',charts:true,view:tbl?'table':'list',rows:_hmCapRows((tbl&&!_hmFrameDayOn())?_hmApplySort(list):list,tbl&&!_hmFrameDayOn()),total:bScope(_hmTradesInRange(trades,homeRange)).length,query:homeQuery,chip:homeChip,
     countExtra:_hmCountExtraHtml(),viewX:_hmViewSegHtml()+_hmBarActsHtml(),findX:_hmKindChipsHtml(),
     afterBar:_hmPasteRowHtml()+'<div id="hm-newtrade-form">'+(homeNewTradeOpen?_hmNewTradeFormHtml():'')+'</div>',
     empty:_hmEmptyStateHtml(),group:homeFeedMode==='day'?'day':'trade',events:evs,
@@ -19215,7 +19283,7 @@ function _hmFrameHtml(list){
     numbered:true,dayHeaders:_hmFrameDayOn(),dayCol:true,dayAsc:sortDir===1,tableBar:_hmTableBarHtml(full),topScroll:full,
     wrapCls:'hm-table-wrap',tableCls:'hm-dtable'+(full?'':' hm-simple'),topCls:'hm-table-topscroll',
     th:_hmFrameTh,cols:_hmFrameCols(full),actions:_hmFrameActions(full)
-  });
+  })+_hmShowMoreHtml((list||[]).length);
 }
 // the trade list in the page (LEDGER unify step 11: the DEPOSITS strip is a fold below the list now)
 function _hmFrameBlockHtml(list){
@@ -19372,7 +19440,7 @@ function _hmChartCap(){
 }
 // the whole page of the LEDGER > REAL board, built in _HM_PAGE_ORDER inside the shared page frame (LEDGER step 12)
 function _hmPageHtml(list,rangeStats,rangeTrades){
-  const ls=_hmLedgerStats(rangeTrades);
+  const ls=_hmLedgerStats(rangeTrades,homeRange);
   // r2 step 16 (item 29): a shorter title
   const ign=ls&&ls.excluded?`<span title="${ls.excluded} trade${ls.excluded>1?'s':''} marked IGNORE IN METRICS: out of win rate, PF, streak; in P&amp;L and DD" style="color:var(--yellow)"> &middot; ${ls.excluded} ignored</span>`:'';
   const S={
@@ -46519,7 +46587,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // LEDGER unify step 4 (shared hero + range pills, as REAL): the range is REAL's own saved
       // choice (homeRange, kept in el_view by _saveView), so it survives every live redraw and a
       // reload, and a range no longer offered (1Y) reads as ALL.
-      const qbRange=LEDGER_RANGES.indexOf(homeRange)>=0?homeRange:'ALL';
+      // board 144 item 9: WEBULL PAPER keeps its OWN saved range (el_qb_range), as NT8 keeps paperRange - its pills used to write REAL's homeRange
+      if(window._qbRangeSel==null){try{window._qbRangeSel=localStorage.getItem('el_qb_range');}catch(e){}if(window._qbRangeSel==null)window._qbRangeSel='';}
+      const qbRange=LEDGER_RANGES.indexOf(window._qbRangeSel)>=0?window._qbRangeSel:'ALL';
 
       // ── QB HERO — Robinhood-style single hero number, redesigned 2026-09-08 (owner ask:
       // "modern, slick, robinhood + iOS"). Reads the SAME QE/mOpen/mLabel/QLAT/QRHEALTH/
@@ -49403,9 +49473,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbStatRows=qbRangeTrades.concat(_lgvRowsQb).map(t=>Object.assign({},t,{durationMins:qbHoldMins(t),
           exitDate:qeTradeDate(t),date:(String((t&&t.entry_ts)||'').slice(0,10)||null),
           entryTime:qbClock(t&&t.entry_ts),exitTime:qbClock(t&&t.exit_ts)}));
-        const qbLs=ledgerStats(qbStatRows,{pnl:qePnlOf,day:qeTradeDate});
-        try{const _kr=qbStatRows.filter(t=>!t._lgvWhatIf),_kS=(_kr.length===qbStatRows.length)?qbLs:ledgerStats(_kr,{pnl:qePnlOf,day:qeTradeDate});   // v91.81: LIVE = the account rows
-          window._qbKpiLive={days:bkaDaysOfTrades(_kr,qeTradeDate,qePnlOf),perTrade:_kS?{trades:_kS.trades,winRate:_kS.winRate,pf:_kS.pf}:{trades:0,winRate:null,pf:null}};}catch(e){window._qbKpiLive=null;}
+        const qbLs=ledgerStats(qbStatRows,{pnl:qePnlOf,day:qeTradeDate,range:qbRange||'ALL'});
+        try{const _kr=qbStatRows.filter(t=>!t._lgvWhatIf),_kS=(_kr.length===qbStatRows.length)?qbLs:ledgerStats(_kr,{pnl:qePnlOf,day:qeTradeDate,range:qbRange||'ALL'});   // v91.81: LIVE = the account rows
+          window._qbKpiLive={days:bkaDaysOfTrades(_kr,qeTradeDate,qePnlOf),perTrade:_kS?{trades:_kS.trades,winRate:_kS.winRate,pf:_kS.pf,maxDD:_kS.maxDD,sortino:_kS.sortino}:{trades:0,winRate:null,pf:null}};}catch(e){window._qbKpiLive=null;}
         const qbMoreOpen=(()=>{let o=window._qbMoreStatsOpen!=null?!!window._qbMoreStatsOpen:!!(APREF.qqqMoreStatsOpen!=null&&+APREF.qqqMoreStatsOpen);try{const sv=localStorage.getItem('el_qb_morestats_open');if(sv!=null)o=sv==='1';}catch(e){}return o;})();
         // the board's own rows: the account as of its last read (not the range), then what the range's trades
         // made at Webull's fills against the book, how many never reached Webull, fill coverage and slippage
@@ -49692,7 +49762,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const inR=t=>t.open===true||!cut||((_closeDay(t)||'')>=cut);
         const pre=_ptW.filter(t=>_bookSet.has(legOf(t))&&t.open!==true&&!inR(t)).reduce((a,t)=>a+(+t.pnl_usd||0),0);
         const start=Math.round((NT8_PCT_BASE_USD+pre)*100)/100;
-        const pv=t=>/^TTM/.test(legOf(t))?50:20;
+        const pv=t=>nt8PointValue(t,legOf(t));
         const stopOf=t=>{const s0=(Array.isArray(t.stops)&&t.stops.length&&t.stops[0]&&t.stops[0].px!=null)?+t.stops[0].px:(t.stop_px!=null?+t.stop_px:null);return (s0!=null&&isFinite(s0))?s0:null;};
         const idx=[],rows=[];
         _ptW.forEach((t,i)=>{if(!_bookSet.has(legOf(t))||!inR(t))return;
@@ -52247,11 +52317,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _pnRows=_heroRows.slice().sort((a,b)=>{const x=_pnCk(a),y=_pnCk(b);return x<y?-1:(x>y?1:0);})
           .map(t=>Object.assign({},t,{type:_pnDir(t.side),
             durationMins:(+t.exitTime>0&&+t.entryTime>0&&+t.exitTime>=+t.entryTime)?(+t.exitTime-+t.entryTime)/60:null}));
-        const _pnS=ledgerStats(_pnRows,{pnl:_pnPnl,day:_closeDay,sorted:true});
+        const _pnS=ledgerStats(_pnRows,{pnl:_pnPnl,day:_closeDay,sorted:true,range:PSCOPE});
         // v91.79: LIVE for the what-if KPI table - the counted trades by close day, and their per-trade win rate / PF
         // v91.81: LIVE = the account rows only, even in the WHAT-IF view (the what-if day rows are its WHAT-IF column already)
-        try{const _kr=_pnRows.filter(t=>!t._lgvWhatIf),_kS=_kr.length===_pnRows.length?_pnS:ledgerStats(_kr,{pnl:_pnPnl,day:_closeDay,sorted:true});
-          window._p2KpiLive={days:bkaDaysOfTrades(_kr,_closeDay,_pnPnl),perTrade:_kS?{trades:_kS.trades,winRate:_kS.winRate,pf:_kS.pf}:{trades:0,winRate:null,pf:null}};}catch(e){window._p2KpiLive=null;}
+        try{const _kr=_pnRows.filter(t=>!t._lgvWhatIf),_kS=_kr.length===_pnRows.length?_pnS:ledgerStats(_kr,{pnl:_pnPnl,day:_closeDay,sorted:true,range:PSCOPE});
+          window._p2KpiLive={days:bkaDaysOfTrades(_kr,_closeDay,_pnPnl),perTrade:_kS?{trades:_kS.trades,winRate:_kS.winRate,pf:_kS.pf,maxDD:_kS.maxDD,sortino:_kS.sortino}:{trades:0,winRate:null,pf:null}};}catch(e){window._p2KpiLive=null;}
         // the board's own More stats group: every listed strategy that traded in the range (or whose control did) against its matched
         // control, the dollar gap, and its forward and backfilled trades apart - the figures the old rail kept on its hovers and its
         // Config + gate rows. Range scoped like everything else on the board.
@@ -52858,7 +52928,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<td style="text-align:center">'+_spk((r.validate&&Array.isArray(r.validate.equity)&&r.validate.equity.length>1)?r.validate.equity:(r.equity&&r.equity.cum))+'</td>'
             +'<td title="'+(T.validated?'whole-run total = in-sample + walk-forward + lockbox (the deployable end result · out-of-sample portion '+fmtUsd(Math.round(T.oosNet||0))+')':'best single config')+'" style="text-align:right;color:'+(pnl>=0?'var(--green)':'var(--red)')+';white-space:nowrap;cursor:help">'+(T.net!=null&&isFinite(+T.net)?fmtUsd(pnl):'\u2014')+'</td>'
             +'<td style="text-align:right;color:var(--text4);white-space:nowrap" title="net $ per calendar day over the whole run">'+(T.perDay!=null?fmtUsd(Math.round(T.perDay))+'/d':'—')+'</td>'
-            +'<td title="'+(T.validated?'whole-run max drawdown on the champion equity curve (downsampled curve, so a touch optimistic)':'realized max drawdown')+'" style="text-align:right;color:var(--red);white-space:nowrap;cursor:help">'+(dd?fmtUsd(-Math.abs(dd)):'—')+'</td>'
+            +'<td title="'+(T.validated?'whole-run max drawdown on the champion equity curve (downsampled curve, so a touch optimistic)':'realized max drawdown')+'" style="text-align:right;color:var(--red);white-space:nowrap;cursor:help">'+(dd?fmtUsd(Math.abs(dd)):'—')+'</td>'
             +'<td style="text-align:right;color:var(--text2);font-weight:600;font-variant-numeric:tabular-nums;cursor:help" title="MAR = net per YEAR divided by max drawdown (annualised, v73.7x) — the risk-adjusted score used to pick deploys. Measured on the whole-run numbers in this row; the LB MAR inside a run report uses ONLY the held-out lockbox slice (same formula, smaller window).">'+_marAnnTxt(T.net,(T.days?T.days/365.25:null),dd)+'</td>'
             +'<td style="text-align:right">'+(T.pf!=null&&isFinite(+T.pf)?(+T.pf).toFixed(2):'\u2014')+'</td>'
             +'<td title="'+(T.validated?(shp!=null&&!isNaN(+shp)?'whole-run Sharpe — champion measured over the full window':'whole-run Sharpe needs a re-run that saves per-trade data (this older run did not).'+(T.sharpeOOS!=null?(' Walk-forward Sharpe (per trade) '+(+T.sharpeOOS).toFixed(2)+' — see the report 1C chart'):'')):'risk-adjusted return')+'" style="text-align:right'+(T.validated?';cursor:help':'')+'">'+(shp!=null&&!isNaN(+shp)?(+shp).toFixed(2):'—')+'</td>'
@@ -53047,7 +53117,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<span style="width:42px">'+_gVerChip(r)+'</span>'
             +'<span style="flex:0 0 66px;text-align:right;color:'+((T.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(T.net||0)+'</span>'
             +'<span style="width:44px;text-align:right;color:var(--text4)">'+(T.pf||0).toFixed(2)+'</span>'
-            +'<span style="width:54px;text-align:right;color:var(--red)">'+(T.dd?fmtUsd(-Math.abs(T.dd)):'—')+'</span>'
+            +'<span style="width:54px;text-align:right;color:var(--red)">'+(T.dd?fmtUsd(Math.abs(T.dd)):'—')+'</span>'
             +'<span style="width:38px;text-align:right;color:var(--text2);font-weight:600" title="MAR = net per YEAR ÷ max drawdown (annualised, v73.7x), measured on the whole-run numbers in this row (same as the flat list). The LB MAR in a run report uses ONLY the held-out lockbox slice; same formula, smaller window.">'+_marAnnTxt(T.net,(T.days?T.days/365.25:null),T.dd)+'</span>'
             +(function(){const _l=_lbWarmOf(r)||(r.validate&&r.validate.lockbox)||null,_w=!!(_l&&_l._warm);
             const _t='lockbox (held-out) profit factor'+(_w?(' - read from the continuous replay, the same lockbox every screen shows; this run scored its own lockbox cold (before warm starts, v73.841)'+((_l._cold&&_l._cold.pf!=null)?(' at PF '+(+_l._cold.pf).toFixed(2)):'')):'');
@@ -53073,7 +53143,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             +'<div style="display:flex;gap:8px;margin-left:auto;flex:0 0 auto;font-size:var(--fsxs)">'
               +'<span><span style="color:var(--text5)">net </span><b style="color:'+((cT.net||0)>=0?'var(--green)':'var(--red)')+'">'+fmtUsd(cT.net||0)+'</b></span>'
               +'<span><span style="color:var(--text5)">pf </span>'+(cT.pf||0).toFixed(2)+'</span>'
-              +'<span><span style="color:var(--text5)">dd </span><span style="color:var(--red)">'+(cT.dd?fmtUsd(-Math.abs(cT.dd)):'—')+'</span></span>'
+              +'<span><span style="color:var(--text5)">dd </span><span style="color:var(--red)">'+(cT.dd?fmtUsd(Math.abs(cT.dd)):'—')+'</span></span>'
               +'<span><span style="color:var(--text5)">wf </span>'+(_wfHeld(ch)||'—')+'</span>'
               +'<span><span style="color:var(--text5)">score </span>'+((csc!=null&&isFinite(csc))?('<b style="color:'+(csc>=70?'var(--green)':(csc>=45?'var(--yellow)':'var(--red)'))+'">'+csc+'</b>')
                 :('<b title="'+(_c2IsBook(ch)?'A book has no robustness score - the champion of a book group is picked on its pre-lockbox net over drawdown instead.':'This run has no robustness score.')+'" style="color:var(--text5);cursor:help">—</b>'))+'</span>'
@@ -55180,10 +55250,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const csv=[cols.concat(xcols).join(',')].concat(rows.map(t=>{const x=extra(t);return cols.map(c=>esc(t[c])).concat(xcols.map(c=>esc(x[c]))).join(',');})).join('\r\n');
         _libDownload('qqq_shadow_book_closed_trades'+(window._qeExportScope?('_'+window._qeExportScope):'')+'.csv',csv);
       };
-      // LEDGER shared range pills (unify step 4) and the empty list's "Show all": REAL's own saved
-      // range (homeRange; renderApp -> _saveView keeps it in el_view across redraws and reloads).
+      // LEDGER shared range pills (unify step 4) and the empty list's "Show all": WEBULL's own saved range (board 144 item 9: it wrote
+      // REAL's homeRange, so a pick here moved the REAL board too) - window._qbRangeSel, kept in localStorage el_qb_range.
       content.querySelectorAll('[data-qbrange]').forEach(el=>{el.onclick=()=>{
-        homeRange=el.getAttribute('data-qbrange');renderApp();};});
+        window._qbRangeSel=el.getAttribute('data-qbrange');try{localStorage.setItem('el_qb_range',window._qbRangeSel);}catch(e){}renderApp();};});
       // LEDGER shared equity chart (unify step 5): drawn into its box now that the page is in place
       // v91.79: the what-if KPI table under the chart (only with a shadow leg on)
       {const sl=content.querySelector('#qb-bka-kpi');if(sl){try{sl.innerHTML=bkaKpiTableHtml(lgvKpiSized(bkaKpiSpec('qb',window._qbBkaCtx,window._qbKpiLive,window._qbKpiBase,'the realized-% base (the account at the range start)',window._qbKpiFwd),window._lgvShQbSized,window._lgvQb));}catch(e){console.warn('what-if KPIs:',e);sl.innerHTML='';}}}
@@ -56870,6 +56940,7 @@ window._setStage('INIT FIREBASE');
 if(!initFB())document.getElementById('app').innerHTML='<div style="color:var(--red);padding:40px;text-align:center">Firebase failed to initialize.</div>';
 else window._setStage('AUTH LISTENER ATTACHED');
 auth.onAuthStateChanged(user=>{if(user){currentUser=user;subscribeAll(currentUser.uid);}else renderAuth();});
+try{auth.onAuthStateChanged(user=>{if(user&&typeof rtsRetryErrors==='function')rtsRetryErrors();});}catch(e){}
 </script>
 </body>
 </html>
