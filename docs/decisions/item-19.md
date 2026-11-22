@@ -31,3 +31,4 @@ No day-total rows: the day total sits in a DAY column on each day's first trade,
 - 2026-11-18: board changed to [done] LIVE v73.1228
 - 2026-11-19: board changed to [done] LIVE v73.1228
 - 2026-11-20: board changed to [done] LIVE v73.1228
+- 2026-11-21: board changed to [done] LIVE v73.1228
