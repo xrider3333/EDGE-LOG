@@ -114,6 +114,11 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
         +"activeTab='augur';augurSub='runs';augurRunSel="+(sel==null?'null':JSON.stringify(String(sel)))+";renderApp();return 'OK';"
         +"}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");}
     function q(sel){return Array.prototype.slice.call(d.querySelectorAll(sel));}
+    // board 145 (fe8736aa) put the WF four numbers on the Past Runs row (WF ROC@30K, WF DD5, WF DD %, WF SORTINO).
+    //   They READ the saved walk-forward block, so a row with and without it differs there by design: P4 drops them.
+    function wf4Idx(){var tr=d.querySelector('tr.arow[data-run]'),t=tr&&tr.closest('table');if(!t)return [];var o=[];
+      Array.prototype.forEach.call(t.querySelectorAll('thead th'),function(h,i){if(/^WF (ROC@30K|DD5|DD %|SORTINO)/.test((h.innerText||'').replace(/\s+/g,' ').trim()))o.push(i);});return o;}
+    function noWf4(cells,ix){return cells.filter(function(c,i){return ix.indexOf(i)<0;});}
     function txt(sel){return q(sel).map(function(e){return (e.innerText||e.textContent||'').replace(/\s+/g,' ').trim();});}
     function tips(){return q('[data-tip]').map(function(e){return e.getAttribute('data-tip')||'';});}
     function rows(){return q('tr.arow[data-run]').map(function(tr){var tds=Array.prototype.slice.call(tr.children);
@@ -564,11 +569,11 @@ var FIXB=__FIXB__, FIXW=__FIXW__, FIXBK=__FIXBK__, FIXZ=__FIXZ__;
     A('P1b the list reads what the mask projects (no block in the mask = saved before)','NEW',!!rNo&&wfTitle(rNo).indexOf('saved before walk-forward detail was recorded')>=0&&wfTitle(rNo).indexOf('Walk-forward test (each fold re-tuned)')<0,wfTitle(rNo));
     render({},[lite(FIXW),lite(FIXBK),lite(PLAIN)],[],null);
     A('P3 book row says a book has no walk-forward folds','NEW',!!rbk&&wfTitle(rbk).indexOf('a book trades frozen configurations')>=0,wfTitle(rbk));
-    var cellsW=rw?rw.cells.join(' | '):'';
+    var wf4=wf4Idx(), cellsW=rw?noWf4(rw.cells,wf4).join(' | '):'';
     var cP2=render({},[lite(FIXB),lite(FIXBK),lite(PLAIN)],[],null);
     var rb=rows().filter(function(r){return r.id===String(FIXB.id);})[0];
     A('P2 run saved before the block: WF cell hover gives the reason','NEW',!!rb&&wfTitle(rb).indexOf('saved before walk-forward detail was recorded')>=0,wfTitle(rb));
-    A('P4 whole-run cells identical with and without the block','NOREG',!!rb&&cellsW===rb.cells.join(' | '),cellsW+'  VS  '+(rb?rb.cells.join(' | '):''));
+    A('P4 whole-run cells identical with and without the block (WF four-number columns excluded)','NOREG',!!rb&&wf4.length===4&&cellsW===noWf4(rb.cells,wf4).join(' | '),'wf4 cols='+wf4.join(',')+' :: '+cellsW+'  VS  '+(rb?noWf4(rb.cells,wf4).join(' | '):''));
     var sorts=['id','date','score','pnl','perday','maxdd','mar','pf','sharpe','wr','trd','days','took'], ordW={}, snap={};
     sorts.forEach(function(s){render({rfSort:s},[lite(FIXW),lite(FIXBK),lite(PLAIN)],[],null);ordW[s]=rows().map(function(r){return r.id;}).join(',');});
     var sameOrd=true, bad=[];

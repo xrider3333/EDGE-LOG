@@ -2153,7 +2153,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.05';
+const VERSION='92.06';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -3061,7 +3061,12 @@ function _navToTrades(){if(typeof window.hmShowTrades==='function')window.hmShow
 function _navToJournal(){if(typeof window.hmShowJournal==='function')window.hmShowJournal();else{activeTab='home';renderApp();}}
 function _navToImportExport(sub){if(typeof window.openImportExport==='function')window.openImportExport(sub);else{activeTab='home';renderApp();}}
 // w131 DISC: the owner's LOCAL date - toISOString is UTC, so after 17:00 MST 'today' was tomorrow (calendar, lesson date).
-function _localYmd(){const d=new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
+// (sweep 3 #14) optional d: the local calendar day of any instant (toISOString().slice(0,10) is the UTC day,
+//   which reads as TOMORROW from 17:00 MST). _localStamp: local date + time + the zone's short name.
+function _localStamp(d){const p=n=>String(n).padStart(2,'0');let z='';
+  try{z=((new Intl.DateTimeFormat('en-US',{timeZoneName:'short'}).formatToParts(d)).find(x=>x.type==='timeZoneName')||{}).value||'';}catch(e){}
+  return _localYmd(d)+' '+p(d.getHours())+':'+p(d.getMinutes())+(z?' '+z:'');}
+function _localYmd(d0){const d=(d0 instanceof Date)?d0:new Date();return d.getFullYear()+'-'+String(d.getMonth()+1).padStart(2,'0')+'-'+String(d.getDate()).padStart(2,'0');}
 let accountEquity=0,calMonth=_localYmd().slice(0,7);
 const _storedEquity=parseFloat(localStorage.getItem('el_equity')||'0');
 if(_storedEquity>0)accountEquity=_storedEquity;
@@ -3319,8 +3324,8 @@ const dupeFind=(job,pool)=>{
   const done=hits.filter(j=>String(j.status).toLowerCase()==='done');
   const use=(done.length?done:hits).slice().sort((a,b)=>(a.finishedAt||Infinity)-(b.finishedAt||Infinity))[0];
   let when='an earlier date';
-  if(use.finishedAt)when=new Date(use.finishedAt*1000).toISOString().slice(0,16).replace('T',' ');
-  else if(use.createdAt&&use.createdAt.toDate)when=use.createdAt.toDate().toISOString().slice(0,16).replace('T',' ');
+  if(use.finishedAt)when=_localStamp(new Date(use.finishedAt*1000));
+  else if(use.createdAt&&use.createdAt.toDate)when=_localStamp(use.createdAt.toDate());
   return {job:use,when:when,n:hits.length,runId:use.run_id||null,status:String(use.status).toLowerCase()};
 };
 const gc=n=>n>=0?'var(--green)':'var(--red)';
@@ -6064,7 +6069,19 @@ let _runsRefreshT=null;
 function _refreshRunsLite(){
   if(!_runsUid||!window._runsLiteOk)return;
   clearTimeout(_runsRefreshT);
-  _runsRefreshT=setTimeout(()=>{_subscribeRuns(_runsUid,runsLimit);},2500);
+  _runsRefreshT=setTimeout(()=>{
+    // (sweep 3 #2) after LOAD MORE / LOAD ALL runsLimit can be 5000: a job finishing must not re-read every
+    //   run. Read only the newest 75 and merge them over the loaded list (newer copy wins).
+    if((runsLimit||75)<=75){_subscribeRuns(_runsUid,runsLimit);return;}
+    _runsLiteFetch(_runsUid,75).then(fresh=>{
+      if(!Array.isArray(fresh)||!fresh.length)return;
+      const by={};(runHistory||[]).forEach(x=>{by[String(x.id)]=x;});
+      fresh.forEach(x=>{by[String(x.id)]=x;});
+      const merged=Object.keys(by).map(k=>by[k]).sort((a,b)=>String(b.timestamp||'').localeCompare(String(a.timestamp||'')));
+      _wfoDropStale(merged);runHistory=merged;
+      if(activeTab==='augur')renderApp();
+    }).catch(e=>{console.warn('[runs] newest-75 refresh failed:',(e&&e.message)||e);});
+  },2500);
 }
 function _subscribeRuns(uid,lim){
   if(!db||!uid)return;
@@ -6086,6 +6103,8 @@ function _subscribeRuns(uid,lim){
   // THE INDEX FIRST (3 reads for every run), the projected query only when it is missing.
   //   A LOAD ALL / LOAD MORE click asks for the heavy list by name (lim>75 below), so it
   //   never comes back from the index and the reader gets the fields he clicked for.
+  // (sweep 3 #9) an index failure turns the index off for 10 minutes, not for the whole session
+  if(window._runsIndexOff&&window._runsIndexOffAt&&Date.now()-window._runsIndexOffAt>600000){window._runsIndexOff=false;}
   if((lim||75)<=75&&!window._runsIndexOff){
     _runsIndexFetch(uid).then(ix=>{
       if(unsubRuns){try{unsubRuns();}catch(_){}unsubRuns=null;}
@@ -6109,7 +6128,7 @@ function _subscribeRuns(uid,lim){
       }).catch(e=>{console.warn('[runs] newest-runs top-up failed:',(e&&e.message)||e);});
     }).catch(e=>{
       console.warn('[runs] index read failed, using the projected query:',(e&&e.message)||e);
-      window._runsIndexOff=true;window._runsSlim=false;
+      window._runsIndexOff=true;window._runsIndexOffAt=Date.now();window._runsSlim=false;
       _subscribeRuns(uid,lim);});
     return;
   }
@@ -6143,7 +6162,15 @@ function _fsQuotaNote(e){
   if(document.getElementById('fs-quota-note'))return;
   const d=document.createElement('div');d.id='fs-quota-note';
   d.style.cssText='position:fixed;left:0;right:0;bottom:0;z-index:9999;padding:7px 14px;background:#3a2a00;color:#ffd166;font:600 12px/1.4 monospace;text-align:center';
-  d.textContent='Database daily read limit reached - showing what already loaded. It resets at 01:00 MST.';
+  // (sweep 3 #15) the quota resets at midnight PACIFIC: 00:00 MST while California is on PDT, 01:00 MST on PST.
+  //   Said in this browser's own clock, worked out from the next Pacific midnight.
+  let rs='midnight Pacific';
+  try{const now=new Date(),la=new Date(now.toLocaleString('en-US',{timeZone:'America/Los_Angeles'}));
+    const nx=new Date(la);nx.setHours(24,0,0,0);const at=new Date(nx.getTime()+(now.getTime()-la.getTime()));
+    const hm=at.toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit',hour12:false});
+    const z=((new Intl.DateTimeFormat('en-US',{timeZoneName:'short'}).formatToParts(at)).find(x=>x.type==='timeZoneName')||{}).value||'';
+    if(/^\d\d:\d\d$/.test(hm))rs=hm+(z?' '+z:'')+' (midnight Pacific)';}catch(_){}
+  d.textContent='Database daily read limit reached - showing what already loaded. It resets at '+rs+'.';
   const x=document.createElement('span');x.textContent='  ✕';x.style.cssText='cursor:pointer;margin-left:10px';x.onclick=function(){d.remove();};d.appendChild(x);
   document.body.appendChild(d);}
 // ONE LINE WHEN THE PAGE IS SIGNED OUT (owner 2026-11-15). The run list keeps drawing from the
@@ -6309,7 +6336,7 @@ function _bbModel(X){
     matches:matches,mKey:mKey,mIdx:mIdx,mSel:mSel,mSpan:mSpan,tier:tier,preset:preset,custom:(mode==='grid'&&preset==='CUSTOM'),
     mlf:mlf,mlth:String(A.mlth||50),vscope:(_bbVmap()[vs]?vs:'short'),xfer:((xd===''||X.INSTORD.indexOf(xd)>=0)?xd:''),
     discover:(A.discover==='evolve'?'evolve':'auto'),prov:(A.provider==='claude-cli'?'claude-cli':(A.provider==='anthropic'?'anthropic':'ollama')),
-    trials:String(A.trials||500),workers:String(A.workers||4),rounds:String(A.rounds||4),mint:String(A.min_trades||30),
+    trials:String(A.trials||900),workers:String(A.workers||4),rounds:String(A.rounds||4),mint:String(A.min_trades||30),
     eqpts:String(A.equity_points||400),comm:String(A.comm_usd!=null?A.comm_usd:5.66),slip:String(A.slip_pts!=null?A.slip_pts:0),
     wfmode:(A.wf_mode==='rolling'?'rolling':'anchored'),pills:A.pills!==false,folds:String(U.folds||0),
     from:A.date_from||'',to:A.date_to||'',lockbox:A.lockbox||'',pinned:pinned};
@@ -7099,6 +7126,22 @@ function _tixAttach(uid){
       _fsQuotaNote(err);fallback('head listener failed');});
   return function(){try{if(offHead)offHead();}catch(_e){}try{if(offCol)offCol();}catch(_e){}};
 }
+// (sweep 3 #12) SIGN-OUT DETACHES EVERY LISTENER. Each one left attached kept billing reads for the old user and
+//   fired renderApp on a signed-out page; the session-long ones (board, books, as-if, pc_load) also never re-attached
+//   for the next user because their own 'already on' guard stayed set.
+function _elTeardownListeners(){
+  const off=f=>{try{if(typeof f==='function')f();}catch(e){}};
+  off(unsub);unsub=null;off(unsubL);unsubL=null;off(unsubBT);unsubBT=null;off(unsubRuns);unsubRuns=null;
+  off(unsubMeta);unsubMeta=null;off(unsubMM);unsubMM=null;off(unsubSP);unsubSP=null;
+  off(unsubNT);unsubNT=null;off(unsubNRD);unsubNRD=null;off(unsubWB);unsubWB=null;off(unsubQBSW);unsubQBSW=null;
+  off(window._unsubMissed);window._unsubMissed=null;
+  off(window._qqqExecUnsub);window._qqqExecUnsub=null;window._qqqExecLive=false;
+  off(window._pcLoadUnsub);window._pcLoadUnsub=null;
+  off(window._booksUnsub);window._booksUnsub=null;
+  off(window._bkaUnsub);window._bkaUnsub=null;
+  (window._bdUnsubs||[]).forEach(off);window._bdUnsubs=[];window._bdOn=false;window._bdFellBack=false;
+}
+window._elTeardownListeners=_elTeardownListeners;
 function subscribeAll(uid){
   // w130 #76 - A REFUSED READ NEVER HOLDS THE SPLASH. The first draw used to wait on the trades
   //   listener, which had no error callback: on a Firestore 429 (daily read quota) the page sat on the
@@ -7168,6 +7211,7 @@ function subscribeAll(uid){
   unsubMeta=metaRef.doc('strategies').onSnapshot(d=>{const x=d.data();metaStrats=(x&&x.list)||[];metaEta=(x&&x.eta_calib)||null;metaWorkers=(x&&x.workers)||null;if(activeTab==='augur'&&(augurSub==='exec2'||augurSub==='lib'))renderApp();});
   // strategyPrefs: web-owned Library prefs (archived files + the forward-test star). The runner
   // never writes this doc, so it survives every strategies re-sync.
+  if(unsubSP)unsubSP();
   unsubSP=metaRef.doc('strategyPrefs').onSnapshot(d=>{metaStratPrefs=d.data()||{};if(activeTab==='augur'&&augurSub==='lib')renderApp();});
   if(unsubMM)unsubMM();
   unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='exec2'))renderApp();else if(document.getElementById('set-overlay'))_setLiveRefresh();});
@@ -7264,6 +7308,9 @@ function _paperTradesLoad(base){
 //    WRITE users/{uid}/control/quiet - the button. Nothing else on this page writes anything.
 function loadQuiet(uidArg,force){
   if(window._qtLoading)return;
+  // (sweep 3 #8) a failed read backs off 30 s: the PC tab redraw calls this on every render, and a refused
+  //   read redraws the tab, so without this it re-read in a tight loop
+  if(window._qtFailAt&&Date.now()-window._qtFailAt<30000)return;
   if(!force&&window._qtLoaded&&Date.now()-(window._qtAt||0)<20000)return;
   const u=uidArg||(auth&&auth.currentUser&&auth.currentUser.uid);
   if(!db||!u)return;
@@ -7273,8 +7320,8 @@ function loadQuiet(uidArg,force){
     .then(function(r){
       window._qtStatus=r[0].exists?(r[0].data()||{}):null;
       window._qtWant=r[1].exists?(r[1].data()||{}):null;
-      window._qtLoaded=true;window._qtAt=Date.now();})
-    .catch(function(e){window._qtErr=(e&&e.message)||String(e);})
+      window._qtLoaded=true;window._qtAt=Date.now();window._qtFailAt=0;})
+    .catch(function(e){window._qtErr=(e&&e.message)||String(e);window._qtFailAt=Date.now();})
     .then(function(){window._qtLoading=false;
       if(activeTab==='augur'&&augurSub==='pc')renderApp();});
 }
@@ -7287,7 +7334,7 @@ function setQuiet(on,skipAuto,reason){
   const doc={on:!!on,until:null,auto:(skipAuto?false:true),reason:String(reason||'set from the web'),
     set_by:'web',set_at:firebase.firestore.FieldValue.serverTimestamp()};
   db.collection('users').doc(u).collection('control').doc('quiet').set(doc)
-    .then(function(){window._qtWant=doc;window._qtErr=null;})
+    .then(function(){window._qtWant=doc;window._qtErr=null;window._qtFailAt=0;})
     .catch(function(e){window._qtErr=(e&&e.message)||String(e);})
     .then(function(){window._qtSaving=false;loadQuiet(u,true);renderApp();});
 }
@@ -7396,25 +7443,26 @@ function loadBoard(uidArg){
   if(!db||!u)return;
   window._bdOn=true;window._bdRows=window._bdRows||{};window._bdMeta=window._bdMeta||{};
   window._bdRev=window._bdRev||0;
+  const U=window._bdUnsubs=[];   // (sweep 3 #12) every board listener, so sign-out can detach them (_elTeardownListeners)
   const paint=function(){if(activeTab==='augur'&&augurSub==='board')renderApp();};
   // THE FALLBACK: the old listener, on the whole collection. Attached only if the index fails,
   //   and guarded so it can never attach twice - twice would double the bill it exists to save.
   const fallback=function(why){
     if(window._bdFellBack)return;window._bdFellBack=why||true;
     console.warn('[board] reading the collection directly:',why);
-    db.collection('users').doc(u).collection('board').onSnapshot(function(s){
+    U.push(db.collection('users').doc(u).collection('board').onSnapshot(function(s){
         const m={};s.forEach(function(d){const r=d.data()||{};r._id=d.id;m[d.id]=r;});
         window._bdRows=m;window._bdAt=Date.now();window._bdLoaded=true;window._bdErr=null;paint();},
-      function(e){window._bdErr=(e&&e.message)||String(e);window._bdLoaded=true;paint();});
+      function(e){window._bdErr=(e&&e.message)||String(e);window._bdLoaded=true;paint();}));
   };
   window._bdFallback=fallback;
-  db.collection('users').doc(u).collection('meta').doc('board_index').onSnapshot(
+  U.push(db.collection('users').doc(u).collection('meta').doc('board_index').onSnapshot(
     function(d){_bdOnHead(u,(d&&d.exists)?(d.data()||{}):null,paint,fallback);},
     function(e){console.warn('[board] index head listener failed:',(e&&e.message)||e);
-      fallback('head listener failed');});
+      fallback('head listener failed');}));
   ['qwen','auto','review'].forEach(function(k){
-    db.collection('users').doc(u).collection('meta').doc('board_'+k).onSnapshot(function(d){
-      window._bdMeta[k]=(d&&d.exists)?(d.data()||{}):null;paint();},function(){});});
+    U.push(db.collection('users').doc(u).collection('meta').doc('board_'+k).onSnapshot(function(d){
+      window._bdMeta[k]=(d&&d.exists)?(d.data()||{}):null;paint();},function(){}));});
 }
 // THE ONE THING THE WEB WRITES TO THE BOARD (owner 10-31): his own answer on a row. CONFIRM
 //   closes it, SEND BACK puts it back in the lane's queue, NEEDS ME marks it his. It updates the
@@ -7842,6 +7890,8 @@ function loadQbAnnot(){
 //    single failed fetch leaves it stale forever and every retry fires immediately.
 window._qqqExecTimer=window._qqqExecTimer||setInterval(function(){
   try{
+    // (sweep 3 #3) the live listener already has the server's copy: no whole-doc .get() on top of it
+    if(window._qqqExecLive&&window._qqqExecUnsub)return;
     if(document.visibilityState==='visible'&&activeTab==='augur'&&augurSub==='qqqpaper'&&!window._qqqExecLoading&&Date.now()-(window._qqqExecTriedAt||0)>=55000)loadQqqExec(null,true);
   }catch(e){}
 },60000);
@@ -8106,7 +8156,8 @@ function bkaTradesIds(id){id=String(id==null?'':id);const out=[id];if(!id)return
   return out;}
 function _bkaTrMiss(id,tried){const M=window._bkaTrMissLog||(window._bkaTrMissLog={});if(M[id])return;M[id]=1;
   try{console.info('book_asif_trades: no doc for leg '+id+' (tried '+tried.map(x=>'book_asif_trades_'+x).join(', ')+') - its as-if rows stay empty');}catch(e){}}
-function bkaTradesGet(id){id=String(id==null?'':id);if(!id)return null;const C=window._bkaTr||(window._bkaTr={});if(C[id])return C[id];
+function bkaTradesGet(id){id=String(id==null?'':id);if(!id)return null;const C=window._bkaTr||(window._bkaTr={});
+  if(C[id]&&!(C[id].st==='err'&&Date.now()-(C[id].errAt||0)>60000))return C[id];   // (sweep 3 #7) a failed read is asked again after 60 s
   try{if(typeof db==='undefined'||!db||typeof auth==='undefined'||!auth||!auth.currentUser)return null;}catch(e){return null;}
   const E={st:'loading',rows:[]};C[id]=E;
   const done=()=>{setTimeout(()=>{try{if(!window._qbChartHoverActive&&typeof renderApp==='function')renderApp();}catch(e){}},50);};
@@ -8118,8 +8169,8 @@ function bkaTradesGet(id){id=String(id==null?'':id);if(!id)return null;const C=w
       return Promise.all(rd).then(a=>[first].concat(a));});};
     const walk=j=>j>=ids.length?Promise.resolve(null):readOne(ids[j]).then(P=>P||walk(j+1));
     walk(0).then(P=>{if(P){E.rows=[].concat(...P).filter(r=>r&&typeof r==='object');E.st='ok';}else{E.st='none';_bkaTrMiss(id,ids);}done();})
-    .catch(e=>{E.st='err';E.why=(e&&e.message)||'read failed';console.warn('book_asif_trades '+id+':',E.why);done();});
-  }catch(e){E.st='err';E.why=String(e&&e.message||e);}
+    .catch(e=>{E.st='err';E.errAt=Date.now();E.why=(e&&e.message)||'read failed';console.warn('book_asif_trades '+id+':',E.why);done();});
+  }catch(e){E.st='err';E.errAt=Date.now();E.why=String(e&&e.message||e);}
   return E;}
 // ledgerfix5 D: a shadow leg's CLOSED as-if trades, unsized, each with the $ risk of ONE unit (r): the walk bkaShadowTrades and the sizer
 // (lgvScaleShadows) both read. o = {qqq, rows} as bkaShadowTrades. Units: a QQQ share (WEBULL PAPER futures leg, r = q.risk_usd $ a share),
@@ -8686,6 +8737,8 @@ function _qqqExecEnsureLive(){
     }else if(window._qqqExecUnsub){
       window._qqqExecUnsub();window._qqqExecUnsub=null;window._qqqExecLive=false;
       if(window._booksUnsub){try{window._booksUnsub();}catch(_){}window._booksUnsub=null;}
+      // (sweep 3 #4) the pc_load chip listener is attached beside this one: detach it with it
+      if(window._pcLoadUnsub){try{window._pcLoadUnsub();}catch(_){}window._pcLoadUnsub=null;}
       if(window._qqqExecRenderTimer){clearTimeout(window._qqqExecRenderTimer);window._qqqExecRenderTimer=null;}
       window._qqqExecRenderPending=false;
     }
@@ -9257,6 +9310,21 @@ async function addTrade(t){
   }
 }
 async function updateTrade(id,data){if(colRef)return colRef.doc(id).update(data);}
+// (sweep 3 #6) CLEAR ALL: one Firestore batch holds at most 500 writes, so a journal past 500 trades failed whole
+//   and silently. Deletes go in chunks of 450, by the ids already on the page (no re-read of the collection unless
+//   none are loaded), and any refusal is shown with how many went through.
+async function _deleteAllTrades(){
+  if(!colRef||!db)return;
+  let refs=(trades||[]).map(t=>t&&t.id).filter(Boolean).map(id=>colRef.doc(String(id)));
+  let done=0;
+  try{
+    if(!refs.length){const snap=await colRef.get();refs=snap.docs.map(d=>d.ref);}
+    for(let i=0;i<refs.length;i+=450){
+      const b=db.batch();refs.slice(i,i+450).forEach(r=>b.delete(r));
+      await b.commit();done+=Math.min(450,refs.length-i);
+    }
+  }catch(e){alert('Delete all stopped after '+done+' of '+refs.length+' trades: '+((e&&e.message)||e));}
+}
 async function deleteTrade(id){if(colRef&&confirm('Delete this trade?'))await colRef.doc(id).delete();}
 async function addLesson(e){if(lessonRef)await lessonRef.add({...e,createdAt:firebase.firestore.FieldValue.serverTimestamp()});}
 async function deleteLesson(id){if(lessonRef&&confirm('Delete?'))await lessonRef.doc(id).delete();}
@@ -10837,19 +10905,21 @@ function generateHTMLReport(){
   <div style="color:#252538;font-size:10px;margin-top:16px">Generated by EDGE LOG v${VERSION} · Confidential trading data</div>
   </body></html>`;
   const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([report],{type:'text/html'}));
-  a.download=`edgelog_report_${new Date().toISOString().slice(0,10)}.html`;a.click();
+  a.download=`edgelog_report_${_localYmd()}.html`;a.click();
 }
 
 function exportCSV(){
   const h='Date,Symbol,AssetType,Direction,Timeframe,OrderID,Entry,Exit,Contracts,Fees,Gross P&L,Net P&L,Duration,Grade,Setup,Notes,Chart URL,Source\n';
   const rows=trades.map(t=>`${t.date},${t.symbol},${t.assetType||'futures'},${t.type},"${t.timeframe||'—'}","${t.orderId||''}",${t.entry},${t.exit},${t.size},${t.fees||0},${(t.grossPnl||t.pnl).toFixed(2)},${t.pnl},"${fmtDur(t.durationMins)}","${t.grade||'—'}","${t.setup||'—'}","${(t.notes||'').replace(/"/g,"'")}","${t.chartUrl||''}","${t.source||''}"`).join('\n');
-  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([h+rows],{type:'text/csv'}));a.download=`edgelog_v${VERSION}_${new Date().toISOString().slice(0,10)}.csv`;a.click();
+  const a=document.createElement('a');a.href=URL.createObjectURL(new Blob([h+rows],{type:'text/csv'}));a.download=`edgelog_v${VERSION}_${_localYmd()}.csv`;a.click();
 }
 function applyFilters(tds){return bScope(tds).filter(t=>{if(filters.sym&&!t.symbol.toLowerCase().includes(filters.sym.toLowerCase()))return false;if(filters.dir&&t.type!==filters.dir)return false;if(filters.grade&&filters.grade!=='—'&&(t.grade||'—')!==filters.grade)return false;if(filters.setup&&filters.setup!=='—'&&(t.setup||'—')!==filters.setup)return false;if(filters.tf&&filters.tf!=='—'&&!tfList(t.timeframe).includes(filters.tf))return false;if(filters.dateFrom&&t.date<filters.dateFrom)return false;if(filters.dateTo&&t.date>filters.dateTo)return false;if(filters.minPnl!==''&&t.pnl<parseFloat(filters.minPnl))return false;if(filters.maxPnl!==''&&t.pnl>parseFloat(filters.maxPnl))return false;return true;});}
 function clearFilters(){filters={sym:'',dir:'',grade:'',setup:'',tf:'',dateFrom:'',dateTo:'',minPnl:'',maxPnl:''};renderApp();}
 async function saveInlineField(inp){
   const field=inp.dataset.field,id=inp.dataset.id,val=inp.value;
   if(!id||!field)return;
+  if(val===inp.defaultValue)return;   // (sweep 3 #13) a blur with nothing changed writes nothing
+  inp.defaultValue=val;
   inp.style.opacity='.5';
   try{await updateTrade(id,{[field]:val});}catch(e){console.error(e);}
   inp.style.opacity='1';
@@ -10864,7 +10934,7 @@ async function revertImport(histIdx){
   renderApp();
 }
 function addLedgerEvent(){
-  const dateStr=prompt('Date of deposit/withdrawal (YYYY-MM-DD):',new Date().toISOString().slice(0,10));
+  const dateStr=prompt('Date of deposit/withdrawal (YYYY-MM-DD):',_localYmd());
   if(!dateStr)return;
   const amtStr=prompt('Amount (negative for withdrawal):','1000');
   if(!amtStr)return;
@@ -20697,7 +20767,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           try{
             const ref=await cmdRef.add({action:'sync_trades',status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
             const u=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;u();ntRefreshing=false;renderApp();});
-            setTimeout(()=>{if(ntRefreshing){ntRefreshing=false;renderApp();}},20000);
+            setTimeout(()=>{try{u();}catch(_){}if(ntRefreshing){ntRefreshing=false;renderApp();}},20000); // (sweep 3 #10) the listener goes with the timeout
           }catch(e){ntRefreshing=false;alert('Refresh failed: '+e.message);renderApp();}
         };
         const wbBtn=el('wb-refresh-btn');if(wbBtn)wbBtn.onclick=async()=>{
@@ -20706,7 +20776,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
           try{
             const ref=await cmdRef.add({action:'sync_webull',status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()});
             const u=ref.onSnapshot(d=>{const x=d.data()||{};if(x.status!=='done'&&x.status!=='error')return;u();wbRefreshing=false;if(x.status==='error')alert('Webull sync error: '+(x.result&&x.result.error||'unknown'));renderApp();});
-            setTimeout(()=>{if(wbRefreshing){wbRefreshing=false;renderApp();}},30000);
+            setTimeout(()=>{try{u();}catch(_){}if(wbRefreshing){wbRefreshing=false;renderApp();}},30000); // (sweep 3 #10) the listener goes with the timeout
           }catch(e){wbRefreshing=false;alert('Webull sync failed: '+e.message);renderApp();}
         };
         const ai=el('auto-interval');if(ai)ai.onchange=()=>{autoInterval=parseInt(ai.value)||60;};
@@ -20797,7 +20867,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       setTimeout(()=>{
         if(el('exp-csv'))el('exp-csv').onclick=exportCSV;
         if(el('exp-html'))el('exp-html').onclick=generateHTMLReport;
-        if(el('clr-all'))el('clr-all').onclick=async()=>{if(!confirm(`Delete ALL ${trades.length} trades?`))return;const snap=await colRef.get();const b=db.batch();snap.docs.forEach(d=>b.delete(d.ref));await b.commit();};
+        if(el('clr-all'))el('clr-all').onclick=async()=>{if(!confirm(`Delete ALL ${trades.length} trades?`))return;await _deleteAllTrades();};
       },50);
     }
 
@@ -20894,10 +20964,7 @@ namespace NinjaTrader.NinjaScript.Strategies {
       setTimeout(()=>{
         if(el('clr-all-h'))el('clr-all-h').onclick=async()=>{
           if(!confirm(`Delete ALL ${trades.length} trades? This cannot be undone.`))return;
-          const snap=await colRef.get();
-          const b=db.batch();
-          snap.docs.forEach(d=>b.delete(d.ref));
-          await b.commit();
+          await _deleteAllTrades();
         };
         if(el('clr-ledger'))el('clr-ledger').onclick=()=>{
           if(!confirm('Clear all deposit/withdrawal entries?'))return;
@@ -21394,7 +21461,7 @@ function renderApp(){
    if(_cs)_cs.onclick=()=>_setCV('side');if(_ck)_ck.onclick=()=>_setCV('stack');}
   {const _ss=el('stack-side'),_sk=el('stack-stack');const _setSV=(m)=>{try{var _p=JSON.parse(localStorage.getItem('augurPrefs')||'{}');_p.stackView=m;localStorage.setItem('augurPrefs',JSON.stringify(_p));}catch(e){}var _f=el('stack-frame');if(_f&&_f.contentWindow){try{_f.contentWindow.location.hash=m;}catch(e){}}if(_ss){_ss.style.background=m==='side'?'var(--bg2)':'';_ss.style.color=m==='side'?'var(--text)':'var(--text4)';}if(_sk){_sk.style.background=m==='stack'?'var(--bg2)':'';_sk.style.color=m==='stack'?'var(--text)':'var(--text4)';}};if(_ss)_ss.onclick=()=>_setSV('side');if(_sk)_sk.onclick=()=>_setSV('stack');}
   if(el('set-gear'))el('set-gear').onclick=()=>openSettings();
-  el('so-btn').onclick=()=>{if(unsub)unsub();if(unsubL)unsubL();if(unsubBT)unsubBT();if(unsubRuns)unsubRuns();if(unsubMeta)unsubMeta();if(unsubMM)unsubMM();if(window._qqqExecUnsub){try{window._qqqExecUnsub();}catch(e){}window._qqqExecUnsub=null;window._qqqExecLive=false;}stopAutoImport();auth.signOut();renderAuth();};
+  el('so-btn').onclick=()=>{_elTeardownListeners();stopAutoImport();auth.signOut();renderAuth();};
   const lu=el('logo-upload');if(lu)lu.onchange=e=>{const f=e.target.files[0];if(!f)return;const r=new FileReader();r.onload=ev=>{userLogo=ev.target.result;localStorage.setItem('el_logo',userLogo);updateFavicon();document.title='EDGE LOG — Trade Tracker';renderApp();};r.readAsDataURL(f);};
   const la=el('logo-area');if(la)la.onclick=()=>{if(userLogo){if(confirm('Remove logo?')){userLogo=null;localStorage.removeItem('el_logo');updateFavicon();renderApp();}}else el('logo-upload').click();};
   if(el('tog-net'))el('tog-net').onclick=()=>{useGross=false;renderApp();};
@@ -22445,6 +22512,10 @@ function renderApp(){
         const save=async()=>{
           const id=inp.dataset.id;
           const tags=(inp.value||'').split(',').map(t=>t.trim()).filter(Boolean);
+          // (sweep 3 #13) write only on a change - a blur with the same tags cost a write every time
+          const was=(inp.defaultValue||'').split(',').map(t=>t.trim()).filter(Boolean);
+          if(tags.join(',')===was.join(','))return;
+          inp.defaultValue=inp.value;
           inp.style.opacity='.5';
           await updateTrade(id,{tags});
           inp.style.opacity='1';
@@ -22457,6 +22528,8 @@ function renderApp(){
       tw.querySelectorAll('.inline-txt[data-field="notes"]').forEach(inp=>{
         const save=async()=>{
           const id=inp.dataset.id;
+          if(inp.value===inp.defaultValue)return;   // (sweep 3 #13) unchanged notes: no write
+          inp.defaultValue=inp.value;
           inp.style.opacity='.5';
           await updateTrade(id,{notes:inp.value});
           inp.style.opacity='1';
@@ -27641,7 +27714,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       const _bkDays=(r&&r.book&&r.book.date_from&&r.book.lockbox_from)?(()=>{
         const a=Date.parse(String(r.book.date_from).slice(0,10)+'T00:00:00Z'),b=Date.parse(String(r.book.lockbox_from).slice(0,10)+'T00:00:00Z');
         return (isFinite(a)&&isFinite(b)&&b>a)?Math.round((b-a)/864e5):null;})():null;
-      return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(_bkDays!=null?_bkDays:(r&&r.days_in_test)||null),perDay:(_bkDays?(((r&&r.best_pnl_usd)||0)/_bkDays):((r&&r.best_pnl_per_day)||null)),dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,wf:null,wfWhy:'',scope:'best',validated:false};
+      return {net:(r&&r.best_pnl_usd)||0,pf:(r&&r.best_pf)||0,trades:(r&&r.best_trades)||0,days:(_bkDays!=null?_bkDays:(r&&r.days_in_test)||null),perDay:(_bkDays?(((r&&r.best_pnl_usd)||0)/_bkDays):(((()=>{try{if(r&&!_isGvJob(r))return _isPerDay(r);}catch(e){}return null;})())||(r&&r.best_pnl_per_day)||null)),dd:(r&&r.best_dd_usd)||0,sharpe:(r&&r.dsr&&r.dsr.winner_sharpe),wr:(r&&r.best_win_rate),sharpeOOS:null,isWr:null,oosNet:null,wf:null,wfWhy:'',scope:'best',validated:false};
     };
     // ── VALIDATION METHOD · read the run object and say plainly HOW it was validated, so every
     //    run reads as its own method (no mixing). Drives a banner on every report + which sections
@@ -27998,6 +28071,13 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       //   reading below. Either boundary missing leaves the years unknown, not a whole-run guess.
       if(_isGvJob(x)){const d=_gvYrs(x);return (d&&d.a&&d.w)?_yrsBetween(d.a,d.w):null;}
       return _runYrs(x);};
+    // (sweep 3 #5, CONFIRMED) best_pnl_usd is the IN-SAMPLE money (validate.py bestA = Stage A's best, scored on the
+    //   first 75 pct of the tuning window; a book's = pre-lockbox), but api/runner.py saves best_pnl_per_day =
+    //   best_pnl_usd / days_in_test, the WHOLE run window. Per-day money over the in-sample days instead (_isYrs,
+    //   the same denominator the run's MAR / R per YR use); the saved field only when the years are unknown.
+    const _isPerDay=x=>{try{const y=_isYrs(x),n=x&&x.best_pnl_usd;
+        if(y!=null&&y>0&&n!=null&&isFinite(+n))return (+n)/(y*365.25);}catch(e){}
+      return (x&&x.best_pnl_per_day!=null&&isFinite(+x.best_pnl_per_day))?+x.best_pnl_per_day:null;};
     // THE CHAMPION'S OWN WHOLE-RUN PROFIT FACTOR (item 1, owner: FULL PF read 1.48 - pooled
     //   across re-fitted walk-forward folds - the day the CHAMPION config, held constant end
     //   to end, actually ran the whole window at 1.82). validate.total_win_rate / total_avg_win
@@ -37491,7 +37571,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         const _gvIsOf=x=>_isGvJob(x)?_gvB(x,'ungated_is'):null;
         const M_all=[
           {l:'Net P&L',s:'Net $',v:x=>{const g=_gvIsOf(x);return _isGvJob(x)?(g?(+g.total_pnl||0)*_mcOf(x):-1e15):(x.best_pnl_usd!=null&&isFinite(+x.best_pnl_usd)?+x.best_pnl_usd:-1e15);},f:x=>{const g=_gvIsOf(x);return _isGvJob(x)?(g?_ab$((+g.total_pnl||0)*_mcOf(x)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>'):(x.best_pnl_usd!=null&&isFinite(+x.best_pnl_usd)?_ab$(x.best_pnl_usd):'—');},b:'max',sec:'return'},
-          {l:'$/day',s:'$/day',v:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?g.net/(y*365.25):-1e15;}return (x.best_pnl_per_day!=null&&isFinite(+x.best_pnl_per_day))?+x.best_pnl_per_day:-1e15;},f:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?_ab$(g.net/(y*365.25)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>';}return (x.best_pnl_per_day!=null&&isFinite(+x.best_pnl_per_day))?_ab$(x.best_pnl_per_day):'—';},b:'max',sec:'return'},
+          {l:'$/day',s:'$/day',v:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?g.net/(y*365.25):-1e15;}const d=_isPerDay(x);return (d!=null)?d:-1e15;},f:x=>{if(_isGvJob(x)){const g=_runGvIs(x),y=_isYrs(x);return (g&&y>0)?_ab$(g.net/(y*365.25)):'<span style="color:var(--text5)" title="This run saved no in-sample figures.">—</span>';}const d=_isPerDay(x);return (d!=null)?_ab$(d):'—';},b:'max',sec:'return'},
           {l:'Max DD',s:'Max DD',v:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?Math.abs(+g.max_drawdown)*_mcOf(x):null;return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?Math.abs(+x.best_dd_usd):null;},f:x=>{const g=_gvIsOf(x);if(_isGvJob(x))return (g&&g.max_drawdown!=null&&isFinite(+g.max_drawdown))?_ab$(Math.abs(+g.max_drawdown)*_mcOf(x)):'—';return (x.best_dd_usd!=null&&isFinite(+x.best_dd_usd))?_ab$(Math.abs(+x.best_dd_usd)):'—';},b:'min',sec:'drawdown'},
           {l:'MAR',s:'MAR',v:x=>{var m=_runMarAnn(x);return m!=null?m:-1e15;},f:x=>{var m=_runMarAnn(x);return m!=null?m.toFixed(2):'\u2014';},b:'max',sec:'reward ÷ risk'},
           {l:'R/yr',s:'R/yr',v:x=>{var v=_runRPerYr(x);return v!=null?v:-1e15;},f:x=>{var v=_runRPerYr(x);return v!=null?v.toFixed(1):'\u2014';},b:'max',sec:'reward ÷ risk'},
@@ -38247,7 +38327,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
         //   except the old DATE RAN ordering.
         const _reSOn=(APREF.resSBasis==='ran')?'ran':'disc';
         const _reSOnNm=(_reSOn==='ran')?'DATE RAN':'DISCOVERED';
-        const _reCut=_reScopeN?(new Date(Date.now()-_reScopeN*86400000).toISOString().slice(0,10)):'';
+        const _reCut=_reScopeN?_localYmd(new Date(Date.now()-_reScopeN*86400000)):'';   // (sweep 3 #14) local day, as _reMonIso
         // W47: THE ASK. The month state itself is declared with the shared pool above (where
         //   _monRunsExtra reads it); this is only the request. The render asks, the read lands,
         //   and the read calls renderApp exactly once.
@@ -46569,7 +46649,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //     APREF (localStorage) like every other collapsible panel on this tab set.
       window._qbPanelSpec=null;   // rebuilt below where the trade list is built (new boards); none = the open trade panel has no trade left and closes (_qbSyncPanel)
       if(!window._qqqExecLoaded&&!window._qqqExecLoading)loadQqqExec();
-      else if(!window._qqqExecLoading&&Date.now()-(window._qqqExecTriedAt||0)>60000)loadQqqExec(null,true);
+      else if(!window._qqqExecLoading&&!(window._qqqExecLive&&window._qqqExecUnsub)&&Date.now()-(window._qqqExecTriedAt||0)>60000)loadQqqExec(null,true); // (sweep 3 #3) none while the live listener holds the doc
       try{loadQbAnnot();}catch(e){}
       if(!window._qqqPaperLoaded&&!window._qqqPaperLoading)loadQqqPaper();
       const QE=window._qqqExec||null;
@@ -55754,9 +55834,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const ref=await cmdRef.add({action:'nt_watchdog',payload:{enable:want},status:'queued',
             createdAt:firebase.firestore.FieldValue.serverTimestamp()});
           const t0=Date.now();
+          // (sweep 3 #11) the 60 s no-answer timer is cleared on the answer: a stale one used to fire on a LATER toggle
+          let toT=null;
           const unsub=ref.onSnapshot(d=>{
             const x=d.data()||{};
             if(x.status!=='done'&&x.status!=='error')return;
+            if(toT){clearTimeout(toT);toT=null;}
             unsub();window._wdBusy=false;
             const r=x.result||{};
             if(r.enabled!=null)window._wdForced={st:{ok:r.ok,enabled:r.enabled,state:r.state,task:r.task},at:Date.now()};
@@ -55765,7 +55848,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           });
           // The runner polls; if it is down or busy nothing ever answers, and a pill stuck
           // on '…' forever reads as a hung app rather than an unreachable PC.
-          setTimeout(()=>{if(window._wdBusy){window._wdBusy=false;
+          toT=setTimeout(()=>{toT=null;try{unsub();}catch(_){}if(window._wdBusy){window._wdBusy=false;
             alert('No answer from the PC after 60s - the runner may be down. Nothing was changed.');
             renderApp();}},60000);
         }catch(e){window._wdBusy=false;alert('could not queue the switch: '+e.message);renderApp();}
@@ -56825,7 +56908,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     </div>`;
     setTimeout(()=>{
       if(el('exp-csv'))el('exp-csv').onclick=exportCSV;
-      if(el('clr-all'))el('clr-all').onclick=async()=>{if(!confirm(`Delete ALL ${trades.length} trades? Cannot be undone.`))return;const snap=await colRef.get();const b=db.batch();snap.docs.forEach(d=>b.delete(d.ref));await b.commit();};
+      if(el('clr-all'))el('clr-all').onclick=async()=>{if(!confirm(`Delete ALL ${trades.length} trades? Cannot be undone.`))return;await _deleteAllTrades();};
     },50);
   }
 }
@@ -57014,17 +57097,22 @@ function _setPaneLog(){
 
 function _setPaneBT(){
   const AP=_aPrefs();
-  const sel=(id,opts,cur)=>`<select id="${id}">`+opts.map(o=>`<option${String(o)===String(cur)?' selected':''}>${o}</option>`).join('')+'</select>';
+  // choices = the Builder's own lists (INSTORD / TFORD); the saved value is kept even when it is not on the list.
+  //   data-init = the value shown at render, so SAVE writes only the fields the owner changed.
+  const _ea=v=>String(v==null?'':v).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/"/g,'&quot;');
+  const sel=(id,opts,cur)=>{const o2=opts.map(String);if(o2.indexOf(String(cur))<0)o2.push(String(cur));
+    return `<select id="${id}" data-init="${_ea(cur)}">`+o2.map(o=>`<option${o===String(cur)?' selected':''}>${_ea(o)}</option>`).join('')+'</select>';};
+  const _INSTORD=['ES','MES','NQ','MNQ','RTY','M2K','YM','MYM','CL','MCL','GC','MGC'],_TFORD=['1m','5m','15m','30m','1h','1d'];
   return _setCard('RUN DEFAULTS (remembered on this device)',
     _setNote('What the Builder pre-fills every new run with. Changing these never touches a run that already exists.')
     +`<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:10px">
-      <div><label class="lbl">INSTRUMENT</label>${sel('set-inst',['NQ','ES'],AP.instrument||'NQ')}</div>
-      <div><label class="lbl">SESSION</label>${sel('set-sess',['rth','eth'],AP.session||'rth')}</div>
-      <div><label class="lbl">TIMEFRAME</label>${sel('set-tf',['5m','1m'],AP.timeframe||'5m')}</div>
-      <div><label class="lbl">WORKERS</label><input id="set-work" type="number" value="${AP.workers||4}"/></div>
-      <div><label class="lbl">AI ROUNDS</label><input id="set-rounds" type="number" value="${AP.rounds||4}"/></div>
-      <div><label class="lbl">TRIALS (auto/WF)</label><input id="set-trials" type="number" value="${AP.trials||200}"/></div>
-      <div><label class="lbl">MIN TRADES</label><input id="set-mint" type="number" value="${AP.min_trades||30}"/></div>
+      <div><label class="lbl">INSTRUMENT</label>${sel('set-inst',_INSTORD,AP.instrument||'NQ')}</div>
+      <div><label class="lbl">SESSION</label>${sel('set-sess',['rth','eth'],AP.session==='eth'?'eth':'rth')}</div>
+      <div><label class="lbl">TIMEFRAME</label>${sel('set-tf',_TFORD,AP.timeframe||'5m')}</div>
+      <div><label class="lbl">WORKERS</label><input id="set-work" type="number" value="${AP.workers||4}" data-init="${AP.workers||4}"/></div>
+      <div><label class="lbl">AI ROUNDS</label><input id="set-rounds" type="number" value="${AP.rounds||4}" data-init="${AP.rounds||4}"/></div>
+      <div><label class="lbl">TRIALS (auto/WF)</label><input id="set-trials" type="number" value="${AP.trials||900}" data-init="${AP.trials||900}"/></div>
+      <div><label class="lbl">MIN TRADES</label><input id="set-mint" type="number" value="${AP.min_trades||30}" data-init="${AP.min_trades||30}"/></div>
       <div style="grid-column:span 2"><label class="lbl">AI PROVIDER</label>${sel('set-prov',['ollama','claude-cli','anthropic'],AP.provider||'ollama')}</div>
     </div>
     <button class="btn-ghost active" id="set-save" style="margin-top:12px">SAVE DEFAULTS</button><span id="set-saved" style="margin-left:10px;font-size:var(--fsxs);color:var(--green)"></span>`)
@@ -57243,10 +57331,17 @@ function _setWire(pane){
   if(pane==='bt'){
     const sv=el('set-save');
     if(sv)sv.onclick=()=>{
-      _aSave('instrument',el('set-inst').value);_aSave('session',el('set-sess').value);_aSave('timeframe',el('set-tf').value);
-      _aSave('workers',parseInt(el('set-work').value)||4);_aSave('rounds',parseInt(el('set-rounds').value)||4);
-      _aSave('trials',parseInt(el('set-trials').value)||200);_aSave('min_trades',parseInt(el('set-mint').value)||30);
-      _aSave('provider',el('set-prov').value);
+      // write ONLY the fields changed since render - an untouched box never overwrites a Builder pick
+      const ch=id=>{const e=el(id);return !!e&&String(e.value)!==String(e.getAttribute('data-init'));};
+      if(ch('set-inst'))_aSave('instrument',el('set-inst').value);
+      if(ch('set-sess'))_aSave('session',el('set-sess').value);
+      if(ch('set-tf'))_aSave('timeframe',el('set-tf').value);
+      if(ch('set-work'))_aSave('workers',parseInt(el('set-work').value)||4);
+      if(ch('set-rounds'))_aSave('rounds',parseInt(el('set-rounds').value)||4);
+      if(ch('set-trials'))_aSave('trials',parseInt(el('set-trials').value)||900);
+      if(ch('set-mint'))_aSave('min_trades',parseInt(el('set-mint').value)||30);
+      if(ch('set-prov'))_aSave('provider',el('set-prov').value);
+      ['set-inst','set-sess','set-tf','set-work','set-rounds','set-trials','set-mint','set-prov'].forEach(id=>{const e=el(id);if(e)e.setAttribute('data-init',e.value);});
       const s=el('set-saved');if(s){s.textContent='✓ saved — Builder will use these';setTimeout(()=>{if(el('set-saved'))el('set-saved').textContent='';},2000);}
     };
   }
