@@ -47,7 +47,10 @@ def make_adapter(log=print):
     rails.update({"max_shares_per_leg": 1, "max_total_position_shares": 100000,
                   "daily_loss_limit_usd": 0, "one_open_position_per_leg": True})
     cfg["rails"] = rails
-    cfg["other_book_states"] = [cfg.get("qqq_state_path") or wo.DEFAULT_STATE_PATH]
+    # every other book in the paper account: the QQQ book and the PICK6 basket (VERIFIER 11-22:
+    # add, never replace, so this adapter's reconcile skips both books' symbols)
+    cfg["other_book_states"] = [cfg.get("qqq_state_path") or wo.DEFAULT_STATE_PATH,
+                                wo.EODREV_ORDERS_STATE]
     ad = wo.OrderAdapter(config=cfg, log=log)
     mode, why = ad.effective_mode()
     if mode != wo.MODE_PAPER:
@@ -93,12 +96,62 @@ def one_order(ad, sym, side, intent, sid, qty):
     return row
 
 
-def held(ad, sym):
+def held(ad, sym, tries=3):
+    """Broker position in `sym`, retried; None only when every read failed."""
+    for i in range(tries):
+        try:
+            pos = ad.positions() or {}
+            return float(((pos.get("broker") or {}).get(sym)) or 0)
+        except Exception:                    # noqa: BLE001
+            time.sleep(1.0 + i)
+    return None
+
+
+def alert(msg):
+    """Loud: printed AND pushed to the phone (the PICK6 notify helper)."""
+    print("ALERT:", msg)
     try:
-        pos = ad.positions() or {}
-        return float(((pos.get("broker") or {}).get(sym)) or 0)
-    except Exception:                        # noqa: BLE001
-        return None
+        from api import eodrev_exec as e
+        e._notify(msg, title="LATENCY TEST")
+    except Exception as ex:                  # noqa: BLE001
+        print("push failed:", ex)
+
+
+def settle_buy(ad, row):
+    """VERIFIER must-fix 2: a BUY not FILLED inside the wait -> cancel it, then re-read the
+    filled qty (it can fill late), so the flatten never misses a late fill."""
+    if row.get("status") == "FILLED" or not row.get("coid"):
+        return int(row.get("filled") or 0)
+    try:
+        ad.cancel_order(row["sid"])
+    except Exception as e:                   # noqa: BLE001
+        row["cancel_err"] = repr(e)[:120]
+    for _ in range(12):
+        time.sleep(0.5)
+        try:
+            d = detail(ad, row["coid"])
+        except Exception:                    # noqa: BLE001
+            continue
+        row.update(d)
+        if d["status"] in ("FILLED", "CANCELLED", "CANCELED", "REJECTED", "FAILED"):
+            break
+    return int(row.get("filled") or 0)
+
+
+def flatten(ad, sym, start, stamp, rows):
+    """Sell back whatever the test added, never more. VERIFIER must-fix 3: an unreadable
+    position is retried, then alerted loudly -- never skipped silently."""
+    end = held(ad, sym)
+    if end is None:
+        alert(f"{sym} position UNREADABLE after the test -- account may not be flat, check it")
+        return
+    left = end - (start or 0)
+    if left > 0:
+        print(f"flatten: {left:g} {sym} left from the test -- selling it")
+        rows.append(one_order(ad, sym, "SELL", "CLOSE", f"LATTEST-{stamp}-F", int(left)))
+        end2 = held(ad, sym)
+        if end2 is None or end2 - (start or 0) > 0:
+            alert(f"{sym}: test flatten did not confirm flat (now {end2}) -- check the account")
 
 
 def ms(a, b):
@@ -123,24 +176,26 @@ def main():
     ad = make_adapter()
     start = held(ad, a.sym)
     if start is None:
-        raise SystemExit("latency_test: positions unreadable -- not sending")
+        alert(f"{a.sym} position unreadable before the test -- NOTHING sent")
+        raise SystemExit(1)
     rows = []
     stamp = now.strftime("%Y%m%d%H%M%S")
-    for i in range(n):
-        b = one_order(ad, a.sym, "BUY", "OPEN", f"LATTEST-{stamp}-{i}-B", 1)
-        rows.append(b)
-        q = int(b.get("filled") or 0)
-        if q <= 0:
-            print("buy did not fill -- stopping", json.dumps(b, default=str))
-            break
-        s = one_order(ad, a.sym, "SELL", "CLOSE", f"LATTEST-{stamp}-{i}-S", q)
-        rows.append(s)
-        time.sleep(1.0)
-    end = held(ad, a.sym)
-    left = (end or 0) - (start or 0)
-    if left > 0:
-        print(f"flatten: {left:g} {a.sym} left from the test -- selling it")
-        rows.append(one_order(ad, a.sym, "SELL", "CLOSE", f"LATTEST-{stamp}-F", int(left)))
+    try:                                     # VERIFIER must-fix 1: flatten runs whatever happens
+        for i in range(n):
+            b = one_order(ad, a.sym, "BUY", "OPEN", f"LATTEST-{stamp}-{i}-B", 1)
+            rows.append(b)
+            q = settle_buy(ad, b)
+            if q <= 0:
+                print("buy did not fill -- stopping", json.dumps(b, default=str))
+                break
+            s = one_order(ad, a.sym, "SELL", "CLOSE", f"LATTEST-{stamp}-{i}-S", q)
+            rows.append(s)
+            if s.get("status") != "FILLED":  # should-fix: stop after a SELL that did not fill
+                print("sell did not reach FILLED -- stopping", json.dumps(s, default=str))
+                break
+            time.sleep(1.0)
+    finally:
+        flatten(ad, a.sym, start, stamp, rows)
     print(f"{'order':28} {'ok':3} {'send->ack':>9} {'send->wb_place':>14} {'wb_place->fill':>14} "
           f"{'send->fill(wb)':>14} {'send->seen':>10} price")
     tot = []
@@ -160,6 +215,8 @@ def main():
         json.dump(rows, f, default=str, indent=1)
     end2 = held(ad, a.sym)
     print(f"position {a.sym}: start {start:g}, end {end2 if end2 is not None else '?'}")
+    if end2 is None or end2 != start:
+        alert(f"{a.sym}: position {end2} after the test, {start:g} before -- check the account")
 
 
 if __name__ == "__main__":

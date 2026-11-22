@@ -285,7 +285,8 @@ def make_adapter(p, log=print):
     rails.update({"max_shares_per_leg": 2000, "max_total_position_shares": 100000,
                   "daily_loss_limit_usd": 0, "one_open_position_per_leg": True})
     cfg["rails"] = rails
-    cfg["other_book_states"] = [cfg.get("qqq_state_path") or wo.DEFAULT_STATE_PATH]
+    cfg["other_book_states"] = [cfg.get("qqq_state_path") or wo.DEFAULT_STATE_PATH,
+                                 wo.LATTEST_ORDERS_STATE]
     ad = wo.OrderAdapter(config=cfg, log=log)
     mode, why = ad.effective_mode()
     if mode != wo.MODE_PAPER:

@@ -1156,12 +1156,16 @@ def _now_ny():
 # basket's default path below (the QQQ adapter needs no config change).
 EODREV_ORDERS_STATE = os.environ.get("EDGELOG_EODREV_ORDERS_STATE",
                                      os.path.join(EDGELOG_HOME, "eodrev", "orders_state.json"))
+# tools/latency_test.py (owner 11-21): its 1-share SPY round trips are a third "book" in the
+# same paper account -- every adapter skips what that test's own state says it sent.
+LATTEST_ORDERS_STATE = os.environ.get("EDGELOG_LATTEST_ORDERS_STATE",
+                                      os.path.join(EDGELOG_HOME, "latency_test", "orders_state.json"))
 
 
 def other_book_symbols(cfg, own_path):
     paths = (cfg or {}).get("other_book_states")
     if paths is None:
-        paths = [EODREV_ORDERS_STATE]
+        paths = [EODREV_ORDERS_STATE, LATTEST_ORDERS_STATE]
     out = set()
     own = os.path.abspath(own_path) if own_path else None
     for pth in paths or []:
