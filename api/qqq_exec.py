@@ -1743,7 +1743,11 @@ TRADE_COLS = (["leg", "entry_ts", "exit_ts", "side", "shares", "entry_px", "exit
               # overnight gaps added up (shares x (open - prior close) x side, every night)
               # and the session opens it was carried into. Inside `pnl` (the P&L of record
               # is exit - entry), kept out of the daily loss limit. "" for a same-day trade.
-              + ["overnight_gap_usd", "nights_held"])
+              + ["overnight_gap_usd", "nights_held"]
+              # STOP AT ENTRY (board 136, 2026-11-22): appended, never inserted -- the
+              # engine's stop price on the trade's ENTRY signal, "" for a leg with no
+              # fixed stop. The ledger's RISK pct sizing reads it; no stop = FIXED size.
+              + ["stop_px"])
 
 
 def _record_order(leg, action, side, shares, nq_px, qqq_px, px_source, reason, log=print,
@@ -1900,6 +1904,12 @@ def _record_trade(lot, exit_px, exit_reason, log=print):
     nights = int(hold.get("nights") or 0) if hold else 0
     row["overnight_gap_usd"] = round(float(hold.get("gap_usd") or 0.0), 2) if nights else ""
     row["nights_held"] = nights if nights else ""
+    # STOP AT ENTRY (board 136): the ENTRY signal's stop, else the resting lot's initial
+    # stop, else "" (no fixed stop -> the ledger sizes FIXED)
+    _sp = lot.get("entry_stop_px")
+    if _sp is None and isinstance(lot.get("levels"), dict):
+        _sp = lot["levels"].get("initial_stop_px")
+    row["stop_px"] = _sp if _sp is not None else ""
     _append_csv(TRADES_CSV, TRADE_COLS, row, TRADES_KEEP)
     lot["_exit_ts"] = row["exit_ts"]      # LIVE KEEL close hook: the exit stamp trades.csv holds
     return pnl
@@ -8855,6 +8865,11 @@ def _route_engine_events(state, cfg, events, entries_blocked, log=print, now=Non
                                trade_id=row_tid, entry_ref_time=str(e.get("ref_time") or ""),
                                size=e.get("size"), keel_size=e.get("keel_size"), nowdt=nowdt,
                                decided_at_ref=decided_at_ref)
+            if opened and state["legs"].get(leg) is not None:
+                # STOP AT ENTRY (board 136): carried onto the closed-trade row
+                _sp = _finite_or_none(e.get("stop_px"))
+                if _sp is not None:
+                    state["legs"][leg]["entry_stop_px"] = _sp
             if opened and leg == RESTING_LEG and e.get("stop_px") is not None \
                     and _orb_resting_mode(cfg) != "off":
                 # RESTING ORB STOP (2026-09-29): the engine's own levels ride on the lot --
@@ -16743,6 +16758,7 @@ def _build_doc(cfg, state, feed_stale, unrealized, log=print):
     # from the engine's signal ledger, joined by trade id -- see _engine_prices_by_trade.
     engine_px = _engine_prices_by_trade(log=log)
     _apply_broker_parity(trades_all, broker_by_base, engine_px=engine_px, log=log)
+    _apply_stop_px(trades_all, engine_px, log=log)
     broker_parity = _broker_parity_summary(trades_all)
 
     # BOOK-ONLY MARKING (2026-09-23, owner: "mark the book only trades" -- Webull
@@ -17001,6 +17017,32 @@ def _pack_side(s):
 
 
 _NT_ONLY_COLS = tuple(NT_PARITY_COLS) + tuple(SIZING_COLS)
+
+
+def _apply_stop_px(trades_all, engine_px, log=print):
+    """STOP AT ENTRY (board 136, 2026-11-22): every published row carries stop_px as a
+    number, or no stop_px at all. A row written before the column existed is filled from
+    the engine's ENTRY signal joined on trade_id (the same join fill parity uses). No
+    stop anywhere = the key is dropped (the ledger sizes that trade FIXED). Never raises."""
+    filled = 0
+    for t in trades_all or []:
+        try:
+            v = _f_or_none(t.get("stop_px"))
+            if v is None or not math.isfinite(v):
+                tid = str(t.get("trade_id") or "").strip()
+                ent = (((engine_px or {}).get(tid) or {}).get("ENTRY") or {}) if tid else {}
+                v = ent.get("stop_px")
+                if v is not None:
+                    filled += 1
+            if v is None:
+                t.pop("stop_px", None)
+            else:
+                t["stop_px"] = float(v)
+        except Exception:
+            t.pop("stop_px", None)
+    if filled:
+        log(f"[qqq-exec] stop_px backfilled from the engine ENTRY signal on {filled} trade rows")
+    return filled
 
 
 def _compact_published_trades(trades_all):

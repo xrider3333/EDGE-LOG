@@ -876,11 +876,23 @@ def test_off_mode_ignores_the_engine_levels_entirely(tmp_path, monkeypatch):
     for out in (a, b):
         st = json.loads(out["state.json"])
         st.pop("engine_cursor", None)
+        # board 136: the ENTRY stop is recorded as DATA (stop_px) in every mode -- it
+        # never changes an order; strip it so the order-flow comparison stays exact
+        for lot in (st.get("legs") or {}).values():
+            lot.pop("entry_stop_px", None)
         out["state.json"] = json.dumps(st, sort_keys=True)
+        out["trades.csv"] = "|".join(",".join(l.split(",")[:-1])
+                                      for l in out["trades.csv"].splitlines())
+        for d in out["docs"]:
+            for t in d.get("trades_all") or []:
+                t.pop("stop_px", None)
     for k in ("orders.csv", "trades.csv", "broker_orders.csv", "state.json",
               "adapter_state.json", "book"):
         assert _scrub(a[k]) == _scrub(b[k]), k
-    assert [_scrub_doc(d) for d in a["docs"]] == [_scrub_doc(d) for d in b["docs"]]
+    import re as _re
+    _nostop = lambda x: _re.sub(r'"(entry_)?stop_px": "?[-0-9.e]*"?(, )?', "", x)
+    assert ([_nostop(_scrub_doc(d)) for d in a["docs"]]
+            == [_nostop(_scrub_doc(d)) for d in b["docs"]])
 
 
 def test_log_only_sends_exactly_what_off_sends(tmp_path, monkeypatch):
