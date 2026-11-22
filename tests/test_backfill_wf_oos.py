@@ -1508,3 +1508,16 @@ def test_allow_off_era_writes_the_real_arm_loops_block_with_the_stamp():
     assert "before warm starts landed" in stamp["off_era"]["why"]
     assert stamp["warm_days"] == B._warm_days_now()
     assert all(r["off_era"] is True for r in stamp["matches"])
+
+
+def test_import_falls_back_when_pinned_engine_lacks_wf_oos_block(monkeypatch):
+    """run_trades_series --pin puts an old engine first on sys.path; the tool must still import."""
+    import importlib
+    import sys
+    import types
+    old = types.ModuleType("augur_engine.analytics")   # an engine from before wf_oos_block existed
+    monkeypatch.setitem(sys.modules, "augur_engine.analytics", old)
+    monkeypatch.delitem(sys.modules, "tools.backfill_wf_oos", raising=False)
+    mod = importlib.import_module("tools.backfill_wf_oos")
+    assert callable(mod.wf_oos_block) and callable(mod.bar_date_bounds)
+    monkeypatch.delitem(sys.modules, "tools.backfill_wf_oos", raising=False)

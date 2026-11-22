@@ -71,7 +71,18 @@ import time
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 if ROOT not in sys.path:
     sys.path.insert(0, ROOT)
-from augur_engine.analytics import wf_oos_block, bar_date_bounds  # noqa: E402
+try:
+    from augur_engine.analytics import wf_oos_block, bar_date_bounds  # noqa: E402
+except ImportError:
+    # run_trades_series --pin puts an OLDER engine first on sys.path (runs #304 / #382 / #398 pin
+    # commits that predate wf_oos_block). These two helpers are pure (stdlib + numpy + scipy), so
+    # take them from THIS checkout's analytics.py by file path; the pinned engine still runs the trades.
+    import importlib.util as _ilu
+    _spec = _ilu.spec_from_file_location("_today_analytics",
+                                         os.path.join(ROOT, "augur_engine", "analytics.py"))
+    _today = _ilu.module_from_spec(_spec)
+    _spec.loader.exec_module(_today)
+    wf_oos_block, bar_date_bounds = _today.wf_oos_block, _today.bar_date_bounds
 
 UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 SESSION = {"db_noadj_rth": "rth", "db_noadj_eth": "eth",      # as the other backfill tools
