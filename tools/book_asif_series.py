@@ -136,8 +136,8 @@ LEG_SPECS = {
                   "stale_fix": "re-run python tools/asif_ext_panels.py eodrev"},
     "GLDNIGHT":  {"run": 541, "note": "$100k a trade = the file's pinned notional; cost charged inside the file"},
     # ── board 142 ML legs (11-22, MANAGER GO): the raw leg + a gate block; nothing stored, nothing leaks ──
-    # fixed tilts = v12's a-priori sizes (no model); KEEL = the causal walk frozen at the as-if start, so no
-    # as-if trade ever trains the state that sizes another (paper_gate.apply_gate modes comp / keel_frozen).
+    # fixed tilts = v12's a-priori sizes (no model); KEEL = the continuous causal walk seeded from 2010 (owner 11-22:
+    # behave as live - learn from all earlier trades, keep learning as each closes; paper_gate modes comp / keel).
     "NOISE422_fixed": {"run": 422, "label": "NOISE #422 fixed tilts",
                        "note": "v12 fixed tilts, no model: compression 1.5x, Friday 1.5x, cap 3, 0.5x before FOMC",
                        "gate": {"mode": "comp", "mult": 1.5, "dow": {"4": 1.5},
@@ -147,13 +147,13 @@ LEG_SPECS = {
                        "gate": {"mode": "comp", "mult": 1.5, "dow": {"4": 1.5},
                                 "event": {"mult": 0.5, "cut_hour": 14}}},
     "NOISE422_keel":  {"run": 422, "label": "NOISE #422 KEEL",
-                       "note": "KEEL v12 seed 42, causal walk before 2026-06-01, frozen state from then on",
+                       "note": "KEEL v12 causal walk from 2010: each trade sized only from trades already closed, keeps learning (owner 11-22)",
                        "warm_from": "2010-06-07",
-                       "gate": {"mode": "keel_frozen", "freeze_from": "2026-06-01", "version": "v12", "seed": 42}},
+                       "gate": {"mode": "keel", "version": "v12"}},
     "NOISE382_keel":  {"run": 382, "label": "NOISE #382.2 KEEL",
-                       "note": "the live Webull stack: KEEL v12 seed 42, frozen at 2026-06-01",
+                       "note": "the live Webull stack: KEEL v12 causal walk from 2010, keeps learning as trades close (owner 11-22)",
                        "warm_from": "2010-06-07",
-                       "gate": {"mode": "keel_frozen", "freeze_from": "2026-06-01", "version": "v12", "seed": 42}},
+                       "gate": {"mode": "keel", "version": "v12"}},
 }
 SOURCE_MAP = {   # a run doc's source_name -> (session, registry source)
     "rth - no-adj": ("rth", "db_noadj_rth"), "eth - no-adj": ("eth", "db_noadj_eth"),
