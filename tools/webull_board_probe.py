@@ -2862,13 +2862,13 @@ MUTANTS = [
      "a scrub to the chart's last point counts a held lot's earlier days in the today line (it moves when the mouse comes in)"),
     # MANAGER #108 (2026-10-09): the DIP #424 shadow legs -- names with their run number, order by family, several open trades at once
     ('shadow-dip-name-raw',
-     "const qbShLegName=k=>{if(qbShInfo(k))return qbShInfo(k).name;",
-     "const qbShLegName=k=>{",
-     "the DIP #424 legs show their raw keys (DIP_424K, DIP_424F), not 'DIP #424 KEEL' / 'DIP #424 fixed 1.245'"),
+     "const qbShLegName=k=>{k=String(k||'');",
+     "const qbShLegName=k=>{return String(k||'');",
+     "the shadow legs show their raw keys (DIP_424K, NOISE_422_PLAIN), not 'DIP #424.1 keel' / 'NOISE #422.2 raw'"),
     ('shadow-dip-fixed-size-missing',
+     "DIP_424F:{name:'DIP #424 fixed 1.245',mode:'fixed',",
      "DIP_424F:{name:'DIP #424 fixed 1.245',",
-     "DIP_424F:{name:'DIP #424 fixed',",
-     "the fixed DIP #424 leg no longer names its size ('DIP #424 fixed', not 'DIP #424 fixed 1.245')"),
+     "the fixed DIP #424 leg loses its mode word ('DIP #424.1 raw', not 'DIP #424.1 fixed')"),
     ('shadow-family-order-lost',
      "const qbShRank=k=>/^ENGUQ/i.test(k)?0:/^NOISE/i.test(k)?1:/^DIP/i.test(k)?2:3;",
      "const qbShRank=k=>/^ENGUQ/i.test(k)?0:1;",
@@ -3499,7 +3499,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
       +"try{['books','orders','account','todayorders','feedsig','system','rails','events','model','list'].forEach(function(k){localStorage.removeItem('el_qb_fold_'+k);});}catch(e){}window._qbFolds=null;"
       // LEDGER step 12: the list's Filters row starts with nothing stored (so it is drawn closed unless the build opens it)
       +"try{localStorage.removeItem('el_lg_filters_qb');}catch(e){}"
-      +"try{localStorage.setItem('el_lg_daily_qb',window.__probeDaily?'1':'0');}catch(e){}"
+      +"try{localStorage.setItem('el_lg_bars_qb',window.__probeDaily?'1':'0');localStorage.setItem('el_lg_slines_qb',window.__probeDaily?'0':'1');}catch(e){}"
       +"try{var fo=window.__probeFoldOpen;if(fo==='all')fo=['books','orders','account','todayorders','feedsig','system','rails','events','model','list'];if(fo)fo.forEach(function(k){localStorage.setItem('el_qb_fold_'+k,'1');});}catch(e){}"
       +"window._qqqExecLive=false;window._qqqExecLiveErrorAt=window.__probeLiveErr?Date.now():null;window._qqqExecFetchedAt=window.__probeLiveErr?0:Date.now();"
       +"window._qbChartHoverActive=false;"
@@ -3555,12 +3555,14 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     r.chartH=0;
     if(csv){var cr=csv.getBoundingClientRect(),vb=(csv.getAttribute('viewBox')||'').split(/[ ,]+/).map(Number);
       r.chartH=Math.round(vb.length===4&&vb[2]>0&&vb[3]>0?vb[3]*Math.min(cr.width/vb[2],cr.height/vb[3]):cr.height);}
-    r.daily=(function(){var sv=d.querySelector('#qb-lg-chart [data-lgdaily="qb"]');if(!sv)return {svg:false};var pts=(w._qbLgChart&&w._qbLgChart.pts)||[],ds={};
-      pts.forEach(function(p){if(p&&p.date)ds[String(p.date).slice(0,10)]=1;});
-      var sw=d.querySelector('[data-lgdaymode="qb"]'),on=sw?sw.querySelector('.active,[aria-pressed="true"]'):null;
-      return {svg:true,chk:__lgDailyCheck(sv.parentNode,'lgdaily'),bars:sv.querySelectorAll('[data-lgdaily-bar]').length,line:sv.querySelectorAll('[data-lgdaily-line]').length,
-        y:sv.querySelectorAll('[data-lgdaily-y]').length,yr:sv.querySelectorAll('[data-lgdaily-yr]').length,x:sv.querySelectorAll('[data-lgdaily-x]').length,
-        days:Object.keys(ds).length,sw:!!sw,swOn:on?(on.getAttribute('data-v')||(on.textContent||'').trim()):null,curve:!!d.querySelector('#qb-lg-chart [data-lgdate]')};})();
+    // v91.91 ONE CHART: the day bars ride inside the shared chart; DAILY BARS / STRATEGY LINES are two toggles, no CURVE | DAILY switch
+    r.daily=(function(){var sv=d.querySelector('#qb-lg-chart svg');if(!sv||!sv.querySelector('[data-lgbars]'))return {svg:false,sw:!!d.querySelector('[data-lgchartopts="qb"]')};
+      var pts=(w._qbLgChart&&w._qbLgChart.pts)||[],ds={};pts.forEach(function(p){if(p&&p.date)ds[String(p.date).slice(0,10)]=1;});
+      var on=[].map.call(d.querySelectorAll('[data-lgchartopts="qb"] [data-lgopt].active'),function(x){return x.getAttribute('data-lgopt');});
+      return {svg:true,bars:sv.querySelectorAll('[data-lgdaily-bar]').length,line:sv.querySelectorAll('[data-lgtotal]').length,
+        y:sv.querySelectorAll('[data-lgtick]').length,x:sv.querySelectorAll('[data-lgdate]').length,netTicks:sv.querySelectorAll('[data-lgdaily-net]').length,
+        faint:sv.querySelectorAll('path[stroke-dasharray]').length,days:Object.keys(ds).length,sw:d.querySelectorAll('[data-lgchartopts="qb"] [data-lgopt]').length,
+        swOn:on,curveSwitch:d.querySelectorAll('[data-lgdaymode]').length};})();
     r.chartDates=csv?csv.querySelectorAll('[data-lgdate]').length:0;
     r.chartTicks=csv?csv.querySelectorAll('[data-lgtick]').length:0;
     // v91.70: the % axis (left gutter) beside the $ one - drawn only when the hero has a realized % base
@@ -4032,7 +4034,7 @@ __S11JS__
             // SHADOW SWITCHES (owner 11-18): off by default; on draws a dashed '(shadow)' line and a what-if figure, never the headline
             var shg=D().querySelector('[data-lglist="qb"] [data-lggrp="shadow"]');if(shg&&shg.getAttribute('aria-expanded')!=='true'){shg.click();await new Promise(function(r){setTimeout(r,300);});}
             var shs=[].slice.call(D().querySelectorAll('[data-lglist="qb"] [data-lgsw^="sh:"]'));out.tog.shN=shs.length;out.tog.shOnDef=shs.filter(function(x){return x.classList.contains('on');}).length;
-            var shl=function(){return [].map.call(D().querySelectorAll('#qb-lg-legend [data-lgline], .qbx-chart [data-lgline]'),function(b){return b.textContent;}).filter(function(t){return /[(]shadow[)]/.test(t);});};
+            var shl=function(){return [].map.call(D().querySelectorAll('#qb-lg-legend [data-lgline], .qbx-chart [data-lgline]'),function(b){return (b.getAttribute('data-lglegshadow')||'')!=='whatif'&&b.hasAttribute('data-lglegshadow')?b.textContent:'';}).filter(function(t){return !!t;});};   // v91.91: no '(shadow)' word - the hook
             out.tog.shLinesDef=shl().length;
             if(shs.length){var pick=null;for(var si=0;si<shs.length;si++){shs[si].click();await new Promise(function(r){setTimeout(r,300);});if(shl().length){pick=1;break;}}
               var r2=rd();out.tog.shNet=r2.net;out.tog.shLines=shl().length;var wi=D().querySelector('[data-qbshwhatif]');out.tog.shWhatIf=wi?wi.textContent.trim():null;
@@ -4047,7 +4049,7 @@ __S11JS__
             try{var vr=W();vr._qbShOn=[];vr.localStorage.setItem('el_qb_sh_on','[]');vr.localStorage.removeItem('el_lgv_view_qb');vr.renderApp();await new Promise(function(r){setTimeout(r,300);});}catch(e){}
             // BOOK AS-IF (v91.71): the shared book panel on WEBULL PAPER - book-type headers (stock first here), open by default, a replay shadow
             // switch draws a dashed line + the what-if total and never moves the headline; the switch is remembered (el_bka_on_qb)
-            try{var bw=W(),bd=D(),BK={};var LSb=bw.localStorage,dly0=LSb.getItem('el_lg_daily_qb');
+            try{var bw=W(),bd=D(),BK={};var LSb=bw.localStorage,dly0=LSb.getItem('el_lg_slines_qb');
               var cp=(bw._qbLgChart&&bw._qbLgChart.pts)||[],cds=cp.map(function(p){return p.date;}).filter(Boolean);var dA=cds[0]||'2026-10-01',dB=cds[cds.length-1]||dA;
               bw._bookLegs={books:{'463':{row:'Book #463 today',legs:[{id:'ORB314',name:'ORB314',run:'#314',instrument:'NQ'},{id:'NOISE422',name:'NOISE422',run:'#422',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'},{id:'TTIBS300',name:'TTIBS300',run:'#300',instrument:'NQ'}]},
                 'stk':{row:'stocks only',legs:[{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'},{id:'OPUS86a',name:'last-10-minutes',run:'#526',instrument:'stock basket'}]},
@@ -4091,7 +4093,7 @@ __S11JS__
               BK.s0=bs();
               if(!D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]')){var bf=D().querySelector('[data-bka="qb"] [data-bkafold="463"]');if(bf){bf.click();await new Promise(function(r){setTimeout(r,300);});}}
               var bsw=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');
-              if(bsw){bsw.click();await new Promise(function(r){setTimeout(r,300);});BK.s1=bs();BK.stored=LSb.getItem('el_bka_on_qb');BK.daily=LSb.getItem('el_lg_daily_qb');
+              if(bsw){bsw.click();await new Promise(function(r){setTimeout(r,300);});BK.s1=bs();BK.stored=LSb.getItem('el_bka_on_qb');BK.daily=LSb.getItem('el_lg_slines_qb');
                 var _ve=function(){var x=D().querySelector('[data-lgvbar="qb"]');return x?x.getAttribute('data-lgveff'):null;};BK.eff1=_ve();
                 var lvq=D().querySelector('[data-lgvbar="qb"] [data-lgvview="live"]');
                 if(lvq){lvq.click();await new Promise(function(r){setTimeout(r,300);});BK.s1L=bs();BK.eff1L=_ve();
@@ -4109,17 +4111,17 @@ __S11JS__
                 var bsw2=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');if(bsw2){bsw2.click();await new Promise(function(r){setTimeout(r,300);});}BK.s2=bs();}
               bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');LSb.removeItem('el_bka_panel_qb');
               if(vwb0==null)LSb.removeItem('el_lgv_view_qb');else LSb.setItem('el_lgv_view_qb',vwb0);
-              if(dly0==null)LSb.removeItem('el_lg_daily_qb');else LSb.setItem('el_lg_daily_qb',dly0);
+              if(dly0==null)LSb.removeItem('el_lg_slines_qb');else LSb.setItem('el_lg_slines_qb',dly0);
               delete bw._bookLegs;delete bw._bookAsif;bw.renderApp();
               out.tog.bka=BK;
             }catch(e){out.tog.bka={threw:String(e&&e.stack?e.stack:e)};}
             // v91.81 LEDGER VIEWS on WEBULL PAPER: LIVE | WHAT-IF (hero, tiles, chart, calendar), stacked DAILY bars, FIXED | RISK 1 %
-            try{var vw=W(),LSv=vw.localStorage,LV={},dly2=LSv.getItem('el_lg_daily_qb'),shOn0=LSv.getItem('el_qb_sh_on'),shW0=vw._qbShOn;
+            try{var vw=W(),LSv=vw.localStorage,LV={},dly2=LSv.getItem('el_lg_bars_qb'),shOn0=LSv.getItem('el_qb_sh_on'),shW0=vw._qbShOn;
               var wt=function(){return new Promise(function(r){setTimeout(r,300);});};
               var cp2=(vw._qbLgChart&&vw._qbLgChart.pts)||[],cds2=cp2.map(function(p){return p.date;}).filter(Boolean);var eA=cds2[0]||'2026-10-01',eB=cds2[cds2.length-1]||eA;
               vw._bookLegs={books:{'stk':{row:'stocks only',legs:[{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'}]}}};
               vw._bookAsif={generated_at:'2026-11-22T21:10:00Z',data_end:eB,legs:{PICK6:{name:'PICK6 stocks',kind:'stock',src:'replay',d:[eA,eB],p:[300,-100],n:[1,1],data_end:eB,params_run:511}}};
-              LSv.removeItem('el_lgv_view_qb');LSv.removeItem('el_lgv_size_qb');vw._qbShOn=[];LSv.setItem('el_qb_sh_on','[]');vw._bkaOn_qb=[];LSv.removeItem('el_bka_on_qb');LSv.setItem('el_lg_daily_qb','0');
+              LSv.removeItem('el_lgv_view_qb');LSv.removeItem('el_lgv_size_qb');vw._qbShOn=[];LSv.setItem('el_qb_sh_on','[]');vw._bkaOn_qb=[];LSv.removeItem('el_bka_on_qb');LSv.setItem('el_lg_bars_qb','0');
               var cc=function(c){var e=D().createElement('span');e.style.color=c;D().body.appendChild(e);var v=W().getComputedStyle(e).color;e.remove();return v;};
               var hv=function(){var d=D(),x=d.querySelector('[data-lgvbar="qb"]'),wb=x?x.querySelector('[data-lgvview="whatif"]'):null,c=W()._qbLgChart;
                 return {big:(d.getElementById('qb-hero-value')||{}).textContent,range:(d.getElementById('qb-hero-range')||{}).textContent,eff:x?x.getAttribute('data-lgveff'):null,
@@ -4130,11 +4132,11 @@ __S11JS__
               vw._bkaOn_qb=['PICK6'];LSv.setItem('el_bka_on_qb','["PICK6"]');vw.renderApp();await wt();LV.b=hv();
               var wb=D().querySelector('[data-lgvboard="qb"][data-lgvview="whatif"]');
               if(wb&&!wb.disabled){wb.click();await wt();LV.c=hv();LV.stored=LSv.getItem('el_lgv_view_qb');
-                LSv.setItem('el_lg_daily_qb','1');vw.renderApp();await wt();
+                LSv.setItem('el_lg_bars_qb','1');vw.renderApp();await wt();
                 var cm={};((W()._qbLgChart||{}).comps||[]).forEach(function(c){cm[c.k]=cc(c.color);});
                 LV.stack=[].map.call(D().querySelectorAll('#qb-lg-chart [data-lgdaily-stack]'),function(g){return {d:g.getAttribute('data-lgdaily-stack'),net:parseFloat(g.getAttribute('data-net')),
                   segs:[].map.call(g.querySelectorAll('[data-lgdaily-seg]'),function(r){var k=r.getAttribute('data-lgdaily-seg');return [k,parseFloat(r.getAttribute('data-v')),W().getComputedStyle(r).fill,cm[k]||null];})};});
-                LSv.setItem('el_lg_daily_qb','0');vw.renderApp();await wt();}
+                LSv.setItem('el_lg_bars_qb','0');vw.renderApp();await wt();}
               var lb=D().querySelector('[data-lgvboard="qb"][data-lgvview="live"]');if(lb){lb.click();await wt();}LV.d=hv();
               var rb=D().querySelector('[data-lgvboard="qb"][data-lgvsize="r1"]');if(rb){rb.click();await wt();LV.e=hv();var Z=W()._lgvQb;
                 var zsum=function(Z){var u=0,f=0;Object.keys(Z.by).forEach(function(k){u+=Z.by[k].usd;f+=Z.by[k].fx;});return {usd:Math.round(u*100)/100,fx:Math.round(f*100)/100};};
@@ -4158,7 +4160,7 @@ __S11JS__
               var fb2=D().querySelector('[data-lgvboard="qb"][data-lgvsize="fixed"]');if(fb2){fb2.click();await wt();}LV.f=hv();
               LSv.removeItem('el_lgv_view_qb');LSv.removeItem('el_lgv_size_qb');vw._bkaOn_qb=[];LSv.removeItem('el_bka_on_qb');
               if(shOn0==null)LSv.removeItem('el_qb_sh_on');else LSv.setItem('el_qb_sh_on',shOn0);vw._qbShOn=shW0;
-              if(dly2==null)LSv.removeItem('el_lg_daily_qb');else LSv.setItem('el_lg_daily_qb',dly2);
+              if(dly2==null)LSv.removeItem('el_lg_bars_qb');else LSv.setItem('el_lg_bars_qb',dly2);
               delete vw._bookLegs;delete vw._bookAsif;vw.renderApp();await wt();
               out.tog.lgv=LV;
             }catch(e){out.tog.lgv={threw:String(e&&e.stack?e.stack:e)};}
@@ -5756,18 +5758,20 @@ SHADOW_CAPPED = 12                                    # a block whose box droppe
 SHADOW_ERROR = 'shadow ledger not found'              # api/qqq_exec.py's error form: the block is there, with no legs and no trades
 # MANAGER #108: the DIP #424 legs carry no variant word in their keys, so the board names them (index.html QB_SH_LEGS), and their hover
 # says how the strategy trades (one trade per dip mechanism, decided on a daily close, entered at the next session's 09:30 open)
-SHADOW_LEG_NAMES = {'DIP_424K': 'DIP #424 KEEL', 'DIP_424F': 'DIP #424 fixed 1.245'}
+# v91.91 ONE LABEL (owner 11-22): FAMILY #RUN.CFG MODE, the set from PAPER_LEG_PARAMS (DIP_424F's mode word is QB_SH_LEGS's 'fixed')
+SHADOW_LEG_NAMES = {'DIP_424K': 'DIP #424.1 keel', 'DIP_424F': 'DIP #424.1 fixed', 'ENGUQ_335': 'ENGU-Q #335.0 raw',
+                    'NOISE_422_PLAIN': 'NOISE #422.2 raw', 'NOISE_422_FIXED': 'NOISE #422.2 fixed', 'NOISE_422_KEEL': 'NOISE #422.2 keel'}
 SHADOW_DIP_NOTE = ('Seven long-only dip mechanisms, each decided on a daily close and entered at the next session\u2019s 09:30 open '
                    '(the backtest\u2019s fill), so up to 7 of its trades can be open at once.')
 SHADOW_LEG_NOTES = {'DIP_424K': SHADOW_DIP_NOTE + ' Each trade is sized by KEEL v12.',
                     'DIP_424F': SHADOW_DIP_NOTE + ' Every trade is 1.245\u00d7 (KEEL\u2019s average size over #424\u2019s walk-forward trades).'}
 # the fixture block's rows, in the fold's order (by family: ENGU-Q, NOISE, DIP; the box's order inside one), and the DIP legs' open lines
-SHADOW_ROW_ORDER = ['ENGU-Q #335', 'NOISE #422 plain', 'NOISE #422 fixed', 'NOISE #422 KEEL']   # DIP #424 retired 11-16: its rows left the fold
-SHADOW_DIP_OPEN = {'DIP #424 KEEL': '3 open, long since 10-01 · +$196.53 at 751.73',
-                   'DIP #424 fixed 1.245': '3 open, long since 10-01 · +$259.34 at 751.73'}
+SHADOW_ROW_ORDER = ['ENGU-Q #335.0 raw', 'NOISE #422.2 raw', 'NOISE #422.2 fixed', 'NOISE #422.2 keel']   # DIP #424 retired 11-16: its rows left the fold
+SHADOW_DIP_OPEN = {'DIP #424.1 keel': '3 open, long since 10-01 · +$196.53 at 751.73',
+                   'DIP #424.1 fixed': '3 open, long since 10-01 · +$259.34 at 751.73'}
 # a block whose box lists DIP first and NOISE out of its usual order: the fold still reads ENGU-Q, NOISE, DIP (the box's order inside each)
 SHADOW_LEGS_DIP_FIRST = ['DIP_424F', 'DIP_424K', 'NOISE_422_KEEL', 'NOISE_422_PLAIN', 'NOISE_422_FIXED', 'ENGUQ_335']
-SHADOW_ROW_ORDER_DIP_FIRST = ['ENGU-Q #335', 'NOISE #422 KEEL', 'NOISE #422 plain', 'NOISE #422 fixed']
+SHADOW_ROW_ORDER_DIP_FIRST = ['ENGU-Q #335.0 raw', 'NOISE #422.2 keel', 'NOISE #422.2 raw', 'NOISE #422.2 fixed']
 _SHADOW_BLOCK = {}
 
 
@@ -5834,16 +5838,16 @@ def _ny_wall(s):
 
 
 def shadow_leg_name(k):
-    """index.html qbShLegName: 'ENGUQ_335' -> 'ENGU-Q #335', 'NOISE_422_KEEL' -> 'NOISE #422 KEEL', 'NOISE_422_PLAIN' -> 'NOISE #422 plain',
-    'DIP_424K' -> 'DIP #424 KEEL', 'DIP_424F' -> 'DIP #424 fixed 1.245' (SHADOW_LEG_NAMES)."""
+    """index.html qbShLegName (v91.91 ONE LABEL): 'ENGUQ_335' -> 'ENGU-Q #335.0 raw', 'NOISE_422_KEEL' -> 'NOISE #422.2 keel',
+    'DIP_424F' -> 'DIP #424.1 fixed' (SHADOW_LEG_NAMES); a key with no recorded set -> 'FAMILY #N set ? mode'."""
     if str(k or '') in SHADOW_LEG_NAMES:
         return SHADOW_LEG_NAMES[str(k)]
     m = re.match(r'^([A-Za-z]+)_(\d+)(?:_(\w+))?$', str(k or ''))
     if not m:
         return str(k) if k not in (None, '') else '—'
-    v = m.group(3) or ''
-    v = 'KEEL' if v.upper() == 'KEEL' else v.lower().replace('_', ' ')
-    return FAMILY.get(m.group(1).upper(), m.group(1).upper()) + ' #' + m.group(2) + (' ' + v if v else '')
+    v = (m.group(3) or '').lower()
+    mode = next((w for w in ('hybrid', 'keel', 'tilt', 'gate', 'fixed') if w in v), 'raw')
+    return FAMILY.get(m.group(1).upper(), m.group(1).upper()) + ' #' + m.group(2) + ' set ? ' + mode
 
 
 def _shadow_block_trades(doc):
@@ -5914,13 +5918,17 @@ BOOK_LEGS_FIX = {'basis': 'probe fixture', 'books': {
     '463_nogold': {'row': 'Book #463 today, no gold', 'label': 'no gold - estimate', 'provisional': False, 'usd_per_year': 121156,
                    'max_dd_pct': 37.4, 'legs': [{'id': 'ENGUQ335', 'name': 'ENGU-Q', 'run': '#335', 'size': '1 NQ', 'usd_per_year': 35450},
                                                 {'id': 'ORB234', 'name': 'ORB', 'run': '#234', 'size': '1 NQ', 'usd_per_year': 30000}]},
-    '30_prov': {'row': '30 provisional', 'label': 'estimate, probe', 'provisional': True, 'usd_per_year': 98765.4,
+    '30_prov_nogold': {'row': '30 provisional no gold', 'label': 'estimate, probe', 'provisional': True, 'usd_per_year': 98765.4,
                 'old_champion_usd_per_year': 140142, 'roc30': 97.1, 'sortino': 4.51, 'max_dd_pct': 31.2, 'max_dd_ex2020_pct': 24.6,
                 'usd_per_year_2016_20': 68870, 'usd_per_year_2021_25': 173344,
                 'legs': [{'id': 'ORB314', 'name': 'ORB', 'run': '#314', 'size': '1 NQ', 'nq_contracts': 1.0, 'share_pct': 40.5,
                           'usd_per_year': 40000, 'status': 'stitched'},
                          {'id': 'NOISE382', 'name': 'NOISE', 'run': '#382', 'status': 'stitched'},
-                         {'id': 'GLDNIGHT', 'name': 'GLD night', 'run': '', 'size': '100 sh', 'usd_per_year': 5000, 'status': 'fixed rule'}]}}}
+                         {'id': 'OPUS86a', 'name': 'last-10-minutes stock trade', 'run': '', 'size': '$100k a side', 'usd_per_year': 5000, 'status': 'fixed rule'}]},
+    # v91.91: a gold book (a '_nogold' twin exists) - the page must leave it out
+    '30_prov': {'row': '30 provisional', 'label': 'estimate, probe, WITH GOLD', 'provisional': True, 'usd_per_year': 1,
+                'legs': [{'id': 'ORB314', 'name': 'ORB', 'run': '#314'}, {'id': 'NOISE382', 'name': 'NOISE', 'run': '#382'},
+                         {'id': 'GLDNIGHT', 'name': 'GLD night', 'run': '', 'size': '100 sh'}]}}}
 BOOK_HEAD_WANT = ['Book 30 provisional', 'estimate', '$98,765/yr', 'was $140,142', 'max DD 31.2%', 'ex-2020 24.6%', 'ROC30 97.1',
                   'Sortino 4.51', '2016-20 $68,870', '2021-25 $173,344']
 BOOK_NAMES_RETIRED = ['ORB #314', 'NOISE #382']   # the BOOK rows while ENGU-Q is retired (the page's default) and holds no position
@@ -6637,7 +6645,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             fails.append('%s: the book head is wider than its box (%s > %s px)' % (tag, bh.get('sw'), bh.get('cw')))
         if ret:
             miss = [w for w in BOOK_HEAD_WANT if w not in txt]
-            if bh.get('key') != '30_prov' or not bh.get('est') or not bh.get('was') or miss:
+            if bh.get('key') != '30_prov_nogold' or not bh.get('est') or not bh.get('was') or miss:
                 fails.append('%s: the book head reads %r (book %r, estimate tag %s, was struck %s), missing %r'
                              % (tag, txt, bh.get('key'), bh.get('est'), bh.get('was'), miss))
         elif not txt.startswith('Live: ') or not bh.get('none') or bh.get('key'):   # v91.75: one quiet line 'Live: ORB #314 + NOISE #382'
@@ -6810,7 +6818,9 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                          'moved the list off the account number)' % (tag, signed(round(sum(counted), 2)), signed(want_tot)))
     if shadow:
         srows = [x for x in sh.get('rows') or [] if x.get('key') != RETIRED_KEY]
-        sn = [(x.get('name'), x.get('value')) for x in srows]
+        # v91.91: a row the doc names with its set + mode is read whole (the readout's name is plain); an older-path row by family + run
+        sn = [((x.get('label') or x.get('name')) if (i < len(shadow) and shadow[i]['name'] != _plain(shadow[i]['name'])) else x.get('name'),
+               x.get('value')) for i, x in enumerate(srows)]
         want_sn = [(e['name'], e['value']) for e in shadow]
         if sn != want_sn:
             fails.append('%s: the Shadow rows are %r, the doc says %r (one row per shadow leg, ENGU-Q #335 first, then the box\'s order; '
@@ -6823,7 +6833,7 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
                 if (x.get('tag') == SEED_TAG) != e['seed'] or (x.get('seed') == SEED_TAG) != e['seed']:
                     fails.append("%s: the Shadow row %s carries the tag %r, want %s" % (tag, nm, x.get('tag'), repr(SEED_TAG) if e['seed'] else 'none'))
                 tip = x.get('tip') or ''
-                if not tip.startswith(nm + ': a shadow leg.') or 'never counted' not in tip:
+                if not tip.startswith(_plain(nm) + ': a shadow leg.') or 'never counted' not in tip:
                     fails.append('%s: the Shadow row %s hover reads %r (want it named, a shadow leg, never counted)' % (tag, nm, _first(tip, 160)))
                 if e['live'] and e['live'] not in tip:
                     fails.append('%s: the Shadow row %s hover does not say %r (it says %r)' % (tag, nm, e['live'], _first(tip, 400)))
@@ -7072,7 +7082,7 @@ def _judge_shadow_block(tag, r, sc_, doc, got_st, fails):
                 if b.get('capped') else None)
     if sh and sc_['folds'] and ((want_cap and want_cap not in note) or (not want_cap and 'older ones were left out' in note)):
         fails.append('%s: the Shadow fold note reads %r; the block says %d older trades were left out' % (tag, note, b.get('capped') or 0))
-    if not any(t.get('seeded') for t in b.get('trades') or []) or not rows or rows[0]['name'] != SHADOW_FIRST \
+    if not any(t.get('seeded') for t in b.get('trades') or []) or not rows or _plain(rows[0]['name']) != SHADOW_FIRST \
             or not rows[0]['live'] or (b.get('legs') or [None])[0] == 'ENGUQ_335':
         fails.append("%s: the probe's own case is wrong: its block has no seeded ENGU-Q trade, no live twin for it, or already lists ENGU-Q "
                      "first (legs %r)" % (tag, b.get('legs')))
@@ -8932,22 +8942,25 @@ def _judge(data, fixture):
     else:
         dr = dd.get('daily') or {}
         want_days = len(set(d for d in (_close_day(t) for t in fixture.get('trades_all') or [] if not _is_shadow(t)) if d))
-        if not dr.get('sw'):
-            fails.append('DAILY default: the DAILY | CURVE switch [data-lgdaymode="qb"] is not on the page')
+        # v91.91 ONE CHART (owner GO 11-22): with nothing stored, the shared chart = the total line + one stacked bar a close day,
+        # no strategy lines, no day-net tick; the toggles read DAILY BARS on, STRATEGY LINES off, and there is no CURVE | DAILY switch
+        if dr.get('sw') != 2 or dr.get('curveSwitch'):
+            fails.append('DAILY default: the chart toggles read %s buttons (want DAILY BARS + STRATEGY LINES) and %s CURVE | DAILY switches (want none)'
+                         % (dr.get('sw'), dr.get('curveSwitch')))
         if not dr.get('svg'):
-            fails.append('DAILY default: with nothing stored the chart is not the daily chart ([data-lgdaily="qb"] svg missing; curve drawn %s)' % dr.get('curve'))
+            fails.append('DAILY default: with nothing stored the chart draws no day bars')
         else:
+            if dr.get('swOn') != ['bars']:
+                fails.append('DAILY default: the toggles on are %r, want DAILY BARS only' % (dr.get('swOn'),))
             if not dr.get('bars') or dr.get('bars') != dr.get('days') or dr.get('days') != want_days:
                 fails.append('DAILY default: %s bars, the chart holds %s close days, the fixture has %s close days (all three must agree)'
                              % (dr.get('bars'), dr.get('days'), want_days))
             if dr.get('line') != 1:
-                fails.append('DAILY default: want one running-total line [data-lgdaily-line], found %s' % dr.get('line'))
-            if (dr.get('y') or 0) < 1 or (dr.get('yr') or 0) < 1 or (dr.get('x') or 0) < 2:
-                fails.append('DAILY default: labels left %s, right %s, dates %s (want 1+, 1+, 2+)' % (dr.get('y'), dr.get('yr'), dr.get('x')))
-            if dr.get('curve'):
-                fails.append('DAILY default: the curve chart is drawn as well as the daily chart')
-            # owner 11-21: the daily chart fills its card, its readout sits above the plot and clears on leave, titles clear the ticks
-            judge_daily('DAILY default', dr.get('chk'), fails)
+                fails.append('DAILY default: want one running-total line [data-lgtotal], found %s' % dr.get('line'))
+            if (dr.get('y') or 0) < 1 or (dr.get('x') or 0) < 2:
+                fails.append('DAILY default: $ labels %s, dates %s (want 1+, 2+)' % (dr.get('y'), dr.get('x')))
+            if dr.get('netTicks') or dr.get('faint'):
+                fails.append('DAILY default: %s day-net ticks and %s strategy lines drawn by default, want none' % (dr.get('netTicks'), dr.get('faint')))
     for nm, cfg in CASES:
         r = cases.get(nm)
         if r is None:
@@ -9197,8 +9210,9 @@ def _judge(data, fixture):
                     fails.append('book as-if run: the OPUS55a row does not show ~10 QQQ sh with the conversion rule in its hover (%r, rule in hover %r)' % (b1.get('qsh'), b1.get('qtip')))
                 if not str(b1.get('nq') or '').startswith('nodata|no QQQ|no QQQ conversion: probe: no QQQ close'):
                     fails.append('book as-if run: a leg with no QQQ series does not say why (%r)' % (b1.get('nq'),))
-                if 'OPUS55a' not in (bka.get('stored') or '') or bka.get('daily') != '0':
-                    fails.append('book as-if run: the switch is not remembered or the chart did not move to CURVE (%r, %r)' % (bka.get('stored'), bka.get('daily')))
+                # v91.91: one chart - a shadow switch leaves the STRATEGY LINES toggle as seeded (on)
+                if 'OPUS55a' not in (bka.get('stored') or '') or bka.get('daily') != '1':
+                    fails.append('book as-if run: the switch is not remembered or it changed the STRATEGY LINES toggle (%r, %r)' % (bka.get('stored'), bka.get('daily')))
                 if b2.get('sh') or (b2.get('wi') or None) != (b0.get('wi') or None):
                     fails.append('book as-if run: switching OPUS55a off did not put the chart back (%r, what-if %r -> %r)' % (b2.get('sh'), b0.get('wi'), b2.get('wi')))
                 # v91.79 WHAT-IF COLOURS + KPI COMPARE
@@ -9644,12 +9658,12 @@ def _dip_problems(tag, r, ex, fails):
                          % (tag, tp, want['top_max']))
     if want.get('shadow'):
         sh = [x for gg in groups if gg.get('key') == 'shadow' for x in gg.get('rows') or [] if x.get('key') != RETIRED_KEY]
-        if [x.get('name') for x in sh] != SHADOW_ROW_ORDER:
+        if [x.get('label') or x.get('name') for x in sh] != SHADOW_ROW_ORDER:
             fails.append('%s: the Shadow fold reads %r, want %r (the DIP #424 shadows unchanged beside the live leg)'
-                         % (tag, [x.get('name') for x in sh], SHADOW_ROW_ORDER))
+                         % (tag, [x.get('label') or x.get('name') for x in sh], SHADOW_ROW_ORDER))
         for x in sh:
-            if x.get('name') in SHADOW_DIP_OPEN and x.get('open') != SHADOW_DIP_OPEN[x['name']]:
-                fails.append("%s: the Shadow fold's %s row reads %r, want %r" % (tag, x['name'], x.get('open'), SHADOW_DIP_OPEN[x['name']]))
+            if x.get('label') in SHADOW_DIP_OPEN and x.get('open') != SHADOW_DIP_OPEN[x['label']]:
+                fails.append("%s: the Shadow fold's %s row reads %r, want %r" % (tag, x['label'], x.get('open'), SHADOW_DIP_OPEN[x['label']]))
         if [gg.get('key') for gg in groups][:2] != ['book', 'shadow']:
             fails.append('%s: the strategy list groups are %r, want LIVE, SHADOW (then retired)' % (tag, [gg.get('key') for gg in groups]))
 

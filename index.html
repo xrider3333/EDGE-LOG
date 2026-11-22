@@ -1600,8 +1600,9 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-list.lg-list-row1[data-lglist] .lg-row{grid-template-columns:minmax(0,1fr) auto auto;grid-template-areas:none;gap:0 8px;padding:7px 4px;min-height:34px;align-items:center;cursor:pointer}
 .lg-list.lg-list-row1[data-lglist] .lg-row>:first-child{grid-column:auto;min-width:0}
 .lg-list.lg-list-row1[data-lglist] .lg-row>.lg-row-more,.lg-list.lg-list-row1[data-lglist] .lg-row>span:empty:not(.lg-sw){display:none}
-.lg-list.lg-list-row1[data-lglist] .lg-row-name{grid-column:auto;display:block;min-width:0;font-size:11px;line-height:1.3;letter-spacing:0;white-space:nowrap!important;overflow:hidden;text-overflow:ellipsis!important}
-.lg-list.lg-list-row1[data-lglist] .lg-row-name *{white-space:nowrap!important}
+/* v91.91 ONE LABEL: 'ENGU-Q #335.0 raw' + a tag can outgrow the column - the label wraps, it is never cut (owner 11-08) */
+.lg-list.lg-list-row1[data-lglist] .lg-row-name{grid-column:auto;display:block;min-width:0;font-size:11px;line-height:1.3;letter-spacing:0;white-space:normal!important;overflow:visible;text-overflow:clip!important;overflow-wrap:break-word}
+.lg-list.lg-list-row1[data-lglist] .lg-row-name *{white-space:normal!important}
 .lg-list.lg-list-row1[data-lglist] .lg-row-name i{margin-right:6px}
 .lg-list.lg-list-row1[data-lglist] .lg-row-name .lg-row-tag{display:inline;margin-left:5px;font-size:9.5px}
 .lg-list.lg-list-row1[data-lglist] .lg-row-name .qbx-lg-pill{font-size:8.5px;padding:0 4px;margin-left:5px!important}
@@ -1616,7 +1617,8 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
    remembered what-if switch is outlined while the board is LIVE. Text 1-2 px smaller (never under 10 px), rows tighter. TRADE TABLE:
    10 px cells, tighter rows. Books as-if: smaller, closed by default. */
 .lg-grp-lbl{font-size:9.5px;letter-spacing:1.2px;text-transform:uppercase;color:var(--text5);padding:6px 4px 1px}
-.lg-list.lg-list-row1[data-lglist] .lg-rset,.lg-list.lg-list-row1[data-lglist] .qbx-vrt{display:none}
+/* v91.91 ONE LABEL: the set digits (.lg-rset) and the mode word (.qbx-vrt) are part of the name again - FAMILY #RUN.CFG MODE */
+.lg-list.lg-list-row1[data-lglist] .qbx-vrt{color:inherit;opacity:.8}
 .lg-list.lg-list-row1[data-lglist] .qbx-runlink{color:inherit;text-decoration:none;border-bottom:0}
 .lg-list.lg-list-row1[data-lglist] .lg-row{padding:4px 4px;min-height:28px;gap:0 6px}
 .lg-list.lg-list-row1[data-lglist] .lg-row-name{font-size:10.5px}
@@ -2134,7 +2136,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.98';
+const VERSION='91.99';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2155,6 +2157,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.99',date:'2026-11-22',notes:['ONE LABEL on NT8 PAPER and WEBULL PAPER (owner 11-22): every strategy and config name reads FAMILY #RUN.CFG MODE, for example ORB #314.22 raw, NOISE #382.2 keel, in the sidebar (LIVE, SHADOW, retired), the Books as-if legs, the chart legend, the what-if KPI headers and the day bar hovers. The set number and the mode word are visible again; the run number is printed once; size stays in the hover. A book leg is a raw replay of its run champion, so it reads the champion set (NOISE422 = NOISE #422.2 raw, ORB546 = ORB #546.94 raw, NOISE398 = NOISE #528.1 raw, the #528 PASS pick it replays); a run with no known set reads champ','ONE CHART on both boards (owner GO 11-22): the CURVE and DAILY switch is gone. The running total line is always drawn; DAILY BARS (stacked by strategy colour, on by default) and STRATEGY LINES (the per-config lines, off by default) are two toggles remembered per board. The white day-net tick across each stacked bar is gone. Hover, legend and the % axis stay','NO GOLD BOOKS (owner 11-22): the Books as-if panel lists only the no-gold books, named without the words no gold (Book 20, Book 25 provisional, Book #463 today); tools/book_legs_publish.py leaves the gold books out at the source and the page drops them from an older doc too','BOOKS PANEL fixes (MANAGER): in LIVE a book row total no longer adds remembered shadow legs, so no what-if dollars show in LIVE; under RISK pct sizing the shadow leg dollars and the what-if total read the sized days, the same figures as the chart and the KPI table; a shadow leg with no trades in the range shows an em dash, not $0.','AUDIT SWEEP 2 (owner GO 11-22). TRADING LOG AI ASSESSMENT reads the weekday at local noon so a trade no longer lands on the day before; AI WEEK / MONTH cut from the New York date and MONTH is now the last 30 days, as its label says. SETTINGS no longer wipes what you are typing: a background redraw skips the overlay while a field has focus or unsaved edits, and otherwise redraws only the pane body (IMPORT / EXPORT only its live panel). Below 600px the settings menu is a strip above the pane. ABOUT caches its history list. BUILDER lockbox cut and the lockbox test prompt do their date maths in UTC. Books card ROC hover now reads ROC pct a year sized so the worst drawdown is 30k. Retired family names (NQDIP, TTMSQZ, ENGUQ) no longer reach STUDIES dot hovers, study titles, the paper pointer list or the RUNBOARD research plane. Account balances total reads ALL ACCOUNTS. Dead second ETFDIP family entry removed.']},
 {v:'91.96',date:'2026-11-22',notes:['BOOKS: the three board 142 ML research legs (NOISE 422 fixed tilts, NOISE 422 KEEL, NOISE 382 fixed tilts) are classified SHADOW, no order path.']},
 {v:'91.94',date:'2026-11-22',notes:['LEDGER BUG FIXES (board 144). ROC at 30k is ONE formula everywhere (ledgerRoc30: 30 x MAR, MAR = yearly net over max DD, years = calendar days of the SELECTED range / 365.25) in More stats and the what-if KPI table, which divided by a flat 30,000. The KPI table LIVE column takes max DD and Sortino from the same ledgerStats as the tiles. Sharpe and Sortino count weekdays with no trade in the range as 0 days, in the tiles and the KPI table. RESULTS WF P and L panel retries a read error on redraw and on sign-in, and re-reads once a minute after BUILD DAILY SERIES. PAST RUNS max DD prints positive. WEBULL PAPER range pills keep their own saved range (el_qb_range) and no longer move REAL. RESULTS sizing note names the run rule (median losing trade per contract after cost for a no-stop trade) and says the ledgers keep no-stop trades fixed. Calendar: a 0 dollar day or week is drawn flat, not green. REAL: hover percent counts deposits the same way as the headline at the range start; running balances walk in close order and skip a missing P and L; chart series, calendar and today net skip a missing figure (B5). REAL trade list draws 150 rows with SHOW MORE. NT8 RISK sizing reads dollars per point from the instrument (ES 50, NQ 20, YM 5, RTY 50, MNQ 2, MES 5), warning once and using 20 when unknown.']},
 {v:'91.92',date:'2026-11-22',notes:['UI round from board 145 (owner GO 11-22). PAST RUNS: the default list is RUN, date, strategy, market, the four walk-forward numbers (WF ROC at 30k DD = 30 x WF MAR, WF DD5 and WF DD pct off the saved WF curve or the engine figure, WF Sortino) and the verdict; trades, mode, timeframe, the whole-run net / drawdown / MAR / PF / Sharpe / win rate, score, run time, source, range and days fold behind MORE COLUMNS, remembered per viewer. A run with no checked WF test shows a dash.','LEDGER NT8 / WEBULL: with SIZING on RISK pct the LIVE chip reads LIVE - sized (simulated) and the hero, tiles and calendar carry the dashed what-if accent with a simulated tag; FIXED LIVE is unchanged.','RESULTS run report: the WALK-FORWARD P&L header carries its date window, the sizing table ROC at 30K row reads in pct, and the CURVE x axis reads Mar 24 style months. What-if KPI header prints its range dates and N shadows on.']},
@@ -4374,6 +4377,23 @@ window.cfgIdText=function(o){
   const v=String(o.variant==null?'':o.variant).trim();
   return ((o.hash===false?'':'#')+run+(cell!=null?('.'+cell):'')+(v?(' '+v):'')+(L?(' '+L):'')).trim();
 };
+// v91.91 ONE LABEL (owner 11-22, LEDGER NT8 PAPER + WEBULL PAPER): every strategy / config name reads FAMILY #RUN.CFG MODE
+//   ('ORB #314.22 raw', 'NOISE #382.2 keel'). FAMILY = the owner vocabulary (never a file name or a book-table id); .CFG = the set
+//   number inside the run (PAPER_LEG_PARAMS, the run report's 1E table rank by in-sample net); MODE = raw / gate / tilt / hybrid / keel
+//   (plus the page's fixed / comp words). The run number is printed once. Size never rides in the label (hover only).
+window.ledgerFamWord=function(s){const u=String(s==null?'':s).toUpperCase().replace(/\.PY$/,'');
+  const R=[[/ENGUD[-_ ]?Q/,'ENGUD-Q'],[/ENGU[-_ ]?Q/,'ENGU-Q'],[/EODREV|PICK6/,'PICK6'],[/CBU[-_ ]?Q|CBD[-_ ]?Q|EBU[-_ ]?Q/,'CBU-Q'],[/TTIBS/,'TTIBS'],
+    [/TTM/,'TTM'],[/NOISE/,'NOISE'],[/ORB|OPENING/,'ORB'],[/DIP/,'DIP'],[/GAPGO/,'GAPGO'],[/^MISC|OPUS|GLDNIGHT|^GOLD/,'MISC'],[/ENGU/,'ENGU'],
+    [/SUPERTREND/,'SUPERTREND'],[/REVERT/,'REVERT'],[/VWAP/,'VWAP'],[/RSIDIV/,'RSIDIV'],[/OVERNIGHT/,'OVERNIGHT'],[/EMAPB/,'EMAPB'],[/REPLAY/,'REPLAY'],[/RFML/,'RFML'],[/^BOOK/,'BOOK']];
+  for(const r of R)if(r[0].test(u))return r[1];
+  const w=u.split(/[^A-Z0-9-]+/).filter(Boolean)[0];return w||'?';};
+window.ledgerModeWord=function(variant,txt){const v=String(variant==null?'':variant).trim().toLowerCase();
+  if(/^(raw|gate|tilt|hybrid|keel|fixed|comp)$/.test(v))return v;
+  const t=String(txt==null?'':txt);
+  return /hybrid/i.test(t)?'hybrid':/keel/i.test(t)?'keel':/\btilt\b/i.test(t)?'tilt':/\bgate\b/i.test(t)?'gate':/\bfixed\b/i.test(t)?'fixed':(v||'raw');};
+// none = what stands for .CFG when the run's set number is not known (' set ?' for a paper leg, ' champ' for a book leg's champion)
+window.ledgerCfgLabel=function(fam,run,cell,mode,none){run=String(run==null?'':run).replace(/^#/,'');
+  return String(fam||'?')+(run?(' #'+run+((cell!=null&&cell!=='')?('.'+cell):(none==null?' set ?':none))):'')+(mode?(' '+mode):'');};
 // THE RUN'S SET NUMBER, where the run records one. Only api/paper_leg_params.py knows it (it
 //   is a rank over the whole saved grid by in-sample net, and the page never loads that grid),
 //   so this reads the same constant the LEDGER reads - PAPER_LEG_PARAMS - and returns null for
@@ -4835,13 +4855,34 @@ function ledgerTradePanelClose(id,why){
 }
 // owner 11-17: the DAILY view on the PAPER boards - one bar per close day (left axis, DAY) and the running total (right axis, TOTAL),
 // built from the board's own daily curve points {v,date}; green / red fill split at $0 and a hover readout, the same drawing REAL uses
-function _lgDailyOn(id){try{const v=localStorage.getItem('el_lg_daily_'+id);return v==null?true:v==='1';}catch(e){return true;}}
-function ledgerDailyModeHtml(id){const on=_lgDailyOn(id);
-  return '<div class="hm-mode lg-daymode" data-lgdaymodebox="'+id+'"><button type="button" data-lgdaymode="'+id+'" data-v="1" class="'+(on?'active':'')+'" title="one bar per day plus the running total">DAILY</button>'
-    +'<button type="button" data-lgdaymode="'+id+'" data-v="0" class="'+(on?'':'active')+'" title="the curve">CURVE</button></div>';}
-document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-lgdaymode]');if(!b)return;
-  try{localStorage.setItem('el_lg_daily_'+b.getAttribute('data-lgdaymode'),b.getAttribute('data-v'));}catch(x){}
+// v91.91 CHART MERGE (owner GO 11-22, NT8 PAPER + WEBULL PAPER): ONE chart - the running total line always, DAILY BARS (stacked by
+//   strategy colour) a toggle ON by default, STRATEGY LINES (the per-config P&L lines) a toggle OFF by default; the CURVE | DAILY switch
+//   is gone. Both remembered per board (el_lg_bars_<id>, el_lg_slines_<id>). REAL keeps its own daily chart.
+function _lgPrefOn(k,dflt){try{const v=localStorage.getItem(k);return v==null?dflt:v==='1';}catch(e){return dflt;}}
+function _lgBarsOn(id){return _lgPrefOn('el_lg_bars_'+id,true);}
+function _lgSLinesOn(id){return _lgPrefOn('el_lg_slines_'+id,false);}
+function ledgerChartOptsHtml(id){const b=_lgBarsOn(id),l=_lgSLinesOn(id);
+  return '<div class="hm-mode lg-chartopts" data-lgchartopts="'+id+'">'
+    +'<button type="button" data-lgopt="bars" data-lgoptid="'+id+'" aria-pressed="'+b+'" class="'+(b?'active':'')+'" title="one stacked bar per day, split by strategy in its line colour">DAILY BARS</button>'
+    +'<button type="button" data-lgopt="slines" data-lgoptid="'+id+'" aria-pressed="'+l+'" class="'+(l?'active':'')+'" title="each strategy own running P&amp;L line">STRATEGY LINES</button></div>';}
+document.addEventListener('click',e=>{const b=e.target&&e.target.closest&&e.target.closest('[data-lgopt]');if(!b)return;
+  const id=b.getAttribute('data-lgoptid'),k=b.getAttribute('data-lgopt')==='bars'?('el_lg_bars_'+id):('el_lg_slines_'+id);
+  const now=b.getAttribute('data-lgopt')==='bars'?_lgBarsOn(id):_lgSLinesOn(id);
+  try{localStorage.setItem(k,now?'0':'1');}catch(x){}
   if(typeof renderApp==='function')renderApp();});
+// the stacked day bars of a curve: pts = the chart points {v, date} (pts[0] = the range start), comps = [{k, name, color, vals}] aligned
+// with pts, each a running $ - each close day's change split into every comp's own change that day; what they do not explain (an open
+// lot's mark, rounding) is one grey 'other' piece, so the pieces add up to the day. [{d, i (the day's last point), net, segs}]
+function _lgDayBarsOf(pts,comps){
+  const lastI={},ord=[];(pts||[]).forEach((p,i)=>{const d=p&&p.date?String(p.date).slice(0,10):null;if(!d)return;if(!(d in lastI))ord.push(d);lastI[d]=i;});
+  const days=ord.sort();if(!days.length)return [];
+  const cs=(comps||[]).filter(x=>x&&Array.isArray(x.vals));let pv=+pts[0].v||0,pi=0;const out=[];
+  days.forEach(d=>{const li=lastI[d],net=Math.round(((+pts[li].v||0)-pv)*100)/100,segs=[];let sm=0;
+    cs.forEach(x=>{const v=Math.round(((+x.vals[li]||0)-(+x.vals[pi]||0))*100)/100;if(Math.abs(v)<0.005)return;
+      segs.push({k:String(x.k||x.bka||x.name||''),name:String(x.name||''),color:x.color||'var(--text4)',v:v});sm+=v;});
+    if(cs.length){const res=Math.round((net-sm)*100)/100;if(Math.abs(res)>=0.01)segs.push({k:'other',name:'other (open mark, rounding)',color:'var(--text5)',v:res});}
+    out.push({d:d,i:li,net:net,segs:segs});pv=+pts[li].v||0;pi=li;});
+  return out;}
 // owner 11-21 (LEDGER chart fixes, every daily chart - REAL, NT8 PAPER, WEBULL PAPER - draws HERE):
 //  1. the svg is drawn at the box's own pixel width with its own height (it was viewBox + meet under a fixed CSS height, which
 //     letterboxed the plot into the middle of the card); each side keeps just the room its widest tick label needs, and a resize redraws
@@ -4908,7 +4949,7 @@ function ledgerDailyChart(wrapEl,pts,o){
         bars+='<g data-'+A+'-stack="'+d+'" data-'+A+'-bar="1" data-net="'+v+'">';
         stk[d].forEach(s=>{const a=s.v>0?up:dn,b=a+s.v;if(s.v>0)up=b;else dn=b;const y1=Math.min(y(a),y(b)),hh=Math.max(0.8,Math.abs(y(a)-y(b)));
           bars+='<rect x="'+x.toFixed(1)+'" y="'+y1.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" style="fill:'+s.color+'" opacity="0.9" data-'+A+'-seg="'+String(s.k).replace(/"/g,'')+'" data-v="'+s.v+'"><title>'+dl(d)+': '+String(s.name).replace(/</g,'&lt;')+' '+ledgerSigned(s.v)+'</title></rect>';});
-        bars+='<line x1="'+(x-2).toFixed(1)+'" x2="'+(x+bw+2).toFixed(1)+'" y1="'+y(v).toFixed(1)+'" y2="'+y(v).toFixed(1)+'" style="stroke:var(--text)" stroke-width="2" data-'+A+'-net="'+v+'"><title>'+dl(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></line></g>';
+        bars+='</g>';   // v91.91 (owner 11-22): no day-net tick across the stack any more
         line+=(i?'L':'M')+cx(i).toFixed(1)+' '+yc(cum[i]).toFixed(1);return;}
       bars+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+h.toFixed(1)+'" rx="1.5" fill="'+(v>=0?G:R)+'" opacity="0.85" data-'+A+'-bar="1"><title>'+dl(d)+': '+ledgerSigned(v)+' day, '+ledgerSigned(cum[i])+' total</title></rect>';
       line+=(i?'L':'M')+cx(i).toFixed(1)+' '+yc(cum[i]).toFixed(1);});
@@ -5064,9 +5105,13 @@ function ledgerChartRender(wrap,o){
     const W=Math.max(240,Math.round(wrap.clientWidth||600)),H=o.height||(W<600?((o.phoneH&&(window.innerWidth||0)<=600)?o.phoneH:200):260);
     wrap._lgW=W;
     const pts=o.pts&&o.pts.length?o.pts:[{v:0,date:null}],n=pts.length;
-    const lines=(o.lines||[]).filter(l=>l.on!==false);
+    // v91.91: o.stratLines === false hides every per-strategy line (the what-if total and a switched-on shadow / as-if leg stay); o.dailyBars draws the stacked day bars
+    const lines=(o.lines||[]).filter(l=>l.on!==false&&(o.stratLines!==false||l.whatif||l.shadow));
+    const DB=o.dailyBars?_lgDayBarsOf(pts,o.comps):[];
     let lo=Infinity,hi=-Infinity;
     pts.forEach(p=>{if(p.v<lo)lo=p.v;if(p.v>hi)hi=p.v;});
+    DB.forEach(b=>{let up=0,dn=0;if(b.segs.length)b.segs.forEach(x=>{if(x.v>0)up+=x.v;else dn+=x.v;});else{if(b.net>0)up=b.net;else dn=b.net;}
+      b.up=up;b.dn=dn;if(dn<lo)lo=dn;if(up>hi)hi=up;if(0<lo)lo=0;if(0>hi)hi=0;});
     // B9: vals is walked by the pts index, so it is a PAIRED ARRAY - bands, marks and refs are already
     // length-guarded (if(b.i>=n)return) and vals was not. A line longer than pts used to widen the y range
     // with values that have no date and draw past the plot; a shorter one just stops. Both loops guard now.
@@ -5110,6 +5155,19 @@ function ledgerChartRender(wrap,o){
       h+='<line data-lgref="1" x1="'+x0.toFixed(1)+'" x2="'+(L+pw)+'" y1="'+yy+'" y2="'+yy+'" style="stroke:var(--text3)" stroke-width="1.2" stroke-dasharray="6 4">'
         +(r.title?'<title>'+esc(r.title)+'</title>':'')+'</line>'
         +(r.label?'<text data-lgreflbl="1" x="'+(lEnd?L+pw-3:x0+3).toFixed(1)+'" y="'+(r.pin==='top'?+yy+10:+yy-4)+'"'+(lEnd?' text-anchor="end"':'')+' font-size="9" style="fill:var(--text4)" font-family="JetBrains Mono, monospace">'+esc(r.label)+'</text>':'');});
+    // v91.91 DAILY BARS: one stacked bar per close day at that day's last point, on the $ axis from $0 (gains up, losses down), each piece
+    // in its strategy's line colour; a day with no comps is one green / red bar. No day-net tick across the bar.
+    if(DB.length){const xs=DB.map(b=>X(b.i));let gap=pw*0.5;for(let k=1;k<xs.length;k++)gap=Math.min(gap,xs[k]-xs[k-1]);
+      const bw=Math.max(2,Math.min(28,gap*0.7)),y0=Y(0),dl=d=>{try{return _hmFmtDateLong(d);}catch(e){return d;}};
+      h+='<g data-lgbars="'+DB.length+'">';
+      DB.forEach((b,k)=>{const x=Math.max(L,Math.min(L+pw-bw,xs[k]-bw/2));
+        if(b.segs.length){let up=0,dn=0;h+='<g data-lgdaily-stack="'+b.d+'" data-lgdaily-bar="1" data-net="'+b.net+'">';
+          b.segs.forEach(sg=>{const a=sg.v>0?up:dn,e=a+sg.v;if(sg.v>0)up=e;else dn=e;const y1=Math.min(Y(a),Y(e)),hh=Math.max(0.8,Math.abs(Y(a)-Y(e)));
+            h+='<rect x="'+x.toFixed(1)+'" y="'+y1.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" style="fill:'+sg.color+'" opacity="0.85" data-lgdaily-seg="'+esc(sg.k)+'" data-v="'+sg.v+'"><title>'+esc(dl(b.d)+': '+sg.name+' '+ledgerSigned(sg.v)+' (day '+ledgerSigned(b.net)+')')+'</title></rect>';});
+          h+='</g>';return;}
+        const yy=Math.min(Y(b.net),y0),hh=Math.max(1,Math.abs(Y(b.net)-y0));
+        h+='<rect x="'+x.toFixed(1)+'" y="'+yy.toFixed(1)+'" width="'+bw.toFixed(1)+'" height="'+hh.toFixed(1)+'" rx="1.5" fill="'+(b.net>=0?'#1d9e75':'#e24b4a')+'" opacity="0.8" data-lgdaily-bar="1" data-net="'+b.net+'"><title>'+esc(dl(b.d)+': '+ledgerSigned(b.net)+' day')+'</title></rect>';});
+      h+='</g>';}
     // each faint line also gets its own dash, so the lines stay apart under MONO where every colour turns grey
     lines.forEach(l=>{let d='',pen=false;(l.vals||[]).forEach((v,i)=>{if(i>=n||v==null){pen=false;return;}d+=(pen?'L':'M')+X(i).toFixed(1)+','+Y(v).toFixed(1);pen=true;});
       // v91.79: a line may carry its own width / opacity (the what-if shadow legs and the heavier what-if total); data-lgshadow marks them
@@ -5118,8 +5176,8 @@ function ledgerChartRender(wrap,o){
       h+='<line data-lgmark="1" x1="'+xx+'" x2="'+xx+'" y1="'+T+'" y2="'+(T+ph)+'" style="stroke:var(--text4)" stroke-width="1" stroke-dasharray="2 3"/>'
         +'<text x="'+(+xx+3)+'" y="'+(T-3)+'" font-size="8" style="fill:var(--text4);paint-order:stroke;stroke:var(--bg);stroke-width:3px" font-family="JetBrains Mono, monospace" data-lgmarklbl="1">'+esc(m.label||'')+'</text>';});
     const line=pts.map((p,i)=>X(i).toFixed(1)+','+Y(p.v).toFixed(1)).join(' ');
-    h+='<polygon points="'+X(0).toFixed(1)+','+(T+ph)+' '+line+' '+X(n-1).toFixed(1)+','+(T+ph)+'" fill="url(#'+gid+')"/>'
-      +'<polyline points="'+line+'" fill="none" style="stroke:'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round"/>'
+    h+=(DB.length?'':'<polygon points="'+X(0).toFixed(1)+','+(T+ph)+' '+line+' '+X(n-1).toFixed(1)+','+(T+ph)+'" fill="url(#'+gid+')"/>')
+      +'<polyline points="'+line+'" fill="none" style="stroke:'+col+'" stroke-width="1.6" stroke-linejoin="round" stroke-linecap="round" data-lgtotal="1"/>'
       +'<circle cx="'+X(n-1).toFixed(1)+'" cy="'+Y(pts[n-1].v).toFixed(1)+'" r="3.5" style="fill:'+col+'"/>';
     // dates along the bottom: evenly spread, about 110 px apart; the year shows when the range crosses one
     const dated=pts.map((p,i)=>p.date?i:-1).filter(i=>i>=0);
@@ -5134,17 +5192,31 @@ function ledgerChartRender(wrap,o){
     // paper tabs (owner 10-31): the legend sits on the range pills' line under the chart, in a slot the board names (o.legendInto)
     const le=o.legendInto?(typeof o.legendInto==='string'?(wrap.closest('[data-lgframe]')||document).querySelector(o.legendInto):o.legendInto):null;
     if(le)le.innerHTML=lg;else h+=lg;
+    // v91.91: with DAILY BARS on, the hover also reads the day out in a strip above the plot (never over the bars): the date, the day,
+    // the total and each strategy's piece of the day in its colour - the same readout the old DAILY chart had
+    if(DB.length)h='<div class="lg-daily-strip" data-lgdaily-strip="1"><div class="hm-daily-tip" data-lgdaily-tip="1" hidden></div></div>'+h;
     if(o.bands&&o.bands.length){const on=ledgerCavOn();h+='<button type="button" class="lg-cav-tgl'+(on?' on':'')+'" data-lgcav="1" aria-pressed="'+on+'" title="show or hide the hatched data-caveat days ('+o.bands.length+')">'+(on?'hide':'show')+' caveats</button>';}
     wrap.innerHTML=h;
     const cv=wrap.querySelector('[data-lgcav]');if(cv)cv.onclick=ev=>{ev.stopPropagation();ledgerCavSet(!ledgerCavOn());draw();};
-    const sv=wrap.querySelector('svg'),xl=sv.querySelector('[data-lgx]'),dot=sv.querySelector('[data-lgdot]');
+    const sv=wrap.querySelector('svg'),xl=sv.querySelector('[data-lgx]'),dot=sv.querySelector('[data-lgdot]'),dtip=wrap.querySelector('[data-lgdaily-tip]');
+    if(dtip)wrap.style.position='relative';
+    const dayAt={};DB.forEach(b=>{for(let k=0;k<n;k++)if(pts[k]&&pts[k].date&&String(pts[k].date).slice(0,10)===b.d)dayAt[k]=b;});
+    const dtipShow=i=>{if(!dtip)return;const b=dayAt[i];if(!b){dtip.hidden=true;dtip.innerHTML='';return;}
+      let dlab=b.d;try{dlab=_hmFmtDateLong(b.d);}catch(e){}
+      dtip.innerHTML='<b>'+esc(dlab)+'</b><span class="'+ledgerCls(b.net)+'">day '+ledgerSigned(b.net)+'</span><span class="'+ledgerCls(pts[i].v)+'">total '+ledgerSigned(pts[i].v)+'</span>'
+        +b.segs.map(sg=>'<span data-lgdaily-tipseg="'+esc(sg.k)+'" style="color:'+sg.color+'">'+esc(sg.name)+' '+ledgerSigned(sg.v)+'</span>').join('')
+        +(o.tipNote?'<span data-lgdaily-tipnote="1" style="color:var(--text5)">'+esc(o.tipNote)+'</span>':'');
+      dtip.hidden=false;const r=sv.getBoundingClientRect(),px=X(i)*(r.width||W)/W,sw=dtip.parentNode.clientWidth||r.width;
+      dtip.style.left=Math.max(0,Math.min(sw-dtip.offsetWidth,px-dtip.offsetWidth/2))+'px';};
     let held=false;
     const at=ev=>{const r=sv.getBoundingClientRect();const fx=(ev.clientX-r.left)*(W/(r.width||W));
       return Math.max(0,Math.min(n-1,Math.round(n<=1?0:((fx-L)/pw)*(n-1))));};
     const show=i=>{const xx=X(i).toFixed(1);xl.setAttribute('x1',xx);xl.setAttribute('x2',xx);xl.setAttribute('visibility','visible');
       dot.setAttribute('cx',xx);dot.setAttribute('cy',Y(pts[i].v).toFixed(1));dot.setAttribute('visibility','visible');
+      dtipShow(i);
       if(o.onScrub)o.onScrub(i,pts[i]);};
-    const hide=()=>{held=false;xl.setAttribute('visibility','hidden');dot.setAttribute('visibility','hidden');if(o.onLeave)o.onLeave();};
+    const hide=()=>{held=false;xl.setAttribute('visibility','hidden');dot.setAttribute('visibility','hidden');if(dtip){dtip.hidden=true;dtip.innerHTML='';}if(o.onLeave)o.onLeave();};
+    if(dtip){sv.addEventListener('mousemove',ev=>{if(!ev.pointerType)show(at(ev));});sv.addEventListener('mouseleave',hide);}
     sv.addEventListener('pointerdown',ev=>{held=true;try{sv.setPointerCapture(ev.pointerId);}catch(_e){}show(at(ev));});
     sv.addEventListener('pointermove',ev=>{if(ev.pointerType==='mouse'||held)show(at(ev));});
     sv.addEventListener('pointerup',ev=>{if(ev.pointerType!=='mouse')hide();else held=false;});
@@ -7061,7 +7133,7 @@ function subscribeAll(uid){
   // never writes this doc, so it survives every strategies re-sync.
   unsubSP=metaRef.doc('strategyPrefs').onSnapshot(d=>{metaStratPrefs=d.data()||{};if(activeTab==='augur'&&augurSub==='lib')renderApp();});
   if(unsubMM)unsubMM();
-  unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='exec2'))renderApp();else if(document.getElementById('set-overlay'))openSettings();});
+  unsubMM=metaRef.doc('masters').onSnapshot(d=>{const x=d.data();metaMasters=(x&&x.list)||[];metaPull=(x&&x.status)||{};if(activeTab==='augur'&&(augurSub==='lib'||augurSub==='exec2'))renderApp();else if(document.getElementById('set-overlay'))_setLiveRefresh();});
   if(unsubNT)unsubNT();
   // TABS-NAV COLLAPSE: the NT sync badge (ntReconBadge) now also shows on HOME, so a sync
   //   update redraws HOME too; with the page on any other tab it refreshes the gear's
@@ -7877,8 +7949,14 @@ function booksOrderedKeys(B){
   const keys=[];if(!B||!B.books||typeof B.books!=='object')return keys;
   ['463','20','25','30','35','35_cons','40','50'].forEach(b=>['_nogold','','_prov_nogold','_prov','_provisional'].forEach(x=>{const k=b+x;if(B.books[k]&&keys.indexOf(k)<0)keys.push(k);}));
   Object.keys(B.books).forEach(k=>{if(keys.indexOf(k)<0)keys.push(k);});
-  return keys;
+  // v91.91 (owner 11-22): NO GOLD BOOKS - the owner will not use them. A book with a '<key>_nogold' twin, or one holding a gold leg, is
+  //   dropped; tools/book_legs_publish.py already leaves them out, this keeps an older doc that still lists them tolerable
+  return keys.filter(k=>!booksIsGold(B,k));
 }
+const BOOKS_GOLD_LEGS={GLDNIGHT:1};
+function booksIsGold(B,k){const b=B&&B.books&&B.books[k];if(!b||/_nogold$/.test(k))return false;
+  if(B.books[k+'_nogold'])return true;
+  return (Array.isArray(b.legs)?b.legs:[]).some(l=>l&&(BOOKS_GOLD_LEGS[String(l.id||'')]||/\bGLD\b/i.test(String(l.instrument||''))));}
 // BOOK sidebar (board 113): the book table's book whose QQQ-executor legs are exactly the board's live legs (liveKeys: 'ORB', 'NOISE', ...),
 // in booksOrderedKeys order (no-gold first, provisional last). null when no book in the table is that mix - the head then says so.
 function booksActiveBook(B,liveKeys){
@@ -7901,7 +7979,8 @@ function booksLegFor(B,act,fam){
 // a figure or nothing: never 'undefined', 'NaN' or a made-up 0 for a missing field
 function booksNum(v){if(v==null||v===''||typeof v==='boolean')return null;const n=+v;return isFinite(n)?n:null;}
 function booksUsd(v){const n=booksNum(v);return n==null?'':((n<0?'-$':'$')+Math.round(Math.abs(n)).toLocaleString('en-US'));}
-function booksBookName(b,k){const r=String((b&&b.row)||k||'').trim();return /book/i.test(r)?r:('Book '+r);}
+// v91.91: only the no-gold books are left, so 'no gold' leaves their names ('20 no gold' -> 'Book 20')
+function booksBookName(b,k){const r=String((b&&b.row)||String(k||'').replace(/_nogold$/,'').replace(/_/g,' ')||'').replace(/,?\s*no gold\b.*$/i,'').trim();return /book/i.test(r)?r:('Book '+r);}
 // ── BOOK AS-IF (owner 11-21: 'put the book configs on the ledger shadow! divided by book type. i want to toggle them!', v91.71) ──
 // ONE renderer for NT8 PAPER and WEBULL PAPER. Every book in the book table (window._bookLegs, meta/book_legs) is a dropdown of its
 // legs; the books sit under a header per TYPE, read from their legs' instruments (all futures / all stocks / futures + stocks).
@@ -7921,6 +8000,21 @@ function bkaOn(board){const k='_bkaOn_'+board;if(!Array.isArray(window[k])){cons
 function bkaOpenBooks(board,dflt){const k='_bkaOpen_'+board;if(!Array.isArray(window[k])){const a=_bkaLs('el_bka_open_'+board,null);window[k]=Array.isArray(a)?a:(dflt?[dflt]:[]);}return window[k];}
 function bkaPanelOpen(board){const v=_bkaLs('el_bka_panel_'+board,0);return v===1||v===true;}   // v91.89: closed by default
 function bkaLeg(id){const D=window._bookAsif;return (D&&D.legs&&D.legs[id])||null;}
+// v91.91 ONE LABEL for a book leg: FAMILY #RUN.CFG raw. A book leg is a raw replay of a run's CHAMPION (meta/book_asif params_from
+//   'champion of run #N', params_run N - NOISE398 replays #528's champion), so .CFG = the champion's set number: where the champion's
+//   values sort in that run's saved grid by in-sample net, the same rule api/paper_leg_params.py uses (tools/check_paper_leg_params.py
+//   derive(), read off the run docs 11-22). 0 = the run stored no champion and the file's own (only) config is replayed. A run not in
+//   the table reads '#N champ'. BKA_PARAMS_RUN mirrors tools/book_asif_series.py LEG_SPECS for when the as-if doc is not loaded yet.
+const BKA_CHAMP_CELL={234:1,257:1,300:2,304:99,314:22,335:4,369:1,382:2,398:2,406:3,421:1,422:2,511:31,518:12,524:5,526:1,528:1,541:0,543:0,546:94,547:70};
+const BKA_PARAMS_RUN={ENGUQ335:335,ENGUQ407:407,NOISE422:422,ORB234:234,TTMx3:369,NOISE406:406,NOISE304:304,NOISE398:528,NOISE382:382,ORB546:546,ORB314:314,
+  ORB421:421,ORB257:257,TTIBS300:300,OPUS55a:524,OPUS107a:518,OPUS58c:543,OPUS58c_h:543,OPUS86a:526,PICK6:511,GLDNIGHT:541};
+function bkaLegCfg(id){id=String(id==null?'':id);const L=bkaLeg(id);
+  const run=(L&&L.params_run!=null&&L.params_run!=='')?String(L.params_run):(BKA_PARAMS_RUN[id]!=null?String(BKA_PARAMS_RUN[id]):((/(\d+)/.exec(id)||[])[1]||''));
+  const cell=(run&&BKA_CHAMP_CELL[run]!=null)?BKA_CHAMP_CELL[run]:null;
+  const fam=window.ledgerFamWord((L&&L.strategy)||id);
+  const g=L&&L.gate;const mode=g?window.ledgerModeWord(g.mode||g.kind||'gate','gate'):'raw';
+  return {fam:fam,run:run,cell:cell,mode:mode,label:window.ledgerCfgLabel(fam,run,cell,mode,' champ')};}
+function bkaLegLabel(id){try{return bkaLegCfg(id).label;}catch(e){return String(id);}}
 // WEBULL PAPER in QQQ (v91.74, owner 11-21: 'webull ledger should have the conversion for its ledger'): on the qb board a futures leg
 // reads its qqq block (tools/book_asif_series.py: each trade as the Webull box would trade it, in QQQ shares - the box's fixed lot,
 // gross NQ points x QQQ/NQ that day, less the box's slippage both sides). Stock legs stay in dollars; NT8 keeps the NQ dollars.
@@ -7943,8 +8037,7 @@ function bkaSetOn(board,ids,on){const S=bkaOn(board).slice();
   window['_bkaOn_'+board]=S;_bkaLsSet('el_bka_on_'+board,S);
   try{lgvAfterToggle(lgvBoardOf(board),!!on);}catch(e){}
   if(on){
-    // shadow lines draw on the CURVE view, so switching one on moves the chart there (DAILY is one bar per day, no lines)
-    try{localStorage.setItem('el_lg_daily_'+(board==='nt8'?'p2':'qb'),'0');}catch(e){}
+    // v91.91: one chart now (the shadow's pieces ride in the WHAT-IF day bars; STRATEGY LINES draws its line) - no view to move to
     const miss=ids.filter(id=>{const L=bkaLeg(id);return !L||(!Array.isArray(L.d)&&!L.reason);});if(miss.length)bkaRequest(miss);}}
 // the as-if doc, live: meta/book_asif (and meta/book_legs, which NT8 PAPER did not read before)
 function bkaEnsure(){try{
@@ -7967,7 +8060,7 @@ function bkaChartLines(board,from,dates,totalVals,skip,extra){
   const out=[],sums=dates.map(()=>0),seen={};let any=false;
   bkaOnA(board).forEach(id=>{if(seen[id]||(skip&&skip(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(!L||!Array.isArray(L.d))return;
     const vals=bkaCum(L,from,dates);any=true;vals.forEach((v,i)=>{sums[i]+=v;});
-    out.push(Object.assign({name:(L.name||id)+' as-if',bka:id,vals:vals},bkaLineStyle(id)));});
+    out.push(Object.assign({name:bkaLegLabel(id),bka:id,vals:vals},bkaLineStyle(id)));});
   (extra||[]).forEach(l=>{any=true;(l.vals||[]).forEach((v,i)=>{if(i<sums.length)sums[i]+=(+v||0);});});
   if(any)out.push(Object.assign({name:'what-if total',whatif:true,vals:dates.map((_,i)=>Math.round(((+totalVals[i]||0)+sums[i])*100)/100)},BKA_WHATIF_STYLE));
   return out;}
@@ -8044,7 +8137,7 @@ function bkaTodayNY(){try{return new Date().toLocaleDateString('en-CA',{timeZone
 function bkaKpiSpec(board,ctx,live,base,baseWord,fwd){if(!ctx)return null;
   const sh=[],seen={};
   bkaOnA(board).forEach(id=>{if(seen[id]||(ctx.live&&ctx.live(id))||(ctx.fwd&&ctx.fwd(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(!L||!Array.isArray(L.d))return;
-    sh.push({id:id,name:(L.name||id),days:bkaDaysOf(L,ctx.from||null,null)});});
+    sh.push({id:id,name:bkaLegLabel(id),days:bkaDaysOf(L,ctx.from||null,null)});});
   (fwd||[]).forEach(f=>{const fid=bkaUniverse().find(id=>{const x=ctx.fwd&&ctx.fwd(id);return x&&x.key==='sh:'+f.key;})||f.key;
     sh.push({id:fid,name:f.name,days:f.days,perTrade:f.perTrade});});
   return {board:board,base:base,baseWord:baseWord,from:ctx.from||null,to:bkaTodayNY(),live:live||{days:{},perTrade:null},shadows:sh};}
@@ -8095,6 +8188,12 @@ function bkaKpiTableHtml(spec){
       +esc(spec.sizing.word)+': '+spec.sizing.riskN+' risk-sized, '+spec.sizing.fixN+' fixed (no stop)</span>':'')+'</div>'
     +'<div class="bka-kpi-scroll"><table class="bka-ktab"><thead>'+head+'</thead><tbody>'+body+'</tbody></table></div></div>';}
 // the switched-on shadow legs' as-if sum in a range (the panel head and the hero what-if); skip as above
+// v91.92 (E2): under a RISK % the chart and the KPI table read each shadow leg's SIZED days (lgvScaleShadows, kept per board in
+// window._lgvShQbSized / _lgvShP2Sized); the Books panel reads the same days so one screen shows one number per leg. null = not sized.
+function bkaSizedOf(board){const S=board==='qb'?window._lgvShQbSized:window._lgvShP2Sized;return Array.isArray(S)?S:null;}
+function bkaSizedNet(board,id,from,to){const S=bkaSizedOf(board);if(!S)return null;const x=S.find(q=>q&&String(q.id)===String(id));if(!x)return null;
+  let net=0,n=0;Object.keys(x.days||{}).forEach(d=>{if((from&&d<from)||(to&&d>to))return;net+=+x.days[d].p||0;n+=+x.days[d].n||0;});
+  return {net:Math.round(net*100)/100,n:n};}
 function bkaOnSum(board,from,to,skip){let s=0;const seen={};bkaOnA(board).forEach(id=>{if(seen[id]||(skip&&skip(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(L&&Array.isArray(L.d))s+=bkaSum(L,from,to).net;});return Math.round(s*100)/100;}
 // ── LEDGER VIEWS (v91.81, owner 11-22, NT8 PAPER + WEBULL PAPER) ─────────────────────────────────────────────────────────────────────
 // VIEW   LIVE | WHAT-IF. LIVE = the account: only the strategies the platform trades (the page as it was). WHAT-IF = LIVE + every shadow leg
@@ -8170,7 +8269,7 @@ function lgvScaleShadows(shadows,liveByDay,o){o=o||{};liveByDay=liveByDay||{};
 function lgvShadowLegs(board,from,to,skip,extra){const out=[],seen={};
   bkaOn(board).forEach(id=>{if(seen[id]||(skip&&skip(id)))return;seen[id]=1;const L=bkaLegB(board,id);if(!L||!Array.isArray(L.d))return;
     const sr=(board==='qb'&&L._q)?L._q.stop_risk_usd:L.stop_risk_usd;
-    out.push({id:id,name:(L.name||id)+' as-if',style:bkaLineStyle(id),days:bkaDaysOf(L,from||null,to||null),stopRisk:(sr!=null&&isFinite(+sr)&&+sr>0)?+sr:null});});
+    out.push({id:id,name:bkaLegLabel(id),style:bkaLineStyle(id),days:bkaDaysOf(L,from||null,to||null),stopRisk:(sr!=null&&isFinite(+sr)&&+sr>0)?+sr:null});});
   (extra||[]).forEach(x=>{if(x&&x.days&&Object.keys(x.days).length)out.push(x);});
   return out;}
 function lgvDaysTotal(shadows,from,to){let s=0;(shadows||[]).forEach(x=>Object.keys(x.days||{}).forEach(d=>{if((from&&d<from)||(to&&d>to))return;s+=+x.days[d].p||0;}));return Math.round(s*100)/100;}
@@ -8246,10 +8345,13 @@ function bkaPanelHtml(ctx){
   // in the account, dashed = as-if, the chart's own line styles) plus a hidden word for screen readers; what used to be the leg's sub-line
   // (where the figure comes from, trades, size, data end) is the row's hover. Book rows: name, what-if $, the one-click as-if switch.
   const legRow=(bk,l)=>{
-    const id=String((l&&l.id)||''),L=bkaLegB(board,id),lv=ctx.live?ctx.live(id):null,fw=(!lv&&ctx.fwd)?ctx.fwd(id):null;
-    const run=(l&&l.run)?String(l.run).split(' ')[0]:'';
-    const nm='<span class="bka-nmt">'+esc(String((l&&l.name)||id))+'</span>'+(run?' <span class="bka-run">'+esc(run)+'</span>':'');
-    const size=esc(String((l&&l.size)||''));
+    const id=String((l&&l.id)||''),L=bkaLegB(board,id),lv=ctx.live?ctx.live(id):null,fw=(()=>{const f0=(!lv&&ctx.fwd)?ctx.fwd(id):null;if(!f0||!app)return f0;
+      const z=bkaSizedNet(board,id,from,to);return (z&&z.n)?Object.assign({},f0,{net:z.net,n:z.n}):f0;})();   // v91.92 E2: sized under a RISK %
+    // v91.91 ONE LABEL: FAMILY #RUN.CFG raw (the book table's own name and size ride in the hover)
+    const _bc=bkaLegCfg(id);
+    const nm='<span class="bka-nmt" data-bkalbl="'+esc(_bc.label)+'">'+esc(_bc.label)+'</span>';
+    const size=esc(String((l&&l.size)||''))+((l&&l.name&&String(l.name)!==id)?(' · book table: '+esc(String(l.name))):'')
+      +(_bc.cell==null?(' · run #'+esc(_bc.run)+' champion (its set number is not in the page)'):(' · set '+_bc.cell+(_bc.cell===0?' = the file own config (the run stored no champion)':' = run #'+esc(_bc.run)+' champion')));
     // v91.79: a shadow row leads with its colour swatch, the same colour and dash its line draws on the chart
     const row=(cls,attrs,tag,tip,nmExtra,val,sw,swatch)=>'<div class="bka-leg '+cls+'" '+attrs+' title="'+tip+'">'
       +'<span class="bka-nm">'+(swatch||'')+'<span class="lg-sr">'+tag+' </span>'+nm+(nmExtra||'')+'</span>'+val+sw+'</div>';
@@ -8272,7 +8374,7 @@ function bkaPanelHtml(ctx){
         ' <span class="bka-why" data-bkanodata="'+esc(id)+'" title="'+esc(why)+'">'+esc(short)+'</span>',
         '<span class="bka-val">&mdash;</span>',
         (L&&L.reason?'<span></span>':'<span class="lg-sw bka-shsw'+(isOn?' on':'')+rem(isOn)+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>'),L&&L.reason?'':bkaSwatchHtml(id));}
-    const f=bkaSum(L,from,to),Q=L._q||null;
+    const _fz=app?bkaSizedNet(board,id,from,to):null,f=_fz||bkaSum(L,from,to),Q=L._q||null;   // v91.92 E2: the sized $ under a RISK %
     const qTxt=Q?('~'+(+Q.shares||0)+' QQQ sh'+(Q.shares_range?(' ('+Q.shares_range[0]+'-'+Q.shares_range[1]+')'):'')):'';
     const tip=(Q?('SHADOW in QQQ: as the Webull box would trade it, '+qTxt+' a trade, via '+(Q.via||'QQQ/NQ ratio')+'. '+(Q.rule||'')+(Q.skipped?(' '+Q.skipped+'.'):'')+' The replay: '):'')
       +'SHADOW: not traded here, simulated as-if, never the account - '+(L.strategy||'')+' with run #'+(L.params_run||'?')+'’s '+(L.params_from||'champion')
@@ -8282,9 +8384,9 @@ function bkaPanelHtml(ctx){
       +(L.last_bar_n?(' Plus '+L.last_bar_n+' trade(s) still open at the last bar ('+ledgerSigned(L.last_bar_usd)+'), not counted yet.'):'')
       +(L.stale?(' '+L.stale+'.'):'');
     return row('sh'+(isOn?'':' off'),'data-bkaleg="'+esc(id)+'" data-bkamode="shadow" data-bkasrc="replay" data-bkanet="'+f.net+'"','SHADOW',esc(tip),
-      (Q?' <span class="bka-run bka-qsh" data-bkaqsh="'+(+Q.shares||0)+'">'+esc(qTxt)+'</span>':'')
+      (Q?' <span class="lg-sr bka-qsh" data-bkaqsh="'+(+Q.shares||0)+'">'+esc(qTxt)+'</span>':'')
       +(L.stale?' <span class="bka-stale" title="data ends '+esc(String(L.data_end||''))+'">&#9888;</span>':''),
-      '<span class="bka-val '+(f.n?ledgerCls(f.net):'')+'">'+(f.n?ledgerSigned(f.net):'$0')+'</span>',
+      '<span class="bka-val '+(f.n?ledgerCls(f.net):'')+'"'+(_fz?' data-bkasized="1"':'')+'>'+(f.n?ledgerSigned(f.net):'&mdash;')+'</span>',   // v91.92 E3: no trades = an em dash
       '<span class="lg-sw bka-shsw'+(isOn?' on':'')+rem(isOn)+'" role="switch" aria-checked="'+isOn+'" aria-label="show '+esc(id)+' as-if" data-bkasw="'+esc(id)+'"></span>',bkaSwatchHtml(id));};
   const byType={};
   keys.forEach(k=>{const b=B.books[k];if(!b)return;(byType[bkaBookType(b)]=byType[bkaBookType(b)]||[]).push(k);});
@@ -8295,9 +8397,12 @@ function bkaPanelHtml(ctx){
       const allOn=shIds.length&&shIds.every(id=>on.indexOf(id)>=0);
       const nL=legs.filter(l=>ctx.live&&ctx.live(String(l.id||''))).length;
       // the book's what-if in the range: its live legs switched on + its shadow legs switched on (replay or forward)
+      // v91.92 (E1): the remembered shadow legs count only in WHAT-IF - in LIVE no what-if $ shows anywhere; (E2) sized under a RISK %
       let lv=0,sv=0;legs.forEach(l=>{const id=String(l.id||''),x=ctx.live&&ctx.live(id);if(x){if(x.on)lv+=+x.net||0;return;}
-        const fw=ctx.fwd&&ctx.fwd(id);if(fw){if(fw.on)sv+=+fw.net||0;return;}
-        if(on.indexOf(id)>=0){const L=bkaLegB(board,id);if(L&&Array.isArray(L.d))sv+=bkaSum(L,from,to).net;}});
+        if(!app)return;
+        const z=bkaSizedNet(board,id,from,to);
+        const fw=ctx.fwd&&ctx.fwd(id);if(fw){if(fw.on)sv+=z?z.net:(+fw.net||0);return;}
+        if(on.indexOf(id)>=0){const L=bkaLegB(board,id);if(L&&Array.isArray(L.d))sv+=z?z.net:bkaSum(L,from,to).net;}});
       const wi=Math.round((lv+sv)*100)/100;
       const wiTip='what-if in the range '+ledgerSigned(wi)+' = live legs switched on '+ledgerSigned(Math.round(lv*100)/100)+' + shadow legs switched on '+ledgerSigned(Math.round(sv*100)/100)+' - closed P&L, never the account number';
       return '<div class="bka-book'+(open?' open':'')+'" data-bkabook="'+esc(k)+'">'
@@ -8308,7 +8413,9 @@ function bkaPanelHtml(ctx){
         +'</div>'
         +(open?('<div class="bka-bbody">'+legs.map(l=>legRow(k,l)).join('')+'</div>'):'')
         +'</div>';}).join('')+'</div>').join('');
-  const shOn=bkaOnSum(board,from,to,id=>!!((ctx.live&&ctx.live(id))||(ctx.fwd&&ctx.fwd(id))))+(+ctx.fwdOnNet||0);
+  const _szAll=app?bkaSizedOf(board):null;
+  const shOn=_szAll?Math.round(_szAll.reduce((a,x)=>a+Object.keys(x.days||{}).reduce((b,d)=>((from&&d<from)||(to&&d>to))?b:b+(+x.days[d].p||0),0),0)*100)/100
+    :bkaOnSum(board,from,to,id=>!!((ctx.live&&ctx.live(id))||(ctx.fwd&&ctx.fwd(id))))+(+ctx.fwdOnNet||0);   // v91.92 E2
   const acct=+ctx.accountNet||0,anyOn=lgvApplied(lgvBoardOf(board))&&(on.some(id=>!(ctx.live&&ctx.live(id)))||(+ctx.fwdOnNet||0)!==0);
   const keyTip='Solid rule = LIVE: traded here, in the account (solid on the chart). Dashed rule = SHADOW: not traded here, simulated as-if from its pinned champion (dashed on the chart, never in the account). The switch on a book row turns all its shadow legs on or off at once.'
     +(genAt?' As-if run '+genAt+(D&&D.data_end?', data to '+D.data_end:'')+'.':'');
@@ -8354,7 +8461,7 @@ function booksCardHtml(QE){
       +'<span class="bk-fig">'+(b.label?esc(b.label)+' &middot; ':'')+'$'+Math.round(+b.usd_per_year||0).toLocaleString('en-US')+'/yr'
         +(b.old_champion_usd_per_year!=null?' <span title="the old champion book made this a year on the same basis">(was $'+Math.round(+b.old_champion_usd_per_year).toLocaleString('en-US')+'/yr)</span>':'')
         +' &middot; max DD '+esc(b.max_dd_pct)+'%'+(b.max_dd_ex2020_pct!=null?' ('+esc(b.max_dd_ex2020_pct)+'% without 2020)':'')+(b.provisional?' &middot; provisional':'')+'</span>'
-      +((b.roc30!=null||b.sortino!=null||b.usd_per_year_2016_20!=null)?('<span class="bk-fig" data-bkfigs2="1" title="ROC = yearly return on a $30k account; early / late = $ a year in 2016-20 vs 2021-25">'
+      +((b.roc30!=null||b.sortino!=null||b.usd_per_year_2016_20!=null)?('<span class="bk-fig" data-bkfigs2="1" title="ROC %/yr sized so the worst drawdown is $30k; early / late = $ a year in 2016-20 vs 2021-25">'
         +(b.roc30!=null?'ROC '+(+b.roc30).toFixed(1)+'%/yr':'')+(b.sortino!=null?' &middot; Sortino '+(+b.sortino).toFixed(2):'')
         +(b.usd_per_year_2016_20!=null?' &middot; 2016-20 $'+Math.round(+b.usd_per_year_2016_20).toLocaleString('en-US')+'/yr':'')
         +(b.usd_per_year_2021_25!=null?' &middot; 2021-25 $'+Math.round(+b.usd_per_year_2021_25).toLocaleString('en-US')+'/yr':'')+'</span>'):'')
@@ -17255,6 +17362,9 @@ function _rbGoBack(e){
 //   dd_pct_peak (a $100k start). No curve, no figure - never a made-up one - and a dollar drawdown is never divided by anything here.
 //   Research rows show their walk-forward figures, or their lockbox pair on the LB stage when they have one. A row with no numbers
 //   (it died before any ROC was computed) is listed under the plane, never plotted. Returns '' when the doc has no research rows.
+// Retired family names -> on-screen names. Display text only, never a value a filter matches on.
+function _famText(t){return String(t==null?'':t).replace(/COMBINED/g,'BOOK').replace(/ETFDIP/g,'DIP').replace(/NQDIP/g,'DIP')
+  .replace(/ENGUQ/g,'ENGU-Q').replace(/TTMSQZ/g,'TTM');}
 function _rbResearchPlane(eng,acct,stage){
   const R=(window._rbWatch&&Array.isArray(window._rbWatch.research))?window._rbWatch.research:[];
   if(!R.length)return '';
@@ -17301,10 +17411,10 @@ function _rbResearchPlane(eng,acct,stage){
     pts.filter(q=>q.kind==='r').forEach(q=>{
       const cx=X(q.x).toFixed(1),cy=Y(q.y).toFixed(1);
       g+='<circle data-rbres="'+esc(q.id)+'" cx="'+cx+'" cy="'+cy+'" r="5.5" fill="none" stroke="'+col(q.fam)+'" stroke-width="2"><title>'
-        +esc(q.id+' '+q.name+' - '+q.fam+(q.lane?' - '+q.lane:'')+' - no engine run (research verdict) - '+q.tag+' ROC @ $30K '+q.roc30.toFixed(1)
+        +esc(q.id+' '+_famText(q.name)+' - '+_famText(q.fam)+(q.lane?' - '+q.lane:'')+' - no engine run (research verdict) - '+q.tag+' ROC @ $30K '+q.roc30.toFixed(1)
           +' = '+q.y.toFixed(1)+' %/yr, worst drawdown '+money(q.dd)+', DD5 '
           +((q.dd5!=null)?(money(q.dd5)+((q.dd>1.3*q.dd5)?' - 1 EPISODE: the worst drawdown is more than 1.3x DD5':'')):'not supplied')+' - '+q.verdict+ddpRing(q)+' - No run report to open: this is a script-only research verdict, so there is no engine run behind it.')+'</title></circle>'
-        +'<text x="'+(+cx+8)+'" y="'+(+cy+3)+'" font-size="8" fill="var(--text4)">'+esc(q.name)+'</text>';});
+        +'<text x="'+(+cx+8)+'" y="'+(+cy+3)+'" font-size="8" fill="var(--text4)">'+esc(_famText(q.name))+'</text>';});
     const nE=pts.filter(q=>q.kind==='e').length, nR=pts.filter(q=>q.kind==='r').length;
     // DD5 beside each stretch's worst drawdown (owner 2026-10-07): the lane's own figure (runboard_watch.py --wf-dd5 /
     //   --lb-dd5, computed with augur_engine.drawdowns.dd5 on the same daily curve), or a dash - never made up here.
@@ -17320,7 +17430,7 @@ function _rbResearchPlane(eng,acct,stage){
     const rows=R.map(w=>{const f=(st,lbl)=>(st&&isFinite(+st.roc30)&&isFinite(+st.dd_usd))?(lbl+' '+(+st.roc30).toFixed(1)+' @ $30K, DD '+money(st.dd_usd)+dp(st,lbl)+d5(st,lbl,w.id)):'';
       const nums=[f(w.wf,'WF'),f(w.lb,'LB')].filter(Boolean).join(' · ')||'no ROC computed - listed, not plotted';
       return '<div data-rbres-row="'+esc(w.id)+'" title="No run report to open: this is a script-only research verdict, so there is no engine run behind it." style="font-size:8.5px;color:var(--text3);padding:2px 0;border-top:1px solid var(--border)">'
-        +'<b style="color:var(--text2)">'+esc(w.id)+'</b> '+esc(w.name||'')+' <span style="color:var(--text5)">'+esc(w.family||'')+(w.lane?' · '+esc(w.lane):'')+'</span>'
+        +'<b style="color:var(--text2)">'+esc(w.id)+'</b> '+esc(_famText(w.name||''))+' <span style="color:var(--text5)">'+esc(_famText(w.family||''))+(w.lane?' · '+esc(w.lane):'')+'</span>'
         +' - '+esc(w.verdict||'(no verdict yet)')+' <span style="color:var(--text5)">· '+nums+' · no engine run</span></div>';}).join('');
     return '<div data-rbres-tile style="margin-top:10px;border-top:1px solid var(--border);padding-top:7px">'
       +'<div style="display:flex;gap:8px;align-items:baseline;flex-wrap:wrap;margin-bottom:4px"><span class="lbl" style="font-size:9px;letter-spacing:1.4px;color:var(--text4)">RESEARCH VERDICTS</span>'
@@ -17714,7 +17824,7 @@ window.runOverviewAI=function(){
   }
   // 6) Day of week / time pattern
   const byDow={0:[],1:[],2:[],3:[],4:[],5:[],6:[]};
-  recent.forEach(t=>{if(t.date)byDow[new Date(t.date).getDay()].push(t.pnl);});
+  recent.forEach(t=>{if(t.date)byDow[new Date(String(t.date).slice(0,10)+'T12:00:00').getDay()].push(t.pnl);});
   const dowNames=['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
   let worstDow=null,worstPnl=0;
   Object.entries(byDow).forEach(([d,ps])=>{if(ps.length>=3){const sum=ps.reduce((a,b)=>a+b,0);if(sum<worstPnl){worstPnl=sum;worstDow=d;}}});
@@ -22548,11 +22658,11 @@ function renderApp(){
       }
       setTimeout(()=>{
         window.aiBtn=(period)=>{
-          const now=new Date(),cutoff=new Date();
-          if(period==='week')cutoff.setDate(now.getDate()-7);
-          else if(period==='month')cutoff.setMonth(now.getMonth()-1);
-          else cutoff.setFullYear(2000);
-          const rel=period==='all'?trades:trades.filter(t=>t.date>=cutoff.toISOString().slice(0,10));
+          // cutoff from the New York date (not UTC), MONTH = last 30 days to match its label
+          const _ny=new Date(_hmEtKey(Date.now()).slice(0,10)+'T00:00:00Z');
+          _ny.setUTCDate(_ny.getUTCDate()-(period==='week'?7:30));
+          const cut=_ny.toISOString().slice(0,10);
+          const rel=period==='all'?trades:trades.filter(t=>String(t.date||'').slice(0,10)>=cut);
           if(!rel.length){if(el('ai-output'))el('ai-output').innerHTML='<div style="color:var(--text4)">No trades in period.</div>';return;}
           runAISummary(rel,period);
         };
@@ -22800,13 +22910,6 @@ function renderApp(){
       {re:/^nqdip/i,abbr:'DIP',full:'Dip Book',desc:'Four long-only daily dip mechanisms on NQ micros and QQQ, held for days at constant notional'},
       {re:/^emapb/i,abbr:'EMAPB',full:'EMA Pullback',desc:'1-minute EMA-pullback continuation - dead, 0 of 27 cells cleared'},
       {re:/^gapgo/i,abbr:'GAPGO',full:'Gap Go',desc:'Overnight-gap direction confirmed by a first-bar break (and TRAVEL, the 10:00 distance-from-open read) - runs #330/#329 FAILED the sealed year'},
-      // TASK 2 (F30 side issue, audit3_report.md, 2026-09-24): ETFDIP had no curated entry here
-      //   (nor in FAM), so its abbreviation fell through to the generic _abbrVer helper, which
-      //   hard-truncates to 5 characters - "ETFDI", silently dropping the P - while the family
-      //   chip (a different reader, keyed on the family table _FAMRE) already read "ETFDIP" in
-      //   full. Same class of gap the 2026-09-05 round filled for NOISE/TTM/TTIBS/RSIDIV/NQDIP/
-      //   EMAPB/GAPGO above.
-      {re:/^etfdip/i,abbr:'ETFDIP',full:'ETF Dip Buyer',desc:'Long-only daily dip buyers on ETFs (GLD, TLT, IWM, QQQ, SPY) - buy a short pullback while price holds above its long-term trend and sell into the bounce, held for days'},
       {re:/^replay/i,abbr:'REPLAY',full:'Discretionary Replay',desc:'Replays the owner discretionary trades so they can be scored the same way as a strategy'},
       {re:/^cbdq/i,abbr:'CBD-Q',full:'Close Breakdown - Quant',desc:'Automated version of the owner discretionary CBD setup: the short mirror of CBU-Q, a close breaks down to a new regular-session low below a premarket or prior-day low'},
       {re:/^cbuq/i,abbr:'CBU-Q',full:'Close Breakout - Quant',desc:'Automated version of the owner discretionary CBU setup: a close breaks out to a new regular-session high above a premarket or prior-day level'},
@@ -22956,8 +23059,7 @@ function renderApp(){
     //   column's filter list (stored scope strings, COMBINED among them) and the STRATEGY menu's
     //   labels (NQDIP). Both go through here now. Never apply it to a VALUE, only to text a person
     //   reads - a mapped value would no longer match the run it filters for.
-    const _famDisp=t=>String(t).replace(/COMBINED/g,'BOOK').replace(/ETFDIP/g,'DIP').replace(/NQDIP/g,'DIP')
-      .replace(/ENGUQ/g,'ENGU-Q').replace(/TTMSQZ/g,'TTM');
+    const _famDisp=_famText;   // the one list lives in _famText (top level, beside _rbResearchPlane)
     const stratInfo=str=>{const m=_stratMatch(str);const src=m?m.file:str;
       const fam=_canonFam(src),fm=FAM[fam],sfam=stratFam(src);
       const abbr=fm?fm.abbr:(sfam?sfam.abbr:_abbrVer(src).abbr);
@@ -29004,7 +29106,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       // day before it so the holdout is never seen during the search (single = no cap).
       const lockbox=el('ex-lockbox')?el('ex-lockbox').value:'';
       let effTo=dTo;
-      if(lockbox&&mode!=='single'&&mode!=='validate'){const _db=new Date(lockbox+'T00:00');_db.setDate(_db.getDate()-1);const cut=_db.toISOString().slice(0,10);effTo=(dTo&&dTo<cut)?dTo:cut;}
+      if(lockbox&&mode!=='single'&&mode!=='validate'){const _db=new Date(String(lockbox).slice(0,10)+'T00:00:00Z');_db.setUTCDate(_db.getUTCDate()-1);const cut=_db.toISOString().slice(0,10);effTo=(dTo&&dTo<cut)?dTo:cut;}
       // CUSTOM scope → send an explicit grid dict (the engine prefers grid over preset).
       const scopeVal=el('ex-preset').value,useCustom=(scopeVal==='CUSTOM'&&mode==='grid');
       const customGrid=useCustom?buildCustomGrid():null;
@@ -29013,7 +29115,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
       let vFrom='',vTrials=200,vLockMo=12;
       if(mode==='validate'){const _ps=(metaStrats||[]).find(x=>x.file===el('ex-strat').value);if(_ps&&Array.isArray(_ps.params)&&_ps.params.length&&_ps.params.every(p=>p.min!=null&&p.max!=null&&+p.min===+p.max))return {err:'This strategy file is PINNED (every knob min = max) - Auto-Validate needs parameter ranges to build the 2E-2I surfaces, so it would save one config and an incomplete report. Run it as SINGLE (or GATE VALIDATE), or Auto-Validate the parent file instead.'};const vs=el('ex-vscope')?el('ex-vscope').value:'medium';const VMAP={short:[3,80,6],medium:[6,120,12],long:[12,200,12],xl:[40,300,18],av2:[40,900,48]};const mp=VMAP[vs]||VMAP.medium;vTrials=mp[1];vLockMo=mp[2];savePref('vscope',vs);if(el('ex-xfer'))savePref('xfer',el('ex-xfer').value);if(el('ex-discover'))savePref('discover',el('ex-discover').value);if(el('ex-eqpts'))savePref('equity_points',parseInt(el('ex-eqpts').value)||400);
         const mm2=mSel||(metaMasters||[]).find(m=>String(m.instrument)===inst&&String(m.timeframe)===tf);
-        if(mm2&&mm2.date_to){const e=new Date(String(mm2.date_to).slice(0,10)+'T00:00');e.setFullYear(e.getFullYear()-mp[0]);vFrom=e.toISOString().slice(0,10);const ms=mm2.date_from?String(mm2.date_from).slice(0,10):'';if(ms&&vFrom<ms)vFrom=ms;}}
+        if(mm2&&mm2.date_to){const e=new Date(String(mm2.date_to).slice(0,10)+'T00:00:00Z');e.setUTCFullYear(e.getUTCFullYear()-mp[0]);vFrom=e.toISOString().slice(0,10);const ms=mm2.date_from?String(mm2.date_from).slice(0,10):'';if(ms&&vFrom<ms)vFrom=ms;}}
       savePref('mode',mode);savePref('instrument',el('ex-inst').value);savePref('session',el('ex-sess').value);savePref('timeframe',el('ex-tf').value);savePref('workers',parseInt(el('ex-work').value)||1);savePref('rounds',parseInt(el('ex-rounds').value)||4);savePref('trials',parseInt(el('ex-trials').value)||200);savePref('min_trades',parseInt(el('ex-mint').value)||30);savePref('provider',el('ex-prov').value);if(el('ex-wfmode'))savePref('wf_mode',el('ex-wfmode').value);if(el('ex-pills'))savePref('pills',el('ex-pills').checked);savePref('comm_usd',commU);savePref('slip_pts',slipP);savePref('date_from',dFrom);savePref('date_to',dTo);savePref('lockbox',lockbox);if(el('ex-lockmo'))savePref('lockbox_months',parseInt(el('ex-lockmo').value)||12);
       const base={strategy:el('ex-strat').value,instrument:inst,timeframe:tf,session:sess,source:source,date_from:dFrom,date_to:effTo,preset:scopeVal,workers:parseInt(el('ex-work').value)||1,min_trades:parseInt(el('ex-mint').value)||30,commission_usd:commU,slippage_pts:slipP,cost_pts:costPts,mult:mult,status:'queued',createdAt:firebase.firestore.FieldValue.serverTimestamp()};if(useCustom)base.grid=customGrid;const job=(mode==='validate')?Object.assign({},base,{type:'validate',date_from:vFrom,date_to:'',n_trials:vTrials,wf_folds:0,lockbox_months:vLockMo,transfer_to:(el('ex-xfer')&&el('ex-xfer').value)||null,discover:(el('ex-discover')&&el('ex-discover').value)||'auto',provider:el('ex-prov')?el('ex-prov').value:'ollama',n_rounds:parseInt(el('ex-rounds').value)||4,equity_points:parseInt(el('ex-eqpts')&&el('ex-eqpts').value)||400,dsr:true},(el('ex-vscope')&&el('ex-vscope').value==='av2')?{variant:'validate2'}:{}):(mode==='gate_validate')?Object.assign({},base,{type:'gate_validate',params:{},lockbox_months:12,ml_filter:(el('ex-mlf')&&el('ex-mlf').value)||'xgb'})
       :(mode==='single')?Object.assign({},base,{params:{},mc_sims:1000},(el('ex-mlf')&&el('ex-mlf').value!=='none')?{ml_filter:el('ex-mlf').value,ml_threshold:(parseInt(el('ex-mlth')&&el('ex-mlth').value)||50)/100}:{}):(mode==='auto'||mode==='walkforward')?Object.assign({},base,{type:mode,n_trials:parseInt(el('ex-trials').value)||200,oos:true,wf_folds:parseInt(el('ex-folds').value)||0,wf_mode:(el('ex-wfmode')?el('ex-wfmode').value:'anchored'),top_n:10,dsr:true,mc_sims:500,pills:!(el('ex-pills')&&!el('ex-pills').checked)}):(mode==='ai'||mode==='evolve')?Object.assign({},base,{type:(mode==='evolve'?'ai_evolve':'ai_optimize'),provider:el('ex-prov').value,n_rounds:parseInt(el('ex-rounds').value)||4}):Object.assign({},base,{type:'grid',top_n:10,dsr:true,mc_sims:500});
@@ -40088,8 +40190,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             +(_reXtra.win?td(winCell,'left'):'')
             +td('<span title="'+_reEsc(_reReadTip(st,rw))+'" style="color:'+col+';display:inline-block;max-width:'+(_reSplit?90:130)+'px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;vertical-align:bottom;cursor:help">'+_reEsc(rw.read)+'</span>','left')
             // item 14 (owner: "move this junk to the end of the row, move the important stuff like the kpis up front"): CONFIG - the long name and its badges - is the least useful thing to see first when scanning a row for numbers, so it sits last now; RANK / FAMILY / RUN stay up front, pinned, as the identifying columns (see _reStickyCss).
-            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(rw.name)+'</b><span title="permanent row handle" style="color:var(--text5);font-size:8px;margin-left:4px">'+rw.n+'</span>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)+_reLevChipOf(st,rw)+_reFlagChips(_reFlags)
-              +(showSt?('<span title="'+_reEsc('Researched in the study: '+st.title+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((String(st.title).length>24)?(String(st.title).slice(0,23)+'…'):st.title)+'</span>'):''),'left')+'</tr>'
+            +td('<span title="'+_reEsc(_reToneNm[rw.tone]+' — drawn on the chart as a '+_reToneMk[rw.tone])+'" style="cursor:help">'+mk+'</span><b style="color:var(--text)">'+_reEsc(_famText(rw.name))+'</b><span title="permanent row handle" style="color:var(--text5);font-size:8px;margin-left:4px">'+rw.n+'</span>'+((showSt||_reSplitRun)?_reRunChip(rw):'')+_reFamTag(st,rw)+_reLiveInline(rw)+_reLevChipOf(st,rw)+_reFlagChips(_reFlags)
+              +(showSt?('<span title="'+_reEsc('Researched in the study: '+_famText(st.title)+'. In ONE TABLE view the studies are pooled, so each row says where it came from.')+'" style="font-size:7px;letter-spacing:.4px;padding:1px 4px;border-radius:4px;margin-left:5px;color:var(--text5);border:1px solid var(--border2);cursor:help">'+_reEsc((_famText(st.title).length>24)?(_famText(st.title).slice(0,23)+'…'):_famText(st.title))+'</span>'):''),'left')+'</tr>'
             +(_recOpen?_reRecDetRow(st,rw):'');};
         // ═══ THE ONE SCATTER ═══
         //  Owner ask, 2026-08-19: "this was originally supposed to be one scatter plot and it
@@ -40383,7 +40485,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               dots+='<g class="repar-row" data-prow="'+String(rw.r.n)+'">'
                 +'<circle cx="'+px2.toFixed(1)+'" cy="'+py2.toFixed(1)+'" r="'+(champ?'3':'1.8')
                 +'" fill="'+col+'" opacity="'+(champ?'0.95':'0.5')+'"><title>'
-                +_reEsc(((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+String(rw.r.name||'')
+                +_reEsc(((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(rw.r.name||'')
                   +'  |  '+AX[c].t+' '+AX[c].f(vx)+'  |  '+AX[r2].t+' '+AX[r2].f(vy))
                 +'</title></circle></g>';});
           }}
@@ -40459,8 +40561,8 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
             const col=_reTone[rw.r.tone]||'var(--text4)',champ=(rw.r.tone==='champ');
             const pts2=[];rw.v.forEach(function(v,i){if(v==null||!isFinite(v))return;
               const q=pt(i,v);pts2.push(q[0].toFixed(1)+','+q[1].toFixed(1));});
-            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+String(rw.r.name||'').replace(/"/g,'')
-              +' ('+_reFamOf(rw.st,rw.r)+')';
+            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(rw.r.name||'').replace(/"/g,'')
+              +' ('+_famText(_reFamOf(rw.st,rw.r))+')';
             rw.v.forEach(function(v,i){if(v!=null&&isFinite(v))tip+=String.fromCharCode(10)+AX[i].t+'  '+AX[i].f(v);});
             const miss=rw.v.map(function(v,i){return (v==null||!isFinite(v))?AX[i].t:null;}).filter(Boolean);
             if(miss.length)tip+=String.fromCharCode(10)+'not recorded: '+miss.join(', ');
@@ -40543,7 +40645,7 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
               cur.push(ax(i).toFixed(1)+','+py(i,v).toFixed(1));});
             if(cur.length>1)segs.push(cur);
             const miss=rw.v.map(function(v,i){return (v==null||!isFinite(v))?AX[i].t:null;}).filter(Boolean);
-            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+String(rw.r.name||'').replace(/"/g,'')+' ('+_reFamOf(rw.st,rw.r)+')';
+            let tip=((rw.r.n!=null)?('row '+rw.r.n+' - '):'')+_famText(rw.r.name||'').replace(/"/g,'')+' ('+_famText(_reFamOf(rw.st,rw.r))+')';
             rw.v.forEach(function(v,i){if(v!=null&&isFinite(v))tip+=String.fromCharCode(10)+AX[i].t+'  '+AX[i].f(v);});
             if(miss.length)tip+=String.fromCharCode(10)+'not recorded: '+miss.join(', ');
             tip+=String.fromCharCode(10)+((rw.src==='el')?('source: EDGELOG Auto-Validate run #'+rw.r.runs.join(', #')):((rw.src==='cfg')?('source: a '+String(rw.r._tab||'')+' configuration INSIDE a run - optimize window only, no lockbox has judged it, and it is one of the top few the search returned'):'source: local .py sweep - never persisted as a run, so there is no run number and no report'));
@@ -42905,7 +43007,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           return '<div style="border-top:1px solid var(--border2)">'
             +'<div data-restoggle="'+_reEsc(st.key)+'" title="'+_reEsc(hdTip)+'" style="display:flex;align-items:baseline;gap:8px;flex-wrap:wrap;padding:6px 2px;cursor:pointer">'
             +'<span data-rechev style="color:var(--text5);font-size:9px;width:8px;flex-shrink:0">'+(open?'\u25be':'\u25b8')+'</span>'
-            +'<span class="lbl" style="font-size:10.5px;letter-spacing:1.2px;color:var(--text2)">'+_reEsc(st.title)+'</span>'
+            +'<span class="lbl" style="font-size:10.5px;letter-spacing:1.2px;color:var(--text2)">'+_reEsc(_famText(st.title))+'</span>'
             +// ONE FAMILY PER STUDY is true of every study on this board but the lane records, which hold
             //   whatever the seven chats ran that month - naming the first row's family read "BOOK"
             //   for a table of 753 rows spanning seven families.
@@ -42934,7 +43036,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           if(!out.length)return '';
           out.sort((a,b)=>(a.fam<b.fam?-1:a.fam>b.fam?1:a.r.n-b.r.n));
           return '<div style="font-size:9px;color:var(--text4);line-height:1.9;margin:8px 0 0;max-width:960px"><span class="lbl" style="font-size:8px;letter-spacing:1.2px;color:var(--text5)">ALSO IN PAPER, ON THEIR OWN ROWS</span> <span style="color:var(--text5)">\u00b7 pointers, not copies: the PAPER pill on each row is the single statement that it is running</span><br>'
-            +out.map(o=>'<span'+(o.run?(' data-rank-run="'+o.run+'"'):'')+' title="'+_reEsc(String(o.r.name)+' - researched in: '+o.st.title+'. '+((o.r.liveWhy)||_reLiveTip[_reLiveV(o.r)])+_reLayerTip[_reLayerV(o.r)]+(o.run?(' Click to open run #'+o.run+'.'):''))+'" style="display:inline-block;margin:0 10px 3px 0;'+(o.run?'cursor:pointer':'')+'"><b style="color:'+(_reTone[o.r.tone]||'var(--text4)')+'">'+o.r.n+'</b> <b style="color:var(--text)">'+_reEsc(o.r.name)+'</b> <span style="color:var(--text5)">'+_reEsc(o.fam)+'</span>'+(o.run?_reRunChip(o.r):'')+_reLiveInline(o.r)+'</span>').join('')+'</div>';};
+            +out.map(o=>'<span'+(o.run?(' data-rank-run="'+o.run+'"'):'')+' title="'+_reEsc(_famText(o.r.name)+' - researched in: '+_famText(o.st.title)+'. '+((o.r.liveWhy)||_reLiveTip[_reLiveV(o.r)])+_reLayerTip[_reLayerV(o.r)]+(o.run?(' Click to open run #'+o.run+'.'):''))+'" style="display:inline-block;margin:0 10px 3px 0;'+(o.run?'cursor:pointer':'')+'"><b style="color:'+(_reTone[o.r.tone]||'var(--text4)')+'">'+o.r.n+'</b> <b style="color:var(--text)">'+_reEsc(_famText(o.r.name))+'</b> <span style="color:var(--text5)">'+_reEsc(_famText(o.fam))+'</span>'+(o.run?_reRunChip(o.r):'')+_reLiveInline(o.r)+'</span>').join('')+'</div>';};
         // ONE TABLE: every surviving row from every study, pooled, ranked together, ordered by
         //   ORDER, split by SPLIT BY RUN, each row tagged with its study. Left on AUTO it turns
         //   itself on while a strategy is picked - that is the "show me everything for ORB"
@@ -47322,15 +47424,18 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbShDipNote='Seven long-only dip mechanisms, each decided on a daily close and entered at the next session\u2019s 09:30 open '
           +'(the backtest\u2019s fill), so up to 7 of its trades can be open at once. ';
         const QB_SH_LEGS={DIP_424K:{name:'DIP #424 KEEL',note:qbShDipNote+'Each trade is sized by KEEL v12. '},
-          DIP_424F:{name:'DIP #424 fixed 1.245',note:qbShDipNote+'Every trade is 1.245\u00d7 (KEEL\u2019s average size over #424\u2019s walk-forward trades). '}};
+          DIP_424F:{name:'DIP #424 fixed 1.245',mode:'fixed',note:qbShDipNote+'Every trade is 1.245\u00d7 (KEEL\u2019s average size over #424\u2019s walk-forward trades). '}};
         const qbShInfo=k=>Object.prototype.hasOwnProperty.call(QB_SH_LEGS,String(k||''))?QB_SH_LEGS[String(k)]:null;
-        const qbShLegName=k=>{if(qbShInfo(k))return qbShInfo(k).name;const m=/^([A-Za-z]+)_(\d+)(?:_(\w+))?$/.exec(String(k||''));if(!m)return String(naS(k));
-          const f=QE_LEGS.find(x=>x[0]===m[1].toUpperCase()),v=m[3]?(m[3].toUpperCase()==='KEEL'?'KEEL':m[3].toLowerCase().replace(/_/g,' ')):'';
-          return (f?f[1]:m[1].toUpperCase())+' #'+m[2]+(v?' '+v:'');};
+        // v91.91 ONE LABEL: 'NOISE #422.2 raw', 'DIP #424.1 keel' - family, the run's set (PAPER_LEG_PARAMS), the mode word
+        const qbShLegName=k=>{k=String(k||'');const P=(typeof PAPER_LEG_PARAMS!=='undefined'&&PAPER_LEG_PARAMS[k])||null,m=/^([A-Za-z]+)_(\d+)(?:_(\w+))?$/.exec(k);
+          if(!P&&!m)return String(naS(k));
+          const f=m?QE_LEGS.find(x=>x[0]===m[1].toUpperCase()):null,fam=f?f[1]:window.ledgerFamWord(k);
+          const mode=(qbShInfo(k)&&qbShInfo(k).mode)||window.ledgerModeWord(P&&P.variant,(m&&m[3])||'');
+          return window.ledgerCfgLabel(fam,P?P.run:m[2],P?P.cell:null,mode);};
         // v91.79: the box's switched-on forward shadow legs for the what-if KPI table (per-trade figures: these have trades)
         try{window._qbKpiFwd=qbShOnA.map(k=>{const mine=qbShOnClosed.filter(t=>t.leg===k);if(!mine.length)return null;
           const pnl=t=>+t.pnl_record||0,w=mine.filter(t=>pnl(t)>0),l=mine.filter(t=>pnl(t)<0),gw=w.reduce((a,t)=>a+pnl(t),0),gl=-l.reduce((a,t)=>a+pnl(t),0);
-          return {key:k,name:qbShLegName(k)+' (shadow)',days:bkaDaysOfTrades(mine,t=>t.exitDate,pnl),
+          return {key:k,name:qbShLegName(k),days:bkaDaysOfTrades(mine,t=>t.exitDate,pnl),
             perTrade:{trades:mine.length,winRate:(w.length+l.length)?w.length/(w.length+l.length):null,pf:(gw||gl)?(gl>0?gw/gl:Infinity):null}};}).filter(Boolean);}catch(e){console.warn('what-if KPIs fwd:',e);window._qbKpiFwd=[];}
         // v91.81 VIEW (WHAT-IF): the shadows switched on - the box's own shadow legs (el_qb_sh_on, per trade, grouped by the day they closed) and
         // the Books panel's as-if legs that are neither live here nor a box shadow leg (bkaLegB: in QQQ). Each keeps its v91.79 colour and the
@@ -47343,7 +47448,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const _lgvShSetQb=(from,closedRows)=>{
           const fwd=qbShOn.map(k=>{const mine=closedRows.filter(t=>t.leg===k&&t.exitDate&&(!from||t.exitDate>=from));if(!mine.length)return null;
             const fid=bkaUniverse().find(id=>!(BOOKS_LEG_CLASS[id]||{}).exec_leg&&_lgvShKeyQb(id)===k)||null;
-            return {id:fid||k,name:qbShLegName(k)+' (shadow)',style:bkaLineStyle(fid||k),shKey:k,days:bkaDaysOfTrades(mine,t=>t.exitDate,t=>+t.pnl_record||0)};}).filter(Boolean);
+            return {id:fid||k,name:qbShLegName(k),style:bkaLineStyle(fid||k),shKey:k,days:bkaDaysOfTrades(mine,t=>t.exitDate,t=>+t.pnl_record||0)};}).filter(Boolean);
           return lgvShadowLegs('qb',from,null,id=>!!((BOOKS_LEG_CLASS[id]||{}).exec_leg||_lgvShKeyQb(id)),fwd);};
         // v91.89: _lgvShQbMem = the REMEMBERED shadows (enables WHAT-IF); _lgvShQbRaw = the APPLIED ones (empty in LIVE)
         const _lgvShQbMem=(()=>{try{return _lgvShSetQb(_lgvFromQb,qbShClosed);}catch(e){console.warn('ledger views shadows:',e);return [];}})();
@@ -48162,7 +48267,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +Z.skipped+' trade'+(Z.skipped===1?'':'s')+' rounded to 0 shares and skipped. Open lots and trades before the range stay as traded.'
               +(_lgvShQbRaw.length?' Shadow legs: scaled by the risk-% lots over the box lot only when their as-if data carries a stop distance; '+_lgvShQb.filter(x=>x.fixed).length+' of '+_lgvShQb.length+' have none and stay FIXED.':'')):'';
             return lgvBarHtml('qb',{whatifOk:_lgvShQbMem.length>0,fixedWord:'10 sh',sizeTip:tip,whatifTip:'LIVE + '+_lgvShQbMem.map(x=>x.name).join(', ')+' (simulated, never the account).'});})();
-          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerDailyModeHtml('qb')+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
+          const qbChartRow=(leg,capHtml)=>'<div class="lg-chart-row"><div class="qbx-range-row">'+ledgerRangePillsHtml(qbRange,'data-qbrange')+'</div>'+ledgerChartOptsHtml('qb')+(leg?'<div class="lg-legend-slot" id="qb-lg-legend"></div>':'')
             +'<div class="lg-chart-foot lg-chart-rowcap" data-lgchartfoot="qb"><span class="lg-chart-cap">'+(capHtml||'')+'</span></div></div>';
           const qbRangeCap=(qbRange&&qbRange!=='ALL')?('Cumulative P&amp;L, '+qbRangeWord):('Cumulative P&amp;L since '+naS(QE.live_from));
           const qbRangeCapFull=((qbRange&&qbRange!=='ALL')?('Cumulative P&L, '+qbRangeWord+', counted from the start of the range'):('Cumulative P&L since '+naS(QE.live_from)))
@@ -48257,7 +48362,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 vals:pts.map((p,i)=>i===0?0:Math.round((((p.legs&&p.legs[key]!=null)?p.legs[key]:0)+qbMarkAt(i,key))*100)/100)};});
             // switched-on shadow legs: one dashed grey line each, its closed would-be P&L summed by the New York day it closed (never in the total)
             qbShOnA.forEach(k=>{const mine=qbShOnClosed.filter(t=>t.leg===k);if(!mine.length)return;
-              const nm=qbShLegName(k)+' (shadow)';nameKey[nm]='sh:'+k;
+              const nm=qbShLegName(k);nameKey[nm]='sh:'+k;
               // v91.79: its colour is the book leg's own (the swatch on its row in the Books panel), else its key's
               const fid=(()=>{const C=window._qbBkaCtx;if(!C||!C.fwd)return null;return bkaUniverse().find(id=>{const f=C.fwd(id);return f&&f.key==='sh:'+k;})||null;})();
               lines.push(Object.assign({name:nm,on:!lgOff['sh:'+k],bkaFwd:fid||k},bkaLineStyle(fid||k),{
@@ -50034,10 +50139,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       //   are part of the name and take the leg's colour wherever the label is drawn (strategy rows, trade rows, chart legend, tables).
       //   The nightly report's own params_cell / model_variant win; PAPER_LEG_PARAMS (top of this file) fills in; a label that already
       //   names its model (… logistic HYBRID …) is not told twice.
+      // v91.91 ONE LABEL (owner 11-22): FAMILY #RUN.CFG MODE - 'ORB #234.1 raw', 'TTM #459.1 raw'; the label's own words (' · SIZE TILT',
+      //   ' · CASH SESSION') and any market word ('DIP ES') leave the name for the row hover
       const _legSetWords=(k,label)=>{const inl=(typeof PAPER_LEG_PARAMS!=='undefined'&&PAPER_LEG_PARAMS[k])||null;   // _legSrc is defined further down (TDZ) - the inline table only here
-        if(!inl)return label;const cell=inl.cell,vr=inl.variant||'';
-        let out=/#\d+/.test(label)?label.replace(/#(\d+)/,(m,n)=>'#'+n+(cell!=null?('.'+cell):' set ?')):label+(inl&&inl.run!=null?(' #'+inl.run+(cell!=null?('.'+cell):' set ?')):'');
-        if(vr&&!new RegExp('\\b'+vr+'\\b','i').test(out))out=out.replace(/( \u00b7 |$)/,' '+vr+'$1');return out;};
+        const m=/#(\d+)/.exec(String(label||'')),run=(inl&&inl.run!=null)?String(inl.run):(m?m[1]:'');if(!run)return label;
+        return window.ledgerCfgLabel(window.ledgerFamWord(String(label||k)),run,inl?inl.cell:null,window.ledgerModeWord(inl&&inl.variant,label));};
       const _legLabel=Object.fromEntries(PAPER_LEG_DEFS.map(d=>[d.k,_legSetWords(d.k,d.label)]));
       // ── LEG FILTER (owner ask 2026-08-13) — same idea as the report's CLASSIC/NEO rail:
       // one control that narrows the WHOLE board to a single strategy. With three legs
@@ -50127,7 +50233,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const _fwdDefs=PAPER_LEG_DEFS.filter(d=>!_bookSet.has(d.k)&&(_showArch||!d.archived));
       if(window._paperFwdOpen==null)window._paperFwdOpen=!!APREF.paperFwdOpen2;   // NT8 board fix 10-09: closed by default (was open)
       // one spelling for a strategy without a listed row, here and in the strategy list: the family, a hash sign and the run number (ORB #257), never ORB 257
-      const _paperNice=k=>{const m=String(k).match(/^([A-Z][A-Z-]*)_(\d+)(?:_(.+))?$/);return m?(m[1]+' #'+m[2]+(m[3]?' \u00b7 '+m[3].replace(/_/g,' '):'')):String(k).replace(/_/g,' ');};
+      // v91.91 ONE LABEL: FAMILY #RUN.CFG MODE here too ('NOISE #422.2 raw'); a run with no recorded set reads 'set ?'
+      const _paperNice=k=>{const P=(typeof PAPER_LEG_PARAMS!=='undefined'&&PAPER_LEG_PARAMS[k])||null,m=String(k).match(/^([A-Z][A-Z-]*)_(\d+)(?:_(.+))?$/);
+        if(!P&&!m)return String(k).replace(/_/g,' ');
+        return window.ledgerCfgLabel(window.ledgerFamWord(m?m[1]:k),P?P.run:m[2],P?P.cell:null,window.ledgerModeWord(P&&P.variant,(m&&m[3])||''));};
       _otherKeys.forEach(k=>{_legColor[k]='#8a8a8a';_legLabel[k]=_paperNice(k);});
       if(!Array.isArray(window._paperOtherOn))window._paperOtherOn=Array.isArray(APREF.paperOtherOn)?APREF.paperOtherOn.slice():[];
       if(window._paperOtherOpen==null)window._paperOtherOpen=!!APREF.paperOtherOpen;
@@ -50478,7 +50587,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // Every series is always built. PLEG no longer removes a curve, it dims the others.
       const _curveSeries=_tileDefs
         .filter(d=>_legShown(d[0]))
-        .map(d=>({k:d[0],label:d[1],color:d[2],vals:_cumByDate(d[0]),dim:false}));
+        .map(d=>({k:d[0],label:_legLabel[d[0]]||d[1],color:d[2],vals:_cumByDate(d[0]),dim:false}));   // v91.91: the legend reads the one label
       // ROBINHOOD HERO (owner 2026-09-08): one number, one line under it, a period
       // picker, then the curve. The picker is a lens (not saved): 1W / 1M / ALL count
       // back from the newest trade on the board, because this is a forward test and
@@ -50550,7 +50659,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         whatifTip:'LIVE + '+_lgvShP2Mem.map(s=>s.name).join(', ')+' (simulated as-if, never the account).'});
       const _rhChart=(()=>{
         // v91.79: the what-if KPI table sits under the chart row (filled when the chart is wired; empty with no shadow leg on)
-        if(_rhN)return '<div data-p2sec="chart"'+(_lgvEffP2==='whatif'?' class="lgv-whatif"':'')+'>'+_lgvBarP2+'<div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+ledgerDailyModeHtml('p2')+'<div class="lg-legend-slot" id="p2-lg-legend"></div>'+_rhFoot+'</div><div class="bka-kpi-slot" id="p2-bka-kpi"></div></div>';
+        if(_rhN)return '<div data-p2sec="chart"'+(_lgvEffP2==='whatif'?' class="lgv-whatif"':'')+'>'+_lgvBarP2+'<div class="p2cw" id="p2-chart"></div><div class="lg-chart-row">'+_rhTabs+ledgerChartOptsHtml('p2')+'<div class="lg-legend-slot" id="p2-lg-legend"></div>'+_rhFoot+'</div><div class="bka-kpi-slot" id="p2-bka-kpi"></div></div>';
         return '<div data-p2sec="chart">'+_lgvBarP2+'<div class="p2rhempty">'+(_allDates.length?'NO CLOSED TRADES IN THIS RANGE':('NO PAPER TRADES YET \u2014 PAPER TRADING STARTS '+PAPER_START))+'</div><div class="lg-chart-row">'+_rhTabs+_rhFoot+'</div><div class="bka-kpi-slot" id="p2-bka-kpi"></div></div>';
       })();
       // the plotted days and the bold line's totals (plain numbers, no DOM): the render probe reads them
@@ -52446,9 +52555,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // v91.72 (owner 11-21 'get rid of this garbly nonsense'): ONE row - dot, the short name (family + run number: 'ORB #234.1'), the $ and the
           // switch. The label's variant tag (' · RAW', ' · SIZE TILT'), the model word and the open / equity lines moved into the row hover and the
           // detail a row tap opens (the Set / Market rows there already carry them).
-          const _lblShort=String(label).split(' \u00b7 ')[0];
+          // v91.91 ONE LABEL (owner 11-22): FAMILY #RUN.CFG MODE, all visible ('ORB #234.1 raw'); the run.set is the report link
           const _runShort=n=>'<span class="qbx-runlink" data-p2runlink="'+n+'"'+(_cell!=null?(' data-p2cell="'+_cell+'"'):'')+' role="link" tabindex="0" title="open run #'+n+'\u2019s report">'+window.cfgIdText({run:n,cell:_cell})+'</span>';
-          const _lblHtml1=/#\d+/.test(_lblShort)?_pnX(_lblShort).replace(/#(\d+)/,(m,n)=>_runShort(n)):(_pnX(_lblShort)+(_srcRun?(' '+_runShort(_srcRun)):''));
+          const _lblRaw=String(def.label||label||name),_lblRun=(/#(\d+)/.exec(_lblRaw)||/#(\d+)/.exec(String(label||''))||[])[1]||_srcRun;
+          const _lblRunN=(_inl&&_inl.run!=null)?String(_inl.run):_lblRun,_lblMode=window.ledgerModeWord(_variant,_lblRaw);
+          const _lblHtml1=_pnX(window.ledgerFamWord(_lblRaw))+(_lblRunN?(' '+_runShort(_lblRunN)+(_cell==null?' <span class="qbx-vrt" data-p2set="none">set ?</span>':'')):'')
+            +' <span class="qbx-vrt" data-p2mode="'+_pnX(_lblMode)+'">'+_pnX(_lblMode)+'</span>';
           if(a.openN)more+=R('Unrealized','<span data-p2rowopen="'+_pnX(name)+'" class="'+ledgerCls(a.openUsd)+'">'+ledgerSigned(a.openUsd)+' &middot; '+a.openN+' open'+(openCt?(' &middot; '+openCt+' ct'):'')+'</span>')
             +R('Equity','<span data-p2rowequity="'+_pnX(name)+'" class="'+ledgerCls(eq)+'" title="closed + unrealized">'+ledgerSigned(eq)+'</span>');
           return {key:name,wrap:false,
@@ -55261,7 +55373,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       // LEDGER shared equity chart (unify step 5): drawn into its box now that the page is in place
       // v91.79: the what-if KPI table under the chart (only with a shadow leg on)
       {const sl=content.querySelector('#qb-bka-kpi');if(sl){try{sl.innerHTML=bkaKpiTableHtml(lgvKpiSized(bkaKpiSpec('qb',window._qbBkaCtx,window._qbKpiLive,window._qbKpiBase,'the realized-% base (the account at the range start)',window._qbKpiFwd),window._lgvShQbSized,window._lgvQb));}catch(e){console.warn('what-if KPIs:',e);sl.innerHTML='';}}}
-      if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw){if(_lgDailyOn('qb'))ledgerDailyChart(lgw,window._qbLgChart.pts,{id:'qb',comps:window._qbLgChart.comps,phoneH:194,tipNote:window._qbLgChart.tipNote});else ledgerChartRender(lgw,window._qbLgChart);}}
+      if(window._qbLgChart){const lgw=content.querySelector('#qb-lg-chart');if(lgw){Object.assign(window._qbLgChart,{dailyBars:_lgBarsOn('qb'),stratLines:_lgSLinesOn('qb')});ledgerChartRender(lgw,window._qbLgChart);}}   // v91.91 one chart
       // LEDGER shared strategy list (unify step 10): a tap on a leg opens its detail under the row (since start, unrealized, the
       // box's day, position, notional); the Retired and Shadow folds open and close, each remembered per viewer (closed until opened)
       content.querySelectorAll('[data-lglist="qb"] [data-lgrow]').forEach(el=>{el.onclick=()=>{
@@ -55566,8 +55678,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
          const _pB=(C.pctBase!=null&&isFinite(+C.pctBase)&&+C.pctBase>0)?+C.pctBase:null;
          const _pT=v=>{if(!_pB)return '';const q=v/_pB*100,a=Math.abs(q);return (a<0.0005?'0.00':((q<0?'-':'+')+(a<0.1?a.toFixed(3):a.toFixed(2))))+'%';};
          const _pS=(v,key)=>_pB?'<span class="qbx-pct '+ledgerCls(v)+'" data-p2pcthover="'+key+'" title="'+_hmEsc(C.pctTip||'')+'">('+_pT(v)+')</span>':'';
-         if(_lgDailyOn('p2'))ledgerDailyChart(wrapEl,C.pts,{id:'p2',comps:C.comps,phoneH:194,tipNote:C.tipNote});else
-         ledgerChartRender(wrapEl,{id:'p2',legendInto:'#p2-lg-legend',pts:C.pts,up:C.up,aria:C.aria,lines:C.lines,bands:C.bands,totalColor:C.totalColor,lineDash:C.lineDash,lineOpacity:C.lineOpacity,
+         // v91.91 ONE chart: the total line, the stacked DAILY BARS (toggle, on) and the STRATEGY LINES (toggle, off)
+         ledgerChartRender(wrapEl,{id:'p2',legendInto:'#p2-lg-legend',comps:C.comps,dailyBars:_lgBarsOn('p2'),stratLines:_lgSLinesOn('p2'),phoneH:C.phoneH,pts:C.pts,up:C.up,aria:C.aria,lines:C.lines,bands:C.bands,totalColor:C.totalColor,lineDash:C.lineDash,lineOpacity:C.lineOpacity,
            pctBase:_pB,pctTip:C.pctTip,
            onToggle:(nm,on)=>{try{const off=JSON.parse(localStorage.getItem('el_lg_lines_nt8')||'{}')||{};if(on)delete off[nm];else off[nm]=1;localStorage.setItem('el_lg_lines_nt8',JSON.stringify(off));}catch(e){}},
            onScrub:(i,p)=>{
@@ -56247,7 +56359,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const bp=run&&(run.best_params||(run.result&&run.result.best_params));
         if(!run||!bp||!Object.keys(bp).length){alert('This run has no best config to test.');return;}
         let def='';try{def=(JSON.parse(localStorage.getItem('augurPrefs')||'{}').lockbox)||'';}catch(e){}
-        if(!def&&run.date_to){const d1=new Date(String(run.date_to).slice(0,10)+'T00:00');if(!isNaN(d1.getTime())){d1.setDate(d1.getDate()+1);def=d1.toISOString().slice(0,10);}}
+        if(!def&&run.date_to){const d1=new Date(String(run.date_to).slice(0,10)+'T00:00:00Z');if(!isNaN(d1.getTime())){d1.setUTCDate(d1.getUTCDate()+1);def=d1.toISOString().slice(0,10);}}
         const got=prompt('Test the winner of run #'+id+' once on the lockbox.\n\nThis runs one backtest of its best config from the date below to the end of the data. The discipline is to look only once: a pass it did not earn means it was overfit.\n\nLockbox starts on (YYYY-MM-DD):',def);
         if(got===null)return;
         const since=String(got).trim();
@@ -56649,7 +56761,7 @@ function _setPaneLog(){
         <span style="font-size:var(--fsxs);color:var(--text4)">= start $${money(st)} ${pn>=0?'+':'−'} $${money(Math.abs(pn))} P&amp;L${auto?' · live net-liq':''}</span>
       </div>`;
     }).join('')
-    +(_brokerList().length>1?`<div style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border);font-size:var(--fsxs);color:var(--text4)">COMBINED (all accounts) <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:15px;margin-left:6px">$${money(_brokerList().reduce((s,b)=>s+brokerBalance(b),0))}</span></div>`:''))
+    +(_brokerList().length>1?`<div style="margin-top:6px;padding-top:8px;border-top:1px solid var(--border);font-size:var(--fsxs);color:var(--text4)">ALL ACCOUNTS <span style="color:var(--blue);font-family:'Bebas Neue',monospace;font-size:15px;margin-left:6px">$${money(_brokerList().reduce((s,b)=>s+brokerBalance(b),0))}</span></div>`:''))
   +_setCard('ACCOUNT INFO',
     _setNote('Your broker account number and broker name. Stamped on new and imported trades for record-keeping. Use "Apply to All" to back-fill existing trades.')
     +`<div style="display:flex;gap:10px;flex-wrap:wrap;align-items:flex-end;margin-bottom:10px">
@@ -56722,9 +56834,14 @@ function _clLoadOld(){
     window._clOld=Array.isArray(a)?a:[];window._clOldLoading=0;
     if(document.getElementById('set-overlay')&&prefs.setPane==='about')openSettings('about');});
 }
+// SPEED: the history list is rebuilt only when VERSION or the loaded older entries change, not on every settings redraw.
+let _clHtmlCache=null,_clHtmlKey='';
 function _setPaneAbout(){
   _clLoadOld();
-  return `<div class="lbl" style="margin-bottom:4px">VERSION HISTORY · v${VERSION}</div>
+  const _k=VERSION+'|'+(window._clOld?window._clOld.length:'-')+'|'+CHANGELOG.length;
+  if(_clHtmlCache!=null&&_clHtmlKey===_k)return _clHtmlCache;
+  _clHtmlKey=_k;
+  return _clHtmlCache=`<div class="lbl" style="margin-bottom:4px">VERSION HISTORY · v${VERSION}</div>
     <div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:10px">What changed per release · newest first. Full history in git.</div>`
     +_changelogShown().map(c=>`<div style="display:flex;gap:12px;padding:9px 0;border-top:1px solid var(--border)"><div style="flex:0 0 48px;font-variant-numeric:tabular-nums;color:var(--text2);font-weight:700">v${c.v}</div><div style="flex:1"><div style="font-size:var(--fsxs);color:var(--text5);margin-bottom:3px">${c.date||''}</div><ul style="margin:0;padding-left:16px;color:var(--text3);font-size:var(--fsm);line-height:1.6">${(c.notes||[]).map(n=>'<li>'+n+'</li>').join('')}</ul></div></div>`).join('');
 }
@@ -56746,8 +56863,12 @@ function openSettings(pane){
     ov.onclick=e=>{if(e.target===ov)closeSettings();};
     const rail=SET_PANES.map(p=>{const on=p[0]===cur;
       return `<button class="btn-ghost" data-setpane="${p[0]}" title="${p[3]}" style="display:block;width:100%;text-align:left;padding:9px 12px;border-radius:8px;font-size:var(--fsxs);letter-spacing:1px;margin-bottom:2px;${on?'background:var(--bg3);color:var(--text);font-weight:700':'color:var(--text4)'}"><span style="margin-right:8px;font-size:13px;opacity:.75;font-variant-emoji:text">${p[2]}</span>${p[1]}</button>`;}).join('');
-    const pageHtml=cur==='appear'?_setPaneAppear():cur==='log'?_setPaneLog():cur==='io'?_setPaneIO():cur==='bt'?_setPaneBT():_setPaneAbout();
-    ov.innerHTML=`<div style="background:var(--bg1);border:1px solid var(--border);border-radius:14px;width:100%;max-width:1020px;height:min(88vh,860px);display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden">
+    const pageHtml=_setPaneHtml(cur);
+    // MOBILE (below 600px): the menu becomes a horizontal strip above the pane, no side gutter, no page side-scroll
+    ov.innerHTML=`<style>@media (max-width:600px){#set-overlay{padding:0 !important}#set-overlay .set-shell{height:100% !important;max-height:none;border-radius:0 !important}
+      #set-overlay .set-main{flex-direction:column !important}#set-overlay .set-rail{flex:0 0 auto !important;display:flex;gap:4px;overflow-x:auto;overflow-y:hidden;border-right:0 !important;border-bottom:1px solid var(--border);padding:6px 8px !important}
+      #set-overlay .set-rail button{display:inline-block !important;width:auto !important;flex:0 0 auto;white-space:nowrap;margin:0 !important;padding:7px 10px !important}
+      #set-overlay #set-body{padding:12px !important;min-width:0}}</style><div class="set-shell" style="background:var(--bg1);border:1px solid var(--border);border-radius:14px;width:100%;max-width:1020px;height:min(88vh,860px);display:flex;flex-direction:column;box-shadow:0 18px 60px rgba(0,0,0,.55);overflow:hidden">
       <div style="display:flex;align-items:center;gap:10px;padding:13px 16px;border-bottom:1px solid var(--border);flex-shrink:0">
         <span style="font-size:15px;opacity:.7;font-variant-emoji:text">&#9881;</span>
         <span style="font-size:14px;font-weight:700;color:var(--text);letter-spacing:1px">SETTINGS</span>
@@ -56755,12 +56876,18 @@ function openSettings(pane){
         <span style="flex:1"></span>
         <button id="set-x" class="btn-ghost" style="padding:5px 11px;border:1px solid var(--border);border-radius:7px;color:var(--text4)">✕</button>
       </div>
-      <div style="flex:1;display:flex;min-height:0">
-        <div style="flex:0 0 196px;border-right:1px solid var(--border);padding:12px 10px;overflow:auto;background:var(--bg2)">${rail}</div>
+      <div class="set-main" style="flex:1;display:flex;min-height:0">
+        <div class="set-rail" style="flex:0 0 196px;border-right:1px solid var(--border);padding:12px 10px;overflow:auto;background:var(--bg2)">${rail}</div>
         <div id="set-body" style="flex:1;overflow:auto;padding:16px 18px">${pageHtml}</div>
       </div>
     </div>`;
     document.body.appendChild(ov);
+    // DIRTY FLAG: typing / picking in a field marks the pane edited, so a background redraw leaves it alone.
+    //   A button click (save, add, reset...) clears it, as does a field that saves itself on change.
+    ov._dirty=false;
+    ov.addEventListener('input',e=>{const t=e.target;if(t&&t.type!=='file'&&/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName))ov._dirty=true;},true);
+    ov.addEventListener('change',e=>{const t=e.target;if(t&&t.getAttribute&&t.getAttribute('onchange'))ov._dirty=false;},true);
+    ov.addEventListener('click',e=>{const t=e.target;if(t&&t.closest&&t.closest('button'))ov._dirty=false;},true);
     document.removeEventListener('keydown',_setEsc);document.addEventListener('keydown',_setEsc);
     ov.querySelectorAll('[data-setpane]').forEach(b=>{b.onclick=()=>{const t=document.getElementById('set-body');if(t)t.scrollTop=0;openSettings(b.dataset.setpane);};});
     const xb=document.getElementById('set-x');if(xb)xb.onclick=closeSettings;
@@ -56776,6 +56903,27 @@ function openSettings(pane){
   }finally{window._setBuilding=0;}
 }
 
+function _setPaneHtml(cur){return cur==='appear'?_setPaneAppear():cur==='log'?_setPaneLog():cur==='io'?_setPaneIO():cur==='bt'?_setPaneBT():_setPaneAbout();}
+// True while the reader is typing in the settings overlay or has unsaved edits in it.
+function _setEditing(){
+  const ov=document.getElementById('set-overlay');if(!ov)return false;if(ov._dirty)return true;
+  const a=document.activeElement;if(!a||!ov.contains(a))return false;
+  return a.tagName==='TEXTAREA'||a.tagName==='SELECT'||(a.tagName==='INPUT'&&!/^(file|checkbox|radio|button|submit|reset|range|color)$/i.test(a.type||''));
+}
+// Live-data redraw of the open settings overlay: never while the reader is editing; otherwise only the
+//   pane body (IMPORT / EXPORT: only its live panel), keeping the shell, the menu and the scroll.
+function _setLiveRefresh(){
+  if(window._setBuilding||!document.getElementById('set-overlay')||_setEditing())return;
+  const cur=SET_PANES.some(p=>p[0]===prefs.setPane)?prefs.setPane:'appear';
+  const b=document.getElementById('set-body');if(!b){openSettings();return;}
+  const k=b.scrollTop;window._setBuilding=1;
+  try{
+    const iop=cur==='io'?document.getElementById('io-modal-panel'):null;
+    if(iop){iop.innerHTML='';renderImportExportInto(iop);}
+    else{b.innerHTML=_setPaneHtml(cur);_setWire(cur);}
+    if(k)b.scrollTop=k;
+  }finally{window._setBuilding=0;}
+}
 // Contract for other slices: open the settings gear straight to IMPORT / EXPORT, optionally
 // landing on one of its sub-tabs ('import' | 'export' | 'history'). Safe to call again while
 // the modal is already open — openSettings() just tears down and rebuilds it on this pane.
@@ -56790,7 +56938,7 @@ window.openImportExport=function(sub){
 // renderApp() wrapper below already uses to decide whether the settings modal needs a
 // rebuild; call it from any place that used to gate a refresh on activeTab==='import_export'.
 window.refreshImportExportPanel=function(){
-  try{if(document.getElementById('io-modal-panel')&&!window._setBuilding)openSettings();}catch(e){}
+  try{if(document.getElementById('io-modal-panel')&&!window._setBuilding)_setLiveRefresh();}catch(e){}
 };
 
 // per-pane control wiring — lifted verbatim from the two old settings screens
@@ -56895,7 +57043,7 @@ try{document.addEventListener('scroll',function(ev){const t=ev.target;if(!t||t==
       const _now=(window.scrollY||document.documentElement.scrollTop||0);
       if(Math.abs(_now-_after)<2)window.scrollTo(0,_sy);}catch(_e2){}});}catch(_e3){}
   }
-  try{if(!window._setBuilding&&document.getElementById('set-overlay'))openSettings();}catch(e){}
+  try{if(!window._setBuilding&&document.getElementById('set-overlay'))_setLiveRefresh();}catch(e){}
   return r;};window.renderApp=renderApp;})();
 
 

@@ -959,9 +959,19 @@ def build_leg(leg_id, book_leg, force=False, say=print):
 
 
 # ── the whole table ──────────────────────────────────────────────────────────────────────────────────────
+def _gold_book(books, key):
+    """owner 11-22: no gold books (tools/book_legs_publish.py drop_gold_books) - a book with a '<key>_nogold' twin or a GLDNIGHT leg."""
+    if str(key).endswith("_nogold"):
+        return False
+    return (str(key) + "_nogold" in books) or any((l or {}).get("id") == "GLDNIGHT" for l in (books.get(key) or {}).get("legs") or [])
+
+
 def distinct_legs(table):
     legs = {}
-    for _k, b in (table.get("books") or {}).items():
+    books = table.get("books") or {}
+    for _k, b in books.items():
+        if _gold_book(books, _k):
+            continue
         for l in b.get("legs") or []:
             if l.get("id") and l["id"] not in legs:
                 legs[l["id"]] = l

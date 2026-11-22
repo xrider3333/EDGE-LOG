@@ -329,8 +329,9 @@ CASES = [
     # remembered per browser, a 375 px phone, and the ?oldboards=1 flag (it must draw the same board as the plain page)
     ('retired-open',    {'sub': 'paper2', 'prefs': {'paperOtherOn': ['ENGUQ']}, 'win': {'_paperShowArchived': True}}),
     ('stats-open',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_stats_nt8': '1'}}),
-    # the DAILY | CURVE switch: every other case is seeded CURVE (el_lg_daily_p2 = 0, see the seeding line in the page script); this one runs the DEFAULT, DAILY
-    ('daily-on',        {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fl', 'ls': {'el_lg_daily_p2': '1'}}),
+    # v91.91 ONE CHART: every other case is seeded bars off + strategy lines on (the old CURVE look, see the seeding line in the page
+    # script); this one runs the DEFAULT - DAILY BARS on, STRATEGY LINES off
+    ('daily-on',        {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fl', 'ls': {'el_lg_bars_p2': '1', 'el_lg_slines_p2': '0'}}),
     ('cal-closed',      {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_cal_nt8b': '0'}}),
     ('cal-aug',         {'sub': 'paper2', 'prefs': {}, 'win': {}, 'ls': {'el_lg_calmo_nt8': '2026-08'}}),
     ('phone375',        {'sub': 'paper2', 'prefs': {}, 'win': {}, 'frame': 'fp'}),
@@ -1249,7 +1250,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
     var seed=async function(){
       for(var t=0;t<4;t++){
         var w=fr.contentWindow;try{w.renderAuth=function(){};}catch(e){}
-        var ok=w.eval("(function(){try{localStorage.setItem('augurPrefs','{}');localStorage.setItem('el_lg_daily_p2','0');var F="+JSON.stringify(FIX)+";"
+        var ok=w.eval("(function(){try{localStorage.setItem('augurPrefs','{}');localStorage.setItem('el_lg_bars_p2','0');localStorage.setItem('el_lg_slines_p2','1');var F="+JSON.stringify(FIX)+";"
           +"window._paperTrades=F.trades;window._paperReports=F.reports;window._ntBtMatch=F.ntBt;window._ntBridge=F.ntBridge;window._paperLoaded=true;window._paperLoading=false;"
           +"window._paperTradeInfo=F.tradeInfo;window.__caveatFixes=F.cavFixes||[];window._p2Open={};window._paperOtherOn=null;window._paperLegOff=null;window._paperCurveWin=null;"
           +"activeTab='augur';augurSub='paper2';renderApp();return !!document.querySelector('.p2rh');}catch(e){return 'ERR '+(e&&e.stack?e.stack:e);}})()");
@@ -1356,7 +1357,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
           +"localStorage.removeItem('el_lg_filters_p2');localStorage.removeItem('el_lg_listmore_p2');"
           // owner 11-21: the last Sim101 cash this browser saw (the NT8 % base while NT is not answering) starts empty in every case
           +"localStorage.removeItem('el_nt_sim_cash');"
-          +"var LS=Object.assign({'el_lg_daily_p2':'0'},"+JSON.stringify(cfg.ls||{})+");for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
+          +"var LS=Object.assign({'el_lg_bars_p2':'0','el_lg_slines_p2':'1'},"+JSON.stringify(cfg.ls||{})+");for(var lk in LS)localStorage.setItem(lk,LS[lk]);"
           +"var W="+JSON.stringify(win)+";for(var k in W)window[k]=W[k];"
           +(cfg.theme?("prefs.theme="+JSON.stringify(cfg.theme)+";applyTheme();"):"")
           +"activeTab='augur';augurSub="+JSON.stringify(cfg.sub)+";renderApp();return 'OK';"
@@ -1518,10 +1519,12 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         r.chart=_cs?{h:+_cs.getAttribute('height'),dates:_cs.querySelectorAll('[data-lgdate]').length,ticks:_cs.querySelectorAll('[data-lgtick]').length,
           legend:d.querySelectorAll('.p2rh .lg-legend [data-lgline]').length,n:_pc?_pc.pts.length:0,last:(_pc&&_pc.pts.length)?_pc.pts[_pc.pts.length-1].v:null,
           faint:_cs.querySelectorAll('path[stroke-dasharray]').length}:null;
-        var _dz=d.querySelector('#p2-chart [data-lgdaily="p2"]'),_dm=d.querySelectorAll('[data-lgdaymode="p2"]');
-        r.daily=_dz?{chk:__lgDailyCheck(_dz.parentNode,'lgdaily'),h:Math.round(_dz.getBoundingClientRect().height),attrH:+_dz.getAttribute('height'),bars:_dz.querySelectorAll('[data-lgdaily-bar]').length,line:_dz.querySelectorAll('[data-lgdaily-line]').length,
-          yl:_dz.querySelectorAll('[data-lgdaily-y]').length,yr:_dz.querySelectorAll('[data-lgdaily-yr]').length,xl:_dz.querySelectorAll('[data-lgdaily-x]').length,
-          sw:_dm.length,swOn:[].map.call(d.querySelectorAll('[data-lgdaymode="p2"].active'),function(x){return x.getAttribute('data-v');}),
+        // v91.91 ONE CHART: the day bars ride inside the shared chart (#p2-chart svg); DAILY BARS / STRATEGY LINES are two toggles
+        var _dz=d.querySelector('#p2-chart svg [data-lgbars]')?d.querySelector('#p2-chart svg'):null,_dm=d.querySelectorAll('[data-lgchartopts="p2"] [data-lgopt]');
+        r.daily=_dz?{h:Math.round(_dz.getBoundingClientRect().height),attrH:+_dz.getAttribute('height'),bars:_dz.querySelectorAll('[data-lgdaily-bar]').length,line:_dz.querySelectorAll('[data-lgtotal]').length,
+          ticks:_dz.querySelectorAll('[data-lgtick]').length,xl:_dz.querySelectorAll('[data-lgdate]').length,netTicks:_dz.querySelectorAll('[data-lgdaily-net]').length,
+          faint:_dz.querySelectorAll('path[stroke-dasharray]').length,curveSwitch:d.querySelectorAll('[data-lgdaymode]').length,
+          sw:_dm.length,swOn:[].map.call(d.querySelectorAll('[data-lgchartopts="p2"] [data-lgopt].active'),function(x){return x.getAttribute('data-lgopt');}),
           pts:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.length:null,dated:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.filter(function(q){return q&&q.date;}).length:null,
           empty:((d.getElementById('p2-chart')||{}).innerText||'').trim().slice(0,80)}:{none:1,sw:_dm.length,empty:((d.getElementById('p2-chart')||{}).innerText||'').trim().slice(0,80),
           pts:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.length:null,dated:(w._p2Chart&&w._p2Chart.pts)?w._p2Chart.pts.filter(function(q){return q&&q.date;}).length:null};
@@ -1730,14 +1733,14 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
             // BOOK AS-IF (v91.71): the shared book panel on NT8 PAPER - grouped by book type, a LIVE leg on the board's own switch, a SHADOW
             // switch adds a dashed line + the what-if total to the chart and never moves the account figures; one click = a whole book as-if
             try{
-              var BK={},LS0=localStorage,dly0=LS0.getItem('el_lg_daily_p2');
+              var BK={},LS0=localStorage,dly0=LS0.getItem('el_lg_slines_p2');
               var sd=(w._p2Scrub&&w._p2Scrub.dates)||[];var dA=sd[0]||'2026-08-12',dB=sd[sd.length-1]||dA;
               w._bookLegs={books:{'463':{row:'Book #463 today',legs:[{id:'ENGUQ335',name:'ENGU-Q',run:'#335',instrument:'NQ',size:'1 NQ'},{id:'NOISE422',name:'NOISE422',run:'#422',instrument:'NQ'},{id:'ORB234',name:'ORB234',run:'#234',instrument:'NQ'},{id:'TTMx3',name:'TTM x3',run:'#369 seat',instrument:'ES'}]},
-                '30':{row:'30',legs:[{id:'ORB234',name:'ORB234',run:'#234',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'},{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'},{id:'GLDNIGHT',name:'gold overnight',run:'#541',instrument:'other (GLD ETF)'}]}}};
+                '30':{row:'30',legs:[{id:'ORB234',name:'ORB234',run:'#234',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'},{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'},{id:'OPUS86a',name:'last-10-minutes stock trade',run:'#526',instrument:'stock basket'}]}}};
               w._bookAsif={generated_at:'2026-11-21T21:10:00Z',data_end:dB,legs:{
                 OPUS55a:{name:'midday + late NQ',kind:'futures',src:'replay',d:[dA,dB],p:[1000,-250],n:[1,1],data_end:dB,params_run:524,strategy:'MISC_SMALLLEGS_1_0.py'},
                 PICK6:{name:'PICK6 stocks',kind:'stock',src:'replay',d:[dA],p:[300],n:[1],data_end:dB,params_run:511},
-                GLDNIGHT:{name:'gold overnight',kind:'stock',src:'replay',reason:'no GLD 5m RTH master in the registry'}}};
+                OPUS86a:{name:'last-10-minutes stock trade',kind:'stock',src:'replay',reason:'no SPY 5m RTH master in the registry'}}};
               w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');LS0.removeItem('el_bka_panel_nt8');
               var vw0=LS0.getItem('el_lgv_view_p2');LS0.removeItem('el_lgv_view_p2');
               w.renderApp();
@@ -1768,7 +1771,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               BK.s0=_bs();
               // open the second book, switch its shadow leg on
               if(_click('[data-bka="nt8"] [data-bkafold="30"]')){BK.s1=_bs();
-                if(_click('[data-bka="nt8"] [data-bkasw="OPUS55a"]')){BK.s2=_bs();BK.daily=LS0.getItem('el_lg_daily_p2');BK.stored=LS0.getItem('el_bka_on_nt8');
+                if(_click('[data-bka="nt8"] [data-bkasw="OPUS55a"]')){BK.s2=_bs();BK.daily=LS0.getItem('el_lg_slines_p2');BK.stored=LS0.getItem('el_bka_on_nt8');
                   // v91.89: the switch flipped the board to WHAT-IF; LIVE drops every shadow but keeps the switch remembered; WHAT-IF restores it
                   var _eff=function(){var b=d.querySelector('[data-lgvbar="p2"]');return b?b.getAttribute('data-lgveff'):null;};
                   BK.eff2=_eff();
@@ -1788,7 +1791,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                   _click('[data-bka="nt8"] [data-bkaall="30"]');BK.s6=_bs();}
               }
               w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');
-              if(dly0==null)LS0.removeItem('el_lg_daily_p2');else LS0.setItem('el_lg_daily_p2',dly0);
+              if(dly0==null)LS0.removeItem('el_lg_slines_p2');else LS0.setItem('el_lg_slines_p2',dly0);
               if(vw0==null)LS0.removeItem('el_lgv_view_p2');else LS0.setItem('el_lgv_view_p2',vw0);LS0.removeItem('el_bka_panel_nt8');
               delete w._bookLegs;delete w._bookAsif;w.renderApp();
               // v91.79 pure maths on a known fixture: +1000, -3000, +500, -1000 on a $10,000 base over a 365-day range
@@ -1801,7 +1804,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
             }catch(e){I.bka={err:String(e&&e.stack?e.stack:e)};}
             // v91.81 LEDGER VIEWS: LIVE | WHAT-IF (hero, tiles, chart, calendar), stacked DAILY bars in the line colours, FIXED | RISK n %
             try{
-              var LV={},LS1=localStorage,dly1=LS1.getItem('el_lg_daily_p2');
+              var LV={},LS1=localStorage,dly1=LS1.getItem('el_lg_bars_p2');
               var sd2=(w._p2Scrub&&w._p2Scrub.dates)||[];var eA=sd2[0]||'2026-08-12',eB=sd2[sd2.length-1]||eA;
               w._bookLegs={books:{'30':{row:'30',legs:[{id:'ORB234',name:'ORB234',run:'#234',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'}]}}};
               w._bookAsif={generated_at:'2026-11-22T21:10:00Z',data_end:eB,legs:{OPUS55a:{name:'midday + late NQ',kind:'futures',src:'replay',d:[eA,eB],p:[1000,-250],n:[1,1],data_end:eB,params_run:524}}};
@@ -1813,11 +1816,11 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                   barTags:[].map.call(d.querySelectorAll('[data-lgvbar="p2"] [data-lgvtag]'),function(e){return e.getAttribute('data-lgvtag');}),
                   wi:[].map.call(d.querySelectorAll('[data-lgvwi]'),function(e){return e.getAttribute('data-lgvwi');}),
                   end:(C&&C.pts&&C.pts.length)?C.pts[C.pts.length-1].v:null,tiles:_t(d.querySelector('[data-p2sec="stats"]'))};};
-              LS1.removeItem('el_lgv_view_p2');LS1.removeItem('el_lgv_size_p2');w._bkaOn_nt8=[];LS1.removeItem('el_bka_on_nt8');LS1.setItem('el_lg_daily_p2','0');
+              LS1.removeItem('el_lgv_view_p2');LS1.removeItem('el_lgv_size_p2');w._bkaOn_nt8=[];LS1.removeItem('el_bka_on_nt8');LS1.setItem('el_lg_bars_p2','0');
               w.renderApp();LV.a=_hv();
               w._bkaOn_nt8=['OPUS55a'];LS1.setItem('el_bka_on_nt8','["OPUS55a"]');w.renderApp();LV.b=_hv();
               if(_click('[data-lgvboard="p2"][data-lgvview="whatif"]')){LV.c=_hv();LV.stored=LS1.getItem('el_lgv_view_p2');
-                LS1.setItem('el_lg_daily_p2','1');w.renderApp();
+                LS1.setItem('el_lg_bars_p2','1');w.renderApp();
                 var cm={};(w._p2Chart.comps||[]).forEach(function(c){cm[c.k]=_cc(c.color);});
                 LV.stack=[].map.call(d.querySelectorAll('#p2-chart [data-lgdaily-stack]'),function(g){return {d:g.getAttribute('data-lgdaily-stack'),net:parseFloat(g.getAttribute('data-net')),
                   segs:[].map.call(g.querySelectorAll('[data-lgdaily-seg]'),function(r){var k=r.getAttribute('data-lgdaily-seg');return [k,parseFloat(r.getAttribute('data-v')),getComputedStyle(r).fill,cm[k]||null];})};});
@@ -1825,7 +1828,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                   sv.dispatchEvent(new MouseEvent('mousemove',{clientX:rc.right-30,clientY:rc.top+40,bubbles:true}));
                   LV.tip=[].map.call(d.querySelectorAll('#p2-chart [data-lgdaily-tipseg]'),function(e){var k=e.getAttribute('data-lgdaily-tipseg');return [k,getComputedStyle(e).color,cm[k]||null];});
                   sv.dispatchEvent(new MouseEvent('mouseleave',{bubbles:true}));}}catch(e){LV.tip='err '+e;}
-                LS1.setItem('el_lg_daily_p2','0');w.renderApp();}
+                LS1.setItem('el_lg_bars_p2','0');w.renderApp();}
               _click('[data-lgvboard="p2"][data-lgvview="live"]');LV.d=_hv();
               if(_click('[data-lgvboard="p2"][data-lgvsize="r1"]')){LV.e=_hv();var Z=w._lgvP2;LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,fixN:Z.fixN,riskN:Z.riskN,n:Z.n,storedSize:LS1.getItem('el_lgv_size_p2'),
                   fixedOff:Object.keys(Z.by).filter(function(k){var b=Z.by[k];return b.fixed&&Math.round(b.usd*100)!==Math.round(b.fx*100);}).map(function(k){return [k,Z.by[k].usd,Z.by[k].fx];}),
@@ -1850,7 +1853,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               LV.fxScale={days:SC[0].days,units:SC[0].units,risk:SC[0].risk,fixed:SC[0].fixed,F:{days:SC[1].days,risk:SC[1].risk,fixed:SC[1].fixed}};
               LV.noMedian=['lgvMedianLoss','lgvFallbacks'].filter(function(k){return typeof w[k]==='function';});
               LS1.removeItem('el_lgv_view_p2');LS1.removeItem('el_lgv_size_p2');w._bkaOn_nt8=[];LS1.removeItem('el_bka_on_nt8');
-              if(dly1==null)LS1.removeItem('el_lg_daily_p2');else LS1.setItem('el_lg_daily_p2',dly1);
+              if(dly1==null)LS1.removeItem('el_lg_bars_p2');else LS1.setItem('el_lg_bars_p2',dly1);
               delete w._bookLegs;delete w._bookAsif;w.renderApp();
               I.lgv=LV;
             }catch(e){I.lgv={err:String(e&&e.stack?e.stack:e)};}
@@ -1951,20 +1954,42 @@ def _paper_leg_params(src):
         return {}
 
 
+# v91.91 ONE LABEL (owner 11-22): index.html's ledgerFamWord / ledgerModeWord / ledgerCfgLabel, mirrored - FAMILY #RUN.CFG MODE
+_FAM_RE = [(r'ENGUD[-_ ]?Q', 'ENGUD-Q'), (r'ENGU[-_ ]?Q', 'ENGU-Q'), (r'EODREV|PICK6', 'PICK6'), (r'CBU[-_ ]?Q|CBD[-_ ]?Q|EBU[-_ ]?Q', 'CBU-Q'),
+           (r'TTIBS', 'TTIBS'), (r'TTM', 'TTM'), (r'NOISE', 'NOISE'), (r'ORB|OPENING', 'ORB'), (r'DIP', 'DIP'), (r'GAPGO', 'GAPGO'),
+           (r'^MISC|OPUS|GLDNIGHT|^GOLD', 'MISC'), (r'ENGU', 'ENGU'), (r'SUPERTREND', 'SUPERTREND'), (r'REVERT', 'REVERT'), (r'VWAP', 'VWAP'),
+           (r'RSIDIV', 'RSIDIV'), (r'OVERNIGHT', 'OVERNIGHT'), (r'EMAPB', 'EMAPB'), (r'REPLAY', 'REPLAY'), (r'RFML', 'RFML'), (r'^BOOK', 'BOOK')]
+
+
+def _fam_word(s):
+    u = re.sub(r'\.PY$', '', str(s or '').upper())
+    for rx, f in _FAM_RE:
+        if re.search(rx, u):
+            return f
+    w = [x for x in re.split(r'[^A-Z0-9-]+', u) if x]
+    return w[0] if w else '?'
+
+
+def _mode_word(variant, txt):
+    v = str(variant or '').strip().lower()
+    if v in ('raw', 'gate', 'tilt', 'hybrid', 'keel', 'fixed', 'comp'):
+        return v
+    t = str(txt or '')
+    for rx, w in ((r'hybrid', 'hybrid'), (r'keel', 'keel'), (r'\btilt\b', 'tilt'), (r'\bgate\b', 'gate'), (r'\bfixed\b', 'fixed')):
+        if re.search(rx, t, re.I):
+            return w
+    return v or 'raw'
+
+
 def _set_words(k, label, plp):
-    """The label with run.set and the model word inside it, exactly as index.html's _legSetWords writes it."""
+    """The one label, FAMILY #RUN.CFG MODE, exactly as index.html's _legSetWords writes it."""
     inl = plp.get(k)
-    if not inl:
+    m = re.search(r'#(\d+)', label)
+    run = str(inl['run']) if (inl and inl.get('run') is not None) else (m.group(1) if m else '')
+    if not run:
         return label
-    cell, vr = inl.get('cell'), inl.get('variant') or ''
-    suffix = ('.%s' % cell) if cell is not None else ' set ?'
-    if re.search(r'#\d+', label):
-        out = re.sub(r'#(\d+)', lambda m_: '#' + m_.group(1) + suffix, label, count=1)
-    else:
-        out = label + ((' #%s' % inl['run']) + suffix if inl.get('run') is not None else '')
-    if vr and not re.search(r'\b' + re.escape(vr) + r'\b', out, re.I):
-        out = re.sub(r'( \u00b7 |$)', lambda m_: ' ' + vr + m_.group(1), out, count=1)
-    return out
+    cell = inl.get('cell') if inl else None
+    return '%s #%s%s %s' % (_fam_word(label or k), run, ('.%s' % cell) if cell is not None else ' set ?', _mode_word(inl and inl.get('variant'), label))
 
 
 def _caveat_fixes(root):
@@ -2255,7 +2280,7 @@ def run(alt_index=None, timeout=300):
         lg1 = s1.get('legs') or []
         if 'OPUS55a/shadow/bkasw=false' not in lg1 or not any(x.startswith('PICK6/shadow/') for x in lg1):
             fails.append('paper2 book as-if: book 30 opened without its SHADOW rows: %r' % (lg1,))
-        if not any(x.startswith('GLDNIGHT:') and 'no GLD' in x for x in (s1.get('nodata') or [])):
+        if not any(x.startswith('OPUS86a:') and 'no SPY' in x for x in (s1.get('nodata') or [])):   # v91.91: no gold books, the no-series leg is OPUS86a
             fails.append('paper2 book as-if: a leg with no series does not show its reason: %r' % (s1.get('nodata'),))
         sh2 = s2.get('chart', {}).get('sh') or []
         if ['OPUS55a', '6 3'] not in sh2:
@@ -2286,8 +2311,9 @@ def run(alt_index=None, timeout=300):
             fails.append('paper2 book as-if: WHAT-IF did not restore the remembered shadow (%r, %r)' % (_bka.get('eff2W'), s2W.get('chart')))
         if s2.get('whatif') is None:
             fails.append('paper2 book as-if: no what-if total line in the panel with a shadow leg on')
-        if _bka.get('daily') != '0' or 'OPUS55a' not in (_bka.get('stored') or ''):
-            fails.append('paper2 book as-if: switching a shadow leg on did not move the chart to CURVE / was not remembered (%r, %r)'
+        # v91.91: one chart - switching a shadow on no longer moves a view; it leaves the STRATEGY LINES toggle as it was (seeded on)
+        if _bka.get('daily') != '1' or 'OPUS55a' not in (_bka.get('stored') or ''):
+            fails.append('paper2 book as-if: switching a shadow leg on changed the STRATEGY LINES toggle / was not remembered (%r, %r)'
                          % (_bka.get('daily'), _bka.get('stored')))
         s3 = _bka.get('s3') or {}
         if s3 and (s3.get('hero') == s2.get('hero') or 'ORB234/live/lgsw=false' not in (s3.get('legs') or [])):
@@ -2826,21 +2852,26 @@ def run(alt_index=None, timeout=300):
     # owner 11-21: every case that drew the daily chart - it fills its card, its readout sits above the plot and clears on leave, titles clear the ticks
     for nm, r in sorted(cases.items()):
         judge_daily(nm + ' DAILY', ((r or {}).get('daily') or {}).get('chk'), fails)
-    for nm in ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'range-3m', 'range-ytd', 'range-1m', 'range-saved'):
+    for nm in ('paper2', 'other-open', 'other-on', 'legs-off-p2', 'range-3m', 'range-ytd', 'range-1m', 'range-saved', 'daily-on'):
         r = cases.get(nm) or {}
         if nm == 'daily-on':
+            # v91.91 ONE CHART (owner GO 11-22): by default the shared chart carries the day bars and the total line, no strategy lines,
+            # no day-net tick, no CURVE | DAILY switch; the two toggles read DAILY BARS on, STRATEGY LINES off
             dl = r.get('daily') or {}
             if dl.get('none') or not dl:
-                fails.append('daily-on: DAILY is the default but no daily chart [data-lgdaily="p2"] is in #p2-chart (%r) - %s of the chart points carry a date'
+                fails.append('daily-on: DAILY BARS is the default but the chart in #p2-chart has no day bars (%r) - %s of the chart points carry a date'
                              % (dl, dl.get('dated')))
             else:
-                for key, lo, what in (('bars', 1, 'bars'), ('line', 1, 'running-total line'), ('yl', 1, 'left labels'), ('yr', 1, 'right labels'), ('xl', 2, 'date labels')):
+                for key, lo, what in (('bars', 1, 'day bars'), ('line', 1, 'running-total line'), ('ticks', 2, '$ labels'), ('xl', 2, 'date labels')):
                     if (dl.get(key) or 0) < lo:
-                        fails.append('daily-on: the daily chart has %s %s, expected at least %d (chart points %s, dated %s)' % (dl.get(key), what, lo, dl.get('pts'), dl.get('dated')))
+                        fails.append('daily-on: the chart has %s %s, expected at least %d (chart points %s, dated %s)' % (dl.get(key), what, lo, dl.get('pts'), dl.get('dated')))
                 if (dl.get('h') or 0) < 200:
-                    fails.append('daily-on: the daily chart is %spx tall, expected at least 200 on a laptop (chart points %s, dated %s)' % (dl.get('h'), dl.get('pts'), dl.get('dated')))
-                if dl.get('sw') != 2 or dl.get('swOn') != ['1']:
-                    fails.append('daily-on: the DAILY | CURVE switch reads %s buttons, active %r, expected 2 with DAILY (1) active' % (dl.get('sw'), dl.get('swOn')))
+                    fails.append('daily-on: the chart is %spx tall, expected at least 200 on a laptop (chart points %s, dated %s)' % (dl.get('h'), dl.get('pts'), dl.get('dated')))
+                if dl.get('sw') != 2 or dl.get('swOn') != ['bars'] or dl.get('curveSwitch'):
+                    fails.append('daily-on: the chart toggles read %s buttons, on %r (CURVE switch %s), expected DAILY BARS on and STRATEGY LINES off, no CURVE switch'
+                                 % (dl.get('sw'), dl.get('swOn'), dl.get('curveSwitch')))
+                if dl.get('netTicks') or dl.get('faint'):
+                    fails.append('daily-on: by default the chart draws %s day-net ticks and %s strategy lines, want none of either' % (dl.get('netTicks'), dl.get('faint')))
             continue
         c, hn = r.get('chart'), r.get('heroNum')
         if not c:

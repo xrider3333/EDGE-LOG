@@ -14,6 +14,7 @@ import argparse
 import datetime
 import json
 import os
+import re
 import sys
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
@@ -35,12 +36,42 @@ def _db():
     return firestore.client()
 
 
+# owner 11-22: NO GOLD BOOKS - the owner will not use them. A book with a '<key>_nogold' twin, or one that holds a gold leg, is left
+# out; the no-gold books that stay lose the words 'no gold' ('20 no gold' -> '20'). The page filters an older doc the same way.
+GOLD_LEGS = {"GLDNIGHT"}
+
+
+def is_gold_book(books, key):
+    b = books.get(key) or {}
+    if str(key).endswith("_nogold"):
+        return False
+    if str(key) + "_nogold" in books:
+        return True
+    return any((l or {}).get("id") in GOLD_LEGS or re.search(r"\bGLD\b", str((l or {}).get("instrument") or ""), re.I)
+               for l in b.get("legs") or [])
+
+
+def drop_gold_books(books):
+    out = {}
+    for k, b in books.items():
+        if is_gold_book(books, k):
+            continue
+        b = dict(b)
+        if isinstance(b.get("row"), str):
+            b["row"] = re.sub(r",?\s*no gold\b.*$", "", b["row"], flags=re.I).strip()
+        if isinstance(b.get("label"), str):
+            b["label"] = re.sub(r"^no gold\s*-\s*", "", b["label"], flags=re.I)
+        out[k] = b
+    return out
+
+
 def build(src):
     with open(src, encoding="utf-8") as f:
         d = json.load(f)
     books = d.get("books")
     if not isinstance(books, dict) or not books:
         raise ValueError("book_legs.json has no books")
+    books = drop_gold_books(books)
     unknown = set()
     for key, b in books.items():
         for leg in b.get("legs") or []:
