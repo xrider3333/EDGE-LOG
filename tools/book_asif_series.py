@@ -58,7 +58,7 @@ UID = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
 # board's own first ledger day, so the series starts early enough for both
 WINDOW_FROM = "2026-06-01"
 WARM_DAYS = 330                      # NOISE's 104-day lookback, EODREV's 180-day beta, ENGU-Q's 1340-bar EMA
-SCHEMA = 2                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check)
+SCHEMA = 3                           # 2 = 11-21 owner-review fixes (PICK6 paper size, NOISE398 #528, unit check); 3 = the qqq block (v91.74)
 
 # Book-table leg id -> which run's champion it is, and anything the run doc does not say. `run` is the run the book
 # table names (the label); `params_run` (if set) is the run whose champion is replayed (NOISE398 = #528's PASS pick);
@@ -265,6 +265,250 @@ def leg_kind(book_leg, spec=None):
     return "futures"
 
 
+# ── QQQ conversion for WEBULL PAPER (owner 11-21: "the configs, while tested on EL with NQ futures, should be webull/QQQ
+# compatible", v91.74) ──────────────────────────────────────────────────────────────────────────────────────────────
+# The Webull box (api/qqq_exec.py) trades QQQ SHARES, never contracts. Its sizing rule is size_mode "fixed" (the default,
+# api/qqq_exec.py:330; the else branch of _open_lot, ~:9530): a lot is cfg["shares"][exec_leg] shares (DEFAULT_CONFIG
+# :279 = 5 each; the box's config.json, C:/EdgeLog/qqq_exec/config.json, sets ORB / ENGUQ / NOISE = 10), one lot per
+# signal whatever the NQ quantity. Every fill pays slippage_per_share (:323, $0.01) against us on entry AND exit
+# (_apply_slippage, :8679). Its old NinjaTrader mirror priced QQQ as NQ / (NQ:QQQ ratio calibrated each day, :7617).
+# So one NQ trade, as the box would have traded it:
+#     QQQ $ = gross NQ points x (QQQ close / NQ close on the entry day) x shares - 2 x slippage x shares
+# gross = the replay's net points + the run's cost_pts (the NQ cost is not a QQQ cost; Webull charges no commission,
+# the SEC / TAF sell fees are under a cent at this size, docs/WEBULL_LIVE_RUNBOOK.md section 5). The box trades no SPY,
+# so an ES leg maps to QQQ through the QQQ-on-ES daily beta (SPY daily as a fallback): gross ES points / ES close x beta x QQQ close x shares.
+# A leg the box does not trade is sized like the box's 1-NQ lot (its ORB / NOISE / ENGUQ share count) x the book weight.
+# Stock legs (PICK6, GLDNIGHT, OPUS86a) are already dollars at paper size and stay as they are.
+QQQ_EXEC_CFG = r"C:\EdgeLog\qqq_exec\config.json"
+EXEC_DEFAULT_SHARES = {"ORB": 5, "ENGUQ": 5, "NOISE": 5}      # api/qqq_exec.py DEFAULT_CONFIG["shares"]
+EXEC_DEFAULT_SLIP = 0.01                                       # api/qqq_exec.py DEFAULT_CONFIG["slippage_per_share"]
+QQQ_DAILY_FILES = (   # priority order; a 5m file gives the close of each ET day's last RTH bar
+    (r"C:\EdgeLog\qqq_bars\QQQ_ext_alpaca_5m.csv", "5m"),
+    (r"C:\EdgeLog\ohlc\QQQ_5m.csv", "5m"),
+    (r"C:\EdgeLog\alpaca_cache\etf_daily\QQQ_1Day_raw.csv", "1d"),
+)
+SPY_DAILY = r"C:\EdgeLog\alpaca_cache\etf_daily\SPY_1Day_raw.csv"
+QQQ_DAILY_RAW = r"C:\EdgeLog\alpaca_cache\etf_daily\QQQ_1Day_raw.csv"
+BETA_DAYS = 252
+
+
+def exec_leg_for(leg_id):
+    """The box's exec leg a book leg rides on (the ENGINE_LEG_MAP families), None when the box does not trade it."""
+    u = str(leg_id or "").upper()
+    for fam in ("ORB", "ENGUQ", "NOISE"):
+        if u.startswith(fam):
+            return fam
+    return None
+
+
+def exec_sizing(cfg_path=QQQ_EXEC_CFG):
+    """{shares: {leg: n}, slip, src}: the box executor's fixed share table and slippage, its config over code defaults."""
+    shares, slip, src = dict(EXEC_DEFAULT_SHARES), EXEC_DEFAULT_SLIP, "api/qqq_exec.py DEFAULT_CONFIG"
+    cfg = _load_json(cfg_path) if cfg_path else None
+    if isinstance(cfg, dict):
+        for k, v in (cfg.get("shares") or {}).items():
+            try:
+                shares[k] = int(v)
+            except (TypeError, ValueError):
+                pass
+        if cfg.get("slippage_per_share") is not None:
+            slip = float(cfg["slippage_per_share"])
+        src = "qqq_exec/config.json over api/qqq_exec.py DEFAULT_CONFIG"
+    return {"shares": shares, "slip": slip, "src": src}
+
+
+def qqq_shares(leg_id, weight, sizing):
+    """(shares a 1-contract trade, how): the box's lot for its own legs, else the box's 1-NQ lot x the book weight."""
+    fam = exec_leg_for(leg_id)
+    if fam and fam in sizing["shares"]:
+        return int(sizing["shares"][fam]), "the box's %s lot" % fam
+    lots = sorted(int(sizing["shares"][k]) for k in ("ORB", "NOISE", "ENGUQ") if k in sizing["shares"])
+    base = lots[len(lots) // 2] if lots else 10
+    w = float(weight or 1)
+    return int(round(base * w)), "not on the box: the box's 1-NQ lot (%d sh) x %g" % (base, w)
+
+
+def qqq_trade_usd(gross_pts, ref_px, qqq_px, shares, slip, beta=1.0):
+    """One trade in QQQ dollars: gross points x (QQQ / ref close) x beta x shares - slippage on both sides x shares."""
+    return float(gross_pts) * (float(qqq_px) / float(ref_px)) * float(beta) * shares - 2.0 * float(slip) * shares
+
+
+def _daily_close_csv(path, kind):
+    """{YYYY-MM-DD: close} from a daily csv (date,...,close) or a 5m csv (epoch time: last bar starting 09:30-15:55 ET)."""
+    import csv
+    out = {}
+    if not os.path.exists(path):
+        return out
+    try:
+        from zoneinfo import ZoneInfo
+        ny = ZoneInfo("America/New_York")
+    except Exception:
+        ny = None
+    with open(path, encoding="utf-8", errors="replace") as f:
+        for row in csv.DictReader(f):
+            try:
+                c = float(row.get("close") or "nan")
+                if not c > 0:
+                    continue
+                if kind == "1d":
+                    out[str(row["date"])[:10]] = c
+                    continue
+                t = float(row["time"])
+                if t < 1.0e9 or ny is None:
+                    continue
+                x = dt.datetime.fromtimestamp(t, ny)
+                if not (dt.time(9, 30) <= x.time() < dt.time(16, 0)):
+                    continue
+                out[x.date().isoformat()] = c          # time-ordered rows: the day's last RTH bar wins
+            except Exception:
+                continue
+    return out
+
+
+def _beta(y, x, days=BETA_DAYS):
+    """OLS beta of y's daily returns on x's over their last `days` shared days (None if under 20)."""
+    ds = sorted(set(y) & set(x))[-(days + 1):]
+    ry = [y[ds[i]] / y[ds[i - 1]] - 1 for i in range(1, len(ds))]
+    rx = [x[ds[i]] / x[ds[i - 1]] - 1 for i in range(1, len(ds))]
+    if len(rx) < 20:
+        return None
+    mx, my = sum(rx) / len(rx), sum(ry) / len(ry)
+    vx = sum((a - mx) ** 2 for a in rx)
+    return sum((a - mx) * (b - my) for a, b in zip(rx, ry)) / vx if vx else None
+
+
+def _et_days(index):
+    import pandas as pd
+    di = pd.DatetimeIndex(index)
+    if di.tz is not None:
+        di = di.tz_convert("America/New_York").tz_localize(None)
+    return list(di.normalize().strftime("%Y-%m-%d"))
+
+
+_QREFS = None
+
+
+def qqq_refs():
+    """{qqq, NQ, ES: {day: close}, beta_es, beta_src, sizing} - built once a run."""
+    global _QREFS
+    if _QREFS is not None:
+        return _QREFS
+    qqq = {}
+    for path, kind in reversed(QQQ_DAILY_FILES):    # lowest priority first, so the better file overwrites
+        qqq.update(_daily_close_csv(path, kind))
+    refs = {"qqq": qqq, "sizing": exec_sizing()}
+    from augur_engine.data import find_master, load_master_arrays
+    start = (dt.date.fromisoformat(WINDOW_FROM) - dt.timedelta(days=WARM_DAYS + 10)).isoformat()
+    for inst in ("NQ", "ES"):
+        m = find_master(inst, "5m", "rth", "db_noadj_rth") or find_master(inst, "5m", "rth", None)
+        d = {}
+        if m is not None:
+            arr = load_master_arrays(m, date_from=start)
+            for day, c in zip(_et_days(arr["index"]), arr["close"]):
+                d[day] = float(c)                     # the day's last RTH bar wins
+        refs[inst] = d
+    # the beta that maps an ES leg to QQQ: QQQ's daily returns on ES's (the ES RTH master's last bar each day), the last
+    # BETA_DAYS shared days - the same closes the conversion uses, so it covers the as-if window; SPY as the fallback
+    b, both, what = _beta(qqq, refs["ES"]), sorted(set(qqq) & set(refs["ES"])), "ES RTH no-adj"
+    if not b:
+        spy, qd = _daily_close_csv(SPY_DAILY, "1d"), _daily_close_csv(QQQ_DAILY_RAW, "1d")
+        b, both, what = _beta(qd, spy), sorted(set(qd) & set(spy)), "SPY, Alpaca raw"
+    refs["beta_es"] = round(b, 3) if b else None
+    refs["beta_src"] = "QQQ on %s daily returns, %d days to %s" % (what, min(BETA_DAYS, max(len(both) - 1, 0)),
+                                                                   both[-1] if both else "?")
+    _QREFS = refs
+    return refs
+
+
+def _on_or_before(dmap, day, keys_sorted):
+    import bisect
+    if day in dmap:
+        return dmap[day]
+    i = bisect.bisect_right(keys_sorted, day) - 1
+    return dmap[keys_sorted[i]] if i >= 0 else None
+
+
+def qqq_block(spec, st, refs=None):
+    """The leg's as-if in QQQ dollars as the Webull box would have traded it: {d, p, n, net, trades, shares, rule, ...};
+    {reason} when it cannot be converted; {same: True, rule} for a stock leg (already dollars)."""
+    import numpy as np
+    inst, leg_id = spec["instrument"], spec.get("_leg_id")
+    if inst in STOCKS or leg_kind({}, spec) == "stock" or (inst not in MULT and spec.get("pnl_units") == "usd"):
+        return {"same": True, "rule": "stock leg: already dollars at paper size, unchanged on Webull"}
+    if inst not in ("NQ", "ES", "MNQ", "MES"):
+        return {"reason": "no QQQ map for %s (the box trades QQQ only; NQ and ES legs convert)" % inst}
+    refs = refs or qqq_refs()
+    sz = refs["sizing"]
+    root = "NQ" if inst in ("NQ", "MNQ") else "ES"
+    beta = 1.0
+    if root == "ES":
+        beta = refs.get("beta_es")
+        if not beta:
+            return {"reason": "no QQQ-on-ES beta (the QQQ / ES daily closes are missing)"}
+    units = spec.get("pnl_units") or "points"
+    prm = spec.get("params") or {}
+    if units == "usd":
+        pv = float(prm.get("point_value") or 0)
+        if not pv:
+            return {"reason": "a dollars file with no point_value: its points cannot be recovered"}
+        cost = float(prm.get("cost_pts") or 0)
+        to_pts = lambda x: float(x) / pv + cost          # noqa: E731
+    else:
+        cost = float(spec.get("cost_pts") or 0)
+        to_pts = lambda x: float(x) + cost               # noqa: E731
+    per, how = qqq_shares(leg_id, spec.get("weight"), sz)
+    q, r = refs["qqq"], refs[root]
+    if not q or not r:
+        return {"reason": "no %s daily closes for the QQQ ratio" % ("QQQ" if not q else root)}
+    qk, rk = sorted(q), sorted(r)
+    sess_idx, last, days_idx = st.get("sess_idx"), st.get("last"), st.get("days_idx")
+
+    def dayf(i):
+        return str(np.datetime_as_string(sess_idx[i], unit="D")) if sess_idx is not None else str(days_idx[i])
+
+    days, lb_usd, lb_n, miss, seen = {}, 0.0, 0, 0, set()
+    for t, size in st.get("sized") or []:
+        ei, xi = min(int(t[0]), last), min(int(t[1]), last)
+        ed = dayf(ei)
+        qp, rp = _on_or_before(q, ed, qk), _on_or_before(r, ed, rk)
+        if not qp or not rp:
+            miss += 1
+            continue
+        n = int(round(per * float(size)))
+        if n <= 0:
+            continue
+        seen.add(n)
+        usd = qqq_trade_usd(to_pts(t[2]), rp, qp, n, sz["slip"], beta)
+        if xi >= last:
+            lb_usd += usd
+            lb_n += 1
+            continue
+        d = dayf(xi)
+        if d < WINDOW_FROM:
+            continue
+        a = days.setdefault(d, [0.0, 0])
+        a[0] += usd
+        a[1] += 1
+    ds = sorted(days)
+    ratio = ("x (QQQ close / NQ close on the entry day)" if root == "NQ"
+             else "/ ES close on the entry day x beta %.3f (%s) x QQQ close" % (beta, refs.get("beta_src")))
+    rule = ("QQQ $ = gross %s points (net + %s cost %g pts) %s x %d sh - 2 x $%g slippage x sh. Shares: %s (%s). "
+            "No Webull commission; SEC / TAF under a cent at this size." % (
+                inst, "the file's" if units == "usd" else "the run's", cost, ratio, per, sz["slip"], how, sz["src"]))
+    out = {"d": ds, "p": [round(days[x][0], 2) for x in ds], "n": [int(days[x][1]) for x in ds],
+           "net": round(sum(days[x][0] for x in ds), 2), "trades": int(sum(days[x][1] for x in ds)),
+           "shares": per, "rule": rule, "exec_leg": exec_leg_for(leg_id),
+           "via": "QQQ-on-ES beta" if root == "ES" else "QQQ/NQ ratio", "qqq_data_end": qk[-1],
+           "last_bar_usd": round(lb_usd, 2), "last_bar_n": lb_n}
+    if root == "ES":
+        out["beta"] = beta
+    if len(seen) > 1:
+        out["shares_range"] = [min(seen), max(seen)]
+    if miss:
+        out["skipped"] = "%d trade(s) with no QQQ or %s close on or before the entry day" % (miss, root)
+    return out
+
+
 # ── one leg ──────────────────────────────────────────────────────────────────────────────────────────────
 def master_end(spec):
     from augur_engine.data import find_master
@@ -305,8 +549,12 @@ def simulate(spec, date_to=None):
         last_day = str(np.datetime_as_string(sess_idx[last], unit="D")) if sess_idx is not None else None
     except Exception:
         pass
+    try:
+        qb = qqq_block(spec, st)
+    except Exception as e:
+        qb = {"reason": "QQQ conversion failed: %s: %s" % (type(e).__name__, str(e)[:200])}
     return days, {"master": info.get("master"), "last_bar_usd": round(last_bar_usd, 2), "last_bar_n": last_bar_n,
-                  "data_end": last_day}
+                  "data_end": last_day, "qqq": qb}
 
 
 def spec_key(spec, mend):
@@ -343,7 +591,7 @@ def build_leg(leg_id, book_leg, force=False, say=print):
         return rec, False
     t0 = time.time()
     try:
-        days, info = simulate(spec)
+        days, info = simulate(dict(spec, _leg_id=leg_id))
     except Exception as e:
         rec["reason"] = "replay failed: %s: %s" % (type(e).__name__, str(e)[:240])
         say("  %s FAILED %s" % (leg_id, rec["reason"]))
@@ -354,7 +602,7 @@ def build_leg(leg_id, book_leg, force=False, say=print):
               "net": round(sum(days[d][0] for d in ds), 2), "trades": int(sum(days[d][1] for d in ds)),
               "data_end": info.get("data_end") or mend[:10], "master": info.get("master"),
               "last_bar_usd": info.get("last_bar_usd"), "last_bar_n": info.get("last_bar_n"),
-              "built_at": _now_utc(), "secs": round(time.time() - t0, 1)}
+              "built_at": _now_utc(), "secs": round(time.time() - t0, 1), "qqq": info.get("qqq")}
     if not ds:
         series["empty"] = "no trades closed since %s" % WINDOW_FROM
     try:

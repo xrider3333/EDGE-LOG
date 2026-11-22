@@ -4045,11 +4045,13 @@ __S11JS__
             // switch draws a dashed line + the what-if total and never moves the headline; the switch is remembered (el_bka_on_qb)
             try{var bw=W(),bd=D(),BK={};var LSb=bw.localStorage,dly0=LSb.getItem('el_lg_daily_qb');
               var cp=(bw._qbLgChart&&bw._qbLgChart.pts)||[],cds=cp.map(function(p){return p.date;}).filter(Boolean);var dA=cds[0]||'2026-10-01',dB=cds[cds.length-1]||dA;
-              bw._bookLegs={books:{'463':{row:'Book #463 today',legs:[{id:'ORB314',name:'ORB314',run:'#314',instrument:'NQ'},{id:'NOISE422',name:'NOISE422',run:'#422',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'}]},
+              bw._bookLegs={books:{'463':{row:'Book #463 today',legs:[{id:'ORB314',name:'ORB314',run:'#314',instrument:'NQ'},{id:'NOISE422',name:'NOISE422',run:'#422',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'},{id:'TTIBS300',name:'TTIBS300',run:'#300',instrument:'NQ'}]},
                 'stk':{row:'stocks only',legs:[{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'},{id:'OPUS86a',name:'last-10-minutes',run:'#526',instrument:'stock basket'}]},
                 '30':{row:'30',legs:[{id:'ORB314',name:'ORB314',run:'#314',instrument:'NQ'},{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'}]}}};
               bw._bookAsif={generated_at:'2026-11-21T21:10:00Z',data_end:dB,legs:{
-                OPUS55a:{name:'midday + late NQ',kind:'futures',src:'replay',d:[dA,dB],p:[1000,-250],n:[1,1],data_end:dB,params_run:524},
+                OPUS55a:{name:'midday + late NQ',kind:'futures',src:'replay',d:[dA,dB],p:[1000,-250],n:[1,1],data_end:dB,params_run:524,
+                  qqq:{d:[dA,dB],p:[12.5,-3.1],n:[1,1],net:9.4,trades:2,shares:10,via:'QQQ/NQ ratio',rule:'QQQ $ = gross NQ points x (QQQ close / NQ close) x 10 sh - 2 x $0.01 x sh'}},
+                TTIBS300:{name:'TTIBS300',kind:'futures',src:'replay',d:[dA],p:[500],n:[1],data_end:dB,params_run:300,qqq:{reason:'probe: no QQQ close'}},
                 PICK6:{name:'PICK6 stocks',kind:'stock',src:'replay',d:[dA],p:[300],n:[1],data_end:dB,params_run:511},
                 OPUS86a:{name:'last-10-minutes',kind:'stock',src:'replay',d:[dB],p:[-40],n:[1],data_end:dB,params_run:526}}};
               bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');LSb.removeItem('el_bka_panel_qb');
@@ -4063,6 +4065,11 @@ __S11JS__
                 o.tot=(c.pts&&c.pts.length)?c.pts[c.pts.length-1].v:null;
                 var hw=d.querySelector('[data-qbbkawhatif]');o.heroWhatif=hw?parseFloat(hw.getAttribute('data-qbbkawhatif')):null;
                 o.svgDash=!!(d.querySelector('#qb-lg-chart svg path[stroke-dasharray="7 3 1.5 3"]'));
+                // v91.74: the QQQ conversion - OPUS55a's row shows its QQQ size and rule, TTIBS300 (no qqq series) says why
+                var qr=d.querySelector('[data-bka="qb"] [data-bkaleg="OPUS55a"]'),qs=qr?qr.querySelector('[data-bkaqsh]'):null;
+                o.qsh=qs?qs.textContent.trim():null;o.qtip=qr?String(qr.getAttribute('title')||'').indexOf('SHADOW in QQQ')>=0&&String(qr.getAttribute('title')||'').indexOf('x 10 sh')>=0:null;
+                var nr=d.querySelector('[data-bka="qb"] [data-bkaleg="TTIBS300"]'),nw=nr?nr.querySelector('[data-bkanodata]'):null;
+                o.nq=nr?(nr.getAttribute('data-bkamode')+'|'+(nw?nw.textContent.trim()+'|'+nw.getAttribute('title'):'')):null;
                 return o;};
               BK.s0=bs();
               if(!D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]')){var bf=D().querySelector('[data-bka="qb"] [data-bkafold="463"]');if(bf){bf.click();await new Promise(function(r){setTimeout(r,300);});}}
@@ -9064,8 +9071,15 @@ def _judge(data, fixture):
                 if ['OPUS55a', '7 3 1.5 3'] not in (b1.get('sh') or []) or not b1.get('svgDash'):
                     fails.append('book as-if run: switching OPUS55a on drew no dashed line (%r, svg dash %r)' % (b1.get('sh'), b1.get('svgDash')))
                 _base = (b0.get('wi') or [b0.get('tot')])[0]
-                if len(b1.get('wi') or []) != 1 or _base is None or round(b1['wi'][0] - _base, 2) not in (750.0, 1000.0):
-                    fails.append('book as-if run: the what-if total line is missing or does not carry the switched-on leg (%r, base %r)' % (b1.get('wi'), _base))
+                # v91.74: on WEBULL PAPER the leg adds its QQQ figures (12.50 / 9.40 in the fixture), never the NQ dollars (1000 / 750)
+                if len(b1.get('wi') or []) != 1 or _base is None or round(b1['wi'][0] - _base, 2) not in (9.4, 12.5):
+                    fails.append('book as-if run: the what-if total line is missing or does not carry the switched-on leg in QQQ dollars (%r, base %r; want +9.40 or +12.50, NQ dollars would be +750 / +1000)' % (b1.get('wi'), _base))
+                elif abs(b1['wi'][0] - _base) > 100:
+                    fails.append('book as-if run: a toggled leg added %r on Webull - NQ scale, not the QQQ account scale' % (b1['wi'][0] - _base,))
+                if b1.get('qsh') != '~10 QQQ sh' or not b1.get('qtip'):
+                    fails.append('book as-if run: the OPUS55a row does not show ~10 QQQ sh with the conversion rule in its hover (%r, rule in hover %r)' % (b1.get('qsh'), b1.get('qtip')))
+                if not str(b1.get('nq') or '').startswith('nodata|no QQQ|no QQQ conversion: probe: no QQQ close'):
+                    fails.append('book as-if run: a leg with no QQQ series does not say why (%r)' % (b1.get('nq'),))
                 if b1.get('net') != b0.get('net') or b1.get('tot') != b0.get('tot'):
                     fails.append('book as-if run: a shadow switch moved the headline or the solid total (%r -> %r, %r -> %r)'
                                  % (b0.get('net'), b1.get('net'), b0.get('tot'), b1.get('tot')))
