@@ -812,6 +812,7 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .qbx-bk-head{font-size:11px;color:var(--text3);margin:0 0 6px;padding:0 0 6px;border-bottom:1px solid var(--border2);min-width:0}
 .qbx-bk-l1,.qbx-bk-l2,.qbx-bk-l3{display:flex;flex-wrap:wrap;gap:2px 8px;align-items:baseline;min-width:0}
 .qbx-bk-l1 b{color:var(--text);overflow-wrap:anywhere}
+.qbx-bk-one{margin:0 0 4px;padding:0 0 4px;border-bottom:0;cursor:help}.qbx-bk-one .qbx-bk-l1{font-size:10px;color:var(--text4)}
 .qbx-bk-usd{color:var(--text);font-weight:600;font-variant-numeric:tabular-nums}
 .qbx-bk-tag{font-size:9px;font-weight:700;letter-spacing:.04em;line-height:14px;padding:0 6px;border-radius:999px;border:1px solid var(--border);color:var(--text4);text-transform:uppercase}
 .qbx-bk-was{color:var(--text5);font-variant-numeric:tabular-nums}
@@ -1680,6 +1681,26 @@ button.lg-row:hover{background:color-mix(in srgb,var(--text) 4%,transparent)}
 .lg-chk-dot{display:inline-block;width:7px;height:7px;border-radius:50%;background:var(--warn);flex:none;vertical-align:1px;margin-right:4px}
 [data-theme="mono"] .lg-chk-dot{background:var(--text2)}
 .lg-chk-body{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-end;padding-top:4px}
+/* v91.75 WEBULL PAPER one-line status (owner 11-21 'clean this up', like the v91.72 NT8 status): '● closed · feed OK · box 1 s · 1 check' and a
+   refresh icon on ONE row; a tap opens the amber checks, ratio, 'excluding ...' and the broker caveat; red chips + the small fills chip stay shown */
+.qbx-st1 .lg-status-line{overflow:visible;white-space:normal;display:block;-webkit-line-clamp:none}
+.qbx-st1 .lg-status-row,.lg-lside .lg-frame-side .qbx-st1 .lg-status-row{flex-wrap:nowrap;align-items:center;gap:4px 8px}
+.lg-lside .lg-frame-side .qbx-st1 .lg-status-line,.qbx-st1 .lg-status-line{flex:1 1 auto;min-width:0;white-space:normal;font-size:10.5px;line-height:1.45}
+.qbx-st-tog{all:unset;box-sizing:border-box;cursor:pointer;display:block;font-size:inherit;line-height:inherit;color:var(--text4);overflow-wrap:anywhere}
+.qbx-st-tog:hover{color:var(--text3)}
+.qbx-st-tog:focus-visible{outline:1px solid var(--text4);outline-offset:2px}
+.qbx-st-tog .lg-chk-dot{margin-right:5px}
+.qbx-st-tog .lg-chk-dot.qbx-st-dot-ok{background:var(--text5)}
+.qbx-st-tog .lg-chk-dot.qbx-st-dot-red{background:var(--attn-red)}
+.qbx-st-chev{display:inline-block;font-size:9px;color:var(--text5);margin-left:4px;transition:transform .15s}
+.qbx-st-tog[aria-expanded="true"] .qbx-st-chev{transform:rotate(180deg)}
+.qbx-st1 .qbx-st-rf,.lg-frame .qbx-st1 .qbx-st-rf{height:22px;padding:0 7px;font-size:12px;letter-spacing:0;border-color:var(--border2)}
+.qbx-st-chips{display:flex;flex-wrap:wrap;gap:4px;justify-content:flex-start;padding-top:4px}
+.qbx-st-chips .lg-chip{font-size:9.5px;padding:1px 7px;font-weight:600!important;line-height:1.4}
+.qbx-st-more{padding:0 0 4px;font-size:10px;color:var(--text4)}
+.qbx-st-more .qbx-st-note,.qbx-st-more .lg-hero-excl{display:block;font-size:10px;font-weight:400;color:var(--text4);margin-top:3px}
+.qbx-st-more [data-qbbroker]{font-size:10px;margin-top:3px}
+@media (prefers-reduced-motion:reduce){.qbx-st-chev{transition:none}}
 .lg-cal-cav{margin:6px 0 2px;font-size:10px;color:var(--text4)}
 .lg-cal-cav>summary{list-style:none;cursor:pointer;display:flex;align-items:center;gap:6px}
 .lg-cal-cav>summary::-webkit-details-marker{display:none}
@@ -2021,7 +2042,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='91.76';
+const VERSION='91.77';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -2042,6 +2063,7 @@ window._dataFeedWarn=function(){
 // PAPER_LEG_PARAMS lives at top level so WEBULL PAPER and NT8 PAPER both see it (it sat inside one tab's block, NT8 read set ?)
 const PAPER_LEG_PARAMS={"DIP_424":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424F":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"raw"},"DIP_424K":{"cell":1,"grid":150,"how":"champion","run":424,"variant":"keel"},"DIP_ES_452":{"cell":1,"grid":150,"how":"champion","run":452,"variant":"raw"},"DIP_NQ_433":{"cell":7,"grid":150,"how":"champion","run":433,"variant":"raw"},"ENGUQ_309":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"raw"},"ENGUQ_309_C15":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CD":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_CDE2":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"comp"},"ENGUQ_309_K":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_309_K9":{"cell":48,"grid":150,"how":"grid","run":309,"variant":"keel"},"ENGUQ_335":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S1":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_S2":{"cell":0,"grid":527,"how":"defaults","run":335,"variant":"raw"},"ENGUQ_335_VC":{"cell":4,"grid":527,"how":"grid","run":335,"variant":"raw"},"ENGUQ_ER_H":{"cell":1,"grid":1,"how":"grid","run":265,"variant":"hybrid"},"ENGUQ_L50":{"cell":1,"grid":1,"how":"grid","run":249,"variant":"raw"},"NOISE_304":{"cell":99,"grid":495,"how":"grid","run":304,"variant":"raw"},"NOISE_382":{"cell":2,"grid":24,"how":"grid","run":382,"variant":"keel"},"NOISE_422":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_422_FIXED":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"fixed"},"NOISE_422_KEEL":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"keel"},"NOISE_422_PLAIN":{"cell":2,"grid":27,"how":"grid","run":422,"variant":"raw"},"NOISE_H":{"cell":11,"grid":300,"how":"grid","run":225,"variant":"hybrid"},"NOISE_H_RF":{"cell":11,"grid":300,"how":"grid","run":231,"variant":"hybrid"},"NOISE_SBS_V90":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"raw"},"NOISE_SBS_V90_C15":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_C15G":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"comp"},"NOISE_SBS_V90_H":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"hybrid"},"NOISE_SBS_V90_K":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K11":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K12":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K6":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K7":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K8":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_K9":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"keel"},"NOISE_SBS_V90_T":{"cell":1,"grid":1,"how":"grid","run":243,"variant":"tilt"},"ORB":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"raw"},"ORB_239":{"cell":1,"grid":1,"how":"grid","run":239,"variant":"raw"},"ORB_257":{"cell":1,"grid":1,"how":"grid","run":257,"variant":"raw"},"ORB_H":{"cell":1,"grid":1,"how":"grid","run":234,"variant":"hybrid"},"ORB_R6":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"raw"},"ORB_R6_C15":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15F":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"ORB_R6_C15FE":{"cell":22,"grid":382,"how":"grid","run":314,"variant":"comp"},"TTM_299":{"cell":6,"grid":81,"how":"grid","run":299,"variant":"raw"},"TTM_299_SS":{"cell":1,"grid":9,"how":"grid","run":353,"variant":"raw"},"TTM_299_SSF2":{"cell":1,"grid":9,"how":"grid","run":364,"variant":"raw"},"TTM_299_SSL":{"cell":1,"grid":27,"how":"grid","run":352,"variant":"raw"},"TTM_299_SSO":{"cell":1,"grid":9,"how":"grid","run":368,"variant":"raw"},"TTM_299_SSOF2":{"cell":1,"grid":9,"how":"grid","run":459,"variant":"raw"},"TTM_299_SSOF2R":{"cell":1,"grid":9,"how":"grid","run":369,"variant":"raw"},"TTM_299_SSOF2R5":{"cell":3,"grid":9,"how":"grid","run":428,"variant":"raw"},"TTM_299_T":{"cell":6,"grid":81,"how":"grid","run":340,"variant":"raw"},"TTM_458_KEEL":{"cell":3,"grid":9,"how":"grid","run":458,"variant":"keel"}};
 const CHANGELOG=[
+{v:'91.77',date:'2026-11-21',notes:['WEBULL PAPER sidebar tidy (owner: clean this up), like the NT8 status: ONE status line under the hero - a dot, closed or open, feed OK, box 1 s and the number of checks - with a small refresh icon on the same line. A tap on the line opens the amber checks, ratio not used, excluding ENGU-Q, DIP and the Webull fills caveat that sat behind the old details fold; the choice is remembered per browser. The stray Status label, the lone details toggle and the Refresh row are gone','FILLS BEHIND BACKTEST is now a small amber chip under the status line (fills -5.9c NOISE #382); the hover keeps the full words. Red alarm chips (breaker, kill, feed stale, parity mismatch, box silent) stay in plain sight under the line','Strategies list: with no book of the table live, the BOOK header and its two lines are one quiet line, Live: ORB #314 + NOISE #382; the not one of the 24 books note is its hover','NT8 PAPER percent: the base is now a fixed $100,000 paper account (the NinjaTrader Sim101 default, one constant NT8_PCT_BASE_USD the owner can change) plus the realized before the range, so ALL reads realized / $100,000 (about +62 pct, not +111 pct off the Sim101 cash, which never held the backfilled book trades). Today uses the realized before today. The hero today and realized percent, the chart percent axis and its hover all use it, and the percent shows even when NinjaTrader never reported cash (no more % n/a). WEBULL and REAL bases are unchanged']},
 {v:'91.75',date:'2026-11-21',notes:['WEBULL PAPER books panel in QQQ (owner: the configs tested on EL with NQ futures should be webull/QQQ compatible): every futures leg as-if is now shown as the Webull box would trade it - its fixed QQQ lot (10 shares for ORB, NOISE and ENGU-Q legs, a leg the box does not trade = the box 1-NQ lot x its book size, 3 ES = 30), each trade as gross NQ points x QQQ/NQ close that day, less one cent a share each side. ES legs map to QQQ through the QQQ-on-ES daily beta (the box trades no SPY). Stock legs stay in dollars. Each leg row shows ~N QQQ sh and its hover gives the rule; the what-if total uses the QQQ figures. NT8 PAPER keeps NQ dollars.','tools/book_asif_series.py writes a qqq block per leg (d, p, n, net, shares, rule) next to the NQ series in meta/book_asif; a leg that cannot convert says why.']},
 {v:'91.72',date:'2026-11-21',notes:['NT8 PAPER sidebar tidy (owner: get rid of this garbly nonsense): each strategy is ONE row - live dot, short name with its run number (ORB #234.1), the dollar figure and a small switch. The variant tag, the model word and the open / equity lines moved to the row hover and to the detail a row tap opens (the chevron is gone; the switch alone counts a leg in or out)','One quiet More fold under the strategies holds the Filters row, the three not-counted groups (forward tests and controls, other / shadow, retired; each still its own fold) and the trades-loaded line. Closed by default, remembered per browser. The BOOK header row that repeated the hero is gone','Status is one line: NT off (or NT 2/2 running, NT idle) and the number of checks, then the auto-recover switch and a refresh icon; a tap opens the chips as before. The NEEDS YOU banner is unchanged','Stat tiles on NT8 PAPER and WEBULL PAPER: short sub-lines that never cut off (10 tr and 4 d, 64W 122L, the won / lost amounts); the long words are the tile hover','Books as-if panel (both paper boards): one row per book - name, what-if dollars, the one-click as-if switch - and one row per leg - name, dollars, switch. A solid left rule marks a LIVE leg and a dashed one a SHADOW leg, matching the chart lines; the explanations moved to an i hover and each row hover. Only the active book starts open','NT8 realized percent: its hover now states the base plainly (Sim101 cash minus the realized in the range); the formula is unchanged']},
 {v:'91.71',date:'2026-11-21',notes:['NT8 PAPER and WEBULL PAPER: every book config in the book table now sits on the ledger, grouped by book type (futures books, futures plus stock books, stock books), open by default under the strategy list','Each book is a dropdown of its legs with a switch on every leg. LIVE legs are traded on that board and in the account (solid pill, the same switch as the strategy list). SHADOW legs are not traded there: switched on, each draws its as-if P&L as a dashed line on the CURVE chart, plus one what-if total line (the board total plus every shadow leg switched on). Shadow dollars never go into the account figures','One click on a book as-if button switches on all of that book shadow legs; a leg on in one book is on in every book that holds it; the switches are remembered per browser','The as-if series is simulated, never the account: each leg pinned champion (the run the book table names) on current data with that run cost, closed trades by New York day (tools/book_asif_series.py, refreshed after the close and whenever the book table changes). On WEBULL PAPER a leg the box already shadows keeps the box forward shadow series','Switching a shadow leg on moves the chart to the CURVE view, where the lines draw. A leg without a series reads its reason (or building) instead of a blank']},
@@ -3356,6 +3378,10 @@ function ntSimCashLast(){
   C.sort((a,b)=>b.at-a.at);
   return C[0];
 }
+// v91.75 (MANAGER 11-21): the NT8 PAPER percent base is a FIXED paper account size, not the Sim101 cash - the backfilled book trades
+// never ran in Sim101, so cash minus the range realized (about $56k on ALL) read +111%. Base = this account size + the realized before
+// the range starts (today: before today). The owner can change this number; $100,000 is the NinjaTrader Sim101 default.
+const NT8_PCT_BASE_USD=100000;
 function ntSimCashWhen(ms){
   if(!ms)return 'an unknown time';
   try{return new Date(ms).toLocaleString('en-US',{timeZone:'America/New_York',month:'short',day:'numeric',hour:'numeric',minute:'2-digit'})+' ET';}
@@ -46021,6 +46047,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         return '<div class="qbx-fold" data-qbfoldbox="'+k+'">'+qbFoldBtn(k,title,sum,o)
           +'<div class="lg-more-panel qbx-fold-panel" id="qbf-'+k+'"'+(o?'':' hidden')+'>'+((o||keep)?body:'')+'</div></div>';
       };
+      // v91.75: the status line's fold (chips + details) - shut by default, remembered per browser (el_qb_status_open), memory copy first
+      const qbStatusOpen=()=>{if(window._qbStOpen!=null)return !!window._qbStOpen;try{return localStorage.getItem('el_qb_status_open')==='1';}catch(e){return false;}};
       const qbSheet=window._qbSheet||null; // {kind:'integrity',key}|null
       // LIST | TABLE: once chosen it is held in memory; a fresh page asks the shared frame for the choice it remembered per board (el_lg_view_wb)
       if(window._qeTradesView==null)window._qeTradesView=ledgerTradeViewGet('wb','list');
@@ -46072,7 +46100,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       const qbNotTodayHtml=(v,pct)=>'<span data-qbnottoday style="'+qbDimCss+'" title="From '+QF.dayLabel+', the box\u2019s last trading day - not today">'
         +ledgerHeroCells({label:QF.dayLabel,v:v,fig:(v<0?'-':'+')+ledgerMoney(Math.abs(v)),pct:pct,css:qbDimCss})+'</span>';
       const qbHeroBuild=(netVal,sinceLabel,parFailedForHero,brokerInfo,todayVal,rangeInfo)=>{
-        const chips=qbFreshChips();
+        const chips=qbFreshChips();let qbFillsChip='';
         if(QE&&QE.breaker_tripped)chips.push(qbChipG('BREAKER TRIPPED','var(--attn-red)'));
         if(QE&&QE.kill)chips.push(qbChipG('KILL ACTIVE','var(--attn-red)'));
         if(QE&&QE.feed_stale)chips.push(qbChipG('FEED STALE','var(--attn-red)'));
@@ -46088,13 +46116,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           _ba=_avg(QBPAR.board&&QBPAR.board.avg_exec_ps),_brd=!!QBPAR.board_flag&&_ba!==null&&_ba<0;
           if(_bad.length||_brd){
             const _who=_bad.length?_bad.map(k=>_nm(k)+' ('+_ct(_avg(_lg[k].avg_exec_ps))+')').join(', '):('board ('+_ct(_ba)+')');
+            // v91.75 (owner 11-21 'clean this up'): the chip itself is short - 'fills -5.9c NOISE #382' - the full FILLS BEHIND BACKTEST words lead its hover
+            const _ctS=a=>_ct(a).replace(' avg','');
+            const _short='fills '+(_bad.length?_bad.map(k=>_ctS(_avg(_lg[k].avg_exec_ps))+' '+_nm(k)).join(', '):(_ctS(_ba)+' board'));
             const _t=(_bad.length?_bad.map(k=>{const L=_lg[k],a=_avg(L.avg_exec_ps);return _nm(k)+': its last '+(L.n||'?')+' trades filled on average '+Math.abs(a*100).toFixed(1)+'¢ a share worse than the backtest, '+(L.flagged||0)+' flagged';}).join(' | ')
               :('Board-wide: the last '+((QBPAR.board&&QBPAR.board.n)||'?')+' trades across all legs filled on average '+Math.abs(_ba*100).toFixed(1)+'¢ a share worse than the backtest; no single leg is flagged'))
               +'. The chip shows when a running average is more than '+Math.round((Number(QBPAR.tol_roll_ps)||0.05)*100)+'¢ a share worse; a better-than-backtest average never shows it.';
             // two or three named legs run long: this one chip may wrap (never a sideways scroll on a phone)
             // the title rides on the chip itself (a plain wrapper span read as 'colour' on a silent box, where the chip is grey)
-            chips.push(qbChipG('FILLS BEHIND BACKTEST: '+String(_who).replace(/&/g,'&amp;').replace(/</g,'&lt;'),'var(--attn-red)')
-              .replace('class="lg-chip" style="','data-qbfillsbehind="1" title="'+_t.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" class="lg-chip" style="white-space:normal;max-width:100%;'));}}
+            const _tt='FILLS BEHIND BACKTEST: '+_who+'. '+_t;
+            qbFillsChip=qbChipG(String(_short).replace(/&/g,'&amp;').replace(/</g,'&lt;'),'var(--warn)')
+              .replace('class="lg-chip" style="','data-qbfillsbehind="1" title="'+_tt.replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;')+'" class="lg-chip qbx-fills-chip" style="white-space:normal;max-width:100%;');}}
         if(QRHEALTH&&QRHEALTH.warn)chips.push(qbChipG('RATIO DRIFT','var(--warn)'));
         if(qeSlowLatency)chips.push(qbChipG('SLOW LATENCY','var(--warn)'));
         if(QREADY&&QREADY.ready===false)chips.push(qbChipG('NOT READY','var(--warn)'));
@@ -46115,7 +46147,6 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             ('<span title="'+(qbNoRead?'its last copy is from ':'the last update from the box is from ')+QF.sinceTxt+' ('+qbAgoText(QF.ageS)+' ago), so everything here is from then">last '+QF.sinceTxt+' ('+qbAgoText(QF.ageS)+' ago)</span>')].join(' · ')
           :[(mOpen?'open':'closed'),
             (QE?(QE.feed_stale?'feed stale':'feed OK'):'feed unknown'),
-            (QRHEALTH?(QRHEALTH.used===false?'ratio not used':(QRHEALTH.warn?'ratio warn':'ratio OK')):null),
             (QF.ok?('<span title="the box last updated this page’s doc '+qbAgoText(QF.ageS)+' ago">box '+qbAgoText(QF.ageS)+'</span>'):null),
             (QF.pubFailing?'<b data-qbfresh-strip="publish" style="color:var(--warn)">saves failing ('+QF.pubFails+' today)</b>':null),
             (QF.pubGap?'<b data-qbfresh-strip="pubgap" style="color:var(--warn)">updates paused '+(QF.pubGapDayUnknown?('since '+QF.lastOk):qbAgoText(QF.pubGap))+' before this one</b>':null)].filter(Boolean).join(' · ');
@@ -46145,7 +46176,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // owner 11-21: '(+Y%)' is the today row's % cell, the same colour as the $ figure
         const todayPct=(rangeInfo&&rangeInfo.todayPct)||'';
         const heroMain=ledgerHeroHtml({
-          ids:{label:'qb-hero-label',big:'qb-hero-value',under:'qb-hero-under',today:'qb-hero-today',range:'qb-hero-range',chips:'qb-hero-chips',note:'qb-hero-note'},
+          // v91.75: the chips moved to the status block (#qb-hero-chips lives there now), so the hero's own chip slot is empty
+          ids:{label:'qb-hero-label',big:'qb-hero-value',under:'qb-hero-under',today:'qb-hero-today',range:'qb-hero-range',note:'qb-hero-note'},
           // r2 step 2 (item 31): 'WEBULL PAPER · NET EQUITY' - uppercase like REAL; the words beside the number are gone (item 1)
           label:'<span title="'+LEDGER_NET_EQUITY_TIP.replace(/"/g,'&quot;')+'">WEBULL PAPER &middot; NET EQUITY</span>',
           // ONE HONEST NUMBER (owner 10-31 14:35): the big number is the net equity change (closed trades + open lots) with a small 'net'
@@ -46158,14 +46190,29 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           under:openLine?('<span data-qbheroopenline'+openTip+'>'+openLine+'</span>'):'',
           range:rangeLine,
           // calm-down 8 (owner 11-18): red / blocking chips stay out in plain sight; the amber ones fold into ONE dot + line, detail on tap
-          chips:(()=>{const red=chips.filter(c=>/attn-red/.test(c)),amb=chips.filter(c=>!/attn-red/.test(c));
-            return red.join('')+(amb.length?'<details class="lg-chk" data-lgchk="qb"><summary><span class="lg-chk-dot" aria-hidden="true"></span>'+amb.length+' check'+(amb.length===1?' needs':'s need')+' a look</summary><div class="lg-chk-body">'+amb.join('')+'</div></details>':'');})(),
-          // the broker caveat sits behind a small 'details' fold; the DIP #424 held-overnight line now lives in DIP's own row (owner 10-31)
+          chips:'',
           todayInline:true,
-          note:((sinceLabel?('<div>'+sinceLabel+'</div>'):'')+(brokerLine?('<details class="qbx-hero-details"><summary>details</summary>'+brokerLine+'</details>'):''))||undefined});
-        // LEDGER step 12: the status line is the shared status slot (directly under the hero), the same look on every board
-        const heroStrip=ledgerStatusHtml({id:'qb',cls:'qbx-status-strip',line:'<span>'+statusBits+'</span>',
-          act:'<button class="qb-hero-refresh lg-status-btn" data-qqqrefresh>'+(qeLoading?'Loading…':'⟳ Refresh')+'</button>'});
+          note:(sinceLabel?('<div>'+sinceLabel+'</div>'):'')||undefined});
+        // v91.75 (owner 11-21 'clean this up', like the v91.72 NT8 status): ONE status line under the hero - a dot, 'closed · feed OK · box 1 s ·
+        // 1 check', and a small refresh icon on the same line. A tap on the line opens the rest (data-qbstmore): the amber checks, 'ratio not used',
+        // 'excluding ...' (added by the caller at <!--QBSTX-->) and the broker caveat that sat behind the old 'details' fold. The red / blocking chips
+        // and the small amber 'fills -5.9c NOISE #382' chip stay in plain sight under the line. #qb-hero-chips holds every chip, shown or folded.
+        const red=chips.filter(c=>/attn-red/.test(c)),amb=chips.filter(c=>!/attn-red/.test(c));
+        const stOpen=qbStatusOpen();
+        const ratioWord=QRHEALTH?(QRHEALTH.used===false?'ratio not used':(QRHEALTH.warn?'ratio warn':'ratio OK')):'';
+        const dotCls=red.length?' qbx-st-dot-red':((amb.length||qbFillsChip)?'':' qbx-st-dot-ok');
+        const chk=amb.length?(amb.length+' check'+(amb.length===1?'':'s')):'all clear';
+        const tog='<button type="button" class="qbx-st-tog" data-qbsttog aria-expanded="'+stOpen+'" aria-controls="qb-st-more" title="'
+          +(amb.length?(amb.length+' check'+(amb.length===1?' needs':'s need')+' a look - tap to see '+(amb.length===1?'it':'them')):'no checks need a look - tap for the details')+'">'
+          +'<span class="lg-chk-dot'+dotCls+'" aria-hidden="true"></span><span class="qbx-st-txt">'+statusBits+' &middot; <span data-qbstchk>'+chk+'</span></span>'
+          +'<span class="qbx-st-chev" aria-hidden="true">&#9662;</span></button>';
+        const more='<div class="qbx-st-more" id="qb-st-more" data-qbstmore'+(stOpen?'':' hidden')+'>'
+          +(amb.length?'<div class="qbx-st-chips">'+amb.join('')+'</div>':'')
+          +(ratioWord?'<div class="qbx-st-note" data-qbstratio>'+ratioWord+'</div>':'')
+          +'<!--QBSTX-->'+brokerLine+'</div>';
+        const heroStrip=ledgerStatusHtml({id:'qb',cls:'qbx-status-strip qbx-st1',label:'',line:tog,
+          act:'<button class="qb-hero-refresh lg-status-btn qbx-st-rf" data-qqqrefresh aria-label="Refresh" title="Reload the Webull paper status">'+(qeLoading?'\u2026':'\u27f3')+'</button>',
+          after:'<div id="qb-hero-chips" class="qbx-st-box">'+((red.length||qbFillsChip)?'<div class="qbx-st-chips qbx-st-shown">'+red.join('')+qbFillsChip+'</div>':'')+more+'</div>'});
         return {main:heroMain,strip:heroStrip};
       };
 
@@ -47404,8 +47451,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const nm=bookRows.filter(r=>r.key!=='~other').map(r=>{const m=(QE_LEGS.find(x=>x[0]===r.key)||[]);return ((m[1]||r.key)+' '+(m[3]||'')).trim();}).join(' + ');
             const tipEst='the book table’s backtest estimate for this mix of legs - not this account’s result';
             if(!_bkAct){const nb=(_bkB&&_bkB.books)?Object.keys(_bkB.books).length:0;
-              return '<div class="qbx-bk-head" data-qbbookhead="1"><div class="qbx-bk-l1"><b>Live book</b><span>'+esc(nm)+'</span></div>'
-                +(nb?'<div class="qbx-bk-l3" data-qbbooknone="1">not one of the '+nb+' books in the book table</div>':'')+'</div>';}
+              // v91.75 (owner 11-21 'clean this up'): ONE quiet line, 'Live: ORB #314 + NOISE #382'; the 'not one of the N books' note is its hover
+              const nTip=nb?('The live mix is not one of the '+nb+' books in the book table, so no book estimate is shown.'):'The live mix of legs.';
+              return '<div class="qbx-bk-head qbx-bk-one" data-qbbookhead="1" title="'+esc(nTip)+'"><div class="qbx-bk-l1"><span>Live: '+esc(nm)+'</span>'
+                +(nb?'<span class="lg-sr" data-qbbooknone="1">not one of the '+nb+' books in the book table</span>':'')+'</div></div>';}
             const b=_bkAct.b,prov=b.provisional===true,u=booksUsd(b.usd_per_year),was=prov?booksUsd(b.old_champion_usd_per_year):'';
             const dd=booksNum(b.max_dd_pct),dx=booksNum(b.max_dd_ex2020_pct),roc=booksNum(b.roc30),so=booksNum(b.sortino);
             const y1=booksUsd(b.usd_per_year_2016_20),y2=booksUsd(b.usd_per_year_2021_25);
@@ -47418,7 +47467,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               +(was?'<span class="qbx-bk-was" data-qbbookwas="1" title="the old champion’s $ a year">was <s>'+was+'</s></span>':'')+'</div>'
               +(l2.length?'<div class="qbx-bk-l2">'+l2.join(' &middot; ')+'</div>':'')
               +(l3.length?'<div class="qbx-bk-l3">'+l3.join(' &middot; ')+'</div>':'')+'</div>';}catch(e){return '';}})();
-          const gBook={key:'book',title:'BOOK',count:bookRows.length,note:_bkNote,rows:bookRows};
+          // v91.75: with no book of the table live, the one 'Live: ...' line stands for the group, so 'BOOK · 2' is read by screen readers only
+          const gBook={key:'book',title:'BOOK',count:bookRows.length,note:_bkNote,rows:bookRows,hdHidden:!_bkAct};
           // BOOK SIDEBAR (board 113): the Retired and Shadow folds are ONE disclosure, 'shadow / retired (n)', closed until opened (it keeps
           // the Shadow fold's key and its remembered state, el_qb_shadow_open). Retired rows first, each tagged 'retired' (their old trades
           // still count), then the no-order shadow legs (never counted). Rows, switches and money are unchanged.
@@ -48962,7 +49012,10 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +'</div>';
 
         // the status line (paper only, market, feed, ratio, box age, Refresh) is its own block: under the chart, never folded (LEDGER unify step 11)
-        const qbStatusSec='<div class="qbx-statusline">'+qbStatusStripHtml+'</div>';
+        // v91.75: 'excluding ENGU-Q, DIP' rides in the status line's fold (it was a bold line under the hero)
+        const qbExclNames=qbLegsOff.map(k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;});
+        const qbExclHtml=qbExclNames.length?'<div class="lg-hero-excl qbx-st-note" data-qbexcl="'+String(qbLegsOff.join(',')).replace(/[<>"&']/g,'')+'" title="switched off in the Strategies list: not in any figure on this page">excluding '+String(qbExclNames.join(', ')).replace(/[<>"&']/g,'')+'</div>':'';
+        const qbStatusSec='<div class="qbx-statusline">'+qbStatusStripHtml.replace('<!--QBSTX-->',qbExclHtml)+'</div>';
 
         // ── LEDGER UNIFY STEP 11 (2026-10-06): the fixed page order. Hero, range pills (the top of the chart block), chart, status strip (under the chart,
         // never folded), stats strip, More stats fold, calendar fold, strategy list (a one-line fold up to 600 px), the trade list (History: the frame,
@@ -48990,8 +49043,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           +modelSection;
         // LEDGER step 12: the shared page frame - the top block in LEDGER_TOP_ORDER (hero, status, pills + chart, stats, calendar), the strategy
         // list (the right-hand panel from 1100 px, under the calendar below it), then the trade list and this board's own folds
-        const qbExclNames=qbLegsOff.map(k=>{const f=QE_LEGS.find(x=>x[0]===k);return f?f[1]:k;});
-        const qbTop={hero:'<div class="qbx-hero">'+qbHeroHtml+(qbExclNames.length?'<span class="lg-hero-excl" data-qbexcl="'+String(qbLegsOff.join(',')).replace(/[<>"&']/g,'')+'" title="switched off in the Strategies list: not in any figure on this page">excluding '+String(qbExclNames.join(', ')).replace(/[<>"&']/g,'')+'</span>':'')
+        const qbTop={hero:'<div class="qbx-hero">'+qbHeroHtml
           +(qbShOn.length?'<span class="lg-hero-excl" data-qbshwhatif="'+qbShOnSum+'" title="What-if only: the switched-on shadow legs’ closed would-be P&amp;L in this range added to the realized figure. Never part of the account number.">realized incl. shadow (what-if) '+ledgerSigned(Math.round((qbRangePnl+qbShOnSum)*100)/100)+'</span>':'')
           +(()=>{try{const C=window._qbBkaCtx;if(!C)return '';const v=bkaOnSum('qb',C.from,null,id=>!!(C.live(id)||C.fwd(id)));
             if(!bkaOn('qb').some(id=>!(C.live(id)||C.fwd(id))&&bkaLegB('qb',id)&&Array.isArray(bkaLegB('qb',id).d)))return '';
@@ -49760,6 +49812,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const days=new Set(rows.map(t=>_closeDay(t)).filter(Boolean)).size;
         const today=_pt.filter(t=>_legShown(legOf(t))).filter(t=>(_closeDay(t))===_todayET).reduce((a,t)=>a+(+t.pnl_usd||0),0);
         return {n:rows.length,net:net,wr:rows.length?wins/rows.length:0,pf:gl>0?gw/gl:(gw>0?Infinity:null),days:days,today:today};})();
+      // v91.75: the realized of the counted legs that closed BEFORE the range starts / before today - the NT8 % base adds it to NT8_PCT_BASE_USD
+      const _preRealized=cut=>cut?_pt.filter(t=>_legShown(legOf(t))&&t.open!==true).filter(t=>{const d=_closeDay(t)||'';return d&&d<cut;}).reduce((a,t)=>a+(+t.pnl_usd||0),0):0;
+      const _H0=_preRealized(_pcwFrom),_H0today=_preRealized(_todayET);
       const _heroOpen=(()=>{const o=_pt.filter(t=>_legShown(legOf(t))&&t.open===true);return {n:o.length,v:o.reduce((a,t)=>a+(+t.pnl_usd||0),0)};})();
       // LEDGER redesign step 9 (OWNER'S CALL 2026-11-01, overruling his own 10-31 'closed only' here): the big number on all three
       // boards is NET EQUITY - the realised money plus the mark of everything still open. _H.net is the realised part (closed book
@@ -51484,25 +51539,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const a=A.find(x=>x&&x.name==='Sim101')||A.find(x=>x&&x.name==='DEMO7240108')||null;
           if(a&&a.cash!=null&&isFinite(+a.cash)){const live=_p2B.up!==false;if(live)ntSimCashRemember(a,_p2BAt);return {name:a.name,cash:+a.cash,realized:a.realized,at:_p2BAt,live:live};}
           const c=ntSimCashLast();return c?Object.assign(c,{live:false}):null;})();
-        const _p2PctCash=_p2PctAcct?_p2PctAcct.cash:null;
-        // a cached cash from an earlier New York day is the account at the start of today (nothing has traded since NT stopped answering)
-        const _p2PctSameDay=!!_p2PctAcct&&(_p2PctAcct.live||(()=>{try{return new Date(_p2PctAcct.at).toLocaleDateString('en-CA',{timeZone:'America/New_York'})===ledgerTodayNY();}catch(e){return false;}})());
-        const _p2PctDayBase=_p2PctCash==null?null:(_p2PctCash-(!_p2PctSameDay?0:((_p2PctAcct.realized!=null&&isFinite(+_p2PctAcct.realized))?+_p2PctAcct.realized:_H.today)));
-        const _p2PctRangeBase=_p2PctCash==null?null:(_p2PctCash-_H.net);
+        // v91.75 (MANAGER 11-21): the % base is FIXED - NT8_PCT_BASE_USD (the NT8 paper account size) + the realized before the range (today:
+        // before today). It no longer reads the Sim101 cash, so the % always shows, NT up or not; _p2PctAcct above still remembers the cash.
+        const _p2PctDayBase=NT8_PCT_BASE_USD+_H0today;
+        const _p2PctRangeBase=NT8_PCT_BASE_USD+_H0;
+        const _p2PctBaseTip=(base,pre,word)=>'base '+ledgerMoney(base)+' = '+ledgerMoney(NT8_PCT_BASE_USD)+' account + realized before '+word+' ('+ledgerSigned(Math.round(pre*100)/100)+') (fixed NT8 paper account size, the Sim101 default)';
         const _p2PctHtml=(v,base,key)=>{v=Number(v);if(base==null||!isFinite(base)||base<=0||!isFinite(v))return '';
           const p=v/base*100,a=Math.abs(p),t=a<0.0005?'0.00%':((p<0?'-':'+')+(a<0.1?a.toFixed(3):a.toFixed(2))+'%');
-          const nm=_hmEsc(String(_p2PctAcct.name||'Sim101'));
-          const src=_p2PctAcct.live?'from the NT bridge cash':('base: '+nm+' cash as of '+ntSimCashWhen(_p2PctAcct.at)+', the last NinjaTrader reported - NT is not answering now');
-          return '<span class="qbx-pct '+(key==='today'?(v>=0?'hm-up':'hm-down'):ledgerCls(v))+'" data-p2pct="'+key+'"'+(_p2PctAcct.live?'':' data-p2pctcached')+' title="'+(key==='today'?('of the '+nm+' account at the start of the session ('+ledgerMoney(base)+', '+src+')')
-            // v91.72 (owner 11-21): the base said plainly - the owner decides the base later; the formula is unchanged
-            :('Base '+ledgerMoney(base)+' = '+nm+' cash '+ledgerMoney(_p2PctCash)+' minus the realized '+ledgerSigned(v)+' in this range ('+src+'). '+ledgerSigned(v)+' / '+ledgerMoney(base)+' = '+t+'.'))+'">('+t+')</span>';};
-        // v91.70: no Sim101 cash ever seen anywhere = a muted '(% n/a)' that says why on hover, instead of a blank that reads as broken
-        const _p2PctNone=key=>_p2PctAcct?'':'<span class="qbx-pct" style="color:var(--text5)" data-p2pctnone="'+key+'" title="No %: no Sim101 cash has been seen yet - NinjaTrader is not answering, its AddOn heartbeat left no account cash, and this page never saw a live NT bridge snapshot. The % comes back the first time NinjaTrader runs (the bridge now keeps the last cash it saw).">(% n/a)</span>';
-        const _p2TodayPct=_p2PctHtml(_H.today,_p2PctDayBase,'today')||_p2PctNone('today');
-        // owner 11-21 ('put the nt8 % on the chart'): the curve's % axis uses the SAME base as realized % (the account at the start of the range)
-        if(window._p2Chart){const _rb=(_p2PctRangeBase!=null&&isFinite(_p2PctRangeBase)&&_p2PctRangeBase>0)?_p2PctRangeBase:null;
+          const pre=key==='today'?_H0today:_H0;
+          return '<span class="qbx-pct '+(key==='today'?(v>=0?'hm-up':'hm-down'):ledgerCls(v))+'" data-p2pct="'+key+'" data-p2pctbase="'+(Math.round(base*100)/100)+'" data-p2pctpre="'+(Math.round(pre*100)/100)+'" title="'
+            +_p2PctBaseTip(base,pre,key==='today'?'today':'this range')+'. '+ledgerSigned(v)+' / '+ledgerMoney(base)+' = '+t+'.">('+t+')</span>';};
+        const _p2TodayPct=_p2PctHtml(_H.today,_p2PctDayBase,'today');
+        // owner 11-21 ('put the nt8 % on the chart'): the curve's % axis uses the SAME base as realized % (v91.75: the fixed account + realized before the range)
+        if(window._p2Chart){const _rb=(_p2PctRangeBase>0)?_p2PctRangeBase:null;
           window._p2Chart.pctBase=_rb;
-          window._p2Chart.pctTip=_rb?('% of the '+String(_p2PctAcct.name||'Sim101')+' account at the start of the range ('+ledgerMoney(_rb)+' = '+(_p2PctAcct.live?'NT bridge cash':('last '+String(_p2PctAcct.name||'Sim101')+' cash seen, '+ntSimCashWhen(_p2PctAcct.at)))+' less the realized in the range)'):'';}
+          window._p2Chart.pctTip=_rb?('% of '+_p2PctBaseTip(_rb,_H0,'this range')):'';}
         const _p2HeadNew=ledgerHeroHtml({ids:{label:'p2-hero-label',big:'p2-hero-value',under:'p2-hero-under',today:'p2-hero-today',range:'p2-hero-range',chips:'p2-hero-chips'},todayInline:true,
           // r2 step 2 (item 41): the definition is the label's tooltip
           label:'<span title="'+_p2LabelTip.replace(/"/g,'&quot;')+'">BOOK #'+_bookRun+' \u00b7 NT8 futures paper \u00b7 net equity</span>',
@@ -51526,7 +51577,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           // owner 11-21: 'realized, arrow, +$X (+x%), N trades ?' on the hero grid
           range:ledgerHeroCells({label:'<span data-p2realword>realized</span>',v:_H.net,cls:ledgerCls(_H.net),fig:ledgerSigned(_H.net),
             figAttr:' data-p2realized title="The realised half of the net equity above: only trades that have CLOSED, from the book legs switched on, in this range ('+_pcwLbl+'). This is the figure the chart\'s solid line ends at."',
-            pct:_p2PctHtml(_H.net,_p2PctRangeBase,'realized')||_p2PctNone('realized'),
+            pct:_p2PctHtml(_H.net,_p2PctRangeBase,'realized'),
             extra:'&middot; '+_H.n+' trade'+(_H.n===1?'':'s')
               +'<span class="lg-help" data-p2herobtn role="button" tabindex="0" aria-expanded="'+(window._p2HeroDetOpen?'true':'false')+'" title="details: the chart check and the strategies not counted">?</span>'}),
           note:_p2HeroNote,
@@ -54370,6 +54421,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
     }
     else if(augurSub==='qqqpaper'){
       const rb=content.querySelector('[data-qqqrefresh]');if(rb)rb.onclick=()=>{loadQqqExec(null,true);loadQqqPaper(null,true);renderApp();};
+      // v91.75: the one-line status opens / shuts its fold in place (no redraw); the choice is remembered per browser
+      content.querySelectorAll('[data-qbsttog]').forEach(t=>{t.onclick=()=>{const m=content.querySelector('[data-qbstmore]');const o=t.getAttribute('aria-expanded')!=='true';
+        t.setAttribute('aria-expanded',String(o));if(m)m.hidden=!o;window._qbStOpen=o;try{localStorage.setItem('el_qb_status_open',o?'1':'0');}catch(e){}};});
       const smore=content.querySelector('[data-qeshowmore]');if(smore)smore.onclick=()=>{window._qeTradesShown=(window._qeTradesShown||50)+50;renderApp();};
       // LEDGER unify step 8: the shared trade list frame. A row opens the trade panel for THAT trade, found by its key and never
       // by its row number, so a search, a chip, LIST | TABLE or a redraw cannot point it at another trade.

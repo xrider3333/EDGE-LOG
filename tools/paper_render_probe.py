@@ -1484,7 +1484,7 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
         r.p2pct=(function(){var o={};['today','realized'].forEach(function(k){var e=d.querySelector('.lg-hero [data-p2pct="'+k+'"]');
           var row=e?e.closest('.lg-hero-row'):null,fg=row?row.querySelector('.lg-hl-v span:last-child'):null,lb=row?row.querySelector('.lg-hl-l'):null;
           o[k]=e?{t:e.textContent.trim(),cls:e.className,tip:e.getAttribute('title')||'',figCls:fg?fg.className:'',inCell:!!e.closest('.lg-hl-p'),
-            label:lb?lb.textContent.trim():'',cached:e.hasAttribute('data-p2pctcached')}:null;});return o;})();
+            label:lb?lb.textContent.trim():'',cached:e.hasAttribute('data-p2pctcached'),base:e.getAttribute('data-p2pctbase'),pre:e.getAttribute('data-p2pctpre')}:null;});return o;})();
         // v91.70 (owner 11-21 'put the nt8 % on the chart'): the % axis ticks on the curve, the muted '(% n/a)' when no base was ever seen
         r.p2pctAxis=(function(){var sv=d.querySelector('#p2-chart svg');if(!sv)return null;var t=sv.querySelectorAll('[data-lgpcttick]');
           var ti=t.length?((t[0].querySelector('title')||{}).textContent||''):'';
@@ -2303,20 +2303,30 @@ def run(alt_index=None, timeout=300):
             fails.append('nt-roster: the %s %% is marked cached on a live bridge snapshot' % _k)
     if _pp.get('today') and (_pp['today'].get('label') or '') != 'today':
         fails.append("nt-roster: the today %% is not on the row labelled 'today' (label %r)" % (_pp['today'].get('label'),))
-    # owner 11-21: NT not answering - the % is still there, from the last Sim101 cash seen, and the hover says so; never one without a base
-    _pcd = (cases.get('nt-down-cached') or {}).get('p2pct') or {}
-    for _k in ('today', 'realized'):
-        _e = _pcd.get(_k)
-        if not _e:
-            fails.append('nt-down-cached: NT is not answering and the NT8 hero shows no %% beside %s - want one from the last Sim101 cash seen' % _k)
-            continue
-        if not _pctre.match(_e.get('t') or ''):
-            fails.append('nt-down-cached: the %s %% reads %r' % (_k, _e.get('t')))
-        if 'base: Sim101 cash as of ' not in (_e.get('tip') or '') or not _e.get('cached'):
-            fails.append("nt-down-cached: the %s %% hover does not say 'base: Sim101 cash as of <time>': %r" % (_k, _e.get('tip')))
-    for _nm in ('nt-down', 'nt-none'):
-        if any(((cases.get(_nm) or {}).get('p2pct') or {}).values()):
-            fails.append('%s: the hero shows a %% with no Sim101 cash ever seen (no basis - must show none)' % _nm)
+    # v91.75 (MANAGER 11-21): the % base is FIXED - NT8_PCT_BASE_USD ($100,000) + the realized before the range (today: before today) - so
+    # the % shows in EVERY NT8 case, NT up, down or never seen, and its hover states the base; base attr = 100000 + the pre attr
+    for _nm in ('paper2', 'nt-down', 'nt-none', 'nt-down-cached', 'nt-down-lastacc'):
+        _pcd = (cases.get(_nm) or {}).get('p2pct') or {}
+        for _k in ('today', 'realized'):
+            _e = _pcd.get(_k)
+            if not _e:
+                fails.append('%s: the NT8 hero shows no %% beside %s - the fixed $100,000 base always gives one' % (_nm, _k))
+                continue
+            if not _pctre.match(_e.get('t') or ''):
+                fails.append('%s: the %s %% reads %r' % (_nm, _k, _e.get('t')))
+            if 'account + realized before' not in (_e.get('tip') or '') or 'fixed NT8 paper account size' not in (_e.get('tip') or ''):
+                fails.append("%s: the %s %% hover does not state the base ('base $X = $100,000.00 account + realized before ...'): %r" % (_nm, _k, _e.get('tip')))
+    for _nm in ('paper2', 'nt-roster', 'nt-down', 'nt-none', 'nt-down-cached', 'nt-down-lastacc'):
+        for _k, _e in (((cases.get(_nm) or {}).get('p2pct') or {}).items()):
+            if not _e:
+                continue
+            try:
+                _bs, _pre = float(_e.get('base')), float(_e.get('pre'))
+            except (TypeError, ValueError):
+                fails.append('%s: the %s %% carries no data-p2pctbase / data-p2pctpre' % (_nm, _k))
+                continue
+            if abs(_bs - (100000.0 + _pre)) > 0.02:
+                fails.append('%s: the %s %% base %s is not $100,000 + the realized before (%s)' % (_nm, _k, _bs, _pre))
     # owner 11-21 (ONE HERO GRID): the $ column and the % column each share one left edge (within 2 px), and the grid is flush with the big number
     for _nm in ('paper2', 'nt-roster', 'nt-down-cached', 'phone375'):
         _hc = (cases.get(_nm) or {}).get('heroCols')
@@ -2330,17 +2340,19 @@ def run(alt_index=None, timeout=300):
         if _hc.get('l') and _hc.get('big') is not None and abs(min(_hc['l']) - _hc['big']) > 2:
             fails.append('%s: the hero grid starts at x %s, the big number at x %s (want flush)' % (_nm, min(_hc['l']), _hc['big']))
     _rn = _pr.get('heroNum')
-    if _pp.get('realized') and _rn is not None and 101375.0 - _rn > 0:
+    if _pp.get('realized') and _rn is not None:
         _m = re.search(r'([+-]?\d+\.\d+)%', _pp['realized'].get('t') or '')
-        _exp = _rn / (101375.0 - _rn) * 100
+        try:
+            _pre = float(_pp['realized'].get('pre') or 0)
+        except ValueError:
+            _pre = 0.0
+        _exp = _rn / (100000.0 + _pre) * 100
         if _m and abs(float(_m.group(1)) - _exp) > (0.0006 if abs(_exp) < 0.1 else 0.006):
-            fails.append('nt-roster: realized %% %s, want %.4f%% (realized $ / Sim101 cash less the range realized)' % (_m.group(1), _exp))
-    if any(((cases.get('paper2') or {}).get('p2pct') or {}).values()):
-        fails.append('paper2: the hero shows a %% with no bridge snapshot (no basis - must show none)')
+            fails.append('nt-roster: realized %% %s, want %.4f%% (realized $ / ($100,000 + the realized before the range))' % (_m.group(1), _exp))
     # v91.70 (owner 11-21 'put the nt8 % on the chart'): a % axis beside the $ axis whenever the hero has a base, one % tick per $ tick,
     # each = that $ / the base; no base = no % axis and the hero says '(% n/a)' with why on hover
     _pctax = re.compile(r'^(0%|[+-]\d+(\.\d{1,2})?%)$')
-    for _nm in ('nt-roster', 'nt-down-cached', 'nt-down-lastacc'):
+    for _nm in ('nt-roster', 'nt-down-cached', 'nt-down-lastacc', 'paper2', 'nt-down', 'nt-none'):
         _ax = (cases.get(_nm) or {}).get('p2pctAxis')
         if not _ax or not _ax.get('n'):
             fails.append('%s: the NT8 curve has a %% base but no %% axis ticks (data-lgpcttick)' % _nm)
@@ -2349,8 +2361,8 @@ def run(alt_index=None, timeout=300):
             fails.append('%s: %d %% ticks vs %d $ ticks - want one %% per $ grid line' % (_nm, _ax['n'], _ax.get('usd') or 0))
         if not all(_pctax.match(x or '') for x in _ax.get('labels') or []):
             fails.append('%s: %% tick labels %r are not like +12%% / -1.5%% / 0%%' % (_nm, _ax.get('labels')))
-        if 'Sim101' not in (_ax.get('tip') or ''):
-            fails.append('%s: the %% axis hover does not name the Sim101 base: %r' % (_nm, _ax.get('tip')))
+        if 'account + realized before' not in (_ax.get('tip') or ''):
+            fails.append('%s: the %% axis hover does not state the fixed base: %r' % (_nm, _ax.get('tip')))
         _b = _ax.get('base')
         for _u, _q in zip(_ax.get('usdLabels') or [], _ax.get('labels') or []):
             try:
@@ -2362,16 +2374,10 @@ def run(alt_index=None, timeout=300):
             if abs(_qv - _ex) > max(0.6, abs(_ex) * 0.06):
                 fails.append('%s: %% tick %s beside $ tick %s, want about %.2f%% of base %s' % (_nm, _q, _u, _ex, _b))
                 break
-    if not (((cases.get('nt-down-lastacc') or {}).get('p2pct') or {}).get('realized') or {}).get('cached'):
-        fails.append('nt-down-lastacc: meta/nt_bridge last_accounts carries a Sim101 cash but the hero shows no cached realized %%')
-    for _nm in ('paper2', 'nt-down', 'nt-none'):
-        _ax = (cases.get(_nm) or {}).get('p2pctAxis') or {}
-        if _ax.get('n'):
-            fails.append('%s: the NT8 curve draws a %% axis with no Sim101 cash ever seen (no base - must show none)' % _nm)
-        if (cases.get(_nm) or {}).get('p2pctAxis') is not None and sorted((cases.get(_nm) or {}).get('p2pctNone') or []) != ['realized', 'today']:
-            fails.append("%s: no %% base and the hero does not say '(%% n/a)' on today and realized (got %r)" % (_nm, (cases.get(_nm) or {}).get('p2pctNone')))
-    if (cases.get('nt-roster') or {}).get('p2pctNone'):
-        fails.append("nt-roster: the hero says '(%% n/a)' with a live Sim101 cash")
+    # v91.75: a fixed base never leaves the hero without a %, so '(% n/a)' is gone from every case
+    for _nm in ('paper2', 'nt-roster', 'nt-down', 'nt-none', 'nt-down-cached', 'nt-down-lastacc'):
+        if (cases.get(_nm) or {}).get('p2pctNone'):
+            fails.append("%s: the hero still says '(%% n/a)' - the fixed base always gives a %%" % _nm)
     # owner 10-31 (live page): the open line directly under the big number, the figures under the name, the hatch hover and caption
     for nm in ('paper2', 'phone375'):
         r = cases.get(nm) or {}
@@ -2588,7 +2594,7 @@ def run(alt_index=None, timeout=300):
             fails.append('paper2: the hero was not restored after a scrub (mouse %s, finger %s)' % (sc.get('mBack'), sc.get('tBack')))
         if sc.get('m1') == sc.get('b0') or 'that day' not in (sc.get('m1r') or ''):
             fails.append('paper2: a mouse hover did not write the hero (%r, line %r)' % (sc.get('m1'), sc.get('m1r')))
-        if sc.get('t1') != '$0.00' or sc.get('t2') == sc.get('b0'):
+        if not str(sc.get('t1') or '').startswith('$0.00') or sc.get('t2') == sc.get('b0'):  # v91.75: the scrub now carries its % too
             fails.append('paper2: a finger drag did not write the hero (start %r, later %r, big number %r)'
                          % (sc.get('t1'), sc.get('t2'), sc.get('b0')))
 

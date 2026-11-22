@@ -803,7 +803,7 @@ def _variant_docs(fixture):
                hostline='Running on PROBE-PC \u00b7 one-computer check OK', host=('ok', ['Running on PROBE-PC', 'one-computer check OK'], True),
                recon=('ok', 'OK \u2014 Webull holds flat \u00b7 legs sum to flat'),
                legtodayval=leg_today_want(base(), 'NOISE'), ordmode_has=['OFF', 'Simulated only'], stop_has=['estimate'],
-               flags_lacks=['BREAKER TRIPPED', 'KILL ACTIVE', 'FILLS BEHIND BACKTEST', 'PARITY MISMATCH'])))
+               flags_lacks=['BREAKER TRIPPED', 'KILL ACTIVE', FILLS_CHIP, 'PARITY MISMATCH'])))
     out.append(('5 minutes old in the session', '2026-10-05 10:08:06', base(), dict(none, silent='BOX SILENT 5 min',
                today='today', top=('stale', 'WEBULL STALE 5 min'),
                strip_has=['BOX SILENT 5 min', 'last Mon 10:03'], strip_lacks=['feed OK'],
@@ -1127,7 +1127,7 @@ def _variant_docs(fixture):
         worse_leg(d)
         d['parity'] = dict(d['parity'], checked=3, ok=1, failed=2)
         return d
-    chips = ['BREAKER TRIPPED', 'KILL ACTIVE', 'FILLS BEHIND BACKTEST', '2 PARITY MISMATCHES']
+    chips = ['BREAKER TRIPPED', 'KILL ACTIVE', FILLS_CHIP, '2 PARITY MISMATCHES']
     out.append(('the hero alarm chips', FRESH_NOW, alarms(base()), dict(none, today='today', top=('flat', 'WEBULL FLAT'),
                eq_stale=False, flags_has=dict((c, 'colour') for c in chips), par_chip='2 PARITY MISMATCHES', fills_chip=True)))
     out.append(('the hero alarm chips, box silent 5 min', '2026-10-05 10:08:06', alarms(base()), dict(none, silent='BOX SILENT 5 min',
@@ -1829,7 +1829,7 @@ MUTANTS = [
      _QBTOP1.replace('status:qbStatusSec,', "status:'',") + _CRLF + _QBTOP2.replace("+qbLgStatsHtml+'</div>',", "+qbLgStatsHtml+'</div>'+qbStatusSec,"),
      'the status line is drawn under the stats strip instead of directly under the hero'),
     ('status-line-gone',
-     "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml+'</div>';",
+     "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml.replace('<!--QBSTX-->',qbExclHtml)+'</div>';",
      "const qbStatusSec='';",
      'the status line (feed, box age, Refresh) is not on the page at all'),
     ('key-long-on-phone',
@@ -2419,8 +2419,8 @@ MUTANTS = [
      "@container qbtl (max-width:1000px){.qbx-tl .qbx-cav{display:block}}",
      'the flagged-row mark uses a width (1000 px) that is no house breakpoint'),
     ('status-strip-folded',
-     "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml+'</div>';",
-     "const qbStatusSec=qbFoldHtml('status','Status','paper only',qbStatusStripHtml);",
+     "const qbStatusSec='<div class=\"qbx-statusline\">'+qbStatusStripHtml.replace('<!--QBSTX-->',qbExclHtml)+'</div>';",
+     "const qbStatusSec=qbFoldHtml('status','Status','paper only',qbStatusStripHtml.replace('<!--QBSTX-->',qbExclHtml));",
      'the status strip is folded away under a header instead of staying visible under the chart'),
     # the clean-up of v73.1125: ?oldboards=1 and the previous board are gone, and nothing of them may come back
     ('oldflag-changes-the-board',
@@ -2483,8 +2483,8 @@ MUTANTS = [
      'const LEDGER_STATUS_UNDER_HERO=false;',
      'the status line sits under the chart (the step 11 place), not directly under the hero'),
     ('status-no-refresh',
-     "act:'<button class=\"qb-hero-refresh lg-status-btn\" data-qqqrefresh>'",
-     "act2:'<button class=\"qb-hero-refresh lg-status-btn\" data-qqqrefresh>'",
+     "act:'<button class=\"qb-hero-refresh lg-status-btn qbx-st-rf\" data-qqqrefresh",
+     "act2:'<button class=\"qb-hero-refresh lg-status-btn qbx-st-rf\" data-qqqrefresh",
      'the status line has no Refresh button'),
     ('status-line-many-lines',
      '-webkit-line-clamp:2;overflow-wrap:anywhere}',
@@ -2531,8 +2531,8 @@ MUTANTS = [
      "the hero's broker line says '1 book-only trades excluded'"),
     # re-anchored for board row 112 (11-20): the chip names the leg(s) behind and shows only for a WORSE running average
     ('fills-behind-chip-gone',
-     "chips.push(qbChipG('FILLS BEHIND BACKTEST: '+",
-     "(qbChipG('FILLS BEHIND BACKTEST: '+",
+     "qbFillsChip=qbChipG(String(_short)",
+     "qbFillsChip=''&&qbChipG(String(_short)",
      'the hero never shows FILLS BEHIND BACKTEST'),
     ('fills-behind-chip-always',
      "if(_bad.length||_brd){",
@@ -2721,13 +2721,13 @@ MUTANTS = [
      "const heldLineHtml=(false&&heldOne)?(",
      "the strategy row's more body does not name the lot held overnight"),
     ('hero-held-note-back',
-     "+brokerLine+'</details>'):''))||undefined});",
-     "+brokerLine+'</details>'):''))+'<div data-qbheldnote=\"DIP\">DIP #424 held overnight</div>'});",
+     "note:(sinceLabel?('<div>'+sinceLabel+'</div>'):'')||undefined});",
+     "note:(sinceLabel?('<div>'+sinceLabel+'</div>'):'')+'<div data-qbheldnote=\"DIP\">DIP #424 held overnight</div>'});",
      'the hero names the held lot again (that line belongs in the strategy row)'),
     ('broker-line-not-folded',
-     "(brokerLine?('<details class=\"qbx-hero-details\"><summary>details</summary>'+brokerLine+'</details>'):'')",
-     "brokerLine",
-     "the broker line sits in the open under the headline, not behind 'details'"),
+     "+'<!--QBSTX-->'+brokerLine+'</div>';",
+     "+'<!--QBSTX-->'+'</div>'+brokerLine;",
+     "the broker line sits in the open under the status line, not inside its fold (v91.75; was behind 'details')"),
     ('hero-qualifier-missing',
      "+LEDGER_NET_EQUITY_WORD+'</span>')",
      "+''+'</span>')",
@@ -3535,7 +3535,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     r.keelPill=(function(){var e=q('[data-qbkeelwarn]');if(!e)return null;var cs=w.getComputedStyle(e);return {cls:e.className,col:cs.color,border:cs.borderTopStyle+' '+cs.borderTopColor,radius:cs.borderTopLeftRadius};})();
     // ACCOUNT EQUITY LINE (owner 10-31 15:00): the solid line's last point is the big number (the chart hands its points to the page: _qbLgChart.pts)
     var lgc=w._qbLgChart;r.lineEnd=(lgc&&lgc.pts&&lgc.pts.length)?lgc.pts[lgc.pts.length-1].v:null;
-    r.heroHeldNote=!!q('#qb-hero-note [data-qbheldnote]');r.heroBrokerFolded=!!q('#qb-hero-note details [data-qbbroker]');
+    r.heroHeldNote=!!q('#qb-hero-note [data-qbheldnote]');r.heroBrokerFolded=!!q('[data-qbstmore] [data-qbbroker]');
     var tpl=q('#qb-lg-chart svg polyline');r.totalStroke=tpl?tpl.style.stroke:null;
     r.heroToday=txt('#qb-hero-today');
     // owner 11-21 (ONE HERO GRID): the left edge of every $ cell, every % cell and every label cell under the big number, and of the big number
@@ -3704,7 +3704,8 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     var rc=q('[data-qbrecon]');r.recon=rc?rc.getAttribute('data-qbrecon'):null;r.reconTxt=rc?(rc.textContent||'').replace(/\\s+/g,' ').trim():null;
     // KEEPS CHECKLIST: the hero's note (the since line, then the amber broker line when a trade is book-only) with each child's tooltip, and the System fold's host line
     var hn=q('#qb-hero-note');
-    var hnl=hn?hn.querySelectorAll(':scope>div,:scope>details>[data-qbbroker]'):[];
+    // v91.75: the broker caveat moved from the hero's 'details' fold into the status line's fold ([data-qbstmore])
+    var hnl=[].slice.call(hn?hn.querySelectorAll(':scope>div'):[]).concat([].slice.call(d.querySelectorAll('[data-qbstmore]>[data-qbbroker]')));
     r.heroNote=[].map.call(hnl,function(e){return (e.textContent||'').replace(/\\s+/g,' ').trim();});
     r.heroNoteTitles=[].map.call(hnl,function(e){return e.getAttribute('title')||'';});
     var hl=null;[].forEach.call(d.querySelectorAll('#qbf-system div'),function(e){if(hl===null&&!e.querySelector('div')&&/^Running on /.test((e.textContent||'').trim()))hl=(e.textContent||'').replace(/\\s+/g,' ').trim();});
@@ -3719,6 +3720,8 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     r.flags={};
     [].forEach.call(d.querySelectorAll('#qb-hero-chips span:not([data-qbfresh])'),function(e){
       var t=(e.textContent||'').trim();if(t&&!(t in r.flags))r.flags[t]=w.getComputedStyle(e).color===grey?'grey':'colour';});
+    // v91.75: the short fills chip keeps the full FILLS BEHIND BACKTEST words in its hover
+    var fbc=q('[data-qbfillsbehind]');r.fillsTip=fbc?fbc.getAttribute('title'):null;
     // would the full-doc listener run on HOME / on the board (signed in, page visible)? It must be the
     // board's only (QUOTA in index.html). db/auth/visibility stubbed, then put back
     function wants(tab,sub){return w.eval("(function(){var sd=db,sa=auth,st=activeTab,ss=augurSub;try{db={};auth={currentUser:{uid:'probe-uid'}};activeTab='"+tab+"';augurSub='"+sub+"';"
@@ -6556,8 +6559,8 @@ def _judge_list(tag, lg, vp, theme, doc, cutoff, range_key, retired_open, shadow
             if bh.get('key') != '30_prov' or not bh.get('est') or not bh.get('was') or miss:
                 fails.append('%s: the book head reads %r (book %r, estimate tag %s, was struck %s), missing %r'
                              % (tag, txt, bh.get('key'), bh.get('est'), bh.get('was'), miss))
-        elif not txt.startswith('Live book') or not bh.get('none') or bh.get('key'):
-            fails.append('%s: with ENGU-Q a BOOK row no book in the table is the live mix, the head reads %r (want Live book, not one of the books)'
+        elif not txt.startswith('Live: ') or not bh.get('none') or bh.get('key'):   # v91.75: one quiet line 'Live: ORB #314 + NOISE #382'
+            fails.append('%s: with ENGU-Q a BOOK row no book in the table is the live mix, the head reads %r (want Live: ..., not one of the books)'
                          % (tag, txt))
     for x in bk.get('rows') or []:
         bl = x.get('bkleg') or ''
@@ -8576,7 +8579,8 @@ def _judge_more(tag, r, sc_, trades, cutoff, fixture, fails):
 
 
 # -- KEEPS CHECKLIST (2026-10-07): board features that were on the page and that no check would notice breaking ---------------------------------------
-FILLS_CHIP = 'FILLS BEHIND BACKTEST'
+FILLS_CHIP = 'fills '   # v91.75 (owner 11-21): a small amber 'fills -5.9c NOISE #382'; the FILLS BEHIND BACKTEST words lead its hover
+FILLS_TIP = 'FILLS BEHIND BACKTEST: '
 PAR_CHIP_RE = re.compile(r'^\d+ PARITY MISMATCH(ES)?$')
 
 
@@ -8617,10 +8621,11 @@ def expected_fills_parts(doc):
                  and _bp_avg(L.get('avg_exec_ps')) is not None and _bp_avg(L.get('avg_exec_ps')) < 0)
     if bad:
         fam = {'ENGUQ': 'ENGU-Q'}
-        return [fam.get(k, k.split('_')[0]) for k in bad] + ['(' + _cents_avg(_bp_avg(legs[k].get('avg_exec_ps'))) + ')' for k in bad]
+        # v91.75: the chip reads 'fills -7c NOISE #382' - each leg's family and its signed cents
+        return [fam.get(k, k.split('_')[0]) for k in bad] + [_cents_avg(_bp_avg(legs[k].get('avg_exec_ps'))).replace(' avg', '') + ' ' for k in bad]
     ba = _bp_avg((bp.get('board') or {}).get('avg_exec_ps'))
     if bp.get('board_flag') and ba is not None and ba < 0:
-        return ['board (' + _cents_avg(ba) + ')']
+        return [_cents_avg(ba).replace(' avg', '') + ' board']
     return None
 
 
@@ -8722,8 +8727,10 @@ def _hero_extras(tag, r, doc, fails, stale_like=False, colour=True, ex=None, sys
                      % (tag, 'lacks' if wf else 'shows', FILLS_CHIP, 'flagged' if wf else 'not flagged', sorted(flags)))
     elif fk is not None:
         miss = [w for w in expected_fills_parts(doc) if w not in fk]
-        if not fk.startswith(FILLS_CHIP + ': ') or miss:
+        if not fk.startswith(FILLS_CHIP) or miss:
             fails.append('%s: the hero chip reads %r, want it to name who is behind (%s)' % (tag, fk, ', '.join(expected_fills_parts(doc))))
+        if not (r.get('fillsTip') or '').startswith(FILLS_TIP):
+            fails.append('%s: the fills chip hover reads %r, want it to lead with %r and the full words' % (tag, (r.get('fillsTip') or '')[:80], FILLS_TIP))
     if colour:
         for k in pc + ([fk] if fk is not None else []):
             if (flags[k] == 'grey') != stale_like:
