@@ -3202,7 +3202,7 @@ _MUTANT_RETIRED = {
     'hero-cash-line-no-closed-word',  # LEDGER UI r2 step 2: 'closed trades' is the realized figure's title, not a visible word
     'row-more-word-missing',        # LEDGER UI r2 step 7: the shared chevron replaced the 'more' word
 }
-MUTANTS = [((m[0],) + ((_MUTANT_REANCHOR[m[0]][0], m[2] if _MUTANT_REANCHOR[m[0]][1] is None else _MUTANT_REANCHOR[m[0]][1])
+MUTANTS[:] = [((m[0],) + ((_MUTANT_REANCHOR[m[0]][0], m[2] if _MUTANT_REANCHOR[m[0]][1] is None else _MUTANT_REANCHOR[m[0]][1])
                        if m[0] in _MUTANT_REANCHOR else (m[1], m[2])) + (m[3],))
            for m in MUTANTS if m[0] not in _MUTANT_RETIRED]
 

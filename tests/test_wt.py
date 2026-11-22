@@ -136,7 +136,8 @@ def test_the_paper_selftest_row_is_the_one_trading_log_specified():
         ('--selftest', '--jobs', '3'), True)
     assert g.empty == '(paper probe self-test produced no output)'
     assert g.cover == ('tools/paper_render_probe.py', 'tools/fixtures/paper_board.json',
-                       'tools/kill_on_exit.py', 'tools/ledger_removed.py')
+                       'tools/kill_on_exit.py', 'tools/ledger_removed.py',
+                       'tools/ledger_daily_check.py')
     assert g.pick('-- mutant x: caught\nSELFTEST: PASS -- 9/9') == 'SELFTEST: PASS -- 9/9'
     assert g.pick('SELFTEST (only 2 mutants): PASS -- each') == 'SELFTEST (only 2 mutants): PASS -- each'
     assert wt.gate_command(ROOT, ROOT, g)[-3:] == ['--selftest', '--jobs', '3']
