@@ -159,37 +159,37 @@ def _load_panel(path, sha):
 
 
 def _beta(p, w, cache=None):
-    _CACHE = globals()["_CACHE"] if cache is None else cache
+    _C = _CACHE if cache is None else cache
     key = ("beta", int(w))
-    if key not in _CACHE:
+    if key not in _C:
         names = p["names"]; dr = p["dr"]; m = dr["SPY"]
         mp = max(20, int(w * 2 / 3))
         cov = (dr[names].mul(m, axis=0).rolling(w, min_periods=mp).mean()
                - dr[names].rolling(w, min_periods=mp).mean().mul(m.rolling(w, min_periods=mp).mean(), axis=0))
         b = cov.div(m.rolling(w, min_periods=mp).var(), axis=0)
-        _CACHE[key] = b.shift(1).clip(0.3, 2.5).fillna(1.0)      # shift(1): ends the session BEFORE
-    return _CACHE[key]
+        _C[key] = b.shift(1).clip(0.3, 2.5).fillna(1.0)      # shift(1): ends the session BEFORE
+    return _C[key]
 
 
 def _habit(p, L, min_price, cache=None):
-    _CACHE = globals()["_CACHE"] if cache is None else cache
+    _C = _CACHE if cache is None else cache
     key = ("habit", int(L), float(min_price))
-    if key not in _CACHE:
+    if key not in _C:
         ret = p["ret"]; ok = p["member"] & (p["rp"] >= float(min_price))
         # vs that day's MEMBER mean, kept for every day the name traded (member or not).
         xa = ret.sub(ret.where(ok).mean(axis=1), axis=0)
         # shift(1): sessions t-L .. t-1 only. Today's 15:30 -> close return is the fill, never an input.
-        _CACHE[key] = xa.rolling(int(L), min_periods=int(int(L) * 0.75)).mean().shift(1)
-    return _CACHE[key]
+        _C[key] = xa.rolling(int(L), min_periods=int(int(L) * 0.75)).mean().shift(1)
+    return _C[key]
 
 
 def _daily_pnl(p, notional, spread_cents, fee_bps, k, beta_len, min_price, beta_adjust, period_len, period_wt,
                cache=None):
     """{yyyymmdd: dollars} for one config, over every panel session."""
-    _CACHE = globals()["_CACHE"] if cache is None else cache
+    _C = _CACHE if cache is None else cache
     key = ("pnl", float(notional), float(spread_cents), float(fee_bps), int(k), int(beta_len),
            float(min_price), bool(beta_adjust), int(period_len), float(period_wt))
-    if key not in _CACHE:
+    if key not in _C:
         names = p["names"]; s0 = p["s0"]; spy = s0["SPY"]; ret = p["ret"]; rp = p["rp"]
         ok = p["member"] & (rp >= float(min_price))
         if beta_adjust:
@@ -207,8 +207,8 @@ def _daily_pnl(p, notional, spread_cents, fee_bps, k, beta_len, min_price, beta_
         c = cost.where(L).mean(axis=1) + cost.where(W).mean(axis=1)
         keep = g.notna() & (n >= 4 * int(k))                     # thin sessions skipped (s25 rule)
         net = ((g - c) * float(notional))[keep].dropna()
-        _CACHE[key] = dict(zip(net.index.tolist(), net.values.tolist()))
-    return _CACHE[key]
+        _C[key] = dict(zip(net.index.tolist(), net.values.tolist()))
+    return _C[key]
 
 
 def run_backtest(opens, highs, lows, closes, volumes=None, day_id=None, index=None,
