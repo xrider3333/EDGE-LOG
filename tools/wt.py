@@ -655,7 +655,8 @@ GATES = [
          empty='(paper probe self-test produced no output)',
          prefix='SELFTEST', args=('--selftest', '--jobs', '3'), slow=True,
          cover=('tools/paper_render_probe.py', 'tools/fixtures/paper_board.json',
-                'tools/kill_on_exit.py', 'tools/ledger_removed.py')),
+                'tools/kill_on_exit.py', 'tools/ledger_removed.py',
+                'tools/ledger_daily_check.py')),
 
     # REPORT GATE (2026-09-02): the RESULTS run report, which shipped broken behind a green boot
     # gate THREE times in a week (v73.367 _reXNm undefined; v73.442 an _hRow without its heat
@@ -776,7 +777,8 @@ GATES = [
          'not pushing', '(HOME probe self-test produced no output)',
          prefix='SELFTEST:', args=('--selftest',), slow=True,
          cover=('tools/home_render_probe.py', 'tools/ledger_removed.py',
-                'tools/kill_on_exit.py')),
+                'tools/kill_on_exit.py',
+                'tools/ledger_daily_check.py')),
 
     # WEBULL GATE (2026-10-05): LEDGER > WEBULL PAPER, the same per-board render probe as HOME's.
     # webull_board_probe.py hands the board a fixed copy of the box's status doc
@@ -800,7 +802,8 @@ GATES = [
          prefix='SELFTEST:', args=('--selftest',), slow=True,
          cover=('tools/webull_board_probe.py', 'tools/fixtures/qqq_exec_box1005.json',
                 'tools/fixtures/qqq_exec_shadow_trades.json', 'tools/fixtures/qqq_exec_dip_live.json',
-                'tools/fixtures/qqq_exec_next_trade.json', 'tools/ledger_removed.py', 'tools/kill_on_exit.py')),
+                'tools/fixtures/qqq_exec_next_trade.json', 'tools/ledger_removed.py', 'tools/kill_on_exit.py',
+                'tools/ledger_daily_check.py')),
 
     # FOURTH GATE: STUDIES row numbers stay unique (see KNOWN_DUP_ROWS above). Judged by
     # studies_gate_verdict, not by its exit code alone.
