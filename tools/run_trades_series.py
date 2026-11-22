@@ -74,7 +74,8 @@ def _early_engine_root(argv):
 
 
 ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
-SHARED = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
+# EDGELOG_SHARED = the data checkout (uploads, db, --pin git dir) on a box other than the Razer (desktop: C:\EdgeLog\repo)
+SHARED = os.environ.get("EDGELOG_SHARED") or r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG"
 _ER = _early_engine_root(sys.argv) if __name__ == "__main__" else None
 for _p in ([ROOT] + ([_ER] if _ER else [])):
     if _p and _p not in sys.path:

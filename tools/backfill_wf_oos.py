@@ -84,6 +84,7 @@ SESSION = {"db_noadj_rth": "rth", "db_noadj_eth": "eth",      # as the other bac
            #   the NQ crown, the ES re-grade and both 2026-11-20 transfers -- a replay refused
            #   for a missing dictionary key, not for anything wrong with the run.
            "db_adj_rth": "rth", "db_adj_eth": "eth",
+           "alpaca_split_rth": "rth",   # split-adjusted Alpaca 5m RTH stock/ETF masters (PICK6 #511 etc.)
            "yahoo_adj": "rth"}   # dividend-adjusted daily ETF masters (the ETFDIP runs). A later
                                  #   dividend rescales the whole pinned window by one factor, which
                                  #   leaves these ratio-sized strategies' trades and dollars exactly as
