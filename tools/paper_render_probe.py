@@ -1787,6 +1787,47 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               BK.slotsStable=U8.map(function(id){return w.bkaColorSlot(id,U8.slice().reverse());});
               I.bka=BK;
             }catch(e){I.bka={err:String(e&&e.stack?e.stack:e)};}
+            // v91.81 LEDGER VIEWS: LIVE | WHAT-IF (hero, tiles, chart, calendar), stacked DAILY bars in the line colours, FIXED | RISK n %
+            try{
+              var LV={},LS1=localStorage,dly1=LS1.getItem('el_lg_daily_p2');
+              var sd2=(w._p2Scrub&&w._p2Scrub.dates)||[];var eA=sd2[0]||'2026-08-12',eB=sd2[sd2.length-1]||eA;
+              w._bookLegs={books:{'30':{row:'30',legs:[{id:'ORB234',name:'ORB234',run:'#234',instrument:'NQ'},{id:'OPUS55a',name:'midday + late NQ',run:'#524',instrument:'NQ'}]}}};
+              w._bookAsif={generated_at:'2026-11-22T21:10:00Z',data_end:eB,legs:{OPUS55a:{name:'midday + late NQ',kind:'futures',src:'replay',d:[eA,eB],p:[1000,-250],n:[1,1],data_end:eB,params_run:524}}};
+              var _lvNum=function(x){if(!x)return null;var m=String(x).replace(/,/g,'').match(/[-+]?[$]?[0-9]+([.][0-9]+)?/);if(!m)return null;var v=parseFloat(m[0].replace('$',''));return /^[^0-9]*-/.test(String(x))?-Math.abs(v):v;};
+              var _cc=function(c){var e=d.createElement('span');e.style.color=c;d.body.appendChild(e);var v=getComputedStyle(e).color;e.remove();return v;};
+              var _hv=function(){var bar=d.querySelector('[data-lgvbar="p2"]'),wb=bar?bar.querySelector('[data-lgvview="whatif"]'):null,rz=d.querySelector('#p2-hero-range [data-p2realized]');
+                var C=w._p2Chart;return {big:_t(d.getElementById('p2-hero-value')),real:rz?_lvNum(_t(rz)):null,eff:bar?bar.getAttribute('data-lgveff'):null,size:bar?bar.getAttribute('data-lgvsizenow'):null,
+                  wiDis:wb?!!wb.disabled:null,tags:[].map.call(d.querySelectorAll('[data-lgvherotag]'),function(e){return e.getAttribute('data-lgvherotag');}),
+                  barTags:[].map.call(d.querySelectorAll('[data-lgvbar="p2"] [data-lgvtag]'),function(e){return e.getAttribute('data-lgvtag');}),
+                  wi:[].map.call(d.querySelectorAll('[data-lgvwi]'),function(e){return e.getAttribute('data-lgvwi');}),
+                  end:(C&&C.pts&&C.pts.length)?C.pts[C.pts.length-1].v:null,tiles:_t(d.querySelector('[data-p2sec="stats"]'))};};
+              LS1.removeItem('el_lgv_view_p2');LS1.removeItem('el_lgv_size_p2');w._bkaOn_nt8=[];LS1.removeItem('el_bka_on_nt8');LS1.setItem('el_lg_daily_p2','0');
+              w.renderApp();LV.a=_hv();
+              w._bkaOn_nt8=['OPUS55a'];LS1.setItem('el_bka_on_nt8','["OPUS55a"]');w.renderApp();LV.b=_hv();
+              if(_click('[data-lgvboard="p2"][data-lgvview="whatif"]')){LV.c=_hv();LV.stored=LS1.getItem('el_lgv_view_p2');
+                LS1.setItem('el_lg_daily_p2','1');w.renderApp();
+                var cm={};(w._p2Chart.comps||[]).forEach(function(c){cm[c.k]=_cc(c.color);});
+                LV.stack=[].map.call(d.querySelectorAll('#p2-chart [data-lgdaily-stack]'),function(g){return {d:g.getAttribute('data-lgdaily-stack'),net:parseFloat(g.getAttribute('data-net')),
+                  segs:[].map.call(g.querySelectorAll('[data-lgdaily-seg]'),function(r){var k=r.getAttribute('data-lgdaily-seg');return [k,parseFloat(r.getAttribute('data-v')),getComputedStyle(r).fill,cm[k]||null];})};});
+                try{var sv=d.querySelector('#p2-chart svg');if(sv){var rc=sv.getBoundingClientRect(),st=LV.stack.filter(function(g){return g.segs.some(function(x){return x[0]==='OPUS55a';});})[0];
+                  sv.dispatchEvent(new MouseEvent('mousemove',{clientX:rc.right-30,clientY:rc.top+40,bubbles:true}));
+                  LV.tip=[].map.call(d.querySelectorAll('#p2-chart [data-lgdaily-tipseg]'),function(e){var k=e.getAttribute('data-lgdaily-tipseg');return [k,getComputedStyle(e).color,cm[k]||null];});
+                  sv.dispatchEvent(new MouseEvent('mouseleave',{bubbles:true}));}}catch(e){LV.tip='err '+e;}
+                LS1.setItem('el_lg_daily_p2','0');w.renderApp();}
+              _click('[data-lgvboard="p2"][data-lgvview="live"]');LV.d=_hv();
+              if(_click('[data-lgvboard="p2"][data-lgvsize="r1"]')){LV.e=_hv();var Z=w._lgvP2;LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,fbN:Z.fbN,n:Z.n,stopN:Z.stopN,storedSize:LS1.getItem('el_lgv_size_p2')}:null;}
+              _click('[data-lgvboard="p2"][data-lgvsize="fixed"]');LV.f=_hv();
+              // pure maths on hand-computed fixtures (risk_sizing.size_chain in $; see the judge for the working)
+              var FX=[{e:1,x:2,pu:1000,r:500,k:'X'},{e:3,x:4,pu:-400,r:null,k:'X'},{e:5,x:6,pu:-600,r:null,k:'X'},{e:7,x:8,pu:50,r:20000,k:'Y'},{e:9,x:10,pu:10,r:50,k:'Y'}];
+              LV.fx=w.lgvSizeChain(FX,{pct:0.01,start:100000,step:0.1,cap:10,fb:w.lgvFallbacks(FX)});
+              LV.fxSh=w.lgvUnits(30000,0.02,0.85,1,8235);
+              var SC=w.lgvScaleShadows([{id:'S',days:{'2026-01-02':{p:-200,n:2},'2026-01-03':{p:300,n:1}}}],{'2026-01-02':500},{pct:0.01,start:100000,step:0.1,cap:10});
+              LV.fxScale={days:SC[0].days,units:SC[0].units,risk:SC[0].risk};
+              LS1.removeItem('el_lgv_view_p2');LS1.removeItem('el_lgv_size_p2');w._bkaOn_nt8=[];LS1.removeItem('el_bka_on_nt8');
+              if(dly1==null)LS1.removeItem('el_lg_daily_p2');else LS1.setItem('el_lg_daily_p2',dly1);
+              delete w._bookLegs;delete w._bookAsif;w.renderApp();
+              I.lgv=LV;
+            }catch(e){I.lgv={err:String(e&&e.stack?e.stack:e)};}
             r.int=I;
           }catch(e){r.int={err:String(e&&e.stack?e.stack:e)};}
         }
@@ -2267,6 +2308,83 @@ def run(alt_index=None, timeout=300):
         sl = _bka.get('slots') or []
         if len(set(sl)) != 8 or sl != (_bka.get('slotsStable') or []):
             fails.append('paper2 what-if colours: 8 legs of one book table do not get 8 stable, distinct slots (%r / %r)' % (sl, _bka.get('slotsStable')))
+    # v91.81 LEDGER VIEWS: LIVE | WHAT-IF, stacked DAILY bars, FIXED | RISK n %
+    _lv = ((cases.get('paper2') or {}).get('int') or {}).get('lgv') or {}
+    _lgv_ok = False
+    if _lv.get('err') or not _lv.get('a'):
+        fails.append('paper2 ledger views: the case did not run: %s' % (_lv.get('err') or 'no readout'))
+    else:
+        a, b, c, dd, e, f = (_lv.get(k) or {} for k in ('a', 'b', 'c', 'd', 'e', 'f'))
+        if a.get('eff') != 'live' or a.get('size') != 'fixed' or a.get('wiDis') is not True:
+            fails.append('paper2 ledger views: with no shadow on the bar must read LIVE / FIXED with WHAT-IF disabled (%r)' % (a,))
+        if b.get('wiDis') is not False or b.get('eff') != 'live':
+            fails.append('paper2 ledger views: a shadow leg on must enable WHAT-IF and stay LIVE (%r)' % (b,))
+        for k in ('big', 'real', 'tiles'):
+            if a.get(k) != b.get(k):
+                fails.append('paper2 ledger views: LIVE moved the account %s when a shadow leg went on (%r -> %r)' % (k, a.get(k), b.get(k)))
+        if not c:
+            fails.append('paper2 ledger views: the WHAT-IF button could not be clicked')
+        else:
+            if c.get('eff') != 'whatif' or 'whatif' not in (c.get('tags') or []) or 'whatif' not in (c.get('barTags') or []) or _lv.get('stored') != 'whatif':
+                fails.append('paper2 ledger views: WHAT-IF is not shown / tagged / remembered (%r, stored %r)' % (c, _lv.get('stored')))
+            if sorted(c.get('wi') or []) != ['cal', 'stats']:
+                fails.append('paper2 ledger views: WHAT-IF does not mark the tiles and the calendar (%r)' % (c.get('wi'),))
+            # OPUS55a as-if +1000 then -250 on two plotted days (one day = the same 750)
+            if c.get('real') is None or b.get('real') is None or round(c['real'] - b['real'], 2) != 750.0:
+                fails.append('paper2 ledger views: WHAT-IF realized %r is not LIVE %r + the shadow 750' % (c.get('real'), b.get('real')))
+            if c.get('end') is None or b.get('end') is None or round(c['end'] - b['end'], 2) != 750.0:
+                fails.append('paper2 ledger views: WHAT-IF chart end %r is not LIVE %r + 750' % (c.get('end'), b.get('end')))
+            if c.get('big') == b.get('big') or c.get('tiles') == b.get('tiles'):
+                fails.append('paper2 ledger views: WHAT-IF did not move the hero / the tiles (%r / %r)' % (c.get('big'), c.get('tiles')))
+        for k in ('big', 'real', 'tiles', 'end'):
+            if dd.get(k) != b.get(k):
+                fails.append('paper2 ledger views: back on LIVE the %s is not the account again (%r -> %r)' % (k, b.get(k), dd.get(k)))
+        st = _lv.get('stack') or []
+        if not st:
+            fails.append('paper2 stacked bars: no stacked day bar in the WHAT-IF DAILY view')
+        sh_seen = False
+        for g in st:
+            tot = round(sum(x[1] for x in g.get('segs') or []), 2)
+            if abs(tot - g.get('net', 0)) > 0.011:
+                fails.append('paper2 stacked bars: %s segments add to %r, the day net is %r' % (g.get('d'), tot, g.get('net')))
+            for k, v, fill, want in (g.get('segs') or []):
+                if k == 'OPUS55a':
+                    sh_seen = True
+                if k != 'other' and fill != want:
+                    fails.append('paper2 stacked bars: %s segment %s is %r, its line colour is %r' % (g.get('d'), k, fill, want))
+        if st and not sh_seen:
+            fails.append('paper2 stacked bars: the shadow leg OPUS55a has no segment of its own in WHAT-IF')
+        tip = _lv.get('tip')
+        if not isinstance(tip, list) or not tip or any(x[2] and x[1] != x[2] for x in tip):
+            fails.append('paper2 stacked bars: the hover does not list each strategy in its colour (%r)' % (tip,))
+        if not e or e.get('size') != 'r1' or 'size' not in (e.get('tags') or []) or e.get('real') == dd.get('real'):
+            fails.append('paper2 sizing: RISK 1 %% did not re-price the hero or show its tag (%r)' % (e,))
+        sz = _lv.get('sz') or {}
+        if not sz or round(sz.get('start') or 0, 2) != 100000.0 or sz.get('storedSize') != 'r1' or (sz.get('taken') or 0) + (sz.get('skipped') or 0) != sz.get('n'):
+            fails.append('paper2 sizing: RISK 1 %% on ALL must start at $100,000, count every trade once and be remembered (%r)' % (sz,))
+        for k in ('big', 'real', 'tiles', 'end'):
+            if f.get(k) != dd.get(k):
+                fails.append('paper2 sizing: FIXED is not the account again (%s %r -> %r)' % (k, dd.get(k), f.get(k)))
+        # HAND-COMPUTED (risk_sizing.size_chain, $100,000 at 1 %, 0.1 steps, cap 10). X's median losing trade = median(400, 600) = $500 a unit.
+        #   A: 100,000 x 1 % / 500 = 2.0 units -> +2,000.  B (no stop): 102,000 -> 2.04 -> 2.0 -> -800.  C: 101,200 -> 2.024 -> 2.0 -> -1,200.
+        #   D: 100,000 / 20,000 risk = 0.05 -> 0 -> skipped.  E: 1,000 / 50 = 20 -> capped 10 -> +100.  Net +100.
+        fx = _lv.get('fx') or {}
+        if (fx.get('usd') != [2000, -800, -1200, 0, 100] or fx.get('units') != [2, 2, 2, 0, 10] or fx.get('taken') != 4
+                or fx.get('skipped') != 1 or fx.get('fbN') != 2):
+            fails.append('paper2 sizing: the RISK 1 %% fixture is not the hand figure (+2000 -800 -1200 skip +100): %r' % (fx,))
+        if _lv.get('fxSh') != 705:
+            fails.append('paper2 sizing: $30,000 x 2 %% / $0.85 a share must be 705 whole shares, got %r' % (_lv.get('fxSh'),))
+        # daily-only shadow: risk = median losing trade = 200 / 2 = $100. Day 1: 100,000 x 1 % / 100 = 10 -> -2,000 (+ live 500 -> 98,500).
+        # Day 2: 985 / 100 = 9.85 -> 9.8 -> +2,940
+        fs = _lv.get('fxScale') or {}
+        dmap = {k: v.get('p') for k, v in (fs.get('days') or {}).items()}
+        if dmap != {'2026-01-02': -2000, '2026-01-03': 2940} or fs.get('risk') != 100 or (fs.get('units') or {}).get('2026-01-03') != 9.8:
+            fails.append('paper2 sizing: the daily shadow scaling fixture is off: %r' % (fs,))
+        _lgv_ok = True
+    if _lgv_ok:
+        say('PAPERPROBE ledger views (v91.81): LIVE = account with a shadow on, WHAT-IF adds +750 to hero / chart and tags tiles + calendar, '
+            '%d stacked days add up in line colours, RISK 1 %% re-prices from $100,000, FIXED = account; size_chain fixture +100 (2000 -800 -1200 skip +100)'
+            % len(_lv.get('stack') or []))
     # the capture-health line: one per instrument, low-delta day flagged in words (not colour alone)
     for nm in ('base', 'paper2'):
         r = cases.get(nm) or {}

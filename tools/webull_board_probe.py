@@ -4102,6 +4102,38 @@ __S11JS__
               delete bw._bookLegs;delete bw._bookAsif;bw.renderApp();
               out.tog.bka=BK;
             }catch(e){out.tog.bka={threw:String(e&&e.stack?e.stack:e)};}
+            // v91.81 LEDGER VIEWS on WEBULL PAPER: LIVE | WHAT-IF (hero, tiles, chart, calendar), stacked DAILY bars, FIXED | RISK 1 %
+            try{var vw=W(),LSv=vw.localStorage,LV={},dly2=LSv.getItem('el_lg_daily_qb'),shOn0=LSv.getItem('el_qb_sh_on'),shW0=vw._qbShOn;
+              var wt=function(){return new Promise(function(r){setTimeout(r,300);});};
+              var cp2=(vw._qbLgChart&&vw._qbLgChart.pts)||[],cds2=cp2.map(function(p){return p.date;}).filter(Boolean);var eA=cds2[0]||'2026-10-01',eB=cds2[cds2.length-1]||eA;
+              vw._bookLegs={books:{'stk':{row:'stocks only',legs:[{id:'PICK6',name:'PICK6 stocks',run:'#511',instrument:'stock basket'}]}}};
+              vw._bookAsif={generated_at:'2026-11-22T21:10:00Z',data_end:eB,legs:{PICK6:{name:'PICK6 stocks',kind:'stock',src:'replay',d:[eA,eB],p:[300,-100],n:[1,1],data_end:eB,params_run:511}}};
+              LSv.removeItem('el_lgv_view_qb');LSv.removeItem('el_lgv_size_qb');vw._qbShOn=[];LSv.setItem('el_qb_sh_on','[]');vw._bkaOn_qb=[];LSv.removeItem('el_bka_on_qb');LSv.setItem('el_lg_daily_qb','0');
+              var cc=function(c){var e=D().createElement('span');e.style.color=c;D().body.appendChild(e);var v=W().getComputedStyle(e).color;e.remove();return v;};
+              var hv=function(){var d=D(),x=d.querySelector('[data-lgvbar="qb"]'),wb=x?x.querySelector('[data-lgvview="whatif"]'):null,c=W()._qbLgChart;
+                return {big:(d.getElementById('qb-hero-value')||{}).textContent,range:(d.getElementById('qb-hero-range')||{}).textContent,eff:x?x.getAttribute('data-lgveff'):null,
+                  size:x?x.getAttribute('data-lgvsizenow'):null,wiDis:wb?!!wb.disabled:null,tags:[].map.call(d.querySelectorAll('[data-lgvherotag]'),function(e){return e.getAttribute('data-lgvherotag');}),
+                  wi:[].map.call(d.querySelectorAll('[data-lgvwi]'),function(e){return e.getAttribute('data-lgvwi');}),
+                  end:(c&&c.pts&&c.pts.length)?c.pts[c.pts.length-1].v:null,stats:((d.querySelector('.qbx-lgstats')||{}).textContent||'').replace(/ +/g,' ').trim()};};
+              vw.renderApp();await wt();LV.a=hv();
+              vw._bkaOn_qb=['PICK6'];LSv.setItem('el_bka_on_qb','["PICK6"]');vw.renderApp();await wt();LV.b=hv();
+              var wb=D().querySelector('[data-lgvboard="qb"][data-lgvview="whatif"]');
+              if(wb&&!wb.disabled){wb.click();await wt();LV.c=hv();LV.stored=LSv.getItem('el_lgv_view_qb');
+                LSv.setItem('el_lg_daily_qb','1');vw.renderApp();await wt();
+                var cm={};((W()._qbLgChart||{}).comps||[]).forEach(function(c){cm[c.k]=cc(c.color);});
+                LV.stack=[].map.call(D().querySelectorAll('#qb-lg-chart [data-lgdaily-stack]'),function(g){return {d:g.getAttribute('data-lgdaily-stack'),net:parseFloat(g.getAttribute('data-net')),
+                  segs:[].map.call(g.querySelectorAll('[data-lgdaily-seg]'),function(r){var k=r.getAttribute('data-lgdaily-seg');return [k,parseFloat(r.getAttribute('data-v')),W().getComputedStyle(r).fill,cm[k]||null];})};});
+                LSv.setItem('el_lg_daily_qb','0');vw.renderApp();await wt();}
+              var lb=D().querySelector('[data-lgvboard="qb"][data-lgvview="live"]');if(lb){lb.click();await wt();}LV.d=hv();
+              var rb=D().querySelector('[data-lgvboard="qb"][data-lgvsize="r1"]');if(rb){rb.click();await wt();LV.e=hv();var Z=W()._lgvQb;
+                LV.sz=Z?{start:Z.start,taken:Z.taken,skipped:Z.skipped,n:Z.n,stopN:Z.stopN,fbN:Z.fbN}:null;LV.storedSize=LSv.getItem('el_lgv_size_qb');}
+              var fb2=D().querySelector('[data-lgvboard="qb"][data-lgvsize="fixed"]');if(fb2){fb2.click();await wt();}LV.f=hv();
+              LSv.removeItem('el_lgv_view_qb');LSv.removeItem('el_lgv_size_qb');vw._bkaOn_qb=[];LSv.removeItem('el_bka_on_qb');
+              if(shOn0==null)LSv.removeItem('el_qb_sh_on');else LSv.setItem('el_qb_sh_on',shOn0);vw._qbShOn=shW0;
+              if(dly2==null)LSv.removeItem('el_lg_daily_qb');else LSv.setItem('el_lg_daily_qb',dly2);
+              delete vw._bookLegs;delete vw._bookAsif;vw.renderApp();await wt();
+              out.tog.lgv=LV;
+            }catch(e){out.tog.lgv={threw:String(e&&e.stack?e.stack:e)};}
           }}catch(e){out.tog={threw:String(e&&e.stack?e.stack:e)};}
         try{await interact();}catch(e){out.inter={threw:String(e&&e.stack?e.stack:e)};}
         // LEDGER step 11: the own folds, the list's phone fold, storage that throws, every fold open at six widths
@@ -9157,6 +9189,56 @@ def _judge(data, fixture):
                         fails.append('what-if KPIs: the table box does not scroll sideways on its own (overflow-x %r)' % (k3.get('scroll'),))
                     if k3.get('pageW') and k3.get('vw') and k3['pageW'] > k3['vw'] + 1:
                         fails.append('what-if KPIs: the page scrolls sideways with the table on (%r > %r)' % (k3.get('pageW'), k3.get('vw')))
+        # v91.81 LEDGER VIEWS: LIVE | WHAT-IF, stacked DAILY bars, FIXED | RISK 1 %
+        lv = tg.get('lgv') or {}
+        if lv.get('threw') or not lv.get('a'):
+            fails.append('ledger views run: did not run -- %s' % _first(lv.get('threw') or 'no readout'))
+        else:
+            la, lb, lc, ld, le, lf = (lv.get(k) or {} for k in ('a', 'b', 'c', 'd', 'e', 'f'))
+            if la.get('eff') != 'live' or la.get('size') != 'fixed' or la.get('wiDis') is not True:
+                fails.append('ledger views: with no shadow on the bar must read LIVE / FIXED with WHAT-IF disabled (%r)' % (la,))
+            if lb.get('wiDis') is not False:
+                fails.append('ledger views: the PICK6 as-if leg on does not enable WHAT-IF (%r)' % (lb,))
+            for k in ('big', 'range', 'stats'):
+                if la.get(k) != lb.get(k):
+                    fails.append('ledger views: LIVE moved the account %s when a shadow leg went on (%r -> %r)' % (k, la.get(k), lb.get(k)))
+            if not lc:
+                fails.append('ledger views: the WHAT-IF button could not be clicked')
+            else:
+                if lc.get('eff') != 'whatif' or 'whatif' not in (lc.get('tags') or []) or lv.get('stored') != 'whatif':
+                    fails.append('ledger views: WHAT-IF is not shown / tagged / remembered (%r, %r)' % (lc, lv.get('stored')))
+                if sorted(lc.get('wi') or []) != ['cal', 'stats']:
+                    fails.append('ledger views: WHAT-IF does not mark the tiles and the calendar (%r)' % (lc.get('wi'),))
+                if lc.get('end') is None or lb.get('end') is None or round(lc['end'] - lb['end'], 2) != 200.0:
+                    fails.append('ledger views: WHAT-IF chart end %r is not LIVE %r + the PICK6 as-if 200' % (lc.get('end'), lb.get('end')))
+                if lc.get('big') == lb.get('big') or lc.get('range') == lb.get('range') or lc.get('stats') == lb.get('stats'):
+                    fails.append('ledger views: WHAT-IF did not move the hero / the tiles (%r / %r)' % (lc.get('big'), lc.get('stats')))
+            for k in ('big', 'range', 'stats', 'end'):
+                if ld.get(k) != lb.get(k):
+                    fails.append('ledger views: back on LIVE the %s is not the account again (%r -> %r)' % (k, lb.get(k), ld.get(k)))
+            st = lv.get('stack') or []
+            if not st:
+                fails.append('stacked bars: no stacked day bar in the WHAT-IF DAILY view')
+            seen = False
+            for g in st:
+                tot = round(sum(x[1] for x in g.get('segs') or []), 2)
+                if abs(tot - (g.get('net') or 0)) > 0.011:
+                    fails.append('stacked bars: %s segments add to %r, the day net is %r' % (g.get('d'), tot, g.get('net')))
+                for k, v, fill, want in (g.get('segs') or []):
+                    if k == 'PICK6':
+                        seen = True
+                    if k != 'other' and fill != want:
+                        fails.append('stacked bars: %s segment %s is %r, its line colour is %r' % (g.get('d'), k, fill, want))
+            if st and not seen:
+                fails.append('stacked bars: the shadow leg PICK6 has no segment of its own in WHAT-IF')
+            sz = lv.get('sz') or {}
+            if not le or le.get('size') != 'r1' or 'size' not in (le.get('tags') or []) or le.get('range') == ld.get('range') or lv.get('storedSize') != 'r1':
+                fails.append('sizing: RISK 1 %% did not re-price the realized figure, show its tag or get remembered (%r)' % (le,))
+            if not sz or (sz.get('taken') or 0) + (sz.get('skipped') or 0) != sz.get('n') or sz.get('stopN') != 0 or sz.get('fbN') != sz.get('n'):
+                fails.append('sizing: every Webull trade must use the median-loss risk (no stop column) and count once (%r)' % (sz,))
+            for k in ('big', 'range', 'stats', 'end'):
+                if lf.get(k) != ld.get(k):
+                    fails.append('sizing: FIXED is not the account again (%s %r -> %r)' % (k, ld.get(k), lf.get(k)))
         if tg.get('stored') != '["ORB"]':
             fails.append('strategy switch run: the choice is not remembered for this viewer (el_qb_legs_off = %r, want ["ORB"])' % tg.get('stored'))
     isc = data.get('iscroll')
