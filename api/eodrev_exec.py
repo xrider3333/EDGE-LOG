@@ -20,7 +20,7 @@ ONE DAY (python -m api.eodrev_exec run, started by a systemd timer at 15:27 ET M
   15:59:50  the pre-built MARKET exits all go IN PARALLEL (exit_at; Webull OpenAPI refuses MOC /
          AT_AUCTION for US equity with HTTP 417). The adapter lock is let go for the HTTP call
          (wire_unlocked) so the six sends are on the wire together.
-  15:59:56  FALLBACK for anything not FILLED: read the exit's status + filled qty; working /
+  15:59:54  FALLBACK for anything not FILLED: read the exit's status + filled qty; working /
          partial = cancel, confirm by reading; refused or dead = straight on. Then a NEW id
          (-FB) for min(close_qty - filled, live broker position) -- position unreadable or a
          cancel unconfirmed = alert, nothing sent. HARD CAP: nothing is sent at/after 15:59:59.5.
@@ -60,7 +60,7 @@ DEFAULTS = {
     "prep_at": "15:59:40",         # read filled qty + pre-build every exit order
     "exit_at": "15:59:50",         # MARKET exits, all in parallel (MOC refused by Webull, HTTP 417)
     "async_check_at": "15:31:00",  # one look for refusals that arrive AFTER acceptance
-    "fallback_at": "15:59:56",
+    "fallback_at": "15:59:54",
     "flatten_at": "16:00:05",      # after the close: leftover -> alert + extended-hours LIMIT
     "settle_at": "16:05",
     "max_px_drift": 0.05,          # skip a name whose file px is >5% off the ledger sanity band
@@ -81,7 +81,9 @@ def _at(day, hhmm):
 
 
 HARD_CAP = "15:59:59.5"           # nothing is SENT at or after this (fallback / probe)
-SAFE_TIMES = {"prep_at": "15:59:40", "exit_at": "15:59:50", "fallback_at": "15:59:56"}
+SAFE_TIMES = {"prep_at": "15:59:40", "exit_at": "15:59:50", "fallback_at": "15:59:54",
+              "flatten_at": "16:00:05"}
+CONFIRM_PAUSE_S = 0.25            # between the cancel-confirm reads (fits before HARD_CAP)
 FLATTEN_PCT = 0.003               # after-close LIMIT this far through the last price
 
 
@@ -91,19 +93,24 @@ def _secs(hhmm):
 
 
 def exit_times(cfg, notify=None, log=print):
-    """prep_at < exit_at < fallback_at < HARD_CAP, all after 15:50 -- else one alert and the
-    SAFE defaults (a pinned prep_at >= exit_at would read qty AFTER the exits went)."""
+    """prep_at < exit_at < fallback_at < HARD_CAP, all after 15:50, and flatten_at after the
+    16:00 close (and before 16:05 settle) -- else one alert and the SAFE defaults (a pinned
+    prep_at >= exit_at would read qty AFTER the exits went; a pre-16:00 flatten_at would
+    silently skip the after-close check)."""
     vals = {k: str(cfg.get(k) or DEFAULTS[k]) for k in SAFE_TIMES}
     try:
-        s = [_secs(vals[k]) for k in ("prep_at", "exit_at", "fallback_at")]
-        ok = _secs("15:50") <= s[0] < s[1] < s[2] < _secs(HARD_CAP)
+        s = [_secs(vals[k]) for k in ("prep_at", "exit_at", "fallback_at", "flatten_at")]
+        ok = (_secs("15:50") <= s[0] < s[1] < s[2] < _secs(HARD_CAP)
+              and _secs("16:00") < s[3] < _secs(cfg.get("settle_at") or DEFAULTS["settle_at"]))
     except (TypeError, ValueError, IndexError):
         ok = False
     if ok:
         return vals
     msg = (f"PICK6 #511: exit times refused (prep {vals['prep_at']}, exit {vals['exit_at']}, "
-           f"fallback {vals['fallback_at']}: need prep < exit < fallback < {HARD_CAP}) - using "
-           f"{SAFE_TIMES['prep_at']} / {SAFE_TIMES['exit_at']} / {SAFE_TIMES['fallback_at']}")
+           f"fallback {vals['fallback_at']}, flatten {vals['flatten_at']}: need prep < exit < "
+           f"fallback < {HARD_CAP} and 16:00 < flatten < settle) - using "
+           f"{SAFE_TIMES['prep_at']} / {SAFE_TIMES['exit_at']} / {SAFE_TIMES['fallback_at']} / "
+           f"{SAFE_TIMES['flatten_at']}")
     if notify:
         notify(msg, log=log)
     else:
@@ -728,8 +735,8 @@ def _cancel_confirm(ad, rec, now_fn=None, cap=None):
             return c, fin
         if cap is not None and now_fn is not None and now_fn() >= cap:
             break
-        if LOOKUP_PAUSE_S and i + 1 < CANCEL_TRIES:
-            time.sleep(LOOKUP_PAUSE_S)
+        if CONFIRM_PAUSE_S and i + 1 < CANCEL_TRIES:
+            time.sleep(CONFIRM_PAUSE_S)
     return c, None
 
 
@@ -764,7 +771,7 @@ def _close_out(ad, entries, day, cfg, wait, notify, log, now_fn=_et_now):
         o = e.get("exit_order")
         if not o or int(o["qty"]) != int(e["close_qty"]):
             o = e["exit_order"] = _build_exit(e, day)
-        rec = send_order(ad, o, wire_unlocked=True)
+        rec = send_order(ad, o, wire_unlocked=True, skip_gateway=True)
         e.update(exit_ok=bool(rec.get("ok")), exit_reason=rec.get("reason"), exit_rec=rec)
         log(f"[PICK6 #511] EXIT MARKET {e['leg']} {e['sym']}: "
             f"{'ok' if e['exit_ok'] else 'REFUSED ' + str(e['exit_reason'])}")
@@ -844,7 +851,8 @@ def _fallback_one(ad, e, day, notify, log, now_fn=_et_now, cap=None):
                f"cap; the after-close check flattens it extended-hours", log=log)
         return
     e["exit_part_filled"] = done
-    rec = send_order(ad, _build_exit(e, day, what="FB", qty=rem), wire_unlocked=True)
+    rec = send_order(ad, _build_exit(e, day, what="FB", qty=rem), wire_unlocked=True,
+                     skip_gateway=True)
     e.update(fb_ok=bool(rec.get("ok")), fb_reason=rec.get("reason"), fb_rec=rec, fb_qty=rem)
     log(f"[PICK6 #511] FALLBACK MARKET {rem} {e['leg']} {e['sym']}: "
         f"{'ok' if e['fb_ok'] else 'REFUSED ' + str(e['fb_reason'])}")
@@ -892,18 +900,34 @@ def _after_close(ad, entries, day, notify, log):
         e["after_close_left"] = q
         notify(f"PICK6 #511: {e['sym']} {e['side']} {q} STILL HELD after the close - "
                f"sending an extended-hours LIMIT flatten", log=log)
+        working = False
         for xr in (e.get("exit_rec"), e.get("fb_rec")):     # dead exits roll the books back
             ans = lookup(ad, xr) if xr else None
+            if ans is not None and not _done(ans):
+                # a still-working exit is cancelled and confirmed dead first: never a LIMIT
+                # on top of a live market order
+                c, ans = _cancel_confirm(ad, xr)
+                if ans is None:
+                    working = True
             if ans and hasattr(ad, "apply_order_outcome"):
                 try:
                     ad.apply_order_outcome(xr.get("_sid"), ans.get("status"), ans.get("filled"))
                 except Exception:
                     pass
-        px = (_last_price(e["sym"], log) or (e.get("exit_check") or {}).get("price")
-              or (lookup(ad, e["open_rec"]) or {}).get("price"))
-        if not px:
-            notify(f"PICK6 #511: {e['sym']} no last price - extended-hours flatten NOT sent",
+        if working:
+            notify(f"PICK6 #511: {e['sym']} an exit is still working after the close and its "
+                   f"cancel is NOT confirmed - no extended-hours flatten sent, check the account",
                    log=log)
+            continue
+        q2 = _live_qty(ad, e)                               # a cancel can race a last fill
+        q = min(q, q2) if q2 is not None else q
+        if q <= 0:
+            continue
+        px = _last_price(e["sym"], log)
+        if not px:
+            # never price off an old exit / entry print: alert loudly, leave it for 16:05 / owner
+            notify(f"PICK6 #511: CHECK NOW - {e['sym']} {e['side']} {q} held after the close and "
+                   f"NO live quote - extended-hours flatten NOT sent, close it by hand", log=log)
             continue
         sell = e["side"] == "long"
         lim = round(float(px) * ((1 - FLATTEN_PCT) if sell else (1 + FLATTEN_PCT)), 2)
@@ -920,7 +944,7 @@ def _after_close(ad, entries, day, notify, log):
 
 def _settle(ad, entries, day, cfg, state, wait, notify, finish, sig=None, one_sided=None, log=print,
             now_fn=_et_now):
-    wait(_at(day, cfg.get("flatten_at") or DEFAULTS["flatten_at"]))
+    wait(_at(day, exit_times(cfg, None, log)["flatten_at"]))
     after = now_fn()
     left = []
     if after.date() == day and after >= _at(day, "16:00"):   # same day, after the close only
@@ -972,7 +996,7 @@ def run_probe(sym="AAPL", p=None, adapter=None, log=print, notify=None, wait_s=2
     """1 share BUY `sym` + 1 share SHORT `short_sym` (separate symbols: Webull refuses opposing
     open orders on one symbol, HTTP 417 OPEN_ORDER_HAS_BOX_ORDER). PAPER only, in RTH.
     Each entry must FILL (wait_tries x wait_s, else alert + unwind). Held until exit_at
-    (15:59:50) -> MARKET exit of the filled qty; anything not filled by fallback_at (15:59:56)
+    (15:59:50) -> MARKET exit of the filled qty; anything not filled by fallback_at (15:59:54)
     is CANCELLED and confirmed dead first (unconfirmed = alert, no second order), then a MARKET
     fallback for the rest only -- never after HARD_CAP. Passes only when both exits show filled
     on Webull's own record."""

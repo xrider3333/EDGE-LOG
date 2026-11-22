@@ -263,7 +263,7 @@ def test_probe_exit_unfilled_uses_1559_35_fallback(tmp_path, monkeypatch):
             return {"status": "REJECTED", "filled": 0}
         return {"status": "FILLED", "filled": 1, "price": 1.0}
     sends = _probe(tmp_path, ad, monkeypatch, look, notes)
-    assert [s[0] for s in sends][-2:] == ["15:59:56", "15:59:56"]
+    assert [s[0] for s in sends][-2:] == ["15:59:54", "15:59:54"]
     assert ex.probe_ok(ex.paths(str(tmp_path)))
 
 class CancelAd(FakeAd):
@@ -451,7 +451,7 @@ def test_exit_and_fallback_close_filled_qty(tmp_path, monkeypatch):
     assert "EODREV-20261116-L2-X" not in sids        # nothing filled -> nothing to close
 
 
-# -- 15:59:40 prep / 15:59:50 parallel exits / 15:59:56 pending-aware fallback --------------
+# -- 15:59:40 prep / 15:59:50 parallel exits / 15:59:54 pending-aware fallback --------------
 def _clock_day(tmp_path, monkeypatch, look, ad=None, cancel_ok=True, fill=None):
     """run_day on a fake clock: every wait jumps the clock; lookups and sends record the time."""
     _sig(str(tmp_path))
@@ -548,7 +548,7 @@ def test_pending_exit_alert_cancel_resend_remaining(tmp_path, monkeypatch):
                                           fill={"EODREV-20261116-S1-X": 0})
     assert ad.cancelled == ["EODREV-20261116-S1-X"]
     fb = [s for s in sends if s[1] == "EODREV-20261116-S1-FB"]
-    assert fb == [("15:59:56", "EODREV-20261116-S1-FB", 13)]
+    assert fb == [("15:59:54", "EODREV-20261116-S1-FB", 13)]
     assert any("JPM" in n and "SUBMITTED" in n and "cancelling" in n for n in notes)
 
 
@@ -570,7 +570,7 @@ def test_partially_filled_exit_resends_only_the_rest(tmp_path, monkeypatch):
                                           fill={"EODREV-20261116-L2-X": 5})
     assert ad.cancelled == ["EODREV-20261116-L2-X"]
     assert [s for s in sends if s[1] == "EODREV-20261116-L2-FB"] == [
-        ("15:59:56", "EODREV-20261116-L2-FB", 8 - 5)]                     # MSFT 8 shares
+        ("15:59:54", "EODREV-20261116-L2-FB", 8 - 5)]                     # MSFT 8 shares
     leg = next(e for e in rec["entries"] if e["leg"] == "EODREV_L2")
     assert leg["exit_filled"] == 8                                       # 5 + 3, no false alert
     assert not any("exit filled" in n for n in notes)
@@ -595,11 +595,11 @@ def test_refused_exit_gets_fallback_at_1559_45(tmp_path, monkeypatch):
     rec, ad, sends, _, _ = _clock_day(tmp_path, monkeypatch, _filled, ad=ad,
                                       fill={"EODREV-20261116-S3-X": 0})
     assert [s for s in sends if s[1] == "EODREV-20261116-S3-FB"] == [
-        ("15:59:56", "EODREV-20261116-S3-FB", 4)]                          # LLY 4 shares
+        ("15:59:54", "EODREV-20261116-S3-FB", 4)]                          # LLY 4 shares
     assert ad.cancelled == []
 
 
-# -- 11-21: prebuilt 15:59:40 / parallel 15:59:50 / capped 15:59:56 / after-close flatten ------
+# -- 11-21: prebuilt 15:59:40 / parallel 15:59:50 / capped 15:59:54 / after-close flatten ------
 def test_exit_orders_prebuilt_at_prep_and_sent_unlocked_at_exit(tmp_path, monkeypatch):
     events = []
     orig_build = ex._build_exit
@@ -660,7 +660,7 @@ def test_late_fill_between_read_and_resend_capped_by_live_position(tmp_path, mon
                                           fill={"EODREV-20261116-S1-X": 9})
     assert ad.cancelled == ["EODREV-20261116-S1-X"]
     fb = [s for s in sends if s[1] == "EODREV-20261116-S1-FB"]
-    assert fb == [("15:59:56", "EODREV-20261116-S1-FB", 4)]
+    assert fb == [("15:59:54", "EODREV-20261116-S1-FB", 4)]
     assert "JPM" not in ad.positions()["broker"]                          # flat, not long
 
 
@@ -741,7 +741,8 @@ def test_after_close_alert_fires_even_when_flatten_refused(tmp_path, monkeypatch
     fill = {"EODREV-20261116-L1-X": 0, "EODREV-20261116-L1-FB": 0, "EODREV-20261116-L1-AH": 0}
     rec, ad, sends, _, notes = _clock_day(tmp_path, monkeypatch, _filled, ad=ad, fill=fill)
     i = next(i for i, n in enumerate(notes) if "STILL HELD after the close" in n)
-    assert any("REFUSED" in n and "AAPL" in n for n in notes[i + 1:])
+    assert any("NO live quote" in n and "AAPL" in n for n in notes[i + 1:])
+    assert not any(k["signal_id"].endswith("-AH") for k in ad.sent)       # never an old price
 
 
 def test_after_close_flat_book_sends_nothing(tmp_path, monkeypatch):
@@ -756,16 +757,18 @@ def test_bad_config_times_refused_with_alert(tmp_path):
     def note(m, **k):
         notes.append(m)
     pinned = {"prep_at": "15:58:40", "exit_at": "15:59:00", "fallback_at": "15:59:35"}
-    assert ex.exit_times(pinned, note) == pinned and not notes            # box pins: valid
+    assert ex.exit_times(pinned, note) == dict(pinned, flatten_at="16:00:05") and not notes
     for bad in ({"prep_at": "15:59:50", "exit_at": "15:59:50"},
                 {"prep_at": "15:59:55", "exit_at": "15:59:00"},
                 {"exit_at": "15:59:58", "fallback_at": "15:59:57"},
-                {"fallback_at": "15:59:59.5"}, {"prep_at": "junk"}):
+                {"fallback_at": "15:59:59.5"}, {"prep_at": "junk"},
+                {"flatten_at": "15:59:58"}, {"flatten_at": "16:00:00"},
+                {"flatten_at": "16:06"}):
         notes.clear()
         assert ex.exit_times(dict(ex.DEFAULTS, **bad), note) == ex.SAFE_TIMES
         assert notes and "refused" in notes[0]
     d = ex.DEFAULTS
-    assert (d["prep_at"], d["exit_at"], d["fallback_at"]) == ("15:59:40", "15:59:50", "15:59:56")
+    assert (d["prep_at"], d["exit_at"], d["fallback_at"]) == ("15:59:40", "15:59:50", "15:59:54")
 
 
 def test_bad_config_day_uses_safe_times(tmp_path, monkeypatch):
@@ -866,3 +869,99 @@ def test_adapter_wire_unlocked_sends_six_symbols_concurrently(tmp_path, monkeypa
     burst("o2", "BUY", "OPEN", True)
     took_serial, out2 = burst("y", "SELL", "CLOSE", False)
     assert all(r["ok"] for r in out2) and took_serial > 0.25 * 5          # one at a time
+
+
+# -- VERIFIER should-fixes 11-21 --------------------------------------------------------------
+def test_exit_and_fallback_skip_the_resting_gateway(tmp_path, monkeypatch):
+    ad = CancelAd()
+    orig = ad.place_stock_order
+    ad.place_stock_order = lambda **k: (dict(orig(**k), ok=False, reason="417")
+                                        if k["signal_id"] == "EODREV-20261116-S3-X" else orig(**k))
+    _clock_day(tmp_path, monkeypatch, _filled, ad=ad, fill={"EODREV-20261116-S3-X": 0})
+    xfb = [k for k in ad.sent if k["signal_id"][-2:] in ("-X", "FB")]
+    assert len(xfb) == 7 and all(k.get("skip_gateway") is True for k in xfb)
+    assert not any(k.get("skip_gateway") for k in ad.sent if k["intent"] == "OPEN")
+    assert ex.DEFAULTS["fallback_at"] == "15:59:54" and ex.CONFIRM_PAUSE_S <= 0.25
+
+
+def test_adapter_skip_gateway_does_not_run_it(tmp_path, monkeypatch):
+    from unittest.mock import MagicMock
+    cfg = wo.load_config("__no_such_file__")
+    cfg["mode"] = "PAPER"
+    cfg["rails"]["session_start"], cfg["rails"]["session_end"] = "00:00", "23:59"
+    for k in ("state_path", "paper_keys_path", "live_keys_path", "arm_live_file", "kill_file"):
+        cfg[k] = str(tmp_path / k)
+    with open(cfg["paper_keys_path"], "w") as f:
+        json.dump({"app_key": "AK", "app_secret": "AS"}, f)
+    client = MagicMock()
+    client.account_v2.get_account_list.return_value.json.return_value = {
+        "data": [{"account_id": "ACCT1", "account_class": "INDIVIDUAL_MARGIN"}]}
+    client.order_v3.place_order.return_value.json.return_value = {"status": "SUBMITTED"}
+    ad = wo.OrderAdapter(config=cfg, log=lambda *a, **k: None)
+    monkeypatch.setattr(ad, "_build_client", lambda mode: client)
+    calls = []
+    monkeypatch.setattr(ad, "_live_resting", lambda sym=None: ["R1"])
+    monkeypatch.setattr(ad, "_order_gateway", lambda *a, **k: calls.append(1) or
+                        {"outcome": "RESTING_UNRESOLVED", "reason": "busy"})
+    r = ad.place_stock_order(leg="EODREV_T1", signal_id="g-1", symbol="AAPL", side="BUY", qty=1)
+    assert calls == [1] and r["ok"] is False                             # default: gateway runs
+    r = ad.place_stock_order(leg="EODREV_T1", signal_id="g-2", symbol="AAPL", side="BUY", qty=1,
+                             skip_gateway=True)
+    assert calls == [1] and r["ok"] is True                              # skipped
+
+
+def test_after_close_cancels_working_exit_before_limit(tmp_path, monkeypatch):
+    ad = CancelAd()
+    order = []
+    orig = ad.place_stock_order
+
+    def place(**k):
+        order.append(("send", k["signal_id"]))
+        return orig(**k)
+    ad.place_stock_order = place
+    orig_c = ad.cancel_order
+    ad.cancel_order = lambda sid: order.append(("cancel", sid)) or orig_c(sid)
+    st = {"FB": "FILLED"}
+
+    def look(sid, rec):
+        if sid == "EODREV-20261116-L1-X":
+            return {"status": "CANCELLED", "filled": 0, "price": None}
+        if sid == "EODREV-20261116-L1-FB":
+            return ({"status": "CANCELLED", "filled": 0, "price": None}
+                    if ("cancel", sid) in order else {"status": "SUBMITTED", "filled": 0})
+        return _filled(sid, rec)
+    monkeypatch.setattr(ex, "_last_price", lambda sym, log=print: 200.0)
+    fill = {"EODREV-20261116-L1-X": 0, "EODREV-20261116-L1-FB": 0}
+    rec, ad, sends, _, notes = _clock_day(tmp_path, monkeypatch, look, ad=ad, fill=fill)
+    fb, ah = "EODREV-20261116-L1-FB", "EODREV-20261116-L1-AH"
+    assert order.index(("cancel", fb)) < order.index(("send", ah))
+
+
+def test_after_close_unconfirmed_cancel_sends_no_limit(tmp_path, monkeypatch):
+    def look(sid, rec):
+        if sid == "EODREV-20261116-L1-X":
+            return {"status": "CANCELLED", "filled": 0, "price": None}
+        if sid == "EODREV-20261116-L1-FB":
+            return {"status": "SUBMITTED", "filled": 0}
+        return _filled(sid, rec)
+    monkeypatch.setattr(ex, "_last_price", lambda sym, log=print: 200.0)
+    ad = CancelAd(cancel_ok=False)
+    fill = {"EODREV-20261116-L1-X": 0, "EODREV-20261116-L1-FB": 0}
+    rec, ad, sends, _, notes = _clock_day(tmp_path, monkeypatch, look, ad=ad, fill=fill)
+    assert not any(k["signal_id"].endswith("-AH") for k in ad.sent)
+    assert any("AAPL" in n and "cancel is NOT confirmed" in n for n in notes)
+
+
+def test_pre_close_flatten_at_refused_not_skipped(tmp_path, monkeypatch):
+    with open(os.path.join(str(tmp_path), "config.json"), "w") as f:
+        json.dump({"flatten_at": "15:59:58"}, f)
+    monkeypatch.setattr(ex, "_last_price", lambda sym, log=print: 200.0)
+    ad = CancelAd()
+    orig = ad.place_stock_order
+    ad.place_stock_order = lambda **k: (dict(orig(**k), ok=False, reason="417")
+                                        if k["symbol"] == "AAPL" and k["intent"] == "CLOSE"
+                                        and not k.get("extended_hours") else orig(**k))
+    fill = {"EODREV-20261116-L1-X": 0, "EODREV-20261116-L1-FB": 0}
+    rec, ad, sends, _, notes = _clock_day(tmp_path, monkeypatch, _filled, ad=ad, fill=fill)
+    assert [s[0] for s in sends if s[1].endswith("-AH")] == ["16:00:05"]
+    assert any("exit times refused" in n for n in notes)

@@ -3637,7 +3637,7 @@ class OrderAdapter:
                           order_type="MARKET", limit_price=None, tif="DAY",
                           extended_hours=False, market="US", account_id=None,
                           instrument_id=None, remainder=False, dup_wait_until=None,
-                          wire_unlocked=False):
+                          wire_unlocked=False, skip_gateway=False):
         """Idempotent on signal_id. Returns a record dict always (never raises for a
         blocked/no-op/OFF path -- only an unexpected SDK exception in PAPER/LIVE is
         caught and reported via record["error"], never propagated).
@@ -3704,7 +3704,12 @@ class OrderAdapter:
         for the place_order HTTP call ONLY (the PENDING part and the UNKNOWN record are on disk
         before it, the books move after it, both under the lock) -- so independent symbols sent
         from several threads are on the wire together instead of one after another. The caller
-        must never send two orders on ONE symbol this way. False (the default) is unchanged."""
+        must never send two orders on ONE symbol this way. False (the default) is unchanged.
+
+        SKIP GATEWAY (2026-11-21, PICK6 exit): `skip_gateway=True` does not run the resting-order
+        gateway (up to RESTING_GATEWAY_BUDGET_SEC of cancels / waits) -- for a caller that never
+        places resting orders on the symbol and cannot afford the wait (a 15:59:50 exit must not
+        slip past 16:00). False (the default) is unchanged."""
         with self._sends_lock:
             self._stock_sends += 1
         try:
@@ -3713,7 +3718,8 @@ class OrderAdapter:
                 intent=intent, order_type=order_type, limit_price=limit_price, tif=tif,
                 extended_hours=extended_hours, market=market, account_id=account_id,
                 instrument_id=instrument_id, remainder=remainder,
-                dup_wait_until=dup_wait_until, wire_unlocked=wire_unlocked)
+                dup_wait_until=dup_wait_until, wire_unlocked=wire_unlocked,
+                skip_gateway=skip_gateway)
         finally:
             with self._sends_lock:
                 self._stock_sends -= 1
@@ -3721,7 +3727,7 @@ class OrderAdapter:
     def _place_stock_order(self, *, leg, signal_id, symbol, side, qty, intent, order_type,
                            limit_price, tif, extended_hours, market, account_id,
                            instrument_id, remainder, dup_wait_until=None,
-                           wire_unlocked=False):
+                           wire_unlocked=False, skip_gateway=False):
         """place_stock_order's body (see its docstring)."""
         side = str(side).upper()
         intent = str(intent).upper()
@@ -3788,7 +3794,7 @@ class OrderAdapter:
             # GATEWAY (2026-09-29): cancel-first, then previous-order-terminal -- see the
             # module comment RESTING ORDERS AND THE ORDER GATEWAY. Runs before the
             # nothing-to-close check so a resting fill it finds is booked first.
-            if self._live_resting(symbol) or self._prev_terminal_on():
+            if not skip_gateway and (self._live_resting(symbol) or self._prev_terminal_on()):
                 held_back = self._order_gateway(mode, symbol, send_started, leg=leg,
                                                 intent=intent)
                 if held_back is not None:
