@@ -209,7 +209,7 @@ def _leg_trades(leg, date_from, date_to, keep_state=False):
         _fs = res.get("trade_sizes")             # a file that folds its own size into t[2] (e.g. NOISE's tilt) says so here
         _fs = ({id(t): float(z) for t, z in zip(raw_trades, _fs)}
                if _fs is not None and len(_fs) == len(raw_trades) else None)
-        info["_state"] = {"days_idx": days_idx, "sess_idx": _sess_idx, "last": last,
+        info["_state"] = {"days_idx": days_idx, "sess_idx": _sess_idx, "last": last, "index": idx,
                           "close": arr.get("close"), "sized": sized, "mult": mult,
                           "weight": weight, "plugin_marks": _pm, "usd_units": _usd,
                           "mtm_failed": "mtm_error" in info, "file_sizes": _fs}

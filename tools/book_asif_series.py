@@ -107,6 +107,7 @@ pinned file: its path is handed to the strategy in MODEL_ENV, set only while tha
 A `gate` block in LEG_SPECS (augur_engine.book's ML gate, api/paper_gate.apply_gate) is not a stored model: it refits
 walk-forward on the leg's own earlier trades inside the replay, so it needs no pin; its per-trade size is applied."""
 MODEL_ENV = "EDGELOG_ASIF_MODEL_PATH"
+TRADES_PER_DOC = 2500                 # board 147: ~200 bytes a row -> ~0.5 MB a doc, under Firestore's 1 MiB
 _EXPCAL_ONLY = {"cost_pts": 0.533, "point_value": 20}
 _EXPCAL_FROM = ("the file's only config (every knob pinned: NQ 0.533 pts a round trip at $20 a point, charged inside "
                 "the file); run #543 stored no champion")
@@ -639,7 +640,7 @@ def size_cost_units(spec, units, cost, prm):
     return float(cost) * float(prm.get("point_value") or 1) if units == "usd" else float(cost)
 
 
-def qqq_block(spec, st, refs=None):
+def qqq_block(spec, st, refs=None, per_trade=None):
     """The leg's as-if in QQQ dollars as the Webull box would have traded it: {d, p, n, net, trades, shares, rule, ...};
     {reason} when it cannot be converted; {same: True, rule} for a stock leg (already dollars)."""
     import numpy as np
@@ -701,6 +702,8 @@ def qqq_block(spec, st, refs=None):
             continue
         one = (float(t[2]) + (fs - 1.0) * fcost + ecost) / fs - ecost if fs != 1.0 else float(t[2])
         usd = qqq_trade_usd(to_pts(one), rp, qp, n, sz["slip"], beta)
+        if per_trade is not None:
+            per_trade[id(t)] = {"sh": int(n), "usd": round(usd, 2)}
         if xi >= last:
             lb_usd += usd
             lb_n += 1
@@ -785,18 +788,70 @@ def simulate(spec, date_to=None):
         last_day = str(np.datetime_as_string(sess_idx[last], unit="D")) if sess_idx is not None else None
     except Exception:
         pass
+    pq = {}
     try:
-        qb = qqq_block(spec, st)
+        qb = qqq_block(spec, st, per_trade=pq)
     except Exception as e:
         qb = {"reason": "QQQ conversion failed: %s: %s" % (type(e).__name__, str(e)[:200])}
     out = {"master": info.get("master"), "last_bar_usd": round(last_bar_usd, 2), "last_bar_n": last_bar_n,
            "data_end": last_day, "qqq": qb}
+    try:
+        out["tr"] = trade_rows(spec, st, pq)
+    except Exception as e:                   # a reporting extra must never fail the series
+        out["tr_error"] = "%s: %s" % (type(e).__name__, str(e)[:200])
     if n_sized:
         out["sized"] = ("%d trade(s) carry a per-trade size (%s); applied" % (
             n_sized, "the file's own size, folded into its P&L" if fsz else "the gate's size multiplier"))
     if info.get("gate"):
         out["gate"] = info["gate"]
     return days, out
+
+
+def _ts(idx, i):
+    import pandas as pd
+    t = pd.Timestamp(idx[i])
+    if t.tzinfo is not None:
+        t = t.tz_convert("America/New_York")
+    return t.strftime("%Y-%m-%dT%H:%M")
+
+
+def trade_rows(spec, st, pq=None):
+    """Board 147 (11-22): every as-if trade of the leg from WINDOW_FROM, one row each, for the ledger trade table.
+    Fields: et / xt = entry / exit bar time (New York, minute), d = exit NY session day, side ("long" / "short"),
+    ep = entry price, xp = exit price (reconstructed: entry +/- the gross points a contract moved; null when the file
+    reports dollars), size = contracts (gate size x the file's own size), pnl = $ at the leg's book size (what the daily
+    series sums), open = true when it exits on the master's last bar (may still be open), stop = null (the replay does
+    not return stop levels), q = {sh, usd} the QQQ terms the Webull box would have traded (absent when no QQQ map)."""
+    import numpy as np
+    idx, last, sess_idx = st.get("index"), st.get("last"), st.get("sess_idx")
+    if idx is None:
+        return []
+    fsz = st.get("file_sizes") or {}
+    units = spec.get("pnl_units") or "points"
+    ecost = float(spec.get("cost_pts") or 0)
+    rows = []
+    for t, size in st.get("sized") or []:
+        ei, xi = min(int(t[0]), last), min(int(t[1]), last)
+        d = str(np.datetime_as_string(sess_idx[xi], unit="D")) if sess_idx is not None else str(st["days_idx"][xi])
+        if d < WINDOW_FROM:
+            continue
+        fs = float(fsz.get(id(t), 1.0) or 1.0)
+        side = t[3] if len(t) > 3 else None
+        sg = 1 if str(side).lower() in ("1", "long", "buy", "1.0") else (-1 if side is not None else None)
+        ep = float(t[4]) if len(t) > 4 and t[4] is not None else None
+        xp = None
+        if ep is not None and sg is not None and units != "usd":
+            one = (float(t[2]) + (fs - 1.0) * ecost) / fs        # one contract's net points (unfold the file's size)
+            xp = round(ep + sg * (one + ecost), 2)
+        r = {"et": _ts(idx, ei), "xt": _ts(idx, xi), "d": d, "side": "long" if sg == 1 else ("short" if sg == -1 else None),
+             "ep": None if ep is None else round(ep, 2), "xp": xp, "size": round(float(size) * fs * float(st["weight"]), 3),
+             "pnl": round(float(t[2]) * float(st["mult"]) * float(st["weight"]) * float(size), 2), "stop": None}
+        if xi >= last:
+            r["open"] = True
+        if pq and id(t) in pq:
+            r["q"] = pq[id(t)]
+        rows.append(r)
+    return rows
 
 
 class leg_env:
@@ -878,7 +933,7 @@ def build_leg(leg_id, book_leg, force=False, say=print):
     if ext:
         series["panel_ext"] = "%s (sha %s, to %s)" % (os.path.basename(ext["path"]), ext["sha12"], ext["end"])
         series["data_end"] = min(series["data_end"][:10], ext["end"])
-    for k in ("sized", "gate"):
+    for k in ("sized", "gate", "tr", "tr_error"):
         if info.get(k):
             series[k] = info[k]
     if spec.get("ml"):
@@ -1058,12 +1113,19 @@ def main(argv=None):
           "".join("\n  %s: %s" % kv for kv in bad.items())))
     if db is not None and (changed or a.force):
         ref = db.collection("users").document(UID).collection("meta")
-        ref.document("book_asif").set(doc)
+        trs = {lid: r.get("tr") for lid, r in out_legs.items() if r.get("tr") is not None}
+        slim = dict(doc, legs={lid: {k: v for k, v in r.items() if k != "tr"} for lid, r in out_legs.items()})
+        ref.document("book_asif").set(slim)
+        for lid, rows in trs.items():      # board 147: per-trade rows, one doc per leg (book_asif_trades_<leg>)
+            for j in range(0, max(len(rows), 1), TRADES_PER_DOC):
+                ref.document("book_asif_trades_%s%s" % (lid, "" if j == 0 else "_%d" % (j // TRADES_PER_DOC))).set(
+                    {"leg": lid, "window_from": WINDOW_FROM, "generated_at": doc["generated_at"], "part": j // TRADES_PER_DOC,
+                     "parts": -(-len(rows) // TRADES_PER_DOC) or 1, "rows": rows[j:j + TRADES_PER_DOC]})
         try:
             ref.document("book_asif_req").set({"legs": [], "cleared_at": _now_utc()})
         except Exception:
             pass
-        print("published users/<uid>/meta/book_asif (%d bytes)" % len(json.dumps(doc, default=str)))
+        print("published users/<uid>/meta/book_asif (%d bytes) + %d per-leg trade docs" % (len(json.dumps(slim, default=str)), len(trs)))
     elif db is not None:
         print("nothing changed - not published")
     return 0
