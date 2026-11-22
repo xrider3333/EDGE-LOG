@@ -1833,6 +1833,18 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                   {et:eB+'T15:00',xt:eB+'T15:55',d:eB,side:'long',ep:1,xp:2,size:1,pnl:5,open:true},
                   {et:'2020-01-02T10:00',xt:'2020-01-02T11:00',d:'2020-01-02',side:'long',ep:1,xp:2,size:1,pnl:7}]}};
                 w.renderApp();LV.shW=_shr();LV.cntW=_cnt();
+                // ledgerfix5 D/E: Book's per-row risk_usd on the FIRST row only -> RISK 1 % sizes that as-if trade like a live one (SIZE = the sized
+                // contracts, $ = $ a contract x units); the second row has none -> 'fixed (no stop)' at its as-traded size; PTS never moves
+                var _shc=function(){return [].map.call(d.querySelectorAll('#nt8-tl [data-ptshadow]'),function(e){var z=e.querySelector('[data-lgvszq]'),p=e.querySelector('.lg-c-pts');
+                  return {q:z?z.getAttribute('data-lgvszq'):null,ttl:z?z.getAttribute('title'):null,pts:p?_t(p):null,txt:_t(e)};});};
+                var _sz=function(){return (w._lgvShP2Sized||[]).filter(function(x){return x&&x.id==='OPUS55a';})[0]||null;};
+                LV.shF=_shc();
+                w._bkaTr.OPUS55a.rows[0].risk_usd=500;
+                if(_click('[data-lgvboard="p2"][data-lgvsize="r1"]')){var SZ=_sz();
+                  LV.shR={rows:_shc(),tU:SZ&&SZ.tU,tFix:SZ&&SZ.tFix,fixed:SZ&&SZ.fixed,byTrade:SZ&&SZ.byTrade,days:SZ&&SZ.days,eA:eA,eB:eB};
+                  delete w._bkaTr.OPUS55a.rows[0].risk_usd;w.renderApp();var SZ2=_sz();
+                  LV.shN={fixed:SZ2&&SZ2.fixed,noStop:SZ2&&SZ2.noStop,rows:_shc(),kpi:!!d.querySelector('[data-bkakcol]'),nostopK:!!d.querySelector('[data-bkaknostop="OPUS55a"]')};
+                  _click('[data-lgvboard="p2"][data-lgvsize="fixed"]');}
                 _click('[data-lgvboard="p2"][data-lgvview="live"]');LV.shL=_shr();LV.cntL=_cnt();
                 _click('[data-lgvboard="p2"][data-lgvview="whatif"]');
                 if(_bt0===undefined)delete w._bkaTr;else w._bkaTr=_bt0;
@@ -1867,6 +1879,11 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
               LV.fxSh=w.lgvUnits(30000,0.02,0.85,1,8235);
               var SC=w.lgvScaleShadows([{id:'S',stopRisk:100,days:{'2026-01-02':{p:-200,n:2},'2026-01-03':{p:300,n:1}}},{id:'F',days:{'2026-01-02':{p:-200,n:2}}}],{'2026-01-02':500},{pct:0.01,start:100000,step:0.1,cap:10});
               LV.fxScale={days:SC[0].days,units:SC[0].units,risk:SC[0].risk,fixed:SC[0].fixed,F:{days:SC[1].days,risk:SC[1].risk,fixed:SC[1].fixed}};
+              // ledgerfix5 D: per-trade shadow sizing - 100,000 x 1 % / $500 = 2.0 contracts on the +$1,000 trade (+$2,000), the -$300 trade has no
+              // risk figure and stays -$300 -> the day +$1,700; a leg-level stopRisk is ignored once the trades carry their own
+              var ST=w.lgvScaleShadows([{id:'T',stopRisk:100,days:{'2026-01-02':{p:700,n:2}}}],{},{pct:0.01,start:100000,step:0.1,cap:10,tradeStep:0.1,tradeCap:10,
+                trades:function(s){return {rows:[{i:0,d:'2026-01-02',qty:1,pnl:1000,r:500},{i:1,d:'2026-01-02',qty:1,pnl:-300,r:null}]};}});
+              LV.fxTrade={days:ST[0].days,tU:ST[0].tU,tFix:ST[0].tFix,fixed:ST[0].fixed,byTrade:ST[0].byTrade,riskN:ST[0].riskN,fixN:ST[0].fixN};
               LV.noMedian=['lgvMedianLoss','lgvFallbacks'].filter(function(k){return typeof w[k]==='function';});
               LS1.removeItem('el_lgv_view_p2');LS1.removeItem('el_lgv_size_p2');w._bkaOn_nt8=[];LS1.removeItem('el_bka_on_nt8');
               if(dly1==null)LS1.removeItem('el_lg_bars_p2');else LS1.setItem('el_lg_bars_p2',dly1);
@@ -2303,7 +2320,7 @@ def run(alt_index=None, timeout=300):
         if not any(x.startswith('OPUS86a:') and 'no SPY' in x for x in (s1.get('nodata') or [])):   # v91.91: no gold books, the no-series leg is OPUS86a
             fails.append('paper2 book as-if: a leg with no series does not show its reason: %r' % (s1.get('nodata'),))
         sh2 = s2.get('chart', {}).get('sh') or []
-        if ['OPUS55a', '6 3'] not in sh2:
+        if ['OPUS55a', '2 3'] not in sh2:
             fails.append('paper2 book as-if: switching OPUS55a on drew no dashed shadow line: %r' % (sh2,))
         # v91.89 (owner 11-22): switching a shadow ON flips the board to WHAT-IF - the solid total IS LIVE + the shadow (no extra what-if line);
         # LIVE drops every shadow (account figures back, no line, no KPI table) and keeps the switch remembered; WHAT-IF restores it
@@ -2327,7 +2344,7 @@ def run(alt_index=None, timeout=300):
             fails.append('paper2 book as-if: LIVE with a remembered shadow moved the solid total line (%r -> %r)' % (tot1, s2L.get('chart', {}).get('tot')))
         if 'OPUS55a' not in (_bka.get('stored2L') or '') or _bka.get('rem2L') != 'true/true':
             fails.append('paper2 book as-if: LIVE did not keep the shadow switch remembered and dimmed (%r, %r)' % (_bka.get('stored2L'), _bka.get('rem2L')))
-        if _bka.get('eff2W') != 'whatif' or ['OPUS55a', '6 3'] not in (s2W.get('chart', {}).get('sh') or []):
+        if _bka.get('eff2W') != 'whatif' or ['OPUS55a', '2 3'] not in (s2W.get('chart', {}).get('sh') or []):
             fails.append('paper2 book as-if: WHAT-IF did not restore the remembered shadow (%r, %r)' % (_bka.get('eff2W'), s2W.get('chart')))
         if s2.get('whatif') is None:
             fails.append('paper2 book as-if: no what-if total line in the panel with a shadow leg on')
@@ -2431,6 +2448,27 @@ def run(alt_index=None, timeout=300):
                 fails.append('paper2 board 155: LIVE lists shadow as-if rows in the NT8 trade table (%r)' % (_lv.get('shL'),))
             if _lv.get('cntW') != _lv.get('cnt0') or _lv.get('cntL') != _lv.get('cnt0'):
                 fails.append('paper2 board 155: shadow rows moved the trade count (%r / %r / %r)' % (_lv.get('cnt0'), _lv.get('cntW'), _lv.get('cntL')))
+            # ledgerfix5 D/E: RISK 1 % sizes the shadow's as-if trade with a risk_usd like a live trade; the one without stays 'fixed (no stop)'
+            sR, sF, sN = _lv.get('shR') or {}, _lv.get('shF') or [], _lv.get('shN') or {}
+            u0 = (sR.get('tU') or {}).get('0')
+            rowsR = sR.get('rows') or []
+            if not (isinstance(u0, (int, float)) and u0 > 0) or sR.get('byTrade') is not True or (sR.get('tFix') or {}).get('1') is not True:
+                fails.append('paper2 ledgerfix5 D: RISK 1 %% did not size the risk_usd shadow trade per trade (%r)' % (sR,))
+            else:
+                qs = sorted((r.get('q') or '') for r in rowsR)
+                num = [q for q in qs if q != 'fixed']
+                if len(qs) != 2 or 'fixed' not in qs or len(num) != 1 or abs(float(num[0]) - round(u0, 3)) > 1e-9:
+                    fails.append('paper2 ledgerfix5 E: under RISK 1 %% the shadow SIZE cells read %r, want the sized %r and one fixed' % (qs, u0))
+                if not any('fixed (no stop)' in (r.get('txt') or '') for r in rowsR) or not any('traded 1' in (r.get('ttl') or '') for r in rowsR):
+                    fails.append("paper2 ledgerfix5 D/E: the no-risk shadow row must say 'fixed (no stop)' and the hover the as-traded size (%r)" % (rowsR,))
+                want = round(1000 * u0 + (-250 if sR.get('eA') == sR.get('eB') else 0), 2)
+                got = ((sR.get('days') or {}).get(sR.get('eA')) or {}).get('p')
+                if got is None or round(got, 2) != want:
+                    fails.append('paper2 ledgerfix5 D: the sized shadow day %r reads %r, want %r (1000 x %r units)' % (sR.get('eA'), got, want, u0))
+                if sorted(r.get('pts') for r in sF) != sorted(r.get('pts') for r in rowsR) or any(r.get('pts') in (None, '--') for r in sF):
+                    fails.append('paper2 ledgerfix5 E: the shadow PTS moved with sizing (FIXED %r, RISK %r)' % ([r.get('pts') for r in sF], [r.get('pts') for r in rowsR]))
+            if sN.get('fixed') is not True or sN.get('noStop') is not True or (sN.get('kpi') and not sN.get('nostopK')):
+                fails.append("paper2 ledgerfix5 D: a shadow with no risk figure under RISK 1 %% must be FIXED and marked 'fixed (no stop)' on its KPI column (%r)" % (sN,))
             # OPUS55a as-if +1000 then -250 on two plotted days (one day = the same 750)
             if c.get('real') is None or b.get('real') is None or round(c['real'] - b['real'], 2) != 750.0:
                 fails.append('paper2 ledger views: WHAT-IF realized %r is not LIVE %r + the shadow 750' % (c.get('real'), b.get('real')))
@@ -2519,6 +2557,11 @@ def run(alt_index=None, timeout=300):
         if (dmap != {'2026-01-02': -2000, '2026-01-03': 2940} or fs.get('risk') != 100 or fs.get('fixed') is not False
                 or (fs.get('units') or {}).get('2026-01-03') != 9.8):
             fails.append('paper2 sizing: the daily shadow scaling fixture is off: %r' % (fs,))
+        # ledgerfix5 D: the per-trade shadow sizing fixture (see the page side for the working)
+        ft = _lv.get('fxTrade') or {}
+        if ({k: v.get('p') for k, v in (ft.get('days') or {}).items()} != {'2026-01-02': 1700} or (ft.get('tU') or {}).get('0') != 2
+                or (ft.get('tFix') or {}).get('1') is not True or ft.get('fixed') is not False or ft.get('byTrade') is not True):
+            fails.append('paper2 ledgerfix5 D: the per-trade shadow sizing fixture is off (want day +1700, tU {0: 2}, tFix {1: true}): %r' % (ft,))
         ff = fs.get('F') or {}
         if ff.get('fixed') is not True or ff.get('risk') is not None or {k: v.get('p') for k, v in (ff.get('days') or {}).items()} != {'2026-01-02': -200}:
             fails.append('paper2 sizing: a shadow leg with no stop distance must stay FIXED as published: %r' % (ff,))
@@ -2529,6 +2572,12 @@ def run(alt_index=None, timeout=300):
             'size_chain fixture +1,100 (2000, fixed -400 -600, skip, +100), no median fallback; one trade given a 10-pt stop -> %s NQ, $%s (fixed $%s)'
             % (len(_lv.get('stack') or []), (_lv.get('sz') or {}).get('riskN'), (_lv.get('sz') or {}).get('fixN'),
                (_lv.get('stop') or {}).get('units'), (_lv.get('stop') or {}).get('usd'), (_lv.get('stop') or {}).get('fx')))
+        _sr = _lv.get('shR') or {}
+        say('PAPERPROBE ledgerfix5 D/E (NT8): shadow row with risk_usd $500 -> %r NQ at RISK 1 %% (SIZE cells %r), no-risk row fixed (no stop); '
+            'PTS FIXED %r = RISK %r; no risk at all -> fixed %r, KPI tag %r; per-trade fixture day %r'
+            % ((_sr.get('tU') or {}).get('0'), [r.get('q') for r in (_sr.get('rows') or [])], [r.get('pts') for r in (_lv.get('shF') or [])],
+               [r.get('pts') for r in (_sr.get('rows') or [])], (_lv.get('shN') or {}).get('fixed'), (_lv.get('shN') or {}).get('nostopK'),
+               (_lv.get('fxTrade') or {}).get('days')))
     # the capture-health line: one per instrument, low-delta day flagged in words (not colour alone)
     for nm in ('base', 'paper2'):
         r = cases.get(nm) or {}

@@ -3536,7 +3536,10 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     // ACCOUNT EQUITY LINE (owner 10-31 15:00): the solid line's last point is the big number (the chart hands its points to the page: _qbLgChart.pts)
     var lgc=w._qbLgChart;r.lineEnd=(lgc&&lgc.pts&&lgc.pts.length)?lgc.pts[lgc.pts.length-1].v:null;
     r.heroHeldNote=!!q('#qb-hero-note [data-qbheldnote]');r.heroBrokerFolded=!!q('[data-qbstmore] [data-qbbroker]');
-    var tpl=q('#qb-lg-chart svg polyline');r.totalStroke=tpl?tpl.style.stroke:null;
+    var tpl=q('#qb-lg-chart svg polyline[data-lgtotal]');r.totalStroke=tpl?tpl.style.stroke:null;
+    // board 152 redo (ledgerfix5 A): the wash between the total line and $0 - one polygon, a zero-split gradient (green above fading to $0, red below)
+    var zp=q('#qb-lg-chart svg polygon[data-lgzerofill]'),zg=zp?q('#qb-lg-chart svg linearGradient[id^="lgZero_"]'):null;
+    r.zeroFill=zp?{fill:zp.getAttribute('fill'),stops:zg?[].map.call(zg.querySelectorAll('stop'),function(s){return [s.getAttribute('offset'),(s.getAttribute('style')||'').split(' ').join(''),s.getAttribute('stop-opacity')];}):null}:null;
     r.heroToday=txt('#qb-hero-today');
     // owner 11-21 (ONE HERO GRID): the left edge of every $ cell, every % cell and every label cell under the big number, and of the big number
     r.heroCols=(function(){var g=q('.lg-hero .lg-hero-grid');if(!g)return null;
@@ -4077,7 +4080,7 @@ __S11JS__
                 o.wi=(c.lines||[]).filter(function(l){return l.whatif;}).map(function(l){return l.vals[l.vals.length-1];});
                 o.tot=(c.pts&&c.pts.length)?c.pts[c.pts.length-1].v:null;
                 var hw=d.querySelector('[data-qbbkawhatif]');o.heroWhatif=hw?parseFloat(hw.getAttribute('data-qbbkawhatif')):null;
-                o.svgDash=!!(d.querySelector('#qb-lg-chart svg path[stroke-dasharray="6 3"]'));
+                o.svgDash=!!(d.querySelector('#qb-lg-chart svg path[stroke-dasharray="2 3"][data-lgshadow]'));
                 // v91.79: each shadow line's stroke, its swatch in the panel, its legend entry and the what-if KPI table
                 var CS=W().getComputedStyle;
                 o.paths=[].map.call(d.querySelectorAll('#qb-lg-chart path[data-lgshadow]'),function(e){return [e.getAttribute('data-lgshadow'),CS(e).stroke,e.getAttribute('stroke-width')];});
@@ -4135,6 +4138,26 @@ __S11JS__
               vw._bkaOn_qb=['PICK6'];LSv.setItem('el_bka_on_qb','["PICK6"]');vw.renderApp();await wt();LV.b=hv();
               var wb=D().querySelector('[data-lgvboard="qb"][data-lgvview="whatif"]');
               if(wb&&!wb.disabled){wb.click();await wt();LV.c=hv();LV.stored=LSv.getItem('el_lgv_view_qb');
+                // ledgerfix5 C: the shadow's own as-if trades (seeded into the bkaTradesGet cache, no Firestore) on the OLDEST and the newest chart
+                // day, with the page cut to 5 real trades: the oldest-day shadow row must still be listed (it used to sit behind SHOW MORE)
+                // ledgerfix5 D/E: the first row carries Book's risk_usd ($2 per 1.0 of size) -> RISK 1 % sizes it; the second has none -> fixed (no stop)
+                try{var _shq=function(){return [].map.call(D().querySelectorAll('[data-lglist-frame="wb"] .lg-tl-ghost'),function(e){if(!e.querySelector('[data-lgvshrow]'))return null;
+                    var z=e.querySelector('[data-lgvszq]'),p=e.querySelector('.lg-c-pts'),s=e.querySelector('.lg-c-size');
+                    return {q:z?z.getAttribute('data-lgvszq'):null,ttl:z?z.getAttribute('title'):null,size:s?s.textContent.trim():null,pts:p?p.textContent.trim():null};}).filter(Boolean);};
+                  var bt0=vw._bkaTr,qs0=vw._qeTradesShown;
+                  vw._bkaTr={PICK6:{st:'ok',rows:[{et:eA+'T10:00',xt:eA+'T15:59',d:eA,side:'long',ep:100,xp:103,size:100,pnl:300,risk_usd:2},
+                    {et:eB+'T10:00',xt:eB+'T15:59',d:eB,side:'long',ep:100,xp:99,size:100,pnl:-100}]}};
+                  vw._qeTradesShown=5;vw.renderApp();await wt();
+                  var sc=D().querySelector('[data-qbshcount]');
+                  LV.shPg={rows:_shq(),eA:eA,eB:eB,tag:sc?sc.getAttribute('data-qbshcount'):null,more:!!D().querySelector('[data-qeshowmore]'),
+                    real:D().querySelectorAll('[data-lglist-frame="wb"] [data-lgtrade]:not(.lg-tl-ghost)').length};
+                  var r1w=D().querySelector('[data-lgvboard="qb"][data-lgvsize="r1"]');
+                  if(r1w){r1w.click();await wt();var SQ=(W()._lgvShQbSized||[]).filter(function(x){return x&&x.id==='PICK6';})[0]||null;
+                    LV.shR={rows:_shq(),tU:SQ&&SQ.tU,tFix:SQ&&SQ.tFix,byTrade:SQ&&SQ.byTrade,start:(W()._lgvQb||{}).start,szCol:D().querySelectorAll('[data-lglist-frame="wb"] .lg-c-szq').length};
+                    var fxw=D().querySelector('[data-lgvboard="qb"][data-lgvsize="fixed"]');if(fxw){fxw.click();await wt();}}
+                  LV.shF=_shq();
+                  if(bt0===undefined)delete vw._bkaTr;else vw._bkaTr=bt0;if(qs0===undefined)delete vw._qeTradesShown;else vw._qeTradesShown=qs0;vw.renderApp();await wt();
+                }catch(e){LV.shPg={threw:String(e&&e.stack?e.stack:e)};}
                 LSv.setItem('el_lg_bars_qb','1');vw.renderApp();await wt();
                 var cm={};((W()._qbLgChart||{}).comps||[]).forEach(function(c){cm[c.k]=cc(c.color);});
                 LV.stack=[].map.call(D().querySelectorAll('#qb-lg-chart [data-lgdaily-stack]'),function(g){return {d:g.getAttribute('data-lgdaily-stack'),net:parseFloat(g.getAttribute('data-net')),
@@ -4156,11 +4179,17 @@ __S11JS__
                   if(k0!=null){var T=fixedRows[+k0],had=Object.prototype.hasOwnProperty.call(T,'stop_px'),was=T.stop_px;
                     T.stop_px=Math.round((Number(T.entry_px)-5)*100)/100;
                     vw.renderApp();await wt();var Z2=W()._lgvQb;
+                    // ledgerfix5 E: that trade's own row - SHARES = the sized shares (hover 'traded N sh'), PTS = the per-share move, as under FIXED
+                    var rowOf=function(){var id=W()._qeRowKey(T),e=[].filter.call(D().querySelectorAll('[data-lglist-frame="wb"] [data-lgtrade]'),function(x){return x.getAttribute('data-lgtrade')===id;})[0];
+                      if(!e)return null;var z=e.querySelector('[data-lgvszq]'),p=e.querySelector('.lg-c-pts'),s=e.querySelector('.lg-c-size');
+                      return {q:z?z.getAttribute('data-lgvszq'):null,ttl:z?z.getAttribute('title'):null,size:s?s.textContent.trim():null,pts:p?p.textContent.trim():null};};
+                    LV.rowR=rowOf();
                     LV.stop={k:k0,ep:Number(T.entry_px),st:T.stop_px,sh:Number(T.shares),fx:Z.by[k0].fx,start:Z2.start,cap:Z2.cap,usd:Z2.by[k0].usd,units:Z2.by[k0].units,fixed:Z2.by[k0].fixed,
                       riskN:Z2.riskN,fixN:Z2.fixN,n:Z2.n,off:zoff(Z2),sum:zsum(Z2),range:hv().range,
                       others:Object.keys(Z2.by).filter(function(k){return k!==k0&&!Z2.by[k].fixed;}).length};
                     if(had)T.stop_px=was;else delete T.stop_px;vw.renderApp();await wt();}}}
               var fb2=D().querySelector('[data-lgvboard="qb"][data-lgvsize="fixed"]');if(fb2){fb2.click();await wt();}LV.f=hv();
+              try{if(typeof rowOf==='function')LV.rowF=rowOf();}catch(e){LV.rowF={threw:String(e)};}
               LSv.removeItem('el_lgv_view_qb');LSv.removeItem('el_lgv_size_qb');vw._bkaOn_qb=[];LSv.removeItem('el_bka_on_qb');
               if(shOn0==null)LSv.removeItem('el_qb_sh_on');else LSv.setItem('el_qb_sh_on',shOn0);vw._qbShOn=shW0;
               if(dly2==null)LSv.removeItem('el_lg_bars_qb');else LSv.setItem('el_lg_bars_qb',dly2);
@@ -6564,9 +6593,18 @@ def _hero_qual_problems(tag, r, doc, fails):
             fails.append('%s: nothing is held, but the trade list draws an OPEN group (%r)' % (tag, osec))
     if r.get('heroHeldNote'):
         fails.append('%s: the hero names a lot held overnight; that line belongs in the strategy row (owner 10-31)' % tag)
-    # board 152 (owner 11-22): the total line is green above $0 and red below - one zero-split gradient (lgZero_<id>), not a flat colour
-    if r.get('totalStroke') is not None and not re.match(r'^url\("?#lgZero_', str(r.get('totalStroke'))):
-        fails.append("%s: the chart's total line is drawn in %r, want the green-above / red-below $0 gradient url(#lgZero_...)" % (tag, r.get('totalStroke')))
+    # board 152 REDO (owner 11-22, ledgerfix5 A): the total LINE is white again (the page's text colour); the AREA between it and $0 is the
+    # green-above / red-below wash, fading to nothing at the axis, split exactly at $0 (one gradient, a hard stop at the zero offset)
+    if r.get('totalStroke') is not None and 'var(--text)' not in str(r.get('totalStroke')):
+        fails.append("%s: the chart's total line is drawn in %r, want the page's text colour var(--text) (white), the colour lives in the area under it" % (tag, r.get('totalStroke')))
+    if r.get('totalStroke') is not None:
+        zf = r.get('zeroFill') or {}
+        st = zf.get('stops') or []
+        if not re.match(r'^url\(#lgZero_', str(zf.get('fill') or '')) or len(st) != 4:
+            fails.append("%s: no zero-split wash under the total line (polygon[data-lgzerofill] with a 4-stop lgZero_ gradient), got %r" % (tag, zf))
+        elif not ('--green' in st[0][1] and '--green' in st[1][1] and '--red' in st[2][1] and '--red' in st[3][1] and st[1][0] == st[2][0]
+                  and float(st[1][2]) == 0 and float(st[2][2]) == 0 and float(st[0][2]) > 0 and float(st[3][2]) > 0):
+            fails.append("%s: the wash gradient is not green above fading to 0 at $0 then red below (hard stop at the zero offset): %r" % (tag, st))
 
 
 TODAY_SUFFIX_RE = re.compile(r' · (today|\w{3} \d{2}-\d{2}) (-?\$[\d,]+\.\d\d)$')
@@ -9217,7 +9255,7 @@ def _judge(data, fixture):
             if not b1:
                 fails.append('book as-if run: no OPUS55a shadow switch in book 463: %r' % (b0.get('legs'),))
             else:
-                if ['OPUS55a', '6 3'] not in (b1.get('sh') or []) or not b1.get('svgDash'):
+                if ['OPUS55a', '2 3'] not in (b1.get('sh') or []) or not b1.get('svgDash'):
                     fails.append('book as-if run: switching OPUS55a on drew no dashed line (%r, svg dash %r)' % (b1.get('sh'), b1.get('svgDash')))
                 # v91.89 (owner 11-22): the switch flips the board to WHAT-IF - the solid total IS LIVE + the leg (no extra what-if line)
                 _base = b0.get('tot')
@@ -9365,6 +9403,35 @@ def _judge(data, fixture):
             for k in ('big', 'range', 'stats', 'end'):
                 if lf.get(k) != ld.get(k):
                     fails.append('sizing: FIXED is not the account again (%s %r -> %r)' % (k, ld.get(k), lf.get(k)))
+            # ledgerfix5 E: the sized row's SHARES = the sized shares with 'traded N sh' in the hover; PTS the same per-share move as FIXED;
+            # no separate SIZED column any more
+            rR, rF = lv.get('rowR') or {}, lv.get('rowF') or {}
+            if sp and lv.get('_want'):
+                if not rR or rR.get('q') != str(lv['_want'][0]) or ('traded %g sh' % sp['sh']) not in (rR.get('ttl') or ''):
+                    fails.append('ledgerfix5 E: under RISK 1 %% the sized trade SHARES cell reads %r, want %s sh with "traded %g sh" in its hover' % (rR, lv['_want'][0], sp['sh']))
+                if not rF or rR.get('pts') != rF.get('pts') or rR.get('pts') in (None, '--') or (rF.get('size') or '') != ('%g' % sp['sh']):
+                    fails.append('ledgerfix5 E: PTS must not move with sizing and FIXED SHARES stays as traded (RISK %r / FIXED %r)' % (rR, rF))
+            # ledgerfix5 C: the shadow rows on the oldest chart day stay listed with the page cut to 5 real trades
+            pg = lv.get('shPg') or {}
+            if pg.get('threw') or len(pg.get('rows') or []) != 2 or str(pg.get('tag')) != '2' or not pg.get('more') or (pg.get('real') or 0) > 12:
+                fails.append('ledgerfix5 C: with the page cut to 5 real trades both PICK6 shadow rows (oldest + newest day) must be listed and the toolbar say +2 shadow (%r)' % (pg,))
+            sR = lv.get('shR') or {}
+            u0 = (sR.get('tU') or {}).get('0')
+            if not (isinstance(u0, (int, float)) and u0 > 0) or sR.get('byTrade') is not True or (sR.get('tFix') or {}).get('1') is not True:
+                fails.append('ledgerfix5 D: RISK 1 %% did not size the PICK6 shadow trade from its risk_usd (%r)' % (sR,))
+            else:
+                want_u = math.floor((sR.get('start') or 0) * 0.01 / 2 + 1e-9)
+                qs = sorted((r.get('q') or '') for r in (sR.get('rows') or []))
+                if u0 != want_u or qs != sorted([str(want_u), 'fixed']):
+                    fails.append('ledgerfix5 D/E: the PICK6 shadow sized at %r (cells %r), want floor(start %r x 1 %% / $2) = %r and one fixed (no stop)' % (u0, qs, sR.get('start'), want_u))
+                if sorted(r.get('pts') for r in (sR.get('rows') or [])) != sorted(r.get('pts') for r in (lv.get('shF') or [])):
+                    fails.append('ledgerfix5 E: the shadow PTS moved with sizing (%r / %r)' % (sR.get('rows'), lv.get('shF')))
+            if sR.get('szCol'):
+                fails.append('ledgerfix5 E: the separate SIZED column is still drawn (%r cells)' % sR.get('szCol'))
+            say_lf5 = ('  ledgerfix5: C %s shadow rows listed with the page cut to 5 (+%s shadow tag); D PICK6 risk_usd $2 -> %r sh at RISK 1 %%, cells %r; '
+                       'E sized trade SHARES %r (hover %r), PTS RISK %r = FIXED %r'
+                       % (len(pg.get('rows') or []), pg.get('tag'), u0, [r.get('q') for r in (sR.get('rows') or [])], rR.get('q'), rR.get('ttl'), rR.get('pts'), rF.get('pts')))
+            print(say_lf5)
         if tg.get('stored') != '["ORB"]':
             fails.append('strategy switch run: the choice is not remembered for this viewer (el_qb_legs_off = %r, want ["ORB"])' % tg.get('stored'))
     isc = data.get('iscroll')
