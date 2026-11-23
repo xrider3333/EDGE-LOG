@@ -79,6 +79,7 @@ BOOK_LEG_CLASS = {
     "NOISE555_keel": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "as-if of NOISE #555.1 + KEEL v12; record only (board 170)", "gate": None, "feed": None},
     "NOISE545_keel": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "as-if of NOISE #545.1 + KEEL v12; record only (board 170)", "gate": None, "feed": None},
     "DISC525_hybrid": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "research, selection in-sample: DISC #525 hybrid logistic; record only (board 170)", "gate": None, "feed": None},
+    "ENGUQ556": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "as-if of ENGU-Q #556 champion (run FAIL); record only (board 177)", "gate": None, "feed": None},
     "ORB314_gate": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314 ungated, not the gated version", "gate": None, "feed": None},
 }
 

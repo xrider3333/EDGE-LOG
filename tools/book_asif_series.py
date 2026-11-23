@@ -179,6 +179,9 @@ LEG_SPECS = {
                                "size clip(1+4(p-0.5),0.25,3) / size_norm (mean 1 over pre-09-03 survivors), causal refit every 25 trades from 2010",
                        "warm_from": "2010-06-07",
                        "gate": {"mode": "hybrid", "model": "logistic", "threshold": 0.55, "size_norm": SIZE_NORM_525}},
+    # board 177 (owner 11-23): raw champion, no model; run #556 itself graded FAIL (lockbox -$14.7k)
+    "ENGUQ556":       {"run": 556, "label": "ENGU-Q #556 champion",
+                       "note": "run #556 champion (VS sizing file), 1 NQ, no gate; the run graded FAIL - record only"},
 }
 SOURCE_MAP = {   # a run doc's source_name -> (session, registry source)
     "rth - no-adj": ("rth", "db_noadj_rth"), "eth - no-adj": ("eth", "db_noadj_eth"),
