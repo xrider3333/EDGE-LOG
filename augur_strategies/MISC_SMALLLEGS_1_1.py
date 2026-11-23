@@ -2,6 +2,11 @@
 
 # AUGUR-SOURCE: claude-review
 
+SECOND-LANE READ: Book (OPUS-HUNT), 2026-11-23, on c60e0a86 - OK, no look-ahead (session date = (ET+6h).date, last VIX row
+strictly before it, 7-day stale guard; on kept days 1_1 == 1_0 by construction). plugin_gate --stamp refuses this file
+(claude-review files are not gated), so the read is recorded here. Tests: tests/test_misc_smalllegs_1_1.py = 7; the earlier
+'70 passed' was the wider run (1_1 + SMALLLEGS 1_0 + ERFLIP + roll-detector lint + book as-if units).
+
 -- What 1.1 adds (the ONLY change vs 1.0) ----------------------------------------------
 Skip the whole trade day - all three legs - when the PRIOR session's CBOE VIX close is below `vix_max` (15).
 `vix_max` is FIXED at 15 in every search set (min = max = default = 15, a single value, not tuned); 0 disables
