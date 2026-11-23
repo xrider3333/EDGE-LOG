@@ -69,7 +69,7 @@ def drop_gold_books(books):
 # where ML does not help the raw no-gold row IS the best mix and is published under that key), ONE '#463 today', and the
 # single-leg ML shadow books. Raw-only twins, *_prov*, 35_cons* and 463_nogold are no longer published.
 LIMITS = (20, 25, 30, 35, 40, 50)
-SHADOW_BOOKS = ("382_keel", "234_gate", "314_gate")
+SHADOW_BOOKS = ("382_keel", "234_gate", "314_gate", "555_keel", "545_keel", "525_hybrid")
 
 
 def pick_books(books):

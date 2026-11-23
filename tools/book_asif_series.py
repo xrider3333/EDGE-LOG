@@ -112,6 +112,7 @@ TRADES_PER_DOC = 2500                 # board 147: ~200 bytes a row -> ~0.5 MB a
 _EXPCAL_ONLY = {"cost_pts": 0.533, "point_value": 20}
 _EXPCAL_FROM = ("the file's only config (every knob pinned: NQ 0.533 pts a round trip at $20 a point, charged inside "
                 "the file); run #543 stored no champion")
+SIZE_NORM_525 = 1.586155   # board 170: mean raw hybrid weight over the 1,376 survivors of 3,948 trades 2010-06-07..2026-09-02 (pre-ledger; max size 1.89x = run #525)
 LEG_SPECS = {
     "ENGUQ335":  {"run": 335},
     "NOISE422":  {"run": 422},
@@ -164,10 +165,25 @@ LEG_SPECS = {
                        "note": "the live Webull stack: KEEL v12 causal walk from 2010, keeps learning as trades close (owner 11-22)",
                        "warm_from": "2010-06-07",
                        "gate": {"mode": "keel", "version": "v12"}},
+    # board 170 (owner 11-22): ML shadows of the new paper legs, history back to the ledger start
+    "NOISE555_keel":  {"run": 555, "label": "NOISE #555.1 keel",
+                       "note": "run #555 set 1 (FT 16/1.15/1.75) + KEEL v12 causal walk from 2010, keeps learning as trades close",
+                       "warm_from": "2010-06-07",
+                       "gate": {"mode": "keel", "version": "v12"}},
+    "NOISE545_keel":  {"run": 545, "label": "NOISE #545.1 keel",
+                       "note": "run #545 set 1 (KFX 16/1.15/tilt 2.75/Friday 2.0) + KEEL v12 causal walk from 2010, keeps learning",
+                       "warm_from": "2010-06-07",
+                       "gate": {"mode": "keel", "version": "v12"}},
+    "DISC525_hybrid": {"run": 525, "label": "DISC #525 HR logistic",
+                       "note": "research, selection in-sample: #525.1 champion (window_min 30) + hybrid logistic gate at 0.55, "
+                               "size clip(1+4(p-0.5),0.25,3) / size_norm (mean 1 over pre-09-03 survivors), causal refit every 25 trades from 2010",
+                       "warm_from": "2010-06-07",
+                       "gate": {"mode": "hybrid", "model": "logistic", "threshold": 0.55, "size_norm": SIZE_NORM_525}},
 }
 SOURCE_MAP = {   # a run doc's source_name -> (session, registry source)
     "rth - no-adj": ("rth", "db_noadj_rth"), "eth - no-adj": ("eth", "db_noadj_eth"),
     "rth - back-adjusted": ("rth", "db_adj_rth"), "eth - back-adjusted": ("eth", "db_adj_eth"),
+    "eth - forward-adjusted": ("eth", "db_fadj_eth"), "rth - forward-adjusted": ("rth", "db_fadj_rth"),
     "(alpaca rth)": ("rth", "alpaca_split_rth"),
 }
 MULT = {"NQ": 20.0, "ES": 50.0, "YM": 5.0, "RTY": 50.0, "ZN": 1000.0, "MNQ": 2.0, "MES": 5.0}

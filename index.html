@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.17';
+const VERSION='92.18';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -8149,6 +8149,9 @@ const BOOKS_LEG_CLASS={
   NOISE382_fixed:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs NOISE #382 KEEL, not the fixed-tilt version'},
   NOISE382_keel:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'as-if of the live NOISE #382.2 KEEL leg; record only'},
   ORB234_gate:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ORB #314, not #234 gated'},
+  NOISE555_keel:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'as-if of NOISE #555.1 + KEEL v12; record only (board 170)'},
+  NOISE545_keel:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'as-if of NOISE #545.1 + KEEL v12; record only (board 170)'},
+  DISC525_hybrid:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'research, selection in-sample: DISC #525 hybrid logistic; record only (board 170)'},
   ORB314_gate:{cls:'shadow',max:'SHADOW',exec_leg:null,reason:'QQQ executor runs ORB #314 ungated, not the gated version'}
 };
 const BOOKS_STATES=['OFF','SHADOW','PAPER'];

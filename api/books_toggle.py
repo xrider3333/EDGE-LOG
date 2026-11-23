@@ -76,6 +76,9 @@ BOOK_LEG_CLASS = {
     "NOISE382_fixed": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382 KEEL, not the fixed-tilt version", "gate": None, "feed": None},
     "NOISE382_keel": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "as-if of the live NOISE #382.2 KEEL leg; record only", "gate": None, "feed": None},
     "ORB234_gate": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314, not #234 gated", "gate": None, "feed": None},
+    "NOISE555_keel": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "as-if of NOISE #555.1 + KEEL v12; record only (board 170)", "gate": None, "feed": None},
+    "NOISE545_keel": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "as-if of NOISE #545.1 + KEEL v12; record only (board 170)", "gate": None, "feed": None},
+    "DISC525_hybrid": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "research, selection in-sample: DISC #525 hybrid logistic; record only (board 170)", "gate": None, "feed": None},
     "ORB314_gate": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314 ungated, not the gated version", "gate": None, "feed": None},
 }
 
