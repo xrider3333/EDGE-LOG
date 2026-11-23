@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.11';
+const VERSION='92.12';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -42571,7 +42571,21 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // the pref holds a LIST now; a single id from before still reads correctly.
         // tell the run-document cache how many we are about to need, so it stops
         //   evicting the ones we already have to make room for the next.
+        // THE RUNS THE RAIL OFFERS, one definition for the chips and for the ALL state (board 167):
+        //   the strategy pick's runs newest first, the newest 40, plus any older book / live run.
+        const _reRunsOffered=function(){const sel=_reFilt.fam;
+          const all=_reCfgPick.filter(function(r){return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;})
+            .slice().sort(function(a,b){return (+b.id||0)-(+a.id||0);});
+          const top=all.slice(0,40),old=all.slice(40).filter(function(r){return r&&r._keyRun;});
+          return {all:all,top:top,old:old,shown:top.concat(old)};};
+        // ALL IS A STATE, NOT A ONE-OFF COPY (owner board 167): ALL stamps resCfgRunAll with the strategy
+        //   it was clicked under, and while that stamp matches, every run the rail offers is ticked -
+        //   a run that loads later joins on its own. Any run chip or KEEP ONE clears the stamp.
+        const _reCfgRunAllOn=(function(){const _f=_reFilt.fam;
+          return String(APREF.resCfgRunAll==null?'':APREF.resCfgRunAll)==='1|'+((_f&&_f.length)?_f.slice().sort().join('|'):'');})();
         const _reCfgIds=(function(){const raw=APREF.resCfgRun;
+          if(_reCfgRunAllOn){const _sa=_reRunsOffered().shown.map(function(r){return String(r.id);});
+            if(_sa.length){try{window._runFullCap=Math.max(8,_sa.length+2);}catch(e){}return _sa;}}
           let a=Array.isArray(raw)?raw.map(String):(raw!=null&&raw!==''?[String(raw)]:[]);
           a=a.filter(function(id){return _reCfgPick.some(function(r){return String(r.id)===id;});});
           // THE STRATEGY PICK OWNS THE RUN PICK (owner 2026-09-05: "if i switch from noise
@@ -42596,7 +42610,12 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //    so a list made for DIP is not carried over onto ENGU-Q. A hand-picked set still
           //    wins - clicking any run chip stamps the list, and from then on it is his, not mine.
           const _famKey=(_fam&&_fam.length)?_fam.slice().sort().join('|'):'';
-          if(String(APREF.resCfgAuto==null?'':APREF.resCfgAuto)!==_famKey)a=[];
+          // board 167 (Firestore quota): a pick made by dropping strategies from ALL, or any pick of more
+          //   than 3, is a FILTER over the runs ALL already had - keep those ticks minus the dropped
+          //   strategies and fetch nothing new. The newest-5 fill is only for an explicit pick of up to 3.
+          //   resFamFromAll holds the fam key it was made for, so a pick set any other way never matches it.
+          const _famExcl=!!(_fam&&_fam.length)&&(_fam.length>3||String(APREF.resFamFromAll==null?'':APREF.resFamFromAll)===_famKey);
+          if(!_famExcl&&String(APREF.resCfgAuto==null?'':APREF.resCfgAuto)!==_famKey)a=[];
           // NEWEST FIRST, FAILS AND VOIDS LAST. Five, not all of them: each run is its own
           //   document fetch, and the pills offer up to forty.
           const _newestN=function(pool,cap){
@@ -42610,7 +42629,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   five DIP runs can be newer than every ENGU-Q run, so ENGU-Q lights nothing and its
           //   chip looks broken. Each family is filled on its own, and a family that already has
           //   a run ticked is left exactly as it is - that tick is the reader's.
-          if(_fam&&_fam.length){
+          if(_fam&&_fam.length&&!_famExcl){
             const _famOfId=function(id){
               const r2=_reCfgPick.filter(function(x){return String(x.id)===id;})[0];
               return r2?(_canonFam(r2.strategy)||'UNTAGGED'):'';};
@@ -43618,14 +43637,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         // WHICH 1E FAMILIES the configs view draws. Its own control, so the STRATEGY rail
         //   can go on meaning the strategy. Nothing ticked means all six.
         const _reCfgFamBtns=(!_reShowCfg)?'':_reCtl('','CONFIG','which 1E family the chart draws. Nothing ticked shows all of them.',
-           _reBtn('data-recfgfam="RAW"','RAW',_reCfgFam.indexOf('RAW')>=0,'the crown pool plus the robustness extras - the top configurations the search itself ranked',_TONE.heat)
-           +_reBtn('data-recfgfam="GATE"','GATE',_reCfgFam.indexOf('GATE')>=0,'skip-gate variants: a model refuses the weakest trades',_TONE.heat)
-           +_reBtn('data-recfgfam="TILT"','TILT',_reCfgFam.indexOf('TILT')>=0,'size tilts: every trade is taken, a model only sets the size',_TONE.heat)
-           +_reBtn('data-recfgfam="HYBRID"','HYBRID',_reCfgFam.indexOf('HYBRID')>=0,'gate first, then size the survivors - at one lot per trade',_TONE.heat)
-           +_reBtn('data-recfgfam="HYBRID \u267b"','HYBRID \u267b',_reCfgFam.indexOf('HYBRID \u267b')>=0,'the same hybrid, sized up until it spends the contracts the no-gate book would have',_TONE.heat)
-           +_reBtn('data-recfgfam="HYBRID \u2193DD"','HYBRID \u2193DD',_reCfgFam.indexOf('HYBRID \u2193DD')>=0,'the same hybrid, sized until its worst drawdown matches the no-gate book',_TONE.heat)
-           +_reBtn('data-recfgfam="KEEL"','KEEL',_reCfgFam.indexOf('KEEL')>=0,'the keel row: every trade is taken and sized by a trust-scaled estimate of its expectancy. One per run, comparison only, never crowned.',_TONE.heat)
-           +_reBtn('data-recfgfamall="1"','ALL',!_reCfgFam.length,'every configuration stage on the board. Tick any of the others to narrow to those - several at once is fine.',_TONE.heat)
+           _reBtn('data-recfgfam="RAW"','RAW',(!_reCfgFam.length||_reCfgFam.indexOf('RAW')>=0),'the crown pool plus the robustness extras - the top configurations the search itself ranked',_TONE.heat)
+           +_reBtn('data-recfgfam="GATE"','GATE',(!_reCfgFam.length||_reCfgFam.indexOf('GATE')>=0),'skip-gate variants: a model refuses the weakest trades',_TONE.heat)
+           +_reBtn('data-recfgfam="TILT"','TILT',(!_reCfgFam.length||_reCfgFam.indexOf('TILT')>=0),'size tilts: every trade is taken, a model only sets the size',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID"','HYBRID',(!_reCfgFam.length||_reCfgFam.indexOf('HYBRID')>=0),'gate first, then size the survivors - at one lot per trade',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID \u267b"','HYBRID \u267b',(!_reCfgFam.length||_reCfgFam.indexOf('HYBRID \u267b')>=0),'the same hybrid, sized up until it spends the contracts the no-gate book would have',_TONE.heat)
+           +_reBtn('data-recfgfam="HYBRID \u2193DD"','HYBRID \u2193DD',(!_reCfgFam.length||_reCfgFam.indexOf('HYBRID \u2193DD')>=0),'the same hybrid, sized until its worst drawdown matches the no-gate book',_TONE.heat)
+           +_reBtn('data-recfgfam="KEEL"','KEEL',(!_reCfgFam.length||_reCfgFam.indexOf('KEEL')>=0),'the keel row: every trade is taken and sized by a trust-scaled estimate of its expectancy. One per run, comparison only, never crowned.',_TONE.heat)
+           +_reBtn('data-recfgfamall="1"','ALL',!_reCfgFam.length,'every configuration stage on the board - every chip lights. Click a chip after this to drop just that one; ALL lights them all again.',_TONE.heat)
           ,_TONE.heat);
         // SHOW is gone (owner 2026-10-20): ML CONFIGS is a chip on the one selector below, and the
         //   data-reshow handler stays alive so an old bookmark or pref still lands somewhere sane.
@@ -43667,15 +43686,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   when im looking at a strategy and want all the runs populated"). ALL takes
           //   every run the STRATEGY pick is offering; NONE clears back to the newest
           //   non-FAIL one, because an empty pick has nothing to draw.
-          (function(){const _famOk=function(r){const sel=_reFilt.fam;
-              return !(sel&&sel.length)||sel.indexOf(_canonFam(r.strategy)||'UNTAGGED')>=0;};
+          (function(){const _ro=_reRunsOffered();
             // THE CAP IS SAID OUT LOUD (issue 40). The rail shows the first 40 because each chip is a
             //   separate fetch, but it used to print 'ALL . 40' with 79 runs in the pool and no note,
             //   so ALL read as every run when it was every run THIS RAIL CHOSE TO SHOW.
-            const _avAll=_reCfgPillOrd(_reCfgPick.filter(_famOk));
+            const _avAll=_ro.all;
             // board 164: an older book / live run is never cut by the 40-chip cap - it is why it was fetched
             // sweep 6 #3: counted BEFORE they are added - the newest 40, the older book / live runs on top, and the rest hidden
-            const _avTop=_avAll.slice(0,40),_avOld=_avAll.slice(40).filter(function(r){return r&&r._keyRun;});
+            const _avTop=_ro.top,_avOld=_ro.old;
             const _av=_avTop.concat(_avOld);
             const _avKey=_av.filter(function(r){return r&&r._keyRun&&!(Array.isArray(runHistory)&&runHistory.some(function(h){return h&&String(h.id)===String(r.id);}));}).length;
             const _avCut=_avAll.length-_avTop.length-_avOld.length;
@@ -43883,8 +43901,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   to click to get back, and CLEAR, which does it, lives elsewhere and drops the month, the
             //   study and the range with it. The click handler has always read an empty value as ALL.
             _reBtn('data-refam=""','ALL \u00b7 '+_reFamAll,!_reFamPick.length,
-              'show every strategy: all '+_reFamAll+' rows on this chip, the same board you get with nothing ticked. Click it to drop a strategy pick on its own - the month, the study and the range stay exactly as they are',_TONE.samp)
-            +(Object.keys(_reFamCnt).length?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),_reFamPick.indexOf(v)>=0,
+              'show every strategy: all '+_reFamAll+' rows on this chip, and every strategy chip lights. Click one strategy after this to drop just that one. Click it to drop a strategy pick on its own - the month, the study and the range stay exactly as they are',_TONE.samp)
+            +(Object.keys(_reFamCnt).length?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),(!_reFamPick.length||_reFamPick.indexOf(v)>=0),
               'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)
                 +((_reSrc==='valid')?' Auto-Validate runs in Past Runs.'
                  :(_reSrc==='el')?' rows on this chip: EDGELOG runs that are not Auto-Validate jobs, plus the runs a lane recorded on the runner or the box.'
@@ -54714,9 +54732,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       content.querySelectorAll('[data-relvl]').forEach(b=>{b.onclick=()=>{savePref('resLvl',b.getAttribute('data-relvl'));renderApp();};});
       content.querySelectorAll('[data-recfgfam]').forEach(b=>{b.onclick=()=>{
         const v=b.getAttribute('data-recfgfam');
-        const cur=_resCfgFamPref(APREF);
+        // board 167: an empty list is ALL and lights every chip, so a click from ALL drops just that
+        //   family; ticking the last one back on collapses to ALL again (identical rows), and
+        //   unticking the only lit chip goes back to ALL rather than to an empty board.
+        const ALL=['RAW','GATE','TILT','HYBRID','HYBRID \u267b','HYBRID \u2193DD','KEEL'];
+        const _c0=_resCfgFamPref(APREF);
+        const cur=_c0.length?_c0:ALL.slice();
         const i2=cur.indexOf(v); if(i2>=0)cur.splice(i2,1); else cur.push(v);
-        savePref('resCfgFam',cur);renderApp();};});
+        savePref('resCfgFam',(ALL.every(t=>cur.indexOf(t)>=0)||!cur.length)?[]:cur);renderApp();};});
       // W130 (owner 2026-11-13): CONFIG is a chip row in plain sight now, multi-select, with ALL
       //   to clear it. An empty list has always MEANT every stage - this says so with a chip
       //   instead of leaving the reader to work it out from nothing being lit.
@@ -54792,6 +54815,9 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const id=b.getAttribute('data-recfgrun');
         const cur=Array.isArray(APREF.resCfgRun)?APREF.resCfgRun.map(String)
           :((APREF.resCfgRun!=null&&APREF.resCfgRun!=='')?[String(APREF.resCfgRun)]:[]);
+        // board 167: in the ALL state every offered chip is lit, so a click drops just that one
+        if(_reRunAllNow())cur.splice(0,cur.length,..._reAvailRuns());
+        savePref('resCfgRunAll',null);
         const i2=cur.indexOf(id);
         if(i2>=0){if(cur.length>1)cur.splice(i2,1);}else cur.push(id);
         // W130 #1: stamp the list with the strategy it was made under, so the auto-pick leaves
@@ -54807,9 +54833,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?_rf:(JSON.parse(_rf||'{}')||{});
           const f=Array.isArray(o.fam)?o.fam.map(String):[];
           return f.length?f.slice().sort().join('|'):'';}catch(e){return '';}};
+      const _reRunAllNow=()=>String(APREF.resCfgRunAll==null?'':APREF.resCfgRunAll)==='1|'+_reFamKeyNow();
+      // ALL when every run is already on leaves them all on (board 167) - KEEP ONE is the way down.
       content.querySelectorAll('[data-recfgall]').forEach(b=>{b.onclick=()=>{
         const all=_reAvailRuns();savePref('resCfgAuto',_reFamKeyNow());
-        if(all.length)savePref('resCfgRun',all);renderApp();};});
+        if(all.length){savePref('resCfgRun',all);savePref('resCfgRunAll','1|'+_reFamKeyNow());}renderApp();};});
       content.querySelectorAll('[data-recfgnone]').forEach(b=>{b.onclick=()=>{
         const all=_reAvailRuns();
         if(!all.length){renderApp();return;}
@@ -54822,7 +54850,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const okAll=all.filter(id=>!failIds.has(id));
         const pool=okAll.length?okAll:all;
         const newest=pool.reduce((best,id)=>((+id||0)>(+best||0))?id:best);
-        savePref('resCfgAuto',_reFamKeyNow());
+        savePref('resCfgAuto',_reFamKeyNow());savePref('resCfgRunAll',null);
         savePref('resCfgRun',[newest]);renderApp();};});
       content.querySelectorAll('[data-refilt]').forEach(b=>{b.onclick=()=>{
         let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
@@ -54917,10 +54945,17 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
         const v=b.dataset.refam;
         if(!v){delete o.fam;}                      // ALL clears the family filter
-        else{const cur=Array.isArray(o.fam)?o.fam.slice():[];
+        else{// board 167: nothing picked is ALL and lights every chip, so the first click from ALL drops
+          //   just that strategy (ALL, then TTM = everything but TTM). Every chip back on collapses to
+          //   ALL again - same rows as today, and a strategy that appears later joins on its own.
+          const _offer=[...content.querySelectorAll('[data-refam]')].map(x=>x.dataset.refam).filter(Boolean);
+          const cur=(Array.isArray(o.fam)&&o.fam.length)?o.fam.slice():_offer.slice();
           const i=cur.indexOf(v);
           if(i>=0)cur.splice(i,1);else cur.push(v);   // tick and untick, so two families can share the chart
-          if(cur.length)o.fam=cur;else delete o.fam;}
+          const _fromAll=!(Array.isArray(o.fam)&&o.fam.length)||String(APREF.resFamFromAll==null?'':APREF.resFamFromAll)===o.fam.slice().sort().join('|');
+          if(cur.length&&!_offer.every(x=>cur.indexOf(x)>=0))o.fam=cur;else delete o.fam;
+          // remember a pick that grew out of ALL, so the run rail treats it as a filter, not a fetch
+          savePref('resFamFromAll',(_fromAll&&o.fam)?o.fam.slice().sort().join('|'):null);}
         savePref('resFilt',JSON.stringify(o));renderApp();};});
       // STUDIES board: the TIME SCOPE, the date it reads, and the colour setting. All three are
       //   persisted through savePref exactly like every other view preference on this board, so
