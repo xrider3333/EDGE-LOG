@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.16';
+const VERSION='92.17';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4430,7 +4430,8 @@ window.ledgerCfgLabel=function(fam,run,cell,mode,none){run=String(run==null?'':r
 //   1 = best - the rule api/paper_leg_params.py and tools/check_paper_leg_params.py use. A RAW candidate whose values are
 //   not on a kept grid row (a grid thinned to 150 trials) takes where its own in-sample net sorts among the kept rows
 //   (1 + the rows that beat it by more than half a point) - the paper legs' 'champion' rule. A GATE / TILT / HYBRID / KEEL
-//   row is an overlay on the run's crowned champion, so it carries the champion's .CFG; the MODE word and the detail
+//   row carries the .CFG of the raw config whose trades the ML stage gated (window.cfgMlBaseSetOf - board 169: read off the
+//   run's ungated twin, the crowned champion only as fallback); the MODE word and the detail
 //   (model, size shape, cut-off, version, pool letter) tell overlays of one run apart.
 window.CFG_NOT_PARAM={total_pnl:1,num_trades:1,win_rate:1,profit_factor:1,wins:1,losses:1,avg_pnl:1,max_drawdown:1,fold:1,train_bars:1,test_bars:1,
   pnl:1,dd:1,trades:1,pf:1,wr:1,sharpe:1,sortino:1,n:1,asset:1,phantom_safe:1,sess_from:1,sess_to:1};
@@ -4461,6 +4462,29 @@ window.cfgChampSetOf=function(doc){
   const P=(typeof PAPER_LEG_PARAMS!=='undefined')?PAPER_LEG_PARAMS:null;let c=null;
   if(P&&doc.id!=null)Object.keys(P).forEach(function(k){const o=P[k]||{};if(c==null&&String(o.run)===String(doc.id)&&o.how==='champion'&&o.cell!=null)c=o.cell;});
   return (c!=null)?{cell:c,how:'paper'}:null;};
+// board 169 THE ML ROWS' OWN BASE CONFIG, read off the run instead of assumed. Every GATE / TILT / HYBRID / KEEL row of a run is
+//   one model applied to ONE trade list: validate.py hands ml_gate.gate_validate the whole-window backtest of `champ`
+//   (full['trades']), and gate_validate saves that list's own no-model figures as ungated_pre (the optimize window) and
+//   ungated_full. So the base is the raw candidate whose optimize-window net (equity.final) IS ungated_pre - matched here, then
+//   given its grid set by the ledger rule (cfgSetOfParams). ungated_pre, not ungated_full: a candidate's lockbox was scored COLD
+//   and the gate's lockbox is a continuous replay, so the whole-run nets differ by design (run 306: 13,207.8 vs 13,642.7); the
+//   whole-run net is the key only on a run with no ungated_pre. A run with neither, or not exactly ONE matching candidate, falls
+//   back to the crowned champion (cfgChampSetOf) - the config the engine gates today. Returns {cell, how:'ungated'|..., crowned}.
+window.cfgMlBaseSetOf=function(doc){
+  if(!doc)return null;
+  const GV=doc.gate_validate||doc.ml_gate||null,num=function(o){return (o&&o.total_pnl!=null&&isFinite(+o.total_pnl))?+o.total_pnl:null;};
+  const up=num(GV&&GV.ungated_pre),uf=(up==null)?num(GV&&GV.ungated_full):null,key=(up!=null)?up:uf;
+  const cs=(doc.selection&&Array.isArray(doc.selection.candidates))?doc.selection.candidates:[];
+  if(key!=null&&cs.length){
+    // the candidate curves are saved rounded (12716.5 against the gate's 12716.485), so a match is within 0.6 pts or 0.02 pct
+    const tol=Math.max(0.6,Math.abs(key)*2e-4);
+    const hit=cs.filter(function(c){if(!c||!c.params)return false;
+      const e=(up!=null)?c.equity:c.lb_equity,v=(e&&e.final!=null&&isFinite(+e.final))?+e.final:null;
+      return v!=null&&Math.abs(v-key)<=tol;});
+    if(hit.length===1){const o=window.cfgSetOfParams(doc,hit[0].params,hit[0].is_pnl);
+      if(o)return {cell:o.cell,grid:o.grid,how:'ungated',crowned:!!hit[0].crowned};}}
+  const ch=window.cfgChampSetOf(doc);
+  return ch?Object.assign({},ch,{crowned:true}):null;};
 // the one label: 'NOISE #555.1 tilt · logistic ST'. An unknown set prints no number (never ' set ?' mid-table).
 window.cfgRowLabel=function(fam,run,cell,mode,detail){
   return window.ledgerCfgLabel(fam,run,cell,mode,'')+((detail!=null&&String(detail).trim()!=='')?(' · '+String(detail).trim()):'');};
@@ -25168,6 +25192,8 @@ function renderApp(){
               _cm=(_rawBScope&&col&&col.raw&&col.raw.metrics)?col.raw.metrics:{};
         const _tr1=_n1(_rp.kept!=null?_rp.kept:_cm.num_trades),_wr1=_n1(_rp.wr!=null?_rp.wr:_cm.win_rate);
         return {pool:'RAW',ddp:_ddPctOfCfg(col,mlt),label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),pnl:pnl,dd:Math.abs(dd),key:'raw:'+cols.indexOf(col),crowned:!!col.crowned,yrs:_rawYrsFor(col),
+          // board 169: what the CONFIG label needs - this candidate's own params, in-sample net and walk-forward rank
+          _rprm:col.params||null,_ris:(col.raw&&col.raw.is_pnl!=null)?+col.raw.is_pnl:null,_rrank:col.rank,
           pf:_n1(_rp.pf!=null?_rp.pf:_cm.profit_factor),wr:(_wr1!=null?(_wr1<=1?_wr1*100:_wr1):null),
           // SAME RULE THE TABLES USE. Prefer the value measured over the ticked slice;
           // fall back to the whole-window figure ONLY when the tick IS the whole window,
@@ -25188,7 +25214,7 @@ function renderApp(){
       // HOLD-UP LADDER records: the RAW table's OWN per-stretch dollars and keys, so a ladder
       //   point always equals the table cell. A config whose in-sample / walk-forward figures fell
       //   back to a different window (no calendar split) gives none rather than a mismatched one.
-      const _ladRaw=cols.map((col,_li)=>({pool:'RAW',key:'raw:'+_li,label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),crowned:!!col.crowned,
+      const _ladRaw=cols.map((col,_li)=>({pool:'RAW',key:'raw:'+_li,label:String(col.lbl||'').replace(/<[^>]*>/g,'').trim(),crowned:!!col.crowned,_rprm:col.params||null,_ris:(col.raw&&col.raw.is_pnl!=null)?+col.raw.is_pnl:null,_rrank:col.rank,
         is:(col.isCal===false?null:col.isV),wf:(col.isCal===false?null:col.wfV),lb:col.lbSlice}));
       return {table:table,tip:tip,sub:sub,ctrls:_b2Ctrls,scatterPts:_scatterPtsRaw,rawKeyBySel:_rawKeyBySel,ladder:_ladRaw,
               scatterDrop:Math.max(0,cols.length-_scatterPtsRaw.length)};};
@@ -26943,15 +26969,30 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
     //   The pool index that used to make the id (H04) is gone: it numbered a position in a saved
     //   list, which told a reader nothing and, worse, read the same for the plain, the recycled
     //   and the equal-DD hybrid of one model.
+    // board 169 ONE LABEL IN THE 1E CONFIG COLUMN: '#525.<set> <mode> · <detail>', the label EXPLORE and COMPARE print
+    //   (window.cfgRowLabelShort; the FAMILY column sits beside it). <set> is the row's OWN base config's place in the run's saved
+    //   grid by in-sample net (the ledger rule): a RAW column's own candidate ('#525.11 raw · R2', was 'R2 · #11' - the #11
+    //   was the 1A chart legend's line number, not a set); a GATE / TILT / HYBRID / KEEL row the raw config whose trades the ML
+    //   stage was handed (window.cfgMlBaseSetOf - the run's ungated twin, the crowned champion only as fallback). v92.10 gave every
+    //   ML row the champion's set by assumption; it is now read off the run, and rows that share one base differ by mode + detail.
+    const _mtxModeOf={raw:'raw',gate:'gate',tilt:'tilt',hyb:'hybrid',hyb2:'hybrid',hyb3:'hybrid',keel:'keel'};
     const _mtxCfgId=p=>{const m=/^([^:]+):(\d+)$/.exec(String(p&&p.key||''));if(!m)return '';
-      const k=m[1].toLowerCase();if(k==='raw')return '';
+      const k=m[1].toLowerCase(),mode=_mtxModeOf[k]||k;
       const run=(typeof augurRunSel!=='undefined'&&augurRunSel!=null)?String(augurRunSel):'';
-      // board 163: an overlay pool (gate / tilt / hybrid / keel) sits on the crowned champion, so its set is the champion's -
-      //   the same .CFG EXPLORE and the ledger print (window.cfgChampSetOf, off the run's saved grid); the paper record only as fallback
-      const _doc=(window._runFull||{})[run]||(window._runCfg||{})[run]||null,_ch=_doc?window.cfgChampSetOf(_doc):null;
-      return window.cfgIdText({run:run,cell:(_ch?_ch.cell:window.cfgCellOfRun(run)),pool:k,hash:false});};
+      // the run's document WITH its saved grid: the whole doc the report opened, the configs-only read, or the runs-list entry
+      //   when that one carries the grid (a pinned / probe-injected document); else whichever is in hand (no set number then)
+      const _docs=[(window._runFull||{})[run],(window._runCfg||{})[run],
+        (typeof runHistory!=='undefined'&&Array.isArray(runHistory))?runHistory.filter(function(x){return x&&String(x.id)===run;})[0]:null].filter(Boolean);
+      const _doc=_docs.filter(function(x){return Array.isArray(x.points)&&x.points.length;})[0]||_docs[0]||null;
+      const lbl=String(p._lbl0!=null?p._lbl0:(p.label||'')).trim();
+      if(k==='raw'){const s=(_doc&&p._rprm)?window.cfgSetOfParams(_doc,p._rprm,p._ris):null;
+        const rk=(p._rrank!=null)?('R'+p._rrank):((/R\d+/.exec(lbl)||[''])[0]);
+        return window.cfgRowLabelShort(run,s?s.cell:null,'raw',rk);}
+      const b=_doc?window.cfgMlBaseSetOf(_doc):null;
+      const L=window.cfgPoolLetter(k);
+      return window.cfgRowLabelShort(run,(b?b.cell:window.cfgCellOfRun(run)),mode,lbl+((L==='HR'||L==='HD')?(' '+L):''));};
     const _mtxVisible=(pts)=>{const off=_mtxHidden();
-      (pts||[]).forEach(p=>{if(p&&!p._cid){const id=_mtxCfgId(p);p._cid=id||'-';if(id&&String(p.label||'').indexOf(id+' ')!==0)p.label=id+' '+String(p.label||'');}});
+      (pts||[]).forEach(p=>{if(p&&!p._cid){p._lbl0=String(p.label||'');const id=_mtxCfgId(p);p._cid=id||'-';if(id)p.label=id;}});
       const keep=(pts||[]).filter(p=>off.indexOf(p.pool)<0);
       // never let the last family be switched off - an empty chart cannot be clicked back on.
       return keep.length?keep:(pts||[]);};
@@ -41222,6 +41263,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             const _hk=_reHideKey(o.st,o.r);
             if(window._reHidePts[_hk]){hidden.push({k:_hk,name:String((o.r&&o.r.name)||(o.r&&o.r.n)||'')});return;}
             pts.push({o:o,st:o.st,r:o.r,x:x,y:y,x0:x0,y0:y0});});
+          // board 171: WHY each row is NOT on this chart, keyed like data-rerow, so hovering its table row can say so in the chart
+          //   corner ('#555.1 keel · v12 not on this chart: no DD % from peak'). Short reasons; the long ones stay under the chart.
+          (function(){const W={},S=(o,w)=>{if(o&&o.st&&o.r)W[o.st.key+':'+o.r.n]=w;};
+            const ax=(isX)=>{const M=isX?_reXAxis:_reMode();return String(_reXNm[M]||M).replace(/ \(.*\)$/,'');};
+            skip.forEach(z=>{const o=z.o,x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
+              S(o,(x0==null&&y0==null)?('no '+ax(true)+' and no '+ax(false)):(x0==null?('no '+ax(true)):(y0==null?('no '+ax(false)):'no figure to measure it against')));});
+            failOut.forEach(o=>{if(!W[o.st.key+':'+o.r.n])S(o,'a failed row - PLOT FAILURES is off');});
+            thinOut.forEach(z=>S(z.o,'fewer than MIN TRADES ('+z.n+' trades)'));thinNoCt.forEach(o=>S(o,'no trade count, and MIN TRADES is set'));
+            hidden.forEach(h=>{items.forEach(o=>{if(o&&o.r&&_reHideKey(o.st,o.r)===h.k)S(o,'hidden by a right-click - SHOW ALL brings it back');});});
+            window._reOffWhy=W;})();
           // The rank a point quotes on hover is its place among the points ON THIS CHART,
           //   board-wide. The RANK column in each table below is still a within-study rank, and
           //   the hover says which of the two it is quoting so they can never be confused.
@@ -41784,7 +41835,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             // the how-to is on the chip below, NOT a title on the <svg>: a title here would hang
             //   off an element whose text is the whole chart, and every check that reads a flag by
             //   its hover would then find the chart as well (caught by a4_short_window).
-            +'<svg data-rezoomsvg="1" viewBox="0 0 980 '+CH+'" xmlns="http://www.w3.org/2000/svg" aria-label="'
+            +'<svg data-rezoomsvg="1" data-replot="'+L+','+T+','+R+','+B+'" viewBox="0 0 980 '+CH+'" xmlns="http://www.w3.org/2000/svg" aria-label="'
             +_reEsc('scatter chart - scroll to zoom, drag to move, double-click to fit')
             +'" style="width:100%;height:auto;display:block;touch-action:none;cursor:'+(window._reVwGeom&&window._reVwGeom.on?'grab':'crosshair')+'">'+g+'</svg>'
             +(window._reVwGeom
@@ -42748,6 +42799,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const _stratNm=_canonFam(full.strategy)||'UNTAGGED';
               // board 163 ONE LABEL: the ledger's family word and the crowned champion's set number (window.cfgChampSetOf)
               const _lfam=window.ledgerFamWord(full.strategy||_stratNm),_lch=window.cfgChampSetOf(full),_lchC=_lch?_lch.cell:null;
+              // board 169: the ML rows' own base config (the raw candidate whose trades the gate stage was handed), not assumed to be the champion
+              const _lml=window.cfgMlBaseSetOf(full),_lmlC=_lml?_lml.cell:null;
               // a run doc without a saved point value is priced by its instrument (ES = $50, not NQ's $20)
               const mult=(+full.multiplier>0)?+full.multiplier:(({ES:50,MES:5,NQ:20,MNQ:2,RTY:50,M2K:5,YM:5,MYM:0.5})[String(full.instrument||'').toUpperCase().trim()]||20);
               const V=full.validate||null;
@@ -42873,7 +42926,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   const _gsp=(_gis!=null&&_gwf!=null&&isFinite(_gis)&&isFinite(_gwf));
                   const isCh=!!(gch&&gch.model===c.model&&Math.abs((gch.threshold||0)-(c.threshold||0))<1e-6);
                   _cn++;_reCfgCounts.gate++;
-                  CROWS.push({_lm:'gate',_lc:_lchC,_lhow:(_lch?_lch.how:null),_ld:_reCidOf('GATE',c,false),
+                  CROWS.push({_lm:'gate',_lc:_lmlC,_lhow:(_lml?_lml.how:null),_lbase:_lml,_ld:_reCidOf('GATE',c,false),
                         n:_cn,name:'#'+RID+' GATE '+String(c.model||'')+' @ '+Math.round((c.threshold||0)*100)+'%',fam:'GATE',_strat:_stratNm,
                         _cid:_reCidFull(RID,'GATE',c,isCh),_cidTip:_reCidTip('GATE',c,_reCidOf('GATE',c,isCh),isCh?'the gate this run chose':''),
                         what:'A skip-gate variant from run #'+RID+', measured before the lockbox.',
@@ -42971,7 +43024,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 const dd=(st2.max_drawdown!=null)?Math.abs(st2.max_drawdown)*mult*f:null;
                 _cn++;_reCfgCounts[(tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hyb')]++;
                 const _lL=window.cfgPoolLetter(tabNm);
-                CROWS.push({_lm:((tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hybrid')),_lc:_lchC,_lhow:(_lch?_lch.how:null),
+                CROWS.push({_lm:((tabNm==='TILT')?'tilt':((tabNm==='KEEL')?'keel':'hybrid')),_lc:_lmlC,_lhow:(_lml?_lml.how:null),_lbase:_lml,
                       _ld:String(_reCidOf(tabNm,x,false)).replace(/[()]/g,'').replace(/\s+/g,' ').trim()+((_lL==='HR'||_lL==='HD')?(' '+_lL):''),
                       n:_cn,name:'#'+RID+' '+label,fam:tabNm,_strat:_stratNm,
                       _cid:_reCidFull(RID,tabNm,x,false),_cidTip:_reCidTip(tabNm,x,_reCidOf(tabNm,x,false),''),
@@ -43028,7 +43081,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                   r._lblTip='Configuration '+r._lbl+'. '+((r._lc==null)?('Run #'+RID+' saved no search grid this page could read, so the set number is left off rather than invented.')
                     :((r._lm==='raw')?((r._lhow==='grid')?('Set '+r._lc+' = row '+r._lc+' of run #'+RID+'’s saved search grid sorted by in-sample net, the number the ledger and paper boards print.')
                       :('Set '+r._lc+' = where this configuration’s in-sample net sorts among run #'+RID+'’s kept grid rows (it is not one of them) - the paper legs’ champion rule.'))
-                     :('A '+r._lm+' overlay on run #'+RID+'’s crowned champion, set '+r._lc+'; the words after the dot name the model.')))
+                     :('A '+r._lm+' row: one model applied to the trades of run #'+RID+'’s set '+r._lc+((r._lhow==='ungated')?(' - the raw configuration whose optimize-window net equals this run’s no-model twin (gate_validate.ungated_pre)'+((r._lbase&&r._lbase.crowned)?', its crowned champion':', NOT its crowned champion')):' - the run’s crowned champion, the config the engine hands its ML stage')+'. Every ML row of a run shares that one base; the words after the dot name the model.')))
                     +((r._lm==='raw')?(' '+String(r._ld||'').replace(/^\D*R(\d+).*/,'R$1 is its walk-forward rank among the run’s candidates.')):'');
                   cnt[r._lbl]=(cnt[r._lbl]||0)+1;});
                 CROWS.forEach(function(r){if(r._run!==RID||!r._lbl||cnt[r._lbl]<2)return;const k=r._lbl;seen[k]=(seen[k]||0)+1;
@@ -55388,7 +55441,54 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   highlight is laid over that ground, so they light with the row and stay opaque
             Array.prototype.forEach.call(t.children,function(td){if(!td.style.left)return;
               if(td.dataset.rebg==null)td.dataset.rebg=td.style.background||'';
-              td.style.background=on?('linear-gradient('+HL+','+HL+'),'+(td.dataset.rebg||'var(--bg2)')):(td.dataset.rebg||'');});});};
+              td.style.background=on?('linear-gradient('+HL+','+HL+'),'+(td.dataset.rebg||'var(--bg2)')):(td.dataset.rebg||'');});});
+          window._reSpot(k,on);};
+        // board 171 THE HOVERED ROW'S POINT, UNMISTAKABLE (owner 11-22: "can't see it", dense areas, NOISE #555.1 / #545.1 keel near
+        //   the top). On the scatter the point is raised to the top of the drawing, drawn 1.8x, ringed in yellow, with thin guide
+        //   lines to both axes, and every other point dims to 35%. A row NOT on the chart says so, and why, in the chart's top-right
+        //   corner (window._reOffWhy, filled where the chart sorts its rows) - an overlay, so the layout height never moves.
+        window._reSpot=function(k,on){
+          if(!document.getElementById('reSpotCss')){const st=document.createElement('style');st.id='reSpotCss';
+            st.textContent='svg[data-respot] g[data-repoint]:not([data-respotme]){opacity:.35}'
+              +'svg[data-respot] g[data-repoint][data-respotme]{opacity:1}'
+              +'[data-respotnote]{position:absolute;top:6px;right:8px;max-width:60%;z-index:3;pointer-events:none;font-size:10px;line-height:1.35;'
+              +'padding:4px 8px;border-radius:6px;background:var(--bg1);color:var(--text2);border:1px solid var(--yellow);box-shadow:0 1px 4px rgba(0,0,0,.25)}';
+            document.head.appendChild(st);}
+          const box=document.querySelector('[data-rechartbox]');
+          const NS='http://www.w3.org/2000/svg';
+          const gs=document.querySelectorAll('[data-repoint="'+CSS.escape(k)+'"]');
+          gs.forEach(function(g){const svg=g.ownerSVGElement;const hl=g.querySelector('.rehl');
+            if(on){
+              if(g.parentNode&&g.parentNode.lastChild!==g)g.parentNode.appendChild(g);
+              g.setAttribute('data-respotme','1');if(svg)svg.setAttribute('data-respot','1');
+              const cx=hl?+hl.getAttribute('cx'):null,cy=hl?+hl.getAttribute('cy'):null;
+              if(cx!=null&&isFinite(cx)&&isFinite(cy)){
+                g.setAttribute('transform','translate('+cx+' '+cy+') scale(1.8) translate('+(-cx)+' '+(-cy)+')');
+                if(hl){if(g.dataset.rehlr==null)g.dataset.rehlr=hl.getAttribute('r')||'';
+                  hl.setAttribute('stroke','var(--yellow)');hl.setAttribute('stroke-width','1.6');hl.setAttribute('r',String(Math.max(5,(+g.dataset.rehlr||8)*0.75)));}
+                const pb=svg?String(svg.getAttribute('data-replot')||'').split(',').map(Number):[];
+                if(svg&&pb.length===4&&!svg.querySelector('[data-respotxh="'+CSS.escape(k)+'"]')){
+                  const xh=document.createElementNS(NS,'g');xh.setAttribute('data-respotxh',k);xh.setAttribute('pointer-events','none');
+                  [[pb[0],cy,cx,cy],[cx,cy,cx,pb[3]]].forEach(function(c){const ln=document.createElementNS(NS,'line');
+                    ln.setAttribute('x1',c[0]);ln.setAttribute('y1',c[1]);ln.setAttribute('x2',c[2]);ln.setAttribute('y2',c[3]);
+                    ln.setAttribute('stroke','var(--yellow)');ln.setAttribute('stroke-width','0.9');ln.setAttribute('stroke-dasharray','3,3');ln.setAttribute('opacity','0.85');
+                    xh.appendChild(ln);});
+                  svg.insertBefore(xh,g);}}}
+            else{
+              g.removeAttribute('data-respotme');g.removeAttribute('transform');
+              if(hl){hl.setAttribute('stroke','var(--text)');hl.setAttribute('stroke-width','2');if(g.dataset.rehlr!=null&&g.dataset.rehlr!=='')hl.setAttribute('r',g.dataset.rehlr);}
+              if(svg){svg.querySelectorAll('[data-respotxh="'+CSS.escape(k)+'"]').forEach(function(x){x.remove();});
+                if(!svg.querySelector('[data-respotme]'))svg.removeAttribute('data-respot');}}});
+          // NOT ON THIS CHART: the row's own label and the reason, in the chart corner
+          if(box){let nt=box.querySelector('[data-respotnote]');
+            if(on&&!gs.length&&box.querySelector('svg[data-replot]')){const why=(window._reOffWhy||{})[k];
+              const tr=document.querySelector('tr[data-rerow="'+CSS.escape(k)+'"]'),lb=tr?tr.querySelector('[data-relbl]'):null;
+              const nm=lb?String(lb.textContent||'').trim():(tr&&tr.cells[2]?String(tr.cells[2].textContent||'').trim():('row '+String(k).split(':').pop()));
+              if(!nt){nt=document.createElement('div');nt.setAttribute('data-respotnote','1');
+                if(getComputedStyle(box).position==='static')box.style.position='relative';box.appendChild(nt);}
+              nt.setAttribute('data-respotkey',k);
+              nt.textContent=nm+' not on this chart'+(why?(': '+why):'');}
+            else if(nt&&(!on||nt.getAttribute('data-respotkey')===k))nt.remove();}};
         // REDRAW JUST THE CHART (owner 2026-09-22: "remove said dot on the chart and the chart
         //   will then reconfigure"). A full renderApp() rebuilds every table on the board - about
         //   9s on the owner's 2,235-row board, measured 2026-09-21 - which is far too slow for

@@ -247,6 +247,15 @@ CASES = [
     # labels the resize is supposed to print.
     ('funnel-eqr', {'prefs': {'repCols': '3', 'repLayout': 'classic', 'eqTab': 'funnel', 'a2gate': 1,
                               'a2kAll': 1, 'a2cfgAll': 1, 'a2doors': 0, 'a2eqr': 1}, 'win': {}}),
+    # 1E CONFIG LABELS (board 169, owner 11-22: every ML row of run 525 read '525.1 ...', raw rows 'R2 . #11'). The 1E matrix on
+    # its ALL tab, TABLE view: every CONFIG cell reads '#306.<set> <mode> . <detail>', <set> = the row's own base config's place in
+    # the saved grid by in-sample net. cfg-labels: the fixture as saved (its gate was handed the crowned champion, set 6);
+    # cfg-labels-base: the gate's no-model twin (gate_validate.ungated_pre) set to the walk-forward #2 candidate's optimize-window
+    # net, so every ML row must name THAT candidate's set (3), not the champion's.
+    ('cfg-labels', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table'}, 'win': {}, 'cfgRows': 1}),
+    ('cfg-labels-base', {'prefs': {'repCols': '3', 'cfgTab': 'all', 'mtxView': 'table'}, 'win': {}, 'cfgRows': 1,
+                         'pre': "(function(){var cs=((doc.selection||{}).candidates||[]).slice().sort(function(a,b){return (b.wf_oos_pnl||0)-(a.wf_oos_pnl||0);});"
+                                "var c=cs.filter(function(x){return !x.crowned;})[0];doc.gate_validate.ungated_pre.total_pnl=c.equity.final;})();"}),
 ]
 
 # Builds this gate exists to catch. Each is a commit on main whose index.html blanked every
@@ -450,6 +459,13 @@ var CASES=__CASES__, FIX=__FIX__, CANNED=__CANNED__;
             calls:(w.eval('window._rdCalls')||[]).map(function(c){return {a:c.a,readings:c.p&&c.p.readings,run_id:c.p&&c.p.run_id,family:c.p&&c.p.family,
               lockbox_from:c.p&&c.p.lockbox_from,strategy:c.p&&c.p.strategy};})};
         }
+        // 1E CONFIG LABELS (board 169): every row of the ALL table as [its scatter key, its CONFIG cell]
+        if(cfg.cfgRows){r.cfgRows=[];var CROWN=String.fromCodePoint(0x1F451);
+          [].forEach.call(det?det.querySelectorAll('table'):[],function(tb){
+            var hs=[].map.call(tb.querySelectorAll('thead th'),function(e){return (e.textContent||'').trim();});
+            if(hs[0]!=='FAMILY'||hs[1]!=='CONFIG')return;
+            [].forEach.call(tb.querySelectorAll('tbody tr'),function(tr){var td=tr.querySelectorAll('td');
+              if(td.length>1)r.cfgRows.push([tr.getAttribute('data-hlkey')||'',(td[1].textContent||'').split(CROWN).join('').replace(/ +/g,' ').trim()]);});});}
         r.errors=sink.errors.slice(0,20);
         r.uncaught=sink.uncaught.slice(0,20);
       }catch(e){r.sampleErr=String(e&&e.stack?e.stack:e);}
@@ -820,6 +836,68 @@ def _check_readings(nm, r, rd, fixture):
 
 # ROLL chip: the fixture as run #424 (a RUN_ROLL run) carries the chip in the ROBUSTNESS rail beside COST AND LIMITS and a readout with the saved and
 # true figures; the fixture as run 306 (not in the table) carries neither.
+_CFG_NOT_PARAM = set('total_pnl num_trades win_rate profit_factor wins losses avg_pnl max_drawdown fold train_bars test_bars '
+                     'pnl dd trades pf wr sharpe sortino n asset phantom_safe sess_from sess_to'.split())
+
+
+def _cfg_set_of(fixture, params, is_pnl):
+    """The ledger's .CFG: the params' row in the saved grid sorted by in-sample net (1 = best), else where is_pnl sorts."""
+    g = sorted([p for p in (fixture.get('points') or []) if isinstance(p, dict)], key=lambda p: -(p.get('pnl') or 0))
+    ks = [k for k in (params or {}) if k not in _CFG_NOT_PARAM]
+    if ks:
+        for i, row in enumerate(g):
+            if all(k in row and row[k] == params[k] for k in ks):
+                return i + 1
+    if is_pnl is not None:
+        return 1 + len([x for x in g if (x.get('pnl') or 0) > is_pnl + 0.5])
+    return None
+
+
+def _check_cfg_labels(nm, r, fixture):
+    """board 169: the 1E ALL table's CONFIG column names each row's OWN base config ('#306.<set> <mode> . <detail>')."""
+    f, rid, dot = [], str(fixture.get('id')), '\u00b7'
+    rows = r.get('cfgRows') or []
+    if len(rows) < 20:
+        return ['%s: the 1E ALL table shows only %d CONFIG rows (want the raw + gate + tilt + hybrid rows)' % (nm, len(rows))]
+    cs = sorted((fixture.get('selection') or {}).get('candidates') or [], key=lambda c: -(c.get('wf_oos_pnl') or 0))
+    by_rank = {i + 1: _cfg_set_of(fixture, c.get('params'), c.get('is_pnl')) for i, c in enumerate(cs)}
+    champ = [c for c in cs if c.get('crowned')]
+    champ_set = _cfg_set_of(fixture, champ[0].get('params'), champ[0].get('is_pnl')) if champ else None
+    if nm == 'cfg-labels-base':
+        alt = [c for c in cs if not c.get('crowned')][0]
+        want_ml = _cfg_set_of(fixture, alt.get('params'), alt.get('is_pnl'))
+    else:
+        want_ml = champ_set
+    if want_ml is None or (nm == 'cfg-labels-base' and want_ml == champ_set):
+        return ['%s: the fixture gives no usable base set (champion %s, ML base %s) - the case tests nothing' % (nm, champ_set, want_ml)]
+    raw_re = re.compile(r'^#' + rid + r'\.(\d+) raw ' + dot + r' R(\d+)$')
+    ml_re = re.compile(r'^#' + rid + r'\.(\d+) (gate|tilt|hybrid|keel) ' + dot + r' \S')
+    n_raw = n_ml = 0
+    for key, txt in rows:
+        if key.split(':')[0] == 'raw':
+            n_raw += 1
+            m = raw_re.match(txt)
+            if not m:
+                f.append('%s: RAW row %s reads %r, want "#%s.<set> raw . R<rank>"' % (nm, key, txt, rid))
+                continue
+            want = by_rank.get(int(m.group(2)))
+            if want is not None and int(m.group(1)) != want:
+                f.append('%s: RAW row %r names set %s, but walk-forward rank %s is set %s of the saved grid'
+                         % (nm, txt, m.group(1), m.group(2), want))
+        else:
+            n_ml += 1
+            m = ml_re.match(txt)
+            if not m:
+                f.append('%s: ML row %s reads %r, want "#%s.<set> <mode> . <detail>"' % (nm, key, txt, rid))
+            elif int(m.group(1)) != want_ml:
+                f.append('%s: ML row %r names set %s, but its gate was handed set %s%s'
+                         % (nm, txt, m.group(1), want_ml,
+                            (' (NOT the champion, set %s)' % champ_set) if want_ml != champ_set else ''))
+    if n_raw < 5 or n_ml < 15:
+        f.append('%s: only %d RAW and %d ML rows in the CONFIG column' % (nm, n_raw, n_ml))
+    return f[:8]
+
+
 def _check_roll(nm, r, rl):
     f = []
     if nm != 'roll-chip':
@@ -1202,6 +1280,8 @@ def _attempt(chrome, root, alt_index, fixture):
                 if _inv:
                     fails.append('%s: the legend is not ordered by ending $ - %s'
                                  % (nm, '; '.join(_inv)))
+        if nm.startswith('cfg-labels'):
+            fails.extend(_check_cfg_labels(nm, r, fixture))
         if nm == 'funnel-1a' and (r.get('eqrTips') or 0):
             fails.append('%s: the EQUAL RISK hover is printed with the toggle OFF - the off state '
                          'must read exactly as it did before the toggle existed' % nm)
@@ -1251,12 +1331,13 @@ def _attempt(chrome, root, alt_index, fixture):
                          'must read the continuous replay the LOCKBOX column shows (live miss in '
                          'v73.940: the 1A chart hover)' % (nm, r.get('lbChartTips') - (r.get('lbChartWarm') or 0),
                                                           r.get('lbChartTips')))
-        if not r.get('lbWarmTagCount'):
+        # cfg-labels-base moves gate_validate.ungated_pre on purpose (board 169), so the warm-lockbox swap does not qualify there
+        if not r.get('lbWarmTagCount') and nm != 'cfg-labels-base':
             fails.append('%s: the 1E KPI MATRIX LOCKBOX column shows no LB warm tag -- run %s '
                          'scored its own lockbox cold (301 trades) and should read the '
                          'continuous replay (334 trades) like RUNBOARD / EXPLORE / LEADERBOARD '
                          'already do' % (nm, fixture.get('id')))
-        else:
+        elif nm != 'cfg-labels-base':
             _tip = r.get('lbWarmTagTip') or ''
             if '301' not in _tip or '9,826' not in _tip:
                 fails.append('%s: the LB warm tag does not name the cold reading this run '
