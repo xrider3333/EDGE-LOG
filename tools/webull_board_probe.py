@@ -3373,7 +3373,7 @@ var BKL=__BKL__, CASES=__CASES__, VP=__VP__, FIX=__FIX__, NOW=__NOW__, VARS=__VA
     return {title:hs[0]?(hs[0].textContent||'').trim():null,count:hs[1]?(hs[1].textContent||'').replace(/\\s+/g,' ').trim():null,
       bk:bh?{text:(bh.textContent||'').replace(/\\s+/g,' ').trim(),key:bh.getAttribute('data-qbbookkey'),est:!!bh.querySelector('[data-qbbookest]'),
         was:!!bh.querySelector('[data-qbbookwas] s'),none:!!bh.querySelector('[data-qbbooknone]'),sw:bh.scrollWidth,cw:bh.clientWidth}:null,
-      groups:[].map.call(lst.querySelectorAll('.lg-grp'),function(g){
+      groups:[].filter.call(lst.querySelectorAll('.lg-grp'),function(g){return g.getAttribute('data-lggroup')!=='bka';}).map(function(g){   // 11-23: the phone's book panel group is not a strategy group
         var h=g.querySelector('.lg-grp-hd'),f=g.querySelector('[data-lggrp]'),n=g.querySelector('.lg-grp-note'),hp=g.querySelector('.lg-grp-hd [data-lggrphelp]');
         return {key:g.getAttribute('data-lggroup'),head:h?(h.textContent||'').replace(/\\s+/g,' ').trim():null,fold:!!f,
           expanded:f?f.getAttribute('aria-expanded'):null,note:n?(n.textContent||'').replace(/\\s+/g,' ').trim():(hp?(hp.getAttribute('title')||''):(h&&h.getAttribute('title'))||null),
@@ -4118,6 +4118,24 @@ __S11JS__
                     sv.dispatchEvent(new (W().PointerEvent)('pointerleave',{pointerType:'mouse'}));}}catch(e){BK.hover='err '+e;}
                   var psw2=D().querySelector('[data-bka="qb"] [data-bkasw="PICK6"]');if(psw2){psw2.click();await new Promise(function(r){setTimeout(r,300);});}}
                 var bsw2=D().querySelector('[data-bka="qb"] [data-bkasw="OPUS55a"]');if(bsw2){bsw2.click();await new Promise(function(r){setTimeout(r,300);});}BK.s2=bs();}
+              // owner 11-23: ONE shadow section - the ML shadow books' legs (382_keel, 525_hybrid) sit in the SHADOW group of the strategy
+              // list, above the book panel, none inside the panel; order LIVE, SHADOW, Books, retired; the ML switch still writes el_bka_on_qb
+              try{var Bq=bw._bookLegs,fl0=LSb.getItem('el_qb_fold_list'),ro0=LSb.getItem('el_qb_retired_open');bw._bookLegs=JSON.parse(JSON.stringify(Bq));
+                bw._bookLegs.books['382_keel']={row:'382 keel',legs:[{id:'NOISE382_keel',name:'NOISE382_keel',run:'#382',instrument:'NQ'}]};
+                bw._bookLegs.books['525_hybrid']={row:'525 hybrid',legs:[{id:'DISC525_hybrid',name:'DISC525_hybrid',run:'#525',instrument:'stock'}]};
+                LSb.setItem('el_qb_fold_list','1');bw.renderApp();await new Promise(function(r){setTimeout(r,300);});
+                var dq=D(),side=dq.querySelector('.qbx-side'),oq=[];
+                if(side)[].forEach.call(side.querySelectorAll('[data-lglist="qb"] > [data-lggroup],[data-bka="qb"]'),function(e){var k=e.hasAttribute('data-bka')?'BOOKS':e.getAttribute('data-lggroup');if(k&&k!=='bka')oq.push(k);});
+                var shq=dq.querySelector('[data-lglist="qb"] [data-lggroup="shadow"]');
+                BK.ml={order:oq,shadowGroups:dq.querySelectorAll('[data-lglist="qb"] [data-lggroup="shadow"]').length,
+                  inShadow:shq?[].map.call(shq.querySelectorAll('[data-bkash="qb"] [data-bkaleg]'),function(e){return e.getAttribute('data-bkaleg');}):[],
+                  inPanel:[].map.call(dq.querySelectorAll('[data-bka="qb"] [data-bkaleg]'),function(e){return e.getAttribute('data-bkaleg');}).filter(function(x){return /_(keel|gate|hybrid)$/.test(x);}),
+                  mlHd:dq.querySelectorAll('[data-bkatypehd="ml"]').length,
+                  rowH:(function(){var a=dq.querySelector('[data-bkash="qb"] [data-bkaleg]');return a?a.offsetHeight:null;})()};
+                bw._bkaOn_qb=[];LSb.removeItem('el_bka_on_qb');
+                var msw=dq.querySelector('[data-bkash="qb"] [data-bkasw="NOISE382_keel"]');if(msw){msw.click();await new Promise(function(r){setTimeout(r,300);});BK.ml.stored=LSb.getItem('el_bka_on_qb');}
+                if(fl0==null)LSb.removeItem('el_qb_fold_list');else LSb.setItem('el_qb_fold_list',fl0);
+                bw._bookLegs=Bq;}catch(e){BK.ml={err:String(e)};}
               bw._bkaOn_qb=[];bw._bkaOpen_qb=null;LSb.removeItem('el_bka_on_qb');LSb.removeItem('el_bka_open_qb');LSb.removeItem('el_bka_panel_qb');
               if(vwb0==null)LSb.removeItem('el_lgv_view_qb');else LSb.setItem('el_lgv_view_qb',vwb0);
               if(dly0==null)LSb.removeItem('el_lg_slines_qb');else LSb.setItem('el_lg_slines_qb',dly0);
@@ -9240,6 +9258,22 @@ def _judge(data, fixture):
             fails.append('book as-if run: did not run -- %s' % _first(bka.get('threw') or 'no readout'))
         else:
             b0, b1, b2 = bka.get('s0') or {}, bka.get('s1') or {}, bka.get('s2') or {}
+            # owner 11-23: ONE shadow section on WEBULL PAPER - the ML shadows in it, above Books (LIVE, SHADOW, Books, retired)
+            _ml = bka.get('ml') or {}
+            if _ml.get('err') or not _ml:
+                fails.append('one shadow section: the case did not run: %s' % (_ml.get('err') or 'no readout'))
+            else:
+                _o = _ml.get('order') or []
+                if _ml.get('shadowGroups') != 1 or _ml.get('mlHd'):
+                    fails.append('one shadow section: %r SHADOW groups, ML shadows header in the panel %r - want exactly one' % (_ml.get('shadowGroups'), _ml.get('mlHd')))
+                if sorted(_ml.get('inShadow') or []) != ['DISC525_hybrid', 'NOISE382_keel'] or _ml.get('inPanel'):
+                    fails.append('one shadow section: ML legs in SHADOW %r / still in the book panel %r' % (_ml.get('inShadow'), _ml.get('inPanel')))
+                if 'shadow' not in _o or 'BOOKS' not in _o or not (_o.index('book') < _o.index('shadow') < _o.index('BOOKS')):
+                    fails.append('one shadow section: order %r, want LIVE (book), SHADOW, Books' % (_o,))
+                if not _ml.get('rowH') or _ml.get('rowH') > 40:
+                    fails.append('one shadow section: an ML row is %r px tall (the panel row look, under 40 px)' % (_ml.get('rowH'),))
+                if '"NOISE382_keel"' not in str(_ml.get('stored') or ''):
+                    fails.append('one shadow section: the ML row switch did not write el_bka_on_qb (%r)' % (_ml.get('stored'),))
             cl = bka.get('closed') or {}
             if not b0.get('panel') or not b0.get('vis') or cl.get('open') or cl.get('legs'):
                 fails.append('book as-if run: the Books as-if panel is not there, or not closed by default (panel %r, visible %r, closed %r)'

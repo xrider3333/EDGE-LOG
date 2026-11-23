@@ -864,6 +864,8 @@ select option:checked{background:var(--bg3);color:var(--text)}
 .bka-whatif{font-size:11px;color:var(--text3);padding:4px 2px 6px;font-variant-numeric:tabular-nums}
 .bka-whatif b{font-weight:700}
 .bka-type{margin-top:6px}
+/* owner 11-23: the ML shadow rows sit in the board's ONE SHADOW section - the panel's row look, none of its frame */
+.bka.bka-shml{margin:0;border-top:0;padding-top:0}
 /* board 154: the book chips over the strategy-first list, and the small book tags on each strategy row */
 .bka-chips{display:flex;flex-wrap:wrap;gap:4px;padding:4px 2px 6px}
 .bka-chip{font:inherit;font-size:10px;font-weight:700;font-variant-numeric:tabular-nums;padding:1px 8px;border-radius:999px;border:1px dashed var(--text4);background:none;color:var(--text3);cursor:pointer;line-height:16px}
@@ -2158,7 +2160,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.21';
+const VERSION='92.22';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -4178,7 +4180,7 @@ function ledgerListHtml(groups,o){
       const hd=g.title?(g.fold
         ?'<button type="button" class="lg-grp-hd" data-lggrp="'+esc(g.key)+'" aria-expanded="'+!!g.open+'"'+(g.titleTip?' title="'+esc(g.titleTip)+'"':'')+'><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+help+'</span><span class="lg-chev" aria-hidden="true">&#9662;</span></button>'
         :'<div class="lg-grp-hd'+(g.hdHidden?' lg-sr':'')+'"'+(g.titleTip?' title="'+esc(g.titleTip)+'"':'')+'><span>'+g.title+(g.count!=null?' &middot; '+g.count:'')+help+'</span></div>'):'';
-      const body=(!g.fold||g.open)?((g.lbl?'<div class="lg-grp-lbl" aria-hidden="true">'+g.lbl+'</div>':'')+(g.note?'<div class="lg-grp-note">'+g.note+'</div>':'')+(g.rows||[]).map(row).join('')):'';
+      const body=(!g.fold||g.open)?((g.lbl?'<div class="lg-grp-lbl" aria-hidden="true">'+g.lbl+'</div>':'')+(g.note?'<div class="lg-grp-note">'+g.note+'</div>':'')+(g.rows||[]).map(row).join('')+(g.after||'')):'';   // g.after: html under the rows (11-23: the ML shadow rows, the book panel)
       return '<div class="lg-grp" data-lggroup="'+esc(g.key||'')+'">'+hd+body+'</div>';
   };
   const foot=o.foot?'<div class="lg-list-foot">'+o.foot+'</div>':'';
@@ -8713,7 +8715,7 @@ function bkaPanelBooks(B){const out={chips:[],ml:[]};const bk=(B&&B.books&&typeo
   const has=k=>!!bk[k]&&!booksIsGold(B,k);
   BKA_LIMS.forEach(l=>{const k=[l+'_nogold_ml',l+'_nogold',l].find(has);if(k)out.chips.push({key:k,label:l,name:'Book '+l});});
   const k463=['463','463_nogold'].find(has);if(k463)out.chips.push({key:k463,label:'#463',name:'#463 today'});
-  Object.keys(bk).forEach(k=>{if(/^\d+_(keel|gate)$/i.test(k)&&!booksIsGold(B,k))out.ml.push(k);});
+  Object.keys(bk).forEach(k=>{if(/^\d+_(keel|gate|hybrid)$/i.test(k)&&!booksIsGold(B,k))out.ml.push(k);});   // v92.18 board 170: 525_hybrid too
   return out;}
 // THE PANEL. ctx: {board:'nt8'|'qb', listId (the root's data-lglist, so a LIVE switch reaches the board's own switch handler), from, to,
 //   live:id=>null|{key,on,net,label}, fwd:id=>null|{key,on,net,n,label} (Webull's box shadow), order:[types], active:book key,
@@ -8725,6 +8727,7 @@ function bkaPanelHtml(ctx){
   const sumTxt=()=>{const nOn=on.filter(id=>!(ctx.live&&ctx.live(id))&&!(ctx.fwd&&ctx.fwd(id))).length;return nOn?(nOn+(app?' shadow on':' remembered')):'';};
   const rem=x=>(x&&!app)?' rem':'';
   if(!B||!B.books||typeof B.books!=='object'){
+    if(ctx.part==='ml')return '';
     return '<div class="bka" data-bka="'+board+'"><div class="bka-hd"><span class="bka-t">Books &middot; as-if</span><span class="bka-s">book table not published yet</span></div></div>';}
   const from=ctx.from||null,to=ctx.to||null;
   const genAt=D&&D.generated_at?String(D.generated_at).replace('T',' ').slice(0,16)+' UTC':'';
@@ -8796,9 +8799,13 @@ function bkaPanelHtml(ctx){
   PB.chips.forEach(c=>{(B.books[c.key].legs||[]).forEach(l=>{const id=String((l&&l.id)||'');if(!id)return;(holders[id]=holders[id]||[]).push(c.label);if(!firstLeg[id]){firstLeg[id]=l;mainIds.push(id);}});});
   PB.ml.forEach(k=>{(B.books[k].legs||[]).forEach(l=>{const id=String((l&&l.id)||'');if(!id||firstLeg[id])return;firstLeg[id]=l;mlIds.push(id);});});
   const tagsOf=id=>(holders[id]||[]).map(x=>' <span class="bka-btag" data-bkabtag="'+esc(x)+'">'+esc(x)+'</span>').join('');
-  const body=chipRow+'<div class="bka-strats" data-bkastrats="'+board+'">'+mainIds.map(id=>legRow(null,firstLeg[id],tagsOf(id))).join('')+'</div>'
-    +(mlIds.length?('<div class="bka-type" data-bkatype="ml"><div class="bka-type-hd" data-bkatypehd="ml">ML shadows <span class="bka-n">'+mlIds.length+'</span></div>'
-      +mlIds.map(id=>legRow(null,firstLeg[id],' <span class="bka-btag" data-bkabtag="ML">ML</span>')).join('')+'</div>'):'');
+  // owner 11-23 ('move ml shadows above the books ... there should just be one shadow section'): the ML shadow rows left the panel; the
+  // board draws them (ctx.part='ml': the same rows, switches, colours and $) at the end of its ONE SHADOW section, above this panel.
+  // ctx.dupKey(fwdKey) = the board already lists that box shadow leg in its SHADOW section, so the ML row is not drawn twice.
+  if(ctx.part==='ml'){const ids=mlIds.filter(id=>{if(!ctx.dupKey||!ctx.fwd)return true;const f=ctx.fwd(id);return !(f&&ctx.dupKey(f.key));});
+    return ids.length?('<div class="bka bka-shml" data-bkash="'+board+'" data-bkashn="'+ids.length+'" data-lglist="'+esc(ctx.listId||('bka'+board))+'">'
+      +ids.map(id=>legRow(null,firstLeg[id],' <span class="bka-btag" data-bkabtag="ML">ML</span>')).join('')+'</div>'):'';}
+  const body=chipRow+'<div class="bka-strats" data-bkastrats="'+board+'">'+mainIds.map(id=>legRow(null,firstLeg[id],tagsOf(id))).join('')+'</div>';
   const _szAll=app?bkaSizedOf(board):null;
   const shOn=_szAll?Math.round(_szAll.reduce((a,x)=>a+Object.keys(x.days||{}).reduce((b,d)=>((from&&d<from)||(to&&d>to))?b:b+(+x.days[d].p||0),0),0)*100)/100
     :bkaOnSum(board,from,to,id=>!!((ctx.live&&ctx.live(id))||(ctx.fwd&&ctx.fwd(id))))+(+ctx.fwdOnNet||0);   // v91.92 E2
@@ -8816,8 +8823,8 @@ function bkaPanelHtml(ctx){
 // board's own data-lgsw and is handled by that board's switch handler.
 document.addEventListener('click',function(e){
   const t=e.target&&e.target.closest?e.target:null;if(!t)return;
-  const root=t.closest('[data-bka]');if(!root)return;
-  const board=root.getAttribute('data-bka');
+  const root=t.closest('[data-bka]')||t.closest('[data-bkash]');if(!root)return;   // [data-bkash]: the ML rows in the board's SHADOW section (11-23)
+  const board=root.getAttribute('data-bka')||root.getAttribute('data-bkash');
   const sw=t.closest('[data-bkasw]'),all=t.closest('[data-bkaall]'),fold=t.closest('[data-bkafold]'),pan=t.closest('[data-bkapanel]'),chip=t.closest('[data-bkachip]');
   if(!sw&&!all&&!fold&&!pan&&!chip)return;
   if(chip&&chip.disabled)return;
@@ -48983,10 +48990,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                 +(qbShB.error?' The box sent no shadow trades this time ('+esc(String(qbShB.error).slice(0,160))+').':'')):''),
             rows:shRows};
           const gRet={key:'retired',title:'retired ('+retRows.length+')',fold:true,open:qbRetOpen,count:null,titleTip:retHelp.trim(),rows:qbRetOpen?retRows:[]};
-          // r2 steps 3, 5 and 7: the range word is gone from the count (the pill is lit), there is no Filters row (this list has none), and
-          // the rows carry their own expander (r.more, remembered in window._qbLegOpen) - no html splice under the list any more
-          legListHtml=ledgerListHtml([gBook].concat((shRows.length||(qbShB&&qbShB.error))?[gShadow]:[],retRows.length?[gRet]:[]),{id:'qb',title:'Strategies',cls:'lg-list-row1 lgv-side',
-            count:qbRangeTrades.length?ledgerSigned(qbRangePnl):qbRangeNone,moreSet:qbLegOpenSet});
+          let qbMlHtml='';   // owner 11-23: the ML shadow rows (bkaPanelHtml part 'ml'), drawn at the end of the ONE SHADOW group
           // ── BOOK AS-IF (owner 11-21 'put the book configs on the ledger shadow! divided by book type. i want to toggle them!', v91.71) - the
           // shared panel (bkaPanelHtml, the same one NT8 PAPER draws). Here: LIVE = a book leg the box trades on Webull now (BOOKS_LEG_CLASS
           // exec_leg is one of this board's live legs; its switch IS the Strategies switch, qbLegsOff); SHADOW from the box's own forward
@@ -49010,7 +49014,20 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               active:_bkAct?_bkAct.k:null,activeWord:'on the box',accountNet:qbRangePnl,accountWord:'realized',fwdOnNet:qbShOnSum};
             window._qbBkaCtx=ctx;
             qbBookDdHtml=bkaPanelHtml(ctx);
+            try{qbMlHtml=bkaPanelHtml(Object.assign({},ctx,{part:'ml',dupKey:k=>shRows.some(r=>r&&r.key===k)}));}catch(e){qbMlHtml='';console.warn('ML shadow rows:',e);}
           }catch(e){qbBookDdHtml='';window._qbBkaCtx=null;console.warn('book as-if panel:',e);}
+          // owner 11-23 ('move ml shadows above the books ... there should just be one shadow section'): ONE SHADOW group - the box's
+          // no-order shadow legs, then the ML shadow legs (same rows, switches and keys as in the book panel before). Order LIVE, SHADOW,
+          // the book panel, retired: on a phone the panel rides inside this list between SHADOW and retired; from 601 px it stays right
+          // under the Strategies fold (v91.71: open by default even with the fold shut).
+          // r2 steps 3, 5 and 7: the range word is gone from the count (the pill is lit), there is no Filters row (this list has none), and
+          // the rows carry their own expander (r.more, remembered in window._qbLegOpen) - no html splice under the list any more
+          {const mlN=(/data-bkashn="(\d+)"/.exec(qbMlHtml)||[])[1]|0;
+           gShadow.count=shRows.length+mlN;gShadow.after=qbMlHtml;
+           const inList=(window.innerWidth||0)<=600;
+           const gBka={key:'bka',after:(qbBookDdHtml&&inList)?('<div class="qbx-bkdd-box" data-qbbookdd="1">'+qbBookDdHtml+'</div>'):''};
+           legListHtml=ledgerListHtml([gBook].concat((shRows.length||mlN||(qbShB&&qbShB.error))?[gShadow]:[],gBka.after?[gBka]:[],retRows.length?[gRet]:[]),{id:'qb',title:'Strategies',cls:'lg-list-row1 lgv-side',
+            count:qbRangeTrades.length?ledgerSigned(qbRangePnl):qbRangeNone,moreSet:qbLegOpenSet});}
           // the phone's one-line header for the list (item 38): 'N live · +$X · N open'
           qbListSum=bookRows.filter(r=>r.key!=='~other').length+' live &middot; '
             +(qbRangeTrades.length?('<span class="'+ledgerCls(qbRangePnl)+'">'+ledgerSigned(qbRangePnl)+'</span>'):qbRangeNone)
@@ -50600,8 +50617,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         const qbBkaInList=(window.innerWidth||0)<=600;
         const qbSideNew='<div class="qbx-side">'+qbFoldBtn('list','Strategies',qbListSum,qbListOpen,'qbx-list-fold')
           +'<div class="qbx-list-panel" id="qbf-list"'+(qbListOpen?'':' hidden')+'>'+legListHtml
-          // a phone keeps the trade list inside its first screen (mistake #12): there the panel rides at the end of the Strategies fold
-          +((qbBookDdHtml&&qbBkaInList)?('<div class="qbx-bkdd-box" data-qbbookdd="1">'+qbBookDdHtml+'</div>'):'')
+          // a phone keeps the trade list inside its first screen (mistake #12): there the panel rides inside the Strategies list (owner 11-23:
+          // between SHADOW and retired, legListHtml above)
           +'</div>'+((qbBookDdHtml&&!qbBkaInList)?('<div class="qbx-bkdd-box" data-qbbookdd="1">'+qbBookDdHtml+'</div>'):'')+'</div>';
         const qbBooksSum=(window._bookLegs&&window._bookLegs.books)?(Object.keys(window._bookLegs.books).length+' books'):'not published';
         const qbOwnSecs=qbFoldHtml('books','BOOKS',qbBooksSum,booksCardHtml(QE))
@@ -53450,12 +53467,23 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           titleTip:'COUNTED in the big number, the curve, the stats and the calendar, at book weights'+(_bookWtxt?(' ('+_pnX(_bookWtxt)+')'):'')+'. A switch leaves that leg out of all of them.',
           note:'<span data-p2listed data-net="'+_listedNet.toFixed(2)+'" data-n="'+_listedN+'" data-tie="'+(_pnTie?'1':'0')+'"'+(_pnTie?' hidden':'')+'>'+(_pnTie?'= the big number':'does not match the big number: check the switches')+'</span>',
           rows:_bookRowsOrdered.map(d=>_pnRow(d[0],d[1],'book'))}];
+        // owner 11-23 ('move ml shadows above the books in the ledgers. there should just be one shadow section'): ONE SHADOW group under
+        // LIVE holding the ML shadow legs (the same rows, switches and keys the book panel drew), then the book panel, then the More fold
+        // (forward tests, other, retired) - LIVE, SHADOW, Books, retired.
+        {let ml='',bk='';
+          try{ml=bkaPanelHtml(Object.assign({},_bkaCtx,{part:'ml'}));}catch(e){console.warn('ML shadow rows:',e);}
+          try{bk=bkaPanelHtml(_bkaCtx);}catch(e){console.warn('book as-if panel:',e);}
+          const mlN=(/data-bkashn="(\d+)"/.exec(ml)||[])[1]|0;
+          if(mlN)_pnGroups.push({key:'shadow',title:'SHADOW',count:mlN,
+            titleTip:'Shadow: no-order legs, simulated as-if from their pinned champion. Never in the account number, the curve, the stats or the calendar; a switch draws its dashed line (WHAT-IF).',
+            rows:[],after:ml});
+          if(bk)_pnGroups.push({key:'bka',rows:[],after:bk});}
         if(_pnFwdKeys.length)_pnGroups.push({key:'fwd',more:true,title:'Forward tests &amp; controls - not counted',
           count:_pnGc('fwd',_pnFwdA.net,_pnFwdA.n,_pnFwdKeys.length,_pnFwdKeys.length+' &middot; '+_pnMoney(_pnFwdA.net)),
           fold:true,open:!!window._paperFwdOpen,
           note:_pnUncN(!!window._paperFwdOpen),
           rows:window._paperFwdOpen?_legOrder.filter(d=>!_bookSet.has(d[0])&&!_isArchivedLeg(d[0])).map(d=>_pnRow(d[0],d[1],'fwd')):[]});
-        if(_otherKeys.length)_pnGroups.push({key:'other',more:true,title:'Other / shadow - not counted',
+        if(_otherKeys.length)_pnGroups.push({key:'other',more:true,title:'Other - not counted',
           count:_pnGc('other',_pnOthA.net,_pnOthA.n,_otherKeys.length,_otherKeys.length+' &middot; '+_pnMoney(_pnOthA.net)),
           fold:true,open:!!window._paperOtherOpen,titleTip:'Strategies the runner computes that have no listed row.',
           note:_pnUncN(!!window._paperOtherOpen),
@@ -53508,8 +53536,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               count:'<span class="p2railct">'+_nShown+' of '+_bookDefs.length+' on</span>'+(_legOff.length?' <span class="p2link" data-paperlegall title="switch every book leg on">all</span>':''),
               filters:ledgerFiltersHtml({id:'p2',sum:_pnX(_pnFiltSum),body:_pnFilt}),
               foot:_pnFoot})
-            +(()=>{try{return bkaPanelHtml(_bkaCtx);}catch(e){console.warn('book as-if panel:',e);return '';}})()
-            +'</div>';
+            +'</div>';   // owner 11-23: the book panel is the 'bka' group above the More fold (LIVE, SHADOW, Books, retired)
         })();
         // board-scoped CSS for the shared parts (the shared CSS itself is TRADING-LOG's and is not touched)
         const _pnCss='<style>'

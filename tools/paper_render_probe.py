@@ -1796,6 +1796,24 @@ var CASES=__CASES__, FIX=__FIX__, HOUSE=__HOUSE__, S11K=__S11K__, OLDMARKS=__OLD
                     sv.dispatchEvent(new PointerEvent('pointerleave',{pointerType:'mouse'}));}}catch(e){BK.hover='err '+e;}
                   _click('[data-bka="nt8"] [data-bkachip^="30"]');BK.s6=_bs();}
               }
+              // owner 11-23: ONE shadow section - the ML shadow books' legs (382_keel, 525_hybrid) sit in the SHADOW group above the book
+              // panel (LIVE, SHADOW, Books, retired), none of them inside the panel, and their switch still writes el_bka_on_nt8
+              try{var B0=w._bookLegs;w._bookLegs=JSON.parse(JSON.stringify(B0));
+                w._bookLegs.books['382_keel']={row:'382 keel',legs:[{id:'NOISE382_keel',name:'NOISE382_keel',run:'#382',instrument:'NQ'}]};
+                w._bookLegs.books['525_hybrid']={row:'525 hybrid',legs:[{id:'DISC525_hybrid',name:'DISC525_hybrid',run:'#525',instrument:'stock'}]};
+                LS0.setItem('el_lg_listmore_p2','1');w.renderApp();
+                var L2=d.querySelector('.p2rail [data-lglist="p2"]'),ord=[];
+                if(L2)[].forEach.call(L2.querySelectorAll('[data-lggroup],[data-bka="nt8"]'),function(e){var k=e.hasAttribute('data-bka')?'BOOKS':e.getAttribute('data-lggroup');if(k&&k!=='bka')ord.push(k);});
+                var shG=d.querySelector('.p2rail [data-lggroup="shadow"]');
+                BK.ml={order:ord,shadowGroups:d.querySelectorAll('.p2rail [data-lggroup="shadow"]').length,
+                  shTitle:shG?_t(shG.querySelector('.lg-grp-hd')):null,
+                  inShadow:shG?[].map.call(shG.querySelectorAll('[data-bkash="nt8"] [data-bkaleg]'),function(e){return e.getAttribute('data-bkaleg');}):[],
+                  inPanel:[].map.call(d.querySelectorAll('[data-bka="nt8"] [data-bkaleg]'),function(e){return e.getAttribute('data-bkaleg');}).filter(function(x){return /_(keel|gate|hybrid)$/.test(x);}),
+                  mlHd:d.querySelectorAll('[data-bkatypehd="ml"]').length,
+                  otherShadowTitle:[].some.call(d.querySelectorAll('.p2rail .lg-grp-hd'),function(e){return /shadow/i.test(_t(e))&&!e.closest('[data-lggroup="shadow"]');})};
+                LS0.removeItem('el_bka_on_nt8');w._bkaOn_nt8=[];
+                if(_click('[data-bkash="nt8"] [data-bkasw="NOISE382_keel"]'))BK.ml.stored=LS0.getItem('el_bka_on_nt8');
+                LS0.removeItem('el_lg_listmore_p2');w._bookLegs=B0;}catch(e){BK.ml={err:String(e)};}
               w._bkaOn_nt8=[];w._bkaOpen_nt8=null;LS0.removeItem('el_bka_on_nt8');LS0.removeItem('el_bka_open_nt8');
               if(dly0==null)LS0.removeItem('el_lg_slines_p2');else LS0.setItem('el_lg_slines_p2',dly0);
               if(vw0==null)LS0.removeItem('el_lgv_view_p2');else LS0.setItem('el_lgv_view_p2',vw0);LS0.removeItem('el_bka_panel_nt8');
@@ -2302,6 +2320,22 @@ def run(alt_index=None, timeout=300):
     # the account figures never move, one click = a whole book as-if (paper2 case, fixture book table + as-if doc seeded by the probe)
     _bka = ((cases.get('paper2') or {}).get('int') or {}).get('bka') or {}
     _bka_ok = []
+    # owner 11-23: ONE shadow section on NT8 PAPER - the ML shadows in it, above Books (LIVE, SHADOW, Books, retired)
+    _ml = _bka.get('ml') or {}
+    if _ml.get('err') or not _ml:
+        fails.append('paper2 one shadow section: the case did not run: %s' % (_ml.get('err') or 'no readout'))
+    else:
+        _o = _ml.get('order') or []
+        _want = [k for k in ('book', 'shadow', 'BOOKS', 'retired') if k in _o]
+        if _ml.get('shadowGroups') != 1 or _ml.get('otherShadowTitle') or _ml.get('mlHd'):
+            fails.append('paper2 one shadow section: %r SHADOW groups, another shadow header %r, ML shadows header in the panel %r - want exactly one'
+                         % (_ml.get('shadowGroups'), _ml.get('otherShadowTitle'), _ml.get('mlHd')))
+        if sorted(_ml.get('inShadow') or []) != ['DISC525_hybrid', 'NOISE382_keel'] or _ml.get('inPanel'):
+            fails.append('paper2 one shadow section: ML legs in SHADOW %r / still in the book panel %r' % (_ml.get('inShadow'), _ml.get('inPanel')))
+        if _want[:3] != ['book', 'shadow', 'BOOKS'] or _o.index('shadow') > _o.index('BOOKS') or ('retired' in _o and _o.index('retired') < _o.index('BOOKS')):
+            fails.append('paper2 one shadow section: order %r, want LIVE (book), SHADOW, Books, retired' % (_o,))
+        if '"NOISE382_keel"' not in str(_ml.get('stored') or ''):
+            fails.append('paper2 one shadow section: the ML row switch did not write el_bka_on_nt8 (%r)' % (_ml.get('stored'),))
     if _bka.get('err') or not _bka.get('s0'):
         fails.append('paper2 book as-if: the panel case did not run: %s' % (_bka.get('err') or 'no readout'))
     else:
@@ -3199,12 +3233,14 @@ def run(alt_index=None, timeout=300):
     # -- STEP 10: the shared strategy list - groups in order, the BOOK total is the big number, one switch moves everything
     r = cases.get('paper2') or {}
     gs = r.get('groups') or []
+    # owner 11-23: the book panel ('bka') and, when the table has ML shadow books, ONE SHADOW group sit between BOOK and the More fold
+    gs = [g for g in gs if g.get('key') not in ('bka', 'shadow')]
     if [g.get('key') for g in gs] != ['book', 'fwd', 'other', 'retired']:
-        fails.append('paper2: the strategy list groups read %s, expected BOOK, Forward tests & controls, Other / shadow, Retired'
+        fails.append('paper2: the strategy list groups read %s, expected BOOK, (SHADOW, Books,) Forward tests & controls, Other, Retired'
                      % [g.get('key') for g in gs])
     else:
         byk = dict((g['key'], g) for g in gs)
-        want_titles = {'book': 'BOOK #463', 'fwd': 'Forward tests & controls', 'other': 'Other / shadow - not counted', 'retired': 'Retired'}
+        want_titles = {'book': 'BOOK #463', 'fwd': 'Forward tests & controls', 'other': 'Other - not counted', 'retired': 'Retired'}
         for k, ttl in want_titles.items():
             if not (byk[k].get('txt') or '').startswith(ttl):
                 fails.append('paper2: the %s group is titled %r, expected %r' % (k, byk[k].get('txt'), ttl))
