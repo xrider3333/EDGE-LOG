@@ -330,7 +330,7 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
             var a=tr.cells[iR],n=tr.cells[iN];
             if(a&&a.scrollWidth>a.clientWidth)o.rankCut.push((a.textContent||'').trim());
             if(n&&n.scrollWidth>n.clientWidth)o.runCut.push((n.textContent||'').trim());
-            var ty=f?f.querySelector('[data-retype]'):null,run=n?((n.textContent||'').trim().split(' ')[0]):'';
+            var ty=f?f.querySelector('[data-retype]'):null,run=n?((n.textContent||'').trim().split(' ')[0].split('.')[0]):'';
             var g=run+'|'+(s?s.textContent:'')+'|'+(ty?ty.textContent:''),vis=(f?f.textContent:'')+'|'+(n?n.textContent:'');
             o.grp[g]=o.grp[g]||{};if(o.grp[g][vis])o.dup.push(vis);o.grp[g][vis]=1;});
           o.groups=Object.keys(o.grp).length;Object.keys(o.grp).forEach(function(g){var k=Object.keys(o.grp[g]).length;if(k>o.maxGrp)o.maxGrp=k;});delete o.grp;
@@ -8698,7 +8698,7 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
            oneFamLeg:(S.legBox||'').slice(0,120),chip:M.chip,errs:errAcc.slice(0,2)});
       })();
       // -- case c163_cfg_labels (owner 11-22, board 163: "#555 v12 K", "#545 R9" - which config inside the run is it?).
-      //    Every configuration row's RUN cell reads the ledger's #RUN.CFG MODE . detail, the .CFG worked out HERE from the
+      //    Every configuration row's RUN cell reads the ledger's #RUN.CFG MODE . detail (ML rows #RUN.CFG.N, v92.20), the .CFG worked out HERE from the
       //    fixture's own saved grid (points sorted by in-sample net, the crowned candidate's row); the overlays (gate / tilt /
       //    hybrid) carry the champion's set; no two rows of the run read alike; the scatter hover leads with the label, the
       //    READ, both axes by name and the four numbers + trades a year.
@@ -8718,7 +8718,7 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
         var L=[].map.call(d.querySelectorAll('[data-relbl]'),function(s){var tr=s.closest('tr');
           return {full:s.getAttribute('data-relbl')||'',short:dfxN(s.textContent||''),tip:s.getAttribute('title')||'',row:tr?dfxN(tr.textContent||''):'',
             cut:(function(){var td=s.closest('td');return !!td&&td.scrollWidth>td.clientWidth+1;})()};});
-        var shortRe=new RegExp('^#'+CID+'[.][0-9]+ (raw|gate|tilt|hybrid|keel)( |$)');
+        var shortRe=new RegExp('^#'+CID+'[.][0-9]+([.][0-9]+)? (raw|gate|tilt|hybrid|keel)( |$)');
         var crow=L.filter(function(o){return new RegExp('#'+CID+' RAW crowned').test(o.row);})[0]||null;
         var ovl=L.filter(function(o){return / (gate|tilt|hybrid) /.test(o.short);});
         var seen={},dup=[];L.forEach(function(o){if(seen[o.full])dup.push(o.full);seen[o.full]=1;});
@@ -8729,10 +8729,10 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
         dfxCase('c163_cfg_labels',calls,{
           'the fixture has a saved grid and a crowned candidate, so this case tests something':g.length>10&&want!=null,
           'every configuration row carries the one label (raw + gate + tilt + hybrid rows)':L.length>=30,
-          'every RUN cell reads #RUN.CFG MODE, e.g. "#306.6 raw"':L.length>0&&L.every(function(o){return shortRe.test(o.short);}),
+          'every RUN cell reads #RUN.CFG MODE (raw) or #RUN.CFG.N MODE (ML), e.g. "#306.6 raw", "#306.6.1 gate"':L.length>0&&L.every(function(o){return shortRe.test(o.short);}),
           'every full label (the hover) leads with the family: "NOISE #306.N ..."':L.length>0&&L.every(function(o){return o.full.indexOf('NOISE #'+CID+'.')===0;}),
           'the crowned row is the set worked out here from the saved grid':!!crow&&crow.short.indexOf('#'+CID+'.'+want+' raw')===0&&/R1/.test(crow.short),
-          'the overlays (gate / tilt / hybrid) carry the champion set and a model detail':ovl.length>=20&&ovl.every(function(o){return o.short.indexOf('#'+CID+'.'+want+' ')===0&&o.short.indexOf(' '+DOT+' ')>0;}),
+          'the overlays (gate / tilt / hybrid) carry the champion set, their own .N and a model detail':ovl.length>=20&&ovl.every(function(o){return new RegExp('^#'+CID+'[.]'+want+'[.][0-9]+ ').test(o.short)&&o.short.indexOf(' '+DOT+' ')>0;}),
           'no two configurations of the run read alike':dup.length===0,
           'no RUN cell is cut (long labels end in an ellipsis inside the cell)':L.every(function(o){return !o.cut;}),
           'the hover of a label says what the set number means':!!crow&&/saved search grid|kept grid rows/.test(crow.tip),
