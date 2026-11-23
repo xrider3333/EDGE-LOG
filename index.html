@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.14';
+const VERSION='92.15';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5944,15 +5944,24 @@ function _hydrateCfgPts(id){
   id=String(id);
   const d=(window._runCfg||{})[id],f=(window._runFull||{})[id];
   if(d&&Array.isArray(d.points))return;
-  if(f&&Array.isArray(f.points)){window._runCfgPts[id]=f.points;_cfgPtsFold(id);return;}
-  if(id in window._runCfgPts){_cfgPtsFold(id);return;}
+  // sweep 7 #4: a grid attached DURING a render (the full doc landed after the configs-only record) was drawn
+  //   by nobody - the rows already read d.points as missing. One redraw, scheduled, never a loop: the next
+  //   pass finds d.points and returns at the top.
+  const _attachRedraw=function(){if(d&&Array.isArray(d.points)&&!window._runCfgPtsRedrawQ&&typeof renderApp==='function'){
+    window._runCfgPtsRedrawQ=1;setTimeout(function(){window._runCfgPtsRedrawQ=0;renderApp();},0);}};
+  if(f&&Array.isArray(f.points)){window._runCfgPts[id]=f.points;_cfgPtsFold(id);_attachRedraw();return;}
+  if(id in window._runCfgPts){_cfgPtsFold(id);_attachRedraw();return;}
   if(window._runCfgPtsBusy[id]||!auth||!auth.currentUser||!_runsUid)return;
   window._runCfgPtsBusy[id]=1;
   const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
   const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'
     +_runsUid+'/runs/'+id+'?mask.fieldPaths=points';
+  // sweep 7 #4: the burst redraws when NOTHING is still loading and ANY read in it succeeded - not only when
+  //   the last one to land happened to succeed.
   const _done=function(v){delete window._runCfgPtsBusy[id];window._runCfgPts[id]=v;_cfgPtsFold(id);
-    if(!Object.keys(window._runCfgPtsBusy).length&&Array.isArray(v)&&typeof renderApp==='function')renderApp();};
+    if(Array.isArray(v))window._runCfgPtsBurstOk=1;
+    if(!Object.keys(window._runCfgPtsBusy).length){const ok=window._runCfgPtsBurstOk;window._runCfgPtsBurstOk=0;
+      if(ok&&typeof renderApp==='function')renderApp();}};
   _idToken().then(tok=>fetch(url,{headers:{'Authorization':'Bearer '+tok}}))
     .then(r=>{if(!r.ok)throw new Error('cfg points REST '+r.status);return r.json();})
     .then(doc=>{const o=_fsFields((doc||{}).fields||{});_done(Array.isArray(o.points)?o.points:false);})
@@ -43724,7 +43733,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
                +(_avCut?(' This rail shows the newest '+_avTop.length+(_avOld.length?(' + '+_avOld.length+' older book/live run'+(_avOld.length===1?'':'s')):'')+' of the '+_avAll.length+' runs that match, so ALL means those '+_av.length+' - pick a strategy on the rail above to reach the other '+_avCut+'.'):''),_TONE.rank)
               +(_avKey?('<span data-rekeyruns="'+_avKey+'" title="'+_reEsc('Run'+(_avKey===1?'':'s')+' older than the newest '+((typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:75)+' loaded, offered because a BOOK leg or a live / paper leg is built on '+(_avKey===1?'it':'them')+' - fetched once by id: '+_av.filter(function(r){return r&&r._keyRun;}).map(function(r){return '#'+r.id;}).join(' ')+'.')+'" style="font-size:9px;color:var(--text5);margin:0 6px;align-self:center;cursor:help">+ '+_avKey+' older book/live run'+(_avKey===1?'':'s')+'</span>'):'')
               +_reBtn('data-recfgnone="1"','KEEP ONE',false,
-                'clear back to the newest non-FAIL run on its own, or the newest run if every one offered here failed.',_TONE.rank)
+                'clear back to the newest non-FAIL run on its own, or the newest run if every one offered here failed. Shift-click any run chip to keep just that one - the STRATEGY row takes the same shift-click.',_TONE.rank)
               +_pills;})()
           ,_TONE.rank);
         const _reChartBtns=_reCtl(1,'CHART','which drawing the rows are shown in. Both use exactly the same rows, filters and ticked profit stage.',
@@ -43901,9 +43910,14 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   to click to get back, and CLEAR, which does it, lives elsewhere and drops the month, the
             //   study and the range with it. The click handler has always read an empty value as ALL.
             _reBtn('data-refam=""','ALL \u00b7 '+_reFamAll,!_reFamPick.length,
-              'show every strategy: all '+_reFamAll+' rows on this chip, and every strategy chip lights. Click one strategy after this to drop just that one. Click it to drop a strategy pick on its own - the month, the study and the range stay exactly as they are',_TONE.samp)
+              'show every strategy: all '+_reFamAll+' rows on this chip, and every strategy chip lights. Click one strategy after this to drop just that one; shift-click one to keep just that one. Click it to drop a strategy pick on its own - the month, the study and the range stay exactly as they are',_TONE.samp)
             +(Object.keys(_reFamCnt).length?Object.keys(_reFamCnt).sort():_reOpts.fam).map(v=>_reBtn('data-refam="'+_reEsc(v)+'"',_reEsc(v)+' \u00b7 '+(_reFamCnt[v]||0),(!_reFamPick.length||_reFamPick.indexOf(v)>=0),
-              'show only '+_reEsc(v)+': '+(_reFamCnt[v]||0)
+              // sweep 7 #3: the hover says what the CLICK does. From ALL a click drops this one and keeps the rest;
+              //   a ticked chip unticks; an unticked one is added. Shift-click is always 'just this one'.
+              ((!_reFamPick.length)?('drop '+_reEsc(v)+' (keep the rest)')
+               :(_reFamPick.indexOf(v)>=0)?((_reFamPick.length===1)?('drop '+_reEsc(v)+' - back to every strategy'):('drop '+_reEsc(v)+' (keep the rest of the pick)'))
+               :('add '+_reEsc(v)+' to the pick'))
+              +'. Shift-click: just '+_reEsc(v)+'. '+_reEsc(v)+': '+(_reFamCnt[v]||0)
                 +((_reSrc==='valid')?' Auto-Validate runs in Past Runs.'
                  :(_reSrc==='el')?' rows on this chip: EDGELOG runs that are not Auto-Validate jobs, plus the runs a lane recorded on the runner or the box.'
                  :(_reSrc==='chat')?(' chat sweeps: write-ups in the registry plus the runs a lane or the Qwen Lab recorded for itself, across '+_reFamStudies(v)+' studies.')
@@ -54811,8 +54825,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
       })();
       // ticking a run adds or removes it; the last one cannot be untucked, because an
       //   empty pick would leave the level with nothing to read and no way back.
-      content.querySelectorAll('[data-recfgrun]').forEach(b=>{b.onclick=()=>{
+      content.querySelectorAll('[data-recfgrun]').forEach(b=>{b.onclick=(ev)=>{
         const id=b.getAttribute('data-recfgrun');
+        // sweep 7 #5: SHIFT-click = just this run, the same gesture the STRATEGY row takes
+        if(ev&&ev.shiftKey){savePref('resCfgRunAll',null);savePref('resCfgAuto',_reFamKeyNow());
+          savePref('resCfgRun',[id]);renderApp();return;}
         const cur=Array.isArray(APREF.resCfgRun)?APREF.resCfgRun.map(String)
           :((APREF.resCfgRun!=null&&APREF.resCfgRun!=='')?[String(APREF.resCfgRun)]:[]);
         // board 167: in the ALL state every offered chip is lit, so a click drops just that one
@@ -54941,10 +54958,16 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
         let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
         if(sl.value)o.study=[sl.value];else delete o.study;
         savePref('resFilt',JSON.stringify(o));renderApp();};});
-      content.querySelectorAll('[data-refam]').forEach(b=>{b.onclick=()=>{
+      content.querySelectorAll('[data-refam]').forEach(b=>{b.onclick=(ev)=>{
         let o={};try{const _rf=APREF.resFilt;o=(_rf&&typeof _rf==='object'&&!Array.isArray(_rf))?JSON.parse(JSON.stringify(_rf)):(JSON.parse(_rf||'{}')||{});}catch(e){o={};}
         const v=b.dataset.refam;
+        // sweep 7 #2: runs ALL is stamped with the strategy pick it was clicked under, so changing the pick used to
+        //   switch it off without a word and freeze the run list. Remember whether the OLD pick had it on.
+        const _oldFam=(Array.isArray(o.fam)&&o.fam.length)?o.fam.slice():[];
+        const _runAllWas=String(APREF.resCfgRunAll==null?'':APREF.resCfgRunAll)==='1|'+_oldFam.slice().sort().join('|');
         if(!v){delete o.fam;}                      // ALL clears the family filter
+        else if(ev&&ev.shiftKey){                 // sweep 7 #5: SHIFT-click = just this strategy (the run row's KEEP ONE)
+          o.fam=[v];savePref('resFamFromAll',null);}   // an explicit pick of one: the newest-5 rule, never runs ALL
         else{// board 167: nothing picked is ALL and lights every chip, so the first click from ALL drops
           //   just that strategy (ALL, then TTM = everything but TTM). Every chip back on collapses to
           //   ALL again - same rows as today, and a strategy that appears later joins on its own.
@@ -54955,7 +54978,13 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           const _fromAll=!(Array.isArray(o.fam)&&o.fam.length)||String(APREF.resFamFromAll==null?'':APREF.resFamFromAll)===o.fam.slice().sort().join('|');
           if(cur.length&&!_offer.every(x=>cur.indexOf(x)>=0))o.fam=cur;else delete o.fam;
           // remember a pick that grew out of ALL, so the run rail treats it as a filter, not a fetch
-          savePref('resFamFromAll',(_fromAll&&o.fam)?o.fam.slice().sort().join('|'):null);}
+          savePref('resFamFromAll',(_fromAll&&o.fam)?o.fam.slice().sort().join('|'):null);
+          // sweep 7 #2: a click that DROPS a strategy narrows what runs ALL already covered, so ALL carries over to
+          //   the new pick and a run that loads later still joins. Adding a strategy never carries it (that would
+          //   fetch every run of the new strategy - the 1-3 strategy newest-5 rule decides those).
+          const _newFam=(Array.isArray(o.fam)&&o.fam.length)?o.fam:[];
+          const _narrow=_newFam.length>0&&(!_oldFam.length||_newFam.every(x=>_oldFam.indexOf(x)>=0));
+          if(_runAllWas&&_narrow)savePref('resCfgRunAll','1|'+_newFam.slice().sort().join('|'));}
         savePref('resFilt',JSON.stringify(o));renderApp();};});
       // STUDIES board: the TIME SCOPE, the date it reads, and the colour setting. All three are
       //   persisted through savePref exactly like every other view preference on this board, so

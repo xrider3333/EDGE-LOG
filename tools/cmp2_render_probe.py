@@ -110,7 +110,7 @@ import time
 
 PASS, FAIL, INCONCLUSIVE = 0, 1, 2
 PROBE_FILENAME = '_cmp2_probe.html'
-N_CASES = 176
+N_CASES = 177
 N_BLOCKS = None   # set after PROBE_HTML: its top-level case blocks (some report more than one case)
 
 PROBE_HTML = """<!DOCTYPE html>
@@ -8774,6 +8774,56 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
           'no console errors':errAcc.length===0
         },{res:res,td:td,pt:pt,errs:errAcc.slice(0,2)});
       })();
+      // -- case s7_fam_runall (sweep 7, board 167 + 163): dropping a strategy from ALL carries runs ALL over to the new pick
+      //    (#2); the strategy chip hover says what the click does (#3); shift-click = just this one on both rows (#5);
+      //    a saved grid attached during a render schedules one redraw (#4).
+      __B(176)&&(function(){
+        var calls=[],errAcc=[];
+        function chk(tag){if(sink.errors.length||sink.uncaught.length)errAcc.push(tag+': '+sink.errors.concat(sink.uncaught).join(' | '));}
+        function prefs(){try{return JSON.parse(w.eval("localStorage.getItem('augurPrefs')||'{}'"))||{};}catch(e){return {};}}
+        function famOf(ap){var rf=ap.resFilt;try{rf=(rf&&typeof rf==='object')?rf:(JSON.parse(rf||'{}')||{});}catch(e){rf={};}return rf.fam||[];}
+        var old={id:'369',strategy:'TTMSQZ_3_0_ES30SSOF2.py',starred:false,multiplier:20,instrument:'NQ',timeframe:'5m',scope:'validate',
+          date_from:'2010-06-07',date_to:'2025-06-29',timestamp:'2025-02-01T00:00:00Z',
+          validate:{verdict:'PASS',windows:{optimize:['2010-06-07','2024-06-29'],wf_split:'2016-10-12',lockbox:['2024-06-29','2025-06-29']}}};
+        var wc=dfxWin([FIX],"window._keyRuns=[(function(x){x=__f(x);x._keyRun=true;return x;})("+JSON.stringify(old)+")];window._keyRunsState='ok';");
+        var P={c2Screen:'explore',resSrc:'cfg',resLvl:'all',resShow:'configs',c2Month:'all',c2Tbl:true,resCols:'key',resCfgRunAll:'1|'};
+        calls.push(doRender(P,wc));chk('all');
+        var chips=[].filter.call(d.querySelectorAll('[data-refam]'),function(b){return b.getAttribute('data-refam');});
+        var ttm=d.querySelector('[data-refam="TTM"]'),tipAll=ttm?(ttm.getAttribute('title')||''):'';
+        var r={chips:chips.map(function(b){return b.getAttribute('data-refam');}),tipAll:tipAll.slice(0,80)};
+        // #2: ALL then TTM = everything but TTM, and runs ALL follows the new pick
+        if(ttm&&ttm.onclick){ttm.onclick({shiftKey:false});var ap=prefs();r.famDrop=famOf(ap);r.runAll=ap.resCfgRunAll;}
+        // #3: on the narrowed pick the TTM chip is unticked -> 'add', a ticked one -> 'drop'
+        calls.push(doRender(Object.assign({},P,{resFilt:{fam:r.famDrop||[]},resCfgRunAll:r.runAll}),wc));chk('narrowed');
+        var t2=d.querySelector('[data-refam="TTM"]');r.tipAdd=t2?(t2.getAttribute('title')||'').slice(0,40):'';
+        var pick=(r.famDrop||[])[0],t3=pick?d.querySelector('[data-refam="'+pick+'"]'):null;r.tipDrop=t3?(t3.getAttribute('title')||'').slice(0,60):'';
+        r.runsLit=[].filter.call(d.querySelectorAll('[data-recfgrun]'),function(b){return /color-mix/.test(b.getAttribute('style')||'');}).length;
+        r.runsN=d.querySelectorAll('[data-recfgrun]').length;
+        // #5: shift-click a strategy chip from ALL = just that one
+        calls.push(doRender(P,wc));chk('all2');
+        var t4=d.querySelector('[data-refam="TTM"]');if(t4&&t4.onclick){t4.onclick({shiftKey:true});r.famOnly=famOf(prefs());}
+        // #5: shift-click a run chip = just that run
+        calls.push(doRender(P,wc));chk('all3');
+        var pill=d.querySelector('[data-recfgrun="369"]');if(pill&&pill.onclick){pill.onclick({shiftKey:true});var ap2=prefs();r.runOnly=ap2.resCfgRun;r.runAllAfter=ap2.resCfgRunAll;}
+        // #4: a grid attached during a render schedules ONE redraw
+        var at=null;try{at=w.eval("window._runCfgPtsRedrawQ=0;window._runCfg['9z9']={id:'9z9'};window._runFull['9z9']={id:'9z9',points:[{pnl:1}]};_hydrateCfgPts('9z9');"
+          +"var _q=window._runCfgPtsRedrawQ;_hydrateCfgPts('9z9');var _o=JSON.stringify({q:_q,fold:(window._runCfg['9z9'].points||[]).length});"
+          +"delete window._runCfg['9z9'];delete window._runFull['9z9'];delete window._runCfgPts['9z9'];_o");at=JSON.parse(at);}catch(e){errAcc.push('attach: '+e);}
+        w.eval("window._keyRuns=[];window._keyRunsState='idle';");
+        var restKey=(r.famDrop||[]).slice().sort().join('|');
+        dfxCase('s7_fam_runall',calls,{
+          'two strategies on the rail (TTM + the fixture)':r.chips.length>=2&&r.chips.indexOf('TTM')>=0,
+          'from ALL the TTM hover says the click DROPS it (#3)':/^drop TTM [(]keep the rest[)]/.test(tipAll)&&/Shift-click: just TTM/.test(tipAll),
+          'ALL then TTM leaves every other strategy picked (#2)':!!r.famDrop&&r.famDrop.length===r.chips.length-1&&r.famDrop.indexOf('TTM')<0,
+          'runs ALL carries over to the new pick (#2)':!!restKey&&r.runAll==='1|'+restKey,
+          'on the new pick every offered run is still ticked (#2)':r.runsN>0&&r.runsLit===r.runsN,
+          'an unticked chip says add, a ticked one says drop (#3)':/^add TTM/.test(r.tipAdd)&&/^drop /.test(r.tipDrop),
+          'shift-click a strategy = just that one (#5)':!!r.famOnly&&r.famOnly.length===1&&r.famOnly[0]==='TTM',
+          'shift-click a run = just that run, runs ALL off (#5)':Array.isArray(r.runOnly)&&r.runOnly.length===1&&r.runOnly[0]==='369'&&r.runAllAfter==null,
+          'a grid attached during a render queues one redraw (#4)':!!at&&at.q===1&&at.fold===1,
+          'no console errors':errAcc.length===0
+        },{r:r,at:at,errs:errAcc.slice(0,2)});
+      })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     out.nBlocks=__IX;
     document.getElementById('o').textContent='CMP2PROBE: '+JSON.stringify(out);
@@ -11024,7 +11074,7 @@ def main(argv=None):
     DFX += ['e1_axis_outlier']
     DFX += ['d1_rail_all']
     DFX += ['i51_ddp_stored']
-    DFX += ['c163_cfg_labels', 'c164_key_runs']
+    DFX += ['c163_cfg_labels', 'c164_key_runs', 's7_fam_runall']
     for name in DFX:
         r = cases.get(name) or {}
         ck = r.get('ck') or {}
