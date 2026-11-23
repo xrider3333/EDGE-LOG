@@ -74,7 +74,10 @@ _SIZE_SLACK = 0.5 + 1e-9
 # this static table.
 # 2026-11-20: N4 = EdgeLogNOISE422 (tools/nt/EdgeLogNOISE422.cs), the book's NOISE #422 leg,
 # no gate, hourly squeeze tilt; scored against paper leg NOISE_422 (api/paper.py).
-SIGNAL_PREFIX = {"NZ": "NOISE_H_RF", "N4": "NOISE_422", "ORB": "ORB"}
+# 2026-11-22: N5 = EdgeLogNOISE555K (run #555 set 1 x KEEL v12) -> NOISE_555_K12 and
+# N6 = EdgeLogNOISE545K (run #545 set 1 x KEEL v12) -> NOISE_545_K12, both sized by gate_live /keel.
+SIGNAL_PREFIX = {"NZ": "NOISE_H_RF", "N4": "NOISE_422", "N5": "NOISE_555_K12", "N6": "NOISE_545_K12",
+                 "ORB": "ORB"}
 
 # 2026-09-08: EdgeLogENGUQ1m switched from the ENGUQ_ER settings to the #335 (R2) knobs.
 # Evidence: commit f484c0e ("EdgeLogENGUQ1m set to the R2 knobs (check ok, Realtime) ...
@@ -127,16 +130,20 @@ def _map_signal(sig, trade_date=None):
 # shadow legs; every one of them used to be a "never took it" problem each day, so the two that
 # matter drowned (10-27: ENGUQ_335 SHADOW-ONLY sat in a list of 40). EdgeLogORB230 is not
 # loaded on NinjaTrader any more, so ORB is not here.
-NT_LEG_SIGNALS = ("NZ", "N4", "EQ")
+NT_LEG_SIGNALS = ("NZ", "N4", "N5", "N6", "EQ")
 # EdgeLogNOISE422 (#422, N4) trades on NT from this session on (owner F5 + second chart);
 # before it, NOISE_422 book trades are not NT problems. Move it if the go-live slips.
 N4_START_DATE = "2026-11-23"
+# EdgeLogNOISE555K (N5) and EdgeLogNOISE545K (N6) trade on NT from this session on (owner 11-22).
+N5_START_DATE = "2026-11-23"
+N6_START_DATE = "2026-11-23"
+_NT_START = {"N4": N4_START_DATE, "N5": N5_START_DATE, "N6": N6_START_DATE}
 
 
 def nt_legs(trade_date=None):
     """The leg keys NinjaTrader trades on `trade_date` (EQ moves with _ENGUQ_SWITCH_DATE)."""
     return {_map_signal(s, trade_date)[1] for s in NT_LEG_SIGNALS
-            if not (s == "N4" and trade_date is not None and str(trade_date)[:10] < N4_START_DATE)}
+            if not (s in _NT_START and trade_date is not None and str(trade_date)[:10] < _NT_START[s])}
 
 
 def leg_from_signal(sig, trade_date=None):

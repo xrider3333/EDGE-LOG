@@ -2,7 +2,8 @@
 
 Read-only. Reuses tools/nt_fill_reconcile.py day by day (book = Firestore paper_trades shadow round trips,
 broker = C:\\EdgeLog\\fills.csv DEMO7240108 rows) and rolls the days up per family (NOISE = #243 NOISE_H_RF on NZ,
-NOISE_422 = book #422 on N4 since 2026-11-20, ENGUQ):
+NOISE_422 = book #422 on N4 since 2026-11-20, NOISE_555_K12 on N5 and NOISE_545_K12 on N6 since 2026-11-23,
+ENGUQ):
   book_n / nt_n        round trips the book took / that NinjaTrader filled and matched
   fill_rate            nt_n / book_n (missed trades are a parity failure, not slippage)
   hit_book / hit_nt    win rate over the MATCHED trades, book pnl vs NT fill pnl

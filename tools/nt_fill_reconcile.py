@@ -2,7 +2,7 @@
 
 Read-only. No broker call: the two inputs are files the pipeline already writes.
   book   Firestore users/{uid}/paper_trades, the shadow round trips of the legs NinjaTrader trades
-         (nt_legs(): NOISE_H_RF + NOISE_422 + ENGUQ_335 today), closed on `day`.
+         (nt_legs(): NOISE_H_RF + NOISE_422 + NOISE_555_K12 + NOISE_545_K12 + ENGUQ_335 today), closed on `day`.
   broker C:\\EdgeLog\\fills.csv (tools/EdgeLogExport.cs): ExecutionId, Time (UTC), Account, Instrument,
          Action, Qty, Price, Commission, OrderId, SignalName. DEMO7240108 rows only - never 1810769.
 Both become naive New York datetimes and go to tools/reconcile_core.reconcile (its docstring is the spec).
@@ -12,11 +12,15 @@ SIZES ARE DOLLARS PER POINT. reconcile_core prices a pair as (close - open) x sh
 contracts (EdgeLogNOISE Qty = 3, q = Math.Round(size * Qty)); ENGU-Q trades 1 NQ ($20/pt) per unit.
 The book side is rounded the same way so a 3.58-unit day is the 11 contracts NinjaTrader sent.
 
-INTENT comes from the signal name: NZ / N4 / EQ open; NZexit, NZstop, N4exit, N4stop, EQx,
+INTENT comes from the signal name: NZ / N4 / N5 / N6 / EQ open; NZexit, NZstop, N4exit, N4stop, N5exit,
+N5stop, N6exit, N6stop, EQx,
 'Exit on session close' and 'Close' close. A nameless or unknown row keeps its leg from the instrument
 (NQ = ENGU-Q). MNQ is traded by TWO legs since 2026-11-20 - EdgeLogNOISE (NZ -> NOISE_H_RF) and
 EdgeLogNOISE422 (N4 -> NOISE_422) - so a nameless MNQ row goes to the leg whose open position it
 reduces (by the signed fills seen so far), and to the one whose open size it equals if both do.
+Since 2026-11-23 EdgeLogNOISE555K (N5 -> NOISE_555_K12) and EdgeLogNOISE545K (N6 -> NOISE_545_K12) trade
+MNQ too, each its own family; their book size is file size x KEEL size, the product NT's
+round(Qty x squeeze tilt x /keel multiplier) orders.
 Partial fills of one order (same OrderId) are one row at the share-weighted price.
 
   python tools/nt_fill_reconcile.py --day 2026-10-29           print the report
@@ -48,22 +52,27 @@ SHARED_KEY = r"C:\Users\xride\OneDrive\Desktop\EDGE-LOG\serviceAccount.json"    
 BAR_SEC = 300.0
 TOL_SEC = BAR_SEC + 90.0
 # leg family -> (instrument root, contracts per book unit, $ per point)
-SPEC = {"NOISE": ("MNQ", 3, 2.0), "NOISE_422": ("MNQ", 3, 2.0), "ENGUQ": ("NQ", 1, 20.0)}
+SPEC = {"NOISE": ("MNQ", 3, 2.0), "NOISE_422": ("MNQ", 3, 2.0), "NOISE_555_K12": ("MNQ", 3, 2.0),
+        "NOISE_545_K12": ("MNQ", 3, 2.0), "ENGUQ": ("NQ", 1, 20.0)}
 BOOK_USD_PER_PT = 20.0            # paper_trades pnl_usd = points x $20 x size, NOISE included
-CLOSE_SIGNALS =("NZEXIT", "NZSTOP", "N4EXIT", "N4STOP", "EQX", "EXIT ON SESSION CLOSE", "CLOSE")
-NT_SIGNALS = ("NZ", "N4", "EQ")   # EdgeLogNOISE, EdgeLogNOISE422, EdgeLogENGUQ1m
+CLOSE_SIGNALS =("NZEXIT", "NZSTOP", "N4EXIT", "N4STOP", "N5EXIT", "N5STOP", "N6EXIT", "N6STOP", "EQX",
+               "EXIT ON SESSION CLOSE", "CLOSE")
+# EdgeLogNOISE, EdgeLogNOISE422, EdgeLogNOISE555K, EdgeLogNOISE545K, EdgeLogENGUQ1m
+NT_SIGNALS = ("NZ", "N4", "N5", "N6", "EQ")
+_OWN_FAMILY = ("NOISE_422", "NOISE_555_K12", "NOISE_545_K12")   # MNQ legs with their own parity
 
 
 def nt_legs(day):
-    """The legs NinjaTrader trades on `day`: whatever the NZ, N4 and EQ signal names map to."""
+    """The legs NinjaTrader trades on `day`: whatever the NZ, N4, N5, N6 and EQ signal names map to."""
     return {pr.leg_from_signal(s, trade_date=day) for s in NT_SIGNALS}
 
 
 def _family(leg):
-    """SPEC key. NOISE_422 is its own family: same MNQ contract as NOISE_H_RF, separate parity."""
+    """SPEC key. NOISE_422 / NOISE_555_K12 / NOISE_545_K12 are their own families: same MNQ contract as
+    NOISE_H_RF, separate parity."""
     if str(leg).startswith("ENGUQ"):
         return "ENGUQ"
-    return "NOISE_422" if str(leg) == "NOISE_422" else "NOISE"
+    return str(leg) if str(leg) in _OWN_FAMILY else "NOISE"
 
 
 def _ny(ts_utc_text):

@@ -82,6 +82,8 @@ CELLS = {
     "ENGUQ_L50": _c(249, 1, 1),
     "NOISE_304": _c(304, 99, 495),
     "NOISE_422": _c(422, 2, 27),
+    "NOISE_555_K12": _c(555, 1, 27, None, HOW_CHAMPION),   # owner 11-22: champion = set 1
+    "NOISE_545_K12": _c(545, 1, 270, None, HOW_CHAMPION),  # owner 11-22: champion = set 1
     "NOISE_H": _c(225, 11, 300),
     "NOISE_H_RF": _c(231, 11, 300),
     "TTM_299": _c(299, 6, 81),

@@ -1053,6 +1053,323 @@ def decide(leg_key, nt_bar=None, *, source="internal",
         return base
 
 
+# ── KEEL sizing for the NinjaTrader KEEL legs (/keel, 2026-11-22) ─────────────────
+# WHAT: EdgeLogNOISE555K (N5 -> NOISE_555_K12) and EdgeLogNOISE545K (N6 -> NOISE_545_K12) trade
+# the same entries as their paper legs and ask here, at the decision bar's close, for the size
+# multiplier the paper leg would put on the trade about to enter. The paper leg sizes each trade
+# with ml_keel.keel_walk(version v12) over its OWN trade list (paper_gate.apply_gate, mode "keel");
+# keel_build_state is that walk's end state, proven equal to keel_walk trade-for-trade by
+# tests/test_ml_keel_state.py, and keel_score_from_state scores the next trade off it. So the
+# served `keel_size` is the walk's size for the next trade, same inputs: the leg's own strategy
+# file and params on the same master (history_from) + fresh tail, the same folded P, version, seed.
+#
+# THE MULTIPLIER NT APPLIES = file_tilt x keel_size. NinjaScript computes the CT304H hourly-squeeze
+# tilt itself (as EdgeLogNOISE422 does); what it cannot carry -- the FOMC calendar, the v12 fixed
+# tilts (NOISE_1_8_CT304H_FT.py), the learned walk -- comes from here. file_tilt is the strategy
+# file's own size beyond that squeeze tilt, read at the entry bar exactly as the file reads it:
+#   NOISE_1_8_CT304H_FT.py  ml_keel.fixed_tilt_sizes_v12 (compression 1.5x, Friday 1.5x, cap 3, FOMC 0.5x)
+#   NOISE_1_8_CT304H_KFX.py fri_mult when the fill (entry) bar is a Friday
+# Contracts = round(Qty x squeeze_tilt x multiplier) in NinjaScript; the paper row's size is
+# file size x keel size (api/paper.py unfold_gate_sizes), the same product.
+#
+# NEVER TOUCHES DISK IN THE REQUEST (the decide() rule): the walk state is built off the request
+# path -- at startup (pickle under ARTIFACT_DIR, else a fresh build), every evening in
+# _refresh_loop, and advanced trade by trade (keel_append_trade) by _keel_bg_loop as the leg's
+# trades close. /keel reads that in-memory state and the bar cache _bg_refresh_loop keeps.
+# Same bar interlock / NT-bar / INCOMPLETE_BAR checks as decide(). FAIL-OPEN = multiplier 1.0,
+# fallback true, and a loud "KEEL FAIL-OPEN" log line.
+_keel_states = {}                 # leg -> {"state", "trained_through", "n_trades", "built_at", ...}
+_keel_lock = threading.Lock()
+_KEEL_APPEND_SECS = 30            # how often the bg loop looks for newly closed trades
+_KEEL_FEATURE_BARS = 4000         # tail the append path computes keel_features on (~51 RTH days)
+
+# strategy file -> how its own size beyond the CT304H squeeze tilt is read at the entry bar
+_FILE_TILT = {"NOISE_1_8_CT304H_FT.py": "fixed_v12", "NOISE_1_8_CT304H_KFX.py": "friday"}
+
+
+def keel_legs():
+    """The paper legs /keel serves: nt_keel legs whose gate is a KEEL walk."""
+    from api import paper
+    return [l for l in paper.PAPER_LEGS
+            if l.get("nt_keel") and str((l.get("gate") or {}).get("mode") or "").lower() == "keel"]
+
+
+def _leg_arrays(leg):
+    """Master from the leg's history_from + today's fresh bars -- what run_shadow backtests.
+    Disk. Background / build paths only."""
+    from augur_engine.data import find_master, load_master_arrays
+    from api import paper
+    master = find_master(leg["instrument"], leg["timeframe"], leg.get("session", "rth"))
+    if master is None:
+        raise RuntimeError(f"no master for {leg['key']}")
+    arrays = load_master_arrays(master, date_from=leg.get("history_from"), date_to=None)
+    ticks, _ = paper._load_fresh_ticks()
+    if ticks is not None:
+        tf_min = 5 if str(leg["timeframe"]).lower().startswith("5") else 1
+        bars = paper._resample(ticks, tf_min)
+        bars, bars_et = paper._filter_rth(bars)
+        last = arrays["index"][-1] if len(arrays["index"]) else None
+        if last is not None and len(bars):
+            bars = bars[(bars_et > last).values].reset_index(drop=True)
+        if len(bars):
+            arrays, _n = paper._append_fresh(arrays, bars)
+    return arrays
+
+
+def _keel_leg_trades(leg, arrays):
+    """The leg's CLOSED trades, sorted by entry, as the paper leg's walk sees them (folded P).
+    A trade whose exit is the array's last bar may be an end-of-data close of a position that
+    is still open, so it is not counted until a later bar exists."""
+    from augur_engine.engine import run_backtest
+    params = _ls.force_phantom_safe(leg["strategy"], leg["params"], caller="gate_live.keel",
+                                    leg_key=leg["key"], log=print)
+    res = run_backtest(leg["strategy"], arrays=arrays, params=params,
+                       cost_pts=leg.get("cost_pts", 0.0), return_trades=True)
+    n = len(arrays["index"])
+    T = sorted([(int(t[0]), int(t[1]), float(t[2])) for t in (res or {}).get("trades") or []],
+               key=lambda t: t[0])
+    return [t for t in T if t[1] < n - 1]
+
+
+def keel_state_path(key):
+    return os.path.join(ARTIFACT_DIR, f"{key}_keel.pkl")
+
+
+def build_keel_state(leg, save=True, arrays=None):
+    """The full walk over the leg's own closed trades -> the end state /keel scores from."""
+    import joblib
+    from augur_engine import ml_keel
+    t0 = time.time()
+    arrays = arrays if arrays is not None else _leg_arrays(leg)
+    T = _keel_leg_trades(leg, arrays)
+    if len(T) < 100:
+        raise RuntimeError(f"{leg['key']}: only {len(T)} closed trades -- refusing to build KEEL state")
+    g = leg["gate"]
+    ver = str(g.get("version") or "v12")
+    seed = int(g.get("seed") or ml_keel.SEED)
+    feats = ml_keel.keel_features(arrays)
+    state = ml_keel.keel_build_state(arrays, T, feats=feats, seed=seed, version=ver)
+    idx = arrays["index"]
+    rec = {"leg": leg["key"], "state": state, "version": ver, "seed": seed,
+           "n_trades": len(T), "trained_through": str(pd.Timestamp(idx[-1])),
+           "last_entry_ts": str(pd.Timestamp(idx[T[-1][0]])),
+           "last_exit_ts": str(pd.Timestamp(idx[T[-1][1]])),
+           "built_at": datetime.now().isoformat(timespec="seconds"), "appended": 0,
+           "strategy": leg["strategy"], "params": dict(leg["params"])}
+    if save:
+        os.makedirs(ARTIFACT_DIR, exist_ok=True)
+        joblib.dump(rec, keel_state_path(leg["key"]))
+    with _keel_lock:
+        _keel_states[leg["key"]] = rec
+    _log(f"keel state {leg['key']}: walk over {len(T)} closed trades through "
+         f"{rec['trained_through']} ({time.time() - t0:.1f}s)")
+    return rec
+
+
+def load_keel_state(leg):
+    """Startup: the pickled state if it was built for this leg's strategy + params, else None."""
+    import joblib
+    p = keel_state_path(leg["key"])
+    if not os.path.exists(p):
+        return None
+    rec = joblib.load(p)
+    if rec.get("strategy") != leg["strategy"] or rec.get("params") != dict(leg["params"]):
+        _log(f"keel state {leg['key']}: saved for {rec.get('strategy')} {rec.get('params')} -- ignored")
+        return None
+    with _keel_lock:
+        _keel_states[leg["key"]] = rec
+    _log(f"keel state {leg['key']}: loaded ({rec.get('n_trades')} trades through {rec.get('trained_through')})")
+    return rec
+
+
+def keel_append_closed(leg, arrays=None):
+    """Advance the leg's state by every trade that has CLOSED since it was built, in entry order
+    (ml_keel.keel_append_trade -- one more pass of the walk's own loop). Background only.
+    Returns how many trades were appended."""
+    from augur_engine import ml_keel
+    with _keel_lock:
+        rec = _keel_states.get(leg["key"])
+    if rec is None:
+        return 0
+    arrays = arrays if arrays is not None else _leg_arrays(leg)
+    idx = pd.DatetimeIndex(arrays["index"])
+    last_entry = pd.Timestamp(rec["last_entry_ts"])
+    if idx.tz is not None and last_entry.tzinfo is None:
+        last_entry = last_entry.tz_localize(idx.tz)
+    T = [t for t in _keel_leg_trades(leg, arrays) if idx[t[0]] > last_entry]
+    if not T:
+        return 0
+    # keel_features on a tail window: every column reaches back far less than this (slow EWM,
+    # 100-bar rolls, 20 hourly groups); the start is cut at a session boundary.
+    a0 = max(0, min(t[0] for t in T) - _KEEL_FEATURE_BARS)
+    day = np.asarray(arrays["day_id"])
+    while a0 > 0 and day[a0] == day[a0 - 1]:
+        a0 -= 1
+    n = len(idx)
+    sub = {k: (v[a0:] if hasattr(v, "__len__") and not isinstance(v, (str, bytes)) and len(v) == n else v)
+           for k, v in arrays.items()}
+    sub["day_id"] = pd.factorize(pd.Series(pd.DatetimeIndex(sub["index"])).dt.date)[0].astype("int64")
+    F, names = ml_keel.keel_features(sub)
+    if list(names) != list(rec["state"]["feature_names"]):
+        raise RuntimeError("keel feature columns changed -- rebuild the state")
+    st = rec["state"]
+    for e, x, p in T:
+        st = ml_keel.keel_append_trade(st, F[e - a0:e - a0 + 1], p, entry_bar=e, exit_bar=x)
+    new = dict(rec, state=st, n_trades=rec["n_trades"] + len(T), appended=rec.get("appended", 0) + len(T),
+               last_entry_ts=str(idx[T[-1][0]]), last_exit_ts=str(idx[T[-1][1]]),
+               trained_through=str(idx[-1]))
+    with _keel_lock:
+        _keel_states[leg["key"]] = new
+    _log(f"keel state {leg['key']}: appended {len(T)} closed trade(s), now {new['n_trades']}")
+    return len(T)
+
+
+def build_keel_all():
+    for leg in keel_legs():
+        try:
+            build_keel_state(leg)
+        except Exception as e:
+            _log(f"keel state {leg['key']} BUILD FAILED: {type(e).__name__}: {e}")
+
+
+def _keel_bg_loop():
+    """Off the request path: load or build each leg's state, then append closed trades."""
+    for leg in keel_legs():
+        try:
+            if load_keel_state(leg) is None:
+                build_keel_state(leg)
+        except Exception as e:
+            _log(f"keel state {leg['key']} startup FAILED: {type(e).__name__}: {e}")
+    seen = {}                      # leg -> the live window's last bar at the last look
+    while True:
+        time.sleep(_KEEL_APPEND_SECS)
+        for leg in keel_legs():
+            if not _in_session_hours(leg):
+                continue
+            # A trade can only close on a new bar: rerun the leg's backtest (~6 s on the full
+            # master) once per new bar, not every pass.
+            arrays, _cov = _current_snapshot(leg)
+            last = None if arrays is None or not len(arrays["index"]) else arrays["index"][-1]
+            if last is not None and seen.get(leg["key"]) == last:
+                continue
+            seen[leg["key"]] = last
+            try:
+                keel_append_closed(leg)
+            except Exception as e:
+                _log(f"keel append {leg['key']} FAILED: {type(e).__name__}: {e}")
+
+
+def _file_tilt(leg, arrays, entry_bar, feats):
+    """The strategy file's own size beyond the CT304H squeeze tilt, at the entry bar."""
+    kind = _FILE_TILT.get(leg["strategy"])
+    if kind == "fixed_v12":
+        from augur_engine import ml_keel
+        return float(ml_keel.fixed_tilt_sizes_v12(arrays, [entry_bar], feats=feats)[0])
+    if kind == "friday":
+        wd = pd.DatetimeIndex(arrays["index"])[entry_bar].dayofweek
+        return float(leg["params"].get("fri_mult", 1.0)) if wd == 4 else 1.0
+    return 1.0
+
+
+def keel_size(leg_key, nt_bar=None, *, source="internal",
+              nt_o=None, nt_h=None, nt_l=None, nt_c=None, nt_v=None):
+    """The /keel answer: the size multiplier for the trade entering at the NEXT bar's open.
+    Never raises; any failure -> multiplier 1.0, fallback true, loud log."""
+    t0 = time.time()
+    st_ = _state_for(leg_key)
+    st_["last_decide_ts"] = datetime.now().isoformat(timespec="seconds")
+    st_["last_decide_source"] = source
+    base = {"leg": leg_key, "multiplier": 1.0, "keel_size": None, "file_tilt": None,
+            "fallback": True, "max_contracts": _max_contracts(),
+            "nt_bar": (str(nt_bar).strip() or None) if nt_bar is not None else None,
+            "bar_check": None, "bar_source": "capture"}
+
+    def _fail(msg, **extra):
+        out = dict(base)
+        out.update(extra)
+        out["error"] = msg
+        out["elapsed_ms"] = int((time.time() - t0) * 1000)
+        _log(f"KEEL FAIL-OPEN {leg_key}: {msg} -> multiplier 1.0")
+        return out
+
+    try:
+        from augur_engine import ml_keel
+        legs = {l["key"]: l for l in keel_legs()}
+        leg = legs.get(leg_key)
+        if leg is None:
+            return _fail(f"unknown keel leg {leg_key}")
+        with _keel_lock:
+            rec = _keel_states.get(leg_key)
+        if rec is None:
+            return _fail("keel state not built yet")
+        with _lock:
+            arrays, covered_through = _current_snapshot(leg)
+        if arrays is None:
+            return _fail("live window not ready")
+        idx = arrays["index"]
+        if len(idx) < 200:
+            return _fail("too little data")
+        step = pd.Timedelta(minutes=5 if str(leg["timeframe"]).startswith("5") else 1)
+        nt_ts = _parse_nt_bar(nt_bar)
+        # the same three bar checks as decide(), in the same order
+        if nt_ts is not None and None not in (nt_o, nt_h, nt_l, nt_c, nt_v):
+            ohlcv = _sane_ohlcv(nt_o, nt_h, nt_l, nt_c, nt_v)
+            if ohlcv is not None:
+                nt_arrays, _nt_mode = _apply_nt_bar(arrays, nt_ts, ohlcv, step)
+                if nt_arrays is not None:
+                    arrays = nt_arrays
+                    idx = arrays["index"]
+                    base["bar_source"] = "nt"
+        if base["bar_source"] != "nt" and nt_ts is not None:
+            bar_end = _bar_end_unix(nt_ts, step)
+            if bar_end is None or covered_through is None or covered_through < bar_end:
+                base["bar_check"] = "incomplete"
+                return _fail(f"INCOMPLETE_BAR: capture covers through {covered_through}, "
+                             f"bar {str(nt_bar).strip()} needs {bar_end}",
+                             last_closed_bar=str(idx[-1]))
+        bar_state, bar_delta = _bar_interlock(nt_bar, idx[-1], step)
+        base["bar_check"] = bar_state
+        if bar_state == "mismatch":
+            return _fail(f"bar mismatch: nt={str(nt_bar).strip()} svc={idx[-1].isoformat()}",
+                         last_closed_bar=str(idx[-1]), bar_delta_s=bar_delta)
+
+        # one placeholder bar = the entry bar about to open (decide()'s construction)
+        nxt = idx[-1] + step
+        arr2 = dict(arrays)
+        arr2["index"] = idx.append(pd.DatetimeIndex([nxt]))
+        for k in ("open", "high", "low", "close"):
+            arr2[k] = np.append(np.asarray(arrays[k], float), float(arrays["close"][-1]))
+        if arrays.get("volume") is not None:
+            arr2["volume"] = np.append(np.asarray(arrays["volume"], float), 0.0)
+        arr2["day_id"] = pd.factorize(pd.Series(arr2["index"]).dt.date)[0].astype("int64")
+        F, names = ml_keel.keel_features(arr2)
+        state = rec["state"]
+        if list(names) != list(state["feature_names"]):
+            return _fail("keel feature columns changed - rebuild the state")
+        e = len(arr2["index"]) - 1
+        ks, diag = ml_keel.keel_score_from_state(state, arr2, entry_bar=e, x_row=F[e:e + 1],
+                                                 cross_series=True)
+        ft = _file_tilt(leg, arr2, e, (F, names))
+        mult = float(ft) * float(ks)
+        z = diag.get("z")
+        out = dict(base)
+        out.update({"multiplier": round(mult, 4), "keel_size": round(float(ks), 4),
+                    "file_tilt": round(float(ft), 4), "fallback": False,
+                    "branch": ml_keel.keel_branch(diag, state.get("cfg")),
+                    "trust": round(float(diag.get("trust") or 0.0), 4),
+                    "z": (round(float(z), 4) if z is not None and np.isfinite(z) else None),
+                    "state_trades": int(rec["n_trades"]), "state_through": rec["trained_through"],
+                    "state_last_exit": rec.get("last_exit_ts"), "version": rec["version"],
+                    "last_closed_bar": str(idx[-1]), "entry_bar": str(nxt),
+                    "bars": int(len(idx)), "bar_minutes": _measured_step(idx),
+                    "elapsed_ms": int((time.time() - t0) * 1000)})
+        _log(f"keel {leg_key}: x{mult:.3f} = file {ft:.3f} x keel {ks:.3f} ({out['branch']}, "
+             f"{out['elapsed_ms']}ms, bar {idx[-1]}, source {base['bar_source']})")
+        return out
+    except Exception as ex:
+        return _fail(f"{type(ex).__name__}: {ex}")
+
+
 # ── background bar-cache refresher (off the request path) ─────────────────────────
 _BG_REFRESH_SECS = 3          # target <50ms decide() latency needs this well under a bar step
 
@@ -1061,7 +1378,7 @@ def _series_reps():
     """One representative leg per distinct (instrument, timeframe, session) -- the gated
     legs that SHARE a series only need their cache advanced once."""
     reps = {}
-    for leg in _gated_legs():
+    for leg in _gated_legs() + keel_legs():
         reps.setdefault(_series_key(leg), leg)
     return reps
 
@@ -1161,6 +1478,7 @@ def _refresh_loop():
             if et.weekday() < 5 and (et.hour, et.minute) >= (16, 15) and last_built != day:
                 _log("nightly artifact rebuild starting")
                 build_all()
+                build_keel_all()
                 last_built = day
         except Exception as e:
             _log(f"refresh loop: {type(e).__name__}: {e}")
@@ -1278,7 +1596,23 @@ Restart it by running <code>C:\\EdgeLog\\_gate_server.bat</code></div>"""
                             "git_sha": _git_sha(), "code_path": _REPO_DIR,
                             "started_at": _PROC_STARTED,
                             "live_qty": LIVE_QTY, "max_contracts": _max_contracts(),
-                            "legs": legs})
+                            "legs": legs,
+                            "keel_legs": {k: {"n_trades": r.get("n_trades"),
+                                              "trained_through": r.get("trained_through"),
+                                              "built_at": r.get("built_at"),
+                                              "appended": r.get("appended")}
+                                          for k, r in list(_keel_states.items())}})
+            elif u.path == "/keel":
+                # KEEL size for an NT KEEL leg (2026-11-22): /keel?leg=NOISE_555_K12&bar=<ISO>
+                # [&o=&h=&l=&c=&v=] -- same optional bar fields as /gate/check.
+                q = parse_qs(u.query)
+
+                def _kq(name):
+                    v = (q.get(name) or [""])[0]
+                    return v if v != "" else None
+                self._json(keel_size((q.get("leg") or [""])[0], _kq("bar"), source="http",
+                                     nt_o=_kq("o"), nt_h=_kq("h"), nt_l=_kq("l"),
+                                     nt_c=_kq("c"), nt_v=_kq("v")))
             elif u.path == "/gate/check":
                 q = parse_qs(u.query)
                 key = (q.get("leg") or [""])[0]
@@ -1302,6 +1636,7 @@ Restart it by running <code>C:\\EdgeLog\\_gate_server.bat</code></div>"""
 
     threading.Thread(target=_bg_refresh_loop, daemon=True, name="gate-bg-refresh").start()
     threading.Thread(target=_refresh_loop, daemon=True, name="gate-refresh").start()
+    threading.Thread(target=_keel_bg_loop, daemon=True, name="gate-keel").start()
     srv = ThreadingHTTPServer(("127.0.0.1", PORT), H)
     _log(f"gate service up on 127.0.0.1:{PORT} "
          f"(legs: {', '.join(l['key'] for l in _gated_legs())})")
@@ -1313,6 +1648,7 @@ def main():
     ap.add_argument("--serve", action="store_true")
     ap.add_argument("--build", action="store_true")
     ap.add_argument("--build-leg")
+    ap.add_argument("--build-keel", action="store_true", help="rebuild the /keel walk states")
     ap.add_argument("--check", help="one live decision for a leg, printed")
     ap.add_argument("--bar", help="ISO-8601 last-closed bar to send with --check, "
                                   "the way NinjaTrader does -- lets the bar interlock "
@@ -1322,6 +1658,8 @@ def main():
         build_all()
     if a.build_leg:
         build_artifact({l["key"]: l for l in _gated_legs()}[a.build_leg])
+    if a.build_keel:
+        build_keel_all()
     if a.check:
         print(json.dumps(decide(a.check, a.bar), indent=2))
     if a.serve:

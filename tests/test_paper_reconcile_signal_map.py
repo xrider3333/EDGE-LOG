@@ -104,3 +104,18 @@ def test_a_clean_day_pushes_nothing():
     rec = {"legs": {"NOISE_SBS_V90": {"matched": [], "live_only": [], "shadow_only": [{"pnl_usd": 5}]}}}
     rec["verdict"] = R.verdict(rec, only_legs=R.nt_legs(_dt.date(2026, 10, 29)))
     assert R.push_line(_dt.date(2026, 10, 29), rec) is None
+
+
+def test_n5_n6_map_to_the_keel_legs():
+    assert PR.leg_from_signal("N5", trade_date=date(2026, 11, 23)) == "NOISE_555_K12"
+    assert PR.leg_from_signal("N5exit", trade_date=date(2026, 11, 23)) == "NOISE_555_K12"
+    assert PR.leg_from_signal("N6stop", trade_date=date(2026, 11, 23)) == "NOISE_545_K12"
+    assert "N5" in PR.NT_LEG_SIGNALS and "N6" in PR.NT_LEG_SIGNALS
+
+
+def test_n5_n6_are_nt_legs_only_from_their_start_date():
+    assert PR.N5_START_DATE == "2026-11-23" and PR.N6_START_DATE == "2026-11-23"
+    before = PR.nt_legs(date(2026, 11, 20))
+    assert "NOISE_555_K12" not in before and "NOISE_545_K12" not in before
+    on = PR.nt_legs(date(2026, 11, 23))
+    assert {"NOISE_555_K12", "NOISE_545_K12", "NOISE_422"} <= on

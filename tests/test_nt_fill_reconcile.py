@@ -112,3 +112,35 @@ def test_n4_is_noise_422_and_session_close_rows_split_between_the_two_mnq_legs(t
 def test_nt_legs_include_noise_422():
     from api import paper_reconcile as pr
     assert "N4" in pr.NT_LEG_SIGNALS
+
+
+def test_n5_n6_are_the_keel_legs_with_their_own_families():
+    day = dt.date(2026, 11, 23)
+    legs = N.nt_legs(day)
+    assert {"NOISE_555_K12", "NOISE_545_K12"} <= legs
+    assert N._family("NOISE_555_K12") == "NOISE_555_K12" and N._family("NOISE_545_K12") == "NOISE_545_K12"
+    for s in ("N5EXIT", "N5STOP", "N6EXIT", "N6STOP"):
+        assert s in N.CLOSE_SIGNALS
+
+
+def test_n5_and_n6_fills_reconcile_against_their_keel_books(tmp_path):
+    """N5 sends round(3 x 1.75 x 1.333) = 7 MNQ, N6 round(3 x 2.0) = 6; book sizes are the products."""
+    day = dt.date(2026, 11, 23)
+    f = _fills(tmp_path, [
+        "a,2026-11-23 14:40:00,DEMO7240108,MNQ 12-26,BUY,7,28000,0,o1,N5",
+        "b,2026-11-23 14:40:01,DEMO7240108,MNQ 12-26,SELL,6,28000,0,o2,N6",
+        "c,2026-11-23 15:40:00,DEMO7240108,MNQ 12-26,SELL,7,28010,0,o3,N5exit",
+        "d,2026-11-23 15:40:00,DEMO7240108,MNQ 12-26,BUY,6,27990,0,o4,N6stop"])
+    orders, _ = N.nt_orders(day, f)
+    legs = sorted((o["leg"], o["intent"], o["shares"]) for o in orders)
+    assert legs == [("NOISE_545_K12", "CLOSE", 12.0), ("NOISE_545_K12", "OPEN", 12.0),
+                    ("NOISE_555_K12", "CLOSE", 14.0), ("NOISE_555_K12", "OPEN", 14.0)]
+    s5, s6 = 1.75 * 4 / 3, 2.0
+    book = [_book(leg="NOISE_555_K12", size=s5, entryIso="2026-11-23T09:40:00-05:00",
+                  exitIso="2026-11-23T10:40:00-05:00", entry_px="28000", exit_px="28010",
+                  pnl_usd=str(10 * 20 * s5)),
+            _book(leg="NOISE_545_K12", side="-1", size=s6, entryIso="2026-11-23T09:40:00-05:00",
+                  exitIso="2026-11-23T10:40:00-05:00", entry_px="28000", exit_px="27990",
+                  pnl_usd=str(10 * 20 * s6))]
+    rep = N.run(day, book, fills_path=f)
+    assert rep["status"] == "clean", rep

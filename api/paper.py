@@ -153,6 +153,8 @@ LEG_LIVE_FROM = {
     "TTM_299_SSOF2R5": "2026-09-28", # the ROLL GUARD at run 428s crowned cell (entry cutoff 5) - the STAGED book leg
     "TTM_458_KEEL": "2026-09-29",    # SHADOW: roll-safe TTM #458 (3/4/7) x KEEL v12 frozen at 2025-07-01 (owner via MANAGER 09-28)
     "NOISE_SBS_V90_C15G": "2026-09-09", # raw x compression 1.5x on the VALIDATED gate (30m / len 16 / ratio 1.15, run 333) - owner ask 2026-09-08
+    "NOISE_555_K12": "2026-11-23",  # run #555 set 1 (NOISE #422 x frozen v12 fixed tilts) x KEEL v12 - the NT leg N5
+    "NOISE_545_K12": "2026-11-23",  # run #545 set 1 (CT304H KFX: squeeze 2.75x x Friday 2.0x) x KEEL v12 - the NT leg N6
     "NOISE_SBS_V90_K12": "2026-09-09", # KEEL v12 = v11 x HALF SIZE before the FOMC statement (the Fed's own calendar)
     "ORB_R6_C15FE": "2026-09-09",     # ORB crown x compression x Friday x FOMC-morning 0.5x (the event hole is not NOISE-only)
     "ENGUQ_309_CDE2": "2026-09-09",   # + the pre-08:30 CPI/payrolls window (ETH only - an RTH leg has no such bars)
@@ -570,6 +572,17 @@ NOISE_304_NBHD = dict(NOISE_243_SBS_V90, vol_skip_pct=95.0, lookback=40)
 # NOISE_304 stays running as its matched control - only the size tilt differs.
 NOISE_422 = dict(tilt_mult=1.75, gate_len=20, gate_ratio=1.15)
 
+# 2026-11-22 (owner): two NinjaTrader paper legs, each a validated champion set 1 with KEEL v12 on top.
+# Read from the run docs (Firestore users/<uid>/runs/555 and /545, best_params = plateau_pick, n_combos 27 / 270):
+#   #555 = NOISE_1_8_CT304H_FT.py (NOISE #422 core x the FROZEN v12 fixed tilts, no model)
+#   #545 = NOISE_1_8_CT304H_KFX.py (the same core, squeeze tilt + Friday tilt as plain rules)
+# Both runs carry a gate_validate.keel row at version v12 (ml_keel.VALIDATE_VERSION): keel_walk over the
+# FILE'S OWN trades, whose points already hold the file's size. These legs reproduce exactly that: the keel
+# gate sizes the folded trades (P = the sized points, as the run's row did), then the size_contract unfold
+# in run_shadow turns each row back into the one-contract move at size = file size x KEEL size.
+NOISE_555 = dict(tilt_mult=1.75, gate_len=16, gate_ratio=1.15)
+NOISE_545 = dict(tilt_mult=2.75, gate_len=16, gate_ratio=1.15, fri_mult=2.0)
+
 # ── ML gate configs (api/paper_gate.py) ──────────────────────────────────────────
 # The gate is an OVERLAY: the strategy picks its trades exactly as it always has, and a
 # second model trained only on trades that had already finished decides which to keep
@@ -919,6 +932,8 @@ ENGUQ_309_KEEL9 = {"mode": "keel", "model": "keel", "version": "v9", "source_run
 # FORWARD EVIDENCE ONLY; controls are K11 / ORB_R6_C15F / ENGUQ_309_CD, each identical but for this.
 FOMC_HALF = {"mult": 0.5, "cut_hour": 14}
 NOISE_243_KEEL12 = {"mode": "keel", "model": "keel", "version": "v12", "source_run": 243}
+NOISE_555_KEEL12 = {"mode": "keel", "model": "keel", "version": "v12", "source_run": 555}
+NOISE_545_KEEL12 = {"mode": "keel", "model": "keel", "version": "v12", "source_run": 545}
 ORB_314_COMP15FE = {"mode": "comp", "model": "compression", "mult": 1.5, "dow": {"4": 1.5},
                     "event": FOMC_HALF, "source_run": 314}
 ENGUQ_309_COMPDE = {"mode": "comp", "model": "compression", "mult": 1.5, "deep": 2.0, "thr": 0.85,
@@ -1261,6 +1276,27 @@ LEG_SOURCE = {
                 "year-by-year consistency (WF t 3.4 / 2.9 on the two NOISE runs). Crown lockbox "
                 "read $121k vs raw $82k at drawdown within 3%. NOISE_SBS_V90 is the exact control "
                 "and NOISE_SBS_V90_C15 is the no-model compression control.",
+    },
+    "NOISE_555_K12": {
+        "run": 555, "run_label": "#555 set 1 (NOISE #422 x frozen v12 fixed tilts) + KEEL v12",
+        "strategy_file": "NOISE_1_8_CT304H_FT.py", "picked": "2026-11-22",
+        "note": "Run #555's champion (set 1: gate_len 16, gate_ratio 1.15, tilt_mult 1.75) with the KEEL v12 "
+                "overlay the run's own gate_validate.keel row scored (version v12; WF+LB $69,884, lockbox "
+                "$12,438 on 316 trades). Traded on NinjaTrader Sim101 as EdgeLogNOISE555K (signals N5), sized "
+                "by api/gate_live.py /keel. Added 2026-11-22; NOISE_545_K12 is the alternative.",
+        "caveat": "The run's verdict is UNGATED WINS PRE-LOCKBOX for the ML gates; the KEEL row is not "
+                  "crownable on its own. The file's fixed tilts and KEEL v12's own Friday / compression / FOMC "
+                  "tilts both apply - exactly as the run's KEEL row measured it. Forward evidence only.",
+    },
+    "NOISE_545_K12": {
+        "run": 545, "run_label": "#545 set 1 (CT304H KFX: squeeze 2.75x x Friday 2.0x) + KEEL v12",
+        "strategy_file": "NOISE_1_8_CT304H_KFX.py", "picked": "2026-11-22",
+        "note": "Run #545's champion (set 1: gate_len 16, gate_ratio 1.15, tilt_mult 2.75, fri_mult 2.0) with "
+                "the KEEL v12 overlay of the run's gate_validate.keel row (WF+LB $86,355, lockbox $13,893 on "
+                "314 trades). Traded on NinjaTrader Sim101 as EdgeLogNOISE545K (signals N6), sized by "
+                "api/gate_live.py /keel. Added 2026-11-22 beside NOISE_555_K12.",
+        "caveat": "Same as NOISE_555_K12: KEEL v12's Friday 1.5x multiplies the file's own Friday 2.0x. "
+                  "Forward evidence only.",
     },
     "NOISE_SBS_V90_K12": {
         "run": 243, "run_label": "#243 (Short Veto + Wild10) + KEEL v12 (v11 x FOMC-morning 0.5x)",
@@ -1981,6 +2017,18 @@ PAPER_LEGS = [
      "source": LEG_SOURCE["NOISE_SBS_V90_C15G"]},
     # ADDED 2026-09-09: the FOMC pre-statement half-size tilt, one leg per family beside its exact
     # ablation control (see FOMC_HALF). FORWARD EVIDENCE ONLY.
+    # ADDED 2026-11-22 (owner): the NinjaTrader KEEL legs. gate + size_contract = KEEL v12 over the file's
+    # folded trades, then unfolded (run_shadow). nt_keel: api/gate_live.py /keel serves their live size.
+    {"key": "NOISE_555_K12", "strategy": "NOISE_1_8_CT304H_FT.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_555,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "size_contract": True, "nt_keel": True,
+     "gate": NOISE_555_KEEL12, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_555_K12"]},
+    {"key": "NOISE_545_K12", "strategy": "NOISE_1_8_CT304H_KFX.py", "instrument": "NQ",
+     "timeframe": "5m", "session": "rth", "params": NOISE_545,
+     "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT, "size_contract": True, "nt_keel": True,
+     "gate": NOISE_545_KEEL12, "history_from": _GATE_HISTORY_FROM,
+     "source": LEG_SOURCE["NOISE_545_K12"]},
     {"key": "NOISE_SBS_V90_K12", "strategy": "NOISE_1_0.py", "instrument": "NQ",
      "timeframe": "5m", "session": "rth", "params": NOISE_243_SBS_V90,
      "cost_pts": _NQ_COST_PTS, "mult": _NQ_MULT,
@@ -2579,6 +2627,12 @@ def run_shadow(leg, today):
             t_gate = time.time()
             sized, gate_info = paper_gate.apply_gate(arrays, raw, leg["gate"])
             gate_info["seconds"] = round(time.time() - t_gate, 1)
+            if leg.get("size_contract") and (res or {}).get("trade_sizes") is not None:
+                # GATE ON A SELF-SIZING FILE (2026-11-22, NOISE_555_K12 / NOISE_545_K12): the gate
+                # sized the FOLDED trades (its ledger learns the file's sized points, as the run's
+                # gate_validate.keel row did). Unfold like the branch below: pnl_pts = one-contract
+                # move, size = file size x gate size. pnl_usd is unchanged to the cent.
+                sized = unfold_gate_sizes(raw, res["trade_sizes"], sized)
             for w in (gate_info.get("warnings") or []):
                 warnings.append(f"gate: {w}")
             # The matched RAW control, free: same backtest, same bars, gate off. Only
@@ -2610,6 +2664,20 @@ def run_shadow(leg, today):
     return {"trades": trades_out, "ungated_trades": ungated_out, "gate": gate_info,
            "bars_appended": bars_appended, "data_fresh_thru": data_fresh_thru,
            "warnings": warnings, "ran_ok": ran_ok}
+
+
+def unfold_gate_sizes(raw, trade_sizes, sized):
+    """(trade, gate_w) pairs on folded trades -> (one-contract trade, file_size x gate_w). Matched on
+    the trade's (entry, exit) bars because apply_gate re-sorts by entry. Raises on a mismatch."""
+    sizes = [float(x) for x in trade_sizes]
+    if len(sizes) != len(raw) or not all(x > 0 for x in sizes):
+        raise ValueError(f"trade_sizes has {len(sizes)} entries for {len(raw)} trades")
+    by_bars = {(int(t[0]), int(t[1])): x for t, x in zip(raw, sizes)}
+    out = []
+    for t, w in sized:
+        x = by_bars[(int(t[0]), int(t[1]))]
+        out.append(((t[0], t[1], float(t[2]) / x) + tuple(t[3:]), float(w) * x))
+    return out
 
 
 # ── Layer 1: today's demo-account fills, mirrored into the daily report ──────────
