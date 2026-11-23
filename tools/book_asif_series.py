@@ -26,7 +26,7 @@ The page may also ask for legs it has no series for (meta/book_asif_req, written
 doc does not carry); those are built on the next run.
 
     python tools/book_asif_series.py               # build what changed, publish
-    python tools/book_asif_series.py --no-publish  # local file only
+    python tools/book_asif_series.py --no-publish  # local file only (book_asif.local.json)
     python tools/book_asif_series.py --force       # rebuild every leg
     python tools/book_asif_series.py --legs NOISE422,ORB234
     python tools/book_asif_series.py --panels-only # just re-pull the stale PICK6 / OPUS86a / GLDNIGHT panels
@@ -1187,8 +1187,9 @@ def main(argv=None):
         print("published users/<uid>/meta/book_asif (%d bytes) + %d of %d per-leg trade docs (changed only)" % (len(json.dumps(slim, default=str)), nw, len(trs)))
     elif db is not None:
         print("nothing changed - not published")
-    else:
-        _write_json(os.path.join(OUT_DIR, "book_asif.json"), doc)
+    else:   # sweep 7: offline / --no-publish output never touches the published mark (book_asif.json)
+        _write_json(os.path.join(OUT_DIR, "book_asif.local.json"), doc)
+        print("not published - wrote %s" % os.path.join(OUT_DIR, "book_asif.local.json"))
     return 0
 
 
