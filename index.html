@@ -2158,7 +2158,7 @@ window.addEventListener('error',function(e){
   if(/ResizeObserver loop/.test(String(e&&e.message||'')))return;
   window._loadError(e.error||e.message,window._stages[window._stages.length-1]?.name);
 });
-const VERSION='92.10';
+const VERSION='92.11';
 // Deduped 10s-feed warnings off the newest paper report. Global so the GLOBAL TOP BAR can
 // show it from any tab: a stale/missing tick feed is an infrastructure condition affecting
 // every leg equally, not a PAPER-tab detail, and it used to render as an identical badge on
@@ -5673,6 +5673,7 @@ function _wfoDropStale(list){
     if(!f||_wfoSig(f)===_wfoSig(r))return;
     delete window._runFull[id];n++;
     if(window._runCfg)delete window._runCfg[id];
+    if(window._runCfgPts)delete window._runCfgPts[id];   // sweep 6 #5: the run changed - its saved grid too
     if(Array.isArray(window._runFullOrder))window._runFullOrder=window._runFullOrder.filter(k=>String(k)!==id);});
   return n;}
 // ── THE RUN INDEX (owner GO 2026-11-14: cut the Firestore reads) ──────────────────
@@ -5817,8 +5818,9 @@ function _keyRunIds(){const ids={};
 function _keyRunsLoad(uid){
   if(window._keyRunsState!=='idle'||!uid)return;
   const ids=_keyRunIds();if(!ids.length){window._keyRunsState='ok';return;}
-  window._keyRunsState='loading';
+  window._keyRunsState='loading';const _gen=window._keyRunsGen=(window._keyRunsGen||0)+1;
   _rbWatchRunsFetch(uid,ids).then(function(rows){
+    if(_gen!==window._keyRunsGen)return;   // sweep 6 #2: signed out (or re-signed in) while this read was in flight - drop it
     window._keyRuns=Array.isArray(rows)?rows.map(function(r){r._keyRun=true;return r;}):[];
     window._keyRunsState=Array.isArray(rows)?'ok':'err';
     if(Array.isArray(rows)&&rows.length&&typeof activeTab!=='undefined'&&activeTab==='augur'&&typeof renderApp==='function')renderApp();});}
@@ -5860,8 +5862,10 @@ window._runFull=window._runFull||{};window._runHydrating=window._runHydrating||{
 //    evicts the report cache, because it keeps its own.
 const RUN_CFG_FIELDS=['selection','gate_validate','ml_gate','multiplier','strategy',
   'instrument','timeframe','date_from','date_to','validate.windows',
-  // board 163: the saved search grid + champion, so every configuration gets the ledger's own #RUN.CFG (window.cfgSetOfParams)
-  'points','best_pnl_pts','validate.champion'];   // gate_validate, fetched whole above, carries the stretch marks
+  // board 163: the champion, so every configuration gets the ledger's own #RUN.CFG (window.cfgSetOfParams). The saved search
+  //   grid ('points', 50-100 KB a run - ~4 MB on ALL with 40 runs) is NOT here any more (sweep 6 #5): _hydrateCfgPts reads it
+  //   on its own, only for a run that puts configuration rows in the table, once a session.
+  'best_pnl_pts','validate.champion'];   // gate_validate, fetched whole above, carries the stretch marks
 window._runCfg=window._runCfg||{};window._runCfgBusy=window._runCfgBusy||{};window._runCfgQ=window._runCfgQ||[];
 function _runCfgNext(){const n=window._runCfgQ.shift();if(n)_hydrateCfg(n);}
 function _hydrateCfg(id){
@@ -5904,6 +5908,7 @@ function _hydrateCfg(id){
       clearTimeout(_cfgTo);
       delete window._runCfgBusy[id];_runCfgNext();
       window._runCfg[id]=Object.assign({id:id},_fsFields((doc||{}).fields||{}));
+      if(typeof _cfgPtsFold==='function')_cfgPtsFold(id);   // sweep 6 #5: a saved grid already in hand this session
       _runCfgSettled();})
     .catch(e=>{
       clearTimeout(_cfgTo);
@@ -5928,6 +5933,31 @@ function _runCfgSettled(){
 // TEXT ONLY, NEVER A REDRAW. Updates the "N of M runs in" line the EXPLORE loading panels
 //   show while a burst is still in flight, straight in the DOM - calling renderApp() here
 //   would recreate the very race this exists to avoid.
+// sweep 6 #5 THE SAVED GRID, ON ITS OWN AND ONLY WHERE A ROW NEEDS IT. One masked read of 'points' per run, asked for only
+//   by a run that has configuration rows in the EXPLORE table, cached for the session in window._runCfgPts (an array, or
+//   false after a failed read - never retried in a loop) and folded onto the run's configs-only record, so a redraw reads
+//   the cache and never downloads it again. All the reads of one burst land, then ONE redraw.
+window._runCfgPts=window._runCfgPts||{};window._runCfgPtsBusy=window._runCfgPtsBusy||{};
+function _cfgPtsFold(id){const p=window._runCfgPts[id],d=(window._runCfg||{})[id];
+  if(Array.isArray(p)&&d&&!Array.isArray(d.points))d.points=p;}
+function _hydrateCfgPts(id){
+  id=String(id);
+  const d=(window._runCfg||{})[id],f=(window._runFull||{})[id];
+  if(d&&Array.isArray(d.points))return;
+  if(f&&Array.isArray(f.points)){window._runCfgPts[id]=f.points;_cfgPtsFold(id);return;}
+  if(id in window._runCfgPts){_cfgPtsFold(id);return;}
+  if(window._runCfgPtsBusy[id]||!auth||!auth.currentUser||!_runsUid)return;
+  window._runCfgPtsBusy[id]=1;
+  const pid=((firebase.app().options||{}).projectId)||'edge-tracker-b55af';
+  const url='https://firestore.googleapis.com/v1/projects/'+pid+'/databases/(default)/documents/users/'
+    +_runsUid+'/runs/'+id+'?mask.fieldPaths=points';
+  const _done=function(v){delete window._runCfgPtsBusy[id];window._runCfgPts[id]=v;_cfgPtsFold(id);
+    if(!Object.keys(window._runCfgPtsBusy).length&&Array.isArray(v)&&typeof renderApp==='function')renderApp();};
+  _idToken().then(tok=>fetch(url,{headers:{'Authorization':'Bearer '+tok}}))
+    .then(r=>{if(!r.ok)throw new Error('cfg points REST '+r.status);return r.json();})
+    .then(doc=>{const o=_fsFields((doc||{}).fields||{});_done(Array.isArray(o.points)?o.points:false);})
+    .catch(e=>{console.warn('[cfg] saved grid read failed for',id,(e&&e.message)||e);_done(false);});
+}
 function _runCfgProgress(){
   try{
     document.querySelectorAll('[data-recfgprog]').forEach(function(el){
@@ -7209,6 +7239,9 @@ function _elTeardownListeners(){
   off(window._booksUnsub);window._booksUnsub=null;
   off(window._bkaUnsub);window._bkaUnsub=null;
   (window._bdUnsubs||[]).forEach(off);window._bdUnsubs=[];window._bdOn=false;window._bdFellBack=false;
+  // sweep 6 #2: the older book / live runs (board 164) belong to the account that read them - drop them and re-arm the
+  //   one-a-session read, so the next sign-in fetches its own instead of keeping the old account's runs.
+  window._keyRuns=[];window._keyRunsState='idle';window._keyRunsGen=(window._keyRunsGen||0)+1;
 }
 window._elTeardownListeners=_elTeardownListeners;
 function subscribeAll(uid){
@@ -40632,7 +40665,11 @@ window._acDbg={n:_acN,err:null};}catch(_ace){window._acDbg={n:_acN,err:String(_a
           const runs=(r&&Array.isArray(r.runs))?r.runs:[];
           if(runs.length===1&&!r._rec){let doc=null;try{doc=_reRunDoc(r)||r._x||null;}catch(e){doc=null;}
             const strat=(doc&&doc.strategy)||r._strat||'';
-            if(strat){const ch=doc?window.cfgChampSetOf(doc):null;return window.cfgRowLabel(window.ledgerFamWord(strat),runs[0],ch?ch.cell:null,'','run');}}
+            // sweep 6 #4: the lite run doc carries no saved grid, so a plain run row read 'NOISE #555 · run' beside its own
+            //   '#555.1' config rows. The run's configs-only / whole document, when this session already has it WITH its grid,
+            //   gives the champion's set; never fetched from here - no grid in hand = no number, as before.
+            const _rid=String(runs[0]),_cd=[(window._runCfg||{})[_rid],(window._runFull||{})[_rid]].filter(function(x){return x&&Array.isArray(x.points)&&x.points.length;})[0]||null;
+            if(strat){const ch=_cd?window.cfgChampSetOf(_cd):(doc?window.cfgChampSetOf(doc):null);return window.cfgRowLabel(window.ledgerFamWord(strat),runs[0],ch?ch.cell:null,'','run');}}
           return String((r&&r.name)||'');};
         // A STABLE KEY FOR HIDE-THIS-DOT. A configuration row has no run number that survives
         //   a reload - the live Firestore read can renumber or drop rows - so its key is its
@@ -41411,8 +41448,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
               const _hvTpy=(()=>{let v=null;try{v=_reTpy(st,r);}catch(e){v=null;}return (v==null||!isFinite(v))?'\u2014':((v>=10)?Math.round(v).toLocaleString():v.toFixed(1));})();
               let tp=_reLblOf(st,r)
                 +'\nREAD: '+String(r.read||(r._rec?'lane record':_reToneNm[r.tone])||'').toUpperCase()
-                +'\n'+String(_reXNm[_reXAxis]||'across')+' '+((p.x==null)?'not measured':_reVal(p.x,xf)+_reXSuf())
-                +'   \u00b7   '+String(_reYNm(items)||'up')+' '+((p.y==null)?'not measured':_reVal(p.y,yf)+_reYSuf())
+                +'\n'+String(_reXNm[_reXAxis]||'across')+' '+((p.x==null)?'not measured':((_reRel&&p.x>=0)?'+':'')+_reVal(p.x,xf)+_reXSuf()+(_reRel?' vs champion':''))   // sweep 6 #1: relative mode = signed differences, said so
+                +'   \u00b7   '+String(_reYNm(items)||'up')+' '+((p.y==null)?'not measured':((_reRel&&p.y>=0)?'+':'')+_reVal(p.y,yf)+_reYSuf()+(_reRel?' vs champion':''))
                 +'\nROC @ $30K DD '+_hvF('roc30',v=>v.toFixed(1)+'%')+'   DD5 '+_hvF('dd5',v=>_reVal(v,'money'))
                 +'   DD % '+_hvF('ddp',v=>v.toFixed(1)+'%')+'   SORTINO '+_hvF('so',v=>v.toFixed(2))+'   TRADES / YR '+_hvTpy
                 +'\n'
@@ -43006,6 +43043,8 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
           //   configuration records at all - and which is which was invisible. Counted per
           //   run and said under the chart, so an empty contribution is never silent.
           CROWS.forEach(function(r){_reCfgBy[r._run]=(_reCfgBy[r._run]||0)+1;});
+          // sweep 6 #5: the saved grid (for each row's #RUN.CFG) only for the runs that put rows in this table - cached a session
+          Object.keys(_reCfgBy).forEach(function(id){if(typeof _hydrateCfgPts==='function')_hydrateCfgPts(id);});
           _reCfgIds.forEach(function(id){if(!_reCfgBy[id]&&_reCfgWait.indexOf(id)<0)_reCfgEmpty.push(id);});
           // COMPARE 'only raw shown' (owner 11-18): a picked run that saved no configuration records used to vanish
           //   (40 ticked, 4 listed). Its own run row stays instead, tagged RAW - the run as it ran is its plain config.
@@ -43635,9 +43674,11 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             //   so ALL read as every run when it was every run THIS RAIL CHOSE TO SHOW.
             const _avAll=_reCfgPillOrd(_reCfgPick.filter(_famOk));
             // board 164: an older book / live run is never cut by the 40-chip cap - it is why it was fetched
-            const _av=_avAll.slice(0,40).concat(_avAll.slice(40).filter(function(r){return r&&r._keyRun;}));
+            // sweep 6 #3: counted BEFORE they are added - the newest 40, the older book / live runs on top, and the rest hidden
+            const _avTop=_avAll.slice(0,40),_avOld=_avAll.slice(40).filter(function(r){return r&&r._keyRun;});
+            const _av=_avTop.concat(_avOld);
             const _avKey=_av.filter(function(r){return r&&r._keyRun&&!(Array.isArray(runHistory)&&runHistory.some(function(h){return h&&String(h.id)===String(r.id);}));}).length;
-            const _avCut=_avAll.length-_av.length;
+            const _avCut=_avAll.length-_avTop.length-_avOld.length;
             const _on=_av.filter(function(r){return _reCfgIds.indexOf(String(r.id))>=0;}).length;
             const _pills=_av.map(function(r){const id=String(r.id);
               // a BOOK run pools its legs into one document and saves no per-configuration
@@ -43662,7 +43703,7 @@ const x0=_reXv(o.st,o.r),y0=_reYv(o.st,o.r,com);
             return _reBtn('data-recfgall="1"',(_avCut?('ALL · '+_av.length+' of '+_avAll.length):('ALL · '+_av.length)),(_on===_av.length&&_av.length>0),
                 'tick every run listed here - the whole 1E landscape for this strategy on one chart. '
                +'Each run is a separate fetch, so a big strategy fills in over a few seconds.'
-               +(_avCut?(' This rail shows the newest 40 of the '+_avAll.length+' runs that match, so ALL means those 40 - pick a strategy on the rail above to reach the other '+_avCut+'.'):''),_TONE.rank)
+               +(_avCut?(' This rail shows the newest '+_avTop.length+(_avOld.length?(' + '+_avOld.length+' older book/live run'+(_avOld.length===1?'':'s')):'')+' of the '+_avAll.length+' runs that match, so ALL means those '+_av.length+' - pick a strategy on the rail above to reach the other '+_avCut+'.'):''),_TONE.rank)
               +(_avKey?('<span data-rekeyruns="'+_avKey+'" title="'+_reEsc('Run'+(_avKey===1?'':'s')+' older than the newest '+((typeof window._runsLoadedLimit==='number')?window._runsLoadedLimit:75)+' loaded, offered because a BOOK leg or a live / paper leg is built on '+(_avKey===1?'it':'them')+' - fetched once by id: '+_av.filter(function(r){return r&&r._keyRun;}).map(function(r){return '#'+r.id;}).join(' ')+'.')+'" style="font-size:9px;color:var(--text5);margin:0 6px;align-self:center;cursor:help">+ '+_avKey+' older book/live run'+(_avKey===1?'':'s')+'</span>'):'')
               +_reBtn('data-recfgnone="1"','KEEP ONE',false,
                 'clear back to the newest non-FAIL run on its own, or the newest run if every one offered here failed.',_TONE.rank)

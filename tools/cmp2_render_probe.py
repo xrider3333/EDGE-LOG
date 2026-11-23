@@ -8757,13 +8757,22 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
         var fam=[].map.call(d.querySelectorAll('[data-refam]'),function(b){return b.getAttribute('data-refam');});
         var pill=d.querySelector('[data-recfgrun="369"]'),note=d.querySelector('[data-rekeyruns]');
         var res={fam:fam,pill:!!pill,note:note?dfxN(note.textContent||''):null};
+        // sweep 6 #2: sign-out drops the old account's book / live runs and re-arms the one-a-session read
+        var td=null;try{td=w.eval("window._keyRuns=[{id:'1'}];window._keyRunsState='ok';var _g0=window._keyRunsGen||0;window._elTeardownListeners();"
+          +"JSON.stringify({n:window._keyRuns.length,st:window._keyRunsState,gen:(window._keyRunsGen||0)>_g0})");td=JSON.parse(td);}catch(e){errAcc.push('teardown: '+e);}
+        // sweep 6 #5: the configs-only read no longer pulls the saved grid; a grid already in hand is folded on, never re-fetched
+        var pt=null;try{pt=w.eval("window._runCfg['9x9']={id:'9x9'};window._runFull['9x9']={id:'9x9',points:[{pnl:1},{pnl:2}]};_hydrateCfgPts('9x9');"
+          +"var _o=JSON.stringify({noPts:RUN_CFG_FIELDS.indexOf('points')<0,fold:(window._runCfg['9x9'].points||[]).length,cache:(window._runCfgPts['9x9']||[]).length,busy:Object.keys(window._runCfgPtsBusy).length});"
+          +"delete window._runCfg['9x9'];delete window._runFull['9x9'];delete window._runCfgPts['9x9'];_o");pt=JSON.parse(pt);}catch(e){errAcc.push('points: '+e);}
         w.eval("window._keyRuns=[];window._keyRunsState='idle';");
         dfxCase('c164_key_runs',calls,{
           'TTM is on the STRATEGY rail although its run is older than the loaded ones':fam.indexOf('TTM')>=0,
           'its run #369 is a chip on the RUNS rail':res.pill,
           'the rail says "+ 1 older book/live run"':res.note==='+ 1 older book/live run',
+          'sign-out empties the older book / live runs and re-arms their read (sweep 6 #2)':!!td&&td.n===0&&td.st==='idle'&&td.gen,
+          'the configs-only read skips the saved grid; one in hand is folded on with no fetch (sweep 6 #5)':!!pt&&pt.noPts&&pt.fold===2&&pt.cache===2&&pt.busy===0,
           'no console errors':errAcc.length===0
-        },{res:res,errs:errAcc.slice(0,2)});
+        },{res:res,td:td,pt:pt,errs:errAcc.slice(0,2)});
       })();
     }catch(e){out.err=String(e&&e.stack?e.stack:e);}
     out.nBlocks=__IX;
