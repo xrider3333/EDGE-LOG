@@ -351,7 +351,11 @@ def test_a_garbled_stream_is_a_logged_fail_and_leaves_no_folder(env):
 
 def test_a_truncated_stream_is_never_written_as_a_short_file(env):
     whole = _tar(_all_files())
-    env.use(Box(_ok(whole[: len(whole) // 3])))
+    # cut INSIDE a file's data (a cut on a tar header boundary reads as a clean, shorter
+    # archive, which depends on how many files FILES lists)
+    with tarfile.open(fileobj=io.BytesIO(whole), mode="r:") as tf:
+        m = [x for x in tf.getmembers() if x.isfile() and x.size > 2][len(pb.FILES) // 3]
+    env.use(Box(_ok(whole[: m.offset_data + m.size // 2])))
     assert env.run() == 1
     assert env.lines()[-1].split()[2] == "FAIL"
     assert _run_dirs(env.dest) == []

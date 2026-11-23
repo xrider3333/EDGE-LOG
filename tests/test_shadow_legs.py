@@ -184,6 +184,10 @@ def _live_legs(home):
     return {"ORB_R6": dict(cs.CROWN_LEGS["ORB_R6"]),
             "NOISE_382": dict(cs.CROWN_LEGS["NOISE_382"],
                               keel=dict(version="v12", **cs.keel_paths("NOISE_382", "v12", home=home))),
+            "NOISE_555": dict(cs.CROWN_LEGS["NOISE_555"],
+                              keel=dict(version="v12", **cs.keel_paths("NOISE_555", "v12", home=home))),
+            "NOISE_545": dict(cs.CROWN_LEGS["NOISE_545"],
+                              keel=dict(version="v12", **cs.keel_paths("NOISE_545", "v12", home=home))),
             "DIP_424": dict(cs.CROWN_LEGS["DIP_424"], live_since=str(T422._DAYS[0]))}
 
 
@@ -539,7 +543,7 @@ def test_shadow_legs_report_pairs_dip_slots_and_prices_the_fractional_size(tmp_p
     assert (d["largest_win_usd"], d["largest_loss_usd"]) == (24.9, -12.45)
     assert rep["legs"]["DIP_424K"]["trades"] == 0, "every shadow leg is listed, traded or not"
     assert list(rep["legs"])[-2:] == ["DIP_424K", "DIP_424F"]
-    assert set(rep["keel"]) == {"NOISE_382", "NOISE_422_KEEL", "DIP_424K"}
+    assert set(rep["keel"]) == {"NOISE_382", "NOISE_555", "NOISE_545", "NOISE_422_KEEL", "DIP_424K"}
 
 
 def test_read_rows_missing_file_is_empty_unless_strict(tmp_path):
