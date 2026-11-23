@@ -8429,7 +8429,10 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
           if(!tr)return {found:false};
           var pid=tr.querySelector('[data-repaperid]'),live=tr.querySelector('[data-repaperlive]'),
               none=tr.querySelector('[data-repapernone]');
-          return {found:true,txt:dfxN(tr.textContent||''),
+          // the row's text WITHOUT its RUN-cell label: since v92.23 every row is numbered (owner rule; #RUN.SET = its R rank
+          //   when the ledger rule cannot place it), so that number names the row, it is not a claimed paper set
+          var cl=tr.cloneNode(true);[].forEach.call(cl.querySelectorAll('[data-relbl]'),function(e){e.remove();});
+          return {found:true,txt:dfxN(tr.textContent||''),txtNoRun:dfxN(cl.textContent||''),
             pid:pid?dfxN(pid.textContent||''):'',pidTip:pid?(pid.getAttribute('title')||''):'',
             live:live?dfxN(live.textContent||''):'',
             none:none?dfxN(none.textContent||''):'',noneTip:none?(none.getAttribute('title')||''):''};}
@@ -8449,8 +8452,8 @@ function __B(i){__IX++;return i>=__LO&&i<__HI;}
             A.live==='PAPER',
           'run #314 trades a GRID cell no candidate here is, and the row SAYS SO rather than going quiet':
             B.found===true&&/PAPER SET NOT ON THIS BOARD/.test(B.none)&&/SET 22 of its 382-row/.test(B.noneTip),
-          'AND IT INVENTS NO NUMBER: nothing on that row reads "#314.<n>", which is the whole point':
-            B.found===true&&B.pid===''&&!/#314[.]\d/.test(B.txt),
+          'AND IT INVENTS NO PAPER NUMBER: the paper cell is blank and nothing outside the RUN label reads "#314.<n>"':
+            B.found===true&&B.pid===''&&!/#314[.]\d/.test(B.txtNoRun),
           'the hover on #424 says the join is the champion match, not a guess by name':
             /champion/i.test(A.pidTip)&&/150/.test(A.pidTip),
           'no console errors':errAcc.length===0
