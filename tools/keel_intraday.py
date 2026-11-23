@@ -1411,7 +1411,8 @@ def main(argv=None):
                     "api/cloud_signal.edgelog_home)")
     ap.add_argument("--nq-file", default=None, help="the box's NQ 5m RTH master, for the NQ/QQQ "
                     "price ratio (default: <home>/nq/NOADJ_NQ_5m_RTH.csv)")
-    ap.add_argument("--leg", default=LEG_KEY)
+    ap.add_argument("--leg", default=None, help="one live-learning leg (default: EVERY leg in "
+                    "api/cloud_signal.KEEL_LIVE_LEARN_LEGS, one after another, each on its own files)")
     ap.add_argument("--feed", default=None, choices=(FEED_NQ_YAHOO, FEED_QQQ_INBOX),
                     help="what the ledger learns (default: api/cloud_signal.KEEL_LIVE_FEED)")
     ap.add_argument("--cut", action="store_true", help="make the cut now from the current nightly "
@@ -1421,6 +1422,32 @@ def main(argv=None):
     a = ap.parse_args(argv)
     from api import cloud_signal as cs
     home = a.home or cs.edgelog_home()
+    legs = [a.leg] if a.leg else list(getattr(cs, "KEEL_LIVE_LEARN_LEGS", (LEG_KEY,)) or (LEG_KEY,))
+    if len(legs) > 1:
+        # SEVERAL LIVE-LEARNING LEGS (2026-11-22: NOISE_555 / NOISE_545 beside NOISE_382): one
+        # run per leg, in order, each on its own <leg>_* files; one leg failing never skips the
+        # next, and the exit code is the worst of them
+        rc = 0
+        for leg in legs:
+            try:
+                kcfg = (cs.CROWN_LEGS.get(leg) or {}).get("keel") or {}
+                nightly = cs.keel_paths(leg, kcfg.get("version") or "v12", home=home)["state_path"]
+                if leg != LEG_KEY and not os.path.exists(nightly):
+                    # a newly added leg before its first nightly build: nothing to learn on yet
+                    # (the cut copies that nightly) -- skipped, not a failure of the run
+                    _log(f"{leg}: no nightly KEEL state yet ({nightly}) -- skipped this run")
+                    continue
+            except Exception as e:
+                _log(f"{leg}: nightly state not checked ({type(e).__name__}: {e})")
+            argv2 = [x for x in (argv if argv is not None else sys.argv[1:])]
+            try:
+                r = main(argv2 + ["--leg", leg])
+            except Exception as e:
+                _log(f"{leg}: {type(e).__name__}: {e}")
+                r = 1
+            rc = max(rc, int(r or 0))
+        return rc
+    a.leg = legs[0]
     if a.verify:
         return 0 if verify_live_state(home, a.leg)["ok"] else 1
     if a.cut:

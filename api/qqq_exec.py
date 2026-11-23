@@ -162,9 +162,18 @@ DIP_RAIL_BLOCK_SESSIONS = 1      # sessions after the trip day that DIP entries 
 # the shared rail's family name (every leg that is not DIP) -- see _rail_family
 RAIL_SHARED = "shared"
 
-LEGS = ("ORB", "ENGUQ", "NOISE") + DIP_LEGS
+# NOISE #555.1 keel / NOISE #545.1 keel (OWNER GO 2026-11-22): two more live paper NOISE exec
+# legs beside NOISE (#382, unchanged) -- cloud_signal NOISE_555 / NOISE_545, each its own lot,
+# its own trades.csv rows, its own KEEL state. They share the ONE Webull account with NOISE:
+# the account net goes through webull_orders' ORDER NETTING (see _mirror_to_broker), the
+# account rails (max_total_position_shares, buying power) are unchanged, and a rail that
+# clamps or refuses one of them is recorded against that leg (_open_lot). No combined NOISE
+# cap (MANAGER 2026-11-22).
+NOISE_EXEC_LEGS = ("NOISE", "NOISE555", "NOISE545")
+NOISE_EXTRA_SHARES = 10          # base shares a lot for NOISE555 / NOISE545 (x engine size x KEEL)
+LEGS = ("ORB", "ENGUQ", "NOISE", "NOISE555", "NOISE545") + DIP_LEGS
 # The families the status doc aggregates by (signals_day, cum_pnl) -- see leg_family.
-FAMILIES = ("ORB", "ENGUQ", "NOISE", DIP_FAMILY)
+FAMILIES = ("ORB", "ENGUQ", "NOISE", "NOISE555", "NOISE545", DIP_FAMILY)
 
 
 def is_dip_leg(leg):
@@ -233,7 +242,8 @@ HOLD_OVERNIGHT_LEGS = ("ENGUQ",) + DIP_LEGS
 # place -- _build_shadow_trades, the status doc's separate, display-only "shadow_trades"
 # block for the board's "Shadow - not counted" fold. That read never reaches an order, a
 # lot, a rail, P&L, trades_all, readiness or the export (see SHADOW TRADES).
-ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE", "NOISE_304": "NOISE"}
+ENGINE_LEG_MAP = {"ORB_R6": "ORB", "ENGUQ_335": "ENGUQ", "NOISE_382": "NOISE", "NOISE_304": "NOISE",
+                  "NOISE_555": "NOISE555", "NOISE_545": "NOISE545"}
 # DIP_424 is deliberately NOT in ENGINE_LEG_MAP: one engine key feeds SEVEN exec legs, picked by
 # the row's trade-id slot -- every engine-key -> exec-leg lookup goes through _exec_leg_for.
 
@@ -276,7 +286,10 @@ TRADES_KEEP = 500
 
 DEFAULT_CONFIG = {
     "mode": "SHADOW",
-    "shares": dict({"ORB": 5, "ENGUQ": 5, "NOISE": 5},
+    "shares": dict({"ORB": 5, "ENGUQ": 5, "NOISE": 5,
+                    # code defaults that survive load_config's merge (config.json's "shares"
+                    # names only ORB / ENGUQ / NOISE); config.json may still set them
+                    "NOISE555": NOISE_EXTRA_SHARES, "NOISE545": NOISE_EXTRA_SHARES},
                    **{leg: DIP_SHARES_PER_LOT for leg in DIP_LEGS}),
     "max_shares_per_leg": 10,
     "daily_loss_limit_usd": 150,
@@ -1159,7 +1172,8 @@ def _ntfy_post(msg, title, priority=None):
 #                                       monitor owns the stall; the feed is dead on the box)
 PHONE_AREA = "QQQ book"
 PHONE_ASK = "ask Claude (PAPER-WB chat)"
-PHONE_LEG_WORDS = {"ENGUQ": "ENGU-Q", "ORB": "ORB", "NOISE": "NOISE"}
+PHONE_LEG_WORDS = {"ENGUQ": "ENGU-Q", "ORB": "ORB", "NOISE": "NOISE",
+                   "NOISE555": "NOISE #555.1 keel", "NOISE545": "NOISE #545.1 keel"}
 # a call with no state (start-up: the resting boot sweep) dedupes in process memory
 _PHONE_PROCESS_STORE = {}
 
@@ -9772,6 +9786,10 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
     instrument = (f.get("instrument") if f else "") or ""
     nt_mult = _nt_mult(instrument, log=log)
 
+    # RAIL CUTS ON THE ORDER ROW (MANAGER 2026-11-22): every rail that clamps this entry is
+    # named in its orders.csv reason ("signal entry (clamped: ...)"), next to shares (sent) and
+    # shares_wanted, under this leg's name -- a refusal already writes its own REFUSED row
+    clamped_by = []
     if size_mode == "nt_notional" and nt_mult and qqq_px_raw and nq_px is not None:
         # NT SIZING GAP (feature #50): size the shadow lot off the $ notional of the NT
         # futures fill it mirrors, instead of the fixed shares table. Still CLAMPED (not
@@ -9821,6 +9839,7 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
             # a trade the sizing strategy is relying on the rail to cap, not cancel.
             shares = min(wanted_shares, max_shares) if max_shares else wanted_shares
             if shares < wanted_shares:
+                clamped_by.append(f"max_shares_per_leg {max_shares}")
                 log(f"[qqq-exec] {leg} entry sized {base_shares} x {sized:g} = "
                     f"{wanted_shares} wanted, clamped to max_shares_per_leg {max_shares}")
                 _log_event(state, "size_clamped",
@@ -9861,6 +9880,7 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
                        f"{leg} entry wanted {wanted_shares} shares, clamped to the total cap: "
                        f"{room} sent (the Webull book holds {held} of its {cap}-share total cap)",
                        log=log)
+            clamped_by.append(f"total cap {cap} ({held} held)")
             shares = room
 
     if live:
@@ -9945,7 +9965,9 @@ def _open_lot(state, cfg, leg, side, nq_qty, nq_px, qqq_px_raw, slip, f=None, lo
         log(f"[qqq-exec] sizing-gap fields not captured for {leg}: {type(e).__name__}: {e}")
     lot["signal_source"] = signal_source or ""
     _record_order(leg, "ENTER", side, shares, nq_px, fill_px, state["_px_source"],
-                 "signal entry", log, fill_dt=(f.get("dt") if f else sig_dt),
+                 ("signal entry" if not clamped_by else
+                  f"signal entry (clamped: {'; '.join(clamped_by)})"),
+                 log, fill_dt=(f.get("dt") if f else sig_dt),
                  signal_source=signal_source, shares_wanted=wanted_shares, size=sized,
                  decided_at_ref=decided_at_ref)
     # WEBULL PUSH PLAN 10-07, group F: a fill is a low note (no buzz) -- a DIP lot's waits for
@@ -14807,7 +14829,7 @@ def _side_parity(row, intent, by_base, eng):
             design, why = edge, "limit"
         elif is_dip_leg(leg):
             design, why = edge, "open"      # DIP #424: the 09:30 open vs the ~09:35 market order
-        elif leg == "NOISE" and not dac:
+        elif leg in NOISE_EXEC_LEGS and not dac:
             design, why = edge, ("late" if _before_noise_dac(ev, row, intent) else "nodac")
     else:
         rail = _rail_word(row.get("exit_reason"))
@@ -14850,7 +14872,7 @@ def _side_parity(row, intent, by_base, eng):
             design, why = edge, "open"      # DIP #424 exits at the 09:30 open too
         elif leg in LEVEL_EXIT_LEGS:
             design, why = edge, "level"
-        elif leg == "NOISE" and not dac:
+        elif leg in NOISE_EXEC_LEGS and not dac:
             # review 2026-09-28: from 09-26 an untagged NOISE exit is its protective stop
             # (the bandwidth stop in augur_strategies/NOISE_1_0.py), filled at its level
             # inside the bar -- never the pre-09-26 "one bar late" reason on a 09-28 trade.

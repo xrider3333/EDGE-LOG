@@ -56,6 +56,8 @@ FILES = [
     "webull_orders/state.json", "webull_orders/config.json",
     "cloud_signal/signals.csv", "cloud_signal/state.json", "cloud_signal/corrections.log",
     "cloud_signal/keel/NOISE_382_v12_summary.json",
+    # NOISE #555.1 keel / #545.1 keel (live paper, 2026-11-22): their own KEEL summaries
+    "cloud_signal/keel/NOISE_555_v12_summary.json", "cloud_signal/keel/NOISE_545_v12_summary.json",
     # SHADOW LEGS (owner 2026-09-28; api/cloud_signal.py shadow_paths): the would-be trades of
     # NOISE #422 plain / fixed tilts / KEEL and ENGU-Q, their state and heartbeat, and the
     # NOISE_422_KEEL leg's own KEEL summary -- read by tools/shadow_legs_report.py. A file

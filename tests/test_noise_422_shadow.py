@@ -126,7 +126,7 @@ def _arrays_through(day, n_sessions=300):
 def test_live_legs_are_orb_noise_382_and_dip_424():
     # ENGUQ_335 is a shadow leg -- a tracker -- (2026-09-28, again 2026-10-09 ~20:20 MST, OWNER
     # DECISION) -- the NOISE leg is unchanged; DIP #424 is live from 2026-10-13 (MANAGER #115)
-    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382", "DIP_424"]
+    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382", "NOISE_555", "NOISE_545", "DIP_424"]
     live = cs.CROWN_LEGS["NOISE_382"]
     assert live["strategy"] == "NOISE_1_8_CT304.py" and live["params"] == cs.NOISE_382_PARAMS
     assert live["keel"] == dict(version="v12", **cs.keel_paths("NOISE_382", "v12"))

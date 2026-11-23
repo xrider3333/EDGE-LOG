@@ -177,8 +177,10 @@ NQ_MASTER_META = {"instrument": "NQ", "timeframe": "5m", "session": "rth", "sour
 # NOT listed: run #424's stored KEEL row came from an older (09-24) master build and does not
 # reproduce on today's file (trade count matches, size-weighted total -4.3% -- "a figure, not a
 # parity target", keel_decomp_424.json), so --check-run-doc goes straight to --verify-walk.
-RUN_ID_FOR_LEG = {"NOISE_382": 382, "NOISE_422_KEEL": 422}
+RUN_ID_FOR_LEG = {"NOISE_382": 382, "NOISE_422_KEEL": 422, "NOISE_555": 555, "NOISE_545": 545}
 UID_FOR_CHECK = "IO0K35JpLIcH9YK4C0pMNYUzZOM2"
+# resolve_leg(None) when several CROWN_LEGS legs learn (see resolve_leg)
+PRIMARY_LIVE_LEG = "NOISE_382"
 
 
 class LegResolutionError(RuntimeError):
@@ -307,6 +309,11 @@ def resolve_leg(leg_key=None, crown_legs=None, shadow_legs=None):
     if leg_key is None:
         live = [k for k, cfg, is_live in rows if is_live
                 and _cs.keel_mode((cfg or {}).get("keel")) == _cs.KEEL_MODE_LEARNED]
+        if len(live) > 1 and PRIMARY_LIVE_LEG in live:
+            # several live learned legs since 2026-11-22 (NOISE_555 / NOISE_545 beside
+            # NOISE_382): None keeps meaning the original one; the nightly builds them all
+            # through resolve_legs(), and --leg names any other
+            live = [PRIMARY_LIVE_LEG]
         if len(live) != 1:
             raise LegResolutionError(
                 "expected exactly ONE live leg with a learned \"keel\" block in "

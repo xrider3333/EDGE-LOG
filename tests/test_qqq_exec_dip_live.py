@@ -380,7 +380,7 @@ def env(tmp_path, monkeypatch):
 def test_seven_exec_legs_one_engine_key_and_the_code_defaults(tmp_path, monkeypatch):
     monkeypatch.setattr(qe, "RETIRED_LEGS", {})   # pre-retire behaviour
     assert qe.DIP_LEGS == DIP and qe.DIP_SLOTS == SLOTS == tuple(m for m, _f in cs.DIP_MECHS)
-    assert qe.LEGS == ("ORB", "ENGUQ", "NOISE") + DIP
+    assert qe.LEGS == ("ORB", "ENGUQ", "NOISE", "NOISE555", "NOISE545") + DIP
     assert qe.HOLD_OVERNIGHT_LEGS == ("ENGUQ",) + DIP
     assert "DIP_424" not in qe.ENGINE_LEG_MAP, "one engine key, seven exec legs: _exec_leg_for"
     for s in SLOTS:
@@ -393,7 +393,8 @@ def test_seven_exec_legs_one_engine_key_and_the_code_defaults(tmp_path, monkeypa
     assert qe._exec_leg_for("NOISE_382", "NOISE_382-20261013T140000Z-L") == "NOISE"
     assert qe._exec_leg_for("DIP_424F", "DIP_424F-20261013T133000Z-L-RSI") is None, "shadows stay out"
     assert not qe.is_dip_leg("DIP") and qe.leg_family("ORB") == "ORB"
-    assert qe.LEG_FAMILIES == dict({"ORB": "ORB", "ENGUQ": "ENGUQ", "NOISE": "NOISE"},
+    assert qe.LEG_FAMILIES == dict({"ORB": "ORB", "ENGUQ": "ENGUQ", "NOISE": "NOISE",
+                                    "NOISE555": "NOISE555", "NOISE545": "NOISE545"},
                                    **{leg: "DIP" for leg in DIP})
     # code defaults that survive the box's config.json (load_config merges ONE level deep: the
     # box's "shares" block names only ORB / ENGUQ / NOISE, and no DIP key at all)
@@ -463,7 +464,7 @@ def test_seven_mechanisms_open_seven_lots_of_six_and_one_fill_note(env):
     assert note["title"] == "QQQ fill: DIP bought" and note["priority"] == "low"
     assert "several DIP lots at 700.00" in note["message"]
     (day_row,) = qe._build_signals_day(e.state)
-    assert set(day_row["by_leg"]) == {"ORB", "ENGUQ", "NOISE", "DIP"}, "by family"
+    assert set(day_row["by_leg"]) == {"ORB", "ENGUQ", "NOISE", "NOISE555", "NOISE545", "DIP"}, "by family"
     assert day_row["by_leg"]["DIP"] == {"fired": 7, "taken": 7, "refused": 0, "oos": 0}
     assert day_row["taken"] == 7
     assert "DIP_RSI" in (e.state["signals_days"][ds(DAY)]), "counted per exec leg underneath"
@@ -1115,7 +1116,7 @@ def test_cum_pnl_adds_dip_s_lots_into_one_family_curve():
             {"leg": "DIP_PB", "entry_ts": "2026-10-13 09:35:10", "exit_ts": "2026-10-14 09:35:11", "pnl": "-2.0"},
             {"leg": "ORB", "entry_ts": "2026-10-14 10:00:00", "exit_ts": "2026-10-14 11:00:00", "pnl": "5.0"}]
     cum = qe._cum_pnl_by_leg(rows)
-    assert set(cum) == {"ORB", "ENGUQ", "NOISE", "DIP", "total"}
+    assert set(cum) == {"ORB", "ENGUQ", "NOISE", "NOISE555", "NOISE545", "DIP", "total"}
     assert cum["DIP"] == [{"date": "2026-10-14", "cum_pnl": 10.0}]
     assert cum["total"] == [{"date": "2026-10-14", "cum_pnl": 15.0}]
     assert not any(k.startswith("DIP_") for k in cum)
@@ -1185,7 +1186,9 @@ def test_a_noise_entry_past_the_total_cap_is_clamped_to_the_room_left_not_refuse
     assert e.sent(start) == [("BUY", 33)], "85 - 52 = 33, never a refused order"
     assert e.fake.pos == 85 and e.books()["NOISE"] == 33
     (row,) = [o for o in e.orders() if o["leg"] == "NOISE"]
-    assert (row["shares"], row["shares_wanted"], row["reason"]) == ("33", "45", "signal entry")
+    assert (row["shares"], row["shares_wanted"]) == ("33", "45")
+    # the rail that cut it is named on the order row (MANAGER 2026-11-22)
+    assert row["reason"].startswith("signal entry (clamped: ") and "total cap" in row["reason"]
     (ev,) = [x for x in e.state["events"] if x["kind"] == "size_clamped"]
     assert "NOISE entry wanted 45 shares, clamped to the total cap: 33 sent" in ev["text"]
     (b,) = [r for r in e.broker_rows() if r["leg"] == "NOISE"]

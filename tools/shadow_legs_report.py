@@ -54,7 +54,7 @@ BASE_SHARES = 10
 SEEDED_TAG = "seeded=1"      # api/cloud_signal.py SEEDED_REASON_TAG
 PRIMARY_LEG = "NOISE_382"
 PRIMARY_PLAIN = "NOISE_382 plain (derived)"
-KEEL_SUMMARY_LEGS = ("NOISE_382", "NOISE_422_KEEL", "DIP_424K")     # every learned KEEL leg
+KEEL_SUMMARY_LEGS = ("NOISE_382", "NOISE_555", "NOISE_545", "NOISE_422_KEEL", "DIP_424K")     # every learned KEEL leg
 
 
 def read_rows(path, strict=False):

@@ -51,6 +51,8 @@ CELLS = {
     # Webull (api/cloud_signal.py CROWN_LEGS + SHADOW_LEGS)
     "ORB_R6": _c(314, 22, 382),
     "NOISE_382": _c(382, 2, 24),
+    "NOISE_555": _c(555, 1, 27),
+    "NOISE_545": _c(545, 1, 270),
     "DIP_424": _c(424, 1, 150, _THIN, HOW_CHAMPION),
     "DIP_424K": _c(424, 1, 150, _THIN, HOW_CHAMPION),
     "DIP_424F": _c(424, 1, 150, _THIN, HOW_CHAMPION),

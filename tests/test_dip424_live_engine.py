@@ -137,7 +137,7 @@ def _ledger_legs(path):
 def test_live_leg_is_dip_424f_without_shadow_or_keel_plus_live_since_and_25_minutes():
     live = cs.CROWN_LEGS[LIVE]
     f = cs.SHADOW_LEGS["DIP_424F"]
-    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382", LIVE], \
+    assert list(cs.CROWN_LEGS) == ["ORB_R6", "NOISE_382", "NOISE_555", "NOISE_545", LIVE], \
         "appended after NOISE_382 (its daily-cache refresh runs first on a live tick)"
     assert LIVE not in cs.SHADOW_LEGS and not set(SHADOW) & set(cs.CROWN_LEGS)
     want = {k: v for k, v in f.items() if k not in ("shadow", "keel", "max_entry_age_sec")}
@@ -379,7 +379,7 @@ def test_the_stream_path_never_decides_a_dip_leg_but_step_still_does(tmp_path, m
     now = pd.Timestamp("2026-10-13 09:35:01", tz=cs.TZ).to_pydatetime()      # inside the window
     assert css.in_handoff_window(now)
     css.run_stream_aware_step(now=now, fetch=False, paths=cs._paths(home=str(tmp_path)), log=QUIET)
-    assert seen["window"] == seen["pending"] == {"ORB_R6", "NOISE_382"}
+    assert seen["window"] == seen["pending"] == {"ORB_R6", "NOISE_382", "NOISE_555", "NOISE_545"}
     assert seen["step"] == set(cs.CROWN_LEGS) and LIVE in seen["step"]
     # any DIP runner leg, whatever its key, is left out
     other = {"X": dict(cs.SHADOW_LEGS["DIP_424F"]), "Y": dict(cs.CROWN_LEGS["ORB_R6"])}

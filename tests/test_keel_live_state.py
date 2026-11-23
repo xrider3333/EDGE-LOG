@@ -40,7 +40,8 @@ def test_nightly_default_builds_every_learned_keel_leg_live_first():
     build and are not listed."""
     legs = kls.resolve_legs()
     assert [(l["leg_key"], l["live"]) for l in legs] == [
-        ("NOISE_382", True), ("NOISE_422_KEEL", False), ("DIP_424K", False)]
+        ("NOISE_382", True), ("NOISE_555", True), ("NOISE_545", True),
+        ("NOISE_422_KEEL", False), ("DIP_424K", False)]
     for leg in legs:
         cfg = dict(cs.CROWN_LEGS, **cs.SHADOW_LEGS)[leg["leg_key"]]
         assert leg["strategy"] == cfg["strategy"]
@@ -369,13 +370,15 @@ def test_main_builds_both_learned_legs_under_their_own_names_reading_the_master_
     monkeypatch.setattr(kls, "load_master",
                         lambda f, log=print, **kw: loads.append(f) or real_load(f, log=QUIET, **kw))
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
-    assert seen == ["NOISE_382", "NOISE_422_KEEL", "DIP_424K"] and len(loads) == 1
+    assert seen == ["NOISE_382", "NOISE_555", "NOISE_545", "NOISE_422_KEEL", "DIP_424K"] and len(loads) == 1
     # the synthetic master is years old, so the NQ FRESHNESS ALERT (2026-10-05) also leaves
     # its one-push marker -- not a leg file
     names = sorted(p.name for p in out.iterdir() if p.name != kls.STALE_MARKER)
     assert names == ["DIP_424K_v12_state.joblib", "DIP_424K_v12_summary.json",
                      "NOISE_382_v12_state.joblib", "NOISE_382_v12_summary.json",
-                     "NOISE_422_KEEL_v12_state.joblib", "NOISE_422_KEEL_v12_summary.json"]
+                     "NOISE_422_KEEL_v12_state.joblib", "NOISE_422_KEEL_v12_summary.json",
+                     "NOISE_545_v12_state.joblib", "NOISE_545_v12_summary.json",
+                     "NOISE_555_v12_state.joblib", "NOISE_555_v12_summary.json"]
     # exactly the files the learned legs' cfgs read
     for key, cfg in (("NOISE_382", cs.CROWN_LEGS["NOISE_382"]),
                      ("NOISE_422_KEEL", cs.SHADOW_LEGS["NOISE_422_KEEL"]),
@@ -420,7 +423,7 @@ def test_a_failed_dip_build_fails_neither_noise_build_nor_the_run(tmp_path, monk
         return fake(arr, leg=leg, log=log)
     monkeypatch.setattr(kls, "run_nq_backtest", dip_breaks)
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
-    assert seen == ["NOISE_382", "NOISE_422_KEEL"]
+    assert seen == ["NOISE_382", "NOISE_555", "NOISE_545", "NOISE_422_KEEL"]
     assert (out / "NOISE_382_v12_state.joblib").exists()
     assert (out / "NOISE_422_KEEL_v12_state.joblib").exists()
     assert not (out / "DIP_424K_v12_state.joblib").exists()
@@ -453,9 +456,10 @@ def test_dip_train_settings_reach_the_backtest_and_the_summary(tmp_path, monkeyp
     monkeypatch.setattr(kls, "load_master",
                         lambda f, log=print, **kw: loads.append(kw) or real_load(f, log=QUIET, **kw))
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
-    assert [c["strategy"] for c in calls] == ["NOISE_1_8_CT304.py", "NOISE_1_8_CT304H.py",
+    assert [c["strategy"] for c in calls] == ["NOISE_1_8_CT304.py", "NOISE_1_8_CT304H_FT.py",
+                                              "NOISE_1_8_CT304H_KFX.py", "NOISE_1_8_CT304H.py",
                                               "NQDIP_1_1.py"]
-    noise382, noise422, dip = calls
+    noise382, _n555, _n545, noise422, dip = calls
     assert noise382["params"] == cs.NOISE_382_PARAMS and noise382["cost_pts"] == kls.COST_PTS
     assert noise422["params"] == cs.NOISE_422_PARAMS and noise422["cost_pts"] == kls.COST_PTS
     assert dip["params"] == cs.DIP_424_PARAMS and "asset" not in dip["params"]
@@ -552,7 +556,7 @@ def test_a_bad_shadow_keel_mode_is_dropped_and_the_live_leg_still_builds(tmp_pat
     shadow = {k: dict(v) for k, v in cs.SHADOW_LEGS.items()}
     shadow["NOISE_422_KEEL"]["keel"] = dict(shadow["NOISE_422_KEEL"]["keel"], mode="fixd")
     monkeypatch.setattr(cs, "SHADOW_LEGS", shadow)
-    assert [leg["leg_key"] for leg in kls.resolve_legs()] == ["NOISE_382", "DIP_424K"]
+    assert [leg["leg_key"] for leg in kls.resolve_legs()] == ["NOISE_382", "NOISE_555", "NOISE_545", "DIP_424K"]
     assert "NOISE_422_KEEL" in capsys.readouterr().out
 
     nq = _write_master_csv(tmp_path / "nq.csv", n_full_days=10, seed=3)
@@ -560,7 +564,7 @@ def test_a_bad_shadow_keel_mode_is_dropped_and_the_live_leg_still_builds(tmp_pat
     seen = []
     monkeypatch.setattr(kls, "run_nq_backtest", _fake_backtest(seen))
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out)], monkeypatch) is None
-    assert seen == ["NOISE_382", "DIP_424K"] and (out / "NOISE_382_v12_state.joblib").exists()
+    assert seen == ["NOISE_382", "NOISE_555", "NOISE_545", "DIP_424K"] and (out / "NOISE_382_v12_state.joblib").exists()
 
     crown = {k: dict(v) for k, v in cs.CROWN_LEGS.items()}
     crown["NOISE_382"]["keel"] = dict(crown["NOISE_382"]["keel"], mode="fixd")
@@ -583,7 +587,7 @@ def test_defer_in_session_is_rechecked_before_each_shadow_leg(tmp_path, monkeypa
     monkeypatch.setattr(kls, "run_nq_backtest", _fake_backtest(seen))
     assert _run_main(["--nq-file", str(nq), "--out-dir", str(out), "--defer-in-session"],
                      monkeypatch) is None
-    assert seen == ["NOISE_382"]
+    assert seen == ["NOISE_382", "NOISE_555", "NOISE_545"]
     assert (out / "NOISE_382_v12_state.joblib").exists()
     assert not (out / "NOISE_422_KEEL_v12_state.joblib").exists()
     assert not (out / "DIP_424K_v12_state.joblib").exists()

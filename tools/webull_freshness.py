@@ -533,11 +533,12 @@ FLAT_DO = "check the Webull app is flat and sell by hand if needed"
 # mechanism, family "DIP" (api/qqq_exec.DIP_LEGS / is_dip_leg -- pinned too), all held
 # overnight. The words name the family once with its lots counted, never seven leg names.
 DIP_LEGS = ("DIP_RSI", "DIP_DBL", "DIP_PB", "DIP_CAP", "DIP_IBS", "DIP_STREAK", "DIP_GAPDN")
-KNOWN_LEGS = ("ORB", "ENGUQ", "NOISE") + DIP_LEGS
+KNOWN_LEGS = ("ORB", "ENGUQ", "NOISE", "NOISE555", "NOISE545") + DIP_LEGS  # + NOISE #555.1 / #545.1 keel (11-22)
 HOLD_OVERNIGHT_LEGS = ("ENGUQ",) + DIP_LEGS
 LEG_FAMILIES = {leg: "DIP" for leg in DIP_LEGS}
 FAMILY_WORDS = {"DIP": "DIP #424"}
-LEG_WORDS = dict({"ENGUQ": "ENGU-Q"}, **{leg: FAMILY_WORDS["DIP"] for leg in DIP_LEGS})
+LEG_WORDS = dict({"ENGUQ": "ENGU-Q", "NOISE555": "NOISE #555.1 keel", "NOISE545": "NOISE #545.1 keel"},
+                 **{leg: FAMILY_WORDS["DIP"] for leg in DIP_LEGS})
 # box units by plain name, and whether the book trades through them
 UNIT_WORDS = {
     "edgelog-qqq-exec.service": ("The QQQ order program", True),

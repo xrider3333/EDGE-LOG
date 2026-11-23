@@ -41,7 +41,9 @@ GATES = {"pick6": False}
 #   NOISE run #382 (NOISE_1_8_CT304)     live paper exec leg NOISE
 #   ENGU-Q run #335                      a no-order shadow TRACKER since 2026-10-09 (no live row)
 #   NOISE #422 plain / fixed / KEEL      no-order shadow legs
-BOX_VERSION = {"ORB": "#314", "NOISE": "#382", "ENGUQ": "#335"}
+#   NOISE #555.1 keel (CT304H_FT)       live paper exec leg NOISE555 (2026-11-22)
+#   NOISE #545.1 keel (CT304H_KFX)      live paper exec leg NOISE545 (2026-11-22)
+BOX_VERSION = {"ORB": "#314", "NOISE": "#382", "ENGUQ": "#335", "NOISE555": "#555.1 keel", "NOISE545": "#545.1 keel"}
 
 _NQ = "NQ futures - no QQQ executor for this strategy"
 
@@ -55,6 +57,8 @@ BOOK_LEG_CLASS = {
     "ORB421":   {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314, not #421", "gate": None, "feed": None},
     "ORB546":   {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs ORB #314, not #546", "gate": None, "feed": None},
     "NOISE382": {"cls": "paper", "max": "PAPER", "exec_leg": "NOISE", "reason": "QQQ executor runs NOISE #382", "gate": None, "feed": "cloud_signal NOISE_382"},
+    "NOISE555": {"cls": "paper", "max": "PAPER", "exec_leg": "NOISE555", "reason": "QQQ executor runs NOISE #555.1 keel", "gate": None, "feed": "cloud_signal NOISE_555"},
+    "NOISE545": {"cls": "paper", "max": "PAPER", "exec_leg": "NOISE545", "reason": "QQQ executor runs NOISE #545.1 keel", "gate": None, "feed": "cloud_signal NOISE_545"},
     "NOISE422": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #422 (box shadow leg NOISE_422_PLAIN)", "gate": None, "feed": "cloud_signal NOISE_422_PLAIN"},
     "NOISE304": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #304", "gate": None, "feed": None},
     "NOISE398": {"cls": "shadow", "max": "SHADOW", "exec_leg": None, "reason": "QQQ executor runs NOISE #382, not #398", "gate": None, "feed": None},

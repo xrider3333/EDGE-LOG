@@ -64,7 +64,7 @@ QUIET = lambda *a, **k: None   # noqa: E731
 SHADOW_KEYS = ["ENGUQ_335",                      # first: a tracker again, 2026-10-09 (MANAGER #113)
                "NOISE_422_PLAIN", "NOISE_422_FIXED", "NOISE_422_KEEL",
                "DIP_424K", "DIP_424F"]          # DIP #424 appended 2026-10-09 (MANAGER #108)
-LIVE_KEYS = ["ORB_R6", "NOISE_382",
+LIVE_KEYS = ["ORB_R6", "NOISE_382", "NOISE_555", "NOISE_545",
              "DIP_424"]                          # live from 2026-10-13 (MANAGER #115)
 
 
@@ -470,7 +470,7 @@ def test_stream_wrapper_steps_the_live_legs_only(tmp_path, monkeypatch):
 
 # ── 8. the nightly KEEL build ────────────────────────────────────────────────────────────
 def test_keel_live_state_builds_the_learned_legs_only():
-    assert [l["leg_key"] for l in kls.resolve_legs()] == ["NOISE_382", "NOISE_422_KEEL", "DIP_424K"]
+    assert [l["leg_key"] for l in kls.resolve_legs()] == ["NOISE_382", "NOISE_555", "NOISE_545", "NOISE_422_KEEL", "DIP_424K"]
 
 
 # ── 9. the report tool and the backup copy ──────────────────────────────────────────────

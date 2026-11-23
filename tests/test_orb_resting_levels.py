@@ -542,6 +542,6 @@ def test_only_orb_r6_and_noise_382_are_flagged():
     # NOISE_382 joined 2026-10-31 (stop-loss overlay row 2) -- LOG ONLY, see its cfg comment and
     # tests/test_noise_resting_levels.py for the no-resting-order proof
     flagged = [k for k, v in {**cs.CROWN_LEGS, **cs.SHADOW_LEGS}.items() if v.get("resting_levels")]
-    assert flagged == ["ORB_R6", "NOISE_382"]
+    assert flagged == ["ORB_R6", "NOISE_382", "NOISE_555", "NOISE_545"]  # + NOISE #555.1 / #545.1 keel (11-22)
     assert cs._leg_accepts_return_levels("ORB_3_6_R6.py")
     assert cs._leg_accepts_return_levels("NOISE_1_8_CT304.py")

@@ -268,6 +268,17 @@ def shadow_paths(live_paths=None):
 # tilt_mult in {1.0, 1.5, 2.0} -- every value below sits on one of those points.
 NOISE_382_PARAMS = {"tilt_mult": 2.0, "gate_tf_min": 30, "gate_len": 16, "gate_ratio": 1.15}
 
+# NOISE #555.1 keel / NOISE #545.1 keel (OWNER GO 2026-11-22): two more LIVE paper NOISE legs beside
+# NOISE_382 (unchanged), each run's champion set 1 read literally from its Firestore run doc
+# (users/<uid>/runs/555 and /545: validate.champion == best_params == selection.candidates[0]):
+#   #555 NOISE_1_8_CT304H_FT.py,  house PASS   -- gate_len 16, gate_ratio 1.15, tilt_mult 1.75
+#   #545 NOISE_1_8_CT304H_KFX.py, house WEAK   -- gate_len 16, gate_ratio 1.15, tilt_mult 2.75, fri_mult 2.0
+# Both files are FENCED like CT304 (_ADMISSIBLE): the exact cell, never a rounded guess. Each has
+# its OWN KEEL v12 learned state (KEEL_LIVE_LEARN_LEGS, keel_paths per leg) and its own exec leg
+# in api/qqq_exec.py (NOISE555 / NOISE545); lots are per leg, the account nets at the broker.
+NOISE_555_PARAMS = {"tilt_mult": 1.75, "gate_len": 16, "gate_ratio": 1.15}
+NOISE_545_PARAMS = {"tilt_mult": 2.75, "gate_len": 16, "fri_mult": 2.0, "gate_ratio": 1.15}
+
 # NOISE #422 (SHADOW LEGS, OWNER DECISION 2026-09-28): run #422's crowned cell, read
 # literally from the run's own record (NOISE.md "NOISE #422 (NOISE-55, CT304H)";
 # tools/r61_noise_382_live_gaps.py carries the same literal). NOISE_1_8_CT304H.py is FENCED
@@ -407,7 +418,7 @@ def keel_mode(keel_cfg):
 # (tools/keel_intraday.py), while tools/keel_live_state.py keeps rebuilding the NQ nightly as the
 # REFERENCE. Only these legs' keel_paths() carry the live files; every other learned leg scores
 # on its nightly state exactly as before.
-KEEL_LIVE_LEARN_LEGS = ("NOISE_382",)
+KEEL_LIVE_LEARN_LEGS = ("NOISE_382", "NOISE_555", "NOISE_545")
 # WHAT THE LIVE LEDGER LEARNS (tools/keel_intraday.py --feed defaults to this):
 #   nq_yahoo  -- OWNER CALL 10-14 via MANAGER #149 (supersedes #143): #382's OWN NQ trades, the
 #                backtest's trades, read from Yahoo's NQ=F bars ~21-26 min after each exit
@@ -490,6 +501,28 @@ CROWN_LEGS = {
         # (WEBULL_PAPER_TODO.md item 16, owner GO 2026-09-26) -- see _decide_at_close_probe.
         "decide_at_close": True,
         # Flat at the session's last bar (NOISE_1_0.py's STEP E) -- see EOD SETTLE.
+        "eod_flat": True,
+    },
+    # NOISE #555.1 keel -- see NOISE_555_PARAMS above. Same shape as NOISE_382; its own KEEL files.
+    "NOISE_555": {
+        "strategy": "NOISE_1_8_CT304H_FT.py",
+        "timeframe": "5m",
+        "params": dict(NOISE_555_PARAMS),
+        "resting_levels": True,
+        "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
+        "keel": dict(version="v12", **keel_paths("NOISE_555", "v12")),
+        "decide_at_close": True,
+        "eod_flat": True,
+    },
+    # NOISE #545.1 keel -- see NOISE_555_PARAMS above. Same shape as NOISE_382; its own KEEL files.
+    "NOISE_545": {
+        "strategy": "NOISE_1_8_CT304H_KFX.py",
+        "timeframe": "5m",
+        "params": dict(NOISE_545_PARAMS),
+        "resting_levels": True,
+        "warmup_sessions": DEFAULT_WARMUP_SESSIONS,
+        "keel": dict(version="v12", **keel_paths("NOISE_545", "v12")),
+        "decide_at_close": True,
         "eod_flat": True,
     },
     # ENGUQ_335 is a no-order SHADOW leg -- a tracker -- in SHADOW_LEGS below (OWNER DECISION
@@ -3850,7 +3883,7 @@ def _note_keel_entries(events, legs, paths, fetch, log=print, push=None):
             # number on the problem line (the gap in %); both sizes, the branch / t_fast /
             # score stay in the record, the log line and the inbox relay
             note = ntfy_push.plain(
-                str(rec["leg"] or "NOISE").split("_")[0], "KEEL size differs",
+                _keel_leg_word(rec["leg"]), "KEEL size differs",
                 "not affected (the order used KEEL's size, as always)",
                 _keel_diff_problem(ntfy_push.hhmm(when), rec["side"], ks, fs),
                 "nothing", priority="low")
@@ -4018,6 +4051,10 @@ def _keel_fallback_is_real(reason):
 
 def _keel_leg_word(leg_key):
     head = str(leg_key or "NOISE").split("_")[0]
+    # a second / third live NOISE leg (NOISE_555, NOISE_545) names its run so the phone can tell
+    # them apart; NOISE_382 keeps the plain word
+    if head == "NOISE" and str(leg_key) in KEEL_LIVE_LEARN_LEGS and str(leg_key) != "NOISE_382":
+        return f"NOISE {str(leg_key).split('_', 1)[1]}"
     return {"ENGUQ": "ENGU-Q"}.get(head, head)
 
 
